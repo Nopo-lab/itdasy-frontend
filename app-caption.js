@@ -629,45 +629,6 @@ async function _doGenerateCaption(scenario, closePopup) {
   }
 }
 
-// ===== 마스터: 인스타 자동 발행 (1단계: 프리뷰 열기) =====
-function publishToInstagram() {
-  if (!getToken()) {
-    alert("홈 탭에서 인스타 연동을 먼저 진행해주세요!");
-    return;
-  }
-
-  const canvas = document.getElementById('baCanvas');
-  // 편집 가능한 textarea 값 우선, 없으면 생성된 캡션 사용
-  const editedCaption = document.getElementById('publishCaptionPreview').value.trim();
-  const caption = document.getElementById('captionText').value;
-  const hash = document.getElementById('captionHash').value;
-  const hasCaption = caption && !caption.includes("생성된 글이 여기에 나타납니다");
-
-  const finalText = editedCaption || (hasCaption ? caption + "\n\n" + hash : '(글 없이 사진만 올라갑니다)');
-
-  // 팝업 채우기
-  const shopName = localStorage.getItem('shop_name') || '사장님';
-  document.getElementById('previewShopName').textContent = shopName;
-  document.getElementById('previewFinalCaption').textContent = finalText;
-  document.getElementById('previewFinalImg').src = canvas.toDataURL('image/png');
-  document.getElementById('previewAvatar').innerHTML = document.getElementById('headerAvatar').innerHTML;
-
-  // 팝업 열기
-  const pop = document.getElementById('publishPreviewPopup');
-  pop.style.display = 'flex';
-  setTimeout(() => {
-    pop.querySelector('.popup-content').style.transform = 'scale(1)';
-    pop.querySelector('.popup-content').style.opacity = '1';
-  }, 10);
-}
-
-function closePublishPreview() {
-  const pop = document.getElementById('publishPreviewPopup');
-  pop.querySelector('.popup-content').style.transform = 'scale(0.9)';
-  pop.querySelector('.popup-content').style.opacity = '0';
-  setTimeout(() => pop.style.display = 'none', 300);
-}
-
 // ===== 업로드 진행/완료 팝업 =====
 function setUploadProgress(pct, msg) {
   document.getElementById('upPct').textContent = pct + '%';
@@ -682,111 +643,6 @@ function openInstagramProfile() {
 
 function closeUploadDone() {
   document.getElementById('uploadDonePopup').style.display = 'none';
-}
-
-// ===== 마스터: 인스타 자동 발행 (2단계: 실제 API 호출) =====
-async function doActualPublish() {
-  const btn = document.getElementById('doPublishBtn');
-  const finalCaption = document.getElementById('previewFinalCaption').textContent;
-  const withStory = document.getElementById('autoStoryToggle').checked;
-  btn.disabled = true;
-
-  const upPopup = document.getElementById('uploadProgressPopup');
-  upPopup.style.display = 'flex';
-  setUploadProgress(10, '이미지 준비 중...');
-
-  try {
-    const canvas = document.getElementById('baCanvas');
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    const formData = new FormData();
-    formData.append('image', blob, 'instagram_post.png');
-    formData.append('caption', finalCaption);
-
-    setUploadProgress(30, '서버에 전송 중...');
-
-    const res = await fetch(API + '/instagram/publish', {
-      method: 'POST',
-      headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
-      body: formData
-    });
-
-    setUploadProgress(60, '인스타에 업로드 중...');
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '업로드 실패');
-
-    // 스토리 자동 발행
-    if (withStory) {
-      setUploadProgress(75, '스토리 이미지 만드는 중...');
-      try {
-        const storyBlob = await makeStoryCanvas(canvas);
-        const storyForm = new FormData();
-        storyForm.append('image', storyBlob, 'story.png');
-
-        setUploadProgress(85, '스토리 업로드 중...');
-        const sRes = await fetch(API + '/instagram/publish-story-file', {
-          method: 'POST',
-          headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
-          body: storyForm
-        });
-        if (!sRes.ok) {
-          const sErr = await sRes.json().catch(() => ({}));
-          console.warn('스토리 발행 실패 (피드는 성공):', sErr.detail || '');
-          showToast('피드는 올라갔어요! 스토리는 실패: ' + (sErr.detail || ''));
-        }
-      } catch(sE) {
-        console.warn('스토리 오류:', sE.message);
-        showToast('피드는 성공! 스토리 실패: ' + sE.message);
-      }
-    }
-
-    setUploadProgress(95, '마무리 중...');
-    await new Promise(r => setTimeout(r, 400));
-    setUploadProgress(100, withStory ? '피드+스토리 완료! 🎉' : '완료! 🎉');
-
-    setTimeout(() => {
-      upPopup.style.display = 'none';
-      closePublishPreview();
-      document.getElementById('uploadDonePopup').style.display = 'flex';
-      document.getElementById('uploadDoneMsg').textContent =
-        withStory ? '피드 + 스토리에 올라갔어요 ✨' : '인스타 피드에 올라갔어요 ✨';
-      for(let i = 0; i < 20; i++) setTimeout(createConfetti, i * 100);
-    }, 1200);
-
-  } catch(e) {
-    upPopup.style.display = 'none';
-    showToast('오류: ' + e.message);
-    btn.textContent = '다시 시도하기 🚀';
-    btn.disabled = false;
-  }
-}
-
-// 1:1 피드 캔버스 → 9:16 스토리 캔버스 변환
-async function makeStoryCanvas(feedCanvas) {
-  const SW = 1080, SH = 1920;
-  const sc = document.createElement('canvas');
-  sc.width = SW; sc.height = SH;
-  const ctx = sc.getContext('2d');
-
-  // 배경: 다크 그라데이션
-  const grad = ctx.createLinearGradient(0, 0, 0, SH);
-  grad.addColorStop(0, '#0f0608');
-  grad.addColorStop(1, '#1a0810');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, SW, SH);
-
-  // 피드 이미지 중앙 배치 (1080x1080 → 세로 중앙)
-  const imgSize = SW; // 1080
-  const imgY = (SH - imgSize) / 2; // 420
-  ctx.drawImage(feedCanvas, 0, imgY, imgSize, imgSize);
-
-  // 상단 브랜딩 텍스트
-  ctx.fillStyle = 'rgba(241,128,145,0.9)';
-  ctx.font = 'bold 36px -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('잇데이 STUDIO', SW / 2, imgY - 40);
-
-  return new Promise(resolve => sc.toBlob(resolve, 'image/png'));
 }
 
 function copyCaption() {
@@ -884,21 +740,6 @@ function renderBA() {
     ctx.fillText(wmText, W / 2, H - 22);
   }
 
-  // 인스타 발행 미리보기 세팅 (캡션 + 해시태그 합체)
-  const c = document.getElementById('captionText').value;
-  const h = document.getElementById('captionHash').value;
-  const previewArea = document.getElementById('publishConfirmArea');
-  const previewInput = document.getElementById('publishCaptionPreview');
-
-  if (c && !c.includes("생성된 글이 여기에 나타납니다")) {
-      previewInput.value = c + "\n\n" + h;
-      previewArea.style.display = 'block';
-  } else {
-      previewArea.style.display = 'block';
-      previewInput.value = '⚠️ 아직 글을 만들지 않으셨어요.\n\n사진만 올라갑니다. 첫 번째 탭에서 글을 먼저 만드시는 걸 추천드려요!';
-  }
-
-  document.getElementById('publishArea').style.display = 'block';
 }
 
 function resetBA() {
@@ -910,8 +751,6 @@ function resetBA() {
   document.getElementById('baCanvas').style.display = 'none';
   document.getElementById('saveBtn').style.display = 'none';
   document.getElementById('resetBaBtn').style.display = 'none';
-  document.getElementById('publishConfirmArea').style.display = 'none';
-  document.getElementById('publishArea').style.display = 'none';
   document.querySelectorAll('#tab-ba input[type=file]').forEach(i => i.value = '');
 }
 
@@ -978,8 +817,7 @@ function _renderCaptionActionBar(caption, hashtags) {
     </div>
     ` : `
     <div style="display:flex;gap:8px;">
-      <button onclick="showTab('finish',document.querySelectorAll('.nav-btn')[4]); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
-      <button onclick="publishFromCaption()" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 바로 올리기</button>
+      <button onclick="showTab('finish',document.querySelectorAll('.nav-btn')[4]); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
     </div>
     `}
   `;

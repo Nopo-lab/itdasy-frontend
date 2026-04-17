@@ -201,38 +201,6 @@ async function _goToSlotStep(slotId) {
   }
 }
 
-// =====================================================================
-// ===== 인스타그램 발행 공용 헬퍼 (app-gallery.js 등에서 호출) =====
-// =====================================================================
-async function doInstagramPublish(imageUrl, captionText) {
-  const upPopup = document.getElementById('uploadProgressPopup');
-  try {
-    upPopup.style.display = 'flex';
-    setUploadProgress(10, '인스타 연결 중...');
-    const res = await fetch(API + '/instagram/publish', {
-      method: 'POST',
-      headers: { ...authHeader(), 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
-      body: JSON.stringify({ image_url: imageUrl, caption: captionText }),
-    });
-    setUploadProgress(90, '업로드 완료 처리 중...');
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      upPopup.style.display = 'none';
-      showToast('업로드 실패: ' + (err.detail || '인스타 연결을 확인해주세요'));
-      return false;
-    }
-    upPopup.style.display = 'none';
-    const donePopup = document.getElementById('uploadDonePopup');
-    const doneMsg = document.getElementById('uploadDoneMsg');
-    if (doneMsg) doneMsg.textContent = '인스타 피드에 올라갔어요 ✨';
-    if (donePopup) donePopup.style.display = 'flex';
-    return true;
-  } catch(e) {
-    upPopup.style.display = 'none';
-    showToast('업로드 오류: ' + e.message);
-    return false;
-  }
-}
 
 // =====================================================================
 // ===== 예약 송출 =====
