@@ -716,3 +716,105 @@ async function forgotPassword() {
     alert(d.message || '재설정 링크를 이메일로 보냈습니다.');
   } catch(e) { alert('서버 연결 실패'); }
 }
+
+// ── 구독 플랜 팝업 ──
+let _selectedPlan = 'pro';
+let _currentPlan = 'free';
+
+function openPlanPopup() {
+  document.getElementById('planPopup').style.display = 'flex';
+  loadPlanUsage();
+  highlightCurrentPlan();
+}
+
+function closePlanPopup() {
+  document.getElementById('planPopup').style.display = 'none';
+}
+
+async function loadPlanUsage() {
+  try {
+    const r = await fetch(API + '/subscription/usage', { headers: authHeader() });
+    if (!r.ok) return;
+    const d = await r.json();
+    _currentPlan = d.plan;
+    const box = document.getElementById('planUsageContent');
+    box.innerHTML = `
+      캡션 생성: <b>${d.caption.used}/${d.caption.limit === 999 ? '무제한' : d.caption.limit}</b> (${d.caption.period === 'daily' ? '오늘' : '이번 달'})<br>
+      누끼: <b>${d.removebg.used}/${d.removebg.limit === 999 ? '무제한' : d.removebg.limit}</b> (${d.removebg.period === 'daily' ? '오늘' : '이번 달'})<br>
+      인스타 발행: <b>${d.publish.used}/${d.publish.limit === 999 ? '무제한' : d.publish.limit}</b> (이번 달)<br>
+      AI 분석: <b>${d.analyze.used}/${d.analyze.limit === 999 ? '무제한' : d.analyze.limit}</b> (이번 달)
+    `;
+    highlightCurrentPlan();
+  } catch(e) {}
+}
+
+function highlightCurrentPlan() {
+  ['free','pro','premium'].forEach(p => {
+    const card = document.getElementById('planCard' + p.charAt(0).toUpperCase() + p.slice(1));
+    if (card) {
+      if (p === _currentPlan) {
+        card.style.opacity = '1';
+        card.querySelector('div').insertAdjacentHTML('beforeend',
+          card.querySelector('.current-tag') ? '' : '<span class="current-tag" style="margin-left:8px;font-size:10px;background:#28a745;color:#fff;padding:2px 6px;border-radius:6px;">현재</span>');
+      }
+    }
+  });
+  updatePlanButton();
+}
+
+function selectPlan(plan) {
+  _selectedPlan = plan;
+  document.querySelectorAll('.plan-card').forEach(c => c.style.transform = 'scale(1)');
+  const card = document.getElementById('planCard' + plan.charAt(0).toUpperCase() + plan.slice(1));
+  if (card) card.style.transform = 'scale(1.02)';
+  updatePlanButton();
+}
+
+function updatePlanButton() {
+  const btn = document.getElementById('planActionBtn');
+  if (_selectedPlan === _currentPlan) {
+    btn.textContent = '현재 플랜입니다';
+    btn.style.background = '#e0e0e0';
+    btn.style.cursor = 'default';
+  } else if (_selectedPlan === 'free') {
+    btn.textContent = 'Free로 변경';
+    btn.style.background = '#888';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.textContent = _currentPlan === 'free' ? '14일 무료체험 시작하기' : `${_selectedPlan === 'pro' ? 'Pro' : 'Premium'}로 변경`;
+    btn.style.background = _selectedPlan === 'premium' ? 'linear-gradient(135deg,#833ab4,#fd1d1d)' : 'linear-gradient(135deg,#f18091,#ff9aa8)';
+    btn.style.cursor = 'pointer';
+  }
+}
+
+async function doPlanAction() {
+  if (_selectedPlan === _currentPlan) return;
+
+  if (_selectedPlan === 'free') {
+    if (!confirm('Free 플랜으로 변경하면 기능이 제한됩니다. 계속할까요?')) return;
+    try {
+      await fetch(API + '/subscription/cancel', { method: 'POST', headers: authHeader() });
+      showToast('Free 플랜으로 변경되었습니다');
+      closePlanPopup();
+      loadSubscriptionBadge();
+    } catch(e) { alert('변경 실패'); }
+    return;
+  }
+
+  // Pro/Premium 선택
+  if (_currentPlan === 'free') {
+    try {
+      const r = await fetch(API + '/subscription/start-trial', { method: 'POST', headers: authHeader() });
+      const d = await r.json();
+      if (r.ok) {
+        showToast(d.message || '무료체험이 시작되었습니다!');
+        closePlanPopup();
+        loadSubscriptionBadge();
+      } else {
+        alert(d.detail || '실패');
+      }
+    } catch(e) { alert('서버 연결 실패'); }
+  } else {
+    alert('플랜 변경은 고객센터로 문의해주세요.\nitdasy.official@gmail.com');
+  }
+}
