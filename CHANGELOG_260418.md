@@ -70,3 +70,63 @@
 
 ## 현재 엔드포인트: 68개
 ## 현재 월 비용: $0~5
+
+# 변경사항 추가 기록 — 2026-04-18 심야 (연준)
+
+## 추가 완료 항목
+
+### 보안
+- Instagram 토큰 Fernet 암호화 저장/복호화 읽기 (`utils/token_crypto.py`)
+- FERNET_KEY Railway 환경변수 등록
+
+### 성능
+- Gemini `generate_json_async` 비동기 함수 추가 (동시성 개선)
+- Replicate RMBG-2.0 누끼 1순위 연동 (장당 14원, Remove.bg 폴백)
+- 프론트 JS 번들링: 12파일 → `app.bundle.min.js` 1파일 (245KB→186KB, 25% 절감)
+- SW 캐시 버전 배포마다 자동 갱신 (BUILD_HASH)
+
+### 안정화
+- TD-005: `.all()` 무제한 조회 → `.limit()` 추가 (background, leads, persona)
+- TD-006: Instagram API 네트워크 예외 처리 (ConnectError, TimeoutException)
+- GitHub Actions CI: 문법 체크 실패 시 배포 차단 (프론트+백엔드 모두)
+
+### 사용자 기능
+- 비밀번호 재설정: `POST /auth/forgot-password` + `POST /auth/reset-password`
+- 비밀번호 재설정 프론트 페이지 (`reset-password.html`)
+- 로그인 화면 "비밀번호를 잊으셨나요?" 링크
+- 구독 플랜 팝업 UI (Free/Pro/Premium 카드 + 사용량 표시 + 무료체험)
+- Free 배지 헤더에 항상 표시 (클릭 시 플랜 팝업)
+
+### 버그 수정
+- `_loadImageSrc` 함수 누락 → 추가 (배경 합성 에러 해결)
+- SW 경로 `itdasy-studio` → `itdasy-frontend` 수정
+- 플랜 팝업 외부 클릭 시 닫기
+
+### 인프라
+- Resend API 키 Railway 등록 (이메일 발송 준비)
+- Replicate API 토큰 Railway 등록
+- Sentry DSN Railway 등록
+- DB 백업 복구 리허설 완료 (30테이블 백업, 7테이블 복원 검증)
+
+### 좀비 코드 정리 (프론트+백엔드)
+- 프론트: app-portfolio.js, tab-portfolio, publishPreviewPopup, doActualPublish 등 1,853줄 삭제
+- 백엔드: portfolio.py, schedule.py, marketing.py 라우터 삭제, instagram /publish 삭제
+
+---
+
+## 다음 해야 할 것 (TODO)
+
+### 필수 (출시 전)
+- [ ] 토스페이먼츠 실결제 연동 (사업자 등록 완료됨)
+- [ ] Alembic DB 마이그레이션 도입
+- [ ] Resend 도메인 인증 (커스텀 이메일 발송)
+- [ ] 프론트 구독 UI 실제 결제 연결
+- [ ] 브라우저 통합 테스트 (캡션생성, 누끼, 인스타연동 직접 확인)
+
+### 권장 (출시 후)
+- [ ] Sentry 프론트엔드 JS SDK 추가
+- [ ] 관리자 대시보드
+- [ ] 푸시 알림 (FCM)
+- [ ] 앱스토어 등록 (Capacitor/TWA)
+- [ ] Gemini Context Caching (비용 절감)
+- [ ] 광고법 자동 차단 (taboo filter)
