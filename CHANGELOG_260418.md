@@ -130,3 +130,35 @@
 - [ ] 앱스토어 등록 (Capacitor/TWA)
 - [ ] Gemini Context Caching (비용 절감)
 - [ ] 광고법 자동 차단 (taboo filter)
+
+# 보안 패치 — 2026-04-18 (연준)
+
+## 적용된 보안 수정 5건
+
+### 1. 프롬프트 인젝션 방어 (CRITICAL → 해결)
+- `utils/prompt_sanitizer.py` 생성: 인젝션 패턴 12개 감지/제거
+- `routers/caption.py`에 적용: 사용자 입력 1000자 제한 + 패턴 필터링
+- "ignore previous instructions" 등 탈출 시도 차단
+
+### 2. 관리자 역할 기반 접근 제어 (CRITICAL → 해결)
+- `models.py`: User.is_admin 필드 추가
+- `utils/security.py`: get_admin_user() 의존성 추가
+- `routers/leads.py`: user_id==1 하드코딩 제거 → get_admin_user 사용
+
+### 3. 파일 업로드 매직바이트 검증 (HIGH → 해결)
+- `routers/image.py`: PIL.Image.verify()로 실제 이미지 파일인지 검증
+- MIME 타입 + 매직바이트 이중 검증
+
+### 4. API 에러 메시지 마스킹 (HIGH → 해결)
+- `routers/instagram.py`: r.text 직접 노출 → 일반화된 한국어 메시지로 교체
+- 내부 API 응답 정보 클라이언트 노출 차단
+
+### 5. 전역 Rate Limiting (MEDIUM → 해결)
+- `main.py`: HTTP 미들웨어로 IP당 분당 120요청 제한
+- 기존 로그인 Rate Limit(5분/10회) + 전역 Rate Limit 이중 보호
+
+## 추가 수정
+- `/image/usage` 엔드포인트 추가 (누끼 사용량 조회)
+- imgly CDN 완전 제거 (Edge Tracking Prevention 차단 문제 해결)
+- 누끼 서버 전용 처리 (Replicate → Remove.bg 폴백)
+- CLAUDE.md 분산 배치 7개 (컨텍스트 엔지니어링)
