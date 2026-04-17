@@ -572,7 +572,7 @@ function getSel(id) {
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/itdasy-studio/sw.js')
+  navigator.serviceWorker.register('/itdasy-frontend/sw.js')
     .then(reg => {
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
@@ -722,8 +722,11 @@ let _selectedPlan = 'pro';
 let _currentPlan = 'free';
 
 function openPlanPopup() {
-  document.getElementById('planPopup').style.display = 'flex';
+  const popup = document.getElementById('planPopup');
+  popup.style.display = 'flex';
+  popup.onclick = (e) => { if (e.target === popup) closePlanPopup(); };
   loadPlanUsage();
+  _selectedPlan = 'pro';
   highlightCurrentPlan();
 }
 

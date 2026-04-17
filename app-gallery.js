@@ -114,6 +114,15 @@ function _fileToDataUrl(file) {
     r.readAsDataURL(file);
   });
 }
+function _loadImageSrc(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('이미지 로드 실패: ' + src?.slice(0, 50)));
+    img.src = src;
+  });
+}
 function _dataUrlToBlob(dataUrl) {
   const parts = dataUrl.split(',');
   const mime  = parts[0].match(/:(.*?);/)[1];
