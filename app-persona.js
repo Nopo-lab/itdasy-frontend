@@ -66,8 +66,6 @@ function _renderShell() {
   <div class="sec-title">페르소나 설정</div>
   <div class="sec-sub">포스트를 수집하고 서명블록을 관리합니다</div>
 
-  ${_renderIdentityBlock()}
-
   ${_renderConsentBlock()}
 
   <!-- ── 블록 A: 포스트 수집 ──────────────────────── -->
