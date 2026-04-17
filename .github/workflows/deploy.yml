@@ -10,13 +10,23 @@ permissions:
   id-token: write
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Bundle JS + SW cache bump
+        run: |
+          cat app-core.js app-spec-validator.js app-instagram.js app-caption.js app-ai.js app-gallery.js app-gallery-bg.js app-gallery-element.js app-gallery-review.js app-gallery-write.js app-gallery-finish.js app-persona.js > app.bundle.js
+          npx esbuild app.bundle.js --minify --outfile=app.bundle.min.js --target=es2020
+          BUILD_HASH=$(date +%Y%m%d%H%M%S)
+          sed -i "s/__BUILD_HASH__/$BUILD_HASH/" sw.js
+          echo "번들링 완료: $BUILD_HASH"
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
