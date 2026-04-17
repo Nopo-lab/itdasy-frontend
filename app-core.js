@@ -45,10 +45,26 @@ function hideInstallGuide() {
   setTimeout(() => { el.style.display = 'none'; }, 300);
 }
 
+async function loadSubscriptionBadge() {
+  try {
+    const r = await fetch(API + '/subscription/status', { headers: authHeader() });
+    if (!r.ok) return;
+    const d = await r.json();
+    const badge = document.getElementById('planBadge');
+    if (badge) {
+      const labels = { free: 'Free', pro: 'Pro', premium: 'Premium' };
+      badge.textContent = labels[d.plan] || 'Free';
+      badge.style.background = d.plan === 'pro' ? 'linear-gradient(135deg,#f18091,#ff9aa8)' : d.plan === 'premium' ? 'linear-gradient(135deg,#833ab4,#fd1d1d)' : '#e0e0e0';
+      badge.style.color = d.plan === 'free' ? '#888' : '#fff';
+    }
+  } catch(e) {}
+}
+
 function updateHeaderProfile(handle, tone, picUrl) {
   const el = document.getElementById('headerPersona');
   if (!el) return;
   el.style.display = 'flex';
+  loadSubscriptionBadge();
 
   const shopName = localStorage.getItem('shop_name') || '사장님';
   const shopNameEl = document.getElementById('headerShopName');
@@ -685,3 +701,18 @@ if ('serviceWorker' in navigator) {
 // Module에서 접근 가능하도록 window에 노출
 window.API = API;
 window.authHeader = authHeader;
+
+// 비밀번호 재설정 요청
+async function forgotPassword() {
+  const email = document.getElementById('loginEmail').value;
+  if (!email) { alert('이메일을 먼저 입력해주세요.'); return; }
+  try {
+    const r = await fetch(API + '/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const d = await r.json();
+    alert(d.message || '재설정 링크를 이메일로 보냈습니다.');
+  } catch(e) { alert('서버 연결 실패'); }
+}

@@ -12,7 +12,6 @@ const STATIC_ASSETS = [
   '/itdasy-studio/app-core.js',
   '/itdasy-studio/app-instagram.js',
   '/itdasy-studio/app-caption.js',
-  '/itdasy-studio/app-portfolio.js',
   '/itdasy-studio/app-ai.js',
   '/itdasy-studio/app-gallery.js',
   '/itdasy-studio/manifest.json',

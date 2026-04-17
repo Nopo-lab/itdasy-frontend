@@ -43,7 +43,8 @@
   <input type="password" class="login-input" id="loginPassword" placeholder="비밀번호" autocomplete="current-password">
   <div class="login-error" id="loginError"></div>
   <button class="pin-btn" id="loginBtn" onclick="login()">로그인</button>
-  <a href="index.html" style="display:block; margin-top:24px; font-size:13px; color:var(--text3); text-decoration:none;">홈으로 돌아가기</a>
+  <a href="#" onclick="forgotPassword()" style="display:block; margin-top:16px; font-size:13px; color:var(--accent); text-decoration:none; font-weight:600;">비밀번호를 잊으셨나요?</a>
+  <a href="index.html" style="display:block; margin-top:8px; font-size:13px; color:var(--text3); text-decoration:none;">홈으로 돌아가기</a>
 </div>
 
 <!-- ───── 온보딩 오버레이 ───── -->
@@ -125,6 +126,7 @@
     <span id="headerShopName" style="display:none;">사장님</span>
     <div class="header-persona" id="headerPersona">
       <div class="profile-avatar" id="headerAvatar">잇</div>
+      <span id="planBadge" style="padding:3px 8px;border-radius:8px;font-size:10px;font-weight:800;background:#e0e0e0;color:#888;margin-left:6px;">Free</span>
     </div>
     <button class="btn-settings" onclick="openSettings()" aria-label="설정">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F18091" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
