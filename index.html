@@ -164,12 +164,12 @@
   </div>
 </div>
 
-<div class="nav" id="nav">
-  <button class="nav-btn active" onclick="showTab('home',this)">홈</button>
-  <button class="nav-btn" onclick="showTab('workshop',this); initWorkshopTab()">작업실</button>
-  <button class="nav-btn" onclick="showTab('caption',this); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();">글쓰기</button>
-  <button class="nav-btn" onclick="showTab('ai-suggest',this); initAiRecommendTab()">AI추천</button>
-  <button class="nav-btn" onclick="showTab('finish',this); initFinishTab()">마무리</button>
+<div class="nav" id="nav" role="navigation" aria-label="메인 네비게이션">
+  <button class="nav-btn active" onclick="showTab('home',this)" aria-label="홈 탭">홈</button>
+  <button class="nav-btn" onclick="showTab('workshop',this); initWorkshopTab()" aria-label="작업실 탭">작업실</button>
+  <button class="nav-btn" onclick="showTab('caption',this); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" aria-label="글쓰기 탭">글쓰기</button>
+  <button class="nav-btn" onclick="showTab('ai-suggest',this); initAiRecommendTab()" aria-label="AI 추천 탭">AI추천</button>
+  <button class="nav-btn" onclick="showTab('finish',this); initFinishTab()" aria-label="마무리 탭">마무리</button>
 </div>
 
 <!-- 홈 탭 -->
