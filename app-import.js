@@ -86,30 +86,194 @@
   function _renderDropZone() {
     const body = document.getElementById('importBody');
     const label = KIND_LABELS[_currentKind];
+    const smartEnabled = _currentKind !== 'booking';  // 예약은 아직 스마트 지원 X
+
     body.innerHTML = `
       <div style="padding:4px;">
         <button onclick="window._importBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 종류 선택</button>
         <div style="padding:6px 10px;background:rgba(241,128,145,0.1);border-radius:8px;font-size:13px;margin-bottom:12px;">
           ${label.icon} <strong>${label.title}</strong> 가져오기
         </div>
-        <label style="display:block;">
-          <input type="file" accept=".csv,.xlsx,.xlsm,.xls,text/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream" hidden id="importFile" />
-          <div style="border:2px dashed #ccc;border-radius:12px;padding:40px 16px;text-align:center;cursor:pointer;">
-            <div style="font-size:36px;margin-bottom:8px;">📥</div>
-            <div style="font-size:14px;color:#666;">파일을 탭해서 선택하세요</div>
-            <div style="font-size:11px;color:#aaa;margin-top:4px;">CSV · XLSX · 최대 10MB</div>
-          </div>
-        </label>
-        <div style="font-size:10px;color:#aaa;margin-top:8px;line-height:1.6;padding:0 4px;">
-          💡 아이폰·카톡으로 받은 엑셀은 .zip 로 뜰 수 있어요. 그대로 선택하면 자동으로 엑셀로 변환해서 올려드려요.
+
+        <!-- 입력 방식 탭 -->
+        <div style="display:grid;grid-template-columns:repeat(${smartEnabled ? 3 : 1},1fr);gap:6px;padding:4px;background:rgba(0,0,0,0.04);border-radius:10px;margin-bottom:12px;">
+          <button data-imp-src="file" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:#fff;color:var(--accent,#F18091);">📄 파일</button>
+          ${smartEnabled ? `<button data-imp-src="photo" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:#555;">📸 사진 OCR</button>` : ''}
+          ${smartEnabled ? `<button data-imp-src="text" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:#555;">📋 붙여넣기</button>` : ''}
         </div>
+
+        <div id="importSourcePanel"></div>
         <div id="importStatus" style="margin-top:12px;font-size:12px;color:#666;text-align:center;"></div>
       </div>
     `;
-    const fileEl = body.querySelector('#importFile');
-    fileEl.addEventListener('change', (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (file) _uploadPreview(file);
+
+    body.querySelectorAll('[data-imp-src]').forEach(btn => btn.addEventListener('click', () => {
+      body.querySelectorAll('[data-imp-src]').forEach(b => {
+        b.style.background = 'transparent';
+        b.style.color = '#555';
+      });
+      btn.style.background = '#fff';
+      btn.style.color = 'var(--accent,#F18091)';
+      _renderSourcePanel(btn.dataset.impSrc);
+    }));
+    _renderSourcePanel('file');
+  }
+
+  function _renderSourcePanel(src) {
+    const panel = document.getElementById('importSourcePanel');
+    if (!panel) return;
+    if (src === 'file') {
+      panel.innerHTML = `
+        <label style="display:block;">
+          <input type="file" accept=".csv,.xlsx,.xlsm,.xls,text/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream" hidden id="importFile" />
+          <div style="border:2px dashed #ccc;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;">
+            <div style="font-size:32px;margin-bottom:8px;">📥</div>
+            <div style="font-size:14px;color:#666;">CSV·엑셀 파일을 탭하세요</div>
+            <div style="font-size:10px;color:#aaa;margin-top:4px;">CSV · XLSX · 최대 10MB</div>
+          </div>
+        </label>
+        <div style="font-size:10px;color:#aaa;margin-top:8px;line-height:1.6;padding:0 4px;">
+          💡 아이폰·카톡으로 받은 엑셀이 .zip 으로 뜨면 그대로 선택하세요. 자동 변환됩니다.
+        </div>
+      `;
+      panel.querySelector('#importFile').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) _uploadPreview(file);
+      });
+    } else if (src === 'photo') {
+      panel.innerHTML = `
+        <label style="display:block;">
+          <input type="file" accept="image/*" capture="environment" hidden id="importPhotoFile" />
+          <div style="border:2px dashed #FFB347;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;background:rgba(255,179,71,0.05);">
+            <div style="font-size:32px;margin-bottom:8px;">📸</div>
+            <div style="font-size:14px;color:#666;font-weight:700;">스크린샷·사진 업로드</div>
+            <div style="font-size:10px;color:#aaa;margin-top:4px;">공비서·핸드SOS 화면 그대로 찍어 올리세요</div>
+          </div>
+        </label>
+        <div style="font-size:10px;color:#aaa;margin-top:8px;line-height:1.6;padding:0 4px;">
+          ✨ <b>AI Vision</b> 이 화면에서 고객 목록/매출을 자동 추출해요. 2~3초 소요.
+        </div>
+      `;
+      panel.querySelector('#importPhotoFile').addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) _uploadPhotoOcr(file);
+      });
+    } else if (src === 'text') {
+      panel.innerHTML = `
+        <div style="margin-bottom:8px;font-size:12px;color:#666;">카카오톡·메모장에서 복사한 내용을 붙여넣으세요.</div>
+        <textarea id="importPasteText" rows="8" placeholder="예)\n김지연 010-1234-5678 VIP\n박소영 010-2345-6789\n..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;font-family:inherit;resize:vertical;font-size:12px;"></textarea>
+        <button id="importPasteParse" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;background:var(--accent,#F18091);color:#fff;font-weight:800;cursor:pointer;font-size:14px;">텍스트에서 추출하기 ✨</button>
+      `;
+      panel.querySelector('#importPasteParse').addEventListener('click', _parsePastedText);
+    }
+  }
+
+  // ── 스마트 임포트: 사진 OCR ─────────────────────────────
+  async function _uploadPhotoOcr(file) {
+    const status = document.getElementById('importStatus');
+    status.textContent = '📸 AI 가 화면을 읽는 중… (2~3초)';
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('kind', _currentKind);
+    try {
+      const res = await fetch(window.API + '/imports/smart/image', {
+        method: 'POST', headers: window.authHeader(), body: fd,
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      if (!d.items || !d.items.length) {
+        status.textContent = '추출된 항목이 없어요. 더 선명한 화면으로 다시 찍어 주세요.';
+        return;
+      }
+      status.textContent = '';
+      _renderSmartReview(d.items);
+    } catch (e) {
+      status.textContent = 'OCR 실패: ' + e.message;
+    }
+  }
+
+  // ── 스마트 임포트: 카톡·메모 텍스트 파싱 ───────────────
+  async function _parsePastedText() {
+    const text = document.getElementById('importPasteText').value.trim();
+    if (!text || text.length < 2) {
+      if (window.showToast) window.showToast('텍스트를 먼저 붙여넣어 주세요');
+      return;
+    }
+    const status = document.getElementById('importStatus');
+    status.textContent = '텍스트에서 추출 중…';
+    try {
+      const res = await fetch(window.API + '/imports/smart/text', {
+        method: 'POST',
+        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, kind: _currentKind }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const d = await res.json();
+      if (!d.items || !d.items.length) {
+        status.textContent = '추출된 항목이 없어요. 이름+연락처 형식으로 다시 시도해 주세요.';
+        return;
+      }
+      status.textContent = '';
+      _renderSmartReview(d.items);
+    } catch (e) {
+      status.textContent = '실패: ' + e.message;
+    }
+  }
+
+  function _renderSmartReview(items) {
+    const body = document.getElementById('importBody');
+    const kind = _currentKind;
+    const cols = kind === 'customer' ? ['name', 'phone', 'memo'] : ['amount', 'customer_name', 'service_name', 'method'];
+    const colLabels = { name: '이름', phone: '연락처', memo: '메모', amount: '금액', customer_name: '고객', service_name: '시술', method: '결제' };
+
+    body.innerHTML = `
+      <div style="padding:4px;">
+        <button onclick="window._importBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 다시 선택</button>
+        <div style="padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:10px;margin-bottom:10px;">
+          <strong style="font-size:13px;color:#388e3c;">✨ ${items.length}건 추출됨</strong>
+          <div style="font-size:11px;color:#666;margin-top:3px;">체크된 항목만 저장돼요. 잘못된 항목은 선택 해제.</div>
+        </div>
+        <div style="max-height:280px;overflow-y:auto;background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);">
+          ${items.map((it, i) => `
+            <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;${i>0?'border-top:1px solid rgba(0,0,0,0.05);':''}cursor:pointer;">
+              <input type="checkbox" data-smart-idx="${i}" checked style="width:18px;height:18px;accent-color:var(--accent,#F18091);" />
+              <div style="flex:1;min-width:0;font-size:12px;">
+                ${cols.map(c => `<span style="color:${it[c]?'#222':'#bbb'};margin-right:8px;">${_esc(it[c] != null && it[c] !== '' ? (c === 'amount' ? (+it[c]).toLocaleString('ko-KR')+'원' : it[c]) : '—')}</span>`).join('')}
+              </div>
+            </label>
+          `).join('')}
+        </div>
+        <button id="smartCommit" style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:14px;">선택한 항목 저장 ✓</button>
+      </div>
+    `;
+
+    body.querySelector('#smartCommit').addEventListener('click', async () => {
+      const checked = body.querySelectorAll('input[type="checkbox"]:checked');
+      const picks = [];
+      checked.forEach(cb => {
+        const idx = parseInt(cb.dataset.smartIdx, 10);
+        if (items[idx]) picks.push(items[idx]);
+      });
+      if (!picks.length) {
+        if (window.showToast) window.showToast('항목을 하나 이상 선택하세요');
+        return;
+      }
+      const btn = body.querySelector('#smartCommit');
+      btn.disabled = true; btn.textContent = '저장 중…';
+      try {
+        const res = await fetch(window.API + '/imports/smart/commit', {
+          method: 'POST',
+          headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind, items: picks }),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        _renderReport(d);
+        if (window.hapticSuccess) window.hapticSuccess();
+      } catch (e) {
+        btn.disabled = false; btn.textContent = '다시 시도';
+        if (window.showToast) window.showToast('저장 실패: ' + e.message);
+      }
     });
   }
 

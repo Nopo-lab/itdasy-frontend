@@ -80,29 +80,74 @@
   }
 
   // ── 섹션 렌더러 ───────────────────────────────────────
-  function _heroCards(stats) {
-    // stats: { today_amount, today_count, month_amount, customer_count, upcoming_bookings }
+  function _heroCards(stats, weeklyHistory) {
+    // 지난 주 동일 요일 대비 delta
+    const thisWeek = (weeklyHistory && weeklyHistory.length) ? weeklyHistory[weeklyHistory.length - 1].amount : 0;
+    const lastWeek = (weeklyHistory && weeklyHistory.length > 1) ? weeklyHistory[weeklyHistory.length - 2].amount : 0;
+    const deltaPct = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : 0;
+    const deltaColor = deltaPct >= 5 ? '#388e3c' : deltaPct <= -5 ? '#dc3545' : '#888';
+    const deltaArrow = deltaPct > 5 ? '↗' : deltaPct < -5 ? '↘' : '→';
+
     const cards = [
-      { key: 'today', icon: '💰', label: '오늘 매출', value: _formatKRWShort(stats.today_amount), sub: `${stats.today_count || 0}건 기록`, color: 'linear-gradient(135deg,#F18091,#D95F70)' },
-      { key: 'month', icon: '📈', label: '이번 달', value: _formatKRWShort(stats.month_amount), sub: '누적 매출', color: 'linear-gradient(135deg,#FFB347,#FF8A5C)' },
-      { key: 'customer', icon: '👥', label: '고객', value: stats.customer_count != null ? stats.customer_count + '명' : '—', sub: '등록된 고객', color: 'linear-gradient(135deg,#4ECDC4,#44A08D)' },
-      { key: 'booking', icon: '📅', label: '예정 예약', value: stats.upcoming_bookings != null ? stats.upcoming_bookings + '건' : '—', sub: '다가오는 일정', color: 'linear-gradient(135deg,#A78BFA,#8B5CF6)' },
+      { key: 'today',    icon: '💰', label: '오늘 매출',  value: stats.today_amount,    format: 'krw',  sub: `${stats.today_count || 0}건 기록`, color: '#F18091,#D95F70' },
+      { key: 'month',    icon: '📈', label: '이번 달',    value: stats.month_amount,    format: 'krw',  sub: '누적 매출',                       color: '#FFB347,#FF8A5C' },
+      { key: 'customer', icon: '👥', label: '고객',       value: stats.customer_count,  format: 'unit', unit: '명', sub: '등록된 고객',           color: '#4ECDC4,#44A08D' },
+      { key: 'booking',  icon: '📅', label: '예정 예약',  value: stats.upcoming_bookings, format: 'unit', unit: '건', sub: '다가오는 일정',       color: '#A78BFA,#8B5CF6' },
     ];
-    return `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-        ${cards.map(c => `
-          <div style="padding:14px;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-8px;right:-8px;width:56px;height:56px;border-radius:50%;background:${c.color};opacity:0.15;"></div>
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-              <span style="font-size:14px;">${c.icon}</span>
-              <span style="font-size:10px;color:#888;font-weight:700;">${c.label}</span>
-            </div>
-            <div style="font-size:22px;font-weight:900;color:#222;line-height:1.1;">${_esc(c.value)}</div>
-            <div style="font-size:10px;color:#999;margin-top:3px;">${_esc(c.sub)}</div>
-          </div>
-        `).join('')}
+
+    const cardHtml = cards.map(c => `
+      <div style="padding:16px;border-radius:18px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.06);position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-12px;right:-12px;width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,${c.color});opacity:0.18;"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;position:relative;">
+          <span style="font-size:16px;">${c.icon}</span>
+          <span style="font-size:11px;color:#666;font-weight:700;">${c.label}</span>
+        </div>
+        <div class="dash-count" data-value="${c.value ?? 0}" data-format="${c.format}" data-unit="${c.unit || ''}" style="font-size:26px;font-weight:900;color:#1a1a1a;line-height:1.1;letter-spacing:-0.5px;">—</div>
+        <div style="font-size:10px;color:#999;margin-top:4px;">${_esc(c.sub)}</div>
       </div>
+    `).join('');
+
+    const weekCompare = thisWeek > 0 || lastWeek > 0 ? `
+      <div style="padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(241,128,145,0.08),rgba(241,128,145,0.02));margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+        <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#F18091,#D95F70);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;flex-shrink:0;">${deltaArrow}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:#666;margin-bottom:3px;">이번 주 vs 지난 주</div>
+          <div style="display:flex;align-items:baseline;gap:6px;">
+            <strong style="font-size:18px;color:${deltaColor};">${deltaPct > 0 ? '+' : ''}${deltaPct}%</strong>
+            <span style="font-size:11px;color:#888;">${_formatKRWShort(thisWeek)} / ${_formatKRWShort(lastWeek)}</span>
+          </div>
+        </div>
+      </div>
+    ` : '';
+
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">${cardHtml}</div>
+      ${weekCompare}
     `;
+  }
+
+  // 숫자 카운트업 애니메이션
+  function _animateCounts(root) {
+    const els = root.querySelectorAll('.dash-count');
+    els.forEach(el => {
+      const target = parseFloat(el.dataset.value) || 0;
+      const fmt = el.dataset.format || 'unit';
+      const unit = el.dataset.unit || '';
+      if (target === 0) {
+        el.textContent = fmt === 'krw' ? '0원' : `0${unit}`;
+        return;
+      }
+      const duration = 700;
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);  // easeOutCubic
+        const cur = target * eased;
+        el.textContent = fmt === 'krw' ? _formatKRWShort(cur) : `${Math.round(cur)}${unit}`;
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
   }
 
   function _monthChart(weekly) {
@@ -367,8 +412,10 @@
 
     // 고객 대시보드 진입 전에 고객 이름 가져오기 위해 reverse lookup 필요하진 않음
     body.innerHTML = `
+      <div id="dashToday"></div>
       <div id="dashAutoBA"></div>
-      ${_heroCards(stats)}
+      <div id="dashBirthday"></div>
+      ${_heroCards(stats, weekly)}
       ${_monthChart(weekly)}
       ${_insightsSection(ret, fc, cp)}
       ${_quickActionsGrid()}
@@ -376,6 +423,17 @@
       <div style="font-size:10px;color:#bbb;text-align:center;padding:10px;">AI 인사이트는 최근 8주 데이터로 매번 새로 계산돼요</div>
     `;
     _bindEvents();
+    _animateCounts(body);
+
+    // 오늘의 브리핑 카드 (#킬러 1) — dashToday 슬롯
+    if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
+      window.TodayBrief.render('dashToday').catch(() => {});
+    }
+
+    // 생일 자동 카드 (#킬러 2) — dashBirthday 슬롯
+    if (window.Birthday && typeof window.Birthday.render === 'function') {
+      window.Birthday.render('dashBirthday').catch(() => {});
+    }
 
     // 비포/애프터 자동 감지 배너 (#4) — 있을 때만 삽입
     if (window.AutoBA && typeof window.AutoBA.getBanner === 'function') {

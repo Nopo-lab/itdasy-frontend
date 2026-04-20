@@ -225,7 +225,15 @@
     try {
       _stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
-      _renderError('마이크 권한이 필요해요. 설정에서 허용해 주세요.');
+      const isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      const msg = e && e.name === 'NotAllowedError'
+        ? (isCapacitor
+            ? '마이크 권한이 거부됐어요. 설정 → 잇데이 스튜디오 → 마이크를 켜 주세요.'
+            : '브라우저에서 마이크 권한이 거부됐어요. 주소창 왼쪽 🔒 → 마이크 허용으로 바꿔 주세요.')
+        : e && e.name === 'NotFoundError'
+          ? '마이크를 찾지 못했어요. 이어폰 마이크가 연결돼 있는지 확인해 주세요.'
+          : '마이크 접근 실패: ' + (e?.message || '알 수 없음');
+      _renderError(msg);
       return;
     }
 

@@ -15,6 +15,10 @@
 <uses-permission android:name="android.permission.CAMERA"/>
 <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
+<!-- 마이크 (음성 빠른 기록) -->
+<uses-permission android:name="android.permission.RECORD_AUDIO"/>
+<uses-feature android:name="android.hardware.microphone" android:required="false"/>
+
 <!-- 사진 앨범 (API 32 이하) -->
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
 
