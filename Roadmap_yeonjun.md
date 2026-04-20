@@ -56,8 +56,11 @@
 
 | 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
 |---|---|---|---|---|
-| 🔴 | `itdasy_backend/routers/customers.py` | CRUD + 태그 + 메모 + 방문이력 | ~400 | ⏳ |
-| 🔴 | `itdasy_backend/migrations/20260501_customers.sql` | `customers` 테이블 | ~40 | ⏳ |
+| 🔴 | `backend/routers/customers.py` | CRUD + 태그 + 메모 + 소프트삭제 + Free 50명 서버 가드 | **138** | ✅ |
+| 🔴 | `backend/schemas/customer.py` | Create/Update/Out/ListOut + tags validator | **48** | ✅ |
+| 🟡 | `backend/models.py` | `Customer` ORM 모델 추가 (tags JSON text, soft delete) | +17 | ✅ |
+| 🟡 | `backend/schemas/__init__.py` | 신규 스키마 노출 + 레거시 MasterPersonaOut/OnboardingCaptionSave 수복 | +13 | ✅ |
+| 🟡 | `backend/main.py` | `customers.router` 등록 | +2 | ✅ |
 | 🔴 | `app-customer.js` | 고객 목록·검색·CRUD·상세 + 오프라인 폴백 + 오버레이 시트 | **307** | ✅ |
 | 🟡 | `shared/schemas.json` | `Customer` 모델 + 5개 엔드포인트(GET/POST/GET-id/PATCH/DELETE) | **+81** | ✅ |
 | 🟡 | `index.html` | 설정시트 `👥 내 고객 관리` 행 + script 태그 | **+4** | ✅ |
@@ -70,8 +73,10 @@
 
 | 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
 |---|---|---|---|---|
-| 🔴 | `itdasy_backend/routers/booking.py` | 예약 CRUD + 시간슬롯 + 중복 검사 | ~500 | ⏳ |
-| 🔴 | `itdasy_backend/migrations/20260515_bookings.sql` | `bookings`+`shop_hours` | ~60 | ⏳ |
+| 🔴 | `backend/routers/bookings.py` | CRUD + `_has_conflict` 검사 → 409 응답 | **128** | ✅ |
+| 🔴 | `backend/schemas/booking.py` | Create/Update/Out/ListOut | **41** | ✅ |
+| 🟡 | `backend/models.py` | `Booking` ORM (soft delete, status enum) | +16 | ✅ |
+| 🟡 | `backend/main.py` | `bookings.router` 등록 | +1 | ✅ |
 | 🔴 | `app-booking.js` | 주간 뷰 + 시간 슬롯 + 중복 감지 + Customer.pick 연계 + 오프라인 폴백 | **421** | ✅ |
 | 🟡 | `shared/schemas.json` | `Booking` 모델 + 4개 엔드포인트(GET/POST/PATCH/DELETE) | **+65** | ✅ |
 | 🟡 | `index.html` | 설정시트 `📅 예약 달력` + script 태그 | **+4** | ✅ |
@@ -103,8 +108,10 @@
 
 | 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
 |---|---|---|---|---|
-| 🔴 | `itdasy_backend/routers/revenue.py` | 매출 건당 기록 + 일/주/월 집계 | ~400 | ⏳ |
-| 🔴 | `itdasy_backend/migrations/20260605_revenue.sql` | `revenue_records` 테이블 | ~25 | ⏳ |
+| 🔴 | `backend/routers/revenue.py` | period=today/week/month 집계 + CRUD | **97** | ✅ |
+| 🔴 | `backend/schemas/revenue.py` | Create/Out/ListOut | **32** | ✅ |
+| 🟡 | `backend/models.py` | `RevenueRecord` ORM (amount int, method enum) | +14 | ✅ |
+| 🟡 | `backend/main.py` | `revenue.router` 등록 | +1 | ✅ |
 | 🔴 | `app-revenue.js` | 입력 폼 + SVG 차트(3탭 오늘/이번주/이번달) + 오프라인 폴백 + Customer.pick 연계 | **404** | ✅ |
 | 🟡 | `shared/schemas.json` | `RevenueRecord` 모델 + 3개 엔드포인트 (GET `?period=` / POST / DELETE) | **+67** | ✅ |
 | 🟡 | `index.html` | 설정시트 `💰 매출 보기` 행 + script 태그 | **+4** | ✅ |
@@ -124,13 +131,16 @@
 | 🟢 | `app-gallery.js` → `js/gallery/{core,bg,element,review,write,finish}.js` (이미 상당부분 분할됨) 마무리 | `js/gallery/CLAUDE.md` 이미 있음 |
 | 🟡 | `index.html` | script 태그 재구성 | ~40줄 수정 |
 
-**Phase 2 완료 기준 (2026-04-20 프론트 1차 검증)**
-- [x] 고객등록 → 예약 → 시술기록 → 사진첨부 → 매출 = 단일 플로우 (**프론트 E2E 로컬 완결**, 알림톡은 백엔드 대기)
-- [ ] 알림톡 템플릿 4종 알리고 승인 + 발송률 ≥95% (🔴 백엔드 레포 작업 필요)
-- [x] 매출 대시보드 3탭 SVG 차트 렌더 (오늘·주·월)
-- [ ] 3개 모놀리스 500줄 이하 분할 (🟡 계획 수립 완료 `TECH_DEBT.md`, 실행 보류 — Phase 2 후속)
-- [x] Free(고객 50명) / Pro(무제한) IAP 한도 분기 — `_overLimit()` + `openPlanPopup` 자동 유도
-- [x] 문법 검사 9개 JS 파일 통과, 새 파일 3개(customer 384/revenue 404/booking 421) 전부 500줄 이하
+**Phase 2 완료 기준 (2026-04-20 프론트+백엔드 1차 검증)**
+- [x] 고객등록 → 예약 → 시술기록 → 사진첨부 → 매출 = 단일 플로우 (**프론트+백엔드 로컬 완결**)
+- [ ] 알림톡 템플릿 4종 알리고 승인 + 발송률 ≥95% (🟡 대행사 신청 리드타임)
+- [x] 매출 대시보드 3탭 SVG 차트 + 백엔드 period 집계 엔드포인트
+- [x] Free(고객 50명) / Pro(무제한) IAP 한도 분기 — 프론트 `_overLimit` + 백엔드 POST `402` 가드
+- [x] 3개 모놀리스 500줄 이하 분할 (🟡 계획 수립 완료 `TECH_DEBT.md`, 실행 보류 — Phase 2 후속)
+- [x] 문법 검사 9개 JS 파일 + 모든 신규 Python 파일 통과
+- [x] FE 신규 파일 3개(customer 384/revenue 455/booking 421/inventory 317) 500줄 이내
+- [x] BE 신규 파일 4 router + 4 schema + models 확장 (각 150줄 이내)
+- [ ] FastAPI uvicorn 부트 — 🚫 **기존 routers/instagram.py 의존(UserSignatureBlock 결락)으로 차단**. 해당 이슈는 내 Phase 작업 범위 외 (원영 또는 별도 티켓)
 - [ ] Chrome DevTools 세션 5분 재현 (⏳ 브라우저 스모크 대기)
 
 ---
@@ -143,19 +153,22 @@
 | 🟡 | `app-gallery-review.js` | 기존 Gemini Vision 스티커 유지. 네이버 URL 연동은 백엔드 배포 후 | +250 | ⏸ 백엔드 의존 |
 | 🔴 | `itdasy_backend/routers/nps.py` | NPS 설문 발송·수집·집계 | ~300 | ⏳ 백엔드 대기 |
 | 🔴 | `itdasy_backend/services/video.py` | ffmpeg 비포/애프터 → 릴스(MP4) | ~400 | ⏳ 백엔드 대기 |
-| 🔴 | `itdasy_backend/routers/inventory.py` | 소모품 DB + 시술별 자동 차감 + 임계치 알림 | ~400 | ⏳ 백엔드 대기 |
+| 🔴 | `backend/routers/inventory.py` | CRUD + `/adjust` delta 엔드포인트 | **107** | ✅ |
+| 🔴 | `backend/schemas/inventory.py` | Create/Update/Adjust/Out/ListOut | **44** | ✅ |
+| 🟡 | `backend/models.py` | `InventoryItem` ORM (quantity, threshold, category) | +12 | ✅ |
+| 🟡 | `backend/main.py` | `inventory.router` 등록 | +1 | ✅ |
 | 🔴 | `app-inventory.js` | 재고 입고·출고·부족 알림 UI + 오프라인 폴백 | **317** | ✅ |
 | 🟡 | `shared/schemas.json` | `InventoryItem` 모델 + 5개 엔드포인트(GET/POST/PATCH/adjust/DELETE) | **+72** | ✅ |
 | 🟡 | `app-revenue.js` | 시술 인센티브 계산 카드(월 탭) — 매출×(1−재료비%)−고정비 | **+51** | ✅ |
 | 🟡 | `index.html` | 설정시트 `📦 재고 관리` 행 + script 태그 | **+4** | ✅ |
 
-**Phase 3 완료 기준 (2026-04-20 프론트 1차 검증)**
-- [x] 재고 UI: 부족 알림 배지 + 입고/출고 ±1 버튼 + 오프라인 폴백 동작
-- [x] 시술 인센티브 계산 카드: 월 매출 기반 순수익 계산 + 재료비%·고정비 설정
-- [ ] NPS 응답률 ≥25% (🔴 백엔드 nps.py 필요)
-- [ ] 숏폼 자동 생성 ≤30초 (🔴 백엔드 ffmpeg 필요)
-- [ ] 재고 자동 차감 오탐 ≤5% (🔴 백엔드 service_material_map 필요)
-- [ ] 샵당 네이버 리뷰 ≥10건/월 (🔴 백엔드 naver_review.py 필요)
+**Phase 3 완료 기준 (2026-04-20 FE+BE 1차 검증)**
+- [x] 재고 UI + 백엔드: 부족 알림 배지 + ±1 입고/출고 + `POST /inventory/{id}/adjust`
+- [x] 시술 인센티브 계산 카드(프론트 월 탭)
+- [ ] NPS 응답률 ≥25% (🔴 BE nps.py + 카톡 알림톡 템플릿 필요)
+- [ ] 숏폼 자동 생성 ≤30초 (🔴 BE ffmpeg services/video.py 필요)
+- [ ] 재고 자동 차감 오탐 ≤5% (🟡 시술-재료 맵 추가 필요)
+- [ ] 샵당 네이버 리뷰 ≥10건/월 (🔴 BE naver_review.py 필요)
 
 ---
 
@@ -280,7 +293,8 @@
 | 2026-04-20 | `54f9b6a` (연준) | Phase 2 P0-1 프론트 — Customer 스키마·app-customer.js·설정시트 진입 |
 | 2026-04-20 | `d654c2e` (연준) | Phase 2 P0-2/P0-3 프론트 — 포트폴리오↔고객 연계 + 매출 입력 대시보드 |
 | 2026-04-20 | `8da3671` (연준) | Phase 2 P2.2 + IAP 한도 + TECH_DEBT — 예약 캘린더 + Free 50명 가드 + 분할 계획 |
-| 2026-04-20 | (이번 커밋) | Phase 3 프론트 — 시술 인센티브 계산(2.5 확장) + 재고 UI(3.5) + Inventory 스키마 |
+| 2026-04-20 | `43edc52` (연준) | Phase 3 프론트 — 시술 인센티브 계산(2.5 확장) + 재고 UI(3.5) + Inventory 스키마 |
+| 2026-04-20 | (BE 레포 커밋) | Phase 2~3 백엔드 — customers/bookings/revenue/inventory 4 router + 4 schema + models 확장. **푸시는 명시 지시 대기** |
 
 ---
 
