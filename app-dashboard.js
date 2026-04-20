@@ -62,10 +62,20 @@
           </div>
           <button onclick="closeDashboard()" style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.04);border:none;font-size:18px;cursor:pointer;" aria-label="닫기">✕</button>
         </header>
-        <div id="dashBody" style="flex:1;overflow-y:auto;padding:8px 16px 24px;padding-bottom:max(24px,env(safe-area-inset-bottom));"></div>
+        <div id="dashBody" style="flex:1;overflow-y:auto;padding:8px 16px 24px;padding-bottom:max(80px,env(safe-area-inset-bottom));"></div>
+        <!-- 음성 빠른 기록 FAB -->
+        <button id="dashVoiceFab" aria-label="음성 기록"
+                style="position:absolute;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:50%;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 20px rgba(241,128,145,0.45);z-index:2;">
+          🎤
+        </button>
       </div>
     `;
     document.body.appendChild(sheet);
+    const fab = sheet.querySelector('#dashVoiceFab');
+    if (fab) fab.addEventListener('click', () => {
+      if (window.hapticMedium) window.hapticMedium();
+      if (typeof window.openVoice === 'function') window.openVoice();
+    });
     return sheet;
   }
 
@@ -357,6 +367,7 @@
 
     // 고객 대시보드 진입 전에 고객 이름 가져오기 위해 reverse lookup 필요하진 않음
     body.innerHTML = `
+      <div id="dashAutoBA"></div>
       ${_heroCards(stats)}
       ${_monthChart(weekly)}
       ${_insightsSection(ret, fc, cp)}
@@ -365,6 +376,14 @@
       <div style="font-size:10px;color:#bbb;text-align:center;padding:10px;">AI 인사이트는 최근 8주 데이터로 매번 새로 계산돼요</div>
     `;
     _bindEvents();
+
+    // 비포/애프터 자동 감지 배너 (#4) — 있을 때만 삽입
+    if (window.AutoBA && typeof window.AutoBA.getBanner === 'function') {
+      window.AutoBA.getBanner().then(banner => {
+        const slot = document.getElementById('dashAutoBA');
+        if (banner && slot) slot.appendChild(banner);
+      }).catch(() => {});
+    }
   }
 
   window.openDashboard = async function () {

@@ -315,6 +315,11 @@
           <button type="button" id="bfSave" style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">${existing ? '수정' : '저장'}</button>
           ${existing ? `<button type="button" id="bfDelete" style="padding:12px 16px;border:1px solid #eee;border-radius:8px;background:#fff;color:#c00;cursor:pointer;">삭제</button>` : ''}
         </div>
+        ${existing && existing.status !== 'completed' ? `
+          <button type="button" id="bfComplete" style="width:100%;margin-top:10px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#388e3c,#2e7d32);color:#fff;font-weight:800;cursor:pointer;font-size:14px;box-shadow:0 4px 14px rgba(56,142,60,0.3);">
+            🎀 시술 완료 · 매출·NPS 한 번에 기록
+          </button>
+        ` : ''}
       </div>
     `;
 
@@ -380,6 +385,16 @@
         } catch (err) {
           if (window.showToast) window.showToast('삭제 실패');
         }
+      });
+      const completeBtn = grid.querySelector('#bfComplete');
+      if (completeBtn) completeBtn.addEventListener('click', () => {
+        if (!window.CompleteFlow || typeof window.CompleteFlow.startFromBooking !== 'function') {
+          if (window.showToast) window.showToast('완료 모듈 로드 중…');
+          return;
+        }
+        // 예약 시트 닫지 않고 CompleteFlow 오버레이 위에. CompleteFlow 저장 시 대시보드 리프레시됨.
+        if (window.hapticMedium) window.hapticMedium();
+        window.CompleteFlow.startFromBooking(existing);
       });
     }
   }

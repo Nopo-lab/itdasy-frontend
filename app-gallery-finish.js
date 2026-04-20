@@ -251,9 +251,29 @@ async function _pickCustomerForSlot(slotId) {
   initFinishTab();
 }
 
+async function _maybeAutoMatchCustomer(slot) {
+  // 이미 고객 지정돼 있거나 모듈 미로드면 스킵
+  if (!slot || slot.customer_id || !window.PhotoMatch) return;
+  try {
+    const firstPhoto = (slot.photos || []).find(p => p && (p.file || p.dataUrl || p.blob));
+    if (!firstPhoto) return;
+    const file = firstPhoto.file || null;
+    if (!file) return;  // dataUrl 만 있으면 EXIF 파싱 건너뛰기 (간소)
+    const takenAt = await window.PhotoMatch.readTakenAt(file);
+    if (!takenAt) return;
+    const picked = await window.PhotoMatch.suggestCustomer(takenAt, { selectedId: slot.customer_id });
+    if (picked && picked.id) {
+      slot.customer_id = picked.id;
+      slot.customer_name = picked.name;
+      try { await saveSlotToDB(slot); } catch (_) {}
+    }
+  } catch (e) { console.warn('[photo-match] 실패:', e); }
+}
+
 async function _saveSlotToGallery(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot) return;
+  await _maybeAutoMatchCustomer(slot);
   try {
     await saveToGallery(slot);
     showToast('갤러리에 보관됐어요 📁');
@@ -269,6 +289,7 @@ async function _saveSlotToGallery(slotId) {
 async function publishSlotToInstagram(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
+  await _maybeAutoMatchCustomer(slot);
   const visPhotos = slot.photos.filter(p => !p.hidden);
   const photo = visPhotos[0] || slot.photos[0];
   const fullCaption = (slot.caption || '') + (slot.hashtags ? '\n\n' + slot.hashtags : '');
