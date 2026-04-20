@@ -818,6 +818,6 @@ async function doPlanAction() {
       }
     } catch(e) { alert('서버 연결 실패'); }
   } else {
-    alert('플랜 변경은 고객센터로 문의해주세요.\nitdasy.official@gmail.com');
+    alert('플랜 변경은 고객센터로 문의해주세요.\ncontact@itdasy.com');
   }
 }
