@@ -67,6 +67,11 @@
           <button onclick="closeDashboard()" style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.04);border:none;font-size:18px;cursor:pointer;" aria-label="닫기">✕</button>
         </header>
         <div id="dashBody" style="flex:1;overflow-y:auto;padding:8px 16px 24px;padding-bottom:max(80px,env(safe-area-inset-bottom));"></div>
+        <!-- 스토리 자동 생성 FAB -->
+        <button id="dashStoryFab" aria-label="스토리 만들기"
+                style="position:absolute;right:18px;bottom:calc(156px + env(safe-area-inset-bottom));width:48px;height:48px;border-radius:50%;border:none;background:linear-gradient(135deg,#FFD700,#FFA500);color:#fff;font-size:20px;cursor:pointer;box-shadow:0 6px 20px rgba(255,179,71,0.4);z-index:2;">
+          ✨
+        </button>
         <!-- AI 비서 FAB -->
         <button id="dashAssistantFab" aria-label="AI 비서"
                 style="position:absolute;right:18px;bottom:calc(92px + env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#A78BFA,#8B5CF6);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 6px 20px rgba(139,92,246,0.35);z-index:2;">
@@ -94,6 +99,11 @@
     if (asst) asst.addEventListener('click', () => {
       if (window.hapticMedium) window.hapticMedium();
       if (typeof window.openAssistant === 'function') window.openAssistant();
+    });
+    const story = sheet.querySelector('#dashStoryFab');
+    if (story) story.addEventListener('click', () => {
+      if (window.hapticMedium) window.hapticMedium();
+      if (typeof window.openStory === 'function') window.openStory();
     });
     return sheet;
   }
