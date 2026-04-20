@@ -1821,6 +1821,63 @@
         "properties": { "ok": { "type": "boolean" } },
         "required": ["ok"]
       }
+    },
+    "GET /inventory": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/models/InventoryItem" }
+          }
+        },
+        "required": ["items"]
+      }
+    },
+    "POST /inventory": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 50 },
+          "unit": { "type": "string", "maxLength": 10, "default": "개" },
+          "quantity": { "type": "integer", "minimum": 0 },
+          "threshold": { "type": "integer", "minimum": 0, "default": 5 },
+          "category": { "type": "string", "enum": ["nail", "lash", "skin", "hair", "etc"], "default": "etc" }
+        },
+        "required": ["name"]
+      },
+      "response": { "$ref": "#/models/InventoryItem" }
+    },
+    "PATCH /inventory/{item_id}": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "unit": { "type": "string" },
+          "quantity": { "type": "integer", "minimum": 0 },
+          "threshold": { "type": "integer", "minimum": 0 },
+          "category": { "type": "string" }
+        }
+      },
+      "response": { "$ref": "#/models/InventoryItem" }
+    },
+    "POST /inventory/{item_id}/adjust": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "delta": { "type": "integer", "description": "양수=입고, 음수=출고" },
+          "reason": { "type": ["string", "null"], "maxLength": 100 }
+        },
+        "required": ["delta"]
+      },
+      "response": { "$ref": "#/models/InventoryItem" }
+    },
+    "DELETE /inventory/{item_id}": {
+      "response": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean" } },
+        "required": ["ok"]
+      }
     }
   },
   "models": {
@@ -1881,6 +1938,21 @@
         "deleted_at": { "type": ["string", "null"], "format": "date-time" }
       },
       "required": ["id", "shop_id", "starts_at", "ends_at", "status", "created_at"]
+    },
+    "InventoryItem": {
+      "description": "소모품 재고 품목. 임계치 이하 시 부족 알림.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "shop_id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 50 },
+        "unit": { "type": "string", "maxLength": 10, "default": "개" },
+        "quantity": { "type": "integer", "minimum": 0 },
+        "threshold": { "type": "integer", "minimum": 0 },
+        "category": { "type": "string", "enum": ["nail", "lash", "skin", "hair", "etc"], "default": "etc" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "shop_id", "name", "quantity", "threshold"]
     },
     "ServiceEntry": {
       "description": "대표 서비스 항목 (프론트 Q2 스펙).",

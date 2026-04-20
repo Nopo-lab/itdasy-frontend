@@ -137,23 +137,25 @@
 
 ### Phase 3 — 한국 1인샵 차별화 (12~14주)
 
-| 상태 | 파일 | 변경 내용 | 예상 라인 |
-|---|---|---|---|
-| 🔴 | `itdasy_backend/routers/naver_review.py` | 네이버 플레이스 URL 파싱 + 리뷰 메타 추출 | ~350 |
-| 🟡 | `app-gallery-review.js` | 네이버 리뷰 스티커 자동 생성 (현재 UI만) | +250 |
-| 🔴 | `itdasy_backend/routers/nps.py` | NPS 설문 발송·수집·집계 | ~300 |
-| 🔴 | `itdasy_backend/services/video.py` | ffmpeg 비포/애프터 → 릴스(MP4) 자동 생성 | ~400 |
-| 🔴 | `itdasy_backend/routers/inventory.py` | 소모품 DB + 시술별 자동 차감 + 임계치 알림 | ~400 |
-| 🔴 | `itdasy_backend/migrations/20260701_inventory.sql` | `inventory_items`, `service_material_map` | ~40 |
-| 🟡 | `app-revenue.js` | 시술 인센티브 계산기 탭 추가 | +200 |
-| 🔴 | `app-inventory.js` | 재고 입고·출고·알림 UI | ~350 |
-| 🟡 | `index.html` | 재고 탭 | +50 |
+| 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
+|---|---|---|---|---|
+| 🔴 | `itdasy_backend/routers/naver_review.py` | 네이버 플레이스 URL 파싱 + 리뷰 메타 추출 | ~350 | ⏳ 백엔드 대기 |
+| 🟡 | `app-gallery-review.js` | 기존 Gemini Vision 스티커 유지. 네이버 URL 연동은 백엔드 배포 후 | +250 | ⏸ 백엔드 의존 |
+| 🔴 | `itdasy_backend/routers/nps.py` | NPS 설문 발송·수집·집계 | ~300 | ⏳ 백엔드 대기 |
+| 🔴 | `itdasy_backend/services/video.py` | ffmpeg 비포/애프터 → 릴스(MP4) | ~400 | ⏳ 백엔드 대기 |
+| 🔴 | `itdasy_backend/routers/inventory.py` | 소모품 DB + 시술별 자동 차감 + 임계치 알림 | ~400 | ⏳ 백엔드 대기 |
+| 🔴 | `app-inventory.js` | 재고 입고·출고·부족 알림 UI + 오프라인 폴백 | **317** | ✅ |
+| 🟡 | `shared/schemas.json` | `InventoryItem` 모델 + 5개 엔드포인트(GET/POST/PATCH/adjust/DELETE) | **+72** | ✅ |
+| 🟡 | `app-revenue.js` | 시술 인센티브 계산 카드(월 탭) — 매출×(1−재료비%)−고정비 | **+51** | ✅ |
+| 🟡 | `index.html` | 설정시트 `📦 재고 관리` 행 + script 태그 | **+4** | ✅ |
 
-**Phase 3 완료 기준**
-- [ ] NPS 응답률 ≥25%, 별점 4.5+ 자동 네이버 리뷰 유도 딥링크 작동
-- [ ] 숏폼 자동 생성 평균 ≤30초
-- [ ] 재고 차감 오탐 ≤5% (3샵 베타)
-- [ ] 샵당 네이버 리뷰 수집 ≥10건/월
+**Phase 3 완료 기준 (2026-04-20 프론트 1차 검증)**
+- [x] 재고 UI: 부족 알림 배지 + 입고/출고 ±1 버튼 + 오프라인 폴백 동작
+- [x] 시술 인센티브 계산 카드: 월 매출 기반 순수익 계산 + 재료비%·고정비 설정
+- [ ] NPS 응답률 ≥25% (🔴 백엔드 nps.py 필요)
+- [ ] 숏폼 자동 생성 ≤30초 (🔴 백엔드 ffmpeg 필요)
+- [ ] 재고 자동 차감 오탐 ≤5% (🔴 백엔드 service_material_map 필요)
+- [ ] 샵당 네이버 리뷰 ≥10건/월 (🔴 백엔드 naver_review.py 필요)
 
 ---
 
@@ -277,7 +279,8 @@
 | 2026-04-20 | `811f291` (연준) | Phase 2~5 로드맵 수립 |
 | 2026-04-20 | `54f9b6a` (연준) | Phase 2 P0-1 프론트 — Customer 스키마·app-customer.js·설정시트 진입 |
 | 2026-04-20 | `d654c2e` (연준) | Phase 2 P0-2/P0-3 프론트 — 포트폴리오↔고객 연계 + 매출 입력 대시보드 |
-| 2026-04-20 | (이번 커밋) | Phase 2 P2.2 + IAP 한도 + TECH_DEBT — 예약 캘린더 + Free 50명 가드 + 분할 계획 |
+| 2026-04-20 | `8da3671` (연준) | Phase 2 P2.2 + IAP 한도 + TECH_DEBT — 예약 캘린더 + Free 50명 가드 + 분할 계획 |
+| 2026-04-20 | (이번 커밋) | Phase 3 프론트 — 시술 인센티브 계산(2.5 확장) + 재고 UI(3.5) + Inventory 스키마 |
 
 ---
 

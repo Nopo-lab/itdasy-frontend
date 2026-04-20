@@ -189,6 +189,54 @@
     return (+n || 0).toLocaleString('ko-KR') + '원';
   }
 
+  // ── 인센티브 계산 (1인샵 본인 순수익) ────────────────────
+  const INCENTIVE_KEY = 'itdasy_incentive_settings_v1';
+  function _incentiveSettings() {
+    try {
+      const raw = localStorage.getItem(INCENTIVE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return { material_pct: 15, fixed_monthly: 0 }; // 재료비 15%, 월고정비 0
+  }
+  function _saveIncentive(s) {
+    try { localStorage.setItem(INCENTIVE_KEY, JSON.stringify(s)); } catch (_) {}
+  }
+  function _calcIncentive(totalKRW) {
+    const s = _incentiveSettings();
+    const material = Math.round(totalKRW * (s.material_pct / 100));
+    const net = totalKRW - material - (s.fixed_monthly || 0);
+    return { gross: totalKRW, material, fixed: s.fixed_monthly || 0, net, settings: s };
+  }
+  function _renderIncentiveCard(totalKRW) {
+    const c = _calcIncentive(totalKRW);
+    return `
+      <div style="margin-top:14px;padding:12px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:12px;">
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
+          <strong style="font-size:13px;">이번달 순수익</strong>
+          <button id="incentiveSettingsBtn" style="margin-left:auto;background:none;border:none;font-size:11px;color:#888;cursor:pointer;">⚙ 설정</button>
+        </div>
+        <div style="font-size:24px;font-weight:800;color:#388e3c;">${_formatKRW(c.net)}</div>
+        <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#666;">
+          <span>매출 ${_formatKRW(c.gross)}</span>
+          <span>− 재료비 ${_formatKRW(c.material)} (${c.settings.material_pct}%)</span>
+          ${c.fixed > 0 ? `<span>− 고정비 ${_formatKRW(c.fixed)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+  function _openIncentiveSettings() {
+    const s = _incentiveSettings();
+    const pct = prompt('재료비율 (%) — 매출 중 재료비로 차감할 비율', String(s.material_pct));
+    if (pct === null) return;
+    const fixed = prompt('월 고정비 (원) — 월세·통신·보험 등', String(s.fixed_monthly));
+    if (fixed === null) return;
+    const np = Math.max(0, Math.min(100, parseFloat(pct) || 0));
+    const nf = Math.max(0, parseInt(fixed, 10) || 0);
+    _saveIncentive({ material_pct: np, fixed_monthly: nf });
+    if (window.showToast) window.showToast('설정 저장됨');
+    _rerender();
+  }
+
   // ── UI ──────────────────────────────────────────────────
   function _ensureSheet() {
     let sheet = document.getElementById('revenueSheet');
@@ -239,8 +287,11 @@
       </div>
     `;
 
-    sheet.querySelector('#revenueChart').innerHTML = _renderChart(_aggregate(_items, _currentPeriod));
+    sheet.querySelector('#revenueChart').innerHTML = _renderChart(_aggregate(_items, _currentPeriod)) +
+      (_currentPeriod === 'month' ? _renderIncentiveCard(total) : '');
     sheet.querySelector('#revenueOfflineBadge').style.display = _isOffline ? 'inline-block' : 'none';
+    const incBtn = sheet.querySelector('#incentiveSettingsBtn');
+    if (incBtn) incBtn.addEventListener('click', _openIncentiveSettings);
 
     const listEl = sheet.querySelector('#revenueList');
     if (!_items.length) {
