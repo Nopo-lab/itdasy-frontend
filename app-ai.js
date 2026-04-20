@@ -84,6 +84,17 @@ function _renderAiRecommendTab(root, slots) {
     // 테두리 색상: 완성=초록, 미완성=주황, deferred=노랑, 체크=핑크
     const borderColor = isChecked ? 'var(--accent)' : isComplete ? 'rgba(76,175,80,0.35)' : isDeferred ? 'rgba(255,193,7,0.4)' : 'rgba(255,152,0,0.35)';
 
+    // 완성된 슬롯은 "인스타 즉시 올리기" 버튼 카드에 직접 노출
+    const actionBtns = isComplete ? `
+      <div style="margin-top:10px;">
+        <button onclick="_quickPublishFromAi('${slot.id}',event)" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">🚀 인스타 바로 올리기</button>
+      </div>
+    ` : (hasPhotos && !hasCaption) ? `
+      <div style="margin-top:10px;">
+        <button onclick="_goToSlotStep('${slot.id}')" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:1.5px solid var(--accent2);background:#fff5f7;color:var(--accent);font-size:12px;font-weight:800;cursor:pointer;">✍️ 글쓰기 → 캡션 만들기</button>
+      </div>
+    ` : '';
+
     return `
       <div data-ai-card="${slot.id}" style="background:#fff;border:1.5px solid ${borderColor};border-radius:16px;padding:12px;margin-bottom:10px;position:relative;">
         <!-- 체크박스 -->
@@ -104,6 +115,7 @@ function _renderAiRecommendTab(root, slots) {
             <div style="font-size:11px;color:var(--text2);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${capPreview}</div>
           </div>
         </div>
+        ${actionBtns}
       </div>`;
   }).join('');
 
@@ -201,35 +213,51 @@ async function _goToSlotStep(slotId) {
   }
 }
 
+// =====================================================================
+// ===== AI 추천 카드 퀵 액션 (즉시 인스타 / 예약) =====
+// =====================================================================
+async function _quickPublishFromAi(slotId, e) {
+  e?.stopPropagation();
+  // app-gallery-finish.js에 이미 있는 publishSlotToInstagram 재사용
+  if (typeof publishSlotToInstagram === 'function') {
+    if (typeof _slots === 'undefined' || !_slots || _slots.length === 0) {
+      try { _slots = await loadSlotsFromDB(); } catch(_e) { _slots = []; }
+    }
+    return publishSlotToInstagram(slotId);
+  }
+  showToast('잠시 후 다시 시도해주세요');
+}
 
 // =====================================================================
-// ===== 예약 송출 =====
+// ===== 인스타그램 발행 공용 헬퍼 (app-gallery.js 등에서 호출) =====
 // =====================================================================
-async function createSchedule() {
-  const dt = document.getElementById('scheduleDateTime')?.value;
-  if (!dt) { showToast('날짜와 시간을 선택해주세요!'); return; }
-  const caption = document.getElementById('captionText')?.value || '';
-  const hash = document.getElementById('captionHash')?.value || '';
-  const hashtags = hash.replace(/#/g, '').split(/\s+/).filter(Boolean).join(',');
-  const imageUrl = window._lastPublishedImageUrl || '';
+async function doInstagramPublish(imageUrl, captionText) {
+  const upPopup = document.getElementById('uploadProgressPopup');
   try {
-    const res = await fetch(API + '/schedule', {
+    upPopup.style.display = 'flex';
+    setUploadProgress(10, '인스타 연결 중...');
+    const res = await fetch(API + '/instagram/publish', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({
-        image_url: imageUrl,
-        caption: caption.trim(),
-        hashtags,
-        scheduled_at: new Date(dt).toISOString(),
-      }),
+      headers: { ...authHeader(), 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      body: JSON.stringify({ image_url: imageUrl, caption: captionText }),
     });
-    if (!res.ok) throw new Error((await res.json()).detail || '예약 실패');
-    const panel = document.getElementById('schedulePanel');
-    if (panel) panel.style.display = 'none';
-    const btn = document.getElementById('scheduleToggleBtn');
-    if (btn) btn.style.display = 'none';
-    showToast('예약 등록됐어요! ⏰ ' + dt.replace('T', ' '));
+    setUploadProgress(90, '업로드 완료 처리 중...');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      upPopup.style.display = 'none';
+      showToast('업로드 실패: ' + (err.detail || '인스타 연결을 확인해주세요'));
+      return false;
+    }
+    upPopup.style.display = 'none';
+    const donePopup = document.getElementById('uploadDonePopup');
+    const doneMsg = document.getElementById('uploadDoneMsg');
+    if (doneMsg) doneMsg.textContent = '인스타 피드에 올라갔어요 ✨';
+    if (donePopup) donePopup.style.display = 'flex';
+    return true;
   } catch(e) {
-    showToast('예약 실패: ' + e.message);
+    upPopup.style.display = 'none';
+    showToast('업로드 오류: ' + e.message);
+    return false;
   }
 }
+

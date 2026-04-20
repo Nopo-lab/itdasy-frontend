@@ -66,6 +66,8 @@ function _renderShell() {
   <div class="sec-title">페르소나 설정</div>
   <div class="sec-sub">포스트를 수집하고 서명블록을 관리합니다</div>
 
+  ${_renderIdentityBlock()}
+
   ${_renderConsentBlock()}
 
   <!-- ── 블록 A: 포스트 수집 ──────────────────────── -->
@@ -413,6 +415,137 @@ async function _deleteSig(id) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// 기본정보 블록 (C4-UI: 필수 5개)
+// ─────────────────────────────────────────────────────────────────
+function _renderIdentityBlock() {
+  const ageKeys    = Object.keys(AGE_LABELS);
+  const genderKeys = Object.keys(GENDER_LABELS);
+
+  const audienceBoxes = ageKeys.map(age =>
+    genderKeys.map(gender =>
+      `<label style="font-size:11px;color:var(--text2);display:flex;align-items:center;gap:3px;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="pid-aud-${age}_${gender}" value="${age}_${gender}" onchange="_updateIdStatus();">
+        ${_esc(AGE_LABELS[age])}/${_esc(GENDER_LABELS[gender])}
+      </label>`
+    ).join('')
+  ).join('');
+
+  const svcBlocks = Object.entries(SUPPORTED_CATEGORIES).map(([label, key]) =>
+    `<div style="margin-bottom:8px;">
+      <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" id="pid-svc-${key}" value="${key}" onchange="_updateIdStatus();">
+        <span style="font-weight:600;">${_esc(label)}</span>
+      </label>
+      <div style="margin-top:5px;padding-left:20px;">
+        <input id="pid-sub-${key}" type="text"
+          placeholder="세부시술 (쉼표 구분, 최대 10개)"
+          style="width:100%;box-sizing:border-box;font-size:11px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text2);">
+      </div>
+    </div>`
+  ).join('');
+
+  const toneRadios = TONE_OPTIONS.map(t =>
+    `<label style="display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;cursor:pointer;">
+      <input type="radio" name="pid-tone" id="pid-tone-${t.key}" value="${t.key}" style="margin-top:2px;" onchange="_updateIdStatus();">
+      <span style="font-size:12px;">
+        <span style="font-weight:700;color:var(--text);">${_esc(t.label)}</span>
+        <span style="color:var(--text3);margin-left:6px;">${_esc(t.example)}</span>
+      </span>
+    </label>`
+  ).join('');
+
+  return `
+  <div style="margin-bottom:16px;background:#fff;border-radius:16px;border:1px solid var(--border);padding:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:800;color:var(--text);">기본정보</div>
+      <span id="_pIdStatus" style="font-size:11px;color:var(--text3);">필수 0/5 완료</span>
+    </div>
+
+    <!-- Q1 shop_name_intro -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q1. 샵 소개 한 줄 <span style="color:var(--accent);">*</span></div>
+      <div style="position:relative;">
+        <input id="pid-shop_name_intro" type="text" maxlength="50"
+          placeholder="예: 강남역 근처 붙임머리 전문 네일 샵"
+          oninput="document.getElementById('pid-sni-count').textContent=this.value.length+'/50';_updateIdStatus();"
+          style="width:100%;box-sizing:border-box;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:8px 48px 8px 10px;">
+        <span id="pid-sni-count" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--text3);">0/50</span>
+      </div>
+    </div>
+
+    <!-- Q2 services -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q2. 제공 시술 <span style="color:var(--accent);">*</span></div>
+      ${svcBlocks}
+    </div>
+
+    <!-- Q3 target_audience -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q3. 주요 고객층 <span style="color:var(--accent);">*</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px 12px;">${audienceBoxes}</div>
+    </div>
+
+    <!-- Q4 tone_preference -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q4. 톤 선호도 <span style="color:var(--accent);">*</span></div>
+      ${toneRadios}
+    </div>
+
+    <!-- Q8 location -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q8. 위치 <span style="color:var(--accent);">*</span></div>
+      <input id="pid-location" type="text" maxlength="100"
+        placeholder="예: 서울 강남구 역삼동"
+        oninput="_updateIdStatus();"
+        style="width:100%;box-sizing:border-box;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;">
+    </div>
+
+    <!-- ── 선택 필드 구분선 ───────────── -->
+    <div style="border-top:1px dashed var(--border);margin:14px 0 14px;"></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;">선택 항목 (미입력 가능)</div>
+
+    <!-- Q5 nicknames -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q5. 닉네임 <span style="font-size:10px;font-weight:400;color:var(--text3);">최대 5개</span></div>
+      <div id="pid-nick-tags" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px;min-height:24px;"></div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="pid-nick-inp" type="text" placeholder="닉네임 입력 후 Enter"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();_addNicknameTag();}"
+          style="flex:1;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;">
+        <span id="pid-nick-hint" style="font-size:11px;color:var(--text3);white-space:nowrap;"></span>
+      </div>
+    </div>
+
+    <!-- Q6 signature_vocab -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q6. 자주 쓰는 표현 <span style="font-size:10px;font-weight:400;color:var(--text3);">쉼표 구분, 최대 20개</span></div>
+      <input id="pid-sig-vocab" type="text"
+        placeholder="예: 완성, 예쁘다, 추천"
+        style="width:100%;box-sizing:border-box;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:8px 10px;">
+    </div>
+
+    <!-- Q9 personality_line -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">Q9. 브랜드 한 마디 <span style="font-size:10px;font-weight:400;color:var(--text3);">최대 200자</span></div>
+      <div style="position:relative;">
+        <textarea id="pid-personality" rows="3" maxlength="200"
+          placeholder="예: 손님 한 분 한 분의 개성을 살려드리는 샵입니다."
+          oninput="document.getElementById('pid-plc-count').textContent=this.value.length+'/200';"
+          style="width:100%;box-sizing:border-box;font-size:12px;border:1px solid var(--border);border-radius:8px;padding:8px 10px 8px 10px;resize:vertical;"></textarea>
+        <span id="pid-plc-count" style="position:absolute;right:10px;bottom:8px;font-size:10px;color:var(--text3);">0/200</span>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="pid-saveBtn" onclick="_saveIdentity()"
+        style="padding:10px 24px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:700;cursor:pointer;">
+        저장
+      </button>
+      <span id="pid-saveMsg" style="font-size:12px;color:var(--text3);"></span>
+    </div>
+  </div>`;
+}
 
 function _updateIdStatus() {
   let done = 0;

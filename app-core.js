@@ -1,10 +1,46 @@
 // Itdasy Studio - Core (설정, 인증, 유틸, 탭, 온보딩)
 
+// ===== 프로덕션 console 무력화 =====
+// localhost·?debug=1 제외한 실사용자 환경에선 console.log/info/warn/debug 를
+// no-op 으로 대체. 민감 정보 유출 + 심사관 devtools 열었을 때 잡음 방지.
+// error 는 유지 (실제 에러 추적 위해).
+(function _muzzleConsole() {
+  const isLocal = (typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1'));
+  const isDebug = (typeof location !== 'undefined' && location.search && location.search.includes('debug=1'));
+  if (isLocal || isDebug) return;
+  const noop = function() {};
+  if (typeof console !== 'undefined') {
+    console.log = noop;
+    console.info = noop;
+    console.warn = noop;
+    console.debug = noop;
+    // console.error 는 유지 — Sentry 등에서 캐치용
+  }
+})();
+
 // ===== 백엔드 설정 =====
+// 이 레포(itdasy-frontend-test-yeunjun)는 연준 스테이징 전용 → 스테이징 백엔드 바라봄
+// 운영 레포(itdasy-frontend)는 프로덕션 백엔드(itdasy260417-production)를 사용해야 함
 const PROD_API = 'https://itdasy260417-production.up.railway.app';
 const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:8000'
   : PROD_API;
+
+// ===== 토큰 localStorage 키를 백엔드별로 분리 =====
+// nopo-lab.github.io는 운영/스테이징 프론트가 같은 origin이라 localStorage 공유.
+// 백엔드가 다르면(운영 vs 스테이징) JWT 서명이 달라서 크로스 오염 시 401 "인증 실패" 발생.
+// → API URL 기반으로 토큰 키를 분리해서 완전 격리.
+const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
+// 구버전 토큰 자동 마이그레이션 (한 번만 실행)
+(function migrateLegacyToken(){
+  try {
+    const legacy = localStorage.getItem('itdasy_token');
+    if (legacy && !localStorage.getItem(_TOKEN_KEY)) {
+      // 현재 API가 스테이징인데 기존 토큰이 존재하면 보수적으로 정리 (어느 백엔드 토큰인지 알 수 없음)
+      localStorage.removeItem('itdasy_token');
+    }
+  } catch(_){}
+})();
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
 
@@ -45,26 +81,10 @@ function hideInstallGuide() {
   setTimeout(() => { el.style.display = 'none'; }, 300);
 }
 
-async function loadSubscriptionBadge() {
-  try {
-    const r = await fetch(API + '/subscription/status', { headers: authHeader() });
-    if (!r.ok) return;
-    const d = await r.json();
-    const badge = document.getElementById('planBadge');
-    if (badge) {
-      const labels = { free: 'Free', pro: 'Pro', premium: 'Premium' };
-      badge.textContent = labels[d.plan] || 'Free';
-      badge.style.background = d.plan === 'pro' ? 'linear-gradient(135deg,#f18091,#ff9aa8)' : d.plan === 'premium' ? 'linear-gradient(135deg,#833ab4,#fd1d1d)' : '#e0e0e0';
-      badge.style.color = d.plan === 'free' ? '#888' : '#fff';
-    }
-  } catch(e) {}
-}
-
 function updateHeaderProfile(handle, tone, picUrl) {
   const el = document.getElementById('headerPersona');
   if (!el) return;
   el.style.display = 'flex';
-  loadSubscriptionBadge();
 
   const shopName = localStorage.getItem('shop_name') || '사장님';
   const shopNameEl = document.getElementById('headerShopName');
@@ -246,18 +266,24 @@ document.getElementById('obShopNameInput').addEventListener('keydown', e => {
 });
 
 function getToken() {
-  const t = localStorage.getItem('itdasy_token');
+  const t = localStorage.getItem(_TOKEN_KEY);
   if (!t) return null;
   try {
     const payload = JSON.parse(atob(t.split('.')[1]));
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
-      localStorage.removeItem('itdasy_token');
+      localStorage.removeItem(_TOKEN_KEY);
       return null;
     }
   } catch { return null; }
   return t;
 }
-function setToken(t) { localStorage.setItem('itdasy_token', t); }
+function setToken(t) {
+  if (t === null || t === undefined) {
+    localStorage.removeItem(_TOKEN_KEY);
+  } else {
+    localStorage.setItem(_TOKEN_KEY, t);
+  }
+}
 function authHeader() { return { 'Authorization': 'Bearer ' + getToken(), 'ngrok-skip-browser-warning': 'true' }; }
 
 function getMyUserId() {
@@ -329,8 +355,8 @@ function closeSettings() {
   setTimeout(() => { sheet.style.display = 'none'; }, 280);
 }
 
-function resetShopSetup() {
-  if (!confirm('샵 이름과 종류를 다시 설정할까요?')) return;
+async function resetShopSetup() {
+  if (!(await nativeConfirm("확인", '샵 이름과 종류를 다시 설정할까요?'))) return;
   localStorage.removeItem('shop_name');
   localStorage.removeItem('shop_type');
   localStorage.removeItem('onboarding_done');
@@ -339,7 +365,7 @@ function resetShopSetup() {
 }
 
 async function localReset() {
-  if (!confirm('앱을 처음 상태로 초기화할까요?\n(로그인은 유지됩니다)')) return;
+  if (!(await nativeConfirm("확인", '앱을 처음 상태로 초기화할까요?\n(로그인은 유지됩니다)'))) return;
   ['itdasy_consented','itdasy_consented_at','itdasy_latest_analysis',
    'onboarding_done','shop_name','shop_type'].forEach(k => localStorage.removeItem(k));
   // 인스타 연동도 백엔드에서 해제
@@ -355,18 +381,18 @@ function checkCbt1Reset() {
 }
 
 async function fullReset() {
-  if (!confirm('⚠️ 모든 데이터(온보딩·샵설정·인스타연동·말투분석)가 초기화됩니다.\n정말 처음부터 시작할까요?')) return;
+  if (!(await nativeConfirm("확인", '⚠️ 모든 데이터(온보딩·샵설정·인스타연동·말투분석)가 초기화됩니다.\n정말 처음부터 시작할까요?'))) return;
   try {
     const res = await fetch(API + '/admin/reset', { method: 'POST', headers: authHeader() });
     if (!res.ok) throw new Error('초기화 실패');
-    ['itdasy_token','itdasy_consented','itdasy_consented_at','itdasy_latest_analysis','onboarding_done','shop_name','shop_type','itdasy_master_set'].forEach(k => localStorage.removeItem(k));
+    [_TOKEN_KEY,'itdasy_token','itdasy_consented','itdasy_consented_at','itdasy_latest_analysis','onboarding_done','shop_name','shop_type','itdasy_master_set'].forEach(k => localStorage.removeItem(k));
     // 말투 카드 즉시 숨기기
     const pd = document.getElementById('personaDash');
     if (pd) { pd.style.display = 'none'; const pc = document.getElementById('personaContent'); if (pc) pc.innerHTML = ''; }
-    alert('초기화 완료! 처음부터 시작합니다.');
-    location.reload();
+    showToast('초기화 완료! 처음부터 시작합니다.');
+    setTimeout(() => location.reload(), 800);
   } catch(e) {
-    alert('오류: ' + e.message);
+    showToast('초기화 중 오류가 발생했습니다.');
   }
 }
 
@@ -379,20 +405,19 @@ function handle401() {
 }
 
 async function logout() {
-  if (!confirm("로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다.")) return;
+  if (!(await nativeConfirm("확인", "로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다."))) return;
 
   // 1. 토큰 및 로컬 스토리지 삭제
   setToken(null);
   // 세션 관련 키만 삭제 (온보딩 등 설정 유지)
-  ['itdasy_token', 'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis'].forEach(k => localStorage.removeItem(k));
+  [_TOKEN_KEY, 'itdasy_token', 'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis'].forEach(k => localStorage.removeItem(k));
 
   // 2. 서비스 워커 캐시 강제 삭제
   if ('caches' in window) {
     try {
       const keys = await caches.keys();
       await Promise.all(keys.map(key => caches.delete(key)));
-      console.log('Caches cleared');
-    } catch (e) { console.error('Cache clear fail', e); }
+    } catch (e) { /* cache clear best-effort */ }
   }
 
   // 3. 페이지 새로고침 (클린 캐시 상태로 진입)
@@ -571,23 +596,74 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/itdasy-frontend/sw.js')
+window.APP_BUILD = '20260420-v21';
+function _updateVersionBadge(swVer) {
+  const el = document.getElementById('appVersionBadge');
+  if (!el) return;
+  const v = swVer || window.APP_BUILD || '?';
+  el.textContent = 'v' + v.replace(/^20\d{6}-?/, '');
+  el.title = '빌드: ' + v + ' (탭하면 최근 로그)';
+  if (swVer && window.APP_BUILD && swVer !== window.APP_BUILD && !sessionStorage.getItem('cache_busted')) {
+    console.warn('[SW] 버전 불일치 감지 — 캐시 전부 삭제 후 리로드. active=' + swVer + ' / bundle=' + window.APP_BUILD);
+    sessionStorage.setItem('cache_busted', '1');
+    (async () => {
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      } catch (_) {}
+      location.reload();
+    })();
+  }
+}
+document.addEventListener('DOMContentLoaded', () => _updateVersionBadge(window.APP_BUILD));
+
+const _isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+if ('serviceWorker' in navigator && !_isCapacitor) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => {
+      const u = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
+      if (u && !u.endsWith('/sw.js')) {
+        console.warn('[SW] 구 SW 언레지스터:', u);
+        reg.unregister();
+      }
+    });
+  }).catch(() => {});
+
+  navigator.serviceWorker.register('sw.js', { scope: './' })
     .then(reg => {
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'activated') {
-            console.log('[SW] 새 버전 적용됨 — 캐시 갱신 완료');
-          }
+      const askVersion = () => {
+        const ch = new MessageChannel();
+        ch.port1.onmessage = (ev) => {
+          if (ev.data && ev.data.version) _updateVersionBadge(ev.data.version);
+        };
+        (navigator.serviceWorker.controller || reg.active)?.postMessage({ type: 'GET_VERSION' }, [ch.port2]);
+      };
+      if (reg.active) askVersion();
+      else reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        nw?.addEventListener('statechange', () => {
+          if (nw.state === 'activated') askVersion();
         });
       });
+      navigator.serviceWorker.addEventListener('controllerchange', askVersion);
     })
-    .catch(err => console.warn('[SW] 등록 실패:', err));
+    .catch(err => {
+      console.warn('[SW] 등록 실패:', {
+        name: err?.name, message: err?.message, code: err?.code,
+        toString: String(err), loc: location.href, origin: location.origin,
+      });
+    });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
+} else if (_isCapacitor) {
+  console.log('[SW] Capacitor 네이티브 — SW 미사용 (WebView 자체 캐시)');
 }
 
 // ───── Pull-to-Refresh (iOS PWA 전용) ─────
@@ -698,126 +774,99 @@ if ('serviceWorker' in navigator) {
   });
 })();
 
-// Module에서 접근 가능하도록 window에 노출
-window.API = API;
-window.authHeader = authHeader;
-
-// 비밀번호 재설정 요청
-async function forgotPassword() {
-  const email = document.getElementById('loginEmail').value;
-  if (!email) { alert('이메일을 먼저 입력해주세요.'); return; }
-  try {
-    const r = await fetch(API + '/auth/forgot-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    const d = await r.json();
-    alert(d.message || '재설정 링크를 이메일로 보냈습니다.');
-  } catch(e) { alert('서버 연결 실패'); }
-}
-
-// ── 구독 플랜 팝업 ──
-let _selectedPlan = 'pro';
-let _currentPlan = 'free';
-
-function openPlanPopup() {
-  const popup = document.getElementById('planPopup');
-  popup.style.display = 'flex';
-  popup.onclick = (e) => { if (e.target === popup) closePlanPopup(); };
-  loadPlanUsage();
-  _selectedPlan = 'pro';
-  highlightCurrentPlan();
-}
-
-function closePlanPopup() {
-  document.getElementById('planPopup').style.display = 'none';
-}
-
-async function loadPlanUsage() {
+// ──────────────────────────────────────────────
+// 통계 카드 데이터 로드 (Subscription usage 기반)
+// ──────────────────────────────────────────────
+async function loadStatsCard() {
   try {
     const r = await fetch(API + '/subscription/usage', { headers: authHeader() });
     if (!r.ok) return;
     const d = await r.json();
-    _currentPlan = d.plan;
-    const box = document.getElementById('planUsageContent');
-    box.innerHTML = `
-      캡션 생성: <b>${d.caption.used}/${d.caption.limit === 999 ? '무제한' : d.caption.limit}</b> (${d.caption.period === 'daily' ? '오늘' : '이번 달'})<br>
-      누끼: <b>${d.removebg.used}/${d.removebg.limit === 999 ? '무제한' : d.removebg.limit}</b> (${d.removebg.period === 'daily' ? '오늘' : '이번 달'})<br>
-      인스타 발행: <b>${d.publish.used}/${d.publish.limit === 999 ? '무제한' : d.publish.limit}</b> (이번 달)<br>
-      AI 분석: <b>${d.analyze.used}/${d.analyze.limit === 999 ? '무제한' : d.analyze.limit}</b> (이번 달)
-    `;
-    highlightCurrentPlan();
-  } catch(e) {}
+    const cap = document.getElementById('statCaptions');
+    const pub = document.getElementById('statPosts');
+    if (cap) cap.textContent = d.caption?.used ?? 0;
+    if (pub) pub.textContent = d.publish?.used ?? 0;
+  } catch(_) {}
 }
 
-function highlightCurrentPlan() {
-  ['free','pro','premium'].forEach(p => {
-    const card = document.getElementById('planCard' + p.charAt(0).toUpperCase() + p.slice(1));
-    if (card) {
-      if (p === _currentPlan) {
-        card.style.opacity = '1';
-        card.querySelector('div').insertAdjacentHTML('beforeend',
-          card.querySelector('.current-tag') ? '' : '<span class="current-tag" style="margin-left:8px;font-size:10px;background:#28a745;color:#fff;padding:2px 6px;border-radius:6px;">현재</span>');
+// ──────────────────────────────────────────────
+// 429 한도 초과 감지 → 플랜 팝업 자동 오픈 (Pro 전환 유도)
+// fetch 래핑해서 429 응답을 감시. 단일 이벤트만 발행해서 토스트·팝업 중복 방지.
+// ──────────────────────────────────────────────
+(function wrapFetchFor429() {
+  const origFetch = window.fetch;
+  let lastOpened = 0;
+  window.fetch = async function(...args) {
+    const r = await origFetch.apply(this, args);
+    if (r.status === 429) {
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
+      // API 도메인에 한정 (외부 요청 무시)
+      if (url.includes('railway.app') || url.startsWith(API)) {
+        const now = Date.now();
+        if (now - lastOpened > 3000 && typeof openPlanPopup === 'function') {
+          lastOpened = now;
+          try {
+            const clone = r.clone();
+            const j = await clone.json().catch(() => ({}));
+            showToast(j.detail || '사용 한도 초과 — 플랜을 확인해주세요');
+          } catch (_) {}
+          setTimeout(() => openPlanPopup(), 600);
+        }
       }
     }
-  });
-  updatePlanButton();
-}
+    return r;
+  };
+})();
 
-function selectPlan(plan) {
-  _selectedPlan = plan;
-  document.querySelectorAll('.plan-card').forEach(c => c.style.transform = 'scale(1)');
-  const card = document.getElementById('planCard' + plan.charAt(0).toUpperCase() + plan.slice(1));
-  if (card) card.style.transform = 'scale(1.02)';
-  updatePlanButton();
-}
+// Module에서 접근 가능하도록 window에 노출
+window.API = API;
+window.authHeader = authHeader;
 
-function updatePlanButton() {
-  const btn = document.getElementById('planActionBtn');
-  if (_selectedPlan === _currentPlan) {
-    btn.textContent = '현재 플랜입니다';
-    btn.style.background = '#e0e0e0';
-    btn.style.cursor = 'default';
-  } else if (_selectedPlan === 'free') {
-    btn.textContent = 'Free로 변경';
-    btn.style.background = '#888';
-    btn.style.cursor = 'pointer';
+// ──────────────────────────────────────────────
+// 보안 민감 버튼은 inline onclick 대신 addEventListener로 연결
+// (CSP strict 대비 + 핸들러 중복 바인딩 방지)
+// ──────────────────────────────────────────────
+(function bindCriticalHandlers() {
+  function on(id, fn) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', fn);
+  }
+  const ready = () => {
+    on('loginBtn', () => typeof login === 'function' && login());
+    on('logoutBtn', () => {
+      if (typeof closeSettings === 'function') closeSettings();
+      if (typeof logout === 'function') logout();
+    });
+    on('fullResetBtn', () => typeof fullReset === 'function' && fullReset());
+
+    // 플랜 팝업
+    on('planBadge', openPlanPopup);
+    on('planCloseBtn', closePlanPopup);
+    on('planActionBtn', doPlanAction);
+    document.querySelectorAll('.plan-card[data-plan]').forEach(card => {
+      card.addEventListener('click', () => selectPlan(card.dataset.plan));
+    });
+
+    // 홈의 "샘플 캡션 보기" 버튼 (연동 전 체험)
+    on('sampleBtn', () => {
+      if (typeof openSamplePopup === 'function') openSamplePopup();
+    });
+
+    // 통계 카드 Pro 업그레이드 버튼
+    on('statsUpgradeBtn', openPlanPopup);
+
+    // 통계 숫자 로드 (Subscription/usage 에서 가져옴)
+    loadStatsCard();
+
+    // 프로덕션(운영) 배포에서만 CBT 전용 버튼 숨김. yeunjun/test 레포는 유지.
+    if (location.pathname.startsWith('/itdasy-frontend/') || location.pathname === '/itdasy-frontend') {
+      const reset = document.getElementById('fullResetBtn');
+      if (reset) reset.style.display = 'none';
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ready);
   } else {
-    btn.textContent = _currentPlan === 'free' ? '14일 무료체험 시작하기' : `${_selectedPlan === 'pro' ? 'Pro' : 'Premium'}로 변경`;
-    btn.style.background = _selectedPlan === 'premium' ? 'linear-gradient(135deg,#833ab4,#fd1d1d)' : 'linear-gradient(135deg,#f18091,#ff9aa8)';
-    btn.style.cursor = 'pointer';
+    ready();
   }
-}
-
-async function doPlanAction() {
-  if (_selectedPlan === _currentPlan) return;
-
-  if (_selectedPlan === 'free') {
-    if (!confirm('Free 플랜으로 변경하면 기능이 제한됩니다. 계속할까요?')) return;
-    try {
-      await fetch(API + '/subscription/cancel', { method: 'POST', headers: authHeader() });
-      showToast('Free 플랜으로 변경되었습니다');
-      closePlanPopup();
-      loadSubscriptionBadge();
-    } catch(e) { alert('변경 실패'); }
-    return;
-  }
-
-  // Pro/Premium 선택
-  if (_currentPlan === 'free') {
-    try {
-      const r = await fetch(API + '/subscription/start-trial', { method: 'POST', headers: authHeader() });
-      const d = await r.json();
-      if (r.ok) {
-        showToast(d.message || '무료체험이 시작되었습니다!');
-        closePlanPopup();
-        loadSubscriptionBadge();
-      } else {
-        alert(d.detail || '실패');
-      }
-    } catch(e) { alert('서버 연결 실패'); }
-  } else {
-    alert('플랜 변경은 고객센터로 문의해주세요.\ncontact@itdasy.com');
-  }
-}
+})();

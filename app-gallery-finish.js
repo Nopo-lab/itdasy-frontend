@@ -1,5 +1,14 @@
 // Itdasy Studio - 마무리 탭 (app-gallery.js에서 분리)
 
+function escapeHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ═══════════════════════════════════════════════════════
 // 마무리 탭
 // ═══════════════════════════════════════════════════════
@@ -64,23 +73,24 @@ function _renderFinishTab(root, galleryItems = []) {
               <div style="font-size:13px;font-weight:800;color:var(--text);">${slot.label} ✅</div>
               ${slot.caption ? '<span style="font-size:9px;background:rgba(76,175,80,0.15);color:#388e3c;border-radius:4px;padding:1px 5px;font-weight:700;">캡션✓</span>' : ''}
               ${isDeferred ? '<span style="font-size:9px;background:rgba(255,193,7,0.15);color:#f57c00;border-radius:4px;padding:1px 5px;font-weight:700;">나중에</span>' : ''}
+              ${slot.customer_name ? `<span style="font-size:9px;background:rgba(241,128,145,0.15);color:var(--accent,#F18091);border-radius:4px;padding:1px 5px;font-weight:700;">👤 ${slot.customer_name.slice(0,6)}</span>` : ''}
             </div>
             <div style="font-size:11px;color:var(--text3);">${visPhotos.length}장</div>
             ${cap}
           </div>
-          <button onclick="openSlotPopup('${slot.id}')" style="flex-shrink:0;padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;font-size:11px;color:var(--text2);cursor:pointer;font-weight:600;">편집</button>
+          <button data-action="edit" style="flex-shrink:0;padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;font-size:11px;color:var(--text2);cursor:pointer;font-weight:600;">편집</button>
         </div>
-        <!-- 5가지 선택지 -->
+        <!-- 마무리 액션 -->
         <div style="display:flex;flex-direction:column;gap:6px;">
-          <button onclick="publishSlotToInstagram('${slot.id}')" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">📸 인스타에 올리기</button>
+          <button data-action="publish" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">🚀 인스타 바로 올리기</button>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-            <button onclick="_saveSlotToGallery('${slot.id}')" style="padding:10px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">📁 갤러리에만 보관</button>
-            <button onclick="downloadSlotPhotos('${slot.id}')" style="padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">📥 내 폰에 저장</button>
+            <button data-action="gallery" style="min-height:40px;padding:10px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">📁 갤러리 보관</button>
+            <button data-action="download" style="min-height:40px;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">📥 폰에 저장</button>
           </div>
           <div style="display:flex;gap:6px;">
-            <button onclick="_deferSlot('${slot.id}')" style="flex:1;padding:8px;border-radius:10px;border:1.5px solid rgba(255,193,7,0.5);background:transparent;color:#f57c00;font-size:11px;font-weight:700;cursor:pointer;">🕐 나중에</button>
-            <button onclick="deleteSlotFinish('${slot.id}')" style="padding:8px 14px;border-radius:10px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;color:#dc3545;font-size:11px;cursor:pointer;font-weight:600;">삭제</button>
-            <button onclick="showToast('슬롯이 유지돼요 🌸')" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text3);font-size:11px;cursor:pointer;">취소</button>
+            <button data-action="pickCustomer" style="flex:1;min-height:40px;padding:8px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent,#F18091);font-size:11px;font-weight:700;cursor:pointer;">👤 ${slot.customer_name ? slot.customer_name.slice(0,8) : '고객 지정'}</button>
+            <button data-action="defer" style="flex:1;min-height:40px;padding:8px;border-radius:10px;border:1.5px solid rgba(255,193,7,0.5);background:transparent;color:#f57c00;font-size:11px;font-weight:700;cursor:pointer;">🕐 나중에 (AI추천으로)</button>
+            <button data-action="delete" style="min-height:40px;padding:8px 14px;border-radius:10px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;color:#dc3545;font-size:11px;cursor:pointer;font-weight:600;">삭제</button>
           </div>
         </div>
       </div>
@@ -103,7 +113,7 @@ function _renderFinishTab(root, galleryItems = []) {
           ${items.map(item => {
             const thumb = item.photos?.[0];
             return thumb ? `
-              <div style="flex-shrink:0;width:80px;cursor:pointer;" onclick="_galleryItemDetail('${item.id}')">
+              <div style="flex-shrink:0;width:80px;cursor:pointer;" data-gallery-item="${escapeHtml(item.id)}">
                 <div style="position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;">
                   <img src="${thumb.dataUrl}" style="width:100%;height:100%;object-fit:cover;">
                   ${item.photos.length > 1 ? `<div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:1px 4px;font-size:9px;color:#fff;">+${item.photos.length}</div>` : ''}
@@ -129,6 +139,20 @@ function _renderFinishTab(root, galleryItems = []) {
     ${slotsHtml}
     ${galleryHtml}
   `;
+  doneSlots.forEach(slot => {
+    const card = root.querySelector(`[data-finish-slot="${slot.id}"]`);
+    if (!card) return;
+    card.querySelector('[data-action="edit"]').addEventListener('click', () => openSlotPopup(slot.id));
+    card.querySelector('[data-action="publish"]').addEventListener('click', () => publishSlotToInstagram(slot.id));
+    card.querySelector('[data-action="gallery"]').addEventListener('click', () => _saveSlotToGallery(slot.id));
+    card.querySelector('[data-action="download"]').addEventListener('click', () => downloadSlotPhotos(slot.id));
+    card.querySelector('[data-action="pickCustomer"]').addEventListener('click', () => _pickCustomerForSlot(slot.id));
+    card.querySelector('[data-action="defer"]').addEventListener('click', () => _deferSlot(slot.id));
+    card.querySelector('[data-action="delete"]').addEventListener('click', () => deleteSlotFinish(slot.id));
+  });
+  root.querySelectorAll('[data-gallery-item]').forEach(el => {
+    el.addEventListener('click', () => _galleryItemDetail(el.dataset.galleryItem));
+  });
 }
 
 function _galleryItemDetail(galleryId) {
@@ -144,24 +168,30 @@ function _galleryItemDetail(galleryId) {
       pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
       document.body.appendChild(pop);
     }
-    const escapedCaption = (item.caption || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const escapedCaption = escapeHtml(item.caption);
     pop.innerHTML = `
       <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:90vh;overflow-y:auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div style="font-size:14px;font-weight:800;">${item.label} <span style="font-size:11px;color:var(--text3);font-weight:400;">${item.date}</span></div>
+          <div style="font-size:14px;font-weight:800;">${escapeHtml(item.label)} <span style="font-size:11px;color:var(--text3);font-weight:400;">${escapeHtml(item.date)}</span></div>
           <button onclick="document.getElementById('_galleryDetailPop').style.display='none'" style="background:transparent;border:none;font-size:20px;color:#aaa;cursor:pointer;">×</button>
         </div>
         ${_buildPeekCarousel(photos, 'gd_carousel')}
         ${escapedCaption ? `<div style="margin-top:12px;font-size:13px;color:#333;white-space:pre-wrap;line-height:1.6;">${escapedCaption}</div>` : ''}
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
-          <button onclick="_republishGalleryItem('${item.id}')" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">📸 다시 올리기</button>
+          <button id="_gd_republish" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">📸 다시 올리기</button>
           <div style="display:flex;gap:8px;">
-            <button onclick="downloadGalleryItem('${item.id}')" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--border);background:transparent;font-size:12px;color:var(--text2);cursor:pointer;font-weight:600;">📥 저장</button>
-            <button onclick="deleteGalleryItem('${item.id}').then(()=>{document.getElementById('_galleryDetailPop').style.display='none';initFinishTab();})" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;font-size:12px;color:#dc3545;cursor:pointer;">삭제</button>
+            <button id="_gd_download" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--border);background:transparent;font-size:12px;color:var(--text2);cursor:pointer;font-weight:600;">📥 저장</button>
+            <button id="_gd_delete" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;font-size:12px;color:#dc3545;cursor:pointer;">삭제</button>
           </div>
         </div>
       </div>
     `;
+    pop.querySelector('#_gd_republish').addEventListener('click', () => _republishGalleryItem(item.id));
+    pop.querySelector('#_gd_download').addEventListener('click', () => downloadGalleryItem(item.id));
+    pop.querySelector('#_gd_delete').addEventListener('click', () => deleteGalleryItem(item.id).then(() => {
+      document.getElementById('_galleryDetailPop').style.display = 'none';
+      initFinishTab();
+    }));
     pop.style.display = 'flex';
     setTimeout(() => _initPeekCarousel('gd_carousel', photos.length), 80);
   });
@@ -181,6 +211,7 @@ async function _republishGalleryItem(galleryId) {
     fd.append('image', blob, 'gallery_photo.jpg');
     fd.append('photo_type', 'after');
     fd.append('main_tag', item.label || '');
+    if (item.customer_id) fd.append('customer_id', item.customer_id);
     const upRes = await fetch(API + '/portfolio', { method: 'POST', headers: authHeader(), body: fd });
     if (!upRes.ok) { showToast('업로드 실패'); return; }
     const upData = await upRes.json();
@@ -205,9 +236,44 @@ async function downloadGalleryItem(galleryId) {
   showToast('사진 저장 중... 📥');
 }
 
+async function _pickCustomerForSlot(slotId) {
+  const slot = _slots.find(s => s.id === slotId);
+  if (!slot) return;
+  if (!window.Customer || !window.Customer.pick) {
+    showToast('고객 관리 모듈이 아직 로드되지 않았어요');
+    return;
+  }
+  const picked = await window.Customer.pick({ selectedId: slot.customer_id });
+  if (picked === null) return; // 취소
+  slot.customer_id = picked.id;
+  slot.customer_name = picked.name;
+  try { await saveSlotToDB(slot); } catch(_e) {}
+  initFinishTab();
+}
+
+async function _maybeAutoMatchCustomer(slot) {
+  // 이미 고객 지정돼 있거나 모듈 미로드면 스킵
+  if (!slot || slot.customer_id || !window.PhotoMatch) return;
+  try {
+    const firstPhoto = (slot.photos || []).find(p => p && (p.file || p.dataUrl || p.blob));
+    if (!firstPhoto) return;
+    const file = firstPhoto.file || null;
+    if (!file) return;  // dataUrl 만 있으면 EXIF 파싱 건너뛰기 (간소)
+    const takenAt = await window.PhotoMatch.readTakenAt(file);
+    if (!takenAt) return;
+    const picked = await window.PhotoMatch.suggestCustomer(takenAt, { selectedId: slot.customer_id });
+    if (picked && picked.id) {
+      slot.customer_id = picked.id;
+      slot.customer_name = picked.name;
+      try { await saveSlotToDB(slot); } catch (_) {}
+    }
+  } catch (e) { console.warn('[photo-match] 실패:', e); }
+}
+
 async function _saveSlotToGallery(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot) return;
+  await _maybeAutoMatchCustomer(slot);
   try {
     await saveToGallery(slot);
     showToast('갤러리에 보관됐어요 📁');
@@ -223,6 +289,7 @@ async function _saveSlotToGallery(slotId) {
 async function publishSlotToInstagram(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
+  await _maybeAutoMatchCustomer(slot);
   const visPhotos = slot.photos.filter(p => !p.hidden);
   const photo = visPhotos[0] || slot.photos[0];
   const fullCaption = (slot.caption || '') + (slot.hashtags ? '\n\n' + slot.hashtags : '');
@@ -233,6 +300,7 @@ async function publishSlotToInstagram(slotId) {
     fd.append('photo_type', 'after');
     fd.append('main_tag', slot.label);
     fd.append('tags', '');
+    if (slot.customer_id) fd.append('customer_id', slot.customer_id);
     const upRes  = await fetch(API + '/portfolio', { method: 'POST', headers: authHeader(), body: fd });
     if (!upRes.ok) { showToast('업로드 실패'); return; }
     const upData = await upRes.json();

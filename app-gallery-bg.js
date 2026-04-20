@@ -132,9 +132,9 @@ function handleBgUpload(input) {
   input.value = '';
 }
 
-function deleteUserBg(id, e) {
+async function deleteUserBg(id, e) {
   e.stopPropagation();
-  if (!confirm('이 배경을 삭제할까요?')) return;
+  if (!(await nativeConfirm('배경 삭제', '이 배경을 삭제할까요?', '삭제'))) return;
   const userBgs = _loadUserBgs();
   _saveUserBgs(userBgs.filter(b => b.id !== id));
   const favs = _loadFavBgs();
@@ -192,14 +192,29 @@ async function _applyBgToPhoto(photo, bg, slot) {
   if (photo.removedBgUrl) {
     personImg = await _loadImageSrc(photo.removedBgUrl);
   } else {
-    // 서버 API로 누끼 처리 (Replicate → Remove.bg 폴백은 서버에서 처리)
+    // 1순위: 서버 API (빠름)
     let removedBlob;
-    const fd = new FormData();
-    fd.append('file', _dataUrlToBlob(photo.dataUrl), 'photo.jpg');
-    const res = await fetch(API + '/image/remove-bg', { method: 'POST', headers: authHeader(), body: fd });
-    if (res.status === 429) throw new Error('오늘 누끼따기 한도를 다 썼어요');
-    if (!res.ok) throw new Error('누끼 처리에 실패했어요. 잠시 후 다시 시도해주세요.');
-    removedBlob = await res.blob();
+    try {
+      const fd = new FormData();
+      fd.append('file', _dataUrlToBlob(photo.dataUrl), 'photo.jpg');
+      const res = await fetch(API + '/image/remove-bg', { method: 'POST', headers: authHeader(), body: fd });
+      if (res.status === 429) throw new Error('오늘 누끼따기 한도를 다 썼어요');
+      if (!res.ok) throw new Error('서버 누끼 실패');
+      removedBlob = await res.blob();
+    } catch(serverErr) {
+      console.warn('서버 누끼 실패, 클라이언트 폴백:', serverErr);
+      // 2순위: 클라이언트 누끼 (폴백)
+      const srcBlob = _dataUrlToBlob(photo.dataUrl);
+      removedBlob = await imglyRemoveBackground(srcBlob, {
+        publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
+        progress: (key, current, total) => {
+          if (key === 'compute:inference') {
+            const prog = document.getElementById('popupProgress');
+            if (prog) prog.textContent = `누끼 처리 중... ${Math.round((current/total)*100)}%`;
+          }
+        }
+      });
+    }
     const tmpUrl = URL.createObjectURL(removedBlob);
     personImg = await _loadImageSrc(tmpUrl);
     URL.revokeObjectURL(tmpUrl);
@@ -352,9 +367,9 @@ function saveCurrentAsTemplate() {
   showToast('템플릿 저장됨!');
 }
 
-function deleteTemplate(id, e) {
+async function deleteTemplate(id, e) {
   e.stopPropagation();
-  if (!confirm('이 템플릿을 삭제할까요?')) return;
+  if (!(await nativeConfirm('템플릿 삭제', '이 템플릿을 삭제할까요?', '삭제'))) return;
   _saveUserTemplates(_loadUserTemplates().filter(t => t.id !== id));
   _renderTemplatePanel();
 }

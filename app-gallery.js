@@ -114,15 +114,6 @@ function _fileToDataUrl(file) {
     r.readAsDataURL(file);
   });
 }
-function _loadImageSrc(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('이미지 로드 실패: ' + src?.slice(0, 50)));
-    img.src = src;
-  });
-}
 function _dataUrlToBlob(dataUrl) {
   const parts = dataUrl.split(',');
   const mime  = parts[0].match(/:(.*?);/)[1];
@@ -186,38 +177,39 @@ async function initWorkshopTab() {
 
 function _buildWorkshopHTML() {
   return `
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-    <div class="sec-title" style="margin:0;">작업실 📷</div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <button id="wsResetBtn" onclick="resetWorkshop()" style="display:none;padding:5px 12px;border-radius:8px;border:1px solid rgba(220,53,69,0.3);background:transparent;color:#dc3545;font-size:11px;font-weight:700;cursor:pointer;">재시작</button>
-      <div id="wsCompletionBadge" style="font-size:11px;font-weight:700;color:var(--accent2);"></div>
-    </div>
-  </div>
-  <div class="sec-sub" style="margin-bottom:16px;">오늘 시술 결과를 인스타용으로 꾸며요</div>
+  <section class="greet">
+    <p class="status-line">사진을 올리면 글까지 자동으로.</p>
+    <h1>오늘 작업</h1>
+  </section>
 
-  <!-- 사진 올리기 (메인 CTA) -->
-  <div id="wsDropZone" style="background:var(--bg2);border:1.5px dashed rgba(241,128,145,0.4);border-radius:18px;padding:24px;text-align:center;margin-bottom:16px;cursor:pointer;transition:border-color 0.2s,background 0.2s;"
+  <div id="wsDropZone" class="ws-dropzone"
     onclick="document.getElementById('galleryFileInput').click()"
-    ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='rgba(241,128,145,0.06)';"
+    ondragover="event.preventDefault();this.style.borderColor='var(--brand)';this.style.background='var(--brand-bg)';"
     ondragleave="this.style.borderColor='';this.style.background='';"
     ondrop="_handleDropZoneDrop(event)"
     oncontextmenu="return false">
     <input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(this)">
-    <div style="font-size:36px;margin-bottom:8px;">📷</div>
-    <div style="font-size:14px;font-weight:700;color:var(--text);">시술 사진 올려서 작업 시작</div>
-    <div style="font-size:12px;color:var(--text3);margin-top:4px;">탭해서 사진 선택 · 최대 20장</div>
+    <div class="ws-drop-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    </div>
+    <p class="ws-drop-title">사진 올려서 시작해요</p>
+    <p class="ws-drop-sub">탭해서 사진 선택 · 최대 20장</p>
   </div>
 
-  <!-- 슬롯 카드 (가로 스크롤) -->
+  <div class="ws-top-row">
+    <button id="wsResetBtn" onclick="resetWorkshop()" class="ws-reset-btn" style="display:none;">처음부터</button>
+    <div id="wsCompletionBadge" class="ws-badge"></div>
+  </div>
+
   <div id="slotCardHeader" style="display:none;margin-bottom:12px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;">
-      <div style="font-size:13px;font-weight:800;color:var(--text);">👤 손님별 사진</div>
+    <div class="ws-slot-head">
+      <span class="ws-slot-label">손님별 사진</span>
       <div style="display:flex;align-items:center;gap:8px;">
-        <span id="wsCompletionCount" style="font-size:11px;color:var(--text3);"></span>
-        <button onclick="openAssignPopup()" style="padding:6px 12px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">+ 배정하기</button>
+        <span id="wsCompletionCount" class="ws-completion-count"></span>
+        <button onclick="openAssignPopup()" class="ws-assign-btn">사진 나누기</button>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-top:6px;">💡 카드를 탭하면 배경/텍스트 편집할 수 있어요</div>
+    <p class="ws-slot-hint">탭해서 편집해요</p>
   </div>
   <div id="slotCardList" style="display:flex;gap:12px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch;"></div>
   <div id="wsBanner" style="display:none;margin-bottom:8px;"></div>
@@ -317,7 +309,11 @@ function openAssignPopup() {
 
 function closeAssignPopup() {
   const pop = document.getElementById('_assignPopup');
-  if (pop) pop.style.display = 'none';
+  if (pop) {
+    // 피드백 #10: display:none으로는 일부 기기에서 회색 오버레이가 남음. 완전 제거로 변경.
+    pop.style.display = 'none';
+    pop.remove();
+  }
   _selectedIds.clear();
   _renderSlotCards();
   _renderPhotoGrid();
@@ -373,10 +369,11 @@ function _renderAssignPopup() {
           <div style="display:flex;gap:8px;min-width:max-content;padding:2px;">
             ${unassigned.length ? unassigned.map(photo => {
               const sel = _selectedIds.has(photo.id);
-              return `<div onclick="togglePhotoSelect('${photo.id}');_renderAssignPopup();" style="flex-shrink:0;width:64px;cursor:pointer;">
-                <div style="position:relative;width:64px;height:64px;border-radius:10px;overflow:hidden;border:3px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${sel ? '0 2px 8px rgba(241,128,145,0.4)' : 'none'};">
-                  <img src="${photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">
-                  <div style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.3)'};display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;">${sel ? '✓' : ''}</div>
+              // 피드백 #4: 체크 아이콘 크고 뚜렷하게 (24px + 딥 shadow + selected tint)
+              return `<div onclick="togglePhotoSelect('${photo.id}');_renderAssignPopup();" style="flex-shrink:0;width:72px;cursor:pointer;">
+                <div style="position:relative;width:72px;height:72px;border-radius:12px;overflow:hidden;border:3px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${sel ? '0 4px 12px rgba(241,128,145,0.55)' : '0 1px 3px rgba(0,0,0,0.08)'};">
+                  <img src="${photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;${sel ? 'filter:brightness(0.85);' : ''}">
+                  <div style="position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.35)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${sel ? '✓' : ''}</div>
                 </div>
               </div>`;
             }).join('') : '<div style="padding:16px;text-align:center;color:var(--accent2);font-size:12px;font-weight:600;">모든 사진 배정 완료 ✅</div>'}
@@ -808,8 +805,8 @@ function _renderPopupPhotoGrid(slot) {
       <button onclick="unassignPopupPhoto('${photo.id}',event)" style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
     `;
     imgBox.addEventListener('click', e => { e.stopPropagation(); togglePopupPhotoSel(photo.id); });
-    // 텍스트 선택 방지
-    imgBox.addEventListener('touchstart', e => { e.preventDefault(); }, { passive: false });
+    // 텍스트 선택 방지 — CSS user-select:none 로 충분. touchstart preventDefault 는 click 을 막아서 제거.
+    imgBox.style.webkitTapHighlightColor = 'transparent';
     wrap.appendChild(imgBox);
 
     if (photo.mode === 'ba') {
@@ -831,12 +828,33 @@ function _renderPopupPhotoGrid(slot) {
 }
 
 function togglePopupPhotoSel(id) {
-  _popupSelIds.has(id) ? _popupSelIds.delete(id) : _popupSelIds.add(id);
+  const wasSelected = _popupSelIds.has(id);
+  wasSelected ? _popupSelIds.delete(id) : _popupSelIds.add(id);
   const slot = _slots.find(s => s.id === _popupSlotId);
   if (slot) _renderPopupPhotoGrid(slot);
+
+  // Haptic: 선택/해제 구분
+  if (window.hapticLight) window.hapticLight();
+
   // 비포/애프터 모드에서 2장 선택시 자동 적용
   if (_baMode && _popupSelIds.size >= 2) {
     setTimeout(() => _checkAndApplyBA(), 100);
+    return;
+  }
+
+  // 🆕 첫 선택 시 사용자에게 다음 단계 안내 (UX 개선)
+  // 선택 상태에서 하단 액션 바가 안 보이는 경우 대비
+  if (!wasSelected && _popupSelIds.size === 1) {
+    if (typeof showToast === 'function') {
+      showToast('1장 선택됨 — 아래에서 편집 방식을 골라주세요');
+    }
+    // 팝업 하단 액션 영역으로 자동 스크롤 (버튼 잘 보이도록)
+    setTimeout(() => {
+      const actionBar = document.getElementById('popupActionBar') || document.getElementById('slotPopupActions');
+      if (actionBar && typeof actionBar.scrollIntoView === 'function') {
+        actionBar.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 150);
   }
 }
 
