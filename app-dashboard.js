@@ -276,6 +276,83 @@
     `;
   }
 
+  // 최근 매출에서 자주 쓴 시술·금액 조합 상위 5개
+  function _topServicePresets(revenues) {
+    if (!revenues || !revenues.length) return [];
+    const map = new Map();
+    for (const r of revenues) {
+      const key = (r.service_name || '').trim();
+      if (!key) continue;
+      const item = map.get(key) || { service_name: key, amounts: [], method_count: {}, freq: 0 };
+      item.amounts.push(r.amount || 0);
+      item.method_count[r.method] = (item.method_count[r.method] || 0) + 1;
+      item.freq += 1;
+      map.set(key, item);
+    }
+    return [...map.values()]
+      .sort((a, b) => b.freq - a.freq)
+      .slice(0, 5)
+      .map(i => {
+        const sorted = i.amounts.slice().sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        const topMethod = Object.entries(i.method_count).sort((a, b) => b[1] - a[1])[0]?.[0] || 'card';
+        return { service_name: i.service_name, amount: median, method: topMethod, freq: i.freq };
+      });
+  }
+
+  function _quickRevenueSection(revenues) {
+    const presets = _topServicePresets(revenues);
+    _lastPresets = presets;
+    if (!presets.length) {
+      return `
+        <div style="margin-bottom:14px;padding:16px;background:linear-gradient(135deg,rgba(241,128,145,0.08),rgba(241,128,145,0.02));border-radius:14px;border:1px dashed rgba(241,128,145,0.3);text-align:center;">
+          <div style="font-size:14px;margin-bottom:4px;">⚡</div>
+          <div style="font-size:12px;color:#666;line-height:1.5;">자주 쓰는 시술을 몇 번 기록하면<br>여기 <b>원탭 매출 버튼</b>이 자동으로 생겨요.</div>
+          <button data-quick="openVoice" style="margin-top:10px;padding:9px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;font-size:12px;cursor:pointer;">🎤 음성으로 시작하기</button>
+        </div>
+      `;
+    }
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;">
+          <span style="font-size:14px;">⚡</span>
+          <strong style="font-size:13px;">자주 쓴 시술 · 원탭 매출</strong>
+        </div>
+        <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;">
+          ${presets.map((p, i) => `
+            <button data-preset-idx="${i}" style="flex-shrink:0;padding:12px;border:1px solid rgba(0,0,0,0.06);border-radius:14px;background:#fff;cursor:pointer;text-align:left;min-width:130px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+              <div style="font-size:9px;color:#888;margin-bottom:4px;">${p.freq}회 기록</div>
+              <div style="font-size:12px;font-weight:700;color:#222;margin-bottom:4px;">${_esc(p.service_name)}</div>
+              <div style="font-size:14px;font-weight:900;color:var(--accent,#F18091);">${_formatKRWShort(p.amount)}</div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  async function _quickRevenueSubmit(preset) {
+    if (!window.API || !window.authHeader) return;
+    const payload = {
+      amount: preset.amount,
+      method: preset.method || 'card',
+      service_name: preset.service_name,
+    };
+    try {
+      const res = await fetch(window.API + '/revenue', {
+        method: 'POST',
+        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (window.hapticSuccess) window.hapticSuccess();
+      if (window.showToast) window.showToast(`✨ ${preset.service_name} ${preset.amount.toLocaleString('ko-KR')}원 기록!`);
+      if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+    } catch (e) {
+      if (window.showToast) window.showToast('실패: ' + e.message);
+    }
+  }
+
   function _quickActionsGrid() {
     const tiles = [
       { icon: '👥', label: '고객',       fn: 'openCustomers' },
@@ -379,9 +456,21 @@
     };
   }
 
+  // 현재 대시보드 렌더에 쓰인 preset 저장 (bind 시 재활용)
+  let _lastPresets = [];
+
   function _bindEvents() {
     const sheet = document.getElementById('dashboardSheet');
     if (!sheet) return;
+    sheet.querySelectorAll('[data-preset-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = parseInt(btn.dataset.presetIdx, 10);
+        const preset = _lastPresets[i];
+        if (!preset) return;
+        if (!confirm(`${preset.service_name} ${preset.amount.toLocaleString('ko-KR')}원 — 지금 매출로 기록할까요?`)) return;
+        _quickRevenueSubmit(preset);
+      });
+    });
     sheet.querySelectorAll('[data-quick]').forEach(btn => {
       btn.addEventListener('click', () => {
         const fn = btn.dataset.quick;
@@ -491,6 +580,7 @@
       ${_heroCards(stats, weekly)}
       ${_monthChart(weekly)}
       ${_insightsSection(ret, fc, cp)}
+      ${_quickRevenueSection(monthRev.items)}
       ${_quickActionsGrid()}
       ${_recentActivity(monthRev.items, bookList.items)}
       <div style="font-size:10px;color:#bbb;text-align:center;padding:10px;">AI 인사이트는 최근 8주 데이터로 매번 새로 계산돼요</div>
