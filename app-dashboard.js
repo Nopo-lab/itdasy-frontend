@@ -1,0 +1,391 @@
+/* ─────────────────────────────────────────────────────────────
+   사장님 대시보드 (2026-04-20)
+
+   한 화면에서 샵 운영 전부 보이고 바로 진입 가능:
+   - 히어로 요약 4 카드 (오늘매출·이번달매출·고객수·예정예약)
+   - 이번 달 주간 매출 SVG 바차트
+   - AI 인사이트 (재방문 임박 / 매출 예측 / 쿠폰 제안)
+   - 퀵 액션 9 타일 (고객/예약/매출/재고/NPS/네이버리뷰/영상/임포트/AI인사이트)
+   - 최근 활동 타임라인 (매출·예약 통합)
+
+   데이터 소스 병렬 호출 → 실패 graceful degrade.
+   ──────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+
+  function _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+  }
+  function _formatKRW(n) {
+    return (+n || 0).toLocaleString('ko-KR') + '원';
+  }
+  function _formatKRWShort(n) {
+    const v = +n || 0;
+    if (v >= 10000) return Math.round(v / 1000) / 10 + '만';
+    if (v >= 1000) return Math.round(v / 100) / 10 + '천';
+    return v.toLocaleString('ko-KR');
+  }
+  function _relativeDays(iso) {
+    if (!iso) return '';
+    const diff = (Date.now() - new Date(iso).getTime()) / 86400000;
+    if (diff < 0.04) return '방금';
+    if (diff < 1) return Math.round(diff * 24) + '시간 전';
+    if (diff < 7) return Math.round(diff) + '일 전';
+    if (diff < 30) return Math.round(diff / 7) + '주 전';
+    return Math.round(diff / 30) + '개월 전';
+  }
+
+  async function _apiGet(path) {
+    if (!window.API || !window.authHeader) throw new Error('no-auth');
+    const auth = window.authHeader();
+    if (!auth?.Authorization) throw new Error('no-token');
+    const res = await fetch(window.API + path, { headers: auth });
+    if (res.status === 404 || res.status === 501) throw new Error('endpoint-missing');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  }
+
+  // ── 시트 DOM ──────────────────────────────────────────
+  function _ensureSheet() {
+    let sheet = document.getElementById('dashboardSheet');
+    if (sheet) return sheet;
+    sheet = document.createElement('div');
+    sheet.id = 'dashboardSheet';
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:9998;display:none;background:linear-gradient(180deg,#F8F5F7 0%,#F2F4F6 100%);';
+    sheet.innerHTML = `
+      <div style="height:100%;display:flex;flex-direction:column;padding-top:max(12px,env(safe-area-inset-top));">
+        <header style="display:flex;align-items:center;gap:10px;padding:14px 18px 8px;">
+          <div style="width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,#F18091,#FF6B9D);display:flex;align-items:center;justify-content:center;font-size:18px;">📊</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:18px;font-weight:800;line-height:1.1;">대시보드</div>
+            <div id="dashGreet" style="font-size:11px;color:#888;margin-top:2px;">안녕하세요, 원장님 👋</div>
+          </div>
+          <button onclick="closeDashboard()" style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.04);border:none;font-size:18px;cursor:pointer;" aria-label="닫기">✕</button>
+        </header>
+        <div id="dashBody" style="flex:1;overflow-y:auto;padding:8px 16px 24px;padding-bottom:max(24px,env(safe-area-inset-bottom));"></div>
+      </div>
+    `;
+    document.body.appendChild(sheet);
+    return sheet;
+  }
+
+  // ── 섹션 렌더러 ───────────────────────────────────────
+  function _heroCards(stats) {
+    // stats: { today_amount, today_count, month_amount, customer_count, upcoming_bookings }
+    const cards = [
+      { key: 'today', icon: '💰', label: '오늘 매출', value: _formatKRWShort(stats.today_amount), sub: `${stats.today_count || 0}건 기록`, color: 'linear-gradient(135deg,#F18091,#D95F70)' },
+      { key: 'month', icon: '📈', label: '이번 달', value: _formatKRWShort(stats.month_amount), sub: '누적 매출', color: 'linear-gradient(135deg,#FFB347,#FF8A5C)' },
+      { key: 'customer', icon: '👥', label: '고객', value: stats.customer_count != null ? stats.customer_count + '명' : '—', sub: '등록된 고객', color: 'linear-gradient(135deg,#4ECDC4,#44A08D)' },
+      { key: 'booking', icon: '📅', label: '예정 예약', value: stats.upcoming_bookings != null ? stats.upcoming_bookings + '건' : '—', sub: '다가오는 일정', color: 'linear-gradient(135deg,#A78BFA,#8B5CF6)' },
+    ];
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+        ${cards.map(c => `
+          <div style="padding:14px;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-8px;right:-8px;width:56px;height:56px;border-radius:50%;background:${c.color};opacity:0.15;"></div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+              <span style="font-size:14px;">${c.icon}</span>
+              <span style="font-size:10px;color:#888;font-weight:700;">${c.label}</span>
+            </div>
+            <div style="font-size:22px;font-weight:900;color:#222;line-height:1.1;">${_esc(c.value)}</div>
+            <div style="font-size:10px;color:#999;margin-top:3px;">${_esc(c.sub)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function _monthChart(weekly) {
+    // weekly: [{week_start, amount}, ...] (8주)
+    if (!weekly || !weekly.length) {
+      return `<div style="padding:14px;background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.05);margin-bottom:14px;text-align:center;color:#aaa;font-size:12px;">매출 데이터가 쌓이면 그래프가 나와요</div>`;
+    }
+    const max = Math.max(1, ...weekly.map(w => w.amount));
+    const W = 320, H = 100, padL = 6, padR = 6, padB = 16;
+    const innerW = W - padL - padR;
+    const barW = innerW / weekly.length;
+    const bars = weekly.map((w, i) => {
+      const bh = w.amount > 0 ? Math.max(2, (H - padB - 4) * (w.amount / max)) : 2;
+      const x = padL + i * barW + 2;
+      const y = H - padB - bh;
+      const isLast = i === weekly.length - 1;
+      return `<rect x="${x}" y="${y}" width="${Math.max(3, barW - 4)}" height="${bh}" rx="3" fill="${isLast ? 'url(#dashGrad)' : 'rgba(241,128,145,0.35)'}"/>`;
+    }).join('');
+    const labels = weekly.map((w, i) => {
+      if (i % 2 !== 0) return '';
+      const d = new Date(w.week_start);
+      return `<text x="${padL + i * barW + barW / 2}" y="${H - 3}" font-size="9" fill="#aaa" text-anchor="middle">${d.getMonth() + 1}/${d.getDate()}</text>`;
+    }).join('');
+    return `
+      <div style="padding:14px 14px 8px;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.05);margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:14px;">📊</span>
+          <strong style="font-size:13px;">최근 8주 매출 추이</strong>
+          <span style="margin-left:auto;font-size:10px;color:#888;">가장 진한 막대 = 이번 주</span>
+        </div>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#F18091"/>
+              <stop offset="100%" stop-color="#D95F70"/>
+            </linearGradient>
+          </defs>
+          ${bars}${labels}
+        </svg>
+      </div>
+    `;
+  }
+
+  function _insightsSection(ret, fc, cp) {
+    const cards = [];
+    if (ret && (ret.items || []).length) {
+      const s = ret.summary;
+      cards.push(`
+        <div data-ins="retention" style="padding:12px;background:linear-gradient(135deg,rgba(220,53,69,0.06),rgba(220,53,69,0.01));border-radius:14px;border:1px solid rgba(220,53,69,0.1);cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:16px;">💝</span>
+            <strong style="font-size:12px;">이탈 임박</strong>
+          </div>
+          <div style="font-size:22px;font-weight:900;color:#dc3545;line-height:1.1;">${s.at_risk + s.lost}<span style="font-size:11px;color:#888;margin-left:3px;font-weight:400;">명</span></div>
+          <div style="font-size:10px;color:#666;margin-top:3px;">재방문 필요</div>
+        </div>
+      `);
+    }
+    if (fc && fc.has_data) {
+      const color = fc.delta_pct >= 5 ? '#388e3c' : fc.delta_pct <= -5 ? '#dc3545' : '#666';
+      const arrow = fc.delta_pct > 5 ? '↗' : fc.delta_pct < -5 ? '↘' : '→';
+      cards.push(`
+        <div data-ins="forecast" style="padding:12px;background:linear-gradient(135deg,rgba(241,128,145,0.08),rgba(241,128,145,0.02));border-radius:14px;border:1px solid rgba(241,128,145,0.15);cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:16px;">📈</span>
+            <strong style="font-size:12px;">이번 주 예상</strong>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:var(--accent,#F18091);line-height:1.1;">${_formatKRWShort(fc.predicted_week)}</div>
+          <div style="font-size:10px;color:${color};margin-top:3px;font-weight:700;">${arrow} ${fc.delta_pct > 0 ? '+' : ''}${fc.delta_pct}%</div>
+        </div>
+      `);
+    }
+    if (cp && cp.has_suggestion) {
+      cards.push(`
+        <div data-ins="coupon" style="padding:12px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:14px;border:1px solid rgba(76,175,80,0.15);cursor:pointer;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:16px;">🎟</span>
+            <strong style="font-size:12px;">쿠폰 추천</strong>
+          </div>
+          <div style="font-size:18px;font-weight:900;color:#388e3c;line-height:1.1;">${_esc(cp.slow_day.label)}요일</div>
+          <div style="font-size:10px;color:#666;margin-top:3px;font-weight:700;">${cp.discount_pct}% 할인 제안</div>
+        </div>
+      `);
+    }
+    if (!cards.length) return '';
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;">
+          <span style="font-size:14px;">✨</span>
+          <strong style="font-size:13px;">AI 인사이트</strong>
+          <button data-open="insights" style="margin-left:auto;background:none;border:none;font-size:11px;color:var(--accent,#F18091);cursor:pointer;font-weight:700;">전체 보기 →</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(${cards.length},1fr);gap:8px;">
+          ${cards.join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function _quickActionsGrid() {
+    const tiles = [
+      { icon: '👥', label: '고객',    fn: 'openCustomers' },
+      { icon: '📅', label: '예약',    fn: 'openBooking' },
+      { icon: '💰', label: '매출',    fn: 'openRevenue' },
+      { icon: '📦', label: '재고',    fn: 'openInventory' },
+      { icon: '📊', label: 'NPS',     fn: 'openNps' },
+      { icon: '⭐', label: '네이버',  fn: 'openNaverReviews' },
+      { icon: '🎬', label: '영상',    fn: 'openVideo' },
+      { icon: '📥', label: '가져오기',fn: 'openImport' },
+      { icon: '✨', label: '인사이트',fn: 'openInsights' },
+    ];
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;">
+          <span style="font-size:14px;">⚡</span>
+          <strong style="font-size:13px;">샵 운영 메뉴</strong>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          ${tiles.map(t => `
+            <button data-quick="${t.fn}" style="padding:14px 6px;border:none;border-radius:14px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:transform 0.1s;">
+              <div style="font-size:22px;margin-bottom:4px;">${t.icon}</div>
+              <div style="font-size:11px;color:#444;font-weight:700;">${t.label}</div>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function _recentActivity(revenues, bookings) {
+    const items = [];
+    (revenues || []).slice(0, 6).forEach(r => {
+      items.push({
+        kind: 'revenue',
+        icon: '💰',
+        time: r.recorded_at,
+        title: _formatKRW(r.amount) + (r.service_name ? ` · ${r.service_name}` : ''),
+        sub: r.customer_name || r.method || '',
+      });
+    });
+    (bookings || []).slice(0, 4).forEach(b => {
+      items.push({
+        kind: 'booking',
+        icon: '📅',
+        time: b.starts_at,
+        title: (b.service_name || '예약'),
+        sub: (b.customer_name || '') + ' · ' + (new Date(b.starts_at).toLocaleDateString('ko-KR')),
+      });
+    });
+    items.sort((a, b) => new Date(b.time) - new Date(a.time));
+    const top = items.slice(0, 8);
+    if (!top.length) {
+      return `
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;">
+            <span style="font-size:14px;">🕐</span>
+            <strong style="font-size:13px;">최근 활동</strong>
+          </div>
+          <div style="padding:18px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);text-align:center;color:#aaa;font-size:12px;">
+            기록이 쌓이면 여기 나와요
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;">
+          <span style="font-size:14px;">🕐</span>
+          <strong style="font-size:13px;">최근 활동</strong>
+        </div>
+        <div style="background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);overflow:hidden;">
+          ${top.map((it, i) => `
+            <div style="display:flex;gap:10px;align-items:center;padding:11px 14px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}">
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(241,128,145,0.08);display:flex;align-items:center;justify-content:center;font-size:16px;">${it.icon}</div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;font-weight:700;color:#222;">${_esc(it.title)}</div>
+                <div style="font-size:10px;color:#999;margin-top:2px;">${_esc(it.sub)}</div>
+              </div>
+              <div style="font-size:10px;color:#bbb;white-space:nowrap;">${_relativeDays(it.time)}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── 집계 로직 ──────────────────────────────────────────
+  function _aggregateStats(monthRows, todayRows, customersCount, bookings) {
+    const today_amount = (todayRows || []).reduce((s, r) => s + (r.amount || 0), 0);
+    const today_count = (todayRows || []).length;
+    const month_amount = (monthRows || []).reduce((s, r) => s + (r.amount || 0), 0);
+    const now = Date.now();
+    const upcoming_bookings = (bookings || []).filter(b => new Date(b.starts_at).getTime() >= now).length;
+    return {
+      today_amount,
+      today_count,
+      month_amount,
+      customer_count: customersCount,
+      upcoming_bookings,
+    };
+  }
+
+  function _bindEvents() {
+    const sheet = document.getElementById('dashboardSheet');
+    if (!sheet) return;
+    sheet.querySelectorAll('[data-quick]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fn = btn.dataset.quick;
+        if (typeof window[fn] === 'function') {
+          if (window.hapticLight) window.hapticLight();
+          window[fn]();
+        }
+      });
+    });
+    sheet.querySelectorAll('[data-ins]').forEach(el => {
+      el.addEventListener('click', () => {
+        if (typeof window.openInsights === 'function') window.openInsights();
+      });
+    });
+    const seeAll = sheet.querySelector('[data-open="insights"]');
+    if (seeAll) seeAll.addEventListener('click', () => {
+      if (typeof window.openInsights === 'function') window.openInsights();
+    });
+  }
+
+  function _renderLoading() {
+    const body = document.getElementById('dashBody');
+    if (!body) return;
+    body.innerHTML = `
+      <div style="padding:60px 20px;text-align:center;color:#aaa;">
+        <div style="font-size:36px;margin-bottom:12px;">📊</div>
+        <div style="font-size:13px;">샵 현황 불러오는 중…</div>
+      </div>
+    `;
+  }
+
+  async function _loadAndRender() {
+    const body = document.getElementById('dashBody');
+    if (!body) return;
+    _renderLoading();
+
+    // 병렬 API — 실패는 모두 graceful degrade
+    const [monthRev, todayRev, custList, bookList, ret, fc, cp] = await Promise.all([
+      _apiGet('/revenue?period=month').catch(() => ({ items: [] })),
+      _apiGet('/revenue?period=today').catch(() => ({ items: [] })),
+      _apiGet('/customers').catch(() => ({ total: 0 })),
+      _apiGet('/bookings').catch(() => ({ items: [] })),
+      _apiGet('/retention/at-risk').catch(() => null),
+      _apiGet('/revenue/forecast').catch(() => null),
+      _apiGet('/coupons/suggest').catch(() => null),
+    ]);
+
+    const stats = _aggregateStats(
+      monthRev.items || [],
+      todayRev.items || [],
+      custList.total != null ? custList.total : (custList.items || []).length,
+      bookList.items || [],
+    );
+
+    // 주간 history 는 forecast.history 재활용 (8주)
+    const weekly = (fc && fc.history) ? fc.history : [];
+
+    // 고객 대시보드 진입 전에 고객 이름 가져오기 위해 reverse lookup 필요하진 않음
+    body.innerHTML = `
+      ${_heroCards(stats)}
+      ${_monthChart(weekly)}
+      ${_insightsSection(ret, fc, cp)}
+      ${_quickActionsGrid()}
+      ${_recentActivity(monthRev.items, bookList.items)}
+      <div style="font-size:10px;color:#bbb;text-align:center;padding:10px;">AI 인사이트는 최근 8주 데이터로 매번 새로 계산돼요</div>
+    `;
+    _bindEvents();
+  }
+
+  window.openDashboard = async function () {
+    const sheet = _ensureSheet();
+    sheet.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    // 인사말 — 시간대별
+    const h = new Date().getHours();
+    const greet = h < 6 ? '새벽까지 수고 많으세요' : h < 12 ? '좋은 아침이에요' : h < 18 ? '오후도 화이팅' : '오늘도 고생하셨어요';
+    const greetEl = sheet.querySelector('#dashGreet');
+    if (greetEl) greetEl.textContent = greet + ' 👋';
+    await _loadAndRender();
+  };
+
+  window.closeDashboard = function () {
+    const sheet = document.getElementById('dashboardSheet');
+    if (sheet) sheet.style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  window.Dashboard = {
+    refresh: _loadAndRender,
+  };
+})();
