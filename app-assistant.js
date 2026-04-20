@@ -9,10 +9,10 @@
 
   const SUGGESTIONS = [
     '이번 주 매출 어때?',
-    '제일 잘 팔리는 시술 뭐야?',
+    '김서연 2시 예약 추가',
+    '오늘 속눈썹 5만원 카드 기록',
     '이탈 임박 고객 알려줘',
-    '요즘 흐름 어때?',
-    '오늘 예약 누구야?',
+    '제일 잘 팔리는 시술 뭐야?',
   ];
 
   let _history = [];  // [{role, text}]
@@ -60,21 +60,25 @@
       body.innerHTML = `
         <div style="padding:30px 20px;text-align:center;">
           <div style="font-size:40px;margin-bottom:10px;">🤖</div>
-          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>샵 현황이 궁금하면 편하게 물어보세요.<br><span style="font-size:11px;color:#888;">예: "이번 주 매출", "제일 잘 팔린 시술"</span></div>
+          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.<br><span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "매출 5만원 카드"</span></div>
         </div>
       `;
       return;
     }
-    body.innerHTML = _history.map(m => {
+    body.innerHTML = _history.map((m, idx) => {
       if (m.role === 'user') {
         return `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
           <div style="max-width:80%;padding:10px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${_esc(m.text)}</div>
         </div>`;
       }
       if (m.role === 'assistant') {
+        const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status) : '';
         return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
           <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">🤖</div>
-          <div style="max-width:80%;padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
+          <div style="max-width:85%;min-width:0;">
+            <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
+            ${actionHtml}
+          </div>
         </div>`;
       }
       // loading
@@ -87,6 +91,83 @@
       <style>@keyframes asstDots { 0%,20% { opacity:0.2; } 50% { opacity:1; } 100% { opacity:0.2; } }</style>`;
     }).join('');
     body.scrollTop = body.scrollHeight;
+    _bindActionButtons();
+  }
+
+  function _renderActionBubble(action, historyIdx, status) {
+    if (!action || !action.kind) return '';
+    const kindBadge = {
+      create_booking: { icon: '📅', label: '예약 추가', color: '#F18091' },
+      create_revenue: { icon: '💰', label: '매출 기록', color: '#388e3c' },
+      create_customer: { icon: '👤', label: '고객 등록', color: '#4ECDC4' },
+      create_nps: { icon: '⭐', label: 'NPS 기록', color: '#FFD700' },
+    }[action.kind] || { icon: '✓', label: action.kind, color: '#666' };
+
+    if (status === 'done') {
+      return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.12),rgba(76,175,80,0.02));border-radius:12px;border-left:3px solid #388e3c;">
+        <div style="font-size:11px;font-weight:700;color:#388e3c;">✓ 완료</div>
+      </div>`;
+    }
+    if (status === 'failed') {
+      return `<div style="margin-top:6px;padding:10px 12px;background:rgba(220,53,69,0.08);border-radius:12px;border-left:3px solid #dc3545;">
+        <div style="font-size:11px;font-weight:700;color:#dc3545;">실패 — 다시 말씀해 주세요</div>
+      </div>`;
+    }
+    // pending
+    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="font-size:14px;">${kindBadge.icon}</span>
+        <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label}</span>
+      </div>
+      <div style="font-size:13px;color:#222;font-weight:600;margin-bottom:10px;line-height:1.5;">${_esc(action.confirmation_text || '')}</div>
+      <div style="display:flex;gap:6px;">
+        <button data-action-run="${historyIdx}" style="flex:2;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;">추가하기 ✓</button>
+        <button data-action-cancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
+      </div>
+    </div>`;
+  }
+
+  function _bindActionButtons() {
+    document.querySelectorAll('[data-action-run]').forEach(btn => {
+      btn.addEventListener('click', () => _runAction(parseInt(btn.dataset.actionRun, 10)));
+    });
+    document.querySelectorAll('[data-action-cancel]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.actionCancel, 10);
+        if (_history[idx]) { _history[idx].action_status = 'cancelled'; _history[idx].action = null; }
+        _renderHistory();
+      });
+    });
+  }
+
+  async function _runAction(idx) {
+    const msg = _history[idx];
+    if (!msg || !msg.action) return;
+    msg.action_status = 'running';
+    _renderHistory();
+    try {
+      const res = await fetch(window.API + '/assistant/execute', {
+        method: 'POST',
+        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: msg.action.kind, payload: msg.action.payload || {} }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'HTTP ' + res.status);
+      }
+      const d = await res.json();
+      msg.action_status = 'done';
+      _renderHistory();
+      _history.push({ role: 'assistant', text: d.message || '✓ 완료했어요' });
+      _renderHistory();
+      if (window.hapticSuccess) window.hapticSuccess();
+      if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+    } catch (e) {
+      msg.action_status = 'failed';
+      _renderHistory();
+      _history.push({ role: 'assistant', text: '실패: ' + e.message });
+      _renderHistory();
+    }
   }
 
   function _renderSuggest() {
@@ -119,7 +200,12 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
       _history = _history.filter(m => m.role !== 'loading');
-      _history.push({ role: 'assistant', text: d.answer || '답을 만들지 못했어요.' });
+      const msg = { role: 'assistant', text: d.answer || '답을 만들지 못했어요.' };
+      if (d.action && d.action.kind) {
+        msg.action = d.action;
+        msg.action_status = 'pending';
+      }
+      _history.push(msg);
       _renderHistory();
       if (window.hapticLight) window.hapticLight();
     } catch (e) {
