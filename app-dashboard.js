@@ -60,9 +60,18 @@
             <div style="font-size:18px;font-weight:800;line-height:1.1;">대시보드</div>
             <div id="dashGreet" style="font-size:11px;color:#888;margin-top:2px;">안녕하세요, 원장님 👋</div>
           </div>
+          <button id="dashBell" style="position:relative;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.04);border:none;font-size:16px;cursor:pointer;margin-right:4px;" aria-label="알림">
+            🔔
+            <span id="dashBellBadge" style="display:none;position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#dc3545;color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;">0</span>
+          </button>
           <button onclick="closeDashboard()" style="width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,0.04);border:none;font-size:18px;cursor:pointer;" aria-label="닫기">✕</button>
         </header>
         <div id="dashBody" style="flex:1;overflow-y:auto;padding:8px 16px 24px;padding-bottom:max(80px,env(safe-area-inset-bottom));"></div>
+        <!-- AI 비서 FAB -->
+        <button id="dashAssistantFab" aria-label="AI 비서"
+                style="position:absolute;right:18px;bottom:calc(92px + env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#A78BFA,#8B5CF6);color:#fff;font-size:22px;cursor:pointer;box-shadow:0 6px 20px rgba(139,92,246,0.35);z-index:2;">
+          🤖
+        </button>
         <!-- 음성 빠른 기록 FAB -->
         <button id="dashVoiceFab" aria-label="음성 기록"
                 style="position:absolute;right:18px;bottom:calc(22px + env(safe-area-inset-bottom));width:60px;height:60px;border-radius:50%;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 20px rgba(241,128,145,0.45);z-index:2;">
@@ -75,6 +84,16 @@
     if (fab) fab.addEventListener('click', () => {
       if (window.hapticMedium) window.hapticMedium();
       if (typeof window.openVoice === 'function') window.openVoice();
+    });
+    const bell = sheet.querySelector('#dashBell');
+    if (bell) bell.addEventListener('click', () => {
+      if (window.hapticLight) window.hapticLight();
+      if (typeof window.openNotifications === 'function') window.openNotifications();
+    });
+    const asst = sheet.querySelector('#dashAssistantFab');
+    if (asst) asst.addEventListener('click', () => {
+      if (window.hapticMedium) window.hapticMedium();
+      if (typeof window.openAssistant === 'function') window.openAssistant();
     });
     return sheet;
   }
@@ -249,15 +268,15 @@
 
   function _quickActionsGrid() {
     const tiles = [
-      { icon: '👥', label: '고객',    fn: 'openCustomers' },
-      { icon: '📅', label: '예약',    fn: 'openBooking' },
-      { icon: '💰', label: '매출',    fn: 'openRevenue' },
-      { icon: '📦', label: '재고',    fn: 'openInventory' },
-      { icon: '📊', label: 'NPS',     fn: 'openNps' },
-      { icon: '⭐', label: '네이버',  fn: 'openNaverReviews' },
-      { icon: '🎬', label: '영상',    fn: 'openVideo' },
-      { icon: '📥', label: '가져오기',fn: 'openImport' },
-      { icon: '✨', label: '인사이트',fn: 'openInsights' },
+      { icon: '👥', label: '고객',       fn: 'openCustomers' },
+      { icon: '📅', label: '예약',       fn: 'openBooking' },
+      { icon: '💰', label: '매출',       fn: 'openRevenue' },
+      { icon: '📦', label: '재고',       fn: 'openInventory' },
+      { icon: '📊', label: 'NPS',        fn: 'openNps' },
+      { icon: '⭐', label: '네이버',     fn: 'openNaverReviews' },
+      { icon: '🎬', label: '영상',       fn: 'openVideo' },
+      { icon: '📥', label: '이전 도우미',fn: 'openMigration' },
+      { icon: '📑', label: '월간 리포트',fn: 'openReport' },
     ];
     return `
       <div style="margin-bottom:14px;">
@@ -377,27 +396,71 @@
     const body = document.getElementById('dashBody');
     if (!body) return;
     body.innerHTML = `
-      <div style="padding:60px 20px;text-align:center;color:#aaa;">
-        <div style="font-size:36px;margin-bottom:12px;">📊</div>
-        <div style="font-size:13px;">샵 현황 불러오는 중…</div>
+      <div>
+        <style>
+          @keyframes dashShimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+          .dash-skel { background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 40%, #f0f0f0 80%); background-size: 800px 100%; animation: dashShimmer 1.4s infinite linear; border-radius: 12px; }
+        </style>
+        <!-- 오늘 브리핑 스켈레톤 -->
+        <div class="dash-skel" style="height:128px;margin-bottom:14px;"></div>
+        <!-- 히어로 4카드 스켈레톤 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+          ${[0,1,2,3].map(() => '<div class="dash-skel" style="height:100px;"></div>').join('')}
+        </div>
+        <!-- 차트 스켈레톤 -->
+        <div class="dash-skel" style="height:130px;margin-bottom:14px;"></div>
+        <!-- AI 인사이트 스켈레톤 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+          ${[0,1,2].map(() => '<div class="dash-skel" style="height:86px;"></div>').join('')}
+        </div>
+        <!-- 메뉴 9타일 -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          ${[0,1,2,3,4,5,6,7,8].map(() => '<div class="dash-skel" style="height:70px;"></div>').join('')}
+        </div>
       </div>
     `;
   }
+
+  // ── 5분 메모리 캐시 + 백그라운드 prefetch ──────────────────
+  const _cache = {};
+  const _TTL = 5 * 60 * 1000;  // 5분
+
+  async function _cachedGet(path) {
+    const hit = _cache[path];
+    if (hit && (Date.now() - hit.ts) < _TTL) return hit.data;
+    try {
+      const data = await _apiGet(path);
+      _cache[path] = { ts: Date.now(), data };
+      return data;
+    } catch (e) {
+      if (hit) return hit.data;  // 실패하면 stale 이라도 반환
+      throw e;
+    }
+  }
+
+  // 앱 부팅 시점에 미리 한 번 (유휴 타이밍)
+  async function prefetch() {
+    const paths = ['/revenue?period=month', '/revenue?period=today', '/customers', '/bookings', '/retention/at-risk', '/revenue/forecast', '/coupons/suggest', '/today/brief'];
+    await Promise.all(paths.map(p => _cachedGet(p).catch(() => null)));
+  }
+  // 외부 노출 — 부팅 훅에서 호출
+  window.Dashboard = window.Dashboard || {};
+  window.Dashboard.prefetch = prefetch;
 
   async function _loadAndRender() {
     const body = document.getElementById('dashBody');
     if (!body) return;
     _renderLoading();
 
-    // 병렬 API — 실패는 모두 graceful degrade
+    // 병렬 + 캐시 — 실패는 모두 graceful degrade
     const [monthRev, todayRev, custList, bookList, ret, fc, cp] = await Promise.all([
-      _apiGet('/revenue?period=month').catch(() => ({ items: [] })),
-      _apiGet('/revenue?period=today').catch(() => ({ items: [] })),
-      _apiGet('/customers').catch(() => ({ total: 0 })),
-      _apiGet('/bookings').catch(() => ({ items: [] })),
-      _apiGet('/retention/at-risk').catch(() => null),
-      _apiGet('/revenue/forecast').catch(() => null),
-      _apiGet('/coupons/suggest').catch(() => null),
+      _cachedGet('/revenue?period=month').catch(() => ({ items: [] })),
+      _cachedGet('/revenue?period=today').catch(() => ({ items: [] })),
+      _cachedGet('/customers').catch(() => ({ total: 0 })),
+      _cachedGet('/bookings').catch(() => ({ items: [] })),
+      _cachedGet('/retention/at-risk').catch(() => null),
+      _cachedGet('/revenue/forecast').catch(() => null),
+      _cachedGet('/coupons/suggest').catch(() => null),
     ]);
 
     const stats = _aggregateStats(
@@ -462,7 +525,27 @@
     document.body.style.overflow = '';
   };
 
+  // 부팅 시 토큰 있으면 유휴 순간에 prefetch (페이지 로딩 영향 없게 requestIdleCallback)
+  function _schedulePrefetch() {
+    const hasToken = () => {
+      if (typeof window.authHeader === 'function') {
+        const h = window.authHeader();
+        return !!(h && h.Authorization);
+      }
+      return false;
+    };
+    const run = () => { if (hasToken()) prefetch().catch(() => {}); };
+    if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 3000 });
+    else setTimeout(run, 1200);
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') _schedulePrefetch();
+  else document.addEventListener('DOMContentLoaded', _schedulePrefetch);
+
   window.Dashboard = {
-    refresh: _loadAndRender,
+    refresh: async function (force) {
+      if (force) { for (const k in _cache) delete _cache[k]; }
+      return _loadAndRender();
+    },
+    prefetch,
   };
 })();

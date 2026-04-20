@@ -55,7 +55,7 @@
     body.innerHTML = `
       <div style="padding:4px;">
         <div style="font-size:12px;color:#888;line-height:1.5;margin-bottom:12px;">
-          이전에 쓰던 앱(핸드SOS/공비서/용감한뷰티 등)에서 엑셀·CSV 로 내보낸 파일을 올리면 잇데이로 한 번에 가져와요.<br>
+          이전에 쓰시던 관리 앱에서 엑셀·CSV 로 내보낸 파일을 올리면 잇데이로 한 번에 가져와요.<br>
           <span style="color:#c00;">⚠ 사용자 본인 데이터에 한함. 고객 개인정보 처리 동의 필수.</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr;gap:10px;">
@@ -147,7 +147,7 @@
           <div style="border:2px dashed #FFB347;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;background:rgba(255,179,71,0.05);">
             <div style="font-size:32px;margin-bottom:8px;">📸</div>
             <div style="font-size:14px;color:#666;font-weight:700;">스크린샷·사진 업로드</div>
-            <div style="font-size:10px;color:#aaa;margin-top:4px;">공비서·핸드SOS 화면 그대로 찍어 올리세요</div>
+            <div style="font-size:10px;color:#aaa;margin-top:4px;">이전 앱 화면 그대로 찍어 올리세요</div>
           </div>
         </label>
         <div style="font-size:10px;color:#aaa;margin-top:8px;line-height:1.6;padding:0 4px;">
