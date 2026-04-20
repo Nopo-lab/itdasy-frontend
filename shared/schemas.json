@@ -1878,6 +1878,111 @@
         "properties": { "ok": { "type": "boolean" } },
         "required": ["ok"]
       }
+    },
+    "GET /nps": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/models/NpsRecord" } },
+          "total": { "type": "integer" }
+        },
+        "required": ["items", "total"]
+      }
+    },
+    "POST /nps": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "rating": { "type": "integer", "minimum": 0, "maximum": 10 },
+          "comment": { "type": ["string", "null"], "maxLength": 500 },
+          "customer_id": { "type": ["integer", "null"] },
+          "source": { "type": "string", "enum": ["manual", "alimtalk", "link"] }
+        },
+        "required": ["rating"]
+      },
+      "response": { "$ref": "#/models/NpsRecord" }
+    },
+    "DELETE /nps/{nps_id}": {
+      "response": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean" } },
+        "required": ["ok"]
+      }
+    },
+    "GET /nps/stats": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer" },
+          "promoters": { "type": "integer" },
+          "passives": { "type": "integer" },
+          "detractors": { "type": "integer" },
+          "score": { "type": "number" },
+          "avg_rating": { "type": "number" }
+        },
+        "required": ["total", "promoters", "passives", "detractors", "score", "avg_rating"]
+      }
+    },
+    "GET /naver-reviews": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/models/NaverReview" } },
+          "total": { "type": "integer" }
+        },
+        "required": ["items", "total"]
+      }
+    },
+    "POST /naver-reviews": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "review_url": { "type": ["string", "null"], "maxLength": 500 },
+          "author_name": { "type": ["string", "null"], "maxLength": 50 },
+          "rating": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+          "content": { "type": ["string", "null"], "maxLength": 2000 },
+          "visited_at": { "type": ["string", "null"] },
+          "sticker_image_url": { "type": ["string", "null"] }
+        }
+      },
+      "response": { "$ref": "#/models/NaverReview" }
+    },
+    "PATCH /naver-reviews/{review_id}": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "author_name": { "type": ["string", "null"] },
+          "rating": { "type": ["integer", "null"] },
+          "content": { "type": ["string", "null"] },
+          "sticker_image_url": { "type": ["string", "null"] }
+        }
+      },
+      "response": { "$ref": "#/models/NaverReview" }
+    },
+    "DELETE /naver-reviews/{review_id}": {
+      "response": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean" } },
+        "required": ["ok"]
+      }
+    },
+    "GET /video/capability": {
+      "response": {
+        "type": "object",
+        "properties": { "ffmpeg": { "type": "boolean" } },
+        "required": ["ffmpeg"]
+      }
+    },
+    "POST /video/beforeafter": {
+      "request": {
+        "type": "object",
+        "description": "multipart/form-data — before, after (image files) + hold_seconds, transition_seconds"
+      },
+      "response": {
+        "type": "string",
+        "format": "binary",
+        "description": "video/mp4"
+      }
     }
   },
   "models": {
@@ -1953,6 +2058,35 @@
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "shop_id", "name", "quantity", "threshold"]
+    },
+    "NpsRecord": {
+      "description": "NPS 응답. rating 0~10, 9~10 promoter / 7~8 passive / 0~6 detractor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "rating": { "type": "integer", "minimum": 0, "maximum": 10 },
+        "comment": { "type": ["string", "null"] },
+        "customer_id": { "type": ["integer", "null"] },
+        "source": { "type": "string", "enum": ["manual", "alimtalk", "link"] },
+        "responded_at": { "type": "string", "format": "date-time" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "rating", "source", "responded_at", "created_at"]
+    },
+    "NaverReview": {
+      "description": "네이버 플레이스 리뷰 수동 저장.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "review_url": { "type": ["string", "null"] },
+        "author_name": { "type": ["string", "null"] },
+        "rating": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+        "content": { "type": "string" },
+        "visited_at": { "type": ["string", "null"] },
+        "sticker_image_url": { "type": ["string", "null"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "content", "created_at"]
     },
     "ServiceEntry": {
       "description": "대표 서비스 항목 (프론트 Q2 스펙).",

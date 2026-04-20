@@ -185,6 +185,15 @@
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); if(typeof openInventory==='function')openInventory();">
       📦 재고 관리
     </button>
+    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); if(typeof openNps==='function')openNps();">
+      📊 고객 만족도 (NPS)
+    </button>
+    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); if(typeof openNaverReviews==='function')openNaverReviews();">
+      ⭐ 네이버 리뷰 관리
+    </button>
+    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); if(typeof openVideo==='function')openVideo();">
+      🎬 비포/애프터 영상
+    </button>
     <button class="sheet-row" onclick="closeSettings(); resetShopSetup();">샵 정보 다시 설정하기</button>
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openSupportChat();">
       💬 고객센터
@@ -1114,6 +1123,9 @@
 <script src="app-revenue.js"></script>
 <script src="app-booking.js"></script>
 <script src="app-inventory.js"></script>
+<script src="app-nps.js"></script>
+<script src="app-naver-reviews.js"></script>
+<script src="app-video.js"></script>
 <script src="app-debug-panel.js"></script>
 <!-- 쿠키 배너 제거 (2번 피드백): 한국 타겟 + 제3자 쿠키 없음이라 불필요 -->
 <!-- <script src="app-cookie-consent.js"></script> -->

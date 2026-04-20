@@ -87,19 +87,19 @@
 
 | 상태 | 파일 | 변경 내용 | 예상 라인 |
 |---|---|---|---|
-| 🔴 | `itdasy_itdasy_backend/backend/services/kakao_alimtalk.py` | 알리고 API 래퍼 + 템플릿 렌더링 | ~250 |
-| 🔴 | `itdasy_itdasy_backend/backend/routers/notification.py` | 알림 발송 이력·재시도 | ~180 |
-| 🔴 | `itdasy_itdasy_backend/backend/migrations/20260525_notifications.sql` | `notifications` 테이블(발송 로그) | ~30 |
-| 🔴 | `itdasy_itdasy_backend/backend/docs/alimtalk_templates/` | 4종 템플릿 JSON (예약확정 / 1일전 리마인드 / 시술후 감사 / 재방문 쿠폰) | ~150 |
-| 🟡 | `itdasy_itdasy_backend/backend/.env.example` | `ALIGO_API_KEY`, `ALIGO_USER_ID`, `ALIGO_SENDER_KEY` | +3 |
+| 🔴 | `itdasy_backend/backend/services/kakao_alimtalk.py` | 알리고 API 래퍼 + 템플릿 렌더링 | ~250 |
+| 🔴 | `itdasy_backend/backend/routers/notification.py` | 알림 발송 이력·재시도 | ~180 |
+| 🔴 | `itdasy_backend/backend/migrations/20260525_notifications.sql` | `notifications` 테이블(발송 로그) | ~30 |
+| 🔴 | `itdasy_backend/backend/docs/alimtalk_templates/` | 4종 템플릿 JSON (예약확정 / 1일전 리마인드 / 시술후 감사 / 재방문 쿠폰) | ~150 |
+| 🟡 | `itdasy_backend/backend/.env.example` | `ALIGO_API_KEY`, `ALIGO_USER_ID`, `ALIGO_SENDER_KEY` | +3 |
 | 🟡 | `routers/booking.py` | 예약 생성 시 `send_alimtalk("booking_confirm")` 호출 | +20 |
 
 #### 2.4 포트폴리오 ↔ 고객 자동 첨부 — 1주
 
 | 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
 |---|---|---|---|---|
-| 🟡 | `itdasy_itdasy_backend/backend/routers/portfolio.py` | `customer_id` 컬럼 추가 + FK | +30 | ⏳ |
-| 🔴 | `itdasy_itdasy_backend/backend/migrations/20260530_portfolio_customer_fk.sql` | 컬럼 추가 | ~15 | ⏳ |
+| 🟡 | `itdasy_backend/backend/routers/portfolio.py` | `customer_id` 컬럼 추가 + FK | +30 | ⏳ |
+| 🔴 | `itdasy_backend/backend/migrations/20260530_portfolio_customer_fk.sql` | 컬럼 추가 | ~15 | ⏳ |
 | 🟡 | `app-gallery-finish.js` | 슬롯 카드 `👤 고객 지정` 버튼 + 뱃지 + FormData `customer_id` 전달(2곳) + `_pickCustomerForSlot()` | **+20** | ✅ |
 | 🟡 | `app-customer.js` | `Customer.pick()` 외부 재사용 API 추가 | **+60** | ✅ |
 | 🟡 | `app-portfolio.js` | 카드 뱃지 표시 (Phase 2 후반) | +80 | ⏸ 후반 |
@@ -149,10 +149,16 @@
 
 | 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
 |---|---|---|---|---|
-| 🔴 | `itdasy_itdasy_backend/backend/routers/naver_review.py` | 네이버 플레이스 URL 파싱 + 리뷰 메타 추출 | ~350 | ⏳ 백엔드 대기 |
-| 🟡 | `app-gallery-review.js` | 기존 Gemini Vision 스티커 유지. 네이버 URL 연동은 백엔드 배포 후 | +250 | ⏸ 백엔드 의존 |
-| 🔴 | `itdasy_itdasy_backend/backend/routers/nps.py` | NPS 설문 발송·수집·집계 | ~300 | ⏳ 백엔드 대기 |
-| 🔴 | `itdasy_itdasy_backend/backend/services/video.py` | ffmpeg 비포/애프터 → 릴스(MP4) | ~400 | ⏳ 백엔드 대기 |
+| 🔴 | `itdasy_backend/backend/routers/naver_reviews.py` | 수동 CRUD (크롤링 제외 — 네이버 ToS 리스크) | **84** | ✅ |
+| 🔴 | `itdasy_backend/backend/schemas/naver_review.py` | Create/Update/Out/ListOut | **42** | ✅ |
+| 🔴 | `app-naver-reviews.js` | URL·작성자·평점·내용·방문일 복붙 입력 + 목록 + 오프라인 폴백 | **254** | ✅ |
+| 🔴 | `itdasy_backend/backend/routers/nps.py` | GET/POST/DELETE + /stats(promoter/passive/detractor) | **90** | ✅ |
+| 🔴 | `itdasy_backend/backend/schemas/nps.py` | Create/Out/ListOut/StatsOut | **34** | ✅ |
+| 🔴 | `app-nps.js` | rating 0~10 슬라이더 + 통계 카드 + 오프라인 폴백 | **279** | ✅ |
+| 🔴 | `itdasy_backend/backend/services/video.py` | ffmpeg xfade crossfade MP4 | **76** | ✅ |
+| 🔴 | `itdasy_backend/backend/routers/video.py` | GET /capability + POST /beforeafter (multipart) | **85** | ✅ |
+| 🔴 | `app-video.js` | before/after 드롭 + 슬라이더 + capability 체크 + 다운로드 | **217** | ✅ |
+| 🟡 | `app-gallery-review.js` | 기존 Gemini Vision 스티커 유지 (변경 없음) | 0 | 유지 |
 | 🔴 | `itdasy_backend/backend/routers/inventory.py` | CRUD + `/adjust` delta 엔드포인트 | **107** | ✅ |
 | 🔴 | `itdasy_backend/backend/schemas/inventory.py` | Create/Update/Adjust/Out/ListOut | **44** | ✅ |
 | 🟡 | `itdasy_backend/backend/models.py` | `InventoryItem` ORM (quantity, threshold, category) | +12 | ✅ |
@@ -162,13 +168,16 @@
 | 🟡 | `app-revenue.js` | 시술 인센티브 계산 카드(월 탭) — 매출×(1−재료비%)−고정비 | **+51** | ✅ |
 | 🟡 | `index.html` | 설정시트 `📦 재고 관리` 행 + script 태그 | **+4** | ✅ |
 
-**Phase 3 완료 기준 (2026-04-20 FE+BE 1차 검증)**
+**Phase 3 완료 기준 (2026-04-20 FE+BE 2차 검증)**
 - [x] 재고 UI + 백엔드: 부족 알림 배지 + ±1 입고/출고 + `POST /inventory/{id}/adjust`
-- [x] 시술 인센티브 계산 카드(프론트 월 탭)
-- [ ] NPS 응답률 ≥25% (🔴 BE nps.py + 카톡 알림톡 템플릿 필요)
-- [ ] 숏폼 자동 생성 ≤30초 (🔴 BE ffmpeg services/video.py 필요)
-- [ ] 재고 자동 차감 오탐 ≤5% (🟡 시술-재료 맵 추가 필요)
-- [ ] 샵당 네이버 리뷰 ≥10건/월 (🔴 BE naver_review.py 필요)
+- [x] 시술 인센티브 계산 카드(월 탭)
+- [x] NPS FE+BE: rating 0~10 입력 + promoter/passive/detractor 집계 (수동 입력 기반)
+- [x] 네이버 리뷰 수동 저장 FE+BE: 복붙 입력 + 목록
+- [x] 비포/애프터 MP4 FE+BE: ffmpeg xfade, capability 체크, 501 graceful fallback
+- [ ] NPS 카톡 자동 설문 (🟡 알림톡 대행사 + 템플릿 승인 후)
+- [ ] 시술-재료 자동 차감 맵 (🟡 서비스별 매핑 테이블 추후)
+- [ ] 네이버 리뷰 Gemini Vision 자동 추출 (이미 `app-gallery-review.js`에 구현 존재, 수동 저장과 연계는 후속)
+- [ ] Railway 환경에 ffmpeg 설치 확인 (Nixpacks/Dockerfile)
 
 ---
 
@@ -176,12 +185,12 @@
 
 | 상태 | 파일 | 변경 내용 | 예상 라인 |
 |---|---|---|---|
-| 🔴 | `itdasy_itdasy_backend/backend/services/retention_predictor.py` | 마지막 방문일·주기 학습 → 이탈 임박 고객 리스트 | ~500 |
-| 🔴 | `itdasy_itdasy_backend/backend/routers/retention.py` | 주간 자동 쿠폰 알림톡 발송 잡 | ~200 |
-| 🔴 | `itdasy_itdasy_backend/backend/services/revenue_forecaster.py` | 주간 매출 예측 + 저조 주 마케팅 제안 | ~400 |
+| 🔴 | `itdasy_backend/backend/services/retention_predictor.py` | 마지막 방문일·주기 학습 → 이탈 임박 고객 리스트 | ~500 |
+| 🔴 | `itdasy_backend/backend/routers/retention.py` | 주간 자동 쿠폰 알림톡 발송 잡 | ~200 |
+| 🔴 | `itdasy_backend/backend/services/revenue_forecaster.py` | 주간 매출 예측 + 저조 주 마케팅 제안 | ~400 |
 | 🟡 | `routers/persona.py` | 페르소나 v2: 고객 세그먼트별 어퓨샷 분기 | +300 |
 | 🔴 | `app-ar-consult.js` | Capacitor Camera + on-device 스킨/네일 분석 | ~600 |
-| 🔴 | `itdasy_itdasy_backend/backend/services/dynamic_coupon.py` | 비수기·요일별 자동 할인 엔진 | ~350 |
+| 🔴 | `itdasy_backend/backend/services/dynamic_coupon.py` | 비수기·요일별 자동 할인 엔진 | ~350 |
 | 🟡 | `app-revenue.js` | 예측 차트 섹션 추가 | +150 |
 
 **Phase 4 완료 기준**
@@ -196,9 +205,9 @@
 | 상태 | 파일/레포 | 변경 내용 |
 |---|---|---|
 | 🔴 | **신규 레포** `itdasy-meet` (고객용 앱) | Capacitor 신규 빌드. Pro 원장님의 고객만 초대. |
-| 🔴 | `itdasy_itdasy_backend/backend/routers/meet/*` | 고객 앱 전용 엔드포인트 (예약/포인트/히스토리) |
-| 🔴 | `itdasy_itdasy_backend/backend/routers/community.py` | 1인샵 커뮤니티 피드 + 템플릿 구독 |
-| 🔴 | `itdasy_itdasy_backend/backend/routers/addon_store.py` | IAP 비소비성 Add-on (AR·영상 팩) |
+| 🔴 | `itdasy_backend/backend/routers/meet/*` | 고객 앱 전용 엔드포인트 (예약/포인트/히스토리) |
+| 🔴 | `itdasy_backend/backend/routers/community.py` | 1인샵 커뮤니티 피드 + 템플릿 구독 |
+| 🔴 | `itdasy_backend/backend/routers/addon_store.py` | IAP 비소비성 Add-on (AR·영상 팩) |
 | 🟡 | `app-plan.js` | Add-on 스토어 진입점 |
 
 **Phase 5는 원영 + 외주 투입 시점.**
@@ -213,19 +222,19 @@
 - [ ] 알리고 가입 + 템플릿 4종 신청 (승인 2~5일 소요, Day 1부터 병렬 진행)
 
 ### Week 1~2 · P0-1 고객 DB 최소셋
-- 🔴 신설: `itdasy_itdasy_backend/backend/routers/customers.py`
-- 🔴 신설: `itdasy_itdasy_backend/backend/migrations/20260501_customers.sql`
+- 🔴 신설: `itdasy_backend/backend/routers/customers.py`
+- 🔴 신설: `itdasy_backend/backend/migrations/20260501_customers.sql`
 - 🔴 신설: `app-customer.js`
 - 🟡 수정: `app-core.js`, `index.html`, `shared/schemas.json`
 
 ### Week 3 · P0-2 포트폴리오 ↔ 고객 연결
 - 🟡 수정: `app-portfolio.js` (+80줄)
-- 🟡 수정: `itdasy_itdasy_backend/backend/routers/portfolio.py` (customer_id 컬럼)
-- 🔴 신설: `itdasy_itdasy_backend/backend/migrations/20260530_portfolio_customer_fk.sql`
+- 🟡 수정: `itdasy_backend/backend/routers/portfolio.py` (customer_id 컬럼)
+- 🔴 신설: `itdasy_backend/backend/migrations/20260530_portfolio_customer_fk.sql`
 - 🟡 수정: `app-gallery-finish.js` (저장 시 고객 선택)
 
 ### Week 4 · P0-3 매출 간이 입력
-- 🔴 신설: `itdasy_itdasy_backend/backend/routers/revenue.py` (~150줄 MVP)
+- 🔴 신설: `itdasy_backend/backend/routers/revenue.py` (~150줄 MVP)
 - 🔴 신설: `app-revenue.js` (~300줄 3탭 SVG 차트)
 - 🟡 수정: `index.html`, `style.css`
 
@@ -296,6 +305,8 @@
 | 2026-04-20 | `43edc52` (연준) | Phase 3 프론트 — 시술 인센티브 계산(2.5 확장) + 재고 UI(3.5) + Inventory 스키마 |
 | 2026-04-20 | `a972c6a` (상위 monorepo, **reset됨**) | Phase 2~3 BE 초안을 잘못된 레포(`itdasy-beauty-app-main/`)에 커밋 → 커밋 취소. 사용자 지시 "recent 하위만 건드려" 반영 |
 | 2026-04-20 | `1c0ec6f` (`itdasy_backend` · 브랜치 `phase2-3-crm`) | Phase 2~3 BE 재커밋 — 올바른 레포에 4 router + 4 schema + models 확장. **`test` 리모트로만 푸시**, 명시 지시 대기 |
+| 2026-04-20 | `06383e5` (`itdasy_backend` · `phase2-3-crm`) | Phase 3 BE — NPS(90) + 네이버 리뷰 수동 저장(84) + Before/After MP4 ffmpeg(76+85) |
+| 2026-04-20 | (이번 커밋, FE) | Phase 3 FE — app-nps(279) + app-naver-reviews(254) + app-video(217) + 설정시트 3 진입점 + 스키마 12 엔드포인트 |
 
 ---
 
