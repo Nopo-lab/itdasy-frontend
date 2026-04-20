@@ -219,7 +219,14 @@
       </div>
     `).join('');
     box.querySelectorAll('.customer-row').forEach(row => {
-      row.addEventListener('click', () => _openDetail(row.dataset.id));
+      row.addEventListener('click', () => {
+        // 행 클릭 = 대시보드(조회). 편집은 대시보드 안의 '편집' 버튼 또는 _openDetail 직접 호출.
+        if (typeof window.openCustomerDashboard === 'function') {
+          window.openCustomerDashboard(row.dataset.id);
+        } else {
+          _openDetail(row.dataset.id);
+        }
+      });
     });
   }
 
@@ -374,6 +381,15 @@
       pop.addEventListener('click', (e) => { if (e.target === pop) close(null); });
     });
   }
+
+  // 외부에서 편집 폼 직접 열기 (대시보드의 '정보 편집' 버튼용)
+  window.editCustomer = async function (id) {
+    try { if (!_cache) await list(); } catch (_) {}
+    const sheet = _ensureSheet();
+    sheet.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    _openDetail(id);
+  };
 
   // 외부 노출 (디버그·테스트·타 컴포넌트용)
   window.Customer = {

@@ -345,7 +345,8 @@
 | 2026-04-20 | `8abf50a` (FE) | Phase 3 FE — app-nps(279) + app-naver-reviews(254) + app-video(217) + 설정시트 3 진입점 + 스키마 12 엔드포인트 |
 | 2026-04-20 | `2d2a095` (BE) / `4ea6af5` (FE) | Phase 3.6 ⭐ 경쟁사 CSV/XLSX 임포터 — importer(247) + router(164) + app-import(289) + ImportJob 모델 + openpyxl |
 | 2026-04-20 | `c88385e` (BE) | Phase 4 BE — 재방문 예측(108) + 매출 예측(78) + 다이나믹 쿠폰(82) + 페르소나 v2 세그먼트 + 3 엔드포인트 |
-| 2026-04-20 | (이번 커밋, FE) | Phase 4 FE — AI 인사이트 통합 대시보드(app-insights 207) + 설정시트 진입 |
+| 2026-04-20 | `bc4d519` (FE) | Phase 4 FE — AI 인사이트 통합 대시보드(app-insights 207) + 설정시트 진입 |
+| 2026-04-20 | (이번 커밋, BE+FE) | ⭐ 고객 통합 대시보드 — BE /customers/{id}/dashboard(123) + FE app-customer-dashboard(306) 히어로·4 카드·타임라인·세그먼트 자동 분류 |
 
 ---
 

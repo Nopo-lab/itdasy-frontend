@@ -1726,6 +1726,59 @@
         "required": ["ok"]
       }
     },
+    "GET /customers/{customer_id}/dashboard": {
+      "response": {
+        "type": "object",
+        "description": "고객 통합 대시보드 집계 (Phase 4+ · 2026-04-20)",
+        "properties": {
+          "customer":        { "type": "object" },
+          "segment":         { "type": "string", "enum": ["vip", "regular", "new", "absent"] },
+          "stats":           { "type": "object" },
+          "retention":       { "type": "object" },
+          "recent_revenues": { "type": "array" },
+          "recent_bookings": { "type": "array" },
+          "recent_nps":      { "type": "array" }
+        },
+        "required": ["customer", "segment", "stats", "retention"]
+      }
+    },
+    "GET /retention/at-risk": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "items":   { "type": "array" },
+          "summary": { "type": "object" }
+        }
+      }
+    },
+    "GET /revenue/forecast": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "has_data":       { "type": "boolean" },
+          "current_week":   { "type": "integer" },
+          "predicted_week": { "type": "integer" },
+          "delta_vs_last":  { "type": "integer" },
+          "delta_pct":      { "type": "number" },
+          "action":         { "type": "string" },
+          "history":        { "type": "array" }
+        }
+      }
+    },
+    "GET /coupons/suggest": {
+      "response": {
+        "type": "object",
+        "properties": {
+          "has_suggestion":  { "type": "boolean" },
+          "slow_day":        { "type": ["object", "null"] },
+          "peak_day":        { "type": ["object", "null"] },
+          "gap_pct":         { "type": ["number", "null"] },
+          "discount_pct":    { "type": ["integer", "null"] },
+          "message":         { "type": ["string", "null"] },
+          "weekday_stats":   { "type": "array" }
+        }
+      }
+    },
     "GET /revenue": {
       "request": {
         "type": "object",
