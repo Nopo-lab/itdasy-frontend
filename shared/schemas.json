@@ -1767,6 +1767,60 @@
         "properties": { "ok": { "type": "boolean" } },
         "required": ["ok"]
       }
+    },
+    "GET /bookings": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "from": { "type": "string", "format": "date-time" },
+          "to": { "type": "string", "format": "date-time" }
+        }
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/models/Booking" }
+          }
+        },
+        "required": ["items"]
+      }
+    },
+    "POST /bookings": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "customer_id": { "type": ["string", "null"], "format": "uuid" },
+          "service_name": { "type": ["string", "null"], "maxLength": 50 },
+          "memo": { "type": ["string", "null"], "maxLength": 200 }
+        },
+        "required": ["starts_at", "ends_at"]
+      },
+      "response": { "$ref": "#/models/Booking" }
+    },
+    "PATCH /bookings/{booking_id}": {
+      "request": {
+        "type": "object",
+        "properties": {
+          "starts_at": { "type": "string", "format": "date-time" },
+          "ends_at": { "type": "string", "format": "date-time" },
+          "customer_id": { "type": ["string", "null"] },
+          "service_name": { "type": ["string", "null"] },
+          "memo": { "type": ["string", "null"] },
+          "status": { "type": "string", "enum": ["confirmed", "completed", "cancelled", "no_show"] }
+        }
+      },
+      "response": { "$ref": "#/models/Booking" }
+    },
+    "DELETE /bookings/{booking_id}": {
+      "response": {
+        "type": "object",
+        "properties": { "ok": { "type": "boolean" } },
+        "required": ["ok"]
+      }
     }
   },
   "models": {
@@ -1809,6 +1863,24 @@
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "shop_id", "amount", "method", "recorded_at", "created_at"]
+    },
+    "Booking": {
+      "description": "예약 건. 중복 시간 방지는 서버에서 409로 응답.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "shop_id": { "type": "string" },
+        "starts_at": { "type": "string", "format": "date-time" },
+        "ends_at": { "type": "string", "format": "date-time" },
+        "customer_id": { "type": ["string", "null"], "format": "uuid" },
+        "customer_name": { "type": ["string", "null"] },
+        "service_name": { "type": ["string", "null"], "maxLength": 50 },
+        "memo": { "type": ["string", "null"], "maxLength": 200 },
+        "status": { "type": "string", "enum": ["confirmed", "completed", "cancelled", "no_show"], "default": "confirmed" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "deleted_at": { "type": ["string", "null"], "format": "date-time" }
+      },
+      "required": ["id", "shop_id", "starts_at", "ends_at", "status", "created_at"]
     },
     "ServiceEntry": {
       "description": "대표 서비스 항목 (프론트 Q2 스펙).",

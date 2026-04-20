@@ -71,8 +71,25 @@
     }
   }
 
+  const FREE_CUSTOMER_LIMIT = 50;
+
+  function _overLimit() {
+    const paid = typeof window.isPaidPlan === 'function' && window.isPaidPlan();
+    if (paid) return false;
+    const count = (_cache || _loadOffline()).length;
+    return count >= FREE_CUSTOMER_LIMIT;
+  }
+
   async function create(payload) {
     if (!payload || !payload.name) throw new Error('name-required');
+    if (_overLimit()) {
+      const msg = 'Free 플랜은 고객 ' + FREE_CUSTOMER_LIMIT + '명까지 등록할 수 있어요. Pro 로 업그레이드해 주세요.';
+      if (window.showToast) window.showToast(msg);
+      if (typeof window.openPlanPopup === 'function') {
+        setTimeout(() => window.openPlanPopup(), 500);
+      }
+      throw new Error('free-limit-reached');
+    }
     const data = {
       name: String(payload.name).trim().slice(0, 50),
       phone: payload.phone ? String(payload.phone).trim().slice(0, 20) : null,

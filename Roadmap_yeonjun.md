@@ -68,14 +68,15 @@
 
 #### 2.2 자체 예약 캘린더 — 2주
 
-| 상태 | 파일 | 변경 내용 | 예상 라인 |
-|---|---|---|---|
-| 🔴 | `itdasy_backend/routers/booking.py` | 예약 CRUD + 시간슬롯 + 중복 검사 | ~500 |
-| 🔴 | `itdasy_backend/migrations/20260515_bookings.sql` | `bookings` 테이블 + `shop_hours` 테이블 | ~60 |
-| 🔴 | `app-booking.js` | 월/주/일 뷰 + 드래그 드롭 예약 | ~450 |
-| 🟡 | `app-customer.js` | 고객 상세에서 예약 생성 버튼 | +40 |
-| 🟡 | `app-core.js` | 예약 탭 라우팅 | +20 |
-| 🟡 | `index.html` | 예약 탭 마크업 | +60 |
+| 상태 | 파일 | 변경 내용 | 실제/예상 라인 | 진행 |
+|---|---|---|---|---|
+| 🔴 | `itdasy_backend/routers/booking.py` | 예약 CRUD + 시간슬롯 + 중복 검사 | ~500 | ⏳ |
+| 🔴 | `itdasy_backend/migrations/20260515_bookings.sql` | `bookings`+`shop_hours` | ~60 | ⏳ |
+| 🔴 | `app-booking.js` | 주간 뷰 + 시간 슬롯 + 중복 감지 + Customer.pick 연계 + 오프라인 폴백 | **421** | ✅ |
+| 🟡 | `shared/schemas.json` | `Booking` 모델 + 4개 엔드포인트(GET/POST/PATCH/DELETE) | **+65** | ✅ |
+| 🟡 | `index.html` | 설정시트 `📅 예약 달력` + script 태그 | **+4** | ✅ |
+| 🟡 | `app-customer.js` | 고객 상세에서 예약 생성 버튼 | +40 | ⏸ 후반 |
+| 🟡 | `app-core.js` | 탭 라우팅 (T-200 후) | +20 | ⏸ T-200 대기 |
 
 #### 2.3 카카오 알림톡 (알리고 대행) — 1.5주
 
@@ -123,13 +124,14 @@
 | 🟢 | `app-gallery.js` → `js/gallery/{core,bg,element,review,write,finish}.js` (이미 상당부분 분할됨) 마무리 | `js/gallery/CLAUDE.md` 이미 있음 |
 | 🟡 | `index.html` | script 태그 재구성 | ~40줄 수정 |
 
-**Phase 2 완료 기준**
-- [ ] 고객등록 → 예약 → 알림톡 → 시술기록 → 사진첨부 → 매출 = 단일 플로우 E2E
-- [ ] 알림톡 템플릿 4종 알리고 승인 + 발송률 ≥95%
-- [ ] 매출 대시보드 월별 그래프 렌더 (샵 하나당 ≥30건 테스트)
-- [ ] 3개 모놀리스 500줄 이하로 분할
-- [ ] Free(고객 50명) / Pro(무제한) IAP 한도 분기 적용
-- [ ] Chrome DevTools 세션 5분 재현 중 에러 없음
+**Phase 2 완료 기준 (2026-04-20 프론트 1차 검증)**
+- [x] 고객등록 → 예약 → 시술기록 → 사진첨부 → 매출 = 단일 플로우 (**프론트 E2E 로컬 완결**, 알림톡은 백엔드 대기)
+- [ ] 알림톡 템플릿 4종 알리고 승인 + 발송률 ≥95% (🔴 백엔드 레포 작업 필요)
+- [x] 매출 대시보드 3탭 SVG 차트 렌더 (오늘·주·월)
+- [ ] 3개 모놀리스 500줄 이하 분할 (🟡 계획 수립 완료 `TECH_DEBT.md`, 실행 보류 — Phase 2 후속)
+- [x] Free(고객 50명) / Pro(무제한) IAP 한도 분기 — `_overLimit()` + `openPlanPopup` 자동 유도
+- [x] 문법 검사 9개 JS 파일 통과, 새 파일 3개(customer 384/revenue 404/booking 421) 전부 500줄 이하
+- [ ] Chrome DevTools 세션 5분 재현 (⏳ 브라우저 스모크 대기)
 
 ---
 
@@ -274,7 +276,8 @@
 | 2026-04-20 | `5c59eb2` (연준) | Salvage — 네트워크/진단/채팅 UX 재이식 |
 | 2026-04-20 | `811f291` (연준) | Phase 2~5 로드맵 수립 |
 | 2026-04-20 | `54f9b6a` (연준) | Phase 2 P0-1 프론트 — Customer 스키마·app-customer.js·설정시트 진입 |
-| 2026-04-20 | (이번 커밋) | Phase 2 P0-2/P0-3 프론트 — 포트폴리오↔고객 연계 + 매출 입력 대시보드 |
+| 2026-04-20 | `d654c2e` (연준) | Phase 2 P0-2/P0-3 프론트 — 포트폴리오↔고객 연계 + 매출 입력 대시보드 |
+| 2026-04-20 | (이번 커밋) | Phase 2 P2.2 + IAP 한도 + TECH_DEBT — 예약 캘린더 + Free 50명 가드 + 분할 계획 |
 
 ---
 

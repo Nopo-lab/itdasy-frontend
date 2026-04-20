@@ -189,6 +189,10 @@
   window.closePlanPopup = closePlanPopup;
   window.doPlanAction = doPlanAction;
 
+  // 외부에서 현재 플랜 조회 (고객·매출 한도 분기용)
+  window.getCurrentPlan = () => _currentPlan;
+  window.isPaidPlan = () => _currentPlan === 'pro' || _currentPlan === 'premium';
+
   // planActionBtn 클릭 이벤트 바인딩 (app-core.js 의 on() 등록 외에 안전장치)
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('planActionBtn');
