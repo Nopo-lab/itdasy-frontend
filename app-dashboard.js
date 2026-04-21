@@ -118,15 +118,16 @@
     const deltaArrow = deltaPct > 5 ? '↗' : deltaPct < -5 ? '↘' : '→';
 
     const cards = [
-      { key: 'today',    icon: '💰', label: '오늘 매출',  value: stats.today_amount,    format: 'krw',  sub: `${stats.today_count || 0}건 기록`, color: '#F18091,#D95F70' },
-      { key: 'month',    icon: '📈', label: '이번 달',    value: stats.month_amount,    format: 'krw',  sub: '누적 매출',                       color: '#FFB347,#FF8A5C' },
-      { key: 'customer', icon: '👥', label: '고객',       value: stats.customer_count,  format: 'unit', unit: '명', sub: '등록된 고객',           color: '#4ECDC4,#44A08D' },
-      { key: 'booking',  icon: '📅', label: '예정 예약',  value: stats.upcoming_bookings, format: 'unit', unit: '건', sub: '다가오는 일정',       color: '#A78BFA,#8B5CF6' },
+      { key: 'today',    icon: '💰', label: '오늘 매출',  value: stats.today_amount,    format: 'krw',  sub: `${stats.today_count || 0}건 기록`, color: '#F18091,#D95F70', pvTab: 'revenue' },
+      { key: 'month',    icon: '📈', label: '이번 달',    value: stats.month_amount,    format: 'krw',  sub: '누적 매출',                       color: '#FFB347,#FF8A5C', pvTab: 'revenue' },
+      { key: 'customer', icon: '👥', label: '고객',       value: stats.customer_count,  format: 'unit', unit: '명', sub: '등록된 고객',           color: '#4ECDC4,#44A08D', pvTab: 'customer' },
+      { key: 'booking',  icon: '📅', label: '예정 예약',  value: stats.upcoming_bookings, format: 'unit', unit: '건', sub: '다가오는 일정',       color: '#A78BFA,#8B5CF6', pvTab: 'booking' },
     ];
 
     const cardHtml = cards.map(c => `
       <div style="padding:16px;border-radius:18px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.06);position:relative;overflow:hidden;">
         <div style="position:absolute;top:-12px;right:-12px;width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,${c.color});opacity:0.18;"></div>
+        <button data-pv-open="${c.pvTab}" title="크게 보기 + 빠른 입력" aria-label="확대" style="position:absolute;top:8px;right:8px;width:28px;height:28px;border:none;border-radius:8px;background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);cursor:pointer;font-size:13px;color:#666;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 2px 6px rgba(0,0,0,0.08);">⛶</button>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;position:relative;">
           <span style="font-size:16px;">${c.icon}</span>
           <span style="font-size:11px;color:#666;font-weight:700;">${c.label}</span>
@@ -355,11 +356,12 @@
 
   function _quickActionsGrid() {
     const tiles = [
-      { icon: '👥', label: '고객',       fn: 'openCustomers' },
-      { icon: '📅', label: '예약',       fn: 'openBooking' },
-      { icon: '💰', label: '매출',       fn: 'openRevenue' },
-      { icon: '📦', label: '재고',       fn: 'openInventory' },
-      { icon: '📊', label: 'NPS',        fn: 'openNps' },
+      { icon: '👥', label: '고객',       fn: 'openCustomers',     pvTab: 'customer' },
+      { icon: '📅', label: '예약',       fn: 'openBooking',       pvTab: 'booking' },
+      { icon: '💰', label: '매출',       fn: 'openRevenue',       pvTab: 'revenue' },
+      { icon: '📦', label: '재고',       fn: 'openInventory',     pvTab: 'inventory' },
+      { icon: '📊', label: 'NPS',        fn: 'openNps',           pvTab: 'nps' },
+      { icon: '💅', label: '시술 프리셋',fn: 'openServiceTemplates', pvTab: 'service' },
       { icon: '⭐', label: '네이버',     fn: 'openNaverReviews' },
       { icon: '🎬', label: '영상',       fn: 'openVideo' },
       { icon: '📥', label: '이전 도우미',fn: 'openMigration' },
@@ -367,16 +369,24 @@
     ];
     return `
       <div style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;">
-          <span style="font-size:14px;">⚡</span>
-          <strong style="font-size:13px;">샵 운영 메뉴</strong>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:0 4px;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:14px;">⚡</span>
+            <strong style="font-size:13px;">샵 운영 메뉴</strong>
+          </div>
+          <button data-pv-open="customer" style="padding:6px 12px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:100px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;box-shadow:0 2px 6px rgba(241,128,145,0.3);">
+            ⛶ 파워뷰 열기
+          </button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
           ${tiles.map(t => `
-            <button data-quick="${t.fn}" style="padding:14px 6px;border:none;border-radius:14px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:transform 0.1s;">
-              <div style="font-size:22px;margin-bottom:4px;">${t.icon}</div>
-              <div style="font-size:11px;color:#444;font-weight:700;">${t.label}</div>
-            </button>
+            <div style="position:relative;">
+              <button data-quick="${t.fn}" style="width:100%;padding:14px 6px;border:none;border-radius:14px;background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:transform 0.1s;">
+                <div style="font-size:22px;margin-bottom:4px;">${t.icon}</div>
+                <div style="font-size:11px;color:#444;font-weight:700;">${t.label}</div>
+              </button>
+              ${t.pvTab ? `<button data-pv-open="${t.pvTab}" title="크게 보기" aria-label="확대" style="position:absolute;top:4px;right:4px;width:22px;height:22px;border:none;border-radius:6px;background:rgba(241,128,145,0.1);color:#F18091;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;">⛶</button>` : ''}
+            </div>
           `).join('')}
         </div>
       </div>
@@ -488,6 +498,15 @@
     const seeAll = sheet.querySelector('[data-open="insights"]');
     if (seeAll) seeAll.addEventListener('click', () => {
       if (typeof window.openInsights === 'function') window.openInsights();
+    });
+    // Phase 6 C11 — 카드별 확대(파워뷰) 버튼
+    sheet.querySelectorAll('[data-pv-open]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (window.hapticLight) window.hapticLight();
+        const tab = btn.getAttribute('data-pv-open');
+        if (typeof window.openPowerView === 'function') window.openPowerView(tab);
+      });
     });
   }
 
