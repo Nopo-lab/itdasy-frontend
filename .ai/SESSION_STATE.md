@@ -4,7 +4,17 @@
 > 작업 완료 후 반드시 이 파일을 갱신하고 세션을 끝낸다.
 > 갱신자: 오케스트레이터 및 각 터미널. 편집 시 상단 "LAST UPDATED" 를 바꾼다.
 
-**LAST UPDATED:** 2026-04-20 17:50 (T-202 영향도 조사 완료 · plan.md 준비 · 원영님 🟢 대기) · by 오케스트레이터
+**LAST UPDATED:** 2026-04-22 04:10 (T-330 구 페르소나 탭/레거시/노쇼 일괄 대청소 ✅ 완료 · 약 1,700줄 순삭감 · 백엔드 정리는 T-330-B 로 연준에 전달) · by 오케스트레이터
+
+## 🔴 새 세션은 먼저 읽기
+
+- **최근 변경:** Phase 1.6 T-330 완료. 프론트에서 `app-persona.js`(900) · `components/persona-popup.js`(544) · `app-cookie-consent.js`(49) 삭제 + 숨김 UI · 레거시 토큰 · 노쇼 UI · 루트 CLAUDE.md 슬림화.
+- **불가침 영역:** 글쓰기 탭 시나리오 팝업(`openCaptionScenarioPopup` / `scenario-selector.js` / `_doGenerateCaption`) — 원영님 "이 로직 최고". 에러 핸들러 문구 1군데 외 수정 금지.
+- **커밋 대기:** 원영님이 터미널에서 직접 push 예정. 터미널 킷 `.ai/terminal-kits/T-330-git.md` 참조.
+- **백엔드 연준 할 일:** `.ai/tickets/T-330-B-backend.md` — `no_show` enum · 엔드포인트 · 마이그레이션 제거.
+- **보존 주의:** `#personaDash` div (신 로직이 사용) · `cbt1ResetArea` 버튼 (CBT 테스트용) · `components/scenario-selector.js` (신 글쓰기 공통).
+
+
 
 ---
 
