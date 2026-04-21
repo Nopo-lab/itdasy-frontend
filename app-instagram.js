@@ -76,7 +76,7 @@ async function checkInstaStatus(fromLogin = false) {
       updateStep('stepPersona', false);
       updateStep('stepCaption', false);
     }
-  } catch(e) {}
+  } catch(_e) { /* ignore */ }
 }
 
 function renderPersonaDash(p, showTestBtn) {
@@ -106,14 +106,6 @@ function showDetailedAnalysis() {
   // 팝업 데이터 렌더링 (runPersonaAnalyze에 있는 로직 재사용)
   renderDetailedPopup({ raw_analysis: raw, persona: { avg_caption_length: raw.avg_caption_length || 0, emojis: raw.emojis, hashtags: raw.hashtags, style_summary: raw.style_summary } });
   document.getElementById('analyzeResultPopup').style.display = 'block';
-  const closeBtn2 = document.querySelector('#analyzeResultPopup button');
-  if (closeBtn2) {
-    closeBtn2.addEventListener('click', () => {
-      if (typeof window.openPersonaPopup === 'function') {
-        setTimeout(() => window.openPersonaPopup(), 300);
-      }
-    }, { once: true });
-  }
 }
 
 function renderDetailedPopup(data) {
@@ -259,7 +251,7 @@ async function runPersonaAnalyze() {
         if (err.detail && typeof err.detail === 'string' && !err.detail.includes('Error')) {
           friendly = err.detail;
         }
-      } catch(_) {}
+      } catch(_) { /* ignore */ }
       overlay.style.display = 'none';
       showToast(friendly);
       return;
@@ -293,15 +285,6 @@ async function runPersonaAnalyze() {
       // 분석 완료 팝업 자동 오픈
       renderDetailedPopup({ raw_analysis: raw, persona: p });
       document.getElementById('analyzeResultPopup').style.display = 'block';
-      // Phase 1-A: 분석완료 팝업 닫으면 말투검증 팝업 자동 오픈
-      const closeBtn = document.querySelector('#analyzeResultPopup button');
-      if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-          if (typeof window.openPersonaPopup === 'function') {
-            setTimeout(() => window.openPersonaPopup(), 300);
-          }
-        }, { once: true });
-      }
     }, 800);
 
   } catch(e) {

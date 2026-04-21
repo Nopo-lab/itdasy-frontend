@@ -167,7 +167,7 @@
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
           ${rows.map((b, i) => {
-            const status = b.status === 'cancelled' ? '❌' : b.status === 'no_show' ? '⚠' : b.status === 'completed' ? '✓' : '•';
+            const status = b.status === 'cancelled' ? '❌' : b.status === 'completed' ? '✓' : '•';
             return `
               <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}">
                 <div style="font-size:12px;font-weight:700;">${status} ${_dateShort(b.starts_at)} <span style="color:#888;font-weight:400;">${_esc(b.service_name || '시술')}</span></div>

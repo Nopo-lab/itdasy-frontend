@@ -44,7 +44,7 @@ function shuffleHashtags(tags) {
 
   // 이전 사용 기록 로드
   let history = [];
-  try { history = JSON.parse(localStorage.getItem('itdasy_hash_history') || '[]'); } catch(_) {}
+  try { history = JSON.parse(localStorage.getItem('itdasy_hash_history') || '[]'); } catch(_) { /* ignore */ }
 
   // 핵심 태그(앞 3개)는 고정, 나머지를 셔플 대상으로 분리
   const core = tags.slice(0, 3);
@@ -406,7 +406,7 @@ async function _capPatchLog(text) {
 
   try {
     await _personaFetch('PATCH', `/persona/generation_logs/${_lastLogId}`, { final_text: text });
-  } catch(_e) {} // 조용히 실패
+  } catch(_e) { /* 조용히 실패 */ }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -476,8 +476,8 @@ const _CAP_CAT_MAP = {'붙임머리':'extension','네일아트':'nail','네일':
 
 // 400 에러 코드 → 사용자 안내 메시지
 const _CAP_ERR_MSG = {
-  'identity_incomplete': '페르소나 탭 필수 5필드부터 채워주세요',
-  'consent_missing':     '페르소나 탭 하단 동의를 먼저 해주세요',
+  'identity_incomplete': '사장님 프로필(업종·매장명 등)을 먼저 등록해주세요',
+  'consent_missing':     'AI 처리 동의가 필요합니다',
   'insufficient_posts':  '포스트가 5개 이상 필요합니다. 인스타 연동에서 포스트를 더 불러와주세요.',
   'fingerprint_missing': '포스트가 5개 이상 필요합니다. 인스타 연동에서 포스트를 더 불러와주세요.',
 };
@@ -573,16 +573,16 @@ async function _doGenerateCaption(scenario, closePopup) {
       const msg = _CAP_ERR_MSG[code] || '캡션 생성에 실패했습니다. 다시 시도해주세요.';
       hideCaptionLoader(false, () => {
         closePopup();
-        // 피드백 #11/#5: identity_incomplete → 기존 페르소나 팝업 열기 (숨겨진 탭 말고)
+        // identity_incomplete → 신 온보딩 팝업 (T-310: 구 페르소나 팝업 제거)
         if (code.startsWith('identity_incomplete')) {
           showToast('사장님 프로필(업종·매장명 등)을 먼저 등록해주세요');
-          if (typeof window.openPersonaPopup === 'function') {
-            setTimeout(() => window.openPersonaPopup(), 300);
+          if (typeof window.showOnboardingCaptionPopup === 'function') {
+            setTimeout(() => window.showOnboardingCaptionPopup(), 300);
           }
           return;
         }
         if (code.startsWith('consent_missing')) {
-          showToast('페르소나 탭 하단 "AI 처리 동의"를 먼저 체크해주세요');
+          showToast('AI 처리 동의가 필요합니다');
           return;
         }
         if (code.startsWith('insufficient_posts') || code.startsWith('fingerprint_missing')) {

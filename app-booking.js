@@ -46,7 +46,7 @@
     try {
       const raw = localStorage.getItem(SHOP_HOURS_KEY);
       if (raw) return { ...DEFAULT_HOURS, ...JSON.parse(raw) };
-    } catch (_) {}
+    } catch (_) { /* ignore */ }
     return { ...DEFAULT_HOURS };
   }
 
@@ -55,7 +55,7 @@
     catch (_) { return []; }
   }
   function _saveOffline(list) {
-    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(list)); } catch (_) {}
+    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(list)); } catch (_) { /* ignore */ }
   }
 
   async function _api(method, path, body) {
@@ -337,7 +337,6 @@
             <div style="display:flex;gap:6px;">
               <button type="button" data-bf-status="confirmed" style="flex:1;padding:8px;border:1px solid ${existing.status==='confirmed'?'#F18091':'#ddd'};background:${existing.status==='confirmed'?'#FEF4F5':'#fff'};color:${existing.status==='confirmed'?'#D95F70':'#666'};border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;">📅 예정</button>
               <button type="button" data-bf-status="completed" style="flex:1;padding:8px;border:1px solid ${existing.status==='completed'?'#388e3c':'#ddd'};background:${existing.status==='completed'?'#E8F5E9':'#fff'};color:${existing.status==='completed'?'#1B5E20':'#666'};border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;">✅ 완료</button>
-              <button type="button" data-bf-status="no_show" style="flex:1;padding:8px;border:1px solid ${existing.status==='no_show'?'#F57C00':'#ddd'};background:${existing.status==='no_show'?'#FFF3E0':'#fff'};color:${existing.status==='no_show'?'#E65100':'#666'};border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;">🚫 노쇼</button>
               <button type="button" data-bf-status="cancelled" style="flex:1;padding:8px;border:1px solid ${existing.status==='cancelled'?'#C62828':'#ddd'};background:${existing.status==='cancelled'?'#FFEBEE':'#fff'};color:${existing.status==='cancelled'?'#B71C1C':'#666'};border-radius:8px;font-size:11.5px;font-weight:700;cursor:pointer;">❌ 취소</button>
             </div>
           </div>
@@ -353,11 +352,11 @@
       try {
         const res = await fetch(window.API + '/services', { headers: window.authHeader() });
         if (res.ok) { const d = await res.json(); (d.items||[]).forEach(s => s.name && names.add(s.name)); }
-      } catch(_){}
+      } catch(_){ /* ignore */ }
       try {
         const res2 = await fetch(window.API + '/revenue?period=month', { headers: window.authHeader() });
         if (res2.ok) { const d = await res2.json(); (d.items||[]).forEach(r => r.service_name && names.add(r.service_name)); }
-      } catch(_){}
+      } catch(_){ /* ignore */ }
       dl.innerHTML = Array.from(names).slice(0, 50).map(n => `<option value="${_esc(n)}"></option>`).join('');
     })();
 
@@ -441,7 +440,7 @@
           try {
             await update(existing.id, { status: newStatus });
             if (window.hapticLight) window.hapticLight();
-            const label = { confirmed:'예정', completed:'완료', no_show:'노쇼', cancelled:'취소' }[newStatus];
+            const label = { confirmed:'예정', completed:'완료', cancelled:'취소' }[newStatus];
             if (window.showToast) window.showToast(`✅ 상태를 '${label}'로 변경했어요`);
             await _loadAndRender();
           } catch (err) {

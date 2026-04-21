@@ -31,16 +31,6 @@ const API = (window.location.hostname === 'localhost' || window.location.hostnam
 // 백엔드가 다르면(운영 vs 스테이징) JWT 서명이 달라서 크로스 오염 시 401 "인증 실패" 발생.
 // → API URL 기반으로 토큰 키를 분리해서 완전 격리.
 const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
-// 구버전 토큰 자동 마이그레이션 (한 번만 실행)
-(function migrateLegacyToken(){
-  try {
-    const legacy = localStorage.getItem('itdasy_token');
-    if (legacy && !localStorage.getItem(_TOKEN_KEY)) {
-      // 현재 API가 스테이징인데 기존 토큰이 존재하면 보수적으로 정리 (어느 백엔드 토큰인지 알 수 없음)
-      localStorage.removeItem('itdasy_token');
-    }
-  } catch(_){}
-})();
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
 
@@ -93,11 +83,6 @@ function updateHeaderProfile(handle, tone, picUrl) {
   const publishLabel = document.getElementById('publishBtnLabel');
   if (publishLabel) publishLabel.textContent = `${shopName} 피드에 바로 올리기`;
 
-  const statusEl = document.getElementById('headerPersonaName');
-  if (statusEl) {
-    statusEl.textContent = handle ? `${handle} · ${tone || '말투 분석 완료'}` : (tone || '말투 분석 대기 중');
-  }
-
   // 헤더 아바타: 이미지 있으면 img, 없으면 이니셜
   const avatarEl = document.getElementById('headerAvatar');
   if (avatarEl) {
@@ -146,14 +131,6 @@ function applyShopType(type) {
   if (!cfg) return;
 
   const shopName = localStorage.getItem('shop_name') || '사장님';
-
-  // 홈 질문 카드 (개인화)
-  const q = document.getElementById('homeQuestion');
-  if (q) {
-      // 구체적인 작업 유형 추출 (예: '붙임머리')
-      const jobAction = cfg.tagLabel.replace(' 시술', '').replace(' 작업', '');
-      q.innerHTML = `<span style="color:var(--accent2); font-weight:800;">${shopName}</span> 대표님!<br>오늘 어떤 <span style="background:rgba(241,128,145,0.08); padding:0 4px; border-radius:4px;">${jobAction}</span> 작업을 하셨나요? ✨`;
-  }
 
   // 시술 태그 라벨
   const lbl = document.getElementById('typeTagLabel');
@@ -286,7 +263,7 @@ function setToken(t) {
     } else {
       localStorage.setItem(_TOKEN_KEY, t);
     }
-  } catch (_) {}  // 용량 초과/시크릿 모드 조용히 무시
+  } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
 }
 function authHeader() {
   const t = getToken();
@@ -401,7 +378,7 @@ async function localReset() {
   ['itdasy_consented','itdasy_consented_at','itdasy_latest_analysis',
    'onboarding_done','shop_name','shop_type'].forEach(k => localStorage.removeItem(k));
   // 인스타 연동도 백엔드에서 해제
-  try { await fetch(API + '/instagram/disconnect', { method: 'POST', headers: authHeader() }); } catch(_) {}
+  try { await fetch(API + '/instagram/disconnect', { method: 'POST', headers: authHeader() }); } catch(_) { /* ignore */ }
   location.reload();
 }
 
@@ -521,9 +498,9 @@ async function _offerBiometricEnroll(token) {
       try {
         await window.Biometric.enable(token);
         if (window.showToast) window.showToast('✅ 생체 인증 등록됨');
-      } catch (_) {}
+      } catch (_) { /* ignore */ }
     }, 1200);
-  } catch (_) {}
+  } catch (_) { /* ignore */ }
 }
 
 // T-317 — 앱 실행 시 생체 인증으로 자동 로그인 시도
@@ -835,7 +812,7 @@ function _updateVersionBadge(swVer) {
         }
         const regs = await navigator.serviceWorker.getRegistrations();
         await Promise.all(regs.map(r => r.unregister()));
-      } catch (_) {}
+      } catch (_) { /* ignore */ }
       location.reload();
     })();
   }
@@ -985,7 +962,7 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     EMOJI.classList.add('spin');
     EMOJI.style.transform = '';
 
-    try { await checkInstaStatus(); } catch (_) {}
+    try { await checkInstaStatus(); } catch (_) { /* ignore */ }
 
     springBack(() => {
       resetIndicator();
@@ -1007,7 +984,7 @@ async function loadStatsCard() {
     const pub = document.getElementById('statPosts');
     if (cap) cap.textContent = d.caption?.used ?? 0;
     if (pub) pub.textContent = d.publish?.used ?? 0;
-  } catch(_) {}
+  } catch(_) { /* ignore */ }
 }
 
 // ──────────────────────────────────────────────
@@ -1030,7 +1007,7 @@ async function loadStatsCard() {
             const clone = r.clone();
             const j = await clone.json().catch(() => ({}));
             showToast(j.detail || '사용 한도 초과 — 플랜을 확인해주세요');
-          } catch (_) {}
+          } catch (_) { /* ignore */ }
           setTimeout(() => openPlanPopup(), 600);
         }
       }

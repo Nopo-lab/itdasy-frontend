@@ -94,13 +94,11 @@ npx cap sync android
 | `app-gallery-finish.js` | 마무리 탭 (인스타 발행 버튼 · 갤러리 보관) | 약 450줄 |
 | `app-portfolio.js` | 포트폴리오 (네이버 플레이스용 사진 관리) · 🔴 분할 예정 | 약 1020줄 |
 | `app-ai.js` | AI 추천 탭 · 인스타 즉시 발행 헬퍼 | 약 290줄 |
-| `app-persona.js` | 말투 분석(페르소나) | 약 1330줄 |
 | `app-instagram.js` | 인스타그램 OAuth · 발행 API 호출 | 약 560줄 |
 | `app-plan.js` | 요금제(Free/Pro/Premium) · 결제 | 약 240줄 |
 | `app-story-template.js` | 스토리 템플릿 | 약 280줄 |
 | `app-sample-captions.js` | 샘플 캡션 (체험용) | 약 200줄 |
 | `app-support.js` | 고객센터 채팅 | 약 220줄 |
-| `app-cookie-consent.js` | 쿠키 동의 배너 | 약 70줄 |
 | `app-theme.js` | 다크모드 토글 | 약 80줄 |
 | `app-spec-validator.js` | 런타임 스펙 검증 | 약 180줄 |
 

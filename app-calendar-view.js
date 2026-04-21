@@ -50,7 +50,6 @@
     return ({
       confirmed: '#F18091',
       completed: '#388e3c',
-      no_show:   '#F57C00',
       cancelled: '#888',
     })[status] || '#F18091';
   }
@@ -69,7 +68,7 @@
     const o = document.getElementById(OVERLAY);
     if (o) o.remove();
     document.body.style.overflow = '';
-    if (_calendar) { try { _calendar.destroy(); } catch(e){} _calendar = null; }
+    if (_calendar) { try { _calendar.destroy(); } catch(_e){ /* ignore */ } _calendar = null; }
   }
 
   async function openCalendarView() {

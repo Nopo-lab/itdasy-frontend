@@ -89,7 +89,6 @@ module.exports = {
         'app-caption.js',
         'app-portfolio.js',
         'app-gallery.js',
-        'app-persona.js',
         'app-core.js',
       ],
       rules: {
