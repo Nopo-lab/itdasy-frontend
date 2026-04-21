@@ -371,6 +371,42 @@
     return list.filter(r => schema.search(r, kw));
   }
 
+  // ── 쌓아둔 행 사람-친화 포맷 ────────────────────────────
+  function _formatPendingRow(p) {
+    if (!p) return '';
+    const esc = _esc;
+    switch (currentTab) {
+      case 'customer':
+        return `<strong>${esc(p.name || '')}</strong>` +
+          (p.phone ? ` · <span style="color:#666;">${esc(p.phone)}</span>` : '') +
+          (p.memo ? ` · <span style="color:#888;">${esc(String(p.memo).slice(0, 30))}</span>` : '');
+      case 'booking': {
+        const t = (p.starts_at || '').replace('T', ' ').slice(0, 16);
+        return `<strong>${esc(p.customer_name || '고객 없음')}</strong>` +
+          (p.service_name ? ` · ${esc(p.service_name)}` : '') +
+          (t ? ` · <span style="color:#666;">${esc(t)}</span>` : '');
+      }
+      case 'revenue':
+        return `<strong>${_krw(p.amount)}</strong>` +
+          (p.method ? ` · <span style="padding:1px 7px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:10.5px;font-weight:700;">${esc(p.method)}</span>` : '') +
+          (p.service_name ? ` · ${esc(p.service_name)}` : '') +
+          (p.customer_name ? ` · <span style="color:#888;">${esc(p.customer_name)}</span>` : '');
+      case 'inventory':
+        return `<strong>${esc(p.name)}</strong> · <span style="color:#666;">${p.quantity}${esc(p.unit || '개')}</span>` +
+          (p.category ? ` · <span style="color:#888;font-size:11px;">${esc(p.category)}</span>` : '');
+      case 'nps':
+        return `<strong style="color:#E6A100;">★${p.rating}</strong>` +
+          (p.comment ? ` · <span style="color:#666;">${esc(String(p.comment).slice(0, 40))}</span>` : '');
+      case 'service':
+        return `<strong>${esc(p.name)}</strong>` +
+          (p.default_price ? ` · ${_krw(p.default_price)}` : '') +
+          (p.default_duration_min ? ` · ${p.default_duration_min}분` : '') +
+          (p.category ? ` · <span style="color:#888;font-size:11px;">${esc(p.category)}</span>` : '');
+      default:
+        return esc(JSON.stringify(p).slice(0, 80));
+    }
+  }
+
   // ── 자동완성 소스 ─────────────────────────────────────
   function _buildAutoSources() {
     const out = { customer_name: [], service_name: [], method: ['card','cash','transfer','etc'],
@@ -499,8 +535,14 @@
             <button id="pv-batch-save" style="padding:6px 12px;font-size:11.5px;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:7px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(241,128,145,0.3);">⚡ ${pendingList.length}개 한 번에 저장</button>
           </div>
         </div>
-        <div style="font-size:11.5px;color:#555;line-height:1.55;max-height:80px;overflow:auto;">
-          ${pendingList.map((p, i) => `<div>${i+1}. ${_esc(JSON.stringify(p).slice(0, 120))}</div>`).join('')}
+        <div style="font-size:12px;color:#333;line-height:1.65;max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:4px;">
+          ${pendingList.map((p, i) => `
+            <div style="display:flex;gap:8px;padding:5px 8px;background:#fff;border:1px solid #FDE68A;border-radius:8px;align-items:center;">
+              <span style="color:#B45309;font-weight:800;min-width:18px;">${i+1}.</span>
+              <span style="flex:1;min-width:0;">${_formatPendingRow(p)}</span>
+              <button data-pv-pend-del="${i}" title="제거" style="border:none;background:transparent;color:#C62828;cursor:pointer;font-size:13px;padding:2px 6px;border-radius:4px;">✕</button>
+            </div>
+          `).join('')}
         </div>
       </div>` : '';
 
@@ -759,6 +801,13 @@
     if (batchSave) batchSave.addEventListener('click', _flushBatch);
     const batchClear = document.getElementById('pv-batch-clear');
     if (batchClear) batchClear.addEventListener('click', () => { pending[currentTab] = []; _renderTab(true); });
+    // 개별 쌓은 행 삭제
+    document.querySelectorAll('[data-pv-pend-del]').forEach(b => {
+      b.addEventListener('click', () => {
+        const idx = parseInt(b.getAttribute('data-pv-pend-del'), 10);
+        if (!isNaN(idx)) { pending[currentTab].splice(idx, 1); _renderTab(true); }
+      });
+    });
     document.querySelectorAll('.pv-row-edit').forEach(b => {
       b.addEventListener('click', (e) => { e.stopPropagation(); _editRow(b.getAttribute('data-edit-id')); });
     });
