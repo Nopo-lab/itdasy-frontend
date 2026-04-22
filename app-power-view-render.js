@@ -332,6 +332,21 @@
     document.querySelectorAll('.pv-row-edit').forEach(b => {
       b.addEventListener('click', (e) => { e.stopPropagation(); editRow(b.getAttribute('data-edit-id')); });
     });
+
+    // 관계형 뷰 — 고객 탭 행 클릭 시 고객 대시보드(매출·예약·NPS 통합) 오픈
+    if (state.currentTab === 'customer') {
+      document.querySelectorAll('#pv-tbody tr[data-id]').forEach(tr => {
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', () => {
+          const id = parseInt(tr.getAttribute('data-id'), 10);
+          if (!id) return;
+          if (window.hapticLight) window.hapticLight();
+          if (typeof window.openCustomerDashboard === 'function') {
+            window.openCustomerDashboard(id);
+          }
+        });
+      });
+    }
     document.querySelectorAll('#power-view-overlay .pv-qadd input').forEach(el => {
       el.addEventListener('keydown', (e) => {
         if (e.isComposing || e.keyCode === 229) return;
