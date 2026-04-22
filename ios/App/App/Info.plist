@@ -25,20 +25,22 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Take photos of treatments or capture screens from other apps.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Access your photo library to select treatment photos for portfolio and Instagram posts.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save AI-generated story images to your photo library.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Use microphone for voice-based quick recording of customers, revenue, and bookings.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Use Face ID for fast login without typing your password.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>Import existing contacts to migrate into your Itdasy customer list (optional).</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Use Face ID for fast login without typing your password.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Use microphone for voice-based quick recording of customers, revenue, and bookings.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save AI-generated story images to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Access your photo library to select treatment photos for portfolio and Instagram posts.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>Itdasy does not track users.</string>
 	<key>UILaunchStoryboardName</key>
@@ -62,7 +64,5 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
 </dict>
 </plist>

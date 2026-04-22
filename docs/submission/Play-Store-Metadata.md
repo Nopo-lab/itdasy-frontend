@@ -1,6 +1,6 @@
 # Google Play Console Metadata — 잇데이 / Itdasy
 
-**Package Name**: `com.y2do.itdasy`
+**Package Name**: `com.nopolab.itdasy`
 **Category**: Business
 **Content Rating**: Everyone
 **Default Language**: Korean (한국어 - 대한민국)

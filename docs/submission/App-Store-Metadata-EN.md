@@ -2,7 +2,7 @@
 
 Companion to `App-Store-Metadata.md` (Korean). Use both locales in App Store Connect.
 
-**Bundle ID**: `com.y2do.itdasy`
+**Bundle ID**: `com.nopolab.itdasy`
 **Primary Language**: Korean
 **Additional Localizations**: English (United States)
 

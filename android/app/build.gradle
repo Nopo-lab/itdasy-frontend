@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.y2do.itdasy"
+    namespace "com.nopolab.itdasy"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.y2do.itdasy"
+        applicationId "com.nopolab.itdasy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
