@@ -51,28 +51,9 @@
     return data;
   }
 
-  // ── 시트 DOM ──────────────────────────────────────────
-  function _ensureSheet() {
-    let sheet = document.getElementById('dashboardSheet');
-    if (sheet) return sheet;
-    sheet = document.createElement('div');
-    sheet.id = 'dashboardSheet';
-    sheet.style.cssText = 'position:fixed;inset:0;z-index:9998;display:none;flex-direction:column;background:var(--bg);';
-    sheet.innerHTML = `
-      <header class="db-hdr">
-        <button class="db-back" onclick="closeDashboard()" aria-label="뒤로">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <h1>대시보드</h1>
-        <button id="dashPeriodChip" class="chip" aria-label="기간 선택" style="border:none;cursor:pointer;font-family:inherit;font-size:12px;">
-          <span id="dashPeriodLabel">이번달</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-      </header>
-      <div id="dashBody" class="db-body"></div>
-    `;
-    document.body.appendChild(sheet);
-    return sheet;
+  // ── 렌더 타겟 (탭 모드) ─────────────────────────────
+  function _getBody() {
+    return document.getElementById('dashboardMetrics');
   }
 
   // ── SVG 헬퍼 ─────────────────────────────────────────
@@ -269,7 +250,7 @@
 
   // ── 로딩 스켈레톤 ─────────────────────────────────────
   function _renderLoading() {
-    const body = document.getElementById('dashBody');
+    const body = _getBody();
     if (!body) return;
     body.innerHTML = `
       <style>
@@ -310,7 +291,7 @@
 
   // ── 이벤트 바인딩 ─────────────────────────────────────
   function _bindEvents() {
-    const sheet = document.getElementById('dashboardSheet');
+    const sheet = document.getElementById('tab-dashboard');
     if (!sheet) return;
 
     // 주요 지표 2×2 → 파워뷰
@@ -383,7 +364,7 @@
   window.Dashboard.prefetch = prefetch;
 
   async function _loadAndRender() {
-    const body = document.getElementById('dashBody');
+    const body = _getBody();
     if (!body) return;
     _renderLoading();
 
@@ -412,7 +393,15 @@
       ? Math.round(((stats.month_amount - lastMonthAmount) / lastMonthAmount) * 100)
       : null;
 
+    const stored = localStorage.getItem('itdasy_dashboard_period') || '이번달';
     body.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 style="font-size:20px;font-weight:700;margin:0;color:var(--text);">대시보드</h2>
+        <button id="dashPeriodChip" class="chip" aria-label="기간 선택" style="border:none;cursor:pointer;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:4px;padding:6px 10px;background:var(--surface-2);border-radius:16px;color:var(--text);">
+          <span id="dashPeriodLabel">${_esc(stored)}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+      </div>
       ${_heroSection(stats, lastMonthAmount, ret, npsStats, custList)}
       <div class="db-sec"><h2>주요 지표</h2><span class="db-sec__hint">탭해서 상세보기</span></div>
       ${_metricsGrid(stats, momPct, inventory)}
@@ -425,21 +414,16 @@
     _bindEvents();
   }
 
-  window.openDashboard = async function () {
-    const sheet = _ensureSheet();
-    sheet.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    // 기간 라벨 동기화
-    const stored = localStorage.getItem('itdasy_dashboard_period') || '이번달';
-    const lbl = sheet.querySelector('#dashPeriodLabel');
-    if (lbl) lbl.textContent = stored;
+  // P3.2 — 탭 진입 시 호출
+  window.initDashboardTab = async function () {
     await _loadAndRender();
   };
 
-  window.closeDashboard = function () {
-    const sheet = document.getElementById('dashboardSheet');
-    if (sheet) sheet.style.display = 'none';
-    document.body.style.overflow = '';
+  // 하위호환 — 설정시트 "대시보드" 메뉴 항목이 아직 호출 (Commit 5에서 메뉴 항목 제거 예정)
+  window.openDashboard = function () {
+    const btn = document.querySelector('.tab-bar__btn[data-tab="dashboard"]');
+    if (typeof window.showTab === 'function') window.showTab('dashboard', btn);
+    return window.initDashboardTab();
   };
 
   // 부팅 시 토큰 있으면 유휴 순간에 prefetch (페이지 로딩 영향 없게 requestIdleCallback)

@@ -533,9 +533,8 @@
           onclick="showTab('caption',this); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" aria-label="글쓰기">
     <svg width="26" height="26"><use href="#ic-edit-3"/></svg>
   </button>
-  <!-- 대시보드: Commit 1~3 동안 임시로 openDashboard() 유지. Commit 4에서 showTab('dashboard', this)로 교체. -->
   <button type="button" class="tab-bar__btn" data-tab="dashboard" role="tab" data-haptic="light"
-          onclick="openDashboard()" aria-label="대시보드 탭">
+          onclick="showTab('dashboard',this); initDashboardTab()" aria-label="대시보드 탭">
     <svg class="tab-bar__icon" width="24" height="24"><use href="#ic-bar-chart-3"/></svg>
     <span class="tab-bar__label">대시보드</span>
   </button>
