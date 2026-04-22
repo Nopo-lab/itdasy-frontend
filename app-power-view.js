@@ -394,7 +394,7 @@
     ].join('');
 
     const chipHtml = TABS.map(t =>
-      `<button class="chip ${t.key === _state.currentTab ? 'chip--active' : ''}" data-pv-tab="${t.key}">${t.icon} ${t.label}</button>`
+      `<button class="chip ${t.key === _state.currentTab ? 'chip--active' : ''}" data-pv-tab="${t.key}">${t.icon} ${t.label}<span class="pv-tab-badge" data-pv-tab-badge="${t.key}" style="display:none;"></span></button>`
     ).join('');
 
     overlay.innerHTML = `
@@ -423,7 +423,16 @@
 
     TABS.forEach(t => {
       if (t.key !== _state.currentTab && (!_state.data[t.key] || !_state.data[t.key].length)) {
-        _fetchTab(t.key).then(r => { _state.data[t.key] = r; }).catch(() => { /* ignore */ });
+        _fetchTab(t.key).then(r => {
+          _state.data[t.key] = r;
+          // 탭 숫자 뱃지 갱신 — 프리페치 완료 즉시 반영
+          const badge = document.querySelector(`[data-pv-tab-badge="${t.key}"]`);
+          if (badge) {
+            const n = (r || []).length;
+            badge.textContent = n > 99 ? '99+' : n;
+            badge.style.display = n > 0 ? '' : 'none';
+          }
+        }).catch(() => { /* ignore */ });
       }
     });
 

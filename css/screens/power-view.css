@@ -145,6 +145,31 @@
   font-weight: 700;
 }
 
+/* 탭 숫자 뱃지 — 각 chip 우측에 데이터 개수 표시 */
+.pv-chip-bar .chip { position: relative; }
+
+.pv-tab-badge {
+  display: inline-block;
+  margin-left: 5px;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #555;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.pv-chip-bar .chip--active .pv-tab-badge {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+
 .pv-ai-pill {
   display: inline-flex;
   align-items: center;
