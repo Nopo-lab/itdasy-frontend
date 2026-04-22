@@ -35,6 +35,8 @@ html[data-theme="dark"] body {
   color: #ECEEF1 !important;
 }
 
+/* stylelint-disable selector-id-pattern */
+
 /* 탭·카드·팝업 전체 강제 어둡게 */
 html[data-theme="dark"] .tab,
 html[data-theme="dark"] .hc-card,
@@ -125,6 +127,7 @@ html[data-theme="dark"] nav {
 html[data-theme="dark"] .nav-btn {
   color: #B0B4BB !important;
 }
+
 html[data-theme="dark"] .nav-btn.active {
   color: #F18091 !important;
 }
@@ -152,14 +155,36 @@ html[data-theme="dark"] canvas {
 
 /* ───── 시스템 다크 (저장값 없을 때 자동) ───── */
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]):not([data-theme="dark"]) {
+  html:not([data-theme="light"], [data-theme="dark"]) {
     color-scheme: dark;
   }
-  html:not([data-theme="light"]):not([data-theme="dark"]) body {
+
+  html:not([data-theme="light"], [data-theme="dark"]) body {
     background: #0F1014;
     color: #ECEEF1;
   }
 }
+
+/* ───── 설정시트 다크모드 (P3.1 #5) ───── */
+html[data-theme="dark"] #settingsSheet {
+  background: transparent;
+}
+
+html[data-theme="dark"] #settingsCard {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.40) !important;
+}
+
+html[data-theme="dark"] .settings-profile-card {
+  background: var(--surface-2) !important;
+  border-color: var(--border) !important;
+}
+
+html[data-theme="dark"] .sheet-handle {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+/* stylelint-enable selector-id-pattern */
 
 /* ═══════════════════════════════════════════════════════
    T-334 · 큰 글씨 모드 (2026-04-22)
@@ -169,12 +194,14 @@ html[data-fontsize="large"] {
   font-size: 17px;  /* 기본 16 → 17, 전체 rem 기반 확대 */
 }
 html[data-fontsize="large"] body { font-size: 17px; }
+
 html[data-fontsize="large"] button,
 html[data-fontsize="large"] input,
 html[data-fontsize="large"] textarea,
 html[data-fontsize="large"] select {
   font-size: max(17px, 1.05em);
 }
+
 html[data-fontsize="xl"] {
   font-size: 19px;
 }
