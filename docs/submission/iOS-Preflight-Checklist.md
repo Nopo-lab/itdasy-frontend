@@ -11,7 +11,7 @@
 
 ## 📋 1. App Store Connect 세팅
 
-- [ ] **App ID 등록**: `com.nopolab.itdasy`
+- [ ] **App ID 등록**: `com.y2do.itdasy`
   - Capabilities: ☑ Sign in with Apple · ☑ In-App Purchase · ☑ Push Notifications
 - [ ] **App Store Connect 앱 생성**: 이름 "잇데이"
 - [ ] **IAP 상품 2개**
@@ -94,7 +94,7 @@ Xcode → **App target** → **Signing & Capabilities** → `+ Capability` → *
 
 Xcode → App target → **General**:
 - [ ] **Display Name**: `잇데이`
-- [ ] **Bundle Identifier**: `com.nopolab.itdasy`
+- [ ] **Bundle Identifier**: `com.y2do.itdasy`
 - [ ] **Version**: `1.0.0` (마케팅 버전)
 - [ ] **Build**: `1` (제출할 때마다 증가)
 - [ ] **Deployment Target**: iOS 14.0+ (권장)

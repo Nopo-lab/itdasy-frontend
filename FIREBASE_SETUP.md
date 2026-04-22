@@ -12,7 +12,7 @@ https://console.firebase.google.com/ → **"프로젝트 추가"** 클릭
 
 ### Step 3. Android 앱 추가
 1. 프로젝트 개요 → **Android 아이콘** 클릭
-2. 패키지 이름: **`com.nopolab.itdasy`** (★ 정확히 이 값)
+2. 패키지 이름: **`com.y2do.itdasy`** (★ 정확히 이 값)
 3. 앱 닉네임: `잇데이 스튜디오`
 4. 디버그 서명 SHA-1: **지금은 비워도 됨** (나중에 추가)
 5. **앱 등록** 클릭
@@ -20,7 +20,7 @@ https://console.firebase.google.com/ → **"프로젝트 추가"** 클릭
 
 ### Step 4. iOS 앱 추가 (Apple Developer 승인 후)
 1. 프로젝트 개요 → **iOS 아이콘** 클릭
-2. iOS 번들 ID: **`com.nopolab.itdasy`**
+2. iOS 번들 ID: **`com.y2do.itdasy`**
 3. 앱 닉네임: `잇데이 스튜디오`
 4. App Store ID: 비워두기
 5. **`GoogleService-Info.plist` 다운로드** → 파일 저한테 주시면 배치

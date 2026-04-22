@@ -53,7 +53,7 @@ Xcode → Project (not target) → **Info** tab → **Localizations** → `+` �
 <resources>
     <string name="app_name">잇데이</string>
     <string name="title_activity_main">잇데이</string>
-    <string name="package_name">com.nopolab.itdasy</string>
+    <string name="package_name">com.y2do.itdasy</string>
     <string name="custom_url_scheme">itdasy</string>
 </resources>
 ```

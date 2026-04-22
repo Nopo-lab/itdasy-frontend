@@ -47,7 +47,7 @@
 <array>
     <dict>
         <key>CFBundleURLName</key>
-        <string>com.nopolab.itdasy</string>
+        <string>com.y2do.itdasy</string>
         <key>CFBundleURLSchemes</key>
         <array>
             <string>itdasy</string>

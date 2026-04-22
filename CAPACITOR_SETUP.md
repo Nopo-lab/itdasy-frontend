@@ -2,7 +2,7 @@
 
 ## 📦 현재 구성
 
-- `capacitor.config.json` — 앱 ID(`com.nopolab.itdasy`), remote URL 로딩 방식
+- `capacitor.config.json` — 앱 ID(`com.y2do.itdasy`), remote URL 로딩 방식
 - `package.json` — Capacitor 6.x + Camera/Push/Share/Splash/StatusBar 플러그인
 - **Remote URL 로딩**: 네이티브 앱이 `https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/` 를 WebView로 띄움 → 웹 변경 시 앱에 즉시 반영, 심사 재제출 불필요
 
