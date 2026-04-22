@@ -23,7 +23,8 @@
   }
 
   function _buildUrl(slug) {
-    return window.API + '/public/book/' + slug;
+    // HTML 페이지 — 고객이 브라우저로 방문하면 예약 UI 렌더
+    return window.API + '/public/book/' + slug + '/page';
   }
 
   function _renderBody(body, slug, enabled, url) {
