@@ -47,6 +47,45 @@
 
   let state = { file: null, kind: null, analysis: null, mapping: {}, extras: {}, dup: {}, onDone: null };
 
+  // ── 임시 상태 localStorage 백업 (T-352) ─────────────────
+  // BE 재시작/크래시·네트워크 일시 장애·앱 종료 시에도 매핑·중복 정책이 날아가지 않도록.
+  // 파일 원본(Blob)은 저장 불가 — analysis(서버 파싱 결과) 는 저장해서 재업로드 없이 이어하기.
+  const LS_KEY = 'itdasy_import_wizard_v1';
+  const LS_EXPIRY_MS = 30 * 60 * 1000; // 30분 — 더 이상 오래되면 자동 폐기
+
+  function _saveState() {
+    try {
+      const snap = {
+        kind: state.kind,
+        analysis: state.analysis,
+        mapping: state.mapping,
+        extras: state.extras,
+        dup: state.dup,
+        step: state._step || 2,
+        saved_at: Date.now(),
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(snap));
+    } catch (e) { /* quota/parse 에러 무시 */ }
+  }
+
+  function _loadState() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return null;
+      const snap = JSON.parse(raw);
+      if (!snap || !snap.analysis) return null;
+      if (Date.now() - (snap.saved_at || 0) > LS_EXPIRY_MS) {
+        localStorage.removeItem(LS_KEY);
+        return null;
+      }
+      return snap;
+    } catch (e) { return null; }
+  }
+
+  function _clearState() {
+    try { localStorage.removeItem(LS_KEY); } catch(e){}
+  }
+
   function _close() {
     const o = document.getElementById(OVERLAY);
     if (o) o.remove();
@@ -100,6 +139,8 @@
       state.extras = {};
       (data.extras || []).forEach(e => { state.extras[e.column] = e.suggest || 'skip'; });
       state.dup = { default: 'skip' };
+      state._step = 2;
+      _saveState();
       _showStep2();
     } catch (e) {
       _shell(`
@@ -170,16 +211,18 @@
       sel.addEventListener('change', (e) => {
         const field = e.target.getAttribute('data-map-field');
         state.mapping[field] = e.target.value;
+        _saveState();
       });
     });
     document.querySelectorAll('[data-extra]').forEach(sel => {
       sel.addEventListener('change', (e) => {
         const col = e.target.getAttribute('data-extra');
         state.extras[col] = e.target.value;
+        _saveState();
       });
     });
-    document.getElementById('iw-back').addEventListener('click', _close);
-    document.getElementById('iw-next').addEventListener('click', _showStep3);
+    document.getElementById('iw-back').addEventListener('click', () => { _clearState(); _close(); });
+    document.getElementById('iw-next').addEventListener('click', () => { state._step = 3; _saveState(); _showStep3(); });
   }
 
   // Step 3: 중복 정책
@@ -235,6 +278,7 @@
     document.querySelectorAll('[data-dup-row]').forEach(r => {
       r.addEventListener('change', (e) => {
         state.dup[String(e.target.getAttribute('data-dup-row'))] = e.target.value;
+        _saveState();
       });
     });
     document.querySelectorAll('[data-bulk]').forEach(b => {
@@ -242,10 +286,11 @@
         const p = e.target.getAttribute('data-bulk');
         state.dup = { default: p };
         (state.analysis.duplicates || []).forEach(d => { state.dup[String(d.row_idx)] = p; });
+        _saveState();
         _showStep3();
       });
     });
-    document.getElementById('iw-back').addEventListener('click', _showStep2);
+    document.getElementById('iw-back').addEventListener('click', () => { state._step = 2; _saveState(); _showStep2(); });
     document.getElementById('iw-commit').addEventListener('click', _commit);
   }
 
@@ -270,11 +315,16 @@
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.detail || '반영 실패');
+      _clearState(); // 성공 시 저장본 폐기
       _showDone(d);
     } catch (e) {
+      _saveState(); // 실패해도 매핑·정책은 보존 → 사용자 재시도 혹은 나중에 이어하기
       _shell(`
         <div style="padding:30px;text-align:center;color:#c62828;">
           <div style="font-size:14px;margin-bottom:12px;">❌ ${_esc(e.message)}</div>
+          <div style="font-size:11.5px;color:#888;margin-bottom:14px;line-height:1.6;">
+            매핑·정책 설정은 자동으로 저장됐어요.<br>지금 재시도하거나 잠시 뒤 다시 열어도 이어할 수 있습니다.
+          </div>
           <button id="iw-retry" style="padding:10px 18px;background:#F18091;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">재시도</button>
         </div>`, '오류');
       document.getElementById('iw-retry')?.addEventListener('click', _commit);
@@ -306,10 +356,59 @@
     });
   }
 
+  function _showResumePrompt(snap, newContext) {
+    const kindLabel = ({ customer: '고객', revenue: '매출', booking: '예약' }[snap.kind] || snap.kind) + ' 임포트';
+    const ageMin = Math.max(1, Math.round((Date.now() - snap.saved_at) / 60000));
+    _shell(`
+      <div style="padding:26px 20px;">
+        <div style="font-size:17px;font-weight:900;color:#222;margin-bottom:8px;">⏸ 이전 작업 이어하기</div>
+        <div style="font-size:13px;color:#555;line-height:1.7;margin-bottom:14px;">
+          ${ageMin}분 전에 진행하던 <strong>${_esc(kindLabel)}</strong>가 남아있어요.<br>
+          단계: <strong>${snap.step || 2}/4</strong> · 매핑·정책 그대로 복원됩니다.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="iw-discard" style="flex:1;padding:12px;background:#eee;border:none;border-radius:10px;font-weight:700;cursor:pointer;">버리고 새로</button>
+          <button id="iw-resume" style="flex:2;padding:12px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;">이어하기 →</button>
+        </div>
+      </div>
+    `, '이어하기');
+    document.getElementById('iw-resume').addEventListener('click', () => {
+      state = {
+        file: null,
+        kind: snap.kind,
+        analysis: snap.analysis,
+        mapping: snap.mapping || {},
+        extras: snap.extras || {},
+        dup: snap.dup || { default: 'skip' },
+        onDone: newContext.onDone || null,
+        _step: snap.step || 2,
+      };
+      if ((snap.step || 2) >= 3) _showStep3(); else _showStep2();
+    });
+    document.getElementById('iw-discard').addEventListener('click', () => {
+      _clearState();
+      if (newContext.file && newContext.kind) {
+        state = { file: newContext.file, kind: newContext.kind, analysis: null, mapping: {}, extras: {}, dup: {}, onDone: newContext.onDone };
+        _analyze();
+      } else {
+        _close();
+      }
+    });
+  }
+
   function open({ file, kind, onDone }) {
+    // 이전 미완료 상태 있으면 이어하기 프롬프트 먼저 (같은 kind 이거나 파일 없이 호출된 경우)
+    const snap = _loadState();
+    if (snap && (!kind || snap.kind === kind)) {
+      _showResumePrompt(snap, { file, kind, onDone });
+      return;
+    }
     state = { file, kind, analysis: null, mapping: {}, extras: {}, dup: {}, onDone };
     _analyze();
   }
 
-  window.ImportWizard = { open, close: _close };
+  function hasPending() { return !!_loadState(); }
+  function discard() { _clearState(); }
+
+  window.ImportWizard = { open, close: _close, hasPending, discard };
 })();

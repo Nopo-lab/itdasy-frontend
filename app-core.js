@@ -271,26 +271,76 @@ function authHeader() {
            : { 'ngrok-skip-browser-warning': 'true' };
 }
 
-// 전역 fetch 래퍼 — 401 감지 시 자동 로그아웃 + 네트워크 에러 친근 처리
+// 전역 fetch 래퍼 — 401 자동 로그아웃 + 5xx/네트워크 에러 자동 재시도 (T-352)
 (function _installFetchInterceptor(){
   if (window._fetchPatched) return;
   window._fetchPatched = true;
   const _origFetch = window.fetch.bind(window);
-  window.fetch = async function(input, init) {
+
+  // 재시도 설정: 읽기성 요청(GET/HEAD)과 멱등성 POST 는 재시도. 파일 업로드 요청(body 가 FormData/Blob)도 재시도 가능하나 body 를 재사용 못하므로 제외.
+  const RETRY_STATUSES = new Set([502, 503, 504]);
+  const MAX_RETRIES = 2;          // 총 3회 시도 (초기 + 2회 재시도)
+  const BACKOFF_MS = [400, 1200]; // exponential-ish
+
+  function _isRetryableMethod(init) {
+    const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
+    return m === 'GET' || m === 'HEAD';
+  }
+  function _bodyReusable(init) {
+    if (!init || !init.body) return true;
+    const b = init.body;
+    if (typeof b === 'string') return true;
+    return false; // FormData/Blob/ReadableStream 은 한 번만 읽을 수 있어서 재시도 시 body 재사용 불가
+  }
+
+  function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  let _reconnectToastTimer = null;
+  function _showReconnectToast() {
+    if (window.__itdasyReconnectShown) return;
+    window.__itdasyReconnectShown = true;
     try {
-      const res = await _origFetch(input, init);
-      if (res.status === 401 && getToken()) {
-        // 토큰 만료 — 조용히 정리하고 로그인 재유도
-        setToken(null);
-        const msg = document.getElementById('sessionExpiredMsg');
-        if (msg) msg.style.display = 'block';
-        const lock = document.getElementById('lockOverlay');
-        if (lock) lock.classList.remove('hidden');
+      if (typeof window.showToast === 'function') {
+        window.showToast('서버 연결이 불안정해요. 자동으로 다시 시도 중...');
       }
-      return res;
-    } catch (err) {
-      // 네트워크 오류 (오프라인·DNS·CORS) — 원본 그대로 throw. 호출부에서 개별 처리.
-      throw err;
+    } catch(e){}
+    clearTimeout(_reconnectToastTimer);
+    _reconnectToastTimer = setTimeout(() => { window.__itdasyReconnectShown = false; }, 8000);
+  }
+
+  window.fetch = async function(input, init) {
+    const retryable = _isRetryableMethod(init) && _bodyReusable(init);
+    let attempt = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        const res = await _origFetch(input, init);
+        if (res.status === 401 && getToken()) {
+          setToken(null);
+          const msg = document.getElementById('sessionExpiredMsg');
+          if (msg) msg.style.display = 'block';
+          const lock = document.getElementById('lockOverlay');
+          if (lock) lock.classList.remove('hidden');
+          return res;
+        }
+        // 5xx 게이트웨이성 에러: retryable 이면 재시도
+        if (retryable && RETRY_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
+          _showReconnectToast();
+          await _sleep(BACKOFF_MS[attempt] || 1500);
+          attempt++;
+          continue;
+        }
+        return res;
+      } catch (err) {
+        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도
+        if (retryable && attempt < MAX_RETRIES) {
+          _showReconnectToast();
+          await _sleep(BACKOFF_MS[attempt] || 1500);
+          attempt++;
+          continue;
+        }
+        throw err;
+      }
     }
   };
 })();
