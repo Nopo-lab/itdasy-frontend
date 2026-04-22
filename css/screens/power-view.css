@@ -289,6 +289,28 @@
   box-shadow: 0 0 0 2px rgba(241,128,145,.12);
 }
 
+.pv-excel {
+  padding: 7px 12px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border-strong, #e5e5e5);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-subtle, #555);
+  transition: all .15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.pv-excel:hover {
+  border-color: #4ECDC4;
+  color: #2B8C7E;
+  background: #F0FBF9;
+}
+
 .pv-list {
   flex: 1;
   overflow: auto;

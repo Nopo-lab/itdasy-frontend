@@ -279,9 +279,13 @@
       <div class="pv-toolbar">
         <div style="position:relative;flex:1;max-width:280px;">
           <svg class="ic" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#999;" aria-hidden="true"><use href="#ic-search"/></svg>
-          <input class="pv-search" id="pv-search" placeholder="검색 (⌘K)" value="${_esc(state.searchKW)}" style="padding-left:32px;padding-right:${state.searchKW ? '32px' : '12px'};" />
+          <input class="pv-search" id="pv-search" data-no-voice placeholder="검색 (⌘K)" value="${_esc(state.searchKW)}" style="padding-left:32px;padding-right:${state.searchKW ? '32px' : '12px'};" />
           ${state.searchKW ? `<button id="pv-search-clear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:2px;color:#aaa;" aria-label="검색 지우기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>` : ''}
         </div>
+        <label class="pv-excel" for="pv-excel-file" title="엑셀/CSV AI 임포트">
+          📥 엑셀 불러오기
+          <input type="file" id="pv-excel-file" accept=".xlsx,.xls,.csv" hidden />
+        </label>
       </div>
       <div class="pv-list">
         <table class="pv-table">
