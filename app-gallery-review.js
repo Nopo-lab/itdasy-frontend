@@ -52,11 +52,11 @@ async function _smartCropScreenshot(dataUrl) {
 }
 
 function openReviewPanel() {
-  document.getElementById('reviewPanel').style.display = 'block';
+  document.getElementById('reviewPanel').classList.add('ws-panel--open');
   _renderReviewPanel();
 }
 function closeReviewPanel() {
-  document.getElementById('reviewPanel').style.display = 'none';
+  document.getElementById('reviewPanel').classList.remove('ws-panel--open');
 }
 
 function _renderReviewPanel() {
@@ -112,7 +112,7 @@ function selectReviewSticker(idx) {
 function _openReviewEditor(photo) {
   const editor = document.getElementById('reviewEditor');
   const canvas = document.getElementById('reviewEditorCanvas');
-  editor.style.display = 'block';
+  editor.classList.add('ws-editor--open');
   canvas.innerHTML = `<div id="reviewEditWrap" style="position:relative;width:90%;max-width:400px;aspect-ratio:1/1;"><img src="${photo.editedDataUrl || photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;"><img id="reviewOverlay" src="${_reviewEditState.stickerImg}" style="position:absolute;left:${_reviewEditState.x}%;top:${_reviewEditState.y}%;transform:translate(-50%,-50%);width:${_reviewEditState.scale}%;opacity:${_reviewEditState.opacity/100};pointer-events:none;"></div>`;
   document.getElementById('reviewScale').value = _reviewEditState.scale;
   document.getElementById('reviewScaleVal').textContent = _reviewEditState.scale + '%';
@@ -143,7 +143,7 @@ function updateReviewScale(val) {
 }
 
 function cancelReviewEdit() {
-  document.getElementById('reviewEditor').style.display = 'none';
+  document.getElementById('reviewEditor').classList.remove('ws-editor--open');
   _reviewEditState = null;
 }
 
@@ -152,7 +152,7 @@ async function saveReviewEdit() {
   const slot = _slots.find(s => s.id === _popupSlotId);
   if (!slot) return;
   const progress = document.getElementById('popupProgress');
-  document.getElementById('reviewEditor').style.display = 'none';
+  document.getElementById('reviewEditor').classList.remove('ws-editor--open');
   const photoIds = _reviewEditState.allPhotoIds;
   if (progress) { progress.style.display = 'block'; progress.textContent = `스티커 적용 중...`; }
   for (const pid of photoIds) {

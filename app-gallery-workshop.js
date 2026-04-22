@@ -244,20 +244,22 @@ function _renderSlotCards() {
     const photoCount = visiblePhotos.length;
 
     const card = document.createElement('div');
-    card.style.cssText = `flex-shrink:0;width:140px;background:#fff;border:2px solid ${done ? 'rgba(76,175,80,0.5)' : 'var(--border)'};border-radius:14px;padding:10px;user-select:none;-webkit-user-select:none;position:relative;`;
+    card.className = 'ws-slot-card' + (done ? ' ws-slot-card--done' : '');
     card.dataset.slotId = slot.id;
     card.setAttribute('oncontextmenu', 'return false');
 
     const thumbHtml = thumb
-      ? `<div onclick="openSlotPopup('${slot.id}')" style="position:relative;width:100%;aspect-ratio:1/1;border-radius:10px;overflow:hidden;cursor:pointer;"><img src="${thumb.editedDataUrl || thumb.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">${photoCount > 1 ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.6);border-radius:6px;padding:2px 6px;font-size:9px;color:#fff;font-weight:700;">+${photoCount}</div>` : ''}</div>`
-      : `<div onclick="openAssignPopup()" style="width:100%;aspect-ratio:1/1;border-radius:10px;border:2px dashed rgba(241,128,145,0.35);display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(241,128,145,0.03);font-size:20px;color:var(--text3);">+</div>`;
+      ? `<div class="ws-slot-card__thumb" onclick="openSlotPopup('${slot.id}')"><img src="${thumb.editedDataUrl || thumb.dataUrl}" alt="">${photoCount > 1 ? `<div class="ws-slot-card__thumb-count">+${photoCount}</div>` : ''}</div>`
+      : `<div class="ws-slot-card__empty" onclick="openAssignPopup()"><svg class="ic ic--md" aria-hidden="true"><use href="#ic-plus"/></svg></div>`;
 
     card.innerHTML = `
-      <button onclick="deleteSlot('${slot.id}',event)" style="position:absolute;top:6px;right:6px;z-index:2;background:rgba(255,255,255,0.9);border:none;font-size:12px;color:var(--text3);cursor:pointer;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;">✕</button>
+      <button onclick="deleteSlot('${slot.id}',event)" class="ws-slot-card__del" aria-label="삭제">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
       ${thumbHtml}
-      <div style="margin-top:6px;text-align:center;">
-        <div style="font-size:11px;font-weight:800;color:var(--text);">${slot.label}${done ? ' ✅' : ''}</div>
-        <div style="font-size:10px;color:var(--text3);margin-top:2px;">${photoCount}장</div>
+      <div class="ws-slot-card__meta">
+        <div class="ws-slot-card__name">${slot.label}${done ? `<svg class="ic ic--xs" style="color:var(--ok);" aria-hidden="true"><use href="#ic-check-circle"/></svg>` : ''}</div>
+        <div class="ws-slot-card__count">${photoCount}장</div>
       </div>`;
     list.appendChild(card);
   });

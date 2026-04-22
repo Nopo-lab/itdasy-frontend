@@ -9,8 +9,10 @@ async function openSlotPopup(slotId) {
   _setPopupSlotId(slotId);
   _clearPopupSelIds();
 
-  document.getElementById('slotPopupLabel').textContent = slot.label + (slot.status === 'done' ? ' ✅' : '');
-  document.getElementById('slotPopup').style.display = 'flex';
+  document.getElementById('slotPopupLabel').textContent = slot.label + (slot.status === 'done' ? ' ✓' : '');
+  const popup = document.getElementById('slotPopup');
+  popup.style.display = 'flex';
+  popup.classList.add('dt-shown');
 
   try {
     const res = await fetch(API + '/image/usage', { headers: authHeader() });
@@ -21,7 +23,9 @@ async function openSlotPopup(slotId) {
 }
 
 function closeSlotPopup() {
-  document.getElementById('slotPopup').style.display = 'none';
+  const popup = document.getElementById('slotPopup');
+  popup.style.display = 'none';
+  popup.classList.remove('dt-shown');
   _setPopupSlotId(null);
   _clearPopupSelIds();
   _renderSlotCards();

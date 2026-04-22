@@ -27,11 +27,11 @@ function _saveUserElements(arr) {
 }
 
 function openElementPanel() {
-  document.getElementById('elementPanel').style.display = 'block';
+  document.getElementById('elementPanel').classList.add('ws-panel--open');
   _renderElementPanel();
 }
 function closeElementPanel() {
-  document.getElementById('elementPanel').style.display = 'none';
+  document.getElementById('elementPanel').classList.remove('ws-panel--open');
 }
 
 function _renderElementPanel() {

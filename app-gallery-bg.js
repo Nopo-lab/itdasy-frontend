@@ -26,11 +26,11 @@ function _saveFavBgs(arr) {
 }
 
 function openBgPanel() {
-  document.getElementById('bgPanel').style.display = 'block';
+  document.getElementById('bgPanel').classList.add('ws-panel--open');
   _renderBgPanel();
 }
 function closeBgPanel() {
-  document.getElementById('bgPanel').style.display = 'none';
+  document.getElementById('bgPanel').classList.remove('ws-panel--open');
 }
 
 function _renderBgPanel() {
@@ -289,11 +289,11 @@ function _saveUserTemplates(arr) {
 }
 
 function openTemplatePanel() {
-  document.getElementById('templatePanel').style.display = 'block';
+  document.getElementById('templatePanel').classList.add('ws-panel--open');
   _renderTemplatePanel();
 }
 function closeTemplatePanel() {
-  document.getElementById('templatePanel').style.display = 'none';
+  document.getElementById('templatePanel').classList.remove('ws-panel--open');
 }
 
 function _renderTemplatePanel() {
@@ -349,7 +349,7 @@ async function applyTemplate(tplId) {
   const allBgs = [...DEFAULT_BACKGROUNDS, ..._loadUserBgs()];
   const bg = allBgs.find(b => b.id === tpl.bgId);
   for (const photo of selectedPhotos) {
-    if (bg) try { await _applyBgToPhoto(photo, bg, slot); } catch(_e) {}
+    if (bg) try { await _applyBgToPhoto(photo, bg, slot); } catch (_e) { /* ignore */ }
   }
   if (progress) progress.style.display = 'none';
   _popupSelIds.clear();
