@@ -138,7 +138,7 @@ button:active:not([disabled]) {
 }
 
 /* 줄임: transform 가속 버튼에만 */
-.nav-btn:active, .btn-main:active, .hc-btn-ghost:active, .frame-action-btn:active,
+.tab-bar__btn:active, .btn-main:active, .hc-btn-ghost:active, .frame-action-btn:active,
 .plan-action-btn:active, .tc-btn:active, .tag-chip:active {
   transform: scale(0.94);
 }

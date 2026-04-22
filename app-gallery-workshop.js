@@ -51,7 +51,7 @@ async function renderHomeResume() {
   section.innerHTML = `
     <div class="sec-head" style="padding:0 2px;margin-bottom:10px;">
       <h2 class="home-sec-title">이어하기<span style="font-weight:500;font-size:12px;color:var(--text-subtle);margin-left:6px;">${active.length}개</span></h2>
-      <button class="sec-more" onclick="showTab('finish', document.querySelectorAll('.nav-btn')[4])" data-haptic="light" style="font-size:12px;color:var(--brand);">
+      <button class="sec-more" onclick="showTab('finish', document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]'))" data-haptic="light" style="font-size:12px;color:var(--brand);">
         전체<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>
@@ -83,7 +83,7 @@ window.renderHomeResume = renderHomeResume;
 
 // ── 홈 탭 퀵액션 ───────────────────────────────────────────────
 function goWorkshopUpload() {
-  showTab('workshop', document.querySelectorAll('.nav-btn')[1]);
+  showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]'));
   initWorkshopTab();
   setTimeout(() => {
     const zone = document.getElementById('wsDropZone');
@@ -306,10 +306,10 @@ function _renderCompletionBanner() {
     const nextSlot = _slots.find(s => s.status !== 'done' && s.photos.length > 0)
                   || _slots.find(s => s.status !== 'done');
     if (allDone) {
-      banner.innerHTML = `<div style="background:rgba(76,175,80,0.1);border:1.5px solid rgba(76,175,80,0.3);border-radius:16px;padding:14px 16px;"><div style="font-size:13px;font-weight:700;color:#388e3c;margin-bottom:10px;">🎉 모든 작업 완료!</div><button onclick="showTab('caption',document.querySelectorAll('.nav-btn')[2]); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 글쓰기로 →</button></div>`;
+      banner.innerHTML = `<div style="background:rgba(76,175,80,0.1);border:1.5px solid rgba(76,175,80,0.3);border-radius:16px;padding:14px 16px;"><div style="font-size:13px;font-weight:700;color:#388e3c;margin-bottom:10px;">🎉 모든 작업 완료!</div><button onclick="showTab('caption',document.querySelector('.tab-bar__fab[data-tab=&quot;caption&quot;]')); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 글쓰기로 →</button></div>`;
     } else {
       const nextLabel = nextSlot ? nextSlot.label : '다음 손님';
-      banner.innerHTML = `<div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:16px;padding:14px 16px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">${nextLabel} 작업할까요? <span style="color:var(--text3);font-weight:400;">(완료 ${done}/${total})</span></div><div style="display:flex;gap:8px;">${nextSlot ? `<button onclick="openSlotPopup('${nextSlot.id}')" style="flex:1;padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;cursor:pointer;">${nextLabel} →</button>` : ''}<button onclick="showTab('caption',document.querySelectorAll('.nav-btn')[2]); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">지금 글쓰기로 →</button></div></div>`;
+      banner.innerHTML = `<div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:16px;padding:14px 16px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">${nextLabel} 작업할까요? <span style="color:var(--text3);font-weight:400;">(완료 ${done}/${total})</span></div><div style="display:flex;gap:8px;">${nextSlot ? `<button onclick="openSlotPopup('${nextSlot.id}')" style="flex:1;padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;cursor:pointer;">${nextLabel} →</button>` : ''}<button onclick="showTab('caption',document.querySelector('.tab-bar__fab[data-tab=&quot;caption&quot;]')); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">지금 글쓰기로 →</button></div></div>`;
     }
   } else {
     banner.style.display = 'none';

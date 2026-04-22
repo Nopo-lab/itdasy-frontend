@@ -1105,12 +1105,12 @@ function _renderCaptionActionBar(caption, hashtags) {
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">다음 손님 글 써볼까요? ${progressText}</div>
       <div style="display:flex;gap:8px;">
         <button onclick="goToNextSlotCaption('${nextSlot.id}')" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">${nextSlot.label} 글쓰기 →</button>
-        <button onclick="showTab('finish',document.querySelectorAll('.nav-btn')[4]); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
+        <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
       </div>
     </div>
     ` : `
     <div style="display:flex;gap:8px;">
-      <button onclick="showTab('finish',document.querySelectorAll('.nav-btn')[4]); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
+      <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
       <button onclick="publishFromCaption()" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 바로 올리기</button>
     </div>
     `}

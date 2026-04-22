@@ -49,7 +49,7 @@
     }
   };
 
-  function _safe(fn) { try { fn(); } catch (_) {} }
+  function _safe(fn) { try { fn(); } catch (_) { /* ignore */ } }
 
   function _webVibrate(pattern) {
     if (!_hapticEnabled()) return;
@@ -111,7 +111,7 @@
       try {
         const r = await Dialog.confirm({ title, message, okButtonTitle: okText, cancelButtonTitle: cancelText });
         return !!r.value;
-      } catch (_) {}
+      } catch (_) { /* ignore */ }
     }
     // 웹 폴백
     return window.confirm(`${title}\n\n${message}`);
@@ -120,7 +120,7 @@
   // 네이티브 alert 대체
   window.nativeAlert = async function (title, message) {
     if (isNative && Dialog) {
-      try { await Dialog.alert({ title, message }); return; } catch (_) {}
+      try { await Dialog.alert({ title, message }); return; } catch (_) { /* ignore */ }
     }
     window.alert(`${title}\n\n${message}`);
   };
@@ -152,7 +152,7 @@
       }
 
       // 2) 캡션·AI·예약·마무리 탭에 있으면 홈으로
-      const homeBtn = document.querySelector('nav .nav-btn[onclick*="home"], nav button[data-tab="home"]');
+      const homeBtn = document.querySelector('.tab-bar__btn[data-tab="home"]');
       const activeTab = document.querySelector('.tab.active, .tab[style*="display: block"]');
       const inHome = activeTab && (activeTab.id === 'tab-home' || activeTab.id === 'home');
       if (!inHome && homeBtn) {

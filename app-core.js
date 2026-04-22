@@ -174,7 +174,7 @@ function updateHomeQuestion() {
 }
 
 function goCaption() {
-  showTab('caption', document.querySelectorAll('.nav-btn')[2]);
+  showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]'));
 }
 
 function selectShopType(card) {
@@ -847,7 +847,7 @@ function showTab(id, btn) {
   if (sg) sg.style.display = 'none';
 
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
   const target = document.getElementById('tab-' + id);
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');

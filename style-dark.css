@@ -124,11 +124,11 @@ html[data-theme="dark"] nav {
   border-top-color: rgba(255,255,255,0.06) !important;
 }
 
-html[data-theme="dark"] .nav-btn {
+html[data-theme="dark"] .tab-bar__btn {
   color: #B0B4BB !important;
 }
 
-html[data-theme="dark"] .nav-btn.active {
+html[data-theme="dark"] .tab-bar__btn.active {
   color: #F18091 !important;
 }
 

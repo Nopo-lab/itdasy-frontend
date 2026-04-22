@@ -10,7 +10,7 @@ async function initAiRecommendTab() {
   if (!root) return;
 
   let slots = [];
-  try { slots = await loadSlotsFromDB(); } catch(_e) {}
+  try { slots = await loadSlotsFromDB(); } catch (_e) { /* ignore */ }
 
   // 미발행 슬롯: instagramPublished !== true (완료/미완료 모두 포함)
   const unpublished = slots.filter(s => !s.instagramPublished);
@@ -44,7 +44,7 @@ function _renderAiRecommendTab(root, slots) {
         <div style="font-size:40px;margin-bottom:12px;">🌸</div>
         <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;">올릴 게 없어요!</div>
         <div style="font-size:13px;color:var(--text3);margin-bottom:20px;">오늘 작업하러 가볼까요?</div>
-        <button onclick="showTab('workshop',document.querySelectorAll('.nav-btn')[1]); initWorkshopTab();" style="padding:12px 24px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">작업실로 →</button>
+        <button onclick="showTab('workshop',document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); initWorkshopTab();" style="padding:12px 24px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">작업실로 →</button>
       </div>`;
     return;
   }
@@ -159,7 +159,7 @@ async function _deleteAiSlot(id, e) {
   try {
     await deleteSlotFromDB(id);
     if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
-  } catch(_e) {}
+  } catch (_e) { /* ignore */ }
   _aiRecommendChecked.delete(id);
   initAiRecommendTab();
 }
@@ -168,7 +168,7 @@ async function _batchDeleteAiSlots() {
   if (!_aiRecommendChecked.size) return;
   if (!confirm(`선택한 ${_aiRecommendChecked.size}개를 삭제할까요?`)) return;
   for (const id of [..._aiRecommendChecked]) {
-    try { await deleteSlotFromDB(id); } catch(_e) {}
+    try { await deleteSlotFromDB(id); } catch (_e) { /* ignore */ }
     if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
   }
   _aiRecommendChecked.clear();
@@ -176,7 +176,7 @@ async function _batchDeleteAiSlots() {
 }
 
 function _goToFinishSlot(slotId) {
-  showTab('finish', document.querySelectorAll('.nav-btn')[4]);
+  showTab('finish', document.querySelector('.tab-bar__btn[data-tab="finish"]'));
   initFinishTab().catch ? initFinishTab().catch(() => {}) : setTimeout(initFinishTab, 0);
   setTimeout(() => {
     const el = document.querySelector(`[data-finish-slot="${slotId}"]`);
@@ -187,7 +187,7 @@ function _goToFinishSlot(slotId) {
 // 슬롯 상태에 따라 해당 단계로 이동
 async function _goToSlotStep(slotId) {
   let slots = [];
-  try { slots = await loadSlotsFromDB(); } catch(_e) {}
+  try { slots = await loadSlotsFromDB(); } catch (_e) { /* ignore */ }
   const slot = slots.find(s => s.id === slotId);
   if (!slot) return;
 
@@ -196,7 +196,7 @@ async function _goToSlotStep(slotId) {
 
   if (!isWorkshopDone || slot.photos.length === 0) {
     // 작업실 미완료 → 작업실로
-    showTab('workshop', document.querySelectorAll('.nav-btn')[1]);
+    showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]'));
     initWorkshopTab();
     setTimeout(() => {
       const el = document.querySelector(`[data-slot-id="${slotId}"]`);
@@ -205,7 +205,7 @@ async function _goToSlotStep(slotId) {
   } else if (!hasCaption) {
     // 캡션 없음 → 글쓰기 탭으로 (해당 슬롯 선택)
     window._selectedSlotForCaption = slot;
-    showTab('caption', document.querySelectorAll('.nav-btn')[2]);
+    showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]'));
     if (typeof initCaptionTab === 'function') initCaptionTab();
   } else {
     // 완성 → 마무리 탭으로

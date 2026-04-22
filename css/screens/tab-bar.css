@@ -48,13 +48,11 @@
   line-height: 1;
 }
 
-/* 활성 상태 — is-active(신규) + active(과도기) 병행 */
-.tab-bar__btn.is-active,
+/* 활성 상태 — app-core.js showTab() 이 .active 를 토글 */
 .tab-bar__btn.active {
   color: var(--brand);
 }
 
-.tab-bar__btn.is-active::before,
 .tab-bar__btn.active::before {
   content: '';
   position: absolute;
@@ -87,7 +85,6 @@
   transform: scale(.94);
 }
 
-.tab-bar__fab.is-active,
 .tab-bar__fab.active {
   outline: 2px solid var(--brand-bg);
   outline-offset: 2px;
