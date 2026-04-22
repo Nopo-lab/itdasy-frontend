@@ -56,7 +56,7 @@
 
   function _toggle(input, btn) {
     if (_active) {
-      try { _active.rec.stop(); } catch(e){}
+      try { _active.rec.stop(); } catch(_e) { /* ignore */ }
       _active = null;
       return;
     }
@@ -98,7 +98,10 @@
   }
 
   function _scan(root) {
-    (root || document).querySelectorAll('input:not([data-voice-injected]), textarea:not([data-voice-injected])').forEach(_inject);
+    // opt-in 만 매칭 — DOM 에 data-voice/data-voice-root 없으면 match 0개 (저렴)
+    (root || document).querySelectorAll(
+      '[data-voice]:not([data-voice-injected]), [data-voice-root] input:not([data-voice-injected]), [data-voice-root] textarea:not([data-voice-injected])'
+    ).forEach(_inject);
   }
 
   // 초기 스캔
@@ -108,15 +111,24 @@
     _scan();
   }
 
-  // DOM 변화 관찰
-  const mo = new MutationObserver(muts => {
-    muts.forEach(m => {
-      m.addedNodes.forEach(n => {
-        if (n.nodeType !== 1) return;
-        if (n.matches && n.matches('input,textarea')) _inject(n);
-        _scan(n);
-      });
+  // DOM 변화 관찰 — rAF debounce 로 과도 스캔 방지
+  let _scanScheduled = false;
+  const _pending = [];
+  function _flush() {
+    _scanScheduled = false;
+    const batch = _pending.splice(0);
+    batch.forEach(n => {
+      if (n.nodeType !== 1) return;
+      if (n.matches && n.matches('input[data-voice],textarea[data-voice]')) _inject(n);
+      else if (n.querySelector && n.querySelector('[data-voice],[data-voice-root]')) _scan(n);
     });
+  }
+  const mo = new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => _pending.push(n)));
+    if (!_scanScheduled) {
+      _scanScheduled = true;
+      requestAnimationFrame(_flush);
+    }
   });
   mo.observe(document.body, { childList: true, subtree: true });
 

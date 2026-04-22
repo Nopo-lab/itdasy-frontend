@@ -326,7 +326,11 @@ function _assignToSlot(photoId, slotId) {
 }
 
 // ── 드래그 (Touch + Mouse) ─────────────────────────────────────
+let _dragEventsInited = false;
 function _initDragEvents() {
+  // 중복 부착 방지 — 워크숍 탭 재진입마다 document 리스너가 쌓이면 렉 발생
+  if (_dragEventsInited) return;
+  _dragEventsInited = true;
   document.addEventListener('touchmove',  _moveDragInd,       { passive: true });
   document.addEventListener('mousemove',  _moveDragIndMouse);
   document.addEventListener('touchend',   _onDragEnd,         { passive: false });
