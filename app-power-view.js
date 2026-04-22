@@ -564,7 +564,7 @@
       </div>
       ${pendingHtml}
       <div class="pv-toolbar">
-        <input class="pv-search" id="pv-search" placeholder="검색 (⌘K)" value="${_esc(searchKW)}" />
+        <input class="pv-search" id="pv-search" data-no-voice placeholder="검색 (⌘K)" value="${_esc(searchKW)}" />
         <label class="pv-excel" for="pv-excel-file" title="엑셀/CSV AI 임포트">
           📥 엑셀 불러오기
           <input type="file" id="pv-excel-file" accept=".csv,.xlsx,.xls" style="display:none;" />
