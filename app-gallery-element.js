@@ -27,11 +27,11 @@ function _saveUserElements(arr) {
 }
 
 function openElementPanel() {
-  document.getElementById('elementPanel').style.display = 'block';
+  document.getElementById('elementPanel').classList.add('ws-panel--open');
   _renderElementPanel();
 }
 function closeElementPanel() {
-  document.getElementById('elementPanel').style.display = 'none';
+  document.getElementById('elementPanel').classList.remove('ws-panel--open');
 }
 
 function _renderElementPanel() {
@@ -42,53 +42,43 @@ function _renderElementPanel() {
 
   const slot = _slots.find(s => s.id === _popupSlotId);
   const selectedPhotos = slot ? slot.photos.filter(p => _popupSelIds.has(p.id) && !p.hidden) : [];
-
-  // 기본 "잇데이" 텍스트 요소 이미지
   const itdasyImg = _createDefaultTextElement('잇데이', '#f18091');
 
   body.innerHTML = `
-    <!-- 기본 텍스트 요소 -->
-    <div style="margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">✨ 기본 텍스트</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-        <div style="cursor:pointer;" onclick="selectDefaultElement('itdasy')">
-          <div style="aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:1.5px solid var(--accent);background:#fff5f7;display:flex;align-items:center;justify-content:center;">
-            <img src="${itdasyImg}" style="width:90%;height:auto;object-fit:contain;">
+    <div class="gp-section">
+      <p class="gp-section-lbl"><svg class="ic ic--xs" aria-hidden="true"><use href="#ic-sparkles"/></svg> 기본 텍스트</p>
+      <div class="gp-grid gp-grid--4">
+        <div class="gp-card" onclick="selectDefaultElement('itdasy')">
+          <div class="gp-card__thumb gp-card__thumb--brand">
+            <img src="${itdasyImg}" alt="잇데이">
           </div>
-          <div style="font-size:9px;color:var(--accent);text-align:center;margin-top:4px;font-weight:700;">잇데이</div>
+          <div class="gp-card__name" style="color:var(--brand);">잇데이</div>
         </div>
       </div>
     </div>
-    <!-- 내 요소 -->
-    <div style="margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">📦 내 요소 (로고, 브랜드 이미지)</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+    <div class="gp-section">
+      <p class="gp-section-lbl"><svg class="ic ic--xs" aria-hidden="true"><use href="#ic-package"/></svg> 내 요소 (로고, 브랜드 이미지)</p>
+      <div class="gp-grid gp-grid--4">
         ${_userElements.map(el => `
-          <div style="position:relative;cursor:pointer;" onclick="selectElement('${el.id}')">
-            <div style="aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:1.5px solid var(--border);background:#f5f5f5;">
-              <img src="${el.imageData}" style="width:100%;height:100%;object-fit:contain;">
+          <div class="gp-card" onclick="selectElement('${el.id}')">
+            <div class="gp-card__thumb gp-card__thumb--fit">
+              <img src="${el.imageData}" alt="${el.name}">
             </div>
-            <div style="font-size:9px;color:var(--text2);text-align:center;margin-top:4px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${el.name}</div>
-            <button onclick="deleteElement('${el.id}',event)" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(220,53,69,0.9);color:#fff;font-size:12px;cursor:pointer;">×</button>
-          </div>
-        `).join('')}
-        <!-- 추가 버튼 -->
-        <div onclick="addUserElement()" style="cursor:pointer;">
-          <div style="aspect-ratio:1/1;border-radius:12px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text3);">+</div>
-          <div style="font-size:9px;color:var(--text3);text-align:center;margin-top:4px;">추가</div>
+            <div class="gp-card__name">${el.name}</div>
+            <button class="gp-del-btn" onclick="deleteElement('${el.id}',event)" aria-label="삭제">×</button>
+          </div>`).join('')}
+        <div class="gp-add-card" onclick="addUserElement()">
+          <div class="gp-add-card__thumb">+</div>
+          <div class="gp-card__name">추가</div>
         </div>
       </div>
     </div>
     <input type="file" id="elementUploadInput" accept="image/*" style="display:none;" onchange="handleElementUpload(this)">
-    ${selectedPhotos.length === 0 ? `
-      <div style="padding:16px;background:var(--bg2);border-radius:12px;text-align:center;color:var(--text3);font-size:12px;">
-        사진을 먼저 선택한 후 요소를 탭하세요
-      </div>
-    ` : `
-      <div style="padding:12px;background:rgba(241,128,145,0.08);border-radius:12px;text-align:center;color:var(--accent2);font-size:12px;font-weight:600;">
-        ${selectedPhotos.length}장 선택됨 — 요소를 탭하면 편집 화면으로 이동해요
-      </div>
-    `}
+    <div class="gp-info-banner ${selectedPhotos.length === 0 ? 'gp-info-banner--empty' : 'gp-info-banner--active'}">
+      ${selectedPhotos.length === 0
+        ? '사진을 먼저 선택한 후 요소를 탭하세요'
+        : `${selectedPhotos.length}장 선택됨 — 요소를 탭하면 편집 화면으로 이동해요`}
+    </div>
   `;
 }
 

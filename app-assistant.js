@@ -16,6 +16,10 @@
   ];
 
   let _history = [];  // [{role, text}]
+  // v1.1 Multi-turn — localStorage 에 session_id 유지 (앱 재시작해도 대화 기억)
+  let _sessionId = null;
+  try { _sessionId = parseInt(localStorage.getItem('assistant_session_id') || '', 10) || null; }
+  catch (_e) { _sessionId = null; }
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
@@ -47,6 +51,8 @@
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeAssistant(); });
     sheet.querySelector('#asstSend').addEventListener('click', _send);
     sheet.querySelector('#asstInput').addEventListener('keydown', (e) => {
+      // 한글 IME 조합 중 Enter 무시 (마지막 글자 중복/누락 방지)
+      if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }
     });
     _renderSuggest();
@@ -73,11 +79,20 @@
       }
       if (m.role === 'assistant') {
         const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status) : '';
+        const relatedHtml = (m.related && m.related.length) ? `
+          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
+            ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
+          </div>` : '';
         return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
           <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">🤖</div>
           <div style="max-width:85%;min-width:0;">
             <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
+            <div style="margin-top:3px;padding-left:4px;">
+              <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
+                style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#bbb;padding:2px 4px;">🚩 신고</button>
+            </div>
             ${actionHtml}
+            ${relatedHtml}
           </div>
         </div>`;
       }
@@ -97,10 +112,16 @@
   function _renderActionBubble(action, historyIdx, status) {
     if (!action || !action.kind) return '';
     const kindBadge = {
-      create_booking: { icon: '📅', label: '예약 추가', color: '#F18091' },
-      create_revenue: { icon: '💰', label: '매출 기록', color: '#388e3c' },
+      create_booking:  { icon: '📅', label: '예약 추가', color: '#F18091' },
+      create_revenue:  { icon: '💰', label: '매출 기록', color: '#388e3c' },
       create_customer: { icon: '👤', label: '고객 등록', color: '#4ECDC4' },
-      create_nps: { icon: '⭐', label: 'NPS 기록', color: '#FFD700' },
+      create_nps:      { icon: '⭐', label: 'NPS 기록', color: '#FFD700' },
+      update_booking:  { icon: '✏️', label: '예약 수정', color: '#A78BFA' },
+      cancel_booking:  { icon: '🗑', label: '예약 취소', color: '#DC3545' },
+      reschedule_booking: { icon: '🔄', label: '예약 시간 변경', color: '#0288D1' },
+      update_customer: { icon: '✏️', label: '고객 정보 수정', color: '#4ECDC4' },
+      upsert_inventory: { icon: '📦', label: '재고 추가', color: '#2B8C7E' },
+      generate_bulk_message: { icon: '📋', label: '단체 메시지 초안', color: '#FF8A5C' },
     }[action.kind] || { icon: '✓', label: action.kind, color: '#666' };
 
     if (status === 'done') {
@@ -127,17 +148,34 @@
     </div>`;
   }
 
+  // 단일 document-level 위임 (한 번만 등록)
+  let _delegationBound = false;
+  let _sendInFlight = false;
   function _bindActionButtons() {
-    document.querySelectorAll('[data-action-run]').forEach(btn => {
-      btn.addEventListener('click', () => _runAction(parseInt(btn.dataset.actionRun, 10)));
-    });
-    document.querySelectorAll('[data-action-cancel]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.actionCancel, 10);
+    if (_delegationBound) return;
+    _delegationBound = true;
+    document.addEventListener('click', (e) => {
+      const run = e.target.closest('[data-action-run]');
+      if (run && document.getElementById('asstBody')?.contains(run)) {
+        _runAction(parseInt(run.dataset.actionRun, 10));
+        return;
+      }
+      const cancel = e.target.closest('[data-action-cancel]');
+      if (cancel && document.getElementById('asstBody')?.contains(cancel)) {
+        const idx = parseInt(cancel.dataset.actionCancel, 10);
         if (_history[idx]) { _history[idx].action_status = 'cancelled'; _history[idx].action = null; }
         _renderHistory();
-      });
-    });
+        return;
+      }
+      const sug = e.target.closest('[data-suggest]');
+      const sheet = document.getElementById('assistantSheet');
+      if (sug && sheet && sheet.contains(sug)) {
+        if (_sendInFlight) return;  // 중복 방지
+        const q = sug.getAttribute('data-suggest');
+        const input = document.getElementById('asstInput');
+        if (input) { input.value = q; _send(); }
+      }
+    }, false);
   }
 
   async function _runAction(idx) {
@@ -158,14 +196,58 @@
       const d = await res.json();
       msg.action_status = 'done';
       _renderHistory();
-      _history.push({ role: 'assistant', text: d.message || '✓ 완료했어요' });
+
+      // 프론트 SWR + PowerView 캐시 전부 무효화 (단수·복수 · session·local 모두)
+      const _invalidateKinds = {
+        create_customer: ['customer', 'customers'],
+        create_booking: ['booking', 'bookings', 'customer', 'customers'],
+        create_revenue: ['revenue', 'customer', 'customers'],
+        create_nps: ['nps', 'customer'],
+        update_customer: ['customer', 'customers'],
+        update_booking: ['booking', 'bookings'],
+        cancel_booking: ['booking', 'bookings'],
+        reschedule_booking: ['booking', 'bookings'],
+        upsert_inventory: ['inventory'],
+      }[d.kind] || [];
+      _invalidateKinds.forEach(k => {
+        // 단수(powerview) + 복수(SWR) 키 모두 제거
+        try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) {}
+        try { localStorage.removeItem('pv_cache::' + k); } catch (_e) {}
+        // bookings 는 날짜 범위별 키 scan 삭제
+        if (k === 'bookings' || k === 'booking') {
+          try {
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+              const key = sessionStorage.key(i);
+              if (key && key.startsWith('pv_cache::booking')) sessionStorage.removeItem(key);
+            }
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const key = localStorage.key(i);
+              if (key && key.startsWith('pv_cache::booking')) localStorage.removeItem(key);
+            }
+          } catch (_e) {}
+        }
+      });
+      // 오픈된 시트가 있으면 데이터 새로고침 신호 전파
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: d.kind } })); } catch (_e) {}
+
+      // Phase 6.3 — bulk_message 는 클립보드 복사 처리
+      if (d.kind === 'generate_bulk_message' && d.message_draft) {
+        try {
+          if (navigator.clipboard) await navigator.clipboard.writeText(d.message_draft);
+          _history.push({ role: 'assistant', text: '📋 초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + d.message_draft });
+        } catch (e) {
+          _history.push({ role: 'assistant', text: '초안 작성됨:\n\n' + d.message_draft });
+        }
+      } else {
+        _history.push({ role: 'assistant', text: d.message || '✓ 완료했어요' });
+      }
       _renderHistory();
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
     } catch (e) {
       msg.action_status = 'failed';
       _renderHistory();
-      _history.push({ role: 'assistant', text: '실패: ' + e.message });
+      _history.push({ role: 'assistant', text: '실패: ' + (window._humanError ? window._humanError(e) : e.message) });
       _renderHistory();
     }
   }
@@ -173,19 +255,18 @@
   function _renderSuggest() {
     const el = document.getElementById('asstSuggest');
     if (!el) return;
+    // data-suggest 만 두고 클릭은 document 위임 (중복 방지)
     el.innerHTML = SUGGESTIONS.map(s => `
       <button data-suggest="${_esc(s)}" style="padding:8px 12px;border:1px solid #ddd;border-radius:100px;background:#fff;cursor:pointer;font-size:11px;color:#555;white-space:nowrap;">${_esc(s)}</button>
     `).join('');
-    el.querySelectorAll('[data-suggest]').forEach(btn => btn.addEventListener('click', () => {
-      document.getElementById('asstInput').value = btn.dataset.suggest;
-      _send();
-    }));
   }
 
   async function _send() {
+    if (_sendInFlight) return;  // 중복 송신 방지
     const input = document.getElementById('asstInput');
     const q = input.value.trim();
     if (!q) return;
+    _sendInFlight = true;
     input.value = '';
     _history.push({ role: 'user', text: q });
     _history.push({ role: 'loading', text: '' });
@@ -195,23 +276,57 @@
       const res = await fetch(window.API + '/assistant/ask', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q }),
+        body: JSON.stringify({ question: q, session_id: _sessionId || undefined }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
       _history = _history.filter(m => m.role !== 'loading');
-      const msg = { role: 'assistant', text: d.answer || '답을 만들지 못했어요.' };
-      if (d.action && d.action.kind) {
-        msg.action = d.action;
-        msg.action_status = 'pending';
+
+      // v1.1 — session_id 저장 (서버가 최초 생성 or 기존 사용)
+      if (d.session_id) {
+        _sessionId = d.session_id;
+        try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { /* ignore */ }
       }
-      _history.push(msg);
+
+      // 복수 액션 지원 — actions[] 우선, 없으면 단일 action 을 배열로
+      const actionsList = (Array.isArray(d.actions) && d.actions.length)
+        ? d.actions
+        : (d.action && d.action.kind ? [d.action] : []);
+
+      const msg = { role: 'assistant', text: d.answer || '답을 만들지 못했어요.' };
+      if (Array.isArray(d.related_questions) && d.related_questions.length) {
+        msg.related = d.related_questions.slice(0, 3);
+      }
+
+      if (actionsList.length === 1) {
+        // 단일 액션: 답변 메시지에 '추가하기 ✓' 버튼 직접 붙임 (기존 UX)
+        msg.action = actionsList[0];
+        msg.action_status = 'pending';
+        _history.push(msg);
+      } else if (actionsList.length > 1) {
+        // 복수 액션: 답변 + 각 액션을 별도 버블로
+        _history.push(msg);
+        actionsList.forEach((act, idx) => {
+          _history.push({
+            role: 'assistant',
+            text: act.confirmation_text || `${idx + 1}/${actionsList.length} ${act.kind}`,
+            action: act,
+            action_status: 'pending',
+            action_batch_idx: idx,
+            action_batch_total: actionsList.length,
+          });
+        });
+      } else {
+        _history.push(msg);
+      }
       _renderHistory();
       if (window.hapticLight) window.hapticLight();
     } catch (e) {
       _history = _history.filter(m => m.role !== 'loading');
-      _history.push({ role: 'assistant', text: '잠시 연결이 불안정해요. 다시 시도해 주세요. (' + e.message + ')' });
+      _history.push({ role: 'assistant', text: '잠시 연결이 불안정해요. 다시 시도해 주세요. (' + (window._humanError ? window._humanError(e) : e.message) + ')' });
       _renderHistory();
+    } finally {
+      _sendInFlight = false;
     }
   }
 

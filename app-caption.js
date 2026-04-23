@@ -44,7 +44,7 @@ function shuffleHashtags(tags) {
 
   // 이전 사용 기록 로드
   let history = [];
-  try { history = JSON.parse(localStorage.getItem('itdasy_hash_history') || '[]'); } catch(_) {}
+  try { history = JSON.parse(localStorage.getItem('itdasy_hash_history') || '[]'); } catch(_) { /* ignore */ }
 
   // 핵심 태그(앞 3개)는 고정, 나머지를 셔플 대상으로 분리
   const core = tags.slice(0, 3);
@@ -406,7 +406,7 @@ async function _capPatchLog(text) {
 
   try {
     await _personaFetch('PATCH', `/persona/generation_logs/${_lastLogId}`, { final_text: text });
-  } catch(_e) {} // 조용히 실패
+  } catch(_e) { /* 조용히 실패 */ }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -476,10 +476,15 @@ const _CAP_CAT_MAP = {'붙임머리':'extension','네일아트':'nail','네일':
 
 // 400 에러 코드 → 사용자 안내 메시지
 const _CAP_ERR_MSG = {
-  'identity_incomplete': '페르소나 탭 필수 5필드부터 채워주세요',
-  'consent_missing':     '페르소나 탭 하단 동의를 먼저 해주세요',
-  'insufficient_posts':  '포스트가 5개 이상 필요합니다. 인스타 연동에서 포스트를 더 불러와주세요.',
-  'fingerprint_missing': '포스트가 5개 이상 필요합니다. 인스타 연동에서 포스트를 더 불러와주세요.',
+  'identity_incomplete':  '사장님 프로필(업종·매장명 등)을 먼저 등록해주세요',
+  'consent_missing':      'AI 처리 동의가 필요합니다',
+  'insufficient_posts':   '포스트가 5개 이상 필요합니다. 인스타 연동에서 포스트를 더 불러와주세요.',
+  'fingerprint_missing':  '포스트가 5개 이상 필요합니다. 인스타 연동에서 포스트를 더 불러와주세요.',
+  'generation_failed':    'AI 캡션 생성이 실패했어요. 시나리오 다시 선택하거나, 1분 후 다시 시도해 주세요.',
+  'content_filtered':     'AI 가 안전 정책상 이 내용을 생성할 수 없어요. 키워드를 바꿔서 다시 시도해 주세요.',
+  'quota_exceeded':       '오늘 캡션 사용량을 다 쓰셨어요. 내일 다시 시도하거나 Pro 로 업그레이드해 주세요.',
+  'gemini_unavailable':   'AI 서버가 잠시 불안정해요. 1~2분 후 다시 시도해 주세요.',
+  'timeout':              'AI 응답이 지연되고 있어요. 네트워크 확인 후 다시 시도해 주세요.',
 };
 
 function generateCaption() {
@@ -573,16 +578,16 @@ async function _doGenerateCaption(scenario, closePopup) {
       const msg = _CAP_ERR_MSG[code] || '캡션 생성에 실패했습니다. 다시 시도해주세요.';
       hideCaptionLoader(false, () => {
         closePopup();
-        // 피드백 #11/#5: identity_incomplete → 기존 페르소나 팝업 열기 (숨겨진 탭 말고)
+        // identity_incomplete → 신 온보딩 팝업 (T-310: 구 페르소나 팝업 제거)
         if (code.startsWith('identity_incomplete')) {
           showToast('사장님 프로필(업종·매장명 등)을 먼저 등록해주세요');
-          if (typeof window.openPersonaPopup === 'function') {
-            setTimeout(() => window.openPersonaPopup(), 300);
+          if (typeof window.showOnboardingCaptionPopup === 'function') {
+            setTimeout(() => window.showOnboardingCaptionPopup(), 300);
           }
           return;
         }
         if (code.startsWith('consent_missing')) {
-          showToast('페르소나 탭 하단 "AI 처리 동의"를 먼저 체크해주세요');
+          showToast('AI 처리 동의가 필요합니다');
           return;
         }
         if (code.startsWith('insufficient_posts') || code.startsWith('fingerprint_missing')) {
@@ -646,37 +651,6 @@ async function _doGenerateCaption(scenario, closePopup) {
   }
 }
 
-// ===== 마스터: 인스타 자동 발행 (1단계: 프리뷰 열기) =====
-function publishToInstagram() {
-  if (!getToken()) {
-    showToast("홈 탭에서 인스타 연동을 먼저 진행해주세요");
-    return;
-  }
-
-  const canvas = document.getElementById('baCanvas');
-  // 편집 가능한 textarea 값 우선, 없으면 생성된 캡션 사용
-  const editedCaption = document.getElementById('publishCaptionPreview').value.trim();
-  const caption = document.getElementById('captionText').value;
-  const hash = document.getElementById('captionHash').value;
-  const hasCaption = caption && !caption.includes("생성된 글이 여기에 나타납니다");
-
-  const finalText = editedCaption || (hasCaption ? caption + "\n\n" + hash : '(글 없이 사진만 올라갑니다)');
-
-  // 팝업 채우기
-  const shopName = localStorage.getItem('shop_name') || '사장님';
-  document.getElementById('previewShopName').textContent = shopName;
-  document.getElementById('previewFinalCaption').textContent = finalText;
-  document.getElementById('previewFinalImg').src = canvas.toDataURL('image/png');
-  document.getElementById('previewAvatar').innerHTML = document.getElementById('headerAvatar').innerHTML;
-
-  // 팝업 열기
-  const pop = document.getElementById('publishPreviewPopup');
-  pop.style.display = 'flex';
-  setTimeout(() => {
-    pop.querySelector('.popup-content').style.transform = 'scale(1)';
-    pop.querySelector('.popup-content').style.opacity = '1';
-  }, 10);
-}
 
 function closePublishPreview() {
   const pop = document.getElementById('publishPreviewPopup');
@@ -772,7 +746,7 @@ async function doActualPublish() {
 
   } catch(e) {
     upPopup.style.display = 'none';
-    showToast('오류: ' + e.message);
+    showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message));
     btn.textContent = '다시 시도하기 🚀';
     btn.disabled = false;
   }
@@ -821,134 +795,10 @@ function flashBtn(btn, msg) {
   setTimeout(() => btn.textContent = orig, 1500);
 }
 
-// ===== Before/After =====
-const imgs = { before: null, after: null };
 
-function loadImage(input, side) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      imgs[side] = img;
-      const preview = document.getElementById(side + 'Preview');
-      const area = document.getElementById(side + 'Area');
-      preview.src = e.target.result;
-      preview.style.display = 'block';
-      area.style.display = 'none';
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
 
-function renderBA() {
-  if (!imgs.before || !imgs.after) {
-    showToast('Before, After 사진을 모두 선택해주세요');
-    return;
-  }
-  const layout = document.querySelector('.style-opts .style-opt.on[data-v]') ?
-    document.querySelectorAll('.style-opts .style-opt.on')[0].dataset.v : 'side';
-  const wm = document.querySelectorAll('.style-opts .style-opt.on')[1]?.dataset.v || 'wm1';
 
-  const canvas = document.getElementById('baCanvas');
-  const ctx = canvas.getContext('2d');
 
-  let W, H;
-  if (layout === 'side' || layout === 'square') {
-    W = 1080; H = 1080;
-  } else {
-    W = 1080; H = 1350;
-  }
-  canvas.width = W; canvas.height = H;
-  canvas.style.display = 'block';
-
-  ctx.fillStyle = '#0f0608';
-  ctx.fillRect(0, 0, W, H);
-
-  function drawCropped(img, x, y, w, h) {
-    const scale = Math.max(w / img.width, h / img.height);
-    const sw = w / scale, sh = h / scale;
-    const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
-    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
-  }
-
-  const PAD = 6;
-  if (layout === 'side' || layout === 'square') {
-    const hw = (W - PAD * 3) / 2;
-    const ih = H - PAD * 2 - 80;
-    drawCropped(imgs.before, PAD, PAD, hw, ih);
-    drawCropped(imgs.after, PAD * 2 + hw, PAD, hw, ih);
-    // 라벨
-    const ly = ih + PAD + 10;
-    drawLabel(ctx, 'BEFORE', PAD + hw / 2, ly, W);
-    drawLabel(ctx, 'AFTER ✨', PAD * 2 + hw + hw / 2, ly, W);
-  } else {
-    const hh = (H - PAD * 3 - 80) / 2;
-    drawCropped(imgs.before, PAD, PAD, W - PAD * 2, hh);
-    drawCropped(imgs.after, PAD, PAD * 2 + hh, W - PAD * 2, hh);
-    drawLabel(ctx, 'BEFORE', W / 2, hh + PAD + 14, W);
-    drawLabel(ctx, 'AFTER ✨', W / 2, hh * 2 + PAD * 2 + 14, W);
-  }
-
-  // 워터마크
-  if (wm !== 'wm0') {
-    const wmText = wm === 'wm1' ? '🎀 @itdasy' : '잇데이 붙임머리';
-    ctx.fillStyle = 'rgba(232,160,176,0.9)';
-    ctx.font = '500 28px "Noto Sans KR", sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(wmText, W / 2, H - 22);
-  }
-
-  // 인스타 발행 미리보기 세팅 (캡션 + 해시태그 합체)
-  const c = document.getElementById('captionText').value;
-  const h = document.getElementById('captionHash').value;
-  const previewArea = document.getElementById('publishConfirmArea');
-  const previewInput = document.getElementById('publishCaptionPreview');
-
-  if (c && !c.includes("생성된 글이 여기에 나타납니다")) {
-      previewInput.value = c + "\n\n" + h;
-      previewArea.style.display = 'block';
-  } else {
-      previewArea.style.display = 'block';
-      previewInput.value = '⚠️ 아직 글을 만들지 않으셨어요.\n\n사진만 올라갑니다. 첫 번째 탭에서 글을 먼저 만드시는 걸 추천드려요!';
-  }
-
-  document.getElementById('publishArea').style.display = 'block';
-}
-
-function resetBA() {
-  imgs.before = null; imgs.after = null;
-  document.getElementById('beforePreview').style.display = 'none';
-  document.getElementById('afterPreview').style.display = 'none';
-  document.getElementById('beforeArea').style.display = 'block';
-  document.getElementById('afterArea').style.display = 'block';
-  document.getElementById('baCanvas').style.display = 'none';
-  document.getElementById('saveBtn').style.display = 'none';
-  document.getElementById('resetBaBtn').style.display = 'none';
-  document.getElementById('publishConfirmArea').style.display = 'none';
-  document.getElementById('publishArea').style.display = 'none';
-  document.querySelectorAll('#tab-ba input[type=file]').forEach(i => i.value = '');
-}
-
-function drawLabel(ctx, text, x, y, W) {
-  ctx.fillStyle = 'rgba(15,6,8,0.7)';
-  ctx.roundRect(x - 70, y - 22, 140, 34, 17);
-  ctx.fill();
-  ctx.fillStyle = '#f0e8ea';
-  ctx.font = '500 18px "Noto Sans KR", sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(text, x, y);
-}
-
-function saveCanvas() {
-  const canvas = document.getElementById('baCanvas');
-  const a = document.createElement('a');
-  a.download = 'itdasy_ba_' + Date.now() + '.jpg';
-  a.href = canvas.toDataURL('image/jpeg', 0.92);
-  a.click();
-}
 
 function createConfetti() {
   const c = document.createElement('div');
@@ -1091,7 +941,11 @@ function _renderCaptionActionBar(caption, hashtags) {
     <script>if(!localStorage.getItem('_regen_hint_shown')){localStorage.setItem('_regen_hint_shown','1');setTimeout(()=>{const e=document.getElementById('_regenFirstHint');if(e)e.style.display='none';},8000);}</script>
 
     <div style="background:rgba(76,175,80,0.08);border:1.5px solid rgba(76,175,80,0.25);border-radius:14px;padding:14px;margin-bottom:10px;">
-      <div style="font-size:12px;font-weight:700;color:#388e3c;margin-bottom:10px;">✅ 캡션 생성 완료!</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:700;color:#388e3c;">✅ 캡션 생성 완료!</div>
+        <button data-report-ai="caption" data-snippet="${(caption || '').replace(/"/g,'&quot;')}" data-source="/caption/generate" title="AI 캡션 신고" aria-label="AI 캡션 신고"
+          style="background:transparent;border:none;cursor:pointer;font-size:13px;color:#999;padding:4px 6px;">🚩 신고</button>
+      </div>
       <!-- 피드백 #13: 인스타 피드 미리보기 버튼 복원 -->
       <button onclick="_previewCaptionOnInsta()" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:1.5px solid #833ab4;background:#fff;color:#833ab4;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">📱 인스타 피드 미리보기</button>
       <button onclick="saveCaptionToGallery()" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#4caf50,#388e3c);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">📁 갤러리에 저장하기</button>
@@ -1101,12 +955,12 @@ function _renderCaptionActionBar(caption, hashtags) {
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">다음 손님 글 써볼까요? ${progressText}</div>
       <div style="display:flex;gap:8px;">
         <button onclick="goToNextSlotCaption('${nextSlot.id}')" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">${nextSlot.label} 글쓰기 →</button>
-        <button onclick="showTab('finish',document.querySelectorAll('.nav-btn')[4]); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
+        <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
       </div>
     </div>
     ` : `
     <div style="display:flex;gap:8px;">
-      <button onclick="showTab('finish',document.querySelectorAll('.nav-btn')[4]); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
+      <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
       <button onclick="publishFromCaption()" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 바로 올리기</button>
     </div>
     `}
@@ -1162,6 +1016,6 @@ async function saveCaptionToGallery() {
     // 저장 완료 후 다음 손님 유도 갱신
     _renderCaptionActionBar(slot.caption, slot.hashtags);
   } catch(e) {
-    showToast('저장 실패: ' + e.message);
+    showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
   }
 }

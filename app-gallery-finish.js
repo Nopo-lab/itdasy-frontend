@@ -17,7 +17,7 @@ async function initFinishTab() {
   if (!root) return;
   try { _slots = await loadSlotsFromDB(); } catch(_e) { _slots = []; }
   let galleryItems = [];
-  try { galleryItems = await loadGalleryItems(); } catch(_e) {}
+  try { galleryItems = await loadGalleryItems(); } catch (_e) { /* ignore */ }
   _renderFinishTab(root, galleryItems);
 }
 
@@ -31,14 +31,14 @@ function _renderFinishTab(root, galleryItems = []) {
       <div style="text-align:center;padding:60px 20px;">
         <div style="font-size:40px;margin-bottom:12px;">📭</div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">작업실에서 슬롯을 먼저 만들어보세요</div>
-        <button onclick="showTab('workshop',document.querySelectorAll('.nav-btn')[1]); initWorkshopTab();" style="margin-top:16px;padding:10px 20px;border-radius:12px;border:1.5px solid var(--accent2);background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:12px;">작업실로 이동 →</button>
+        <button onclick="showTab('workshop',document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); initWorkshopTab();" style="margin-top:16px;padding:10px 20px;border-radius:12px;border:1.5px solid var(--accent2);background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:12px;">작업실로 이동 →</button>
       </div>
     `;
     return;
   }
 
   const incompleteHtml = incompleteN > 0
-    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:14px;">미완료 ${incompleteN}개 있어요 · <button onclick="showTab('tab-ai-suggest',document.querySelectorAll('.nav-btn')[0]); initAiRecommendTab();" style="background:transparent;border:none;color:var(--accent2);font-size:11px;font-weight:700;cursor:pointer;padding:0;">AI추천에서 확인 →</button></div>`
+    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:14px;">미완료 ${incompleteN}개 있어요 · <button onclick="showTab('dashboard',document.querySelector('.tab-bar__btn[data-tab=&quot;dashboard&quot;]')); initDashboardTab();" style="background:transparent;border:none;color:var(--accent2);font-size:11px;font-weight:700;cursor:pointer;padding:0;">AI추천에서 확인 →</button></div>`
     : '';
 
   if (!doneSlots.length) {
@@ -220,7 +220,7 @@ async function _republishGalleryItem(galleryId) {
       const success = await doInstagramPublish(imgUrl, fullCaption);
       if (success) showToast('다시 업로드 완료! ✨');
     }
-  } catch(e) { showToast('오류: ' + e.message); }
+  } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
 async function downloadGalleryItem(galleryId) {
@@ -247,7 +247,7 @@ async function _pickCustomerForSlot(slotId) {
   if (picked === null) return; // 취소
   slot.customer_id = picked.id;
   slot.customer_name = picked.name;
-  try { await saveSlotToDB(slot); } catch(_e) {}
+  try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
   initFinishTab();
 }
 
@@ -265,7 +265,7 @@ async function _maybeAutoMatchCustomer(slot) {
     if (picked && picked.id) {
       slot.customer_id = picked.id;
       slot.customer_name = picked.name;
-      try { await saveSlotToDB(slot); } catch (_) {}
+      try { await saveSlotToDB(slot); } catch (_) { /* ignore */ }
     }
   } catch (e) { console.warn('[photo-match] 실패:', e); }
 }
@@ -283,7 +283,7 @@ async function _saveSlotToGallery(slotId) {
     if (aiTab && aiTab.classList.contains('active') && typeof initAiRecommendTab === 'function') {
       initAiRecommendTab();
     }
-  } catch(e) { showToast('저장 실패: ' + e.message); }
+  } catch(e) { showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
 async function publishSlotToInstagram(slotId) {
@@ -312,18 +312,18 @@ async function publishSlotToInstagram(slotId) {
         slot.deferredAt = null;
         await saveSlotToDB(slot);
         // 갤러리 자동 저장
-        try { await saveToGallery(slot); } catch(_e) {}
+        try { await saveToGallery(slot); } catch (_e) { /* ignore */ }
         initFinishTab();
       }
     }
-  } catch(e) { showToast('오류: ' + e.message); }
+  } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
 async function _deferSlot(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot) return;
   slot.deferredAt = Date.now();
-  try { await saveSlotToDB(slot); } catch(_e) {}
+  try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
   showToast('AI 추천 탭에서 다시 볼 수 있어요 🕐');
   initFinishTab();
 }
@@ -342,7 +342,7 @@ function downloadSlotPhotos(slotId) {
 async function deleteSlotFinish(slotId) {
   if (!confirm('슬롯을 삭제할까요?')) return;
   _slots = _slots.filter(s => s.id !== slotId);
-  try { await deleteSlotFromDB(slotId); } catch(_e) {}
+  try { await deleteSlotFromDB(slotId); } catch (_e) { /* ignore */ }
   await _renumberSlots();
   initFinishTab();
 }

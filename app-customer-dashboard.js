@@ -135,20 +135,24 @@
   }
 
   function _renderRevenues(rows) {
-    if (!rows || !rows.length) return _emptySection('💰 매출 이력', '아직 기록된 매출이 없어요');
+    if (!rows || !rows.length) return _emptySection('💰 시술 이력', '아직 기록된 매출이 없어요');
     const total = rows.reduce((s, r) => s + (r.amount || 0), 0);
+    const marginTotal = rows.reduce((s, r) => s + (r.net_margin || 0), 0);
     return `
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <strong style="font-size:13px;">💰 매출 이력</strong>
-          <span style="font-size:10px;color:#888;">최근 ${rows.length}건 · 합 ${_formatKRW(total)}</span>
+          <strong style="font-size:13px;">💰 시술 이력</strong>
+          <span style="font-size:10px;color:#888;">최근 ${rows.length}건 · 합 ${_formatKRW(total)}${marginTotal ? ' · 실 ' + _formatKRW(marginTotal) : ''}</span>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
           ${rows.map((r, i) => `
-            <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}display:flex;align-items:center;gap:8px;">
+            <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}display:flex;align-items:center;gap:10px;">
+              ${r.image_url
+                ? `<img src="${_esc(r.image_url)}" loading="lazy" style="width:48px;height:48px;border-radius:8px;object-fit:cover;background:#f2f2f2;flex-shrink:0;" alt="">`
+                : `<div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,#fff0f5,#ffe4ec);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">💇</div>`}
               <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-weight:700;">${_formatKRW(r.amount)} <span style="font-size:10px;font-weight:400;color:#888;margin-left:4px;">${_esc(r.service_name || '시술')}</span></div>
-                <div style="font-size:10px;color:#aaa;margin-top:2px;">${_dateShort(r.recorded_at)} · ${_esc(r.method || 'card')}</div>
+                <div style="font-size:10px;color:#aaa;margin-top:2px;">${_dateShort(r.recorded_at)} · ${_esc(r.method || 'card')}${r.net_margin ? ` · <span style="color:#2B8C7E;">실 ${_formatKRW(r.net_margin)}</span>` : ''}</div>
               </div>
             </div>
           `).join('')}
@@ -167,7 +171,7 @@
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
           ${rows.map((b, i) => {
-            const status = b.status === 'cancelled' ? '❌' : b.status === 'no_show' ? '⚠' : b.status === 'completed' ? '✓' : '•';
+            const status = b.status === 'cancelled' ? '❌' : b.status === 'completed' ? '✓' : '•';
             return `
               <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}">
                 <div style="font-size:12px;font-weight:700;">${status} ${_dateShort(b.starts_at)} <span style="color:#888;font-weight:400;">${_esc(b.service_name || '시술')}</span></div>

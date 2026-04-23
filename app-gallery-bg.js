@@ -11,6 +11,11 @@ const DEFAULT_BACKGROUNDS = [
 ];
 
 let _selectedBgId = 'cloud_bw';
+const _mkIc = (p) => `<svg class="ic ic--xs" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const _IC_PALETTE = _mkIc('<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10a2.5 2.5 0 0 0 2.5-2.5c0-.63-.24-1.2-.64-1.67-.15-.17-.25-.38-.25-.62 0-.56.45-1.01 1-1.01H16c3.31 0 6-2.69 6-6C22 6.5 17.52 2 12 2z"/><circle cx="6.5" cy="11.5" r="1.5"/><circle cx="9.5" cy="7.5" r="1.5"/><circle cx="14.5" cy="7.5" r="1.5"/><circle cx="17.5" cy="11.5" r="1.5"/>');
+const _IC_SAVE    = _mkIc('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>');
+const _IC_GRID    = _mkIc('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>');
+const _IC_STAR    = '<svg class="ic ic--xs" aria-hidden="true"><use href="#ic-star"/></svg>';
 
 function _loadUserBgs() {
   try { return JSON.parse(localStorage.getItem('itdasy_user_bgs') || '[]'); } catch(_) { return []; }
@@ -26,11 +31,11 @@ function _saveFavBgs(arr) {
 }
 
 function openBgPanel() {
-  document.getElementById('bgPanel').style.display = 'block';
+  document.getElementById('bgPanel').classList.add('ws-panel--open');
   _renderBgPanel();
 }
 function closeBgPanel() {
-  document.getElementById('bgPanel').style.display = 'none';
+  document.getElementById('bgPanel').classList.remove('ws-panel--open');
 }
 
 function _renderBgPanel() {
@@ -41,7 +46,6 @@ function _renderBgPanel() {
   const favIds = _loadFavBgs();
   const allBgs = [...DEFAULT_BACKGROUNDS, ...userBgs];
 
-  // 즐겨찾기 상단, 나머지 아래
   const favBgs = allBgs.filter(b => favIds.includes(b.id));
   const otherBgs = allBgs.filter(b => !favIds.includes(b.id));
 
@@ -49,44 +53,35 @@ function _renderBgPanel() {
     const isSelected = _selectedBgId === bg.id;
     const isUser = bg.type === 'user';
     const preview = bg.imageData
-      ? `<img src="${bg.imageData}" style="width:100%;height:100%;object-fit:cover;">`
+      ? `<img src="${bg.imageData}" alt="${bg.name}">`
       : `<div style="width:100%;height:100%;background:${bg.gradient || bg.color};"></div>`;
-
     return `
-      <div onclick="selectBg('${bg.id}')" style="position:relative;cursor:pointer;">
-        <div style="aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:${isSelected ? '3px solid var(--accent)' : '1.5px solid var(--border)'};">
-          ${preview}
-        </div>
-        <div style="font-size:10px;color:var(--text2);text-align:center;margin-top:4px;font-weight:600;">${bg.name}</div>
-        <!-- 즐겨찾기 토글 -->
-        <button onclick="toggleFavBg('${bg.id}',event)" style="position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(255,255,255,0.9);font-size:12px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);">${isFav ? '⭐' : '☆'}</button>
-        ${isUser ? `<button onclick="deleteUserBg('${bg.id}',event)" style="position:absolute;top:4px;right:4px;width:24px;height:24px;border-radius:50%;border:none;background:rgba(255,255,255,0.9);color:#dc3545;font-size:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);">×</button>` : ''}
-      </div>
-    `;
+      <div class="gp-card" onclick="selectBg('${bg.id}')">
+        <div class="gp-card__thumb${isSelected ? ' gp-card__thumb--sel' : ''}">${preview}</div>
+        <div class="gp-card__name">${bg.name}</div>
+        <button class="gp-fav-btn" onclick="toggleFavBg('${bg.id}',event)" aria-label="${isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}">${isFav ? '⭐' : '☆'}</button>
+        ${isUser ? `<button class="gp-del-btn" onclick="deleteUserBg('${bg.id}',event)" aria-label="삭제">×</button>` : ''}
+      </div>`;
   };
 
   body.innerHTML = `
     ${favBgs.length ? `
-      <div style="margin-bottom:16px;">
-        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">⭐ 즐겨찾기</div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-          ${favBgs.map(bg => renderCard(bg, true)).join('')}
-        </div>
-      </div>
-    ` : ''}
-    <div style="margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">🎨 배경 선택</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+      <div class="gp-section">
+        <p class="gp-section-lbl">${_IC_STAR} 즐겨찾기</p>
+        <div class="gp-grid gp-grid--4">${favBgs.map(bg => renderCard(bg, true)).join('')}</div>
+      </div>` : ''}
+    <div class="gp-section">
+      <p class="gp-section-lbl">${_IC_PALETTE} 배경 선택</p>
+      <div class="gp-grid gp-grid--4">
         ${otherBgs.map(bg => renderCard(bg, false)).join('')}
-        <!-- 추가 버튼 -->
-        <div onclick="addUserBg()" style="cursor:pointer;">
-          <div style="aspect-ratio:1/1;border-radius:12px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--text3);">+</div>
-          <div style="font-size:10px;color:var(--text3);text-align:center;margin-top:4px;">추가</div>
+        <div class="gp-add-card" onclick="addUserBg()">
+          <div class="gp-add-card__thumb">+</div>
+          <div class="gp-card__name">추가</div>
         </div>
       </div>
     </div>
     <input type="file" id="bgUploadInput" accept="image/*" style="display:none;" onchange="handleBgUpload(this)">
-    <button onclick="applySelectedBg()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">선택한 배경 적용하기</button>
+    <button onclick="applySelectedBg()" class="btn-primary">선택한 배경 적용하기</button>
   `;
 }
 
@@ -289,11 +284,11 @@ function _saveUserTemplates(arr) {
 }
 
 function openTemplatePanel() {
-  document.getElementById('templatePanel').style.display = 'block';
+  document.getElementById('templatePanel').classList.add('ws-panel--open');
   _renderTemplatePanel();
 }
 function closeTemplatePanel() {
-  document.getElementById('templatePanel').style.display = 'none';
+  document.getElementById('templatePanel').classList.remove('ws-panel--open');
 }
 
 function _renderTemplatePanel() {
@@ -308,28 +303,31 @@ function _renderTemplatePanel() {
   const renderCard = (tpl, isUser) => {
     const bg = allBgs.find(b => b.id === tpl.bgId) || allBgs[0];
     const preview = bg.imageData
-      ? `<img src="${bg.imageData}" style="width:100%;height:100%;object-fit:cover;">`
+      ? `<img src="${bg.imageData}" alt="${tpl.name}">`
       : `<div style="width:100%;height:100%;background:${bg.gradient || bg.color};"></div>`;
     return `
-      <div style="position:relative;cursor:pointer;" onclick="applyTemplate('${tpl.id}')">
-        <div style="aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:1.5px solid var(--border);">${preview}</div>
-        <div style="font-size:10px;color:var(--text2);text-align:center;margin-top:4px;font-weight:600;">${tpl.name}</div>
-        ${isUser ? `<button onclick="deleteTemplate('${tpl.id}',event)" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(220,53,69,0.9);color:#fff;font-size:12px;cursor:pointer;">×</button>` : ''}
-      </div>
-    `;
+      <div class="gp-card" onclick="applyTemplate('${tpl.id}')">
+        <div class="gp-card__thumb">${preview}</div>
+        <div class="gp-card__name">${tpl.name}</div>
+        ${isUser ? `<button class="gp-del-btn" onclick="deleteTemplate('${tpl.id}',event)" aria-label="삭제">×</button>` : ''}
+      </div>`;
   };
 
   body.innerHTML = `
-    ${userTemplates.length ? `<div style="margin-bottom:16px;"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">💾 내 템플릿</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">${userTemplates.map(t => renderCard(t, true)).join('')}</div></div>` : ''}
-    <div style="margin-bottom:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">📐 기본 템플릿 (${shopType})</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">${defaultForShop.map(t => renderCard(t, false)).join('')}</div>
+    ${userTemplates.length ? `
+      <div class="gp-section">
+        <p class="gp-section-lbl">${_IC_SAVE} 내 템플릿</p>
+        <div class="gp-grid gp-grid--3">${userTemplates.map(t => renderCard(t, true)).join('')}</div>
+      </div>` : ''}
+    <div class="gp-section">
+      <p class="gp-section-lbl">${_IC_GRID} 기본 템플릿 (${shopType})</p>
+      <div class="gp-grid gp-grid--3">${defaultForShop.map(t => renderCard(t, false)).join('')}</div>
     </div>
-    <div style="border-top:1px solid var(--border);padding-top:16px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:10px;">현재 설정을 템플릿으로 저장</div>
-      <div style="display:flex;gap:8px;">
-        <input type="text" id="newTemplateName" placeholder="템플릿 이름" style="flex:1;padding:10px 12px;border-radius:10px;border:1px solid var(--border);font-size:13px;">
-        <button onclick="saveCurrentAsTemplate()" style="padding:10px 16px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;cursor:pointer;">저장</button>
+    <div class="gp-save-section">
+      <p class="gp-section-lbl">현재 설정을 템플릿으로 저장</p>
+      <div class="gp-save-row">
+        <input type="text" id="newTemplateName" placeholder="템플릿 이름" class="gp-field">
+        <button onclick="saveCurrentAsTemplate()" class="btn-primary">저장</button>
       </div>
     </div>
   `;
@@ -349,7 +347,7 @@ async function applyTemplate(tplId) {
   const allBgs = [...DEFAULT_BACKGROUNDS, ..._loadUserBgs()];
   const bg = allBgs.find(b => b.id === tpl.bgId);
   for (const photo of selectedPhotos) {
-    if (bg) try { await _applyBgToPhoto(photo, bg, slot); } catch(_e) {}
+    if (bg) try { await _applyBgToPhoto(photo, bg, slot); } catch (_e) { /* ignore */ }
   }
   if (progress) progress.style.display = 'none';
   _popupSelIds.clear();

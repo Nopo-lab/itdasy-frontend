@@ -1,0 +1,286 @@
+/* gallery-review.css — review 패널 + reviewEditor 2패널 공용 */
+
+/* ═══════════════════════════════════════════
+   Upload section
+   ═══════════════════════════════════════════ */
+.rv-section { margin-bottom: 16px; }
+
+.rv-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text3);
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+
+.rv-section-ic {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.rv-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  border: 2px dashed var(--border2);
+  border-radius: 14px;
+  cursor: pointer;
+  background: var(--bg2);
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.rv-upload-zone:active {
+  border-color: var(--accent);
+  background: rgba(241,128,145,0.04);
+}
+
+.rv-upload-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--text3);
+}
+
+.rv-upload-text {
+  font-size: 13px;
+  color: var(--text2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.rv-file-input { display: none; }
+
+/* ═══════════════════════════════════════════
+   Upload result / preview
+   ═══════════════════════════════════════════ */
+.rv-extract-result { margin-bottom: 16px; }
+
+.rv-screenshot-preview {
+  background: var(--bg2);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: center;
+}
+
+.rv-screenshot-label {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+
+.rv-screenshot-img {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.rv-loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--text3);
+  font-size: 13px;
+}
+
+.rv-error {
+  color: #dc3545;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+/* ═══════════════════════════════════════════
+   Sticker grid — review card (§5.5 리스트 + §5.9 카드)
+   ═══════════════════════════════════════════ */
+.rv-sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.rv-sticker-card {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  background: var(--bg2);
+}
+
+.rv-sticker-img {
+  width: 100%;
+  display: block;
+}
+
+.rv-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 0;
+}
+
+.rv-stars {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.rv-star {
+  width: 16px;
+  height: 16px;
+  fill: var(--gold);
+  stroke: none;
+  flex-shrink: 0;
+}
+
+.rv-card-date {
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.rv-sticker-actions {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+}
+
+/* ═══════════════════════════════════════════
+   sticker 카드 내 컴팩트 버튼 override
+   components.css 의 표준 btn-* 는 다른 위치에서 원본 사이즈 유지
+   ═══════════════════════════════════════════ */
+.rv-sticker-actions .btn-primary,
+.rv-sticker-actions .btn-secondary {
+  flex: 1;
+  height: auto;
+  padding: 7px 6px;
+  font-size: 11px;
+  border-radius: 8px;
+  letter-spacing: -0.01em;
+  width: auto;
+}
+
+/* ═══════════════════════════════════════════
+   reviewEditor — fullscreen (§5.7 풀스크린 모달)
+   ws-editor--open 토글과 함께 사용
+   ═══════════════════════════════════════════ */
+/* stylelint-disable-next-line selector-id-pattern */
+#reviewEditorCanvas {
+  position: absolute;
+  inset: 50px 0 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.rv-editor-hdr {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.72);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 2;
+}
+
+.rv-editor-title {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.rv-editor-cancel {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.85);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-family: Pretendard, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+.rv-editor-save {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: Pretendard, sans-serif;
+  transition: opacity 0.15s;
+}
+.rv-editor-save:active { opacity: 0.85; }
+
+/* ═══════════════════════════════════════════
+   Canvas wrap — 편집 영역
+   ═══════════════════════════════════════════ */
+.rv-edit-wrap {
+  position: relative;
+  width: 90%;
+  max-width: 400px;
+  aspect-ratio: 1 / 1;
+}
+
+.rv-edit-base {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.rv-edit-overlay {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════
+   Bottom toolbar
+   ═══════════════════════════════════════════ */
+.rv-toolbar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 16px;
+  background: rgba(0,0,0,0.82);
+}
+
+.rv-scale-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rv-scale-row input[type="range"] { flex: 1; }
+
+.rv-scale-label {
+  color: #fff;
+  font-size: 12px;
+  flex-shrink: 0;
+  width: 50px;
+}
+
+.rv-scale-val {
+  color: #fff;
+  font-size: 12px;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.rv-hint {
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  text-align: center;
+}

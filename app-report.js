@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────────────────────────
    월말 자동 리포트 (2026-04-21)
 
-   매출·고객·NPS·인기시술·노쇼를 한 장으로 요약.
+   매출·고객·NPS·인기시술을 한 장으로 요약.
    월 선택 네비 + 공유(캡처) 버튼.
    ──────────────────────────────────────────────────────────── */
 (function () {
@@ -113,14 +113,10 @@
       <!-- 예약 요약 -->
       <div style="margin-bottom:14px;padding:14px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
         <div style="font-size:12px;font-weight:800;margin-bottom:10px;">📅 예약 현황</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
           <div style="padding:8px;background:rgba(0,0,0,0.03);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;">${b.total}</div>
             <div style="font-size:10px;color:#888;">총 예약</div>
-          </div>
-          <div style="padding:8px;background:rgba(255,193,7,0.1);border-radius:8px;">
-            <div style="font-size:18px;font-weight:800;color:#f57c00;">${b.no_show}</div>
-            <div style="font-size:10px;color:#888;">노쇼</div>
           </div>
           <div style="padding:8px;background:rgba(220,53,69,0.08);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;color:#dc3545;">${b.cancelled}</div>
@@ -143,7 +139,7 @@
       const d = await _fetch(_currentY, _currentM);
       _renderBody(d);
     } catch (e) {
-      body.innerHTML = '<div style="padding:40px;text-align:center;color:#c00;">불러오기 실패: ' + e.message + '</div>';
+      body.innerHTML = '<div style="padding:40px;text-align:center;color:#c00;">불러오기 실패: ' + (window._humanError ? window._humanError(e) : e.message) + '</div>';
     }
   }
 

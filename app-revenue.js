@@ -410,7 +410,7 @@
   window._revenueBack = _rerender;
 
   async function _deleteEntry(id) {
-    if (!confirm('이 매출 기록을 삭제할까요?')) return;
+    { const _ok = window._confirm2 ? window._confirm2('이 매출 기록을 삭제할까요?') : confirm('이 매출 기록을 삭제할까요?'); if (!_ok) return; }
     try {
       await remove(id);
       if (window.hapticLight) window.hapticLight();

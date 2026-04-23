@@ -94,6 +94,12 @@
             <div style="font-size:11px;color:#666;margin-top:2px;">
               마지막 방문 ${_relativeDays(c.days_since_last)} 전 · 평균 주기 ${Math.round(c.avg_interval_days)}일 · 방문 ${c.visit_count}회
             </div>
+            <div style="margin-top:6px;text-align:right;">
+              <button data-draft-cid="${c.customer_id}" data-draft-name="${_esc(c.name)}" data-draft-phone="${_esc(c.phone || '')}"
+                      style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #F18091;background:#fff;color:#D95F70;border-radius:100px;cursor:pointer;">
+                💬 카톡 초안 만들기
+              </button>
+            </div>
           </div>
         `).join('')}
         ${data.items.length > 5 ? `<div style="margin-top:8px;font-size:11px;color:#888;text-align:center;">외 ${data.items.length - 5}명</div>` : ''}
@@ -204,4 +210,43 @@
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
   };
+
+  // Phase 8 C4 — AI 카톡 초안 버튼 → POST /retention/{id}/message-draft → navigator.share
+  let _draftBound = false;
+  function _bindDraftButtons() {
+    if (_draftBound) return;
+    _draftBound = true;
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-draft-cid]');
+      if (!btn) return;
+      const cid = btn.getAttribute('data-draft-cid');
+      const name = btn.getAttribute('data-draft-name');
+      if (!cid) return;
+      const original = btn.innerHTML;
+      btn.innerHTML = '🤖 AI 작성 중…';
+      btn.disabled = true;
+      try {
+        const res = await fetch(window.API + '/retention/' + cid + '/message-draft', {
+          method: 'POST',
+          headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const d = await res.json();
+        const msg = d.message || '';
+        try { if (navigator.clipboard) await navigator.clipboard.writeText(msg); } catch (_e) { /* ignore */ }
+        if (navigator.share) {
+          try { await navigator.share({ text: msg, title: name + '님께' }); }
+          catch (_e) { /* 사용자 취소 */ }
+        }
+        if (window.showToast) window.showToast('초안을 복사했어요. 카톡에 붙여넣으세요 📋');
+      } catch (err) {
+        if (window.showToast) window.showToast('초안 생성 실패: ' + (err.message || ''));
+      } finally {
+        btn.innerHTML = original;
+        btn.disabled = false;
+      }
+    });
+  }
+  _bindDraftButtons();
 })();

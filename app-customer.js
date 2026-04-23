@@ -35,7 +35,7 @@
     } catch (_) { return []; }
   }
   function _saveOffline(list) {
-    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(list)); } catch (_) {}
+    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(list)); } catch (_) { /* storage full — ignore */ }
   }
 
   // ── 네트워크 호출 공통 ────────────────────────────────────
@@ -54,13 +54,71 @@
     return res.status === 204 ? null : await res.json();
   }
 
+  // ── Stale-while-revalidate 캐시 — localStorage persistent (앱 재시작 후에도 즉시 렌더)
+  const _SWR_KEY = 'pv_cache::customers';
+  const _SWR_TTL = 120 * 1000;  // 2분 내 캐시는 신선
+  function _readSWR() {
+    try {
+      const raw = localStorage.getItem(_SWR_KEY) || sessionStorage.getItem(_SWR_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return { items: obj.d, age: Date.now() - obj.t, fresh: Date.now() - obj.t < _SWR_TTL };
+    } catch (_e) { return null; }
+  }
+  function _writeSWR(items) {
+    const payload = JSON.stringify({ t: Date.now(), d: items });
+    try { localStorage.setItem(_SWR_KEY, payload); } catch (_e) {
+      try { sessionStorage.setItem(_SWR_KEY, payload); } catch (_e2) {}
+    }
+  }
+  function _clearSWR() {
+    try { localStorage.removeItem(_SWR_KEY); } catch (_e) {}
+    try { sessionStorage.removeItem(_SWR_KEY); } catch (_e) {}
+  }
+
+  // 챗봇·다른 소스 데이터 변경 감지 → 오픈된 시트 즉시 새로고침
+  if (typeof window !== 'undefined' && !window._customerDataListenerInit) {
+    window._customerDataListenerInit = true;
+    window.addEventListener('itdasy:data-changed', async (e) => {
+      const k = e.detail && e.detail.kind;
+      if (k === 'create_customer' || k === 'update_customer' || k === 'create_revenue' || k === 'create_booking') {
+        _clearSWR();
+        const sheet = document.getElementById('customerSheet');
+        if (sheet && sheet.style.display === 'flex') {
+          try { await _fetchFresh(); _rerender && _rerender(); } catch (_e) {}
+        }
+      }
+    });
+  }
+
+  async function _fetchFresh() {
+    const d = await _api('GET', '/customers');
+    _isOffline = false;
+    _cache = d.items || [];
+    _writeSWR(_cache);
+    return _cache;
+  }
+
   // ── CRUD ────────────────────────────────────────────────
   async function list() {
-    try {
-      const d = await _api('GET', '/customers');
-      _isOffline = false;
-      _cache = d.items || [];
+    // 1. 캐시 있으면 즉시 반환 (UI 바로 렌더)
+    const swr = _readSWR();
+    if (swr) {
+      _cache = swr.items;
+      // 신선 캐시면 끝. 오래됐으면 백그라운드로 갱신.
+      if (!swr.fresh) {
+        _fetchFresh().then(fresh => {
+          if (JSON.stringify(_cache) !== JSON.stringify(fresh)) {
+            _cache = fresh;
+            _rerender && _rerender();  // UI 자동 갱신
+          }
+        }).catch(() => {});
+      }
       return _cache;
+    }
+    // 2. 첫 진입 — 네트워크 대기 (한 번뿐)
+    try {
+      return await _fetchFresh();
     } catch (e) {
       if (e.message === 'endpoint-missing' || e.message === 'no-token') {
         _isOffline = true;
@@ -115,6 +173,7 @@
     }
     const created = await _api('POST', '/customers', data);
     if (_cache) _cache.unshift(created);
+    _writeSWR(_cache);  // SWR 캐시 동기
     return created;
   }
 
@@ -133,6 +192,7 @@
       const i = _cache.findIndex(c => c.id === id);
       if (i >= 0) _cache[i] = updated;
     }
+    _writeSWR(_cache);  // SWR 캐시 동기
     return updated;
   }
 
@@ -145,6 +205,7 @@
     }
     await _api('DELETE', '/customers/' + id);
     if (_cache) _cache = _cache.filter(c => c.id !== id);
+    _writeSWR(_cache);  // SWR 캐시 동기
     return { ok: true };
   }
 
@@ -167,26 +228,28 @@
     if (sheet) return sheet;
     sheet = document.createElement('div');
     sheet.id = 'customerSheet';
-    sheet.style.cssText = 'position:fixed;inset:0;z-index:9998;display:none;background:rgba(0,0,0,0.4);';
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:9998;display:none;flex-direction:column;';
+    sheet.classList.add('dt-overlay');
     sheet.innerHTML = `
-      <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:85vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <strong style="font-size:18px;">내 고객</strong>
-          <span id="customerCount" style="font-size:12px;color:#888;"></span>
-          <span id="customerOfflineBadge" style="display:none;font-size:10px;padding:2px 6px;border-radius:4px;background:#f2c94c;color:#333;">오프라인</span>
-          <button onclick="closeCustomers()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+      <header class="dt-hdr">
+        <button class="dt-back" onclick="closeCustomers()" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="dt-title">내 고객</h1>
+        <span id="customerCount" style="font-size:12px;color:var(--text-subtle);"></span>
+        <span id="customerOfflineBadge" class="dt-offline-badge">오프라인</span>
+      </header>
+      <div class="dt-body">
+        <div class="dt-search-wrap">
+          <input id="customerSearch" type="search" class="dt-field" placeholder="이름·연락처·태그 검색" />
         </div>
-        <input id="customerSearch" type="search" placeholder="이름·연락처·태그 검색" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:14px;margin-bottom:10px;" />
-        <div id="customerList" style="flex:1;overflow-y:auto;min-height:120px;"></div>
-        <button id="customerAddBtn" style="margin-top:10px;padding:12px;border:none;border-radius:10px;background:var(--accent,#F18091);color:#fff;font-weight:700;font-size:15px;cursor:pointer;">+ 고객 추가</button>
+        <div id="customerList"></div>
       </div>
+      <footer class="dt-footer">
+        <button id="customerAddBtn" class="btn-primary" style="flex:1;">+ 고객 추가</button>
+      </footer>
     `;
     document.body.appendChild(sheet);
     sheet.querySelector('#customerSearch').addEventListener('input', _rerender);
     sheet.querySelector('#customerAddBtn').addEventListener('click', _openAddForm);
-    sheet.addEventListener('click', (e) => {
-      if (e.target === sheet) closeCustomers();
-    });
     return sheet;
   }
 
@@ -202,22 +265,23 @@
     offBadge.style.display = _isOffline ? 'inline-block' : 'none';
 
     if (!items.length) {
-      box.innerHTML = '<div style="padding:40px 16px;text-align:center;color:#aaa;font-size:13px;">' +
-        (_cache && _cache.length ? '검색 결과 없음' : '아직 고객이 없어요. 아래 버튼으로 추가해 주세요.') +
-        '</div>';
+      box.innerHTML = `<div class="dt-empty">${_cache && _cache.length ? '검색 결과 없음' : '아직 고객이 없어요. 아래 버튼으로 추가해 주세요.'}</div>`;
       return;
     }
-    box.innerHTML = items.map(c => `
-      <div class="customer-row" data-id="${c.id}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <strong style="font-size:15px;">${_esc(c.name)}</strong>
-          ${c.phone ? `<span style="font-size:12px;color:#888;">${_esc(c.phone)}</span>` : ''}
-          ${c.visit_count ? `<span style="font-size:11px;color:var(--accent,#F18091);margin-left:auto;">방문 ${c.visit_count}회</span>` : '<span style="margin-left:auto;font-size:11px;color:#bbb;">신규</span>'}
+    box.innerHTML = '<div class="dt-list">' + items.map(c => {
+      const nsCount = c.no_show_count || 0;
+      const nsBadge = nsCount >= 3
+        ? `<span title="노쇼 ${nsCount}회 — 예약 전 주의" style="font-size:10px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 노쇼 ${nsCount}</span>`
+        : (nsCount > 0 ? `<span title="노쇼 ${nsCount}회" style="font-size:10px;font-weight:600;color:#B45309;background:#FEF3C7;padding:2px 6px;border-radius:100px;margin-left:6px;">노쇼 ${nsCount}</span>` : '');
+      return `
+      <button class="dt-list-it customer-row" data-id="${c.id}" type="button">
+        <div class="dt-list-it__main">
+          <p class="dt-list-it__title">${_esc(c.name)}${c.visit_count ? ` <span style="font-size:11px;font-weight:400;color:var(--brand);">방문 ${c.visit_count}회</span>` : ''}${nsBadge}</p>
+          <p class="dt-list-it__sub">${[c.phone ? _esc(c.phone) : '', c.memo ? _esc(c.memo).slice(0,40) : ''].filter(Boolean).join(' · ')}</p>
         </div>
-        ${c.memo ? `<div style="font-size:12px;color:#666;margin-top:4px;line-height:1.4;">${_esc(c.memo).slice(0,60)}${c.memo.length>60?'…':''}</div>` : ''}
-        ${(c.tags||[]).length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">${c.tags.map(t => `<span style="font-size:10px;padding:2px 6px;background:#f5f5f5;border-radius:4px;">#${_esc(t)}</span>`).join('')}</div>` : ''}
-      </div>
-    `).join('');
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>`;
+    }).join('') + '</div>';
     box.querySelectorAll('.customer-row').forEach(row => {
       row.addEventListener('click', () => {
         // 행 클릭 = 대시보드(조회). 편집은 대시보드 안의 '편집' 버튼 또는 _openDetail 직접 호출.
@@ -244,22 +308,15 @@
     if (!box) return;
     const c = existing || { name: '', phone: '', memo: '', tags: [], birthday: '' };
     box.innerHTML = `
-      <div style="padding:8px 4px;">
-        <button onclick="window._customerBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:12px;cursor:pointer;">← 목록</button>
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">이름 *</label>
-        <input id="cfName" value="${_esc(c.name)}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" maxlength="50" />
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">연락처</label>
-        <input id="cfPhone" value="${_esc(c.phone||'')}" inputmode="tel" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" maxlength="20" />
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">생일 (MM-DD)</label>
-        <input id="cfBirthday" value="${_esc(c.birthday||'')}" placeholder="03-14" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" maxlength="5" />
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">태그 (쉼표로 구분)</label>
-        <input id="cfTags" value="${_esc((c.tags||[]).join(', '))}" placeholder="VIP, 속눈썹" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" />
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">메모</label>
-        <textarea id="cfMemo" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-family:inherit;resize:vertical;" maxlength="500">${_esc(c.memo||'')}</textarea>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <button onclick="window._customerSave('${id||''}')" style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;">${existing ? '수정' : '추가'}</button>
-          ${existing ? `<button onclick="window._customerDelete('${id}')" style="padding:12px 16px;border:1px solid #eee;border-radius:8px;background:#fff;color:#c00;cursor:pointer;">삭제</button>` : ''}
-        </div>
+      <button onclick="window._customerBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="cfName" class="dt-field" value="${_esc(c.name)}" maxlength="50" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">연락처</label><input id="cfPhone" class="dt-field" value="${_esc(c.phone||'')}" inputmode="tel" maxlength="20" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">생일 (MM-DD)</label><input id="cfBirthday" class="dt-field" value="${_esc(c.birthday||'')}" placeholder="03-14" maxlength="5" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">태그 (쉼표로 구분)</label><input id="cfTags" class="dt-field" value="${_esc((c.tags||[]).join(', '))}" placeholder="VIP, 속눈썹" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="cfMemo" class="dt-field" rows="3" maxlength="500">${_esc(c.memo||'')}</textarea></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="window._customerSave('${id||''}')" class="btn-primary" style="flex:1;">${existing ? '수정' : '추가'}</button>
+        ${existing ? `<button onclick="window._customerDelete('${id}')" class="btn-secondary" style="color:var(--danger);">삭제</button>` : ''}
       </div>
     `;
     document.getElementById('cfName')?.focus();
@@ -292,7 +349,7 @@
   };
 
   window._customerDelete = async function (id) {
-    if (!confirm('이 고객을 삭제할까요?')) return;
+    { const _ok = window._confirm2 ? window._confirm2('이 고객을 삭제할까요?') : confirm('이 고객을 삭제할까요?'); if (!_ok) return; }
     try {
       await remove(id);
       if (window.hapticLight) window.hapticLight();
@@ -306,23 +363,32 @@
 
   window.openCustomers = async function () {
     const sheet = _ensureSheet();
-    sheet.style.display = 'block';
+    sheet.style.display = 'flex';
+    sheet.classList.add('dt-shown');
     document.body.style.overflow = 'hidden';
-    // 로딩 플레이스홀더
+    // SWR 캐시 있으면 즉시 렌더, 없으면 first-load 만 placeholder
     const box = sheet.querySelector('#customerList');
-    box.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;">불러오는 중…</div>';
-    try {
-      await list();
-      _rerender();
-    } catch (e) {
-      console.warn('[customer] list 실패:', e);
-      box.innerHTML = '<div style="padding:40px;text-align:center;color:#c00;">불러오기 실패</div>';
+    const swr = _readSWR();
+    if (swr) {
+      _cache = swr.items;
+      _rerender();  // 즉시 표시
+      // 오래된 캐시면 백그라운드 갱신 (list() 내부에서 자동 처리)
+      list().then(() => _rerender()).catch(() => {});
+    } else {
+      box.innerHTML = '<div class="dt-loading">불러오는 중…</div>';
+      try {
+        await list();
+        _rerender();
+      } catch (e) {
+        console.warn('[customer] list 실패:', e);
+        box.innerHTML = '<div class="dt-error">불러오기 실패</div>';
+      }
     }
   };
 
   window.closeCustomers = function () {
     const sheet = document.getElementById('customerSheet');
-    if (sheet) sheet.style.display = 'none';
+    if (sheet) { sheet.style.display = 'none'; sheet.classList.remove('dt-shown'); }
     document.body.style.overflow = '';
   };
 
@@ -330,7 +396,7 @@
   //   await Customer.pick({ selectedId })  →  {id, name} | null (취소)
   async function pick(opts) {
     opts = opts || {};
-    try { if (!_cache) await list(); } catch (_) {}
+    try { if (!_cache) await list(); } catch (_) { /* ignore */ }
     return new Promise((resolve) => {
       const items = _cache || [];
       const pop = document.createElement('div');
@@ -369,7 +435,8 @@
         `).join('');
         listEl.querySelectorAll('[data-pick-id]').forEach(row => {
           row.addEventListener('click', () => {
-            const c = items.find(x => x.id === row.dataset.pickId);
+            const pickedId = row.dataset.pickId;
+            const c = items.find(x => String(x.id) === String(pickedId));
             close(c ? { id: c.id, name: c.name } : null);
           });
         });
@@ -384,7 +451,7 @@
 
   // 외부에서 편집 폼 직접 열기 (대시보드의 '정보 편집' 버튼용)
   window.editCustomer = async function (id) {
-    try { if (!_cache) await list(); } catch (_) {}
+    try { if (!_cache) await list(); } catch (_) { /* ignore */ }
     const sheet = _ensureSheet();
     sheet.style.display = 'block';
     document.body.style.overflow = 'hidden';

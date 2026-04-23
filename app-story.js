@@ -72,17 +72,12 @@
         </div>
 
         <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">짧은 메모</label>
-        <div style="position:relative;">
-          <textarea id="storyInput" rows="4" maxlength="500" placeholder="오늘 시술 이야기를 편하게…" style="width:100%;padding:12px;padding-right:50px;border:1px solid #ddd;border-radius:12px;font-family:inherit;resize:vertical;font-size:14px;"></textarea>
-          <button id="storyMicBtn" aria-label="음성 입력" style="position:absolute;right:10px;bottom:10px;width:36px;height:36px;border:none;border-radius:50%;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-size:16px;cursor:pointer;">🎤</button>
-        </div>
-        <div id="storyMicStatus" style="font-size:11px;color:#888;margin-top:4px;text-align:center;min-height:16px;"></div>
+        <textarea id="storyInput" rows="4" maxlength="500" placeholder="오늘 시술 이야기를 편하게…" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:12px;font-family:inherit;resize:vertical;font-size:14px;"></textarea>
 
         <button id="storyGen" style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:15px;">✨ AI 스토리 만들기</button>
       </div>
     `;
     document.getElementById('storyGen').addEventListener('click', _generate);
-    document.getElementById('storyMicBtn').addEventListener('click', _toggleMic);
   }
 
   function _hasWebSpeech() {
@@ -126,7 +121,7 @@
   async function _generate() {
     const text = document.getElementById('storyInput').value.trim();
     if (!text) {
-      if (window.showToast) window.showToast('메모를 먼저 입력하거나 🎤 눌러 말해 주세요');
+      if (window.showToast) window.showToast('메모를 먼저 입력해 주세요');
       return;
     }
     const btn = document.getElementById('storyGen');
@@ -136,7 +131,7 @@
       _renderResult();
     } catch (e) {
       btn.disabled = false; btn.textContent = '✨ AI 스토리 만들기';
-      if (window.showToast) window.showToast('실패: ' + e.message);
+      if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
@@ -147,9 +142,17 @@
       <div style="padding:10px 0;">
         <button onclick="window._storyBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 다시</button>
 
-        <!-- 미리보기 Canvas -->
-        <div style="position:relative;max-width:280px;aspect-ratio:9/16;margin:0 auto 14px;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.15);">
-          <canvas id="storyCanvas" width="540" height="960" style="width:100%;height:100%;display:block;"></canvas>
+        <!-- 미리보기 Canvas — 인스타 스토리 표준 해상도 1080x1920 -->
+        <div style="position:relative;max-width:300px;aspect-ratio:9/16;margin:0 auto 14px;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
+          <canvas id="storyCanvas" width="1080" height="1920" style="width:100%;height:100%;display:block;"></canvas>
+        </div>
+        <!-- 배경 사진 (선택) -->
+        <div style="margin-bottom:10px;display:flex;gap:6px;">
+          <label style="flex:1;padding:9px;border:1px dashed #ddd;border-radius:10px;background:#fafafa;text-align:center;font-size:12px;color:#555;cursor:pointer;font-weight:700;">
+            📸 배경 사진 올리기
+            <input id="storyBgFile" type="file" accept="image/*" style="display:none;" />
+          </label>
+          <button id="storyBgClear" style="padding:9px 12px;border:1px solid #eee;border-radius:10px;background:#fff;color:#888;cursor:pointer;font-size:12px;">그라디언트로</button>
         </div>
 
         <!-- 편집 영역 -->
@@ -198,9 +201,27 @@
     document.getElementById('storyDownload').addEventListener('click', _download);
     document.getElementById('storyShareIg').addEventListener('click', _shareToInstagram);
     document.getElementById('storyCopy').addEventListener('click', _copyHashtags);
+
+    // 배경 사진 업로드
+    const bgFile = document.getElementById('storyBgFile');
+    if (bgFile) bgFile.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        const im = new Image();
+        im.onload = () => { _bgImage = im; _drawCanvas(); };
+        im.src = rd.result;
+      };
+      rd.readAsDataURL(f);
+    });
+    const bgClear = document.getElementById('storyBgClear');
+    if (bgClear) bgClear.addEventListener('click', () => { _bgImage = null; _drawCanvas(); });
   }
 
   window._storyBack = _renderIntro;
+
+  let _bgImage = null;  // 사용자가 올린 배경 사진 (HTMLImageElement)
 
   function _drawCanvas() {
     if (!_canvas) return;
@@ -208,43 +229,111 @@
     const W = _canvas.width, H = _canvas.height;
     const m = MOODS[_result.mood] || MOODS.cozy;
 
-    // 그라디언트 배경
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, m.gradient[0]);
-    grad.addColorStop(1, m.gradient[1]);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
+    // 1. 배경 — 사진이 있으면 사진, 없으면 그라디언트
+    if (_bgImage && _bgImage.complete) {
+      // cover 방식으로 꽉 채우기
+      const ir = _bgImage.naturalWidth / _bgImage.naturalHeight;
+      const cr = W / H;
+      let sx, sy, sw, sh;
+      if (ir > cr) {
+        sh = _bgImage.naturalHeight;
+        sw = sh * cr;
+        sx = (_bgImage.naturalWidth - sw) / 2;
+        sy = 0;
+      } else {
+        sw = _bgImage.naturalWidth;
+        sh = sw / cr;
+        sx = 0;
+        sy = (_bgImage.naturalHeight - sh) / 2;
+      }
+      ctx.drawImage(_bgImage, sx, sy, sw, sh, 0, 0, W, H);
+      // 가독성 위한 하단 그라디언트 오버레이
+      const vg = ctx.createLinearGradient(0, 0, 0, H);
+      vg.addColorStop(0, 'rgba(0,0,0,0.15)');
+      vg.addColorStop(0.45, 'rgba(0,0,0,0)');
+      vg.addColorStop(1, 'rgba(0,0,0,0.6)');
+      ctx.fillStyle = vg;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0, m.gradient[0]);
+      grad.addColorStop(1, m.gradient[1]);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
 
-    // 장식 원형 블러
+      // 블러 원형 장식 (2배 해상도)
+      ctx.save();
+      ctx.filter = 'blur(40px)';
+      ctx.globalAlpha = 0.45;
+      ctx.fillStyle = m.accent;
+      ctx.beginPath(); ctx.arc(W * 0.85, H * 0.15, 200, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(W * 0.12, H * 0.85, 280, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    // 2. 브랜드 로고 배지 — 좌상단
     ctx.save();
-    ctx.globalAlpha = 0.3;
-    ctx.fillStyle = m.accent;
-    ctx.beginPath(); ctx.arc(W * 0.85, H * 0.15, 100, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(W * 0.12, H * 0.85, 140, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = _bgImage ? 'rgba(255,255,255,0.95)' : (m.accent + 'CC');
+    ctx.font = 'bold 42px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+    ctx.textAlign = 'left';
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 12;
+    ctx.fillText('🎀 잇데이', 80, 110);
     ctx.restore();
 
-    // 로고 배지
-    ctx.fillStyle = m.accent + 'CC';
-    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('🎀 잇데이', 40, 60);
+    // 3. 중앙 반투명 카드 (가독성 향상)
+    const cardY = H * 0.32;
+    const cardH = H * 0.38;
+    const cardPad = 70;
+    if (_bgImage) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      _roundRect(ctx, cardPad, cardY, W - cardPad * 2, cardH, 30);
+      ctx.fill();
+      ctx.restore();
+    }
 
-    // 헤드라인
-    ctx.fillStyle = m.accent;
-    ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+    // 4. 헤드라인 — 큰 폰트, 그림자
+    const textColor = _bgImage ? '#fff' : m.accent;
+    ctx.save();
+    ctx.fillStyle = textColor;
+    ctx.font = '900 96px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
     ctx.textAlign = 'center';
-    _wrapText(ctx, _result.headline || '', W / 2, H * 0.45, W - 80, 58);
+    ctx.shadowColor = _bgImage ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)';
+    ctx.shadowBlur = 18;
+    _wrapText(ctx, _result.headline || '', W / 2, H * 0.44, W - 160, 120);
+    ctx.restore();
 
-    // 서브 텍스트
-    ctx.fillStyle = m.accent + 'CC';
-    ctx.font = '28px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
-    _wrapText(ctx, _result.sub_text || '', W / 2, H * 0.62, W - 120, 40);
+    // 5. 서브 텍스트 — 중간 폰트
+    ctx.save();
+    ctx.fillStyle = _bgImage ? 'rgba(255,255,255,0.92)' : (m.accent + 'CC');
+    ctx.font = '600 56px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = _bgImage ? 'rgba(0,0,0,0.4)' : 'transparent';
+    ctx.shadowBlur = 10;
+    _wrapText(ctx, _result.sub_text || '', W / 2, H * 0.62, W - 240, 76);
+    ctx.restore();
 
-    // 해시태그 하단
-    ctx.fillStyle = m.accent + '99';
-    ctx.font = '22px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
-    const tags = (_result.hashtags || []).slice(0, 3).map(t => '#' + t).join('  ');
-    ctx.fillText(tags, W / 2, H - 80);
+    // 6. 해시태그 하단
+    ctx.save();
+    ctx.fillStyle = _bgImage ? 'rgba(255,255,255,0.78)' : (m.accent + '99');
+    ctx.font = '700 42px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = _bgImage ? 'rgba(0,0,0,0.4)' : 'transparent';
+    ctx.shadowBlur = 8;
+    const tags = (_result.hashtags || []).slice(0, 4).map(t => '#' + t).join('  ');
+    ctx.fillText(tags, W / 2, H - 140);
+    ctx.restore();
+  }
+
+  function _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   }
 
   function _wrapText(ctx, text, x, y, maxWidth, lineHeight) {

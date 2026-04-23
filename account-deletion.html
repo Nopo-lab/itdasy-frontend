@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>계정 및 데이터 삭제 — 잇데이 스튜디오</title>
+<meta name="description" content="잇데이 스튜디오(Itdasy) 앱의 계정 및 데이터 삭제 안내">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+    margin: 0;
+    padding: 20px;
+    max-width: 720px;
+    margin: 0 auto;
+    color: #333;
+    line-height: 1.7;
+    background: #fafafa;
+  }
+  h1 { font-size: 26px; margin-bottom: 8px; color: #D95F70; }
+  h2 { font-size: 18px; margin-top: 32px; color: #222; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+  p { margin: 12px 0; }
+  .meta { color: #888; font-size: 13px; margin-bottom: 24px; }
+  .card { background: #fff; border: 1px solid #eee; border-radius: 12px; padding: 20px; margin: 16px 0; }
+  .card.warn { border-left: 4px solid #F18091; background: #FFF8F5; }
+  ol { padding-left: 24px; }
+  li { margin: 8px 0; }
+  code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
+  .contact { background: #fff; border-radius: 12px; padding: 20px; margin-top: 32px; border: 1px solid #eee; }
+  a { color: #D95F70; }
+  .tag { display: inline-block; background: #FFF0F2; color: #D95F70; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; margin-right: 6px; }
+</style>
+</head>
+<body>
+
+<h1>계정 및 데이터 삭제</h1>
+<p class="meta">잇데이 스튜디오 (Itdasy Studio) · 와이투두(Y2do) · 최종 갱신: 2026-04-23</p>
+
+<p>잇데이 스튜디오 앱의 계정 삭제를 요청하는 방법을 안내드립니다.</p>
+
+<h2>1. 앱 내에서 계정 삭제 (권장)</h2>
+<div class="card">
+  <ol>
+    <li><strong>잇데이 스튜디오</strong> 앱 실행 → 로그인</li>
+    <li>우측 상단 <strong>⚙ 설정</strong> 아이콘 탭</li>
+    <li>하단 <strong>"회원 탈퇴"</strong> 메뉴 선택</li>
+    <li>안내 확인 후 <strong>"탈퇴 진행"</strong> 탭</li>
+    <li>2차 확인 모달에서 <strong>"정말 탈퇴"</strong> 선택</li>
+  </ol>
+  <p>탈퇴 즉시 계정 · 고객 · 예약 · 매출 · 사진 등 모든 개인 데이터가 삭제됩니다.</p>
+</div>
+
+<h2>2. 이메일로 삭제 요청</h2>
+<div class="card">
+  <p>앱 접속이 어려우시면 <a href="mailto:contact@itdasy.com?subject=%5B%EA%B3%84%EC%A0%95%20%EC%82%AD%EC%A0%9C%20%EC%9A%94%EC%B2%AD%5D&body=%EA%B0%80%EC%9E%85%20%EC%9D%B4%EB%A9%94%EC%9D%BC%3A%20%0A%EC%83%81%ED%98%B8%EB%AA%85%3A%20">contact@itdasy.com</a> 으로 아래 정보와 함께 요청해주세요:</p>
+  <ul>
+    <li>가입 이메일 주소</li>
+    <li>샵 이름 (확인용)</li>
+    <li>요청 사유 (선택)</li>
+  </ul>
+  <p>영업일 기준 3일 이내 처리합니다.</p>
+</div>
+
+<h2>3. 삭제되는 데이터</h2>
+<p>계정 삭제 시 다음 데이터가 <strong>영구 삭제</strong>됩니다:</p>
+<div class="card">
+  <p><span class="tag">개인정보</span> 이메일 · 이름 · 비밀번호 해시 · 프로필 사진</p>
+  <p><span class="tag">앱 데이터</span> 고객 목록 · 예약 · 매출 기록 · 시술 사진 · 캡션 · 페르소나 설정</p>
+  <p><span class="tag">연동 정보</span> Instagram 토큰 (저장된 것 모두 암호화 삭제)</p>
+  <p><span class="tag">로그</span> 본인 user_id 관련 Sentry 오류 로그 (90일 이내 자동 정리)</p>
+</div>
+
+<h2>4. 보관되는 데이터 (법령 준수)</h2>
+<div class="card">
+  <p>전자상거래법 · 세법 등 국내 법령 준수를 위해 아래 데이터는 일정 기간 보관 후 자동 삭제됩니다:</p>
+  <ul>
+    <li><strong>결제 기록</strong> (IAP): 5년 (전자상거래법)</li>
+    <li><strong>로그인 IP 및 접속 기록</strong>: 3개월 (통신비밀보호법)</li>
+    <li><strong>부정이용 방지 로그</strong>: 1년</li>
+  </ul>
+  <p>보관 기간 만료 후에는 복원 불가능하게 폐기됩니다. 해당 데이터는 암호화 저장되며 개인 식별용 외엔 접근 불가합니다.</p>
+</div>
+
+<h2 id="partial-deletion">5. 일부 데이터만 삭제</h2>
+<div class="card">
+  <p>계정 유지한 채 특정 데이터만 삭제하고 싶으시면:</p>
+  <ul>
+    <li><strong>고객 개별 삭제</strong>: 고객 목록 → 해당 고객 → 휴지통</li>
+    <li><strong>매출 기록 삭제</strong>: 매출 탭 → 해당 기록 스와이프 → 삭제</li>
+    <li><strong>예약 삭제</strong>: 예약 캘린더 → 예약 탭 → 삭제</li>
+    <li><strong>사진 삭제</strong>: 작업실 → 슬롯 → 사진 삭제</li>
+    <li><strong>Instagram 연동 해제</strong>: 설정 → 연동 관리 → 해제</li>
+  </ul>
+</div>
+
+<h2>6. 외부 위탁사 데이터 삭제</h2>
+<div class="card">
+  <p>계정 삭제 시 외부 서비스 제공사에도 자동으로 삭제 요청이 전송됩니다:</p>
+  <ul>
+    <li><strong>Google Gemini API</strong>: stateless 호출 — 저장 데이터 없음</li>
+    <li><strong>Meta (Instagram)</strong>: <code>/instagram/data-deletion</code> 콜백으로 연동 해제</li>
+    <li><strong>Replicate (이미지 처리)</strong>: 1시간 후 자동 폐기</li>
+    <li><strong>Supabase (DB)</strong>: 즉시 CASCADE 삭제</li>
+    <li><strong>Sentry (로그)</strong>: user_id 스크럽 요청</li>
+  </ul>
+</div>
+
+<div class="contact">
+  <h2 style="border:0; padding:0; margin-top:0;">문의</h2>
+  <p>📧 <a href="mailto:contact@itdasy.com">contact@itdasy.com</a></p>
+  <p>⚙ 사업자: 와이투두 (Y2do) · 대표: 강연준</p>
+  <p style="font-size:13px;color:#888;margin-top:16px;">본 페이지는 Google Play Store 및 Apple App Store 개인정보 보호 요구사항에 따라 게시되었습니다.</p>
+</div>
+
+</body>
+</html>
