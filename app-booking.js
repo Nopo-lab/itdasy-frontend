@@ -70,16 +70,61 @@
     return res.status === 204 ? null : await res.json();
   }
 
-  // ── CRUD ────────────────────────────────────────────────
-  async function list(fromISO, toISO) {
+  // ── Stale-while-revalidate 캐시 (체감 0ms 렌더)
+  const _SWR_TTL = 60 * 1000;  // 1분 신선 (예약은 더 자주 갱신)
+  function _swrKey(fromISO, toISO) { return `pv_cache::booking::${fromISO||'_'}::${toISO||'_'}`; }
+  function _readSWR(fromISO, toISO) {
+    try {
+      const raw = sessionStorage.getItem(_swrKey(fromISO, toISO));
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return { items: obj.d, fresh: Date.now() - obj.t < _SWR_TTL };
+    } catch (_e) { return null; }
+  }
+  function _writeSWR(fromISO, toISO, items) {
+    try { sessionStorage.setItem(_swrKey(fromISO, toISO), JSON.stringify({ t: Date.now(), d: items })); }
+    catch (_e) {}
+  }
+  function _clearSWR() {
+    // 모든 예약 SWR 캐시 제거 (날짜 범위 여러 개라 scan)
+    try {
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith('pv_cache::booking::')) sessionStorage.removeItem(k);
+      }
+    } catch (_e) {}
+  }
+
+  async function _fetchFresh(fromISO, toISO) {
     const qs = new URLSearchParams();
     if (fromISO) qs.set('from', fromISO);
     if (toISO) qs.set('to', toISO);
-    try {
-      const d = await _api('GET', '/bookings?' + qs.toString());
-      _isOffline = false;
-      _items = d.items || [];
+    const d = await _api('GET', '/bookings?' + qs.toString());
+    _isOffline = false;
+    _items = d.items || [];
+    _writeSWR(fromISO, toISO, _items);
+    return _items;
+  }
+
+  // ── CRUD ────────────────────────────────────────────────
+  async function list(fromISO, toISO) {
+    // 즉시 캐시 반환 + 오래된 경우 백그라운드 갱신
+    const swr = _readSWR(fromISO, toISO);
+    if (swr) {
+      _items = swr.items;
+      if (!swr.fresh) {
+        _fetchFresh(fromISO, toISO).then(fresh => {
+          if (JSON.stringify(_items) !== JSON.stringify(fresh)) {
+            _items = fresh;
+            _rerender && _rerender();
+          }
+        }).catch(() => {});
+      }
       return _items;
+    }
+    // 첫 진입 — 네트워크 대기
+    try {
+      return await _fetchFresh(fromISO, toISO);
     } catch (e) {
       if (e.message === 'endpoint-missing' || e.message === 'no-token') {
         _isOffline = true;
@@ -134,6 +179,7 @@
     }
     const created = await _api('POST', '/bookings', data);
     _items.push(created);
+    _clearSWR();  // 날짜 범위 캐시 전체 무효화
     return created;
   }
 
@@ -151,6 +197,7 @@
     const updated = await _api('PATCH', '/bookings/' + id, patch);
     const j = _items.findIndex(b => b.id === id);
     if (j >= 0) _items[j] = updated;
+    _clearSWR();
     return updated;
   }
 
@@ -163,6 +210,7 @@
     }
     await _api('DELETE', '/bookings/' + id);
     _items = _items.filter(b => b.id !== id);
+    _clearSWR();
     return { ok: true };
   }
 
