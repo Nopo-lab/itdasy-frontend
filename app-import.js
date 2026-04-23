@@ -171,9 +171,13 @@
   // ── 스마트 임포트: 사진 OCR ─────────────────────────────
   async function _uploadPhotoOcr(file) {
     const status = document.getElementById('importStatus');
+    status.textContent = '📸 이미지 최적화 중…';
+    const compressed = (typeof window.compressImageForUpload === 'function')
+      ? await window.compressImageForUpload(file)
+      : file;
     status.textContent = '📸 AI 가 화면을 읽는 중… (2~3초)';
     const fd = new FormData();
-    fd.append('image', file);
+    fd.append('image', compressed);
     fd.append('kind', _currentKind);
     try {
       const res = await fetch(window.API + '/imports/smart/image', {

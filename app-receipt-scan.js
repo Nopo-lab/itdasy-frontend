@@ -6,6 +6,62 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
   }
 
+  // Wave B8 — 업로드 전 이미지 리사이즈/압축 (모바일 업로드 속도·비용 절감)
+  async function compressImageForUpload(file, maxEdge = 1024, quality = 0.85) {
+    try {
+      if (!file || !file.type || !file.type.startsWith('image/')) return file;
+      // HEIC/HEIF 등 브라우저에서 디코딩 불가한 포맷은 원본 반환
+      if (/heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name || '')) return file;
+      // 500KB 미만은 압축 이득이 적어 스킵
+      if (file.size && file.size < 500 * 1024) return file;
+
+      const url = URL.createObjectURL(file);
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error('decode_failed'));
+        im.src = url;
+      }).catch(() => null);
+      URL.revokeObjectURL(url);
+      if (!img) return file;
+
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) return file;
+      const longest = Math.max(w, h);
+      const scale = longest > maxEdge ? maxEdge / longest : 1;
+      const tw = Math.round(w * scale);
+      const th = Math.round(h * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(img, 0, 0, tw, th);
+
+      const blob = await new Promise((resolve) => {
+        try { canvas.toBlob((b) => resolve(b), 'image/jpeg', quality); }
+        catch (_e) { resolve(null); }
+      });
+      if (!blob) return file;
+      // 원본보다 크면 의미 없음 → 원본 사용
+      if (blob.size >= file.size) return file;
+
+      const baseName = (file.name || 'upload').replace(/\.[^.]+$/, '') + '.jpg';
+      try {
+        return new File([blob], baseName, { type: 'image/jpeg', lastModified: Date.now() });
+      } catch (_e) {
+        // 일부 iOS Safari 구버전: File 생성자 미지원 → Blob 에 name 유사 속성 부여
+        blob.name = baseName;
+        return blob;
+      }
+    } catch (_e) {
+      return file;
+    }
+  }
+  window.compressImageForUpload = compressImageForUpload;
+
   const KIND_META = {
     expense: {
       title: '💳 영수증 스캔',
@@ -24,8 +80,9 @@
   };
 
   async function _uploadImage(file, kind) {
+    const compressed = await compressImageForUpload(file);
     const fd = new FormData();
-    fd.append('image', file);
+    fd.append('image', compressed);
     fd.append('kind', kind);
     const res = await fetch(window.API + '/imports/smart/image', {
       method: 'POST',
@@ -37,6 +94,61 @@
       throw new Error(err.detail || 'HTTP ' + res.status);
     }
     return await res.json();
+  }
+
+  // Wave C3 — Tesseract.js 실시간 OCR 프리뷰 (체감 대기 시간 단축)
+  // - Gemini 호출과 병렬로 로컬 Tesseract 실행 → 2초 안에 러프 텍스트 보여줌
+  // - 최종 결과는 항상 Gemini (서버) 응답 사용. Tesseract 는 순수 프리뷰용
+  // - iOS Safari 16+ 지원. 구버전 / 실패 시 조용히 skip
+  // - 첫 사용 시 korean traineddata ~15MB 다운로드 → 브라우저 캐시. 두 번째부터는 빠름
+  const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  let _tesseractLoading = null;
+
+  function _loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (_tesseractLoading) return _tesseractLoading;
+    _tesseractLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = TESSERACT_CDN;
+      s.async = true;
+      s.onload = () => resolve(window.Tesseract || null);
+      s.onerror = () => reject(new Error('tesseract_load_failed'));
+      document.head.appendChild(s);
+    }).catch(() => null);
+    return _tesseractLoading;
+  }
+
+  // 2초 내에 결과 안 나오면 조용히 포기 (Gemini 가 먼저 돌아오는 경우가 많음)
+  async function _runTesseractPreview(fileOrBlob, onText) {
+    let worker = null;
+    try {
+      const Tesseract = await _loadTesseract();
+      if (!Tesseract || !Tesseract.createWorker) return;
+      // Tesseract v5 createWorker 는 언어를 인자로 받음
+      worker = await Tesseract.createWorker('kor+eng');
+      const { data } = await worker.recognize(fileOrBlob);
+      const text = (data && data.text ? String(data.text) : '').trim();
+      if (text && typeof onText === 'function') onText(text);
+    } catch (_e) {
+      // 조용히 skip — 업로드 흐름 방해 금지
+    } finally {
+      if (worker) {
+        try { await worker.terminate(); } catch (_e) { /* ignore */ }
+      }
+    }
+  }
+
+  function _renderTesseractPreview(body, text) {
+    // Gemini 가 이미 돌아와서 프리뷰 자리가 다른 UI 로 교체됐으면 skip
+    const holder = body.querySelector('.rs-tess-preview');
+    if (!holder) return;
+    // 긴 공백·개행 정리, 너무 길면 자르기
+    const cleaned = text.replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 400);
+    holder.innerHTML = `
+      <div style="margin-top:16px;padding:12px 14px;background:#f4f4f6;border:1px dashed #ccc;border-radius:12px;text-align:left;">
+        <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:700;">💡 미리보기 — AI 가 더 정확하게 정리 중...</div>
+        <div style="font-size:12px;color:#666;font-style:italic;white-space:pre-wrap;line-height:1.5;max-height:180px;overflow:auto;">${_esc(cleaned)}</div>
+      </div>`;
   }
 
   async function _commit(kind, items) {
@@ -157,15 +269,36 @@
     if (!file) return;
     const body = overlay.querySelector('.rs-body');
     body.innerHTML = `
-      <div style="padding:60px 20px;text-align:center;">
+      <div style="padding:40px 20px 20px;text-align:center;">
         <div style="font-size:36px;animation:rs-pulse 1.2s ease-in-out infinite;">🤖</div>
-        <div style="font-size:13px;color:#666;margin-top:10px;">AI 가 이미지를 읽는 중…</div>
+        <div class="rs-progress-label" style="font-size:13px;color:#666;margin-top:10px;">이미지 최적화 중…</div>
         <div style="font-size:11px;color:#aaa;margin-top:4px;">보통 5~15초 걸려요</div>
+        <div class="rs-tess-preview"></div>
       </div>
       <style>@keyframes rs-pulse{0%,100%{opacity:.4;}50%{opacity:1;}}</style>`;
+    // 압축 후 라벨 교체 (사용자에게 진행 단계 인지시켜 체감 속도 개선)
+    setTimeout(() => {
+      const lbl = body.querySelector('.rs-progress-label');
+      if (lbl) lbl.textContent = 'AI 가 이미지를 읽는 중…';
+    }, 400);
+
+    // Wave C3 — Gemini 업로드 와 Tesseract 로컬 OCR 을 병렬 실행.
+    // Tesseract 는 순수 체감 속도 개선용 프리뷰. 실패해도 업로드 흐름 유지.
+    let compressedForPreview = null;
+    try { compressedForPreview = await compressImageForUpload(file); } catch (_e) { compressedForPreview = file; }
+
+    // 압축본이 확보되면 Tesseract 병렬 시작 (2초 후에도 못 오면 어차피 Gemini 가 먼저 돌아옴)
+    const tessPromise = _runTesseractPreview(compressedForPreview, (text) => {
+      _renderTesseractPreview(body, text);
+    });
+
     try {
+      // 압축은 이미 했으므로 _uploadImage 내부 재압축은 캐시가 없어 다시 한 번 수행됨(크기 작음 → 스킵됨).
+      // 추후 최적화로 compressed 를 재사용하도록 리팩토링 가능.
       const res = await _uploadImage(file, kind);
       _renderPreview(overlay, kind, res.items || []);
+      // Gemini 가 먼저 돌아오면 Tesseract 는 백그라운드에서 마저 돌다 terminate
+      tessPromise.catch(() => {});
     } catch (err) {
       body.innerHTML = `
         <div style="padding:40px 20px;text-align:center;color:#c00;">

@@ -21,6 +21,65 @@
   try { _sessionId = parseInt(localStorage.getItem('assistant_session_id') || '', 10) || null; }
   catch (_e) { _sessionId = null; }
 
+  // Wave B5 — 고객 이름 캐시 (keystroke 마다 localStorage 접근 방지)
+  let _customerCache = null;
+  let _customerCacheAt = 0;
+  const _CUSTOMER_CACHE_TTL = 60 * 1000;  // 60초
+  function _getCustomers() {
+    const now = Date.now();
+    if (_customerCache && (now - _customerCacheAt) < _CUSTOMER_CACHE_TTL) return _customerCache;
+    try {
+      const raw = (window.safeStorage ? window.safeStorage.get('pv_cache::customers') : null)
+        || (() => { try { return JSON.parse(localStorage.getItem('pv_cache::customers') || 'null'); } catch (_) { return null; } })();
+      const items = raw && Array.isArray(raw.d) ? raw.d
+                   : Array.isArray(raw) ? raw
+                   : (raw && Array.isArray(raw.items) ? raw.items : []);
+      _customerCache = items.filter(c => c && c.name).map(c => ({ id: c.id, name: String(c.name), phone: c.phone || '' }));
+    } catch (_e) { _customerCache = []; }
+    _customerCacheAt = now;
+    return _customerCache;
+  }
+
+  // Wave B4 — 휴리스틱 추출 (한글 이름, 전화, 금액, 시간)
+  function _heuristicExtract(q) {
+    const out = { name: '', phone: '', amount: '', time: '', raw: q };
+    try {
+      const mName = q.match(/[가-힣]{2,4}/);
+      if (mName) out.name = mName[0];
+      const mPhone = q.match(/0\d{1,2}[-\.\s]?\d{3,4}[-\.\s]?\d{4}/);
+      if (mPhone) out.phone = mPhone[0].replace(/[\.\s]/g, '-');
+      const mAmount = q.match(/(\d{1,3}(?:,\d{3})+|\d{4,})\s*(?:원|만원|천원)?/);
+      const mUnit = q.match(/(\d+)\s*(만원|천원)/);
+      if (mUnit) {
+        const n = parseInt(mUnit[1], 10);
+        out.amount = String(mUnit[2] === '만원' ? n * 10000 : n * 1000);
+      } else if (mAmount) {
+        out.amount = mAmount[1].replace(/,/g, '');
+      }
+      const mTime = q.match(/오늘|내일|모레|\d+월\s*\d+일|\d+시/);
+      if (mTime) out.time = mTime[0];
+    } catch (_e) { void _e; }
+    return out;
+  }
+
+  // Wave B4 — 시간 힌트를 ISO 로 변환 (예약용, best-effort)
+  function _timeToISO(hint) {
+    if (!hint) return null;
+    try {
+      const base = new Date();
+      base.setSeconds(0, 0);
+      let day = new Date(base);
+      if (/내일/.test(hint)) day.setDate(day.getDate() + 1);
+      else if (/모레/.test(hint)) day.setDate(day.getDate() + 2);
+      const m = hint.match(/(\d+)월\s*(\d+)일/);
+      if (m) { day.setMonth(parseInt(m[1], 10) - 1); day.setDate(parseInt(m[2], 10)); }
+      const mH = hint.match(/(\d+)시/);
+      if (mH) day.setHours(parseInt(mH[1], 10), 0, 0, 0);
+      else day.setHours(10, 0, 0, 0);
+      return day.toISOString();
+    } catch (_e) { return null; }
+  }
+
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
   }
@@ -41,9 +100,10 @@
         </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
         <div id="asstSuggest" style="display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding:4px 0;"></div>
+        <div id="asstTypeahead" style="display:none;gap:6px;overflow-x:auto;margin-top:6px;padding:2px 0;"></div>
         <div style="display:flex;gap:8px;margin-top:8px;">
-          <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:14px;" />
-          <button id="asstSend" style="padding:12px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;">보내기</button>
+          <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:14px;font-size:14px;" />
+          <button id="asstSend" style="padding:12px 18px;border:none;border-radius:14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;">보내기</button>
         </div>
       </div>
     `;
@@ -55,8 +115,36 @@
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }
     });
+    // Wave B5 — 입력 디바운스 typeahead
+    let _typeTimer = null;
+    sheet.querySelector('#asstInput').addEventListener('input', (e) => {
+      if (_typeTimer) clearTimeout(_typeTimer);
+      const v = (e.target.value || '').trim();
+      _typeTimer = setTimeout(() => _renderTypeahead(v), 200);
+    });
     _renderSuggest();
     return sheet;
+  }
+
+  // Wave B5 — 의도 예측 chips 렌더
+  function _renderTypeahead(text) {
+    const box = document.getElementById('asstTypeahead');
+    if (!box) return;
+    if (!text || text.length > 20) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const firstToken = text.split(/\s+/)[0];
+    if (!firstToken || firstToken.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const customers = _getCustomers();
+    const match = customers.find(c => c.name.startsWith(firstToken) || c.name === firstToken);
+    if (!match) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const chips = [
+      `${match.name} 5만원 기록`,
+      `${match.name} 내일 2시 예약`,
+      `${match.name} 정보 보기`,
+    ];
+    box.innerHTML = chips.map(c => `
+      <button data-typeahead="${_esc(c)}" style="padding:6px 11px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);cursor:pointer;font-size:11px;color:hsl(350,60%,40%);white-space:nowrap;font-weight:700;">✨ ${_esc(c)}</button>
+    `).join('');
+    box.style.display = 'flex';
   }
 
   function _renderHistory() {
@@ -79,6 +167,7 @@
       }
       if (m.role === 'assistant') {
         const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status) : '';
+        const fallbackHtml = m.fallback ? _renderFallbackCard(m.fallback, idx, m.fallback_status) : '';
         const relatedHtml = (m.related && m.related.length) ? `
           <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
             ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
@@ -92,6 +181,7 @@
                 style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#bbb;padding:2px 4px;">🚩 신고</button>
             </div>
             ${actionHtml}
+            ${fallbackHtml}
             ${relatedHtml}
           </div>
         </div>`;
@@ -148,6 +238,122 @@
     </div>`;
   }
 
+  // Wave B4 — 휴리스틱 프리뷰 카드 (answer/actions 둘 다 비었을 때)
+  function _renderFallbackCard(extract, historyIdx, status) {
+    if (!extract) return '';
+    if (status === 'done') {
+      return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,hsl(145,45%,94%),hsl(145,45%,98%));border-radius:14px;border-left:3px solid hsl(145,50%,40%);">
+        <div style="font-size:11px;font-weight:700;color:hsl(145,50%,35%);">✓ 저장했어요</div>
+      </div>`;
+    }
+    if (status === 'failed') {
+      return `<div style="margin-top:6px;padding:10px 12px;background:hsl(0,70%,96%);border-radius:14px;border-left:3px solid hsl(0,70%,55%);">
+        <div style="font-size:11px;font-weight:700;color:hsl(0,70%,45%);">실패 — 다시 시도해 주세요</div>
+      </div>`;
+    }
+    const row = (label, field, val, placeholder) => `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
+        <input data-fallback-field="${field}" data-fallback-idx="${historyIdx}" value="${_esc(val || '')}" placeholder="${_esc(placeholder)}"
+          style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,88%);border-radius:10px;font-size:12px;background:#fff;" />
+      </div>`;
+    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid hsl(270,40%,88%);border-radius:14px;">
+      <div style="font-size:12px;font-weight:800;color:hsl(270,50%,45%);margin-bottom:8px;">💡 대충 이렇게 맞아요?</div>
+      ${row('이름', 'name', extract.name, '김서연')}
+      ${row('전화', 'phone', extract.phone, '010-0000-0000')}
+      ${row('금액', 'amount', extract.amount, '50000')}
+      ${row('시간', 'time', extract.time, '내일 2시')}
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <button data-fallback-intent="customer" data-fallback-idx="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:10px;background:hsl(175,55%,50%);color:#fff;font-weight:800;cursor:pointer;font-size:11px;">👤 고객 추가</button>
+        <button data-fallback-intent="revenue" data-fallback-idx="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:10px;background:hsl(145,50%,40%);color:#fff;font-weight:800;cursor:pointer;font-size:11px;">💰 매출 기록</button>
+        <button data-fallback-intent="booking" data-fallback-idx="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:10px;background:hsl(350,75%,60%);color:#fff;font-weight:800;cursor:pointer;font-size:11px;">📅 예약 추가</button>
+      </div>
+    </div>`;
+  }
+
+  // Wave B4 — 프리뷰 카드에서 골라 즉시 POST (현재 입력값 읽기)
+  async function _submitFallback(idx, intent) {
+    const msg = _history[idx];
+    if (!msg || !msg.fallback) return;
+    // 사용자가 수정한 값 읽기
+    const body = document.getElementById('asstBody');
+    const read = (f) => {
+      const el = body ? body.querySelector(`[data-fallback-field="${f}"][data-fallback-idx="${idx}"]`) : null;
+      return el ? el.value.trim() : (msg.fallback[f] || '');
+    };
+    const data = { name: read('name'), phone: read('phone'), amount: read('amount'), time: read('time') };
+    msg.fallback_status = 'running';
+    _renderHistory();
+    try {
+      let endpoint, payload, kindKey;
+      if (intent === 'customer') {
+        if (!data.name) throw new Error('이름이 필요해요');
+        endpoint = '/customers';
+        payload = { name: data.name, phone: data.phone || null, memo: null, tags: [], birthday: null };
+        kindKey = 'create_customer';
+      } else if (intent === 'revenue') {
+        if (!data.amount || !(+data.amount > 0)) throw new Error('금액이 필요해요');
+        endpoint = '/revenue';
+        payload = {
+          amount: Math.round(+data.amount),
+          method: 'card',
+          service_name: null,
+          customer_name: data.name || null,
+          memo: null,
+          recorded_at: new Date().toISOString(),
+        };
+        kindKey = 'create_revenue';
+      } else if (intent === 'booking') {
+        if (!data.time) throw new Error('시간이 필요해요');
+        const startISO = _timeToISO(data.time);
+        if (!startISO) throw new Error('시간을 못 읽었어요');
+        const endISO = new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString();
+        endpoint = '/bookings';
+        payload = {
+          starts_at: startISO,
+          ends_at: endISO,
+          customer_id: null,
+          customer_name: data.name || null,
+          service_name: null,
+          memo: null,
+          status: 'confirmed',
+        };
+        kindKey = 'create_booking';
+      } else {
+        throw new Error('알 수 없는 요청');
+      }
+      const fetcher = window.safeFetch || fetch;
+      const res = await fetcher(window.API + endpoint, {
+        method: 'POST',
+        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'HTTP ' + res.status);
+      }
+      msg.fallback_status = 'done';
+      _renderHistory();
+      // SWR 캐시 무효화 + data-changed 이벤트 (기존 _runAction 과 동일한 동작)
+      try {
+        ['customer', 'customers', 'revenue', 'booking', 'bookings'].forEach(k => {
+          try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
+          try { localStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
+        });
+        window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: kindKey } }));
+      } catch (_e) { void _e; }
+      _history.push({ role: 'assistant', text: '✓ 저장했어요' });
+      _renderHistory();
+      if (window.hapticSuccess) window.hapticSuccess();
+      if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+    } catch (e) {
+      msg.fallback_status = 'failed';
+      _renderHistory();
+      _history.push({ role: 'assistant', text: '실패: ' + (window._humanError ? window._humanError(e) : e.message) });
+      _renderHistory();
+    }
+  }
+
   // 단일 document-level 위임 (한 번만 등록)
   let _delegationBound = false;
   let _sendInFlight = false;
@@ -174,6 +380,26 @@
         const q = sug.getAttribute('data-suggest');
         const input = document.getElementById('asstInput');
         if (input) { input.value = q; _send(); }
+        return;
+      }
+      // Wave B5 — typeahead chip: 입력창에 채우기만 (자동 전송 X)
+      const ta = e.target.closest('[data-typeahead]');
+      if (ta && sheet && sheet.contains(ta)) {
+        const q = ta.getAttribute('data-typeahead');
+        const input = document.getElementById('asstInput');
+        if (input) {
+          input.value = q;
+          input.focus();
+          const box = document.getElementById('asstTypeahead');
+          if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+        }
+        return;
+      }
+      // Wave B4 — fallback 프리뷰 카드 액션
+      const fb = e.target.closest('[data-fallback-intent]');
+      if (fb && document.getElementById('asstBody')?.contains(fb)) {
+        _submitFallback(parseInt(fb.dataset.fallbackIdx, 10), fb.dataset.fallbackIntent);
+        return;
       }
     }, false);
   }
@@ -211,8 +437,8 @@
       }[d.kind] || [];
       _invalidateKinds.forEach(k => {
         // 단수(powerview) + 복수(SWR) 키 모두 제거
-        try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) {}
-        try { localStorage.removeItem('pv_cache::' + k); } catch (_e) {}
+        try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
+        try { localStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
         // bookings 는 날짜 범위별 키 scan 삭제
         if (k === 'bookings' || k === 'booking') {
           try {
@@ -224,11 +450,11 @@
               const key = localStorage.key(i);
               if (key && key.startsWith('pv_cache::booking')) localStorage.removeItem(key);
             }
-          } catch (_e) {}
+          } catch (_e) { void _e; }
         }
       });
       // 오픈된 시트가 있으면 데이터 새로고침 신호 전파
-      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: d.kind } })); } catch (_e) {}
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: d.kind } })); } catch (_e) { void _e; }
 
       // Phase 6.3 — bulk_message 는 클립보드 복사 처리
       if (d.kind === 'generate_bulk_message' && d.message_draft) {
@@ -268,6 +494,11 @@
     if (!q) return;
     _sendInFlight = true;
     input.value = '';
+    // Wave B5 — 전송 시 typeahead chips 숨김
+    try {
+      const tb = document.getElementById('asstTypeahead');
+      if (tb) { tb.style.display = 'none'; tb.innerHTML = ''; }
+    } catch (_e) { void _e; }
     _history.push({ role: 'user', text: q });
     _history.push({ role: 'loading', text: '' });
     _renderHistory();
@@ -285,13 +516,27 @@
       // v1.1 — session_id 저장 (서버가 최초 생성 or 기존 사용)
       if (d.session_id) {
         _sessionId = d.session_id;
-        try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { /* ignore */ }
+        try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
       }
 
       // 복수 액션 지원 — actions[] 우선, 없으면 단일 action 을 배열로
       const actionsList = (Array.isArray(d.actions) && d.actions.length)
         ? d.actions
         : (d.action && d.action.kind ? [d.action] : []);
+
+      // Wave B4 — answer + actions 모두 빈값이면 휴리스틱 프리뷰 카드
+      const answerText = (d.answer || '').trim();
+      if (!answerText && actionsList.length === 0) {
+        const extract = _heuristicExtract(q);
+        _history.push({
+          role: 'assistant',
+          text: '정확히 못 알아들었어요. 아래처럼 정리해봤는데 맞나요?',
+          fallback: extract,
+        });
+        _renderHistory();
+        if (window.hapticLight) window.hapticLight();
+        return;
+      }
 
       const msg = { role: 'assistant', text: d.answer || '답을 만들지 못했어요.' };
       if (Array.isArray(d.related_questions) && d.related_questions.length) {
