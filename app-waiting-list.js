@@ -39,7 +39,7 @@
         <div style="padding:40px 20px;text-align:center;">
           <div style="font-size:40px;margin-bottom:10px;">📋</div>
           <div style="font-size:13px;color:#666;">대기자가 없어요</div>
-          <div style="font-size:11px;color:#aaa;margin-top:4px;">"+ 새 대기자" 로 등록</div>
+          <div style="font-size:13px;color:#aaa;margin-top:4px;">"+ 새 대기자" 로 등록</div>
         </div>`;
       return;
     }
@@ -50,14 +50,14 @@
       <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           <strong style="font-size:14px;">${_esc(w.customer_name)}</strong>
-          <span style="font-size:11px;color:${color};background:${color}15;padding:2px 8px;border-radius:100px;font-weight:700;">${badge}</span>
+          <span style="font-size:13px;color:${color};background:${color}15;padding:2px 8px;border-radius:100px;font-weight:700;">${badge}</span>
           <button class="wl-del" data-id="${w.id}" style="margin-left:auto;background:transparent;border:none;color:#ccc;cursor:pointer;font-size:15px;">✕</button>
         </div>
-        <div style="font-size:12px;color:#666;">
+        <div style="font-size:13px;color:#666;">
           ${w.phone ? `📞 ${_esc(w.phone)} · ` : ''}${_fmt(w.preferred_date_from)} ~ ${_fmt(w.preferred_date_to)}
           ${w.preferred_service ? ` · ${_esc(w.preferred_service)}` : ''}
         </div>
-        ${w.memo ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(w.memo)}</div>` : ''}
+        ${w.memo ? `<div style="font-size:13px;color:#888;margin-top:4px;">${_esc(w.memo)}</div>` : ''}
       </div>`;
     }).join('');
 
@@ -152,10 +152,10 @@
           <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 14px;"></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <strong style="font-size:17px;">📋 대기자 목록</strong>
-            <button class="wl-add" style="margin-left:auto;padding:8px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:100px;font-weight:700;font-size:12px;cursor:pointer;">+ 새 대기자</button>
+            <button class="wl-add" style="margin-left:auto;padding:8px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:100px;font-weight:700;font-size:13px;cursor:pointer;">+ 새 대기자</button>
             <button class="wl-close" style="background:none;border:none;font-size:18px;color:#888;cursor:pointer;">✕</button>
           </div>
-          <div style="font-size:11px;color:#888;margin-top:6px;">예약 취소되면 자리 난 대기자에게 자동 알림</div>
+          <div style="font-size:13px;color:#888;margin-top:6px;">예약 취소되면 자리 난 대기자에게 자동 알림</div>
         </div>
         <div class="wl-body" style="flex:1;overflow-y:auto;padding:14px;"></div>
       </div>`;

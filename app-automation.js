@@ -38,35 +38,35 @@
       ]);
       const have = new Set((rules.items || []).map(r => r.name));
       body.innerHTML = `
-        <div style="padding:14px 18px 8px;font-size:11px;color:#888;font-weight:700;letter-spacing:.4px;">추천 자동화 — 클릭으로 1초 등록</div>
+        <div style="padding:14px 18px 8px;font-size:13px;color:#888;font-weight:700;letter-spacing:.4px;">추천 자동화 — 클릭으로 1초 등록</div>
         <div style="padding:0 14px;">
           ${(presets.presets || []).map(p => `
             <button data-preset="${_esc(p.key)}" style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:8px;background:#fff;border:1px solid ${have.has(p.name) ? '#F18091' : '#eee'};border-radius:12px;cursor:pointer;text-align:left;">
               <div style="flex:1;">
                 <div style="font-size:13px;font-weight:700;">${_esc(p.name)}</div>
-                <div style="font-size:11px;color:#888;margin-top:2px;">${_trigger_desc(p.trigger_type, p.conditions)} · ${_action_desc(p.action_type)}</div>
+                <div style="font-size:13px;color:#888;margin-top:2px;">${_trigger_desc(p.trigger_type, p.conditions)} · ${_action_desc(p.action_type)}</div>
               </div>
-              <span style="font-size:11px;color:${have.has(p.name) ? '#2B8C7E' : '#D95F70'};font-weight:700;">${have.has(p.name) ? '✓ 사용중' : '+ 등록'}</span>
+              <span style="font-size:13px;color:${have.has(p.name) ? '#2B8C7E' : '#D95F70'};font-weight:700;">${have.has(p.name) ? '✓ 사용중' : '+ 등록'}</span>
             </button>
           `).join('')}
         </div>
 
-        <div style="padding:18px 18px 8px;font-size:11px;color:#888;font-weight:700;letter-spacing:.4px;">내 활성 규칙</div>
+        <div style="padding:18px 18px 8px;font-size:13px;color:#888;font-weight:700;letter-spacing:.4px;">내 활성 규칙</div>
         <div style="padding:0 14px 20px;">
           ${(rules.items && rules.items.length) ? (rules.items.map(r => `
             <div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:12px;margin-bottom:8px;">
               <div style="display:flex;align-items:center;gap:8px;">
                 <strong style="font-size:13px;">${_esc(r.name)}</strong>
-                <span style="font-size:10px;color:${r.enabled ? '#2B8C7E' : '#888'};background:${r.enabled ? '#E8F5E9' : '#F2F2F2'};padding:2px 6px;border-radius:100px;font-weight:700;">${r.enabled ? 'ON' : 'OFF'}</span>
-                <span style="margin-left:auto;font-size:10px;color:#aaa;">실행 ${r.fire_count || 0}회</span>
+                <span style="font-size:13px;color:${r.enabled ? '#2B8C7E' : '#888'};background:${r.enabled ? '#E8F5E9' : '#F2F2F2'};padding:2px 6px;border-radius:100px;font-weight:700;">${r.enabled ? 'ON' : 'OFF'}</span>
+                <span style="margin-left:auto;font-size:13px;color:#aaa;">실행 ${r.fire_count || 0}회</span>
               </div>
-              <div style="font-size:11px;color:#666;margin-top:4px;">${_trigger_desc(r.trigger_type, r.conditions)} → ${_action_desc(r.action_type)}</div>
+              <div style="font-size:13px;color:#666;margin-top:4px;">${_trigger_desc(r.trigger_type, r.conditions)} → ${_action_desc(r.action_type)}</div>
               <div style="margin-top:8px;display:flex;gap:6px;">
-                <button data-toggle="${r.id}" data-enabled="${r.enabled}" style="flex:1;padding:6px;border:1px solid #ddd;background:#fff;border-radius:6px;font-size:11px;cursor:pointer;">${r.enabled ? 'OFF' : 'ON'}</button>
-                <button data-del="${r.id}" style="flex:1;padding:6px;border:1px solid #fcc;background:#fff;color:#c00;border-radius:6px;font-size:11px;cursor:pointer;">삭제</button>
+                <button data-toggle="${r.id}" data-enabled="${r.enabled}" style="flex:1;padding:6px;border:1px solid #ddd;background:#fff;border-radius:6px;font-size:13px;cursor:pointer;">${r.enabled ? 'OFF' : 'ON'}</button>
+                <button data-del="${r.id}" style="flex:1;padding:6px;border:1px solid #fcc;background:#fff;color:#c00;border-radius:6px;font-size:13px;cursor:pointer;">삭제</button>
               </div>
             </div>
-          `).join('')) : '<div style="padding:20px;text-align:center;color:#aaa;font-size:12px;">아직 활성 규칙 없음</div>'}
+          `).join('')) : '<div style="padding:20px;text-align:center;color:#aaa;font-size:13px;">아직 활성 규칙 없음</div>'}
         </div>
       `;
       body.querySelectorAll('[data-preset]').forEach(btn => {
@@ -111,7 +111,7 @@
             <strong style="font-size:17px;">⚙️ 자동 워크플로</strong>
             <button class="au-close" style="margin-left:auto;background:none;border:none;font-size:18px;color:#888;cursor:pointer;">✕</button>
           </div>
-          <div style="font-size:11px;color:#888;margin-top:6px;">AI 가 정해진 시각·조건에 자동으로 알림·메시지 초안 생성</div>
+          <div style="font-size:13px;color:#888;margin-top:6px;">AI 가 정해진 시각·조건에 자동으로 알림·메시지 초안 생성</div>
         </div>
         <div class="au-body" style="flex:1;overflow-y:auto;"></div>
       </div>`;

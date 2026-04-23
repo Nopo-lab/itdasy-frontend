@@ -53,7 +53,7 @@
       <header class="dt-hdr">
         <button class="dt-back" onclick="closeVideo()" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <h1 class="dt-title">영상 만들기</h1>
-        <span id="videoBadge" style="font-size:10px;padding:2px 6px;border-radius:4px;"></span>
+        <span id="videoBadge" style="font-size:13px;padding:2px 6px;border-radius:4px;"></span>
       </header>
       <div class="dt-body" id="videoBody"></div>
     `;
@@ -72,8 +72,8 @@
   function _modeSwitcher() {
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;padding:4px;background:rgba(0,0,0,0.04);border-radius:10px;">
-        <button data-mode="beforeafter" style="padding:10px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:${_mode === 'beforeafter' ? 'var(--accent,#F18091)' : 'transparent'};color:${_mode === 'beforeafter' ? '#fff' : '#555'};">🔄 비포·애프터</button>
-        <button data-mode="sequence" style="padding:10px;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:${_mode === 'sequence' ? 'var(--accent,#F18091)' : 'transparent'};color:${_mode === 'sequence' ? '#fff' : '#555'};">🎞 여러 컷 (~${MAX_IMAGES})</button>
+        <button data-mode="beforeafter" style="padding:10px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;background:${_mode === 'beforeafter' ? 'var(--accent,#F18091)' : 'transparent'};color:${_mode === 'beforeafter' ? '#fff' : '#555'};">🔄 비포·애프터</button>
+        <button data-mode="sequence" style="padding:10px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;background:${_mode === 'sequence' ? 'var(--accent,#F18091)' : 'transparent'};color:${_mode === 'sequence' ? '#fff' : '#555'};">🎞 여러 컷 (~${MAX_IMAGES})</button>
       </div>
     `;
   }
@@ -91,9 +91,9 @@
             ${empty ? '<span style="font-size:22px;color:#ccc;">＋</span>' : ''}
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:4px;">${label}</div>
-            ${empty ? '<div style="font-size:12px;color:#aaa;">탭해서 사진 선택</div>' : `
-              <input data-slot-caption="${i}" value="${_esc(slot.caption || '')}" maxlength="${TEXT_MAX}" placeholder="자막 (예: ${label})" style="width:100%;padding:6px 8px;border:1px solid #eee;border-radius:6px;font-size:12px;" />
+            <div style="font-size:13px;color:#888;font-weight:700;margin-bottom:4px;">${label}</div>
+            ${empty ? '<div style="font-size:13px;color:#aaa;">탭해서 사진 선택</div>' : `
+              <input data-slot-caption="${i}" value="${_esc(slot.caption || '')}" maxlength="${TEXT_MAX}" placeholder="자막 (예: ${label})" style="width:100%;padding:6px 8px;border:1px solid #eee;border-radius:6px;font-size:13px;" />
             `}
           </div>
           ${slot?.url && _mode === 'sequence' && _slots.length > 2 ? `<button type="button" data-slot-remove="${i}" style="background:none;border:none;color:#c00;font-size:16px;cursor:pointer;padding:4px;">🗑</button>` : ''}
@@ -110,7 +110,7 @@
 
     const slotsHtml = Array.from({ length: count }, (_, i) => _slotCard(i)).join('');
     const addBtn = _mode === 'sequence' && _slots.length < MAX_IMAGES
-      ? `<button data-slot-add style="width:100%;padding:10px;border:2px dashed #ddd;border-radius:10px;background:transparent;color:#888;cursor:pointer;font-size:12px;margin-bottom:10px;">＋ 컷 추가 (${_slots.length}/${MAX_IMAGES})</button>`
+      ? `<button data-slot-add style="width:100%;padding:10px;border:2px dashed #ddd;border-radius:10px;background:transparent;color:#888;cursor:pointer;font-size:13px;margin-bottom:10px;">＋ 컷 추가 (${_slots.length}/${MAX_IMAGES})</button>`
       : '';
     return slotsHtml + addBtn;
   }
@@ -120,15 +120,15 @@
     const tLabel = { fade: '💫 페이드', slide: '➡️ 슬라이드', wipe: '◐ 와이프', radial: '🌀 원형' };
     return `
       <div style="padding:12px;background:#fff;border-radius:12px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-        <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">전환 효과</div>
+        <div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px;">전환 효과</div>
         <div style="display:grid;grid-template-columns:repeat(${trans.length},1fr);gap:6px;margin-bottom:12px;">
           ${trans.map(t => `
-            <button data-trans="${t}" style="padding:8px 4px;border:1px solid ${_transition === t ? 'var(--accent,#F18091)' : '#ddd'};border-radius:8px;background:${_transition === t ? 'rgba(241,128,145,0.1)' : '#fff'};color:${_transition === t ? 'var(--accent,#F18091)' : '#555'};font-size:11px;font-weight:700;cursor:pointer;">${tLabel[t] || t}</button>
+            <button data-trans="${t}" style="padding:8px 4px;border:1px solid ${_transition === t ? 'var(--accent,#F18091)' : '#ddd'};border-radius:8px;background:${_transition === t ? 'rgba(241,128,145,0.1)' : '#fff'};color:${_transition === t ? 'var(--accent,#F18091)' : '#555'};font-size:13px;font-weight:700;cursor:pointer;">${tLabel[t] || t}</button>
           `).join('')}
         </div>
         <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:6px;">
-          <span style="font-size:11px;color:#666;flex:1;">정지 <b id="vHoldLabel">${_hold}</b>초</span>
-          <span style="font-size:11px;color:#666;flex:1;">전환 <b id="vTransLabel">${_trans}</b>초</span>
+          <span style="font-size:13px;color:#666;flex:1;">정지 <b id="vHoldLabel">${_hold}</b>초</span>
+          <span style="font-size:13px;color:#666;flex:1;">전환 <b id="vTransLabel">${_trans}</b>초</span>
         </div>
         <input id="vHold" type="range" min="0.4" max="3.0" step="0.1" value="${_hold}" style="width:100%;margin-bottom:4px;" />
         <input id="vTrans" type="range" min="0.2" max="2.0" step="0.1" value="${_trans}" style="width:100%;" />
@@ -138,7 +138,7 @@
 
   function _aiSuggestBlock() {
     return `
-      <button data-ai-suggest style="width:100%;padding:10px;border:1px solid rgba(241,128,145,0.3);border-radius:10px;background:rgba(241,128,145,0.05);color:var(--accent,#F18091);cursor:pointer;font-size:12px;font-weight:700;margin-bottom:12px;">
+      <button data-ai-suggest style="width:100%;padding:10px;border:1px solid rgba(241,128,145,0.3);border-radius:10px;background:rgba(241,128,145,0.05);color:var(--accent,#F18091);cursor:pointer;font-size:13px;font-weight:700;margin-bottom:12px;">
         ✨ AI 자막 추천 받기
       </button>
     `;
@@ -148,7 +148,7 @@
     const ready = _slots.filter(s => s.file).length >= 2;
     return `
       <button id="vGenerate" ${ready ? '' : 'disabled'} style="width:100%;padding:13px;border:none;border-radius:10px;background:${ready ? 'linear-gradient(135deg,#F18091,#D95F70)' : '#ddd'};color:${ready ? '#fff' : '#888'};font-weight:800;cursor:${ready ? 'pointer' : 'not-allowed'};font-size:15px;">${ready ? '🎬 영상 만들기' : '📸 사진 ' + (_mode === 'beforeafter' ? '2장' : '2~6장') + ' 선택'}</button>
-      <div id="vStatus" style="margin-top:10px;min-height:20px;font-size:12px;color:#888;text-align:center;"></div>
+      <div id="vStatus" style="margin-top:10px;min-height:20px;font-size:13px;color:#888;text-align:center;"></div>
     `;
   }
 
@@ -322,7 +322,7 @@
           <a href="${objUrl}" download="video_${Date.now()}.mp4" style="padding:10px;background:#fff;border:1px solid #ddd;border-radius:8px;color:#555;text-decoration:none;font-weight:700;font-size:13px;text-align:center;">📥 MP4 저장</a>
           <button data-share-ig style="padding:10px;background:linear-gradient(135deg,#833AB4,#FD1D1D);border:none;border-radius:8px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">🎵 인스타로 이어편집</button>
         </div>
-        <div style="font-size:11px;color:#888;text-align:center;margin-top:8px;">인스타 공유 → 릴스에서 BGM·스티커 추가하세요</div>
+        <div style="font-size:13px;color:#888;text-align:center;margin-top:8px;">인스타 공유 → 릴스에서 BGM·스티커 추가하세요</div>
       `;
       btn.disabled = false;
       btn.textContent = '🎬 다시 만들기';

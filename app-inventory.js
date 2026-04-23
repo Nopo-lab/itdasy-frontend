@@ -187,7 +187,7 @@
           </div>
           <div class="dt-stepper">
             <button class="dt-stepper__btn" data-inv-delta="-1" data-inv-target="${x.id}" type="button">−</button>
-            <span class="dt-stepper__val${isLow ? ' dt-stepper__val--low' : ''}">${x.quantity || 0}<span style="font-size:12px;font-weight:400;color:var(--text-subtle);margin-left:4px;">${_esc(x.unit||'개')}</span></span>
+            <span class="dt-stepper__val${isLow ? ' dt-stepper__val--low' : ''}">${x.quantity || 0}<span style="font-size:13px;font-weight:400;color:var(--text-subtle);margin-left:4px;">${_esc(x.unit||'개')}</span></span>
             <button class="dt-stepper__btn" data-inv-delta="1" data-inv-target="${x.id}" type="button">+</button>
             <button data-inv-edit="${x.id}" class="btn-secondary" style="padding:8px 10px;" type="button">⚙</button>
           </div>

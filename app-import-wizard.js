@@ -99,8 +99,8 @@
       ${STEPS.map((label, i) => `
         <div style="display:flex;align-items:center;flex:1;min-width:0;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${i < activeIdx ? 'var(--brand,#F18091)' : i === activeIdx ? 'var(--brand,#F18091)' : 'var(--border-strong,#ddd)'};background:${i < activeIdx ? 'var(--brand,#F18091)' : i === activeIdx ? 'var(--brand-bg,#FEF4F5)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${i < activeIdx ? '#fff' : i === activeIdx ? 'var(--brand,#F18091)' : 'var(--text-subtle,#bbb)'};">${i < activeIdx ? '✓' : i + 1}</div>
-            <div style="font-size:10px;font-weight:700;color:${i === activeIdx ? 'var(--brand,#F18091)' : 'var(--text-subtle,#aaa)'};white-space:nowrap;">${label}</div>
+            <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${i < activeIdx ? 'var(--brand,#F18091)' : i === activeIdx ? 'var(--brand,#F18091)' : 'var(--border-strong,#ddd)'};background:${i < activeIdx ? 'var(--brand,#F18091)' : i === activeIdx ? 'var(--brand-bg,#FEF4F5)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:${i < activeIdx ? '#fff' : i === activeIdx ? 'var(--brand,#F18091)' : 'var(--text-subtle,#bbb)'};">${i < activeIdx ? '✓' : i + 1}</div>
+            <div style="font-size:13px;font-weight:700;color:${i === activeIdx ? 'var(--brand,#F18091)' : 'var(--text-subtle,#aaa)'};white-space:nowrap;">${label}</div>
           </div>
           ${i < STEPS.length - 1 ? `<div style="flex:1;height:2px;background:${i < activeIdx ? 'var(--brand,#F18091)' : 'var(--border,#eee)'};margin:0 4px;margin-bottom:16px;"></div>` : ''}
         </div>
@@ -139,12 +139,12 @@
           <div style="font-size:15px;font-weight:800;color:var(--text,#222);margin-bottom:6px;">엑셀 / CSV 파일을 여기에 놓거나</div>
           <button id="iw-file-pick" style="padding:10px 24px;background:var(--brand,#F18091);color:#fff;border:none;border-radius:100px;font-weight:800;font-size:13px;cursor:pointer;margin-top:4px;">파일 선택</button>
           <input type="file" id="iw-file-input" accept=".csv,.xlsx,.xls" style="display:none;" />
-          <div style="margin-top:12px;font-size:11px;color:var(--text-subtle,#aaa);">CSV · XLSX · XLS 지원 · 고객/예약/매출 탭만 가능</div>
+          <div style="margin-top:12px;font-size:13px;color:var(--text-subtle,#aaa);">CSV · XLSX · XLS 지원 · 고객/예약/매출 탭만 가능</div>
         </div>
         ${state.file ? `<div style="margin-top:14px;padding:10px 16px;background:var(--surface-raised,#f2f2f2);border-radius:10px;display:flex;align-items:center;gap:10px;text-align:left;">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <div style="flex:1;font-size:12.5px;font-weight:700;color:var(--text,#333);">${_esc(state.file.name)}</div>
-          <button id="iw-start" style="padding:8px 18px;background:var(--brand,#F18091);color:#fff;border:none;border-radius:100px;font-weight:800;font-size:12px;cursor:pointer;">분석 시작</button>
+          <button id="iw-start" style="padding:8px 18px;background:var(--brand,#F18091);color:#fff;border:none;border-radius:100px;font-weight:800;font-size:13px;cursor:pointer;">분석 시작</button>
         </div>` : ''}
       </div>
     `, 0);
@@ -163,7 +163,7 @@
       <div style="padding:40px 20px;text-align:center;">
         <div style="width:48px;height:48px;border:4px solid #eee;border-top-color:var(--brand,#F18091);border-radius:50%;margin:0 auto 16px;animation:pvSpin 0.8s linear infinite;"></div>
         <div style="font-size:14px;font-weight:700;color:var(--text,#333);margin-bottom:6px;">AI가 엑셀 분석 중…</div>
-        <div style="font-size:12px;color:var(--text-subtle,#888);">컬럼명·샘플 데이터를 해석해서 매핑을 제안해요.</div>
+        <div style="font-size:13px;color:var(--text-subtle,#888);">컬럼명·샘플 데이터를 해석해서 매핑을 제안해요.</div>
       </div>
     `, 1);
   }
@@ -207,16 +207,16 @@
     const mappingRows = kindFields.map(([field, label]) => {
       const current = state.mapping[field] || '';
       const c = conf[field];
-      const confBadge = c != null ? `<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:${c >= 0.7 ? '#E8F5E9' : c >= 0.4 ? '#FFF3E0' : '#FFEBEE'};color:${c >= 0.7 ? '#2E7D32' : c >= 0.4 ? '#E68A00' : '#C62828'};font-weight:700;">${Math.round(c*100)}%</span>` : '';
+      const confBadge = c != null ? `<span style="font-size:13px;padding:2px 7px;border-radius:100px;background:${c >= 0.7 ? '#E8F5E9' : c >= 0.4 ? '#FFF3E0' : '#FFEBEE'};color:${c >= 0.7 ? '#2E7D32' : c >= 0.4 ? '#E68A00' : '#C62828'};font-weight:700;">${Math.round(c*100)}%</span>` : '';
       const options = ['<option value="">(매핑 안 함)</option>'].concat(
         headers.map(h => `<option value="${_esc(h)}" ${h === current ? 'selected' : ''}>${_esc(h)}</option>`)
       ).join('');
       return `
         <button class="list-menu__item" style="width:100%;cursor:default;">
           <div class="list-menu__body">
-            <div class="list-menu__title" style="font-size:12px;">${_esc(label)}</div>
+            <div class="list-menu__title" style="font-size:13px;">${_esc(label)}</div>
           </div>
-          <select data-map-field="${field}" style="padding:6px 10px;border:1px solid var(--border-strong,#ddd);border-radius:8px;font-size:12px;background:var(--surface,#fff);color:var(--text,#333);">${options}</select>
+          <select data-map-field="${field}" style="padding:6px 10px;border:1px solid var(--border-strong,#ddd);border-radius:8px;font-size:13px;background:var(--surface,#fff);color:var(--text,#333);">${options}</select>
           ${confBadge}
         </button>`;
     }).join('');
@@ -224,7 +224,7 @@
     const extras = a.extras || [];
     const extrasRows = extras.length ? extras.map(e => `
       <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#FFF9F2;border:1px solid #FFE0CC;border-radius:8px;margin-bottom:5px;">
-        <div style="flex:1;font-size:12px;color:#333;"><strong>${_esc(e.column)}</strong> <span style="color:#888;">— ${_esc(e.reason || '')}</span></div>
+        <div style="flex:1;font-size:13px;color:#333;"><strong>${_esc(e.column)}</strong> <span style="color:#888;">— ${_esc(e.reason || '')}</span></div>
         <select data-extra="${_esc(e.column)}" style="padding:6px 8px;border:1px solid #ddd;border-radius:7px;font-size:11.5px;">
           <option value="memo" ${state.extras[e.column]==='memo' ? 'selected':''}>메모 병합</option>
           <option value="tags" ${state.extras[e.column]==='tags' ? 'selected':''}>태그로</option>
@@ -238,13 +238,13 @@
       </div>
 
       <div style="margin-bottom:16px;">
-        <div style="font-size:11px;letter-spacing:1px;color:#888;font-weight:800;margin-bottom:8px;">🧭 컬럼 매핑</div>
+        <div style="font-size:13px;letter-spacing:1px;color:#888;font-weight:800;margin-bottom:8px;">🧭 컬럼 매핑</div>
         ${mappingRows}
       </div>
 
       ${extras.length ? `
       <div style="margin-bottom:16px;">
-        <div style="font-size:11px;letter-spacing:1px;color:#E68A00;font-weight:800;margin-bottom:8px;">🆕 없는 항목 (${extras.length}개) — 어디로 넣을까요?</div>
+        <div style="font-size:13px;letter-spacing:1px;color:#E68A00;font-weight:800;margin-bottom:8px;">🆕 없는 항목 (${extras.length}개) — 어디로 넣을까요?</div>
         ${extrasRows}
       </div>` : ''}
 
@@ -279,10 +279,10 @@
     const mappedFields = Object.entries(state.mapping).filter(([, col]) => col);
     const cardsHtml = previewRows.length ? previewRows.map((row, i) => `
       <div style="background:var(--surface-raised,#fafafa);border:1px solid var(--border,#eee);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:800;color:var(--text-subtle,#aaa);margin-bottom:8px;">행 ${i + 1}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text-subtle,#aaa);margin-bottom:8px;">행 ${i + 1}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
           ${mappedFields.map(([field, col]) => `
-            <div><div style="font-size:10px;color:var(--text-subtle,#888);margin-bottom:2px;">${_esc(col)}</div>
+            <div><div style="font-size:13px;color:var(--text-subtle,#888);margin-bottom:2px;">${_esc(col)}</div>
             <div style="font-size:12.5px;font-weight:700;color:var(--text,#222);">${_esc(String(row[col] ?? '—'))}</div></div>
           `).join('')}
         </div>
@@ -299,9 +299,9 @@
 
       ${dups.length ? `
       <div style="display:flex;gap:6px;padding:8px;background:#F3F4F6;border-radius:10px;margin-bottom:10px;align-items:center;">
-        <span style="font-size:11px;color:#555;font-weight:700;margin-right:4px;">전체 일괄:</span>
+        <span style="font-size:13px;color:#555;font-weight:700;margin-right:4px;">전체 일괄:</span>
         ${['skip','overwrite','new_row'].map(p => `
-          <button data-bulk="${p}" style="flex:1;padding:6px;background:#fff;border:1px solid #ddd;border-radius:7px;font-size:11px;font-weight:700;color:#555;cursor:pointer;">
+          <button data-bulk="${p}" style="flex:1;padding:6px;background:#fff;border:1px solid #ddd;border-radius:7px;font-size:13px;font-weight:700;color:#555;cursor:pointer;">
             ${p === 'skip' ? '전부 건너뛰기' : p === 'overwrite' ? '전부 덮어쓰기' : '전부 새로 추가'}
           </button>
         `).join('')}
@@ -376,7 +376,7 @@
       <div style="padding:8px 0;">
         <div class="banner banner--info" role="status" style="margin-bottom:16px;border-radius:12px;">
           <span style="flex:1;font-size:13.5px;font-weight:800;">반영 완료</span>
-          <span style="font-size:12px;opacity:0.85;">
+          <span style="font-size:13px;opacity:0.85;">
             추가 ${d.imported || 0}건 · 덮어씀 ${d.overwritten || 0}건 · 건너뜀 ${d.skipped || 0}건${d.failed ? ` · 실패 ${d.failed}건` : ''}
           </span>
         </div>

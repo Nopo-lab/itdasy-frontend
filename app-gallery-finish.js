@@ -31,14 +31,14 @@ function _renderFinishTab(root, galleryItems = []) {
       <div style="text-align:center;padding:60px 20px;">
         <div style="font-size:40px;margin-bottom:12px;">📭</div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">작업실에서 슬롯을 먼저 만들어보세요</div>
-        <button onclick="showTab('workshop',document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); initWorkshopTab();" style="margin-top:16px;padding:10px 20px;border-radius:12px;border:1.5px solid var(--accent2);background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:12px;">작업실로 이동 →</button>
+        <button onclick="showTab('workshop',document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); initWorkshopTab();" style="margin-top:16px;padding:10px 20px;border-radius:12px;border:1.5px solid var(--accent2);background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:13px;">작업실로 이동 →</button>
       </div>
     `;
     return;
   }
 
   const incompleteHtml = incompleteN > 0
-    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:14px;">미완료 ${incompleteN}개 있어요 · <button onclick="showTab('dashboard',document.querySelector('.tab-bar__btn[data-tab=&quot;dashboard&quot;]')); initDashboardTab();" style="background:transparent;border:none;color:var(--accent2);font-size:11px;font-weight:700;cursor:pointer;padding:0;">AI추천에서 확인 →</button></div>`
+    ? `<div style="font-size:13px;color:var(--text3);margin-bottom:14px;">미완료 ${incompleteN}개 있어요 · <button onclick="showTab('dashboard',document.querySelector('.tab-bar__btn[data-tab=&quot;dashboard&quot;]')); initDashboardTab();" style="background:transparent;border:none;color:var(--accent2);font-size:13px;font-weight:700;cursor:pointer;padding:0;">AI추천에서 확인 →</button></div>`
     : '';
 
   if (!doneSlots.length) {
@@ -48,7 +48,7 @@ function _renderFinishTab(root, galleryItems = []) {
       <div style="text-align:center;padding:40px 20px;">
         <div style="font-size:32px;margin-bottom:10px;">⏳</div>
         <div style="font-size:13px;font-weight:700;color:var(--text);">완료된 슬롯이 없어요</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px;">작업실에서 슬롯을 완료(✅)하면 여기 표시돼요</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px;">작업실에서 슬롯을 완료(✅)하면 여기 표시돼요</div>
       </div>
     `;
     return;
@@ -60,7 +60,7 @@ function _renderFinishTab(root, galleryItems = []) {
       `<img src="${p.editedDataUrl || p.dataUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">`
     ).join('');
     const cap = slot.caption
-      ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${slot.caption.slice(0, 60)}${slot.caption.length > 60 ? '…' : ''}</div>`
+      ? `<div style="font-size:13px;color:var(--text3);margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${slot.caption.slice(0, 60)}${slot.caption.length > 60 ? '…' : ''}</div>`
       : '';
     const isDeferred = !!slot.deferredAt;
     return `
@@ -75,22 +75,22 @@ function _renderFinishTab(root, galleryItems = []) {
               ${isDeferred ? '<span style="font-size:9px;background:rgba(255,193,7,0.15);color:#f57c00;border-radius:4px;padding:1px 5px;font-weight:700;">나중에</span>' : ''}
               ${slot.customer_name ? `<span style="font-size:9px;background:rgba(241,128,145,0.15);color:var(--accent,#F18091);border-radius:4px;padding:1px 5px;font-weight:700;">👤 ${slot.customer_name.slice(0,6)}</span>` : ''}
             </div>
-            <div style="font-size:11px;color:var(--text3);">${visPhotos.length}장</div>
+            <div style="font-size:13px;color:var(--text3);">${visPhotos.length}장</div>
             ${cap}
           </div>
-          <button data-action="edit" style="flex-shrink:0;padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;font-size:11px;color:var(--text2);cursor:pointer;font-weight:600;">편집</button>
+          <button data-action="edit" style="flex-shrink:0;padding:6px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;font-size:13px;color:var(--text2);cursor:pointer;font-weight:600;">편집</button>
         </div>
         <!-- 마무리 액션 -->
         <div style="display:flex;flex-direction:column;gap:6px;">
           <button data-action="publish" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">🚀 인스타 바로 올리기</button>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-            <button data-action="gallery" style="min-height:40px;padding:10px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">📁 갤러리 보관</button>
-            <button data-action="download" style="min-height:40px;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;">📥 폰에 저장</button>
+            <button data-action="gallery" style="min-height:40px;padding:10px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">📁 갤러리 보관</button>
+            <button data-action="download" style="min-height:40px;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;">📥 폰에 저장</button>
           </div>
           <div style="display:flex;gap:6px;">
-            <button data-action="pickCustomer" style="flex:1;min-height:40px;padding:8px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent,#F18091);font-size:11px;font-weight:700;cursor:pointer;">👤 ${slot.customer_name ? slot.customer_name.slice(0,8) : '고객 지정'}</button>
-            <button data-action="defer" style="flex:1;min-height:40px;padding:8px;border-radius:10px;border:1.5px solid rgba(255,193,7,0.5);background:transparent;color:#f57c00;font-size:11px;font-weight:700;cursor:pointer;">🕐 나중에 (AI추천으로)</button>
-            <button data-action="delete" style="min-height:40px;padding:8px 14px;border-radius:10px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;color:#dc3545;font-size:11px;cursor:pointer;font-weight:600;">삭제</button>
+            <button data-action="pickCustomer" style="flex:1;min-height:40px;padding:8px;border-radius:10px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent,#F18091);font-size:13px;font-weight:700;cursor:pointer;">👤 ${slot.customer_name ? slot.customer_name.slice(0,8) : '고객 지정'}</button>
+            <button data-action="defer" style="flex:1;min-height:40px;padding:8px;border-radius:10px;border:1.5px solid rgba(255,193,7,0.5);background:transparent;color:#f57c00;font-size:13px;font-weight:700;cursor:pointer;">🕐 나중에 (AI추천으로)</button>
+            <button data-action="delete" style="min-height:40px;padding:8px 14px;border-radius:10px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;color:#dc3545;font-size:13px;cursor:pointer;font-weight:600;">삭제</button>
           </div>
         </div>
       </div>
@@ -108,7 +108,7 @@ function _renderFinishTab(root, galleryItems = []) {
     });
     const dateHtml = Object.entries(byDate).map(([date, items]) => `
       <div style="margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">${date}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:8px;">${date}</div>
         <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;">
           ${items.map(item => {
             const thumb = item.photos?.[0];
@@ -127,7 +127,7 @@ function _renderFinishTab(root, galleryItems = []) {
     `).join('');
     return `
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;">갤러리 📁 <span style="font-size:11px;color:var(--text3);font-weight:400;">${galleryItems.length}개</span></div>
+        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px;">갤러리 📁 <span style="font-size:13px;color:var(--text3);font-weight:400;">${galleryItems.length}개</span></div>
         ${dateHtml}
       </div>`;
   })() : '';
@@ -172,7 +172,7 @@ function _galleryItemDetail(galleryId) {
     pop.innerHTML = `
       <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:90vh;overflow-y:auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div style="font-size:14px;font-weight:800;">${escapeHtml(item.label)} <span style="font-size:11px;color:var(--text3);font-weight:400;">${escapeHtml(item.date)}</span></div>
+          <div style="font-size:14px;font-weight:800;">${escapeHtml(item.label)} <span style="font-size:13px;color:var(--text3);font-weight:400;">${escapeHtml(item.date)}</span></div>
           <button onclick="document.getElementById('_galleryDetailPop').style.display='none'" style="background:transparent;border:none;font-size:20px;color:#aaa;cursor:pointer;">×</button>
         </div>
         ${_buildPeekCarousel(photos, 'gd_carousel')}
@@ -180,8 +180,8 @@ function _galleryItemDetail(galleryId) {
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">
           <button id="_gd_republish" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">📸 다시 올리기</button>
           <div style="display:flex;gap:8px;">
-            <button id="_gd_download" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--border);background:transparent;font-size:12px;color:var(--text2);cursor:pointer;font-weight:600;">📥 저장</button>
-            <button id="_gd_delete" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;font-size:12px;color:#dc3545;cursor:pointer;">삭제</button>
+            <button id="_gd_download" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--border);background:transparent;font-size:13px;color:var(--text2);cursor:pointer;font-weight:600;">📥 저장</button>
+            <button id="_gd_delete" style="flex:1;padding:10px;border-radius:12px;border:1.5px solid rgba(220,53,69,0.3);background:transparent;font-size:13px;color:#dc3545;cursor:pointer;">삭제</button>
           </div>
         </div>
       </div>

@@ -80,14 +80,14 @@
       <div style="text-align:center;padding:10px 0 20px;">
         <div style="font-size:14px;color:#555;line-height:1.6;margin-bottom:20px;">
           아래 버튼을 누르고 짧게 말해 보세요.<br>
-          <span style="font-size:12px;color:#888;">예: "김지연 속눈썹 풀세트 오만원 카드"</span>
+          <span style="font-size:13px;color:#888;">예: "김지연 속눈썹 풀세트 오만원 카드"</span>
         </div>
         <button id="voiceStart" data-haptic="medium" style="width:140px;height:140px;border-radius:50%;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-size:54px;cursor:pointer;box-shadow:0 10px 30px rgba(241,128,145,0.35);transition:transform 0.15s;">
           🎙
         </button>
-        <div style="font-size:12px;color:#888;margin-top:16px;">탭해서 녹음 시작</div>
+        <div style="font-size:13px;color:#888;margin-top:16px;">탭해서 녹음 시작</div>
       </div>
-      <div style="padding:12px;background:rgba(241,128,145,0.06);border-radius:12px;font-size:11px;color:#666;line-height:1.6;">
+      <div style="padding:12px;background:rgba(241,128,145,0.06);border-radius:12px;font-size:13px;color:#666;line-height:1.6;">
         💡 <b>꿀팁</b> — 조용한 곳에서 1~2초 간격으로 또박또박. 이름 · 시술 · 금액 · 결제수단 순서면 가장 정확해요.
       </div>
     `;
@@ -140,12 +140,12 @@
       <div style="padding:10px 0;">
         <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:linear-gradient(135deg,rgba(241,128,145,0.12),rgba(241,128,145,0.04));border-radius:10px;margin-bottom:14px;">
           <span style="font-size:13px;font-weight:700;">${kindLabel}</span>
-          <span style="font-size:11px;color:#888;margin-left:auto;">AI 분석 결과</span>
+          <span style="font-size:13px;color:#888;margin-left:auto;">AI 분석 결과</span>
         </div>
         <div style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.06);overflow:hidden;margin-bottom:14px;">
           ${rows.map((r, i) => `
             <div style="display:flex;gap:10px;align-items:center;padding:11px 14px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}">
-              <div style="width:52px;font-size:11px;color:#888;">${r.label}</div>
+              <div style="width:52px;font-size:13px;color:#888;">${r.label}</div>
               <div style="flex:1;font-size:14px;color:#222;font-weight:600;">${_esc(r.value)}</div>
             </div>
           `).join('')}
@@ -155,7 +155,7 @@
           <button id="voiceSave" style="flex:2;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;font-size:14px;">이대로 저장 ✓</button>
         </div>
         <div style="display:flex;gap:6px;margin-top:10px;">
-          <button id="voiceRetry" style="flex:1;padding:10px;border:1px solid #eee;border-radius:8px;background:transparent;color:#888;cursor:pointer;font-size:12px;">🎙 다시 말하기</button>
+          <button id="voiceRetry" style="flex:1;padding:10px;border:1px solid #eee;border-radius:8px;background:transparent;color:#888;cursor:pointer;font-size:13px;">🎙 다시 말하기</button>
         </div>
       </div>
     `;
@@ -169,23 +169,23 @@
     document.getElementById('voiceBody').innerHTML = `
       <div style="padding:10px 4px;">
         <button onclick="window._voiceBackConfirm()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 결과</button>
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">고객</label>
+        <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">고객</label>
         <input id="veName" value="${_esc(r.customer_name||'')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" maxlength="50" />
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">시술</label>
+        <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">시술</label>
         <input id="veService" value="${_esc(r.service_name||'')}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" maxlength="50" />
         <div style="display:flex;gap:8px;margin-bottom:10px;">
           <div style="flex:1;">
-            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">금액(원)</label>
+            <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">금액(원)</label>
             <input id="veAmount" type="number" inputmode="numeric" value="${r.amount||''}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;" />
           </div>
           <div style="flex:1;">
-            <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">결제</label>
+            <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">결제</label>
             <select id="veMethod" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
               ${['card','cash','transfer','etc'].map(m => `<option value="${m}" ${r.method===m?'selected':''}>${({card:'카드',cash:'현금',transfer:'이체',etc:'기타'})[m]}</option>`).join('')}
             </select>
           </div>
         </div>
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">메모</label>
+        <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">메모</label>
         <textarea id="veMemo" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:12px;resize:vertical;" maxlength="200">${_esc(r.memo||'')}</textarea>
         <button id="veDone" style="width:100%;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;">✓ 반영하기</button>
       </div>

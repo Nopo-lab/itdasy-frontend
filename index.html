@@ -213,7 +213,7 @@
   <div style="margin:24px 0; text-align:center;">
     <div style="font-size:18px; font-weight:800; color:var(--text); line-height:1.4; letter-spacing:-0.5px;">피드 글 작성부터<br>사진 편집, 인스타 발행까지</div>
     <div style="margin-top:8px; font-size:15px; font-weight:700; color:var(--accent2);">핸드폰 하나로 끝.</div>
-    <div style="margin-top:12px; font-size:12px; color:var(--text3); font-weight:500;">"사장님의 시간을 아껴, 매출을 잇습니다."</div>
+    <div style="margin-top:12px; font-size:13px; color:var(--text3); font-weight:500;">"사장님의 시간을 아껴, 매출을 잇습니다."</div>
   </div>
 
   <div style="margin-bottom:20px; font-size:13px; color:var(--accent); font-weight:600; display:none;" id="sessionExpiredMsg">⚠️ 로그인 세션이 만료되었습니다. 다시 로그인해주세요.</div>
@@ -236,7 +236,7 @@
   <div class="lock-title">🚀 잇데이 회원가입</div>
   <div class="lock-sub" style="margin-bottom:8px;">14일 무료 체험 · 카드 정보 불필요</div>
 
-  <div style="margin:20px 0 18px;text-align:center;font-size:12px;color:var(--text3);line-height:1.6;">
+  <div style="margin:20px 0 18px;text-align:center;font-size:13px;color:var(--text3);line-height:1.6;">
     가입 즉시 샘플 데이터가 자동 주입되어<br>바로 둘러볼 수 있어요.
   </div>
 
@@ -245,7 +245,7 @@
   <input type="password" class="login-input" id="signupPassword" placeholder="비밀번호 (8자 이상 · 영문+숫자)" autocomplete="new-password">
   <input type="text" class="login-input" id="signupRef" placeholder="추천 코드 (선택)" maxlength="12" autocomplete="off">
 
-  <label style="display:flex;align-items:flex-start;gap:8px;margin:14px 0 4px;padding:10px;background:rgba(241,128,145,0.06);border-radius:10px;cursor:pointer;font-size:12px;line-height:1.55;">
+  <label style="display:flex;align-items:flex-start;gap:8px;margin:14px 0 4px;padding:10px;background:rgba(241,128,145,0.06);border-radius:10px;cursor:pointer;font-size:13px;line-height:1.55;">
     <input type="checkbox" id="signupAgree" style="margin-top:2px;flex-shrink:0;">
     <span>
       <strong>필수 약관</strong>에 동의합니다 ·
@@ -283,7 +283,8 @@
 
   <!-- Step 2: 샵 종류 -->
   <div class="ob-step" id="ob-step-2">
-    <div class="ob-title" style="margin-bottom:20px;">샵 종류를 선택해 주세요</div>
+    <div class="ob-title" style="margin-bottom:6px;">샵 종류를 선택해 주세요</div>
+    <div class="ob-sub" style="margin-bottom:20px;font-size:13px;color:#888;">선택하신 업종에 맞춰 캡션·추천 멘트가 달라져요</div>
     <div class="ob-shop-grid">
       <div class="ob-shop-card" data-type="붙임머리" onclick="selectShopType(this)">
         <div class="ob-shop-icon">💇</div>
@@ -310,7 +311,7 @@
   <div class="ob-step" id="ob-step-3">
     <div class="ob-emoji">🏪</div>
     <div class="ob-title">샵 이름이<br>어떻게 되세요?</div>
-    <div class="ob-sub" style="margin-bottom:20px;">글에 자동으로 반영돼요</div>
+    <div class="ob-sub" style="margin-bottom:20px;">글에 자동으로 반영돼요 · 나중에 설정에서 변경 가능해요</div>
     <div class="ob-underline-wrap">
       <input class="ob-underline-input" id="obShopNameInput"
              type="text" placeholder="예) 잇데이 붙임머리"
@@ -347,7 +348,7 @@
     <div class="header-persona" id="headerPersona">
       <div class="profile-avatar" id="headerAvatar">잇</div>
     </div>
-    <button id="planBadge" data-haptic="light" onclick="if(typeof openPlanPopup==='function')openPlanPopup();" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">Free</button>
+    <button id="planBadge" data-haptic="light" onclick="if(typeof openPlanPopup==='function')openPlanPopup();" style="padding:6px 12px;border-radius:8px;font-size:13px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">Free</button>
     <button id="themeToggleBtn" data-haptic="light" onclick="if(typeof toggleTheme==='function')toggleTheme();" aria-label="다크모드 전환" title="화면 모드 전환" style="background:none;border:none;padding:4px;cursor:pointer;min-width:36px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ic ic--md" aria-hidden="true"><use id="themeToggleIcon" href="#ic-moon"/></svg></button>
     <button class="btn-settings" onclick="openSettings()" aria-label="설정">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F18091" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -380,11 +381,11 @@
     <button class="sheet-row" onclick="closeSettings(); resetShopSetup();">샵 정보 다시 설정하기</button>
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openSupportChat();">
       💬 고객센터
-      <span id="supportUnreadBadge" style="display:none;margin-left:8px;background:#f18091;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;"></span>
+      <span id="supportUnreadBadge" style="display:none;margin-left:8px;background:#f18091;color:#fff;font-size:13px;font-weight:800;padding:2px 7px;border-radius:10px;"></span>
     </button>
     <button class="sheet-row" data-haptic="medium" onclick="closeSettings(); window.openReferral && window.openReferral();"
             style="background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,215,0,0.04));border:1px solid rgba(255,179,71,0.3);font-weight:700;">
-      🎁 친구 초대 <span style="font-size:10px;color:#888;font-weight:400;margin-left:4px;">1명당 3개월 무료</span>
+      🎁 친구 초대 <span style="font-size:13px;color:#888;font-weight:400;margin-left:4px;">1명당 3개월 무료</span>
     </button>
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); runInstagramDiagnose();">
       🔧 인스타 연동 진단
@@ -394,22 +395,22 @@
     </button>
 
     <div class="sheet-sep"></div>
-    <div style="padding:6px 20px 8px;font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1.5px;">앱 설정</div>
+    <div style="padding:6px 20px 8px;font-size:13px;font-weight:800;color:var(--text3);letter-spacing:1.5px;">앱 설정</div>
     <button class="sheet-row" onclick="toggleHapticSetting(); updateHapticToggleLabel();">
-      📳 진동 <span id="hapticToggleStatus" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">켜짐</span>
+      📳 진동 <span id="hapticToggleStatus" style="margin-left:auto;font-size:13px;color:var(--accent);font-weight:700;">켜짐</span>
     </button>
     <button id="themeToggleBtn" class="sheet-row" onclick="window.cycleTheme && window.cycleTheme();">
       <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex-shrink:0"><use id="themeToggleIcon" href="#ic-sun"/></svg>
-      화면 <span id="themeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">라이트</span>
+      화면 <span id="themeLabel" style="margin-left:auto;font-size:13px;color:var(--accent);font-weight:700;">라이트</span>
     </button>
     <button class="sheet-row" onclick="window.cycleFontSize && window.cycleFontSize();">
-      🔠 글씨 크기 <span id="fontSizeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">보통</span>
+      🔠 글씨 크기 <span id="fontSizeLabel" style="margin-left:auto;font-size:13px;color:var(--accent);font-weight:700;">보통</span>
     </button>
 
     <div class="sheet-sep"></div>
 
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.openGrowthStory && window.openGrowthStory();">
-      🎉 월간 성장 리포트 <span style="margin-left:auto;font-size:11px;color:#888;">공유 이미지</span>
+      🎉 월간 성장 리포트 <span style="margin-left:auto;font-size:13px;color:#888;">공유 이미지</span>
     </button>
 
     <div class="sheet-sep"></div>
@@ -419,7 +420,7 @@
 
     <div class="sheet-sep"></div>
 
-    <div style="padding:14px 16px;background:#fafafa;border-radius:10px;margin:8px 0;font-size:11px;line-height:1.7;color:#666;">
+    <div style="padding:14px 16px;background:#fafafa;border-radius:10px;margin:8px 0;font-size:13px;line-height:1.7;color:#666;">
       <strong style="color:#333;">사업자 정보</strong><br>
       상호: <strong>와이투두 (Y2do)</strong><br>
       사업자등록번호: 179-36-01681<br>
@@ -430,7 +431,7 @@
 
     <button class="sheet-row muted" onclick="closeSettings(); localReset();">앱 전체 초기화</button>
     <button class="sheet-row" id="exportDataBtn" style="color:#0a7b3e;font-weight:700;">📦 내 데이터 내보내기 (CSV·JSON)</button>
-    <div style="padding:0 16px 6px;font-size:11px;color:#999;line-height:1.6;">
+    <div style="padding:0 16px 6px;font-size:13px;color:#999;line-height:1.6;">
       GDPR Art. 20 · CCPA · PIPA 제35조 — 내가 입력한 전체 데이터를 기계 판독 가능 형식으로 다운로드.
     </div>
     <button class="sheet-row danger" id="logoutBtn">로그아웃</button>
@@ -438,7 +439,7 @@
     <div class="sheet-sep"></div>
 
     <button class="sheet-row" id="deleteAccountBtn" style="color:#b00020;font-weight:700;">🗑 계정 탈퇴 (모든 데이터 영구 삭제)</button>
-    <div style="padding:0 16px 6px;font-size:11px;color:#999;line-height:1.6;">
+    <div style="padding:0 16px 6px;font-size:13px;color:#999;line-height:1.6;">
       탈퇴 시 고객·예약·매출·사진 등 모든 데이터가 복구 불가능하게 삭제됩니다.<br>
       문의: <a href="mailto:contact@itdasy.com" style="color:#888;">contact@itdasy.com</a>
     </div>
@@ -450,7 +451,7 @@
   <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
     <div style="padding:20px 20px 14px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border-bottom:1px solid #fecaca;">
       <div style="font-size:20px;font-weight:800;color:#b00020;letter-spacing:-0.3px;">⚠️ 계정 탈퇴 확인</div>
-      <div style="font-size:12px;color:#7a1f1f;margin-top:4px;line-height:1.5;">이 작업은 되돌릴 수 없습니다.</div>
+      <div style="font-size:13px;color:#7a1f1f;margin-top:4px;line-height:1.5;">이 작업은 되돌릴 수 없습니다.</div>
     </div>
     <div style="padding:18px 20px;font-size:13px;color:#333;line-height:1.7;">
       <strong>탈퇴 시 다음 데이터가 영구 삭제됩니다:</strong>
@@ -461,12 +462,12 @@
         <li>인스타그램 연결 정보 및 토큰</li>
         <li>결제·구독 내역 (법정 보존 의무 기간 제외)</li>
       </ul>
-      <div style="background:#f7f7f9;padding:10px 12px;border-radius:8px;font-size:12px;color:#666;margin-bottom:14px;">
+      <div style="background:#f7f7f9;padding:10px 12px;border-radius:8px;font-size:13px;color:#666;margin-bottom:14px;">
         계속하려면 아래에 <strong style="color:#b00020;">탈퇴</strong> 두 글자를 입력해주세요.
       </div>
       <input type="text" id="deleteAccountConfirmInput" placeholder="탈퇴" autocomplete="off"
         style="width:100%;padding:12px 14px;border:2px solid #fecaca;border-radius:10px;font-size:14px;outline:none;box-sizing:border-box;">
-      <div id="deleteAccountError" style="display:none;margin-top:8px;font-size:12px;color:#b00020;"></div>
+      <div id="deleteAccountError" style="display:none;margin-top:8px;font-size:13px;color:#b00020;"></div>
     </div>
     <div style="display:flex;gap:8px;padding:0 20px 20px;">
       <button type="button" onclick="closeDeleteAccountModal()"
@@ -484,14 +485,14 @@
       <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">💬</div>
       <div style="flex:1;">
         <div style="font-size:14px;font-weight:800;letter-spacing:-0.3px;">잇데이 고객지원팀</div>
-        <div style="font-size:11px;opacity:0.85;">보통 1영업일 내 답변드려요</div>
+        <div style="font-size:13px;opacity:0.85;">보통 1영업일 내 답변드려요</div>
       </div>
       <button onclick="closeSupportChat()" aria-label="닫기" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
     </div>
 
     <div id="supportChatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f7f7f9;">
       <div style="display:flex;gap:8px;align-items:flex-end;">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">잇</div>
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;">잇</div>
         <div style="background:#fff;border-radius:4px 14px 14px 14px;padding:10px 14px;max-width:78%;font-size:13px;line-height:1.5;color:#333;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
           안녕하세요 사장님! 💕<br>불편한 점이나 문의사항 있으시면 편하게 남겨주세요. 답변은 카톡 알림 대신 이 채팅방으로 드려요.
         </div>
@@ -579,7 +580,7 @@
     <div class="hc-step1">
       <div class="hc-step-label">인스타 연동</div>
       <div class="hc-title">연동 한 번이면<br>말투까지 학습해요</div>
-      <div class="hc-desc">연동 없이도 AI 캡션·사진 편집은 전부 사용 가능해요<br><span style="font-size:12px; color:var(--text-subtle);">연동하면 내 말투 그대로 글이 나와요</span></div>
+      <div class="hc-desc">연동 없이도 AI 캡션·사진 편집은 전부 사용 가능해요<br><span style="font-size:13px; color:var(--text-subtle);">연동하면 내 말투 그대로 글이 나와요</span></div>
       <button class="hc-btn-primary" onclick="connectInstagram()" data-haptic="light" style="min-height:48px;">연동하고 시작해요</button>
       <button class="hc-btn-ghost" id="sampleBtn" style="min-height:44px; display:flex; align-items:center; justify-content:center; gap:6px;">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
@@ -612,15 +613,15 @@
       </div>
     </div>
 
-    <div id="privacyConsentWrap" style="font-size:11px; color:var(--text-subtle);">
+    <div id="privacyConsentWrap" style="font-size:13px; color:var(--text-subtle);">
       <div style="display:flex; align-items:center; gap:6px; cursor:pointer;" onclick="(function(){const b=document.getElementById('consentBody');const arr=document.getElementById('consentArrow');if(b.style.display==='none'){b.style.display='block';arr.textContent='▲';}else{b.style.display='none';arr.textContent='▼';}})()">
         <span id="consentArrow" style="font-size:9px; color:var(--brand);">▼</span>
-        <span id="consentTimestampDisplay" style="color:var(--brand); font-size:10px; display:none;"></span>
+        <span id="consentTimestampDisplay" style="color:var(--brand); font-size:13px; display:none;"></span>
       </div>
       <div id="consentBody" style="display:none; margin-top:8px; padding:10px; background:var(--brand-bg); border-radius:8px; border:0.5px solid rgba(241,128,145,0.2);">
         <input type="checkbox" id="privacyConsentCb" style="display:none;" checked>
-        <div style="line-height:1.6; margin-bottom:8px;">AI 분석용 데이터 수집 및 인스타그램 게시물 발행에 활용됩니다.<br><span style="font-size:10px; color:var(--text-subtle);">AI 저작권 면책 준수 포함.</span></div>
-        <a href="privacy.html" target="_blank" style="color:var(--brand); text-decoration:underline; font-size:11px;">개인정보처리방침 전문 보기</a>
+        <div style="line-height:1.6; margin-bottom:8px;">AI 분석용 데이터 수집 및 인스타그램 게시물 발행에 활용됩니다.<br><span style="font-size:13px; color:var(--text-subtle);">AI 저작권 면책 준수 포함.</span></div>
+        <a href="privacy.html" target="_blank" style="color:var(--brand); text-decoration:underline; font-size:13px;">개인정보처리방침 전문 보기</a>
       </div>
     </div>
 
@@ -680,7 +681,7 @@
             style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 18px;margin-top:10px;background:#fff;border:1.5px solid #F3D8DE;border-radius:14px;color:#D95F70;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 2px 8px rgba(241,128,145,0.08);transition:all .15s;">
       <span style="font-size:20px;line-height:1;">🤖</span>
       <span style="flex:1;text-align:left;">AI 비서에게 물어보기</span>
-      <span style="font-size:11px;color:#999;font-weight:500;">"이번 주 매출 어때?"</span>
+      <span style="font-size:13px;color:#999;font-weight:500;">"이번 주 매출 어때?"</span>
       <svg class="ic" aria-hidden="true" style="color:#D95F70;"><use href="#ic-chevron-right"/></svg>
     </button>
 
@@ -719,7 +720,7 @@
     </div>
 
     <div id="cbt1ResetArea" style="display:none; text-align:center; padding:4px 0;">
-      <button id="fullResetBtn" style="background:transparent; border:1px dashed var(--border-strong); border-radius:10px; padding:8px 18px; font-size:12px; color:var(--text-subtle); cursor:pointer;">처음부터 시작하기 (CBT 전용)</button>
+      <button id="fullResetBtn" style="background:transparent; border:1px dashed var(--border-strong); border-radius:10px; padding:8px 18px; font-size:13px; color:var(--text-subtle); cursor:pointer;">처음부터 시작하기 (CBT 전용)</button>
     </div>
 
   </div>
@@ -733,7 +734,7 @@
       <div style="width:100%; height:6px; background:var(--brand-bg); border-radius:3px; overflow:hidden;">
         <div id="analyzeProgressBar" style="height:100%; width:0%; background:linear-gradient(90deg,var(--brand),var(--brand-strong)); border-radius:3px; transition:width 0.6s ease;"></div>
       </div>
-      <div id="analyzeSubText" style="margin-top:14px; font-size:12px; color:var(--text-subtle);">잠시만 기다려 주세요</div>
+      <div id="analyzeSubText" style="margin-top:14px; font-size:13px; color:var(--text-subtle);">잠시만 기다려 주세요</div>
     </div>
   </div>
 
@@ -790,7 +791,7 @@
 
       <!-- [상단] 시술 특징 태그 -->
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-        <label id="typeTagLabel" style="font-size:12px;font-weight:600;color:var(--text2);">시술 특징</label>
+        <label id="typeTagLabel" style="font-size:13px;font-weight:600;color:var(--text2);">시술 특징</label>
         <div class="tag-row" id="typeTags" style="margin-top:6px;"></div>
       </div>
 
@@ -825,7 +826,7 @@
             oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
             placeholder="#해시태그"
             style="width:100%;box-sizing:border-box;padding:0;border:none;outline:none;background:transparent;resize:none;overflow:hidden;display:block;"></textarea>
-          <div id="captionEditMicro" style="display:none;font-size:11px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border);justify-content:space-between;align-items:center;">
+          <div id="captionEditMicro" style="display:none;font-size:13px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border);justify-content:space-between;align-items:center;">
             <span>수정하면 자동 저장됩니다</span><span id="captionEditPct"></span>
           </div>
         </div>
@@ -837,7 +838,7 @@
 
       <!-- [하단] 사진 선택 (선택사항) -->
       <div id="captionPhotoRow" style="padding:12px 14px;border-top:1px solid var(--border);">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">사진 (선택)</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:8px;">사진 (선택)</div>
         <div id="captionPhotoThumbRow" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;align-items:center;min-height:80px;">
           <div onclick="_captionOpenSlotPicker()" style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;">📷</div>
         </div>
@@ -892,7 +893,7 @@
         </div>
 
         <div style="padding:0 20px 24px;">
-            <div style="padding:12px; background:rgba(232,160,176,0.08); border-radius:14px; font-size:11px; color:var(--accent2); margin-bottom:12px; text-align:center; font-weight:600;">
+            <div style="padding:12px; background:rgba(232,160,176,0.08); border-radius:14px; font-size:13px; color:var(--accent2); margin-bottom:12px; text-align:center; font-weight:600;">
                 ⚠️ 이대로 사장님 본계정에 바로 올라갑니다!
             </div>
             <!-- 스토리 자동 발행 토글 -->
@@ -900,7 +901,7 @@
                 <input type="checkbox" id="autoStoryToggle" style="width:18px; height:18px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;">
                 <div>
                     <div style="font-size:13px; font-weight:700; color:var(--text);">스토리도 같이 올리기 🎬</div>
-                    <div style="font-size:11px; color:var(--text3); margin-top:2px;">피드 업로드 후 스토리에도 자동으로 올려드려요</div>
+                    <div style="font-size:13px; color:var(--text3); margin-top:2px;">피드 업로드 후 스토리에도 자동으로 올려드려요</div>
                 </div>
             </label>
             <div style="display:flex; gap:12px;">
@@ -1007,7 +1008,7 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <h1 id="slotPopupLabel" class="dt-title">손님 1</h1>
-    <button onclick="saveAndCloseSlotPopup()" class="btn-primary" style="width:auto;height:36px;padding:0 16px;font-size:12px;">
+    <button onclick="saveAndCloseSlotPopup()" class="btn-primary" style="width:auto;height:36px;padding:0 16px;font-size:13px;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       완료
     </button>
@@ -1069,11 +1070,11 @@
   <div id="elementEditorCanvas" style="position:absolute; top:50px; bottom:100px; left:0; right:0; display:flex; align-items:center; justify-content:center; overflow:hidden;"></div>
   <div style="position:absolute; bottom:0; left:0; right:0; padding:16px; background:rgba(0,0,0,0.8);">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <span style="color:#fff; font-size:12px; width:50px;">투명도</span>
+      <span style="color:#fff; font-size:13px; width:50px;">투명도</span>
       <input type="range" id="elementOpacity" min="10" max="100" value="100" oninput="updateElementOpacity(this.value)" style="flex:1;">
-      <span id="elementOpacityVal" style="color:#fff; font-size:12px; width:36px; text-align:right;">100%</span>
+      <span id="elementOpacityVal" style="color:#fff; font-size:13px; width:36px; text-align:right;">100%</span>
     </div>
-    <div style="color:rgba(255,255,255,0.6); font-size:11px; text-align:center;">드래그로 위치 이동 · 두 손가락으로 크기 조절</div>
+    <div style="color:rgba(255,255,255,0.6); font-size:13px; text-align:center;">드래그로 위치 이동 · 두 손가락으로 크기 조절</div>
   </div>
 </div>
 
@@ -1116,11 +1117,11 @@
   <div id="reviewEditorCanvas" style="position:absolute; top:50px; bottom:100px; left:0; right:0; display:flex; align-items:center; justify-content:center; overflow:hidden;"></div>
   <div style="position:absolute; bottom:0; left:0; right:0; padding:16px; background:rgba(0,0,0,0.8);">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
-      <span style="color:#fff; font-size:12px; width:50px;">크기</span>
+      <span style="color:#fff; font-size:13px; width:50px;">크기</span>
       <input type="range" id="reviewScale" min="15" max="80" value="40" oninput="updateReviewScale(this.value)" style="flex:1;">
-      <span id="reviewScaleVal" style="color:#fff; font-size:12px; width:36px; text-align:right;">40%</span>
+      <span id="reviewScaleVal" style="color:#fff; font-size:13px; width:36px; text-align:right;">40%</span>
     </div>
-    <div style="color:rgba(255,255,255,0.6); font-size:11px; text-align:center;">드래그로 위치 이동</div>
+    <div style="color:rgba(255,255,255,0.6); font-size:13px; text-align:center;">드래그로 위치 이동</div>
   </div>
 </div>
 
@@ -1138,12 +1139,12 @@
 
     <!-- 현재 사용량 -->
     <div id="planUsageBox" style="background:#fdf5f6;border-radius:14px;padding:14px 16px;margin-bottom:18px;">
-      <div style="font-size:12px;font-weight:700;color:#f18091;margin-bottom:8px;">오늘 사용량</div>
-      <div id="planUsageContent" style="font-size:12px;color:#555;line-height:1.9;"></div>
+      <div style="font-size:13px;font-weight:700;color:#f18091;margin-bottom:8px;">오늘 사용량</div>
+      <div id="planUsageContent" style="font-size:13px;color:#555;line-height:1.9;"></div>
     </div>
 
     <!-- 3열 비교표 -->
-    <div style="background:#fafafa;border-radius:14px;padding:14px 12px;margin-bottom:16px;font-size:11px;">
+    <div style="background:#fafafa;border-radius:14px;padding:14px 12px;margin-bottom:16px;font-size:13px;">
       <div style="display:grid;grid-template-columns:1.2fr 0.8fr 0.8fr 1fr;gap:6px;font-weight:700;color:#888;border-bottom:1px solid #e8e8e8;padding-bottom:8px;margin-bottom:8px;text-align:center;">
         <span style="text-align:left;">기능</span><span>Free</span><span>Pro</span><span>Premium</span>
       </div>
@@ -1165,7 +1166,7 @@
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-size:16px;font-weight:800;color:#1a0c10;">Free</div>
-          <div style="font-size:12px;color:#888;margin-top:2px;">기본 기능 체험</div>
+          <div style="font-size:13px;color:#888;margin-top:2px;">기본 기능 체험</div>
         </div>
         <div style="font-size:18px;font-weight:800;color:#888;">₩0</div>
       </div>
@@ -1173,13 +1174,13 @@
 
     <!-- Pro (추천 강조) -->
     <div id="planCardPro" class="plan-card" data-plan="pro" style="border:2px solid #f18091;border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;background:linear-gradient(135deg,#fff5f7,#fff);position:relative;transition:transform 0.15s;">
-      <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:10px;">추천</div>
+      <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;font-size:13px;font-weight:800;padding:3px 10px;border-radius:10px;">추천</div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-size:16px;font-weight:800;color:#1a0c10;">Pro</div>
-          <div style="font-size:12px;color:#f18091;margin-top:2px;">사장님 필수 플랜</div>
+          <div style="font-size:13px;color:#f18091;margin-top:2px;">사장님 필수 플랜</div>
         </div>
-        <div><span style="font-size:18px;font-weight:800;color:#f18091;">₩3,900</span><span style="font-size:11px;color:#999;">/월</span></div>
+        <div><span style="font-size:18px;font-weight:800;color:#f18091;">₩3,900</span><span style="font-size:13px;color:#999;">/월</span></div>
       </div>
     </div>
 
@@ -1188,86 +1189,86 @@
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-size:16px;font-weight:800;color:#1a0c10;">Premium</div>
-          <div style="font-size:12px;color:#833ab4;margin-top:2px;">올인원 자동화</div>
+          <div style="font-size:13px;color:#833ab4;margin-top:2px;">올인원 자동화</div>
         </div>
-        <div><span style="font-size:18px;font-weight:800;color:#833ab4;">₩8,900</span><span style="font-size:11px;color:#999;">/월</span></div>
+        <div><span style="font-size:18px;font-weight:800;color:#833ab4;">₩8,900</span><span style="font-size:13px;color:#999;">/월</span></div>
       </div>
     </div>
 
     <button id="planActionBtn" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(241,128,145,0.3);min-height:52px;">14일 무료체험 시작하기</button>
-    <div style="text-align:center;margin-top:10px;font-size:11px;color:#bbb;">체험 후 자동 결제되지 않습니다 · 언제든 해지 가능</div>
+    <div style="text-align:center;margin-top:10px;font-size:13px;color:#bbb;">체험 후 자동 결제되지 않습니다 · 언제든 해지 가능</div>
   </div>
 </div>
 
-<script src="app-core.js"></script>
-<script src="app-spec-validator.js"></script>
-<script src="app-instagram.js"></script>
-<script src="app-caption.js"></script>
-<script src="app-portfolio.js"></script>
-<script src="app-ai.js"></script>
+<script src="app-core.js" defer></script>
+<script src="app-spec-validator.js" defer></script>
+<script src="app-instagram.js" defer></script>
+<script src="app-caption.js" defer></script>
+<script src="app-portfolio.js" defer></script>
+<script src="app-ai.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.umd.js"></script>
-<script src="app-gallery-utils.js"></script>
-<script src="app-gallery-db.js"></script>
-<script src="app-gallery-workshop.js"></script>
-<script src="app-gallery-assign.js"></script>
-<script src="app-gallery-slot-editor.js"></script>
-<script src="app-gallery-bg.js"></script>
-<script src="app-gallery-element.js"></script>
-<script src="app-gallery-review.js"></script>
-<script src="app-gallery-write.js"></script>
-<script src="app-gallery-finish.js"></script>
-<script src="app-story-template.js"></script>
-<script src="app-sample-captions.js"></script>
-<script src="app-push.js"></script>
-<script src="app-oauth-return.js"></script>
-<script src="app-haptic.js"></script>
-<script src="app-theme.js"></script>
-<script src="app-plan.js"></script>
-<script src="app-support.js"></script>
-<script src="app-customer.js"></script>
-<script src="app-customer-dashboard.js"></script>
-<script src="app-revenue.js"></script>
-<script src="app-booking.js"></script>
-<script src="app-inventory.js"></script>
-<script src="app-nps.js"></script>
-<script src="app-naver-reviews.js"></script>
-<script src="app-video.js"></script>
-<script src="app-import.js"></script>
-<script src="app-insights.js"></script>
-<script src="app-dashboard.js"></script>
+<script src="app-gallery-utils.js" defer></script>
+<script src="app-gallery-db.js" defer></script>
+<script src="app-gallery-workshop.js" defer></script>
+<script src="app-gallery-assign.js" defer></script>
+<script src="app-gallery-slot-editor.js" defer></script>
+<script src="app-gallery-bg.js" defer></script>
+<script src="app-gallery-element.js" defer></script>
+<script src="app-gallery-review.js" defer></script>
+<script src="app-gallery-write.js" defer></script>
+<script src="app-gallery-finish.js" defer></script>
+<script src="app-story-template.js" defer></script>
+<script src="app-sample-captions.js" defer></script>
+<script src="app-push.js" defer></script>
+<script src="app-oauth-return.js" defer></script>
+<script src="app-haptic.js" defer></script>
+<script src="app-theme.js" defer></script>
+<script src="app-plan.js" defer></script>
+<script src="app-support.js" defer></script>
+<script src="app-customer.js" defer></script>
+<script src="app-customer-dashboard.js" defer></script>
+<script src="app-revenue.js" defer></script>
+<script src="app-booking.js" defer></script>
+<script src="app-inventory.js" defer></script>
+<script src="app-nps.js" defer></script>
+<script src="app-naver-reviews.js" defer></script>
+<script src="app-video.js" defer></script>
+<script src="app-import.js" defer></script>
+<script src="app-insights.js" defer></script>
+<script src="app-dashboard.js" defer></script>
 <!-- app-voice.js 제거 — 마이크 기능 비활성 (2026-04-23) -->
-<script src="app-photo-match.js"></script>
-<script src="app-complete-flow.js"></script>
-<script src="app-auto-ba.js"></script>
-<script src="app-today-brief.js"></script>
-<script src="app-birthday.js"></script>
-<script src="app-notifications.js"></script>
-<script src="app-assistant.js"></script>
-<script src="app-dm-autoreply.js"></script>
-<script src="app-receipt-scan.js"></script>
-<script src="app-waiting-list.js"></script>
-<script src="app-public-link.js"></script>
-<script src="app-booking-approval.js"></script>
-<script src="app-ai-suggestions.js"></script>
-<script src="app-automation.js"></script>
-<script src="app-nl-query.js"></script>
-<script src="app-migration-wizard.js"></script>
-<script src="app-report.js"></script>
-<script src="app-story.js"></script>
-<script src="app-empty-state.js"></script>
-<script src="app-service-templates.js"></script>
-<script src="app-power-view.js"></script>
-<script src="app-power-view-render.js"></script>
-<script src="app-import-wizard.js"></script>
-<script src="app-killer-widgets.js"></script>
-<script src="app-calendar-view.js"></script>
+<script src="app-photo-match.js" defer></script>
+<script src="app-complete-flow.js" defer></script>
+<script src="app-auto-ba.js" defer></script>
+<script src="app-today-brief.js" defer></script>
+<script src="app-birthday.js" defer></script>
+<script src="app-notifications.js" defer></script>
+<script src="app-assistant.js" defer></script>
+<script src="app-dm-autoreply.js" defer></script>
+<script src="app-receipt-scan.js" defer></script>
+<script src="app-waiting-list.js" defer></script>
+<script src="app-public-link.js" defer></script>
+<script src="app-booking-approval.js" defer></script>
+<script src="app-ai-suggestions.js" defer></script>
+<script src="app-automation.js" defer></script>
+<script src="app-nl-query.js" defer></script>
+<script src="app-migration-wizard.js" defer></script>
+<script src="app-report.js" defer></script>
+<script src="app-story.js" defer></script>
+<script src="app-empty-state.js" defer></script>
+<script src="app-service-templates.js" defer></script>
+<script src="app-power-view.js" defer></script>
+<script src="app-power-view-render.js" defer></script>
+<script src="app-import-wizard.js" defer></script>
+<script src="app-killer-widgets.js" defer></script>
+<script src="app-calendar-view.js" defer></script>
 <!-- app-voice-input.js 제거 — 전역 🎤 버튼 자동주입 비활성 (2026-04-23) -->
-<script src="app-biometric.js"></script>
-<script src="app-referral.js"></script>
-<script src="app-growth-story.js"></script>
-<script src="app-content-report.js"></script>
-<script src="app-cookie-consent.js"></script>
-<script src="app-data-export.js"></script>
+<script src="app-biometric.js" defer></script>
+<script src="app-referral.js" defer></script>
+<script src="app-growth-story.js" defer></script>
+<script src="app-content-report.js" defer></script>
+<script src="app-cookie-consent.js" defer></script>
+<script src="app-data-export.js" defer></script>
 <!-- T-327 · Sentry 에러 모니터링 (T-351: GDPR 동의 기반 활성화) -->
 <script>window.SENTRY_DSN_FE = "https://b3732869f4b445bc7a73a5e4cbacc4ed@o4511236563992576.ingest.us.sentry.io/4511236579852288";</script>
 <script src="https://browser.sentry-cdn.com/7.100.0/bundle.min.js" crossorigin="anonymous"></script>
@@ -1304,7 +1305,7 @@
   } catch(e) { console.warn('[sentry] init failed', e); }
 })();
 </script>
-<script src="app-debug-panel.js"></script>
+<script src="app-debug-panel.js" defer></script>
 
 </body>
 </html>

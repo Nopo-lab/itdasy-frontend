@@ -34,7 +34,7 @@
           <div style="padding:40px 20px;text-align:center;">
             <div style="font-size:40px;">✨</div>
             <div style="font-size:13px;color:#666;margin-top:10px;">입금 대기 중인 예약 없음</div>
-            <div style="font-size:11px;color:#aaa;margin-top:4px;">고객이 예약 링크에서 신청하면 여기 표시돼요</div>
+            <div style="font-size:13px;color:#aaa;margin-top:4px;">고객이 예약 링크에서 신청하면 여기 표시돼요</div>
           </div>`;
         return;
       }
@@ -44,14 +44,14 @@
         <div style="background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:14px;margin-bottom:10px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
             <strong style="font-size:14px;">${_esc(b.customer_name)}</strong>
-            <span style="font-size:10px;color:#B45309;background:#FFFBEA;padding:2px 6px;border-radius:100px;font-weight:700;">입금 대기</span>
-            <span style="margin-left:auto;font-size:11px;color:#666;">${_fmt(b.starts_at)}</span>
+            <span style="font-size:13px;color:#B45309;background:#FFFBEA;padding:2px 6px;border-radius:100px;font-weight:700;">입금 대기</span>
+            <span style="margin-left:auto;font-size:13px;color:#666;">${_fmt(b.starts_at)}</span>
           </div>
-          <div style="font-size:12px;color:#666;">${_esc(b.service_name || '시술')}</div>
-          ${memo ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(memo)}</div>` : ''}
+          <div style="font-size:13px;color:#666;">${_esc(b.service_name || '시술')}</div>
+          ${memo ? `<div style="font-size:13px;color:#888;margin-top:4px;">${_esc(memo)}</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:6px;">
-            <button data-approve="${b.id}" style="flex:2;padding:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;">✅ 입금 확인 · 승인</button>
-            <button data-reject="${b.id}" style="flex:1;padding:10px;background:#fff;color:#c00;border:1px solid #fcc;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">거절</button>
+            <button data-approve="${b.id}" style="flex:2;padding:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;">✅ 입금 확인 · 승인</button>
+            <button data-reject="${b.id}" style="flex:1;padding:10px;background:#fff;color:#c00;border:1px solid #fcc;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">거절</button>
           </div>
         </div>`;
       }).join('');
@@ -100,7 +100,7 @@
             <strong style="font-size:17px;">⏳ 입금 대기 예약</strong>
             <button class="ba-close" style="margin-left:auto;background:none;border:none;font-size:18px;color:#888;cursor:pointer;">✕</button>
           </div>
-          <div style="font-size:11px;color:#888;margin-top:6px;">입금 확인 후 "승인" 탭 → 캘린더 반영. 미입금은 "거절".</div>
+          <div style="font-size:13px;color:#888;margin-top:6px;">입금 확인 후 "승인" 탭 → 캘린더 반영. 미입금은 "거절".</div>
         </div>
         <div class="ba-body" style="flex:1;overflow-y:auto;padding:14px;"></div>
       </div>`;

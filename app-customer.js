@@ -173,7 +173,7 @@
       <header class="dt-hdr">
         <button class="dt-back" onclick="closeCustomers()" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <h1 class="dt-title">내 고객</h1>
-        <span id="customerCount" style="font-size:12px;color:var(--text-subtle);"></span>
+        <span id="customerCount" style="font-size:13px;color:var(--text-subtle);"></span>
         <span id="customerOfflineBadge" class="dt-offline-badge">오프라인</span>
       </header>
       <div class="dt-body">
@@ -210,12 +210,12 @@
     box.innerHTML = '<div class="dt-list">' + items.map(c => {
       const nsCount = c.no_show_count || 0;
       const nsBadge = nsCount >= 3
-        ? `<span title="노쇼 ${nsCount}회 — 예약 전 주의" style="font-size:10px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 노쇼 ${nsCount}</span>`
-        : (nsCount > 0 ? `<span title="노쇼 ${nsCount}회" style="font-size:10px;font-weight:600;color:#B45309;background:#FEF3C7;padding:2px 6px;border-radius:100px;margin-left:6px;">노쇼 ${nsCount}</span>` : '');
+        ? `<span title="노쇼 ${nsCount}회 — 예약 전 주의" style="font-size:13px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 노쇼 ${nsCount}</span>`
+        : (nsCount > 0 ? `<span title="노쇼 ${nsCount}회" style="font-size:13px;font-weight:600;color:#B45309;background:#FEF3C7;padding:2px 6px;border-radius:100px;margin-left:6px;">노쇼 ${nsCount}</span>` : '');
       return `
       <button class="dt-list-it customer-row" data-id="${c.id}" type="button">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title">${_esc(c.name)}${c.visit_count ? ` <span style="font-size:11px;font-weight:400;color:var(--brand);">방문 ${c.visit_count}회</span>` : ''}${nsBadge}</p>
+          <p class="dt-list-it__title">${_esc(c.name)}${c.visit_count ? ` <span style="font-size:13px;font-weight:400;color:var(--brand);">방문 ${c.visit_count}회</span>` : ''}${nsBadge}</p>
           <p class="dt-list-it__sub">${[c.phone ? _esc(c.phone) : '', c.memo ? _esc(c.memo).slice(0,40) : ''].filter(Boolean).join(' · ')}</p>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
@@ -340,7 +340,7 @@
           </div>
           <input data-pick-search placeholder="이름·연락처 검색" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;" />
           <div data-pick-list style="flex:1;overflow-y:auto;min-height:120px;"></div>
-          <button data-pick-clear style="margin-top:8px;padding:10px;border:1px solid #eee;border-radius:8px;background:#fafafa;color:#c00;cursor:pointer;font-size:12px;">지정 해제 (고객 없음)</button>
+          <button data-pick-clear style="margin-top:8px;padding:10px;border:1px solid #eee;border-radius:8px;background:#fafafa;color:#c00;cursor:pointer;font-size:13px;">지정 해제 (고객 없음)</button>
         </div>
       `;
       document.body.appendChild(pop);
@@ -360,8 +360,8 @@
         listEl.innerHTML = hits.map(c => `
           <div data-pick-id="${c.id}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
             <strong style="font-size:14px;">${_esc(c.name)}</strong>
-            ${c.phone ? `<span style="font-size:12px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
-            ${c.visit_count ? `<span style="font-size:10px;color:var(--accent,#F18091);margin-left:6px;">방문 ${c.visit_count}</span>` : ''}
+            ${c.phone ? `<span style="font-size:13px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
+            ${c.visit_count ? `<span style="font-size:13px;color:var(--accent,#F18091);margin-left:6px;">방문 ${c.visit_count}</span>` : ''}
           </div>
         `).join('');
         listEl.querySelectorAll('[data-pick-id]').forEach(row => {

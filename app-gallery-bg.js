@@ -155,14 +155,25 @@ async function applySelectedBg() {
 
   closeBgPanel();
   const progress = document.getElementById('popupProgress');
-  if (progress) { progress.style.display = 'block'; progress.textContent = `배경 합성 중... 0/${selectedPhotos.length}`; }
+  let cancelled = false;
+  if (progress) {
+    progress.style.display = 'block';
+    progress.innerHTML = `<span id="bgProgTxt">배경 합성 중... 0/${selectedPhotos.length}</span>
+      <button id="bgProgCancel" style="margin-left:10px;padding:4px 10px;border:1px solid #ccc;background:#fff;border-radius:6px;cursor:pointer;font-size:13px;">취소</button>`;
+    const btn = progress.querySelector('#bgProgCancel');
+    if (btn) btn.addEventListener('click', () => { cancelled = true; });
+  }
 
   let failCount = 0;
+  let doneCount = 0;
   for (let i = 0; i < selectedPhotos.length; i++) {
+    if (cancelled) break;
     const photo = selectedPhotos[i];
-    if (progress) progress.textContent = `배경 합성 중... ${i + 1}/${selectedPhotos.length}`;
+    const txt = progress?.querySelector('#bgProgTxt');
+    if (txt) txt.textContent = `배경 합성 중... ${i + 1}/${selectedPhotos.length}`;
     try {
       await _applyBgToPhoto(photo, bg, slot);
+      doneCount++;
     } catch(e) {
       console.warn('배경 합성 실패:', e);
       failCount++;
@@ -172,7 +183,9 @@ async function applySelectedBg() {
   if (progress) progress.style.display = 'none';
   _popupSelIds.clear();
   _renderPopupPhotoGrid(slot);
-  if (failCount === selectedPhotos.length) {
+  if (cancelled) {
+    showToast(`취소됨 — ${doneCount}장까지 적용됨`);
+  } else if (failCount === selectedPhotos.length) {
     showToast('배경 적용에 실패했어요. 다시 시도해주세요');
   } else if (failCount > 0) {
     showToast(`${failCount}장 실패 — ${selectedPhotos.length - failCount}장만 적용됐어요`);

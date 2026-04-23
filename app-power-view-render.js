@@ -43,7 +43,7 @@
           (p.customer_name ? ` · <span style="color:#888;">${esc(p.customer_name)}</span>` : '');
       case 'inventory':
         return `<strong>${esc(p.name)}</strong> · <span style="color:#666;">${p.quantity}${esc(p.unit || '개')}</span>` +
-          (p.category ? ` · <span style="color:#888;font-size:11px;">${esc(p.category)}</span>` : '');
+          (p.category ? ` · <span style="color:#888;font-size:13px;">${esc(p.category)}</span>` : '');
       case 'nps':
         return `<strong style="color:#E6A100;">★${p.rating}</strong>` +
           (p.comment ? ` · <span style="color:#666;">${esc(String(p.comment).slice(0, 40))}</span>` : '');
@@ -51,7 +51,7 @@
         return `<strong>${esc(p.name)}</strong>` +
           (p.default_price ? ` · ${krw(p.default_price)}` : '') +
           (p.default_duration_min ? ` · ${p.default_duration_min}분` : '') +
-          (p.category ? ` · <span style="color:#888;font-size:11px;">${esc(p.category)}</span>` : '');
+          (p.category ? ` · <span style="color:#888;font-size:13px;">${esc(p.category)}</span>` : '');
       default:
         return esc(JSON.stringify(p).slice(0, 80));
     }
@@ -176,7 +176,7 @@
             </button>
           `).join('')}
         </div>
-        <div style="padding:12px 20px;border-top:1px solid var(--border,#eee);font-size:11px;color:var(--text-subtle,#aaa);text-align:center;">잇데이 · 와이투두(Y2do)</div>
+        <div style="padding:12px 20px;border-top:1px solid var(--border,#eee);font-size:13px;color:var(--text-subtle,#aaa);text-align:center;">잇데이 · 와이투두(Y2do)</div>
       </div>
     `;
     document.body.appendChild(o);
@@ -242,13 +242,13 @@
     const pendingHtml = pendingList.length ? `
       <div style="padding:12px 16px;background:#FFFBEB;border-bottom:1px solid #FFE58F;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div style="font-size:12px;font-weight:800;color:#B45309;">⏳ 쌓아둔 행 ${pendingList.length}개</div>
+          <div style="font-size:13px;font-weight:800;color:#B45309;">⏳ 쌓아둔 행 ${pendingList.length}개</div>
           <div style="display:flex;gap:6px;">
-            <button id="pv-batch-clear" style="padding:6px 10px;font-size:11px;border:1px solid #EAB308;background:#fff;color:#B45309;border-radius:7px;cursor:pointer;font-weight:700;">비우기</button>
+            <button id="pv-batch-clear" style="padding:6px 10px;font-size:13px;border:1px solid #EAB308;background:#fff;color:#B45309;border-radius:7px;cursor:pointer;font-weight:700;">비우기</button>
             <button id="pv-batch-save" style="padding:6px 12px;font-size:11.5px;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:7px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(241,128,145,0.3);">⚡ ${pendingList.length}개 한 번에 저장</button>
           </div>
         </div>
-        <div style="font-size:12px;color:#333;line-height:1.65;max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:4px;">
+        <div style="font-size:13px;color:#333;line-height:1.65;max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:4px;">
           ${pendingList.map((p, i) => `
             <div style="display:flex;gap:8px;padding:5px 8px;background:#fff;border:1px solid #FDE68A;border-radius:8px;align-items:center;">
               <span style="color:#B45309;font-weight:800;min-width:18px;">${i+1}.</span>
@@ -264,7 +264,7 @@
         <div class="pv-empty">
           <div class="pv-empty-icon">${schema.empty.icon}</div>
           <div style="font-weight:800;color:#555;margin-bottom:6px;">${state.searchKW ? '검색 결과가 없어요' : schema.empty.title}</div>
-          <div style="font-size:12px;color:#aaa;">${state.searchKW ? `"${_esc(state.searchKW)}" 에 해당하는 ${schema.empty.title.replace(' 없어요','').replace('아직 ','')} 없음` : schema.empty.desc}</div>
+          <div style="font-size:13px;color:#aaa;">${state.searchKW ? `"${_esc(state.searchKW)}" 에 해당하는 ${schema.empty.title.replace(' 없어요','').replace('아직 ','')} 없음` : schema.empty.desc}</div>
         </div>
       </td></tr>` : '';
 
@@ -444,7 +444,7 @@
       schedEl.style.display = '';
       schedEl.innerHTML = `
         <div class="sec-head" style="padding:0 2px;margin-bottom:10px;">
-          <h2 class="home-sec-title">오늘 예약<span style="font-weight:500;font-size:12px;color:var(--text-subtle);margin-left:6px;">${upcoming.length}건</span></h2>
+          <h2 class="home-sec-title">오늘 예약<span style="font-weight:500;font-size:13px;color:var(--text-subtle);margin-left:6px;">${upcoming.length}건</span></h2>
         </div>
         <div class="list-menu">
           ${upcoming.slice(0, 3).map(b => `

@@ -71,8 +71,8 @@
     const widget1 = `
       <div class="kw-card" style="background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;padding:18px;border-radius:18px;margin-bottom:12px;box-shadow:0 6px 20px rgba(241,128,145,0.3);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-size:11px;letter-spacing:2px;opacity:0.85;font-weight:800;">🔔 오늘 한눈에</div>
-          ${alertCount > 0 ? `<div style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:800;">알림 ${alertCount}</div>` : ''}
+          <div style="font-size:13px;letter-spacing:2px;opacity:0.85;font-weight:800;">🔔 오늘 한눈에</div>
+          ${alertCount > 0 ? `<div style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:100px;font-size:13px;font-weight:800;">알림 ${alertCount}</div>` : ''}
         </div>
         <div style="font-size:14.5px;line-height:1.75;font-weight:700;">
           📅 오늘 예약 <strong>${todayCount}건</strong>${atRisk.length ? ` · 중 이탈 위험 <strong>${atRisk.filter(a => (brief.today_bookings || []).some(b => b.customer_name === a.name)).length}명</strong>` : ''}<br>
@@ -86,20 +86,20 @@
     const widget2 = `
       <div class="kw-card" style="background:#fff;padding:16px;border-radius:16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-size:11px;letter-spacing:1.5px;color:#666;font-weight:800;">⚠️ 매출 흐름</div>
+          <div style="font-size:13px;letter-spacing:1.5px;color:#666;font-weight:800;">⚠️ 매출 흐름</div>
           ${momPct != null ? `<div style="color:${_riskColor(momPct)};font-weight:900;font-size:16px;">${_arrow(momPct)} ${momPct > 0 ? '+' : ''}${momPct}%</div>` : ''}
         </div>
         <div style="font-size:13px;color:#222;line-height:1.5;">
           이번달 <strong>${(brief.this_month_total || 0).toLocaleString()}원</strong> · 전월 <strong>${(brief.prev_month_total || 0).toLocaleString()}원</strong>
         </div>
-        <button data-kw-insight style="margin-top:10px;padding:8px 14px;background:#f5f5f5;border:none;border-radius:8px;font-size:12px;color:#555;font-weight:700;cursor:pointer;">🤖 AI 코멘트 받기</button>
-        <div id="kw-insight-result" style="margin-top:10px;font-size:12px;color:#555;line-height:1.55;display:none;"></div>
+        <button data-kw-insight style="margin-top:10px;padding:8px 14px;background:#f5f5f5;border:none;border-radius:8px;font-size:13px;color:#555;font-weight:700;cursor:pointer;">🤖 AI 코멘트 받기</button>
+        <div id="kw-insight-result" style="margin-top:10px;font-size:13px;color:#555;line-height:1.55;display:none;"></div>
       </div>`;
 
     // 3. 쿠폰/안부 초안
     const widget3 = atRisk.length ? `
       <div class="kw-card" style="background:linear-gradient(135deg,#FFF4E6,#FFE8D6);padding:16px;border-radius:16px;margin-bottom:10px;border:1px solid rgba(255,138,92,0.2);">
-        <div style="font-size:11px;letter-spacing:1.5px;color:#E68A00;font-weight:800;margin-bottom:8px;">💝 이탈 위험 단골 ${atRisk.length}명</div>
+        <div style="font-size:13px;letter-spacing:1.5px;color:#E68A00;font-weight:800;margin-bottom:8px;">💝 이탈 위험 단골 ${atRisk.length}명</div>
         <div style="font-size:12.5px;color:#333;line-height:1.5;margin-bottom:10px;">
           ${atRisk.slice(0,3).map(a => `<strong>${_esc(a.name)}</strong>(${a.days_since_last}일 전)`).join(' · ')}
         </div>
@@ -113,7 +113,7 @@
       <div class="kw-card" style="background:#fff;padding:14px 16px;border-radius:14px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,0.04);display:flex;align-items:center;gap:10px;">
         <div style="font-size:20px;">📅</div>
         <div style="flex:1;">
-          <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:2px;">오늘 비는 슬롯</div>
+          <div style="font-size:13px;color:#888;font-weight:700;margin-bottom:2px;">오늘 비는 슬롯</div>
           <div style="font-size:13px;color:#222;">${emptySlots.map(s => `${s.from}~${s.to} (${s.gap_min}분)`).join(' · ')}</div>
         </div>
       </div>` : '';
@@ -121,7 +121,7 @@
     // 5. 오늘 집중
     const widget5 = `
       <div class="kw-card" style="background:linear-gradient(135deg,#E8F4F1,#D1EDE5);padding:14px 16px;border-radius:14px;margin-bottom:12px;">
-        <div style="font-size:11px;letter-spacing:1.5px;color:#2B8C7E;font-weight:800;margin-bottom:6px;">📈 AI 추천</div>
+        <div style="font-size:13px;letter-spacing:1.5px;color:#2B8C7E;font-weight:800;margin-bottom:6px;">📈 AI 추천</div>
         <button data-kw-focus style="padding:9px 14px;background:#fff;border:1px solid #2B8C7E;border-radius:10px;font-size:12.5px;color:#2B8C7E;font-weight:800;cursor:pointer;">
           🤖 오늘 집중할 3가지 받기
         </button>
@@ -134,7 +134,7 @@
     const widgetGoal = goal > 0 ? `
       <div class="kw-card" style="background:#fff;padding:16px;border-radius:16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-size:11px;letter-spacing:1.5px;color:#666;font-weight:800;">🎯 이번 달 목표</div>
+          <div style="font-size:13px;letter-spacing:1.5px;color:#666;font-weight:800;">🎯 이번 달 목표</div>
           <div style="font-weight:900;font-size:14px;color:#222;">${progress}%</div>
         </div>
         <div style="height:10px;background:#f0f0f0;border-radius:100px;overflow:hidden;position:relative;">
@@ -146,7 +146,7 @@
         </div>
       </div>` : `
       <div class="kw-card" style="background:#FAFAFA;padding:14px 16px;border-radius:14px;margin-bottom:10px;border:1px dashed #ddd;text-align:center;">
-        <div style="font-size:12px;color:#888;margin-bottom:6px;">🎯 이번 달 매출 목표를 설정해 보세요</div>
+        <div style="font-size:13px;color:#888;margin-bottom:6px;">🎯 이번 달 매출 목표를 설정해 보세요</div>
         <button data-kw-setgoal style="padding:6px 14px;background:#F18091;color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;">목표 설정</button>
       </div>`;
 
@@ -156,7 +156,7 @@
       <div class="kw-card" style="background:linear-gradient(135deg,#E8F4F1,#D1EDE5);padding:14px 16px;border-radius:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;">
         <div style="font-size:24px;">⏱</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:#2B8C7E;font-weight:800;letter-spacing:1px;margin-bottom:3px;">잇데이가 아껴드린</div>
+          <div style="font-size:13px;color:#2B8C7E;font-weight:800;letter-spacing:1px;margin-bottom:3px;">잇데이가 아껴드린</div>
           <div style="font-size:15px;color:#1B5E56;font-weight:900;line-height:1.35;">
             ⏱ ${Math.round(savedMin/60)}시간 · 💰 ${_money(brief.total_fee_tracked || 0)} 수수료 투명화
           </div>
@@ -318,14 +318,14 @@
     _getAtRiskPhones().then(phones => {
       const list = o.querySelector('#kw-sms-list');
       if (!phones.length) {
-        list.innerHTML = `<div style="padding:14px;text-align:center;font-size:12px;color:#aaa;">전화번호 등록된 이탈 위험 고객이 없어요. 전체 복사 후 직접 보내주세요.</div>`;
+        list.innerHTML = `<div style="padding:14px;text-align:center;font-size:13px;color:#aaa;">전화번호 등록된 이탈 위험 고객이 없어요. 전체 복사 후 직접 보내주세요.</div>`;
         return;
       }
-      list.innerHTML = `<div style="font-size:11px;color:#888;margin-bottom:8px;font-weight:700;">대상 ${phones.length}명 — 각 버튼 탭 시 해당 번호로 문자 열립니다</div>` +
+      list.innerHTML = `<div style="font-size:13px;color:#888;margin-bottom:8px;font-weight:700;">대상 ${phones.length}명 — 각 버튼 탭 시 해당 번호로 문자 열립니다</div>` +
         phones.map(p => `
           <button data-kw-sms-to="${p.phone}" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;padding:10px 12px;background:#FEF4F5;border:1px solid #F9D6DC;border-radius:10px;cursor:pointer;font-size:12.5px;color:#333;text-align:left;">
             <span style="font-weight:800;flex:1;">${p.name}</span>
-            <span style="color:#888;font-size:11px;">${p.phone}</span>
+            <span style="color:#888;font-size:13px;">${p.phone}</span>
             <span style="color:#D95F70;font-weight:800;">📨 문자 열기</span>
           </button>`).join('');
       list.querySelectorAll('[data-kw-sms-to]').forEach(b => {
@@ -387,7 +387,7 @@
   async function render(containerId) {
     const el = document.getElementById(containerId);
     if (!el) return;
-    el.innerHTML = `<div style="padding:16px 0;color:#aaa;font-size:12px;">AI 브리핑 불러오는 중…</div>`;
+    el.innerHTML = `<div style="padding:16px 0;color:#aaa;font-size:13px;">AI 브리핑 불러오는 중…</div>`;
     const brief = await _fetchBrief();
     el.innerHTML = _renderWidgets(brief);
     _bindWidgets();
@@ -410,7 +410,7 @@
 
   function _buildRowCards(brief) {
     if (!brief) {
-      return `<div style="padding:8px 4px;color:var(--text-subtle);font-size:12px;">데이터를 불러오지 못했어요</div>`;
+      return `<div style="padding:8px 4px;color:var(--text-subtle);font-size:13px;">데이터를 불러오지 못했어요</div>`;
     }
     const atRisk = brief.at_risk || [];
     const momPct = brief.mom_delta_pct;

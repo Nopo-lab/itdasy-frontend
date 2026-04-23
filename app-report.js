@@ -66,9 +66,9 @@
     return `
       <div style="padding:16px;background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative;overflow:hidden;">
         <div style="position:absolute;top:-12px;right:-12px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,${grad});opacity:0.2;"></div>
-        <div style="font-size:10px;color:#888;font-weight:700;margin-bottom:6px;position:relative;">${_esc(label)}</div>
+        <div style="font-size:13px;color:#888;font-weight:700;margin-bottom:6px;position:relative;">${_esc(label)}</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a1a;line-height:1.1;letter-spacing:-0.3px;">${_esc(value)}</div>
-        <div style="font-size:10px;color:#999;margin-top:4px;">${_esc(sub)}</div>
+        <div style="font-size:13px;color:#999;margin-top:4px;">${_esc(sub)}</div>
       </div>
     `;
   }
@@ -99,12 +99,12 @@
       <!-- 인기 시술 -->
       ${d.top_services?.length ? `
         <div style="margin-bottom:14px;padding:14px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-          <div style="font-size:12px;font-weight:800;margin-bottom:10px;">🏆 인기 시술 TOP ${d.top_services.length}</div>
+          <div style="font-size:13px;font-weight:800;margin-bottom:10px;">🏆 인기 시술 TOP ${d.top_services.length}</div>
           ${d.top_services.map((s, i) => `
             <div style="display:flex;gap:10px;align-items:center;padding:6px 0;${i>0?'border-top:1px solid rgba(0,0,0,0.04);':''}">
-              <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#F18091,#D95F70);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex-shrink:0;">${i+1}</div>
+              <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#F18091,#D95F70);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;">${i+1}</div>
               <div style="flex:1;min-width:0;font-size:13px;font-weight:700;">${_esc(s.name)}</div>
-              <div style="font-size:12px;color:var(--accent,#F18091);font-weight:800;">${_fmt(s.amount)}</div>
+              <div style="font-size:13px;color:var(--accent,#F18091);font-weight:800;">${_fmt(s.amount)}</div>
             </div>
           `).join('')}
         </div>
@@ -112,20 +112,20 @@
 
       <!-- 예약 요약 -->
       <div style="margin-bottom:14px;padding:14px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-        <div style="font-size:12px;font-weight:800;margin-bottom:10px;">📅 예약 현황</div>
+        <div style="font-size:13px;font-weight:800;margin-bottom:10px;">📅 예약 현황</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
           <div style="padding:8px;background:rgba(0,0,0,0.03);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;">${b.total}</div>
-            <div style="font-size:10px;color:#888;">총 예약</div>
+            <div style="font-size:13px;color:#888;">총 예약</div>
           </div>
           <div style="padding:8px;background:rgba(220,53,69,0.08);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;color:#dc3545;">${b.cancelled}</div>
-            <div style="font-size:10px;color:#888;">취소</div>
+            <div style="font-size:13px;color:#888;">취소</div>
           </div>
         </div>
       </div>
 
-      <div style="padding:12px;background:rgba(241,128,145,0.05);border-radius:10px;font-size:10px;color:#888;line-height:1.5;text-align:center;">
+      <div style="padding:12px;background:rgba(241,128,145,0.05);border-radius:10px;font-size:13px;color:#888;line-height:1.5;text-align:center;">
         🎀 잇데이가 매달 자동으로 집계해요. 월 마지막 날 알림으로도 보내드릴게요.
       </div>
     `;

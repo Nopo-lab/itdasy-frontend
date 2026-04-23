@@ -41,9 +41,9 @@
 
         <div style="padding:0 24px 18px;">
           <div style="background:#fff;border:1.5px dashed #F18091;border-radius:14px;padding:14px;text-align:center;margin-bottom:14px;">
-            <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:700;letter-spacing:1.5px;">내 추천 코드</div>
+            <div style="font-size:13px;color:#888;margin-bottom:6px;font-weight:700;letter-spacing:1.5px;">내 추천 코드</div>
             <div id="ref-code" style="font-family:ui-monospace,monospace;font-size:24px;font-weight:900;color:#D95F70;letter-spacing:4px;">${code}</div>
-            <button id="ref-copy-code" style="margin-top:10px;padding:7px 16px;background:#FEF4F5;border:none;border-radius:8px;color:#D95F70;font-weight:800;font-size:12px;cursor:pointer;">📋 코드 복사</button>
+            <button id="ref-copy-code" style="margin-top:10px;padding:7px 16px;background:#FEF4F5;border:none;border-radius:8px;color:#D95F70;font-weight:800;font-size:13px;cursor:pointer;">📋 코드 복사</button>
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
@@ -51,7 +51,7 @@
             <button id="ref-share-kakao" style="padding:12px;background:#FEE500;color:#3C1E1E;border:none;border-radius:12px;font-weight:800;font-size:13px;cursor:pointer;">💬 카톡 전송</button>
           </div>
 
-          <div style="padding:12px 14px;background:#F7F8FA;border-radius:12px;font-size:12px;color:#555;line-height:1.65;">
+          <div style="padding:12px 14px;background:#F7F8FA;border-radius:12px;font-size:13px;color:#555;line-height:1.65;">
             💡 <strong>친구에게 보낼 메시지 예시</strong><br>
             "원장님 저도 요즘 잇데이 쓰고 있는데 진짜 편해요. 고객·예약·매출 한번에 되고 AI가 캡션까지 써줘요. 제 코드로 가입하면 무료 기간이 더 길어요 ${code}"
           </div>
@@ -59,7 +59,7 @@
 
         <div style="padding:14px 24px;border-top:1px solid #eee;background:#fafafa;display:flex;align-items:center;">
           <div style="flex:1;">
-            <div style="font-size:11px;color:#888;">이미 초대한 원장님</div>
+            <div style="font-size:13px;color:#888;">이미 초대한 원장님</div>
             <div style="font-weight:900;font-size:16px;color:#222;">${count}명</div>
           </div>
           <button id="ref-close" style="padding:10px 18px;background:#fff;border:1px solid #ddd;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;">닫기</button>

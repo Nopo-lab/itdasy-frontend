@@ -54,8 +54,8 @@
     if (!items.length) {
       return `
         <div style="padding:16px 18px;border-radius:18px;background:linear-gradient(135deg,#0f0608 0%,#2a1518 100%);color:#fff;margin-bottom:14px;box-shadow:0 8px 24px rgba(15,6,8,0.2);">
-          <div style="font-size:11px;color:rgba(255,255,255,0.6);margin-bottom:4px;">${_esc(greet)} 👋</div>
-          <div style="font-size:15px;font-weight:700;line-height:1.5;">오늘 일정이 비어있어요.<br><span style="font-size:12px;color:rgba(255,255,255,0.5);font-weight:400;">인스타 캡션 한 장 워밍업으로 어때요?</span></div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:4px;">${_esc(greet)} 👋</div>
+          <div style="font-size:15px;font-weight:700;line-height:1.5;">오늘 일정이 비어있어요.<br><span style="font-size:13px;color:rgba(255,255,255,0.5);font-weight:400;">인스타 캡션 한 장 워밍업으로 어때요?</span></div>
         </div>
       `;
     }
@@ -65,13 +65,13 @@
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;">
           <span style="font-size:18px;">☀️</span>
           <strong style="font-size:14px;">${_esc(greet)}</strong>
-          <span style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto;">오늘 브리핑</span>
+          <span style="font-size:13px;color:rgba(255,255,255,0.5);margin-left:auto;">오늘 브리핑</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:9px;">
           ${items.map(it => `
             <div ${it.action ? `data-brief-act="${it.action}" style="cursor:pointer;"` : ''} style="display:flex;gap:10px;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.06);border-radius:10px;border-left:3px solid ${it.color};${it.action ? 'cursor:pointer;' : ''}">
               <span style="font-size:16px;">${it.icon}</span>
-              <span style="font-size:12px;line-height:1.4;flex:1;">${_esc(it.label)}</span>
+              <span style="font-size:13px;line-height:1.4;flex:1;">${_esc(it.label)}</span>
               ${it.action ? '<span style="color:rgba(255,255,255,0.4);font-size:14px;">›</span>' : ''}
             </div>
           `).join('')}

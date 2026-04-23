@@ -87,7 +87,7 @@ function renderPersonaDash(p, showTestBtn) {
   if (content) {
     content.innerHTML = `
       <div style="background:rgba(241,128,145,0.04); padding:14px; border-radius:14px; border:0.5px solid rgba(241,128,145,0.15); margin-bottom:16px;">
-        <div style="margin-bottom:8px; font-size:11px; color:var(--accent2); font-weight:700; letter-spacing:-0.2px;">💬 말투 요약</div>
+        <div style="margin-bottom:8px; font-size:13px; color:var(--accent2); font-weight:700; letter-spacing:-0.2px;">💬 말투 요약</div>
         <div style="font-size:13px; color:var(--text); line-height:1.6; font-weight:500;">"${p.tone || '친근하고 공손한 말투'}"</div>
       </div>
 
@@ -120,24 +120,24 @@ function renderDetailedPopup(data) {
 
     document.getElementById('analyzeResultBody').innerHTML = `
     <div style="margin-bottom:24px; padding:16px; background:rgba(241,128,145,0.04); border-radius:16px; border:1px solid rgba(241,128,145,0.08);">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">분석 완료</div>
+        <div style="color:var(--accent2); font-size:13px; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">분석 완료</div>
         <div style="font-size:15px; font-weight:700; color:var(--text);">최근 게시물 기준 · 평균 ${p.avg_caption_length}자 글쓰기</div>
     </div>
 
     <div style="margin-bottom:28px;">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">사장님 말투 스타일</div>
+        <div style="color:var(--accent2); font-size:13px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">사장님 말투 스타일</div>
         <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:12px; line-height:1.4; word-break:keep-all;">"${raw.tone_summary || p.tone}"</div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
-        ${tFeatures.map(f => `<span style="background:rgba(241,128,145,0.07); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600;">${f}</span>`).join('')}
+        ${tFeatures.map(f => `<span style="background:rgba(241,128,145,0.07); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:13px; font-weight:600;">${f}</span>`).join('')}
         </div>
     </div>
 
     <div style="margin-bottom:32px;">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:12px; letter-spacing:0.5px;">잘 되는 게시물 비결 TOP 5</div>
+        <div style="color:var(--accent2); font-size:13px; font-weight:700; margin-bottom:12px; letter-spacing:0.5px;">잘 되는 게시물 비결 TOP 5</div>
         <div style="display:flex; flex-direction:column; gap:12px;">
         ${top5.length > 0 ? top5.map(item => `
             <div style="background:white; border-radius:14px; padding:16px; border:1px solid rgba(0,0,0,0.04); box-shadow:0 4px 12px rgba(0,0,0,0.02); display:flex; gap:12px; align-items:flex-start;">
-                <div style="width:24px; height:24px; background:var(--accent2); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; flex-shrink:0;">${item.rank}</div>
+                <div style="width:24px; height:24px; background:var(--accent2); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900; flex-shrink:0;">${item.rank}</div>
                 <div style="font-size:13px; color:var(--text); line-height:1.5; font-weight:500; word-break:keep-all;">${item.why}</div>
             </div>
         `).join('') : '<div style="font-size:13px; color:var(--text3); text-align:center; padding:20px; background:#f9f9f9; border-radius:14px;">아직 데이터가 충분하지 않아요 🙏</div>'}
@@ -146,12 +146,12 @@ function renderDetailedPopup(data) {
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
         <div style="padding:16px; background:#f9f9f9; border-radius:16px;">
-            <div style="color:var(--text3); font-size:10px; font-weight:700; margin-bottom:8px;">자주 쓰는 이모지</div>
+            <div style="color:var(--text3); font-size:13px; font-weight:700; margin-bottom:8px;">자주 쓰는 이모지</div>
             <div style="font-size:16px; letter-spacing:3px; word-break:break-all;">${p.emojis || '✨'}</div>
         </div>
         <div style="padding:16px; background:#f9f9f9; border-radius:16px; overflow:hidden;">
-            <div style="color:var(--text3); font-size:10px; font-weight:700; margin-bottom:8px;">자주 쓰는 해시태그</div>
-            <div style="font-size:11px; color:var(--accent); line-height:1.6; word-break:break-all;">${(p.hashtags || '#잇데이').replace(/,/g, ' ')}</div>
+            <div style="color:var(--text3); font-size:13px; font-weight:700; margin-bottom:8px;">자주 쓰는 해시태그</div>
+            <div style="font-size:13px; color:var(--accent); line-height:1.6; word-break:break-all;">${(p.hashtags || '#잇데이').replace(/,/g, ' ')}</div>
         </div>
     </div>
 
@@ -165,7 +165,7 @@ function renderDetailedPopup(data) {
       if (shortCheck) return '';
       return `
     <div style="padding:24px; background:linear-gradient(135deg, #fffcfd, #fff5f7); border-radius:24px; border:1.5px solid rgba(241,128,145,0.2);">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">이렇게 쓰면 잘 돼요</div>
+        <div style="color:var(--accent2); font-size:13px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">이렇게 쓰면 잘 돼요</div>
         <div style="font-size:14px; font-weight:700; color:var(--text); line-height:1.7; word-break:keep-all;">" ${bot} "</div>
     </div>`;
     })()}

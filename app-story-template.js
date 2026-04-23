@@ -125,18 +125,18 @@
             <div style="font-size:17px; font-weight:800;">📱 스토리 9:16 만들기</div>
             <button id="_storyClose" style="background:none; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:#999;">✕</button>
           </div>
-          <div style="font-size:12px; color:#666; margin-bottom:16px;">인스타 스토리에 바로 올릴 수 있는 세로 이미지를 만들어드려요 (1080x1920).</div>
+          <div style="font-size:13px; color:#666; margin-bottom:16px;">인스타 스토리에 바로 올릴 수 있는 세로 이미지를 만들어드려요 (1080x1920).</div>
 
-          <label style="font-size:12px; color:#555;">사진 (URL 또는 파일 선택)
+          <label style="font-size:13px; color:#555;">사진 (URL 또는 파일 선택)
             <input id="_storyImgUrl" type="url" placeholder="이미지 URL" style="width:100%; margin-top:6px; padding:12px; border:1.5px solid #e0e0e0; border-radius:10px; font-size:14px; box-sizing:border-box; min-height:44px;">
           </label>
-          <input id="_storyImgFile" type="file" accept="image/*" style="margin-top:10px; font-size:12px;">
+          <input id="_storyImgFile" type="file" accept="image/*" style="margin-top:10px; font-size:13px;">
 
-          <label style="font-size:12px; color:#555; display:block; margin-top:14px;">캡션
+          <label style="font-size:13px; color:#555; display:block; margin-top:14px;">캡션
             <textarea id="_storyCaption" rows="3" placeholder="스토리에 띄울 짧은 문구" style="width:100%; margin-top:6px; padding:12px; border:1.5px solid #e0e0e0; border-radius:10px; font-size:14px; box-sizing:border-box; resize:vertical;"></textarea>
           </label>
 
-          <label style="font-size:12px; color:#555; display:block; margin-top:14px;">상단 태그라인 (선택)
+          <label style="font-size:13px; color:#555; display:block; margin-top:14px;">상단 태그라인 (선택)
             <input id="_storyTag" type="text" placeholder="예: 오늘의 시술 ✨" style="width:100%; margin-top:6px; padding:12px; border:1.5px solid #e0e0e0; border-radius:10px; font-size:14px; box-sizing:border-box; min-height:44px;">
           </label>
 
@@ -148,7 +148,7 @@
               <a id="_storyDownload" download="itdasy-story.png" style="flex:1; text-align:center; padding:12px; border-radius:12px; background:#4caf50; color:#fff; text-decoration:none; font-weight:700; font-size:13px; min-height:44px; display:flex; align-items:center; justify-content:center;">💾 저장</a>
               <button id="_storyShareBtn" style="flex:1; padding:12px; border-radius:12px; border:none; background:#2196f3; color:#fff; font-weight:700; font-size:13px; min-height:44px; cursor:pointer;">📤 공유</button>
             </div>
-            <div style="font-size:11px; color:#888; text-align:center; margin-top:8px;">저장 후 인스타 앱에서 스토리로 올리세요</div>
+            <div style="font-size:13px; color:#888; text-align:center; margin-top:8px;">저장 후 인스타 앱에서 스토리로 올리세요</div>
           </div>
         </div>
       `;

@@ -35,7 +35,7 @@
       <div style="padding:18px;background:linear-gradient(135deg,#F18091 0%,#D95F70 100%);border-radius:16px;color:#fff;margin-bottom:16px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:4px;opacity:0.9;">쌓아둔 데이터, 버리지 마세요</div>
         <div style="font-size:22px;font-weight:900;line-height:1.25;margin-bottom:8px;">3가지 중 편한 방법으로<br>잇데이로 옮겨드려요 🎀</div>
-        <div style="font-size:12px;opacity:0.85;line-height:1.5;">완전 무료 · 중복 자동 제거 · 개인정보 안전</div>
+        <div style="font-size:13px;opacity:0.85;line-height:1.5;">완전 무료 · 중복 자동 제거 · 개인정보 안전</div>
       </div>
 
       <!-- 방법 1: 엑셀 파일 -->
@@ -47,8 +47,8 @@
               <strong style="font-size:14px;">엑셀·CSV 내보내기</strong>
               <span style="font-size:9px;padding:1px 6px;background:rgba(76,175,80,0.15);color:#388e3c;border-radius:3px;font-weight:700;">가장 정확</span>
             </div>
-            <div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:6px;">쓰시던 앱의 "내보내기 / Export" 기능 → 엑셀 파일 받기 → 여기 업로드</div>
-            <div style="font-size:10px;color:#8B5CF6;font-weight:700;">가장 정확한 방법 · 고객 · 매출 · 예약 전부 가능</div>
+            <div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:6px;">쓰시던 앱의 "내보내기 / Export" 기능 → 엑셀 파일 받기 → 여기 업로드</div>
+            <div style="font-size:13px;color:#8B5CF6;font-weight:700;">가장 정확한 방법 · 고객 · 매출 · 예약 전부 가능</div>
           </div>
           <span style="color:#bbb;font-size:18px;">›</span>
         </div>
@@ -63,8 +63,8 @@
               <strong style="font-size:14px;">사진 한 장으로</strong>
               <span style="font-size:9px;padding:1px 6px;background:rgba(255,143,71,0.15);color:#E65100;border-radius:3px;font-weight:700;">AI 자동</span>
             </div>
-            <div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:6px;">이전 앱의 고객 목록·매출 화면을 사진으로 찍어 올리세요. AI가 자동으로 인식해요.</div>
-            <div style="font-size:10px;color:#E65100;font-weight:700;">내보내기 기능 없어도 OK · 스크린샷으로 간편</div>
+            <div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:6px;">이전 앱의 고객 목록·매출 화면을 사진으로 찍어 올리세요. AI가 자동으로 인식해요.</div>
+            <div style="font-size:13px;color:#E65100;font-weight:700;">내보내기 기능 없어도 OK · 스크린샷으로 간편</div>
           </div>
           <span style="color:#bbb;font-size:18px;">›</span>
         </div>
@@ -79,8 +79,8 @@
               <strong style="font-size:14px;">카톡·메모 복사 붙여넣기</strong>
               <span style="font-size:9px;padding:1px 6px;background:rgba(241,128,145,0.15);color:#D95F70;border-radius:3px;font-weight:700;">즉시</span>
             </div>
-            <div style="font-size:11px;color:#666;line-height:1.5;margin-bottom:6px;">단골 카톡 대화나 메모장에 쌓아둔 고객 연락처를 텍스트로 복사 → 붙여넣기</div>
-            <div style="font-size:10px;color:#D95F70;font-weight:700;">관리 앱 없이도 시작 가능</div>
+            <div style="font-size:13px;color:#666;line-height:1.5;margin-bottom:6px;">단골 카톡 대화나 메모장에 쌓아둔 고객 연락처를 텍스트로 복사 → 붙여넣기</div>
+            <div style="font-size:13px;color:#D95F70;font-weight:700;">관리 앱 없이도 시작 가능</div>
           </div>
           <span style="color:#bbb;font-size:18px;">›</span>
         </div>
@@ -88,18 +88,18 @@
 
       <!-- FAQ -->
       <div style="margin-top:20px;padding:16px;background:#fafafa;border-radius:12px;">
-        <div style="font-size:12px;font-weight:700;margin-bottom:10px;color:#333;">🤔 자주 묻는 질문</div>
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px;color:#333;">🤔 자주 묻는 질문</div>
         <details style="margin-bottom:8px;">
-          <summary style="cursor:pointer;font-size:12px;color:#555;font-weight:600;">고객 연락처 안전한가요?</summary>
-          <div style="font-size:11px;color:#666;line-height:1.6;margin-top:6px;padding-left:12px;">모든 데이터는 원장님 계정 전용 공간에 저장되고, 외부로 공유되지 않아요. 개인정보처리방침 준수.</div>
+          <summary style="cursor:pointer;font-size:13px;color:#555;font-weight:600;">고객 연락처 안전한가요?</summary>
+          <div style="font-size:13px;color:#666;line-height:1.6;margin-top:6px;padding-left:12px;">모든 데이터는 원장님 계정 전용 공간에 저장되고, 외부로 공유되지 않아요. 개인정보처리방침 준수.</div>
         </details>
         <details style="margin-bottom:8px;">
-          <summary style="cursor:pointer;font-size:12px;color:#555;font-weight:600;">중복 고객 자동 제거되나요?</summary>
-          <div style="font-size:11px;color:#666;line-height:1.6;margin-top:6px;padding-left:12px;">이름 + 연락처 조합으로 자동 중복 체크. 이미 있는 고객은 건너뛰어요.</div>
+          <summary style="cursor:pointer;font-size:13px;color:#555;font-weight:600;">중복 고객 자동 제거되나요?</summary>
+          <div style="font-size:13px;color:#666;line-height:1.6;margin-top:6px;padding-left:12px;">이름 + 연락처 조합으로 자동 중복 체크. 이미 있는 고객은 건너뛰어요.</div>
         </details>
         <details>
-          <summary style="cursor:pointer;font-size:12px;color:#555;font-weight:600;">잘못 올렸으면 되돌릴 수 있나요?</summary>
-          <div style="font-size:11px;color:#666;line-height:1.6;margin-top:6px;padding-left:12px;">가져오기 이력(설정 → 가져오기 이력)에서 되돌리기 가능.</div>
+          <summary style="cursor:pointer;font-size:13px;color:#555;font-weight:600;">잘못 올렸으면 되돌릴 수 있나요?</summary>
+          <div style="font-size:13px;color:#666;line-height:1.6;margin-top:6px;padding-left:12px;">가져오기 이력(설정 → 가져오기 이력)에서 되돌리기 가능.</div>
         </details>
       </div>
     `;

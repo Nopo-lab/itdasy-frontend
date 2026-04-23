@@ -87,18 +87,18 @@ function _renderAiRecommendTab(root, slots) {
     // 완성된 슬롯은 "인스타 즉시 올리기" 버튼 카드에 직접 노출
     const actionBtns = isComplete ? `
       <div style="margin-top:10px;">
-        <button onclick="_quickPublishFromAi('${slot.id}',event)" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">🚀 인스타 바로 올리기</button>
+        <button onclick="_quickPublishFromAi('${slot.id}',event)" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">🚀 인스타 바로 올리기</button>
       </div>
     ` : (hasPhotos && !hasCaption) ? `
       <div style="margin-top:10px;">
-        <button onclick="_goToSlotStep('${slot.id}')" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:1.5px solid var(--accent2);background:#fff5f7;color:var(--accent);font-size:12px;font-weight:800;cursor:pointer;">✍️ 글쓰기 → 캡션 만들기</button>
+        <button onclick="_goToSlotStep('${slot.id}')" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:1.5px solid var(--accent2);background:#fff5f7;color:var(--accent);font-size:13px;font-weight:800;cursor:pointer;">✍️ 글쓰기 → 캡션 만들기</button>
       </div>
     ` : '';
 
     return `
       <div data-ai-card="${slot.id}" style="background:#fff;border:1.5px solid ${borderColor};border-radius:16px;padding:12px;margin-bottom:10px;position:relative;">
         <!-- 체크박스 -->
-        <div onclick="_toggleAiCheck('${slot.id}',event)" style="position:absolute;top:12px;left:12px;z-index:2;width:20px;height:20px;border-radius:5px;border:2px solid ${isChecked ? 'var(--accent)' : 'rgba(0,0,0,0.2)'};background:${isChecked ? 'var(--accent)' : 'rgba(255,255,255,0.9)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;cursor:pointer;">${isChecked ? '✓' : ''}</div>
+        <div onclick="_toggleAiCheck('${slot.id}',event)" style="position:absolute;top:12px;left:12px;z-index:2;width:20px;height:20px;border-radius:5px;border:2px solid ${isChecked ? 'var(--accent)' : 'rgba(0,0,0,0.2)'};background:${isChecked ? 'var(--accent)' : 'rgba(255,255,255,0.9)'};display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;cursor:pointer;">${isChecked ? '✓' : ''}</div>
         <!-- 삭제 버튼 -->
         <button onclick="_deleteAiSlot('${slot.id}',event)" style="position:absolute;top:10px;right:10px;background:transparent;border:none;font-size:16px;color:var(--text3);cursor:pointer;line-height:1;padding:2px 6px;">✕</button>
         <!-- 카드 본문: 상태에 따라 다른 탭으로 -->
@@ -111,8 +111,8 @@ function _renderAiRecommendTab(root, slots) {
               <div style="font-size:13px;font-weight:800;color:var(--text);">${slot.label}</div>
               ${badges}
             </div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${visPhotos.length || slot.photos.length}장 · ${dateStr}</div>
-            <div style="font-size:11px;color:var(--text2);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${capPreview}</div>
+            <div style="font-size:13px;color:var(--text3);margin-bottom:4px;">${visPhotos.length || slot.photos.length}장 · ${dateStr}</div>
+            <div style="font-size:13px;color:var(--text2);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${capPreview}</div>
           </div>
         </div>
         ${actionBtns}

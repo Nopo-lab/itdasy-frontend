@@ -397,7 +397,7 @@
     body.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
         <h2 style="font-size:20px;font-weight:700;margin:0;color:var(--text);">대시보드</h2>
-        <button id="dashPeriodChip" class="chip" aria-label="기간 선택" style="border:none;cursor:pointer;font-family:inherit;font-size:12px;display:inline-flex;align-items:center;gap:4px;padding:6px 10px;background:var(--surface-2);border-radius:16px;color:var(--text);">
+        <button id="dashPeriodChip" class="chip" aria-label="기간 선택" style="border:none;cursor:pointer;font-family:inherit;font-size:13px;display:inline-flex;align-items:center;gap:4px;padding:6px 10px;background:var(--surface-2);border-radius:16px;color:var(--text);">
           <span id="dashPeriodLabel">${_esc(stored)}</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
         </button>

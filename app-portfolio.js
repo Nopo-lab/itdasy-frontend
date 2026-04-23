@@ -146,7 +146,7 @@ async function loadPortfolio() {
       Object.values(tagData.sub_map || {}).forEach(arr => arr.forEach(t => allSubTags.add(t)));
       allSubTags.forEach(t => {
         const chip = document.createElement('button');
-        chip.style.cssText = 'padding:4px 10px; border-radius:20px; border:1px solid rgba(241,128,145,0.25); background:rgba(241,128,145,0.06); color:var(--accent2); font-size:10px; font-weight:600; cursor:pointer; transition:all 0.12s;';
+        chip.style.cssText = 'padding:4px 10px; border-radius:20px; border:1px solid rgba(241,128,145,0.25); background:rgba(241,128,145,0.06); color:var(--accent2); font-size:13px; font-weight:600; cursor:pointer; transition:all 0.12s;';
         chip.textContent = t;
         chip.onclick = () => {
           _activePortfolioSubTag = _activePortfolioSubTag === t ? '' : t;
@@ -233,11 +233,11 @@ function openPortfolioItem(id, src, mainTag, tags) {
   overlay.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,0.88); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;';
   overlay.innerHTML = `
     <img src="${src}" style="max-width:100%; max-height:62vh; border-radius:16px; object-fit:contain; margin-bottom:14px;">
-    ${mainTag ? `<div style="background:var(--accent); border-radius:20px; padding:3px 12px; font-size:11px; color:#fff; font-weight:700; margin-bottom:6px;">${mainTag}</div>` : ''}
-    <div style="color:rgba(255,255,255,0.7); font-size:12px; margin-bottom:18px;">${tags || ''}</div>
+    ${mainTag ? `<div style="background:var(--accent); border-radius:20px; padding:3px 12px; font-size:13px; color:#fff; font-weight:700; margin-bottom:6px;">${mainTag}</div>` : ''}
+    <div style="color:rgba(255,255,255,0.7); font-size:13px; margin-bottom:18px;">${tags || ''}</div>
     <div style="display:flex; gap:10px;">
-      <button onclick="deletePortfolioItem(${id}, this.closest('[style*=fixed]'))" style="padding:11px 18px; border-radius:12px; border:none; background:rgba(192,57,43,0.85); color:#fff; font-weight:700; cursor:pointer; font-size:12px;">삭제 🗑</button>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="padding:11px 18px; border-radius:12px; border:none; background:rgba(255,255,255,0.12); color:#fff; font-weight:700; cursor:pointer; font-size:12px;">닫기</button>
+      <button onclick="deletePortfolioItem(${id}, this.closest('[style*=fixed]'))" style="padding:11px 18px; border-radius:12px; border:none; background:rgba(192,57,43,0.85); color:#fff; font-weight:700; cursor:pointer; font-size:13px;">삭제 🗑</button>
+      <button onclick="this.closest('[style*=fixed]').remove()" style="padding:11px 18px; border-radius:12px; border:none; background:rgba(255,255,255,0.12); color:#fff; font-weight:700; cursor:pointer; font-size:13px;">닫기</button>
     </div>
   `;
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
@@ -429,7 +429,7 @@ function renderBgStoreGrid() {
   if (!grid) return;
   grid.innerHTML = '';
   if (_bgAssets.length === 0) {
-    grid.innerHTML = '<div style="font-size:11px; color:var(--text3); grid-column:span 3;">아직 저장된 배경이 없어요</div>';
+    grid.innerHTML = '<div style="font-size:13px; color:var(--text3); grid-column:span 3;">아직 저장된 배경이 없어요</div>';
     return;
   }
   _bgAssets.forEach(asset => {
@@ -437,7 +437,7 @@ function renderBgStoreGrid() {
     cell.style.cssText = 'position:relative; border-radius:10px; overflow:hidden; cursor:pointer; aspect-ratio:1; background:var(--bg2);';
     cell.innerHTML = `
       <img src="${API + asset.image_url}" style="width:100%; height:100%; object-fit:cover;" onclick="selectBgAsset('${API + asset.image_url}')">
-      <button onclick="deleteBgAsset(${asset.id}, this.parentElement)" style="position:absolute; top:3px; right:3px; background:rgba(0,0,0,0.5); border:none; color:white; border-radius:50%; width:20px; height:20px; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
+      <button onclick="deleteBgAsset(${asset.id}, this.parentElement)" style="position:absolute; top:3px; right:3px; background:rgba(0,0,0,0.5); border:none; color:white; border-radius:50%; width:20px; height:20px; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
       ${asset.label ? `<div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.4); color:white; font-size:9px; padding:2px 4px; text-align:center;">${asset.label}</div>` : ''}
     `;
     grid.appendChild(cell);

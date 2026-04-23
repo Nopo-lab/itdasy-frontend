@@ -78,7 +78,7 @@ function _showNextSlotGuide(nextSlot, doneCount, totalCount) {
       <div style="text-align:center;margin-bottom:16px;">
         <div style="font-size:32px;margin-bottom:8px;">✅</div>
         <div style="font-size:15px;font-weight:800;color:var(--text);">${nextSlot.label.replace('손님','손님 ')}도 작업할까요?</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px;">완료 ${doneCount}/${totalCount}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px;">완료 ${doneCount}/${totalCount}</div>
       </div>
       <div style="display:flex;gap:10px;">
         <button onclick="document.getElementById('_nextSlotGuide').style.display='none';openSlotPopup('${nextSlot.id}')" style="flex:1;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">${nextSlot.label} →</button>
@@ -95,24 +95,24 @@ function _renderPopupBody(slot) {
   if (!body) return;
 
   const usageHtml = _popupUsage
-    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:12px;">AI 누끼따기 남은 횟수: <b style="color:var(--accent);">${_popupUsage.limit - _popupUsage.used}/${_popupUsage.limit}회</b></div>`
+    ? `<div style="font-size:13px;color:var(--text3);margin-bottom:12px;">AI 누끼따기 남은 횟수: <b style="color:var(--accent);">${_popupUsage.limit - _popupUsage.used}/${_popupUsage.limit}회</b></div>`
     : '';
 
   body.innerHTML = `
     ${usageHtml}
     <div style="margin-bottom:12px;">
       <input type="file" id="popupPhotoInput" accept="image/*" multiple style="display:none;" onchange="addPhotosToPopup(this)">
-      <button onclick="document.getElementById('popupPhotoInput').click()" style="width:100%;padding:11px;border-radius:12px;border:1.5px dashed rgba(241,128,145,0.4);background:transparent;color:var(--accent2);font-size:12px;font-weight:700;cursor:pointer;">+ 사진 추가</button>
+      <button onclick="document.getElementById('popupPhotoInput').click()" style="width:100%;padding:11px;border-radius:12px;border:1.5px dashed rgba(241,128,145,0.4);background:transparent;color:var(--accent2);font-size:13px;font-weight:700;cursor:pointer;">+ 사진 추가</button>
     </div>
     <div id="popupPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;"></div>
     <div id="popupBulkBar" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-size:12px;font-weight:700;color:var(--text);"><span id="popupSelCount">0</span>장 선택됨</div>
-        <button onclick="_bulkDeletePopup()" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(220,53,69,0.4);background:transparent;color:#dc3545;font-size:11px;font-weight:700;cursor:pointer;">선택 삭제</button>
+        <div style="font-size:13px;font-weight:700;color:var(--text);"><span id="popupSelCount">0</span>장 선택됨</div>
+        <button onclick="_bulkDeletePopup()" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(220,53,69,0.4);background:transparent;color:#dc3545;font-size:13px;font-weight:700;cursor:pointer;">선택 삭제</button>
       </div>
     </div>
     <div id="popupProgress" style="display:none;text-align:center;padding:16px;font-size:13px;color:var(--text3);">처리 중... ⏳</div>
-    <div style="text-align:center;padding:8px;font-size:11px;color:var(--text3);background:rgba(241,128,145,0.06);border-radius:10px;">
+    <div style="text-align:center;padding:8px;font-size:13px;color:var(--text3);background:rgba(241,128,145,0.06);border-radius:10px;">
       💡 배경 편집은 하단 <b>배경</b> 탭에서 할 수 있어요
     </div>
   `;
@@ -171,14 +171,14 @@ function _renderPopupPhotoGrid(slot) {
     if (photo.mode === 'ba') {
       const restoreBtn = document.createElement('button');
       restoreBtn.textContent = '↩ 되돌리기';
-      restoreBtn.style.cssText = 'width:100%;padding:3px;border-radius:6px;border:1px solid rgba(143,164,255,0.5);background:transparent;font-size:10px;color:#8fa4ff;cursor:pointer;font-weight:700;';
+      restoreBtn.style.cssText = 'width:100%;padding:3px;border-radius:6px;border:1px solid rgba(143,164,255,0.5);background:transparent;font-size:13px;color:#8fa4ff;cursor:pointer;font-weight:700;';
       restoreBtn.onclick = () => restoreBAPhoto(photo.id);
       wrap.appendChild(restoreBtn);
     }
 
     const previewBtn = document.createElement('button');
     previewBtn.textContent = '미리보기';
-    previewBtn.style.cssText = 'width:100%;padding:3px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:10px;color:var(--text3);cursor:pointer;';
+    previewBtn.style.cssText = 'width:100%;padding:3px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:13px;color:var(--text3);cursor:pointer;';
     previewBtn.onclick = () => showPhotoInstaPreview(photo.editedDataUrl || photo.dataUrl);
     wrap.appendChild(previewBtn);
 
@@ -316,11 +316,11 @@ function showPhotoInstaPreview(dataUrl) {
       <div style="width:100%;max-width:380px;">
         <div style="background:#fff;border-radius:14px;overflow:hidden;">
           <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #f0f0f0;">
-            <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;">잇</div>
+            <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;">잇</div>
             <div style="font-size:13px;font-weight:700;">@itdasy</div>
           </div>
           <img id="_wsPreviewImg" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block;">
-          <div style="padding:8px 12px;font-size:11px;color:#888;">인스타 피드 1:1 비율 미리보기</div>
+          <div style="padding:8px 12px;font-size:13px;color:#888;">인스타 피드 1:1 비율 미리보기</div>
         </div>
       </div>
       <button onclick="document.getElementById('_wsInstaPreviewPop').style.display='none'" style="margin-top:16px;color:#fff;background:transparent;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;">닫기</button>

@@ -35,7 +35,7 @@
 
 .card-deck-item .card-idx {
   position: absolute; top: 8px; right: 10px;
-  background: rgba(0,0,0,0.4); color: white; font-size: 11px; font-weight: 700;
+  background: rgba(0,0,0,0.4); color: white; font-size: 13px; font-weight: 700;
   padding: 2px 7px; border-radius: 20px;
 }
 
@@ -73,7 +73,7 @@
 
 .ba-badge {
   display: inline-block;
-  font-size: 11px;
+  font-size: 13px;
   padding: 3px 10px;
   border-radius: 10px;
   margin-bottom: 8px;
@@ -119,7 +119,7 @@
 }
 
 .hc-step-label {
-  font-size: 10px; font-weight: 700; color: #F18091;
+  font-size: 13px; font-weight: 700; color: #F18091;
   letter-spacing: 0.14em; margin-bottom: 10px;
 }
 
@@ -155,7 +155,7 @@
 }
 
 .hc-preview-label {
-  font-size: 10px; font-weight: 700; color: var(--text3);
+  font-size: 13px; font-weight: 700; color: var(--text3);
   letter-spacing: 0.08em; margin-bottom: 12px;
 }
 
@@ -164,7 +164,7 @@
 }
 
 .hc-preview-hash {
-  margin-top: 10px; font-size: 11px; color: var(--accent2); line-height: 1.7;
+  margin-top: 10px; font-size: 13px; color: var(--accent2); line-height: 1.7;
 }
 
 /* 메인 CTA 카드 (연동 후) */
@@ -179,7 +179,7 @@
 .hc-main-cta:active { transform: scale(0.985); box-shadow: 0 4px 16px rgba(241,128,145,0.3); }
 
 .hc-cta-eyebrow {
-  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.7);
+  font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7);
   letter-spacing: 0.06em; margin-bottom: 6px;
 }
 
@@ -201,7 +201,7 @@
 }
 
 .pd-title {
-  font-size: 10px; font-weight: 700; color: var(--text3);
+  font-size: 13px; font-weight: 700; color: var(--text3);
   letter-spacing: 0.08em; margin-bottom: 14px;
 }
 
@@ -232,7 +232,7 @@
 .home-card:active { transform: scale(0.99); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 .home-card-icon { font-size: 28px; flex-shrink: 0; }
 .home-card-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 3px; letter-spacing: -0.02em; }
-.home-card-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+.home-card-desc { font-size: 13px; color: var(--text3); line-height: 1.5; }
 .home-card-arrow { margin-left: auto; color: var(--text3); font-size: 18px; flex-shrink: 0; }
 
 
@@ -273,7 +273,7 @@
 }
 .lock-overlay.hidden { display: none; }
 .lock-title { font-family: Pretendard, sans-serif; font-size: 26px; font-weight: 700; color: var(--accent); margin-bottom: 6px; letter-spacing: -0.04em; }
-.lock-sub { font-size: 12px; color: var(--text3); margin-bottom: 36px; letter-spacing: 0.05em; }
+.lock-sub { font-size: 13px; color: var(--text3); margin-bottom: 36px; letter-spacing: 0.05em; }
 
 .login-input {
   width: 100%; max-width: 300px; font-size: 15px; letter-spacing: -0.02em;
@@ -347,7 +347,7 @@
 
 .ob-shop-badge {
   position: absolute; top: 10px; right: 10px;
-  font-size: 10px; font-weight: 600; color: var(--text3);
+  font-size: 13px; font-weight: 600; color: var(--text3);
   background: var(--bg3); border-radius: 6px; padding: 2px 7px;
   letter-spacing: 0;
 }
@@ -412,7 +412,7 @@
 }
 
 .header-shop-name {
-  font-size: 12px; font-weight: 800; color: var(--text);
+  font-size: 13px; font-weight: 800; color: var(--text);
 }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -460,7 +460,7 @@
 
 .slot-item {
   height: 44px; display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: var(--accent2);
+  font-size: 13px; font-weight: 700; color: var(--accent2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   padding: 0 6px; letter-spacing: -0.02em; flex-shrink: 0;
   max-width: 100%; box-sizing: border-box;
@@ -472,7 +472,7 @@
   border: 1.5px solid rgba(241,128,145,0.45);
   border-radius: 12px;
   align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; color: var(--accent2);
+  font-size: 13px; font-weight: 800; color: var(--accent2);
   padding: 0 4px; text-align: center;
   animation: slotLockPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
@@ -484,7 +484,7 @@
 .slot-locked.active { display: flex; }
 
 #clHint {
-  font-size: 11px; color: var(--text3); letter-spacing: -0.01em;
+  font-size: 13px; color: var(--text3); letter-spacing: -0.01em;
 }
 
 /* ───── T-200 P2 · 홈 리프레시 신규 클래스 ───── */
@@ -561,11 +561,11 @@
   font-size: 14px; font-weight: 600; margin: 0 0 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text);
 }
-.resume-sub { font-size: 12px; color: var(--text-subtle); margin: 0; display: flex; gap: 8px; align-items: center; }
+.resume-sub { font-size: 13px; color: var(--text-subtle); margin: 0; display: flex; gap: 8px; align-items: center; }
 
 .resume-badge {
   background: var(--brand-bg); color: var(--brand);
-  padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600;
 }
 
 .resume-empty {

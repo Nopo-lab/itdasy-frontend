@@ -87,7 +87,7 @@
         <div id="cal-root" style="flex:1;overflow:auto;padding:12px;min-height:420px;background:#fff;">
           <div style="padding:40px;text-align:center;color:#aaa;font-size:13px;">캘린더 불러오는 중…</div>
         </div>
-        <div style="padding:8px 14px;border-top:1px solid #eee;background:#fafafa;font-size:11px;color:#888;text-align:center;">
+        <div style="padding:8px 14px;border-top:1px solid #eee;background:#fafafa;font-size:13px;color:#888;text-align:center;">
           💡 빈 시간 탭 = 예약 추가 · 예약 블록 드래그 = 시간 이동 · 끝 드래그 = 길이 조정
         </div>
       </div>

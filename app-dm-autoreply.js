@@ -59,7 +59,7 @@
     const disabledBanner = _globalEnabled ? '' : `
       <div style="padding:14px;background:#FFF7E6;border:1px solid #FFD666;border-radius:12px;margin-bottom:16px;">
         <div style="font-weight:800;color:#B45309;font-size:13px;margin-bottom:4px;">⏳ Meta 심사 대기중</div>
-        <div style="font-size:12px;color:#666;line-height:1.5;">
+        <div style="font-size:13px;color:#666;line-height:1.5;">
           DM 자동응답 기능은 Meta Advanced Review 통과 후 활성화됩니다.<br>
           설정은 미리 저장해 두실 수 있고, 심사 통과 즉시 자동으로 적용돼요 (최대 2~3주).
         </div>
@@ -68,19 +68,19 @@
     sheet.innerHTML = `
       <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 18px;"></div>
       <div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:6px;">🤖 AI DM 자동응답</div>
-      <div style="font-size:12px;color:#888;margin-bottom:16px;">시술 중 온 DM에 AI 비서가 자동으로 답장해요.</div>
+      <div style="font-size:13px;color:#888;margin-bottom:16px;">시술 중 온 DM에 AI 비서가 자동으로 답장해요.</div>
       ${disabledBanner}
 
       <label style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:#FAFAFA;border-radius:12px;margin-bottom:12px;cursor:${_globalEnabled ? 'pointer' : 'not-allowed'};opacity:${_globalEnabled ? '1' : '0.6'};">
         <div>
           <div style="font-weight:700;font-size:14px;">자동응답 켜기</div>
-          <div style="font-size:11px;color:#888;margin-top:2px;">켜놓으면 DM 즉시 AI 답장</div>
+          <div style="font-size:13px;color:#888;margin-top:2px;">켜놓으면 DM 즉시 AI 답장</div>
         </div>
         <input id="dmEnabled" type="checkbox" ${settings.enabled ? 'checked' : ''} ${_globalEnabled ? '' : 'disabled'} style="width:20px;height:20px;">
       </label>
 
       <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#555;">답장 톤</label>
+        <label style="font-size:13px;font-weight:700;color:#555;">답장 톤</label>
         <select id="dmTone" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;">
           <option value="friendly" ${settings.tone === 'friendly' ? 'selected' : ''}>친근하게 (반말 섞어서)</option>
           <option value="professional" ${settings.tone === 'professional' ? 'selected' : ''}>정중하게 (존댓말)</option>
@@ -89,7 +89,7 @@
       </div>
 
       <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#555;">응답 시간 (이 시간 외엔 답장 안 함)</label>
+        <label style="font-size:13px;font-weight:700;color:#555;">응답 시간 (이 시간 외엔 답장 안 함)</label>
         <div style="display:flex;gap:8px;margin-top:6px;">
           <input id="dmStart" type="time" value="${_esc(settings.auto_reply_start || '09:00')}" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;">
           <span style="align-self:center;color:#888;">~</span>
@@ -98,13 +98,13 @@
       </div>
 
       <div style="margin-bottom:14px;">
-        <label style="font-size:12px;font-weight:700;color:#555;">금지어 (쉼표 구분 — 이 단어 포함된 DM 은 사람 대응)</label>
+        <label style="font-size:13px;font-weight:700;color:#555;">금지어 (쉼표 구분 — 이 단어 포함된 DM 은 사람 대응)</label>
         <input id="dmBlocked" type="text" value="${_esc((settings.blocked_keywords || []).join(', '))}" placeholder="환불, 컴플레인, 부작용" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;box-sizing:border-box;">
-        <div style="font-size:10px;color:#999;margin-top:4px;">기본 금지어 자동 포함: 의료·치료·부작용·환불·법적</div>
+        <div style="font-size:13px;color:#999;margin-top:4px;">기본 금지어 자동 포함: 의료·치료·부작용·환불·법적</div>
       </div>
 
       <details style="margin-bottom:14px;">
-        <summary style="font-size:12px;font-weight:700;color:#555;cursor:pointer;padding:8px 0;">AI 실패 시 사용할 템플릿 (선택)</summary>
+        <summary style="font-size:13px;font-weight:700;color:#555;cursor:pointer;padding:8px 0;">AI 실패 시 사용할 템플릿 (선택)</summary>
         <textarea id="dmTplIntro" placeholder="인사말 템플릿" style="width:100%;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:13px;box-sizing:border-box;min-height:60px;">${_esc(settings.template_intro || '')}</textarea>
         <textarea id="dmTplPricing" placeholder="가격 문의 템플릿" style="width:100%;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:13px;box-sizing:border-box;min-height:60px;">${_esc(settings.template_pricing || '')}</textarea>
         <textarea id="dmTplBooking" placeholder="예약 문의 템플릿" style="width:100%;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:13px;box-sizing:border-box;min-height:60px;">${_esc(settings.template_booking || '')}</textarea>

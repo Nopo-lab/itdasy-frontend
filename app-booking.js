@@ -205,7 +205,7 @@
       <div style="flex:1;text-align:center;font-size:14px;font-weight:700;">
         ${_anchorDate.getMonth() + 1}/${_anchorDate.getDate()} – ${rangeEnd.getMonth() + 1}/${rangeEnd.getDate()}
       </div>
-      <button data-nav="today" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:11px;">오늘</button>
+      <button data-nav="today" style="padding:6px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">오늘</button>
       <button data-nav="next" style="padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;">▶</button>
     `;
     nav.querySelector('[data-nav="prev"]').addEventListener('click', () => _shiftWeek(-1));
@@ -231,7 +231,7 @@
         <div style="border-bottom:1px solid var(--border);padding:10px 0;${isToday ? 'background:rgba(241,128,145,0.04);' : ''}">
           <div style="display:flex;align-items:baseline;gap:8px;margin:0 0 6px 4px;">
             <strong style="font-size:13px;color:${isToday ? 'var(--brand)' : 'var(--text)'};">${dayLabels[i]} ${d.getDate()}</strong>
-            <span style="font-size:11px;color:var(--text-subtle);">${dayBookings.length}건</span>
+            <span style="font-size:13px;color:var(--text-subtle);">${dayBookings.length}건</span>
           </div>
           ${dayBookings.length ? '<div class="dt-list">' + dayBookings.map(b => _renderBookingRow(b)).join('') + '</div>' : '<div class="dt-empty" style="padding:8px 4px;">예약 없음</div>'}
         </div>
@@ -315,7 +315,7 @@
       ` : ''}
       ${existing ? `
         <div style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border);">
-          <div style="font-size:11px;color:var(--text-subtle);margin-bottom:8px;font-weight:700;">예약 상태</div>
+          <div style="font-size:13px;color:var(--text-subtle);margin-bottom:8px;font-weight:700;">예약 상태</div>
           <div class="dt-status-row">
             <button type="button" data-bf-status="confirmed" class="dt-status-btn${existing.status==='confirmed'?' dt-status-btn--confirmed':''}">📅 예정</button>
             <button type="button" data-bf-status="no_show" class="dt-status-btn${existing.status==='no_show'?' dt-status-btn--no-show':''}">🚫 노쇼</button>

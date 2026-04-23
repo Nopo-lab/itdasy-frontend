@@ -71,8 +71,8 @@
         <div style="padding:14px 16px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <strong id="debugPanelTitle" style="font-size:15px;">진단 정보</strong>
           <div>
-            <button id="debugPanelCopy" style="border:0;background:#f18091;color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;margin-right:6px;">복사</button>
-            <button id="debugPanelClose" style="border:0;background:#e0e0e0;color:#333;padding:6px 12px;border-radius:8px;font-size:12px;">닫기</button>
+            <button id="debugPanelCopy" style="border:0;background:#f18091;color:#fff;padding:6px 12px;border-radius:8px;font-size:13px;margin-right:6px;">복사</button>
+            <button id="debugPanelClose" style="border:0;background:#e0e0e0;color:#333;padding:6px 12px;border-radius:8px;font-size:13px;">닫기</button>
           </div>
         </div>
         <pre id="debugPanelBody" style="margin:0;padding:14px 16px;overflow:auto;font-size:11.5px;line-height:1.5;white-space:pre-wrap;word-break:break-all;background:#f8f8f8;flex:1;"></pre>

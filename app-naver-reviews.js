@@ -130,7 +130,7 @@
         <span id="naverOfflineBadge" class="dt-offline-badge">오프라인</span>
       </header>
       <div class="dt-body">
-        <p style="font-size:11px;color:var(--text-subtle);margin:0 0 10px;line-height:1.5;">네이버 플레이스에서 받은 리뷰를 직접 복사해서 저장하세요. 자동 크롤링은 약관상 제한됩니다.</p>
+        <p style="font-size:13px;color:var(--text-subtle);margin:0 0 10px;line-height:1.5;">네이버 플레이스에서 받은 리뷰를 직접 복사해서 저장하세요. 자동 크롤링은 약관상 제한됩니다.</p>
         <div id="naverList"></div>
       </div>
       <footer class="dt-footer">
@@ -154,7 +154,7 @@
     listEl.innerHTML = '<div class="dt-list">' + _items.map(r => `
       <button class="dt-list-it" data-id="${r.id}" type="button">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title"><span style="color:#FFB800;">${_starLine(r.rating)}</span> ${_esc(r.author_name||'익명')}${r.visited_at ? ` <span style="font-size:10px;font-weight:400;color:var(--text-subtle);">${_esc(r.visited_at)}</span>` : ''}</p>
+          <p class="dt-list-it__title"><span style="color:#FFB800;">${_starLine(r.rating)}</span> ${_esc(r.author_name||'익명')}${r.visited_at ? ` <span style="font-size:13px;font-weight:400;color:var(--text-subtle);">${_esc(r.visited_at)}</span>` : ''}</p>
           ${r.content ? `<p class="dt-list-it__sub">${_esc(r.content).slice(0, 80)}${r.content.length > 80 ? '…' : ''}</p>` : ''}
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>

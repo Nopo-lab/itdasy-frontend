@@ -306,7 +306,7 @@ function _renderCaptionPhotoRow() {
 
     wrap.innerHTML = `
       <img src="${src}" draggable="false" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;pointer-events:none;">
-      <button onclick="_removeCapPhoto(${i},event)" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;line-height:1;cursor:pointer;">×</button>
+      <button onclick="_removeCapPhoto(${i},event)" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:13px;line-height:1;cursor:pointer;">×</button>
       <div style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.8);background:rgba(0,0,0,0.35);border-radius:3px;padding:0 3px;">${i+1}</div>
     `;
 
@@ -851,7 +851,7 @@ function _previewCaptionOnInsta() {
         <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);padding:2px;"><div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;">🎀</div></div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;">${handle}</div>
-          <div style="font-size:10px;color:#888;">Sponsored · 서울</div>
+          <div style="font-size:13px;color:#888;">Sponsored · 서울</div>
         </div>
         <div style="font-size:18px;color:#262626;">⋯</div>
       </div>
@@ -859,20 +859,20 @@ function _previewCaptionOnInsta() {
       <div style="width:100%;aspect-ratio:1/1;background:#000;display:flex;align-items:center;justify-content:center;">
         ${previewImg
           ? `<img src="${previewImg}" style="width:100%;height:100%;object-fit:cover;">`
-          : `<div style="color:#888;font-size:12px;">작업실에서 사진을 먼저 선택해주세요</div>`}
+          : `<div style="color:#888;font-size:13px;">작업실에서 사진을 먼저 선택해주세요</div>`}
       </div>
       <!-- 하단 아이콘 -->
       <div style="display:flex;gap:14px;padding:8px 12px;font-size:22px;">
         ❤️ 💬 ✈️ <span style="flex:1;"></span> 🔖
       </div>
       <!-- 캡션 -->
-      <div style="padding:4px 12px 12px;font-size:12px;line-height:1.5;color:#262626;max-height:220px;overflow-y:auto;">
+      <div style="padding:4px 12px 12px;font-size:13px;line-height:1.5;color:#262626;max-height:220px;overflow-y:auto;">
         <b>${handle}</b> <span style="white-space:pre-wrap;">${(caption || '(캡션 없음)').replace(/</g,'&lt;')}</span>
         ${hashHtml ? '<div style="margin-top:6px;word-break:break-word;">' + hashHtml + '</div>' : ''}
       </div>
       <div style="padding:10px 12px;border-top:1px solid #efefef;display:flex;gap:8px;">
-        <button onclick="document.getElementById('_capInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
-        <button onclick="publishFromCaption();document.getElementById('_capInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
+        <button onclick="document.getElementById('_capInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:13px;font-weight:700;cursor:pointer;">닫기</button>
+        <button onclick="publishFromCaption();document.getElementById('_capInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">이대로 올리기</button>
       </div>
     </div>
   `;
@@ -919,13 +919,13 @@ function _renderCaptionActionBar(caption, hashtags) {
 
   const hasNextSlot = !!nextSlot;
   const progressText = totalCount > 0 ? `(완료 ${doneCount}/${totalCount})` : '';
-  const _btnBase = 'min-height:44px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;';
+  const _btnBase = 'min-height:44px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;';
 
   actionBar.style.display = 'block';
   actionBar.innerHTML = `
     <!-- 재생성 옵션 4종 (Apple HIG 44pt 보장) + 첫 사용 툴팁 -->
     <div style="background:rgba(241,128,145,0.06);border:1.5px solid rgba(241,128,145,0.2);border-radius:14px;padding:12px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">마음에 안 드시면 다시 써드릴게요 <span style="color:var(--text3);font-weight:500;">· 각 버튼 누르면 조건만 바꿔 재생성</span></div>
+      <div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:8px;">마음에 안 드시면 다시 써드릴게요 <span style="color:var(--text3);font-weight:500;">· 각 버튼 누르면 조건만 바꿔 재생성</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
         <button onclick="regenerateCaption({})" title="같은 조건으로 한 번 더 생성" style="${_btnBase}">🔄 다시 생성</button>
         <button onclick="regenerateCaption({length_tier:'short'})" title="1~2문장으로 압축" style="${_btnBase}">📏 더 짧게</button>
@@ -933,7 +933,7 @@ function _renderCaptionActionBar(caption, hashtags) {
         <button onclick="regenerateCaption({tone_override:'ornate'})" title="이모지·감탄사 풍성하게" style="${_btnBase}">💕 더 친근하게</button>
       </div>
       ${localStorage.getItem('_regen_hint_shown') ? '' : `
-      <div id="_regenFirstHint" style="margin-top:10px;padding:8px 10px;background:#fff5f7;border-radius:8px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:6px;">
+      <div id="_regenFirstHint" style="margin-top:10px;padding:8px 10px;background:#fff5f7;border-radius:8px;font-size:13px;color:var(--accent);display:flex;align-items:center;gap:6px;">
         <span>💡 각 버튼 <b>꾹 누르면</b> 뭘 바꾸는지 설명 뜹니다</span>
       </div>
       `}
@@ -942,7 +942,7 @@ function _renderCaptionActionBar(caption, hashtags) {
 
     <div style="background:rgba(76,175,80,0.08);border:1.5px solid rgba(76,175,80,0.25);border-radius:14px;padding:14px;margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="font-size:12px;font-weight:700;color:#388e3c;">✅ 캡션 생성 완료!</div>
+        <div style="font-size:13px;font-weight:700;color:#388e3c;">✅ 캡션 생성 완료!</div>
         <button data-report-ai="caption" data-snippet="${(caption || '').replace(/"/g,'&quot;')}" data-source="/caption/generate" title="AI 캡션 신고" aria-label="AI 캡션 신고"
           style="background:transparent;border:none;cursor:pointer;font-size:13px;color:#999;padding:4px 6px;">🚩 신고</button>
       </div>
@@ -952,10 +952,10 @@ function _renderCaptionActionBar(caption, hashtags) {
     </div>
     ${hasNextSlot ? `
     <div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:14px;padding:14px;">
-      <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">다음 손님 글 써볼까요? ${progressText}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px;">다음 손님 글 써볼까요? ${progressText}</div>
       <div style="display:flex;gap:8px;">
         <button onclick="goToNextSlotCaption('${nextSlot.id}')" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">${nextSlot.label} 글쓰기 →</button>
-        <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
+        <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;">마무리로 →</button>
       </div>
     </div>
     ` : `

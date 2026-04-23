@@ -72,7 +72,7 @@
             <span style="font-size:18px;">💝</span>
             <strong style="font-size:14px;">이탈 임박 고객</strong>
           </div>
-          <div style="font-size:12px;color:#888;">걱정할 고객 없음 · 고객 데이터가 쌓이면 자동으로 감지해요.</div>
+          <div style="font-size:13px;color:#888;">걱정할 고객 없음 · 고객 데이터가 쌓이면 자동으로 감지해요.</div>
         </div>`;
     }
     return `
@@ -80,29 +80,29 @@
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">💝</span>
           <strong style="font-size:14px;">이탈 임박 고객</strong>
-          <span style="margin-left:auto;font-size:11px;color:#dc3545;font-weight:700;">⚠ ${s.at_risk + s.lost}명</span>
+          <span style="margin-left:auto;font-size:13px;color:#dc3545;font-weight:700;">⚠ ${s.at_risk + s.lost}명</span>
         </div>
         ${items.map(c => `
           <div style="padding:8px 4px;border-top:1px solid rgba(0,0,0,0.05);">
             <div style="display:flex;align-items:center;gap:6px;">
               <strong style="font-size:13px;">${_esc(c.name)}</strong>
-              ${c.phone ? `<span style="font-size:11px;color:#888;">${_esc(c.phone)}</span>` : ''}
-              <span style="margin-left:auto;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:${c.status === 'lost' ? 'rgba(220,53,69,0.15)' : 'rgba(255,193,7,0.2)'};color:${c.status === 'lost' ? '#dc3545' : '#f57c00'};">
+              ${c.phone ? `<span style="font-size:13px;color:#888;">${_esc(c.phone)}</span>` : ''}
+              <span style="margin-left:auto;font-size:13px;padding:1px 6px;border-radius:3px;font-weight:700;background:${c.status === 'lost' ? 'rgba(220,53,69,0.15)' : 'rgba(255,193,7,0.2)'};color:${c.status === 'lost' ? '#dc3545' : '#f57c00'};">
                 ${c.status === 'lost' ? '이탈' : '임박'}
               </span>
             </div>
-            <div style="font-size:11px;color:#666;margin-top:2px;">
+            <div style="font-size:13px;color:#666;margin-top:2px;">
               마지막 방문 ${_relativeDays(c.days_since_last)} 전 · 평균 주기 ${Math.round(c.avg_interval_days)}일 · 방문 ${c.visit_count}회
             </div>
             <div style="margin-top:6px;text-align:right;">
               <button data-draft-cid="${c.customer_id}" data-draft-name="${_esc(c.name)}" data-draft-phone="${_esc(c.phone || '')}"
-                      style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #F18091;background:#fff;color:#D95F70;border-radius:100px;cursor:pointer;">
+                      style="padding:5px 10px;font-size:13px;font-weight:700;border:1px solid #F18091;background:#fff;color:#D95F70;border-radius:100px;cursor:pointer;">
                 💬 카톡 초안 만들기
               </button>
             </div>
           </div>
         `).join('')}
-        ${data.items.length > 5 ? `<div style="margin-top:8px;font-size:11px;color:#888;text-align:center;">외 ${data.items.length - 5}명</div>` : ''}
+        ${data.items.length > 5 ? `<div style="margin-top:8px;font-size:13px;color:#888;text-align:center;">외 ${data.items.length - 5}명</div>` : ''}
       </div>
     `;
   }
@@ -115,7 +115,7 @@
             <span style="font-size:18px;">📈</span>
             <strong style="font-size:14px;">이번 주 매출 예상</strong>
           </div>
-          <div style="font-size:12px;color:#888;">${_esc(data?.action || '데이터가 더 필요해요')}</div>
+          <div style="font-size:13px;color:#888;">${_esc(data?.action || '데이터가 더 필요해요')}</div>
         </div>`;
     }
     const up = data.delta_pct >= 0;
@@ -129,10 +129,10 @@
         </div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
           <strong style="font-size:24px;color:var(--accent,#F18091);">${_formatKRW(data.predicted_week)}</strong>
-          <span style="font-size:12px;color:${deltaColor};font-weight:700;">${arrow} ${up ? '+' : ''}${data.delta_pct}%</span>
-          <span style="font-size:11px;color:#888;margin-left:auto;">지난주 ${_formatKRW(data.current_week)}</span>
+          <span style="font-size:13px;color:${deltaColor};font-weight:700;">${arrow} ${up ? '+' : ''}${data.delta_pct}%</span>
+          <span style="font-size:13px;color:#888;margin-left:auto;">지난주 ${_formatKRW(data.current_week)}</span>
         </div>
-        <div style="font-size:12px;color:#555;line-height:1.5;padding:8px 10px;background:#fff;border-radius:8px;margin-top:8px;">
+        <div style="font-size:13px;color:#555;line-height:1.5;padding:8px 10px;background:#fff;border-radius:8px;margin-top:8px;">
           💡 ${_esc(data.action)}
         </div>
       </div>
@@ -147,7 +147,7 @@
             <span style="font-size:18px;">🎟</span>
             <strong style="font-size:14px;">쿠폰 제안</strong>
           </div>
-          <div style="font-size:12px;color:#888;">${_esc(data?.reason || '데이터가 더 쌓이면 제안이 나와요')}</div>
+          <div style="font-size:13px;color:#888;">${_esc(data?.reason || '데이터가 더 쌓이면 제안이 나와요')}</div>
         </div>`;
     }
     return `
@@ -155,13 +155,13 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="font-size:18px;">🎟</span>
           <strong style="font-size:14px;">쿠폰 제안</strong>
-          <span style="margin-left:auto;font-size:11px;color:#388e3c;font-weight:700;">${data.discount_pct}% 할인</span>
+          <span style="margin-left:auto;font-size:13px;color:#388e3c;font-weight:700;">${data.discount_pct}% 할인</span>
         </div>
         <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">
           <strong style="font-size:20px;color:#388e3c;">${_esc(data.slow_day.label)}요일</strong>
-          <span style="font-size:11px;color:#888;">↔ ${_esc(data.peak_day.label)}요일 대비 -${data.gap_pct}%</span>
+          <span style="font-size:13px;color:#888;">↔ ${_esc(data.peak_day.label)}요일 대비 -${data.gap_pct}%</span>
         </div>
-        <div style="font-size:12px;color:#555;line-height:1.5;padding:8px 10px;background:#fff;border-radius:8px;">
+        <div style="font-size:13px;color:#555;line-height:1.5;padding:8px 10px;background:#fff;border-radius:8px;">
           💡 ${_esc(data.message)}
         </div>
       </div>
@@ -192,7 +192,7 @@
       ${_retentionCard(ret)}
       ${_forecastCard(fc)}
       ${_couponCard(cp)}
-      <div style="font-size:11px;color:#aaa;text-align:center;padding:10px;">
+      <div style="font-size:13px;color:#aaa;text-align:center;padding:10px;">
         AI 인사이트는 최근 8주 데이터를 바탕으로 매 요청마다 새로 계산돼요.
       </div>
     `;

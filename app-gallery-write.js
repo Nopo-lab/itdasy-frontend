@@ -4,7 +4,7 @@
 // 피크 캐러셀 (글쓰기 슬롯 사진 / 미리보기 공용)
 // ═══════════════════════════════════════════════════════
 function _buildPeekCarousel(photos, id) {
-  if (!photos.length) return '<div style="color:var(--text3);text-align:center;padding:16px;font-size:12px;">사진 없음</div>';
+  if (!photos.length) return '<div style="color:var(--text3);text-align:center;padding:16px;font-size:13px;">사진 없음</div>';
   const total = photos.length;
   if (total === 1) {
     return `<div style="width:70%;margin:0 auto;aspect-ratio:1/1;border-radius:14px;overflow:hidden;">
@@ -139,7 +139,7 @@ function initCaptionSlotPicker() {
   container.style.display = 'block';
   container.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;">
-      <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:10px;">작업실 슬롯 <span style="font-size:10px;color:var(--text3);font-weight:400;">— 탭하면 사진이 연결돼요</span></div>
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px;">작업실 슬롯 <span style="font-size:13px;color:var(--text3);font-weight:400;">— 탭하면 사진이 연결돼요</span></div>
       <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;" id="captionSlotCards">
         ${doneSlots.map(slot => {
           const thumb = slot.photos.filter(p => !p.hidden)[0];
@@ -251,9 +251,9 @@ function _showCaptionPublishPreview(photos, caption) {
         </div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
-          <div style="font-size:10px;color:#999;">sponsored</div>
+          <div style="font-size:13px;color:#999;">sponsored</div>
         </div>
-        <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:12px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
+        <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:13px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
         <button style="background:transparent;border:none;font-size:18px;color:#999;cursor:pointer;margin-left:8px;" onclick="document.getElementById('_captionPubPreviewPop').style.display='none'">×</button>
       </div>
       <!-- 사진 캐러셀 -->

@@ -77,7 +77,7 @@
         _esc(r.customer_name || '—'),
         _esc(r.service_name || '—'),
         `<span style="color:#666;font-variant-numeric:tabular-nums;">${(r.starts_at || '').replace('T', ' ').slice(0, 16)}</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#E8F4F1;color:#2B8C7E;font-size:11px;font-weight:700;">${_esc(r.status || 'confirmed')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#E8F4F1;color:#2B8C7E;font-size:13px;font-weight:700;">${_esc(r.status || 'confirmed')}</span>`,
       ],
       search: (r, kw) => ((r.customer_name || '') + ' ' + (r.service_name || '') + ' ' + (r.starts_at || '')).toLowerCase().includes(kw),
       empty: { icon: '📅', title: '예정된 예약이 없어요', desc: '시간 형식: 2026-04-22 14:00' },
@@ -109,7 +109,7 @@
         _esc(r.customer_name || '—'),
         _esc(r.service_name || '—'),
         `<span style="font-weight:800;color:#1a1a1a;">${_krw(r.amount)}</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:11px;font-weight:700;">${_esc(r.method || '—')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:13px;font-weight:700;">${_esc(r.method || '—')}</span>`,
         `<span style="color:#2B8C7E;font-weight:700;">${r.net_amount != null ? _krw(r.net_amount) : _krw(r.amount)}</span>`,
       ],
       search: (r, kw) => ((r.customer_name || '') + ' ' + (r.service_name || '') + ' ' + (r.method || '')).toLowerCase().includes(kw),
@@ -140,8 +140,8 @@
           r.unit || '개',
           r.threshold || '—',
           low
-            ? `<span style="padding:3px 9px;border-radius:100px;background:#FFEBEE;color:#C62828;font-size:11px;font-weight:700;">🔴 부족</span>`
-            : `<span style="padding:3px 9px;border-radius:100px;background:#E8F5E9;color:#2E7D32;font-size:11px;font-weight:700;">🟢 정상</span>`,
+            ? `<span style="padding:3px 9px;border-radius:100px;background:#FFEBEE;color:#C62828;font-size:13px;font-weight:700;">🔴 부족</span>`
+            : `<span style="padding:3px 9px;border-radius:100px;background:#E8F5E9;color:#2E7D32;font-size:13px;font-weight:700;">🟢 정상</span>`,
         ];
       },
       search: (r, kw) => ((r.name || '') + ' ' + (r.category || '')).toLowerCase().includes(kw),
@@ -167,7 +167,7 @@
       row: (r) => [
         `<span style="color:#FFD54F;font-weight:800;">★${r.rating}</span>`,
         _esc((r.comment || '').slice(0, 48) || '—'),
-        `<span style="color:#888;font-size:11px;">${_esc(r.source || 'manual')}</span>`,
+        `<span style="color:#888;font-size:13px;">${_esc(r.source || 'manual')}</span>`,
         `<span style="color:#888;font-variant-numeric:tabular-nums;">${(r.responded_at || '').slice(0, 10) || '—'}</span>`,
       ],
       search: (r, kw) => ((r.comment || '') + ' ' + (r.source || '') + ' ' + r.rating).toLowerCase().includes(kw),
@@ -187,7 +187,7 @@
         `<strong>${_esc(r.name)}</strong>`,
         `<span style="font-weight:700;">${_krw(r.default_price)}</span>`,
         `<span style="color:#666;">${r.default_duration_min || 0}분</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#F3E8FF;color:#6B21A8;font-size:11px;font-weight:700;">${_esc(r.category || 'etc')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#F3E8FF;color:#6B21A8;font-size:13px;font-weight:700;">${_esc(r.category || 'etc')}</span>`,
       ],
       search: (r, kw) => ((r.name || '') + ' ' + (r.category || '')).toLowerCase().includes(kw),
       empty: { icon: '💅', title: '시술 프리셋이 없어요', desc: '자주 하는 시술 등록해두면 원탭 기록 가능.' },

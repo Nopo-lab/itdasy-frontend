@@ -56,7 +56,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:22px;">🔔</span>
           <strong style="font-size:17px;">알림</strong>
-          <button data-notif-all style="margin-left:auto;font-size:11px;color:#888;background:none;border:none;cursor:pointer;">전부 읽음</button>
+          <button data-notif-all style="margin-left:auto;font-size:13px;color:#888;background:none;border:none;cursor:pointer;">전부 읽음</button>
           <button onclick="closeNotifications()" style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="notifBody" style="flex:1;overflow-y:auto;"></div>
@@ -105,8 +105,8 @@
         <div style="width:40px;height:40px;border-radius:12px;background:rgba(241,128,145,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${_iconByKind(n.kind)}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;color:#222;">${_esc(n.title)}</div>
-          <div style="font-size:11px;color:#666;margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</div>
-          <div style="font-size:10px;color:#aaa;margin-top:3px;">${_esc(_relativeTime(n.scheduled_at))}</div>
+          <div style="font-size:13px;color:#666;margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</div>
+          <div style="font-size:13px;color:#aaa;margin-top:3px;">${_esc(_relativeTime(n.scheduled_at))}</div>
         </div>
       </div>
     `).join('');

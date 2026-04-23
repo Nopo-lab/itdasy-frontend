@@ -36,7 +36,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="font-size:22px;">🤖</span>
           <strong style="font-size:17px;">AI 비서</strong>
-          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.15);color:#7C3AED;font-weight:700;">베타</span>
+          <span style="font-size:13px;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.15);color:#7C3AED;font-weight:700;">베타</span>
           <button onclick="closeAssistant()" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
@@ -45,7 +45,7 @@
           <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:14px;" />
           <button id="asstSend" style="padding:12px 18px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;">보내기</button>
         </div>
-        <div style="margin-top:6px;font-size:10px;color:#888;text-align:center;line-height:1.4;">
+        <div style="margin-top:6px;font-size:13px;color:#888;text-align:center;line-height:1.4;">
           ⚠️ AI 답변은 참고용이에요. 의료·세무 관련은 전문가 상담을 권장해요.
         </div>
       </div>
@@ -69,7 +69,7 @@
       body.innerHTML = `
         <div style="padding:30px 20px;text-align:center;">
           <div style="font-size:40px;margin-bottom:10px;">🤖</div>
-          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.<br><span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "매출 5만원 카드"</span></div>
+          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.<br><span style="font-size:13px;color:#888;">예: "김서연 2시 예약 추가" · "매출 5만원 카드"</span></div>
         </div>
       `;
       return;
@@ -84,7 +84,7 @@
         const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status) : '';
         const relatedHtml = (m.related && m.related.length) ? `
           <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
-            ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
+            ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:13px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
           </div>` : '';
         return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
           <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">🤖</div>
@@ -92,7 +92,7 @@
             <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
             <div style="margin-top:3px;padding-left:4px;">
               <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
-                style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#bbb;padding:2px 4px;">🚩 신고</button>
+                style="background:transparent;border:none;cursor:pointer;font-size:13px;color:#bbb;padding:2px 4px;">🚩 신고</button>
             </div>
             ${actionHtml}
             ${relatedHtml}
@@ -129,24 +129,24 @@
 
     if (status === 'done') {
       return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.12),rgba(76,175,80,0.02));border-radius:12px;border-left:3px solid #388e3c;">
-        <div style="font-size:11px;font-weight:700;color:#388e3c;">✓ 완료</div>
+        <div style="font-size:13px;font-weight:700;color:#388e3c;">✓ 완료</div>
       </div>`;
     }
     if (status === 'failed') {
       return `<div style="margin-top:6px;padding:10px 12px;background:rgba(220,53,69,0.08);border-radius:12px;border-left:3px solid #dc3545;">
-        <div style="font-size:11px;font-weight:700;color:#dc3545;">실패 — 다시 말씀해 주세요</div>
+        <div style="font-size:13px;font-weight:700;color:#dc3545;">실패 — 다시 말씀해 주세요</div>
       </div>`;
     }
     // pending
     return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <span style="font-size:14px;">${kindBadge.icon}</span>
-        <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label}</span>
+        <span style="font-size:13px;font-weight:700;color:${kindBadge.color};">${kindBadge.label}</span>
       </div>
       <div style="font-size:13px;color:#222;font-weight:600;margin-bottom:10px;line-height:1.5;">${_esc(action.confirmation_text || '')}</div>
       <div style="display:flex;gap:6px;">
-        <button data-action-run="${historyIdx}" style="flex:2;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;">추가하기 ✓</button>
-        <button data-action-cancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
+        <button data-action-run="${historyIdx}" style="flex:2;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:13px;">추가하기 ✓</button>
+        <button data-action-cancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:13px;">취소</button>
       </div>
     </div>`;
   }
@@ -243,7 +243,7 @@
     if (!el) return;
     // data-suggest 만 두고 클릭은 document 위임 (중복 방지)
     el.innerHTML = SUGGESTIONS.map(s => `
-      <button data-suggest="${_esc(s)}" style="padding:8px 12px;border:1px solid #ddd;border-radius:100px;background:#fff;cursor:pointer;font-size:11px;color:#555;white-space:nowrap;">${_esc(s)}</button>
+      <button data-suggest="${_esc(s)}" style="padding:8px 12px;border:1px solid #ddd;border-radius:100px;background:#fff;cursor:pointer;font-size:13px;color:#555;white-space:nowrap;">${_esc(s)}</button>
     `).join('');
   }
 

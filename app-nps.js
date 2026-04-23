@@ -162,7 +162,7 @@
     return `
       <div class="dt-list-it" style="cursor:default;">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title">${face} <strong>${r.rating}</strong>${r.customer_name ? ` · ${_esc(r.customer_name)}` : ''}<span style="float:right;font-size:11px;font-weight:400;color:var(--text-subtle);">${date}</span></p>
+          <p class="dt-list-it__title">${face} <strong>${r.rating}</strong>${r.customer_name ? ` · ${_esc(r.customer_name)}` : ''}<span style="float:right;font-size:13px;font-weight:400;color:var(--text-subtle);">${date}</span></p>
           ${r.comment ? `<p class="dt-list-it__sub">${_esc(r.comment)}</p>` : ''}
         </div>
         <button data-del="${r.id}" class="dt-back" style="color:var(--danger);" type="button" aria-label="삭제"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg></button>

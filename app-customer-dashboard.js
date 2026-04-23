@@ -90,12 +90,12 @@
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
               <strong style="font-size:20px;color:#fff;">${_esc(c.name)}</strong>
-              <span style="font-size:11px;padding:2px 8px;background:rgba(255,255,255,0.25);border-radius:4px;color:#fff;font-weight:700;">${seg.icon} ${seg.label}</span>
-              ${retention ? `<span style="font-size:10px;padding:2px 8px;background:${retention.bg};color:${retention.color};border-radius:4px;font-weight:700;">⚠ ${retention.label}</span>` : ''}
+              <span style="font-size:13px;padding:2px 8px;background:rgba(255,255,255,0.25);border-radius:4px;color:#fff;font-weight:700;">${seg.icon} ${seg.label}</span>
+              ${retention ? `<span style="font-size:13px;padding:2px 8px;background:${retention.bg};color:${retention.color};border-radius:4px;font-weight:700;">⚠ ${retention.label}</span>` : ''}
             </div>
-            ${c.phone ? `<div style="font-size:12px;color:rgba(255,255,255,0.9);">${_esc(c.phone)}</div>` : ''}
+            ${c.phone ? `<div style="font-size:13px;color:rgba(255,255,255,0.9);">${_esc(c.phone)}</div>` : ''}
             ${(c.tags || []).length ? `<div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
-              ${c.tags.slice(0, 4).map(t => `<span style="font-size:10px;padding:2px 6px;background:rgba(255,255,255,0.22);color:#fff;border-radius:4px;">#${_esc(t)}</span>`).join('')}
+              ${c.tags.slice(0, 4).map(t => `<span style="font-size:13px;padding:2px 6px;background:rgba(255,255,255,0.22);color:#fff;border-radius:4px;">#${_esc(t)}</span>`).join('')}
             </div>` : ''}
           </div>
         </div>
@@ -115,9 +115,9 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         ${cards.map(c => `
           <div style="padding:14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
-            <div style="font-size:10px;color:#888;margin-bottom:6px;">${c.icon} ${_esc(c.label)}</div>
+            <div style="font-size:13px;color:#888;margin-bottom:6px;">${c.icon} ${_esc(c.label)}</div>
             <div style="font-size:18px;font-weight:800;color:#222;line-height:1.2;">${_esc(c.value)}</div>
-            <div style="font-size:10px;color:#aaa;margin-top:3px;">${_esc(c.sub)}</div>
+            <div style="font-size:13px;color:#aaa;margin-top:3px;">${_esc(c.sub)}</div>
           </div>
         `).join('')}
       </div>
@@ -127,9 +127,9 @@
   function _renderActions(id) {
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px;">
-        <button data-act="booking" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">📅<br>예약</button>
-        <button data-act="revenue" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">💰<br>매출</button>
-        <button data-act="nps" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">⭐<br>NPS</button>
+        <button data-act="booking" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#555;">📅<br>예약</button>
+        <button data-act="revenue" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#555;">💰<br>매출</button>
+        <button data-act="nps" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:13px;font-weight:700;color:#555;">⭐<br>NPS</button>
       </div>
     `;
   }
@@ -142,7 +142,7 @@
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
           <strong style="font-size:13px;">💰 시술 이력</strong>
-          <span style="font-size:10px;color:#888;">최근 ${rows.length}건 · 합 ${_formatKRW(total)}${marginTotal ? ' · 실 ' + _formatKRW(marginTotal) : ''}</span>
+          <span style="font-size:13px;color:#888;">최근 ${rows.length}건 · 합 ${_formatKRW(total)}${marginTotal ? ' · 실 ' + _formatKRW(marginTotal) : ''}</span>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
           ${rows.map((r, i) => `
@@ -151,8 +151,8 @@
                 ? `<img src="${_esc(r.image_url)}" loading="lazy" style="width:48px;height:48px;border-radius:8px;object-fit:cover;background:#f2f2f2;flex-shrink:0;" alt="">`
                 : `<div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,#fff0f5,#ffe4ec);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">💇</div>`}
               <div style="flex:1;min-width:0;">
-                <div style="font-size:13px;font-weight:700;">${_formatKRW(r.amount)} <span style="font-size:10px;font-weight:400;color:#888;margin-left:4px;">${_esc(r.service_name || '시술')}</span></div>
-                <div style="font-size:10px;color:#aaa;margin-top:2px;">${_dateShort(r.recorded_at)} · ${_esc(r.method || 'card')}${r.net_margin ? ` · <span style="color:#2B8C7E;">실 ${_formatKRW(r.net_margin)}</span>` : ''}</div>
+                <div style="font-size:13px;font-weight:700;">${_formatKRW(r.amount)} <span style="font-size:13px;font-weight:400;color:#888;margin-left:4px;">${_esc(r.service_name || '시술')}</span></div>
+                <div style="font-size:13px;color:#aaa;margin-top:2px;">${_dateShort(r.recorded_at)} · ${_esc(r.method || 'card')}${r.net_margin ? ` · <span style="color:#2B8C7E;">실 ${_formatKRW(r.net_margin)}</span>` : ''}</div>
               </div>
             </div>
           `).join('')}
@@ -167,15 +167,15 @@
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
           <strong style="font-size:13px;">📅 예약 이력</strong>
-          <span style="font-size:10px;color:#888;">최근 ${rows.length}건</span>
+          <span style="font-size:13px;color:#888;">최근 ${rows.length}건</span>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
           ${rows.map((b, i) => {
             const status = b.status === 'cancelled' ? '❌' : b.status === 'completed' ? '✓' : '•';
             return `
               <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}">
-                <div style="font-size:12px;font-weight:700;">${status} ${_dateShort(b.starts_at)} <span style="color:#888;font-weight:400;">${_esc(b.service_name || '시술')}</span></div>
-                ${b.memo ? `<div style="font-size:10px;color:#888;margin-top:2px;">${_esc(b.memo).slice(0, 50)}</div>` : ''}
+                <div style="font-size:13px;font-weight:700;">${status} ${_dateShort(b.starts_at)} <span style="color:#888;font-weight:400;">${_esc(b.service_name || '시술')}</span></div>
+                ${b.memo ? `<div style="font-size:13px;color:#888;margin-top:2px;">${_esc(b.memo).slice(0, 50)}</div>` : ''}
               </div>
             `;
           }).join('')}
@@ -190,7 +190,7 @@
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
           <strong style="font-size:13px;">⭐ NPS 응답</strong>
-          <span style="font-size:10px;color:#888;">${rows.length}건</span>
+          <span style="font-size:13px;color:#888;">${rows.length}건</span>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
           ${rows.map((n, i) => {
@@ -202,9 +202,9 @@
                 <div style="flex:1;min-width:0;">
                   <div style="display:flex;align-items:baseline;gap:6px;">
                     <strong style="color:${color};font-size:14px;">${n.rating}</strong>
-                    <span style="font-size:10px;color:#aaa;margin-left:auto;">${_dateShort(n.responded_at)}</span>
+                    <span style="font-size:13px;color:#aaa;margin-left:auto;">${_dateShort(n.responded_at)}</span>
                   </div>
-                  ${n.comment ? `<div style="font-size:11px;color:#666;margin-top:2px;">${_esc(n.comment)}</div>` : ''}
+                  ${n.comment ? `<div style="font-size:13px;color:#666;margin-top:2px;">${_esc(n.comment)}</div>` : ''}
                 </div>
               </div>
             `;
@@ -218,7 +218,7 @@
     if (!d.customer.memo) return '';
     return `
       <div style="margin-bottom:14px;padding:12px;background:#FFF9E6;border-radius:12px;border-left:3px solid #FFD54F;">
-        <div style="font-size:11px;color:#888;margin-bottom:4px;">📝 원장님 메모</div>
+        <div style="font-size:13px;color:#888;margin-bottom:4px;">📝 원장님 메모</div>
         <div style="font-size:13px;color:#555;line-height:1.5;white-space:pre-wrap;">${_esc(d.customer.memo)}</div>
       </div>
     `;
@@ -226,7 +226,7 @@
 
   function _renderEditBar(id) {
     return `
-      <button data-act="edit" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,0.08);border-radius:10px;background:#fff;color:#555;font-size:12px;font-weight:700;cursor:pointer;">✏️  정보 편집</button>
+      <button data-act="edit" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,0.08);border-radius:10px;background:#fff;color:#555;font-size:13px;font-weight:700;cursor:pointer;">✏️  정보 편집</button>
     `;
   }
 
@@ -234,7 +234,7 @@
     return `
       <div style="margin-bottom:14px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:8px;">${title}</div>
-        <div style="padding:16px;background:#fafafa;border-radius:12px;text-align:center;font-size:12px;color:#aaa;">${msg}</div>
+        <div style="padding:16px;background:#fafafa;border-radius:12px;text-align:center;font-size:13px;color:#aaa;">${msg}</div>
       </div>
     `;
   }

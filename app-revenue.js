@@ -213,10 +213,10 @@
       <div style="margin-top:14px;padding:12px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:12px;">
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
           <strong style="font-size:13px;">이번달 순수익</strong>
-          <button id="incentiveSettingsBtn" style="margin-left:auto;background:none;border:none;font-size:11px;color:#888;cursor:pointer;">⚙ 설정</button>
+          <button id="incentiveSettingsBtn" style="margin-left:auto;background:none;border:none;font-size:13px;color:#888;cursor:pointer;">⚙ 설정</button>
         </div>
         <div style="font-size:24px;font-weight:800;color:#388e3c;">${_formatKRW(c.net)}</div>
-        <div style="display:flex;gap:12px;margin-top:8px;font-size:11px;color:#666;">
+        <div style="display:flex;gap:12px;margin-top:8px;font-size:13px;color:#666;">
           <span>매출 ${_formatKRW(c.gross)}</span>
           <span>− 재료비 ${_formatKRW(c.material)} (${c.settings.material_pct}%)</span>
           ${c.fixed > 0 ? `<span>− 고정비 ${_formatKRW(c.fixed)}</span>` : ''}
@@ -248,7 +248,7 @@
       <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:90vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <strong style="font-size:18px;">매출</strong>
-          <span id="revenueOfflineBadge" style="display:none;font-size:10px;padding:2px 6px;border-radius:4px;background:#f2c94c;color:#333;">오프라인</span>
+          <span id="revenueOfflineBadge" style="display:none;font-size:13px;padding:2px 6px;border-radius:4px;background:#f2c94c;color:#333;">오프라인</span>
           <button onclick="closeRevenue()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
         </div>
         <div id="revenueTabs" style="display:flex;gap:4px;margin-bottom:10px;"></div>
@@ -283,7 +283,7 @@
     sheet.querySelector('#revenueSummary').innerHTML = `
       <div style="display:flex;align-items:baseline;gap:8px;">
         <strong style="font-size:22px;color:var(--accent,#F18091);">${_formatKRW(total)}</strong>
-        <span style="font-size:12px;color:#888;">${PERIOD_LABEL[_currentPeriod]} · ${count}건</span>
+        <span style="font-size:13px;color:#888;">${PERIOD_LABEL[_currentPeriod]} · ${count}건</span>
       </div>
     `;
 
@@ -310,14 +310,14 @@
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:baseline;gap:6px;">
               <strong style="font-size:15px;">${_formatKRW(r.amount)}</strong>
-              ${r.service_name ? `<span style="font-size:12px;color:#666;">${_esc(r.service_name)}</span>` : ''}
+              ${r.service_name ? `<span style="font-size:13px;color:#666;">${_esc(r.service_name)}</span>` : ''}
             </div>
-            <div style="font-size:11px;color:#999;margin-top:2px;">
+            <div style="font-size:13px;color:#999;margin-top:2px;">
               ${_currentPeriod === 'today' ? hhmm : dd + ' ' + hhmm}
               ${r.customer_name ? ` · 👤 ${_esc(r.customer_name)}` : ''}
               · ${_methodLabel(r.method)}
             </div>
-            ${r.memo ? `<div style="font-size:11px;color:#888;margin-top:2px;">${_esc(r.memo).slice(0,40)}</div>` : ''}
+            ${r.memo ? `<div style="font-size:13px;color:#888;margin-top:2px;">${_esc(r.memo).slice(0,40)}</div>` : ''}
           </div>
           <button data-del="${r.id}" style="background:none;border:none;color:#c00;font-size:16px;cursor:pointer;padding:4px;">🗑</button>
         </div>
@@ -339,20 +339,20 @@
     listEl.innerHTML = `
       <div style="padding:4px;">
         <button onclick="window._revenueBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 목록</button>
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">금액 (원) *</label>
+        <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">금액 (원) *</label>
         <input id="rfAmount" type="number" inputmode="numeric" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-size:16px;" placeholder="50000" />
         <div style="display:flex;gap:6px;margin-bottom:10px;">
           ${['card','cash','transfer','etc'].map(m => `
-            <button type="button" data-rf-method="${m}" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;">${_methodLabel(m)}</button>
+            <button type="button" data-rf-method="${m}" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">${_methodLabel(m)}</button>
           `).join('')}
         </div>
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">서비스</label>
+        <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">서비스</label>
         <input id="rfService" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" placeholder="속눈썹 풀세트" maxlength="50" />
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
           <input id="rfCustomerName" readonly style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fafafa;" placeholder="고객 (선택)" />
-          <button type="button" id="rfCustomerPick" style="padding:10px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;">👤 선택</button>
+          <button type="button" id="rfCustomerPick" style="padding:10px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">👤 선택</button>
         </div>
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">메모</label>
+        <label style="display:block;font-size:13px;color:#666;margin-bottom:4px;">메모</label>
         <textarea id="rfMemo" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-family:inherit;resize:vertical;" maxlength="200"></textarea>
         <button type="button" id="rfSave" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">저장</button>
       </div>

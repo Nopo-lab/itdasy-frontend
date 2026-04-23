@@ -30,14 +30,14 @@
   function _renderBody(body, slug, enabled, url) {
     body.innerHTML = `
       <div style="padding:14px;background:#FAFAFA;border-radius:12px;margin-bottom:14px;">
-        <div style="font-size:11px;color:#888;margin-bottom:6px;">내 예약 링크</div>
-        <div id="pb-url" style="font-family:monospace;font-size:12px;word-break:break-all;background:#fff;border:1px solid #eee;padding:10px;border-radius:8px;">${_esc(url)}</div>
+        <div style="font-size:13px;color:#888;margin-bottom:6px;">내 예약 링크</div>
+        <div id="pb-url" style="font-family:monospace;font-size:13px;word-break:break-all;background:#fff;border:1px solid #eee;padding:10px;border-radius:8px;">${_esc(url)}</div>
       </div>
 
       <label style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:#FAFAFA;border-radius:12px;margin-bottom:14px;cursor:pointer;">
         <div>
           <div style="font-weight:700;font-size:14px;">공개 예약 받기</div>
-          <div style="font-size:11px;color:#888;margin-top:2px;">OFF 시 링크 접근해도 예약 불가</div>
+          <div style="font-size:13px;color:#888;margin-top:2px;">OFF 시 링크 접근해도 예약 불가</div>
         </div>
         <input id="pb-enabled" type="checkbox" ${enabled ? 'checked' : ''} style="width:20px;height:20px;">
       </label>
@@ -48,8 +48,8 @@
       </div>
 
       <div style="padding:14px;background:#FFFBEA;border-radius:10px;margin-top:14px;border:1px solid #FDE68A;">
-        <div style="font-size:12px;font-weight:700;color:#B45309;margin-bottom:4px;">💡 활용 팁</div>
-        <div style="font-size:11px;color:#666;line-height:1.6;">
+        <div style="font-size:13px;font-weight:700;color:#B45309;margin-bottom:4px;">💡 활용 팁</div>
+        <div style="font-size:13px;color:#666;line-height:1.6;">
           · 인스타 프로필 "웹사이트" 자리에 붙여넣기<br>
           · 카톡 채널 홈 "링크" 로 추가<br>
           · 명함 QR 코드 생성
@@ -92,7 +92,7 @@
       <div style="width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px;max-height:88vh;overflow-y:auto;">
         <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 18px;"></div>
         <strong style="font-size:17px;">🔗 온라인 예약 링크</strong>
-        <div style="font-size:12px;color:#888;margin-top:4px;margin-bottom:18px;">인스타 프로필·카톡 채널에 링크 걸면 고객이 직접 예약</div>
+        <div style="font-size:13px;color:#888;margin-top:4px;margin-bottom:18px;">인스타 프로필·카톡 채널에 링크 걸면 고객이 직접 예약</div>
         <div class="pb-body">
           <div style="padding:40px;text-align:center;color:#aaa;">불러오는 중…</div>
         </div>
