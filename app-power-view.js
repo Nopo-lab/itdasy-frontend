@@ -291,7 +291,7 @@
       }
       if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
     } catch (e) {
-      if (window.showToast) window.showToast('실패: ' + e.message);
+      if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = ''; btn.innerHTML = '즉시 추가 <span class="pv-kbd">↵</span>'; }
     }
@@ -380,7 +380,7 @@
       if (window.showToast) window.showToast('✅ 수정됨');
       _state.data[tab] = await _fetchTab(tab);
       await window._PVRender.renderTab(true);
-    } catch (e) { if (window.showToast) window.showToast('실패: ' + e.message); }
+    } catch (e) { if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
   }
 
   // ── 크로스 파일 인터페이스 ───────────────────────────

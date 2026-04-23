@@ -746,7 +746,7 @@ async function doActualPublish() {
 
   } catch(e) {
     upPopup.style.display = 'none';
-    showToast('오류: ' + e.message);
+    showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message));
     btn.textContent = '다시 시도하기 🚀';
     btn.disabled = false;
   }
@@ -1016,6 +1016,6 @@ async function saveCaptionToGallery() {
     // 저장 완료 후 다음 손님 유도 갱신
     _renderCaptionActionBar(slot.caption, slot.hashtags);
   } catch(e) {
-    showToast('저장 실패: ' + e.message);
+    showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
   }
 }

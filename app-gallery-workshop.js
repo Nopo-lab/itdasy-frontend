@@ -187,7 +187,7 @@ async function _handleDropZoneDrop(e) {
 }
 
 async function resetWorkshop() {
-  if (!confirm('전체 초기화할까요?\n모든 사진과 슬롯이 삭제됩니다.')) return;
+  { const _ok = window._confirm2 ? window._confirm2('전체 초기화할까요?\n모든 사진과 슬롯이 삭제됩니다.') : confirm('전체 초기화할까요?\n모든 사진과 슬롯이 삭제됩니다.'); if (!_ok) return; }
   for (const slot of _slots) {
     try { await deleteSlotFromDB(slot.id); } catch (_e) { /* ignore */ }
   }

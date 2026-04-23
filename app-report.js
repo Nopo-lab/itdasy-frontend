@@ -139,7 +139,7 @@
       const d = await _fetch(_currentY, _currentM);
       _renderBody(d);
     } catch (e) {
-      body.innerHTML = '<div style="padding:40px;text-align:center;color:#c00;">불러오기 실패: ' + e.message + '</div>';
+      body.innerHTML = '<div style="padding:40px;text-align:center;color:#c00;">불러오기 실패: ' + (window._humanError ? window._humanError(e) : e.message) + '</div>';
     }
   }
 

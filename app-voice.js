@@ -332,7 +332,7 @@
     } catch (e) {
       btn.disabled = false;
       btn.textContent = '이대로 저장 ✓';
-      if (window.showToast) window.showToast('저장 실패: ' + e.message);
+      if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 

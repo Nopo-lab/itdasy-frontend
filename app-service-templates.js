@@ -123,13 +123,13 @@
           const mat = document.getElementById('svc-material');
           if (mat) mat.value = '';
         } catch (e) {
-          alert('추가 실패: ' + e.message);
+          alert('추가 실패: ' + (window._humanError ? window._humanError(e) : e.message));
         }
       });
       document.getElementById('svc-list')?.addEventListener('click', async (e) => {
         const id = e.target.getAttribute('data-del');
         if (!id) return;
-        if (!confirm('이 시술을 삭제할까요?')) return;
+        { const _ok = window._confirm2 ? window._confirm2('이 시술을 삭제할까요?') : confirm('이 시술을 삭제할까요?'); if (!_ok) return; }
         try {
           await deleteTemplate(id);
           await loadServiceTemplates();

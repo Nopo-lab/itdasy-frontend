@@ -220,7 +220,7 @@ async function _republishGalleryItem(galleryId) {
       const success = await doInstagramPublish(imgUrl, fullCaption);
       if (success) showToast('다시 업로드 완료! ✨');
     }
-  } catch(e) { showToast('오류: ' + e.message); }
+  } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
 async function downloadGalleryItem(galleryId) {
@@ -283,7 +283,7 @@ async function _saveSlotToGallery(slotId) {
     if (aiTab && aiTab.classList.contains('active') && typeof initAiRecommendTab === 'function') {
       initAiRecommendTab();
     }
-  } catch(e) { showToast('저장 실패: ' + e.message); }
+  } catch(e) { showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
 async function publishSlotToInstagram(slotId) {
@@ -316,7 +316,7 @@ async function publishSlotToInstagram(slotId) {
         initFinishTab();
       }
     }
-  } catch(e) { showToast('오류: ' + e.message); }
+  } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
 async function _deferSlot(slotId) {

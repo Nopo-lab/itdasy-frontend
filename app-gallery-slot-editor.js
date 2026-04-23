@@ -354,5 +354,5 @@ async function _applyBABetween(before, after, slot) {
     before.editedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
     before.mode = 'ba';
     await saveSlotToDB(slot);
-  } catch (e) { showToast('오류: ' + e.message); }
+  } catch (e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }

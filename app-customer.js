@@ -288,7 +288,7 @@
   };
 
   window._customerDelete = async function (id) {
-    if (!confirm('이 고객을 삭제할까요?')) return;
+    { const _ok = window._confirm2 ? window._confirm2('이 고객을 삭제할까요?') : confirm('이 고객을 삭제할까요?'); if (!_ok) return; }
     try {
       await remove(id);
       if (window.hapticLight) window.hapticLight();
