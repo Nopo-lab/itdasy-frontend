@@ -573,6 +573,8 @@ async function login() {
     checkInstaStatus(true);
     // T-317 — 생체 인증 등록 제안 (한 번만)
     _offerBiometricEnroll(data.access_token);
+    // Wave 2+ — 로그인 직후 주요 데이터 preload (탭 열 때 즉시 표시)
+    _preloadTabs();
   } catch(e) {
     errEl.textContent = _friendlyErr(e, '로그인 실패');
     errEl.style.display = 'block';
@@ -1121,14 +1123,14 @@ async function loadStatsCard() {
       // API 도메인에 한정 (외부 요청 무시)
       if (url.includes('railway.app') || url.startsWith(API)) {
         const now = Date.now();
-        if (now - lastOpened > 3000 && typeof openPlanPopup === 'function') {
+        if (now - lastOpened > 3000 && typeof window.openPlanPopup === 'function') {
           lastOpened = now;
           try {
             const clone = r.clone();
             const j = await clone.json().catch(() => ({}));
             showToast(j.detail || '사용 한도 초과 — 플랜을 확인해주세요');
           } catch (_) { /* ignore */ }
-          setTimeout(() => openPlanPopup(), 600);
+          setTimeout(() => window.openPlanPopup(), 600);
         }
       }
     }
@@ -1164,12 +1166,12 @@ window.authHeader = authHeader;
     });
     on('fullResetBtn', () => typeof fullReset === 'function' && fullReset());
 
-    // 플랜 팝업
-    on('planBadge', openPlanPopup);
-    on('planCloseBtn', closePlanPopup);
-    on('planActionBtn', doPlanAction);
+    // 플랜 팝업 — app-plan.js 에서 window.openPlanPopup 으로 노출됨
+    on('planBadge', () => window.openPlanPopup && window.openPlanPopup());
+    on('planCloseBtn', () => window.closePlanPopup && window.closePlanPopup());
+    on('planActionBtn', () => window.doPlanAction && window.doPlanAction());
     document.querySelectorAll('.plan-card[data-plan]').forEach(card => {
-      card.addEventListener('click', () => selectPlan(card.dataset.plan));
+      card.addEventListener('click', () => window.selectPlan && window.selectPlan(card.dataset.plan));
     });
 
     // 홈의 "샘플 캡션 보기" 버튼 (연동 전 체험)
@@ -1178,7 +1180,7 @@ window.authHeader = authHeader;
     });
 
     // 통계 카드 Pro 업그레이드 버튼
-    on('statsUpgradeBtn', openPlanPopup);
+    on('statsUpgradeBtn', () => window.openPlanPopup && window.openPlanPopup());
 
     // 통계 숫자 로드 (Subscription/usage 에서 가져옴)
     loadStatsCard();
@@ -1195,6 +1197,43 @@ window.authHeader = authHeader;
     ready();
   }
 })();
+
+// ──────────────────────────────────────────────
+// 탭 데이터 preload — 로그인/앱 재오픈 시 백그라운드로 주요 데이터 미리 fetch
+// → 사용자가 탭 열 때 캐시 적중 → 0초 체감 렌더
+// ──────────────────────────────────────────────
+window._preloadTabs = async function () {
+  const auth = window.authHeader && window.authHeader();
+  if (!auth || !auth.Authorization) return;
+  const headers = { ...auth };
+  const tabs = [
+    { key: 'customers',  url: '/customers',            swrKey: 'pv_cache::customers' },
+    { key: 'revenue',    url: '/revenue?period=month', swrKey: 'pv_cache::revenue' },
+    { key: 'inventory',  url: '/inventory',            swrKey: 'pv_cache::inventory' },
+    { key: 'services',   url: '/services',             swrKey: 'pv_cache::service' },
+    { key: 'today',      url: '/today/brief',          swrKey: 'pv_cache::today' },
+  ];
+  // Promise.allSettled → 일부 실패해도 나머지 진행
+  await Promise.allSettled(tabs.map(async t => {
+    try {
+      const res = await fetch(window.API + t.url, { headers });
+      if (!res.ok) return;
+      const d = await res.json();
+      const items = d.items || d;
+      sessionStorage.setItem(t.swrKey, JSON.stringify({ t: Date.now(), d: items }));
+    } catch (_) { /* silent */ }
+  }));
+};
+
+// 앱 첫 부팅 시에도 preload (토큰 이미 있으면)
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    if (window._preloadTabs && window.authHeader) {
+      const auth = window.authHeader();
+      if (auth && auth.Authorization) window._preloadTabs();
+    }
+  }, 1500);
+}
 
 // ──────────────────────────────────────────────
 // Wave 1+2+3 유틸 함수 (yeunjun 오늘 적용분 재이식 · 원영 base 위에 얹음)
