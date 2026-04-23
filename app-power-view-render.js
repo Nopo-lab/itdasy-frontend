@@ -119,7 +119,7 @@
     }
     let body;
     try { body = schema.qadd.build(values); } catch (e) {
-      if (window.showToast) window.showToast('형식 오류: ' + e.message); return;
+      if (window.showToast) window.showToast('형식 오류: ' + (window._humanError ? window._humanError(e) : e.message)); return;
     }
     state.pending[state.currentTab].push(body);
     if (window.hapticLight) window.hapticLight();

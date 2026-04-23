@@ -256,7 +256,7 @@ async function doInstagramPublish(imageUrl, captionText) {
     return true;
   } catch(e) {
     upPopup.style.display = 'none';
-    showToast('업로드 오류: ' + e.message);
+    showToast('업로드 오류: ' + (window._humanError ? window._humanError(e) : e.message));
     return false;
   }
 }

@@ -253,7 +253,7 @@
           if (!res.ok) throw new Error('저장 실패');
           if (window.showToast) window.showToast('✅ 목표 저장됨');
           if (typeof render === 'function') render('dashKiller');
-        } catch (e) { if (window.showToast) window.showToast('실패: ' + e.message); }
+        } catch (e) { if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
       });
     });
     document.querySelectorAll('[data-kw-focus]').forEach(btn => {

@@ -123,7 +123,7 @@
           const mat = document.getElementById('svc-material');
           if (mat) mat.value = '';
         } catch (e) {
-          alert('추가 실패: ' + e.message);
+          alert('추가 실패: ' + (window._humanError ? window._humanError(e) : e.message));
         }
       });
       document.getElementById('svc-list')?.addEventListener('click', async (e) => {

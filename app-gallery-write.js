@@ -365,7 +365,7 @@ async function doPublishFromCaption() {
     }, 1200);
   } catch(e) {
     if (upPopup) upPopup.style.display = 'none';
-    showToast('오류: ' + e.message);
+    showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message));
   }
 }
 

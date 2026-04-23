@@ -252,7 +252,7 @@
     } catch (e) {
       msg.action_status = 'failed';
       _renderHistory();
-      _history.push({ role: 'assistant', text: '실패: ' + e.message });
+      _history.push({ role: 'assistant', text: '실패: ' + (window._humanError ? window._humanError(e) : e.message) });
       _renderHistory();
     }
   }
@@ -328,7 +328,7 @@
       if (window.hapticLight) window.hapticLight();
     } catch (e) {
       _history = _history.filter(m => m.role !== 'loading');
-      _history.push({ role: 'assistant', text: '잠시 연결이 불안정해요. 다시 시도해 주세요. (' + e.message + ')' });
+      _history.push({ role: 'assistant', text: '잠시 연결이 불안정해요. 다시 시도해 주세요. (' + (window._humanError ? window._humanError(e) : e.message) + ')' });
       _renderHistory();
     } finally {
       _sendInFlight = false;

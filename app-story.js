@@ -131,7 +131,7 @@
       _renderResult();
     } catch (e) {
       btn.disabled = false; btn.textContent = '✨ AI 스토리 만들기';
-      if (window.showToast) window.showToast('실패: ' + e.message);
+      if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 

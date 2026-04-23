@@ -274,7 +274,7 @@
       if (window.hapticLight) window.hapticLight();
       _render();
     } catch (e) {
-      status.textContent = 'AI 제안 실패: ' + e.message;
+      status.textContent = 'AI 제안 실패: ' + (window._humanError ? window._humanError(e) : e.message);
     }
   }
 
@@ -331,7 +331,7 @@
       if (igBtn) igBtn.addEventListener('click', _shareToInstagram);
     } catch (e) {
       console.warn('[video] 실패:', e);
-      status.textContent = '실패: ' + e.message;
+      status.textContent = '실패: ' + (window._humanError ? window._humanError(e) : e.message);
       btn.disabled = false;
       btn.textContent = '🎬 영상 만들기';
     }

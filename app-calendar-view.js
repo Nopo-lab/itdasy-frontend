@@ -154,7 +154,7 @@
           if (window.showToast) window.showToast('✅ 예약 시간 변경됨');
         } catch (e) {
           info.revert();
-          if (window.showToast) window.showToast('실패: ' + e.message);
+          if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
         }
       },
       eventResize: async (info) => {

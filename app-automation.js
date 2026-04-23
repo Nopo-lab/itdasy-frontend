@@ -77,7 +77,7 @@
             if (window.showToast) window.showToast(r.created ? '✅ 자동화 등록' : '이미 등록됨');
             await _reload();
           } catch (e) {
-            if (window.showToast) window.showToast('실패: ' + e.message);
+            if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
           }
         });
       });

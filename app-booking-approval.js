@@ -65,7 +65,7 @@
             try { sessionStorage.removeItem('pv_cache::booking'); } catch (_e) { /* ignore */ }
             await _reload();
           } catch (e) {
-            if (window.showToast) window.showToast('실패: ' + e.message);
+            if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
             btn.disabled = false;
           }
         });
@@ -79,7 +79,7 @@
             if (window.showToast) window.showToast('🗑 거절됨');
             await _reload();
           } catch (e) {
-            if (window.showToast) window.showToast('실패: ' + e.message);
+            if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
             btn.disabled = false;
           }
         });

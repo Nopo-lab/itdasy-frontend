@@ -188,7 +188,7 @@
       status.textContent = '';
       _renderSmartReview(d.items);
     } catch (e) {
-      status.textContent = 'OCR 실패: ' + e.message;
+      status.textContent = 'OCR 실패: ' + (window._humanError ? window._humanError(e) : e.message);
     }
   }
 
@@ -216,7 +216,7 @@
       status.textContent = '';
       _renderSmartReview(d.items);
     } catch (e) {
-      status.textContent = '실패: ' + e.message;
+      status.textContent = '실패: ' + (window._humanError ? window._humanError(e) : e.message);
     }
   }
 
@@ -272,7 +272,7 @@
         if (window.hapticSuccess) window.hapticSuccess();
       } catch (e) {
         btn.disabled = false; btn.textContent = '다시 시도';
-        if (window.showToast) window.showToast('저장 실패: ' + e.message);
+        if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
       }
     });
   }
@@ -309,7 +309,7 @@
       _preview = await res.json();
       _renderMappingUI();
     } catch (e) {
-      status.textContent = '실패: ' + e.message;
+      status.textContent = '실패: ' + (window._humanError ? window._humanError(e) : e.message);
     }
   }
 
@@ -419,7 +419,7 @@
     } catch (e) {
       btn.disabled = false;
       btn.textContent = '다시 시도';
-      if (window.showToast) window.showToast('실패: ' + e.message);
+      if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
