@@ -1263,6 +1263,9 @@
 <script src="app-notifications.js"></script>
 <script src="app-assistant.js"></script>
 <script src="app-dm-autoreply.js"></script>
+<!-- Wave C3: Tesseract.js OCR 프리뷰 (영수증 스캔 시 lazy-load 됨 — 초기 로드 시 다운로드 안 함)
+     첫 사용 시 korean .traineddata 약 15MB 다운로드 → 캐시 됨. iOS Safari 16+ 지원, 구버전은 조용히 skip -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <script src="app-receipt-scan.js"></script>
 <script src="app-waiting-list.js"></script>
 <script src="app-public-link.js"></script>

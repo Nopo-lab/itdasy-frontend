@@ -64,6 +64,7 @@
 
   function _retentionCard(data) {
     const items = (data?.items || []).slice(0, 5);
+    const allItems = data?.items || [];
     const s = data?.summary || { total: 0, at_risk: 0, lost: 0 };
     if (!items.length) {
       return `
@@ -75,6 +76,9 @@
           <div style="font-size:12px;color:#888;">걱정할 고객 없음 · 고객 데이터가 쌓이면 자동으로 감지해요.</div>
         </div>`;
     }
+    // Wave D2 — 일괄 초안 버튼에 쓸 ID 리스트 (최대 10)
+    const bulkIds = allItems.slice(0, 10).map(c => c.customer_id).filter(Boolean);
+    const bulkCount = bulkIds.length;
     return `
       <div style="padding:14px;background:linear-gradient(135deg,rgba(220,53,69,0.06),rgba(220,53,69,0.01));border-radius:12px;margin-bottom:12px;">
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
@@ -102,7 +106,18 @@
             </div>
           </div>
         `).join('')}
-        ${data.items.length > 5 ? `<div style="margin-top:8px;font-size:11px;color:#888;text-align:center;">외 ${data.items.length - 5}명</div>` : ''}
+        ${allItems.length > 5 ? `<div style="margin-top:8px;font-size:11px;color:#888;text-align:center;">외 ${allItems.length - 5}명</div>` : ''}
+        ${bulkCount >= 1 ? `
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06);">
+            <button id="bulkDraftBtn" data-bulk-ids="${bulkIds.join(',')}"
+                    style="width:100%;padding:11px 14px;font-size:13px;font-weight:700;border:none;background:linear-gradient(135deg,hsl(350,80%,72%),hsl(350,72%,60%));color:#fff;border-radius:14px;cursor:pointer;box-shadow:0 2px 6px rgba(217,95,112,0.22);">
+              💝 ${bulkCount}명에게 안부 문자 초안 일괄 생성
+            </button>
+            <div style="margin-top:6px;font-size:10.5px;color:#999;text-align:center;line-height:1.4;">
+              초안만 준비해요 · 발송은 카톡 공유로 한 명씩 직접 승인
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -249,4 +264,188 @@
     });
   }
   _bindDraftButtons();
+
+  // ─────────────────────────────────────────────
+  // Wave D2 — 1-click 일괄 초안 승인 모달
+  // ─────────────────────────────────────────────
+  const _bulkState = {
+    items: [],        // {customer_id, name, phone, draft_text, done:bool}
+    selectedIdx: -1,  // 상세 보기 중인 row
+  };
+
+  function _ensureBulkModal() {
+    let wrap = document.getElementById('bulkDraftModal');
+    if (wrap) return wrap;
+    wrap = document.createElement('div');
+    wrap.id = 'bulkDraftModal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:10000;display:none;background:rgba(0,0,0,0.5);';
+    wrap.innerHTML = `
+      <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+          <span style="font-size:22px;">💝</span>
+          <strong style="font-size:17px;">안부 문자 초안</strong>
+          <span id="bulkProgress" style="margin-left:auto;font-size:12px;color:#888;font-weight:700;"></span>
+          <button id="bulkCloseBtn" style="margin-left:8px;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+        </div>
+        <div style="font-size:11.5px;color:#888;margin-bottom:10px;line-height:1.5;">
+          한 명씩 탭해서 문구를 확인하고 [카톡 공유]로 보내세요. 일괄 전송하지 않아요 — 원장님이 직접 승인.
+        </div>
+        <div id="bulkBody" style="flex:1;overflow-y:auto;"></div>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+    wrap.addEventListener('click', (e) => { if (e.target === wrap) _closeBulkModal(); });
+    wrap.querySelector('#bulkCloseBtn').addEventListener('click', _closeBulkModal);
+    return wrap;
+  }
+
+  function _closeBulkModal() {
+    const wrap = document.getElementById('bulkDraftModal');
+    if (wrap) wrap.style.display = 'none';
+    document.body.style.overflow = '';
+    _bulkState.selectedIdx = -1;
+  }
+
+  function _renderBulkProgress() {
+    const el = document.getElementById('bulkProgress');
+    if (!el) return;
+    const done = _bulkState.items.filter(x => x.done).length;
+    el.textContent = `${done}/${_bulkState.items.length} 완료`;
+  }
+
+  function _renderBulkList() {
+    const body = document.getElementById('bulkBody');
+    if (!body) return;
+    if (!_bulkState.items.length) {
+      body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;font-size:13px;">대상 고객이 없어요</div>';
+      return;
+    }
+    body.innerHTML = _bulkState.items.map((it, idx) => {
+      const preview = (it.draft_text || '').slice(0, 40) + ((it.draft_text || '').length > 40 ? '…' : '');
+      const dim = it.done ? 'opacity:0.45;' : '';
+      return `
+        <div data-bulk-row="${idx}" style="padding:12px 10px;margin-bottom:8px;border:1px solid hsl(350,40%,92%);border-radius:14px;background:${it.done ? 'hsl(140,40%,97%)' : '#fff'};cursor:pointer;${dim}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <strong style="font-size:13.5px;">${_esc(it.name)}</strong>
+            ${it.phone ? `<span style="font-size:11px;color:#999;">${_esc(it.phone)}</span>` : ''}
+            <span style="margin-left:auto;font-size:11px;font-weight:700;color:${it.done ? 'hsl(140,50%,40%)' : 'hsl(350,72%,60%)'};">
+              ${it.done ? '완료 ✓' : '탭해서 보기 →'}
+            </span>
+          </div>
+          <div style="font-size:12px;color:#666;line-height:1.5;">${_esc(preview)}</div>
+        </div>
+      `;
+    }).join('');
+    // row 클릭 바인딩
+    body.querySelectorAll('[data-bulk-row]').forEach(row => {
+      row.addEventListener('click', () => {
+        const i = parseInt(row.getAttribute('data-bulk-row'), 10);
+        _showBulkDetail(i);
+      });
+    });
+    _renderBulkProgress();
+  }
+
+  function _showBulkDetail(idx) {
+    const it = _bulkState.items[idx];
+    if (!it) return;
+    _bulkState.selectedIdx = idx;
+    const body = document.getElementById('bulkBody');
+    if (!body) return;
+    body.innerHTML = `
+      <button id="bulkBackBtn" style="background:none;border:none;font-size:13px;color:hsl(350,72%,60%);cursor:pointer;padding:4px 0;margin-bottom:10px;">← 목록으로</button>
+      <div style="padding:14px;border:1px solid hsl(350,40%,90%);border-radius:14px;background:linear-gradient(135deg,hsl(350,70%,98%),#fff);margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <strong style="font-size:14px;">${_esc(it.name)}</strong>
+          ${it.phone ? `<span style="font-size:11px;color:#888;">${_esc(it.phone)}</span>` : ''}
+          ${it.done ? `<span style="margin-left:auto;font-size:11px;font-weight:700;color:hsl(140,50%,40%);">완료 ✓</span>` : ''}
+        </div>
+        <div id="bulkDraftText" contenteditable="true" style="font-size:13px;line-height:1.7;color:#333;padding:12px;background:#fff;border:1px solid hsl(350,30%,94%);border-radius:10px;min-height:80px;white-space:pre-wrap;">${_esc(it.draft_text || '')}</div>
+        <div style="font-size:10.5px;color:#aaa;margin-top:6px;">탭해서 문구 수정 가능</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="bulkSkipBtn" style="flex:1;padding:12px;font-size:13px;font-weight:700;border:1px solid hsl(0,0%,85%);background:#fff;color:#666;border-radius:14px;cursor:pointer;">
+          건너뛰기
+        </button>
+        <button id="bulkShareBtn" style="flex:2;padding:12px;font-size:13.5px;font-weight:700;border:none;background:linear-gradient(135deg,hsl(350,80%,72%),hsl(350,72%,60%));color:#fff;border-radius:14px;cursor:pointer;">
+          💬 카톡 공유
+        </button>
+      </div>
+    `;
+    body.querySelector('#bulkBackBtn').addEventListener('click', _renderBulkList);
+    body.querySelector('#bulkSkipBtn').addEventListener('click', () => {
+      _bulkState.items[idx].done = true;
+      _renderBulkList();
+    });
+    body.querySelector('#bulkShareBtn').addEventListener('click', async () => {
+      const edited = (body.querySelector('#bulkDraftText')?.innerText || '').trim();
+      const msg = edited || it.draft_text || '';
+      if (!msg) return;
+      // 클립보드 복사 (폴백)
+      try { if (navigator.clipboard) await navigator.clipboard.writeText(msg); } catch (_e) { /* ignore */ }
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: msg, title: it.name + '님께' });
+          _bulkState.items[idx].done = true;
+          if (window.showToast) window.showToast(it.name + '님 완료 ✓');
+          _renderBulkList();
+          return;
+        } catch (_e) {
+          // 사용자가 공유 시트 취소 → 완료로 보지 않음 (그대로 둠)
+          if (window.showToast) window.showToast('문구를 클립보드에 복사했어요 📋');
+          return;
+        }
+      }
+      // navigator.share 미지원 — 복사만 하고 완료 처리
+      _bulkState.items[idx].done = true;
+      if (window.showToast) window.showToast('클립보드에 복사 · 카톡에 붙여넣기 📋');
+      _renderBulkList();
+    });
+  }
+
+  async function _openBulkModal(ids) {
+    _ensureBulkModal();
+    const wrap = document.getElementById('bulkDraftModal');
+    wrap.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    const body = document.getElementById('bulkBody');
+    body.innerHTML = `
+      <div style="padding:50px 16px;text-align:center;color:#888;font-size:13px;line-height:1.7;">
+        <div style="font-size:28px;margin-bottom:10px;">🤖</div>
+        AI 가 초안 쓰는 중…<br>
+        <span style="font-size:11px;color:#aaa;">${ids.length}명 분 · 보통 5~15초</span>
+      </div>
+    `;
+    _renderBulkProgress();
+    try {
+      const _fetch = window.safeFetch || fetch;
+      const res = await _fetch(window.API + '/retention/bulk-message-draft', {
+        method: 'POST',
+        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_ids: ids, tone: '친근한' }),
+        timeout: 45000,
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      _bulkState.items = (data.items || []).map(x => ({ ...x, done: false }));
+      if (!_bulkState.items.length) {
+        body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;font-size:13px;">초안을 만들지 못했어요. 잠시 후 다시 시도해주세요.</div>';
+        return;
+      }
+      _renderBulkList();
+    } catch (err) {
+      const humanMsg = (window._humanError ? window._humanError(err) : (err.message || '오류'));
+      body.innerHTML = `<div style="padding:40px 16px;text-align:center;color:#dc3545;font-size:13px;line-height:1.6;">초안 생성 실패<br><span style="font-size:11px;color:#888;">${_esc(humanMsg)}</span></div>`;
+    }
+  }
+
+  // bulkDraftBtn 클릭 바인딩 (위임)
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#bulkDraftBtn');
+    if (!btn) return;
+    const raw = btn.getAttribute('data-bulk-ids') || '';
+    const ids = raw.split(',').map(s => parseInt(s, 10)).filter(n => Number.isFinite(n));
+    if (!ids.length) return;
+    _openBulkModal(ids.slice(0, 10));
+  });
 })();
