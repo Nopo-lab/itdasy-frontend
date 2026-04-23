@@ -101,15 +101,31 @@
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
         <div id="asstSuggest" style="display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding:4px 0;"></div>
         <div id="asstTypeahead" style="display:none;gap:6px;overflow-x:auto;margin-top:6px;padding:2px 0;"></div>
-        <div style="display:flex;gap:8px;margin-top:8px;">
-          <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:14px;font-size:14px;" />
-          <button id="asstSend" style="padding:12px 18px;border:none;border-radius:14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;">보내기</button>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <button id="asstPhoto" aria-label="사진 업로드" title="사진 업로드" style="flex-shrink:0;width:44px;height:44px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);cursor:pointer;font-size:20px;padding:0;transition:background 0.15s;">📸</button>
+          <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:14px;font-size:14px;min-width:0;" />
+          <button id="asstSend" style="flex-shrink:0;padding:12px 18px;border:none;border-radius:14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;">보내기</button>
         </div>
+        <input id="asstCamera" type="file" accept="image/*" capture="environment" style="display:none;" />
+        <input id="asstGallery" type="file" accept="image/*" style="display:none;" />
       </div>
     `;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeAssistant(); });
     sheet.querySelector('#asstSend').addEventListener('click', _send);
+    // 📸 사진 업로드 버튼 → 하단 action sheet
+    sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
+    // 숨겨진 file input 선택 시 업로드 실행
+    sheet.querySelector('#asstCamera').addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';  // 같은 파일 재선택 허용
+      if (f) _uploadPhoto(f);
+    });
+    sheet.querySelector('#asstGallery').addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) _uploadPhoto(f);
+    });
     sheet.querySelector('#asstInput').addEventListener('keydown', (e) => {
       // 한글 IME 조합 중 Enter 무시 (마지막 글자 중복/누락 방지)
       if (e.isComposing || e.keyCode === 229) return;
@@ -161,8 +177,9 @@
     }
     body.innerHTML = _history.map((m, idx) => {
       if (m.role === 'user') {
+        const thumbHtml = m.thumb ? `<img src="${_esc(m.thumb)}" alt="업로드 사진" style="max-width:160px;max-height:160px;border-radius:12px;margin-bottom:6px;display:block;object-fit:cover;" />` : '';
         return `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-          <div style="max-width:80%;padding:10px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${_esc(m.text)}</div>
+          <div style="max-width:80%;padding:10px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${thumbHtml}${_esc(m.text)}</div>
         </div>`;
       }
       if (m.role === 'assistant') {
@@ -428,7 +445,7 @@
         create_customer: ['customer', 'customers'],
         create_booking: ['booking', 'bookings', 'customer', 'customers'],
         create_revenue: ['revenue', 'customer', 'customers'],
-        create_nps: ['nps', 'customer'],
+        create_nps: ['nps', 'customer', 'customers'],
         update_customer: ['customer', 'customers'],
         update_booking: ['booking', 'bookings'],
         cancel_booking: ['booking', 'bookings'],
@@ -449,6 +466,19 @@
             for (let i = localStorage.length - 1; i >= 0; i--) {
               const key = localStorage.key(i);
               if (key && key.startsWith('pv_cache::booking')) localStorage.removeItem(key);
+            }
+          } catch (_e) { void _e; }
+        }
+        // customer 는 id 별 dashboard 캐시도 scan 삭제 (pv_cache::customer:{id}:dashboard)
+        if (k === 'customer' || k === 'customers') {
+          try {
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+              const key = sessionStorage.key(i);
+              if (key && key.startsWith('pv_cache::customer')) sessionStorage.removeItem(key);
+            }
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const key = localStorage.key(i);
+              if (key && key.startsWith('pv_cache::customer')) localStorage.removeItem(key);
             }
           } catch (_e) { void _e; }
         }
@@ -485,6 +515,131 @@
     el.innerHTML = SUGGESTIONS.map(s => `
       <button data-suggest="${_esc(s)}" style="padding:8px 12px;border:1px solid #ddd;border-radius:100px;background:#fff;cursor:pointer;font-size:11px;color:#555;white-space:nowrap;">${_esc(s)}</button>
     `).join('');
+  }
+
+  // ── 📸 사진 업로드 (챗봇 입력바 좌측 버튼) ─────────────────
+  function _openPhotoSheet() {
+    // 이미 떠 있으면 닫고 끝
+    const existing = document.getElementById('asstPhotoSheet');
+    if (existing) { existing.remove(); return; }
+    const box = document.createElement('div');
+    box.id = 'asstPhotoSheet';
+    box.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
+    box.innerHTML = `
+      <div style="width:100%;max-width:460px;background:#fff;border-radius:20px 20px 0 0;padding:12px 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;">
+        <button data-photo-choice="camera" style="padding:16px;border:none;border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);font-size:15px;font-weight:700;cursor:pointer;text-align:center;">📷 사진 찍기</button>
+        <button data-photo-choice="gallery" style="padding:16px;border:none;border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);font-size:15px;font-weight:700;cursor:pointer;text-align:center;">🖼️ 갤러리에서</button>
+        <button data-photo-choice="cancel" style="padding:14px;border:none;border-radius:14px;background:#f2f2f2;color:#666;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">취소</button>
+      </div>
+    `;
+    const close = () => { try { box.remove(); } catch (_e) { void _e; } };
+    box.addEventListener('click', (e) => {
+      if (e.target === box) { close(); return; }
+      const btn = e.target.closest('[data-photo-choice]');
+      if (!btn) return;
+      const c = btn.dataset.photoChoice;
+      close();
+      if (c === 'camera') document.getElementById('asstCamera')?.click();
+      else if (c === 'gallery') document.getElementById('asstGallery')?.click();
+    });
+    document.body.appendChild(box);
+  }
+
+  async function _uploadPhoto(file) {
+    if (_sendInFlight) return;
+    _sendInFlight = true;
+    const input = document.getElementById('asstInput');
+    const question = (input && input.value.trim()) || '';
+    if (input) input.value = '';
+
+    // 썸네일 data URL (플레이스홀더 버블용)
+    let thumbUrl = '';
+    try {
+      thumbUrl = await new Promise((resolve) => {
+        try {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result || '');
+          r.onerror = () => resolve('');
+          r.readAsDataURL(file);
+        } catch (_e) { resolve(''); }
+      });
+    } catch (_e) { void _e; }
+
+    // 플레이스홀더 메시지 (썸네일 + 업로드중 표시)
+    const placeholderText = question ? question : '사진 업로드 중…';
+    _history.push({ role: 'user', text: placeholderText, thumb: thumbUrl });
+    _history.push({ role: 'loading', text: '' });
+    _renderHistory();
+
+    try {
+      // 압축 (helper 없으면 원본)
+      let blob = file;
+      try {
+        if (typeof window.compressImageForUpload === 'function') {
+          blob = await window.compressImageForUpload(file, 1024, 0.85);
+        }
+      } catch (_e) { blob = file; }
+
+      const fd = new FormData();
+      fd.append('image', blob, blob.name || 'photo.jpg');
+      if (question) fd.append('question', question);
+      if (_sessionId) fd.append('session_id', String(_sessionId));
+
+      // multipart 라서 Content-Type 헤더는 브라우저가 자동 세팅 (boundary)
+      const auth = (window.authHeader && window.authHeader()) || {};
+      const res = await fetch(window.API + '/assistant/ask/image', {
+        method: 'POST',
+        headers: auth.Authorization ? { Authorization: auth.Authorization } : {},
+        body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'HTTP ' + res.status);
+      }
+      const d = await res.json();
+      _history = _history.filter(m => m.role !== 'loading');
+
+      if (d.session_id) {
+        _sessionId = d.session_id;
+        try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
+      }
+
+      const actionsList = (Array.isArray(d.actions) && d.actions.length)
+        ? d.actions
+        : (d.action && d.action.kind ? [d.action] : []);
+      const msg = { role: 'assistant', text: d.answer || '사진을 확인했어요.' };
+      if (Array.isArray(d.related_questions) && d.related_questions.length) {
+        msg.related = d.related_questions.slice(0, 3);
+      }
+      if (actionsList.length === 1) {
+        msg.action = actionsList[0];
+        msg.action_status = 'pending';
+        _history.push(msg);
+      } else if (actionsList.length > 1) {
+        _history.push(msg);
+        actionsList.forEach((act, idx) => {
+          _history.push({
+            role: 'assistant',
+            text: act.confirmation_text || `${idx + 1}/${actionsList.length} ${act.kind}`,
+            action: act,
+            action_status: 'pending',
+            action_batch_idx: idx,
+            action_batch_total: actionsList.length,
+          });
+        });
+      } else {
+        _history.push(msg);
+      }
+      _renderHistory();
+      if (window.hapticLight) window.hapticLight();
+    } catch (e) {
+      _history = _history.filter(m => m.role !== 'loading');
+      const human = window._humanError ? window._humanError(e) : (e && e.message) || '알 수 없는 오류';
+      _history.push({ role: 'assistant', text: '사진을 못 읽었어요: ' + human });
+      _renderHistory();
+    } finally {
+      _sendInFlight = false;
+    }
   }
 
   async function _send() {

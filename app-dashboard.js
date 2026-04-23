@@ -453,4 +453,13 @@
     },
     prefetch,
   };
+
+  // 챗봇·외부 데이터 변경 감지 → 대시보드 캐시 비우고 재로드
+  if (typeof window !== 'undefined' && !window._dashboardDataListenerInit) {
+    window._dashboardDataListenerInit = true;
+    window.addEventListener('itdasy:data-changed', async () => {
+      try { for (const k in _cache) delete _cache[k]; } catch (_e) { void _e; }
+      try { await _loadAndRender(); } catch (_e) { void _e; }
+    });
+  }
 })();

@@ -60,7 +60,7 @@
     catch (_) { return []; }
   }
   function _saveOffline(list) {
-    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(list)); } catch (_) {}
+    try { localStorage.setItem(OFFLINE_KEY, JSON.stringify(list)); } catch (_) { void _; }
   }
 
   // ── 네트워크 공통 ───────────────────────────────────────
@@ -195,11 +195,11 @@
     try {
       const raw = localStorage.getItem(INCENTIVE_KEY);
       if (raw) return JSON.parse(raw);
-    } catch (_) {}
+    } catch (_) { void _; }
     return { material_pct: 15, fixed_monthly: 0 }; // 재료비 15%, 월고정비 0
   }
   function _saveIncentive(s) {
-    try { localStorage.setItem(INCENTIVE_KEY, JSON.stringify(s)); } catch (_) {}
+    try { localStorage.setItem(INCENTIVE_KEY, JSON.stringify(s)); } catch (_) { void _; }
   }
   function _calcIncentive(totalKRW) {
     const s = _incentiveSettings();
@@ -452,4 +452,19 @@
     get _items() { return _items; },
     get isOffline() { return _isOffline; },
   };
+
+  // 챗봇·외부 데이터 변경 감지 → 시트가 열려 있으면 즉시 재로드
+  if (typeof window !== 'undefined' && !window._revenueDataListenerInit) {
+    window._revenueDataListenerInit = true;
+    window.addEventListener('itdasy:data-changed', async (e) => {
+      const k = (e && e.detail && e.detail.kind) || '';
+      if (!k) return;
+      if (k === 'create_revenue' || k === 'update_revenue' || k.indexOf('revenue') !== -1) {
+        const sheet = document.getElementById('revenueSheet');
+        if (sheet && sheet.style.display !== 'none' && typeof _loadAndRender === 'function') {
+          try { await _loadAndRender(); } catch (_err) { void _err; }
+        }
+      }
+    });
+  }
 })();
