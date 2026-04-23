@@ -197,21 +197,38 @@
       msg.action_status = 'done';
       _renderHistory();
 
-      // 파워뷰 sessionStorage 캐시 무효화 — 챗봇으로 추가한 데이터가 바로 보이도록
-      const _invalidateTabs = {
-        create_customer: ['customer'],
-        create_booking: ['booking', 'customer'],
-        create_revenue: ['revenue', 'customer'],
+      // 프론트 SWR + PowerView 캐시 전부 무효화 (단수·복수 · session·local 모두)
+      const _invalidateKinds = {
+        create_customer: ['customer', 'customers'],
+        create_booking: ['booking', 'bookings', 'customer', 'customers'],
+        create_revenue: ['revenue', 'customer', 'customers'],
         create_nps: ['nps', 'customer'],
-        update_customer: ['customer'],
-        update_booking: ['booking'],
-        cancel_booking: ['booking'],
-        reschedule_booking: ['booking'],
+        update_customer: ['customer', 'customers'],
+        update_booking: ['booking', 'bookings'],
+        cancel_booking: ['booking', 'bookings'],
+        reschedule_booking: ['booking', 'bookings'],
         upsert_inventory: ['inventory'],
       }[d.kind] || [];
-      _invalidateTabs.forEach(t => {
-        try { sessionStorage.removeItem('pv_cache::' + t); } catch (_e) { /* ignore */ }
+      _invalidateKinds.forEach(k => {
+        // 단수(powerview) + 복수(SWR) 키 모두 제거
+        try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) {}
+        try { localStorage.removeItem('pv_cache::' + k); } catch (_e) {}
+        // bookings 는 날짜 범위별 키 scan 삭제
+        if (k === 'bookings' || k === 'booking') {
+          try {
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+              const key = sessionStorage.key(i);
+              if (key && key.startsWith('pv_cache::booking')) sessionStorage.removeItem(key);
+            }
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+              const key = localStorage.key(i);
+              if (key && key.startsWith('pv_cache::booking')) localStorage.removeItem(key);
+            }
+          } catch (_e) {}
+        }
       });
+      // 오픈된 시트가 있으면 데이터 새로고침 신호 전파
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: d.kind } })); } catch (_e) {}
 
       // Phase 6.3 — bulk_message 는 클립보드 복사 처리
       if (d.kind === 'generate_bulk_message' && d.message_draft) {

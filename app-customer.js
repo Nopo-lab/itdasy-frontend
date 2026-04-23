@@ -54,23 +54,41 @@
     return res.status === 204 ? null : await res.json();
   }
 
-  // ── Stale-while-revalidate 캐시 (즉시 표시 + 백그라운드 새로고침)
+  // ── Stale-while-revalidate 캐시 — localStorage persistent (앱 재시작 후에도 즉시 렌더)
   const _SWR_KEY = 'pv_cache::customers';
   const _SWR_TTL = 120 * 1000;  // 2분 내 캐시는 신선
   function _readSWR() {
     try {
-      const raw = sessionStorage.getItem(_SWR_KEY);
+      const raw = localStorage.getItem(_SWR_KEY) || sessionStorage.getItem(_SWR_KEY);
       if (!raw) return null;
       const obj = JSON.parse(raw);
       return { items: obj.d, age: Date.now() - obj.t, fresh: Date.now() - obj.t < _SWR_TTL };
     } catch (_e) { return null; }
   }
   function _writeSWR(items) {
-    try { sessionStorage.setItem(_SWR_KEY, JSON.stringify({ t: Date.now(), d: items })); }
-    catch (_e) {}
+    const payload = JSON.stringify({ t: Date.now(), d: items });
+    try { localStorage.setItem(_SWR_KEY, payload); } catch (_e) {
+      try { sessionStorage.setItem(_SWR_KEY, payload); } catch (_e2) {}
+    }
   }
   function _clearSWR() {
+    try { localStorage.removeItem(_SWR_KEY); } catch (_e) {}
     try { sessionStorage.removeItem(_SWR_KEY); } catch (_e) {}
+  }
+
+  // 챗봇·다른 소스 데이터 변경 감지 → 오픈된 시트 즉시 새로고침
+  if (typeof window !== 'undefined' && !window._customerDataListenerInit) {
+    window._customerDataListenerInit = true;
+    window.addEventListener('itdasy:data-changed', async (e) => {
+      const k = e.detail && e.detail.kind;
+      if (k === 'create_customer' || k === 'update_customer' || k === 'create_revenue' || k === 'create_booking') {
+        _clearSWR();
+        const sheet = document.getElementById('customerSheet');
+        if (sheet && sheet.style.display === 'flex') {
+          try { await _fetchFresh(); _rerender && _rerender(); } catch (_e) {}
+        }
+      }
+    });
   }
 
   async function _fetchFresh() {

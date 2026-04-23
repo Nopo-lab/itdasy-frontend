@@ -1206,21 +1206,29 @@ window._preloadTabs = async function () {
   const auth = window.authHeader && window.authHeader();
   if (!auth || !auth.Authorization) return;
   const headers = { ...auth };
+  // 예약은 전체 ±3개월 한 번에 prefetch (날짜 스크롤 0ms)
+  const now = Date.now();
+  const bookingFrom = new Date(now - 3 * 30 * 24 * 3600 * 1000).toISOString();
+  const bookingTo = new Date(now + 3 * 30 * 24 * 3600 * 1000).toISOString();
   const tabs = [
-    { key: 'customers',  url: '/customers',            swrKey: 'pv_cache::customers' },
-    { key: 'revenue',    url: '/revenue?period=month', swrKey: 'pv_cache::revenue' },
-    { key: 'inventory',  url: '/inventory',            swrKey: 'pv_cache::inventory' },
-    { key: 'services',   url: '/services',             swrKey: 'pv_cache::service' },
-    { key: 'today',      url: '/today/brief',          swrKey: 'pv_cache::today' },
+    { url: '/customers',            swrKey: 'pv_cache::customers' },
+    { url: `/bookings?from=${encodeURIComponent(bookingFrom)}&to=${encodeURIComponent(bookingTo)}`, swrKey: 'pv_cache::bookings_all' },
+    { url: '/revenue?period=month', swrKey: 'pv_cache::revenue' },
+    { url: '/inventory',            swrKey: 'pv_cache::inventory' },
+    { url: '/services',             swrKey: 'pv_cache::service' },
+    { url: '/today/brief',          swrKey: 'pv_cache::today' },
   ];
-  // Promise.allSettled → 일부 실패해도 나머지 진행
+  // Promise.allSettled → 일부 실패해도 나머지 진행. localStorage persistent
   await Promise.allSettled(tabs.map(async t => {
     try {
       const res = await fetch(window.API + t.url, { headers });
       if (!res.ok) return;
       const d = await res.json();
       const items = d.items || d;
-      sessionStorage.setItem(t.swrKey, JSON.stringify({ t: Date.now(), d: items }));
+      const payload = JSON.stringify({ t: Date.now(), d: items });
+      try { localStorage.setItem(t.swrKey, payload); } catch (_) {
+        try { sessionStorage.setItem(t.swrKey, payload); } catch (_) {}
+      }
     } catch (_) { /* silent */ }
   }));
 };

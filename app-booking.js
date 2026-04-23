@@ -70,61 +70,114 @@
     return res.status === 204 ? null : await res.json();
   }
 
-  // ── Stale-while-revalidate 캐시 (체감 0ms 렌더)
-  const _SWR_TTL = 60 * 1000;  // 1분 신선 (예약은 더 자주 갱신)
-  function _swrKey(fromISO, toISO) { return `pv_cache::booking::${fromISO||'_'}::${toISO||'_'}`; }
-  function _readSWR(fromISO, toISO) {
+  // ── SWR 전략: 최근 ±3개월 통째로 1번만 fetch → 메모리 필터 (날짜 스크롤 0ms)
+  const _SWR_ALL_KEY = 'pv_cache::bookings_all';
+  const _SWR_TTL = 60 * 1000;  // 1분 신선
+  const _RANGE_MONTHS = 3;     // 전후 3개월
+
+  function _bigRange() {
+    const now = Date.now();
+    const from = new Date(now - _RANGE_MONTHS * 30 * 24 * 3600 * 1000).toISOString();
+    const to   = new Date(now + _RANGE_MONTHS * 30 * 24 * 3600 * 1000).toISOString();
+    return { from, to };
+  }
+
+  function _readSWRAll() {
     try {
-      const raw = sessionStorage.getItem(_swrKey(fromISO, toISO));
+      const raw = localStorage.getItem(_SWR_ALL_KEY) || sessionStorage.getItem(_SWR_ALL_KEY);
       if (!raw) return null;
       const obj = JSON.parse(raw);
       return { items: obj.d, fresh: Date.now() - obj.t < _SWR_TTL };
     } catch (_e) { return null; }
   }
-  function _writeSWR(fromISO, toISO, items) {
-    try { sessionStorage.setItem(_swrKey(fromISO, toISO), JSON.stringify({ t: Date.now(), d: items })); }
-    catch (_e) {}
+  function _writeSWRAll(items) {
+    const payload = JSON.stringify({ t: Date.now(), d: items });
+    try { localStorage.setItem(_SWR_ALL_KEY, payload); } catch (_e) {
+      try { sessionStorage.setItem(_SWR_ALL_KEY, payload); } catch (_e2) {}
+    }
   }
   function _clearSWR() {
-    // 모든 예약 SWR 캐시 제거 (날짜 범위 여러 개라 scan)
+    try { localStorage.removeItem(_SWR_ALL_KEY); } catch (_e) {}
+    try { sessionStorage.removeItem(_SWR_ALL_KEY); } catch (_e) {}
+    // 구버전 키도 청소
     try {
       for (let i = sessionStorage.length - 1; i >= 0; i--) {
         const k = sessionStorage.key(i);
-        if (k && k.startsWith('pv_cache::booking::')) sessionStorage.removeItem(k);
+        if (k && k.startsWith('pv_cache::booking')) sessionStorage.removeItem(k);
+      }
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('pv_cache::booking')) localStorage.removeItem(k);
       }
     } catch (_e) {}
   }
 
-  async function _fetchFresh(fromISO, toISO) {
+  async function _fetchAllBookings() {
+    const { from, to } = _bigRange();
     const qs = new URLSearchParams();
-    if (fromISO) qs.set('from', fromISO);
-    if (toISO) qs.set('to', toISO);
+    qs.set('from', from); qs.set('to', to);
     const d = await _api('GET', '/bookings?' + qs.toString());
     _isOffline = false;
-    _items = d.items || [];
-    _writeSWR(fromISO, toISO, _items);
+    const all = d.items || [];
+    _writeSWRAll(all);
+    return all;
+  }
+
+  function _filterByRange(items, fromISO, toISO) {
+    if (!fromISO && !toISO) return items;
+    const f = fromISO ? new Date(fromISO).getTime() : -Infinity;
+    const t = toISO ? new Date(toISO).getTime() : Infinity;
+    return items.filter(b => {
+      const s = new Date(b.starts_at).getTime();
+      return s >= f && s <= t;
+    });
+  }
+
+  async function _fetchFresh(fromISO, toISO) {
+    // 내부 호환용 — 실제로는 전체 캐시 갱신
+    const all = await _fetchAllBookings();
+    _items = _filterByRange(all, fromISO, toISO);
     return _items;
+  }
+
+  // 챗봇·외부 데이터 변경 감지
+  if (typeof window !== 'undefined' && !window._bookingDataListenerInit) {
+    window._bookingDataListenerInit = true;
+    window.addEventListener('itdasy:data-changed', async (e) => {
+      const k = e.detail && e.detail.kind;
+      if (k && (k.includes('booking') || k.includes('cancel') || k.includes('reschedule'))) {
+        _clearSWR();
+        const sheet = document.getElementById('bookingSheet');
+        if (sheet && sheet.style.display !== 'none') {
+          try { await _fetchAllBookings(); _rerender && _rerender(); } catch (_e) {}
+        }
+      }
+    });
   }
 
   // ── CRUD ────────────────────────────────────────────────
   async function list(fromISO, toISO) {
-    // 즉시 캐시 반환 + 오래된 경우 백그라운드 갱신
-    const swr = _readSWR(fromISO, toISO);
+    // 전체 범위 캐시에서 즉시 메모리 필터 (날짜 스크롤 0ms)
+    const swr = _readSWRAll();
     if (swr) {
-      _items = swr.items;
+      _items = _filterByRange(swr.items, fromISO, toISO);
+      // 오래된 경우만 백그라운드 갱신
       if (!swr.fresh) {
-        _fetchFresh(fromISO, toISO).then(fresh => {
-          if (JSON.stringify(_items) !== JSON.stringify(fresh)) {
-            _items = fresh;
+        _fetchAllBookings().then(fresh => {
+          const filtered = _filterByRange(fresh, fromISO, toISO);
+          if (JSON.stringify(_items) !== JSON.stringify(filtered)) {
+            _items = filtered;
             _rerender && _rerender();
           }
         }).catch(() => {});
       }
       return _items;
     }
-    // 첫 진입 — 네트워크 대기
+    // 첫 진입 — 전체 fetch
     try {
-      return await _fetchFresh(fromISO, toISO);
+      const all = await _fetchAllBookings();
+      _items = _filterByRange(all, fromISO, toISO);
+      return _items;
     } catch (e) {
       if (e.message === 'endpoint-missing' || e.message === 'no-token') {
         _isOffline = true;
