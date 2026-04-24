@@ -15,6 +15,29 @@
     '제일 잘 팔리는 시술 뭐야?',
   ];
 
+  // 재고·지출 공용 카테고리 (드롭다운)
+  const CATEGORIES = [
+    { value: 'nail', label: '네일' },
+    { value: 'lash', label: '속눈썹' },
+    { value: 'hair', label: '헤어' },
+    { value: 'skin', label: '피부' },
+    { value: 'food', label: '식품' },
+    { value: 'office', label: '사무용품' },
+    { value: 'rent', label: '임대' },
+    { value: 'utility', label: '공과금' },
+    { value: 'etc', label: '기타' },
+  ];
+  function _categoryOptionsHtml(selected) {
+    const sel = String(selected == null ? '' : selected).toLowerCase();
+    const known = CATEGORIES.some(c => c.value === sel);
+    const opts = CATEGORIES.map(c =>
+      `<option value="${_esc(c.value)}"${c.value === sel ? ' selected' : ''}>${_esc(c.label)}</option>`
+    ).join('');
+    // 서버가 임의 문자열을 주는 경우도 허용 (기타 옵션으로 표시)
+    const custom = (!known && sel) ? `<option value="${_esc(sel)}" selected>${_esc(sel)}</option>` : '';
+    return custom + opts;
+  }
+
   // 액션 카테고리 메타 (아이콘 · 라벨 · 색상)
   const CATEGORY = {
     create_customer:       { icon: '👤', label: '고객 추가', color: '#4ECDC4' },
@@ -247,6 +270,51 @@
     _bindActionButtons();
   }
 
+  // 재고·지출 품목 리스트 편집 UI
+  // fieldAttr: 'single-field' (단일 액션) 또는 'row-field' (그룹 행)
+  // itemAddAttr / itemDelAttr: 추가·삭제 버튼에 붙일 data- 속성명
+  // keyPrefix: 단일 액션은 historyIdx 숫자, 그룹 행은 "hi:gi:ii" 문자열
+  // compact: 그룹 행용 축소 버전
+  function _renderItemsEditor(keyPrefix, items, opts) {
+    const o = opts || {};
+    const fieldAttr = o.fieldAttr || 'row-field';
+    const addAttr = o.addAttr || 'row-item-add';
+    const delAttr = o.delAttr || 'row-item-delete';
+    const compact = o.compact === true;
+    const color = o.color || '#2B8C7E';
+    const list = Array.isArray(items) ? items : [];
+    const sz = compact
+      ? { fs: '10px', pad: '5px 7px', gap: '5px', btn: '28px' }
+      : { fs: '11px', pad: '7px 9px', gap: '6px', btn: '32px' };
+    const rows = list.map((it, i) => {
+      const name = (it && it.name) || '';
+      const qty = (it && (it.quantity ?? it.qty)) != null ? (it.quantity ?? it.qty) : 1;
+      const unit = (it && (it.unit_price ?? it.unitPrice));
+      const cat = (it && it.category) || '';
+      return `
+        <div style="display:grid;grid-template-columns:2fr 0.9fr 1.1fr 1fr ${sz.btn};gap:${sz.gap};align-items:center;">
+          <input data-${fieldAttr}="${keyPrefix}:items:${i}:name" value="${_esc(name)}" placeholder="품목명"
+            style="padding:${sz.pad};border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:${sz.fs};background:#fff;min-width:0;" />
+          <input data-${fieldAttr}="${keyPrefix}:items:${i}:quantity" type="number" inputmode="numeric" min="0" value="${_esc(qty)}" placeholder="수량"
+            style="padding:${sz.pad};border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:${sz.fs};background:#fff;min-width:0;" />
+          <input data-${fieldAttr}="${keyPrefix}:items:${i}:unit_price" type="number" inputmode="numeric" min="0" value="${_esc(unit == null ? '' : unit)}" placeholder="단가"
+            style="padding:${sz.pad};border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:${sz.fs};background:#fff;min-width:0;" />
+          <select data-${fieldAttr}="${keyPrefix}:items:${i}:category"
+            style="padding:${sz.pad};border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:${sz.fs};background:#fff;min-width:0;">
+            <option value=""${cat ? '' : ' selected'}>분류</option>
+            ${_categoryOptionsHtml(cat)}
+          </select>
+          <button data-${delAttr}="${keyPrefix}:${i}" aria-label="품목 삭제" title="품목 삭제"
+            style="padding:0;border:1px solid hsl(0,60%,85%);border-radius:8px;background:hsl(0,70%,98%);color:hsl(0,60%,45%);cursor:pointer;font-size:${sz.fs};height:100%;">🗑</button>
+        </div>`;
+    }).join('');
+    const emptyHint = list.length ? '' : `<div style="font-size:11px;color:#999;padding:6px 2px;">품목이 없어요. 아래 버튼으로 추가하세요.</div>`;
+    return `
+      <div style="display:flex;flex-direction:column;gap:${sz.gap};">${rows}${emptyHint}</div>
+      <button data-${addAttr}="${keyPrefix}"
+        style="margin-top:6px;padding:7px 10px;border:1px dashed ${color};border-radius:8px;background:#fff;color:${color};font-size:${sz.fs};font-weight:700;cursor:pointer;">➕ 품목 추가</button>`;
+  }
+
   function _renderActionBubble(action, historyIdx, status, editing) {
     if (!action || !action.kind) return '';
     const kindBadge = {
@@ -278,34 +346,81 @@
     if (editing) {
       const p = action.payload || {};
       const editFields = [];
-      const addField = (field, label, val) => {
+      const addField = (field, label, val, extra) => {
         if (val === undefined) return;
-        editFields.push(`
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
-            <input data-single-field="${historyIdx}:${field}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;" />
-          </div>`);
+        const ex = extra || {};
+        const type = ex.type || 'text';
+        if (ex.select) {
+          editFields.push(`
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
+              <select data-single-field="${historyIdx}:${field}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;">
+                <option value=""${val ? '' : ' selected'}>선택</option>
+                ${_categoryOptionsHtml(val)}
+              </select>
+            </div>`);
+        } else {
+          editFields.push(`
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
+              <input data-single-field="${historyIdx}:${field}" type="${type}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;" />
+            </div>`);
+        }
       };
-      if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
-      if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
-      if ('service_name' in p) addField('service_name', '시술', p.service_name);
-      if ('amount' in p) addField('amount', '금액', p.amount);
-      if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
-      if ('memo' in p) addField('memo', '메모', p.memo);
-      if (!editFields.length) {
-        editFields.push(`
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">내용</span>
-            <input data-single-field="${historyIdx}:confirmation_text" value="${_esc(action.confirmation_text || '')}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;" />
-          </div>`);
+
+      let itemsHtml = '';
+      if (action.kind === 'upsert_inventory') {
+        // 재고: items[] 만 편집
+        if (!Array.isArray(p.items)) p.items = [];
+        itemsHtml = `
+          <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin-bottom:4px;">품목</div>
+          ${_renderItemsEditor(String(historyIdx), p.items, {
+            fieldAttr: 'single-field',
+            addAttr: 'single-item-add',
+            delAttr: 'single-item-delete',
+            color: kindBadge.color,
+          })}`;
+        if ('memo' in p) addField('memo', '메모', p.memo);
+      } else if (action.kind === 'create_expense') {
+        // 지출: vendor / amount / category / memo + items[]
+        addField('vendor', '가게', p.vendor == null ? '' : p.vendor);
+        addField('amount', '총액', p.amount == null ? '' : p.amount, { type: 'number' });
+        addField('category', '분류', p.category == null ? '' : p.category, { select: true });
+        addField('memo', '메모', p.memo == null ? '' : p.memo);
+        if (!Array.isArray(p.items)) p.items = [];
+        itemsHtml = `
+          <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">품목 (선택)</div>
+          ${_renderItemsEditor(String(historyIdx), p.items, {
+            fieldAttr: 'single-field',
+            addAttr: 'single-item-add',
+            delAttr: 'single-item-delete',
+            color: kindBadge.color,
+          })}`;
+      } else {
+        // 기존 고객/매출/예약 필드
+        if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
+        if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
+        if ('service_name' in p) addField('service_name', '시술', p.service_name);
+        if ('amount' in p) addField('amount', '금액', p.amount);
+        if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
+        if ('memo' in p) addField('memo', '메모', p.memo);
+        if (!editFields.length) {
+          editFields.push(`
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">내용</span>
+              <input data-single-field="${historyIdx}:confirmation_text" value="${_esc(action.confirmation_text || '')}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;" />
+            </div>`);
+        }
       }
+
       return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
           <span style="font-size:14px;">${kindBadge.icon}</span>
           <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label} · 편집 모드</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${editFields.join('')}</div>
-        <div style="display:flex;gap:6px;">
+        ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${editFields.join('')}</div>` : ''}
+        ${itemsHtml}
+        <div style="display:flex;gap:6px;margin-top:10px;">
           <button data-action-save="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;">💾 저장</button>
           <button data-action-editcancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
         </div>
@@ -438,28 +553,72 @@
 
     // 편집 가능 필드 (있는 것만 보여주기)
     const editFields = [];
-    const addField = (field, label, val) => {
+    const addField = (field, label, val, extra) => {
       if (val === undefined) return;
-      editFields.push(`
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
-          <input data-row-field="${key}:${field}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;" />
-        </div>`);
-    };
-    if (editing) {
-      if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
-      if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
-      if ('service_name' in p) addField('service_name', '시술', p.service_name);
-      if ('amount' in p) addField('amount', '금액', p.amount);
-      if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
-      if ('memo' in p) addField('memo', '메모', p.memo);
-      if (!editFields.length) {
-        // fallback: 확인 문구만 고치게
+      const ex = extra || {};
+      const type = ex.type || 'text';
+      if (ex.select) {
         editFields.push(`
           <div style="display:flex;align-items:center;gap:6px;">
-            <span style="width:50px;font-size:10px;color:#888;font-weight:700;">내용</span>
-            <input data-row-field="${key}:confirmation_text" value="${_esc(it.action.confirmation_text || '')}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;" />
+            <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
+            <select data-row-field="${key}:${field}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;">
+              <option value=""${val ? '' : ' selected'}>선택</option>
+              ${_categoryOptionsHtml(val)}
+            </select>
           </div>`);
+      } else {
+        editFields.push(`
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
+            <input data-row-field="${key}:${field}" type="${type}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;" />
+          </div>`);
+      }
+    };
+    let itemsHtml = '';
+    if (editing) {
+      const kind = it.action && it.action.kind;
+      if (kind === 'upsert_inventory') {
+        if (!Array.isArray(p.items)) p.items = [];
+        itemsHtml = `
+          <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:2px;">품목</div>
+          ${_renderItemsEditor(key, p.items, {
+            fieldAttr: 'row-field',
+            addAttr: 'row-item-add',
+            delAttr: 'row-item-delete',
+            color: meta.color,
+            compact: true,
+          })}`;
+        if ('memo' in p) addField('memo', '메모', p.memo);
+      } else if (kind === 'create_expense') {
+        addField('vendor', '가게', p.vendor == null ? '' : p.vendor);
+        addField('amount', '총액', p.amount == null ? '' : p.amount, { type: 'number' });
+        addField('category', '분류', p.category == null ? '' : p.category, { select: true });
+        addField('memo', '메모', p.memo == null ? '' : p.memo);
+        if (!Array.isArray(p.items)) p.items = [];
+        itemsHtml = `
+          <div style="font-size:10px;font-weight:700;color:#888;margin:8px 0 2px;">품목 (선택)</div>
+          ${_renderItemsEditor(key, p.items, {
+            fieldAttr: 'row-field',
+            addAttr: 'row-item-add',
+            delAttr: 'row-item-delete',
+            color: meta.color,
+            compact: true,
+          })}`;
+      } else {
+        if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
+        if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
+        if ('service_name' in p) addField('service_name', '시술', p.service_name);
+        if ('amount' in p) addField('amount', '금액', p.amount);
+        if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
+        if ('memo' in p) addField('memo', '메모', p.memo);
+        if (!editFields.length) {
+          // fallback: 확인 문구만 고치게
+          editFields.push(`
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="width:50px;font-size:10px;color:#888;font-weight:700;">내용</span>
+              <input data-row-field="${key}:confirmation_text" value="${_esc(it.action.confirmation_text || '')}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;" />
+            </div>`);
+        }
       }
     }
 
@@ -481,7 +640,8 @@
     return `<div style="padding:9px 10px;border-radius:10px;background:hsl(340,100%,99%);border:1px solid hsl(340,30%,92%);display:flex;flex-direction:column;gap:6px;">
       ${rowHead}
       ${status}
-      ${editing ? `<div style="display:flex;flex-direction:column;gap:4px;">${editFields.join('')}</div>` : ''}
+      ${editing && editFields.length ? `<div style="display:flex;flex-direction:column;gap:4px;">${editFields.join('')}</div>` : ''}
+      ${editing ? itemsHtml : ''}
       ${buttons}
     </div>`;
   }
@@ -596,6 +756,69 @@
     }
   }
 
+  // 숫자 필드 강제 변환
+  const _NUM_FIELDS = new Set(['amount', 'unit_price', 'quantity', 'total']);
+  function _coerceFieldValue(field, raw) {
+    if (_NUM_FIELDS.has(field)) {
+      if (raw === '' || raw == null) return null;
+      const n = parseInt(String(raw).replace(/[^\d]/g, ''), 10);
+      return isNaN(n) ? null : n;
+    }
+    return raw === '' ? null : raw;
+  }
+  // "foo" 또는 "items:i:bar" 형태의 field 를 payload 에 꽂기
+  function _applyEditField(action, field, raw) {
+    if (!action) return;
+    if (field === 'confirmation_text') {
+      action.confirmation_text = raw;
+      return;
+    }
+    if (!action.payload) action.payload = {};
+    if (field.indexOf('items:') === 0) {
+      const [, idxStr, sub] = field.split(':');
+      const i = parseInt(idxStr, 10);
+      if (isNaN(i)) return;
+      if (!Array.isArray(action.payload.items)) action.payload.items = [];
+      if (!action.payload.items[i]) action.payload.items[i] = {};
+      action.payload.items[i][sub] = _coerceFieldValue(sub, raw);
+      return;
+    }
+    action.payload[field] = _coerceFieldValue(field, raw);
+  }
+  // 이름 비어있는 items 제거 (저장 시)
+  function _stripEmptyItems(payload) {
+    if (!payload || !Array.isArray(payload.items)) return;
+    payload.items = payload.items.filter(it => it && (String(it.name || '').trim() !== ''));
+  }
+  // 품목 추가·삭제 전에 현재 입력값을 payload 로 먼저 회수 (재렌더 시 입력값 유실 방지)
+  function _flushSingleInputs(idx) {
+    const msg = _history[idx];
+    if (!msg || !msg.action) return;
+    const body = document.getElementById('asstBody');
+    if (!body) return;
+    if (!msg.action.payload) msg.action.payload = {};
+    const inputs = body.querySelectorAll(`[data-single-field^="${idx}:"]`);
+    inputs.forEach(inp => {
+      const parts = inp.getAttribute('data-single-field').split(':');
+      const field = parts.slice(1).join(':');
+      _applyEditField(msg.action, field, inp.value);
+    });
+  }
+  function _flushRowInputs(hi, gi, ii) {
+    const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
+    if (!it || !it.action) return;
+    const body = document.getElementById('asstBody');
+    if (!body) return;
+    if (!it.action.payload) it.action.payload = {};
+    const key = `${hi}:${gi}:${ii}`;
+    const inputs = body.querySelectorAll(`[data-row-field^="${key}:"]`);
+    inputs.forEach(inp => {
+      const parts = inp.getAttribute('data-row-field').split(':');
+      const field = parts.slice(3).join(':');
+      _applyEditField(it.action, field, inp.value);
+    });
+  }
+
   // 단일 document-level 위임 (한 번만 등록)
   let _delegationBound = false;
   let _sendInFlight = false;
@@ -639,21 +862,44 @@
         if (msg && msg.action) {
           const body = document.getElementById('asstBody');
           if (body) {
+            if (!msg.action.payload) msg.action.payload = {};
             const inputs = body.querySelectorAll(`[data-single-field^="${idx}:"]`);
             inputs.forEach(inp => {
               const parts = inp.getAttribute('data-single-field').split(':');
               const field = parts.slice(1).join(':');
-              if (field === 'confirmation_text') {
-                msg.action.confirmation_text = inp.value;
-              } else {
-                if (!msg.action.payload) msg.action.payload = {};
-                let v = inp.value;
-                if (field === 'amount') { const n = parseInt(String(v).replace(/[^\d]/g, ''), 10); v = isNaN(n) ? null : n; }
-                msg.action.payload[field] = v === '' ? null : v;
-              }
+              _applyEditField(msg.action, field, inp.value);
             });
+            _stripEmptyItems(msg.action.payload);
           }
           msg.edit_mode = false;
+          _renderHistory();
+        }
+        return;
+      }
+      // 단일 액션 — 품목 추가
+      const singleItemAdd = e.target.closest('[data-single-item-add]');
+      if (singleItemAdd && document.getElementById('asstBody')?.contains(singleItemAdd)) {
+        const idx = parseInt(singleItemAdd.dataset.singleItemAdd, 10);
+        const msg = _history[idx];
+        if (msg && msg.action) {
+          _flushSingleInputs(idx);
+          if (!msg.action.payload) msg.action.payload = {};
+          if (!Array.isArray(msg.action.payload.items)) msg.action.payload.items = [];
+          msg.action.payload.items.push({ name: '', quantity: 1 });
+          _renderHistory();
+        }
+        return;
+      }
+      // 단일 액션 — 품목 삭제
+      const singleItemDel = e.target.closest('[data-single-item-delete]');
+      if (singleItemDel && document.getElementById('asstBody')?.contains(singleItemDel)) {
+        const parts = singleItemDel.dataset.singleItemDelete.split(':');
+        const idx = parseInt(parts[0], 10);
+        const iItem = parseInt(parts[1], 10);
+        const msg = _history[idx];
+        if (msg && msg.action && msg.action.payload && Array.isArray(msg.action.payload.items)) {
+          _flushSingleInputs(idx);
+          msg.action.payload.items.splice(iItem, 1);
           _renderHistory();
         }
         return;
@@ -748,21 +994,46 @@
           const key = `${hi}:${gi}:${ii}`;
           const body = document.getElementById('asstBody');
           if (body) {
+            if (!it.action.payload) it.action.payload = {};
             const inputs = body.querySelectorAll(`[data-row-field^="${key}:"]`);
             inputs.forEach(inp => {
               const parts = inp.getAttribute('data-row-field').split(':');
               const field = parts.slice(3).join(':');
-              if (field === 'confirmation_text') {
-                it.action.confirmation_text = inp.value;
-              } else {
-                if (!it.action.payload) it.action.payload = {};
-                let v = inp.value;
-                if (field === 'amount') { const n = parseInt(String(v).replace(/[^\d]/g, ''), 10); v = isNaN(n) ? null : n; }
-                it.action.payload[field] = v === '' ? null : v;
-              }
+              _applyEditField(it.action, field, inp.value);
             });
+            _stripEmptyItems(it.action.payload);
           }
           it.editing = false;
+          _renderHistory();
+        }
+        return;
+      }
+      // 행 — 품목 추가
+      const rowItemAdd = e.target.closest('[data-row-item-add]');
+      if (rowItemAdd && document.getElementById('asstBody')?.contains(rowItemAdd)) {
+        const [hi, gi, ii] = rowItemAdd.dataset.rowItemAdd.split(':').map(n => parseInt(n, 10));
+        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
+        if (it) {
+          _flushRowInputs(hi, gi, ii);
+          if (!it.action.payload) it.action.payload = {};
+          if (!Array.isArray(it.action.payload.items)) it.action.payload.items = [];
+          it.action.payload.items.push({ name: '', quantity: 1 });
+          _renderHistory();
+        }
+        return;
+      }
+      // 행 — 품목 삭제
+      const rowItemDel = e.target.closest('[data-row-item-delete]');
+      if (rowItemDel && document.getElementById('asstBody')?.contains(rowItemDel)) {
+        const parts = rowItemDel.dataset.rowItemDelete.split(':');
+        const hi = parseInt(parts[0], 10);
+        const gi = parseInt(parts[1], 10);
+        const ii = parseInt(parts[2], 10);
+        const iItem = parseInt(parts[3], 10);
+        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
+        if (it && it.action?.payload?.items) {
+          _flushRowInputs(hi, gi, ii);
+          it.action.payload.items.splice(iItem, 1);
           _renderHistory();
         }
         return;
