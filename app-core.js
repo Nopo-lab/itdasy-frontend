@@ -692,6 +692,49 @@ function _toggleSignup(show) {
   }
 }
 
+// ───── Google OAuth 로그인 시작 ─────
+// 백엔드에 authorize URL 을 요청 → 사용자를 Google 로그인 페이지로 이동
+// 완료 후 /oauth-return.html 에서 토큰 저장
+window.startGoogleLogin = async function () {
+  try {
+    const returnTo = window.location.origin + '/oauth-return.html';
+    const res = await fetch(
+      `${window.API}/auth/google/authorize?return_to=${encodeURIComponent(returnTo)}`
+    );
+    if (!res.ok) throw new Error('Google 로그인 준비 실패');
+    const { url } = await res.json();
+    // Capacitor 네이티브 환경이면 in-app browser, 아니면 같은 탭 이동
+    if (window.Capacitor?.Plugins?.Browser) {
+      await window.Capacitor.Plugins.Browser.open({ url });
+    } else {
+      window.location.href = url;
+    }
+  } catch (e) {
+    const msg = window._humanError ? window._humanError(e) : (e.message || 'Google 로그인 오류');
+    alert(msg);
+  }
+};
+
+// ───── 카카오 OAuth 로그인 시작 ─────
+window.startKakaoLogin = async function () {
+  try {
+    const returnTo = window.location.origin + '/oauth-return.html';
+    const res = await fetch(
+      `${window.API}/auth/kakao/authorize?return_to=${encodeURIComponent(returnTo)}`
+    );
+    if (!res.ok) throw new Error('카카오 로그인 준비 실패');
+    const { url } = await res.json();
+    if (window.Capacitor?.Plugins?.Browser) {
+      await window.Capacitor.Plugins.Browser.open({ url });
+    } else {
+      window.location.href = url;
+    }
+  } catch (e) {
+    const msg = window._humanError ? window._humanError(e) : (e.message || '카카오 로그인 오류');
+    alert(msg);
+  }
+};
+
 // T-324 — iOS Safari 100vh 동적 계산
 (function _setVH() {
   const set = () => document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
@@ -1227,7 +1270,7 @@ window._preloadTabs = async function () {
       const items = d.items || d;
       const payload = JSON.stringify({ t: Date.now(), d: items });
       try { localStorage.setItem(t.swrKey, payload); } catch (_) {
-        try { sessionStorage.setItem(t.swrKey, payload); } catch (_) {}
+        try { sessionStorage.setItem(t.swrKey, payload); } catch (_e) { void _e; }
       }
     } catch (_) { /* silent */ }
   }));

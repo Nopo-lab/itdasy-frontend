@@ -22,11 +22,62 @@
     return;
   }
 
+  // Google/Kakao OAuth 딥링크 처리
+  // 백엔드가 itdasy://oauth-return?token=JWT&provider=google|kakao 로 리다이렉트
+  function _handleSocialLogin(u, fullUrl) {
+    const isOAuthReturn =
+      u.host === 'oauth-return' ||
+      u.pathname === '/oauth-return' ||
+      u.pathname === 'oauth-return' ||
+      /oauth-return/.test(fullUrl);
+    if (!isOAuthReturn) return false;
+
+    // query string 또는 hash fragment 둘 다 지원
+    let params;
+    try {
+      params = new URLSearchParams(u.search || '');
+    } catch (_e) {
+      void _e;
+      params = new URLSearchParams('');
+    }
+    if ((!params.get('token') && !params.get('error')) && u.hash) {
+      try {
+        params = new URLSearchParams(u.hash.replace(/^#/, ''));
+      } catch (_e2) { void _e2; }
+    }
+
+    const token = params.get('token');
+    const provider = params.get('provider') || 'oauth';
+    const err = params.get('error');
+
+    if (err) {
+      if (window.showToast) window.showToast('로그인 실패: ' + decodeURIComponent(err));
+      return true;
+    }
+    if (!token) return true;
+
+    try {
+      const api = (window.API || '');
+      const keySuffix = api.includes('staging')
+        ? 'staging'
+        : (api.includes('localhost') ? 'local' : 'prod');
+      localStorage.setItem('itdasy_token::' + keySuffix, token);
+    } catch (_e) { void _e; }
+
+    if (window.showToast) window.showToast('✓ ' + provider + ' 로그인 완료!');
+    // 토큰 반영을 위해 앱 새로고침
+    setTimeout(() => { window.location.reload(); }, 300);
+    return true;
+  }
+
   function _handleReturn(url) {
     if (!url) return;
     try {
       const u = new URL(url);
       if (u.protocol !== 'itdasy:') return;
+
+      // Google/Kakao OAuth 복귀 먼저 시도
+      if (_handleSocialLogin(u, url)) return;
 
       if (u.searchParams.get('connected') === 'success') {
         if (window.showToast) window.showToast('인스타 연동 완료! 🎉');
