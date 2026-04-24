@@ -47,7 +47,8 @@
         history.replaceState({}, '', window.location.pathname);
         document.getElementById('title').textContent = '✓ 로그인 완료!';
         document.getElementById('msg').textContent = provider + ' 계정으로 로그인됐어요';
-        setTimeout(() => { window.location.href = '/'; }, 800);
+        // 서브패스 (/itdasy-frontend-test-yeunjun/) 대응 — 같은 디렉토리의 index.html 로
+        setTimeout(() => { window.location.href = 'index.html'; }, 800);
       } catch (e) {
         document.getElementById('title').textContent = '오류';
         document.getElementById('msg').textContent = String(e.message || e);
