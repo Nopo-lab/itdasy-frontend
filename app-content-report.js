@@ -28,7 +28,7 @@
   function ensureModal() {
     if (document.getElementById('aiContentReportModal')) return;
     const html = `
-      <div id="aiContentReportModal" style="display:none;position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:20px;">
+      <div id="aiContentReportModal" style="display:none;position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:20px;">
         <div style="background:#fff;border-radius:16px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
           <div style="padding:18px 20px 12px;background:linear-gradient(135deg,#fff7ed,#fed7aa);border-bottom:1px solid #fde68a;">
             <div style="font-size:18px;font-weight:800;color:#9a3412;letter-spacing:-0.3px;">🚩 AI 콘텐츠 신고</div>
@@ -89,13 +89,14 @@
     _inFlight = true;
     if (btn) { btn.disabled = true; btn.textContent = '제출 중...'; }
     try {
-      const token = (typeof getToken === 'function') ? getToken() : localStorage.getItem('itdasy_token::staging');
-      const base = (typeof API_BASE !== 'undefined') ? API_BASE : '';
+      const token = (window.getToken && window.getToken()) || '';
+      const base = (window.API || (typeof API_BASE !== 'undefined' ? API_BASE : ''));
+      const authHeaders = (window.authHeader && window.authHeader()) || (token ? { Authorization: `Bearer ${token}` } : {});
       const res = await fetch(`${base}/moderation/report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
+          ...authHeaders,
         },
         body: JSON.stringify({ ..._pending, category, detail }),
       });
