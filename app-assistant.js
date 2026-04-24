@@ -243,7 +243,12 @@
       }
       if (m.role === 'assistant') {
         const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status, m.edit_mode === true) : '';
-        const groupsHtml = (m.action_groups && m.action_groups.length) ? _renderActionGroups(m.action_groups, idx, m.duplicate_warnings) : '';
+        // 2026-04-24 — unified_mode 면 통합 확인 카드, 아니면 기존 그룹 카드
+        const groupsHtml = (m.action_groups && m.action_groups.length)
+          ? (m.unified_mode
+              ? _renderUnifiedCard(m, idx)
+              : _renderActionGroups(m.action_groups, idx, m.duplicate_warnings))
+          : '';
         // 단일 액션일 때 — action_index 0 경고만. group 은 내부에서 렌더하므로 여기서는 제외.
         const dupHtml = (m.action && m.duplicate_warnings && m.duplicate_warnings.length)
           ? _renderDuplicateWarnings(idx, m.duplicate_warnings, 0)
@@ -509,6 +514,152 @@
   function _renderActionGroups(groups, historyIdx, duplicateWarnings) {
     if (!groups || !groups.length) return '';
     return groups.map((g, gIdx) => _renderActionGroup(g, historyIdx, gIdx, duplicateWarnings)).join('');
+  }
+
+  // 2026-04-24 — 통합 확인 카드 (unified preview)
+  // 2~6건 · 서로 다른 kind 2종 이상 섞였을 때 노출.
+  // 한 번의 [전체 추가] 로 순차 실행 (create_customer 먼저, 그 뒤 예약/매출).
+  function _shouldUseUnifiedCard(groups) {
+    if (!Array.isArray(groups) || groups.length < 2) return false;
+    const total = groups.reduce((n, g) => n + (g.items ? g.items.length : 0), 0);
+    if (total < 2 || total > 6) return false;
+    const distinctKinds = new Set(groups.map(g => g.kind));
+    return distinctKinds.size >= 2;
+  }
+
+  // create_customer 를 최상위로 정렬 — customer_id 참조 의존성 보호
+  // (현재 백엔드 resolver 가 customer_name 으로 조회하지만, 방금 만든 고객은
+  //  다음 액션 시점까지 DB 에 반영되어야 안전함)
+  function _unifiedExecutionOrder(groups) {
+    const priority = {
+      create_customer: 0,
+      update_customer: 1,
+      create_booking: 2,
+      update_booking: 3,
+      reschedule_booking: 3,
+      cancel_booking: 3,
+      create_revenue: 4,
+      create_expense: 5,
+      upsert_inventory: 6,
+      create_nps: 7,
+      generate_bulk_message: 8,
+    };
+    const flat = [];
+    (groups || []).forEach((g, gi) => {
+      (g.items || []).forEach((it, ii) => {
+        flat.push({ gi, ii, it, kind: g.kind, order: priority[g.kind] ?? 99 });
+      });
+    });
+    flat.sort((a, b) => (a.order - b.order) || (a.gi - b.gi) || (a.ii - b.ii));
+    return flat;
+  }
+
+  function _renderUnifiedCard(msg, historyIdx) {
+    const groups = msg.action_groups || [];
+    const flat = _unifiedExecutionOrder(groups);
+    const total = flat.length;
+    const progress = msg.unified_progress;
+    const doneCount = flat.filter(f => f.it.status === 'done').length;
+    const failedCount = flat.filter(f => f.it.status === 'failed').length;
+    const skippedCount = flat.filter(f => f.it.skipped).length;
+    const allTouched = (doneCount + failedCount + skippedCount) >= total && total > 0;
+
+    // 완료 상태 — 축소된 성공 카드
+    if (allTouched && !progress) {
+      const label = failedCount
+        ? `${doneCount}건 저장 · ${failedCount}건 실패`
+        : (skippedCount ? `${doneCount}건 저장 · ${skippedCount}건 제외` : `${total}건 모두 저장 완료`);
+      return `<div style="margin-top:6px;padding:12px;background:linear-gradient(135deg,hsl(145,45%,94%),hsl(145,45%,98%));border-radius:14px;border-left:3px solid hsl(145,50%,40%);">
+        <div style="font-size:13px;font-weight:800;color:hsl(145,50%,30%);display:inline-flex;align-items:center;gap:6px;">${_svg('ic-check-circle', 14)} ${_esc(label)}</div>
+      </div>`;
+    }
+
+    // 행 아이콘·요약
+    const rowsHtml = flat.map((f) => {
+      const meta = _catMeta(f.kind);
+      const summary = _summarizeItem(f.it.action);
+      let statusIcon = `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:${meta.color};">${_svg(meta.icon, 14)}</span>`;
+      let rowBg = 'transparent';
+      let rowOpacity = 1;
+      let statusRight = '';
+      if (f.it.status === 'done') {
+        statusIcon = `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:hsl(145,50%,40%);">${_svg('ic-check-circle', 14)}</span>`;
+        rowBg = 'hsl(145,45%,97%)';
+        statusRight = `<span style="font-size:10px;color:hsl(145,50%,35%);font-weight:700;flex-shrink:0;">완료</span>`;
+      } else if (f.it.status === 'failed') {
+        statusIcon = `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:hsl(0,70%,50%);">${_svg('ic-x', 14)}</span>`;
+        rowBg = 'hsl(0,70%,97%)';
+        statusRight = `<span style="font-size:10px;color:hsl(0,70%,45%);font-weight:700;flex-shrink:0;">실패</span>`;
+      } else if (f.it.status === 'running') {
+        statusIcon = `<span style="width:16px;height:16px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;"><span style="display:inline-block;width:12px;height:12px;border:2px solid ${meta.color};border-top-color:transparent;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span></span>`;
+        statusRight = `<span style="font-size:10px;color:${meta.color};font-weight:700;flex-shrink:0;">저장 중…</span>`;
+      } else if (f.it.skipped) {
+        rowOpacity = 0.45;
+        statusRight = `<span style="font-size:10px;color:#999;font-weight:700;flex-shrink:0;">제외</span>`;
+      }
+      return `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${rowBg};border-radius:10px;opacity:${rowOpacity};">
+          ${statusIcon}
+          <div style="flex:1;min-width:0;font-size:12px;color:#333;line-height:1.4;">
+            <span style="font-weight:700;color:${_catMeta(f.kind).color};">${_esc(_catMeta(f.kind).label)}</span>
+            <span style="color:#555;">: ${_esc(summary)}</span>
+          </div>
+          ${statusRight}
+        </div>`;
+    }).join('');
+
+    // 진행 중 헤더
+    const progressLine = progress
+      ? `<div style="font-size:11px;color:hsl(350,60%,40%);font-weight:700;margin-top:2px;">${_esc(progress.label || '진행 중…')} · ${progress.current}/${progress.total}</div>`
+      : (allTouched
+          ? `<div style="font-size:11px;color:#888;margin-top:2px;">완료 ${doneCount} · 실패 ${failedCount} · 제외 ${skippedCount}</div>`
+          : `<div style="font-size:11px;color:#888;margin-top:2px;">${total}건을 한 번에 추가할 수 있어요</div>`);
+
+    // 헤더 (핑크 그라데이션)
+    const header = `
+      <div style="padding:12px 14px;background:linear-gradient(135deg,hsl(340,80%,95%),hsl(340,100%,98%));border-radius:14px 14px 0 0;border-bottom:1px solid hsl(340,30%,90%);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:hsl(340,80%,60%);color:#fff;">${_svg('ic-layers', 16)}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:800;color:hsl(340,60%,35%);">한 번에 추가할 내용 <span style="color:hsl(340,80%,50%);">(${total}건)</span></div>
+            ${progressLine}
+          </div>
+        </div>
+      </div>`;
+
+    // 액션 버튼 (진행 중 아니면 pulse 애니메이션)
+    const running = !!progress;
+    const hasRemaining = flat.some(f => !f.it.skipped && f.it.status !== 'done' && f.it.status !== 'running');
+    const runLabel = running
+      ? `진행 중 ${progress.current}/${progress.total}`
+      : (doneCount + failedCount + skippedCount > 0 && hasRemaining
+          ? `${_svg('ic-check', 13)} 남은 항목 추가하기`
+          : `${_svg('ic-check', 13)} 전체 추가하기`);
+    const pulseClass = (!running && hasRemaining) ? 'asst-unified-pulse' : '';
+
+    const controls = `
+      <div style="display:flex;gap:6px;padding:10px 12px;">
+        <button data-unified-edit="${historyIdx}" ${running ? 'disabled' : ''} style="flex:1;padding:10px;border:1px solid hsl(340,60%,70%);border-radius:10px;background:#fff;color:hsl(340,60%,40%);font-weight:800;cursor:${running ? 'not-allowed' : 'pointer'};font-size:12px;opacity:${running ? 0.5 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
+          ${_svg('ic-edit-3', 13)} 수정
+        </button>
+        <button data-unified-runall="${historyIdx}" ${running || !hasRemaining ? 'disabled' : ''} class="${pulseClass}" style="flex:2;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:${running || !hasRemaining ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running || !hasRemaining ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
+          ${runLabel}
+        </button>
+      </div>`;
+
+    return `<div style="margin-top:6px;background:#fff;border:1px solid hsl(340,30%,88%);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(241,128,145,0.08);">
+      ${header}
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;">${rowsHtml}</div>
+      ${controls}
+    </div>
+    <style>
+      @keyframes asst-unified-pulse {
+        0%,100% { box-shadow: 0 0 0 0 rgba(241,128,145,0.55); }
+        50%     { box-shadow: 0 0 0 6px rgba(241,128,145,0); }
+      }
+      .asst-unified-pulse { animation: asst-unified-pulse 1.8s ease-in-out infinite; }
+      @keyframes asst-spin { to { transform: rotate(360deg); } }
+    </style>`;
   }
 
   function _renderActionGroup(group, historyIdx, gIdx, duplicateWarnings) {
@@ -1054,6 +1205,26 @@
         }
         return;
       }
+      // 통합 확인 카드 — 전체 추가 (순차 실행)
+      const uniRun = e.target.closest('[data-unified-runall]');
+      if (uniRun && document.getElementById('asstBody')?.contains(uniRun)) {
+        const hi = parseInt(uniRun.dataset.unifiedRunall, 10);
+        _runUnifiedAll(hi);
+        return;
+      }
+      // 통합 확인 카드 — 수정 (기존 그룹 카드로 전환)
+      const uniEdit = e.target.closest('[data-unified-edit]');
+      if (uniEdit && document.getElementById('asstBody')?.contains(uniEdit)) {
+        const hi = parseInt(uniEdit.dataset.unifiedEdit, 10);
+        const msg = _history[hi];
+        if (msg && msg.action_groups) {
+          msg.unified_mode = false;
+          // 개별 수정 쉽게 — 모든 그룹 펼침
+          msg.action_groups.forEach(g => { g.expanded = true; });
+          _renderHistory();
+        }
+        return;
+      }
       // 그룹 카드 — 접기·펴기
       const tgl = e.target.closest('[data-group-toggle]');
       if (tgl && document.getElementById('asstBody')?.contains(tgl)) {
@@ -1167,17 +1338,20 @@
   function _invalidateCachesFor(kind) {
     // 각 kind 가 건드리는 SWR 키 목록 (app-core.js 의 실제 키와 일치해야 함)
     // pv_cache::customers · pv_cache::bookings_all · pv_cache::revenue · pv_cache::inventory · pv_cache::today
+    // Wave D3 (2026-04-24): 모든 kind 에 대해 누락 없이 캐시 무효화 + today 반영
     const _invalidateKinds = {
       create_customer: ['customer', 'customers', 'today'],
       create_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
       create_revenue: ['revenue', 'revenues', 'customer', 'customers', 'today', 'dashboard'],
+      update_revenue: ['revenue', 'revenues', 'customer', 'customers', 'today', 'dashboard'],
       create_nps: ['nps', 'customer', 'customers'],
-      update_customer: ['customer', 'customers'],
-      update_booking: ['booking', 'bookings', 'bookings_all', 'today'],
-      cancel_booking: ['booking', 'bookings', 'bookings_all', 'today'],
-      reschedule_booking: ['booking', 'bookings', 'bookings_all', 'today'],
-      upsert_inventory: ['inventory'],
-      create_expense: ['expense', 'expenses', 'revenue', 'today', 'dashboard'],
+      update_customer: ['customer', 'customers', 'today'],
+      update_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
+      cancel_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
+      reschedule_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
+      upsert_inventory: ['inventory', 'inventories', 'today'],
+      create_expense: ['expense', 'expenses', 'revenue', 'revenues', 'today', 'dashboard'],
+      generate_bulk_message: [],
     }[kind] || [];
     _invalidateKinds.forEach(k => {
       try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
@@ -1218,6 +1392,33 @@
           for (let i = localStorage.length - 1; i >= 0; i--) {
             const key = localStorage.key(i);
             if (key && key.startsWith('pv_cache::expense')) localStorage.removeItem(key);
+          }
+        } catch (_e) { void _e; }
+      }
+      // inventory 관련 키 variants 도 싹쓸이
+      if (k === 'inventory' || k === 'inventories') {
+        try {
+          for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('pv_cache::inventor')) sessionStorage.removeItem(key);
+          }
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('pv_cache::inventor')) localStorage.removeItem(key);
+          }
+        } catch (_e) { void _e; }
+      }
+      // nps / revenue 관련 키도 전부 제거 (날짜·페이지 variants 방지)
+      if (k === 'nps' || k === 'revenue' || k === 'revenues') {
+        const prefix = 'pv_cache::' + (k === 'revenues' ? 'revenue' : k);
+        try {
+          for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith(prefix)) sessionStorage.removeItem(key);
+          }
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(prefix)) localStorage.removeItem(key);
           }
         } catch (_e) { void _e; }
       }
@@ -1335,6 +1536,58 @@
     if (okCount > 0) {
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+    }
+  }
+
+  // 2026-04-24 — 통합 확인 카드: 전체 추가 (순차 실행)
+  // create_customer → booking/revenue 순서 보장 (customer_id resolver 의존성 안전)
+  // Promise.allSettled 패턴: 하나 실패해도 나머지 계속 진행.
+  async function _runUnifiedAll(historyIdx) {
+    const msg = _history[historyIdx];
+    if (!msg || !msg.action_groups || msg.unified_progress) return;
+    const flat = _unifiedExecutionOrder(msg.action_groups);
+    const targets = flat.filter(f => !f.it.skipped && f.it.status !== 'done' && f.it.status !== 'running');
+    if (!targets.length) return;
+
+    msg.unified_progress = { current: 0, total: targets.length, label: '저장 중' };
+    _renderHistory();
+
+    let okCount = 0;
+    let failCount = 0;
+    for (let i = 0; i < targets.length; i++) {
+      const f = targets[i];
+      const meta = _catMeta(f.kind);
+      f.it.status = 'running';
+      msg.unified_progress.label = `${meta.label} 저장 중`;
+      _renderHistory();
+      try {
+        await _executeAction(f.it.action);
+        f.it.status = 'done';
+        okCount++;
+      } catch (e) {
+        f.it.status = 'failed';
+        f.it.errorMsg = window._humanError ? window._humanError(e) : e.message;
+        failCount++;
+      }
+      msg.unified_progress.current = i + 1;
+      _renderHistory();
+    }
+
+    msg.unified_progress = null;
+    _renderHistory();
+
+    // 완료 토스트 + 대시보드 갱신
+    if (okCount > 0) {
+      const summary = failCount
+        ? `✓ ${okCount}건 저장 · ${failCount}건 실패`
+        : `✓ ${okCount}건 모두 저장 완료`;
+      _history.push({ role: 'assistant', text: summary });
+      _renderHistory();
+      if (window.hapticSuccess) window.hapticSuccess();
+      if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+    } else if (failCount > 0) {
+      _history.push({ role: 'assistant', text: `실패 ${failCount}건 — '수정' 눌러서 다시 확인해 주세요` });
+      _renderHistory();
     }
   }
 
@@ -1475,6 +1728,8 @@
       } else if (actionsList.length > 1) {
         // 카테고리별 그룹 카드 (2건 이상)
         msg.action_groups = _groupActions(actionsList);
+        // 2~6건 · kind 2종 이상 혼합 → 통합 확인 카드로 시작 (사용자가 '수정' 누르면 그룹 카드로 전환)
+        if (_shouldUseUnifiedCard(msg.action_groups)) msg.unified_mode = true;
         _history.push(msg);
       } else {
         _history.push(msg);
@@ -1559,6 +1814,8 @@
       } else if (actionsList.length > 1) {
         // 복수 액션: 카테고리별 그룹 카드로 묶어서 표시
         msg.action_groups = _groupActions(actionsList);
+        // 2~6건 · kind 2종 이상 혼합 → 통합 확인 카드로 시작 (같은 kind 다수면 기존 그룹 카드 유지)
+        if (_shouldUseUnifiedCard(msg.action_groups)) msg.unified_mode = true;
         _history.push(msg);
       } else {
         _history.push(msg);
