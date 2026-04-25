@@ -15,7 +15,7 @@
   const CACHE_KEY = 'itdasy_support_cache_v1';
 
   function _saveCache(messages) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ messages, saved_at: Date.now() })); } catch (_) {}
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify({ messages, saved_at: Date.now() })); } catch (_e) { void _e; }
   }
   function _loadCache() {
     try {
@@ -42,6 +42,29 @@
     }
   }
 
+  // 신고 카테고리 → 라벨 (이모지 + 한국어)
+  const _MOD_CAT_LABELS = {
+    offensive:      '🤬 신고 답변 · 욕설/혐오',
+    sexual:         '🔞 신고 답변 · 선정적',
+    violence:       '⚠️ 신고 답변 · 폭력',
+    misinformation: '📛 신고 답변 · 거짓정보',
+    privacy:        '🔒 신고 답변 · 개인정보',
+    copyright:      '©️ 신고 답변 · 저작권',
+    spam:           '📧 신고 답변 · 스팸',
+    other:          '🚩 신고 답변',
+  };
+
+  function _resolveLabel(meta) {
+    if (!meta || typeof meta !== 'object') return null;
+    if (meta.kind === 'moderation_reply') {
+      return {
+        text: _MOD_CAT_LABELS[meta.category] || '🚩 신고 답변',
+        color: '#F97316',  // 오렌지
+      };
+    }
+    return null;  // 일반 답변(support_reply)·메타 없음 → 라벨 표시 안 함
+  }
+
   function _renderMessage(m) {
     const box = document.getElementById('supportChatMessages');
     if (!box) return;
@@ -58,9 +81,16 @@
         <div style="background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;border-radius:14px 4px 14px 14px;padding:10px 14px;max-width:78%;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_escape(m.content)}</div>
       `;
     } else {
+      const label = _resolveLabel(m.meta);
+      const labelHtml = label
+        ? `<div style="font-size:10px;font-weight:700;color:${label.color};margin-bottom:4px;">${_escape(label.text)}</div>`
+        : '';
       row.innerHTML = `
         <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">잇</div>
-        <div style="background:#fff;border-radius:4px 14px 14px 14px;padding:10px 14px;max-width:78%;font-size:13px;line-height:1.5;color:#333;white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,0.05);">${_escape(m.content)}</div>
+        <div style="max-width:78%;">
+          ${labelHtml}
+          <div style="background:#fff;border-radius:4px 14px 14px 14px;padding:10px 14px;font-size:13px;line-height:1.5;color:#333;white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,0.05);">${_escape(m.content)}</div>
+        </div>
         <span style="font-size:10px;color:#999;align-self:flex-end;margin-bottom:2px;">${time}</span>
       `;
     }
@@ -121,7 +151,7 @@
         });
       }
       _updateBadge(0);
-    } catch (_) {}
+    } catch (_e) { void _e; }
 
     // 30초 polling (모달 닫히면 정지)
     if (_pollTimer) clearInterval(_pollTimer);
@@ -136,7 +166,7 @@
       if (newOnes.some(m => m.from_admin)) {
         try {
           await fetch(window.API + '/support/messages/read', { method: 'POST', headers: window.authHeader() });
-        } catch (_) {}
+        } catch (_e) { void _e; }
       }
     }, 30000);
 
@@ -207,6 +237,7 @@
       if (!localStorage.getItem('itdasy_token::staging') &&
           !localStorage.getItem('itdasy_token::prod') &&
           !localStorage.getItem('itdasy_token::local') &&
+          // eslint-disable-next-line no-restricted-syntax
           !localStorage.getItem('itdasy_token')) return;
       const d = await _fetchMessages();
       _updateBadge(d.unread_count || 0);
