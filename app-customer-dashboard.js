@@ -10,6 +10,18 @@
 (function () {
   'use strict';
 
+  // 단골 ⭐ 미세 펄스 애니메이션 (1회 주입)
+  if (typeof document !== 'undefined' && !document.getElementById('cm-membership-style')) {
+    const st = document.createElement('style');
+    st.id = 'cm-membership-style';
+    st.textContent = `
+      @keyframes cmStarPulse { 0%{transform:scale(1);} 50%{transform:scale(1.18);} 100%{transform:scale(1);} }
+      .cm-toggle--pulse { animation: cmStarPulse 0.45s ease-out 1; }
+      .cm-star-on svg { animation: cmStarPulse 0.5s ease-out 1; }
+    `;
+    document.head.appendChild(st);
+  }
+
   const SEGMENT_STYLE = {
     vip:     { label: 'VIP', icon: '👑', bg: 'linear-gradient(135deg,#FFD700,#FFA500)', color: '#fff' },
     regular: { label: '단골', icon: '💖', bg: 'linear-gradient(135deg,#F18091,#FF6B9D)', color: '#fff' },
@@ -56,6 +68,17 @@
     const res = await fetch(window.API + path, { headers: window.authHeader() });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
+  }
+
+  async function _apiPatch(path, body) {
+    if (!window.API || !window.authHeader) throw new Error('no-auth');
+    const res = await fetch(window.API + path, {
+      method: 'PATCH',
+      headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.status === 204 ? null : await res.json();
   }
 
   // ── UI ──────────────────────────────────────────────────
@@ -130,6 +153,74 @@
         <button data-act="booking" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">📅<br>예약</button>
         <button data-act="revenue" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">💰<br>매출</button>
         <button data-act="nps" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">⭐<br>NPS</button>
+      </div>
+    `;
+  }
+
+  function _renderRegularMembership(d) {
+    const c = d.customer || {};
+    const isRegular = !!c.is_regular;
+    const memOn = !!c.membership_active;
+    const bal = +c.membership_balance || 0;
+    const lowBal = memOn && bal > 0 && bal < 30000;
+    const exp = c.membership_expires_at;
+    const expDisplay = exp ? _dateShort(exp) : '미설정';
+    const expInputVal = exp ? String(exp).slice(0, 10) : '';
+    const balColor = lowBal ? '#F97316' : '#A78BFA';
+    return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <strong style="font-size:13px;">
+            <svg width="13" height="13" aria-hidden="true" style="vertical-align:-2px;"><use href="#ic-star"/></svg>
+            단골 · 멤버십
+          </strong>
+        </div>
+        <div style="background:#fff;border-radius:14px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
+          <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;">
+            <span style="font-size:13px;font-weight:700;flex:1;display:inline-flex;align-items:center;gap:6px;">
+              <span class="${isRegular ? 'cm-star-on' : ''}" style="color:#F18091;display:inline-flex;align-items:center;">
+                <svg width="14" height="14" aria-hidden="true"><use href="#ic-star"/></svg>
+              </span>
+              단골 등록
+            </span>
+            <span class="cm-toggle ${isRegular ? 'cm-toggle--on' : ''}" data-cm-toggle="is_regular"
+                  role="switch" aria-checked="${isRegular}" tabindex="0"
+                  style="position:relative;width:44px;height:24px;background:${isRegular ? '#F18091' : '#D1D5DB'};border-radius:999px;transition:background 0.2s;cursor:pointer;flex-shrink:0;">
+              <span style="position:absolute;top:2px;left:${isRegular ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>
+            </span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;${memOn ? 'border-bottom:1px solid rgba(0,0,0,0.05);' : ''}cursor:pointer;">
+            <span style="font-size:13px;font-weight:700;flex:1;display:inline-flex;align-items:center;gap:6px;">
+              <span style="color:#A78BFA;display:inline-flex;align-items:center;">
+                <svg width="14" height="14" aria-hidden="true"><use href="#ic-sparkles"/></svg>
+              </span>
+              멤버십 가입
+            </span>
+            <span class="cm-toggle ${memOn ? 'cm-toggle--on' : ''}" data-cm-toggle="membership_active"
+                  role="switch" aria-checked="${memOn}" tabindex="0"
+                  style="position:relative;width:44px;height:24px;background:${memOn ? '#A78BFA' : '#D1D5DB'};border-radius:999px;transition:background 0.2s;cursor:pointer;flex-shrink:0;">
+              <span style="position:absolute;top:2px;left:${memOn ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>
+            </span>
+          </label>
+          ${memOn ? `
+            <div style="padding:12px 14px;background:#FAFAFA;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                <span style="font-size:11px;color:#888;">잔액</span>
+                <strong style="font-size:18px;font-weight:800;color:${balColor};">${_formatKRW(bal)}</strong>
+              </div>
+              ${lowBal ? `<div style="font-size:10px;color:#F97316;margin-bottom:8px;">⚠ 잔액이 3만원 이하예요. 충전 안내해 주세요.</div>` : ''}
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+                <button data-cm-charge="50000" style="padding:8px 4px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#A78BFA;">+5만원</button>
+                <button data-cm-charge="100000" style="padding:8px 4px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#A78BFA;">+10만원</button>
+                <button data-cm-charge="custom" style="padding:8px 4px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">직접 입력</button>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;color:#888;flex:1;">만료: <strong style="color:#555;font-weight:700;">${_esc(expDisplay)}</strong></span>
+                <input type="date" data-cm-expires value="${_esc(expInputVal)}" style="padding:6px 8px;border:1px solid #E5E7EB;border-radius:8px;font-size:11px;background:#fff;" />
+              </div>
+            </div>
+          ` : ''}
+        </div>
       </div>
     `;
   }
@@ -239,6 +330,82 @@
     `;
   }
 
+  async function _patchAndReload(id, patch) {
+    try {
+      await _apiPatch('/customers/' + id, patch);
+      // SWR 캐시 무효화 — 목록 화면이 다시 신선한 데이터 가져오도록
+      try { localStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
+      try { sessionStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
+      try { sessionStorage.removeItem('pv_cache::customer'); } catch (_e) { void _e; }
+      window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_customer', id } }));
+      if (window.hapticLight) window.hapticLight();
+      // 대시보드 다시 그리기 (data-changed 리스너가 자동 재로드)
+      // 직접 호출도 보장
+      await window.openCustomerDashboard(id);
+    } catch (e) {
+      console.warn('[customer-membership] patch 실패:', e);
+      if (window.showToast) window.showToast('저장 실패 — 다시 시도해 주세요');
+    }
+  }
+
+  function _bindMembership(d) {
+    const sheet = document.getElementById('customerDashSheet');
+    if (!sheet) return;
+    const id = d.customer.id;
+
+    // 단골/멤버십 토글
+    sheet.querySelectorAll('[data-cm-toggle]').forEach(el => {
+      const key = el.dataset.cmToggle;
+      const handler = async () => {
+        const cur = el.getAttribute('aria-checked') === 'true';
+        const next = !cur;
+        const patch = { [key]: next };
+        // 단골 ON 시 ⭐ 미세 애니메이션
+        if (key === 'is_regular' && next) {
+          el.classList.add('cm-toggle--pulse');
+        }
+        await _patchAndReload(id, patch);
+      };
+      el.addEventListener('click', handler);
+      el.addEventListener('keydown', (ev) => {
+        if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); handler(); }
+      });
+    });
+
+    // 충전 버튼
+    sheet.querySelectorAll('[data-cm-charge]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const raw = btn.dataset.cmCharge;
+        let delta = 0;
+        if (raw === 'custom') {
+          const v = window.prompt('충전 금액(원)', '50000');
+          if (v == null) return;
+          delta = parseInt(String(v).replace(/[^\d]/g, ''), 10) || 0;
+          if (delta <= 0) { if (window.showToast) window.showToast('금액을 다시 확인해 주세요'); return; }
+        } else {
+          delta = parseInt(raw, 10) || 0;
+        }
+        const curBal = +d.customer.membership_balance || 0;
+        await _patchAndReload(id, { membership_balance: curBal + delta });
+      });
+    });
+
+    // 만료일 변경
+    const expInput = sheet.querySelector('[data-cm-expires]');
+    if (expInput) {
+      expInput.addEventListener('change', async () => {
+        const v = expInput.value; // YYYY-MM-DD
+        if (!v) {
+          await _patchAndReload(id, { membership_expires_at: null });
+          return;
+        }
+        // ISO datetime — 23:59:59 으로 그날 끝까지
+        const iso = new Date(v + 'T23:59:59').toISOString();
+        await _patchAndReload(id, { membership_expires_at: iso });
+      });
+    }
+  }
+
   function _bindActions(id, name) {
     const sheet = document.getElementById('customerDashSheet');
     if (!sheet) return;
@@ -288,12 +455,14 @@
         ${_renderStats(d)}
         ${_renderActions(d.customer.id)}
         ${_renderMemo(d)}
+        ${_renderRegularMembership(d)}
         ${_renderRevenues(d.recent_revenues)}
         ${_renderBookings(d.recent_bookings)}
         ${_renderNps(d.recent_nps)}
         ${_renderEditBar(d.customer.id)}
       `;
       _bindActions(d.customer.id, d.customer.name);
+      _bindMembership(d);
     } catch (e) {
       console.warn('[customer-dashboard] 실패:', e);
       hero.innerHTML = '';

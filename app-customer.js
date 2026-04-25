@@ -68,12 +68,12 @@
   function _writeSWR(items) {
     const payload = JSON.stringify({ t: Date.now(), d: items });
     try { localStorage.setItem(_SWR_KEY, payload); } catch (_e) {
-      try { sessionStorage.setItem(_SWR_KEY, payload); } catch (_e2) {}
+      try { sessionStorage.setItem(_SWR_KEY, payload); } catch (_e2) { void _e2; }
     }
   }
   function _clearSWR() {
-    try { localStorage.removeItem(_SWR_KEY); } catch (_e) {}
-    try { sessionStorage.removeItem(_SWR_KEY); } catch (_e) {}
+    try { localStorage.removeItem(_SWR_KEY); } catch (_e) { void _e; }
+    try { sessionStorage.removeItem(_SWR_KEY); } catch (_e) { void _e; }
   }
 
   // 챗봇·다른 소스 데이터 변경 감지 → 오픈된 시트 즉시 새로고침
@@ -85,7 +85,7 @@
         _clearSWR();
         const sheet = document.getElementById('customerSheet');
         if (sheet && sheet.style.display === 'flex') {
-          try { await _fetchFresh(); _rerender && _rerender(); } catch (_e) {}
+          try { await _fetchFresh(); _rerender && _rerender(); } catch (_e) { void _e; }
         }
       }
     });
@@ -273,10 +273,22 @@
       const nsBadge = nsCount >= 3
         ? `<span title="노쇼 ${nsCount}회 — 예약 전 주의" style="font-size:10px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 노쇼 ${nsCount}</span>`
         : (nsCount > 0 ? `<span title="노쇼 ${nsCount}회" style="font-size:10px;font-weight:600;color:#B45309;background:#FEF3C7;padding:2px 6px;border-radius:100px;margin-left:6px;">노쇼 ${nsCount}</span>` : '');
+      const regularBadge = c.is_regular
+        ? `<span title="단골" class="cm-badge cm-badge--regular" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fff;background:#F18091;padding:2px 8px;border-radius:999px;margin-left:6px;line-height:1.4;"><svg width="10" height="10" aria-hidden="true" style="display:inline-block;"><use href="#ic-star"/></svg>단골</span>`
+        : '';
+      const memberBadge = c.membership_active
+        ? (() => {
+            const bal = +c.membership_balance || 0;
+            const low = bal > 0 && bal < 30000;
+            const bg = low ? '#F97316' : '#A78BFA';
+            const balText = bal >= 10000 ? `${Math.floor(bal/10000)}만원` : (bal > 0 ? `${bal.toLocaleString()}원` : '0원');
+            return `<span title="멤버십 잔액 ${bal.toLocaleString()}원" class="cm-badge cm-badge--member" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fff;background:${bg};padding:2px 8px;border-radius:999px;margin-left:6px;line-height:1.4;"><svg width="10" height="10" aria-hidden="true" style="display:inline-block;"><use href="#ic-sparkles"/></svg>${balText}</span>`;
+          })()
+        : '';
       return `
       <button class="dt-list-it customer-row" data-id="${c.id}" type="button">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title">${_esc(c.name)}${c.visit_count ? ` <span style="font-size:11px;font-weight:400;color:var(--brand);">방문 ${c.visit_count}회</span>` : ''}${nsBadge}</p>
+          <p class="dt-list-it__title">${_esc(c.name)}${c.visit_count ? ` <span style="font-size:11px;font-weight:400;color:var(--brand);">방문 ${c.visit_count}회</span>` : ''}${regularBadge}${memberBadge}${nsBadge}</p>
           <p class="dt-list-it__sub">${[c.phone ? _esc(c.phone) : '', c.memo ? _esc(c.memo).slice(0,40) : ''].filter(Boolean).join(' · ')}</p>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>

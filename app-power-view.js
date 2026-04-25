@@ -54,17 +54,31 @@
   // ── 탭 스키마 ──────────────────────────────────────────
   const SCHEMAS = {
     customer: {
-      headers: ['이름', '전화', '메모', '방문'],
+      headers: ['이름', '전화', '메모', '단골', '멤버십', '잔액', '방문'],
       row: (r) => [
         `<strong>${_esc(r.name)}</strong>`,
         r.phone || '—',
         (r.memo || '').slice(0, 30) || '—',
+        r.is_regular
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:#F18091;color:#fff;font-size:11px;font-weight:700;"><svg width="10" height="10" aria-hidden="true"><use href="#ic-star"/></svg>단골</span>`
+          : '<span style="color:#bbb;font-size:11px;">—</span>',
+        r.membership_active
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:#A78BFA;color:#fff;font-size:11px;font-weight:700;"><svg width="10" height="10" aria-hidden="true"><use href="#ic-sparkles"/></svg>가입</span>`
+          : '<span style="color:#bbb;font-size:11px;">—</span>',
+        r.membership_active
+          ? `<span style="font-weight:700;color:${(+r.membership_balance || 0) < 30000 && (+r.membership_balance || 0) > 0 ? '#F97316' : '#6B21A8'};">${_krw(r.membership_balance)}</span>`
+          : '<span style="color:#bbb;">—</span>',
         `${r.visit_count || 0}회`,
       ],
       editFields: [
         { key: 'name',  type: 'text' },
         { key: 'phone', type: 'tel' },
         { key: 'memo',  type: 'text' },
+        { key: 'is_regular',         type: 'checkbox' },
+        { key: 'membership_active',  type: 'checkbox' },
+        { key: 'membership_balance', type: 'number' },
+        { key: 'membership_expires_at', type: 'date',
+          transform: (v) => (v ? String(v).slice(0, 10) : '') },
         { key: 'visit_count', type: 'text', readonly: true, format: (r) => `${r.visit_count || 0}회` },
       ],
       search: (r, kw) => (r.name + ' ' + (r.phone || '') + ' ' + (r.memo || '')).toLowerCase().includes(kw),
@@ -445,6 +459,19 @@
     if ('rating' in patch) patch.rating = parseInt(patch.rating) || 0;
     if ('default_price' in patch) patch.default_price = parseInt(patch.default_price) || 0;
     if ('default_duration_min' in patch) patch.default_duration_min = parseInt(patch.default_duration_min) || 60;
+    // customer 단골/멤버십 필드
+    if ('is_regular' in patch) patch.is_regular = (patch.is_regular === true || patch.is_regular === 'true' || patch.is_regular === 'on' || patch.is_regular === '1');
+    if ('membership_active' in patch) patch.membership_active = (patch.membership_active === true || patch.membership_active === 'true' || patch.membership_active === 'on' || patch.membership_active === '1');
+    if ('membership_balance' in patch) patch.membership_balance = parseInt(String(patch.membership_balance).replace(/[^\d-]/g, '')) || 0;
+    if ('membership_expires_at' in patch) {
+      const v = patch.membership_expires_at;
+      if (!v) {
+        patch.membership_expires_at = null;
+      } else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+        patch.membership_expires_at = new Date(v + 'T23:59:59').toISOString();
+      }
+      // 이미 ISO 면 그대로 둠
+    }
     if ('starts_at' in patch && patch.starts_at) {
       const s = String(patch.starts_at).replace(' ', 'T');
       const start = new Date(s);
@@ -470,6 +497,13 @@
       const key = el.getAttribute('data-pv-edit').split(':')[1];
       const f = (schema.editFields || []).find(x => x.key === key);
       if (!f || f.readonly) return;
+      // 체크박스 — boolean 비교
+      if (f.type === 'checkbox' || el.type === 'checkbox') {
+        const newVal = !!el.checked;
+        const curVal = !!row[key];
+        if (newVal !== curVal) patch[key] = newVal;
+        return;
+      }
       const curVal = row[key] == null ? '' : String(row[key]);
       const newVal = el.value;
       if (newVal !== curVal && !(newVal === '' && row[key] == null)) {

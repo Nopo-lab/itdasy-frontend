@@ -245,7 +245,11 @@
           const raw = r[f.key];
           const shown = typeof f.transform === 'function' ? f.transform(raw) : (raw == null ? '' : String(raw));
           const ph = f.placeholder ? ` placeholder="${_esc(f.placeholder)}"` : '';
-          return `<td><input data-pv-edit="${r.id}:${f.key}" type="${f.type || 'text'}" value="${_esc(shown)}"${ph} style="width:100%;padding:7px 9px;border:1.5px solid hsl(350, 60%, 88%);border-radius:10px;font-size:12.5px;background:#fff;box-sizing:border-box;" /></td>`;
+          if (f.type === 'checkbox') {
+            const ck = !!raw ? ' checked' : '';
+            return `<td style="text-align:center;"><input data-pv-edit="${r.id}:${f.key}" data-pv-edit-type="checkbox" type="checkbox"${ck} style="width:18px;height:18px;cursor:pointer;accent-color:#F18091;" /></td>`;
+          }
+          return `<td><input data-pv-edit="${r.id}:${f.key}" data-pv-edit-type="${f.type || 'text'}" type="${f.type || 'text'}" value="${_esc(shown)}"${ph} style="width:100%;padding:7px 9px;border:1.5px solid hsl(350, 60%, 88%);border-radius:10px;font-size:12.5px;background:#fff;box-sizing:border-box;" /></td>`;
         }).join('');
         const actionCell = `<td style="text-align:right;white-space:nowrap;">
           <button data-pv-row-save="${r.id}" aria-label="저장" title="저장" style="border:none;background:linear-gradient(135deg, hsl(350, 75%, 72%), hsl(350, 70%, 60%));color:#fff;cursor:pointer;padding:6px 9px;border-radius:10px;margin-right:4px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-save"/></svg></button>
