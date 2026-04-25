@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>고객센터 답장 — 잇데이 어드민</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+    margin: 0; padding: 0;
+    background: #FAFAFA;
+    color: #222;
+    line-height: 1.6;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header.hero {
+    background: linear-gradient(135deg, #F18091 0%, #EC4899 100%);
+    color: #fff;
+    padding: 28px 20px 22px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+  }
+  header.hero h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+  header.hero p { margin: 0; opacity: 0.92; font-size: 13px; }
+  main { max-width: 720px; margin: 0 auto; padding: 20px; }
+  .card {
+    background: #fff;
+    border: 1px solid #EFEFEF;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  }
+  .conv {
+    max-height: 360px; overflow-y: auto;
+    padding: 4px;
+    background: #FAFAFA;
+    border-radius: 10px;
+  }
+  .msg { display: flex; margin: 8px 0; }
+  .msg.user { justify-content: flex-start; }
+  .msg.admin { justify-content: flex-end; }
+  .bubble {
+    max-width: 76%; padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px; line-height: 1.45; word-break: break-word; white-space: pre-wrap;
+  }
+  .msg.user .bubble { background: #fff; border: 1px solid #EEE; color: #222; border-top-left-radius: 4px; }
+  .msg.admin .bubble { background: linear-gradient(135deg, #F18091 0%, #EC4899 100%); color: #fff; border-top-right-radius: 4px; }
+  .msg .ts { font-size: 11px; color: #aaa; margin: 0 8px; align-self: flex-end; }
+  label { display: block; font-size: 13px; font-weight: 700; color: #444; margin: 16px 0 6px; }
+  textarea, input[type=email], input[type=password] {
+    width: 100%; padding: 11px 13px; font-size: 14px;
+    border: 1px solid #E0E0E0; border-radius: 14px;
+    font-family: inherit; outline: none; transition: border 0.15s;
+    background: #fff;
+  }
+  textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+  textarea:focus, input:focus { border-color: #F18091; }
+  button.primary {
+    width: 100%; padding: 13px; font-size: 15px; font-weight: 800;
+    background: linear-gradient(135deg, #F18091 0%, #EC4899 100%);
+    color: #fff; border: none; border-radius: 14px; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(241,128,145,0.3);
+    margin-top: 12px;
+    transition: transform 0.1s;
+  }
+  button.primary:active { transform: scale(0.98); }
+  button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 13px; color: #555; margin-bottom: 12px; }
+  .meta-row b { color: #222; }
+  .muted { color: #888; font-size: 12px; margin-top: 6px; }
+  .empty { color: #999; text-align: center; padding: 30px 12px; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #222; color: #fff; padding: 12px 22px; border-radius: 999px;
+    font-size: 14px; opacity: 0; transition: opacity 0.25s;
+    z-index: 9999; pointer-events: none;
+  }
+  .toast.show { opacity: 0.95; }
+  .err { color: #DC2626; font-size: 13px; margin: 8px 0; }
+  .login-card { max-width: 380px; margin: 60px auto; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>💬 고객센터 답장</h1>
+  <p id="userLabel">유저 정보 불러오는 중…</p>
+</header>
+
+<main id="appMain" hidden>
+  <section class="card">
+    <div class="meta-row" id="metaRow"></div>
+    <div class="conv" id="convBox"><div class="empty">대화 불러오는 중…</div></div>
+  </section>
+
+  <section class="card">
+    <label for="replyInput" style="margin-top:0">답장 내용</label>
+    <textarea id="replyInput" placeholder="원장님께 정중하게 답장해주세요. 따뜻한 인사 + 핵심 답변 + 추가 안내 순서로."></textarea>
+    <div class="err" id="errBox" hidden></div>
+    <button class="primary" id="submitBtn">전송</button>
+  </section>
+</main>
+
+<!-- 로그인 폼 -->
+<main id="loginMain" hidden>
+  <section class="card login-card">
+    <h2 style="margin-top:0;font-size:18px;">🔐 어드민 로그인</h2>
+    <p class="muted" style="margin-top:0">관리자 계정으로 로그인 후 답장을 작성할 수 있어요.</p>
+    <label for="emailInput">이메일</label>
+    <input type="email" id="emailInput" autocomplete="username">
+    <label for="pwInput">비밀번호</label>
+    <input type="password" id="pwInput" autocomplete="current-password">
+    <div class="err" id="loginErr" hidden></div>
+    <button class="primary" id="loginBtn">로그인</button>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  // ===== 설정 =====
+  const PROD_API = 'https://itdasy260417-staging-production.up.railway.app';
+  const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : PROD_API;
+  const TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
+
+  function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+  function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+  function showErr(boxId, msg) {
+    const el = document.getElementById(boxId);
+    el.textContent = msg; el.hidden = false;
+  }
+  function hideErr(boxId) { document.getElementById(boxId).hidden = true; }
+
+  const params = new URLSearchParams(location.search);
+  const targetUserId = parseInt(params.get('user_id') || '0', 10);
+
+  if (!targetUserId) {
+    document.getElementById('userLabel').textContent = '유저 ID 가 없습니다 (?user_id=…)';
+    return;
+  }
+  document.getElementById('userLabel').textContent = `유저: user_id=${targetUserId}`;
+
+  function showApp() {
+    document.getElementById('appMain').hidden = false;
+    document.getElementById('loginMain').hidden = true;
+    loadConversations();
+  }
+  function showLogin() {
+    document.getElementById('appMain').hidden = true;
+    document.getElementById('loginMain').hidden = false;
+  }
+
+  if (!getToken()) showLogin();
+  else showApp();
+
+  // ===== 로그인 =====
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    hideErr('loginErr');
+    const email = document.getElementById('emailInput').value.trim();
+    const pw = document.getElementById('pwInput').value;
+    if (!email || !pw) { showErr('loginErr', '이메일과 비밀번호를 입력해주세요.'); return; }
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showErr('loginErr', data.detail || '로그인 실패'); return; }
+      setToken(data.access_token || data.token || '');
+      showApp();
+    } catch (e) {
+      showErr('loginErr', '네트워크 오류: ' + (e.message || e));
+    }
+  });
+
+  // ===== 대화 조회 =====
+  async function loadConversations() {
+    try {
+      const res = await fetch(`${API}/support/admin/conversations`, {
+        headers: { 'Authorization': 'Bearer ' + getToken() },
+      });
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem(TOKEN_KEY);
+        showLogin();
+        showErr('loginErr', '관리자 권한이 필요합니다.');
+        return;
+      }
+      const list = await res.json();
+      if (!Array.isArray(list)) {
+        showErr('errBox', list.detail || '대화 목록을 불러오지 못했어요.');
+        return;
+      }
+      // 해당 user_id 의 대화 정보 표시
+      const found = list.find(c => c.user_id === targetUserId);
+      const meta = document.getElementById('metaRow');
+      if (found) {
+        meta.innerHTML = `
+          <span><b>이름:</b> ${found.user_name || '—'}</span>
+          <span><b>이메일:</b> ${found.user_email || '—'}</span>
+          <span><b>최근 메시지:</b> ${escapeHtml(found.last_message || '—').slice(0, 80)}</span>
+          <span><b>읽지않음:</b> ${found.unread_from_user || 0}건</span>
+        `;
+      } else {
+        meta.innerHTML = `<span>이 유저(user_id=${targetUserId})와의 대화가 아직 없어요. 첫 답장을 보낼 수 있어요.</span>`;
+      }
+      // 단일 대화 디테일은 별도 API 가 없으니 conversations 의 last_message + 답장으로 진행
+      renderConvFromList(found);
+    } catch (e) {
+      showErr('errBox', '네트워크 오류: ' + (e.message || e));
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function renderConvFromList(found) {
+    const box = document.getElementById('convBox');
+    if (!found) {
+      box.innerHTML = '<div class="empty">아직 대화가 없습니다. 답장 작성 시 새 대화가 시작돼요.</div>';
+      return;
+    }
+    const ts = found.last_at ? new Date(found.last_at).toLocaleString('ko-KR') : '';
+    box.innerHTML = `
+      <div class="msg user">
+        <div class="bubble">${escapeHtml(found.last_message)}</div>
+        <span class="ts">${ts}</span>
+      </div>
+      <div class="empty" style="padding:14px 0;font-size:12px">위는 가장 최근 메시지입니다. 전체 히스토리는 사용자 앱에서 확인됩니다.</div>
+    `;
+  }
+
+  // ===== 전송 =====
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    hideErr('errBox');
+    const content = document.getElementById('replyInput').value.trim();
+    if (!content) { showErr('errBox', '답장 내용을 입력해주세요.'); return; }
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = '전송 중…';
+    try {
+      const res = await fetch(`${API}/support/admin/reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + getToken(),
+        },
+        body: JSON.stringify({ target_user_id: targetUserId, content }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showErr('errBox', data.detail || '전송 실패');
+        btn.disabled = false; btn.textContent = '전송';
+        return;
+      }
+      showToast('답장 전송 완료');
+      document.getElementById('replyInput').value = '';
+      btn.textContent = '✓ 전송 완료';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '전송'; }, 2000);
+      // 새로고침
+      loadConversations();
+    } catch (e) {
+      showErr('errBox', '네트워크 오류: ' + (e.message || e));
+      btn.disabled = false; btn.textContent = '전송';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

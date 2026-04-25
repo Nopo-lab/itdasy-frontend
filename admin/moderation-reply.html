@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>신고 답장 — 잇데이 어드민</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+    margin: 0; padding: 0;
+    background: #FAFAFA;
+    color: #222;
+    line-height: 1.6;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  header.hero {
+    background: linear-gradient(135deg, #F18091 0%, #EC4899 100%);
+    color: #fff;
+    padding: 28px 20px 22px;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+  }
+  header.hero h1 { margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+  header.hero p { margin: 0; opacity: 0.92; font-size: 13px; }
+  main { max-width: 720px; margin: 0 auto; padding: 20px; }
+  .card {
+    background: #fff;
+    border: 1px solid #EFEFEF;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+  }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 13px; color: #555; margin-bottom: 12px; }
+  .meta-row b { color: #222; }
+  .tag { display: inline-block; background: #FFF0F2; color: #D95F70; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; margin: 2px 4px 2px 0; }
+  .snippet {
+    background: #F7F7F7; border-radius: 10px; padding: 12px;
+    font-size: 14px; white-space: pre-wrap; word-break: break-word;
+    border-left: 3px solid #F18091;
+    color: #333; max-height: 240px; overflow: auto;
+  }
+  label { display: block; font-size: 13px; font-weight: 700; color: #444; margin: 16px 0 6px; }
+  textarea, select, input[type=email], input[type=password] {
+    width: 100%; padding: 11px 13px; font-size: 14px;
+    border: 1px solid #E0E0E0; border-radius: 14px;
+    font-family: inherit; outline: none; transition: border 0.15s;
+    background: #fff;
+  }
+  textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+  textarea:focus, select:focus, input:focus { border-color: #F18091; }
+  button.primary {
+    width: 100%; padding: 13px; font-size: 15px; font-weight: 800;
+    background: linear-gradient(135deg, #F18091 0%, #EC4899 100%);
+    color: #fff; border: none; border-radius: 14px; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(241,128,145,0.3);
+    margin-top: 12px;
+    transition: transform 0.1s;
+  }
+  button.primary:active { transform: scale(0.98); }
+  button.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .muted { color: #888; font-size: 12px; margin-top: 6px; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #222; color: #fff; padding: 12px 22px; border-radius: 999px;
+    font-size: 14px; opacity: 0; transition: opacity 0.25s;
+    z-index: 9999; pointer-events: none;
+  }
+  .toast.show { opacity: 0.95; }
+  .err { color: #DC2626; font-size: 13px; margin: 8px 0; }
+  .login-card { max-width: 380px; margin: 60px auto; }
+  .icon { width: 16px; height: 16px; vertical-align: text-bottom; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>📝 신고 티켓 답장</h1>
+  <p id="ticketLabel">티켓 정보 불러오는 중…</p>
+</header>
+
+<main id="appMain" hidden>
+  <section class="card" id="ticketCard">
+    <div class="meta-row" id="metaRow"></div>
+    <div>
+      <label style="margin-top:0">신고 내용 (스니펫)</label>
+      <div class="snippet" id="snippetBox">—</div>
+    </div>
+    <div id="detailWrap" hidden>
+      <label>신고자 상세 설명</label>
+      <div class="snippet" id="detailBox">—</div>
+    </div>
+    <div id="kwWrap">
+      <label>추출 키워드</label>
+      <div id="kwBox">—</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <label for="decisionSel">처리 결정</label>
+    <select id="decisionSel">
+      <option value="reviewed">검토중</option>
+      <option value="resolved" selected>조치완료</option>
+      <option value="rejected">기각</option>
+    </select>
+
+    <label for="noteInput">처리 메모 (내부 기록 · 사용자에게 안 보임)</label>
+    <textarea id="noteInput" placeholder="예: 광고성 워딩 자동 필터에 추가, 캡션 모듈에서 재처리"></textarea>
+
+    <label for="replyInput">신고자에게 보낼 답장 (선택 · 비워두면 답장 안 감)</label>
+    <textarea id="replyInput" placeholder="예: 신고해주신 내용 잘 검토했습니다. 해당 표현은 캡션 생성에서 제외되도록 조치했어요."></textarea>
+    <p class="muted">사용자 고객센터(💬)에 [신고 답변] 으로 전달됩니다.</p>
+
+    <div class="err" id="errBox" hidden></div>
+    <button class="primary" id="submitBtn">전송</button>
+  </section>
+</main>
+
+<!-- 로그인 폼 (토큰 없을 때) -->
+<main id="loginMain" hidden>
+  <section class="card login-card">
+    <h2 style="margin-top:0;font-size:18px;">🔐 어드민 로그인</h2>
+    <p class="muted" style="margin-top:0">관리자 계정으로 로그인 후 답장을 작성할 수 있어요.</p>
+    <label for="emailInput">이메일</label>
+    <input type="email" id="emailInput" autocomplete="username">
+    <label for="pwInput">비밀번호</label>
+    <input type="password" id="pwInput" autocomplete="current-password">
+    <div class="err" id="loginErr" hidden></div>
+    <button class="primary" id="loginBtn">로그인</button>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  // ===== 설정 =====
+  const PROD_API = 'https://itdasy260417-staging-production.up.railway.app';
+  const API = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : PROD_API;
+  const TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
+
+  function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+  function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function showErr(boxId, msg) {
+    const el = document.getElementById(boxId);
+    el.textContent = msg;
+    el.hidden = false;
+  }
+  function hideErr(boxId) { document.getElementById(boxId).hidden = true; }
+
+  // 쿼리에서 ticket 추출
+  const params = new URLSearchParams(location.search);
+  const ticketId = params.get('ticket') || '';
+
+  if (!ticketId) {
+    document.getElementById('ticketLabel').textContent = '티켓 ID 가 없습니다 (?ticket=MOD-…)';
+    return;
+  }
+  document.getElementById('ticketLabel').textContent = `티켓: ${ticketId}`;
+
+  // ===== 라우팅: 토큰 있으면 티켓 조회, 없으면 로그인 =====
+  function showApp() {
+    document.getElementById('appMain').hidden = false;
+    document.getElementById('loginMain').hidden = true;
+    loadTicket();
+  }
+  function showLogin() {
+    document.getElementById('appMain').hidden = true;
+    document.getElementById('loginMain').hidden = false;
+  }
+
+  if (!getToken()) showLogin();
+  else showApp();
+
+  // ===== 로그인 =====
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    hideErr('loginErr');
+    const email = document.getElementById('emailInput').value.trim();
+    const pw = document.getElementById('pwInput').value;
+    if (!email || !pw) { showErr('loginErr', '이메일과 비밀번호를 입력해주세요.'); return; }
+    try {
+      const res = await fetch(`${API}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showErr('loginErr', data.detail || '로그인 실패'); return; }
+      setToken(data.access_token || data.token || '');
+      showApp();
+    } catch (e) {
+      showErr('loginErr', '네트워크 오류: ' + (e.message || e));
+    }
+  });
+
+  // ===== 티켓 조회 =====
+  async function loadTicket() {
+    try {
+      const res = await fetch(`${API}/moderation/admin/ticket/${encodeURIComponent(ticketId)}`, {
+        headers: { 'Authorization': 'Bearer ' + getToken() },
+      });
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem(TOKEN_KEY);
+        showLogin();
+        showErr('loginErr', '관리자 권한이 필요합니다.');
+        return;
+      }
+      const data = await res.json();
+      if (!res.ok) { showErr('errBox', data.detail || '티켓 조회 실패'); return; }
+      renderTicket(data);
+    } catch (e) {
+      showErr('errBox', '네트워크 오류: ' + (e.message || e));
+    }
+  }
+
+  function renderTicket(t) {
+    const meta = document.getElementById('metaRow');
+    const created = t.created_at ? new Date(t.created_at).toLocaleString('ko-KR') : '—';
+    meta.innerHTML = `
+      <span><b>신고자:</b> user_id=${t.user_id}</span>
+      <span><b>분류:</b> ${t.category_label || t.category}</span>
+      <span><b>유형:</b> ${t.content_type || '—'}</span>
+      <span><b>접수:</b> ${created}</span>
+      <span><b>상태:</b> ${t.status}</span>
+    `;
+    document.getElementById('snippetBox').textContent = t.content_snippet || '(내용 없음)';
+    if (t.detail && t.detail.trim()) {
+      document.getElementById('detailWrap').hidden = false;
+      document.getElementById('detailBox').textContent = t.detail;
+    }
+    const kwBox = document.getElementById('kwBox');
+    if (Array.isArray(t.keywords) && t.keywords.length) {
+      kwBox.innerHTML = t.keywords.map(k => `<span class="tag">#${k}</span>`).join('');
+    } else {
+      kwBox.textContent = '(없음)';
+    }
+    if (t.resolution_note) {
+      document.getElementById('noteInput').value = t.resolution_note;
+    }
+    if (t.status && ['reviewed','resolved','rejected'].includes(t.status)) {
+      document.getElementById('decisionSel').value = t.status;
+    }
+  }
+
+  // ===== 전송 =====
+  document.getElementById('submitBtn').addEventListener('click', async () => {
+    hideErr('errBox');
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = '전송 중…';
+    try {
+      const body = {
+        ticket_id: ticketId,
+        decision: document.getElementById('decisionSel').value,
+        note: document.getElementById('noteInput').value.trim(),
+        reply_to_user: document.getElementById('replyInput').value.trim(),
+      };
+      const res = await fetch(`${API}/moderation/admin/resolve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + getToken(),
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showErr('errBox', data.detail || '전송 실패');
+        btn.disabled = false; btn.textContent = '전송';
+        return;
+      }
+      showToast('답장 전송 완료');
+      btn.textContent = '✓ 전송 완료';
+      setTimeout(() => { btn.disabled = false; btn.textContent = '전송'; }, 2000);
+    } catch (e) {
+      showErr('errBox', '네트워크 오류: ' + (e.message || e));
+      btn.disabled = false; btn.textContent = '전송';
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
