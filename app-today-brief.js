@@ -2,8 +2,11 @@
    AI가 추천하는 오늘 집중할 것 (Task 5 통합 카드 · 2026-04-24)
 
    기존 'TodayBrief' + 'AI 추천 · 오늘 할 일' 두 카드를 하나로 통합.
-   - GET /today/brief         → 다음 예약 / 매출 / 미기록 / 이탈 / 생일
+   - GET /today/brief         → 다음 예약 / 매출 / 미기록 / 이탈
    - GET /assistant/suggestions → AI 추천 추가 액션 항목
+
+   2026-04-24 갱신:
+   - '생일' / '대기자' 항목 제거 (사용자 요구). 4종 brief 만 노출.
 
    window.TodayBrief.render(containerId) → 비동기 렌더 (병합 데이터)
    window.AISuggestions.render(containerId) → no-op alias (호환용)
@@ -75,17 +78,19 @@
     if (d.at_risk_count > 0) {
       items.push({ ic: 'heart', label: `이탈 임박 ${d.at_risk_count}명 — 안부 한 통 보낼 타이밍`, color: '#dc3545', action: 'insights' });
     }
-    if (d.birthday_count > 0) {
-      const names = (d.birthday_customers || []).slice(0, 2).map(c => c.name).join(', ');
-      items.push({ ic: 'cake', label: `오늘 생일 ${names} — 축하 메시지 보내기`, color: '#8B5CF6', action: 'birthday' });
-    }
+    // [2026-04-24] '생일' / '대기자' 항목 제거 — 사용자 요구로 통합 카드에서 비노출.
+    //   백엔드 응답에 birthday_count 가 와도 무시. 항목 노출 자체를 차단해야
+    //   AI 추천 텍스트 병합 단계에서도 우연히 들어오지 않음.
 
     // AI 추천 항목 병합 (중복 라벨 제거 — 텍스트 일치 시 skip)
+    // [2026-04-24] 생일·대기자 키워드 포함 항목은 노출 차단 (사용자 요구).
+    const _BLOCK_RE = /(생일|대기자|birthday|waiting)/i;
     if (ai && Array.isArray(ai.items)) {
       const seen = new Set(items.map(it => it.label));
       ai.items.forEach(s => {
         const title = s.title || '';
         if (!title || seen.has(title)) return;
+        if (_BLOCK_RE.test(title) || _BLOCK_RE.test(s.reason || '') || _BLOCK_RE.test(s.action || '')) return;
         items.push({
           ic: 'sparkles',
           label: title + (s.reason ? ` — ${s.reason}` : ''),
@@ -137,7 +142,7 @@
         const act = el.dataset.briefAct;
         if (window.hapticLight) window.hapticLight();
         if (act === 'insights' && typeof window.openInsights === 'function') window.openInsights();
-        else if (act === 'birthday' && typeof window.openBirthday === 'function') window.openBirthday();
+        // [2026-04-24] 'birthday' 액션 제거 — 통합 카드에서 항목 자체를 노출하지 않음
         else if (act === 'unrecorded' && typeof window.openBooking === 'function') window.openBooking();
         else if (act === 'chat' && typeof window.openAssistant === 'function') window.openAssistant();
         else if (typeof window[act] === 'function') {

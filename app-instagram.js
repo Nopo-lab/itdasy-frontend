@@ -265,24 +265,39 @@ async function runPersonaAnalyze() {
 }
 
 async function disconnectInstagram() {
-  if (!(await nativeConfirm("확인", '인스타 연동을 해제하시겠습니까? 데이터가 다시 연결될 때까지 글 자동 생성이 끊어집니다.'))) return;
+  // [2026-04-24] 작동 강화: res.ok 체크 + 헤더/아바타 초기화 + 페이지 새로고침 강제.
+  // 기존엔 응답 검사 없이 fetch 만 하고 끝나서 401·5xx 시에도 "해제됐다" 처럼 보였음.
+  if (!(await nativeConfirm('인스타 연동 해제', '인스타그램 연동을 해제할까요?\n분석된 말투 정보는 그대로 유지돼요.'))) return;
   try {
-    await fetch(API + '/instagram/disconnect', { method: 'POST', headers: authHeader() });
+    const res = await fetch(API + '/instagram/disconnect', {
+      method: 'POST',
+      headers: authHeader(),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`해제 실패 (HTTP ${res.status}) ${txt.slice(0, 60)}`);
+    }
 
     // 로컬 스토리지에 저장된 동의 및 분석 데이터 초기화
     localStorage.removeItem('itdasy_consented');
     localStorage.removeItem('itdasy_consented_at');
     localStorage.removeItem('itdasy_latest_analysis');
 
-    // UI 초기화 (타임스탬프 등)
+    // UI 초기화 (타임스탬프·헤더 아바타·핸들)
     const tsEl = document.getElementById('consentTimestampDisplay');
     if (tsEl) tsEl.textContent = '';
+    if (typeof updateHeaderProfile === 'function') updateHeaderProfile('', '', '');
+    _instaHandle = '';
 
-    checkInstaStatus();
-  } catch(e) {
-    showToast('해제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요');
+    showToast('✓ 인스타 연동이 해제됐어요');
+    // 0.6초 뒤 새로고침 — 모든 위젯·캐시·상태 초기화
+    setTimeout(() => { try { location.reload(); } catch (_e) { void _e; } }, 600);
+  } catch (e) {
+    showToast('해제 실패: ' + (e && e.message ? e.message : '잠시 후 다시 시도해주세요'));
   }
 }
+// [2026-04-24] 전역 노출 — index.html 의 onclick 핸들러가 호출.
+window.disconnectInstagram = disconnectInstagram;
 
 async function connectInstagram() {
   if (!getToken()) {

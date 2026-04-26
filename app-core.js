@@ -256,8 +256,34 @@ function getToken() {
     return t;
   } catch (_) { return null; }  // iOS Private 모드 SecurityError 방어
 }
+// [2026-04-24] 디바이스 간 데이터 불일치 방어 — 토큰 변경 감지 시 SWR 캐시 일괄 클리어.
+// 폰·노트북·태블릿 같은 계정으로 들어왔을 때 다른 디바이스의 stale 스냅샷이 보이는 문제 해결.
+function _clearAllSWRCache() {
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('pv_cache::') || k.startsWith('itdasy:cache')) {
+        try { localStorage.removeItem(k); } catch (_e) { void _e; }
+      }
+    });
+  } catch (_e) { void _e; }
+  try {
+    Object.keys(sessionStorage).forEach(k => {
+      if (k.startsWith('pv_cache::') || k.startsWith('itdasy:cache')) {
+        try { sessionStorage.removeItem(k); } catch (_e) { void _e; }
+      }
+    });
+  } catch (_e) { void _e; }
+}
+window._clearAllSWRCache = _clearAllSWRCache;
+
 function setToken(t) {
   try {
+    // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
+    let prev = null;
+    try { prev = localStorage.getItem(_TOKEN_KEY); } catch (_e) { void _e; }
+    if (prev !== t) {
+      _clearAllSWRCache();
+    }
     if (t === null || t === undefined) {
       localStorage.removeItem(_TOKEN_KEY);
     } else {
@@ -1456,3 +1482,50 @@ window._confirm2 = function (msg, opts) {
   const second = window.confirm(opts.second || ('한 번 더 확인할게요.\n' + msg + '\n이 작업은 되돌릴 수 없어요.'));
   return !!second;
 };
+
+// ─────────────────────────────────────────────────────────────
+// [2026-04-24] 디바이스 간 데이터 동기화 (Task 3)
+// 같은 계정 폰·노트북·태블릿에서 캐시 차이로 다르게 보이는 문제 해결.
+//
+// 전략 적용:
+//   A. 토큰 변경 감지 → 캐시 자동 클리어 (위 setToken 안에 구현)
+//   C. 명시적 동기화 버튼 (window.forceSync — 설정 시트 등에서 호출 가능)
+//   E. 앱 포커스 복귀 시 5분 이상 백그라운드였으면 자동 갱신 신호
+// ─────────────────────────────────────────────────────────────
+window.forceSync = async function () {
+  try {
+    if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
+    if (typeof window.showToast === 'function') window.showToast('동기화 중…');
+    // data-changed 신호 한 번 — TodayBrief / 인사이트 등이 즉시 재렌더
+    try {
+      window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'force_sync' } }));
+    } catch (_e) { void _e; }
+    setTimeout(() => { try { location.reload(); } catch (_e) { void _e; } }, 800);
+  } catch (e) {
+    if (typeof window.showToast === 'function') window.showToast('동기화 실패 — 잠시 후 다시 시도해주세요');
+  }
+};
+
+// 앱이 백그라운드 → 포커스 복귀 시 5분 이상 비활성이었으면 캐시 무효화 + data-changed 발사
+(function _installFocusSyncHandler() {
+  if (window._focusSyncInstalled) return;
+  window._focusSyncInstalled = true;
+  const STALE_MS = 5 * 60 * 1000;
+  function _onFocus() {
+    try {
+      const lastFocus = sessionStorage.getItem('itdasy:last_focus_at');
+      const elapsed = lastFocus ? (Date.now() - Number(lastFocus)) : Infinity;
+      if (elapsed > STALE_MS) {
+        if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
+        try {
+          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'focus_sync' } }));
+        } catch (_e) { void _e; }
+      }
+      sessionStorage.setItem('itdasy:last_focus_at', String(Date.now()));
+    } catch (_e) { void _e; }
+  }
+  window.addEventListener('focus', _onFocus);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _onFocus();
+  });
+})();
