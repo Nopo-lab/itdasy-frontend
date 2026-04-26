@@ -81,7 +81,7 @@
         _esc(r.customer_name || '—'),
         _esc(r.service_name || '—'),
         `<span style="color:#666;font-variant-numeric:tabular-nums;">${(r.starts_at || '').replace('T', ' ').slice(0, 16)}</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#E8F4F1;color:#2B8C7E;font-size:11px;font-weight:700;">${_esc(r.status || 'confirmed')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#E8F4F1;color:#2B8C7E;font-size:11px;font-weight:700;">${_esc(({confirmed:'확정',completed:'완료',cancelled:'취소',no_show:'안 옴'}[r.status])||r.status||'확정')}</span>`,
       ],
       editFields: [
         { key: 'customer_name', type: 'text' },

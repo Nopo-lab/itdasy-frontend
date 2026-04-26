@@ -271,8 +271,8 @@
     box.innerHTML = '<div class="dt-list">' + items.map(c => {
       const nsCount = c.no_show_count || 0;
       const nsBadge = nsCount >= 3
-        ? `<span title="노쇼 ${nsCount}회 — 예약 전 주의" style="font-size:10px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 노쇼 ${nsCount}</span>`
-        : (nsCount > 0 ? `<span title="노쇼 ${nsCount}회" style="font-size:10px;font-weight:600;color:#B45309;background:#FEF3C7;padding:2px 6px;border-radius:100px;margin-left:6px;">노쇼 ${nsCount}</span>` : '');
+        ? `<span title="안 옴 ${nsCount}회 — 예약 전 주의" style="font-size:10px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 안 옴 ${nsCount}</span>`
+        : (nsCount > 0 ? `<span title="안 옴 ${nsCount}회" style="font-size:10px;font-weight:600;color:#B45309;background:#FEF3C7;padding:2px 6px;border-radius:100px;margin-left:6px;">안 옴 ${nsCount}</span>` : '');
       const regularBadge = c.is_regular
         ? `<span title="단골" class="cm-badge cm-badge--regular" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fff;background:#F18091;padding:2px 8px;border-radius:999px;margin-left:6px;line-height:1.4;"><svg width="10" height="10" aria-hidden="true" style="display:inline-block;"><use href="#ic-star"/></svg>단골</span>`
         : '';

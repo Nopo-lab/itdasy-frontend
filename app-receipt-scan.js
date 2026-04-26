@@ -68,7 +68,7 @@
       subtitle: '카페·마트·재료비 영수증을 찍으면 AI가 자동으로 금액·품목 추출',
       fields: ['amount', 'vendor', 'category', 'recorded_at', 'memo'],
       labels: { amount: '금액', vendor: '상호', category: '분류', recorded_at: '결제일', memo: '메모' },
-      placeholders: { amount: '50000', vendor: '다이소', category: 'materials', recorded_at: '2026-04-23', memo: '젤네일 베이스 3개' },
+      placeholders: { amount: '50000', vendor: '다이소', category: '재료', recorded_at: '2026-04-23', memo: '젤네일 베이스 3개' },
     },
     inventory_order: {
       title: '📦 주문내역 스캔',

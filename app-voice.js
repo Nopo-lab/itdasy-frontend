@@ -132,7 +132,7 @@
       { label: '고객', value: result.customer_name || '—', key: 'customer_name' },
       { label: '시술', value: result.service_name || '—', key: 'service_name' },
       { label: '금액', value: result.amount ? _formatKRW(result.amount) : '—', key: 'amount', type: 'number' },
-      { label: '결제', value: result.method ? ({card:'💳 카드',cash:'💵 현금',transfer:'🏦 이체',etc:'기타'}[result.method] || result.method) : '—', key: 'method' },
+      { label: '결제', value: result.method ? ({card:'💳 카드',cash:'💵 현금',transfer:'🏦 계좌이체',etc:'기타'}[result.method] || result.method) : '—', key: 'method' },
       { label: '메모', value: result.memo || '—', key: 'memo' },
     ];
 

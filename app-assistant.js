@@ -27,9 +27,9 @@
     { value: 'lash', label: '속눈썹' },
     { value: 'hair', label: '헤어' },
     { value: 'skin', label: '피부' },
-    { value: 'food', label: '식품' },
+    { value: 'food', label: '식품/생수' },
     { value: 'office', label: '사무용품' },
-    { value: 'rent', label: '임대' },
+    { value: 'rent', label: '임대료' },
     { value: 'utility', label: '공과금' },
     { value: 'etc', label: '기타' },
   ];
@@ -64,6 +64,19 @@
   }
   // actions[] 을 kind 순서대로 그룹핑 (첫 등장 순서 유지)
   function _groupActions(actions) {
+    // 2026-04-24 디버그 — actions 배열의 customer_name·service_name·amount 매핑이 행 인덱스와 일치하는지 추적
+    try {
+      if (window.__ASSISTANT_DEBUG__) {
+        const dump = (actions || []).map((a, i) => ({
+          i,
+          kind: a && a.kind,
+          customer_name: a && a.payload && (a.payload.customer_name || a.payload.name),
+          service_name: a && a.payload && a.payload.service_name,
+          amount: a && a.payload && a.payload.amount,
+        }));
+        console.log('[groupActions] input', JSON.stringify(dump));
+      }
+    } catch (_e) { void _e; }
     const order = [];
     const map = {};
     (actions || []).forEach((a, i) => {
@@ -71,7 +84,22 @@
       if (!map[a.kind]) { map[a.kind] = []; order.push(a.kind); }
       map[a.kind].push({ action: a, skipped: false, status: 'pending', origIdx: i });
     });
-    return order.map(k => ({ kind: k, items: map[k], expanded: false, bulkProgress: null }));
+    const groups = order.map(k => ({ kind: k, items: map[k], expanded: false, bulkProgress: null }));
+    try {
+      if (window.__ASSISTANT_DEBUG__) {
+        const summary = groups.map(g => ({
+          kind: g.kind,
+          items: g.items.map(it => ({
+            origIdx: it.origIdx,
+            customer_name: it.action && it.action.payload && (it.action.payload.customer_name || it.action.payload.name),
+            service_name: it.action && it.action.payload && it.action.payload.service_name,
+            amount: it.action && it.action.payload && it.action.payload.amount,
+          })),
+        }));
+        console.log('[groupActions] output', JSON.stringify(summary));
+      }
+    } catch (_e) { void _e; }
+    return groups;
   }
 
   let _history = [];  // [{role, text}]
@@ -794,6 +822,15 @@
     };
     let itemsHtml = '';
     if (editing) {
+      // 2026-04-24 디버그 — 편집 모드 진입 시 (key, it.action.payload) 가 일치하는지 확인
+      try {
+        if (window.__ASSISTANT_DEBUG__) {
+          console.log('[renderGroupRow] edit', key, 'origIdx=', it.origIdx,
+            'customer_name=', p.customer_name || p.name,
+            'service_name=', p.service_name,
+            'amount=', p.amount);
+        }
+      } catch (_e) { void _e; }
       const kind = it.action && it.action.kind;
       if (kind === 'upsert_inventory') {
         if (!Array.isArray(p.items)) p.items = [];

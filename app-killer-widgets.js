@@ -418,7 +418,6 @@
     const emptySlots = brief.empty_slots || [];
     const alertSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
     const trendSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
-    const couponSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>`;
     const clockSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
     const focusSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
 
@@ -431,10 +430,7 @@
       momPct != null ? `이번 주 매출 ${momPct >= 0 ? '+' : ''}${momPct}%` : '매출 집계 중',
       brief.this_month_total ? (brief.this_month_total).toLocaleString('ko-KR') + '원 누적' : '데이터 없음',
       '포스트 만들기');
-    const c3 = _rowCard('', couponSvg, '쿠폰', '',
-      '슬로우데이 쿠폰 초안',
-      emptySlots.length ? `빈슬롯 ${emptySlots.length}개 — 쿠폰 AI가 써놨어요` : '빈 슬롯 없음',
-      '확인하기');
+    // 쿠폰 카드 c3 제거 (2026-04-24)
     const c4 = _rowCard('', clockSvg, '빈슬롯', '',
       emptySlots.length ? `${emptySlots[0].from || '—'}~${emptySlots[0].to || '—'} 비어요` : '빈 슬롯 없음',
       emptySlots.length ? `${emptySlots.length}개 슬롯 · 단골에게 알려봐요` : '오늘 일정이 꽉 찼어요',
@@ -444,7 +440,7 @@
       '캡션 만들기 · 예약 확인 · 재료 체크',
       'AI에게 묻기');
 
-    return c1 + c2 + c3 + c4 + c5;
+    return c1 + c2 + c4 + c5;
   }
 
   async function renderRow(containerId) {

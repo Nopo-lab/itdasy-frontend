@@ -73,7 +73,7 @@
       items.push({ ic: 'edit', label: `매출 미기록 ${d.unrecorded_count}건 — 탭해서 한꺼번에 정리`, color: '#f57c00', action: 'unrecorded' });
     }
     if (d.at_risk_count > 0) {
-      items.push({ ic: 'heart', label: `이탈 임박 ${d.at_risk_count}명 — 쿠폰 타이밍`, color: '#dc3545', action: 'insights' });
+      items.push({ ic: 'heart', label: `이탈 임박 ${d.at_risk_count}명 — 안부 한 통 보낼 타이밍`, color: '#dc3545', action: 'insights' });
     }
     if (d.birthday_count > 0) {
       const names = (d.birthday_customers || []).slice(0, 2).map(c => c.name).join(', ');

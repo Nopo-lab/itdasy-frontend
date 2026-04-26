@@ -85,7 +85,7 @@
       <input class="hub-input" data-field="name"      placeholder="품목 이름" list="ac-item_name" style="flex:1.5;"/>
       <input class="hub-input" data-field="quantity"  placeholder="수량" type="number" style="flex:0.6;min-width:60px;"/>
       <input class="hub-input" data-field="threshold" placeholder="임계" type="number" value="3" style="flex:0.6;min-width:60px;"/>
-      <input class="hub-input" data-field="category"  placeholder="nail|hair|lash" list="ac-inv_category" style="flex:0.9;"/>
+      <input class="hub-input" data-field="category"  placeholder="네일|헤어|속눈썹" list="ac-inv_category" style="flex:0.9;"/>
       <button class="hub-btn-stack" data-act="stack">⊕ 쌓기</button>
       <button class="hub-btn-add"  data-act="add">즉시 추가 ↵</button>
     </div>`;
@@ -116,7 +116,7 @@
     return `<div class="ih-low-card" data-id="${r.id}">
       <div>
         <div class="ih-item-name">${_esc(r.name)}</div>
-        <div class="ih-item-meta">임계 ${r.threshold || 0} · ${_esc(r.category || '—')}</div>
+        <div class="ih-item-meta">임계 ${r.threshold || 0} · ${_esc(({nail:'네일',hair:'헤어',lash:'속눈썹',skin:'피부',hair_extension:'붙임머리',etc:'기타'}[r.category])||r.category||'—')}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="ih-stepper">

@@ -1765,20 +1765,6 @@
         }
       }
     },
-    "GET /coupons/suggest": {
-      "response": {
-        "type": "object",
-        "properties": {
-          "has_suggestion":  { "type": "boolean" },
-          "slow_day":        { "type": ["object", "null"] },
-          "peak_day":        { "type": ["object", "null"] },
-          "gap_pct":         { "type": ["number", "null"] },
-          "discount_pct":    { "type": ["integer", "null"] },
-          "message":         { "type": ["string", "null"] },
-          "weekday_stats":   { "type": "array" }
-        }
-      }
-    },
     "GET /revenue": {
       "request": {
         "type": "object",
