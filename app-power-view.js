@@ -27,7 +27,7 @@
     { key: 'booking',   icon: 'ic-calendar',    label: '예약',  hue: 260 },
     { key: 'revenue',   icon: 'ic-dollar-sign', label: '매출',  hue: 20  },
     { key: 'inventory', icon: 'ic-package',     label: '재고',  hue: 150 },
-    { key: 'nps',       icon: 'ic-star',        label: 'NPS',   hue: 45  },
+    { key: 'nps',       icon: 'ic-star',        label: '후기',  hue: 45  },
     { key: 'service',   icon: 'ic-scissors',    label: '시술',  hue: 320 },
   ];
 
@@ -120,14 +120,14 @@
         _esc(r.customer_name || '—'),
         _esc(r.service_name || '—'),
         `<span style="font-weight:800;color:#1a1a1a;">${_krw(r.amount)}</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:11px;font-weight:700;">${_esc(r.method || '—')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:11px;font-weight:700;">${_esc(({card:'카드',cash:'현금',transfer:'계좌이체',bank_transfer:'계좌이체',etc:'기타'}[r.method])||r.method||'—')}</span>`,
         `<span style="color:#2B8C7E;font-weight:700;">${r.net_amount != null ? _krw(r.net_amount) : _krw(r.amount)}</span>`,
       ],
       editFields: [
         { key: 'customer_name', type: 'text' },
         { key: 'service_name',  type: 'text' },
         { key: 'amount',        type: 'number' },
-        { key: 'method',        type: 'text', placeholder: 'card|cash|transfer' },
+        { key: 'method',        type: 'text', placeholder: '카드|현금|계좌이체' },
         { key: 'net_amount',    type: 'text', readonly: true,
           format: (r) => _krw(r.net_amount != null ? r.net_amount : r.amount) },
       ],
@@ -138,7 +138,13 @@
           { name: 'customer_name', placeholder: '고객', flex: 1, auto: 'customer_name' },
           { name: 'service_name',  placeholder: '시술', flex: 1, auto: 'service_name' },
           { name: 'amount',        placeholder: '금액', flex: 0.9, type: 'number', required: true },
-          { name: 'method',        placeholder: 'card/cash/transfer', flex: 1.1, default: 'card', auto: 'method' },
+          { name: 'method',        placeholder: '결제수단', flex: 1.1, default: 'card', type: 'select',
+            options: [
+              { value: 'card',     label: '카드' },
+              { value: 'cash',     label: '현금' },
+              { value: 'transfer', label: '계좌이체' },
+            ],
+          },
         ],
         endpoint: '/revenue',
         build: (v) => ({
@@ -178,7 +184,17 @@
           { name: 'name',      placeholder: '품목 이름', flex: 1.8, required: true, auto: 'item_name' },
           { name: 'quantity',  placeholder: '수량',      flex: 0.6, type: 'number' },
           { name: 'threshold', placeholder: '임계',      flex: 0.6, type: 'number', default: 3 },
-          { name: 'category',  placeholder: 'nail|hair|lash|skin|etc', flex: 1.2, auto: 'inv_category' },
+          { name: 'category',  placeholder: '분류', flex: 1.2, type: 'select',
+            options: [
+              { value: '',               label: '분류 선택' },
+              { value: 'hair_extension', label: '붙임머리' },
+              { value: 'nail',           label: '네일' },
+              { value: 'lash',           label: '속눈썹' },
+              { value: 'hair',           label: '헤어' },
+              { value: 'skin',           label: '피부' },
+              { value: 'etc',            label: '기타' },
+            ],
+          },
         ],
         endpoint: '/inventory',
         build: (v) => ({
@@ -205,7 +221,7 @@
           format: (r) => (r.responded_at || '').slice(0, 10) || '—' },
       ],
       search: (r, kw) => ((r.comment || '') + ' ' + (r.source || '') + ' ' + r.rating).toLowerCase().includes(kw),
-      empty: { icon: '⭐', title: 'NPS 후기가 없어요', desc: '0~10점 만족도 질문의 답을 기록해요.' },
+      empty: { icon: '⭐', title: '후기가 없어요', desc: '0~10점 만족도 질문의 답을 기록해요.' },
       qadd: {
         fields: [
           { name: 'rating',  placeholder: '평점(0~10)', flex: 0.5, type: 'number', required: true },
@@ -221,7 +237,7 @@
         `<strong>${_esc(r.name)}</strong>`,
         `<span style="font-weight:700;">${_krw(r.default_price)}</span>`,
         `<span style="color:#666;">${r.default_duration_min || 0}분</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#F3E8FF;color:#6B21A8;font-size:11px;font-weight:700;">${_esc(r.category || 'etc')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#F3E8FF;color:#6B21A8;font-size:11px;font-weight:700;">${_esc(({nail:'네일',hair:'헤어',lash:'속눈썹',skin:'피부',eye:'속눈썹',wax:'왁싱',hair_extension:'붙임머리',etc:'기타'}[r.category])||r.category||'기타')}</span>`,
       ],
       editFields: [
         { key: 'name',                 type: 'text' },
@@ -236,7 +252,17 @@
           { name: 'name',                 placeholder: '시술명',    flex: 1.3, required: true, auto: 'service_name' },
           { name: 'default_price',        placeholder: '기본 금액', flex: 0.8, type: 'number' },
           { name: 'default_duration_min', placeholder: '소요(분)', flex: 0.6, type: 'number', default: 60 },
-          { name: 'category',             placeholder: 'hair|nail|eye|skin|etc', flex: 1.2, auto: 'svc_category' },
+          { name: 'category',             placeholder: '분류', flex: 1.2, type: 'select',
+            options: [
+              { value: '',               label: '분류 선택' },
+              { value: 'hair_extension', label: '붙임머리' },
+              { value: 'nail',           label: '네일' },
+              { value: 'lash',           label: '속눈썹' },
+              { value: 'hair',           label: '헤어' },
+              { value: 'skin',           label: '피부' },
+              { value: 'etc',            label: '기타' },
+            ],
+          },
         ],
         endpoint: '/services',
         build: (v) => ({
@@ -292,13 +318,13 @@
   // ── 즉시 추가 ────────────────────────────────────────
   async function _submitQuickAdd() {
     const schema = SCHEMAS[_state.currentTab];
-    const inputs = document.querySelectorAll('#power-view-overlay .pv-qadd input[data-field]');
+    const inputs = document.querySelectorAll('#power-view-overlay .pv-qadd [data-field]');
     const v = {}; let missing = null;
     inputs.forEach(i => { v[i.getAttribute('data-field')] = i.value; });
     schema.qadd.fields.forEach(f => { if (f.required && !v[f.name]?.trim()) missing = f.name; });
     if (missing) {
       if (window.showToast) window.showToast(`⚠️ 필수: ${missing}`);
-      const el = document.querySelector(`#power-view-overlay .pv-qadd input[data-field="${missing}"]`);
+      const el = document.querySelector(`#power-view-overlay .pv-qadd [data-field="${missing}"]`);
       if (el) { el.focus(); el.style.borderColor = '#dc3545'; setTimeout(() => { el.style.borderColor = ''; }, 1200); }
       return;
     }

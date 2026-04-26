@@ -120,7 +120,7 @@
     sheet.innerHTML = `
       <header class="dt-hdr">
         <button class="dt-back" onclick="closeNps()" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-        <h1 class="dt-title">고객 만족도 (NPS)</h1>
+        <h1 class="dt-title">고객 후기</h1>
         <span id="npsOfflineBadge" class="dt-offline-badge">오프라인</span>
       </header>
       <div class="dt-body">
@@ -143,7 +143,7 @@
     return `
       <div class="dt-nps-hero">
         <div>
-          <div class="dt-nps-hero__label">NPS 점수 · ${s.total}명</div>
+          <div class="dt-nps-hero__label">후기 점수 · ${s.total}명</div>
           <div class="dt-nps-hero__score">${s.score}</div>
           <div class="dt-nps-hero__pills">
             <div class="dt-nps-pill">😍 추천 ${s.promoters}</div>

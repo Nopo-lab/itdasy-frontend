@@ -1,10 +1,10 @@
 /* ─────────────────────────────────────────────────────────────
    AI 인사이트 대시보드 (Phase 4 · 2026-04-20)
+   쿠폰 제안 카드 제거 (2026-04-24)
 
-   한 화면에서 3가지 선제 제안을 통합:
+   한 화면에서 2가지 선제 제안을 통합:
    - GET /retention/at-risk   이탈 임박 고객 리스트
    - GET /revenue/forecast    이번 주 예상 매출 + 추천 액션
-   - GET /coupons/suggest     슬로우 데이 쿠폰 제안
 
    오프라인·미배포 시 안내 카드만 렌더.
    ──────────────────────────────────────────────────────────── */
@@ -154,46 +154,18 @@
     `;
   }
 
-  function _couponCard(data) {
-    if (!data?.has_suggestion) {
-      return `
-        <div style="padding:16px;background:#fafafa;border-radius:12px;margin-bottom:12px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <span style="font-size:18px;">🎟</span>
-            <strong style="font-size:14px;">쿠폰 제안</strong>
-          </div>
-          <div style="font-size:12px;color:#888;">${_esc(data?.reason || '데이터가 더 쌓이면 제안이 나와요')}</div>
-        </div>`;
-    }
-    return `
-      <div style="padding:14px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:12px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-          <span style="font-size:18px;">🎟</span>
-          <strong style="font-size:14px;">쿠폰 제안</strong>
-          <span style="margin-left:auto;font-size:11px;color:#388e3c;font-weight:700;">${data.discount_pct}% 할인</span>
-        </div>
-        <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">
-          <strong style="font-size:20px;color:#388e3c;">${_esc(data.slow_day.label)}요일</strong>
-          <span style="font-size:11px;color:#888;">↔ ${_esc(data.peak_day.label)}요일 대비 -${data.gap_pct}%</span>
-        </div>
-        <div style="font-size:12px;color:#555;line-height:1.5;padding:8px 10px;background:#fff;border-radius:8px;">
-          💡 ${_esc(data.message)}
-        </div>
-      </div>
-    `;
-  }
+  // 쿠폰 제안 카드 제거 (2026-04-24)
 
   async function _loadAndRender() {
     const body = document.getElementById('insightsBody');
     _renderLoading();
-    const [retentionP, forecastP, couponP] = [
+    const [retentionP, forecastP] = [
       _apiGet('/retention/at-risk').catch(() => null),
       _apiGet('/revenue/forecast').catch(() => null),
-      _apiGet('/coupons/suggest').catch(() => null),
     ];
-    const [ret, fc, cp] = await Promise.all([retentionP, forecastP, couponP]);
+    const [ret, fc] = await Promise.all([retentionP, forecastP]);
 
-    if (!ret && !fc && !cp) {
+    if (!ret && !fc) {
       body.innerHTML = `
         <div style="padding:30px 16px;text-align:center;color:#aaa;font-size:13px;line-height:1.6;">
           <div style="font-size:36px;margin-bottom:10px;">🌱</div>
@@ -206,7 +178,6 @@
     body.innerHTML = `
       ${_retentionCard(ret)}
       ${_forecastCard(fc)}
-      ${_couponCard(cp)}
       <div style="font-size:11px;color:#aaa;text-align:center;padding:10px;">
         AI 인사이트는 최근 8주 데이터를 바탕으로 매 요청마다 새로 계산돼요.
       </div>
@@ -450,7 +421,7 @@
   });
 
   // Wave D3 (2026-04-24) — 챗봇·외부 데이터 변경 감지 → 인사이트 시트 열려 있으면 재로드
-  // 이탈 예측·매출 예측·쿠폰 추천은 매출/예약/NPS 데이터에 전부 영향 받음
+  // 이탈 예측·매출 예측은 매출/예약/NPS 데이터에 전부 영향 받음
   if (typeof window !== 'undefined' && !window._insightsDataListenerInit) {
     window._insightsDataListenerInit = true;
     window.addEventListener('itdasy:data-changed', async (e) => {

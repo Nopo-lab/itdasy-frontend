@@ -181,7 +181,7 @@
           <div style="flex:1;">
             <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">결제</label>
             <select id="veMethod" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
-              ${['card','cash','transfer','etc'].map(m => `<option value="${m}" ${r.method===m?'selected':''}>${({card:'카드',cash:'현금',transfer:'이체',etc:'기타'})[m]}</option>`).join('')}
+              ${['card','cash','transfer','etc'].map(m => `<option value="${m}" ${r.method===m?'selected':''}>${({card:'카드',cash:'현금',transfer:'계좌이체',etc:'기타'})[m]}</option>`).join('')}
             </select>
           </div>
         </div>

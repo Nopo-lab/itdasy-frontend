@@ -92,6 +92,14 @@
         // 홈 탭으로 유도 (선택)
         const homeTabBtn = document.querySelector('.tab-bar__btn[data-tab="home"]');
         if (homeTabBtn) homeTabBtn.click();
+
+        // 인스타 연동 직후 → 분석된 말투가 있으면 3카드 설문 자동 오픈
+        // (분석 안 끝났으면 popup 내부에서 "진행 중" 안내 화면 노출)
+        setTimeout(() => {
+          if (typeof window.openPersonaSurveyModal === 'function') {
+            window.openPersonaSurveyModal();
+          }
+        }, 1200);
       } else if (u.searchParams.get('error')) {
         const err = u.searchParams.get('error');
         if (window.showToast) window.showToast('연동 실패: ' + err);

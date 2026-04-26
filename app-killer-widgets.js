@@ -1,10 +1,11 @@
 /* ─────────────────────────────────────────────────────────────
    AI 킬러 위젯 (Phase 6.3 Lane F · 2026-04-21)
+   쿠폰 카드 제거 (2026-04-24) → 안부 초안만 유지
 
-   대시보드 상단에 "매일 열게 만드는" AI 위젯 5종:
+   대시보드 상단에 "매일 열게 만드는" AI 위젯:
    1. 🔔 오늘 위험 신호 요약 (브리핑)
    2. ⚠️ 매출 이상 감지 (전월 대비 + AI 코멘트)
-   3. 💝 쿠폰/안부 메시지 초안 생성
+   3. 💝 안부 메시지 초안 (이탈 임박 단골)
    4. 📅 비는 슬롯 감지
    5. 📈 오늘 집중할 3가지
 
@@ -96,7 +97,7 @@
         <div id="kw-insight-result" style="margin-top:10px;font-size:12px;color:#555;line-height:1.55;display:none;"></div>
       </div>`;
 
-    // 3. 쿠폰/안부 초안
+    // 3. 안부 초안 (쿠폰 기능 제거 2026-04-24)
     const widget3 = atRisk.length ? `
       <div class="kw-card" style="background:linear-gradient(135deg,#FFF4E6,#FFE8D6);padding:16px;border-radius:16px;margin-bottom:10px;border:1px solid rgba(255,138,92,0.2);">
         <div style="font-size:11px;letter-spacing:1.5px;color:#E68A00;font-weight:800;margin-bottom:8px;">💝 이탈 위험 단골 ${atRisk.length}명</div>

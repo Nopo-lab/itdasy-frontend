@@ -93,7 +93,7 @@
         ${_renderKPI('총 매출', _fmt(r.total), `${r.count}건 · 평균 ${_fmt(r.avg_ticket)}`, '#F18091,#D95F70')}
         ${_renderKPI('방문 고객', `${c.unique_visitors}명`, `신규 ${c.new_registered} · 재방문 ${c.repeat_count}`, '#4ECDC4,#44A08D')}
         ${_renderKPI('리피트율', `${c.repeat_ratio_pct}%`, '2회 이상 방문한 비율', '#FFB347,#FF8A5C')}
-        ${_renderKPI('NPS 점수', n.score != null ? n.score : '—', n.total ? `${n.total}명 응답 · 평균 ${n.avg}` : '응답 없음', '#A78BFA,#8B5CF6')}
+        ${_renderKPI('후기 점수', n.score != null ? n.score : '—', n.total ? `${n.total}명 응답 · 평균 ${n.avg}` : '응답 없음', '#A78BFA,#8B5CF6')}
       </div>
 
       <!-- 인기 시술 -->

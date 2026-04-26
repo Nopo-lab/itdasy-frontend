@@ -200,7 +200,7 @@
     const invVal = lowStock != null ? (lowStock > 0 ? lowStock + '종 부족' : '재고 정상') : '재고 현황';
     const invSubCls = lowStock != null && lowStock > 0 ? 'db-wid__sub--down' : '';
 
-    const periodTag = ({ today: 'DoD', week: 'WoW', month: 'MoM' })[period] || 'MoM';
+    const periodTag = ({ today: '전일 대비', week: '전주 대비', month: '전월 대비' })[period] || '전월 대비';
     const deltaStr = deltaPct != null ? (deltaPct >= 0 ? '+' : '') + deltaPct + '% ' + periodTag : periodTag + ' —';
     const deltaCls = deltaPct == null ? '' : deltaPct >= 0 ? 'db-wid__sub--up' : 'db-wid__sub--down';
     const deltaIcon = deltaPct == null || deltaPct >= 0 ? IC.trendUp : IC.trendDown;
@@ -376,7 +376,7 @@
 
   // 앱 부팅 시점에 미리 한 번 (유휴 타이밍)
   async function prefetch() {
-    const paths = ['/revenue?period=month', '/revenue?period=week', '/revenue?period=today', '/revenue?period=lastmonth', '/customers', '/bookings', '/retention/at-risk', '/revenue/forecast', '/coupons/suggest', '/today/brief'];
+    const paths = ['/revenue?period=month', '/revenue?period=week', '/revenue?period=today', '/revenue?period=lastmonth', '/customers', '/bookings', '/retention/at-risk', '/revenue/forecast', '/today/brief'];
     await Promise.all(paths.map(p => _cachedGet(p).catch(() => null)));
   }
   // 외부 노출 — 부팅 훅에서 호출

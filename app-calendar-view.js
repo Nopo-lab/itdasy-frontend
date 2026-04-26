@@ -205,7 +205,7 @@
     const isEdit = !!existing;
     const opt = (def) => slots.map(s => `<option value="${s}"${s === def ? ' selected' : ''}>${s}</option>`).join('');
     const STATUS_BTNS = [
-      ['confirmed','📅 예정','--confirmed'], ['no_show','🚫 노쇼','--no-show'],
+      ['confirmed','📅 확정','--confirmed'], ['no_show','🚫 안 옴','--no-show'],
       ['completed','✅ 완료','--completed'], ['cancelled','❌ 취소','--cancelled'],
     ];
     return `
@@ -228,7 +228,7 @@
   ${isEdit ? '<button type="button" id="bfDelete" class="btn-secondary" style="color:var(--danger)">삭제</button>' : ''}
 </div>
 ${isEdit && existing.status !== 'completed'
-  ? '<button type="button" id="bfComplete" class="main-cta" style="width:100%;margin-bottom:10px">🎀 시술 완료 · 매출·NPS 한 번에 기록</button>'
+  ? '<button type="button" id="bfComplete" class="main-cta" style="width:100%;margin-bottom:10px">🎀 시술 완료 · 매출·후기 한 번에 기록</button>'
   : ''}
 ${isEdit ? `
 <div style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)">
@@ -326,7 +326,7 @@ ${isEdit ? `
       if (window.hapticMedium) window.hapticMedium();
       window.CompleteFlow.startFromBooking(existing);
     });
-    const STATUS_LABEL = { confirmed: '예정', completed: '완료', cancelled: '취소', no_show: '노쇼' };
+    const STATUS_LABEL = { confirmed: '확정', completed: '완료', cancelled: '취소', no_show: '안 옴' };
     body.querySelectorAll('[data-bf-status]').forEach(btn => {
       btn.addEventListener('click', async () => {
         const newStatus = btn.getAttribute('data-bf-status');

@@ -412,14 +412,14 @@
         ${existing ? `<button type="button" id="bfDelete" class="btn-secondary" style="color:var(--danger);">삭제</button>` : ''}
       </div>
       ${existing && existing.status !== 'completed' ? `
-        <button type="button" id="bfComplete" class="main-cta" style="width:100%;margin-bottom:10px;">🎀 시술 완료 · 매출·NPS 한 번에 기록</button>
+        <button type="button" id="bfComplete" class="main-cta" style="width:100%;margin-bottom:10px;">🎀 시술 완료 · 매출·후기 한 번에 기록</button>
       ` : ''}
       ${existing ? `
         <div style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border);">
           <div style="font-size:11px;color:var(--text-subtle);margin-bottom:8px;font-weight:700;">예약 상태</div>
           <div class="dt-status-row">
-            <button type="button" data-bf-status="confirmed" class="dt-status-btn${existing.status==='confirmed'?' dt-status-btn--confirmed':''}">📅 예정</button>
-            <button type="button" data-bf-status="no_show" class="dt-status-btn${existing.status==='no_show'?' dt-status-btn--no-show':''}">🚫 노쇼</button>
+            <button type="button" data-bf-status="confirmed" class="dt-status-btn${existing.status==='confirmed'?' dt-status-btn--confirmed':''}">📅 확정</button>
+            <button type="button" data-bf-status="no_show" class="dt-status-btn${existing.status==='no_show'?' dt-status-btn--no-show':''}">🚫 안 옴</button>
             <button type="button" data-bf-status="completed" class="dt-status-btn${existing.status==='completed'?' dt-status-btn--completed':''}">✅ 완료</button>
             <button type="button" data-bf-status="cancelled" class="dt-status-btn${existing.status==='cancelled'?' dt-status-btn--cancelled':''}">❌ 취소</button>
           </div>
@@ -523,7 +523,7 @@
           try {
             await update(existing.id, { status: newStatus });
             if (window.hapticLight) window.hapticLight();
-            const label = { confirmed:'예정', completed:'완료', cancelled:'취소', no_show:'노쇼' }[newStatus];
+            const label = { confirmed:'확정', completed:'완료', cancelled:'취소', no_show:'안 옴' }[newStatus];
             if (window.showToast) window.showToast(`✅ 상태를 '${label}'로 변경했어요`);
             await _loadAndRender();
           } catch (err) {

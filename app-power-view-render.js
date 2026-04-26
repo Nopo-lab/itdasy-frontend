@@ -58,14 +58,20 @@
   }
 
   // ── 자동완성 소스 ─────────────────────────────────────
+  // service_name 풀: 업종별 기본 풀 + 사용자 데이터 (중복 제거)
   function _buildAutoSources() {
     const data = window._PVState.data;
+    const shopServicePool = _getShopServicePool();
     const out = {
-      customer_name: [], service_name: [], method: ['card','cash','transfer','etc'],
+      customer_name: [], service_name: [...shopServicePool], method: ['card','cash','transfer','etc'],
       item_name: [], inv_category: ['nail','hair','lash','skin','etc'],
       svc_category: ['hair','nail','eye','skin','wax','etc'],
     };
-    const seen = { customer_name: new Set(), service_name: new Set(), item_name: new Set() };
+    const seen = {
+      customer_name: new Set(),
+      service_name: new Set(shopServicePool),
+      item_name: new Set(),
+    };
     (data.customer || []).forEach(c => {
       if (c.name && !seen.customer_name.has(c.name)) { seen.customer_name.add(c.name); out.customer_name.push(c.name); }
     });
@@ -91,7 +97,7 @@
   function _collectQaddValues() {
     const { SCHEMAS } = window._PVInt;
     const schema = SCHEMAS[window._PVState.currentTab];
-    const inputs = document.querySelectorAll('#power-view-overlay .pv-qadd input[data-field]');
+    const inputs = document.querySelectorAll('#power-view-overlay .pv-qadd [data-field]');
     const v = {}; let missing = null;
     inputs.forEach(i => { v[i.getAttribute('data-field')] = i.value; });
     schema.qadd.fields.forEach(f => { if (f.required && !v[f.name]?.trim()) missing = f.name; });
@@ -105,6 +111,26 @@
     });
     const first = inputs[0];
     if (first) first.focus();
+  }
+
+  // ── 업종별 시술명 풀 (shop_type 기준) ───────────────
+  // shop_type 한글 키 — `localStorage.setItem('shop_type', ...)` 에서 저장됨
+  // 기본값: 붙임머리 (잇데이 주력 업종)
+  const SHOP_SERVICE_POOL = {
+    '붙임머리': ['18인치', '20인치', '22인치', '24인치', '26인치', '28인치', '30인치', '특수인치', '옴브레', '재시술'],
+    '네일':     ['젤네일', '아트네일', '아크릴', '스컬프처', '네일케어', '오프', '재시술', '페디큐어', '프렌치', '원톤'],
+    '네일아트': ['젤네일', '아트네일', '아크릴', '스컬프처', '네일케어', '오프', '재시술', '페디큐어', '프렌치', '원톤'],
+    '속눈썹':   ['클래식 연장', '볼륨 연장', '리터치', '제거', '래쉬리프트', '속눈썹펌'],
+    '피부':     ['기본 관리', '필링', '마사지', '팩', '앰플 케어'],
+    '헤어':     ['커트', '펌', '염색', '매직', '드라이', '클리닉'],
+  };
+
+  // shop_type 기준으로 시술명 풀 가져오기 (Task 6 — 업종별 필터)
+  function _getShopServicePool() {
+    const t = (typeof window.user_shop_type === 'string' && window.user_shop_type)
+      || localStorage.getItem('shop_type')
+      || '붙임머리';
+    return SHOP_SERVICE_POOL[t] || SHOP_SERVICE_POOL['붙임머리'];
   }
 
   // ── 배치 쌓기 ─────────────────────────────────────────
@@ -173,6 +199,18 @@
     const qadd = schema.qadd;
     const autoSource = _buildAutoSources();
     const fieldsHtml = qadd.fields.map(f => {
+      // select 타입 (결제수단·카테고리 등) — Task 5
+      if (f.type === 'select' && Array.isArray(f.options)) {
+        const opts = f.options.map(o => {
+          const sel = (f.default !== undefined && String(f.default) === String(o.value)) ? ' selected' : '';
+          return `<option value="${_esc(o.value)}"${sel}>${_esc(o.label)}</option>`;
+        }).join('');
+        return `
+        <select class="pv-input"
+          data-field="${f.name}"
+          style="flex:${f.flex};padding:11px 10px;border:1.5px solid hsl(350, 60%, 88%);border-radius:14px;font-size:13px;background:#fff;cursor:pointer;"
+        >${opts}</select>`;
+      }
       const listId = f.auto ? `pv-dl-${f.auto}` : '';
       return `
       <input class="pv-input"
@@ -353,7 +391,7 @@
         });
       });
     }
-    document.querySelectorAll('#power-view-overlay .pv-qadd input').forEach(el => {
+    document.querySelectorAll('#power-view-overlay .pv-qadd input, #power-view-overlay .pv-qadd select').forEach(el => {
       el.addEventListener('keydown', (e) => {
         if (e.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter') {

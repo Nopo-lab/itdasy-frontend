@@ -133,7 +133,7 @@
     const cards = [
       { icon: '💰', label: '누적 매출', value: _formatKRW(s.total_revenue), sub: `평균 ${_formatKRW(s.avg_ticket)}` },
       { icon: '🎯', label: '방문 횟수', value: `${s.visit_count}회`, sub: s.last_visit_at ? `최근 ${_relativeDays(s.last_visit_at)}` : '기록 없음' },
-      { icon: '⭐', label: 'NPS 평균', value: s.nps_avg != null ? `${s.nps_avg}/10` : '—', sub: s.nps_latest != null ? `최근 ${s.nps_latest}` : '응답 없음' },
+      { icon: '⭐', label: '후기 평균', value: s.nps_avg != null ? `${s.nps_avg}/10` : '—', sub: s.nps_latest != null ? `최근 ${s.nps_latest}` : '응답 없음' },
       { icon: '📅', label: '다가올 예약', value: `${s.upcoming_bookings}건`, sub: s.first_visit_at ? `첫 방문 ${_dateShort(s.first_visit_at)}` : '신규' },
     ];
     return `
@@ -154,7 +154,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px;">
         <button data-act="booking" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">📅<br>예약</button>
         <button data-act="revenue" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">💰<br>매출</button>
-        <button data-act="nps" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">⭐<br>NPS</button>
+        <button data-act="nps" style="padding:10px 6px;border:1px solid #eee;border-radius:10px;background:#fff;cursor:pointer;font-size:11px;font-weight:700;color:#555;">⭐<br>후기</button>
       </div>
     `;
   }
@@ -245,7 +245,7 @@
                 : `<div style="width:48px;height:48px;border-radius:8px;background:linear-gradient(135deg,#fff0f5,#ffe4ec);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">💇</div>`}
               <div style="flex:1;min-width:0;">
                 <div style="font-size:13px;font-weight:700;">${_formatKRW(r.amount)} <span style="font-size:10px;font-weight:400;color:#888;margin-left:4px;">${_esc(r.service_name || '시술')}</span></div>
-                <div style="font-size:10px;color:#aaa;margin-top:2px;">${_dateShort(r.recorded_at)} · ${_esc(r.method || 'card')}${r.net_margin ? ` · <span style="color:#2B8C7E;">실 ${_formatKRW(r.net_margin)}</span>` : ''}</div>
+                <div style="font-size:10px;color:#aaa;margin-top:2px;">${_dateShort(r.recorded_at)} · ${_esc(({card:'카드',cash:'현금',transfer:'계좌이체',bank_transfer:'계좌이체',etc:'기타'}[r.method])||r.method||'카드')}${r.net_margin ? ` · <span style="color:#2B8C7E;">실 ${_formatKRW(r.net_margin)}</span>` : ''}</div>
               </div>
             </div>
           `).join('')}
@@ -282,7 +282,7 @@
     return `
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <strong style="font-size:13px;">⭐ NPS 응답</strong>
+          <strong style="font-size:13px;">⭐ 고객 후기</strong>
           <span style="font-size:10px;color:#888;">${rows.length}건</span>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">

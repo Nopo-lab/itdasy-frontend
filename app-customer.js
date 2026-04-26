@@ -406,9 +406,17 @@
 
   // ── 픽커 (외부 컴포넌트 재사용) ──────────────────────────
   //   await Customer.pick({ selectedId })  →  {id, name} | null (취소)
+  //   캘린더·매출·NPS 등에서 호출 — 항상 최신 전체 목록 보장 (페이징 누락 방지)
   async function pick(opts) {
     opts = opts || {};
-    try { if (!_cache) await list(); } catch (_) { /* ignore */ }
+    // 캐시가 비어있거나 SWR 캐시가 신선하지 않으면 강제 재조회
+    // (예: 일부 고객만 SWR 에 들어있는 stale 케이스 차단)
+    try {
+      const swr = _readSWR();
+      if (!_cache || !swr || !swr.fresh) {
+        try { await _fetchFresh(); } catch (_e) { if (!_cache) await list(); }
+      }
+    } catch (_) { /* ignore — fallback 아래 items */ }
     return new Promise((resolve) => {
       const items = _cache || [];
       const pop = document.createElement('div');

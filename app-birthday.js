@@ -72,13 +72,14 @@
     return `${rel}일 뒤`;
   }
 
-  function _fillTemplate(tmpl, name, pct) {
-    return tmpl.replace('{name}', name || '').replace('{pct}', String(pct || 10));
+  function _fillTemplate(tmpl, name) {
+    // {pct} 잔여 토큰은 빈 문자열로 치환 (쿠폰 기능 제거 2026-04-24)
+    return tmpl.replace('{name}', name || '').replace('{pct}', '');
   }
 
   async function _copyMessage(name) {
     const tmpl = (_cached?.message_templates || [])[0] || '{name}님, 생신 축하드려요!';
-    const msg = _fillTemplate(tmpl, name, 15);
+    const msg = _fillTemplate(tmpl, name);
     try {
       await navigator.clipboard.writeText(msg);
       if (window.showToast) window.showToast('메시지 복사됨 — 카톡에 붙여넣으세요');
@@ -105,7 +106,7 @@
     body.innerHTML = `
       <div style="margin-bottom:14px;padding:12px;background:rgba(139,92,246,0.06);border-radius:12px;">
         <div style="font-size:11px;color:#6D28D9;font-weight:700;margin-bottom:6px;">💡 축하 메시지 팁</div>
-        <div style="font-size:11px;color:#666;line-height:1.5;">템플릿을 복사해서 카카오톡으로 보내세요. 쿠폰 할인율은 15%가 체감이 좋아요.</div>
+        <div style="font-size:11px;color:#666;line-height:1.5;">템플릿을 복사해서 카카오톡으로 보내세요. 짧고 따뜻한 한마디면 충분해요.</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${items.map(c => `

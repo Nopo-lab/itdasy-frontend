@@ -76,7 +76,7 @@
       <input class="hub-input" data-field="customer_name" placeholder="고객" ${ac}/>
       <input class="hub-input" data-field="service_name"  placeholder="시술" ${as}/>
       <input class="hub-input" data-field="amount" placeholder="금액" type="number" style="flex:0.8;min-width:70px;"/>
-      <input class="hub-input" data-field="method" placeholder="card" list="ac-method" style="flex:0.8;min-width:70px;" value="card"/>
+      <input class="hub-input" data-field="method" placeholder="카드/현금/계좌이체" list="ac-method" style="flex:0.8;min-width:70px;" value="card"/>
       <button class="hub-btn-stack" data-act="stack">⊕ 쌓기</button>
       <button class="hub-btn-add"  data-act="add">즉시 추가 ↵</button>
     </div>`;
@@ -140,7 +140,7 @@
       <span style="font-size:13px;">${_esc(r.customer_name||'—')}</span>
       <span style="font-size:13px;color:#666;">${_esc(r.service_name||'—')}</span>
       <span class="rh-amount">${_krw(r.amount)}</span>
-      <span class="rh-method">${_esc(r.method||'—')}</span>
+      <span class="rh-method">${_esc(({card:'카드',cash:'현금',transfer:'계좌이체',bank_transfer:'계좌이체',etc:'기타'}[r.method])||r.method||'—')}</span>
       <button class="rh-edit-btn" data-act="edit" data-id="${r.id}">✎</button>
     </div>`;
   }
@@ -151,7 +151,7 @@
         <input class="rh-edit-input" data-ef="customer_name" value="${_esc(r.customer_name||'')}" placeholder="고객"/>
         <input class="rh-edit-input" data-ef="service_name"  value="${_esc(r.service_name||'')}"  placeholder="시술"/>
         <input class="rh-edit-input" data-ef="amount" type="number" value="${r.amount||''}" placeholder="금액"/>
-        <input class="rh-edit-input" data-ef="method" value="${_esc(r.method||'card')}" placeholder="card"/>
+        <input class="rh-edit-input" data-ef="method" value="${_esc(r.method||'card')}" placeholder="카드"/>
       </div>
       <div class="rh-edit-actions">
         <button class="rh-edit-cancel" data-act="edit-cancel">취소</button>

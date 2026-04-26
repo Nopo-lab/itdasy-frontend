@@ -362,7 +362,7 @@
       create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: '#F18091' },
       create_revenue:  { icon: 'ic-dollar-sign',    label: '매출 기록',       color: '#388e3c' },
       create_customer: { icon: 'ic-user',           label: '고객 등록',       color: '#4ECDC4' },
-      create_nps:      { icon: 'ic-star',           label: 'NPS 기록',        color: '#FFD700' },
+      create_nps:      { icon: 'ic-star',           label: '후기 기록',       color: '#FFD700' },
       update_booking:  { icon: 'ic-edit-3',         label: '예약 수정',       color: '#A78BFA' },
       cancel_booking:  { icon: 'ic-trash-2',        label: '예약 취소',       color: '#DC3545' },
       reschedule_booking: { icon: 'ic-refresh-cw',  label: '예약 시간 변경',  color: '#0288D1' },

@@ -329,7 +329,7 @@
   }
 
   function _methodLabel(m) {
-    return { card: '카드', cash: '현금', transfer: '이체', etc: '기타' }[m] || '카드';
+    return { card: '카드', cash: '현금', transfer: '계좌이체', etc: '기타' }[m] || '카드';
   }
 
   function _openAddForm() {
