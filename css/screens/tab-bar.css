@@ -10,6 +10,7 @@
   bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
+  transform: translateX(-50%);  /* iOS Safari 호환 */
   width: calc(100% - 28px);   /* 좌우 14px 마진 */
   max-width: 460px;           /* 가로 화면·태블릿 대응 */
   background: var(--surface);
@@ -20,6 +21,13 @@
   padding: 8px 16px 10px;
   z-index: 200;
   box-shadow: 0 8px 24px rgba(0,0,0,.08);
+
+  /* iOS 하단바 도망 방지 — GPU 레이어 분리 + 뷰포트 변화에 안정적 고정 */
+  will-change: transform;
+  backface-visibility: hidden;
+  backface-visibility: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tab-bar__btn {

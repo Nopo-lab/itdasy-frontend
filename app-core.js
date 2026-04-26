@@ -567,6 +567,10 @@ async function login() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || '로그인 실패');
     setToken(data.access_token);
+    // 이전 세션 SWR 캐시 전부 삭제 → 같은 계정이라도 항상 서버 최신 데이터로 시작
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith('pv_cache::')).forEach(k => localStorage.removeItem(k));
+    } catch (_) { /* ignore */ }
     document.getElementById('lockOverlay').classList.add('hidden');
     checkCbt1Reset();
     checkOnboarding();
@@ -575,6 +579,12 @@ async function login() {
     _offerBiometricEnroll(data.access_token);
     // Wave 2+ — 로그인 직후 주요 데이터 preload (탭 열 때 즉시 표시)
     _preloadTabs();
+    // 홈 화면 AI 추천 카드 즉시 렌더 (로그인하자마자 바로 보이도록)
+    setTimeout(() => {
+      if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
+        try { window.TodayBrief.render('home-today-brief'); } catch (_e) { /* ignore */ }
+      }
+    }, 500);
   } catch(e) {
     errEl.textContent = _friendlyErr(e, '로그인 실패');
     errEl.style.display = 'block';
@@ -745,6 +755,22 @@ window.startKakaoLogin = async function () {
   window.addEventListener('orientationchange', () => setTimeout(set, 250));
 })();
 
+// iOS 하단 네비 '도망' 방지 — 키보드 올라갈 때 탭바 숨기기
+(function _fixTabBarOnKeyboard() {
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  // visualViewport가 줄어들면 키보드가 올라간 것으로 간주
+  if (window.visualViewport) {
+    let baseH = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', () => {
+      const h = window.visualViewport.height;
+      const isKeyboard = h < baseH * 0.75;
+      nav.style.display = isKeyboard ? 'none' : '';
+      if (!isKeyboard) baseH = h; // 회전 등으로 기준 갱신
+    });
+  }
+})();
+
 // ===== 앱 초기화 (모든 모듈 로드 후 실행) =====
 window.addEventListener('load', function() {
   // Enter 키 로그인 (IME 조합 중 무시)
@@ -857,6 +883,12 @@ window.addEventListener('load', function() {
         tsEl2.style.display = 'none';
       }
     }
+    // 홈 화면 AI 추천 카드 즉시 렌더 (자동 로그인 시에도)
+    setTimeout(() => {
+      if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
+        try { window.TodayBrief.render('home-today-brief'); } catch (_e) { /* ignore */ }
+      }
+    }, 800);
   }
 });
 

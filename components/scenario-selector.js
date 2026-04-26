@@ -238,4 +238,4 @@ function renderScenarioSelector(container, onComplete) {
 }
 
 window.renderScenarioSelector = renderScenarioSelector;
-export { renderScenarioSelector };
+// export { renderScenarioSelector }; // → 일반 script 태그 로드용 (module 아님)

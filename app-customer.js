@@ -418,36 +418,59 @@
       }
     } catch (_) { /* ignore — fallback 아래 items */ }
     return new Promise((resolve) => {
-      const items = _cache || [];
       const pop = document.createElement('div');
       pop.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;';
       pop.innerHTML = `
-        <div style="width:100%;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:70vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
+        <div style="width:100%;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:75vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
             <strong style="font-size:16px;">고객 선택</strong>
             <button data-pick-cancel style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;">✕</button>
           </div>
-          <input data-pick-search placeholder="이름·연락처 검색" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:10px;" />
-          <div data-pick-list style="flex:1;overflow-y:auto;min-height:120px;"></div>
-          <button data-pick-clear style="margin-top:8px;padding:10px;border:1px solid #eee;border-radius:8px;background:#fafafa;color:#c00;cursor:pointer;font-size:12px;">지정 해제 (고객 없음)</button>
+          <input data-pick-search placeholder="이름·연락처 검색 또는 새 고객 이름" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:14px;margin-bottom:10px;" />
+          <div data-pick-list style="flex:1;overflow-y:auto;min-height:140px;"></div>
+          <div data-pick-create-row style="display:none;margin-top:8px;padding:10px;border:1px dashed var(--brand,#F18091);border-radius:14px;background:rgba(241,128,145,0.04);">
+            <div style="font-size:11px;color:var(--text-subtle,#888);margin-bottom:6px;">신규 고객으로 추가</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <input data-pick-new-name placeholder="이름" style="flex:1 1 90px;min-width:90px;padding:9px 10px;border:1px solid #ddd;border-radius:14px;font-size:13px;" />
+              <input data-pick-new-phone placeholder="연락처 (선택)" inputmode="tel" style="flex:1 1 110px;min-width:110px;padding:9px 10px;border:1px solid #ddd;border-radius:14px;font-size:13px;" />
+              <button data-pick-create style="flex:0 0 auto;padding:9px 14px;background:linear-gradient(135deg,#F18091,#E96A7E);color:#fff;border:none;border-radius:14px;font-weight:700;font-size:13px;cursor:pointer;">+ 추가하고 선택</button>
+            </div>
+          </div>
+          <button data-pick-clear style="margin-top:8px;padding:10px;border:1px solid #eee;border-radius:14px;background:#fafafa;color:#c00;cursor:pointer;font-size:12px;">지정 해제 (고객 없음)</button>
         </div>
       `;
       document.body.appendChild(pop);
       const searchEl = pop.querySelector('[data-pick-search]');
       const listEl = pop.querySelector('[data-pick-list]');
+      const createRow = pop.querySelector('[data-pick-create-row]');
+      const newNameEl = pop.querySelector('[data-pick-new-name]');
+      const newPhoneEl = pop.querySelector('[data-pick-new-phone]');
+      const createBtn = pop.querySelector('[data-pick-create]');
       const close = (val) => { pop.remove(); resolve(val); };
 
       const render = () => {
+        const items = _cache || [];
         const q = searchEl.value;
+        const trimmed = q.trim();
         const hits = search(q);
         if (!hits.length) {
-          listEl.innerHTML = '<div style="padding:30px;text-align:center;color:#aaa;font-size:13px;">' +
-            (items.length ? '검색 결과 없음' : '등록된 고객이 없어요. 먼저 설정 → 내 고객 관리에서 추가해 주세요.') +
-            '</div>';
+          if (trimmed) {
+            // 검색어 있는데 결과 0건 → 즉석 신규 추가 UI 노출
+            listEl.innerHTML = `<div style="padding:24px 12px;text-align:center;color:#888;font-size:13px;">'${_esc(trimmed)}' 고객을 찾을 수 없어요</div>`;
+            createRow.style.display = 'block';
+            newNameEl.value = trimmed;
+          } else {
+            listEl.innerHTML = '<div style="padding:30px;text-align:center;color:#aaa;font-size:13px;">' +
+              (items.length ? '이름·연락처로 검색해 주세요' : '등록된 고객이 없어요. 아래에서 바로 추가할 수 있어요.') +
+              '</div>';
+            createRow.style.display = items.length ? 'none' : 'block';
+            if (!items.length && !newNameEl.value) newNameEl.value = '';
+          }
           return;
         }
+        createRow.style.display = 'none';
         listEl.innerHTML = hits.map(c => `
-          <div data-pick-id="${c.id}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
+          <div data-pick-id="${c.id}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
             <strong style="font-size:14px;">${_esc(c.name)}</strong>
             ${c.phone ? `<span style="font-size:12px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
             ${c.visit_count ? `<span style="font-size:10px;color:var(--accent,#F18091);margin-left:6px;">방문 ${c.visit_count}</span>` : ''}
@@ -456,13 +479,47 @@
         listEl.querySelectorAll('[data-pick-id]').forEach(row => {
           row.addEventListener('click', () => {
             const pickedId = row.dataset.pickId;
-            const c = items.find(x => String(x.id) === String(pickedId));
+            const items2 = _cache || [];
+            const c = items2.find(x => String(x.id) === String(pickedId));
             close(c ? { id: c.id, name: c.name } : null);
           });
         });
       };
+
+      // 즉석 신규 고객 생성 → 바로 선택
+      const onCreate = async () => {
+        const name = (newNameEl.value || '').trim();
+        const phone = (newPhoneEl.value || '').trim();
+        if (!name) {
+          if (window.showToast) window.showToast('이름을 입력해 주세요');
+          newNameEl.focus();
+          return;
+        }
+        createBtn.disabled = true;
+        createBtn.textContent = '추가 중…';
+        try {
+          const created = await create({ name, phone: phone || null });
+          if (window.hapticLight) window.hapticLight();
+          if (window.showToast) window.showToast(`${created.name} 새 고객으로 추가됐어요`);
+          // 데이터 변경 이벤트 (대시보드·목록 자동 새로고침)
+          try {
+            window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_customer' } }));
+          } catch (_e) { /* ignore */ }
+          close({ id: created.id, name: created.name });
+        } catch (err) {
+          createBtn.disabled = false;
+          createBtn.textContent = '+ 추가하고 선택';
+          if (err && err.message === 'free-limit-reached') return;  // create() 내부에서 토스트 처리됨
+          console.warn('[customer.pick] 신규 추가 실패:', err);
+          if (window.showToast) window.showToast('고객 추가 실패');
+        }
+      };
+
       render();
       searchEl.addEventListener('input', render);
+      newNameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); onCreate(); } });
+      newPhoneEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); onCreate(); } });
+      createBtn.addEventListener('click', onCreate);
       pop.querySelector('[data-pick-cancel]').addEventListener('click', () => close(null));
       pop.querySelector('[data-pick-clear]').addEventListener('click', () => close({ id: null, name: null }));
       pop.addEventListener('click', (e) => { if (e.target === pop) close(null); });

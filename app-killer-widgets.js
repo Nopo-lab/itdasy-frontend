@@ -233,10 +233,39 @@
     document.querySelectorAll('[data-kw-draft]').forEach(btn => {
       btn.addEventListener('click', async () => {
         btn.disabled = true; btn.textContent = '초안 만드는 중…';
-        const d = await _askAI('이탈 위험 단골 3명에게 보낼 안부 문자 초안 써줘. 한 메시지 단순하고 부담없게 3문장 이내로.');
+        // 백엔드 bulk API로 고객별 개인화 초안 생성 시도
+        let bulkDrafts = null;
+        try {
+          const brief = await _fetchBrief();
+          const atRisk = brief?.at_risk || [];
+          if (atRisk.length > 0) {
+            // 고객 ID가 있으면 bulk API 사용
+            const ids = atRisk.slice(0, 5).map(a => a.customer_id).filter(Boolean);
+            if (ids.length > 0) {
+              const res = await fetch(API() + '/retention/bulk-message-draft', {
+                method: 'POST',
+                headers: { ...AUTH(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customer_ids: ids, tone: '친근한' }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                bulkDrafts = data.items || [];
+              }
+            }
+          }
+        } catch (e) { console.warn('[kw] bulk draft 실패:', e); }
+
+        // bulk API 실패 시 기존 펴백 (AI 프롬프트 개선)
+        if (!bulkDrafts || bulkDrafts.length === 0) {
+          const d = await _askAI('이탈 위험 단골 3명에게 보낼 안부 문자 초안을 써줘.\n\n규칙:\n- 핵심 메시지(안부 인사, 재방문 유도)는 모든 고객 동일\n- 고객별로 OOO고객님 이름, 마지막 시술 내용, 마지막 방문 시기만 달라지게\n- 각 메시지 80자 이상 200자 이내\n- 빈 줄 없이 고객별로 나눠서 써줘\n- 이모지 1~2개, 부담 없는 톤');
+          btn.disabled = false; btn.textContent = '📋 안부 문자 초안 만들기';
+          if (!d || !d.answer) { if (window.showToast) window.showToast('초안 생성 실패'); return; }
+          _showSmsDraftModal(d.answer, null);
+          return;
+        }
+
         btn.disabled = false; btn.textContent = '📋 안부 문자 초안 만들기';
-        if (!d || !d.answer) { if (window.showToast) window.showToast('초안 생성 실패'); return; }
-        _showSmsDraftModal(d.answer);
+        _showSmsDraftModal(null, bulkDrafts);
       });
     });
     document.querySelectorAll('[data-kw-setgoal]').forEach(btn => {
@@ -283,41 +312,106 @@
     } catch (e) { return []; }
   }
 
-  function _showSmsDraftModal(draftText) {
+  function _showSmsDraftModal(draftText, bulkDrafts) {
     const id = 'kw-sms-overlay';
     const existing = document.getElementById(id);
     if (existing) existing.remove();
     const o = document.createElement('div');
     o.id = id;
     o.style.cssText = `position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;animation:pvFadeIn 0.2s ease;`;
+
+    const hasBulk = bulkDrafts && bulkDrafts.length > 0;
+
     o.innerHTML = `
-      <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);max-height:85vh;overflow-y:auto;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div style="font-size:15px;font-weight:900;">📋 안부 문자 초안</div>
           <button id="kw-sms-close" style="width:30px;height:30px;border:none;border-radius:10px;background:#eee;cursor:pointer;">✕</button>
         </div>
-        <textarea id="kw-sms-text" style="width:100%;min-height:120px;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.55;">${draftText.replace(/</g,'&lt;')}</textarea>
+        ${hasBulk ? `
+          <div style="font-size:11.5px;color:#888;margin-bottom:12px;line-height:1.5;">
+            💡 <strong>고객별 맞춤 초안</strong>이 준비됐어요. 각 고객 이름과 시술 정보에 맞게 조금씩 다르게 만들었어요.
+          </div>
+          <div id="kw-bulk-drafts" style="display:flex;flex-direction:column;gap:10px;"></div>
+        ` : `
+          <textarea id="kw-sms-text" style="width:100%;min-height:140px;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:13px;font-family:inherit;resize:vertical;line-height:1.55;">${(draftText || '').replace(/</g,'&lt;')}</textarea>
+        `}
         <div style="margin-top:10px;font-size:11.5px;color:#888;line-height:1.5;">
           💡 <strong>발송자는 원장님 본인</strong>입니다. 버튼 탭 → 기본 메시지 앱이 열리고 내용이 채워져요. 원장님이 보낼지 선택하세요.
         </div>
-        <div id="kw-sms-list" style="margin-top:14px;max-height:240px;overflow:auto;"></div>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button id="kw-sms-copy" style="flex:1;padding:10px;border:1px solid #eee;border-radius:10px;background:#fff;font-weight:700;cursor:pointer;font-size:12.5px;">📄 전체 복사</button>
-          <button id="kw-sms-cancel" style="padding:10px 14px;border:1px solid #eee;border-radius:10px;background:#fafafa;cursor:pointer;font-size:12.5px;">닫기</button>
-        </div>
+        ${!hasBulk ? `
+          <div id="kw-sms-list" style="margin-top:14px;max-height:240px;overflow:auto;"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button id="kw-sms-copy" style="flex:1;padding:10px;border:1px solid #eee;border-radius:10px;background:#fff;font-weight:700;cursor:pointer;font-size:12.5px;">📄 전체 복사</button>
+            <button id="kw-sms-cancel" style="padding:10px 14px;border:1px solid #eee;border-radius:10px;background:#fafafa;cursor:pointer;font-size:12.5px;">닫기</button>
+          </div>
+        ` : `
+          <div style="display:flex;gap:8px;margin-top:14px;">
+            <button id="kw-sms-copyall" style="flex:1;padding:10px;border:1px solid #eee;border-radius:10px;background:#fff;font-weight:700;cursor:pointer;font-size:12.5px;">📄 전체 복사</button>
+            <button id="kw-sms-cancel" style="padding:10px 14px;border:1px solid #eee;border-radius:10px;background:#fafafa;cursor:pointer;font-size:12.5px;">닫기</button>
+          </div>
+        `}
       </div>
     `;
     document.body.appendChild(o);
     o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
     o.querySelector('#kw-sms-close').addEventListener('click', () => o.remove());
     o.querySelector('#kw-sms-cancel').addEventListener('click', () => o.remove());
-    o.querySelector('#kw-sms-copy').addEventListener('click', async () => {
+
+    // 고객별 bulk 초안 모드
+    if (hasBulk) {
+      const container = o.querySelector('#kw-bulk-drafts');
+      bulkDrafts.forEach(item => {
+        const card = document.createElement('div');
+        card.style.cssText = 'padding:14px;border:1px solid #F9D6DC;border-radius:14px;background:#FEF4F5;';
+        card.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <strong style="font-size:14px;flex:1;">${_esc(item.name)}</strong>
+            ${item.phone ? `<span style="font-size:11px;color:#888;">${_esc(item.phone)}</span>` : '<span style="font-size:11px;color:#ccc;">연락처 없음</span>'}
+          </div>
+          <textarea class="kw-draft-text" style="width:100%;min-height:80px;padding:10px;border:1px solid #eee;border-radius:8px;font-size:12.5px;font-family:inherit;resize:vertical;line-height:1.55;">${_esc(item.draft_text || '')}</textarea>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="kw-draft-copy" style="flex:1;padding:8px;border:1px solid #eee;border-radius:8px;background:#fff;font-size:11.5px;cursor:pointer;font-weight:700;">📄 복사</button>
+            ${item.phone ? `<button class="kw-draft-sms" data-phone="${_esc(item.phone)}" style="flex:1;padding:8px;background:linear-gradient(135deg,#F18091,#E96A7E);color:#fff;border:none;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:700;">📨 문자 열기</button>` : ''}
+          </div>
+        `;
+        container.appendChild(card);
+
+        card.querySelector('.kw-draft-copy').addEventListener('click', async () => {
+          try {
+            const txt = card.querySelector('.kw-draft-text').value;
+            await navigator.clipboard.writeText(txt);
+            if (window.showToast) window.showToast(`✅ ${item.name}님 초안 복사됨`);
+          } catch (e) { /* ignore */ }
+        });
+        card.querySelector('.kw-draft-sms')?.addEventListener('click', () => {
+          const phone = item.phone;
+          const msg = encodeURIComponent(card.querySelector('.kw-draft-text').value);
+          const ua = navigator.userAgent;
+          const url = /iPhone|iPad|iOS/.test(ua) ? `sms:${phone}&body=${msg}` : `sms:${phone}?body=${msg}`;
+          window.location.href = url;
+        });
+      });
+
+      o.querySelector('#kw-sms-copyall')?.addEventListener('click', async () => {
+        try {
+          const all = bulkDrafts.map(d => `[받는 사람: ${d.name}]\n${d.draft_text}`).join('\n\n---\n\n');
+          await navigator.clipboard.writeText(all);
+          if (window.showToast) window.showToast('✅ 전체 초안 복사됨');
+        } catch (e) { /* ignore */ }
+      });
+      return;
+    }
+
+    // 전체 복사 (기존 단일 초안 모드)
+    o.querySelector('#kw-sms-copy')?.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(document.getElementById('kw-sms-text').value); if (window.showToast) window.showToast('✅ 복사됨'); } catch(e) { /* ignore */ }
     });
 
     // 대상 고객 리스트 로드 → 각 전화번호로 SMS 링크 생성
     _getAtRiskPhones().then(phones => {
       const list = o.querySelector('#kw-sms-list');
+      if (!list) return;
       if (!phones.length) {
         list.innerHTML = `<div style="padding:14px;text-align:center;font-size:12px;color:#aaa;">전화번호 등록된 이탈 위험 고객이 없어요. 전체 복사 후 직접 보내주세요.</div>`;
         return;
@@ -333,7 +427,6 @@
         b.addEventListener('click', () => {
           const phone = b.getAttribute('data-kw-sms-to');
           const msg = encodeURIComponent(document.getElementById('kw-sms-text').value);
-          // iOS 는 sms:phone&body, Android 는 sms:phone?body — 둘 다 호환 시도
           const ua = navigator.userAgent;
           const url = /iPhone|iPad|iOS/.test(ua) ? `sms:${phone}&body=${msg}` : `sms:${phone}?body=${msg}`;
           window.location.href = url;

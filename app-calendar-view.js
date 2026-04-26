@@ -215,9 +215,15 @@
   <div style="flex:1"><label class="dt-field-lbl">시작 *</label><select id="bfStart" class="dt-field">${opt(defStart)}</select></div>
   <div style="flex:1"><label class="dt-field-lbl">종료 *</label><select id="bfEnd" class="dt-field">${opt(defEnd)}</select></div>
 </div>
-<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
-  <input id="bfCustName" readonly class="dt-field" style="flex:1" placeholder="고객 (선택)" value="${_esc(existing?.customer_name || '')}" />
+<div class="dt-field-row"><label class="dt-field-lbl">고객</label>
+<div style="display:flex;gap:6px;align-items:center;">
+  <input id="bfCustName" readonly class="dt-field" style="flex:1;cursor:pointer;" placeholder="탭해서 고객 선택" value="${_esc(existing?.customer_name || '')}" />
   <button type="button" id="bfCustPick" class="btn-secondary">👤 선택</button>
+</div>
+<div id="bfCustChip" style="margin-top:6px;display:${existing?.customer_name ? 'flex' : 'none'};align-items:center;gap:6px;padding:6px 12px;background:rgba(241,128,145,0.08);border-radius:10px;font-size:12px;color:var(--brand,#F18091);font-weight:700;">
+  <span id="bfCustChipName">${_esc(existing?.customer_name || '')}</span>
+  <button type="button" id="bfCustClear" style="background:none;border:none;color:#c00;cursor:pointer;font-size:14px;padding:0 4px;" title="고객 지정 해제">✕</button>
+</div>
 </div>
 <div class="dt-field-row"><label class="dt-field-lbl">서비스</label>
   <input id="bfSvc" list="bfSvcDl" class="dt-field" value="${_esc(existing?.service_name || '')}" placeholder="시술명" maxlength="50" autocomplete="off" /><datalist id="bfSvcDl"></datalist></div>
@@ -241,12 +247,33 @@ ${isEdit ? `
 
   function _bindFormExtras(body, existing) {
     let custId = existing?.customer_id || null;
-    body.querySelector('#bfCustPick').addEventListener('click', async () => {
+    const _updateCustChip = (name) => {
+      const chip = body.querySelector('#bfCustChip');
+      const chipName = body.querySelector('#bfCustChipName');
+      if (chip && chipName) {
+        if (name) {
+          chipName.textContent = '✅ ' + name + ' 선택됨';
+          chip.style.display = 'flex';
+        } else {
+          chip.style.display = 'none';
+        }
+      }
+    };
+    const _doPick = async () => {
       if (!window.Customer?.pick) { if (window.showToast) window.showToast('고객 모듈 로드 중…'); return; }
       const picked = await window.Customer.pick({ selectedId: custId });
       if (picked === null) return;
       custId = picked.id;
-      body.querySelector('#bfCustName').value = picked.name || '';
+      const name = picked.name || '';
+      body.querySelector('#bfCustName').value = name;
+      _updateCustChip(name);
+    };
+    body.querySelector('#bfCustPick').addEventListener('click', _doPick);
+    body.querySelector('#bfCustName').addEventListener('click', _doPick);
+    body.querySelector('#bfCustClear')?.addEventListener('click', () => {
+      custId = null;
+      body.querySelector('#bfCustName').value = '';
+      _updateCustChip(null);
     });
     const chk = () => {
       const d = body.querySelector('#bfDate').value;
@@ -295,7 +322,8 @@ ${isEdit ? `
           window.dispatchEvent(new CustomEvent('booking:created', { detail: { customer_name: payload.customer_name, customer_id: payload.customer_id || null } }));
         }
         if (window.hapticLight) window.hapticLight();
-        if (window.showToast) window.showToast(existing ? '수정 완료' : '예약 추가 완료');
+        const custLabel = payload.customer_name ? ` (${payload.customer_name})` : '';
+        if (window.showToast) window.showToast(existing ? '수정 완료' + custLabel : '✅ 예약 추가 완료' + custLabel);
         if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
         _mappedCache = await _loadMonth(_curYear, _curMonth);
         _renderDay(date || _curDate, _mappedCache);
