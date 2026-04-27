@@ -7,8 +7,24 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260426-v23';
+const CACHE_VERSION = '20260426-v24';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
+const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
+
+// 오프라인 fallback 용 GET API 경로 — 정확히 매칭되는 read-only endpoint
+// (mutation 은 절대 캐시하지 않음)
+const _API_GET_FALLBACK_PATHS = [
+  '/customers',
+  '/bookings',
+  '/revenue',
+  '/inventory',
+  '/today/brief',
+  '/services',
+];
+function _isCacheableApiGet(req, url) {
+  if (req.method !== 'GET') return false;
+  return _API_GET_FALLBACK_PATHS.some(p => url.pathname === p || url.pathname.startsWith(p + '?') || url.pathname.startsWith(p + '/'));
+}
 
 // SW 기준 상대경로 — 호스팅 경로 바뀌어도 자동 동작
 const OFFLINE_URL   = './offline.html';
@@ -22,6 +38,7 @@ const STATIC_ASSETS = [
   './style-polish.css',
   './style-dark.css',
   './app-core.js',
+  './app-perf-recovery.js',
   './app-instagram.js',
   './app-caption.js',
   './app-portfolio.js',
@@ -53,7 +70,7 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key.startsWith('itdasy-') && key !== CACHE_NAME)
+          .filter(key => key.startsWith('itdasy-') && key !== CACHE_NAME && key !== API_CACHE_NAME)
           .map(key => {
             console.log(`[SW] 구 캐시 삭제: ${key}`);
             return caches.delete(key);
@@ -80,7 +97,49 @@ self.addEventListener('fetch', event => {
 
   // [A10] 백엔드 API 패턴 — same-origin 이라도 무조건 SW 미개입 (network-first 대체로 안전한 default)
   if (_isDynamicApi(url)) {
-    return;  // 브라우저 기본 fetch — 항상 최신
+    // 단, read-only GET 일부는 오프라인 fallback 용으로 network-first + cache 응답
+    if (_isCacheableApiGet(event.request, url)) {
+      event.respondWith((async () => {
+        try {
+          // network-first
+          const fresh = await fetch(event.request);
+          if (fresh && fresh.ok) {
+            try {
+              const clone = fresh.clone();
+              caches.open(API_CACHE_NAME).then(c => c.put(event.request, clone)).catch(() => {});
+            } catch (_) { /* ignore */ }
+            return fresh;
+          }
+          // 5xx 등 오류 → 캐시 fallback 시도
+          const cached = await caches.match(event.request, { cacheName: API_CACHE_NAME });
+          if (cached) {
+            const headers = new Headers(cached.headers);
+            headers.set('X-Offline', 'true');
+            return new Response(await cached.clone().blob(), {
+              status: cached.status, statusText: cached.statusText, headers,
+            });
+          }
+          return fresh;
+        } catch (_e) {
+          // 네트워크 실패 → 캐시 fallback (X-Offline 헤더 추가)
+          const cached = await caches.match(event.request, { cacheName: API_CACHE_NAME });
+          if (cached) {
+            const headers = new Headers(cached.headers);
+            headers.set('X-Offline', 'true');
+            return new Response(await cached.clone().blob(), {
+              status: cached.status, statusText: cached.statusText, headers,
+            });
+          }
+          // 캐시도 없으면 빈 items 응답 (프론트가 깨지지 않도록)
+          return new Response(JSON.stringify({ items: [], _offline: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'X-Offline': 'true' },
+          });
+        }
+      })());
+      return;
+    }
+    return;  // 그 외 API — 브라우저 기본 fetch (항상 최신, mutation 등)
   }
 
   const isStaticAsset =

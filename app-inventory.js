@@ -244,17 +244,20 @@
     const sheet = document.getElementById('inventorySheet');
     if (!sheet) return;
     const listEl = sheet.querySelector('#inventoryList');
+    const _ifFormId = id ? `inventory-edit::${id}` : 'inventory-add';
     listEl.innerHTML = `
+      <div data-form-id="${_ifFormId}">
       <button onclick="window._inventoryBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="ifName" class="dt-field" value="${_esc(existing?.name||'')}" placeholder="네일팁 / 젤 / 접착제" maxlength="50" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="ifName" name="ifName" class="dt-field" value="${_esc(existing?.name||'')}" placeholder="네일팁 / 젤 / 접착제" maxlength="50" /></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <div style="flex:1;"><label class="dt-field-lbl">현재 수량</label><input id="ifQty" type="number" inputmode="numeric" class="dt-field" value="${existing?.quantity ?? 0}" /></div>
-        <div style="width:80px;"><label class="dt-field-lbl">단위</label><input id="ifUnit" class="dt-field" value="${_esc(existing?.unit||'개')}" maxlength="10" /></div>
+        <div style="flex:1;"><label class="dt-field-lbl">현재 수량</label><input id="ifQty" name="ifQty" type="number" inputmode="numeric" class="dt-field" value="${existing?.quantity ?? 0}" /></div>
+        <div style="width:80px;"><label class="dt-field-lbl">단위</label><input id="ifUnit" name="ifUnit" class="dt-field" value="${_esc(existing?.unit||'개')}" maxlength="10" /></div>
       </div>
-      <div class="dt-field-row"><label class="dt-field-lbl">부족 알림 임계치</label><input id="ifThreshold" type="number" inputmode="numeric" class="dt-field" value="${existing?.threshold ?? 5}" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">부족 알림 임계치</label><input id="ifThreshold" name="ifThreshold" type="number" inputmode="numeric" class="dt-field" value="${existing?.threshold ?? 5}" /></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <button type="button" id="ifSave" class="btn-primary" style="flex:1;">${existing ? '수정' : '추가'}</button>
-        ${existing ? '<button type="button" id="ifDelete" class="btn-secondary" style="color:var(--danger);">삭제</button>' : ''}
+        <button type="button" id="ifSave" class="btn-primary" data-mutation style="flex:1;">${existing ? '수정' : '추가'}</button>
+        ${existing ? '<button type="button" id="ifDelete" class="btn-secondary" data-mutation style="color:var(--danger);">삭제</button>' : ''}
+      </div>
       </div>
     `;
     listEl.querySelector('#ifSave').addEventListener('click', async () => {
@@ -285,6 +288,7 @@
         }
         if (window.hapticLight) window.hapticLight();
         if (window.showToast) window.showToast(existing ? '수정 완료' : '추가 완료');
+        if (typeof window._formRecoveryClear === 'function') window._formRecoveryClear(_ifFormId);
         _rerender();
       } catch (e) {
         console.warn('[inventory] save 실패:', e);
@@ -313,7 +317,9 @@
     sheet.classList.add('dt-shown');
     document.body.style.overflow = 'hidden';
     const listEl = sheet.querySelector('#inventoryList');
-    listEl.innerHTML = '<div class="dt-loading">불러오는 중…</div>';
+    listEl.innerHTML = (typeof window._renderSkeleton === 'function')
+      ? window._renderSkeleton(5)
+      : '<div class="dt-loading">불러오는 중…</div>';
     try {
       await list();
       _rerender();

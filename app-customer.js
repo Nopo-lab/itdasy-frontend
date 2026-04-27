@@ -355,16 +355,19 @@
     const box = document.getElementById('customerList');
     if (!box) return;
     const c = existing || { name: '', phone: '', memo: '', tags: [], birthday: '' };
+    const _formId = id ? `customer-edit::${id}` : 'customer-add';
     box.innerHTML = `
+      <div data-form-id="${_formId}">
       <button onclick="window._customerBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="cfName" class="dt-field" value="${_esc(c.name)}" maxlength="50" /></div>
-      <div class="dt-field-row"><label class="dt-field-lbl">연락처</label><input id="cfPhone" class="dt-field" value="${_esc(c.phone||'')}" inputmode="tel" maxlength="20" /></div>
-      <div class="dt-field-row"><label class="dt-field-lbl">생일 (MM-DD)</label><input id="cfBirthday" class="dt-field" value="${_esc(c.birthday||'')}" placeholder="03-14" maxlength="5" /></div>
-      <div class="dt-field-row"><label class="dt-field-lbl">태그 (쉼표로 구분)</label><input id="cfTags" class="dt-field" value="${_esc((c.tags||[]).join(', '))}" placeholder="VIP, 속눈썹" /></div>
-      <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="cfMemo" class="dt-field" rows="3" maxlength="500">${_esc(c.memo||'')}</textarea></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="cfName" name="cfName" class="dt-field" value="${_esc(c.name)}" maxlength="50" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">연락처</label><input id="cfPhone" name="cfPhone" class="dt-field" value="${_esc(c.phone||'')}" inputmode="tel" maxlength="20" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">생일 (MM-DD)</label><input id="cfBirthday" name="cfBirthday" class="dt-field" value="${_esc(c.birthday||'')}" placeholder="03-14" maxlength="5" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">태그 (쉼표로 구분)</label><input id="cfTags" name="cfTags" class="dt-field" value="${_esc((c.tags||[]).join(', '))}" placeholder="VIP, 속눈썹" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="cfMemo" name="cfMemo" class="dt-field" rows="3" maxlength="500">${_esc(c.memo||'')}</textarea></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <button onclick="window._customerSave('${id||''}')" class="btn-primary" style="flex:1;">${existing ? '수정' : '추가'}</button>
-        ${existing ? `<button onclick="window._customerDelete('${id}')" class="btn-secondary" style="color:var(--danger);">삭제</button>` : ''}
+        <button onclick="window._customerSave('${id||''}')" class="btn-primary" data-mutation style="flex:1;">${existing ? '수정' : '추가'}</button>
+        ${existing ? `<button onclick="window._customerDelete('${id}')" class="btn-secondary" data-mutation style="color:var(--danger);">삭제</button>` : ''}
+      </div>
       </div>
     `;
     document.getElementById('cfName')?.focus();
@@ -389,6 +392,9 @@
       else await create(payload);
       if (window.hapticLight) window.hapticLight();
       if (window.showToast) window.showToast(id ? '수정 완료' : '추가 완료');
+      if (typeof window._formRecoveryClear === 'function') {
+        window._formRecoveryClear(id ? `customer-edit::${id}` : 'customer-add');
+      }
       _rerender();
     } catch (e) {
       console.warn('[customer] save 실패:', e);
@@ -423,7 +429,9 @@
       // 오래된 캐시면 백그라운드 갱신 (list() 내부에서 자동 처리)
       list().then(() => _rerender()).catch(() => {});
     } else {
-      box.innerHTML = '<div class="dt-loading">불러오는 중…</div>';
+      box.innerHTML = (typeof window._renderSkeleton === 'function')
+        ? window._renderSkeleton(6)
+        : '<div class="dt-loading">불러오는 중…</div>';
       try {
         await list();
         _rerender();

@@ -422,38 +422,41 @@
     const defStart = existing ? _fmt(new Date(existing.starts_at)) : (pendingStart ? _fmt(pendingStart) : slots[0]);
     const defEnd   = existing ? _fmt(new Date(existing.ends_at))   : (pendingEnd   ? _fmt(pendingEnd)   : slots[2]);
 
+    const _bfFormId = bookingId ? `booking-edit::${bookingId}` : 'booking-add';
     grid.innerHTML = `
+      <div data-form-id="${_bfFormId}">
       <button onclick="window._bookingBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <div class="dt-field-row"><label class="dt-field-lbl">날짜 *</label><input id="bfDate" type="date" class="dt-field" value="${dateStr}" /></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">날짜 *</label><input id="bfDate" name="bfDate" type="date" class="dt-field" value="${dateStr}" /></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <div style="flex:1;"><label class="dt-field-lbl">시작 *</label><select id="bfStart" class="dt-field">${slots.map(t => `<option value="${t}" ${t === defStart ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-        <div style="flex:1;"><label class="dt-field-lbl">종료 *</label><select id="bfEnd" class="dt-field">${slots.map(t => `<option value="${t}" ${t === defEnd ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div style="flex:1;"><label class="dt-field-lbl">시작 *</label><select id="bfStart" name="bfStart" class="dt-field">${slots.map(t => `<option value="${t}" ${t === defStart ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div style="flex:1;"><label class="dt-field-lbl">종료 *</label><select id="bfEnd" name="bfEnd" class="dt-field">${slots.map(t => `<option value="${t}" ${t === defEnd ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
-        <input id="bfCustomerName" readonly class="dt-field" style="flex:1;" placeholder="고객 (선택)" value="${_esc(existing?.customer_name||'')}" />
+        <input id="bfCustomerName" name="bfCustomerName" readonly class="dt-field" style="flex:1;" placeholder="고객 (선택)" value="${_esc(existing?.customer_name||'')}" />
         <button type="button" id="bfCustomerPick" class="btn-secondary">👤 선택</button>
       </div>
-      <div class="dt-field-row"><label class="dt-field-lbl">서비스</label><input id="bfService" list="bfServiceDatalist" class="dt-field" value="${_esc(existing?.service_name||'')}" placeholder="속눈썹 풀세트" maxlength="50" autocomplete="off" /><datalist id="bfServiceDatalist"></datalist></div>
-      <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="bfMemo" class="dt-field" rows="2" maxlength="200">${_esc(existing?.memo||'')}</textarea></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">서비스</label><input id="bfService" name="bfService" list="bfServiceDatalist" class="dt-field" value="${_esc(existing?.service_name||'')}" placeholder="속눈썹 풀세트" maxlength="50" autocomplete="off" /><datalist id="bfServiceDatalist"></datalist></div>
+      <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="bfMemo" name="bfMemo" class="dt-field" rows="2" maxlength="200">${_esc(existing?.memo||'')}</textarea></div>
       <div id="bfConflict" class="dt-conflict">⚠️ 이 시간에 이미 예약이 있어요</div>
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button type="button" id="bfSave" class="btn-primary" style="flex:1;">${existing ? '수정' : '저장'}</button>
-        ${existing ? `<button type="button" id="bfDelete" class="btn-secondary" style="color:var(--danger);">삭제</button>` : ''}
+        <button type="button" id="bfSave" class="btn-primary" data-mutation style="flex:1;">${existing ? '수정' : '저장'}</button>
+        ${existing ? `<button type="button" id="bfDelete" class="btn-secondary" data-mutation style="color:var(--danger);">삭제</button>` : ''}
       </div>
       ${existing && existing.status !== 'completed' ? `
-        <button type="button" id="bfComplete" class="main-cta" style="width:100%;margin-bottom:10px;">🎀 시술 완료 · 매출·후기 한 번에 기록</button>
+        <button type="button" id="bfComplete" class="main-cta" data-mutation style="width:100%;margin-bottom:10px;">🎀 시술 완료 · 매출·후기 한 번에 기록</button>
       ` : ''}
       ${existing ? `
         <div style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border);">
           <div style="font-size:11px;color:var(--text-subtle);margin-bottom:8px;font-weight:700;">예약 상태</div>
           <div class="dt-status-row">
-            <button type="button" data-bf-status="confirmed" class="dt-status-btn${existing.status==='confirmed'?' dt-status-btn--confirmed':''}">📅 확정</button>
-            <button type="button" data-bf-status="no_show" class="dt-status-btn${existing.status==='no_show'?' dt-status-btn--no-show':''}">🚫 안 옴</button>
-            <button type="button" data-bf-status="completed" class="dt-status-btn${existing.status==='completed'?' dt-status-btn--completed':''}">✅ 완료</button>
-            <button type="button" data-bf-status="cancelled" class="dt-status-btn${existing.status==='cancelled'?' dt-status-btn--cancelled':''}">❌ 취소</button>
+            <button type="button" data-bf-status="confirmed" data-mutation class="dt-status-btn${existing.status==='confirmed'?' dt-status-btn--confirmed':''}">📅 확정</button>
+            <button type="button" data-bf-status="no_show" data-mutation class="dt-status-btn${existing.status==='no_show'?' dt-status-btn--no-show':''}">🚫 안 옴</button>
+            <button type="button" data-bf-status="completed" data-mutation class="dt-status-btn${existing.status==='completed'?' dt-status-btn--completed':''}">✅ 완료</button>
+            <button type="button" data-bf-status="cancelled" data-mutation class="dt-status-btn${existing.status==='cancelled'?' dt-status-btn--cancelled':''}">❌ 취소</button>
           </div>
         </div>
       ` : ''}
+      </div>
     `;
 
     // 자주 쓴 시술 datalist 채우기 (ServiceTemplate + 최근 매출)
@@ -516,6 +519,7 @@
         else await create(payload);
         if (window.hapticLight) window.hapticLight();
         if (window.showToast) window.showToast(existing ? '수정 완료' : '예약 추가 완료');
+        if (typeof window._formRecoveryClear === 'function') window._formRecoveryClear(_bfFormId);
         await _loadAndRender();
       } catch (err) {
         console.warn('[booking] save 실패:', err);

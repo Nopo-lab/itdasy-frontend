@@ -367,24 +367,24 @@
     if (!sheet) return;
     const listEl = sheet.querySelector('#revenueList');
     listEl.innerHTML = `
-      <div style="padding:4px;">
+      <div data-form-id="revenue-add" style="padding:4px;">
         <button onclick="window._revenueBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 목록</button>
         <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">금액 (원) *</label>
-        <input id="rfAmount" type="number" inputmode="numeric" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-size:16px;" placeholder="50000" />
+        <input id="rfAmount" name="rfAmount" type="number" inputmode="numeric" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-size:16px;" placeholder="50000" />
         <div style="display:flex;gap:6px;margin-bottom:10px;">
           ${['card','cash','transfer','etc'].map(m => `
             <button type="button" data-rf-method="${m}" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;">${_methodLabel(m)}</button>
           `).join('')}
         </div>
         <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">서비스</label>
-        <input id="rfService" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" placeholder="속눈썹 풀세트" maxlength="50" />
+        <input id="rfService" name="rfService" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;" placeholder="속눈썹 풀세트" maxlength="50" />
         <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
           <input id="rfCustomerName" readonly style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fafafa;" placeholder="고객 (선택)" />
           <button type="button" id="rfCustomerPick" style="padding:10px 14px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:12px;">👤 선택</button>
         </div>
         <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">메모</label>
-        <textarea id="rfMemo" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-family:inherit;resize:vertical;" maxlength="200"></textarea>
-        <button type="button" id="rfSave" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">저장</button>
+        <textarea id="rfMemo" name="rfMemo" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:10px;font-family:inherit;resize:vertical;" maxlength="200"></textarea>
+        <button type="button" id="rfSave" data-mutation style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">저장</button>
       </div>
     `;
     let method = 'card';
@@ -429,6 +429,7 @@
         });
         if (window.hapticLight) window.hapticLight();
         if (window.showToast) window.showToast('매출 기록 완료');
+        if (typeof window._formRecoveryClear === 'function') window._formRecoveryClear('revenue-add');
         await _loadAndRender();
       } catch (e) {
         console.warn('[revenue] create 실패:', e);
@@ -454,7 +455,9 @@
     const sheet = document.getElementById('revenueSheet');
     if (!sheet) return;
     const listEl = sheet.querySelector('#revenueList');
-    listEl.innerHTML = '<div style="padding:30px;text-align:center;color:#aaa;">불러오는 중…</div>';
+    listEl.innerHTML = (typeof window._renderSkeleton === 'function')
+      ? window._renderSkeleton(5)
+      : '<div style="padding:30px;text-align:center;color:#aaa;">불러오는 중…</div>';
     try {
       await list(_currentPeriod);
       _rerender();
