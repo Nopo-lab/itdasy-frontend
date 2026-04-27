@@ -332,6 +332,7 @@
   //   는 폴백 미지원 — 별도 PR 에서 SpeechRecognizer 플러그인 통합.
   // ─────────────────────────────────────────────────────────────
   let _voiceRec = null;  // 현재 동작 중 SpeechRecognition 인스턴스
+  let _voiceManualStop = false;  // 사용자가 토글로 끄면 true → onend 자동 재시작 안 함
   function _startVoiceInput() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const input = document.getElementById('asstInput');
@@ -345,63 +346,82 @@
       }
       return;
     }
-    // 이미 녹음 중이면 토글로 중지
+    // 이미 녹음 중이면 토글로 중지 (사용자 의도)
     if (_voiceRec) {
+      _voiceManualStop = true;
       try { _voiceRec.stop(); } catch (_e) { void _e; }
       _voiceRec = null;
       _voiceUiReset(btn);
       return;
     }
-    const rec = new SR();
-    rec.lang = 'ko-KR';
-    rec.continuous = false;
-    rec.interimResults = true;
-    let _base = (input && input.value) || '';
-    if (_base && !_base.endsWith(' ')) _base += ' ';
-
-    rec.onresult = (e) => {
-      let finalTxt = '';
-      let interimTxt = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalTxt += t;
-        else interimTxt += t;
-      }
-      if (!input) return;
-      if (finalTxt) {
-        input.value = _base + finalTxt;
-        _base = input.value;
-      } else if (interimTxt) {
-        input.value = _base + interimTxt;
-      }
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-    rec.onerror = (ev) => {
-      _voiceUiReset(btn);
-      _voiceRec = null;
-      const code = ev && ev.error;
-      let msg = '음성 인식 실패 - 다시 시도해주세요';
-      if (code === 'not-allowed' || code === 'service-not-allowed') {
-        msg = '마이크 권한이 필요해요. 브라우저 설정을 확인해주세요.';
-      } else if (code === 'no-speech') {
-        msg = '음성이 감지되지 않았어요. 다시 시도해주세요.';
-      }
-      if (typeof window.showToast === 'function') window.showToast(msg);
-    };
-    rec.onend = () => {
-      _voiceUiReset(btn);
-      _voiceRec = null;
-      if (input && input.value && input.value !== _base.trimEnd()) {
-        if (typeof window.showToast === 'function') window.showToast('음성 인식 완료');
-      }
-      try { input && input.focus(); } catch (_e) { void _e; }
-    };
-
+    _voiceManualStop = false;
+    // [2026-04-27] continuous=true + onend 자동 재시작 — 한 단어 후 끊기는 문제 해결.
+    // 다시 클릭(토글) 또는 stop 명시 전까지 계속 듣기.
+    const _base = { value: (input && input.value) || '' };
+    if (_base.value && !_base.value.endsWith(' ')) _base.value += ' ';
+    function _newRec() {
+      const r = new SR();
+      r.lang = 'ko-KR';
+      r.continuous = true;
+      r.interimResults = true;
+      r.onresult = (e) => {
+        let finalTxt = '';
+        let interimTxt = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) finalTxt += t;
+          else interimTxt += t;
+        }
+        if (!input) return;
+        if (finalTxt) {
+          _base.value = _base.value + finalTxt;
+          if (!_base.value.endsWith(' ')) _base.value += ' ';
+          input.value = _base.value;
+        } else if (interimTxt) {
+          input.value = _base.value + interimTxt;
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      r.onerror = (ev) => {
+        const code = ev && ev.error;
+        // no-speech 는 무음 구간일 뿐 — 자동 재시작 (수동 stop 아닌 한)
+        if (code === 'no-speech' && !_voiceManualStop) return;
+        _voiceUiReset(btn);
+        _voiceRec = null;
+        let msg = '음성 인식 실패 - 다시 시도해주세요';
+        if (code === 'not-allowed' || code === 'service-not-allowed') {
+          msg = '마이크 권한이 필요해요. 브라우저 설정을 확인해주세요.';
+        }
+        if (typeof window.showToast === 'function') window.showToast(msg);
+      };
+      r.onend = () => {
+        // 사용자가 직접 stop 했으면 종료, 아니면 iOS 호환 위해 재시작
+        if (_voiceManualStop) {
+          _voiceUiReset(btn);
+          _voiceRec = null;
+          if (input && input.value) {
+            if (typeof window.showToast === 'function') window.showToast('음성 인식 완료');
+          }
+          try { input && input.focus(); } catch (_e) { void _e; }
+          return;
+        }
+        try {
+          const next = _newRec();
+          next.start();
+          _voiceRec = next;
+        } catch (_e) {
+          _voiceUiReset(btn);
+          _voiceRec = null;
+        }
+      };
+      return r;
+    }
     try {
+      const rec = _newRec();
       rec.start();
       _voiceRec = rec;
       _voiceUiActive(btn);
-      if (typeof window.showToast === 'function') window.showToast('듣고 있어요…');
+      if (typeof window.showToast === 'function') window.showToast('듣고 있어요… (다시 누르면 멈춤)');
     } catch (e) {
       _voiceUiReset(btn);
       _voiceRec = null;
