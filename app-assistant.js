@@ -355,51 +355,40 @@
       return;
     }
     _voiceManualStop = false;
-    // [2026-04-27] continuous=true + onend 자동 재시작 — 한 단어 후 끊기는 문제 해결.
-    // 다시 클릭(토글) 또는 stop 명시 전까지 계속 듣기.
-    const _base = { value: (input && input.value) || '' };
-    if (_base.value && !_base.value.endsWith(' ')) _base.value += ' ';
-    // [2026-04-27 픽스] 일부 브라우저(특히 모바일 Safari)는 e.resultIndex 를
-    // 항상 0 으로 줘서 매 이벤트마다 모든 results 를 재처리 → final 중복 누적
-    // ("지금지금지금 가는중 가는중" 현상). _processedFinalCount 로 처리한
-    // final 개수 추적해서 새 final 만 _base 에 append.
-    let _processedFinalCount = 0;
+    // [2026-04-27 v3] continuous 모드의 e.resultIndex 일관성 문제로 단어 중복 발생.
+    // 단순화: continuous=false (각 recognition 은 한 phrase 만 받고 onend) + onend 즉시 재시작.
+    // 각 인스턴스 = 1 final 결과만 처리 → 누적 추적 불필요.
+    const inputStartValue = (input && input.value) || '';
+    const baseSep = inputStartValue && !inputStartValue.endsWith(' ') ? inputStartValue + ' ' : inputStartValue;
     function _newRec() {
       const r = new SR();
       r.lang = 'ko-KR';
-      r.continuous = true;
+      r.continuous = false;  // 한 phrase 단위
       r.interimResults = true;
+      r.maxAlternatives = 1;
+      let _localFinal = '';  // 이번 인스턴스의 final
       r.onresult = (e) => {
         if (!input) return;
-        let newFinalTxt = '';
         let interimTxt = '';
-        // 전체 results 순회. 이미 처리한 final 인덱스보다 큰 것만 append.
+        let finalTxt = '';
         for (let i = 0; i < e.results.length; i++) {
           const res = e.results[i];
           const t = res[0].transcript;
-          if (res.isFinal) {
-            if (i >= _processedFinalCount) {
-              newFinalTxt += t;
-              _processedFinalCount = i + 1;
-            }
-          } else {
-            // interim 은 가장 최신 것만 누적 (중복 방지: 한 이벤트 내 여러 interim 있으면 마지막 것)
-            interimTxt += t;
-          }
+          if (res.isFinal) finalTxt += t;
+          else interimTxt += t;
         }
-        if (newFinalTxt) {
-          _base.value = _base.value + newFinalTxt;
-          if (!_base.value.endsWith(' ')) _base.value += ' ';
-          input.value = _base.value + (interimTxt || '');
-        } else if (interimTxt) {
-          input.value = _base.value + interimTxt;
-        }
+        // _localFinal 은 이번 인스턴스에서 한 번만 final 잡힘 → 마지막 final 텍스트만 보관
+        if (finalTxt) _localFinal = finalTxt;
+        // 입력창 표시: 기존값 + 이번 인스턴스 final + 현재 interim
+        const cur = (input.value || '');
+        const baseForThis = cur.length >= baseSep.length ? cur.substring(0, baseSep.length) : baseSep;
+        input.value = baseForThis + (_localFinal || '') + (interimTxt || '');
         input.dispatchEvent(new Event('input', { bubbles: true }));
       };
       r.onerror = (ev) => {
         const code = ev && ev.error;
-        // no-speech 는 무음 구간일 뿐 — 자동 재시작 (수동 stop 아닌 한)
-        if (code === 'no-speech' && !_voiceManualStop) return;
+        if (code === 'no-speech' && !_voiceManualStop) return;  // 무음은 무시 (재시작은 onend 에서)
+        if (code === 'aborted') return;  // 의도된 stop
         _voiceUiReset(btn);
         _voiceRec = null;
         let msg = '음성 인식 실패 - 다시 시도해주세요';
@@ -409,7 +398,14 @@
         if (typeof window.showToast === 'function') window.showToast(msg);
       };
       r.onend = () => {
-        // 사용자가 직접 stop 했으면 종료, 아니면 iOS 호환 위해 재시작
+        // 이번 인스턴스의 final 을 input 에 확정 (interim 정리)
+        if (input && _localFinal) {
+          const cur = input.value || '';
+          const baseForThis = cur.length >= baseSep.length ? cur.substring(0, baseSep.length) : baseSep;
+          // 이미 onresult 에서 한 번 _localFinal 추가했지만 interim 이 섞여있을 수 있어서 정리
+          input.value = baseForThis + _localFinal + ' ';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         if (_voiceManualStop) {
           _voiceUiReset(btn);
           _voiceRec = null;
@@ -419,12 +415,19 @@
           try { input && input.focus(); } catch (_e) { void _e; }
           return;
         }
+        // 자동 재시작 — 짧은 지연 (Chrome 재시작 가드)
         try {
-          // 새 SR 인스턴스는 results 가 비어있으니 final 카운트도 리셋
-          _processedFinalCount = 0;
-          const next = _newRec();
-          next.start();
-          _voiceRec = next;
+          setTimeout(() => {
+            if (_voiceManualStop) return;
+            try {
+              const next = _newRec();
+              next.start();
+              _voiceRec = next;
+            } catch (_err) {
+              _voiceUiReset(btn);
+              _voiceRec = null;
+            }
+          }, 50);
         } catch (_e) {
           _voiceUiReset(btn);
           _voiceRec = null;
