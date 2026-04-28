@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>잇데이 캐시 청소</title>
+<style>
+  body { font-family: -apple-system, sans-serif; padding: 40px 24px; max-width: 480px; margin: 0 auto; text-align: center; background: #f7f7f9; }
+  h1 { font-size: 22px; color: #B8385A; margin-bottom: 16px; }
+  p { font-size: 14px; line-height: 1.7; color: #333; margin: 12px 0; }
+  .status { font-size: 13px; padding: 12px; border-radius: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin: 20px 0; min-height: 80px; text-align: left; }
+  .status .line { padding: 4px 0; }
+  .status .ok { color: #059669; }
+  .status .err { color: #dc2626; }
+  .btn { display: inline-block; margin-top: 16px; padding: 14px 28px; background: linear-gradient(135deg,#F18091,#B8385A); color: #fff; border-radius: 12px; text-decoration: none; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>잇데이 캐시 강제 청소</h1>
+<p>옛 캐시·서비스워커 모두 청소합니다.<br>완료 후 자동으로 잇데이로 이동해요.</p>
+<div class="status" id="status"><div class="line">진행 중...</div></div>
+<a href="./" class="btn" id="goHome" style="display:none;">잇데이로 이동</a>
+<script>
+(async () => {
+  const s = document.getElementById('status');
+  function log(msg, cls) {
+    const d = document.createElement('div');
+    d.className = 'line ' + (cls || '');
+    d.textContent = msg;
+    s.appendChild(d);
+  }
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      log('서비스워커 ' + regs.length + '개 발견', 'ok');
+      for (const r of regs) {
+        try { await r.unregister(); log('  - unregister: ' + (r.scope || 'unknown'), 'ok'); }
+        catch (e) { log('  - unregister 실패: ' + e.message, 'err'); }
+      }
+    } else {
+      log('서비스워커 미지원 (정상)', 'ok');
+    }
+  } catch (e) { log('SW 청소 실패: ' + e.message, 'err'); }
+
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      log('캐시 ' + keys.length + '개 발견', 'ok');
+      for (const k of keys) {
+        try { await caches.delete(k); log('  - 삭제: ' + k, 'ok'); }
+        catch (e) { log('  - 삭제 실패: ' + k, 'err'); }
+      }
+    }
+  } catch (e) { log('캐시 청소 실패: ' + e.message, 'err'); }
+
+  try {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('itdasy_sw_killed') || k.startsWith('pv_cache::') || k.startsWith('chat_pending') || k.startsWith('itdasy:cache')) {
+        try { localStorage.removeItem(k); } catch (_) {}
+      }
+    });
+    log('localStorage 캐시 키 정리', 'ok');
+  } catch (e) { log('localStorage 정리 실패', 'err'); }
+
+  log('✅ 청소 완료! 3초 후 잇데이로 이동합니다.', 'ok');
+  document.getElementById('goHome').style.display = 'inline-block';
+  setTimeout(() => { location.href = './'; }, 3000);
+})();
+</script>
+</body>
+</html>
