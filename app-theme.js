@@ -13,7 +13,14 @@
 
   function _current() {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return MODES.includes(saved) ? saved : 'light';
+    if (MODES.includes(saved)) return saved;
+    // [2026-04-29 W7] saved 값 없으면 시스템 설정 자동 감지 (prefers-color-scheme)
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return 'dark';
+      }
+    } catch (_) { /* ignore */ }
+    return 'light';
   }
 
   function _applyTheme(mode) {
