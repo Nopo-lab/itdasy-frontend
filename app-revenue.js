@@ -20,6 +20,8 @@
   const PERIOD_LABEL = { today: '오늘', week: '이번주', month: '이번달' };
   let _currentPeriod = 'today';
   let _items = [];
+  // [렉 박멸 2026-04-26] 리스트 windowing 사이즈 (50개씩 더 보기)
+  let _revWindow = 50;
   let _isOffline = false;
 
   function _now() { return new Date().toISOString(); }
@@ -355,6 +357,7 @@
     tabs.querySelectorAll('[data-period]').forEach(btn => {
       btn.addEventListener('click', async () => {
         _currentPeriod = btn.dataset.period;
+        _revWindow = 50; // 기간 바뀌면 window 리셋
         await _loadAndRender();
       });
     });
@@ -382,7 +385,11 @@
     const sorted = [..._items].sort((a, b) =>
       new Date(b.recorded_at || b.created_at) - new Date(a.recorded_at || a.created_at)
     );
-    listEl.innerHTML = sorted.map(r => {
+    // [렉 박멸 2026-04-26] windowing — 매출 1000건 한 번에 → 첫 50건 + 더 보기
+    if (_revWindow == null) _revWindow = 50;
+    const revVisible = sorted.slice(0, _revWindow);
+    const revHasMore = sorted.length > _revWindow;
+    listEl.innerHTML = revVisible.map(r => {
       const t = new Date(r.recorded_at || r.created_at);
       const hhmm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
       const dd = String(t.getMonth() + 1) + '/' + String(t.getDate());
@@ -403,7 +410,14 @@
           <button data-del="${r.id}" style="background:none;border:none;color:#c00;font-size:16px;cursor:pointer;padding:4px;">🗑</button>
         </div>
       `;
-    }).join('');
+    }).join('')
+      + (revHasMore
+          ? `<button id="revenueLoadMore" type="button" style="width:100%;margin-top:8px;padding:11px;border:1px dashed hsl(220,15%,80%);border-radius:12px;background:#fafafa;color:#555;font-size:13px;font-weight:600;cursor:pointer;">+ ${sorted.length - _revWindow}건 더 보기</button>`
+          : '');
+    const revMore = listEl.querySelector('#revenueLoadMore');
+    if (revMore) {
+      revMore.addEventListener('click', () => { _revWindow += 50; _rerender && _rerender(); }, { once: true });
+    }
     listEl.querySelectorAll('[data-del]').forEach(btn => {
       btn.addEventListener('click', () => _deleteEntry(btn.dataset.del));
     });

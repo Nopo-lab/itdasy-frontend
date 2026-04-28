@@ -4,12 +4,15 @@
    - 1분 주기 폴링 (포그라운드만)
    - 대시보드 헤더에 🔔 배지 표시
    - 탭하면 시트로 목록 펼침 + 읽음 처리
+   - 운영자 공지(kind=announcement) 도착 시 홈 상단에 인라인 카드 표시
    ──────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
 
   let _items = [];
   let _pollTimer = null;
+  // sessionStorage 키 — 같은 세션 안에서 X 닫은 공지는 다시 안 띄움 (서버 read 처리되기 전까지)
+  const _DISMISS_KEY = 'itdasy::announcement_dismissed_ids';
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
@@ -121,6 +124,86 @@
     });
   }
 
+  function _getDismissed() {
+    try {
+      const raw = sessionStorage.getItem(_DISMISS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (_) { return []; }
+  }
+  function _addDismissed(id) {
+    try {
+      const arr = _getDismissed();
+      if (!arr.includes(id)) arr.push(id);
+      sessionStorage.setItem(_DISMISS_KEY, JSON.stringify(arr.slice(-50)));
+    } catch (_) { void 0; }
+  }
+
+  function _renderAnnouncementCard() {
+    // 잇데이 운영자가 보낸 공지(kind=announcement) 만 인라인 카드로 노출
+    const anchor = document.getElementById('home-today-brief')
+      || document.getElementById('homePostConnect')
+      || document.querySelector('main') || document.body;
+    if (!anchor) return;
+    let host = document.getElementById('itdAnnouncementHost');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'itdAnnouncementHost';
+      host.style.cssText = 'margin:0 0 12px 0;';
+      // 가장 위에 삽입 (가능한 경우)
+      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
+      else anchor.appendChild(host);
+    }
+    const dismissed = _getDismissed();
+    const announcements = _items.filter(n => n.kind === 'announcement' && !dismissed.includes(n.id));
+    if (!announcements.length) {
+      host.innerHTML = '';
+      return;
+    }
+    // 가장 최신 한 건만 노출 (스택형 카드는 시트에서 확인)
+    const a = announcements[0];
+    const more = announcements.length - 1;
+    host.innerHTML = `
+      <div role="status" aria-live="polite" style="background:linear-gradient(135deg,#fff5f7 0%,#ffe8ec 100%);border:1px solid rgba(241,128,145,0.35);border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 2px 10px rgba(241,128,145,0.10);position:relative;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#f18091;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">📢</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;font-weight:600;color:#f18091;letter-spacing:0.2px;margin-bottom:2px;">잇데이 공지</div>
+            <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
+            <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;white-space:pre-wrap;">${_esc(a.body || '')}</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+              <button data-ann-confirm="${a.id}" style="background:#f18091;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">확인</button>
+              ${more > 0 ? `<button data-ann-more style="background:none;border:none;color:#7a8294;font-size:11px;cursor:pointer;">공지 ${more}개 더 보기</button>` : ''}
+              <span style="margin-left:auto;font-size:10px;color:#8b94a7;">${_esc(_relativeTime(a.scheduled_at))}</span>
+            </div>
+          </div>
+          <button data-ann-dismiss="${a.id}" aria-label="공지 닫기" style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,0.05);font-size:13px;color:#525c70;cursor:pointer;line-height:1;">✕</button>
+        </div>
+      </div>
+    `;
+    const confirmBtn = host.querySelector('[data-ann-confirm]');
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', async () => {
+        const id = parseInt(confirmBtn.dataset.annConfirm, 10);
+        await _markRead(id);
+        _items = _items.filter(x => x.id !== id);
+        _updateBadge();
+        _renderAnnouncementCard();
+        const list = document.getElementById('notifBody');
+        if (list) _renderList();
+      });
+    }
+    const dismissBtn = host.querySelector('[data-ann-dismiss]');
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        const id = parseInt(dismissBtn.dataset.annDismiss, 10);
+        _addDismissed(id);
+        _renderAnnouncementCard();
+      });
+    }
+    const moreBtn = host.querySelector('[data-ann-more]');
+    if (moreBtn) moreBtn.addEventListener('click', () => window.openNotifications && window.openNotifications());
+  }
+
   async function _poll() {
     const d = await _fetch();
     if (d && Array.isArray(d.items)) {
@@ -130,6 +213,7 @@
       }
       _items = d.items;
       _updateBadge();
+      _renderAnnouncementCard();
     }
   }
 

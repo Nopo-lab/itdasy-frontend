@@ -103,6 +103,35 @@
   }
 
   let _history = [];  // [{role, text}]
+  // [2026-04-26 렉 박멸 픽스]
+  // 1) UI 표시 메시지 100개 cap — 100개 넘으면 오래된 것부터 잘라냄.
+  //    서버는 session_id 로 전체 보존 (다시 열면 _loadServerHistory 가 최근 50개 가져옴).
+  // 2) RAF debounce — 동일 frame 안 _renderHistory() 다중 호출을 1회로 합침.
+  // 3) sheet 닫혀있으면 즉시 return — 보이지 않는 DOM 갱신은 의미 없음.
+  const HISTORY_RENDER_CAP = 100;
+  function _capHistory() {
+    try {
+      if (_history.length > HISTORY_RENDER_CAP) {
+        _history = _history.slice(-HISTORY_RENDER_CAP);
+      }
+    } catch (_e) { void _e; }
+  }
+  let _renderRafId = 0;
+  let _lastRenderedSig = '';  // incremental 판단용 — _history.length + 마지막 메시지 fingerprint
+  function _historySig() {
+    try {
+      const last = _history[_history.length - 1] || {};
+      // fingerprint: 길이 + role + text 첫 80자 + action_status + edit_mode + action_groups 길이
+      let sig = _history.length + '|' + last.role + '|' + String(last.text || '').slice(0, 80)
+        + '|' + (last.action_status || '') + '|' + (last.edit_mode ? '1' : '0')
+        + '|' + ((last.action_groups && last.action_groups.length) || 0);
+      // loading 표시 중이면 진행 시간(초)도 sig 에 포함 — 1초 단위 갱신 보장
+      if (last.role === 'loading') {
+        sig += '|t' + Math.floor(Date.now() / 1000);
+      }
+      return sig;
+    } catch (_e) { return String(_history.length); }
+  }
   // v1.1 Multi-turn — localStorage 에 session_id 유지 (앱 재시작해도 대화 기억)
   let _sessionId = null;
   try { _sessionId = parseInt(localStorage.getItem('assistant_session_id') || '', 10) || null; }
@@ -489,7 +518,56 @@
     box.style.display = 'flex';
   }
 
+  // 렉 박멸 — _renderHistory 호출 → 이번 frame 1회 실행 (RAF debounce)
+  // sheet 닫혀있으면 skip. 50개 이상이면 자동 cap.
   function _renderHistory() {
+    _capHistory();
+    if (_renderRafId) return; // 이미 예약됨
+    const sheet = document.getElementById('assistantSheet');
+    // sheet 닫혀있으면 다음 open 때 _renderHistory() 호출되므로 지금은 skip (DOM 작업 절감 ~50ms/render)
+    if (!sheet || sheet.style.display === 'none') return;
+    const sig = _historySig();
+    if (sig === _lastRenderedSig) return; // 변경 없음 — skip
+    _renderRafId = (window.requestAnimationFrame || window.setTimeout).call(window, () => {
+      _renderRafId = 0;
+      _lastRenderedSig = _historySig();
+      _renderHistoryImpl();
+    }, 0);
+  }
+  // assistant 메시지 한 개 → HTML. 캐시 가능하도록 분리.
+  function _renderAssistantMessage(m, idx) {
+    const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status, m.edit_mode === true) : '';
+    const groupsHtml = (m.action_groups && m.action_groups.length)
+      ? (m.unified_mode
+          ? _renderUnifiedCard(m, idx)
+          : _renderActionGroups(m.action_groups, idx, m.duplicate_warnings))
+      : '';
+    const dupHtml = (m.action && m.duplicate_warnings && m.duplicate_warnings.length)
+      ? _renderDuplicateWarnings(idx, m.duplicate_warnings, 0)
+      : '';
+    const fallbackHtml = m.fallback ? _renderFallbackCard(m.fallback, idx, m.fallback_status) : '';
+    const relatedHtml = (m.related && m.related.length) ? `
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
+        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
+      </div>` : '';
+    return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+      <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
+      <div style="max-width:85%;min-width:0;">
+        <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
+        <div style="margin-top:3px;padding-left:4px;">
+          <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
+            style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#bbb;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
+        </div>
+        ${dupHtml}
+        ${actionHtml}
+        ${groupsHtml}
+        ${fallbackHtml}
+        ${relatedHtml}
+      </div>
+    </div>`;
+  }
+
+  function _renderHistoryImpl() {
     const body = document.getElementById('asstBody');
     if (!body) return;
     if (!_history.length) {
@@ -503,6 +581,8 @@
     }
     body.innerHTML = _history.map((m, idx) => {
       if (m.role === 'user') {
+        // 렉 박멸 — user 메시지는 immutable 이므로 캐시. idx 가 바뀌면 (앞쪽 메시지 잘림) 무효화.
+        if (m._cachedHtml && m._cachedIdx === idx) return m._cachedHtml;
         // 2026-04-26 픽스 — N장 모두 썸네일 그리드로 표시 (클릭 시 라이트박스)
         // 구버전 호환: m.photos 없고 m.thumb 만 있으면 1장으로 간주
         const photoArr = (Array.isArray(m.photos) && m.photos.length)
@@ -521,42 +601,28 @@
             </div>`).join('');
           photosHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-width:280px;">${cells}</div>`;
         }
-        return `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+        const html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
           <div style="max-width:85%;padding:10px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${photosHtml}${_esc(m.text)}</div>
         </div>`;
+        try { m._cachedHtml = html; m._cachedIdx = idx; } catch (_e) { void _e; }
+        return html;
       }
       if (m.role === 'assistant') {
-        const actionHtml = m.action ? _renderActionBubble(m.action, idx, m.action_status, m.edit_mode === true) : '';
-        // 2026-04-24 — unified_mode 면 통합 확인 카드, 아니면 기존 그룹 카드
-        const groupsHtml = (m.action_groups && m.action_groups.length)
-          ? (m.unified_mode
-              ? _renderUnifiedCard(m, idx)
-              : _renderActionGroups(m.action_groups, idx, m.duplicate_warnings))
-          : '';
-        // 단일 액션일 때 — action_index 0 경고만. group 은 내부에서 렌더하므로 여기서는 제외.
-        const dupHtml = (m.action && m.duplicate_warnings && m.duplicate_warnings.length)
-          ? _renderDuplicateWarnings(idx, m.duplicate_warnings, 0)
-          : '';
-        const fallbackHtml = m.fallback ? _renderFallbackCard(m.fallback, idx, m.fallback_status) : '';
-        const relatedHtml = (m.related && m.related.length) ? `
-          <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
-            ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
-          </div>` : '';
-        return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
-          <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
-          <div style="max-width:85%;min-width:0;">
-            <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
-            <div style="margin-top:3px;padding-left:4px;">
-              <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
-                style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#bbb;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
-            </div>
-            ${dupHtml}
-            ${actionHtml}
-            ${groupsHtml}
-            ${fallbackHtml}
-            ${relatedHtml}
-          </div>
-        </div>`;
+        // 렉 박멸 — assistant 메시지 dirty 체크. action/group 상태 변하면 무효화.
+        // 마지막 메시지(idx === _history.length-1)는 자주 변하니 캐시 안 함.
+        const isLast = idx === _history.length - 1;
+        if (!isLast) {
+          const dirtyKey = (m.action_status || '_') + '|' + (m.edit_mode ? '1' : '0')
+            + '|' + (m.fallback_status || '_')
+            + '|' + ((m.action_groups || []).map(g => (g.expanded ? 'E' : 'C') + ':'
+                + (g.items || []).map(it => (it.status || '_') + (it.editing ? 'e' : '') + (it.skipped ? 's' : '')).join(',')).join(';'))
+            + '|' + idx;
+          if (m._cachedHtml && m._cachedDirtyKey === dirtyKey) return m._cachedHtml;
+          const html = _renderAssistantMessage(m, idx);
+          try { m._cachedHtml = html; m._cachedDirtyKey = dirtyKey; } catch (_e) { void _e; }
+          return html;
+        }
+        return _renderAssistantMessage(m, idx);
       }
       // loading — chat_pending 있으면 진행 시간 표시
       let elapsedHtml = '';
@@ -2473,6 +2539,7 @@
         if (survivors.length) _history = _history.concat(survivors);
       }
       _historyLoadedFromServer = true;
+      _lastRenderedSig = ''; // 통째 갱신 → 강제 풀 렌더
       _renderHistory();
     } catch (_e) { /* offline 등 — 기존 _history 유지 */ }
   }
@@ -2532,6 +2599,7 @@
       }
     } catch (_e) { void _e; }
 
+    _lastRenderedSig = ''; // sheet 새로 열렸으니 강제 1회 풀 렌더
     _renderHistory();
     // 챗봇 열었으니 unread 점 제거
     _setUnreadAnswer(false);

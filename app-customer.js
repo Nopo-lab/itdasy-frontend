@@ -289,6 +289,11 @@
     return sheet;
   }
 
+  // [렉 박멸 2026-04-26] windowing — 고객 1000명 한 번에 렌더 → 첫 50명 + "더 보기".
+  // _windowSize 초기값 50, "더 보기" 클릭마다 +50.
+  let _windowSize = 50;
+  const WINDOW_STEP = 50;
+
   function _rerender() {
     const sheet = document.getElementById('customerSheet');
     if (!sheet) return;
@@ -304,7 +309,13 @@
       box.innerHTML = `<div class="dt-empty">${_cache && _cache.length ? '검색 결과 없음' : '아직 고객이 없어요. 아래 버튼으로 추가해 주세요.'}</div>`;
       return;
     }
-    box.innerHTML = '<div class="dt-list">' + items.map(c => {
+    // 검색 키워드 바뀌면 window 리셋
+    const lastQ = box.dataset.lastQ || '';
+    if (lastQ !== q) { _windowSize = 50; box.dataset.lastQ = q; }
+    const totalLen = items.length;
+    const visible = items.slice(0, _windowSize);
+    const hasMore = totalLen > _windowSize;
+    box.innerHTML = '<div class="dt-list">' + visible.map(c => {
       const nsCount = c.no_show_count || 0;
       const nsBadge = nsCount >= 3
         ? `<span title="안 옴 ${nsCount}회 — 예약 전 주의" style="font-size:10px;font-weight:700;color:#fff;background:#dc3545;padding:2px 7px;border-radius:100px;margin-left:6px;">🚩 안 옴 ${nsCount}</span>`
@@ -329,7 +340,14 @@
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
       </button>`;
-    }).join('') + '</div>';
+    }).join('') + '</div>'
+      + (hasMore
+          ? `<button id="customerLoadMore" type="button" style="width:100%;margin-top:8px;padding:11px;border:1px dashed hsl(220,15%,80%);border-radius:12px;background:#fafafa;color:#555;font-size:13px;font-weight:600;cursor:pointer;">+ ${totalLen - _windowSize}명 더 보기</button>`
+          : '');
+    const more = box.querySelector('#customerLoadMore');
+    if (more) {
+      more.addEventListener('click', () => { _windowSize += WINDOW_STEP; _rerender(); }, { once: true });
+    }
     box.querySelectorAll('.customer-row').forEach(row => {
       row.addEventListener('click', () => {
         // 행 클릭 = 대시보드(조회). 편집은 대시보드 안의 '편집' 버튼 또는 _openDetail 직접 호출.

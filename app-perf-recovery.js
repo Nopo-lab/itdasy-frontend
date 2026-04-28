@@ -349,7 +349,15 @@
     if (FR_TIMERS.has(tk)) clearTimeout(FR_TIMERS.get(tk));
     FR_TIMERS.set(tk, setTimeout(() => {
       const value = (el.type === 'checkbox' || el.type === 'radio') ? !!el.checked : el.value;
-      _saveDraft(formId, fieldId, value);
+      // [렉 박멸 2026-04-26] localStorage.setItem 을 idle 시점으로 미뤄 main thread 블록 방지.
+      //   타자 빠를 때 매 250ms 마다 mainthread sync write → keystroke jank.
+      //   requestIdleCallback 이 있으면 idle 으로, 없으면 즉시 (구형 브라우저 fallback).
+      const _flush = () => { _saveDraft(formId, fieldId, value); };
+      if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(_flush, { timeout: 1500 });
+      } else {
+        _flush();
+      }
       FR_TIMERS.delete(tk);
     }, FR_DEBOUNCE));
   }
