@@ -63,15 +63,19 @@ function _renderReviewPanel() {
   const body = document.getElementById('reviewPanelBody');
   if (!body) return;
 
-  // 사진 선택 여부 — 미선택 시 가이드 노출 (선택 안 돼 보고 픽스)
+  // 사진 선택 여부 — 미선택 시 가이드 노출 (사진 올려도 선택 안 됨 픽스 v2)
   const _slotForGuide = (typeof _slots !== 'undefined' && _slots.find) ? _slots.find(s => s.id === _popupSlotId) : null;
   const _selectedCount = (typeof _popupSelIds !== 'undefined' && _popupSelIds.size) ? _popupSelIds.size : 0;
   const _hasPhotos = !!(_slotForGuide && _slotForGuide.photos && _slotForGuide.photos.length);
-  const guideHtml = (_reviewStickerCache.length && _hasPhotos && _selectedCount === 0) ? `
-    <div class="rv-guide" style="margin:8px 0 12px;padding:10px 12px;background:#FFF7E6;border:1px solid #FFD666;border-radius:10px;font-size:12px;color:#8a5d00;line-height:1.5;">
-      <strong>먼저 위쪽 사진을 1장 이상 선택해 주세요.</strong><br>
-      그 다음 아래 리뷰 카드를 탭하면 사진에 붙여 드려요.
-    </div>` : '';
+  // 항상(스티커 업로드 후 사진 미선택 OR 슬롯에 사진 자체가 없음) 노란 가이드 배너 노출
+  let guideHtml = '';
+  if (_reviewStickerCache.length && _selectedCount === 0) {
+    const msg = _hasPhotos
+      ? '<strong>먼저 위쪽 사진을 1장 이상 선택해 주세요.</strong><br>그 다음 아래 리뷰 카드를 탭하면 사진에 붙여 드려요.'
+      : '<strong>먼저 작업실에 사진을 추가하고 1장 이상 선택해 주세요.</strong><br>패널 닫고 사진 선택 후 다시 열면 카드가 활성화돼요.';
+    guideHtml = `
+    <div class="rv-guide" style="margin:8px 0 12px;padding:10px 12px;background:#FFF7E6;border:1px solid #FFD666;border-radius:10px;font-size:12px;color:#8a5d00;line-height:1.5;">${msg}</div>`;
+  }
 
   const stickerHtml = _reviewStickerCache.length ? `
     <div class="rv-section">
@@ -138,16 +142,30 @@ async function handleReviewUpload(input) {
 }
 
 function selectReviewSticker(idx) {
-  const slot = _slots.find(s => s.id === _popupSlotId);
-  if (!slot) return;
+  const slot = (typeof _slots !== 'undefined' && _slots.find) ? _slots.find(s => s.id === _popupSlotId) : null;
+  if (!slot) {
+    if (typeof showToast === 'function') showToast('작업실 슬롯에서 다시 시도해 주세요');
+    return;
+  }
   const selectedPhotos = slot.photos.filter(p => _popupSelIds.has(p.id) && !p.hidden);
-  if (!selectedPhotos.length) { showToast('먼저 사진을 선택해주세요'); return; }
+  if (!selectedPhotos.length) {
+    const hasAnyPhoto = !!(slot.photos && slot.photos.length);
+    if (typeof showToast === 'function') {
+      showToast(hasAnyPhoto ? '리뷰 패널을 닫고 사진을 1장 이상 선택해 주세요' : '먼저 작업실에 사진을 추가해 주세요');
+    }
+    return;
+  }
   const stickerDataUrl = _reviewStickerCache[idx];
-  if (!stickerDataUrl) return;
+  if (!stickerDataUrl) {
+    if (typeof showToast === 'function') showToast('리뷰 스크린샷을 다시 올려 주세요');
+    return;
+  }
   _reviewEditState = { photoId: selectedPhotos[0].id, allPhotoIds: selectedPhotos.map(p => p.id), stickerImg: stickerDataUrl, x: 50, y: 75, scale: 40, opacity: 100 };
   closeReviewPanel();
   _openReviewEditor(selectedPhotos[0]);
 }
+// 전역 등록 (onclick 인라인에서 호출되므로 명시적 보강)
+try { if (typeof window !== 'undefined') { window.selectReviewSticker = selectReviewSticker; window.openReviewPanel = openReviewPanel; window.closeReviewPanel = closeReviewPanel; window.handleReviewUpload = handleReviewUpload; } } catch (_) {}
 
 function _openReviewEditor(photo) {
   const editor = document.getElementById('reviewEditor');
@@ -293,10 +311,14 @@ async function extractReviewTextRegion(dataUrl) {
 }
 
 async function selectReviewTextOnly(idx) {
-  const slot = _slots.find(s => s.id === _popupSlotId);
-  if (!slot) return;
+  const slot = (typeof _slots !== 'undefined' && _slots.find) ? _slots.find(s => s.id === _popupSlotId) : null;
+  if (!slot) { if (typeof showToast === 'function') showToast('작업실 슬롯에서 다시 시도해 주세요'); return; }
   const selectedPhotos = slot.photos.filter(p => _popupSelIds.has(p.id) && !p.hidden);
-  if (!selectedPhotos.length) { showToast('먼저 사진을 선택해주세요'); return; }
+  if (!selectedPhotos.length) {
+    const hasAnyPhoto = !!(slot.photos && slot.photos.length);
+    if (typeof showToast === 'function') showToast(hasAnyPhoto ? '리뷰 패널을 닫고 사진을 1장 이상 선택해 주세요' : '먼저 작업실에 사진을 추가해 주세요');
+    return;
+  }
   showToast('텍스트 영역 찾는 중...');
   try {
     const textOnly = await extractReviewTextRegion(_reviewStickerCache[idx]);
@@ -313,3 +335,4 @@ async function selectReviewTextOnly(idx) {
     selectReviewSticker(idx);
   }
 }
+try { if (typeof window !== 'undefined') { window.selectReviewTextOnly = selectReviewTextOnly; } } catch (_) {}

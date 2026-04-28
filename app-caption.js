@@ -626,9 +626,17 @@ async function _doGenerateCaption(scenario, closePopup) {
     // 폴백 토스트가 떴다. 본질적인 캡션 생성 실패 메시지를 사용자에게 정확히 노출하기 위해
     // 직접 data 로 받는다. (HTTP 에러는 _personaFetch 내부에서 throw → catch 블록에서 처리)
     const data = await _personaFetch('POST', '/persona/generate', payload);
+    console.log('[caption.generate] 응답 수신:', { caption_len: (data.caption||'').length, log_id: data.log_id, used_tone: data.used_tone });
 
     const finalCaption = data.caption || '';
     const hashes = ''; // TD-020: 해시태그 미반환 — 추후 추가 예정
+
+    // [2026-04-26] 백엔드가 200 OK + 빈 caption 응답 → 사용자에겐 빈 textarea 만 남음.
+    // 명시적 에러로 던져 catch 블록에서 안내하도록.
+    if (!finalCaption.trim()) {
+      console.error('[caption.generate] 빈 캡션 응답 — payload:', payload, 'response:', data);
+      throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');
+    }
 
     // TD-022: 응답에 log_id 없음 — 백엔드 GenerateResponse에 log_id 필드 추가 필요
     if (data.log_id) {

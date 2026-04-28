@@ -174,7 +174,7 @@
       c.total_spent > 0 ? `누적 ${_krw(c.total_spent)}` : null,
       c.visit_count  > 0 ? `${c.visit_count}회` : null,
     ].filter(Boolean);
-    return `<div class="ch-row" data-act="open-customer" data-id="${c.id}">
+    return `<div class="ch-row" data-act="open-customer" data-id="${c.id}" data-phone="${_esc(c.phone || '')}">
       <div class="ch-row-top">
         <span class="ch-name">${_esc(c.name)}</span>
         <span class="ch-phone-tail">${_esc(_tail(c.phone))}</span>

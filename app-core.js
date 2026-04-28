@@ -424,9 +424,13 @@ function setToken(t) {
   } catch (_) { /* 용량 초과/시크릿 모드 조용히 무시 */ }
 }
 function authHeader() {
+  // [2026-04-28 진짜 fix] ngrok-skip-browser-warning 헤더 제거.
+  // 어제 보안 픽스에서 CORS allow_headers 명시 화이트리스트로 변경한 후
+  // 이 헤더가 리스트에 없어서 모든 인증 요청이 CORS preflight 에서 400 거부됨.
+  // 사용자가 본 "네트워크 연결을 확인해주세요" 의 진짜 원인.
+  // ngrok 은 개발 환경 전용이라 운영에선 불필요.
   const t = getToken();
-  return t ? { 'Authorization': 'Bearer ' + t, 'ngrok-skip-browser-warning': 'true' }
-           : { 'ngrok-skip-browser-warning': 'true' };
+  return t ? { 'Authorization': 'Bearer ' + t } : {};
 }
 
 // 전역 fetch 래퍼 — 401 자동 로그아웃 + 5xx/네트워크 에러 자동 재시도 (T-352)
@@ -1182,6 +1186,10 @@ function showTab(id, btn) {
 
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+  // 사이드 nav (PC ≥768px) 활성 동기화
+  document.querySelectorAll('.side-nav__btn').forEach(b => b.classList.remove('active'));
+  const sideBtn = document.querySelector('.side-nav__btn[data-side-tab="' + id + '"]');
+  if (sideBtn) sideBtn.classList.add('active');
   const target = document.getElementById('tab-' + id);
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');

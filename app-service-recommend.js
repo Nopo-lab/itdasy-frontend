@@ -35,10 +35,15 @@
 #${SHEET_ID} .sr-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 #${SHEET_ID} .sr-head h2 { font-size: 18px; font-weight: 700; margin: 0; }
 #${SHEET_ID} .sr-close { background: transparent; border: 0; font-size: 22px; cursor: pointer; color: #888; }
-#${SHEET_ID} .sr-uploader { border: 2px dashed #d8d8e0; border-radius: 16px; padding: 28px 16px; text-align: center;
-  background: #fafafd; cursor: pointer; transition: background .15s; }
-#${SHEET_ID} .sr-uploader:active { background: #f0eef8; }
+#${SHEET_ID} .sr-uploader { border: 2px dashed #d8d8e0; border-radius: 16px; padding: 22px 16px; text-align: center;
+  background: #fafafd; transition: background .15s; }
 #${SHEET_ID} .sr-uploader p { color: #666; margin: 6px 0 0; font-size: 13px; }
+#${SHEET_ID} .sr-pick-row { display: flex; gap: 10px; margin-top: 14px; }
+#${SHEET_ID} .sr-pick-btn { flex: 1; padding: 14px 10px; border-radius: 14px; border: 1.5px solid #e0d8ff;
+  background: #fff; color: #5a3ee8; font-weight: 700; font-size: 14px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 76px;
+  transition: background .12s, border-color .12s; }
+#${SHEET_ID} .sr-pick-btn:active { background: #f4f0ff; border-color: #7c5fff; }
 #${SHEET_ID} .sr-actions { display: flex; gap: 10px; margin-top: 14px; }
 #${SHEET_ID} .sr-btn { flex: 1; padding: 14px; border-radius: 14px; border: 0; font-weight: 600; cursor: pointer; font-size: 14px; }
 #${SHEET_ID} .sr-btn-primary { background: linear-gradient(135deg,#7c5fff,#5a3ee8); color: #fff; }
@@ -80,12 +85,23 @@
           <button class="sr-close" data-sr-close type="button" aria-label="닫기">×</button>
         </div>
 
-        <label class="sr-uploader" data-sr-pick>
-          <svg width="36" height="36" aria-hidden="true"><use href="#ic-camera"/></svg>
-          <p>손님 사진을 찍거나 선택해 주세요</p>
+        <div class="sr-uploader">
+          <svg width="34" height="34" aria-hidden="true"><use href="#ic-camera"/></svg>
+          <p>손님 사진을 찍거나 갤러리에서 선택해 주세요</p>
           <p style="font-size:11px;color:#aaa;margin-top:4px;">10MB 이하 · JPG/PNG/WEBP</p>
-        </label>
-        <input type="file" accept="image/*" capture="environment" data-sr-file style="display:none;">
+        </div>
+        <div class="sr-pick-row">
+          <button type="button" class="sr-pick-btn" data-sr-camera>
+            <svg width="22" height="22" aria-hidden="true"><use href="#ic-camera"/></svg>
+            <span>카메라 촬영</span>
+          </button>
+          <button type="button" class="sr-pick-btn" data-sr-gallery>
+            <svg width="22" height="22" aria-hidden="true"><use href="#ic-image"/></svg>
+            <span>갤러리에서 선택</span>
+          </button>
+        </div>
+        <input type="file" accept="image/*" capture="environment" data-sr-camera-input style="display:none;">
+        <input type="file" accept="image/*" data-sr-gallery-input style="display:none;">
 
         <div class="sr-preview" data-sr-preview style="display:none;"></div>
 
@@ -103,11 +119,20 @@
       if (e.target === sheet) _close();
     });
     sheet.querySelector('[data-sr-close]').addEventListener('click', _close);
-    sheet.querySelector('[data-sr-pick]').addEventListener('click', (e) => {
+
+    const camInput = sheet.querySelector('[data-sr-camera-input]');
+    const galInput = sheet.querySelector('[data-sr-gallery-input]');
+    sheet.querySelector('[data-sr-camera]').addEventListener('click', (e) => {
       e.preventDefault();
-      sheet.querySelector('[data-sr-file]').click();
+      camInput.click();
     });
-    sheet.querySelector('[data-sr-file]').addEventListener('change', _onPick);
+    sheet.querySelector('[data-sr-gallery]').addEventListener('click', (e) => {
+      e.preventDefault();
+      galInput.click();
+    });
+    camInput.addEventListener('change', _onPick);
+    galInput.addEventListener('change', _onPick);
+
     sheet.querySelector('[data-sr-reset]').addEventListener('click', _reset);
     sheet.querySelector('[data-sr-submit]').addEventListener('click', _submit);
 
@@ -139,8 +164,10 @@
     _pickedFile = null;
     const sheet = document.getElementById(SHEET_ID);
     if (!sheet) return;
-    const fileInput = sheet.querySelector('[data-sr-file]');
-    if (fileInput) fileInput.value = '';
+    const camInput = sheet.querySelector('[data-sr-camera-input]');
+    const galInput = sheet.querySelector('[data-sr-gallery-input]');
+    if (camInput) camInput.value = '';
+    if (galInput) galInput.value = '';
     const preview = sheet.querySelector('[data-sr-preview]');
     preview.style.display = 'none';
     preview.innerHTML = '';

@@ -121,13 +121,46 @@
   }
 
   // ── Step 0: 인스타 연동/분석 안 된 경우 ────────────────
+  // [2026-04-26] 빈약하던 안내 화면을 액션 가능 화면으로 보강.
+  //   - 인스타 미연동/분석 미완료 라도, 사용자가 직접 분석/연동/테스트 진입 가능.
   function _renderNoAnalysis(reason) {
     const body = document.getElementById('psv-body');
+    const hasToken = !!localStorage.getItem('itdasy_token::staging') || !!localStorage.getItem('itdasy_token');
+    const hasInsta = !!localStorage.getItem('itdasy_latest_analysis');
     body.innerHTML = `
-      <div class="psv-title">말투 분석 진행 중</div>
-      <div class="psv-sub">${reason || '인스타 게시물 학습이 끝나면 자동으로 다시 열어드릴게요.'}</div>
-      <button class="psv-primary" onclick="closePersonaSurveyModal()">알겠어요</button>
+      <div class="psv-title">AI 페르소나</div>
+      <div class="psv-sub">${reason || '아직 말투 분석 데이터가 없어요. 아래에서 시작해보세요.'}</div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+        <button class="psv-primary" id="psv-start-analyze">내 말투 분석 시작 (인스타 게시물 학습)</button>
+        <button class="psv-ghost" id="psv-connect-insta" style="width:100%;">인스타 다시 연동하기</button>
+        <button class="psv-ghost" id="psv-force-survey" style="width:100%;">분석 없이 테스트 메시지 만들기</button>
+        <button class="psv-ghost" id="psv-close" style="width:100%;">닫기</button>
+      </div>
     `;
+    const $a = document.getElementById('psv-start-analyze');
+    const $c = document.getElementById('psv-connect-insta');
+    const $f = document.getElementById('psv-force-survey');
+    const $x = document.getElementById('psv-close');
+    if ($a) $a.addEventListener('click', () => {
+      close();
+      if (typeof window.runPersonaAnalyze === 'function') {
+        try { window.runPersonaAnalyze(); } catch (_) { _toast('분석 시작 실패 — 잠시 후 다시 시도'); }
+      } else {
+        _toast('인스타 연동 후 다시 시도해주세요');
+      }
+    });
+    if ($c) $c.addEventListener('click', () => {
+      close();
+      if (typeof window.connectInstagram === 'function') {
+        try { window.connectInstagram(); } catch (_) {}
+      } else {
+        _toast('인스타 연동 진입점을 찾을 수 없어요');
+      }
+    });
+    if ($f) $f.addEventListener('click', _renderStep1);
+    if ($x) $x.addEventListener('click', close);
+    // 사용 안 하는 변수 lint 회피
+    void hasToken; void hasInsta;
   }
 
   // ── Step 1: 3카드 ───────────────────────────────────────
@@ -154,6 +187,10 @@
           <p>메시지 의도를<br/>직접 입력</p>
         </button>
       </div>
+      <div style="margin-top:18px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="psv-ghost" id="psv-reanalyze" style="flex:1; min-width:0;">말투 새로 분석</button>
+        <button class="psv-ghost" id="psv-view-report" style="flex:1; min-width:0;">분석 리포트 보기</button>
+      </div>
     `;
     body.querySelectorAll('.psv-card').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -161,6 +198,18 @@
         if (_state.intent === 'custom') _renderStep2Custom();
         else _renderStep2Service();
       });
+    });
+    const $r = document.getElementById('psv-reanalyze');
+    const $v = document.getElementById('psv-view-report');
+    if ($r) $r.addEventListener('click', () => {
+      close();
+      if (typeof window.runPersonaAnalyze === 'function') window.runPersonaAnalyze();
+      else _toast('인스타 연동 후 분석할 수 있어요');
+    });
+    if ($v) $v.addEventListener('click', () => {
+      close();
+      if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
+      else _toast('분석 리포트가 아직 없어요');
     });
   }
 

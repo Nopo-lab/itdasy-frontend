@@ -22,10 +22,25 @@
     dm:        () => _call(['openDMAutoreplySettings']),
     kakao:     () => _call(['openKakaoHub']),
     persona:   () => _call(['openPersonaSurveyModal']),
-    posts:     () => _call(['openReviewPanel']),
+    // posts: 게시물 관리 = 마무리 탭(완성된 포스트 인스타 발행 화면)
+    posts:     () => {
+      try {
+        if (typeof window.showTab === 'function') {
+          const finishBtn = document.querySelector('.tab-bar__btn[data-tab="finish"]');
+          window.showTab('finish', finishBtn || null);
+        }
+        if (typeof window.initFinishTab === 'function') window.initFinishTab();
+        return true;
+      } catch (e) {
+        console.warn('[drawer] posts route error:', e);
+        if (window.showToast) window.showToast('게시물 관리 화면을 여는 중 문제가 생겼어요');
+        return false;
+      }
+    },
     caption:   () => _call(['openCaptionScenarioPopup']),
     naver:     () => _call(['openNaverLink']),
-    payment:   () => _call(['openPlanPopup']),
+    // payment: 결제·정산 = 매출/정산 허브 (구독 비교는 홈 플랜 배지에서 별도)
+    payment:   () => _call(['openRevenueHub', 'openRevenueInput']),
     shopinfo:  () => _call(['openShopSettings']),
     failures:  () => _call(['openFailuresHub']),
     backup:    () => _call(['openBackupScreen']),

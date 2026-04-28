@@ -34,13 +34,27 @@
   async function _fetchJson(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
-    const res = await fetch(_api() + path, {
-      method,
-      headers,
-      body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
+    const url = _api() + path;
+    let res;
+    try {
+      res = await fetch(url, {
+        method,
+        headers,
+        body: body ? (body instanceof FormData ? body : JSON.stringify(body)) : undefined,
+      });
+    } catch (netErr) {
+      console.error('[instant-caption] fetch 실패:', method, url, netErr);
+      throw netErr;
+    }
+    // [2026-04-26] res.json() 은 단 한 번만 호출. 이중 호출은 stream 소진 → TypeError 의 원인.
+    const data = await res.json().catch((parseErr) => {
+      console.error('[instant-caption] JSON parse 실패:', parseErr, 'status=', res.status);
+      return {};
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+    if (!res.ok) {
+      console.error('[instant-caption] HTTP error:', res.status, data);
+      throw new Error(data.detail || ('HTTP ' + res.status));
+    }
     return data;
   }
 
@@ -308,21 +322,24 @@
     p.querySelector('#_icPreviewPhoto').style.display = 'block';
     p.querySelector('#_icResult').style.display = 'none';
 
+    let caption = '';
+    let meta = null;
     try {
       _setProgress('① 사진 분석 중…', 25);
-      const meta = await _autoDetectKeywords(file);
+      meta = await _autoDetectKeywords(file);
 
       _setProgress('② 캡션 작성 중…', 60);
-      const caption = await _generateCaption(meta);
+      caption = await _generateCaption(meta);
+      console.log('[instant-caption] caption 생성:', (caption || '').slice(0, 60));
 
-      _setProgress('③ 9:16 스토리 합성 중…', 85);
+      if (!caption || !caption.trim()) {
+        // 백엔드가 200 OK 로 빈 문자열 돌려주는 케이스 — 사용자에게 명확히 안내
+        console.error('[instant-caption] 빈 캡션 응답');
+        throw new Error('AI 가 캡션을 만들지 못했어요. 잠시 후 다시 시도해주세요.');
+      }
+
+      // [2026-04-26] 캡션 확보 → 결과 블록을 먼저 띄운다. 스토리 합성 실패해도 캡션은 노출.
       const tags = _buildHashtags(meta, caption);
-      const storyDataUrl = await _renderStory(photoUrl, caption);
-
-      _setProgress('완료!', 100);
-      setTimeout(() => { p.querySelector('#_icProgress').style.display = 'none'; }, 400);
-
-      // 결과 채우기
       p.querySelector('#_icCaption').value = caption;
       const tagsBox = p.querySelector('#_icTags');
       tagsBox.innerHTML = '';
@@ -332,12 +349,26 @@
         span.textContent = t;
         tagsBox.appendChild(span);
       });
-      p.querySelector('#_icStory').src = storyDataUrl;
-      p.querySelector('#_icStoryDownload').href = storyDataUrl;
       p.querySelector('#_icResult').style.display = 'block';
+
+      _setProgress('③ 9:16 스토리 합성 중…', 85);
+      let storyDataUrl = '';
+      try {
+        storyDataUrl = await _renderStory(photoUrl, caption);
+      } catch (storyErr) {
+        console.error('[instant-caption] 스토리 합성 실패:', storyErr);
+      }
+      if (storyDataUrl) {
+        p.querySelector('#_icStory').src = storyDataUrl;
+        p.querySelector('#_icStoryDownload').href = storyDataUrl;
+      }
+
+      _setProgress('완료!', 100);
+      setTimeout(() => { p.querySelector('#_icProgress').style.display = 'none'; }, 400);
 
       if (window.hapticTap) try { window.hapticTap('success'); } catch (_) { /* noop */ }
     } catch (e) {
+      console.error('[instant-caption] 파이프라인 실패:', e);
       const msg = (e && e.message) ? String(e.message) : '오류';
       _setProgress('실패: ' + msg.slice(0, 80), 0);
       _toast('1초 캡션 실패 — ' + msg.slice(0, 60));

@@ -1,0 +1,194 @@
+/* ─────────────────────────────────────────────────────────────
+   잇데이 스튜디오 — 반응형 (PC/태블릿 최적화)
+   2026-04-26 추가. 모바일 우선 디자인은 그대로 유지하고,
+   너비 768px 이상에서만 PC 레이아웃을 덮어씀.
+
+   요지:
+   - 모바일(<768px) : 기존 디자인 그대로 (하단 탭바 + 풀스크린 시트)
+   - PC/태블릿(>=768px) : 좌측 사이드 nav + 중앙 콘텐츠(최대 980px)
+                         + 시트는 화면 가운데 작은 모달로 축소
+   ──────────────────────────────────────────────────────────── */
+
+/* ===== 사이드 nav (PC 전용 — 마크업은 index.html, 모바일에선 hidden) ===== */
+.side-nav {
+  display: none;
+}
+
+/* ===== ≥768px : 데스크톱 / 태블릿 레이아웃 ===== */
+@media (min-width: 768px) {
+
+  /* 본문 좌측 사이드 nav 만큼 들여쓰기 + 콘텐츠 가운데 정렬 */
+  body {
+    padding-left: 232px;          /* 사이드 nav 폭 */
+  }
+
+  /* 헤더도 sidebar 옆으로 밀어두기 (sticky 유지) */
+  .app-header {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  /* 콘텐츠 가독 폭 확보 (1인샵 사장님이 PC 풀스크린 봐도 글자가 멀쩡하게) */
+  .tab {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 32px calc(48px + env(safe-area-inset-bottom));
+  }
+
+  /* ── 좌측 사이드 nav ───────────────────────────────────── */
+  .side-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 232px;
+    padding: 80px 14px 24px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    z-index: 90;
+    overflow-y: auto;
+  }
+  [data-theme="dark"] .side-nav {
+    background: var(--surface-2);
+  }
+  .side-nav__brand {
+    padding: 0 12px 18px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -0.04em;
+  }
+  .side-nav__brand small {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+  }
+  .side-nav__btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s, color 0.12s;
+  }
+  .side-nav__btn:hover {
+    background: var(--bg3);
+    color: var(--text);
+  }
+  .side-nav__btn.active {
+    background: var(--brand-bg, rgba(241,128,145,0.12));
+    color: var(--accent);
+  }
+  .side-nav__btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    flex-shrink: 0;
+  }
+  .side-nav__btn--fab {
+    margin-top: 8px;
+    background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+    color: #fff;
+    justify-content: center;
+    box-shadow: var(--shadow-brand, 0 6px 18px rgba(241,128,145,0.30));
+  }
+  .side-nav__btn--fab:hover {
+    color: #fff;
+    filter: brightness(1.04);
+  }
+
+  /* ── 모바일 하단 탭바 숨김 (PC 는 사이드 nav 가 대체) ─── */
+  .tab-bar {
+    display: none !important;
+  }
+
+  /* ── 시트류 → 화면 가운데 작은 모달로 축소 ───────────── */
+  /* 1) 설정 바텀시트 */
+  #settingsSheet {
+    align-items: center;          /* 화면 정중앙 */
+  }
+  #settingsCard {
+    width: 480px;
+    max-width: 92vw;
+    max-height: 80vh;
+    border-radius: 24px;          /* 모서리 부드럽게 (모바일은 상단만) */
+    transform: translateY(20px) scale(0.96);
+    opacity: 0;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.18s;
+  }
+  #settingsCard.open {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  /* 2) 캘린더 시트 */
+  .cal-overlay-wrap {
+    align-items: center;
+  }
+  .cal-sheet {
+    width: 760px;
+    max-width: 92vw;
+    height: 82vh;
+    max-height: 760px;
+    border-radius: 24px;
+  }
+
+  /* 3) 허브 (고객·재고·매출 등) */
+  .hub-overlay {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 720px;
+    max-width: 92vw;
+    height: 82vh;
+    border-radius: 24px;
+    animation: hub-fade-in 0.16s ease;
+  }
+  .hub-overlay::before {
+    display: none;                /* 작은 모달엔 핸들 불필요 */
+  }
+
+  /* 4) 일반 popup-overlay — 그대로지만 콘텐츠 폭만 살짝 확장 허용 */
+  .popup-content {
+    max-width: 560px;
+  }
+
+  /* ── PC 에선 글자 살짝 키워서 가독성 ─────────────────── */
+  body {
+    font-size: 15px;
+  }
+  .sec-title {
+    font-size: 20px;
+  }
+}
+
+/* ===== ≥1200px : 와이드 PC — 사이드 nav 좀 더 넓게 ===== */
+@media (min-width: 1200px) {
+  body {
+    padding-left: 260px;
+  }
+  .side-nav {
+    width: 260px;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+  .tab {
+    max-width: 1080px;
+  }
+}
