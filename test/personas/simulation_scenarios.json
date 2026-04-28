@@ -1,0 +1,545 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "generated_at": "2026-04-26",
+    "total_personas": 50,
+    "scenario_categories": [
+      "auth_signup",
+      "assistant_receipt",
+      "voice_revenue",
+      "caption_oneclick",
+      "instagram_publish",
+      "regular_register",
+      "membership",
+      "warmup_message",
+      "booking_add",
+      "booking_edit",
+      "booking_cancel",
+      "data_export",
+      "price_table",
+      "noshow_register",
+      "persona_train",
+      "offline_mode",
+      "multi_device",
+      "device_restore",
+      "inventory"
+    ],
+    "schema": {
+      "id": "S### (auto)",
+      "task": "사용자가 시도하는 작업 한 줄 요약",
+      "steps": ["사용자가 거치는 단계 (UX 시점)"],
+      "expected_friction": ["디지털 친숙도/맥락 따라 발생할 어려움"],
+      "tested_features": ["내부 기능 모듈 키"]
+    }
+  },
+  "scenarios_by_persona": [
+    {
+      "persona_id": 1,
+      "scenarios": [
+        {"id": "P01-S001", "task": "오늘 매출 5건 영수증 사진 일괄 등록", "steps": ["챗봇 열기", "사진 4장 업로드", "분석 결과 확인", "추가하기 클릭"], "expected_friction": ["업로드 중 다른 화면 이동 시 진행 상태 사라질까 걱정", "AI가 손님 이름 잘못 인식 시 인라인 수정 가능 여부 모름"], "tested_features": ["assistant", "image_analysis", "optimistic_ui"]},
+        {"id": "P01-S002", "task": "이번 주 인기 디자인 인스타 캡션 자동 생성", "steps": ["갤러리에서 사진 1장 선택", "1초 캡션 버튼 탭", "톤·해시태그 확인", "복사"], "expected_friction": ["캡션 톤 본인 스타일과 안 맞으면 재생성 어떻게 하는지 모름"], "tested_features": ["caption_oneclick", "persona_tone"]},
+        {"id": "P01-S003", "task": "단골 김OO 님 한 달 안 옴 — 안부 메시지", "steps": ["고객 목록", "최근 미방문 필터", "안부 메시지 클릭"], "expected_friction": ["안부 문구 자동 생성됐지만 너무 길거나 본인 말투 아님"], "tested_features": ["regular_warmup", "persona_message"]},
+        {"id": "P01-S004", "task": "예약 변경 손님 일정 수정", "steps": ["캘린더 탭", "예약 long-press", "시간 변경", "손님 알림 발송 토글"], "expected_friction": ["변경 후 손님에게 알림 자동 가는지 토글 의미 헷갈림"], "tested_features": ["booking_edit", "notify_kakao"]},
+        {"id": "P01-S005", "task": "11월 매출 CSV 내보내기 — 세무사 전송", "steps": ["설정 > 데이터 내보내기", "범위 11월", "CSV 선택", "이메일 공유"], "expected_friction": ["CSV 한글 깨짐 의심", "이메일 첨부 자동인지 직접해야 하는지 불명"], "tested_features": ["data_export"]},
+        {"id": "P01-S006", "task": "새 디자인 시술 가격표에 추가", "steps": ["가격표 탭", "+ 버튼", "이름·금액 입력", "저장"], "expected_friction": ["저장 후 챗봇 매출 등록 시 자동 인식 되는지 모름"], "tested_features": ["price_table", "assistant_sync"]}
+      ]
+    },
+    {
+      "persona_id": 2,
+      "scenarios": [
+        {"id": "P02-S001", "task": "오늘 시술 사진 → 1초 캡션 → 9:16 스토리 자동", "steps": ["사진 업로드", "1초 캡션 탭", "스토리 포맷 선택", "인스타 발행"], "expected_friction": ["발행 진행률 표시 없음 — 멈췄나 의심"], "tested_features": ["caption_oneclick", "story_916", "instagram_publish"]},
+        {"id": "P02-S002", "task": "구글 로그인 후 인스타 OAuth 연결", "steps": ["설정 > 연동", "인스타 연결", "OAuth 동의", "복귀"], "expected_friction": ["OAuth 후 콜백 잘못되면 빈 화면", "토큰 만료 시 재연결 알림 부재"], "tested_features": ["auth_google", "instagram_oauth"]},
+        {"id": "P02-S003", "task": "페르소나 학습 — 본인 톤 시드 5개 입력", "steps": ["AI 설정", "톤 학습 시작", "예시 문장 5개 입력", "저장"], "expected_friction": ["몇 개 입력해야 충분한지 가이드 부재"], "tested_features": ["persona_train"]},
+        {"id": "P02-S004", "task": "스레드용 짧은 카피 생성", "steps": ["1초 캡션", "플랫폼 = 스레드", "톤 trendy"], "expected_friction": ["스레드 글자수 제한 500자 자동 fit 되는지"], "tested_features": ["caption_oneclick", "platform_threads"]},
+        {"id": "P02-S005", "task": "단골 멤버십 (10회 1회 무료) 등록", "steps": ["멤버십 메뉴", "정책 입력", "활성화"], "expected_friction": ["기존 단골 횟수 누적 백필 어떻게 하는지"], "tested_features": ["membership"]},
+        {"id": "P02-S006", "task": "iPhone ↔ iPad 동시 작업 sync", "steps": ["폰에서 매출 등록", "iPad 새로고침"], "expected_friction": ["5분 idle 후만 sync — 즉시 반영 안 됨"], "tested_features": ["multi_device"]},
+        {"id": "P02-S007", "task": "고객 노쇼 등록 + 다음 예약 거부 정책", "steps": ["고객 카드 > 노쇼 표시", "정책 적용 여부"], "expected_friction": ["노쇼 누적 자동 차단 기준 불명"], "tested_features": ["noshow_register"]}
+      ]
+    },
+    {
+      "persona_id": 3,
+      "scenarios": [
+        {"id": "P03-S001", "task": "카카오 로그인 시도", "steps": ["앱 첫 화면", "카카오 버튼", "동의", "복귀"], "expected_friction": ["카카오 → 잇데이 자동 복귀 안 되면 어디 갔지", "본인이 가입한 적 있는지 헷갈려 중복 가입"], "tested_features": ["auth_kakao", "auth_callback"]},
+        {"id": "P03-S002", "task": "오늘 예약 7명 음성으로 등록", "steps": ["음성 버튼", "받아쓰기", "확인 후 저장"], "expected_friction": ["마이크 권한 거부", "방언/어르신 발음 인식률 저조"], "tested_features": ["voice_input", "permission_mic"]},
+        {"id": "P03-S003", "task": "단골 손님 100명 종이 노트 → 앱 옮기기", "steps": ["고객 추가 반복 100회"], "expected_friction": ["일괄 추가 기능 존재 모름", "중간에 앱 종료 시 작성 중 데이터 사라질까"], "tested_features": ["regular_register", "form_recovery"]},
+        {"id": "P03-S004", "task": "예약 노트 종이 + 앱 병행 — 중복 예약 방지", "steps": ["캘린더 확인", "신규 추가"], "expected_friction": ["같은 시간대 예약 충돌 경고 작동 여부"], "tested_features": ["booking_add", "conflict_check"]},
+        {"id": "P03-S005", "task": "글자 크게 보기 옵션 찾기", "steps": ["설정 메뉴 탐색"], "expected_friction": ["접근성 옵션 메뉴 깊숙이 — 못 찾음"], "tested_features": ["accessibility"]}
+      ]
+    },
+    {
+      "persona_id": 4,
+      "scenarios": [
+        {"id": "P04-S001", "task": "재고 화장품 5종 등록 + 알림 설정", "steps": ["재고 탭", "+ 추가", "수량·임계치 입력"], "expected_friction": ["임계치 의미 직관적 안 옴", "알림 푸시 권한 별도 요청"], "tested_features": ["inventory", "permission_push"]},
+        {"id": "P04-S002", "task": "패키지 결제 회원 매출 등록 (현금)", "steps": ["챗봇 음성 또는 텍스트", "금액·결제수단 지정"], "expected_friction": ["패키지 vs 1회 결제 구분 자동 안 됨"], "tested_features": ["assistant", "package_revenue"]},
+        {"id": "P04-S003", "task": "월말 데이터 내보내기 (Excel)", "steps": ["내보내기 > xlsx"], "expected_friction": ["xlsx 직접 변환 안 되고 CSV만 — 본인이 변환 모름"], "tested_features": ["data_export"]},
+        {"id": "P04-S004", "task": "단골 안부 메시지 카톡 일괄 발송", "steps": ["미방문 필터", "전체 선택", "발송"], "expected_friction": ["카톡 일괄 차단 위험 안내 부재"], "tested_features": ["regular_warmup", "kakao_bulk"]},
+        {"id": "P04-S005", "task": "1초 캡션 (피부 시술 비포애프터)", "steps": ["사진 2장 업로드", "캡션 생성"], "expected_friction": ["의료광고법 위반 카피 자동 생성 우려"], "tested_features": ["caption_oneclick", "ad_compliance"]},
+        {"id": "P04-S006", "task": "예약 알림 자동화 ON", "steps": ["설정 > 알림", "예약 24시간 전 카톡 ON"], "expected_friction": ["발송 실제 작동 확인 방법 부재"], "tested_features": ["booking_remind"]}
+      ]
+    },
+    {
+      "persona_id": 5,
+      "scenarios": [
+        {"id": "P05-S001", "task": "신규 손님 끌기 1초 캡션 (트렌디)", "steps": ["사진 업로드", "톤 = trendy", "해시태그 자동"], "expected_friction": ["해시태그 너무 광범위 — 타겟 안 맞음"], "tested_features": ["caption_oneclick"]},
+        {"id": "P05-S002", "task": "9:16 릴스 자동 생성 → 틱톡 다운로드", "steps": ["스토리 생성", "다운로드", "틱톡 업로드"], "expected_friction": ["스토리 → 릴스 비율 차이 (9:16 vs 9:16 변화 없음 — 다행)", "틱톡 직접 발행은 미지원"], "tested_features": ["story_916", "platform_export"]},
+        {"id": "P05-S003", "task": "페르소나 학습 — 본인 캐릭터 톤 시드", "steps": ["페르소나 메뉴", "예시 5개"], "expected_friction": ["몇 번 학습해야 본인 톤 나오는지"], "tested_features": ["persona_train"]},
+        {"id": "P05-S004", "task": "오프라인 (지하철) 매출 입력", "steps": ["네트워크 끊긴 상태 입력", "온라인 복귀"], "expected_friction": ["오프라인 큐에 들어갔는지 시각 표시 부재"], "tested_features": ["offline_mode", "sync_queue"]},
+        {"id": "P05-S005", "task": "신규 손님 첫 방문 → 가격표 보여주기", "steps": ["가격표 탭", "공유 버튼"], "expected_friction": ["공유 링크 외부 접속자 보이는 형태 미리보기 부재"], "tested_features": ["price_table", "share_link"]},
+        {"id": "P05-S006", "task": "스레드 자동 발행", "steps": ["캡션 후 스레드 탭"], "expected_friction": ["스레드 OAuth 재연결 자주 끊김"], "tested_features": ["instagram_publish", "platform_threads"]}
+      ]
+    },
+    {
+      "persona_id": 6,
+      "scenarios": [
+        {"id": "P06-S001", "task": "소속 직원 4명 매출 분배 — 음성 입력", "steps": ["음성 '오늘 박실장 펌 30만'", "확인", "저장"], "expected_friction": ["직원 이름 미리 등록 안 했으면 인식 실패"], "tested_features": ["voice_input", "staff_distribute"]},
+        {"id": "P06-S002", "task": "단골 회원 멤버십 12회 1회 무료 정책", "steps": ["멤버십 등록"], "expected_friction": ["정책 변경 시 기존 누적 회수 어떻게"], "tested_features": ["membership"]},
+        {"id": "P06-S003", "task": "오늘 예약 캘린더 직원별 색상 구분", "steps": ["캘린더 보기 > 직원 필터"], "expected_friction": ["색상 자동 부여 vs 수동 — 어디서 설정"], "tested_features": ["booking_calendar"]},
+        {"id": "P06-S004", "task": "20년 단골 명단 종이 → 음성 입력", "steps": ["고객 추가", "음성 정보 받아쓰기"], "expected_friction": ["전화번호 음성 인식 오타 빈번"], "tested_features": ["voice_input", "regular_register"]},
+        {"id": "P06-S005", "task": "글씨 크게 보기 + 잇데이 가입", "steps": ["접근성 설정", "가입"], "expected_friction": ["가입 자체가 부담스러움 — 이메일 인증 단계 너무 많음"], "tested_features": ["accessibility", "auth_signup"]}
+      ]
+    },
+    {
+      "persona_id": 7,
+      "scenarios": [
+        {"id": "P07-S001", "task": "노쇼 손님 등록 + 향후 예약 정책 적용", "steps": ["고객 카드", "노쇼 표시", "정책 자동"], "expected_friction": ["정책 자동 안내 메시지 무엇인지 미리보기 부재"], "tested_features": ["noshow_register"]},
+        {"id": "P07-S002", "task": "예약 변경 카톡 손님과 주고받기 → 앱 자동", "steps": ["손님 예약 long-press", "시간 변경", "알림 자동"], "expected_friction": ["카톡 채널 미연결 시 알림 미발송 — 무알림 사실 모름"], "tested_features": ["booking_edit", "notify_kakao"]},
+        {"id": "P07-S003", "task": "1초 캡션 — 왁싱 광고 카피 (신규 유입)", "steps": ["사진 업로드", "캡션"], "expected_friction": ["성인 콘텐츠 필터로 차단되는지 우려"], "tested_features": ["caption_oneclick", "content_filter"]},
+        {"id": "P07-S004", "task": "단골 등록 + 시술 이력 자동", "steps": ["고객 추가", "시술 후 자동 이력 누적"], "expected_friction": ["이력에 노트(특이사항) 추가 어디서"], "tested_features": ["regular_register", "history_note"]},
+        {"id": "P07-S005", "task": "오늘 매출 챗봇 영수증 5장 일괄", "steps": ["챗봇", "사진 5장"], "expected_friction": ["다중 사진 업로드 동시 분석 진행률 부재"], "tested_features": ["assistant", "image_analysis"]}
+      ]
+    },
+    {
+      "persona_id": 8,
+      "scenarios": [
+        {"id": "P08-S001", "task": "인스타 광고 효과 측정 — 데이터 내보내기", "steps": ["내보내기 > 인스타 연동 데이터"], "expected_friction": ["인스타 인사이트 연동 부재 — 수동 매칭 필요"], "tested_features": ["data_export", "instagram_insights"]},
+        {"id": "P08-S002", "task": "페르소나 학습 — 전문가 톤", "steps": ["페르소나", "톤=전문"], "expected_friction": ["전문 톤 너무 딱딱 — 자연스러운 본인 톤 미세조정 옵션 부재"], "tested_features": ["persona_train"]},
+        {"id": "P08-S003", "task": "9:16 비포애프터 슬라이드 자동", "steps": ["사진 2장", "스토리 생성"], "expected_friction": ["전후 사진 좌우 배치 vs 슬라이드 — 선택 옵션 부재"], "tested_features": ["story_916"]},
+        {"id": "P08-S004", "task": "iPad Pro 작업 ↔ iPhone 즉시 sync", "steps": ["iPad에서 매출", "iPhone 확인"], "expected_friction": ["sync 즉시 안 됨"], "tested_features": ["multi_device"]},
+        {"id": "P08-S005", "task": "데이터 분석 — 시술별 평균 단가", "steps": ["통계 탭"], "expected_friction": ["커스텀 차트 부재 — 단순 합계만 보임"], "tested_features": ["analytics"]},
+        {"id": "P08-S006", "task": "1년치 데이터 CSV 내보내기", "steps": ["내보내기 > 1년"], "expected_friction": ["용량 큼 — 다운로드 시간 표시 부재"], "tested_features": ["data_export"]}
+      ]
+    },
+    {
+      "persona_id": 9,
+      "scenarios": [
+        {"id": "P09-S001", "task": "단골 안부 메시지 자동 발송 (월 1회)", "steps": ["설정 > 자동 안부"], "expected_friction": ["발송 시점 선택 옵션 적음", "본인 말투 안 따라감"], "tested_features": ["regular_warmup", "auto_message"]},
+        {"id": "P09-S002", "task": "직원 2명 매출 분배 + 멤버십 적립", "steps": ["매출 등록 시 직원 선택", "멤버십 누적"], "expected_friction": ["직원별 멤버십 누적 헷갈림"], "tested_features": ["assistant", "membership"]},
+        {"id": "P09-S003", "task": "오늘 예약 음성 입력 (운전 중)", "steps": ["블루투스 음성"], "expected_friction": ["운전 중 음성 인식 정확도"], "tested_features": ["voice_input"]},
+        {"id": "P09-S004", "task": "단골 생일 챙기기 자동", "steps": ["생일 알림 ON"], "expected_friction": ["생일 정보 미입력 단골 자동 생일 추출 불가"], "tested_features": ["regular_warmup", "birthday"]},
+        {"id": "P09-S005", "task": "예약 추가 후 손님 카톡 자동 알림", "steps": ["예약 추가", "알림 토글"], "expected_friction": ["카톡 알림 비용 발생 우려 표시 부재"], "tested_features": ["booking_add", "notify_kakao"]}
+      ]
+    },
+    {
+      "persona_id": 10,
+      "scenarios": [
+        {"id": "P10-S001", "task": "고정비·매출 비교 차트", "steps": ["대시보드"], "expected_friction": ["고정비 입력 메뉴 어디인지 모름"], "tested_features": ["dashboard", "fixed_cost"]},
+        {"id": "P10-S002", "task": "지하철 이동 중 캡션 미리 작성", "steps": ["오프라인 1초 캡션"], "expected_friction": ["오프라인 시 AI 호출 불가 — 오프라인 캡션 fallback 부재"], "tested_features": ["offline_mode", "caption_oneclick"]},
+        {"id": "P10-S003", "task": "데이터 내보내기 — 적자 증빙 위해 세무사", "steps": ["CSV 내보내기"], "expected_friction": ["적자 추세 차트 별도 export 부재"], "tested_features": ["data_export"]},
+        {"id": "P10-S004", "task": "1초 캡션 → 인스타+틱톡+스레드 동시", "steps": ["멀티 플랫폼 발행"], "expected_friction": ["틱톡 직접 발행 미지원"], "tested_features": ["instagram_publish"]},
+        {"id": "P10-S005", "task": "신규 디자인 가격표 추가", "steps": ["가격표 + 추가"], "expected_friction": ["디자인 사진 첨부 가능 여부 모름"], "tested_features": ["price_table"]}
+      ]
+    },
+    {
+      "persona_id": 11,
+      "scenarios": [
+        {"id": "P11-S001", "task": "리터치 안내 (4주 후 자동 메시지)", "steps": ["고객 카드 > 자동 리마인더"], "expected_friction": ["주기 4주/6주 옵션 사용자 정의 부재"], "tested_features": ["regular_warmup", "auto_message"]},
+        {"id": "P11-S002", "task": "오늘 예약 추가 (음성 + 텍스트 혼합)", "steps": ["빠른 추가"], "expected_friction": ["손님 이름 비슷 — 자동완성 안 됨"], "tested_features": ["booking_add", "voice_input"]},
+        {"id": "P11-S003", "task": "1초 캡션 → 해시태그 본인 카피", "steps": ["캡션", "해시태그 편집"], "expected_friction": ["해시태그 클립보드 복사 후 인스타 직접 붙여넣기 번거로움"], "tested_features": ["caption_oneclick"]},
+        {"id": "P11-S004", "task": "영수증 챗봇 — 카드 결제 인식", "steps": ["사진 업로드"], "expected_friction": ["카드사 영수증 포맷 다양 — 일부 인식 실패"], "tested_features": ["assistant", "image_analysis"]},
+        {"id": "P11-S005", "task": "단골 안부 — 본인 톤 한 명씩", "steps": ["고객 선택", "메시지 생성"], "expected_friction": ["일괄 vs 한 명씩 — 한 명씩 옵션 어디"], "tested_features": ["regular_warmup"]}
+      ]
+    },
+    {
+      "persona_id": 12,
+      "scenarios": [
+        {"id": "P12-S001", "task": "엑셀에 정리하던 매출 → 음성 입력 전환", "steps": ["음성 등록 반복"], "expected_friction": ["기존 엑셀 import 기능 부재"], "tested_features": ["voice_input", "data_import"]},
+        {"id": "P12-S002", "task": "직원 2명 매출 분배 + 정산", "steps": ["분배 입력"], "expected_friction": ["%/금액 입력 단위 헷갈림"], "tested_features": ["assistant"]},
+        {"id": "P12-S003", "task": "월말 정산 데이터 내보내기 (xlsx)", "steps": ["내보내기"], "expected_friction": ["xlsx 호환 안 되면 엑셀에서 깨짐"], "tested_features": ["data_export"]},
+        {"id": "P12-S004", "task": "영수증 사진 챗봇 → 누적 쌓아두기", "steps": ["여러 사진 업로드"], "expected_friction": ["검토 후 일괄 승인 vs 개별 — 헷갈림"], "tested_features": ["assistant", "batch_approve"]},
+        {"id": "P12-S005", "task": "가입 절차 — 이메일 인증 + 사업자 인증", "steps": ["가입 폼"], "expected_friction": ["사업자 인증 서류 사진 업로드 부담"], "tested_features": ["auth_signup"]}
+      ]
+    },
+    {
+      "persona_id": 13,
+      "scenarios": [
+        {"id": "P13-S001", "task": "스타일 컨셉별 사진 폴더 분류", "steps": ["갤러리"], "expected_friction": ["폴더 자동 태깅 부재 — 수동 분류"], "tested_features": ["gallery", "auto_tag"]},
+        {"id": "P13-S002", "task": "1초 캡션 → 9:16 → 인스타+유튜브 쇼츠 발행", "steps": ["멀티 발행"], "expected_friction": ["유튜브 OAuth 부재"], "tested_features": ["story_916", "instagram_publish"]},
+        {"id": "P13-S003", "task": "페르소나 학습 — 감각적 톤", "steps": ["시드 업로드"], "expected_friction": ["시드 모범 예시 부재"], "tested_features": ["persona_train"]},
+        {"id": "P13-S004", "task": "예약 수정 다중 (오늘 4건)", "steps": ["일괄 편집"], "expected_friction": ["일괄 편집 UI 부재 — 1건씩 반복"], "tested_features": ["booking_edit"]},
+        {"id": "P13-S005", "task": "영수증 사진 챗봇 — 현금 메모", "steps": ["사진+메모"], "expected_friction": ["현금 결제 자동 인식 어려움 — 수동 입력"], "tested_features": ["assistant"]}
+      ]
+    },
+    {
+      "persona_id": 14,
+      "scenarios": [
+        {"id": "P14-S001", "task": "잇데이 앱 가입 자체 첫 시도", "steps": ["다운로드", "회원가입"], "expected_friction": ["가입 단계 너무 많음 — 도중 포기 위험", "약관 동의 글자 작아 읽기 힘듦"], "tested_features": ["auth_signup", "accessibility"]},
+        {"id": "P14-S002", "task": "음성으로 오늘 매출 등록", "steps": ["음성 버튼"], "expected_friction": ["사투리 인식 부정확", "마이크 권한 모르겠음"], "tested_features": ["voice_input", "permission_mic"]},
+        {"id": "P14-S003", "task": "단골 16년 손님 50명 등록", "steps": ["고객 추가 반복"], "expected_friction": ["폼 자동 복구 미신뢰 — 한 번에 끝내려 함"], "tested_features": ["regular_register", "form_recovery"]},
+        {"id": "P14-S004", "task": "예약 추가 — 전화로 들은 정보", "steps": ["빠른 추가"], "expected_friction": ["손님 이름 한자 표기 — 입력 힘듦"], "tested_features": ["booking_add"]},
+        {"id": "P14-S005", "task": "도와주세요 챗봇 — 사용법 질문", "steps": ["챗봇 텍스트"], "expected_friction": ["사용법 안내 챗봇 응답 너무 일반적"], "tested_features": ["assistant", "help_bot"]}
+      ]
+    },
+    {
+      "persona_id": 15,
+      "scenarios": [
+        {"id": "P15-S001", "task": "신규 가격표 공유 링크 (손님 발송)", "steps": ["가격표 공유"], "expected_friction": ["링크 만료 정책 불명"], "tested_features": ["price_table", "share_link"]},
+        {"id": "P15-S002", "task": "1초 캡션 (왁싱 — 톤 친근)", "steps": ["캡션 톤=친근"], "expected_friction": ["친근 톤 가이드 예시 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P15-S003", "task": "예약 24시간 전 자동 알림", "steps": ["설정 토글"], "expected_friction": ["발송 사실 본인 확인 어려움"], "tested_features": ["booking_remind"]},
+        {"id": "P15-S004", "task": "단골 등록 (당근 손님 → 잇데이)", "steps": ["고객 추가"], "expected_friction": ["당근 채팅 import 부재"], "tested_features": ["regular_register"]},
+        {"id": "P15-S005", "task": "영수증 챗봇 — 카드+현금 혼합", "steps": ["사진+추가 입력"], "expected_friction": ["혼합 결제 자동 분리 안 됨"], "tested_features": ["assistant"]}
+      ]
+    },
+    {
+      "persona_id": 16,
+      "scenarios": [
+        {"id": "P16-S001", "task": "비포애프터 9:16 슬라이드 — 인스타+유튜브 쇼츠", "steps": ["사진 2장", "스토리 생성"], "expected_friction": ["전후 텍스트 자동 위치 미세조정 부재"], "tested_features": ["story_916"]},
+        {"id": "P16-S002", "task": "1초 캡션 톤=신뢰감", "steps": ["톤 선택"], "expected_friction": ["신뢰 톤 ↔ 의료광고법 — 경계 안내 부재"], "tested_features": ["caption_oneclick", "ad_compliance"]},
+        {"id": "P16-S003", "task": "데이터 내보내기 — 비포애프터 매출 분석", "steps": ["내보내기"], "expected_friction": ["사진 메타 매출 매칭 부재"], "tested_features": ["data_export"]},
+        {"id": "P16-S004", "task": "오늘 챗봇 영수증 분석 + 단골 자동 적립", "steps": ["사진"], "expected_friction": ["적립 자동 vs 수동 — 토글 어디"], "tested_features": ["assistant", "membership"]},
+        {"id": "P16-S005", "task": "가격표 슬롯별 시술 시간 계산", "steps": ["가격표 시간 입력"], "expected_friction": ["예약 시 자동 시간 잡기 작동 여부"], "tested_features": ["price_table", "booking_add"]}
+      ]
+    },
+    {
+      "persona_id": 17,
+      "scenarios": [
+        {"id": "P17-S001", "task": "직원 2명 출퇴근·시술 분배 기록", "steps": ["직원 메뉴"], "expected_friction": ["출퇴근 자동 기록 GPS 옵션 부재"], "tested_features": ["staff_distribute"]},
+        {"id": "P17-S002", "task": "예약 캘린더 직원별 색", "steps": ["필터"], "expected_friction": ["색상 자동 부여 의미 헷갈림"], "tested_features": ["booking_calendar"]},
+        {"id": "P17-S003", "task": "멤버십 200명 일괄 정책 변경", "steps": ["멤버십 정책"], "expected_friction": ["기존 누적 회수 백필"], "tested_features": ["membership"]},
+        {"id": "P17-S004", "task": "데이터 내보내기 — 직원별 매출 비교", "steps": ["내보내기 필터=직원"], "expected_friction": ["직원 필터 부재 — 전체만"], "tested_features": ["data_export"]},
+        {"id": "P17-S005", "task": "1초 캡션 — 단체 디자인 게시", "steps": ["사진"], "expected_friction": ["여러 디자인 한 게시 — 캡션 일반화"], "tested_features": ["caption_oneclick"]}
+      ]
+    },
+    {
+      "persona_id": 18,
+      "scenarios": [
+        {"id": "P18-S001", "task": "오프라인 (스튜디오 지하) 매출 입력", "steps": ["오프라인 큐"], "expected_friction": ["큐 시각 표시 부재 — 정상 저장 의심"], "tested_features": ["offline_mode"]},
+        {"id": "P18-S002", "task": "1초 캡션 (감성 톤)", "steps": ["톤=감성"], "expected_friction": ["감성 vs 트렌디 차이 모호"], "tested_features": ["caption_oneclick"]},
+        {"id": "P18-S003", "task": "결혼시즌 외 매출 패턴 분석", "steps": ["통계"], "expected_friction": ["계절별 패턴 자동 분석 부재"], "tested_features": ["analytics"]},
+        {"id": "P18-S004", "task": "페르소나 학습 — 본인 캡션 시드 업로드", "steps": ["시드"], "expected_friction": ["시드 5개 vs 10개 효과 차이 가이드 부재"], "tested_features": ["persona_train"]},
+        {"id": "P18-S005", "task": "예약 추가 — 손님 위치 정보 (출장)", "steps": ["출장 예약"], "expected_friction": ["출장 메모 필드 부재"], "tested_features": ["booking_add"]}
+      ]
+    },
+    {
+      "persona_id": 19,
+      "scenarios": [
+        {"id": "P19-S001", "task": "기기 시술 후기 자동 요청 메시지", "steps": ["설정 > 후기 자동 요청"], "expected_friction": ["요청 시점 (시술 직후 vs 익일) 옵션 부족"], "tested_features": ["regular_warmup", "review_request"]},
+        {"id": "P19-S002", "task": "단골 안부 — 톤=차분", "steps": ["메시지 생성"], "expected_friction": ["차분 톤 너무 딱딱"], "tested_features": ["regular_warmup"]},
+        {"id": "P19-S003", "task": "예약 추가 음성 — '내일 11시 김OO 님'", "steps": ["음성"], "expected_friction": ["내일 vs 오늘 인식 가끔 헷갈림"], "tested_features": ["voice_input", "booking_add"]},
+        {"id": "P19-S004", "task": "1초 캡션 — 후기 텍스트 자동 첨부", "steps": ["사진+후기 입력"], "expected_friction": ["후기 자동 가져오기 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P19-S005", "task": "월말 매출 추이 차트", "steps": ["대시보드"], "expected_friction": ["차트 인터랙션 부재 — 정적"], "tested_features": ["dashboard"]}
+      ]
+    },
+    {
+      "persona_id": 20,
+      "scenarios": [
+        {"id": "P20-S001", "task": "재방문 손님 시술 이력 자동 표시", "steps": ["고객 검색"], "expected_friction": ["검색 한글 자모 분리 시 인식 실패"], "tested_features": ["regular_register", "history_note"]},
+        {"id": "P20-S002", "task": "단골 등록 일괄 (작년 손님 80명)", "steps": ["일괄 import"], "expected_friction": ["일괄 import 부재 — 수기 80회"], "tested_features": ["regular_register"]},
+        {"id": "P20-S003", "task": "음성 매출 등록 (시술 직후)", "steps": ["음성"], "expected_friction": ["손이 젖어서 화면 터치 어려움 — 음성만으로 완결 가능 여부"], "tested_features": ["voice_input", "hands_free"]},
+        {"id": "P20-S004", "task": "영수증 챗봇 — 시술 종류 자동 분류", "steps": ["사진"], "expected_friction": ["시술 종류 미등록 시 '기타'로 분류"], "tested_features": ["assistant", "category_auto"]},
+        {"id": "P20-S005", "task": "캡션 (속눈썹 디자인 4종)", "steps": ["멀티 사진"], "expected_friction": ["사진별 캡션 따로 vs 통합 옵션 모호"], "tested_features": ["caption_oneclick"]}
+      ]
+    },
+    {
+      "persona_id": 21,
+      "scenarios": [
+        {"id": "P21-S001", "task": "직원 6명 스케줄 + 매출 분배 음성", "steps": ["음성 입력 반복"], "expected_friction": ["6명 동시 매출 처리 음성 인식 한계"], "tested_features": ["voice_input", "staff_distribute"]},
+        {"id": "P21-S002", "task": "예약 (전화 폭주) — 빠른 등록", "steps": ["음성+빠른 추가"], "expected_friction": ["여러 손님 동시 — 오인식 우려"], "tested_features": ["voice_input", "booking_add"]},
+        {"id": "P21-S003", "task": "데이터 내보내기 — 18년치 누적", "steps": ["내보내기"], "expected_friction": ["기존 데이터 import 부재 — 18년치 없음"], "tested_features": ["data_export", "data_import"]},
+        {"id": "P21-S004", "task": "단골 410명 멤버십 일괄", "steps": ["멤버십 백필"], "expected_friction": ["백필 기능 부재"], "tested_features": ["membership"]},
+        {"id": "P21-S005", "task": "글씨 크게 + 직원 매출 분배 화면", "steps": ["접근성 ON"], "expected_friction": ["테이블 글자 키우면 컬럼 깨짐"], "tested_features": ["accessibility"]}
+      ]
+    },
+    {
+      "persona_id": 22,
+      "scenarios": [
+        {"id": "P22-S001", "task": "예약 24시간 전 자동 카톡 알림", "steps": ["설정"], "expected_friction": ["카톡 채널 미연결 시 무알림 — 인지 부재"], "tested_features": ["booking_remind"]},
+        {"id": "P22-S002", "task": "단골 안부 자동 (톤=다정)", "steps": ["자동 안부"], "expected_friction": ["톤 자동 일관성 떨어짐"], "tested_features": ["regular_warmup"]},
+        {"id": "P22-S003", "task": "음성 입력 — 아침 첫 손님 매출", "steps": ["음성"], "expected_friction": ["조용한 환경 vs 잡음 시 인식 차이"], "tested_features": ["voice_input"]},
+        {"id": "P22-S004", "task": "예약 수정 (일정 변경 폭주)", "steps": ["일괄 수정"], "expected_friction": ["일괄 수정 부재"], "tested_features": ["booking_edit"]},
+        {"id": "P22-S005", "task": "신규 가입 카카오 OAuth", "steps": ["카카오 로그인"], "expected_friction": ["OAuth 콜백 끊김 위험"], "tested_features": ["auth_kakao"]}
+      ]
+    },
+    {
+      "persona_id": 23,
+      "scenarios": [
+        {"id": "P23-S001", "task": "1초 캡션 (틱톡 광고용)", "steps": ["캡션"], "expected_friction": ["틱톡 트렌드 해시태그 자동 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P23-S002", "task": "9:16 스토리 자동", "steps": ["스토리"], "expected_friction": ["BGM 자동 추가 부재"], "tested_features": ["story_916"]},
+        {"id": "P23-S003", "task": "페르소나 학습 — 도전적 톤", "steps": ["시드"], "expected_friction": ["도전 톤 가이드 부재"], "tested_features": ["persona_train"]},
+        {"id": "P23-S004", "task": "신규 손님 첫 방문 가격표 공유", "steps": ["공유 링크"], "expected_friction": ["공유 링크 본인 브랜딩 부재"], "tested_features": ["price_table", "share_link"]},
+        {"id": "P23-S005", "task": "오프라인 (이동 중) 캡션 미리 작성", "steps": ["오프라인"], "expected_friction": ["AI 호출 불가"], "tested_features": ["offline_mode"]}
+      ]
+    },
+    {
+      "persona_id": 24,
+      "scenarios": [
+        {"id": "P24-S001", "task": "포스 영수증 박스 → 챗봇 사진 일괄", "steps": ["챗봇 사진 50장"], "expected_friction": ["50장 동시 한도 안 알려줌", "처리 진행률 부재"], "tested_features": ["assistant", "image_analysis", "batch_approve"]},
+        {"id": "P24-S002", "task": "음성 매출 입력 (낮 시간 짬짬이)", "steps": ["음성"], "expected_friction": ["권한 거부 후 재허용 방법 모름"], "tested_features": ["voice_input", "permission_mic"]},
+        {"id": "P24-S003", "task": "데이터 내보내기 — 세무사 의뢰", "steps": ["CSV"], "expected_friction": ["CSV 한글 깨짐 의심", "이메일 전송 직접해야 함"], "tested_features": ["data_export"]},
+        {"id": "P24-S004", "task": "단골 등록 — 17년 손님 280명", "steps": ["고객 추가 반복"], "expected_friction": ["폼 자동 복구 미신뢰"], "tested_features": ["regular_register", "form_recovery"]},
+        {"id": "P24-S005", "task": "글씨 크게 + 가입", "steps": ["접근성"], "expected_friction": ["가입 폼 글자 작음"], "tested_features": ["accessibility", "auth_signup"]}
+      ]
+    },
+    {
+      "persona_id": 25,
+      "scenarios": [
+        {"id": "P25-S001", "task": "고가 시술 손님 신뢰 메시지 자동", "steps": ["페르소나 톤=전문"], "expected_friction": ["전문 톤 본인 색깔 부재"], "tested_features": ["persona_train", "regular_warmup"]},
+        {"id": "P25-S002", "task": "1초 캡션 — 반영구 비포애프터", "steps": ["사진"], "expected_friction": ["의료광고법 가이드 부재"], "tested_features": ["caption_oneclick", "ad_compliance"]},
+        {"id": "P25-S003", "task": "단골 안부 — 한 명 한 명 정성", "steps": ["개별 메시지"], "expected_friction": ["개별 생성 시간 오래 걸림"], "tested_features": ["regular_warmup"]},
+        {"id": "P25-S004", "task": "유튜브 영상 캡션·해시태그", "steps": ["1초 캡션 플랫폼=유튜브"], "expected_friction": ["유튜브 longform 캡션 길이 자동 fit 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P25-S005", "task": "예약 — 고가 시술 보증금 정책", "steps": ["예약 + 보증금"], "expected_friction": ["보증금 결제 연동 부재"], "tested_features": ["booking_add", "deposit"]}
+      ]
+    },
+    {
+      "persona_id": 26,
+      "scenarios": [
+        {"id": "P26-S001", "task": "디자인 사진 자동 분류 + 인스타 발행", "steps": ["갤러리"], "expected_friction": ["자동 태깅 부재"], "tested_features": ["gallery", "instagram_publish"]},
+        {"id": "P26-S002", "task": "1초 캡션 (당근 노출용)", "steps": ["캡션"], "expected_friction": ["당근 발행 미지원"], "tested_features": ["caption_oneclick"]},
+        {"id": "P26-S003", "task": "오프라인 (지하실 근무) 매출", "steps": ["오프라인"], "expected_friction": ["큐 작동 미신뢰"], "tested_features": ["offline_mode"]},
+        {"id": "P26-S004", "task": "예약 수정 — 손님 변심 잦음", "steps": ["예약 long-press"], "expected_friction": ["변심 사유 메모 부재"], "tested_features": ["booking_edit"]},
+        {"id": "P26-S005", "task": "단골 등록 후 시술 이력 자동", "steps": ["고객 자동"], "expected_friction": ["이력 누적 시점 (저장 직후 vs 다음날) 모호"], "tested_features": ["regular_register"]}
+      ]
+    },
+    {
+      "persona_id": 27,
+      "scenarios": [
+        {"id": "P27-S001", "task": "단골 240명 머리 스타일 메모", "steps": ["고객 카드 메모"], "expected_friction": ["사진 메모 부재"], "tested_features": ["regular_register", "history_note"]},
+        {"id": "P27-S002", "task": "예약 직원별 색", "steps": ["캘린더"], "expected_friction": ["직원 등록 메뉴 헷갈림"], "tested_features": ["booking_calendar"]},
+        {"id": "P27-S003", "task": "음성 매출 직원 분배", "steps": ["음성"], "expected_friction": ["직원 이름 발음 비슷 — 오인식"], "tested_features": ["voice_input", "staff_distribute"]},
+        {"id": "P27-S004", "task": "단골 안부 — 위트 톤", "steps": ["메시지"], "expected_friction": ["위트 톤 본인 캐릭터 안 맞음"], "tested_features": ["regular_warmup", "persona_train"]},
+        {"id": "P27-S005", "task": "1초 캡션 — 시술 직후 빠르게", "steps": ["사진"], "expected_friction": ["손 젖었음 — 음성 캡션 부재"], "tested_features": ["caption_oneclick", "hands_free"]}
+      ]
+    },
+    {
+      "persona_id": 28,
+      "scenarios": [
+        {"id": "P28-S001", "task": "예약 변경 카톡 폭주 → 앱 자동 처리", "steps": ["손님 카톡 → 앱"], "expected_friction": ["카톡 자동 import 부재 — 수기"], "tested_features": ["booking_edit"]},
+        {"id": "P28-S002", "task": "1초 캡션 (스레드 포함)", "steps": ["멀티 플랫폼"], "expected_friction": ["스레드 글자수 fit 부재"], "tested_features": ["caption_oneclick", "platform_threads"]},
+        {"id": "P28-S003", "task": "단골 안부 — 단체 100명 일괄", "steps": ["일괄 발송"], "expected_friction": ["일괄 발송 한도·블록 위험 안내 부재"], "tested_features": ["regular_warmup"]},
+        {"id": "P28-S004", "task": "9:16 스토리 자동 (틱톡 다운로드)", "steps": ["스토리"], "expected_friction": ["틱톡 발행 미지원"], "tested_features": ["story_916"]},
+        {"id": "P28-S005", "task": "예약 수정 후 손님 알림 자동", "steps": ["수정+알림"], "expected_friction": ["알림 발송 확인 부재"], "tested_features": ["booking_edit", "notify_kakao"]}
+      ]
+    },
+    {
+      "persona_id": 29,
+      "scenarios": [
+        {"id": "P29-S001", "task": "월말 정산 데이터 내보내기 (CSV)", "steps": ["내보내기"], "expected_friction": ["CSV 한글 깨짐"], "tested_features": ["data_export"]},
+        {"id": "P29-S002", "task": "음성 매출 등록 (저녁 정리)", "steps": ["음성"], "expected_friction": ["피곤한 발음 인식 저조"], "tested_features": ["voice_input"]},
+        {"id": "P29-S003", "task": "단골 멤버십 적립 일괄", "steps": ["멤버십"], "expected_friction": ["과거 매출 자동 누적 부재"], "tested_features": ["membership"]},
+        {"id": "P29-S004", "task": "단골 안부 (다정 톤)", "steps": ["메시지"], "expected_friction": ["다정 톤 너무 진부"], "tested_features": ["regular_warmup"]},
+        {"id": "P29-S005", "task": "예약 추가 음성 — 노이즈 환경", "steps": ["음성"], "expected_friction": ["노이즈 인식 저조"], "tested_features": ["voice_input"]}
+      ]
+    },
+    {
+      "persona_id": 30,
+      "scenarios": [
+        {"id": "P30-S001", "task": "복합샵 가격표 카테고리별 정리", "steps": ["가격표 카테고리 추가"], "expected_friction": ["카테고리 중첩 (네일/속눈썹/메이크업) 트리 부재"], "tested_features": ["price_table"]},
+        {"id": "P30-S002", "task": "iPhone ↔ iPad ↔ MacBook sync", "steps": ["멀티"], "expected_friction": ["MacBook 웹 미지원"], "tested_features": ["multi_device"]},
+        {"id": "P30-S003", "task": "직원 2명 시술 분배", "steps": ["음성"], "expected_friction": ["직원 이름 — 시술 유형 동시 인식 부정확"], "tested_features": ["voice_input", "staff_distribute"]},
+        {"id": "P30-S004", "task": "1초 캡션 — 카테고리 다양 발행", "steps": ["멀티 카테고리"], "expected_friction": ["카테고리별 톤 자동 분기 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P30-S005", "task": "데이터 내보내기 — 카테고리별 매출 비교", "steps": ["내보내기 필터"], "expected_friction": ["카테고리 필터 부재"], "tested_features": ["data_export"]}
+      ]
+    },
+    {
+      "persona_id": 31,
+      "scenarios": [
+        {"id": "P31-S001", "task": "리뷰 응답 자동 (네이버)", "steps": ["네이버 리뷰 알림"], "expected_friction": ["네이버 리뷰 자동 import 부재"], "tested_features": ["review_request"]},
+        {"id": "P31-S002", "task": "단골 안부 (수다톤)", "steps": ["메시지"], "expected_friction": ["수다 톤 너무 길어짐"], "tested_features": ["regular_warmup"]},
+        {"id": "P31-S003", "task": "음성 매출 — 손님 떠난 직후", "steps": ["음성"], "expected_friction": ["다음 손님 들어오는 사이 시간 부족"], "tested_features": ["voice_input"]},
+        {"id": "P31-S004", "task": "예약 추가 — 음성 + 텍스트 혼합", "steps": ["빠른 추가"], "expected_friction": ["혼합 입력 시 자동 매칭 부재"], "tested_features": ["booking_add", "voice_input"]},
+        {"id": "P31-S005", "task": "1초 캡션 (왁싱 카피)", "steps": ["사진"], "expected_friction": ["성인 콘텐츠 차단 우려"], "tested_features": ["caption_oneclick", "content_filter"]}
+      ]
+    },
+    {
+      "persona_id": 32,
+      "scenarios": [
+        {"id": "P32-S001", "task": "포트폴리오 사진 정리 + 인스타 발행", "steps": ["갤러리"], "expected_friction": ["자동 태깅 부재"], "tested_features": ["gallery", "instagram_publish"]},
+        {"id": "P32-S002", "task": "1초 캡션 — 적자 직전 메시지 우려", "steps": ["캡션"], "expected_friction": ["AI가 본인 어려움 모름 — 어조 톤 미스"], "tested_features": ["caption_oneclick", "persona_train"]},
+        {"id": "P32-S003", "task": "오프라인 (이동 중) 캡션 작성", "steps": ["오프라인"], "expected_friction": ["AI 호출 불가"], "tested_features": ["offline_mode"]},
+        {"id": "P32-S004", "task": "페르소나 학습 — 본인 시드 5개", "steps": ["시드"], "expected_friction": ["시드 시간 투자 가치 의심"], "tested_features": ["persona_train"]},
+        {"id": "P32-S005", "task": "예약 추가 — 신규 30명만", "steps": ["빠른 추가"], "expected_friction": ["신규 손님 정보 입력 필드 많음"], "tested_features": ["booking_add"]}
+      ]
+    },
+    {
+      "persona_id": 33,
+      "scenarios": [
+        {"id": "P33-S001", "task": "고가 패키지 회원 별도 멤버십 트랙", "steps": ["멤버십"], "expected_friction": ["멤버십 트랙 분리 옵션 부재"], "tested_features": ["membership"]},
+        {"id": "P33-S002", "task": "예약 (패키지 회원 우선)", "steps": ["예약"], "expected_friction": ["우선순위 표시 부재"], "tested_features": ["booking_add"]},
+        {"id": "P33-S003", "task": "데이터 내보내기 — 패키지 vs 일반", "steps": ["내보내기 필터"], "expected_friction": ["분류 필터 부재"], "tested_features": ["data_export"]},
+        {"id": "P33-S004", "task": "단골 안부 (온화 톤)", "steps": ["메시지"], "expected_friction": ["온화 톤 가이드 부재"], "tested_features": ["regular_warmup"]},
+        {"id": "P33-S005", "task": "1초 캡션 — 효과 후기 자동", "steps": ["캡션+후기"], "expected_friction": ["후기 자동 가져오기 부재"], "tested_features": ["caption_oneclick"]}
+      ]
+    },
+    {
+      "persona_id": 34,
+      "scenarios": [
+        {"id": "P34-S001", "task": "잇데이 가입 자체 부담", "steps": ["가입"], "expected_friction": ["가입 단계 너무 많음", "약관 동의 글자 작음"], "tested_features": ["auth_signup", "accessibility"]},
+        {"id": "P34-S002", "task": "음성 매출 등록 (전화 예약 후)", "steps": ["음성"], "expected_friction": ["사투리·억양 인식 저조"], "tested_features": ["voice_input"]},
+        {"id": "P34-S003", "task": "단골 등록 — 15년 손님 180명", "steps": ["반복"], "expected_friction": ["일괄 import 부재"], "tested_features": ["regular_register"]},
+        {"id": "P34-S004", "task": "예약 — 전화로 들은 정보", "steps": ["빠른 추가"], "expected_friction": ["전화 통화 중 화면 보기 어려움"], "tested_features": ["booking_add"]},
+        {"id": "P34-S005", "task": "도와주세요 챗봇 — 사용법", "steps": ["챗봇"], "expected_friction": ["챗봇 응답 일반적 — 본인 문제 못 풀음"], "tested_features": ["assistant", "help_bot"]}
+      ]
+    },
+    {
+      "persona_id": 35,
+      "scenarios": [
+        {"id": "P35-S001", "task": "트렌디 디자인 캡션 (해시태그 본인 큐레이션)", "steps": ["캡션"], "expected_friction": ["해시태그 본인 디테일 톤 미세조정 부재"], "tested_features": ["caption_oneclick", "persona_train"]},
+        {"id": "P35-S002", "task": "9:16 + 인스타+스레드+틱톡+쇼츠", "steps": ["멀티"], "expected_friction": ["틱톡·쇼츠 직접 발행 미지원"], "tested_features": ["story_916", "instagram_publish"]},
+        {"id": "P35-S003", "task": "페르소나 학습 — 본인 톤 시드 10개", "steps": ["시드"], "expected_friction": ["10개 입력 시간 투자"], "tested_features": ["persona_train"]},
+        {"id": "P35-S004", "task": "데이터 내보내기 — 디자인별 단가 분석", "steps": ["내보내기"], "expected_friction": ["디자인 카테고리 필터 부재"], "tested_features": ["data_export"]},
+        {"id": "P35-S005", "task": "키보드 단축키 (Cmd+S 저장)", "steps": ["MacBook"], "expected_friction": ["단축키 미지원"], "tested_features": ["keyboard_shortcut"]}
+      ]
+    },
+    {
+      "persona_id": 36,
+      "scenarios": [
+        {"id": "P36-S001", "task": "복합샵 시간 배분 (네일+속눈썹 동시)", "steps": ["예약 캘린더"], "expected_friction": ["듀얼 시술 자동 시간 분배 부재"], "tested_features": ["booking_calendar"]},
+        {"id": "P36-S002", "task": "가격표 카테고리별 정리", "steps": ["가격표"], "expected_friction": ["카테고리 정렬 옵션 부재"], "tested_features": ["price_table"]},
+        {"id": "P36-S003", "task": "단골 등록 — 복합 시술 선호 표시", "steps": ["고객 카드"], "expected_friction": ["선호 시술 자동 추천 부재"], "tested_features": ["regular_register"]},
+        {"id": "P36-S004", "task": "1초 캡션 — 복합 시술 사진", "steps": ["캡션"], "expected_friction": ["복합 카테고리 인식 모호"], "tested_features": ["caption_oneclick"]},
+        {"id": "P36-S005", "task": "음성 매출 (복합 시술 분리)", "steps": ["음성"], "expected_friction": ["분리 인식 부재"], "tested_features": ["voice_input"]}
+      ]
+    },
+    {
+      "persona_id": 37,
+      "scenarios": [
+        {"id": "P37-S001", "task": "남성 컷 빠른 예약 흐름", "steps": ["예약 빠른 추가"], "expected_friction": ["남자 컷 카테고리 자동 분류 부재"], "tested_features": ["booking_add"]},
+        {"id": "P37-S002", "task": "1초 캡션 (남성 톤)", "steps": ["캡션 톤=쿨"], "expected_friction": ["쿨 톤 가이드 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P37-S003", "task": "데이터 내보내기 — 남성/여성 비율", "steps": ["내보내기"], "expected_friction": ["성별 필터 부재"], "tested_features": ["data_export"]},
+        {"id": "P37-S004", "task": "iPad 작업 후 iPhone 즉시 sync", "steps": ["멀티"], "expected_friction": ["sync 즉시 안 됨"], "tested_features": ["multi_device"]},
+        {"id": "P37-S005", "task": "키보드 단축키 (Cmd+Enter 발행)", "steps": ["iPad+키보드"], "expected_friction": ["단축키 미지원"], "tested_features": ["keyboard_shortcut"]}
+      ]
+    },
+    {
+      "persona_id": 38,
+      "scenarios": [
+        {"id": "P38-S001", "task": "단골 생일 자동 알림 + 메시지", "steps": ["설정"], "expected_friction": ["생일 정보 미입력 단골 알림 부재"], "tested_features": ["regular_warmup", "birthday"]},
+        {"id": "P38-S002", "task": "단골 멤버십 12회 1회 무료", "steps": ["멤버십"], "expected_friction": ["회수 자동 누적 시점 모호"], "tested_features": ["membership"]},
+        {"id": "P38-S003", "task": "음성 매출 (시술 직후)", "steps": ["음성"], "expected_friction": ["손 젖음"], "tested_features": ["voice_input", "hands_free"]},
+        {"id": "P38-S004", "task": "데이터 내보내기 (월말)", "steps": ["내보내기"], "expected_friction": ["CSV 한글 깨짐"], "tested_features": ["data_export"]},
+        {"id": "P38-S005", "task": "1초 캡션 (감성 후기)", "steps": ["캡션"], "expected_friction": ["감성 톤 본인 색깔 모름"], "tested_features": ["caption_oneclick"]}
+      ]
+    },
+    {
+      "persona_id": 39,
+      "scenarios": [
+        {"id": "P39-S001", "task": "직원 4명 매출 누구 얼마인지 음성", "steps": ["음성 반복"], "expected_friction": ["직원 이름 미등록 시 인식 실패"], "tested_features": ["voice_input", "staff_distribute"]},
+        {"id": "P39-S002", "task": "데이터 내보내기 — 직원별 매출 비교", "steps": ["필터=직원"], "expected_friction": ["직원 필터 부재"], "tested_features": ["data_export"]},
+        {"id": "P39-S003", "task": "예약 — 직원 4명 캘린더", "steps": ["캘린더"], "expected_friction": ["캘린더 동시 4명 보기 좁음"], "tested_features": ["booking_calendar"]},
+        {"id": "P39-S004", "task": "단골 350명 멤버십 백필", "steps": ["멤버십"], "expected_friction": ["백필 부재"], "tested_features": ["membership"]},
+        {"id": "P39-S005", "task": "글씨 크게 + 가입", "steps": ["접근성"], "expected_friction": ["가입 폼 글자 작음"], "tested_features": ["accessibility", "auth_signup"]}
+      ]
+    },
+    {
+      "persona_id": 40,
+      "scenarios": [
+        {"id": "P40-S001", "task": "비포애프터 차별화 9:16 슬라이드", "steps": ["스토리"], "expected_friction": ["전후 사진 슬라이드 효과 옵션 부족"], "tested_features": ["story_916"]},
+        {"id": "P40-S002", "task": "1초 캡션 (감각 톤)", "steps": ["캡션"], "expected_friction": ["감각 톤 본인 색깔 미세조정 부재"], "tested_features": ["caption_oneclick", "persona_train"]},
+        {"id": "P40-S003", "task": "페르소나 학습 — 시드 10개", "steps": ["시드"], "expected_friction": ["10개 입력 부담"], "tested_features": ["persona_train"]},
+        {"id": "P40-S004", "task": "데이터 내보내기 — 효과 분석", "steps": ["내보내기"], "expected_friction": ["효과 분석 차트 부재"], "tested_features": ["data_export"]},
+        {"id": "P40-S005", "task": "예약 추가 — 신규 35명", "steps": ["빠른 추가"], "expected_friction": ["신규 폼 필드 많음"], "tested_features": ["booking_add"]}
+      ]
+    },
+    {
+      "persona_id": 41,
+      "scenarios": [
+        {"id": "P41-S001", "task": "직원 매출 vs 시술 시간 분석", "steps": ["내보내기"], "expected_friction": ["시간 컬럼 자동 기록 부재"], "tested_features": ["data_export", "staff_distribute"]},
+        {"id": "P41-S002", "task": "예약 직원별 색", "steps": ["캘린더"], "expected_friction": ["색상 자동 부여 모호"], "tested_features": ["booking_calendar"]},
+        {"id": "P41-S003", "task": "멤버십 220명 일괄", "steps": ["멤버십"], "expected_friction": ["백필 부재"], "tested_features": ["membership"]},
+        {"id": "P41-S004", "task": "단골 안부 (자동 일괄)", "steps": ["자동 안부"], "expected_friction": ["자동 톤 일관성 떨어짐"], "tested_features": ["regular_warmup"]},
+        {"id": "P41-S005", "task": "음성 매출 (직원 분배)", "steps": ["음성"], "expected_friction": ["직원 이름 인식 정확도"], "tested_features": ["voice_input"]}
+      ]
+    },
+    {
+      "persona_id": 42,
+      "scenarios": [
+        {"id": "P42-S001", "task": "예약 캘린더 + 매출 통합 화면", "steps": ["대시보드"], "expected_friction": ["통합 뷰 부재"], "tested_features": ["dashboard"]},
+        {"id": "P42-S002", "task": "데이터 내보내기 — 분석", "steps": ["내보내기"], "expected_friction": ["분석 차트 부재"], "tested_features": ["data_export"]},
+        {"id": "P42-S003", "task": "단골 등록 + 시술 이력", "steps": ["고객 카드"], "expected_friction": ["이력 누적 자동 시점 모호"], "tested_features": ["regular_register"]},
+        {"id": "P42-S004", "task": "1초 캡션 (왁싱 톤)", "steps": ["캡션"], "expected_friction": ["성인 콘텐츠 차단 우려"], "tested_features": ["caption_oneclick"]},
+        {"id": "P42-S005", "task": "음성 매출 등록", "steps": ["음성"], "expected_friction": ["권한 거부 후 회복 모름"], "tested_features": ["voice_input"]}
+      ]
+    },
+    {
+      "persona_id": 43,
+      "scenarios": [
+        {"id": "P43-S001", "task": "지방 신규 SNS 노출 — 1초 캡션", "steps": ["캡션 + 해시태그"], "expected_friction": ["지방 해시태그 큐레이션 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P43-S002", "task": "9:16 스토리 자동", "steps": ["스토리"], "expected_friction": ["BGM 부재"], "tested_features": ["story_916"]},
+        {"id": "P43-S003", "task": "오프라인 (이동) 캡션 작성", "steps": ["오프라인"], "expected_friction": ["AI 호출 불가"], "tested_features": ["offline_mode"]},
+        {"id": "P43-S004", "task": "페르소나 학습", "steps": ["시드"], "expected_friction": ["시드 가이드 부재"], "tested_features": ["persona_train"]},
+        {"id": "P43-S005", "task": "예약 추가 — 결혼 시즌", "steps": ["빠른 추가"], "expected_friction": ["계절 패턴 자동 표시 부재"], "tested_features": ["booking_add"]}
+      ]
+    },
+    {
+      "persona_id": 44,
+      "scenarios": [
+        {"id": "P44-S001", "task": "예약 변경 카톡 → 앱 자동", "steps": ["손님 카톡"], "expected_friction": ["카톡 자동 import 부재"], "tested_features": ["booking_edit"]},
+        {"id": "P44-S002", "task": "음성 매출 등록", "steps": ["음성"], "expected_friction": ["인식률"], "tested_features": ["voice_input"]},
+        {"id": "P44-S003", "task": "단골 안부 (차분 톤)", "steps": ["메시지"], "expected_friction": ["차분 톤 진부"], "tested_features": ["regular_warmup"]},
+        {"id": "P44-S004", "task": "예약 수정 일괄", "steps": ["일괄"], "expected_friction": ["일괄 부재"], "tested_features": ["booking_edit"]},
+        {"id": "P44-S005", "task": "데이터 내보내기 (월말)", "steps": ["CSV"], "expected_friction": ["한글 깨짐"], "tested_features": ["data_export"]}
+      ]
+    },
+    {
+      "persona_id": 45,
+      "scenarios": [
+        {"id": "P45-S001", "task": "디자인별 판매 단가 분석", "steps": ["내보내기"], "expected_friction": ["디자인 카테고리 필터 부재"], "tested_features": ["data_export"]},
+        {"id": "P45-S002", "task": "1초 캡션 + 페르소나 학습", "steps": ["시드+캡션"], "expected_friction": ["시드 효과 측정 부재"], "tested_features": ["caption_oneclick", "persona_train"]},
+        {"id": "P45-S003", "task": "스레드 캡션 자동 fit", "steps": ["스레드"], "expected_friction": ["글자수 자동 fit 부재"], "tested_features": ["platform_threads"]},
+        {"id": "P45-S004", "task": "키보드 단축키 (MacBook)", "steps": ["단축키"], "expected_friction": ["단축키 미지원"], "tested_features": ["keyboard_shortcut"]},
+        {"id": "P45-S005", "task": "예약 추가 음성", "steps": ["음성"], "expected_friction": ["인식률 양호 — 본인 만족"], "tested_features": ["voice_input"]}
+      ]
+    },
+    {
+      "persona_id": 46,
+      "scenarios": [
+        {"id": "P46-S001", "task": "잇데이 가입 — 글자 작음", "steps": ["가입"], "expected_friction": ["글자 작음", "약관 길음"], "tested_features": ["auth_signup", "accessibility"]},
+        {"id": "P46-S002", "task": "음성 매출 (전화 예약 후)", "steps": ["음성"], "expected_friction": ["사투리 인식"], "tested_features": ["voice_input"]},
+        {"id": "P46-S003", "task": "단골 등록 — 22년 손님 410명", "steps": ["반복"], "expected_friction": ["일괄 import 부재"], "tested_features": ["regular_register"]},
+        {"id": "P46-S004", "task": "예약 — 전화 통화 중", "steps": ["빠른 추가"], "expected_friction": ["통화 중 화면 보기 어려움"], "tested_features": ["booking_add"]},
+        {"id": "P46-S005", "task": "도움 챗봇 — 사용법", "steps": ["챗봇"], "expected_friction": ["챗봇 응답 일반적"], "tested_features": ["assistant"]}
+      ]
+    },
+    {
+      "persona_id": 47,
+      "scenarios": [
+        {"id": "P47-S001", "task": "관광객·로컬 손님 분리 관리", "steps": ["고객 태그"], "expected_friction": ["태그 자동 추천 부재"], "tested_features": ["regular_register"]},
+        {"id": "P47-S002", "task": "1초 캡션 (제주 분위기)", "steps": ["캡션"], "expected_friction": ["지역 특색 톤 자동 부재"], "tested_features": ["caption_oneclick"]},
+        {"id": "P47-S003", "task": "오프라인 (관광지 와이파이 약함)", "steps": ["오프라인"], "expected_friction": ["큐 작동 미신뢰"], "tested_features": ["offline_mode"]},
+        {"id": "P47-S004", "task": "단골 등록 + 시술 이력", "steps": ["고객"], "expected_friction": ["관광객 재방문 트랙 부재"], "tested_features": ["regular_register"]},
+        {"id": "P47-S005", "task": "데이터 내보내기 (관광객 vs 로컬)", "steps": ["필터"], "expected_friction": ["태그 필터 부재"], "tested_features": ["data_export"]}
+      ]
+    },
+    {
+      "persona_id": 48,
+      "scenarios": [
+        {"id": "P48-S001", "task": "재고 화장품 유통기한 알림", "steps": ["재고 + 임계 + 유통기한"], "expected_friction": ["유통기한 필드 부재 의심"], "tested_features": ["inventory"]},
+        {"id": "P48-S002", "task": "데이터 내보내기 (재고 + 매출)", "steps": ["내보내기"], "expected_friction": ["재고 export 부재"], "tested_features": ["data_export", "inventory"]},
+        {"id": "P48-S003", "task": "단골 안부 (피부 패키지)", "steps": ["메시지"], "expected_friction": ["패키지별 톤 분기 부재"], "tested_features": ["regular_warmup"]},
+        {"id": "P48-S004", "task": "1초 캡션 (피부 톤)", "steps": ["캡션"], "expected_friction": ["의료광고법 우려"], "tested_features": ["caption_oneclick"]},
+        {"id": "P48-S005", "task": "예약 추가 + 알림", "steps": ["빠른 추가"], "expected_friction": ["알림 작동 확인 부재"], "tested_features": ["booking_add"]}
+      ]
+    },
+    {
+      "persona_id": 49,
+      "scenarios": [
+        {"id": "P49-S001", "task": "iPhone ↔ iPad ↔ MacBook 즉시 sync", "steps": ["멀티"], "expected_friction": ["5분 idle만 sync — 즉시 부재", "MacBook 웹 미지원"], "tested_features": ["multi_device"]},
+        {"id": "P49-S002", "task": "데이터 내보내기 — 전문 분석", "steps": ["내보내기"], "expected_friction": ["상세 필터 부재"], "tested_features": ["data_export"]},
+        {"id": "P49-S003", "task": "페르소나 학습 — 프로 톤", "steps": ["시드"], "expected_friction": ["프로 톤 가이드 부재"], "tested_features": ["persona_train"]},
+        {"id": "P49-S004", "task": "키보드 단축키 (MacBook)", "steps": ["단축키"], "expected_friction": ["단축키 미지원"], "tested_features": ["keyboard_shortcut"]},
+        {"id": "P49-S005", "task": "1초 캡션 + 멀티 발행", "steps": ["캡션"], "expected_friction": ["유튜브 OAuth 부재"], "tested_features": ["caption_oneclick", "instagram_publish"]},
+        {"id": "P49-S006", "task": "직원 2명 매출 분배", "steps": ["음성"], "expected_friction": ["직원 등록 후 인식 정확"], "tested_features": ["voice_input", "staff_distribute"]}
+      ]
+    },
+    {
+      "persona_id": 50,
+      "scenarios": [
+        {"id": "P50-S001", "task": "새 폰으로 데이터 복원", "steps": ["새 폰 가입", "기존 계정 로그인", "복원"], "expected_friction": ["복원 진행률 부재 — 다 안 왔을까 불안", "사진 R2 복원 vs 텍스트만 — 차이 안내 부족"], "tested_features": ["device_restore", "auth_signup"]},
+        {"id": "P50-S002", "task": "음성 매출 등록", "steps": ["음성"], "expected_friction": ["권한 거부 후 회복"], "tested_features": ["voice_input"]},
+        {"id": "P50-S003", "task": "단골 등록 — 14년 손님 240명", "steps": ["반복"], "expected_friction": ["일괄 import 부재"], "tested_features": ["regular_register"]},
+        {"id": "P50-S004", "task": "직원 2명 매출 분배", "steps": ["음성"], "expected_friction": ["직원 이름 인식"], "tested_features": ["voice_input"]},
+        {"id": "P50-S005", "task": "데이터 내보내기 (월말)", "steps": ["CSV"], "expected_friction": ["CSV 한글 깨짐"], "tested_features": ["data_export"]},
+        {"id": "P50-S006", "task": "도움 챗봇 — 데이터 복원 사용법", "steps": ["챗봇"], "expected_friction": ["챗봇 응답 일반적"], "tested_features": ["assistant"]}
+      ]
+    }
+  ]
+}
