@@ -367,11 +367,11 @@ async function applyNewSession(newToken, opts) {
     try { localStorage.setItem('last_user_id', newUserId); } catch (_) { /* ignore */ }
   }
 
-  // /auth/me 로 가입방법·이메일 동기화 (실패는 무시)
-  try {
-    const res = await fetch(API + '/auth/me', {
-      headers: { 'Authorization': 'Bearer ' + newToken, 'ngrok-skip-browser-warning': 'true' },
-    });
+  // /auth/me 동기화 — fire-and-forget (await 제거: 첫 진입 ~200ms 단축)
+  // user_id 는 JWT payload.sub 로 이미 확보, email/oauth_provider 만 백그라운드 보강.
+  fetch(API + '/auth/me', {
+    headers: { 'Authorization': 'Bearer ' + newToken, 'ngrok-skip-browser-warning': 'true' },
+  }).then(async (res) => {
     if (res && res.ok) {
       const me = await res.json();
       if (me) {
@@ -382,7 +382,8 @@ async function applyNewSession(newToken, opts) {
         }
       }
     }
-  } catch (_) { /* network error → 무시 */ }
+  }).catch(() => { /* network error → 무시 */ });
+  // sync 결과는 await 안 함 — UI 차단 회피
 }
 window.applyNewSession = applyNewSession;
 
