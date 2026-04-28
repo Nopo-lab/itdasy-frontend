@@ -1652,7 +1652,20 @@
 <script src="app-caption.js"></script>
 <script src="app-portfolio.js"></script>
 <script src="app-ai.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.umd.js"></script>
+<!-- @imgly/background-removal — 누끼 화면 진입 시에만 lazy 로드 (parse-blocking 100~200ms 절감) -->
+<script>
+window._lazyImgly = function _lazyImgly() {
+  if (window._imglyLoading) return window._imglyLoading;
+  window._imglyLoading = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.umd.js';
+    s.onload = () => res(window.imgly_bgr || window['@imgly/background-removal']);
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  return window._imglyLoading;
+};
+</script>
 <script src="app-gallery-utils.js"></script>
 <script src="app-gallery-db.js"></script>
 <script src="app-gallery-workshop.js"></script>

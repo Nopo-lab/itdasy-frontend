@@ -470,19 +470,28 @@
       </div>
     `;
 
-    // 자주 쓴 시술 datalist 채우기 (ServiceTemplate + 최근 매출)
+    // 자주 쓴 시술 datalist 채우기 (ServiceTemplate + 최근 매출) — Promise.all 병렬 fetch
     (async () => {
       const dl = grid.querySelector('#bfServiceDatalist');
       if (!dl) return;
       const names = new Set();
+      const headers = window.authHeader();
+      const [resR, res2R] = await Promise.allSettled([
+        fetch(window.API + '/services', { headers }),
+        fetch(window.API + '/revenue?period=month', { headers }),
+      ]);
       try {
-        const res = await fetch(window.API + '/services', { headers: window.authHeader() });
-        if (res.ok) { const d = await res.json(); (d.items||[]).forEach(s => s.name && names.add(s.name)); }
-      } catch(_){ /* ignore */ }
+        if (resR.status === 'fulfilled' && resR.value.ok) {
+          const d = await resR.value.json();
+          (d.items || []).forEach(s => s.name && names.add(s.name));
+        }
+      } catch (_) { /* ignore */ }
       try {
-        const res2 = await fetch(window.API + '/revenue?period=month', { headers: window.authHeader() });
-        if (res2.ok) { const d = await res2.json(); (d.items||[]).forEach(r => r.service_name && names.add(r.service_name)); }
-      } catch(_){ /* ignore */ }
+        if (res2R.status === 'fulfilled' && res2R.value.ok) {
+          const d = await res2R.value.json();
+          (d.items || []).forEach(r => r.service_name && names.add(r.service_name));
+        }
+      } catch (_) { /* ignore */ }
       dl.innerHTML = Array.from(names).slice(0, 50).map(n => `<option value="${_esc(n)}"></option>`).join('');
     })();
 

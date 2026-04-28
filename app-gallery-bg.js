@@ -236,7 +236,10 @@ async function _applyBgToPhoto(photo, bg, slot) {
       removedBlob = await res.blob();
     } catch(serverErr) {
       console.warn('서버 누끼 실패, 클라이언트 폴백:', serverErr);
-      // 2순위: 클라이언트 누끼 (폴백)
+      // 2순위: 클라이언트 누끼 (폴백) — imgly UMD lazy 로드
+      if (typeof imglyRemoveBackground === 'undefined' && typeof window._lazyImgly === 'function') {
+        try { await window._lazyImgly(); } catch (e) { throw new Error('누끼 라이브러리 로드 실패'); }
+      }
       const srcBlob = _dataUrlToBlob(photo.dataUrl);
       removedBlob = await imglyRemoveBackground(srcBlob, {
         publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
