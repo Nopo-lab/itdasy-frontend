@@ -50,10 +50,14 @@ document.getElementById('enableBtn').addEventListener('click', async () => {
       headers: { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         enabled: true,
-        greeting_template: '안녕하세요! 문의 주셔서 감사해요 😊 사장님이 곧 답변드릴게요.',
-        keyword_blocklist: ['환불', '소송', '신고'],
-        working_hours_start: '09:00',
-        working_hours_end: '21:00',
+        tone: 'friendly',
+        blocked_keywords: ['환불', '소송', '신고'],
+        auto_reply_start: '09:00',
+        auto_reply_end: '21:00',
+        timezone_name: 'Asia/Seoul',
+        template_intro: '안녕하세요! 문의 주셔서 감사해요 😊 사장님이 곧 답변드릴게요.',
+        template_pricing: '가격 문의 감사합니다! 자세한 견적은 DM 확인 후 바로 드릴게요.',
+        template_booking: '예약 문의 감사해요! 원하시는 날짜와 시간을 남겨주시면 확인드릴게요.',
       }),
     });
     if (res.ok) {
@@ -107,6 +111,12 @@ function pre(label, value, cls) {
     });
     const data = await res.json();
     pre('DM 봇 status', JSON.stringify(data, null, 2), res.ok ? 'ok' : 'err');
+    if (data.global_enabled === false) {
+      row('DM 전역 활성화', '꺼짐 — Railway DM_AUTOREPLY_ENABLED 확인 필요', 'err');
+    }
+    if (data.within_reply_hours === false) {
+      row('응답 시간대', '현재 설정 시간 밖이라 자동응답 안 함', 'warn');
+    }
   } catch (e) { row('Status 에러', e.message, 'err'); }
 
   // 3. /instagram/status (인스타 연동 확인)

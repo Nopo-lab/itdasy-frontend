@@ -43,11 +43,14 @@
   async function openDMAutoreplySettings() {
     const status = await _fetchStatus();
     _globalEnabled = !!status.global_enabled;
+    const browserTz = (Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul');
     const settings = (await _fetchSettings()) || {
       enabled: false, tone: 'friendly',
       blocked_keywords: [], auto_reply_start: '09:00', auto_reply_end: '22:00',
+      timezone_name: browserTz,
       template_intro: '', template_pricing: '', template_booking: '',
     };
+    settings.timezone_name = settings.timezone_name || browserTz;
 
     const overlay = document.createElement('div');
     overlay.id = 'dmAutoreplySheet';
@@ -98,6 +101,16 @@
       </div>
 
       <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:700;color:#555;">시간대 기준</label>
+        <select id="dmTimezone" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;">
+          <option value="Asia/Seoul" ${settings.timezone_name === 'Asia/Seoul' ? 'selected' : ''}>한국 시간 (Asia/Seoul)</option>
+          ${browserTz === 'Asia/Seoul' ? '' : `<option value="${_esc(browserTz)}" ${settings.timezone_name === browserTz ? 'selected' : ''}>현재 기기 시간 (${_esc(browserTz)})</option>`}
+          <option value="UTC" ${settings.timezone_name === 'UTC' ? 'selected' : ''}>UTC</option>
+        </select>
+        <div style="font-size:10px;color:#999;margin-top:4px;">Railway 서버 시간이 아니라 이 시간대를 기준으로 자동응답 여부를 판단해요.</div>
+      </div>
+
+      <div style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:#555;">금지어 (쉼표 구분 — 이 단어 포함된 DM 은 사람 대응)</label>
         <input id="dmBlocked" type="text" value="${_esc((settings.blocked_keywords || []).join(', '))}" placeholder="환불, 컴플레인, 부작용" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;box-sizing:border-box;">
         <div style="font-size:10px;color:#999;margin-top:4px;">기본 금지어 자동 포함: 의료·치료·부작용·환불·법적</div>
@@ -128,6 +141,7 @@
         blocked_keywords: sheet.querySelector('#dmBlocked').value.split(',').map(s => s.trim()).filter(Boolean),
         auto_reply_start: sheet.querySelector('#dmStart').value || '09:00',
         auto_reply_end: sheet.querySelector('#dmEnd').value || '22:00',
+        timezone_name: sheet.querySelector('#dmTimezone').value || 'Asia/Seoul',
         template_intro: sheet.querySelector('#dmTplIntro').value,
         template_pricing: sheet.querySelector('#dmTplPricing').value,
         template_booking: sheet.querySelector('#dmTplBooking').value,
