@@ -130,18 +130,23 @@
 
   function _renderStats(d) {
     const s = d.stats;
+    // E4 — 매너 점수 + 노쇼 횟수 (80 미만 = 빨간 색)
+    const manner = (d.customer && d.customer.manner_score != null) ? +d.customer.manner_score : 100;
+    const nsCount = (d.customer && d.customer.no_show_count) ? +d.customer.no_show_count : 0;
+    const mannerColor = manner < 60 ? '#d95f5f' : (manner < 80 ? '#e89000' : '#222');
     const cards = [
       { icon: '💰', label: '누적 매출', value: _formatKRW(s.total_revenue), sub: `평균 ${_formatKRW(s.avg_ticket)}` },
       { icon: '🎯', label: '방문 횟수', value: `${s.visit_count}회`, sub: s.last_visit_at ? `최근 ${_relativeDays(s.last_visit_at)}` : '기록 없음' },
       { icon: '⭐', label: '후기 평균', value: s.nps_avg != null ? `${s.nps_avg}/10` : '—', sub: s.nps_latest != null ? `최근 ${s.nps_latest}` : '응답 없음' },
       { icon: '📅', label: '다가올 예약', value: `${s.upcoming_bookings}건`, sub: s.first_visit_at ? `첫 방문 ${_dateShort(s.first_visit_at)}` : '신규' },
+      { icon: '🤝', label: '매너 점수', value: `${manner}점`, sub: nsCount > 0 ? `노쇼 ${nsCount}회` : '노쇼 없음', valueColor: mannerColor },
     ];
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
         ${cards.map(c => `
           <div style="padding:14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
             <div style="font-size:10px;color:#888;margin-bottom:6px;">${c.icon} ${_esc(c.label)}</div>
-            <div style="font-size:18px;font-weight:800;color:#222;line-height:1.2;">${_esc(c.value)}</div>
+            <div style="font-size:18px;font-weight:800;color:${c.valueColor || '#222'};line-height:1.2;">${_esc(c.value)}</div>
             <div style="font-size:10px;color:#aaa;margin-top:3px;">${_esc(c.sub)}</div>
           </div>
         `).join('')}

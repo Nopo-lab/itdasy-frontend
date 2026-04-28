@@ -966,6 +966,26 @@
       </div>
     </div>
 
+    <!-- E1 — 손님 사진 시술 추천 (영업 도구) -->
+    <div style="margin:14px 0;">
+      <button type="button"
+              onclick="window.openServiceRecommend && window.openServiceRecommend()"
+              data-haptic="light"
+              style="width:100%; display:flex; align-items:center; gap:12px; padding:14px 16px;
+                     background:linear-gradient(135deg,#7c5fff,#5a3ee8); color:#fff; border:0;
+                     border-radius:16px; cursor:pointer; box-shadow:0 6px 16px rgba(124,95,255,.25);">
+        <span style="display:flex; align-items:center; justify-content:center; width:36px; height:36px;
+                     background:rgba(255,255,255,.18); border-radius:10px;">
+          <svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>
+        </span>
+        <span style="flex:1; text-align:left;">
+          <span style="display:block; font-weight:700; font-size:14px;">손님 사진으로 시술 추천</span>
+          <span style="display:block; font-size:11px; opacity:.85; margin-top:2px;">AI 가 어울리는 시술 3가지 골라드려요</span>
+        </span>
+        <svg width="18" height="18" aria-hidden="true" style="opacity:.85;"><use href="#ic-camera"/></svg>
+      </button>
+    </div>
+
     <!-- 이어하기 섹션 (app-gallery.js renderHomeResume() 가 채움) -->
     <div id="resume-section" style="display:none;"></div>
 
@@ -1046,8 +1066,12 @@
       </div>
 
       <!-- [만들기 버튼 sticky] -->
-      <div id="captionCtrlBar" style="position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border);padding:10px 14px;">
-        <button id="captionBtn" data-haptic="medium" onclick="generateCaption()" style="width:100%;padding:11px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기 ✨</button>
+      <div id="captionCtrlBar" style="position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;">
+        <button id="captionBtn" data-haptic="medium" onclick="generateCaption()" style="flex:1;padding:11px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기 ✨</button>
+        <!-- E2: 음성 캡션 진입 — 음성으로 한 줄 → AI 캡션·해시태그 + 재방문 제안 -->
+        <button id="captionVoiceBtn" type="button" data-haptic="medium" onclick="window.openVoiceCaption&&window.openVoiceCaption()" aria-label="음성 캡션" style="padding:11px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-mic"/></svg> 음성
+        </button>
       </div>
 
       <!-- [캡션 결과 — 실제 인스타 게시물처럼 미리보기] -->
@@ -1591,8 +1615,12 @@
 <script src="app-support.js"></script>
 <script src="app-customer.js"></script>
 <script src="app-customer-dashboard.js"></script>
+<!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
+<script src="app-customer-memo.js"></script>
 <script src="app-revenue.js"></script>
 <script src="app-booking-api.js"></script>
+<!-- E4 (2026-04-26) — 노쇼 자동 감지 + 예약 확인 메시지 -->
+<script src="app-no-show.js"></script>
 <script src="app-inventory.js"></script>
 <script src="app-nps.js"></script>
 <script src="app-naver-reviews.js"></script>
@@ -1609,6 +1637,7 @@
 <script src="app-assistant.js"></script>
 <script src="app-dm-autoreply.js"></script>
 <script src="app-receipt-scan.js"></script>
+<script src="app-service-recommend.js"></script>
 <script src="app-ai-suggestions.js"></script>
 <script src="app-report.js"></script>
 <script src="app-empty-state.js"></script>
@@ -1633,6 +1662,8 @@
 <script src="app-data-export.js"></script>
 <!-- D1: 1초 캡션 워크플로우 (사진 1탭 → 캡션·해시태그·9:16 스토리) -->
 <script src="app-instant-caption.js"></script>
+<!-- E2: 음성 캡션 워크플로우 (마이크 1탭 → 캡션·해시태그·재방문 제안) -->
+<script src="app-voice-caption.js"></script>
 <!-- E3: 주간 자동 보고서 (카톡 톤) -->
 <script src="app-weekly-report.js"></script>
 <!-- T-327 · Sentry 에러 모니터링 (T-351: GDPR 동의 기반 활성화) -->

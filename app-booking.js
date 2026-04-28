@@ -377,10 +377,14 @@
     const s = new Date(b.starts_at);
     const e = new Date(b.ends_at);
     const hhmm = (d) => String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    // E4 — 응답 상태 배지
+    const badge = (window.NoShow && typeof window.NoShow.bookingBadge === 'function')
+      ? window.NoShow.bookingBadge(b)
+      : '';
     return `
       <button class="dt-list-it" data-booking-id="${b.id}" type="button">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title"><span style="color:var(--brand);">${hhmm(s)}–${hhmm(e)}</span> ${b.customer_name ? _esc(b.customer_name) : '<span style="color:var(--text-subtle);">이름 없음</span>'}${b.service_name ? ` · <span style="font-weight:400;">${_esc(b.service_name)}</span>` : ''}</p>
+          <p class="dt-list-it__title"><span style="color:var(--brand);">${hhmm(s)}–${hhmm(e)}</span> ${b.customer_name ? _esc(b.customer_name) : '<span style="color:var(--text-subtle);">이름 없음</span>'}${b.service_name ? ` · <span style="font-weight:400;">${_esc(b.service_name)}</span>` : ''}${badge}</p>
           <p class="dt-list-it__sub">${b.memo ? _esc(b.memo).slice(0,50) : ''}</p>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
@@ -435,6 +439,8 @@
         <input id="bfCustomerName" name="bfCustomerName" readonly class="dt-field" style="flex:1;" placeholder="고객 (선택)" value="${_esc(existing?.customer_name||'')}" />
         <button type="button" id="bfCustomerPick" class="btn-secondary">👤 선택</button>
       </div>
+      <!-- E3 — 선택 고객의 알러지·주의 메모 자동 경고 배너 (CustomerMemo.fetchWarnings) -->
+      <div id="bfCustomerWarn" style="margin-bottom:12px;"></div>
       <div class="dt-field-row"><label class="dt-field-lbl">서비스</label><input id="bfService" name="bfService" list="bfServiceDatalist" class="dt-field" value="${_esc(existing?.service_name||'')}" placeholder="속눈썹 풀세트" maxlength="50" autocomplete="off" /><datalist id="bfServiceDatalist"></datalist></div>
       <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="bfMemo" name="bfMemo" class="dt-field" rows="2" maxlength="200">${_esc(existing?.memo||'')}</textarea></div>
       <div id="bfConflict" class="dt-conflict">⚠️ 이 시간에 이미 예약이 있어요</div>
@@ -444,6 +450,11 @@
       </div>
       ${existing && existing.status !== 'completed' ? `
         <button type="button" id="bfComplete" class="main-cta" data-mutation style="width:100%;margin-bottom:10px;">🎀 시술 완료 · 매출·후기 한 번에 기록</button>
+      ` : ''}
+      ${existing && existing.status === 'confirmed' ? `
+        <button type="button" id="bfSendConfirm" class="btn-secondary" data-mutation style="width:100%;margin-bottom:10px;font-weight:700;">
+          ${existing.confirmation_sent_at ? '📨 확인 메시지 다시 보내기' : '📨 예약 확인 메시지 보내기'}
+        </button>
       ` : ''}
       ${existing ? `
         <div style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border);">
@@ -476,6 +487,40 @@
     })();
 
     let customer_id = existing?.customer_id || null;
+    // E3 — 선택된 고객의 경고 메모 즉시 표시 (알러지·주의사항 자동 노출)
+    async function _refreshCustomerWarnings(cid) {
+      const box = grid.querySelector('#bfCustomerWarn');
+      if (!box) return;
+      if (!cid || !window.CustomerMemo || typeof window.CustomerMemo.fetchWarnings !== 'function') {
+        box.innerHTML = '';
+        return;
+      }
+      try {
+        const memos = await window.CustomerMemo.fetchWarnings(cid);
+        box.innerHTML = window.CustomerMemo.renderWarningBanner(memos) || '';
+      } catch (_e) { box.innerHTML = ''; }
+    }
+    // E4 — 노쇼 이력 경고 카드 자동 렌더
+    async function _refreshNoShowWarning(cid) {
+      const old = grid.querySelector('[data-no-show-warning]');
+      if (old) old.remove();
+      if (!cid || !window.NoShow || typeof window.NoShow.warning !== 'function') return;
+      try {
+        const w = await window.NoShow.warning(cid);
+        if (!w || w.warning_level === 'none') return;
+        const html = window.NoShow.renderWarningCard(w);
+        if (!html) return;
+        const anchor = grid.querySelector('#bfCustomerName');
+        if (anchor && anchor.parentElement) {
+          anchor.parentElement.insertAdjacentHTML('afterend', html);
+        }
+      } catch (_e) { /* ignore */ }
+    }
+    if (customer_id) {
+      _refreshCustomerWarnings(customer_id);
+      _refreshNoShowWarning(customer_id);
+    }
+
     grid.querySelector('#bfCustomerPick').addEventListener('click', async () => {
       if (!window.Customer || !window.Customer.pick) {
         if (window.showToast) window.showToast('고객 모듈 로드 중…');
@@ -485,6 +530,8 @@
       if (picked === null) return;
       customer_id = picked.id;
       grid.querySelector('#bfCustomerName').value = picked.name || '';
+      _refreshCustomerWarnings(customer_id);
+      _refreshNoShowWarning(customer_id);
     });
 
     const checkConflict = () => {
@@ -548,13 +595,29 @@
         if (window.hapticMedium) window.hapticMedium();
         window.CompleteFlow.startFromBooking(existing);
       });
-      // 예약 상태 빠른 전환
+      // E4 — 예약 확인 메시지 보내기
+      const sendConfirmBtn = grid.querySelector('#bfSendConfirm');
+      if (sendConfirmBtn) sendConfirmBtn.addEventListener('click', async () => {
+        if (!window.NoShow || typeof window.NoShow.sendConfirmation !== 'function') {
+          if (window.showToast) window.showToast('확인 모듈 로드 중…');
+          return;
+        }
+        if (window.hapticLight) window.hapticLight();
+        await window.NoShow.sendConfirmation(existing.id);
+        await _loadAndRender();
+      });
+      // 예약 상태 빠른 전환 — no_show 는 mark-no-show 로 라우팅
       grid.querySelectorAll('[data-bf-status]').forEach(btn => {
         btn.addEventListener('click', async () => {
           const newStatus = btn.getAttribute('data-bf-status');
           if (newStatus === existing.status) return;
           try {
-            await update(existing.id, { status: newStatus });
+            // E4 — no_show 클릭은 매너 점수 차감용 전용 엔드포인트로
+            if (newStatus === 'no_show' && window.NoShow && typeof window.NoShow.markNoShow === 'function') {
+              await window.NoShow.markNoShow(existing.id);
+            } else {
+              await update(existing.id, { status: newStatus });
+            }
             if (window.hapticLight) window.hapticLight();
             const label = { confirmed:'확정', completed:'완료', cancelled:'취소', no_show:'안 옴' }[newStatus];
             if (window.showToast) window.showToast(`✅ 상태를 '${label}'로 변경했어요`);
@@ -589,6 +652,14 @@
     document.body.style.overflow = 'hidden';
     if (date) _anchorDate = _startOfWeek(new Date(date));
     await _loadAndRender();
+  };
+
+  // E4 — 외부에서 호출 가능한 일괄 발송 트리거 (헤더 버튼·드로어 메뉴 등)
+  window.bookingAutoSendConfirmations = async function (hoursAhead) {
+    if (window.NoShow && typeof window.NoShow.autoSend === 'function') {
+      return window.NoShow.autoSend(hoursAhead || 24);
+    }
+    return null;
   };
 
   window.closeBooking = function () {

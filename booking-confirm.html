@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>예약 확인 · 잇데이 스튜디오</title>
+<style>
+  :root {
+    --brand: #F18091;
+    --brand-deep: #D95F70;
+    --bg: linear-gradient(135deg,#FEF4F5,#FFE8EC);
+    --text: #1a0c10;
+    --sub: #6b5a5e;
+    --danger: #d95f5f;
+    --ok: #2faa6f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 24px;
+    font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+    background: var(--bg); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card {
+    width: 100%; max-width: 420px; background: #fff;
+    border-radius: 22px; padding: 32px 24px;
+    box-shadow: 0 24px 60px rgba(241,128,145,0.18);
+    text-align: center;
+  }
+  h1 { font-size: 22px; font-weight: 900; margin: 0 0 6px; letter-spacing: -0.4px; }
+  .sub { font-size: 13px; color: var(--sub); line-height: 1.6; margin: 0 0 22px; }
+  .btn {
+    display: block; width: 100%; padding: 14px 16px;
+    border: none; border-radius: 14px;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+    margin-bottom: 10px; transition: transform 0.1s ease;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-yes {
+    background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+    color: #fff; box-shadow: 0 6px 16px rgba(241,128,145,0.35);
+  }
+  .btn-no {
+    background: #fff; color: var(--danger);
+    border: 1.5px solid #f0d6da;
+  }
+  .result {
+    padding: 18px; border-radius: 14px; font-size: 14px;
+    line-height: 1.6; margin-top: 8px;
+  }
+  .result.ok { background: rgba(47,170,111,0.08); color: #156c44; }
+  .result.bad { background: rgba(217,95,95,0.08); color: #7a2c2c; }
+  .result.err { background: rgba(217,95,95,0.08); color: #7a2c2c; }
+  .icon { font-size: 44px; margin-bottom: 8px; }
+  .small { font-size: 11px; color: #aaa; margin-top: 18px; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="icon">📅</div>
+    <h1>예약 확인</h1>
+    <p class="sub">예약 시간이 다가오고 있어요.<br>방문 가능하신지 알려주세요.</p>
+    <div id="actions">
+      <button type="button" class="btn btn-yes" id="btnYes">네, 예약대로 갈게요</button>
+      <button type="button" class="btn btn-no" id="btnNo">취소/변경 부탁드려요</button>
+    </div>
+    <div id="result"></div>
+    <p class="small">잇데이 스튜디오 · 안전하게 서명된 링크입니다.</p>
+  </div>
+<script>
+(function () {
+  'use strict';
+  // 백엔드 베이스 URL — itdasy_backend-test (스테이징) 기본값
+  var API = 'https://itdasy260417-staging-production.up.railway.app';
+
+  function getQuery(name) {
+    var m = new RegExp('[?&]' + name + '=([^&]+)').exec(location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  var token = getQuery('token');
+  var card = document.getElementById('card');
+  var actions = document.getElementById('actions');
+  var result = document.getElementById('result');
+
+  if (!token) {
+    actions.style.display = 'none';
+    result.className = 'result err';
+    result.textContent = '확인 링크가 올바르지 않아요. 사장님께 문의해주세요.';
+    return;
+  }
+
+  // booking_id 는 token 본문(base64url)에서 추출
+  function decodeBookingId(tk) {
+    try {
+      var body = tk.split('.')[0];
+      var pad = '='.repeat((4 - body.length % 4) % 4);
+      var json = atob(body.replace(/-/g, '+').replace(/_/g, '/') + pad);
+      var obj = JSON.parse(json);
+      return obj.bid;
+    } catch (_) { return null; }
+  }
+
+  var bookingId = decodeBookingId(token);
+  if (!bookingId) {
+    actions.style.display = 'none';
+    result.className = 'result err';
+    result.textContent = '확인 링크가 올바르지 않아요.';
+    return;
+  }
+
+  function send(response) {
+    actions.style.display = 'none';
+    result.className = 'result';
+    result.textContent = '잠시만요...';
+    fetch(API + '/bookings/' + bookingId + '/confirmation-response', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, response: response }),
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, status: r.status, data: j }; });
+    }).then(function (out) {
+      if (!out.ok) {
+        result.className = 'result err';
+        result.textContent = (out.data && out.data.detail) || '응답 전송에 실패했어요.';
+        return;
+      }
+      if (response === 'yes') {
+        result.className = 'result ok';
+        result.innerHTML = '<div class="icon">🌸</div>응답 감사드려요!<br>예약 시간에 뵐게요.';
+      } else {
+        result.className = 'result bad';
+        result.innerHTML = '<div class="icon">🙏</div>알려주셔서 감사해요.<br>사장님이 곧 연락드릴 거예요.';
+      }
+    }).catch(function () {
+      result.className = 'result err';
+      result.textContent = '네트워크 오류가 났어요. 잠시 후 다시 시도해주세요.';
+    });
+  }
+
+  document.getElementById('btnYes').addEventListener('click', function () { send('yes'); });
+  document.getElementById('btnNo').addEventListener('click', function () { send('no'); });
+})();
+</script>
+</body>
+</html>
