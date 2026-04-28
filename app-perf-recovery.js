@@ -576,10 +576,28 @@
     };
   })();
 
-  // 페이지 로드 시 즉시 상태 반영
+  // [2026-04-28 nuclear 픽스] 페이지 로드 시 navigator.onLine 가 true 면
+  // 무조건 오프라인 상태 reset. 이전 X-Offline 캐시·잠금 흔적 청소.
+  // SW 가 fresh 응답 줄 거고, 진짜 오프라인이면 다음 fetch 에서 다시 잠긴다.
   document.addEventListener('DOMContentLoaded', () => {
-    if (!navigator.onLine) _onOffline();
+    if (navigator.onLine) {
+      try {
+        _hideOfflineBanner();
+        _setMutationLock(false);
+      } catch (_) { /* ignore */ }
+    } else {
+      _onOffline();
+    }
   });
+  // SW v26+ activate 메시지 받으면 즉시 reload (cache busting)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // 새 SW 가 controller 잡으면 한 번 자동 reload — fresh state
+      if (window._sw_reloaded) return;
+      window._sw_reloaded = true;
+      try { window.location.reload(); } catch (_) { /* ignore */ }
+    });
+  }
 
   // ============================================================
   // 부팅
