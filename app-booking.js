@@ -383,10 +383,21 @@
     const badge = (window.NoShow && typeof window.NoShow.bookingBadge === 'function')
       ? window.NoShow.bookingBadge(b)
       : '';
+    // [2026-04-29 W5] 직원 표시 — 캐시에서 staff 객체 찾아 색상 + 이름 배지
+    let staffBadge = '';
+    let staffStripe = '';
+    if (b.staff_id && window._staffCache && Array.isArray(window._staffCache.items)) {
+      const s2 = window._staffCache.items.find(x => x.id === b.staff_id);
+      if (s2) {
+        const c = (s2.color || '#A78BFA').replace(/[<>"]/g, '');
+        staffBadge = `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fff;background:${c};padding:2px 7px;border-radius:999px;margin-left:6px;line-height:1.4;">${(s2.name || '').replace(/[<>&"]/g,'')}</span>`;
+        staffStripe = `border-left:3px solid ${c};`;
+      }
+    }
     return `
-      <button class="dt-list-it" data-booking-id="${b.id}" type="button">
+      <button class="dt-list-it" data-booking-id="${b.id}" type="button" style="${staffStripe}">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title"><span style="color:var(--brand);">${hhmm(s)}–${hhmm(e)}</span> ${b.customer_name ? _esc(b.customer_name) : '<span style="color:var(--text-subtle);">이름 없음</span>'}${b.service_name ? ` · <span style="font-weight:400;">${_esc(b.service_name)}</span>` : ''}${badge}</p>
+          <p class="dt-list-it__title"><span style="color:var(--brand);">${hhmm(s)}–${hhmm(e)}</span> ${b.customer_name ? _esc(b.customer_name) : '<span style="color:var(--text-subtle);">이름 없음</span>'}${b.service_name ? ` · <span style="font-weight:400;">${_esc(b.service_name)}</span>` : ''}${staffBadge}${badge}</p>
           <p class="dt-list-it__sub">${b.memo ? _esc(b.memo).slice(0,50) : ''}</p>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>

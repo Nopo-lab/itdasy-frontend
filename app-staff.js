@@ -35,11 +35,20 @@
     try {
       const r = await _fetch('GET', '/staff');
       _cache = r;
+      // [2026-04-29] 다른 모듈(예약 list 색상 표시)이 동기 접근 가능하도록 글로벌 캐시
+      window._staffCache = r;
       return r;
     } catch (e) {
       console.warn('[staff] list 실패:', e.message);
       return { items: [], total: 0, plan_limit: 0, used: 0 };
     }
+  }
+
+  // 앱 진입 시 백그라운드 prefetch — 로그인 후 1회 호출. 예약 화면이 즉시 색상 표시 가능.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+      setTimeout(() => { try { list(); } catch (_) { /* ignore */ } }, 800);
+    });
   }
 
   function _ensureSheet() {

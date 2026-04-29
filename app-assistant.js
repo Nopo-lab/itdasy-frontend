@@ -2367,6 +2367,19 @@
     const input = document.getElementById('asstInput');
     const q = input.value.trim();
     if (!q) return;
+
+    // [2026-04-29 W5] 챗봇 keyword shortcut — 자주 쓰는 진입점은 LLM 호출 없이 즉시 시트 open
+    const ql = q.toLowerCase();
+    if (/직원\s*(추가|관리|등록|보여|목록|리스트)/.test(q) || /스타일리스트.*(추가|등록)/.test(q)) {
+      input.value = '';
+      if (window.StaffUI && typeof window.StaffUI.open === 'function') { window.StaffUI.open(); return; }
+    }
+    if (/회원권.*(만료|임박)/.test(q) || /만료.*회원권/.test(q)) {
+      input.value = '';
+      if (window.MembershipUI && typeof window.MembershipUI.openExpiringList === 'function') { window.MembershipUI.openExpiringList(30); return; }
+    }
+    void ql;
+
     _sendInFlight = true;
     input.value = '';
     // Wave B5 — 전송 시 typeahead chips 숨김
