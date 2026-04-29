@@ -493,11 +493,12 @@
   }
 
   // ─────────── 메인 컴포지션 ───────────
+  // 시스템 PC 사이드바(.side-nav) 가 이미 있어서 ms-side 는 안 그림.
+  // 모바일은 메뉴 스택, PC 는 ms-pc 대시보드 — CSS 가 분기.
   function _composeHTML(brief) {
     return `
       <div class="ms-root">
-        ${_renderPCSidebar(brief)}
-        <div class="ms-mobile-only" style="display: contents;">
+        <div class="ms-mobile-only">
           ${_renderHeader()}
           <div class="ms-body">
             ${_renderShopCard(brief)}
