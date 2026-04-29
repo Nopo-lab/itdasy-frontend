@@ -64,8 +64,8 @@
     const shopServicePool = _getShopServicePool();
     const out = {
       customer_name: [], service_name: [...shopServicePool], method: ['card','cash','transfer','etc'],
-      item_name: [], inv_category: ['nail','hair','lash','skin','etc'],
-      svc_category: ['hair','nail','eye','skin','wax','etc'],
+      item_name: [], inv_category: ['nail','hair','lash','skin','wax','tattoo','hair_extension','etc'],
+      svc_category: ['hair','nail','eye','lash','skin','wax','tattoo','hair_extension','etc'],
     };
     const seen = {
       customer_name: new Set(),

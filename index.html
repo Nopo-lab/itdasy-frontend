@@ -463,27 +463,37 @@
     <div class="ob-sub">딱 맞는 AI 비서를 세팅해 드릴게요</div>
   </div>
 
-  <!-- Step 2: 샵 종류 -->
+  <!-- Step 2: 샵 종류 — [2026-04-29] 헤어샵·속눈썹·왁싱·피부·반영구 활성화 -->
   <div class="ob-step" id="ob-step-2">
     <div class="ob-title" style="margin-bottom:20px;">샵 종류를 선택해 주세요</div>
     <div class="ob-shop-grid">
       <div class="ob-shop-card" data-type="붙임머리" onclick="selectShopType(this)">
-        <div class="ob-shop-icon">💇</div>
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-scissors"/></svg></div>
         <div class="ob-shop-name">붙임머리</div>
       </div>
       <div class="ob-shop-card" data-type="네일아트" onclick="selectShopType(this)">
-        <div class="ob-shop-icon">💅</div>
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-sparkles"/></svg></div>
         <div class="ob-shop-name">네일아트</div>
       </div>
-      <div class="ob-shop-card disabled">
-        <div class="ob-shop-icon">✂️</div>
+      <div class="ob-shop-card" data-type="헤어샵" onclick="selectShopType(this)">
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-scissors"/></svg></div>
         <div class="ob-shop-name">헤어샵</div>
-        <div class="ob-shop-badge">준비중</div>
       </div>
-      <div class="ob-shop-card disabled">
-        <div class="ob-shop-icon">👁️</div>
+      <div class="ob-shop-card" data-type="속눈썹" onclick="selectShopType(this)">
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-star"/></svg></div>
         <div class="ob-shop-name">속눈썹</div>
-        <div class="ob-shop-badge">준비중</div>
+      </div>
+      <div class="ob-shop-card" data-type="왁싱" onclick="selectShopType(this)">
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-sparkles"/></svg></div>
+        <div class="ob-shop-name">왁싱</div>
+      </div>
+      <div class="ob-shop-card" data-type="피부" onclick="selectShopType(this)">
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-sun"/></svg></div>
+        <div class="ob-shop-name">피부관리</div>
+      </div>
+      <div class="ob-shop-card" data-type="반영구" onclick="selectShopType(this)">
+        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-edit-3"/></svg></div>
+        <div class="ob-shop-name">반영구</div>
       </div>
     </div>
   </div>
@@ -1688,6 +1698,8 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-support.js"></script>
 <script src="app-customer.js"></script>
 <script src="app-customer-dashboard.js"></script>
+<!-- [2026-04-29 W5] 회원권 / 정기권 UI — Premium 차별화 -->
+<script src="app-membership.js" defer></script>
 <!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
 <script src="app-customer-memo.js"></script>
 <script src="app-revenue.js"></script>

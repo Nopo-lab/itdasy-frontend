@@ -85,7 +85,7 @@
       <input class="hub-input" data-field="name"      placeholder="품목 이름" list="ac-item_name" style="flex:1.5;"/>
       <input class="hub-input" data-field="quantity"  placeholder="수량" type="number" style="flex:0.6;min-width:60px;"/>
       <input class="hub-input" data-field="threshold" placeholder="임계" type="number" value="3" style="flex:0.6;min-width:60px;"/>
-      <input class="hub-input" data-field="category"  placeholder="네일|헤어|속눈썹" list="ac-inv_category" style="flex:0.9;"/>
+      <input class="hub-input" data-field="category"  placeholder="네일|헤어|속눈썹|왁싱|피부|반영구" list="ac-inv_category" style="flex:0.9;"/>
       <button class="hub-btn-stack" data-act="stack">⊕ 쌓기</button>
       <button class="hub-btn-add"  data-act="add">즉시 추가 ↵</button>
     </div>`;

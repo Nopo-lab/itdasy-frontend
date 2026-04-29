@@ -15,10 +15,16 @@
 (function () {
   'use strict';
 
-  // ── 상수 ────────────────────────────────────────────────
+  // ── 상수 — [2026-04-29] 헤어/속눈썹/왁싱/피부/반영구 시술 프리셋 추가 ──
   const SERVICE_PRESETS = {
     '붙임머리': ['키크니 붙임머리', '큐티클 익스텐션', '페더 붙임머리', '뿌리 풍성', '볼륨 보강'],
     '네일아트': ['젤네일', '아트네일', '연장(스컬)', '페디', '케어'],
+    '헤어샵':   ['커트', '드라이', '디지털 펌', '매직 스트레이트', '뿌리 염색', '전체 염색'],
+    '헤어':     ['커트', '드라이', '디지털 펌', '매직 스트레이트', '뿌리 염색', '전체 염색'],
+    '속눈썹':   ['속눈썹펌', '래쉬리프트', '클래식 래쉬', '러시안 볼륨', '메가 볼륨', '리터치'],
+    '왁싱':     ['브라질리언', '하프 다리', '풀 다리', '겨드랑이', '얼굴 솜털', '눈썹'],
+    '피부':     ['딥클렌징', '모공 관리', '수분 관리', '브라이트닝', '리프팅', '여드름 관리'],
+    '반영구':   ['눈썹 자연눈썹', '눈썹 콤보', '아이라인', '입술 (립블러쉬)', '두피 SMP'],
     'beauty':   ['시술 1', '시술 2', '시술 3'],
   };
 
@@ -125,7 +131,7 @@
   //   - 인스타 미연동/분석 미완료 라도, 사용자가 직접 분석/연동/테스트 진입 가능.
   function _renderNoAnalysis(reason) {
     const body = document.getElementById('psv-body');
-    const hasToken = !!localStorage.getItem('itdasy_token::staging') || !!localStorage.getItem('itdasy_token');
+    const hasToken = !!(typeof window.getToken === 'function' ? window.getToken() : localStorage.getItem('itdasy_token::staging'));
     const hasInsta = !!localStorage.getItem('itdasy_latest_analysis');
     body.innerHTML = `
       <div class="psv-title">AI 페르소나</div>
@@ -152,7 +158,7 @@
     if ($c) $c.addEventListener('click', () => {
       close();
       if (typeof window.connectInstagram === 'function') {
-        try { window.connectInstagram(); } catch (_) {}
+        try { window.connectInstagram(); } catch (_) { /* ignore */ }
       } else {
         _toast('인스타 연동 진입점을 찾을 수 없어요');
       }
