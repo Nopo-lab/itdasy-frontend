@@ -200,4 +200,14 @@
     openUseSheet,
     openExpiringList,
   };
+  // [2026-04-29 B1] 글로벌 진입점 통일 — 모든 곳에서 같은 함수 호출
+  window.openMembershipCharge = function (customerId, customerName, currentBalance) {
+    return openTopupSheet(customerId, customerName, currentBalance);
+  };
+  window.openMembershipUse = function (customerId, customerName, balance) {
+    return openUseSheet(customerId, customerName, balance);
+  };
+  window.openMembershipExpiring = function (days) {
+    return openExpiringList(days);
+  };
 })();

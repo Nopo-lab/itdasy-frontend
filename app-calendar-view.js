@@ -348,14 +348,138 @@
   }
 
   function _bindTimetable(body, date) {
-    // 예약 블록 클릭 → 편집
+    // [2026-04-29 A2] long-press + drag drop 으로 시간 변경
+    // - 300ms 이하: 일반 클릭 (편집 진입)
+    // - 300ms+ pointermove: drag mode (블록 lift + slot 따라가기)
+    // - drop: 충돌 X 면 PATCH /bookings/{id}
+    const TT_HOUR_PX = 60;
+    const LONG_PRESS_MS = 300;
+    const SNAP_MIN = 15;
+
     body.querySelectorAll('.cv-tt-block[data-booking-id]').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const item = _mappedCache.find(m => m.id === btn.dataset.bookingId);
-        if (item) _openForm(new Date(item._raw.starts_at), item._raw);
+      let pressTimer = null;
+      let dragMode = false;
+      let startY = 0, startX = 0;
+      let originalTop = 0;
+      let blockHeight = 0;
+      let dragColEl = null;
+      let bookingItem = null;
+
+      function _cleanup() {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+        if (dragMode) {
+          btn.style.transform = '';
+          btn.style.zIndex = '';
+          btn.style.boxShadow = '';
+          btn.style.opacity = '';
+          body.querySelectorAll('.cv-tt-slot.cv-drop-target, .cv-tt-slot.cv-drop-conflict').forEach(s => {
+            s.classList.remove('cv-drop-target', 'cv-drop-conflict');
+          });
+        }
+        dragMode = false;
+      }
+
+      btn.addEventListener('pointerdown', e => {
+        if (e.button !== 0 && e.pointerType !== 'touch') return;
+        startY = e.clientY;
+        startX = e.clientX;
+        const rect = btn.getBoundingClientRect();
+        originalTop = rect.top;
+        blockHeight = rect.height;
+        bookingItem = _mappedCache.find(m => m.id === btn.dataset.bookingId);
+
+        pressTimer = setTimeout(() => {
+          if (!bookingItem) return;
+          dragMode = true;
+          btn.style.zIndex = '1000';
+          btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+          btn.style.opacity = '0.9';
+          btn.style.transform = 'scale(1.04)';
+          if (window.navigator.vibrate) window.navigator.vibrate(15);
+          if (typeof window.hapticMedium === 'function') window.hapticMedium();
+          try { btn.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+        }, LONG_PRESS_MS);
       });
+
+      btn.addEventListener('pointermove', e => {
+        if (!dragMode) {
+          // 손가락 많이 움직이면 drag 시작 전 취소
+          const dy = Math.abs(e.clientY - startY);
+          const dx = Math.abs(e.clientX - startX);
+          if (dy > 10 || dx > 10) {
+            clearTimeout(pressTimer);
+          }
+          return;
+        }
+        e.preventDefault();
+        const dy = e.clientY - startY;
+        btn.style.transform = `translateY(${dy}px) scale(1.04)`;
+
+        // 슬롯 hover 표시 + 충돌 감지
+        body.querySelectorAll('.cv-tt-slot').forEach(s => s.classList.remove('cv-drop-target', 'cv-drop-conflict'));
+        const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+        const slotEl = elBelow?.closest('.cv-tt-slot');
+        if (slotEl) {
+          // 충돌 체크
+          const col = slotEl.closest('.cv-tt-col');
+          const ymd = col?.getAttribute('data-date');
+          const hr = parseInt(slotEl.getAttribute('data-hour'), 10);
+          if (ymd && !isNaN(hr) && bookingItem) {
+            const newStart = new Date(`${ymd}T${String(hr).padStart(2, '0')}:00:00+09:00`);
+            const origStart = new Date(bookingItem._raw.starts_at);
+            const origEnd = new Date(bookingItem._raw.ends_at);
+            const durMin = Math.round((origEnd - origStart) / 60000);
+            const newEnd = new Date(newStart.getTime() + durMin * 60000);
+            const conflict = window.Booking?.hasConflict?.(
+              newStart.toISOString(), newEnd.toISOString(), bookingItem.id
+            );
+            slotEl.classList.add(conflict ? 'cv-drop-conflict' : 'cv-drop-target');
+            dragColEl = { ymd, hr, conflict, newStart, newEnd };
+          }
+        } else {
+          dragColEl = null;
+        }
+      });
+
+      btn.addEventListener('pointerup', async e => {
+        if (!dragMode) {
+          clearTimeout(pressTimer);
+          // 일반 클릭 — 편집 진입
+          e.stopPropagation();
+          if (bookingItem) _openForm(new Date(bookingItem._raw.starts_at), bookingItem._raw);
+          return;
+        }
+        e.preventDefault();
+        const dropped = dragColEl;
+        _cleanup();
+        if (!dropped || dropped.conflict || !bookingItem) {
+          if (dropped?.conflict && window.showToast) window.showToast('이 시간엔 다른 예약이 있어요');
+          return;
+        }
+        // PATCH 저장
+        try {
+          await window.Booking.update(bookingItem.id, {
+            starts_at: dropped.newStart.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
+            ends_at:   dropped.newEnd.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
+          });
+          if (window.showToast) window.showToast(`📅 ${dropped.hr}:00 으로 이동`);
+          if (typeof window.hapticLight === 'function') window.hapticLight();
+          // 즉시 재로드 트리거
+          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking' } }));
+        } catch (err) {
+          if (window.showToast) window.showToast('이동 실패: ' + (err?.message || ''));
+        }
+      });
+
+      btn.addEventListener('pointercancel', _cleanup);
+
+      // CSS touch-action 명시 — drag 중 스크롤 방지
+      btn.style.touchAction = 'none';
+
+      // 클릭 핸들러는 pointerup 에서 처리 — 기존 click 리스너 제거 (중복 방지)
     });
+
     // 빈 슬롯 클릭 → 새 예약 (시작시간 prefill)
     body.querySelectorAll('.cv-tt-slot').forEach(slot => {
       slot.addEventListener('click', () => {
@@ -367,8 +491,8 @@
         startD.setHours(hr, 0, 0, 0);
         const endD = new Date(startD.getTime() + 60 * 60000); // 기본 1시간
         window._pendingBookingSlot = {
-          starts_at: startD.toISOString(),
-          ends_at:   endD.toISOString(),
+          starts_at: `${ymd}T${String(hr).padStart(2, '0')}:00:00+09:00`,
+          ends_at:   `${ymd}T${String(hr + 1).padStart(2, '0')}:00:00+09:00`,
         };
         _openForm(startD, null);
       });

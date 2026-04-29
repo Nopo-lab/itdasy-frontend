@@ -196,19 +196,18 @@
               <span style="position:absolute;top:2px;left:${isRegular ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>
             </span>
           </label>
-          <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;${memOn ? 'border-bottom:1px solid rgba(0,0,0,0.05);' : ''}cursor:pointer;">
+          <!-- [2026-04-29 B2] 멤버십 가입 토글 제거 — 충전 시 자동 active=true 라 토글 무용. 미가입 시 1탭 충전 진입 -->
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;${memOn ? 'border-bottom:1px solid rgba(0,0,0,0.05);' : ''}">
             <span style="font-size:13px;font-weight:700;flex:1;display:inline-flex;align-items:center;gap:6px;">
               <span style="color:#A78BFA;display:inline-flex;align-items:center;">
                 <svg width="14" height="14" aria-hidden="true"><use href="#ic-sparkles"/></svg>
               </span>
-              멤버십 가입
+              회원권 ${memOn ? '<span style="font-size:11px;color:#A78BFA;font-weight:700;">활성</span>' : '<span style="font-size:11px;color:#999;font-weight:600;">미가입</span>'}
             </span>
-            <span class="cm-toggle ${memOn ? 'cm-toggle--on' : ''}" data-cm-toggle="membership_active"
-                  role="switch" aria-checked="${memOn}" tabindex="0"
-                  style="position:relative;width:44px;height:24px;background:${memOn ? '#A78BFA' : '#D1D5DB'};border-radius:999px;transition:background 0.2s;cursor:pointer;flex-shrink:0;">
-              <span style="position:absolute;top:2px;left:${memOn ? '22px' : '2px'};width:20px;height:20px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.2);"></span>
-            </span>
-          </label>
+            ${!memOn ? `
+              <button data-act="ms-topup" data-cust-id="${c.id}" data-cust-name="${_esc(c.name||'')}" style="padding:8px 14px;background:linear-gradient(135deg,#A78BFA,#C4B5FD);color:#fff;border:none;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">💳 시작</button>
+            ` : ''}
+          </div>
           ${memOn ? `
             <div style="padding:12px 14px;background:#FAFAFA;">
               <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px;">

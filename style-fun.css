@@ -213,7 +213,19 @@ button[data-haptic="medium"]:hover:not(:disabled) {
   background-clip: padding-box;
 }
 
-/* ============ 13. 모션 줄이기 — prefers-reduced-motion ============ */
+/* ============ 13. 캘린더 drag drop hover ============ */
+.cv-tt-slot.cv-drop-target {
+  background: rgba(34, 197, 94, 0.15);
+  outline: 2px dashed rgba(34, 197, 94, 0.55);
+  outline-offset: -2px;
+}
+.cv-tt-slot.cv-drop-conflict {
+  background: rgba(239, 68, 68, 0.15);
+  outline: 2px dashed rgba(239, 68, 68, 0.55);
+  outline-offset: -2px;
+}
+
+/* ============ 14. 모션 줄이기 — prefers-reduced-motion ============ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
