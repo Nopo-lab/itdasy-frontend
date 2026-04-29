@@ -372,7 +372,25 @@
     `;
 
     sheet.querySelector('#revenueChart').innerHTML = _renderChart(_aggregate(_items, _currentPeriod)) +
-      (_currentPeriod === 'month' ? _renderIncentiveCard(total) : '');
+      (_currentPeriod === 'month' ? _renderIncentiveCard(total) : '') +
+      `<div id="revMembershipShare" style="margin-top:8px;"></div>`;
+    // [2026-04-29] 회원권 매출 share 비동기 fetch + 표시
+    (async () => {
+      try {
+        const r = await _api('GET', '/memberships/revenue-breakdown?period=' + _currentPeriod);
+        if (!r || !r.total || r.membership_total <= 0) return;
+        const box = sheet.querySelector('#revMembershipShare');
+        if (!box) return;
+        box.innerHTML = `
+          <div style="padding:10px 12px;background:#F3E8FF;border:1px solid #C4B5FD;border-radius:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:#6B21A8;">
+            <svg width="14" height="14" aria-hidden="true"><use href="#ic-sparkles"/></svg>
+            <span style="font-weight:700;">회원권 결제</span>
+            <span style="margin-left:auto;font-weight:700;">${(r.membership_total).toLocaleString()}원</span>
+            <span style="background:#A78BFA;color:#fff;padding:2px 8px;border-radius:999px;font-weight:700;">${r.membership_share_pct}%</span>
+          </div>
+        `;
+      } catch (_e) { void _e; }
+    })();
     sheet.querySelector('#revenueOfflineBadge').style.display = _isOffline ? 'inline-block' : 'none';
     const incBtn = sheet.querySelector('#incentiveSettingsBtn');
     if (incBtn) incBtn.addEventListener('click', _openIncentiveSettings);
