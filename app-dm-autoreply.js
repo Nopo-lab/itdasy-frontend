@@ -40,6 +40,16 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
   }
 
+  // [2026-04-29 C2] 톤별 미리보기 답장 — 사장님이 톤 카드 누르자마자 어떻게 답하는지 확인
+  function _tonePreview(tone) {
+    const samples = {
+      friendly:     '안녕하세요😊 가격 문의 주셔서 감사해요! 시술 종류 알려주시면 바로 답변드릴게요🌷',
+      professional: '안녕하세요. 가격 문의 주셔서 감사합니다. 원하시는 시술 알려주시면 안내해 드리겠습니다.',
+      cute:         '와아 안녕하세요💗 가격 문의 너무 감사해요🥹 어떤 시술이 궁금하신가요?✨',
+    };
+    return samples[tone] || samples.friendly;
+  }
+
   async function openDMAutoreplySettings() {
     const status = await _fetchStatus();
     _globalEnabled = !!status.global_enabled;
@@ -162,13 +172,30 @@
         <input id="dmEnabled" type="checkbox" ${settings.enabled ? 'checked' : ''} ${_globalEnabled && accountReady ? '' : 'disabled'} style="width:20px;height:20px;">
       </label>
 
+      <!-- [2026-04-29 C2] 톤 카드 3개 — 클릭 큰 카드 -->
       <div style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:#555;">답장 톤</label>
-        <select id="dmTone" style="width:100%;margin-top:6px;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:14px;">
-          <option value="friendly" ${settings.tone === 'friendly' ? 'selected' : ''}>친근하게 (반말 섞어서)</option>
-          <option value="professional" ${settings.tone === 'professional' ? 'selected' : ''}>정중하게 (존댓말)</option>
-          <option value="cute" ${settings.tone === 'cute' ? 'selected' : ''}>귀엽게 (이모지 풍부)</option>
-        </select>
+        <div id="dmToneCards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px;">
+          <button type="button" data-tone="friendly" class="dm-tone-card ${settings.tone === 'friendly' ? 'dm-tone-on' : ''}" style="padding:14px 6px;border:2px solid ${settings.tone === 'friendly' ? '#7C3AED' : '#e5e5e5'};border-radius:12px;background:${settings.tone === 'friendly' ? 'linear-gradient(135deg,#FAF5FF,#F3E8FF)' : '#fff'};cursor:pointer;font-size:13px;font-weight:700;color:${settings.tone === 'friendly' ? '#5B21B6' : '#666'};">
+            <div style="font-size:22px;margin-bottom:4px;">😊</div>
+            <div>친근하게</div>
+            <div style="font-size:10px;font-weight:400;color:#888;margin-top:3px;">반말 섞어서</div>
+          </button>
+          <button type="button" data-tone="professional" class="dm-tone-card ${settings.tone === 'professional' ? 'dm-tone-on' : ''}" style="padding:14px 6px;border:2px solid ${settings.tone === 'professional' ? '#7C3AED' : '#e5e5e5'};border-radius:12px;background:${settings.tone === 'professional' ? 'linear-gradient(135deg,#FAF5FF,#F3E8FF)' : '#fff'};cursor:pointer;font-size:13px;font-weight:700;color:${settings.tone === 'professional' ? '#5B21B6' : '#666'};">
+            <div style="font-size:22px;margin-bottom:4px;">🙇‍♀️</div>
+            <div>정중하게</div>
+            <div style="font-size:10px;font-weight:400;color:#888;margin-top:3px;">존댓말</div>
+          </button>
+          <button type="button" data-tone="cute" class="dm-tone-card ${settings.tone === 'cute' ? 'dm-tone-on' : ''}" style="padding:14px 6px;border:2px solid ${settings.tone === 'cute' ? '#7C3AED' : '#e5e5e5'};border-radius:12px;background:${settings.tone === 'cute' ? 'linear-gradient(135deg,#FAF5FF,#F3E8FF)' : '#fff'};cursor:pointer;font-size:13px;font-weight:700;color:${settings.tone === 'cute' ? '#5B21B6' : '#666'};">
+            <div style="font-size:22px;margin-bottom:4px;">🥰</div>
+            <div>귀엽게</div>
+            <div style="font-size:10px;font-weight:400;color:#888;margin-top:3px;">이모지 풍부</div>
+          </button>
+        </div>
+        <input id="dmTone" type="hidden" value="${_esc(settings.tone || 'friendly')}">
+        <div id="dmTonePreview" style="margin-top:8px;padding:10px;background:#F9FAFB;border-radius:10px;font-size:12px;color:#555;line-height:1.5;">
+          미리보기: <span id="dmTonePreviewText" style="color:#5B21B6;font-weight:600;">${_tonePreview(settings.tone || 'friendly')}</span>
+        </div>
       </div>
 
       <div style="margin-bottom:14px;">
@@ -229,6 +256,21 @@
 
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     sheet.querySelector('#dmCancel').addEventListener('click', () => overlay.remove());
+    // [2026-04-29 C2] 톤 카드 클릭
+    sheet.querySelectorAll('.dm-tone-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const tone = card.dataset.tone;
+        sheet.querySelector('#dmTone').value = tone;
+        sheet.querySelectorAll('.dm-tone-card').forEach(c => {
+          const on = c.dataset.tone === tone;
+          c.style.border = on ? '2px solid #7C3AED' : '2px solid #e5e5e5';
+          c.style.background = on ? 'linear-gradient(135deg,#FAF5FF,#F3E8FF)' : '#fff';
+          c.style.color = on ? '#5B21B6' : '#666';
+        });
+        const prev = sheet.querySelector('#dmTonePreviewText');
+        if (prev) prev.textContent = _tonePreview(tone);
+      });
+    });
     sheet.querySelector('#dmSave').addEventListener('click', async () => {
       const samples = ['dmSample1', 'dmSample2', 'dmSample3', 'dmSample4', 'dmSample5']
         .map(id => (sheet.querySelector('#' + id)?.value || '').trim())
