@@ -373,7 +373,8 @@
 
     sheet.querySelector('#revenueChart').innerHTML = _renderChart(_aggregate(_items, _currentPeriod)) +
       (_currentPeriod === 'month' ? _renderIncentiveCard(total) : '') +
-      `<div id="revMembershipShare" style="margin-top:8px;"></div>`;
+      `<div id="revMembershipShare" style="margin-top:8px;"></div>` +
+      `<div id="revStaffStats" style="margin-top:8px;"></div>`;
     // [2026-04-29] 회원권 매출 share 비동기 fetch + 표시
     (async () => {
       try {
@@ -387,6 +388,50 @@
             <span style="font-weight:700;">회원권 결제</span>
             <span style="margin-left:auto;font-weight:700;">${(r.membership_total).toLocaleString()}원</span>
             <span style="background:#A78BFA;color:#fff;padding:2px 8px;border-radius:999px;font-weight:700;">${r.membership_share_pct}%</span>
+          </div>
+        `;
+      } catch (_e) { void _e; }
+    })();
+    // [2026-04-29] 직원별 매출 — Pro/Premium 직원 등록된 경우만 표시
+    (async () => {
+      try {
+        if (!window.StaffUI || typeof window.StaffUI.list !== 'function') return;
+        const staffData = await window.StaffUI.list();
+        const items = (staffData && staffData.items) || [];
+        if (!items.length) return;
+        // 모든 직원 stats 동시 fetch
+        const stats = await Promise.all(items.map(async (s) => {
+          try {
+            const r = await _api('GET', `/staff/${s.id}/stats?period=${_currentPeriod}`);
+            return { staff: s, ...r };
+          } catch (_) { return { staff: s, total_amount: 0, completed_count: 0, avg_amount: 0 }; }
+        }));
+        const sorted = stats.filter(x => x.total_amount > 0)
+          .sort((a, b) => (b.total_amount || 0) - (a.total_amount || 0));
+        if (!sorted.length) return;
+        const max = sorted[0].total_amount || 1;
+        const box = sheet.querySelector('#revStaffStats');
+        if (!box) return;
+        box.innerHTML = `
+          <div style="padding:12px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#555;margin-bottom:10px;">
+              <svg width="14" height="14"><use href="#ic-users"/></svg>직원별 매출
+            </div>
+            ${sorted.map(s => {
+              const pct = Math.round((s.total_amount || 0) * 100 / max);
+              const color = (s.staff.color || '#A78BFA').replace(/[<>"]/g, '');
+              return `
+                <div style="margin-bottom:8px;">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+                    <span style="font-weight:600;color:#333;">${(s.staff.name || '').replace(/[<>&"]/g,'')}${s.staff.role ? ' · '+(s.staff.role).replace(/[<>&"]/g,'') : ''}</span>
+                    <span style="color:#666;">${(s.total_amount).toLocaleString()}원 · ${s.completed_count}건</span>
+                  </div>
+                  <div style="height:6px;background:#f3f4f6;border-radius:6px;overflow:hidden;">
+                    <div style="height:100%;width:${pct}%;background:${color};border-radius:6px;"></div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
         `;
       } catch (_e) { void _e; }
