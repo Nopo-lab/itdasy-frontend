@@ -144,6 +144,10 @@
         });
         _toast(`사용 완료! 잔액 ${_krw(r.membership_balance)}`);
         sheet.style.display = 'none';
+        // [2026-04-29] 잔액 부족 경고 토스트 (백엔드가 warning 필드 반환)
+        if (r.warning) {
+          setTimeout(() => _toast(r.warning, { error: true }), 800);
+        }
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_use' } })); } catch (_) { void 0; }
       } catch (e) {
         _toast('차감 실패: ' + e.message, { error: true });
