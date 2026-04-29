@@ -366,10 +366,21 @@
     const count = _items.length;
     sheet.querySelector('#revenueSummary').innerHTML = `
       <div style="display:flex;align-items:baseline;gap:8px;">
-        <strong style="font-size:22px;color:var(--accent,#F18091);">${_formatKRW(total)}</strong>
+        <strong id="revTotalBig" style="font-size:22px;color:var(--accent,#F18091);">${_formatKRW(total)}</strong>
         <span style="font-size:12px;color:#888;">${PERIOD_LABEL[_currentPeriod]} · ${count}건</span>
       </div>
     `;
+    // [2026-04-29] 숫자 count-up — 화면 진입 시 0→타겟
+    if (window.Fun && typeof window.Fun.countUp === 'function') {
+      const totalEl = sheet.querySelector('#revTotalBig');
+      if (totalEl) {
+        window.Fun.countUp(totalEl, 0, total, {
+          duration: 720,
+          format: (n) => Math.round(n).toLocaleString('ko-KR'),
+          suffix: '원',
+        });
+      }
+    }
 
     sheet.querySelector('#revenueChart').innerHTML = _renderChart(_aggregate(_items, _currentPeriod)) +
       (_currentPeriod === 'month' ? _renderIncentiveCard(total) : '') +
@@ -600,8 +611,16 @@
           memo: document.getElementById('rfMemo').value.trim() || null,
           use_membership: useMem,
         });
-        if (window.hapticLight) window.hapticLight();
-        if (window.showToast) window.showToast(useMem ? '회원권 차감 완료' : '매출 기록 완료');
+        // [2026-04-29] 매출 등록 성공 — 큰 confetti + haptic
+        if (window.Fun && typeof window.Fun.celebrate === 'function') {
+          window.Fun.celebrate(
+            useMem ? `💳 회원권 차감 ${amount.toLocaleString()}원` : `💰 매출 +${amount.toLocaleString()}원`,
+            { emojis: useMem ? ['💳', '✨', '🌷'] : ['💰', '💵', '🎉', '✨'], count: 16 }
+          );
+        } else {
+          if (window.hapticLight) window.hapticLight();
+          if (window.showToast) window.showToast(useMem ? '회원권 차감 완료' : '매출 기록 완료');
+        }
         if (typeof window._formRecoveryClear === 'function') window._formRecoveryClear('revenue-add');
         await _loadAndRender();
       } catch (e) {

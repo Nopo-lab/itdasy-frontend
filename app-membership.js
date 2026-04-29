@@ -105,7 +105,14 @@
           payment_method: method,
           record_revenue: true,
         });
-        _toast(`충전 완료! 잔액 ${_krw(r.membership_balance)}`);
+        // [2026-04-29] 충전 성공 — 큰 confetti
+        if (window.Fun && window.Fun.celebrate) {
+          window.Fun.celebrate(`💳 ${customerName}님 +${_krw(amount)} (잔액 ${_krw(r.membership_balance)})`, {
+            emojis: ['💳', '✨', '💖', '🌷'], count: 16,
+          });
+        } else {
+          _toast(`충전 완료! 잔액 ${_krw(r.membership_balance)}`);
+        }
         sheet.style.display = 'none';
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'membership_topup' } })); } catch (_) { void 0; }
       } catch (e) {

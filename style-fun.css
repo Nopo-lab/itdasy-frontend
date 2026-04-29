@@ -1,0 +1,223 @@
+/* ─────────────────────────────────────────────────────────────
+   잇데이 — Micro-interaction & Fun (2026-04-29)
+   목적: 설문조사지 같은 무미건조 → 사용 재미 + 빠져드는 디테일
+   ──────────────────────────────────────────────────────────── */
+
+/* ============ 1. 글로벌 터치 즉각 피드백 ============ */
+/* 모든 클릭 가능 요소 — scale 0.96 + 80ms */
+button,
+[role="button"],
+.btn,
+.btn-primary,
+.btn-secondary,
+.tab-bar__fab,
+.dt-list-it,
+.customer-row,
+.sheet-row,
+.ql-card,
+.kpi-card,
+[data-haptic],
+[data-act] {
+  transition: transform 80ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 120ms ease, opacity 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+button:active:not(:disabled),
+[role="button"]:active,
+.btn:active,
+.btn-primary:active,
+.btn-secondary:active,
+.tab-bar__fab:active,
+.dt-list-it:active,
+.customer-row:active,
+.sheet-row:active,
+.ql-card:active,
+.kpi-card:active,
+[data-haptic]:active,
+[data-act]:active {
+  transform: scale(0.96);
+  transition-duration: 60ms;
+}
+
+/* 강조 버튼 (CTA) — 호버/포커스 시 살짝 부드럽게 */
+.btn-primary:hover:not(:disabled),
+button[data-haptic="medium"]:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(241, 128, 145, 0.25);
+}
+
+/* ============ 2. 카드 등장 stagger fade-in ============ */
+@keyframes itd-card-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.itd-card-enter {
+  animation: itd-card-enter 320ms cubic-bezier(0.2, 0.9, 0.3, 1) backwards;
+}
+
+/* stagger — n번째 카드는 n*60ms 지연 */
+.itd-card-enter:nth-child(1) { animation-delay: 0ms; }
+.itd-card-enter:nth-child(2) { animation-delay: 60ms; }
+.itd-card-enter:nth-child(3) { animation-delay: 120ms; }
+.itd-card-enter:nth-child(4) { animation-delay: 180ms; }
+.itd-card-enter:nth-child(5) { animation-delay: 240ms; }
+.itd-card-enter:nth-child(6) { animation-delay: 300ms; }
+.itd-card-enter:nth-child(7) { animation-delay: 360ms; }
+.itd-card-enter:nth-child(8) { animation-delay: 420ms; }
+
+/* ============ 3. 숫자 count-up & pulse ============ */
+@keyframes itd-number-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.12); color: var(--accent, #F18091); }
+  100% { transform: scale(1); }
+}
+
+.itd-num-pop {
+  display: inline-block;
+  animation: itd-number-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============ 4. 성공 confetti (별·하트) ============ */
+@keyframes itd-confetti-fall {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; }
+  100% { transform: translate(var(--itd-cf-x, 0), 200px) rotate(360deg) scale(0.4); opacity: 0; }
+}
+
+.itd-confetti-host {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  overflow: hidden;
+}
+.itd-confetti-piece {
+  position: absolute;
+  font-size: 24px;
+  animation: itd-confetti-fall 1100ms cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+  will-change: transform, opacity;
+}
+
+/* ============ 5. 스켈레톤 로딩 (spinner 대신) ============ */
+@keyframes itd-skel-shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+.itd-skel {
+  display: block;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%);
+  background-size: 400px 100%;
+  animation: itd-skel-shimmer 1100ms ease-in-out infinite;
+  border-radius: 8px;
+  height: 12px;
+  margin-bottom: 8px;
+}
+.itd-skel.lg { height: 24px; border-radius: 10px; }
+.itd-skel.circle { width: 36px; height: 36px; border-radius: 50%; }
+
+/* ============ 6. 배지 / 강조 pulse ============ */
+@keyframes itd-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(241, 128, 145, 0.55); }
+  70%  { box-shadow: 0 0 0 14px rgba(241, 128, 145, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(241, 128, 145, 0); }
+}
+
+.itd-pulse-ring {
+  animation: itd-pulse-ring 1600ms ease-out infinite;
+  border-radius: 50%;
+}
+
+/* ============ 7. 별 폭죽 (단골/회원권 등록 등) ============ */
+@keyframes itd-star-burst {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 1; }
+  60%  { transform: translate(-50%, -50%) scale(1.5) rotate(180deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.6) rotate(360deg); opacity: 0; }
+}
+
+.itd-star-burst {
+  position: fixed;
+  top: 50%; left: 50%;
+  font-size: 64px;
+  pointer-events: none;
+  z-index: 99999;
+  animation: itd-star-burst 900ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* ============ 8. 토스트 — 슬라이드 업 + 살짝 elastic ============ */
+.toast,
+.itd-toast {
+  animation: itd-toast-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes itd-toast-in {
+  from { transform: translate(-50%, 60px); opacity: 0; }
+  to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+
+/* ============ 9. 시트 슬라이드 up — bouncy ============ */
+@keyframes itd-sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+[id$="Sheet"] > div:first-child,
+.sheet-body,
+#settingsCard {
+  animation: itd-sheet-in 320ms cubic-bezier(0.2, 0.9, 0.3, 1.05);
+}
+
+/* ============ 10. 로딩 dots — typing indicator ============ */
+@keyframes itd-typing {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30%           { opacity: 1;   transform: translateY(-3px); }
+}
+
+.itd-typing-dots span {
+  display: inline-block;
+  width: 6px; height: 6px;
+  background: var(--text-2, #888);
+  border-radius: 50%;
+  margin: 0 2px;
+  animation: itd-typing 1100ms ease-in-out infinite;
+}
+.itd-typing-dots span:nth-child(2) { animation-delay: 180ms; }
+.itd-typing-dots span:nth-child(3) { animation-delay: 360ms; }
+
+/* ============ 11. 빈 상태 — bouncy 일러스트 ============ */
+@keyframes itd-empty-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4px); }
+}
+
+.itd-empty-icon {
+  display: inline-block;
+  font-size: 48px;
+  animation: itd-empty-bounce 2400ms ease-in-out infinite;
+  opacity: 0.85;
+}
+
+/* ============ 12. 매출 / 신기록 갱신 — gradient sweep ============ */
+@keyframes itd-record-glow {
+  0%   { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.itd-record-glow {
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 215, 0, 0.45) 50%, transparent 70%);
+  background-size: 200% 100%;
+  animation: itd-record-glow 1500ms ease-in-out;
+  background-color: inherit;
+  background-clip: padding-box;
+}
+
+/* ============ 13. 모션 줄이기 — prefers-reduced-motion ============ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
