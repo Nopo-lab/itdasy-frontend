@@ -12,10 +12,13 @@
 
 @media (min-width: 1100px) {
   .ms-root { flex-direction: row; }
+  .ms-side { display: flex; }
   .ms-pc { display: flex; }
   .ms-mobile-only { display: none; }
-  /* .ms-side 는 안 그림 — 시스템 .side-nav 가 PC 사이드바 역할 */
 }
+
+/* 내샵관리 탭 활성일 때만 시스템 PC 사이드바 숨김 — ms-side(220px 풀 메뉴) 가 그 역할 대체 */
+body:has(#tab-dashboard.active) #sideNav { display: none !important; }
 
 /* ─────────────────────────────────────────────────────────────
    모바일 헤더
