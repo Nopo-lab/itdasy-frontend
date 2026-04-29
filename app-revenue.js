@@ -375,19 +375,44 @@
       (_currentPeriod === 'month' ? _renderIncentiveCard(total) : '') +
       `<div id="revMembershipShare" style="margin-top:8px;"></div>` +
       `<div id="revStaffStats" style="margin-top:8px;"></div>`;
-    // [2026-04-29] 회원권 매출 share 비동기 fetch + 표시
+    // [2026-04-29] 결제 방식별 도넛 차트 + 회원권 매출 share
     (async () => {
       try {
         const r = await _api('GET', '/memberships/revenue-breakdown?period=' + _currentPeriod);
-        if (!r || !r.total || r.membership_total <= 0) return;
+        if (!r || !r.total) return;
         const box = sheet.querySelector('#revMembershipShare');
         if (!box) return;
+        const labels = { card: '카드', cash: '현금', transfer: '계좌', membership: '회원권', etc: '기타' };
+        const colors = { card: '#F18091', cash: '#10B981', transfer: '#0288D1', membership: '#A78BFA', etc: '#9CA3AF' };
+        const methods = Object.entries(r.by_method || {})
+          .map(([k, v]) => ({ k, label: labels[k] || k, total: v.total || 0, count: v.count || 0, color: colors[k] || '#9CA3AF' }))
+          .filter(x => x.total > 0)
+          .sort((a, b) => b.total - a.total);
+        if (!methods.length) return;
+        // CSS conic-gradient 도넛
+        const total = r.total || 1;
+        let acc = 0;
+        const slices = methods.map(m => {
+          const pct = m.total / total;
+          const start = acc;
+          acc += pct;
+          return `${m.color} ${(start * 100).toFixed(2)}% ${(acc * 100).toFixed(2)}%`;
+        }).join(', ');
         box.innerHTML = `
-          <div style="padding:10px 12px;background:#F3E8FF;border:1px solid #C4B5FD;border-radius:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:#6B21A8;">
-            <svg width="14" height="14" aria-hidden="true"><use href="#ic-sparkles"/></svg>
-            <span style="font-weight:700;">회원권 결제</span>
-            <span style="margin-left:auto;font-weight:700;">${(r.membership_total).toLocaleString()}원</span>
-            <span style="background:#A78BFA;color:#fff;padding:2px 8px;border-radius:999px;font-weight:700;">${r.membership_share_pct}%</span>
+          <div style="padding:14px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;display:flex;align-items:center;gap:14px;">
+            <div style="width:80px;height:80px;border-radius:50%;background:conic-gradient(${slices});flex-shrink:0;position:relative;">
+              <div style="position:absolute;inset:18px;background:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#666;text-align:center;line-height:1.2;">${total >= 1000000 ? Math.floor(total/10000) + '만' : Math.floor(total/1000) + '천'}</div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+              ${methods.map(m => `
+                <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+                  <span style="width:10px;height:10px;border-radius:2px;background:${m.color};"></span>
+                  <span style="color:#333;font-weight:600;flex:1;">${m.label}</span>
+                  <span style="color:#666;">${m.total.toLocaleString()}원</span>
+                  <span style="color:#999;font-size:10px;">${Math.round(m.total*100/total)}%</span>
+                </div>
+              `).join('')}
+            </div>
           </div>
         `;
       } catch (_e) { void _e; }

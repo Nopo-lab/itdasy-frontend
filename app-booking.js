@@ -346,6 +346,29 @@
 
     sheet.querySelector('#bookingOfflineBadge').style.display = _isOffline ? 'inline-block' : 'none';
 
+    // [2026-04-29] 직원 필터 칩 — 직원 등록된 경우만 표시
+    if (window._staffCache && window._staffCache.items && window._staffCache.items.length > 0) {
+      const filterStaffId = window._bookingFilterStaffId || null;
+      const chipsHtml = `
+        <div id="bookingStaffChips" style="display:flex;gap:6px;margin:0 0 10px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;">
+          <button data-staff-filter="" style="flex-shrink:0;padding:6px 12px;border:1px solid ${filterStaffId === null ? '#F18091' : '#ddd'};border-radius:999px;background:${filterStaffId === null ? '#F18091' : '#fff'};color:${filterStaffId === null ? '#fff' : '#555'};font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">전체</button>
+          ${window._staffCache.items.map(s => `
+            <button data-staff-filter="${s.id}" style="flex-shrink:0;padding:6px 12px;border:1px solid ${filterStaffId === s.id ? (s.color || '#A78BFA') : '#ddd'};border-radius:999px;background:${filterStaffId === s.id ? (s.color || '#A78BFA') : '#fff'};color:${filterStaffId === s.id ? '#fff' : '#555'};font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${(s.name || '').replace(/[<>&"]/g,'')}</button>
+          `).join('')}
+        </div>
+      `;
+      const existingChips = sheet.querySelector('#bookingStaffChips');
+      if (existingChips) existingChips.outerHTML = chipsHtml;
+      else sheet.querySelector('#bookingGrid').insertAdjacentHTML('beforebegin', chipsHtml);
+      sheet.querySelectorAll('[data-staff-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const v = btn.dataset.staffFilter;
+          window._bookingFilterStaffId = v ? Number(v) : null;
+          _rerender();
+        });
+      });
+    }
+
     const grid = sheet.querySelector('#bookingGrid');
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(_anchorDate); d.setDate(d.getDate() + i); return d;
@@ -353,10 +376,14 @@
     const dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
     const todayKey = _dayKey(new Date());
 
+    // [2026-04-29] 직원 필터 적용
+    const filterStaffId = window._bookingFilterStaffId || null;
+    const filtered = filterStaffId ? _items.filter(b => b.staff_id === filterStaffId) : _items;
+
     grid.innerHTML = days.map((d, i) => {
       const key = _dayKey(d);
       const isToday = key === todayKey;
-      const dayBookings = _items
+      const dayBookings = filtered
         .filter(b => _dayKey(new Date(b.starts_at)) === key)
         .sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
       return `
