@@ -44,6 +44,17 @@
       return data;
     } catch (_e) { return null; }
   }
+  // DM 검토 대기 — 백엔드 큐 미구현이라 일단 최근 대화 N건을 검토 대기로 간주
+  // TODO[v1.5]: /instagram/dm-reply/pending-queue 신설되면 교체
+  async function _fetchRecentDMs() {
+    if (!window.API || !window.authHeader) return [];
+    try {
+      const res = await fetch(window.API + '/instagram/dm-reply/recent-conversations?limit=5', { headers: window.authHeader() });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data && data.conversations) ? data.conversations : [];
+    } catch (_e) { return []; }
+  }
 
   // ─────────── 헬퍼 ───────────
   function _shopName() {
@@ -87,6 +98,78 @@
       if (localStorage.getItem('kakao_alimtalk_enabled') === 'true') on += 1;
     } catch (_e) { /* ignore */ }
     return on;
+  }
+
+  // ─────────── DM 검토 대기 헬퍼 ───────────
+  function _categoryOf(text) {
+    const t = String(text || '');
+    if (/예약|시간|날짜|언제/.test(t)) return '예약 문의';
+    if (/얼마|가격|비용|price/i.test(t)) return '가격 문의';
+    if (/어디|위치|장소/.test(t)) return '위치 문의';
+    if (/영업|운영|문여|닫/.test(t)) return '시간 문의';
+    return '기타 문의';
+  }
+  function _dmHumanTime(ts) {
+    try {
+      const d = new Date(ts).getTime();
+      if (!Number.isFinite(d)) return '';
+      const diff = Math.max(0, Date.now() - d);
+      if (diff < 60000) return '방금';
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}시간 전`;
+      return `${Math.floor(diff / 86400000)}일 전`;
+    } catch (_e) { return ''; }
+  }
+  function _shortText(t, n) {
+    const s = String(t || '').replace(/\s+/g, ' ').trim();
+    return s.length > n ? s.slice(0, n) + '…' : s;
+  }
+  function _customerName(tail) {
+    return '고객 ' + String(tail || '').replace(/^[\.…]+/, '').slice(-4);
+  }
+  function _customerInitial() { return '고'; }
+
+  // ─────────── DM 검토 대기 렌더 ───────────
+  function _renderDMMiniCard(dm) {
+    const initial = _customerInitial();
+    const name = _customerName(dm && dm.sender_tail);
+    const time = _dmHumanTime(dm && dm.ts);
+    const cat = _categoryOf(dm && dm.received_text);
+    const text = _shortText(dm && dm.received_text, 50);
+    return `
+      <div class="dm-card is-pending" data-mv-act="dmHub">
+        <div class="dm-card__top">
+          <div class="dm-card__avatar">${_esc(initial)}</div>
+          <div class="dm-card__name">${_esc(name)}</div>
+          <div class="dm-card__time">${_esc(time)}</div>
+        </div>
+        <div><span class="dm-card__cat">${_esc(cat)}</span></div>
+        <div class="dm-thread" style="margin-top:8px;border-top:0;padding-top:0;">
+          <div class="dm-thread__row dm-thread__row--received">
+            <div class="dm-thread__avatar">${_esc(initial)}</div>
+            <div class="dm-bubble dm-bubble--received">${_esc(text)}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+  function _renderDMQueue(dms) {
+    if (!Array.isArray(dms) || dms.length === 0) return '';
+    const shown = dms.slice(0, 2).map(_renderDMMiniCard).join('');
+    const moreN = Math.max(0, dms.length - 2);
+    const moreChip = moreN > 0
+      ? `<button type="button" class="dm-mini-tone__regen" data-mv-act="dmHub" style="margin-top:6px;">+${moreN}건 더 →</button>`
+      : '';
+    return `
+      <section class="ms-section" aria-label="DM 검토 대기">
+        <div class="ms-section__title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>DM 검토 대기 ${dms.length}건</span>
+          <button type="button" class="dm-mini-tone__regen" data-mv-act="dmHub">전체 보기 →</button>
+        </div>
+        <div class="dm-inbox">
+          ${shown}
+          ${moreChip}
+        </div>
+      </section>`;
   }
 
   // ─────────── 헤더 (모바일) ───────────
@@ -437,7 +520,7 @@
   }
 
   // ─────────── PC 메인 컴포지션 ───────────
-  function _renderPCDash(brief) {
+  function _renderPCDash(brief, dms) {
     return `
       <main class="ms-pc" aria-label="내샵관리 PC 대시보드">
         <header class="ms-pc__header">
@@ -454,6 +537,7 @@
           ${_renderPCDonut(brief)}
           ${_renderPCWidgets(brief)}
         </div>
+        ${_renderDMQueue(dms)}
         ${_renderPCFeed(brief)}
       </main>
     `;
@@ -468,6 +552,7 @@
       revenue:        () => window.openRevenueHub && window.openRevenueHub(),
       inventory:      () => window.openInventoryHub && window.openInventoryHub(),
       aiHub:          () => window.openAiHub && window.openAiHub(),
+      dmHub:          () => window.openDMAutoreplySettings && window.openDMAutoreplySettings(),
       settings:       () => window.openSettingsHub && window.openSettingsHub(),
       // 플랜·구독 — app-plan.js 에서 openPlanPopup 으로 노출. openPlan / openSupport 도 시도.
       plan:           () => (window.openPlan || window.openPlanPopup || (() => {}))(),
@@ -500,7 +585,8 @@
   // PC: ms-side (220px 풀 메뉴) + ms-pc (대시보드)
   // 모바일: 헤더 + 샵카드 + 운영/허브/계정 메뉴 스택
   // 내샵관리 탭 활성 시 시스템 #sideNav 는 CSS 로 숨김 (myshop-v3.css)
-  function _composeHTML(brief) {
+  function _composeHTML(brief, dms) {
+    const list = Array.isArray(dms) ? dms : [];
     return `
       <div class="ms-root">
         ${_renderPCSidebar(brief)}
@@ -508,12 +594,13 @@
           ${_renderHeader()}
           <div class="ms-body">
             ${_renderShopCard(brief)}
+            ${_renderDMQueue(list)}
             ${_renderOpsMenu(brief)}
             ${_renderHubMenu()}
             ${_renderAccountMenu()}
           </div>
         </div>
-        ${_renderPCDash(brief)}
+        ${_renderPCDash(brief, list)}
       </div>
     `;
   }
@@ -530,26 +617,38 @@
     const swr = _readSWR();
     if (swr && swr.d) {
       try {
-        container.innerHTML = _composeHTML(swr.d);
+        // 캐시 hit: 일단 dms 빈 배열로 즉시 렌더, 백그라운드에서 갱신
+        container.innerHTML = _composeHTML(swr.d, []);
         _bindEvents(container);
-        if (swr.fresh) return;
+        if (swr.fresh) {
+          // fresh 라도 DM 은 항상 최신으로 백그라운드 갱신
+          _refreshDMsOnly(container, swr.d);
+          return;
+        }
       } catch (_e) { /* fall through */ }
     } else {
       // 캐시 없을 때도 빈 상태로 즉시 렌더 (깨지지 않도록)
-      container.innerHTML = _composeHTML({});
+      container.innerHTML = _composeHTML({}, []);
       _bindEvents(container);
     }
 
     if (_inFlight) return;
     _inFlight = true;
     try {
-      const brief = await _fetchBrief();
+      const [brief, dms] = await Promise.all([_fetchBrief(), _fetchRecentDMs()]);
       const merged = brief || (swr && swr.d) || {};
-      container.innerHTML = _composeHTML(merged);
+      container.innerHTML = _composeHTML(merged, dms);
       _bindEvents(container);
     } finally {
       _inFlight = false;
     }
+  }
+  async function _refreshDMsOnly(container, brief) {
+    try {
+      const dms = await _fetchRecentDMs();
+      container.innerHTML = _composeHTML(brief, dms);
+      _bindEvents(container);
+    } catch (_e) { /* ignore */ }
   }
 
   // ─────────── 공개 API ───────────
