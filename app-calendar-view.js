@@ -1,16 +1,30 @@
 /* ─────────────────────────────────────────────────────────────
-   예약 캘린더 + CRUD 통합 (T-D1/D2)
+   예약관리 v4 — 월/주/일 뷰 + 모바일 + PC
    의존: app-booking-api.js (window.Booking)
+   CSS:  css/screens/booking-v4.css (bk-* prefix)
 
-   전역 진입점:
-     window.openCalendarView()    — 월 캘린더 열기
-     window.openBooking(date?)    — 별칭 (대시보드 바로가기 호환)
-     window.closeBooking()        — 닫기
+   전역 진입점 (시그니처 보존):
+     window.openCalendarView()       — 메인 진입 (월 뷰)
+     window.openBooking(date?)       — 별칭 (대시보드 바로가기 호환)
+     window.closeBooking()           — 닫기
+     window._calSelectDay(dateStr)   — 월 셀 클릭 위임
+     window._calSelectDayChip(dateStr)
+     window._calSwitchView(view)
+     window._calPrevMonth() / _calNextMonth()
+
+   v4 추가 기능:
+     - 직원 필터 칩 (toolbar)
+     - now-line (주/일 뷰 현재 시각 표시)
+     - PC 좌측 패널 (미니 캘린더 + 직원 리스트 + 통계)
+     - PC 일간: 직원별 컬럼 분할
+     - localStorage 상태 저장 (bk4_state)
    ──────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
 
-  const OVERLAY = 'cal-overlay';
+  const OVERLAY_ID = 'cal-overlay';
+  const STATE_KEY  = 'bk4_state';
+  const STAFF_CACHE_KEY = 'cv4_staff_cache';
 
   // === 2026 한국 공휴일 ===
   const HOLIDAYS_2026 = {
@@ -21,45 +35,27 @@
     '10-3':'개천절','10-5':'대체공휴일','10-9':'한글날','12-25':'크리스마스',
   };
 
-  const STATUS_CLR = {
-    completed: 'var(--info)',
-    no_show:   'var(--danger)',
-    cancelled: 'var(--text-subtle)',
-  };
+  // === 시간 그리드 단위 ===
+  const HOUR_PX_MOBILE_DAY  = 60;
+  const HOUR_PX_MOBILE_WEEK = 50;
+  const HOUR_PX_PC_WEEK     = 60;
+  const HOUR_PX_PC_DAY      = 80;
+  const PC_BREAKPOINT       = 1100;
 
-  // === 시술별 컬러 팔레트 (Pastel pink 톤 — 잇데이 정체성) ===
-  // 키워드 매칭 기반. 시술명에 키워드가 포함되면 해당 색상 사용.
-  const SERVICE_COLORS = {
-    eyelash: { bg: '#FFE4E9', border: '#F18091' }, // 속눈썹 — 연핑크
-    nail:    { bg: '#FFD7BA', border: '#E89B6E' }, // 네일 — 살구
-    hair:    { bg: '#FFCFE2', border: '#E78AB1' }, // 붙임머리 — 분홍
-    perm:    { bg: '#E8D5F2', border: '#A87BC8' }, // 펌 — 라일락
-    cut:     { bg: '#D4F1E0', border: '#7ABF95' }, // 커트 — 민트
-    makeup:  { bg: '#FFF4D6', border: '#D9B95A' }, // 메이크업 — 연노랑
-    skin:    { bg: '#D6ECFF', border: '#6FA8D9' }, // 피부/관리 — 연파랑
-    _default:{ bg: '#FFE0E6', border: '#F18091' }, // 기본 — 잇데이 핑크
-  };
+  // === 상태 ===
+  let _curYear, _curMonth;
+  let _curView = 'month';        // 'month' | 'week' | 'day'
+  let _curDate = new Date();
+  let _mappedCache = [];         // 현재 월 매핑된 예약
+  let _staffList = [];           // [{id, name, color_idx}, ...]
+  let _activeStaffIds = null;    // null = 전체, Set = 선택된 직원
+  let _miniMonth = null;         // PC 미니캘 표시 월 {y, m}
+  let _nowLineTimer = null;
+  let _cachedIsPC = false;
 
-  function _colorForService(svc) {
-    if (!svc) return SERVICE_COLORS._default;
-    const s = String(svc).toLowerCase();
-    if (s.includes('속눈썹') || s.includes('래쉬') || s.includes('lash') || s.includes('연장')) return SERVICE_COLORS.eyelash;
-    if (s.includes('네일') || s.includes('젤') || s.includes('nail') || s.includes('패디')) return SERVICE_COLORS.nail;
-    if (s.includes('붙임') || s.includes('익스텐션') || s.includes('extension')) return SERVICE_COLORS.hair;
-    if (s.includes('펌') || s.includes('perm')) return SERVICE_COLORS.perm;
-    if (s.includes('커트') || s.includes('컷') || s.includes('cut')) return SERVICE_COLORS.cut;
-    if (s.includes('메이크') || s.includes('makeup') || s.includes('mua')) return SERVICE_COLORS.makeup;
-    if (s.includes('피부') || s.includes('관리') || s.includes('스킨') || s.includes('skin') || s.includes('왁싱')) return SERVICE_COLORS.skin;
-    return SERVICE_COLORS._default;
-  }
-
-  let _curYear, _curMonth, _curView = 'month', _curDate = new Date();
-  let _mappedCache = [];
-
-  // 시간표 픽셀 단위
-  const TT_HOUR_PX = 60;
-
-  // === 헬퍼 ===
+  // ============================================================
+  // §1 헬퍼
+  // ============================================================
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -67,23 +63,32 @@
   function _pad(n)  { return String(n).padStart(2, '0'); }
   function _ds(d)   { return d.getFullYear() + '-' + _pad(d.getMonth()+1) + '-' + _pad(d.getDate()); }
   function _fmt(d)  { return _pad(d.getHours()) + ':' + _pad(d.getMinutes()); }
-  function _overlay()  { return document.getElementById(OVERLAY); }
-  function _body()     { const o = _overlay(); return o && o.querySelector('.cal-body'); }
-  function _label()    { const o = _overlay(); return o && o.querySelector('.cal-month-label'); }
+  function _overlay()  { return document.getElementById(OVERLAY_ID); }
+  function _isPC() { return window.innerWidth >= PC_BREAKPOINT; }
 
-  function _updateOfflineBadge() {
-    const b = document.querySelector('#' + OVERLAY + ' #cal-offline-badge');
-    if (b) b.style.display = window.Booking?.isOffline ? 'inline' : 'none';
+  function _saveState() {
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify({
+        view: _curView, y: _curYear, m: _curMonth, dateISO: _ds(_curDate),
+      }));
+    } catch (_e) { void _e; }
   }
+  function _loadState() {
+    try { return JSON.parse(localStorage.getItem(STATE_KEY) || 'null'); }
+    catch (_e) { return null; }
+  }
+
   function _close() {
+    if (_nowLineTimer) { clearInterval(_nowLineTimer); _nowLineTimer = null; }
     const o = _overlay(); if (o) o.remove();
     document.body.style.overflow = '';
-    // [2026-04-26 A5] hash 정리
+    document.body.classList.remove('bk-pc-mode');
     try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('booking'); } catch (_e) { void _e; }
   }
 
-  // === 데이터 ===
-  // 2026-04-26 — 시술 카탈로그 가격 자동 매핑 (booking.amount 없을 때 폴백)
+  // ============================================================
+  // §2 데이터 로딩
+  // ============================================================
   function _catalogPriceFor(svc) {
     if (!svc) return null;
     const list = window._serviceTemplatesCache || [];
@@ -94,7 +99,6 @@
     if (!hit) hit = list.find(t => k.includes((t.name || '').trim().toLowerCase()) || (t.name || '').trim().toLowerCase().includes(k));
     return hit && hit.default_price ? hit.default_price : null;
   }
-  // 50000 → "5만", 35000 → "3.5만", 5000 → "5천"
   function _krwShort(n) {
     if (!n || n <= 0) return '';
     if (n >= 10000) {
@@ -105,15 +109,28 @@
     if (n >= 1000) return Math.round(n / 1000) + '천';
     return n + '원';
   }
+
   function _mapItems(items) {
     return items.map(b => {
       const s = new Date(b.starts_at), e = new Date(b.ends_at);
       const amt = (b.amount && b.amount > 0) ? b.amount : _catalogPriceFor(b.service_name);
+      // staff_idx: staff_id 가 있으면 _staffList 에서 인덱스 매칭, 없으면 0
+      let staffIdx = 0;
+      if (b.staff_id != null && _staffList.length) {
+        const i = _staffList.findIndex(s2 => String(s2.id) === String(b.staff_id));
+        if (i >= 0) staffIdx = i;
+      }
       return {
-        d: s.getDate(), t: s.toTimeString().slice(0, 5),
-        cust: b.customer_name || '이름 없음', svc: b.service_name || '',
-        dur: Math.round((e - s) / 60000), id: b.id, status: b.status,
+        d: s.getDate(),
+        t: s.toTimeString().slice(0, 5),
+        cust: b.customer_name || '이름 없음',
+        svc: b.service_name || '',
+        dur: Math.round((e - s) / 60000),
+        id: b.id,
+        status: b.status,
         amount: amt || null,
+        staff_id: b.staff_id || null,
+        staff_idx: staffIdx,
         _raw: b,
       };
     });
@@ -123,384 +140,1006 @@
     const from = new Date(year, month - 1, 1).toISOString();
     const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
     const items = await window.Booking.list(from, to);
-    _updateOfflineBadge();
     return _mapItems(items);
   }
 
-  // === 월 그리드 ===
-  function _renderMonthCells(year, month, byDay, firstDow, lastDate, today) {
-    const prevLast = new Date(year, month - 1, 0).getDate();
-    let h = '';
-    for (let i = 0; i < firstDow; i++)
-      h += '<div class="cv-cell other"><div class="cv-num">' + (prevLast - firstDow + 1 + i) + '</div></div>';
-
-    for (let d = 1; d <= lastDate; d++) {
-      const dow     = (firstDow + d - 1) % 7;
-      const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
-      const hkey    = month + '-' + d;
-      const holiday = HOLIDAYS_2026[hkey];
-      const dateStr = year + '-' + _pad(month) + '-' + _pad(d);
-      let cls = 'cv-cell';
-      if (isToday)            cls += ' today';
-      if (dow === 0 || holiday) cls += ' sun';
-      if (dow === 6)          cls += ' sat';
-      if (holiday)            cls += ' holiday';
-
-      h += '<div class="' + cls + '" onclick="_calSelectDay(\'' + dateStr + '\')">';
-      h += '<div class="cv-num">' + d + '</div>';
-      if (holiday) h += '<div class="cv-holiday-name">' + holiday + '</div>';
-
-      const its = byDay[d] || [];
-      if (its.length) {
-        h += '<div class="cv-mini-list">';
-        its.slice(0, 3).forEach(it => {
-          const clr = STATUS_CLR[it.status] || 'var(--brand)';
-          h += '<div class="cv-mini-card" style="--card-clr:' + clr + '">' + _esc(it.cust) + '</div>';
-        });
-        if (its.length > 3) h += '<div class="cv-mini-more">+' + (its.length - 3) + '건</div>';
-        h += '</div>';
+  // === 직원 목록 (TODO[v1.5]: 백엔드 /staff 미구현 시 폴백) ===
+  async function _fetchStaff() {
+    try {
+      const cached = JSON.parse(localStorage.getItem(STAFF_CACHE_KEY) || 'null');
+      if (cached && Array.isArray(cached) && cached.length) return cached;
+    } catch (_e) { void _e; }
+    let list = null;
+    try {
+      if (window.API && window.authHeader) {
+        const r = await fetch(window.API + '/staff', { headers: window.authHeader() });
+        if (r.ok) {
+          const d = await r.json();
+          if (Array.isArray(d.items) && d.items.length) {
+            list = d.items.map((s, i) => ({ id: s.id, name: s.name || '직원' + (i+1), color_idx: i }));
+          }
+        }
       }
-      h += '</div>';
+    } catch (_e) { void _e; }
+    if (!list) {
+      // 폴백: 1인샵 기본 — 원장만
+      list = [{ id: 1, name: '원장', color_idx: 0 }];
     }
-
-    const rem = (firstDow + lastDate) % 7;
-    if (rem > 0)
-      for (let i = 1; i <= 7 - rem; i++)
-        h += '<div class="cv-cell other"><div class="cv-num">' + i + '</div></div>';
-    return h;
+    try { localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(list)); } catch (_e) { void _e; }
+    return list;
   }
 
-  function _renderMonth(year, month, mapped) {
-    const body = _body(); if (!body) return;
-    const lbl  = _label(); if (lbl) lbl.textContent = year + '년 ' + month + '월';
-    const byDay = {};
-    mapped.forEach(m => { (byDay[m.d] = byDay[m.d] || []).push(m); });
-    const firstDow = new Date(year, month - 1, 1).getDay();
-    const lastDate = new Date(year, month, 0).getDate();
-    const today    = new Date();
-    const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-    let h = '<div class="cv-wk-hdr">';
-    DAY_NAMES.forEach(d => { h += '<div>' + d + '</div>'; });
-    h += '</div><div class="cv-cal-grid">'
-      + _renderMonthCells(year, month, byDay, firstDow, lastDate, today)
-      + '</div>'
-      + '<button class="cv-fab" id="cv-fab-add">＋ 예약 추가</button>';
-    body.innerHTML = h;
-    body.querySelector('#cv-fab-add').addEventListener('click', () => {
-      _curDate = new Date();
-      _openForm(_curDate, null);
+  // ============================================================
+  // §3 필터링 (직원)
+  // ============================================================
+  function _filterByStaff(items) {
+    if (!_activeStaffIds || _activeStaffIds.size === 0) return items;
+    return items.filter(it => {
+      if (it.staff_id == null) return _activeStaffIds.has(0); // 미지정 = 0
+      return _activeStaffIds.has(it.staff_id);
     });
   }
 
-  // === 일 뷰 ===
-  function _buildChipStrip(date) {
-    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
-    let h = '<div class="cv-wk-chip" id="cv-day-strip">';
-    for (let i = -14; i <= 14; i++) {
-      const d = new Date(date);
-      d.setDate(d.getDate() + i);
-      const ds = _ds(d);
-      h += '<button class="' + (i === 0 ? 'active' : '') + '" onclick="_calSelectDayChip(\'' + ds + '\')" data-date="' + ds + '">';
-      h += '<span style="font-size:10px">' + DOW[d.getDay()] + '</span>';
-      h += '<span style="font-size:14px;font-weight:700">' + d.getDate() + '</span></button>';
+  // ============================================================
+  // §4 통계 계산 (PC 좌측 + 헤더)
+  // ============================================================
+  function _calcStats(items) {
+    const todayDS = _ds(new Date());
+    let todayCnt = 0, todayDone = 0, todayWait = 0;
+    let weekCnt = 0;
+    let estRevenue = 0;
+    // 이번 주 범위
+    const now = new Date(); now.setHours(0,0,0,0);
+    const ws = new Date(now); ws.setDate(ws.getDate() - ws.getDay());
+    const we = new Date(ws); we.setDate(we.getDate() + 7);
+
+    items.forEach(it => {
+      const sd = new Date(it._raw.starts_at);
+      const itemDS = _ds(sd);
+      if (itemDS === todayDS) {
+        todayCnt++;
+        if (it.status === 'completed') todayDone++;
+        else if (it.status !== 'cancelled' && it.status !== 'no_show') todayWait++;
+        if (it.amount) estRevenue += it.amount;
+      }
+      if (sd >= ws && sd < we && it.status !== 'cancelled' && it.status !== 'no_show') {
+        weekCnt++;
+      }
+    });
+    return { todayCnt, todayDone, todayWait, weekCnt, estRevenue };
+  }
+
+  function _monthSummary(items) {
+    let cnt = 0, rev = 0;
+    items.forEach(it => {
+      if (it.status === 'cancelled' || it.status === 'no_show') return;
+      cnt++;
+      if (it.amount) rev += it.amount;
+    });
+    return { cnt, rev };
+  }
+
+  // ============================================================
+  // §5 모바일 — 월 그리드
+  // ============================================================
+  // 월 그리드 공통 — 모바일/PC 모두 사용. clsPrefix: 'bk-month-m' or 'bk-pc-month'
+  function _buildMonthCellHTML(d, year, month, byDay, today, p, isPC) {
+    const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
+    const dateStr = year + '-' + _pad(month) + '-' + _pad(d);
+    let cls = `${p}__cell` + (isToday ? ` ${p}__cell--today` : '');
+    let h = `<div class="${cls}" onclick="_calSelectDay('${dateStr}')">`;
+    h += `<div class="${p}__num">${d}</div>`;
+    const its = byDay[d] || [];
+    if (its.length) {
+      h += `<div class="${p}__events">`;
+      its.slice(0, 3).forEach(it => {
+        const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+        const tm = isPC ? (_fmt(new Date(it._raw.starts_at)) + ' ') : '';
+        const svc = (isPC && it.svc) ? ' · ' + _esc(it.svc) : '';
+        h += `<div class="${p}__evt${s2}">${tm}${_esc(it.cust)}${svc}</div>`;
+      });
+      if (its.length > 3) h += `<div class="${p}__more">+${its.length - 3}</div>`;
+      h += '</div>';
     }
     return h + '</div>';
   }
 
-  function _renderDay(date, mapped) {
-    const body = _body(); if (!body) return;
-    body.innerHTML = _buildChipStrip(date) + _buildTimetableDay(date, mapped);
-    _bindTimetable(body, date);
-    setTimeout(() => {
-      const strip  = document.getElementById('cv-day-strip');
-      const active = strip?.querySelector('.active');
-      if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth' });
-      // 시간표를 영업 시작 시간으로 스크롤
-      const wrap = body.querySelector('.cv-tt-scroll');
-      if (wrap) wrap.scrollTop = 0;
-    }, 50);
+  function _buildMonthGrid(year, month, mapped, p, isPC) {
+    const filtered = _filterByStaff(mapped);
+    const byDay = {};
+    filtered.forEach(m => { (byDay[m.d] = byDay[m.d] || []).push(m); });
+    const firstDow = new Date(year, month - 1, 1).getDay();
+    const lastDate = new Date(year, month, 0).getDate();
+    const prevLast = new Date(year, month - 1, 0).getDate();
+    const today = new Date();
+    let cells = '';
+    for (let i = 0; i < firstDow; i++) {
+      cells += `<div class="${p}__cell ${p}__cell--other"><div class="${p}__num">${prevLast - firstDow + 1 + i}</div></div>`;
+    }
+    for (let d = 1; d <= lastDate; d++) cells += _buildMonthCellHTML(d, year, month, byDay, today, p, isPC);
+    const rem = (firstDow + lastDate) % 7;
+    if (rem > 0) {
+      for (let i = 1; i <= 7 - rem; i++) {
+        cells += `<div class="${p}__cell ${p}__cell--other"><div class="${p}__num">${i}</div></div>`;
+      }
+    }
+    return cells;
   }
 
-  // === 시간표 (Timetable) 뷰 ===
+  function _renderMonthMobile(year, month, mapped) {
+    const DOW = ['일','월','화','수','목','금','토'];
+    let h = '<div class="bk-month-m"><div class="bk-month-m__dow-row">';
+    DOW.forEach(d => { h += '<div class="bk-month-m__dow">' + d + '</div>'; });
+    h += '</div><div class="bk-month-m__cells">';
+    h += _buildMonthGrid(year, month, mapped, 'bk-month-m', false);
+    return h + '</div></div>';
+  }
+
+  // ============================================================
+  // §6 모바일 — 일 뷰 (date strip + day grid)
+  // ============================================================
+  function _renderDateStripMobile(date, mapped) {
+    const DOW = ['일','월','화','수','목','금','토'];
+    const filtered = _filterByStaff(mapped);
+    let h = '<div class="bk-dates" id="bk-dates-strip">';
+    for (let i = -14; i <= 14; i++) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + i);
+      const ds = _ds(d);
+      const hasEv = filtered.some(m => _ds(new Date(m._raw.starts_at)) === ds);
+      const cls = 'bk-date' + (i === 0 ? ' is-on' : '') + (hasEv ? ' has-events' : '');
+      h += '<button class="' + cls + '" onclick="_calSelectDayChip(\'' + ds + '\')" data-date="' + ds + '">';
+      h += '<span class="bk-date__dow">' + DOW[d.getDay()] + '</span>';
+      h += '<span class="bk-date__num">' + d.getDate() + '</span></button>';
+    }
+    return h + '</div>';
+  }
+
+  function _renderDayMobile(date, mapped) {
+    const { start, end } = _ttHours();
+    const dayDS = _ds(date);
+    const filtered = _filterByStaff(mapped).filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
+    let h = '<div class="bk-day" id="bk-day-grid" data-date="' + dayDS + '">';
+    for (let hr = start; hr < end; hr++) {
+      h += '<div class="bk-day__row">';
+      h += '<div class="bk-day__hour-label">' + _pad(hr) + ':00</div>';
+      h += '<div class="bk-day__hour-content" data-hour="' + hr + '">';
+      h += '<div class="bk-day__slot-half" data-hour="' + hr + '" data-min="0"></div>';
+      h += '<div class="bk-day__slot-half" data-hour="' + hr + '" data-min="30"></div>';
+      h += '</div></div>';
+    }
+    // 블록 (absolute, hour-content 내부에 배치하는 대신 grid 전체에 absolute)
+    h += '<div class="bk-now-line" style="display:none"></div>';
+    h += '</div>';
+    return { html: h, items: filtered, start, end };
+  }
+
+  function _placeDayBlocks(grid, items, startH) {
+    if (!grid) return;
+    items.forEach(it => {
+      const s = new Date(it._raw.starts_at);
+      const e = new Date(it._raw.ends_at);
+      const top = (s.getHours() - startH) * HOUR_PX_MOBILE_DAY + (s.getMinutes() / 60) * HOUR_PX_MOBILE_DAY;
+      const height = Math.max(20, Math.round(((e - s) / 60000) / 60 * HOUR_PX_MOBILE_DAY));
+      const isDim = it.status === 'cancelled' || it.status === 'no_show';
+      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      const dim = isDim ? ' is-dim' : '';
+      // hour label 폭(50px) 만큼 left offset 필요 → grid 안에서 absolute. 구조: bk-day 안에 row들이 있는데, block 은 row 밖에 절대 배치되어야 함.
+      const block = document.createElement('button');
+      block.className = 'bk-block' + s2 + dim;
+      block.dataset.bookingId = it.id;
+      block.style.position = 'absolute';
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      block.style.left = '54px';
+      block.style.right = '12px';
+      block.innerHTML = '<div class="bk-block__title">' + _esc(it.cust) + '</div>'
+        + '<div class="bk-block__sub">' + _fmt(s) + ' · ' + _esc(it.svc || '') + '</div>'
+        + (it.staff_idx >= 1 ? '<span class="bk-block__staff-dot bk-staff-dot bk-staff-dot--gray"></span>'
+                              : '<span class="bk-block__staff-dot bk-staff-dot bk-staff-dot--pink"></span>');
+      grid.appendChild(block);
+    });
+  }
+
+  // ============================================================
+  // §7 모바일 — 주간 뷰
+  // ============================================================
+  function _renderWeekMobile(baseDate, mapped) {
+    const { start, end } = _ttHours();
+    const DOW = ['일','월','화','수','목','금','토'];
+    const ws = new Date(baseDate); ws.setHours(0,0,0,0);
+    ws.setDate(ws.getDate() - ws.getDay());
+    const today = new Date(); today.setHours(0,0,0,0);
+    const filtered = _filterByStaff(mapped);
+
+    let h = '<div class="bk-week-m">';
+    // header
+    h += '<div class="bk-week-m__header"><div class="bk-week-m__h-cell"></div>';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws); d.setDate(ws.getDate() + i);
+      const cls = 'bk-week-m__h-cell' + (d.getTime() === today.getTime() ? ' is-today' : '');
+      h += '<div class="' + cls + '">';
+      h += '<div class="bk-week-m__h-dow">' + DOW[d.getDay()] + '</div>';
+      h += '<div class="bk-week-m__h-num">' + d.getDate() + '</div></div>';
+    }
+    h += '</div>';
+
+    // grid
+    h += '<div class="bk-week-m__grid" id="bk-week-m-grid">';
+    for (let hr = start; hr < end; hr++) {
+      h += '<div class="bk-week-m__time-cell">' + hr + '</div>';
+      for (let dayI = 0; dayI < 7; dayI++) {
+        const d = new Date(ws); d.setDate(ws.getDate() + dayI);
+        const ymd = _ds(d);
+        h += '<div class="bk-week-m__day" data-date="' + ymd + '" data-hour="' + hr + '">';
+        h += '<div class="bk-week-m__hour" data-hour="' + hr + '"></div>';
+        h += '</div>';
+      }
+    }
+    h += '</div></div>';
+    return { html: h, items: filtered, start, ws };
+  }
+
+  function _placeWeekMBlocks(grid, items, startH, weekStart) {
+    if (!grid) return;
+    items.forEach(it => {
+      const s = new Date(it._raw.starts_at);
+      const e = new Date(it._raw.ends_at);
+      const dayI = Math.round((new Date(_ds(s)) - new Date(_ds(weekStart))) / 86400000);
+      if (dayI < 0 || dayI > 6) return;
+      const dayCol = grid.querySelectorAll('.bk-week-m__day')[(s.getHours() - startH) * 7 + dayI];
+      // 더 안전하게: data-date + 첫 시간 column 찾기
+      const col = grid.querySelector(`.bk-week-m__day[data-date="${_ds(s)}"][data-hour="${s.getHours()}"]`);
+      const target = col || dayCol;
+      if (!target) return;
+      const top = (s.getMinutes() / 60) * HOUR_PX_MOBILE_WEEK;
+      const height = Math.max(15, ((e - s) / 60000 / 60) * HOUR_PX_MOBILE_WEEK);
+      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      const block = document.createElement('button');
+      block.className = 'bk-week-m__block' + s2;
+      block.dataset.bookingId = it.id;
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      block.textContent = it.cust;
+      target.appendChild(block);
+    });
+  }
+
+  // ============================================================
+  // §8 PC — 월 뷰
+  // ============================================================
+  function _renderMonthPC(year, month, mapped) {
+    const DOW = ['일','월','화','수','목','금','토'];
+    let h = '<div class="bk-pc-month"><div class="bk-pc-month__dow-row">';
+    DOW.forEach(d => { h += '<div class="bk-pc-month__dow">' + d + '</div>'; });
+    h += '</div><div class="bk-pc-month__cells">';
+    h += _buildMonthGrid(year, month, mapped, 'bk-pc-month', true);
+    return h + '</div></div>';
+  }
+
+  // ============================================================
+  // §9 PC — 주간 뷰
+  // ============================================================
+  function _renderWeekPC(baseDate, mapped) {
+    const { start, end } = _ttHours();
+    const DOW = ['일','월','화','수','목','금','토'];
+    const ws = new Date(baseDate); ws.setHours(0,0,0,0);
+    ws.setDate(ws.getDate() - ws.getDay());
+    const today = new Date(); today.setHours(0,0,0,0);
+    const filtered = _filterByStaff(mapped);
+
+    let h = '<div class="bk-pc-main">';
+    h += '<div class="bk-week__header"><div class="bk-week__h-cell"></div>';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws); d.setDate(ws.getDate() + i);
+      const cls = 'bk-week__h-cell' + (d.getTime() === today.getTime() ? ' is-today' : '');
+      h += '<div class="' + cls + '">';
+      h += '<div class="bk-week__h-dow">' + DOW[d.getDay()] + '</div>';
+      h += '<div class="bk-week__h-num">' + d.getDate() + '</div></div>';
+    }
+    h += '</div>';
+
+    h += '<div class="bk-week__grid" id="bk-week-grid">';
+    h += '<div class="bk-week__time-col">';
+    for (let hr = start; hr < end; hr++) {
+      h += '<div class="bk-week__time-cell">' + _pad(hr) + ':00</div>';
+    }
+    h += '</div>';
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(ws); d.setDate(ws.getDate() + i);
+      const ymd = _ds(d);
+      h += '<div class="bk-week__day" data-date="' + ymd + '">';
+      for (let hr = start; hr < end; hr++) {
+        h += '<div class="bk-week__hour" data-hour="' + hr + '" data-date="' + ymd + '"></div>';
+      }
+      h += '</div>';
+    }
+    h += '<div class="bk-week__now-line" style="display:none"></div>';
+    h += '</div></div>';
+    return { html: h, items: filtered, start, ws };
+  }
+
+  function _placeWeekPCBlocks(grid, items, startH, weekStart) {
+    if (!grid) return;
+    items.forEach(it => {
+      const s = new Date(it._raw.starts_at);
+      const e = new Date(it._raw.ends_at);
+      const dayCol = grid.querySelector(`.bk-week__day[data-date="${_ds(s)}"]`);
+      if (!dayCol) return;
+      const top = (s.getHours() - startH) * HOUR_PX_PC_WEEK + (s.getMinutes() / 60) * HOUR_PX_PC_WEEK;
+      const height = Math.max(30, ((e - s) / 60000 / 60) * HOUR_PX_PC_WEEK);
+      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      const block = document.createElement('button');
+      block.className = 'bk-week__block' + s2;
+      block.dataset.bookingId = it.id;
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      block.innerHTML = '<div class="bk-week__block-title">' + _esc(it.cust) + '</div>'
+        + '<div class="bk-week__block-sub">' + _fmt(s) + ' · ' + _esc(it.svc || '') + '</div>';
+      dayCol.appendChild(block);
+    });
+  }
+
+  // ============================================================
+  // §10 PC — 일간 뷰 (직원 컬럼 분할)
+  // ============================================================
+  function _renderDayPC(date, mapped) {
+    const { start, end } = _ttHours();
+    const dayDS = _ds(date);
+    const filtered = _filterByStaff(mapped).filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
+    const staff = _staffList.length ? _staffList : [{ id: 1, name: '원장', color_idx: 0 }];
+
+    // grid columns 동적 계산 (CSS 기본 3 컬럼 - 필요 시 inline style)
+    let h = '<div class="bk-pc-day">';
+    const colCount = staff.length;
+    const headerCols = `80px repeat(${colCount}, 1fr)`;
+    h += `<div class="bk-pc-day__header" style="grid-template-columns:${headerCols}">`;
+    h += '<div class="bk-pc-day__h-cell"></div>';
+    staff.forEach((sf, idx) => {
+      const dotCls = idx === 0 ? 'bk-staff-dot--pink' : (idx === 1 ? 'bk-staff-dot--gray' : 'bk-staff-dot--dark');
+      const cnt = filtered.filter(it => it.staff_idx === idx).length;
+      const rev = filtered.filter(it => it.staff_idx === idx).reduce((s, it) => s + (it.amount || 0), 0);
+      const meta = cnt + '건' + (rev ? ' · 매출 ' + _krwShort(rev) : '');
+      h += '<div class="bk-pc-day__h-cell">';
+      h += '<div class="bk-pc-day__h-staff-name"><span class="bk-staff-dot ' + dotCls + '"></span>' + _esc(sf.name) + '</div>';
+      h += '<div class="bk-pc-day__h-meta">' + meta + '</div></div>';
+    });
+    h += '</div>';
+
+    h += `<div class="bk-pc-day__grid" id="bk-pc-day-grid" style="grid-template-columns:${headerCols}">`;
+    h += '<div class="bk-pc-day__time-col">';
+    for (let hr = start; hr < end; hr++) {
+      h += '<div class="bk-pc-day__time-cell">' + _pad(hr) + ':00</div>';
+    }
+    h += '</div>';
+    staff.forEach((sf, idx) => {
+      h += '<div class="bk-pc-day__staff-col" data-staff-idx="' + idx + '" data-staff-id="' + (sf.id || '') + '">';
+      for (let hr = start; hr < end; hr++) {
+        h += '<div class="bk-pc-day__hour" data-hour="' + hr + '" data-date="' + dayDS + '"></div>';
+      }
+      h += '</div>';
+    });
+    h += '<div class="bk-pc-day__now-line" style="display:none"></div>';
+    h += '</div></div>';
+    return { html: h, items: filtered, start, staff };
+  }
+
+  function _placeDayPCBlocks(grid, items, startH) {
+    if (!grid) return;
+    items.forEach(it => {
+      const s = new Date(it._raw.starts_at);
+      const e = new Date(it._raw.ends_at);
+      const col = grid.querySelector(`.bk-pc-day__staff-col[data-staff-idx="${it.staff_idx || 0}"]`);
+      if (!col) return;
+      const top = (s.getHours() - startH) * HOUR_PX_PC_DAY + (s.getMinutes() / 60) * HOUR_PX_PC_DAY;
+      const height = Math.max(40, ((e - s) / 60000 / 60) * HOUR_PX_PC_DAY);
+      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      const block = document.createElement('button');
+      block.className = 'bk-pc-day__block' + s2;
+      block.dataset.bookingId = it.id;
+      block.style.top = top + 'px';
+      block.style.height = height + 'px';
+      const priceStr = it.amount ? ' · ' + _krwShort(it.amount) : '';
+      block.innerHTML = '<div class="bk-pc-day__block-title">' + _esc(it.cust) + '</div>'
+        + '<div class="bk-pc-day__block-time">' + _fmt(s) + ' ~ ' + _fmt(e) + '</div>'
+        + (it.svc ? '<div class="bk-pc-day__block-service">' + _esc(it.svc) + priceStr + '</div>' : '');
+      col.appendChild(block);
+    });
+  }
+
+  // ============================================================
+  // §11 영업시간
+  // ============================================================
   function _ttHours() {
     const h = window.Booking?.shopHours ? window.Booking.shopHours() : { start: 10, end: 22, slotMin: 30 };
-    // 영업시간 9~22시 보장 (시간표 가독성)
     const start = Math.max(0, Math.min(23, h.start ?? 10));
     const end   = Math.max(start + 1, Math.min(24, h.end ?? 22));
     return { start, end };
   }
 
-  function _ttBuildTimeAxis(startH, endH) {
-    let h = '<div class="cv-tt-axis">';
-    for (let i = startH; i < endH; i++) {
-      h += '<div class="cv-tt-hr">' + i + '시</div>';
+  // ============================================================
+  // §12 now-line
+  // ============================================================
+  function _placeNowLine() {
+    const o = _overlay(); if (!o) return;
+    const { start } = _ttHours();
+    const now = new Date();
+    if (now.getHours() < start) return _hideNowLine();
+    const minutesFromStart = (now.getHours() - start) * 60 + now.getMinutes();
+    if (_curView === 'day' && !_cachedIsPC) {
+      const px = (minutesFromStart / 60) * HOUR_PX_MOBILE_DAY;
+      const ln = o.querySelector('.bk-now-line');
+      if (ln) { ln.style.top = px + 'px'; ln.style.display = ''; }
+    } else if (_curView === 'week' && _cachedIsPC) {
+      const px = (minutesFromStart / 60) * HOUR_PX_PC_WEEK;
+      const ln = o.querySelector('.bk-week__now-line');
+      if (ln) { ln.style.top = px + 'px'; ln.style.display = ''; }
+    } else if (_curView === 'day' && _cachedIsPC) {
+      const px = (minutesFromStart / 60) * HOUR_PX_PC_DAY;
+      const ln = o.querySelector('.bk-pc-day__now-line');
+      if (ln) { ln.style.top = px + 'px'; ln.style.display = ''; }
     }
-    return h + '</div>';
+  }
+  function _hideNowLine() {
+    const o = _overlay(); if (!o) return;
+    o.querySelectorAll('.bk-now-line, .bk-week__now-line, .bk-pc-day__now-line').forEach(ln => { ln.style.display = 'none'; });
   }
 
-  function _ttBookingBlock(it, startH) {
-    const s = new Date(it._raw.starts_at);
-    const e = new Date(it._raw.ends_at);
-    const top = (s.getHours() - startH) * TT_HOUR_PX + s.getMinutes();
-    let height = Math.max(20, Math.round((e - s) / 60000));
-    // 너무 짧은 블록도 텍스트 보이게 최소 높이
-    const clr = _colorForService(it.svc);
-    const isDim = it.status === 'cancelled' || it.status === 'no_show';
-    const timeStr = _fmt(s) + '~' + _fmt(e);
-    // 2026-04-26 — 가격 표시. 블록 높이가 충분할 때만 (>= 40px)
-    const priceShort = (it.amount && height >= 40) ? _krwShort(it.amount) : '';
-    const priceHtml = priceShort ? `<span class="cv-tt-price">${_esc(priceShort)}</span>` : '';
-    return `<button class="cv-tt-block${isDim ? ' is-dim' : ''}" data-booking-id="${_esc(it.id)}"
-      style="top:${top}px;height:${height}px;background:${clr.bg};border-left-color:${clr.border};">
-      <strong>${_esc(it.cust)}</strong>
-      ${it.svc ? `<span class="cv-tt-svc">${_esc(it.svc)}</span>` : ''}
-      <span class="cv-tt-time">${timeStr}</span>
-      ${priceHtml}
-    </button>`;
-  }
+  // ============================================================
+  // §13 PC 좌측 패널 — 미니 캘린더 + 직원 + 통계
+  // ============================================================
+  function _renderMiniCal() {
+    if (!_miniMonth) _miniMonth = { y: _curYear, m: _curMonth };
+    const { y, m } = _miniMonth;
+    const firstDow = new Date(y, m - 1, 1).getDay();
+    const lastDate = new Date(y, m, 0).getDate();
+    const prevLast = new Date(y, m - 1, 0).getDate();
+    const today = new Date();
+    const todayDS = _ds(today);
+    const selDS = _ds(_curDate);
+    const filtered = _filterByStaff(_mappedCache);
+    const eventDays = new Set();
+    filtered.forEach(it => {
+      const sd = new Date(it._raw.starts_at);
+      if (sd.getFullYear() === y && sd.getMonth() + 1 === m) eventDays.add(sd.getDate());
+    });
 
-  function _buildTimetableDay(date, mapped) {
-    const { start, end } = _ttHours();
-    const totalH = (end - start) * TT_HOUR_PX;
-    const dayItems = mapped.filter(m => m.d === date.getDate());
-    const dayLabel = date.getFullYear() + '년 ' + (date.getMonth() + 1) + '월 ' + date.getDate() + '일';
-    let h = '<div class="cv-d-hd">'
-      + '<span style="font-size:14px;font-weight:700">' + dayLabel + '</span>'
-      + '<span style="font-size:12px;color:var(--text-subtle)">' + dayItems.length + '건</span>'
-      + '</div>';
-    h += '<div class="cv-tt-scroll"><div class="cv-tt-grid cv-tt-grid--day">';
-    h += _ttBuildTimeAxis(start, end);
-    // 시간 행 그리드 라인을 위한 배경
-    h += '<div class="cv-tt-col" data-date="' + _ds(date) + '" style="height:' + totalH + 'px">';
-    // 클릭 가능한 빈 슬롯 (1시간 단위)
-    for (let i = 0; i < end - start; i++) {
-      h += '<div class="cv-tt-slot" data-hour="' + (start + i) + '" style="top:' + (i * TT_HOUR_PX) + 'px;height:' + TT_HOUR_PX + 'px"></div>';
+    let h = '<div class="bk-mini">';
+    h += '<div class="bk-mini__head">';
+    h += '<div class="bk-mini__month">' + y + '년 ' + m + '월</div>';
+    h += '<div class="bk-mini__nav">';
+    h += '<button data-mini-nav="prev" aria-label="이전">‹</button>';
+    h += '<button data-mini-nav="next" aria-label="다음">›</button>';
+    h += '</div></div>';
+    h += '<div class="bk-mini__grid">';
+    ['일','월','화','수','목','금','토'].forEach(d => { h += '<div class="bk-mini__dow">' + d + '</div>'; });
+    for (let i = 0; i < firstDow; i++) {
+      h += '<div class="bk-mini__day bk-mini__day--other">' + (prevLast - firstDow + 1 + i) + '</div>';
     }
-    dayItems.forEach(it => { h += _ttBookingBlock(it, start); });
-    h += '</div></div></div>';
-    h += '<button class="cv-d-add" id="cv-add-btn">+ 예약 추가</button>';
-    return h;
-  }
-
-  function _buildTimetableWeek(baseDate, mapped) {
-    const { start, end } = _ttHours();
-    const totalH = (end - start) * TT_HOUR_PX;
-    const DOW = ['일', '월', '화', '수', '목', '금', '토'];
-    // 주의 시작 = 일요일
-    const ws = new Date(baseDate);
-    ws.setHours(0, 0, 0, 0);
-    ws.setDate(ws.getDate() - ws.getDay());
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-
-    let dayHeaders = '<div class="cv-tt-day-hdr-spacer"></div>';
-    const colsHtml = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(ws); d.setDate(ws.getDate() + i);
-      const isToday = d.getTime() === today.getTime();
-      const isSun = d.getDay() === 0;
-      const isSat = d.getDay() === 6;
-      let hdrCls = 'cv-tt-day-hdr';
-      if (isToday) hdrCls += ' today';
-      if (isSun) hdrCls += ' sun';
-      if (isSat) hdrCls += ' sat';
-      dayHeaders += `<div class="${hdrCls}">
-        <span class="cv-tt-dow">${DOW[d.getDay()]}</span>
-        <span class="cv-tt-dnum">${d.getDate()}</span>
-      </div>`;
-      // 해당 날짜 booking 필터 (월 캐시 기준이므로 같은 달만 매칭)
-      const ymd = _ds(d);
-      const items = mapped.filter(m => {
-        const sd = new Date(m._raw.starts_at);
-        return _ds(sd) === ymd;
-      });
-      let col = `<div class="cv-tt-col${isToday ? ' is-today' : ''}" data-date="${ymd}" style="height:${totalH}px">`;
-      for (let j = 0; j < end - start; j++) {
-        col += '<div class="cv-tt-slot" data-hour="' + (start + j) + '" style="top:' + (j * TT_HOUR_PX) + 'px;height:' + TT_HOUR_PX + 'px"></div>';
+    for (let d = 1; d <= lastDate; d++) {
+      const ds = y + '-' + _pad(m) + '-' + _pad(d);
+      let cls = 'bk-mini__day';
+      if (ds === todayDS) cls += ' bk-mini__day--today';
+      if (ds === selDS) cls += ' bk-mini__day--selected';
+      if (eventDays.has(d)) cls += ' has-event';
+      h += '<div class="' + cls + '" data-mini-day="' + ds + '">' + d + '</div>';
+    }
+    const rem = (firstDow + lastDate) % 7;
+    if (rem > 0) {
+      for (let i = 1; i <= 7 - rem; i++) {
+        h += '<div class="bk-mini__day bk-mini__day--other">' + i + '</div>';
       }
-      items.forEach(it => { col += _ttBookingBlock(it, start); });
-      col += '</div>';
-      colsHtml.push(col);
     }
-
-    const wkLabel = (ws.getMonth() + 1) + '월 ' + ws.getDate() + '일 주';
-    let h = '<div class="cv-d-hd">'
-      + '<span style="font-size:14px;font-weight:700">' + wkLabel + '</span>'
-      + '<span style="font-size:12px;color:var(--text-subtle)">주간</span>'
-      + '</div>';
-    h += '<div class="cv-tt-scroll">';
-    h += '<div class="cv-tt-day-hdrs cv-tt-day-hdrs--week">' + dayHeaders + '</div>';
-    h += '<div class="cv-tt-grid cv-tt-grid--week">';
-    h += _ttBuildTimeAxis(start, end);
-    h += colsHtml.join('');
     h += '</div></div>';
     return h;
   }
 
-  function _renderWeek(date, mapped) {
-    const body = _body(); if (!body) return;
-    body.innerHTML = _buildChipStrip(date) + _buildTimetableWeek(date, mapped);
-    _bindTimetable(body, date);
-    setTimeout(() => {
-      const strip  = document.getElementById('cv-day-strip');
-      const active = strip?.querySelector('.active');
-      if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth' });
-    }, 50);
+  function _renderStaffList() {
+    if (!_staffList.length) return '';
+    const filtered = _filterByStaff(_mappedCache);
+    let h = '<div class="bk-staff-list">';
+    h += '<div class="bk-staff-list__title">직원 필터</div>';
+    _staffList.forEach((sf, idx) => {
+      const isOn = !_activeStaffIds || _activeStaffIds.has(sf.id);
+      const dotCls = idx === 0 ? 'bk-staff-dot--pink' : (idx === 1 ? 'bk-staff-dot--gray' : 'bk-staff-dot--dark');
+      const cnt = filtered.filter(it => String(it.staff_id || '') === String(sf.id || '')).length;
+      h += '<button class="bk-staff-row" data-staff-toggle="' + sf.id + '">';
+      h += '<span class="bk-staff-row__check' + (isOn ? ' is-on' : '') + '">' + (isOn ? '✓' : '') + '</span>';
+      h += '<span class="bk-staff-dot ' + dotCls + '"></span>';
+      h += '<span class="bk-staff-row__name">' + _esc(sf.name) + '</span>';
+      h += '<span class="bk-staff-row__count">' + cnt + '</span>';
+      h += '</button>';
+    });
+    h += '</div>';
+    return h;
   }
 
-  function _bindTimetable(body, date) {
-    // [2026-04-29 A2] long-press + drag drop 으로 시간 변경
-    // - 300ms 이하: 일반 클릭 (편집 진입)
-    // - 300ms+ pointermove: drag mode (블록 lift + slot 따라가기)
-    // - drop: 충돌 X 면 PATCH /bookings/{id}
-    const TT_HOUR_PX = 60;
-    const LONG_PRESS_MS = 300;
-    const SNAP_MIN = 15;
+  function _renderStats() {
+    const stats = _calcStats(_filterByStaff(_mappedCache));
+    let h = '<div class="bk-stats">';
+    h += '<div class="bk-stats__row"><div class="bk-stats__label">오늘 예약</div><div class="bk-stats__value">' + stats.todayCnt + '건</div></div>';
+    h += '<div class="bk-stats__row"><div class="bk-stats__label">완료</div><div class="bk-stats__value" style="color:var(--success,#10A56B)">' + stats.todayDone + '건</div></div>';
+    h += '<div class="bk-stats__row"><div class="bk-stats__label">대기</div><div class="bk-stats__value">' + stats.todayWait + '건</div></div>';
+    h += '<div class="bk-stats__row"><div class="bk-stats__label">이번주</div><div class="bk-stats__value">' + stats.weekCnt + '건</div></div>';
+    h += '<div class="bk-stats__row"><div class="bk-stats__label">예상 매출</div><div class="bk-stats__value">' + (stats.estRevenue ? _krwShort(stats.estRevenue) : '-') + '</div></div>';
+    h += '</div>';
+    return h;
+  }
 
-    body.querySelectorAll('.cv-tt-block[data-booking-id]').forEach(btn => {
-      let pressTimer = null;
-      let dragMode = false;
-      let startY = 0, startX = 0;
-      let originalTop = 0;
-      let blockHeight = 0;
-      let dragColEl = null;
-      let bookingItem = null;
+  function _renderPCLeft() {
+    return _renderMiniCal() + _renderStaffList() + _renderStats();
+  }
 
-      function _cleanup() {
-        clearTimeout(pressTimer);
-        pressTimer = null;
-        if (dragMode) {
-          btn.style.transform = '';
-          btn.style.zIndex = '';
-          btn.style.boxShadow = '';
-          btn.style.opacity = '';
-          body.querySelectorAll('.cv-tt-slot.cv-drop-target, .cv-tt-slot.cv-drop-conflict').forEach(s => {
-            s.classList.remove('cv-drop-target', 'cv-drop-conflict');
-          });
-        }
-        dragMode = false;
-      }
+  // ============================================================
+  // §14 툴바 (직원 칩 + 뷰 토글) — 모바일/PC 공용
+  // ============================================================
+  function _renderToolbar() {
+    let h = '<div class="bk-toolbar">';
+    h += '<div class="bk-staff-chips">';
+    const allOn = !_activeStaffIds;
+    h += '<button class="bk-staff-chip' + (allOn ? ' is-on' : '') + '" data-staff-toggle="__all">전체</button>';
+    _staffList.forEach((sf, idx) => {
+      const isOn = !allOn && _activeStaffIds.has(sf.id);
+      const dotCls = idx === 0 ? 'bk-staff-dot--pink' : (idx === 1 ? 'bk-staff-dot--gray' : 'bk-staff-dot--dark');
+      h += '<button class="bk-staff-chip' + (isOn ? ' is-on' : '') + '" data-staff-toggle="' + sf.id + '">';
+      h += '<span class="bk-staff-dot ' + dotCls + '"></span>' + _esc(sf.name) + '</button>';
+    });
+    h += '</div>';
+    h += '<div class="bk-view">';
+    ['month','week','day'].forEach(v => {
+      const lbl = { month: '월', week: '주', day: '일' }[v];
+      h += '<button class="bk-view__btn' + (v === _curView ? ' is-on' : '') + '" data-view="' + v + '">' + lbl + '</button>';
+    });
+    h += '</div></div>';
+    return h;
+  }
 
-      btn.addEventListener('pointerdown', e => {
-        if (e.button !== 0 && e.pointerType !== 'touch') return;
-        startY = e.clientY;
-        startX = e.clientX;
-        const rect = btn.getBoundingClientRect();
-        originalTop = rect.top;
-        blockHeight = rect.height;
-        bookingItem = _mappedCache.find(m => m.id === btn.dataset.bookingId);
+  // ============================================================
+  // §15 모바일 진입 — 시트 오버레이
+  // ============================================================
+  function _renderMobileLayout() {
+    const summ = _monthSummary(_mappedCache);
+    const subTxt = '예약 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + _krwShort(summ.rev) : '');
+    const o = document.createElement('div');
+    o.id = OVERLAY_ID;
+    o.className = 'cal-overlay-wrap bk-root';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.innerHTML = `
+      <div class="cal-sheet" style="display:flex;flex-direction:column;height:100%;">
+        <div class="bk-header">
+          <button class="bk-header__back" id="bk-back" aria-label="닫기">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div class="bk-header__title-wrap">
+            <div class="bk-header__month" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
+            <div class="bk-header__sub" id="bk-month-sub">${subTxt}</div>
+            <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;margin-left:6px;">오프라인</span>
+          </div>
+          <button class="bk-today-btn" id="bk-today-btn">오늘</button>
+        </div>
+        <div id="bk-toolbar-mount">${_renderToolbar()}</div>
+        <div class="cal-body bk-body" id="bk-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
+        <button class="bk-fab" id="bk-fab" aria-label="예약 추가">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>`;
+    o.addEventListener('click', e => { if (e.target === o) _close(); });
+    document.body.appendChild(o);
+    _bindHeader(o);
+    _bindToolbar(o);
+    _renderViewBody();
+  }
 
-        pressTimer = setTimeout(() => {
-          if (!bookingItem) return;
-          dragMode = true;
-          btn.style.zIndex = '1000';
-          btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
-          btn.style.opacity = '0.9';
-          btn.style.transform = 'scale(1.04)';
-          if (window.navigator.vibrate) window.navigator.vibrate(15);
-          if (typeof window.hapticMedium === 'function') window.hapticMedium();
-          try { btn.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
-        }, LONG_PRESS_MS);
-      });
+  // ============================================================
+  // §16 PC 진입 — myshop-v3 의 .ms-side 재사용
+  // ============================================================
+  function _buildPCHeaderHTML(subTxt) {
+    const viewBtns = ['month','week','day'].map(v => {
+      const lbl = { month:'월', week:'주', day:'일' }[v];
+      return '<button class="bk-view__btn' + (v === _curView ? ' is-on' : '') + '" data-view="' + v + '">' + lbl + '</button>';
+    }).join('');
+    return `
+        <div class="bk-pc__header">
+          <button class="bk-header__back" id="bk-back" aria-label="닫기">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div class="bk-pc__title">예약</div>
+          <div class="bk-pc__month-nav">
+            <button class="bk-pc__nav-btn" id="bk-pc-prev" aria-label="이전 달">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="bk-pc__month-label" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
+            <button class="bk-pc__nav-btn" id="bk-pc-next" aria-label="다음 달">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+          <button class="bk-today-btn" id="bk-today-btn" style="margin-left:4px;">오늘</button>
+          <div class="bk-pc__spacer"></div>
+          <div class="bk-pc__stats" id="bk-pc-stats">${subTxt}</div>
+          <div class="bk-view">${viewBtns}</div>
+          <button class="bk-pc__add-btn" id="bk-pc-add">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>예약 추가
+          </button>
+          <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
+        </div>`;
+  }
 
-      btn.addEventListener('pointermove', e => {
-        if (!dragMode) {
-          // 손가락 많이 움직이면 drag 시작 전 취소
-          const dy = Math.abs(e.clientY - startY);
-          const dx = Math.abs(e.clientX - startX);
-          if (dy > 10 || dx > 10) {
-            clearTimeout(pressTimer);
-          }
-          return;
-        }
-        e.preventDefault();
-        const dy = e.clientY - startY;
-        btn.style.transform = `translateY(${dy}px) scale(1.04)`;
+  function _renderPCLayout() {
+    const summ = _monthSummary(_mappedCache);
+    const subTxt = '이번달 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + _krwShort(summ.rev) : '');
+    const o = document.createElement('div');
+    o.id = OVERLAY_ID;
+    o.className = 'cal-overlay-wrap bk-root bk-root--pc';
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.style.cssText = 'position:fixed;inset:0;z-index:9000;background:var(--surface);display:flex;flex-direction:column;';
+    document.body.classList.add('bk-pc-mode');
+    o.innerHTML = `<div class="bk-pc">${_buildPCHeaderHTML(subTxt)}
+        <div class="bk-pc__body">
+          <div class="bk-pc__left" id="bk-pc-left">${_renderPCLeft()}</div>
+          <div class="cal-body bk-body" id="bk-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(o);
+    _bindHeaderPC(o);
+    _bindPCLeft(o);
+    _renderViewBody();
+  }
 
-        // 슬롯 hover 표시 + 충돌 감지
-        body.querySelectorAll('.cv-tt-slot').forEach(s => s.classList.remove('cv-drop-target', 'cv-drop-conflict'));
-        const elBelow = document.elementFromPoint(e.clientX, e.clientY);
-        const slotEl = elBelow?.closest('.cv-tt-slot');
-        if (slotEl) {
-          // 충돌 체크
-          const col = slotEl.closest('.cv-tt-col');
-          const ymd = col?.getAttribute('data-date');
-          const hr = parseInt(slotEl.getAttribute('data-hour'), 10);
-          if (ymd && !isNaN(hr) && bookingItem) {
-            const newStart = new Date(`${ymd}T${String(hr).padStart(2, '0')}:00:00+09:00`);
-            const origStart = new Date(bookingItem._raw.starts_at);
-            const origEnd = new Date(bookingItem._raw.ends_at);
-            const durMin = Math.round((origEnd - origStart) / 60000);
-            const newEnd = new Date(newStart.getTime() + durMin * 60000);
-            const conflict = window.Booking?.hasConflict?.(
-              newStart.toISOString(), newEnd.toISOString(), bookingItem.id
-            );
-            slotEl.classList.add(conflict ? 'cv-drop-conflict' : 'cv-drop-target');
-            dragColEl = { ymd, hr, conflict, newStart, newEnd };
-          }
+  // ============================================================
+  // §17 헤더 바인딩
+  // ============================================================
+  function _bindHeader(o) {
+    o.querySelector('#bk-back')?.addEventListener('click', _close);
+    o.querySelector('#bk-today-btn')?.addEventListener('click', () => {
+      _curDate = new Date();
+      _curYear = _curDate.getFullYear();
+      _curMonth = _curDate.getMonth() + 1;
+      _miniMonth = { y: _curYear, m: _curMonth };
+      _reloadAndRender();
+    });
+    o.querySelector('#bk-fab')?.addEventListener('click', () => {
+      _curDate = new Date();
+      _openForm(_curDate, null);
+    });
+  }
+  function _bindHeaderPC(o) {
+    o.querySelector('#bk-back')?.addEventListener('click', _close);
+    o.querySelector('#bk-pc-prev')?.addEventListener('click', _prevMonth);
+    o.querySelector('#bk-pc-next')?.addEventListener('click', _nextMonth);
+    o.querySelector('#bk-today-btn')?.addEventListener('click', () => {
+      _curDate = new Date();
+      _curYear = _curDate.getFullYear();
+      _curMonth = _curDate.getMonth() + 1;
+      _miniMonth = { y: _curYear, m: _curMonth };
+      _reloadAndRender();
+    });
+    o.querySelector('#bk-pc-add')?.addEventListener('click', () => {
+      _openForm(new Date(), null);
+    });
+    // 뷰 토글 (PC 헤더 내부)
+    o.querySelectorAll('.bk-pc__header .bk-view__btn').forEach(btn => {
+      btn.addEventListener('click', () => _switchView(btn.dataset.view));
+    });
+  }
+
+  function _bindToolbar(o) {
+    // 직원 칩
+    o.querySelectorAll('[data-staff-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.staffToggle;
+        if (v === '__all') {
+          _activeStaffIds = null;
         } else {
-          dragColEl = null;
+          if (!_activeStaffIds) _activeStaffIds = new Set(_staffList.map(s => s.id));
+          const id = isNaN(+v) ? v : +v;
+          if (_activeStaffIds.has(id)) _activeStaffIds.delete(id);
+          else _activeStaffIds.add(id);
+          if (_activeStaffIds.size === 0) _activeStaffIds = null;
+        }
+        // 툴바 다시 그리기 + 뷰 본문 다시 그리기
+        const mount = o.querySelector('#bk-toolbar-mount');
+        if (mount) { mount.innerHTML = _renderToolbar(); _bindToolbar(o); }
+        _renderViewBody();
+      });
+    });
+    // 뷰 토글
+    o.querySelectorAll('.bk-toolbar .bk-view__btn').forEach(btn => {
+      btn.addEventListener('click', () => _switchView(btn.dataset.view));
+    });
+  }
+
+  function _bindPCLeft(o) {
+    const left = o.querySelector('#bk-pc-left'); if (!left) return;
+    // 미니 캘린더 nav
+    left.querySelectorAll('[data-mini-nav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!_miniMonth) _miniMonth = { y: _curYear, m: _curMonth };
+        if (btn.dataset.miniNav === 'prev') {
+          _miniMonth.m--; if (_miniMonth.m < 1) { _miniMonth.m = 12; _miniMonth.y--; }
+        } else {
+          _miniMonth.m++; if (_miniMonth.m > 12) { _miniMonth.m = 1; _miniMonth.y++; }
+        }
+        _refreshPCLeft();
+      });
+    });
+    // 미니 캘린더 day 클릭
+    left.querySelectorAll('[data-mini-day]').forEach(el => {
+      el.addEventListener('click', () => {
+        const ds = el.getAttribute('data-mini-day');
+        _curDate = new Date(ds + 'T00:00:00');
+        const y = _curDate.getFullYear(), m = _curDate.getMonth() + 1;
+        if (y !== _curYear || m !== _curMonth) {
+          _curYear = y; _curMonth = m;
+          _reloadAndRender();
+        } else {
+          if (_curView === 'month') _switchView('day');
+          else _renderViewBody();
         }
       });
-
-      btn.addEventListener('pointerup', async e => {
-        if (!dragMode) {
-          clearTimeout(pressTimer);
-          // 일반 클릭 — 편집 진입
-          e.stopPropagation();
-          if (bookingItem) _openForm(new Date(bookingItem._raw.starts_at), bookingItem._raw);
-          return;
-        }
-        e.preventDefault();
-        const dropped = dragColEl;
-        _cleanup();
-        if (!dropped || dropped.conflict || !bookingItem) {
-          if (dropped?.conflict && window.showToast) window.showToast('이 시간엔 다른 예약이 있어요');
-          return;
-        }
-        // PATCH 저장
-        try {
-          await window.Booking.update(bookingItem.id, {
-            starts_at: dropped.newStart.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
-            ends_at:   dropped.newEnd.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
-          });
-          if (window.showToast) window.showToast(`📅 ${dropped.hr}:00 으로 이동`);
-          if (typeof window.hapticLight === 'function') window.hapticLight();
-          // 즉시 재로드 트리거
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking' } }));
-        } catch (err) {
-          if (window.showToast) window.showToast('이동 실패: ' + (err?.message || ''));
-        }
+    });
+    // 직원 토글 (좌측 리스트)
+    left.querySelectorAll('[data-staff-toggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.staffToggle;
+        const idVal = isNaN(+id) ? id : +id;
+        if (!_activeStaffIds) _activeStaffIds = new Set(_staffList.map(s => s.id));
+        if (_activeStaffIds.has(idVal)) _activeStaffIds.delete(idVal);
+        else _activeStaffIds.add(idVal);
+        if (_activeStaffIds.size === 0) _activeStaffIds = null;
+        _refreshPCLeft();
+        _renderViewBody();
       });
+    });
+  }
 
-      btn.addEventListener('pointercancel', _cleanup);
+  function _refreshPCLeft() {
+    const o = _overlay(); if (!o) return;
+    const left = o.querySelector('#bk-pc-left');
+    if (left) {
+      left.innerHTML = _renderPCLeft();
+      _bindPCLeft(o);
+    }
+  }
 
-      // CSS touch-action 명시 — drag 중 스크롤 방지
-      btn.style.touchAction = 'none';
+  // ============================================================
+  // §18 뷰 본문 렌더링 (월/주/일)
+  // ============================================================
+  function _renderViewBody() {
+    const o = _overlay(); if (!o) return;
+    const body = o.querySelector('#bk-body'); if (!body) return;
+    _updateOfflineBadge();
+    _updateHeaderLabel();
+    _hideNowLine();
+    _saveState();
 
-      // 클릭 핸들러는 pointerup 에서 처리 — 기존 click 리스너 제거 (중복 방지)
+    if (_curView === 'month') {
+      const html = _cachedIsPC ? _renderMonthPC(_curYear, _curMonth, _mappedCache)
+                               : _renderMonthMobile(_curYear, _curMonth, _mappedCache);
+      body.innerHTML = html;
+      _bindMonthCells(body);
+    } else if (_curView === 'week') {
+      _renderWeekView(body);
+    } else {
+      _renderDayView(body);
+    }
+    _refreshPCLeft();
+    _placeNowLine();
+  }
+
+  function _renderWeekView(body) {
+    if (_cachedIsPC) {
+      const r = _renderWeekPC(_curDate, _mappedCache);
+      body.innerHTML = r.html;
+      const grid = body.querySelector('#bk-week-grid');
+      _placeWeekPCBlocks(grid, r.items, r.start, r.ws);
+      _bindTimetable(body, _curDate);
+    } else {
+      // 모바일 주간 — date strip + week grid
+      const strip = _renderDateStripMobile(_curDate, _mappedCache);
+      const r = _renderWeekMobile(_curDate, _mappedCache);
+      body.innerHTML = strip + r.html;
+      const grid = body.querySelector('#bk-week-m-grid');
+      _placeWeekMBlocks(grid, r.items, r.start, r.ws);
+      _bindDateStrip(body);
+      _bindTimetable(body, _curDate);
+    }
+  }
+
+  function _renderDayView(body) {
+    if (_cachedIsPC) {
+      const r = _renderDayPC(_curDate, _mappedCache);
+      body.innerHTML = r.html;
+      const grid = body.querySelector('#bk-pc-day-grid');
+      _placeDayPCBlocks(grid, r.items, r.start);
+      _bindTimetable(body, _curDate);
+    } else {
+      const strip = _renderDateStripMobile(_curDate, _mappedCache);
+      const r = _renderDayMobile(_curDate, _mappedCache);
+      body.innerHTML = strip + r.html;
+      const grid = body.querySelector('#bk-day-grid');
+      _placeDayBlocks(grid, r.items, r.start);
+      _bindDateStrip(body);
+      _bindTimetable(body, _curDate);
+      // 활성 chip 가운데로
+      setTimeout(() => {
+        const active = body.querySelector('.bk-date.is-on');
+        if (active) active.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+      }, 50);
+    }
+  }
+
+  function _bindMonthCells(_body) { /* onclick=_calSelectDay 위임 사용 */ }
+
+  function _bindDateStrip(body) {
+    body.querySelectorAll('.bk-date').forEach(btn => {
+      // 이미 onclick 바인딩됨 (위임)
+      void btn;
+    });
+  }
+
+  function _updateHeaderLabel() {
+    const o = _overlay(); if (!o) return;
+    const lbl = o.querySelector('#bk-month-label');
+    if (!lbl) return;
+    if (_curView === 'week') {
+      const ws = new Date(_curDate); ws.setHours(0,0,0,0);
+      ws.setDate(ws.getDate() - ws.getDay());
+      lbl.textContent = (ws.getMonth() + 1) + '월 ' + ws.getDate() + '일 주';
+    } else if (_curView === 'day') {
+      lbl.textContent = _curDate.getFullYear() + '년 ' + (_curDate.getMonth() + 1) + '월 ' + _curDate.getDate() + '일';
+    } else {
+      lbl.textContent = _curYear + '년 ' + _curMonth + '월';
+    }
+    const sub = o.querySelector('#bk-month-sub');
+    if (sub) {
+      const summ = _monthSummary(_filterByStaff(_mappedCache));
+      sub.textContent = '예약 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + _krwShort(summ.rev) : '');
+    }
+    const pcStats = o.querySelector('#bk-pc-stats');
+    if (pcStats) {
+      const summ = _monthSummary(_filterByStaff(_mappedCache));
+      pcStats.innerHTML = '<div>이번달 <b>' + summ.cnt + '건</b></div>' + (summ.rev ? '<div>매출 <b>' + _krwShort(summ.rev) + '</b></div>' : '');
+    }
+  }
+
+  function _updateOfflineBadge() {
+    const b = document.querySelector('#' + OVERLAY_ID + ' #cal-offline-badge');
+    if (b) b.style.display = window.Booking?.isOffline ? 'inline' : 'none';
+  }
+
+  // ============================================================
+  // §19 시간표 바인딩 (long-press drag-drop + 빈 슬롯 클릭)
+  // ============================================================
+  function _bindTimetable(body, date) {
+    const LONG_PRESS_MS = 300;
+    const HOUR_PX = _cachedIsPC
+      ? (_curView === 'week' ? HOUR_PX_PC_WEEK : HOUR_PX_PC_DAY)
+      : (_curView === 'week' ? HOUR_PX_MOBILE_WEEK : HOUR_PX_MOBILE_DAY);
+    const blockSel = '.bk-block, .bk-week__block, .bk-pc-day__block, .bk-week-m__block';
+
+    body.querySelectorAll(blockSel).forEach(btn => {
+      _bindBlockDragDrop(btn, body, HOUR_PX, LONG_PRESS_MS);
     });
 
     // 빈 슬롯 클릭 → 새 예약 (시작시간 prefill)
-    body.querySelectorAll('.cv-tt-slot').forEach(slot => {
-      slot.addEventListener('click', () => {
-        const col = slot.closest('.cv-tt-col');
-        const ymd = col?.getAttribute('data-date');
+    const slotSel = '.bk-day__slot-half, .bk-day__hour-content, .bk-week__hour, .bk-pc-day__hour, .bk-week-m__hour';
+    body.querySelectorAll(slotSel).forEach(slot => {
+      slot.addEventListener('click', e => {
+        // 자식 block 클릭 무시
+        if (e.target.closest(blockSel)) return;
+        const dayCol = slot.closest('[data-date]') || slot;
+        const ymd = dayCol?.getAttribute('data-date') || _ds(date || _curDate);
         const hr = parseInt(slot.getAttribute('data-hour'), 10);
-        if (!ymd || isNaN(hr)) return;
+        if (isNaN(hr)) return;
+        const min = parseInt(slot.getAttribute('data-min') || '0', 10);
         const startD = new Date(ymd + 'T00:00:00');
-        startD.setHours(hr, 0, 0, 0);
-        const endD = new Date(startD.getTime() + 60 * 60000); // 기본 1시간
+        startD.setHours(hr, min, 0, 0);
         window._pendingBookingSlot = {
-          starts_at: `${ymd}T${String(hr).padStart(2, '0')}:00:00+09:00`,
-          ends_at:   `${ymd}T${String(hr + 1).padStart(2, '0')}:00:00+09:00`,
+          starts_at: `${ymd}T${_pad(hr)}:${_pad(min)}:00+09:00`,
+          ends_at:   `${ymd}T${_pad(hr + 1)}:${_pad(min)}:00+09:00`,
         };
         _openForm(startD, null);
       });
     });
-    body.querySelector('#cv-add-btn')?.addEventListener('click', () => _openForm(date, null));
   }
 
-  // === 예약 폼 ===
+  // drag-drop helper — drag mode 진입
+  function _enterDragMode(btn, e) {
+    btn.style.zIndex = '1000';
+    btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
+    btn.style.opacity = '0.9';
+    btn.style.transform = 'scale(1.04)';
+    if (window.navigator.vibrate) window.navigator.vibrate(15);
+    if (typeof window.hapticMedium === 'function') window.hapticMedium();
+    try { btn.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
+  }
+
+  // drag-drop helper — slot 충돌 검사 + 드롭 타겟 표시
+  function _detectDropTarget(body, e, bookingItem) {
+    body.querySelectorAll('.cv-drop-target, .cv-drop-conflict').forEach(s => s.classList.remove('cv-drop-target', 'cv-drop-conflict'));
+    const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+    const slotEl = elBelow?.closest('.bk-day__slot-half, .bk-week__hour, .bk-pc-day__hour, .bk-week-m__hour');
+    if (!slotEl || !bookingItem) return null;
+    const colEl = slotEl.closest('[data-date]');
+    const ymd = colEl?.getAttribute('data-date');
+    const hr = parseInt(slotEl.getAttribute('data-hour'), 10);
+    if (!ymd || isNaN(hr)) return null;
+    const newStart = new Date(`${ymd}T${_pad(hr)}:00:00+09:00`);
+    const oS = new Date(bookingItem._raw.starts_at), oE = new Date(bookingItem._raw.ends_at);
+    const durMin = Math.round((oE - oS) / 60000);
+    const newEnd = new Date(newStart.getTime() + durMin * 60000);
+    const conflict = window.Booking?.hasConflict?.(newStart.toISOString(), newEnd.toISOString(), bookingItem.id);
+    slotEl.classList.add(conflict ? 'cv-drop-conflict' : 'cv-drop-target');
+    return { ymd, hr, conflict, newStart, newEnd };
+  }
+
+  // drag-drop helper — drop 후 PATCH 저장
+  async function _commitDragDrop(dropped, bookingItem) {
+    if (!dropped || dropped.conflict || !bookingItem) {
+      if (dropped?.conflict && window.showToast) window.showToast('이 시간엔 다른 예약이 있어요');
+      return;
+    }
+    try {
+      await window.Booking.update(bookingItem.id, {
+        starts_at: dropped.newStart.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
+        ends_at:   dropped.newEnd.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
+      });
+      if (window.showToast) window.showToast(`📅 ${dropped.hr}:00 으로 이동`);
+      if (typeof window.hapticLight === 'function') window.hapticLight();
+      window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking' } }));
+    } catch (err) {
+      if (window.showToast) window.showToast('이동 실패: ' + (err?.message || ''));
+    }
+  }
+
+  function _bindBlockDragDrop(btn, body, _HOUR_PX, LONG_PRESS_MS) {
+    const ctx = { pressTimer: null, dragMode: false, startY: 0, startX: 0, dragColEl: null, item: null };
+    const cleanup = () => {
+      clearTimeout(ctx.pressTimer); ctx.pressTimer = null;
+      if (ctx.dragMode) {
+        btn.style.cssText = btn.style.cssText.replace(/transform:[^;]*;?|z-index:[^;]*;?|box-shadow:[^;]*;?|opacity:[^;]*;?/g, '');
+        body.querySelectorAll('.cv-drop-target, .cv-drop-conflict').forEach(s => s.classList.remove('cv-drop-target', 'cv-drop-conflict'));
+      }
+      ctx.dragMode = false;
+    };
+    btn.addEventListener('pointerdown', e => {
+      if (e.button !== 0 && e.pointerType !== 'touch') return;
+      ctx.startY = e.clientY; ctx.startX = e.clientX;
+      ctx.item = _mappedCache.find(m => m.id === btn.dataset.bookingId);
+      ctx.pressTimer = setTimeout(() => {
+        if (!ctx.item) return;
+        ctx.dragMode = true; _enterDragMode(btn, e);
+      }, LONG_PRESS_MS);
+    });
+    btn.addEventListener('pointermove', e => {
+      if (!ctx.dragMode) {
+        if (Math.abs(e.clientY - ctx.startY) > 10 || Math.abs(e.clientX - ctx.startX) > 10) clearTimeout(ctx.pressTimer);
+        return;
+      }
+      e.preventDefault();
+      btn.style.transform = `translateY(${e.clientY - ctx.startY}px) scale(1.04)`;
+      ctx.dragColEl = _detectDropTarget(body, e, ctx.item);
+    });
+    btn.addEventListener('pointerup', async e => {
+      if (!ctx.dragMode) {
+        clearTimeout(ctx.pressTimer); e.stopPropagation();
+        if (ctx.item) _openForm(new Date(ctx.item._raw.starts_at), ctx.item._raw);
+        return;
+      }
+      e.preventDefault();
+      const dropped = ctx.dragColEl;
+      cleanup();
+      await _commitDragDrop(dropped, ctx.item);
+    });
+    btn.addEventListener('pointercancel', cleanup);
+    btn.style.touchAction = 'none';
+  }
+
+  // ============================================================
+  // §20 예약 폼 (기존 로직 그대로)
+  // ============================================================
   function _buildSlots(hours) {
     const slots = [];
     for (let h = hours.start; h < hours.end; h++)
@@ -559,12 +1198,8 @@ ${isEdit ? `
       const chip = body.querySelector('#bfCustChip');
       const chipName = body.querySelector('#bfCustChipName');
       if (chip && chipName) {
-        if (name) {
-          chipName.textContent = '✅ ' + name + ' 선택됨';
-          chip.style.display = 'flex';
-        } else {
-          chip.style.display = 'none';
-        }
+        if (name) { chipName.textContent = '✅ ' + name + ' 선택됨'; chip.style.display = 'flex'; }
+        else { chip.style.display = 'none'; }
       }
     };
     const _doPick = async () => {
@@ -588,14 +1223,10 @@ ${isEdit ? `
       const s = body.querySelector('#bfStart').value;
       const e = body.querySelector('#bfEnd').value;
       if (!d || !s || !e) return;
-      const conflict = window.Booking.hasConflict(
-        `${d}T${s}:00+09:00`,
-        `${d}T${e}:00+09:00`,
-        existing?.id,
-      );
+      const conflict = window.Booking.hasConflict(`${d}T${s}:00+09:00`, `${d}T${e}:00+09:00`, existing?.id);
       body.querySelector('#bfConflict').style.display = conflict ? 'block' : 'none';
     };
-    ['bfDate', 'bfStart', 'bfEnd'].forEach(id => body.querySelector('#' + id).addEventListener('change', chk));
+    ['bfDate','bfStart','bfEnd'].forEach(id => body.querySelector('#' + id).addEventListener('change', chk));
     chk();
     body._getCustId = () => custId;
     (async () => {
@@ -614,7 +1245,6 @@ ${isEdit ? `
       const e = body.querySelector('#bfEnd').value;
       if (!d || !s || !e) { if (window.showToast) window.showToast('날짜·시간을 입력해 주세요'); return; }
       if (s >= e) { if (window.showToast) window.showToast('종료 시간이 시작보다 늦어야 해요'); return; }
-      // [2026-04-29] 명시적 KST ISO — Capacitor/iOS 일부 환경에서 timezone 부정확 픽스
       const payload = {
         starts_at:     `${d}T${s}:00+09:00`,
         ends_at:       `${d}T${e}:00+09:00`,
@@ -624,27 +1254,20 @@ ${isEdit ? `
         memo:          body.querySelector('#bfMemo').value.trim()      || null,
       };
       try {
-        if (existing) {
-          await window.Booking.update(existing.id, payload);
-        } else {
+        if (existing) await window.Booking.update(existing.id, payload);
+        else {
           await window.Booking.create(payload);
           window.dispatchEvent(new CustomEvent('booking:created', { detail: { customer_name: payload.customer_name, customer_id: payload.customer_id || null } }));
         }
         if (window.hapticLight) window.hapticLight();
-        // T-D 토스트: ✓ {name}님 {date} {time} 예약 추가됨
         const _name = payload.customer_name || '';
-        const _date = d || '';
-        const _time = s || '';
-        const _addToast = _name
-          ? `✓ ${_name}님 ${_date} ${_time} 예약 추가됨`
-          : `✓ ${_date} ${_time} 예약 추가됨`;
-        const _editToast = _name
-          ? `✓ ${_name}님 ${_date} ${_time} 예약 수정됨`
-          : `✓ ${_date} ${_time} 예약 수정됨`;
+        const _addToast = _name ? `✓ ${_name}님 ${d} ${s} 예약 추가됨` : `✓ ${d} ${s} 예약 추가됨`;
+        const _editToast = _name ? `✓ ${_name}님 ${d} ${s} 예약 수정됨` : `✓ ${d} ${s} 예약 수정됨`;
         if (window.showToast) window.showToast(existing ? _editToast : _addToast);
         if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
         _mappedCache = await _loadMonth(_curYear, _curMonth);
-        _renderDay(date || _curDate, _mappedCache);
+        _renderViewBody();
+        void date;
       } catch (err) {
         console.warn('[cal] save 실패:', err);
         if (window.showToast) window.showToast('저장 실패');
@@ -652,7 +1275,7 @@ ${isEdit ? `
     });
   }
 
-  function _bindFormActions(body, existing, date) {
+  function _bindFormActions(body, existing) {
     body.querySelector('#bfDelete')?.addEventListener('click', async () => {
       if (!confirm('이 예약을 삭제할까요?')) return;
       try {
@@ -661,8 +1284,8 @@ ${isEdit ? `
         if (window.showToast) window.showToast('삭제 완료');
         if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
         _mappedCache = await _loadMonth(_curYear, _curMonth);
-        _renderDay(date || _curDate, _mappedCache);
-      } catch (_) { if (window.showToast) window.showToast('삭제 실패'); }
+        _renderViewBody();
+      } catch (_e) { if (window.showToast) window.showToast('삭제 실패'); void _e; }
     });
     body.querySelector('#bfComplete')?.addEventListener('click', () => {
       if (!window.CompleteFlow?.startFromBooking) {
@@ -683,14 +1306,15 @@ ${isEdit ? `
           if (window.showToast) window.showToast(`✅ 상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
           if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
           _mappedCache = await _loadMonth(_curYear, _curMonth);
-          _renderDay(date || _curDate, _mappedCache);
-        } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+          _renderViewBody();
+        } catch (_e) { if (window.showToast) window.showToast('상태 변경 실패'); void _e; }
       });
     });
   }
 
   function _openForm(date, existing) {
-    const body = _body(); if (!body) return;
+    const o = _overlay(); if (!o) return;
+    const body = o.querySelector('#bk-body'); if (!body) return;
     const hours  = window.Booking.shopHours();
     const slots  = _buildSlots(hours);
     const pend   = window._pendingBookingSlot;
@@ -701,14 +1325,11 @@ ${isEdit ? `
     const dateStr = _ds(defDate);
     const defS = existing ? _fmt(new Date(existing.starts_at)) : (pendS ? _fmt(pendS) : slots[0]);
     const defE = existing ? _fmt(new Date(existing.ends_at))   : (pendE ? _fmt(pendE) : (slots[2] || slots[slots.length - 1]));
-    body.innerHTML = '<div class="cv-form-wrap">' + _buildFormHTML(existing, slots, dateStr, defS, defE) + '</div>';
+    body.innerHTML = '<div class="cv-form-wrap" style="padding:16px;">' + _buildFormHTML(existing, slots, dateStr, defS, defE) + '</div>';
     body.querySelector('#cv-form-back').addEventListener('click', () => _switchView(_curView));
     _bindFormExtras(body, existing);
     _bindFormSave(body, existing, date);
-    if (existing) _bindFormActions(body, existing, date);
-    // [2026-04-29 A3] 빈 슬롯 클릭 시 (시간 이미 prefill) → 고객 picker 자동 오픈
-    // 탭→탭→탭 "딸깍" 흐름: 빈 슬롯 → (자동) 고객 → 시술 → 저장
-    // 단, 사장님이 '고객 미지정' 으로 빠른 등록하고 싶을 수도 있으니 300ms 후 살짝 지연.
+    if (existing) _bindFormActions(body, existing);
     if (!existing && pendS) {
       setTimeout(() => {
         const pickBtn = body.querySelector('#bfCustPick');
@@ -717,19 +1338,37 @@ ${isEdit ? `
     }
   }
 
-  // === 뷰 토글 ===
+  // ============================================================
+  // §21 뷰 전환
+  // ============================================================
   function _switchView(view) {
     _curView = view;
     const o = _overlay(); if (!o) return;
-    o.querySelectorAll('.cal-view-toggle button').forEach(b => {
-      b.classList.toggle('active', b.dataset.view === view);
+    o.querySelectorAll('.bk-view__btn').forEach(b => {
+      b.classList.toggle('is-on', b.dataset.view === view);
     });
-    if (view === 'month')      _renderMonth(_curYear, _curMonth, _mappedCache);
-    else if (view === 'week')  _renderWeek(_curDate, _mappedCache);
-    else                       _renderDay(_curDate, _mappedCache);
+    _renderViewBody();
   }
 
-  // === 인접 월 미리 캐싱 ===
+  // ============================================================
+  // §22 월 네비
+  // ============================================================
+  async function _prevMonth() {
+    _curMonth--;
+    if (_curMonth < 1) { _curMonth = 12; _curYear--; }
+    await _reloadAndRender();
+    _prefetchNeighbors();
+  }
+  async function _nextMonth() {
+    _curMonth++;
+    if (_curMonth > 12) { _curMonth = 1; _curYear++; }
+    await _reloadAndRender();
+    _prefetchNeighbors();
+  }
+  async function _reloadAndRender() {
+    _mappedCache = await _loadMonth(_curYear, _curMonth);
+    _renderViewBody();
+  }
   function _prefetch(year, month) {
     const from = new Date(year, month - 1, 1).toISOString();
     const to   = new Date(year, month, 0, 23, 59, 59).toISOString();
@@ -744,110 +1383,84 @@ ${isEdit ? `
     _prefetch(ny, nm);
   }
 
-  // === 월 네비 ===
-  async function _prevMonth() {
-    _curMonth--;
-    if (_curMonth < 1) { _curMonth = 12; _curYear--; }
-    const lbl = _label(); if (lbl) lbl.textContent = _curYear + '년 ' + _curMonth + '월';
-    const body = _body(); if (body) body.innerHTML = _skeletonMonth();
-    _mappedCache = await _loadMonth(_curYear, _curMonth);
-    _renderMonth(_curYear, _curMonth, _mappedCache);
-    _prefetchNeighbors();
-  }
-  async function _nextMonth() {
-    _curMonth++;
-    if (_curMonth > 12) { _curMonth = 1; _curYear++; }
-    const lbl = _label(); if (lbl) lbl.textContent = _curYear + '년 ' + _curMonth + '월';
-    const body = _body(); if (body) body.innerHTML = _skeletonMonth();
-    _mappedCache = await _loadMonth(_curYear, _curMonth);
-    _renderMonth(_curYear, _curMonth, _mappedCache);
-    _prefetchNeighbors();
-  }
-
-  // === 전역 onclick 핸들러 ===
+  // ============================================================
+  // §23 전역 onclick 위임
+  // ============================================================
   window._calSelectDay = function (dateStr) {
     _curDate = new Date(dateStr + 'T00:00:00');
     _switchView('day');
   };
   window._calSelectDayChip = function (dateStr) {
     _curDate = new Date(dateStr + 'T00:00:00');
-    if (_curView === 'week') _renderWeek(_curDate, _mappedCache);
-    else                     _renderDay(_curDate, _mappedCache);
+    _renderViewBody();
   };
   window._calSwitchView = _switchView;
   window._calPrevMonth  = _prevMonth;
   window._calNextMonth  = _nextMonth;
 
-  // === 스켈레톤 ===
-  function _skeletonMonth() {
-    const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
-    let h = '<div class="cv-wk-hdr">';
-    DAY_NAMES.forEach(d => { h += '<div>' + d + '</div>'; });
-    h += '</div><div class="cv-cal-grid">';
-    for (let i = 0; i < 35; i++)
-      h += '<div class="cv-cell cv-cell--sk"><div class="cv-sk-num"></div></div>';
-    h += '</div>';
-    return h;
-  }
-
-  // === 진입점 ===
+  // ============================================================
+  // §24 진입점
+  // ============================================================
   window.openCalendarView = async function () {
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:start');
     const existing = _overlay(); if (existing) existing.remove();
-    const now  = new Date();
-    _curYear   = now.getFullYear();
-    _curMonth  = now.getMonth() + 1;
-    _curDate   = now;
-    _curView   = 'month';
 
-    const o = document.createElement('div');
-    o.id        = OVERLAY;
-    o.className = 'cal-overlay-wrap';
-    o.setAttribute('role', 'dialog');
-    o.setAttribute('aria-modal', 'true');
-    o.innerHTML = `
-      <div class="cal-sheet">
-        <div class="cal-sheet-hdr">
-          <button class="cal-nav-btn" onclick="_calPrevMonth()">◁</button>
-          <span class="cal-month-label">${_curYear}년 ${_curMonth}월</span>
-          <button class="cal-nav-btn" onclick="_calNextMonth()">▷</button>
-          <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
-          <div class="cal-view-toggle">
-            <button class="active" data-view="month" onclick="_calSwitchView('month')">월</button>
-            <button data-view="week" onclick="_calSwitchView('week')">주</button>
-            <button data-view="day" onclick="_calSwitchView('day')">일</button>
-          </div>
-          <button class="cal-close-btn" onclick="(function(){var o=document.getElementById('${OVERLAY}');if(o)o.remove();document.body.style.overflow=''})()">✕</button>
-        </div>
-        <div class="cal-body"></div>
-      </div>`;
-    o.addEventListener('click', e => { if (e.target === o) _close(); });
-    document.body.appendChild(o);
+    // 상태 복원
+    const saved = _loadState();
+    const now = new Date();
+    if (saved && saved.dateISO) {
+      _curDate = new Date(saved.dateISO + 'T00:00:00');
+      _curView = saved.view || 'month';
+      _curYear = saved.y || now.getFullYear();
+      _curMonth = saved.m || (now.getMonth() + 1);
+    } else {
+      _curYear = now.getFullYear();
+      _curMonth = now.getMonth() + 1;
+      _curDate = now;
+      _curView = 'month';
+    }
+    _miniMonth = { y: _curYear, m: _curMonth };
+    _cachedIsPC = _isPC();
+
+    // 직원 목록 먼저
+    try { _staffList = await _fetchStaff(); } catch (_e) { _staffList = [{ id: 1, name: '원장', color_idx: 0 }]; void _e; }
+
+    // 레이아웃 진입
+    if (_cachedIsPC) _renderPCLayout();
+    else _renderMobileLayout();
+
     document.body.style.overflow = 'hidden';
-    // [2026-04-26 A5] popstate 등록
     try {
       if (typeof window._registerSheet === 'function') window._registerSheet('booking', _close);
       if (typeof window._markSheetOpen === 'function') window._markSheetOpen('booking');
     } catch (_e) { void _e; }
-    o.querySelector('.cal-body').innerHTML = _skeletonMonth();
-    // 2026-04-26 — 시술 카탈로그 가격 표시 위해 캐시 워밍 (조용히 병행 호출)
+
+    // 시술 카탈로그 캐시 워밍 (가격 표시 용)
     if (typeof window.loadServiceTemplates === 'function' && !(window._serviceTemplatesCache || []).length) {
       window.loadServiceTemplates().catch(() => {});
     }
+
     _mappedCache = await _loadMonth(_curYear, _curMonth);
-    _renderMonth(_curYear, _curMonth, _mappedCache);
+    _renderViewBody();
     _prefetchNeighbors();
+
+    // now-line 1분마다 갱신
+    if (_nowLineTimer) clearInterval(_nowLineTimer);
+    _nowLineTimer = setInterval(_placeNowLine, 60000);
+
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:end');
   };
 
-  // 대시보드 바로가기 · 파워뷰 · 외부 호출 호환
   window.openBooking = async function (date) {
     await window.openCalendarView();
-    if (date) { _curDate = new Date(date); _switchView('day'); }
+    if (date) {
+      _curDate = new Date(date);
+      _switchView('day');
+    }
   };
   window.closeBooking = _close;
 
-  // data-open="calendar-view" 전역 위임
+  // data-open="calendar-view" 위임
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-open="calendar-view"]');
     if (!b) return;
@@ -855,24 +1468,35 @@ ${isEdit ? `
     window.openCalendarView();
   }, true);
 
-  // [2026-04-26] 챗봇·외부에서 예약 생성/수정/취소 → 캘린더 열려있으면 현재 뷰 즉시 재로드
+  // 외부 mutation 시 재로드
   if (typeof window !== 'undefined' && !window._calendarViewDataListenerInit) {
     window._calendarViewDataListenerInit = true;
     window.addEventListener('itdasy:data-changed', async (e) => {
       const kind = e && e.detail && e.detail.kind;
-      // booking 관련만 + force/online 동기화 신호 처리
       if (kind && !/(booking|force_sync|focus_sync|online_restore)/.test(kind)) return;
-      // booking-api 메모리 캐시도 무효화 (외부에서 못 건드리는 _cache)
       try { if (window.Booking && typeof window.Booking._invalidateCache === 'function') window.Booking._invalidateCache(); } catch (_e) { void _e; }
-      // 캘린더 시트 열려있을 때만 재로드
       if (!_overlay()) return;
       try {
         _mappedCache = await _loadMonth(_curYear, _curMonth);
-        if (_curView === 'month')      _renderMonth(_curYear, _curMonth, _mappedCache);
-        else if (_curView === 'week')  _renderWeek(_curDate, _mappedCache);
-        else                           _renderDay(_curDate, _mappedCache);
+        _renderViewBody();
       } catch (_e) { void _e; }
     });
   }
+
+  // resize 시 PC↔모바일 전환
+  let _resizeTimer = null;
+  window.addEventListener('resize', () => {
+    if (!_overlay()) return;
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      const newIsPC = _isPC();
+      if (newIsPC !== _cachedIsPC) {
+        _cachedIsPC = newIsPC;
+        const o = _overlay(); if (o) o.remove();
+        if (_cachedIsPC) _renderPCLayout();
+        else _renderMobileLayout();
+      }
+    }, 200);
+  });
 
 })();

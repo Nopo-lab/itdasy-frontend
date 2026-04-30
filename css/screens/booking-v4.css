@@ -1,0 +1,1209 @@
+/* ── Itdasy Design System v1 · screens/booking-v4.css ─────────
+   예약관리 v4 — 월/주/일 3뷰 · 모바일 + PC
+   mockup: ../../mockups/04-booking.html
+   tokens: tokens.css */
+
+/* ============================================================
+   §0 로컬 변수 — time grid 높이 + spring easing
+   ============================================================ */
+.bk-root {
+  --bk-h-mobile-day: 60px;   /* 모바일 일간 시간 셀 */
+  --bk-h-mobile-week: 50px;  /* 모바일 주간 시간 셀 */
+  --bk-h-pc-week: 60px;      /* PC 주간 시간 셀 */
+  --bk-h-pc-day: 80px;       /* PC 일간 시간 셀 */
+  --bk-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ============================================================
+   §1 button 류 native reset (공통)
+   ============================================================ */
+.bk-header__back,
+.bk-today-btn,
+.bk-staff-chip,
+.bk-view__btn,
+.bk-pc__nav-btn,
+.bk-pc__add-btn,
+.bk-fab,
+.bk-mini__nav button,
+.bk-staff-row {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  outline: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ============================================================
+   §2 공통 헤더
+   ============================================================ */
+.bk-header {
+  padding: 16px 18px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bk-header__back {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+.bk-header__title-wrap {
+  text-align: center;
+  flex: 1;
+}
+.bk-header__month {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+.bk-header__sub {
+  font-size: 11px;
+  color: var(--text-subtle);
+  margin-top: 1px;
+  font-weight: 500;
+}
+.bk-today-btn {
+  font-size: 11.5px;
+  color: var(--text);
+  font-weight: 700;
+  padding: 6px 11px;
+  background: var(--surface-2);
+  border-radius: var(--r-pill);
+}
+
+/* ============================================================
+   §3 툴바 / 직원 칩 / 뷰 토글
+   ============================================================ */
+.bk-toolbar {
+  padding: 0 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bk-staff-chips {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+}
+.bk-staff-chips::-webkit-scrollbar { display: none; }
+
+.bk-staff-chip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-pill);
+  color: var(--text-muted);
+}
+.bk-staff-chip.is-on {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+
+.bk-staff-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.bk-staff-dot--pink { background: var(--brand-strong); }
+.bk-staff-dot--gray { background: var(--text-subtle); }
+.bk-staff-dot--dark { background: var(--text); }
+
+.bk-view {
+  display: flex;
+  gap: 1px;
+  background: var(--surface-2);
+  padding: 2px;
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+}
+.bk-view__btn {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: none;
+  color: var(--text-muted);
+  border-radius: 6px;
+}
+.bk-view__btn.is-on {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================================
+   §4 모바일 일간 뷰
+   ============================================================ */
+.bk-dates {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.bk-dates::-webkit-scrollbar { display: none; }
+
+.bk-date {
+  flex-shrink: 0;
+  width: 46px;
+  padding: 8px 0;
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+.bk-date:hover { background: var(--surface-2); }
+.bk-date.is-on { background: var(--text); }
+
+.bk-date__dow {
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.bk-date.is-on .bk-date__dow { color: rgba(255, 255, 255, 0.7); }
+
+.bk-date__num {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+.bk-date.is-on .bk-date__num { color: var(--surface); }
+
+.bk-date.has-events::after {
+  content: '';
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+  margin-top: 2px;
+}
+.bk-date.is-on.has-events::after { background: var(--surface); }
+
+.bk-day {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  background: var(--surface);
+}
+.bk-day::-webkit-scrollbar { width: 0; }
+
+.bk-day__row {
+  display: flex;
+  height: var(--bk-h-mobile-day, 60px);
+  border-top: 0.5px solid var(--border);
+  position: relative;
+}
+.bk-day__row:first-child { border-top: none; }
+
+.bk-day__hour-label {
+  width: 50px;
+  padding: 4px 8px 0 0;
+  font-size: 10.5px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  flex-shrink: 0;
+}
+.bk-day__hour-content {
+  flex: 1;
+  position: relative;
+}
+.bk-day__slot-half {
+  height: calc(var(--bk-h-mobile-day, 60px) / 2);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.bk-day__slot-half:hover { background: var(--brand-bg); }
+
+/* 예약 블록 (모바일 일간) */
+.bk-block {
+  position: absolute;
+  left: 4px;
+  right: 8px;
+  background: var(--brand-bg);
+  border-left: 3px solid var(--brand-strong);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+.bk-block:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.bk-block__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brand-strong);
+  letter-spacing: -0.2px;
+}
+.bk-block__sub {
+  font-size: 10.5px;
+  color: var(--brand-strong);
+  margin-top: 2px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.bk-block__staff-dot {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.bk-block.is-staff2 {
+  background: var(--surface-2);
+  border-left-color: var(--text-muted);
+}
+.bk-block.is-staff2 .bk-block__title { color: var(--text); }
+.bk-block.is-staff2 .bk-block__sub {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.bk-now-line {
+  position: absolute;
+  left: 50px;
+  right: 0;
+  height: 2px;
+  background: var(--brand-strong);
+  z-index: 5;
+  pointer-events: none;
+}
+.bk-now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+}
+
+/* ============================================================
+   §5 모바일 월간 뷰
+   ============================================================ */
+.bk-month-m { padding: 4px 12px 12px; }
+
+.bk-month-m__dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+.bk-month-m__dow {
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.bk-month-m__cells {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 92px;
+  gap: 1px;
+  background: var(--border);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.bk-month-m__cell {
+  background: var(--surface);
+  padding: 3px;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: background 0.12s;
+  overflow: hidden;
+}
+.bk-month-m__cell:hover { background: var(--brand-bg); }
+.bk-month-m__cell--other { background: var(--surface-2); }
+.bk-month-m__cell--other .bk-month-m__num { color: var(--text-subtle); opacity: 0.5; }
+.bk-month-m__cell--today .bk-month-m__num {
+  color: var(--surface);
+  background: var(--brand-strong);
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.bk-month-m__num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.bk-month-m__events {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+  flex: 1;
+  overflow: hidden;
+}
+.bk-month-m__evt {
+  font-size: 8px;
+  padding: 0 3px;
+  background: var(--brand-bg);
+  color: var(--brand-strong);
+  border-radius: 3px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.bk-month-m__evt.is-staff2 {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.bk-month-m__more {
+  font-size: 8px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  padding: 0 3px;
+  line-height: 1.4;
+}
+
+/* ============================================================
+   §6 모바일 주간 뷰
+   ============================================================ */
+.bk-week-m {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.bk-week-m__header {
+  display: grid;
+  grid-template-columns: 32px repeat(7, 1fr);
+  border-bottom: 0.5px solid var(--border);
+}
+.bk-week-m__h-cell {
+  padding: 8px 2px;
+  text-align: center;
+}
+.bk-week-m__h-dow {
+  font-size: 9px;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.bk-week-m__h-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.bk-week-m__h-cell.is-today .bk-week-m__h-num {
+  color: var(--surface);
+  background: var(--brand-strong);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.bk-week-m__grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 32px repeat(7, 1fr);
+  position: relative;
+  background: var(--surface);
+}
+.bk-week-m__grid::-webkit-scrollbar { width: 0; }
+
+.bk-week-m__time-cell {
+  height: var(--bk-h-mobile-week, 50px);
+  padding: 3px 4px 0 0;
+  font-size: 9px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  text-align: right;
+  border-top: 0.5px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.bk-week-m__time-cell:first-child { border-top: none; }
+
+.bk-week-m__day {
+  position: relative;
+  border-left: 0.5px solid var(--border);
+}
+.bk-week-m__hour {
+  height: var(--bk-h-mobile-week, 50px);
+  border-top: 0.5px solid var(--border);
+}
+.bk-week-m__hour:first-child { border-top: none; }
+
+.bk-week-m__block {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  background: var(--brand-bg);
+  border-left: 2px solid var(--brand-strong);
+  border-radius: 4px;
+  padding: 2px 3px;
+  cursor: pointer;
+  overflow: hidden;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--brand-strong);
+  line-height: 1.2;
+}
+.bk-week-m__block.is-staff2 {
+  background: var(--surface-2);
+  border-left-color: var(--text-muted);
+  color: var(--text);
+}
+
+/* ============================================================
+   §7 + FAB (모바일)
+   ============================================================ */
+.bk-fab {
+  position: absolute;
+  right: 18px;
+  bottom: 86px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-brand);
+  color: var(--surface);
+  z-index: 10;
+}
+
+/* ============================================================
+   §8 PC 메인 (공통)
+   — 좌측 사이드바는 myshop 의 .ms-side 재사용 (별도 정의 없음)
+   ============================================================ */
+.bk-pc {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.bk-pc__header {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 0.5px solid var(--border);
+}
+.bk-pc__title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--text);
+}
+.bk-pc__month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+.bk-pc__nav-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+.bk-pc__month-label {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 12px;
+  min-width: 80px;
+  text-align: center;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.bk-pc__spacer { flex: 1; }
+
+.bk-pc__stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  align-items: center;
+}
+.bk-pc__stats b {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.bk-pc__add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--brand-strong);
+  color: var(--surface);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bk-pc__body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+.bk-pc__left {
+  width: 240px;
+  border-right: 0.5px solid var(--border);
+  padding: 18px 16px;
+  overflow-y: auto;
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.bk-pc__left::-webkit-scrollbar { width: 0; }
+
+/* ============================================================
+   §9 PC 좌측 — 미니 캘린더
+   ============================================================ */
+.bk-mini {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.bk-mini__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.bk-mini__month {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text);
+}
+.bk-mini__nav {
+  display: flex;
+  gap: 2px;
+}
+.bk-mini__nav button {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subtle);
+}
+.bk-mini__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.bk-mini__dow {
+  font-size: 9.5px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  text-align: center;
+  padding: 4px 0;
+}
+.bk-mini__day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+.bk-mini__day:hover { background: var(--surface-2); }
+.bk-mini__day--other { color: var(--text-subtle); opacity: 0.5; }
+.bk-mini__day--today {
+  background: var(--brand-bg);
+  color: var(--brand-strong);
+  font-weight: 700;
+}
+.bk-mini__day--selected {
+  background: var(--text);
+  color: var(--surface);
+}
+.bk-mini__day.has-event::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+}
+.bk-mini__day--selected.has-event::after { background: var(--surface); }
+
+/* ============================================================
+   §10 PC 좌측 — 직원 리스트
+   ============================================================ */
+.bk-staff-list {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+.bk-staff-list__title {
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.bk-staff-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  width: 100%;
+  background: transparent;
+  text-align: left;
+}
+.bk-staff-row:hover {
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+.bk-staff-row__check {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--surface);
+}
+.bk-staff-row__check.is-on {
+  background: var(--text);
+  border-color: var(--text);
+}
+.bk-staff-row .bk-staff-dot {
+  width: 8px;
+  height: 8px;
+}
+.bk-staff-row__name {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.bk-staff-row__count {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   §11 PC 좌측 — 통계 카드
+   ============================================================ */
+.bk-stats {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px;
+}
+.bk-stats__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+.bk-stats__row:last-child { border-bottom: none; }
+.bk-stats__label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.bk-stats__value {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   §12 PC 캘린더 메인 컨테이너
+   ============================================================ */
+.bk-pc-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ============================================================
+   §13 PC 주간 뷰
+   ============================================================ */
+.bk-week__header {
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+}
+.bk-week__h-cell {
+  padding: 12px 8px;
+  text-align: center;
+  border-left: 0.5px solid var(--border);
+}
+.bk-week__h-cell:first-child { border-left: none; }
+.bk-week__h-dow {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.bk-week__h-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 3px;
+  letter-spacing: -0.3px;
+  font-variant-numeric: tabular-nums;
+}
+.bk-week__h-cell.is-today .bk-week__h-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+  color: var(--surface);
+  font-size: 14px;
+}
+
+.bk-week__grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 60px repeat(7, 1fr);
+  position: relative;
+}
+.bk-week__grid::-webkit-scrollbar { width: 0; }
+
+.bk-week__time-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.bk-week__time-cell {
+  height: var(--bk-h-pc-week, 60px);
+  padding: 4px 8px 0 0;
+  font-size: 10.5px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border-top: 0.5px solid var(--border);
+}
+.bk-week__time-cell:first-child { border-top: none; }
+
+.bk-week__day {
+  position: relative;
+  border-left: 0.5px solid var(--border);
+  background: var(--surface);
+}
+.bk-week__hour {
+  height: var(--bk-h-pc-week, 60px);
+  border-top: 0.5px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.bk-week__hour:first-child { border-top: none; }
+.bk-week__hour:hover { background: var(--brand-bg); }
+
+.bk-week__block {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  background: var(--brand-bg);
+  border-left: 3px solid var(--brand-strong);
+  border-radius: 10px;
+  padding: 4px 6px;
+  cursor: pointer;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+  font-size: 10.5px;
+}
+.bk-week__block:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  z-index: 4;
+}
+.bk-week__block-title {
+  font-weight: 700;
+  color: var(--brand-strong);
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+}
+.bk-week__block-sub {
+  color: var(--brand-strong);
+  margin-top: 1px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.bk-week__block.is-staff2 {
+  background: var(--surface-2);
+  border-left-color: var(--text-muted);
+}
+.bk-week__block.is-staff2 .bk-week__block-title { color: var(--text); }
+.bk-week__block.is-staff2 .bk-week__block-sub {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.bk-week__now-line {
+  position: absolute;
+  left: 60px;
+  right: 0;
+  height: 2px;
+  background: var(--brand-strong);
+  z-index: 5;
+  pointer-events: none;
+}
+.bk-week__now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+}
+
+/* ============================================================
+   §14 PC 월간 뷰
+   ============================================================ */
+.bk-pc-month {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.bk-pc-month__dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-bottom: 0.5px solid var(--border);
+}
+.bk-pc-month__dow {
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 12px;
+  text-align: left;
+  background: var(--surface);
+}
+.bk-pc-month__cells {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 1px;
+  background: var(--border);
+  overflow: hidden;
+}
+.bk-pc-month__cell {
+  background: var(--surface);
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.12s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 100px;
+  overflow: hidden;
+}
+.bk-pc-month__cell:hover { background: var(--brand-bg); }
+.bk-pc-month__cell--other { background: var(--surface-2); }
+.bk-pc-month__cell--other .bk-pc-month__num {
+  color: var(--text-subtle);
+  opacity: 0.5;
+}
+.bk-pc-month__num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.bk-pc-month__cell--today .bk-pc-month__num {
+  color: var(--surface);
+  background: var(--brand-strong);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.bk-pc-month__events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  overflow: hidden;
+}
+.bk-pc-month__evt {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--brand-bg);
+  color: var(--brand-strong);
+  border-radius: 4px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bk-pc-month__evt.is-staff2 {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.bk-pc-month__evt:hover { transform: translateY(-1px); }
+.bk-pc-month__more {
+  font-size: 10px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+/* ============================================================
+   §15 PC 일간 뷰 (직원 컬럼 분할)
+   ============================================================ */
+.bk-pc-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.bk-pc-day__header {
+  display: grid;
+  grid-template-columns: 80px repeat(3, 1fr);
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+}
+.bk-pc-day__h-cell {
+  padding: 14px 12px;
+  text-align: center;
+  border-left: 0.5px solid var(--border);
+}
+.bk-pc-day__h-cell:first-child {
+  border-left: none;
+  padding-top: 18px;
+}
+.bk-pc-day__h-staff-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text);
+}
+.bk-pc-day__h-meta {
+  font-size: 11px;
+  color: var(--text-subtle);
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.bk-pc-day__grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: 80px repeat(3, 1fr);
+  position: relative;
+}
+.bk-pc-day__grid::-webkit-scrollbar { width: 0; }
+
+.bk-pc-day__time-col {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.bk-pc-day__time-cell {
+  height: var(--bk-h-pc-day, 80px);
+  padding: 4px 12px 0 0;
+  font-size: 11px;
+  color: var(--text-subtle);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border-top: 0.5px solid var(--border);
+}
+.bk-pc-day__time-cell:first-child { border-top: none; }
+
+.bk-pc-day__staff-col {
+  position: relative;
+  border-left: 0.5px solid var(--border);
+  background: var(--surface);
+}
+.bk-pc-day__hour {
+  height: var(--bk-h-pc-day, 80px);
+  border-top: 0.5px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.bk-pc-day__hour:first-child { border-top: none; }
+.bk-pc-day__hour:hover { background: var(--brand-bg); }
+
+.bk-pc-day__block {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  background: var(--brand-bg);
+  border-left: 3px solid var(--brand-strong);
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition:
+    transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+.bk-pc-day__block:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.bk-pc-day__block-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand-strong);
+  letter-spacing: -0.2px;
+}
+.bk-pc-day__block-time {
+  font-size: 11px;
+  color: var(--brand-strong);
+  font-weight: 600;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+.bk-pc-day__block-service {
+  font-size: 11px;
+  color: var(--brand-strong);
+  margin-top: 4px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.bk-pc-day__block.is-staff2 {
+  background: var(--surface-2);
+  border-left-color: var(--text-muted);
+}
+.bk-pc-day__block.is-staff2 .bk-pc-day__block-title { color: var(--text); }
+.bk-pc-day__block.is-staff2 .bk-pc-day__block-time,
+.bk-pc-day__block.is-staff2 .bk-pc-day__block-service {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.bk-pc-day__now-line {
+  position: absolute;
+  left: 80px;
+  right: 0;
+  height: 2px;
+  background: var(--brand-strong);
+  z-index: 5;
+  pointer-events: none;
+}
+.bk-pc-day__now-line::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand-strong);
+}
+
+/* ============================================================
+   §16 반응형 — 모바일 우선, PC 1100px+ 부터 좌측 사이드바 노출
+   ============================================================ */
+@media (max-width: 1099px) {
+  .bk-pc__left { display: none; }
+  .bk-pc__body { flex-direction: column; }
+}
+
+@media (min-width: 1100px) {
+  .bk-pc__body { flex-direction: row; }
+  .bk-pc__left { display: block; }
+}
+
+/* ============================================================
+   §17 prefers-reduced-motion — hover transform 끄기
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .bk-block,
+  .bk-week__block,
+  .bk-pc-day__block,
+  .bk-pc-month__evt {
+    transition: none;
+  }
+  .bk-block:hover,
+  .bk-week__block:hover,
+  .bk-pc-day__block:hover,
+  .bk-pc-month__evt:hover {
+    transform: none;
+  }
+}
