@@ -709,7 +709,7 @@
     const subTxt = '예약 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + _krwShort(summ.rev) : '');
     const o = document.createElement('div');
     o.id = OVERLAY_ID;
-    o.className = 'cal-overlay-wrap bk-root';
+    o.className = 'bk-root bk-root--mobile';
     o.setAttribute('role', 'dialog');
     o.setAttribute('aria-modal', 'true');
     o.innerHTML = `
@@ -778,7 +778,7 @@
     const subTxt = '이번달 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + _krwShort(summ.rev) : '');
     const o = document.createElement('div');
     o.id = OVERLAY_ID;
-    o.className = 'cal-overlay-wrap bk-root bk-root--pc';
+    o.className = 'bk-root bk-root--pc';
     o.setAttribute('role', 'dialog');
     o.setAttribute('aria-modal', 'true');
     o.style.cssText = 'position:fixed;inset:0;z-index:9000;background:var(--surface);display:flex;flex-direction:column;';
