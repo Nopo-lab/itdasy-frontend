@@ -3,554 +3,349 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>잇데이 STUDIO - 뷰티샵의 미래, AI 오퍼레이터</title>
+    <title>Itdasy Studio — The OS for Modern Beauty Artists</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Animate On Scroll -->
-    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- GSAP for High-Fidelity Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700;900&family=Outfit:wght@100;400;900&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         brand: {
-                            black: '#000000',
-                            dark: '#0A0A0A',
-                            gray: '#1A1A1A',
-                            pink: '#E85C75',
-                            pinklight: '#FF8A9B',
-                            accent: '#22D3EE'
+                            bg: '#030303',      /* Linear-style deep background */
+                            card: '#0A0A0A',
+                            pink: '#FF4D8D',    /* More vibrant, electric pink */
+                            pinkglow: 'rgba(255, 77, 141, 0.4)',
+                            silver: '#888888',
+                            border: 'rgba(255, 255, 255, 0.08)'
                         }
                     },
                     fontFamily: {
-                        sans: ['Pretendard', 'Inter', 'sans-serif'],
-                    },
-                    animation: {
-                        'float': 'float 6s ease-in-out infinite',
-                        'spin-slow': 'spin 8s linear infinite',
-                        'glow': 'glow 2s ease-in-out infinite alternate',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-20px)' },
-                        },
-                        glow: {
-                            'from': { 'box-shadow': '0 0 10px #E85C75, 0 0 20px #E85C75' },
-                            'to': { 'box-shadow': '0 0 20px #E85C75, 0 0 40px #E85C75' }
-                        }
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
                     }
                 }
             }
         }
     </script>
-    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <style>
-        body { font-family: 'Pretendard', sans-serif; background-color: #000; color: #fff; overflow-x: hidden; }
-        .bento-card { background: #111; border: 1px solid rgba(255,255,255,0.05); transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1); overflow: hidden; }
-        .bento-card:hover { background: #151515; border-color: rgba(232, 92, 117, 0.3); transform: translateY(-5px); }
-        .text-glow { text-shadow: 0 0 15px rgba(232, 92, 117, 0.5); }
-        .pink-gradient { background: linear-gradient(135deg, #E85C75 0%, #FF8A9B 100%); }
-        .pink-blur { position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(232, 92, 117, 0.1) 0%, transparent 70%); filter: blur(60px); pointer-events: none; }
-        .active-feature { border-color: #E85C75 !important; background: rgba(232, 92, 117, 0.05) !important; }
-        .simulation-window { background: #0A0A0A; border: 4px solid #1A1A1A; border-radius: 3rem; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
-        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-        .scanner-line { width: 100%; height: 2px; background: #E85C75; box-shadow: 0 0 15px #E85C75; position: absolute; animation: scan 2s linear infinite; z-index: 10; }
+        :root { --pink: #FF4D8D; }
+        body { background-color: #030303; color: white; -webkit-font-smoothing: antialiased; }
+        
+        /* Premium Glow Effects */
+        .glass-card { background: rgba(10, 10, 10, 0.5); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); transition: all 0.5s ease; }
+        .glass-card:hover { border-color: rgba(255, 77, 141, 0.3); background: rgba(255, 77, 141, 0.02); }
+        
+        .metallic-text { background: linear-gradient(135deg, #fff 0%, #888 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .pink-gradient-text { background: linear-gradient(135deg, #FF4D8D 0%, #FF8A9B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
+        .glow-border { position: relative; }
+        .glow-border::after { content: ''; position: absolute; inset: -1px; background: linear-gradient(90deg, transparent, rgba(255, 77, 141, 0.5), transparent); z-index: -1; opacity: 0; transition: opacity 0.3s; }
+        .glow-border:hover::after { opacity: 1; }
+
+        /* Animation Keyframes */
+        @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0); } }
+        .animate-float { animation: float 6s ease-in-out infinite; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #030303; }
+        ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #333; }
+
+        .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 240px; gap: 20px; }
+        .bento-item { border-radius: 32px; padding: 40px; display: flex; flex-direction: column; justify-content: space-between; }
+        
+        /* Interactive Terminal Style */
+        .code-display { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; color: #888; }
+        .code-keyword { color: #FF4D8D; }
+        .code-string { color: #4ADE80; }
+        .code-comment { color: #444; }
     </style>
 </head>
-<body class="selection:bg-brand-pink/30 selection:text-brand-pink">
+<body class="overflow-x-hidden">
 
-    <!-- Header -->
-    <header class="fixed top-0 w-full z-[100] backdrop-blur-md border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-8 h-20 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-brand-pink rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-brand-pink/30">IT</div>
-                <div class="text-2xl font-black tracking-tighter">잇데이 <span class="text-brand-pink">STUDIO</span></div>
+    <!-- Premium Navigation -->
+    <nav class="fixed top-0 w-full z-[100] h-20 flex items-center justify-center px-10">
+        <div class="max-w-7xl w-full flex items-center justify-between glass-card px-8 h-14 rounded-full">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-brand-pink rounded-lg flex items-center justify-center font-black text-xs text-white">I</div>
+                <span class="font-display font-black text-xl tracking-tight">ITDASY <span class="text-brand-pink">STUDIO</span></span>
             </div>
-            <nav class="hidden lg:flex items-center gap-12 text-sm font-bold text-white/50 uppercase tracking-widest">
+            <div class="hidden md:flex items-center gap-10 text-[11px] uppercase tracking-[0.2em] font-bold text-white/40">
                 <a href="#vision" class="hover:text-white transition">Vision</a>
-                <a href="#features" class="hover:text-white transition">Features</a>
-                <a href="#demo" class="hover:text-white transition">Simulation</a>
+                <a href="#workflow" class="hover:text-white transition">Workflow</a>
+                <a href="#features" class="hover:text-white transition">Intelligence</a>
                 <a href="#pricing" class="hover:text-white transition">Pricing</a>
-            </nav>
-            <div class="flex items-center gap-6">
-                <button class="text-sm font-bold text-white/40 hover:text-white transition">Login</button>
-                <button class="pink-gradient px-8 py-3 rounded-full text-sm font-bold shadow-xl">Get Started</button>
+            </div>
+            <button class="bg-white text-black px-6 py-2 rounded-full text-xs font-black hover:bg-brand-pink hover:text-white transition-all">Get Access</button>
+        </div>
+    </nav>
+
+    <!-- Hero: Minimalist & High Impact -->
+    <section class="relative min-h-screen flex flex-col items-center justify-center pt-32 px-6 overflow-hidden">
+        <!-- Background Lighting -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-brand-pink/5 blur-[150px] rounded-full pointer-events-none"></div>
+        
+        <div class="text-center z-10 max-w-5xl" data-aos="fade-up">
+            <div class="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-black tracking-[0.3em] text-brand-pink mb-12 uppercase">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-pink opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-pink"></span>
+                </span>
+                The 2026 standard for beauty management
+            </div>
+            <h1 class="font-display text-7xl md:text-[140px] font-black leading-[0.9] tracking-tighter mb-12 metallic-text">
+                Your Artistry,<br>
+                <span class="pink-gradient-text italic">Automated.</span>
+            </h1>
+            <p class="text-white/40 text-xl md:text-2xl font-light mb-16 leading-relaxed max-w-3xl mx-auto">
+                Stop managing. Start creating. The first AI-native operating system designed to handle the friction of beauty shop operations with 99.9% autonomy.
+            </p>
+            <div class="flex flex-col md:flex-row items-center justify-center gap-6">
+                <button class="bg-white text-black px-12 py-6 rounded-2xl text-xl font-black shadow-[0_20px_50px_rgba(255,255,255,0.1)] hover:bg-brand-pink hover:text-white transition-all transform hover:scale-105">Start 14-Day Free Trial</button>
+                <button class="text-white/50 hover:text-white transition-all flex items-center gap-3 font-bold">
+                    Watch Product Demo <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path></svg>
+                </button>
             </div>
         </div>
-    </header>
 
-    <!-- Hero Section -->
-    <section class="relative min-h-screen flex items-center pt-24 overflow-hidden">
-        <div class="pink-blur top-[-10%] left-[-10%] animate-pulse"></div>
-        <div class="pink-blur bottom-[-10%] right-[-10%]" style="background: radial-gradient(circle, rgba(34, 211, 238, 0.05) 0%, transparent 70%);"></div>
+        <!-- Floating Mockup -->
+        <div class="mt-24 relative max-w-6xl w-full flex justify-center">
+            <div class="absolute -inset-10 bg-brand-pink/10 blur-[120px] rounded-full opacity-30"></div>
+            <img src="assets/hero_mockup.png" alt="App UI" class="w-full rounded-[4rem] border border-white/10 shadow-2xl animate-float">
+        </div>
+    </section>
 
-        <div class="max-w-7xl mx-auto px-8 grid lg:grid-cols-2 gap-20 items-center relative z-10">
-            <div data-aos="fade-right" data-aos-duration="1000">
-                <div class="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-brand-pink text-xs font-black tracking-widest mb-10">
-                    <span class="w-2 h-2 rounded-full bg-brand-pink animate-ping"></span>
-                    NEXT-GEN BEAUTY OS
+    <!-- One-Shot Workflow: "The Magic Moment" -->
+    <section id="workflow" class="py-48 bg-[#050505] relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-8 grid lg:grid-cols-2 gap-24 items-center">
+            <div class="space-y-12">
+                <h2 class="font-display text-5xl md:text-7xl font-black leading-tight tracking-tight">
+                    One Receipt.<br>
+                    <span class="text-brand-pink italic">One Command.</span><br>
+                    Infinite Updates.
+                </h2>
+                <div class="space-y-8 text-white/50 text-xl font-light leading-relaxed">
+                    <p>Itdasy doesn't just record data; it <span class="text-white font-bold italic">interprets</span> it. Take a photo of any receipt, or speak a single sentence. Our AI engines (app-assistant.js) parse entities in real-time, updating your revenue, inventory, and customer profile simultaneously.</p>
                 </div>
-                <h1 class="text-7xl lg:text-9xl font-black mb-10 leading-[0.95] tracking-tighter">
-                    말 <span class="text-brand-pink italic">한마디</span>로<br>
-                    매장이 <span class="text-brand-pink">움직인다.</span>
-                </h1>
-                <p class="text-white/40 text-xl lg:text-2xl font-medium mb-16 leading-relaxed max-w-xl">
-                    타이핑하지 마세요. "김서연님 5만원 카드 결제" 한마디면 예약, 매출, 재고, 고객 정보가 동시에 업데이트됩니다.
-                </p>
-                <div class="flex flex-wrap gap-6">
-                    <button class="pink-gradient px-12 py-6 rounded-2xl text-xl font-black shadow-2xl flex items-center gap-4 hover:scale-105 transition">
-                        지금 무료로 시작하기 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-                    </button>
-                    <button class="bg-white/5 border border-white/10 px-12 py-6 rounded-2xl text-xl font-black hover:bg-white/10 transition">
-                        기능 영상 보기
-                    </button>
+                <div class="flex flex-col gap-6">
+                    <div class="flex items-center gap-5 p-6 rounded-3xl bg-white/5 border border-white/10">
+                        <div class="w-12 h-12 rounded-full bg-brand-pink/20 flex items-center justify-center text-xl">🎤</div>
+                        <p class="text-sm font-medium italic">"김서연님 속눈썹 5만원 재고 베이스 1개 썼어"</p>
+                    </div>
+                    <div class="flex items-center gap-2 justify-center text-brand-pink font-bold text-xs uppercase tracking-widest">
+                        <span class="w-10 h-px bg-brand-pink/30"></span>
+                        Handled by Neural Engine 4.1
+                        <span class="w-10 h-px bg-brand-pink/30"></span>
+                    </div>
                 </div>
             </div>
 
-            <div class="relative hidden lg:flex justify-center items-center" data-aos="zoom-in" data-aos-duration="1200">
-                <div class="absolute inset-0 bg-brand-pink/5 blur-[120px] rounded-full"></div>
-                <div class="relative z-10 animate-float">
-                    <img src="assets/hero_mockup.png" alt="App Preview" class="w-full max-w-[500px] drop-shadow-[0_50px_50px_rgba(232,92,117,0.2)] rounded-[4rem]">
+            <div class="relative">
+                <div class="glass-card p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-8 border-b border-white/5 pb-6">
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500/30"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500/30"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500/30"></div>
+                        </div>
+                        <span class="text-[10px] font-mono opacity-20 tracking-widest">SYSTEM_LOG::STREAM_02</span>
+                    </div>
+                    <div class="code-display h-[400px] overflow-hidden">
+                        <div class="mb-4 text-brand-pink font-bold text-[10px] uppercase">Processing AI Voice Input...</div>
+                        <div class="space-y-2 opacity-80">
+                            <div><span class="code-comment">// Authenticating Session...</span></div>
+                            <div><span class="code-keyword">await</span> <span class="text-blue-400">auth.getToken</span>();</div>
+                            <div><span class="code-keyword">const</span> data = <span class="code-keyword">await</span> <span class="text-blue-400">assistant.parse</span>(<span class="code-string">"김서연 속눈썹..."</span>);</div>
+                            <div class="pl-4"><span class="code-comment">// [ENTITY_MATCH] Customer: 김서연 (ID: 8291)</span></div>
+                            <div class="pl-4"><span class="code-comment">// [ACTION] revenue_add: 50,000 KRW</span></div>
+                            <div class="pl-4"><span class="code-comment">// [ACTION] inventory_decrement: Base Tip -1</span></div>
+                            <div><span class="code-keyword">await</span> <span class="text-blue-400">revenue.commit</span>(data.revenue);</div>
+                            <div><span class="code-keyword">await</span> <span class="text-blue-400">inventory.adjust</span>(data.inventory);</div>
+                            <div class="mt-8 p-4 bg-brand-pink/10 border border-brand-pink/20 rounded-xl text-brand-pink font-black text-center animate-pulse">
+                                TRANSACTION SUCCESSFUL
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Bento Grid Features -->
-    <section id="features" class="max-w-7xl mx-auto px-8 py-32">
-        <div class="text-center mb-24" data-aos="fade-up">
-            <h2 class="text-5xl lg:text-7xl font-black mb-8 leading-tight tracking-tight">
-                원장님은 <span class="text-brand-pink">예술</span>에만 집중하세요.<br>
-                나머지는 <span class="text-brand-pink">AI</span>가 합니다.
-            </h2>
-            <p class="text-white/40 text-xl">실제 소스코드의 워크플로우가 그대로 녹아있는 핵심 기능들입니다.</p>
+    <!-- Bento Intelligence Grid -->
+    <section id="features" class="py-48 max-w-7xl mx-auto px-8">
+        <div class="text-center mb-32">
+            <h2 class="font-display text-5xl md:text-7xl font-black mb-8 leading-tight">Everything you need.<br><span class="text-brand-pink">Nothing you don't.</span></h2>
+            <p class="text-white/30 text-xl">The modular intelligence architecture of Itdasy Studio.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            <!-- AI Assistant -->
-            <div class="bento-card md:col-span-2 p-10 rounded-[3rem] relative group" data-aos="fade-up">
-                <div class="flex justify-between items-start mb-12">
-                    <div class="w-16 h-16 bg-brand-pink/10 rounded-2xl flex items-center justify-center text-3xl">🤖</div>
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">app-assistant.js</span>
+        <div class="grid grid-cols-1 md:grid-cols-4 grid-rows-2 gap-6 h-[1000px]">
+            <!-- DM Auto -->
+            <div class="md:col-span-2 glass-card bento-item p-12">
+                <div>
+                    <div class="text-[10px] font-black text-brand-pink uppercase tracking-[0.3em] mb-4">app-dm-autoreply.js</div>
+                    <h3 class="text-4xl font-black mb-6">DM Concierge</h3>
+                    <p class="text-white/40 leading-relaxed max-w-xs">AI replies to price inquiries and booking requests while you sleep. High conversion, zero effort.</p>
                 </div>
-                <h3 class="text-3xl font-black mb-4">AI 스마트 챗봇 비서</h3>
-                <p class="text-white/40 leading-relaxed mb-10">
-                    NLP 엔진이 일상 언어를 이해합니다. "어제 매출 얼마야?", "누가 제일 많이 왔어?" 질문만 하세요. 백엔드가 즉시 리포트를 생성합니다.
-                </p>
-                <div class="absolute bottom-[-20%] right-[-10%] w-48 h-48 bg-brand-pink/10 blur-3xl rounded-full group-hover:scale-150 transition duration-1000"></div>
-            </div>
-
-            <!-- DM Auto-reply -->
-            <div class="bento-card p-10 rounded-[3rem] group" data-aos="fade-up" data-aos-delay="100">
-                <div class="flex justify-between items-start mb-12">
-                    <div class="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center text-3xl">💬</div>
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">app-dm-autoreply.js</span>
+                <div class="w-full h-32 bg-white/5 rounded-2xl relative overflow-hidden p-6 flex flex-col justify-end">
+                    <div class="flex gap-2">
+                        <div class="w-2 h-2 rounded-full bg-brand-pink"></div>
+                        <div class="w-20 h-2 bg-brand-pink/20 rounded"></div>
+                    </div>
                 </div>
-                <h3 class="text-2xl font-black mb-4">DM 자동응답</h3>
-                <p class="text-white/40 text-sm leading-relaxed">
-                    시술 중 끊임없이 오는 가격/예약 문의. AI가 매장 정보를 바탕으로 친절하게 대신 응답합니다.
-                </p>
-            </div>
-
-            <!-- Receipt Scan -->
-            <div class="bento-card p-10 rounded-[3rem] group" data-aos="fade-up" data-aos-delay="200">
-                <div class="flex justify-between items-start mb-12">
-                    <div class="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center text-3xl">🧾</div>
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">app-receipt-scan.js</span>
-                </div>
-                <h3 class="text-2xl font-black mb-4">원터치 영수증</h3>
-                <p class="text-white/40 text-sm leading-relaxed">
-                    마트 영수증 사진 한 장이면 지출 등록 끝. AI OCR이 품목과 금액을 완벽히 읽어냅니다.
-                </p>
             </div>
 
             <!-- Inventory -->
-            <div class="bento-card p-10 rounded-[3rem] group" data-aos="fade-up">
-                <div class="flex justify-between items-start mb-12">
-                    <div class="w-16 h-16 bg-yellow-500/10 rounded-2xl flex items-center justify-center text-3xl">📦</div>
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">app-inventory.js</span>
+            <div class="glass-card bento-item p-10 flex flex-col justify-between">
+                <div class="text-[10px] font-black text-brand-pink uppercase mb-4">app-inventory.js</div>
+                <h3 class="text-2xl font-black">Stock<br>Forecaster</h3>
+                <div class="w-full aspect-square bg-brand-pink/10 rounded-full flex items-center justify-center">
+                    <span class="text-brand-pink text-4xl font-black">9%</span>
                 </div>
-                <h3 class="text-2xl font-black mb-4">스마트 재고관리</h3>
-                <p class="text-white/40 text-sm leading-relaxed">
-                    임계치 도달 시 자동 알림. 시술 입력 시 소모품 수량이 실시간으로 자동 차감됩니다.
-                </p>
             </div>
 
             <!-- AI Caption -->
-            <div class="bento-card md:col-span-2 p-10 rounded-[3rem] group" data-aos="fade-up" data-aos-delay="100">
-                <div class="flex justify-between items-start mb-12">
-                    <div class="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center text-3xl">📸</div>
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">app-caption.js</span>
-                </div>
-                <h3 class="text-3xl font-black mb-4">AI 캡션 & 자동 업로드</h3>
-                <p class="text-white/40 leading-relaxed">
-                    사진을 올리면 매장 분위기에 맞는 인스타 캡션과 해시태그를 1초 만에 완성합니다. 터치 한 번에 인스타그램으로 직접 발행까지.
-                </p>
+            <div class="glass-card bento-item p-10">
+                <div class="text-[10px] font-black text-brand-pink uppercase mb-4">app-caption.js</div>
+                <h3 class="text-2xl font-black">Viral<br>Engine</h3>
+                <p class="text-white/40 text-xs mt-4">Generate captions and post to Instagram in one click.</p>
             </div>
 
-            <!-- Sales & Analytics -->
-            <div class="bento-card p-10 rounded-[3rem] group" data-aos="fade-up" data-aos-delay="200">
-                <div class="flex justify-between items-start mb-12">
-                    <div class="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center text-3xl">📈</div>
-                    <span class="text-[10px] font-bold text-white/30 uppercase tracking-widest">app-revenue.js</span>
+            <!-- Revenue -->
+            <div class="glass-card bento-item p-10 md:col-span-1">
+                <div class="text-[10px] font-black text-brand-pink uppercase mb-4">app-revenue.js</div>
+                <h3 class="text-2xl font-black">P&L Radar</h3>
+                <div class="mt-8 space-y-2">
+                    <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden"><div class="h-full bg-brand-pink w-3/4"></div></div>
+                    <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden"><div class="h-full bg-white/20 w-1/2"></div></div>
                 </div>
-                <h3 class="text-2xl font-black mb-4">매출 분석</h3>
-                <p class="text-white/40 text-sm leading-relaxed">
-                    방문 주기, 재방문율, 단가 분석까지. 백엔드 알고리즘이 매장의 성장 지표를 그려드립니다.
-                </p>
+            </div>
+
+            <!-- Dashboard Mockup -->
+            <div class="md:col-span-3 glass-card bento-item p-12 overflow-hidden relative">
+                <div class="relative z-10">
+                    <div class="text-[10px] font-black text-brand-pink uppercase tracking-[0.3em] mb-4">Real-time Interface</div>
+                    <h3 class="text-4xl font-black mb-6">Built for High-End Studios.</h3>
+                    <p class="text-white/40 leading-relaxed max-w-md">Our dashboard is designed to be invisible. Only see what matters, when it matters. Powered by an ultra-low latency SWR caching system (60s TTL).</p>
+                </div>
+                <img src="assets/IAP-Screenshot-Pro.png" class="absolute bottom-[-10%] right-[-10%] w-[500px] rounded-3xl border border-white/10 rotate-[-5deg] opacity-40 group-hover:rotate-0 transition-all duration-700">
             </div>
         </div>
     </section>
 
-    <!-- Interactive Simulation Playground -->
-    <section id="demo" class="bg-brand-dark py-32 overflow-hidden border-y border-white/5">
-        <div class="max-w-7xl mx-auto px-8 flex flex-col lg:flex-row items-center gap-24">
-            <div class="lg:w-1/2" data-aos="fade-right">
-                <h2 class="text-6xl font-black mb-10 leading-tight tracking-tighter">
-                    실제 앱의 <span class="text-brand-pink">핵심 로직</span>을<br>여기서 지금 바로 <span class="text-brand-pink italic">체험</span>하세요
-                </h2>
-                <div class="space-y-4">
-                    <button onclick="runSimulation('receipt')" class="sim-btn w-full text-left p-8 rounded-3xl bg-brand-gray border border-white/5 transition-all flex items-center gap-6" id="btn-receipt">
-                        <span class="text-3xl">🧾</span>
-                        <div>
-                            <div class="font-black text-xl mb-1">영수증 하나로 매출/재고 끝</div>
-                            <div class="text-white/30 text-sm">app-receipt-scan.js + AI Vision</div>
-                        </div>
-                    </button>
-                    <button onclick="runSimulation('voice')" class="sim-btn w-full text-left p-8 rounded-3xl bg-brand-gray border border-white/5 transition-all flex items-center gap-6" id="btn-voice">
-                        <span class="text-3xl">🎤</span>
-                        <div>
-                            <div class="font-black text-xl mb-1">말 한마디로 전체 매장 관리</div>
-                            <div class="text-white/30 text-sm">app-assistant.js + NLP Engine</div>
-                        </div>
-                    </button>
-                    <button onclick="runSimulation('caption')" class="sim-btn w-full text-left p-8 rounded-3xl bg-brand-gray border border-white/5 transition-all flex items-center gap-6" id="btn-caption">
-                        <span class="text-3xl">✨</span>
-                        <div>
-                            <div class="font-black text-xl mb-1">AI 캡션 및 자동 업로드</div>
-                            <div class="text-white/30 text-sm">app-caption.js + Insta Graph API</div>
-                        </div>
-                    </button>
-                    <button onclick="runSimulation('dm')" class="sim-btn w-full text-left p-8 rounded-3xl bg-brand-gray border border-white/5 transition-all flex items-center gap-6" id="btn-dm">
-                        <span class="text-3xl">💬</span>
-                        <div>
-                            <div class="font-black text-xl mb-1">AI 챗봇 자동 응대</div>
-                            <div class="text-white/30 text-sm">app-dm-autoreply.js + LLM</div>
-                        </div>
-                    </button>
+    <!-- Pricing: Elegant & Clear -->
+    <section id="pricing" class="py-48 bg-[#030303]">
+        <div class="max-w-4xl mx-auto px-8 text-center">
+            <h2 class="font-display text-5xl md:text-7xl font-black mb-24">Simple pricing for<br><span class="text-brand-pink">limitless growth.</span></h2>
+            
+            <div class="grid md:grid-cols-2 gap-10 text-left items-stretch">
+                <!-- Free -->
+                <div class="glass-card p-12 rounded-[3rem] border-white/5 flex flex-col">
+                    <h4 class="text-white/30 font-black mb-8 uppercase tracking-widest text-[10px]">Essential</h4>
+                    <div class="text-5xl font-black mb-12">₩0 <span class="text-sm font-normal opacity-20">/ month</span></div>
+                    <ul class="space-y-4 mb-16 text-white/40 font-medium">
+                        <li class="flex items-center gap-3">✓ 100 Customers / Month</li>
+                        <li class="flex items-center gap-3">✓ Basic AI Caption</li>
+                        <li class="flex items-center gap-3">✓ Standard CRM</li>
+                    </ul>
+                    <button class="w-full mt-auto py-5 rounded-2xl border border-white/10 font-black hover:bg-white/5 transition">Join the waitlist</button>
                 </div>
-            </div>
 
-            <!-- Phone Simulation -->
-            <div class="lg:w-1/2 relative flex justify-center" data-aos="zoom-in">
-                <div class="absolute inset-0 bg-brand-pink/10 blur-[100px] rounded-full"></div>
-                <div class="simulation-window w-[360px] h-[740px] relative z-10 p-4 shadow-2xl">
-                    <!-- Top Notch -->
-                    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-8 bg-[#1A1A1A] rounded-b-3xl z-20 flex items-center justify-center">
-                        <div class="w-12 h-1 bg-black rounded-full"></div>
-                    </div>
-                    
-                    <div id="sim-display" class="h-full w-full rounded-[2.5rem] bg-brand-black overflow-hidden relative border border-white/10 custom-scrollbar overflow-y-auto">
-                        <!-- Initial Content -->
-                        <div class="h-full flex flex-col items-center justify-center p-10 text-center">
-                            <div class="w-24 h-24 rounded-full bg-brand-pink/10 flex items-center justify-center mb-8">
-                                <span class="text-5xl animate-bounce">📱</span>
-                            </div>
-                            <h3 class="text-2xl font-black mb-4 uppercase tracking-tighter">Ready to Test</h3>
-                            <p class="text-white/30 text-sm leading-relaxed">왼쪽의 실제 기능을 선택하여<br>앱이 어떻게 작동하는지 확인하세요.</p>
-                        </div>
-                    </div>
+                <!-- Pro -->
+                <div class="glass-card p-14 rounded-[3.5rem] border-brand-pink/50 bg-brand-pink/[0.03] shadow-[0_40px_100px_rgba(255,77,141,0.1)] flex flex-col relative overflow-hidden">
+                    <div class="absolute top-8 right-12 text-[8px] font-black text-brand-pink uppercase tracking-widest bg-brand-pink/10 px-3 py-1 rounded-full">Pro Choice</div>
+                    <h4 class="text-brand-pink font-black mb-8 uppercase tracking-widest text-[10px]">Master Pro</h4>
+                    <div class="text-6xl font-black mb-12 text-white">₩4,900 <span class="text-sm font-normal opacity-20 text-white/50">/ month</span></div>
+                    <ul class="space-y-6 mb-16 text-white/80 font-bold">
+                        <li class="flex items-center gap-4"><span class="text-brand-pink">●</span> Unlimited AI Captions</li>
+                        <li class="flex items-center gap-4"><span class="text-brand-pink">●</span> AI Voice Assistant (Full)</li>
+                        <li class="flex items-center gap-4"><span class="text-brand-pink">●</span> DM Auto-Concierge</li>
+                        <li class="flex items-center gap-4"><span class="text-brand-pink">●</span> Predictive Analytics</li>
+                    </ul>
+                    <button class="w-full mt-auto py-6 rounded-3xl bg-brand-pink text-white font-black text-xl shadow-2xl hover:scale-105 transition-all">Get Full Access</button>
                 </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Pricing -->
-    <section id="pricing" class="py-32 relative max-w-7xl mx-auto px-8">
-        <div class="text-center mb-24">
-            <h2 class="text-6xl font-black mb-8 leading-tight">합리적인 투자,<br><span class="text-brand-pink">압도적인 결과</span></h2>
-            <p class="text-white/40 text-xl">모든 요금제는 14일 무료 체험을 포함합니다.</p>
-        </div>
-
-        <div class="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto items-end">
-            <!-- Free -->
-            <div class="bento-card p-12 rounded-[4rem] border border-white/5" data-aos="fade-up">
-                <div class="text-white/30 font-black mb-6 uppercase tracking-widest text-xs">Essential</div>
-                <div class="text-6xl font-black mb-10">₩0<span class="text-sm font-normal text-white/20 italic">/mo</span></div>
-                <ul class="space-y-4 mb-16 text-white/50 font-medium text-sm">
-                    <li>✓ AI 캡션 월 5회</li>
-                    <li>✓ 예약/매출 100건</li>
-                    <li>✓ 기초 재고 관리</li>
-                    <li>✓ 인스타 1계정 연동</li>
-                </ul>
-                <button class="w-full py-5 rounded-2xl bg-white/5 border border-white/10 font-bold hover:bg-white/10 transition">Start Free</button>
-            </div>
-
-            <!-- Pro Master -->
-            <div class="bg-brand-gray p-14 rounded-[4.5rem] border-4 border-brand-pink shadow-[0_20px_100px_rgba(232,92,117,0.2)] transform scale-110 relative z-10" data-aos="fade-up" data-aos-delay="100">
-                <div class="absolute -top-6 left-1/2 -translate-x-1/2 pink-gradient text-white px-6 py-2 rounded-full font-black text-xs tracking-widest">MOST POPULAR</div>
-                <div class="text-brand-pink font-black mb-6 uppercase tracking-widest text-xs">Pro Master</div>
-                <div class="text-7xl font-black mb-10">₩4,900<span class="text-sm font-normal text-white/20 italic">/mo</span></div>
-                <ul class="space-y-6 mb-16 text-white/90 font-bold text-lg leading-tight">
-                    <li class="flex items-center gap-3">✓ AI 캡션 <span class="text-brand-pink">무제한</span></li>
-                    <li class="flex items-center gap-3">✓ AI 음성 오퍼레이터</li>
-                    <li class="flex items-center gap-3">✓ DM 자동응답 시스템</li>
-                    <li class="flex items-center gap-3">✓ 매출 분석 & 예측</li>
-                    <li class="flex items-center gap-3">✓ 영수증 OCR 스캔</li>
-                </ul>
-                <button class="w-full py-6 rounded-3xl pink-gradient text-white font-black text-xl shadow-2xl hover:scale-105 transition">Try 14 Days Free</button>
-            </div>
-
-            <!-- Studio -->
-            <div class="bento-card p-12 rounded-[4rem] border border-white/5" data-aos="fade-up" data-aos-delay="200">
-                <div class="text-white/30 font-black mb-6 uppercase tracking-widest text-xs">Studio</div>
-                <div class="text-6xl font-black mb-10">₩9,900<span class="text-sm font-normal text-white/20 italic">/mo</span></div>
-                <ul class="space-y-4 mb-16 text-white/50 font-medium text-sm">
-                    <li>✓ Pro 모든 기능 포함</li>
-                    <li>✓ 예약 대기 전용 링크</li>
-                    <li>✓ 블랙리스트/노쇼 가드</li>
-                    <li>✓ 다수 계정 통합 관리</li>
-                </ul>
-                <button class="w-full py-5 rounded-2xl bg-white/5 border border-white/10 font-bold hover:bg-white/10 transition">Contact Us</button>
             </div>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="py-32 border-t border-white/5 bg-brand-dark">
-        <div class="max-w-7xl mx-auto px-8 grid md:grid-cols-2 gap-24">
+    <footer class="py-32 border-t border-white/5">
+        <div class="max-w-7xl mx-auto px-10 flex flex-col md:flex-row justify-between items-start gap-20">
             <div>
-                <div class="text-3xl font-black mb-8">잇데이 <span class="text-brand-pink">STUDIO</span></div>
-                <p class="text-white/30 text-xl leading-relaxed mb-12">
-                    단순한 앱이 아닙니다. 원장님의 샵을 지능형 비즈니스로 바꾸는<br>
-                    강력한 AI 파트너입니다. 지금 바로 성장을 시작하세요.
+                <div class="font-display font-black text-3xl mb-10 tracking-tight">ITDASY <span class="text-brand-pink">STUDIO</span></div>
+                <p class="text-white/20 text-sm leading-loose max-w-sm">
+                    Reimagining the business of beauty through the lens of artificial intelligence. Based in Korea, built for the world.
                 </p>
-                <div class="text-[10px] text-white/10 uppercase tracking-widest leading-loose">
-                    상호: 와이투두(Y2do) | 대표: 강연준 | 사업자등록번호: 179-36-01681<br>
-                    주소: 경기도 화성시 효행로 1068, 6층 | contact@itdasy.com
-                </div>
             </div>
-            <div class="grid grid-cols-2 gap-12">
-                <div>
-                    <h5 class="text-white font-black mb-8 uppercase tracking-widest text-xs">Technology</h5>
-                    <ul class="space-y-4 text-white/40 font-bold text-sm">
-                        <li><a href="#" class="hover:text-white transition">Gemini Engine</a></li>
-                        <li><a href="#" class="hover:text-white transition">FastAPI Backend</a></li>
-                        <li><a href="#" class="hover:text-white transition">Security Info</a></li>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-20">
+                <div class="space-y-6">
+                    <h6 class="text-white font-black text-[10px] uppercase tracking-[0.2em]">Product</h6>
+                    <ul class="text-white/20 text-xs space-y-4 font-bold">
+                        <li><a href="#" class="hover:text-white transition">Intelligence</a></li>
+                        <li><a href="#" class="hover:text-white transition">Voice Engine</a></li>
+                        <li><a href="#" class="hover:text-white transition">Instagram API</a></li>
                     </ul>
                 </div>
-                <div>
-                    <h5 class="text-white font-black mb-8 uppercase tracking-widest text-xs">Company</h5>
-                    <ul class="space-y-4 text-white/40 font-bold text-sm">
-                        <li><a href="#" class="hover:text-white transition">Terms of Service</a></li>
-                        <li><a href="#" class="hover:text-white transition">Privacy Policy</a></li>
-                        <li><a href="#" class="hover:text-white transition">Guide Center</a></li>
+                <div class="space-y-6">
+                    <h6 class="text-white font-black text-[10px] uppercase tracking-[0.2em]">Company</h6>
+                    <ul class="text-white/20 text-xs space-y-4 font-bold">
+                        <li><a href="#" class="hover:text-white transition">About</a></li>
+                        <li><a href="#" class="hover:text-white transition">Privacy</a></li>
+                        <li><a href="#" class="hover:text-white transition">Terms</a></li>
                     </ul>
                 </div>
             </div>
         </div>
+        <div class="max-w-7xl mx-auto px-10 mt-32 pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between gap-10">
+            <div class="text-[9px] text-white/10 uppercase tracking-widest font-black">© 2026 Y2DO. All rights reserved. Built with GSAP & Neural Engines.</div>
+            <div class="flex gap-10">
+                <div class="text-[9px] text-white/10 uppercase tracking-widest">LinkedIn</div>
+                <div class="text-[9px] text-white/10 uppercase tracking-widest">Instagram</div>
+            </div>
+        </div>
     </footer>
 
-    <!-- Simulation Script -->
     <script>
-        AOS.init({ once: true });
+        gsap.registerPlugin(ScrollTrigger);
 
-        function runSimulation(type) {
-            const display = document.getElementById('sim-display');
-            const btns = document.querySelectorAll('.sim-btn');
-            btns.forEach(b => b.classList.remove('active-feature'));
-            document.getElementById('btn-' + type).classList.add('active-feature');
+        // Smooth Scroll & Fade In for Sections
+        gsap.utils.toArray('section').forEach(section => {
+            gsap.from(section, {
+                opacity: 0,
+                y: 50,
+                duration: 1.5,
+                ease: 'power4.out',
+                scrollTrigger: {
+                    trigger: section,
+                    start: 'top 80%',
+                    toggleActions: 'play none none none'
+                }
+            });
+        });
 
-            if (type === 'receipt') {
-                display.innerHTML = `
-                    <div class="p-8 animate-in fade-in duration-500">
-                        <div class="flex items-center justify-between mb-8">
-                            <span class="text-xs font-black text-brand-pink uppercase tracking-widest">Receipt Scan</span>
-                            <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs">📷</div>
-                        </div>
-                        <div class="relative w-full aspect-[3/4] bg-gray-900 rounded-3xl overflow-hidden mb-8 group">
-                            <img src="https://images.unsplash.com/photo-1593642532842-98d0fd5ebc1a?auto=format&fit=crop&q=80&w=400" class="w-full h-full object-cover opacity-40">
-                            <div class="scanner-line"></div>
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <span class="bg-brand-pink/20 text-brand-pink px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest">Analyzing items...</span>
-                            </div>
-                        </div>
-                        <div class="space-y-3 opacity-30">
-                            <div class="h-3 w-full bg-white/10 rounded-full"></div>
-                            <div class="h-3 w-4/5 bg-white/10 rounded-full"></div>
-                        </div>
-                    </div>
-                `;
-                
-                setTimeout(() => {
-                    display.innerHTML = `
-                        <div class="p-8 animate-in slide-in-from-bottom-10 duration-700">
-                            <div class="flex items-center justify-between mb-10">
-                                <span class="text-xs font-black text-green-400 uppercase tracking-widest">Scan Complete</span>
-                                <span class="text-green-400">✅</span>
-                            </div>
-                            <div class="space-y-6">
-                                <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-                                    <div class="text-[10px] text-white/30 uppercase mb-2">Vendor</div>
-                                    <div class="font-black">네일 재료 상사</div>
-                                </div>
-                                <div class="p-5 rounded-2xl bg-white/5 border border-white/10">
-                                    <div class="text-[10px] text-white/30 uppercase mb-2">Item recognized</div>
-                                    <div class="font-black text-brand-pink">젤네일 베이스 3개</div>
-                                    <div class="text-xs text-white/30 mt-1">재고 임계치 자동 도달 확인됨</div>
-                                </div>
-                                <div class="p-5 rounded-2xl bg-brand-pink/10 border border-brand-pink/30">
-                                    <div class="text-[10px] text-brand-pink uppercase mb-2">Total Amount</div>
-                                    <div class="text-2xl font-black">₩36,000</div>
-                                </div>
-                            </div>
-                            <button class="w-full mt-10 py-5 pink-gradient rounded-2xl font-black shadow-2xl">장부 및 재고 일괄 등록</button>
-                        </div>
-                    `;
-                }, 2500);
-            } else if (type === 'voice') {
-                display.innerHTML = `
-                    <div class="p-8 h-full flex flex-col justify-center items-center text-center">
-                        <div class="w-32 h-32 rounded-full border-4 border-brand-pink flex items-center justify-center mb-10 relative">
-                            <div class="absolute inset-0 bg-brand-pink/20 rounded-full animate-ping"></div>
-                            <span class="text-5xl">🎙️</span>
-                        </div>
-                        <h4 class="text-2xl font-black mb-4">Listening...</h4>
-                        <p class="text-white/40 font-medium italic text-lg leading-relaxed px-4">
-                            "김서연 속눈썹 5만원 <br> 재고 베이스 1개 썼어"
-                        </p>
-                    </div>
-                `;
-                
-                setTimeout(() => {
-                    display.innerHTML = `
-                        <div class="p-8 animate-in zoom-in duration-500">
-                             <div class="flex items-center justify-between mb-10">
-                                <span class="text-xs font-black text-cyan-400 uppercase tracking-widest">Multi-Engine Task</span>
-                                <span class="text-cyan-400">🤖</span>
-                            </div>
-                            <div class="space-y-4">
-                                <div class="p-6 bg-white/5 border border-white/10 rounded-3xl flex items-center gap-4">
-                                    <span class="text-2xl">👤</span>
-                                    <div class="text-left">
-                                        <div class="text-[10px] text-white/30 uppercase">Customer</div>
-                                        <div class="font-black">김서연 등록 완료</div>
-                                    </div>
-                                </div>
-                                <div class="p-6 bg-white/5 border border-white/10 rounded-3xl flex items-center gap-4">
-                                    <span class="text-2xl">💰</span>
-                                    <div class="text-left">
-                                        <div class="text-[10px] text-white/30 uppercase">Sales</div>
-                                        <div class="font-black text-brand-pink">50,000원 기록</div>
-                                    </div>
-                                </div>
-                                <div class="p-6 bg-white/5 border border-white/10 rounded-3xl flex items-center gap-4">
-                                    <span class="text-2xl">📦</span>
-                                    <div class="text-left">
-                                        <div class="text-[10px] text-white/30 uppercase">Inventory</div>
-                                        <div class="font-black text-yellow-500">베이스 -1개 차감</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-12 text-[10px] text-center text-white/20 uppercase tracking-widest">Handled by app-assistant.js</div>
-                        </div>
-                    `;
-                }, 3000);
-            } else if (type === 'caption') {
-                display.innerHTML = `
-                    <div class="p-6 flex flex-col h-full">
-                        <div class="w-full aspect-square bg-gray-900 rounded-[2rem] overflow-hidden mb-8 relative">
-                             <img src="https://images.unsplash.com/photo-1600003014755-931ff9ad21b6?auto=format&fit=crop&q=80&w=400" class="w-full h-full object-cover">
-                             <div class="absolute inset-0 bg-brand-black/60 flex flex-col items-center justify-center">
-                                <div class="w-10 h-10 border-4 border-brand-pink border-t-transparent rounded-full animate-spin mb-4"></div>
-                                <span class="text-[10px] font-black text-brand-pink uppercase tracking-[0.2em]">AI Generating Caption...</span>
-                             </div>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="h-3 w-full bg-white/5 rounded-full animate-pulse"></div>
-                            <div class="h-3 w-5/6 bg-white/5 rounded-full animate-pulse"></div>
-                        </div>
-                    </div>
-                `;
-                
-                setTimeout(() => {
-                    display.innerHTML = `
-                        <div class="p-6 flex flex-col h-full animate-in fade-in duration-700">
-                             <div class="w-full aspect-square bg-gray-900 rounded-[2rem] overflow-hidden mb-6 shadow-2xl">
-                                <img src="https://images.unsplash.com/photo-1600003014755-931ff9ad21b6?auto=format&fit=crop&q=80&w=400" class="w-full h-full object-cover">
-                            </div>
-                            <div class="bg-brand-gray p-6 rounded-3xl border border-white/10 relative">
-                                <div class="absolute -top-3 left-6 pink-gradient px-3 py-1 rounded-full text-[8px] font-black uppercase">AI SUGGESTED</div>
-                                <p class="text-xs leading-relaxed text-white/80">
-                                    오늘 무드는 딥-코랄 ✨ 잇데이 비서가 정교하게 분석한 고객님 톤에 딱 맞는 디자인이에요. 사진 찍자마자 완성되는 AI 캡션으로 퇴근 시간을 앞당기세요! 💖
-                                </p>
-                                <div class="mt-4 flex gap-2 text-[8px] text-brand-pink font-black uppercase">
-                                    <span>#코랄네일</span> <span>#잇데이AI</span> <span>#이달의아트</span>
-                                </div>
-                            </div>
-                            <button class="w-full mt-auto py-5 pink-gradient rounded-2xl font-black text-sm flex items-center justify-center gap-3">
-                                인스타그램 즉시 발행 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                            </button>
-                        </div>
-                    `;
-                }, 2000);
-            } else if (type === 'dm') {
-                display.innerHTML = `
-                    <div class="p-6 h-full flex flex-col">
-                        <div class="flex items-center gap-4 mb-10">
-                            <div class="w-10 h-10 rounded-full bg-brand-pink/20 flex items-center justify-center font-bold text-xs">🤖</div>
-                            <div class="text-xs font-black uppercase tracking-widest text-white/30">AI DM Concierge</div>
-                        </div>
-                        <div class="space-y-6">
-                            <div class="flex gap-3">
-                                <div class="w-8 h-8 rounded-full bg-gray-800 shrink-0"></div>
-                                <div class="bg-gray-800 p-4 rounded-2xl rounded-tl-none text-[11px] text-white/80 leading-relaxed shadow-lg">
-                                    "사장님, 혹시 이번 주 토요일 오후 2시 예약 가능할까요? 속눈썹 펌 가격도 궁금해요!"
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-center gap-4 py-8">
-                                <div class="w-6 h-6 border-2 border-brand-pink border-t-transparent rounded-full animate-spin"></div>
-                                <span class="text-[8px] font-black text-brand-pink uppercase tracking-widest">AI Thinking...</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                
-                setTimeout(() => {
-                    display.innerHTML = `
-                        <div class="p-6 h-full flex flex-col animate-in slide-in-from-right-10 duration-700">
-                             <div class="flex items-center gap-4 mb-10">
-                                <div class="w-10 h-10 rounded-full bg-brand-pink/20 flex items-center justify-center font-bold text-xs">🤖</div>
-                                <div class="text-xs font-black uppercase tracking-widest text-white/30">AI DM Concierge</div>
-                            </div>
-                            <div class="space-y-6">
-                                <div class="flex gap-3 opacity-40">
-                                    <div class="w-8 h-8 rounded-full bg-gray-800 shrink-0"></div>
-                                    <div class="bg-gray-800 p-4 rounded-2xl rounded-tl-none text-[11px]">
-                                        "이번 주 토요일 오후 2시 예약 가능할까요?"
-                                    </div>
-                                </div>
-                                <div class="flex gap-3 justify-end">
-                                    <div class="bg-brand-pink p-4 rounded-3xl rounded-tr-none text-[11px] text-white font-bold leading-relaxed shadow-xl max-w-[85%]">
-                                        "안녕하세요! 네, 이번 주 토요일 2시 예약 가능합니다 ✨ 속눈썹 펌은 기본 5만원이며, 잇데이 스튜디오만의 프리미엄 케어가 포함됩니다. 예약을 진행해드릴까요?"
-                                    </div>
-                                    <div class="w-8 h-8 rounded-full bg-brand-pink flex items-center justify-center font-bold text-[8px] shrink-0">IT</div>
-                                </div>
-                            </div>
-                            <div class="mt-12 p-4 bg-green-500/10 border border-green-500/30 rounded-2xl text-center">
-                                <span class="text-[10px] text-green-400 font-black">AI가 고객의 예약 의사를 감지했습니다!</span>
-                            </div>
-                        </div>
-                    `;
-                }, 2500);
-            }
-        }
+        // Interactive Bento Hover Effect (Simple Parallax)
+        document.querySelectorAll('.bento-item').forEach(item => {
+            item.addEventListener('mousemove', (e) => {
+                const { left, top, width, height } = item.getBoundingClientRect();
+                const x = (e.clientX - left) / width - 0.5;
+                const y = (e.clientY - top) / height - 0.5;
+                gsap.to(item, {
+                    rotateY: x * 10,
+                    rotateX: -y * 10,
+                    duration: 0.5,
+                    ease: 'power2.out'
+                });
+            });
+            item.addEventListener('mouseleave', () => {
+                gsap.to(item, { rotateY: 0, rotateX: 0, duration: 0.5 });
+            });
+        });
     </script>
 </body>
 </html>
