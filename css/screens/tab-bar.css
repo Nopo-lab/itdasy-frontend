@@ -7,10 +7,12 @@
 .tab-bar {
   /* 2026-04-24 — 정중앙 정렬 (안드로이드/iOS 공통). FAB 은 별도 우측 하단(드래그 가능).
      iOS jump fix: --tab-bar-bottom 을 app-core.js 의 visualViewport 핸들러가 동적 갱신.
-     없을 때는 safe-area + 14px 폴백. */
-  position: fixed;
-  bottom: var(--tab-bar-bottom, calc(14px + env(safe-area-inset-bottom, 0px)));
-  left: 50%;
+     없을 때는 safe-area + 14px 폴백.
+     2026-05-01 — !important 추가: 다른 stylesheet 가 우연히 override 하는 것 차단.
+     사용자 보고 "스크롤 해야 보임" → position 이 어딘가에서 깨진 것으로 추정. */
+  position: fixed !important;
+  bottom: var(--tab-bar-bottom, calc(14px + env(safe-area-inset-bottom, 0px))) !important;
+  left: 50% !important;
   transform: translate3d(-50%, 0, 0);  /* iOS Safari GPU 레이어 분리 */
   width: calc(100% - 28px);   /* 좌우 14px 마진 */
   max-width: 460px;           /* 가로 화면·태블릿 대응 */
@@ -20,18 +22,13 @@
   display: grid;
   grid-template-columns: 1fr 64px 1fr;
   padding: 8px 16px 10px;
-  z-index: 200;
+  z-index: 999;               /* 어떤 overlay (sheet/modal 제외) 위에서도 위 */
   box-shadow: 0 8px 24px rgba(0,0,0,.08);
 
   /* iOS 하단바 도망 방지 — GPU 레이어 분리 + 뷰포트 변화에 안정적 고정 */
-  will-change: transform;
   backface-visibility: hidden;
-  contain: layout style;       /* 자식 :active 시 부모 layout shift 방지 */
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  /* 2026-05-01 ── grid item 정렬 안정화 + FAB margin-top 음수 영역 hit test 보장 */
-  align-items: center;
-  overflow: visible;
 }
 
 /* 가로형 / 키보드 올라온 상태(높이 매우 낮음) — 탭바 숨겨서 클릭 오작동 방지 */
