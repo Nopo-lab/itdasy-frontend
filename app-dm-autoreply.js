@@ -59,10 +59,10 @@
   /* ── 백엔드 fetch ────────────────────────────────── */
   // 2026-05-01 ── _origFetch: 글로벌 fetch wrap (자동 재시도 + 서버 불안정 토스트) 우회.
   // DM 패널은 옵셔널 데이터라 토스트 spam 안 띄우고 조용히 빈 상태로 폴백.
-  // 8s timeout 으로 Railway cold start hang 방지.
-  function _rawFetch(url, opts = {}) {
+  // 데이터 조회: 8s, 저장(POST): 25s — Railway cold start 가 10-20s 걸려서 저장이 자꾸 실패하던 문제.
+  function _rawFetch(url, opts = {}, timeoutMs = 8000) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 8000);
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     return (window._origFetch || window.fetch)(url, { ...opts, signal: ctrl.signal })
       .finally(() => clearTimeout(timer));
   }
@@ -107,7 +107,7 @@
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify(_sanitizeForSave(_settings)),
-        });
+        }, 25000);
       } catch (_) { /* 조용히 실패 — 다음 저장 때 재시도 */ }
     }, 400);
   }
@@ -560,7 +560,7 @@
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify(safeSettings),
-      });
+      }, 25000);  // Railway cold start 대비 25s
       let r = null;
       try { r = await _trySave(); }
       catch (e1) {
