@@ -367,7 +367,17 @@
   <div class="spl-slogan">사장님의 시간을 아껴, 매출을 잇습니다.</div>
 </div>
 
-<div class="lock-overlay" id="lockOverlay">
+<!-- 2026-05-01 ── 로그인 화면 깜빡임 방지: 토큰 있으면 처음부터 .hidden 클래스로 부여.
+     이전엔 lockOverlay 보이는 상태 → JS 가 후처리 → 0.1s 깜빡임. -->
+<div class="lock-overlay" id="lockOverlay" style="display:none">
+  <script>
+    try {
+      var _t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token');
+      var _ov = document.getElementById('lockOverlay');
+      if (_t) { _ov.classList.add('hidden'); }
+      _ov.style.display = '';  // inline display:none 해제 → CSS (.hidden 또는 default) 가 결정
+    } catch (_e) { document.getElementById('lockOverlay').style.display = ''; }
+  </script>
   <div class="lock-title">잇데이 스튜디오</div>
   <div class="lock-sub">ITDASY STUDIO</div>
   
