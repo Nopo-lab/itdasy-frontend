@@ -7,25 +7,31 @@
 .tab-bar {
   /* 2026-05-01 ── #bottomNavGroup (flex 컨테이너) 안에 들어감.
      position 은 부모(group)가 fixed 라 여기선 static. 부모 flex 가 정중앙 정렬.
-     챗봇 (assistantFab) 도 같은 flex 안에 있어서 14px gap 으로 자동 붙음. */
+     챗봇 (assistantFab) 도 같은 flex 안에 있어서 14px gap 으로 자동 붙음.
+     2026-05-01 ── 펄(pill) 배경/그림자 강화. 사용자 보고 '네비 왜 저러냐' — 너무 옅어
+     3개 버튼이 떨어져 보였음. surface 배경 명시 + 그림자 진하게 + 흰 배경에서도 보이게. */
   position: static;
   pointer-events: auto;
   max-width: 320px;
   flex-shrink: 1;
   min-width: 0;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: #ffffff;
+  border: 1px solid rgba(15, 20, 25, 0.08);
   border-radius: 999px;
   display: grid;
   grid-template-columns: 1fr 64px 1fr;
   padding: 8px 16px 10px;
-  z-index: 999;               /* 어떤 overlay (sheet/modal 제외) 위에서도 위 */
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+  z-index: 999;
+  box-shadow: 0 12px 32px rgba(15, 20, 25, 0.12), 0 2px 6px rgba(15, 20, 25, 0.06);
 
-  /* iOS 하단바 도망 방지 — GPU 레이어 분리 + 뷰포트 변화에 안정적 고정 */
   backface-visibility: hidden;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+[data-theme="dark"] .tab-bar {
+  background: #1c1f24;
+  border-color: rgba(255,255,255,0.08);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 2px 6px rgba(0,0,0,0.25);
 }
 
 /* 가로형 / 키보드 올라온 상태(높이 매우 낮음) — 탭바 숨겨서 클릭 오작동 방지 */

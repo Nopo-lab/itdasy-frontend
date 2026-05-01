@@ -345,9 +345,12 @@
   border-radius: 14px;
   background: #fff;
   overflow: auto;
-  /* 2026-05-01 ── 100vh → 100dvh (dynamic viewport height) — iOS Safari URL bar 변화에 정확.
-     사용자 보고: '캘린더 타임테이블 스크롤안됨' — 100vh 가 너무 커서 max-height 가 화면 밖까지 → 스크롤 안 생김. */
-  max-height: calc(100dvh - 220px);
+  /* 2026-05-01 ── max-height 고정 대신 flex 로 부모 cal-body 의 가용 공간 채움.
+     이전엔 max-height calc 가 부모보다 크거나 작아서 스크롤 영역 어긋남.
+     사용자 보고: '시간 밑으로 스크롤안돼'. flex:1 + min-height:0 로 부모(overflow:hidden + flex column)
+     안에서 정확히 잘리게. */
+  flex: 1 1 auto;
+  min-height: 0;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   overscroll-behavior: contain;
