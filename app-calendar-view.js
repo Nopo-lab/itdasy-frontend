@@ -36,11 +36,10 @@
   };
 
   // === 시간 그리드 단위 ===
-  // 2026-05-01 ── 사용자 보고 '너무 잘림. 더 작게'. 행 높이 컴팩트 → 한 화면에 더 많은 시간.
-  // CSS .cv-tt-hr 와 동일하게 44px (axis 와 grid 정확히 매칭).
-  const HOUR_PX_MOBILE_DAY  = 44;
-  const HOUR_PX_MOBILE_WEEK = 36;
-  const HOUR_PX_PC_WEEK     = 44;
+  // 2026-05-02 ── Google/Apple Calendar 스타일 컴팩트. CSS --bk-h-* 변수와 동일.
+  const HOUR_PX_MOBILE_DAY  = 40;
+  const HOUR_PX_MOBILE_WEEK = 30;
+  const HOUR_PX_PC_WEEK     = 40;
   const HOUR_PX_PC_DAY      = 44;
   const PC_BREAKPOINT       = 1100;
 

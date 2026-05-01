@@ -7,10 +7,13 @@
    §0 로컬 변수 — time grid 높이 + spring easing
    ============================================================ */
 .bk-root {
-  --bk-h-mobile-day: 60px;   /* 모바일 일간 시간 셀 */
-  --bk-h-mobile-week: 50px;  /* 모바일 주간 시간 셀 */
-  --bk-h-pc-week: 60px;      /* PC 주간 시간 셀 */
-  --bk-h-pc-day: 80px;       /* PC 일간 시간 셀 */
+  /* 2026-05-02 ── Google Calendar / Apple Calendar 스타일 컴팩트.
+     사용자 보고: '너무 가독성 떨어지잖아 엄청 크고 좀 작게 한눈에 보이게'.
+     일반 캘린더는 36-48px/hour. 한 화면에 ~10시간 보이도록. */
+  --bk-h-mobile-day: 40px;   /* 모바일 일간 시간 셀 */
+  --bk-h-mobile-week: 30px;  /* 모바일 주간 시간 셀 */
+  --bk-h-pc-week: 40px;      /* PC 주간 시간 셀 */
+  --bk-h-pc-day: 44px;       /* PC 일간 시간 셀 */
   --bk-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
