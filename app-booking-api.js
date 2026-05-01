@@ -7,7 +7,8 @@
 
   const OFFLINE_KEY    = 'itdasy_bookings_offline_v1';
   const SHOP_HOURS_KEY = 'itdasy_shop_hours_v1';
-  const DEFAULT_HOURS  = { start: 10, end: 22, slotMin: 30 };
+  // 2026-05-01 ── 09:30 부터 예약 들어오는 케이스 잘리지 않게 시작 9시로. 끝 22 유지.
+  const DEFAULT_HOURS  = { start: 9, end: 22, slotMin: 30 };
 
   let _items    = [];
   let _isOffline = false;
