@@ -118,6 +118,31 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
   scrollbar-width: none;
   padding: 4px 16px 8px;
 }
+/* 2026-05-01 ── 캐러셀 좌우 화살표 (4-5개 이상 카드 시 옆 보이게 한 칸씩 이동) */
+.hv-carousel-wrap { position: relative; }
+.hv-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 0.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  display: none;  /* 모바일은 숨김 (터치 스와이프), PC 만 표시 */
+  align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: background 0.12s, transform 0.12s;
+}
+.hv-carousel-nav:hover { background: var(--surface-2); }
+.hv-carousel-nav:active { transform: translateY(-50%) scale(0.94); }
+.hv-carousel-nav--prev { left: -6px; }
+.hv-carousel-nav--next { right: -6px; }
+@media (min-width: 768px) {
+  .hv-carousel-nav { display: flex; }
+}
 .hv-carousel::-webkit-scrollbar { display: none; }
 
 .hv-card {

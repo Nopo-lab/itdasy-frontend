@@ -602,12 +602,12 @@
   // ─────────── 메인 컴포지션 ───────────
   // PC: ms-side (220px 풀 메뉴) + ms-pc (대시보드)
   // 모바일: 헤더 + 샵카드 + 운영/허브/계정 메뉴 스택
-  // 내샵관리 탭 활성 시 시스템 #sideNav 는 CSS 로 숨김 (myshop-v3.css)
+  // 2026-05-01 ── 글로벌 #sideNav 가 같은 ms-side 스타일로 항상 보임 → myshop 자체 사이드바 제거.
+  // 사용자 요청: PC 디폴트가 사이드바 + 메인 영역, 홈 탭에서도 같은 사이드바 유지.
   function _composeHTML(brief, dms) {
     const list = Array.isArray(dms) ? dms : [];
     return `
       <div class="ms-root">
-        ${_renderPCSidebar(brief)}
         <div class="ms-mobile-only">
           ${_renderHeader()}
           <div class="ms-body">
