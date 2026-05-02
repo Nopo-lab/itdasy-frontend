@@ -119,8 +119,10 @@
     sheet.style.display = 'flex';
     sheet.style.animation = 'dmScreenIn .22s ease-out both';
     await _refreshList();
+    _startListPoll();
   }
   function closeList() {
+    _stopListPoll();
     const sheet = document.getElementById('dmConversationsSheet');
     if (!sheet) return;
     sheet.style.animation = 'dmScreenOut .18s ease-in both';
@@ -249,15 +251,111 @@
   let _curSender = null;
   let _curExcluded = false;
 
+  // ── [2026-05-02 Phase 1.2] 실시간 폴링 ──────────────────────
+  // 사장이 화면 보고 있는 동안 8초 간격으로 신규 메시지 받아온다.
+  // visibilitychange 로 백그라운드 탭이면 정지 → 배터리/네트워크 절약.
+  // 사용자가 위로 스크롤한 상태면 자동 스크롤 X, "↓ 새 메시지 N" 토스트만.
+  const THREAD_POLL_MS = 8000;
+  const LIST_POLL_MS = 10000;
+  let _threadPollTimer = null;
+  let _listPollTimer = null;
+  let _visHandlerBound = false;
+  let _threadMsgsCache = [];
+
+  function _isThreadOpen() {
+    const s = document.getElementById('dmThreadSheet');
+    return !!(s && s.style.display === 'flex');
+  }
+  function _isListOpen() {
+    const s = document.getElementById('dmConversationsSheet');
+    return !!(s && s.style.display === 'flex');
+  }
+  function _bindVisHandler() {
+    if (_visHandlerBound) return;
+    _visHandlerBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      // 보이는 화면으로 돌아오면 즉시 한 번 따라잡기
+      if (_isThreadOpen()) _pollThreadOnce().catch(() => {});
+      if (_isListOpen()) _refreshList().catch(() => {});
+    });
+  }
+  function _startThreadPoll() {
+    _stopThreadPoll();
+    _bindVisHandler();
+    _threadPollTimer = setInterval(() => {
+      if (document.hidden || !_isThreadOpen() || !_curSender) return;
+      _pollThreadOnce().catch(() => {});
+    }, THREAD_POLL_MS);
+  }
+  function _stopThreadPoll() {
+    if (_threadPollTimer) clearInterval(_threadPollTimer);
+    _threadPollTimer = null;
+    _threadMsgsCache = [];
+  }
+  function _startListPoll() {
+    _stopListPoll();
+    _bindVisHandler();
+    _listPollTimer = setInterval(() => {
+      if (document.hidden || !_isListOpen()) return;
+      _refreshList().catch(() => {});
+    }, LIST_POLL_MS);
+  }
+  function _stopListPoll() {
+    if (_listPollTimer) clearInterval(_listPollTimer);
+    _listPollTimer = null;
+  }
+
+  async function _pollThreadOnce() {
+    if (!_curSender) return;
+    const sheet = document.getElementById('dmThreadSheet');
+    if (!sheet) return;
+    const msgsBox = sheet.querySelector('#dthMessages');
+    if (!msgsBox) return;
+
+    const thread = await _fetch('GET', `/instagram/dm-reply/conversations/${encodeURIComponent(_curSender)}/messages?limit=200`);
+    const msgs = thread.messages || [];
+
+    // 변화 감지 — 길이 또는 마지막 ts 비교
+    const lastTs = msgs.length ? msgs[msgs.length - 1].ts : null;
+    const cachedLast = _threadMsgsCache.length ? _threadMsgsCache[_threadMsgsCache.length - 1].ts : null;
+    if (msgs.length === _threadMsgsCache.length && lastTs === cachedLast) {
+      return; // no change
+    }
+
+    // 사용자가 하단 근처(60px 이내)에 있는지
+    const nearBottom = (msgsBox.scrollTop + msgsBox.clientHeight) >= (msgsBox.scrollHeight - 60);
+    const newCount = Math.max(0, msgs.length - _threadMsgsCache.length);
+    _threadMsgsCache = msgs;
+    msgsBox.innerHTML = _buildMessagesHtml(msgs);
+
+    if (nearBottom) {
+      msgsBox.scrollTop = msgsBox.scrollHeight;
+    } else if (newCount > 0) {
+      if (window.showToast) {
+        try {
+          window.showToast(`↓ 새 메시지 ${newCount}건`, {
+            onClick: () => { msgsBox.scrollTop = msgsBox.scrollHeight; },
+          });
+        } catch (_e) {
+          window.showToast(`↓ 새 메시지 ${newCount}건`);
+        }
+      }
+    }
+  }
+
   async function openThread(sender_igsid) {
     if (!sender_igsid) return;
     _curSender = sender_igsid;
+    _threadMsgsCache = [];
     const sheet = _ensureThreadSheet();
     sheet.style.display = 'flex';
     sheet.style.animation = 'dmScreenIn .22s ease-out both';
     await _renderThread();
+    _startThreadPoll();
   }
   function closeThread() {
+    _stopThreadPoll();
     const sheet = document.getElementById('dmThreadSheet');
     if (!sheet) return;
     sheet.style.animation = 'dmScreenOut .18s ease-in both';
@@ -301,70 +399,12 @@
       };
 
       const msgs = thread.messages || [];
+      _threadMsgsCache = msgs;
       if (!msgs.length) {
         msgsBox.innerHTML = `<div style="text-align:center;color:#8E8E8E;padding:30px 0;font-size:13px;">아직 메시지가 없어요.</div>`;
         return;
       }
-
-      // 같은 분(分) 연속 메시지는 하나의 묶음 — 마지막 메시지에만 시간 표시
-      const lines = [];
-      let lastDate = '';
-      let lastMinKey = '';
-
-      // 다음 메시지가 같은 sender + 같은 minute 이면 시간 hide
-      msgs.forEach((m, idx) => {
-        const d = new Date(m.ts || Date.now());
-        const dateStr = d.toDateString();
-        if (dateStr !== lastDate) {
-          lines.push(`
-            <div style="text-align:center;margin:18px 0 10px;">
-              <span style="font-size:11px;color:#8E8E8E;font-weight:600;">${_esc(_dayDivider(m.ts))}</span>
-            </div>`);
-          lastDate = dateStr;
-          lastMinKey = '';
-        }
-        const isCustomer = m.side === 'customer';
-        const sideKey = isCustomer ? 'cust' : 'owner';
-        const minKey = _minuteKey(m.ts, sideKey);
-        const next = msgs[idx + 1];
-        const nextSameMin = next && _minuteKey(next.ts, next.side === 'customer' ? 'cust' : 'owner') === minKey;
-        const nextSameSide = next && (next.side === 'customer' ? 'cust' : 'owner') === sideKey;
-        const showTime = !(nextSameMin && nextSameSide);
-
-        if (isCustomer) {
-          // 손님 — 회색 말풍선, 왼쪽
-          lines.push(`
-            <div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:2px;">
-              <div style="max-width:78%;background:#EFEFEF;color:#262626;padding:9px 14px;border-radius:22px;font-size:14px;line-height:1.4;word-break:break-word;">${_esc(m.text)}</div>
-              ${showTime ? `<div style="font-size:11px;color:#8E8E8E;margin:4px 0 8px 8px;">${_timeFmt(m.ts)}</div>` : ''}
-            </div>`);
-        } else {
-          // 사장 — 인스타 그라디언트 말풍선, 오른쪽
-          const sourceLbl = {
-            ai_auto:      'AI 자동',
-            ai_confirmed: '확인 후 발송',
-            ai_edited:    '수정 후 발송',
-            owner:        '직접 보냄',
-            template:     '템플릿',
-            pending:      '확인 대기',
-          }[m.source] || '';
-          const isPending = m.source === 'pending';
-          const bubbleStyle = isPending
-            ? `background:#FFFBEB;color:#92400E;border:2px dashed #F59E0B;`
-            : `background:${IG_GRADIENT};color:#fff;`;
-          lines.push(`
-            <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:2px;">
-              <div style="max-width:78%;${bubbleStyle}padding:9px 14px;border-radius:22px;font-size:14px;line-height:1.4;word-break:break-word;">${_esc(m.text)}${isPending ? '<div style="font-size:11px;margin-top:4px;font-weight:700;">⏳ 사장 확인 대기 중</div>' : ''}</div>
-              ${showTime ? `
-                <div style="display:flex;align-items:center;gap:6px;margin:4px 8px 8px 0;">
-                  ${sourceLbl ? `<span style="font-size:10px;color:#8E8E8E;font-weight:600;">${sourceLbl}</span>` : ''}
-                  <span style="font-size:11px;color:#8E8E8E;">${_timeFmt(m.ts)}</span>
-                </div>` : ''}
-            </div>`);
-        }
-        lastMinKey = minKey;
-      });
-      msgsBox.innerHTML = lines.join('');
+      msgsBox.innerHTML = _buildMessagesHtml(msgs);
       msgsBox.scrollTop = msgsBox.scrollHeight;
     } catch (e) {
       msgsBox.innerHTML = `<div style="text-align:center;color:#ED4956;padding:30px 20px;font-size:13px;">불러오기 실패: ${_esc(e.message)}</div>`;
@@ -376,6 +416,61 @@
     if (!btn) return;
     btn.style.color = _curExcluded ? '#B45309' : '#262626';
     btn.title = _curExcluded ? '분석에 포함시키기' : '톤 분석에서 제외';
+  }
+
+  // ── 메시지 list HTML 빌더 (초기 렌더 + 폴링 공용) ─────────
+  function _buildMessagesHtml(msgs) {
+    const lines = [];
+    let lastDate = '';
+    msgs.forEach((m, idx) => {
+      const d = new Date(m.ts || Date.now());
+      const dateStr = d.toDateString();
+      if (dateStr !== lastDate) {
+        lines.push(`
+          <div style="text-align:center;margin:18px 0 10px;">
+            <span style="font-size:11px;color:#8E8E8E;font-weight:600;">${_esc(_dayDivider(m.ts))}</span>
+          </div>`);
+        lastDate = dateStr;
+      }
+      const isCustomer = m.side === 'customer';
+      const sideKey = isCustomer ? 'cust' : 'owner';
+      const minKey = _minuteKey(m.ts, sideKey);
+      const next = msgs[idx + 1];
+      const nextSameMin = next && _minuteKey(next.ts, next.side === 'customer' ? 'cust' : 'owner') === minKey;
+      const nextSameSide = next && (next.side === 'customer' ? 'cust' : 'owner') === sideKey;
+      const showTime = !(nextSameMin && nextSameSide);
+
+      if (isCustomer) {
+        lines.push(`
+          <div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:2px;">
+            <div style="max-width:78%;background:#EFEFEF;color:#262626;padding:9px 14px;border-radius:22px;font-size:14px;line-height:1.4;word-break:break-word;">${_esc(m.text)}</div>
+            ${showTime ? `<div style="font-size:11px;color:#8E8E8E;margin:4px 0 8px 8px;">${_timeFmt(m.ts)}</div>` : ''}
+          </div>`);
+      } else {
+        const sourceLbl = {
+          ai_auto:      'AI 자동',
+          ai_confirmed: '확인 후 발송',
+          ai_edited:    '수정 후 발송',
+          owner:        '직접 보냄',
+          template:     '템플릿',
+          pending:      '확인 대기',
+        }[m.source] || '';
+        const isPending = m.source === 'pending';
+        const bubbleStyle = isPending
+          ? `background:#FFFBEB;color:#92400E;border:2px dashed #F59E0B;`
+          : `background:${IG_GRADIENT};color:#fff;`;
+        lines.push(`
+          <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:2px;">
+            <div style="max-width:78%;${bubbleStyle}padding:9px 14px;border-radius:22px;font-size:14px;line-height:1.4;word-break:break-word;">${_esc(m.text)}${isPending ? '<div style="font-size:11px;margin-top:4px;font-weight:700;">⏳ 사장 확인 대기 중</div>' : ''}</div>
+            ${showTime ? `
+              <div style="display:flex;align-items:center;gap:6px;margin:4px 8px 8px 0;">
+                ${sourceLbl ? `<span style="font-size:10px;color:#8E8E8E;font-weight:600;">${sourceLbl}</span>` : ''}
+                <span style="font-size:11px;color:#8E8E8E;">${_timeFmt(m.ts)}</span>
+              </div>` : ''}
+          </div>`);
+      }
+    });
+    return lines.join('');
   }
 
   window.openDMConversations = openList;

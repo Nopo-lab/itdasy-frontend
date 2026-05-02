@@ -41,14 +41,14 @@
   function toggleChainMode() {
     const next = !isChainModeOn();
     setChainMode(next);
-    if (window.showToast) window.showToast(next ? '🔗 Chain 모드 ON' : '🔗 Chain 모드 OFF');
+    if (window.showToast) window.showToast(next ? '🔗 묶음 처리 모드 ON' : '🔗 묶음 처리 모드 OFF');
     return next;
   }
 
   // ── 단일 액션 되돌리기 ──────────────────────────────────
   async function undoAction(logId) {
     if (!logId) return;
-    if (!confirm('이 액션을 되돌릴까요?')) return;
+    if (!confirm('방금 처리한 내용 되돌릴까요?')) return;
     try {
       const r = await _fetch('POST', `/assistant/undo/${logId}`);
       if (window.showToast) window.showToast(r.message || '✅ 되돌렸어요');
@@ -123,9 +123,9 @@
         <div style="margin-top:10px;padding:12px;background:#FAF5FF;border-radius:10px;font-size:11px;line-height:1.5;color:#5B21B6;">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
             <input type="checkbox" id="uhsChainToggle">
-            <span style="display:inline-flex;align-items:center;gap:5px;"><svg width="12" height="12" style="vertical-align:-1px;"><use href="#ic-link"/></svg><strong>Chain 모드</strong> — 챗봇이 여러 액션을 한 번 confirm 으로 자동 처리</span>
+            <span style="display:inline-flex;align-items:center;gap:5px;"><svg width="12" height="12" style="vertical-align:-1px;"><use href="#ic-link"/></svg><strong>묶음 처리 모드</strong> — 여러 작업을 한 번에 확인해요</span>
           </label>
-          <div style="margin-top:6px;font-size:10px;color:#5B21B680;">위험 액션(삭제/취소/메시지 발송)은 Chain 모드여도 개별 확인. 실패 시 자동 되돌림.</div>
+          <div style="margin-top:6px;font-size:10px;color:#5B21B680;">민감한 작업(삭제·취소·메시지 발송)은 묶음 처리 모드여도 따로 확인. 실패 시 자동 되돌림.</div>
         </div>
       </div>
     `;
@@ -134,7 +134,7 @@
     sheet.querySelector('#uhsClose').addEventListener('click', close);
     sheet.querySelector('#uhsChainToggle').addEventListener('change', (e) => {
       setChainMode(e.target.checked);
-      if (window.showToast) window.showToast(e.target.checked ? '🔗 Chain 모드 ON' : '🔗 Chain 모드 OFF');
+      if (window.showToast) window.showToast(e.target.checked ? '🔗 묶음 처리 모드 ON' : '🔗 묶음 처리 모드 OFF');
     });
     return sheet;
   }
@@ -161,7 +161,7 @@
     try {
       const items = await _fetch('GET', '/assistant/undo');
       if (!items || !items.length) {
-        list.innerHTML = `<div style="text-align:center;color:#aaa;padding:30px 0;font-size:13px;">되돌릴 액션이 없어요.</div>`;
+        list.innerHTML = `<div style="text-align:center;color:#aaa;padding:30px 0;font-size:13px;">되돌릴 작업이 없어요.</div>`;
         return;
       }
       // chain_id 별 묶음 표시

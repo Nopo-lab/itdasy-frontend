@@ -252,14 +252,14 @@
     const tplFirst = !!settings.prefer_template_first;
     return `
       <div class="dm-section">
-        <div class="dm-section__title">고급설정 <span class="dm-section__help">Gemini 토큰 아끼기</span></div>
+        <div class="dm-section__title">고급설정 <span class="dm-section__help">스마트 응대 매뉴얼</span></div>
         <div class="dm-rows">
           <div class="dm-rows__item">
             <div style="flex:1;">
-              <div class="dm-rows__label" style="font-weight:700;color:#222;">기본 멘트 우선 (토큰 절약)</div>
+              <div class="dm-rows__label" style="font-weight:700;color:#222;">표준 응대 우선</div>
               <div style="font-size:11px;color:#888;margin-top:3px;line-height:1.45;">
-                인사·가격·시간·위치·후기 같은 단순 문의는 저장된 멘트 그대로 발송.<br>
-                AI 호출 안 하니 비용 0. 예약·위험 메시지는 여전히 AI 사용.
+                자주 쓰는 답장은 미리 등록해두고, 헷갈릴 때만 AI 가 새로 작성해요.<br>
+                인사·가격·시간·위치·후기 같은 단순 문의는 저장된 멘트로 즉시 답장. 예약·위험 메시지는 AI 가 처리.
               </div>
             </div>
             <button type="button" class="dm-toggle dm-toggle--small ${tplFirst ? 'is-on' : ''}" data-act="tplfirst-toggle" aria-pressed="${tplFirst}">
@@ -548,7 +548,7 @@
       btn.classList.toggle('is-on', next);
       btn.setAttribute('aria-pressed', String(next));
       _saveSettings({ prefer_template_first: next });
-      _toast(next ? '토큰 절약 모드 ON — 단순 문의는 저장 멘트로 답장' : '토큰 절약 모드 OFF — 모든 답장 AI 사용');
+      _toast(next ? '표준 응대 ON — 단순 문의는 저장 멘트로 답장' : '표준 응대 OFF — 모든 답장 AI 사용');
       _haptic();
     });
     sheet.querySelector('[data-act="open-manual-replies"]')?.addEventListener('click', () => {
@@ -652,7 +652,7 @@
     const _hardRemove = () => {
       if (closed) return;
       closed = true;
-      try { overlay.remove(); } catch (_) {}
+      try { overlay.remove(); } catch (_e) { void _e; }
     };
     if (window.SheetAnim?.close) {
       try { window.SheetAnim.close(overlay, card, _hardRemove); }

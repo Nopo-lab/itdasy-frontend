@@ -68,14 +68,46 @@
     return sheet;
   }
 
+  // [2026-05-02 Phase 1.2] 큐 자동 갱신 — 사장이 화면 보고 있는 동안 10초마다 새 카드 따라잡기
+  const QUEUE_POLL_MS = 10000;
+  let _queuePollTimer = null;
+  let _queueVisHandlerBound = false;
+  function _isQueueOpen() {
+    const s = document.getElementById('dmConfirmQueueSheet');
+    if (!s) return false;
+    const ds = s.style.display;
+    return ds === 'flex' || ds === 'block';
+  }
+  function _bindQueueVisHandler() {
+    if (_queueVisHandlerBound) return;
+    _queueVisHandlerBound = true;
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden && _isQueueOpen()) _refresh().catch(() => {});
+    });
+  }
+  function _startQueuePoll() {
+    _stopQueuePoll();
+    _bindQueueVisHandler();
+    _queuePollTimer = setInterval(() => {
+      if (document.hidden || !_isQueueOpen()) return;
+      _refresh().catch(() => {});
+    }, QUEUE_POLL_MS);
+  }
+  function _stopQueuePoll() {
+    if (_queuePollTimer) clearInterval(_queuePollTimer);
+    _queuePollTimer = null;
+  }
+
   async function open() {
     const sheet = _ensureSheet();
     const card = sheet.querySelector('#dcqCard');
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'flex';
     await _refresh();
+    _startQueuePoll();
   }
   function close() {
+    _stopQueuePoll();
     const sheet = document.getElementById('dmConfirmQueueSheet');
     if (!sheet) return;
     const card = sheet.querySelector('#dcqCard');
