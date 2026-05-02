@@ -101,6 +101,13 @@
   async function open() {
     const sheet = _ensureSheet();
     const card = sheet.querySelector('#dcqCard');
+    // [2026-05-02 hotfix] 이전 close 의 transition 잔여 상태 reset — opacity 0 으로 재진입 시 빈 화면 방지
+    sheet.style.transition = '';
+    sheet.style.opacity = '';
+    if (card) {
+      card.style.transition = '';
+      card.style.transform = '';
+    }
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'flex';
     await _refresh();

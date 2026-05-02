@@ -712,6 +712,8 @@
     o.className = 'bk-root bk-root--mobile';
     o.setAttribute('role', 'dialog');
     o.setAttribute('aria-modal', 'true');
+    // [2026-05-02 hotfix] inline 풀스크린 강제 — CSS 의존 없이 항상 팝업 형태 유지
+    o.style.cssText = 'position:fixed;inset:0;z-index:9988;background:var(--surface,#fff);display:flex;flex-direction:column;overflow:hidden;';
     o.innerHTML = `
       <div class="cal-sheet" style="display:flex;flex-direction:column;height:100%;">
         <div class="bk-header">
@@ -781,7 +783,8 @@
     o.className = 'bk-root bk-root--pc';
     o.setAttribute('role', 'dialog');
     o.setAttribute('aria-modal', 'true');
-    o.style.cssText = 'position:fixed;inset:0;z-index:9000;background:var(--surface);display:flex;flex-direction:column;';
+    // [2026-05-02 hotfix] z-index 9988 통일 — DM 시트(9988/9989) 와 같은 레이어로 끌어올림
+    o.style.cssText = 'position:fixed;inset:0;z-index:9988;background:var(--surface,#fff);display:flex;flex-direction:column;overflow:hidden;';
     document.body.classList.add('bk-pc-mode');
     o.innerHTML = `<div class="bk-pc">${_buildPCHeaderHTML(subTxt)}
         <div class="bk-pc__body">
