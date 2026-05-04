@@ -663,21 +663,24 @@
             if (quickBtn) quickBtn.addEventListener('click', () => onCreate());
           } else {
             listEl.innerHTML = '<div style="padding:30px;text-align:center;color:#aaa;font-size:13px;">' +
-              (items.length ? '이름·연락처로 검색해 주세요' : '등록된 고객이 없어요. 아래에서 바로 추가할 수 있어요.') +
+              '등록된 고객이 없어요. 아래에서 바로 추가할 수 있어요.' +
               '</div>';
-            createRow.style.display = items.length ? 'none' : 'block';
-            if (!items.length && !newNameEl.value) newNameEl.value = '';
+            createRow.style.display = 'block';
+            if (!newNameEl.value) newNameEl.value = '';
           }
           return;
         }
+        // 검색어 없을 때도 전체 목록 바로 표시 (최대 30명)
+        const displayHits = trimmed ? hits : hits.slice(0, 30);
         createRow.style.display = 'none';
-        listEl.innerHTML = hits.map(c => `
+        const moreCount = hits.length - displayHits.length;
+        listEl.innerHTML = displayHits.map(c => `
           <div data-pick-id="${c.id}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
             <strong style="font-size:14px;">${_esc(c.name)}</strong>
             ${c.phone ? `<span style="font-size:12px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
             ${c.visit_count ? `<span style="font-size:10px;color:var(--accent,#F18091);margin-left:6px;">방문 ${c.visit_count}</span>` : ''}
           </div>
-        `).join('');
+        `).join('') + (moreCount > 0 ? `<div style="padding:12px;text-align:center;font-size:12px;color:#888;">검색어 입력 시 ${moreCount}명 더 볼 수 있어요</div>` : '');
         listEl.querySelectorAll('[data-pick-id]').forEach(row => {
           row.addEventListener('click', () => {
             const pickedId = row.dataset.pickId;

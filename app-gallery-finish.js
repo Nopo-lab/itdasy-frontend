@@ -276,7 +276,11 @@ async function _maybeAutoMatchCustomer(slot) {
 
 async function _saveSlotToGallery(slotId) {
   const slot = _slots.find(s => s.id === slotId);
-  if (!slot) return;
+  if (!slot) { showToast('슬롯을 찾을 수 없어요'); return; }
+  if (!slot.photos || !slot.photos.length) { showToast('저장할 사진이 없어요'); return; }
+  // 사진 데이터 유효성 체크 — dataUrl 없는 사진 필터링
+  const validPhotos = slot.photos.filter(p => p && (p.editedDataUrl || p.dataUrl));
+  if (!validPhotos.length) { showToast('저장 가능한 사진 데이터가 없어요 — 다시 촬영해 주세요'); return; }
   await _maybeAutoMatchCustomer(slot);
   try {
     await saveToGallery(slot);
@@ -287,7 +291,13 @@ async function _saveSlotToGallery(slotId) {
     if (aiTab && aiTab.classList.contains('active') && typeof initAiRecommendTab === 'function') {
       initAiRecommendTab();
     }
-  } catch(e) { showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
+  } catch(e) {
+    console.warn('[gallery] 저장 실패:', e);
+    const msg = (e && e.name === 'QuotaExceededError')
+      ? '저장 공간이 부족해요 — 갤러리에서 오래된 항목을 삭제해 주세요'
+      : '저장 실패: ' + (window._humanError ? window._humanError(e) : (e.message || '알 수 없는 오류'));
+    showToast(msg);
+  }
 }
 
 async function publishSlotToInstagram(slotId) {

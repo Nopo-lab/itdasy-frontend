@@ -428,12 +428,31 @@
       _bindMembership(d);
     } catch (e) {
       console.warn('[customer-dashboard] 실패:', e);
+      // 대시보드 엔드포인트 미존재 시 기본 고객 상세로 폴백
+      if (e.message && (e.message.includes('404') || e.message.includes('endpoint') || e.message.includes('501'))) {
+        try {
+          const cust = await _apiGet('/customers/' + id);
+          body.innerHTML = `
+            ${_renderHero({ customer: cust })}
+            ${_renderStats({ customer: cust })}
+            ${_renderEditBar(cust.id, cust)}
+          `;
+          _bindActions(cust.id, cust.name);
+          return;
+        } catch (_fallbackErr) { /* 폴백도 실패 — 아래 에러 UI 표시 */ }
+      }
+      const errMsg = e.message || '네트워크 오류';
       body.innerHTML = `
-        <div style="padding:40px 20px;text-align:center;color:#c00;">
+        <div style="padding:40px 20px;text-align:center;">
           <div style="font-size:36px;margin-bottom:10px;">😢</div>
-          <div style="font-size:13px;">대시보드를 불러오지 못했어요</div>
+          <div style="font-size:13px;color:#c00;">대시보드를 불러오지 못했어요</div>
+          <div style="font-size:11px;color:#888;margin-top:4px;">${errMsg}</div>
+          <button id="cdRetryBtn" style="margin-top:14px;padding:10px 20px;border:1px solid #F18091;background:rgba(241,128,145,0.08);color:#F18091;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;">다시 시도</button>
         </div>
       `;
+      body.querySelector('#cdRetryBtn')?.addEventListener('click', () => {
+        window.openCustomerDashboard(id);
+      });
     }
   };
 

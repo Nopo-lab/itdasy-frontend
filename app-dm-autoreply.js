@@ -584,9 +584,11 @@
     // TODO[v1.5]: 톤 변경 시 즉시 새 초안 생성 — 지금은 UI만 토글
   }
 
+  let _regenInFlight = false;  // 중복 호출 방지
   async function _handleRegen(card) {
     // [2026-05-02 Phase 1.2++] 진짜 백엔드 호출 — fake hardcoded 제거.
     // POST /dm-confirm-queue/{log_id}/regenerate { tone } → 시간 컨텍스트 가드레일 보존.
+    if (_regenInFlight) return;  // 이미 생성 중이면 중복 호출 방지
     const logId = card.dataset.logId;
     if (!logId) {
       _toast('재생성하려면 먼저 메시지가 큐에 등록되어야 해요');
@@ -598,7 +600,10 @@
     if (!draftEl) return;
 
     const orig = draftEl.textContent;
-    draftEl.textContent = '생성 중...';
+    if (orig === '생성 중...' || orig === '생성 중…') return;  // 이미 로딩 상태
+    draftEl.textContent = '생성 중…';
+    draftEl.style.color = '#aaa';
+    _regenInFlight = true;
     _haptic();
     try {
       const res = await fetch(window.API + `/dm-confirm-queue/${encodeURIComponent(logId)}/regenerate`, {
@@ -608,19 +613,25 @@
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
+      // 서버 응답에서 새 텍스트 추출 — 여러 필드명 시도
+      const newText = d.ai_draft_text || d.text || d.reply_text || d.draft || '';
       // 폴링이 카드를 재렌더했을 수 있으므로 logId 로 다시 조회
       const liveCard = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl = liveCard ? liveCard.querySelector('.dm-bubble--sent.is-draft') : draftEl;
       if (liveEl) {
-        liveEl.textContent = d.ai_draft_text || orig;
+        liveEl.textContent = newText || orig;
+        liveEl.style.color = '';
         _draftMap.set(liveEl.dataset.tail, liveEl.textContent);
       }
+      if (newText) _toast('✓ 새 답장 생성됨');
       if (d.guarded) _toast('✓ 시간 정보 유지하며 톤만 변경됨');
     } catch (e) {
       const liveCard2 = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl2 = liveCard2 ? liveCard2.querySelector('.dm-bubble--sent.is-draft') : draftEl;
-      if (liveEl2) liveEl2.textContent = orig;
+      if (liveEl2) { liveEl2.textContent = orig; liveEl2.style.color = ''; }
       _toast('재생성 실패: ' + (e.message || ''));
+    } finally {
+      _regenInFlight = false;
     }
   }
 

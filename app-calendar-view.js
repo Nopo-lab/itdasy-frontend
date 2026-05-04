@@ -1335,10 +1335,10 @@
         const v = parseInt(cur.dataset.val, 10);
         return Math.max(0, vals.indexOf(v));
       }
-      function _setIdx(idx) {
+      function _setIdx(idx, dir) {
         idx = ((idx % vals.length) + vals.length) % vals.length;
         const newCur = vals[idx];
-        // 5개 row 다시 렌더 (cur-2 ~ cur+2)
+        // 5개 row 다시 렌더 (cur-2 ~ cur+2) — slide 애니메이션 적용
         const inner = wheel.querySelector('.bf-tp-inner');
         if (!inner) return;
         let html = '';
@@ -1346,7 +1346,18 @@
           const v = vals[((i % vals.length) + vals.length) % vals.length];
           html += `<div class="bf-tp-row${v === newCur ? ' current' : ''}" data-val="${v}">${_pad(v)}</div>`;
         }
-        inner.innerHTML = html;
+        // 부드러운 슬라이드 애니메이션
+        const slideDir = dir || 0;
+        if (slideDir !== 0) {
+          inner.style.transition = 'none';
+          inner.style.transform = `translateY(${slideDir > 0 ? 44 : -44}px)`;
+          inner.offsetHeight; // reflow
+          inner.innerHTML = html;
+          inner.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)';
+          inner.style.transform = 'translateY(0)';
+        } else {
+          inner.innerHTML = html;
+        }
         _updateDur();
       }
 
@@ -1367,12 +1378,13 @@
         const STEP = 30;
         if (Math.abs(wheelAcc) >= STEP) {
           const dir = wheelAcc > 0 ? 1 : -1;
-          _setIdx(_curIdx() + dir);
+          _setIdx(_curIdx() + dir, dir);
           wheelAcc = 0;
         }
       }, { passive: false });
 
       // touch swipe — 위/아래 스와이프 (모바일)
+      // ROW_H 를 28px 로 올려서 과도한 민감도 제거 + 부드러운 1칸 이동
       let touchY = null, swipeAcc = 0;
       wheel.addEventListener('touchstart', e => {
         if (!e.touches || !e.touches.length) return;
@@ -1384,10 +1396,10 @@
         const dy = touchY - e.touches[0].clientY;
         swipeAcc += dy;
         touchY = e.touches[0].clientY;
-        const ROW_H = 14;
+        const ROW_H = 28;
         if (Math.abs(swipeAcc) >= ROW_H) {
           const dir = swipeAcc > 0 ? 1 : -1;
-          _setIdx(_curIdx() + dir);
+          _setIdx(_curIdx() + dir, dir);
           swipeAcc = 0;
         }
       }, { passive: true });
@@ -1498,6 +1510,12 @@
         const open = moreFields.style.display !== 'none';
         moreFields.style.display = open ? 'none' : '';
         moreToggle.classList.toggle('open', !open);
+        // 더보기 열렸을 때 해당 영역이 보이도록 스크롤
+        if (!open) {
+          setTimeout(() => {
+            moreFields.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 50);
+        }
       });
     }
 

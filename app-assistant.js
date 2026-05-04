@@ -1908,7 +1908,7 @@
   async function _runAction(idx) {
     const msg = _history[idx];
     if (!msg || !msg.action) return;
-    // 중복 클릭 방지 — 이미 running/done/failed 면 무시
+    // 중복 클릭 방지 — 이미 running/done 면 무시. failed 는 재시도 허용.
     if (msg.action_status === 'running' || msg.action_status === 'done') return;
     msg.action_status = 'running';
     _renderHistory();
