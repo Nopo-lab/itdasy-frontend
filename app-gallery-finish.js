@@ -147,7 +147,11 @@ function _renderFinishTab(root, galleryItems = []) {
     if (!card) return;
     card.querySelector('[data-action="edit"]')?.addEventListener('click', () => openSlotPopup(slot.id));
     card.querySelector('[data-action="publish"]')?.addEventListener('click', () => publishSlotToInstagram(slot.id));
-    card.querySelector('[data-action="gallery"]')?.addEventListener('click', () => _saveSlotToGallery(slot.id));
+    card.querySelector('[data-action="gallery"]')?.addEventListener('click', (e) => {
+      e.currentTarget.disabled = true;
+      e.currentTarget.style.opacity = '0.5';
+      _saveSlotToGallery(slot.id);
+    });
     card.querySelector('[data-action="download"]')?.addEventListener('click', () => downloadSlotPhotos(slot.id));
     card.querySelector('[data-action="pickCustomer"]')?.addEventListener('click', () => _pickCustomerForSlot(slot.id));
     card.querySelector('[data-action="defer"]')?.addEventListener('click', () => _deferSlot(slot.id));
@@ -231,13 +235,32 @@ async function downloadGalleryItem(galleryId) {
   const items = await loadGalleryItems();
   const item = items.find(i => i.id === galleryId);
   if (!item?.photos?.length) { showToast('사진이 없어요'); return; }
+  
+  showToast('사진 준비 중... 📥');
+  if (navigator.share && navigator.canShare) {
+    try {
+      const files = await Promise.all(item.photos.map(async (p, i) => {
+        const res = await fetch(p.editedDataUrl || p.dataUrl);
+        const blob = await res.blob();
+        return new File([blob], `itdasy_${item.label || 'gallery'}_${i + 1}_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      }));
+      if (navigator.canShare({ files })) {
+        await navigator.share({ files, title: '사진 저장' });
+        showToast('공유/저장 완료 ✨');
+        return;
+      }
+    } catch(e) {
+      if (e.name !== 'AbortError') console.warn('Share API failed:', e);
+    }
+  }
+
   item.photos.forEach((p, i) => {
     const a = document.createElement('a');
     a.download = `itdasy_${item.label || 'gallery'}_${i + 1}_${Date.now()}.jpg`;
     a.href = p.editedDataUrl || p.dataUrl;
     a.click();
   });
-  showToast('사진 저장 중... 📥');
+  showToast('다운로드가 시작되었어요 📥');
 }
 
 async function _pickCustomerForSlot(slotId) {
@@ -284,8 +307,13 @@ async function _saveSlotToGallery(slotId) {
   await _maybeAutoMatchCustomer(slot);
   try {
     await saveToGallery(slot);
-    showToast('갤러리에 보관됐어요 📁');
-    initFinishTab();
+    // [2026-05-04] 갤러리 보관 완료 시 마무리 탭에서 제거되도록 마킹
+    slot.instagramPublished = true;
+    try { await saveSlotToDB(slot); } catch(_e) { /* ignore */ }
+    
+    if (window.showToast) window.showToast('갤러리에 안전하게 보관됐어요 📁');
+    if (window.hapticLight) window.hapticLight();
+    await initFinishTab();
     // AI 추천 탭이 열려있으면 갱신
     const aiTab = document.getElementById('tab-ai-suggest');
     if (aiTab && aiTab.classList.contains('active') && typeof initAiRecommendTab === 'function') {
@@ -343,15 +371,35 @@ async function _deferSlot(slotId) {
   initFinishTab();
 }
 
-function downloadSlotPhotos(slotId) {
+async function downloadSlotPhotos(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
+  
+  showToast('사진 준비 중... 📥');
+  if (navigator.share && navigator.canShare) {
+    try {
+      const files = await Promise.all(slot.photos.map(async (p, i) => {
+        const res = await fetch(p.editedDataUrl || p.dataUrl);
+        const blob = await res.blob();
+        return new File([blob], `itdasy_${slot.label}_${i + 1}_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      }));
+      if (navigator.canShare({ files })) {
+        await navigator.share({ files, title: '사진 저장' });
+        showToast('공유/저장 완료 ✨');
+        return;
+      }
+    } catch(e) {
+      if (e.name !== 'AbortError') console.warn('Share API failed:', e);
+    }
+  }
+
   slot.photos.forEach((p, i) => {
     const a   = document.createElement('a');
     a.download = `itdasy_${slot.label}_${i + 1}_${Date.now()}.jpg`;
     a.href    = p.editedDataUrl || p.dataUrl;
     a.click();
   });
+  showToast('다운로드가 시작되었어요 📥');
 }
 
 async function deleteSlotFinish(slotId) {

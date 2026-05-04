@@ -15,7 +15,7 @@
   let _sheet = null;            // 카드 노드
   let _settings = null;         // settings 캐시
   let _saveTimer = null;        // 디바운스 타이머
-  const _draftMap = new Map();  // tail -> contenteditable 텍스트
+  const _draftMap = new Map();  // logId -> contenteditable 텍스트 (폴링 시 내용 보존용)
 
   /* ── 유틸 ─────────────────────────────────────────── */
   function _esc(s) {
@@ -287,9 +287,10 @@
   }
 
   /* ── DM 카드 ───────────────────────────────────── */
-  function _renderThread(conv, tail) {
+  function _renderThread(conv, tail, logId) {
     const recv = _esc(conv.received_text || '');
-    const draft = _esc(conv.reply?.text || '');
+    // 1순위: 방금 수정/생성한 로컬 메모리(_draftMap), 2순위: 서버의 답장(text), 3순위: 서버의 초안(ai_draft_text)
+    const draft = _esc(_draftMap.get(logId) || conv.reply?.text || conv.ai_draft_text || '');
     const recvTime = conv.ts ? new Date(conv.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
     return `
       <div class="dm-thread">
@@ -402,7 +403,7 @@
           <div class="dm-card__pending-badge">${pending ? '검토 대기' : '학습 피드백'}</div>
         </div>
         <div><span class="dm-card__cat">${_esc(cat)}</span></div>
-        ${_renderThread(conv, tail)}
+        ${_renderThread(conv, tail, logId)}
         ${actInfo}
         ${_renderMiniTone(activeTone)}
         <div class="dm-actions" style="display:flex;flex-direction:column;gap:6px;">
@@ -600,9 +601,13 @@
     if (!draftEl) return;
 
     const orig = draftEl.textContent;
-    if (orig === '생성 중...' || orig === '생성 중…') return;  // 이미 로딩 상태
-    draftEl.textContent = '생성 중…';
+    if (orig === '생성 중...' || orig === '생성 중…') return; 
+
+    const statusLabel = '생성 중…';
+    draftEl.textContent = statusLabel;
     draftEl.style.color = '#aaa';
+    _draftMap.set(String(logId), statusLabel); // 폴링 시에도 '생성 중' 표시 유지
+    
     _regenInFlight = true;
     _haptic();
     try {
@@ -613,22 +618,37 @@
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
-      // 서버 응답에서 새 텍스트 추출 — 여러 필드명 시도
-      const newText = d.ai_draft_text || d.text || d.reply_text || d.draft || '';
-      // 폴링이 카드를 재렌더했을 수 있으므로 logId 로 다시 조회
+      
+      // 서버 응답에서 새 텍스트 추출 (다양한 필드명 대응)
+      const newText = d.ai_draft_text || d.text || d.reply_text || d.draft || d.generated_text || '';
+      
+      // 폴링이 카드를 재렌더했을 수 있으므로 logId 로 최신 DOM 다시 조회
       const liveCard = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl = liveCard ? liveCard.querySelector('.dm-bubble--sent.is-draft') : draftEl;
-      if (liveEl) {
-        liveEl.textContent = newText || orig;
-        liveEl.style.color = '';
-        _draftMap.set(liveEl.dataset.tail, liveEl.textContent);
+      
+      if (newText) {
+        _draftMap.set(String(logId), newText);
+        if (liveEl) {
+          liveEl.textContent = newText;
+          liveEl.style.color = '';
+        }
+        _toast('✓ 새 답장 생성됨');
+      } else {
+        _draftMap.delete(String(logId)); // 실패 시 맵에서 제거하여 원본(ai_draft_text) 노출 유도
+        if (liveEl) {
+          liveEl.textContent = orig;
+          liveEl.style.color = '';
+        }
       }
-      if (newText) _toast('✓ 새 답장 생성됨');
       if (d.guarded) _toast('✓ 시간 정보 유지하며 톤만 변경됨');
     } catch (e) {
+      _draftMap.delete(String(logId));
       const liveCard2 = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl2 = liveCard2 ? liveCard2.querySelector('.dm-bubble--sent.is-draft') : draftEl;
-      if (liveEl2) { liveEl2.textContent = orig; liveEl2.style.color = ''; }
+      if (liveEl2) { 
+        liveEl2.textContent = orig; 
+        liveEl2.style.color = ''; 
+      }
       _toast('재생성 실패: ' + (e.message || ''));
     } finally {
       _regenInFlight = false;
@@ -681,8 +701,8 @@
     const draftEl = card.querySelector('.dm-bubble--sent.is-draft');
     if (draftEl) {
       draftEl.addEventListener('input', () => {
-        const tail = draftEl.dataset.tail;
-        _draftMap.set(tail, draftEl.textContent || '');
+        const logId = card.dataset.logId;
+        if (logId) _draftMap.set(String(logId), draftEl.textContent || '');
       });
     }
   }

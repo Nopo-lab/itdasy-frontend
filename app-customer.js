@@ -604,16 +604,16 @@
   // ── 픽커 (외부 컴포넌트 재사용) ──────────────────────────
   //   await Customer.pick({ selectedId })  →  {id, name} | null (취소)
   //   캘린더·매출·NPS 등에서 호출 — 항상 최신 전체 목록 보장 (페이징 누락 방지)
-  async function pick(opts) {
-    opts = opts || {};
-    // 캐시가 비어있거나 SWR 캐시가 신선하지 않으면 강제 재조회
-    // (예: 일부 고객만 SWR 에 들어있는 stale 케이스 차단)
-    try {
-      const swr = _readSWR();
-      if (!_cache || !_cache.length || !swr || !swr.fresh) {
-        try { await _fetchFresh(); } catch (_e) { if (!_cache || !_cache.length) await list(); }
-      }
-    } catch (_) { /* ignore — fallback 아래 items */ }
+    async function pick(opts) {
+      opts = opts || {};
+      // 2026-05-04 ── 고객 누락 보고 대응: 캐시가 너무 작거나 stale하면 강제 재조회
+      try {
+        const swr = _readSWR();
+        const minItems = 5; // 최소 5명은 있어야 캐시로 인정 (신규 가입자 제외)
+        if (!_cache || _cache.length < minItems || !swr || !swr.fresh) {
+          try { await _fetchFresh(); } catch (_e) { await list().catch(() => {}); }
+        }
+      } catch (_) { /* ignore */ }
     return new Promise((resolve) => {
       const pop = document.createElement('div');
       pop.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;';
@@ -670,8 +670,8 @@
           }
           return;
         }
-        // 검색어 없을 때도 전체 목록 바로 표시 (최대 30명)
-        const displayHits = trimmed ? hits : hits.slice(0, 30);
+        // 검색어 없을 때도 전체 목록 바로 표시 (최대 100명 — 누락 오해 방지)
+        const displayHits = trimmed ? hits : hits.slice(0, 100);
         createRow.style.display = 'none';
         const moreCount = hits.length - displayHits.length;
         listEl.innerHTML = displayHits.map(c => `

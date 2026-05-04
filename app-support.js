@@ -234,11 +234,7 @@
   // 로그인 후 앱 로드 시 읽지않음 배지 1회 체크
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(async () => {
-      if (!localStorage.getItem('itdasy_token::staging') &&
-          !localStorage.getItem('itdasy_token::prod') &&
-          !localStorage.getItem('itdasy_token::local') &&
-          // eslint-disable-next-line no-restricted-syntax
-          !localStorage.getItem('itdasy_token')) return;
+      if (!window.getToken || !window.getToken()) return;
       const d = await _fetchMessages();
       _updateBadge(d.unread_count || 0);
     }, 2500);

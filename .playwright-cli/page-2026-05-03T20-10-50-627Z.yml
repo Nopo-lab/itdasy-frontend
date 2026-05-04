@@ -1,0 +1,150 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e31]:
+    - img [ref=e33]
+    - generic [ref=e35]: 당겨서 새로고침
+  - generic [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38] [cursor=pointer]:
+        - text: 잇데이
+        - generic [ref=e39]: STUDIO
+      - 'generic "빌드: 20260502-v78-sprint-cb-enhance-emoji (탭하면 최근 로그)" [ref=e40] [cursor=pointer]': vv78-sprint-cb-enhance-emoji
+    - generic [ref=e41]:
+      - button "Free" [ref=e42] [cursor=pointer]
+      - 'button "화면 모드: 라이트 (탭하면 전환)" [ref=e43] [cursor=pointer]':
+        - img [ref=e44]
+      - button "설정" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+  - complementary "PC 사이드 네비게이션" [ref=e50]:
+    - generic [ref=e51]: 잇데이
+    - button "홈" [ref=e52] [cursor=pointer]:
+      - img [ref=e54]
+      - generic [ref=e56]: 홈
+    - button "내 샵 관리" [ref=e57] [cursor=pointer]:
+      - img [ref=e59]
+      - generic [ref=e61]: 내 샵 관리
+    - generic [ref=e62]: 운영
+    - button "예약관리" [ref=e63] [cursor=pointer]:
+      - img [ref=e65]
+      - generic [ref=e67]: 예약관리
+    - button "고객관리" [ref=e68] [cursor=pointer]:
+      - img [ref=e70]
+      - generic [ref=e72]: 고객관리
+    - button "매출관리" [ref=e73] [cursor=pointer]:
+      - img [ref=e75]
+      - generic [ref=e77]: 매출관리
+    - button "재고관리" [ref=e78] [cursor=pointer]:
+      - img [ref=e80]
+      - generic [ref=e82]: 재고관리
+    - button "시술 메뉴" [ref=e83] [cursor=pointer]:
+      - img [ref=e85]
+      - generic [ref=e87]: 시술 메뉴
+    - generic [ref=e88]: 통합 허브
+    - button "AI · 자동화" [ref=e89] [cursor=pointer]:
+      - img [ref=e91]
+      - generic [ref=e93]: AI · 자동화
+    - button "설정 · 연동" [ref=e94] [cursor=pointer]:
+      - img [ref=e96]
+      - generic [ref=e98]: 설정 · 연동
+    - generic [ref=e99]: 계정
+    - button "플랜 · Pro" [ref=e100] [cursor=pointer]:
+      - img [ref=e102]
+      - generic [ref=e104]: 플랜 · Pro
+    - button "도움말" [ref=e105] [cursor=pointer]:
+      - img [ref=e107]
+      - generic [ref=e109]: 도움말
+    - button "만들기" [ref=e110] [cursor=pointer]:
+      - img [ref=e111]
+      - text: 만들기
+  - button "AI 비서" [ref=e113] [cursor=pointer]:
+    - img [ref=e114]
+  - generic [ref=e117]:
+    - generic [ref=e118]:
+      - generic [ref=e119]: 인스타 연결 (선택)
+      - generic [ref=e120]:
+        - text: 연결 한 번이면
+        - text: 말투까지 학습해요
+      - generic [ref=e121]:
+        - text: 연결 없이도 AI 캡션·사진 편집은 전부 사용 가능해요
+        - text: 연결하면 내 말투 그대로 글이 나와요
+      - generic [ref=e122]:
+        - text: 이 연결은
+        - strong [ref=e123]: 잇데이 로그인 계정과 별개
+        - text: 예요. 콘텐츠 발행 · 말투 분석용으로만 쓰여요.
+      - button "연결하고 시작해요" [ref=e124] [cursor=pointer]
+      - button "샘플 캡션 먼저 볼게요" [ref=e125] [cursor=pointer]:
+        - img [ref=e126]
+        - text: 샘플 캡션 먼저 볼게요
+      - button "나중에 — 먼저 둘러볼게요" [ref=e131] [cursor=pointer]
+    - generic [ref=e132]:
+      - generic [ref=e133]: 연동하면 이런 게 돼요
+      - generic [ref=e134]:
+        - generic [ref=e135]:
+          - img [ref=e137]
+          - generic [ref=e140]:
+            - strong [ref=e141]: 내 말투 그대로
+            - text: 피드 글 자동 생성
+        - generic [ref=e142]:
+          - img [ref=e144]
+          - generic [ref=e145]:
+            - strong [ref=e146]: 게시물 30개
+            - text: 분석해서 말투 학습
+        - generic [ref=e147]:
+          - img [ref=e149]
+          - generic [ref=e151]:
+            - strong [ref=e152]: 3초
+            - text: 면 글 완성 — 해시태그 포함
+    - generic [ref=e155] [cursor=pointer]: ▼
+  - generic:
+    - generic: 🎀
+    - generic:
+      - text: 반갑습니다,
+      - text: 잇데이 뷰티 스튜디오 (데모)대표님!
+    - generic: 오늘도 잇데이와 함께해요
+  - dialog [ref=e156]:
+    - banner [ref=e157]:
+      - generic [ref=e158]: 내
+      - generic [ref=e159]:
+        - generic [ref=e160]: 내 샵
+        - generic [ref=e161]: Free 플랜
+      - button [ref=e162] [cursor=pointer]:
+        - img [ref=e163]
+    - navigation [ref=e165]:
+      - generic [ref=e166]: 운영
+      - button [ref=e167] [cursor=pointer]:
+        - img [ref=e168]
+        - generic [ref=e170]: 예약관리
+        - img [ref=e171]
+      - button [ref=e173] [cursor=pointer]:
+        - img [ref=e174]
+        - generic [ref=e176]: 고객관리
+        - img [ref=e177]
+      - button [ref=e179] [cursor=pointer]:
+        - img [ref=e180]
+        - generic [ref=e182]: 매출관리
+        - img [ref=e183]
+      - button [ref=e185] [cursor=pointer]:
+        - img [ref=e186]
+        - generic [ref=e188]: 재고관리
+        - img [ref=e189]
+      - generic [ref=e191]: AI · 자동화
+      - button [ref=e192] [cursor=pointer]:
+        - img [ref=e193]
+        - generic [ref=e195]: AI 자동화
+        - img [ref=e196]
+      - generic [ref=e198]: 설정
+      - button [ref=e199] [cursor=pointer]:
+        - img [ref=e200]
+        - generic [ref=e202]: 설정 · 연동
+        - img [ref=e203]
+  - generic [ref=e205]:
+    - generic [ref=e206]: 🍪 더 나은 서비스 제공 안내
+    - generic [ref=e207]:
+      - text: 잇데이는 로그인 유지·오류 진단에 필요한 최소한의 데이터만 사용합니다. 자세한 내용은 개인정보처리방침을 확인해 주세요. 언제든 설정에서 변경 가능합니다.
+      - link "개인정보처리방침" [ref=e208] [cursor=pointer]:
+        - /url: https://itdasy.com/privacy.html
+      - text: ·
+      - link "English" [ref=e209] [cursor=pointer]:
+        - /url: https://itdasy.com/privacy-en.html
+    - generic [ref=e210]:
+      - button "✅ 전체 허용" [ref=e211] [cursor=pointer]
+      - button "필수만" [ref=e212] [cursor=pointer]

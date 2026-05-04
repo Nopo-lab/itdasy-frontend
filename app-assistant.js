@@ -1496,7 +1496,9 @@
       }
       const run = e.target.closest('[data-action-run]');
       if (run && document.getElementById('asstBody')?.contains(run)) {
-        _runAction(parseInt(run.dataset.actionRun, 10));
+        const idx = parseInt(run.dataset.actionRun, 10);
+        console.log('[Asst] Action Run Clicked:', idx);
+        _runAction(idx);
         return;
       }
       const cancel = e.target.closest('[data-action-cancel]');
@@ -1510,8 +1512,14 @@
       const singleEdit = e.target.closest('[data-action-edit]');
       if (singleEdit && document.getElementById('asstBody')?.contains(singleEdit)) {
         const idx = parseInt(singleEdit.dataset.actionEdit, 10);
+        console.log('[Asst] Action Edit Clicked:', idx);
         const msg = _history[idx];
         if (msg && msg.action) {
+          // 실행 중이거나 완료된 경우 수정 불가
+          if (msg.action_status === 'running' || msg.action_status === 'done') {
+            if (window.showToast) window.showToast('이미 처리 중이거나 완료된 작업입니다');
+            return;
+          }
           // 원본 payload 백업 (취소 시 복원용)
           if (!msg.action_orig_payload) {
             try { msg.action_orig_payload = JSON.parse(JSON.stringify(msg.action.payload || {})); }
@@ -1658,19 +1666,20 @@
       }
       // 통합 확인 카드 — 전체 추가 (순차 실행)
       const uniRun = e.target.closest('[data-unified-runall]');
-      if (uniRun && document.getElementById('asstBody')?.contains(uniRun)) {
+      if (uniRun) {
         const hi = parseInt(uniRun.dataset.unifiedRunall, 10);
+        console.log('[Asst] Unified Run All:', hi);
         _runUnifiedAll(hi);
         return;
       }
       // 통합 확인 카드 — 수정 (기존 그룹 카드로 전환)
       const uniEdit = e.target.closest('[data-unified-edit]');
-      if (uniEdit && document.getElementById('asstBody')?.contains(uniEdit)) {
+      if (uniEdit) {
         const hi = parseInt(uniEdit.dataset.unifiedEdit, 10);
+        console.log('[Asst] Unified Edit:', hi);
         const msg = _history[hi];
         if (msg && msg.action_groups) {
           msg.unified_mode = false;
-          // 개별 수정 쉽게 — 모든 그룹 펼침
           msg.action_groups.forEach(g => { g.expanded = true; });
           _renderHistory();
         }
@@ -1678,7 +1687,7 @@
       }
       // 그룹 카드 — 접기·펴기
       const tgl = e.target.closest('[data-group-toggle]');
-      if (tgl && document.getElementById('asstBody')?.contains(tgl)) {
+      if (tgl) {
         const [hi, gi] = tgl.dataset.groupToggle.split(':').map(n => parseInt(n, 10));
         const g = _history[hi] && _history[hi].action_groups && _history[hi].action_groups[gi];
         if (g) { g.expanded = !g.expanded; _renderHistory(); }
@@ -1686,7 +1695,7 @@
       }
       // 그룹 카드 — 전체(남은) 추가
       const runAll = e.target.closest('[data-group-runall]');
-      if (runAll && document.getElementById('asstBody')?.contains(runAll)) {
+      if (runAll) {
         const [hi, gi] = runAll.dataset.groupRunall.split(':').map(n => parseInt(n, 10));
         _runGroupAll(hi, gi);
         return;

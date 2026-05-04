@@ -67,9 +67,23 @@
 
   async function _apiGet(path) {
     if (!window.API || !window.authHeader) throw new Error('no-auth');
-    const res = await fetch(window.API + path, { headers: window.authHeader() });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.json();
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 10000); // 10초 타임아웃
+    try {
+      const res = await fetch(window.API + path, { 
+        headers: window.authHeader(),
+        signal: ctrl.signal
+      });
+      clearTimeout(tid);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || ('HTTP ' + res.status));
+      }
+      return await res.json();
+    } catch (e) {
+      clearTimeout(tid);
+      throw e;
+    }
   }
 
   async function _apiPatch(path, body) {

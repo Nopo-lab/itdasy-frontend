@@ -1,0 +1,184 @@
+- generic [ref=e1]:
+  - generic [ref=e31]:
+    - img [ref=e33]
+    - generic [ref=e35]: 당겨서 새로고침
+  - generic [ref=e36]:
+    - generic [ref=e37]:
+      - generic [ref=e38] [cursor=pointer]:
+        - text: 잇데이
+        - generic [ref=e39]: STUDIO
+      - 'generic "빌드: 20260502-v78-sprint-cb-enhance-emoji (탭하면 최근 로그)" [ref=e40] [cursor=pointer]': vv78-sprint-cb-enhance-emoji
+    - generic [ref=e41]:
+      - generic [ref=e274]:
+        - generic [ref=e275]: 연
+        - 'generic "가입 방법: 잇데이" [ref=e276]'
+      - button "Free" [ref=e42] [cursor=pointer]
+      - 'button "화면 모드: 라이트 (탭하면 전환)" [ref=e43] [cursor=pointer]':
+        - img [ref=e44]
+      - button "설정" [ref=e46] [cursor=pointer]:
+        - img [ref=e47]
+  - generic [ref=e482]:
+    - generic [ref=e484]:
+      - heading "뭐부터 할까요?" [level=3] [ref=e485]
+      - button [ref=e486] [cursor=pointer]:
+        - img [ref=e487]
+    - button "새로 만들기 사진 올리면 AI가 글까지 알아서" [ref=e489] [cursor=pointer]:
+      - img [ref=e491]
+      - generic [ref=e493]:
+        - generic [ref=e494]: 새로 만들기
+        - generic [ref=e495]: 사진 올리면 AI가 글까지 알아서
+    - button "포트폴리오 작업실에서 슬롯·사진 관리" [ref=e496] [cursor=pointer]:
+      - img [ref=e498]
+      - generic [ref=e500]:
+        - generic [ref=e501]: 포트폴리오
+        - generic [ref=e502]: 작업실에서 슬롯·사진 관리
+    - button "글쓰기 내 말투 배운 AI가 써줘요" [ref=e503] [cursor=pointer]:
+      - img [ref=e505]
+      - generic [ref=e507]:
+        - generic [ref=e508]: 글쓰기
+        - generic [ref=e509]: 내 말투 배운 AI가 써줘요
+    - button "마무리 완성된 포스트 인스타에 올리기" [ref=e510] [cursor=pointer]:
+      - img [ref=e512]
+      - generic [ref=e514]:
+        - generic [ref=e515]: 마무리
+        - generic [ref=e516]: 완성된 포스트 인스타에 올리기
+  - generic:
+    - tablist "메인 네비게이션" [ref=e353]:
+      - button "홈 탭" [ref=e354] [cursor=pointer]:
+        - img [ref=e355]
+        - generic [ref=e357]: 홈
+      - button "만들기" [active] [ref=e358] [cursor=pointer]:
+        - img [ref=e359]
+      - button "내 샵 관리 탭" [ref=e361] [cursor=pointer]:
+        - img [ref=e362]
+        - generic [ref=e364]: 내 샵 관리
+    - button "AI 비서" [ref=e113] [cursor=pointer]:
+      - img [ref=e114]
+  - generic [ref=e365]:
+    - banner [ref=e366]:
+      - generic [ref=e367]:
+        - generic [ref=e368]: 내샵관리
+        - generic [ref=e369]: 내 샵
+      - button "설정" [ref=e370] [cursor=pointer]:
+        - img [ref=e371]
+    - generic [ref=e374]:
+      - generic [ref=e375]:
+        - generic [ref=e376]:
+          - generic [ref=e377]: 내
+          - generic [ref=e378]:
+            - generic [ref=e379]: 내 샵
+            - generic [ref=e380]: ✦ Pro 플랜
+          - button "샵 정보 편집" [ref=e381] [cursor=pointer]:
+            - img [ref=e382]
+        - generic [ref=e385]:
+          - generic [ref=e386]:
+            - generic [ref=e387]: 이번달 매출
+            - generic [ref=e388]: ₩0
+          - generic [ref=e389]:
+            - generic [ref=e390]: 고객
+            - generic [ref=e391]: —
+          - generic [ref=e392]:
+            - generic [ref=e393]: 예약
+            - generic [ref=e394]: 0건
+            - generic [ref=e395]: 오늘 예약
+      - generic [ref=e396]:
+        - generic [ref=e397]: 운영 관리
+        - generic [ref=e398]:
+          - button "예약관리 오늘 0건" [ref=e399] [cursor=pointer]:
+            - img [ref=e401]
+            - generic [ref=e403]:
+              - generic [ref=e404]: 예약관리
+              - generic [ref=e405]: 오늘 0건
+            - img [ref=e406]
+          - button "고객관리 고객 관리" [ref=e408] [cursor=pointer]:
+            - img [ref=e410]
+            - generic [ref=e414]:
+              - generic [ref=e415]: 고객관리
+              - generic [ref=e416]: 고객 관리
+            - img [ref=e417]
+          - button "매출관리 ₩0" [ref=e419] [cursor=pointer]:
+            - img [ref=e421]
+            - generic [ref=e423]:
+              - generic [ref=e424]: 매출관리
+              - generic [ref=e425]: ₩0
+            - img [ref=e426]
+          - button "재고관리 재고 정상" [ref=e428] [cursor=pointer]:
+            - img [ref=e430]
+            - generic [ref=e432]:
+              - generic [ref=e433]: 재고관리
+              - generic [ref=e434]: 재고 정상
+            - img [ref=e435]
+      - generic [ref=e437]:
+        - generic [ref=e438]: 통합 허브
+        - generic [ref=e439]:
+          - button "AI · 자동화 3개 켜짐 · 4개 꺼짐 7" [ref=e440] [cursor=pointer]:
+            - img [ref=e442]
+            - generic [ref=e444]:
+              - generic [ref=e445]: AI · 자동화
+              - generic [ref=e446]: 3개 켜짐 · 4개 꺼짐
+            - generic [ref=e447]:
+              - generic [ref=e448]: "7"
+              - img [ref=e449]
+          - button "설정 · 연동 샵정보 · 직원 · 네이버 · 백업" [ref=e451] [cursor=pointer]:
+            - img [ref=e453]
+            - generic [ref=e455]:
+              - generic [ref=e456]: 설정 · 연동
+              - generic [ref=e457]: 샵정보 · 직원 · 네이버 · 백업
+            - img [ref=e458]
+      - generic [ref=e460]:
+        - generic [ref=e461]: 계정
+        - generic [ref=e462]:
+          - button "플랜 · 구독 Pro" [ref=e463] [cursor=pointer]:
+            - img [ref=e465]
+            - generic [ref=e467]:
+              - generic [ref=e468]: 플랜 · 구독
+              - generic [ref=e469]: Pro
+            - img [ref=e470]
+          - button "도움말 · 문의 사용법 · 문의하기" [ref=e472] [cursor=pointer]:
+            - img [ref=e474]
+            - generic [ref=e476]:
+              - generic [ref=e477]: 도움말 · 문의
+              - generic [ref=e478]: 사용법 · 문의하기
+            - img [ref=e479]
+  - generic:
+    - generic: 🎀
+    - generic:
+      - text: 반갑습니다,
+      - text: 잇데이 뷰티 스튜디오 (데모)대표님!
+    - generic: 오늘도 잇데이와 함께해요
+  - dialog [ref=e156]:
+    - banner [ref=e157]:
+      - generic [ref=e158]: 내
+      - generic [ref=e159]:
+        - generic [ref=e160]: 내 샵
+        - generic [ref=e161]: Free 플랜
+      - button [ref=e162] [cursor=pointer]:
+        - img [ref=e163]
+    - navigation [ref=e165]:
+      - generic [ref=e166]: 운영
+      - button [ref=e167] [cursor=pointer]:
+        - img [ref=e168]
+        - generic [ref=e170]: 예약관리
+        - img [ref=e171]
+      - button [ref=e173] [cursor=pointer]:
+        - img [ref=e174]
+        - generic [ref=e176]: 고객관리
+        - img [ref=e177]
+      - button [ref=e179] [cursor=pointer]:
+        - img [ref=e180]
+        - generic [ref=e182]: 매출관리
+        - img [ref=e183]
+      - button [ref=e185] [cursor=pointer]:
+        - img [ref=e186]
+        - generic [ref=e188]: 재고관리
+        - img [ref=e189]
+      - generic [ref=e191]: AI · 자동화
+      - button [ref=e192] [cursor=pointer]:
+        - img [ref=e193]
+        - generic [ref=e195]: AI 자동화
+        - img [ref=e196]
+      - generic [ref=e198]: 설정
+      - button [ref=e199] [cursor=pointer]:
+        - img [ref=e200]
+        - generic [ref=e202]: 설정 · 연동
+        - img [ref=e203]

@@ -35,6 +35,47 @@
     '10-3':'개천절','10-5':'대체공휴일','10-9':'한글날','12-25':'크리스마스',
   };
 
+  // [2026-05-04] 시간 선택 휠 네이티브 스냅 스타일 주입
+  (function _injectWheelStyle() {
+    if (typeof document === 'undefined' || document.getElementById('bf-tp-wheel-style')) return;
+    const s = document.createElement('style');
+    s.id = 'bf-tp-wheel-style';
+    s.textContent = `
+      .bf-tp-wheel {
+        height: 140px !important;
+        overflow-y: scroll !important;
+        scroll-snap-type: y mandatory !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none;
+        position: relative;
+      }
+      .bf-tp-wheel::-webkit-scrollbar { display: none; }
+      .bf-tp-inner {
+        padding: 56px 0 !important; /* 상하 2칸씩 여백 (140/2 - 28/2 = 56) */
+        display: flex;
+        flex-direction: column;
+        transition: none !important;
+        transform: none !important;
+      }
+      .bf-tp-row {
+        height: 28px !important;
+        line-height: 28px !important;
+        scroll-snap-align: center !important;
+        flex: 0 0 28px !important;
+        opacity: 0.35;
+        transition: opacity 0.2s, font-weight 0.2s, transform 0.2s;
+        transform: scale(0.9);
+      }
+      .bf-tp-row.current {
+        opacity: 1 !important;
+        font-weight: 700 !important;
+        color: var(--brand, #F18091) !important;
+        transform: scale(1.15) !important;
+      }
+    `;
+    document.head.appendChild(s);
+  })();
+
   // === 시간 그리드 단위 ===
   const HOUR_PX_MOBILE_DAY  = 60;
   const HOUR_PX_MOBILE_WEEK = 50;
@@ -1173,18 +1214,17 @@
     const todayLabel = _ds(new Date()) === dateStr ? '오늘' : DOW[dd.getDay()] + '요일';
     const dayCnt = (_mappedCache || []).filter(it => _ds(new Date(it.starts_at)) === dateStr && it.status !== 'cancelled' && it.status !== 'no_show').length;
     // 휠 행 생성 (시: 0~23, 분: 0/15/30/45)
+    // 휠 행 생성 (시: 0~23 전체, 분: 0/15/30/45 전체)
     const hRows = (cur) => {
-      let h = ''; for (let i = cur - 2; i <= cur + 2; i++) {
-        const v = ((i % 24) + 24) % 24;
-        h += `<div class="bf-tp-row${v === cur ? ' current' : ''}" data-val="${v}">${_pad(v)}</div>`;
+      let h = ''; for (let i = 0; i < 24; i++) {
+        h += `<div class="bf-tp-row${i === cur ? ' current' : ''}" data-val="${i}">${_pad(i)}</div>`;
       } return h;
     };
     const mRows = (cur) => {
-      const ms = [0,15,30,45]; let idx = ms.indexOf(cur); if (idx < 0) idx = 0;
-      let h = ''; for (let i = idx - 2; i <= idx + 2; i++) {
-        const v = ms[((i % 4) + 4) % 4];
+      const ms = [0,15,30,45];
+      let h = ''; ms.forEach(v => {
         h += `<div class="bf-tp-row${v === cur ? ' current' : ''}" data-val="${v}">${_pad(v)}</div>`;
-      } return h;
+      }); return h;
     };
     const endTimeLabel = _pad(endH) + ':' + _pad(endM);
 
@@ -1325,85 +1365,42 @@
 
     // --- 휠 스크롤 (click + wheel 마우스 + touch swipe 모두 지원) ---
     // 2026-05-01 ── 사용자 보고: '시간 입력 스크롤안됨'. wheel/swipe/click 모두 지원.
+    // --- 휠 스크롤 (네이티브 scroll-snap 활용) ---
+    // 2026-05-04 ── '뚝뚝 끊김' 보고 대응: 가상 휠 방식 버리고 네이티브 스냅으로 전면 교체
     body.querySelectorAll('.bf-tp-wheel').forEach(wheel => {
-      const isHour = wheel.id === 'bfWheelH';
-      const vals = isHour ? Array.from({length:24}, (_,i) => i) : [0,15,30,45];
+      const ROW_H = 28;
 
-      function _curIdx() {
-        const cur = wheel.querySelector('.bf-tp-row.current');
-        if (!cur) return 0;
-        const v = parseInt(cur.dataset.val, 10);
-        return Math.max(0, vals.indexOf(v));
-      }
-      function _setIdx(idx, dir) {
-        idx = ((idx % vals.length) + vals.length) % vals.length;
-        const newCur = vals[idx];
-        // 5개 row 다시 렌더 (cur-2 ~ cur+2) — slide 애니메이션 적용
-        const inner = wheel.querySelector('.bf-tp-inner');
-        if (!inner) return;
-        let html = '';
-        for (let i = idx - 2; i <= idx + 2; i++) {
-          const v = vals[((i % vals.length) + vals.length) % vals.length];
-          html += `<div class="bf-tp-row${v === newCur ? ' current' : ''}" data-val="${v}">${_pad(v)}</div>`;
-        }
-        // 부드러운 슬라이드 애니메이션
-        const slideDir = dir || 0;
-        if (slideDir !== 0) {
-          inner.style.transition = 'none';
-          inner.style.transform = `translateY(${slideDir > 0 ? 44 : -44}px)`;
-          inner.offsetHeight; // reflow
-          inner.innerHTML = html;
-          inner.style.transition = 'transform 180ms cubic-bezier(0.22, 1, 0.36, 1)';
-          inner.style.transform = 'translateY(0)';
-        } else {
-          inner.innerHTML = html;
-        }
+      const onScroll = () => {
+        const top = wheel.scrollTop;
+        const idx = Math.round(top / ROW_H);
+        const rows = wheel.querySelectorAll('.bf-tp-row');
+        rows.forEach((r, i) => r.classList.toggle('current', i === idx));
         _updateDur();
+      };
+
+      // 초기 위치 설정
+      const curRow = wheel.querySelector('.bf-tp-row.current');
+      if (curRow) {
+        const rows = Array.from(wheel.querySelectorAll('.bf-tp-row'));
+        const idx = rows.indexOf(curRow);
+        // rAF를 써서 렌더링 직후에 스크롤 위치를 잡음
+        requestAnimationFrame(() => { wheel.scrollTop = idx * ROW_H; });
       }
 
-      // click — 클릭한 row 로 점프
+      let scrollTimer = null;
+      wheel.addEventListener('scroll', () => {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(onScroll, 50); // 스크롤 멈추면 값 확정
+      }, { passive: true });
+
+      // 클릭 시 해당 위치로 부드럽게 이동
       wheel.addEventListener('click', e => {
         const row = e.target.closest('.bf-tp-row');
-        if (!row || row.classList.contains('current')) return;
-        const v = parseInt(row.dataset.val, 10);
-        const idx = vals.indexOf(v);
-        if (idx >= 0) _setIdx(idx);
+        if (!row) return;
+        const rows = Array.from(wheel.querySelectorAll('.bf-tp-row'));
+        const idx = rows.indexOf(row);
+        wheel.scrollTo({ top: idx * ROW_H, behavior: 'smooth' });
       });
-
-      // mouse wheel — 위/아래 휠로 값 변경 (PC)
-      let wheelAcc = 0;
-      wheel.addEventListener('wheel', e => {
-        e.preventDefault();
-        wheelAcc += e.deltaY;
-        const STEP = 30;
-        if (Math.abs(wheelAcc) >= STEP) {
-          const dir = wheelAcc > 0 ? 1 : -1;
-          _setIdx(_curIdx() + dir, dir);
-          wheelAcc = 0;
-        }
-      }, { passive: false });
-
-      // touch swipe — 위/아래 스와이프 (모바일)
-      // ROW_H 를 28px 로 올려서 과도한 민감도 제거 + 부드러운 1칸 이동
-      let touchY = null, swipeAcc = 0;
-      wheel.addEventListener('touchstart', e => {
-        if (!e.touches || !e.touches.length) return;
-        touchY = e.touches[0].clientY;
-        swipeAcc = 0;
-      }, { passive: true });
-      wheel.addEventListener('touchmove', e => {
-        if (touchY === null || !e.touches || !e.touches.length) return;
-        const dy = touchY - e.touches[0].clientY;
-        swipeAcc += dy;
-        touchY = e.touches[0].clientY;
-        const ROW_H = 28;
-        if (Math.abs(swipeAcc) >= ROW_H) {
-          const dir = swipeAcc > 0 ? 1 : -1;
-          _setIdx(_curIdx() + dir, dir);
-          swipeAcc = 0;
-        }
-      }, { passive: true });
-      wheel.addEventListener('touchend', () => { touchY = null; swipeAcc = 0; }, { passive: true });
     });
 
     // --- 고객 카드 ---
@@ -1513,7 +1510,7 @@
         // 더보기 열렸을 때 해당 영역이 보이도록 스크롤
         if (!open) {
           setTimeout(() => {
-            moreFields.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            moreFields.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }, 50);
         }
       });
