@@ -409,6 +409,48 @@ function applyOAuthProviderBadge() {
 }
 window.applyOAuthProviderBadge = applyOAuthProviderBadge;
 
+function _setAuthGateLocked(locked) {
+  if (document.body) document.body.classList.toggle('itdasy-locked', !!locked);
+  const lock = document.getElementById('lockOverlay');
+  if (lock) lock.setAttribute('aria-hidden', locked ? 'false' : 'true');
+}
+
+function _isIOSAppSurface() {
+  try {
+    if (window.Capacitor && typeof window.Capacitor.getPlatform === 'function') {
+      if (window.Capacitor.getPlatform() === 'ios') return true;
+    }
+  } catch (_) { void 0; }
+  return /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+}
+
+function applyStoreReviewLoginGuard() {
+  const hideSocial = _isIOSAppSurface();
+  const divider = document.getElementById('loginSocialDivider');
+  const wrap = document.getElementById('socialLoginWrap');
+  if (divider) divider.style.display = hideSocial ? 'none' : '';
+  if (wrap) wrap.style.display = hideSocial ? 'none' : '';
+}
+window.applyStoreReviewLoginGuard = applyStoreReviewLoginGuard;
+
+function _bindLoginSocialButtons() {
+  const google = document.getElementById('loginGoogleBtn');
+  const kakao = document.getElementById('loginKakaoBtn');
+  const naver = document.getElementById('loginNaverBtn');
+  if (google && !google._itdasyBound) {
+    google._itdasyBound = true;
+    google.addEventListener('click', () => window.startGoogleLogin && window.startGoogleLogin());
+  }
+  if (kakao && !kakao._itdasyBound) {
+    kakao._itdasyBound = true;
+    kakao.addEventListener('click', () => window.startKakaoLogin && window.startKakaoLogin());
+  }
+  if (naver && !naver._itdasyBound) {
+    naver._itdasyBound = true;
+    naver.addEventListener('click', () => window.startNaverLogin && window.startNaverLogin());
+  }
+}
+
 function setToken(t) {
   try {
     // 토큰 값이 바뀌면 (다른 계정·재로그인·로그아웃) 모든 SWR 캐시 무효화.
@@ -484,6 +526,7 @@ function authHeader() {
           if (msg) msg.style.display = 'block';
           const lock = document.getElementById('lockOverlay');
           if (lock) lock.classList.remove('hidden');
+          _setAuthGateLocked(true);
           return res;
         }
         // 5xx 게이트웨이성 에러: retryable 이면 재시도
@@ -640,6 +683,7 @@ function handle401() {
   document.body.style.transition = '';
   document.getElementById('lockOverlay').classList.remove('hidden');
   document.getElementById('sessionExpiredMsg').style.display = 'block';
+  _setAuthGateLocked(true);
 }
 
 // ──────────────────────────────────────────────
@@ -768,6 +812,7 @@ async function login() {
       localStorage.setItem('last_login_email', email);
     } catch (_) { /* ignore */ }
     document.getElementById('lockOverlay').classList.add('hidden');
+    _setAuthGateLocked(false);
     checkCbt1Reset();
     checkOnboarding();
     checkInstaStatus(true);
@@ -922,6 +967,7 @@ async function signup() {
     } catch (_) { /* ignore */ }
     document.getElementById('signupOverlay').style.display = 'none';
     document.getElementById('lockOverlay').classList.add('hidden');
+    _setAuthGateLocked(false);
     checkOnboarding();
     checkInstaStatus(true);
   } catch (e) {
@@ -939,9 +985,11 @@ function _toggleSignup(show) {
   if (show) {
     lock.classList.add('hidden');
     signup.style.display = 'flex';
+    _setAuthGateLocked(true);
   } else {
     signup.style.display = 'none';
     lock.classList.remove('hidden');
+    _setAuthGateLocked(true);
   }
 }
 
@@ -987,6 +1035,31 @@ window.startKakaoLogin = async function () {
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '카카오 로그인 오류');
     alert(msg);
+  }
+};
+
+// ───── 네이버 OAuth 로그인 시작 ─────
+window.startNaverLogin = async function () {
+  try {
+    const returnTo = new URL('oauth-return.html', window.location.href).href;
+    const res = await fetch(
+      `${window.API}/auth/naver/authorize?return_to=${encodeURIComponent(returnTo)}`
+    );
+    if (!res.ok) throw new Error('네이버 로그인 준비 실패');
+    const data = await res.json();
+    if (!data.url) {
+      if (window.showToast) window.showToast('네이버 로그인 설정이 아직 준비 중이에요');
+      return;
+    }
+    if (window.Capacitor?.Plugins?.Browser) {
+      await window.Capacitor.Plugins.Browser.open({ url: data.url });
+    } else {
+      window.location.href = data.url;
+    }
+  } catch (e) {
+    const msg = window._humanError ? window._humanError(e) : (e.message || '네이버 로그인 오류');
+    if (window.showToast) window.showToast('네이버 로그인을 시작할 수 없어요');
+    else alert(msg);
   }
 };
 
@@ -1059,6 +1132,9 @@ window.startKakaoLogin = async function () {
 
 // ===== 앱 초기화 (모든 모듈 로드 후 실행) =====
 window.addEventListener('load', function() {
+  _bindLoginSocialButtons();
+  applyStoreReviewLoginGuard();
+
   // Enter 키 로그인 (IME 조합 중 무시)
   const loginPw = document.getElementById('loginPassword');
   if (loginPw) loginPw.addEventListener('keydown', e => {
@@ -1145,6 +1221,7 @@ window.addEventListener('load', function() {
       const ok = await _tryBiometricLogin();
       if (ok) {
         document.getElementById('lockOverlay').classList.add('hidden');
+        _setAuthGateLocked(false);
         checkOnboarding();
         checkInstaStatus(true);
       }
@@ -1154,6 +1231,7 @@ window.addEventListener('load', function() {
   // 토큰 있으면 자동 로그인
   if(getToken()) {
     document.getElementById('lockOverlay').classList.add('hidden');
+    _setAuthGateLocked(false);
     // 가입방법 배지 + last_user_id 보정 (기존 캐시값으로 즉시 + /me 로 갱신)
     try { applyOAuthProviderBadge(); } catch (_) { /* ignore */ }
     try { applyNewSession(getToken()); } catch (_) { /* ignore */ }
@@ -1191,6 +1269,8 @@ window.addEventListener('load', function() {
         try { window.TodayBrief.render('home-today-brief'); } catch (_e) { /* ignore */ }
       }
     }, 800);
+  } else {
+    _setAuthGateLocked(true);
   }
 });
 
@@ -1316,7 +1396,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260502-v78-sprint-cb-enhance-emoji';
+window.APP_BUILD = '20260504-v79-review-trust';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -1505,7 +1585,9 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
 // ──────────────────────────────────────────────
 async function loadStatsCard() {
   try {
-    const r = await fetch(API + '/subscription/usage', { headers: authHeader() });
+    const headers = authHeader();
+    if (!headers.Authorization) return;
+    const r = await fetch(API + '/subscription/usage', { headers });
     if (!r.ok) return;
     const d = await r.json();
     const cap = document.getElementById('statCaptions');

@@ -273,6 +273,15 @@
             </div>
             <button type="button" data-act="open-manual-replies" style="background:#FAF5FF;border:1px solid #DDD6FE;color:#5B21B6;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">멘트 관리 →</button>
           </div>
+          <div class="dm-rows__item">
+            <div style="flex:1;">
+              <div class="dm-rows__label" style="font-weight:700;color:#222;">가격 문의 즉답</div>
+              <div style="font-size:11px;color:#888;margin-top:3px;line-height:1.45;">시술 가격표 등록 시 가격 문의에 자동 답장</div>
+            </div>
+            <button type="button" class="dm-toggle dm-toggle--small" id="dmPricingToggleBtn" data-act="pricing-toggle" aria-pressed="false">
+              <span class="dm-toggle__track"></span><span class="dm-toggle__knob"></span>
+            </button>
+          </div>
         </div>
       </div>`;
   }
@@ -319,6 +328,35 @@
       </div>`;
   }
 
+  // [Feature 1] 손님 맥락 카드 렌더링 — conv.customer_context 있을 때만
+  function _renderCustomerContext(ctx) {
+    if (!ctx) return '';
+    const name = _esc(ctx.name || '');
+    const badgeHtml = ctx.is_regular
+      ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:2px 8px;border-radius:99px;font-weight:700;margin-left:4px;">단골</span>'
+      : (ctx.visit_count === 1
+        ? '<span style="font-size:10px;background:#3B82F6;color:#fff;padding:2px 8px;border-radius:99px;font-weight:700;margin-left:4px;">신규</span>'
+        : '');
+    const lastInfo = (ctx.days_since_last_visit != null && ctx.last_service)
+      ? `<span style="font-size:11px;color:rgba(255,255,255,0.6);margin-right:8px;">${ctx.days_since_last_visit}일 전 ${_esc(ctx.last_service)}</span>`
+      : '';
+    const visitInfo = ctx.visit_count != null
+      ? `<span style="font-size:11px;color:rgba(255,255,255,0.6);">${ctx.visit_count}회 방문</span>`
+      : '';
+    const memoHtml = ctx.memo_snippet
+      ? `<div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;">${_esc(ctx.memo_snippet)}</div>`
+      : '';
+    return `
+      <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
+          <span style="font-weight:700;color:#fff;font-size:13px;">${name}님</span>
+          ${badgeHtml}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;margin-top:4px;">${lastInfo}${visitInfo}</div>
+        ${memoHtml}
+      </div>`;
+  }
+
   function _renderCard(conv, activeTone) {
     const tail = (conv.sender_tail || '????').slice(-4);
     // [2026-05-02] sender_username (자동 수집된 @아이디) 우선 → 없으면 "손님 …{tail}"
@@ -356,6 +394,7 @@
 
     return `
       <div class="dm-card is-pending" data-tail="${_esc(tail)}" data-log-id="${_esc(logId)}" data-status="${_esc(status)}" data-action="${_esc(actReq)}">
+        ${_renderCustomerContext(conv.customer_context || null)}
         <div class="dm-card__top">
           <div class="dm-card__avatar">고</div>
           <div class="dm-card__name" style="cursor:pointer;" data-act="open-customer" data-cust-id="${conv.customer_id || ''}">${_esc(name)}</div>
@@ -375,6 +414,53 @@
           <button type="button" class="dm-action is-reject" data-act="reject" style="width:100%;justify-content:center;">직접 거절 / 수정</button>
         </div>
       </div>`;
+  }
+
+  // [Feature 4] 리텐션 원클릭 DM — inbox 상단 섹션
+  function _renderRetention() {
+    return `
+      <div class="dm-section" id="dmRetentionSection">
+        <div class="dm-section__title">리텐션 DM</div>
+        <button type="button" data-act="open-retention"
+          style="width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);
+            background:rgba(255,255,255,0.07);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;gap:6px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          45일+ 안 오신 손님 보기
+        </button>
+        <div id="dmRetentionList" style="margin-top:8px;"></div>
+      </div>`;
+  }
+
+  function _renderRetentionList(customers) {
+    if (!customers || !customers.length) {
+      return '<div style="font-size:12px;color:rgba(255,255,255,0.5);padding:8px 0;">해당하는 손님이 없어요.</div>';
+    }
+    const sendable = customers.filter(c => c.can_send_dm);
+    const rows = customers.map(c => {
+      const lastVisit = c.last_visit_at ? new Date(c.last_visit_at).toLocaleDateString('ko-KR') : '—';
+      const dmPart = c.can_send_dm
+        ? `<button type="button" data-act="retention-send" data-cust-id="${_esc(String(c.customer_id || ''))}"
+              style="font-size:11px;background:#10B981;color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700;white-space:nowrap;">DM 발송</button>`
+        : `<span style="font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;">인스타 미연결</span>`;
+      return `
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;color:#fff;">${_esc(c.name || '이름 없음')}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px;">마지막 방문: ${lastVisit}</div>
+            ${c.dm_preview ? `<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(c.dm_preview)}</div>` : ''}
+          </div>
+          ${dmPart}
+        </div>`;
+    }).join('');
+    const bulkBtn = sendable.length > 0
+      ? `<button type="button" data-act="retention-bulk-send" data-count="${sendable.length}"
+            style="margin-top:10px;width:100%;padding:11px;border-radius:12px;border:none;
+              background:#6366F1;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
+            전체 발송 (${sendable.length}명)
+          </button>`
+      : '';
+    return rows + bulkBtn;
   }
 
   function _renderInbox(conversations, activeTone) {
@@ -614,6 +700,7 @@
   }
 
   // [2026-05-01] 고급설정 토글 + 멘트 관리 진입 핸들러
+  // [Feature 5] 가격 문의 즉답 토글 초기화 + 저장
   function _bindAdvanced(sheet) {
     sheet.querySelector('[data-act="tplfirst-toggle"]')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;
@@ -628,6 +715,37 @@
       if (window.openDMManualReplies) window.openDMManualReplies();
       else _toast('멘트 관리 화면을 찾을 수 없어요');
     });
+
+    // [Feature 5] 가격 문의 토글: /shop/settings 로드 후 초기화
+    const pricingBtn = sheet.querySelector('[data-act="pricing-toggle"]');
+    if (pricingBtn) {
+      _rawFetch(window.API + '/shop/settings', { headers: window.authHeader() }).then(async (r) => {
+        if (!r || !r.ok) return;
+        const data = await r.json().catch(() => ({}));
+        const on = !!data?.settings?.auto_answer_pricing;
+        pricingBtn.classList.toggle('is-on', on);
+        pricingBtn.setAttribute('aria-pressed', String(on));
+      }).catch(() => {});
+
+      pricingBtn.addEventListener('click', async () => {
+        const next = !pricingBtn.classList.contains('is-on');
+        pricingBtn.classList.toggle('is-on', next);
+        pricingBtn.setAttribute('aria-pressed', String(next));
+        _haptic();
+        try {
+          await _rawFetch(window.API + '/shop/settings', {
+            method: 'PATCH',
+            headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ auto_answer_pricing: next }),
+          }, 10000);
+          _toast(next ? '가격 문의 즉답 켜짐' : '가격 문의 즉답 꺼짐');
+        } catch (_) {
+          _toast('저장 실패 — 다시 시도해주세요');
+          pricingBtn.classList.toggle('is-on', !next);
+          pricingBtn.setAttribute('aria-pressed', String(!next));
+        }
+      });
+    }
   }
 
   function _bindBan(sheet) {
@@ -696,12 +814,75 @@
     });
   }
 
+  // [Feature 4] 리텐션 DM 이벤트 핸들러
+  function _bindRetention(sheet) {
+    sheet.querySelector('[data-act="open-retention"]')?.addEventListener('click', async () => {
+      _haptic();
+      const listEl = sheet.querySelector('#dmRetentionList');
+      if (!listEl) return;
+      listEl.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.5);padding:8px 0;">불러오는 중...</div>';
+      try {
+        const res = await _rawFetch(window.API + '/retouch/retention-bulk?days=45',
+          { headers: window.authHeader() });
+        const data = res && res.ok ? await res.json().catch(() => ({})) : {};
+        const customers = data.customers || data.items || data || [];
+        listEl.innerHTML = _renderRetentionList(Array.isArray(customers) ? customers : []);
+        _bindRetentionList(sheet, listEl, Array.isArray(customers) ? customers : []);
+      } catch (e) {
+        listEl.innerHTML = `<div style="font-size:12px;color:rgba(255,200,200,0.7);padding:8px 0;">불러오기 실패: ${_esc(e.message || '')}</div>`;
+      }
+    });
+  }
+
+  function _bindRetentionList(sheet, listEl, customers) {
+    listEl.querySelectorAll('[data-act="retention-send"]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const custId = btn.dataset.custId;
+        if (!custId) return;
+        _haptic();
+        btn.disabled = true; btn.style.opacity = '0.6';
+        try {
+          const res = await _rawFetch(window.API + `/retouch/${encodeURIComponent(custId)}/draft-dm`,
+            { method: 'POST', headers: window.authHeader() });
+          if (!res || !res.ok) throw new Error('HTTP ' + (res?.status || '?'));
+          _toast('DM 큐에 등록됐어요');
+          btn.textContent = '발송됨';
+        } catch (e) {
+          _toast('발송 실패: ' + (e.message || ''));
+          btn.disabled = false; btn.style.opacity = '1';
+        }
+      });
+    });
+    const bulkBtn = listEl.querySelector('[data-act="retention-bulk-send"]');
+    if (bulkBtn) {
+      bulkBtn.addEventListener('click', async () => {
+        const count = parseInt(bulkBtn.dataset.count || '0', 10);
+        if (!count) return;
+        if (!confirm(`${count}명에게 리터치 안내 DM 발송할까요?`)) return;
+        _haptic();
+        bulkBtn.disabled = true; bulkBtn.style.opacity = '0.6';
+        const sendable = customers.filter(c => c.can_send_dm);
+        let ok = 0;
+        for (const c of sendable) {
+          try {
+            const res = await _rawFetch(window.API + `/retouch/${encodeURIComponent(c.customer_id)}/draft-dm`,
+              { method: 'POST', headers: window.authHeader() });
+            if (res && res.ok) ok++;
+          } catch (_) { /* 개별 실패 무시 */ }
+        }
+        _toast(`${ok}명에게 DM 큐 등록됨`);
+        bulkBtn.disabled = false; bulkBtn.style.opacity = '1';
+      });
+    }
+  }
+
   function _bindEvents(sheet) {
     _bindHeader(sheet);
     _bindToneCards(sheet);
     _bindHours(sheet);
     _bindBan(sheet);
     _bindAdvanced(sheet);
+    _bindRetention(sheet);
     sheet.querySelectorAll('.dm-card').forEach(card => _bindCard(card));
   }
 
@@ -787,6 +968,7 @@
             ${_renderAdvanced(_settings)}
           </div>
           <div id="dmInboxMount">
+            ${_renderRetention()}
             ${_renderInbox(conversations, tone)}
           </div>
         </div>
