@@ -2,7 +2,7 @@
    In-app 알림 (2026-04-21)
 
    - 1분 주기 폴링 (포그라운드만)
-   - 대시보드 헤더에 🔔 배지 표시
+   - 대시보드 헤더에 배지 표시
    - 탭하면 시트로 목록 펼침 + 읽음 처리
    - 운영자 공지(kind=announcement) 도착 시 홈 상단에 인라인 카드 표시
    ──────────────────────────────────────────────────────────── */
@@ -113,6 +113,8 @@
       dm_action_pending: '📨',
       // [2026-04-30 기능 4] 위험 키워드 즉시 알림
       dm_risk_alert: '🚨',
+      // [2026-05-07] 온라인/DM 예약 입금 대기 — 클릭 시 승인 시트
+      public_booking_pending: '🆕',
     }[kind] || '🔔';
   }
 
@@ -120,6 +122,10 @@
   function _openByKind(n) {
     const kind = n.kind || '';
     try {
+      // [2026-05-07] 온라인/DM 예약 입금 대기 → 승인·거절 시트
+      if (kind === 'public_booking_pending') {
+        if (window.openBookingApproval) { window.openBookingApproval(); return true; }
+      }
       if (['dm_pending_confirm', 'dm_customer_register', 'dm_action_pending', 'dm_risk_alert'].includes(kind)) {
         if (window.openDMConfirmQueue) { window.openDMConfirmQueue(); return true; }
       }
@@ -145,7 +151,7 @@
     if (!body) return;
     if (!_items.length) {
       body.innerHTML = `
-        <div style="padding:40px 20px;text-align:center;color:#aaa;">
+        <div style="padding:40px 20px;text-align:center;color:var(--text-subtle);">
           <div style="font-size:36px;margin-bottom:10px;">🌿</div>
           <div style="font-size:13px;">새 알림 없음</div>
         </div>
@@ -157,8 +163,8 @@
         <div style="width:40px;height:40px;border-radius:12px;background:rgba(241,128,145,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${_iconByKind(n.kind)}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;color:#222;">${_esc(n.title)}</div>
-          <div style="font-size:11px;color:#666;margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</div>
-          <div style="font-size:10px;color:#aaa;margin-top:3px;">${_esc(_relativeTime(n.scheduled_at))}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</div>
+          <div style="font-size:10px;color:var(--text-subtle);margin-top:3px;">${_esc(_relativeTime(n.scheduled_at))}</div>
         </div>
       </div>
     `).join('');
@@ -279,15 +285,15 @@
       ? { bg: 'linear-gradient(135deg,#FEE2E2 0%,#FECACA 100%)', border: '#FCA5A5', icon: '#DC2626', label: '#991B1B', btn: '#DC2626', btnText: '#fff', subText: '#991B1B' }
       : { bg: 'linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%)', border: '#FDE68A', icon: '#F59E0B', label: '#B45309', btn: '#F59E0B', btnText: '#fff', subText: '#92400E' };
     const headerLbl = isRisk
-      ? `🚨 위험 메시지 ${total > 1 ? `(${total}건)` : ''}`
+      ? `위험 메시지 ${total > 1 ? `(${total}건)` : ''}`
       : `DM 사장 확인 대기 ${total > 1 ? `(${total}건)` : ''}`;
-    const iconHref = isRisk ? '#ic-alert-triangle' : '#ic-bell';
+    const iconClass = isRisk ? 'ph-warning' : 'ph-bell';
 
     host.innerHTML = `
       <div role="status" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:${colors.icon};display:flex;align-items:center;justify-content:center;color:#fff;">
-            <svg width="20" height="20" aria-hidden="true"><use href="${iconHref}"/></svg>
+            <i class="ph-duotone ${iconClass}" style="font-size:20px" aria-hidden="true"></i>
           </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;font-weight:700;color:${colors.label};letter-spacing:0.2px;margin-bottom:2px;">${headerLbl}</div>
@@ -337,21 +343,23 @@
     const announcements = _items.filter(n => n.kind === 'announcement' && !dismissed.includes(n.id));
     if (!announcements.length) {
       host.innerHTML = '';
+      host.style.display = 'none';  // 빈 카드 자리(margin) 흔적 제거
       return;
     }
+    host.style.display = '';  // 다시 보일 때 복귀
     // 가장 최신 한 건만 노출 (스택형 카드는 시트에서 확인)
     const a = announcements[0];
     const more = announcements.length - 1;
     host.innerHTML = `
       <div role="status" aria-live="polite" style="background:linear-gradient(135deg,#fff5f7 0%,#ffe8ec 100%);border:1px solid rgba(241,128,145,0.35);border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 2px 10px rgba(241,128,145,0.10);position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#f18091;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">📢</div>
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">📢</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:600;color:#f18091;letter-spacing:0.2px;margin-bottom:2px;">잇데이 공지</div>
+            <div style="font-size:11px;font-weight:600;color:var(--brand);letter-spacing:0.2px;margin-bottom:2px;">잇데이 공지</div>
             <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
             <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;white-space:pre-wrap;">${_esc(a.body || '')}</div>
             <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-              <button data-ann-confirm="${a.id}" style="background:#f18091;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">확인</button>
+              <button data-ann-confirm="${a.id}" style="background:var(--brand);color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">확인</button>
               ${more > 0 ? `<button data-ann-more style="background:none;border:none;color:#7a8294;font-size:11px;cursor:pointer;">공지 ${more}개 더 보기</button>` : ''}
               <span style="margin-left:auto;font-size:10px;color:#8b94a7;">${_esc(_relativeTime(a.scheduled_at))}</span>
             </div>
@@ -384,6 +392,58 @@
     if (moreBtn) moreBtn.addEventListener('click', () => window.openNotifications && window.openNotifications());
   }
 
+  // [2026-05-07] 온라인 예약 입금 대기 — 홈 인라인 카드 (즉시 승인/거절 진입)
+  function _renderPendingBookingCard() {
+    const anchor = document.getElementById('home-today-brief')
+      || document.getElementById('homePostConnect')
+      || document.querySelector('main') || document.body;
+    if (!anchor) return;
+    let host = document.getElementById('itdPendingBookingHost');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'itdPendingBookingHost';
+      host.style.cssText = 'margin:0 0 12px 0;';
+      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
+      else anchor.appendChild(host);
+    }
+    const dismissed = _getDismissed();
+    const pending = _items.filter(n => n.kind === 'public_booking_pending' && !dismissed.includes(n.id));
+    if (!pending.length) { host.innerHTML = ''; return; }
+    const a = pending[0];
+    const total = pending.length;
+    host.innerHTML = `
+      <div role="status" style="background:linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%);border:1px solid #FDE68A;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#F59E0B;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">🆕</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;font-weight:700;color:#B45309;letter-spacing:0.2px;margin-bottom:2px;">예약 승인 대기 ${total > 1 ? `(${total}건)` : ''}</div>
+            <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
+            <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;">${_esc(a.body || '')}</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+              <button data-pb-open style="background:#F59E0B;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">승인·거절 열기</button>
+              <button data-pb-dismiss="${a.id}" style="background:none;border:none;color:#92400E;font-size:11px;cursor:pointer;">나중에</button>
+              <span style="margin-left:auto;font-size:10px;color:#92400E80;">${_esc(_relativeTime(a.scheduled_at))}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    host.querySelector('[data-pb-open]')?.addEventListener('click', async () => {
+      if (window.openBookingApproval) window.openBookingApproval();
+      for (const n of pending) {
+        try { await _markRead(n.id); } catch (_) { /* ignore */ }
+      }
+      _items = _items.filter(n => !pending.some(x => x.id === n.id));
+      _updateBadge();
+      _renderPendingBookingCard();
+    });
+    host.querySelector('[data-pb-dismiss]')?.addEventListener('click', (e) => {
+      const id = parseInt(e.currentTarget.dataset.pbDismiss, 10);
+      _addDismissed(id);
+      _renderPendingBookingCard();
+    });
+  }
+
   async function _poll() {
     const d = await _fetch();
     if (d && Array.isArray(d.items)) {
@@ -396,6 +456,7 @@
       _renderAnnouncementCard();
       _renderMembershipAlertCard();
       _renderDMConfirmQueueCard();
+      _renderPendingBookingCard();
     }
   }
 
@@ -408,8 +469,20 @@
     }, 120 * 1000);
   }
 
+  // [PerfFix] 탭이 백그라운드로 가면 폴링 중단 — 배터리/CPU 절약. 복귀 시 재시작.
+  function _stopPolling() {
+    if (!_pollTimer) return;
+    clearInterval(_pollTimer);
+    _pollTimer = null;
+  }
+
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') _poll();
+    if (document.visibilityState === 'visible') {
+      _poll();
+      _startPolling();
+    } else {
+      _stopPolling();
+    }
   });
 
   if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(_startPolling, 2000);

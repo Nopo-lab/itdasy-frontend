@@ -79,7 +79,7 @@
 
   function _renderWidgets(brief) {
     if (!brief) {
-      return `<div style="padding:20px;color:#999;font-size:13px;text-align:center;">AI 위젯 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</div>`;
+      return `<div style="padding:20px;color:var(--text-subtle);font-size:13px;text-align:center;">AI 위젯 데이터를 불러오지 못했어요. 잠시 후 다시 시도해주세요.</div>`;
     }
     const alertCount = brief.alert_count || 0;
     const todayCount = (brief.today_bookings || []).length;
@@ -94,7 +94,7 @@
     const momPctNum = brief.mom_delta_pct;
     const momSign = momPctNum == null ? '' : (momPctNum >= 0 ? ' +' : ' ');
     const headline = `
-      <div class="kw-card" style="background:linear-gradient(135deg,#1A1B26 0%,#2D1A2E 55%,#D95F70 150%);color:#fff;padding:20px 18px;border-radius:20px;margin-bottom:12px;box-shadow:0 10px 30px rgba(217,95,112,0.2);position:relative;overflow:hidden;">
+      <div class="kw-card" style="background:linear-gradient(135deg,#1A1B26 0%,#2D1A2E 55%,var(--brand-strong) 150%);color:#fff;padding:20px 18px;border-radius:20px;margin-bottom:12px;box-shadow:0 10px 30px rgba(217,95,112,0.2);position:relative;overflow:hidden;">
         <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,0.04);"></div>
         <div style="font-size:10.5px;letter-spacing:2.5px;opacity:0.65;font-weight:800;margin-bottom:8px;">🌅 ${_timeGreet()}</div>
         <div style="font-size:17px;line-height:1.55;font-weight:800;position:relative;z-index:1;">
@@ -105,7 +105,7 @@
 
     // 1. 오늘 위험 신호
     const widget1 = `
-      <div class="kw-card" style="background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;padding:18px;border-radius:18px;margin-bottom:12px;box-shadow:0 6px 20px rgba(241,128,145,0.3);">
+      <div class="kw-card" style="background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;padding:18px;border-radius:18px;margin-bottom:12px;box-shadow:0 6px 20px rgba(241,128,145,0.3);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:11px;letter-spacing:2px;opacity:0.85;font-weight:800;">🔔 오늘 한눈에</div>
           ${alertCount > 0 ? `<div style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:800;">알림 ${alertCount}</div>` : ''}
@@ -114,7 +114,7 @@
           📅 오늘 예약 <strong>${todayCount}건</strong>${atRisk.length ? ` · 중 이탈 위험 <strong>${atRisk.filter(a => (brief.today_bookings || []).some(b => b.customer_name === a.name)).length}명</strong>` : ''}<br>
           🎂 이번 주 생일 <strong>${birthdays.length}명</strong> · 📦 재고 부족 <strong>${lowStock.length}종</strong>
         </div>
-        <div style="margin-top:12px;font-size:11.5px;opacity:0.85;">${atRisk.length ? `이탈 위험: ${atRisk.slice(0,3).map(a=>_esc(a.name)).join(', ')}${atRisk.length>3 ? ' 외' : ''}` : '오늘 큰 이슈 없어요 ✨'}</div>
+        <div style="margin-top:12px;font-size:11.5px;opacity:0.85;">${atRisk.length ? `이탈 위험: ${atRisk.slice(0,3).map(a=>_esc(a.name)).join(', ')}${atRisk.length>3 ? ' 외' : ''}` : '오늘 큰 이슈 없어요'}</div>
       </div>`;
 
     // 2. 매출 이상 감지
@@ -122,7 +122,7 @@
     const widget2 = `
       <div class="kw-card" style="background:#fff;padding:16px;border-radius:16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-size:11px;letter-spacing:1.5px;color:#666;font-weight:800;">⚠️ 매출 흐름</div>
+          <div style="font-size:11px;letter-spacing:1.5px;color:var(--text-muted);font-weight:800;">⚠️ 매출 흐름</div>
           ${momPct != null ? `<div style="color:${_riskColor(momPct)};font-weight:900;font-size:16px;">${_arrow(momPct)} ${momPct > 0 ? '+' : ''}${momPct}%</div>` : ''}
         </div>
         <div style="font-size:13px;color:#222;line-height:1.5;">
@@ -170,20 +170,20 @@
     const widgetGoal = goal > 0 ? `
       <div class="kw-card" style="background:#fff;padding:16px;border-radius:16px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,0.04);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div style="font-size:11px;letter-spacing:1.5px;color:#666;font-weight:800;">🎯 이번 달 목표</div>
+          <div style="font-size:11px;letter-spacing:1.5px;color:var(--text-muted);font-weight:800;">🎯 이번 달 목표</div>
           <div style="font-weight:900;font-size:14px;color:#222;">${progress}%</div>
         </div>
         <div style="height:10px;background:#f0f0f0;border-radius:100px;overflow:hidden;position:relative;">
-          <div style="height:100%;background:linear-gradient(90deg,#F18091,#FFB347);width:${progress}%;border-radius:100px;transition:width 1.2s cubic-bezier(0.2,0.9,0.3,1);box-shadow:0 0 10px rgba(241,128,145,0.45);"></div>
+          <div style="height:100%;background:linear-gradient(90deg,var(--brand),#FFB347);width:${progress}%;border-radius:100px;transition:width 1.2s cubic-bezier(0.2,0.9,0.3,1);box-shadow:0 0 10px rgba(241,128,145,0.45);"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#666;margin-top:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-muted);margin-top:8px;">
           <span>${_money(thisMonth)}</span>
           <span>${_money(goal)}</span>
         </div>
       </div>` : `
       <div class="kw-card" style="background:#FAFAFA;padding:14px 16px;border-radius:14px;margin-bottom:10px;border:1px dashed #ddd;text-align:center;">
         <div style="font-size:12px;color:#888;margin-bottom:6px;">🎯 이번 달 매출 목표를 설정해 보세요</div>
-        <button data-kw-setgoal style="padding:6px 14px;background:#F18091;color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;">목표 설정</button>
+        <button data-kw-setgoal style="padding:6px 14px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-size:11.5px;font-weight:800;cursor:pointer;">목표 설정</button>
       </div>`;
 
     // T-331 — 아낀 시간·돈 카운터
@@ -354,7 +354,7 @@
     if (existing) existing.remove();
     const o = document.createElement('div');
     o.id = id;
-    o.style.cssText = `position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;animation:pvFadeIn 0.2s ease;`;
+    o.style.cssText = `position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;padding:16px;animation:pvFadeIn 0.2s ease;`;
 
     const hasBulk = bulkDrafts && bulkDrafts.length > 0;
 
@@ -408,7 +408,7 @@
           <textarea class="kw-draft-text" style="width:100%;min-height:80px;padding:10px;border:1px solid #eee;border-radius:8px;font-size:12.5px;font-family:inherit;resize:vertical;line-height:1.55;">${_esc(item.draft_text || '')}</textarea>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button class="kw-draft-copy" style="flex:1;padding:8px;border:1px solid #eee;border-radius:8px;background:#fff;font-size:11.5px;cursor:pointer;font-weight:700;">📄 복사</button>
-            ${item.phone ? `<button class="kw-draft-sms" data-phone="${_esc(item.phone)}" style="flex:1;padding:8px;background:linear-gradient(135deg,#F18091,#E96A7E);color:#fff;border:none;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:700;">📨 문자 열기</button>` : ''}
+            ${item.phone ? `<button class="kw-draft-sms" data-phone="${_esc(item.phone)}" style="flex:1;padding:8px;background:linear-gradient(135deg,var(--brand),#E96A7E);color:#fff;border:none;border-radius:8px;font-size:11.5px;cursor:pointer;font-weight:700;">📨 문자 열기</button>` : ''}
           </div>
         `;
         container.appendChild(card);
@@ -449,7 +449,7 @@
       const list = o.querySelector('#kw-sms-list');
       if (!list) return;
       if (!phones.length) {
-        list.innerHTML = `<div style="padding:14px;text-align:center;font-size:12px;color:#aaa;">전화번호 등록된 이탈 위험 고객이 없어요. 전체 복사 후 직접 보내주세요.</div>`;
+        list.innerHTML = `<div style="padding:14px;text-align:center;font-size:12px;color:var(--text-subtle);">전화번호 등록된 이탈 위험 고객이 없어요. 전체 복사 후 직접 보내주세요.</div>`;
         return;
       }
       list.innerHTML = `<div style="font-size:11px;color:#888;margin-bottom:8px;font-weight:700;">대상 ${phones.length}명 — 각 버튼 탭 시 해당 번호로 문자 열립니다</div>` +
@@ -457,7 +457,7 @@
           <button data-kw-sms-to="${p.phone}" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;padding:10px 12px;background:#FEF4F5;border:1px solid #F9D6DC;border-radius:10px;cursor:pointer;font-size:12.5px;color:#333;text-align:left;">
             <span style="font-weight:800;flex:1;">${p.name}</span>
             <span style="color:#888;font-size:11px;">${p.phone}</span>
-            <span style="color:#D95F70;font-weight:800;">📨 문자 열기</span>
+            <span style="color:var(--brand-strong);font-weight:800;">📨 문자 열기</span>
           </button>`).join('');
       list.querySelectorAll('[data-kw-sms-to]').forEach(b => {
         b.addEventListener('click', () => {
@@ -521,7 +521,7 @@
     const el = document.getElementById(containerId);
     if (!el) return;
     _lastRendered.full = containerId;
-    el.innerHTML = `<div style="padding:16px 0;color:#aaa;font-size:12px;">AI 브리핑 불러오는 중…</div>`;
+    el.innerHTML = `<div style="padding:16px 0;color:var(--text-subtle);font-size:12px;">AI 브리핑 불러오는 중…</div>`;
     const brief = await _fetchBrief();
     el.innerHTML = _renderWidgets(brief);
     _bindWidgets();
@@ -538,7 +538,7 @@
       </div>
       <p class="kw-t">${_esc(t)}</p>
       <p class="kw-s">${_esc(s)}</p>
-      <div class="kw-foot"><span>${_esc(cta)}</span><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"><polyline points="9 18 15 12 9 6"/></svg></div>
+      <div class="kw-foot"><span>${_esc(cta)}</span><i class="ph-duotone ph-caret-right" style="font-size:12px" aria-hidden="true"></i></div>
     </button>`;
   }
 
@@ -549,9 +549,9 @@
     const atRisk = brief.at_risk || [];
     const momPct = brief.mom_delta_pct;
     const emptySlots = brief.empty_slots || [];
-    const alertSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-    const trendSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`;
-    const clockSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    const alertSvg = `<i class="ph-duotone ph-warning" style="font-size:18px" aria-hidden="true"></i>`;
+    const trendSvg = `<i class="ph-duotone ph-trend-up" style="font-size:18px" aria-hidden="true"></i>`;
+    const clockSvg = `<i class="ph-duotone ph-clock" style="font-size:18px" aria-hidden="true"></i>`;
     const focusSvg = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>`;
 
     const c1 = _rowCard('warn', alertSvg, '위험', 'warn',

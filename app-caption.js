@@ -1,5 +1,12 @@
 // Itdasy Studio - 캡션 생성 (슬롯머신, 톤 컨트롤, 해시태그)
 
+// [SEC-R2-1] HTML 이스케이프 유틸
+function _capEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
 // ═══════════════════════════════════════════════════════
 async function _personaFetch(method, path, body) {
   const headers = window.authHeader ? window.authHeader() : {};
@@ -175,7 +182,7 @@ function showCaptionLoader() {
     setTimeout(() => _spinReel(i), i * 120);
   });
   document.getElementById('clMsg').textContent = '원장님 말투로 조합 중...';
-  document.getElementById('clHint').textContent = '키워드 조합 중이에요 ✨';
+  document.getElementById('clHint').textContent = '키워드 조합 중이에요...';
 
   // 메시지 순환
   const _clMsgs = ['원장님 말투 불러오는 중...', 'AI가 글 구상 중이에요...', '해시태그 고르는 중...', '거의 다 됐어요...'];
@@ -245,7 +252,7 @@ async function showOnboardingCaptionPopup() {
       const errMsg = (await res.text().catch(() => '')) || `HTTP ${res.status}`;
       console.warn('[caption] 생성 실패:', errMsg);
       if (typeof showToast === 'function') {
-        showToast('AI 캡션 생성 실패 — 잠시 후 다시 시도해주세요', 'error');
+        showToast('AI 글 만들기에 실패했어요 — 잠시 후 다시 시도해주세요', 'error');
       }
       ta.value = '직접 평소 쓰시는 말투로 한 문단 입력해주시면 학습할게요!';
     }
@@ -276,7 +283,7 @@ async function saveOnboardingCaption() {
     });
     if (!res.ok) throw new Error();
     closeOnboardingCaptionPopup();
-    showToast('학습 완료! 앞으로 모든 글에 반영됩니다! 🎉');
+    showToast('학습 완료! 앞으로 모든 글에 반영됩니다!');
   } catch(e) {
     showToast('저장에 실패했어요. 다시 시도해주세요.');
   }
@@ -302,7 +309,7 @@ function _renderCaptionPhotoRow() {
     ? _slots.find(s => s.id === _captionSlotId) : null;
 
   if (!slot) {
-    strip.innerHTML = `<div onclick="_captionOpenSlotPicker()" style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;">📷</div>`;
+    strip.innerHTML = `<div onclick="_captionOpenSlotPicker()" style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;"><i class="ph-duotone ph-camera" style="font-size:22px;color:var(--text-subtle);"></i></div>`;
     return;
   }
 
@@ -356,7 +363,7 @@ function _renderCaptionPhotoRow() {
     wrap.addEventListener('touchend', () => {
       clearTimeout(_lpTimer);
       if (_lpActive) { wrap.style.opacity = '1'; _lpActive = false; }
-    });
+    }, { passive: true });
     wrap.addEventListener('touchmove', e => {
       if (!_lpActive) { clearTimeout(_lpTimer); return; }
       e.preventDefault();
@@ -456,9 +463,11 @@ function renderCaptionKeywordTags() {
   const keywords = getShopKeywords();
   const deleted = _loadDeletedKeywords();
 
-  container.innerHTML = keywords.map(k =>
-    `<span class="tag" data-v="${k}" onclick="toggleCaptionTag(this)">${k}<button class="tag-delete" onclick="deleteCaptionKeyword('${k}',event)">×</button></span>`
-  ).join('') + `<span class="tag tag-add" onclick="showAddKeywordInput()">+ 추가</span>`;
+  // [SEC-R2-1] XSS 방지 — 키워드를 이스케이프하여 삽입
+  container.innerHTML = keywords.map(k => {
+    const safe = _capEsc(k);
+    return `<span class="tag" data-v="${safe}" onclick="toggleCaptionTag(this)">${safe}<button class="tag-delete" data-kw="${safe}" onclick="deleteCaptionKeyword(this.dataset.kw,event)">×</button></span>`;
+  }).join('') + `<span class="tag tag-add" onclick="showAddKeywordInput()">+ 추가</span>`;
 }
 
 
@@ -519,7 +528,7 @@ const _CAP_ERR_MSG = {
   'consent_missing':      'AI 처리 동의가 필요합니다',
   'insufficient_posts':   '인스타 게시물이 더 모이면 사장님 말투에 맞춰 글이 나와요.',
   'fingerprint_missing':  '인스타 게시물이 더 모이면 사장님 말투에 맞춰 글이 나와요.',
-  'generation_failed':    'AI 캡션 생성이 실패했어요. 시나리오 다시 선택하거나, 1분 후 다시 시도해 주세요.',
+  'generation_failed':    'AI 글 만들기에 실패했어요. 어떤 분위기로 만들까요? 다시 선택하시거나 1분 후 다시 시도해 주세요.',
   'content_filtered':     'AI 가 안전 정책상 이 내용을 생성할 수 없어요. 키워드를 바꿔서 다시 시도해 주세요.',
   'quota_exceeded':       '오늘 캡션 사용량을 다 쓰셨어요. 내일 다시 시도하거나 Pro 로 업그레이드해 주세요.',
   'gemini_unavailable':   'AI 서버가 잠시 불안정해요. 1~2분 후 다시 시도해 주세요.',
@@ -575,7 +584,7 @@ function openCaptionScenarioPopup() {
   });
 
   window.renderScenarioSelector(selectorWrap, async (result) => {
-    selectorWrap.innerHTML = '<div style="text-align:center;padding:32px 0;color:#aaa;font-size:14px;">캡션 만드는 중 ✨</div>';
+    selectorWrap.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--text-subtle);font-size:14px;">캡션 만드는 중...</div>';
     title.textContent = '잠깐만요!';
     await _doGenerateCaption(result, () => _closeCaptionScenarioPopup(overlay));
   });
@@ -586,7 +595,7 @@ function _closeCaptionScenarioPopup(overlay) {
   overlay.style.transition = 'opacity .15s';
   setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 160);
   const btn = document.getElementById('captionBtn');
-  if (btn) { btn.innerHTML = '만들기 ✨'; btn.disabled = false; }
+  if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
 }
 
 async function _doGenerateCaption(scenario, closePopup) {
@@ -688,7 +697,10 @@ async function _doGenerateCaption(scenario, closePopup) {
       }
 
       _renderCaptionActionBar(finalCaption, hashes);
-      if (btn) { btn.innerHTML = '만들기 ✨'; btn.disabled = false; }
+      if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
+
+      // [2026-05-05 19차-B] 인스타 시뮬 사진 미리보기 업데이트
+      try { _updateCaptionPreviewImage(); } catch (_e) { void _e; }
 
       // [2026-04-24] 캡션 렌더 후 미리보기 프레임으로 스크롤 — 사용자 시선 유도
       const frame = document.getElementById('captionResult');
@@ -742,7 +754,7 @@ async function _doGenerateCaption(scenario, closePopup) {
             const hashEl = document.getElementById('captionHash');
             if (hashEl) hashEl.value = '';
             _renderCaptionActionBar(finalCaption2, '');
-            if (btn) { btn.innerHTML = '만들기 ✨'; btn.disabled = false; }
+            if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
           });
           return;
         } catch (e2) {
@@ -860,14 +872,14 @@ async function doActualPublish() {
 
     setUploadProgress(95, '마무리 중...');
     await new Promise(r => setTimeout(r, 400));
-    setUploadProgress(100, withStory ? '피드+스토리 완료! 🎉' : '완료! 🎉');
+    setUploadProgress(100, withStory ? '피드+스토리 완료!' : '완료!');
 
     setTimeout(() => {
       upPopup.style.display = 'none';
       closePublishPreview();
       document.getElementById('uploadDonePopup').style.display = 'flex';
       document.getElementById('uploadDoneMsg').textContent =
-        withStory ? '피드 + 스토리에 올라갔어요 ✨' : '인스타 피드에 올라갔어요 ✨';
+        withStory ? '피드 + 스토리에 올라갔어요!' : '인스타 피드에 올라갔어요!';
       for(let i = 0; i < 20; i++) setTimeout(createConfetti, i * 100);
     }, 1200);
 
@@ -1014,7 +1026,7 @@ async function regenerateCaption(overrides = {}) {
   const payload = { ..._lastGeneratePayload, ...overrides };
   _lastGeneratePayload = payload;
   const ta = document.getElementById('captionText');
-  if (ta) { ta.value = '✨ 새로 쓰는 중…'; _capAutoGrow(ta); }
+  if (ta) { ta.value = '새로 쓰는 중...'; _capAutoGrow(ta); }
   try {
     // [2026-04-26 픽스] _personaFetch 는 이미 파싱된 JSON 반환. res.json() 재호출 버그 제거.
     const data = await _personaFetch('POST', '/persona/generate', payload);
@@ -1073,32 +1085,13 @@ function _renderCaptionActionBar(caption, hashtags) {
 
   actionBar.style.display = 'block';
   actionBar.innerHTML = `
-    <!-- 재생성 옵션 4종 (Apple HIG 44pt 보장) + 첫 사용 툴팁 -->
-    <div style="background:rgba(241,128,145,0.06);border:1.5px solid rgba(241,128,145,0.2);border-radius:14px;padding:12px;margin-bottom:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">마음에 안 드시면 다시 써드릴게요 <span style="color:var(--text3);font-weight:500;">· 각 버튼 누르면 조건만 바꿔 재생성</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-        <button onclick="regenerateCaption({})" title="같은 조건으로 한 번 더 생성" style="${_btnBase}">🔄 다시 생성</button>
-        <button onclick="regenerateCaption({length_tier:'short'})" title="1~2문장으로 압축" style="${_btnBase}">📏 더 짧게</button>
-        <button onclick="regenerateCaption({length_tier:'long'})" title="상세 설명·스토리 포함" style="${_btnBase}">📖 더 길게</button>
-        <button onclick="regenerateCaption({tone_override:'ornate'})" title="이모지·감탄사 풍성하게" style="${_btnBase}">💕 더 친근하게</button>
-      </div>
-      ${localStorage.getItem('_regen_hint_shown') ? '' : `
-      <div id="_regenFirstHint" style="margin-top:10px;padding:8px 10px;background:#fff5f7;border-radius:8px;font-size:11px;color:var(--accent);display:flex;align-items:center;gap:6px;">
-        <span>💡 각 버튼 <b>꾹 누르면</b> 뭘 바꾸는지 설명 뜹니다</span>
-      </div>
-      `}
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--brand-bg);border-radius:10px;font-size:11.5px;color:var(--accent);font-weight:600;margin-bottom:10px;">
+      <i class="ph-duotone ph-pencil-simple" style="font-size:14px" aria-hidden="true"></i>
+      직접 고치면 AI가 다음에 더 잘 써요
     </div>
-    <script>if(!localStorage.getItem('_regen_hint_shown')){localStorage.setItem('_regen_hint_shown','1');setTimeout(()=>{const e=document.getElementById('_regenFirstHint');if(e)e.style.display='none';},8000);}</script>
-
-    <div style="background:rgba(76,175,80,0.08);border:1.5px solid rgba(76,175,80,0.25);border-radius:14px;padding:14px;margin-bottom:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div style="font-size:12px;font-weight:700;color:#388e3c;">✅ 캡션 생성 완료!</div>
-        <button data-report-ai="caption" data-snippet="${(caption || '').replace(/"/g,'&quot;')}" data-source="/caption/generate" title="AI 캡션 신고" aria-label="AI 캡션 신고"
-          style="background:transparent;border:none;cursor:pointer;font-size:13px;color:#999;padding:4px 6px;">🚩 신고</button>
-      </div>
-      <!-- 피드백 #13: 인스타 피드 미리보기 버튼 복원 -->
-      <button onclick="_previewCaptionOnInsta()" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:1.5px solid #833ab4;background:#fff;color:#833ab4;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">📱 인스타 피드 미리보기</button>
-      <button onclick="saveCaptionToGallery()" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#4caf50,#388e3c);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">📁 갤러리에 저장하기</button>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button data-report-ai="caption" data-snippet="${(caption || '').replace(/"/g,'&quot;')}" data-source="/caption/generate" title="AI 캡션 신고" aria-label="AI 캡션 신고"
+        style="background:transparent;border:none;cursor:pointer;font-size:13px;color:var(--text-subtle);padding:4px 6px;">🚩 신고</button>
     </div>
     ${hasNextSlot ? `
     <div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:14px;padding:14px;">
@@ -1110,8 +1103,8 @@ function _renderCaptionActionBar(caption, hashtags) {
     </div>
     ` : `
     <div style="display:flex;gap:8px;">
-      <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">마무리로 이동 →</button>
-      <button onclick="publishFromCaption()" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 바로 올리기</button>
+      <button onclick="if(typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _showPublishOptions === 'function') { _showPublishOptions(_captionSlotId); } else { showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab(); }" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">발행 옵션 ▾</button>
+      <button onclick="_previewCaptionOnInsta()" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
     </div>
     `}
   `;
@@ -1169,3 +1162,35 @@ async function saveCaptionToGallery() {
     showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
   }
 }
+
+// [2026-05-05 19차-B] 인스타 시뮬 — 캡션 결과 위 사진 미리보기 업데이트
+// 슬롯 연결돼 있고 사진 있으면 첫 사진 표시 + dots indicator(1/N), 없으면 hide.
+function _updateCaptionPreviewImage() {
+  const wrap = document.getElementById('captionPreviewImg');
+  const imgEl = document.getElementById('captionPreviewImgEl');
+  const dots = document.getElementById('captionPreviewDots');
+  const icons = document.getElementById('captionPreviewIcons');
+  if (!wrap || !imgEl) return;
+
+  const slot = (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined')
+    ? _slots.find(s => s.id === _captionSlotId) : null;
+  const photos = (slot && Array.isArray(slot.photos)) ? slot.photos.filter(p => !p.hidden && (p.dataUrl || p.url)) : [];
+  const first = photos[0];
+  if (!first) {
+    wrap.style.display = 'none';
+    if (icons) icons.style.display = 'none';
+    return;
+  }
+  imgEl.src = first.dataUrl || first.url || '';
+  wrap.style.display = 'block';
+  if (icons) icons.style.display = 'flex';
+  if (dots) {
+    if (photos.length > 1) {
+      dots.textContent = '1/' + photos.length;
+      dots.style.display = 'inline-flex';
+    } else {
+      dots.style.display = 'none';
+    }
+  }
+}
+window._updateCaptionPreviewImage = _updateCaptionPreviewImage;

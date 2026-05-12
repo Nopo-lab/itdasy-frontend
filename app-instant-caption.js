@@ -170,7 +170,7 @@
   async function _renderStory(imageSrc, caption) {
     // app-story-template.js 의 renderStory 가 등록되어 있으면 그걸 우선 사용
     if (typeof window._renderStoryTemplate === 'function') {
-      return window._renderStoryTemplate({ imageSrc, caption, tagLine: '오늘의 시술 ✨', watermark: '@itdasy' });
+      return window._renderStoryTemplate({ imageSrc, caption, tagLine: '오늘의 시술', watermark: '@itdasy' });
     }
 
     const canvas = document.createElement('canvas');
@@ -197,11 +197,11 @@
     }
 
     // 상단 태그라인
-    ctx.fillStyle = '#f18091';
+    ctx.fillStyle = 'var(--brand)';
     ctx.font = 'bold 36px Pretendard, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('오늘의 시술 ✨', W / 2, 80);
+    ctx.fillText('오늘의 시술', W / 2, 80);
 
     // 캡션 (하단)
     if (caption) {
@@ -244,16 +244,16 @@
       <div style="width:100%; max-width:480px; background:#fff; border-radius:24px 24px 0 0; padding:24px 20px calc(32px + env(safe-area-inset-bottom)); max-height:92vh; overflow-y:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
           <div style="font-size:17px; font-weight:800;">1초 캡션</div>
-          <button id="_icClose" style="background:none; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:#999;">✕</button>
+          <button id="_icClose" style="background:none; border:none; font-size:22px; width:44px; height:44px; cursor:pointer; color:var(--text-subtle);">✕</button>
         </div>
-        <div style="font-size:12px; color:#666; margin-bottom:14px; line-height:1.5;">
+        <div style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
           시술 끝난 사진 1장만 골라주세요. 캡션 · 해시태그 · 9:16 스토리까지 한 번에 만들어드려요.
         </div>
 
         <label style="display:block;">
           <input id="_icFile" type="file" accept="image/*" style="display:none;">
-          <div id="_icPickBtn" style="padding:18px; border:2px dashed #f18091; border-radius:14px; text-align:center; color:#f18091; font-weight:700; font-size:14px; cursor:pointer; background:#fff5f7;">
-            📷 사진 고르기
+          <div id="_icPickBtn" style="padding:18px; border:2px dashed var(--brand); border-radius:14px; text-align:center; color:var(--brand); font-weight:700; font-size:14px; cursor:pointer; background:#fff5f7;">
+            사진 고르기
           </div>
         </label>
 
@@ -264,24 +264,24 @@
         <div id="_icProgress" style="display:none; margin-top:18px;">
           <div id="_icStep" style="font-size:13px; font-weight:700; color:#1a1a1a; margin-bottom:8px;">분석 중…</div>
           <div style="width:100%; height:8px; background:#f0f0f0; border-radius:4px; overflow:hidden;">
-            <div id="_icBar" style="width:0%; height:100%; background:linear-gradient(90deg,#f18091,#ff9aa8); transition:width .3s ease;"></div>
+            <div id="_icBar" style="width:0%; height:100%; background:linear-gradient(90deg,var(--brand),#ff9aa8); transition:width .3s ease;"></div>
           </div>
         </div>
 
         <div id="_icResult" style="display:none; margin-top:18px;">
           <div style="font-size:13px; font-weight:700; margin-bottom:6px;">캡션</div>
           <textarea id="_icCaption" rows="5" style="width:100%; padding:12px; border:1.5px solid #e0e0e0; border-radius:10px; font-size:14px; box-sizing:border-box; resize:vertical;"></textarea>
-          <button id="_icCopyCaption" style="margin-top:6px; padding:8px 12px; border:1px solid #e0e0e0; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; min-height:36px;">📋 캡션 복사</button>
+          <button id="_icCopyCaption" style="margin-top:6px; padding:8px 12px; border:1px solid #e0e0e0; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; min-height:36px;">캡션 복사</button>
 
           <div style="font-size:13px; font-weight:700; margin:14px 0 6px;">해시태그</div>
           <div id="_icTags" style="display:flex; flex-wrap:wrap; gap:6px; padding:10px; background:#fafafa; border-radius:10px; font-size:12px;"></div>
-          <button id="_icCopyTags" style="margin-top:6px; padding:8px 12px; border:1px solid #e0e0e0; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; min-height:36px;">📋 해시태그 복사</button>
+          <button id="_icCopyTags" style="margin-top:6px; padding:8px 12px; border:1px solid #e0e0e0; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; min-height:36px;">해시태그 복사</button>
 
           <div style="font-size:13px; font-weight:700; margin:14px 0 6px;">9:16 스토리 미리보기</div>
           <img id="_icStory" style="width:60%; max-width:240px; border-radius:14px; border:1px solid #eee; display:block; margin:0 auto;">
           <div style="display:flex; gap:8px; margin-top:12px;">
             <a id="_icStoryDownload" download="itdasy-story.png" style="flex:1; text-align:center; padding:12px; border-radius:12px; background:#4caf50; color:#fff; text-decoration:none; font-weight:700; font-size:13px; min-height:44px; display:flex; align-items:center; justify-content:center;">💾 스토리 저장</a>
-            <button id="_icAgain" style="flex:1; padding:12px; border-radius:12px; border:none; background:#f18091; color:#fff; font-weight:700; font-size:13px; min-height:44px; cursor:pointer;">🔁 다른 사진</button>
+            <button id="_icAgain" style="flex:1; padding:12px; border-radius:12px; border:none; background:var(--brand); color:#fff; font-weight:700; font-size:13px; min-height:44px; cursor:pointer;">🔁 다른 사진</button>
           </div>
         </div>
       </div>
@@ -356,7 +356,7 @@
       tagsBox.innerHTML = '';
       tags.forEach(t => {
         const span = document.createElement('span');
-        span.style.cssText = 'background:#fff5f7; color:#f18091; padding:4px 10px; border-radius:999px;';
+        span.style.cssText = 'background:#fff5f7; color:var(--brand); padding:4px 10px; border-radius:999px;';
         span.textContent = t;
         tagsBox.appendChild(span);
       });
@@ -402,7 +402,7 @@
     btn.id = '_icQuickBtn';
     btn.type = 'button';
     btn.textContent = '⚡ 1초 캡션';
-    btn.style.cssText = 'padding:12px 16px; border:none; border-radius:14px; background:linear-gradient(135deg,#f18091,#ff9aa8); color:#fff; font-weight:800; font-size:14px; cursor:pointer; min-height:44px; box-shadow:0 4px 12px rgba(241,128,145,0.3);';
+    btn.style.cssText = 'padding:12px 16px; border:none; border-radius:14px; background:linear-gradient(135deg,var(--brand),#ff9aa8); color:#fff; font-weight:800; font-size:14px; cursor:pointer; min-height:44px; box-shadow:0 4px 12px rgba(241,128,145,0.3);';
     btn.addEventListener('click', openInstantCaption);
     target.appendChild(btn);
     return true;

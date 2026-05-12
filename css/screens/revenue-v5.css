@@ -695,13 +695,39 @@
   .rv-pc { display: block; }
 }
 
-/* 매출관리 풀스크린 진입 시 시스템 사이드바·여백 무력화 (myshop-v3 패턴) */
-body.rv-mode #sideNav { display: none !important; }
-body.rv-mode { padding-left: 0 !important; overflow: hidden; }
-body:has(#revenueSheet[style*="display: flex"]) #sideNav,
-body:has(#revenueSheet[style*="display:flex"]) #sideNav,
-body:has(#revenue-hub-overlay) #sideNav { display: none !important; }
-body:has(#revenue-hub-overlay) { padding-left: 0 !important; }
+/* [2026-05-04] 매출관리 인라인 탭 통일 — 사이드바 항상 보임, fade 0.08s.
+   PC 에서 사이드바(232px) 우측 영역만 차지. 자체 ms-side 는 숨김 (중복 방지). */
+body.rv-mode { overflow: hidden; }
+@keyframes rv-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#revenueSheet[style*="display: flex"],
+#revenueSheet[style*="display:flex"] {
+  animation: rv-fade-in 0.08s ease-out;
+}
+/* style-fun.css:166 [id$="Sheet"] > div:first-child 의 itd-sheet-in 슬라이드업 무력화.
+   전 sheet 인라인 탭 패턴이라 슬라이드 부적합. genericSheet 도 포함 (시술메뉴). */
+#revenueSheet > div:first-child,
+#customerSheet > div:first-child,
+#inventorySheet > div:first-child,
+#bookingSheet > div:first-child,
+#npsSheet > div:first-child,
+#genericSheet > div:first-child {
+  animation: none !important;
+  transform: none !important;
+}
+/* 매출관리 .ms-root 가 flex container 인데 flex:1 없어서 자식 폭만 차지 →
+   우측 800px 빈공간. 강제 풀확장. */
+#revenueSheet > .ms-root,
+#revenueSheet .ms-root {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+}
+#revenueSheet .rv-pc {
+  flex: 1 1 100% !important;
+  width: 100% !important;
+}
 
 /* ============================================================
    12 · prefers-reduced-motion — hover transform 끄기

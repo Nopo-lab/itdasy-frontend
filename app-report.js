@@ -68,7 +68,7 @@
         <div style="position:absolute;top:-12px;right:-12px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,${grad});opacity:0.2;"></div>
         <div style="font-size:10px;color:#888;font-weight:700;margin-bottom:6px;position:relative;">${_esc(label)}</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a1a;line-height:1.1;letter-spacing:-0.3px;">${_esc(value)}</div>
-        <div style="font-size:10px;color:#999;margin-top:4px;">${_esc(sub)}</div>
+        <div style="font-size:10px;color:var(--text-subtle);margin-top:4px;">${_esc(sub)}</div>
       </div>
     `;
   }
@@ -80,7 +80,7 @@
     const empty = (r.total || 0) === 0 && (c.unique_visitors || 0) === 0;
     if (empty) {
       body.innerHTML = `
-        <div style="padding:40px 20px;text-align:center;color:#aaa;">
+        <div style="padding:40px 20px;text-align:center;color:var(--text-subtle);">
           <div style="font-size:36px;margin-bottom:10px;">🌱</div>
           <div style="font-size:13px;line-height:1.5;">이 달은 아직 기록이 없어요.<br>매출·고객을 쌓으면 자동으로 리포트가 만들어져요.</div>
         </div>
@@ -90,7 +90,7 @@
 
     body.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-        ${_renderKPI('총 매출', _fmt(r.total), `${r.count}건 · 평균 ${_fmt(r.avg_ticket)}`, '#F18091,#D95F70')}
+        ${_renderKPI('총 매출', _fmt(r.total), `${r.count}건 · 평균 ${_fmt(r.avg_ticket)}`, 'var(--brand),var(--brand-strong)')}
         ${_renderKPI('방문 고객', `${c.unique_visitors}명`, `신규 ${c.new_registered} · 재방문 ${c.repeat_count}`, '#4ECDC4,#44A08D')}
         ${_renderKPI('리피트율', `${c.repeat_ratio_pct}%`, '2회 이상 방문한 비율', '#FFB347,#FF8A5C')}
         ${_renderKPI('후기 점수', n.score != null ? n.score : '—', n.total ? `${n.total}명 응답 · 평균 ${n.avg}` : '응답 없음', '#A78BFA,#8B5CF6')}
@@ -102,9 +102,9 @@
           <div style="font-size:12px;font-weight:800;margin-bottom:10px;">🏆 인기 시술 TOP ${d.top_services.length}</div>
           ${d.top_services.map((s, i) => `
             <div style="display:flex;gap:10px;align-items:center;padding:6px 0;${i>0?'border-top:1px solid rgba(0,0,0,0.04);':''}">
-              <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#F18091,#D95F70);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex-shrink:0;">${i+1}</div>
+              <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand-strong));display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:800;flex-shrink:0;">${i+1}</div>
               <div style="flex:1;min-width:0;font-size:13px;font-weight:700;">${_esc(s.name)}</div>
-              <div style="font-size:12px;color:var(--accent,#F18091);font-weight:800;">${_fmt(s.amount)}</div>
+              <div style="font-size:12px;color:var(--accent,var(--brand));font-weight:800;">${_fmt(s.amount)}</div>
             </div>
           `).join('')}
         </div>
@@ -112,7 +112,7 @@
 
       <!-- 예약 요약 -->
       <div style="margin-bottom:14px;padding:14px;background:#fff;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
-        <div style="font-size:12px;font-weight:800;margin-bottom:10px;">📅 예약 현황</div>
+        <div style="font-size:12px;font-weight:800;margin-bottom:10px;">예약 현황</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
           <div style="padding:8px;background:rgba(0,0,0,0.03);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;">${b.total}</div>
@@ -134,7 +134,7 @@
   async function _load() {
     _renderNav();
     const body = document.getElementById('reportBody');
-    body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;">불러오는 중…</div>';
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-subtle);">불러오는 중…</div>';
     try {
       const d = await _fetch(_currentY, _currentM);
       _renderBody(d);

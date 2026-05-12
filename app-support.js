@@ -46,7 +46,7 @@
   const _MOD_CAT_LABELS = {
     offensive:      '🤬 신고 답변 · 욕설/혐오',
     sexual:         '🔞 신고 답변 · 선정적',
-    violence:       '⚠️ 신고 답변 · 폭력',
+    violence:       '신고 답변 · 폭력',
     misinformation: '📛 신고 답변 · 거짓정보',
     privacy:        '🔒 신고 답변 · 개인정보',
     copyright:      '©️ 신고 답변 · 저작권',
@@ -77,8 +77,8 @@
 
     if (isMine) {
       row.innerHTML = `
-        <span style="font-size:10px;color:#999;align-self:flex-end;margin-bottom:2px;">${time}</span>
-        <div style="background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;border-radius:14px 4px 14px 14px;padding:10px 14px;max-width:78%;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_escape(m.content)}</div>
+        <span style="font-size:10px;color:var(--text-subtle);align-self:flex-end;margin-bottom:2px;">${time}</span>
+        <div style="background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;border-radius:14px 4px 14px 14px;padding:10px 14px;max-width:78%;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_escape(m.content)}</div>
       `;
     } else {
       const label = _resolveLabel(m.meta);
@@ -86,12 +86,12 @@
         ? `<div style="font-size:10px;font-weight:700;color:${label.color};margin-bottom:4px;">${_escape(label.text)}</div>`
         : '';
       row.innerHTML = `
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">잇</div>
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">잇</div>
         <div style="max-width:78%;">
           ${labelHtml}
           <div style="background:#fff;border-radius:4px 14px 14px 14px;padding:10px 14px;font-size:13px;line-height:1.5;color:#333;white-space:pre-wrap;word-break:break-word;box-shadow:0 1px 2px rgba(0,0,0,0.05);">${_escape(m.content)}</div>
         </div>
-        <span style="font-size:10px;color:#999;align-self:flex-end;margin-bottom:2px;">${time}</span>
+        <span style="font-size:10px;color:var(--text-subtle);align-self:flex-end;margin-bottom:2px;">${time}</span>
       `;
     }
     box.appendChild(row);
@@ -137,7 +137,12 @@
   window.openSupportChat = async function () {
     const modal = document.getElementById('supportChatModal');
     if (!modal) return;
+    // 진입 가드 — 진입 click 이 backdrop close 핸들러로 즉시 흡수되는 경합 차단
+    modal.dataset.opened = '0';
     modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+      setTimeout(() => { modal.dataset.opened = '1'; }, 80);
+    });
     if (window.hapticLight) window.hapticLight();
 
     await _renderAll();
@@ -176,7 +181,10 @@
 
   window.closeSupportChat = function () {
     const modal = document.getElementById('supportChatModal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.display = 'none';
+      modal.dataset.opened = '0';
+    }
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   };
 
@@ -240,9 +248,11 @@
     }, 2500);
   });
 
-  // 배경 클릭으로 닫기
+  // 배경 클릭으로 닫기 — 진입 직후 80ms 동안은 무시 (모달 오픈 click 이 그대로 close 로 흡수되는 경합 차단)
   document.addEventListener('click', (e) => {
     const modal = document.getElementById('supportChatModal');
-    if (modal && e.target === modal) window.closeSupportChat();
+    if (modal && e.target === modal && modal.dataset.opened === '1') {
+      window.closeSupportChat();
+    }
   });
 })();

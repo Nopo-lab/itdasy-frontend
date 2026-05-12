@@ -50,7 +50,7 @@
     create_customer:       { icon: 'ic-user',            label: '고객 추가', color: '#4ECDC4' },
     update_customer:       { icon: 'ic-edit-3',          label: '고객 수정', color: '#4ECDC4' },
     create_revenue:        { icon: 'ic-dollar-sign',     label: '매출 기록', color: '#388e3c' },
-    create_booking:        { icon: 'ic-calendar',        label: '예약 추가', color: '#F18091' },
+    create_booking:        { icon: 'ic-calendar',        label: '예약 추가', color: 'var(--brand)' },
     update_booking:        { icon: 'ic-edit-3',          label: '예약 수정', color: '#A78BFA' },
     cancel_booking:        { icon: 'ic-x',               label: '예약 취소', color: '#DC3545' },
     reschedule_booking:    { icon: 'ic-refresh-cw',      label: '예약 변경', color: '#0288D1' },
@@ -311,7 +311,7 @@
           <button id="asstPhoto" aria-label="사진 업로드" title="사진 업로드" style="flex-shrink:0;width:44px;height:44px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s;">${_svg('ic-camera', 20)}</button>
           <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" data-no-voice style="flex:1;padding:12px;border:1px solid #ddd;border-radius:14px;font-size:14px;min-width:0;" />
           <button id="asstMicBtn" type="button" aria-label="음성 입력" title="음성 입력" style="flex-shrink:0;width:44px;height:44px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s, color 0.15s;">${_svg('ic-mic', 20)}</button>
-          <button id="asstSend" style="flex-shrink:0;padding:12px 18px;border:none;border-radius:14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;gap:6px;">${_svg('ic-send', 14)} 보내기</button>
+          <button id="asstSend" style="flex-shrink:0;padding:12px 18px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;gap:6px;">${_svg('ic-send', 14)} 보내기</button>
         </div>
         <input id="asstCamera" type="file" accept="image/*" capture="environment" multiple style="display:none;" />
         <input id="asstGallery" type="file" accept="image/*" multiple style="display:none;" />
@@ -327,7 +327,7 @@
     }
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeAssistant(); });
     sheet.querySelector('#asstSend').addEventListener('click', _send);
-    // 📸 사진 업로드 버튼 → 하단 action sheet
+    // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
     // 숨겨진 file input 선택 시 업로드 실행
     sheet.querySelector('#asstCamera').addEventListener('change', (e) => {
@@ -374,11 +374,7 @@
     const btn = document.getElementById('asstMicBtn');
     if (!SR) {
       // Capacitor / 미지원 브라우저 폴백
-      if (typeof window.showToast === 'function') {
-        window.showToast('이 환경은 음성 입력을 지원하지 않아요. 키보드로 입력해주세요.');
-      } else {
-        alert('이 환경은 음성 입력을 지원하지 않아요.');
-      }
+      showToast('이 환경은 음성 입력을 지원하지 않아요. 키보드로 입력해주세요.', 'warning');
       return;
     }
     // 이미 녹음 중이면 토글로 중지 (사용자 의도)
@@ -520,7 +516,7 @@
       `${match.name} 정보 보기`,
     ];
     box.innerHTML = chips.map(c => `
-      <button data-typeahead="${_esc(c)}" style="padding:6px 11px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);cursor:pointer;font-size:11px;color:hsl(350,60%,40%);white-space:nowrap;font-weight:700;">✨ ${_esc(c)}</button>
+      <button data-typeahead="${_esc(c)}" style="padding:6px 11px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);cursor:pointer;font-size:11px;color:hsl(350,60%,40%);white-space:nowrap;font-weight:700;">${_esc(c)}</button>
     `).join('');
     box.style.display = 'flex';
   }
@@ -555,7 +551,7 @@
     const fallbackHtml = m.fallback ? _renderFallbackCard(m.fallback, idx, m.fallback_status) : '';
     const relatedHtml = (m.related && m.related.length) ? `
       <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
-        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">💬 ${_esc(q)}</button>`).join('')}
+        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">${_esc(q)}</button>`).join('')}
       </div>` : '';
     return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
       <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
@@ -609,7 +605,7 @@
           photosHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-width:280px;">${cells}</div>`;
         }
         const html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-          <div style="max-width:85%;padding:10px 14px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${photosHtml}${_esc(m.text)}</div>
+          <div style="max-width:85%;padding:10px 14px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${photosHtml}${_esc(m.text)}</div>
         </div>`;
         try { m._cachedHtml = html; m._cachedIdx = idx; } catch (_e) { void _e; }
         return html;
@@ -692,7 +688,7 @@
             style="padding:0;border:1px solid hsl(0,60%,85%);border-radius:8px;background:hsl(0,70%,98%);color:hsl(0,60%,45%);cursor:pointer;font-size:${sz.fs};height:100%;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-trash-2', compact ? 12 : 13)}</button>
         </div>`;
     }).join('');
-    const emptyHint = list.length ? '' : `<div style="font-size:11px;color:#999;padding:6px 2px;">품목이 없어요. 아래 버튼으로 추가하세요.</div>`;
+    const emptyHint = list.length ? '' : `<div style="font-size:11px;color:var(--text-subtle);padding:6px 2px;">품목이 없어요. 아래 버튼으로 추가하세요.</div>`;
     return `
       <div style="display:flex;flex-direction:column;gap:${sz.gap};">${rows}${emptyHint}</div>
       <button data-${addAttr}="${keyPrefix}"
@@ -725,7 +721,7 @@
     if (!action || !action.kind) return '';
     // 2026-04-24 — icon 은 Lucide sprite id (문자열), 렌더 시 _svg() 로 변환
     const kindBadge = {
-      create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: '#F18091' },
+      create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: 'var(--brand)' },
       create_revenue:  { icon: 'ic-dollar-sign',    label: '매출 기록',       color: '#388e3c' },
       create_customer: { icon: 'ic-user',           label: '고객 등록',       color: '#4ECDC4' },
       create_nps:      { icon: 'ic-star',           label: '후기 기록',       color: '#FFD700' },
@@ -1016,7 +1012,7 @@
         statusRight = `<span style="font-size:10px;color:${meta.color};font-weight:700;flex-shrink:0;">저장 중…</span>`;
       } else if (f.it.skipped) {
         rowOpacity = 0.45;
-        statusRight = `<span style="font-size:10px;color:#999;font-weight:700;flex-shrink:0;">제외</span>`;
+        statusRight = `<span style="font-size:10px;color:var(--text-subtle);font-weight:700;flex-shrink:0;">제외</span>`;
       }
       // 2026-04-26 버그B 픽스 — 실패 행에 사유(it.errorMsg) 함께 노출
       const errorLine = (f.it.status === 'failed' && f.it.errorMsg)
@@ -1068,7 +1064,7 @@
         <button data-unified-edit="${historyIdx}" ${running ? 'disabled' : ''} style="flex:1;padding:10px;border:1px solid hsl(340,60%,70%);border-radius:10px;background:#fff;color:hsl(340,60%,40%);font-weight:800;cursor:${running ? 'not-allowed' : 'pointer'};font-size:12px;opacity:${running ? 0.5 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
           ${_svg('ic-edit-3', 13)} 수정
         </button>
-        <button data-unified-runall="${historyIdx}" ${running || !hasRemaining ? 'disabled' : ''} class="${pulseClass}" style="flex:2;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:${running || !hasRemaining ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running || !hasRemaining ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
+        <button data-unified-runall="${historyIdx}" ${running || !hasRemaining ? 'disabled' : ''} class="${pulseClass}" style="flex:2;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;font-weight:800;cursor:${running || !hasRemaining ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running || !hasRemaining ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
           ${runLabel}
         </button>
       </div>`;
@@ -1190,14 +1186,28 @@
     if (it.skipped) {
       return `<div style="padding:9px 10px;border-radius:10px;background:#f5f5f5;border:1px dashed #ccc;opacity:0.55;display:flex;align-items:center;gap:8px;">
         <div style="flex:1;font-size:12px;color:#888;text-decoration:line-through;">${iIdx + 1}. ${_esc(_summarizeItem(it.action))}</div>
-        <button data-row-unskip="${key}" style="padding:5px 9px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#666;font-size:11px;font-weight:700;cursor:pointer;">되돌리기</button>
+        <button data-row-unskip="${key}" style="padding:5px 9px;border:1px solid #ccc;border-radius:8px;background:#fff;color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;">되돌리기</button>
       </div>`;
     }
 
     // pending · editing
     const editing = it.editing === true;
     const summary = _summarizeItem(it.action);
-    const rowHead = `<div style="font-size:12px;color:#222;font-weight:700;">${iIdx + 1}. ${_esc(summary)}</div>`;
+    // [2026-05-12 QA #3] confidence 3단계 색상 — 사용자가 직관적으로 신뢰도 인식.
+    // >=0.9 녹색 (배지 생략), 0.7~0.89 노랑 (참고), <0.7 빨강 (자동등록 차단).
+    const _conf = (it.action && typeof it.action.confidence === 'number') ? it.action.confidence : null;
+    let _confBadge = '';
+    if (_conf !== null) {
+      const pct = Math.round(_conf * 100);
+      if (_conf < 0.7) {
+        _confBadge = `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:10px;font-weight:700;">⚠️ 확인 필요 ${pct}%</span>`;
+      } else if (_conf < 0.9) {
+        _confBadge = `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fefce8;color:#a16207;border:1px solid #fde68a;border-radius:4px;font-size:10px;font-weight:600;">참고 ${pct}%</span>`;
+      } else {
+        // >= 0.9 는 배지 생략 (깔끔)
+      }
+    }
+    const rowHead = `<div style="font-size:12px;color:#222;font-weight:700;">${iIdx + 1}. ${_esc(summary)}${_confBadge}</div>`;
 
     // 편집 가능 필드 (있는 것만 보여주기)
     const editFields = [];
@@ -1282,7 +1292,7 @@
     const buttons = editing
       ? `<div style="display:flex;gap:6px;margin-top:4px;">
           <button data-row-save="${key}" style="flex:1;padding:7px;border:none;border-radius:8px;background:${meta.color};color:#fff;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-save', 12)} 저장</button>
-          <button data-row-editcancel="${key}" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#666;font-weight:700;cursor:pointer;font-size:11px;">취소</button>
+          <button data-row-editcancel="${key}" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;background:#fff;color:var(--text-muted);font-weight:700;cursor:pointer;font-size:11px;">취소</button>
         </div>`
       : `<div style="display:flex;gap:6px;margin-top:4px;">
           <button data-row-run="${key}" style="flex:1;padding:7px;border:none;border-radius:8px;background:${meta.color};color:#fff;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-check', 12)} 추가</button>
@@ -1323,7 +1333,7 @@
           style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,88%);border-radius:10px;font-size:12px;background:#fff;" />
       </div>`;
     return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid hsl(270,40%,88%);border-radius:14px;">
-      <div style="font-size:12px;font-weight:800;color:hsl(270,50%,45%);margin-bottom:8px;">💡 대충 이렇게 맞아요?</div>
+      <div style="font-size:12px;font-weight:800;color:hsl(270,50%,45%);margin-bottom:8px;">대충 이렇게 맞아요?</div>
       ${row('이름', 'name', extract.name, '김서연')}
       ${row('전화', 'phone', extract.phone, '010-0000-0000')}
       ${row('금액', 'amount', extract.amount, '50000')}
@@ -1482,6 +1492,40 @@
   function _bindActionButtons() {
     if (_delegationBound) return;
     _delegationBound = true;
+    // [2026-05-12 QA #4] 편집 모드 input 변경 즉시 action state 에 반영.
+    // 이전엔 저장 버튼 누를 때만 반영 → 다른 액션으로 _renderHistory 가 호출되면 입력값 사라짐.
+    // 이제 input/change 이벤트마다 즉시 _applyEditField 로 state 갱신 (re-render 안 함, 포커스 유지).
+    document.addEventListener('input', (e) => {
+      const fld = e.target.closest('[data-row-field]');
+      if (!fld || !document.getElementById('asstBody')?.contains(fld)) return;
+      const parts = fld.getAttribute('data-row-field').split(':');
+      if (parts.length < 4) return;
+      const [hi, gi, ii] = [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10)];
+      const field = parts.slice(3).join(':');
+      const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
+      const msg = _history[hi];
+      // single action (msg.action) 도 동일 패턴
+      const target = it ? it.action : (msg && msg.action ? msg.action : null);
+      if (!target) return;
+      if (!target.payload) target.payload = {};
+      try { _applyEditField(target, field, fld.value); } catch (_e) { /* ignore */ }
+    });
+    // select 변경도 동일 처리
+    document.addEventListener('change', (e) => {
+      if (e.target.tagName !== 'SELECT') return;
+      const fld = e.target.closest('[data-row-field]');
+      if (!fld || !document.getElementById('asstBody')?.contains(fld)) return;
+      const parts = fld.getAttribute('data-row-field').split(':');
+      if (parts.length < 4) return;
+      const [hi, gi, ii] = [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10)];
+      const field = parts.slice(3).join(':');
+      const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
+      const msg = _history[hi];
+      const target = it ? it.action : (msg && msg.action ? msg.action : null);
+      if (!target) return;
+      if (!target.payload) target.payload = {};
+      try { _applyEditField(target, field, fld.value); } catch (_e) { /* ignore */ }
+    });
     document.addEventListener('click', (e) => {
       // 2026-04-26 픽스 — 업로드 사진 썸네일 클릭 → 라이트박스
       const photoEl = e.target.closest('[data-asst-photo]');
@@ -1894,15 +1938,31 @@
   }
 
   // 순수 실행기 — action 객체만 받아 POST, 결과 반환. UI 갱신은 호출자가.
+  // [QA-NEXT #4] action._ai_original (AI 추출 시점 payload 스냅샷) 있으면 original_payload 동봉 →
+  // 백엔드에서 final vs original diff 를 UserCorrection 으로 학습.
   async function _executeAction(action) {
+    const body = { kind: action.kind, payload: action.payload || {} };
+    if (action._ai_original && typeof action._ai_original === 'object') {
+      body.original_payload = action._ai_original;
+    }
+    if (action._source_question) body.source_question = action._source_question;
     const res = await fetch(window.API + '/assistant/execute', {
       method: 'POST',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: action.kind, payload: action.payload || {} }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'HTTP ' + res.status);
+      // [QA-NEXT #3] 백엔드 stages 단계 분리 — detail 이 dict(stages 포함) 일 수 있음
+      let msg = '';
+      if (err && typeof err.detail === 'object' && err.detail !== null) {
+        msg = err.detail.message || JSON.stringify(err.detail);
+      } else {
+        msg = err.detail || ('HTTP ' + res.status);
+      }
+      const e2 = new Error(msg);
+      if (err && typeof err.detail === 'object') e2.stages = err.detail.stages || null;
+      throw e2;
     }
     const d = await res.json();
     _invalidateCachesFor(d.kind || action.kind);
@@ -1934,7 +1994,7 @@
       msg.action_status = 'done';
       _renderHistory();
       if (d.kind === 'generate_bulk_message' && d.message_draft) {
-        _history.push({ role: 'assistant', text: '📋 초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + d.message_draft });
+        _history.push({ role: 'assistant', text: '초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + d.message_draft });
       } else {
         _history.push({ role: 'assistant', text: d.message || '✓ 완료했어요' });
       }
@@ -1999,6 +2059,23 @@
       .map((it, i) => ({ it, i }))
       .filter(({ it }) => !it.skipped && it.status !== 'done' && it.status !== 'running');
     if (!targets.length) return;
+    // [2026-05-12 QA #3] confidence < 0.7 인 action 자동 [전체 추가] 차단.
+    // 사용자가 개별 [추가] 누르거나 [편집] 후 통과해야 commit.
+    const lowConf = targets.filter(({ it }) => {
+      const c = it.action && it.action.confidence;
+      return typeof c === 'number' && c < 0.7;
+    });
+    if (lowConf.length) {
+      if (window.showToast) window.showToast(`${lowConf.length}건은 신뢰도 낮아 확인 필요 — 빨간 항목 먼저 편집해 주세요`);
+      // 낮은 confidence 만 빼고 진행
+      const safe = targets.filter(({ it }) => {
+        const c = it.action && it.action.confidence;
+        return !(typeof c === 'number' && c < 0.7);
+      });
+      if (!safe.length) return;
+      targets.length = 0;
+      targets.push(...safe);
+    }
     group.bulkProgress = { current: 0, total: targets.length };
     // 모두 running 상태로 한번에 표시 → 사용자가 '동시 진행' 체감
     targets.forEach(({ it }) => { it.status = 'running'; });
@@ -2138,7 +2215,7 @@
       if (!target) return;
       box = document.createElement('div');
       box.id = 'asstProactive';
-      box.style.cssText = 'display:flex;gap:8px;overflow-x:auto;margin-top:6px;padding:4px 0;-webkit-overflow-scrolling:touch;';
+      box.style.cssText = 'display:flex;gap:8px;overflow-x:auto;margin-top:6px;padding:4px 0;';
       target.parentNode.insertBefore(box, target);
     }
     if (!suggestions || !suggestions.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
@@ -2146,7 +2223,7 @@
     box.innerHTML = suggestions.map((s, i) => {
       const text = _esc(s.text || '');
       const chat = _esc(s.chat_input || s.text || '');
-      return `<button data-proactive-chat="${chat}" style="flex:0 0 auto;max-width:260px;padding:10px 14px;border:1px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);color:#5B21B6;cursor:pointer;font-size:12px;font-weight:600;text-align:left;line-height:1.35;white-space:normal;">✨ ${text}</button>`;
+      return `<button data-proactive-chat="${chat}" style="flex:0 0 auto;max-width:260px;padding:10px 14px;border:1px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);color:#5B21B6;cursor:pointer;font-size:12px;font-weight:600;text-align:left;line-height:1.35;white-space:normal;">${text}</button>`;
     }).join('');
     box.querySelectorAll('[data-proactive-chat]').forEach(b => {
       b.addEventListener('click', () => {
@@ -2159,7 +2236,7 @@
     });
   }
 
-  // ── 📸 사진 업로드 (챗봇 입력바 좌측 버튼) ─────────────────
+  // ── 사진 업로드 (챗봇 입력바 좌측 버튼) ─────────────────
   function _openPhotoSheet() {
     // 이미 떠 있으면 닫고 끝
     const existing = document.getElementById('asstPhotoSheet');
@@ -2171,7 +2248,7 @@
       <div style="width:100%;max-width:460px;background:#fff;border-radius:20px 20px 0 0;padding:12px 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;">
         <button data-photo-choice="camera" style="padding:16px;border:none;border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;">${_svg('ic-camera', 18)} 사진 찍기</button>
         <button data-photo-choice="gallery" style="padding:16px;border:none;border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;">${_svg('ic-image-plus', 18)} 갤러리에서</button>
-        <button data-photo-choice="cancel" style="padding:14px;border:none;border-radius:14px;background:#f2f2f2;color:#666;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">취소</button>
+        <button data-photo-choice="cancel" style="padding:14px;border:none;border-radius:14px;background:#f2f2f2;color:var(--text-muted);font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">취소</button>
       </div>
     `;
     const close = () => { try { box.remove(); } catch (_e) { void _e; } };
@@ -2187,7 +2264,7 @@
     document.body.appendChild(box);
   }
 
-  // ─── 📷 라이트박스 (업로드한 사진 클릭 시 큰 화면) ────────────
+  // ─── 라이트박스 (업로드한 사진 클릭 시 큰 화면) ────────────
   // 2026-04-26 추가 — N장 사진을 좌우 화살표로 둘러보기.
   // 배경 어둡게 + ESC/배경 클릭 닫기 + 화살표 키 네비.
   let _lightboxState = null;
@@ -2414,6 +2491,16 @@
       const actionsList = (Array.isArray(d.actions) && d.actions.length)
         ? d.actions
         : (d.action && d.action.kind ? [d.action] : []);
+      // [QA-NEXT #4] 각 action 의 AI 원본 payload 스냅샷 저장 → execute 시 original_payload 로 동봉.
+      const _imgQ = (window._lastAssistantQuestion || '');
+      actionsList.forEach(a => {
+        try {
+          if (a && a.payload && !a._ai_original) {
+            a._ai_original = JSON.parse(JSON.stringify(a.payload));
+          }
+          if (a && !a._source_question) a._source_question = _imgQ;
+        } catch (_e) { void _e; }
+      });
       const msg = { role: 'assistant', text: d.answer || '사진을 확인했어요.' };
       if (Array.isArray(d.related_questions) && d.related_questions.length) {
         msg.related = d.related_questions.slice(0, 3);
@@ -2507,6 +2594,15 @@
       const actionsList = (Array.isArray(d.actions) && d.actions.length)
         ? d.actions
         : (d.action && d.action.kind ? [d.action] : []);
+      // [QA-NEXT #4] AI 원본 payload 스냅샷 저장 (텍스트 /ask 경로)
+      actionsList.forEach(a => {
+        try {
+          if (a && a.payload && !a._ai_original) {
+            a._ai_original = JSON.parse(JSON.stringify(a.payload));
+          }
+          if (a && !a._source_question) a._source_question = q;
+        } catch (_e) { void _e; }
+      });
 
       // Wave B4 — answer + actions 모두 빈값이면 휴리스틱 프리뷰 카드
       const answerText = (d.answer || '').trim();
@@ -2562,7 +2658,25 @@
         _clearPending();
         return;
       }
-      _history.push({ role: 'assistant', text: '잠시 연결이 불안정해요. 다시 시도해 주세요. (' + (window._humanError ? window._humanError(e) : e.message) + ')' });
+      // [2026-05-12 QA #5] 모든 에러를 '연결 불안정' 으로 뭉뚱그리지 말고 원인별 분기.
+      let _errMsg = (e && e.message) || '';
+      let _errPrefix;
+      if (/409|conflict|중복|이미.*예약/.test(_errMsg)) {
+        _errPrefix = '⚠️ ' + _errMsg.replace(/^.*?(?:detail":\s*"|429:\s*|409:\s*)/, '').replace(/"\}.*$/, '');
+      } else if (/timeout|deadline|timed out|너무 오래/i.test(_errMsg)) {
+        _errPrefix = '⏱️ 응답이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.';
+      } else if (/503|maintenance|점검/.test(_errMsg)) {
+        _errPrefix = '🛠️ 서버 점검 중이에요. 5분 후 다시 시도해 주세요.';
+      } else if (/quota|429|rate.?limit/i.test(_errMsg)) {
+        _errPrefix = '⏰ 잠깐 요청이 몰려서 늦어져요. 1분 후 다시 보내주세요.';
+      } else if (/403|permission|denied/i.test(_errMsg)) {
+        _errPrefix = '🔒 권한 문제예요. 운영팀에 문의해 주세요.';
+      } else if (/network|failed to fetch|네트워크/i.test(_errMsg) || !navigator.onLine) {
+        _errPrefix = '📡 인터넷 연결을 확인해 주세요.';
+      } else {
+        _errPrefix = '에러: ' + (window._humanError ? window._humanError(e) : _errMsg);
+      }
+      _history.push({ role: 'assistant', text: _errPrefix });
       _renderHistory();
       _clearPending();
     } finally {
@@ -2648,14 +2762,18 @@
   }
   // "데이터 동기화" 버튼 / focus 복귀 시 강제 새로고침
   // [2026-04-26 A8 픽스] 자기 자신이 발사한 이벤트면 reload 안 함 (그룹 상태 보존)
-  window.addEventListener('itdasy:data-changed', () => {
-    if (_selfDispatchedDataChange) {
-      _selfDispatchedDataChange = false;
-      return;
-    }
-    _historyLoadedFromServer = false;
-    _loadServerHistory(true);
-  });
+  // [BUG-R2-3] 중복 등록 방어 — Capacitor 재초기화 시 리스너 쌓임 방지
+  if (!window._assistantDataListenerInit) {
+    window._assistantDataListenerInit = true;
+    window.addEventListener('itdasy:data-changed', () => {
+      if (_selfDispatchedDataChange) {
+        _selfDispatchedDataChange = false;
+        return;
+      }
+      _historyLoadedFromServer = false;
+      _loadServerHistory(true);
+    });
+  }
 
   window.openAssistant = function () {
     _ensureSheet();

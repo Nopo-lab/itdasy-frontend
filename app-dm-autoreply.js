@@ -24,9 +24,8 @@
     }[ch]));
   }
 
-  function _toast(msg) {
-    if (window.showToast) window.showToast(msg);
-    else alert(msg);
+  function _toast(msg, type) {
+    if (window.showToast) window.showToast(msg, type);
   }
 
   function _haptic() { window.hapticLight?.(); }
@@ -59,8 +58,8 @@
   /* ── 백엔드 fetch ────────────────────────────────── */
   // 2026-05-01 ── _origFetch: 글로벌 fetch wrap (자동 재시도 + 서버 불안정 토스트) 우회.
   // DM 패널은 옵셔널 데이터라 토스트 spam 안 띄우고 조용히 빈 상태로 폴백.
-  // 데이터 조회: 8s, 저장(POST): 25s — Railway cold start 가 10-20s 걸려서 저장이 자꾸 실패하던 문제.
-  function _rawFetch(url, opts = {}, timeoutMs = 8000) {
+  // 데이터 조회: 15s (Railway cold start 대응), 저장(POST): 25s.
+  function _rawFetch(url, opts = {}, timeoutMs = 15000) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     return (window._origFetch || window.fetch)(url, { ...opts, signal: ctrl.signal })
@@ -69,14 +68,19 @@
 
   async function _fetchAll() {
     const headers = window.authHeader();
+    const settingsPromise = window.DmSettingsCache?.get
+      ? window.DmSettingsCache.get().catch(() => null)
+      : _rawFetch(window.API + '/instagram/dm-reply/settings', { headers })
+        .then(r => (r && r.ok) ? r.json().catch(() => null) : null)
+        .catch(() => null);
     const endpoints = [
       _rawFetch(window.API + '/instagram/dm-reply/status', { headers }).catch(() => null),
-      _rawFetch(window.API + '/instagram/dm-reply/settings', { headers }).catch(() => null),
+      settingsPromise,
       _rawFetch(window.API + '/instagram/dm-reply/recent-conversations?limit=10', { headers }).catch(() => null),
     ];
     const [sR, stR, cR] = await Promise.all(endpoints);
     const status = (sR && sR.ok) ? await sR.json().catch(() => ({})) : {};
-    const settings = (stR && stR.ok) ? await stR.json().catch(() => null) : null;
+    const settings = stR || null;
     const recent = (cR && cR.ok) ? await cR.json().catch(() => ({})) : {};
     return { status, settings, conversations: recent.conversations || [] };
   }
@@ -103,11 +107,15 @@
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(async () => {
       try {
-        await _rawFetch(window.API + '/instagram/dm-reply/settings', {
-          method: 'POST',
-          headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-          body: JSON.stringify(_sanitizeForSave(_settings)),
-        }, 25000);
+        const safe = _sanitizeForSave(_settings);
+        if (window.DmSettingsCache?.save) await window.DmSettingsCache.save(safe);
+        else {
+          await _rawFetch(window.API + '/instagram/dm-reply/settings', {
+            method: 'POST',
+            headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(safe),
+          }, 25000);
+        }
       } catch (_) { /* 조용히 실패 — 다음 저장 때 재시도 */ }
     }, 400);
   }
@@ -117,7 +125,7 @@
     return `
       <div class="dm-header">
         <button type="button" class="dm-header__back" data-act="close" aria-label="닫기">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+          <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
         </button>
         <div class="dm-header__title">DM 자동응답</div>
         <button type="button" class="dm-header__action" data-act="save">저장</button>
@@ -170,7 +178,7 @@
     return `
       <div class="dm-persona">
         <div class="dm-persona__icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M12 14c-4 0-7 2-7 6h14c0-4-3-6-7-6z"/></svg>
+          <i class="ph-duotone ph-user-circle" style="font-size:20px" aria-hidden="true"></i>
         </div>
         <div class="dm-persona__info">
           <div class="dm-persona__title"><b>원장님 말투</b>로 학습된 AI</div>
@@ -195,7 +203,7 @@
           ${cards.map(c => `
             <button type="button" class="dm-tone__card ${c.id === tone ? 'is-on' : ''}" data-tone="${c.id}">
               <div class="dm-tone__icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                <i class="ph-duotone ph-question" style="font-size:18px" aria-hidden="true"></i>
               </div>
               <div class="dm-tone__name">${c.name}</div>
               <div class="dm-tone__sample">${c.sample}</div>
@@ -377,8 +385,8 @@
     const actInfo = isBookingAction ? `
       <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#FFF7E6;border:1px solid #FBBF24;border-radius:8px;margin:8px 0;">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          <span style="font-size:11px;font-weight:800;color:#92400E;">📅 예약 승인 대기</span>
-          ${calChecked ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:1px 7px;border-radius:99px;font-weight:700;">📅 캘린더 확인됨</span>' : ''}
+          <span style="font-size:11px;font-weight:800;color:#92400E;">예약 승인 대기</span>
+          ${calChecked ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:1px 7px;border-radius:99px;font-weight:700;">캘린더 확인됨</span>' : ''}
         </div>
         ${actMeta.owner_label ? `<div style="font-size:11.5px;color:#92400E;font-weight:700;line-height:1.4;">${_esc(actMeta.owner_label)}</div>` : `
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:#92400E;">
@@ -408,7 +416,7 @@
         ${_renderMiniTone(activeTone)}
         <div class="dm-actions" style="display:flex;flex-direction:column;gap:6px;">
           <button type="button" class="dm-action is-send" data-act="send" style="width:100%;justify-content:center;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            <i class="ph-duotone ph-paper-plane-tilt" style="font-size:12px" aria-hidden="true"></i>
             ${sendLabel}
           </button>
           ${showAltBtn ? `<button type="button" class="dm-action" data-act="alt" style="width:100%;justify-content:center;background:#FFFBEB;color:#92400E;border:1px solid #F59E0B;">⏰ 불가 및 대안 시간 제안</button>` : ''}
@@ -426,7 +434,7 @@
           style="width:100%;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);
             background:rgba(255,255,255,0.07);color:#fff;font-size:13px;font-weight:600;cursor:pointer;
             display:flex;align-items:center;justify-content:center;gap:6px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <i class="ph-duotone ph-clock" style="font-size:15px" aria-hidden="true"></i>
           45일+ 안 오신 손님 보기
         </button>
         <div id="dmRetentionList" style="margin-top:8px;"></div>
@@ -533,7 +541,7 @@
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
-        _toast(d.message || '✅ 처리 완료');
+        _toast(d.message || '처리 완료');
         _sendFeedback(tail, 'good');
         card.classList.add('is-sending');
         setTimeout(() => {
@@ -585,12 +593,13 @@
     // TODO[v1.5]: 톤 변경 시 즉시 새 초안 생성 — 지금은 UI만 토글
   }
 
-  let _regenInFlight = false;  // 중복 호출 방지
+  const _regenInFlight = new Set();  // logId별 중복 호출 방지
   async function _handleRegen(card) {
     // [2026-05-02 Phase 1.2++] 진짜 백엔드 호출 — fake hardcoded 제거.
     // POST /dm-confirm-queue/{log_id}/regenerate { tone } → 시간 컨텍스트 가드레일 보존.
-    if (_regenInFlight) return;  // 이미 생성 중이면 중복 호출 방지
     const logId = card.dataset.logId;
+    const regenKey = String(logId || '');
+    if (regenKey && _regenInFlight.has(regenKey)) return;  // 이미 생성 중이면 중복 호출 방지
     if (!logId) {
       _toast('재생성하려면 먼저 메시지가 큐에 등록되어야 해요');
       return;
@@ -606,16 +615,21 @@
     const statusLabel = '생성 중…';
     draftEl.textContent = statusLabel;
     draftEl.style.color = '#aaa';
-    _draftMap.set(String(logId), statusLabel); // 폴링 시에도 '생성 중' 표시 유지
+    _draftMap.set(regenKey, statusLabel); // 폴링 시에도 '생성 중' 표시 유지
     
-    _regenInFlight = true;
+    _regenInFlight.add(regenKey);
+    const regenBtn = card.querySelector('[data-act="regen"]');
+    if (regenBtn) {
+      regenBtn.disabled = true;
+      regenBtn.textContent = '생성 중…';
+    }
     _haptic();
     try {
-      const res = await fetch(window.API + `/dm-confirm-queue/${encodeURIComponent(logId)}/regenerate`, {
+      const res = await _rawFetch(window.API + `/dm-confirm-queue/${encodeURIComponent(logId)}/regenerate`, {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ tone }),
-      });
+      }, 45000);
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
       
@@ -627,31 +641,41 @@
       const liveEl = liveCard ? liveCard.querySelector('.dm-bubble--sent.is-draft') : draftEl;
       
       if (newText) {
-        _draftMap.set(String(logId), newText);
+        _draftMap.set(regenKey, newText);
         if (liveEl) {
           liveEl.textContent = newText;
           liveEl.style.color = '';
         }
         _toast('✓ 새 답장 생성됨');
       } else {
-        _draftMap.delete(String(logId)); // 실패 시 맵에서 제거하여 원본(ai_draft_text) 노출 유도
+        _draftMap.delete(regenKey); // 실패 시 맵에서 제거하여 원본(ai_draft_text) 노출 유도
         if (liveEl) {
           liveEl.textContent = orig;
           liveEl.style.color = '';
         }
+        _toast('새 답장이 비어 있어요. 다시 눌러주세요.');
       }
       if (d.guarded) _toast('✓ 시간 정보 유지하며 톤만 변경됨');
     } catch (e) {
-      _draftMap.delete(String(logId));
+      _draftMap.delete(regenKey);
       const liveCard2 = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl2 = liveCard2 ? liveCard2.querySelector('.dm-bubble--sent.is-draft') : draftEl;
       if (liveEl2) { 
         liveEl2.textContent = orig; 
         liveEl2.style.color = ''; 
       }
-      _toast('재생성 실패: ' + (e.message || ''));
+      const msg = e?.name === 'AbortError'
+        ? '답장 만들기가 너무 오래 걸려 멈췄어요. 다시 눌러주세요.'
+        : (e.message || '');
+      _toast('재생성 실패: ' + msg);
     } finally {
-      _regenInFlight = false;
+      _regenInFlight.delete(regenKey);
+      const liveCard3 = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
+      const liveBtn = liveCard3 ? liveCard3.querySelector('[data-act="regen"]') : regenBtn;
+      if (liveBtn) {
+        liveBtn.disabled = false;
+        liveBtn.textContent = '↻ 다시';
+      }
     }
   }
 
@@ -667,7 +691,7 @@
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
-      _toast(d.message || `📅 대안 시간 안내 발송 (${d.alternatives_sent || 0}개)`);
+      _toast(d.message || `대안 시간 안내 발송 (${d.alternatives_sent || 0}개)`);
       card.classList.add('is-sending');
       setTimeout(() => { card.remove(); _notifyDMChanged(); }, 460);
     } catch (e) {
@@ -676,6 +700,9 @@
   }
 
   function _bindCard(card) {
+    // [2026-05-12 QA #6] inbox 폴링 시 동일 card element 재바인딩 방어 — 한 번만 바인딩.
+    if (card.dataset.bound === '1') return;
+    card.dataset.bound = '1';
     card.querySelector('[data-act="send"]')?.addEventListener('click', () => _handleSend(card));
     card.querySelector('[data-act="reject"]')?.addEventListener('click', () => _handleReject(card));
     card.querySelector('[data-act="regen"]')?.addEventListener('click', () => _handleRegen(card));
@@ -801,11 +828,17 @@
       _saveTimer = setTimeout(() => {}, 0);
       // 2026-05-01 ── 저장: invalid 값 sanitize + 1회 자동 재시도 + 실제 에러 표시
       const safeSettings = _sanitizeForSave(_settings);
-      const _trySave = async () => _rawFetch(window.API + '/instagram/dm-reply/settings', {
-        method: 'POST',
-        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(safeSettings),
-      }, 25000);  // Railway cold start 대비 25s
+      const _trySave = async () => {
+        if (window.DmSettingsCache?.save) {
+          await window.DmSettingsCache.save(safeSettings);
+          return { ok: true, status: 200, json: async () => ({}) };
+        }
+        return _rawFetch(window.API + '/instagram/dm-reply/settings', {
+          method: 'POST',
+          headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(safeSettings),
+        }, 25000);
+      };
       let r = null;
       try { r = await _trySave(); }
       catch (e1) {
@@ -914,13 +947,19 @@
     }
   }
 
-  function _bindEvents(sheet) {
-    _bindHeader(sheet);
-    _bindToneCards(sheet);
-    _bindHours(sheet);
-    _bindBan(sheet);
-    _bindAdvanced(sheet);
-    _bindRetention(sheet);
+  function _bindEvents(sheet, opts) {
+    // [2026-05-12 QA #6 CRITICAL] _refreshInbox() 가 8초마다 _bindEvents 재호출 → save 버튼에
+    // 리스너 누적되면서 "저장됐어요" 토스트 N번 + POST N번 중복. 폴링 경로(inboxOnly)는
+    // inbox 카드만 다시 바인딩하고 header/tone/hours/ban/advanced/retention 은 skip.
+    const inboxOnly = !!(opts && opts.inboxOnly);
+    if (!inboxOnly) {
+      _bindHeader(sheet);
+      _bindToneCards(sheet);
+      _bindHours(sheet);
+      _bindBan(sheet);
+      _bindAdvanced(sheet);
+      _bindRetention(sheet);
+    }
     sheet.querySelectorAll('.dm-card').forEach(card => _bindCard(card));
   }
 
@@ -1066,8 +1105,8 @@
       const conversations = data.conversations || [];
       const tone = (_settings && _settings.tone) || 'friendly';
       mount.innerHTML = _renderInbox(conversations, tone);
-      // 새로 그려진 inbox 안의 버튼들 재바인딩
-      if (_sheet) _bindEvents(_sheet);
+      // 새로 그려진 inbox 안의 버튼들만 재바인딩 — header/tone/save 는 skip (리스너 누적 방지)
+      if (_sheet) _bindEvents(_sheet, { inboxOnly: true });
     } catch (_e) { /* 조용히 실패 — 다음 틱에 재시도 */ }
   }
 

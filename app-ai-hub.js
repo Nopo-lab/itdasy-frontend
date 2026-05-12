@@ -34,25 +34,25 @@
   // type: 'toggle' | 'tag' | 'badge' | 'plain'
   function _rows() {
     return [
-      { act: 'dm', icon: 'ic-message-circle', iconClass: 'ms-aih__icon--brand',
+      { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
         type: 'toggle', toggleKey: KEY_DM },
-      { act: 'kakao', icon: 'ic-message-square', iconClass: '',
+      { act: 'kakao', icon: 'ph-bell-ringing', boxColor: 'amber',
         name: '카카오 알림톡', meta: '예약확정 · 리마인드 · 생일',
         type: 'toggle', toggleKey: KEY_KAKAO },
-      { act: 'persona', icon: 'ic-wand-sparkles', iconClass: 'ms-aih__icon--brand',
+      { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'purple',
         name: 'AI 페르소나', meta: '원장님 말투 학습 · 캡션 일관성',
         type: 'tag', tagText: '학습됨' },
-      { act: 'caption', icon: 'ic-pen-line', iconClass: '',
+      { act: 'caption', icon: 'ph-pencil-line', boxColor: 'pink',
         name: 'SNS 캡션', meta: '시나리오 · 1초 · 음성 3가지',
         type: 'plain' },
-      { act: 'posts', icon: 'ic-image', iconClass: '',
+      { act: 'posts', icon: 'ph-squares-four', boxColor: 'teal',
         name: '게시물 관리', meta: '완료 슬롯 · 마무리 탭',
         type: 'plain' },
-      { act: 'memo', icon: 'ic-bot', iconClass: '',
+      { act: 'memo', icon: 'ic-bot', boxColor: 'violet',
         name: '챗봇 메모', meta: '영구 메모 + 자동 학습 패턴',
         type: 'plain' },
-      { act: 'capture', icon: 'ic-image-plus', iconClass: 'ms-aih__icon--purple',
+      { act: 'capture', icon: 'ph-scan', boxColor: 'violet',
         name: '스마트 캡처', meta: '카톡 · 명함 · 가격표 OCR',
         type: 'badge' },
     ];
@@ -69,7 +69,7 @@
 
   // ── 행 우측 영역 마크업 ────────────────────────────────────────
   function _rightHtml(row) {
-    const chev = `<svg class="ms-aih__chev" width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>`;
+    const chev = `<i class="ph-duotone ph-caret-right" aria-hidden="true"></i>`;
     if (row.type === 'toggle') {
       const on = _getToggle(row.toggleKey);
       return `
@@ -91,16 +91,23 @@
   }
 
   // ── 행 마크업 (NEW 배지는 이름 옆) ─────────────────────────────
-  // ⚠️ <button> 안에 <button>(토글) 중첩 invalid HTML — Safari가 분리시킴
+  // <button> 안에 <button>(토글) 중첩 invalid HTML — Safari가 분리시킴
   // 그래서 row 자체는 <div role="button"> 으로 래핑
   function _rowHtml(row) {
     const newBadge = row.type === 'badge'
       ? `<span class="ms-aih__badge-new">NEW</span>` : '';
+    // Phase1: Phosphor vs 레거시 SVG
+    const isPhosphor = row.icon.startsWith('ph-');
+    const iconInner = isPhosphor
+      ? `<i class="ph-duotone ${_esc(row.icon)}" aria-hidden="true"></i>`
+      : `<svg width="16" height="16" aria-hidden="true"><use href="#${_esc(row.icon)}"/></svg>`;
+    const boxCls = row.boxColor ? `ic-box ic-box--sm ic-box--${_esc(row.boxColor)}` : '';
+    const iconHtml = boxCls
+      ? `<span class="${boxCls}">${iconInner}</span>`
+      : iconInner;
     return `
       <div class="ms-aih__row" role="button" tabindex="0" data-act="${_esc(row.act)}">
-        <span class="ms-aih__icon ${_esc(row.iconClass)}">
-          <svg width="16" height="16" aria-hidden="true"><use href="#${_esc(row.icon)}"/></svg>
-        </span>
+        <span class="ms-aih__icon">${iconHtml}</span>
         <span class="ms-aih__info">
           <span class="ms-aih__name">${_esc(row.name)}${newBadge}</span>
           <span class="ms-aih__meta">${_esc(row.meta)}</span>
@@ -138,7 +145,7 @@
     let sheet = document.getElementById('aiHubSheet');
     if (sheet) {
       sheet.innerHTML = _buildSheet();
-      // ⚠️ 핸들러는 sheet 엘리먼트에 1회만 attach (innerHTML 교체해도 부모 리스너는 살아남음)
+      // 핸들러는 sheet 엘리먼트에 1회만 attach (innerHTML 교체해도 부모 리스너는 살아남음)
       // 이전엔 매번 attach 해서 N번 open 후 N번 fire → 토글 / route 다중 발생 버그
       return sheet;
     }
@@ -168,6 +175,12 @@
       const row = e.target.closest('.ms-aih__row');
       if (row) {
         const act = row.dataset.act;
+        // [2026-05-12 QA #7] 진입점 함수가 없을 때 sheet 만 닫혀서 사용자가
+        // "다른 이상한 페이지로 이동한" 인상 받던 문제. 함수 존재 선검증.
+        if (!_canRoute(act)) {
+          if (window.showToast) window.showToast('아직 준비 중이에요. 잠시 후 다시 시도해주세요.');
+          return; // sheet 유지
+        }
         close();
         setTimeout(() => _route(act), 200);
       }
@@ -178,6 +191,10 @@
       if (!row) return;
       e.preventDefault();
       const act = row.dataset.act;
+      if (!_canRoute(act)) {
+        if (window.showToast) window.showToast('아직 준비 중이에요.');
+        return;
+      }
       close();
       setTimeout(() => _route(act), 200);
     });
@@ -203,24 +220,37 @@
   }
 
   // ── 7개 항목 라우터 (동작 변경 X) ─────────────────────────────
+  const _ROUTE_MAP = {
+    dm:      'openDMAutoreplySettings',
+    kakao:   'openKakaoHub',
+    persona: 'openPersonaSurveyModal',
+    caption: 'openCaptionScenarioPopup',
+    posts:   null,
+    memo:    'openAssistantFactsSheet',
+    capture: 'openSmartCapture',
+  };
+
+  function _canRoute(act) {
+    if (act === 'posts') return typeof window.showTab === 'function';
+    const fn = _ROUTE_MAP[act];
+    return !!(fn && typeof window[fn] === 'function');
+  }
+
   function _route(act) {
-    const map = {
-      dm:      'openDMAutoreplySettings',
-      kakao:   'openKakaoHub',
-      persona: 'openPersonaSurveyModal',
-      caption: 'openCaptionScenarioPopup',
-      posts:   null,
-      memo:    'openAssistantFactsSheet',
-      capture: 'openSmartCapture',
-    };
+    const map = _ROUTE_MAP;
     if (act === 'posts') {
       try {
         if (typeof window.showTab === 'function') {
           const finishBtn = document.querySelector('.tab-bar__btn[data-tab="finish"]');
           window.showTab('finish', finishBtn || null);
+          if (window.showToast) window.showToast('마무리 탭으로 이동했어요');
+        } else if (window.showToast) {
+          window.showToast('게시물 관리 화면을 찾을 수 없어요');
         }
         if (typeof window.initFinishTab === 'function') window.initFinishTab();
-      } catch (_e) { void _e; }
+      } catch (e) {
+        if (window.showToast) window.showToast('게시물 관리 진입 실패 — ' + (e && e.message || ''));
+      }
       return;
     }
     const fnName = map[act];

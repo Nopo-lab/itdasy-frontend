@@ -17,15 +17,15 @@
 }
 
 @media (width >= 900px) {
+  /* [2026-05-04] 인라인 탭 패턴 — 사이드바(232px) 우측 영역만 차지. */
   .hub-overlay.hub-overlay--prototype {
-    inset: 24px !important;
-    inset: 24px !important;
+    inset: 0 0 0 232px !important;
     width: auto !important;
     height: auto !important;
     max-width: none !important;
     transform: none !important;
-    border-radius: 14px !important;
-    box-shadow: 0 18px 54px rgba(15, 20, 25, 0.24);
+    border-radius: 0 !important;
+    box-shadow: none;
     overflow: hidden;
   }
 

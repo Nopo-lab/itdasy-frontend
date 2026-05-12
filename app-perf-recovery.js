@@ -56,7 +56,7 @@
 
       const p = (async () => {
         const ctl = new AbortController();
-        const timer = setTimeout(() => ctl.abort(), 8000);
+        const timer = setTimeout(() => ctl.abort(), 20000); // Railway cold start 대응
         try {
           const res = await fetch(window.API + url, {
             headers: { ...auth },
@@ -444,7 +444,11 @@
     }
   });
   document.addEventListener('DOMContentLoaded', () => {
-    _frObserver.observe(document.body, { childList: true, subtree: true });
+    // [PerfFix] body 전체 subtree → 메인 컨텐츠만. 헤더/사이드바 DOM 변경에 반응 안 함.
+    const _formTarget = document.querySelector('.main-content')
+      || document.querySelector('main')
+      || document.body;
+    _frObserver.observe(_formTarget, { childList: true, subtree: true });
     // 초기 페이지에 이미 떠 있는 폼도 복원
     document.querySelectorAll('[data-form-id]').forEach(c => {
       const fid = c.getAttribute('data-form-id');
@@ -468,7 +472,7 @@
     b.className = 'itdasy-offline-banner';
     b.setAttribute('role', 'status');
     b.setAttribute('aria-live', 'polite');
-    b.innerHTML = `<svg width="14" height="14" style="vertical-align:-2px;margin-right:6px;"><use href="#ic-wifi-off"/></svg><span data-banner-text>오프라인 모드 — 마지막 동기화 데이터로 보고 있어요</span>`;
+    b.innerHTML = `<i class="ph-duotone ph-wifi-slash" aria-hidden="true"></i><span data-banner-text>오프라인 모드 — 마지막 동기화 데이터로 보고 있어요</span>`;
     document.body.appendChild(b);
     return b;
   }
@@ -566,20 +570,29 @@
   function _probeBackendOnline() {
     const auth = window.authHeader && window.authHeader();
     if (!navigator.onLine || !window.API || !auth || !auth.Authorization) return;
-    fetch(window.API + '/', { cache: 'no-store' })
-      .then(() => {
-        _markOnline();
-        try {
-          if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
-        } catch (_) { /* ignore */ }
+    // /auth/me 로 실제 API 응답성 확인 (401도 서버 정상 신호)
+    // Railway cold start 최대 20s — 프로브 타임아웃도 20s로 맞춤
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 20000);
+    fetch(window.API + '/auth/me', { cache: 'no-store', headers: auth, signal: ctl.signal })
+      .then(r => {
+        if (r.ok || r.status === 401) {
+          _markOnline();
+          try {
+            if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
+          } catch (_) { /* ignore */ }
+        } else {
+          _markOffline();
+        }
       })
-      .catch(() => {});
+      .catch(() => { _markOffline(); });
   }
   window.addEventListener('online', _probeBackendOnline);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) _probeBackendOnline();
   });
-  document.addEventListener('DOMContentLoaded', () => setTimeout(_probeBackendOnline, 800));
+  // cold start 시 800ms 프로브가 즉시 실패해 오프라인 배너를 띄우는 문제 방지 — 3s 지연
+  document.addEventListener('DOMContentLoaded', () => setTimeout(_probeBackendOnline, 3000));
   // SW v26+ activate 메시지 받으면 즉시 reload (cache busting)
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {

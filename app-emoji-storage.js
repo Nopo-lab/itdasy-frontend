@@ -85,7 +85,7 @@
   function _settingsButton(scope) {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.innerHTML = '<svg class="ic ic--xs" aria-hidden="true"><use href="#ic-sparkles"/></svg>';
+    btn.innerHTML = '<i class="ph-duotone ph-sparkle" aria-hidden="true"></i>';
     btn.title = '이모지 창고';
     btn.style.cssText = 'width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:var(--bg2);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--accent);';
     btn.addEventListener('click', () => openEmojiPanel(scope));
@@ -198,6 +198,25 @@
   document.addEventListener('DOMContentLoaded', async () => {
     try { await _fetchEmojis(); } catch (e) { console.warn('이모지 불러오기 실패:', e); }
     _renderQuickRows();
-    new MutationObserver(_mountDmRows).observe(document.body, { childList: true, subtree: true });
+    // [PerfFix] body 전체 subtree 감시 → DM 시트 영역만 감시.
+    // DM 시트 자체가 lazy 마운트라 시작 시 없을 수 있어, 지연 시도(1s) + body fallback 1회만.
+    const _attachDmObserver = () => {
+      const target = document.getElementById('dmAutoreplySheet')
+        || document.getElementById('dmInboxMount')
+        || document.getElementById('dmRetentionSection');
+      if (target) {
+        new MutationObserver(_mountDmRows).observe(target, { childList: true, subtree: true });
+        return true;
+      }
+      return false;
+    };
+    if (!_attachDmObserver()) {
+      // DM 시트가 아직 마운트되지 않았을 수 있음 → body에 1회만 attach해두고
+      // DM 시트가 생기면 그 안만 본다 (transient).
+      const bodyObs = new MutationObserver(() => {
+        if (_attachDmObserver()) bodyObs.disconnect();
+      });
+      bodyObs.observe(document.body, { childList: true, subtree: false });
+    }
   });
 })();

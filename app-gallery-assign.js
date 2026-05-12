@@ -48,7 +48,7 @@ function _renderAssignPopup() {
 
   if (unassigned.length === 0 && _slots.length > 0 && _slots.every(s => s.photos.length > 0)) {
     closeAssignPopup();
-    showToast('배정 완료! 슬롯 카드를 탭해서 편집하세요 ✨');
+    showToast('배정 완료! 슬롯 카드를 탭해서 편집하세요');
     return;
   }
 
@@ -59,7 +59,7 @@ function _renderAssignPopup() {
       : '<div style="font-size:11px;color:var(--text3);">비어있음</div>';
 
     return `<div data-slot-drop="${slot.id}" onclick="${_selectedIds.size > 0 ? `_assignToSlotFromPopup('${slot.id}')` : ''}" style="flex-shrink:0;width:140px;background:#fff;border:2px solid ${_selectedIds.size > 0 ? 'var(--accent)' : 'var(--border)'};border-radius:14px;padding:10px;position:relative;${_selectedIds.size > 0 ? 'cursor:pointer;' : ''}">
-      <button onclick="_deleteSlotInPopup('${slot.id}');event.stopPropagation();" style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.08);border:none;color:#999;font-size:10px;cursor:pointer;z-index:2;">✕</button>
+      <button onclick="_deleteSlotInPopup('${slot.id}');event.stopPropagation();" style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.08);border:none;color:var(--text-subtle);font-size:10px;cursor:pointer;z-index:2;">✕</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px;">${slot.label}</div>
       <div style="display:flex;gap:4px;overflow-x:auto;min-height:32px;align-items:center;">${photosPreview}</div>
       ${_selectedIds.size > 0 ? `<div style="margin-top:8px;padding:6px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:11px;font-weight:700;text-align:center;">여기에 넣기</div>` : ''}
@@ -71,14 +71,14 @@ function _renderAssignPopup() {
       <div style="display:flex;justify-content:center;padding:10px 0 4px;"><div style="width:40px;height:4px;border-radius:2px;background:rgba(0,0,0,0.12);"></div></div>
       <div style="padding:8px 16px 12px;border-bottom:1px solid var(--border);">
         <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div style="font-size:16px;font-weight:800;color:var(--text);">📷 사진 → 손님 배정</div>
-          <button onclick="closeAssignPopup()" style="background:transparent;border:none;font-size:24px;color:#aaa;cursor:pointer;padding:0 4px;">×</button>
+          <div style="font-size:16px;font-weight:800;color:var(--text);">사진 → 손님 배정</div>
+          <button onclick="closeAssignPopup()" style="background:transparent;border:none;font-size:24px;color:var(--text-subtle);cursor:pointer;padding:0 4px;">×</button>
         </div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px;">사진 선택 후 아래 손님 카드를 탭하세요</div>
       </div>
       <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:#fafafa;">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">📸 미배정 ${unassigned.length}장</div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">미배정 ${unassigned.length}장</div>
+        <div style="overflow-x:auto;">
           <div style="display:flex;gap:8px;min-width:max-content;padding:2px;">
             ${unassigned.length ? unassigned.map(photo => {
               const sel = _selectedIds.has(photo.id);
@@ -95,7 +95,7 @@ function _renderAssignPopup() {
           <div style="font-size:11px;font-weight:700;color:var(--text3);">👤 손님 슬롯 ${_slots.length}개</div>
           <button onclick="_addSlotInPopup()" style="padding:5px 10px;border-radius:6px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;">+ 추가</button>
         </div>
-        <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px;">
+        <div style="overflow-x:auto;padding-bottom:8px;">
           <div style="display:flex;gap:10px;min-width:max-content;">
             ${slotsHtml || '<div style="padding:20px;color:var(--text3);font-size:12px;">슬롯이 없어요. + 추가를 눌러주세요</div>'}
           </div>

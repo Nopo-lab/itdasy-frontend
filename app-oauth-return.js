@@ -90,22 +90,37 @@
       if (_handleSocialLogin(u, url)) return;
 
       if (u.searchParams.get('connected') === 'success') {
-        if (window.showToast) window.showToast('인스타 연동 완료! 🎉');
+        if (window.showToast) window.showToast('인스타 연동 완료!');
 
-        // 인스타 연동 상태 재조회 (app-instagram.js 내부 함수가 있을 경우)
-        if (typeof window.checkInstagramStatus === 'function') {
-          window.checkInstagramStatus();
-        } else if (typeof window.refreshInstagramUI === 'function') {
-          window.refreshInstagramUI();
+        // [QA #3] 인스타 상태 재조회 — 함수 존재 가드 + 다중 alias 시도.
+        // 함수 없으면 location.reload 로 강제 새로고침 (cache vs live 불일치 방지).
+        const refresh = window.checkInstagramStatus
+          || window.checkInstaStatus
+          || window.refreshInstagramUI
+          || (window.IGState && window.IGState.refresh);
+        if (typeof refresh === 'function') {
+          try { Promise.resolve(refresh()).catch(() => {}); } catch (_e) { /* ignore */ }
+        } else {
+          try { setTimeout(() => location.reload(), 300); } catch (_e) { /* ignore */ }
         }
 
         // 홈 탭으로 유도 (선택)
         const homeTabBtn = document.querySelector('.tab-bar__btn[data-tab="home"]');
         if (homeTabBtn) homeTabBtn.click();
 
-        // [2026-04-24] OAuth 콜백 직후 말투 테스트 자동 오픈 제거
-        // window.openPersonaSurveyModal() 함수는 app-persona-survey.js 에 남아있음.
-        // 사용자가 설정 메뉴 등에서 명시적으로 트리거하면 그대로 작동.
+        // [2026-05-13 QA #blocker1] 연동 직후 자동 분석 — runAutoAnalysisAfterConnect 가
+        // 즉시 진행 토스트 + analyzeOverlay + status 90초 폴링 + force fallback 처리.
+        try {
+          setTimeout(() => {
+            try {
+              if (typeof window.runAutoAnalysisAfterConnect === 'function') {
+                window.runAutoAnalysisAfterConnect();
+              } else if (typeof window.runPersonaAnalyze === 'function') {
+                window.runPersonaAnalyze();
+              }
+            } catch (_e2) { /* ignore */ }
+          }, 800);
+        } catch (_e3) { /* ignore */ }
       } else if (u.searchParams.get('error')) {
         const err = u.searchParams.get('error');
         if (window.showToast) window.showToast('연동 실패: ' + err);

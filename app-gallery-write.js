@@ -6,9 +6,10 @@
 function _buildPeekCarousel(photos, id) {
   if (!photos.length) return '<div style="color:var(--text3);text-align:center;padding:16px;font-size:12px;">사진 없음</div>';
   const total = photos.length;
+  // [PERF P2-2] 첫 장만 즉시 로드, 나머지는 data-src로 lazy
   if (total === 1) {
     return `<div style="width:70%;margin:0 auto;aspect-ratio:1/1;border-radius:14px;overflow:hidden;">
-      <img src="${photos[0].editedDataUrl || photos[0].dataUrl}" style="width:100%;height:100%;object-fit:cover;">
+      <img src="${photos[0].editedDataUrl || photos[0].dataUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">
     </div>`;
   }
   return `
@@ -17,7 +18,7 @@ function _buildPeekCarousel(photos, id) {
         ${photos.map((p, i) => `
           <div style="flex-shrink:0;width:70%;padding:0 2%;box-sizing:border-box;">
             <div class="${id}_s" style="aspect-ratio:1/1;border-radius:14px;overflow:hidden;transition:transform .35s,filter .35s;transform:scale(${i===0?1:.85});filter:${i===0?'none':'brightness(.6)'};">
-              <img src="${p.editedDataUrl || p.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;">
+              <img ${i === 0 ? `src="${p.editedDataUrl || p.dataUrl}"` : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${p.editedDataUrl || p.dataUrl}"`} loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">
             </div>
           </div>`).join('')}
       </div>
@@ -26,6 +27,21 @@ function _buildPeekCarousel(photos, id) {
       </div>
     </div>
   `;
+}
+
+// [PERF P2-2] 캐러셀 스와이프 시 다음 슬라이드 lazy load
+function _lazyLoadSlide(id, index) {
+  const track = document.getElementById(id + '_t');
+  if (!track) return;
+  const imgs = track.querySelectorAll('img');
+  // 현재 + 앞뒤 1장씩 로드
+  for (let offset = -1; offset <= 1; offset++) {
+    const img = imgs[index + offset];
+    if (img && img.dataset.src) {
+      img.src = img.dataset.src;
+      delete img.dataset.src;
+    }
+  }
 }
 
 function _initPeekCarousel(id, total) {
@@ -50,6 +66,8 @@ function _initPeekCarousel(id, total) {
       const d = document.getElementById(id + '_d' + i);
       if (d) { d.style.width = i === cur ? '18px' : '6px'; d.style.background = i === cur ? 'var(--accent)' : 'rgba(0,0,0,0.15)'; }
     }
+    // [PERF P2-2] 슬라이드 전환 시 인접 이미지 lazy load
+    try { _lazyLoadSlide(id, cur); } catch(_){}
   }
 
   // 모멘텀 계산용 변수
@@ -76,8 +94,8 @@ function _initPeekCarousel(id, total) {
     lastTime = now;
     // 실시간 드래그 반영
     track.style.transform = `translateX(calc(15% + ${offsetPx + dx}px))`;
-    if (Math.abs(dx) > 10) e.preventDefault();
-  }, { passive: false });
+    // [PerfFix] passive:true 로 변경 — preventDefault 제거. CSS touch-action 으로 축 제어.
+  }, { passive: true });
 
   track.addEventListener('touchend', e => {
     if (!dragging) return;
@@ -102,6 +120,10 @@ function _initPeekCarousel(id, total) {
     track.style.transition = 'none';
     e.preventDefault();
   });
+  // [PerfFix] window 리스너 누적 방지 — 캐러셀 재셋업 시 이전 리스너 정리.
+  if (window._dragAC_writeSlide) { try { window._dragAC_writeSlide.abort(); } catch (_e) { void _e; } }
+  window._dragAC_writeSlide = new AbortController();
+  const _dragSig = { signal: window._dragAC_writeSlide.signal };
   window.addEventListener('mousemove', e => {
     if (!md) return;
     const x = e.clientX;
@@ -112,7 +134,7 @@ function _initPeekCarousel(id, total) {
     mLastX = x;
     mLastTime = now;
     track.style.transform = `translateX(calc(15% + ${offsetPx + dx}px))`;
-  });
+  }, _dragSig);
   window.addEventListener('mouseup', e => {
     if (!md) return;
     md = false;
@@ -121,7 +143,7 @@ function _initPeekCarousel(id, total) {
     const totalMove = dx + momentum;
     const slidesToMove = Math.round(-totalMove / slideW);
     go(cur + slidesToMove);
-  });
+  }, _dragSig);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -275,18 +297,18 @@ function _showCaptionPublishPreview(photos, caption) {
         </div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
-          <div style="font-size:10px;color:#999;">sponsored</div>
+          <div style="font-size:10px;color:var(--text-subtle);">sponsored</div>
         </div>
         <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:12px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
-        <button style="background:transparent;border:none;font-size:18px;color:#999;cursor:pointer;margin-left:8px;" onclick="document.getElementById('_captionPubPreviewPop').style.display='none'">×</button>
+        <button style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;" onclick="document.getElementById('_captionPubPreviewPop').style.display='none'">×</button>
       </div>
       <!-- 사진 캐러셀 -->
       ${photoHtml}
       <!-- 액션 아이콘 -->
       <div style="display:flex;align-items:center;padding:10px 12px 4px;">
-        <svg style="width:24px;height:24px;margin-right:14px;" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        <svg style="width:24px;height:24px;margin-right:14px;" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <svg style="width:24px;height:24px;" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <i class="ph-duotone ph-heart" style="font-size:2px" aria-hidden="true"></i>
+        <i class="ph-duotone ph-chat-circle" style="font-size:2px" aria-hidden="true"></i>
+        <i class="ph-duotone ph-paper-plane-tilt" style="font-size:2px" aria-hidden="true"></i>
         <svg style="width:24px;height:24px;margin-left:auto;" viewBox="0 0 24 24" fill="none" stroke="#262626" stroke-width="2"><polygon points="19 21 12 16 5 21 5 3 19 3 19 21"/></svg>
       </div>
       <!-- 캡션 -->
@@ -295,7 +317,7 @@ function _showCaptionPublishPreview(photos, caption) {
       </div>
       <!-- 발행 버튼 -->
       <div style="padding:0 12px 28px;">
-        <button onclick="doPublishFromCaption()" style="width:100%;height:48px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">인스타에 올리기 🚀</button>
+        <button onclick="doPublishFromCaption()" style="width:100%;height:48px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
       </div>
     </div>
   `;
@@ -333,13 +355,16 @@ function _showCaptionPublishPreview(photos, caption) {
       }, { passive: true });
       let msx = 0, mst = 0, mdr = false;
       track.addEventListener('mousedown', e => { msx = e.clientX; mst = Date.now(); mdr = true; e.preventDefault(); });
+      // [PerfFix] AbortController로 누적 방지.
+      if (window._dragAC_pubSwipe) { try { window._dragAC_pubSwipe.abort(); } catch (_e) { void _e; } }
+      window._dragAC_pubSwipe = new AbortController();
       window.addEventListener('mouseup', e => {
         if (!mdr) return; mdr = false;
         const dx = e.clientX - msx;
         const fast = Math.abs(dx) / (Date.now() - mst) > 0.4;
         if (dx < -30 || (fast && dx < 0)) pubGo(cur + 1);
         else if (dx > 30 || (fast && dx > 0)) pubGo(cur - 1);
-      });
+      }, { signal: window._dragAC_pubSwipe.signal });
     }, 80);
   }
 }
@@ -393,13 +418,13 @@ async function doPublishFromCaption() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || '업로드 실패');
 
-    if (typeof setUploadProgress === 'function') setUploadProgress(100, '완료! 🎉');
+    if (typeof setUploadProgress === 'function') setUploadProgress(100, '완료!');
     setTimeout(() => {
       if (upPopup) upPopup.style.display = 'none';
       const donePopup = document.getElementById('uploadDonePopup');
       if (donePopup) donePopup.style.display = 'flex';
       const doneMsg = document.getElementById('uploadDoneMsg');
-      if (doneMsg) doneMsg.textContent = '인스타 피드에 올라갔어요 ✨';
+      if (doneMsg) doneMsg.textContent = '인스타 피드에 올라갔어요';
       if (typeof createConfetti === 'function') for (let i = 0; i < 20; i++) setTimeout(createConfetti, i * 100);
     }, 1200);
   } catch(e) {

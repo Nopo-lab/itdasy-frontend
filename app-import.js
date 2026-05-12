@@ -56,7 +56,7 @@
       <div style="padding:4px;">
         <div style="font-size:12px;color:#888;line-height:1.5;margin-bottom:12px;">
           이전에 쓰시던 관리 앱에서 엑셀·CSV 로 내보낸 파일을 올리면 잇데이로 한 번에 가져와요.<br>
-          <span style="color:#c00;">⚠ 사용자 본인 데이터에 한함. 고객 개인정보 처리 동의 필수.</span>
+          <span style="color:#c00;">사용자 본인 데이터에 한함. 고객 개인정보 처리 동의 필수.</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr;gap:10px;">
           ${Object.entries(KIND_LABELS).map(([k, v]) => `
@@ -69,7 +69,7 @@
             </button>
           `).join('')}
         </div>
-        <div style="margin-top:16px;padding:10px;background:#fafafa;border-radius:8px;font-size:11px;color:#666;line-height:1.6;">
+        <div style="margin-top:16px;padding:10px;background:#fafafa;border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.6;">
           <strong>지원 포맷</strong><br>
           · CSV (UTF-8 / CP949 / EUC-KR 자동 감지)<br>
           · Excel (.xlsx, .xlsm)<br>
@@ -97,13 +97,13 @@
 
         <!-- 입력 방식 탭 -->
         <div style="display:grid;grid-template-columns:repeat(${smartEnabled ? 3 : 1},1fr);gap:6px;padding:4px;background:rgba(0,0,0,0.04);border-radius:10px;margin-bottom:12px;">
-          <button data-imp-src="file" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:#fff;color:var(--accent,#F18091);">📄 파일</button>
-          ${smartEnabled ? `<button data-imp-src="photo" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:#555;">📸 사진 OCR</button>` : ''}
-          ${smartEnabled ? `<button data-imp-src="text" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:#555;">📋 붙여넣기</button>` : ''}
+          <button data-imp-src="file" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:#fff;color:var(--accent,var(--brand));">📄 파일</button>
+          ${smartEnabled ? `<button data-imp-src="photo" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:#555;">사진 OCR</button>` : ''}
+          ${smartEnabled ? `<button data-imp-src="text" class="imp-src-btn" style="padding:10px 6px;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;background:transparent;color:#555;">붙여넣기</button>` : ''}
         </div>
 
         <div id="importSourcePanel"></div>
-        <div id="importStatus" style="margin-top:12px;font-size:12px;color:#666;text-align:center;"></div>
+        <div id="importStatus" style="margin-top:12px;font-size:12px;color:var(--text-muted);text-align:center;"></div>
       </div>
     `;
 
@@ -113,7 +113,7 @@
         b.style.color = '#555';
       });
       btn.style.background = '#fff';
-      btn.style.color = 'var(--accent,#F18091)';
+      btn.style.color = 'var(--accent,var(--brand))';
       _renderSourcePanel(btn.dataset.impSrc);
     }));
     _renderSourcePanel('file');
@@ -128,12 +128,12 @@
           <input type="file" accept=".csv,.xlsx,.xlsm,.xls,text/csv,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream" hidden id="importFile" />
           <div style="border:2px dashed #ccc;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;">
             <div style="font-size:32px;margin-bottom:8px;">📥</div>
-            <div style="font-size:14px;color:#666;">CSV·엑셀 파일을 탭하세요</div>
-            <div style="font-size:10px;color:#aaa;margin-top:4px;">CSV · XLSX · 최대 10MB</div>
+            <div style="font-size:14px;color:var(--text-muted);">CSV·엑셀 파일을 탭하세요</div>
+            <div style="font-size:10px;color:var(--text-subtle);margin-top:4px;">CSV · XLSX · 최대 10MB</div>
           </div>
         </label>
-        <div style="font-size:10px;color:#aaa;margin-top:8px;line-height:1.6;padding:0 4px;">
-          💡 아이폰·카톡으로 받은 엑셀이 .zip 으로 뜨면 그대로 선택하세요. 자동 변환됩니다.
+        <div style="font-size:10px;color:var(--text-subtle);margin-top:8px;line-height:1.6;padding:0 4px;">
+          아이폰·카톡으로 받은 엑셀이 .zip 으로 뜨면 그대로 선택하세요. 자동 변환됩니다.
         </div>
       `;
       panel.querySelector('#importFile').addEventListener('change', (e) => {
@@ -146,12 +146,12 @@
           <input type="file" accept="image/*" capture="environment" hidden id="importPhotoFile" />
           <div style="border:2px dashed #FFB347;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;background:rgba(255,179,71,0.05);">
             <div style="font-size:32px;margin-bottom:8px;">📸</div>
-            <div style="font-size:14px;color:#666;font-weight:700;">스크린샷·사진 업로드</div>
-            <div style="font-size:10px;color:#aaa;margin-top:4px;">이전 앱 화면 그대로 찍어 올리세요</div>
+            <div style="font-size:14px;color:var(--text-muted);font-weight:700;">스크린샷·사진 업로드</div>
+            <div style="font-size:10px;color:var(--text-subtle);margin-top:4px;">이전 앱 화면 그대로 찍어 올리세요</div>
           </div>
         </label>
-        <div style="font-size:10px;color:#aaa;margin-top:8px;line-height:1.6;padding:0 4px;">
-          ✨ <b>AI Vision</b> 이 화면에서 고객 목록/매출을 자동 추출해요. 2~3초 소요.
+        <div style="font-size:10px;color:var(--text-subtle);margin-top:8px;line-height:1.6;padding:0 4px;">
+          <b>AI Vision</b> 이 화면에서 고객 목록/매출을 자동 추출해요. 2~3초 소요.
         </div>
       `;
       panel.querySelector('#importPhotoFile').addEventListener('change', (e) => {
@@ -160,9 +160,9 @@
       });
     } else if (src === 'text') {
       panel.innerHTML = `
-        <div style="margin-bottom:8px;font-size:12px;color:#666;">카카오톡·메모장에서 복사한 내용을 붙여넣으세요.</div>
+        <div style="margin-bottom:8px;font-size:12px;color:var(--text-muted);">카카오톡·메모장에서 복사한 내용을 붙여넣으세요.</div>
         <textarea id="importPasteText" rows="8" placeholder="예)\n김지연 010-1234-5678 VIP\n박소영 010-2345-6789\n..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;font-family:inherit;resize:vertical;font-size:12px;"></textarea>
-        <button id="importPasteParse" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;background:var(--accent,#F18091);color:#fff;font-weight:800;cursor:pointer;font-size:14px;">텍스트에서 추출하기 ✨</button>
+        <button id="importPasteParse" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;background:var(--accent,var(--brand));color:#fff;font-weight:800;cursor:pointer;font-size:14px;">텍스트에서 추출하기</button>
       `;
       panel.querySelector('#importPasteParse').addEventListener('click', _parsePastedText);
     }
@@ -171,11 +171,11 @@
   // ── 스마트 임포트: 사진 OCR ─────────────────────────────
   async function _uploadPhotoOcr(file) {
     const status = document.getElementById('importStatus');
-    status.textContent = '📸 이미지 최적화 중…';
+    status.textContent = '이미지 최적화 중…';
     const compressed = (typeof window.compressImageForUpload === 'function')
       ? await window.compressImageForUpload(file)
       : file;
-    status.textContent = '📸 AI 가 화면을 읽는 중… (2~3초)';
+    status.textContent = 'AI 가 화면을 읽는 중… (2~3초)';
     const fd = new FormData();
     fd.append('image', compressed);
     fd.append('kind', _currentKind);
@@ -234,20 +234,20 @@
       <div style="padding:4px;">
         <button onclick="window._importBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 다시 선택</button>
         <div style="padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:10px;margin-bottom:10px;">
-          <strong style="font-size:13px;color:#388e3c;">✨ ${items.length}건 추출됨</strong>
-          <div style="font-size:11px;color:#666;margin-top:3px;">체크된 항목만 저장돼요. 잘못된 항목은 선택 해제.</div>
+          <strong style="font-size:13px;color:#388e3c;">${items.length}건 추출됨</strong>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">체크된 항목만 저장돼요. 잘못된 항목은 선택 해제.</div>
         </div>
         <div style="max-height:280px;overflow-y:auto;background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,0.06);">
           ${items.map((it, i) => `
             <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;${i>0?'border-top:1px solid rgba(0,0,0,0.05);':''}cursor:pointer;">
-              <input type="checkbox" data-smart-idx="${i}" checked style="width:18px;height:18px;accent-color:var(--accent,#F18091);" />
+              <input type="checkbox" data-smart-idx="${i}" checked style="width:18px;height:18px;accent-color:var(--accent,var(--brand));" />
               <div style="flex:1;min-width:0;font-size:12px;">
                 ${cols.map(c => `<span style="color:${it[c]?'#222':'#bbb'};margin-right:8px;">${_esc(it[c] != null && it[c] !== '' ? (c === 'amount' ? (+it[c]).toLocaleString('ko-KR')+'원' : it[c]) : '—')}</span>`).join('')}
               </div>
             </label>
           `).join('')}
         </div>
-        <button id="smartCommit" style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:14px;">선택한 항목 저장 ✓</button>
+        <button id="smartCommit" style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;font-weight:800;cursor:pointer;font-size:14px;">선택한 항목 저장 ✓</button>
       </div>
     `;
 
@@ -346,7 +346,7 @@
             </table>
           </div>
         </div>
-        <button id="importCommitBtn" style="width:100%;margin-top:14px;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">${p.total_rows}건 가져오기</button>
+        <button id="importCommitBtn" style="width:100%;margin-top:14px;padding:12px;border:none;border-radius:8px;background:var(--accent,var(--brand));color:#fff;font-weight:700;cursor:pointer;font-size:15px;">${p.total_rows}건 가져오기</button>
       </div>
     `;
 
@@ -382,13 +382,13 @@
       const missingEl = body.querySelector('#importMissing');
       const btn = body.querySelector('#importCommitBtn');
       if (missing.length) {
-        missingEl.innerHTML = `<span style="color:#c00;">⚠ 필수 필드 누락: ${missing.map(f => FIELD_LABELS[f] || f).join(', ')}</span>`;
+        missingEl.innerHTML = `<span style="color:#c00;">필수 필드 누락: ${missing.map(f => FIELD_LABELS[f] || f).join(', ')}</span>`;
         btn.disabled = true;
         btn.style.background = '#ddd'; btn.style.color = '#888'; btn.style.cursor = 'not-allowed';
       } else {
         missingEl.innerHTML = '<span style="color:#388e3c;">✓ 필수 필드 모두 연결됨</span>';
         btn.disabled = false;
-        btn.style.background = 'var(--accent,#F18091)'; btn.style.color = '#fff'; btn.style.cursor = 'pointer';
+        btn.style.background = 'var(--accent,var(--brand))'; btn.style.color = '#fff'; btn.style.cursor = 'pointer';
       }
     };
     mapList.querySelectorAll('[data-map-field]').forEach(sel => sel.addEventListener('change', updateMissing));
@@ -439,12 +439,12 @@
         ${(d.errors && d.errors.length) ? `
           <details style="margin-bottom:12px;padding:10px;background:#fff8e1;border-radius:8px;">
             <summary style="cursor:pointer;font-size:12px;color:#f57c00;">건너뛴 ${d.errors.length}건 보기</summary>
-            <div style="margin-top:8px;font-size:11px;color:#666;line-height:1.5;max-height:180px;overflow-y:auto;">
+            <div style="margin-top:8px;font-size:11px;color:var(--text-muted);line-height:1.5;max-height:180px;overflow-y:auto;">
               ${d.errors.map(e => `<div>${_esc(e)}</div>`).join('')}
             </div>
           </details>
         ` : ''}
-        <button onclick="window._importBack()" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">다른 종류 가져오기</button>
+        <button onclick="window._importBack()" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,var(--brand));color:#fff;font-weight:700;cursor:pointer;font-size:15px;">다른 종류 가져오기</button>
         <button onclick="closeImport()" style="width:100%;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">닫기</button>
       </div>
     `;

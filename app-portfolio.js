@@ -69,6 +69,17 @@ let _portfolioDragSrcId = null;
 let _portfolioItems = [];
 let _portfolioUploadPhotoType = 'general';
 
+function filterMainTag(btn, tag) {
+  _activePortfolioMainTag = tag;
+  _activePortfolioSubTag = '';
+  loadPortfolio();
+}
+
+function filterSubTag(btn, tag) {
+  _activePortfolioSubTag = tag;
+  loadPortfolio();
+}
+
 function _portfolioEscapeText(value) {
   const div = document.createElement('div');
   div.textContent = value || '';
@@ -118,6 +129,15 @@ async function loadPortfolio() {
     if (_activePortfolioSubTag) params.push('tag=' + encodeURIComponent(_activePortfolioSubTag));
     if (_portfolioSearchVal) params.push('search=' + encodeURIComponent(_portfolioSearchVal));
     if (params.length) url += '?' + params.join('&');
+
+    // [2026-05-05] 빈 그리드 → skeleton pulse 즉시 표시 (로딩 체감 속도 개선).
+    // 이전: 빈 그리드 + 빈 필터로 몇 초 깜깜 → 응답성 떨어져 보임.
+    const grid0 = document.getElementById('portfolioGrid');
+    if (grid0 && !grid0.children.length) {
+      grid0.innerHTML = Array.from({length: 6}).map(() =>
+        '<div class="portfolio-skel" style="aspect-ratio:1/1;border-radius:12px;background:var(--bg2,#f3f4f6);animation:portfolio-skel-pulse 1.4s ease-in-out infinite;"></div>'
+      ).join('');
+    }
 
     const [itemsRes, tagsRes] = await Promise.all([
       fetch(url, { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
@@ -188,7 +208,8 @@ async function loadPortfolio() {
     }
     empty.style.display = 'none';
 
-    const ptypeColor = { before: '#6495ed', after: 'var(--accent)', general: 'var(--text3)' };
+    // [2026-05-05 v6 톤] photo_type 색감 통일 — BEFORE 회색(text2), AFTER 핑크 그대로, general 회색.
+    const ptypeColor = { before: 'var(--text2, #5A6573)', after: 'var(--accent)', general: 'var(--text3)' };
     const ptypeLabel = { before: 'BEFORE', after: 'AFTER', general: '일반' };
 
     _portfolioItems.forEach(item => {
@@ -200,11 +221,12 @@ async function loadPortfolio() {
       const safeTags = _portfolioEscapeText(item.tags || '');
       cell.dataset.id = item.id;
       cell.draggable = true;
-      cell.style.cssText = 'position:relative; aspect-ratio:1/1; overflow:hidden; border-radius:12px; background:var(--bg2); cursor:grab; transition:opacity 0.2s;';
+      cell.className = 'portfolio-cell';
+      cell.style.cssText = 'position:relative; aspect-ratio:1/1; overflow:hidden; border-radius:12px; background:var(--bg2); cursor:grab; transition:opacity 0.2s, border-color 0.18s, box-shadow 0.18s; border:1px solid var(--border, rgba(15,20,25,0.08));';
       cell.innerHTML = `
         <img src="${safeSrc}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
         <div style="position:absolute; top:4px; right:4px; background:${ptypeColor[pt]}; border-radius:20px; padding:2px 6px; font-size:8px; color:#fff; font-weight:800; opacity:0.92;">${ptypeLabel[pt]}</div>
-        ${item.main_tag ? `<div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px); border-radius:20px; padding:2px 6px; font-size:8px; color:#fff; font-weight:700;">${safeMainTag}</div>` : ''}
+        ${item.main_tag ? `<div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.78); border-radius:20px; padding:2px 6px; font-size:8px; color:#fff; font-weight:700;">${safeMainTag}</div>` : ''}
         ${item.tags ? `<div style="position:absolute; bottom:0; left:0; right:0; padding:5px 6px; background:linear-gradient(0deg,rgba(0,0,0,0.7),transparent); font-size:9px; color:#fff; line-height:1.4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${safeTags}</div>` : ''}
         <div data-open-portfolio style="position:absolute; inset:0; background:transparent; cursor:pointer;"></div>
       `;
@@ -495,8 +517,8 @@ function selectBgAsset(url) {
   });
   // 배경 창고 토글 버튼 텍스트로 선택 상태 표시
   const toggleBtn = document.getElementById('bgStoreToggle');
-  if (toggleBtn) toggleBtn.textContent = '📦 배경 창고 (1개 선택됨)';
-  showToast('배경 선택 완료! 합성 버튼을 눌러주세요 ✨');
+  if (toggleBtn) toggleBtn.textContent = '배경 창고 (1개 선택됨)';
+  showToast('배경 선택 완료! 합성 버튼을 눌러주세요');
   const panel = document.getElementById('bgStorePanel');
   if (panel) panel.style.display = 'none';
 }

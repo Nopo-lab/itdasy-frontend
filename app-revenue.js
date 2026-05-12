@@ -25,6 +25,7 @@
   let _revWindow = 50;
   let _isOffline = false;
   let _cachedIsPC = false;
+  const _periodInflight = {};
 
   // ── 유틸 ────────────────────────────────────────────────
   const _now = () => new Date().toISOString();
@@ -105,12 +106,32 @@
     } catch (_) { /* silent */ }
   }
 
+  async function _fetchPeriodData(p) {
+    if (_periodInflight[p]) return _periodInflight[p];
+    _periodInflight[p] = _api('GET', '/revenue?period=' + p)
+      .then(d => {
+        const items = d.items || [];
+        _writeSWRPeriod(p, items);
+        return items;
+      })
+      .finally(() => { _periodInflight[p] = null; });
+    return _periodInflight[p];
+  }
+
   async function _fetchPeriod(p) {
-    const d = await _api('GET', '/revenue?period=' + p);
+    const items = await _fetchPeriodData(p);
     _isOffline = false;
-    _items = d.items || [];
-    _writeSWRPeriod(p, _items);
+    _items = items;
     return _items;
+  }
+
+  function _prefetchAllPeriods() {
+    PERIODS.forEach(p => {
+      if (p === _currentPeriod) return;
+      const swr = _readSWRPeriod(p);
+      if (swr && swr.fresh) return;
+      _fetchPeriodData(p).catch(() => {});
+    });
   }
 
   async function list(period) {
@@ -120,7 +141,8 @@
       _items = swr.items;
       if (!swr.fresh) {
         _fetchPeriod(p).then(fresh => {
-          if (JSON.stringify(_items) !== JSON.stringify(fresh)) {
+          // [BUG-R2-4] JSON.stringify 전체 비교 제거 — 건수/첫ID 간이 비교로 전환
+          if (fresh.length !== _items.length || (fresh[0] && _items[0] && fresh[0].id !== _items[0].id)) {
             _items = fresh;
             try { _rerender && _rerender(); } catch (_e) { void _e; }
           }
@@ -137,6 +159,7 @@
         const all = _loadOffline();
         _items = all.filter(r => {
           const t = new Date(r.recorded_at || r.created_at).getTime();
+          if (!t || isNaN(t)) return true;  // [BUG-R2-4] 날짜 없는 항목은 포함
           return t >= start.getTime() && t <= end.getTime();
         });
         return _items;
@@ -297,6 +320,7 @@
       _currentPeriod = p;
       _revWindow = 50;
       _loadAndRender();
+      _prefetchAllPeriods();
       return;
     }
     if (act === 'incentive-cfg') return _openIncentiveSettings();
@@ -325,7 +349,7 @@
     return `
       <div class="rv-header">
         <button type="button" class="rv-header__back" data-rv-act="close" aria-label="뒤로가기">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
         </button>
         <div class="rv-header__title-wrap">
           <div class="rv-header__title">매출관리</div>
@@ -340,7 +364,7 @@
       </div>
       <div class="rv-body" id="rvBody"></div>
       <button type="button" class="rv-fab" data-rv-act="add-form" aria-label="매출 입력">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <i class="ph-duotone ph-plus" style="font-size:22px" aria-hidden="true"></i>
       </button>
       <datalist id="rvDataCustomer"></datalist>
       <datalist id="rvDataService"></datalist>`;
@@ -469,7 +493,7 @@
         <option value="card">카드</option><option value="cash">현금</option><option value="transfer">계좌</option><option value="membership">회원권</option>
       </select>
       <button type="button" class="rv-qa__add" data-rv-act="qa-add" aria-label="추가">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <i class="ph-duotone ph-plus" style="font-size:18px" aria-hidden="true"></i>
       </button>
     </div>`;
   }
@@ -532,7 +556,7 @@
           </div>
         </div>
         <button type="button" class="rv-list__delete" data-rv-act="delete" data-id="${_esc(r.id)}" aria-label="삭제">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <i class="ph-duotone ph-trash" style="font-size:14px" aria-hidden="true"></i>
         </button>
       </div>`;
   }
@@ -598,7 +622,7 @@
       <div class="rv-pc__spacer"></div>
       <div class="rv-pc__periods">${periods}</div>
       <button type="button" class="rv-pc__add" data-rv-act="add-form">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>매출 입력
+        <i class="ph-duotone ph-plus" style="font-size:14px" aria-hidden="true"></i>매출 입력
       </button>
     </div>`;
   }
@@ -704,9 +728,13 @@
   window._revenueBack = _rerender;
 
   // ── 자세히 입력 모달 (모바일·PC 공통) ────────────────────
-  function _openAddForm() {
+  function _openAddForm(prefill) {
     let modal = document.getElementById('rvAddModal');
-    if (modal) { modal.style.display = 'flex'; return; }
+    if (modal) {
+      // 기존 모달이 떠있는데 prefill 들어오면 강제 재생성. 그 외엔 그냥 보이기.
+      if (prefill) { modal.remove(); }
+      else { modal.style.display = 'flex'; return; }
+    }
     modal = document.createElement('div');
     modal.id = 'rvAddModal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;justify-content:center;';
@@ -741,7 +769,7 @@
     document.body.appendChild(modal);
     modal.addEventListener('click', (e) => { if (e.target === modal) _closeAddModal(); });
     modal.querySelector('[data-rv-modal-close]').addEventListener('click', _closeAddModal);
-    _wireAddForm(modal);
+    _wireAddForm(modal, prefill);
   }
 
   function _closeAddModal() {
@@ -790,7 +818,7 @@
         });
         if (window.Fun && typeof window.Fun.celebrate === 'function') {
           window.Fun.celebrate(
-            useMem ? `💳 회원권 차감 ${amount.toLocaleString()}원` : `💰 매출 +${amount.toLocaleString()}원`,
+            useMem ? `💳 회원권 차감 ${amount.toLocaleString()}원` : `매출 +${amount.toLocaleString()}원`,
             { emojis: useMem ? ['💳', '✨', '🌷'] : ['💰', '💵', '🎉', '✨'], count: 16 }
           );
         } else {
@@ -805,8 +833,8 @@
       }
     };
   }
-  function _wireAddForm(modal) {
-    const ctx = { method: 'card', customer_id: null };
+  function _wireAddForm(modal, prefill) {
+    const ctx = { method: 'card', customer_id: prefill?.customer_id || null };
     const setMethod = (m) => {
       ctx.method = m;
       modal.querySelectorAll('[data-rf-method]').forEach(b => {
@@ -820,6 +848,12 @@
     modal.querySelectorAll('[data-rf-method]').forEach(b => b.addEventListener('click', () => setMethod(b.dataset.rfMethod)));
     modal.querySelector('#rfCustomerPick').addEventListener('click', _onPickCustomer(modal, ctx));
     modal.querySelector('#rfSave').addEventListener('click', _onSaveAddForm(modal, ctx));
+
+    // 고객 대시보드에서 "매출 입력" 진입 — 고객 정보 미리 채움.
+    // 멤버십 잔액·활성 여부는 prefill 만으론 부족 → 보고 싶으면 사용자가 "선택" 다시 눌러 갱신.
+    if (prefill?.customer_name) {
+      modal.querySelector('#rfCustomerName').value = prefill.customer_name;
+    }
   }
 
   // ── 삭제 ────────────────────────────────────────────────
@@ -855,30 +889,47 @@
       }
       return;
     }
-    const target = sheet.querySelector(_cachedIsPC ? '#rvPCMain' : '#rvBody');
-    _renderSkeletonInto(target);
+    // [2026-05-04] 캐시 없을 때: skeleton 으로 #rvPCMain 통째 교체하지 않음.
+    // 빈 _items 로 layout 만 보여주고 (0원 표시) fetch 완료 시 _rerender 로 채움.
+    // 이전: _renderSkeletonInto 가 main innerHTML 덮어써서 layout 안 보였음.
     try {
       await list(_currentPeriod);
       _rerender();
     } catch (_e) {
       console.warn('[revenue] load 실패:', _e);
+      const target = sheet.querySelector(_cachedIsPC ? '#rvPCMain' : '#rvBody');
       if (target) target.innerHTML = '<div style="padding:30px;text-align:center;color:var(--danger);">불러오기 실패</div>';
     }
   }
 
   // ── open / close ────────────────────────────────────────
   window.openRevenue = async function () {
+    // [2026-05-04 v88] 즉시 layout 표시 + 백그라운드 fetch.
+    // 1) _renderRoot 로 사이드바 + #rvPCMain 빈 컨테이너
+    // 2) _rerender 로 0원 / 0건 placeholder 즉시 표시 (Fun.countUp 가 알아서 0→실제값)
+    // 3) display:flex 로 보이기
+    // 4) _loadAndRender 백그라운드 (SWR 캐시 / 네트워크)
     const sheet = _ensureSheet();
     _cachedIsPC = _isPC();
     await _renderRoot();
+    try { _rerender(); } catch (_e) { void _e; }
     sheet.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     document.body.classList.add('rv-mode');
-    await _loadAndRender();
+    _loadAndRender().catch(() => {});
+    _prefetchAllPeriods();
     try {
       if (typeof window._registerSheet === 'function') window._registerSheet('revenue', window.closeRevenue);
       if (typeof window._markSheetOpen === 'function') window._markSheetOpen('revenue');
     } catch (_e) { void _e; }
+  };
+
+  // 고객 대시보드 → "매출 입력" 진입점. openRevenue 후 prefill 된 추가 모달 즉시 표시.
+  window._openRevenueAddFor = async function (customerId, customerName) {
+    try {
+      if (typeof window.openRevenue === 'function') await window.openRevenue();
+    } catch (_e) { /* openRevenue 실패해도 모달은 띄움 */ }
+    _openAddForm({ customer_id: customerId || null, customer_name: customerName || '' });
   };
 
   window.closeRevenue = function () {

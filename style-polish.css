@@ -1,9 +1,7 @@
 /* ───── 인스타 프레임 결과 ───── */
 .insta-frame {
   display: none;
-  background: rgba(255,255,255,0.88);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  background: rgba(var(--bg-rgb,255,255,255),0.97);
   border: 1px solid rgba(241,128,145,0.18);
   border-radius: 24px;
   margin-top: 14px;
@@ -31,6 +29,48 @@
 .insta-frame-handle { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
 .insta-frame-meta   { font-size: 10px; color: var(--text3); margin-top: 1px; }
 .insta-frame-body   { padding: 16px 16px 8px; }
+
+/* [2026-05-05 19차-B] 인스타 시뮬 — 사진 + dots + 액션 아이콘 */
+.insta-frame-img {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--bg2, #f3f4f6);
+  overflow: hidden;
+}
+.insta-frame-img img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+.insta-frame-img__dots {
+  position: absolute;
+  top: 10px; right: 12px;
+  display: flex; gap: 4px;
+  font-size: 11px; font-weight: 700;
+  color: #fff;
+  background: rgba(0,0,0,0.55);
+  padding: 3px 8px;
+  border-radius: 12px;
+  letter-spacing: -0.02em;
+}
+.insta-frame-icons {
+  display: flex; align-items: center;
+  gap: 8px;
+  padding: 8px 12px 4px;
+}
+.insta-frame-icon {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text, #0F1419);
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  border-radius: 6px;
+  transition: opacity 0.12s;
+}
+.insta-frame-icon:hover { opacity: 0.7; }
+.insta-frame-icon:active { opacity: 0.5; }
 .insta-caption-text { font-size: 13.5px; line-height: 1.9; color: var(--text); white-space: pre-wrap; font-family: 'Pretendard', sans-serif; letter-spacing: -0.01em; }
 .insta-hashtag-text { font-size: 12px; color: var(--accent2); line-height: 1.85; margin-top: 10px; word-break: break-word; }
 .insta-frame-actions {
@@ -56,8 +96,7 @@
   bottom: calc(96px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%) translateY(16px);
-  background: rgba(25,31,40,0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(25,31,40,0.97);
   color: #fff;
   padding: 13px 24px;
   border-radius: 30px;
@@ -250,7 +289,6 @@ input[type="url"], textarea, select {
 }
 
 /* 모멘텀 스크롤 */
-.scroll-momentum, [data-scroll] { -webkit-overflow-scrolling: touch; }
 
 /* position:sticky 수직 스크롤 컨테이너 필수 */
 .sticky-top { position: -webkit-sticky; position: sticky; top: 0; }
@@ -262,8 +300,8 @@ button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
 .safe-top { padding-top: env(safe-area-inset-top, 0); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
 
-/* iOS 는 backdrop-filter prefix 필요 */
-.backdrop-blur { -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+/* PerfFix: backdrop-filter 유틸 제거 (성능). 호출처는 불투명 배경으로 대체됨 */
+.backdrop-blur { background: rgba(var(--bg-rgb,255,255,255),0.95); }
 
 /* date/time input 중앙정렬 (기본은 iOS 는 왼쪽) */
 input[type="date"], input[type="time"] { -webkit-appearance: none; appearance: none; text-align: left; }
@@ -319,7 +357,6 @@ button:active:not(:disabled), .btn:active, .sheet-row:active {
 
 /* 6. 스크롤 부드럽게 */
 html, body, * { scroll-behavior: smooth; }
-html, body { -webkit-overflow-scrolling: touch; }
 
 /* 7. 리스트 stagger — 최근 활동 · 고객 목록 등 */
 @keyframes list-fade-slide {

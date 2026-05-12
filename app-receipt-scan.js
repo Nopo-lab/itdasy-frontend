@@ -62,6 +62,8 @@
   }
   window.compressImageForUpload = compressImageForUpload;
 
+  // [QA #7] kind 별 "금액 필수" 필드 — 0/null 이면 빨간 테두리 + commit disabled.
+  // 백엔드 assistant.py:3674 hard-fail(amount=0 reject) 우회: 프론트에서 사용자 입력 강제.
   const KIND_META = {
     expense: {
       title: '💳 영수증 스캔',
@@ -69,15 +71,36 @@
       fields: ['amount', 'vendor', 'category', 'recorded_at', 'memo'],
       labels: { amount: '금액', vendor: '상호', category: '분류', recorded_at: '결제일', memo: '메모' },
       placeholders: { amount: '50000', vendor: '다이소', category: '재료', recorded_at: '2026-04-23', memo: '젤네일 베이스 3개' },
+      requiredNumeric: ['amount'],
     },
     inventory_order: {
-      title: '📦 가격표·주문내역 스캔',
+      title: '가격표·주문내역 스캔',
       subtitle: '가격표·쿠팡·네이버 주문내역 사진 → AI 가 품목/수량 파싱 → 재고 자동 입고',
       fields: ['item_name', 'quantity', 'unit_price', 'total', 'ordered_at'],
       labels: { item_name: '품목', quantity: '수량', unit_price: '단가', total: '합계', ordered_at: '주문일' },
       placeholders: { item_name: '젤네일 베이스', quantity: '3', unit_price: '12000', total: '36000', ordered_at: '2026-04-23' },
+      // unit_price 또는 total 중 하나는 0보다 커야 — 백엔드 hard-fail 방어
+      requiredNumericAny: ['unit_price', 'total'],
     },
   };
+
+  function _toInt(v) {
+    if (v == null) return 0;
+    const n = parseInt(String(v).replace(/[^\d-]/g, ''), 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function _itemValid(item, meta) {
+    if (Array.isArray(meta.requiredNumeric)) {
+      for (const f of meta.requiredNumeric) {
+        if (_toInt(item[f]) <= 0) return false;
+      }
+    }
+    if (Array.isArray(meta.requiredNumericAny)) {
+      const anyOk = meta.requiredNumericAny.some(f => _toInt(item[f]) > 0);
+      if (!anyOk) return false;
+    }
+    return true;
+  }
 
   async function _uploadImage(file, kind) {
     const compressed = await compressImageForUpload(file);
@@ -146,8 +169,8 @@
     const cleaned = text.replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim().slice(0, 400);
     holder.innerHTML = `
       <div style="margin-top:16px;padding:12px 14px;background:#f4f4f6;border:1px dashed #ccc;border-radius:12px;text-align:left;">
-        <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:700;">💡 미리보기 — AI 가 더 정확하게 정리 중...</div>
-        <div style="font-size:12px;color:#666;font-style:italic;white-space:pre-wrap;line-height:1.5;max-height:180px;overflow:auto;">${_esc(cleaned)}</div>
+        <div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:700;">미리보기 — AI 가 더 정확하게 정리 중...</div>
+        <div style="font-size:12px;color:var(--text-muted);font-style:italic;white-space:pre-wrap;line-height:1.5;max-height:180px;overflow:auto;">${_esc(cleaned)}</div>
       </div>`;
   }
 
@@ -164,23 +187,41 @@
     return await res.json();
   }
 
-  function _buildItemHtml(it, idx, fields, labels, placeholders) {
+  function _buildItemHtml(it, idx, fields, labels, placeholders, meta) {
+    const reqSet = new Set([
+      ...(meta.requiredNumeric || []),
+      ...(meta.requiredNumericAny || []),
+    ]);
+    const itemBad = !_itemValid(it, meta);
+    const reqAnyUnmet = Array.isArray(meta.requiredNumericAny)
+      && !meta.requiredNumericAny.some(f => _toInt(it[f]) > 0);
     return `
-      <div class="rs-item" data-idx="${idx}" style="background:#fff;border:1px solid #eee;border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div class="rs-item" data-idx="${idx}" style="background:#fff;border:1px solid ${itemBad ? '#fca5a5' : '#eee'};border-radius:12px;padding:12px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <input type="checkbox" class="rs-ck" data-idx="${idx}" checked style="width:18px;height:18px;flex-shrink:0;">
           <strong style="font-size:12px;color:#888;">#${idx + 1}</strong>
-          <button class="rs-del" data-idx="${idx}" style="margin-left:auto;background:transparent;border:none;color:#aaa;cursor:pointer;font-size:13px;">✕</button>
+          ${itemBad ? `<span class="rs-warn" style="font-size:11px;color:#dc2626;font-weight:700;">금액 확인 필요</span>` : ''}
+          <button class="rs-del" data-idx="${idx}" style="margin-left:auto;background:transparent;border:none;color:var(--text-subtle);cursor:pointer;font-size:13px;">✕</button>
         </div>
-        ${fields.map(f => `
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-            <label style="font-size:11px;color:#666;min-width:56px;">${_esc(labels[f] || f)}</label>
-            <input class="rs-fld" data-idx="${idx}" data-field="${f}" type="text"
-                   value="${_esc(it[f] == null ? '' : String(it[f]))}"
-                   placeholder="${_esc(placeholders[f] || '')}"
-                   style="flex:1;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;">
-          </div>
-        `).join('')}
+        ${fields.map(f => {
+          const isReq = reqSet.has(f);
+          const numericBad = isReq && _toInt(it[f]) <= 0
+            && (
+              (meta.requiredNumeric || []).includes(f)
+              || ((meta.requiredNumericAny || []).includes(f) && reqAnyUnmet)
+            );
+          const borderColor = numericBad ? '#fca5a5' : '#ddd';
+          const bgColor = numericBad ? '#fef2f2' : '#fff';
+          return `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <label style="font-size:11px;color:var(--text-muted);min-width:56px;">${_esc(labels[f] || f)}${isReq ? '<span style="color:#dc2626;">*</span>' : ''}</label>
+              <input class="rs-fld" data-idx="${idx}" data-field="${f}" type="text"
+                     value="${_esc(it[f] == null ? '' : String(it[f]))}"
+                     placeholder="${_esc(placeholders[f] || '')}"
+                     style="flex:1;padding:7px 10px;border:1px solid ${borderColor};background:${bgColor};border-radius:8px;font-size:13px;">
+            </div>
+          `;
+        }).join('')}
       </div>`;
   }
 
@@ -212,18 +253,25 @@
       if (window.showToast) window.showToast('추가할 항목이 없어요');
       return;
     }
+    // [QA #7] 마지막 방어선 — 백엔드 hard-fail 우회용 클라 검증.
+    const meta = KIND_META[kind];
+    const bad = selected.find(it => !_itemValid(it, meta));
+    if (bad) {
+      if (window.showToast) window.showToast('빨간 칸의 금액을 먼저 입력해주세요');
+      return;
+    }
     btn.disabled = true;
     btn.innerHTML = '저장 중…';
     try {
       const res = await _commit(kind, selected);
-      if (window.showToast) window.showToast(`✅ ${res.imported}건 저장${res.failed ? ` · 실패 ${res.failed}` : ''}`);
+      if (window.showToast) window.showToast(`${res.imported}건 저장${res.failed ? ` · 실패 ${res.failed}` : ''}`);
       if (window.hapticSuccess) window.hapticSuccess();
       body.closest('[id="receiptScanSheet"]')?.remove();
       try { sessionStorage.removeItem('pv_cache::inventory'); } catch (_e) { /* ignore */ }
     } catch (e) {
       if (window.showToast) window.showToast('저장 실패: ' + (e.message || ''));
       btn.disabled = false;
-      btn.innerHTML = `✨ ${selected.length}개 추가하기`;
+      btn.innerHTML = `${selected.length}개 추가하기`;
     }
   }
 
@@ -236,23 +284,73 @@
         <div style="padding:40px;text-align:center;color:#888;">
           <div style="font-size:36px;margin-bottom:10px;">🤷</div>
           <div style="font-size:13px;">이미지에서 데이터를 찾지 못했어요</div>
-          <div style="font-size:11px;color:#aaa;margin-top:6px;">영수증이 선명한지 확인해주세요</div>
+          <div style="font-size:11px;color:var(--text-subtle);margin-top:6px;">영수증이 선명한지 확인해주세요</div>
         </div>`;
       return;
     }
 
     body.innerHTML = `
-      <div style="padding:14px 18px 6px;font-size:12px;color:#666;">
+      <div style="padding:14px 18px 6px;font-size:12px;color:var(--text-muted);">
         AI 가 <strong>${items.length}개</strong> 항목을 찾았어요. 확인 후 "추가하기" 를 누르세요.
       </div>
+      <div class="rs-hint" style="display:none;padding:0 18px 6px;font-size:11px;color:#dc2626;font-weight:600;">
+        빨간색 칸은 금액이 0이거나 비어있어요. 직접 입력하면 저장 버튼이 활성화돼요.
+      </div>
       <div class="rs-items" style="padding:0 12px;">
-        ${items.map((it, idx) => _buildItemHtml(it, idx, meta.fields, meta.labels, meta.placeholders)).join('')}
+        ${items.map((it, idx) => _buildItemHtml(it, idx, meta.fields, meta.labels, meta.placeholders, meta)).join('')}
       </div>
       <div style="padding:14px 16px;display:flex;gap:10px;position:sticky;bottom:0;background:#fafafa;border-top:1px solid #eee;">
         <button class="rs-cancel" style="flex:1;padding:14px;border:1px solid #ddd;background:#fff;border-radius:12px;font-weight:700;cursor:pointer;">취소</button>
-        <button class="rs-commit" style="flex:2;padding:14px;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:12px;font-weight:800;cursor:pointer;">✨ ${items.length}개 추가하기</button>
+        <button class="rs-commit" style="flex:2;padding:14px;border:none;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:12px;font-weight:800;cursor:pointer;">${items.length}개 추가하기</button>
       </div>
     `;
+
+    // [QA #7] 현재 입력 기준으로 commit 버튼 활성화 여부 재계산.
+    const _revalidate = () => {
+      const commitBtn = body.querySelector('.rs-commit');
+      const hint = body.querySelector('.rs-hint');
+      let checkedCnt = 0;
+      let badCnt = 0;
+      body.querySelectorAll('.rs-item').forEach(row => {
+        const idx = parseInt(row.dataset.idx, 10);
+        const ck = row.querySelector('.rs-ck');
+        if (!ck || !ck.checked) {
+          row.style.opacity = '0.5';
+          return;
+        }
+        row.style.opacity = '1';
+        checkedCnt += 1;
+        // 행 단위 invalid 표시 (입력에 따라 빨강 ↔ 정상 토글).
+        const cur = { ...items[idx] };
+        row.querySelectorAll('.rs-fld').forEach(fld => {
+          cur[fld.dataset.field] = fld.value.trim();
+        });
+        const bad = !_itemValid(cur, meta);
+        if (bad) badCnt += 1;
+        row.style.borderColor = bad ? '#fca5a5' : '#eee';
+        const warn = row.querySelector('.rs-warn');
+        if (warn) warn.style.display = bad ? 'inline' : 'none';
+        // 각 필드도 재검증.
+        const reqAnyUnmet = Array.isArray(meta.requiredNumericAny)
+          && !meta.requiredNumericAny.some(f => _toInt(cur[f]) > 0);
+        row.querySelectorAll('.rs-fld').forEach(fld => {
+          const f = fld.dataset.field;
+          const isReqOne = (meta.requiredNumeric || []).includes(f);
+          const isReqAny = (meta.requiredNumericAny || []).includes(f) && reqAnyUnmet;
+          const numericBad = (isReqOne || isReqAny) && _toInt(cur[f]) <= 0;
+          fld.style.borderColor = numericBad ? '#fca5a5' : '#ddd';
+          fld.style.background = numericBad ? '#fef2f2' : '#fff';
+        });
+      });
+      const canCommit = checkedCnt > 0 && badCnt === 0;
+      if (commitBtn) {
+        commitBtn.disabled = !canCommit;
+        commitBtn.style.opacity = canCommit ? '1' : '0.5';
+        commitBtn.style.cursor = canCommit ? 'pointer' : 'not-allowed';
+        commitBtn.textContent = checkedCnt ? `${checkedCnt}개 추가하기` : '추가할 항목 없음';
+      }
+      if (hint) hint.style.display = badCnt > 0 ? 'block' : 'none';
+    };
 
     body.querySelectorAll('.rs-del').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -260,8 +358,20 @@
         _renderPreview(overlay, kind, items);
       });
     });
+    body.querySelectorAll('.rs-fld').forEach(fld => {
+      fld.addEventListener('input', _revalidate);
+      fld.addEventListener('change', _revalidate);
+    });
+    body.querySelectorAll('.rs-ck').forEach(ck => {
+      ck.addEventListener('change', _revalidate);
+    });
     body.querySelector('.rs-cancel').addEventListener('click', () => overlay.remove());
-    body.querySelector('.rs-commit').addEventListener('click', () => _doCommit(body, kind, items));
+    body.querySelector('.rs-commit').addEventListener('click', () => {
+      const commitBtn = body.querySelector('.rs-commit');
+      if (commitBtn && commitBtn.disabled) return;
+      _doCommit(body, kind, items);
+    });
+    _revalidate();
   }
 
   async function _handleFileChange(e, overlay, kind) {
@@ -271,8 +381,8 @@
     body.innerHTML = `
       <div style="padding:40px 20px 20px;text-align:center;">
         <div style="font-size:36px;animation:rs-pulse 1.2s ease-in-out infinite;">🤖</div>
-        <div class="rs-progress-label" style="font-size:13px;color:#666;margin-top:10px;">이미지 최적화 중…</div>
-        <div style="font-size:11px;color:#aaa;margin-top:4px;">보통 5~15초 걸려요</div>
+        <div class="rs-progress-label" style="font-size:13px;color:var(--text-muted);margin-top:10px;">이미지 최적화 중…</div>
+        <div style="font-size:11px;color:var(--text-subtle);margin-top:4px;">보통 5~15초 걸려요</div>
         <div class="rs-tess-preview"></div>
       </div>
       <style>@keyframes rs-pulse{0%,100%{opacity:.4;}50%{opacity:1;}}</style>`;
@@ -333,10 +443,10 @@
       </div>
       <div class="rs-body" style="flex:1;overflow-y:auto;">
         <div style="padding:40px 20px;text-align:center;">
-          <label for="rs-file-input" style="display:inline-block;padding:14px 22px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:100px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(241,128,145,0.3);">
-            📷 사진 선택 / 촬영
+          <label for="rs-file-input" style="display:inline-block;padding:14px 22px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:100px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(241,128,145,0.3);">
+            사진 선택 / 촬영
           </label>
-          <input id="rs-file-input" type="file" accept="image/*" capture="environment" style="display:none;">
+          <input id="rs-file-input" type="file" accept="image/*" style="display:none;">
           <div style="font-size:11px;color:#888;margin-top:14px;">AI 가 이미지에서 자동 추출합니다.</div>
         </div>
       </div>`;
@@ -358,19 +468,19 @@
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;';
     overlay.innerHTML = `
       <div style="background:#fff;border-radius:20px;padding:24px;max-width:380px;width:90%;">
-        <strong style="font-size:17px;">📸 무엇을 스캔할까요?</strong>
+        <strong style="font-size:17px;">무엇을 스캔할까요?</strong>
         <div style="font-size:12px;color:#888;margin-top:4px;margin-bottom:18px;">AI 가 이미지에서 자동으로 데이터를 추출해요</div>
-        <button class="rs-chooser-exp" style="width:100%;padding:14px;border:1.5px solid #F18091;background:#fff;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+        <button class="rs-chooser-exp" style="width:100%;padding:14px;border:1.5px solid var(--brand);background:#fff;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:10px;">
           <span style="font-size:22px;">💳</span>
           <div style="flex:1;text-align:left;">
-            <div style="color:#D95F70;">영수증 스캔</div>
+            <div style="color:var(--brand-strong);">영수증 스캔</div>
             <div style="font-size:11px;color:#888;font-weight:400;margin-top:2px;">카페·마트·재료비 영수증 → 지출 기록</div>
           </div>
         </button>
-        <button class="rs-chooser-ord" style="width:100%;padding:14px;border:1.5px solid #F18091;background:#fff;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+        <button class="rs-chooser-ord" style="width:100%;padding:14px;border:1.5px solid var(--brand);background:#fff;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:12px;margin-bottom:18px;">
           <span style="font-size:22px;">📦</span>
           <div style="flex:1;text-align:left;">
-            <div style="color:#D95F70;">주문내역 스캔</div>
+            <div style="color:var(--brand-strong);">주문내역 스캔</div>
             <div style="font-size:11px;color:#888;font-weight:400;margin-top:2px;">쿠팡·네이버 주문 스크린샷 → 재고 입고</div>
           </div>
         </button>

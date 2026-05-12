@@ -99,7 +99,26 @@
   letter-spacing: -0.02em;
   transition: all 0.18s;
 }
-.style-opt.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* [2026-05-05 v6 톤] 활성: 검정 배경 + 흰 글씨 (이전 핑크 폐기). 비활성: 회색 그대로. */
+.style-opt.on,
+.style-opt.active {
+  background: var(--text, #0F1419);
+  border-color: var(--text, #0F1419);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* 포트폴리오 카드 hover — 작업실 슬롯과 동일 패턴 (핑크 보더 + 그림자) */
+.portfolio-cell:hover {
+  border-color: var(--accent, #F18091) !important;
+  box-shadow: 0 4px 14px rgba(241, 128, 145, 0.18);
+}
+
+/* 포트폴리오 skeleton pulse — 로딩 체감 속도 개선 */
+@keyframes portfolio-skel-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
 
 
 /* 카드 섹션 구분 */
@@ -454,8 +473,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 /* ───── 캡션 로딩 팝업 (슬롯머신) ───── */
 #captionLoadingPopup {
   position: fixed; inset: 0; z-index: 5000;
-  background: rgba(255,255,255,0.82);
-  backdrop-filter: blur(14px);
+  background: rgba(var(--bg-rgb,255,255,255),0.97);
   display: none; align-items: center; justify-content: center; padding: 20px;
 }
 

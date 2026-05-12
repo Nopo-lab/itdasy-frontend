@@ -46,7 +46,7 @@ function _renderElementPanel() {
 
   body.innerHTML = `
     <div class="gp-section">
-      <p class="gp-section-lbl"><svg class="ic ic--xs" aria-hidden="true"><use href="#ic-sparkles"/></svg> 기본 텍스트</p>
+      <p class="gp-section-lbl"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i> 기본 텍스트</p>
       <div class="gp-grid gp-grid--4">
         <div class="gp-card" onclick="selectDefaultElement('itdasy')">
           <div class="gp-card__thumb gp-card__thumb--brand">
@@ -57,16 +57,20 @@ function _renderElementPanel() {
       </div>
     </div>
     <div class="gp-section">
-      <p class="gp-section-lbl"><svg class="ic ic--xs" aria-hidden="true"><use href="#ic-package"/></svg> 내 요소 (로고, 브랜드 이미지)</p>
+      <p class="gp-section-lbl"><i class="ph-duotone ph-package" aria-hidden="true"></i> 내 요소 (로고, 브랜드 이미지)</p>
       <div class="gp-grid gp-grid--4">
-        ${_userElements.map(el => `
-          <div class="gp-card" onclick="selectElement('${el.id}')">
+        ${_userElements.map(el => {
+          const _id = (el.id || '').replace(/['"<>&]/g, '');
+          const _nm = String(el.name || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          return `
+          <div class="gp-card" data-elid="${_id}" onclick="selectElement(this.dataset.elid)">
             <div class="gp-card__thumb gp-card__thumb--fit">
-              <img src="${el.imageData}" alt="${el.name}">
+              <img src="${el.imageData}" alt="${_nm}">
             </div>
-            <div class="gp-card__name">${el.name}</div>
-            <button class="gp-del-btn" onclick="deleteElement('${el.id}',event)" aria-label="삭제">×</button>
-          </div>`).join('')}
+            <div class="gp-card__name">${_nm}</div>
+            <button class="gp-del-btn" data-elid="${_id}" onclick="deleteElement(this.dataset.elid,event)" aria-label="삭제">×</button>
+          </div>`;
+        }).join('')}
         <div class="gp-add-card" onclick="addUserElement()">
           <div class="gp-add-card__thumb">+</div>
           <div class="gp-card__name">추가</div>
@@ -248,7 +252,7 @@ function _setupElementDrag() {
     }
   }, { passive: false });
 
-  wrap.addEventListener('touchend', () => { dragging = false; pinching = false; });
+  wrap.addEventListener('touchend', () => { dragging = false; pinching = false; }, { passive: true });
 
   // 마우스
   wrap.addEventListener('mousedown', e => {
@@ -258,6 +262,10 @@ function _setupElementDrag() {
     startElemX = _elementEditState.x; startElemY = _elementEditState.y;
     e.preventDefault();
   });
+  // [PerfFix] _setupElementDrag 재호출 시 window 리스너 누적 → AbortController로 매번 정리.
+  if (window._dragAC_elem) { try { window._dragAC_elem.abort(); } catch (_e) { void _e; } }
+  window._dragAC_elem = new AbortController();
+  const _dragSig = { signal: window._dragAC_elem.signal };
   window.addEventListener('mousemove', e => {
     if (!dragging) return;
     const rect = wrap.getBoundingClientRect();
@@ -265,8 +273,8 @@ function _setupElementDrag() {
     _elementEditState.x = Math.max(5, Math.min(95, startElemX + (pos.x - startX)));
     _elementEditState.y = Math.max(5, Math.min(95, startElemY + (pos.y - startY)));
     updateOverlay();
-  });
-  window.addEventListener('mouseup', () => { dragging = false; });
+  }, _dragSig);
+  window.addEventListener('mouseup', () => { dragging = false; }, _dragSig);
 
   // 마우스 휠 크기 조절
   wrap.addEventListener('wheel', e => {

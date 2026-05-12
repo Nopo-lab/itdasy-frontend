@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://*.supabase.co https://*.cloudflare.com https://*.r2.cloudflarestorage.com; connect-src 'self' https://*.run.app wss://*.run.app https://*.supabase.co https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://unpkg.com; worker-src 'self';"
+>
 <!-- [2026-04-28 NUCLEAR] 옛 SW + 옛 캐시 강제 청소 (한 번만, sw_kill_v3 가드)
      기존 SW 가 sw.js·app-core.js 자체를 캐싱해서 영원히 옛 코드 서빙되던 catch-22 해결.
      이 inline script 는 SW 등록 전에 실행됨 — 옛 SW 의 모든 reg 와 cache 비우고 reload. -->
@@ -36,7 +38,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 스튜디오</title>
 <script>
-  window.__LATEST_BUILD__ = '20260504-v80-prototype-recovery';
+  window.__LATEST_BUILD__ = '20260506-v101-phase3-5';
   setTimeout(function(){
     if (window.APP_BUILD && window.APP_BUILD !== window.__LATEST_BUILD__ && !sessionStorage.getItem('build_busted')) {
       console.warn('[BUILD] stale JS 감지 — HTML=' + window.__LATEST_BUILD__ + ' / JS=' + window.APP_BUILD + ' → 캐시 파괴');
@@ -54,13 +56,16 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/icons.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/patterns.css">
 <link rel="stylesheet" href="css/screens/home.css">
 <link rel="stylesheet" href="css/screens/home-v41.css">
+<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260508-v109">
 <link rel="stylesheet" href="css/screens/power-view.css">
-<link rel="stylesheet" href="css/screens/hubs.css">
-<link rel="stylesheet" href="css/screens/hubs-prototype.css?v=20260504-1">
+<link rel="stylesheet" href="css/screens/power-view-actions.css?v=20260509-tierA">
+<link rel="stylesheet" href="css/screens/hubs.css?v=20260505-v97">
+<link rel="stylesheet" href="css/screens/hubs-prototype.css?v=20260505-v97">
 <link rel="stylesheet" href="css/screens/dashboard.css">
 <link rel="stylesheet" href="css/screens/details.css">
 <link rel="stylesheet" href="css/screens/workshop.css">
@@ -73,16 +78,79 @@
 <link rel="stylesheet" href="css/screens/myshop-v3.css?v=20260430-4">
 <link rel="stylesheet" href="css/screens/dm-autoreply-v3.css?v=20260430-4">
 <!-- [2026-04-30] 예약관리 v4 — 모바일 + PC + 직원 필터 + now-line + 미니캘 + 통계 -->
-<link rel="stylesheet" href="css/screens/booking-v4.css?v=20260430-7">
+<link rel="stylesheet" href="css/screens/booking-v4.css?v=20260505-v97">
 <link rel="stylesheet" href="css/screens/booking-form.css">
-<link rel="stylesheet" href="css/screens/revenue-v5.css?v=20260501-8">
-<link rel="stylesheet" href="style.css?v=20260504-1">
+<link rel="stylesheet" href="css/screens/revenue-v5.css?v=20260505-v97">
+<link rel="stylesheet" href="css/screens/phase9-ux.css?v=20260506-v101">
+<link rel="stylesheet" href="style.css?v=20260505-v97">
 <!-- [2026-04-29] Micro-interaction & Fun — 사용 재미 강화 -->
 <link rel="stylesheet" href="style-fun.css">
 <!-- [2026-04-30 v65] 허브 카드 + 시트 폴리싱 (lift/active/blur) -->
 <link rel="stylesheet" href="style-hub.css?v=0501">
+<style id="login-v22">
+  /* 모션 keyframes */
+  @keyframes loginFadeUp { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:translateY(0);} }
+  @keyframes loginPulse { 0%,100% { transform:scale(1); opacity:.4;} 50% { transform:scale(1.4); opacity:1;} }
+  @keyframes loginShimmer { 0% { background-position:-200% center;} 100% { background-position:200% center;} }
+  @keyframes loginTypewriter { from { width:0;} to { width:100%;} }
+  @keyframes loginBlink { 50% { border-color:transparent;} }
+
+  .login-fade-1{animation:loginFadeUp .6s ease-out 0s both}
+  .login-fade-2{animation:loginFadeUp .6s ease-out .15s both}
+  .login-fade-3{animation:loginFadeUp .6s ease-out .3s both}
+  .login-fade-4{animation:loginFadeUp .6s ease-out .45s both}
+  .login-fade-5{animation:loginFadeUp .6s ease-out .6s both}
+  .login-fade-6{animation:loginFadeUp .6s ease-out .75s both}
+  .login-fade-7{animation:loginFadeUp .6s ease-out .9s both}
+
+  .login-brand-wrap{text-align:center;margin-top:20px}
+  .login-brand-title{font-size:23px;font-weight:800;color:var(--accent,var(--brand));letter-spacing:-.5px;position:relative;display:inline-block}
+  .login-brand-title::after{content:'';position:absolute;right:-10px;top:6px;width:6px;height:6px;border-radius:999px;background:var(--accent,var(--brand));animation:loginPulse 1.8s ease-in-out infinite}
+  .login-brand-sub{font-size:10px;color:var(--text3,#98A1AC);letter-spacing:1.5px;margin-top:4px;font-weight:600;text-align:center}
+
+  .login-hero{margin:auto 0;text-align:center;padding:18px 0}
+  .login-hero-tag{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:var(--brand-bg,rgba(241,128,145,.12));color:var(--accent,var(--brand));border-radius:999px;font-size:11.5px;font-weight:700;margin-bottom:16px;letter-spacing:-.2px}
+  .login-hero-tag .login-dot{width:5px;height:5px;border-radius:999px;background:var(--accent,var(--brand));animation:loginPulse 1.5s ease-in-out infinite}
+  .login-hero-main{font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.35;color:var(--text,#0F1419)}
+  .login-hero-main .login-accent{background:linear-gradient(90deg,var(--accent,var(--brand)) 0%,var(--accent2,#E25774) 50%,var(--accent,var(--brand)) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:loginShimmer 3s linear infinite;font-weight:800}
+  .login-hero-pink{font-size:14.5px;font-weight:700;color:var(--accent,var(--brand));letter-spacing:-.3px;margin-top:12px}
+  .login-hero-sub{font-size:12.5px;color:var(--text3,#98A1AC);font-weight:500;margin-top:12px;line-height:1.6}
+  .login-hero-sub .login-pip{display:inline-block;width:3px;height:3px;border-radius:999px;background:var(--text3,#98A1AC);margin:0 6px 3px;vertical-align:middle}
+
+  .login-ai-card{background:var(--surface,#fff);border:1px solid var(--brand-bg,rgba(241,128,145,.18));border-radius:14px;padding:12px 14px;margin:0 0 14px;display:flex;align-items:center;gap:10px;position:relative;overflow:hidden;width:100%;max-width:340px;box-sizing:border-box}
+  .login-ai-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand))}
+  .login-ai-card .login-ai-ava{width:32px;height:32px;border-radius:999px;background:linear-gradient(135deg,var(--accent,var(--brand)) 0%,var(--accent2,#E25774) 100%);display:grid;place-items:center;color:#fff;flex-shrink:0;position:relative}
+  .login-ai-card .login-ai-ava::after{content:'';position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:999px;background:#4ADE80;border:2px solid #fff;animation:loginPulse 1.6s ease-in-out infinite}
+  .login-ai-card .login-ai-body{flex:1;min-width:0}
+  .login-ai-card .login-ai-name{font-size:12px;font-weight:800;color:var(--text,#0F1419);letter-spacing:-.2px}
+  .login-ai-card .login-ai-msg{font-size:11.5px;color:var(--text2,#5A6573);margin-top:2px;line-height:1.4}
+  .login-ai-card .login-ai-typing{display:inline-block;border-right:2px solid var(--accent,var(--brand));white-space:nowrap;overflow:hidden;animation:loginTypewriter 2.5s steps(28,end) 1.5s both,loginBlink .8s step-end 1.5s 5}
+
+  .login-btn-kakao{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;padding:15px;border:none;border-radius:14px;background:#FEE500;color:#3A1D1D;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:-.3px;margin-bottom:8px;transition:transform .15s ease-out,box-shadow .15s ease-out}
+  .login-btn-kakao:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(254,229,0,.45)}
+  .login-btn-naver{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:13px;border:none;border-radius:14px;background:#03C75A;color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:6px;transition:transform .15s ease-out,box-shadow .15s ease-out}
+  .login-btn-naver:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(3,199,90,.28)}
+  .login-btn-google{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:13px;border:1px solid var(--border-strong,rgba(15,20,25,.14));border-radius:14px;background:#fff;color:var(--text,#0F1419);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px;transition:border-color .15s,transform .15s ease-out}
+  .login-btn-google:hover{border-color:var(--text3,#98A1AC);transform:translateY(-1px)}
+  .login-fold-trigger{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:14px;background:none;border:none;color:var(--text2,#5A6573);font-size:13px;font-weight:600;cursor:pointer}
+  .login-foot{text-align:center;font-size:13px;color:var(--text3,#98A1AC);margin-top:18px}
+  .login-foot a{color:var(--accent,var(--brand));font-weight:700;text-decoration:none}
+
+  /* 25차 — fold 페이드 차단 (즉시 toggle) */
+  #emailFoldContent { animation: none !important; transition: none !important; }
+  #emailFoldContent * { animation: none !important; }
+
+  /* 25차 — 비번 wrapper focus 시 핑크 보더 */
+  .login-pw-wrap:focus-within { border-color: var(--accent, var(--brand)); }
+
+  /* 26차 — 이메일 wrapper도 동일 focus 효과 */
+  .login-email-wrap:focus-within { border-color: var(--accent, var(--brand)); }
+</style>
 </head>
 <body>
+
+<!-- Phase 5: 본문 바로가기 (스크린리더/키보드 사용자) -->
+<a href="#tab-home" class="skip-nav">본문 바로가기</a>
 
 <!-- ───── Lucide SVG 스프라이트 (§4 아이콘 시스템, P0) ───── -->
 <svg id="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -368,75 +436,138 @@
   <div class="spl-slogan">사장님의 시간을 아껴, 매출을 잇습니다.</div>
 </div>
 
+<!-- [UX-LOAD] 앱 초기 로딩 오버레이 — 데이터 준비 완료 시 숨김 -->
+<div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--surface,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.3s;">
+  <div style="font-size:22px;font-weight:800;color:var(--accent,var(--brand));letter-spacing:-0.5px;">잇데이</div>
+  <div style="font-size:11px;color:var(--text3,#999);margin-top:4px;">준비 중이에요...</div>
+  <div style="margin-top:20px;width:36px;height:36px;border:3px solid var(--border,#eee);border-top-color:var(--accent,var(--brand));border-radius:50%;animation:_ldSpin 0.7s linear infinite;"></div>
+</div>
+<style>@keyframes _ldSpin{to{transform:rotate(360deg)}}</style>
+
 <!-- 2026-05-04 ── 로그인 전에는 앱 화면 조각을 숨긴다. 토큰 확인은 app-core.js 의 getToken() 이 담당. -->
 <div class="lock-overlay" id="lockOverlay" style="display:none">
   <script>
+    // [2026-05-08 v118] 토큰 있으면 lockOverlay 처음부터 안 보임 — OAuth 복귀 / SW 버전 mismatch reload 깜빡임 차단.
     try {
       var _ov = document.getElementById('lockOverlay');
-      if (document.body) { document.body.classList.add('itdasy-locked'); }
-      _ov.style.display = '';  // inline display:none 해제 → CSS (.hidden 또는 default) 가 결정
+      var _hasToken = false;
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf('itdasy_token') === 0 && localStorage.getItem(k)) {
+            _hasToken = true;
+            break;
+          }
+        }
+      } catch (_eT) { /* ignore */ }
+      if (_hasToken) {
+        // 인증된 상태 — lockOverlay 숨기고 로딩 오버레이 표시
+        _ov.classList.add('hidden');
+        _ov.style.display = '';
+        // [UX-LOAD] 토큰 있으면 로딩 화면 표시 — 데이터 준비 후 app-core.js에서 숨김
+        var _lo = document.getElementById('appLoadingOverlay');
+        if (_lo) _lo.style.display = 'flex';
+      } else {
+        // 토큰 없음 — 로그인 화면.
+        if (document.body) { document.body.classList.add('itdasy-locked'); }
+        _ov.style.display = '';
+      }
     } catch (_e) {
       if (document.body) { document.body.classList.add('itdasy-locked'); }
       document.getElementById('lockOverlay').style.display = '';
     }
   </script>
-  <div class="lock-title">잇데이 스튜디오</div>
-  <div class="lock-sub">ITDASY STUDIO</div>
-  
-  <!-- 서비스 설명 (홈에서 이동) -->
-  <div style="margin:24px 0; text-align:center;">
-    <div style="font-size:18px; font-weight:800; color:var(--text); line-height:1.4; letter-spacing:-0.5px;">피드 글 작성부터<br>사진 편집, 인스타 발행까지</div>
-    <div style="margin-top:8px; font-size:15px; font-weight:700; color:var(--accent2);">핸드폰 하나로 끝.</div>
-    <div style="margin-top:12px; font-size:12px; color:var(--text3); font-weight:500;">"사장님의 시간을 아껴, 매출을 잇습니다."</div>
+  <div class="login-brand-wrap login-fade-1">
+    <div class="login-brand-title">잇데이 스튜디오</div>
+    <div class="login-brand-sub">IT'S DAY · 매일 매출 잇는 날</div>
   </div>
 
-  <div style="margin-bottom:20px; font-size:13px; color:var(--accent); font-weight:600; display:none;" id="sessionExpiredMsg">⚠️ 로그인 세션이 만료되었습니다. 다시 로그인해주세요.</div>
-  <input type="email" class="login-input" id="loginEmail" placeholder="이메일" autocomplete="email" inputmode="email">
-  <div style="position:relative;width:100%;max-width:300px;margin-bottom:10px;">
-    <input type="password" class="login-input" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" style="margin-bottom:0;padding-right:44px;">
-    <button type="button" id="loginPwToggle" aria-label="비밀번호 보기" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:none;background:transparent;cursor:pointer;font-size:15px;color:#888;padding:0;display:flex;align-items:center;justify-content:center;">👁</button>
+  <div class="login-hero">
+    <div class="login-hero-tag login-fade-2">
+      <span class="login-dot"></span> 내 말투를 아는 AI 비서
+    </div>
+    <div class="login-hero-main login-fade-3">
+      사장님 말투 그대로,<br>
+      <span class="login-accent">나만의 AI 비서, 잇비</span>
+    </div>
+    <div class="login-hero-pink login-fade-4">사진만 올려요. 글은 잇비가.</div>
+    <div class="login-hero-sub login-fade-5">
+      인스타 글 <span class="login-pip"></span>
+      예약 <span class="login-pip"></span>
+      매출 <span class="login-pip"></span>
+      손님 관리
+    </div>
   </div>
-  <div class="login-error" id="loginError"></div>
-  <button class="pin-btn" id="loginBtn">로그인</button>
 
-  <!-- ───── 소셜 로그인 구분선 ───── -->
-  <div id="loginSocialDivider" style="display:flex;align-items:center;gap:8px;width:100%;max-width:300px;margin:14px 0 6px;">
-    <div style="flex:1;height:1px;background:#eee;"></div>
-    <span style="font-size:11px;color:var(--text3);font-weight:600;">또는</span>
-    <div style="flex:1;height:1px;background:#eee;"></div>
+  <div class="login-ai-card login-fade-6">
+    <div class="login-ai-ava">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
+        <circle cx="12" cy="5" r="2"/>
+        <path d="M12 7v4"/>
+        <line x1="8" y1="16" x2="8" y2="16"/>
+        <line x1="16" y1="16" x2="16" y2="16"/>
+      </svg>
+    </div>
+    <div class="login-ai-body">
+      <div class="login-ai-name">잇비 <span style="color:var(--text3);font-weight:500;">· 사장님만의 AI 비서</span></div>
+      <div class="login-ai-msg"><span class="login-ai-typing">박서연 손님 단골 시술 글 쓰는 중...</span></div>
+    </div>
   </div>
 
-  <!-- Google · Kakao 소셜 로그인 (OAuth) -->
-  <div id="socialLoginWrap" style="width:100%;max-width:300px;">
-    <button id="loginGoogleBtn"
-      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:1px solid #ddd;border-radius:12px;background:#fff;color:#222;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.05-1.25-.16-1.84H9v3.48h4.84a4.13 4.13 0 0 1-1.8 2.71v2.26h2.92A8.8 8.8 0 0 0 17.64 9.2z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26a5.38 5.38 0 0 1-8.1-2.82H.95v2.33A9 9 0 0 0 9 18z" fill="#34A853"/><path d="M3.96 10.71A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.17.28-1.71V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .95 4.96l3 2.33A5.38 5.38 0 0 1 9 3.58z" fill="#EA4335"/></svg>
-      Google로 계속하기
-    </button>
-
-    <button id="loginKakaoBtn"
-      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:none;border-radius:12px;background:#FEE500;color:#3A1D1D;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;">
+  <div class="login-fade-7" style="width:100%;max-width:340px;">
+    <button id="loginKakaoBtn" onclick="startKakaoLogin()" class="login-btn-kakao">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.4C4.58 1.4 1 4.22 1 7.68c0 2.2 1.47 4.13 3.7 5.26L3.9 16.52l4.02-2.55c.36.05.73.08 1.08.08 4.42 0 8-2.82 8-6.28S13.42 1.4 9 1.4z" fill="#3A1D1D"/></svg>
-      카카오로 계속하기
+      카카오로 1분 시작
     </button>
 
-    <button id="loginNaverBtn"
-      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border:none;border-radius:12px;background:#03C75A;color:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/></svg>
-      네이버로 시작하기
+    <button id="loginNaverBtn" type="button" class="login-btn-naver">
+      <span aria-hidden="true" style="font-weight:900;font-size:17px;line-height:1;">N</span>
+      네이버로 시작
     </button>
-  </div>
 
-  <div style="margin-top:16px;text-align:center;font-size:13px;color:var(--text3);">
-    처음이신가요?
-    <a href="#register" id="goSignup" style="color:var(--accent);font-weight:700;text-decoration:none;margin-left:4px;">회원가입 →</a>
+    <button id="loginGoogleBtn" onclick="startGoogleLogin()" class="login-btn-google">
+      <svg width="16" height="16" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.05-1.25-.16-1.84H9v3.48h4.84a4.13 4.13 0 0 1-1.8 2.71v2.26h2.92A8.8 8.8 0 0 0 17.64 9.2z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26a5.38 5.38 0 0 1-8.1-2.82H.95v2.33A9 9 0 0 0 9 18z" fill="#34A853"/><path d="M3.96 10.71A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.17.28-1.71V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .95 4.96l3 2.33A5.38 5.38 0 0 1 9 3.58z" fill="#EA4335"/></svg>
+      Google로 시작
+    </button>
+
+    <button type="button" id="emailFoldBtn" onclick="toggleEmailFold()" class="login-fold-trigger">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+        <polyline points="22,6 12,13 2,6"/>
+      </svg>
+      이메일로 로그인
+      <svg id="emailFoldChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </button>
+
+    <div id="emailFoldContent" style="display:none;padding-top:8px;border-top:1px solid var(--border, rgba(15,20,25,0.06));">
+      <div style="margin-bottom:18px;font-size:13px;color:var(--accent);font-weight:600;display:none;text-align:center;" id="sessionExpiredMsg">⚠️ 로그인 세션이 만료되었습니다. 다시 로그인해주세요.</div>
+      <!-- [2026-05-07 26차] 이메일 wrapper 통합 — 비번 wrapper 와 동일 border 구조 -->
+      <div class="login-email-wrap" style="display:flex;align-items:center;width:100%;border:1px solid var(--border-strong,rgba(15,20,25,0.14));border-radius:12px;background:#fff;box-sizing:border-box;overflow:hidden;margin-bottom:8px;transition:border-color .15s;">
+        <input type="email" class="login-input" id="loginEmail" placeholder="이메일" autocomplete="email" inputmode="email" style="flex:1;min-width:0;padding:14px 16px;border:none;outline:none;background:transparent;font-size:14px;font-family:inherit;color:inherit;">
+      </div>
+      <div class="login-pw-wrap" style="display:flex;align-items:center;width:100%;border:1px solid var(--border-strong,rgba(15,20,25,0.14));border-radius:12px;background:#fff;box-sizing:border-box;overflow:hidden;transition:border-color .15s;">
+        <input type="password" class="login-input" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" style="flex:1;min-width:0;padding:14px 0 14px 16px;border:none;outline:none;background:transparent;font-size:14px;font-family:inherit;color:inherit;">
+        <button type="button" id="loginPwToggle" aria-label="비밀번호 보기" style="flex-shrink:0;width:44px;height:44px;border:none;background:transparent;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="pin-btn" id="loginBtn" style="width:100%;margin-top:10px;">로그인</button>
+    </div>
+
+    <div class="login-foot">
+      처음이세요? <a href="#register" id="goSignup">잇데이 시작 →</a>
+    </div>
+    <a href="index.html" style="display:block;margin-top:14px;text-align:center;font-size:12px;color:var(--text3);text-decoration:none;">홈으로 돌아가기</a>
   </div>
-  <a href="index.html" style="display:block; margin-top:18px; font-size:13px; color:var(--text3); text-decoration:none;">홈으로 돌아가기</a>
 </div>
 
 <!-- ───── 회원가입 오버레이 ───── -->
 <div class="lock-overlay" id="signupOverlay" style="display:none;">
-  <div class="lock-title">🚀 잇데이 회원가입</div>
+  <div class="lock-title">잇데이 회원가입</div>
   <div class="lock-sub" style="margin-bottom:8px;">14일 무료 체험 · 카드 정보 불필요</div>
 
   <div style="margin:20px 0 18px;text-align:center;font-size:12px;color:var(--text3);line-height:1.6;">
@@ -476,53 +607,52 @@
   </div>
 </div>
 
-<!-- ───── 온보딩 오버레이 ───── -->
+<!-- ───── 온보딩 오버레이 (Phase3: 3단계 축약) ───── -->
 <div class="ob-overlay hidden" id="onboardingOverlay">
   <!-- 진행 점 -->
   <div class="ob-dots">
     <div class="ob-dot active" id="obDot1"></div>
     <div class="ob-dot" id="obDot2"></div>
     <div class="ob-dot" id="obDot3"></div>
-    <div class="ob-dot" id="obDot4"></div>
   </div>
 
-  <!-- Step 1: 환영 -->
+  <!-- Step 1: 환영 + 핵심가치 -->
   <div class="ob-step active" id="ob-step-1">
-    <div class="ob-emoji">👋</div>
-    <div class="ob-title">안녕하세요!<br>어떤 샵을 운영하고 계세요?</div>
-    <div class="ob-sub">딱 맞는 AI 비서를 세팅해 드릴게요</div>
+    <div class="ob-emoji">📸</div>
+    <div class="ob-title">사진만 올리면<br>AI가 글을 만들어드려요</div>
+    <div class="ob-sub">잇데이는 1인 샵 원장님 전용 AI 비서예요</div>
   </div>
 
   <!-- Step 2: 샵 종류 — [2026-04-29] 헤어샵·속눈썹·왁싱·피부·반영구 활성화 -->
   <div class="ob-step" id="ob-step-2">
     <div class="ob-title" style="margin-bottom:20px;">샵 종류를 선택해 주세요</div>
     <div class="ob-shop-grid">
-      <div class="ob-shop-card" data-type="붙임머리" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-scissors"/></svg></div>
+      <div class="ob-shop-card" data-type="붙임머리" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="붙임머리 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-scissors" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">붙임머리</div>
       </div>
-      <div class="ob-shop-card" data-type="네일아트" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-sparkles"/></svg></div>
+      <div class="ob-shop-card" data-type="네일아트" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="네일아트 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-sparkle" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">네일아트</div>
       </div>
-      <div class="ob-shop-card" data-type="헤어샵" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-scissors"/></svg></div>
+      <div class="ob-shop-card" data-type="헤어샵" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="헤어샵 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-scissors" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">헤어샵</div>
       </div>
-      <div class="ob-shop-card" data-type="속눈썹" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-star"/></svg></div>
+      <div class="ob-shop-card" data-type="속눈썹" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="속눈썹 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-star" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">속눈썹</div>
       </div>
-      <div class="ob-shop-card" data-type="왁싱" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-sparkles"/></svg></div>
+      <div class="ob-shop-card" data-type="왁싱" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="왁싱 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-sparkle" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">왁싱</div>
       </div>
-      <div class="ob-shop-card" data-type="피부" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-sun"/></svg></div>
+      <div class="ob-shop-card" data-type="피부" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="피부 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-sun" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">피부관리</div>
       </div>
-      <div class="ob-shop-card" data-type="반영구" onclick="selectShopType(this)">
-        <div class="ob-shop-icon"><svg width="28" height="28"><use href="#ic-edit-3"/></svg></div>
+      <div class="ob-shop-card" data-type="반영구" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="반영구 선택">
+        <div class="ob-shop-icon"><i class="ph-duotone ph-pencil-simple" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">반영구</div>
       </div>
     </div>
@@ -540,22 +670,16 @@
     </div>
   </div>
 
-  <!-- Step 4: 완료 -->
-  <div class="ob-step" id="ob-step-4">
-    <div class="ob-emoji">🎉</div>
-    <div class="ob-title">준비됐어요!</div>
-    <div class="ob-sub">
-      <span class="ob-complete-name" id="obCompleteName"></span>만을 위한<br>
-      AI 비서가 지금 시작됩니다
-    </div>
-  </div>
-
   <button class="ob-btn" id="obBtn" onclick="obNext()">계속하기</button>
+  <button type="button" id="obSkipBtn" onclick="obSkipShopType()"
+          style="display:none;margin-top:10px;background:none;border:none;color:var(--text-muted,#888);font-size:14px;font-weight:600;padding:8px 16px;cursor:pointer;">
+    건너뛰기
+  </button>
 </div>
 
 <!-- Pull-to-Refresh 바 -->
 <div id="ptrBar">
-  <span id="ptrEmoji" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;"><svg class="ic ic--md" style="transform-origin:center" aria-hidden="true"><use href="#ic-brand-loader"/></svg></span>
+  <span id="ptrEmoji" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;"><i class="ph-duotone ph-circle-notch ic--md" style="transform-origin:center" aria-hidden="true"></i></span>
   <span id="ptrLabel">당겨서 새로고침</span>
 </div>
 
@@ -573,9 +697,9 @@
       </div>
     </div>
     <button id="planBadge" data-haptic="light" onclick="if(typeof openPlanPopup==='function')openPlanPopup();" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">Free</button>
-    <button id="themeToggleBtn" data-haptic="light" onclick="if(typeof toggleTheme==='function')toggleTheme();" aria-label="다크모드 전환" title="화면 모드 전환" style="background:none;border:none;padding:4px;cursor:pointer;min-width:36px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;"><svg class="ic ic--md" aria-hidden="true"><use id="themeToggleIcon" href="#ic-moon"/></svg></button>
+    <button id="themeToggleBtn" data-haptic="light" onclick="if(typeof toggleTheme==='function')toggleTheme();" aria-label="다크모드 전환" title="화면 모드 전환" style="background:none;border:none;padding:4px;cursor:pointer;min-width:36px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;"><i id="themeToggleIcon" class="ph-duotone ph-moon ic ic--md" aria-hidden="true"></i></button>
     <button class="btn-settings" onclick="openSettings()" aria-label="설정">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F18091" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/>
         <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>
       </svg>
@@ -589,63 +713,79 @@
 <aside class="side-nav ms-side" id="sideNav" aria-label="PC 사이드 네비게이션">
   <div class="ms-side__logo">잇데이</div>
 
+  <!-- AI 챗봇 진입 카드 — PC 전용 (모바일은 #assistantFab 사용) -->
+  <button id="cw-chatbot-card" class="cw-chatbot-card" type="button" aria-label="AI 챗봇 열기">
+    <span class="cw-chatbot-card__icon">
+      <svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg>
+    </span>
+    <span class="cw-chatbot-card__text">
+      <span class="cw-chatbot-card__title">AI 챗봇</span>
+      <span class="cw-chatbot-card__sub">뭐든 물어보세요</span>
+    </span>
+    <span class="cw-chatbot-card__badge">NEW</span>
+  </button>
+
   <button type="button" class="ms-side__item" data-side-tab="home"
           onclick="showTab('home', document.querySelector('.tab-bar__btn[data-tab=&quot;home&quot;]'));"
           aria-label="홈">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-home"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><i class="ph-duotone ph-house"></i></span></span>
     <span class="ms-side__label">홈</span>
   </button>
   <button type="button" class="ms-side__item" data-side-tab="dashboard"
           onclick="showTab('dashboard', document.querySelector('.tab-bar__btn[data-tab=&quot;dashboard&quot;]')); if(typeof initDashboardTab==='function')initDashboardTab();"
           aria-label="내 샵 관리">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-store"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--blue"><i class="ph-duotone ph-storefront"></i></span></span>
     <span class="ms-side__label">내 샵 관리</span>
   </button>
 
   <div class="ms-side__section">운영</div>
   <button type="button" class="ms-side__item" onclick="window.openCalendarView && window.openCalendarView();" aria-label="예약관리">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-calendar"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--teal"><i class="ph-duotone ph-calendar-check"></i></span></span>
     <span class="ms-side__label">예약관리</span>
   </button>
   <button type="button" class="ms-side__item" onclick="window.openCustomerHub && window.openCustomerHub();" aria-label="고객관리">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-users"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--blue"><i class="ph-duotone ph-users-three"></i></span></span>
     <span class="ms-side__label">고객관리</span>
   </button>
   <button type="button" class="ms-side__item" onclick="(window.openRevenue || window.openRevenueHub)?.();" aria-label="매출관리">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-dollar-sign"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--amber"><i class="ph-duotone ph-chart-line-up"></i></span></span>
     <span class="ms-side__label">매출관리</span>
   </button>
   <button type="button" class="ms-side__item" onclick="window.openInventoryHub && window.openInventoryHub();" aria-label="재고관리">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-package"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--coral"><i class="ph-duotone ph-package"></i></span></span>
     <span class="ms-side__label">재고관리</span>
   </button>
   <button type="button" class="ms-side__item" onclick="window.openServiceTemplates && window.openServiceTemplates();" aria-label="시술 메뉴">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-scissors"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><i class="ph-duotone ph-scissors"></i></span></span>
     <span class="ms-side__label">시술 메뉴</span>
   </button>
 
   <div class="ms-side__section">통합 허브</div>
   <button type="button" class="ms-side__item" onclick="window.openAiHub && window.openAiHub();" aria-label="AI · 자동화">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-sparkles"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--purple"><i class="ph-duotone ph-sparkle"></i></span></span>
     <span class="ms-side__label">AI · 자동화</span>
   </button>
   <button type="button" class="ms-side__item" onclick="window.openSettingsHub && window.openSettingsHub();" aria-label="설정 · 연동">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-settings"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--gray"><i class="ph-duotone ph-gear-six"></i></span></span>
     <span class="ms-side__label">설정 · 연동</span>
   </button>
 
   <div class="ms-side__section">계정</div>
   <button type="button" class="ms-side__item" onclick="(window.openPlan || window.openPlanPopup)?.();" aria-label="플랜 · Free">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-star"/></svg></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--amber"><i class="ph-duotone ph-star"></i></span></span>
     <span class="ms-side__label">플랜 · Free</span>
   </button>
-  <button type="button" class="ms-side__item" onclick="window.openSupport && window.openSupport();" aria-label="도움말">
-    <span class="ms-side__icon"><svg width="18" height="18"><use href="#ic-message-circle"/></svg></span>
-    <span class="ms-side__label">도움말</span>
+  <button type="button" class="ms-side__item" onclick="setTimeout(function(){(window.openHelpGuide)?.();},0);" aria-label="사용 가이드">
+    <span class="ms-side__icon"><span class="ic-box ic-box--teal"><i class="ph-duotone ph-book-open"></i></span></span>
+    <span class="ms-side__label">사용 가이드</span>
+  </button>
+  <button type="button" class="ms-side__item" onclick="setTimeout(function(){(window.openSupport || window.openSupportChat)?.();},0);" aria-label="문의하기">
+    <span class="ms-side__icon"><span class="ic-box ic-box--teal"><i class="ph-duotone ph-chat-circle-dots"></i></span></span>
+    <span class="ms-side__label">문의하기</span>
   </button>
 
   <button type="button" class="ms-side__fab" onclick="openNavSheet()" aria-label="만들기" data-haptic="light">
-    <svg width="16" height="16"><use href="#ic-sparkles"/></svg>
+    <i class="ph-duotone ph-sparkle" style="font-size:16px;"></i>
     만들기
   </button>
 </aside>
@@ -673,22 +813,26 @@
     </div>
     <button class="sheet-row" onclick="closeSettings(); connectInstagram();">인스타 연결하기 / 다시 연결</button>
     <button class="sheet-row" onclick="closeSettings(); disconnectInstagram();" style="color:var(--danger);">인스타 연결 해제</button>
-    <!-- [2026-04-24] 디바이스 간 데이터 동기화 (Task 3 · 전략 C) -->
+    <!-- [2026-04-24] 디바이스 간 데이터 동기화 (Task 3 · 전략 C). 2026-05-08 라벨/진행률 명확화 -->
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.forceSync && window.forceSync();">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex-shrink:0;margin-right:10px;"><use href="#ic-refresh-cw"/></svg>
-      <span>데이터 동기화</span>
-      <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">다른 기기랑 다르게 보일 때 한 번 누르세요</span>
+      <span class="ic-box ic-box--sm ic-box--blue" style="flex-shrink:0;margin-right:10px;"><i class="ph-duotone ph-arrows-clockwise"></i></span>
+      <span>전체 데이터 새로고침</span>
+      <span data-last-sync style="margin-left:auto;font-size:10.5px;color:var(--text-subtle,#aaa);font-weight:500;"></span>
+      <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">예약·매출·고객·재고를 서버에서 다시 받아와요. 다른 기기랑 다르게 보일 때 누르세요.</span>
     </button>
-    <button class="sheet-row" onclick="closeSettings(); runPersonaAnalyze();">내 말투 새로 분석하기</button>
+    <button class="sheet-row" onclick="closeSettings(); runPersonaAnalyze(true);">내 말투 새로 분석하기</button>
     <button class="sheet-row" onclick="closeSettings(); resetShopSetup();">샵 정보 다시 설정하기</button>
+    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openHelpGuide();">
+      <span class="ic-box ic-box--sm ic-box--teal" style="margin-right:6px;"><i class="ph-duotone ph-book-open"></i></span> 사용 가이드 (워크플로우)
+    </button>
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openSupportChat();">
-      💬 고객센터
-      <span id="supportUnreadBadge" style="display:none;margin-left:8px;background:#f18091;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;"></span>
+      <span class="ic-box ic-box--sm ic-box--blue" style="margin-right:6px;"><i class="ph-duotone ph-headset"></i></span> 고객센터 (문의하기)
+      <span id="supportUnreadBadge" style="display:none;margin-left:8px;background:var(--brand);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;"></span>
     </button>
     <!-- 2026-05-01 ── 친구초대 제거 (사용자 요청) -->
 
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openPowerView('customer');" style="flex-wrap:wrap;">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex-shrink:0;margin-right:10px;"><use href="#ic-database"/></svg>
+      <span class="ic-box ic-box--sm ic-box--purple" style="flex-shrink:0;margin-right:10px;"><i class="ph-duotone ph-database"></i></span>
       <span>빠른 데이터 입력 (파워뷰)</span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">고객·예약·매출·재고 빠르게 한 번에</span>
     </button>
@@ -697,7 +841,7 @@
          왼쪽 메뉴 → AI 자동화 / 설정·연동 허브로 통합. 중복 제거.
          '회원권 만료 임박' 만 hot shortcut 으로 유지 (Premium 사용자 자주 액세스). -->
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.MembershipUI && window.MembershipUI.openExpiringList(30);" style="flex-wrap:wrap;">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex-shrink:0;margin-right:10px;"><use href="#ic-alert-triangle"/></svg>
+      <span class="ic-box ic-box--sm ic-box--coral" style="flex-shrink:0;margin-right:10px;"><i class="ph-duotone ph-ticket"></i></span>
       <span>회원권 만료 임박</span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">30일 내 만료 고객 + 충전 안내 1탭</span>
     </button>
@@ -705,26 +849,26 @@
     <div class="sheet-sep"></div>
     <div style="padding:6px 20px 8px;font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1.5px;">앱 설정</div>
     <button class="sheet-row" onclick="toggleHapticSetting(); updateHapticToggleLabel();">
-      📳 진동 <span id="hapticToggleStatus" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">켜짐</span>
+      <span class="ic-box ic-box--sm ic-box--gray" style="margin-right:6px;"><i class="ph-duotone ph-vibrate"></i></span> 진동 <span id="hapticToggleStatus" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">켜짐</span>
     </button>
     <button id="themeToggleBtn" class="sheet-row" onclick="window.cycleTheme && window.cycleTheme();">
-      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" style="flex-shrink:0"><use id="themeToggleIcon" href="#ic-sun"/></svg>
+      <span class="ic-box ic-box--sm ic-box--amber" style="flex-shrink:0;margin-right:6px;"><i class="ph-duotone ph-sun" id="themeToggleIcon"></i></span>
       화면 <span id="themeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">라이트</span>
     </button>
     <button class="sheet-row" onclick="window.cycleFontSize && window.cycleFontSize();">
-      🔠 글씨 크기 <span id="fontSizeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">보통</span>
+      <span class="ic-box ic-box--sm ic-box--gray" style="margin-right:6px;"><i class="ph-duotone ph-text-aa"></i></span> 글씨 크기 <span id="fontSizeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">보통</span>
     </button>
 
     <div class="sheet-sep"></div>
 
     <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.openGrowthStory && window.openGrowthStory();">
-      🎉 월간 성장 리포트 <span style="margin-left:auto;font-size:11px;color:#888;">공유 이미지</span>
+      <span class="ic-box ic-box--sm ic-box--amber" style="margin-right:6px;"><i class="ph-duotone ph-chart-line-up"></i></span> 월간 성장 리포트 <span style="margin-left:auto;font-size:11px;color:#888;">공유 이미지</span>
     </button>
 
     <div class="sheet-sep"></div>
 
-    <a class="sheet-row" href="https://itdasy.com/terms.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">📃 이용약관</a>
-    <a class="sheet-row" href="https://itdasy.com/privacy.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">🔒 개인정보처리방침</a>
+    <a class="sheet-row" href="https://itdasy.com/terms.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><span class="ic-box ic-box--sm ic-box--gray" style="margin-right:6px;"><i class="ph-duotone ph-file-text"></i></span> 이용약관</a>
+    <a class="sheet-row" href="https://itdasy.com/privacy.html" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;"><span class="ic-box ic-box--sm ic-box--gray" style="margin-right:6px;"><i class="ph-duotone ph-lock"></i></span> 개인정보처리방침</a>
 
     <div class="sheet-sep"></div>
 
@@ -733,12 +877,12 @@
       상호: <strong>와이투두 (Y2do)</strong><br>
       사업자등록번호: 179-36-01681<br>
       대표: 강연준<br>
-      이메일: <a href="mailto:contact@itdasy.com" style="color:#D95F70;">contact@itdasy.com</a><br>
-      개인정보 보호 문의: <a href="mailto:contact@itdasy.com" style="color:#D95F70;">contact@itdasy.com</a>
+      이메일: <a href="mailto:contact@itdasy.com" style="color:var(--brand-strong);">contact@itdasy.com</a><br>
+      개인정보 보호 문의: <a href="mailto:contact@itdasy.com" style="color:var(--brand-strong);">contact@itdasy.com</a>
     </div>
 
     <button class="sheet-row muted" onclick="closeSettings(); localReset();">앱 전체 초기화</button>
-    <button class="sheet-row" id="exportDataBtn" style="color:#0a7b3e;font-weight:700;"><svg width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:6px;"><use href="#ic-package"/></svg>내 데이터 내보내기 (CSV·JSON)</button>
+    <button class="sheet-row" id="exportDataBtn" style="color:#0a7b3e;font-weight:700;"><span class="ic-box ic-box--sm ic-box--teal" style="vertical-align:-3px;margin-right:6px;"><i class="ph-duotone ph-export"></i></span>내 데이터 내보내기 (CSV·JSON)</button>
     <div style="padding:0 16px 6px;font-size:11px;color:#999;line-height:1.6;">
       GDPR Art. 20 · CCPA · PIPA 제35조 — 내가 입력한 전체 데이터를 기계 판독 가능 형식으로 다운로드.
     </div>
@@ -746,7 +890,7 @@
 
     <div class="sheet-sep"></div>
 
-    <button class="sheet-row" id="deleteAccountBtn" style="color:#b00020;font-weight:700;">🗑 계정 탈퇴 (모든 데이터 영구 삭제)</button>
+    <button class="sheet-row" id="deleteAccountBtn" style="color:#b00020;font-weight:700;"><i class="ph-duotone ph-trash" style="font-size:16px;color:#b00020;margin-right:4px;"></i> 계정 탈퇴 (모든 데이터 영구 삭제)</button>
     <div style="padding:0 16px 6px;font-size:11px;color:#999;line-height:1.6;">
       탈퇴 시 고객·예약·매출·사진 등 모든 데이터가 복구 불가능하게 삭제됩니다.<br>
       문의: <a href="mailto:contact@itdasy.com" style="color:#888;">contact@itdasy.com</a>
@@ -789,8 +933,8 @@
 <!-- ───── 고객센터 채팅 모달 (메신저 스타일) ───── -->
 <div id="supportChatModal" style="display:none;position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
   <div id="supportChatCard" style="width:100%;max-width:480px;height:92vh;max-height:700px;background:#fff;display:flex;flex-direction:column;border-radius:20px 20px 0 0;overflow:hidden;box-shadow:0 -4px 20px rgba(0,0,0,0.15);">
-    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px calc(14px + env(safe-area-inset-top, 0px));background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;">
-      <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;">💬</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 16px calc(14px + env(safe-area-inset-top, 0px));background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;">
+      <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;"><i class="ph-duotone ph-chat-circle-dots" style="font-size:18px;"></i></div>
       <div style="flex:1;">
         <div style="font-size:14px;font-weight:800;letter-spacing:-0.3px;">잇데이 고객지원팀</div>
         <div style="font-size:11px;opacity:0.85;">보통 1영업일 내 답변드려요</div>
@@ -800,7 +944,7 @@
 
     <div id="supportChatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f7f7f9;">
       <div style="display:flex;gap:8px;align-items:flex-end;">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">잇</div>
+        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">잇</div>
         <div style="background:#fff;border-radius:4px 14px 14px 14px;padding:10px 14px;max-width:78%;font-size:13px;line-height:1.5;color:#333;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
           안녕하세요 사장님! 💕<br>불편한 점이나 문의사항 있으시면 편하게 남겨주세요. 답변은 카톡 알림 대신 이 채팅방으로 드려요.
         </div>
@@ -809,7 +953,7 @@
 
     <form id="supportChatForm" onsubmit="event.preventDefault(); sendSupportMessage();" style="padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #eee;background:#fff;display:flex;gap:8px;">
       <input type="text" id="supportChatInput" maxlength="2000" placeholder="메시지 입력..." autocomplete="off" style="flex:1;padding:11px 14px;border-radius:20px;border:1px solid #e0e0e0;font-size:14px;background:#f7f7f9;outline:none;">
-      <button type="submit" data-haptic="success" style="background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:18px;cursor:pointer;flex-shrink:0;">➤</button>
+      <button type="submit" data-haptic="success" aria-label="메시지 보내기" style="background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:18px;cursor:pointer;flex-shrink:0;">➤</button>
     </form>
   </div>
 </div>
@@ -830,34 +974,34 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border-strong);margin:4px auto 14px;"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <h3 style="margin:0;font-size:17px;font-weight:800;">뭐부터 할까요?</h3>
-      <button onclick="closeNavSheet()" style="width:34px;height:34px;border-radius:999px;border:none;
+      <button onclick="closeNavSheet()" aria-label="만들기 메뉴 닫기" style="width:34px;height:34px;border-radius:999px;border:none;
               background:var(--surface-2);cursor:pointer;display:grid;place-items:center;">
-        <svg width="16" height="16"><use href="#ic-x"/></svg>
+        <i class="ph-duotone ph-x" style="font-size:16px;"></i>
       </button>
     </div>
     <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('workshop',null); if(typeof initWorkshopTab==='function')initWorkshopTab();">
-      <span class="nav-sheet-ic"><svg width="20" height="20"><use href="#ic-camera"/></svg></span>
+      <span class="nav-sheet-ic"><span class="ic-box ic-box--pink"><i class="ph-duotone ph-camera"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">새로 만들기</span>
         <span class="nav-sheet-s">사진 올리면 AI가 글까지 알아서</span>
       </span>
     </button>
-    <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('workshop',null); if(typeof initWorkshopTab==='function')initWorkshopTab();">
-      <span class="nav-sheet-ic"><svg width="20" height="20"><use href="#ic-image"/></svg></span>
+    <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('portfolio',null); if(typeof loadPortfolio==='function') loadPortfolio();">
+      <span class="nav-sheet-ic"><span class="ic-box ic-box--purple"><i class="ph-duotone ph-images"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">포트폴리오</span>
-        <span class="nav-sheet-s">작업실에서 슬롯·사진 관리</span>
+        <span class="nav-sheet-s">발행 / 보관 콘텐츠 모음</span>
       </span>
     </button>
     <button class="nav-sheet-opt" onclick="closeNavSheet(); goCaption();">
-      <span class="nav-sheet-ic"><svg width="20" height="20"><use href="#ic-pen-line"/></svg></span>
+      <span class="nav-sheet-ic"><span class="ic-box ic-box--teal"><i class="ph-duotone ph-pencil-line"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">글쓰기</span>
         <span class="nav-sheet-s">내 말투 배운 AI가 써줘요</span>
       </span>
     </button>
     <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('finish',null); if(typeof initFinishTab==='function')initFinishTab();">
-      <span class="nav-sheet-ic"><svg width="20" height="20"><use href="#ic-check-circle"/></svg></span>
+      <span class="nav-sheet-ic"><span class="ic-box ic-box--amber"><i class="ph-duotone ph-check-circle"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">마무리</span>
         <span class="nav-sheet-s">완성된 포스트 인스타에 올리기</span>
@@ -882,16 +1026,16 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <nav class="tab-bar" id="nav" role="tablist" aria-label="메인 네비게이션" style="position: static; bottom: auto; left: auto; right: auto; margin: 0; pointer-events: auto;">
     <button type="button" class="tab-bar__btn active" data-tab="home" data-prefetch="home"
             onclick="showTab('home',this)" aria-label="홈 탭">
-      <svg class="tab-bar__icon"><use href="#ic-home"/></svg>
+      <i class="ph-duotone ph-house tab-bar__icon"></i>
       <span class="tab-bar__label">홈</span>
     </button>
     <button type="button" class="tab-bar__fab" data-haptic="light"
             onclick="openNavSheet()" aria-label="만들기">
-      <svg width="24" height="24"><use href="#ic-wand-sparkles"/></svg>
+      <i class="ph-duotone ph-sparkle" style="font-size:24px;"></i>
     </button>
     <button type="button" class="tab-bar__btn" data-tab="dashboard" data-prefetch="dashboard,customer,revenue,inventory,bookings"
             onclick="showTab('dashboard',this); if(typeof initDashboardTab==='function')initDashboardTab();" aria-label="내 샵 관리 탭">
-      <svg class="tab-bar__icon"><use href="#ic-store"/></svg>
+      <i class="ph-duotone ph-storefront tab-bar__icon"></i>
       <span class="tab-bar__label">내 샵 관리</span>
     </button>
   </nav>
@@ -905,7 +1049,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
       width: 56px; height: 56px;
       border-radius: 50%;
       border: none;
-      background: linear-gradient(135deg, #F18091, #D95F70);
+      background: linear-gradient(135deg, var(--brand), var(--brand-strong));
       color: #fff;
       display: flex;
       align-items: center;
@@ -930,75 +1074,77 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   </div>
 
   <!-- 2026-05-01 ── 깜빡임 방지: 캐시 보고 미리 화면 결정 (검사 응답 오기 전).
-       checkInstaStatus 가 실제 상태로 마지막에 덮어씀. 첫 방문은 캐시 없어 그대로 pre-connect. -->
+       checkInstaStatus 가 실제 상태로 마지막에 덮어씀. 첫 방문은 캐시 없어 그대로 pre-connect.
+       [2026-05-08 v117] OAuth 직후 (?connected=success) 도 잇비카드 즉시 숨김 — status 호출 결과 기다리지 않음. -->
   <script>
     try {
-      if (localStorage.getItem('itdasy:ig_connected_cache') === '1') {
-        document.write('<style>#homePreConnect{display:none !important}#homePostConnect{display:flex !important}</style>');
+      const _isOAuthBack = new URLSearchParams(location.search).get('connected') === 'success';
+      const _cached = localStorage.getItem('itdasy:ig_connected_cache') === '1';
+      if (_isOAuthBack || _cached) {
+        document.write('<style>#homePreConnect{display:none}#homePostConnect{display:flex}</style>');
       }
     } catch (_e) { /* ignore */ }
   </script>
 
   <!-- ── 연동 전 상태 ── -->
-  <div id="homePreConnect" class="hc-section">
-
-    <div class="hc-step1">
-      <div class="hc-step-label">인스타 연결 (선택)</div>
-      <div class="hc-title">연결 한 번이면<br>말투까지 학습해요</div>
-      <div class="hc-desc">연결 없이도 AI 캡션·사진 편집은 전부 사용 가능해요<br><span style="font-size:12px; color:var(--text-subtle);">연결하면 내 말투 그대로 글이 나와요</span></div>
-      <!-- [2026-04-26] 인스타 = 콘텐츠 발행/말투 분석용. 잇데이 로그인 계정과 별개임을 명시 -->
-      <div style="margin:6px 0 10px; padding:8px 10px; background:rgba(241,128,145,0.06); border-radius:8px; font-size:11px; color:var(--text-subtle); line-height:1.55;">
-        이 연결은 <strong style="color:var(--text-muted);">잇데이 로그인 계정과 별개</strong>예요. 콘텐츠 발행 · 말투 분석용으로만 쓰여요.
+  <div id="homePreConnect" class="hc-section ipc-section">
+    <div class="ipc-hero">
+      <div class="ipc-char" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><use href="#ic-bot"/></svg>
       </div>
-      <button class="hc-btn-primary" onclick="connectInstagram()" data-haptic="light" style="min-height:48px;">연결하고 시작해요</button>
-      <button class="hc-btn-ghost" id="sampleBtn" style="min-height:44px; display:flex; align-items:center; justify-content:center; gap:6px;">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-        샘플 캡션 먼저 볼게요
-      </button>
-      <button class="hc-btn-ghost" onclick="openNavSheet()" style="min-height:44px;">나중에 — 먼저 둘러볼게요</button>
-    </div>
+      <div class="ipc-label">사장님의 AI 비서, 잇비</div>
+      <div class="ipc-hello">안녕하세요 사장님 😊</div>
+      <h2 class="ipc-headline">말 한마디로,<br>매장 운영 <b>다 챙겨드려요</b></h2>
 
-    <div class="hc-preview">
-      <div class="hc-preview-label">연동하면 이런 게 돼요</div>
-      <div style="display:flex; flex-direction:column; gap:12px; margin-top:4px;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div class="hc-preview-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <div class="ipc-bubble">
+        <div class="ipc-bubble-label">잇비가 하는 일</div>
+
+        <div class="ipc-item">
+          <div class="ipc-icon"><i class="ph-duotone ph-pen" aria-hidden="true"></i></div>
+          <div class="ipc-body">
+            <div class="ipc-title">인스타 피드 글 자동 작성</div>
+            <div class="ipc-sub">사장님 말투 그대로 — 해시태그까지</div>
           </div>
-          <div style="font-size:13px; color:var(--text-muted); line-height:1.5;"><strong style="color:var(--text); font-weight:700;">내 말투 그대로</strong> 피드 글 자동 생성</div>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div class="hc-preview-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+
+        <div class="ipc-item">
+          <div class="ipc-icon"><i class="ph-duotone ph-calendar-dots" aria-hidden="true"></i></div>
+          <div class="ipc-body">
+            <div class="ipc-title">"김서연 2시 예약 추가"</div>
+            <div class="ipc-sub"><span class="ipc-arrow">→</span>캘린더에 자동 삽입</div>
           </div>
-          <div style="font-size:13px; color:var(--text-muted); line-height:1.5;"><strong style="color:var(--text); font-weight:700;">게시물 30개</strong> 분석해서 말투 학습</div>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div class="hc-preview-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+
+        <div class="ipc-item">
+          <div class="ipc-icon"><i class="ph-duotone ph-chat-circle" aria-hidden="true"></i></div>
+          <div class="ipc-body">
+            <div class="ipc-title">손님 DM 답장 초안 자동 작성</div>
+            <div class="ipc-sub">사장님 말투 그대로 — <span class="ipc-arrow">→</span>승인 한 번이면 발송 끝</div>
           </div>
-          <div style="font-size:13px; color:var(--text-muted); line-height:1.5;"><strong style="color:var(--text); font-weight:700;">3초</strong>면 글 완성 — 해시태그 포함</div>
         </div>
       </div>
+
+      <button class="ipc-cta" onclick="connectInstagram()" data-haptic="light">인스타 연결하기</button>
+      <button class="ipc-skip" onclick="_dismissIpcCard()">지금은 됐어요</button>
     </div>
 
-    <div id="privacyConsentWrap" style="font-size:11px; color:var(--text-subtle);">
-      <div style="display:flex; align-items:center; gap:6px; cursor:pointer;" onclick="(function(){const b=document.getElementById('consentBody');const arr=document.getElementById('consentArrow');if(b.style.display==='none'){b.style.display='block';arr.textContent='▲';}else{b.style.display='none';arr.textContent='▼';}})()">
-        <span id="consentArrow" style="font-size:9px; color:var(--brand);">▼</span>
-        <span id="consentTimestampDisplay" style="color:var(--brand); font-size:10px; display:none;"></span>
-      </div>
-      <div id="consentBody" style="display:none; margin-top:8px; padding:10px; background:var(--brand-bg); border-radius:8px; border:0.5px solid rgba(241,128,145,0.2);">
-        <input type="checkbox" id="privacyConsentCb" style="display:none;" checked>
-        <div style="line-height:1.6; margin-bottom:8px;">AI 분석용 데이터 수집 및 인스타그램 게시물 발행에 활용됩니다.<br><span style="font-size:10px; color:var(--text-subtle);">AI 저작권 면책 준수 포함.</span></div>
-        <a href="privacy.html" target="_blank" style="color:var(--brand); text-decoration:underline; font-size:11px;">개인정보처리방침 전문 보기</a>
-      </div>
-    </div>
-
+    <!-- 호환 — 기존 코드가 참조하는 ID 들 hidden 으로 보존 -->
     <div id="instaConnectRow" style="display:none;">
-      <div style="flex:1;"><span id="instaStatusText"></span></div>
+      <span id="instaStatusText"></span>
       <button id="instaBtn" onclick="connectInstagram()">연동하기</button>
     </div>
+    <span id="consentTimestampDisplay" style="display:none;"></span>
+  </div>
 
+  <!-- 잇비 카드 닫음 후 메인홈 상단에 표시 — 재진입 경로 -->
+  <div id="ipcMiniBar" class="ipc-mini-bar" style="display:none;"
+       onclick="connectInstagram()" data-haptic="light">
+    <span class="ipc-mini-bar-text">인스타 연결하면 잇비 시작</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2"
+         stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
   </div>
 
   <!-- ── 연동 후 상태 (홈 v4.1 톤다운) ── -->
@@ -1083,10 +1229,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 
       <!-- [만들기 버튼 sticky] -->
       <div id="captionCtrlBar" style="position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;">
-        <button id="captionBtn" data-haptic="medium" onclick="generateCaption()" style="flex:1;padding:11px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기 ✨</button>
+        <button id="captionBtn" data-haptic="medium" onclick="generateCaption()" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기</button>
         <!-- E2: 음성 캡션 진입 — 음성으로 한 줄 → AI 캡션·해시태그 + 재방문 제안 -->
-        <button id="captionVoiceBtn" type="button" data-haptic="medium" onclick="window.openVoiceCaption&&window.openVoiceCaption()" aria-label="음성 캡션" style="padding:11px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-          <svg width="14" height="14" aria-hidden="true"><use href="#ic-mic"/></svg> 음성
+        <button id="captionVoiceBtn" type="button" data-haptic="medium" onclick="window.openVoiceCaption&&window.openVoiceCaption()" aria-label="음성 캡션" style="padding:11px 14px;border-radius:12px;border:1px solid var(--border-strong);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          <i class="ph-duotone ph-microphone" style="font-size:14px" aria-hidden="true"></i> 음성
         </button>
       </div>
 
@@ -1103,12 +1249,32 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
             <div class="insta-frame-meta">방금 · 게시물 미리보기</div>
           </div>
         </div>
+        <!-- [2026-05-05 19차-B] 인스타 시뮬 — 사진 + dots + 액션 아이콘 -->
+        <div id="captionPreviewImg" class="insta-frame-img" style="display:none;">
+          <img id="captionPreviewImgEl" alt="" />
+          <div id="captionPreviewDots" class="insta-frame-img__dots" style="display:none;"></div>
+        </div>
+        <div id="captionPreviewIcons" class="insta-frame-icons" style="display:none;">
+          <button class="insta-frame-icon" type="button" aria-label="좋아요" tabindex="-1">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </button>
+          <button class="insta-frame-icon" type="button" aria-label="댓글" tabindex="-1">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </button>
+          <button class="insta-frame-icon" type="button" aria-label="공유" tabindex="-1">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+          <span style="flex:1;"></span>
+          <button class="insta-frame-icon" type="button" aria-label="북마크" tabindex="-1">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+        </div>
         <div class="insta-frame-body">
           <textarea id="captionText"
             class="insta-caption-text"
             rows="5"
             oninput="_capAutoGrow(this);_capSchedulePatch(this.value)"
-            placeholder="'만들기 ✨'를 눌러 AI 캡션을 생성하세요"
+            placeholder="'만들기'를 눌러 AI 캡션을 생성하세요"
             style="width:100%;box-sizing:border-box;min-height:160px;padding:0;border:none;outline:none;background:transparent;resize:none;overflow:hidden;display:block;"></textarea>
           <textarea id="captionHash"
             class="insta-hashtag-text"
@@ -1150,7 +1316,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <!-- 외부 JS 호환 hidden anchor — 보존 -->
   <header class="dashboard-topbar" style="display:none;" aria-hidden="true">
     <button class="drawer-trigger" type="button" data-drawer-trigger data-haptic="light" aria-label="메뉴 열기" aria-controls="shopDrawer">
-      <svg class="ic" aria-hidden="true"><use href="#ic-menu"/></svg>
+      <i class="ph-duotone ph-list ic" aria-hidden="true"></i>
     </button>
     <h1>내 샵 관리</h1>
   </header>
@@ -1233,7 +1399,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
     <textarea id="ocpTextarea" placeholder="AI가 쓴 테스트 글이 여기 나와요..."></textarea>
     <div class="ocp-actions">
       <button class="ocp-skip" onclick="closeOnboardingCaptionPopup()">나중에</button>
-      <button class="ocp-save" onclick="saveOnboardingCaption()">학습 완료! 반영하기 ✨</button>
+      <button class="ocp-save" onclick="saveOnboardingCaption()">학습 완료! 반영하기</button>
     </div>
   </div>
 </div>
@@ -1259,7 +1425,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
         <div class="slot-locked" id="slotLock2"></div>
       </div>
     </div>
-    <div id="clHint">키워드 조합 중이에요 ✨</div>
+    <div id="clHint">키워드 조합 중이에요...</div>
   </div>
 </div>
 
@@ -1277,7 +1443,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <div class="ud-card">
     <div style="font-size:52px; margin-bottom:16px;">🎀</div>
     <div style="font-size:20px; font-weight:800; color:var(--text); margin-bottom:8px; letter-spacing:-0.5px;">업로드 완료!</div>
-    <div id="uploadDoneMsg" style="font-size:14px; color:var(--text2); margin-bottom:32px; line-height:1.6;">인스타 피드에 올라갔어요 ✨</div>
+    <div id="uploadDoneMsg" style="font-size:14px; color:var(--text2); margin-bottom:32px; line-height:1.6;">인스타 피드에 올라갔어요!</div>
     <button onclick="openInstagramProfile()" style="display:block; width:100%; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045); color:#fff; font-size:14px; font-weight:800; cursor:pointer; margin-bottom:12px; letter-spacing:-0.01em;">인스타 확인하러 가기 →</button>
     <button onclick="closeUploadDone()" style="display:block; width:100%; padding:14px; border-radius:16px; border:none; background:var(--bg3); color:var(--text2); font-size:14px; font-weight:700; cursor:pointer;">확인</button>
   </div>
@@ -1298,6 +1464,36 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <div id="finishRoot"></div>
 </div>
 
+<!-- 포트폴리오 탭 -->
+<section id="tab-portfolio" class="tab">
+  <header style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:0.5px solid var(--border);">
+    <button onclick="showTab('home', document.querySelector('.tab-bar__btn[data-tab=&quot;home&quot;]'));" style="width:32px;height:32px;border-radius:999px;background:transparent;border:none;cursor:pointer;display:grid;place-items:center;color:var(--text);">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h1 style="font-size:15px;font-weight:700;letter-spacing:-0.3px;">포트폴리오</h1>
+    <div style="width:32px;"></div>
+  </header>
+  <div style="padding:14px 16px 16px;">
+    <div id="portfolioMainFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
+    <div id="portfolioSubFilterWrap" style="display:none;margin-bottom:10px;">
+      <div id="portfolioSubFilters" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+    <div id="portfolioAllTagsWrap" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px;"></div>
+    <div id="portfolioGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+    <div id="portfolioEmpty" style="display:none;text-align:center;padding:60px 20px;color:var(--text3);">
+      <div style="width:64px;height:64px;border-radius:999px;background:var(--brand-bg,#FCEEF1);display:grid;place-items:center;color:var(--accent,var(--brand));margin:0 auto 16px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px;margin-bottom:6px;">아직 작업물이 없어요</div>
+      <div style="font-size:12.5px;color:var(--text3);line-height:1.55;margin-bottom:20px;">만들러 가보실까요?</div>
+      <button onclick="showTab('workshop', document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); if(typeof initWorkshopTab==='function')initWorkshopTab();" style="padding:13px 28px;border:none;background:var(--accent,var(--brand));color:#fff;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:-0.2px;display:inline-flex;align-items:center;gap:6px;">
+        만들러 가기
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
 <!-- 갤러리 슬롯 팝업 (§5.9 dt-overlay 풀스크린) -->
 <div id="slotPopup" class="dt-overlay" style="display:none;" oncontextmenu="return false">
   <header class="dt-hdr">
@@ -1314,23 +1510,23 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <div id="slotPopupBody" class="dt-body" style="padding-bottom:calc(220px + env(safe-area-inset-bottom));"></div>
   <!-- 하단 도구바 (ws-toolbar) -->
   <div id="slotToolbar" class="ws-toolbar">
-    <button onclick="openBgPanel()" class="ws-toolbar__btn" aria-label="배경">
-      <svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg>배경
+    <button onclick="openBgPanel()" class="ws-toolbar__btn" aria-label="누끼따기">
+      <i class="ph-duotone ph-image ic" aria-hidden="true"></i>누끼따기
     </button>
     <button onclick="openEnhancePanel()" class="ws-toolbar__btn" aria-label="보정">
-      <svg class="ic" aria-hidden="true"><use href="#ic-sparkles"/></svg>보정
+      <i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>보정
     </button>
-    <button id="baBtnToolbar" onclick="toggleBAMode()" class="ws-toolbar__btn" aria-label="비포/애프터">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4m4 4H4"/></svg>B/A
+    <button id="baBtnToolbar" onclick="toggleBAMode()" class="ws-toolbar__btn" aria-label="전후합성">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4m4 4H4"/></svg>전후합성
     </button>
-    <button onclick="openElementPanel()" class="ws-toolbar__btn" aria-label="요소">
-      <svg class="ic" aria-hidden="true"><use href="#ic-sparkles"/></svg>요소
+    <button onclick="openElementPanel()" class="ws-toolbar__btn" aria-label="로고">
+      <i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>로고
+    </button>
+    <button onclick="openReviewPanel()" class="ws-toolbar__btn" aria-label="리뷰">
+      <i class="ph-duotone ph-star ic" aria-hidden="true"></i>리뷰
     </button>
     <button onclick="openTemplatePanel()" class="ws-toolbar__btn" aria-label="템플릿">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>템플릿
-    </button>
-    <button onclick="openReviewPanel()" class="ws-toolbar__btn" aria-label="리뷰">
-      <svg class="ic" aria-hidden="true"><use href="#ic-star"/></svg>리뷰
     </button>
   </div>
 </div>
@@ -1339,7 +1535,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <div id="enhancePanel" class="ws-panel" onclick="if(event.target===this)closeEnhancePanel()">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
-      <span class="ws-panel__title"><svg class="ic" aria-hidden="true"><use href="#ic-sparkles"/></svg>사진 보정</span>
+      <span class="ws-panel__title"><i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>사진 보정</span>
       <button onclick="closeEnhancePanel()" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -1352,7 +1548,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <div id="bgPanel" class="ws-panel" onclick="if(event.target===this)closeBgPanel()">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
-      <span class="ws-panel__title"><svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg>배경창고</span>
+      <span class="ws-panel__title"><i class="ph-duotone ph-image ic" aria-hidden="true"></i>배경창고</span>
       <button onclick="closeBgPanel()" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -1365,7 +1561,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <div id="elementPanel" class="ws-panel" onclick="if(event.target===this)closeElementPanel()">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
-      <span class="ws-panel__title"><svg class="ic" aria-hidden="true"><use href="#ic-sparkles"/></svg>요소창고</span>
+      <span class="ws-panel__title"><i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>요소창고</span>
       <button onclick="closeElementPanel()" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -1412,7 +1608,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <div id="reviewPanel" class="ws-panel" onclick="if(event.target===this)closeReviewPanel()">
   <div class="ws-panel__sheet ws-panel__sheet--lg">
     <div class="ws-panel__hdr">
-      <span class="ws-panel__title"><svg class="ic" aria-hidden="true"><use href="#ic-star"/></svg>리뷰 스티커</span>
+      <span class="ws-panel__title"><i class="ph-duotone ph-star ic" aria-hidden="true"></i>리뷰 스티커</span>
       <button onclick="closeReviewPanel()" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
@@ -1453,7 +1649,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 
     <!-- 현재 사용량 -->
     <div id="planUsageBox" style="background:#fdf5f6;border-radius:14px;padding:14px 16px;margin-bottom:18px;">
-      <div style="font-size:12px;font-weight:700;color:#f18091;margin-bottom:8px;">오늘 사용량</div>
+      <div style="font-size:12px;font-weight:700;color:var(--brand);margin-bottom:8px;">오늘 사용량</div>
       <div id="planUsageContent" style="font-size:12px;color:#555;line-height:1.9;"></div>
     </div>
 
@@ -1487,14 +1683,14 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
     </div>
 
     <!-- Pro (추천 강조) -->
-    <div id="planCardPro" class="plan-card" data-plan="pro" style="border:2px solid #f18091;border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;background:linear-gradient(135deg,#fff5f7,#fff);position:relative;transition:transform 0.15s;">
-      <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:10px;">추천</div>
+    <div id="planCardPro" class="plan-card" data-plan="pro" style="border:2px solid var(--brand);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;background:linear-gradient(135deg,#fff5f7,#fff);position:relative;transition:transform 0.15s;">
+      <div style="position:absolute;top:-8px;right:12px;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:10px;">추천</div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-size:16px;font-weight:800;color:#1a0c10;">Pro</div>
-          <div style="font-size:12px;color:#f18091;margin-top:2px;">사장님 필수 플랜</div>
+          <div style="font-size:12px;color:var(--brand);margin-top:2px;">사장님 필수 플랜</div>
         </div>
-        <div><span style="font-size:18px;font-weight:800;color:#f18091;">₩3,900</span><span style="font-size:11px;color:#999;">/월</span></div>
+        <div><span style="font-size:18px;font-weight:800;color:var(--brand);">₩3,900</span><span style="font-size:11px;color:#999;">/월</span></div>
       </div>
     </div>
 
@@ -1509,7 +1705,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
       </div>
     </div>
 
-    <button id="planActionBtn" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,#f18091,#ff9aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(241,128,145,0.3);min-height:52px;">14일 무료체험 시작하기</button>
+    <button id="planActionBtn" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(241,128,145,0.3);min-height:52px;">14일 무료체험 시작하기</button>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:#bbb;">체험 후 자동 결제되지 않습니다 · 언제든 해지 가능</div>
   </div>
 </div>
@@ -1527,70 +1723,84 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
       <div class="shop-plan">Free 플랜</div>
     </div>
     <button type="button" class="drawer-close" data-drawer-close aria-label="메뉴 닫기">
-      <svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg>
+      <i class="ph-duotone ph-x" style="font-size:18px;" aria-hidden="true"></i>
     </button>
   </header>
   <!-- [2026-04-30] 13개 → 5개 핵심으로 통합. 하위 기능은 각 hub 진입 후 카드/버튼으로 노출. -->
   <nav class="drawer-nav" aria-label="내 샵 관리 메뉴">
     <div class="drawer-group">운영</div>
     <button type="button" class="drawer-item" data-drawer-route="bookings">
-      <svg class="ic" aria-hidden="true"><use href="#ic-calendar"/></svg>
+      <span class="ic-box ic-box--sm ic-box--teal" aria-hidden="true"><i class="ph-duotone ph-calendar-check"></i></span>
       <span class="lbl">예약관리</span>
-      <svg class="chev" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
     <button type="button" class="drawer-item" data-drawer-route="customer">
-      <svg class="ic" aria-hidden="true"><use href="#ic-users"/></svg>
+      <span class="ic-box ic-box--sm ic-box--blue" aria-hidden="true"><i class="ph-duotone ph-users-three"></i></span>
       <span class="lbl">고객관리</span>
-      <svg class="chev" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
     <button type="button" class="drawer-item" data-drawer-route="revenue">
-      <svg class="ic" aria-hidden="true"><use href="#ic-trending-up"/></svg>
+      <span class="ic-box ic-box--sm ic-box--amber" aria-hidden="true"><i class="ph-duotone ph-chart-line-up"></i></span>
       <span class="lbl">매출관리</span>
-      <svg class="chev" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
     <button type="button" class="drawer-item" data-drawer-route="inventory">
-      <svg class="ic" aria-hidden="true"><use href="#ic-package"/></svg>
+      <span class="ic-box ic-box--sm ic-box--coral" aria-hidden="true"><i class="ph-duotone ph-package"></i></span>
       <span class="lbl">재고관리</span>
-      <svg class="chev" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
 
     <div class="drawer-group">AI · 자동화</div>
     <button type="button" class="drawer-item" data-drawer-route="ai_hub">
       <svg class="ic" aria-hidden="true"><use href="#ic-bot"/></svg>
       <span class="lbl">AI 자동화</span>
-      <svg class="chev" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
 
     <div class="drawer-group">설정</div>
     <button type="button" class="drawer-item" data-drawer-route="settings_hub">
-      <svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg>
+      <span class="ic-box ic-box--sm ic-box--gray" aria-hidden="true"><i class="ph-duotone ph-gear-six"></i></span>
       <span class="lbl">설정 · 연동</span>
-      <svg class="chev" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
   </nav>
 </aside>
 <!-- /shop-drawer -->
 
-<script src="app-core.js?v=20260504-1"></script>
-<script src="app-drawer.js"></script>
-<script src="app-shop-settings.js"></script>
-<script src="app-backup.js"></script>
-<script src="app-kakao-hub.js"></script>
-<script src="app-naver-link.js"></script>
-<script src="app-failures-hub.js"></script>
-<script src="app-perf-recovery.js?v=20260504-1"></script>
-<script src="app-spec-validator.js"></script>
-<script src="app-dm-autoreply.js?v=20260502-3"></script>
-<script src="app-dm-confirm-queue.js?v=20260502-3"></script>
-<script src="app-dm-conversations.js?v=20260502-3"></script>
-<script src="app-dm-manual-replies.js?v=0501"></script>
-<script src="app-instagram.js?v=20260504-1"></script>
-<script src="app-persona-survey.js"></script>
-<script src="components/scenario-selector.js"></script>
-<script src="app-caption.js"></script>
-<script src="app-portfolio.js"></script>
-<script src="app-portfolio-tags.js"></script>
-<script src="app-ai.js"></script>
+<script>
+  // [22차] 로그인 화면 이메일 폼 fold 토글
+  function toggleEmailFold() {
+    const content = document.getElementById('emailFoldContent');
+    const chev = document.getElementById('emailFoldChevron');
+    if (!content) return;
+    const isOpen = content.style.display !== 'none';
+    content.style.display = isOpen ? 'none' : 'block';
+    if (chev) chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  }
+  window.toggleEmailFold = toggleEmailFold;
+</script>
+<script src="app-core.js?v=20260506-v101"></script>
+<script src="app-drawer.js" defer></script>
+<script src="app-secure-storage.js?v=20260506-v101" defer></script>
+<script src="app-shop-settings.js?v=20260506-v101" defer></script>
+<script src="app-backup.js" defer></script>
+<script src="app-kakao-hub.js" defer></script>
+<script src="app-naver-link.js" defer></script>
+<script src="app-failures-hub.js" defer></script>
+<script src="app-perf-recovery.js?v=20260504-1" defer></script>
+<script src="app-spec-validator.js" defer></script>
+<script src="app-dm-settings-cache.js?v=20260506-v100" defer></script>
+<script src="app-dm-autoreply.js?v=20260506-v100" defer></script>
+<script src="app-dm-confirm-queue.js?v=20260502-3" defer></script>
+<script src="app-dm-conversations.js?v=20260502-3" defer></script>
+<script src="app-dm-manual-replies.js?v=0501" defer></script>
+<script src="app-instagram.js?v=20260504-1" defer></script>
+<script src="app-persona-survey.js" defer></script>
+<script src="components/scenario-selector.js" defer></script>
+<script src="app-caption.js" defer></script>
+<script src="app-portfolio.js" defer></script>
+<script src="app-portfolio-tags.js" defer></script>
+<script src="app-ai.js" defer></script>
 <!-- @imgly/background-removal — 누끼 화면 진입 시에만 lazy 로드 (parse-blocking 100~200ms 절감) -->
 <script>
 window._lazyImgly = function _lazyImgly() {
@@ -1605,31 +1815,33 @@ window._lazyImgly = function _lazyImgly() {
   return window._imglyLoading;
 };
 </script>
-<script src="app-gallery-utils.js"></script>
-<script src="app-gallery-db.js"></script>
-<script src="app-gallery-workshop.js"></script>
-<script src="app-gallery-assign.js"></script>
-<script src="app-gallery-slot-editor.js"></script>
-<script src="app-gallery-bg.js"></script>
-<script src="app-photo-enhance.js?v=20260503-1"></script>
-<script src="app-gallery-element.js"></script>
-<script src="app-gallery-review.js"></script>
-<script src="app-gallery-write.js"></script>
-<script src="app-gallery-finish.js"></script>
-<script src="app-sample-captions.js"></script>
-<script src="app-push.js"></script>
-<script src="app-notifications.js"></script>
-<script src="app-oauth-return.js"></script>
-<script src="app-haptic.js"></script>
+<script src="app-gallery-utils.js" defer></script>
+<script src="app-gallery-db.js" defer></script>
+<script src="app-gallery-workshop.js" defer></script>
+<script src="app-gallery-assign.js" defer></script>
+<script src="app-gallery-slot-editor.js" defer></script>
+<script src="app-gallery-bg.js" defer></script>
+<script src="app-photo-enhance.js?v=20260503-1" defer></script>
+<script src="app-gallery-element.js" defer></script>
+<script src="app-gallery-review.js" defer></script>
+<script src="app-gallery-write.js" defer></script>
+<script src="app-gallery-finish.js" defer></script>
+<script src="app-sample-captions.js" defer></script>
+<script src="app-push.js" defer></script>
+<script src="app-notifications.js?v=20260507-v103" defer></script>
+<script src="app-oauth-return.js" defer></script>
+<script src="app-haptic.js" defer></script>
 <!-- [2026-04-29] Fun helpers — 숫자 count-up · confetti · star burst · empty state -->
-<script src="app-fun.js"></script>
+<script src="app-fun.js" defer></script>
 <!-- 터치 제스처 통합 (시트 swipe-down · 캘린더 좌우 · 리스트 swipe · 길게누르기) -->
-<script src="app-gestures.js"></script>
-<script src="app-theme.js"></script>
-<script src="app-plan.js?v=20260504-1"></script>
-<script src="app-support.js"></script>
-<script src="app-customer.js"></script>
-<script src="app-customer-dashboard.js?v=20260502-1"></script>
+<script src="app-gestures.js" defer></script>
+<script src="app-theme.js" defer></script>
+<script src="app-plan.js?v=20260504-1" defer></script>
+<script src="app-support.js" defer></script>
+<script src="app-help-guide.js" defer></script>
+<script src="app-customer-cache.js?v=20260506-v100" defer></script>
+<script src="app-customer.js?v=20260506-v100" defer></script>
+<script src="app-customer-dashboard.js?v=20260506-v100" defer></script>
 <!-- [2026-04-29 W5] 회원권 / 정기권 UI — Premium 차별화 -->
 <script src="app-membership.js" defer></script>
 <!-- [2026-04-30] 시트 진입/종료 애니메이션 헬퍼 (SheetAnim) -->
@@ -1649,62 +1861,93 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [2026-04-29 W5] 직원 관리 — 미용실/대형샵 다중 직원 -->
 <script src="app-staff.js?v=20260504-1" defer></script>
 <!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
-<script src="app-customer-memo.js"></script>
-<script src="app-revenue.js"></script>
-<script src="app-booking-api.js"></script>
+<script src="app-customer-memo.js" defer></script>
+<script src="app-revenue.js?v=20260506-v100" defer></script>
+<script src="app-booking-api.js" defer></script>
+<script src="app-booking-approval.js" defer></script>
 <!-- E4 (2026-04-26) — 노쇼 자동 감지 + 예약 확인 메시지 -->
-<script src="app-no-show.js"></script>
-<script src="app-inventory.js"></script>
-<script src="app-nps.js"></script>
-<script src="app-naver-reviews.js"></script>
-<script src="app-video.js"></script>
-<script src="app-import.js"></script>
-<script src="app-insights.js"></script>
-<script src="app-dashboard.js?v=20260504-1"></script>
-<!-- app-voice.js 제거 — 마이크 기능 비활성 (2026-04-23) -->
-<script src="app-photo-match.js"></script>
-<script src="app-complete-flow.js?v=20260502-1"></script>
-<script src="app-auto-ba.js"></script>
-<script src="app-today-brief.js"></script>
-<script src="app-home-v41-config.js"></script>
-<script src="app-home-v41.js?v=20260504-1" defer></script>
+<script src="app-no-show.js" defer></script>
+<script src="app-inventory.js" defer></script>
+<script src="app-nps.js" defer></script>
+<script src="app-naver-reviews.js" defer></script>
+<script src="app-video.js" defer></script>
+<script src="app-import.js" defer></script>
+<script src="app-insights.js" defer></script>
+<script src="app-dashboard.js?v=20260504-1" defer></script>
+
+<script src="app-photo-match.js" defer></script>
+<script src="app-complete-flow.js?v=20260502-1" defer></script>
+<script src="app-auto-ba.js" defer></script>
+<script src="app-today-brief.js" defer></script>
+<script src="app-home-v41-config.js" defer></script>
+<script src="app-home-v41.js?v=20260508-fix1" defer></script>
 <!-- [2026-04-30] 내샵관리 v3 — 모바일 메인 + PC 사이드바·도넛·위젯·피드 -->
 <script src="app-myshop-v3.js?v=20260504-1" defer></script>
-<script src="app-birthday.js"></script>
+<script src="app-birthday.js" defer></script>
 <!-- 렉 박멸 — 챗봇/DM/영수증 무거운 스크립트는 defer 로 비차단 로드 (FCP ~120~250ms 단축 체감) -->
 <script src="app-assistant.js" defer></script>
 <script src="app-receipt-scan.js" defer></script>
-<script src="app-service-recommend.js"></script>
-<script src="app-ai-suggestions.js"></script>
-<script src="app-report.js"></script>
-<script src="app-empty-state.js"></script>
-<script src="app-service-templates.js"></script>
-<script src="app-power-view.js"></script>
-<script src="app-power-view-render.js"></script>
-<script src="app-import-wizard.js"></script>
-<script src="app-killer-widgets.js?v=20260504-1"></script>
-<script src="app-autocomplete.js"></script>
-<script src="app-revenue-hub.js"></script>
-<script src="app-revenue-report.js"></script>
-<script src="js/hubs/prototype-render.js?v=20260504-1"></script>
-<script src="app-inventory-hub.js?v=20260504-1"></script>
-<script src="app-emoji-storage.js"></script>
-<script src="app-customer-hub.js?v=20260504-1"></script>
-<script src="app-customer-sync.js"></script>
-<script src="app-calendar-view.js?v=20260504-1"></script>
-<!-- app-voice-input.js 제거 — 전역 🎤 버튼 자동주입 비활성 (2026-04-23) -->
-<script src="app-biometric.js"></script>
+<script src="app-service-recommend.js" defer></script>
+<script src="app-ai-suggestions.js" defer></script>
+<script src="app-report.js" defer></script>
+<script src="app-empty-state.js" defer></script>
+<script src="app-generic-sheet.js?v=20260505-v97" defer></script>
+<script src="app-service-templates.js?v=20260505-v97" defer></script>
+<script src="app-power-view.js" defer></script>
+<script src="app-power-view-render.js" defer></script>
+<!-- Phase 1 Tier A (2026-05-09): 정렬·필터 + ⚡ 행 액션 — 모두 self-contained, 실패 시 fall-through -->
+<script src="app-power-view-sort-filter.js?v=20260509-tierA" defer></script>
+<script src="app-power-view-actions.js?v=20260509-tierA" defer></script>
+<!-- Phase 1 Tier B (2026-05-09): 다중선택 + Undo (Cmd+Z) -->
+<script src="app-power-view-select.js?v=20260509-tierB" defer></script>
+<script src="app-power-view-undo.js?v=20260509-tierB" defer></script>
+<!-- Phase 2 (2026-05-09): 조건부 포맷 + 합계행 + 페이지네이션 + Export + 컬럼 + 클립보드 -->
+<script src="app-power-view-format.js?v=20260509-p2" defer></script>
+<script src="app-power-view-totals.js?v=20260509-p2" defer></script>
+<script src="app-power-view-pagination.js?v=20260509-p2" defer></script>
+<script src="app-power-view-export.js?v=20260509-p2" defer></script>
+<script src="app-power-view-cols.js?v=20260509-p2" defer></script>
+<script src="app-power-view-clipboard.js?v=20260509-p2" defer></script>
+<!-- Phase 3 (2026-05-10): AI 비서 통합 + 수식 + 그룹화 + 음성 -->
+<script src="app-power-view-formula.js?v=20260510-p3" defer></script>
+<script src="app-power-view-group.js?v=20260510-p3" defer></script>
+<script src="app-power-view-voice.js?v=20260510-p3" defer></script>
+<script src="app-power-view-ai-inline.js?v=20260510-p3" defer></script>
+<!-- Phase 4 (2026-05-10): 운영 분석 모달 + Free/Pro quota 칩 -->
+<script src="app-power-view-ops.js?v=20260510-p4" defer></script>
+<script src="app-power-view-quota.js?v=20260510-p4" defer></script>
+<script src="app-power-view-viz.js?v=20260510-p4b" defer></script>
+<script src="app-import-wizard.js" defer></script>
+<script src="app-killer-widgets.js?v=20260504-1" defer></script>
+<script src="app-autocomplete.js" defer></script>
+<script src="app-revenue-hub.js" defer></script>
+<script src="app-revenue-report.js" defer></script>
+<script src="js/hubs/prototype-render.js?v=20260504-1" defer></script>
+<script src="app-inventory-hub.js?v=20260504-1" defer></script>
+<script src="app-emoji-storage.js" defer></script>
+<script src="app-customer-hub.js?v=20260506-v100" defer></script>
+<script src="app-customer-sync.js" defer></script>
+<script src="app-calendar-view.js?v=20260506-v102" defer></script>
+<script src="app-public-link.js?v=20260506-v101" defer></script>
+<script src="app-waitlist.js?v=20260507-v102" defer></script>
+<script src="app-reminder.js?v=20260507-v102" defer></script>
+<script src="app-retention-ai.js?v=20260507-v102" defer></script>
+<script src="app-review.js?v=20260507-v102" defer></script>
+<script src="app-phase9-ux.js?v=20260508-fix1" defer></script>
+
+<script src="app-biometric.js" defer></script>
 <!-- 2026-05-01 ── app-referral.js 제거 (친구초대 폐지) -->
-<script src="app-growth-story.js"></script>
-<script src="app-content-report.js"></script>
+<script src="app-growth-story.js" defer></script>
+<script src="app-content-report.js" defer></script>
+<!-- 2026-05-08: cookie-consent 는 Sentry inline init 의 GDPR 가드(window.itdasyConsent) 를 정의하므로 sync 유지 -->
 <script src="app-cookie-consent.js"></script>
-<script src="app-data-export.js"></script>
+<script src="app-data-export.js" defer></script>
 <!-- D1: 1초 캡션 워크플로우 (사진 1탭 → 캡션·해시태그·9:16 스토리) — defer 비차단 -->
 <script src="app-instant-caption.js" defer></script>
 <!-- E2: 음성 캡션 워크플로우 (마이크 1탭 → 캡션·해시태그·재방문 제안) — defer 비차단 -->
 <script src="app-voice-caption.js" defer></script>
 <!-- E3: 주간 자동 보고서 (카톡 톤) -->
-<script src="app-weekly-report.js"></script>
+<script src="app-weekly-report.js" defer></script>
 <!-- T-327 · Sentry 에러 모니터링 (T-351: GDPR 동의 기반 활성화) -->
 <script>window.SENTRY_DSN_FE = "https://b3732869f4b445bc7a73a5e4cbacc4ed@o4511236563992576.ingest.us.sentry.io/4511236579852288";</script>
 <script src="https://browser.sentry-cdn.com/7.100.0/bundle.min.js" crossorigin="anonymous"></script>
@@ -1741,7 +1984,8 @@ window._lazyImgly = function _lazyImgly() {
   } catch(e) { console.warn('[sentry] init failed', e); }
 })();
 </script>
-<script src="app-debug-panel.js"></script>
+<script src="app-debug-panel.js" defer></script>
+<script src="app-side-nav-unifier.js?v=20260505-v97" defer></script>
 
 </body>
 </html>

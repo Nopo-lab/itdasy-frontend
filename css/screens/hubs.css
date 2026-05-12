@@ -4,39 +4,39 @@
    ──────────────────────────────────────────────────────────── */
 
 /* ── 허브 공통 ─────────────────────────────────────────────── */
-/* [2026-04-26] 시트 진입 애니메이션 단축 — fade 0.22→0.10s, slide 0.3→0.16s */
+/* [2026-05-04] 인라인 탭 패턴으로 통일 (홈/내샵관리 전환과 동일).
+   사이드바(220px) 항상 보이고, hub 는 우측 영역만 차지. 페이드 전환. */
 .hub-backdrop {
   position: fixed; inset: 0; z-index: 899;
   background: rgba(0,0,0,0.45);
-  animation: hub-fade-in 0.10s ease;
+  animation: hub-fade-in 0.08s ease;
 }
 @keyframes hub-fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes hub-slide-up {
-  from { transform: translateY(100%); }
-  to   { transform: translateY(0); }
-}
+/* legacy alias */
+@keyframes hub-slide-up { from { opacity: 0; } to { opacity: 1; } }
+@keyframes hub-slide-in-right { from { opacity: 0; } to { opacity: 1; } }
+
 .hub-overlay {
-  position: fixed; inset: 52px 0 0;
+  position: fixed; inset: 0;
   z-index: 900; background: #fff; overflow-y: auto;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -6px 32px rgba(0,0,0,0.18);
+  border-radius: 0;
+  box-shadow: none;
   overscroll-behavior: contain;
+  /* [2026-05-12 QA #14] iOS Safari/Capacitor 모바일 스크롤 부자연 fix —
+     -webkit-overflow-scrolling:touch 누락 시 swipe drift 가 0px 에서 멈춤. */
   -webkit-overflow-scrolling: touch;
-  animation: hub-slide-up 0.16s cubic-bezier(0.32,0.72,0,1);
+  /* iOS 키보드 올라올 때 입력칸 가려지는 문제 — 키보드 영역만큼 여유 padding. */
+  padding-bottom: env(keyboard-inset-height, 0);
+  animation: hub-fade-in 0.08s ease-out;
 }
 .hub-overlay::before, .rr-overlay::before {
-  content: ''; display: block;
-  width: 36px; height: 4px;
-  background: rgba(0,0,0,0.12); border-radius: 2px;
-  margin: 10px auto 0;
+  display: none !important;
 }
 .hub-header {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; gap: 8px;
   height: 52px; padding: 0 16px;
-  background: rgba(255,255,255,0.9);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(var(--bg-rgb,255,255,255),0.97);
   border-bottom: 0.5px solid rgba(0,0,0,0.08);
 }
 .hub-back {
@@ -95,11 +95,27 @@
   box-shadow: 0 2px 6px rgba(241,128,145,0.3);
 }
 .hub-sec-hd {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px 8px; font-size: 12px; font-weight: 700; color: #3C3C43;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: nowrap;
+  padding: 16px 16px 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #3C3C43;
+  letter-spacing: -0.3px;
   border-top: 0.5px solid rgba(0,0,0,0.06);
 }
-.hub-sec-count { color: #8E8E93; font-weight: 500; }
+.hub-sec-hd > span:first-child { flex-shrink: 0; }
+.hub-sec-count {
+  color: #8E8E93;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .hub-empty {
   display: flex; flex-direction: column; align-items: center;
   padding: 48px 24px; gap: 8px;
@@ -329,8 +345,8 @@
   margin-top: 3px; letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
 }
-.hub-stat-mini .val.danger { color: #DC4848; }
-.hub-stat-mini .val.green  { color: #10A56B; }
+.hub-stat-mini .val.danger { color: var(--accent, #F18091); }
+.hub-stat-mini .val.green  { color: var(--text, #0F1419); }
 
 /* ── 필터 칩 (고객/재고 공용) ────────────────────────────── */
 .hub-filter-chips {
@@ -396,15 +412,15 @@
 
 /* ── 배지 (단골/회원권/신규/이탈/생일) ─────────────────── */
 .badge {
-  font-size: 9.5px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   padding: 2px 7px; border-radius: 999px;
   letter-spacing: -0.1px;
   display: inline-flex; align-items: center; gap: 3px;
 }
-.badge-regular  { background: #FBD0D6; color: #C73E52; }
-.badge-member   { background: #FBD0D6; color: #C73E52; }
-.badge-new      { background: rgba(16,165,107,0.12); color: #10A56B; }
-.badge-risk     { background: rgba(220,72,72,0.10); color: #DC4848; }
+.badge-regular  { background: var(--brand-bg, #FCEEF1); color: var(--accent, #F18091); }
+.badge-member   { background: var(--brand-bg, #FCEEF1); color: var(--accent, #F18091); }
+.badge-new      { background: #F2F2F7; color: #5A6573; }
+.badge-risk     { background: var(--brand-bg, #FCEEF1); color: var(--accent, #F18091); }
 .badge-birthday { background: #F2F2F7; color: #5A6573; }
 
 /* ── OCR 가격표 카드 (재고) ─────────────────────────────── */

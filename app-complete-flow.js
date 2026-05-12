@@ -109,19 +109,19 @@
       <div style="padding:12px;background:linear-gradient(135deg,rgba(241,128,145,0.1),rgba(241,128,145,0.02));border-radius:12px;margin-bottom:14px;">
         <div style="font-size:11px;color:#888;margin-bottom:2px;">방금 완료된 시술</div>
         <div style="font-size:15px;font-weight:800;">
-          ${c.customer_name ? '👤 ' + _esc(c.customer_name) : '<span style="color:#aaa;">고객 미지정</span>'}
-          ${c.service_name ? ` <span style="font-size:12px;color:#666;font-weight:400;">· ${_esc(c.service_name)}</span>` : ''}
+          ${c.customer_name ? '👤 ' + _esc(c.customer_name) : '<span style="color:var(--text-subtle);">고객 미지정</span>'}
+          ${c.service_name ? ` <span style="font-size:12px;color:var(--text-muted);font-weight:400;">· ${_esc(c.service_name)}</span>` : ''}
         </div>
       </div>
 
       <!-- 금액 + 결제 (한 줄) -->
       <div style="display:flex;gap:10px;margin-bottom:12px;">
         <div style="flex:2;">
-          <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">💰 금액 (원) *</label>
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">금액 (원) *</label>
           <input id="cfAmount" type="number" inputmode="numeric" value="${c.amount||''}" placeholder="50000" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px;font-weight:700;" />
         </div>
         <div style="flex:1;">
-          <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">결제</label>
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">결제</label>
           <select id="cfMethod" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:14px;">
             ${['card','cash','transfer','etc'].map(m => `<option value="${m}" ${c.method===m?'selected':''}>${({card:'카드',cash:'현금',transfer:'계좌이체',etc:'기타'})[m]}</option>`).join('')}
           </select>
@@ -129,13 +129,13 @@
       </div>
 
       <!-- 메모 -->
-      <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">📝 메모 (선택)</label>
+      <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">메모 (선택)</label>
       <textarea id="cfMemo" rows="2" maxlength="200" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:10px;margin-bottom:14px;resize:vertical;font-family:inherit;"></textarea>
 
       <!-- 버튼 -->
       <div style="display:flex;gap:8px;">
         <button id="cfSkip" style="flex:1;padding:13px;border:1px solid #ddd;border-radius:10px;background:#fff;cursor:pointer;color:#555;font-weight:700;font-size:13px;">건너뛰기</button>
-        <button id="cfSave" style="flex:2;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;cursor:pointer;font-weight:800;font-size:15px;">한 번에 기록 ✓</button>
+        <button id="cfSave" style="flex:2;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;cursor:pointer;font-weight:800;font-size:15px;">한 번에 기록 ✓</button>
       </div>
       <button id="cfInventory" style="width:100%;margin-top:8px;padding:12px;border:1px solid #eee;border-radius:10px;background:#fafafa;cursor:pointer;color:#555;font-weight:700;font-size:13px;">재고 확인</button>
     `;
@@ -202,7 +202,7 @@
       if (_ctx.booking_id) _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
       _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
       if (window.hapticSuccess) window.hapticSuccess();
-      if (window.showToast) window.showToast('✨ 매출 기록 완료!');
+      if (window.showToast) window.showToast('매출 기록 완료!');
       _close();
       _refreshConnectedViews();
     } catch (e) {

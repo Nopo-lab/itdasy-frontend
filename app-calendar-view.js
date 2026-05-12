@@ -45,7 +45,7 @@
         height: 140px !important;
         overflow-y: scroll !important;
         scroll-snap-type: y mandatory !important;
-        -webkit-overflow-scrolling: touch !important;
+        
         scrollbar-width: none;
         position: relative;
       }
@@ -69,7 +69,7 @@
       .bf-tp-row.current {
         opacity: 1 !important;
         font-weight: 700 !important;
-        color: var(--brand, #F18091) !important;
+        color: var(--brand, var(--brand)) !important;
         transform: scale(1.15) !important;
       }
     `;
@@ -344,10 +344,11 @@
   }
 
   function _renderDayMobile(date, mapped) {
-    const { start, end } = _ttHours();
+    const tt = _ttHours();
     const dayDS = _ds(date);
     const filtered = _filterByStaff(mapped).filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
-    let h = '<div class="bk-day" id="bk-day-grid" data-date="' + dayDS + '">';
+    const { start, end } = _expandHoursForItems(tt.start, tt.end, filtered);
+    let h = '<div class="bk-day" id="bk-day-grid" data-date="' + dayDS + '" data-start-h="' + start + '">';
     for (let hr = start; hr < end; hr++) {
       h += '<div class="bk-day__row">';
       h += '<div class="bk-day__hour-label">' + _pad(hr) + ':00</div>';
@@ -393,14 +394,20 @@
   // §7 모바일 — 주간 뷰
   // ============================================================
   function _renderWeekMobile(baseDate, mapped) {
-    const { start, end } = _ttHours();
+    const tt = _ttHours();
     const DOW = ['일','월','화','수','목','금','토'];
     const ws = new Date(baseDate); ws.setHours(0,0,0,0);
     ws.setDate(ws.getDate() - ws.getDay());
+    const we = new Date(ws); we.setDate(ws.getDate() + 7);
     const today = new Date(); today.setHours(0,0,0,0);
     const filtered = _filterByStaff(mapped);
+    const inWeek = filtered.filter(m => {
+      const sd = new Date(m._raw.starts_at);
+      return sd >= ws && sd < we;
+    });
+    const { start, end } = _expandHoursForItems(tt.start, tt.end, inWeek);
 
-    let h = '<div class="bk-week-m">';
+    let h = '<div class="bk-week-m" data-start-h="' + start + '">';
     // header
     h += '<div class="bk-week-m__header"><div class="bk-week-m__h-cell"></div>';
     for (let i = 0; i < 7; i++) {
@@ -430,15 +437,24 @@
 
   function _placeWeekMBlocks(grid, items, startH, weekStart) {
     if (!grid) return;
+    // [PERF P3-2] DOM 쿼리 1회 캐싱 + DocumentFragment 배치 삽입
+    const cellMap = new Map();
+    grid.querySelectorAll('.bk-week-m__day').forEach(cell => {
+      const key = (cell.dataset.date || '') + ':' + (cell.dataset.hour || '');
+      cellMap.set(key, cell);
+    });
+    const fragments = new Map();
     items.forEach(it => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
-      const dayI = Math.round((new Date(_ds(s)) - new Date(_ds(weekStart))) / 86400000);
-      if (dayI < 0 || dayI > 6) return;
-      const dayCol = grid.querySelectorAll('.bk-week-m__day')[(s.getHours() - startH) * 7 + dayI];
-      // 더 안전하게: data-date + 첫 시간 column 찾기
-      const col = grid.querySelector(`.bk-week-m__day[data-date="${_ds(s)}"][data-hour="${s.getHours()}"]`);
-      const target = col || dayCol;
+      const key = _ds(s) + ':' + s.getHours();
+      let target = cellMap.get(key);
+      if (!target) {
+        const dayI = Math.round((new Date(_ds(s)) - new Date(_ds(weekStart))) / 86400000);
+        if (dayI < 0 || dayI > 6) return;
+        const allCells = grid.querySelectorAll('.bk-week-m__day');
+        target = allCells[(s.getHours() - startH) * 7 + dayI];
+      }
       if (!target) return;
       const top = (s.getMinutes() / 60) * HOUR_PX_MOBILE_WEEK;
       const height = Math.max(15, ((e - s) / 60000 / 60) * HOUR_PX_MOBILE_WEEK);
@@ -449,8 +465,10 @@
       block.style.top = top + 'px';
       block.style.height = height + 'px';
       block.textContent = it.cust;
-      target.appendChild(block);
+      if (!fragments.has(target)) fragments.set(target, document.createDocumentFragment());
+      fragments.get(target).appendChild(block);
     });
+    fragments.forEach((frag, cell) => cell.appendChild(frag));
   }
 
   // ============================================================
@@ -469,14 +487,20 @@
   // §9 PC — 주간 뷰
   // ============================================================
   function _renderWeekPC(baseDate, mapped) {
-    const { start, end } = _ttHours();
+    const tt = _ttHours();
     const DOW = ['일','월','화','수','목','금','토'];
     const ws = new Date(baseDate); ws.setHours(0,0,0,0);
     ws.setDate(ws.getDate() - ws.getDay());
+    const we = new Date(ws); we.setDate(ws.getDate() + 7);
     const today = new Date(); today.setHours(0,0,0,0);
     const filtered = _filterByStaff(mapped);
+    const inWeek = filtered.filter(m => {
+      const sd = new Date(m._raw.starts_at);
+      return sd >= ws && sd < we;
+    });
+    const { start, end } = _expandHoursForItems(tt.start, tt.end, inWeek);
 
-    let h = '<div class="bk-pc-main">';
+    let h = '<div class="bk-pc-main" data-start-h="' + start + '">';
     h += '<div class="bk-week__header"><div class="bk-week__h-cell"></div>';
     for (let i = 0; i < 7; i++) {
       const d = new Date(ws); d.setDate(ws.getDate() + i);
@@ -509,10 +533,16 @@
 
   function _placeWeekPCBlocks(grid, items, startH, weekStart) {
     if (!grid) return;
+    // [PERF P3-2] DOM 쿼리 1회 캐싱 + DocumentFragment 배치 삽입
+    const dayColMap = new Map();
+    grid.querySelectorAll('.bk-week__day').forEach(col => {
+      if (col.dataset.date) dayColMap.set(col.dataset.date, col);
+    });
+    const fragments = new Map();
     items.forEach(it => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
-      const dayCol = grid.querySelector(`.bk-week__day[data-date="${_ds(s)}"]`);
+      const dayCol = dayColMap.get(_ds(s));
       if (!dayCol) return;
       const top = (s.getHours() - startH) * HOUR_PX_PC_WEEK + (s.getMinutes() / 60) * HOUR_PX_PC_WEEK;
       const height = Math.max(30, ((e - s) / 60000 / 60) * HOUR_PX_PC_WEEK);
@@ -524,21 +554,24 @@
       block.style.height = height + 'px';
       block.innerHTML = '<div class="bk-week__block-title">' + _esc(it.cust) + '</div>'
         + '<div class="bk-week__block-sub">' + _fmt(s) + ' · ' + _esc(it.svc || '') + '</div>';
-      dayCol.appendChild(block);
+      if (!fragments.has(dayCol)) fragments.set(dayCol, document.createDocumentFragment());
+      fragments.get(dayCol).appendChild(block);
     });
+    fragments.forEach((frag, col) => col.appendChild(frag));
   }
 
   // ============================================================
   // §10 PC — 일간 뷰 (직원 컬럼 분할)
   // ============================================================
   function _renderDayPC(date, mapped) {
-    const { start, end } = _ttHours();
+    const tt = _ttHours();
     const dayDS = _ds(date);
     const filtered = _filterByStaff(mapped).filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
+    const { start, end } = _expandHoursForItems(tt.start, tt.end, filtered);
     const staff = _staffList.length ? _staffList : [{ id: 1, name: '원장', color_idx: 0 }];
 
     // grid columns 동적 계산 (CSS 기본 3 컬럼 - 필요 시 inline style)
-    let h = '<div class="bk-pc-day">';
+    let h = '<div class="bk-pc-day" data-start-h="' + start + '">';
     const colCount = staff.length;
     const headerCols = `80px repeat(${colCount}, 1fr)`;
     h += `<div class="bk-pc-day__header" style="grid-template-columns:${headerCols}">`;
@@ -604,13 +637,35 @@
     const end   = Math.max(start + 1, Math.min(24, h.end ?? 22));
     return { start, end };
   }
+  // 영업시간 밖에 예약이 있으면 그리드 범위를 확장 (위/아래 잘림 방지)
+  function _expandHoursForItems(start, end, items) {
+    let s = start, e = end;
+    if (!items || !items.length) return { start: s, end: e };
+    for (const it of items) {
+      const sd = new Date(it._raw.starts_at);
+      const ed = new Date(it._raw.ends_at);
+      if (isNaN(sd) || isNaN(ed)) continue;
+      const sh = sd.getHours();
+      const eh = ed.getHours() + (ed.getMinutes() > 0 ? 1 : 0);
+      if (sh < s) s = Math.max(0, sh);
+      if (eh > e) e = Math.min(24, eh);
+    }
+    return { start: s, end: e };
+  }
 
   // ============================================================
   // §12 now-line
   // ============================================================
   function _placeNowLine() {
     const o = _overlay(); if (!o) return;
-    const { start } = _ttHours();
+    // 그리드가 expand 된 경우 data-start-h 우선 (없으면 _ttHours fallback)
+    const rootSel = (_curView === 'day' && !_cachedIsPC) ? '.bk-day'
+                   : (_curView === 'day' && _cachedIsPC) ? '.bk-pc-day'
+                   : (_curView === 'week' && _cachedIsPC) ? '.bk-pc-main'
+                   : '.bk-week-m';
+    const root = o.querySelector(rootSel);
+    const dataStart = root ? parseInt(root.getAttribute('data-start-h') || '', 10) : NaN;
+    const start = Number.isFinite(dataStart) ? dataStart : _ttHours().start;
     const now = new Date();
     if (now.getHours() < start) return _hideNowLine();
     const minutesFromStart = (now.getHours() - start) * 60 + now.getMinutes();
@@ -759,7 +814,7 @@
       <div class="cal-sheet" style="display:flex;flex-direction:column;height:100%;">
         <div class="bk-header">
           <button class="bk-header__back" id="bk-back" aria-label="닫기">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="15 18 9 12 15 6"/></svg>
+            <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
           </button>
           <div class="bk-header__title-wrap">
             <div class="bk-header__month" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
@@ -771,7 +826,7 @@
         <div id="bk-toolbar-mount">${_renderToolbar()}</div>
         <div class="cal-body bk-body" id="bk-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
         <button class="bk-fab" id="bk-fab" aria-label="예약 추가">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+          <i class="ph-duotone ph-plus" style="font-size:22px" aria-hidden="true"></i>
         </button>
       </div>`;
     o.addEventListener('click', e => { if (e.target === o) _close(); });
@@ -793,16 +848,16 @@
     return `
         <div class="bk-pc__header">
           <button class="bk-header__back" id="bk-back" aria-label="닫기" title="ESC 또는 클릭으로 닫기">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <i class="ph-duotone ph-x" style="font-size:16px" aria-hidden="true"></i>
           </button>
           <div class="bk-pc__title">예약</div>
           <div class="bk-pc__month-nav">
             <button class="bk-pc__nav-btn" id="bk-pc-prev" aria-label="이전 달">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
             </button>
             <div class="bk-pc__month-label" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
             <button class="bk-pc__nav-btn" id="bk-pc-next" aria-label="다음 달">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              <i class="ph-duotone ph-caret-right" style="font-size:14px" aria-hidden="true"></i>
             </button>
           </div>
           <button class="bk-today-btn" id="bk-today-btn" style="margin-left:4px;">오늘</button>
@@ -810,7 +865,7 @@
           <div class="bk-pc__stats" id="bk-pc-stats">${subTxt}</div>
           <div class="bk-view">${viewBtns}</div>
           <button class="bk-pc__add-btn" id="bk-pc-add">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>예약 추가
+            <i class="ph-duotone ph-plus" style="font-size:14px" aria-hidden="true"></i>예약 추가
           </button>
           <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
         </div>`;
@@ -1139,7 +1194,7 @@
         starts_at: dropped.newStart.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
         ends_at:   dropped.newEnd.toISOString().replace(/\.\d{3}Z$/, '+00:00'),
       });
-      if (window.showToast) window.showToast(`📅 ${dropped.hr}:00 으로 이동`);
+      if (window.showToast) window.showToast(`${dropped.hr}:00 으로 이동`);
       if (typeof window.hapticLight === 'function') window.hapticLight();
       window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking' } }));
     } catch (err) {
@@ -1231,16 +1286,16 @@
     let html = `<button class="cv-form-back" id="cv-form-back">← 뒤로</button>`;
     if (!isEdit && autoSlot) {
       html += `<div class="bf-auto-banner">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m12 3 1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3z"/></svg>
+        <i class="ph-duotone ph-sparkle" style="font-size:11px" aria-hidden="true"></i>
         빈 슬롯 ${defStart} 자동 선택 · 고객만 고르면 끝
       </div>`;
     }
     // 수정 모드 — 시술 완료 액션 카드
     if (isEdit && existing.status !== 'completed') {
       html += `<button type="button" class="bf-complete-action" id="bfComplete">
-        <div class="bf-ca-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="bf-ca-icon"><i class="ph-duotone ph-check" style="font-size:14px" aria-hidden="true"></i></div>
         <div style="flex:1"><div class="bf-ca-title">시술 완료 · 매출·후기 한 번에</div><div class="bf-ca-sub">금액 입력 + 캡션 만들기까지</div></div>
-        <svg class="bf-ca-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 18 15 12 9 6"/></svg>
+        <i class="ph-duotone ph-caret-right bf-ca-chev" style="font-size:14px" aria-hidden="true"></i>
       </button>`;
     }
     // 수정 모드 — 상태 4토글
@@ -1255,9 +1310,9 @@
     // 날짜 카드
     html += `<div class="bf-section"><div class="bf-label">날짜</div>
       <button type="button" class="bf-date-card" id="bfDateCard">
-        <div class="bf-date-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div>
+        <div class="bf-date-icon"><i class="ph-duotone ph-calendar-dots" style="font-size:16px" aria-hidden="true"></i></div>
         <div style="flex:1"><div class="bf-date-text" id="bfDateLabel">${dateLabel}</div><div class="bf-date-meta" id="bfDateMeta">${todayLabel} · ${dayCnt}건 예약됨</div></div>
-        <svg class="bf-date-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        <i class="ph-duotone ph-caret-right bf-date-chev" style="font-size:14px" aria-hidden="true"></i>
       </button>
       <input type="date" id="bfDate" class="bf-date-native" value="${dateStr}" />
     </div>`;
@@ -1280,9 +1335,9 @@
         ${existing?.customer_name
           ? `<div class="bf-cust-avatar">${_esc((existing.customer_name||'')[0])}</div>
              <div class="bf-cust-info"><div class="bf-cust-name">${_esc(existing.customer_name)}</div><div class="bf-cust-meta" id="bfCustMeta"></div></div>
-             <button type="button" class="bf-cust-clear" id="bfCustClear"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`
+             <button type="button" class="bf-cust-clear" id="bfCustClear"><i class="ph-duotone ph-x" style="font-size:11px" aria-hidden="true"></i></button>`
           : `<div class="bf-cust-avatar empty">+</div><div class="bf-cust-info"><div class="bf-cust-empty-text">고객을 골라주세요</div></div>
-             <svg class="bf-cust-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`}
+             <i class="ph-duotone ph-caret-right bf-cust-chev" style="font-size:14px" aria-hidden="true"></i>`}
       </button>
       <input type="hidden" id="bfCustName" value="${_esc(existing?.customer_name || '')}" />
     </div>`;
@@ -1295,7 +1350,7 @@
     // 더보기 (직원 · 메모)
     html += `<div class="bf-section" id="bfMoreSection">
       <button type="button" class="bf-more-toggle" id="bfMoreToggle">
-        <svg class="bf-more-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>
+        <i class="ph-duotone ph-caret-down bf-more-icon" style="font-size:13px" aria-hidden="true"></i>
         더보기 (직원 · 메모)
       </button>
       <div class="bf-more-fields" id="bfMoreFields" style="display:none">
@@ -1307,7 +1362,7 @@
       </div>
     </div>`;
     // 충돌 경고
-    html += `<div id="bfConflict" class="dt-conflict">⚠️ 이 시간에 이미 예약이 있어요</div>`;
+    html += `<div id="bfConflict" class="dt-conflict">이 시간에 이미 예약이 있어요</div>`;
     // 하단 CTA
     html += `<div class="bf-cta">
       ${isEdit ? '<button type="button" id="bfDelete" class="bf-btn-danger">삭제</button>' : '<button type="button" id="cv-form-back2" class="bf-btn-secondary">취소</button>'}
@@ -1318,6 +1373,15 @@
 
   function _bindFormExtras(body, existing) {
     let custId = existing?.customer_id || null;
+    // 고객 dashboard → 예약잡기 진입: prefill 된 고객 정보 자동 적용.
+    // _pendingBookingCustomer 는 1회용 — 소비 후 비움 (다음 새 예약은 빈 상태로).
+    const _pendingCust = (!existing && window._pendingBookingCustomer) || null;
+    if (_pendingCust && _pendingCust.id) {
+      custId = _pendingCust.id;
+      window._pendingBookingCustomer = null;
+      const nameInput = body.querySelector('#bfCustName');
+      if (nameInput) nameInput.value = _pendingCust.name || '';
+    }
     let _durMin = 60;
     let _startH, _startM;
     // 현재 시작 시간 읽기
@@ -1424,12 +1488,12 @@
         // 2026-05-01 ── X 버튼의 SVG 에 pointer-events:none 으로 자식 클릭을 X 버튼에 위임
         card.innerHTML = `<div class="bf-cust-avatar">${_esc((picked.name || '?')[0])}</div>
           <div class="bf-cust-info"><div class="bf-cust-name">${_esc(picked.name || '')} ${badge}</div><div class="bf-cust-meta" id="bfCustMeta">${meta}</div></div>
-          <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 선택 해제"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`;
+          <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 선택 해제"><i class="ph-duotone ph-x" style="font-size:11px" aria-hidden="true"></i></button>`;
         body.querySelector('#bfCustName').value = picked.name || '';
       } else {
         card.className = 'bf-cust-card empty';
         card.innerHTML = `<div class="bf-cust-avatar empty">+</div><div class="bf-cust-info"><div class="bf-cust-empty-text">고객을 골라주세요</div></div>
-          <svg class="bf-cust-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="pointer-events:none;"><polyline points="9 18 15 12 9 6"/></svg>`;
+          <i class="ph-duotone ph-caret-right bf-cust-chev" style="font-size:14px" aria-hidden="true"></i>`;
       }
     }
     const _doPick = async () => {
@@ -1563,6 +1627,17 @@
     // 취소 버튼
     body.querySelector('#cv-form-back2')?.addEventListener('click', () => _renderViewBody());
 
+    // 고객 dashboard 진입 prefill: 카드도 채우기 (이름 input 은 시작점에서 이미 채움)
+    if (_pendingCust && _pendingCust.id) {
+      try {
+        const _items = (window.Customer && window.Customer._cache) || [];
+        const _full = _items.find(c => String(c.id) === String(_pendingCust.id));
+        _renderCustCard(_full || { id: _pendingCust.id, name: _pendingCust.name });
+      } catch (_e) {
+        _renderCustCard({ id: _pendingCust.id, name: _pendingCust.name });
+      }
+    }
+
     // 공유 getter
     body._getCustId = () => custId;
     body._getStaffId = () => _staffId;
@@ -1645,7 +1720,7 @@
           await window.Booking.update(existing.id, { status: newStatus });
           window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: existing.customer_id || null } }));
           if (window.hapticLight) window.hapticLight();
-          if (window.showToast) window.showToast(`✅ 상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
+          if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
           if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
           _mappedCache = await _loadMonth(_curYear, _curMonth);
           _renderViewBody();
@@ -1667,7 +1742,7 @@
     const dateStr = _ds(defDate);
     const defS = existing ? _fmt(new Date(existing.starts_at)) : (pendS ? _fmt(pendS) : slots[0]);
     const defE = existing ? _fmt(new Date(existing.ends_at))   : (pendE ? _fmt(pendE) : (slots[2] || slots[slots.length - 1]));
-    body.innerHTML = '<div class="cv-form-wrap bf-wrap" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;">' + _buildFormHTML(existing, slots, dateStr, defS, defE, !!pendS) + '</div>';
+    body.innerHTML = '<div class="cv-form-wrap bf-wrap" style="flex:1;overflow-y:auto;padding:16px;">' + _buildFormHTML(existing, slots, dateStr, defS, defE, !!pendS) + '</div>';
     body.querySelector('#cv-form-back').addEventListener('click', () => _renderViewBody());
     _bindFormExtras(body, existing);
     _bindFormSave(body, existing, date);
@@ -1791,6 +1866,12 @@
     // now-line 1분마다 갱신
     if (_nowLineTimer) clearInterval(_nowLineTimer);
     _nowLineTimer = setInterval(_placeNowLine, 60000);
+
+    // 고객 dashboard → "예약잡기" 진입: 자동으로 예약 추가 폼 표시.
+    // _pendingBookingCustomer 는 _bindFormExtras 가 소비하므로 여기선 트리거만.
+    if (window._pendingBookingCustomer) {
+      setTimeout(() => _openForm(_curDate, null), 50);
+    }
 
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:end');
   };

@@ -33,7 +33,7 @@
   function _renderHeader() {
     return `<div class="hub-header">
       <button class="hub-back" data-act="close" aria-label="뒤로가기">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-left"/></svg>
+        <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
       </button>
       <span class="hub-title">매출 상세 리포트</span>
     </div>`;
@@ -66,7 +66,7 @@
   }
 
   function _renderTop(top) {
-    if (!top.length) return '<div style="padding:16px 20px;color:#aaa;font-size:13px;">시술 데이터가 없어요</div>';
+    if (!top.length) return '<div style="padding:16px 20px;color:var(--text-subtle);font-size:13px;">시술 데이터가 없어요</div>';
     const max = Math.max(...top.map(x => x.amount || 0), 1);
     return `<div class="rr-top">
       <h2 class="rr-sec-title">인기 시술 TOP ${Math.min(top.length, 5)}</h2>
@@ -136,7 +136,7 @@
     overlay.id = OID; overlay.className = 'rr-overlay';
     overlay.innerHTML = `<div class="hub-header">
       <button class="hub-back" data-act="close" aria-label="뒤로가기">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-left"/></svg>
+        <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
       </button>
       <span class="hub-title">매출 상세 리포트</span>
     </div>

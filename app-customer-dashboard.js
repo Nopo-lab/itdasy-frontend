@@ -26,7 +26,7 @@
   const _svg12 = (id) => `<svg width="12" height="12" style="vertical-align:-2px;" aria-hidden="true"><use href="#${id}"/></svg>`;
   const SEGMENT_STYLE = {
     vip:     { label: 'VIP', icon: _svg12('ic-star'), bg: 'linear-gradient(135deg,#FFD700,#FFA500)', color: '#fff' },
-    regular: { label: '단골', icon: _svg12('ic-star'), bg: 'linear-gradient(135deg,#F18091,#FF6B9D)', color: '#fff' },
+    regular: { label: '단골', icon: _svg12('ic-star'), bg: 'linear-gradient(135deg,var(--brand),#FF6B9D)', color: '#fff' },
     new:     { label: '신규', icon: _svg12('ic-sparkles'), bg: 'linear-gradient(135deg,#4ECDC4,#44A08D)', color: '#fff' },
     absent:  { label: '휴면', icon: _svg12('ic-moon'), bg: 'linear-gradient(135deg,#95A5A6,#7F8C8D)', color: '#fff' },
   };
@@ -68,16 +68,18 @@
   async function _apiGet(path) {
     if (!window.API || !window.authHeader) throw new Error('no-auth');
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 10000); // 10초 타임아웃
+    const tid = setTimeout(() => ctrl.abort(), 22000); // Railway cold start 대응 22s
     try {
-      const res = await fetch(window.API + path, { 
+      const res = await fetch(window.API + path, {
         headers: window.authHeader(),
         signal: ctrl.signal
       });
       clearTimeout(tid);
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail || ('HTTP ' + res.status));
+        const err = new Error(d.detail || ('HTTP ' + res.status));
+        err.status = res.status;
+        throw err;
       }
       return await res.json();
     } catch (e) {
@@ -210,11 +212,11 @@
   }
 
   function _renderBookings(rows) {
-    if (!rows || !rows.length) return _emptySection('📅 예약 이력', '아직 예약이 없어요');
+    if (!rows || !rows.length) return _emptySection('예약 이력', '아직 예약이 없어요');
     return `
       <div style="margin-bottom:14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <strong style="font-size:13px;">📅 예약 이력</strong>
+          <strong style="font-size:13px;">예약 이력</strong>
           <span style="font-size:10px;color:#888;">최근 ${rows.length}건</span>
         </div>
         <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
@@ -250,9 +252,9 @@
                 <div style="flex:1;min-width:0;">
                   <div style="display:flex;align-items:baseline;gap:6px;">
                     <strong style="color:${color};font-size:14px;">${n.rating}</strong>
-                    <span style="font-size:10px;color:#aaa;margin-left:auto;">${_dateShort(n.responded_at)}</span>
+                    <span style="font-size:10px;color:var(--text-subtle);margin-left:auto;">${_dateShort(n.responded_at)}</span>
                   </div>
-                  ${n.comment ? `<div style="font-size:11px;color:#666;margin-top:2px;">${_esc(n.comment)}</div>` : ''}
+                  ${n.comment ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(n.comment)}</div>` : ''}
                 </div>
               </div>
             `;
@@ -266,7 +268,7 @@
     if (!d.customer.memo) return '';
     return `
       <div style="margin-bottom:14px;padding:12px;background:#FFF9E6;border-radius:12px;border-left:3px solid #FFD54F;">
-        <div style="font-size:11px;color:#888;margin-bottom:4px;">📝 원장님 메모</div>
+        <div style="font-size:11px;color:#888;margin-bottom:4px;">원장님 메모</div>
         <div style="font-size:13px;color:#555;line-height:1.5;white-space:pre-wrap;">${_esc(d.customer.memo)}</div>
       </div>
     `;
@@ -286,7 +288,7 @@
     return `
       <div style="margin-bottom:14px;">
         <div style="font-size:13px;font-weight:700;margin-bottom:8px;">${title}</div>
-        <div style="padding:16px;background:#fafafa;border-radius:12px;text-align:center;font-size:12px;color:#aaa;">${msg}</div>
+        <div style="padding:16px;background:#fafafa;border-radius:12px;text-align:center;font-size:12px;color:var(--text-subtle);">${msg}</div>
       </div>
     `;
   }
@@ -295,8 +297,11 @@
     try {
       await _apiPatch('/customers/' + id, patch);
       // SWR 캐시 무효화 — 목록 화면이 다시 신선한 데이터 가져오도록
-      try { localStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
-      try { sessionStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
+      if (window.CustomerCache?.clear) window.CustomerCache.clear();
+      else {
+        try { localStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
+        try { sessionStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
+      }
       try { sessionStorage.removeItem('pv_cache::customer'); } catch (_e) { void _e; }
       window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_customer', id } }));
       if (window.hapticLight) window.hapticLight();
@@ -389,11 +394,11 @@
           else if (typeof window.openBooking === 'function') window.openBooking();
         } else if (act === 'revenue') {
           closeCustomerDashboard();
-          if (typeof window.openRevenue === 'function') {
+          // _openRevenueAddFor 가 내부에서 openRevenue + prefill 모달까지 처리.
+          if (typeof window._openRevenueAddFor === 'function') {
+            window._openRevenueAddFor(id, name);
+          } else if (typeof window.openRevenue === 'function') {
             window.openRevenue();
-            if (typeof window._openRevenueAddFor === 'function') {
-              window._openRevenueAddFor(id, name);
-            }
           }
         } else if (act === 'nps') {
           closeCustomerDashboard();
@@ -428,6 +433,18 @@
     sheet.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     const body = sheet.querySelector('#cdBody');
+
+    // id 형식 검증 — 비어있거나 숫자/문자열 아니면 안내. 백엔드는 정수 PK 사용.
+    if (id == null || (typeof id !== 'number' && typeof id !== 'string') || String(id).trim() === '') {
+      console.warn('[customer-dashboard] invalid id:', id);
+      body.innerHTML = `
+        <div style="padding:40px 20px;text-align:center;">
+          <div style="font-size:13px;color:#c00;">손님 정보를 찾을 수 없어요</div>
+          <div style="font-size:11px;color:#888;margin-top:4px;">잘못된 손님 식별자입니다.</div>
+        </div>
+      `;
+      return;
+    }
     body.innerHTML = '<div style="padding:20px;color:#888;">불러오는 중…</div>';
     try {
       const d = await _apiGet('/customers/' + id + '/dashboard');
@@ -442,8 +459,13 @@
       _bindMembership(d);
     } catch (e) {
       console.warn('[customer-dashboard] 실패:', e);
-      // 대시보드 엔드포인트 미존재 시 기본 고객 상세로 폴백
-      if (e.message && (e.message.includes('404') || e.message.includes('endpoint') || e.message.includes('501'))) {
+      // 폴백 조건: 네트워크 오류 / 4xx (요청 형식·인증 권한·없음) / 5xx 일부 (구현 안 됨·게이트웨이)
+      // — 422 "요청 형식이 올바르지 않습니다" 도 기본 고객 정보 폴백 대상
+      const _isNetworkErr = e.name === 'AbortError' || e.message === 'Failed to fetch' || e.message === 'NetworkError when attempting to fetch resource.';
+      const _is4xx = typeof e.status === 'number' && e.status >= 400 && e.status < 500;
+      const _isFallbackable5xx = e.status === 501 || e.status === 502 || e.status === 503;
+      const _isLegacyMatch = e.message && (e.message.includes('404') || e.message.includes('endpoint') || e.message.includes('501'));
+      if (_isNetworkErr || _is4xx || _isFallbackable5xx || _isLegacyMatch) {
         try {
           const cust = await _apiGet('/customers/' + id);
           body.innerHTML = `
@@ -452,16 +474,19 @@
             ${_renderEditBar(cust.id, cust)}
           `;
           _bindActions(cust.id, cust.name);
+          if (typeof window.showToast === 'function') {
+            window.showToast('기본 정보로 표시 중이에요');
+          }
           return;
         } catch (_fallbackErr) { /* 폴백도 실패 — 아래 에러 UI 표시 */ }
       }
       const errMsg = e.message || '네트워크 오류';
       body.innerHTML = `
         <div style="padding:40px 20px;text-align:center;">
-          <div style="font-size:36px;margin-bottom:10px;">😢</div>
+          <div style="margin-bottom:10px;color:var(--brand);"><i class="ph-duotone ph-warning" aria-hidden="true"></i></div>
           <div style="font-size:13px;color:#c00;">대시보드를 불러오지 못했어요</div>
-          <div style="font-size:11px;color:#888;margin-top:4px;">${errMsg}</div>
-          <button id="cdRetryBtn" style="margin-top:14px;padding:10px 20px;border:1px solid #F18091;background:rgba(241,128,145,0.08);color:#F18091;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;">다시 시도</button>
+          <div style="font-size:11px;color:#888;margin-top:4px;">${_esc(errMsg)}</div>
+          <button id="cdRetryBtn" style="margin-top:14px;padding:10px 20px;border:1px solid var(--brand);background:rgba(241,128,145,0.08);color:var(--brand);border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;">다시 시도</button>
         </div>
       `;
       body.querySelector('#cdRetryBtn')?.addEventListener('click', () => {

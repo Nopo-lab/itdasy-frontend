@@ -77,7 +77,7 @@
 
     const html = `
       <div id="itdasyCookieBanner" style="position:fixed;left:0;right:0;bottom:0;z-index:9950;display:flex;justify-content:center;padding:12px calc(12px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));pointer-events:none;">
-        <div style="max-width:560px;width:100%;background:rgba(20,20,25,0.96);color:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,0.3);padding:16px 18px;font-size:12.5px;line-height:1.6;pointer-events:auto;backdrop-filter:saturate(140%) blur(8px);-webkit-backdrop-filter:saturate(140%) blur(8px);">
+        <div style="max-width:560px;width:100%;background:rgba(20,20,25,0.99);color:#fff;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,0.3);padding:16px 18px;font-size:12.5px;line-height:1.6;pointer-events:auto;">
           <div style="font-size:13.5px;font-weight:800;margin-bottom:6px;letter-spacing:-0.2px;">🍪 ${title}</div>
           <div style="opacity:0.85;margin-bottom:12px;">
             ${body}
@@ -85,7 +85,7 @@
             · <a href="https://itdasy.com/privacy-en.html" target="_blank" rel="noopener" style="color:#FFB2BE;text-decoration:underline;">English</a>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="__cc_accept" style="flex:1;min-width:120px;padding:10px 12px;border-radius:10px;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:12.5px;">✅ 전체 허용</button>
+            <button type="button" id="__cc_accept" style="flex:1;min-width:120px;padding:10px 12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;font-weight:800;cursor:pointer;font-size:12.5px;">전체 허용</button>
             <button type="button" id="__cc_essential" style="flex:1;min-width:120px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#fff;font-weight:700;cursor:pointer;font-size:12.5px;">필수만</button>
           </div>
         </div>

@@ -30,8 +30,8 @@
 
   // ── 스타일 1회 주입 ─────────────────────────────────────
   const PSV_CSS = `
-.psv-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px);
-  -webkit-backdrop-filter:blur(6px); z-index:9700; display:flex; align-items:flex-end;
+.psv-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7);
+  z-index:9700; display:flex; align-items:flex-end;
   justify-content:center; animation:psv-bg-in .2s ease; }
 @keyframes psv-bg-in { from{opacity:0} to{opacity:1} }
 .psv-sheet { width:100%; max-width:480px; background:#fff; border-radius:24px 24px 0 0;
@@ -121,9 +121,8 @@
   }
 
   // ── 토스트 (showToast 가 있으면 활용) ──────────────────
-  function _toast(msg) {
-    if (typeof window.showToast === 'function') return window.showToast(msg);
-    alert(msg);
+  function _toast(msg, type) {
+    if (typeof window.showToast === 'function') return window.showToast(msg, type);
   }
 
   // ── Step 0: 인스타 연동/분석 안 된 경우 ────────────────
@@ -178,17 +177,17 @@
       <div class="psv-sub">분석된 말투로 어떤 메시지를 만들어볼까요?</div>
       <div class="psv-card-row">
         <button class="psv-card" data-survey="new">
-          <svg><use href="#ic-sparkles"/></svg>
+          <i class="ph-duotone ph-sparkle" aria-hidden="true"></i>
           <strong>신규 고객</strong>
           <p>처음 오신 분께<br/>보내는 환영 메시지</p>
         </button>
         <button class="psv-card" data-survey="regular">
-          <svg><use href="#ic-star"/></svg>
+          <i class="ph-duotone ph-star" aria-hidden="true"></i>
           <strong>단골 고객</strong>
           <p>오랜만에<br/>전하는 안부 인사</p>
         </button>
         <button class="psv-card" data-survey="custom">
-          <svg><use href="#ic-edit-3"/></svg>
+          <i class="ph-duotone ph-pencil-simple" aria-hidden="true"></i>
           <strong>직접 작성</strong>
           <p>메시지 의도를<br/>직접 입력</p>
         </button>
@@ -209,7 +208,7 @@
     const $v = document.getElementById('psv-view-report');
     if ($r) $r.addEventListener('click', () => {
       close();
-      if (typeof window.runPersonaAnalyze === 'function') window.runPersonaAnalyze();
+      if (typeof window.runPersonaAnalyze === 'function') window.runPersonaAnalyze(true);
       else _toast('인스타 연동 후 분석할 수 있어요');
     });
     if ($v) $v.addEventListener('click', () => {

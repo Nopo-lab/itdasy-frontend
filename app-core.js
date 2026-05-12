@@ -18,10 +18,42 @@
   }
 })();
 
+// ===== XSS 방어 유틸 (글로벌) =====
+// 사용자 입력 / API 응답을 innerHTML에 넣기 전 _esc()로 감싸기.
+// textContent 대체 가능하면 그쪽이 우선.
+window._esc = window._esc || function (s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+};
+
+// ===== data-changed 디바운스 dispatch (PerfFix) =====
+// 빠른 연속 조작(예: 고객 일괄 추가) 시 21개 모듈이 매번 동시 발동 → UI 렉.
+// force_sync/focus_sync 만 즉시, 그 외엔 50ms 디바운스로 1회만 발동.
+let _dcPending = null;
+window._fireDataChanged = window._fireDataChanged || function (detail) {
+  if (detail && (detail.kind === 'force_sync' || detail.kind === 'focus_sync')) {
+    window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail }));
+    return;
+  }
+  clearTimeout(_dcPending);
+  _dcPending = setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail }));
+  }, 50);
+};
+
+// [UX-LOAD] 로딩 오버레이 해제 — fade out 후 display:none
+function _hideLoadingOverlay() {
+  var lo = document.getElementById('appLoadingOverlay');
+  if (!lo || lo.style.display === 'none') return;
+  lo.style.opacity = '0';
+  setTimeout(function() { lo.style.display = 'none'; lo.style.opacity = ''; }, 350);
+}
+
 // ===== 백엔드 설정 =====
 // 이 레포(itdasy-frontend-test-yeunjun)는 연준 스테이징 전용 → 스테이징 백엔드 바라봄
-// 운영 레포(itdasy-frontend)는 프로덕션 백엔드(itdasy260417-production)를 사용해야 함
-const PROD_API = 'https://itdasy260417-staging-production.up.railway.app';
+// 운영 레포(itdasy-frontend)는 운영 백엔드(별도 Cloud Run 서비스/커스텀 도메인)를 사용해야 함
+const PROD_API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
 const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
   ? 'http://localhost:8000'
   : PROD_API;
@@ -34,11 +66,52 @@ const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (AP
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
 
-function showToast(msg) {
-  const t = document.getElementById('copyToast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2000);
+// ─── 토스트 시스템 v2 (큐 기반, 타입별 색상) ────────────────────
+const _toastQueue = [];
+let _toastActive = false;
+
+function showToast(msg, opts) {
+  const o = typeof opts === 'object' ? opts : { type: opts || 'info' };
+  _toastQueue.push({ msg, type: o.type || 'info', duration: o.duration || 2400 });
+  if (!_toastActive) _nextToast();
+}
+
+function _nextToast() {
+  if (!_toastQueue.length) { _toastActive = false; return; }
+  _toastActive = true;
+  const { msg, type, duration } = _toastQueue.shift();
+
+  let el = document.getElementById('itdToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'itdToast';
+    el.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%) translateY(-120%);z-index:99999;padding:12px 20px;border-radius:var(--r-md,14px);font-size:14px;font-weight:600;box-shadow:var(--shadow-md);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;pointer-events:none;max-width:calc(100vw - 32px);text-align:center;';
+    document.body.appendChild(el);
+  }
+
+  const colors = {
+    info:    { bg: 'var(--surface)', color: 'var(--text)' },
+    success: { bg: '#E8F8EF', color: '#0F6E56' },
+    warning: { bg: '#FEF3E2', color: '#854F0B' },
+    error:   { bg: '#FEE8E8', color: '#A32D2D' },
+  };
+  const c = colors[type] || colors.info;
+  el.style.background = c.bg;
+  el.style.color = c.color;
+  el.textContent = msg;
+
+  requestAnimationFrame(() => {
+    el.style.opacity = '1';
+    el.style.transform = 'translateX(-50%) translateY(0)';
+    el.style.pointerEvents = 'auto';
+  });
+
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(-120%)';
+    el.style.pointerEvents = 'none';
+    setTimeout(_nextToast, 320);
+  }, duration);
 }
 
 function showWelcome(shopName) {
@@ -89,10 +162,10 @@ function updateHeaderProfile(handle, tone, picUrl) {
   if (avatarEl) {
     const badge = document.getElementById('headerProviderBadge');
     if (picUrl) {
-      avatarEl.innerHTML = `<img src="${picUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      avatarEl.innerHTML = `<img src="${window._esc(picUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
     } else {
       const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
-      avatarEl.innerHTML = `<span class="profile-avatar__initial">${letter}</span>`;
+      avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
     }
     // 배지 다시 붙이기 (innerHTML 로 날아갔으므로)
     if (badge) avatarEl.appendChild(badge);
@@ -108,10 +181,10 @@ function updateHeaderProfile(handle, tone, picUrl) {
   const fi = document.getElementById('frameAvatarInner');
   if (fi) {
     if (picUrl) {
-      fi.innerHTML = `<img src="${picUrl}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+      fi.innerHTML = `<img src="${window._esc(picUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
     } else {
       const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
-      fi.innerHTML = `<span id="frameAvatarLetter">${letter}</span>`;
+      fi.innerHTML = `<span id="frameAvatarLetter">${window._esc(letter)}</span>`;
     }
   }
 }
@@ -191,6 +264,9 @@ function selectShopType(card) {
   obShopType = card.dataset.type;
 }
 
+// Phase3: 3단계 축약 — Step1(환영+핵심가치) → Step2(업종, 건너뛰기 허용) → Step3(매장명, 즉시 완료)
+const ONBOARD_STEPS = 3;
+
 function obShowStep(n) {
   document.querySelectorAll('.ob-step').forEach(s => s.classList.remove('active'));
   document.getElementById('ob-step-' + n).classList.add('active');
@@ -198,8 +274,39 @@ function obShowStep(n) {
     d.classList.toggle('active', i < n);
   });
   const btn = document.getElementById('obBtn');
-  btn.textContent = n === 4 ? '시작하기 🎉' : '계속하기';
+  btn.textContent = n === ONBOARD_STEPS ? '시작하기' : '계속하기';
+  const skip = document.getElementById('obSkipBtn');
+  if (skip) skip.style.display = n === 2 ? '' : 'none';
   obStep = n;
+}
+
+function obSkipShopType() {
+  obShopType = '';
+  obShowStep(3);
+  setTimeout(() => document.getElementById('obShopNameInput').focus(), 300);
+}
+
+function _obFinish() {
+  const name = document.getElementById('obShopNameInput').value.trim();
+  if (!name) {
+    document.getElementById('obShopNameInput').style.borderBottomColor = '#E05555';
+    setTimeout(() => document.getElementById('obShopNameInput').style.borderBottomColor = '', 1200);
+    return;
+  }
+  localStorage.setItem('onboarding_done', '1');
+  localStorage.setItem('shop_name', name);
+  if (obShopType) localStorage.setItem('shop_type', obShopType);
+
+  document.getElementById('onboardingOverlay').classList.add('hidden');
+  applyShopType(obShopType);
+  updateHeaderProfile(null, null, null);
+  showToast(`${name} 시작해요`, 'success');
+
+  fetch(API + '/shop/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeader() },
+    body: JSON.stringify({ shop_name: name })
+  }).catch(() => {});
 }
 
 async function obNext() {
@@ -207,7 +314,6 @@ async function obNext() {
     obShowStep(2);
   } else if (obStep === 2) {
     if (!obShopType) {
-      // 선택 안 했으면 카드 살짝 흔들기
       document.querySelectorAll('.ob-shop-card:not(.disabled)').forEach(c => {
         c.style.transition = 'transform 0.1s';
         c.style.transform = 'scale(0.96)';
@@ -218,30 +324,7 @@ async function obNext() {
     obShowStep(3);
     setTimeout(() => document.getElementById('obShopNameInput').focus(), 300);
   } else if (obStep === 3) {
-    const name = document.getElementById('obShopNameInput').value.trim();
-    if (!name) {
-      document.getElementById('obShopNameInput').style.borderBottomColor = '#E05555';
-      setTimeout(() => document.getElementById('obShopNameInput').style.borderBottomColor = '', 1200);
-      return;
-    }
-    localStorage.setItem('shop_name', name); // 로컬에도 저장해서 즉시 반영
-    document.getElementById('obCompleteName').textContent = name;
-    obShowStep(4);
-    // 백엔드에 샵 이름 저장 (에러 무시)
-    fetch(API + '/shop/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ shop_name: name })
-    }).catch(() => {});
-  } else if (obStep === 4) {
-    const name = document.getElementById('obShopNameInput').value.trim();
-    localStorage.setItem('onboarding_done', '1');
-    localStorage.setItem('shop_type', obShopType);
-    if (name) localStorage.setItem('shop_name', name);
-
-    document.getElementById('onboardingOverlay').classList.add('hidden');
-    applyShopType(obShopType);
-    updateHeaderProfile(null, null, null);
+    _obFinish();
   }
 }
 
@@ -273,21 +356,27 @@ function getToken() {
 }
 // [2026-04-24] 디바이스 간 데이터 불일치 방어 — 토큰 변경 감지 시 SWR 캐시 일괄 클리어.
 // 폰·노트북·태블릿 같은 계정으로 들어왔을 때 다른 디바이스의 stale 스냅샷이 보이는 문제 해결.
+// [PerfFix] 같은 프레임 안에서 N번 호출돼도 rAF로 1번만 실행.
+let _swrClearScheduled = false;
 function _clearAllSWRCache() {
-  try {
-    Object.keys(localStorage).forEach(k => {
-      if (k.startsWith('pv_cache::') || k.startsWith('itdasy:cache')) {
-        try { localStorage.removeItem(k); } catch (_e) { void _e; }
-      }
+  if (_swrClearScheduled) return;
+  _swrClearScheduled = true;
+  requestAnimationFrame(() => {
+    _swrClearScheduled = false;
+    const prefixes = ['pv_cache::', 'itdasy:cache', 'dash_cache::'];
+    const exactKeys = ['ch_cache', 'ih_cache', 'rh_cache'];
+    [localStorage, sessionStorage].forEach(store => {
+      try {
+        const keys = Object.keys(store);
+        for (let i = 0; i < keys.length; i++) {
+          const k = keys[i];
+          if (exactKeys.indexOf(k) !== -1 || prefixes.some(p => k.startsWith(p))) {
+            try { store.removeItem(k); } catch (_e) { void _e; }
+          }
+        }
+      } catch (_e) { void _e; }
     });
-  } catch (_e) { void _e; }
-  try {
-    Object.keys(sessionStorage).forEach(k => {
-      if (k.startsWith('pv_cache::') || k.startsWith('itdasy:cache')) {
-        try { sessionStorage.removeItem(k); } catch (_e) { void _e; }
-      }
-    });
-  } catch (_e) { void _e; }
+  });
 }
 window._clearAllSWRCache = _clearAllSWRCache;
 
@@ -298,10 +387,11 @@ window._clearAllSWRCache = _clearAllSWRCache;
 //   새 토큰을 구분 못 하므로 user_id 기준으로 비교.
 // ──────────────────────────────────────────────
 const _USER_KEY_PREFIXES = ['itdasy_', 'pv_cache::', 'persona_'];
-const _USER_KEY_EXACT = ['last_login_email', 'user_oauth_provider', 'last_user_id'];
-// 디바이스/UI 설정처럼 사용자 변경 시 보존할 키 (온보딩·테마·언어)
+const _USER_KEY_EXACT = ['last_login_email', 'user_oauth_provider', 'last_user_id', 'shop_id'];
+// [2026-05-07 26차] user 변경 시 보존 키는 "디바이스 단위 UI 설정"만.
+// shop_* / onboarding_done 은 user 데이터 → 제거.
+// 잘못 보존되면 다른 user 로그인 시 옛 매장명/온보딩 상태가 남는다 (출시 블로커).
 const _USER_KEY_KEEP = new Set([
-  'onboarding_done', 'shop_type', 'shop_name',
   'theme', 'itdasy_theme', 'lang', 'i18n_lang',
   'itdasy_biometric_asked',
 ]);
@@ -377,6 +467,26 @@ async function applyNewSession(newToken, opts) {
       if (me) {
         try { if (me.email) localStorage.setItem('last_login_email', me.email); } catch (_) { void 0; }
         try { if (me.oauth_provider) localStorage.setItem('user_oauth_provider', me.oauth_provider); } catch (_) { void 0; }
+        // [2026-05-07 26차 [F-3]] /me 응답에 shop 정보 있으면 localStorage 동기화
+        // _USER_KEY_KEEP 에서 shop_* 빠진 뒤로 user 변경 시 매장명 폴백 노출 방지.
+        try {
+          // [BUG-LOAD-3] shop_name 빈 값이면 저장 안 함 — JSON.parse('') SyntaxError 방지
+          if (typeof me.shop_name === 'string' && me.shop_name) localStorage.setItem('shop_name', me.shop_name);
+          if (typeof me.shop_type === 'string' && me.shop_type) localStorage.setItem('shop_type', me.shop_type);
+        } catch (_) { void 0; }
+        // [2026-05-08 27차 [F-4]] /me 응답 도착 후 헤더/홈 즉시 재렌더 — 옛날 user 잔류 차단
+        // renderHomeHeroCard 는 brief 인자 필수라 직접 호출 안 함 (브리프 fetch 후 별도 갱신).
+        try {
+          if (typeof window.updateHeaderProfile === 'function') {
+            const handle = (typeof window._instaHandle === 'string') ? window._instaHandle : '';
+            window.updateHeaderProfile(handle, null, '');
+          }
+          const settingsName = document.getElementById('settingsShopName');
+          if (settingsName) settingsName.textContent = me.shop_name || '사장님';
+          if (typeof window.renderHomeResume === 'function') {
+            Promise.resolve(window.renderHomeResume()).catch(() => {});
+          }
+        } catch (_e) { void _e; }
         if (typeof window.applyOAuthProviderBadge === 'function') {
           window.applyOAuthProviderBadge();
         }
@@ -482,14 +592,18 @@ function authHeader() {
   window._fetchPatched = true;
   const _origFetch = window.fetch.bind(window);
 
-  // 재시도 설정: 읽기성 요청(GET/HEAD)과 멱등성 POST 는 재시도. 파일 업로드 요청(body 가 FormData/Blob)도 재시도 가능하나 body 를 재사용 못하므로 제외.
-  const RETRY_STATUSES = new Set([502, 503, 504]);
-  const MAX_RETRIES = 2;          // 총 3회 시도 (초기 + 2회 재시도)
-  const BACKOFF_MS = [400, 1200]; // exponential-ish
+  // 재시도 설정: GET/HEAD + JSON body(string) POST 는 재시도 가능. FormData/Blob 은 body 재사용 불가라 제외.
+  // 500 추가: Railway cold start 시 일시적 500 응답도 재시도 대상.
+  const RETRY_STATUSES = new Set([500, 502, 503, 504]);
+  const MAX_RETRIES = 3;              // 총 4회 시도 (초기 + 3회 재시도)
+  const BACKOFF_MS = [500, 1500, 4000]; // exponential backoff (cold start 대응)
 
   function _isRetryableMethod(init) {
     const m = (init && init.method ? String(init.method).toUpperCase() : 'GET');
-    return m === 'GET' || m === 'HEAD';
+    if (m === 'GET' || m === 'HEAD') return true;
+    // JSON body(string) POST 는 body 재사용 가능 → 재시도 허용
+    if (m === 'POST' && init && typeof init.body === 'string') return true;
+    return false;
   }
   function _bodyReusable(init) {
     if (!init || !init.body) return true;
@@ -513,6 +627,53 @@ function authHeader() {
     _reconnectToastTimer = setTimeout(() => { window.__itdasyReconnectShown = false; }, 8000);
   }
 
+  let _refreshing = false;
+  let _refreshWaiters = [];
+
+  async function _tryRefresh() {
+    if (_refreshing) {
+      return new Promise((res, rej) => _refreshWaiters.push({ res, rej }));
+    }
+    _refreshing = true;
+    try {
+      const API = window.API || '';
+      const tok = getToken();
+      // [BUG-2] 10초 타임아웃 — 서버 무응답 시 앱 hang 방지
+      const _ac = new AbortController();
+      const _to = setTimeout(() => _ac.abort(), 10000);
+      let r;
+      try {
+        r = await _origFetch(API + '/auth/refresh', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+          signal: _ac.signal,
+        });
+      } finally {
+        clearTimeout(_to);
+      }
+      if (!r.ok) throw new Error('refresh_failed');
+      const data = await r.json();
+      setToken(data.access_token);
+      _refreshWaiters.forEach(w => w.res(data.access_token));
+      return data.access_token;
+    } catch (e) {
+      _refreshWaiters.forEach(w => w.rej(e));
+      throw e;
+    } finally {
+      _refreshing = false;
+      _refreshWaiters = [];
+    }
+  }
+
+  function _handle401() {
+    setToken(null);
+    const msg = document.getElementById('sessionExpiredMsg');
+    if (msg) msg.style.display = 'block';
+    const lock = document.getElementById('lockOverlay');
+    if (lock) lock.classList.remove('hidden');
+    _setAuthGateLocked(true);
+  }
+
   window.fetch = async function(input, init) {
     const retryable = _isRetryableMethod(init) && _bodyReusable(init);
     let attempt = 0;
@@ -521,26 +682,39 @@ function authHeader() {
       try {
         const res = await _origFetch(input, init);
         if (res.status === 401 && getToken()) {
-          setToken(null);
-          const msg = document.getElementById('sessionExpiredMsg');
-          if (msg) msg.style.display = 'block';
-          const lock = document.getElementById('lockOverlay');
-          if (lock) lock.classList.remove('hidden');
-          _setAuthGateLocked(true);
-          return res;
+          // /auth/refresh 자체가 401이면 무한루프 방지
+          const url = typeof input === 'string' ? input : (input.url || '');
+          if (url.includes('/auth/refresh') || url.includes('/auth/login')) {
+            _handle401();
+            return res;
+          }
+          try {
+            const newTok = await _tryRefresh();
+            // 갱신된 토큰으로 원 요청 재시도
+            const newInit = { ...init, headers: { ...(init && init.headers), 'Authorization': 'Bearer ' + newTok } };
+            return await _origFetch(input, newInit);
+          } catch (_e) {
+            _handle401();
+            return res;
+          }
         }
-        // 5xx 게이트웨이성 에러: retryable 이면 재시도
+        // 5xx 게이트웨이성 에러: retryable 이면 재시도. 첫 실패는 조용히, 2회째 실패부터 토스트.
         if (retryable && RETRY_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
-          _showReconnectToast();
+          if (attempt >= 1) _showReconnectToast();
           await _sleep(BACKOFF_MS[attempt] || 1500);
           attempt++;
           continue;
         }
         return res;
       } catch (err) {
-        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도
+        // 호출자 AbortController 가 이미 abort한 경우 → 재시도 없이 즉시 전파
+        // (재시도해도 즉시 abort되어 toast만 쌓이는 문제 방지)
+        if (err.name === 'AbortError' && init && init.signal && init.signal.aborted) {
+          throw err;
+        }
+        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도. 첫 실패는 조용히.
         if (retryable && attempt < MAX_RETRIES) {
-          _showReconnectToast();
+          if (attempt >= 1) _showReconnectToast();
           await _sleep(BACKOFF_MS[attempt] || 1500);
           attempt++;
           continue;
@@ -613,12 +787,15 @@ function openSettings() {
   if (settingsAvatarEl && headerAvatarEl) {
     const img = headerAvatarEl.querySelector('img');
     if (img) {
-      settingsAvatarEl.innerHTML = `<img src="${img.src}" alt="">`;
+      settingsAvatarEl.innerHTML = `<img src="${window._esc(img.src)}" alt="">`;
     } else {
       const initialEl = headerAvatarEl.querySelector('.profile-avatar__initial');
       settingsAvatarEl.textContent = (initialEl ? initialEl.textContent : '') || shopName[0] || '잇';
     }
   }
+
+  // [Hotfix] 시트 열릴 때 항상 맨 위에서 시작 — 이전 스크롤 위치 잔존 방지
+  card.scrollTop = 0;
 
   // 먼저 display, 한 프레임 뒤 open (두 번 rAF로 확실히 렌더 후 transition 발동)
   card.classList.remove('open');
@@ -637,10 +814,30 @@ function closeSettings() {
 }
 
 async function resetShopSetup() {
-  if (!(await nativeConfirm("확인", '샵 이름과 종류를 다시 설정할까요?'))) return;
-  localStorage.removeItem('shop_name');
-  localStorage.removeItem('shop_type');
-  localStorage.removeItem('onboarding_done');
+  // [2026-05-08 27차 [H]] 샵 재설정 시 인스타·말투까지 함께 정리
+  if (!(await nativeConfirm(
+    "확인",
+    '샵 이름·종류·인스타 연동·말투 분석을 모두 처음 상태로 돌릴까요?'
+  ))) return;
+
+  // 1. 백엔드 인스타 해제 (실패해도 진행)
+  try {
+    await fetch(API + '/instagram/disconnect', { method: 'POST', headers: authHeader() });
+  } catch (_e) { void _e; }
+
+  // 2. 로컬 정리 — 샵·온보딩·인스타 동의·말투 분석
+  ['shop_name', 'shop_type', 'onboarding_done',
+   'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis']
+    .forEach(k => { try { localStorage.removeItem(k); } catch (_e) { void _e; } });
+
+  // 3. 메모리 + 헤더/말투 카드 즉시 비우기
+  try { _instaHandle = ''; } catch (_e) { void _e; }
+  try { if (typeof window !== 'undefined') window._instaHandle = ''; } catch (_e) { void _e; }
+  if (typeof updateHeaderProfile === 'function') updateHeaderProfile('', '', '');
+  const pd = document.getElementById('personaDash');
+  if (pd) { pd.style.display = 'none'; const pc = document.getElementById('personaContent'); if (pc) pc.innerHTML = ''; }
+
+  // 4. 온보딩 오버레이 띄우기 (기존 동작 유지)
   const ob = document.getElementById('onboardingOverlay');
   if (ob) ob.classList.remove('hidden');
 }
@@ -662,7 +859,7 @@ function checkCbt1Reset() {
 }
 
 async function fullReset() {
-  if (!(await nativeConfirm("확인", '⚠️ 모든 데이터(온보딩·샵설정·인스타연동·말투분석)가 초기화됩니다.\n정말 처음부터 시작할까요?'))) return;
+  if (!(await nativeConfirm("확인", '모든 데이터(온보딩·샵설정·인스타연동·말투분석)가 초기화됩니다.\n정말 처음부터 시작할까요?'))) return;
   try {
     const res = await fetch(API + '/admin/reset', { method: 'POST', headers: authHeader() });
     if (!res.ok) throw new Error('초기화 실패');
@@ -738,8 +935,8 @@ async function confirmDeleteAccount() {
         await Promise.all(keys.map(k => caches.delete(k)));
       } catch (_) { /* ignore */ }
     }
-    alert('계정이 완전히 삭제되었습니다. 이용해 주셔서 감사합니다.');
-    location.href = 'index.html';
+    showToast('계정이 완전히 삭제되었습니다. 이용해 주셔서 감사합니다.', 'success');
+    setTimeout(() => { location.href = 'index.html'; }, 1200);
   } catch (e) {
     if (err) { err.textContent = e.message || '삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'; err.style.display = 'block'; }
     if (btn) { btn.textContent = '영구 삭제'; btn.disabled = false; }
@@ -748,16 +945,25 @@ async function confirmDeleteAccount() {
   }
 }
 
-async function logout() {
-  if (!(await nativeConfirm("확인", "로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다."))) return;
+async function logout(opts) {
+  opts = opts || {};
+  // [2026-05-08 28차 [J]] skipConfirm — disconnectInstagram 등 다른 흐름에서 이중 컨펌 방지
+  if (!opts.skipConfirm && !(await nativeConfirm("확인", "로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다."))) return;
 
   // 1. 토큰 및 사용자 범위 스토리지 광범위 삭제
   setToken(null);
+  // [2026-05-07 26차] 메모리 변수도 명시 클리어 — _purgeUserScopedStorage 는 storage 만 청소함.
+  // 누락 시 다른 user 로그인 후에도 이전 user 의 인스타 핸들이 남아 헤더/캡션 미리보기에 노출됨.
+  _instaHandle = '';
+  try { if (typeof window !== 'undefined') window._instaHandle = ''; } catch (_e) { void _e; }
   // 사용자 식별 / 캐시 / 페르소나·일정·세션 컨텍스트 일괄 정리
   // (온보딩·테마·생체등록 같은 디바이스 설정은 _USER_KEY_KEEP 가 보존)
   try { _purgeUserScopedStorage(); } catch (_e) { void _e; }
   // 호환성 — 옛 단일 키도 함께 제거
-  ['itdasy_token', 'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis'].forEach(k => {
+  // [2026-05-08 28차 hotfix] itdasy_ipc_dismissed (잇비 카드 닫기 상태) +
+  // itdasy:ig_connected_cache (콜론 prefix 라 _purgeUserScopedStorage 의 itdasy_ 매칭 못 함) 명시 정리.
+  ['itdasy_token', 'itdasy_ipc_dismissed', 'itdasy:ig_connected_cache',
+   'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis'].forEach(k => {
     try { localStorage.removeItem(k); } catch (_e) { void _e; }
   });
 
@@ -811,15 +1017,19 @@ async function login() {
       // 보조: 이메일도 갱신 (applyNewSession 안에서 /me 응답 기준으로 덮어씀)
       localStorage.setItem('last_login_email', email);
     } catch (_) { /* ignore */ }
-    document.getElementById('lockOverlay').classList.add('hidden');
     _setAuthGateLocked(false);
     checkCbt1Reset();
     checkOnboarding();
+    document.getElementById('lockOverlay').classList.add('hidden');
+    // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload 완료 후 해제
+    var _lo = document.getElementById('appLoadingOverlay');
+    if (_lo) _lo.style.display = 'flex';
     checkInstaStatus(true);
     // T-317 — 생체 인증 등록 제안 (한 번만)
     _offerBiometricEnroll(data.access_token);
     // Wave 2+ — 로그인 직후 주요 데이터 preload (탭 열 때 즉시 표시)
-    _preloadTabs();
+    try { await _preloadTabs(); } catch (_) { /* ignore */ }
+    _hideLoadingOverlay();
     // [2026-04-26 0초딜레이] 홈 화면 AI 추천 카드 즉시 렌더 (500ms 딜레이 제거)
     // SWR 캐시 있으면 0ms, 없으면 fetch — 어차피 비동기라 메인 쓰레드 블로킹 X
     if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
@@ -861,7 +1071,7 @@ async function _offerBiometricEnroll(token) {
       if (!yes) return;
       try {
         await window.Biometric.enable(token);
-        if (window.showToast) window.showToast('✅ 생체 인증 등록됨');
+        if (window.showToast) window.showToast('생체 인증 등록됨');
       } catch (_) { /* ignore */ }
     }, 1200);
   } catch (_) { /* ignore */ }
@@ -966,9 +1176,9 @@ async function signup() {
       localStorage.setItem('last_login_email', email);
     } catch (_) { /* ignore */ }
     document.getElementById('signupOverlay').style.display = 'none';
-    document.getElementById('lockOverlay').classList.add('hidden');
     _setAuthGateLocked(false);
     checkOnboarding();
+    document.getElementById('lockOverlay').classList.add('hidden');
     checkInstaStatus(true);
   } catch (e) {
     errEl.textContent = _friendlyErr(e, '가입 실패');
@@ -1013,7 +1223,7 @@ window.startGoogleLogin = async function () {
     }
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || 'Google 로그인 오류');
-    alert(msg);
+    showToast(msg, 'error');
   }
 };
 
@@ -1034,7 +1244,7 @@ window.startKakaoLogin = async function () {
     }
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '카카오 로그인 오류');
-    alert(msg);
+    showToast(msg, 'error');
   }
 };
 
@@ -1058,8 +1268,7 @@ window.startNaverLogin = async function () {
     }
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '네이버 로그인 오류');
-    if (window.showToast) window.showToast('네이버 로그인을 시작할 수 없어요');
-    else alert(msg);
+    showToast(msg || '네이버 로그인을 시작할 수 없어요', 'error');
   }
 };
 
@@ -1144,12 +1353,16 @@ window.addEventListener('load', function() {
 
   // 비밀번호 보기 토글
   const pwToggle = document.getElementById('loginPwToggle');
-  if (pwToggle) pwToggle.addEventListener('click', () => {
-    const inp = document.getElementById('loginPassword');
-    if (!inp) return;
-    inp.type = inp.type === 'password' ? 'text' : 'password';
-    pwToggle.textContent = inp.type === 'password' ? '👁' : '🙈';
-  });
+  if (pwToggle) {
+    const _eyeOpen = '<i class="ph-duotone ph-eye" style="font-size:18px" aria-hidden="true"></i>';
+    const _eyeOff  = '<i class="ph-duotone ph-eye-slash" style="font-size:18px" aria-hidden="true"></i>';
+    pwToggle.addEventListener('click', () => {
+      const inp = document.getElementById('loginPassword');
+      if (!inp) return;
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+      pwToggle.innerHTML = inp.type === 'password' ? _eyeOpen : _eyeOff;
+    });
+  }
 
   // 회원가입 전환 — document 위임 (타이밍 무관)
   document.addEventListener('click', (e) => {
@@ -1215,15 +1428,31 @@ window.addEventListener('load', function() {
     }
   })();
 
+  // [2026-05-08 27차 [G]] 인스타 OAuth 충돌 처리 — BE 가 ig_conflict=1 로 리다이렉트
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ig_conflict') === '1') {
+      const handle = params.get('handle') || '';
+      history.replaceState(null, '', window.location.pathname);
+      if (typeof window.showInstaConflictModal === 'function') {
+        window.showInstaConflictModal(handle);
+      }
+    }
+  })();
+
   // T-317 — 토큰 없어도 생체 인증 등록돼 있으면 먼저 시도
   (async () => {
     if (!getToken() && window.Biometric && window.Biometric.isEnabled()) {
       const ok = await _tryBiometricLogin();
       if (ok) {
         document.getElementById('lockOverlay').classList.add('hidden');
+        var _lo2 = document.getElementById('appLoadingOverlay');
+        if (_lo2) _lo2.style.display = 'flex';
         _setAuthGateLocked(false);
         checkOnboarding();
         checkInstaStatus(true);
+        try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
+        _hideLoadingOverlay();
       }
     }
   })();
@@ -1237,13 +1466,34 @@ window.addEventListener('load', function() {
     try { applyNewSession(getToken()); } catch (_) { /* ignore */ }
     checkCbt1Reset();
     checkOnboarding();
+    // [UX-LOAD] 필수 데이터 preload 완료 후 로딩 화면 해제
+    (async () => {
+      try {
+        if (window._preloadTabs) await window._preloadTabs();
+      } catch (_) { /* ignore */ }
+      _hideLoadingOverlay();
+    })();
+    // [2026-05-13 QA #blocker1] OAuth 직후 — 백엔드 BG 자동분석을 status 폴링으로 대기.
+    // runAutoAnalysisAfterConnect 가 즉시 toast + overlay + 90초 polling + timeout fallback.
+    const _params0 = new URLSearchParams(window.location.search);
+    const _justOAuthed = _params0.get('connected') === 'success';
+    if (_justOAuthed) {
+      history.replaceState(null, '', window.location.pathname);
+      try {
+        const pd = document.getElementById('personaDash');
+        if (pd) pd.style.display = 'none';
+      } catch (_e) { void _e; }
+      try {
+        if (typeof window.runAutoAnalysisAfterConnect === 'function') {
+          window.runAutoAnalysisAfterConnect();
+        } else if (typeof runPersonaAnalyze === 'function') {
+          runPersonaAnalyze();
+        }
+      } catch (_e) { void _e; }
+    }
     checkInstaStatus().then(() => {
-      // 인스타 OAuth 콜백 후 내 말투 자동 완성
+      // (connected=success 는 위에서 이미 처리됨 — runPersonaAnalyze 즉시 호출)
       const params = new URLSearchParams(window.location.search);
-      if (params.get('connected') === 'success') {
-        history.replaceState(null, '', window.location.pathname);
-        setTimeout(runPersonaAnalyze, 800);
-      }
       // Chrome 이동 후 자동 연동 시작
       if (params.get('auto_connect') === '1') {
         history.replaceState(null, '', window.location.pathname);
@@ -1256,19 +1506,19 @@ window.addEventListener('load', function() {
     const tsEl2 = document.getElementById('consentTimestampDisplay');
     if (tsEl2) {
       if (consentedAt) {
-        tsEl2.textContent = `✅ 개인정보 동의 완료 · ${consentedAt}`;
+        tsEl2.textContent = `개인정보 동의 완료 · ${consentedAt}`;
         tsEl2.style.display = 'inline';
       } else {
         tsEl2.textContent = '';
         tsEl2.style.display = 'none';
       }
     }
-    // 홈 화면 AI 추천 카드 즉시 렌더 (자동 로그인 시에도)
+    // [UX-LOAD] preload 완료 후 TodayBrief 렌더 — 캐시 히트로 즉시 표시
     setTimeout(() => {
       if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
         try { window.TodayBrief.render('home-today-brief'); } catch (_e) { /* ignore */ }
       }
-    }, 800);
+    }, 100);
   } else {
     _setAuthGateLocked(true);
   }
@@ -1376,7 +1626,7 @@ document.addEventListener('DOMContentLoaded', function() {
       t.classList.add('on');
       window._customBgUrl = null;
       const toggleBtn = document.getElementById('bgStoreToggle');
-      if (toggleBtn && toggleBtn.textContent.includes('선택됨')) toggleBtn.textContent = '📦 배경 창고 열기';
+      if (toggleBtn && toggleBtn.textContent.includes('선택됨')) toggleBtn.textContent = '배경 창고 열기';
       document.querySelectorAll('#bgStoreGrid > div').forEach(cell => { cell.style.outline = ''; });
     });
   });
@@ -1396,12 +1646,13 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260504-v80-prototype-recovery';
+window.APP_BUILD = '20260508-v118-conflict-modal-dim';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
   const v = swVer || window.APP_BUILD || '?';
-  el.textContent = 'v' + v.replace(/^20\d{6}-?/, '');
+  // 날짜(20260504-) + 첫 dash 이후 설명 제거 → 'v89' 만 표시
+  el.textContent = 'v' + v.replace(/^20\d{6}-?/, '').replace(/^v?(\d+).*$/, '$1');
   el.title = '빌드: ' + v + ' (탭하면 최근 로그)';
   if (swVer && window.APP_BUILD && swVer !== window.APP_BUILD && !sessionStorage.getItem('cache_busted')) {
     console.warn('[SW] 버전 불일치 감지 — 캐시 전부 삭제 후 리로드. active=' + swVer + ' / bundle=' + window.APP_BUILD);
@@ -1420,6 +1671,17 @@ function _updateVersionBadge(swVer) {
   }
 }
 document.addEventListener('DOMContentLoaded', () => _updateVersionBadge(window.APP_BUILD));
+
+// [2026-05-05] AI 챗봇 사이드바 카드 클릭 → 기존 #assistantFab 동작 트리거.
+// 모바일은 카드 자체가 hide(media query) 되어 영향 없음.
+document.addEventListener('DOMContentLoaded', () => {
+  const chatbotCard = document.getElementById('cw-chatbot-card');
+  if (chatbotCard) {
+    chatbotCard.addEventListener('click', () => {
+      document.getElementById('assistantFab')?.click();
+    });
+  }
+});
 
 const _isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
@@ -1520,19 +1782,41 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     if (ob && !ob.classList.contains('hidden')) return;
     if ((window.scrollY || document.documentElement.scrollTop) > 0) return;
     if (e.touches.length !== 1) return;
+
+    // [Hotfix A] 시트/팝업이 열려있으면 PTR 완전 비활성화
+    // 팝업 안에서 당겨 새로고침 의도 없음 + body translateY 가 시트도 같이 미는 버그 방지.
+    const anySheet = document.querySelector(
+      '#settingsSheet[style*="flex"], .ms-sheet[style*="flex"], .hub-sheet.open, .ms-sheet.open, #navSheet[style*="flex"], .drawer-nav.open'
+    );
+    if (anySheet) return;
+
+    // [Hotfix B] 탭바/하단 네비/AI비서 FAB 위에서 시작된 터치는 PTR 제외
+    // PTR이 body를 translateY 로 밀면 탭바도 같이 밀려 버튼이 안 눌리는 문제 방지.
+    const nav = e.target.closest('#bottomNavGroup, .tab-bar, #assistantFab');
+    if (nav) return;
+
     startY    = e.touches[0].clientY;
     pulling   = true;
     triggered = false;
   }, { passive: true });
 
+  // [PerfFix] touchmove를 passive:true로 — preventDefault 제거.
+  // iOS 200ms 터치 지연 해소. 대신 body overscroll-behavior-y:contain 으로 바운스 차단
+  // (CSS는 다른 터미널 동시작업 중이라 JS에서 직접 style 설정).
+  try { document.body.style.overscrollBehaviorY = 'contain'; } catch (_e) { void _e; }
+
   document.addEventListener('touchmove', e => {
     if (!pulling || loading) return;
+    // [Hotfix] 시트 열림 재확인 — touchstart→touchmove 사이에 시트가 열릴 수 있음
+    const anySheet2 = document.querySelector(
+      '#settingsSheet[style*="flex"], .ms-sheet[style*="flex"], .hub-sheet.open, .ms-sheet.open'
+    );
+    if (anySheet2) { pulling = false; return; }
     if (e.touches.length !== 1) { pulling = false; springBack(); return; }
 
     const dy   = e.touches[0].clientY - startY;
     if (dy <= 0) { pulling = false; return; }
-
-    e.preventDefault();
+    e.preventDefault();  // PTR 당기는 동안 브라우저 스크롤 차단 (iOS standalone PTR 복구)
 
     const move = dy * RESISTANCE;
     applyMove(move);
@@ -1541,9 +1825,9 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
       if (!triggered) {
         triggered = true;
         LABEL.textContent    = '놓으면 새로고침!';
-        LABEL.style.color    = '#F18091';
+        LABEL.style.color    = 'var(--brand)';
         EMOJI.style.transform = 'scale(1.35)';
-        EMOJI.style.color     = '#F18091';
+        EMOJI.style.color     = 'var(--brand)';
       }
     } else {
       if (triggered) {
@@ -1575,7 +1859,7 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     springBack(() => {
       resetIndicator();
       loading = false;
-      showToast('✨ 최신 상태예요!');
+      showToast('최신 상태예요!');
     });
   });
 })();
@@ -1604,22 +1888,33 @@ async function loadStatsCard() {
 (function wrapFetchFor429() {
   const origFetch = window.fetch;
   let lastOpened = 0;
+  let lastRateToast = 0;
   window.fetch = async function(...args) {
     const r = await origFetch.apply(this, args);
     if (r.status === 429) {
       const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || '';
-      // API 도메인에 한정 (외부 요청 무시)
-      if (url.includes('railway.app') || url.startsWith(API)) {
+      if (url.startsWith(API)) {
+        // [2026-05-13 QA] backend detail 검사 — quota_exceeded:* 만 plan popup,
+        // rate_limit_exceeded 는 단순 toast (재고 +버튼 1회 클릭에 플랜창 오발화 차단).
+        let detail = '';
+        try {
+          const clone = r.clone();
+          const j = await clone.json().catch(() => ({}));
+          detail = (j && j.detail) || '';
+          if (typeof detail !== 'string') detail = JSON.stringify(detail);
+        } catch (_) { /* ignore */ }
+        const isQuota = /^quota_exceeded:/.test(detail);
+        const isRate = /^rate_limit/.test(detail) || detail.includes('요청이 잠깐') || detail.includes('요청이 너무 많');
         const now = Date.now();
-        if (now - lastOpened > 3000 && typeof window.openPlanPopup === 'function') {
+        if (isQuota && now - lastOpened > 3000 && typeof window.openPlanPopup === 'function') {
           lastOpened = now;
-          try {
-            const clone = r.clone();
-            const j = await clone.json().catch(() => ({}));
-            showToast(j.detail || '사용 한도 초과 — 플랜을 확인해주세요');
-          } catch (_) { /* ignore */ }
+          showToast(detail || '사용 한도 초과 — 플랜을 확인해주세요');
           setTimeout(() => window.openPlanPopup(), 600);
+        } else if (isRate && now - lastRateToast > 3000) {
+          lastRateToast = now;
+          showToast('요청이 잠깐 몰렸어요. 잠시 후 자동으로 풀려요 😊');
         }
+        // 그 외(인증 만료 등) 는 호출자가 처리.
       }
     }
     return r;
@@ -1725,17 +2020,8 @@ window._preloadTabs = async function () {
   }));
 };
 
-// 앱 첫 부팅 시에도 preload (토큰 이미 있으면) — 1.5s 딜레이 제거, 다음 프레임 즉시
-if (typeof window !== 'undefined') {
-  const _bootPreload = () => {
-    if (window._preloadTabs && window.authHeader) {
-      const auth = window.authHeader();
-      if (auth && auth.Authorization) window._preloadTabs();
-    }
-  };
-  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_bootPreload);
-  else setTimeout(_bootPreload, 0);
-}
+// [UX-LOAD] 자동 preload 제거 — if(getToken()) / login() 에서 직접 await 하므로 중복 방지
+// (기존: 부팅 시 자동 _preloadTabs 호출 → 중복 fetch 원인)
 
 // ──────────────────────────────────────────────
 // Wave 1+2+3 유틸 함수 (yeunjun 오늘 적용분 재이식 · 원영 base 위에 얹음)
@@ -1769,9 +2055,9 @@ window.safeStorage = {
   remove(key) { try { localStorage.removeItem(key); return true; } catch (_e) { return false; } },
 };
 
-// 안전 fetch — 15초 타임아웃 + AbortController
+// 안전 fetch — 25초 타임아웃 + AbortController (Railway cold start 10-20s 대응)
 window.safeFetch = async function (url, opts = {}) {
-  const timeout = opts.timeout || 15000;
+  const timeout = opts.timeout || 25000;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeout);
   try {
@@ -1835,17 +2121,78 @@ window._confirm2 = function (msg, opts) {
 // ─────────────────────────────────────────────────────────────
 window.forceSync = async function () {
   try {
+    // 1/3 — 캐시 비우기
+    if (typeof window.showToast === 'function') window.showToast('1/3 캐시 비우는 중…');
     if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
-    if (typeof window.showToast === 'function') window.showToast('동기화 중…');
-    // data-changed 신호 한 번 — TodayBrief / 인사이트 등이 즉시 재렌더
+    // sessionStorage 의 dash_cache, pv_cache 등도 함께 정리
     try {
-      window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'force_sync' } }));
+      const keys = Object.keys(sessionStorage);
+      keys.forEach(k => {
+        if (/^(dash_cache::|pv_cache::|hv41_cache::)/.test(k)) sessionStorage.removeItem(k);
+      });
     } catch (_e) { void _e; }
-    setTimeout(() => { try { location.reload(); } catch (_e) { void _e; } }, 800);
+
+    // 2/3 — 데이터 다시 받기 신호
+    setTimeout(() => {
+      try {
+        if (typeof window.showToast === 'function') window.showToast('2/3 서버에서 다시 받는 중…');
+        window._fireDataChanged({ kind: 'force_sync' });
+      } catch (_e) { void _e; }
+    }, 350);
+
+    // 3/3 — 화면 새로고침 + 마지막 동기화 시각 기록
+    setTimeout(() => {
+      try {
+        if (typeof window.showToast === 'function') window.showToast('3/3 화면 새로고침…');
+        localStorage.setItem('itdasy_last_sync_at', String(Date.now()));
+      } catch (_e) { void _e; }
+      setTimeout(() => { try { location.reload(); } catch (_e) { void _e; } }, 250);
+    }, 700);
   } catch (e) {
-    if (typeof window.showToast === 'function') window.showToast('동기화 실패 — 잠시 후 다시 시도해주세요');
+    if (typeof window.showToast === 'function') window.showToast('새로고침 실패 — 잠시 후 다시 시도해주세요');
   }
 };
+
+// 마지막 동기화 시각 — 설정 시트에서 표시용 ("N분 전")
+window.getLastSyncRelative = function () {
+  try {
+    const at = Number(localStorage.getItem('itdasy_last_sync_at') || 0);
+    if (!at) return '';
+    const diffMs = Date.now() - at;
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return '방금 전';
+    if (min < 60) return min + '분 전';
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return hr + '시간 전';
+    return Math.floor(hr / 24) + '일 전';
+  } catch (_e) { return ''; }
+};
+
+// 모든 [data-last-sync] 요소의 텍스트를 마지막 동기화 시각으로 갱신
+window.refreshLastSyncBadges = function () {
+  try {
+    const rel = window.getLastSyncRelative();
+    document.querySelectorAll('[data-last-sync]').forEach(el => {
+      el.textContent = rel ? '마지막: ' + rel : '';
+    });
+  } catch (_e) { void _e; }
+};
+
+// DOMContentLoaded 후 1회 + 페이지 보이기 / focus 시 매번 갱신
+(function _installLastSyncBadgeRefresh() {
+  if (window._lastSyncBadgeInstalled) return;
+  window._lastSyncBadgeInstalled = true;
+  function _tick() { try { window.refreshLastSyncBadges(); } catch (_e) { void _e; } }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _tick);
+  } else {
+    _tick();
+  }
+  window.addEventListener('focus', _tick);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _tick();
+  });
+})();
 
 // 앱이 백그라운드 → 포커스 복귀 시 캐시 무효화 + data-changed 발사
 // 2026-05-01 ── 60s → 300s 환원. 영상 녹화 / 다중 창 전환 시 매번 cache clear 되어 UI 렉.
@@ -1861,7 +2208,7 @@ window.forceSync = async function () {
       if (elapsed > STALE_MS) {
         if (typeof window._clearAllSWRCache === 'function') window._clearAllSWRCache();
         try {
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'focus_sync' } }));
+          window._fireDataChanged({ kind: 'focus_sync' });
         } catch (_e) { void _e; }
       }
       sessionStorage.setItem('itdasy:last_focus_at', String(Date.now()));

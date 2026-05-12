@@ -139,12 +139,12 @@
     wrap.innerHTML = `
       <div class="itd-empty-icon">${icon}</div>
       <div style="font-size:15px;font-weight:700;color:#333;margin-top:14px;">${title}</div>
-      ${sub ? `<div style="font-size:12px;color:#999;margin-top:6px;line-height:1.5;">${sub}</div>` : ''}
+      ${sub ? `<div style="font-size:12px;color:var(--text-subtle);margin-top:6px;line-height:1.5;">${sub}</div>` : ''}
     `;
     if (action) {
       const btn = document.createElement('button');
       btn.textContent = action.label;
-      btn.style.cssText = 'margin-top:16px;padding:11px 22px;background:linear-gradient(135deg,#F18091,#FFA8B6);color:#fff;border:none;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;';
+      btn.style.cssText = 'margin-top:16px;padding:11px 22px;background:linear-gradient(135deg,var(--brand),#FFA8B6);color:#fff;border:none;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;';
       btn.addEventListener('click', action.onClick);
       wrap.appendChild(btn);
     }

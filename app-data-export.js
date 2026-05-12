@@ -24,14 +24,14 @@
       <div id="dataExportModal" style="display:none;position:fixed;inset:0;z-index:9850;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;padding:20px;">
         <div style="background:#fff;border-radius:16px;max-width:460px;width:100%;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.25);">
           <div style="padding:18px 20px 12px;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-bottom:1px solid #a7f3d0;">
-            <div style="font-size:18px;font-weight:800;color:#065f46;letter-spacing:-0.3px;">📦 내 데이터 내보내기</div>
+            <div style="font-size:18px;font-weight:800;color:#065f46;letter-spacing:-0.3px;">내 데이터 내보내기</div>
             <div style="font-size:12px;color:#064e3b;margin-top:4px;line-height:1.55;">GDPR Art. 20 / CCPA / PIPA — 내가 입력한 모든 데이터를 기계 판독 가능 형식으로 다운로드합니다.</div>
           </div>
           <div style="padding:16px 20px;">
             <div id="__dx_summary" style="background:#f7f7f9;padding:12px 14px;border-radius:10px;font-size:12.5px;line-height:1.8;color:#333;margin-bottom:14px;min-height:80px;">
               <span style="color:#888;">집계 중...</span>
             </div>
-            <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:10px;">
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:10px;">
               포함: 고객·예약·매출·재고.<br>
               제외: 비밀번호·토큰·제3자(Apple/Google/Meta) 보유 데이터.
             </div>

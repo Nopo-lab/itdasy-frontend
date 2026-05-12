@@ -59,7 +59,7 @@
 
   function _renderLoading() {
     const body = document.getElementById('insightsBody');
-    body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;">AI 분석 중…</div>';
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-subtle);">AI 분석 중…</div>';
   }
 
   function _retentionCard(data) {
@@ -84,7 +84,7 @@
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px;">
           <span style="font-size:18px;">💝</span>
           <strong style="font-size:14px;">이탈 임박 고객</strong>
-          <span style="margin-left:auto;font-size:11px;color:#dc3545;font-weight:700;">⚠ ${s.at_risk + s.lost}명</span>
+          <span style="margin-left:auto;font-size:11px;color:#dc3545;font-weight:700;">${s.at_risk + s.lost}명</span>
         </div>
         ${items.map(c => `
           <div style="padding:8px 4px;border-top:1px solid rgba(0,0,0,0.05);">
@@ -95,13 +95,13 @@
                 ${c.status === 'lost' ? '이탈' : '임박'}
               </span>
             </div>
-            <div style="font-size:11px;color:#666;margin-top:2px;">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
               마지막 방문 ${_relativeDays(c.days_since_last)} 전 · 평균 주기 ${Math.round(c.avg_interval_days)}일 · 방문 ${c.visit_count}회
             </div>
             <div style="margin-top:6px;text-align:right;">
               <button data-draft-cid="${c.customer_id}" data-draft-name="${_esc(c.name)}" data-draft-phone="${_esc(c.phone || '')}"
-                      style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid #F18091;background:#fff;color:#D95F70;border-radius:100px;cursor:pointer;">
-                💬 카톡 초안 만들기
+                      style="padding:5px 10px;font-size:11px;font-weight:700;border:1px solid var(--brand);background:#fff;color:var(--brand-strong);border-radius:100px;cursor:pointer;">
+                카톡 초안 만들기
               </button>
             </div>
           </div>
@@ -111,9 +111,9 @@
           <div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.06);">
             <button id="bulkDraftBtn" data-bulk-ids="${bulkIds.join(',')}"
                     style="width:100%;padding:11px 14px;font-size:13px;font-weight:700;border:none;background:linear-gradient(135deg,hsl(350,80%,72%),hsl(350,72%,60%));color:#fff;border-radius:14px;cursor:pointer;box-shadow:0 2px 6px rgba(217,95,112,0.22);">
-              💝 ${bulkCount}명에게 안부 문자 초안 일괄 생성
+              ${bulkCount}명에게 안부 문자 초안 일괄 생성
             </button>
-            <div style="margin-top:6px;font-size:10.5px;color:#999;text-align:center;line-height:1.4;">
+            <div style="margin-top:6px;font-size:10.5px;color:var(--text-subtle);text-align:center;line-height:1.4;">
               초안만 준비해요 · 발송은 카톡 공유로 한 명씩 직접 승인
             </div>
           </div>
@@ -138,19 +138,19 @@
     if (predicted != null) {
       const px = P + (lastIdx + 1) * stepX;
       const py = ptY(predicted);
-      predLine = `<line x1="${P + lastIdx * stepX}" y1="${ptY(history[lastIdx].amount)}" x2="${px}" y2="${py}" stroke="#F18091" stroke-width="2" stroke-dasharray="3 3" />`;
-      predDot = `<circle cx="${px}" cy="${py}" r="4" fill="#F18091" stroke="#fff" stroke-width="2" />`;
+      predLine = `<line x1="${P + lastIdx * stepX}" y1="${ptY(history[lastIdx].amount)}" x2="${px}" y2="${py}" stroke="var(--brand)" stroke-width="2" stroke-dasharray="3 3" />`;
+      predDot = `<circle cx="${px}" cy="${py}" r="4" fill="var(--brand)" stroke="#fff" stroke-width="2" />`;
     }
     return `
       <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">
         <defs><linearGradient id="rfFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#F18091" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="#F18091" stop-opacity="0"/>
+          <stop offset="0%" stop-color="var(--brand)" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="var(--brand)" stop-opacity="0"/>
         </linearGradient></defs>
         <path d="${pathD} L ${P + lastIdx * stepX},${H - P} L ${P},${H - P} Z" fill="url(#rfFill)" />
-        <path d="${pathD}" fill="none" stroke="#F18091" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${pathD}" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
         ${predLine}
-        <circle cx="${lastPt.split(',')[0]}" cy="${lastPt.split(',')[1]}" r="3" fill="#F18091" />
+        <circle cx="${lastPt.split(',')[0]}" cy="${lastPt.split(',')[1]}" r="3" fill="var(--brand)" />
         ${predDot}
       </svg>
     `;
@@ -182,17 +182,17 @@
           <span style="margin-left:auto;font-size:10px;font-weight:700;color:${confColor};background:${confColor}20;padding:2px 7px;border-radius:99px;">신뢰도 ${confLabel}</span>
         </div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
-          <strong style="font-size:26px;color:var(--accent,#F18091);font-variant-numeric:tabular-nums;">${_formatKRW(data.predicted_week)}</strong>
+          <strong style="font-size:26px;color:var(--accent,var(--brand));font-variant-numeric:tabular-nums;">${_formatKRW(data.predicted_week)}</strong>
           <span style="font-size:13px;color:${deltaColor};font-weight:700;">${arrow} ${up ? '+' : ''}${data.delta_pct}%</span>
         </div>
         <div style="margin-bottom:8px;">${_sparklineSVG(data.history || [], data.predicted_week)}</div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#999;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-subtle);margin-bottom:8px;">
           <span>8주 전</span>
           <span>이번 주 누적 ${_formatKRW(data.current_week)}</span>
-          <span style="color:#F18091;font-weight:700;">예측</span>
+          <span style="color:var(--brand);font-weight:700;">예측</span>
         </div>
         <div style="font-size:12px;color:#555;line-height:1.5;padding:8px 10px;background:#fff;border-radius:8px;">
-          💡 ${_esc(data.action)}
+          ${_esc(data.action)}
         </div>
       </div>
     `;
@@ -211,7 +211,7 @@
 
     if (!ret && !fc) {
       body.innerHTML = `
-        <div style="padding:30px 16px;text-align:center;color:#aaa;font-size:13px;line-height:1.6;">
+        <div style="padding:30px 16px;text-align:center;color:var(--text-subtle);font-size:13px;line-height:1.6;">
           <div style="font-size:36px;margin-bottom:10px;">🌱</div>
           아직 분석할 데이터가 부족해요. 고객·매출·예약을 기록하면<br>며칠 뒤부터 AI가 선제 제안을 보여줘요.
         </div>
@@ -222,7 +222,7 @@
     body.innerHTML = `
       ${_retentionCard(ret)}
       ${_forecastCard(fc)}
-      <div style="font-size:11px;color:#aaa;text-align:center;padding:10px;">
+      <div style="font-size:11px;color:var(--text-subtle);text-align:center;padding:10px;">
         AI 인사이트는 최근 8주 데이터를 바탕으로 매 요청마다 새로 계산돼요.
       </div>
     `;
@@ -253,7 +253,7 @@
       const name = btn.getAttribute('data-draft-name');
       if (!cid) return;
       const original = btn.innerHTML;
-      btn.innerHTML = '🤖 AI 작성 중…';
+      btn.innerHTML = 'AI 작성 중…';
       btn.disabled = true;
       try {
         const res = await fetch(window.API + '/retention/' + cid + '/message-draft', {
@@ -332,7 +332,7 @@
     const body = document.getElementById('bulkBody');
     if (!body) return;
     if (!_bulkState.items.length) {
-      body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;font-size:13px;">대상 고객이 없어요</div>';
+      body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-subtle);font-size:13px;">대상 고객이 없어요</div>';
       return;
     }
     body.innerHTML = _bulkState.items.map((it, idx) => {
@@ -342,12 +342,12 @@
         <div data-bulk-row="${idx}" style="padding:12px 10px;margin-bottom:8px;border:1px solid hsl(350,40%,92%);border-radius:14px;background:${it.done ? 'hsl(140,40%,97%)' : '#fff'};cursor:pointer;${dim}">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
             <strong style="font-size:13.5px;">${_esc(it.name)}</strong>
-            ${it.phone ? `<span style="font-size:11px;color:#999;">${_esc(it.phone)}</span>` : ''}
+            ${it.phone ? `<span style="font-size:11px;color:var(--text-subtle);">${_esc(it.phone)}</span>` : ''}
             <span style="margin-left:auto;font-size:11px;font-weight:700;color:${it.done ? 'hsl(140,50%,40%)' : 'hsl(350,72%,60%)'};">
               ${it.done ? '완료 ✓' : '탭해서 보기 →'}
             </span>
           </div>
-          <div style="font-size:12px;color:#666;line-height:1.5;">${_esc(preview)}</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">${_esc(preview)}</div>
         </div>
       `;
     }).join('');
@@ -376,14 +376,14 @@
           ${it.done ? `<span style="margin-left:auto;font-size:11px;font-weight:700;color:hsl(140,50%,40%);">완료 ✓</span>` : ''}
         </div>
         <div id="bulkDraftText" contenteditable="true" style="font-size:13px;line-height:1.7;color:#333;padding:12px;background:#fff;border:1px solid hsl(350,30%,94%);border-radius:10px;min-height:80px;white-space:pre-wrap;">${_esc(it.draft_text || '')}</div>
-        <div style="font-size:10.5px;color:#aaa;margin-top:6px;">탭해서 문구 수정 가능</div>
+        <div style="font-size:10.5px;color:var(--text-subtle);margin-top:6px;">탭해서 문구 수정 가능</div>
       </div>
       <div style="display:flex;gap:8px;">
-        <button id="bulkSkipBtn" style="flex:1;padding:12px;font-size:13px;font-weight:700;border:1px solid hsl(0,0%,85%);background:#fff;color:#666;border-radius:14px;cursor:pointer;">
+        <button id="bulkSkipBtn" style="flex:1;padding:12px;font-size:13px;font-weight:700;border:1px solid hsl(0,0%,85%);background:#fff;color:var(--text-muted);border-radius:14px;cursor:pointer;">
           건너뛰기
         </button>
         <button id="bulkShareBtn" style="flex:2;padding:12px;font-size:13.5px;font-weight:700;border:none;background:linear-gradient(135deg,hsl(350,80%,72%),hsl(350,72%,60%));color:#fff;border-radius:14px;cursor:pointer;">
-          💬 카톡 공유
+          카톡 공유
         </button>
       </div>
     `;
@@ -428,7 +428,7 @@
       <div style="padding:50px 16px;text-align:center;color:#888;font-size:13px;line-height:1.7;">
         <div style="font-size:28px;margin-bottom:10px;">🤖</div>
         AI 가 초안 쓰는 중…<br>
-        <span style="font-size:11px;color:#aaa;">${ids.length}명 분 · 보통 5~15초</span>
+        <span style="font-size:11px;color:var(--text-subtle);">${ids.length}명 분 · 보통 5~15초</span>
       </div>
     `;
     _renderBulkProgress();
@@ -444,7 +444,7 @@
       const data = await res.json();
       _bulkState.items = (data.items || []).map(x => ({ ...x, done: false }));
       if (!_bulkState.items.length) {
-        body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;font-size:13px;">초안을 만들지 못했어요. 잠시 후 다시 시도해주세요.</div>';
+        body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-subtle);font-size:13px;">초안을 만들지 못했어요. 잠시 후 다시 시도해주세요.</div>';
         return;
       }
       _renderBulkList();

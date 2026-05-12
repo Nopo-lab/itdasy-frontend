@@ -28,16 +28,21 @@
           <strong id="scTitle" style="font-size:17px;">스마트 캡처</strong>
           <button id="scClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;">${_ic('ic-x', 18)}</button>
         </div>
-        <div id="scModePick" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-          <button data-mode="kakao" class="sc-mode-btn" style="padding:20px 10px;border:2px solid #FBBF24;border-radius:14px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);cursor:pointer;text-align:center;">
-            <div style="color:#92400E;margin-bottom:8px;display:inline-flex;">${_ic('ic-message-square', 30)}</div>
+        <div id="scModePick" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+          <button data-mode="kakao" class="sc-mode-btn" style="padding:18px 8px;border:2px solid #FBBF24;border-radius:14px;background:linear-gradient(135deg,#FFFBEB,#FEF3C7);cursor:pointer;text-align:center;">
+            <div style="color:#92400E;margin-bottom:8px;display:inline-flex;">${_ic('ic-message-square', 28)}</div>
             <div style="font-size:13px;font-weight:800;color:#92400E;">카톡 캡처</div>
             <div style="font-size:10px;color:#92400E80;margin-top:3px;">예약·매출·후기 자동 추출</div>
           </button>
-          <button data-mode="card" class="sc-mode-btn" style="padding:20px 10px;border:2px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);cursor:pointer;text-align:center;">
-            <div style="color:#5B21B6;margin-bottom:8px;display:inline-flex;">${_ic('ic-credit-card', 30)}</div>
+          <button data-mode="card" class="sc-mode-btn" style="padding:18px 8px;border:2px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);cursor:pointer;text-align:center;">
+            <div style="color:#5B21B6;margin-bottom:8px;display:inline-flex;">${_ic('ic-credit-card', 28)}</div>
             <div style="font-size:13px;font-weight:800;color:#5B21B6;">명함</div>
             <div style="font-size:10px;color:#5B21B680;margin-top:3px;">사진 1장 → 고객 등록</div>
+          </button>
+          <button data-mode="inventory_order" class="sc-mode-btn" style="padding:18px 8px;border:2px solid #6EE7B7;border-radius:14px;background:linear-gradient(135deg,#ECFDF5,#D1FAE5);cursor:pointer;text-align:center;">
+            <div style="color:#065F46;margin-bottom:8px;display:inline-flex;">${_ic('ic-dollar-sign', 28)}</div>
+            <div style="font-size:13px;font-weight:800;color:#065F46;">가격표 OCR</div>
+            <div style="font-size:10px;color:#065F4680;margin-top:3px;">발주서·영수증 자동 입력</div>
           </button>
         </div>
         <div id="scWorkArea" style="display:none;"></div>
@@ -75,6 +80,16 @@
   }
 
   function _setMode(mode) {
+    // [QA #10] 가격표/영수증 OCR — app-receipt-scan.js 의 inventory_order 모드로 위임.
+    if (mode === 'inventory_order') {
+      close();
+      try {
+        const fn = window.openInventoryOrderScan;
+        if (typeof fn === 'function') fn();
+        else if (typeof window.openReceiptScan === 'function') window.openReceiptScan('inventory_order');
+      } catch (_e) { /* ignore */ }
+      return;
+    }
     _mode = mode;
     const sheet = document.getElementById('smartCaptureSheet');
     if (!sheet) return;
@@ -125,7 +140,7 @@
       progress.style.display = 'none';
       upArea.style.display = 'block';
       resultBox.style.display = 'block';
-      resultBox.innerHTML = `<div style="padding:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#991B1B;font-size:13px;line-height:1.5;">❌ ${_esc(e.message || '인식 실패')}</div>`;
+      resultBox.innerHTML = `<div style="padding:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#991B1B;font-size:13px;line-height:1.5;">${_esc(e.message || '인식 실패')}</div>`;
     }
   }
 
@@ -169,7 +184,7 @@
               ${it.starts_at ? `<div>시간: ${_esc(it.starts_at)}</div>` : ''}
               ${it.service_name ? `<div>시술: ${_esc(it.service_name)}</div>` : ''}
               ${it.amount ? `<div>금액: <strong>${_krw(it.amount)}</strong></div>` : ''}
-              ${it.rating ? `<div style="display:inline-flex;align-items:center;gap:2px;color:#F59E0B;">${'<svg width=\"12\" height=\"12\" style=\"fill:currentColor;\"><use href=\"#ic-star\"/></svg>'.repeat(it.rating)}</div>` : ''}
+              ${it.rating ? `<div style="display:inline-flex;align-items:center;gap:2px;color:#F59E0B;">${'<i class=\"ph-duotone ph-star\" style=\"font-size:12px;\" aria-hidden=\"true\"></i>'.repeat(it.rating)}</div>` : ''}
               ${it.comment ? `<div style="color:#555;">${_esc(it.comment)}</div>` : ''}
               ${it.memo ? `<div style="color:#888;font-size:11px;">${_esc(it.memo)}</div>` : ''}
             </div>
@@ -193,7 +208,7 @@
         });
         const cd = await cm.json().catch(() => ({}));
         if (!cm.ok) throw new Error(cd.detail || ('HTTP ' + cm.status));
-        if (window.showToast) window.showToast(`✅ ${cd.imported}건 등록 (실패 ${cd.failed}건)`);
+        if (window.showToast) window.showToast(`${cd.imported}건 등록 (실패 ${cd.failed}건)`);
         try {
           ['pv_cache::customer','pv_cache::booking','pv_cache::revenue','pv_cache::nps'].forEach(k => sessionStorage.removeItem(k));
           window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'kakao_import' } }));
@@ -221,7 +236,7 @@
     if (d.duplicate) {
       resultBox.innerHTML = `
         <div style="padding:14px;background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;color:#92400E;font-size:13px;line-height:1.5;margin-bottom:12px;">
-          ⚠️ 같은 이름·전화 고객이 이미 있어요: <strong>${_esc(d.existing_name)}</strong> (${_esc(d.existing_phone || '전화 없음')})
+          같은 이름·전화 고객이 이미 있어요: <strong>${_esc(d.existing_name)}</strong> (${_esc(d.existing_phone || '전화 없음')})
         </div>
         <button id="scCardClose" style="width:100%;padding:13px;border:1px solid #ddd;background:#fff;color:#555;border-radius:12px;font-weight:700;cursor:pointer;">확인</button>
       `;
@@ -230,11 +245,11 @@
     }
     resultBox.innerHTML = `
       <div style="padding:14px;background:#FAF5FF;border:1px solid #DDD6FE;border-radius:12px;margin-bottom:12px;">
-        <div style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#5B21B6;font-weight:700;margin-bottom:8px;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-sparkles"/></svg>인식 결과 (검토 후 등록)</div>
+        <div style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#5B21B6;font-weight:700;margin-bottom:8px;"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i>인식 결과 (검토 후 등록)</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
-          <label style="font-size:11px;color:#666;">이름 <input id="scCardName" value="${_esc(c.name || '')}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></label>
-          <label style="font-size:11px;color:#666;">전화 <input id="scCardPhone" value="${_esc(c.phone || '')}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></label>
-          <label style="font-size:11px;color:#666;">메모 <textarea id="scCardMemo" rows="2" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:12px;resize:none;">${_esc(c.memo || '')}${c.company ? `\n회사: ${c.company}` : ''}${c.role ? `\n직책: ${c.role}` : ''}${c.email ? `\n이메일: ${c.email}` : ''}</textarea></label>
+          <label style="font-size:11px;color:var(--text-muted);">이름 <input id="scCardName" value="${_esc(c.name || '')}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></label>
+          <label style="font-size:11px;color:var(--text-muted);">전화 <input id="scCardPhone" value="${_esc(c.phone || '')}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></label>
+          <label style="font-size:11px;color:var(--text-muted);">메모 <textarea id="scCardMemo" rows="2" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:12px;resize:none;">${_esc(c.memo || '')}${c.company ? `\n회사: ${c.company}` : ''}${c.role ? `\n직책: ${c.role}` : ''}${c.email ? `\n이메일: ${c.email}` : ''}</textarea></label>
         </div>
         <div style="font-size:10px;color:#888;margin-top:6px;">신뢰도 ${Math.round((d.confidence || 0) * 100)}%</div>
       </div>
@@ -258,7 +273,7 @@
           const ed = await cr.json().catch(() => ({}));
           throw new Error(typeof ed.detail === 'string' ? ed.detail : ('HTTP ' + cr.status));
         }
-        if (window.showToast) window.showToast('✨ 고객 등록 완료');
+        if (window.showToast) window.showToast('고객 등록 완료');
         try {
           sessionStorage.removeItem('pv_cache::customer');
           window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'card_import' } }));

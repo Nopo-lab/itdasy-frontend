@@ -26,15 +26,15 @@
   async function _reload() {
     if (!_overlay) return;
     const body = _overlay.querySelector('.ba-body');
-    body.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;">불러오는 중…</div>';
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-subtle);">불러오는 중…</div>';
     try {
       const d = await _api('/public/book/admin/pending');
       if (!d.items.length) {
         body.innerHTML = `
           <div style="padding:40px 20px;text-align:center;">
             <div style="font-size:40px;">✨</div>
-            <div style="font-size:13px;color:#666;margin-top:10px;">입금 대기 중인 예약 없음</div>
-            <div style="font-size:11px;color:#aaa;margin-top:4px;">고객이 예약 링크에서 신청하면 여기 표시돼요</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:10px;">입금 대기 중인 예약 없음</div>
+            <div style="font-size:11px;color:var(--text-subtle);margin-top:4px;">고객이 예약 링크에서 신청하면 여기 표시돼요</div>
           </div>`;
         return;
       }
@@ -45,12 +45,12 @@
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
             <strong style="font-size:14px;">${_esc(b.customer_name)}</strong>
             <span style="font-size:10px;color:#B45309;background:#FFFBEA;padding:2px 6px;border-radius:100px;font-weight:700;">입금 대기</span>
-            <span style="margin-left:auto;font-size:11px;color:#666;">${_fmt(b.starts_at)}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${_fmt(b.starts_at)}</span>
           </div>
-          <div style="font-size:12px;color:#666;">${_esc(b.service_name || '시술')}</div>
+          <div style="font-size:12px;color:var(--text-muted);">${_esc(b.service_name || '시술')}</div>
           ${memo ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(memo)}</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:6px;">
-            <button data-approve="${b.id}" style="flex:2;padding:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border:none;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;">✅ 입금 확인 · 승인</button>
+            <button data-approve="${b.id}" style="flex:2;padding:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border:none;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer;">입금 확인 · 승인</button>
             <button data-reject="${b.id}" style="flex:1;padding:10px;background:#fff;color:#c00;border:1px solid #fcc;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">거절</button>
           </div>
         </div>`;
@@ -61,7 +61,7 @@
           btn.disabled = true;
           try {
             await _api('/public/book/admin/bookings/' + btn.dataset.approve + '/approve', { method: 'POST' });
-            if (window.showToast) window.showToast('✅ 예약 확정');
+            if (window.showToast) window.showToast('예약 확정');
             try { sessionStorage.removeItem('pv_cache::booking'); } catch (_e) { /* ignore */ }
             await _reload();
           } catch (e) {
@@ -97,7 +97,7 @@
         <div style="padding:18px 20px 12px;background:#fff;border-bottom:1px solid #eee;">
           <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 14px;"></div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <strong style="font-size:17px;">⏳ 입금 대기 예약</strong>
+            <strong style="font-size:17px;">입금 대기 예약</strong>
             <button class="ba-close" style="margin-left:auto;background:none;border:none;font-size:18px;color:#888;cursor:pointer;">✕</button>
           </div>
           <div style="font-size:11px;color:#888;margin-top:6px;">입금 확인 후 "승인" 탭 → 캘린더 반영. 미입금은 "거절".</div>

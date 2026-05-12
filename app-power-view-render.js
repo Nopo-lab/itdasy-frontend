@@ -28,25 +28,25 @@
     switch (tab) {
       case 'customer':
         return `<strong>${esc(p.name || '')}</strong>` +
-          (p.phone ? ` · <span style="color:#666;">${esc(p.phone)}</span>` : '') +
+          (p.phone ? ` · <span style="color:var(--text-muted);">${esc(p.phone)}</span>` : '') +
           (p.memo ? ` · <span style="color:#888;">${esc(String(p.memo).slice(0, 30))}</span>` : '');
       case 'booking': {
         const t = (p.starts_at || '').replace('T', ' ').slice(0, 16);
         return `<strong>${esc(p.customer_name || '고객 없음')}</strong>` +
           (p.service_name ? ` · ${esc(p.service_name)}` : '') +
-          (t ? ` · <span style="color:#666;">${esc(t)}</span>` : '');
+          (t ? ` · <span style="color:var(--text-muted);">${esc(t)}</span>` : '');
       }
       case 'revenue':
         return `<strong>${krw(p.amount)}</strong>` +
-          (p.method ? ` · <span style="padding:1px 7px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:10.5px;font-weight:700;">${esc(p.method)}</span>` : '') +
+          (p.method ? ` · <span style="padding:1px 7px;border-radius:100px;background:#FEF4F5;color:var(--brand-strong);font-size:10.5px;font-weight:700;">${esc(p.method)}</span>` : '') +
           (p.service_name ? ` · ${esc(p.service_name)}` : '') +
           (p.customer_name ? ` · <span style="color:#888;">${esc(p.customer_name)}</span>` : '');
       case 'inventory':
-        return `<strong>${esc(p.name)}</strong> · <span style="color:#666;">${p.quantity}${esc(p.unit || '개')}</span>` +
+        return `<strong>${esc(p.name)}</strong> · <span style="color:var(--text-muted);">${p.quantity}${esc(p.unit || '개')}</span>` +
           (p.category ? ` · <span style="color:#888;font-size:11px;">${esc(p.category)}</span>` : '');
       case 'nps':
         return `<strong style="color:#E6A100;">★${p.rating}</strong>` +
-          (p.comment ? ` · <span style="color:#666;">${esc(String(p.comment).slice(0, 40))}</span>` : '');
+          (p.comment ? ` · <span style="color:var(--text-muted);">${esc(String(p.comment).slice(0, 40))}</span>` : '');
       case 'service':
         return `<strong>${esc(p.name)}</strong>` +
           (p.default_price ? ` · ${krw(p.default_price)}` : '') +
@@ -59,6 +59,7 @@
 
   // ── 자동완성 소스 ─────────────────────────────────────
   // service_name 풀: 업종별 기본 풀 + 사용자 데이터 (중복 제거)
+  // 2026-05-08: customer_name 정렬 — 단골(is_regular) 먼저, 다음 visit_count 내림차순
   function _buildAutoSources() {
     const data = window._PVState.data;
     const shopServicePool = _getShopServicePool();
@@ -72,7 +73,14 @@
       service_name: new Set(shopServicePool),
       item_name: new Set(),
     };
-    (data.customer || []).forEach(c => {
+    // 단골 + 방문 횟수 우선 정렬 — 사장님이 자주 부르는 손님 dropdown 상단에
+    const sortedCustomers = (data.customer || []).slice().sort((a, b) => {
+      const ar = a.is_regular ? 1 : 0;
+      const br = b.is_regular ? 1 : 0;
+      if (ar !== br) return br - ar;
+      return (b.visit_count || 0) - (a.visit_count || 0);
+    });
+    sortedCustomers.forEach(c => {
       if (c.name && !seen.customer_name.has(c.name)) { seen.customer_name.add(c.name); out.customer_name.push(c.name); }
     });
     (data.revenue || []).forEach(r => {
@@ -138,7 +146,7 @@
     const state = window._PVState;
     const { values, missing, schema, inputs } = _collectQaddValues();
     if (missing) {
-      if (window.showToast) window.showToast(`⚠️ 필수: ${missing}`);
+      if (window.showToast) window.showToast(`필수: ${missing}`);
       const el = document.querySelector(`#power-view-overlay .pv-qadd input[data-field="${missing}"]`);
       if (el) el.focus();
       return;
@@ -195,7 +203,27 @@
       state.data[state.currentTab] = await fetchTab(state.currentTab);
     }
 
-    const list = _applySearch(state.data[state.currentTab] || [], schema);
+    // 검색 → 필터 → 정렬 순으로 변환 (Phase 1 Tier A · 2026-05-09)
+    // Phase 2 추가: 페이지네이션 (>800행)
+    // 모듈들 미로드되도 안전하게 fall-through (기존 동작 유지)
+    let list = _applySearch(state.data[state.currentTab] || [], schema);
+    try {
+      if (window._PVSort && typeof window._PVSort.apply === 'function') {
+        list = window._PVSort.apply(list, state.currentTab);
+      }
+    } catch (_e) { /* sort/filter 실패해도 검색만 적용된 list 사용 */ }
+    const fullList = list; // totals/export/clipboard 용 — 페이지 절단 전
+    // Phase 3: 그룹화 (선택 시 그룹 헤더 행이 list 안에 끼어들어감)
+    try {
+      if (window._PVGroup && typeof window._PVGroup.applyGrouping === 'function') {
+        list = window._PVGroup.applyGrouping(list, state.currentTab);
+      }
+    } catch (_e) { /* silent */ }
+    try {
+      if (window._PVPagination && typeof window._PVPagination.slice === 'function') {
+        list = window._PVPagination.slice(list, state.currentTab);
+      }
+    } catch (_e) { /* silent */ }
     const qadd = schema.qadd;
     const autoSource = _buildAutoSources();
     const fieldsHtml = qadd.fields.map(f => {
@@ -227,9 +255,40 @@
     `).join('');
 
     const editMode = !!state.editMode;
-    const actionColWidth = editMode ? 88 : 56;
-    const headers = schema.headers.map(h => `<th>${_esc(h)}</th>`).join('') + `<th style="width:${actionColWidth}px;"></th>`;
+    // 주액션 노출 여부에 따라 액션 컬럼 폭 조정 (UX 원칙 2·6)
+    const hasPrimary = !editMode && window._PVActions && typeof window._PVActions.getPrimaryActions === 'function';
+    const actionColWidth = editMode ? 88 : (hasPrimary ? 124 : 78);
+    // 다중 선택 체크박스 — 비편집 모드 + _PVSelect 로드 시에만 (Phase 1 Tier B)
+    const showSelect = !editMode && !!window._PVSelect;
+    const selectColHeader = showSelect ? `<th style="width:36px;text-align:center;"><input type="checkbox" data-pv-select-all aria-label="전체 선택" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand,var(--brand));" /></th>` : '';
+    // 헤더에 정렬 가능 컬럼이면 data-pv-sort + 화살표 추가 (Phase 1 Tier A)
+    const headers = selectColHeader + schema.headers.map((h, idx) => {
+      let sortKey = null;
+      try {
+        if (window._PVSort && typeof window._PVSort.getSortKey === 'function') {
+          sortKey = window._PVSort.getSortKey(state.currentTab, idx);
+        }
+      } catch (_e) { /* silent */ }
+      if (!sortKey) return `<th>${_esc(h)}</th>`;
+      let arrow = '';
+      try {
+        if (window._PVSort && typeof window._PVSort.renderHeaderArrow === 'function') {
+          arrow = window._PVSort.renderHeaderArrow(state.currentTab, idx);
+        }
+      } catch (_e) { /* silent */ }
+      return `<th data-pv-sort="${_esc(sortKey)}" tabindex="0" role="button">${_esc(h)}${arrow}</th>`;
+    }).join('') + `<th style="width:${actionColWidth}px;"></th>`;
+    const totalCols = schema.headers.length + 1 + (showSelect ? 1 : 0);
     const rowsHtml = list.map(r => {
+      // Phase 3: 그룹 헤더 행 (단순 정보 행)
+      if (r && r.__group) {
+        try {
+          if (window._PVGroup && typeof window._PVGroup.groupHeaderRow === 'function') {
+            return window._PVGroup.groupHeaderRow(r, totalCols);
+          }
+        } catch (_e) { /* silent */ }
+        return '';
+      }
       if (editMode && Array.isArray(schema.editFields)) {
         const editCells = schema.editFields.map(f => {
           if (f.readonly) {
@@ -241,28 +300,59 @@
           const ph = f.placeholder ? ` placeholder="${_esc(f.placeholder)}"` : '';
           if (f.type === 'checkbox') {
             const ck = !!raw ? ' checked' : '';
-            return `<td style="text-align:center;"><input data-pv-edit="${r.id}:${f.key}" data-pv-edit-type="checkbox" type="checkbox"${ck} style="width:18px;height:18px;cursor:pointer;accent-color:#F18091;" /></td>`;
+            return `<td style="text-align:center;"><input data-pv-edit="${r.id}:${f.key}" data-pv-edit-type="checkbox" type="checkbox"${ck} style="width:18px;height:18px;cursor:pointer;accent-color:var(--brand);" /></td>`;
           }
           return `<td><input data-pv-edit="${r.id}:${f.key}" data-pv-edit-type="${f.type || 'text'}" type="${f.type || 'text'}" value="${_esc(shown)}"${ph} style="width:100%;padding:7px 9px;border:1.5px solid hsl(350, 60%, 88%);border-radius:10px;font-size:12.5px;background:#fff;box-sizing:border-box;" /></td>`;
         }).join('');
         const actionCell = `<td style="text-align:right;white-space:nowrap;">
-          <button data-pv-row-save="${r.id}" aria-label="저장" title="저장" style="border:none;background:linear-gradient(135deg, hsl(350, 75%, 72%), hsl(350, 70%, 60%));color:#fff;cursor:pointer;padding:6px 9px;border-radius:10px;margin-right:4px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-save"/></svg></button>
-          <button data-pv-row-delete="${r.id}" aria-label="삭제" title="삭제" style="border:1.5px solid #f0c0c0;background:#fff;color:#C62828;cursor:pointer;padding:5px 8px;border-radius:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><svg width="13" height="13" aria-hidden="true"><use href="#ic-trash-2"/></svg></button>
+          <button data-pv-row-save="${r.id}" aria-label="저장" title="저장" style="border:none;background:linear-gradient(135deg, hsl(350, 75%, 72%), hsl(350, 70%, 60%));color:#fff;cursor:pointer;padding:6px 9px;border-radius:10px;margin-right:4px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;"><i class="ph-duotone ph-floppy-disk" aria-hidden="true"></i></button>
+          <button data-pv-row-delete="${r.id}" aria-label="삭제" title="삭제" style="border:1.5px solid #f0c0c0;background:#fff;color:#C62828;cursor:pointer;padding:5px 8px;border-radius:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;"><i class="ph-duotone ph-trash" aria-hidden="true"></i></button>
         </td>`;
         return `<tr data-id="${r.id}" class="pv-row-editing">${editCells}${actionCell}</tr>`;
       }
       const cells = schema.row(r).map(c => `<td>${c}</td>`).join('');
-      return `<tr data-id="${r.id}">${cells}<td style="text-align:right;"><button class="pv-row-edit" data-edit-id="${r.id}" aria-label="수정" title="수정" style="border:none;background:transparent;cursor:pointer;color:#888;padding:4px 8px;border-radius:6px;transition:all 0.12s;display:inline-flex;align-items:center;justify-content:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-edit-3"/></svg></button></td></tr>`;
+      // 다중 선택 체크박스 셀 (Tier B — _PVSelect 로드 시)
+      const selectCell = showSelect ? `<td style="text-align:center;"><input type="checkbox" data-pv-select aria-label="선택" style="width:16px;height:16px;cursor:pointer;accent-color:var(--brand,var(--brand));" /></td>` : '';
+      // 행 끝: 주액션 (UX 원칙 2·6) + ⚡ 기타 메뉴 + 수정
+      let primaryHtml = '';
+      try {
+        if (hasPrimary && typeof window._PVActions.renderPrimaryButtons === 'function') {
+          primaryHtml = window._PVActions.renderPrimaryButtons(state.currentTab, r) || '';
+        }
+      } catch (_e) { /* silent */ }
+      // 행 단위 상태 표시 cell (UX 원칙 5: loading/success/error)
+      const statusCell = `<span class="pv-row-status" aria-hidden="true">
+        <svg class="pv-row-status__loading" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <i class="ph-duotone ph-check pv-row-status__success" style="font-size:13px" aria-hidden="true"></i>
+        <svg class="pv-row-status__error" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>`;
+      const actionCell = `<td style="text-align:right;white-space:nowrap;">
+        ${statusCell}
+        ${primaryHtml}
+        <button class="pv-actions-trigger" data-pv-actions-trigger data-row-id="${r.id}" aria-label="기타 액션" title="기타 액션">
+          <i class="ph-duotone ph-dots-three" aria-hidden="true"></i>
+        </button>
+        <button class="pv-row-edit" data-edit-id="${r.id}" aria-label="수정" title="수정" style="border:none;background:transparent;cursor:pointer;color:#888;padding:4px 8px;border-radius:6px;transition:all 0.12s;display:inline-flex;align-items:center;justify-content:center;"><i class="ph-duotone ph-pencil-simple" aria-hidden="true"></i></button>
+      </td>`;
+      // Phase 2: 조건부 포맷 클래스 (선택 행 클래스와 공존)
+      let fmtCls = '';
+      try {
+        if (window._PVFormat && typeof window._PVFormat.rowClasses === 'function') {
+          fmtCls = window._PVFormat.rowClasses(state.currentTab, r) || '';
+        }
+      } catch (_e) { /* silent */ }
+      const trClass = fmtCls ? ` class="${fmtCls}"` : '';
+      return `<tr${trClass} data-id="${r.id}">${selectCell}${cells}${actionCell}</tr>`;
     }).join('');
 
     const pendingList = state.pending[state.currentTab] || [];
     const pendingHtml = pendingList.length ? `
       <div style="padding:12px 16px;background:#FFFBEB;border-bottom:1px solid #FFE58F;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div style="font-size:12px;font-weight:800;color:#B45309;">⏳ 쌓아둔 행 ${pendingList.length}개</div>
+          <div style="font-size:12px;font-weight:800;color:#B45309;">쌓아둔 행 ${pendingList.length}개</div>
           <div style="display:flex;gap:6px;">
             <button id="pv-batch-clear" style="padding:6px 10px;font-size:11px;border:1px solid #EAB308;background:#fff;color:#B45309;border-radius:7px;cursor:pointer;font-weight:700;">비우기</button>
-            <button id="pv-batch-save" style="padding:6px 12px;font-size:11.5px;border:none;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;border-radius:7px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(241,128,145,0.3);">⚡ ${pendingList.length}개 한 번에 저장</button>
+            <button id="pv-batch-save" style="padding:6px 12px;font-size:11.5px;border:none;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:7px;cursor:pointer;font-weight:800;box-shadow:0 2px 6px rgba(241,128,145,0.3);">⚡ ${pendingList.length}개 한 번에 저장</button>
           </div>
         </div>
         <div style="font-size:12px;color:#333;line-height:1.65;max-height:120px;overflow:auto;display:flex;flex-direction:column;gap:4px;">
@@ -277,19 +367,19 @@
       </div>` : '';
 
     const emptyHtml = !rowsHtml ? `
-      <tr><td colspan="${schema.headers.length}">
+      <tr><td colspan="${schema.headers.length + 1 + (showSelect ? 1 : 0)}">
         <div class="pv-empty">
           <div class="pv-empty-icon">${schema.empty.icon}</div>
           <div style="font-weight:800;color:#555;margin-bottom:6px;">${state.searchKW ? '검색 결과가 없어요' : schema.empty.title}</div>
-          <div style="font-size:12px;color:#aaa;">${state.searchKW ? `"${_esc(state.searchKW)}" 에 해당하는 ${schema.empty.title.replace(' 없어요','').replace('아직 ','')} 없음` : schema.empty.desc}</div>
+          <div style="font-size:12px;color:var(--text-subtle);">${state.searchKW ? `"${_esc(state.searchKW)}" 에 해당하는 ${schema.empty.title.replace(' 없어요','').replace('아직 ','')} 없음` : schema.empty.desc}</div>
         </div>
       </td></tr>` : '';
 
     const reportBannerHtml = state.currentTab === 'revenue' ? `
-      <button onclick="if(typeof openRevenueReport==='function')openRevenueReport()" style="display:flex;align-items:center;gap:8px;width:100%;padding:11px 16px;margin-bottom:4px;background:#FEF4F5;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:#D95F70;text-align:left;transition:background 0.15s;" onmouseover="this.style.background='#FDE8EB'" onmouseout="this.style.background='#FEF4F5'">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bar-chart-3"/></svg>
+      <button onclick="if(typeof openRevenueReport==='function')openRevenueReport()" style="display:flex;align-items:center;gap:8px;width:100%;padding:11px 16px;margin-bottom:4px;background:#FEF4F5;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--brand-strong);text-align:left;transition:background 0.15s;" onmouseover="this.style.background='#FDE8EB'" onmouseout="this.style.background='#FEF4F5'">
+        <i class="ph-duotone ph-chart-bar" aria-hidden="true"></i>
         상세 리포트
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;color:#F18091;" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+        <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
       </button>` : '';
 
     body.innerHTML = `
@@ -297,34 +387,155 @@
       ${reportBannerHtml}
       <div class="pv-qadd" data-voice-root>
         ${fieldsHtml}
-        <button class="pv-btn-stack" id="pv-stack-btn" title="목록에 쌓아두고 나중에 일괄 저장" style="padding:11px 12px;background:#fff;border:1.5px solid #F18091;color:#D95F70;border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.15s;">⊕ 쌓기</button>
+        <button class="pv-btn-stack" id="pv-stack-btn" title="목록에 쌓아두고 나중에 일괄 저장" style="padding:11px 12px;background:#fff;border:1.5px solid var(--brand);color:var(--brand-strong);border-radius:10px;font-weight:800;font-size:12.5px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all 0.15s;">⊕ 쌓기</button>
         <button class="pv-btn-add" id="pv-add-btn">즉시 추가 <span class="pv-kbd">↵</span></button>
       </div>
       ${pendingHtml}
       <div class="pv-toolbar">
         <div style="position:relative;flex:1;max-width:280px;">
-          <svg class="ic" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:#999;" aria-hidden="true"><use href="#ic-search"/></svg>
+          <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
           <input class="pv-search" id="pv-search" data-no-voice placeholder="검색 (⌘K)" value="${_esc(state.searchKW)}" style="padding-left:32px;padding-right:${state.searchKW ? '32px' : '12px'};" />
-          ${state.searchKW ? `<button id="pv-search-clear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:2px;color:#aaa;" aria-label="검색 지우기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>` : ''}
+          ${state.searchKW ? `<button id="pv-search-clear" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);border:none;background:transparent;cursor:pointer;padding:2px;color:var(--text-subtle);" aria-label="검색 지우기"><i class="ph-duotone ph-x" aria-hidden="true"></i></button>` : ''}
         </div>
         <label class="pv-excel" for="pv-excel-file" title="엑셀/CSV AI 임포트">
-          📥 엑셀 불러오기
+          엑셀 불러오기
           <input type="file" id="pv-excel-file" accept=".xlsx,.xls,.csv" hidden />
         </label>
+        ${window._PVExport ? `<button type="button" id="pv-export-btn" class="pv-export-btn" title="현재 보이는 행 CSV 내려받기">
+          <i class="ph-duotone ph-download-simple" aria-hidden="true"></i>
+          내보내기
+        </button>` : ''}
+        ${(() => {
+          // Phase 3: 음성 입력 버튼 — Web Speech API 지원 시
+          try {
+            if (window._PVVoice && typeof window._PVVoice.button === 'function') {
+              return window._PVVoice.button() || '';
+            }
+          } catch (_e) { /* silent */ }
+          return '';
+        })()}
       </div>
+      ${(() => {
+        // 필터 칩 행 (Phase 1 Tier A · 2026-05-09) — _PVSort 미로드 시 빈 문자열로 fall-through
+        try {
+          if (window._PVSort && typeof window._PVSort.renderFilterChips === 'function') {
+            return window._PVSort.renderFilterChips(state.currentTab) || '';
+          }
+        } catch (_e) { /* silent */ }
+        return '';
+      })()}
+      ${(() => {
+        // Phase 3: 그룹 칩 — _PVGroup 미로드 시 빈 문자열
+        try {
+          if (window._PVGroup && typeof window._PVGroup.renderToggle === 'function') {
+            return window._PVGroup.renderToggle(state.currentTab) || '';
+          }
+        } catch (_e) { /* silent */ }
+        return '';
+      })()}
+      ${(() => {
+        // Phase 3: KPI 칩 (formula presets) — fullList 기준
+        try {
+          if (window._PVFormula && typeof window._PVFormula.renderPresetChips === 'function') {
+            return window._PVFormula.renderPresetChips(state.currentTab, fullList) || '';
+          }
+        } catch (_e) { /* silent */ }
+        return '';
+      })()}
       <div class="pv-list">
         <table class="pv-table">
           <thead><tr>${headers}</tr></thead>
           <tbody id="pv-tbody">${rowsHtml}${emptyHtml}</tbody>
         </table>
       </div>
+      ${(() => {
+        // Phase 2: 페이지네이션 (>800행) — 모듈 미로드 시 빈 문자열
+        try {
+          if (window._PVPagination && typeof window._PVPagination.renderMore === 'function') {
+            return window._PVPagination.renderMore(fullList, state.currentTab) || '';
+          }
+        } catch (_e) { /* silent */ }
+        return '';
+      })()}
+      ${(() => {
+        // Phase 2: 자동 합계행 + Phase 4: 운영 분석 버튼 + 유료 quota 칩
+        try {
+          let totals = '';
+          if (window._PVTotals && typeof window._PVTotals.render === 'function') {
+            totals = window._PVTotals.render(state.currentTab, fullList) || '';
+          }
+          let opsBtn = '';
+          if (state.currentTab === 'revenue' && window._PVOps && typeof window._PVOps.button === 'function') {
+            opsBtn = window._PVOps.button();
+          }
+          let quota = '';
+          if (window._PVQuota && typeof window._PVQuota.chip === 'function') {
+            quota = window._PVQuota.chip(state.currentTab, fullList);
+          }
+          if (totals && (opsBtn || quota)) {
+            return totals.replace('</div>', `<div class="pv-totals__extra">${quota}${opsBtn}</div></div>`);
+          }
+          return totals || (opsBtn || quota ? `<div class="pv-totals"><div class="pv-totals__extra">${quota}${opsBtn}</div></div>` : '');
+        } catch (_e) { /* silent */ }
+        return '';
+      })()}
       <div class="pv-footer">
-        <div><span class="pv-count">${list.length}</span><span style="color:#999"> / 총 ${(state.data[state.currentTab] || []).length}건</span></div>
+        <div><span class="pv-count">${list.length}</span><span style="color:var(--text-subtle)"> / 총 ${(state.data[state.currentTab] || []).length}건</span></div>
         <div class="pv-hotkeys">단축: <kbd>Enter</kbd> 즉시 · <kbd>Shift+Enter</kbd> 쌓기 · <kbd>⌘K</kbd> 검색 · <kbd>Esc</kbd> 닫기</div>
       </div>
     `;
     _bindBody();
     _focusFirstInput();
+
+    // Phase 1/2 — 모든 신규 모듈 바인딩 (모듈 미로드 시 안전 skip)
+    try {
+      const bodyEl = document.getElementById('pv-body');
+      if (bodyEl) {
+        if (window._PVSort && typeof window._PVSort.bindHeaderClicks === 'function') {
+          window._PVSort.bindHeaderClicks(bodyEl);
+        }
+        if (window._PVActions && typeof window._PVActions.bindRowTriggers === 'function') {
+          window._PVActions.bindRowTriggers(bodyEl);
+        }
+        if (window._PVSelect && typeof window._PVSelect.bindRowCheckboxes === 'function') {
+          window._PVSelect.bindRowCheckboxes(bodyEl);
+        }
+        if (window._PVPagination && typeof window._PVPagination.bind === 'function') {
+          window._PVPagination.bind(bodyEl);
+        }
+        if (window._PVGroup && typeof window._PVGroup.bind === 'function') {
+          window._PVGroup.bind(bodyEl);
+        }
+        if (window._PVVoice && typeof window._PVVoice.bind === 'function') {
+          window._PVVoice.bind();
+        }
+        if (window._PVOps && typeof window._PVOps.bind === 'function') {
+          window._PVOps.bind();
+        }
+        if (window._PVQuota && typeof window._PVQuota.bind === 'function') {
+          window._PVQuota.bind();
+        }
+      }
+      // Export 버튼 — 현재 보이는 list (필터·정렬 후) 기준 다운로드
+      const exportBtn = document.getElementById('pv-export-btn');
+      if (exportBtn && window._PVExport && typeof window._PVExport.downloadCSV === 'function') {
+        exportBtn.addEventListener('click', () => {
+          const tab = window._PVState && window._PVState.currentTab;
+          if (!tab) return;
+          // 필터·정렬·페이지절단 전체 fullList 와는 별개로, 다운로드는 'fullList' 기준
+          // (사용자가 "내보내기" 누른 시점의 보이는 결과)
+          // fullList 가 클로저 밖이므로 _PVState.data 와 _PVSort 으로 재계산
+          let list = window._PVState.data[tab] || [];
+          try {
+            if (state.searchKW) list = list.filter((r) => state.currentTab && window._PVInt.SCHEMAS[tab].search(r, state.searchKW.toLowerCase()));
+            if (window._PVSort && window._PVSort.apply) list = window._PVSort.apply(list, tab);
+          } catch (_e) { /* silent */ }
+          window._PVExport.downloadCSV(tab, list);
+        });
+      }
+    } catch (e) {
+      console.warn('[PowerView] phase1/2 bind failed', e);
+    }
   }
 
   function _focusFirstInput() {
@@ -494,14 +705,14 @@
           ${upcoming.slice(0, 3).map(b => `
             <div class="list-menu__item">
               <div class="list-menu__icon-box list-menu__icon-box--neutral">
-                <svg class="ic" aria-hidden="true"><use href="#ic-calendar"/></svg>
+                <i class="ph-duotone ph-calendar-dots" aria-hidden="true"></i>
               </div>
               <div class="list-menu__body">
                 <div class="list-menu__title">${_esc(b.customer_name || '예약')}</div>
                 <div class="list-menu__sub">${_esc(b.service_name || '')}${b.time ? ' · ' + _esc(b.time) : ''}</div>
               </div>
               <div class="list-menu__right">
-                <svg class="ic ic--xs" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
+                <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
               </div>
             </div>`).join('')}
         </div>`;

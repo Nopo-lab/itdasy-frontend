@@ -3,13 +3,12 @@
   "appName": "잇데이 스튜디오",
   "webDir": "www",
   "server": {
-    "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/",
+    "url": "https://nopo-lab.github.io/itdasy-frontend/",
     "androidScheme": "https",
     "iosScheme": "https",
     "allowNavigation": [
       "nopo-lab.github.io",
-      "itdasy260417-staging-production.up.railway.app",
-      "itdasy260417-production.up.railway.app",
+      "itdasy-backend-staging-644329093453.asia-northeast3.run.app",
       "api.instagram.com",
       "www.instagram.com",
       "graph.instagram.com",

@@ -89,7 +89,8 @@
       _items = swr.items;
       if (!swr.fresh) {
         _fetchFresh().then(fresh => {
-          if (JSON.stringify(_items) !== JSON.stringify(fresh)) {
+          // [BUG-R2-4] JSON.stringify 전체 비교 제거 — 건수/첫ID 간이 비교로 전환
+          if (fresh.length !== _items.length || (fresh[0] && _items[0] && fresh[0].id !== _items[0].id)) {
             _items = fresh;
             try { _rerender && _rerender(); } catch (_e) { void _e; }
           }
@@ -214,7 +215,7 @@
     sheet.classList.add('dt-overlay');
     sheet.innerHTML = `
       <header class="dt-hdr">
-        <button class="dt-back" onclick="closeInventory()" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="dt-back" onclick="closeInventory()" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
         <h1 class="dt-title">재고</h1>
         <span id="invLowBadge" class="dt-offline-badge" style="background:var(--danger);"></span>
         <span id="invOfflineBadge" class="dt-offline-badge">오프라인</span>
@@ -238,7 +239,7 @@
     const lowBadge = sheet.querySelector('#invLowBadge');
     if (low > 0) {
       lowBadge.style.display = 'inline-block';
-      lowBadge.textContent = '⚠ 부족 ' + low;
+      lowBadge.textContent = '부족 ' + low;
     } else {
       lowBadge.style.display = 'none';
     }
@@ -298,7 +299,7 @@
     const _ifFormId = id ? `inventory-edit::${id}` : 'inventory-add';
     listEl.innerHTML = `
       <div data-form-id="${_ifFormId}">
-      <button onclick="window._inventoryBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button onclick="window._inventoryBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
       <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="ifName" name="ifName" class="dt-field" value="${_esc(existing?.name||'')}" placeholder="네일팁 / 젤 / 접착제" maxlength="50" /></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <div style="flex:1;"><label class="dt-field-lbl">현재 수량</label><input id="ifQty" name="ifQty" type="number" step="0.1" inputmode="decimal" class="dt-field" value="${existing?.quantity ?? 0}" /></div>

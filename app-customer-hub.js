@@ -37,6 +37,7 @@
 
   // _state.filter ∈ 'all' | 'member' | 'new' | 'regular' | 'risk'
   const _state = { rows: [], enriched: [], searchKW: '', addPanelOpen: false, filter: 'all', selectedId: null };
+  const _classifyMemo = new Map();
 
   /* ── 분류 helper: 신규(첫방문 30일내) / 단골(방문≥5회) / 이탈(60일+ 미방문) / 생일(오늘) / 회원권 보유 ── */
   function _daysBetween(iso, ref) {
@@ -47,6 +48,11 @@
     return Math.floor((b - a) / 86400000);
   }
   function _classify(c) {
+    const key = [
+      c.id, c.visit_count, c.last_visit_at, c.first_visit_at,
+      c.created_at, c.membership_balance, c.birthday,
+    ].join('|');
+    if (_classifyMemo.has(key)) return _classifyMemo.get(key);
     const visits = +c.visit_count || 0;
     const lastDays = _daysBetween(c.last_visit_at);
     const firstDays = _daysBetween(c.first_visit_at || c.created_at);
@@ -63,7 +69,10 @@
       const mo = +m[1], dy = +m[2];
       return mo === today.getMonth() + 1 && dy === today.getDate();
     })();
-    return { isNew, isRegular, isRisk, hasMember, isBirthday, visits, lastDays };
+    const result = { isNew, isRegular, isRisk, hasMember, isBirthday, visits, lastDays };
+    if (_classifyMemo.size > 1000) _classifyMemo.clear();
+    _classifyMemo.set(key, result);
+    return result;
   }
 
   function _stats(enriched) {
@@ -85,26 +94,52 @@
 
   /* ── 캐시 ──────────────────────────────────────────────────── */
   function _readCache() {
+    const shared = window.CustomerCache?.read && window.CustomerCache.read({ minItems: 1 });
+    if (shared) return shared.items;
     try {
       const raw = sessionStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       const { t, d } = JSON.parse(raw);
-      return (Date.now() - t < CACHE_TTL) ? d : null;
+      if (Date.now() - t >= CACHE_TTL) return null;
+      return (Array.isArray(d) && d.length) ? d : null;
     } catch (_) { return null; }
   }
   function _writeCache(d) {
     try { sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), d })); } catch (_) { void 0; }
+    try { window.CustomerCache?.set && window.CustomerCache.set(d); } catch (_) { void 0; }
+  }
+
+  function _refreshCustomersInBackground(prev) {
+    if (!window.CustomerCache?.fetchFresh) return;
+    window.CustomerCache.fetchFresh().then(fresh => {
+      if (!Array.isArray(fresh) || JSON.stringify(fresh) === JSON.stringify(prev)) return;
+      _state.rows = fresh;
+      _state.enriched = _enrich(fresh, []);
+      _writeCache(fresh);
+      if (document.getElementById(OID)) _render();
+      _fetchRevenues().then(revenues => {
+        _state.enriched = _enrich(fresh, revenues);
+        if (document.getElementById(OID)) _render();
+      }).catch(() => {});
+    }).catch(() => {});
   }
 
   /* ── fetch + enrich ────────────────────────────────────────── */
   async function _fetchCustomers() {
     const cached = _readCache();
-    if (cached) return cached;
+    if (cached) {
+      _refreshCustomersInBackground(cached);
+      return cached;
+    }
     try {
-      const res = await fetch(`${API()}/customers`, { headers: AUTH() });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.items || []);
+      const list = window.CustomerCache?.fetchFresh
+        ? await window.CustomerCache.fetchFresh()
+        : await fetch(`${API()}/customers`, { headers: AUTH() })
+          .then(async res => {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.items || []);
+          });
       const result = list.length ? list : _MOCK;
       _writeCache(result);
       return result;
@@ -138,10 +173,17 @@
   }
 
   async function _load() {
-    const [customers, revenues] = await Promise.all([_fetchCustomers(), _fetchRevenues()]);
+    // [2026-05-04] customers 먼저 표시 → revenues 백그라운드 enrich.
+    // 이전: Promise.all 로 두 fetch 다 기다려서 revenue 가 느리면 hub 전체 멈춤.
+    const customers = await _fetchCustomers();
     _state.rows    = customers;
-    _state.enriched = _enrich(customers, revenues);
+    _state.enriched = _enrich(customers, []);
     if (window.AppAutocomplete) window.AppAutocomplete.rebuild({ customers });
+    // 백그라운드: revenues 도착하면 enrich 다시 + 재렌더
+    _fetchRevenues().then(revenues => {
+      _state.enriched = _enrich(customers, revenues);
+      try { _render(); } catch (_e) { void _e; }
+    }).catch(() => {});
   }
 
   /* ── 렌더 ──────────────────────────────────────────────────── */
@@ -195,11 +237,11 @@
   function _renderHeader() {
     return `<div class="hub-header">
       <button class="hub-back" data-act="close" aria-label="뒤로가기">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-left"/></svg>
+        <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
       </button>
       <span class="hub-title">고객관리</span>
       <button class="ch-excel-btn" data-act="excel">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-download"/></svg>
+        <i class="ph-duotone ph-download-simple" aria-hidden="true"></i>
         엑셀 불러오기
       </button>
       <button class="ch-add-toggle${_state.addPanelOpen ? ' active' : ''}" data-act="toggle-add" aria-label="수동 추가">+</button>
@@ -209,7 +251,7 @@
   function _renderSearch() {
     return `<div class="ch-search-wrap">
       <div class="ch-search-inner">
-        <svg class="ch-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#ic-search"/></svg>
+        <i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i>
         <input class="ch-search" id="ch-search" placeholder="이름·연락처·태그 검색" value="${_esc(_state.searchKW)}" />
       </div>
     </div>`;
@@ -246,14 +288,14 @@
 
     if (!list.length && !kw && f === 'all') {
       return `<div class="hub-empty">
-        <div class="hub-empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-users"/></svg></div>
+        <div class="hub-empty-icon"><i class="ph-duotone ph-users" aria-hidden="true"></i></div>
         <div class="hub-empty-title">아직 고객이 없어요</div>
         <div class="hub-empty-desc">예약 잡으면 자동 등록돼요</div>
       </div>`;
     }
     if (!list.length) {
       return `<div class="hub-empty">
-        <div class="hub-empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-search"/></svg></div>
+        <div class="hub-empty-icon"><i class="ph-duotone ph-magnifying-glass" aria-hidden="true"></i></div>
         <div class="hub-empty-title">해당 고객이 없어요</div>
         <div class="hub-empty-desc">필터를 바꾸거나 + 버튼으로 추가하세요</div>
       </div>`;
@@ -294,7 +336,7 @@
         </div>
       </div>
       <span class="cust-chev">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#ic-chevron-right"/></svg>
+        <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
       </span>
     </div>`;
   }
@@ -339,7 +381,7 @@
     const overlay = document.getElementById(OID); if (!overlay) return;
     const v = {};
     overlay.querySelectorAll('.ch-add-panel [data-field]').forEach(i => { v[i.dataset.field] = i.value.trim(); });
-    if (!v.name) { if (window.showToast) window.showToast('⚠️ 이름 필수'); return; }
+    if (!v.name) { if (window.showToast) window.showToast('이름 필수'); return; }
     try {
       const res = await fetch(`${API()}/customers?force=true`, {
         method: 'POST', headers: { ...AUTH(), 'Content-Type': 'application/json' },
@@ -351,10 +393,11 @@
       _state.enriched.push(created);
       _state.selectedId = created.id;
       _writeCache(_state.rows);
+      try { window.CustomerCache?.set && window.CustomerCache.set(_state.rows); } catch (_e) { void _e; }
       _state.addPanelOpen = false;
       _render();
       if (window.hapticLight) window.hapticLight();
-      if (window.showToast) window.showToast(`✅ ${v.name} 추가 완료`);
+      if (window.showToast) window.showToast(`${v.name} 추가 완료`);
     } catch (e) { if (window.showToast) window.showToast('저장 실패: ' + e.message); }
   }
 
@@ -397,7 +440,7 @@
       if (window.ImportWizard?.open) {
         window.ImportWizard.open({
           file: f, kind: 'customer',
-          onDone: async () => { sessionStorage.removeItem(CACHE_KEY); await _load(); _render(); },
+          onDone: async () => { sessionStorage.removeItem(CACHE_KEY); window.CustomerCache?.clear?.(); await _load(); _render(); },
         });
       }
     });
@@ -436,7 +479,7 @@
   window.openCustomerHub  = openCustomerHub;
   window.closeCustomerHub = closeCustomerHub;
   window.CustomerHub = {
-    refresh: async () => { sessionStorage.removeItem(CACHE_KEY); await _load(); _render(); },
+    refresh: async () => { sessionStorage.removeItem(CACHE_KEY); window.CustomerCache?.clear?.(); await _load(); _render(); },
     focusSearch: () => document.querySelector(`#${OID} #ch-search`)?.focus(),
   };
 })();

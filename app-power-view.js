@@ -42,10 +42,10 @@
         r.phone || '—',
         (r.memo || '').slice(0, 30) || '—',
         r.is_regular
-          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:#F18091;color:#fff;font-size:11px;font-weight:700;"><svg width="10" height="10" aria-hidden="true"><use href="#ic-star"/></svg>단골</span>`
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:var(--brand);color:#fff;font-size:11px;font-weight:700;"><i class="ph-duotone ph-star" aria-hidden="true"></i>단골</span>`
           : '<span style="color:#bbb;font-size:11px;">—</span>',
         r.membership_active
-          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:#A78BFA;color:#fff;font-size:11px;font-weight:700;"><svg width="10" height="10" aria-hidden="true"><use href="#ic-sparkles"/></svg>가입</span>`
+          ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:999px;background:#A78BFA;color:#fff;font-size:11px;font-weight:700;"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i>가입</span>`
           : '<span style="color:#bbb;font-size:11px;">—</span>',
         r.membership_active
           ? `<span style="font-weight:700;color:${(+r.membership_balance || 0) < 30000 && (+r.membership_balance || 0) > 0 ? '#F97316' : '#6B21A8'};">${_krw(r.membership_balance)}</span>`
@@ -80,7 +80,7 @@
       row: (r) => [
         _esc(r.customer_name || '—'),
         _esc(r.service_name || '—'),
-        `<span style="color:#666;font-variant-numeric:tabular-nums;">${(r.starts_at || '').replace('T', ' ').slice(0, 16)}</span>`,
+        `<span style="color:var(--text-muted);font-variant-numeric:tabular-nums;">${(r.starts_at || '').replace('T', ' ').slice(0, 16)}</span>`,
         `<span style="padding:3px 9px;border-radius:100px;background:#E8F4F1;color:#2B8C7E;font-size:11px;font-weight:700;">${_esc(({confirmed:'확정',completed:'완료',cancelled:'취소',no_show:'안 옴'}[r.status])||r.status||'확정')}</span>`,
       ],
       editFields: [
@@ -120,7 +120,7 @@
         _esc(r.customer_name || '—'),
         _esc(r.service_name || '—'),
         `<span style="font-weight:800;color:#1a1a1a;">${_krw(r.amount)}</span>`,
-        `<span style="padding:3px 9px;border-radius:100px;background:#FEF4F5;color:#D95F70;font-size:11px;font-weight:700;">${_esc(({card:'카드',cash:'현금',transfer:'계좌이체',bank_transfer:'계좌이체',etc:'기타'}[r.method])||r.method||'—')}</span>`,
+        `<span style="padding:3px 9px;border-radius:100px;background:#FEF4F5;color:var(--brand-strong);font-size:11px;font-weight:700;">${_esc(({card:'카드',cash:'현금',transfer:'계좌이체',bank_transfer:'계좌이체',etc:'기타'}[r.method])||r.method||'—')}</span>`,
         `<span style="color:#2B8C7E;font-weight:700;">${r.net_amount != null ? _krw(r.net_amount) : _krw(r.amount)}</span>`,
       ],
       editFields: [
@@ -238,7 +238,7 @@
       row: (r) => [
         `<strong>${_esc(r.name)}</strong>`,
         `<span style="font-weight:700;">${_krw(r.default_price)}</span>`,
-        `<span style="color:#666;">${r.default_duration_min || 0}분</span>`,
+        `<span style="color:var(--text-muted);">${r.default_duration_min || 0}분</span>`,
         `<span style="padding:3px 9px;border-radius:100px;background:#F3E8FF;color:#6B21A8;font-size:11px;font-weight:700;">${_esc(({nail:'네일',hair:'헤어',lash:'속눈썹',skin:'피부',eye:'속눈썹',wax:'왁싱',hair_extension:'붙임머리',etc:'기타'}[r.category])||r.category||'기타')}</span>`,
       ],
       editFields: [
@@ -327,7 +327,7 @@
     inputs.forEach(i => { v[i.getAttribute('data-field')] = i.value; });
     schema.qadd.fields.forEach(f => { if (f.required && !v[f.name]?.trim()) missing = f.name; });
     if (missing) {
-      if (window.showToast) window.showToast(`⚠️ 필수: ${missing}`);
+      if (window.showToast) window.showToast(`필수: ${missing}`);
       const el = document.querySelector(`#power-view-overlay .pv-qadd [data-field="${missing}"]`);
       if (el) { el.focus(); el.style.borderColor = '#dc3545'; setTimeout(() => { el.style.borderColor = ''; }, 1200); }
       return;
@@ -348,7 +348,7 @@
       }
       const saved = await res.json();
       if (window.hapticSuccess) window.hapticSuccess();
-      if (window.showToast) window.showToast('✅ 추가됨');
+      if (window.showToast) window.showToast('추가됨');
       inputs.forEach(i => {
         const f = schema.qadd.fields.find(x => x.name === i.getAttribute('data-field'));
         i.value = (f && f.default !== undefined) ? f.default : '';
@@ -388,7 +388,7 @@
     }));
     _state.pending[_state.currentTab] = [];
     if (window.hapticSuccess) window.hapticSuccess();
-    if (window.showToast) window.showToast(`✅ ${ok}건 저장${fail ? ` · 실패 ${fail}` : ''}`);
+    if (window.showToast) window.showToast(`${ok}건 저장${fail ? ` · 실패 ${fail}` : ''}`);
     _state.data[_state.currentTab] = await _fetchTab(_state.currentTab);
     await window._PVRender.renderTab(true);
     if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
@@ -447,7 +447,7 @@
       });
       if (!res.ok) throw new Error(await res.text());
       if (window.hapticSuccess) window.hapticSuccess();
-      if (window.showToast) window.showToast('✅ 수정됨');
+      if (window.showToast) window.showToast('수정됨');
       _state.data[tab] = await _fetchTab(tab);
       await window._PVRender.renderTab(true);
     } catch (e) { if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
@@ -556,7 +556,7 @@
       if (btn) {
         btn.disabled = false;
         btn.style.opacity = '';
-        btn.innerHTML = `<svg width="13" height="13" aria-hidden="true"><use href="#ic-save"/></svg>`;
+        btn.innerHTML = `<i class="ph-duotone ph-floppy-disk" aria-hidden="true"></i>`;
       }
     }
   }
@@ -603,8 +603,8 @@
     const btn = document.getElementById('pv-edit-toggle');
     if (btn) {
       btn.innerHTML = next
-        ? `<svg width="14" height="14" aria-hidden="true"><use href="#ic-check"/></svg> 완료`
-        : `<svg width="14" height="14" aria-hidden="true"><use href="#ic-edit-3"/></svg> 편집`;
+        ? `<i class="ph-duotone ph-check" aria-hidden="true"></i> 완료`
+        : `<i class="ph-duotone ph-pencil-simple" aria-hidden="true"></i> 편집`;
       btn.setAttribute('aria-pressed', String(next));
       btn.style.background = next
         ? 'linear-gradient(135deg, hsl(150, 55%, 55%), hsl(150, 60%, 45%))'
@@ -638,11 +638,35 @@
   };
 
   // ── 키보드 단축키 ────────────────────────────────────
+  // 2026-05-08: Cmd/Ctrl+S, Cmd/Ctrl+Enter → 즉시 추가 (엑셀급 단축 저장)
+  // Cmd/Ctrl+K → 검색, Cmd/Ctrl+/ → 단축키 안내 토스트
   function _escListener(e) {
     if (e.key === 'Escape') { closePowerView(); return; }
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    const meta = e.metaKey || e.ctrlKey;
+    if (!meta) return;
+    const k = e.key.toLowerCase();
+    if (k === 'k') {
       const s = document.getElementById('pv-search');
       if (s) { e.preventDefault(); s.focus(); s.select(); }
+    } else if (k === 's' || (k === 'enter')) {
+      // qadd input 안에 포커스가 있으면 그대로 저장 (Enter 는 input 의 keypress 가 이미 처리)
+      const overlay = document.getElementById(OVERLAY_ID);
+      if (!overlay) return;
+      const focused = document.activeElement;
+      const inQAdd = focused && focused.closest && focused.closest('.pv-qadd');
+      const isInput = focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT');
+      // Cmd+S 는 어디서든, Cmd+Enter 는 input 안에서만
+      if (k === 's' || (k === 'enter' && isInput)) {
+        e.preventDefault();
+        if (inQAdd || !isInput) {
+          if (typeof _submitQuickAdd === 'function') _submitQuickAdd();
+        }
+      }
+    } else if (k === '/') {
+      e.preventDefault();
+      if (window.showToast) {
+        window.showToast('Cmd/Ctrl+S 저장 · Cmd/Ctrl+K 검색 · Esc 닫기');
+      }
     }
   }
 
@@ -658,8 +682,7 @@
     overlay = document.createElement('div');
     overlay.id = OVERLAY_ID;
     overlay.style.cssText = [
-      'position:fixed;inset:0;z-index:9999;background:rgba(20,8,16,0.62);',
-      'backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);',
+      'position:fixed;inset:0;z-index:9999;background:rgba(20,8,16,0.78);',
       'display:flex;align-items:flex-end;justify-content:center;padding:20px;',
       'padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));',
     ].join('');
@@ -672,15 +695,15 @@
       <div class="pv-dialog" style="align-self:center;">
         <div class="pv-header">
           <button class="pv-close" onclick="window.closePowerView()" aria-label="닫기" title="닫기" style="margin-right:4px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            <i class="ph-duotone ph-caret-left" style="font-size:16px" aria-hidden="true"></i>
           </button>
           <div class="pv-title" style="flex:1;">빠른 입력</div>
           <span class="pv-save-chip" id="pv-save-chip">저장 완료</span>
           <button class="pv-ai-pill" id="pv-ai-import-btn" title="AI로 엑셀 가져오기">
-            <svg class="ic" width="14" height="14" aria-hidden="true"><use href="#ic-upload"/></svg>
+            <i class="ph-duotone ph-upload-simple" aria-hidden="true"></i>
             AI로 가져오기
           </button>
-          <button id="pv-edit-toggle" class="pv-edit-toggle" aria-label="편집 모드 토글" aria-pressed="false" title="전체 행 편집 모드" style="margin-left:6px;padding:8px 12px;border:none;border-radius:14px;background:linear-gradient(135deg, hsl(350, 75%, 72%), hsl(350, 70%, 60%));color:#fff;font-weight:800;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;box-shadow:0 2px 6px rgba(241,128,145,0.28);transition:all 0.15s;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-edit-3"/></svg> 편집</button>
+          <button id="pv-edit-toggle" class="pv-edit-toggle" aria-label="편집 모드 토글" aria-pressed="false" title="전체 행 편집 모드" style="margin-left:6px;padding:8px 12px;border:none;border-radius:14px;background:linear-gradient(135deg, hsl(350, 75%, 72%), hsl(350, 70%, 60%));color:#fff;font-weight:800;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;box-shadow:0 2px 6px rgba(241,128,145,0.28);transition:all 0.15s;"><i class="ph-duotone ph-pencil-simple" aria-hidden="true"></i> 편집</button>
         </div>
         <div class="pv-chip-bar">${chipHtml}</div>
         <div class="pv-body" id="pv-body"></div>

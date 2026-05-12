@@ -47,9 +47,9 @@
     sheet.innerHTML = `
       <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:22px;">✨</span>
+          <i class="ph-duotone ph-sparkle" style="font-size:22px;"></i>
           <strong style="font-size:17px;">스토리 자동 만들기</strong>
-          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(241,128,145,0.15);color:#D95F70;font-weight:700;">AI</span>
+          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(241,128,145,0.15);color:var(--brand-strong);font-weight:700;">AI</span>
           <button onclick="closeStory()" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="storyBody" style="flex:1;overflow-y:auto;"></div>
@@ -71,10 +71,10 @@
           </div>
         </div>
 
-        <label style="display:block;font-size:12px;color:#666;margin-bottom:4px;">짧은 메모</label>
+        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">짧은 메모</label>
         <textarea id="storyInput" rows="4" maxlength="500" placeholder="오늘 시술 이야기를 편하게…" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:12px;font-family:inherit;resize:vertical;font-size:14px;"></textarea>
 
-        <button id="storyGen" style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:15px;">✨ AI 스토리 만들기</button>
+        <button id="storyGen" style="width:100%;margin-top:12px;padding:13px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;font-weight:800;cursor:pointer;font-size:15px;">AI 스토리 만들기</button>
       </div>
     `;
     document.getElementById('storyGen').addEventListener('click', _generate);
@@ -111,7 +111,7 @@
     _recognition.onerror = () => {};
     _recognition.onend = () => {
       _recognition = null;
-      btn.style.background = 'linear-gradient(135deg,#F18091,#D95F70)';
+      btn.style.background = 'linear-gradient(135deg,var(--brand),var(--brand-strong))';
       btn.textContent = '🎤';
       document.getElementById('storyMicStatus').textContent = _interimText ? '✓ 받아쓰기 완료' : '';
     };
@@ -130,7 +130,7 @@
       _result = await _apiPost('/stories/generate', { text });
       _renderResult();
     } catch (e) {
-      btn.disabled = false; btn.textContent = '✨ AI 스토리 만들기';
+      btn.disabled = false; btn.textContent = 'AI 스토리 만들기';
       if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
@@ -149,7 +149,7 @@
         <!-- 배경 사진 (선택) -->
         <div style="margin-bottom:10px;display:flex;gap:6px;">
           <label style="flex:1;padding:9px;border:1px dashed #ddd;border-radius:10px;background:#fafafa;text-align:center;font-size:12px;color:#555;cursor:pointer;font-weight:700;">
-            📸 배경 사진 올리기
+            배경 사진 올리기
             <input id="storyBgFile" type="file" accept="image/*" style="display:none;" />
           </label>
           <button id="storyBgClear" style="padding:9px 12px;border:1px solid #eee;border-radius:10px;background:#fff;color:#888;cursor:pointer;font-size:12px;">그라디언트로</button>
@@ -168,7 +168,7 @@
           <div style="font-size:11px;color:#888;margin-bottom:6px;">배경 분위기</div>
           <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
             ${Object.entries(MOODS).map(([k, m]) => `
-              <button data-mood="${k}" style="padding:10px 4px;border:2px solid ${r.mood === k ? '#F18091' : 'transparent'};border-radius:10px;background:linear-gradient(135deg,${m.gradient[0]},${m.gradient[1]});color:${m.accent};font-size:11px;font-weight:700;cursor:pointer;">${m.name}</button>
+              <button data-mood="${k}" style="padding:10px 4px;border:2px solid ${r.mood === k ? 'var(--brand)' : 'transparent'};border-radius:10px;background:linear-gradient(135deg,${m.gradient[0]},${m.gradient[1]});color:${m.accent};font-size:11px;font-weight:700;cursor:pointer;">${m.name}</button>
             `).join('')}
           </div>
         </div>
@@ -181,10 +181,10 @@
 
         <!-- 액션 버튼 -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button id="storyDownload" style="padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;color:#555;font-weight:700;cursor:pointer;font-size:13px;">📥 이미지 저장</button>
+          <button id="storyDownload" style="padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;color:#555;font-weight:700;cursor:pointer;font-size:13px;">이미지 저장</button>
           <button id="storyShareIg" style="padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#833AB4,#FD1D1D);color:#fff;font-weight:800;cursor:pointer;font-size:13px;">🎀 인스타 공유</button>
         </div>
-        <button id="storyCopy" style="width:100%;margin-top:8px;padding:10px;border:1px solid #eee;border-radius:8px;background:transparent;color:#888;font-size:12px;cursor:pointer;">📋 해시태그만 복사</button>
+        <button id="storyCopy" style="width:100%;margin-top:8px;padding:10px;border:1px solid #eee;border-radius:8px;background:transparent;color:#888;font-size:12px;cursor:pointer;">해시태그만 복사</button>
       </div>
     `;
 

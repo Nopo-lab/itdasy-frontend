@@ -79,7 +79,7 @@ function _renderReviewPanel() {
 
   const stickerHtml = _reviewStickerCache.length ? `
     <div class="rv-section">
-      <div class="rv-section-label"><svg class="rv-section-ic" aria-hidden="true"><use href="#ic-image"/></svg> 업로드된 리뷰 (카드 탭 = 전체 사용)</div>
+      <div class="rv-section-label"><i class="ph-duotone ph-image" aria-hidden="true"></i> 업로드된 리뷰 (카드 탭 = 전체 사용)</div>
       ${guideHtml}
       <div class="rv-sticker-grid">
         ${_reviewStickerCache.map((s, i) => `
@@ -89,7 +89,7 @@ function _renderReviewPanel() {
                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectReviewSticker(${i});}">
             <img src="${s}" class="rv-sticker-img">
             <div class="rv-card-meta">
-              <div class="rv-stars">${'<svg class="rv-star" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-star"/></svg>'.repeat(5)}</div>
+              <div class="rv-stars">${'<i class="ph-duotone ph-star" aria-hidden="true"></i>'.repeat(5)}</div>
               <span class="rv-card-date">방금</span>
             </div>
             <div class="rv-sticker-actions" onclick="event.stopPropagation()">
@@ -104,9 +104,9 @@ function _renderReviewPanel() {
 
   body.innerHTML = `
     <div class="rv-section">
-      <div class="rv-section-label"><svg class="rv-section-ic" aria-hidden="true"><use href="#ic-image"/></svg> 리뷰 스크린샷 업로드</div>
+      <div class="rv-section-label"><i class="ph-duotone ph-image" aria-hidden="true"></i> 리뷰 스크린샷 업로드</div>
       <div class="rv-upload-zone" onclick="document.getElementById('reviewUploadInput').click()">
-        <svg class="rv-upload-icon" aria-hidden="true"><use href="#ic-image"/></svg>
+        <i class="ph-duotone ph-image" aria-hidden="true"></i>
         <div class="rv-upload-text">네이버/카톡 리뷰 캡처 올리기</div>
       </div>
       <input type="file" id="reviewUploadInput" accept="image/*" class="rv-file-input"
@@ -122,7 +122,7 @@ async function handleReviewUpload(input) {
   if (!file) return;
   const resultDiv = document.getElementById('reviewExtractResult');
   resultDiv.style.display = 'block';
-  resultDiv.innerHTML = `<div class="rv-loading">스크린샷 준비 중... ✨</div>`;
+  resultDiv.innerHTML = `<div class="rv-loading">스크린샷 준비 중...</div>`;
   try {
     const rawUrl = await _fileToDataUrl(file);
     const dataUrl = await _smartCropScreenshot(rawUrl);
@@ -134,7 +134,7 @@ async function handleReviewUpload(input) {
         <img src="${dataUrl}" class="rv-screenshot-img">
       </div>`;
     _renderReviewPanel();
-    showToast('스크린샷이 추가됐어요! 아래에서 선택해 사진에 붙이세요 ✨');
+    showToast('스크린샷이 추가됐어요! 아래에서 선택해 사진에 붙이세요!');
   } catch(e) {
     resultDiv.innerHTML = `<div class="rv-error">업로드 실패: ${e.message}</div>`;
   }
@@ -230,8 +230,12 @@ function _setupReviewDrag() {
   wrap.addEventListener('touchmove', e => { if (pinching && e.touches.length === 2) { const d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY); _reviewEditState.scale = Math.max(15, Math.min(80, startScale * (d / startDist))); update(); e.preventDefault(); } else if (dragging) { const p = getPos(e.touches[0].clientX, e.touches[0].clientY); _reviewEditState.x = Math.max(10, Math.min(90, startElemX + (p.x - startX))); _reviewEditState.y = Math.max(10, Math.min(90, startElemY + (p.y - startY))); update(); } }, { passive: false });
   wrap.addEventListener('touchend', () => { dragging = false; pinching = false; });
   wrap.addEventListener('mousedown', e => { dragging = true; const p = getPos(e.clientX, e.clientY); startX = p.x; startY = p.y; startElemX = _reviewEditState.x; startElemY = _reviewEditState.y; e.preventDefault(); });
-  window.addEventListener('mousemove', e => { if (!dragging) return; const r = wrap.getBoundingClientRect(); const p = { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 }; _reviewEditState.x = Math.max(10, Math.min(90, startElemX + (p.x - startX))); _reviewEditState.y = Math.max(10, Math.min(90, startElemY + (p.y - startY))); update(); });
-  window.addEventListener('mouseup', () => { dragging = false; });
+  // [PerfFix] AbortController로 window 리스너 누적 방지.
+  if (window._dragAC_review) { try { window._dragAC_review.abort(); } catch (_e) { void _e; } }
+  window._dragAC_review = new AbortController();
+  const _dragSig = { signal: window._dragAC_review.signal };
+  window.addEventListener('mousemove', e => { if (!dragging) return; const r = wrap.getBoundingClientRect(); const p = { x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 }; _reviewEditState.x = Math.max(10, Math.min(90, startElemX + (p.x - startX))); _reviewEditState.y = Math.max(10, Math.min(90, startElemY + (p.y - startY))); update(); }, _dragSig);
+  window.addEventListener('mouseup', () => { dragging = false; }, _dragSig);
   wrap.addEventListener('wheel', e => { e.preventDefault(); _reviewEditState.scale = Math.max(15, Math.min(80, _reviewEditState.scale - e.deltaY * 0.05)); update(); }, { passive: false });
 }
 
