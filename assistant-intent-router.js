@@ -111,9 +111,147 @@
     return { matched: false };
   }
 
+  // ─── [P0-1.5] SQL-first 비동기 규칙 ─────────────────────
+  // 매출/예약 단순 조회 — BE 의 가벼운 endpoint 호출, LLM 0회.
+  // BE 의 /revenue·/bookings 는 이미 KV 캐시 + SQL 직조회 → 빠름 (50~300ms).
+  // 응답 포맷:
+  //   - RevenueListOut: { items, total, count, net_total, margin_total }
+  //   - BookingListOut: { items: [{ starts_at, customer_name, service_name, ... }] }
+
+  function _krw(v) {
+    try { return Number(v || 0).toLocaleString('ko-KR') + '원'; }
+    catch (_e) { void _e; return (v || 0) + '원'; }
+  }
+
+  function _dayRangeISO(offsetDays) {
+    const t = new Date();
+    if (offsetDays) t.setDate(t.getDate() + offsetDays);
+    const s = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 0, 0, 0);
+    const e = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59);
+    return { from: s.toISOString(), to: e.toISOString() };
+  }
+
+  function _weekRangeISO() {
+    const t = new Date();
+    const day = t.getDay() || 7; // 일=0 → 7로 환산 (월요일 시작 주)
+    const start = new Date(t.getFullYear(), t.getMonth(), t.getDate() - (day - 1), 0, 0, 0);
+    const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000 - 1);
+    return { from: start.toISOString(), to: end.toISOString() };
+  }
+
+  function _formatBookings(items, label) {
+    if (!items || !items.length) return `📅 ${label} 예약 없어요.`;
+    const lines = items.slice(0, 8).map((b) => {
+      const t = new Date(b.starts_at);
+      const hh = String(t.getHours()).padStart(2, '0');
+      const mm = String(t.getMinutes()).padStart(2, '0');
+      const who = b.customer_name || '손님';
+      const svc = b.service_name || '';
+      return `${hh}:${mm} ${who}${svc ? ' · ' + svc : ''}`;
+    });
+    let out = `📅 ${label} 예약 ${items.length}건\n` + lines.join('\n');
+    if (items.length > 8) out += `\n... 외 ${items.length - 8}건`;
+    return out;
+  }
+
+  async function _fetchJson(path) {
+    const auth = (typeof window.authHeader === 'function') ? window.authHeader() : {};
+    const r = await fetch(window.API + path, { headers: auth });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  const ASYNC_RULES = [
+    // 매출 — 오늘
+    {
+      type: 'revenue_today',
+      test: (q) => /^(오늘|금일)\s*(의)?\s*(매출|얼마|벌)/.test(q) || /오늘\s*얼마/.test(q),
+      fetch: () => _fetchJson('/revenue?period=today'),
+      format: (d) => {
+        const t = d.total || 0;
+        const c = d.count || 0;
+        if (c === 0) return '📊 오늘 매출 아직 없어요. 화이팅 💪';
+        return `📊 오늘 매출 **${_krw(t)}** (${c}건)`;
+      },
+    },
+    // 매출 — 이번 주
+    {
+      type: 'revenue_week',
+      test: (q) => /(이번|금)\s*주.*(매출|얼마|벌)/.test(q),
+      fetch: () => _fetchJson('/revenue?period=week'),
+      format: (d) => `📊 이번 주 매출 **${_krw(d.total || 0)}** (${d.count || 0}건)`,
+    },
+    // 매출 — 이번 달
+    {
+      type: 'revenue_month',
+      test: (q) => /((이번|금|이)\s*달|월\s*매출|이달).*(매출|얼마|벌)?/.test(q) && /(매출|얼마|벌)/.test(q),
+      fetch: () => _fetchJson('/revenue?period=month'),
+      format: (d) => `📊 이번 달 매출 **${_krw(d.total || 0)}** (${d.count || 0}건)`,
+    },
+    // 매출 — 지난 달
+    {
+      type: 'revenue_last_month',
+      test: (q) => /(지난|저번)\s*달.*(매출|얼마|벌)/.test(q),
+      fetch: () => _fetchJson('/revenue?period=last_month'),
+      format: (d) => `📊 지난 달 매출 **${_krw(d.total || 0)}** (${d.count || 0}건)`,
+    },
+    // 예약 — 오늘
+    {
+      type: 'bookings_today',
+      test: (q) => /^(오늘|금일)\s*(의)?\s*예약/.test(q) || /^오늘\s*예약\s*(몇|얼마)?/.test(q),
+      fetch: () => {
+        const r = _dayRangeISO(0);
+        return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
+      },
+      format: (d) => _formatBookings(d.items, '오늘'),
+    },
+    // 예약 — 내일
+    {
+      type: 'bookings_tomorrow',
+      test: (q) => /^내일\s*예약/.test(q) || /내일\s*몇\s*건/.test(q),
+      fetch: () => {
+        const r = _dayRangeISO(1);
+        return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
+      },
+      format: (d) => _formatBookings(d.items, '내일'),
+    },
+    // 예약 — 이번 주
+    {
+      type: 'bookings_week',
+      test: (q) => /(이번|금)\s*주\s*예약/.test(q),
+      fetch: () => {
+        const r = _weekRangeISO();
+        return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
+      },
+      format: (d) => _formatBookings(d.items, '이번 주'),
+    },
+  ];
+
+  // 매칭만 — 동기. fetch 진입 전 사용자 메시지 표시 + loading 띄울 수 있도록 분리.
+  function findAsyncRule(text) {
+    if (_disabled()) return null;
+    const q = _trim(text);
+    if (!q || q.length > 40) return null;
+    for (const rule of ASYNC_RULES) {
+      try { if (rule.test(q)) return rule; }
+      catch (_e) { void _e; }
+    }
+    return null;
+  }
+
+  // 매칭된 규칙 실행 — async. fetch 실패 시 throw → caller 가 LLM fallback 또는 에러 메시지 결정.
+  async function execAsyncRule(rule) {
+    const data = await rule.fetch();
+    const response = rule.format(data);
+    _bumpStats(rule.type);
+    return { matched: true, type: rule.type, response };
+  }
+
   // ─── public API ─────────────────────────────────────────
   window.AssistantIntent = {
     classifyObvious,
+    findAsyncRule,
+    execAsyncRule,
     // 디버깅용 — 현재 통계 조회
     getStats: () => ({ ...window[STATS_KEY], byType: { ...window[STATS_KEY].byType } }),
     // 디버깅용 — 통계 리셋

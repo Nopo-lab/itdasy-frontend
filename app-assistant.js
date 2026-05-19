@@ -3444,6 +3444,31 @@
       }
     } catch (_e) { void _e; /* 라우터 에러 시 기존 흐름 fallback */ }
 
+    // [P0-1.5 2026-05-20] SQL-first 비동기 router — 매출/예약 단순 조회 BE 직접 호출 (LLM 0회).
+    // 매치 시 user 메시지 + loading 표시 → fetch 응답 → 답변 갱신.
+    // fetch 실패 시 친절한 에러 메시지 + return (LLM 안 부름. 사용자 재시도 또는 다른 질문).
+    try {
+      const _ar = window.AssistantIntent && window.AssistantIntent.findAsyncRule && window.AssistantIntent.findAsyncRule(q);
+      if (_ar) {
+        input.value = '';
+        _history.push({ role: 'user', text: q });
+        _history.push({ role: 'loading', text: '' });
+        _renderHistory();
+        try {
+          const _r = await window.AssistantIntent.execAsyncRule(_ar);
+          _history = _history.filter(m => m.role !== 'loading');
+          _history.push({ role: 'assistant', text: _r.response });
+          _renderHistory();
+        } catch (_fetchErr) {
+          _history = _history.filter(m => m.role !== 'loading');
+          _history.push({ role: 'assistant', text: '⚠️ 일시적으로 조회가 안 됐어요. 잠시 후 다시 시도해 주세요.' });
+          _renderHistory();
+          try { console.warn('[assistant-intent] async fetch failed', _fetchErr); } catch (_e) { void _e; }
+        }
+        return;
+      }
+    } catch (_e) { void _e; /* 라우터 자체 에러 시 기존 흐름 */ }
+
     // [2026-04-29 W5] 챗봇 keyword shortcut — 자주 쓰는 진입점은 LLM 호출 없이 즉시 시트 open
     // [QA-r11 PR4-A 2026-05-16] 확장 — 갤러리/DM/영업시간/통계/백업/캡션/음성/리뷰/이탈/플랜.
     const ql = q.toLowerCase();
