@@ -15,12 +15,10 @@
   function _current() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (MODES.includes(saved)) return saved;
-    // [2026-04-29 W7] saved 값 없으면 시스템 설정 자동 감지 (prefers-color-scheme)
-    try {
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
-      }
-    } catch (_) { /* ignore */ }
+    // [2026-05-20] 초기 사용자(localStorage 비어있음) 는 무조건 라이트로 시작.
+    // 이전: prefers-color-scheme:dark 면 다크로 자동 진입 → 캐시 지운 사용자
+    // (=초기 사용자) 가 로그인 화면을 다크모드로 마주침. 사용자 결정으로 라이트 고정.
+    // 다크모드는 토글 한 번 누른 이후에만 활성.
     return 'light';
   }
 

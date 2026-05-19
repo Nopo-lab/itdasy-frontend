@@ -166,17 +166,14 @@ html[data-theme="dark"] canvas {
   filter: none;
 }
 
-/* ───── 시스템 다크 (저장값 없을 때 자동) ───── */
+/* [2026-05-20] "시스템 다크 자동 적용" 룰 제거.
+   초기 사용자(저장값 없음) 는 무조건 라이트로 시작 — app-theme.js _current() 도 일치.
+   다크모드는 사용자가 토글한 후에만 활성.
 @media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"], [data-theme="dark"]) {
-    color-scheme: dark;
-  }
-
-  html:not([data-theme="light"], [data-theme="dark"]) body {
-    background: #0F1014;
-    color: #ECEEF1;
-  }
+  html:not([data-theme="light"], [data-theme="dark"]) { color-scheme: dark; }
+  html:not([data-theme="light"], [data-theme="dark"]) body { background:#0F1014;color:#ECEEF1; }
 }
+*/
 
 /* ───── 설정시트 다크모드 (P3.1 #5) ───── */
 html[data-theme="dark"] #settingsSheet {
