@@ -3374,6 +3374,20 @@
 
     if (!q) return;
 
+    // [P0-1 2026-05-19] FE intent pre-parser — 인사·감사·도움말·소개에 한해 LLM 0회 즉시 응답.
+    // 매치 안 되면 false 반환 → 기존 keyword shortcut → LLM 흐름 그대로 진행 (안전).
+    // 롤백: localStorage.assistant_router_disabled = '1' 설정 시 항상 false (= 기존 동작).
+    try {
+      const _ir = window.AssistantIntent && window.AssistantIntent.classifyObvious(q);
+      if (_ir && _ir.matched) {
+        input.value = '';
+        _history.push({ role: 'user', text: q });
+        _history.push({ role: 'assistant', text: _ir.response });
+        _renderHistory();
+        return;
+      }
+    } catch (_e) { void _e; /* 라우터 에러 시 기존 흐름 fallback */ }
+
     // [2026-04-29 W5] 챗봇 keyword shortcut — 자주 쓰는 진입점은 LLM 호출 없이 즉시 시트 open
     // [QA-r11 PR4-A 2026-05-16] 확장 — 갤러리/DM/영업시간/통계/백업/캡션/음성/리뷰/이탈/플랜.
     const ql = q.toLowerCase();
