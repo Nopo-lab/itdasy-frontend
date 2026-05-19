@@ -13,6 +13,9 @@
 (function () {
   'use strict';
 
+  const TEMPLATE_MAX_DIM = 2200;
+  let _templateInputTimer = null;
+
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
@@ -73,11 +76,14 @@
       img.onload = () => { state.secondImg = img; redraw(); pushHistory(); };
       img.src = URL.createObjectURL(f);
     });
-    panel.querySelector('[data-pe-tpl-left]')?.addEventListener('input', (e) => { state.template.leftLabel = e.target.value; redraw(); });
-    panel.querySelector('[data-pe-tpl-right]')?.addEventListener('input', (e) => { state.template.rightLabel = e.target.value; redraw(); });
-    panel.querySelector('[data-pe-tpl-review]')?.addEventListener('input', (e) => { state.template.reviewText = e.target.value; redraw(); });
+    panel.querySelector('[data-pe-tpl-left]')?.addEventListener('input', (e) => { state.template.leftLabel = e.target.value; _queueTemplateRedraw(helpers); });
+    panel.querySelector('[data-pe-tpl-right]')?.addEventListener('input', (e) => { state.template.rightLabel = e.target.value; _queueTemplateRedraw(helpers); });
+    panel.querySelector('[data-pe-tpl-review]')?.addEventListener('input', (e) => { state.template.reviewText = e.target.value; _queueTemplateRedraw(helpers); });
     panel.querySelector('[data-pe-tpl-price]')?.addEventListener('input', (e) => {
-      state.template.priceLines = e.target.value; redraw();
+      state.template.priceLines = e.target.value; _queueTemplateRedraw(helpers);
+    });
+    panel.querySelectorAll('[data-pe-tpl-left],[data-pe-tpl-right],[data-pe-tpl-review],[data-pe-tpl-price]').forEach(el => {
+      el.addEventListener('change', () => { _flushTemplateRedraw(helpers); pushHistory(); });
     });
   }
 
@@ -85,14 +91,66 @@
   // 기본은 1080×1350 (4:5), 스토리는 1080×1920 (9:16).
   function _drawTemplate(cv, img, state, helpers) {
     const id = state.template.id, W = 1080, H = id === 'story' ? 1920 : 1350;
-    cv.width = W; cv.height = H;
-    const ctx = cv.getContext('2d');
+    if (cv.width !== W) cv.width = W;
+    if (cv.height !== H) cv.height = H;
+    const ctx = cv.getContext('2d', { alpha: false });
+    _resetCanvasState(ctx, W, H);
     ctx.fillStyle = '#1a1a20'; ctx.fillRect(0, 0, W, H);
-    if (id === 'ba-h' || id === 'ba-v') return _renderTemplateBA(ctx, W, H, img, id === 'ba-h', state, helpers);
-    if (id === 'review')  return _renderTemplateReview(ctx, W, H, img, state, helpers);
-    if (id === 'price')   return _renderTemplatePrice(ctx, W, H, img, state, helpers);
-    if (id === 'service') return _renderTemplateService(ctx, W, H, img, state, helpers);
-    if (id === 'story')   return _renderTemplateStory(ctx, W, H, img, state, helpers);
+    const fastImg = _getTemplateSource(img, state);
+    if (id === 'ba-h' || id === 'ba-v') return _renderTemplateBA(ctx, W, H, fastImg, id === 'ba-h', state, helpers);
+    if (id === 'review')  return _renderTemplateReview(ctx, W, H, fastImg, state, helpers);
+    if (id === 'price')   return _renderTemplatePrice(ctx, W, H, fastImg, state, helpers);
+    if (id === 'service') return _renderTemplateService(ctx, W, H, fastImg, state, helpers);
+    if (id === 'story')   return _renderTemplateStory(ctx, W, H, fastImg, state, helpers);
+  }
+
+  function _queueTemplateRedraw(helpers) {
+    clearTimeout(_templateInputTimer);
+    _templateInputTimer = setTimeout(() => _flushTemplateRedraw(helpers), 140);
+  }
+
+  function _flushTemplateRedraw(helpers) {
+    clearTimeout(_templateInputTimer);
+    _templateInputTimer = null;
+    if (helpers && typeof helpers.redraw === 'function') helpers.redraw();
+  }
+
+  function _resetCanvasState(ctx, W, H) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, W, H);
+  }
+
+  function _getTemplateSource(img, state) {
+    if (!img) return img;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const key = _templateImageKey(img, state, w, h);
+    if (state._templateFastImage && state._templateFastImage.key === key) return state._templateFastImage.canvas;
+    const canvas = _makeTemplateFastImage(img, w, h);
+    state._templateFastImage = { key, canvas };
+    return canvas;
+  }
+
+  function _makeTemplateFastImage(img, w, h) {
+    const maxDim = Math.max(w, h);
+    if (!maxDim || maxDim <= TEMPLATE_MAX_DIM) return img;
+    const scale = TEMPLATE_MAX_DIM / maxDim;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  function _templateImageKey(img, state, w, h) {
+    const src = String(state.originalSrc || img.currentSrc || img.src || '');
+    return [w, h, src.length, src.slice(0, 80), src.slice(-80)].join('|');
   }
 
   function _drawFittedImage(ctx, src, dx, dy, dw, dh) {
@@ -104,10 +162,11 @@
       ctx.fillText('두 번째 사진 고르기', dx + dw/2, dy + dh/2);
       return;
     }
-    const sAR = src.naturalWidth / src.naturalHeight, dAR = dw / dh;
+    const srcW = src.naturalWidth || src.width, srcH = src.naturalHeight || src.height;
+    const sAR = srcW / srcH, dAR = dw / dh;
     let sx, sy, sw, sh;
-    if (sAR > dAR) { sh = src.naturalHeight; sw = sh * dAR; sx = (src.naturalWidth - sw) / 2; sy = 0; }
-    else           { sw = src.naturalWidth;  sh = sw / dAR; sx = 0; sy = (src.naturalHeight - sh) / 2; }
+    if (sAR > dAR) { sh = srcH; sw = sh * dAR; sx = (srcW - sw) / 2; sy = 0; }
+    else           { sw = srcW; sh = sw / dAR; sx = 0; sy = (srcH - sh) / 2; }
     ctx.drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh);
   }
 

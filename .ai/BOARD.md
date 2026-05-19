@@ -1,6 +1,26 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-05-19 by Codex (v234 — 사진편집 스튜디오 고급화 + 실제 사진 QA)
+**LAST UPDATED:** 2026-05-20 by Codex (v239 — 사진편집 템플릿 렉 핫픽스)
+
+---
+
+## 2026-05-20 — v239 사진편집 템플릿 렉 핫픽스 (Codex)
+
+배경: 사용자 전달 진단 — 템플릿 탭에서 큰 사진/문구 입력 시 멈칫거리는 현상. 원인은 캔버스 재생성, 입력마다 즉시 다시그리기, 큰 원본 사진 첫 합성 비용.
+
+수정:
+- `app-photo-editor-templates.js`: 같은 크기 템플릿은 캔버스를 재생성하지 않고 비우기만 하도록 변경.
+- 후기/가격/Before-After 라벨 입력은 140ms 로 묶어서 다시그리기. 입력 완료 시 작업 기록 1번만 저장.
+- 큰 원본 사진은 템플릿용 축소본을 한 번 만들어 재사용.
+- `index.html`, `app-core.js`, `sw.js`: 빌드 `20260520-v239-template-lag-hotfix` 로 통일. `app-photo-editor-templates.js` 캐시 갱신.
+
+확인:
+- JS 문법 확인, 템플릿 파일 자동검사, 공백 검사 통과.
+- `npm run smoke` 통과: 176 scripts, build `20260520-v239-template-lag-hotfix`.
+- `npm test -- --runInBand`: 테스트 파일 없음, 정상 종료.
+- 브라우저 실측: 4000×6000 테스트 사진에서 6종 템플릿 전환, 22자 연속 입력 시 다시그리기 1회로 묶임. 브라우저 심각 오류 0개.
+
+빌드: `20260520-v239-template-lag-hotfix`.
 
 ---
 
