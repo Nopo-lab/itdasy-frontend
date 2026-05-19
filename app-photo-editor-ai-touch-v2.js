@@ -21,7 +21,7 @@
   const PRESETS = {
     hair:       { skinSmooth: 0.45, skinTone: 6, lipSat: 0,    eyeSharpen: 0,   hairShine: 0.35, overall: 'sharp' },
     makeup:     { skinSmooth: 0.55, skinTone: 8, lipSat: 0.25, eyeSharpen: 0.2, hairShine: 0,    overall: 'soft'  },
-    lashes:     { skinSmooth: 0.3,  skinTone: 4, lipSat: 0.1,  eyeSharpen: 0.4, hairShine: 0,    overall: 'sharp' },
+    lashes:     { skinSmooth: 0.25, skinTone: 3, lipSat: 0.05, eyeSharpen: 0.55, hairShine: 0,    overall: 'sharp' },
     nail:       { skinSmooth: 0.2,  skinTone: 2, lipSat: 0,    eyeSharpen: 0,   hairShine: 0,    overall: 'saturate' },
     scalp:      { skinSmooth: 0.4,  skinTone: 5, lipSat: 0,    eyeSharpen: 0,   hairShine: 0.2,  overall: 'soft'  },
     waxing:     { skinSmooth: 0.6,  skinTone: 7, lipSat: 0,    eyeSharpen: 0,   hairShine: 0,    overall: 'soft'  },
@@ -107,7 +107,7 @@
     if (p.eyeSharpen > 0) {
       ['leftEye', 'rightEye'].forEach(name => {
         const poly = ML.regionPolygon(lm, name);
-        if (poly) _tintRegion(ctx, poly, `rgba(20,10,30,${p.eyeSharpen * 0.35})`);
+        if (poly) _boostRegion(ctx, poly, p.eyeSharpen);
       });
     }
   }
@@ -142,6 +142,20 @@
     ctx.fillStyle = fillStyle;
     ctx.globalCompositeOperation = 'source-atop';
     ctx.fill();
+    ctx.restore();
+  }
+
+  function _boostRegion(ctx, polygon, strength) {
+    ctx.save();
+    const ML = window.MediaPipeLoader;
+    if (ML) ML.pathPolygon(ctx, polygon);
+    ctx.clip();
+    const tmp = document.createElement('canvas');
+    tmp.width = ctx.canvas.width; tmp.height = ctx.canvas.height;
+    const tctx = tmp.getContext('2d');
+    tctx.filter = `contrast(${1 + strength * 0.22}) saturate(${1 + strength * 0.10}) brightness(${1 + strength * 0.03})`;
+    tctx.drawImage(ctx.canvas, 0, 0);
+    ctx.drawImage(tmp, 0, 0);
     ctx.restore();
   }
 
@@ -188,7 +202,7 @@
     }
     try {
       const shopType = (window.ShopSettings && window.ShopSettings.get && window.ShopSettings.get('shop_type')) ||
-                       (localStorage.getItem('itdasy_shop_type')) || 'makeup';
+                       localStorage.getItem('shop_type') || localStorage.getItem('itdasy_shop_type') || 'makeup';
       // MediaPipe 사전 로드 (실패해도 _apply 가 폴백 처리)
       if (ML && ML.status() === 'idle') {
         try { await ML.load(); } catch (_e) { /* 폴백 사용 */ }

@@ -300,8 +300,8 @@ window.itdasyNormalizeShopType = function (raw) {
   if (/(헤어샵|미용|hair)/.test(t))          return { cat: 'hair',   apiCat: 'extension', label: '헤어샵' };
   if (/(두피|탈모|scalp)/.test(t))           return { cat: 'scalp',  apiCat: 'extension', label: '두피탈모' };
   if (/(메이크업|makeup)/.test(t))           return { cat: 'makeup', apiCat: 'extension', label: '메이크업' };
-  if (/(눈썹|brow)/.test(t))                 return { cat: 'makeup', apiCat: 'extension', label: '눈썹' };
   if (/(속눈썹|lash)/.test(t))               return { cat: 'lash',   apiCat: 'extension', label: '속눈썹' };
+  if (/(눈썹|brow)/.test(t))                 return { cat: 'makeup', apiCat: 'extension', label: '눈썹' };
   if (/(네일아트|네일|nail)/.test(t))        return { cat: 'nail',   apiCat: 'nail',      label: '네일아트' };
   if (/(패디|풋케어|pedi|foot)/.test(t))     return { cat: 'nail',   apiCat: 'nail',      label: '패디' };
   if (/(왁싱|wax)/.test(t))                  return { cat: 'wax',    apiCat: 'extension', label: '왁싱' };
@@ -1779,7 +1779,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260520-v243-photo-editor-cache-bust';
+window.APP_BUILD = '20260520-v244-lash-eye-tools';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

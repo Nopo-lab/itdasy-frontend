@@ -221,6 +221,17 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
   const _s = (v) => Math.min(100, Math.max(0, Math.round(v * k)));
   const _sym = (v) => Math.max(-50, Math.min(50, Math.round(v * k)));  // hairColor 양방향
 
+  if (/(속눈썹|lash)/.test(t)) {
+    return {
+      label: '속눈썹',
+      adjust: { brightness: 105, saturate: 108, sharpness: 42, temperature: 0 },
+      beauty: {
+        eyeRedness: _s(52), irisClear: _s(50), catchLight: _s(32),
+        lashSharp: _s(68), closeUpDetail: _s(38), underEyeClean: _s(34),
+        eyeShadow: _s(18), redness: _s(18), skin: _s(14),
+      },
+    };
+  }
   // [v192 2026-05-18] makeup / scalp / general 카테고리 신규 추가
   if (/(메이크업|눈썹|makeup|brow)/.test(t)) {
     return {
@@ -249,16 +260,6 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
       beauty: {
         hairShine: _s(55), hairDetail: _s(45), hairColor: _sym(8), hairColorPop: _s(40),
         skin: _s(15), redness: _s(30), yellowness: _s(20),
-      },
-    };
-  }
-  if (/(속눈썹|lash)/.test(t)) {
-    return {
-      label: '속눈썹',
-      adjust: { brightness: 105, saturate: 110, sharpness: 50, temperature: 0 },
-      beauty: {
-        lashSharp: _s(75), closeUpDetail: _s(45), eyeShadow: _s(50),
-        redness: _s(40), skin: _s(20), yellowness: _s(15),
       },
     };
   }

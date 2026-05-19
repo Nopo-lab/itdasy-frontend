@@ -1,6 +1,26 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-05-20 by Codex (v240 — 사진편집 새 메뉴 흐름/뒤로가기 수정)
+**LAST UPDATED:** 2026-05-20 by Codex (v244 — 속눈썹 눈 보정 추가)
+
+---
+
+## 2026-05-20 — v244 속눈썹 눈 보정 추가 (Codex)
+
+배경: 사용자 요청 — 속눈썹 사진에서 눈 붉음, 흐린 눈동자, 눈빛 부족을 바로 고칠 수 있어야 함.
+
+수정:
+- `app-photo-editor-beauty.js`: 속눈썹 메뉴 첫 화면에 눈 붉음 완화, 눈동자 또렷, 눈빛 반짝임, 눈밑 칙칙함 슬라이더 추가.
+- `app-core.js`, `app-photo-editor-beauty.js`, `app-photo-enhance.js`: `속눈썹`을 `눈썹`으로 잘못 읽던 순서 문제 수정.
+- `app-photo-enhance.js`, `js/photo-editor/studio-presets.js`: 속눈썹 자동 보정과 `눈빛 클리어` 카드 연결.
+- `app-photo-editor-ai-touch-v2.js`: 정밀 얼굴 보정에서 눈 영역을 색으로 덧칠하지 않고 선명도/대비 보정으로 처리.
+- `index.html`, `app-core.js`, `sw.js`: 빌드 `20260520-v244-lash-eye-tools` 로 통일.
+
+확인:
+- 브라우저 자동 검증: 속눈썹 업종 인식, 속눈썹 메뉴 슬라이더 노출, `눈빛 클리어` 카드 적용, 붉은 눈 샘플의 빨간값 감소 확인.
+- JS 문법 확인, 공백 검사, `npm run smoke`, `npm test -- --runInBand` 통과.
+- 전체 자동검사: 0 errors, 기존 warnings 유지.
+
+빌드: `20260520-v244-lash-eye-tools`.
 
 ---
 

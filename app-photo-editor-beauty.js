@@ -1,10 +1,4 @@
-/* 사진 편집기 — 뷰티 모듈 (v180 2026-05-18)
-   v175 → v180 변경:
-     • shop_type 기반 카테고리 필터 — 처음 샵 선택에 맞는 핵심 보정 우선 노출
-     • 신규 슬라이더 5종: yellowness, coolness, textureSmooth, hairColorPop, closeUpDetail
-     • AI 보정 (준비 중) 섹션 — 컬·웨이브·볼륨·두피 등 AI 필요 항목 placeholder
-     • '전체 보정 보기' 토글로 비-추천 슬라이더 숨김
-
+/* 사진 편집기 — 뷰티 모듈
    메인 (app-photo-editor.js) 의 _internal API 로 등록.
      • registerTabPanel('beauty', { html, bind })
      • registerDrawHook('beauty', applyBeauty)
@@ -47,7 +41,7 @@
     } catch (_e) { /* CORS·메모리 부족 시 skip */ }
   }
 
-  // ── 슬라이더 정의 (key → meta) ── [v192 2026-05-18] 4종 신규 (lipPop/eyeColor/browSharp/nailShape) + scalpBoost / hairyArm
+  // ── 슬라이더 정의 (key → meta) ──
   const SLIDERS = {
     // 얼굴·피부
     skin:          { label: '피부톤 정리',     group: 'face', min: 0,   max: 100, step: 1 },
@@ -73,6 +67,10 @@
     scalpBoost:    { label: '두피 톤 (풍성감)', group: 'hair', min: 0,   max: 100, step: 1 },
     hairyArm:      { label: '바디 잔털 시각화 ↓', group: 'face', min: 0, max: 100, step: 1 },
     // 속눈썹
+    eyeRedness:    { label: '눈 붉음 완화',     group: 'lash', min: 0,   max: 100, step: 1 },
+    irisClear:     { label: '눈동자 또렷',      group: 'lash', min: 0,   max: 100, step: 1 },
+    catchLight:    { label: '눈빛 반짝임',      group: 'lash', min: 0,   max: 100, step: 1 },
+    underEyeClean: { label: '눈밑 칙칙함',      group: 'lash', min: 0,   max: 100, step: 1 },
     lashSharp:     { label: '속눈썹 선명도',   group: 'lash', min: 0,   max: 100, step: 1 },
     closeUpDetail: { label: '눈가 디테일 (close-up)', group: 'lash', min: 0,   max: 100, step: 1 },
   };
@@ -82,7 +80,7 @@
     hair:    ['hairShine', 'hairDetail', 'hairColor', 'hairColorPop', 'yellowness', 'redness'],
     scalp:   ['scalpBoost', 'hairShine', 'hairDetail', 'skin', 'redness'],
     makeup:  ['skin', 'redness', 'lipPop', 'eyeColor', 'browSharp', 'yellowness'],
-    lash:    ['lashSharp', 'closeUpDetail', 'eyeShadow', 'redness', 'skin', 'yellowness'],
+    lash:    ['eyeRedness', 'irisClear', 'catchLight', 'lashSharp', 'underEyeClean', 'closeUpDetail'],
     nail:    ['nailGloss', 'handSkin', 'coolness', 'nailShape', 'yellowness', 'redness'],
     wax:     ['skin', 'redness', 'blemish', 'textureSmooth', 'eyeShadow', 'hairyArm'],
     skin:    ['skin', 'redness', 'blemish', 'textureSmooth', 'eyeShadow'],
@@ -93,7 +91,7 @@
     hair:   ['컬·웨이브 또렷하게', '잔머리 정리', '볼륨/풍성함 강화', '두피·정수리 휑함 완화', '붙임머리 결합부 자연스럽게'],
     scalp:  ['두피 휑함 자연 보완', '잔모 강조', 'AI 모발 풍성함'],
     makeup: ['AI 메이크업 가상 시술', '발색 자연 보강', '얼굴 부위 자동 마스크'],
-    lash:   ['컬 또렷하게', '빈 부분 자연스럽게 보완'],
+    lash:   ['빈 부분 자연스럽게 보완', '연장 결합부 정리'],
     nail:   ['큐티클·주변부 정리', '컬러 정확도 보정', '배경 깔끔화'],
     wax:    ['부위 강조 자동', '결 자연 보정 (강도)'],
     skin:   ['자극 부위 자연 복원', '잡티 AI 제거'],
@@ -109,10 +107,10 @@
       }
       const t = (localStorage.getItem('shop_type') || '').toLowerCase();
       if (!t) return null;
-      if (/(메이크업|눈썹|makeup|brow)/.test(t)) return 'makeup';
       if (/(두피|탈모|scalp)/.test(t)) return 'scalp';
       if (/(헤어|붙임머리|미용|hair|extension)/.test(t)) return 'hair';
       if (/(속눈썹|lash)/.test(t)) return 'lash';
+      if (/(메이크업|눈썹|makeup|brow)/.test(t)) return 'makeup';
       if (/(네일|nail|패디|풋케어|pedi|foot)/.test(t)) return 'nail';
       if (/(왁싱|바디|wax|body)/.test(t)) return 'wax';
       if (/(피부|반영구|문신|skin|tattoo)/.test(t)) return 'skin';
@@ -150,7 +148,6 @@
     const b = Object.assign({}, DEF, state.beauty || {});
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-
     const cat = _detectShopCat();
     const featured = cat ? (SHOP_FEATURED[cat] || []) : [];
     const otherKeys = Object.keys(SLIDERS).filter(k => !featured.includes(k));
@@ -165,7 +162,6 @@
       `;
     }
 
-    // featured 가 있으면 나머지는 토글로 숨김. 없으면 전체 노출.
     let moreHtml = '';
     if (otherKeys.length) {
       if (featured.length) {
@@ -195,12 +191,7 @@
       `;
     }
 
-    return `
-      ${featuredHtml}
-      ${moreHtml}
-      ${aiHtml}
-      <div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>
-    `;
+    return `${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
   }
 
   function _bindBeautyPanel(panel, state, helpers) {
@@ -255,7 +246,8 @@
     const anyOn = b.skin || b.redness || b.hairShine || b.nailGloss || b.lashSharp
       || b.blemish || b.handSkin || b.hairColor || b.hairDetail || b.eyeShadow
       || b.yellowness || b.coolness || b.textureSmooth || b.hairColorPop || b.closeUpDetail
-      || b.lipPop || b.eyeColor || b.browSharp || b.nailShape || b.scalpBoost || b.hairyArm;
+      || b.lipPop || b.eyeColor || b.browSharp || b.nailShape || b.scalpBoost || b.hairyArm
+      || b.eyeRedness || b.irisClear || b.catchLight || b.underEyeClean;
     if (!anyOn) return;
 
     let data;
@@ -278,10 +270,12 @@
     // [v202 2026-05-18] 신규 6종 walk
     const lipK      = (b.lipPop || 0) / 100;
     const eyeK      = (b.eyeColor || 0) / 100;
-    const browK     = (b.browSharp || 0) / 100;
-    const nailShK   = (b.nailShape || 0) / 100;
     const scalpK    = (b.scalpBoost || 0) / 100;
     const armK      = (b.hairyArm || 0) / 100;
+    const eyeRedK   = (b.eyeRedness || 0) / 100;
+    const irisK     = (b.irisClear || 0) / 100;
+    const catchK    = (b.catchLight || 0) / 100;
+    const underK    = (b.underEyeClean || 0) / 100;
 
     // 저주파 (블러) — blemish / textureSmooth 둘 다 필요.
     let blurD = null;
@@ -294,9 +288,24 @@
       const r = d[i], g = d[i+1], bl = d[i+2];
       const isSkin = r > 80 && r > g && g > bl && (r - bl) > 15 && (r - bl) < 110;
       const isReddish = r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
+      const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
 
+      if (eyeRedK > 0 && lum0 > 105 && r > g + 8 && r > bl + 4 && Math.max(g, bl) > 70) {
+        d[i]   = _clamp(d[i]   - 34 * eyeRedK);
+        d[i+1] = _clamp(d[i+1] +  7 * eyeRedK);
+        d[i+2] = _clamp(d[i+2] + 10 * eyeRedK);
+      }
+      if (irisK > 0 && lum0 > 18 && lum0 < 120 && !isSkin) {
+        d[i]   = _clamp(lum0 + (d[i]   - lum0) * (1 + 0.45 * irisK));
+        d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * (1 + 0.45 * irisK));
+        d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * (1 + 0.45 * irisK));
+      }
+      if (catchK > 0 && lum0 > 168 && Math.max(r, g, bl) - Math.min(r, g, bl) < 55) {
+        d[i]   = _clamp(d[i]   + 12 * catchK);
+        d[i+1] = _clamp(d[i+1] + 12 * catchK);
+        d[i+2] = _clamp(d[i+2] + 14 * catchK);
+      }
       if (redK > 0 && isReddish) {
-        // [v183 2026-05-18] 강도 18 → 30 (사용자 체감 약함 컴플레인 fix)
         d[i]   = _clamp(d[i]   - 30 * redK);
         d[i+1] = _clamp(d[i+1] +  4 * redK);
         d[i+2] = _clamp(d[i+2] +  5 * redK);
@@ -356,6 +365,12 @@
             d[i+1] = _clamp(d[i+1] + 10 * eyeShK * w2);
             d[i+2] = _clamp(d[i+2] +  8 * eyeShK * w2);
           }
+        }
+        if (underK > 0 && lum0 < 145) {
+          const w3 = (145 - lum0) / 145;
+          d[i]   = _clamp(d[i]   + 10 * underK * w3);
+          d[i+1] = _clamp(d[i+1] +  9 * underK * w3);
+          d[i+2] = _clamp(d[i+2] +  7 * underK * w3);
         }
       }
       // [v206 2026-05-19] 모발 윤기 — Agent 분석 반영: specular highlight 흉내
@@ -449,6 +464,7 @@
     if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 300);
     if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 130);
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 160);
+    if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 260);
     // [v202] 눈썹 선명·네일 경계 — unsharp mask
     if (b.browSharp > 10) _unsharpMask(ctx, w, h, b.browSharp / 180);
     if (b.nailShape > 10) _unsharpMask(ctx, w, h, b.nailShape / 200);
