@@ -1,0 +1,248 @@
+/* ═══════════════════════════════════════════════════════════════
+   사진편집 진입 화면 v6 (Meitu grammar + 친구 톤)
+   설계: DESIGN_SYSTEM.md (uploads) / itdasy-photo-edit.css
+   스코프: .pe-entry-v6  (기존 dark .pe-* 와 충돌 방지)
+   ═══════════════════════════════════════════════════════════════ */
+
+.pe-entry-v6 {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #fff;
+  font-family: 'Pretendard', -apple-system, sans-serif;
+  letter-spacing: -0.02em;
+  color: #111;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px 20px 36px;
+  padding-top: calc(24px + env(safe-area-inset-top, 0));
+  padding-bottom: calc(36px + env(safe-area-inset-bottom, 0));
+}
+.pe-entry-v6.hidden { display: none; }
+
+/* ── 헤더 ──────────────────────────────────────────── */
+.pe-entry-v6 .pe-entry-hd {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.pe-entry-v6 .pe-entry-hd h1 {
+  font-size: 22px; font-weight: 700; color: #111;
+  letter-spacing: -0.5px; margin: 0;
+}
+.pe-entry-v6 .pe-entry-actions { display: flex; gap: 8px; }
+.pe-entry-v6 .pe-entry-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  touch-action: manipulation;
+}
+.pe-entry-v6 .pe-entry-btn.dark  { background: #111;     color: #fff; }
+.pe-entry-v6 .pe-entry-btn.ghost { background: #F7F8FA; color: #666; }
+
+/* ── 캔버스 프리뷰 (진입 화면 상단) ─────────────── */
+.pe-entry-v6 .pe-entry-canvas {
+  width: 100%;
+  aspect-ratio: 1/1;
+  background: #F2F4F6;
+  border-radius: 18px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pe-entry-v6 .pe-entry-canvas img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.pe-entry-v6 .pe-entry-canvas.empty::before {
+  content: '편집할 사진을 골라주세요';
+  color: #999; font-size: 13px;
+}
+.pe-entry-v6 .pe-entry-pickbtn {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  background: rgba(255,255,255,0.95);
+  color: #111;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  backdrop-filter: blur(8px);
+}
+
+/* ── 섹션 헤더 ────────────────────────────────── */
+.pe-entry-v6 .pe-sec-hd {
+  font-size: 12px; color: #BBB; font-weight: 600;
+  padding: 8px 4px 6px;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+
+/* ── 큰 카드 2 (AI 자동 / 느낌) ───────────────── */
+.pe-entry-v6 .pe-card-grid-l {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  margin-bottom: 8px;
+}
+.pe-entry-v6 .pe-card-l {
+  aspect-ratio: 1.4/1;
+  background: #111;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  position: relative; overflow: hidden;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: #fff;
+}
+.pe-entry-v6 .pe-card-l:active { transform: scale(0.97); }
+.pe-entry-v6 .pe-card-l .pe-ic {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pe-entry-v6 .pe-card-l .pe-ic svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 1.6; }
+.pe-entry-v6 .pe-card-l .pe-title {
+  font-size: 15px; font-weight: 700; color: #fff;
+  letter-spacing: -0.4px;
+}
+.pe-entry-v6 .pe-card-l .pe-sub {
+  font-size: 10px; color: #999; font-weight: 500; margin-top: 2px;
+}
+
+/* ── 중 카드 4 ─────────────────────────────────── */
+.pe-entry-v6 .pe-card-grid-m {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  margin-bottom: 24px;
+}
+.pe-entry-v6 .pe-card-m {
+  aspect-ratio: 1/1;
+  background: #111;
+  border-radius: 14px;
+  padding: 10px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: #fff;
+}
+.pe-entry-v6 .pe-card-m:active { transform: scale(0.96); }
+.pe-entry-v6 .pe-card-m .pe-ic { width: 17px; height: 17px; }
+.pe-entry-v6 .pe-card-m .pe-ic svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 1.8; }
+.pe-entry-v6 .pe-card-m .pe-title {
+  font-size: 10px; font-weight: 600; color: #fff;
+}
+
+/* ── 배지 ────────────────────────────────────── */
+.pe-entry-v6 .pe-badge {
+  position: absolute;
+  font-size: 8px; font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+  color: #fff;
+  line-height: 1.4;
+}
+.pe-entry-v6 .pe-badge.ai  { background: #7C3AED; }
+.pe-entry-v6 .pe-badge.hot { background: #F36; top: 5px; right: 5px; }
+.pe-entry-v6 .pe-badge.pro { background: #fff; color: #111; top: 5px; right: 5px; }
+
+/* ── 도구 8 (원형 칩) ────────────────────────── */
+.pe-entry-v6 .pe-card-grid-tools {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px;
+  margin-bottom: 24px;
+}
+.pe-entry-v6 .pe-tool {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  cursor: pointer;
+  background: none; border: none;
+  font-family: inherit;
+  position: relative;
+  padding: 0;
+}
+.pe-entry-v6 .pe-tool:active { transform: scale(0.95); }
+.pe-entry-v6 .pe-tool-circle {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: #F7F8FA;
+  display: flex; align-items: center; justify-content: center;
+  color: #111;
+  position: relative;
+}
+.pe-entry-v6 .pe-tool-circle svg { width: 20px; height: 20px; stroke: #111; fill: none; stroke-width: 1.6; }
+.pe-entry-v6 .pe-tool-circle .pe-badge.ai { position: absolute; top: -2px; right: -4px; }
+.pe-entry-v6 .pe-tool-label { font-size: 11px; color: #111; font-weight: 500; }
+
+/* ── 즐겨찾기 가로 스크롤 (Vibe 카로셀) ─────── */
+.pe-entry-v6 .pe-fav-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.pe-entry-v6 .pe-fav-title {
+  font-size: 15px; font-weight: 700; color: #111; letter-spacing: -0.4px;
+}
+.pe-entry-v6 .pe-fav-more {
+  font-size: 11px; color: #999; font-weight: 500;
+  background: none; border: none; cursor: pointer; font-family: inherit;
+}
+.pe-entry-v6 .pe-fav-strip {
+  display: flex; gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 20px;
+}
+.pe-entry-v6 .pe-fav-strip::-webkit-scrollbar { display: none; }
+.pe-entry-v6 .pe-fav-card {
+  flex-shrink: 0;
+  width: 90px; height: 120px;
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+.pe-entry-v6 .pe-fav-card.warm   { background: linear-gradient(135deg, #ffe3b3, #ffb060); }
+.pe-entry-v6 .pe-fav-card.natural{ background: linear-gradient(135deg, #fce4ec, #f8bbd0); }
+.pe-entry-v6 .pe-fav-card.pink   { background: linear-gradient(135deg, #ff9bb8, #e84a72); }
+.pe-entry-v6 .pe-fav-card.pro    { background: linear-gradient(135deg, #2a2a2a, #525252); }
+.pe-entry-v6 .pe-fav-card .pe-sig-heart {
+  position: absolute;
+  top: 5px; left: 5px;
+  font-size: 13px;
+  color: #F36;
+  line-height: 1;
+  z-index: 2;
+}
+
+/* ── 알림 배너 (노란 nudge) ─────────────────── */
+.pe-entry-v6 .pe-alert {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  background: #FFFBEB;
+  border-radius: 14px;
+  font-size: 13px; color: #92400E;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  width: 100%;
+}
+.pe-entry-v6 .pe-alert-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #F59E0B; flex-shrink: 0;
+}
+.pe-entry-v6 .pe-alert-msg { flex: 1; text-align: left; }
+.pe-entry-v6 .pe-alert-arr { color: #D4A017; font-size: 14px; }
+
+/* ── 진입 화면 띄울 때 기존 에디터 어두운 부분 가림 ── */
+.pe-sheet.pe-has-entry-v6 .pe-root > .pe-topbar,
+.pe-sheet.pe-has-entry-v6 .pe-root > .pe-stage,
+.pe-sheet.pe-has-entry-v6 .pe-root > .pe-tabs,
+.pe-sheet.pe-has-entry-v6 .pe-root > .pe-panel { visibility: hidden; }
+.pe-sheet.pe-has-entry-v6 { background: #fff; }
+.pe-sheet.pe-has-entry-v6 .pe-root { background: #fff; }

@@ -1,0 +1,263 @@
+/* 사진편집 진입 화면 v6 — Meitu grammar (2026-05-20)
+   설계: DESIGN_SYSTEM.md (uploads) §3 + §4 (4 화면 흐름)
+   역할:
+     PhotoEditor.open() 호출 → 기존 dark 에디터 시트 위에 라이트 진입 화면 오버레이
+     사용자가 카드 탭 → 진입 오버레이 숨김 + 기존 에디터 탭 활성화
+   기존 코드 영향 없음 — 새 DOM 노드 + 기존 탭 버튼을 프로그래매틱 클릭.
+*/
+(function () {
+  'use strict';
+
+  const ENTRY_ID = 'photoEditorEntryV6';
+  let _wrapped = false;
+  let _origOpen = null;
+
+  // ── Lucide SVG (DESIGN_SYSTEM 의 ti-* 아이콘을 인라인 SVG 로 — 외부 폰트 의존 제거) ──
+  // index.html 의 ic-* 스프라이트가 있으면 그걸 써도 됨. 우선 inline 으로 시작.
+  const ICONS = {
+    'wand':       '<svg viewBox="0 0 24 24"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9h0M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>',
+    'sparkles':   '<svg viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4M22 5h-4M4 17v2M5 18H3"/></svg>',
+    'eraser':     '<svg viewBox="0 0 24 24"><path d="M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21M5.082 11.09 8.99 15"/></svg>',
+    'crop':       '<svg viewBox="0 0 24 24"><path d="M6 2v14a2 2 0 0 0 2 2h14M18 22V8a2 2 0 0 0-2-2H2"/></svg>',
+    'resize':     '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 21V9h12"/></svg>',
+    'typography': '<svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>',
+    'adjustments':'<svg viewBox="0 0 24 24"><circle cx="6" cy="10" r="2"/><path d="M6 4v4M6 12v8"/><circle cx="12" cy="16" r="2"/><path d="M12 4v10M12 18v2"/><circle cx="18" cy="7" r="2"/><path d="M18 4v1M18 9v11"/></svg>',
+    'color-filter':'<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>',
+    'droplet':    '<svg viewBox="0 0 24 24"><path d="M12 2.69 5.66 9.04a8 8 0 1 0 12.68 0Z"/></svg>',
+    'sticker':    '<svg viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6M10 14a3.5 3.5 0 0 0 5 0"/><path d="M9 10h.01M15 10h.01"/></svg>',
+    'frame':      '<svg viewBox="0 0 24 24"><path d="M22 6 6 22M22 18 6 2M2 6h20M2 18h20"/></svg>',
+    'arrows-lr':  '<svg viewBox="0 0 24 24"><path d="m21 7-4-4-4 4M17 3v18M3 17l4 4 4-4M7 21V3"/></svg>',
+    'stack':      '<svg viewBox="0 0 24 24"><path d="m12 2 9 4.5-9 4.5L3 6.5 12 2zM21 12l-9 4.5L3 12M21 17.5l-9 4.5-9-4.5"/></svg>',
+    'bookmark':   '<svg viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>',
+    'heart-fill': '<svg viewBox="0 0 24 24" fill="#FF3366" stroke="none"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>',
+    'history':    '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/></svg>',
+    'close':      '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  };
+  function _ic(name) { return '<span class="pe-ic">' + (ICONS[name] || '') + '</span>'; }
+  function _circleIc(name) { return ICONS[name] || ''; }
+
+  // ── 카드 → 기존 탭 매핑 ──────────────────────────
+  const CARD_TO_TAB = {
+    'auto':     'auto',
+    'film':     'film',
+    'bg':       'bg',
+    'tune':     'tune',
+    'export':   'export',
+    'text':     'text',
+    'brush':    'brush',
+    'template': 'template',
+    'pro':      'pro',
+  };
+
+  function _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+  }
+
+  function _buildHeader() {
+    return `<div class="pe-entry-hd">
+        <h1>사진 편집</h1>
+        <div class="pe-entry-actions">
+          <button type="button" class="pe-entry-btn ghost" data-pev6-act="history" aria-label="기록">${_ic('history')}</button>
+          <button type="button" class="pe-entry-btn dark" data-pev6-act="close" aria-label="닫기">${_ic('close')}</button>
+        </div>
+      </div>`;
+  }
+  function _buildCanvas(state) {
+    const hasImg = !!(state && state.originalImg && state.originalImg.src);
+    const previewSrc = hasImg ? state.originalImg.src : '';
+    return `<div class="pe-entry-canvas ${hasImg ? '' : 'empty'}">
+        ${hasImg ? `<img src="${_esc(previewSrc)}" alt="편집 사진">` : ''}
+        <button type="button" class="pe-entry-pickbtn" data-pev6-act="pick">${hasImg ? '다른 사진' : '사진 고르기'}</button>
+      </div>`;
+  }
+  function _buildLargeCards() {
+    return `<div class="pe-sec-hd">한 번에 끝 · AI</div>
+      <div class="pe-card-grid-l">
+        <button type="button" class="pe-card-l" data-pev6-card="auto">
+          <span class="pe-badge ai" style="top:10px;right:10px">AI</span>
+          ${_ic('wand')}
+          <div><div class="pe-title">AI 자동</div><div class="pe-sub">밝기 · 컬러 · 잡티</div></div>
+        </button>
+        <button type="button" class="pe-card-l" data-pev6-card="film">
+          ${_ic('sparkles')}
+          <div><div class="pe-title">느낌</div><div class="pe-sub">12 필름 프리셋</div></div>
+        </button>
+      </div>`;
+  }
+  function _buildMediumCards() {
+    return `<div class="pe-card-grid-m">
+        <button type="button" class="pe-card-m" data-pev6-card="bg">${_ic('eraser')}<div class="pe-title">누끼</div></button>
+        <button type="button" class="pe-card-m" data-pev6-card="tune">${_ic('crop')}<div class="pe-title">자르기</div></button>
+        <button type="button" class="pe-card-m" data-pev6-card="export">
+          <span class="pe-badge hot">Hot</span>${_ic('resize')}<div class="pe-title">사이즈</div>
+        </button>
+        <button type="button" class="pe-card-m" data-pev6-card="text">${_ic('typography')}<div class="pe-title">텍스트</div></button>
+      </div>`;
+  }
+  function _toolItem(card, icon, label, badgeAi) {
+    const badge = badgeAi ? '<span class="pe-badge ai">AI</span>' : '';
+    return `<button type="button" class="pe-tool" data-pev6-card="${card}">
+        <div class="pe-tool-circle">${_circleIc(icon)}${badge}</div>
+        <span class="pe-tool-label">${label}</span>
+      </button>`;
+  }
+  function _buildTools() {
+    return `<div class="pe-sec-hd">자세히</div>
+      <div class="pe-card-grid-tools">
+        ${_toolItem('tune', 'adjustments', '보정', true)}
+        ${_toolItem('film', 'color-filter', '필터', false)}
+        ${_toolItem('brush', 'droplet', '잡티', false)}
+        ${_toolItem('text', 'sticker', '스티커', false)}
+        ${_toolItem('template', 'frame', '프레임', false)}
+        ${_toolItem('ba', 'arrows-lr', 'B/A', false)}
+        ${_toolItem('text', 'stack', '레이어', false)}
+        ${_toolItem('pro', 'bookmark', '프리셋', false)}
+      </div>`;
+  }
+  function _buildFav() {
+    return `<div class="pe-fav-header">
+        <div class="pe-fav-title">또렷한 네일샷</div>
+        <button type="button" class="pe-fav-more" data-pev6-card="film">더보기 ›</button>
+      </div>
+      <div class="pe-fav-strip">
+        <button type="button" class="pe-fav-card natural" data-pev6-card="film"></button>
+        <button type="button" class="pe-fav-card pink" data-pev6-card="film">
+          <span class="pe-sig-heart">${ICONS['heart-fill']}</span>
+        </button>
+        <button type="button" class="pe-fav-card warm" data-pev6-card="film"></button>
+        <button type="button" class="pe-fav-card pro" data-pev6-card="pro"><span class="pe-badge pro">PRO</span></button>
+      </div>
+      <button type="button" class="pe-alert" data-pev6-card="auto">
+        <span class="pe-alert-dot"></span>
+        <span class="pe-alert-msg">AI 보정 한번에 끝 <b>평균 5초</b></span>
+        <span class="pe-alert-arr">›</span>
+      </button>`;
+  }
+  function _buildHTML(state) {
+    return _buildHeader() + _buildCanvas(state) + _buildLargeCards()
+      + _buildMediumCards() + _buildTools() + _buildFav();
+  }
+
+  function _ensureEntry() {
+    const sheet = document.getElementById('photoEditorSheet');
+    if (!sheet) return null;
+    let entry = document.getElementById(ENTRY_ID);
+    if (entry) return entry;
+    entry = document.createElement('div');
+    entry.id = ENTRY_ID;
+    entry.className = 'pe-entry-v6';
+    sheet.appendChild(entry);
+    entry.addEventListener('click', _onClick);
+    return entry;
+  }
+
+  function _onClick(e) {
+    const actBtn = e.target.closest('[data-pev6-act]');
+    if (actBtn) {
+      const a = actBtn.dataset.pev6Act;
+      if (a === 'close') {
+        // PhotoEditor.close() 호출 — 미저장 경고 등 그대로 동작
+        if (window.PhotoEditor && typeof window.PhotoEditor.close === 'function') window.PhotoEditor.close();
+        return;
+      }
+      if (a === 'pick') {
+        const picker = document.getElementById('pePicker');
+        if (picker) picker.click();
+        return;
+      }
+      if (a === 'history') {
+        // 기록(되돌리기) — 기존 에디터 탭으로 진입한 뒤 ⤺ 버튼 클릭
+        _gotoEditor('auto');
+        setTimeout(() => {
+          const undo = document.querySelector('#photoEditorSheet [data-pe-act="undo"]');
+          if (undo) undo.click();
+        }, 50);
+        return;
+      }
+    }
+    const cardBtn = e.target.closest('[data-pev6-card]');
+    if (cardBtn) {
+      const cardKey = cardBtn.dataset.pev6Card;
+      if (cardKey === 'ba') {
+        // B/A 슬라이더 — 기존 ba-slider 모듈에 위임
+        _gotoEditor('auto');
+        setTimeout(() => {
+          const compare = document.querySelector('#photoEditorSheet [data-pe-act="compare"]');
+          if (compare) compare.click();
+        }, 50);
+        return;
+      }
+      const tab = CARD_TO_TAB[cardKey] || 'auto';
+      _gotoEditor(tab);
+    }
+  }
+
+  function _hideEntry() {
+    const sheet = document.getElementById('photoEditorSheet');
+    const entry = document.getElementById(ENTRY_ID);
+    if (entry) entry.classList.add('hidden');
+    if (sheet) sheet.classList.remove('pe-has-entry-v6');
+  }
+
+  function _showEntry() {
+    const sheet = document.getElementById('photoEditorSheet');
+    const entry = _ensureEntry();
+    if (!entry || !sheet) return;
+    // PhotoEditor 내부 상태에서 현재 사진 미리보기용 src 가져옴
+    let state = null;
+    try { state = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState(); }
+    catch (_e) { state = null; }
+    entry.innerHTML = _buildHTML(state || {});
+    entry.classList.remove('hidden');
+    sheet.classList.add('pe-has-entry-v6');
+  }
+
+  function _gotoEditor(tabId) {
+    _hideEntry();
+    // 기존 탭 버튼 클릭 — 핸들러 그대로 동작
+    setTimeout(() => {
+      const tabBtn = document.querySelector('#peTabs [data-pe-tab="' + tabId + '"]');
+      if (tabBtn) tabBtn.click();
+    }, 0);
+  }
+
+  function _wrapOpen() {
+    if (_wrapped) return;
+    if (!window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') return;
+    _origOpen = window.PhotoEditor.open;
+    window.PhotoEditor.open = function (opts) {
+      const ret = _origOpen.call(window.PhotoEditor, opts || {});
+      try {
+        // 한 프레임 양보 — sheet 가 display:flex 로 보인 다음에 entry 오버레이 띄움
+        requestAnimationFrame(() => { try { _showEntry(); } catch (_e) { void _e; } });
+      } catch (_e) { void _e; }
+      return ret;
+    };
+    _wrapped = true;
+  }
+
+  function _boot() {
+    if (window.PhotoEditor) { _wrapOpen(); return; }
+    let tries = 0;
+    const iv = setInterval(() => {
+      if (window.PhotoEditor || ++tries > 80) {
+        clearInterval(iv);
+        _wrapOpen();
+      }
+    }, 80);
+  }
+
+  // 외부 접근용
+  window.PhotoEditorEntryV6 = {
+    show: _showEntry,
+    hide: _hideEntry,
+    goto: _gotoEditor,
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _boot);
+  } else {
+    _boot();
+  }
+})();
