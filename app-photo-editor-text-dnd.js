@@ -19,15 +19,24 @@
   let _dragState = null;
   let _pinchState = null;
 
-  function _bind(canvas, state, helpers) {
+  function _ctx() {
+    const PE = window.PhotoEditor;
+    if (!PE || !PE._internal) return {};
+    return { state: PE._internal.getState(), helpers: PE._internal.helpers || {} };
+  }
+
+  function _bind(canvas) {
     if (!canvas || _bound) return;
     _bound = true;
 
     let lastTap = 0;
 
     canvas.addEventListener('pointerdown', (e) => {
+      const { state, helpers } = _ctx();
+      if (!state || state.activeTab !== 'text') return;
       const layer = _hitTest(canvas, state, e);
       if (!layer) return;
+      e.preventDefault();
       // 더블탭 감지
       const now = Date.now();
       if (now - lastTap < 350) {
@@ -51,16 +60,22 @@
 
     canvas.addEventListener('pointermove', (e) => {
       if (!_dragState || e.pointerId !== _dragState.pointerId) return;
+      const { state, helpers } = _ctx();
+      if (!state) return;
+      e.preventDefault();
       const dx = (e.clientX - _dragState.startX) / _dragState.canvasRect.width;
       const dy = (e.clientY - _dragState.startY) / _dragState.canvasRect.height;
       const layer = state.layers.find(l => l.id === _dragState.layerId);
       if (!layer) return;
       layer.x = Math.max(0, Math.min(1, _dragState.startLayerX + dx));
       layer.y = Math.max(0, Math.min(1, _dragState.startLayerY + dy));
+      state.text = layer;
+      if (window.PhotoEditorLayers && window.PhotoEditorLayers.syncText) window.PhotoEditorLayers.syncText(state);
       if (helpers && helpers.redraw) helpers.redraw();
     });
 
     canvas.addEventListener('pointerup', (e) => {
+      const { helpers } = _ctx();
       if (_dragState && e.pointerId === _dragState.pointerId) {
         if (helpers && helpers.pushHistory) helpers.pushHistory();
         _dragState = null;
@@ -72,6 +87,8 @@
     // 두 손가락 핀치/회전 (touchevents)
     canvas.addEventListener('touchmove', (e) => {
       if (e.touches.length !== 2) return;
+      const { state, helpers } = _ctx();
+      if (!state || state.activeTab !== 'text') return;
       const layer = _activeLayer(state);
       if (!layer) return;
       e.preventDefault();
@@ -96,6 +113,7 @@
     }, { passive: false });
 
     canvas.addEventListener('touchend', (e) => {
+      const { helpers } = _ctx();
       if (e.touches.length < 2 && _pinchState) {
         if (helpers && helpers.pushHistory) helpers.pushHistory();
         _pinchState = null;
@@ -172,9 +190,8 @@
       const canvas = document.getElementById('peCanvas');
       if (PE && PE._internal && canvas && !_bound) {
         const state = PE._internal.getState();
-        const helpers = PE._internal.helpers || {};
         if (state) {
-          _bind(canvas, state, helpers);
+          _bind(canvas);
           clearInterval(iv);
           return;
         }

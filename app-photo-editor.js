@@ -18,7 +18,7 @@
     { id: 'auto', label: '자동' }, { id: 'tune', label: '보정' },
     { id: 'beauty', label: '뷰티' }, { id: 'brush', label: '부분 보정' },
     { id: 'selective', label: '셀렉티브' }, { id: 'pro', label: '프로' },
-    { id: 'film', label: '필름' },
+    { id: 'relight', label: '조명' }, { id: 'film', label: '필름' },
     { id: 'bg', label: '누끼·배경' }, { id: 'template', label: '템플릿' },
     { id: 'text', label: '텍스트' }, { id: 'brand', label: '브랜드' },
     { id: 'export', label: '내보내기' },
@@ -72,6 +72,7 @@
       autoIntensity: 'standard',  // [v183] natural | standard | strong
       adjust: { brightness: 100, saturate: 100, sharpness: 0, temperature: 0 },
       beauty: { skin: 0, redness: 0, hairShine: 0, nailGloss: 0, lashSharp: 0, blemish: 0, handSkin: 0, hairColor: 0, hairDetail: 0, eyeShadow: 0 },
+      relight: { direction: 0.5, warmth: 0, intensity: 0, ambientBoost: 0, flash: 0 },
       template: { id: null, leftLabel: '전', rightLabel: '후', reviewText: '', priceLines: '' },
       // [v188 2026-05-18] 텍스트 v2 — stroke (외곽선), rotation, x slider 추가
       // [v204 2026-05-19] 다중 레이어 — _state.text 는 active layer alias.
@@ -139,7 +140,7 @@
     // 롱프레스 = 원본 비교 — [v185] brush 탭일 땐 비활성화 (brush 의 drag 와 충돌)
     let t = null;
     const start = () => {
-      if (_state && _state.activeTab === 'brush') return;
+      if (_state && (_state.activeTab === 'brush' || _state.activeTab === 'text')) return;
       t = setTimeout(() => { _state.showOriginal = true; _redraw(); }, 250);
     };
     const end   = () => { if (t) clearTimeout(t); if (_state && _state.showOriginal) { _state.showOriginal = false; _redraw(); } };
@@ -714,6 +715,9 @@
         _unsharpMask(ctx, dw, dh, a.sharpness / 100);
       }
     }
+    if (typeof _drawHooks.relight === 'function') {
+      try { _drawHooks.relight(cv, _state, _helpers); } catch (_e) { void _e; }
+    }
     if (typeof _drawHooks.beauty === 'function') {
       try { _drawHooks.beauty(ctx, dw, dh, _state.beauty, _helpers); } catch (_e) { void _e; }
     }
@@ -886,7 +890,7 @@
 
   // ── history ──────────────────────────────────────────
   // [v204 2026-05-19] layers + activeLayerId snapshot — undo/redo 시 다중 텍스트 복원
-  const _SNAP_KEYS = ['originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio', 'text', 'watermark', 'beauty', 'template', 'autoIntensity', 'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl'];
+  const _SNAP_KEYS = ['originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio', 'text', 'watermark', 'beauty', 'relight', 'template', 'autoIntensity', 'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl'];
   function _snapshot() {
     const o = {};
     for (const k of _SNAP_KEYS) o[k] = _state[k];
@@ -963,6 +967,7 @@
     sheet.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     _renderTabs(); _renderPanel(); _redraw();
+    try { window.PhotoEditorTextDnD?.bind?.(sheet.querySelector('#peCanvas')); } catch (_e) { void _e; }
     if (opts.src) _loadImage(opts.src);
     _pushHistoryState();
     // [v203 2026-05-19] 핀치 줌 attach — wrap 자식 (메인 canvas + 마스크 + 커서) 모두 같이 변환

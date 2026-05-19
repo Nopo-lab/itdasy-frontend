@@ -1,8 +1,4 @@
-/* 사진 편집기 — 뷰티 모듈
-   메인 (app-photo-editor.js) 의 _internal API 로 등록.
-     • registerTabPanel('beauty', { html, bind })
-     • registerDrawHook('beauty', applyBeauty)
-*/
+/* 사진 편집기 — 뷰티 모듈 */
 (function () {
   'use strict';
 
@@ -61,6 +57,8 @@
     nailShape:     { label: '네일 경계 선명',  group: 'hand', min: 0,   max: 100, step: 1 },
     // 모발
     hairShine:     { label: '모발 윤기',       group: 'hair', min: 0,   max: 100, step: 1 },
+    hairVolume:    { label: '머리 풍성감',     group: 'hair', min: 0,   max: 100, step: 1 },
+    hairEndsClean: { label: '머리끝 정리',     group: 'hair', min: 0,   max: 100, step: 1 },
     hairColor:     { label: '모발 색감 (- 차가운 / + 따뜻)', group: 'hair', min: -50, max: 50, step: 1 },
     hairDetail:    { label: '머리결',          group: 'hair', min: 0,   max: 100, step: 1 },
     hairColorPop:  { label: '염색 컬러 강조',  group: 'hair', min: 0,   max: 100, step: 1 },
@@ -77,8 +75,8 @@
 
   // shop_type → 추천 보정 슬라이더 우선순위. v192 신규 3 카테고리 (makeup/scalp/general).
   const SHOP_FEATURED = {
-    hair:    ['hairShine', 'hairDetail', 'hairColor', 'hairColorPop', 'yellowness', 'redness'],
-    scalp:   ['scalpBoost', 'hairShine', 'hairDetail', 'skin', 'redness'],
+    hair:    ['hairVolume', 'hairEndsClean', 'hairShine', 'hairDetail', 'hairColorPop', 'hairColor'],
+    scalp:   ['scalpBoost', 'hairVolume', 'hairShine', 'hairDetail', 'skin', 'redness'],
     makeup:  ['skin', 'redness', 'lipPop', 'eyeColor', 'browSharp', 'yellowness'],
     lash:    ['eyeRedness', 'irisClear', 'catchLight', 'lashSharp', 'underEyeClean', 'closeUpDetail'],
     nail:    ['nailGloss', 'handSkin', 'coolness', 'nailShape', 'yellowness', 'redness'],
@@ -148,7 +146,7 @@
     const b = Object.assign({}, DEF, state.beauty || {});
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-    const cat = _detectShopCat();
+    const cat = state.beautyFocus || _detectShopCat();
     const featured = cat ? (SHOP_FEATURED[cat] || []) : [];
     const otherKeys = Object.keys(SLIDERS).filter(k => !featured.includes(k));
     const aiItems = cat ? (AI_FEATURES[cat] || []) : [];
@@ -247,7 +245,8 @@
       || b.blemish || b.handSkin || b.hairColor || b.hairDetail || b.eyeShadow
       || b.yellowness || b.coolness || b.textureSmooth || b.hairColorPop || b.closeUpDetail
       || b.lipPop || b.eyeColor || b.browSharp || b.nailShape || b.scalpBoost || b.hairyArm
-      || b.eyeRedness || b.irisClear || b.catchLight || b.underEyeClean;
+      || b.eyeRedness || b.irisClear || b.catchLight || b.underEyeClean
+      || b.hairVolume || b.hairEndsClean;
     if (!anyOn) return;
 
     let data;
@@ -258,6 +257,8 @@
     const skinK     = (b.skin || 0) / 100;
     const redK      = (b.redness || 0) / 100;
     const hairK     = (b.hairShine || 0) / 100;
+    const hairVolK  = (b.hairVolume || 0) / 100;
+    const hairEndK  = (b.hairEndsClean || 0) / 100;
     const nailK     = (b.nailGloss || 0) / 100;
     const blemishK  = (b.blemish || 0) / 100;
     const handK     = (b.handSkin || 0) / 100;
@@ -279,7 +280,7 @@
 
     // 저주파 (블러) — blemish / textureSmooth 둘 다 필요.
     let blurD = null;
-    if (blemishK > 0 || txK > 0) {
+    if (blemishK > 0 || txK > 0 || hairEndK > 0) {
       try { blurD = _boxBlur(data, w, h, 1).data; }
       catch (_e) { blurD = null; }
     }
@@ -289,6 +290,8 @@
       const isSkin = r > 80 && r > g && g > bl && (r - bl) > 15 && (r - bl) < 110;
       const isReddish = r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
       const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
+      const maxCh0 = Math.max(r, g, bl), minCh0 = Math.min(r, g, bl);
+      const hairLike = !isSkin && lum0 > 24 && lum0 < 175 && (maxCh0 - minCh0 < 72 || lum0 < 95);
 
       if (eyeRedK > 0 && lum0 > 105 && r > g + 8 && r > bl + 4 && Math.max(g, bl) > 70) {
         d[i]   = _clamp(d[i]   - 34 * eyeRedK);
@@ -310,11 +313,7 @@
         d[i+1] = _clamp(d[i+1] +  4 * redK);
         d[i+2] = _clamp(d[i+2] +  5 * redK);
       }
-      // [v206 2026-05-19] 노란기 완화 — Agent 분석 반영: 강도 ×3 + 마스킹 확장
-      //   기존: G-5, B+7 (최대 0.05 변화) — 체감 0%. 노란 cast 검출 부정확.
-      //   개선: HSV-style hue 마스킹 (R > B AND R-B 비율) + 강도 G-15, B+12
       if (yelK > 0) {
-        // 노란 색조: R >= G > B + 어두운 노란 (피부톤은 살리고 황변만)
         const isYellowCast = (r - bl) > 15 && (r - bl) < 90 && r >= g && (g - bl) > 8 && r > 80;
         if (isYellowCast) {
           d[i]   = _clamp(d[i]   -  4 * yelK);   // R 살짝 ↓
@@ -346,7 +345,6 @@
           d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix);
           d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix);
         }
-        // 잡티 완화 — 명도 분산 큰 픽셀 저주파 혼합.
         if (blemishK > 0 && blurD) {
           const lum  = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
           const blum = (blurD[i] * 0.299 + blurD[i+1] * 0.587 + blurD[i+2] * 0.114);
@@ -373,18 +371,26 @@
           d[i+2] = _clamp(d[i+2] +  7 * underK * w3);
         }
       }
-      // [v206 2026-05-19] 모발 윤기 — Agent 분석 반영: specular highlight 흉내
-      //   기존: 모든 채널 +12 (단순 명도 ↑) — "윤기" 안 보이고 그냥 밝아짐.
-      //   개선: 명도 상위 픽셀에 비선형 가산 (highlight 만 강조) + G 가중치 ↑ (자연 윤기색)
       if (hairK > 0) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
         if (lum > 60 && lum < 200 && Math.abs(d[i] - d[i+1]) < 45 && Math.abs(d[i+1] - d[i+2]) < 45) {
-          // lum 130 이상 영역(반사면 후보)에 추가 가중치 — specular 강화
           const specBoost = lum > 130 ? (lum - 130) / 70 * 0.6 + 1 : 1;  // 1.0 ~ 1.6
           d[i]   = _clamp(d[i]   + 10 * hairK * specBoost);
           d[i+1] = _clamp(d[i+1] + 14 * hairK * specBoost);  // G 가중치 ↑ (자연 윤기색)
           d[i+2] = _clamp(d[i+2] +  6 * hairK * specBoost);
         }
+      }
+      if (hairVolK > 0 && hairLike) {
+        const lift = lum0 > 95 ? 8 * hairVolK : -5 * hairVolK;
+        d[i]   = _clamp(lum0 + (d[i]   - lum0) * (1 + 0.18 * hairVolK) + lift);
+        d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * (1 + 0.18 * hairVolK) + lift);
+        d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * (1 + 0.18 * hairVolK) + lift);
+      }
+      if (hairEndK > 0 && hairLike && blurD) {
+        const mix = 0.22 * hairEndK;
+        d[i]   = _clamp(d[i]   * (1 - mix) + blurD[i]   * mix);
+        d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix);
+        d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix);
       }
       // 모발 색감 (양방향)
       if (hairColK !== 0) {
@@ -402,7 +408,6 @@
         const maxCh = Math.max(r, g, bl), minCh = Math.min(r, g, bl);
         const sat0 = maxCh - minCh;
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
-        // 채도 있는 픽셀 (sat0 > 15) + 어두운/중간 톤 (lum < 180)
         if (sat0 > 15 && lum < 180) {
           const k = 0.85 * hairPopK;  // 0.4 → 0.85 (2배 이상)
           d[i]   = _clamp(r  + (r  - lum) * k);
@@ -462,6 +467,7 @@
     // [v183 2026-05-18] unsharp 강도 ↑ — lashSharp 200→130, closeUpDetail 250→160
     //   체감 약함 컴플레인 fix. hairDetail 은 자연스러움 유지 위해 300 유지.
     if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 300);
+    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 280);
     if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 130);
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 160);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 260);

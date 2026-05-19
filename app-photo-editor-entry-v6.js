@@ -44,6 +44,8 @@
     'bg':       'bg',
     'crop':     'export',
     'tune':     'tune',
+    'relight':  'relight',
+    'hair':     'beauty',
     'export':   'export',
     'text':     'text',
     'brush':    'brush',
@@ -52,7 +54,9 @@
   };
   const CARD_LABELS = {
     auto: 'AI 자동',
-    film: '느낌',
+    film: '스타일',
+    relight: '조명',
+    hair: '헤어',
     bg: '누끼',
     crop: '자르기',
     tune: '보정',
@@ -96,7 +100,7 @@
         </button>
         <button type="button" class="pe-card-l" data-pev6-card="film">
           ${_ic('sparkles')}
-          <div><div class="pe-title">느낌</div><div class="pe-sub">12 필름 프리셋</div></div>
+          <div><div class="pe-title">스타일</div><div class="pe-sub">필터 · 네일샷 통합</div></div>
         </button>
       </div>`;
   }
@@ -121,18 +125,18 @@
     return `<div class="pe-sec-hd">자세히</div>
       <div class="pe-card-grid-tools">
         ${_toolItem('tune', 'adjustments', '보정', true)}
-        ${_toolItem('film', 'color-filter', '필터', false)}
+        ${_toolItem('relight', 'sparkles', '조명', false)}
         ${_toolItem('brush', 'droplet', '잡티', false)}
         ${_toolItem('text', 'sticker', '스티커', false)}
         ${_toolItem('template', 'frame', '프레임', false)}
         ${_toolItem('ba', 'arrows-lr', 'B/A', false)}
-        ${_toolItem('text', 'stack', '레이어', false)}
+        ${_toolItem('hair', 'stack', '헤어', false)}
         ${_toolItem('pro', 'bookmark', '프리셋', false)}
       </div>`;
   }
   function _buildFav() {
     return `<div class="pe-fav-header">
-        <div class="pe-fav-title">또렷한 네일샷</div>
+        <div class="pe-fav-title">추천 스타일</div>
         <button type="button" class="pe-fav-more" data-pev6-card="film">더보기 ›</button>
       </div>
       <div class="pe-fav-strip">
@@ -264,6 +268,10 @@
 
   function _gotoEditor(tabId, cardKey) {
     const sheet = document.getElementById('photoEditorSheet');
+    try {
+      const st = window.PhotoEditor?._internal?.getState?.();
+      if (st) st.beautyFocus = cardKey === 'hair' ? 'hair' : null;
+    } catch (_e) { void _e; }
     _setFeatureMode(sheet, true, cardKey || tabId);
     _hideEntry();
     // 기존 탭 버튼 클릭 — 핸들러 그대로 동작

@@ -7,7 +7,8 @@
   const RECIPES = [
     { id: 'salon-clean', label: '자연광 살롱', desc: '어두운 매장 사진을 맑게', tag: '기본', adjust: { brightness: 106, saturate: 108, sharpness: 18, temperature: 4 }, beauty: { skin: 18, redness: 24, yellowness: 12 }, film: { presetId: 'salon-soft', strength: 48 } },
     { id: 'nail-color', label: '네일 컬러업', desc: '젤 컬러와 광택만 선명하게', tag: '네일', adjust: { brightness: 108, saturate: 122, sharpness: 26, temperature: -2 }, beauty: { handSkin: 34, nailGloss: 62, nailShape: 28, redness: 18 }, film: { presetId: 'nail-glow', strength: 66 } },
-    { id: 'hair-shine', label: '헤어 윤기', desc: '모발 결·염색 컬러 살리기', tag: '헤어', adjust: { brightness: 104, saturate: 110, sharpness: 30, temperature: 4 }, beauty: { hairShine: 54, hairDetail: 36, hairColorPop: 34, redness: 18 }, film: { presetId: 'hair-shine', strength: 54 } },
+    { id: 'hair-shine', label: '헤어 윤기', desc: '모발 결·염색 컬러 살리기', tag: '헤어', adjust: { brightness: 104, saturate: 110, sharpness: 30, temperature: 4 }, beauty: { hairVolume: 44, hairEndsClean: 30, hairShine: 54, hairDetail: 36, hairColorPop: 34, redness: 18 }, film: { presetId: 'hair-shine', strength: 54 } },
+    { id: 'flash-clean', label: '플래시 홍보컷', desc: '어두운 매장 사진을 밝고 선명', tag: '홍보', adjust: { brightness: 106, saturate: 108, sharpness: 24, temperature: -2 }, beauty: { closeUpDetail: 18, redness: 12 }, relight: { direction: 0.5, warmth: -4, intensity: 34, ambientBoost: 18, flash: 62 }, film: { presetId: 'studio-light', strength: 30 } },
     { id: 'lash-crisp', label: '속눈썹 또렷', desc: '속눈썹 결과 눈매 선명', tag: '속눈썹', adjust: { brightness: 104, saturate: 108, sharpness: 38, temperature: 0 }, beauty: { lashSharp: 70, closeUpDetail: 40, irisClear: 42, catchLight: 22, underEyeClean: 24, eyeRedness: 32, eyeShadow: 18, redness: 16 }, film: { presetId: 'lash-crisp', strength: 40 } },
     { id: 'lash-clear-eye', label: '눈빛 클리어', desc: '붉은 눈 줄이고 눈동자 또렷', tag: '속눈썹', adjust: { brightness: 106, saturate: 106, sharpness: 30, temperature: -1 }, beauty: { eyeRedness: 58, irisClear: 56, catchLight: 34, underEyeClean: 34, lashSharp: 48, closeUpDetail: 30, redness: 14 }, film: { presetId: 'studio-light', strength: 34 } },
     { id: 'skin-even', label: '피부톤 정돈', desc: '붉은기·노란기만 정리', tag: '피부', adjust: { brightness: 106, saturate: 104, sharpness: 12, temperature: 3 }, beauty: { skin: 42, redness: 48, blemish: 30, yellowness: 18 }, film: { presetId: 'warm-skin', strength: 38 } },
@@ -85,6 +86,7 @@
     if (!r) return;
     state.adjust = Object.assign({ brightness: 100, saturate: 100, sharpness: 0, temperature: 0 }, r.adjust);
     state.beauty = Object.assign({}, state.beauty || {}, r.beauty);
+    if (r.relight) state.relight = Object.assign({}, state.relight || {}, r.relight);
     state.film = Object.assign({ presetId: null, strength: 0 }, r.film);
     _done(helpers, r.label + ' 적용');
   }
@@ -110,6 +112,7 @@
     const zeroBeauty = {};
     Object.keys(state.beauty || {}).forEach(k => { zeroBeauty[k] = 0; });
     state.beauty = zeroBeauty;
+    state.relight = { direction: 0.5, warmth: 0, intensity: 0, ambientBoost: 0, flash: 0 };
     state.film = { presetId: null, strength: 0 };
     _done(helpers, '초기화 완료');
   }

@@ -248,7 +248,7 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
       label: '두피탈모',
       adjust: { brightness: 110, saturate: 108, sharpness: 25, temperature: 5 },
       beauty: {
-        hairShine: _s(40), hairDetail: _s(30), scalpBoost: _s(55),
+        hairVolume: _s(34), hairShine: _s(40), hairDetail: _s(30), scalpBoost: _s(55),
         skin: _s(20), redness: _s(25),
       },
     };
@@ -258,7 +258,8 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
       label: '헤어',
       adjust: { brightness: 105, saturate: 110, sharpness: 35, temperature: 5 },
       beauty: {
-        hairShine: _s(55), hairDetail: _s(45), hairColor: _sym(8), hairColorPop: _s(40),
+        hairVolume: _s(46), hairEndsClean: _s(34), hairShine: _s(55), hairDetail: _s(45),
+        hairColor: _sym(8), hairColorPop: _s(40),
         skin: _s(15), redness: _s(30), yellowness: _s(20),
       },
     };
