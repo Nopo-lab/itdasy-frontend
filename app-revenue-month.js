@@ -497,9 +497,14 @@
     const goal = readGoal();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
-    // [v200] "이번달 예상" → "남은 예약 완료 시" 로 라벨 변경. 사용자 의도 명확화.
+    // [2026-05-20] 두 개념 분리:
+    //   · 남은 예약 완료 시 = pending_bookings_total (future confirmed 예약 amount 합)
+    //   · 이번달 예상 매출 = projected_total (현재 페이스로 월말 외삽)
+    const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
+      ? `<div class="rvm5-ai"><span class="badge">남은 예약</span><span class="txt">모두 완료 시 <b>+${formatEstimate(summary.pending_bookings_total)}</b></span></div>`
+      : '';
     const aiRow = (!isPast && summary.projected_total)
-      ? `<div class="rvm5-ai"><span class="badge">예상</span><span class="txt">남은 예약 완료 시 <b>${formatEstimate(summary.projected_total)}</b></span></div>`
+      ? `<div class="rvm5-ai"><span class="badge">예상</span><span class="txt">이번달 예상 매출 <b>${formatEstimate(summary.projected_total)}</b></span></div>`
       : '';
     const pastBadge = isPast ? `<span class="rvm5-past-badge">지난달</span>` : '';
 
@@ -529,6 +534,7 @@
               <div class="rvm5-card-t">결제수단</div>
               ${_renderPaymentBarsV5(summary.by_method, summary.total, false)}
             </div>
+            ${pendingRow}
             ${aiRow}
           </div>
         </div>
@@ -554,8 +560,11 @@
     const goal = readGoal();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
+    const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
+      ? `<div class="rvm5-mai"><span class="badge">남은 예약</span><span class="txt">모두 완료 시 <b>+${formatEstimate(summary.pending_bookings_total)}</b></span></div>`
+      : '';
     const aiRow = (!isPast && summary.projected_total)
-      ? `<div class="rvm5-mai"><span class="badge">예상</span><span class="txt">남은 예약 완료 시 <b>${formatEstimate(summary.projected_total)}</b></span></div>`
+      ? `<div class="rvm5-mai"><span class="badge">예상</span><span class="txt">이번달 예상 매출 <b>${formatEstimate(summary.projected_total)}</b></span></div>`
       : '';
     const pastBadge = isPast ? `<span class="rvm5-past-badge">지난달</span>` : '';
 
@@ -578,6 +587,7 @@
           </div>
           -->
         </div>
+        ${pendingRow}
         ${aiRow}
         <div class="rvm5-mc">
           <div class="t">결제수단</div>
