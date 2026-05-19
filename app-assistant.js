@@ -3444,6 +3444,44 @@
       }
     } catch (_e) { void _e; /* 라우터 에러 시 기존 흐름 fallback */ }
 
+    // [P0-4-MT 2026-05-20] Multi-turn confirm — "응 / 그래 / 맞아" 같은 짧은 동의 응답을
+    // 직전 assistant 메시지의 pending action 재실행으로 처리.
+    // BE 가 두 번째 응답에 actions[] 빠뜨려도 사장님 의도 보전 (P0-4 nativeConfirm 거침).
+    // 매치 안 되면 그대로 fallthrough → 기존 LLM 흐름.
+    try {
+      const _MT_AFFIRM = /^(응|그래|맞아|예|네|좋아|확인|진행|취소해|ok|좋|어어|ㅇㅇ|어)$/i;
+      if (_MT_AFFIRM.test(q.trim())) {
+        for (let i = _history.length - 1; i >= 0; i--) {
+          const m = _history[i];
+          if (m && m.role === 'assistant' && m.action && m.action.kind && m.action_status !== 'done') {
+            input.value = '';
+            _history.push({ role: 'user', text: q });
+            _renderHistory();
+            try {
+              const _d = await _executeAction(m.action);
+              m.action_status = 'done';
+              _renderHistory();
+              _history.push({ role: 'assistant', text: _d.message || '✓ 완료했어요' });
+              _renderHistory();
+              if (window.hapticSuccess) window.hapticSuccess();
+              if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+            } catch (_err) {
+              if (_err && _err.userCancelled) {
+                if (window.showToast) window.showToast('취소했어요');
+                return;
+              }
+              m.action_status = 'failed';
+              m.action_error = window._humanError ? window._humanError(_err) : ((_err && _err.message) || '알 수 없는 오류');
+              _renderHistory();
+              _history.push({ role: 'assistant', text: '실패: ' + m.action_error });
+              _renderHistory();
+            }
+            return;
+          }
+        }
+      }
+    } catch (_e) { void _e; }
+
     // [P0-1.5 2026-05-20] SQL-first 비동기 router — 매출/예약 단순 조회 BE 직접 호출 (LLM 0회).
     // 매치 시 user 메시지 + loading 표시 → fetch 응답 → 답변 갱신.
     // fetch 실패 시 친절한 에러 메시지 + return (LLM 안 부름. 사용자 재시도 또는 다른 질문).
@@ -3577,6 +3615,19 @@
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
+      // [P0-DBG 2026-05-20] 카드 진단 — BE 응답의 actions 개수·kinds 콘솔 출력
+      // 카드 안 뜨는 케이스 추적용. 사용자가 F12 → Console 에서 확인 가능.
+      try {
+        const _kinds = Array.isArray(d.actions) ? d.actions.map(a => a && a.kind).filter(Boolean) : [];
+        const _singleKind = d.action && d.action.kind;
+        console.log('[assistant /ask DBG]', {
+          q,
+          actions_count: _kinds.length,
+          actions_kinds: _kinds,
+          single_action_kind: _singleKind || null,
+          answer_preview: (d.answer || '').slice(0, 100),
+        });
+      } catch (_e) { void _e; }
       _history = _history.filter(m => m.role !== 'loading');
 
       // v1.1 — session_id 저장 (서버가 최초 생성 or 기존 사용)
