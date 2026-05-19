@@ -45,6 +45,12 @@
   }
   window.addEventListener('popstate', () => {
     const sheet = document.getElementById('photoEditorSheet');
+    if (sheet && sheet.classList.contains('pe-v6-feature-mode') && window.PhotoEditorEntryV6?.backToMenu) {
+      _historyPushed = false;
+      window.PhotoEditorEntryV6.backToMenu();
+      _pushHistoryState();
+      return;
+    }
     if (sheet && sheet.style.display !== 'none' && _state) { _historyPushed = false; _close(true); }
   });
   window.addEventListener('keydown', (e) => {

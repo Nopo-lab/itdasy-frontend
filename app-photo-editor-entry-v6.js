@@ -10,6 +10,7 @@
 
   const ENTRY_ID = 'photoEditorEntryV6';
   let _wrapped = false;
+  let _backBound = false;
   let _origOpen = null;
 
   // ── Lucide SVG (DESIGN_SYSTEM 의 ti-* 아이콘을 인라인 SVG 로 — 외부 폰트 의존 제거) ──
@@ -41,12 +42,26 @@
     'auto':     'auto',
     'film':     'film',
     'bg':       'bg',
+    'crop':     'export',
     'tune':     'tune',
     'export':   'export',
     'text':     'text',
     'brush':    'brush',
     'template': 'template',
     'pro':      'pro',
+  };
+  const CARD_LABELS = {
+    auto: 'AI 자동',
+    film: '느낌',
+    bg: '누끼',
+    crop: '자르기',
+    tune: '보정',
+    export: '사이즈',
+    text: '텍스트',
+    brush: '잡티',
+    template: '프레임',
+    pro: '프리셋',
+    ba: '원본 비교',
   };
 
   function _esc(s) {
@@ -88,7 +103,7 @@
   function _buildMediumCards() {
     return `<div class="pe-card-grid-m">
         <button type="button" class="pe-card-m" data-pev6-card="bg">${_ic('eraser')}<div class="pe-title">누끼</div></button>
-        <button type="button" class="pe-card-m" data-pev6-card="tune">${_ic('crop')}<div class="pe-title">자르기</div></button>
+        <button type="button" class="pe-card-m" data-pev6-card="crop">${_ic('crop')}<div class="pe-title">자르기</div></button>
         <button type="button" class="pe-card-m" data-pev6-card="export">
           <span class="pe-badge hot">Hot</span>${_ic('resize')}<div class="pe-title">사이즈</div>
         </button>
@@ -181,7 +196,7 @@
       const cardKey = cardBtn.dataset.pev6Card;
       if (cardKey === 'ba') {
         // B/A 슬라이더 — 기존 ba-slider 모듈에 위임
-        _gotoEditor('auto');
+        _gotoEditor('auto', cardKey);
         setTimeout(() => {
           const compare = document.querySelector('#photoEditorSheet [data-pe-act="compare"]');
           if (compare) compare.click();
@@ -189,7 +204,7 @@
         return;
       }
       const tab = CARD_TO_TAB[cardKey] || 'auto';
-      _gotoEditor(tab);
+      _gotoEditor(tab, cardKey);
     }
   }
 
@@ -204,6 +219,7 @@
     const sheet = document.getElementById('photoEditorSheet');
     const entry = _ensureEntry();
     if (!entry || !sheet) return;
+    _setFeatureMode(sheet, false);
     // PhotoEditor 내부 상태에서 현재 사진 미리보기용 src 가져옴
     let state = null;
     try { state = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState(); }
@@ -213,13 +229,65 @@
     sheet.classList.add('pe-has-entry-v6');
   }
 
-  function _gotoEditor(tabId) {
+  function _setFeatureTitle(sheet, cardKey) {
+    const title = sheet.querySelector('.pe-title');
+    const backLabel = sheet.querySelector('.pe-back-label');
+    const backBtn = sheet.querySelector('[data-pe-act="close"]');
+    if (title) title.textContent = '사진 편집 · ' + (CARD_LABELS[cardKey] || '편집');
+    if (backLabel) backLabel.textContent = '메뉴';
+    if (backBtn) backBtn.setAttribute('aria-label', '사진편집 메뉴로 돌아가기');
+  }
+
+  function _setFeatureMode(sheet, on, cardKey) {
+    if (!sheet) return;
+    sheet.classList.toggle('pe-v6-feature-mode', !!on);
+    if (on) {
+      sheet.dataset.pev6Feature = cardKey || 'auto';
+      _setFeatureTitle(sheet, cardKey);
+    } else {
+      delete sheet.dataset.pev6Feature;
+      const title = sheet.querySelector('.pe-title');
+      const backLabel = sheet.querySelector('.pe-back-label');
+      const backBtn = sheet.querySelector('[data-pe-act="close"]');
+      if (title) title.textContent = '사진 편집기';
+      if (backLabel) backLabel.textContent = '뒤로';
+      if (backBtn) backBtn.setAttribute('aria-label', '편집기 닫고 뒤로가기');
+    }
+  }
+
+  function _backToMenu() {
+    const sheet = document.getElementById('photoEditorSheet');
+    if (!sheet || sheet.style.display === 'none') return false;
+    _showEntry();
+    return true;
+  }
+
+  function _gotoEditor(tabId, cardKey) {
+    const sheet = document.getElementById('photoEditorSheet');
+    _setFeatureMode(sheet, true, cardKey || tabId);
     _hideEntry();
     // 기존 탭 버튼 클릭 — 핸들러 그대로 동작
     setTimeout(() => {
       const tabBtn = document.querySelector('#peTabs [data-pe-tab="' + tabId + '"]');
       if (tabBtn) tabBtn.click();
     }, 0);
+  }
+
+  function _bindFeatureBack() {
+    if (_backBound) return;
+    document.addEventListener('click', (e) => {
+      const closeBtn = e.target.closest && e.target.closest('#photoEditorSheet.pe-v6-feature-mode [data-pe-act="close"]');
+      if (!closeBtn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _backToMenu();
+    }, true);
+    _backBound = true;
+  }
+
+  function _refreshEntryIfVisible() {
+    const sheet = document.getElementById('photoEditorSheet');
+    if (sheet && sheet.classList.contains('pe-has-entry-v6')) _showEntry();
   }
 
   function _wrapOpen() {
@@ -231,10 +299,14 @@
       try {
         // 한 프레임 양보 — sheet 가 display:flex 로 보인 다음에 entry 오버레이 띄움
         requestAnimationFrame(() => { try { _showEntry(); } catch (_e) { void _e; } });
+        setTimeout(_refreshEntryIfVisible, 220);
+        setTimeout(_refreshEntryIfVisible, 700);
       } catch (_e) { void _e; }
+      _bindFeatureBack();
       return ret;
     };
     _wrapped = true;
+    _bindFeatureBack();
   }
 
   function _boot() {
@@ -253,6 +325,11 @@
     show: _showEntry,
     hide: _hideEntry,
     goto: _gotoEditor,
+    backToMenu: _backToMenu,
+    isFeatureMode: () => {
+      const sheet = document.getElementById('photoEditorSheet');
+      return !!(sheet && sheet.classList.contains('pe-v6-feature-mode'));
+    },
   };
 
   if (document.readyState === 'loading') {
