@@ -65,6 +65,22 @@
     refund_revenue:        { icon: 'ic-corner-up-left',  label: '환불 처리', color: '#F97316' },
     update_service_price:  { icon: 'ic-dollar-sign',     label: '가격 변경', color: '#0EA5E9' },
   };
+  // [P0-4 2026-05-19] 위험 액션 — _executeAction 직전 nativeConfirm 강제.
+  // BE의 confirmation_text 표시 + 카드 클릭 + 여기 native confirm = 3중 안전.
+  // bulk 흐름(_runGroupAll 등)은 _executeAction(action, { skipConfirm: true }) 로 우회.
+  // 롤백: localStorage.assistant_risky_confirm_disabled = '1' 설정 시 항상 skip.
+  const RISKY_ACTION_KINDS = new Set([
+    'cancel_booking',
+    'refund_revenue',
+    'use_membership',
+    'charge_membership',
+    'mark_booking_no_show',
+    'send_message',
+    'reply_dm',
+    'delete_customer',
+    'publish_instagram',
+    'update_service_price',
+  ]);
   function _catMeta(kind) {
     return CATEGORY[kind] || { icon: 'ic-check', label: kind || '작업', color: '#666' };
   }
@@ -2405,7 +2421,31 @@
   // 순수 실행기 — action 객체만 받아 POST, 결과 반환. UI 갱신은 호출자가.
   // [QA-NEXT #4] action._ai_original (AI 추출 시점 payload 스냅샷) 있으면 original_payload 동봉 →
   // 백엔드에서 final vs original diff 를 UserCorrection 으로 학습.
-  async function _executeAction(action) {
+  async function _executeAction(action, opts) {
+    opts = opts || {};
+    // [P0-4 2026-05-19] 위험 액션은 실행 직전 nativeConfirm 한 번 더.
+    // bulk 흐름은 opts.skipConfirm = true 로 우회 (그룹 카드 단위 사용자 결정).
+    // 롤백: localStorage.assistant_risky_confirm_disabled = '1' 시 항상 skip.
+    if (!opts.skipConfirm && action && RISKY_ACTION_KINDS.has(action.kind) && !action._confirmed) {
+      const _skipConfirm = (() => {
+        try { return localStorage.getItem('assistant_risky_confirm_disabled') === '1'; }
+        catch (_e) { void _e; return false; }
+      })();
+      if (!_skipConfirm && typeof window.nativeConfirm === 'function') {
+        const _meta = _catMeta(action.kind);
+        const _detail = action.confirmation_text || '';
+        const _confirmMsg = _detail
+          ? `${_detail}\n\n진짜 진행할까요?`
+          : `[${_meta.label}] 정말 진행할까요?`;
+        const _ok = await window.nativeConfirm(_meta.label, _confirmMsg, '실행', '취소');
+        if (!_ok) {
+          const _err = new Error('사용자가 취소했어요');
+          _err.userCancelled = true;
+          throw _err;
+        }
+        action._confirmed = true;
+      }
+    }
     // [v167 2026-05-17] 로컬 핸들러 우선 — open_photo_editor 같은 클라이언트 단독 액션은 백엔드 호출 우회.
     const localFn = _localKindHandlers[action.kind];
     if (typeof localFn === 'function') {
@@ -2478,6 +2518,13 @@
         try { window.showUndoToast(d.message || '✓ 완료', d.undo_log_id); } catch (_e) { void _e; }
       }
     } catch (e) {
+      // [P0-4 2026-05-19] 위험 액션 confirm 취소 — 카드 status 그대로 pending 유지 (다시 클릭 가능)
+      if (e && e.userCancelled) {
+        msg.action_status = 'pending';
+        _renderHistory();
+        if (window.showToast) window.showToast('취소했어요');
+        return;
+      }
       msg.action_status = 'failed';
       // 2026-04-26 버그B 픽스 — 실패 사유 저장 (UI 카드에 표시)
       msg.action_error = window._humanError ? window._humanError(e) : (e && e.message) || '알 수 없는 오류';
@@ -2514,6 +2561,13 @@
       if (window.hapticSuccess) window.hapticSuccess();
       if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
     } catch (e) {
+      // [P0-4 2026-05-19] 위험 액션 confirm 취소 — pending 유지, 다시 클릭 가능
+      if (e && e.userCancelled) {
+        it.status = 'pending';
+        _rerenderGroupRow(historyIdx, gIdx);
+        if (window.showToast) window.showToast('취소했어요');
+        return;
+      }
       it.status = 'failed';
       it.errorMsg = window._humanError ? window._humanError(e) : e.message;
       _rerenderGroupRow(historyIdx, gIdx);
@@ -2558,7 +2612,8 @@
       const batch = targets.slice(i, i + CONCURRENCY);
       await Promise.all(batch.map(async ({ it }) => {
         try {
-          await _executeAction(it.action);
+          // [P0-4 2026-05-19] bulk 흐름 — 그룹 카드 단위 사용자 결정이므로 개별 confirm skip
+          await _executeAction(it.action, { skipConfirm: true });
           it.status = 'done';
           okCount++;
         } catch (e) {
@@ -2599,7 +2654,8 @@
       msg.unified_progress.label = `${meta.label} 저장 중`;
       _renderHistory();
       try {
-        await _executeAction(f.it.action);
+        // [P0-4 2026-05-19] 통합 진행 — 그룹 단위 사용자 결정이므로 개별 confirm skip
+        await _executeAction(f.it.action, { skipConfirm: true });
         f.it.status = 'done';
         okCount++;
       } catch (e) {
