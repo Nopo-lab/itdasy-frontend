@@ -81,6 +81,7 @@
       <div class="ms-sh" id="shList">
         ${_rowHTML('shopinfo', 'ic-store',      '샵 정보 · 직원',     '영업시간 · 시술 메뉴 · 직원', { boxColor: 'blue' })}
         ${_rowHTML('instagram','ic-link',       '인스타그램 연결 및 재연결', '콘텐츠 발행 · 말투 분석용', { boxColor: 'pink' })}
+        ${_rowHTML('instagram_disconnect','ic-unlink','인스타그램 연결 해제', '토큰 즉시 폐기 · 잇데이 로그인은 유지', { boxColor: 'red', danger: true })}
         ${_rowHTML('naver',    'ic-link',       '네이버 예약 연동',   '연결 상태 확인', { metaClass: 'is-ok', boxColor: 'teal' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
@@ -166,6 +167,7 @@
   function _rowHTML(act, icon, name, meta, opt) {
     const o = opt || {};
     const metaCls = o.metaClass ? ` ${_esc(o.metaClass)}` : '';
+    const nameStyle = o.danger ? ' style="color:var(--danger);"' : '';
     const iconHtml = o.boxColor
       ? `<div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--${_esc(o.boxColor)}">${_ic(icon, 14)}</span></div>`
       : `<div class="ms-sh__icon">${_ic(icon, 16)}</div>`;
@@ -173,7 +175,7 @@
       <button type="button" class="ms-sh__row" data-act="${_esc(act)}">
         ${iconHtml}
         <div class="ms-sh__info">
-          <div class="ms-sh__name">${_esc(name)}</div>
+          <div class="ms-sh__name"${nameStyle}>${_esc(name)}</div>
           <div class="ms-sh__meta${metaCls}">${_esc(meta)}</div>
         </div>
         <div class="ms-sh__chev">${_ic('ic-chevron-right', 14)}</div>
@@ -245,6 +247,7 @@
   function _route(act) {
     if (act === 'shopinfo')  { close(); setTimeout(() => window.openShopSettings && window.openShopSettings(), 200); return; }
     if (act === 'instagram') { close(); setTimeout(() => window.connectInstagram && window.connectInstagram(), 200); return; }
+    if (act === 'instagram_disconnect') { close(); setTimeout(() => window.disconnectInstagram && window.disconnectInstagram(), 200); return; }
     if (act === 'naver')     { close(); setTimeout(() => window.openNaverLink && window.openNaverLink(), 200); return; }
     if (act === 'persona')   { close(); setTimeout(() => window.runPersonaAnalyze && window.runPersonaAnalyze(true), 200); return; }
     if (act === 'powerview') { close(); setTimeout(() => window.openPowerView && window.openPowerView('customer'), 200); return; }
