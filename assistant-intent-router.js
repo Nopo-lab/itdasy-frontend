@@ -256,21 +256,84 @@
 
   // "취소" 또는 "캔슬" 동사 패턴
   const _CANCEL_VERB = /(취소|삭제|지워|없애|캔슬)/;
+  // "전부 / 모두 / 다 / 싹 / 전체 / 모조리" — 일괄 취소 의도
+  const _CANCEL_ALL = /(전부|모두|모조리|싹|전체|싸그리)|(\s|^)다\s*(취소|지워|삭제|캔슬)/;
 
-  // 이름 추출 — "장수아 예약 취소" / "장수아 예약취소" / "장수아 5시 예약 취소"
-  // 한글 2~5자 이름 + (선택 시간) + 예약 + 취소
+  // 이름 추출 노이즈 차단 — 날짜·시간·서비스명·일반 동사 제거
+  const _NAME_STOP_WORDS = new Set([
+    '예약', '취소', '삭제', '캔슬', '전부', '모두', '전체', '모조리',
+    '오늘', '내일', '모레', '어제', '이번', '다음', '저번', '지난',
+    '주말', '평일', '월요', '화요', '수요', '목요', '금요', '토요', '일요',
+    '리터치', '볼륨', '머리', '자연', '붙임', '옴브레', '커트', '염색',
+    '하라', '하라고', '해줘', '해주', '부탁', '제발',
+    '라고', '이라고', '이라', '에게', '한테', '에서', '으로', '까지',
+  ]);
+
+  // 날짜·시간 토큰을 공백으로 치환 (이름 후보에서 "5월 21일거"의 "일거" 같은 가짜 후보 차단)
+  function _stripDateTokens(t) {
+    return t
+      .replace(/\d+\s*월\s*\d+\s*일(?:거|치|에|은|이|을|의)?/g, ' ')  // "5월 21일", "5월 21일거"
+      .replace(/\d{1,2}\/\d{1,2}/g, ' ')                                  // "5/21"
+      .replace(/\d{1,2}:\d{2}/g, ' ')                                     // "03:00"
+      .replace(/\d+\s*시(\s*\d+\s*분)?/g, ' ')                            // "3시", "3시 30분"
+      .replace(/\d+\s*분/g, ' ')
+      .replace(/(오늘|내일|모레|어제|이번\s*주|다음\s*주|저번\s*주|지난\s*주|이번\s*달|지난\s*달|다음\s*달|이번\s*주말|주말|평일|월요일?|화요일?|수요일?|목요일?|금요일?|토요일?|일요일?)/g, ' ');
+  }
+
+  // 날짜 힌트 추출 → { y, m, d } 또는 { dayOffset: 0|1|2 } 또는 null
+  function _extractDateHint(q) {
+    const today = new Date();
+    const md = q.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/) || q.match(/(\d{1,2})\/(\d{1,2})/);
+    if (md) {
+      return { y: today.getFullYear(), m: parseInt(md[1], 10), d: parseInt(md[2], 10) };
+    }
+    if (/오늘|금일/.test(q))  return { dayOffset: 0 };
+    if (/내일/.test(q))      return { dayOffset: 1 };
+    if (/모레/.test(q))      return { dayOffset: 2 };
+    return null;
+  }
+
+  // 예약이 날짜 힌트와 매칭되는지 확인
+  function _bookingMatchesDate(b, hint) {
+    if (!hint || !b || !b.starts_at) return true;
+    const t = new Date(b.starts_at);
+    if (hint.dayOffset != null) {
+      const ref = new Date();
+      ref.setDate(ref.getDate() + hint.dayOffset);
+      return t.getFullYear() === ref.getFullYear()
+          && t.getMonth() === ref.getMonth()
+          && t.getDate() === ref.getDate();
+    }
+    if (hint.y != null) {
+      return t.getFullYear() === hint.y
+          && (t.getMonth() + 1) === hint.m
+          && t.getDate() === hint.d;
+    }
+    return true;
+  }
+
+  // 이름 추출 — 날짜 토큰 제거 후 한글 2~5자 후보 중 stop-word 제외, 마지막 후보 우선.
+  // 이유: "5월 21일거 예약취소하라고 장수아" 같이 이름이 뒤쪽에 오는 자연어 패턴 대응.
   function _extractCancelTarget(q) {
     const t = _trim(q);
     if (!_CANCEL_VERB.test(t)) return null;
     if (!/예약/.test(t)) return null;
-    // 한글 성씨로 시작하는 2~5자 이름. (영어 이름은 일단 대상 아님)
-    const m = t.match(/([가-힣]{2,5})\s*(?:님|씨)?\s*(?:.*?)?예약/);
-    if (!m) return null;
-    const name = m[1];
-    // "오늘 예약 취소" 같은 시간 단어를 이름으로 잡는 케이스 방지
-    const TIME_WORDS = ['오늘', '내일', '모레', '어제', '이번', '다음', '저번', '지난', '이주', '저주', '월요', '화요', '수요', '목요', '금요', '토요', '일요', '주말', '평일', '예약'];
-    if (TIME_WORDS.some(w => name.includes(w))) return null;
-    return { name };
+    const stripped = _stripDateTokens(t);
+    const candidates = [];
+    const re = /([가-힣]{2,5})/g;
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      const w = m[1];
+      if (_NAME_STOP_WORDS.has(w)) continue;
+      // stop word 가 후보 안에 부분 포함된 경우도 제외 ("취소하" → '취소' 포함)
+      let blocked = false;
+      _NAME_STOP_WORDS.forEach((s) => { if (w.includes(s)) blocked = true; });
+      if (blocked) continue;
+      candidates.push(w);
+    }
+    if (!candidates.length) return null;
+    // 마지막 후보를 이름으로 (취소 동사 뒤에 이름이 오는 한국어 패턴 우세)
+    return { name: candidates[candidates.length - 1], all: _CANCEL_ALL.test(t), dateHint: _extractDateHint(t) };
   }
 
   // 두 이름 유사도 — fuzzy match (포함 / 정확 / 끝글자 매칭)
@@ -355,17 +418,49 @@
       return { matched: true, kind: 'message', text: `📅 ${customer.name}님의 예정된 예약이 없어요.` };
     }
 
-    if (bookings.length > 1) {
-      const lines = bookings.slice(0, 5).map((b) => `· ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''}`);
+    // 날짜 힌트가 있으면 해당 날짜로 필터링 (예: "5월 21일거 장수아 예약취소")
+    let filtered = bookings;
+    if (target.dateHint) {
+      filtered = bookings.filter((b) => _bookingMatchesDate(b, target.dateHint));
+      if (filtered.length === 0) {
+        const lines = bookings.slice(0, 5).map((b) => `· ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''}`);
+        return {
+          matched: true,
+          kind: 'message',
+          text: `📅 ${customer.name}님 해당 날짜에 예약 없어요. 예정 예약 ${bookings.length}건:\n${lines.join('\n')}`,
+        };
+      }
+    }
+
+    // "전부 / 모두 / 다" — 일괄 취소 카드 (한 번 확인 → 순차 실행)
+    if (target.all && filtered.length > 1) {
+      const lines = filtered.map((b) => `· ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''}`);
+      const action = {
+        kind: 'cancel_booking_bulk',
+        payload: {
+          booking_ids: filtered.map((b) => b.id),
+          customer_id: customer.id,
+          customer_name: customer.name,
+        },
+        confirmation_text: `${customer.name}님 예정 예약 ${filtered.length}건 전부 취소할까요?\n${lines.join('\n')}`,
+        confidence: 0.95,
+        _source_question: text,
+      };
+      _bumpStats('cancel_booking_bulk');
+      return { matched: true, kind: 'card', action, customer };
+    }
+
+    if (filtered.length > 1) {
+      const lines = filtered.slice(0, 5).map((b) => `· ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''}`);
       return {
         matched: true,
         kind: 'message',
-        text: `📅 ${customer.name}님 예정 예약 ${bookings.length}건. 어느 예약 취소할지 시간 알려주세요:\n${lines.join('\n')}`,
+        text: `📅 ${customer.name}님 예정 예약 ${filtered.length}건. 어느 예약 취소할지 시간 알려주세요 (전부 취소하려면 "전부" 라고 말씀해주세요):\n${lines.join('\n')}`,
       };
     }
 
     // 정확히 1건 → cancel_booking action 객체 생성 → caller 가 카드로 렌더
-    const b = bookings[0];
+    const b = filtered[0];
     const action = {
       kind: 'cancel_booking',
       payload: {

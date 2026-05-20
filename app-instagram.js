@@ -524,6 +524,9 @@ window.disconnectInstagram = disconnectInstagram;
 // [QA #8] 외부에서 IG 상태 재조회 (호환 alias — 일부 코드가 checkInstagramStatus 라는 이름으로 호출).
 window.checkInstaStatus = checkInstaStatus;
 window.checkInstagramStatus = checkInstaStatus;
+// [2026-05-21] 설정 → 말투분석 / 인스타 재분석 진입점. app-settings-hub·app-oauth-return·app-persona-survey 에서 window.runPersonaAnalyze 로 호출 → 노출 누락 시 silent fail.
+window.runPersonaAnalyze = runPersonaAnalyze;
+window.reAnalyzePersona = reAnalyzePersona;
 
 async function connectInstagram() {
   if (!getToken()) {

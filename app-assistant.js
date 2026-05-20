@@ -71,6 +71,7 @@
   // 롤백: localStorage.assistant_risky_confirm_disabled = '1' 설정 시 항상 skip.
   const RISKY_ACTION_KINDS = new Set([
     'cancel_booking',
+    'cancel_booking_bulk',
     'refund_revenue',
     'use_membership',
     'charge_membership',
@@ -2485,6 +2486,31 @@
     }
     return d;
   }
+
+  // [2026-05-21] 일괄 예약 취소 — intent-router 가 "{이름} 예약 전부 취소" 매칭 시 생성.
+  // RISKY confirm 한 번 통과 후 booking_id 하나씩 cancel_booking 순차 실행 (skipConfirm).
+  _localKindHandlers['cancel_booking_bulk'] = async function (action) {
+    const ids = (action.payload && action.payload.booking_ids) || [];
+    const name = (action.payload && action.payload.customer_name) || '고객';
+    if (!ids.length) return { kind: 'cancel_booking_bulk', message: '취소할 예약이 없어요' };
+    let ok = 0; const failed = [];
+    for (const id of ids) {
+      try {
+        await _executeAction({
+          kind: 'cancel_booking',
+          payload: { booking_id: id, customer_name: name },
+          _confirmed: true,
+        }, { skipConfirm: true });
+        ok += 1;
+      } catch (e) {
+        failed.push({ id, msg: (e && e.message) || 'unknown' });
+      }
+    }
+    const msg = failed.length
+      ? `🗑 ${name}님 예약 ${ok}/${ids.length}건 취소 (실패 ${failed.length}건)`
+      : `🗑 ${name}님 예약 ${ok}건 모두 취소했어요`;
+    return { kind: 'cancel_booking_bulk', message: msg };
+  };
 
   async function _runAction(idx) {
     const msg = _history[idx];
