@@ -40,14 +40,24 @@
   }
   async function _fetchBrief() {
     const headers = _authHeaders();
-    if (!window.API || !headers) return null;
+    if (!window.API || !headers) {
+      // [2026-05-20] 디버그 — brief 가 null 로 새는 원인 추적용
+      if (!headers) console.warn('[brief] 인증 헤더 없음 - 로그인 상태 확인');
+      return null;
+    }
     try {
       const res = await fetch(window.API + '/assistant/brief', { headers });
-      if (!res.ok) return null;
+      if (!res.ok) {
+        console.warn('[brief] API 응답 실패:', res.status);
+        return null;
+      }
       const data = await res.json();
       _writeSWR(data);
       return data;
-    } catch (_e) { return null; }
+    } catch (_e) {
+      console.warn('[brief] fetch 예외:', _e);
+      return null;
+    }
   }
   async function _fetchSlots() {
     if (typeof window.loadSlotsFromDB !== 'function') return [];
@@ -102,6 +112,14 @@
       if (p < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
+  }
+  // [2026-05-20] 빈 시간 카드 — 분 → "X시간 Y분" 변환
+  function _minToHuman(min) {
+    const n = Math.max(0, Math.round(Number(min) || 0));
+    if (n < 60) return n + '분';
+    const h = Math.floor(n / 60);
+    const m = n % 60;
+    return m === 0 ? h + '시간' : h + '시간 ' + m + '분';
   }
   function _runCountUps(container) {
     const targets = container.querySelectorAll('[data-hv-count]');
@@ -307,8 +325,26 @@
     // 8. 노쇼 예측 (항상 긍정 — 추후 BE 데이터 연결 시 동적으로)
     cards.push({ ok: 1, cat: '노쇼 예측', dot: '#10B981', okMsg: '노쇼 위험 손님 없어요' });
 
-    // 9. 빈 시간 활용 (항상 긍정)
-    cards.push({ ok: 1, cat: '빈 시간 활용', dot: '#10B981', okMsg: '이번주 예약 잘 차고 있어요' });
+    // 9. 이번주 빈 시간 — BE empty_slots (fullday / partial)
+    const emptySlots = Array.isArray(brief.empty_slots) ? brief.empty_slots : [];
+    if (emptySlots.length === 0) {
+      cards.push({ ok: 1, cat: '이번주 빈 시간', dot: '#10B981', okMsg: '이번주 일정이 꽉 찼어요' });
+    } else {
+      const top = emptySlots[0] || {};
+      let hl;
+      if (top.type === 'fullday') {
+        hl = `${top.day_label}요일 종일 비어요`;
+      } else {
+        hl = `${_minToHuman(top.gap_min)} — ${top.day_label}요일 ${top.from}~${top.to}`;
+      }
+      const more = emptySlots.length > 1 ? ` 외 ${emptySlots.length - 1}건` : '';
+      cards.push({
+        ok: 0, cat: '이번주 빈 시간', dot: '#0891B2',
+        hl: hl + more,
+        desc: '비어있는 시간에 프로모션이나 단골 안부 어떠세요?',
+        btn: '예약 잡기', act: 'openCalendar',
+      });
+    }
 
     // ok=0 먼저, ok=1 뒤로 정렬
     cards.sort((a, b) => a.ok - b.ok);
@@ -404,11 +440,18 @@
     }
     const atRisk = (brief && brief.at_risk) || [];
     if (Array.isArray(atRisk) && atRisk.length > 0) {
+      // [2026-05-20] 사실(며칠 전)만 — _relativeDays 재활용 (app-insights.js 정의)
+      const first = atRisk[0] || {};
+      const days = Number(first.days_since_last);
+      const relFn = window._relativeDays;
+      const body = (first.name && Number.isFinite(days) && relFn)
+        ? `${first.name}님 · ${relFn(days)} 전 방문`
+        : '안부 한 통 보낼 타이밍이에요';
       cards.push({
         kind: 'at_risk',
         label: '단골 챙기기',
         count: atRisk.length,
-        body: atRisk[0]?.name ? `${atRisk[0].name}님 다녀가신 지 오래` : '안부 한 통 보낼 타이밍이에요',
+        body,
         cta: '안부',
         act: 'openInsights',
         icon: 'ic-star',
@@ -1096,10 +1139,17 @@
       items.push({ tone: 'cyan', title: '온라인 예약 승인 대기', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });
     }
     // 단골 안부 — at_risk
+    // [2026-05-20] 사실(며칠 전)만 표시. _relativeDays 재활용.
     const atRisk = (brief && brief.at_risk) || [];
     if (Array.isArray(atRisk) && atRisk.length > 0) {
-      const first = atRisk[0]?.name || '단골';
-      items.push({ tone: 'pink', title: '단골 안부', desc: `${first}님 다녀가신 지 오래`, count: atRisk.length, act: 'openInsights' });
+      const f = atRisk[0] || {};
+      const days = Number(f.days_since_last);
+      const relFn = window._relativeDays;
+      const name = f.name || '단골';
+      const desc = (f.name && Number.isFinite(days) && relFn)
+        ? `${name}님 · ${relFn(days)} 전 방문`
+        : '안부 한 통 보낼 타이밍이에요';
+      items.push({ tone: 'pink', title: '단골 안부', desc, count: atRisk.length, act: 'openInsights' });
     }
     if (!items.length) return '';
     const total = items.reduce((s, it) => s + it.count, 0);

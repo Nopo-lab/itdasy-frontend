@@ -239,6 +239,9 @@
     document.body.style.overflow = '';
   };
 
+  // [2026-05-20] 다른 모듈에서 재활용 — 60일+ "X개월" / 14일+ "X주" / 미만 "X일"
+  window._relativeDays = _relativeDays;
+
   // Phase 8 C4 — AI 카톡 초안 버튼 → POST /retention/{id}/message-draft → navigator.share
   let _draftBound = false;
   function _bindDraftButtons() {
