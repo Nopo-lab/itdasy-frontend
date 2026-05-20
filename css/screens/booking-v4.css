@@ -297,26 +297,6 @@
   opacity: 1;
 }
 
-.bk-now-line {
-  position: absolute;
-  left: 50px;
-  right: 0;
-  height: 2px;
-  background: var(--brand-strong);
-  z-index: 5;
-  pointer-events: none;
-}
-.bk-now-line::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: -4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--brand-strong);
-}
-
 /* ============================================================
    §5 모바일 월간 뷰
    ============================================================ */
@@ -918,26 +898,6 @@
   opacity: 1;
 }
 
-.bk-week__now-line {
-  position: absolute;
-  left: 60px;
-  right: 0;
-  height: 2px;
-  background: var(--brand-strong);
-  z-index: 5;
-  pointer-events: none;
-}
-.bk-week__now-line::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: -4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--brand-strong);
-}
-
 /* ============================================================
    §14 PC 월간 뷰
    ============================================================ */
@@ -1165,26 +1125,6 @@
 .bk-pc-day__block.is-staff2 .bk-pc-day__block-service {
   color: var(--text-muted);
   opacity: 1;
-}
-
-.bk-pc-day__now-line {
-  position: absolute;
-  left: 80px;
-  right: 0;
-  height: 2px;
-  background: var(--brand-strong);
-  z-index: 5;
-  pointer-events: none;
-}
-.bk-pc-day__now-line::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: -4px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--brand-strong);
 }
 
 /* ============================================================

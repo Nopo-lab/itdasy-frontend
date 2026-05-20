@@ -14,7 +14,6 @@
 
    v4 추가 기능:
      - 직원 필터 칩 (toolbar)
-     - now-line (주/일 뷰 현재 시각 표시)
      - PC 좌측 패널 (미니 캘린더 + 직원 리스트 + 통계)
      - PC 일간: 직원별 컬럼 분할
      - localStorage 상태 저장 (bk4_state)
@@ -108,7 +107,6 @@
   let _staffList = [];           // [{id, name, color_idx}, ...]
   let _activeStaffIds = null;    // null = 전체, Set = 선택된 직원
   let _miniMonth = null;         // PC 미니캘 표시 월 {y, m}
-  let _nowLineTimer = null;
   let _cachedIsPC = false;
 
   // ============================================================
@@ -142,7 +140,6 @@
   }
 
   function _close() {
-    if (_nowLineTimer) { clearInterval(_nowLineTimer); _nowLineTimer = null; }
     if (_escHandler) { document.removeEventListener('keydown', _escHandler); _escHandler = null; }
     const o = _overlay(); if (o) o.remove();
     document.body.style.overflow = '';
@@ -375,7 +372,6 @@
       h += '</div></div>';
     }
     // 블록 (absolute, hour-content 내부에 배치하는 대신 grid 전체에 absolute)
-    h += '<div class="bk-now-line" style="display:none"></div>';
     h += '</div>';
     return { html: h, items: filtered, start, end };
   }
@@ -553,7 +549,6 @@
       }
       h += '</div>';
     }
-    h += '<div class="bk-week__now-line" style="display:none"></div>';
     h += '</div></div>';
     return { html: h, items: filtered, start, ws };
   }
@@ -637,7 +632,6 @@
       }
       h += '</div>';
     });
-    h += '<div class="bk-pc-day__now-line" style="display:none"></div>';
     h += '</div></div>';
     return { html: h, items: filtered, start, staff };
   }
@@ -693,41 +687,6 @@
       if (eh > e) e = Math.min(24, eh);
     }
     return { start: s, end: e };
-  }
-
-  // ============================================================
-  // §12 now-line
-  // ============================================================
-  function _placeNowLine() {
-    const o = _overlay(); if (!o) return;
-    // 그리드가 expand 된 경우 data-start-h 우선 (없으면 _ttHours fallback)
-    const rootSel = (_curView === 'day' && !_cachedIsPC) ? '.bk-day'
-                   : (_curView === 'day' && _cachedIsPC) ? '.bk-pc-day'
-                   : (_curView === 'week' && _cachedIsPC) ? '.bk-pc-main'
-                   : '.bk-week-m';
-    const root = o.querySelector(rootSel);
-    const dataStart = root ? parseInt(root.getAttribute('data-start-h') || '', 10) : NaN;
-    const start = Number.isFinite(dataStart) ? dataStart : _ttHours().start;
-    const now = new Date();
-    if (now.getHours() < start) return _hideNowLine();
-    const minutesFromStart = (now.getHours() - start) * 60 + now.getMinutes();
-    if (_curView === 'day' && !_cachedIsPC) {
-      const px = (minutesFromStart / 60) * HOUR_PX_MOBILE_DAY;
-      const ln = o.querySelector('.bk-now-line');
-      if (ln) { ln.style.top = px + 'px'; ln.style.display = ''; }
-    } else if (_curView === 'week' && _cachedIsPC) {
-      const px = (minutesFromStart / 60) * HOUR_PX_PC_WEEK;
-      const ln = o.querySelector('.bk-week__now-line');
-      if (ln) { ln.style.top = px + 'px'; ln.style.display = ''; }
-    } else if (_curView === 'day' && _cachedIsPC) {
-      const px = (minutesFromStart / 60) * HOUR_PX_PC_DAY;
-      const ln = o.querySelector('.bk-pc-day__now-line');
-      if (ln) { ln.style.top = px + 'px'; ln.style.display = ''; }
-    }
-  }
-  function _hideNowLine() {
-    const o = _overlay(); if (!o) return;
-    o.querySelectorAll('.bk-now-line, .bk-week__now-line, .bk-pc-day__now-line').forEach(ln => { ln.style.display = 'none'; });
   }
 
   // ============================================================
@@ -1068,7 +1027,6 @@
     const body = o.querySelector('#bk-body'); if (!body) return;
     _updateOfflineBadge();
     _updateHeaderLabel();
-    _hideNowLine();
     _saveState();
 
     if (_curView === 'month') {
@@ -1082,7 +1040,6 @@
       _renderDayView(body);
     }
     _refreshPCLeft();
-    _placeNowLine();
   }
 
   function _renderWeekView(body) {
@@ -2105,10 +2062,6 @@
     _mappedCache = await _loadMonth(_curYear, _curMonth);
     _renderViewBody();
     _prefetchNeighbors();
-
-    // now-line 1분마다 갱신
-    if (_nowLineTimer) clearInterval(_nowLineTimer);
-    _nowLineTimer = setInterval(_placeNowLine, 60000);
 
     // 고객 dashboard → "예약잡기" 진입: 자동으로 예약 추가 폼 표시.
     // _pendingBookingCustomer 는 _bindFormExtras 가 소비하므로 여기선 트리거만.
