@@ -34,6 +34,8 @@
       const data = await _req('GET', '/services');
       _cache = (data && data.items) || [];
       window._serviceTemplatesCache = _cache;
+      try { localStorage.setItem('itdasy_service_templates_cache', JSON.stringify(_cache)); }
+      catch (e) { console.warn('[services] 캐시 저장 실패', e); }
       return _cache;
     } catch (e) { console.warn('[services] 로드 실패', e); return []; }
   }

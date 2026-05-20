@@ -314,7 +314,7 @@
         ${layers.length > 1 ? '<button type="button" class="pe-chip-btn" data-pe-layer-up>↑ 위로</button>' : ''}
       </div>`;
     return `${layerListHtml}${layerActionsHtml}<label class="pe-field"><span>텍스트 (여러 줄 가능 — Enter)</span><textarea class="pe-input" data-pe-text-val rows="3" maxlength="120" placeholder="시술명·이벤트 문구 등&#10;여러 줄도 OK">${_esc(t.value)}</textarea></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">${_CHIP('text-prefill','service','시술명 자동')}${_CHIP('text-prefill','price','가격 자동')}</div>
+      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">${_CHIP('text-prefill','service','시술 선택')}${_CHIP('text-prefill','price','가격 넣기')}</div>
       <div class="pe-field-label" style="margin-top:10px;">폰트</div>
       <div class="pe-panel-row pe-panel-grid-4">${FONTS.map(f => `<button type="button" class="pe-chip-btn${t.font===f.id?' on':''}" data-pe-text-font="${f.id}">${f.label}</button>`).join('')}</div>
       <div class="pe-field-label" style="margin-top:10px;">색상</div>
@@ -532,9 +532,11 @@
       });
       _each(panel, '[data-pe-text-prefill]', 'click', (e) => {
         const w = e.currentTarget.dataset.peTextPrefill;
+        if (w === 'service' && window.PhotoEditorServicePicker?.open) { window.PhotoEditorServicePicker.open(w); return; }
+        if (w === 'price' && !_state.price && window.PhotoEditorServicePicker?.open) { window.PhotoEditorServicePicker.open(w); return; }
         if (w === 'service') _state.text.value = _state.serviceName || '시술 결과';
-        else if (w === 'price') _state.text.value = _state.price ? (_state.price / 10000).toFixed(0) + '만원' : '가격 문의';
-        _renderPanel(); _redraw();
+        else if (w === 'price') _state.text.value = window.PhotoEditorServicePicker?.formatPrice ? window.PhotoEditorServicePicker.formatPrice(_state.price) : (_state.price ? (_state.price / 10000).toFixed(0) + '만원' : '가격 문의');
+        _syncTextToLayer(); _renderPanel(); _redraw(); _pushHistory();
       });
     },
     brand(panel) {
@@ -964,7 +966,7 @@
     opts = opts || {};
     const sheet = _ensureSheet();
     _state = _initState(opts);
-    sheet.style.display = 'flex';
+    sheet.style.setProperty('display', 'flex', 'important');
     document.body.style.overflow = 'hidden';
     _renderTabs(); _renderPanel(); _redraw();
     try { window.PhotoEditorTextDnD?.bind?.(sheet.querySelector('#peCanvas')); } catch (_e) { void _e; }
@@ -991,7 +993,7 @@
       }
     }
     const sheet = document.getElementById('photoEditorSheet');
-    if (sheet) sheet.style.display = 'none';
+    if (sheet) sheet.style.setProperty('display', 'none', 'important');
     document.body.style.overflow = '';
     try { if (window.PhotoEditor && typeof window.PhotoEditor._brushCleanup === 'function') window.PhotoEditor._brushCleanup(); }
     catch (_e) { void _e; }

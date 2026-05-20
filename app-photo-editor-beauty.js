@@ -291,7 +291,8 @@
       const isReddish = r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
       const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
       const maxCh0 = Math.max(r, g, bl), minCh0 = Math.min(r, g, bl);
-      const hairLike = !isSkin && lum0 > 24 && lum0 < 175 && (maxCh0 - minCh0 < 72 || lum0 < 95);
+      const hairSat0 = maxCh0 - minCh0;
+      const hairLike = !isSkin && lum0 > 18 && lum0 < 215 && (hairSat0 < 108 || lum0 < 125 || bl < 95);
 
       if (eyeRedK > 0 && lum0 > 105 && r > g + 8 && r > bl + 4 && Math.max(g, bl) > 70) {
         d[i]   = _clamp(d[i]   - 34 * eyeRedK);
@@ -381,16 +382,18 @@
         }
       }
       if (hairVolK > 0 && hairLike) {
-        const lift = lum0 > 95 ? 8 * hairVolK : -5 * hairVolK;
-        d[i]   = _clamp(lum0 + (d[i]   - lum0) * (1 + 0.18 * hairVolK) + lift);
-        d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * (1 + 0.18 * hairVolK) + lift);
-        d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * (1 + 0.18 * hairVolK) + lift);
+        const lift = lum0 > 108 ? 16 * hairVolK : -10 * hairVolK;
+        const contrast = 1 + 0.34 * hairVolK;
+        d[i]   = _clamp(lum0 + (d[i]   - lum0) * contrast + lift);
+        d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * contrast + lift);
+        d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * contrast + lift);
       }
       if (hairEndK > 0 && hairLike && blurD) {
-        const mix = 0.22 * hairEndK;
-        d[i]   = _clamp(d[i]   * (1 - mix) + blurD[i]   * mix);
-        d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix);
-        d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix);
+        const mix = 0.38 * hairEndK;
+        const softenLift = lum0 < 90 ? 4 * hairEndK : 0;
+        d[i]   = _clamp(d[i]   * (1 - mix) + blurD[i]   * mix + softenLift);
+        d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix + softenLift);
+        d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix + softenLift);
       }
       // 모발 색감 (양방향)
       if (hairColK !== 0) {
@@ -467,7 +470,7 @@
     // [v183 2026-05-18] unsharp 강도 ↑ — lashSharp 200→130, closeUpDetail 250→160
     //   체감 약함 컴플레인 fix. hairDetail 은 자연스러움 유지 위해 300 유지.
     if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 300);
-    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 280);
+    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 170);
     if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 130);
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 160);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 260);
