@@ -95,7 +95,7 @@
     if (_sheetEl) return _sheetEl;
     _sheetEl = document.createElement('div');
     _sheetEl.id = 'tplV2Sheet';
-    _sheetEl.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:9999;display:none;flex-direction:column;';
+    _sheetEl.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:10050;display:none;flex-direction:column;';
     _sheetEl.innerHTML = `
       <header style="padding:14px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #eee;">
         <button type="button" id="tpv2Close" class="pe-action-btn" style="background:#eee;">닫기</button>

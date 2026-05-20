@@ -287,12 +287,15 @@
 
     for (let i = 0; i < d.length; i += 4) {
       const r = d[i], g = d[i+1], bl = d[i+2];
-      const isSkin = r > 80 && r > g && g > bl && (r - bl) > 15 && (r - bl) < 110;
-      const isReddish = r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
       const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
       const maxCh0 = Math.max(r, g, bl), minCh0 = Math.min(r, g, bl);
       const hairSat0 = maxCh0 - minCh0;
-      const hairLike = !isSkin && lum0 > 18 && lum0 < 215 && (hairSat0 < 108 || lum0 < 125 || bl < 95);
+      const px = i >> 2, x = px % w, y = (px / w) | 0;
+      const subjectW = Math.max(0, 1 - (Math.abs((x + 0.5) / w - 0.5) * 1.44 + Math.abs((y + 0.5) / h - 0.48) * 1.04));
+      const edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
+      const isSkin = !edgeBg && r > 82 && r > g + 4 && g > bl - 6 && (r - bl) > 18 && (r - bl) < 105 && lum0 > 68 && lum0 < 238;
+      const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
+      const hairLike = !edgeBg && subjectW > 0.5 && !isSkin && lum0 > 18 && lum0 < 205 && ((hairSat0 < 88 && lum0 < 170) || lum0 < 92 || (bl < 80 && hairSat0 < 120));
 
       if (eyeRedK > 0 && lum0 > 105 && r > g + 8 && r > bl + 4 && Math.max(g, bl) > 70) {
         d[i]   = _clamp(d[i]   - 34 * eyeRedK);
@@ -372,7 +375,7 @@
           d[i+2] = _clamp(d[i+2] +  7 * underK * w3);
         }
       }
-      if (hairK > 0) {
+      if (hairK > 0 && hairLike) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
         if (lum > 60 && lum < 200 && Math.abs(d[i] - d[i+1]) < 45 && Math.abs(d[i+1] - d[i+2]) < 45) {
           const specBoost = lum > 130 ? (lum - 130) / 70 * 0.6 + 1 : 1;  // 1.0 ~ 1.6
@@ -396,7 +399,7 @@
         d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix + softenLift);
       }
       // 모발 색감 (양방향)
-      if (hairColK !== 0) {
+      if (hairColK !== 0 && hairLike) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
         if (lum < 160) {
           d[i]   = _clamp(d[i]   + 10 * hairColK);
@@ -407,7 +410,7 @@
       // [v206 2026-05-19] 염색 컬러 강조 — Agent 분석 반영: 채도 배수 ×2 + 색 있는 영역만
       //   기존: lum<160 전부 가산 0.4 — 회색조도 영향 받아 부자연.
       //   개선: 채도(max-min) 있는 픽셀만 + 배수 ×2 (밝은 핑크·라벤더 염색까지 강조)
-      if (hairPopK > 0) {
+      if (hairPopK > 0 && hairLike) {
         const maxCh = Math.max(r, g, bl), minCh = Math.min(r, g, bl);
         const sat0 = maxCh - minCh;
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
@@ -446,7 +449,7 @@
         }
       }
       // [v202] 두피 풍성감 — 모발 영역(어두운+회색조) 가산 + 주변 명도 ↑로 풍성함 fake
-      if (scalpK > 0) {
+      if (scalpK > 0 && hairLike) {
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
         if (lum < 100 && Math.abs(r - g) < 30 && Math.abs(g - bl) < 30) {
           d[i]   = _clamp(d[i]   + 10 * scalpK);
@@ -456,7 +459,7 @@
       }
       // [v202] 바디 잔털 시각화 ↓ — 피부 영역 + 어두운 픽셀(잔털) 명도 ↑로 톤 평균
       if (armK > 0) {
-        const isSkinHere = r > 80 && r > g && g > bl && (r - bl) > 15 && (r - bl) < 110;
+        const isSkinHere = isSkin;
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
         if (isSkinHere && lum < 130) {
           d[i]   = _clamp(d[i]   + 8 * armK);
@@ -470,7 +473,7 @@
     // [v183 2026-05-18] unsharp 강도 ↑ — lashSharp 200→130, closeUpDetail 250→160
     //   체감 약함 컴플레인 fix. hairDetail 은 자연스러움 유지 위해 300 유지.
     if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 300);
-    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 170);
+    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 520);
     if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 130);
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 160);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 260);

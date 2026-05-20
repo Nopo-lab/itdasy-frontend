@@ -48,7 +48,7 @@
     return base && Array.isArray(base.TEMPLATES) ? base.TEMPLATES : [];
   }
 
-  function _brand(tpl) {
+  function _brandData(tpl) {
     return {
       shop: tpl.shopName || '잇데이 스튜디오',
       accent: _safeColor(tpl.bg, PAL.copper),
@@ -66,7 +66,7 @@
     const found = _getTemplates().find(t => t.id === tpl.id);
     const meta = META[tpl.id];
     if (!found || !meta) return;
-    const b = _brand(tpl);
+    const b = _brandData(tpl);
     const data = { type: meta[0], kicker: meta[1], head: found.prefillText || meta[2], sub: meta[3], shop: b.shop, accent: b.accent };
     _draw(ctx, dw, dh, data);
   }
@@ -338,9 +338,9 @@
     _register();
     const btn = panel && panel.querySelector('[data-pe-tplv2]');
     if (!btn) return;
-    btn.textContent = '프리미엄 템플릿 30종';
-    btn.classList.add('pe-template-premium-btn');
-    btn.removeAttribute('style');
+    if (btn.textContent !== '프리미엄 템플릿 30종') btn.textContent = '프리미엄 템플릿 30종';
+    if (!btn.classList.contains('pe-template-premium-btn')) btn.classList.add('pe-template-premium-btn');
+    if (btn.hasAttribute('style')) btn.removeAttribute('style');
   }
 
   function _watchPanel() {
