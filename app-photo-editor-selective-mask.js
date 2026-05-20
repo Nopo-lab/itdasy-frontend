@@ -25,7 +25,9 @@
 
   // 핀 1개에 대한 mask 그리기 — type 분기 (radial / polygon)
   function _drawPinMask(canvas, pin, source) {
-    if (pin.type === 'polygon' && Array.isArray(pin.polygon)) {
+    if (pin.type === 'smart-mask') {
+      _drawSmartMask(canvas, pin, source);
+    } else if (pin.type === 'polygon' && Array.isArray(pin.polygon)) {
       _drawPolygonMask(canvas, pin, source);
     } else {
       _drawRadialMask(canvas, pin);
@@ -95,6 +97,49 @@
     ctx.filter = 'none';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function _drawCover(ctx, img, W, H) {
+    const iw = (img && img.naturalWidth) || (img && img.width) || W;
+    const ih = (img && img.naturalHeight) || (img && img.height) || H;
+    const scale = Math.max(W / iw, H / ih);
+    const dw = iw * scale, dh = ih * scale;
+    ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+
+  function _drawSmartMask(canvas, pin, source) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const W = canvas.width, H = canvas.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    const Smart = window.PhotoEditorSmartMask;
+    if (!Smart || typeof Smart.classify !== 'function' || !source) return;
+
+    const tmp = document.createElement('canvas');
+    tmp.width = W; tmp.height = H;
+    const tctx = tmp.getContext('2d', { willReadFrequently: true });
+    _drawCover(tctx, source, W, H);
+    const src = tctx.getImageData(0, 0, W, H);
+    const out = ctx.createImageData(W, H);
+    const d = src.data, o = out.data;
+    const mode = pin.mode || 'person';
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const mask = Smart.classify({ r, g, b, x, y, w: W, h: H });
+        let weight = Math.max(mask.skin || 0, mask.hair || 0, mask.eye || 0, mask.nail || 0) * 0.72 + (mask.subject || 0) * 0.28;
+        if (mode === 'background') weight = 1 - weight;
+        const v = Math.max(0, Math.min(255, Math.round(weight * 255)));
+        o[i] = v; o[i + 1] = v; o[i + 2] = v; o[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(out, 0, 0);
   }
 
   // 핀 슬라이더 값 → GL tone uniform

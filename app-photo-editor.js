@@ -30,11 +30,15 @@
 
   // 드래그 슬라이더 동안 픽셀 합성 폭주 방지 — [v202] 80 → 32ms (반응성 ↑, 모바일 발열 모니터링)
   let _redrawScheduled = null;
+  let _redrawSeq = 0;
   function _scheduleRedraw() {
     if (_redrawScheduled) return;
     _redrawScheduled = setTimeout(() => {
       _redrawScheduled = null;
-      try { _redraw(); } catch (_e) { void _e; }
+      try {
+        const p = _redraw();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      } catch (_e) { void _e; }
     }, 32);
   }
   // Android 하드웨어 백 + iOS edge swipe — history.pushState 사용.
@@ -74,6 +78,8 @@
       beauty: { skin: 0, redness: 0, hairShine: 0, nailGloss: 0, lashSharp: 0, blemish: 0, handSkin: 0, hairColor: 0, hairDetail: 0, eyeShadow: 0 },
       relight: { direction: 0.5, warmth: 0, intensity: 0, ambientBoost: 0, flash: 0 },
       template: { id: null, leftLabel: '전', rightLabel: '후', reviewText: '', priceLines: '' },
+      shadow: { mode: 'none' },
+      bg: { id: null },
       // [v188 2026-05-18] 텍스트 v2 — stroke (외곽선), rotation, x slider 추가
       // [v204 2026-05-19] 다중 레이어 — _state.text 는 active layer alias.
       //   _state.layers[] 가 source of truth. text 비면 layers[0] = 빈 text layer.
@@ -205,7 +211,7 @@
   }
 
   // [v184 2026-05-18] 즐겨찾기 프리셋 — localStorage 5슬롯.
-  //   각 슬롯: { name, adjust, beauty }
+  //   각 슬롯: { name, adjust, beauty, film, shadow, watermark, bg }
   const _FAV_KEY = 'itdasy_pe_favorites';
   function _loadFavorites() {
     try { return JSON.parse(localStorage.getItem(_FAV_KEY) || '[]') || []; }
@@ -226,6 +232,10 @@
         name: String(name).slice(0, 20),
         adjust: JSON.parse(JSON.stringify(_state.adjust)),
         beauty: JSON.parse(JSON.stringify(_state.beauty)),
+        film: JSON.parse(JSON.stringify(_state.film || {})),
+        shadow: JSON.parse(JSON.stringify(_state.shadow || { mode: 'none' })),
+        watermark: JSON.parse(JSON.stringify(_state.watermark || {})),
+        bg: JSON.parse(JSON.stringify(_state.bg || { id: null })),
       });
       _saveFavoritesList(list);
       _renderPanel();
@@ -237,8 +247,12 @@
     const list = _loadFavorites();
     const f = list[idx];
     if (!f) return _toast('프리셋을 찾지 못했어요');
-    Object.assign(_state.adjust, f.adjust);
-    Object.assign(_state.beauty, f.beauty);
+    if (f.adjust) Object.assign(_state.adjust, f.adjust);
+    if (f.beauty) Object.assign(_state.beauty, f.beauty);
+    if (f.film) _state.film = JSON.parse(JSON.stringify(f.film));
+    if (f.shadow) _state.shadow = JSON.parse(JSON.stringify(f.shadow));
+    if (f.watermark) Object.assign(_state.watermark, f.watermark);
+    if (f.bg) _state.bg = JSON.parse(JSON.stringify(f.bg));
     _redraw(); _pushHistory();
     _toast('적용: ' + f.name);
   }
@@ -674,7 +688,8 @@
   }
 
   // ── 캔버스 합성 ───────────────────────────────────────
-  function _redraw() {
+  async function _redraw() {
+    const seq = ++_redrawSeq;
     const cv = document.getElementById('peCanvas'), empty = document.getElementById('peCanvasEmpty');
     if (!cv || !_state) return;
     if (!_state.originalImg) { cv.style.display = 'none'; if (empty) empty.style.display = 'flex'; return; }
@@ -714,7 +729,17 @@
       if (useGLBlur) {
         try { _drawHooks.gl_blur(cv, a.sharpness, _helpers); } catch (_e) { _unsharpMask(ctx, dw, dh, a.sharpness / 100); }
       } else {
-        _unsharpMask(ctx, dw, dh, a.sharpness / 100);
+        const WF = window.PhotoEditorWorkerFilter;
+        if (WF && WF.shouldUse && WF.shouldUse(cv)) {
+          try {
+            await WF.unsharpCanvas(cv, a.sharpness / 100);
+            if (seq !== _redrawSeq) return;
+          } catch (_e) {
+            _unsharpMask(ctx, dw, dh, a.sharpness / 100);
+          }
+        } else {
+          _unsharpMask(ctx, dw, dh, a.sharpness / 100);
+        }
       }
     }
     if (typeof _drawHooks.relight === 'function') {
@@ -892,7 +917,7 @@
 
   // ── history ──────────────────────────────────────────
   // [v204 2026-05-19] layers + activeLayerId snapshot — undo/redo 시 다중 텍스트 복원
-  const _SNAP_KEYS = ['originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio', 'text', 'watermark', 'beauty', 'relight', 'template', 'autoIntensity', 'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl'];
+  const _SNAP_KEYS = ['originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio', 'text', 'watermark', 'beauty', 'relight', 'template', 'autoIntensity', 'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl', 'shadow', 'bg'];
   function _snapshot() {
     const o = {};
     for (const k of _SNAP_KEYS) o[k] = _state[k];

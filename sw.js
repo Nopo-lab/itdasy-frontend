@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260521-v251-photo-smart-mask';
+const CACHE_VERSION = '20260521-v252-photo-shadow-batch';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -56,7 +56,12 @@ const STATIC_ASSETS = [
   './app-gallery-workshop.js',
   './app-gallery-assign.js',
   './app-gallery-slot-editor.js',
+  './app-photo-editor-bg-compose.js',
   './app-gallery-bg.js',
+  './app-photo-editor-worker-filter.js',
+  './app-photo-editor-bg-tab.js',
+  './app-photo-editor-ai-mask.js',
+  './workers/photo-filter-worker.js',
   './app-photo-enhance.js',
   './app-gallery-element.js',
   './app-gallery-review.js',

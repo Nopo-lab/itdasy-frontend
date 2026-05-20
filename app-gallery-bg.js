@@ -193,206 +193,18 @@ async function applySelectedBg(opts = {}) {
   }
 }
 
-// [2026-05-17] 인스타 비율 분기 — 설계 §12.2
-// target_ratio → 캔버스 픽셀 사이즈 매핑. 1080 폭 기준 (인스타 권장).
-// '1:1' 1080×1080 / '4:5' 1080×1350 / '9:16' 1080×1920
-// 알 수 없는 값이 들어오면 '1:1' 로 폴백 (기존 동작 유지).
-function _ratioToSize(target_ratio) {
-  switch (target_ratio) {
-    case '4:5':  return { w: 1080, h: 1350 };
-    case '9:16': return { w: 1080, h: 1920 };
-    case '1:1':
-    default:     return { w: 1080, h: 1080 };
-  }
-}
-
-// [2026-05-18] 설계 §12.3 — procedural 배경(대리석/베이지/핑크 라디얼/블랙 럭셔리).
-// 외부 이미지 없이 캔버스만으로 그리므로 1:1·4:5·9:16 어느 비율이든 자연스럽게 채워짐.
-function _drawProceduralBg(ctx, render, w, h) {
-  const fillStops = (g, stops) => { stops.forEach(([p, c]) => g.addColorStop(p, c)); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); };
-  if (render === 'beige') {
-    fillStops(ctx.createLinearGradient(0, 0, 0, h), [[0, '#f7eee1'], [1, '#ebdcc4']]);
-    return;
-  }
-  if (render === 'pink_radial') {
-    const r = Math.max(w, h) * 0.75;
-    fillStops(ctx.createRadialGradient(w * 0.5, h * 0.42, r * 0.05, w * 0.5, h * 0.42, r),
-              [[0, '#fde2e8'], [0.55, '#fbb8c6'], [1, '#f18091']]);
-    return;
-  }
-  if (render === 'black_lux') {
-    fillStops(ctx.createLinearGradient(0, 0, 0, h), [[0, '#22222a'], [0.6, '#1a1a1f'], [1, '#0f0f13']]);
-    const N = Math.round((w * h) / 3500);
-    ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    for (let i = 0; i < N; i++) ctx.fillRect(Math.random() * w, Math.random() * h, 1, 1);
-    return;
-  }
-  // marble: 화이트 베이스 + 회색 베인 7가닥(bezier)으로 자연 결 표현
-  fillStops(ctx.createLinearGradient(0, 0, w, h), [[0, '#f8f6f3'], [0.5, '#ececea'], [1, '#f4f2ef']]);
-  ctx.save(); ctx.lineCap = 'round';
-  for (let i = 0; i < 7; i++) {
-    ctx.strokeStyle = `rgba(110,110,118,${0.05 + Math.random() * 0.12})`;
-    ctx.lineWidth = (w / 540) * (0.8 + Math.random() * 1.4);
-    ctx.beginPath();
-    ctx.moveTo(Math.random() * w, Math.random() * h * 0.3);
-    ctx.bezierCurveTo(Math.random() * w, h * (0.2 + Math.random() * 0.3),
-                      Math.random() * w, h * (0.5 + Math.random() * 0.3),
-                      Math.random() * w, h * (0.6 + Math.random() * 0.4));
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-// [2026-04-26] 누끼 합성 시 인물 축소 버그 픽스 헬퍼
-// 누끼 PNG 의 알파(투명도) 데이터를 스캔해서 실제 인물(불투명) 영역의 사각 bbox 를 구한다.
-// rembg 가 원본 사이즈를 유지하더라도 인물 외 영역은 다 투명이라, 이걸 잘라내지 않으면
-// drawImage 시 "빈 투명 영역까지 포함된 큰 박스"를 캔버스에 맞춰 줄여서 인물이 작아 보임.
-function _alphaBBox(srcImg) {
-  try {
-    const w = srcImg.naturalWidth || srcImg.width;
-    const h = srcImg.naturalHeight || srcImg.height;
-    if (!w || !h) return null;
-    const cv = document.createElement('canvas');
-    cv.width = w; cv.height = h;
-    const cx = cv.getContext('2d');
-    cx.drawImage(srcImg, 0, 0);
-    const data = cx.getImageData(0, 0, w, h).data;
-    let minX = w, minY = h, maxX = -1, maxY = -1;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const a = data[(y * w + x) * 4 + 3];
-        if (a > 8) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
-      }
-    }
-    if (maxX < 0 || maxY < 0) return null; // 모두 투명 = 실패
-    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
-  } catch (_e) {
-    // CORS taint 등으로 getImageData 실패 시 null
-    return null;
-  }
-}
-
 async function _applyBgToPhoto(photo, bg, slot, target_ratio = '1:1') {
-  // [2026-05-17] 비율 분기 — 설계 §12.2. 기본 1:1 (기존 호출 호환).
-  const { w: CW, h: CH } = _ratioToSize(target_ratio);
-
-  // 누끼 이미지가 있으면 사용, 없으면 API 호출
-  let personImg;
-  let serverOrigW = 0, serverOrigH = 0; // [2026-04-26] 백엔드가 알려주는 원본 사이즈
-  if (photo.removedBgUrl) {
-    personImg = await _loadImageSrc(photo.removedBgUrl);
-  } else {
-    // 1순위: 서버 API (빠름)
-    let removedBlob;
-    try {
-      const fd = new FormData();
-      fd.append('file', _dataUrlToBlob(photo.dataUrl), 'photo.jpg');
-      const res = await fetch(API + '/image/remove-bg', { method: 'POST', headers: authHeader(), body: fd });
-      if (res.status === 429) throw new Error('오늘 누끼따기 한도를 다 썼어요');
-      if (!res.ok) throw new Error('서버 누끼 실패');
-      // [2026-04-26] 응답 헤더에서 원본 사이즈 회수 (CORS Expose-Headers 로 노출)
-      serverOrigW = parseInt(res.headers.get('X-Original-Width') || '0', 10) || 0;
-      serverOrigH = parseInt(res.headers.get('X-Original-Height') || '0', 10) || 0;
-      removedBlob = await res.blob();
-    } catch(serverErr) {
-      console.warn('서버 누끼 실패, 클라이언트 폴백:', serverErr);
-      // 2순위: 클라이언트 누끼 (폴백) — imgly UMD lazy 로드
-      if (typeof imglyRemoveBackground === 'undefined' && typeof window._lazyImgly === 'function') {
-        try { await window._lazyImgly(); } catch (e) { throw new Error('누끼 라이브러리 로드 실패'); }
-      }
-      const srcBlob = _dataUrlToBlob(photo.dataUrl);
-      removedBlob = await imglyRemoveBackground(srcBlob, {
-        publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
-        progress: (key, current, total) => {
-          if (key === 'compute:inference') {
-            const prog = document.getElementById('popupProgress');
-            if (prog) prog.textContent = `누끼 처리 중... ${Math.round((current/total)*100)}%`;
-          }
-        }
-      });
-    }
-    const tmpUrl = URL.createObjectURL(removedBlob);
-    personImg = await _loadImageSrc(tmpUrl);
-    URL.revokeObjectURL(tmpUrl);
-    const cc = document.createElement('canvas');
-    cc.width = personImg.width; cc.height = personImg.height;
-    cc.getContext('2d').drawImage(personImg, 0, 0);
-    photo.removedBgUrl = cc.toDataURL('image/png');
-  }
-
-  // 배경 이미지 로드 또는 그라데이션 캔버스 생성
-  let bgCanvas;
-  if (bg.imageData) {
-    const bgImg = await _loadImageSrc(bg.imageData);
-    bgCanvas = document.createElement('canvas');
-    bgCanvas.width = CW; bgCanvas.height = CH;
-    const ctx = bgCanvas.getContext('2d');
-    _drawCoverCtx(ctx, bgImg, 0, 0, CW, CH);
-  } else if (bg.type === 'procedural' && bg.render) {
-    // [2026-05-18] 설계 §12.3 — procedural 배경(대리석/베이지/핑크/블랙). 비율(CW/CH) 따라 자동 생성.
-    bgCanvas = document.createElement('canvas');
-    bgCanvas.width = CW; bgCanvas.height = CH;
-    _drawProceduralBg(bgCanvas.getContext('2d'), bg.render, CW, CH);
-  } else {
-    bgCanvas = document.createElement('canvas');
-    bgCanvas.width = CW; bgCanvas.height = CH;
-    const ctx = bgCanvas.getContext('2d');
-    if (bg.gradient) {
-      const grad = ctx.createLinearGradient(0, 0, 0, CH);
-      // 파싱 간소화: 단색 폴백
-      ctx.fillStyle = bg.color || '#fff';
-      ctx.fillRect(0, 0, CW, CH);
-      // 그라데이션 효과 추가
-      const grad2 = ctx.createLinearGradient(0, 0, 0, CH);
-      grad2.addColorStop(0, 'rgba(0,0,0,0.03)');
-      grad2.addColorStop(0.5, 'rgba(255,255,255,0.05)');
-      grad2.addColorStop(1, 'rgba(0,0,0,0.05)');
-      ctx.fillStyle = grad2;
-      ctx.fillRect(0, 0, CW, CH);
-    } else {
-      ctx.fillStyle = bg.color || '#fff';
-      ctx.fillRect(0, 0, CW, CH);
-    }
-  }
-
-  // 합성
-  const finalCanvas = document.createElement('canvas');
-  finalCanvas.width = CW; finalCanvas.height = CH;
-  const fCtx = finalCanvas.getContext('2d');
-  fCtx.drawImage(bgCanvas, 0, 0);
-
-  // [2026-04-26] 인물 축소 버그 픽스 (불가침 영역)
-  // (1) 알파 bbox 계산 — 인물 실제 영역만 잘라서 캔버스에 그림
-  // (2) 캔버스의 85% 차지하도록 스케일 — 기존 0.9 보다 살짝 작지만 실 인물 비율 기준이라 더 큼
-  // (3) bbox 실패 시 (CORS 등) 기존 방식 폴백
-  // [2026-05-17] 캔버스가 정사각형이 아닐 수 있으니 CW/CH 둘 다 고려해서 스케일.
-  const personW = personImg.naturalWidth || personImg.width;
-  const personH = personImg.naturalHeight || personImg.height;
-  const bbox = _alphaBBox(personImg);
-  if (bbox && bbox.w > 0 && bbox.h > 0) {
-    const TARGET = 0.85;
-    const scale = Math.min((CW * TARGET) / bbox.w, (CH * TARGET) / bbox.h);
-    const pw = bbox.w * scale;
-    const ph = bbox.h * scale;
-    // drawImage(src, sx, sy, sw, sh, dx, dy, dw, dh) — bbox 만 잘라서 그림
-    fCtx.drawImage(personImg, bbox.x, bbox.y, bbox.w, bbox.h,
-                   (CW - pw) / 2, (CH - ph) / 2, pw, ph);
-  } else {
-    // 폴백: 기존 로직 + 서버가 알려준 원본 사이즈가 있으면 그걸 기준으로 스케일
-    const refW = serverOrigW || personW;
-    const refH = serverOrigH || personH;
-    const scale = Math.min(CW / refW, CH / refH) * 0.9;
-    const pw = personW * scale;
-    const ph = personH * scale;
-    fCtx.drawImage(personImg, (CW - pw) / 2, (CH - ph) / 2, pw, ph);
-  }
-
-  photo.editedDataUrl = finalCanvas.toDataURL('image/jpeg', 0.9);
+  const Composer = window.PhotoEditorBgCompose;
+  if (!Composer || typeof Composer.compose !== 'function') throw new Error('배경 합성 모듈 로드 실패');
+  const result = await Composer.compose({
+    srcUrl: photo.dataUrl || photo.editedDataUrl,
+    bg,
+    targetRatio: target_ratio,
+    preRemovedBgUrl: photo.removedBgUrl,
+    shadow: photo.shadow || { mode: 'none' },
+  });
+  photo.editedDataUrl = result.composedDataUrl;
+  photo.removedBgUrl = result.removedBgDataUrl;
   photo.mode = 'bg_' + bg.id;
   await saveSlotToDB(slot);
 }
@@ -510,19 +322,6 @@ async function deleteTemplate(id, e) {
 //   편집기 bg 탭에서 직접 배경 카드 클릭 → 누끼 + 합성 결과 dataURL 반환.
 //   _applyBgToPhoto 의 합성 로직 재활용 (fake photo / slot 주입).
 // ═══════════════════════════════════════════════════════
-async function _peDataUrlFromAny(srcUrl) {
-  if (!srcUrl) throw new Error('이미지 src 없음');
-  if (srcUrl.startsWith('data:')) return srcUrl;
-  const r = await fetch(srcUrl);
-  const b = await r.blob();
-  return await new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = () => res(reader.result);
-    reader.onerror = rej;
-    reader.readAsDataURL(b);
-  });
-}
-
 window.GALLERY_BG_LIST = function () {
   // DEFAULT (procedural 포함) + 사용자 추가 배경
   return [...DEFAULT_BACKGROUNDS, ..._loadUserBgs()];
@@ -530,37 +329,18 @@ window.GALLERY_BG_LIST = function () {
 
 // composeBgForEditor(srcUrl, bgId, targetRatio, preRemovedBgUrl?)
 //   → { composedDataUrl, removedBgDataUrl } — removedBgDataUrl 캐시해서 다음 호출 시 재활용
-window.composeBgForEditor = async function (srcUrl, bgId, target_ratio, preRemovedBgUrl) {
+window.composeBgForEditor = async function (srcUrl, bgId, target_ratio, preRemovedBgUrl, opts = {}) {
   const allBgs = window.GALLERY_BG_LIST();
   const bg = allBgs.find(b => b.id === bgId);
   if (!bg) throw new Error('배경을 찾지 못했어요: ' + bgId);
-
-  // blob: / http: → dataURL 정규화 (_dataUrlToBlob 가 dataURL 만 받음)
-  const srcDataUrl = await _peDataUrlFromAny(srcUrl);
-
-  const fakePhoto = {
-    id: 'editor-tmp-' + Date.now(),
-    dataUrl: srcDataUrl,
-    removedBgUrl: preRemovedBgUrl || null,
-    hidden: false,
-  };
-  const fakeSlot = { id: '__editor__', photos: [fakePhoto] };
-
-  // saveSlotToDB 호출 swallow — fakeSlot 은 IndexedDB 에 없음
-  const origSave = (typeof saveSlotToDB === 'function') ? saveSlotToDB : null;
-  if (origSave) window.saveSlotToDB = async function () { /* swallow */ };
-  try {
-    await _applyBgToPhoto(fakePhoto, bg, fakeSlot, target_ratio || '1:1');
-  } catch (e) {
-    console.warn('[bg-editor] _applyBgToPhoto 진행 중 오류 (editedDataUrl 확인):', e);
-  } finally {
-    if (origSave) window.saveSlotToDB = origSave;
-  }
-  if (!fakePhoto.editedDataUrl) throw new Error('합성 결과를 받지 못했어요');
-  return {
-    composedDataUrl: fakePhoto.editedDataUrl,
-    removedBgDataUrl: fakePhoto.removedBgUrl || null,
-  };
+  const Composer = window.PhotoEditorBgCompose;
+  if (!Composer || typeof Composer.compose !== 'function') throw new Error('배경 합성 모듈 로드 실패');
+  return await Composer.compose({
+    srcUrl,
+    bg,
+    targetRatio: target_ratio || '1:1',
+    preRemovedBgUrl,
+    shadow: opts.shadow || { mode: 'none' },
+  });
 };
-
 

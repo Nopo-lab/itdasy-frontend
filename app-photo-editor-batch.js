@@ -1,11 +1,10 @@
-/* 사진 편집기 — 배치 편집 모듈 (2026-05-19 v206.4 분할)
-   책임:
-     • 현재 갤러리 슬롯 사진 N장 찾기
-     • 현재 보정값을 임시 캔버스에서 사진마다 적용
-     • 버튼 진행 상태 / 갤러리 저장 / 갤러리 갱신 알림
+/* 사진 편집기 — 배치 편집 모듈
+   슬롯 사진에 현재 보정/필름/그림자/워터마크/비율을 한 번에 적용한다.
 */
 (function () {
   'use strict';
+
+  let _job = null;
 
   function _getCurrentSlot() {
     try {
@@ -22,6 +21,11 @@
   }
 
   async function _applyToSlot(state, helpers, buttonEl) {
+    if (_job && _job.running) {
+      _job.cancelled = true;
+      _toast(helpers, '배치 편집을 중단할게요');
+      return;
+    }
     const slotInfo = _getCurrentSlot();
     if (!slotInfo) return _toast(helpers, '현재 슬롯을 찾지 못했어요');
     const slot = (window._slots || []).find(s => s && s.id === slotInfo.id);
@@ -29,29 +33,46 @@
     if (!photos.length) return _toast(helpers, '적용할 사진이 없어요');
     if (!_confirmApply(photos.length)) return;
 
+    const settings = _buildSettings(state);
     const restoreText = _setBusy(buttonEl, photos.length);
-    const adjust = _clone(state && state.adjust);
-    const beauty = _clone(state && state.beauty);
-    let done = 0, fail = 0;
-
-    for (let i = 0; i < photos.length; i++) {
-      const ok = await _applyOne(photos[i], adjust, beauty, helpers);
-      if (ok) done++;
-      else fail++;
-      _updateBusy(buttonEl, i + 1, photos.length);
+    const counts = { done: 0, fail: 0 };
+    _job = { running: true, cancelled: false };
+    try {
+      await _runQueue(photos, settings, helpers, buttonEl, counts);
+      await _saveSlot(slot);
+      const stopped = _job.cancelled ? '중단됨: ' : '';
+      _toast(helpers, stopped + counts.done + '장 성공, ' + counts.fail + '장 실패');
+      _notifyGallery(slot.id, counts.done);
+    } finally {
+      _restoreButton(buttonEl, restoreText);
+      _job = null;
     }
-
-    await _saveSlot(slot);
-    _restoreButton(buttonEl, restoreText);
-    _toast(helpers, '배치 보정 완료: ' + done + '장 성공, ' + fail + '장 실패');
-    _notifyGallery(slot.id, done);
   }
 
-  async function _applyOne(photo, adjust, beauty, helpers) {
+  async function _runQueue(photos, settings, helpers, buttonEl, counts) {
+    let cursor = 0;
+    const total = photos.length;
+    const concurrency = _isMobile() ? 1 : 2;
+    const worker = async () => {
+      while (cursor < total && _job && !_job.cancelled) {
+        const photo = photos[cursor++];
+        const ok = await _applyOne(photo, settings, helpers);
+        if (ok) counts.done++;
+        else counts.fail++;
+        _updateBusy(buttonEl, counts.done + counts.fail, total);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, total) }, worker));
+  }
+
+  async function _applyOne(photo, settings, helpers) {
     try {
-      const srcUrl = photo && (photo.dataUrl || photo.editedDataUrl);
+      let srcUrl = photo && (photo.dataUrl || photo.editedDataUrl);
       if (!srcUrl) return false;
-      const result = await _composeWithSettings(srcUrl, adjust, beauty, helpers);
+      const bgResult = await _maybeApplyBg(photo, srcUrl, settings);
+      if (bgResult) srcUrl = bgResult;
+      const img = await _loadImage(srcUrl);
+      const result = await _drawAdjusted(img, settings, helpers);
       if (!result) return false;
       photo.editedDataUrl = result;
       return true;
@@ -61,33 +82,51 @@
     }
   }
 
-  function _composeWithSettings(srcDataUrl, adjust, beauty, helpers) {
-    return new Promise((resolve) => {
+  async function _maybeApplyBg(photo, srcUrl, settings) {
+    const bgId = settings.bg && settings.bg.id;
+    if (!bgId || !window.PhotoEditorBgCompose || typeof window.GALLERY_BG_LIST !== 'function') return null;
+    const bg = window.GALLERY_BG_LIST().find(item => item && item.id === bgId);
+    if (!bg) return null;
+    const result = await window.PhotoEditorBgCompose.compose({
+      srcUrl,
+      bg,
+      targetRatio: settings.ratio !== 'original' ? settings.ratio : '1:1',
+      preRemovedBgUrl: photo.removedBgUrl,
+      shadow: settings.shadow,
+    });
+    photo.removedBgUrl = result.removedBgDataUrl;
+    return result.composedDataUrl;
+  }
+
+  function _loadImage(src) {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(_drawAdjusted(img, adjust, beauty, helpers));
-      img.onerror = () => resolve(null);
-      img.src = srcDataUrl;
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
     });
   }
 
-  function _drawAdjusted(img, adjust, beauty, helpers) {
+  async function _drawAdjusted(img, settings, helpers) {
     try {
-      const iw = img.naturalWidth, ih = img.naturalHeight;
-      const k = Math.min(1080, iw) / iw;
-      const dw = Math.round(iw * k), dh = Math.round(ih * k);
+      const crop = _computeCrop(img, settings.ratio || 'original');
       const cv = document.createElement('canvas');
-      cv.width = dw; cv.height = dh;
+      cv.width = crop.dw; cv.height = crop.dh;
       const ctx = cv.getContext('2d');
-      const temp = adjust.temperature || 0;
-      const sepia = Math.max(0, temp) / 100, contrast = 100 + Math.max(0, -temp) * 0.3;
-      ctx.filter = 'brightness(' + adjust.brightness + '%) saturate(' + adjust.saturate + '%) contrast(' + contrast + '%) sepia(' + sepia + ')';
-      ctx.drawImage(img, 0, 0, iw, ih, 0, 0, dw, dh);
+      const a = settings.adjust || {};
+      const temp = a.temperature || 0;
+      const sepia = Math.max(0, temp) / 100;
+      const contrast = 100 + Math.max(0, -temp) * 0.3;
+      ctx.filter = 'brightness(' + (a.brightness || 100) + '%) saturate(' + (a.saturate || 100) + '%) contrast(' + contrast + '%) sepia(' + sepia + ')';
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.dw, crop.dh);
       ctx.filter = 'none';
-      if (adjust.sharpness > 10 && helpers && typeof helpers.unsharpMask === 'function') {
-        helpers.unsharpMask(ctx, dw, dh, adjust.sharpness / 100);
-      }
-      _applyBeauty(ctx, dw, dh, beauty, helpers);
+      await _applySharpness(cv, a.sharpness || 0, helpers);
+      _applyBeauty(ctx, crop.dw, crop.dh, settings.beauty, helpers);
+      _applyFilm(cv, settings.film, helpers);
+      _drawWatermark(ctx, crop.dw, crop.dh, settings.watermark, helpers);
       return cv.toDataURL('image/jpeg', 0.92);
     } catch (err) {
       console.warn('[photo-batch] 캔버스 합성 실패:', err);
@@ -95,13 +134,50 @@
     }
   }
 
+  function _computeCrop(img, ratio) {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (ratio === '1:1' || ratio === '4:5' || ratio === '9:16') return _ratioCrop(iw, ih, ratio);
+    const k = Math.min(1080, iw) / iw;
+    return { sx: 0, sy: 0, sw: iw, sh: ih, dw: Math.round(iw * k), dh: Math.round(ih * k) };
+  }
+
+  function _ratioCrop(iw, ih, ratio) {
+    const parts = ratio.split(':').map(Number);
+    const targetAR = parts[0] / parts[1], imgAR = iw / ih;
+    let sw, sh, sx, sy;
+    if (imgAR > targetAR) { sh = ih; sw = Math.round(ih * targetAR); sx = Math.round((iw - sw) / 2); sy = 0; }
+    else { sw = iw; sh = Math.round(iw / targetAR); sx = 0; sy = Math.round((ih - sh) / 2); }
+    const dw = 1080;
+    return { sx, sy, sw, sh, dw, dh: Math.round(dw / targetAR) };
+  }
+
+  async function _applySharpness(canvas, sharpness, helpers) {
+    if (sharpness <= 10) return;
+    const WF = window.PhotoEditorWorkerFilter;
+    if (WF && WF.shouldUse && WF.shouldUse(canvas)) {
+      try { await WF.unsharpCanvas(canvas, sharpness / 100); return; } catch (_e) { void _e; }
+    }
+    if (helpers && typeof helpers.unsharpMask === 'function') {
+      helpers.unsharpMask(canvas.getContext('2d'), canvas.width, canvas.height, sharpness / 100);
+    }
+  }
+
   function _applyBeauty(ctx, dw, dh, beauty, helpers) {
     if (!helpers || typeof helpers.applyDrawHook !== 'function') return;
-    try {
-      helpers.applyDrawHook('beauty', ctx, dw, dh, beauty, helpers);
-    } catch (err) {
-      console.warn('[photo-batch] 뷰티 보정 실패:', err);
-    }
+    try { helpers.applyDrawHook('beauty', ctx, dw, dh, beauty || {}, helpers); }
+    catch (err) { console.warn('[photo-batch] 뷰티 보정 실패:', err); }
+  }
+
+  function _applyFilm(canvas, film, helpers) {
+    if (!film || !film.presetId || !helpers || typeof helpers.applyDrawHook !== 'function') return;
+    try { helpers.applyDrawHook('gl_film', canvas, { film }, helpers); }
+    catch (err) { console.warn('[photo-batch] 필름 보정 실패:', err); }
+  }
+
+  function _drawWatermark(ctx, w, h, watermark, helpers) {
+    if (!watermark || !watermark.value || !helpers || typeof helpers.drawWatermark !== 'function') return;
+    try { helpers.drawWatermark(ctx, w, h, watermark); }
+    catch (err) { console.warn('[photo-batch] 워터마크 실패:', err); }
   }
 
   async function _saveSlot(slot) {
@@ -126,8 +202,24 @@
     return ((slot && slot.photos) || []).filter(p => p && !p.hidden);
   }
 
+  function _buildSettings(state) {
+    return {
+      adjust: _clone(state && state.adjust),
+      beauty: _clone(state && state.beauty),
+      film: _clone(state && state.film),
+      watermark: _clone(state && state.watermark),
+      shadow: _clone((state && state.shadow) || { mode: 'none' }),
+      ratio: (state && state.ratio) || 'original',
+      bg: _clone(state && state.bg),
+    };
+  }
+
   function _clone(value) {
     return JSON.parse(JSON.stringify(value || {}));
+  }
+
+  function _isMobile() {
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
   }
 
   function _confirmApply(count) {
@@ -138,13 +230,13 @@
   function _setBusy(buttonEl, total) {
     if (!buttonEl) return '';
     const text = buttonEl.textContent;
-    buttonEl.disabled = true;
-    buttonEl.textContent = '배치 보정 중... 0/' + total;
+    buttonEl.disabled = false;
+    buttonEl.textContent = '배치 보정 중... 0/' + total + ' · 중단';
     return text;
   }
 
   function _updateBusy(buttonEl, current, total) {
-    if (buttonEl) buttonEl.textContent = '배치 보정 중... ' + current + '/' + total;
+    if (buttonEl) buttonEl.textContent = '배치 보정 중... ' + current + '/' + total + ' · 중단';
   }
 
   function _restoreButton(buttonEl, text) {

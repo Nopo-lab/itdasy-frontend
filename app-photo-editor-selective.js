@@ -228,18 +228,21 @@
       ${radiusSlider}` : `<div class="pe-hint">아래 "AI 자동 영역" 버튼을 누르거나 사진을 더블탭하세요. 그 영역만 보정됩니다.</div>`;
     const FaceMask = window.PhotoEditorFaceMask;
     const faceHTML = (FaceMask && typeof FaceMask.subSectionHTML === 'function') ? FaceMask.subSectionHTML(state) : '';
+    const AIMask = window.PhotoEditorAIMask;
+    const aiHTML = (AIMask && typeof AIMask.subSectionHTML === 'function') ? AIMask.subSectionHTML(state) : '';
     const pinChip = (p) => {
       const isAct = p.id === sel.activeId;
       const icon = p.type === 'polygon'
         ? '<svg class="pe-ic" viewBox="0 0 24 24"><use href="#ic-wand-sparkles"/></svg>'
         : '<svg class="pe-ic" viewBox="0 0 24 24"><use href="#ic-pin"/></svg>';
-      const label = p.type === 'polygon' ? (p.regionLabel || 'AI') : ((sel.pins.filter(x => x.type !== 'polygon').indexOf(p) + 1) + '번');
+      const label = (p.type === 'polygon' || p.type === 'smart-mask') ? (p.regionLabel || 'AI') : ((sel.pins.filter(x => x.type !== 'polygon' && x.type !== 'smart-mask').indexOf(p) + 1) + '번');
       return `<button type="button" class="pe-chip-btn ${isAct ? 'on' : ''}" data-sel-pin="${p.id}">${icon} ${_esc(label)}</button>`;
     };
     return `<div class="pe-field-label">셀렉티브 부분 보정 (최대 ${MAX_PINS}개)</div>
       <div class="pe-panel-row" style="display:flex;gap:6px;flex-wrap:wrap;">${sel.pins.map(pinChip).join('')}<button type="button" class="pe-chip-btn" data-sel-add>+ 수동 핀</button></div>
       ${sliders}
-      ${faceHTML}`;
+      ${faceHTML}
+      ${aiHTML}`;
   }
 
   function _bindPanel(panel, state, helpers) {
@@ -271,6 +274,9 @@
     // face-mask sub-section bind (AI 자동 영역 버튼 핸들러)
     if (window.PhotoEditorFaceMask && typeof window.PhotoEditorFaceMask.bindSubSection === 'function') {
       try { window.PhotoEditorFaceMask.bindSubSection(panel, state, helpers); } catch (_e) { /* ignore */ }
+    }
+    if (window.PhotoEditorAIMask && typeof window.PhotoEditorAIMask.bindSubSection === 'function') {
+      try { window.PhotoEditorAIMask.bindSubSection(panel, state, helpers); } catch (_e) { /* ignore */ }
     }
     panel.querySelectorAll('[data-sel-slider]').forEach(input => {
       input.addEventListener('input', () => {
