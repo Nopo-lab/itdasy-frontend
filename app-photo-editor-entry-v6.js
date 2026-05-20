@@ -340,6 +340,7 @@
   window.PhotoEditorEntryV6 = {
     show: _showEntry,
     hide: _hideEntry,
+    refresh: _refreshEntryIfVisible,
     goto: _gotoEditor,
     backToMenu: _backToMenu,
     isFeatureMode: () => {

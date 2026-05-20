@@ -956,7 +956,10 @@
   function _loadImage(src) {
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => { _state.originalImg = img; _state.originalSrc = src; _pushHistory(); _redraw(); _renderPanel(); };
+    img.onload = () => {
+      _state.originalImg = img; _state.originalSrc = src; _pushHistory(); _redraw(); _renderPanel();
+      try { window.PhotoEditorEntryV6?.refresh?.(); } catch (_e) { void _e; }
+    };
     img.onerror = () => _toast('사진을 불러오지 못했어요');
     img.src = src;
   }
