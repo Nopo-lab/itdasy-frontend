@@ -156,21 +156,24 @@
     const r = _computeRange();
     return `pv_cache::revenue::${p}::${r.from}::${r.to}`;
   };
-  function _readSWRPeriod(p) {
+  // [2026-05-20] generic SWR — 외부 (예: revenue-month) 재활용 가능하게 분리.
+  function _swrReadKey(key, ttl) {
     try {
-      const raw = localStorage.getItem(_swrKey(p)) || sessionStorage.getItem(_swrKey(p));
+      const raw = localStorage.getItem(key) || sessionStorage.getItem(key);
       if (!raw) return null;
       const obj = JSON.parse(raw);
-      return { items: obj.d, age: Date.now() - obj.t, fresh: Date.now() - obj.t < _SWR_TTL };
+      return { items: obj.d, age: Date.now() - obj.t, fresh: Date.now() - obj.t < ttl };
     } catch (_) { return null; }
   }
-  function _writeSWRPeriod(p, items) {
+  function _swrWriteKey(key, items) {
     try {
       const payload = JSON.stringify({ t: Date.now(), d: items });
-      try { localStorage.setItem(_swrKey(p), payload); }
-      catch (_) { try { sessionStorage.setItem(_swrKey(p), payload); } catch (_e) { void _e; } }
+      try { localStorage.setItem(key, payload); }
+      catch (_) { try { sessionStorage.setItem(key, payload); } catch (_e) { void _e; } }
     } catch (_) { /* silent */ }
   }
+  function _readSWRPeriod(p) { return _swrReadKey(_swrKey(p), _SWR_TTL); }
+  function _writeSWRPeriod(p, items) { _swrWriteKey(_swrKey(p), items); }
   function _clearSWRRevenue() {
     // [v221] revenue 관련 캐시 prefix 일괄 삭제
     try {
@@ -996,6 +999,8 @@
     _renderDonut, _loadDonutAsync,
     _renderPCHeaderHTML, _renderPCChartShellHTML,
     _submitQuickAdd, _rerender,
+    // [2026-05-20] generic SWR — revenue-month 등 분할 파일이 동일 캐싱 패턴 재활용.
+    _swrReadKey, _swrWriteKey,
   };
 
   // ── resize ──────────────────────────────────────────────

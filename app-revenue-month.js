@@ -48,18 +48,51 @@
 
   function _R() { return window.Revenue || {}; }
 
+  // [2026-05-20] 월 요약 SWR — revenue.js 의 generic SWR 재활용. TTL 60초 (주 탭과 동일).
+  const _MONTH_SWR_TTL = 60 * 1000;
+  function _monthSwrKey() {
+    return `pv_cache::revenue::summary::${_viewYear}-${String(_viewMonth).padStart(2, '0')}`;
+  }
+  function _monthItemsSwrKey() {
+    return `pv_cache::revenue::month-items::${_viewYear}-${String(_viewMonth).padStart(2, '0')}`;
+  }
+
   // ── 데이터 ──────────────────────────────────────────────
   async function fetchSummary() {
     if (!window.API || !window.authHeader) throw new Error('no-auth');
     const auth = window.authHeader();
     if (!auth?.Authorization) throw new Error('no-token');
     const isCur = _isCurrentMonth();
+    // [2026-05-20] SWR 캐시: 1순위. 신선하면 그대로 반환. stale 이면 백그라운드 갱신.
+    const R = _R();
+    const cached = (R._swrReadKey && R._swrReadKey(_monthSwrKey(), _MONTH_SWR_TTL)) || null;
+    if (cached && cached.items) {
+      const cachedSummary = cached.items;
+      // 과거 월: items 캐시도 있으면 같이 복원
+      if (!isCur && R._swrReadKey) {
+        const ci = R._swrReadKey(_monthItemsSwrKey(), _MONTH_SWR_TTL);
+        _viewItems = (ci && Array.isArray(ci.items)) ? ci.items : null;
+      } else {
+        _viewItems = null;
+      }
+      // stale 이면 백그라운드 새로고침 (await X)
+      if (!cached.fresh) {
+        _refreshSummaryInBackground(auth, isCur).catch(() => {});
+      }
+      return cachedSummary;
+    }
+    // 캐시 미스 — 정상 fetch
+    return await _doFetchSummary(auth, isCur);
+  }
+
+  async function _doFetchSummary(auth, isCur) {
     let url = window.API + '/revenue/summary?period=month';
     if (!isCur) url += '&year=' + _viewYear + '&month=' + _viewMonth;
     const res = await fetch(url, { headers: { ...auth, 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const summary = await res.json();
-    // 과거 월: items 도 별도 fetch → _viewItems 캐시
+    const R = _R();
+    if (R._swrWriteKey) R._swrWriteKey(_monthSwrKey(), summary);
     if (!isCur) {
       try {
         const r2 = await fetch(
@@ -69,12 +102,22 @@
         if (r2.ok) {
           const d = await r2.json();
           _viewItems = Array.isArray(d.items) ? d.items : [];
+          if (R._swrWriteKey) R._swrWriteKey(_monthItemsSwrKey(), _viewItems);
         } else { _viewItems = []; }
       } catch (_e) { _viewItems = []; }
     } else {
       _viewItems = null;
     }
     return summary;
+  }
+
+  async function _refreshSummaryInBackground(auth, isCur) {
+    try {
+      await _doFetchSummary(auth, isCur);
+      // 백그라운드 fresh 도착 — 화면 갱신
+      const R = _R();
+      if (R._rerender) R._rerender();
+    } catch (_e) { /* silent */ }
   }
 
   function _bizDaysBetween(fromD, toD) {
