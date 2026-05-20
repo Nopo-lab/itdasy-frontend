@@ -3482,6 +3482,33 @@
       }
     } catch (_e) { void _e; }
 
+    // [P0-4-SQL 2026-05-20] 예약 취소 SQL-first — "{이름} 예약 취소" 패턴 직접 처리.
+    // 매치 시 FE 가 customer/booking 조회 → cancel_booking action 객체 생성 → 카드 렌더.
+    // BE LLM 우회 (actions=[] 누락 이슈 회피). 카드 '실행' 시 P0-4 confirm → /assistant/execute.
+    try {
+      if (window.AssistantIntent && typeof window.AssistantIntent.tryCancelBooking === 'function') {
+        // tryCancelBooking 은 async — 매치 안 되면 null, 매치 시 결과 객체.
+        const _cb = await window.AssistantIntent.tryCancelBooking(q);
+        if (_cb && _cb.matched) {
+          input.value = '';
+          _history.push({ role: 'user', text: q });
+          if (_cb.kind === 'card') {
+            // 카드 표시 — 사장님이 카드 '실행' 클릭 시 _executeAction → P0-4 confirm 거침
+            _history.push({
+              role: 'assistant',
+              text: _cb.action.confirmation_text || `${_cb.customer.name}님 예약 취소할까요?`,
+              action: _cb.action,
+              action_status: 'pending',
+            });
+          } else if (_cb.kind === 'message') {
+            _history.push({ role: 'assistant', text: _cb.text });
+          }
+          _renderHistory();
+          return;
+        }
+      }
+    } catch (_e) { void _e; /* 라우터 에러 시 기존 흐름 */ }
+
     // [P0-1.5 2026-05-20] SQL-first 비동기 router — 매출/예약 단순 조회 BE 직접 호출 (LLM 0회).
     // 매치 시 user 메시지 + loading 표시 → fetch 응답 → 답변 갱신.
     // fetch 실패 시 친절한 에러 메시지 + return (LLM 안 부름. 사용자 재시도 또는 다른 질문).

@@ -247,11 +247,147 @@
     return { matched: true, type: rule.type, response };
   }
 
+  // ─── [P0-4-SQL] 예약 취소 SQL-first ─────────────────────
+  // "{이름} 예약 취소" 패턴 매칭 → FE 가 직접 customer + booking 조회
+  // → cancel_booking action 객체 만들어서 호출자에게 반환
+  // → 호출자(app-assistant.js)가 기존 카드 렌더링 흐름에 그대로 투입
+  // → 사장님이 카드 '실행' 버튼 → P0-4 nativeConfirm → /assistant/execute
+  // LLM 안 거침. SYSTEM_PROMPT 이슈 우회. 즉시 카드 표시.
+
+  // "취소" 또는 "캔슬" 동사 패턴
+  const _CANCEL_VERB = /(취소|삭제|지워|없애|캔슬)/;
+
+  // 이름 추출 — "장수아 예약 취소" / "장수아 예약취소" / "장수아 5시 예약 취소"
+  // 한글 2~5자 이름 + (선택 시간) + 예약 + 취소
+  function _extractCancelTarget(q) {
+    const t = _trim(q);
+    if (!_CANCEL_VERB.test(t)) return null;
+    if (!/예약/.test(t)) return null;
+    // 한글 성씨로 시작하는 2~5자 이름. (영어 이름은 일단 대상 아님)
+    const m = t.match(/([가-힣]{2,5})\s*(?:님|씨)?\s*(?:.*?)?예약/);
+    if (!m) return null;
+    const name = m[1];
+    // "오늘 예약 취소" 같은 시간 단어를 이름으로 잡는 케이스 방지
+    const TIME_WORDS = ['오늘', '내일', '모레', '어제', '이번', '다음', '저번', '지난', '이주', '저주', '월요', '화요', '수요', '목요', '금요', '토요', '일요', '주말', '평일', '예약'];
+    if (TIME_WORDS.some(w => name.includes(w))) return null;
+    return { name };
+  }
+
+  // 두 이름 유사도 — fuzzy match (포함 / 정확 / 끝글자 매칭)
+  function _nameMatches(target, candidate) {
+    if (!target || !candidate) return false;
+    if (target === candidate) return 100;
+    if (candidate.includes(target)) return 90;
+    if (target.includes(candidate)) return 80;
+    // 끝 2글자 매칭 (성 제외 이름)
+    if (target.length >= 2 && candidate.length >= 2 && target.slice(-2) === candidate.slice(-2)) return 60;
+    return 0;
+  }
+
+  function _formatBookingShort(b) {
+    try {
+      const t = new Date(b.starts_at);
+      const m = String(t.getMonth() + 1).padStart(2, '0');
+      const d = String(t.getDate()).padStart(2, '0');
+      const hh = String(t.getHours()).padStart(2, '0');
+      const mm = String(t.getMinutes()).padStart(2, '0');
+      return `${m}/${d} ${hh}:${mm}`;
+    } catch (_e) { void _e; return ''; }
+  }
+
+  // 결과 객체:
+  //   { matched: true, kind: 'card', action: {...} }  → caller 가 카드 렌더
+  //   { matched: true, kind: 'message', text: '...' } → caller 가 텍스트만 표시
+  //   { matched: true, kind: 'choices', candidates: [...] }  → 후보 여러 명
+  async function tryCancelBooking(text) {
+    if (_disabled()) return null;
+    const target = _extractCancelTarget(text);
+    if (!target) return null;
+
+    // 1) 고객 검색 — 전체 리스트 받아서 FE 필터 (BE 에 q 파라미터 없음)
+    let customers;
+    try {
+      const r = await _fetchJson('/customers?limit=500');
+      customers = (r && r.items) || [];
+    } catch (_e) {
+      void _e;
+      return { matched: true, kind: 'message', text: '⚠️ 고객 정보 조회 실패. 잠시 후 다시.' };
+    }
+
+    const scored = customers
+      .map((c) => ({ c, score: _nameMatches(target.name, c.name || '') }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (scored.length === 0) {
+      return { matched: true, kind: 'message', text: `🔍 ${target.name}님 정보를 찾지 못했어요. 이름 다시 확인해 주세요.` };
+    }
+
+    // 동점 후보 여러 명이면 선택 안내
+    const topScore = scored[0].score;
+    const tied = scored.filter((x) => x.score === topScore);
+    if (tied.length > 1 && topScore < 100) {
+      const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
+      return {
+        matched: true,
+        kind: 'message',
+        text: `🔍 비슷한 이름 ${tied.length}명 있어요. 정확한 이름·전화번호로 다시 알려주세요:\n${lines.join('\n')}`,
+      };
+    }
+
+    const customer = tied[0].c; // 최고 점수 1명
+
+    // 2) 미래 예약 조회
+    const nowISO = new Date().toISOString();
+    const futureEndISO = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(); // 90일 안
+    let bookings;
+    try {
+      const r = await _fetchJson(`/bookings?from=${encodeURIComponent(nowISO)}&to=${encodeURIComponent(futureEndISO)}`);
+      bookings = ((r && r.items) || []).filter((b) =>
+        b.customer_id === customer.id || (b.customer_name && b.customer_name === customer.name)
+      ).filter((b) => b.status !== 'cancelled');
+    } catch (_e) {
+      void _e;
+      return { matched: true, kind: 'message', text: '⚠️ 예약 정보 조회 실패. 잠시 후 다시.' };
+    }
+
+    if (bookings.length === 0) {
+      return { matched: true, kind: 'message', text: `📅 ${customer.name}님의 예정된 예약이 없어요.` };
+    }
+
+    if (bookings.length > 1) {
+      const lines = bookings.slice(0, 5).map((b) => `· ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''}`);
+      return {
+        matched: true,
+        kind: 'message',
+        text: `📅 ${customer.name}님 예정 예약 ${bookings.length}건. 어느 예약 취소할지 시간 알려주세요:\n${lines.join('\n')}`,
+      };
+    }
+
+    // 정확히 1건 → cancel_booking action 객체 생성 → caller 가 카드로 렌더
+    const b = bookings[0];
+    const action = {
+      kind: 'cancel_booking',
+      payload: {
+        booking_id: b.id,
+        customer_id: customer.id,
+        customer_name: customer.name,
+      },
+      confirmation_text: `${customer.name}님 ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''} 예약 취소할까요?`,
+      confidence: 0.95,
+      _source_question: text,
+      _ai_original: { booking_id: b.id, customer_name: customer.name },
+    };
+    _bumpStats('cancel_booking');
+    return { matched: true, kind: 'card', action, customer, booking: b };
+  }
+
   // ─── public API ─────────────────────────────────────────
   window.AssistantIntent = {
     classifyObvious,
     findAsyncRule,
     execAsyncRule,
+    tryCancelBooking,
     // 디버깅용 — 현재 통계 조회
     getStats: () => ({ ...window[STATS_KEY], byType: { ...window[STATS_KEY].byType } }),
     // 디버깅용 — 통계 리셋
