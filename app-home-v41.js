@@ -88,15 +88,17 @@
   }
 
   // [v6] 이번달 AI 예상 매출 — /revenue/summary 의 projected_total 사용
+  // [2026-05-20] 실패/미응답 = null (로딩 중), 성공 = 숫자(0 포함). FE 가 "집계중.." 과 "0원" 구분.
   async function _fetchProjectedTotal() {
     const headers = _authHeaders();
-    if (!window.API || !headers) return 0;
+    if (!window.API || !headers) return null;
     try {
       const res = await fetch(window.API + '/revenue/summary?period=month', { headers });
-      if (!res.ok) return 0;
+      if (!res.ok) return null;
       const data = await res.json();
-      return Number(data.projected_total) || 0;
-    } catch (_e) { return 0; }
+      const n = Number(data.projected_total);
+      return Number.isFinite(n) ? n : null;
+    } catch (_e) { return null; }
   }
 
   // [v6] 카운트업 (easeOutCubic 0.8s) — 히어로 / stat 값
@@ -1045,7 +1047,10 @@
   function _renderHeroV5(brief) {
     brief = brief || {};
     const monthTotal = Number(brief.this_month_total) || 0;
-    const projected = Number(brief._projected_total) || 0;  // /revenue/summary 에서 머지됨
+    // [2026-05-20] projected: null = 로딩 중("집계중..") / 숫자 = 정상 표시(0원 가능).
+    const projectedRaw = brief._projected_total;
+    const projected = projectedRaw == null ? null
+      : (Number.isFinite(Number(projectedRaw)) ? Number(projectedRaw) : null);
     // [v202] BE today_bookings 가 비면 window.Booking.list() 메모리 캐시로 폴백
     let bk = Array.isArray(brief.today_bookings) ? brief.today_bookings : [];
     if (!bk.length && window.Booking && typeof window.Booking.list === 'function') {
@@ -1110,7 +1115,7 @@
           </div>
           <div class="hv5-hero-stat">
             <div class="hv5-hero-stat-l">이번달 AI 예상 매출</div>
-            <div class="hv5-hero-stat-v" data-hv-count="${projected}">${projected > 0 ? formatEstimate(projected) : '집계 중…'}</div>
+            <div class="hv5-hero-stat-v" data-hv-count="${projected == null ? 0 : projected}">${projected == null ? '집계 중…' : formatEstimate(projected)}</div>
           </div>
         </div>
       </div>
