@@ -42,12 +42,16 @@
     'auto':     'auto',
     'film':     'film',
     'bg':       'bg',
+    'detail':   'beauty',
+    'retouch':  'brush',
+    'save':     'export',
     'crop':     'export',
     'tune':     'tune',
     'relight':  'relight',
     'hair':     'beauty',
     'export':   'export',
     'text':     'text',
+    'brand':    'brand',
     'brush':    'brush',
     'template': 'template',
     'pro':      'pro',
@@ -57,11 +61,15 @@
     film: '스타일',
     relight: '조명',
     hair: '헤어',
+    detail: '디테일',
+    retouch: '리터치',
+    save: '저장',
     bg: '누끼',
     crop: '자르기',
     tune: '보정',
     export: '사이즈',
     text: '텍스트',
+    brand: '브랜드',
     brush: '잡티',
     template: '프레임',
     pro: '프리셋',
@@ -107,11 +115,11 @@
   function _buildMediumCards() {
     return `<div class="pe-card-grid-m">
         <button type="button" class="pe-card-m" data-pev6-card="bg">${_ic('eraser')}<div class="pe-title">누끼</div></button>
-        <button type="button" class="pe-card-m" data-pev6-card="crop">${_ic('crop')}<div class="pe-title">자르기</div></button>
-        <button type="button" class="pe-card-m" data-pev6-card="export">
-          <span class="pe-badge hot">Hot</span>${_ic('resize')}<div class="pe-title">사이즈</div>
-        </button>
+        <button type="button" class="pe-card-m" data-pev6-card="detail">${_ic('adjustments')}<div class="pe-title">디테일</div></button>
         <button type="button" class="pe-card-m" data-pev6-card="text">${_ic('typography')}<div class="pe-title">텍스트</div></button>
+        <button type="button" class="pe-card-m" data-pev6-card="save">
+          <span class="pe-badge hot">Hot</span>${_ic('resize')}<div class="pe-title">저장</div>
+        </button>
       </div>`;
   }
   function _toolItem(card, icon, label, badgeAi) {
@@ -126,12 +134,12 @@
       <div class="pe-card-grid-tools">
         ${_toolItem('tune', 'adjustments', '보정', true)}
         ${_toolItem('relight', 'sparkles', '조명', false)}
-        ${_toolItem('brush', 'droplet', '잡티', false)}
-        ${_toolItem('text', 'sticker', '스티커', false)}
+        ${_toolItem('retouch', 'droplet', '리터치', false)}
         ${_toolItem('template', 'frame', '프레임', false)}
         ${_toolItem('ba', 'arrows-lr', 'B/A', false)}
         ${_toolItem('hair', 'stack', '헤어', false)}
-        ${_toolItem('pro', 'bookmark', '프리셋', false)}
+        ${_toolItem('brand', 'sticker', '브랜드', false)}
+        ${_toolItem('pro', 'bookmark', '고급', false)}
       </div>`;
   }
   function _buildFav() {
