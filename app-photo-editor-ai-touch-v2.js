@@ -171,7 +171,7 @@
     btn.className = 'pe-action-btn pe-ai-v2-btn';
     btn.dataset.peAiV2 = '1';
     btn.style.cssText = 'margin-top:8px;background:var(--surface-2,#F7F8FA);color:var(--text,#111);border:1px solid var(--border,#E5E7EB);font-weight:600;width:100%;';
-    btn.textContent = '정밀 얼굴 보정 (느림)';
+    btn.textContent = '정밀 AI 보정 (처음만 느림)';
     panel.appendChild(btn);
     btn.addEventListener('click', () => _runOnEditor(btn));
   }

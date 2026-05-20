@@ -179,14 +179,7 @@
 
     let aiHtml = '';
     if (aiItems.length) {
-      aiHtml = `
-        <div class="pe-group-label" style="color:#7f7f87;margin-top:18px;">AI 보정 (준비 중)</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          ${aiItems.map(t => `<button type="button" data-pe-ai-coming="1"
-            style="padding:9px 10px;background:rgba(241,128,145,0.08);color:#f9c4ce;border:1px dashed rgba(241,128,145,0.30);border-radius:10px;font-size:11px;line-height:1.3;cursor:not-allowed;text-align:left;">${esc(t)}</button>`).join('')}
-        </div>
-        <div class="pe-hint" style="color:#7f7f87;">AI 보정은 컬·볼륨·결합부 등 픽셀 보정 불가 항목입니다. 카드 발급 후 Ideogram API 연동 예정.</div>
-      `;
+      aiHtml = '<div class="pe-hint" style="color:#7f7f87;margin-top:14px;">느린 AI 기능은 준비된 것만 별도 버튼으로 보여줘요. 이 화면은 즉시 보정만 다룹니다.</div>';
     }
 
     return `${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
@@ -253,6 +246,7 @@
     try { data = ctx.getImageData(0, 0, w, h); }
     catch (_e) { return; }
     const d = data.data;
+    const SmartMask = window.PhotoEditorSmartMask;
 
     const skinK     = (b.skin || 0) / 100;
     const redK      = (b.redness || 0) / 100;
@@ -296,55 +290,63 @@
       const isSkin = !edgeBg && r > 82 && r > g + 4 && g > bl - 6 && (r - bl) > 18 && (r - bl) < 105 && lum0 > 68 && lum0 < 238;
       const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
       const hairLike = !edgeBg && subjectW > 0.5 && !isSkin && lum0 > 18 && lum0 < 205 && ((hairSat0 < 88 && lum0 < 170) || lum0 < 92 || (bl < 80 && hairSat0 < 120));
+      const mask = SmartMask && SmartMask.classify ? SmartMask.classify({
+        r, g, b: bl, lum: lum0, maxCh: maxCh0, minCh: minCh0,
+        x, y, w, h, isSkinFallback: isSkin, hairFallback: hairLike,
+      }) : null;
+      const skinW = mask ? mask.skin : (isSkin ? 1 : 0);
+      const hairW = mask ? mask.hair : (hairLike ? 1 : 0);
+      const eyeW = mask ? mask.eye : 1;
+      const nailW = mask ? mask.nail : 1;
+      const redW = mask ? mask.redness : (isReddish ? 1 : 0);
 
-      if (eyeRedK > 0 && lum0 > 105 && r > g + 8 && r > bl + 4 && Math.max(g, bl) > 70) {
-        d[i]   = _clamp(d[i]   - 34 * eyeRedK);
-        d[i+1] = _clamp(d[i+1] +  7 * eyeRedK);
-        d[i+2] = _clamp(d[i+2] + 10 * eyeRedK);
+      if (eyeRedK > 0 && eyeW > 0.12 && lum0 > 105 && r > g + 8 && r > bl + 4 && Math.max(g, bl) > 70) {
+        d[i]   = _clamp(d[i]   - 34 * eyeRedK * eyeW);
+        d[i+1] = _clamp(d[i+1] +  7 * eyeRedK * eyeW);
+        d[i+2] = _clamp(d[i+2] + 10 * eyeRedK * eyeW);
       }
-      if (irisK > 0 && lum0 > 18 && lum0 < 120 && !isSkin) {
-        d[i]   = _clamp(lum0 + (d[i]   - lum0) * (1 + 0.45 * irisK));
-        d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * (1 + 0.45 * irisK));
-        d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * (1 + 0.45 * irisK));
+      if (irisK > 0 && eyeW > 0.18 && lum0 > 18 && lum0 < 120 && skinW < 0.5) {
+        d[i]   = _clamp(lum0 + (d[i]   - lum0) * (1 + 0.45 * irisK * eyeW));
+        d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * (1 + 0.45 * irisK * eyeW));
+        d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * (1 + 0.45 * irisK * eyeW));
       }
-      if (catchK > 0 && lum0 > 168 && Math.max(r, g, bl) - Math.min(r, g, bl) < 55) {
-        d[i]   = _clamp(d[i]   + 12 * catchK);
-        d[i+1] = _clamp(d[i+1] + 12 * catchK);
-        d[i+2] = _clamp(d[i+2] + 14 * catchK);
+      if (catchK > 0 && eyeW > 0.08 && lum0 > 168 && Math.max(r, g, bl) - Math.min(r, g, bl) < 55) {
+        d[i]   = _clamp(d[i]   + 12 * catchK * eyeW);
+        d[i+1] = _clamp(d[i+1] + 12 * catchK * eyeW);
+        d[i+2] = _clamp(d[i+2] + 14 * catchK * eyeW);
       }
-      if (redK > 0 && isReddish) {
-        d[i]   = _clamp(d[i]   - 30 * redK);
-        d[i+1] = _clamp(d[i+1] +  4 * redK);
-        d[i+2] = _clamp(d[i+2] +  5 * redK);
+      if (redK > 0 && redW > 0.18) {
+        d[i]   = _clamp(d[i]   - 30 * redK * redW);
+        d[i+1] = _clamp(d[i+1] +  4 * redK * redW);
+        d[i+2] = _clamp(d[i+2] +  5 * redK * redW);
       }
       if (yelK > 0) {
         const isYellowCast = (r - bl) > 15 && (r - bl) < 90 && r >= g && (g - bl) > 8 && r > 80;
-        if (isYellowCast) {
-          d[i]   = _clamp(d[i]   -  4 * yelK);   // R 살짝 ↓
-          d[i+1] = _clamp(d[i+1] - 15 * yelK);   // G ↓↓ (노란 빠지게)
-          d[i+2] = _clamp(d[i+2] + 12 * yelK);   // B ↑↑ (cool 보정)
+        if (isYellowCast && skinW > 0.12) {
+          d[i]   = _clamp(d[i]   -  4 * yelK * skinW);   // R 살짝 ↓
+          d[i+1] = _clamp(d[i+1] - 15 * yelK * skinW);   // G ↓↓ (노란 빠지게)
+          d[i+2] = _clamp(d[i+2] + 12 * yelK * skinW);   // B ↑↑ (cool 보정)
         }
       }
-      if (isSkin) {
+      if (skinW > 0.12) {
         if (skinK > 0) {
-          d[i]   = _clamp(d[i]   + 4 * skinK);
-          d[i+1] = _clamp(d[i+1] + 2 * skinK);
-          d[i+2] = _clamp(d[i+2] + 1 * skinK);
+          d[i]   = _clamp(d[i]   + 4 * skinK * skinW);
+          d[i+1] = _clamp(d[i+1] + 2 * skinK * skinW);
+          d[i+2] = _clamp(d[i+2] + 1 * skinK * skinW);
         }
         if (handK > 0) {
-          d[i]   = _clamp(d[i]   + 3 * handK);
-          d[i+1] = _clamp(d[i+1] + 1.5 * handK);
-          d[i+2] = _clamp(d[i+2] - 1 * handK);
+          d[i]   = _clamp(d[i]   + 3 * handK * skinW);
+          d[i+1] = _clamp(d[i+1] + 1.5 * handK * skinW);
+          d[i+2] = _clamp(d[i+2] - 1 * handK * skinW);
         }
-        // 푸른기 완화 — 피부인데 B>R+10 cold cast → 따뜻하게.
         if (coolK > 0 && (bl > r - 10) && (bl - g) > 5) {
-          d[i]   = _clamp(d[i]   + 6 * coolK);
-          d[i+1] = _clamp(d[i+1] + 2 * coolK);
-          d[i+2] = _clamp(d[i+2] - 8 * coolK);
+          d[i]   = _clamp(d[i]   + 6 * coolK * skinW);
+          d[i+1] = _clamp(d[i+1] + 2 * coolK * skinW);
+          d[i+2] = _clamp(d[i+2] - 8 * coolK * skinW);
         }
         // 결 정리 — 피부 영역 light blur 혼합 (최대 40%).
         if (txK > 0 && blurD) {
-          const mix = 0.4 * txK;
+          const mix = 0.4 * txK * skinW;
           d[i]   = _clamp(d[i]   * (1 - mix) + blurD[i]   * mix);
           d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix);
           d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix);
@@ -353,7 +355,7 @@
           const lum  = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
           const blum = (blurD[i] * 0.299 + blurD[i+1] * 0.587 + blurD[i+2] * 0.114);
           if (Math.abs(lum - blum) > 12) {
-            const mix = 0.6 * blemishK;
+            const mix = 0.6 * blemishK * skinW;
             d[i]   = _clamp(d[i]   * (1 - mix) + blurD[i]   * mix);
             d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix);
             d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix);
@@ -363,71 +365,71 @@
           const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
           if (lum < 130) {
             const w2 = (130 - lum) / 130;
-            d[i]   = _clamp(d[i]   + 12 * eyeShK * w2);
-            d[i+1] = _clamp(d[i+1] + 10 * eyeShK * w2);
-            d[i+2] = _clamp(d[i+2] +  8 * eyeShK * w2);
+            d[i]   = _clamp(d[i]   + 12 * eyeShK * w2 * skinW);
+            d[i+1] = _clamp(d[i+1] + 10 * eyeShK * w2 * skinW);
+            d[i+2] = _clamp(d[i+2] +  8 * eyeShK * w2 * skinW);
           }
         }
         if (underK > 0 && lum0 < 145) {
           const w3 = (145 - lum0) / 145;
-          d[i]   = _clamp(d[i]   + 10 * underK * w3);
-          d[i+1] = _clamp(d[i+1] +  9 * underK * w3);
-          d[i+2] = _clamp(d[i+2] +  7 * underK * w3);
+          d[i]   = _clamp(d[i]   + 10 * underK * w3 * skinW);
+          d[i+1] = _clamp(d[i+1] +  9 * underK * w3 * skinW);
+          d[i+2] = _clamp(d[i+2] +  7 * underK * w3 * skinW);
         }
       }
-      if (hairK > 0 && hairLike) {
+      if (hairK > 0 && hairW > 0.18) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
         if (lum > 60 && lum < 200 && Math.abs(d[i] - d[i+1]) < 45 && Math.abs(d[i+1] - d[i+2]) < 45) {
           const specBoost = lum > 130 ? (lum - 130) / 70 * 0.6 + 1 : 1;  // 1.0 ~ 1.6
-          d[i]   = _clamp(d[i]   + 10 * hairK * specBoost);
-          d[i+1] = _clamp(d[i+1] + 14 * hairK * specBoost);  // G 가중치 ↑ (자연 윤기색)
-          d[i+2] = _clamp(d[i+2] +  6 * hairK * specBoost);
+          d[i]   = _clamp(d[i]   + 10 * hairK * specBoost * hairW);
+          d[i+1] = _clamp(d[i+1] + 14 * hairK * specBoost * hairW);  // G 가중치 ↑ (자연 윤기색)
+          d[i+2] = _clamp(d[i+2] +  6 * hairK * specBoost * hairW);
         }
       }
-      if (hairVolK > 0 && hairLike) {
-        const lift = lum0 > 108 ? 16 * hairVolK : -10 * hairVolK;
-        const contrast = 1 + 0.34 * hairVolK;
+      if (hairVolK > 0 && hairW > 0.18) {
+        const lift = (lum0 > 108 ? 16 * hairVolK : -10 * hairVolK) * hairW;
+        const contrast = 1 + 0.34 * hairVolK * hairW;
         d[i]   = _clamp(lum0 + (d[i]   - lum0) * contrast + lift);
         d[i+1] = _clamp(lum0 + (d[i+1] - lum0) * contrast + lift);
         d[i+2] = _clamp(lum0 + (d[i+2] - lum0) * contrast + lift);
       }
-      if (hairEndK > 0 && hairLike && blurD) {
-        const mix = 0.38 * hairEndK;
-        const softenLift = lum0 < 90 ? 4 * hairEndK : 0;
+      if (hairEndK > 0 && hairW > 0.18 && blurD) {
+        const mix = 0.38 * hairEndK * hairW;
+        const softenLift = lum0 < 90 ? 4 * hairEndK * hairW : 0;
         d[i]   = _clamp(d[i]   * (1 - mix) + blurD[i]   * mix + softenLift);
         d[i+1] = _clamp(d[i+1] * (1 - mix) + blurD[i+1] * mix + softenLift);
         d[i+2] = _clamp(d[i+2] * (1 - mix) + blurD[i+2] * mix + softenLift);
       }
       // 모발 색감 (양방향)
-      if (hairColK !== 0 && hairLike) {
+      if (hairColK !== 0 && hairW > 0.18) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
         if (lum < 160) {
-          d[i]   = _clamp(d[i]   + 10 * hairColK);
-          d[i+1] = _clamp(d[i+1] +  3 * hairColK);
-          d[i+2] = _clamp(d[i+2] - 10 * hairColK);
+          d[i]   = _clamp(d[i]   + 10 * hairColK * hairW);
+          d[i+1] = _clamp(d[i+1] +  3 * hairColK * hairW);
+          d[i+2] = _clamp(d[i+2] - 10 * hairColK * hairW);
         }
       }
       // [v206 2026-05-19] 염색 컬러 강조 — Agent 분석 반영: 채도 배수 ×2 + 색 있는 영역만
       //   기존: lum<160 전부 가산 0.4 — 회색조도 영향 받아 부자연.
       //   개선: 채도(max-min) 있는 픽셀만 + 배수 ×2 (밝은 핑크·라벤더 염색까지 강조)
-      if (hairPopK > 0 && hairLike) {
+      if (hairPopK > 0 && hairW > 0.18) {
         const maxCh = Math.max(r, g, bl), minCh = Math.min(r, g, bl);
         const sat0 = maxCh - minCh;
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
         if (sat0 > 15 && lum < 180) {
-          const k = 0.85 * hairPopK;  // 0.4 → 0.85 (2배 이상)
+          const k = 0.85 * hairPopK * hairW;  // 0.4 → 0.85 (2배 이상)
           d[i]   = _clamp(r  + (r  - lum) * k);
           d[i+1] = _clamp(g  + (g  - lum) * k);
           d[i+2] = _clamp(bl + (bl - lum) * k);
         }
       }
       // 네일 광택
-      if (nailK > 0) {
+      if (nailK > 0 && nailW > 0.12) {
         const lum = (d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114);
         if (lum > 180) {
-          d[i]   = _clamp(d[i]   + 8 * nailK);
-          d[i+1] = _clamp(d[i+1] + 8 * nailK);
-          d[i+2] = _clamp(d[i+2] + 8 * nailK);
+          d[i]   = _clamp(d[i]   + 8 * nailK * nailW);
+          d[i+1] = _clamp(d[i+1] + 8 * nailK * nailW);
+          d[i+2] = _clamp(d[i+2] + 8 * nailK * nailW);
         }
       }
       // [v202] 입술 발색 — 붉은 hue (R > G+15 AND R > B+15) 마스크에 채도 ↑
@@ -440,31 +442,30 @@
         }
       }
       // [v202] 아이 색감 — 어두운 영역 (lum<90) 채도 ↑ (아이라인·아이섀도)
-      if (eyeK > 0) {
+      if (eyeK > 0 && eyeW > 0.12) {
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
         if (lum < 90) {
-          d[i]   = _clamp(d[i]   + (r  - lum) * 0.5 * eyeK);
-          d[i+1] = _clamp(d[i+1] + (g  - lum) * 0.5 * eyeK);
-          d[i+2] = _clamp(d[i+2] + (bl - lum) * 0.5 * eyeK);
+          d[i]   = _clamp(d[i]   + (r  - lum) * 0.5 * eyeK * eyeW);
+          d[i+1] = _clamp(d[i+1] + (g  - lum) * 0.5 * eyeK * eyeW);
+          d[i+2] = _clamp(d[i+2] + (bl - lum) * 0.5 * eyeK * eyeW);
         }
       }
       // [v202] 두피 풍성감 — 모발 영역(어두운+회색조) 가산 + 주변 명도 ↑로 풍성함 fake
-      if (scalpK > 0 && hairLike) {
+      if (scalpK > 0 && hairW > 0.18) {
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
         if (lum < 100 && Math.abs(r - g) < 30 && Math.abs(g - bl) < 30) {
-          d[i]   = _clamp(d[i]   + 10 * scalpK);
-          d[i+1] = _clamp(d[i+1] + 10 * scalpK);
-          d[i+2] = _clamp(d[i+2] +  6 * scalpK);
+          d[i]   = _clamp(d[i]   + 10 * scalpK * hairW);
+          d[i+1] = _clamp(d[i+1] + 10 * scalpK * hairW);
+          d[i+2] = _clamp(d[i+2] +  6 * scalpK * hairW);
         }
       }
       // [v202] 바디 잔털 시각화 ↓ — 피부 영역 + 어두운 픽셀(잔털) 명도 ↑로 톤 평균
       if (armK > 0) {
-        const isSkinHere = isSkin;
         const lum = (r * 0.299 + g * 0.587 + bl * 0.114);
-        if (isSkinHere && lum < 130) {
-          d[i]   = _clamp(d[i]   + 8 * armK);
-          d[i+1] = _clamp(d[i+1] + 7 * armK);
-          d[i+2] = _clamp(d[i+2] + 5 * armK);
+        if (skinW > 0.12 && lum < 130) {
+          d[i]   = _clamp(d[i]   + 8 * armK * skinW);
+          d[i+1] = _clamp(d[i+1] + 7 * armK * skinW);
+          d[i+2] = _clamp(d[i+2] + 5 * armK * skinW);
         }
       }
     }

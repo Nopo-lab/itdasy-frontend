@@ -158,12 +158,14 @@ async function main() {
   }
   const templateAudit = await runTemplateAudit(page, samples[0].url);
   await page.evaluate(async sample => window.__photoQaPreview(sample), samples[0]);
-  const screenshot = path.join(OUT_DIR, 'photo-editor-v234-studio.png');
+  const build = await page.evaluate(() => window.APP_BUILD || window.__LATEST_BUILD__ || 'local');
+  const safeBuild = String(build).replace(/[^\w.-]+/g, '-').slice(0, 80);
+  const screenshot = path.join(OUT_DIR, `photo-editor-${safeBuild}.png`);
   await page.screenshot({ path: screenshot, fullPage: false });
   await browser.close();
 
   const report = {
-    build: '20260519-v234-studio-editor',
+    build,
     checkedAt: new Date().toISOString(),
     source: 'Wikimedia Commons + LoremFlickr 공개 키워드 사진을 임시 data URL 로 테스트',
     sampleCount: samples.length,
@@ -211,7 +213,7 @@ function countBy(list, key) {
 
 async function installPageHelpers(page) {
   await page.addInitScript(() => {
-    window.APP_BUILD = '20260519-v234-studio-editor';
+    window.APP_BUILD = window.APP_BUILD || 'qa-preload';
     window.__photoQaRun = async function (sample, templateId) {
       const PE = window.PhotoEditor;
       PE.open({ src: sample.url, shopName: '잇데이 QA 살롱', initial_tab: 'auto' });

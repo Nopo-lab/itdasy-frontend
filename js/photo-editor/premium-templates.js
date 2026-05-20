@@ -162,8 +162,14 @@
 
   function _drawCard(ctx, w, h, d) {
     const dark = d.type === 'cardGold' || d.type === 'cardDark';
-    ctx.fillStyle = dark ? PAL.ink : PAL.paper;
+    const softBg = d.type === 'cardSoft' ? '#f1d8dd' : d.type === 'cardNature' ? '#e5eadf' : '#efe6d9';
+    ctx.fillStyle = dark ? PAL.ink : softBg;
     ctx.fillRect(0, 0, w, h);
+    if (!dark) {
+      ctx.fillStyle = 'rgba(17,18,23,0.055)';
+      ctx.fillRect(0, h * 0.78, w, h * 0.22);
+      _frame(ctx, w, h, 'rgba(17,18,23,0.16)');
+    }
     if (d.type === 'cardNature') _natureLine(ctx, w, h);
     if (d.type === 'cardGold') _frame(ctx, w, h, PAL.copper);
     if (d.type === 'cardSoft') _panel(ctx, w * 0.16, h * 0.34, w * 0.68, h * 0.28, PAL.cream, 24);

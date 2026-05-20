@@ -57,14 +57,14 @@
     'pro':      'pro',
   };
   const CARD_LABELS = {
-    auto: 'AI 자동',
-    film: '스타일',
+    auto: '빠른 자동보정',
+    film: '톤·필터',
     relight: '조명',
-    hair: '헤어',
+    hair: '헤어 디테일',
     detail: '디테일',
     retouch: '리터치',
     save: '저장',
-    bg: '누끼',
+    bg: '배경·누끼',
     crop: '자르기',
     tune: '보정',
     export: '사이즈',
@@ -99,22 +99,22 @@
       </div>`;
   }
   function _buildLargeCards() {
-    return `<div class="pe-sec-hd">한 번에 끝 · AI</div>
+    return `<div class="pe-sec-hd">빠르게 끝내기</div>
       <div class="pe-card-grid-l">
         <button type="button" class="pe-card-l" data-pev6-card="auto">
-          <span class="pe-badge ai" style="top:10px;right:10px">AI</span>
+          <span class="pe-badge ai" style="top:10px;right:10px">즉시</span>
           ${_ic('wand')}
-          <div><div class="pe-title">AI 자동</div><div class="pe-sub">밝기 · 컬러 · 잡티</div></div>
+          <div><div class="pe-title">빠른 자동보정</div><div class="pe-sub">밝기 · 컬러 · 잡티</div></div>
         </button>
         <button type="button" class="pe-card-l" data-pev6-card="film">
           ${_ic('sparkles')}
-          <div><div class="pe-title">스타일</div><div class="pe-sub">필터 · 네일샷 통합</div></div>
+          <div><div class="pe-title">톤·필터</div><div class="pe-sub">살롱톤 · 네일샷</div></div>
         </button>
       </div>`;
   }
   function _buildMediumCards() {
     return `<div class="pe-card-grid-m">
-        <button type="button" class="pe-card-m" data-pev6-card="bg">${_ic('eraser')}<div class="pe-title">누끼</div></button>
+        <button type="button" class="pe-card-m" data-pev6-card="bg">${_ic('eraser')}<div class="pe-title">배경·누끼</div></button>
         <button type="button" class="pe-card-m" data-pev6-card="detail">${_ic('adjustments')}<div class="pe-title">디테일</div></button>
         <button type="button" class="pe-card-m" data-pev6-card="text">${_ic('typography')}<div class="pe-title">텍스트</div></button>
         <button type="button" class="pe-card-m" data-pev6-card="save">
@@ -157,7 +157,7 @@
       </div>
       <button type="button" class="pe-alert" data-pev6-card="auto">
         <span class="pe-alert-dot"></span>
-        <span class="pe-alert-msg">AI 보정 한번에 끝 <b>평균 5초</b></span>
+        <span class="pe-alert-msg">빠른 보정은 즉시 · 정밀 AI는 느림</span>
         <span class="pe-alert-arr">›</span>
       </button>`;
   }
