@@ -216,12 +216,35 @@
       </div>`;
   }
 
+  // [2026-05-20] 톤별 미리보기 멘트 — 카드 클릭 시 펼쳐서 보여줌 (실제 DM 응답 분위기 체감용)
+  // 4가지 일상 시나리오 (인사 / 예약 가능 / 가격 문의 / 영업 외)
+  const _TONE_PREVIEW = {
+    friendly: [
+      { ctx: '인사',        msg: '안녕하세요! 문의 주셔서 감사해요 😊' },
+      { ctx: '예약 가능',   msg: '네! 그 시간 가능해요~ 예약 도와드릴게요!' },
+      { ctx: '가격 문의',   msg: '시술 종류마다 달라요! 어떤 거 생각하세요?' },
+      { ctx: '영업 외',     msg: '지금은 영업 시간이 아니에요~ 내일 답장 드릴게요!' },
+    ],
+    professional: [
+      { ctx: '인사',        msg: '안녕하세요. 문의 주셔서 감사합니다.' },
+      { ctx: '예약 가능',   msg: '해당 시간 예약 가능합니다. 예약 도와드릴까요?' },
+      { ctx: '가격 문의',   msg: '시술별 가격은 상이합니다. 원하시는 시술 알려주시면 안내해 드리겠습니다.' },
+      { ctx: '영업 외',     msg: '현재 영업시간이 아닙니다. 영업 시작 시 답변 드리겠습니다.' },
+    ],
+    cute: [
+      { ctx: '인사',        msg: '안녕하세요~! 문의 너무 감사해요 💕' },
+      { ctx: '예약 가능',   msg: '네네 가능해요!! 예약 잡아드릴게요 ✨' },
+      { ctx: '가격 문의',   msg: '시술마다 달라요~! 어떤 시술 받고싶으세요? 🤔' },
+      { ctx: '영업 외',     msg: '지금은 영업 시간이 아니에요 ㅠㅠ 내일 꼭 답장 드릴게요!' },
+    ],
+  };
+
   function _renderTone(settings) {
     const tone = settings.tone || 'friendly';
     const cards = [
-      { id: 'friendly',     name: '친근',   sample: '"네! 예약 가능해요~"' },
-      { id: 'professional', name: '정중',   sample: '"안녕하세요. 가능합니다."' },
-      { id: 'cute',         name: '귀여움', sample: '"네네 가능해요!"' },
+      { id: 'friendly',     name: '친근',   short: '"네! 예약 가능해요~"' },
+      { id: 'professional', name: '정중',   short: '"안녕하세요. 가능합니다."' },
+      { id: 'cute',         name: '귀여움', short: '"네네 가능해요!"' },
     ];
     return `
       <div class="dm-section">
@@ -233,11 +256,38 @@
                 <i class="ph-duotone ph-question" style="font-size:18px" aria-hidden="true"></i>
               </div>
               <div class="dm-tone__name">${c.name}</div>
-              <div class="dm-tone__sample">${c.sample}</div>
+              <div class="dm-tone__sample">${c.short}</div>
             </button>
           `).join('')}
         </div>
+        <div class="dm-tone-preview" id="dmTonePreview" data-current-tone="${tone}">
+          ${_renderTonePreview(tone)}
+        </div>
       </div>`;
+  }
+
+  // [2026-05-20] 선택된 톤의 4가지 시나리오 멘트를 말풍선으로 렌더
+  function _renderTonePreview(tone) {
+    const items = _TONE_PREVIEW[tone] || _TONE_PREVIEW.friendly;
+    return `
+      <div style="margin-top:10px;padding:12px;background:var(--surface-2,#f5f6f8);border-radius:12px;">
+        <div style="font-size:11px;color:var(--text-subtle);font-weight:600;margin-bottom:8px;">
+          ✨ 실제 DM 응답 미리보기
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${items.map(it => `
+            <div style="display:flex;align-items:flex-start;gap:8px;">
+              <div style="font-size:10px;color:var(--text-subtle);font-weight:600;min-width:54px;padding-top:4px;">
+                ${_esc(it.ctx)}
+              </div>
+              <div style="flex:1;background:var(--surface,#fff);padding:8px 10px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.5;color:var(--text);border:0.5px solid var(--border);">
+                ${_esc(it.msg)}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
   }
 
   function _renderHours(settings) {
@@ -768,6 +818,14 @@
         const tone = card.dataset.tone;
         sheet.querySelectorAll('.dm-tone__card').forEach(c => c.classList.toggle('is-on', c === card));
         _saveSettings({ tone });
+        // [2026-05-20] 톤 변경 시 미리보기 4종 멘트도 즉시 갱신
+        try {
+          const prev = sheet.querySelector('#dmTonePreview');
+          if (prev && prev.dataset.currentTone !== tone) {
+            prev.innerHTML = _renderTonePreview(tone);
+            prev.dataset.currentTone = tone;
+          }
+        } catch (_e) { void _e; }
         _haptic();
       });
     });
