@@ -1697,7 +1697,22 @@ window.addEventListener('load', function() {
       }
     }, 100);
   } else {
+    // [2026-05-21] 토큰 없음 — 로그인 화면 강제 정상화.
+    // 인라인 스크립트(index.html L591) 가 1차로 처리하지만, 다음 경로에선 잔존 가능:
+    //  · 로그아웃 reload 직후 SW 캐시 stale 한 index.html 인라인 스크립트 실행 누락
+    //  · 어떤 모듈이 init 중 lockOverlay 에 'hidden' 잘못 추가
+    //  · appLoadingOverlay 가 토큰 없는 상태인데도 떠있는 경우 (백지처럼 보임)
+    // 이 분기는 getToken() 정말 null 일 때만 — 정상 로그인 경로엔 영향 없음.
     _setAuthGateLocked(true);
+    try {
+      const _ov = document.getElementById('lockOverlay');
+      if (_ov) {
+        _ov.classList.remove('hidden');
+        if (_ov.style.display === 'none') _ov.style.display = '';
+      }
+      const _lo = document.getElementById('appLoadingOverlay');
+      if (_lo) _lo.style.display = 'none';
+    } catch (_e) { /* DOM 미준비 — 무시 */ }
   }
 });
 
