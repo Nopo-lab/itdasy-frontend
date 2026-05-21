@@ -14,6 +14,7 @@
   }
 
   const _assistantCore = window.ItdasyAssistant || {};
+  const _assistantPhotoActions = window.ItdasyAssistantPhotoActions || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
     '캡션 만들어줘',
@@ -1681,107 +1682,16 @@
       try { _applyEditField(target, field, fld.value); } catch (_e) { /* ignore */ }
     });
     document.addEventListener('click', (e) => {
-      // [v178 2026-05-18] 펜딩 사진 X 버튼 → 해당 인덱스 제거
-      const pendRm = e.target.closest('[data-pending-remove]');
-      if (pendRm && document.getElementById('assistantSheet')?.contains(pendRm)) {
-        const i = parseInt(pendRm.dataset.pendingRemove, 10);
-        try { URL.revokeObjectURL(_pendingThumbs[i]); } catch (_e) { void _e; }
-        _pendingFiles.splice(i, 1);
-        _pendingThumbs.splice(i, 1);
-        _renderPending();
-        if (!_pendingFiles.length) document.getElementById('asstInput')?.focus();
-        return;
-      }
-      // 2026-04-26 픽스 — 업로드 사진 썸네일 클릭 → 라이트박스
-      const photoEl = e.target.closest('[data-asst-photo]');
-      if (photoEl && document.getElementById('asstBody')?.contains(photoEl)) {
-        const [hi, pi] = photoEl.dataset.asstPhoto.split(':').map(n => parseInt(n, 10));
-        const msg = _history[hi];
-        const photos = (msg && Array.isArray(msg.photos) && msg.photos.length)
-          ? msg.photos
-          : (msg && msg.thumb ? [msg.thumb] : []);
-        if (photos.length) _openLightbox(photos, pi || 0);
-        return;
-      }
-      // [v176 2026-05-18] 자동 보정 결과 이미지 클릭 → 라이트박스
-      const photoRes = e.target.closest('[data-asst-photo-result]');
-      if (photoRes && document.getElementById('asstBody')?.contains(photoRes)) {
-        const hi = parseInt(photoRes.dataset.asstPhotoResult, 10);
-        const msg = _history[hi];
-        if (msg && msg.photo_result && msg.photo_result.dataUrl) {
-          _openLightbox([msg.photo_result.dataUrl], 0);
-        }
-        return;
-      }
-      // [v177 2026-05-18] 사진 업로드 직후 의도 칩 (보정·인스타·전후·편집기)
-      const intentChip = e.target.closest('[data-asst-intent-chip]');
-      if (intentChip && document.getElementById('asstBody')?.contains(intentChip)) {
-        if (_sendInFlight) return;
-        const [hiStr, chipId] = intentChip.dataset.asstIntentChip.split(':');
-        const hi = parseInt(hiStr, 10);
-        const chipMsg = _history[hi];
-        const userMsg = _history[hi - 1];
-        if (!chipMsg || !Array.isArray(chipMsg.intent_chips) || !userMsg) return;
-        const chip = chipMsg.intent_chips.find(c => c.id === chipId);
-        if (!chip) return;
-        const photoUrl = userMsg.thumb || (Array.isArray(userMsg.photos) ? userMsg.photos[0] : '');
-        const photos = Array.isArray(userMsg.photos) ? userMsg.photos : (photoUrl ? [photoUrl] : []);
-        if (!photoUrl) return;
-        // user 사진 + 칩 메시지 제거 → _runChatAutoEdit 가 새 user/assistant 메시지 push
-        _history.splice(hi - 1, 2);
-        _renderHistory();
-        _runChatAutoEdit({ photoUrl, photos, question: chip.question, customerCtx: null });
-        return;
-      }
-      // [v176 2026-05-18] 자동 보정 결과 액션 버튼 (인스타·편집기·저장·다시)
-      const photoAct = e.target.closest('[data-asst-photo-act]');
-      if (photoAct && document.getElementById('asstBody')?.contains(photoAct)) {
-        const [hiStr, actId] = photoAct.dataset.asstPhotoAct.split(':');
-        const hi = parseInt(hiStr, 10);
-        const msg = _history[hi];
-        if (!msg || !msg.photo_result || !msg.photo_result.dataUrl) return;
-        const dataUrl = msg.photo_result.dataUrl;
-        const ratio = msg.photo_result.ratio || '4:5';
-        if (actId === 'instagram') {
-          if (typeof window.openInstagramPreview === 'function') {
-            // [v181] CaptionPrefill 모듈에서 가져옴 (직전 _generateChatCaption 결과)
-            let cap = '';
-            try {
-              if (window.CaptionPrefill && typeof window.CaptionPrefill.get === 'function') {
-                cap = window.CaptionPrefill.get() || '';
-              }
-            } catch (_eC) { void _eC; }
-            try { window.openInstagramPreview({ src: dataUrl, ratio, caption: cap, enableUpload: true }); }
-            catch (_e) { void _e; }
-          }
-        } else if (actId === 'editor') {
-          if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-            window.PhotoEditor.open({ src: dataUrl, initial_tab: 'tune' });
-          }
-        } else if (actId === 'save') {
-          // dataURL → 다운로드
-          try {
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = 'itdasy-' + Date.now() + '.jpg';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            if (window.showToast) window.showToast('저장 완료');
-          } catch (_e) { if (window.showToast) window.showToast('저장 실패'); }
-        } else if (actId === 'retry') {
-          // 같은 사진으로 다시 보정 — 직전 user 메시지의 photoUrl/question 재사용
-          const userMsg = _history[hi - 1];
-          if (userMsg && userMsg.thumb) {
-            const photoUrl = userMsg.thumb;
-            const photos = Array.isArray(userMsg.photos) ? userMsg.photos : [photoUrl];
-            const question = userMsg.text || '예쁘게 보정해줘';
-            // 메시지 2개(user + 결과) 제거 후 재실행
-            _history.splice(hi - 1, 2);
-            _renderHistory();
-            _runChatAutoEdit({ photoUrl, photos, question, customerCtx: null });
-          }
-        }
+      if (typeof _assistantPhotoActions.handleClick === 'function' && _assistantPhotoActions.handleClick(e, {
+        history: _history,
+        pendingFiles: _pendingFiles,
+        pendingThumbs: _pendingThumbs,
+        renderPending: _renderPending,
+        renderHistory: _renderHistory,
+        openLightbox: _openLightbox,
+        runChatAutoEdit: _runChatAutoEdit,
+        isSendInFlight: () => _sendInFlight,
+      })) {
         return;
       }
       const run = e.target.closest('[data-action-run]');
