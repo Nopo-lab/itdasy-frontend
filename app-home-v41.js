@@ -414,14 +414,14 @@
     return `
       <div class="hv-ai-label">
         <span class="hv-ai-label__icon"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i></span>
-        <span class="hv-ai-label__text"><b>AI 비서</b>가 ${total}가지 추천했어요</span>
+        <span class="hv-ai-label__text"><b>AI 잇비</b>가 ${total}가지 추천했어요</span>
         <span class="hv-ai-label__count" data-hv-counter>1 / ${total}</span>
       </div>
       <div class="hv-carousel-wrap" style="position:relative;">
         <button type="button" class="hv-carousel-nav hv-carousel-nav--prev" data-hv-nav="prev" aria-label="이전 카드">
           <i class="ph-duotone ph-caret-left" style="font-size:18px" aria-hidden="true"></i>
         </button>
-        <div class="hv-carousel" data-hv-carousel role="region" aria-label="AI 비서 추천">
+        <div class="hv-carousel" data-hv-carousel role="region" aria-label="AI 잇비 추천">
           ${items}
         </div>
         <button type="button" class="hv-carousel-nav hv-carousel-nav--next" data-hv-nav="next" aria-label="다음 카드">
@@ -1345,7 +1345,7 @@
     return `<div class="hv5-ai">
       <div class="hv5-ai-label">
         <span class="hv5-ai-pulse" aria-hidden="true"></span>
-        <span class="hv5-ai-label-t"><b>AI 비서</b> 실시간 분석</span>
+        <span class="hv5-ai-label-t"><b>AI 잇비</b> 실시간 분석</span>
         <span class="hv5-ai-label-count">${todoCnt > 0 ? todoCnt + '건 확인 필요' : '모두 정상'}</span>
       </div>
       <div class="hv5-ai-track" id="hv5AiTrack">${cardHtml}</div>

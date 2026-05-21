@@ -301,7 +301,7 @@
         _history.push({ role: 'assistant', text: '응답이 너무 늦어요. 다시 시도해 주세요.' });
         _renderHistory();
         if (typeof window.toast === 'function') {
-          window.toast('AI 비서 응답이 너무 늦어요. 다시 시도해 주세요.');
+          window.toast('AI 잇비 응답이 너무 늦어요. 다시 시도해 주세요.');
         }
       } catch (_e) { void _e; }
     }, PENDING_TIMEOUT_MS);
@@ -347,7 +347,7 @@
       if (typeof window.toast === 'function') {
         // 토스트 클릭 → 챗봇 열기. window.toast 가 클릭 콜백을 지원 안 하면 메시지만.
         try {
-          window.toast('AI 비서 답변 도착 — 탭해서 확인', { onClick: () => window.openAssistant && window.openAssistant() });
+          window.toast('AI 잇비 답변 도착 — 탭해서 확인', { onClick: () => window.openAssistant && window.openAssistant() });
         } catch (_e) {
           window.toast('AI 잇비 답변 도착 — 버튼을 눌러주세요');
         }
@@ -434,7 +434,7 @@
       <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;height:88vh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_svg('ic-bot', 22)}</span>
-          <strong style="font-size:17px;">AI 비서</strong>
+          <strong style="font-size:17px;">AI 잇비</strong>
           <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.15);color:#7C3AED;font-weight:700;">베타</span>
           <button onclick="closeAssistant()" aria-label="닫기" title="닫기" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-x', 16)}</button>
         </div>

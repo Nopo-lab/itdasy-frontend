@@ -72,7 +72,7 @@
   function ask(tab, row) {
     try {
       if (typeof window.openAssistant !== 'function') {
-        _toast('AI 비서를 불러오지 못했어요');
+        _toast('AI 잇비를 불러오지 못했어요');
         return;
       }
       const ctx = _summarizeRow(tab, row);
@@ -106,7 +106,7 @@
   function aiAction(tab, row) {
     return {
       icon: 'ic-bot',
-      label: 'AI 비서에게 묻기',
+      label: 'AI 잇비에게 묻기',
       run: async () => ask(tab, row),
     };
   }

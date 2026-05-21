@@ -42,7 +42,7 @@
       const near = n >= FREE_LIMIT * 0.9;
       const cls = near ? 'pv-quota-chip is-warn' : 'pv-quota-chip';
       const label = near ? `체험 ${n}/${FREE_LIMIT} — 멤버십 확인` : `체험 ${n}/${FREE_LIMIT}`;
-      return `<button type="button" class="${cls}" data-pv-quota-open title="잇데이 멤버십 + AI 비서 자동 분석">
+      return `<button type="button" class="${cls}" data-pv-quota-open title="잇데이 멤버십 + AI 잇비 자동 분석">
         ${_esc(label)}
         <span class="pv-quota-chip__bar"><span class="pv-quota-chip__fill" style="width:${ratio}%;"></span></span>
       </button>`;
