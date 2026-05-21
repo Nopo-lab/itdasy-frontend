@@ -116,7 +116,7 @@
           <strong style="font-size:17px;">되돌리기 (최근 30일)</strong>
           <button id="uhsClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;">${_ic('ic-x', 18)}</button>
         </div>
-        <div style="font-size:11px;color:#888;margin-bottom:10px;">챗봇이 추가/변경한 항목들. 클릭하면 되돌려요.</div>
+        <div style="font-size:11px;color:#888;margin-bottom:10px;">AI 잇비가 추가/변경한 항목들. 클릭하면 되돌려요.</div>
         <div id="uhsList" style="flex:1;overflow-y:auto;">
           <div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;">불러오는 중…</div>
         </div>

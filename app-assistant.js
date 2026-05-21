@@ -349,7 +349,7 @@
         try {
           window.toast('AI 비서 답변 도착 — 탭해서 확인', { onClick: () => window.openAssistant && window.openAssistant() });
         } catch (_e) {
-          window.toast('AI 비서 답변 도착 — 챗봇 버튼을 눌러주세요');
+          window.toast('AI 잇비 답변 도착 — 버튼을 눌러주세요');
         }
       }
     } catch (_e) { void _e; }

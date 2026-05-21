@@ -50,13 +50,13 @@
       <div id="afsCard" style="width:100%;max-width:520px;background:#fff;border-radius:20px 20px 0 0;max-height:88vh;display:flex;flex-direction:column;padding:18px 18px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_ic('ic-bot', 18)}</span>
-          <strong style="font-size:17px;">챗봇 메모</strong>
+          <strong style="font-size:17px;">AI 잇비 메모</strong>
           <span style="font-size:11px;background:#FAF5FF;color:#5B21B6;padding:2px 8px;border-radius:99px;font-weight:700;">사장님 머릿속</span>
           <button id="afsClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;">${_ic('ic-x', 18)}</button>
         </div>
         <div style="font-size:12px;color:#777;line-height:1.5;margin-bottom:12px;">
-          여기 적은 메모는 챗봇이 매번 참고해요. <span style="color:#5B21B6;font-weight:600;">"화요일 오전 예약 안 받음"</span> / <span style="color:#5B21B6;font-weight:600;">"강연준은 글루 알러지"</span> 같은 거.
-          <br>챗봇한테 <span style="background:#FAF5FF;padding:1px 6px;border-radius:6px;color:#5B21B6;font-weight:600;">"기억해"</span> 라고 말해도 자동 저장돼요.
+          여기 적은 메모는 AI 잇비가 매번 참고해요. <span style="color:#5B21B6;font-weight:600;">"화요일 오전 예약 안 받음"</span> / <span style="color:#5B21B6;font-weight:600;">"강연준은 글루 알러지"</span> 같은 거.
+          <br>AI 잇비한테 <span style="background:#FAF5FF;padding:1px 6px;border-radius:6px;color:#5B21B6;font-weight:600;">"기억해"</span> 라고 말해도 자동 저장돼요.
         </div>
         <div id="afsAdd" style="display:flex;gap:6px;margin-bottom:10px;">
           <input id="afsInput" type="text" maxlength="500" placeholder="새 메모 (예: 일요일은 휴무)" style="flex:1;padding:11px;border:1px solid #ddd;border-radius:10px;font-size:13px;">
@@ -99,7 +99,7 @@
       const facts = await _fetch('GET', '/assistant/facts');
       if (!facts || !facts.length) {
         list.innerHTML = `<div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;line-height:1.6;">
-          아직 메모가 없어요.<br>챗봇한테 "기억해" 라고 말하거나 위에 직접 적어주세요.
+          아직 메모가 없어요.<br>AI 잇비한테 "기억해" 라고 말하거나 위에 직접 적어주세요.
         </div>`;
         return;
       }

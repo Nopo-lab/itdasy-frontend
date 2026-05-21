@@ -90,7 +90,7 @@
         ${_rowHTML('powerview','ic-database',   '빠른 데이터 입력',   '고객·예약·매출·재고 한 번에', { boxColor: 'purple' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'purple' })}
-        ${_rowHTML('undo',     'ic-rotate-ccw', '챗봇 액션 되돌리기', '최근 30일 이력', { boxColor: 'amber' })}
+        ${_rowHTML('undo',     'ic-rotate-ccw', 'AI 잇비 액션 되돌리기', '최근 30일 이력', { boxColor: 'amber' })}
         ${_rowHTML('failures', 'ic-bell',       '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">계정</div>

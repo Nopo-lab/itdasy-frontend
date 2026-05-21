@@ -408,7 +408,7 @@
         kind: 'dm_queue',
         label: 'DM 자동응답 승인',
         count: dmQueueCount,
-        body: '챗봇이 작성한 답장을 확인하고 보내주세요',
+        body: 'AI 잇비가 작성한 답장을 확인하고 보내주세요',
         cta: '확인',
         act: 'openDMConfirmQueue',
         icon: 'ic-message-circle',
@@ -1138,7 +1138,7 @@
       items.push({ tone: 'amber', title: '결제 미확인 예약', desc: '입금 확인 후 승인하면 캘린더에 등록돼요', count: depositPending, act: 'openBookingApproval' });
     }
     if (dmQueueCount > 0) {
-      items.push({ tone: 'purple', title: 'DM 자동응답 승인', desc: '챗봇이 작성한 답장을 확인해 주세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
+      items.push({ tone: 'purple', title: 'DM 자동응답 승인', desc: 'AI 잇비가 작성한 답장을 확인해 주세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
     }
     if (onlinePendingCount > 0 && onlinePendingCount !== depositPending) {
       items.push({ tone: 'cyan', title: '온라인 예약 승인 대기', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });

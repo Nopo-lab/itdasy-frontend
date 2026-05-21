@@ -56,7 +56,7 @@
         name: '게시물 관리', meta: '완료 슬롯 · 마무리 탭',
         type: 'plain' },
       { act: 'memo', icon: 'ic-bot', boxColor: 'violet',
-        name: '챗봇 메모', meta: '영구 메모 + 자동 학습 패턴',
+        name: 'AI 잇비 메모', meta: '영구 메모 + 자동 학습 패턴',
         type: 'plain' },
       { act: 'capture', icon: 'ph-scan', boxColor: 'violet',
         name: '스마트 캡처', meta: '카톡 · 명함 · 가격표 OCR',

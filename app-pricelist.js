@@ -29,7 +29,7 @@
         </div>
         <div style="font-size:12px;color:#777;line-height:1.55;margin-bottom:14px;">
           샵 가격표 사진 한 장만 올려주세요. AI 가 시술명·가격을 인식해서 자동 등록해요.<br>
-          이후 챗봇에 <span style="background:#FAF5FF;color:#5B21B6;padding:1px 6px;border-radius:6px;font-weight:600;">"강연준 다운펌, 디자인컷"</span> 만 적어도 합산 매출 등록 제안돼요.
+          이후 AI 잇비에 <span style="background:#FAF5FF;color:#5B21B6;padding:1px 6px;border-radius:6px;font-weight:600;">"강연준 다운펌, 디자인컷"</span> 만 적어도 합산 매출 등록 제안돼요.
         </div>
 
         <div id="plUploadArea" style="border:2px dashed #DDD6FE;border-radius:14px;padding:30px 16px;text-align:center;background:#FAF5FF;cursor:pointer;">
