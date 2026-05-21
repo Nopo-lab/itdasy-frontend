@@ -348,39 +348,8 @@
       });
     }
 
-    // [2026-05-21] 0. 시간 지난 미완료 예약 — 1건씩 처리 (노쇼 잘못 완료 처리 방지).
-    // 가장 오래 지난(starts_at 이른) 1건만 카드 대상. 나머지는 "외 N건 더 있어요" 로 표시.
-    const _nowMs = Date.now();
-    const _pendingPast = (Array.isArray(brief.today_bookings) ? brief.today_bookings : []).filter(b => {
-      if (!b || !b.starts_at) return false;
-      const t = new Date(b.starts_at).getTime();
-      if (!Number.isFinite(t) || t >= _nowMs) return false;
-      return !['completed', 'cancelled', 'no_show'].includes(b.status);
-    }).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
-
-    if (_pendingPast.length > 0) {
-      const top = _pendingPast[0];
-      window._homePendingTopId = top.id;
-      const name = top.customer_name || '손님';
-      let desc;
-      if (_pendingPast.length > 1) {
-        desc = `외 ${_pendingPast.length - 1}건 더 있어요`;
-      } else {
-        const dt = new Date(top.starts_at);
-        const hh = String(dt.getHours()).padStart(2, '0');
-        const mm = String(dt.getMinutes()).padStart(2, '0');
-        const svc = top.service_name || top.service;
-        desc = svc ? `${hh}:${mm} · ${svc}` : `${hh}:${mm}`;
-      }
-      cards.unshift({
-        ok: 0, cat: '예약 완료 처리', dot: 'var(--brand-strong,#E5586E)',
-        hl: `${name}님 예약 완료 처리하세요`,
-        desc,
-        btn: '완료 처리', act: 'completeBooking',
-      });
-    } else {
-      try { delete window._homePendingTopId; } catch (_) { /* ignore */ }
-    }
+    // [2026-05-21] 완료 미체크 예약은 캐러셀 카드 X → AI추천 위 독립 배너로 이전.
+    //   배너 로직: _composeHTML 안 _renderPendingCompleteBanner 참조.
 
     // ok=0 먼저, ok=1 뒤로 정렬
     cards.sort((a, b) => a.ok - b.ok);
@@ -775,32 +744,31 @@
         if (typeof window.openRevenue === 'function') { window.openRevenue(); return; }
         if (typeof window.openRevenueHub === 'function') { window.openRevenueHub(); return; }
       },
-      // [2026-05-21] 시간 지난 미완료 예약 — 1건씩 완료 처리 (노쇼 오처리 방지).
-      // 가장 오래 지난 예약 1건만 PATCH → refresh 후 다음 1건이 카드에 다시 노출.
-      completeBooking: async () => {
+      // [2026-05-21] 완료 미체크 예약 — 캐러셀 카드 X → 독립 배너에서 처리.
+      //   배너 버튼 핸들러: completePending (아래).
+      completePending: async () => {
         const id = window._homePendingTopId;
-        if (!id) return;
-        if (!window.API || !window.authHeader) return;
-        const headers = window.authHeader();
-        if (!headers || !headers.Authorization) return;
-        try {
-          const res = await fetch(window.API + '/bookings/' + id, {
-            method: 'PATCH',
-            headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'completed' }),
-          });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          if (window.showToast) window.showToast('완료 처리됨');
-        } catch (_e) {
-          if (window.showToast) window.showToast('완료 처리 실패 — 다시 시도해주세요');
-          return;  // 실패 시 캐시/리프레시 X — 카드 유지
+        if (!id) {
+          if (window.showToast) window.showToast('완료할 예약 없음');
+          return;
         }
-        try { localStorage.removeItem(SWR_KEY); } catch (_e) { /* ignore */ }
-        try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { /* ignore */ }
-        try { delete window._homePendingTopId; } catch (_e) { /* ignore */ }
-        try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'booking_completed' } })); } catch (_e) { /* ignore */ }
-        if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') {
-          try { await window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
+        if (typeof window.CompleteFlow !== 'object' || typeof window.CompleteFlow.startFromBooking !== 'function') {
+          if (window.showToast) window.showToast('완료 처리 모듈 준비 중');
+          return;
+        }
+        // today_bookings 항목엔 customer_id 가 없을 수 있음 → GET /bookings/{id} 로 보강.
+        let booking = window._homePendingTopBooking || { id };
+        try {
+          if (window.API && window.authHeader) {
+            const headers = window.authHeader();
+            if (headers && headers.Authorization) {
+              const res = await fetch(window.API + '/bookings/' + id, { headers });
+              if (res.ok) booking = await res.json();
+            }
+          }
+        } catch (_e) { /* booking 폴백 객체 사용 */ }
+        try { window.CompleteFlow.startFromBooking(booking); } catch (_e) {
+          if (window.showToast) window.showToast('완료 처리 시트 열기 실패');
         }
       },
       /* INVENTORY_HIDDEN
@@ -911,8 +879,55 @@
       _renderHeaderV5(),
       _renderHeroV5(brief),
       middleRow,
+      _renderPendingCompleteBanner(brief),
       _renderAIRecsV5(cards),
     ].join('');
+  }
+
+  // [2026-05-21] 시간 지난 미완료 예약 배너 — AI추천 바로 위, 0건이면 DOM 자체 없음.
+  function _renderPendingCompleteBanner(brief) {
+    if (!brief) return '';
+    const nowMs = Date.now();
+    const pending = (Array.isArray(brief.today_bookings) ? brief.today_bookings : []).filter(b => {
+      if (!b || !b.starts_at) return false;
+      const t = new Date(b.starts_at).getTime();
+      if (!Number.isFinite(t) || t >= nowMs) return false;
+      return !['completed', 'cancelled', 'no_show'].includes(b.status);
+    }).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+
+    if (pending.length === 0) {
+      try { delete window._homePendingTopId; } catch (_) { /* ignore */ }
+      try { delete window._homePendingTopBooking; } catch (_) { /* ignore */ }
+      return '';
+    }
+
+    // 가장 오래 지난 1건 — CompleteFlow 가 이걸 받음
+    const top = pending[0];
+    window._homePendingTopId = top.id;
+    window._homePendingTopBooking = top;
+
+    // 이름 나열: 최대 3명, 4명+ → "ㅇㅇㅇ · ㅇㅇㅇ · ㅇㅇㅇ님 외 N명"
+    const names = pending.map(b => (b.customer_name || '손님').trim()).filter(Boolean);
+    let nameLine;
+    if (names.length <= 3) {
+      nameLine = names.join(' · ') + '님';
+    } else {
+      nameLine = names.slice(0, 3).join(' · ') + `님 외 ${names.length - 3}명`;
+    }
+
+    return `
+      <section class="hv5-pending" aria-label="완료 미체크 예약">
+        <div class="hv5-pending-l">
+          <div class="hv5-pending-cat">오늘 완료 안 한 예약</div>
+          <div class="hv5-pending-names">${_esc(nameLine)}</div>
+          <div class="hv5-pending-sub">시술 끝났는데 완료 처리가 안 됐어요</div>
+        </div>
+        <button type="button" class="hv5-pending-cta" data-hv-act="completePending">
+          완료 처리하러 가기
+          <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
+        </button>
+      </section>
+    `;
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -983,6 +998,16 @@
       .hv5-noti-desc{font-size:11px;color:#6B7684;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .hv5-noti-count{font-size:11px;font-weight:700;color:#6B7684;flex-shrink:0}
       .hv5-noti-arrow{color:#C5CBD2;font-size:16px;line-height:1;flex-shrink:0}
+
+      /* [2026-05-21] 완료 미체크 예약 배너 — AI추천 바로 위, 가벼운 amber 톤 */
+      .hv5-pending{display:flex;align-items:center;gap:14px;padding:16px 18px;margin:0 0 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:16px}
+      .hv5-pending-l{flex:1;min-width:0}
+      .hv5-pending-cat{font-size:11px;font-weight:700;color:#B45309;letter-spacing:-0.2px;margin-bottom:4px}
+      .hv5-pending-names{font-size:15px;font-weight:700;color:#191F28;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .hv5-pending-sub{font-size:12px;color:#6B7684;margin-top:3px;letter-spacing:-0.2px}
+      .hv5-pending-cta{display:inline-flex;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;background:#191F28;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;letter-spacing:-0.2px;transition:background .12s}
+      .hv5-pending-cta:hover{background:#3C4146}
+      .hv5-pending-cta i{font-size:14px;line-height:1}
 
       /* 오늘의 예약 */
       .hv5-slots{display:flex;flex-direction:column}
