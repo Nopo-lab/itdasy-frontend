@@ -1151,7 +1151,8 @@
   }
 
   // ── [2026-05-02] DM 자동응답 sheet 의 최근 DM (recent-conversations) 폴링 ──
-  const INBOX_POLL_MS = 8000;
+  // [2026-05-21] 사용자 보고: 실시간 안 뜸 → 8000 → 4000 단축. 부하 미미 (캐시 + 가벼운 SELECT).
+  const INBOX_POLL_MS = 4000;
   let _inboxPollTimer = null;
   let _inboxVisHandlerBound = false;
 
