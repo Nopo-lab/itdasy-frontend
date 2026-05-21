@@ -553,6 +553,11 @@ const _USER_KEY_KEEP = new Set([
   'theme', 'itdasy_theme', 'lang', 'i18n_lang',
   'itdasy_biometric_asked',
   'onboarding_done',  // [v203.1] 추가
+  // [2026-05-21] GDPR/ePrivacy 동의 상태 — 디바이스 단위 결정이라 로그아웃 시
+  // 삭제하면 매 로그인마다 안내 재노출. app-cookie-consent.js 정의 키.
+  'itdasy_consent_v1',
+  'itdasy_consent_at',
+  'itdasy_consent_region',
 ]);
 
 // [2026-04-26 A10] 사용자 데이터 정리 — localStorage 전수 순회는 큰 객체일 때
