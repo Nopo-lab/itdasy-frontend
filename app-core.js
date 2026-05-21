@@ -344,9 +344,53 @@ function applyShopType(type) {
 let obStep = 1;
 let obShopType = '';
 
-function checkOnboarding() {
+// [2026-05-21] checkOnboarding — 서버 우선, localStorage 폴백.
+// 캐시 지운 사용자가 같은 계정 로그인 시 온보딩이 다시 뜨던 버그 픽스.
+// 서버 GET /shop/settings 응답의 shop_name 이 비어있지 않으면 = 이미 설정 완료.
+async function checkOnboarding() {
+  const ov = document.getElementById('onboardingOverlay');
+  // 토큰 없으면 폴백 (로그인 전 상태)
+  if (typeof getToken === 'function' && !getToken()) {
+    _applyLocalOnboarding();
+    return;
+  }
+  try {
+    const headers = (typeof authHeader === 'function') ? authHeader() : null;
+    if (!headers || !headers.Authorization) {
+      _applyLocalOnboarding();
+      return;
+    }
+    const res = await fetch(API + '/shop/settings', { headers });
+    if (!res.ok) {
+      _applyLocalOnboarding();
+      return;
+    }
+    const data = await res.json();
+    const shopName = (data && data.shop_name) ? String(data.shop_name).trim() : '';
+    const shopType = (data && data.shop_type) ? String(data.shop_type).trim() : '';
+    if (shopName) {
+      // 서버에 이미 설정된 계정 — 온보딩 숨김 + localStorage 동기화
+      if (ov) ov.classList.add('hidden');
+      try {
+        localStorage.setItem('onboarding_done', '1');
+        localStorage.setItem('shop_name', shopName);
+        if (shopType) localStorage.setItem('shop_type', shopType);
+      } catch (_) { /* storage full */ }
+      applyShopType(shopType);
+    } else {
+      // 진짜 신규 — 온보딩 표시
+      if (ov) ov.classList.remove('hidden');
+    }
+  } catch (_e) {
+    // 네트워크/파싱 실패 — 앱 멈추지 않게 폴백
+    _applyLocalOnboarding();
+  }
+}
+
+function _applyLocalOnboarding() {
+  const ov = document.getElementById('onboardingOverlay');
   if (!localStorage.getItem('onboarding_done')) {
-    document.getElementById('onboardingOverlay').classList.remove('hidden');
+    if (ov) ov.classList.remove('hidden');
   } else {
     const savedType = localStorage.getItem('shop_type') || '';
     applyShopType(savedType);
@@ -1151,7 +1195,7 @@ async function login() {
     } catch (_) { /* ignore */ }
     _setAuthGateLocked(false);
     checkCbt1Reset();
-    checkOnboarding();
+    checkOnboarding().catch(() => {});
     document.getElementById('lockOverlay').classList.add('hidden');
     // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload 완료 후 해제
     var _lo = document.getElementById('appLoadingOverlay');
@@ -1309,7 +1353,7 @@ async function signup() {
     } catch (_) { /* ignore */ }
     document.getElementById('signupOverlay').style.display = 'none';
     _setAuthGateLocked(false);
-    checkOnboarding();
+    checkOnboarding().catch(() => {});
     document.getElementById('lockOverlay').classList.add('hidden');
     checkInstaStatus(true);
   } catch (e) {
@@ -1582,7 +1626,7 @@ window.addEventListener('load', function() {
         var _lo2 = document.getElementById('appLoadingOverlay');
         if (_lo2) _lo2.style.display = 'flex';
         _setAuthGateLocked(false);
-        checkOnboarding();
+        checkOnboarding().catch(() => {});
         checkInstaStatus(true);
         try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
         _hideLoadingOverlay();
@@ -1598,7 +1642,7 @@ window.addEventListener('load', function() {
     try { applyOAuthProviderBadge(); } catch (_) { /* ignore */ }
     try { applyNewSession(getToken()); } catch (_) { /* ignore */ }
     checkCbt1Reset();
-    checkOnboarding();
+    checkOnboarding().catch(() => {});
     // [UX-LOAD] 필수 데이터 preload 완료 후 로딩 화면 해제
     (async () => {
       try {
