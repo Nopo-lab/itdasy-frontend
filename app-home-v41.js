@@ -348,6 +348,28 @@
       });
     }
 
+    // [2026-05-21] 0. 시간 지난 미완료 예약 — 최상단 unshift (sort 가 stable 이라 ok=0 그룹 맨 앞 유지)
+    const _nowMs = Date.now();
+    const _pendingPast = (Array.isArray(brief.today_bookings) ? brief.today_bookings : []).filter(b => {
+      if (!b || !b.starts_at) return false;
+      const t = new Date(b.starts_at).getTime();
+      if (!Number.isFinite(t) || t >= _nowMs) return false;
+      // status: completed / cancelled / no_show 면 처리 불필요
+      return !['completed', 'cancelled', 'no_show'].includes(b.status);
+    });
+    if (_pendingPast.length > 0) {
+      window._homePendingPastIds = _pendingPast.map(b => b.id).filter(Boolean);
+      const firstName = (_pendingPast[0].customer_name || '손님');
+      cards.unshift({
+        ok: 0, cat: '예약 완료 처리', dot: 'var(--brand-strong,#E5586E)',
+        hl: `${firstName}님 예약 완료 처리하세요`,
+        desc: `시간 지난 미완료 예약 ${_pendingPast.length}건`,
+        btn: '완료 처리', act: 'completeBooking',
+      });
+    } else {
+      try { delete window._homePendingPastIds; } catch (_) { /* ignore */ }
+    }
+
     // ok=0 먼저, ok=1 뒤로 정렬
     cards.sort((a, b) => a.ok - b.ok);
     return cards;
@@ -740,6 +762,35 @@
         // [v198] 홈 매출 카드 → v6 매출 대시보드 sheet. (옛 대시보드 탭 라우팅 폐기)
         if (typeof window.openRevenue === 'function') { window.openRevenue(); return; }
         if (typeof window.openRevenueHub === 'function') { window.openRevenueHub(); return; }
+      },
+      // [2026-05-21] 시간 지난 미완료 예약 일괄 완료 처리
+      completeBooking: async () => {
+        const ids = (window._homePendingPastIds || []).slice();
+        if (!ids.length) return;
+        if (!window.API || !window.authHeader) return;
+        const headers = window.authHeader();
+        if (!headers || !headers.Authorization) return;
+        let ok = 0, fail = 0;
+        await Promise.all(ids.map(id =>
+          fetch(window.API + '/bookings/' + id, {
+            method: 'PATCH',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'completed' }),
+          }).then(r => { if (r.ok) ok++; else fail++; }).catch(() => { fail++; })
+        ));
+        if (window.showToast) {
+          if (ok && !fail) window.showToast(`${ok}건 완료 처리됨`);
+          else if (ok && fail) window.showToast(`${ok}건 완료 / ${fail}건 실패`);
+          else window.showToast('완료 처리 실패 — 다시 시도해주세요');
+        }
+        // brief SWR 캐시 무효화 + 홈 재렌더 (카드 사라지게)
+        try { localStorage.removeItem(SWR_KEY); } catch (_e) { /* ignore */ }
+        try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { /* ignore */ }
+        try { delete window._homePendingPastIds; } catch (_e) { /* ignore */ }
+        try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'booking_completed' } })); } catch (_e) { /* ignore */ }
+        if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') {
+          try { await window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
+        }
       },
       /* INVENTORY_HIDDEN
       openInventory: () => {
