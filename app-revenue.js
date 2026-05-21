@@ -104,7 +104,7 @@
   }
   const DONUT_COLORS = ['#E5586E', '#F4A6B8', '#FBE0E7', '#C4C9D1', '#E5E7EB'];
 
-  let _currentPeriod = 'day';  // [v221] 일/주/월
+  let _currentPeriod = 'month';  // [2026-05-21] 기본 탭 일 → 월
   let _items = [];
   let _revWindow = 50;
   let _isOffline = false;
