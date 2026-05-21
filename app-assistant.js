@@ -13,96 +13,38 @@
     return `<svg width="${size}" height="${size}" style="vertical-align:-2px;" aria-hidden="true"><use href="#${id}"/></svg>`;
   }
 
-  const SUGGESTIONS = [
+  const _assistantCore = window.ItdasyAssistant || {};
+  const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
     '캡션 만들어줘',
     '재고 부족한 거?',
     '이번 달 매출',
   ];
 
-  // 재고·지출 공용 카테고리 (드롭다운)
-  const CATEGORIES = [
-    { value: 'nail', label: '네일' },
-    { value: 'lash', label: '속눈썹' },
-    { value: 'hair', label: '헤어' },
-    { value: 'skin', label: '피부' },
-    { value: 'food', label: '식품/생수' },
-    { value: 'office', label: '사무용품' },
-    { value: 'rent', label: '임대료' },
-    { value: 'utility', label: '공과금' },
-    { value: 'etc', label: '기타' },
-  ];
   function _categoryOptionsHtml(selected) {
-    const sel = String(selected == null ? '' : selected).toLowerCase();
-    const known = CATEGORIES.some(c => c.value === sel);
-    const opts = CATEGORIES.map(c =>
-      `<option value="${_esc(c.value)}"${c.value === sel ? ' selected' : ''}>${_esc(c.label)}</option>`
-    ).join('');
-    // 서버가 임의 문자열을 주는 경우도 허용 (기타 옵션으로 표시)
-    const custom = (!known && sel) ? `<option value="${_esc(sel)}" selected>${_esc(sel)}</option>` : '';
-    return custom + opts;
+    if (typeof _assistantCore.categoryOptionsHtml === 'function') {
+      return _assistantCore.categoryOptionsHtml(selected);
+    }
+    return '';
   }
 
-  // 액션 카테고리 메타 (아이콘 · 라벨 · 색상)
-  // 2026-04-24 — icon 필드는 Lucide sprite id. 렌더 시 _svg(icon, 18) 로 삽입.
-  const CATEGORY = {
-    create_customer:       { icon: 'ic-user',            label: '고객 추가', color: '#4ECDC4' },
-    update_customer:       { icon: 'ic-edit-3',          label: '고객 수정', color: '#4ECDC4' },
-    create_revenue:        { icon: 'ic-dollar-sign',     label: '매출 기록', color: '#388e3c' },
-    create_booking:        { icon: 'ic-calendar',        label: '예약 추가', color: 'var(--brand)' },
-    update_booking:        { icon: 'ic-edit-3',          label: '예약 수정', color: '#A78BFA' },
-    cancel_booking:        { icon: 'ic-x',               label: '예약 취소', color: 'var(--danger)' },
-    reschedule_booking:    { icon: 'ic-refresh-cw',      label: '예약 변경', color: '#0288D1' },
-    create_expense:        { icon: 'ic-credit-card',     label: '지출 기록', color: '#E07A5F' },
-    upsert_inventory:      { icon: 'ic-package',         label: '재고 입고', color: '#2B8C7E' },
-    create_nps:            { icon: 'ic-star',            label: '후기', color: '#FFD700' },
-    generate_bulk_message: { icon: 'ic-message-square',  label: '메시지', color: '#FF8A5C' },
-    // [QA-r11 PR4-C 2026-05-16] 신규 6종
-    charge_membership:     { icon: 'ic-credit-card',     label: '회원권 충전', color: '#7C3AED' },
-    use_membership:        { icon: 'ic-credit-card',     label: '회원권 사용', color: '#6D28D9' },
-    mark_booking_no_show:  { icon: 'ic-x-octagon',       label: '노쇼 처리', color: 'var(--danger)' },
-    mark_booking_completed:{ icon: 'ic-check-circle',    label: '시술 완료', color: '#15803D' },
-    refund_revenue:        { icon: 'ic-corner-up-left',  label: '환불 처리', color: '#F97316' },
-    update_service_price:  { icon: 'ic-dollar-sign',     label: '가격 변경', color: '#0EA5E9' },
-  };
   // [P0-4 2026-05-19] 위험 액션 — _executeAction 직전 nativeConfirm 강제.
   // BE의 confirmation_text 표시 + 카드 클릭 + 여기 native confirm = 3중 안전.
   // bulk 흐름(_runGroupAll 등)은 _executeAction(action, { skipConfirm: true }) 로 우회.
   // 롤백: localStorage.assistant_risky_confirm_disabled = '1' 설정 시 항상 skip.
-  const RISKY_ACTION_KINDS = new Set([
-    'cancel_booking',
-    'cancel_booking_bulk',
-    'refund_revenue',
-    'use_membership',
-    'charge_membership',
-    'mark_booking_no_show',
-    'send_message',
-    'reply_dm',
-    'delete_customer',
-    'publish_instagram',
-    'update_service_price',
-  ]);
+  const RISKY_ACTION_KINDS = _assistantCore.RISKY_ACTION_KINDS || new Set();
   function _catMeta(kind) {
-    return CATEGORY[kind] || { icon: 'ic-check', label: kind || '작업', color: '#666' };
+    return typeof _assistantCore.catMeta === 'function'
+      ? _assistantCore.catMeta(kind)
+      : { icon: 'ic-check', label: kind || '작업', color: '#666' };
   }
 
   // 외부 모듈(마케팅·콘텐츠 kind 등)이 CATEGORY 메타와 invalidate 매핑을 확장할 수 있는 포인트.
   // 새 kind를 app-assistant.js 본체에 박지 않고 분리해 관리하기 위함 (본체는 이미 거대).
-  const _externalInvalidateKinds = {};
+  const _externalInvalidateKinds = _assistantCore.externalInvalidateKinds || {};
   // [v167 2026-05-17] 로컬 핸들러 — 백엔드 호출 없이 프론트에서 직접 처리하는 kind (예: open_photo_editor).
   // 핸들러는 async (action) => { message?, undo_log_id? } 형태. 등록 시 fetch /assistant/execute 우회.
-  const _localKindHandlers = {};
-  window.ItdasyAssistant = window.ItdasyAssistant || {};
-  window.ItdasyAssistant.CATEGORY = CATEGORY;
-  window.ItdasyAssistant.registerKindMeta = function (metaMap) {
-    if (metaMap && typeof metaMap === 'object') Object.assign(CATEGORY, metaMap);
-  };
-  window.ItdasyAssistant.registerInvalidateKinds = function (kindMap) {
-    if (kindMap && typeof kindMap === 'object') Object.assign(_externalInvalidateKinds, kindMap);
-  };
-  window.ItdasyAssistant.registerLocalHandler = function (kind, handler) {
-    if (typeof kind === 'string' && typeof handler === 'function') _localKindHandlers[kind] = handler;
-  };
+  const _localKindHandlers = _assistantCore.localKindHandlers || {};
   // [QA-r10 2026-05-15] OCR fallback repair 중복 폭주 차단 (실기기 보고: 동일 14,500원 24회 복제).
   // 백엔드 prose-repair 가 같은 vendor·amount 로 N회 반복 append 한 경우를 프론트에서 방어.
   //   - kind 별 핵심 식별자 (vendor/amount/customer_name/service_name/starts_at/items[0]) 조합으로 키 생성

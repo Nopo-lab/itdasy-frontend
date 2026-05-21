@@ -2,11 +2,11 @@
    2026-05-17 v166 · 뷰티업GPT 초고도화 P0 티켓 0-2
    설계 문서: ~/.claude/plans/zesty-snacking-clarke.md §4.2
 
-   목적: app-assistant.js의 CATEGORY/invalidate 매핑에 신규 kind 8종을 외부 등록.
+   목적: js/assistant/kind-core.js의 CATEGORY/invalidate 매핑에 신규 kind 8종을 외부 등록.
    본체(179KB)를 더 부풀리지 않기 위해 별도 모듈로 분리.
 
    동작 보장:
-   - app-assistant.js가 먼저 로드되어 window.ItdasyAssistant 노출 (index.html defer 순서)
+   - js/assistant/kind-core.js가 먼저 로드되어 window.ItdasyAssistant 노출 (index.html defer 순서)
    - 이 파일은 그 뒤에 로드되어 registerKindMeta + registerInvalidateKinds 호출
    - 카드 UI는 app-assistant.js의 _catMeta(kind)가 자동으로 CATEGORY에서 메타를 가져와 렌더
 
