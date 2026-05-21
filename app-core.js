@@ -1771,7 +1771,8 @@ function showTab(id, btn) {
   window.scrollTo(0, 0);
   document.body.scrollTop = 0;
   document.documentElement.scrollTop = 0;
-  // [P1-2C] 탭 전환 시 init 호출 200ms 디바운스 — 연속 클릭 시 중복 fetch 방지
+  // [P1-2C] 탭 전환 시 init 호출 디바운스 — 연속 클릭 시 중복 fetch 방지.
+  // [2026-05-21] 200ms → 50ms 단축. 0 은 두지 말 것 — 빠른 연속 탭의 중복 렌더 방지 목적.
   if (window._tabInitTimer) clearTimeout(window._tabInitTimer);
   window._tabInitTimer = setTimeout(() => {
     // 홈 탭 활성화 시 통합 카드 렌더 (Task 5: TodayBrief 가 AI 제안까지 함께 그림)
@@ -1786,7 +1787,7 @@ function showTab(id, btn) {
         try { window.initDashboardTab(); } catch (_e) { /* ignore */ }
       }
     }
-  }, 200);
+  }, 50);
 }
 
 // 태그 선택 (single)
