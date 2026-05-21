@@ -348,26 +348,38 @@
       });
     }
 
-    // [2026-05-21] 0. 시간 지난 미완료 예약 — 최상단 unshift (sort 가 stable 이라 ok=0 그룹 맨 앞 유지)
+    // [2026-05-21] 0. 시간 지난 미완료 예약 — 1건씩 처리 (노쇼 잘못 완료 처리 방지).
+    // 가장 오래 지난(starts_at 이른) 1건만 카드 대상. 나머지는 "외 N건 더 있어요" 로 표시.
     const _nowMs = Date.now();
     const _pendingPast = (Array.isArray(brief.today_bookings) ? brief.today_bookings : []).filter(b => {
       if (!b || !b.starts_at) return false;
       const t = new Date(b.starts_at).getTime();
       if (!Number.isFinite(t) || t >= _nowMs) return false;
-      // status: completed / cancelled / no_show 면 처리 불필요
       return !['completed', 'cancelled', 'no_show'].includes(b.status);
-    });
+    }).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+
     if (_pendingPast.length > 0) {
-      window._homePendingPastIds = _pendingPast.map(b => b.id).filter(Boolean);
-      const firstName = (_pendingPast[0].customer_name || '손님');
+      const top = _pendingPast[0];
+      window._homePendingTopId = top.id;
+      const name = top.customer_name || '손님';
+      let desc;
+      if (_pendingPast.length > 1) {
+        desc = `외 ${_pendingPast.length - 1}건 더 있어요`;
+      } else {
+        const dt = new Date(top.starts_at);
+        const hh = String(dt.getHours()).padStart(2, '0');
+        const mm = String(dt.getMinutes()).padStart(2, '0');
+        const svc = top.service_name || top.service;
+        desc = svc ? `${hh}:${mm} · ${svc}` : `${hh}:${mm}`;
+      }
       cards.unshift({
         ok: 0, cat: '예약 완료 처리', dot: 'var(--brand-strong,#E5586E)',
-        hl: `${firstName}님 예약 완료 처리하세요`,
-        desc: `시간 지난 미완료 예약 ${_pendingPast.length}건`,
+        hl: `${name}님 예약 완료 처리하세요`,
+        desc,
         btn: '완료 처리', act: 'completeBooking',
       });
     } else {
-      try { delete window._homePendingPastIds; } catch (_) { /* ignore */ }
+      try { delete window._homePendingTopId; } catch (_) { /* ignore */ }
     }
 
     // ok=0 먼저, ok=1 뒤로 정렬
@@ -763,30 +775,29 @@
         if (typeof window.openRevenue === 'function') { window.openRevenue(); return; }
         if (typeof window.openRevenueHub === 'function') { window.openRevenueHub(); return; }
       },
-      // [2026-05-21] 시간 지난 미완료 예약 일괄 완료 처리
+      // [2026-05-21] 시간 지난 미완료 예약 — 1건씩 완료 처리 (노쇼 오처리 방지).
+      // 가장 오래 지난 예약 1건만 PATCH → refresh 후 다음 1건이 카드에 다시 노출.
       completeBooking: async () => {
-        const ids = (window._homePendingPastIds || []).slice();
-        if (!ids.length) return;
+        const id = window._homePendingTopId;
+        if (!id) return;
         if (!window.API || !window.authHeader) return;
         const headers = window.authHeader();
         if (!headers || !headers.Authorization) return;
-        let ok = 0, fail = 0;
-        await Promise.all(ids.map(id =>
-          fetch(window.API + '/bookings/' + id, {
+        try {
+          const res = await fetch(window.API + '/bookings/' + id, {
             method: 'PATCH',
             headers: { ...headers, 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'completed' }),
-          }).then(r => { if (r.ok) ok++; else fail++; }).catch(() => { fail++; })
-        ));
-        if (window.showToast) {
-          if (ok && !fail) window.showToast(`${ok}건 완료 처리됨`);
-          else if (ok && fail) window.showToast(`${ok}건 완료 / ${fail}건 실패`);
-          else window.showToast('완료 처리 실패 — 다시 시도해주세요');
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          if (window.showToast) window.showToast('완료 처리됨');
+        } catch (_e) {
+          if (window.showToast) window.showToast('완료 처리 실패 — 다시 시도해주세요');
+          return;  // 실패 시 캐시/리프레시 X — 카드 유지
         }
-        // brief SWR 캐시 무효화 + 홈 재렌더 (카드 사라지게)
         try { localStorage.removeItem(SWR_KEY); } catch (_e) { /* ignore */ }
         try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { /* ignore */ }
-        try { delete window._homePendingPastIds; } catch (_e) { /* ignore */ }
+        try { delete window._homePendingTopId; } catch (_e) { /* ignore */ }
         try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'booking_completed' } })); } catch (_e) { /* ignore */ }
         if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') {
           try { await window.HomeV41.refresh(); } catch (_e) { /* ignore */ }
