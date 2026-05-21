@@ -1062,93 +1062,10 @@
   //   create_customer  → name + phone
   //   create_booking   → customer_name + service + 시작 시각
   function _summarizeItem(action) {
-    const p = (action && action.payload) || {};
-    const kind = (action && action.kind) || '';
-    const parts = [];
-    const _fmtAmt = (a) => (a == null ? '' : Number(a).toLocaleString() + '원');
-    const _fmtDate = (s) => { try { const d = new Date(s); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + '시'; } catch (_e) { return ''; } };
-
-    if (kind === 'create_expense') {
-      // [QA-r11 2026-05-16] receipt-level 표시: vendor · amount · 품목수
-      const v = (p.vendor || '').trim();
-      parts.push(v || '지출처 미상');
-      if (p.amount) parts.push(_fmtAmt(p.amount));
-      // items[] 가 있으면 품목수 노출, memo 는 폴백
-      if (Array.isArray(p.items) && p.items.length) {
-        parts.push(`품목 ${p.items.length}건`);
-      } else {
-        const m = (p.memo || '').trim();
-        if (m) parts.push(m.slice(0, 20));
-      }
-      // 정가합 vs 결제금액 차액 (할인 의심) 인라인 표시
-      try {
-        const _itemsTotal = (Array.isArray(p.items) ? p.items : [])
-          .reduce((s, it) => s + (Number(it && it.total) || 0), 0);
-        if (_itemsTotal > 0 && p.amount && Math.abs(_itemsTotal - Number(p.amount)) > 100) {
-          const diff = _itemsTotal - Number(p.amount);
-          if (diff > 0) parts.push(`할인 -${_fmtAmt(diff)}`);
-        }
-      } catch (_e) { void _e; }
-    } else if (kind === 'upsert_inventory') {
-      const items = Array.isArray(p.items) ? p.items : [];
-      if (items.length) {
-        const it0 = items[0] || {};
-        const nm = (it0.name || '').trim();
-        if (nm) parts.push(nm);
-        if (it0.quantity) parts.push(it0.quantity + '개');
-        if (items.length > 1) parts.push('외 ' + (items.length - 1) + '건');
-        const total = items.reduce((s, x) => s + (Number(x && x.total) || 0), 0);
-        if (total > 0) parts.push(_fmtAmt(total));
-      } else if (p.amount) {
-        parts.push('재고 입고');
-        parts.push(_fmtAmt(p.amount));
-      } else {
-        parts.push('재고 항목 미상');
-      }
-    } else if (kind === 'create_customer') {
-      if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
-      if (p.customer_phone || p.phone) parts.push(p.customer_phone || p.phone);
-      if (p.memo) parts.push(String(p.memo).slice(0, 20));
-    } else if (kind === 'create_booking') {
-      if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
-      if (p.service_name) parts.push(p.service_name);
-      if (p.starts_at) { const t = _fmtDate(p.starts_at); if (t) parts.push(t); }
-    } else if (kind === 'create_revenue') {
-      if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
-      else parts.push('고객 미상');
-      if (p.service_name) parts.push(p.service_name);
-      if (p.amount) parts.push(_fmtAmt(p.amount));
-      if (!p.amount && (p.customer_phone || p.phone)) parts.push(p.customer_phone || p.phone);
-    } else if (kind === 'charge_membership' || kind === 'use_membership') {
-      // [QA-r11 PR4-C] 회원권 충전/사용 — 고객 + 금액
-      if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
-      else parts.push('고객 미상');
-      if (p.amount) parts.push((kind === 'charge_membership' ? '+' : '−') + _fmtAmt(p.amount));
-    } else if (kind === 'mark_booking_no_show' || kind === 'mark_booking_completed') {
-      if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
-      if (p.starts_at) { const t = _fmtDate(p.starts_at); if (t) parts.push(t); }
-      else if (p.booking_id) parts.push('#' + p.booking_id);
-      parts.push(kind === 'mark_booking_no_show' ? '노쇼' : '완료');
-    } else if (kind === 'refund_revenue') {
-      if (p.revenue_id) parts.push('매출 #' + p.revenue_id);
-      if (p.reason) parts.push(String(p.reason).slice(0, 20));
-      if (p.amount) parts.push('환불 ' + _fmtAmt(p.amount));
-    } else if (kind === 'update_service_price') {
-      if (p.service_name) parts.push(p.service_name);
-      else if (p.service_id) parts.push('#' + p.service_id);
-      const np = p.new_price != null ? p.new_price : p.amount;
-      if (np != null) parts.push('→ ' + _fmtAmt(np));
-    } else {
-      // 기본 — 이름·금액·시술 순
-      if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
-      if (p.customer_phone || p.phone) parts.push(p.customer_phone || p.phone);
-      if (p.service_name) parts.push(p.service_name);
-      if (p.amount) parts.push(_fmtAmt(p.amount));
-      if (p.starts_at) { const t = _fmtDate(p.starts_at); if (t) parts.push(t); }
-      if (p.memo) parts.push(String(p.memo).slice(0, 20));
+    if (typeof _assistantCore.summarizeAction === 'function') {
+      return _assistantCore.summarizeAction(action);
     }
-    if (!parts.length && action && action.confirmation_text) return action.confirmation_text;
-    return parts.join(' · ') || kind || '';
+    return (action && action.confirmation_text) || (action && action.kind) || '';
   }
 
   // 카테고리별로 묶인 액션 카드 렌더 (2건 이상일 때 사용)
@@ -1172,27 +1089,10 @@
   // (현재 백엔드 resolver 가 customer_name 으로 조회하지만, 방금 만든 고객은
   //  다음 액션 시점까지 DB 에 반영되어야 안전함)
   function _unifiedExecutionOrder(groups) {
-    const priority = {
-      create_customer: 0,
-      update_customer: 1,
-      create_booking: 2,
-      update_booking: 3,
-      reschedule_booking: 3,
-      cancel_booking: 3,
-      create_revenue: 4,
-      create_expense: 5,
-      upsert_inventory: 6,
-      create_nps: 7,
-      generate_bulk_message: 8,
-    };
-    const flat = [];
-    (groups || []).forEach((g, gi) => {
-      (g.items || []).forEach((it, ii) => {
-        flat.push({ gi, ii, it, kind: g.kind, order: priority[g.kind] ?? 99 });
-      });
-    });
-    flat.sort((a, b) => (a.order - b.order) || (a.gi - b.gi) || (a.ii - b.ii));
-    return flat;
+    if (typeof _assistantCore.unifiedExecutionOrder === 'function') {
+      return _assistantCore.unifiedExecutionOrder(groups);
+    }
+    return [];
   }
 
   function _renderUnifiedCard(msg, historyIdx) {

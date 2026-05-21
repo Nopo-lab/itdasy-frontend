@@ -84,6 +84,174 @@
     ]);
   }
 
+  function _fmtAmt(a) {
+    return a == null ? '' : Number(a).toLocaleString() + '원';
+  }
+
+  function _fmtDate(s) {
+    try {
+      const d = new Date(s);
+      return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + d.getHours() + '시';
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  function _pushExpenseParts(parts, p) {
+    const v = (p.vendor || '').trim();
+    parts.push(v || '지출처 미상');
+    if (p.amount) parts.push(_fmtAmt(p.amount));
+    if (Array.isArray(p.items) && p.items.length) {
+      parts.push(`품목 ${p.items.length}건`);
+    } else {
+      const m = (p.memo || '').trim();
+      if (m) parts.push(m.slice(0, 20));
+    }
+    _pushExpenseDiscount(parts, p);
+  }
+
+  function _pushExpenseDiscount(parts, p) {
+    try {
+      const total = (Array.isArray(p.items) ? p.items : [])
+        .reduce((s, it) => s + (Number(it && it.total) || 0), 0);
+      if (total > 0 && p.amount && Math.abs(total - Number(p.amount)) > 100) {
+        const diff = total - Number(p.amount);
+        if (diff > 0) parts.push(`할인 -${_fmtAmt(diff)}`);
+      }
+    } catch (_e) {
+      void _e;
+    }
+  }
+
+  function _pushInventoryParts(parts, p) {
+    const items = Array.isArray(p.items) ? p.items : [];
+    if (items.length) {
+      const it0 = items[0] || {};
+      const nm = (it0.name || '').trim();
+      if (nm) parts.push(nm);
+      if (it0.quantity) parts.push(it0.quantity + '개');
+      if (items.length > 1) parts.push('외 ' + (items.length - 1) + '건');
+      const total = items.reduce((s, x) => s + (Number(x && x.total) || 0), 0);
+      if (total > 0) parts.push(_fmtAmt(total));
+    } else if (p.amount) {
+      parts.push('재고 입고');
+      parts.push(_fmtAmt(p.amount));
+    } else {
+      parts.push('재고 항목 미상');
+    }
+  }
+
+  function _pushCustomerParts(parts, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+    if (p.customer_phone || p.phone) parts.push(p.customer_phone || p.phone);
+    if (p.memo) parts.push(String(p.memo).slice(0, 20));
+  }
+
+  function _pushBookingParts(parts, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+    if (p.service_name) parts.push(p.service_name);
+    if (p.starts_at) {
+      const t = _fmtDate(p.starts_at);
+      if (t) parts.push(t);
+    }
+  }
+
+  function _pushRevenueParts(parts, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+    else parts.push('고객 미상');
+    if (p.service_name) parts.push(p.service_name);
+    if (p.amount) parts.push(_fmtAmt(p.amount));
+    if (!p.amount && (p.customer_phone || p.phone)) parts.push(p.customer_phone || p.phone);
+  }
+
+  function _pushMembershipParts(parts, kind, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+    else parts.push('고객 미상');
+    if (p.amount) parts.push((kind === 'charge_membership' ? '+' : '−') + _fmtAmt(p.amount));
+  }
+
+  function _pushBookingStatusParts(parts, kind, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+    if (p.starts_at) {
+      const t = _fmtDate(p.starts_at);
+      if (t) parts.push(t);
+    } else if (p.booking_id) {
+      parts.push('#' + p.booking_id);
+    }
+    parts.push(kind === 'mark_booking_no_show' ? '노쇼' : '완료');
+  }
+
+  function _pushRefundParts(parts, p) {
+    if (p.revenue_id) parts.push('매출 #' + p.revenue_id);
+    if (p.reason) parts.push(String(p.reason).slice(0, 20));
+    if (p.amount) parts.push('환불 ' + _fmtAmt(p.amount));
+  }
+
+  function _pushPriceParts(parts, p) {
+    if (p.service_name) parts.push(p.service_name);
+    else if (p.service_id) parts.push('#' + p.service_id);
+    const np = p.new_price != null ? p.new_price : p.amount;
+    if (np != null) parts.push('→ ' + _fmtAmt(np));
+  }
+
+  function _pushDefaultParts(parts, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+    if (p.customer_phone || p.phone) parts.push(p.customer_phone || p.phone);
+    if (p.service_name) parts.push(p.service_name);
+    if (p.amount) parts.push(_fmtAmt(p.amount));
+    if (p.starts_at) {
+      const t = _fmtDate(p.starts_at);
+      if (t) parts.push(t);
+    }
+    if (p.memo) parts.push(String(p.memo).slice(0, 20));
+  }
+
+  function summarizeAction(action) {
+    const p = (action && action.payload) || {};
+    const kind = (action && action.kind) || '';
+    const parts = [];
+    if (kind === 'create_expense') _pushExpenseParts(parts, p);
+    else if (kind === 'upsert_inventory') _pushInventoryParts(parts, p);
+    else if (kind === 'create_customer') _pushCustomerParts(parts, p);
+    else if (kind === 'create_booking') _pushBookingParts(parts, p);
+    else if (kind === 'create_revenue') _pushRevenueParts(parts, p);
+    else if (kind === 'charge_membership' || kind === 'use_membership') _pushMembershipParts(parts, kind, p);
+    else if (kind === 'mark_booking_no_show' || kind === 'mark_booking_completed') _pushBookingStatusParts(parts, kind, p);
+    else if (kind === 'refund_revenue') _pushRefundParts(parts, p);
+    else if (kind === 'update_service_price') _pushPriceParts(parts, p);
+    else _pushDefaultParts(parts, p);
+    if (!parts.length && action && action.confirmation_text) return action.confirmation_text;
+    return parts.join(' · ') || kind || '';
+  }
+
+  function _executionPriority() {
+    return {
+      create_customer: 0,
+      update_customer: 1,
+      create_booking: 2,
+      update_booking: 3,
+      reschedule_booking: 3,
+      cancel_booking: 3,
+      create_revenue: 4,
+      create_expense: 5,
+      upsert_inventory: 6,
+      create_nps: 7,
+      generate_bulk_message: 8,
+    };
+  }
+
+  function unifiedExecutionOrder(groups) {
+    const priority = _executionPriority();
+    const flat = [];
+    (groups || []).forEach((g, gi) => {
+      (g.items || []).forEach((it, ii) => {
+        flat.push({ gi, ii, it, kind: g.kind, order: priority[g.kind] ?? 99 });
+      });
+    });
+    flat.sort((a, b) => (a.order - b.order) || (a.gi - b.gi) || (a.ii - b.ii));
+    return flat;
+  }
+
   function _installApi() {
     const SUGGESTIONS = _suggestions();
     const CATEGORIES = _categories();
@@ -101,6 +269,8 @@
       localKindHandlers,
       categoryOptionsHtml: selected => _categoryOptionsHtml(CATEGORIES, selected),
       catMeta,
+      summarizeAction,
+      unifiedExecutionOrder,
     });
     api.registerKindMeta = function (metaMap) {
       if (metaMap && typeof metaMap === 'object') Object.assign(CATEGORY, metaMap);
