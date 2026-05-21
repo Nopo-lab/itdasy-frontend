@@ -316,7 +316,13 @@ async function runAutoAnalysisAfterConnect() {
     if (bar) bar.style.width = '100%';
     if (stepTxt) stepTxt.textContent = '분석 성공!';
     if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
-    try { localStorage.setItem('itdasy_latest_analysis', JSON.stringify(p)); } catch (_e) { void _e; }
+    // [2026-05-21] /instagram/status 는 raw_analysis 안 줘서 persona 만 저장하면
+    // 나중 showDetailedAnalysis 가 raw.tone_summary 체크 실패 → "데이터 없음" 으로 끝나는 버그.
+    // persona 필드를 raw_analysis 호환 형태로 평탄화해서 저장.
+    try {
+      const flat = { ...p, tone_summary: p.tone || '', style_summary: p.style_summary || '' };
+      localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat));
+    } catch (_e) { void _e; }
     try {
       const curPic = document.getElementById('headerAvatar')?.querySelector('img')?.src || '';
       updateHeaderProfile(_instaHandle, p.tone, curPic);
@@ -324,7 +330,7 @@ async function runAutoAnalysisAfterConnect() {
     } catch (_e) { void _e; }
     setTimeout(() => {
       if (overlay) overlay.style.display = 'none';
-      try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료! 캡션·DM 답장이 사장님 말투로 자동 생성돼요'); } catch (_e) { void _e; }
+      try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료! 내샵관리 → 말투 분석 리포트에서 확인하세요'); } catch (_e) { void _e; }
     }, 1000);
     return;
   }
@@ -531,6 +537,8 @@ window.checkInstagramStatus = checkInstaStatus;
 // [2026-05-21] 설정 → 말투분석 / 인스타 재분석 진입점. app-settings-hub·app-oauth-return·app-persona-survey 에서 window.runPersonaAnalyze 로 호출 → 노출 누락 시 silent fail.
 window.runPersonaAnalyze = runPersonaAnalyze;
 window.reAnalyzePersona = reAnalyzePersona;
+// [2026-05-21] 내샵관리 → "전체 분석 리포트 보기" 클릭 진입점. myshop-v3 가 window.showDetailedAnalysis 로 호출.
+window.showDetailedAnalysis = showDetailedAnalysis;
 
 async function connectInstagram() {
   if (!getToken()) {
