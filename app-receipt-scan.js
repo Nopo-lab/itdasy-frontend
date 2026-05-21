@@ -107,7 +107,7 @@
     const fd = new FormData();
     fd.append('image', compressed);
     fd.append('kind', kind);
-    const res = await fetch(window.API + '/imports/smart/image', {
+    const res = await apiFetch('/imports/smart/image', {
       method: 'POST',
       headers: { Authorization: window.authHeader().Authorization },
       body: fd,
@@ -175,7 +175,7 @@
   }
 
   async function _commit(kind, items) {
-    const res = await fetch(window.API + '/imports/smart/commit', {
+    const res = await apiFetch('/imports/smart/commit', {
       method: 'POST',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ kind, items }),

@@ -48,7 +48,7 @@
     if (body) opts.body = JSON.stringify(body);
     let res;
     try {
-      res = await fetch(window.API + path, opts);
+      res = await apiFetch(path, opts);
     } finally {
       clearTimeout(_to);
     }

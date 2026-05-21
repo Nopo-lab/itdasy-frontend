@@ -16,7 +16,7 @@
   function _fmt(n) { return (+n || 0).toLocaleString('ko-KR') + '원'; }
 
   async function _fetch(year, month) {
-    const res = await fetch(window.API + `/reports/monthly?year=${year}&month=${month}`, { headers: window.authHeader() });
+    const res = await apiFetch(`/reports/monthly?year=${year}&month=${month}`, { headers: window.authHeader() });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
   }

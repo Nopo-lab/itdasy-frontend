@@ -434,7 +434,7 @@ async function doPublishFromCaption() {
 
     // 2026-05-01 ── 엔드포인트 미스매치 픽스: /publish 는 JSON image_url 받음.
     // multipart FormData 는 /publish-file 에 보내야 함.
-    const res  = await fetch(API + '/instagram/publish-file', {
+    const res  = await apiFetch('/instagram/publish-file', {
       method: 'POST',
       headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
       body: fd,

@@ -28,7 +28,7 @@
     const auth = window.authHeader();
     if (!auth?.Authorization) return null;
     try {
-      const res = await fetch(window.API + '/notifications/pending', { headers: auth });
+      const res = await apiFetch('/notifications/pending', { headers: auth });
       if (!res.ok) return null;
       return await res.json();
     } catch (_) { return null; }
@@ -47,10 +47,10 @@
   }
 
   async function _markRead(id) {
-    try { await fetch(window.API + '/notifications/' + id + '/read', { method: 'PATCH', headers: window.authHeader() }); } catch (_) { void 0; }
+    try { await apiFetch('/notifications/' + id + '/read', { method: 'PATCH', headers: window.authHeader() }); } catch (_) { void 0; }
   }
   async function _markAllRead() {
-    try { await fetch(window.API + '/notifications/read-all', { method: 'PATCH', headers: window.authHeader() }); } catch (_) { void 0; }
+    try { await apiFetch('/notifications/read-all', { method: 'PATCH', headers: window.authHeader() }); } catch (_) { void 0; }
   }
 
   function _ensureSheet() {

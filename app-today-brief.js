@@ -58,7 +58,7 @@
 
   async function _fetchBrief() {
     try {
-      const res = await fetch(window.API + '/today/brief', { headers: window.authHeader() });
+      const res = await apiFetch('/today/brief', { headers: window.authHeader() });
       if (!res.ok) return null;
       const data = await res.json();
       _writeSWRObj(_SWR_BRIEF_KEY, data);
@@ -69,7 +69,7 @@
   async function _fetchAISuggest() {
     if (!window.API || !window.authHeader) return null;
     try {
-      const res = await fetch(window.API + '/assistant/suggestions', { headers: window.authHeader() });
+      const res = await apiFetch('/assistant/suggestions', { headers: window.authHeader() });
       if (!res.ok) return null;
       const data = await res.json();
       _writeSWRObj(_SWR_AI_KEY, data);
@@ -269,7 +269,7 @@
       return;
     }
     try {
-      const res = await fetch(window.API + `/retouch/${encodeURIComponent(customerId)}/draft-dm`, {
+      const res = await apiFetch(`/retouch/${encodeURIComponent(customerId)}/draft-dm`, {
         method: 'POST',
         headers: window.authHeader(),
       });

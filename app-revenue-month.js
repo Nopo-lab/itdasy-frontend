@@ -86,9 +86,9 @@
   }
 
   async function _doFetchSummary(auth, isCur) {
-    let url = window.API + '/revenue/summary?period=month';
+    let url = '/revenue/summary?period=month';
     if (!isCur) url += '&year=' + _viewYear + '&month=' + _viewMonth;
-    const res = await fetch(url, { headers: { ...auth, 'Content-Type': 'application/json' } });
+    const res = await apiFetch(url, { headers: { ...auth, 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const summary = await res.json();
     const R = _R();
@@ -96,7 +96,7 @@
     if (!isCur) {
       try {
         const r2 = await fetch(
-          window.API + '/revenue?period=month&year=' + _viewYear + '&month=' + _viewMonth,
+          apiUrl('/revenue?period=month&year=' + _viewYear + '&month=' + _viewMonth),
           { headers: { ...auth, 'Content-Type': 'application/json' } }
         );
         if (r2.ok) {

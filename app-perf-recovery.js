@@ -58,7 +58,7 @@
         const ctl = new AbortController();
         const timer = setTimeout(() => ctl.abort(), 20000); // Railway cold start 대응
         try {
-          const res = await fetch(window.API + url, {
+          const res = await apiFetch(url, {
             headers: { ...auth },
             signal: ctl.signal,
           });
@@ -574,7 +574,7 @@
     // Railway cold start 최대 20s — 프로브 타임아웃도 20s로 맞춤
     const ctl = new AbortController();
     setTimeout(() => ctl.abort(), 20000);
-    fetch(window.API + '/auth/me', { cache: 'no-store', headers: auth, signal: ctl.signal })
+    apiFetch('/auth/me', { cache: 'no-store', headers: auth, signal: ctl.signal })
       .then(r => {
         if (r.ok || r.status === 401) {
           _markOnline();

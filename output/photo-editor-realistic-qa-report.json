@@ -1,6 +1,6 @@
 {
-  "build": "20260521-v253-audit-hardening",
-  "checkedAt": "2026-05-21T06:11:32.931Z",
+  "build": "20260521-v254-api-fetch",
+  "checkedAt": "2026-05-21T11:44:15.570Z",
   "source": "Wikimedia Commons + LoremFlickr 공개 키워드 사진을 임시 data URL 로 테스트",
   "sampleCount": 10,
   "kinds": {
@@ -68,10 +68,10 @@
       "kind": "nail",
       "recipe": "nail-color",
       "templateId": "feed-notice",
-      "title": "File:Gel Nails Pink Orange and White Design.jpg",
+      "title": "File:Crosses and squares nail art.jpg",
       "width": 1080,
       "height": 1350,
-      "mean": 142.78,
+      "mean": 158.32,
       "whiteRatio": 0,
       "pinkRatio": 0,
       "alphaZeroRatio": 0
@@ -81,12 +81,12 @@
       "kind": "hair",
       "recipe": "hair-shine",
       "templateId": "story-count",
-      "title": "File:Bedik hairstyling, Iwol, southeast Senegal (West Africa) (989178952).jpg",
-      "width": 730,
-      "height": 1298,
-      "mean": 39.97,
+      "title": "File:Anouck Lepere.jpg",
+      "width": 374,
+      "height": 665,
+      "mean": 54.41,
       "whiteRatio": 0.0222,
-      "pinkRatio": 0.0001,
+      "pinkRatio": 0,
       "alphaZeroRatio": 0
     },
     {
@@ -94,11 +94,11 @@
       "kind": "hair",
       "recipe": "hair-shine",
       "templateId": "story-open",
-      "title": "File:SalonWomen2012.jpg",
-      "width": 181,
-      "height": 322,
-      "mean": 136.63,
-      "whiteRatio": 0.0004,
+      "title": "File:Bedik hairstyling, Iwol, southeast Senegal (West Africa) (989178952).jpg",
+      "width": 730,
+      "height": 1298,
+      "mean": 71.22,
+      "whiteRatio": 0.0019,
       "pinkRatio": 0,
       "alphaZeroRatio": 0
     },
@@ -123,9 +123,9 @@
       "title": "LoremFlickr hair,salon 1",
       "width": 720,
       "height": 1280,
-      "mean": 70.16,
-      "whiteRatio": 0.0276,
-      "pinkRatio": 0,
+      "mean": 89.45,
+      "whiteRatio": 0.0065,
+      "pinkRatio": 0.0001,
       "alphaZeroRatio": 0
     },
     {
@@ -534,5 +534,5 @@
       "alphaZeroRatio": 0
     }
   ],
-  "screenshot": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/playwright/photo-editor-20260521-v253-audit-hardening.png"
+  "screenshot": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/playwright/photo-editor-20260521-v254-api-fetch.png"
 }

@@ -28,7 +28,7 @@
 
   async function _fetchEmojis() {
     if (!window.getToken || !getToken()) return _cache;
-    const res = await fetch(API + '/persona/emojis', { headers: authHeader() });
+    const res = await apiFetch('/persona/emojis', { headers: authHeader() });
     if (!res.ok) return _cache;
     const data = await res.json();
     _cache = {
@@ -42,7 +42,7 @@
     _cache[scope] = _cleanList(list);
     const body = {};
     body[scope] = _cache[scope];
-    const res = await fetch(API + '/persona/emojis', {
+    const res = await apiFetch('/persona/emojis', {
       method: 'PATCH',
       headers: { ...authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

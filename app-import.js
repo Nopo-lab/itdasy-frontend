@@ -186,7 +186,7 @@
     fd.append('image', compressed);
     fd.append('kind', _currentKind);
     try {
-      const res = await fetch(window.API + '/imports/smart/image', {
+      const res = await apiFetch('/imports/smart/image', {
         method: 'POST', headers: window.authHeader(), body: fd,
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -212,7 +212,7 @@
     const status = document.getElementById('importStatus');
     status.textContent = '텍스트에서 추출 중…';
     try {
-      const res = await fetch(window.API + '/imports/smart/text', {
+      const res = await apiFetch('/imports/smart/text', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, kind: _currentKind }),
@@ -271,7 +271,7 @@
       const btn = body.querySelector('#smartCommit');
       btn.disabled = true; btn.textContent = '저장 중…';
       try {
-        const res = await fetch(window.API + '/imports/smart/commit', {
+        const res = await apiFetch('/imports/smart/commit', {
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ kind, items: picks }),
@@ -307,7 +307,7 @@
     fd.append('file', effective);
     fd.append('kind', _currentKind);
     try {
-      const res = await fetch(window.API + '/imports/preview', {
+      const res = await apiFetch('/imports/preview', {
         method: 'POST',
         headers: window.authHeader(),
         body: fd,
@@ -414,7 +414,7 @@
     btn.disabled = true;
     btn.textContent = '반영 중…';
     try {
-      const res = await fetch(window.API + '/imports/commit', {
+      const res = await apiFetch('/imports/commit', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_id: _preview.job_id, mapping }),

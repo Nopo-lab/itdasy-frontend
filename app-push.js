@@ -21,7 +21,7 @@
 
   async function _postToken(token) {
     try {
-      const res = await fetch(window.API + '/push/register', {
+      const res = await apiFetch('/push/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...window.authHeader() },
         body: JSON.stringify({ token, platform }),
@@ -98,7 +98,7 @@
     const savedToken = localStorage.getItem('itdasy_push_token');
     if (!savedToken || !window.API || !window.authHeader) return;
     try {
-      await fetch(window.API + '/push/unregister', {
+      await apiFetch('/push/unregister', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...window.authHeader() },
         body: JSON.stringify({ token: savedToken }),

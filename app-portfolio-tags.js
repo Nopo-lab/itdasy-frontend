@@ -40,7 +40,7 @@
   function _imageSrc(item) {
     const src = item._src || item.image_url || '';
     if (!src) return '';
-    return src.startsWith('http') ? src : API + src;
+    return src.startsWith('http') ? src : apiUrl(src);
   }
 
   function _close(overlay) {
@@ -89,7 +89,7 @@
       tags: state.tags.join(','),
       memo: memoInput.value.trim(),
     };
-    const res = await fetch(API + '/portfolio/' + item.id, {
+    const res = await apiFetch('/portfolio/' + item.id, {
       method: 'PATCH',
       headers: { ...authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -102,7 +102,7 @@
 
   async function _delete(item, overlay) {
     if (!confirm('삭제할까요?')) return;
-    const res = await fetch(API + '/portfolio/' + item.id, {
+    const res = await apiFetch('/portfolio/' + item.id, {
       method: 'DELETE',
       headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
     });

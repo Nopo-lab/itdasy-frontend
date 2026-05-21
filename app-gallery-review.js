@@ -325,7 +325,7 @@ async function extractReviewTextRegion(dataUrl) {
   const blob = _dataUrlToBlob(dataUrl);
   const fd = new FormData();
   fd.append('file', blob, 'review.png');
-  const res = await fetch(API + '/image/extract-review-region', {
+  const res = await apiFetch('/image/extract-review-region', {
     method: 'POST', headers: authHeader(), body: fd
   });
   if (res.status === 429) { showToast('오늘 텍스트 추출 한도를 다 썼어요'); throw new Error('한도초과'); }

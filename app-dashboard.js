@@ -56,7 +56,7 @@
     if (!auth?.Authorization) throw new Error('no-token');
     const cached = (opts && opts.force) ? null : _getCached(path);
     if (cached) return cached;
-    const res = await fetch(window.API + path, { headers: auth });
+    const res = await apiFetch(path, { headers: auth });
     if (res.status === 404 || res.status === 501) throw new Error('endpoint-missing');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();

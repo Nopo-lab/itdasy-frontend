@@ -250,11 +250,11 @@ async function _republishGalleryItem(galleryId) {
     fd.append('photo_type', 'after');
     fd.append('main_tag', item.label || '');
     if (item.customer_id) fd.append('customer_id', item.customer_id);
-    const upRes = await fetch(API + '/portfolio', { method: 'POST', headers: authHeader(), body: fd });
+    const upRes = await apiFetch('/portfolio', { method: 'POST', headers: authHeader(), body: fd });
     if (!upRes.ok) { showToast('업로드 실패'); return; }
     const upData = await upRes.json();
     if (upData.auto_tagged && upData.tags) showToast('포트폴리오 태그도 자동으로 붙였어요');
-    const imgUrl = upData.image_url?.startsWith('http') ? upData.image_url : API + (upData.image_url || '');
+    const imgUrl = upData.image_url?.startsWith('http') ? upData.image_url : apiUrl(upData.image_url || '');
     if (typeof doInstagramPublish === 'function') {
       const success = await doInstagramPublish(imgUrl, fullCaption);
       if (success) showToast('다시 업로드 완료!');
@@ -520,11 +520,11 @@ async function publishSlotToInstagram(slotId) {
     fd.append('main_tag', slot.label);
     fd.append('tags', '');
     if (slot.customer_id) fd.append('customer_id', slot.customer_id);
-    const upRes  = await fetch(API + '/portfolio', { method: 'POST', headers: authHeader(), body: fd });
+    const upRes  = await apiFetch('/portfolio', { method: 'POST', headers: authHeader(), body: fd });
     if (!upRes.ok) { showToast('업로드 실패'); return; }
     const upData = await upRes.json();
     if (upData.auto_tagged && upData.tags) showToast('포트폴리오 태그도 자동으로 붙였어요');
-    const imgUrl = upData.image_url?.startsWith('http') ? upData.image_url : API + (upData.image_url || '');
+    const imgUrl = upData.image_url?.startsWith('http') ? upData.image_url : apiUrl(upData.image_url || '');
     if (typeof doInstagramPublish === 'function') {
       const success = await doInstagramPublish(imgUrl, fullCaption);
       if (success) {

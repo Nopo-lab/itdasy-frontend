@@ -24,6 +24,8 @@ module.exports = {
     Capacitor: 'readonly',
     // app-core.js 가 노출하는 전역 (AGENTS.md §2 허용 목록)
     API: 'readonly',
+    apiUrl: 'readonly',
+    apiFetch: 'readonly',
     authHeader: 'readonly',
     getToken: 'readonly',
     setToken: 'readonly',

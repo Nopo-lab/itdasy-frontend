@@ -31,7 +31,7 @@
   }
 
   async function _fetchAtRisk() {
-    const res = await fetch(window.API + '/retention/at-risk', { headers: window.authHeader() });
+    const res = await apiFetch('/retention/at-risk', { headers: window.authHeader() });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     return data.items || data.customers || [];

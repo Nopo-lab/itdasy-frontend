@@ -6,7 +6,6 @@
 (function () {
   'use strict';
 
-  const API = window.API || '';
   let _cache = null;
 
   function _emptyStaff() { return { items: [], total: 0, plan_limit: 0, used: 0 }; }
@@ -18,7 +17,7 @@
   function _fetch(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
     if (body) headers['Content-Type'] = 'application/json';
-    return fetch(API + path, {
+    return apiFetch(path, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,

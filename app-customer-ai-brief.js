@@ -219,9 +219,9 @@
   //        /customers/{id}/dashboard 로 폴백하여 last_service/last_amount 보강.
   async function _tryServerBrief(customerId, force) {
     if (!window.API || !window.authHeader) return null;
-    const briefUrl = window.API + '/customers/' + encodeURIComponent(customerId) + '/ai-brief'
+    const briefUrl = apiUrl('/customers/' + encodeURIComponent(customerId) + '/ai-brief')
       + (force ? '?force=1' : '');
-    const dashUrl  = window.API + '/customers/' + encodeURIComponent(customerId) + '/dashboard';
+    const dashUrl  = apiUrl('/customers/' + encodeURIComponent(customerId) + '/dashboard');
 
     if (!force && _inFlight.has(customerId)) return _inFlight.get(customerId);
 

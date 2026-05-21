@@ -97,13 +97,13 @@
     const headers = window.authHeader();
     const settingsPromise = window.DmSettingsCache?.get
       ? window.DmSettingsCache.get().catch(() => null)
-      : _rawFetch(window.API + '/instagram/dm-reply/settings', { headers })
+      : _rawFetch(apiUrl('/instagram/dm-reply/settings'), { headers })
         .then(r => (r && r.ok) ? r.json().catch(() => null) : null)
         .catch(() => null);
     const endpoints = [
-      _rawFetch(window.API + '/instagram/dm-reply/status', { headers }).catch(() => null),
+      _rawFetch(apiUrl('/instagram/dm-reply/status'), { headers }).catch(() => null),
       settingsPromise,
-      _rawFetch(window.API + '/instagram/dm-reply/recent-conversations?limit=10', { headers }).catch(() => null),
+      _rawFetch(apiUrl('/instagram/dm-reply/recent-conversations?limit=10'), { headers }).catch(() => null),
     ];
     const [sR, stR, cR] = await Promise.all(endpoints);
     const status = (sR && sR.ok) ? await sR.json().catch(() => ({})) : {};
@@ -137,7 +137,7 @@
         const safe = _sanitizeForSave(_settings);
         if (window.DmSettingsCache?.save) await window.DmSettingsCache.save(safe);
         else {
-          await _rawFetch(window.API + '/instagram/dm-reply/settings', {
+          await _rawFetch(apiUrl('/instagram/dm-reply/settings'), {
             method: 'POST',
             headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify(safe),
@@ -571,7 +571,7 @@
   /* ── 카드 액션 핸들러 ───────────────────────────── */
   async function _sendFeedback(tail, kind) {
     try {
-      await fetch(window.API + '/instagram/dm-reply/feedback', {
+      await apiFetch('/instagram/dm-reply/feedback', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ tail, [kind]: true }),
@@ -611,7 +611,7 @@
           url = `/dm-confirm-queue/${encodeURIComponent(logId)}/send_edit`;
           body = JSON.stringify({ edited_reply: editedText });
         }
-        const res = await fetch(window.API + url, {
+        const res = await apiFetch(url, {
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body,
@@ -651,7 +651,7 @@
     // 2026-05-01 ── 실제 백엔드 discard. 결과 확인해서 실패면 사용자에게 알림.
     if (logId) {
       try {
-        const res = await fetch(window.API + `/dm-confirm-queue/${encodeURIComponent(logId)}/discard`, {
+        const res = await apiFetch(`/dm-confirm-queue/${encodeURIComponent(logId)}/discard`, {
           method: 'POST', headers: window.authHeader(),
         });
         if (!res.ok) {
@@ -702,7 +702,7 @@
     }
     _haptic();
     try {
-      const res = await _rawFetch(window.API + `/dm-confirm-queue/${encodeURIComponent(logId)}/regenerate`, {
+      const res = await _rawFetch(apiUrl(`/dm-confirm-queue/${encodeURIComponent(logId)}/regenerate`), {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ tone }),
@@ -763,7 +763,7 @@
     if (!confirm('이 시간 거절하고 대안 시간을 손님에게 안내할까요?')) return;
     _haptic();
     try {
-      const res = await fetch(window.API + `/dm-confirm-queue/${encodeURIComponent(logId)}/decline-with-alternatives`, {
+      const res = await apiFetch(`/dm-confirm-queue/${encodeURIComponent(logId)}/decline-with-alternatives`, {
         method: 'POST', headers: window.authHeader(),
       });
       const d = await res.json().catch(() => ({}));
@@ -869,7 +869,7 @@
     // [Feature 5] 가격 문의 토글: /shop/settings 로드 후 초기화
     const pricingBtn = sheet.querySelector('[data-act="pricing-toggle"]');
     if (pricingBtn) {
-      _rawFetch(window.API + '/shop/settings', { headers: window.authHeader() }).then(async (r) => {
+      _rawFetch(apiUrl('/shop/settings'), { headers: window.authHeader() }).then(async (r) => {
         if (!r || !r.ok) return;
         const data = await r.json().catch(() => ({}));
         const on = !!data?.settings?.auto_answer_pricing;
@@ -883,7 +883,7 @@
         pricingBtn.setAttribute('aria-pressed', String(next));
         _haptic();
         try {
-          await _rawFetch(window.API + '/shop/settings', {
+          await _rawFetch(apiUrl('/shop/settings'), {
             method: 'PATCH',
             headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify({ auto_answer_pricing: next }),
@@ -918,7 +918,7 @@
           await window.DmSettingsCache.save(safeSettings);
           return { ok: true, status: 200, json: async () => ({}) };
         }
-        return _rawFetch(window.API + '/instagram/dm-reply/settings', {
+        return _rawFetch(apiUrl('/instagram/dm-reply/settings'), {
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify(safeSettings),
@@ -978,7 +978,7 @@
       if (!listEl) return;
       listEl.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.5);padding:8px 0;">불러오는 중...</div>';
       try {
-        const res = await _rawFetch(window.API + '/retouch/retention-bulk?days=45',
+        const res = await _rawFetch(apiUrl('/retouch/retention-bulk?days=45'),
           { headers: window.authHeader() });
         const data = res && res.ok ? await res.json().catch(() => ({})) : {};
         const customers = data.customers || data.items || data || [];
@@ -998,7 +998,7 @@
         _haptic();
         btn.disabled = true; btn.style.opacity = '0.6';
         try {
-          const res = await _rawFetch(window.API + `/retouch/${encodeURIComponent(custId)}/draft-dm`,
+          const res = await _rawFetch(apiUrl(`/retouch/${encodeURIComponent(custId)}/draft-dm`),
             { method: 'POST', headers: window.authHeader() });
           if (!res || !res.ok) throw new Error('HTTP ' + (res?.status || '?'));
           _toast('DM 큐에 등록됐어요');
@@ -1021,7 +1021,7 @@
         let ok = 0;
         for (const c of sendable) {
           try {
-            const res = await _rawFetch(window.API + `/retouch/${encodeURIComponent(c.customer_id)}/draft-dm`,
+            const res = await _rawFetch(apiUrl(`/retouch/${encodeURIComponent(c.customer_id)}/draft-dm`),
               { method: 'POST', headers: window.authHeader() });
             if (res && res.ok) ok++;
           } catch (_) { /* 개별 실패 무시 */ }
@@ -1185,7 +1185,7 @@
     if (!mount) return;
     try {
       const headers = window.authHeader();
-      const r = await _rawFetch(window.API + '/instagram/dm-reply/recent-conversations?limit=10', { headers });
+      const r = await _rawFetch(apiUrl('/instagram/dm-reply/recent-conversations?limit=10'), { headers });
       if (!r || !r.ok) return;
       const data = await r.json().catch(() => ({}));
       const conversations = data.conversations || [];

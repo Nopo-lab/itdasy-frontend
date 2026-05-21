@@ -5,7 +5,7 @@
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
 
   async function _genSlug() {
-    const res = await fetch(window.API + '/public/book/admin/slug', {
+    const res = await apiFetch('/public/book/admin/slug', {
       method: 'POST',
       headers: window.authHeader(),
     });
@@ -14,7 +14,7 @@
   }
 
   async function _toggle(enabled) {
-    const res = await fetch(window.API + '/public/book/admin/toggle?enabled=' + (enabled ? 'true' : 'false'), {
+    const res = await apiFetch('/public/book/admin/toggle?enabled=' + (enabled ? 'true' : 'false'), {
       method: 'POST',
       headers: window.authHeader(),
     });
@@ -24,7 +24,7 @@
 
   function _buildUrl(slug) {
     // HTML 페이지 — 고객이 브라우저로 방문하면 예약 UI 렌더
-    return window.API + '/public/book/' + slug + '/page';
+    return apiUrl('/public/book/' + slug + '/page');
   }
 
   function _renderBody(body, slug, enabled, url) {

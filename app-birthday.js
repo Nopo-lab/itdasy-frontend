@@ -18,7 +18,7 @@
 
   async function _fetch(days) {
     try {
-      const res = await fetch(window.API + '/birthdays/upcoming?days=' + (days || 14), { headers: window.authHeader() });
+      const res = await apiFetch('/birthdays/upcoming?days=' + (days || 14), { headers: window.authHeader() });
       if (!res.ok) return null;
       return await res.json();
     } catch (_) { return null; }

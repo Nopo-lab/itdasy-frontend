@@ -36,7 +36,7 @@
     if (!auth?.Authorization) throw new Error('no-token');
     const opts = { method, headers: { ...auth, 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(window.API + path, opts);
+    const res = await apiFetch(path, opts);
     if (res.status === 404 || res.status === 501) throw new Error('endpoint-missing');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return res.status === 204 ? null : await res.json();

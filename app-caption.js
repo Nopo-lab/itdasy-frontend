@@ -239,7 +239,7 @@ async function showOnboardingCaptionPopup() {
 
   try {
     const shopType = localStorage.getItem('shop_type') || '붙임머리';
-    const res = await fetch(API + '/caption/generate', {
+    const res = await apiFetch('/caption/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify({ description: `${shopType} 시술. 오늘 새로운 손님. 결과 대만족.`, platform: 'instagram' }),
@@ -276,7 +276,7 @@ async function saveOnboardingCaption() {
   if (!text || text.length < 10) { showToast('글을 조금 더 입력해주세요!'); return; }
 
   try {
-    const res = await fetch(API + '/shop/persona/onboarding', {
+    const res = await apiFetch('/shop/persona/onboarding', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify({ corrected_caption: text }),
@@ -849,7 +849,7 @@ async function doActualPublish() {
 
     // 2026-05-01 ── 엔드포인트 미스매치 픽스: /publish 는 JSON image_url 받음.
     // multipart FormData 는 /publish-file 에 보내야 함.
-    const res = await fetch(API + '/instagram/publish-file', {
+    const res = await apiFetch('/instagram/publish-file', {
       method: 'POST',
       headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
       body: formData

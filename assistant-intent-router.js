@@ -156,7 +156,7 @@
 
   async function _fetchJson(path) {
     const auth = (typeof window.authHeader === 'function') ? window.authHeader() : {};
-    const r = await fetch(window.API + path, { headers: auth });
+    const r = await apiFetch(path, { headers: auth });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   }

@@ -78,7 +78,7 @@
   // ── 그날 예약 조회 + 매칭 제안 ─────────────────────────
   async function _apiGet(path) {
     if (!window.API || !window.authHeader) throw new Error('no-auth');
-    const res = await fetch(window.API + path, { headers: window.authHeader() });
+    const res = await apiFetch(path, { headers: window.authHeader() });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
   }

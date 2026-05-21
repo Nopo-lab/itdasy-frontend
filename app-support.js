@@ -33,7 +33,7 @@
       return { messages: [], unread_count: 0 };
     }
     try {
-      const res = await fetch(window.API + '/support/messages', { headers: window.authHeader() });
+      const res = await apiFetch('/support/messages', { headers: window.authHeader() });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return await res.json();
     } catch (e) {
@@ -150,7 +150,7 @@
     // 관리자 메시지 전부 읽음 처리
     try {
       if (window.API && window.authHeader) {
-        await fetch(window.API + '/support/messages/read', {
+        await apiFetch('/support/messages/read', {
           method: 'POST',
           headers: window.authHeader(),
         });
@@ -170,7 +170,7 @@
       // 관리자 답장 즉시 읽음 처리
       if (newOnes.some(m => m.from_admin)) {
         try {
-          await fetch(window.API + '/support/messages/read', { method: 'POST', headers: window.authHeader() });
+          await apiFetch('/support/messages/read', { method: 'POST', headers: window.authHeader() });
         } catch (_e) { void _e; }
       }
     }, 60000);
@@ -209,7 +209,7 @@
 
     // 2) 서버 전송은 비동기 — UI 블로킹 없음
     try {
-      const res = await fetch(window.API + '/support/messages', {
+      const res = await apiFetch('/support/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...window.authHeader() },
         body: JSON.stringify({ content }),

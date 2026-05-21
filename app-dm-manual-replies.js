@@ -14,7 +14,7 @@
   async function _fetch(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
     if (body) headers['Content-Type'] = 'application/json';
-    const res = await fetch(window.API + path, {
+    const res = await apiFetch(path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -50,7 +50,7 @@
       return window.DmSettingsCache.get().catch(() => null);
     }
     try {
-      const res = await fetch(window.API + '/instagram/dm-reply/settings', { headers: window.authHeader() });
+      const res = await apiFetch('/instagram/dm-reply/settings', { headers: window.authHeader() });
       if (!res.ok) return null;
       return await res.json();
     } catch (_) { return null; }
@@ -138,10 +138,10 @@
       autoGenBtn.disabled = true;
       autoGenBtn.style.opacity = '0.7';
       try {
-        await fetch(window.API + '/instagram/dm-reply/analyze-tone', {
+        await apiFetch('/instagram/dm-reply/analyze-tone', {
           method: 'POST', headers: window.authHeader(),
         }).catch(() => null);
-        const r = await fetch(window.API + '/instagram/dm-reply/auto-generate-templates', {
+        const r = await apiFetch('/instagram/dm-reply/auto-generate-templates', {
           method: 'POST', headers: window.authHeader(),
         });
         const d = await r.json().catch(() => ({}));
@@ -177,7 +177,7 @@
         }
         if (window.DmSettingsCache?.save) await window.DmSettingsCache.save(payload);
         else {
-          const res = await fetch(window.API + '/instagram/dm-reply/settings', {
+          const res = await apiFetch('/instagram/dm-reply/settings', {
             method: 'POST',
             headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -226,7 +226,7 @@
         if (!ta) return;
         btn.disabled = true; btn.style.opacity = '0.6';
         try {
-          const r = await fetch(window.API + '/instagram/dm-reply/auto-generate-templates?intent=' + cat, {
+          const r = await apiFetch('/instagram/dm-reply/auto-generate-templates?intent=' + cat, {
             method: 'POST', headers: window.authHeader(),
           });
           const d = await r.json().catch(() => ({}));

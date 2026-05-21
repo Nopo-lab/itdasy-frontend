@@ -47,7 +47,7 @@
     const headers = _authHeaders();
     if (!window.API || !headers) return null;
     try {
-      const res = await fetch(window.API + '/assistant/brief', { headers });
+      const res = await apiFetch('/assistant/brief', { headers });
       if (!res.ok) return null;
       const data = await res.json();
       _writeSWR(data);
@@ -60,7 +60,7 @@
     const headers = _authHeaders();
     if (!window.API || !headers) return [];
     try {
-      const res = await fetch(window.API + '/instagram/dm-reply/recent-conversations?limit=5', { headers });
+      const res = await apiFetch('/instagram/dm-reply/recent-conversations?limit=5', { headers });
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data && data.conversations) ? data.conversations : [];

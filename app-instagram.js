@@ -37,7 +37,7 @@ function _renderTokenExpiryBanner(expiresAtIso) {
 async function checkInstaStatus(fromLogin = false) {
   if (!getToken()) return;
   try {
-    const res = await fetch(API + '/instagram/status', { headers: authHeader() });
+    const res = await apiFetch('/instagram/status', { headers: authHeader() });
     if (!res.ok) return;
     const data = await res.json();
 
@@ -287,7 +287,7 @@ async function runAutoAnalysisAfterConnect() {
   // 백그라운드 task 진행 시각화 — 시간 흐름에 따라 prograss bar 자연스럽게 증가
   while (Date.now() - startedAt < MAX_MS) {
     try {
-      const res = await fetch(API + '/instagram/status', { headers: authHeader() });
+      const res = await apiFetch('/instagram/status', { headers: authHeader() });
       if (res.ok) {
         const d = await res.json();
         lastStatusData = d;
@@ -332,7 +332,7 @@ async function runAutoAnalysisAfterConnect() {
   // Timeout fallback — BG task 가 실패했거나 너무 느림. force 재분석 1회.
   if (stepTxt) stepTxt.textContent = '한 번 더 시도하는 중…';
   try {
-    const r2 = await fetch(API + '/instagram/analyze?force=true', { method: 'POST', headers: authHeader() });
+    const r2 = await apiFetch('/instagram/analyze?force=true', { method: 'POST', headers: authHeader() });
     if (r2.ok) {
       const d2 = await r2.json();
       const p = d2.persona || {};
@@ -401,8 +401,7 @@ async function runPersonaAnalyze(force) {
   }, 2200);
 
   try {
-    const _url = API + '/instagram/analyze' + (force ? '?force=true' : '');
-    const res = await fetch(_url, {
+    const res = await apiFetch('/instagram/analyze' + (force ? '?force=true' : ''), {
       method: 'POST',
       headers: authHeader()
     });
@@ -487,7 +486,7 @@ async function disconnectInstagram() {
     '인스타 연동을 끊을게요. 잇데이 로그인은 그대로 유지돼요.\n나중에 다시 연결하면 분석 결과를 새 인스타 기준으로 갱신해요.\n\n고객·예약·매출·말투 분석 데이터는 안전하게 보관돼요.'
   ))) return;
   try {
-    const res = await fetch(API + '/instagram/disconnect', {
+    const res = await apiFetch('/instagram/disconnect', {
       method: 'POST',
       headers: authHeader(),
     });
@@ -565,7 +564,7 @@ async function connectInstagram() {
 
   try {
     // 동의 내역 서버 로그 및 로컬 저장 (타임스탬프 포함)
-    fetch(API + '/instagram/consent', { method: 'POST', headers: authHeader() })
+    apiFetch('/instagram/consent', { method: 'POST', headers: authHeader() })
       .then(() => {
         const now = new Date().toLocaleString('ko-KR');
         localStorage.setItem('itdasy_consented', 'true');
@@ -573,7 +572,7 @@ async function connectInstagram() {
         const tsEl = document.getElementById('consentTimestampDisplay');
         if (tsEl) { tsEl.textContent = `동의 완료: ${now}`; tsEl.style.display = 'block'; }
       })
-      .catch(e => {});
+      .catch(e => console.warn('[instagram] 동의 기록 실패', e));
 
     // iOS Universal Link 우회: 백엔드 ngrok URL로 이동 (instagram.com 직접 아님)
     // 백엔드가 302로 인스타에 전달 → 앱 납치 없이 Safari에서 OAuth 진행

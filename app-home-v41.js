@@ -46,7 +46,7 @@
       return null;
     }
     try {
-      const res = await fetch(window.API + '/assistant/brief', { headers });
+      const res = await apiFetch('/assistant/brief', { headers });
       if (!res.ok) {
         console.warn('[brief] API 응답 실패:', res.status);
         return null;
@@ -68,7 +68,7 @@
     const headers = _authHeaders();
     if (!window.API || !headers) return 0;
     try {
-      const res = await fetch(window.API + '/public/book/admin/pending', { headers });
+      const res = await apiFetch('/public/book/admin/pending', { headers });
       if (!res.ok) return 0;
       const data = await res.json();
       return Array.isArray(data.items) ? data.items.length : 0;
@@ -80,7 +80,7 @@
     const headers = _authHeaders();
     if (!window.API || !headers) return 0;
     try {
-      const res = await fetch(window.API + '/dm-confirm-queue', { headers });
+      const res = await apiFetch('/dm-confirm-queue', { headers });
       if (!res.ok) return 0;
       const data = await res.json();
       return Array.isArray(data) ? data.length : (Array.isArray(data.items) ? data.items.length : 0);
@@ -93,7 +93,7 @@
     const headers = _authHeaders();
     if (!window.API || !headers) return null;
     try {
-      const res = await fetch(window.API + '/revenue/summary?period=month', { headers });
+      const res = await apiFetch('/revenue/summary?period=month', { headers });
       if (!res.ok) return null;
       const data = await res.json();
       const n = Number(data.projected_total);
@@ -759,10 +759,10 @@
         // today_bookings 항목엔 customer_id 가 없을 수 있음 → GET /bookings/{id} 로 보강.
         let booking = window._homePendingTopBooking || { id };
         try {
-          if (window.API && window.authHeader) {
+          if (window.authHeader) {
             const headers = window.authHeader();
             if (headers && headers.Authorization) {
-              const res = await fetch(window.API + '/bookings/' + id, { headers });
+              const res = await apiFetch('/bookings/' + id, { headers });
               if (res.ok) booking = await res.json();
             }
           }

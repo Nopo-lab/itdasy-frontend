@@ -14,7 +14,7 @@
 
   async function _request(method, body) {
     if (!window.API) throw new Error('no-api');
-    const res = await fetch(window.API + '/instagram/dm-reply/settings', {
+    const res = await apiFetch('/instagram/dm-reply/settings', {
       method,
       headers: _headers(Boolean(body)),
       body: body ? JSON.stringify(body) : undefined,

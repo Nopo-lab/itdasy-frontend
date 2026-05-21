@@ -12,14 +12,13 @@
     if (!imageDataUrl) return _toast('사진을 먼저 선택해주세요');
     if (!scheduledTime) return _toast('예약 시간을 설정해주세요');
 
-    const API = window.API || '';
     const baseHeaders = window.authHeader ? window.authHeader() : {};
     const headers = Object.assign({}, baseHeaders, { 'Content-Type': 'application/json' });
 
     _toast('예약 등록 중… (1/2) 사진 업로드');
     let imageUrl = '';
     try {
-      const up = await fetch(API + '/scheduled-posts/upload', {
+      const up = await apiFetch('/scheduled-posts/upload', {
         method: 'POST', headers,
         body: JSON.stringify({ image_data: imageDataUrl }),
       });
@@ -37,7 +36,7 @@
 
     _toast('예약 등록 중… (2/2) 예약 저장');
     try {
-      const res = await fetch(API + '/scheduled-posts', {
+      const res = await apiFetch('/scheduled-posts', {
         method: 'POST', headers,
         body: JSON.stringify({
           image_url: imageUrl,
@@ -69,10 +68,9 @@
   }
 
   async function listScheduled() {
-    const API = window.API || '';
     const headers = window.authHeader ? window.authHeader() : {};
     try {
-      const res = await fetch(API + '/scheduled-posts', { headers });
+      const res = await apiFetch('/scheduled-posts', { headers });
       if (!res.ok) return [];
       return await res.json();
     } catch (_e) {
@@ -81,10 +79,9 @@
   }
 
   async function cancelScheduled(id) {
-    const API = window.API || '';
     const headers = window.authHeader ? window.authHeader() : {};
     try {
-      const res = await fetch(API + '/scheduled-posts/' + id, { method: 'DELETE', headers });
+      const res = await apiFetch('/scheduled-posts/' + id, { method: 'DELETE', headers });
       return res.ok;
     } catch (_e) {
       return false;

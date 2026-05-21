@@ -78,6 +78,14 @@
     : (isTest
         ? 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app'
         : 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app');
+  function apiUrl(path) {
+    var raw = String(path == null ? '' : path);
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return API + (raw.charAt(0) === '/' ? raw : '/' + raw);
+  }
+  function apiFetch(path, opts) {
+    return fetch(apiUrl(path), opts);
+  }
 
   function getQuery(name) {
     var m = new RegExp('[?&]' + name + '=([^&]+)').exec(location.search);
@@ -119,7 +127,7 @@
     actions.style.display = 'none';
     result.className = 'result';
     result.textContent = '잠시만요...';
-    fetch(API + '/bookings/' + bookingId + '/confirmation-response', {
+    apiFetch('/bookings/' + bookingId + '/confirmation-response', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: token, response: response }),

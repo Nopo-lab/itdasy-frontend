@@ -10,7 +10,7 @@
   async function _fetch() {
     if (!window.API || !window.authHeader) return null;
     try {
-      const res = await fetch(window.API + '/assistant/suggestions', { headers: window.authHeader() });
+      const res = await apiFetch('/assistant/suggestions', { headers: window.authHeader() });
       if (!res.ok) return null;
       return await res.json();
     } catch (_e) { return null; }

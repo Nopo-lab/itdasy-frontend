@@ -8,6 +8,7 @@
 - 워크플로우: 1) 여기서 먼저 → 2) 검증 후 `itdasy-frontend`(운영) 승격
 - 트랙: 4줄 이상 / API / Capacitor = 표준(티켓→플랜→승인→코드→T4→T1→머지), 문서·1~3줄 = 경량
 - 코드 룰: 함수 50줄·파일 500줄 (ESLint 강제). 초과 시 분할 티켓 + 원영님 승인
+- 서버 호출: 직접 주소를 붙이지 말고 `window.apiUrl()` / `window.apiFetch()` 사용
 - 분할 대상: `app-caption.js` / `app-portfolio.js` / `app-gallery.js` — Phase 2 (T-101/102/103)
 - 로컬: `python3 -m http.server 8080` · `npx cap sync android` · Android 빌드는 GitHub Actions 권장
 - Capacitor: scheme `itdasy://`, plugins = SplashScreen/StatusBar/Push/Camera/App

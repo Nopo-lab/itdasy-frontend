@@ -68,7 +68,7 @@
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), 22000); // Railway cold start 대응 22s
     try {
-      const res = await fetch(window.API + path, {
+      const res = await apiFetch(path, {
         headers: window.authHeader(),
         signal: ctrl.signal
       });
@@ -88,7 +88,7 @@
 
   async function _apiPatch(path, body) {
     if (!window.API || !window.authHeader) throw new Error('no-auth');
-    const res = await fetch(window.API + path, {
+    const res = await apiFetch(path, {
       method: 'PATCH',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body || {}),

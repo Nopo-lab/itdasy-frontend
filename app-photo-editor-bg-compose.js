@@ -78,7 +78,7 @@
     try {
       const fd = new FormData();
       fd.append('file', _blobFromDataUrl(srcDataUrl), 'photo.jpg');
-      const res = await fetch(API + '/image/remove-bg', { method: 'POST', headers: authHeader(), body: fd });
+      const res = await apiFetch('/image/remove-bg', { method: 'POST', headers: authHeader(), body: fd });
       if (res.status === 429) throw new Error('오늘 누끼따기 한도를 다 썼어요');
       if (!res.ok) throw new Error('서버 누끼 실패');
       return await res.blob();

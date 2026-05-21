@@ -58,6 +58,17 @@ const API = (window.location.hostname === 'localhost' || window.location.hostnam
   ? 'http://localhost:8000'
   : PROD_API;
 
+function apiUrl(path) {
+  const raw = String(path == null ? '' : path);
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (!raw) return API;
+  return API + (raw[0] === '/' ? raw : '/' + raw);
+}
+
+function apiFetch(path, opts) {
+  return fetch(apiUrl(path), opts);
+}
+
 // ===== 토큰 localStorage 키를 백엔드별로 분리 =====
 // nopo-lab.github.io는 운영/스테이징 프론트가 같은 origin이라 localStorage 공유.
 // 백엔드가 다르면(운영 vs 스테이징) JWT 서명이 달라서 크로스 오염 시 401 "인증 실패" 발생.
@@ -361,7 +372,7 @@ async function checkOnboarding() {
       _applyLocalOnboarding();
       return;
     }
-    const res = await fetch(API + '/shop/settings', { headers });
+    const res = await apiFetch('/shop/settings', { headers });
     if (!res.ok) {
       _applyLocalOnboarding();
       return;
@@ -451,7 +462,7 @@ function _obFinish() {
   updateHeaderProfile(null, null, null);
   showToast(`${name} 시작해요`, 'success');
 
-  fetch(API + '/shop/settings', {
+  apiFetch('/shop/settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify({ shop_name: name })
@@ -624,7 +635,7 @@ async function applyNewSession(newToken, opts) {
 
   // /auth/me 동기화 — fire-and-forget (await 제거: 첫 진입 ~200ms 단축)
   // user_id 는 JWT payload.sub 로 이미 확보, email/oauth_provider 만 백그라운드 보강.
-  fetch(API + '/auth/me', {
+  apiFetch('/auth/me', {
     headers: { 'Authorization': 'Bearer ' + newToken, 'ngrok-skip-browser-warning': 'true' },
   }).then(async (res) => {
     if (res && res.ok) {
@@ -827,14 +838,13 @@ function authHeader() {
     }
     _refreshing = true;
     try {
-      const API = window.API || '';
       const tok = getToken();
       // [BUG-2] 10초 타임아웃 — 서버 무응답 시 앱 hang 방지
       const _ac = new AbortController();
       const _to = setTimeout(() => _ac.abort(), 10000);
       let r;
       try {
-        r = await _origFetch(API + '/auth/refresh', {
+        r = await _origFetch(apiUrl('/auth/refresh'), {
           method: 'POST',
           headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
           signal: _ac.signal,
@@ -988,7 +998,7 @@ async function resetShopSetup() {
 
   // 1. 백엔드 인스타 해제 (실패해도 진행)
   try {
-    await fetch(API + '/instagram/disconnect', { method: 'POST', headers: authHeader() });
+    await apiFetch('/instagram/disconnect', { method: 'POST', headers: authHeader() });
   } catch (_e) { void _e; }
 
   // 2. 로컬 정리 — 샵·온보딩·인스타 동의·말투 분석
@@ -1013,7 +1023,7 @@ async function localReset() {
   ['itdasy_consented','itdasy_consented_at','itdasy_latest_analysis',
    'onboarding_done','shop_name','shop_type'].forEach(k => localStorage.removeItem(k));
   // 인스타 연동도 백엔드에서 해제
-  try { await fetch(API + '/instagram/disconnect', { method: 'POST', headers: authHeader() }); } catch(_) { /* ignore */ }
+  try { await apiFetch('/instagram/disconnect', { method: 'POST', headers: authHeader() }); } catch(_) { /* ignore */ }
   location.reload();
 }
 
@@ -1027,7 +1037,7 @@ function checkCbt1Reset() {
 async function fullReset() {
   if (!(await nativeConfirm("확인", '모든 데이터(온보딩·샵설정·인스타연동·말투분석)가 초기화됩니다.\n정말 처음부터 시작할까요?'))) return;
   try {
-    const res = await fetch(API + '/admin/reset', { method: 'POST', headers: authHeader() });
+    const res = await apiFetch('/admin/reset', { method: 'POST', headers: authHeader() });
     if (!res.ok) throw new Error('초기화 실패');
     [_TOKEN_KEY,_LEGACY_TOKEN_KEY,'itdasy_consented','itdasy_consented_at','itdasy_latest_analysis','onboarding_done','shop_name','shop_type','itdasy_master_set'].forEach(k => localStorage.removeItem(k));
     // 말투 카드 즉시 숨기기
@@ -1182,7 +1192,7 @@ async function login() {
   _loginInFlight = true;
   btn.textContent = '로그인 중...'; btn.disabled = true;
   try {
-    const res = await fetch(API + '/auth/login', {
+    const res = await apiFetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -1306,7 +1316,7 @@ async function signup() {
     if (errBelow) errBelow.remove();
   });
   try {
-    const res = await fetch(API + '/auth/register', {
+    const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name, referral_code, age_over_14: ageOver14 }),
@@ -1344,7 +1354,7 @@ async function signup() {
       throw new Error(typeof data.detail === 'string' ? data.detail : '가입 실패');
     }
     // 자동 로그인
-    const loginRes = await fetch(API + '/auth/login', {
+    const loginRes = await apiFetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -1845,7 +1855,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260521-v253-audit-hardening';
+window.APP_BUILD = '20260521-v254-api-fetch';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -2080,7 +2090,7 @@ async function loadStatsCard() {
   try {
     const headers = authHeader();
     if (!headers.Authorization) return;
-    const r = await fetch(API + '/subscription/usage', { headers });
+    const r = await apiFetch('/subscription/usage', { headers });
     if (!r.ok) return;
     const d = await r.json();
     const cap = document.getElementById('statCaptions');
@@ -2132,6 +2142,8 @@ async function loadStatsCard() {
 
 // Module에서 접근 가능하도록 window에 노출
 window.API = API;
+window.apiUrl = apiUrl;
+window.apiFetch = apiFetch;
 window.authHeader = authHeader;
 
 // ──────────────────────────────────────────────
@@ -2217,7 +2229,7 @@ window._preloadTabs = async function () {
   // Promise.allSettled → 일부 실패해도 나머지 진행. localStorage persistent
   await Promise.allSettled(tabs.map(async t => {
     try {
-      const res = await fetch(window.API + t.url, { headers });
+      const res = await apiFetch(t.url, { headers });
       if (!res.ok) return;
       const d = await res.json();
       const items = d.items || d;

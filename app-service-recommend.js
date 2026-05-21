@@ -282,7 +282,7 @@
       fd.append('photo', upload);
 
       const auth = window.authHeader ? window.authHeader() : {};
-      const res = await fetch(window.API + ENDPOINT, {
+      const res = await apiFetch(ENDPOINT, {
         method: 'POST',
         headers: { Authorization: auth.Authorization || '' },
         body: fd,

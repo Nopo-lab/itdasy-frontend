@@ -13,7 +13,7 @@
   }
 
   async function _api(path, opts = {}) {
-    const res = await fetch(window.API + path, {
+    const res = await apiFetch(path, {
       headers: { ...window.authHeader() },
       ...opts,
     });

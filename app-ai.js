@@ -274,7 +274,7 @@ async function doInstagramPublish(imageUrl, captionText) {
   try {
     upPopup.style.display = 'flex';
     setUploadProgress(10, '인스타 연결 중...');
-    const res = await fetch(API + '/instagram/publish', {
+    const res = await apiFetch('/instagram/publish', {
       method: 'POST',
       headers: { ...authHeader(), 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ image_url: imageUrl, caption: captionText }),

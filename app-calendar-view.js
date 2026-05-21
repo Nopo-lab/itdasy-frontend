@@ -210,7 +210,7 @@
     let list = null;
     try {
       if (window.API && window.authHeader) {
-        const r = await fetch(window.API + '/staff', { headers: window.authHeader() });
+        const r = await apiFetch('/staff', { headers: window.authHeader() });
         if (r.ok) {
           const d = await r.json();
           if (Array.isArray(d.items) && d.items.length) {
@@ -1672,8 +1672,8 @@
       try {
         if (window.API && window.authHeader) {
           const [r1, r2] = await Promise.allSettled([
-            fetch(window.API + '/services', { headers: window.authHeader() }),
-            fetch(window.API + '/revenue?period=month', { headers: window.authHeader() }),
+            apiFetch('/services', { headers: window.authHeader() }),
+            apiFetch('/revenue?period=month', { headers: window.authHeader() }),
           ]);
           if (r1.status === 'fulfilled' && r1.value.ok) { const d = await r1.value.json(); (d.items || []).forEach(s => s.name && names.add(s.name)); }
           if (r2.status === 'fulfilled' && r2.value.ok) { const d = await r2.value.json(); (d.items || []).forEach(r => r.service_name && names.add(r.service_name)); }

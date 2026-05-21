@@ -25,7 +25,7 @@ async function openSlotPopup(slotId) {
   popup.classList.add('dt-shown');
 
   try {
-    const res = await fetch(API + '/image/usage', { headers: authHeader() });
+    const res = await apiFetch('/image/usage', { headers: authHeader() });
     if (res.ok) _setPopupUsage(await res.json());
   } catch (_e) { _setPopupUsage(null); }
 

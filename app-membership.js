@@ -7,12 +7,10 @@
 (function () {
   'use strict';
 
-  const API = window.API || '';
-
   function _fetch(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
     if (body) headers['Content-Type'] = 'application/json';
-    return fetch(API + path, {
+    return apiFetch(path, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,

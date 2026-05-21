@@ -74,7 +74,7 @@
 
   async function _sendConfirmations() {
     try {
-      const res = await fetch(window.API + '/bookings/auto-send-confirmations', {
+      const res = await apiFetch('/bookings/auto-send-confirmations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...window.authHeader() },
         body: JSON.stringify({ source: 'phase9-reminder' }),

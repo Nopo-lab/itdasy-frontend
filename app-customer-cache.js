@@ -47,7 +47,7 @@
     if (!window.API || !window.authHeader) throw new Error('no-auth');
     const auth = window.authHeader();
     if (!auth || !auth.Authorization) throw new Error('no-token');
-    _inflight = fetch(window.API + '/customers', { headers: auth })
+    _inflight = apiFetch('/customers', { headers: auth })
       .then(async (res) => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();

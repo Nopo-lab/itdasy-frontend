@@ -95,7 +95,7 @@
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(window.API + '/services/import-pricelist', {
+      const res = await apiFetch('/services/import-pricelist', {
         method: 'POST',
         headers: window.authHeader(),
         body: fd,

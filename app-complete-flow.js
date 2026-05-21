@@ -70,7 +70,7 @@
   }
 
   async function _apiPatch(path, body) {
-    const res = await fetch(window.API + path, {
+    const res = await apiFetch(path, {
       method: 'PATCH',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

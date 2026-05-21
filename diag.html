@@ -23,6 +23,14 @@
 <button class="btn" id="homeBtn" style="background:#888;">잇데이로 이동</button>
 <script>
 const API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
+function apiUrl(path) {
+  const raw = String(path == null ? '' : path);
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return API + (raw[0] === '/' ? raw : '/' + raw);
+}
+function apiFetch(path, opts) {
+  return fetch(apiUrl(path), opts);
+}
 const r = document.getElementById('results');
 const LOCAL_DIAG_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 const TOKEN_PREFIX = 'itdasy_' + 'token';
@@ -108,7 +116,7 @@ document.getElementById('homeBtn').addEventListener('click', () => { location.hr
   // 백엔드 health
   try {
     const t0 = Date.now();
-    const res = await fetch(API + '/health');
+    const res = await apiFetch('/health');
     const ms = Date.now() - t0;
     add('Backend /health', res.status + ' (' + ms + 'ms)', res.ok ? 'ok' : 'err');
   } catch (e) {
@@ -119,7 +127,7 @@ document.getElementById('homeBtn').addEventListener('click', () => { location.hr
   if (token) {
     try {
       const t0 = Date.now();
-      const res = await fetch(API + '/today/brief', { headers: { 'Authorization': 'Bearer ' + token } });
+      const res = await apiFetch('/today/brief', { headers: { 'Authorization': 'Bearer ' + token } });
       const ms = Date.now() - t0;
       add('/today/brief (인증)', res.status + ' (' + ms + 'ms)', res.ok ? 'ok' : 'err');
       if (!res.ok) {
@@ -133,7 +141,7 @@ document.getElementById('homeBtn').addEventListener('click', () => { location.hr
     // /assistant/ask 테스트
     try {
       const t0 = Date.now();
-      const res = await fetch(API + '/assistant/ask', {
+      const res = await apiFetch('/assistant/ask', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: '진단 테스트' }),

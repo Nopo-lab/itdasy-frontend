@@ -1691,7 +1691,7 @@
         throw new Error('알 수 없는 요청');
       }
       const fetcher = window.safeFetch || fetch;
-      const res = await fetcher(window.API + endpoint, {
+      const res = await fetcher(apiUrl(endpoint), {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -2460,7 +2460,7 @@
       body.original_payload = action._ai_original;
     }
     if (action._source_question) body.source_question = action._source_question;
-    const res = await fetch(window.API + '/assistant/execute', {
+    const res = await apiFetch('/assistant/execute', {
       method: 'POST',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -2742,7 +2742,7 @@
         _renderProactiveCarousel(suggestions);
         _proactiveLoadedAt = Date.now();
         // 백그라운드 갱신 (다음 호출용)
-        fetch(window.API + '/today/brief', { headers: window.authHeader() })
+        apiFetch('/today/brief', { headers: window.authHeader() })
           .then(r => r.ok ? r.json() : null)
           .then(fresh => {
             if (fresh) {
@@ -2752,7 +2752,7 @@
         return;
       }
       // 2) 캐시 miss — 직접 fetch
-      const res = await fetch(window.API + '/today/brief', { headers: window.authHeader() });
+      const res = await apiFetch('/today/brief', { headers: window.authHeader() });
       if (!res.ok) return;
       d = await res.json();
       try { sessionStorage.setItem('pv_cache::today', JSON.stringify({ t: Date.now(), d })); } catch (_e) { void _e; }
@@ -3330,7 +3330,7 @@
       const timeoutId = setTimeout(() => ctrl.abort(), timeoutMs);
       let res;
       try {
-        res = await fetch(window.API + '/assistant/ask/images', {
+        res = await apiFetch('/assistant/ask/images', {
           method: 'POST',
           headers: auth.Authorization ? { Authorization: auth.Authorization } : {},
           body: fd,
@@ -3661,7 +3661,7 @@
     const ctrl = new AbortController();
     _inflightCtrl = ctrl;
     try {
-      const res = await fetch(window.API + '/assistant/ask', {
+      const res = await apiFetch('/assistant/ask', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: q, session_id: _sessionId || undefined }),
@@ -3802,7 +3802,7 @@
   async function _loadServerHistory(force = false) {
     if (_historyLoadedFromServer && !force) return;
     try {
-      const res = await fetch(window.API + '/assistant/session/current', {
+      const res = await apiFetch('/assistant/session/current', {
         headers: { ...authHeader() },
       });
       if (!res.ok) return;

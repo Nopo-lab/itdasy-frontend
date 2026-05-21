@@ -35,7 +35,7 @@
 ## 2. 해도 됨 ✅
 
 - 한국어 주석, 한국어 에러 메시지. 단, 함수 JSDoc 은 영문 병기 권장.
-- `window.API`, `window.authHeader`, `window.getToken`, `window.setToken`, `window.hapticLight`, `window.Capacitor` 참조.
+- `window.API`, `window.apiUrl`, `window.apiFetch`, `window.authHeader`, `window.getToken`, `window.setToken`, `window.hapticLight`, `window.Capacitor` 참조.
 - 새 파일 추가 시 모듈 폴더 하위(`js/*/`)로. 루트 `app-*.js` 신규 생성은 **지양**.
 - `console.warn`, `console.error` 사용. 단 사용자 액션 경로에는 토스트 병기.
 - GitHub Actions 워크플로우 **신규 추가** (기존 수정은 금지).

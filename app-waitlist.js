@@ -10,7 +10,7 @@
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
   function _api(method, path, body) {
     if (!window.API || !window.authHeader) return Promise.reject(new Error('no-auth'));
-    return fetch(window.API + path, {
+    return apiFetch(path, {
       method,
       headers: { ...window.authHeader(), ...(body ? { 'Content-Type': 'application/json' } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),

@@ -33,7 +33,7 @@
   async function _checkCapability() {
     if (_capabilityChecked) return _capability;
     try {
-      const res = await fetch(window.API + '/video/capability', { headers: window.authHeader() });
+      const res = await apiFetch('/video/capability', { headers: window.authHeader() });
       if (res.ok) {
         _capability = { ..._capability, ...(await res.json()) };
       }
@@ -253,7 +253,7 @@
     const status = document.getElementById('vStatus');
     status.textContent = 'AI 자막 추천 중…';
     try {
-      const res = await fetch(window.API + '/video/caption-suggest', {
+      const res = await apiFetch('/video/caption-suggest', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: _mode, service_name: localStorage.getItem('shop_type') || null }),
@@ -300,12 +300,12 @@
         fd.append('after', _slots[1].file);
         fd.append('before_text', _slots[0].caption || '');
         fd.append('after_text', _slots[1].caption || '');
-        url = window.API + '/video/beforeafter';
+        url = apiUrl('/video/beforeafter');
       } else {
         const files = _slots.filter(s => s.file);
         files.forEach(s => fd.append('images', s.file));
         fd.append('captions', files.map(s => s.caption || '').join('|'));
-        url = window.API + '/video/sequence';
+        url = apiUrl('/video/sequence');
       }
       const res = await fetch(url, { method: 'POST', headers: window.authHeader(), body: fd });
       if (res.status === 501) {

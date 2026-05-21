@@ -135,7 +135,7 @@
     }
     window.showDebug('진단 중...', '/instagram/diagnose 호출 중');
     try {
-      const r = await fetch(window.API + '/instagram/diagnose', { headers: window.authHeader() });
+      const r = await apiFetch('/instagram/diagnose', { headers: window.authHeader() });
       const d = await r.json().catch((e) => ({ error: 'JSON 파싱 실패', status: r.status, message: e.message }));
       window.showDebug('인스타 진단 결과', {
         http_status: r.status,
@@ -163,7 +163,7 @@
       recent_logs: LOG_BUF.slice(-10).map(l => `[${l.t}] ${l.lvl} ${l.msg}`),
     };
     try {
-      const r = await fetch(window.API + '/instagram/diagnose', { headers: window.authHeader() });
+      const r = await apiFetch('/instagram/diagnose', { headers: window.authHeader() });
       info.diagnose = await r.json().catch((e) => ({ error: 'JSON 실패', message: e.message }));
     } catch (e) {
       info.diagnose_error = String(e);

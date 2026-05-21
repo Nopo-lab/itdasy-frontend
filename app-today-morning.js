@@ -92,7 +92,7 @@
     try {
       const ctrl = new AbortController();
       const to = setTimeout(()=>ctrl.abort(), 8000);
-      const res = await fetch(window.API + '/today/morning', { headers: window.authHeader(), signal: ctrl.signal });
+      const res = await apiFetch('/today/morning', { headers: window.authHeader(), signal: ctrl.signal });
       clearTimeout(to);
       if (!res.ok) return null;
       const d = await res.json(); _writeSWR(d); return d;
@@ -111,7 +111,7 @@
     } catch (_e) { void _e; }
     try {
       if (window.API && window.authHeader) {
-        const res = await fetch(window.API + '/bookings/today', { headers: window.authHeader() });
+        const res = await apiFetch('/bookings/today', { headers: window.authHeader() });
         if (res.ok) { const d = await res.json(); return Array.isArray(d)? d : (d.items||[]); }
       }
     } catch (_e) { void _e; }

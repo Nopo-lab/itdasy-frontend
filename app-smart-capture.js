@@ -148,7 +148,7 @@
     const fd = new FormData();
     fd.append('image', file);
     fd.append('kind', 'kakao_chat');
-    const res = await fetch(window.API + '/imports/smart/image', {
+    const res = await apiFetch('/imports/smart/image', {
       method: 'POST',
       headers: window.authHeader(),
       body: fd,
@@ -201,7 +201,7 @@
         return;
       }
       try {
-        const cm = await fetch(window.API + '/imports/smart/commit', {
+        const cm = await apiFetch('/imports/smart/commit', {
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ kind: 'kakao_chat', items: selected }),
@@ -223,7 +223,7 @@
   async function _uploadCard(file, resultBox, progress) {
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch(window.API + '/customers/import-business-card', {
+    const res = await apiFetch('/customers/import-business-card', {
       method: 'POST',
       headers: window.authHeader(),
       body: fd,
@@ -264,7 +264,7 @@
         return;
       }
       try {
-        const cr = await fetch(window.API + '/customers', {
+        const cr = await apiFetch('/customers', {
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, phone: phone || null, memo: memo || null, tags: [] }),

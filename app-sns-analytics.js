@@ -15,9 +15,8 @@
   }
   async function _fetchInsights() {
     try {
-      const API = window.API || '';
       const h = window.authHeader ? window.authHeader() : {};
-      const res = await fetch(API + '/instagram/insights', { headers: h });
+      const res = await apiFetch('/instagram/insights', { headers: h });
       if (res.ok) {
         const j = await res.json();
         if (j.status === 'ok') { _data = _mapBackend(j); _data._fromServer = true; return; }

@@ -96,7 +96,7 @@
     const box = document.getElementById('planUsageContent');
     if (!box) return;
     try {
-      const res = await fetch(window.API + '/subscription/usage', { headers });
+      const res = await apiFetch('/subscription/usage', { headers });
       if (!res.ok) throw new Error('usage ' + res.status);
       const u = await res.json();
       const rows = [];
@@ -114,7 +114,7 @@
     const headers = window.authHeader && window.authHeader();
     if (!window.API || !headers || !headers.Authorization) return;
     try {
-      const res = await fetch(window.API + '/subscription/status', { headers });
+      const res = await apiFetch('/subscription/status', { headers });
       if (!res.ok) return;
       const d = await res.json();
       _currentPlan = (d.plan || 'free').toLowerCase();
@@ -166,7 +166,7 @@
     // 웹: 기존 백엔드의 pro 체험 API를 단일 멤버십 시작으로 사용
     if (_currentPlan === 'free' && _selectedPlan === 'pro') {
       try {
-        const res = await fetch(window.API + '/subscription/start-trial', {
+        const res = await apiFetch('/subscription/start-trial', {
           method: 'POST',
           headers: window.authHeader(),
         });

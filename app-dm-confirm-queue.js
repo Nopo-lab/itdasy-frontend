@@ -15,7 +15,7 @@
   async function _fetch(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
     if (body) headers['Content-Type'] = 'application/json';
-    const res = await fetch(window.API + path, {
+    const res = await apiFetch(path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
     });

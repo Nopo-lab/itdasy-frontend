@@ -19,7 +19,7 @@
     if (!window.API || !window.authHeader) throw new Error('no-auth');
     const auth = window.authHeader();
     if (!auth?.Authorization) throw new Error('no-token');
-    const res = await fetch(window.API + path, { headers: auth });
+    const res = await apiFetch(path, { headers: auth });
     if (res.status === 404 || res.status === 501) throw new Error('endpoint-missing');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
@@ -258,7 +258,7 @@
       btn.innerHTML = 'AI 작성 중…';
       btn.disabled = true;
       try {
-        const res = await fetch(window.API + '/retention/' + cid + '/message-draft', {
+        const res = await apiFetch('/retention/' + cid + '/message-draft', {
           method: 'POST',
           headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
           body: '{}',
@@ -436,7 +436,7 @@
     _renderBulkProgress();
     try {
       const _fetch = window.safeFetch || fetch;
-      const res = await _fetch(window.API + '/retention/bulk-message-draft', {
+      const res = await _apiFetch('/retention/bulk-message-draft', {
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ customer_ids: ids, tone: '친근한' }),

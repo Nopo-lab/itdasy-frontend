@@ -122,7 +122,7 @@ function selectPhotoType(btn, type) {
 async function loadPortfolio() {
   if (!getToken()) return;
   try {
-    let url = `${API}/portfolio`;
+    let url = apiUrl('/portfolio');
     const params = [];
     if (_activePortfolioPhotoType) params.push('photo_type=' + encodeURIComponent(_activePortfolioPhotoType));
     if (_activePortfolioMainTag) params.push('main_tag=' + encodeURIComponent(_activePortfolioMainTag));
@@ -140,8 +140,8 @@ async function loadPortfolio() {
     }
 
     const [itemsRes, tagsRes] = await Promise.all([
-      fetch(url, { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
-      fetch(API + '/portfolio/tags', { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
+      apiFetch(url, { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
+      apiFetch('/portfolio/tags', { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
     ]);
     _portfolioItems = await itemsRes.json();
     const tagData = await tagsRes.json();
@@ -223,7 +223,7 @@ async function loadPortfolio() {
     const ptypeLabel = { before: 'BEFORE', after: 'AFTER', general: '일반' };
 
     _portfolioItems.forEach(item => {
-      const src = item.image_url.startsWith('http') ? item.image_url : API + item.image_url;
+      const src = item.image_url.startsWith('http') ? item.image_url : apiUrl(item.image_url);
       const pt = item.photo_type || 'general';
       const cell = document.createElement('div');
       const safeSrc = _portfolioEscapeAttr(src);
@@ -279,7 +279,7 @@ async function savePortfolioOrder() {
   const grid = document.getElementById('portfolioGrid');
   const ids = [...grid.querySelectorAll('[data-id]')].map(c => parseInt(c.dataset.id));
   try {
-    await fetch(API + '/portfolio/reorder', {
+    await apiFetch('/portfolio/reorder', {
       method: 'POST',
       headers: { ...authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
@@ -313,7 +313,7 @@ function openPortfolioItem(id, src, mainTag, tags) {
 
 async function deletePortfolioItem(id, overlay) {
   window._inlineConfirm('이 포트폴리오를 삭제할까요?', async () => {
-    const res = await fetch(API + '/portfolio/' + id, {
+    const res = await apiFetch('/portfolio/' + id, {
       method: 'DELETE',
       headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' }
     });
@@ -486,7 +486,7 @@ let _bgAssets = [];
 
 async function loadBgAssets() {
   try {
-    const res = await fetch(API + '/background', { headers: authHeader() });
+    const res = await apiFetch('/background', { headers: authHeader() });
     if (!res.ok) return;
     _bgAssets = await res.json();
     renderBgStoreGrid();
@@ -503,7 +503,7 @@ function renderBgStoreGrid() {
   }
   _bgAssets.forEach(asset => {
     const cell = document.createElement('div');
-    const src = API + asset.image_url;
+    const src = apiUrl(asset.image_url);
     cell.style.cssText = 'position:relative; border-radius:10px; overflow:hidden; cursor:pointer; aspect-ratio:1; background:var(--bg2);';
     cell.innerHTML = `
       <img src="${_portfolioEscapeAttr(src)}" alt="" style="width:100%; height:100%; object-fit:cover;">
@@ -546,7 +546,7 @@ function selectBgAsset(url) {
 
 async function deleteBgAsset(id, el) {
   try {
-    const res = await fetch(API + '/background/' + id, { method: 'DELETE', headers: authHeader() });
+    const res = await apiFetch('/background/' + id, { method: 'DELETE', headers: authHeader() });
     if (res.ok) { el.remove(); _bgAssets = _bgAssets.filter(a => a.id !== id); showToast('삭제됐어요'); }
   } catch (e) { void 0; }
 }
@@ -567,7 +567,7 @@ async function detectFaceAfterEdit(imageBlob) {
   try {
     const fd = new FormData();
     fd.append('file', imageBlob, 'edit.png');
-    const res = await fetch(API + '/image/detect-face', { method: 'POST', headers: authHeader(), body: fd });
+    const res = await apiFetch('/image/detect-face', { method: 'POST', headers: authHeader(), body: fd });
     if (!res.ok) return;
     const data = await res.json();
     if (data.faces && data.faces.length > 0) {
