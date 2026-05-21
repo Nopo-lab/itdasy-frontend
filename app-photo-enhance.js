@@ -61,8 +61,9 @@ function _renderEnhancePanel() {
     ${_enhanceRow('color', '색 균일화', '뿌염·얼룩진 색감을 부드럽게 맞춰요.')}
     ${_enhanceRow('smooth', '결 부드럽게', '머릿결·속눈썹 결을 매끈하게 보여줘요.')}
     ${_enhanceRow('red', '충혈 제거', '시술 직후 붉어진 눈 흰자를 자연스럽게 낮춰요.')}
-    <button type="button" onclick="applyEnhanceToSelected()" class="btn-primary" style="width:100%;margin-top:6px;">보정 적용</button>
+    <button type="button" data-enhance-apply class="btn-primary" style="width:100%;margin-top:6px;">보정 적용</button>
   `;
+  body.querySelector('[data-enhance-apply]')?.addEventListener('click', () => applyEnhanceToSelected());
   body.querySelectorAll('[data-enhance-row]').forEach(row => {
     row.style.display = visible.has(row.dataset.enhanceRow) ? 'block' : 'none';
   });

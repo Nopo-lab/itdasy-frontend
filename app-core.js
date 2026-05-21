@@ -63,6 +63,7 @@ const API = (window.location.hostname === 'localhost' || window.location.hostnam
 // 백엔드가 다르면(운영 vs 스테이징) JWT 서명이 달라서 크로스 오염 시 401 "인증 실패" 발생.
 // → API URL 기반으로 토큰 키를 분리해서 완전 격리.
 const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (API.includes('localhost') ? 'local' : 'prod'));
+const _LEGACY_TOKEN_KEY = 'itdasy_' + 'token';
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
 
@@ -454,7 +455,7 @@ function _obFinish() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify({ shop_name: name })
-  }).catch(() => {});
+  }).catch((err) => console.warn('[onboarding] 샵 이름 저장 실패', err));
 }
 
 async function obNext() {
@@ -485,10 +486,10 @@ function getToken() {
   try {
     let t = localStorage.getItem(_TOKEN_KEY);
     if (!t) {
-      const legacy = localStorage.getItem('itdasy_token');
+      const legacy = localStorage.getItem(_LEGACY_TOKEN_KEY);
       if (legacy) {
         t = legacy;
-        try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (_) { /* ignore */ }
+        try { localStorage.setItem(_TOKEN_KEY, legacy); } catch (e) { console.warn('[auth] 토큰 이전 저장 실패', e); }
       }
     }
     if (!t) return null;
@@ -940,7 +941,7 @@ function getMyUserId() {
 
   // 토큰 있으면 짧게 (이미 로그인된 사용자는 splash 안 보고 싶어함)
   let tokenExists = false;
-  try { tokenExists = !!localStorage.getItem('itdasy_token::staging'); } catch (_e) { /* ignore */ }
+  try { tokenExists = !!getToken(); } catch (e) { console.warn('[splash] 토큰 확인 실패', e); }
   const HOLD_MS = tokenExists ? 600 : 2000;
 
   setTimeout(() => {
@@ -1028,7 +1029,7 @@ async function fullReset() {
   try {
     const res = await fetch(API + '/admin/reset', { method: 'POST', headers: authHeader() });
     if (!res.ok) throw new Error('초기화 실패');
-    [_TOKEN_KEY,'itdasy_token','itdasy_consented','itdasy_consented_at','itdasy_latest_analysis','onboarding_done','shop_name','shop_type','itdasy_master_set'].forEach(k => localStorage.removeItem(k));
+    [_TOKEN_KEY,_LEGACY_TOKEN_KEY,'itdasy_consented','itdasy_consented_at','itdasy_latest_analysis','onboarding_done','shop_name','shop_type','itdasy_master_set'].forEach(k => localStorage.removeItem(k));
     // 말투 카드 즉시 숨기기
     const pd = document.getElementById('personaDash');
     if (pd) { pd.style.display = 'none'; const pc = document.getElementById('personaContent'); if (pc) pc.innerHTML = ''; }
@@ -1093,12 +1094,12 @@ async function confirmDeleteAccount() {
     }
     // 세션·캐시 전면 삭제
     setToken(null);
-    try { localStorage.clear(); } catch (_) { /* ignore */ }
+    try { localStorage.clear(); } catch (e) { console.warn('[auth] 로컬 데이터 삭제 실패', e); }
     if ('caches' in window) {
       try {
         const keys = await caches.keys();
         await Promise.all(keys.map(k => caches.delete(k)));
-      } catch (_) { /* ignore */ }
+      } catch (e) { console.warn('[auth] 캐시 삭제 실패', e); }
     }
     showToast('계정이 완전히 삭제되었습니다. 이용해 주셔서 감사합니다.', 'success');
     setTimeout(() => { location.href = 'index.html'; }, 1200);
@@ -1127,7 +1128,7 @@ async function logout(opts) {
   // 호환성 — 옛 단일 키도 함께 제거
   // [2026-05-08 28차 hotfix] itdasy_ipc_dismissed (잇비 카드 닫기 상태) +
   // itdasy:ig_connected_cache (콜론 prefix 라 _purgeUserScopedStorage 의 itdasy_ 매칭 못 함) 명시 정리.
-  ['itdasy_token', 'itdasy_ipc_dismissed', 'itdasy:ig_connected_cache',
+  [_LEGACY_TOKEN_KEY, 'itdasy_ipc_dismissed', 'itdasy:ig_connected_cache',
    'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis'].forEach(k => {
     try { localStorage.removeItem(k); } catch (_e) { void _e; }
   });
@@ -1844,7 +1845,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260521-v252-photo-shadow-batch';
+window.APP_BUILD = '20260521-v253-audit-hardening';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

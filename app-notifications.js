@@ -65,13 +65,14 @@
           <span style="font-size:22px;">🔔</span>
           <strong style="font-size:17px;">알림</strong>
           <button data-notif-all style="margin-left:auto;font-size:11px;color:#888;background:none;border:none;cursor:pointer;">전부 읽음</button>
-          <button onclick="closeNotifications()" style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+          <button data-notif-close style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="notifBody" style="flex:1;overflow-y:auto;"></div>
       </div>
     `;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeNotifications(); });
+    sheet.querySelector('[data-notif-close]')?.addEventListener('click', () => closeNotifications());
     sheet.querySelector('[data-notif-all]').addEventListener('click', async () => {
       await _markAllRead();
       _items = [];

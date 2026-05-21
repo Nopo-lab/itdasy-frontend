@@ -148,7 +148,12 @@ async function loadPortfolio() {
 
     // 대분류 필터 버튼
     const mainFilter = document.getElementById('portfolioMainFilters');
-    mainFilter.innerHTML = `<button class="style-opt${!_activePortfolioMainTag ? ' on' : ''}" onclick="filterMainTag(this,'')">전체</button>`;
+    mainFilter.innerHTML = '';
+    const allMainBtn = document.createElement('button');
+    allMainBtn.className = 'style-opt' + (!_activePortfolioMainTag ? ' on' : '');
+    allMainBtn.textContent = '전체';
+    allMainBtn.addEventListener('click', () => filterMainTag(allMainBtn, ''));
+    mainFilter.appendChild(allMainBtn);
     (tagData.main_tags || []).forEach(mt => {
       const b = document.createElement('button');
       b.className = 'style-opt' + (_activePortfolioMainTag === mt ? ' on' : '');
@@ -164,7 +169,12 @@ async function loadPortfolio() {
     const subTags = (tagData.sub_map || {})[key] || [];
     if (_activePortfolioMainTag && subTags.length > 0) {
       subWrap.style.display = 'block';
-      subFilter.innerHTML = `<button class="style-opt${!_activePortfolioSubTag ? ' on' : ''}" onclick="filterSubTag(this,'')">전체</button>`;
+      subFilter.innerHTML = '';
+      const allSubBtn = document.createElement('button');
+      allSubBtn.className = 'style-opt' + (!_activePortfolioSubTag ? ' on' : '');
+      allSubBtn.textContent = '전체';
+      allSubBtn.addEventListener('click', () => filterSubTag(allSubBtn, ''));
+      subFilter.appendChild(allSubBtn);
       subTags.forEach(st => {
         const b = document.createElement('button');
         b.className = 'style-opt' + (_activePortfolioSubTag === st ? ' on' : '');
@@ -287,14 +297,16 @@ function openPortfolioItem(id, src, mainTag, tags) {
   const safeMainTag = _portfolioEscapeText(mainTag || '');
   const safeTags = _portfolioEscapeText(tags || '');
   overlay.innerHTML = `
-    <img src="${safeSrc}" style="max-width:100%; max-height:62vh; border-radius:16px; object-fit:contain; margin-bottom:14px;">
+    <img src="${safeSrc}" alt="" style="max-width:100%; max-height:62vh; border-radius:16px; object-fit:contain; margin-bottom:14px;">
     ${mainTag ? `<div style="background:var(--accent); border-radius:20px; padding:3px 12px; font-size:11px; color:#fff; font-weight:700; margin-bottom:6px;">${safeMainTag}</div>` : ''}
     <div style="color:rgba(255,255,255,0.7); font-size:12px; margin-bottom:18px;">${safeTags}</div>
     <div style="display:flex; gap:10px;">
-      <button onclick="deletePortfolioItem(${id}, this.closest('[style*=fixed]'))" style="padding:11px 18px; border-radius:12px; border:none; background:rgba(192,57,43,0.85); color:#fff; font-weight:700; cursor:pointer; font-size:12px;">삭제 🗑</button>
-      <button onclick="this.closest('[style*=fixed]').remove()" style="padding:11px 18px; border-radius:12px; border:none; background:rgba(255,255,255,0.12); color:#fff; font-weight:700; cursor:pointer; font-size:12px;">닫기</button>
+      <button data-portfolio-delete style="padding:11px 18px; border-radius:12px; border:none; background:rgba(192,57,43,0.85); color:#fff; font-weight:700; cursor:pointer; font-size:12px;">삭제 🗑</button>
+      <button data-portfolio-close style="padding:11px 18px; border-radius:12px; border:none; background:rgba(255,255,255,0.12); color:#fff; font-weight:700; cursor:pointer; font-size:12px;">닫기</button>
     </div>
   `;
+  overlay.querySelector('[data-portfolio-delete]')?.addEventListener('click', () => deletePortfolioItem(id, overlay));
+  overlay.querySelector('[data-portfolio-close]')?.addEventListener('click', () => overlay.remove());
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   document.body.appendChild(overlay);
 }
@@ -478,7 +490,7 @@ async function loadBgAssets() {
     if (!res.ok) return;
     _bgAssets = await res.json();
     renderBgStoreGrid();
-  } catch (e) { void 0; }
+  } catch (e) { console.warn('[portfolio] 배경 창고 로드 실패', e); }
 }
 
 function renderBgStoreGrid() {
@@ -491,12 +503,18 @@ function renderBgStoreGrid() {
   }
   _bgAssets.forEach(asset => {
     const cell = document.createElement('div');
+    const src = API + asset.image_url;
     cell.style.cssText = 'position:relative; border-radius:10px; overflow:hidden; cursor:pointer; aspect-ratio:1; background:var(--bg2);';
     cell.innerHTML = `
-      <img src="${API + asset.image_url}" style="width:100%; height:100%; object-fit:cover;" onclick="selectBgAsset('${API + asset.image_url}')">
-      <button onclick="deleteBgAsset(${asset.id}, this.parentElement)" style="position:absolute; top:3px; right:3px; background:rgba(0,0,0,0.5); border:none; color:white; border-radius:50%; width:20px; height:20px; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
-      ${asset.label ? `<div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.4); color:white; font-size:9px; padding:2px 4px; text-align:center;">${asset.label}</div>` : ''}
+      <img src="${_portfolioEscapeAttr(src)}" alt="" style="width:100%; height:100%; object-fit:cover;">
+      <button data-bg-asset-delete style="position:absolute; top:3px; right:3px; background:rgba(0,0,0,0.5); border:none; color:white; border-radius:50%; width:20px; height:20px; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
+      ${asset.label ? `<div style="position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.4); color:white; font-size:9px; padding:2px 4px; text-align:center;">${_portfolioEscapeText(asset.label)}</div>` : ''}
     `;
+    cell.querySelector('img')?.addEventListener('click', () => selectBgAsset(src));
+    cell.querySelector('[data-bg-asset-delete]')?.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteBgAsset(asset.id, cell);
+    });
     grid.appendChild(cell);
   });
 }

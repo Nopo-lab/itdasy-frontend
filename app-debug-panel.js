@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* ─────────────────────────────────────────────────────────────
    인앱 디버그 패널 (Capacitor WebView 에서 콘솔 못 보는 문제 해결)
 
@@ -14,6 +15,23 @@
   const _origErr = console.error.bind(console);
   const _origWarn = console.warn.bind(console);
   const _origLog = console.log.bind(console);
+  const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+  function _debugAllowed() {
+    try {
+      if (LOCAL_HOSTS.has(location.hostname)) return true;
+      if (new URLSearchParams(location.search).get('debug') === '1') return true;
+      return localStorage.getItem('itdasy_debug_panel') === '1';
+    } catch (e) {
+      _origWarn('[debug] 권한 확인 실패', e);
+      return false;
+    }
+  }
+
+  function _debugBlocked() {
+    try { if (window.showToast) window.showToast('진단 화면은 개발 모드에서만 볼 수 있어요'); }
+    catch (e) { _origWarn('[debug] 차단 안내 실패', e); }
+  }
 
   function _serialize(a) {
     if (typeof a === 'string') return a;
@@ -30,7 +48,7 @@
         if (a.stack) parts.push('\n' + String(a.stack).split('\n').slice(0, 5).join('\n'));
         if (parts.length) return parts.join(' ');
       }
-      try { return JSON.stringify(a, null, 2); } catch (_) { return String(a); }
+      try { return JSON.stringify(a, null, 2); } catch (e) { _origWarn('[debug] 직렬화 실패', e); return String(a); }
     }
     return String(a);
   }
@@ -40,7 +58,7 @@
       const text = args.map(_serialize).join(' ');
       LOG_BUF.push({ t: new Date().toISOString().slice(11, 19), lvl: level, msg: text.slice(0, 2000) });
       while (LOG_BUF.length > MAX_LOGS) LOG_BUF.shift();
-    } catch (_) { void 0; }
+    } catch (e) { _origWarn('[debug] 로그 저장 실패', e); }
   }
   console.error = function () { _push('E', [...arguments]); _origErr(...arguments); };
   console.warn  = function () { _push('W', [...arguments]); _origWarn(...arguments); };
@@ -51,7 +69,7 @@
       if (typeof first === 'string' && /\[(PUBLISH|INSTAGRAM|NUKKI|PUBLISH-FILE|SUPPORT)/.test(first)) {
         _push('L', [...arguments]);
       }
-    } catch (_) { void 0; }
+    } catch (e) { _origWarn('[debug] console.log 저장 실패', e); }
     _origLog(...arguments);
   };
   window.addEventListener('error', (e) => _push('E', ['[window.error]', e.message, e.filename + ':' + e.lineno]));
@@ -90,25 +108,27 @@
           document.execCommand('copy'); document.body.removeChild(ta);
         }
         if (window.showToast) window.showToast('복사됐어요');
-      } catch (_) { void 0; }
+      } catch (e) { _origWarn('[debug] 진단 복사 실패', e); }
     });
     return m;
   }
 
   window.showDebug = function (title, payload) {
+    if (!_debugAllowed()) { _debugBlocked(); return; }
     const m = _ensureModal();
     m.querySelector('#debugPanelTitle').textContent = title || '진단';
     let txt;
     if (typeof payload === 'string') txt = payload;
     else {
       try { txt = JSON.stringify(payload, null, 2); }
-      catch (_) { txt = String(payload); }
+      catch (e) { _origWarn('[debug] payload 변환 실패', e); txt = String(payload); }
     }
     m.querySelector('#debugPanelBody').textContent = txt;
     m.style.display = 'flex';
   };
 
   window.showDiagnose = async function () {
+    if (!_debugAllowed()) { _debugBlocked(); return; }
     if (!window.API || !window.authHeader) {
       window.showDebug('진단', '로그인 필요');
       return;
@@ -116,7 +136,7 @@
     window.showDebug('진단 중...', '/instagram/diagnose 호출 중');
     try {
       const r = await fetch(window.API + '/instagram/diagnose', { headers: window.authHeader() });
-      const d = await r.json().catch(() => ({ error: 'JSON 파싱 실패', status: r.status }));
+      const d = await r.json().catch((e) => ({ error: 'JSON 파싱 실패', status: r.status, message: e.message }));
       window.showDebug('인스타 진단 결과', {
         http_status: r.status,
         api_base: window.API,
@@ -135,16 +155,16 @@
 
   // 인스타 업로드 실패 시 자동 팝업 띄우는 헬퍼
   window.showPublishFailure = async function (httpStatus, responseBody) {
+    if (!_debugAllowed()) { _debugBlocked(); return; }
     const info = {
       when: new Date().toISOString(),
       http_status: httpStatus,
       response: responseBody,
-      api_base: window.API,
       recent_logs: LOG_BUF.slice(-10).map(l => `[${l.t}] ${l.lvl} ${l.msg}`),
     };
     try {
       const r = await fetch(window.API + '/instagram/diagnose', { headers: window.authHeader() });
-      info.diagnose = await r.json().catch(() => ({ error: 'JSON 실패' }));
+      info.diagnose = await r.json().catch((e) => ({ error: 'JSON 실패', message: e.message }));
     } catch (e) {
       info.diagnose_error = String(e);
     }

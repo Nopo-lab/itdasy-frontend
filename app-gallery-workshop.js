@@ -16,6 +16,16 @@ let _captionSlotId  = null;
 let _previewPhotoIdx = 0;
 let _baMode         = false;
 
+function _wsEsc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[ch]);
+}
+
 // ── State setters (slot-editor / assign 전용 쓰기 인터페이스) ──
 function _setPopupSlotId(id)           { _popupSlotId = id; }
 function _clearPopupSelIds()           { _popupSelIds.clear(); }
@@ -51,7 +61,7 @@ async function renderHomeResume() {
   section.innerHTML = `
     <div class="sec-head" style="padding:0 2px;margin-bottom:10px;">
       <h2 class="home-sec-title">이어하기<span style="font-weight:500;font-size:12px;color:var(--text-subtle);margin-left:6px;">${active.length}개</span></h2>
-      <button class="sec-more" onclick="showTab('finish', document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]'))" data-haptic="light" style="font-size:12px;color:var(--brand);">
+      <button class="sec-more" data-ws-show-finish data-haptic="light" style="font-size:12px;color:var(--brand);">
         전체<i class="ph-duotone ph-caret-right" style="font-size:12px" aria-hidden="true"></i>
       </button>
     </div>
@@ -61,15 +71,15 @@ async function renderHomeResume() {
         const imgSrc = thumb ? (thumb.editedDataUrl || thumb.dataUrl || '') : '';
         const badgeText = slot.caption ? '글 완성' : (slot.photos && slot.photos.length ? '사진 ' + slot.photos.length + '장' : '작성중');
         return `
-        <div class="list-menu__item" onclick="if(typeof openSlotEditor==='function')openSlotEditor('${slot.id}')" style="cursor:pointer;">
+        <div class="list-menu__item" data-resume-slot="${_wsEsc(slot.id)}" style="cursor:pointer;">
           <div class="list-menu__icon-box" style="${imgSrc ? 'padding:0;overflow:hidden;' : ''}">
             ${imgSrc
-              ? `<img src="${imgSrc}" alt="" style="width:36px;height:36px;object-fit:cover;display:block;" loading="lazy">`
+              ? `<img src="${_wsEsc(imgSrc)}" alt="" style="width:36px;height:36px;object-fit:cover;display:block;" loading="lazy">`
               : `<i class="ph-duotone ph-image" aria-hidden="true"></i>`}
           </div>
           <div class="list-menu__body">
-            <div class="list-menu__title">${slot.label || '제목 없음'}</div>
-            <div class="list-menu__sub">${badgeText}</div>
+            <div class="list-menu__title">${_wsEsc(slot.label || '제목 없음')}</div>
+            <div class="list-menu__sub">${_wsEsc(badgeText)}</div>
           </div>
           <div class="list-menu__right">
             <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
@@ -77,6 +87,14 @@ async function renderHomeResume() {
         </div>`;
       }).join('')}
     </div>`;
+  section.querySelector('[data-ws-show-finish]')?.addEventListener('click', () => {
+    showTab('finish', document.querySelector('.tab-bar__btn[data-tab="finish"]'));
+  });
+  section.querySelectorAll('[data-resume-slot]').forEach(item => {
+    item.addEventListener('click', () => {
+      if (typeof openSlotEditor === 'function') openSlotEditor(item.dataset.resumeSlot);
+    });
+  });
 }
 
 window.renderHomeResume = renderHomeResume;
@@ -104,10 +122,11 @@ async function initWorkshopTab() {
   if (!_wsInited) {
     _wsInited = true;
     root.innerHTML = _buildWorkshopHTML();
+    _bindWorkshopShell(root);
     _initDragEvents();
   }
 
-  try { _slots = await loadSlotsFromDB(); } catch (_e) { _slots = []; }
+  try { _slots = await loadSlotsFromDB(); } catch (e) { console.warn('[workshop] 슬롯 불러오기 실패', e); _slots = []; }
   _scheduleBatchRender({ photoGrid: true, slotCards: true, banner: true });
 }
 
@@ -119,25 +138,20 @@ function _buildWorkshopHTML() {
   </section>
 
   <!-- [2026-05-05 19차-A] 빈 상태 — 풀스크린 .ws-empty 패턴 -->
-  <div id="wsDropZone" class="ws-empty"
-    onclick="document.getElementById('galleryFileInput').click()"
-    ondragover="event.preventDefault();this.classList.add('is-drag');"
-    ondragleave="this.classList.remove('is-drag');"
-    ondrop="_handleDropZoneDrop(event)"
-    oncontextmenu="return false">
-    <input type="file" id="galleryFileInput" accept="image/*" multiple style="display:none;" onchange="handleGalleryUpload(this)">
+  <div id="wsDropZone" class="ws-empty" data-ws-drop-zone>
+    <input type="file" id="galleryFileInput" data-ws-upload-input accept="image/*" multiple style="display:none;">
     <div class="ws-empty__icon" aria-hidden="true">
       <i class="ph-duotone ph-camera" style="font-size:32px" aria-hidden="true"></i>
     </div>
     <h2 class="ws-empty__title">사진 올려서 시작</h2>
     <p class="ws-empty__sub">최대 20장 · AI가 손님별 자동 정리</p>
     <div class="ws-empty__bottom">
-      <button type="button" class="ws-empty__cta" onclick="event.stopPropagation();document.getElementById('galleryFileInput').click();">사진 선택</button>
+      <button type="button" class="ws-empty__cta" data-ws-upload-cta>사진 선택</button>
     </div>
   </div>
 
   <div class="ws-top-row">
-    <button id="wsResetBtn" onclick="resetWorkshop()" class="ws-reset-btn" style="display:none;">처음부터</button>
+    <button id="wsResetBtn" data-ws-reset class="ws-reset-btn" style="display:none;">처음부터</button>
     <div id="wsCompletionBadge" class="ws-badge"></div>
   </div>
 
@@ -146,7 +160,7 @@ function _buildWorkshopHTML() {
       <span class="ws-slot-label">손님별 사진</span>
       <div style="display:flex;align-items:center;gap:8px;">
         <span id="wsCompletionCount" class="ws-completion-count"></span>
-        <button onclick="openAssignPopup()" class="ws-assign-btn">사진 나누기</button>
+        <button data-ws-assign class="ws-assign-btn">사진 나누기</button>
       </div>
     </div>
     <p class="ws-slot-hint">탭해서 편집해요</p>
@@ -154,6 +168,45 @@ function _buildWorkshopHTML() {
   <div id="slotCardList" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:4px 0 12px;"></div>
   <div id="wsBanner" style="display:none;margin-bottom:8px;"></div>
   `;
+}
+
+function _bindWorkshopShell(root) {
+  if (!root || root.dataset.wsShellBound === '1') return;
+  root.dataset.wsShellBound = '1';
+  root.addEventListener('click', e => {
+    const t = e.target.closest('[data-ws-drop-zone],[data-ws-upload-cta],[data-ws-reset],[data-ws-assign]');
+    if (!t || !root.contains(t)) return;
+    if (t.matches('[data-ws-upload-cta]')) e.stopPropagation();
+    if (t.matches('[data-ws-drop-zone],[data-ws-upload-cta]')) {
+      document.getElementById('galleryFileInput')?.click();
+    } else if (t.matches('[data-ws-reset]')) {
+      resetWorkshop();
+    } else if (t.matches('[data-ws-assign]')) {
+      openAssignPopup();
+    }
+  });
+  root.addEventListener('change', e => {
+    if (e.target && e.target.matches('[data-ws-upload-input]')) handleGalleryUpload(e.target);
+  });
+  root.addEventListener('dragover', e => {
+    const zone = e.target.closest('[data-ws-drop-zone]');
+    if (!zone) return;
+    e.preventDefault();
+    zone.classList.add('is-drag');
+  });
+  root.addEventListener('dragleave', e => {
+    const zone = e.target.closest('[data-ws-drop-zone]');
+    if (zone) zone.classList.remove('is-drag');
+  });
+  root.addEventListener('drop', e => {
+    const zone = e.target.closest('[data-ws-drop-zone]');
+    if (!zone) return;
+    zone.classList.remove('is-drag');
+    _handleDropZoneDrop(e);
+  });
+  root.addEventListener('contextmenu', e => {
+    if (e.target.closest('[data-ws-drop-zone]')) e.preventDefault();
+  });
 }
 
 // ── 사진 업로드 ────────────────────────────────────────────────
@@ -242,7 +295,7 @@ async function resetWorkshop() {
   _selectedIds.clear(); _popupSelIds.clear();
   _wsInited = false;
   const root = document.getElementById('workshopRoot');
-  if (root) { root.innerHTML = _buildWorkshopHTML(); _initDragEvents(); }
+  if (root) { root.innerHTML = _buildWorkshopHTML(); _bindWorkshopShell(root); _initDragEvents(); }
   showToast('초기화 완료 ✅');
 }
 
@@ -334,26 +387,43 @@ function _renderSlotCards() {
     card.dataset.slotId = slot.id;
     card.setAttribute('oncontextmenu', 'return false');
 
+    const thumbSrc = thumb ? (thumb.editedDataUrl || thumb.dataUrl || '') : '';
     const thumbHtml = thumb
-      ? `<div class="ws-slot-card__thumb"><img src="${thumb.editedDataUrl || thumb.dataUrl}" alt="">${photoCount > 1 ? `<div class="ws-slot-card__thumb-count">+${photoCount}</div>` : ''}</div>`
-      : `<div class="ws-slot-card__empty" onclick="openAssignPopup()"><i class="ph-duotone ph-plus" aria-hidden="true"></i></div>`;
+      ? `<div class="ws-slot-card__thumb"><img src="${_wsEsc(thumbSrc)}" alt="">${photoCount > 1 ? `<div class="ws-slot-card__thumb-count">+${photoCount}</div>` : ''}</div>`
+      : `<div class="ws-slot-card__empty" data-ws-assign-empty><i class="ph-duotone ph-plus" aria-hidden="true"></i></div>`;
 
     card.innerHTML = `
-      <button onclick="event.stopPropagation();deleteSlot('${slot.id}',event)" class="ws-slot-card__del" aria-label="삭제">
+      <button data-ws-delete-slot class="ws-slot-card__del" aria-label="삭제">
         <i class="ph-duotone ph-x" style="font-size:10px" aria-hidden="true"></i>
       </button>
-      <button onclick="event.stopPropagation();openSlotPopup('${slot.id}');" style="position:absolute;top:30px;right:6px;width:26px;height:26px;border-radius:999px;background:rgba(15,20,25,0.78);border:none;color:#fff;cursor:pointer;display:grid;place-items:center;z-index:2;" aria-label="사진 편집">
+      <button data-ws-edit-slot style="position:absolute;top:30px;right:6px;width:26px;height:26px;border-radius:999px;background:rgba(15,20,25,0.78);border:none;color:#fff;cursor:pointer;display:grid;place-items:center;z-index:2;" aria-label="사진 편집">
         <i class="ph-duotone ph-pencil-simple" style="font-size:13px" aria-hidden="true"></i>
       </button>
       ${thumbHtml}
       <div class="ws-slot-card__meta">
-        <div class="ws-slot-card__name">${slot.label}${done ? `<i class="ph-duotone ph-check-circle" aria-hidden="true"></i>` : ''}</div>
+        <div class="ws-slot-card__name">${_wsEsc(slot.label)}${done ? `<i class="ph-duotone ph-check-circle" aria-hidden="true"></i>` : ''}</div>
         <div class="ws-slot-card__count">${photoCount}장</div>
         ${slot.customer_name
-          ? `<div style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--accent,var(--brand));font-weight:700;margin-top:2px;"><i class="ph-duotone ph-user" style="font-size:11px" aria-hidden="true"></i>${slot.customer_name}</div>`
-          : `<button onclick="event.stopPropagation();_pickCustomerForWorkshopSlot('${slot.id}');" style="background:none;border:none;color:var(--accent,var(--brand));font-size:11px;font-weight:700;cursor:pointer;padding:2px 0;display:inline-flex;align-items:center;gap:3px;margin-top:2px;"><i class="ph-duotone ph-user" style="font-size:11px" aria-hidden="true"></i>고객 지정하기 →</button>`
+          ? `<div style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--accent,var(--brand));font-weight:700;margin-top:2px;"><i class="ph-duotone ph-user" style="font-size:11px" aria-hidden="true"></i>${_wsEsc(slot.customer_name)}</div>`
+          : `<button data-ws-pick-customer style="background:none;border:none;color:var(--accent,var(--brand));font-size:11px;font-weight:700;cursor:pointer;padding:2px 0;display:inline-flex;align-items:center;gap:3px;margin-top:2px;"><i class="ph-duotone ph-user" style="font-size:11px" aria-hidden="true"></i>고객 지정하기 →</button>`
         }
       </div>`;
+    card.querySelector('[data-ws-delete-slot]')?.addEventListener('click', event => {
+      event.stopPropagation();
+      deleteSlot(slot.id, event);
+    });
+    card.querySelector('[data-ws-edit-slot]')?.addEventListener('click', event => {
+      event.stopPropagation();
+      openSlotPopup(slot.id);
+    });
+    card.querySelector('[data-ws-pick-customer]')?.addEventListener('click', event => {
+      event.stopPropagation();
+      _pickCustomerForWorkshopSlot(slot.id);
+    });
+    card.querySelector('[data-ws-assign-empty]')?.addEventListener('click', event => {
+      event.stopPropagation();
+      openAssignPopup();
+    });
 
     // 카드 자체 클릭 → 글쓰기 직행 (사진 있는 슬롯만)
     if (thumb) {
@@ -423,13 +493,32 @@ function _showAutoGroupBanner(count) {
         <div style="font-size:13px;font-weight:800;color:var(--accent,var(--brand));letter-spacing:-0.2px;">${count}명 손님으로 자동 분류했어요</div>
         <div style="font-size:11px;color:var(--text2,#5A6573);margin-top:2px;">촬영 시각 30분 기준 · 다르면 수정/합치기</div>
       </div>
-      <button onclick="if(typeof openAssignPopup==='function')openAssignPopup();" style="padding:6px 12px;background:#fff;border:1px solid var(--border,rgba(15,20,25,0.08));border-radius:999px;font-size:11px;font-weight:700;color:var(--text,#0F1419);cursor:pointer;flex-shrink:0;">수정</button>
-      <button onclick="if(typeof _mergeAutoGroups==='function')_mergeAutoGroups(${count});" style="padding:6px 12px;background:#fff;border:1px solid var(--border,rgba(15,20,25,0.08));border-radius:999px;font-size:11px;font-weight:700;color:var(--text,#0F1419);cursor:pointer;flex-shrink:0;">합치기</button>
-      <button onclick="document.getElementById('wsBanner').style.display='none';" style="width:24px;height:24px;background:transparent;border:none;color:var(--text3,#98A1AC);cursor:pointer;display:grid;place-items:center;flex-shrink:0;" aria-label="닫기">
+      <button data-ws-auto-edit style="padding:6px 12px;background:#fff;border:1px solid var(--border,rgba(15,20,25,0.08));border-radius:999px;font-size:11px;font-weight:700;color:var(--text,#0F1419);cursor:pointer;flex-shrink:0;">수정</button>
+      <button data-ws-auto-merge data-count="${count}" style="padding:6px 12px;background:#fff;border:1px solid var(--border,rgba(15,20,25,0.08));border-radius:999px;font-size:11px;font-weight:700;color:var(--text,#0F1419);cursor:pointer;flex-shrink:0;">합치기</button>
+      <button data-ws-banner-close style="width:24px;height:24px;background:transparent;border:none;color:var(--text3,#98A1AC);cursor:pointer;display:grid;place-items:center;flex-shrink:0;" aria-label="닫기">
         <i class="ph-duotone ph-x" style="font-size:14px" aria-hidden="true"></i>
       </button>
     </div>
   `;
+  _bindWsBanner(banner);
+}
+
+function _bindWsBanner(banner) {
+  if (!banner || banner.dataset.wsBannerBound === '1') return;
+  banner.dataset.wsBannerBound = '1';
+  banner.addEventListener('click', e => {
+    const t = e.target.closest('[data-ws-auto-edit],[data-ws-auto-merge],[data-ws-banner-close],[data-ws-caption],[data-ws-next-slot]');
+    if (!t || !banner.contains(t)) return;
+    if (t.matches('[data-ws-auto-edit]')) return openAssignPopup();
+    if (t.matches('[data-ws-auto-merge]')) return _mergeAutoGroups(Number(t.dataset.count || 0));
+    if (t.matches('[data-ws-banner-close]')) { banner.style.display = 'none'; return; }
+    if (t.matches('[data-ws-next-slot]')) return openSlotPopup(t.dataset.slotId);
+    if (t.matches('[data-ws-caption]')) {
+      showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]'));
+      initCaptionSlotPicker();
+      if (typeof renderCaptionKeywordTags === 'function') renderCaptionKeywordTags();
+    }
+  });
 }
 
 // [2026-05-05 18차-B] 자동 분류된 슬롯 합치기 — 마지막 N 슬롯의 photos 를
@@ -489,11 +578,12 @@ function _renderCompletionBanner() {
     const nextSlot = _slots.find(s => s.status !== 'done' && s.photos.length > 0)
                   || _slots.find(s => s.status !== 'done');
     if (allDone) {
-      banner.innerHTML = `<div style="background:rgba(76,175,80,0.1);border:1.5px solid rgba(76,175,80,0.3);border-radius:16px;padding:14px 16px;"><div style="font-size:13px;font-weight:700;color:#388e3c;margin-bottom:10px;">모든 작업 완료!</div><button onclick="showTab('caption',document.querySelector('.tab-bar__fab[data-tab=&quot;caption&quot;]')); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 글쓰기로 →</button></div>`;
+      banner.innerHTML = `<div style="background:rgba(76,175,80,0.1);border:1.5px solid rgba(76,175,80,0.3);border-radius:16px;padding:14px 16px;"><div style="font-size:13px;font-weight:700;color:#388e3c;margin-bottom:10px;">모든 작업 완료!</div><button data-ws-caption style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">지금 글쓰기로 →</button></div>`;
     } else {
       const nextLabel = nextSlot ? nextSlot.label : '다음 손님';
-      banner.innerHTML = `<div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:16px;padding:14px 16px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">${nextLabel} 작업할까요? <span style="color:var(--text3);font-weight:400;">(완료 ${done}/${total})</span></div><div style="display:flex;gap:8px;">${nextSlot ? `<button onclick="openSlotPopup('${nextSlot.id}')" style="flex:1;padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;cursor:pointer;">${nextLabel} →</button>` : ''}<button onclick="showTab('caption',document.querySelector('.tab-bar__fab[data-tab=&quot;caption&quot;]')); initCaptionSlotPicker(); if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">지금 글쓰기로 →</button></div></div>`;
+      banner.innerHTML = `<div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:16px;padding:14px 16px;"><div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">${_wsEsc(nextLabel)} 작업할까요? <span style="color:var(--text3);font-weight:400;">(완료 ${done}/${total})</span></div><div style="display:flex;gap:8px;">${nextSlot ? `<button data-ws-next-slot data-slot-id="${_wsEsc(nextSlot.id)}" style="flex:1;padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:700;cursor:pointer;">${_wsEsc(nextLabel)} →</button>` : ''}<button data-ws-caption style="flex:1;padding:10px 14px;border-radius:10px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">지금 글쓰기로 →</button></div></div>`;
     }
+    _bindWsBanner(banner);
   } else {
     banner.style.display = 'none';
   }

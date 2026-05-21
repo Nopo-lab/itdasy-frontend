@@ -436,7 +436,7 @@
           <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_svg('ic-bot', 22)}</span>
           <strong style="font-size:17px;">AI 잇비</strong>
           <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.15);color:#7C3AED;font-weight:700;">베타</span>
-          <button onclick="closeAssistant()" aria-label="닫기" title="닫기" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-x', 16)}</button>
+          <button data-assistant-close aria-label="닫기" title="닫기" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-x', 16)}</button>
         </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
         <div id="asstQuickLabel" style="font-size:11px;color:#8B95A1;padding:8px 4px 4px;font-weight:600;">이런 것도 돼요</div>
@@ -463,6 +463,7 @@
       document.head.appendChild(st);
     }
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeAssistant(); });
+    sheet.querySelector('[data-assistant-close]')?.addEventListener('click', () => closeAssistant());
     sheet.querySelector('#asstSend').addEventListener('click', _send);
     // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);

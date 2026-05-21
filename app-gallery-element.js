@@ -6,6 +6,16 @@
 let _userElements = [];
 let _elementEditState = null; // { photoId, elementId, x, y, scale, opacity, imgData }
 
+function _elEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 // 기본 텍스트 요소 생성
 function _createDefaultTextElement(text, color = '#f18091') {
   const canvas = document.createElement('canvas');
@@ -20,7 +30,7 @@ function _createDefaultTextElement(text, color = '#f18091') {
 }
 
 function _loadUserElements() {
-  try { return JSON.parse(localStorage.getItem('itdasy_user_elements') || '[]'); } catch(_) { return []; }
+  try { return JSON.parse(localStorage.getItem('itdasy_user_elements') || '[]'); } catch(e) { console.warn('[gallery-element] 요소 읽기 실패', e); return []; }
 }
 function _saveUserElements(arr) {
   localStorage.setItem('itdasy_user_elements', JSON.stringify(arr));
@@ -48,9 +58,9 @@ function _renderElementPanel() {
     <div class="gp-section">
       <p class="gp-section-lbl"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i> 기본 텍스트</p>
       <div class="gp-grid gp-grid--4">
-        <div class="gp-card" onclick="selectDefaultElement('itdasy')">
+        <div class="gp-card" data-default-element="itdasy">
           <div class="gp-card__thumb gp-card__thumb--brand">
-            <img src="${itdasyImg}" alt="잇데이">
+            <img src="${_elEsc(itdasyImg)}" alt="잇데이">
           </div>
           <div class="gp-card__name" style="color:var(--brand);">잇데이</div>
         </div>
@@ -60,30 +70,47 @@ function _renderElementPanel() {
       <p class="gp-section-lbl"><i class="ph-duotone ph-package" aria-hidden="true"></i> 내 요소 (로고, 브랜드 이미지)</p>
       <div class="gp-grid gp-grid--4">
         ${_userElements.map(el => {
-          const _id = (el.id || '').replace(/['"<>&]/g, '');
-          const _nm = String(el.name || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          const _id = _elEsc(el.id);
+          const _nm = _elEsc(el.name);
           return `
-          <div class="gp-card" data-elid="${_id}" onclick="selectElement(this.dataset.elid)">
+          <div class="gp-card" data-element-select data-elid="${_id}">
             <div class="gp-card__thumb gp-card__thumb--fit">
-              <img src="${el.imageData}" alt="${_nm}">
+              <img src="${_elEsc(el.imageData)}" alt="${_nm}">
             </div>
             <div class="gp-card__name">${_nm}</div>
-            <button class="gp-del-btn" data-elid="${_id}" onclick="deleteElement(this.dataset.elid,event)" aria-label="삭제">×</button>
+            <button class="gp-del-btn" data-element-delete data-elid="${_id}" aria-label="삭제">×</button>
           </div>`;
         }).join('')}
-        <div class="gp-add-card" onclick="addUserElement()">
+        <div class="gp-add-card" data-element-add>
           <div class="gp-add-card__thumb">+</div>
           <div class="gp-card__name">추가</div>
         </div>
       </div>
     </div>
-    <input type="file" id="elementUploadInput" accept="image/*" style="display:none;" onchange="handleElementUpload(this)">
+    <input type="file" id="elementUploadInput" data-element-upload accept="image/*" style="display:none;">
     <div class="gp-info-banner ${selectedPhotos.length === 0 ? 'gp-info-banner--empty' : 'gp-info-banner--active'}">
       ${selectedPhotos.length === 0
         ? '사진을 먼저 선택한 후 요소를 탭하세요'
         : `${selectedPhotos.length}장 선택됨 — 요소를 탭하면 편집 화면으로 이동해요`}
     </div>
   `;
+  _bindElementPanel(body);
+}
+
+function _bindElementPanel(body) {
+  if (!body || body.dataset.elementBound === '1') return;
+  body.dataset.elementBound = '1';
+  body.addEventListener('click', e => {
+    const t = e.target.closest('[data-default-element],[data-element-select],[data-element-delete],[data-element-add]');
+    if (!t || !body.contains(t)) return;
+    if (t.matches('[data-default-element]')) return selectDefaultElement(t.dataset.defaultElement);
+    if (t.matches('[data-element-select]')) return selectElement(t.dataset.elid);
+    if (t.matches('[data-element-delete]')) return deleteElement(t.dataset.elid, e);
+    if (t.matches('[data-element-add]')) return addUserElement();
+  });
+  body.addEventListener('change', e => {
+    if (e.target && e.target.matches('[data-element-upload]')) handleElementUpload(e.target);
+  });
 }
 
 function addUserElement() {
@@ -189,8 +216,8 @@ function _openElementEditor(photo) {
   const photoSrc = photo.editedDataUrl || photo.dataUrl;
   canvas.innerHTML = `
     <div id="elemEditWrap" style="position:relative;width:90%;max-width:400px;aspect-ratio:1/1;">
-      <img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
-      <img id="elemOverlay" src="${_elementEditState.elementImg}" style="position:absolute;left:${_elementEditState.x}%;top:${_elementEditState.y}%;transform:translate(-50%,-50%);width:${_elementEditState.scale}%;opacity:${_elementEditState.opacity/100};pointer-events:none;">
+      <img src="${_elEsc(photoSrc)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">
+      <img id="elemOverlay" src="${_elEsc(_elementEditState.elementImg)}" alt="" style="position:absolute;left:${_elementEditState.x}%;top:${_elementEditState.y}%;transform:translate(-50%,-50%);width:${_elementEditState.scale}%;opacity:${_elementEditState.opacity/100};pointer-events:none;">
     </div>
   `;
 
@@ -347,4 +374,3 @@ async function _applyElementToPhoto(photo, slot) {
   photo.mode = 'element';
   await saveSlotToDB(slot);
 }
-

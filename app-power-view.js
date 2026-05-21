@@ -695,7 +695,7 @@
     overlay.innerHTML = `
       <div class="pv-dialog" style="align-self:center;">
         <div class="pv-header">
-          <button class="pv-close" onclick="window.closePowerView()" aria-label="닫기" title="닫기" style="margin-right:4px;">
+          <button class="pv-close" data-pv-close aria-label="닫기" title="닫기" style="margin-right:4px;">
             <i class="ph-duotone ph-caret-left" style="font-size:16px" aria-hidden="true"></i>
           </button>
           <div class="pv-title" style="flex:1;">빠른 입력</div>
@@ -710,6 +710,7 @@
         <div class="pv-body" id="pv-body"></div>
       </div>
     `;
+    overlay.querySelector('[data-pv-close]')?.addEventListener('click', () => window.closePowerView());
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', _escListener);

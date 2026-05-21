@@ -516,7 +516,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   pointer-events: auto;
   box-shadow: 0 4px 14px rgba(241,128,145,0.28);
 }
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .ws-empty__bottom { left: var(--side-nav-width, 232px); bottom: 24px; }
   .ws-empty__cta { max-width: 360px; }
 }
@@ -555,7 +555,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 :root {
   --side-nav-width: 232px;
 }
-@media (min-width: 1200px) {
+@media (width >= 1200px) {
   :root { --side-nav-width: 260px; }
 }
 
@@ -603,7 +603,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 
 /* PC: 카드 보임, FAB 숨김, 챗봇 패널이 사이드바 안 가리게 */
-@media (min-width: 768px) {
+@media (width >= 768px) {
   #assistantFab { display: none !important; }
   #assistantSheetPanel {
     padding-left: var(--side-nav-width) !important;
@@ -612,6 +612,6 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 
 /* 모바일: 카드 숨김, FAB 유지 */
-@media (max-width: 767px) {
+@media (width <= 767px) {
   .cw-chatbot-card { display: none !important; }
 }

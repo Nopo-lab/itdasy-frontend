@@ -38,7 +38,7 @@
             <div id="__dx_error" style="display:none;margin-top:8px;font-size:12px;color:#b00020;"></div>
           </div>
           <div style="display:flex;gap:8px;padding:0 20px 20px;flex-wrap:wrap;">
-            <button type="button" onclick="closeDataExport()" style="flex:1;min-width:100px;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;">취소</button>
+            <button type="button" data-export-close style="flex:1;min-width:100px;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:#555;font-size:13px;font-weight:600;cursor:pointer;">취소</button>
             <button type="button" id="__dx_csv" style="flex:1;min-width:120px;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">⬇ CSV(zip)</button>
             <button type="button" id="__dx_json" style="flex:1;min-width:120px;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">⬇ JSON</button>
           </div>
@@ -47,6 +47,7 @@
     const wrap = document.createElement('div');
     wrap.innerHTML = html;
     document.body.appendChild(wrap.firstElementChild);
+    document.querySelector('[data-export-close]')?.addEventListener('click', () => closeDataExport());
 
     document.getElementById('__dx_csv').addEventListener('click', () => _download('csv'));
     document.getElementById('__dx_json').addEventListener('click', () => _download('json'));

@@ -23,14 +23,24 @@ const _IC_SAVE    = _mkIc('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 
 const _IC_GRID    = _mkIc('<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>');
 const _IC_STAR    = '<i class="ph-duotone ph-star" aria-hidden="true"></i>';
 
+function _bgEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 function _loadUserBgs() {
-  try { return JSON.parse(localStorage.getItem('itdasy_user_bgs') || '[]'); } catch(_) { return []; }
+  try { return JSON.parse(localStorage.getItem('itdasy_user_bgs') || '[]'); } catch(e) { console.warn('[gallery-bg] 배경 저장값 읽기 실패', e); return []; }
 }
 function _saveUserBgs(arr) {
   localStorage.setItem('itdasy_user_bgs', JSON.stringify(arr));
 }
 function _loadFavBgs() {
-  try { return JSON.parse(localStorage.getItem('itdasy_fav_bgs') || '[]'); } catch(_) { return []; }
+  try { return JSON.parse(localStorage.getItem('itdasy_fav_bgs') || '[]'); } catch(e) { console.warn('[gallery-bg] 즐겨찾기 읽기 실패', e); return []; }
 }
 function _saveFavBgs(arr) {
   localStorage.setItem('itdasy_fav_bgs', JSON.stringify(arr));
@@ -58,17 +68,17 @@ function _renderBgPanel() {
   const renderCard = (bg, isFav) => {
     const isSelected = _selectedBgId === bg.id;
     const isUser = bg.type === 'user';
+    const safeId = _bgEsc(bg.id);
+    const safeName = _bgEsc(bg.name);
     const preview = bg.imageData
-      ? `<img src="${bg.imageData}" alt="${bg.name}">`
-      : `<div style="width:100%;height:100%;background:${bg.gradient || bg.color};"></div>`;
-    const _bid = (bg.id || '').replace(/['"<>&]/g, '');
-    const _bnm = String(bg.name || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      ? `<img src="${_bgEsc(bg.imageData)}" alt="${safeName}">`
+      : `<div style="width:100%;height:100%;background:${_bgEsc(bg.gradient || bg.color)};"></div>`;
     return `
-      <div class="gp-card" data-bgid="${_bid}" onclick="selectBg(this.dataset.bgid)">
+      <div class="gp-card" data-bg-select data-bgid="${safeId}">
         <div class="gp-card__thumb${isSelected ? ' gp-card__thumb--sel' : ''}">${preview}</div>
-        <div class="gp-card__name">${_bnm}</div>
-        <button class="gp-fav-btn" data-bgid="${_bid}" onclick="toggleFavBg(this.dataset.bgid,event)" aria-label="${isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}">${isFav ? '⭐' : '☆'}</button>
-        ${isUser ? `<button class="gp-del-btn" data-bgid="${_bid}" onclick="deleteUserBg(this.dataset.bgid,event)" aria-label="삭제">×</button>` : ''}
+        <div class="gp-card__name">${safeName}</div>
+        <button class="gp-fav-btn" data-bg-fav data-bgid="${safeId}" aria-label="${isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}">${isFav ? '⭐' : '☆'}</button>
+        ${isUser ? `<button class="gp-del-btn" data-bg-delete data-bgid="${safeId}" aria-label="삭제">×</button>` : ''}
       </div>`;
   };
 
@@ -82,15 +92,36 @@ function _renderBgPanel() {
       <p class="gp-section-lbl">${_IC_PALETTE} 배경 선택</p>
       <div class="gp-grid gp-grid--4">
         ${otherBgs.map(bg => renderCard(bg, false)).join('')}
-        <div class="gp-add-card" onclick="addUserBg()">
+        <div class="gp-add-card" data-bg-add>
           <div class="gp-add-card__thumb">+</div>
           <div class="gp-card__name">추가</div>
         </div>
       </div>
     </div>
-    <input type="file" id="bgUploadInput" accept="image/*" style="display:none;" onchange="handleBgUpload(this)">
-    <button onclick="applySelectedBg()" class="btn-primary">선택한 배경 적용하기</button>
+    <input type="file" id="bgUploadInput" data-bg-upload accept="image/*" style="display:none;">
+    <button data-bg-apply class="btn-primary">선택한 배경 적용하기</button>
   `;
+  _bindBgTemplatePanel(body);
+}
+
+function _bindBgTemplatePanel(body) {
+  if (!body || body.dataset.bgBound === '1') return;
+  body.dataset.bgBound = '1';
+  body.addEventListener('click', e => {
+    const t = e.target.closest('[data-bg-select],[data-bg-fav],[data-bg-delete],[data-bg-add],[data-bg-apply],[data-template-select],[data-template-delete],[data-template-save]');
+    if (!t || !body.contains(t)) return;
+    if (t.matches('[data-bg-fav]')) return toggleFavBg(t.dataset.bgid, e);
+    if (t.matches('[data-bg-delete]')) return deleteUserBg(t.dataset.bgid, e);
+    if (t.matches('[data-bg-select]')) return selectBg(t.dataset.bgid);
+    if (t.matches('[data-bg-add]')) return addUserBg();
+    if (t.matches('[data-bg-apply]')) return applySelectedBg();
+    if (t.matches('[data-template-delete]')) return deleteTemplate(t.dataset.templateId, e);
+    if (t.matches('[data-template-select]')) return applyTemplate(t.dataset.templateId);
+    if (t.matches('[data-template-save]')) return saveCurrentAsTemplate();
+  });
+  body.addEventListener('change', e => {
+    if (e.target && e.target.matches('[data-bg-upload]')) handleBgUpload(e.target);
+  });
 }
 
 function selectBg(id) {
@@ -220,7 +251,7 @@ const DEFAULT_TEMPLATES = [
 ];
 
 function _loadUserTemplates() {
-  try { return JSON.parse(localStorage.getItem('itdasy_user_templates') || '[]'); } catch(_) { return []; }
+  try { return JSON.parse(localStorage.getItem('itdasy_user_templates') || '[]'); } catch(e) { console.warn('[gallery-bg] 템플릿 읽기 실패', e); return []; }
 }
 function _saveUserTemplates(arr) {
   localStorage.setItem('itdasy_user_templates', JSON.stringify(arr));
@@ -245,14 +276,16 @@ function _renderTemplatePanel() {
 
   const renderCard = (tpl, isUser) => {
     const bg = allBgs.find(b => b.id === tpl.bgId) || allBgs[0];
+    const safeId = _bgEsc(tpl.id);
+    const safeName = _bgEsc(tpl.name);
     const preview = bg.imageData
-      ? `<img src="${bg.imageData}" alt="${tpl.name}">`
-      : `<div style="width:100%;height:100%;background:${bg.gradient || bg.color};"></div>`;
+      ? `<img src="${_bgEsc(bg.imageData)}" alt="${safeName}">`
+      : `<div style="width:100%;height:100%;background:${_bgEsc(bg.gradient || bg.color)};"></div>`;
     return `
-      <div class="gp-card" onclick="applyTemplate('${tpl.id}')">
+      <div class="gp-card" data-template-select data-template-id="${safeId}">
         <div class="gp-card__thumb">${preview}</div>
-        <div class="gp-card__name">${tpl.name}</div>
-        ${isUser ? `<button class="gp-del-btn" onclick="deleteTemplate('${tpl.id}',event)" aria-label="삭제">×</button>` : ''}
+        <div class="gp-card__name">${safeName}</div>
+        ${isUser ? `<button class="gp-del-btn" data-template-delete data-template-id="${safeId}" aria-label="삭제">×</button>` : ''}
       </div>`;
   };
 
@@ -270,10 +303,11 @@ function _renderTemplatePanel() {
       <p class="gp-section-lbl">현재 설정을 템플릿으로 저장</p>
       <div class="gp-save-row">
         <input type="text" id="newTemplateName" placeholder="템플릿 이름" class="gp-field">
-        <button onclick="saveCurrentAsTemplate()" class="btn-primary">저장</button>
+        <button data-template-save class="btn-primary">저장</button>
       </div>
     </div>
   `;
+  _bindBgTemplatePanel(body);
 }
 
 // [2026-05-17] target_ratio 옵션 인자 추가 — 미지정 시 '1:1' (기존 동작).
@@ -343,4 +377,3 @@ window.composeBgForEditor = async function (srcUrl, bgId, target_ratio, preRemov
     shadow: opts.shadow || { mode: 'none' },
   });
 };
-

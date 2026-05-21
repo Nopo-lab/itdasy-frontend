@@ -376,7 +376,7 @@
       </td></tr>` : '';
 
     const reportBannerHtml = state.currentTab === 'revenue' ? `
-      <button onclick="if(typeof openRevenueReport==='function')openRevenueReport()" style="display:flex;align-items:center;gap:8px;width:100%;padding:11px 16px;margin-bottom:4px;background:#FEF4F5;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--brand-strong);text-align:left;transition:background 0.15s;" onmouseover="this.style.background='#FDE8EB'" onmouseout="this.style.background='#FEF4F5'">
+      <button data-pv-revenue-report style="display:flex;align-items:center;gap:8px;width:100%;padding:11px 16px;margin-bottom:4px;background:#FEF4F5;border:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--brand-strong);text-align:left;transition:background 0.15s;">
         <i class="ph-duotone ph-chart-bar" aria-hidden="true"></i>
         상세 리포트
         <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
@@ -532,6 +532,14 @@
           } catch (_e) { /* silent */ }
           window._PVExport.downloadCSV(tab, list);
         });
+      }
+      const reportBtn = document.querySelector('[data-pv-revenue-report]');
+      if (reportBtn) {
+        reportBtn.addEventListener('click', () => {
+          if (typeof openRevenueReport === 'function') openRevenueReport();
+        });
+        reportBtn.addEventListener('mouseenter', () => { reportBtn.style.background = '#FDE8EB'; });
+        reportBtn.addEventListener('mouseleave', () => { reportBtn.style.background = '#FEF4F5'; });
       }
     } catch (e) {
       console.warn('[PowerView] phase1/2 bind failed', e);

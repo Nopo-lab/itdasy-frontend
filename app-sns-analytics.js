@@ -112,7 +112,7 @@
     const s = d.summary;
     sheet.innerHTML = `
       <header style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.06);">
-        <button onclick="window.SNSAnalytics.close()" style="background:none;border:none;font-size:18px;cursor:pointer;margin-right:12px;">‹</button>
+        <button data-sns-analytics-close style="background:none;border:none;font-size:18px;cursor:pointer;margin-right:12px;">‹</button>
         <div style="font-size:15px;font-weight:800;">📊 게시물 성과 대시보드</div>
         ${d._fromServer ? '<span style="margin-left:auto;font-size:10px;color:#4ade80;font-weight:700;">● 실시간</span>' : '<span style="margin-left:auto;font-size:10px;color:#888;">데모</span>'}
       </header>
@@ -133,6 +133,7 @@
         </div>
       </div>`;
     sheet.style.display = 'flex';
+    sheet.querySelector('[data-sns-analytics-close]')?.addEventListener('click', () => window.SNSAnalytics.close());
     setTimeout(() => _drawChart(d.daily), 100);
   }
   function _drawChart(daily) {

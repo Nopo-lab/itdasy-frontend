@@ -349,7 +349,7 @@
     } else {
       sheet.innerHTML = `
         <div class="dt-body" style="padding:56px 16px 80px;position:relative;">
-          <button class="dt-back cv4-mobile-back" onclick="closeCustomers()" aria-label="뒤로"
+          <button class="dt-back cv4-mobile-back" data-customer-close aria-label="뒤로"
                   style="position:absolute;top:14px;left:10px;background:var(--surface-2,#F7F8FA);border:none;width:36px;height:36px;border-radius:12px;color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;font-weight:600;z-index:2;">‹</button>
           <div class="cv4-hd">
             <h1 style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;margin:0;">고객관리</h1>
@@ -369,6 +369,7 @@
     document.body.appendChild(sheet);
     sheet.querySelector('#customerSearch').addEventListener('input', _rerender);
     sheet.querySelector('#customerAddBtn').addEventListener('click', _openAddForm);
+    sheet.querySelector('[data-customer-close]')?.addEventListener('click', () => window.closeCustomers());
     // chip 클릭
     let _activeSeg = 'all';
     sheet.querySelectorAll('.cv4-chip').forEach(btn => {
@@ -696,20 +697,33 @@
     const c = existing || { name: '', phone: '', memo: '', tags: [], birthday: '' };
     const _formId = id ? `customer-edit::${id}` : 'customer-add';
     box.innerHTML = `
-      <div data-form-id="${_formId}">
-      <button onclick="window._customerBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
+      <div data-form-id="${_esc(_formId)}">
+      <button data-customer-back class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
       <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="cfName" name="cfName" class="dt-field" value="${_esc(c.name)}" maxlength="50" /></div>
       <div class="dt-field-row"><label class="dt-field-lbl">연락처</label><input id="cfPhone" name="cfPhone" class="dt-field" value="${_esc(c.phone||'')}" inputmode="tel" maxlength="20" /></div>
       <div class="dt-field-row"><label class="dt-field-lbl">생일 (MM-DD)</label><input id="cfBirthday" name="cfBirthday" class="dt-field" value="${_esc(c.birthday||'')}" placeholder="03-14" maxlength="5" /></div>
       <div class="dt-field-row"><label class="dt-field-lbl">태그 (쉼표로 구분)</label><input id="cfTags" name="cfTags" class="dt-field" value="${_esc((c.tags||[]).join(', '))}" placeholder="VIP, 속눈썹" /></div>
       <div class="dt-field-row"><label class="dt-field-lbl">메모</label><textarea id="cfMemo" name="cfMemo" class="dt-field" rows="3" maxlength="500">${_esc(c.memo||'')}</textarea></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <button onclick="window._customerSave('${id||''}')" class="btn-primary" data-mutation style="flex:1;">${existing ? '수정' : '추가'}</button>
-        ${existing ? `<button onclick="window._customerDelete('${id}')" class="btn-secondary" data-mutation style="color:var(--danger);">삭제</button>` : ''}
+        <button data-customer-save data-customer-id="${_esc(id || '')}" class="btn-primary" data-mutation style="flex:1;">${existing ? '수정' : '추가'}</button>
+        ${existing ? `<button data-customer-delete data-customer-id="${_esc(id)}" class="btn-secondary" data-mutation style="color:var(--danger);">삭제</button>` : ''}
       </div>
       </div>
     `;
+    _bindCustomerDetailForm(box);
     document.getElementById('cfName')?.focus();
+  }
+
+  function _bindCustomerDetailForm(box) {
+    if (!box || box.dataset.customerFormBound === '1') return;
+    box.dataset.customerFormBound = '1';
+    box.addEventListener('click', e => {
+      const t = e.target.closest('[data-customer-back],[data-customer-save],[data-customer-delete]');
+      if (!t || !box.contains(t)) return;
+      if (t.matches('[data-customer-back]')) return window._customerBack();
+      if (t.matches('[data-customer-save]')) return window._customerSave(t.dataset.customerId || '');
+      if (t.matches('[data-customer-delete]')) return window._customerDelete(t.dataset.customerId);
+    });
   }
 
   window._customerBack = _closeDetail;
@@ -897,7 +911,7 @@
         createRow.style.display = 'none';
         const moreCount = hits.length - displayHits.length;
         listEl.innerHTML = displayHits.map(c => `
-          <div data-pick-id="${c.id}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
+          <div data-pick-id="${_esc(c.id)}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
             <strong style="font-size:14px;">${_esc(c.name)}</strong>
             ${c.phone ? `<span style="font-size:12px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
             ${c.visit_count ? `<span style="font-size:10px;color:var(--accent,var(--brand));margin-left:6px;">방문 ${c.visit_count}</span>` : ''}

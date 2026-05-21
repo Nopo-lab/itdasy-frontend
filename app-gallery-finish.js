@@ -43,14 +43,15 @@ function _renderFinishTab(root, galleryItems = []) {
           <i class="ph-duotone ph-tray" style="font-size:32px" aria-hidden="true"></i>
         </div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">작업실에서 슬롯을 먼저 만들어보세요</div>
-        <button onclick="showTab('workshop',document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); initWorkshopTab();" style="margin-top:16px;padding:10px 20px;border-radius:12px;border:1.5px solid var(--accent2);background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:12px;">작업실로 이동 →</button>
+        <button data-finish-workshop style="margin-top:16px;padding:10px 20px;border-radius:12px;border:1.5px solid var(--accent2);background:transparent;color:var(--accent2);font-weight:700;cursor:pointer;font-size:12px;">작업실로 이동 →</button>
       </div>
     `;
+    _bindFinishQuickActions(root);
     return;
   }
 
   const incompleteHtml = incompleteN > 0
-    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:14px;">미완료 ${incompleteN}개 있어요 · <button onclick="showTab('dashboard',document.querySelector('.tab-bar__btn[data-tab=&quot;dashboard&quot;]')); initDashboardTab();" style="background:transparent;border:none;color:var(--accent2);font-size:11px;font-weight:700;cursor:pointer;padding:0;">AI추천에서 확인 →</button></div>`
+    ? `<div style="font-size:11px;color:var(--text3);margin-bottom:14px;">미완료 ${incompleteN}개 있어요 · <button data-finish-dashboard style="background:transparent;border:none;color:var(--accent2);font-size:11px;font-weight:700;cursor:pointer;padding:0;">AI추천에서 확인 →</button></div>`
     : '';
 
   if (!doneSlots.length) {
@@ -63,20 +64,21 @@ function _renderFinishTab(root, galleryItems = []) {
         <div style="font-size:11px;color:var(--text3);margin-top:4px;">작업실에서 슬롯을 완료(✅)하면 여기 표시돼요</div>
       </div>
     `;
+    _bindFinishQuickActions(root);
     return;
   }
 
   const slotsHtml = doneSlots.map(slot => {
     const visPhotos = slot.photos.filter(p => !p.hidden);
     const thumbs = (visPhotos.length ? visPhotos : slot.photos).slice(0, 2).map(p =>
-      `<img src="${p.editedDataUrl || p.dataUrl}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">`
+      `<img src="${_finEsc(p.editedDataUrl || p.dataUrl)}" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">`
     ).join('');
     const cap = slot.caption
-      ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${slot.caption.slice(0, 60)}${slot.caption.length > 60 ? '…' : ''}</div>`
+      ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${_finEsc(slot.caption.slice(0, 60))}${slot.caption.length > 60 ? '…' : ''}</div>`
       : '';
     const isDeferred = !!slot.deferredAt;
     return `
-      <div data-finish-slot="${slot.id}" style="background:#fff;border:1px solid var(--border, rgba(15,20,25,0.08));border-radius:16px;padding:14px;margin-bottom:10px;">
+      <div data-finish-slot="${_finEsc(slot.id)}" style="background:#fff;border:1px solid var(--border, rgba(15,20,25,0.08));border-radius:16px;padding:14px;margin-bottom:10px;">
         <!-- 슬롯 정보 -->
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
           <div style="display:flex;gap:4px;">${thumbs}</div>
@@ -105,7 +107,7 @@ function _renderFinishTab(root, galleryItems = []) {
             </button>
             <button data-action="pickCustomer" style="flex:1;background:none;border:none;padding:8px 4px;font-size:11px;font-weight:${slot.customer_name ? '800' : '600'};color:${slot.customer_name ? 'var(--accent,#F18091)' : 'var(--text2,#5A6573)'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:6px;">
               <i class="ph-duotone ph-user" style="font-size:13px" aria-hidden="true"></i>
-              ${slot.customer_name ? slot.customer_name.slice(0,4) : '고객'}
+              ${slot.customer_name ? _finEsc(slot.customer_name.slice(0,4)) : '고객'}
             </button>
             <button data-action="delete" style="flex:1;background:none;border:none;padding:8px 4px;font-size:11px;font-weight:600;color:var(--text3,#98A1AC);cursor:pointer;border-radius:6px;">
               삭제
@@ -127,17 +129,17 @@ function _renderFinishTab(root, galleryItems = []) {
     });
     const dateHtml = Object.entries(byDate).map(([date, items]) => `
       <div style="margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">${date}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;">${escapeHtml(date)}</div>
         <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;">
           ${items.map(item => {
             const thumb = item.photos?.[0];
             return thumb ? `
               <div style="flex-shrink:0;width:80px;cursor:pointer;" data-gallery-item="${escapeHtml(item.id)}">
                 <div style="position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;">
-                  <img src="${thumb.dataUrl}" style="width:100%;height:100%;object-fit:cover;">
+                  <img src="${escapeHtml(thumb.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">
                   ${item.photos.length > 1 ? `<div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:1px 4px;font-size:9px;color:#fff;">+${item.photos.length}</div>` : ''}
                 </div>
-                <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.label}</div>
+                <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(item.label)}</div>
               </div>
             ` : '';
           }).join('')}
@@ -158,8 +160,10 @@ function _renderFinishTab(root, galleryItems = []) {
     ${slotsHtml}
     ${galleryHtml}
   `;
+  _bindFinishQuickActions(root);
   doneSlots.forEach(slot => {
-    const card = root.querySelector(`[data-finish-slot="${slot.id}"]`);
+    const safeSel = window.CSS && CSS.escape ? CSS.escape(String(slot.id)) : String(slot.id).replace(/"/g, '\\"');
+    const card = root.querySelector(`[data-finish-slot="${safeSel}"]`);
     if (!card) return;
     card.querySelector('[data-action="edit"]')?.addEventListener('click', () => openSlotPopup(slot.id));
     card.querySelector('[data-action="publish"]')?.addEventListener('click', () => _showPublishOptions(slot.id));
@@ -169,6 +173,22 @@ function _renderFinishTab(root, galleryItems = []) {
   });
   root.querySelectorAll('[data-gallery-item]').forEach(el => {
     el.addEventListener('click', () => _galleryItemDetail(el.dataset.galleryItem));
+  });
+}
+
+function _bindFinishQuickActions(root) {
+  if (!root || root.dataset.finishQuickBound === '1') return;
+  root.dataset.finishQuickBound = '1';
+  root.addEventListener('click', e => {
+    const t = e.target.closest('[data-finish-workshop],[data-finish-dashboard]');
+    if (!t || !root.contains(t)) return;
+    if (t.matches('[data-finish-workshop]')) {
+      showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]'));
+      initWorkshopTab();
+    } else {
+      showTab('dashboard', document.querySelector('.tab-bar__btn[data-tab="dashboard"]'));
+      initDashboardTab();
+    }
   });
 }
 
@@ -190,7 +210,7 @@ function _galleryItemDetail(galleryId) {
       <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:90vh;overflow-y:auto;padding:16px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div style="font-size:14px;font-weight:800;">${escapeHtml(item.label)} <span style="font-size:11px;color:var(--text3);font-weight:400;">${escapeHtml(item.date)}</span></div>
-          <button onclick="document.getElementById('_galleryDetailPop').style.display='none'" style="background:transparent;border:none;font-size:20px;color:var(--text-subtle);cursor:pointer;">×</button>
+          <button data-gallery-detail-close style="background:transparent;border:none;font-size:20px;color:var(--text-subtle);cursor:pointer;">×</button>
         </div>
         ${_buildPeekCarousel(photos, 'gd_carousel')}
         ${escapedCaption ? `<div style="margin-top:12px;font-size:13px;color:#333;white-space:pre-wrap;line-height:1.6;">${escapedCaption}</div>` : ''}
@@ -203,6 +223,7 @@ function _galleryItemDetail(galleryId) {
         </div>
       </div>
     `;
+    pop.querySelector('[data-gallery-detail-close]')?.addEventListener('click', () => { pop.style.display = 'none'; });
     pop.querySelector('#_gd_republish').addEventListener('click', () => _republishGalleryItem(item.id));
     pop.querySelector('#_gd_download').addEventListener('click', () => downloadGalleryItem(item.id));
     pop.querySelector('#_gd_delete').addEventListener('click', () => deleteGalleryItem(item.id).then(() => {
@@ -359,12 +380,12 @@ function _showPublishOptions(slotId) {
           <div style="font-size:17px;font-weight:800;color:var(--text);letter-spacing:-0.3px;">${_finEsc(slot.label)}</div>
           <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">어디로 보낼까요?</div>
         </div>
-        <button onclick="document.getElementById('_publishOptionsPop').style.display='none'" style="width:30px;height:30px;border-radius:999px;background:var(--bg2,#f8f8f9);border:none;color:var(--text2);cursor:pointer;display:grid;place-items:center;">
+        <button data-publish-close style="width:30px;height:30px;border-radius:999px;background:var(--bg2,#f8f8f9);border:none;color:var(--text2);cursor:pointer;display:grid;place-items:center;">
           <i class="ph-duotone ph-x" style="font-size:14px" aria-hidden="true"></i>
         </button>
       </div>
       <div style="display:flex;flex-direction:column;">
-        <button onclick="document.getElementById('_publishOptionsPop').style.display='none'; _previewSlotOnInsta('${slotId}');" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:var(--brand-bg,#FCEEF1);width:100%;cursor:pointer;text-align:left;border-bottom:1px solid var(--border);">
+        <button data-publish-action="preview" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:var(--brand-bg,#FCEEF1);width:100%;cursor:pointer;text-align:left;border-bottom:1px solid var(--border);">
           <div style="width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;color:var(--accent,#F18091);">
             <i class="ph-duotone ph-instagram-logo" style="font-size:20px" aria-hidden="true"></i>
           </div>
@@ -374,7 +395,7 @@ function _showPublishOptions(slotId) {
           </div>
           <i class="ph-duotone ph-caret-right" style="font-size:16px" aria-hidden="true"></i>
         </button>
-        <button onclick="document.getElementById('_publishOptionsPop').style.display='none'; _saveSlotToGallery('${slotId}');" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:transparent;width:100%;cursor:pointer;text-align:left;border-bottom:1px solid var(--border);">
+        <button data-publish-action="save" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:transparent;width:100%;cursor:pointer;text-align:left;border-bottom:1px solid var(--border);">
           <div style="width:40px;height:40px;border-radius:12px;background:var(--bg2,#f8f8f9);display:grid;place-items:center;color:var(--text);">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           </div>
@@ -384,7 +405,7 @@ function _showPublishOptions(slotId) {
           </div>
           <i class="ph-duotone ph-caret-right" style="font-size:16px" aria-hidden="true"></i>
         </button>
-        <button onclick="document.getElementById('_publishOptionsPop').style.display='none'; downloadSlotPhotos('${slotId}');" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:transparent;width:100%;cursor:pointer;text-align:left;">
+        <button data-publish-action="download" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:transparent;width:100%;cursor:pointer;text-align:left;">
           <div style="width:40px;height:40px;border-radius:12px;background:var(--bg2,#f8f8f9);display:grid;place-items:center;color:var(--text);">
             <i class="ph-duotone ph-download-simple" style="font-size:20px" aria-hidden="true"></i>
           </div>
@@ -397,6 +418,20 @@ function _showPublishOptions(slotId) {
       </div>
     </div>
   `;
+  const close = () => { pop.style.display = 'none'; };
+  pop.querySelector('[data-publish-close]')?.addEventListener('click', close);
+  pop.querySelector('[data-publish-action="preview"]')?.addEventListener('click', () => {
+    close();
+    _previewSlotOnInsta(slotId);
+  });
+  pop.querySelector('[data-publish-action="save"]')?.addEventListener('click', () => {
+    close();
+    _saveSlotToGallery(slotId);
+  });
+  pop.querySelector('[data-publish-action="download"]')?.addEventListener('click', () => {
+    close();
+    downloadSlotPhotos(slotId);
+  });
   pop.style.display = 'flex';
 }
 window._showPublishOptions = _showPublishOptions;
@@ -427,7 +462,7 @@ function _previewSlotOnInsta(slotId) {
 
   const hashHtml = hashtags ? hashtags.split(/\s+/).filter(Boolean).map(h => {
     const clean = h.startsWith('#') ? h : '#' + h;
-    return `<span style="color:#1e7abf;">${clean}</span>`;
+    return `<span style="color:#1e7abf;">${escapeHtml(clean)}</span>`;
   }).join(' ') : '';
 
   pop.innerHTML = `
@@ -435,14 +470,14 @@ function _previewSlotOnInsta(slotId) {
       <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #dbdbdb;">
         <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);padding:2px;"><div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#262626;">잇</div></div>
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;">${handle}</div>
+          <div style="font-size:13px;font-weight:700;">${escapeHtml(handle)}</div>
           <div style="font-size:10px;color:#888;">서울</div>
         </div>
         <div style="font-size:18px;color:#262626;">⋯</div>
       </div>
       <div style="width:100%;aspect-ratio:1/1;background:#000;display:flex;align-items:center;justify-content:center;">
         ${previewImg
-          ? `<img src="${previewImg}" style="width:100%;height:100%;object-fit:cover;">`
+          ? `<img src="${escapeHtml(previewImg)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
           : `<div style="color:#888;font-size:12px;">사진이 없어요</div>`}
       </div>
       <div style="display:flex;gap:14px;padding:10px 12px 6px;align-items:center;color:#262626;">
@@ -453,15 +488,20 @@ function _previewSlotOnInsta(slotId) {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
       </div>
       <div style="padding:4px 12px 12px;font-size:12px;line-height:1.5;color:#262626;max-height:220px;overflow-y:auto;">
-        <b>${handle}</b> <span style="white-space:pre-wrap;">${(caption || '(캡션 없음)').replace(/</g,'&lt;')}</span>
+        <b>${escapeHtml(handle)}</b> <span style="white-space:pre-wrap;">${escapeHtml(caption || '(캡션 없음)')}</span>
         ${hashHtml ? '<div style="margin-top:6px;word-break:break-word;">' + hashHtml + '</div>' : ''}
       </div>
       <div style="padding:10px 12px;border-top:1px solid #efefef;display:flex;gap:8px;">
-        <button onclick="document.getElementById('_finishInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
-        <button onclick="publishSlotToInstagram('${slotId}');document.getElementById('_finishInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:var(--accent,#F18091);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
+        <button data-finish-preview-close style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
+        <button data-finish-preview-publish data-slot-id="${escapeHtml(slotId)}" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:var(--accent,#F18091);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
       </div>
     </div>
   `;
+  pop.querySelector('[data-finish-preview-close]')?.addEventListener('click', () => { pop.style.display = 'none'; });
+  pop.querySelector('[data-finish-preview-publish]')?.addEventListener('click', e => {
+    publishSlotToInstagram(e.currentTarget.dataset.slotId);
+    pop.style.display = 'none';
+  });
   pop.style.display = 'flex';
 }
 

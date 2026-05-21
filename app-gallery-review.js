@@ -6,6 +6,16 @@
 let _reviewEditState = null;
 let _reviewStickerCache = [];
 
+function _rvEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 async function _smartCropScreenshot(dataUrl) {
   const img = await _loadImageSrc(dataUrl);
   const c = document.createElement('canvas');
@@ -84,17 +94,15 @@ function _renderReviewPanel() {
       <div class="rv-sticker-grid">
         ${_reviewStickerCache.map((s, i) => `
           <div class="rv-sticker-card" data-rv-card="${i}" role="button" tabindex="0"
-               style="cursor:pointer;${_selectedCount === 0 ? 'opacity:0.55;' : ''}"
-               onclick="selectReviewSticker(${i})"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectReviewSticker(${i});}">
-            <img src="${s}" class="rv-sticker-img">
+               style="cursor:pointer;${_selectedCount === 0 ? 'opacity:0.55;' : ''}">
+            <img src="${_rvEsc(s)}" alt="" class="rv-sticker-img">
             <div class="rv-card-meta">
               <div class="rv-stars">${'<i class="ph-duotone ph-star" aria-hidden="true"></i>'.repeat(5)}</div>
               <span class="rv-card-date">방금</span>
             </div>
-            <div class="rv-sticker-actions" onclick="event.stopPropagation()">
-              <button class="btn-secondary" onclick="event.stopPropagation();selectReviewSticker(${i})">전체 사용</button>
-              <button class="btn-primary" onclick="event.stopPropagation();selectReviewTextOnly(${i})">텍스트만</button>
+            <div class="rv-sticker-actions">
+              <button class="btn-secondary" data-rv-full data-rv-index="${i}">전체 사용</button>
+              <button class="btn-primary" data-rv-text data-rv-index="${i}">텍스트만</button>
             </div>
           </div>
         `).join('')}
@@ -105,16 +113,39 @@ function _renderReviewPanel() {
   body.innerHTML = `
     <div class="rv-section">
       <div class="rv-section-label"><i class="ph-duotone ph-image" aria-hidden="true"></i> 리뷰 스크린샷 업로드</div>
-      <div class="rv-upload-zone" onclick="document.getElementById('reviewUploadInput').click()">
+      <div class="rv-upload-zone" data-rv-upload-zone>
         <i class="ph-duotone ph-image" aria-hidden="true"></i>
         <div class="rv-upload-text">네이버/카톡 리뷰 캡처 올리기</div>
       </div>
-      <input type="file" id="reviewUploadInput" accept="image/*" class="rv-file-input"
-             onchange="handleReviewUpload(this)">
+      <input type="file" id="reviewUploadInput" data-rv-upload-input accept="image/*" class="rv-file-input">
     </div>
     <div id="reviewExtractResult" class="rv-extract-result"></div>
     ${stickerHtml}
   `;
+  _bindReviewPanel(body);
+}
+
+function _bindReviewPanel(body) {
+  if (!body || body.dataset.reviewBound === '1') return;
+  body.dataset.reviewBound = '1';
+  body.addEventListener('click', e => {
+    const action = e.target.closest('[data-rv-full],[data-rv-text],[data-rv-card],[data-rv-upload-zone]');
+    if (!action || !body.contains(action)) return;
+    if (action.matches('[data-rv-upload-zone]')) return document.getElementById('reviewUploadInput')?.click();
+    if (action.matches('[data-rv-text]')) { e.stopPropagation(); return selectReviewTextOnly(Number(action.dataset.rvIndex)); }
+    if (action.matches('[data-rv-full]')) { e.stopPropagation(); return selectReviewSticker(Number(action.dataset.rvIndex)); }
+    if (action.matches('[data-rv-card]')) return selectReviewSticker(Number(action.dataset.rvCard));
+  });
+  body.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('[data-rv-card]');
+    if (!card || !body.contains(card)) return;
+    e.preventDefault();
+    selectReviewSticker(Number(card.dataset.rvCard));
+  });
+  body.addEventListener('change', e => {
+    if (e.target && e.target.matches('[data-rv-upload-input]')) handleReviewUpload(e.target);
+  });
 }
 
 async function handleReviewUpload(input) {
@@ -131,12 +162,12 @@ async function handleReviewUpload(input) {
     resultDiv.innerHTML = `
       <div class="rv-screenshot-preview">
         <div class="rv-screenshot-label">업로드된 리뷰 스크린샷</div>
-        <img src="${dataUrl}" class="rv-screenshot-img">
+        <img src="${_rvEsc(dataUrl)}" alt="" class="rv-screenshot-img">
       </div>`;
     _renderReviewPanel();
     showToast('스크린샷이 추가됐어요! 아래에서 선택해 사진에 붙이세요!');
   } catch(e) {
-    resultDiv.innerHTML = `<div class="rv-error">업로드 실패: ${e.message}</div>`;
+    resultDiv.innerHTML = `<div class="rv-error">업로드 실패: ${_rvEsc(e.message)}</div>`;
   }
   input.value = '';
 }
@@ -164,7 +195,7 @@ function selectReviewSticker(idx) {
   closeReviewPanel();
   _openReviewEditor(selectedPhotos[0]);
 }
-// 전역 등록 (onclick 인라인에서 호출되므로 명시적 보강)
+// 전역 등록 (다른 모듈 호환)
 try { if (typeof window !== 'undefined') { window.selectReviewSticker = selectReviewSticker; window.openReviewPanel = openReviewPanel; window.closeReviewPanel = closeReviewPanel; window.handleReviewUpload = handleReviewUpload; } } catch (_e) { void _e; }
 
 function _openReviewEditor(photo) {
@@ -210,8 +241,8 @@ function _openReviewEditor(photo) {
 
   canvas.innerHTML = `
     <div id="reviewEditWrap" class="rv-edit-wrap">
-      <img src="${photo.editedDataUrl || photo.dataUrl}" class="rv-edit-base">
-      <img id="reviewOverlay" src="${_reviewEditState.stickerImg}" class="rv-edit-overlay"
+      <img src="${_rvEsc(photo.editedDataUrl || photo.dataUrl)}" alt="" class="rv-edit-base">
+      <img id="reviewOverlay" src="${_rvEsc(_reviewEditState.stickerImg)}" alt="" class="rv-edit-overlay"
            style="left:${_reviewEditState.x}%;top:${_reviewEditState.y}%;width:${_reviewEditState.scale}%;opacity:${_reviewEditState.opacity/100};">
     </div>`;
   document.getElementById('reviewScale').value = _reviewEditState.scale;

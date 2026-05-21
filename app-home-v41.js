@@ -1418,8 +1418,9 @@
             <div style="font-size:40px;margin-bottom:12px">📡</div>
             <div style="font-size:16px;font-weight:600;margin-bottom:8px">연결이 불안정해요</div>
             <div style="font-size:14px">인터넷 연결을 확인하고 다시 시도해주세요</div>
-            <button onclick="location.reload()" style="margin-top:16px;padding:10px 24px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer">다시 시도</button>
+            <button data-home-reload style="margin-top:16px;padding:10px 24px;background:var(--brand);color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer">다시 시도</button>
           </div>`;
+        container.querySelector('[data-home-reload]')?.addEventListener('click', () => location.reload());
         return;
       }
       merged._dmQueueCount = dmQueueCount;

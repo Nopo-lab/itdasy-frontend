@@ -2,6 +2,16 @@
 // 의존: app-gallery-utils.js, app-gallery-db.js, app-gallery-workshop.js
 // 상태 쓰기는 app-gallery-workshop.js 의 setter 함수 경유 (직접 변이 금지)
 
+function _slotEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 // ── 슬롯 팝업 열기 / 닫기 ──────────────────────────────────────
 async function openSlotPopup(slotId) {
   const slot = _slots.find(s => s.id === slotId);
@@ -72,20 +82,31 @@ function _showNextSlotGuide(nextSlot, doneCount, totalCount) {
     pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
     document.body.appendChild(pop);
   }
+  const nextLabel = nextSlot.label.replace('손님','손님 ');
   pop.innerHTML = `
     <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 28px;">
       <div style="display:flex;justify-content:center;padding:0 0 12px;"><div style="width:36px;height:4px;border-radius:2px;background:rgba(0,0,0,0.12);"></div></div>
       <div style="text-align:center;margin-bottom:16px;">
         <div style="font-size:32px;margin-bottom:8px;">✅</div>
-        <div style="font-size:15px;font-weight:800;color:var(--text);">${nextSlot.label.replace('손님','손님 ')}도 작업할까요?</div>
+        <div style="font-size:15px;font-weight:800;color:var(--text);">${_slotEsc(nextLabel)}도 작업할까요?</div>
         <div style="font-size:12px;color:var(--text3);margin-top:4px;">완료 ${doneCount}/${totalCount}</div>
       </div>
       <div style="display:flex;gap:10px;">
-        <button onclick="document.getElementById('_nextSlotGuide').style.display='none';openSlotPopup('${nextSlot.id}')" style="flex:1;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">${nextSlot.label} →</button>
-        <button onclick="document.getElementById('_nextSlotGuide').style.display='none';showTab('caption',document.querySelector('.tab-bar__fab[data-tab=&quot;caption&quot;]'));initCaptionSlotPicker();if(typeof renderCaptionKeywordTags==='function')renderCaptionKeywordTags();" style="flex:1;padding:14px;border-radius:14px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;">지금 글쓰기로 →</button>
+        <button data-next-open data-slot-id="${_slotEsc(nextSlot.id)}" style="flex:1;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">${_slotEsc(nextSlot.label)} →</button>
+        <button data-next-caption style="flex:1;padding:14px;border-radius:14px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;">지금 글쓰기로 →</button>
       </div>
     </div>
   `;
+  pop.querySelector('[data-next-open]')?.addEventListener('click', e => {
+    pop.style.display = 'none';
+    openSlotPopup(e.currentTarget.dataset.slotId);
+  });
+  pop.querySelector('[data-next-caption]')?.addEventListener('click', () => {
+    pop.style.display = 'none';
+    showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]'));
+    initCaptionSlotPicker();
+    if (typeof renderCaptionKeywordTags === 'function') renderCaptionKeywordTags();
+  });
   pop.style.display = 'flex';
 }
 
@@ -100,17 +121,31 @@ function _renderPopupBody(slot) {
 
   body.innerHTML = `
     ${usageHtml}
-    <input type="file" id="popupPhotoInput" accept="image/*" multiple style="display:none;" onchange="addPhotosToPopup(this)">
+    <input type="file" id="popupPhotoInput" data-popup-upload accept="image/*" multiple style="display:none;">
     <div id="popupPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;"></div>
     <div id="popupBulkBar" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-size:12px;font-weight:700;color:var(--text);"><span id="popupSelCount">0</span>장 선택됨</div>
-        <button onclick="_bulkDeletePopup()" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(220,53,69,0.4);background:transparent;color:var(--danger);font-size:11px;font-weight:700;cursor:pointer;">선택 삭제</button>
+        <button data-popup-bulk-delete style="padding:8px 14px;border-radius:8px;border:1px solid rgba(220,53,69,0.4);background:transparent;color:var(--danger);font-size:11px;font-weight:700;cursor:pointer;">선택 삭제</button>
       </div>
     </div>
     <div id="popupProgress" style="display:none;text-align:center;padding:16px;font-size:13px;color:var(--text3);">처리 중... ⏳</div>
   `;
+  _bindSlotPopupBody(body);
   _renderPopupPhotoGrid(slot);
+}
+
+function _bindSlotPopupBody(body) {
+  if (!body || body.dataset.slotBodyBound === '1') return;
+  body.dataset.slotBodyBound = '1';
+  body.addEventListener('click', e => {
+    const t = e.target.closest('[data-popup-bulk-delete]');
+    if (!t || !body.contains(t)) return;
+    _bulkDeletePopup();
+  });
+  body.addEventListener('change', e => {
+    if (e.target && e.target.matches('[data-popup-upload]')) addPhotosToPopup(e.target);
+  });
 }
 
 // ── 팝업 사진 그리드 렌더링 ────────────────────────────────────
@@ -142,17 +177,18 @@ function _renderPopupPhotoGrid(slot) {
 
     const wrap = document.createElement('div');
     wrap.style.cssText = 'display:flex;flex-direction:column;gap:3px;user-select:none;-webkit-user-select:none;';
-    wrap.setAttribute('oncontextmenu', 'return false');
+    wrap.addEventListener('contextmenu', e => e.preventDefault());
 
     const imgBox = document.createElement('div');
     imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
     imgBox.innerHTML = `
-      <img src="${photo.editedDataUrl || photo.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;">
+      <img src="${_slotEsc(photo.editedDataUrl || photo.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;">
       <div style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.3)'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;">${sel ? '✓' : ''}</div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,0.55);font-size:9px;color:${modeColor[photo.mode]};font-weight:700;">${modeLabel[photo.mode] || '원본'}</div>
       ${baLbl ? `<div style="position:absolute;top:3px;left:3px;background:${baLbl==='BEFORE'?'rgba(100,149,237,0.92)':'rgba(241,128,145,0.92)'};border-radius:4px;padding:2px 6px;font-size:9px;color:#fff;font-weight:800;">${baLbl}</div>` : ''}
-      <button onclick="unassignPopupPhoto('${photo.id}',event)" style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
+      <button data-unassign-photo style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
     `;
+    imgBox.querySelector('[data-unassign-photo]')?.addEventListener('click', e => unassignPopupPhoto(photo.id, e));
     imgBox.addEventListener('click', e => { e.stopPropagation(); togglePopupPhotoSel(photo.id); });
     imgBox.style.webkitTapHighlightColor = 'transparent';
     wrap.appendChild(imgBox);
@@ -331,8 +367,11 @@ function showPhotoInstaPreview(dataUrl) {
           <div style="padding:8px 12px;font-size:11px;color:#888;">인스타 피드 1:1 비율 미리보기</div>
         </div>
       </div>
-      <button onclick="document.getElementById('_wsInstaPreviewPop').style.display='none'" style="margin-top:16px;color:#fff;background:transparent;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;">닫기</button>
+      <button data-preview-close style="margin-top:16px;color:#fff;background:transparent;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;">닫기</button>
     `;
+    pop.querySelector('[data-preview-close]')?.addEventListener('click', () => {
+      pop.style.display = 'none';
+    });
     document.body.appendChild(pop);
   }
   document.getElementById('_wsPreviewImg').src = dataUrl;

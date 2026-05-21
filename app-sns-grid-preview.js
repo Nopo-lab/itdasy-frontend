@@ -61,11 +61,11 @@
 
     sheet.innerHTML = `
       <header style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.06);">
-        <button onclick="window.SNSGridPreview.close()" style="background:none;border:none;font-size:18px;cursor:pointer;margin-right:12px;">‹</button>
+        <button data-sns-grid-close style="background:none;border:none;font-size:18px;cursor:pointer;margin-right:12px;">‹</button>
         <div style="font-size:15px;font-weight:800;">📱 피드 그리드 미리보기</div>
         <div style="margin-left:auto;display:flex;gap:6px;">
-          <button class="sns-grid-toggle ${_gridSize===9?'on':''}" onclick="window.SNSGridPreview._setSize(9)" style="padding:4px 10px;border-radius:8px;border:1px solid ${_gridSize===9?'var(--accent)':'#ddd'};background:${_gridSize===9?'var(--accent)':'#fff'};color:${_gridSize===9?'#fff':'#666'};font-size:11px;font-weight:700;cursor:pointer;">3×3</button>
-          <button class="sns-grid-toggle ${_gridSize===12?'on':''}" onclick="window.SNSGridPreview._setSize(12)" style="padding:4px 10px;border-radius:8px;border:1px solid ${_gridSize===12?'var(--accent)':'#ddd'};background:${_gridSize===12?'var(--accent)':'#fff'};color:${_gridSize===12?'#fff':'#666'};font-size:11px;font-weight:700;cursor:pointer;">4×3</button>
+          <button class="sns-grid-toggle ${_gridSize===9?'on':''}" data-sns-grid-size="9" style="padding:4px 10px;border-radius:8px;border:1px solid ${_gridSize===9?'var(--accent)':'#ddd'};background:${_gridSize===9?'var(--accent)':'#fff'};color:${_gridSize===9?'#fff':'#666'};font-size:11px;font-weight:700;cursor:pointer;">3×3</button>
+          <button class="sns-grid-toggle ${_gridSize===12?'on':''}" data-sns-grid-size="12" style="padding:4px 10px;border-radius:8px;border:1px solid ${_gridSize===12?'var(--accent)':'#ddd'};background:${_gridSize===12?'var(--accent)':'#fff'};color:${_gridSize===12?'#fff':'#666'};font-size:11px;font-weight:700;cursor:pointer;">4×3</button>
         </div>
       </header>
 
@@ -108,6 +108,10 @@
       </div>`;
 
     sheet.style.display = 'flex';
+    sheet.querySelector('[data-sns-grid-close]')?.addEventListener('click', () => window.SNSGridPreview.close());
+    sheet.querySelectorAll('[data-sns-grid-size]').forEach(btn => {
+      btn.addEventListener('click', () => window.SNSGridPreview._setSize(Number(btn.dataset.snsGridSize)));
+    });
     _bindDrag(sheet);
   }
 

@@ -49,14 +49,16 @@
             <div id="aiReportError" style="display:none;margin-top:8px;font-size:12px;color:#b00020;"></div>
           </div>
           <div style="display:flex;gap:8px;padding:0 20px 20px;">
-            <button type="button" onclick="closeContentReport()" style="flex:1;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:#555;font-size:14px;font-weight:600;cursor:pointer;">취소</button>
-            <button type="button" id="aiReportSubmitBtn" onclick="submitContentReport()" style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">신고 제출</button>
+            <button type="button" data-content-report-close style="flex:1;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:#555;font-size:14px;font-weight:600;cursor:pointer;">취소</button>
+            <button type="button" id="aiReportSubmitBtn" data-content-report-submit style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">신고 제출</button>
           </div>
         </div>
       </div>`;
     const wrap = document.createElement('div');
     wrap.innerHTML = html;
     document.body.appendChild(wrap.firstElementChild);
+    document.querySelector('[data-content-report-close]')?.addEventListener('click', () => closeContentReport());
+    document.querySelector('[data-content-report-submit]')?.addEventListener('click', () => submitContentReport());
   }
 
   window.openContentReport = function (opts) {

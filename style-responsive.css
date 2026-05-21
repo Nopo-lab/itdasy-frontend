@@ -15,17 +15,13 @@
 }
 
 /* ===== ≥768px : 데스크톱 / 태블릿 레이아웃 ===== */
-@media (min-width: 768px) {
+@media (width >= 768px) {
 
   /* 본문 좌측 사이드 nav 만큼 들여쓰기 + 콘텐츠 가운데 정렬 */
   body {
     padding-left: 232px;          /* 사이드 nav 폭 */
-  }
-
-  /* 헤더도 sidebar 옆으로 밀어두기 (sticky 유지) */
-  .app-header {
-    padding-left: 32px;
-    padding-right: 32px;
+    padding-top: var(--app-header-h);
+    font-size: 15px;
   }
 
   /* 2026-05-01 ── PC 메인 컨텐츠 폭 확장 (사용자 보고: '메인 화면 좌우 여백이 너무 많아').
@@ -119,7 +115,7 @@
   .side-nav__divider {
     height: 1px;
     background: var(--border);
-    margin: 8px 8px;
+    margin: 8px;
     opacity: 0.6;
   }
   .side-nav__btn--fab:hover {
@@ -184,12 +180,10 @@
   .logo span {
     display: none !important;
   }
-  body {
-    padding-top: var(--app-header-h);
-  }
   /* 사이드바도 헤더 아래로 시작 */
   #sideNav.ms-side {
     top: var(--app-header-h) !important;
+    z-index: 10000 !important;
   }
 
   /* 3) 모든 hub 통일 — PC: 사이드바(232px) 우측, 헤더 아래.
@@ -246,10 +240,7 @@
   #planPopup > *:not(script),
   #supportChatModal > *:not(script) {
     position: relative !important;
-    top: auto !important;
-    bottom: auto !important;
-    left: auto !important;
-    right: auto !important;
+    inset: auto !important;
     width: 100% !important;
     max-width: none !important;
     height: auto !important;
@@ -292,18 +283,14 @@
   #revenue-hub-overlay aside.ms-side {
     display: none !important;
   }
-  /* 글로벌 사이드바 z-index — 어떤 hub 보다도 위 (revenueSheet inline z-index 9000) */
-  #sideNav.ms-side {
-    z-index: 10000 !important;
-  }
   /* hub 열려있을 때 홈/대시보드 .tab 잔상 제거 — 즉시 hide */
   body:has(.hub-overlay) .tab.active,
   body:has(#revenueSheet[style*="display: flex"]) .tab.active,
   body:has(#revenueSheet[style*="display:flex"]) .tab.active,
   body:has(#cal-overlay) .tab.active,
   body:has(#revenue-hub-overlay) .tab.active,
-  body:has(#aiHubSheet[style*="display"]:not([style*="display: none"]):not([style*="display:none"])) .tab.active,
-  body:has(#settingsHubSheet[style*="display"]:not([style*="display: none"]):not([style*="display:none"])) .tab.active,
+  body:has(#aiHubSheet[style*="display"]:not([style*="display: none"], [style*="display:none"])) .tab.active,
+  body:has(#settingsHubSheet[style*="display"]:not([style*="display: none"], [style*="display:none"])) .tab.active,
   body:has(#planPopup[style*="display: flex"]) .tab.active,
   body:has(#supportChatModal[style*="display: flex"]) .tab.active,
   body:has(#navSheet[style*="display: flex"]) .tab.active {
@@ -315,17 +302,13 @@
     max-width: 560px;
   }
 
-  /* ── PC 에선 글자 살짝 키워서 가독성 ─────────────────── */
-  body {
-    font-size: 15px;
-  }
   .sec-title {
     font-size: 20px;
   }
 }
 
 /* ===== ≥1200px : 와이드 PC — 사이드 nav 좀 더 넓게 ===== */
-@media (min-width: 1200px) {
+@media (width >= 1200px) {
   body {
     padding-left: 260px;
   }

@@ -22,7 +22,10 @@ function _renderTokenExpiryBanner(expiresAtIso) {
   banner.setAttribute('role', 'alert');
   banner.className = `banner ${isExpired ? 'banner--danger' : 'banner--warn'}`;
   banner.innerHTML = `<span style="flex:1;">${msg}</span>
-    <button class="banner__cta" onclick="(document.getElementById('connectInstaBtn')||{click:()=>{}}).click()">재연동</button>`;
+    <button class="banner__cta" data-ig-reconnect>재연동</button>`;
+  banner.querySelector('[data-ig-reconnect]')?.addEventListener('click', () => {
+    (document.getElementById('connectInstaBtn') || { click: () => {} }).click();
+  });
 
   const homePost = document.getElementById('homePostConnect');
   if (homePost && homePost.firstElementChild) {
@@ -176,10 +179,12 @@ function renderPersonaDash(p, showTestBtn) {
       <div style="font-size:13px; color:var(--text); line-height:1.6; font-weight:500;">${_esc(summary)}</div>
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
-      ${showTestBtn ? `<button class="btn-primary" style="width:100%; height:44px; font-size:13px; font-weight:700;" onclick="showOnboardingCaptionPopup()">✍️ 내 말투로 테스트 글 만들기</button>` : ''}
-      <button class="btn-copy" style="width:100%; height:42px; font-size:13px; font-weight:600; border:1px solid var(--accent2); background:white; color:var(--accent2); border-radius:10px;" onclick="showDetailedAnalysis()">전체 분석 리포트 확인</button>
+      ${showTestBtn ? `<button class="btn-primary" data-ig-test-caption style="width:100%; height:44px; font-size:13px; font-weight:700;">✍️ 내 말투로 테스트 글 만들기</button>` : ''}
+      <button class="btn-copy" data-ig-detail style="width:100%; height:42px; font-size:13px; font-weight:600; border:1px solid var(--accent2); background:white; color:var(--accent2); border-radius:10px;">전체 분석 리포트 확인</button>
     </div>
   `;
+  content.querySelector('[data-ig-test-caption]')?.addEventListener('click', () => showOnboardingCaptionPopup());
+  content.querySelector('[data-ig-detail]')?.addEventListener('click', () => showDetailedAnalysis());
 }
 
 function showDetailedAnalysis() {
@@ -726,7 +731,7 @@ function openInstagramPreview(opts) {
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
           <div style="font-size:10px;color:var(--text-subtle,#888);">미리보기 ${ratioBadge}</div>
         </div>
-        <button style="background:transparent;border:none;font-size:20px;color:var(--text-subtle,#888);cursor:pointer;margin-left:8px;" onclick="document.getElementById('_igPreviewPop').style.display='none'" aria-label="닫기">×</button>
+        <button data-ig-preview-x style="background:transparent;border:none;font-size:20px;color:var(--text-subtle,#888);cursor:pointer;margin-left:8px;" aria-label="닫기">×</button>
       </div>
       ${photoHtml}
       <div style="display:flex;align-items:center;gap:14px;padding:10px 12px 4px;">
@@ -751,6 +756,7 @@ function openInstagramPreview(opts) {
     </div>
   `;
   pop.style.display = 'flex';
+  pop.querySelector('[data-ig-preview-x]')?.addEventListener('click', () => { pop.style.display = 'none'; });
 
   // [v179 2026-05-18] 버튼 핸들러 바인딩 (innerHTML 재적용 후 항상 새로 wire)
   const closeBtn = pop.querySelector('#_igPreviewClose');

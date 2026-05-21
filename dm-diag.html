@@ -13,11 +13,37 @@
   .err { color: #dc2626; font-weight: 700; }
   .warn { color: #d97706; font-weight: 700; }
   pre { background: #f3f4f6; padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 11px; white-space: pre-wrap; word-break: break-all; }
+  pre.okbox { background:#d1fae5; color:#065f46; }
+  pre.errbox { background:#fee2e2; color:#991b1b; }
+  pre.warnbox { color:#d97706; }
+  pre.scrollbox { max-height:400px; overflow:auto; font-size:10px; }
   .btn { display: block; width: 100%; padding: 12px; margin-top: 10px; background: #F18091; color: #fff; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; }
 </style>
 </head>
 <body>
 <h1>📥 DM 자동응답 진단</h1>
+<script>
+const LOCAL_DIAG_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const IS_LOCAL_DIAG = LOCAL_DIAG_HOSTS.has(location.hostname);
+function getDiagToken() {
+  if (!IS_LOCAL_DIAG) return null;
+  return localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod');
+}
+function blockPublicDiag() {
+  if (IS_LOCAL_DIAG) return false;
+  const box = document.createElement('div');
+  box.className = 'row err';
+  box.textContent = 'DM 진단 페이지는 로컬 개발 환경에서만 열 수 있습니다.';
+  document.body.replaceChildren(box);
+  return true;
+}
+function setPreBox(box, text, cls) {
+  const pre = document.createElement('pre');
+  pre.className = cls || '';
+  pre.textContent = text;
+  box.replaceChildren(pre);
+}
+</script>
 <button class="btn" id="copyAllBtn" style="background:#0d9488;margin-bottom:6px;">📋 진단 결과 전체 복사</button>
 <div id="results"></div>
 <button class="btn" id="subscribeBtn" style="background:#dc2626;">🔔 IG 계정 webhook 구독 활성화 (제일 먼저!)</button>
@@ -28,11 +54,14 @@
 <div id="recentEvents" style="margin-top:8px;"></div>
 <button class="btn" id="syncIdBtn" style="background:#3b82f6;">🔄 인스타 user_id 강제 동기화</button>
 <button class="btn" id="enableBtn" style="background:#059669;">⚡ DM 자동응답 ON 시키기</button>
-<button class="btn" onclick="location.reload()">다시 진단</button>
-<button class="btn" style="background:#888;" onclick="location.href='./'">잇데이로</button>
+<button class="btn" id="reloadBtn">다시 진단</button>
+<button class="btn" id="homeBtn" style="background:#888;">잇데이로</button>
 <script>
+document.getElementById('reloadBtn').addEventListener('click', () => location.reload());
+document.getElementById('homeBtn').addEventListener('click', () => { location.href = './'; });
+if (blockPublicDiag()) throw new Error('diagnostic page blocked outside local');
 document.getElementById('claimPageIdBtn').addEventListener('click', async () => {
-  const t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const t = getDiagToken();
   if (!t) { alert('토큰 없음'); return; }
   const box = document.getElementById('claimResult');
   // recent-events 에서 외부 sender 의 webhook 자동 추출 (is_echo 아닌 것)
@@ -55,7 +84,7 @@ document.getElementById('claimPageIdBtn').addEventListener('click', async () => 
     pageId = prompt('자동 감지된 page_id 등록할까요?', pageId);
   }
   if (!pageId || !/^\d+$/.test(pageId)) { alert('유효한 page_id 가 아니에요'); return; }
-  box.innerHTML = '<pre>등록 중…</pre>';
+  setPreBox(box, '등록 중…');
   try {
     const res = await fetch('https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/instagram/dm-reply/claim-page-id', {
       method: 'POST',
@@ -64,11 +93,11 @@ document.getElementById('claimPageIdBtn').addEventListener('click', async () => 
     });
     const data = await res.json();
     if (data.ok) {
-      box.innerHTML = '<pre style="background:#d1fae5;padding:8px;border-radius:6px;font-size:11px;color:#065f46;">✅ page_id 등록 성공!\n\n' + JSON.stringify(data, null, 2) + '\n\n→ 외부 폰에서 DM 다시 보내면 자동 응답 작동</pre>';
+      setPreBox(box, '✅ page_id 등록 성공!\n\n' + JSON.stringify(data, null, 2) + '\n\n→ 외부 폰에서 DM 다시 보내면 자동 응답 작동', 'okbox');
     } else {
-      box.innerHTML = '<pre style="background:#fee2e2;padding:8px;border-radius:6px;font-size:11px;color:#991b1b;">❌ ' + JSON.stringify(data) + '</pre>';
+      setPreBox(box, '❌ ' + JSON.stringify(data), 'errbox');
     }
-  } catch (e) { box.innerHTML = '<pre style="color:#dc2626;">' + e.message + '</pre>'; }
+  } catch (e) { setPreBox(box, e.message, 'err'); }
 });
 
 document.getElementById('copyAllBtn').addEventListener('click', async () => {
@@ -90,10 +119,10 @@ document.getElementById('copyAllBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('subscribeBtn').addEventListener('click', async () => {
-  const t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const t = getDiagToken();
   if (!t) { alert('토큰 없음'); return; }
   const box = document.getElementById('subscribeResult');
-  box.innerHTML = '<pre>구독 활성화 중…</pre>';
+  setPreBox(box, '구독 활성화 중…');
   try {
     const res = await fetch('https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/instagram/dm-reply/subscribe-app', {
       method: 'POST',
@@ -101,35 +130,35 @@ document.getElementById('subscribeBtn').addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.ok) {
-      box.innerHTML = '<pre style="background:#d1fae5;padding:8px;border-radius:6px;font-size:11px;color:#065f46;">✅ webhook 구독 활성화 성공!\n\n' + JSON.stringify(data, null, 2) + '\n\n→ 외부 폰에서 DM 보내고 30초 후 "🔍 최근 webhook 이벤트 보기" 클릭</pre>';
+      setPreBox(box, '✅ webhook 구독 활성화 성공!\n\n' + JSON.stringify(data, null, 2) + '\n\n→ 외부 폰에서 DM 보내고 30초 후 "🔍 최근 webhook 이벤트 보기" 클릭', 'okbox');
     } else {
-      box.innerHTML = '<pre style="background:#fee2e2;padding:8px;border-radius:6px;font-size:11px;color:#991b1b;">❌ ' + (data.hint || data.error_message || '실패') + '\n\n' + JSON.stringify(data, null, 2) + '</pre>';
+      setPreBox(box, '❌ ' + (data.hint || data.error_message || '실패') + '\n\n' + JSON.stringify(data, null, 2), 'errbox');
     }
-  } catch (e) { box.innerHTML = '<pre style="color:#dc2626;">' + e.message + '</pre>'; }
+  } catch (e) { setPreBox(box, e.message, 'err'); }
 });
 
 document.getElementById('recentBtn').addEventListener('click', async () => {
-  const t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const t = getDiagToken();
   if (!t) { alert('토큰 없음'); return; }
   const box = document.getElementById('recentEvents');
-  box.innerHTML = '<pre>불러오는 중…</pre>';
+  setPreBox(box, '불러오는 중…');
   try {
     const res = await fetch('https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/instagram/dm-reply/recent-events?limit=20', {
       headers: { 'Authorization': 'Bearer ' + t },
     });
     const data = await res.json();
-    if (!res.ok) { box.innerHTML = '<pre style="color:#dc2626;">에러: ' + JSON.stringify(data) + '</pre>'; return; }
+    if (!res.ok) { setPreBox(box, '에러: ' + JSON.stringify(data), 'err'); return; }
     if (!data.events || !data.events.length) {
-      box.innerHTML = '<pre style="color:#d97706;">⚠️ webhook 이벤트 0건. Meta 가 아직 메시지를 보낸 적 없음.\n\n원인 후보:\n1. Meta Console → Webhooks → Instagram → fields(messages) 구독 안 됨\n2. 인스타 비즈 계정 → 페이스북 페이지 연결 안 됨\n3. App Review 권한 미통과 → Tester 미등록 계정에서 보내면 도착 X\n4. 외부 폰에서 DM 안 보냈음</pre>';
+      setPreBox(box, '⚠️ webhook 이벤트 0건. Meta 가 아직 메시지를 보낸 적 없음.\n\n원인 후보:\n1. Meta Console → Webhooks → Instagram → fields(messages) 구독 안 됨\n2. 인스타 비즈 계정 → 페이스북 페이지 연결 안 됨\n3. App Review 권한 미통과 → Tester 미등록 계정에서 보내면 도착 X\n4. 외부 폰에서 DM 안 보냈음', 'warnbox');
       return;
     }
-    box.innerHTML = '<pre style="background:#f3f4f6;padding:8px;border-radius:6px;font-size:10px;max-height:400px;overflow:auto;">' + JSON.stringify(data, null, 2) + '</pre>';
-  } catch (e) { box.innerHTML = '<pre style="color:#dc2626;">' + e.message + '</pre>'; }
+    setPreBox(box, JSON.stringify(data, null, 2), 'scrollbox');
+  } catch (e) { setPreBox(box, e.message, 'err'); }
 });
 </script>
 <script>
 document.getElementById('syncIdBtn').addEventListener('click', async () => {
-  const t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const t = getDiagToken();
   if (!t) { alert('토큰 없음'); return; }
   try {
     const res = await fetch('https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/instagram/sync-user-id', {
@@ -146,7 +175,7 @@ document.getElementById('syncIdBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('enableBtn').addEventListener('click', async () => {
-  const t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const t = getDiagToken();
   if (!t) { alert('토큰 없음 — 잇데이 로그인 먼저'); return; }
   try {
     const res = await fetch('https://itdasy-backend-staging-644329093453.asia-northeast3.run.app/instagram/dm-reply/settings', {
@@ -181,20 +210,31 @@ const API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app
 const r = document.getElementById('results');
 function row(label, value, cls) {
   const d = document.createElement('div');
+  const labelEl = document.createElement('span');
+  const valueEl = document.createElement('span');
   d.className = 'row';
-  d.innerHTML = '<span class="label">' + label + ':</span> <span class="' + (cls || '') + '">' + value + '</span>';
+  labelEl.className = 'label';
+  labelEl.textContent = label + ':';
+  valueEl.className = cls || '';
+  valueEl.textContent = ' ' + value;
+  d.append(labelEl, valueEl);
   r.appendChild(d);
 }
 function pre(label, value, cls) {
   const d = document.createElement('div');
+  const labelEl = document.createElement('div');
+  const preEl = document.createElement('pre');
   d.className = 'row';
-  d.innerHTML = '<div class="label ' + (cls || '') + '">' + label + '</div><pre>' + value + '</pre>';
+  labelEl.className = 'label ' + (cls || '');
+  labelEl.textContent = label;
+  preEl.textContent = value;
+  d.append(labelEl, preEl);
   r.appendChild(d);
 }
 
 (async () => {
   // 토큰
-  const token = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const token = getDiagToken();
   if (!token) {
     row('⚠️ 토큰 없음', '먼저 잇데이 앱 카카오 로그인 후 다시 이 페이지 방문', 'err');
     return;

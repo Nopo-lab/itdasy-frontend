@@ -125,7 +125,7 @@
     sheet.classList.add('dt-overlay');
     sheet.innerHTML = `
       <header class="dt-hdr">
-        <button class="dt-back" onclick="closeNaverReviews()" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="dt-back" data-naver-close aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
         <h1 class="dt-title">네이버 리뷰</h1>
         <span id="naverOfflineBadge" class="dt-offline-badge">오프라인</span>
       </header>
@@ -138,6 +138,7 @@
       </footer>
     `;
     document.body.appendChild(sheet);
+    sheet.querySelector('[data-naver-close]')?.addEventListener('click', () => closeNaverReviews());
     sheet.querySelector('#naverAddBtn').addEventListener('click', () => _openAddForm());
     return sheet;
   }
@@ -169,7 +170,7 @@
     if (!sheet) return;
     const listEl = sheet.querySelector('#naverList');
     listEl.innerHTML = `
-      <button onclick="window._naverBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button data-naver-back class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
       <div class="dt-field-row"><label class="dt-field-lbl">네이버 리뷰 URL (선택)</label><input id="nrUrl" class="dt-field" value="${_esc(existing?.review_url||'')}" placeholder="https://pcmap.place.naver.com/..." maxlength="500" /></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <div style="flex:1;"><label class="dt-field-lbl">작성자</label><input id="nrAuthor" class="dt-field" value="${_esc(existing?.author_name||'')}" maxlength="50" /></div>
@@ -182,6 +183,7 @@
         ${existing ? '<button type="button" id="nrDelete" class="btn-secondary" style="color:var(--danger);">삭제</button>' : ''}
       </div>
     `;
+    listEl.querySelector('[data-naver-back]')?.addEventListener('click', () => window._naverBack());
     listEl.querySelector('#nrSave').addEventListener('click', async () => {
       const payload = {
         review_url: document.getElementById('nrUrl').value.trim() || null,

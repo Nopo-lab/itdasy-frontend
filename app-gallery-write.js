@@ -1,5 +1,15 @@
 // Itdasy Studio - 글쓰기 탭 (app-gallery.js에서 분리)
 
+function _writeEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 // ═══════════════════════════════════════════════════════
 // 피크 캐러셀 (글쓰기 슬롯 사진 / 미리보기 공용)
 // ═══════════════════════════════════════════════════════
@@ -9,7 +19,7 @@ function _buildPeekCarousel(photos, id) {
   // [PERF P2-2] 첫 장만 즉시 로드, 나머지는 data-src로 lazy
   if (total === 1) {
     return `<div style="width:70%;margin:0 auto;aspect-ratio:1/1;border-radius:14px;overflow:hidden;">
-      <img src="${photos[0].editedDataUrl || photos[0].dataUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">
+      <img src="${_writeEsc(photos[0].editedDataUrl || photos[0].dataUrl)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;">
     </div>`;
   }
   return `
@@ -18,7 +28,7 @@ function _buildPeekCarousel(photos, id) {
         ${photos.map((p, i) => `
           <div style="flex-shrink:0;width:70%;padding:0 2%;box-sizing:border-box;">
             <div class="${id}_s" style="aspect-ratio:1/1;border-radius:14px;overflow:hidden;transition:transform .35s,filter .35s;transform:scale(${i===0?1:.85});filter:${i===0?'none':'brightness(.6)'};">
-              <img ${i === 0 ? `src="${p.editedDataUrl || p.dataUrl}"` : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${p.editedDataUrl || p.dataUrl}"`} loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">
+              <img ${i === 0 ? `src="${_writeEsc(p.editedDataUrl || p.dataUrl)}"` : `src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" data-src="${_writeEsc(p.editedDataUrl || p.dataUrl)}"`} alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">
             </div>
           </div>`).join('')}
       </div>
@@ -149,6 +159,16 @@ function _initPeekCarousel(id, total) {
 // ═══════════════════════════════════════════════════════
 // 글쓰기 탭 — 슬롯 픽커
 // ═══════════════════════════════════════════════════════
+function _captionEsc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[ch]);
+}
+
 function initCaptionSlotPicker() {
   // 사진이 있는 슬롯 모두 노출 (상태 무관). 글쓰기 진입은 사진만 있어도 가능해야 함.
   const usableSlots = _slots.filter(s => (s.photos || []).filter(p => !p.hidden).length > 0);
@@ -171,12 +191,12 @@ function initCaptionSlotPicker() {
           const isDone = slot.status === 'done' || hasCaption;
           const badge = isDone ? '✓' : '';
           return `
-            <div id="csPick_${slot.id}" onclick="loadSlotForCaption('${slot.id}')" style="flex-shrink:0;width:64px;cursor:pointer;text-align:center;">
+            <div id="csPick_${_captionEsc(slot.id)}" data-caption-slot="${_captionEsc(slot.id)}" style="flex-shrink:0;width:64px;cursor:pointer;text-align:center;">
               <div style="position:relative;">
-                <img src="${thumb.editedDataUrl || thumb.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid transparent;transition:border-color 0.2s;" id="csThumb_${slot.id}">
+                <img src="${_captionEsc(thumb.editedDataUrl || thumb.dataUrl)}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid transparent;transition:border-color 0.2s;" id="csThumb_${_captionEsc(slot.id)}">
                 ${badge ? `<div style="position:absolute;top:-4px;right:-4px;background:#4caf50;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;border:2px solid #fff;">${badge}</div>` : ''}
               </div>
-              <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${slot.label}</div>
+              <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_captionEsc(slot.label)}</div>
             </div>
           `;
         }).join('')}
@@ -184,6 +204,9 @@ function initCaptionSlotPicker() {
       <div id="captionSlotPhotoStrip" style="display:none;margin-top:10px;"></div>
     </div>
   `;
+  container.querySelectorAll('[data-caption-slot]').forEach(card => {
+    card.addEventListener('click', () => loadSlotForCaption(card.dataset.captionSlot));
+  });
 }
 
 async function loadSlotForCaption(slotId) {
@@ -272,7 +295,7 @@ function _showCaptionPublishPreview(photos, caption) {
           ${photos.map((p, i) => `
             <div style="flex-shrink:0;width:${total>1?70:100}%;${total>1?'padding:0 2%;box-sizing:border-box;':''}">
               <div class="_pub_s" style="aspect-ratio:1/1;overflow:hidden;${total>1?'border-radius:10px;':''};transition:transform .35s,filter .35s;transform:scale(${i===0?1:.85});filter:${i===0?'none':'brightness(.6)'};">
-                <img src="${p.editedDataUrl || p.dataUrl}" style="width:100%;height:100%;object-fit:cover;display:block;">
+                <img src="${_writeEsc(p.editedDataUrl || p.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">
               </div>
             </div>`).join('')}
         </div>
@@ -282,7 +305,7 @@ function _showCaptionPublishPreview(photos, caption) {
       </div>`
     : `<div style="width:100%;aspect-ratio:1/1;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:50px;">📷</div>`;
 
-  const escapedCaption = caption.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  const escapedCaption = _writeEsc(caption).replace(/\n/g, '<br>');
 
   pop.innerHTML = `
     <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;">
@@ -293,14 +316,14 @@ function _showCaptionPublishPreview(photos, caption) {
       <!-- 인스타 피드 헤더 -->
       <div style="display:flex;align-items:center;padding:10px 12px 10px;">
         <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);padding:2px;margin-right:10px;">
-          <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;">${avatarLetter}</div>
+          <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;">${_writeEsc(avatarLetter)}</div>
         </div>
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
+          <div style="font-size:13px;font-weight:700;line-height:1.2;">${_writeEsc(shopName)}</div>
           <div style="font-size:10px;color:var(--text-subtle);">sponsored</div>
         </div>
         <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:12px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
-        <button style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;" onclick="document.getElementById('_captionPubPreviewPop').style.display='none'">×</button>
+        <button data-write-preview-close style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;">×</button>
       </div>
       <!-- 사진 캐러셀 -->
       ${photoHtml}
@@ -313,14 +336,16 @@ function _showCaptionPublishPreview(photos, caption) {
       </div>
       <!-- 캡션 -->
       <div style="padding:2px 12px 14px;">
-        <div style="font-size:13px;color:#262626;line-height:1.6;"><span style="font-weight:700;">${shopHandle} </span>${escapedCaption || '(캡션 없음)'}</div>
+        <div style="font-size:13px;color:#262626;line-height:1.6;"><span style="font-weight:700;">${_writeEsc(shopHandle)} </span>${escapedCaption || '(캡션 없음)'}</div>
       </div>
       <!-- 발행 버튼 -->
       <div style="padding:0 12px 28px;">
-        <button onclick="doPublishFromCaption()" style="width:100%;height:48px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
+        <button data-write-publish style="width:100%;height:48px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
       </div>
     </div>
   `;
+  pop.querySelector('[data-write-preview-close]')?.addEventListener('click', () => { pop.style.display = 'none'; });
+  pop.querySelector('[data-write-publish]')?.addEventListener('click', doPublishFromCaption);
   pop.style.display = 'flex';
   window._pubPhotos     = photos;
   window._pubPhotoTotal = total;

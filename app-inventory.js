@@ -244,7 +244,7 @@
     sheet.classList.add('dt-overlay');
     sheet.innerHTML = `
       <header class="dt-hdr">
-        <button class="dt-back" onclick="closeInventory()" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
+        <button class="dt-back" data-inventory-close aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
         <h1 class="dt-title">재고</h1>
         <span id="invLowBadge" class="dt-offline-badge" style="background:var(--danger);"></span>
         <span id="invOfflineBadge" class="dt-offline-badge">오프라인</span>
@@ -259,6 +259,7 @@
       </footer>
     `;
     document.body.appendChild(sheet);
+    sheet.querySelector('[data-inventory-close]')?.addEventListener('click', () => closeInventory());
     sheet.querySelector('#inventoryAddBtn').addEventListener('click', () => _openAddForm());
     _ensureStyles();
     return sheet;
@@ -470,7 +471,7 @@
     const _ifFormId = id ? `inventory-edit::${id}` : 'inventory-add';
     listEl.innerHTML = `
       <div data-form-id="${_ifFormId}">
-      <button onclick="window._inventoryBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
+      <button data-inventory-back class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
       <div class="dt-field-row"><label class="dt-field-lbl">이름 *</label><input id="ifName" name="ifName" class="dt-field" value="${_esc(existing?.name||'')}" placeholder="네일팁 / 젤 / 접착제" maxlength="50" /></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <div style="flex:1;"><label class="dt-field-lbl">현재 수량</label><input id="ifQty" name="ifQty" type="number" step="0.1" inputmode="decimal" class="dt-field" value="${existing?.quantity ?? 0}" /></div>
@@ -484,6 +485,7 @@
       </div>
       </div>
     `;
+    listEl.querySelector('[data-inventory-back]')?.addEventListener('click', () => window._inventoryBack());
     listEl.querySelector('#ifSave').addEventListener('click', async () => {
       const payload = {
         name: document.getElementById('ifName').value.trim(),

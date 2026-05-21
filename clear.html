@@ -56,7 +56,11 @@
   try {
     Object.keys(localStorage).forEach(k => {
       if (k.startsWith('itdasy_sw_killed') || k.startsWith('pv_cache::') || k.startsWith('chat_pending') || k.startsWith('itdasy:cache')) {
-        try { localStorage.removeItem(k); } catch (_) {}
+        try {
+          localStorage.removeItem(k);
+        } catch (err) {
+          console.warn('[clear] localStorage cleanup failed', err);
+        }
       }
     });
     log('localStorage 캐시 키 정리', 'ok');

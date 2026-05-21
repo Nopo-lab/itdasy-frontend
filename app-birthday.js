@@ -55,13 +55,14 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:22px;">🎂</span>
           <strong style="font-size:17px;">이번 주·이번 달 생일</strong>
-          <button onclick="closeBirthday()" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+          <button data-birthday-close style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="bdBody" style="flex:1;overflow-y:auto;"></div>
       </div>
     `;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeBirthday(); });
+    sheet.querySelector('[data-birthday-close]')?.addEventListener('click', () => closeBirthday());
     return sheet;
   }
 

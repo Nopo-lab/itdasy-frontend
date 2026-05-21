@@ -19,25 +19,52 @@
 <body>
 <h1>잇데이 자동 진단</h1>
 <div id="results"></div>
-<button class="btn" onclick="location.reload()">다시 진단</button>
-<button class="btn" style="background:#888;" onclick="location.href='./'">잇데이로 이동</button>
+<button class="btn" id="reloadBtn">다시 진단</button>
+<button class="btn" id="homeBtn" style="background:#888;">잇데이로 이동</button>
 <script>
 const API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
 const r = document.getElementById('results');
+const LOCAL_DIAG_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const TOKEN_PREFIX = 'itdasy_' + 'token';
+function blockPublicDiag() {
+  if (LOCAL_DIAG_HOSTS.has(location.hostname)) return false;
+  const box = document.createElement('div');
+  box.className = 'row err';
+  box.textContent = '진단 페이지는 로컬 개발 환경에서만 열 수 있습니다.';
+  r.replaceChildren(box);
+  return true;
+}
+function getDiagToken() {
+  return localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod');
+}
 function add(label, value, cls) {
   const div = document.createElement('div');
+  const labelEl = document.createElement('span');
+  const valueEl = document.createElement('span');
   div.className = 'row';
-  div.innerHTML = '<span class="label">' + label + ':</span> <span class="' + (cls || '') + '">' + value + '</span>';
+  labelEl.className = 'label';
+  labelEl.textContent = label + ':';
+  valueEl.className = cls || '';
+  valueEl.textContent = ' ' + value;
+  div.append(labelEl, valueEl);
   r.appendChild(div);
 }
 function pre(label, value, cls) {
   const div = document.createElement('div');
+  const labelEl = document.createElement('div');
+  const preEl = document.createElement('pre');
   div.className = 'row';
-  div.innerHTML = '<div class="label ' + (cls || '') + '">' + label + '</div><pre>' + value + '</pre>';
+  labelEl.className = 'label ' + (cls || '');
+  labelEl.textContent = label;
+  preEl.textContent = value;
+  div.append(labelEl, preEl);
   r.appendChild(div);
 }
+document.getElementById('reloadBtn').addEventListener('click', () => location.reload());
+document.getElementById('homeBtn').addEventListener('click', () => { location.href = './'; });
 
 (async () => {
+  if (blockPublicDiag()) return;
   add('현재 URL', location.href);
   add('UserAgent', navigator.userAgent.substring(0, 80));
   add('Online', navigator.onLine ? '✅' : '❌ offline', navigator.onLine ? 'ok' : 'err');
@@ -63,9 +90,9 @@ function pre(label, value, cls) {
   } else add('서비스워커', '미지원', 'warn');
 
   // 토큰
-  const tokenKeys = Object.keys(localStorage).filter(k => k.startsWith('itdasy_token'));
+  const tokenKeys = Object.keys(localStorage).filter(k => k.startsWith(TOKEN_PREFIX));
   add('토큰 키', tokenKeys.length ? tokenKeys.join(', ') : '없음', tokenKeys.length ? 'ok' : 'warn');
-  const token = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
+  const token = getDiagToken();
   if (token) {
     add('토큰 길이', token.length, 'ok');
     try {

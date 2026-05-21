@@ -230,7 +230,7 @@
     const initial = _shopInitial(shop);
     const avatarUrl = _shopAvatarUrl();
     const avatarHTML = avatarUrl
-      ? `<img src="${_esc(avatarUrl)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:${JSON.stringify(initial)}}))">`
+      ? `<img src="${_esc(avatarUrl)}" alt="" data-ms-avatar-fallback="${_esc(initial)}" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;">`
       : _esc(initial);
     const s = _shopStats(brief);
     return `
@@ -584,7 +584,7 @@
       : `<div class="ms-persona__body">
            <div class="ms-persona__label">사장님 말투</div>
            <div class="ms-persona__summary">${_esc(summary)}</div>
-           <button type="button" class="ms-persona__detail" onclick="window.showDetailedAnalysis && window.showDetailedAnalysis()">전체 분석 리포트 보기</button>
+           <button type="button" class="ms-persona__detail" data-ms-persona-detail>전체 분석 리포트 보기</button>
          </div>`;
     const toggleLbl = collapsed ? '펼치기' : '접기';
     return `
@@ -652,6 +652,16 @@
         ev.stopPropagation();
         _runAct(el.dataset.mvAct || '');
       });
+    });
+    container.querySelectorAll('[data-ms-avatar-fallback]').forEach(img => {
+      img.addEventListener('error', () => {
+        const span = document.createElement('span');
+        span.textContent = img.dataset.msAvatarFallback || '';
+        img.replaceWith(span);
+      }, { once: true });
+    });
+    container.querySelector('[data-ms-persona-detail]')?.addEventListener('click', () => {
+      if (window.showDetailedAnalysis) window.showDetailedAnalysis();
     });
   }
 

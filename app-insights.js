@@ -45,13 +45,14 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:22px;">✨</span>
           <strong style="font-size:18px;">AI 인사이트</strong>
-          <button onclick="closeInsights()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+          <button data-insights-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
         </div>
         <div id="insightsBody" style="flex:1;overflow-y:auto;"></div>
       </div>
     `;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeInsights(); });
+    sheet.querySelector('[data-insights-close]')?.addEventListener('click', () => closeInsights());
     return sheet;
   }
 

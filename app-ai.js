@@ -5,12 +5,22 @@
 // =====================================================================
 let _aiRecommendChecked = new Set();
 
+function _aiEsc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
+
 async function initAiRecommendTab() {
   const root = document.getElementById('tab-ai-suggest');
   if (!root) return;
 
   let slots = [];
-  try { slots = await loadSlotsFromDB(); } catch (_e) { /* ignore */ }
+  try { slots = await loadSlotsFromDB(); } catch (e) { console.warn('[ai] 슬롯 불러오기 실패', e); }
 
   // 미발행 슬롯: instagramPublished !== true (완료/미완료 모두 포함)
   const unpublished = slots.filter(s => !s.instagramPublished);
@@ -44,8 +54,9 @@ function _renderAiRecommendTab(root, slots) {
         <div style="font-size:40px;margin-bottom:12px;">🌸</div>
         <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;">올릴 게 없어요!</div>
         <div style="font-size:13px;color:var(--text3);margin-bottom:20px;">오늘 작업하러 가볼까요?</div>
-        <button onclick="showTab('workshop',document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); initWorkshopTab();" style="padding:12px 24px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">작업실로 →</button>
+        <button data-ai-workshop style="padding:12px 24px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">작업실로 →</button>
       </div>`;
+    _bindAiRecommendActions(root);
     return;
   }
 
@@ -57,6 +68,8 @@ function _renderAiRecommendTab(root, slots) {
     const visPhotos = slot.photos.filter(p => !p.hidden);
     const thumb = visPhotos[0] || slot.photos[0];
     const thumbSrc = thumb ? (thumb.editedDataUrl || thumb.dataUrl) : '';
+    const safeSlotId = _aiEsc(slot.id);
+    const safeThumbSrc = _aiEsc(thumbSrc);
     const dateStr = slot.createdAt
       ? new Date(slot.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
       : (slot.deferredAt ? new Date(slot.deferredAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '');
@@ -87,32 +100,32 @@ function _renderAiRecommendTab(root, slots) {
     // 완성된 슬롯은 "인스타 즉시 올리기" 버튼 카드에 직접 노출
     const actionBtns = isComplete ? `
       <div style="margin-top:10px;">
-        <button onclick="_quickPublishFromAi('${slot.id}',event)" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">인스타 바로 올리기</button>
+        <button data-ai-quick-publish data-ai-id="${safeSlotId}" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">인스타 바로 올리기</button>
       </div>
     ` : (hasPhotos && !hasCaption) ? `
       <div style="margin-top:10px;">
-        <button onclick="_goToSlotStep('${slot.id}')" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:1.5px solid var(--accent2);background:#fff5f7;color:var(--accent);font-size:12px;font-weight:800;cursor:pointer;">✍️ 글쓰기 → 캡션 만들기</button>
+        <button data-ai-go-slot data-ai-id="${safeSlotId}" style="width:100%;min-height:44px;padding:10px;border-radius:10px;border:1.5px solid var(--accent2);background:#fff5f7;color:var(--accent);font-size:12px;font-weight:800;cursor:pointer;">✍️ 글쓰기 → 캡션 만들기</button>
       </div>
     ` : '';
 
     return `
-      <div data-ai-card="${slot.id}" style="background:#fff;border:1.5px solid ${borderColor};border-radius:16px;padding:12px;margin-bottom:10px;position:relative;">
+      <div data-ai-card="${safeSlotId}" style="background:#fff;border:1.5px solid ${borderColor};border-radius:16px;padding:12px;margin-bottom:10px;position:relative;">
         <!-- 체크박스 -->
-        <div onclick="_toggleAiCheck('${slot.id}',event)" style="position:absolute;top:12px;left:12px;z-index:2;width:20px;height:20px;border-radius:5px;border:2px solid ${isChecked ? 'var(--accent)' : 'rgba(0,0,0,0.2)'};background:${isChecked ? 'var(--accent)' : 'rgba(255,255,255,0.9)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;cursor:pointer;">${isChecked ? '✓' : ''}</div>
+        <div data-ai-check data-ai-id="${safeSlotId}" style="position:absolute;top:12px;left:12px;z-index:2;width:20px;height:20px;border-radius:5px;border:2px solid ${isChecked ? 'var(--accent)' : 'rgba(0,0,0,0.2)'};background:${isChecked ? 'var(--accent)' : 'rgba(255,255,255,0.9)'};display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;cursor:pointer;">${isChecked ? '✓' : ''}</div>
         <!-- 삭제 버튼 -->
-        <button onclick="_deleteAiSlot('${slot.id}',event)" style="position:absolute;top:10px;right:10px;background:transparent;border:none;font-size:16px;color:var(--text3);cursor:pointer;line-height:1;padding:2px 6px;">✕</button>
+        <button data-ai-delete data-ai-id="${safeSlotId}" style="position:absolute;top:10px;right:10px;background:transparent;border:none;font-size:16px;color:var(--text3);cursor:pointer;line-height:1;padding:2px 6px;">✕</button>
         <!-- 카드 본문: 상태에 따라 다른 탭으로 -->
-        <div onclick="_goToSlotStep('${slot.id}')" style="display:flex;gap:12px;align-items:center;cursor:pointer;padding:0 24px 0 28px;">
+        <div data-ai-open data-ai-id="${safeSlotId}" style="display:flex;gap:12px;align-items:center;cursor:pointer;padding:0 24px 0 28px;">
           ${thumbSrc
-            ? `<img src="${thumbSrc}" style="width:72px;height:72px;object-fit:cover;border-radius:10px;flex-shrink:0;">`
+            ? `<img src="${safeThumbSrc}" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:10px;flex-shrink:0;">`
             : `<div style="width:72px;height:72px;border-radius:10px;background:var(--bg2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;">📷</div>`}
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap;">
-              <div style="font-size:13px;font-weight:800;color:var(--text);">${slot.label}</div>
+              <div style="font-size:13px;font-weight:800;color:var(--text);">${_aiEsc(slot.label)}</div>
               ${badges}
             </div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${visPhotos.length || slot.photos.length}장 · ${dateStr}</div>
-            <div style="font-size:11px;color:var(--text2);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${capPreview}</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${visPhotos.length || slot.photos.length}장 · ${_aiEsc(dateStr)}</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">${_aiEsc(capPreview)}</div>
           </div>
         </div>
         ${actionBtns}
@@ -128,8 +141,32 @@ function _renderAiRecommendTab(root, slots) {
     <div class="sec-sub" style="margin-bottom:16px;">${subText}</div>
     ${cardsHtml}
     <div id="aiRecommendBatchBar" style="display:none;position:fixed;bottom:65px;left:0;right:0;z-index:200;padding:10px 16px;background:rgba(255,255,255,0.99);border-top:1px solid var(--border);box-shadow:0 -2px 16px rgba(0,0,0,0.1);">
-      <button onclick="_batchDeleteAiSlots()" style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--danger),#c82333);color:#fff;font-size:13px;font-weight:800;cursor:pointer;">선택한 작업 삭제</button>
+      <button data-ai-batch-delete style="width:100%;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--danger),#c82333);color:#fff;font-size:13px;font-weight:800;cursor:pointer;">선택한 작업 삭제</button>
     </div>`;
+  _bindAiRecommendActions(root);
+}
+
+function _bindAiRecommendActions(root) {
+  if (!root || root.dataset.aiBound === '1') return;
+  root.dataset.aiBound = '1';
+  root.addEventListener('click', e => {
+    const target = e.target.closest('[data-ai-workshop],[data-ai-check],[data-ai-delete],[data-ai-quick-publish],[data-ai-go-slot],[data-ai-open],[data-ai-batch-delete]');
+    if (!target || !root.contains(target)) return;
+    if (target.matches('[data-ai-workshop]')) {
+      showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]'));
+      initWorkshopTab();
+    } else if (target.matches('[data-ai-check]')) {
+      _toggleAiCheck(target.dataset.aiId, e);
+    } else if (target.matches('[data-ai-delete]')) {
+      _deleteAiSlot(target.dataset.aiId, e);
+    } else if (target.matches('[data-ai-quick-publish]')) {
+      _quickPublishFromAi(target.dataset.aiId, e);
+    } else if (target.matches('[data-ai-batch-delete]')) {
+      _batchDeleteAiSlots();
+    } else {
+      _goToSlotStep(target.dataset.aiId);
+    }
+  });
 }
 
 function _toggleAiCheck(id, e) {
@@ -144,7 +181,7 @@ function _toggleAiCheck(id, e) {
     const slot = (typeof _slots !== 'undefined' ? _slots : []).find(s => s.id === cardId);
     const isDeferred = slot?.deferredAt;
     card.style.borderColor = checked ? 'var(--accent)' : isDeferred ? 'rgba(255,193,7,0.4)' : 'rgba(241,128,145,0.2)';
-    const cb = card.querySelector('[onclick^="_toggleAiCheck"]');
+    const cb = card.querySelector('[data-ai-check]');
     if (cb) {
       cb.style.borderColor = checked ? 'var(--accent)' : 'rgba(0,0,0,0.2)';
       cb.style.background = checked ? 'var(--accent)' : 'rgba(255,255,255,0.9)';
@@ -159,7 +196,7 @@ async function _deleteAiSlot(id, e) {
   try {
     await deleteSlotFromDB(id);
     if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
-  } catch (_e) { /* ignore */ }
+  } catch (e) { console.warn('[ai] 슬롯 삭제 실패', e); }
   _aiRecommendChecked.delete(id);
   initAiRecommendTab();
 }
@@ -168,7 +205,7 @@ async function _batchDeleteAiSlots() {
   if (!_aiRecommendChecked.size) return;
   if (!confirm(`선택한 ${_aiRecommendChecked.size}개를 삭제할까요?`)) return;
   for (const id of [..._aiRecommendChecked]) {
-    try { await deleteSlotFromDB(id); } catch (_e) { /* ignore */ }
+    try { await deleteSlotFromDB(id); } catch (e) { console.warn('[ai] 선택 슬롯 삭제 실패', e); }
     if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
   }
   _aiRecommendChecked.clear();
@@ -177,7 +214,8 @@ async function _batchDeleteAiSlots() {
 
 function _goToFinishSlot(slotId) {
   showTab('finish', document.querySelector('.tab-bar__btn[data-tab="finish"]'));
-  initFinishTab().catch ? initFinishTab().catch(() => {}) : setTimeout(initFinishTab, 0);
+  const ret = initFinishTab();
+  if (ret && typeof ret.catch === 'function') ret.catch(e => console.warn('[ai] 마무리 탭 열기 실패', e));
   setTimeout(() => {
     const el = document.querySelector(`[data-finish-slot="${slotId}"]`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -187,7 +225,7 @@ function _goToFinishSlot(slotId) {
 // 슬롯 상태에 따라 해당 단계로 이동
 async function _goToSlotStep(slotId) {
   let slots = [];
-  try { slots = await loadSlotsFromDB(); } catch (_e) { /* ignore */ }
+  try { slots = await loadSlotsFromDB(); } catch (e) { console.warn('[ai] 슬롯 단계 확인 실패', e); }
   const slot = slots.find(s => s.id === slotId);
   if (!slot) return;
 
@@ -221,7 +259,7 @@ async function _quickPublishFromAi(slotId, e) {
   // app-gallery-finish.js에 이미 있는 publishSlotToInstagram 재사용
   if (typeof publishSlotToInstagram === 'function') {
     if (typeof _slots === 'undefined' || !_slots || _slots.length === 0) {
-      try { _slots = await loadSlotsFromDB(); } catch(_e) { _slots = []; }
+      try { _slots = await loadSlotsFromDB(); } catch(e) { console.warn('[ai] 발행 슬롯 새로고침 실패', e); _slots = []; }
     }
     return publishSlotToInstagram(slotId);
   }
@@ -260,4 +298,3 @@ async function doInstagramPublish(imageUrl, captionText) {
     return false;
   }
 }
-

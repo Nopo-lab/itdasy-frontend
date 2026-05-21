@@ -123,7 +123,7 @@
     sheet.classList.add('dt-overlay');
     sheet.innerHTML = `
       <header class="dt-hdr">
-        <button class="dt-back" onclick="closeNps()" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
+        <button class="dt-back" data-nps-close aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
         <h1 class="dt-title">고객 후기</h1>
         <span id="npsOfflineBadge" class="dt-offline-badge">오프라인</span>
       </header>
@@ -136,6 +136,7 @@
       </footer>
     `;
     document.body.appendChild(sheet);
+    sheet.querySelector('[data-nps-close]')?.addEventListener('click', () => closeNps());
     sheet.querySelector('#npsAddBtn').addEventListener('click', _openAddForm);
     return sheet;
   }
@@ -193,7 +194,7 @@
     if (!sheet) return;
     const listEl = sheet.querySelector('#npsList');
     listEl.innerHTML = `
-      <button onclick="window._npsBack()" class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
+      <button data-nps-back class="dt-back" style="margin-bottom:12px;" aria-label="뒤로"><i class="ph-duotone ph-caret-left" style="font-size:20px" aria-hidden="true"></i></button>
       <div class="dt-field-row"><label class="dt-field-lbl">추천 점수 (0~10) *</label><input id="nfRating" type="range" min="0" max="10" value="8" style="width:100%;margin-bottom:4px;" /></div>
       <div id="nfRatingLabel" style="text-align:center;font-size:32px;font-weight:800;color:var(--brand);margin-bottom:10px;">8</div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
@@ -203,6 +204,7 @@
       <div class="dt-field-row"><label class="dt-field-lbl">코멘트 (선택)</label><textarea id="nfComment" class="dt-field" rows="3" maxlength="500"></textarea></div>
       <button type="button" id="nfSave" class="btn-primary" style="width:100%;margin-top:8px;">저장</button>
     `;
+    listEl.querySelector('[data-nps-back]')?.addEventListener('click', () => window._npsBack());
     const ratingEl = document.getElementById('nfRating');
     const labelEl = document.getElementById('nfRatingLabel');
     ratingEl.addEventListener('input', () => { labelEl.textContent = ratingEl.value; });

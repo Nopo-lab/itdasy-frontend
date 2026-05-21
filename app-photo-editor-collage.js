@@ -33,14 +33,16 @@
       <div style="font-size:17px;font-weight:800;margin-bottom:4px;">🖼️ 스마트 콜라주</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">사진 2~6장을 선택하면 자동으로 레이아웃을 잡아드려요</div>
       <input type="file" id="collageFileInput" accept="image/*" multiple style="display:none;">
-      <button onclick="document.getElementById('collageFileInput').click()" style="width:100%;height:52px;border:2px dashed var(--accent,#F18091);border-radius:14px;background:rgba(241,128,145,0.04);color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;">📷 사진 고르기 (2~6장)</button>
+      <button data-collage-pick style="width:100%;height:52px;border:2px dashed var(--accent,#F18091);border-radius:14px;background:rgba(241,128,145,0.04);color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;">📷 사진 고르기 (2~6장)</button>
       <div id="collagePreview" style="margin-top:16px;"></div>
       <div style="display:flex;gap:8px;margin-top:16px;">
-        <button onclick="document.getElementById('peCollagePop').style.display='none'" style="flex:1;height:44px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-weight:600;cursor:pointer;">취소</button>
+        <button data-collage-close style="flex:1;height:44px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-weight:600;cursor:pointer;">취소</button>
         <button id="collageCreateBtn" disabled style="flex:1.5;height:44px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:800;cursor:pointer;opacity:0.5;">콜라주 만들기</button>
       </div>
     </div>`;
     pop.style.display = 'flex';
+    pop.querySelector('[data-collage-pick]')?.addEventListener('click', () => document.getElementById('collageFileInput')?.click());
+    pop.querySelector('[data-collage-close]')?.addEventListener('click', () => { pop.style.display = 'none'; });
 
     const fileInput = pop.querySelector('#collageFileInput');
     const images = [];

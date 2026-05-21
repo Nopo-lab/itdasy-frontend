@@ -40,13 +40,19 @@
       <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:90vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <strong style="font-size:18px;">다른 앱에서 가져오기</strong>
-          <button onclick="closeImport()" style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
+          <button data-import-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;" aria-label="닫기">✕</button>
         </div>
         <div id="importBody" style="flex:1;overflow-y:auto;"></div>
       </div>
     `;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeImport(); });
+    sheet.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-import-close],[data-import-back]');
+      if (!t || !sheet.contains(t)) return;
+      if (t.matches('[data-import-close]')) closeImport();
+      else if (typeof window._importBack === 'function') window._importBack();
+    });
     return sheet;
   }
 
@@ -90,7 +96,7 @@
 
     body.innerHTML = `
       <div style="padding:4px;">
-        <button onclick="window._importBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 종류 선택</button>
+        <button data-import-back style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 종류 선택</button>
         <div style="padding:6px 10px;background:rgba(241,128,145,0.1);border-radius:8px;font-size:13px;margin-bottom:12px;">
           ${label.icon} <strong>${label.title}</strong> 가져오기
         </div>
@@ -232,7 +238,7 @@
 
     body.innerHTML = `
       <div style="padding:4px;">
-        <button onclick="window._importBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 다시 선택</button>
+        <button data-import-back style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 다시 선택</button>
         <div style="padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.08),rgba(76,175,80,0.02));border-radius:10px;margin-bottom:10px;">
           <strong style="font-size:13px;color:#388e3c;">${items.length}건 추출됨</strong>
           <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">체크된 항목만 저장돼요. 잘못된 항목은 선택 해제.</div>
@@ -326,7 +332,7 @@
 
     body.innerHTML = `
       <div style="padding:4px;">
-        <button onclick="window._importBack()" style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 파일 다시</button>
+        <button data-import-back style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 파일 다시</button>
         <div style="padding:10px;background:linear-gradient(135deg,rgba(241,128,145,0.08),rgba(241,128,145,0.02));border-radius:10px;margin-bottom:12px;">
           <div style="font-size:13px;font-weight:700;">${label.icon} ${_esc(p.file_name)} — ${p.total_rows}건 감지</div>
           <div style="font-size:11px;color:#888;margin-top:4px;">아래에서 파일의 컬럼을 잇데이 필드에 연결해 주세요. 자동 매핑된 건 그대로 둬도 돼요.</div>
@@ -444,8 +450,8 @@
             </div>
           </details>
         ` : ''}
-        <button onclick="window._importBack()" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,var(--brand));color:#fff;font-weight:700;cursor:pointer;font-size:15px;">다른 종류 가져오기</button>
-        <button onclick="closeImport()" style="width:100%;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">닫기</button>
+        <button data-import-back style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--accent,var(--brand));color:#fff;font-weight:700;cursor:pointer;font-size:15px;">다른 종류 가져오기</button>
+        <button data-import-close style="width:100%;margin-top:8px;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;">닫기</button>
       </div>
     `;
   }

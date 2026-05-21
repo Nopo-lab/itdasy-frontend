@@ -32,7 +32,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:22px;">📊</span>
           <strong style="font-size:17px;">월간 리포트</strong>
-          <button onclick="closeReport()" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+          <button data-report-close style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
         <div id="reportNav" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"></div>
         <div id="reportBody" style="flex:1;overflow-y:auto;"></div>
@@ -40,6 +40,7 @@
     `;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeReport(); });
+    sheet.querySelector('[data-report-close]')?.addEventListener('click', () => closeReport());
     return sheet;
   }
 

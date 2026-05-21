@@ -16,21 +16,21 @@
     navigator.serviceWorker.getRegistrations().then(function (regs) {
       var hadOld = regs && regs.length > 0;
       Promise.all((regs || []).map(function (r) {
-        try { return r.unregister(); } catch (_) { return Promise.resolve(); }
+        try { return r.unregister(); } catch (err) { console.warn('[boot-cache] unregister failed', err); return Promise.resolve(); }
       })).then(function () {
         var clearCaches = ('caches' in window)
           ? caches.keys().then(function (keys) { return Promise.all(keys.map(function (k) { return caches.delete(k); })); })
           : Promise.resolve();
         clearCaches.then(function () {
-          try { localStorage.setItem(KILL_KEY, '1'); } catch (_) {}
+          try { localStorage.setItem(KILL_KEY, '1'); } catch (err) { console.warn('[boot-cache] kill marker failed', err); }
           // [QA-r10b] v6 — 이전 build_busted 가 set 된 채 잘린 index.html 캐시 박힌 케이스도
           // reload 후 build_busted 게이트가 다시 cleanup 차단하지 않도록 sessionStorage 도 reset.
-          try { sessionStorage.removeItem('build_busted'); sessionStorage.removeItem('cache_busted'); } catch (_) {}
+          try { sessionStorage.removeItem('build_busted'); sessionStorage.removeItem('cache_busted'); } catch (err) { console.warn('[boot-cache] session cleanup failed', err); }
           if (hadOld) location.reload();  // 옛 SW 있었으면 fresh state 로 reload
-        }).catch(function () {});
-      }).catch(function () {});
-    }).catch(function () {});
-  } catch (_) { /* ignore */ }
+        }).catch(function (err) { console.warn('[boot-cache] cache cleanup failed', err); });
+      }).catch(function (err) { console.warn('[boot-cache] unregister batch failed', err); });
+    }).catch(function (err) { console.warn('[boot-cache] registration lookup failed', err); });
+  } catch (err) { console.warn('[boot-cache] cleanup failed', err); }
 })();
 </script>
 <!-- viewport: maximum-scale 제거하여 확대 허용 (WCAG 접근성 + Apple 심사 요구) -->
@@ -41,7 +41,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 스튜디오</title>
 <script>
-  window.__LATEST_BUILD__ = '20260521-v252-photo-shadow-batch';
+  window.__LATEST_BUILD__ = '20260521-v253-audit-hardening';
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -63,10 +63,10 @@
     }
     if ('serviceWorker' in navigator) {
       jobs.push(navigator.serviceWorker.getRegistrations().then(function(regs){
-        return Promise.all((regs || []).map(function(r){ try { return r.unregister(); } catch (_) { return Promise.resolve(); } }));
+        return Promise.all((regs || []).map(function(r){ try { return r.unregister(); } catch (err) { console.warn('[BUILD] unregister failed', err); return Promise.resolve(); } }));
       }));
     }
-    Promise.all(jobs).catch(function(){}).then(function(){ location.reload(); });
+    Promise.all(jobs).catch(function(err){ console.warn('[BUILD] cache reset failed', err); }).then(function(){ location.reload(); });
   }, 1500);
 </script>
 <link rel="manifest" href="manifest.json">
@@ -560,7 +560,7 @@
           lo.style.opacity = '0';
           setTimeout(function () { lo.style.display = 'none'; }, 400);
         }
-      } catch (_e) { /* ignore */ }
+      } catch (err) { console.warn('[WATCHDOG] 로딩 화면 정리 실패', err); }
     }, WATCHDOG_MS);
   })();
   // 글로벌 unhandled error 캐치 → 로딩 오버레이에 메시지 표시 (모바일 자가 진단용)
@@ -572,7 +572,7 @@
       var src = (e && e.filename) ? String(e.filename).split('/').pop() : '';
       d.textContent = '[ERR] ' + msg + (src ? ' @ ' + src + ':' + (e.lineno || '?') : '');
       d.style.display = 'block';
-    } catch (_) { /* ignore */ }
+    } catch (err) { console.warn('[WATCHDOG] 오류 표시 실패', err); }
   });
   window.addEventListener('unhandledrejection', function (e) {
     try {
@@ -582,7 +582,7 @@
       var msg = (r && r.message) ? r.message : (typeof r === 'string' ? r : 'promise rejected');
       d.textContent = '[PROMISE] ' + msg;
       d.style.display = 'block';
-    } catch (_) { /* ignore */ }
+    } catch (err) { console.warn('[WATCHDOG] 약속 실패 표시 실패', err); }
   });
 </script>
 
@@ -593,15 +593,16 @@
     try {
       var _ov = document.getElementById('lockOverlay');
       var _hasToken = false;
+      var _tokenPrefix = 'itdasy_' + 'token';
       try {
         for (var i = 0; i < localStorage.length; i++) {
           var k = localStorage.key(i);
-          if (k && k.indexOf('itdasy_token') === 0 && localStorage.getItem(k)) {
+          if (k && k.indexOf(_tokenPrefix) === 0 && localStorage.getItem(k)) {
             _hasToken = true;
             break;
           }
         }
-      } catch (_eT) { /* ignore */ }
+      } catch (_eT) { console.warn('[lock] 토큰 확인 실패', _eT); }
       if (_hasToken) {
         // 인증된 상태 — lockOverlay 숨기고 로딩 오버레이 표시
         _ov.classList.add('hidden');
@@ -658,7 +659,7 @@
   </div>
 
   <div class="login-fade-7" style="width:100%;max-width:340px;">
-    <button id="loginKakaoBtn" onclick="startKakaoLogin()" class="login-btn-kakao">
+    <button id="loginKakaoBtn" data-static-action="login-kakao" class="login-btn-kakao">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.4C4.58 1.4 1 4.22 1 7.68c0 2.2 1.47 4.13 3.7 5.26L3.9 16.52l4.02-2.55c.36.05.73.08 1.08.08 4.42 0 8-2.82 8-6.28S13.42 1.4 9 1.4z" fill="#3A1D1D"/></svg>
       카카오로 1분 시작
     </button>
@@ -668,12 +669,12 @@
       네이버로 시작
     </button>
 
-    <button id="loginGoogleBtn" onclick="startGoogleLogin()" class="login-btn-google">
+    <button id="loginGoogleBtn" data-static-action="login-google" class="login-btn-google">
       <svg width="16" height="16" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.05-1.25-.16-1.84H9v3.48h4.84a4.13 4.13 0 0 1-1.8 2.71v2.26h2.92A8.8 8.8 0 0 0 17.64 9.2z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26a5.38 5.38 0 0 1-8.1-2.82H.95v2.33A9 9 0 0 0 9 18z" fill="#34A853"/><path d="M3.96 10.71A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.17.28-1.71V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .95 4.96l3 2.33A5.38 5.38 0 0 1 9 3.58z" fill="#EA4335"/></svg>
       Google로 시작
     </button>
 
-    <button type="button" id="emailFoldBtn" onclick="toggleEmailFold()" class="login-fold-trigger">
+    <button type="button" id="emailFoldBtn" data-static-action="email-fold" class="login-fold-trigger">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
         <polyline points="22,6 12,13 2,6"/>
@@ -769,56 +770,56 @@
   <div class="ob-step" id="ob-step-2">
     <div class="ob-title" style="margin-bottom:20px;">샵 종류를 선택해 주세요</div>
     <div class="ob-shop-grid">
-      <div class="ob-shop-card" data-type="붙임머리" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="붙임머리 선택">
+      <div class="ob-shop-card" data-type="붙임머리" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="붙임머리 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-scissors" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">붙임머리</div>
       </div>
-      <div class="ob-shop-card" data-type="네일아트" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="네일아트 선택">
+      <div class="ob-shop-card" data-type="네일아트" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="네일아트 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-sparkle" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">네일아트</div>
       </div>
-      <div class="ob-shop-card" data-type="헤어샵" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="헤어샵 선택">
+      <div class="ob-shop-card" data-type="헤어샵" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="헤어샵 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-scissors" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">헤어샵</div>
       </div>
-      <div class="ob-shop-card" data-type="속눈썹" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="속눈썹 선택">
+      <div class="ob-shop-card" data-type="속눈썹" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="속눈썹 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-star" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">속눈썹</div>
       </div>
-      <div class="ob-shop-card" data-type="왁싱" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="왁싱 선택">
+      <div class="ob-shop-card" data-type="왁싱" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="왁싱 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-sparkle" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">왁싱</div>
       </div>
-      <div class="ob-shop-card" data-type="피부" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="피부 선택">
+      <div class="ob-shop-card" data-type="피부" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="피부 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-sun" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">피부관리</div>
       </div>
-      <div class="ob-shop-card" data-type="반영구" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="반영구 선택">
+      <div class="ob-shop-card" data-type="반영구" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="반영구 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-pencil-simple" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">반영구</div>
       </div>
       <!-- [v192 2026-05-18] 온보딩 신규 6종 추가 — 메이크업/눈썹/두피탈모/패디/바디/기타 -->
-      <div class="ob-shop-card" data-type="메이크업" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="메이크업 선택">
+      <div class="ob-shop-card" data-type="메이크업" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="메이크업 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-palette" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">메이크업</div>
       </div>
-      <div class="ob-shop-card" data-type="눈썹" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="눈썹 선택">
+      <div class="ob-shop-card" data-type="눈썹" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="눈썹 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-eye" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">눈썹</div>
       </div>
-      <div class="ob-shop-card" data-type="두피탈모" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="두피탈모 선택">
+      <div class="ob-shop-card" data-type="두피탈모" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="두피탈모 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-drop" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">두피·탈모</div>
       </div>
-      <div class="ob-shop-card" data-type="패디" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="패디 선택">
+      <div class="ob-shop-card" data-type="패디" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="패디 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-sparkle" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">패디·풋케어</div>
       </div>
-      <div class="ob-shop-card" data-type="바디" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="바디 선택">
+      <div class="ob-shop-card" data-type="바디" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="바디 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-heart" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">바디관리</div>
       </div>
-      <div class="ob-shop-card" data-type="기타" onclick="selectShopType(this)" role="button" tabindex="0" aria-label="기타 선택">
+      <div class="ob-shop-card" data-type="기타" data-static-action="select-shop-type" role="button" tabindex="0" aria-label="기타 선택">
         <div class="ob-shop-icon"><i class="ph-duotone ph-dots-three-circle" style="font-size:28px" aria-hidden="true"></i></div>
         <div class="ob-shop-name">기타 뷰티</div>
       </div>
@@ -837,8 +838,8 @@
     </div>
   </div>
 
-  <button class="ob-btn" id="obBtn" onclick="obNext()">계속하기</button>
-  <button type="button" id="obSkipBtn" onclick="obSkipShopType()"
+  <button class="ob-btn" id="obBtn" data-static-action="onboarding-next">계속하기</button>
+  <button type="button" id="obSkipBtn" data-static-action="onboarding-skip"
           style="display:none;margin-top:10px;background:none;border:none;color:var(--text-muted,#888);font-size:14px;font-weight:600;padding:8px 16px;cursor:pointer;">
     건너뛰기
   </button>
@@ -852,8 +853,8 @@
 
 <div class="app-header">
   <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
-    <div class="logo" onclick="showTab('home', document.querySelector('.tab-bar__btn[data-tab=&quot;home&quot;]'));" style="cursor:pointer;">잇데이 <span>STUDIO</span></div>
-    <span id="appVersionBadge" onclick="if(typeof showRecentLogs==='function')showRecentLogs();" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
+    <div class="logo" data-static-action="tab-home" style="cursor:pointer;">잇데이 <span>STUDIO</span></div>
+    <span id="appVersionBadge" data-static-action="recent-logs" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
   </div>
   <div style="display:flex; align-items:center; gap:8px;">
     <span id="headerShopName" style="display:none;">사장님</span>
@@ -863,7 +864,7 @@
         <span class="profile-avatar__provider" id="headerProviderBadge" data-provider="email" title="잇데이 계정으로 가입" aria-label="가입 방법: 잇데이"></span>
       </div>
     </div>
-    <button id="planBadge" data-haptic="light" onclick="if(typeof openPlanPopup==='function')openPlanPopup();" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">체험</button>
+    <button id="planBadge" data-haptic="light" data-static-action="plan" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">체험</button>
   </div>
 </div>
 
@@ -886,63 +887,63 @@
   </button>
 
   <button type="button" class="ms-side__item" data-side-tab="home"
-          onclick="showTab('home', document.querySelector('.tab-bar__btn[data-tab=&quot;home&quot;]'));"
+          data-static-action="tab-home"
           aria-label="홈">
     <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-home"/></svg></span></span>
     <span class="ms-side__label">홈</span>
   </button>
   <button type="button" class="ms-side__item" data-side-tab="dashboard"
-          onclick="showTab('dashboard', document.querySelector('.tab-bar__btn[data-tab=&quot;dashboard&quot;]')); if(typeof initDashboardTab==='function')initDashboardTab();"
+          data-static-action="tab-dashboard"
           aria-label="내 샵 관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-store"/></svg></span></span>
     <span class="ms-side__label">내 샵 관리</span>
   </button>
 
   <div class="ms-side__section">운영</div>
-  <button type="button" class="ms-side__item" onclick="window.openCalendarView && window.openCalendarView();" aria-label="예약관리">
+  <button type="button" class="ms-side__item" data-static-action="calendar" aria-label="예약관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--teal"><svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg></span></span>
     <span class="ms-side__label">예약관리</span>
   </button>
-  <button type="button" class="ms-side__item" onclick="window.openCustomerHub && window.openCustomerHub();" aria-label="고객관리">
+  <button type="button" class="ms-side__item" data-static-action="customer" aria-label="고객관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-users"/></svg></span></span>
     <span class="ms-side__label">고객관리</span>
   </button>
-  <button type="button" class="ms-side__item" onclick="(window.openRevenue || window.openRevenueHub)?.();" aria-label="매출관리">
+  <button type="button" class="ms-side__item" data-static-action="revenue" aria-label="매출관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--amber"><svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg></span></span>
     <span class="ms-side__label">매출관리</span>
   </button>
 <!-- INVENTORY_HIDDEN
-  <button type="button" class="ms-side__item" onclick="window.openInventoryHub && window.openInventoryHub();" aria-label="재고관리">
+  <button type="button" class="ms-side__item" data-static-action="inventory" aria-label="재고관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--coral"><svg width="20" height="20" aria-hidden="true"><use href="#ic-package"/></svg></span></span>
     <span class="ms-side__label">재고관리</span>
   </button>
 -->
-  <button type="button" class="ms-side__item" onclick="window.openServiceTemplates && window.openServiceTemplates();" aria-label="시술 메뉴">
+  <button type="button" class="ms-side__item" data-static-action="service-templates" aria-label="시술 메뉴">
     <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-tag"/></svg></span></span>
     <span class="ms-side__label">시술 메뉴</span>
   </button>
 
   <div class="ms-side__section">통합 허브</div>
-  <button type="button" class="ms-side__item" onclick="window.openAiHub && window.openAiHub();" aria-label="AI · 자동화">
+  <button type="button" class="ms-side__item" data-static-action="ai-hub" aria-label="AI · 자동화">
     <span class="ms-side__icon"><span class="ic-box ic-box--purple"><svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg></span></span>
     <span class="ms-side__label">AI · 자동화</span>
   </button>
-  <button type="button" class="ms-side__item" onclick="window.openSettingsHub && window.openSettingsHub();" aria-label="설정 · 연동">
+  <button type="button" class="ms-side__item" data-static-action="settings-hub" aria-label="설정 · 연동">
     <span class="ms-side__icon"><span class="ic-box ic-box--gray"><svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg></span></span>
     <span class="ms-side__label">설정 · 연동</span>
   </button>
 
   <div class="ms-side__section">계정</div>
-  <button type="button" class="ms-side__item" onclick="(window.openPlan || window.openPlanPopup)?.();" aria-label="멤버십 · 체험">
+  <button type="button" class="ms-side__item" data-static-action="plan" aria-label="멤버십 · 체험">
     <span class="ms-side__icon"><span class="ic-box ic-box--amber"><svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg></span></span>
     <span class="ms-side__label">멤버십 · 체험</span>
   </button>
-  <button type="button" class="ms-side__item" onclick="setTimeout(function(){(window.openSupport || window.openSupportChat)?.();},0);" aria-label="문의하기">
+  <button type="button" class="ms-side__item" data-static-action="support" aria-label="문의하기">
     <span class="ms-side__icon"><span class="ic-box ic-box--teal"><svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg></span></span>
     <span class="ms-side__label">문의하기</span>
   </button>
 
-  <button type="button" class="ms-side__fab" onclick="openNavSheet()" aria-label="만들기" data-haptic="light">
+  <button type="button" class="ms-side__fab" data-static-action="nav-sheet" aria-label="만들기" data-haptic="light">
     <i class="ph-duotone ph-sparkle" style="font-size:16px;"></i>
     만들기
   </button>
@@ -950,7 +951,7 @@
 
 <!-- ───── 설정 바텀시트 ───── -->
 <div id="settingsSheet">
-  <div id="settingsBackdrop" onclick="closeSettings()"></div>
+  <div id="settingsBackdrop" data-static-backdrop="settings"></div>
   <div id="settingsCard">
     <div class="sheet-handle"></div>
 
@@ -969,24 +970,24 @@
     <div style="padding:12px 16px 4px; font-size:11px; color:var(--text-subtle); line-height:1.5;">
       인스타 연결은 <strong style="color:var(--text-muted);">콘텐츠 발행 · 말투 분석용</strong>이에요.<br>잇데이 로그인 계정과는 별개로, 언제든 해제할 수 있어요.
     </div>
-    <button class="sheet-row" onclick="closeSettings(); connectInstagram();">인스타 연결하기 / 다시 연결</button>
-    <button class="sheet-row" onclick="closeSettings(); disconnectInstagram();" style="color:var(--danger);">인스타 연결 해제</button>
+    <button class="sheet-row" data-static-action="settings-connect-instagram">인스타 연결하기 / 다시 연결</button>
+    <button class="sheet-row" data-static-action="settings-disconnect-instagram" style="color:var(--danger);">인스타 연결 해제</button>
     <!-- [2026-04-24] 디바이스 간 데이터 동기화 (Task 3 · 전략 C). 2026-05-08 라벨/진행률 명확화 -->
-    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.forceSync && window.forceSync();">
+    <button class="sheet-row" data-haptic="light" data-static-action="settings-force-sync">
       <span class="ic-box ic-box--sm ic-box--blue" style="flex-shrink:0;margin-right:10px;"><i class="ph-duotone ph-arrows-clockwise"></i></span>
       <span>전체 데이터 새로고침</span>
       <span data-last-sync style="margin-left:auto;font-size:10.5px;color:var(--text-subtle,#aaa);font-weight:500;"></span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">예약·매출·고객·재고를 서버에서 다시 받아와요. 다른 기기랑 다르게 보일 때 누르세요.</span>
     </button>
-    <button class="sheet-row" onclick="closeSettings(); runPersonaAnalyze(true);">내 말투 새로 분석하기</button>
-    <button class="sheet-row" onclick="closeSettings(); resetShopSetup();">샵 정보 다시 설정하기</button>
-    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openSupportChat();">
+    <button class="sheet-row" data-static-action="settings-persona-analyze">내 말투 새로 분석하기</button>
+    <button class="sheet-row" data-static-action="settings-reset-shop">샵 정보 다시 설정하기</button>
+    <button class="sheet-row" data-haptic="light" data-static-action="settings-support">
       <span class="ic-box ic-box--sm ic-box--blue" style="margin-right:6px;"><i class="ph-duotone ph-headset"></i></span> 고객센터 (문의하기)
       <span id="supportUnreadBadge" style="display:none;margin-left:8px;background:var(--brand);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:10px;"></span>
     </button>
     <!-- 2026-05-01 ── 친구초대 제거 (사용자 요청) -->
 
-    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); openPowerView('customer');" style="flex-wrap:wrap;">
+    <button class="sheet-row" data-haptic="light" data-static-action="settings-power-view" style="flex-wrap:wrap;">
       <span class="ic-box ic-box--sm ic-box--purple" style="flex-shrink:0;margin-right:10px;"><i class="ph-duotone ph-database"></i></span>
       <span>빠른 데이터 입력 (파워뷰)</span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">고객·예약·매출·재고 빠르게 한 번에</span>
@@ -995,7 +996,7 @@
     <!-- [2026-04-30] 위 항목들 (직원/DM/가격표/챗봇메모/스마트캡처) 은
          왼쪽 메뉴 → AI 자동화 / 설정·연동 허브로 통합. 중복 제거.
          '회원권 만료 임박' 만 hot shortcut 으로 유지 (Premium 사용자 자주 액세스). -->
-    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.MembershipUI && window.MembershipUI.openExpiringList(30);" style="flex-wrap:wrap;">
+    <button class="sheet-row" data-haptic="light" data-static-action="settings-membership-expiring" style="flex-wrap:wrap;">
       <span class="ic-box ic-box--sm ic-box--coral" style="flex-shrink:0;margin-right:10px;"><i class="ph-duotone ph-ticket"></i></span>
       <span>회원권 만료 임박</span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">30일 내 만료 고객 + 충전 안내 1탭</span>
@@ -1003,20 +1004,20 @@
 
     <div class="sheet-sep"></div>
     <div style="padding:6px 20px 8px;font-size:11px;font-weight:800;color:var(--text3);letter-spacing:1.5px;">앱 설정</div>
-    <button class="sheet-row" onclick="toggleHapticSetting(); updateHapticToggleLabel();">
+    <button class="sheet-row" data-static-action="settings-haptic">
       <span class="ic-box ic-box--sm ic-box--gray" style="margin-right:6px;"><i class="ph-duotone ph-vibrate"></i></span> 진동 <span id="hapticToggleStatus" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">켜짐</span>
     </button>
-    <button id="themeToggleBtn" class="sheet-row" onclick="window.cycleTheme && window.cycleTheme();">
+    <button id="themeToggleBtn" class="sheet-row" data-static-action="settings-theme">
       <span class="ic-box ic-box--sm ic-box--amber" style="flex-shrink:0;margin-right:6px;"><i class="ph-duotone ph-sun" id="themeToggleIcon"></i></span>
       화면 <span id="themeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">라이트</span>
     </button>
-    <button class="sheet-row" onclick="window.cycleFontSize && window.cycleFontSize();">
+    <button class="sheet-row" data-static-action="settings-font-size">
       <span class="ic-box ic-box--sm ic-box--gray" style="margin-right:6px;"><i class="ph-duotone ph-text-aa"></i></span> 글씨 크기 <span id="fontSizeLabel" style="margin-left:auto;font-size:12px;color:var(--accent);font-weight:700;">보통</span>
     </button>
 
     <div class="sheet-sep"></div>
 
-    <button class="sheet-row" data-haptic="light" onclick="closeSettings(); window.openGrowthStory && window.openGrowthStory();">
+    <button class="sheet-row" data-haptic="light" data-static-action="settings-growth-story">
       <span class="ic-box ic-box--sm ic-box--amber" style="margin-right:6px;"><i class="ph-duotone ph-chart-line-up"></i></span> 월간 성장 리포트 <span style="margin-left:auto;font-size:11px;color:#888;">공유 이미지</span>
     </button>
 
@@ -1036,7 +1037,7 @@
       개인정보 보호 문의: <a href="mailto:contact@itdasy.com" style="color:var(--brand-strong);">contact@itdasy.com</a>
     </div>
 
-    <button class="sheet-row muted" onclick="closeSettings(); localReset();">앱 전체 초기화</button>
+    <button class="sheet-row muted" data-static-action="settings-local-reset">앱 전체 초기화</button>
     <button class="sheet-row" id="exportDataBtn" style="color:#0a7b3e;font-weight:700;"><span class="ic-box ic-box--sm ic-box--teal" style="vertical-align:-3px;margin-right:6px;"><i class="ph-duotone ph-export"></i></span>내 데이터 내보내기 (CSV·JSON)</button>
     <div style="padding:0 16px 6px;font-size:11px;color:#999;line-height:1.6;">
       GDPR Art. 20 · CCPA · PIPA 제35조 — 내가 입력한 전체 데이터를 기계 판독 가능 형식으로 다운로드.
@@ -1077,9 +1078,9 @@
       <div id="deleteAccountError" style="display:none;margin-top:8px;font-size:12px;color:#b00020;"></div>
     </div>
     <div style="display:flex;gap:8px;padding:0 20px 20px;">
-      <button type="button" onclick="closeDeleteAccountModal()"
+      <button type="button" data-static-action="delete-account-close"
         style="flex:1;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:#555;font-size:14px;font-weight:600;cursor:pointer;">취소</button>
-      <button type="button" id="deleteAccountConfirmBtn" onclick="confirmDeleteAccount()"
+      <button type="button" id="deleteAccountConfirmBtn" data-static-action="delete-account-confirm"
         style="flex:1;padding:12px;border-radius:10px;border:none;background:#b00020;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">영구 삭제</button>
     </div>
   </div>
@@ -1094,7 +1095,7 @@
         <div style="font-size:14px;font-weight:800;letter-spacing:-0.3px;">잇데이 고객지원팀</div>
         <div style="font-size:11px;opacity:0.85;">보통 1영업일 내 답변드려요</div>
       </div>
-      <button onclick="closeSupportChat()" aria-label="닫기" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
+      <button data-static-action="support-close" aria-label="닫기" style="background:rgba(255,255,255,0.2);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
     </div>
 
     <div id="supportChatMessages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;background:#f7f7f9;">
@@ -1106,7 +1107,7 @@
       </div>
     </div>
 
-    <form id="supportChatForm" onsubmit="event.preventDefault(); sendSupportMessage();" style="padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #eee;background:#fff;display:flex;gap:8px;">
+    <form id="supportChatForm" data-static-submit="support-chat" style="padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid #eee;background:#fff;display:flex;gap:8px;">
       <input type="text" id="supportChatInput" maxlength="2000" placeholder="메시지 입력..." autocomplete="off" style="flex:1;padding:11px 14px;border-radius:20px;border:1px solid #e0e0e0;font-size:14px;background:#f7f7f9;outline:none;">
       <button type="submit" data-haptic="success" aria-label="메시지 보내기" style="background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;border:none;border-radius:50%;width:44px;height:44px;font-size:18px;cursor:pointer;flex-shrink:0;">➤</button>
     </form>
@@ -1116,11 +1117,11 @@
 <!-- 2026-05-01 ── 챗봇은 탭바 옆에 같이 묶여있음 (line 824 #bottomNavGroup 참조).
      이전 위치 캐시 정리. -->
 <script>
-try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
+try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[home] fab 위치 캐시 정리 실패', err); }
 </script>
 
 <!-- 만들기 바텀시트 -->
-<div id="navSheet" onclick="if(event.target===this)closeNavSheet()"
+<div id="navSheet" data-static-backdrop="nav-sheet"
   style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.38);
          z-index:1500; align-items:flex-end;">
   <div id="navSheetInner" style="width:100%; background:var(--surface);
@@ -1129,33 +1130,33 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
     <div style="width:40px;height:4px;border-radius:2px;background:var(--border-strong);margin:4px auto 14px;"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
       <h3 style="margin:0;font-size:17px;font-weight:800;">뭐부터 할까요?</h3>
-      <button onclick="closeNavSheet()" aria-label="만들기 메뉴 닫기" style="width:34px;height:34px;border-radius:999px;border:none;
+      <button data-static-action="nav-sheet-close" aria-label="만들기 메뉴 닫기" style="width:34px;height:34px;border-radius:999px;border:none;
               background:var(--surface-2);cursor:pointer;display:grid;place-items:center;">
         <i class="ph-duotone ph-x" style="font-size:16px;"></i>
       </button>
     </div>
-    <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('workshop',null); if(typeof initWorkshopTab==='function')initWorkshopTab();">
+    <button class="nav-sheet-opt" data-static-action="nav-workshop">
       <span class="nav-sheet-ic"><span class="ic-box ic-box--pink"><i class="ph-duotone ph-camera"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">새로 만들기</span>
         <span class="nav-sheet-s">사진 올리면 AI가 글까지 알아서</span>
       </span>
     </button>
-    <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('portfolio',null); if(typeof loadPortfolio==='function') loadPortfolio();">
+    <button class="nav-sheet-opt" data-static-action="nav-portfolio">
       <span class="nav-sheet-ic"><span class="ic-box ic-box--purple"><i class="ph-duotone ph-images"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">포트폴리오</span>
         <span class="nav-sheet-s">발행 / 보관 콘텐츠 모음</span>
       </span>
     </button>
-    <button class="nav-sheet-opt" onclick="closeNavSheet(); goCaption();">
+    <button class="nav-sheet-opt" data-static-action="nav-caption">
       <span class="nav-sheet-ic"><span class="ic-box ic-box--teal"><i class="ph-duotone ph-pencil-line"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">글쓰기</span>
         <span class="nav-sheet-s">내 말투 배운 AI가 써줘요</span>
       </span>
     </button>
-    <button class="nav-sheet-opt" onclick="closeNavSheet(); showTab('finish',null); if(typeof initFinishTab==='function')initFinishTab();">
+    <button class="nav-sheet-opt" data-static-action="nav-finish">
       <span class="nav-sheet-ic"><span class="ic-box ic-box--amber"><i class="ph-duotone ph-check-circle"></i></span></span>
       <span class="nav-sheet-body">
         <span class="nav-sheet-t">마무리</span>
@@ -1180,23 +1181,23 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 ">
   <nav class="tab-bar" id="nav" role="tablist" aria-label="메인 네비게이션" style="position: static; bottom: auto; left: auto; right: auto; margin: 0; pointer-events: auto;">
     <button type="button" class="tab-bar__btn active" data-tab="home" data-prefetch="home"
-            onclick="showTab('home',this)" aria-label="홈 탭">
+            data-static-action="tab-home-current" aria-label="홈 탭">
       <i class="ph-duotone ph-house tab-bar__icon"></i>
       <span class="tab-bar__label">홈</span>
     </button>
     <button type="button" class="tab-bar__fab" data-haptic="light"
-            onclick="openNavSheet()" aria-label="만들기">
+            data-static-action="nav-sheet" aria-label="만들기">
       <i class="ph-duotone ph-sparkle" style="font-size:24px;"></i>
     </button>
     <button type="button" class="tab-bar__btn" data-tab="dashboard" data-prefetch="dashboard,customer,revenue,inventory,bookings"
-            onclick="showTab('dashboard',this); if(typeof initDashboardTab==='function')initDashboardTab();" aria-label="내 샵 관리 탭">
+            data-static-action="tab-dashboard-current" aria-label="내 샵 관리 탭">
       <i class="ph-duotone ph-storefront tab-bar__icon"></i>
       <span class="tab-bar__label">내 샵 관리</span>
     </button>
   </nav>
   <button
     id="assistantFab"
-    onclick="if(typeof openAssistant==='function')openAssistant()"
+    data-static-action="assistant"
     data-haptic="light"
     aria-label="AI 잇비"
     style="
@@ -1231,14 +1232,18 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <!-- 2026-05-01 ── 깜빡임 방지: 캐시 보고 미리 화면 결정 (검사 응답 오기 전).
        checkInstaStatus 가 실제 상태로 마지막에 덮어씀. 첫 방문은 캐시 없어 그대로 pre-connect.
        [2026-05-08 v117] OAuth 직후 (?connected=success) 도 잇비카드 즉시 숨김 — status 호출 결과 기다리지 않음. -->
+  <style>
+    html.ig-connected-cache #homePreConnect { display: none; }
+    html.ig-connected-cache #homePostConnect { display: flex; }
+  </style>
   <script>
     try {
       const _isOAuthBack = new URLSearchParams(location.search).get('connected') === 'success';
       const _cached = localStorage.getItem('itdasy:ig_connected_cache') === '1';
       if (_isOAuthBack || _cached) {
-        document.write('<style>#homePreConnect{display:none}#homePostConnect{display:flex}</style>');
+        document.documentElement.classList.add('ig-connected-cache');
       }
-    } catch (_e) { /* ignore */ }
+    } catch (err) { console.warn('[home] cached instagram state failed', err); }
   </script>
 
   <!-- ── 연동 전 상태 ── -->
@@ -1279,21 +1284,21 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
         </div>
       </div>
 
-      <button class="ipc-cta" onclick="connectInstagram()" data-haptic="light">인스타 연결하기</button>
-      <button class="ipc-skip" onclick="_dismissIpcCard()">지금은 됐어요</button>
+      <button class="ipc-cta" data-static-action="connect-instagram" data-haptic="light">인스타 연결하기</button>
+      <button class="ipc-skip" data-static-action="dismiss-ipc">지금은 됐어요</button>
     </div>
 
     <!-- 호환 — 기존 코드가 참조하는 ID 들 hidden 으로 보존 -->
     <div id="instaConnectRow" style="display:none;">
       <span id="instaStatusText"></span>
-      <button id="instaBtn" onclick="connectInstagram()">연동하기</button>
+      <button id="instaBtn" data-static-action="connect-instagram">연동하기</button>
     </div>
     <span id="consentTimestampDisplay" style="display:none;"></span>
   </div>
 
   <!-- 잇비 카드 닫음 후 메인홈 상단에 표시 — 재진입 경로 -->
   <div id="ipcMiniBar" class="ipc-mini-bar" style="display:none;"
-       onclick="connectInstagram()" data-haptic="light">
+       data-static-action="connect-instagram" data-haptic="light">
     <span class="ipc-mini-bar-text">인스타 연결하면 잇비 시작</span>
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
          stroke="currentColor" stroke-width="2"
@@ -1358,7 +1363,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
       <div style="text-align:center; font-size:20px; font-weight:800; color:var(--text); letter-spacing:-0.5px; margin-bottom:8px;">사장님 말투 분석 완료!</div>
       <div style="text-align:center; font-size:13px; color:var(--text-subtle); margin-bottom:28px;">이제 모든 글이 사장님 스타일로 나와요</div>
       <div id="analyzeResultBody"></div>
-      <button onclick="document.getElementById('analyzeResultPopup').style.display='none'" style="margin-top:30px; width:100%; height:54px; border-radius:16px; border:none; background:linear-gradient(135deg,var(--brand),var(--brand-strong)); color:#fff; font-size:15px; font-weight:800; cursor:pointer; box-shadow:var(--shadow-brand);">좋아요, 시작할게요</button>
+      <button data-static-action="analyze-result-close" style="margin-top:30px; width:100%; height:54px; border-radius:16px; border:none; background:linear-gradient(135deg,var(--brand),var(--brand-strong)); color:#fff; font-size:15px; font-weight:800; cursor:pointer; box-shadow:var(--shadow-brand);">좋아요, 시작할게요</button>
     </div>
   </div>
 
@@ -1388,9 +1393,9 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 
       <!-- [만들기 버튼 sticky] -->
       <div id="captionCtrlBar" style="position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;">
-        <button id="captionBtn" data-haptic="medium" onclick="generateCaption()" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기</button>
+        <button id="captionBtn" data-haptic="medium" data-static-action="caption-generate" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기</button>
         <!-- E2: 음성 캡션 진입 — 음성으로 한 줄 → AI 캡션·해시태그 + 재방문 제안 -->
-        <button id="captionVoiceBtn" type="button" data-haptic="medium" onclick="window.openVoiceCaption&&window.openVoiceCaption()" aria-label="음성 캡션" style="padding:11px 14px;border-radius:12px;border:1px solid var(--border-strong);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <button id="captionVoiceBtn" type="button" data-haptic="medium" data-static-action="caption-voice" aria-label="음성 캡션" style="padding:11px 14px;border-radius:12px;border:1px solid var(--border-strong);background:transparent;color:var(--text2);font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
           <i class="ph-duotone ph-microphone" style="font-size:14px" aria-hidden="true"></i> 음성
         </button>
       </div>
@@ -1432,13 +1437,13 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
           <textarea id="captionText"
             class="insta-caption-text"
             rows="5"
-            oninput="_capAutoGrow(this);_capSchedulePatch(this.value)"
+            data-static-input="caption-text"
             placeholder="'만들기'를 눌러 AI 캡션을 생성하세요"
             style="width:100%;box-sizing:border-box;min-height:160px;padding:0;border:none;outline:none;background:transparent;resize:none;overflow:hidden;display:block;"></textarea>
           <textarea id="captionHash"
             class="insta-hashtag-text"
             rows="2"
-            oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+            data-static-input="caption-hash"
             placeholder="#해시태그"
             style="width:100%;box-sizing:border-box;padding:0;border:none;outline:none;background:transparent;resize:none;overflow:hidden;display:block;"></textarea>
           <div id="captionEditMicro" style="display:none;font-size:11px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border);justify-content:space-between;align-items:center;">
@@ -1446,8 +1451,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
           </div>
         </div>
         <div class="insta-frame-actions">
-          <button class="frame-action-btn" data-haptic="success" onclick="copyCaption()">해시태그 빼고 복사</button>
-          <button class="frame-action-btn primary" data-haptic="success" onclick="copyAll()">전체 복사 📋</button>
+          <button class="frame-action-btn" data-haptic="success" data-static-action="copy-caption">해시태그 빼고 복사</button>
+          <button class="frame-action-btn primary" data-haptic="success" data-static-action="copy-all">전체 복사 📋</button>
         </div>
         <!-- AI 면책 고지 (의료광고법·소비자보호 — 사용자 책임 환기) -->
         <div class="ai-disclaimer" style="font-size:10px;color:var(--text3);padding:8px 14px 12px;line-height:1.5;border-top:1px solid var(--border);text-align:center;">
@@ -1497,7 +1502,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
         <!-- 팝업 헤더 -->
         <div style="padding:16px 20px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; justify-content:space-between;">
             <div style="font-size:16px; font-weight:800; color:var(--text); letter-spacing:-0.5px;">최종 업로드 확인</div>
-            <button onclick="closePublishPreview()" style="background:none; border:none; font-size:20px; color:var(--text3); cursor:pointer;">&times;</button>
+            <button data-static-action="publish-close" style="background:none; border:none; font-size:20px; color:var(--text3); cursor:pointer;">&times;</button>
         </div>
         
         <!-- 인스타 스타일 피드 프리뷰 -->
@@ -1519,8 +1524,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
                 ⚠️ 이대로 사장님 본계정에 바로 올라갑니다!
             </div>
             <div style="display:flex; gap:12px;">
-                <button onclick="closePublishPreview()" style="flex:1; padding:16px; border-radius:16px; border:none; background:var(--bg3); color:var(--text2); font-weight:700; cursor:pointer;">취소</button>
-                <button id="doPublishBtn" onclick="doActualPublish()" style="flex:2; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg, var(--accent), var(--accent2)); color:white; font-weight:800; box-shadow:0 8px 24px rgba(232,160,176,0.3); cursor:pointer;">인스타 바로 올리기 🚀</button>
+                <button data-static-action="publish-close" style="flex:1; padding:16px; border-radius:16px; border:none; background:var(--bg3); color:var(--text2); font-weight:700; cursor:pointer;">취소</button>
+                <button id="doPublishBtn" data-static-action="publish-do" style="flex:2; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg, var(--accent), var(--accent2)); color:white; font-weight:800; box-shadow:0 8px 24px rgba(232,160,176,0.3); cursor:pointer;">인스타 바로 올리기 🚀</button>
             </div>
         </div>
     </div>
@@ -1537,7 +1542,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
       <span style="font-size:20px;">②</span> <strong style="color:var(--text);">'홈 화면에 추가'</strong> 선택<br>
       <span style="font-size:20px;">③</span> 홈 화면 아이콘으로 실행
     </div>
-    <button onclick="hideInstallGuide()" style="width:100%; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:15px; font-weight:800; box-shadow:0 8px 24px rgba(232,160,176,0.3);">확인했어요</button>
+    <button data-static-action="install-guide-hide" style="width:100%; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; font-size:15px; font-weight:800; box-shadow:0 8px 24px rgba(232,160,176,0.3);">확인했어요</button>
   </div>
 </div>
 
@@ -1549,8 +1554,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
     <div class="ocp-sub">평소 쓰시는 말투로 조금만 수정해주시면<br>앞으로 모든 글에 반영할게요 🎀</div>
     <textarea id="ocpTextarea" placeholder="AI가 쓴 테스트 글이 여기 나와요..."></textarea>
     <div class="ocp-actions">
-      <button class="ocp-skip" onclick="closeOnboardingCaptionPopup()">나중에</button>
-      <button class="ocp-save" onclick="saveOnboardingCaption()">학습 완료! 반영하기</button>
+      <button class="ocp-skip" data-static-action="onboarding-caption-close">나중에</button>
+      <button class="ocp-save" data-static-action="onboarding-caption-save">학습 완료! 반영하기</button>
     </div>
   </div>
 </div>
@@ -1595,8 +1600,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
     <div style="font-size:52px; margin-bottom:16px;">🎀</div>
     <div style="font-size:20px; font-weight:800; color:var(--text); margin-bottom:8px; letter-spacing:-0.5px;">업로드 완료!</div>
     <div id="uploadDoneMsg" style="font-size:14px; color:var(--text2); margin-bottom:32px; line-height:1.6;">인스타 피드에 올라갔어요!</div>
-    <button onclick="openInstagramProfile()" style="display:block; width:100%; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045); color:#fff; font-size:14px; font-weight:800; cursor:pointer; margin-bottom:12px; letter-spacing:-0.01em;">인스타 확인하러 가기 →</button>
-    <button onclick="closeUploadDone()" style="display:block; width:100%; padding:14px; border-radius:16px; border:none; background:var(--bg3); color:var(--text2); font-size:14px; font-weight:700; cursor:pointer;">확인</button>
+    <button data-static-action="instagram-profile" style="display:block; width:100%; padding:16px; border-radius:16px; border:none; background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045); color:#fff; font-size:14px; font-weight:800; cursor:pointer; margin-bottom:12px; letter-spacing:-0.01em;">인스타 확인하러 가기 →</button>
+    <button data-static-action="upload-done-close" style="display:block; width:100%; padding:14px; border-radius:16px; border:none; background:var(--bg3); color:var(--text2); font-size:14px; font-weight:700; cursor:pointer;">확인</button>
   </div>
 </div>
 
@@ -1618,7 +1623,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <!-- 포트폴리오 탭 -->
 <section id="tab-portfolio" class="tab">
   <header style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 10px;border-bottom:0.5px solid var(--border);">
-    <button onclick="showTab('home', document.querySelector('.tab-bar__btn[data-tab=&quot;home&quot;]'));" style="width:32px;height:32px;border-radius:999px;background:transparent;border:none;cursor:pointer;display:grid;place-items:center;color:var(--text);">
+    <button data-static-action="tab-home" style="width:32px;height:32px;border-radius:999px;background:transparent;border:none;cursor:pointer;display:grid;place-items:center;color:var(--text);">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <h1 style="font-size:15px;font-weight:700;letter-spacing:-0.3px;">포트폴리오</h1>
@@ -1637,7 +1642,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
       </div>
       <div style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px;margin-bottom:6px;">아직 작업물이 없어요</div>
       <div style="font-size:12.5px;color:var(--text3);line-height:1.55;margin-bottom:20px;">만들러 가보실까요?</div>
-      <button onclick="showTab('workshop', document.querySelector('.tab-bar__btn[data-tab=&quot;workshop&quot;]')); if(typeof initWorkshopTab==='function')initWorkshopTab();" style="padding:13px 28px;border:none;background:var(--accent,var(--brand));color:#fff;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:-0.2px;display:inline-flex;align-items:center;gap:6px;">
+      <button data-static-action="portfolio-empty-workshop" style="padding:13px 28px;border:none;background:var(--accent,var(--brand));color:#fff;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:-0.2px;display:inline-flex;align-items:center;gap:6px;">
         만들러 가기
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </button>
@@ -1646,13 +1651,13 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 </section>
 
 <!-- 갤러리 슬롯 팝업 (§5.9 dt-overlay 풀스크린) -->
-<div id="slotPopup" class="dt-overlay" style="display:none;" oncontextmenu="return false">
+<div id="slotPopup" class="dt-overlay" style="display:none;" data-static-no-context>
   <header class="dt-hdr">
-    <button onclick="closeSlotPopup()" class="dt-back" aria-label="뒤로">
+    <button data-static-action="slot-close" class="dt-back" aria-label="뒤로">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
     </button>
     <h1 id="slotPopupLabel" class="dt-title">손님 1</h1>
-    <button onclick="saveAndCloseSlotPopup()" class="btn-primary" style="width:auto;height:36px;padding:0 16px;font-size:12px;">
+    <button data-static-action="slot-save-close" class="btn-primary" style="width:auto;height:36px;padding:0 16px;font-size:12px;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       완료
     </button>
@@ -1661,33 +1666,33 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   <div id="slotPopupBody" class="dt-body" style="padding-bottom:calc(220px + env(safe-area-inset-bottom));"></div>
   <!-- 하단 도구바 (ws-toolbar) -->
   <div id="slotToolbar" class="ws-toolbar">
-    <button onclick="openBgPanel()" class="ws-toolbar__btn" aria-label="누끼따기">
+    <button data-static-action="bg-panel-open" class="ws-toolbar__btn" aria-label="누끼따기">
       <i class="ph-duotone ph-image ic" aria-hidden="true"></i>누끼따기
     </button>
-    <button onclick="openEnhancePanel()" class="ws-toolbar__btn" aria-label="보정">
+    <button data-static-action="enhance-panel-open" class="ws-toolbar__btn" aria-label="보정">
       <i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>보정
     </button>
-    <button id="baBtnToolbar" onclick="toggleBAMode()" class="ws-toolbar__btn" aria-label="전후합성">
+    <button id="baBtnToolbar" data-static-action="ba-toggle" class="ws-toolbar__btn" aria-label="전후합성">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4m4 4H4"/></svg>전후합성
     </button>
-    <button onclick="openElementPanel()" class="ws-toolbar__btn" aria-label="로고">
+    <button data-static-action="element-panel-open" class="ws-toolbar__btn" aria-label="로고">
       <i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>로고
     </button>
-    <button onclick="openReviewPanel()" class="ws-toolbar__btn" aria-label="리뷰">
+    <button data-static-action="review-panel-open" class="ws-toolbar__btn" aria-label="리뷰">
       <i class="ph-duotone ph-star ic" aria-hidden="true"></i>리뷰
     </button>
-    <button onclick="openTemplatePanel()" class="ws-toolbar__btn" aria-label="템플릿">
+    <button data-static-action="template-panel-open" class="ws-toolbar__btn" aria-label="템플릿">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>템플릿
     </button>
   </div>
 </div>
 
 <!-- 사진 보정 패널 -->
-<div id="enhancePanel" class="ws-panel" onclick="if(event.target===this)closeEnhancePanel()">
+<div id="enhancePanel" class="ws-panel" data-static-backdrop="enhance-panel">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
       <span class="ws-panel__title"><i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>사진 보정</span>
-      <button onclick="closeEnhancePanel()" class="ws-panel__close" aria-label="닫기">
+      <button data-static-action="enhance-panel-close" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1696,11 +1701,11 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 </div>
 
 <!-- 배경창고 패널 (ws-panel shell) -->
-<div id="bgPanel" class="ws-panel" onclick="if(event.target===this)closeBgPanel()">
+<div id="bgPanel" class="ws-panel" data-static-backdrop="bg-panel">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
       <span class="ws-panel__title"><i class="ph-duotone ph-image ic" aria-hidden="true"></i>배경창고</span>
-      <button onclick="closeBgPanel()" class="ws-panel__close" aria-label="닫기">
+      <button data-static-action="bg-panel-close" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1709,11 +1714,11 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 </div>
 
 <!-- 요소창고 패널 (ws-panel shell) -->
-<div id="elementPanel" class="ws-panel" onclick="if(event.target===this)closeElementPanel()">
+<div id="elementPanel" class="ws-panel" data-static-backdrop="element-panel">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
       <span class="ws-panel__title"><i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>요소창고</span>
-      <button onclick="closeElementPanel()" class="ws-panel__close" aria-label="닫기">
+      <button data-static-action="element-panel-close" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1724,15 +1729,15 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <!-- 요소 편집기 (드래그/핀치줌/투명도) -->
 <div id="elementEditor" style="display:none; position:fixed; inset:0; z-index:9200; background:#000;">
   <div style="position:absolute; top:0; left:0; right:0; padding:12px 16px; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:space-between; z-index:2;">
-    <button onclick="cancelElementEdit()" style="background:transparent; border:none; color:#fff; font-size:14px; cursor:pointer;">취소</button>
+    <button data-static-action="element-edit-cancel" style="background:transparent; border:none; color:#fff; font-size:14px; cursor:pointer;">취소</button>
     <div style="color:#fff; font-size:13px; font-weight:600;">요소 배치</div>
-    <button onclick="saveElementEdit()" style="background:var(--accent); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">완료</button>
+    <button data-static-action="element-edit-save" style="background:var(--accent); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">완료</button>
   </div>
   <div id="elementEditorCanvas" style="position:absolute; top:50px; bottom:100px; left:0; right:0; display:flex; align-items:center; justify-content:center; overflow:hidden;"></div>
   <div style="position:absolute; bottom:0; left:0; right:0; padding:16px; background:rgba(0,0,0,0.8);">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
       <span style="color:#fff; font-size:12px; width:50px;">투명도</span>
-      <input type="range" id="elementOpacity" min="10" max="100" value="100" oninput="updateElementOpacity(this.value)" style="flex:1;">
+      <input type="range" id="elementOpacity" min="10" max="100" value="100" data-static-input="element-opacity" style="flex:1;">
       <span id="elementOpacityVal" style="color:#fff; font-size:12px; width:36px; text-align:right;">100%</span>
     </div>
     <div style="color:rgba(255,255,255,0.6); font-size:11px; text-align:center;">드래그로 위치 이동 · 두 손가락으로 크기 조절</div>
@@ -1740,14 +1745,14 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 </div>
 
 <!-- 템플릿 패널 (ws-panel shell) -->
-<div id="templatePanel" class="ws-panel" onclick="if(event.target===this)closeTemplatePanel()">
+<div id="templatePanel" class="ws-panel" data-static-backdrop="template-panel">
   <div class="ws-panel__sheet ws-panel__sheet--md">
     <div class="ws-panel__hdr">
       <span class="ws-panel__title">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         템플릿
       </span>
-      <button onclick="closeTemplatePanel()" class="ws-panel__close" aria-label="닫기">
+      <button data-static-action="template-panel-close" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1756,11 +1761,11 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 </div>
 
 <!-- 리뷰 스티커 패널 (ws-panel shell) -->
-<div id="reviewPanel" class="ws-panel" onclick="if(event.target===this)closeReviewPanel()">
+<div id="reviewPanel" class="ws-panel" data-static-backdrop="review-panel">
   <div class="ws-panel__sheet ws-panel__sheet--lg">
     <div class="ws-panel__hdr">
       <span class="ws-panel__title"><i class="ph-duotone ph-star ic" aria-hidden="true"></i>리뷰 스티커</span>
-      <button onclick="closeReviewPanel()" class="ws-panel__close" aria-label="닫기">
+      <button data-static-action="review-panel-close" class="ws-panel__close" aria-label="닫기">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
     </div>
@@ -1771,15 +1776,15 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <!-- 리뷰 스티커 편집기 (ws-editor shell) -->
 <div id="reviewEditor" class="ws-editor">
   <div style="position:absolute; top:0; left:0; right:0; padding:12px 16px; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:space-between; z-index:2;">
-    <button onclick="cancelReviewEdit()" style="background:transparent; border:none; color:#fff; font-size:14px; cursor:pointer;">취소</button>
+    <button data-static-action="review-edit-cancel" style="background:transparent; border:none; color:#fff; font-size:14px; cursor:pointer;">취소</button>
     <div style="color:#fff; font-size:13px; font-weight:600;">리뷰 스티커 배치</div>
-    <button onclick="saveReviewEdit()" style="background:var(--accent); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">완료</button>
+    <button data-static-action="review-edit-save" style="background:var(--accent); border:none; color:#fff; padding:8px 16px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer;">완료</button>
   </div>
   <div id="reviewEditorCanvas" style="position:absolute; top:50px; bottom:100px; left:0; right:0; display:flex; align-items:center; justify-content:center; overflow:hidden;"></div>
   <div style="position:absolute; bottom:0; left:0; right:0; padding:16px; background:rgba(0,0,0,0.8);">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
       <span style="color:#fff; font-size:12px; width:50px;">크기</span>
-      <input type="range" id="reviewScale" min="15" max="80" value="40" oninput="updateReviewScale(this.value)" style="flex:1;">
+      <input type="range" id="reviewScale" min="15" max="80" value="40" data-static-input="review-scale" style="flex:1;">
       <span id="reviewScaleVal" style="color:#fff; font-size:12px; width:36px; text-align:right;">40%</span>
     </div>
     <div style="color:rgba(255,255,255,0.6); font-size:11px; text-align:center;">드래그로 위치 이동</div>
@@ -1899,7 +1904,163 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
   }
   window.toggleEmailFold = toggleEmailFold;
 </script>
-<script src="app-core.js?v=20260521-v251-photo-smart-mask"></script>
+<script>
+  (function bindStaticUiActions() {
+    function call(name, args) {
+      const fn = window[name];
+      if (typeof fn === 'function') return fn.apply(window, args || []);
+      return undefined;
+    }
+    function callFirst(names, args) {
+      for (const name of names) {
+        if (typeof window[name] === 'function') return window[name].apply(window, args || []);
+      }
+      return undefined;
+    }
+    function tab(name, source) {
+      const btn = source || document.querySelector('.tab-bar__btn[data-tab="' + name + '"]');
+      return call('showTab', [name, btn]);
+    }
+    function closeThen(fn) {
+      call('closeSettings');
+      return fn();
+    }
+    function setHidden(id) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
+    function closest(target, selector) {
+      if (!target) return null;
+      if (typeof target.closest === 'function') return target.closest(selector);
+      return target.parentElement?.closest?.(selector) || null;
+    }
+    const actions = {
+      'login-kakao': () => call('startKakaoLogin'),
+      'login-google': () => call('startGoogleLogin'),
+      'email-fold': () => call('toggleEmailFold'),
+      'select-shop-type': (el) => call('selectShopType', [el]),
+      'onboarding-next': () => call('obNext'),
+      'onboarding-skip': () => call('obSkipShopType'),
+      'tab-home': () => tab('home'),
+      'tab-home-current': (el) => tab('home', el),
+      'tab-dashboard': () => { tab('dashboard'); call('initDashboardTab'); },
+      'tab-dashboard-current': (el) => { tab('dashboard', el); call('initDashboardTab'); },
+      'calendar': () => call('openCalendarView'),
+      'customer': () => call('openCustomerHub'),
+      'revenue': () => callFirst(['openRevenue', 'openRevenueHub']),
+      'inventory': () => call('openInventoryHub'),
+      'service-templates': () => call('openServiceTemplates'),
+      'ai-hub': () => call('openAiHub'),
+      'settings-hub': () => call('openSettingsHub'),
+      'plan': () => callFirst(['openPlan', 'openPlanPopup']),
+      'support': () => setTimeout(() => callFirst(['openSupport', 'openSupportChat']), 0),
+      'nav-sheet': () => call('openNavSheet'),
+      'settings-connect-instagram': () => closeThen(() => call('connectInstagram')),
+      'settings-disconnect-instagram': () => closeThen(() => call('disconnectInstagram')),
+      'settings-force-sync': () => closeThen(() => call('forceSync')),
+      'settings-persona-analyze': () => closeThen(() => call('runPersonaAnalyze', [true])),
+      'settings-reset-shop': () => closeThen(() => call('resetShopSetup')),
+      'settings-support': () => closeThen(() => call('openSupportChat')),
+      'settings-power-view': () => closeThen(() => call('openPowerView', ['customer'])),
+      'settings-membership-expiring': () => closeThen(() => window.MembershipUI?.openExpiringList?.(30)),
+      'settings-haptic': () => { call('toggleHapticSetting'); call('updateHapticToggleLabel'); },
+      'settings-theme': () => call('cycleTheme'),
+      'settings-font-size': () => call('cycleFontSize'),
+      'settings-growth-story': () => closeThen(() => call('openGrowthStory')),
+      'settings-local-reset': () => closeThen(() => call('localReset')),
+      'delete-account-close': () => call('closeDeleteAccountModal'),
+      'delete-account-confirm': () => call('confirmDeleteAccount'),
+      'support-close': () => call('closeSupportChat'),
+      'nav-sheet-close': () => call('closeNavSheet'),
+      'nav-workshop': () => { call('closeNavSheet'); tab('workshop', null); call('initWorkshopTab'); },
+      'nav-portfolio': () => { call('closeNavSheet'); tab('portfolio', null); call('loadPortfolio'); },
+      'nav-caption': () => { call('closeNavSheet'); call('goCaption'); },
+      'nav-finish': () => { call('closeNavSheet'); tab('finish', null); call('initFinishTab'); },
+      'assistant': () => call('openAssistant'),
+      'connect-instagram': () => call('connectInstagram'),
+      'dismiss-ipc': () => call('_dismissIpcCard'),
+      'analyze-result-close': () => setHidden('analyzeResultPopup'),
+      'caption-generate': () => call('generateCaption'),
+      'caption-voice': () => call('openVoiceCaption'),
+      'copy-caption': () => call('copyCaption'),
+      'copy-all': () => call('copyAll'),
+      'publish-close': () => call('closePublishPreview'),
+      'publish-do': () => call('doActualPublish'),
+      'install-guide-hide': () => call('hideInstallGuide'),
+      'onboarding-caption-close': () => call('closeOnboardingCaptionPopup'),
+      'onboarding-caption-save': () => call('saveOnboardingCaption'),
+      'instagram-profile': () => call('openInstagramProfile'),
+      'upload-done-close': () => call('closeUploadDone'),
+      'portfolio-empty-workshop': () => { tab('workshop'); call('initWorkshopTab'); },
+      'slot-close': () => call('closeSlotPopup'),
+      'slot-save-close': () => call('saveAndCloseSlotPopup'),
+      'bg-panel-open': () => call('openBgPanel'),
+      'enhance-panel-open': () => call('openEnhancePanel'),
+      'ba-toggle': () => call('toggleBAMode'),
+      'element-panel-open': () => call('openElementPanel'),
+      'review-panel-open': () => call('openReviewPanel'),
+      'template-panel-open': () => call('openTemplatePanel'),
+      'enhance-panel-close': () => call('closeEnhancePanel'),
+      'bg-panel-close': () => call('closeBgPanel'),
+      'element-panel-close': () => call('closeElementPanel'),
+      'template-panel-close': () => call('closeTemplatePanel'),
+      'review-panel-close': () => call('closeReviewPanel'),
+      'element-edit-cancel': () => call('cancelElementEdit'),
+      'element-edit-save': () => call('saveElementEdit'),
+      'review-edit-cancel': () => call('cancelReviewEdit'),
+      'review-edit-save': () => call('saveReviewEdit')
+    };
+    const backdrops = {
+      'settings': 'closeSettings',
+      'nav-sheet': 'closeNavSheet',
+      'enhance-panel': 'closeEnhancePanel',
+      'bg-panel': 'closeBgPanel',
+      'element-panel': 'closeElementPanel',
+      'template-panel': 'closeTemplatePanel',
+      'review-panel': 'closeReviewPanel'
+    };
+    document.addEventListener('click', function (event) {
+      const backdrop = closest(event.target, '[data-static-backdrop]');
+      if (backdrop && event.target === backdrop) return call(backdrops[backdrop.dataset.staticBackdrop]);
+      const actionEl = closest(event.target, '[data-static-action]');
+      if (!actionEl) return;
+      const handler = actions[actionEl.dataset.staticAction];
+      if (!handler) return;
+      event.preventDefault();
+      handler(actionEl, event);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const actionEl = closest(event.target, '[data-static-action]');
+      if (!actionEl || actionEl.tagName === 'BUTTON') return;
+      event.preventDefault();
+      actionEl.click();
+    });
+    document.addEventListener('submit', function (event) {
+      if (event.target?.dataset?.staticSubmit !== 'support-chat') return;
+      event.preventDefault();
+      call('sendSupportMessage');
+    });
+    document.addEventListener('input', function (event) {
+      const kind = event.target?.dataset?.staticInput;
+      if (kind === 'caption-text') {
+        call('_capAutoGrow', [event.target]);
+        call('_capSchedulePatch', [event.target.value]);
+      } else if (kind === 'caption-hash') {
+        event.target.style.height = 'auto';
+        event.target.style.height = event.target.scrollHeight + 'px';
+      } else if (kind === 'element-opacity') {
+        call('updateElementOpacity', [event.target.value]);
+      } else if (kind === 'review-scale') {
+        call('updateReviewScale', [event.target.value]);
+      }
+    });
+    document.addEventListener('contextmenu', function (event) {
+      if (closest(event.target, '[data-static-no-context]')) event.preventDefault();
+    });
+  })();
+</script>
+<script src="app-core.js?v=20260521-v253-audit-hardening"></script>
 <script src="format-money.js?v=20260519-v228"></script>
 <script src="app-drawer.js?v=20260519-v223-md-strict" defer></script>
 <script src="app-secure-storage.js?v=20260506-v101" defer></script>
@@ -1915,13 +2076,13 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (_e) { void _e; }
 <script src="app-dm-confirm-queue.js?v=20260502-3" defer></script>
 <script src="app-dm-conversations.js?v=20260502-3" defer></script>
 <script src="app-dm-manual-replies.js?v=0501" defer></script>
-<script src="app-instagram.js?v=20260519-v223-md-strict" defer></script>
+<script src="app-instagram.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-persona-survey.js" defer></script>
 <script src="components/scenario-selector.js" defer></script>
-<script src="app-caption.js?v=20260519-v222-md-focus" defer></script>
-<script src="app-portfolio.js" defer></script>
+<script src="app-caption.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-portfolio.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-portfolio-tags.js" defer></script>
-<script src="app-ai.js" defer></script>
+<script src="app-ai.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- @imgly/background-removal — 누끼 화면 진입 시에만 lazy 로드 (parse-blocking 100~200ms 절감) -->
 <script>
 window._lazyImgly = function _lazyImgly() {
@@ -1938,21 +2099,21 @@ window._lazyImgly = function _lazyImgly() {
 </script>
 <script src="app-gallery-utils.js" defer></script>
 <script src="app-gallery-db.js" defer></script>
-<script src="app-gallery-workshop.js" defer></script>
-<script src="app-gallery-assign.js" defer></script>
-<script src="app-gallery-slot-editor.js" defer></script>
+<script src="app-gallery-workshop.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-gallery-assign.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-gallery-slot-editor.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-photo-editor-bg-compose.js?v=20260521-v252-photo-shadow-batch" defer></script>
-<script src="app-gallery-bg.js?v=20260521-v252-photo-shadow-batch" defer></script>
+<script src="app-gallery-bg.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-photo-editor-bg-cache.js?v=20260520-v250-template-mask-hotfix" defer></script>
 <script src="app-photo-editor-bg-safe.js?v=20260520-v250-template-mask-hotfix" defer></script>
-<script src="app-photo-enhance.js?v=20260520-v250-template-mask-hotfix" defer></script>
-<script src="app-gallery-element.js" defer></script>
-<script src="app-gallery-review.js" defer></script>
-<script src="app-gallery-write.js?v=20260519-v206.8-photo-complete" defer></script>
-<script src="app-gallery-finish.js" defer></script>
+<script src="app-photo-enhance.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-gallery-element.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-gallery-review.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-gallery-write.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-gallery-finish.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-sample-captions.js" defer></script>
 <script src="app-push.js" defer></script>
-<script src="app-notifications.js?v=20260507-v103" defer></script>
+<script src="app-notifications.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-oauth-return.js" defer></script>
 <script src="app-haptic.js" defer></script>
 <!-- [2026-04-29] Fun helpers — 숫자 count-up · confetti · star burst · empty state -->
@@ -1963,8 +2124,8 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-plan.js?v=20260519-v222-md-focus" defer></script>
 <script src="app-support.js" defer></script>
 <script src="app-customer-cache.js?v=20260506-v100" defer></script>
-<script src="app-customer.js?v=20260519-v222-md-focus" defer></script>
-<script src="app-customer-dashboard.js?v=20260519-v220" defer></script>
+<script src="app-customer.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-customer-dashboard.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- [2026-04-29 W5] 회원권 / 정기권 UI -->
 <script src="app-membership.js" defer></script>
 <!-- [2026-04-30] 시트 진입/종료 애니메이션 헬퍼 (SheetAnim) -->
@@ -1992,11 +2153,11 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-booking-api.js?v=20260519-v206" defer></script>
 <script src="app-booking-approval.js" defer></script>
 <!-- INVENTORY_HIDDEN <script src="app-inventory.js" defer></script> -->
-<script src="app-nps.js" defer></script>
-<script src="app-naver-reviews.js" defer></script>
+<script src="app-nps.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-naver-reviews.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- md 정리: 영상 편집은 숨김. 파일은 보존하고 로드만 끔. -->
-<script src="app-import.js" defer></script>
-<script src="app-insights.js" defer></script>
+<script src="app-import.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-insights.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-dashboard.js?v=20260519-v206.8-photo-complete" defer></script>
 
 <script src="app-photo-match.js" defer></script>
@@ -2004,16 +2165,16 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-auto-ba.js?v=20260519-v223-md-strict" defer></script>
 <script src="app-today-brief.js?v=20260518-v193" defer></script>
 <script src="app-home-v41-config.js" defer></script>
-<script src="app-home-v41.js?v=20260519-v230-home-month-count" defer></script>
+<script src="app-home-v41.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- [2026-04-30] 내샵관리 v3 — 모바일 메인 + PC 사이드바·도넛·위젯·피드 -->
-<script src="app-myshop-v3.js?v=20260519-v223-md-strict" defer></script>
-<script src="app-birthday.js" defer></script>
+<script src="app-myshop-v3.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-birthday.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- 렉 박멸 — 챗봇/DM/영수증 무거운 스크립트는 defer 로 비차단 로드 (FCP ~120~250ms 단축 체감) -->
 <!-- [v176 2026-05-18] 챗봇 자동 보정 헬퍼 (headless canvas) — assistant 가 결과 사진을 채팅 안에 표시 -->
 <script src="app-chat-auto-edit.js?v=20260518-v183" defer></script>
 <!-- [P0-1 2026-05-19 / P0-1.5 2026-05-20] FE intent pre-parser + SQL-first 매출/예약 응답 -->
 <script src="assistant-intent-router.js?v=20260520-cancel-sql-first" defer></script>
-<script src="app-assistant.js?v=20260520-v228-cancel-sql-first" defer></script>
+<script src="app-assistant.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- [2026-05-17 v166] AI 비서 마케팅·고객 케어 kind 8종 (CATEGORY 외부 등록) -->
 <script src="app-assistant-actions-marketing.js?v=20260519-v206.8-photo-complete" defer></script>
 <!-- [v170 2026-05-18] 백엔드 미구현 kind에 대한 프론트 로컬 mock — [테스트 모드] 명시 토스트 -->
@@ -2086,12 +2247,12 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-receipt-scan.js" defer></script>
 <script src="app-service-recommend.js" defer></script>
 <script src="app-ai-suggestions.js" defer></script>
-<script src="app-report.js" defer></script>
+<script src="app-report.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-empty-state.js" defer></script>
 <script src="app-generic-sheet.js?v=20260505-v97" defer></script>
 <script src="app-service-templates.js?v=20260518-v193" defer></script>
-<script src="app-power-view.js?v=20260519-v233-photo-render-hotfix" defer></script>
-<script src="app-power-view-render.js" defer></script>
+<script src="app-power-view.js?v=20260521-v253-audit-hardening" defer></script>
+<script src="app-power-view-render.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- 파워뷰 보조: 정렬·필터 + ⚡ 행 액션 -->
 <script src="app-power-view-sort-filter.js?v=20260509-tierA" defer></script>
 <script src="app-power-view-actions.js?v=20260509-tierA" defer></script>
@@ -2127,7 +2288,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-customer-ai-brief.js?v=20260518-v199" defer></script>
 <script src="app-customer-hub.js?v=20260519-v212" defer></script>
 <script src="app-customer-sync.js" defer></script>
-<script src="app-calendar-view.js?v=20260519-v206" defer></script>
+<script src="app-calendar-view.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-public-link.js?v=20260506-v101" defer></script>
 <script src="app-waitlist.js?v=20260507-v102" defer></script>
 <script src="app-reminder.js?v=20260507-v102" defer></script>
@@ -2138,10 +2299,10 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-biometric.js" defer></script>
 <!-- 2026-05-01 ── app-referral.js 제거 (친구초대 폐지) -->
 <script src="app-growth-story.js" defer></script>
-<script src="app-content-report.js" defer></script>
+<script src="app-content-report.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- 2026-05-08: cookie-consent 는 Sentry inline init 의 GDPR 가드(window.itdasyConsent) 를 정의하므로 sync 유지 -->
 <script src="app-cookie-consent.js"></script>
-<script src="app-data-export.js" defer></script>
+<script src="app-data-export.js?v=20260521-v253-audit-hardening" defer></script>
 <!-- D1: 1초 캡션 워크플로우 (사진 1탭 → 캡션·해시태그·9:16 스토리) — defer 비차단 -->
 <script src="app-instant-caption.js" defer></script>
 <!-- E2: 음성 캡션 워크플로우 (마이크 1탭 → 캡션·해시태그·재방문 제안) — defer 비차단 -->
@@ -2177,14 +2338,16 @@ window._lazyImgly = function _lazyImgly() {
             s = s.replace(/010-?\d{3,4}-?\d{4}/g, '010-****-****');
             return JSON.parse(s);
           }
-        } catch(e){}
+        } catch(e) {
+          console.warn('[sentry] event mask failed', e);
+        }
         return event;
       },
     });
   } catch(e) { console.warn('[sentry] init failed', e); }
 })();
 </script>
-<script src="app-debug-panel.js" defer></script>
+<script src="app-debug-panel.js?v=20260521-v253-audit-hardening" defer></script>
 <script src="app-side-nav-unifier.js?v=20260519-v215" defer></script>
 
 </body>

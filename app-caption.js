@@ -309,7 +309,8 @@ function _renderCaptionPhotoRow() {
     ? _slots.find(s => s.id === _captionSlotId) : null;
 
   if (!slot) {
-    strip.innerHTML = `<div onclick="_captionOpenSlotPicker()" style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;"><i class="ph-duotone ph-camera" style="font-size:22px;color:var(--text-subtle);"></i></div>`;
+    strip.innerHTML = `<div data-caption-open-picker style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;"><i class="ph-duotone ph-camera" style="font-size:22px;color:var(--text-subtle);"></i></div>`;
+    strip.querySelector('[data-caption-open-picker]')?.addEventListener('click', _captionOpenSlotPicker);
     return;
   }
 
@@ -328,10 +329,13 @@ function _renderCaptionPhotoRow() {
     wrap.dataset.capPhotoIdx = i;
 
     wrap.innerHTML = `
-      <img src="${src}" draggable="false" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;pointer-events:none;">
-      <button onclick="_removeCapPhoto(${i},event)" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;line-height:1;cursor:pointer;">×</button>
+      <img src="${_capEsc(src)}" alt="" draggable="false" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;pointer-events:none;">
+      <button data-remove-cap-photo data-photo-index="${i}" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;line-height:1;cursor:pointer;">×</button>
       <div style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.8);background:rgba(0,0,0,0.35);border-radius:3px;padding:0 3px;">${i+1}</div>
     `;
+    wrap.querySelector('[data-remove-cap-photo]')?.addEventListener('click', e => {
+      _removeCapPhoto(Number(e.currentTarget.dataset.photoIndex), e);
+    });
 
     // HTML5 drag (desktop + PWA)
     wrap.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', String(i)); wrap.style.opacity = '0.4'; });
@@ -466,8 +470,15 @@ function renderCaptionKeywordTags() {
   // [SEC-R2-1] XSS 방지 — 키워드를 이스케이프하여 삽입
   container.innerHTML = keywords.map(k => {
     const safe = _capEsc(k);
-    return `<span class="tag" data-v="${safe}" onclick="toggleCaptionTag(this)">${safe}<button class="tag-delete" data-kw="${safe}" onclick="deleteCaptionKeyword(this.dataset.kw,event)">×</button></span>`;
-  }).join('') + `<span class="tag tag-add" onclick="showAddKeywordInput()">+ 추가</span>`;
+    return `<span class="tag" data-v="${safe}" data-caption-tag>${safe}<button class="tag-delete" data-kw="${safe}" data-caption-delete-keyword>×</button></span>`;
+  }).join('') + `<span class="tag tag-add" data-caption-add-keyword>+ 추가</span>`;
+  container.querySelectorAll('[data-caption-tag]').forEach(tag => {
+    tag.addEventListener('click', () => toggleCaptionTag(tag));
+  });
+  container.querySelectorAll('[data-caption-delete-keyword]').forEach(btn => {
+    btn.addEventListener('click', event => deleteCaptionKeyword(btn.dataset.kw, event));
+  });
+  container.querySelector('[data-caption-add-keyword]')?.addEventListener('click', showAddKeywordInput);
 }
 
 
@@ -931,7 +942,7 @@ function _previewCaptionOnInsta() {
   }
   const hashHtml = hash ? hash.split(/\s+/).filter(Boolean).map(h => {
     const clean = h.startsWith('#') ? h : '#' + h;
-    return `<span style="color:#1e7abf;">${clean}</span>`;
+    return `<span style="color:#1e7abf;">${_capEsc(clean)}</span>`;
   }).join(' ') : '';
   pop.innerHTML = `
     <div style="width:100%;max-width:360px;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.5);font-family:-apple-system,sans-serif;">
@@ -939,7 +950,7 @@ function _previewCaptionOnInsta() {
       <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #dbdbdb;">
         <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);padding:2px;"><div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;">🎀</div></div>
         <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;">${handle}</div>
+          <div style="font-size:13px;font-weight:700;">${_capEsc(handle)}</div>
           <div style="font-size:10px;color:#888;">Sponsored · 서울</div>
         </div>
         <div style="font-size:18px;color:#262626;">⋯</div>
@@ -947,7 +958,7 @@ function _previewCaptionOnInsta() {
       <!-- 이미지 -->
       <div style="width:100%;aspect-ratio:1/1;background:#000;display:flex;align-items:center;justify-content:center;">
         ${previewImg
-          ? `<img src="${previewImg}" style="width:100%;height:100%;object-fit:cover;">`
+          ? `<img src="${_capEsc(previewImg)}" alt="" style="width:100%;height:100%;object-fit:cover;">`
           : `<div style="color:#888;font-size:12px;">작업실에서 사진을 먼저 선택해주세요</div>`}
       </div>
       <!-- 하단 아이콘 -->
@@ -956,15 +967,20 @@ function _previewCaptionOnInsta() {
       </div>
       <!-- 캡션 -->
       <div style="padding:4px 12px 12px;font-size:12px;line-height:1.5;color:#262626;max-height:220px;overflow-y:auto;">
-        <b>${handle}</b> <span style="white-space:pre-wrap;">${(caption || '(캡션 없음)').replace(/</g,'&lt;')}</span>
+        <b>${_capEsc(handle)}</b> <span style="white-space:pre-wrap;">${_capEsc(caption || '(캡션 없음)')}</span>
         ${hashHtml ? '<div style="margin-top:6px;word-break:break-word;">' + hashHtml + '</div>' : ''}
       </div>
       <div style="padding:10px 12px;border-top:1px solid #efefef;display:flex;gap:8px;">
-        <button onclick="document.getElementById('_capInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
-        <button onclick="publishFromCaption();document.getElementById('_capInstaPreview').style.display='none'" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
+        <button data-cap-preview-close style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
+        <button data-cap-preview-publish style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
       </div>
     </div>
   `;
+  pop.querySelector('[data-cap-preview-close]')?.addEventListener('click', () => { pop.style.display = 'none'; });
+  pop.querySelector('[data-cap-preview-publish]')?.addEventListener('click', () => {
+    publishFromCaption();
+    pop.style.display = 'none';
+  });
   pop.style.display = 'flex';
 }
 
@@ -1040,24 +1056,40 @@ function _renderCaptionActionBar(caption, hashtags) {
       직접 고치면 AI가 다음에 더 잘 써요
     </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button data-report-ai="caption" data-snippet="${(caption || '').replace(/"/g,'&quot;')}" data-source="/caption/generate" title="AI 캡션 신고" aria-label="AI 캡션 신고"
+      <button data-report-ai="caption" data-snippet="${_capEsc(caption || '')}" data-source="/caption/generate" title="AI 캡션 신고" aria-label="AI 캡션 신고"
         style="background:transparent;border:none;cursor:pointer;font-size:13px;color:var(--text-subtle);padding:4px 6px;">🚩 신고</button>
     </div>
     ${hasNextSlot ? `
     <div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:14px;padding:14px;">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">다음 손님 글 써볼까요? ${progressText}</div>
       <div style="display:flex;gap:8px;">
-        <button onclick="goToNextSlotCaption('${nextSlot.id}')" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">${nextSlot.label} 글쓰기 →</button>
-        <button onclick="showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab();" style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
+        <button data-caption-next-slot="${_capEsc(nextSlot.id)}" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">${_capEsc(nextSlot.label)} 글쓰기 →</button>
+        <button data-caption-finish style="padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;">마무리로 →</button>
       </div>
     </div>
     ` : `
     <div style="display:flex;gap:8px;">
-      <button onclick="if(typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _showPublishOptions === 'function') { _showPublishOptions(_captionSlotId); } else { showTab('finish',document.querySelector('.tab-bar__btn[data-tab=&quot;finish&quot;]')); initFinishTab(); }" style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">발행 옵션 ▾</button>
-      <button onclick="_previewCaptionOnInsta()" style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
+      <button data-caption-publish-options style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">발행 옵션 ▾</button>
+      <button data-caption-preview style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
     </div>
     `}
   `;
+  actionBar.querySelector('[data-caption-publish-options]')?.addEventListener('click', () => {
+    if (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _showPublishOptions === 'function') {
+      _showPublishOptions(_captionSlotId);
+    } else {
+      showTab('finish', document.querySelector('.tab-bar__btn[data-tab="finish"]'));
+      initFinishTab();
+    }
+  });
+  actionBar.querySelector('[data-caption-preview]')?.addEventListener('click', _previewCaptionOnInsta);
+  actionBar.querySelector('[data-caption-next-slot]')?.addEventListener('click', event => {
+    goToNextSlotCaption(event.currentTarget.dataset.captionNextSlot);
+  });
+  actionBar.querySelector('[data-caption-finish]')?.addEventListener('click', () => {
+    showTab('finish', document.querySelector('.tab-bar__btn[data-tab="finish"]'));
+    initFinishTab();
+  });
 }
 
 // 다음 슬롯으로 이동해서 캡션 작성

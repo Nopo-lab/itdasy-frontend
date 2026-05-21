@@ -285,7 +285,7 @@
     const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
     const dateStr = year + '-' + _pad(month) + '-' + _pad(d);
     let cls = `${p}__cell` + (isToday ? ` ${p}__cell--today` : '');
-    let h = `<div class="${cls}" onclick="_calSelectDay('${dateStr}')">`;
+    let h = `<div class="${cls}" data-cal-day="${dateStr}" role="button" tabindex="0">`;
     h += `<div class="${p}__num">${d}</div>`;
     const its = byDay[d] || [];
     if (its.length) {
@@ -350,7 +350,7 @@
       const ds = _ds(d);
       const hasEv = filtered.some(m => _ds(new Date(m._raw.starts_at)) === ds);
       const cls = 'bk-date' + (i === 0 ? ' is-on' : '') + (hasEv ? ' has-events' : '');
-      h += '<button class="' + cls + '" onclick="_calSelectDayChip(\'' + ds + '\')" data-date="' + ds + '">';
+      h += '<button class="' + cls + '" data-date="' + ds + '">';
       h += '<span class="bk-date__dow">' + DOW[d.getDay()] + '</span>';
       h += '<span class="bk-date__num">' + d.getDate() + '</span></button>';
     }
@@ -1084,12 +1084,28 @@
     }
   }
 
-  function _bindMonthCells(_body) { /* onclick=_calSelectDay 위임 사용 */ }
+  function _bindMonthCells(body) {
+    if (!body || body.dataset.calMonthBound === '1') return;
+    body.dataset.calMonthBound = '1';
+    body.addEventListener('click', e => {
+      const cell = e.target.closest('[data-cal-day]');
+      if (cell && body.contains(cell)) window._calSelectDay(cell.dataset.calDay);
+    });
+    body.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const cell = e.target.closest('[data-cal-day]');
+      if (!cell || !body.contains(cell)) return;
+      e.preventDefault();
+      window._calSelectDay(cell.dataset.calDay);
+    });
+  }
 
   function _bindDateStrip(body) {
-    body.querySelectorAll('.bk-date').forEach(btn => {
-      // 이미 onclick 바인딩됨 (위임)
-      void btn;
+    if (!body || body.dataset.calDateStripBound === '1') return;
+    body.dataset.calDateStripBound = '1';
+    body.addEventListener('click', e => {
+      const btn = e.target.closest('.bk-date[data-date]');
+      if (btn && body.contains(btn)) window._calSelectDayChip(btn.dataset.date);
     });
   }
 

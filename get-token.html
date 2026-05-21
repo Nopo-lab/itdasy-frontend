@@ -19,25 +19,50 @@
 <div class="info" id="info">로딩 중...</div>
 <textarea id="tok" readonly placeholder="토큰이 여기에 표시됩니다"></textarea>
 <button class="btn" id="copyBtn">📋 토큰 복사</button>
-<button class="btn" style="background:#888;" onclick="location.href='./'">잇데이로</button>
+<button class="btn" id="homeBtn" style="background:#888;">잇데이로</button>
 <a class="btn" style="background:#3b82f6;text-align:center;display:block;text-decoration:none;line-height:24px;" href="https://nopo-lab.github.io/itdasy-admin/login.html">admin web 으로 가기</a>
 <script>
 const info = document.getElementById('info');
 const tok = document.getElementById('tok');
-const t = localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod') || localStorage.getItem('itdasy_token');
-if (!t) {
-  info.innerHTML = '<span class="err">⚠️ 토큰 없음</span><br>잇데이 앱에 카카오 로그인 먼저 한 후 다시 이 페이지 방문하세요.';
+const LOCAL_DIAG_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+const IS_LOCAL_DIAG = LOCAL_DIAG_HOSTS.has(location.hostname);
+const t = IS_LOCAL_DIAG
+  ? localStorage.getItem('itdasy_token::staging') || localStorage.getItem('itdasy_token::prod')
+  : null;
+document.getElementById('homeBtn').addEventListener('click', () => { location.href = './'; });
+function setInfo(lines, cls) {
+  info.replaceChildren();
+  lines.forEach((line, idx) => {
+    if (idx) info.appendChild(document.createElement('br'));
+    const span = document.createElement('span');
+    if (idx === 0 && cls) span.className = cls;
+    span.textContent = line;
+    info.appendChild(span);
+  });
+}
+if (!IS_LOCAL_DIAG) {
+  setInfo(['토큰 복사 페이지는 로컬 개발 환경에서만 열 수 있습니다.'], 'err');
+  tok.value = '';
+  document.getElementById('copyBtn').disabled = true;
+} else if (!t) {
+  setInfo(['⚠️ 토큰 없음', '잇데이 앱에 카카오 로그인 먼저 한 후 다시 이 페이지 방문하세요.'], 'err');
 } else {
-  info.innerHTML = '<span class="ok">✅ 토큰 발견 (' + t.length + '자)</span><br>아래 박스 텍스트 전체 선택 + 복사 → admin web 토큰 박스에 붙여넣기.';
+  setInfo(['✅ 토큰 발견 (' + t.length + '자)', '아래 박스 텍스트 전체 선택 + 복사 → admin web 토큰 박스에 붙여넣기.'], 'ok');
   tok.value = t;
-  // 자동 selection
   setTimeout(() => { tok.focus(); tok.select(); }, 200);
-  // payload 표시
   try {
     const p = JSON.parse(atob(t.split('.')[1]));
     const exp = new Date(p.exp * 1000).toLocaleString('ko-KR');
-    info.innerHTML += '<br><br>user_id: ' + p.sub + '<br>만료: ' + exp;
-  } catch (_) {}
+    info.append(document.createElement('br'), document.createElement('br'));
+    setInfo([
+      '✅ 토큰 발견 (' + t.length + '자)',
+      '아래 박스 텍스트 전체 선택 + 복사 → admin web 토큰 박스에 붙여넣기.',
+      'user_id: ' + p.sub,
+      '만료: ' + exp,
+    ], 'ok');
+  } catch (err) {
+    console.warn('[diag] token payload parse failed', err);
+  }
 }
 document.getElementById('copyBtn').addEventListener('click', async () => {
   if (!t) { alert('토큰 없음'); return; }

@@ -108,7 +108,7 @@
     sheet.innerHTML = `
       <div class="cust-detail" style="position:relative;width:100%;max-width:720px;margin:0 auto;min-height:100vh;background:var(--surface,#fff);">
         <div class="cv4-detail-mobile-head">
-          <button class="back" onclick="closeCustomerDashboard()" aria-label="뒤로가기">‹</button>
+          <button class="back" data-customer-dashboard-close aria-label="뒤로가기">‹</button>
           <div style="flex:1;text-align:center;font-size:15px;font-weight:600;color:var(--text);">고객 정보</div>
           <div style="width:36px;"></div>
         </div>
@@ -116,6 +116,7 @@
       </div>
     `;
     document.body.appendChild(sheet);
+    sheet.querySelector('[data-customer-dashboard-close]')?.addEventListener('click', () => closeCustomerDashboard());
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeCustomerDashboard(); });
     return sheet;
   }
