@@ -660,8 +660,22 @@
         img.replaceWith(span);
       }, { once: true });
     });
-    container.querySelector('[data-ms-persona-detail]')?.addEventListener('click', () => {
-      if (window.showDetailedAnalysis) window.showDetailedAnalysis();
+    // [2026-05-22] _renderPersonaCard 가 모바일·PC 양쪽에 렌더 → 카드 2개. querySelector 는
+    // 첫 번째만 매칭 → 사용자가 두 번째 누르면 무반응. querySelectorAll 로 모두 바인딩.
+    // 추가: window.showDetailedAnalysis 가 timing/error 로 undefined 인 케이스 fallback 토스트.
+    container.querySelectorAll('[data-ms-persona-detail]').forEach(_btn => {
+      _btn.addEventListener('click', () => {
+        if (typeof window.showDetailedAnalysis === 'function') {
+          try { window.showDetailedAnalysis(); }
+          catch (e) {
+            console.error('[ms-persona-detail] showDetailedAnalysis 실행 실패:', e);
+            if (window.showToast) window.showToast('리포트 표시 실패. 잠시 후 다시 시도해주세요');
+          }
+        } else {
+          console.warn('[ms-persona-detail] window.showDetailedAnalysis undefined — app-instagram.js 미로드?');
+          if (window.showToast) window.showToast('분석 모듈 로드중. 1~2초 후 다시 눌러주세요');
+        }
+      });
     });
   }
 
