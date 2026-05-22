@@ -335,10 +335,34 @@
   // [2026-05-01] 고급설정 — 토큰 절약 모드 토글
   function _renderAdvanced(settings) {
     const tplFirst = !!settings.prefer_template_first;
+    const autonomy = settings.autonomy_mode || 'confirm_high';
+    const MODES = [
+      { id: 'draft',         name: '조심', desc: '모든 답장 검토 후 발송' },
+      { id: 'confirm_high',  name: '균형', desc: '예약·가격만 검토, 인사·시간 자동' },
+      { id: 'auto',          name: '자율', desc: '위험·액션만 검토, 나머지 자동' },
+    ];
     return `
       <div class="dm-section">
         <div class="dm-section__title">고급설정 <span class="dm-section__help">스마트 응대 매뉴얼</span></div>
         <div class="dm-rows">
+          <div class="dm-rows__item" style="flex-direction:column;align-items:stretch;gap:8px;">
+            <div>
+              <div class="dm-rows__label" style="font-weight:700;color:#222;">응답 자율성</div>
+              <div style="font-size:11px;color:#888;margin-top:3px;line-height:1.45;">
+                AI 답장을 곧장 보낼지, 사장님이 본 뒤에 보낼지 정하세요.
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              ${MODES.map(m => `
+                <button type="button" class="dm-autonomy-btn ${m.id === autonomy ? 'is-on' : ''}" data-act="autonomy-mode" data-mode="${m.id}"
+                  style="flex:1;min-width:90px;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;
+                  ${m.id === autonomy ? 'background:linear-gradient(135deg,var(--accent,#f18091),#E96A7E);color:#fff;border:1px solid var(--accent,#f18091);' : 'background:#fff;color:#444;border:1px solid #e5e7eb;'}">
+                  <div style="font-size:13px;font-weight:800;margin-bottom:3px;">${m.name}</div>
+                  <div style="font-size:10px;font-weight:500;opacity:${m.id === autonomy ? '0.95' : '0.7'};line-height:1.35;">${m.desc}</div>
+                </button>
+              `).join('')}
+            </div>
+          </div>
           <div class="dm-rows__item">
             <div style="flex:1;">
               <div class="dm-rows__label" style="font-weight:700;color:#222;">표준 응대 우선</div>
@@ -490,7 +514,7 @@
         <div><span class="dm-card__cat">${_esc(cat)}</span></div>
         ${_renderThread(conv, tail, logId)}
         ${actInfo}
-        ${_renderMiniTone(activeTone)}
+        ${_renderMiniTone((logId && _userToneByLog.get(logId)) || activeTone)}
         <div class="dm-actions" style="display:flex;flex-direction:column;gap:6px;">
           <button type="button" class="dm-action is-send" data-act="send" style="width:100%;justify-content:center;">
             <i class="ph-duotone ph-paper-plane-tilt" style="font-size:12px" aria-hidden="true"></i>
@@ -663,11 +687,18 @@
     _notifyDMChanged();  // 내샵관리 DM 카운트 즉시 갱신
   }
 
+  // [2026-05-22] logId → 사장님이 카드별로 선택한 톤 보존. polling 재렌더 시에도 유지.
+  const _userToneByLog = new Map();
+
   function _handleMiniTone(card, tone) {
+    const logId = card.dataset.logId;
+    if (logId) _userToneByLog.set(String(logId), tone);
     card.querySelectorAll('.dm-mini-tone__chip').forEach(ch => {
       ch.classList.toggle('is-on', ch.dataset.tone === tone);
     });
-    // TODO[v1.5]: 톤 변경 시 즉시 새 초안 생성 — 지금은 UI만 토글
+    // [2026-05-22] 사장 보고: 톤 누르면 그 톤 답장이 와야 함. UI 만 토글하던 옛 동작 변경.
+    // _handleRegen 이 카드의 .is-on 칩 dataset.tone 으로 BE regenerate 호출.
+    try { _handleRegen(card).catch(() => {}); } catch (_e) { void _e; }
   }
 
   const _regenInFlight = new Set();  // logId별 중복 호출 방지
@@ -852,6 +883,33 @@
   // [2026-05-01] 고급설정 토글 + 멘트 관리 진입 핸들러
   // [Feature 5] 가격 문의 즉답 토글 초기화 + 저장
   function _bindAdvanced(sheet) {
+    // [2026-05-22] 자율성 모드 (조심/균형/자율) — 사장이 직접 변경. POST /dm-autoreply/settings.
+    sheet.querySelectorAll('[data-act="autonomy-mode"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (!['draft', 'confirm_high', 'auto'].includes(mode)) return;
+        // UI 즉시 토글
+        sheet.querySelectorAll('[data-act="autonomy-mode"]').forEach(b => {
+          const on = b.dataset.mode === mode;
+          b.classList.toggle('is-on', on);
+          // 인라인 스타일도 같이 토글 (re-render 안 해도 즉시 보이게)
+          if (on) {
+            b.style.cssText = b.style.cssText.replace(/background:[^;]+;?/g, '').replace(/color:[^;]+;?/g, '').replace(/border:[^;]+;?/g, '') +
+              ';background:linear-gradient(135deg,var(--accent,#f18091),#E96A7E);color:#fff;border:1px solid var(--accent,#f18091);';
+          } else {
+            b.style.cssText = b.style.cssText.replace(/background:[^;]+;?/g, '').replace(/color:[^;]+;?/g, '').replace(/border:[^;]+;?/g, '') +
+              ';background:#fff;color:#444;border:1px solid #e5e7eb;';
+          }
+        });
+        _saveSettings({ autonomy_mode: mode });
+        const label = mode === 'draft' ? '조심 — 모든 답장 검토 큐로 들어와요' :
+                      mode === 'confirm_high' ? '균형 — 단순 문의만 자동, 예약·가격은 검토' :
+                                                '자율 — 위험만 검토, 나머지 자동 발송';
+        _toast(label);
+        _haptic();
+      });
+    });
+
     sheet.querySelector('[data-act="tplfirst-toggle"]')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;
       const next = !btn.classList.contains('is-on');
