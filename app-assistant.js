@@ -16,6 +16,7 @@
   const _assistantCore = window.ItdasyAssistant || {};
   const _assistantPhotoActions = window.ItdasyAssistantPhotoActions || {};
   const _assistantSingleActions = window.ItdasyAssistantSingleActions || {};
+  const _assistantGroupActions = window.ItdasyAssistantGroupActions || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
     '캡션 만들어줘',
@@ -1706,6 +1707,20 @@
       })) {
         return;
       }
+      if (typeof _assistantGroupActions.handleClick === 'function' && _assistantGroupActions.handleClick(e, {
+        history: _history,
+        renderHistory: _renderHistory,
+        submitFallback: _submitFallback,
+        runUnifiedAll: _runUnifiedAll,
+        runGroupAll: _runGroupAll,
+        runGroupRow: _runGroupRow,
+        flushRowInputs: _flushRowInputs,
+        applyEditField: _applyEditField,
+        stripEmptyItems: _stripEmptyItems,
+        stripEmptyAdjustments: _stripEmptyAdjustments,
+      })) {
+        return;
+      }
       const sug = e.target.closest('[data-suggest]');
       const sheet = document.getElementById('assistantSheet');
       if (sug && sheet && sheet.contains(sug)) {
@@ -1726,210 +1741,6 @@
           const box = document.getElementById('asstTypeahead');
           if (box) { box.style.display = 'none'; box.innerHTML = ''; }
         }
-        return;
-      }
-      // Wave B4 — fallback 프리뷰 카드 액션
-      const fb = e.target.closest('[data-fallback-intent]');
-      if (fb && document.getElementById('asstBody')?.contains(fb)) {
-        _submitFallback(parseInt(fb.dataset.fallbackIdx, 10), fb.dataset.fallbackIntent);
-        return;
-      }
-      // 중복 의심 — "그래도 추가" (경고 카드 제거, action 은 그대로 실행 가능)
-      const dupProceed = e.target.closest('[data-dup-proceed]');
-      if (dupProceed && document.getElementById('asstBody')?.contains(dupProceed)) {
-        const [hi, wi] = dupProceed.dataset.dupProceed.split(':').map(n => parseInt(n, 10));
-        const msg = _history[hi];
-        if (msg && Array.isArray(msg.duplicate_warnings) && msg.duplicate_warnings[wi]) {
-          msg.duplicate_warnings[wi].dismissed = true;
-          _renderHistory();
-        }
-        return;
-      }
-      // 중복 의심 — "건너뛰기" (해당 action_index 를 skipped 로 마크, 경고도 제거)
-      const dupSkip = e.target.closest('[data-dup-skip]');
-      if (dupSkip && document.getElementById('asstBody')?.contains(dupSkip)) {
-        const [hi, wi] = dupSkip.dataset.dupSkip.split(':').map(n => parseInt(n, 10));
-        const msg = _history[hi];
-        if (msg && Array.isArray(msg.duplicate_warnings) && msg.duplicate_warnings[wi]) {
-          const warn = msg.duplicate_warnings[wi];
-          const targetIdx = warn.action_index;
-          warn.dismissed = true;
-          // 단일 액션: action 제거 + 상태 cancelled
-          if (msg.action && targetIdx === 0) {
-            msg.action_status = 'cancelled';
-            msg.action = null;
-            msg.edit_mode = false;
-          }
-          // 그룹 액션: origIdx 매칭되는 item 을 skipped 로 마크
-          if (Array.isArray(msg.action_groups)) {
-            msg.action_groups.forEach(g => {
-              (g.items || []).forEach(it => {
-                if (it && it.origIdx === targetIdx) {
-                  it.skipped = true;
-                  it.editing = false;
-                }
-              });
-            });
-          }
-          _renderHistory();
-        }
-        return;
-      }
-      // 통합 확인 카드 — 전체 추가 (순차 실행)
-      const uniRun = e.target.closest('[data-unified-runall]');
-      if (uniRun) {
-        const hi = parseInt(uniRun.dataset.unifiedRunall, 10);
-        console.log('[Asst] Unified Run All:', hi);
-        _runUnifiedAll(hi);
-        return;
-      }
-      // 통합 확인 카드 — 수정 (기존 그룹 카드로 전환)
-      const uniEdit = e.target.closest('[data-unified-edit]');
-      if (uniEdit) {
-        const hi = parseInt(uniEdit.dataset.unifiedEdit, 10);
-        console.log('[Asst] Unified Edit:', hi);
-        const msg = _history[hi];
-        if (msg && msg.action_groups) {
-          msg.unified_mode = false;
-          msg.action_groups.forEach(g => { g.expanded = true; });
-          _renderHistory();
-        }
-        return;
-      }
-      // 그룹 카드 — 접기·펴기
-      const tgl = e.target.closest('[data-group-toggle]');
-      if (tgl) {
-        const [hi, gi] = tgl.dataset.groupToggle.split(':').map(n => parseInt(n, 10));
-        const g = _history[hi] && _history[hi].action_groups && _history[hi].action_groups[gi];
-        if (g) { g.expanded = !g.expanded; _renderHistory(); }
-        return;
-      }
-      // 그룹 카드 — 전체(남은) 추가
-      const runAll = e.target.closest('[data-group-runall]');
-      if (runAll) {
-        const [hi, gi] = runAll.dataset.groupRunall.split(':').map(n => parseInt(n, 10));
-        _runGroupAll(hi, gi);
-        return;
-      }
-      // 행 — 단일 실행
-      const rowRun = e.target.closest('[data-row-run]');
-      if (rowRun && document.getElementById('asstBody')?.contains(rowRun)) {
-        const [hi, gi, ii] = rowRun.dataset.rowRun.split(':').map(n => parseInt(n, 10));
-        _runGroupRow(hi, gi, ii);
-        return;
-      }
-      // 행 — 편집 모드 진입
-      const rowEdit = e.target.closest('[data-row-edit]');
-      if (rowEdit && document.getElementById('asstBody')?.contains(rowEdit)) {
-        const [hi, gi, ii] = rowEdit.dataset.rowEdit.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) { it.editing = true; _renderHistory(); }
-        return;
-      }
-      // 행 — 편집 취소
-      const rowCancel = e.target.closest('[data-row-editcancel]');
-      if (rowCancel && document.getElementById('asstBody')?.contains(rowCancel)) {
-        const [hi, gi, ii] = rowCancel.dataset.rowEditcancel.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) { it.editing = false; _renderHistory(); }
-        return;
-      }
-      // 행 — 편집 저장
-      const rowSave = e.target.closest('[data-row-save]');
-      if (rowSave && document.getElementById('asstBody')?.contains(rowSave)) {
-        const [hi, gi, ii] = rowSave.dataset.rowSave.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) {
-          const key = `${hi}:${gi}:${ii}`;
-          const body = document.getElementById('asstBody');
-          if (body) {
-            if (!it.action.payload) it.action.payload = {};
-            const inputs = body.querySelectorAll(`[data-row-field^="${key}:"]`);
-            inputs.forEach(inp => {
-              const parts = inp.getAttribute('data-row-field').split(':');
-              const field = parts.slice(3).join(':');
-              _applyEditField(it.action, field, inp.value);
-            });
-            _stripEmptyItems(it.action.payload);
-            _stripEmptyAdjustments(it.action.payload);
-          }
-          it.editing = false;
-          _renderHistory();
-        }
-        return;
-      }
-      // 행 — 품목 추가
-      const rowItemAdd = e.target.closest('[data-row-item-add]');
-      if (rowItemAdd && document.getElementById('asstBody')?.contains(rowItemAdd)) {
-        const [hi, gi, ii] = rowItemAdd.dataset.rowItemAdd.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) {
-          _flushRowInputs(hi, gi, ii);
-          if (!it.action.payload) it.action.payload = {};
-          if (!Array.isArray(it.action.payload.items)) it.action.payload.items = [];
-          it.action.payload.items.push({ name: '', quantity: 1 });
-          _renderHistory();
-        }
-        return;
-      }
-      // 행 — 품목 삭제
-      const rowItemDel = e.target.closest('[data-row-item-delete]');
-      if (rowItemDel && document.getElementById('asstBody')?.contains(rowItemDel)) {
-        const parts = rowItemDel.dataset.rowItemDelete.split(':');
-        const hi = parseInt(parts[0], 10);
-        const gi = parseInt(parts[1], 10);
-        const ii = parseInt(parts[2], 10);
-        const iItem = parseInt(parts[3], 10);
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it && it.action?.payload?.items) {
-          _flushRowInputs(hi, gi, ii);
-          it.action.payload.items.splice(iItem, 1);
-          _renderHistory();
-        }
-        return;
-      }
-      // [QA-r11 PR3] 행 — 할인 추가/삭제
-      const rowAdjAdd = e.target.closest('[data-row-adjustment-add]');
-      if (rowAdjAdd && document.getElementById('asstBody')?.contains(rowAdjAdd)) {
-        const [hi, gi, ii] = rowAdjAdd.dataset.rowAdjustmentAdd.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) {
-          _flushRowInputs(hi, gi, ii);
-          if (!it.action.payload) it.action.payload = {};
-          if (!Array.isArray(it.action.payload.adjustments)) it.action.payload.adjustments = [];
-          it.action.payload.adjustments.push({ kind: '', amount: 0 });
-          _renderHistory();
-        }
-        return;
-      }
-      const rowAdjDel = e.target.closest('[data-row-adjustment-delete]');
-      if (rowAdjDel && document.getElementById('asstBody')?.contains(rowAdjDel)) {
-        const parts = rowAdjDel.dataset.rowAdjustmentDelete.split(':');
-        const hi = parseInt(parts[0], 10);
-        const gi = parseInt(parts[1], 10);
-        const ii = parseInt(parts[2], 10);
-        const iAdj = parseInt(parts[3], 10);
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it && it.action?.payload?.adjustments) {
-          _flushRowInputs(hi, gi, ii);
-          it.action.payload.adjustments.splice(iAdj, 1);
-          _renderHistory();
-        }
-        return;
-      }
-      // 행 — 제외 · 되돌리기
-      const rowSkip = e.target.closest('[data-row-skip]');
-      if (rowSkip && document.getElementById('asstBody')?.contains(rowSkip)) {
-        const [hi, gi, ii] = rowSkip.dataset.rowSkip.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) { it.skipped = true; it.editing = false; _renderHistory(); }
-        return;
-      }
-      const rowUnskip = e.target.closest('[data-row-unskip]');
-      if (rowUnskip && document.getElementById('asstBody')?.contains(rowUnskip)) {
-        const [hi, gi, ii] = rowUnskip.dataset.rowUnskip.split(':').map(n => parseInt(n, 10));
-        const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-        if (it) { it.skipped = false; _renderHistory(); }
         return;
       }
     }, false);
