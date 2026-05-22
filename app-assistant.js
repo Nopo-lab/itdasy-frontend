@@ -15,6 +15,7 @@
 
   const _assistantCore = window.ItdasyAssistant || {};
   const _assistantPhotoActions = window.ItdasyAssistantPhotoActions || {};
+  const _assistantSingleActions = window.ItdasyAssistantSingleActions || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
     '캡션 만들어줘',
@@ -1694,133 +1695,15 @@
       })) {
         return;
       }
-      const run = e.target.closest('[data-action-run]');
-      if (run && document.getElementById('asstBody')?.contains(run)) {
-        const idx = parseInt(run.dataset.actionRun, 10);
-        console.log('[Asst] Action Run Clicked:', idx);
-        _runAction(idx);
-        return;
-      }
-      const cancel = e.target.closest('[data-action-cancel]');
-      if (cancel && document.getElementById('asstBody')?.contains(cancel)) {
-        const idx = parseInt(cancel.dataset.actionCancel, 10);
-        if (_history[idx]) { _history[idx].action_status = 'cancelled'; _history[idx].action = null; _history[idx].edit_mode = false; }
-        _renderHistory();
-        return;
-      }
-      // 단일 액션 — 편집 모드 진입
-      const singleEdit = e.target.closest('[data-action-edit]');
-      if (singleEdit && document.getElementById('asstBody')?.contains(singleEdit)) {
-        const idx = parseInt(singleEdit.dataset.actionEdit, 10);
-        console.log('[Asst] Action Edit Clicked:', idx);
-        const msg = _history[idx];
-        if (msg && msg.action) {
-          // 실행 중이거나 완료된 경우 수정 불가
-          if (msg.action_status === 'running' || msg.action_status === 'done') {
-            if (window.showToast) window.showToast('이미 처리 중이거나 완료된 작업입니다');
-            return;
-          }
-          // 원본 payload 백업 (취소 시 복원용)
-          if (!msg.action_orig_payload) {
-            try { msg.action_orig_payload = JSON.parse(JSON.stringify(msg.action.payload || {})); }
-            catch (_e) { msg.action_orig_payload = {}; }
-          }
-          msg.edit_mode = true;
-          _renderHistory();
-        }
-        return;
-      }
-      // 단일 액션 — 편집 저장
-      const singleSave = e.target.closest('[data-action-save]');
-      if (singleSave && document.getElementById('asstBody')?.contains(singleSave)) {
-        const idx = parseInt(singleSave.dataset.actionSave, 10);
-        const msg = _history[idx];
-        if (msg && msg.action) {
-          const body = document.getElementById('asstBody');
-          if (body) {
-            if (!msg.action.payload) msg.action.payload = {};
-            const inputs = body.querySelectorAll(`[data-single-field^="${idx}:"]`);
-            inputs.forEach(inp => {
-              const parts = inp.getAttribute('data-single-field').split(':');
-              const field = parts.slice(1).join(':');
-              _applyEditField(msg.action, field, inp.value);
-            });
-            _stripEmptyItems(msg.action.payload);
-            _stripEmptyAdjustments(msg.action.payload);
-          }
-          msg.edit_mode = false;
-          _renderHistory();
-        }
-        return;
-      }
-      // 단일 액션 — 품목 추가
-      const singleItemAdd = e.target.closest('[data-single-item-add]');
-      if (singleItemAdd && document.getElementById('asstBody')?.contains(singleItemAdd)) {
-        const idx = parseInt(singleItemAdd.dataset.singleItemAdd, 10);
-        const msg = _history[idx];
-        if (msg && msg.action) {
-          _flushSingleInputs(idx);
-          if (!msg.action.payload) msg.action.payload = {};
-          if (!Array.isArray(msg.action.payload.items)) msg.action.payload.items = [];
-          msg.action.payload.items.push({ name: '', quantity: 1 });
-          _renderHistory();
-        }
-        return;
-      }
-      // 단일 액션 — 품목 삭제
-      const singleItemDel = e.target.closest('[data-single-item-delete]');
-      if (singleItemDel && document.getElementById('asstBody')?.contains(singleItemDel)) {
-        const parts = singleItemDel.dataset.singleItemDelete.split(':');
-        const idx = parseInt(parts[0], 10);
-        const iItem = parseInt(parts[1], 10);
-        const msg = _history[idx];
-        if (msg && msg.action && msg.action.payload && Array.isArray(msg.action.payload.items)) {
-          _flushSingleInputs(idx);
-          msg.action.payload.items.splice(iItem, 1);
-          _renderHistory();
-        }
-        return;
-      }
-      // [QA-r11 PR3] 단일 액션 — 할인 추가/삭제
-      const singleAdjAdd = e.target.closest('[data-single-adjustment-add]');
-      if (singleAdjAdd && document.getElementById('asstBody')?.contains(singleAdjAdd)) {
-        const idx = parseInt(singleAdjAdd.dataset.singleAdjustmentAdd, 10);
-        const msg = _history[idx];
-        if (msg && msg.action) {
-          _flushSingleInputs(idx);
-          if (!msg.action.payload) msg.action.payload = {};
-          if (!Array.isArray(msg.action.payload.adjustments)) msg.action.payload.adjustments = [];
-          msg.action.payload.adjustments.push({ kind: '', amount: 0 });
-          _renderHistory();
-        }
-        return;
-      }
-      const singleAdjDel = e.target.closest('[data-single-adjustment-delete]');
-      if (singleAdjDel && document.getElementById('asstBody')?.contains(singleAdjDel)) {
-        const parts = singleAdjDel.dataset.singleAdjustmentDelete.split(':');
-        const idx = parseInt(parts[0], 10);
-        const iAdj = parseInt(parts[1], 10);
-        const msg = _history[idx];
-        if (msg && msg.action && msg.action.payload && Array.isArray(msg.action.payload.adjustments)) {
-          _flushSingleInputs(idx);
-          msg.action.payload.adjustments.splice(iAdj, 1);
-          _renderHistory();
-        }
-        return;
-      }
-      // 단일 액션 — 편집 취소 (원본 복원)
-      const singleEditCancel = e.target.closest('[data-action-editcancel]');
-      if (singleEditCancel && document.getElementById('asstBody')?.contains(singleEditCancel)) {
-        const idx = parseInt(singleEditCancel.dataset.actionEditcancel, 10);
-        const msg = _history[idx];
-        if (msg && msg.action) {
-          if (msg.action_orig_payload) {
-            try { msg.action.payload = JSON.parse(JSON.stringify(msg.action_orig_payload)); }
-            catch (_e) { void _e; }
-          }
-          msg.edit_mode = false;
-          _renderHistory();
-        }
+      if (typeof _assistantSingleActions.handleClick === 'function' && _assistantSingleActions.handleClick(e, {
+        history: _history,
+        renderHistory: _renderHistory,
+        runAction: _runAction,
+        flushSingleInputs: _flushSingleInputs,
+        applyEditField: _applyEditField,
+        stripEmptyItems: _stripEmptyItems,
+        stripEmptyAdjustments: _stripEmptyAdjustments,
+      })) {
         return;
       }
       const sug = e.target.closest('[data-suggest]');
