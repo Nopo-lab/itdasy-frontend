@@ -3011,9 +3011,7 @@
     // [QA-r11 PR4-A 2026-05-16] 확장 — 갤러리/DM/영업시간/통계/백업/캡션/음성/리뷰/이탈/플랜.
     const ql = q.toLowerCase();
     const _shortcut = (fn) => { input.value = ''; try { fn(); } catch (_e) { void _e; } };
-    if (/직원\s*(추가|관리|등록|보여|목록|리스트)/.test(q) || /스타일리스트.*(추가|등록)/.test(q)) {
-      if (window.StaffUI && typeof window.StaffUI.open === 'function') { _shortcut(() => window.StaffUI.open()); return; }
-    }
+    // [2026-05-23] 직원 음성명령 분기 제거 — 1인샵 전용으로 단순화 (StaffUI 폐기).
     // [v168 2026-05-18] 사진 편집기 phrase shortcut — 백엔드 LLM 없이도 즉시 진입.
     if (/(사진|이미지|포토)\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
         || /(편집기|편집\s*화면|보정\s*화면|에디터)\s*(열|보여|시작|이동|가)?/.test(q)

@@ -79,7 +79,7 @@
     return `
       <div class="ms-section__title">샵 · 연동</div>
       <div class="ms-sh" id="shList">
-        ${_rowHTML('shopinfo', 'ic-store',      '샵 정보 · 직원',     '영업시간 · 시술 메뉴 · 직원', { boxColor: 'blue' })}
+        ${_rowHTML('shopinfo', 'ic-store',      '샵 정보',     '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
         ${_rowHTML('instagram','ic-link',       '인스타그램 연결 및 재연결', '콘텐츠 발행 · 말투 분석용', { boxColor: 'pink' })}
         ${_rowHTML('instagram_disconnect','ic-unlink','인스타그램 연결 해제', '토큰 즉시 폐기 · 잇데이 로그인은 유지', { boxColor: 'red', danger: true })}
         ${_rowHTML('naver',    'ic-link',       '네이버 예약 연동',   '연결 상태 확인', { metaClass: 'is-ok', boxColor: 'teal' })}

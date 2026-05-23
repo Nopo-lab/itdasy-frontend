@@ -1,9 +1,8 @@
 /* ───────────────────────────────────────────────────────────
-   app-shop-settings.js — 샵 정보 / 직원 관리 서브화면
-   2026-04-28 신규.
-   - 샵 이름·전화·주소·영업시간·1인샵 모드 토글
+   app-shop-settings.js — 샵 정보 서브화면
+   2026-04-28 신규. 2026-05-23 직원 기능 제거 (1인샵 전용).
+   - 샵 이름·전화·주소·영업시간·자동확정 토글
    - PUT /shop/settings (백엔드 미구현 시 graceful)
-   - 직원 목록은 1인샵 토글이 OFF 일 때만 노출 (스텁)
    ─────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -37,7 +36,7 @@
         <button type="button" class="ss-back" data-ss-back aria-label="뒤로">
           <i class="ph-duotone ph-arrow-left" aria-hidden="true"></i>
         </button>
-        <div class="ss-title">샵 정보 · 직원</div>
+        <div class="ss-title">샵 정보</div>
         <button type="button" class="ss-action" data-ss-save>저장</button>
       </header>
       <div class="ss-body">
@@ -58,25 +57,11 @@
           <div class="ss-card-tt">운영 모드</div>
           <div class="ss-toggle">
             <div>
-              <div class="ss-toggle-lbl">1인샵 모드</div>
-              <div class="ss-toggle-sub">원장님 한 분만 시술 — 직원 일정 비활성</div>
-            </div>
-            <div class="ss-switch is-on" id="ssSoloSwitch" role="switch" aria-checked="true" tabindex="0"></div>
-          </div>
-          <div class="ss-toggle">
-            <div>
               <div class="ss-toggle-lbl">예약 자동 확정</div>
               <div class="ss-toggle-sub">예약금 결제 완료 시 자동으로 확정 처리</div>
             </div>
             <div class="ss-switch is-on" id="ssAutoConfirmSwitch" role="switch" aria-checked="true" tabindex="0"></div>
           </div>
-        </div>
-
-        <div class="ss-card" id="ssStaffCard" style="display:none;">
-          <div class="ss-card-tt">직원</div>
-          <div class="ss-card-sub" id="ssStaffSub">2인 이상 운영 모드에서 직원 등록 가능 (플랜에 따라 인원 한도 다름).</div>
-          <div id="ssStaffList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
-          <button type="button" class="ss-cta-secondary" id="ssAddStaffBtn">+ 직원 추가</button>
         </div>
 
         <div class="ss-card">
@@ -124,110 +109,15 @@
     el.addEventListener('click', (e) => {
       if (e.target.closest('[data-ss-back]')) { closeShopSettings(); return; }
       if (e.target.closest('[data-ss-save]')) { _save(); return; }
-      // [2026-05-12 QA #11] 직원 추가 버튼 활성화 — 백엔드 /staff API 호출.
-      if (e.target.closest('#ssAddStaffBtn')) { _onAddStaff(); return; }
-      const _staffDel = e.target.closest('[data-staff-del]');
-      if (_staffDel) { _onDeleteStaff(_staffDel.dataset.staffDel); return; }
       const sw = e.target.closest('.ss-switch');
       if (sw) { sw.classList.toggle('is-on');
         sw.setAttribute('aria-checked', sw.classList.contains('is-on') ? 'true' : 'false');
-        _haptic(); _refreshStaffVisibility(); }
+        _haptic(); }
     });
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeShopSettings();
     });
     return el;
-  }
-
-  function _refreshStaffVisibility() {
-    const card = document.getElementById('ssStaffCard');
-    const solo = document.getElementById('ssSoloSwitch');
-    if (!card || !solo) return;
-    const visible = !solo.classList.contains('is-on');
-    card.style.display = visible ? 'block' : 'none';
-    if (visible) _hydrateStaffList().catch(() => {});
-  }
-
-  async function _hydrateStaffList() {
-    const list = document.getElementById('ssStaffList');
-    const sub  = document.getElementById('ssStaffSub');
-    if (!list) return;
-    list.innerHTML = '<div style="font-size:12px;color:var(--text3,#999);">불러오는 중…</div>';
-    try {
-      const res = await fetch(_api() + '/staff', { headers: { ..._auth() } });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const items = Array.isArray(data.items) ? data.items : (data || []);
-      const limit = data.plan_limit != null ? data.plan_limit : null;
-      const plan = data.plan || '';
-      if (sub && limit !== null) {
-        sub.textContent = `현재 ${items.length}명 등록 · ${plan || '멤버십'} 한도 ${limit}명. 한도 초과 시 잇데이 멤버십 확인 필요.`;
-      }
-      if (!items.length) {
-        list.innerHTML = '<div style="font-size:12px;color:var(--text3,#999);">아직 등록된 직원이 없어요.</div>';
-        return;
-      }
-      list.innerHTML = items.map(s => `
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F6F8FA;border-radius:10px;">
-          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${(s.color || '#ccc')};"></span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:700;color:var(--text,#222);">${_esc(s.name || '이름없음')}</div>
-            <div style="font-size:11px;color:var(--text3,#999);">${_esc(s.role || '')}</div>
-          </div>
-          <button type="button" data-staff-del="${s.id}" style="background:transparent;border:none;color:#dc2626;font-size:11px;cursor:pointer;">삭제</button>
-        </div>
-      `).join('');
-    } catch (e) {
-      list.innerHTML = `<div style="font-size:12px;color:#dc2626;">직원 목록 불러오기 실패 (${e && e.message || ''})</div>`;
-    }
-  }
-
-  function _esc(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  }
-
-  async function _onAddStaff() {
-    const name = prompt('직원 이름을 입력해주세요 (예: 이지수)');
-    if (!name || !name.trim()) return;
-    const role = prompt('역할 (선택사항, 예: 디자이너) — 비워도 됩니다') || '';
-    _haptic();
-    try {
-      const res = await fetch(_api() + '/staff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ..._auth() },
-        body: JSON.stringify({ name: name.trim(), role: role.trim() || null }),
-      });
-      if (!res.ok) {
-        let detail = '';
-        try { const j = await res.json(); detail = j.detail || ''; } catch (_e) { void _e; }
-        if (res.status === 402 || res.status === 403) {
-          _toast(detail || '멤버십 한도를 초과했어요. 잇데이 멤버십을 확인해 주세요.');
-        } else {
-          _toast('직원 추가 실패 — ' + (detail || ('HTTP ' + res.status)));
-        }
-        return;
-      }
-      _toast('직원 추가 완료');
-      await _hydrateStaffList();
-    } catch (e) {
-      _toast('직원 추가 실패 — ' + (e && e.message || ''));
-    }
-  }
-
-  async function _onDeleteStaff(id) {
-    if (!id) return;
-    if (!confirm('이 직원을 삭제할까요?')) return;
-    try {
-      const res = await fetch(_api() + '/staff/' + encodeURIComponent(id), {
-        method: 'DELETE',
-        headers: { ..._auth() },
-      });
-      if (!res.ok) { _toast('삭제 실패 (HTTP ' + res.status + ')'); return; }
-      _toast('삭제 완료');
-      await _hydrateStaffList();
-    } catch (e) {
-      _toast('삭제 실패 — ' + (e && e.message || ''));
-    }
   }
 
   // [2026-05-12 QA #10] 영업시간 자유텍스트 → 요일별 캘린더 UI.
@@ -340,11 +230,7 @@
       const el = document.getElementById(id);
       if (el) el.value = fields[id];
     });
-    // 토글 상태 복원
-    const solo = localStorage.getItem('itdasy_solo_mode');
-    const sw = document.getElementById('ssSoloSwitch');
-    if (sw && solo === '0') sw.classList.remove('is-on');
-    _refreshStaffVisibility();
+    // [2026-05-23] 1인샵 토글 복원 + _refreshStaffVisibility 제거 — 직원 기능 폐지.
     // 영업시간 hydrate — 백엔드 GET /shop/settings 우선, 실패 시 localStorage, 그것도 없으면 default
     let hours = _defaultHours();
     try {
@@ -382,7 +268,6 @@
       address: get('ssShopAddr'),
       hours: _hrText,
       business_hours_json: hoursObj ? JSON.stringify(hoursObj) : null,
-      solo_mode: document.getElementById('ssSoloSwitch')?.classList.contains('is-on') ? 1 : 0,
       auto_confirm: document.getElementById('ssAutoConfirmSwitch')?.classList.contains('is-on') ? 1 : 0,
     };
     if (!payload.shop_name) { _toast('샵 이름을 입력해주세요'); return; }

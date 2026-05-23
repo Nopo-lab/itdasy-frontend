@@ -53,7 +53,7 @@
         <label class="p9-sheet__field">이름 <input id="wlName" maxlength="30" placeholder="고객 이름"></label>
         <label class="p9-sheet__field">연락처 <input id="wlPhone" inputmode="tel" maxlength="30" placeholder="010-0000-0000"></label>
         <label class="p9-sheet__field">원하는 시간 <input id="wlWanted" maxlength="120" placeholder="예: 이번주 토요일 오후, 속눈썹 연장"></label>
-        <label class="p9-sheet__field">메모 <textarea id="wlMemo" rows="2" maxlength="200" placeholder="시술 종류, 선호 직원 등"></textarea></label>
+        <label class="p9-sheet__field">메모 <textarea id="wlMemo" rows="2" maxlength="200" placeholder="시술 종류 등"></textarea></label>
         <button type="button" class="p9-sheet__btn" data-wl-add>+ 추가</button>
         <div class="p9-sheet__list" id="wlList"></div>
       </div>`;
