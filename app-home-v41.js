@@ -884,16 +884,13 @@
     ].join('');
   }
 
-  // [2026-05-21] 시간 지난 미완료 예약 배너 — AI추천 바로 위, 0건이면 DOM 자체 없음.
+  // [2026-05-24] 완료 미체크 예약 배너 — BE brief.overdue_bookings (최근 7일) 사용.
+  // 이전: today_bookings + FE 시간 필터. 변경 이유: 오늘 외 어제·그저께 미처리도 잡아야 함.
   function _renderPendingCompleteBanner(brief) {
     if (!brief) return '';
-    const nowMs = Date.now();
-    const pending = (Array.isArray(brief.today_bookings) ? brief.today_bookings : []).filter(b => {
-      if (!b || !b.starts_at) return false;
-      const t = new Date(b.starts_at).getTime();
-      if (!Number.isFinite(t) || t >= nowMs) return false;
-      return !['completed', 'cancelled', 'no_show'].includes(b.status);
-    }).sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
+    const pending = Array.isArray(brief.overdue_bookings) ? brief.overdue_bookings.slice() : [];
+    // BE 가 이미 오래된 순 정렬해서 보냄. 안전망으로 한 번 더 정렬.
+    pending.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
 
     if (pending.length === 0) {
       try { delete window._homePendingTopId; } catch (_) { /* ignore */ }
@@ -918,7 +915,7 @@
     return `
       <section class="hv5-pending" aria-label="완료 미체크 예약">
         <div class="hv5-pending-l">
-          <div class="hv5-pending-cat">오늘 완료 안 한 예약</div>
+          <div class="hv5-pending-cat">완료 안 한 예약</div>
           <div class="hv5-pending-names">${_esc(nameLine)}</div>
           <div class="hv5-pending-sub">시술 끝났는데 완료 처리가 안 됐어요</div>
         </div>
