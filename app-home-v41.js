@@ -928,6 +928,7 @@
 
     return `
       <section class="hv5-pending" aria-label="완료 안 된 예약">
+        <span class="hv5-pending-bar" aria-hidden="true"></span>
         <div class="hv5-pending-l">
           <div class="hv5-pending-cat">완료 안 된 예약</div>
           <div class="hv5-pending-primary">${_esc(primaryLine)}</div>
@@ -1011,13 +1012,15 @@
       .hv5-noti-arrow{color:#C5CBD2;font-size:16px;line-height:1;flex-shrink:0}
 
       /* [2026-05-21] 완료 미체크 예약 배너 — AI추천 바로 위, 가벼운 amber 톤 */
-      /* [2026-05-24] hv5-card 와 동일 톤 — 배경 surface-2, radius 16, 그림자 미세. 노란 풀배경 X */
-      .hv5-pending{display:flex;align-items:center;gap:14px;padding:16px 18px;margin:0 0 14px;background:var(--surface-2,#F7F8FA);border:none;border-left:3px solid var(--brand-strong,#E5586E);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
-      .hv5-pending-l{flex:1;min-width:0}
+      /* [2026-05-24] 외곽 강조 제거 — 흰 카드 + 내부 세로바 (캘린더 .bk-bar 와 톤 일치) */
+      .hv5-pending{display:flex;align-items:stretch;gap:12px;padding:14px 16px;margin:0 0 14px;background:#fff;border:none;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
+      /* 캘린더 .bk-bar 와 같은 톤: width 3px, radius 2px, brand-strong */
+      .hv5-pending-bar{display:inline-block;width:3px;align-self:stretch;margin:4px 0;border-radius:2px;background:var(--brand-strong,#E5586E);flex-shrink:0}
+      .hv5-pending-l{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
       .hv5-pending-cat{font-size:11px;font-weight:700;color:var(--brand-strong,#E5586E);letter-spacing:-0.2px;margin-bottom:5px}
       .hv5-pending-primary{font-size:14px;font-weight:700;color:#191F28;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .hv5-pending-more{font-size:11px;color:#6B7684;margin-top:3px;letter-spacing:-0.2px}
-      .hv5-pending-cta{display:inline-flex;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;background:var(--brand-strong,#E5586E);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;letter-spacing:-0.2px;transition:background .12s}
+      .hv5-pending-more{font-size:13px;color:#6B7684;margin-top:4px;letter-spacing:-0.2px;font-weight:500}
+      .hv5-pending-cta{align-self:center;display:inline-flex;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;background:var(--brand-strong,#E5586E);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;letter-spacing:-0.2px;transition:background .12s}
       .hv5-pending-cta:hover{background:#D14860}
       .hv5-pending-cta i{font-size:14px;line-height:1}
 
