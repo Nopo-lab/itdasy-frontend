@@ -87,7 +87,6 @@
       <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
       <div class="ms-sh">
         ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'purple' })}
-        ${_rowHTML('powerview','ic-database',   '빠른 데이터 입력',   '고객·예약·매출·재고 한 번에', { boxColor: 'purple' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'purple' })}
         ${_rowHTML('undo',     'ic-rotate-ccw', 'AI 잇비 액션 되돌리기', '최근 30일 이력', { boxColor: 'amber' })}
@@ -250,7 +249,7 @@
     if (act === 'instagram_disconnect') { close(); setTimeout(() => window.disconnectInstagram && window.disconnectInstagram(), 200); return; }
     if (act === 'naver')     { close(); setTimeout(() => window.openNaverLink && window.openNaverLink(), 200); return; }
     if (act === 'persona')   { close(); setTimeout(() => window.runPersonaAnalyze && window.runPersonaAnalyze(true), 200); return; }
-    if (act === 'powerview') { close(); setTimeout(() => window.openPowerView && window.openPowerView('customer'), 200); return; }
+    // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
     if (act === 'sync')      { close(); setTimeout(() => window.forceSync && window.forceSync(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
     if (act === 'undo')      { close(); setTimeout(() => window.openUndoHistory && window.openUndoHistory(), 200); return; }

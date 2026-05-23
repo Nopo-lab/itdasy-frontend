@@ -103,7 +103,7 @@
   // hover/touch 리스너 — 위임 방식. tab-bar 버튼 + 자주 쓰는 nav 트리거
   function _bindHoverPrefetch() {
     const handler = (ev) => {
-      const t = ev.target && ev.target.closest && ev.target.closest('[data-prefetch], .tab-bar__btn, .tab-bar__fab, [data-tab], [data-metric], [data-pv-open], [data-open="calendar-view"], [onclick*="openCustomerSheet"], [onclick*="openRevenue"], [onclick*="openInventorySheet"], [onclick*="openBookingSheet"], [onclick*="openCalendarView"], [onclick*="openPowerView"], [onclick*="openShopManagement"], [onclick*="openManagementHub"], [onclick*="goCaption"]');
+      const t = ev.target && ev.target.closest && ev.target.closest('[data-prefetch], .tab-bar__btn, .tab-bar__fab, [data-tab], [data-metric], [data-open="calendar-view"], [onclick*="openCustomerSheet"], [onclick*="openRevenue"], [onclick*="openInventorySheet"], [onclick*="openBookingSheet"], [onclick*="openCalendarView"], [onclick*="openShopManagement"], [onclick*="openManagementHub"], [onclick*="goCaption"]');
       if (!t) return;
       // 명시적 data-prefetch="customer,revenue" 가 우선
       const explicit = t.getAttribute && t.getAttribute('data-prefetch');
@@ -127,13 +127,7 @@
         else if (PREFETCH_MAP[metric])   _prefetch(PREFETCH_MAP[metric].url, PREFETCH_MAP[metric].key);
         return;
       }
-      // 파워뷰 탭 직행 (data-pv-open="customer|booking|revenue|...")
-      const pvTab = t.getAttribute && t.getAttribute('data-pv-open');
-      if (pvTab) {
-        if (pvTab === 'booking')        _prefetch(_bookingRange(), 'pv_cache::bookings_all');
-        else if (PREFETCH_MAP[pvTab])   _prefetch(PREFETCH_MAP[pvTab].url, PREFETCH_MAP[pvTab].key);
-        return;
-      }
+      // [2026-05-24] data-pv-open (파워뷰 prefetch) 분기 제거 — 기능 폐지
       // 캘린더 뷰 직행
       if (t.getAttribute && t.getAttribute('data-open') === 'calendar-view') {
         _prefetch(_bookingRange(), 'pv_cache::bookings_all');
@@ -145,12 +139,7 @@
       if (oc.includes('openRevenue'))        _prefetch(PREFETCH_MAP.revenue.url,  PREFETCH_MAP.revenue.key);
       if (oc.includes('openInventorySheet')) _prefetch(PREFETCH_MAP.inventory.url, PREFETCH_MAP.inventory.key);
       if (oc.includes('openBookingSheet') || oc.includes('openCalendarView')) _prefetch(_bookingRange(), 'pv_cache::bookings_all');
-      if (oc.includes('openPowerView')) {
-        // openPowerView('customer') 같이 첫 인자로 탭이 오면 가능한 한 매칭
-        const m = oc.match(/openPowerView\(\s*['"]([a-z]+)['"]/i);
-        if (m && PREFETCH_MAP[m[1]]) _prefetch(PREFETCH_MAP[m[1]].url, PREFETCH_MAP[m[1]].key);
-        else _prefetch(PREFETCH_MAP.customer.url, PREFETCH_MAP.customer.key);
-      }
+      // [2026-05-24] openPowerView prefetch 분기 제거 — 기능 폐지
     };
     document.addEventListener('mouseenter', handler, true);
     document.addEventListener('touchstart', handler, { passive: true, capture: true });
