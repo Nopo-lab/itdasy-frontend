@@ -200,15 +200,34 @@
   // ============================================================
   // §4 통계 계산 (PC 좌측 + 헤더)
   // ============================================================
+  // [2026-05-24] 통계 재설계 — 오늘 그룹(노쇼 추가) + 현재 뷰 연동 그룹.
+  // estRevenue/"남은 예약 완료 시" 제거.
   function _calcStats(items) {
-    const todayDS = _ds(new Date());
-    let todayCnt = 0, todayDone = 0, todayWait = 0;
-    let weekCnt = 0;
-    let estRevenue = 0;
-    // 이번 주 범위
-    const now = new Date(); now.setHours(0,0,0,0);
-    const ws = new Date(now); ws.setDate(ws.getDate() - ws.getDay());
-    const we = new Date(ws); we.setDate(we.getDate() + 7);
+    const today = new Date();
+    const todayDS = _ds(today);
+    let todayCnt = 0, todayDone = 0, todayWait = 0, todayNoShow = 0;
+    let viewCnt = 0;
+
+    // 현재 뷰에 맞는 범위 계산
+    let viewStart, viewEnd, viewLabel, viewGroupLabel;
+    if (_curView === 'day') {
+      viewStart = new Date(_curDate); viewStart.setHours(0,0,0,0);
+      viewEnd = new Date(viewStart); viewEnd.setDate(viewEnd.getDate() + 1);
+      viewLabel = (viewStart.getMonth()+1) + '/' + viewStart.getDate();
+      viewGroupLabel = '선택일';
+    } else if (_curView === 'week') {
+      viewStart = new Date(_curDate); viewStart.setHours(0,0,0,0);
+      viewStart.setDate(viewStart.getDate() - viewStart.getDay());
+      viewEnd = new Date(viewStart); viewEnd.setDate(viewEnd.getDate() + 7);
+      const we = new Date(viewEnd); we.setDate(we.getDate() - 1);
+      viewLabel = `${viewStart.getMonth()+1}/${viewStart.getDate()} ~ ${we.getMonth()+1}/${we.getDate()}`;
+      viewGroupLabel = '이번주';
+    } else { // month
+      viewStart = new Date(_curYear, _curMonth - 1, 1);
+      viewEnd = new Date(_curYear, _curMonth, 1);
+      viewLabel = _curMonth + '월';
+      viewGroupLabel = '이번달';
+    }
 
     items.forEach(it => {
       const sd = new Date(it._raw.starts_at);
@@ -216,14 +235,17 @@
       if (itemDS === todayDS) {
         todayCnt++;
         if (it.status === 'completed') todayDone++;
-        else if (it.status !== 'cancelled' && it.status !== 'no_show') todayWait++;
-        if (it.status === 'completed' && it.amount) estRevenue += it.amount;
+        else if (it.status === 'no_show') todayNoShow++;
+        else if (it.status !== 'cancelled') todayWait++;
       }
-      if (sd >= ws && sd < we && it.status !== 'cancelled' && it.status !== 'no_show') {
-        weekCnt++;
+      if (sd >= viewStart && sd < viewEnd && it.status !== 'cancelled' && it.status !== 'no_show') {
+        viewCnt++;
       }
     });
-    return { todayCnt, todayDone, todayWait, weekCnt, estRevenue };
+
+    const DOW = '일월화수목금토';
+    const todayLabel = `${today.getMonth()+1}/${today.getDate()}(${DOW.charAt(today.getDay())})`;
+    return { todayCnt, todayDone, todayWait, todayNoShow, todayLabel, viewCnt, viewLabel, viewGroupLabel };
   }
 
   function _monthSummary(items) {
@@ -689,16 +711,30 @@
 
   // [2026-05-23] _renderStaffList 제거 — 직원 기능 폐지
 
+  // [2026-05-24] 새 마크업 — 오늘 그룹 (큰 숫자 + 완료/대기/노쇼 인라인) + 뷰 그룹.
   function _renderStats() {
-    const stats = _calcStats(_filterByStaff(_mappedCache));
-    let h = '<div class="bk-stats">';
-    h += '<div class="bk-stats__row"><div class="bk-stats__label">오늘 예약</div><div class="bk-stats__value">' + stats.todayCnt + '건</div></div>';
-    h += '<div class="bk-stats__row"><div class="bk-stats__label">완료</div><div class="bk-stats__value" style="color:var(--success,#10A56B)">' + stats.todayDone + '건</div></div>';
-    h += '<div class="bk-stats__row"><div class="bk-stats__label">대기</div><div class="bk-stats__value">' + stats.todayWait + '건</div></div>';
-    h += '<div class="bk-stats__row"><div class="bk-stats__label">이번주</div><div class="bk-stats__value">' + stats.weekCnt + '건</div></div>';
-    h += '<div class="bk-stats__row"><div class="bk-stats__label">남은 예약 완료 시</div><div class="bk-stats__value">' + (stats.estRevenue ? formatMoney(stats.estRevenue) : '-') + '</div></div>';
+    const s = _calcStats(_mappedCache);
+    let h = '<div class="bk-stats" style="display:flex;flex-direction:column;gap:14px;">';
+    h += '<div class="bk-stats__group" style="background:var(--surface-2);border-radius:14px;padding:14px 16px;">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--text-subtle);letter-spacing:-0.2px;">오늘 · ' + _esc(s.todayLabel) + '</div>';
+    h += '<div style="font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-top:4px;">예약 ' + s.todayCnt + '건</div>';
+    h += '<div style="font-size:11px;color:var(--text-subtle);margin-top:6px;letter-spacing:-0.2px;">';
+    h += '<span style="color:#10A56B;font-weight:600;">완료 ' + s.todayDone + '</span> · ';
+    h += '<span>대기 ' + s.todayWait + '</span> · ';
+    h += '<span style="color:var(--danger);">노쇼 ' + s.todayNoShow + '</span>';
+    h += '</div></div>';
+    h += '<div class="bk-stats__group" style="background:var(--surface-2);border-radius:14px;padding:14px 16px;">';
+    h += '<div style="font-size:11px;font-weight:700;color:var(--text-subtle);letter-spacing:-0.2px;">' + _esc(s.viewGroupLabel) + ' · ' + _esc(s.viewLabel) + '</div>';
+    h += '<div style="font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-top:4px;">예약 ' + s.viewCnt + '건</div>';
+    h += '</div>';
     h += '</div>';
     return h;
+  }
+
+  // [2026-05-24] 모바일 헤더 sub — 뷰 따라 이번달/이번주/그날 카운트
+  function _viewSubText() {
+    const s = _calcStats(_mappedCache);
+    return s.viewGroupLabel + ' 예약 ' + s.viewCnt + '건';
   }
 
   function _renderPCLeft() {
@@ -725,8 +761,8 @@
   // §15 모바일 진입 — 시트 오버레이
   // ============================================================
   function _renderMobileLayout() {
-    const summ = _monthSummary(_mappedCache);
-    const subTxt = '예약 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + formatMoney(summ.rev) : '');
+    // [2026-05-24] 뷰 연동 subTxt (이번달/이번주 카운트)
+    const subTxt = _viewSubText();
     const o = document.createElement('div');
     o.id = OVERLAY_ID;
     o.className = 'bk-root bk-root--mobile';
@@ -789,7 +825,7 @@
           </div>
           <button class="bk-today-btn" id="bk-today-btn" style="margin-left:4px;">오늘</button>
           <div class="bk-pc__spacer"></div>
-          <div class="bk-pc__stats" id="bk-pc-stats">${subTxt}</div>
+          <!-- [2026-05-24] #bk-pc-stats (이번달 N건·매출) 제거 — 좌측 통계로 일원화 -->
           <div class="bk-view">${viewBtns}</div>
           <button class="bk-pc__add-btn" id="bk-pc-add">+ 예약 추가</button>
           <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
@@ -797,8 +833,8 @@
   }
 
   function _renderPCLayout() {
-    const summ = _monthSummary(_mappedCache);
-    const subTxt = '이번달 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + formatMoney(summ.rev) : '');
+    // [2026-05-24] PC 헤더 stats 제거 — subTxt 더 이상 사용 안 함 (호환 위해 빈 문자열)
+    const subTxt = '';
     const o = document.createElement('div');
     o.id = OVERLAY_ID;
     o.className = 'bk-root bk-root--pc';
@@ -1020,15 +1056,8 @@
       lbl.textContent = _curYear + '년 ' + _curMonth + '월';
     }
     const sub = o.querySelector('#bk-month-sub');
-    if (sub) {
-      const summ = _monthSummary(_filterByStaff(_mappedCache));
-      sub.textContent = '예약 ' + summ.cnt + '건' + (summ.rev ? ' · 매출 ' + formatMoney(summ.rev) : '');
-    }
-    const pcStats = o.querySelector('#bk-pc-stats');
-    if (pcStats) {
-      const summ = _monthSummary(_filterByStaff(_mappedCache));
-      pcStats.innerHTML = '<div>이번달 <b>' + summ.cnt + '건</b></div>' + (summ.rev ? '<div>매출 <b>' + formatMoney(summ.rev) + '</b></div>' : '');
-    }
+    if (sub) sub.textContent = _viewSubText();
+    // [2026-05-24] PC #bk-pc-stats 갱신 분기 제거 — 헤더에서 통째 삭제됨
   }
 
   function _updateOfflineBadge() {
