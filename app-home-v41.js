@@ -884,12 +884,11 @@
     ].join('');
   }
 
-  // [2026-05-24] 완료 미체크 예약 배너 — BE brief.overdue_bookings (최근 7일) 사용.
-  // 이전: today_bookings + FE 시간 필터. 변경 이유: 오늘 외 어제·그저께 미처리도 잡아야 함.
+  // [2026-05-24] 완료 안 된 예약 배너 — BE brief.overdue_bookings (최근 7일) 사용.
+  // 대표 1건(가장 오래된) 상세 + "외 N건". 톤은 다른 hv5-card 와 통일 (노란 풀배경 X).
   function _renderPendingCompleteBanner(brief) {
     if (!brief) return '';
     const pending = Array.isArray(brief.overdue_bookings) ? brief.overdue_bookings.slice() : [];
-    // BE 가 이미 오래된 순 정렬해서 보냄. 안전망으로 한 번 더 정렬.
     pending.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
 
     if (pending.length === 0) {
@@ -898,26 +897,41 @@
       return '';
     }
 
-    // 가장 오래 지난 1건 — CompleteFlow 가 이걸 받음
+    // 대표 1건 — CompleteFlow 가 이걸 받음
     const top = pending[0];
     window._homePendingTopId = top.id;
     window._homePendingTopBooking = top;
 
-    // 이름 나열: 최대 3명, 4명+ → "ㅇㅇㅇ · ㅇㅇㅇ · ㅇㅇㅇ님 외 N명"
-    const names = pending.map(b => (b.customer_name || '손님').trim()).filter(Boolean);
-    let nameLine;
-    if (names.length <= 3) {
-      nameLine = names.join(' · ') + '님';
-    } else {
-      nameLine = names.slice(0, 3).join(' · ') + `님 외 ${names.length - 3}명`;
-    }
+    // 형식: "이호영님 · 5/22(목) 14:00 · 30인치"
+    const name = (top.customer_name || '손님').trim() + '님';
+    let dateTimeStr = '';
+    try {
+      const d = new Date(top.starts_at);
+      if (Number.isFinite(d.getTime())) {
+        const dow = '일월화수목금토'.charAt(d.getDay());
+        const M = d.getMonth() + 1;
+        const D = d.getDate();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        dateTimeStr = `${M}/${D}(${dow}) ${hh}:${mm}`;
+      }
+    } catch (_) { /* ignore */ }
+    const svc = (top.service_name || '').trim();
+    const primaryParts = [name];
+    if (dateTimeStr) primaryParts.push(dateTimeStr);
+    if (svc) primaryParts.push(svc);
+    const primaryLine = primaryParts.join(' · ');
+
+    const moreLine = pending.length > 1
+      ? `<div class="hv5-pending-more">외 ${pending.length - 1}건</div>`
+      : '';
 
     return `
-      <section class="hv5-pending" aria-label="완료 미체크 예약">
+      <section class="hv5-pending" aria-label="완료 안 된 예약">
         <div class="hv5-pending-l">
-          <div class="hv5-pending-cat">완료 안 한 예약</div>
-          <div class="hv5-pending-names">${_esc(nameLine)}</div>
-          <div class="hv5-pending-sub">시술 끝났는데 완료 처리가 안 됐어요</div>
+          <div class="hv5-pending-cat">완료 안 된 예약</div>
+          <div class="hv5-pending-primary">${_esc(primaryLine)}</div>
+          ${moreLine}
         </div>
         <button type="button" class="hv5-pending-cta" data-hv-act="completePending">
           완료 처리하러 가기
@@ -997,13 +1011,14 @@
       .hv5-noti-arrow{color:#C5CBD2;font-size:16px;line-height:1;flex-shrink:0}
 
       /* [2026-05-21] 완료 미체크 예약 배너 — AI추천 바로 위, 가벼운 amber 톤 */
-      .hv5-pending{display:flex;align-items:center;gap:14px;padding:16px 18px;margin:0 0 14px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:16px}
+      /* [2026-05-24] hv5-card 와 동일 톤 — 배경 surface-2, radius 16, 그림자 미세. 노란 풀배경 X */
+      .hv5-pending{display:flex;align-items:center;gap:14px;padding:16px 18px;margin:0 0 14px;background:var(--surface-2,#F7F8FA);border:none;border-left:3px solid var(--brand-strong,#E5586E);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
       .hv5-pending-l{flex:1;min-width:0}
-      .hv5-pending-cat{font-size:11px;font-weight:700;color:#B45309;letter-spacing:-0.2px;margin-bottom:4px}
-      .hv5-pending-names{font-size:15px;font-weight:700;color:#191F28;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .hv5-pending-sub{font-size:12px;color:#6B7684;margin-top:3px;letter-spacing:-0.2px}
-      .hv5-pending-cta{display:inline-flex;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;background:#191F28;color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;letter-spacing:-0.2px;transition:background .12s}
-      .hv5-pending-cta:hover{background:#3C4146}
+      .hv5-pending-cat{font-size:11px;font-weight:700;color:var(--brand-strong,#E5586E);letter-spacing:-0.2px;margin-bottom:5px}
+      .hv5-pending-primary{font-size:14px;font-weight:700;color:#191F28;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .hv5-pending-more{font-size:11px;color:#6B7684;margin-top:3px;letter-spacing:-0.2px}
+      .hv5-pending-cta{display:inline-flex;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;background:var(--brand-strong,#E5586E);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;letter-spacing:-0.2px;transition:background .12s}
+      .hv5-pending-cta:hover{background:#D14860}
       .hv5-pending-cta i{font-size:14px;line-height:1}
 
       /* 오늘의 예약 */
