@@ -23,7 +23,7 @@
 
   const OVERLAY_ID = 'cal-overlay';
   const STATE_KEY  = 'bk4_state';
-  const STAFF_CACHE_KEY = 'cv4_staff_cache';
+  // [2026-05-23] STAFF_CACHE_KEY 제거 — 직원 기능 폐지
 
   // === 2026 한국 공휴일 ===
   const HOLIDAYS_2026 = {
@@ -104,8 +104,7 @@
   }
   let _curDate = new Date();
   let _mappedCache = [];         // 현재 월 매핑된 예약
-  let _staffList = [];           // [{id, name, color_idx}, ...]
-  let _activeStaffIds = null;    // null = 전체, Set = 선택된 직원
+  // [2026-05-23] _staffList / _activeStaffIds 제거 — 직원 기능 폐지
   let _miniMonth = null;         // PC 미니캘 표시 월 {y, m}
   let _cachedIsPC = false;
 
@@ -172,12 +171,7 @@
     return items.map(b => {
       const s = new Date(b.starts_at), e = new Date(b.ends_at);
       const amt = (b.amount && b.amount > 0) ? b.amount : _catalogPriceFor(b.service_name);
-      // staff_idx: staff_id 가 있으면 _staffList 에서 인덱스 매칭, 없으면 0
-      let staffIdx = 0;
-      if (b.staff_id != null && _staffList.length) {
-        const i = _staffList.findIndex(s2 => String(s2.id) === String(b.staff_id));
-        if (i >= 0) staffIdx = i;
-      }
+      // [2026-05-23] staff_idx / staff_id 매핑 제거 — 직원 기능 폐지
       return {
         d: s.getDate(),
         t: s.toTimeString().slice(0, 5),
@@ -187,8 +181,6 @@
         id: b.id,
         status: b.status,
         amount: amt || null,
-        staff_id: b.staff_id || null,
-        staff_idx: staffIdx,
         _raw: b,
       };
     });
@@ -201,42 +193,9 @@
     return _mapItems(items);
   }
 
-  // === 직원 목록 (TODO[v1.5]: 백엔드 /staff 미구현 시 폴백) ===
-  async function _fetchStaff() {
-    try {
-      const cached = JSON.parse(localStorage.getItem(STAFF_CACHE_KEY) || 'null');
-      if (cached && Array.isArray(cached) && cached.length) return cached;
-    } catch (_e) { void _e; }
-    let list = null;
-    try {
-      if (window.API && window.authHeader) {
-        const r = await apiFetch('/staff', { headers: window.authHeader() });
-        if (r.ok) {
-          const d = await r.json();
-          if (Array.isArray(d.items) && d.items.length) {
-            list = d.items.map((s, i) => ({ id: s.id, name: s.name || '직원' + (i+1), color_idx: i }));
-          }
-        }
-      }
-    } catch (_e) { void _e; }
-    if (!list) {
-      // 폴백: 1인샵 기본 — 원장만
-      list = [{ id: 1, name: '원장', color_idx: 0 }];
-    }
-    try { localStorage.setItem(STAFF_CACHE_KEY, JSON.stringify(list)); } catch (_e) { void _e; }
-    return list;
-  }
-
-  // ============================================================
-  // §3 필터링 (직원)
-  // ============================================================
-  function _filterByStaff(items) {
-    if (!_activeStaffIds || _activeStaffIds.size === 0) return items;
-    return items.filter(it => {
-      if (it.staff_id == null) return _activeStaffIds.has(0); // 미지정 = 0
-      return _activeStaffIds.has(it.staff_id);
-    });
-  }
+  // [2026-05-23] _fetchStaff / _filterByStaff 제거 — 직원 기능 폐지.
+  // 호출부 인터페이스 호환을 위해 _filterByStaff 만 identity stub 으로 남겨둠.
+  function _filterByStaff(items) { return items; }
 
   // ============================================================
   // §4 통계 계산 (PC 좌측 + 헤더)
@@ -294,11 +253,11 @@
       const MAX = isPC ? 5 : 3;
       h += `<div class="${p}__events">`;
       its.slice(0, MAX).forEach((it, i) => {
-        const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+        // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
         const tm = _fmt(new Date(it._raw.starts_at));
         const dotColor = BK_COLOR_HEX[BK_COLORS[i % 5]];
         const dot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px;vertical-align:middle"></span>`;
-        h += `<div class="${p}__evt${s2}${_stCls(it.status)}">${dot}${tm} ${_esc(it.cust)}</div>`;
+        h += `<div class="${p}__evt${_stCls(it.status)}">${dot}${tm} ${_esc(it.cust)}</div>`;
       });
       if (its.length > MAX) h += `<div class="${p}__more">+${its.length - MAX}</div>`;
       h += '</div>';
@@ -384,11 +343,11 @@
       const top = (s.getHours() - startH) * HOUR_PX_MOBILE_DAY + (s.getMinutes() / 60) * HOUR_PX_MOBILE_DAY;
       const height = Math.max(20, Math.round(((e - s) / 60000) / 60 * HOUR_PX_MOBILE_DAY));
       const isDim = it.status === 'cancelled' || it.status === 'no_show';
-      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const dim = isDim ? ' is-dim' : '';
       const cc = ' bk-c-' + BK_COLORS[i % 5];  // [v6] 인덱스 순서대로 5색 순환
       const block = document.createElement('button');
-      block.className = 'bk-block bk-block--v6' + s2 + dim + cc + _stCls(it.status);
+      block.className = 'bk-block bk-block--v6'+ dim + cc + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.position = 'absolute';
       block.style.top = top + 'px';
@@ -480,10 +439,10 @@
       const cc = ' bk-c-' + BK_COLORS[di % 5];
       const top = (s.getMinutes() / 60) * HOUR_PX_MOBILE_WEEK;
       const height = Math.max(15, ((e - s) / 60000 / 60) * HOUR_PX_MOBILE_WEEK);
-      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
       const dim2 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-week-m__block bk-week-m__block--v6' + s2 + dim2 + cc + _stCls(it.status);
+      block.className = 'bk-week-m__block bk-week-m__block--v6'+ dim2 + cc + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
@@ -574,10 +533,10 @@
       const cc = ' bk-c-' + BK_COLORS[di % 5];
       const top = (s.getHours() - startH) * HOUR_PX_PC_WEEK + (s.getMinutes() / 60) * HOUR_PX_PC_WEEK;
       const height = Math.max(30, ((e - s) / 60000 / 60) * HOUR_PX_PC_WEEK);
-      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
       const dim3 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-week__block bk-week__block--v6' + s2 + dim3 + cc + _stCls(it.status);
+      block.className = 'bk-week__block bk-week__block--v6'+ dim3 + cc + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
@@ -593,30 +552,22 @@
   }
 
   // ============================================================
-  // §10 PC — 일간 뷰 (직원 컬럼 분할)
+  // §10 PC — 일간 뷰 (단일 컬럼) [2026-05-23 직원 컬럼 분할 제거]
   // ============================================================
   function _renderDayPC(date, mapped) {
     const tt = _ttHours();
     const dayDS = _ds(date);
-    const filtered = _filterByStaff(mapped).filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
+    const filtered = mapped.filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
     const { start, end } = _expandHoursForItems(tt.start, tt.end, filtered);
-    const staff = _staffList.length ? _staffList : [{ id: 1, name: '원장', color_idx: 0 }];
+    const totalCnt = filtered.length;
+    const totalRev = filtered.reduce((s, it) => s + (it.amount || 0), 0);
+    const meta = totalCnt + '건' + (totalRev ? ' · 매출 ' + formatMoney(totalRev) : '');
 
-    // grid columns 동적 계산 (CSS 기본 3 컬럼 - 필요 시 inline style)
     let h = '<div class="bk-pc-day" data-start-h="' + start + '">';
-    const colCount = staff.length;
-    const headerCols = `80px repeat(${colCount}, 1fr)`;
+    const headerCols = `80px 1fr`;
     h += `<div class="bk-pc-day__header" style="grid-template-columns:${headerCols}">`;
     h += '<div class="bk-pc-day__h-cell"></div>';
-    staff.forEach((sf, idx) => {
-      const dotCls = idx === 0 ? 'bk-staff-dot--pink' : (idx === 1 ? 'bk-staff-dot--gray' : 'bk-staff-dot--dark');
-      const cnt = filtered.filter(it => it.staff_idx === idx).length;
-      const rev = filtered.filter(it => it.staff_idx === idx).reduce((s, it) => s + (it.amount || 0), 0);
-      const meta = cnt + '건' + (rev ? ' · 매출 ' + formatMoney(rev) : '');
-      h += '<div class="bk-pc-day__h-cell">';
-      h += '<div class="bk-pc-day__h-staff-name"><span class="bk-staff-dot ' + dotCls + '"></span>' + _esc(sf.name) + '</div>';
-      h += '<div class="bk-pc-day__h-meta">' + meta + '</div></div>';
-    });
+    h += '<div class="bk-pc-day__h-cell"><div class="bk-pc-day__h-meta">' + meta + '</div></div>';
     h += '</div>';
 
     h += `<div class="bk-pc-day__grid" id="bk-pc-day-grid" style="grid-template-columns:${headerCols}">`;
@@ -625,31 +576,29 @@
       h += '<div class="bk-pc-day__time-cell">' + _pad(hr) + ':00</div>';
     }
     h += '</div>';
-    staff.forEach((sf, idx) => {
-      h += '<div class="bk-pc-day__staff-col" data-staff-idx="' + idx + '" data-staff-id="' + (sf.id || '') + '">';
-      for (let hr = start; hr < end; hr++) {
-        h += '<div class="bk-pc-day__hour" data-hour="' + hr + '" data-date="' + dayDS + '"></div>';
-      }
-      h += '</div>';
-    });
+    h += '<div class="bk-pc-day__col">';
+    for (let hr = start; hr < end; hr++) {
+      h += '<div class="bk-pc-day__hour" data-hour="' + hr + '" data-date="' + dayDS + '"></div>';
+    }
+    h += '</div>';
     h += '</div></div>';
-    return { html: h, items: filtered, start, staff };
+    return { html: h, items: filtered, start };
   }
 
   function _placeDayPCBlocks(grid, items, startH) {
     if (!grid) return;
+    const col = grid.querySelector('.bk-pc-day__col');
+    if (!col) return;
     items.forEach((it, i) => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
-      const col = grid.querySelector(`.bk-pc-day__staff-col[data-staff-idx="${it.staff_idx || 0}"]`);
-      if (!col) return;
       const top = (s.getHours() - startH) * HOUR_PX_PC_DAY + (s.getMinutes() / 60) * HOUR_PX_PC_DAY;
       const height = Math.max(40, ((e - s) / 60000 / 60) * HOUR_PX_PC_DAY);
-      const s2 = it.staff_idx >= 1 ? ' is-staff2' : '';
+      // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const cc = ' bk-c-' + BK_COLORS[i % 5];  // [v6] 인덱스 % 5
       const block = document.createElement('button');
       const dim4 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-pc-day__block bk-pc-day__block--v6' + s2 + dim4 + cc + _stCls(it.status);
+      block.className = 'bk-pc-day__block bk-pc-day__block--v6'+ dim4 + cc + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
@@ -738,25 +687,7 @@
     return h;
   }
 
-  function _renderStaffList() {
-    if (!_staffList.length) return '';
-    const filtered = _filterByStaff(_mappedCache);
-    let h = '<div class="bk-staff-list">';
-    h += '<div class="bk-staff-list__title">직원 필터</div>';
-    _staffList.forEach((sf, idx) => {
-      const isOn = !_activeStaffIds || _activeStaffIds.has(sf.id);
-      const dotCls = idx === 0 ? 'bk-staff-dot--pink' : (idx === 1 ? 'bk-staff-dot--gray' : 'bk-staff-dot--dark');
-      const cnt = filtered.filter(it => String(it.staff_id || '') === String(sf.id || '')).length;
-      h += '<button class="bk-staff-row" data-staff-toggle="' + sf.id + '">';
-      h += '<span class="bk-staff-row__check' + (isOn ? ' is-on' : '') + '">' + (isOn ? '✓' : '') + '</span>';
-      h += '<span class="bk-staff-dot ' + dotCls + '"></span>';
-      h += '<span class="bk-staff-row__name">' + _esc(sf.name) + '</span>';
-      h += '<span class="bk-staff-row__count">' + cnt + '</span>';
-      h += '</button>';
-    });
-    h += '</div>';
-    return h;
-  }
+  // [2026-05-23] _renderStaffList 제거 — 직원 기능 폐지
 
   function _renderStats() {
     const stats = _calcStats(_filterByStaff(_mappedCache));
@@ -771,7 +702,7 @@
   }
 
   function _renderPCLeft() {
-    return _renderMiniCal() + _renderStaffList() + _renderStats();
+    return _renderMiniCal() + _renderStats();
   }
 
   // ============================================================
@@ -779,16 +710,7 @@
   // ============================================================
   function _renderToolbar() {
     let h = '<div class="bk-toolbar">';
-    h += '<div class="bk-staff-chips">';
-    const allOn = !_activeStaffIds;
-    h += '<button class="bk-staff-chip' + (allOn ? ' is-on' : '') + '" data-staff-toggle="__all">전체</button>';
-    _staffList.forEach((sf, idx) => {
-      const isOn = !allOn && _activeStaffIds.has(sf.id);
-      const dotCls = idx === 0 ? 'bk-staff-dot--pink' : (idx === 1 ? 'bk-staff-dot--gray' : 'bk-staff-dot--dark');
-      h += '<button class="bk-staff-chip' + (isOn ? ' is-on' : '') + '" data-staff-toggle="' + sf.id + '">';
-      h += '<span class="bk-staff-dot ' + dotCls + '"></span>' + _esc(sf.name) + '</button>';
-    });
-    h += '</div>';
+    // [2026-05-23] 직원 칩 제거 — 직원 기능 폐지
     h += '<div class="bk-view">';
     // [v200 DAY_VIEW_HIDDEN] 일간 탭 제거 — 1인 샵에 과한 디테일.
     ['month','week'].forEach(v => {
@@ -939,25 +861,7 @@
   }
 
   function _bindToolbar(o) {
-    // 직원 칩
-    o.querySelectorAll('[data-staff-toggle]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const v = btn.dataset.staffToggle;
-        if (v === '__all') {
-          _activeStaffIds = null;
-        } else {
-          if (!_activeStaffIds) _activeStaffIds = new Set(_staffList.map(s => s.id));
-          const id = isNaN(+v) ? v : +v;
-          if (_activeStaffIds.has(id)) _activeStaffIds.delete(id);
-          else _activeStaffIds.add(id);
-          if (_activeStaffIds.size === 0) _activeStaffIds = null;
-        }
-        // 툴바 다시 그리기 + 뷰 본문 다시 그리기
-        const mount = o.querySelector('#bk-toolbar-mount');
-        if (mount) { mount.innerHTML = _renderToolbar(); _bindToolbar(o); }
-        _renderViewBody();
-      });
-    });
+    // [2026-05-23] 직원 칩 클릭 위임 제거 — 직원 기능 폐지
     // 뷰 토글
     o.querySelectorAll('.bk-toolbar .bk-view__btn').forEach(btn => {
       btn.addEventListener('click', () => _switchView(btn.dataset.view));
@@ -995,19 +899,7 @@
         }
       });
     });
-    // 직원 토글 (좌측 리스트)
-    left.querySelectorAll('[data-staff-toggle]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.staffToggle;
-        const idVal = isNaN(+id) ? id : +id;
-        if (!_activeStaffIds) _activeStaffIds = new Set(_staffList.map(s => s.id));
-        if (_activeStaffIds.has(idVal)) _activeStaffIds.delete(idVal);
-        else _activeStaffIds.add(idVal);
-        if (_activeStaffIds.size === 0) _activeStaffIds = null;
-        _refreshPCLeft();
-        _renderViewBody();
-      });
-    });
+    // [2026-05-23] 좌측 직원 토글 클릭 제거 — 직원 기능 폐지
   }
 
   function _refreshPCLeft() {
@@ -1414,7 +1306,6 @@
         메모 · 직원
       </button>
       <div class="bf-more-fields" id="bfMoreFields" style="display:none">
-        <div class="bf-section" style="margin-bottom:14px"><div class="bf-label">담당 직원</div><div class="bf-staff-row" id="bfStaffRow"></div></div>
         <div><div class="bf-label">메모</div>
           <textarea class="bf-memo" id="bfMemo" placeholder="시술 메모 · 알러지 · 요청사항 등" maxlength="200">${_esc(existing?.memo || '')}</textarea>
           <div class="bf-memo-counter" id="bfMemoCounter">${(existing?.memo || '').length} / 200</div>
@@ -1683,8 +1574,8 @@
     const moreToggle = body.querySelector('#bfMoreToggle');
     const moreFields = body.querySelector('#bfMoreFields');
     if (moreToggle && moreFields) {
-      // 수정 모드에서는 기본 열기
-      if (existing?.memo || existing?.staff_id) {
+      // 수정 모드에서는 기본 열기 (메모 있을 때만)
+      if (existing?.memo) {
         moreFields.style.display = '';
         moreToggle.classList.add('open');
       }
@@ -1701,29 +1592,7 @@
       });
     }
 
-    // --- 직원 칩 ---
-    let _staffId = existing?.staff_id || null;
-    (async () => {
-      const row = body.querySelector('#bfStaffRow');
-      if (!row) return;
-      let items = [];
-      try {
-        if (window.StaffUI?.list) { const d = await window.StaffUI.list(); items = (d?.items) || []; }
-        else if (window._staffCache?.items) items = window._staffCache.items;
-      } catch (_) { /* ignore */ }
-      if (!items.length) { row.innerHTML = '<span style="font-size:12px;color:var(--text-subtle)">등록된 직원이 없어요</span>'; return; }
-      const colors = ['#E5586E','#98A1AC','#0F1419','#A78BFA','#10A56B'];
-      row.innerHTML = items.map((s, i) =>
-        `<button type="button" class="bf-staff-btn${_staffId === s.id ? ' on' : ''}" data-staff-id="${s.id}"><span class="bf-staff-dot" style="background:${s.color || colors[i % 5]}"></span>${_esc(s.name || '')}</button>`
-      ).join('');
-      row.querySelectorAll('.bf-staff-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = Number(btn.dataset.staffId);
-          _staffId = _staffId === id ? null : id;
-          row.querySelectorAll('.bf-staff-btn').forEach(b => b.classList.toggle('on', Number(b.dataset.staffId) === _staffId));
-        });
-      });
-    })();
+    // [2026-05-23] 예약 폼 직원 칩 제거 — 직원 기능 폐지
 
     // --- 메모 카운터 ---
     const memo = body.querySelector('#bfMemo');
@@ -1761,7 +1630,7 @@
 
     // 공유 getter
     body._getCustId = () => custId;
-    body._getStaffId = () => _staffId;
+    // [2026-05-23] _getStaffId 제거 — 직원 기능 폐지
     body._getDurMin = () => _durMin;
     body._getStartH = () => { _readStart(); return _startH; };
     body._getStartM = () => { _readStart(); return _startM; };
@@ -1827,7 +1696,7 @@
         customer_name: body.querySelector('#bfCustName').value.trim() || null,
         service_name:  svcSelected || svcCustom || null,
         memo:          body.querySelector('#bfMemo').value.trim()      || null,
-        staff_id:      body._getStaffId?.() || null,
+        // [2026-05-23] staff_id 전송 제거 — 직원 기능 폐지
         amount:        amtVal > 0 ? amtVal : null,
         deposit:       depVal > 0 ? depVal : null,
       };
@@ -2053,8 +1922,7 @@
     _miniMonth = { y: _curYear, m: _curMonth };
     _cachedIsPC = _isPC();
 
-    // 직원 목록 먼저
-    try { _staffList = await _fetchStaff(); } catch (_e) { _staffList = [{ id: 1, name: '원장', color_idx: 0 }]; void _e; }
+    // [2026-05-23] 직원 목록 로드 제거 — 직원 기능 폐지
 
     // 레이아웃 진입
     if (_cachedIsPC) _renderPCLayout();

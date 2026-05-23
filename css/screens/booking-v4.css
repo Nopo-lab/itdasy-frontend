@@ -29,13 +29,11 @@
    ============================================================ */
 .bk-header__back,
 .bk-today-btn,
-.bk-staff-chip,
 .bk-view__btn,
 .bk-pc__nav-btn,
 .bk-pc__add-btn,
 .bk-fab,
-.bk-mini__nav button,
-.bk-staff-row {
+.bk-mini__nav button {
   appearance: none;
   -webkit-appearance: none;
   border: 0;
@@ -97,42 +95,6 @@
   align-items: center;
   gap: 8px;
 }
-.bk-staff-chips {
-  display: flex;
-  gap: 5px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  flex: 1;
-}
-.bk-staff-chips::-webkit-scrollbar { display: none; }
-
-.bk-staff-chip {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  font-size: 11.5px;
-  font-weight: 600;
-  background: var(--surface-2);
-  border: 0.5px solid var(--border);
-  border-radius: var(--r-pill);
-  color: var(--text-muted);
-}
-.bk-staff-chip.is-on {
-  background: var(--text);
-  color: var(--surface);
-  border-color: var(--text);
-}
-
-.bk-staff-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.bk-staff-dot--pink { background: var(--brand-strong); }
-.bk-staff-dot--gray { background: var(--text-subtle); }
-.bk-staff-dot--dark { background: var(--text); }
 
 .bk-view {
   display: flex;
@@ -279,23 +241,6 @@
   font-weight: 500;
   opacity: 0.85;
 }
-.bk-block__staff-dot {
-  position: absolute;
-  top: 7px;
-  right: 8px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.bk-block.is-staff2 {
-  background: var(--surface-2);
-  border-left-color: var(--text-muted);
-}
-.bk-block.is-staff2 .bk-block__title { color: var(--text); }
-.bk-block.is-staff2 .bk-block__sub {
-  color: var(--text-muted);
-  opacity: 1;
-}
 
 /* ============================================================
    §5 모바일 월간 뷰
@@ -375,10 +320,7 @@
   white-space: nowrap;
   font-weight: 600;
 }
-.bk-month-m__evt.is-staff2 {
-  background: var(--surface-2);
-  color: var(--text);
-}
+
 .bk-month-m__more {
   font-size: 8px;
   color: var(--text-subtle);
@@ -476,11 +418,6 @@
   font-weight: 700;
   color: var(--brand-strong);
   line-height: 1.2;
-}
-.bk-week-m__block.is-staff2 {
-  background: var(--surface-2);
-  border-left-color: var(--text-muted);
-  color: var(--text);
 }
 
 /* ============================================================
@@ -678,64 +615,6 @@
 /* ============================================================
    §10 PC 좌측 — 직원 리스트
    ============================================================ */
-.bk-staff-list {
-  background: var(--surface);
-  border: 0.5px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 12px;
-  margin-bottom: 14px;
-}
-.bk-staff-list__title {
-  font-size: 10px;
-  color: var(--text-subtle);
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-}
-.bk-staff-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 4px;
-  width: 100%;
-  background: transparent;
-  text-align: left;
-}
-.bk-staff-row:hover {
-  background: var(--surface-2);
-  border-radius: 6px;
-}
-.bk-staff-row__check {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  border: 1.5px solid var(--border-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--surface);
-}
-.bk-staff-row__check.is-on {
-  background: var(--text);
-  border-color: var(--text);
-}
-.bk-staff-row .bk-staff-dot {
-  width: 8px;
-  height: 8px;
-}
-.bk-staff-row__name {
-  flex: 1;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text);
-}
-.bk-staff-row__count {
-  font-size: 11px;
-  color: var(--text-subtle);
-  font-variant-numeric: tabular-nums;
-}
 
 /* ============================================================
    §11 PC 좌측 — 통계 카드
@@ -888,15 +767,6 @@
   font-weight: 500;
   opacity: 0.85;
 }
-.bk-week__block.is-staff2 {
-  background: var(--surface-2);
-  border-left-color: var(--text-muted);
-}
-.bk-week__block.is-staff2 .bk-week__block-title { color: var(--text); }
-.bk-week__block.is-staff2 .bk-week__block-sub {
-  color: var(--text-muted);
-  opacity: 1;
-}
 
 /* ============================================================
    §14 PC 월간 뷰
@@ -985,10 +855,7 @@
   cursor: pointer;
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.bk-pc-month__evt.is-staff2 {
-  background: var(--surface-2);
-  color: var(--text);
-}
+
 .bk-pc-month__evt:hover { transform: translateY(-1px); }
 .bk-pc-month__more {
   font-size: 10px;
@@ -1021,16 +888,7 @@
   border-left: none;
   padding-top: 18px;
 }
-.bk-pc-day__h-staff-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  color: var(--text);
-}
+
 .bk-pc-day__h-meta {
   font-size: 11px;
   color: var(--text-subtle);
@@ -1064,11 +922,6 @@
 }
 .bk-pc-day__time-cell:first-child { border-top: none; }
 
-.bk-pc-day__staff-col {
-  position: relative;
-  border-left: 0.5px solid var(--border);
-  background: var(--surface);
-}
 .bk-pc-day__hour {
   height: var(--bk-h-pc-day, 80px);
   border-top: 0.5px solid var(--border);
@@ -1115,16 +968,6 @@
   margin-top: 4px;
   font-weight: 500;
   opacity: 0.85;
-}
-.bk-pc-day__block.is-staff2 {
-  background: var(--surface-2);
-  border-left-color: var(--text-muted);
-}
-.bk-pc-day__block.is-staff2 .bk-pc-day__block-title { color: var(--text); }
-.bk-pc-day__block.is-staff2 .bk-pc-day__block-time,
-.bk-pc-day__block.is-staff2 .bk-pc-day__block-service {
-  color: var(--text-muted);
-  opacity: 1;
 }
 
 /* ============================================================

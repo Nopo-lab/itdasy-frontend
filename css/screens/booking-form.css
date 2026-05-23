@@ -413,41 +413,7 @@
   animation: bfFadeIn 180ms ease-out both;
 }
 
-/* ── 직원 선택 ───────────────────────────────────────────── */
-.bf-staff-row {
-  display: flex;
-  gap: 6px;
-}
-
-.bf-staff-btn {
-  flex: 1;
-  padding: 9px 0;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--surface-2, #F8F8F9);
-  border: 0.5px solid var(--border, rgba(15,20,25,0.06));
-  border-radius: 8px;
-  color: var(--text-muted, #5A6573);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  font-family: inherit;
-  transition: all 0.12s;
-}
-
-.bf-staff-btn.on {
-  background: var(--text, #0F1419);
-  color: white;
-  border-color: var(--text, #0F1419);
-}
-
-.bf-staff-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
+/* [2026-05-23] 직원 선택 클래스 (bf-staff-*) 제거 — 직원 기능 폐지 */
 
 /* ── 메모 ────────────────────────────────────────────────── */
 .bf-memo {
