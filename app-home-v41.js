@@ -942,23 +942,23 @@
       .hv5-card-link{font-size:12px;color:#6B7684;text-decoration:none;font-weight:600;cursor:pointer;transition:color .12s;background:none;border:none;font-family:inherit;padding:0}
       .hv5-card-link:hover{color:#191F28}
 
-      /* 매출 히어로 (와이드) — border 제거, 그림자만 */
-      .hv5-hero{background:linear-gradient(135deg,#FFF6F8 0%,var(--surface-2,#F7F8FA) 70%);border-radius:16px;border:1px solid var(--brand-bg,#F7EFF0);box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:26px 28px;display:flex;align-items:center;gap:32px;margin-bottom:14px}
+      /* 매출 히어로 (와이드) — 흰 배경 + 회색 stat [2026-05-24 메인홈 핑크 축소] */
+      .hv5-hero{background:var(--surface,#fff);border-radius:16px;border:1px solid var(--border,rgba(0,0,0,.06));box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:26px 28px;display:flex;align-items:center;gap:32px;margin-bottom:14px}
       .hv5-hero-l{flex:0 0 auto;min-width:280px}
       .hv5-hero-label{font-size:12px;font-weight:600;color:#333D4B;margin-bottom:8px;letter-spacing:-0.2px;display:flex;align-items:center;gap:8px}
-      .hv5-hero-label-month{padding:2px 8px;border-radius:999px;background:#F7EFF0;color:#BC6675;font-size:10px;font-weight:700}
-      .hv5-hero-amt{font-size:44px;font-weight:800;letter-spacing:-1.5px;line-height:1;color:#191F28;font-variant-numeric:tabular-nums}
+      .hv5-hero-label-month{padding:2px 8px;border-radius:999px;background:var(--surface-2,#F7F8FA);color:#6B7684;font-size:10px;font-weight:700}
+      .hv5-hero-amt{font-size:44px;font-weight:800;letter-spacing:-1.5px;line-height:1;color:var(--text,#191F28);font-variant-numeric:tabular-nums}
       .hv5-hero-meta{display:flex;gap:16px;margin-top:14px;align-items:center;flex-wrap:wrap}
       .hv5-hero-chip{font-size:13px;color:#6B7684;font-weight:500;letter-spacing:-0.2px}
       .hv5-hero-chip b{font-weight:700;color:#333D4B}
       .hv5-hero-r{flex:1;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
       .hv5-hero-r-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#6B7684;font-weight:600;cursor:pointer;text-decoration:none;padding:5px 10px;border-radius:999px;background:var(--surface-2,#F7F8FA);border:1px solid var(--border,rgba(0,0,0,.07));font-family:inherit;transition:color .12s}
-      .hv5-hero-r-link:hover{color:#BC6675}
+      .hv5-hero-r-link:hover{color:var(--text,#191F28)}
       .hv5-hero-stats{display:flex;gap:10px}
-      .hv5-hero-stat{flex:0 0 155px;background:rgba(255,255,255,0.7);border:1px solid var(--border,rgba(0,0,0,.07));border-radius:12px;padding:14px 16px}
+      .hv5-hero-stat{flex:0 0 155px;background:var(--surface-2,#F7F8FA);border:1px solid var(--border,rgba(0,0,0,.05));border-radius:12px;padding:14px 16px}
       .hv5-hero-stat-l{font-size:11px;font-weight:600;color:#6B7684;letter-spacing:-0.2px}
-      .hv5-hero-stat-v{font-size:17px;font-weight:700;margin-top:4px;letter-spacing:-0.3px;color:#191F28;font-variant-numeric:tabular-nums}
-      .hv5-hero-stat-v.pred{color:#BC6675}
+      .hv5-hero-stat-v{font-size:17px;font-weight:700;margin-top:4px;letter-spacing:-0.3px;color:var(--text,#191F28);font-variant-numeric:tabular-nums}
+      .hv5-hero-stat-v.pred{color:var(--text,#191F28)}
 
       /* 알림 (간결한 dot 리스트) */
       .hv5-noti-list{display:flex;flex-direction:column;gap:2px}
