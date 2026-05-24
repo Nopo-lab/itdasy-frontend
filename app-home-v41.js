@@ -295,16 +295,7 @@
     }
     */
 
-    // 4. DM 자동응답
-    const dmCnt = Number(dmQueueCnt) || 0;
-    if (dmCnt > 0) {
-      cards.push({ ok: 0, cat: 'DM 자동응답', dot: 'var(--purple,#7C3AED)',
-        hl: dmCnt + '건 답변 대기 중',
-        desc: 'AI가 초안 써뒀어요 · 승인만 하면 발송',
-        btn: '답변 확인', act: 'openDMConfirmQueue' });
-    } else {
-      cards.push({ ok: 1, cat: 'DM 자동응답', dot: '#10B981', okMsg: '대기 중인 답변 없어요' });
-    }
+    // [2026-05-24] DM 자동응답 카드 제거 — "AI 잇비가 챙겼어요" 박스에 일원화 (역할 분리)
 
     // 5. 요일별 매출 패턴 (항상 표시)
     cards.push({ ok: 0, cat: '요일별 매출', dot: '#3B82F6',
@@ -1214,19 +1205,7 @@
     if (onlinePendingCount > 0 && onlinePendingCount !== depositPending) {
       items.push({ tone: 'cyan', title: '새 예약 신청 들어왔어요', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });
     }
-    // 단골 안부 — at_risk
-    // [2026-05-20] 사실(며칠 전)만 표시. _relativeDays 재활용.
-    const atRisk = (brief && brief.at_risk) || [];
-    if (Array.isArray(atRisk) && atRisk.length > 0) {
-      const f = atRisk[0] || {};
-      const days = Number(f.days_since_last);
-      const relFn = window._relativeDays;
-      const name = f.name || '단골';
-      const desc = (f.name && Number.isFinite(days) && relFn)
-        ? `${name}님 · ${relFn(days)} 전 방문`
-        : '안부 한 통 보낼 타이밍이에요';
-      items.push({ tone: 'pink', title: '단골 안부', desc, count: atRisk.length, act: 'openInsights' });
-    }
+    // [2026-05-24] 단골 안부 alerts 항목 제거 — 단골은 캐러셀에만 (역할 분리)
     if (!items.length) return '';
     const total = items.reduce((s, it) => s + it.count, 0);
     return `<div class="hv5-card">
