@@ -879,67 +879,41 @@
       _renderHeaderV5(),
       _renderHeroV5(brief),
       middleRow,
-      _renderPendingCompleteBanner(brief),
+      // [2026-05-24] 독립 배너 폐지 → "확인 필요" 박스 (_renderAlertsV5) 에 흡수
       _renderAIRecsV5(cards),
     ].join('');
   }
 
-  // [2026-05-24] 완료 안 된 예약 배너 — BE brief.overdue_bookings (최근 7일) 사용.
-  // 대표 1건(가장 오래된) 상세 + "외 N건". 톤은 다른 hv5-card 와 통일 (노란 풀배경 X).
-  function _renderPendingCompleteBanner(brief) {
-    if (!brief) return '';
-    const pending = Array.isArray(brief.overdue_bookings) ? brief.overdue_bookings.slice() : [];
+  // [2026-05-24] 독립 배너 폐지 → "확인 필요" 박스 _renderAlertsV5 의 item 으로 흡수.
+  // overdue_bookings 대표 1건 정보는 "박수민님 · 5/22(금) 17:00" 형태로 desc 에.
+  function _overdueAlertContext(brief) {
+    const pending = Array.isArray(brief && brief.overdue_bookings) ? brief.overdue_bookings.slice() : [];
     pending.sort((a, b) => new Date(a.starts_at) - new Date(b.starts_at));
-
     if (pending.length === 0) {
       try { delete window._homePendingTopId; } catch (_) { /* ignore */ }
       try { delete window._homePendingTopBooking; } catch (_) { /* ignore */ }
-      return '';
+      return null;
     }
-
-    // 대표 1건 — CompleteFlow 가 이걸 받음
     const top = pending[0];
     window._homePendingTopId = top.id;
     window._homePendingTopBooking = top;
-
-    // 형식: "이호영님 · 5/22(목) 14:00 · 30인치"
+    // 형식: "박수민님 · 5/22(금) 17:00" + 여러건이면 "외 N건"
     const name = (top.customer_name || '손님').trim() + '님';
     let dateTimeStr = '';
     try {
       const d = new Date(top.starts_at);
       if (Number.isFinite(d.getTime())) {
         const dow = '일월화수목금토'.charAt(d.getDay());
-        const M = d.getMonth() + 1;
-        const D = d.getDate();
         const hh = String(d.getHours()).padStart(2, '0');
         const mm = String(d.getMinutes()).padStart(2, '0');
-        dateTimeStr = `${M}/${D}(${dow}) ${hh}:${mm}`;
+        dateTimeStr = `${d.getMonth()+1}/${d.getDate()}(${dow}) ${hh}:${mm}`;
       }
     } catch (_) { /* ignore */ }
-    const svc = (top.service_name || '').trim();
-    const primaryParts = [name];
-    if (dateTimeStr) primaryParts.push(dateTimeStr);
-    if (svc) primaryParts.push(svc);
-    const primaryLine = primaryParts.join(' · ');
-
-    const moreLine = pending.length > 1
-      ? `<div class="hv5-pending-more">외 ${pending.length - 1}건</div>`
-      : '';
-
-    return `
-      <section class="hv5-pending" aria-label="완료 안 된 예약">
-        <span class="hv5-pending-bar" aria-hidden="true"></span>
-        <div class="hv5-pending-l">
-          <div class="hv5-pending-cat">완료 안 된 예약</div>
-          <div class="hv5-pending-primary">${_esc(primaryLine)}</div>
-          ${moreLine}
-        </div>
-        <button type="button" class="hv5-pending-cta" data-hv-act="completePending">
-          완료 처리하러 가기
-          <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
-        </button>
-      </section>
-    `;
+    const parts = [name];
+    if (dateTimeStr) parts.push(dateTimeStr);
+    let desc = parts.join(' · ');
+    if (pending.length > 1) desc += ` · 외 ${pending.length - 1}건`;
+    return { count: pending.length, desc };
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1012,17 +986,7 @@
       .hv5-noti-arrow{color:#C5CBD2;font-size:16px;line-height:1;flex-shrink:0}
 
       /* [2026-05-21] 완료 미체크 예약 배너 — AI추천 바로 위, 가벼운 amber 톤 */
-      /* [2026-05-24] 외곽 강조 제거 — 흰 카드 + 내부 세로바 (캘린더 .bk-bar 와 톤 일치) */
-      .hv5-pending{display:flex;align-items:stretch;gap:12px;padding:14px 16px;margin:0 0 14px;background:#fff;border:none;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.04)}
-      /* 캘린더 .bk-bar 와 같은 톤: width 3px, radius 2px, brand-strong */
-      .hv5-pending-bar{display:inline-block;width:3px;align-self:stretch;margin:4px 0;border-radius:2px;background:var(--brand-strong,#E5586E);flex-shrink:0}
-      .hv5-pending-l{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
-      .hv5-pending-cat{font-size:11px;font-weight:700;color:var(--brand-strong,#E5586E);letter-spacing:-0.2px;margin-bottom:5px}
-      .hv5-pending-primary{font-size:14px;font-weight:700;color:#191F28;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .hv5-pending-more{font-size:13px;color:#6B7684;margin-top:4px;letter-spacing:-0.2px;font-weight:500}
-      .hv5-pending-cta{align-self:center;display:inline-flex;align-items:center;gap:4px;padding:10px 14px;border-radius:12px;background:var(--brand-strong,#E5586E);color:#fff;border:none;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;flex-shrink:0;letter-spacing:-0.2px;transition:background .12s}
-      .hv5-pending-cta:hover{background:#D14860}
-      .hv5-pending-cta i{font-size:14px;line-height:1}
+      /* [2026-05-24] hv5-pending 스타일 제거 — 독립 배너 폐지, 박스(hv5-noti)로 흡수 */
 
       /* 오늘의 예약 */
       .hv5-slots{display:flex;flex-direction:column}
@@ -1241,6 +1205,11 @@
     }
     if (dmQueueCount > 0) {
       items.push({ tone: 'purple', title: 'DM 자동응답 승인', desc: 'AI 잇비가 작성한 답장을 확인해 주세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
+    }
+    // [2026-05-24] 완료 안 된 예약 — 독립 배너 흡수
+    const overdue = _overdueAlertContext(brief);
+    if (overdue) {
+      items.push({ tone: 'pink', title: '완료 안 된 예약', desc: overdue.desc, count: overdue.count, act: 'completePending' });
     }
     if (onlinePendingCount > 0 && onlinePendingCount !== depositPending) {
       items.push({ tone: 'cyan', title: '온라인 예약 승인 대기', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });
