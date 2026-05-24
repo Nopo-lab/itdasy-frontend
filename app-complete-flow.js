@@ -151,128 +151,125 @@
         }
       }
 
-      /* ── 헤더 ── */
+      /* ── 헤더 ── [2026-05-24 메인홈 hv5 톤으로 평탄화] */
       .cf-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:20px; }
       .cf-title-wrap { flex:1; min-width:0; }
-      .cf-title { font-size:19px; font-weight:800; color:#111827; letter-spacing:-0.5px; line-height:1.2; }
-      .cf-subtitle { font-size:12.5px; color:#6B7280; margin-top:4px; font-weight:500; letter-spacing:-0.2px; }
+      .cf-title { font-size:19px; font-weight:700; color:var(--text,#191F28); letter-spacing:-0.5px; line-height:1.2; }
+      .cf-subtitle { font-size:12.5px; color:var(--text-muted,#6B7684); margin-top:4px; font-weight:500; letter-spacing:-0.2px; }
       .cf-close {
-        background:rgba(0,0,0,0.04); border:none;
+        background:var(--surface-2,#F7F8FA); border:none;
         width:34px; height:34px; border-radius:50%;
-        font-size:15px; cursor:pointer; color:#4B5563;
+        font-size:15px; cursor:pointer; color:var(--text-muted,#6B7684);
         transition: background .15s ease;
         flex-shrink:0;
       }
-      .cf-close:hover { background:rgba(0,0,0,0.08); }
+      .cf-close:hover { background:var(--surface-3,#EBEBED); }
 
       .cf-body { flex:1; overflow-y:auto; }
 
       /* ── 섹션 ── */
       .cf-section-label {
-        font-size:11.5px; font-weight:700; color:#9CA3AF;
+        font-size:11.5px; font-weight:700; color:var(--text-subtle,#9CA3AF);
         margin-bottom:8px; letter-spacing:0.2px;
         text-transform:uppercase;
       }
 
-      /* ── 고객 정보 카드 ── */
+      /* ── 고객 정보 카드 — flat 회색 ── */
       .cf-info-box {
         padding:16px 18px;
-        background:linear-gradient(135deg, #FFF5F7 0%, #FFEFF3 100%);
-        border-radius:16px; margin-bottom:18px;
-        border:1px solid rgba(229, 88, 110, 0.08);
+        background:var(--surface-2,#F7F8FA);
+        border-radius:12px; margin-bottom:18px;
+        border:0.5px solid var(--border,rgba(0,0,0,.06));
       }
-      .cf-info-box .cf-section-label { color:#9F4858; }
-      .cf-info-name { font-size:20px; font-weight:800; color:#111827; letter-spacing:-0.5px; line-height:1.2; }
-      .cf-info-svc  { font-size:13.5px; color:#6B7280; font-weight:600; margin-top:6px; letter-spacing:-0.2px; }
+      .cf-info-box .cf-section-label { color:var(--text-subtle,#9CA3AF); }
+      .cf-info-name { font-size:20px; font-weight:700; color:var(--text,#191F28); letter-spacing:-0.5px; line-height:1.2; }
+      .cf-info-svc  { font-size:13.5px; color:var(--text-muted,#6B7684); font-weight:500; margin-top:6px; letter-spacing:-0.2px; }
 
       /* ── 금액 입력 ── */
       .cf-amount-row {
         display:flex; align-items:baseline; gap:6px;
         margin-bottom:16px; padding:16px 18px;
-        background:#F9FAFB; border:1.5px solid #E5E7EB;
-        border-radius:16px;
+        background:var(--surface-2,#F7F8FA); border:0.5px solid var(--border,rgba(0,0,0,.06));
+        border-radius:12px;
         transition: border-color .15s ease, background .15s ease;
       }
       .cf-amount-row:focus-within {
-        border-color:#BC6675;
-        background:#fff;
-        box-shadow:0 0 0 4px rgba(229, 88, 110, 0.08);
+        border-color:var(--brand-strong,#BC6675);
+        background:var(--surface,#fff);
       }
       .cf-amount-row input {
-        font-size:24px; font-weight:800; color:#111827;
+        font-size:24px; font-weight:700; color:var(--text,#191F28);
         letter-spacing:-0.6px;
         font-family:inherit;
       }
-      .cf-amount-row input::placeholder { color:#D1D5DB; font-weight:700; }
+      .cf-amount-row input::placeholder { color:var(--text-subtle,#D1D5DB); font-weight:500; }
 
-      /* ── 결제수단 pills ── */
+      /* ── 결제수단 pills — flat ── */
       .cf-method-pills { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:18px; }
       .cf-pill {
-        padding:13px 8px; border:1.5px solid #E5E7EB; border-radius:14px;
-        font-size:13.5px; font-weight:700; cursor:pointer;
-        background:#fff; color:#4B5563;
+        padding:13px 8px; border:0.5px solid var(--border,rgba(0,0,0,.08)); border-radius:12px;
+        font-size:13.5px; font-weight:600; cursor:pointer;
+        background:var(--surface,#fff); color:var(--text-muted,#6B7684);
         transition: all .15s ease;
         font-family:inherit;
         letter-spacing:-0.2px;
       }
-      .cf-pill:hover { background:#F9FAFB; border-color:#D1D5DB; }
+      .cf-pill:hover { background:var(--surface-2,#F7F8FA); border-color:var(--border-strong,rgba(0,0,0,.12)); }
       .cf-pill.active {
-        background:linear-gradient(135deg, #FFE8EC 0%, #FFD9DF 100%);
-        color:#C53A52;
-        border-color:#BC6675;
-        box-shadow:0 2px 8px rgba(229, 88, 110, 0.15);
+        background:var(--brand-bg,#F7EFF0);
+        color:var(--brand-strong,#BC6675);
+        border-color:var(--brand-strong,#BC6675);
       }
 
       /* ── 자동 처리 안내 ── */
       .cf-auto-preview {
         margin-bottom:20px; padding:14px 16px;
-        background:#F9FAFB; border:1px solid #F3F4F6;
-        border-radius:14px;
+        background:var(--surface-2,#F7F8FA); border:0.5px solid var(--border,rgba(0,0,0,.06));
+        border-radius:12px;
       }
       .cf-preview-row {
         display:flex; align-items:center; gap:10px;
-        padding:4px 0; font-size:13px; color:#4B5563;
+        padding:4px 0; font-size:13px; color:var(--text-muted,#6B7684);
         font-weight:500; letter-spacing:-0.2px;
       }
       .cf-check {
         display:inline-flex; align-items:center; justify-content:center;
         width:18px; height:18px; border-radius:50%;
         background:#10B981; color:#fff;
-        font-size:10px; font-weight:900;
+        font-size:10px; font-weight:700;
         flex-shrink:0;
       }
 
       /* ── 메인 액션 ── */
       .cf-actions { display:flex; gap:10px; }
       .cf-btn-skip {
-        flex:1; padding:15px; border:1.5px solid #E5E7EB; border-radius:14px;
-        background:#fff; cursor:pointer; color:#4B5563;
-        font-weight:700; font-size:14px;
+        flex:1; padding:15px; border:0.5px solid var(--border,rgba(0,0,0,.08)); border-radius:12px;
+        background:var(--surface,#fff); cursor:pointer; color:var(--text-muted,#6B7684);
+        font-weight:600; font-size:14px;
         font-family:inherit; letter-spacing:-0.2px;
         transition: all .15s ease;
       }
-      .cf-btn-skip:hover { background:#F9FAFB; border-color:#D1D5DB; }
+      .cf-btn-skip:hover { background:var(--surface-2,#F7F8FA); border-color:var(--border-strong,rgba(0,0,0,.12)); }
       .cf-btn-save {
-        flex:2; padding:15px; border:none; border-radius:14px;
-        background:linear-gradient(135deg, #D58A95 0%, #BC6675 100%);
-        color:#fff; cursor:pointer; font-weight:800; font-size:15px;
+        flex:2; padding:15px; border:none; border-radius:12px;
+        background:var(--brand-strong,#BC6675);
+        color:#fff; cursor:pointer; font-weight:700; font-size:15px;
         font-family:inherit; letter-spacing:-0.3px;
-        box-shadow:0 4px 14px rgba(229, 88, 110, 0.32);
-        transition: transform .12s ease, box-shadow .15s ease;
+        transition: transform .12s ease, background .15s ease;
       }
-      .cf-btn-save:hover { transform:translateY(-1px); box-shadow:0 6px 18px rgba(229, 88, 110, 0.4); }
-      .cf-btn-save:active { transform:translateY(0); }
+      .cf-btn-save:hover { background:var(--brand,#D58A95); }
+      .cf-btn-save:active { transform:translateY(1px); }
 
       /* ── 보조 액션 ── */
-      .cf-sub-actions { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #F3F4F6; }
+      .cf-sub-actions { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:0.5px solid var(--border,rgba(0,0,0,.06)); }
       .cf-sub-btn {
-        flex:1; padding:12px; border:1px solid #E5E7EB; border-radius:12px;
-        background:#fff; cursor:pointer; color:#4B5563;
-        font-weight:600; font-size:13px; font-family:inherit;
+        flex:1; padding:12px; border:0.5px solid var(--border,rgba(0,0,0,.08)); border-radius:10px;
+        background:var(--surface,#fff); cursor:pointer; color:var(--text-muted,#6B7684);
+        font-weight:500; font-size:13px; font-family:inherit;
         letter-spacing:-0.2px;
         transition: all .15s ease;
       }
-      .cf-sub-btn:hover { background:#F9FAFB; color:#111827; border-color:#D1D5DB; }
+      .cf-sub-btn:hover { background:var(--surface-2,#F7F8FA); color:var(--text,#191F28); border-color:var(--border-strong,rgba(0,0,0,.12)); }
     `;
     document.head.appendChild(s);
   }
