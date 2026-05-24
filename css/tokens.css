@@ -3,10 +3,10 @@
    이 파일이 유일한 토큰 원천(SSOT). style-base.css :root 는 alias만 유지. */
 
 :root {
-  /* §1 컬러 — 라이트 */
-  --brand:         #F18091;
-  --brand-strong:  #E5586E;
-  --brand-bg:      #FFF1F3;
+  /* §1 컬러 — 라이트 [2026-05-24 차분한 로즈 A] */
+  --brand:         #D58A95;
+  --brand-strong:  #BC6675;
+  --brand-bg:      #F7EFF0;
   --bg:            #F2F4F6;
   --frame:         #E8ECF1;
   --surface:       #FFF;
@@ -42,7 +42,7 @@
   /* §3 그림자 */
   --shadow-sm:    0 2px 8px rgba(0,0,0,.04);
   --shadow-md:    0 8px 24px rgba(0,0,0,.08);
-  --shadow-brand: 0 10px 24px rgba(241,128,145,.30);
+  --shadow-brand: 0 10px 24px rgba(213,138,149,.30);
   --shadow-xl:    0 24px 60px rgba(0,0,0,.18);
 
   /* §3 전역 */
