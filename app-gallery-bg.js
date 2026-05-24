@@ -12,7 +12,7 @@ const DEFAULT_BACKGROUNDS = [
   // 썸네일 미리보기는 CSS gradient(아래 gradient 필드)로 그려지고, 실제 합성은 비율(1:1/4:5/9:16)에 맞춰 캔버스 procedural 로 재생성.
   { id: 'bg_marble', name: '대리석', type: 'procedural', render: 'marble', color: '#f4f2ef', gradient: 'linear-gradient(135deg,#f6f4f1 0%,#eceae6 45%,#f8f6f3 70%,#dcd9d4 100%)' },
   { id: 'bg_beige_minimal', name: '베이지 미니멀', type: 'procedural', render: 'beige', color: '#f5ebdd', gradient: 'linear-gradient(180deg,#f7eee1 0%,#f0e3d0 100%)' },
-  { id: 'bg_pink_gradient', name: '핑크 그라데이션', type: 'procedural', render: 'pink_radial', color: '#fdd8e0', gradient: 'radial-gradient(circle at 50% 40%,#fdd8e0 0%,#f5a9b8 60%,#f18091 100%)' },
+  { id: 'bg_pink_gradient', name: '핑크 그라데이션', type: 'procedural', render: 'pink_radial', color: '#fdd8e0', gradient: 'radial-gradient(circle at 50% 40%,#fdd8e0 0%,#f5a9b8 60%,#D58A95 100%)' },
   { id: 'bg_black_lux', name: '블랙 럭셔리', type: 'procedural', render: 'black_lux', color: '#1a1a1f', gradient: 'linear-gradient(180deg,#22222a 0%,#1a1a1f 60%,#0f0f13 100%)' },
 ];
 

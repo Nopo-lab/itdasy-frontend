@@ -85,7 +85,7 @@
 
   // [2026-05-17 v6] 캘린더 블록 색 — 인덱스 순서대로 5색 순환. 하루 안에서 차례 (mockup-calendar-blocks)
   const BK_COLORS = ['pink', 'blue', 'teal', 'purple', 'orange'];
-  const BK_COLOR_HEX = { pink: '#E5586E', blue: '#3B82F6', teal: '#0D9488', purple: '#7C3AED', orange: '#EA580C' };
+  const BK_COLOR_HEX = { pink: '#BC6675', blue: '#3B82F6', teal: '#0D9488', purple: '#7C3AED', orange: '#EA580C' };
   const PC_BREAKPOINT       = 1100;
 
   // === 상태 ===

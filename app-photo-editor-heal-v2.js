@@ -176,7 +176,7 @@
     const btn = document.getElementById('peHealToggle');
     if (!btn) return;
     btn.textContent = _enabled ? '잡티 클릭 모드 ON (끄기)' : '잡티 자동 제거 켜기';
-    btn.style.background = _enabled ? '#F18091' : 'linear-gradient(135deg,#c87c8a,#7b61ff)';
+    btn.style.background = _enabled ? '#D58A95' : 'linear-gradient(135deg,#c87c8a,#7b61ff)';
   }
 
   // brush 탭 활성 시 자동 주입 (MutationObserver — v218 pattern)

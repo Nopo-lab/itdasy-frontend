@@ -35,10 +35,10 @@
     apply_photo_enhance:     { icon: 'ic-wand-sparkles', label: '사진 보정',   color: '#A78BFA' },
     remove_bg_and_swap:      { icon: 'ic-scissors',      label: '배경 교체',   color: '#7C3AED' },
     make_before_after:       { icon: 'ic-layers',        label: '전·후 카드',  color: '#2B8C7E' },
-    draft_caption:           { icon: 'ic-sparkles',      label: '캡션 초안',   color: '#F18091' },
+    draft_caption:           { icon: 'ic-sparkles',      label: '캡션 초안',   color: '#D58A95' },
     publish_instagram:       { icon: 'ic-upload',        label: '인스타 게시', color: 'var(--danger)' },
     // P0-PE (사진 편집기, 2026-05-17 v167)
-    open_photo_editor:       { icon: 'ic-sliders-horizontal', label: '편집기 열기', color: '#F18091' },
+    open_photo_editor:       { icon: 'ic-sliders-horizontal', label: '편집기 열기', color: '#D58A95' },
     apply_photo_preset:      { icon: 'ic-wand-sparkles', label: '자동 보정',    color: '#A78BFA' },
     adjust_photo:            { icon: 'ic-sliders-horizontal', label: '수동 보정', color: '#A78BFA' },
     add_text_overlay:        { icon: 'ic-pen-line',      label: '텍스트 추가',  color: '#0EA5E9' },

@@ -38,7 +38,7 @@
 
 .rv-upload-zone:active {
   border-color: var(--accent);
-  background: rgba(241,128,145,0.04);
+  background: rgba(213,138,149,0.04);
 }
 
 .rv-upload-icon {

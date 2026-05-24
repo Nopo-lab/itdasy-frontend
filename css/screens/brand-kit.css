@@ -79,7 +79,7 @@
   outline: none;
   transition: border-color 120ms, background 120ms;
 }
-.bk-input:focus { border-color: #F18091; background: #fff; }
+.bk-input:focus { border-color: #D58A95; background: #fff; }
 .bk-row { display: flex; gap: 10px; align-items: center; }
 .bk-row .bk-input { flex: 1; }
 .bk-prefix {
@@ -106,7 +106,7 @@
 }
 .bk-chip:hover { background: #f0f0f3; }
 .bk-chip.is-active {
-  border-color: #F18091;
+  border-color: #D58A95;
   background: #FDECEE;
   color: #C24558;
   font-weight: 600;
@@ -118,7 +118,7 @@
   appearance: none;
   height: 6px;
   border-radius: 6px;
-  background: linear-gradient(to right, #F18091, #e3e3e6);
+  background: linear-gradient(to right, #D58A95, #e3e3e6);
   outline: none;
 }
 .bk-slider::-webkit-slider-thumb {
@@ -127,7 +127,7 @@
   height: 22px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #F18091;
+  border: 2px solid #D58A95;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
@@ -136,7 +136,7 @@
   height: 22px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #F18091;
+  border: 2px solid #D58A95;
   cursor: pointer;
 }
 .bk-slider-val {
@@ -180,8 +180,8 @@
 .bk-btn-secondary { background: #f3f3f5; color: #3a3a40; }
 .bk-btn-secondary:hover { background: #e9e9ec; }
 .bk-btn-primary {
-  background: #F18091;
+  background: #D58A95;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(241, 128, 145, 0.3);
+  box-shadow: 0 4px 12px rgba(213,138,149, 0.3);
 }
 .bk-btn-primary:hover { background: #E66D7F; }

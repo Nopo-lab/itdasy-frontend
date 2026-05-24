@@ -142,7 +142,7 @@ html[data-theme="dark"] .tab-bar__btn {
 }
 
 html[data-theme="dark"] .tab-bar__btn.active {
-  color: #F18091 !important;
+  color: #D58A95 !important;
 }
 
 /* 토스트 */

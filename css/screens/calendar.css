@@ -325,10 +325,10 @@
   position: sticky; bottom: 16px;
   display: block; margin: 16px auto 8px;
   padding: 13px 28px;
-  background: linear-gradient(135deg, #F18091, #D95F70);
+  background: linear-gradient(135deg, #D58A95, #D95F70);
   color: #fff; font-size: 15px; font-weight: 800;
   border: none; border-radius: 999px; cursor: pointer;
-  box-shadow: 0 6px 20px rgba(241,128,145,0.4);
+  box-shadow: 0 6px 20px rgba(213,138,149,0.4);
   transition: transform 0.12s;
   letter-spacing: -0.2px;
 }
@@ -404,7 +404,7 @@
   border-right: none;
 }
 .cv-tt-col.is-today {
-  background-color: rgba(241, 128, 145, 0.04);
+  background-color: rgba(213,138,149, 0.04);
 }
 
 /* 빈 슬롯 (클릭 시 새 예약) */
@@ -416,10 +416,10 @@
   transition: background 0.12s;
 }
 .cv-tt-slot:hover {
-  background: rgba(241, 128, 145, 0.08);
+  background: rgba(213,138,149, 0.08);
 }
 .cv-tt-slot:active {
-  background: rgba(241, 128, 145, 0.16);
+  background: rgba(213,138,149, 0.16);
 }
 
 /* 예약 블록 (컬러 박스) */
@@ -433,7 +433,7 @@
   color: #444;
   cursor: pointer;
   border: none;
-  border-left: 3px solid var(--brand, #F18091);
+  border-left: 3px solid var(--brand, #D58A95);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: transform 0.06s ease-out, box-shadow 0.12s;
   text-align: left;
@@ -535,13 +535,13 @@
   color: #333;
 }
 .cv-tt-day-hdr.today {
-  background: rgba(241, 128, 145, 0.08);
+  background: rgba(213,138,149, 0.08);
 }
 .cv-tt-day-hdr.today .cv-tt-dnum {
-  color: var(--brand, #F18091);
+  color: var(--brand, #D58A95);
 }
 .cv-tt-day-hdr.today .cv-tt-dow {
-  color: var(--brand, #F18091);
+  color: var(--brand, #D58A95);
 }
 .cv-tt-day-hdr.sun .cv-tt-dnum,
 .cv-tt-day-hdr.sun .cv-tt-dow {

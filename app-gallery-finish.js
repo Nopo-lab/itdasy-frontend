@@ -39,7 +39,7 @@ function _renderFinishTab(root, galleryItems = []) {
     root.innerHTML = `
       <div class="sec-title" style="margin-bottom:4px;">마무리</div>
       <div style="text-align:center;padding:60px 20px;">
-        <div style="width:64px;height:64px;border-radius:999px;background:var(--brand-bg,#FCEEF1);display:grid;place-items:center;color:var(--accent,#F18091);margin:0 auto 16px;">
+        <div style="width:64px;height:64px;border-radius:999px;background:var(--brand-bg,#FCEEF1);display:grid;place-items:center;color:var(--accent,#D58A95);margin:0 auto 16px;">
           <i class="ph-duotone ph-tray" style="font-size:32px" aria-hidden="true"></i>
         </div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">작업실에서 슬롯을 먼저 만들어보세요</div>
@@ -85,9 +85,9 @@ function _renderFinishTab(root, galleryItems = []) {
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
               <div style="font-size:13px;font-weight:800;color:var(--text);">${_finEsc(slot.label)}</div>
-              ${slot.caption ? '<span style="font-size:9px;background:var(--brand-bg,#FCEEF1);color:var(--accent,#F18091);border-radius:4px;padding:1px 5px;font-weight:700;">캡션✓</span>' : ''}
+              ${slot.caption ? '<span style="font-size:9px;background:var(--brand-bg,#FCEEF1);color:var(--accent,#D58A95);border-radius:4px;padding:1px 5px;font-weight:700;">캡션✓</span>' : ''}
               ${isDeferred ? '<span style="font-size:9px;background:var(--bg2,#f8f8f9);color:var(--text2,#5A6573);border-radius:4px;padding:1px 5px;font-weight:700;">나중에</span>' : ''}
-              ${slot.customer_name ? `<span style="font-size:9px;background:rgba(241,128,145,0.15);color:var(--accent,#F18091);border-radius:4px;padding:1px 5px;font-weight:700;">👤 ${_finEsc(slot.customer_name.slice(0,6))}</span>` : ''}
+              ${slot.customer_name ? `<span style="font-size:9px;background:rgba(213,138,149,0.15);color:var(--accent,#D58A95);border-radius:4px;padding:1px 5px;font-weight:700;">👤 ${_finEsc(slot.customer_name.slice(0,6))}</span>` : ''}
             </div>
             <div style="font-size:11px;color:var(--text3);">${visPhotos.length}장</div>
             ${cap}
@@ -96,7 +96,7 @@ function _renderFinishTab(root, galleryItems = []) {
         </div>
         <!-- 마무리 액션 -->
         <div style="display:flex;flex-direction:column;gap:6px;">
-          <button data-action="publish" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:none;background:var(--accent,#F18091);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:-0.2px;">
+          <button data-action="publish" style="width:100%;min-height:48px;padding:12px;border-radius:12px;border:none;background:var(--accent,#D58A95);color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;letter-spacing:-0.2px;">
             <i class="ph-duotone ph-arrow-right" style="font-size:16px" aria-hidden="true"></i>
             발행하기
           </button>
@@ -105,7 +105,7 @@ function _renderFinishTab(root, galleryItems = []) {
               <i class="ph-duotone ph-clock" style="font-size:13px" aria-hidden="true"></i>
               나중에
             </button>
-            <button data-action="pickCustomer" style="flex:1;background:none;border:none;padding:8px 4px;font-size:11px;font-weight:${slot.customer_name ? '800' : '600'};color:${slot.customer_name ? 'var(--accent,#F18091)' : 'var(--text2,#5A6573)'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:6px;">
+            <button data-action="pickCustomer" style="flex:1;background:none;border:none;padding:8px 4px;font-size:11px;font-weight:${slot.customer_name ? '800' : '600'};color:${slot.customer_name ? 'var(--accent,#D58A95)' : 'var(--text2,#5A6573)'};cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:6px;">
               <i class="ph-duotone ph-user" style="font-size:13px" aria-hidden="true"></i>
               ${slot.customer_name ? _finEsc(slot.customer_name.slice(0,4)) : '고객'}
             </button>
@@ -386,7 +386,7 @@ function _showPublishOptions(slotId) {
       </div>
       <div style="display:flex;flex-direction:column;">
         <button data-publish-action="preview" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:var(--brand-bg,#FCEEF1);width:100%;cursor:pointer;text-align:left;border-bottom:1px solid var(--border);">
-          <div style="width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;color:var(--accent,#F18091);">
+          <div style="width:40px;height:40px;border-radius:12px;background:#fff;display:grid;place-items:center;color:var(--accent,#D58A95);">
             <i class="ph-duotone ph-instagram-logo" style="font-size:20px" aria-hidden="true"></i>
           </div>
           <div style="flex:1;">
@@ -493,7 +493,7 @@ function _previewSlotOnInsta(slotId) {
       </div>
       <div style="padding:10px 12px;border-top:1px solid #efefef;display:flex;gap:8px;">
         <button data-finish-preview-close style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
-        <button data-finish-preview-publish data-slot-id="${escapeHtml(slotId)}" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:var(--accent,#F18091);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
+        <button data-finish-preview-publish data-slot-id="${escapeHtml(slotId)}" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:var(--accent,#D58A95);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
       </div>
     </div>
   `;

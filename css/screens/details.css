@@ -213,7 +213,7 @@
 .dt-field:focus {
   outline: none;
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(241, 128, 145, .15);
+  box-shadow: 0 0 0 3px rgba(213,138,149, .15);
 }
 
 textarea.dt-field {

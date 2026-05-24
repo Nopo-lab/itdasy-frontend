@@ -114,14 +114,14 @@
 /* ── 홈 new-post CTA (main-cta 보조) ────────────────────── */
 .home-new-post-cta {
   border-color: var(--brand);
-  box-shadow: 0 2px 8px rgba(241,128,145,.12);
+  box-shadow: 0 2px 8px rgba(213,138,149,.12);
 }
 
 /* pink-glow-pulse 1회 — 첫 진입 강조 */
 @keyframes home-glow-once {
-  0% { box-shadow: 0 2px 8px rgba(241,128,145,.12), 0 0 0 0 rgba(241,128,145,.4); }
-  60% { box-shadow: 0 2px 8px rgba(241,128,145,.12), 0 0 0 12px rgba(241,128,145,0); }
-  100% { box-shadow: 0 2px 8px rgba(241,128,145,.12), 0 0 0 0 rgba(241,128,145,0); }
+  0% { box-shadow: 0 2px 8px rgba(213,138,149,.12), 0 0 0 0 rgba(213,138,149,.4); }
+  60% { box-shadow: 0 2px 8px rgba(213,138,149,.12), 0 0 0 12px rgba(213,138,149,0); }
+  100% { box-shadow: 0 2px 8px rgba(213,138,149,.12), 0 0 0 0 rgba(213,138,149,0); }
 }
 
 .home-new-post-cta--pulse {

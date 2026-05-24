@@ -18,7 +18,7 @@
   function _html(state) {
     const Curve = window.PhotoEditorCurve;
     const HSL   = window.PhotoEditorHSL;
-    const tabBtn = (id, label) => `<button type="button" class="pe-chip-btn ${_subTab === id ? 'on' : ''}" data-pro-sub="${id}" style="${_subTab === id ? 'background:#F18091;color:#fff;' : ''}">${_esc(label)}</button>`;
+    const tabBtn = (id, label) => `<button type="button" class="pe-chip-btn ${_subTab === id ? 'on' : ''}" data-pro-sub="${id}" style="${_subTab === id ? 'background:#D58A95;color:#fff;' : ''}">${_esc(label)}</button>`;
     let body = '';
     if (_subTab === 'curve' && Curve) body = Curve.subPanelHTML(state);
     else if (_subTab === 'hsl' && HSL) body = HSL.subPanelHTML(state);

@@ -34,7 +34,7 @@
       ? `<img src="${_esc(bg.imageData)}" alt="${_esc(bg.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
       : `<div style="width:100%;height:100%;background:${_esc(bg.gradient || bg.color || '#fff')};"></div>`;
     return `<button type="button" data-pe-bg-id="${_esc(bg.id)}"
-      style="position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;border:${on ? '2px solid #F18091' : '1.5px solid rgba(255,255,255,0.10)'};background:transparent;cursor:pointer;padding:0;">
+      style="position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;border:${on ? '2px solid #D58A95' : '1.5px solid rgba(255,255,255,0.10)'};background:transparent;cursor:pointer;padding:0;">
       ${preview}<div style="position:absolute;left:0;right:0;bottom:0;padding:3px 6px;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;font-weight:700;text-align:center;">${_esc(bg.name)}</div>
     </button>`;
   }

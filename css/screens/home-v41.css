@@ -212,7 +212,7 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
 .hv-photo-fill {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #F4C0D1, #E5586E);
+  background: linear-gradient(135deg, #F4C0D1, #BC6675);
 }
 .hv-photo-fill.hv-photo-fill--2 { background: linear-gradient(135deg, #FAC775, #BA7517); }
 .hv-photo-fill.hv-photo-fill--3 { background: linear-gradient(135deg, #C0DD97, #639922); }

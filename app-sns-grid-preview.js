@@ -71,7 +71,7 @@
 
       <!-- 인스타 프로필 헤더 시뮬레이션 -->
       <div style="padding:16px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(0,0,0,0.04);">
-        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--accent,#F18091),var(--accent2,#e26a85));display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;flex-shrink:0;">${avatarLetter}</div>
+        <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:800;flex-shrink:0;">${avatarLetter}</div>
         <div style="flex:1;">
           <div style="font-size:15px;font-weight:800;margin-bottom:2px;">${_esc(shopName)}</div>
           <div style="font-size:12px;color:#888;">@${_esc(handle)}</div>

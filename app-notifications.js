@@ -161,7 +161,7 @@
     }
     body.innerHTML = _items.map(n => `
       <div data-notif-id="${n.id}" style="display:flex;gap:12px;padding:12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,0.04);cursor:pointer;">
-        <div style="width:40px;height:40px;border-radius:12px;background:rgba(241,128,145,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${_iconByKind(n.kind)}</div>
+        <div style="width:40px;height:40px;border-radius:12px;background:rgba(213,138,149,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${_iconByKind(n.kind)}</div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;color:#222;">${_esc(n.title)}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</div>
@@ -352,7 +352,7 @@
     const a = announcements[0];
     const more = announcements.length - 1;
     host.innerHTML = `
-      <div role="status" aria-live="polite" style="background:linear-gradient(135deg,#fff5f7 0%,#ffe8ec 100%);border:1px solid rgba(241,128,145,0.35);border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 2px 10px rgba(241,128,145,0.10);position:relative;">
+      <div role="status" aria-live="polite" style="background:linear-gradient(135deg,#fff5f7 0%,#ffe8ec 100%);border:1px solid rgba(213,138,149,0.35);border-radius:14px;padding:14px 14px 14px 16px;box-shadow:0 2px 10px rgba(213,138,149,0.10);position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">📢</div>
           <div style="flex:1;min-width:0;">

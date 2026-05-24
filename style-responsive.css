@@ -94,7 +94,7 @@
     color: var(--text);
   }
   .side-nav__btn.active {
-    background: var(--brand-bg, rgba(241,128,145,0.12));
+    background: var(--brand-bg, rgba(213,138,149,0.12));
     color: var(--accent);
   }
   .side-nav__btn svg {
@@ -109,7 +109,7 @@
     background: linear-gradient(135deg, var(--brand), var(--brand-strong));
     color: #fff;
     justify-content: center;
-    box-shadow: var(--shadow-brand, 0 6px 18px rgba(241,128,145,0.30));
+    box-shadow: var(--shadow-brand, 0 6px 18px rgba(213,138,149,0.30));
   }
   /* 2026-05-01 ── 사이드 nav 섹션 구분선 */
   .side-nav__divider {

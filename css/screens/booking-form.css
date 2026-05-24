@@ -52,8 +52,8 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: var(--brand-bg, rgba(241,128,145,0.12));
-  color: var(--brand, #F18091);
+  background: var(--brand-bg, rgba(213,138,149,0.12));
+  color: var(--brand, #D58A95);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -237,8 +237,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  background: var(--brand-bg, rgba(241,128,145,0.12));
-  border: 0.5px solid rgba(241,128,145,0.18);
+  background: var(--brand-bg, rgba(213,138,149,0.12));
+  border: 0.5px solid rgba(213,138,149,0.18);
   border-radius: 12px;
   cursor: pointer;
   width: 100%;
@@ -259,7 +259,7 @@
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #F4C0D1, var(--brand, #F18091));
+  background: linear-gradient(135deg, #F4C0D1, var(--brand, #D58A95));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,7 +292,7 @@
 
 .bf-cust-badge {
   font-size: 10px;
-  color: var(--brand, #F18091);
+  color: var(--brand, #D58A95);
   font-weight: 700;
 }
 
@@ -437,7 +437,7 @@
 
 .bf-memo:focus {
   outline: none;
-  border-color: var(--brand, #F18091);
+  border-color: var(--brand, #D58A95);
 }
 
 .bf-memo-counter {
@@ -454,8 +454,8 @@
   align-items: center;
   gap: 10px;
   padding: 13px 14px;
-  background: linear-gradient(180deg, var(--brand-bg, rgba(241,128,145,0.12)) 0%, var(--surface, #fff) 100%);
-  border: 0.5px solid rgba(241,128,145,0.18);
+  background: linear-gradient(180deg, var(--brand-bg, rgba(213,138,149,0.12)) 0%, var(--surface, #fff) 100%);
+  border: 0.5px solid rgba(213,138,149,0.18);
   border-radius: 12px;
   cursor: pointer;
   margin-bottom: 18px;
@@ -474,7 +474,7 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--brand, #F18091);
+  background: var(--brand, #D58A95);
   color: white;
   display: flex;
   align-items: center;
@@ -497,7 +497,7 @@
 }
 
 .bf-ca-chev {
-  color: var(--brand, #F18091);
+  color: var(--brand, #D58A95);
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -580,7 +580,7 @@
 .bf-btn-primary {
   flex: 2;
   padding: 13px 0;
-  background: var(--brand, #F18091);
+  background: var(--brand, #D58A95);
   color: white;
   border: none;
   border-radius: 12px;
@@ -631,7 +631,7 @@
 
 .bf-svc-input:focus {
   outline: none;
-  border-color: var(--brand, #F18091);
+  border-color: var(--brand, #D58A95);
 }
 
 .bf-svc-input::placeholder {
@@ -646,7 +646,7 @@
   align-items: center;
   justify-content: center;
   padding: 2px 6px;
-  background: var(--brand-strong, #E5586E);
+  background: var(--brand-strong, #BC6675);
   color: #fff;
   font-size: 9px;
   font-weight: 800;

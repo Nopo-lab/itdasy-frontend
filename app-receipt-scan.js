@@ -615,7 +615,7 @@
       </div>
       <div class="rs-body" style="flex:1;overflow-y:auto;">
         <div style="padding:40px 20px;text-align:center;">
-          <label for="rs-file-input" style="display:inline-block;padding:14px 22px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:100px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(241,128,145,0.3);">
+          <label for="rs-file-input" style="display:inline-block;padding:14px 22px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:100px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(213,138,149,0.3);">
             사진 선택 / 촬영
           </label>
           <input id="rs-file-input" type="file" accept="image/*" style="display:none;">

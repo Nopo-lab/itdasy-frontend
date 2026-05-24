@@ -174,7 +174,7 @@ function renderPersonaDash(p, showTestBtn) {
     : '아직 분석 전이에요. 분석 후에 사장님 말투 요약이 여기 보여요.';
   const _esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   content.innerHTML = `
-    <div style="background:rgba(241,128,145,0.04); padding:14px; border-radius:14px; border:0.5px solid rgba(241,128,145,0.15); margin-bottom:16px;">
+    <div style="background:rgba(213,138,149,0.04); padding:14px; border-radius:14px; border:0.5px solid rgba(213,138,149,0.15); margin-bottom:16px;">
       <div style="margin-bottom:8px; font-size:11px; color:var(--accent2); font-weight:700; letter-spacing:-0.2px;">사장님 말투</div>
       <div style="font-size:13px; color:var(--text); line-height:1.6; font-weight:500;">${_esc(summary)}</div>
     </div>
@@ -207,7 +207,7 @@ function renderDetailedPopup(data) {
     const top5 = raw.top5_analysis || raw.top_5_analysis || raw.top5 || raw.success_highlights || [];
 
     document.getElementById('analyzeResultBody').innerHTML = `
-    <div style="margin-bottom:24px; padding:16px; background:rgba(241,128,145,0.04); border-radius:16px; border:1px solid rgba(241,128,145,0.08);">
+    <div style="margin-bottom:24px; padding:16px; background:rgba(213,138,149,0.04); border-radius:16px; border:1px solid rgba(213,138,149,0.08);">
         <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">분석 완료</div>
         <div style="font-size:15px; font-weight:700; color:var(--text);">최근 게시물 기준 · 평균 ${p.avg_caption_length}자 글쓰기</div>
     </div>
@@ -216,7 +216,7 @@ function renderDetailedPopup(data) {
         <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">사장님 말투 스타일</div>
         <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:12px; line-height:1.4; word-break:keep-all;">"${raw.tone_summary || p.tone}"</div>
         <div style="display:flex; flex-wrap:wrap; gap:8px;">
-        ${tFeatures.map(f => `<span style="background:rgba(241,128,145,0.07); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600;">${f}</span>`).join('')}
+        ${tFeatures.map(f => `<span style="background:rgba(213,138,149,0.07); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600;">${f}</span>`).join('')}
         </div>
     </div>
 
@@ -252,7 +252,7 @@ function renderDetailedPopup(data) {
       const shortCheck = bot.length > 0 && top.length > 0 && (top.includes(bot.slice(0, 12)) || bot.includes(top.slice(0, 12)));
       if (shortCheck) return '';
       return `
-    <div style="padding:24px; background:linear-gradient(135deg, #fffcfd, #fff5f7); border-radius:24px; border:1.5px solid rgba(241,128,145,0.2);">
+    <div style="padding:24px; background:linear-gradient(135deg, #fffcfd, #fff5f7); border-radius:24px; border:1.5px solid rgba(213,138,149,0.2);">
         <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">이렇게 쓰면 잘 돼요</div>
         <div style="font-size:14px; font-weight:700; color:var(--text); line-height:1.7; word-break:keep-all;">" ${bot} "</div>
     </div>`;
@@ -723,7 +723,7 @@ function openInstagramPreview(opts) {
     : `<div style="width:100%;aspect-ratio:${meta.ar};background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;">사진을 먼저 편집해 주세요</div>`;
 
   // 비율 배지 (어떤 포맷으로 보여지는지 사장님이 한눈에)
-  const ratioBadge = `<span style="display:inline-block;padding:2px 8px;border-radius:8px;background:rgba(241,128,145,0.12);color:var(--accent2,#e26a85);font-size:10px;font-weight:700;margin-left:6px;">${meta.key} · ${meta.w}×${meta.h}</span>`;
+  const ratioBadge = `<span style="display:inline-block;padding:2px 8px;border-radius:8px;background:rgba(213,138,149,0.12);color:var(--accent2,#e26a85);font-size:10px;font-weight:700;margin-left:6px;">${meta.key} · ${meta.w}×${meta.h}</span>`;
 
   pop.innerHTML = `
     <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;">
@@ -732,7 +732,7 @@ function openInstagramPreview(opts) {
       </div>
       <div style="display:flex;align-items:center;padding:10px 12px 10px;">
         <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);padding:2px;margin-right:10px;">
-          <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent,#F18091),var(--accent2,#e26a85));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;">${avatarLetter}</div>
+          <div style="width:100%;height:100%;border-radius:50%;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800;">${avatarLetter}</div>
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
@@ -757,8 +757,8 @@ function openInstagramPreview(opts) {
       <div style="padding:0 12px 28px;display:flex;gap:8px;">
         <button id="_igPreviewClose" style="flex:1;height:46px;border-radius:14px;border:1.5px solid #dbdbdb;background:#fff;color:#262626;font-size:13px;font-weight:700;cursor:pointer;">닫기</button>
         ${enableUpload
-          ? `<button id="_igPreviewUpload" data-igpv-src="${src}" style="flex:1.6;height:46px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#F18091),var(--accent2,#e26a85));color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">📤 인스타에 올리기</button>`
-          : `<button id="_igPreviewCaptionBtn" style="flex:1.4;height:46px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#F18091),var(--accent2,#e26a85));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">캡션 만들기</button>`}
+          ? `<button id="_igPreviewUpload" data-igpv-src="${src}" style="flex:1.6;height:46px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">📤 인스타에 올리기</button>`
+          : `<button id="_igPreviewCaptionBtn" style="flex:1.4;height:46px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">캡션 만들기</button>`}
       </div>
     </div>
   `;

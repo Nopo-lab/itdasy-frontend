@@ -94,9 +94,9 @@
       const r = p.radius * shorter;
       const isActive = p.id === sel.activeId;
       // [v229 fix] 안쪽 fill 제거 (페인트 칠해짐 버그). 외곽선만 표시.
-      return `<div class="pe-sel-marker" data-pin-id="${p.id}" style="position:absolute;left:${px - r}px;top:${py - r}px;width:${2*r}px;height:${2*r}px;border-radius:50%;border:2px ${isActive ? 'solid' : 'dashed'} ${isActive ? '#F18091' : 'rgba(255,255,255,0.95)'};box-shadow:0 0 0 2px rgba(0,0,0,0.35);pointer-events:auto;cursor:move;background:transparent;">
-        <div style="position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:${isActive ? '#F18091' : '#fff'};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>
-        ${isActive ? `<button type="button" data-pin-remove="${p.id}" style="position:absolute;right:-6px;top:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#fff;color:#F18091;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.35);font-size:12px;">✕</button>` : ''}
+      return `<div class="pe-sel-marker" data-pin-id="${p.id}" style="position:absolute;left:${px - r}px;top:${py - r}px;width:${2*r}px;height:${2*r}px;border-radius:50%;border:2px ${isActive ? 'solid' : 'dashed'} ${isActive ? '#D58A95' : 'rgba(255,255,255,0.95)'};box-shadow:0 0 0 2px rgba(0,0,0,0.35);pointer-events:auto;cursor:move;background:transparent;">
+        <div style="position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:${isActive ? '#D58A95' : '#fff'};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35);"></div>
+        ${isActive ? `<button type="button" data-pin-remove="${p.id}" style="position:absolute;right:-6px;top:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#fff;color:#D58A95;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.35);font-size:12px;">✕</button>` : ''}
       </div>`;
     }).join('');
     // polygon 핀 SVG overlay
@@ -108,7 +108,7 @@
       const polysvg = polygonPins.map(p => {
         const isActive = p.id === sel.activeId;
         const pts = p.polygon.map(pt => `${(pt.x / srcW) * W},${(pt.y / srcH) * H}`).join(' ');
-        const stroke = isActive ? '#F18091' : 'rgba(255,255,255,0.95)';
+        const stroke = isActive ? '#D58A95' : 'rgba(255,255,255,0.95)';
         const sw = isActive ? 3 : 2;
         // [v229 fix] fill 제거 (페인트 칠해짐 버그). 외곽선만 표시.
         return `<polygon points="${pts}" data-pin-id="${p.id}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-dasharray="${isActive ? '0' : '6,4'}" style="pointer-events:auto;cursor:pointer;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.5));" />`;

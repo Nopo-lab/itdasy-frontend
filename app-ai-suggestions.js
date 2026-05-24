@@ -33,7 +33,7 @@
     if (!container) return;
     // 로딩 skeleton
     container.innerHTML = `
-      <div style="background:linear-gradient(135deg,rgba(241,128,145,.08),rgba(241,128,145,.02));border:1px solid rgba(241,128,145,.18);border-radius:14px;padding:12px 14px;">
+      <div style="background:linear-gradient(135deg,rgba(213,138,149,.08),rgba(213,138,149,.02));border:1px solid rgba(213,138,149,.18);border-radius:14px;padding:12px 14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
           <span style="font-size:13px;">✨</span>
           <strong style="font-size:12px;color:var(--brand-strong);">AI 추천 · 오늘 할 일</strong>
@@ -48,14 +48,14 @@
     }
 
     container.innerHTML = `
-      <div style="background:linear-gradient(135deg,rgba(241,128,145,.08),rgba(241,128,145,.02));border:1px solid rgba(241,128,145,.18);border-radius:14px;padding:12px 14px;">
+      <div style="background:linear-gradient(135deg,rgba(213,138,149,.08),rgba(213,138,149,.02));border:1px solid rgba(213,138,149,.18);border-radius:14px;padding:12px 14px;">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
           <span style="font-size:13px;">✨</span>
           <strong style="font-size:12px;color:var(--brand-strong);letter-spacing:.3px;">AI 추천 · 오늘 할 일</strong>
         </div>
         ${d.items.map((it, i) => `
           <button data-ai-sug="${_esc(it.action || 'chat')}"
-                  style="display:block;width:100%;text-align:left;padding:10px 12px;background:#fff;border:1px solid rgba(241,128,145,.15);border-radius:10px;cursor:pointer;${i > 0 ? 'margin-top:6px;' : ''}">
+                  style="display:block;width:100%;text-align:left;padding:10px 12px;background:#fff;border:1px solid rgba(213,138,149,.15);border-radius:10px;cursor:pointer;${i > 0 ? 'margin-top:6px;' : ''}">
             <div style="font-size:13px;font-weight:700;color:#333;">${_esc(it.title || '')}</div>
             ${it.reason ? `<div style="font-size:10.5px;color:#888;margin-top:3px;">${_esc(it.reason)}</div>` : ''}
           </button>

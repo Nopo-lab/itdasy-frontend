@@ -176,7 +176,7 @@ void main() {
       <div style="margin-top:10px;">${rows}</div>
       <div class="pe-panel-row" style="display:flex;gap:8px;margin-top:8px;">
         <button type="button" class="pe-action-btn" data-hsl-reset>리셋</button>
-        <button type="button" class="pe-action-btn" data-hsl-toggle style="background:${h.enabled ? '#F18091' : '#888'};color:#fff;">${h.enabled ? '적용 켜짐' : '적용 꺼짐'}</button>
+        <button type="button" class="pe-action-btn" data-hsl-toggle style="background:${h.enabled ? '#D58A95' : '#888'};color:#fff;">${h.enabled ? '적용 켜짐' : '적용 꺼짐'}</button>
       </div>`;
   }
 

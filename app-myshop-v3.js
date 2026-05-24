@@ -564,11 +564,11 @@
       .ms-persona__title { font-size:14px; font-weight:700; color:#191F28; letter-spacing:-0.2px; }
       .ms-persona__toggle { padding:6px 12px; border:1px solid #E5E8EB; background:#fff; border-radius:999px; font-size:12px; font-weight:600; color:#4E5968; cursor:pointer; }
       .ms-persona__toggle:hover { background:#F7F8FA; }
-      .ms-persona__body { margin-top:12px; padding:14px 16px; background:rgba(241,128,145,0.06); border-radius:12px; border:1px solid rgba(241,128,145,0.15); }
-      .ms-persona__label { font-size:11px; font-weight:700; color:#E5586E; letter-spacing:-0.2px; margin-bottom:6px; }
+      .ms-persona__body { margin-top:12px; padding:14px 16px; background:rgba(213,138,149,0.06); border-radius:12px; border:1px solid rgba(213,138,149,0.15); }
+      .ms-persona__label { font-size:11px; font-weight:700; color:#BC6675; letter-spacing:-0.2px; margin-bottom:6px; }
       .ms-persona__summary { font-size:13px; color:#191F28; line-height:1.6; font-weight:500; }
-      .ms-persona__detail { margin-top:12px; padding:10px 14px; border:1px solid #E5586E; background:#fff; color:#E5586E; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; }
-      .ms-persona__detail:hover { background:#FFF1F3; }
+      .ms-persona__detail { margin-top:12px; padding:10px 14px; border:1px solid #BC6675; background:#fff; color:#BC6675; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; }
+      .ms-persona__detail:hover { background:#F7EFF0; }
     `;
     document.head.appendChild(s);
   }

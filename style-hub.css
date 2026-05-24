@@ -143,7 +143,7 @@ html[data-theme="dark"] .sh-row:active {
 /* ── 고객 상세 패널 (06-customer.html) ───────────────────────── */
 .cust-detail { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 18px; }
 .cd-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.cd-avatar-lg { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #F4C0D1, #E5586E); display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 700; flex-shrink: 0; }
+.cd-avatar-lg { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #F4C0D1, #BC6675); display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 700; flex-shrink: 0; }
 .cd-name-row { flex: 1; }
 .cd-name { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; display: flex; align-items: center; gap: 6px; }
 .cd-meta { font-size: 11.5px; color: var(--text-3); margin-top: 2px; font-weight: 500; }

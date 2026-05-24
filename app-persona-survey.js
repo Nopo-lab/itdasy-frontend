@@ -43,11 +43,11 @@
 .psv-sub   { font-size:13px; color:var(--text3); margin-bottom:20px; line-height:1.55; }
 .psv-card-row { display:flex; gap:10px; flex-wrap:wrap; }
 .psv-card { flex:1 1 0; min-width:0; background:#fff;
-  border:1.5px solid rgba(241,128,145,0.18); border-radius:14px;
+  border:1.5px solid rgba(213,138,149,0.18); border-radius:14px;
   padding:18px 12px; cursor:pointer; transition:all .15s; text-align:center;
   display:flex; flex-direction:column; align-items:center; gap:6px; min-height:140px; }
 .psv-card:hover { border-color:var(--accent2); transform:translateY(-2px);
-  box-shadow:0 8px 22px rgba(241,128,145,0.18); }
+  box-shadow:0 8px 22px rgba(213,138,149,0.18); }
 .psv-card svg { width:30px; height:30px; color:var(--accent2); }
 .psv-card strong { font-size:14px; font-weight:800; color:var(--text); }
 .psv-card p { font-size:11px; color:var(--text3); line-height:1.4;

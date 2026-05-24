@@ -861,7 +861,7 @@
           </div>
           <input data-pick-search placeholder="이름·연락처 검색 또는 새 고객 이름" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:14px;margin-bottom:10px;" />
           <div data-pick-list style="flex:1;overflow-y:auto;min-height:140px;"></div>
-          <div data-pick-create-row style="display:none;margin-top:8px;padding:10px;border:1px dashed var(--brand,var(--brand));border-radius:14px;background:rgba(241,128,145,0.04);">
+          <div data-pick-create-row style="display:none;margin-top:8px;padding:10px;border:1px dashed var(--brand,var(--brand));border-radius:14px;background:rgba(213,138,149,0.04);">
             <div style="font-size:11px;color:var(--text-subtle,#888);margin-bottom:6px;">신규 고객으로 추가</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <input data-pick-new-name placeholder="이름" style="flex:1 1 90px;min-width:90px;padding:9px 10px;border:1px solid #ddd;border-radius:14px;font-size:13px;" />
@@ -911,7 +911,7 @@
         createRow.style.display = 'none';
         const moreCount = hits.length - displayHits.length;
         listEl.innerHTML = displayHits.map(c => `
-          <div data-pick-id="${_esc(c.id)}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(241,128,145,0.08);' : ''}">
+          <div data-pick-id="${_esc(c.id)}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(213,138,149,0.08);' : ''}">
             <strong style="font-size:14px;">${_esc(c.name)}</strong>
             ${c.phone ? `<span style="font-size:12px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
             ${c.visit_count ? `<span style="font-size:10px;color:var(--accent,var(--brand));margin-left:6px;">방문 ${c.visit_count}</span>` : ''}

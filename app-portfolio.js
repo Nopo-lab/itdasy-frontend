@@ -107,8 +107,8 @@ function selectPhotoType(btn, type) {
       b.style.borderColor = isSelected ? 'rgba(100,149,237,0.6)' : 'rgba(100,149,237,0.3)';
       b.style.color = isSelected ? '#6495ed' : 'var(--text3)';
     } else if (b.dataset.type === 'after') {
-      b.style.background = isSelected ? 'rgba(241,128,145,0.15)' : 'transparent';
-      b.style.borderColor = isSelected ? 'rgba(241,128,145,0.55)' : 'rgba(241,128,145,0.3)';
+      b.style.background = isSelected ? 'rgba(213,138,149,0.15)' : 'transparent';
+      b.style.borderColor = isSelected ? 'rgba(213,138,149,0.55)' : 'rgba(213,138,149,0.3)';
       b.style.color = isSelected ? 'var(--accent)' : 'var(--text3)';
     } else {
       b.style.background = isSelected ? 'rgba(0,0,0,0.06)' : 'transparent';
@@ -194,7 +194,7 @@ async function loadPortfolio() {
       Object.values(tagData.sub_map || {}).forEach(arr => arr.forEach(t => allSubTags.add(t)));
       allSubTags.forEach(t => {
         const chip = document.createElement('button');
-        chip.style.cssText = 'padding:4px 10px; border-radius:20px; border:1px solid rgba(241,128,145,0.25); background:rgba(241,128,145,0.06); color:var(--accent2); font-size:10px; font-weight:600; cursor:pointer; transition:all 0.12s;';
+        chip.style.cssText = 'padding:4px 10px; border-radius:20px; border:1px solid rgba(213,138,149,0.25); background:rgba(213,138,149,0.06); color:var(--accent2); font-size:10px; font-weight:600; cursor:pointer; transition:all 0.12s;';
         chip.textContent = t;
         chip.onclick = () => {
           _activePortfolioSubTag = _activePortfolioSubTag === t ? '' : t;

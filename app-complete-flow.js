@@ -194,7 +194,7 @@
         transition: border-color .15s ease, background .15s ease;
       }
       .cf-amount-row:focus-within {
-        border-color:#E5586E;
+        border-color:#BC6675;
         background:#fff;
         box-shadow:0 0 0 4px rgba(229, 88, 110, 0.08);
       }
@@ -219,7 +219,7 @@
       .cf-pill.active {
         background:linear-gradient(135deg, #FFE8EC 0%, #FFD9DF 100%);
         color:#C53A52;
-        border-color:#E5586E;
+        border-color:#BC6675;
         box-shadow:0 2px 8px rgba(229, 88, 110, 0.15);
       }
 
@@ -254,7 +254,7 @@
       .cf-btn-skip:hover { background:#F9FAFB; border-color:#D1D5DB; }
       .cf-btn-save {
         flex:2; padding:15px; border:none; border-radius:14px;
-        background:linear-gradient(135deg, #F18091 0%, #E5586E 100%);
+        background:linear-gradient(135deg, #D58A95 0%, #BC6675 100%);
         color:#fff; cursor:pointer; font-weight:800; font-size:15px;
         font-family:inherit; letter-spacing:-0.3px;
         box-shadow:0 4px 14px rgba(229, 88, 110, 0.32);

@@ -97,7 +97,7 @@
     body.innerHTML = `
       <div style="padding:4px;">
         <button data-import-back style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 종류 선택</button>
-        <div style="padding:6px 10px;background:rgba(241,128,145,0.1);border-radius:8px;font-size:13px;margin-bottom:12px;">
+        <div style="padding:6px 10px;background:rgba(213,138,149,0.1);border-radius:8px;font-size:13px;margin-bottom:12px;">
           ${label.icon} <strong>${label.title}</strong> 가져오기
         </div>
 
@@ -333,7 +333,7 @@
     body.innerHTML = `
       <div style="padding:4px;">
         <button data-import-back style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 파일 다시</button>
-        <div style="padding:10px;background:linear-gradient(135deg,rgba(241,128,145,0.08),rgba(241,128,145,0.02));border-radius:10px;margin-bottom:12px;">
+        <div style="padding:10px;background:linear-gradient(135deg,rgba(213,138,149,0.08),rgba(213,138,149,0.02));border-radius:10px;margin-bottom:12px;">
           <div style="font-size:13px;font-weight:700;">${label.icon} ${_esc(p.file_name)} — ${p.total_rows}건 감지</div>
           <div style="font-size:11px;color:#888;margin-top:4px;">아래에서 파일의 컬럼을 잇데이 필드에 연결해 주세요. 자동 매핑된 건 그대로 둬도 돼요.</div>
         </div>

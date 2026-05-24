@@ -275,7 +275,7 @@
       +   '</div>'
 
       // 음성 토글 버튼
-      +   '<button id="_vcMicBtn" type="button" data-haptic="medium" style="width:100%; padding:18px; border:none; border-radius:14px; background:linear-gradient(135deg,var(--brand),#ff9aa8); color:#fff; font-weight:800; font-size:15px; cursor:pointer; min-height:56px; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(241,128,145,0.3);">'
+      +   '<button id="_vcMicBtn" type="button" data-haptic="medium" style="width:100%; padding:18px; border:none; border-radius:14px; background:linear-gradient(135deg,var(--brand),#ff9aa8); color:#fff; font-weight:800; font-size:15px; cursor:pointer; min-height:56px; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(213,138,149,0.3);">'
       +     _svg('ic-mic', 20) + ' <span id="_vcMicLabel">녹음 시작</span>'
       +   '</button>'
 

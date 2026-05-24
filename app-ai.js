@@ -180,7 +180,7 @@ function _toggleAiCheck(id, e) {
     const checked = _aiRecommendChecked.has(cardId);
     const slot = (typeof _slots !== 'undefined' ? _slots : []).find(s => s.id === cardId);
     const isDeferred = slot?.deferredAt;
-    card.style.borderColor = checked ? 'var(--accent)' : isDeferred ? 'rgba(255,193,7,0.4)' : 'rgba(241,128,145,0.2)';
+    card.style.borderColor = checked ? 'var(--accent)' : isDeferred ? 'rgba(255,193,7,0.4)' : 'rgba(213,138,149,0.2)';
     const cb = card.querySelector('[data-ai-check]');
     if (cb) {
       cb.style.borderColor = checked ? 'var(--accent)' : 'rgba(0,0,0,0.2)';

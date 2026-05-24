@@ -101,7 +101,7 @@
     const { pair } = await scanAndSuggest();
     if (!pair) return null;
     const el = document.createElement('div');
-    el.style.cssText = 'margin-bottom:14px;padding:14px;background:linear-gradient(135deg,rgba(255,107,157,0.12),rgba(241,128,145,0.04));border-radius:14px;border:1px solid rgba(241,128,145,0.2);display:flex;gap:10px;align-items:center;';
+    el.style.cssText = 'margin-bottom:14px;padding:14px;background:linear-gradient(135deg,rgba(255,107,157,0.12),rgba(213,138,149,0.04));border-radius:14px;border:1px solid rgba(213,138,149,0.2);display:flex;gap:10px;align-items:center;';
     el.innerHTML = `
       <div style="display:flex;gap:-8px;flex-shrink:0;">
         ${pair.before.image_url ? `<img src="${_esc(pair.before.image_url)}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid #fff;">` : ''}

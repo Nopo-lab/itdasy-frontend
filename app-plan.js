@@ -60,7 +60,7 @@
     document.querySelectorAll('#planPopup .plan-card').forEach((card) => {
       const selected = card.dataset.plan === _selectedPlan;
       card.style.transform = selected ? 'scale(1.02)' : 'scale(1)';
-      card.style.boxShadow = selected ? '0 8px 24px rgba(241,128,145,0.25)' : 'none';
+      card.style.boxShadow = selected ? '0 8px 24px rgba(213,138,149,0.25)' : 'none';
     });
     _updateActionButton();
   }

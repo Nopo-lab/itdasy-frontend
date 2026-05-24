@@ -61,17 +61,17 @@
   background: #fff; font-size: 13px;
   transition: border-color 0.15s; -webkit-appearance: none;
 }
-.hub-input:focus { outline: none; border-color: #F18091; }
+.hub-input:focus { outline: none; border-color: #D58A95; }
 .hub-btn-add {
   height: 42px; padding: 0 16px; border: none; border-radius: 12px;
-  background: linear-gradient(135deg, #F18091, #D95F70);
+  background: linear-gradient(135deg, #D58A95, #D95F70);
   color: #fff; font-weight: 800; font-size: 13px;
   cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(241,128,145,0.25); transition: transform 0.1s;
+  box-shadow: 0 4px 12px rgba(213,138,149,0.25); transition: transform 0.1s;
 }
 .hub-btn-add:active { transform: scale(0.96); }
 .hub-btn-stack {
-  height: 42px; padding: 0 14px; border: 1.5px solid #F18091;
+  height: 42px; padding: 0 14px; border: 1.5px solid #D58A95;
   border-radius: 12px; background: #fff; color: #D95F70;
   font-weight: 800; font-size: 13px; cursor: pointer; white-space: nowrap;
   flex-shrink: 0; transition: transform 0.1s;
@@ -93,9 +93,9 @@
 }
 .hub-btn-flush {
   padding: 6px 12px; font-size: 11.5px; border: none;
-  background: linear-gradient(135deg,#F18091,#D95F70);
+  background: linear-gradient(135deg,#D58A95,#D95F70);
   color: #fff; border-radius: 7px; cursor: pointer; font-weight: 800;
-  box-shadow: 0 2px 6px rgba(241,128,145,0.3);
+  box-shadow: 0 2px 6px rgba(213,138,149,0.3);
 }
 .hub-sec-hd {
   display: flex;
@@ -146,7 +146,7 @@
   font-size: 14px; font-weight: 700; color: #D95F70; transition: transform 0.12s;
 }
 .rh-report-card:active { transform: scale(0.98); }
-.rh-report-chevron { margin-left: auto; color: #F18091; opacity: 0.8; }
+.rh-report-chevron { margin-left: auto; color: #D58A95; opacity: 0.8; }
 .rh-row {
   display: grid; grid-template-columns: 1fr 1fr minmax(60px,auto) auto auto;
   align-items: center; gap: 8px; padding: 12px 16px;
@@ -169,7 +169,7 @@
   grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; padding-top: 4px;
 }
 .rh-edit-input {
-  padding: 6px 10px; border: 1.5px solid #F18091;
+  padding: 6px 10px; border: 1.5px solid #D58A95;
   border-radius: 8px; font-size: 13px; width: 100%; box-sizing: border-box;
 }
 .rh-edit-cancel {
@@ -229,7 +229,7 @@
 .rr-rev  { font-size: 13px; font-weight: 700; color: #D95F70; }
 .rr-bar {
   grid-column: 1 / -1; height: 3px; border-radius: 2px;
-  background: linear-gradient(90deg, #F18091, #D95F70);
+  background: linear-gradient(90deg, #D58A95, #D95F70);
   width: var(--pct); margin-top: 4px;
 }
 .rr-error { display: flex; flex-direction: column; align-items: center; padding: 48px 24px; gap: 12px; }
@@ -297,7 +297,7 @@
   background: #F2F2F7; font-size: 14px;
   -webkit-appearance: none; box-sizing: border-box; transition: all 0.15s;
 }
-.ch-search:focus { outline: none; border-color: #F18091; background: #fff; }
+.ch-search:focus { outline: none; border-color: #D58A95; background: #fff; }
 .ch-add-toggle {
   width: 34px; height: 34px; border: 1.5px solid #E5E5EA;
   border-radius: 10px; background: #fff;
@@ -305,7 +305,7 @@
   cursor: pointer; display: grid; place-items: center; flex-shrink: 0;
   transition: all 0.12s;
 }
-.ch-add-toggle.active { border-color: #F18091; color: #D95F70; background: #FEF4F5; }
+.ch-add-toggle.active { border-color: #D58A95; color: #D95F70; background: #FEF4F5; }
 .ch-add-panel {
   padding: 12px 16px; background: #FAFAFA;
   border-bottom: 0.5px solid rgba(0,0,0,0.06);
@@ -348,7 +348,7 @@
   margin-top: 3px; letter-spacing: -0.3px;
   font-variant-numeric: tabular-nums;
 }
-.hub-stat-mini .val.danger { color: var(--accent, #F18091); }
+.hub-stat-mini .val.danger { color: var(--accent, #D58A95); }
 .hub-stat-mini .val.green  { color: var(--text, #0F1419); }
 
 /* ── 필터 칩 (고객/재고 공용) ────────────────────────────── */
@@ -388,7 +388,7 @@
 .cust-row:last-child { border-bottom: none; }
 .cust-avatar {
   width: 40px; height: 40px; border-radius: 50%;
-  background: linear-gradient(135deg, #FBD0D6, #F18091);
+  background: linear-gradient(135deg, #FBD0D6, #D58A95);
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 14px; font-weight: 700;
   flex-shrink: 0; letter-spacing: -0.3px;
@@ -420,10 +420,10 @@
   letter-spacing: -0.1px;
   display: inline-flex; align-items: center; gap: 3px;
 }
-.badge-regular  { background: var(--brand-bg, #FCEEF1); color: var(--accent, #F18091); }
-.badge-member   { background: var(--brand-bg, #FCEEF1); color: var(--accent, #F18091); }
+.badge-regular  { background: var(--brand-bg, #FCEEF1); color: var(--accent, #D58A95); }
+.badge-member   { background: var(--brand-bg, #FCEEF1); color: var(--accent, #D58A95); }
 .badge-new      { background: #F2F2F7; color: #5A6573; }
-.badge-risk     { background: var(--brand-bg, #FCEEF1); color: var(--accent, #F18091); }
+.badge-risk     { background: var(--brand-bg, #FCEEF1); color: var(--accent, #D58A95); }
 .badge-birthday { background: #F2F2F7; color: #5A6573; }
 
 /* ── OCR 가격표 카드 (재고) ─────────────────────────────── */
@@ -444,7 +444,7 @@
   width: 32px; height: 32px; border-radius: 8px;
   background: rgba(255,255,255,0.7);
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; color: #E5586E;
+  flex-shrink: 0; color: #BC6675;
 }
 .ocr-text { flex: 1; text-align: left; }
 .ocr-title {
@@ -455,7 +455,7 @@
   font-size: 11px; color: #993556;
   margin-top: 1px; font-weight: 500;
 }
-.ocr-chev { color: #E5586E; flex-shrink: 0; display: flex; }
+.ocr-chev { color: #BC6675; flex-shrink: 0; display: flex; }
 
 /* 재고 행 편집 버튼 */
 .ih-edit-btn {
@@ -573,12 +573,12 @@
 [data-theme="dark"] .cust-meta       { color: var(--text-subtle); }
 
 [data-theme="dark"] .badge-regular,
-[data-theme="dark"] .badge-member    { background: rgba(241,128,145,0.18); color: #F8B5BF; }
+[data-theme="dark"] .badge-member    { background: rgba(213,138,149,0.18); color: #F8B5BF; }
 [data-theme="dark"] .badge-new       { background: rgba(16,165,107,0.18); color: #4ADE80; }
 [data-theme="dark"] .badge-risk      { background: rgba(220,72,72,0.18); color: #FCA5A5; }
 [data-theme="dark"] .badge-birthday  { background: var(--surface-2); color: var(--text-muted); }
 
-[data-theme="dark"] .ocr-card        { background: linear-gradient(180deg, rgba(241,128,145,0.10), var(--surface-2)); border-color: rgba(241,128,145,0.22); }
+[data-theme="dark"] .ocr-card        { background: linear-gradient(180deg, rgba(213,138,149,0.10), var(--surface-2)); border-color: rgba(213,138,149,0.22); }
 [data-theme="dark"] .ocr-icon        { background: rgba(255,255,255,0.06); color: var(--brand); }
 [data-theme="dark"] .ocr-title       { color: var(--text); }
 [data-theme="dark"] .ocr-sub         { color: var(--text-muted); }

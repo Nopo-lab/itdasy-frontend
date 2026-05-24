@@ -1196,15 +1196,15 @@
         </button>
       </div>`;
 
-    return `<div style="margin-top:6px;background:#fff;border:1px solid hsl(340,30%,88%);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(241,128,145,0.08);">
+    return `<div style="margin-top:6px;background:#fff;border:1px solid hsl(340,30%,88%);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(213,138,149,0.08);">
       ${header}
       <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;">${rowsHtml}</div>
       ${controls}
     </div>
     <style>
       @keyframes asst-unified-pulse {
-        0%,100% { box-shadow: 0 0 0 0 rgba(241,128,145,0.55); }
-        50%     { box-shadow: 0 0 0 6px rgba(241,128,145,0); }
+        0%,100% { box-shadow: 0 0 0 0 rgba(213,138,149,0.55); }
+        50%     { box-shadow: 0 0 0 6px rgba(213,138,149,0); }
       }
       .asst-unified-pulse { animation: asst-unified-pulse 1.8s ease-in-out infinite; }
       @keyframes asst-spin { to { transform: rotate(360deg); } }

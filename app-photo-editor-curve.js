@@ -119,7 +119,7 @@
       <canvas id="peCurveCanvas" width="256" height="256" style="display:block;width:100%;max-width:280px;margin:12px auto;background:#1a1a1f;border-radius:12px;touch-action:none;cursor:crosshair;"></canvas>
       <div class="pe-panel-row" style="display:flex;gap:8px;">
         <button type="button" class="pe-action-btn" data-curve-reset>리셋</button>
-        <button type="button" class="pe-action-btn" data-curve-toggle style="background:${c.enabled ? '#F18091' : '#888'};color:#fff;">${c.enabled ? '적용 켜짐' : '적용 꺼짐'}</button>
+        <button type="button" class="pe-action-btn" data-curve-toggle style="background:${c.enabled ? '#D58A95' : '#888'};color:#fff;">${c.enabled ? '적용 켜짐' : '적용 꺼짐'}</button>
       </div>
       <div class="pe-hint">검은 박스 안 점을 드래그 — 왼쪽 = 어두운 영역, 오른쪽 = 밝은 영역.</div>`;
   }

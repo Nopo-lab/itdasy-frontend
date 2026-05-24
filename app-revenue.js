@@ -102,7 +102,7 @@
       return _RV_EXAMPLE_BY_SHOP[t] || _RV_EXAMPLE_BY_SHOP['붙임머리'];
     } catch (_) { return '24인치'; }
   }
-  const DONUT_COLORS = ['#E5586E', '#F4A6B8', '#FBE0E7', '#C4C9D1', '#E5E7EB'];
+  const DONUT_COLORS = ['#BC6675', '#F4A6B8', '#FBE0E7', '#C4C9D1', '#E5E7EB'];
 
   let _currentPeriod = 'month';  // [2026-05-21] 기본 탭 일 → 월
   let _items = [];
@@ -949,7 +949,7 @@
         </div>
         <div style="display:flex;gap:8px;">
           <button type="button" data-rv-close style="flex:1;padding:13px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;cursor:pointer;color:#4E5968;font-weight:700;font-size:13px;">닫기</button>
-          <button type="button" data-rv-edit style="flex:1;padding:13px;border:none;border-radius:12px;background:var(--brand-strong,#E5586E);color:#fff;cursor:pointer;font-weight:800;font-size:14px;">편집</button>
+          <button type="button" data-rv-edit style="flex:1;padding:13px;border:none;border-radius:12px;background:var(--brand-strong,#BC6675);color:#fff;cursor:pointer;font-weight:800;font-size:14px;">편집</button>
           <button type="button" data-rv-del style="flex:1;padding:13px;border:1px solid #EF4444;border-radius:12px;background:#fff;cursor:pointer;color:#EF4444;font-weight:700;font-size:13px;">삭제</button>
         </div>
       </div>`;

@@ -126,7 +126,7 @@
     return ''
       + '<button type="button" class="cust-chip" data-cust-chip="' + k + '" data-cust-id="' + cidEsc + '"'
       + ' style="display:inline-flex;align-items:center;gap:4px;margin-left:6px;padding:4px 8px;'
-      + 'background:rgba(241,128,145,.10);color:#a04050;border:1px solid rgba(241,128,145,.28);'
+      + 'background:rgba(213,138,149,.10);color:#a04050;border:1px solid rgba(213,138,149,.28);'
       + 'border-radius:999px;font-size:11px;font-weight:600;line-height:1;cursor:pointer;">'
       + '<span>' + l + '</span>'
       + '<span data-cust-chip-x="' + k + '" data-cust-id="' + cidEsc + '"'

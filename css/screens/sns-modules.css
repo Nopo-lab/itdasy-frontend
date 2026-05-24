@@ -14,11 +14,11 @@
 }
 .sns-cal-back {
   background: none; border: none; font-size: 16px; font-weight: 700;
-  color: var(--accent, #F18091); cursor: pointer; margin-right: 12px;
+  color: var(--accent, #D58A95); cursor: pointer; margin-right: 12px;
 }
 .sns-cal-title { font-size: 15px; font-weight: 800; flex: 1; }
 .sns-cal-today-btn {
-  padding: 5px 12px; border-radius: 8px; border: 1px solid var(--accent, #F18091);
+  padding: 5px 12px; border-radius: 8px; border: 1px solid var(--accent, #D58A95);
   background: #fff; color: var(--accent); font-size: 11px; font-weight: 700; cursor: pointer;
 }
 
@@ -39,7 +39,7 @@
   font-weight: 600 !important; transition: all 0.15s;
 }
 .sns-cal-view-toggle button.on {
-  background: var(--accent, #F18091) !important; color: #fff !important;
+  background: var(--accent, #D58A95) !important; color: #fff !important;
 }
 
 /* 월간 그리드 */
@@ -55,17 +55,17 @@
   min-height: 56px; padding: 4px; border-radius: 8px; cursor: pointer;
   transition: background 0.12s;
 }
-.sns-cal-cell:hover { background: rgba(241,128,145,0.06); }
+.sns-cal-cell:hover { background: rgba(213,138,149,0.06); }
 .sns-cal-cell.today {
-  background: rgba(241,128,145,0.08);
-  border: 1.5px solid var(--accent, #F18091);
+  background: rgba(213,138,149,0.08);
+  border: 1.5px solid var(--accent, #D58A95);
 }
 .sns-cal-cell.empty { cursor: default; }
 .sns-cal-date-num {
   font-size: 12px; font-weight: 700; color: var(--text, #111);
   display: block; margin-bottom: 2px;
 }
-.sns-cal-cell.today .sns-cal-date-num { color: var(--accent, #F18091); }
+.sns-cal-cell.today .sns-cal-date-num { color: var(--accent, #D58A95); }
 
 .sns-cal-dots { display: flex; flex-wrap: wrap; gap: 3px; }
 .sns-cal-dot {
@@ -86,7 +86,7 @@
   min-height: 200px; border-radius: 10px; background: #fafafa;
   padding: 6px; transition: background 0.12s;
 }
-.sns-cal-week-col.today { background: rgba(241,128,145,0.06); border: 1px solid rgba(241,128,145,0.2); }
+.sns-cal-week-col.today { background: rgba(213,138,149,0.06); border: 1px solid rgba(213,138,149,0.2); }
 .sns-cal-week-head {
   text-align: center; font-size: 11px; font-weight: 700; color: var(--text3);
   padding: 4px 0 8px; border-bottom: 1px solid rgba(0,0,0,0.04); margin-bottom: 6px;
@@ -117,12 +117,12 @@
   font-size: 12px; font-weight: 700; cursor: pointer;
 }
 .sns-cal-add-btn {
-  background: linear-gradient(135deg, var(--accent, #F18091), var(--accent2, #e26a85));
+  background: linear-gradient(135deg, var(--accent, #D58A95), var(--accent2, #e26a85));
   color: #fff;
 }
 .sns-cal-ai-btn {
-  background: rgba(241,128,145,0.08); color: var(--accent);
-  border: 1px solid rgba(241,128,145,0.2);
+  background: rgba(213,138,149,0.08); color: var(--accent);
+  border: 1px solid rgba(213,138,149,0.2);
 }
 .sns-cal-grid-btn {
   background: #f5f5f5; color: var(--text2, #555);

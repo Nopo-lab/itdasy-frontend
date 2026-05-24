@@ -105,7 +105,7 @@
 
     // 1. 오늘 위험 신호
     const widget1 = `
-      <div class="kw-card" style="background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;padding:18px;border-radius:18px;margin-bottom:12px;box-shadow:0 6px 20px rgba(241,128,145,0.3);">
+      <div class="kw-card" style="background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;padding:18px;border-radius:18px;margin-bottom:12px;box-shadow:0 6px 20px rgba(213,138,149,0.3);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:11px;letter-spacing:2px;opacity:0.85;font-weight:800;">🔔 오늘 한눈에</div>
           ${alertCount > 0 ? `<div style="background:rgba(255,255,255,0.25);padding:3px 10px;border-radius:100px;font-size:11px;font-weight:800;">알림 ${alertCount}</div>` : ''}
@@ -174,7 +174,7 @@
           <div style="font-weight:900;font-size:14px;color:#222;">${progress}%</div>
         </div>
         <div style="height:10px;background:#f0f0f0;border-radius:100px;overflow:hidden;position:relative;">
-          <div style="height:100%;background:linear-gradient(90deg,var(--brand),#FFB347);width:${progress}%;border-radius:100px;transition:width 1.2s cubic-bezier(0.2,0.9,0.3,1);box-shadow:0 0 10px rgba(241,128,145,0.45);"></div>
+          <div style="height:100%;background:linear-gradient(90deg,var(--brand),#FFB347);width:${progress}%;border-radius:100px;transition:width 1.2s cubic-bezier(0.2,0.9,0.3,1);box-shadow:0 0 10px rgba(213,138,149,0.45);"></div>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-muted);margin-top:8px;">
           <span>${_money(thisMonth)}</span>

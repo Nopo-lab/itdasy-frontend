@@ -16,10 +16,10 @@
   position: relative;
   transition: border-color 0.15s;
 }
-.ws-slot-card:active { border-color: var(--accent, #F18091); }
+.ws-slot-card:active { border-color: var(--accent, #D58A95); }
 
 .ws-slot-card--done {
-  border-color: var(--accent, #F18091);
+  border-color: var(--accent, #D58A95);
 }
 
 .ws-slot-card__del {
@@ -70,8 +70,8 @@
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: var(--r-md);
-  border: 2px dashed rgba(241, 128, 145, 0.35);
-  background: rgba(241, 128, 145, 0.03);
+  border: 2px dashed rgba(213,138,149, 0.35);
+  background: rgba(213,138,149, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;

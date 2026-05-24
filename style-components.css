@@ -22,7 +22,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 #onboardingCaptionPopup .ocp-card {
   background: #fff; border-radius: 28px;
   padding: 32px 24px; max-width: 360px; width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid rgba(241,128,145,0.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid rgba(213,138,149,0.15);
   animation: udPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 #onboardingCaptionPopup .ocp-emoji { font-size: 36px; text-align: center; margin-bottom: 10px; }
@@ -36,27 +36,27 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 #onboardingCaptionPopup textarea {
   width: 100%; min-height: 120px; padding: 14px;
-  border: 1.5px solid rgba(241,128,145,0.25); border-radius: 14px;
+  border: 1.5px solid rgba(213,138,149,0.25); border-radius: 14px;
   font-size: 13px; line-height: 1.7; color: var(--text);
   resize: vertical; box-sizing: border-box; font-family: inherit;
-  background: rgba(241,128,145,0.03);
+  background: rgba(213,138,149,0.03);
 }
 #onboardingCaptionPopup textarea:focus { outline: none; border-color: var(--accent2); }
 .ocp-actions { display: flex; gap: 8px; margin-top: 14px; }
 .ocp-skip { flex: 1; height: 46px; background: transparent; border: 1.5px solid rgba(0,0,0,0.08); border-radius: 14px; font-size: 13px; font-weight: 600; color: var(--text3); cursor: pointer; }
-.ocp-save { flex: 2; height: 46px; background: linear-gradient(135deg,#f18091,#ff9aa8); border: none; border-radius: 14px; font-size: 14px; font-weight: 700; color: white; cursor: pointer; }
+.ocp-save { flex: 2; height: 46px; background: linear-gradient(135deg,#D58A95,#ff9aa8); border: none; border-radius: 14px; font-size: 14px; font-weight: 700; color: white; cursor: pointer; }
 
 /* ───── 톤 컨트롤러 ───── */
 .tc-group { display: flex; gap: 6px; }
 .tc-btn {
   flex: 1; height: 34px; border-radius: 10px;
   font-size: 12px; font-weight: 600; cursor: pointer;
-  background: white; border: 1.5px solid rgba(241,128,145,0.2);
+  background: white; border: 1.5px solid rgba(213,138,149,0.2);
   color: var(--text3); transition: all 0.18s;
 }
 .tc-btn.active {
-  background: rgba(241,128,145,0.12);
-  border-color: rgba(241,128,145,0.5);
+  background: rgba(213,138,149,0.12);
+  border-color: rgba(213,138,149,0.5);
   color: var(--accent2);
 }
 
@@ -69,10 +69,10 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 #uploadProgressPopup .up-card {
   background: #fff; border-radius: 28px;
   padding: 44px 28px 36px; max-width: 300px; width: 100%; text-align: center;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.1); border: 1px solid rgba(241,128,145,0.1);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.1); border: 1px solid rgba(213,138,149,0.1);
 }
 #upPct {
-  font-size: 52px; font-weight: 900; color: #F18091;
+  font-size: 52px; font-weight: 900; color: #D58A95;
   letter-spacing: -2px; line-height: 1; margin-bottom: 10px;
   transition: all 0.4s ease;
 }
@@ -81,12 +81,12 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   margin-bottom: 24px; letter-spacing: -0.02em;
 }
 #upBarWrap {
-  height: 4px; background: rgba(241,128,145,0.15);
+  height: 4px; background: rgba(213,138,149,0.15);
   border-radius: 2px; overflow: hidden;
 }
 #upFill {
   height: 100%; width: 0%;
-  background: #F18091; border-radius: 2px;
+  background: #D58A95; border-radius: 2px;
   transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
 }
 
@@ -99,7 +99,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 #uploadDonePopup .ud-card {
   background: #fff; border-radius: 28px;
   padding: 44px 28px; max-width: 320px; width: 100%; text-align: center;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.1); border: 1px solid rgba(241,128,145,0.1);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.1); border: 1px solid rgba(213,138,149,0.1);
   animation: udPop 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
 }
 @keyframes udPop {
@@ -144,7 +144,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   animation: wSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.12s both;
   margin-bottom: 8px;
 }
-.welcome-name span { color: #F18091; }
+.welcome-name span { color: #D58A95; }
 .welcome-sub {
   font-size: 14px; font-weight: 600; color: var(--text2);
   animation: wSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.22s both;
@@ -155,7 +155,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 .welcome-dots span {
   width: 6px; height: 6px; border-radius: 50%;
-  background: #F18091; opacity: 0.3;
+  background: #D58A95; opacity: 0.3;
   animation: wDotPulse 1s ease-in-out infinite;
 }
 .welcome-dots span:nth-child(2) { animation-delay: 0.15s; }
@@ -184,7 +184,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   justify-content: center;
   gap: 8px;
   background: #fff;
-  border-bottom: 1px solid rgba(241,128,145,0.15);
+  border-bottom: 1px solid rgba(213,138,149,0.15);
   font-size: 13px;
   font-weight: 700;
   color: var(--text2);
@@ -211,7 +211,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   transition: background 0.15s;
   display: flex; align-items: center; justify-content: center;
 }
-.btn-settings:active { background: rgba(241,128,145,0.13); }
+.btn-settings:active { background: rgba(213,138,149,0.13); }
 
 /* ───── 설정 바텀시트 ───── */
 #settingsSheet {
@@ -259,7 +259,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   touch-action: manipulation;
   -webkit-user-select: none; user-select: none;
 }
-.sheet-row:active { background: rgba(241,128,145,0.1); }
+.sheet-row:active { background: rgba(213,138,149,0.1); }
 .sheet-row.danger { color: #E05565; font-weight: 500; }
 .sheet-row.muted  { color: var(--text3); font-size: 13px; font-weight: 400; }
 
@@ -275,11 +275,11 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 .settings-profile-avatar {
   width: 50px; height: 50px; border-radius: 50%;
-  background: rgba(241,128,145,0.1);
+  background: rgba(213,138,149,0.1);
   display: flex; align-items: center; justify-content: center;
   font-size: 19px; font-weight: 800; color: var(--accent);
   overflow: hidden; flex-shrink: 0;
-  border: 1.5px solid rgba(241,128,145,0.2);
+  border: 1.5px solid rgba(213,138,149,0.2);
 }
 .settings-profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 .settings-profile-name {
@@ -297,21 +297,21 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 
 /* ───── 입력 카드 ───── */
 .input-card {
-  background: linear-gradient(150deg, rgba(241,128,145,0.05) 0%, rgba(255,243,246,0.75) 100%);
-  border: 1.5px solid rgba(241,128,145,0.14);
+  background: linear-gradient(150deg, rgba(213,138,149,0.05) 0%, rgba(255,243,246,0.75) 100%);
+  border: 1.5px solid rgba(213,138,149,0.14);
   border-radius: 24px;
   padding: 18px 18px 14px;
   margin-bottom: 16px;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .input-card:focus-within {
-  border-color: rgba(241,128,145,0.5);
-  box-shadow: 0 0 0 4px rgba(241,128,145,0.09), 0 6px 24px rgba(241,128,145,0.11);
+  border-color: rgba(213,138,149,0.5);
+  box-shadow: 0 0 0 4px rgba(213,138,149,0.09), 0 6px 24px rgba(213,138,149,0.11);
 }
 .input-card label { color: var(--text2); font-size: 12px; margin-bottom: 8px; }
 .input-card textarea {
   background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(241,128,145,0.1);
+  border: 1px solid rgba(213,138,149,0.1);
   border-radius: 14px;
 }
 .input-card textarea:focus {
@@ -333,7 +333,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 .skeleton-box.show { display: block; }
 .sk {
   border-radius: 7px;
-  background: linear-gradient(90deg, var(--bg3) 25%, rgba(241,128,145,0.08) 50%, var(--bg3) 75%);
+  background: linear-gradient(90deg, var(--bg3) 25%, rgba(213,138,149,0.08) 50%, var(--bg3) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
@@ -345,7 +345,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   border: 2px solid rgba(255,255,255,0.25);
-  box-shadow: 0 2px 8px rgba(241,128,145,0.45);
+  box-shadow: 0 2px 8px rgba(213,138,149,0.45);
   cursor: grab;
   transition: transform 0.1s, box-shadow 0.1s;
 }
@@ -354,7 +354,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   width: 22px; height: 22px; border-radius: 50%;
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   border: 2px solid rgba(255,255,255,0.25);
-  box-shadow: 0 2px 8px rgba(241,128,145,0.45);
+  box-shadow: 0 2px 8px rgba(213,138,149,0.45);
   cursor: grab;
 }
 @keyframes pulse { 0%,100%{transform:scale(1);opacity:0.8} 50%{transform:scale(1.18);opacity:1} }
@@ -374,8 +374,8 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 .ai-step-card {
   background: linear-gradient(145deg,#fff0f4,#fff8fa);
-  border-radius: 22px; border: 1.5px solid rgba(241,128,145,0.2);
-  box-shadow: 0 8px 32px rgba(241,128,145,0.12);
+  border-radius: 22px; border: 1.5px solid rgba(213,138,149,0.2);
+  box-shadow: 0 8px 32px rgba(213,138,149,0.12);
   padding: 22px 20px;
 }
 .ai-step-title {
@@ -390,18 +390,18 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   border: 1.5px solid transparent;
 }
 .ai-step-row.active {
-  opacity: 1; background: rgba(241,128,145,0.07);
-  border-color: rgba(241,128,145,0.2);
+  opacity: 1; background: rgba(213,138,149,0.07);
+  border-color: rgba(213,138,149,0.2);
   animation: stepFadeIn 0.35s ease both;
 }
 .ai-step-row.done {
-  opacity: 1; background: rgba(241,128,145,0.04);
+  opacity: 1; background: rgba(213,138,149,0.04);
 }
 .ai-step-icon { font-size: 18px; flex-shrink:0; }
 .ai-step-label { flex: 1; font-size: 12px; font-weight: 700; color: var(--text2); letter-spacing: -0.01em; }
 .ai-step-indicator {
   width: 18px; height: 18px; border-radius: 50%; flex-shrink:0;
-  border: 2px solid rgba(241,128,145,0.3); background: transparent;
+  border: 2px solid rgba(213,138,149,0.3); background: transparent;
 }
 .ai-step-row.active .ai-step-indicator {
   border-color: var(--accent); border-right-color: transparent;
@@ -420,7 +420,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 }
 .caption-photo-zone input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; font-size:0; }
 .caption-photo-zone.before { border-color: rgba(100,149,237,0.4); background: rgba(100,149,237,0.05); }
-.caption-photo-zone.after  { border-color: rgba(241,128,145,0.35); background: rgba(241,128,145,0.04); }
+.caption-photo-zone.after  { border-color: rgba(213,138,149,0.35); background: rgba(213,138,149,0.04); }
 .caption-photo-zone.has-img { border-style: solid; }
 .caption-photo-zone.before.has-img { border-color: #6495ed; }
 .caption-photo-zone.after.has-img  { border-color: var(--accent); }
@@ -433,7 +433,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 .ptype-tab.active {
   background: linear-gradient(135deg, var(--accent), var(--accent2));
   color: #fff; border-color: transparent;
-  box-shadow: 0 2px 8px rgba(241,128,145,0.3);
+  box-shadow: 0 2px 8px rgba(213,138,149,0.3);
 }
 
 /* ── P3 Workshop (T-200 2026-04-20) ── */
@@ -477,7 +477,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   border-radius: 999px;
   background: var(--brand-bg, #FCEEF1);
   display: grid; place-items: center;
-  color: var(--brand, #F18091);
+  color: var(--brand, #D58A95);
   margin: 0 auto 18px;        /* 명시적 가운데 — flex 부모에서 align-items 외 안전망 */
   align-self: center;
 }
@@ -509,12 +509,12 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   padding: 14px;
   border-radius: 14px;
   border: none;
-  background: var(--accent, #F18091);
+  background: var(--accent, #D58A95);
   color: #fff;
   font-size: 15px; font-weight: 800;
   cursor: pointer;
   pointer-events: auto;
-  box-shadow: 0 4px 14px rgba(241,128,145,0.28);
+  box-shadow: 0 4px 14px rgba(213,138,149,0.28);
 }
 @media (width >= 768px) {
   .ws-empty__bottom { left: var(--side-nav-width, 232px); bottom: 24px; }
@@ -563,7 +563,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   display: flex; align-items: center; gap: 10px;
   margin: 12px; padding: 10px 12px;
   background: linear-gradient(135deg, var(--brand-bg) 0%, var(--surface) 100%);
-  border: 1px solid rgba(241,128,145,.2);
+  border: 1px solid rgba(213,138,149,.2);
   border-radius: var(--r-md);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
@@ -573,7 +573,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   font-family: inherit;
 }
 .cw-chatbot-card:hover {
-  box-shadow: 0 6px 16px rgba(241,128,145,.22);
+  box-shadow: 0 6px 16px rgba(213,138,149,.22);
   transform: translateY(-1px);
 }
 .cw-chatbot-card__icon {
@@ -582,7 +582,7 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   background: linear-gradient(135deg, var(--brand), var(--brand-strong));
   display: flex; align-items: center; justify-content: center;
   color: #fff; flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(241,128,145,.3);
+  box-shadow: 0 3px 8px rgba(213,138,149,.3);
 }
 .cw-chatbot-card__icon svg { stroke: #fff; }
 .cw-chatbot-card__text {

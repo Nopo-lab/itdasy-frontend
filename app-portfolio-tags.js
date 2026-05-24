@@ -14,7 +14,7 @@
       <div data-chip-wrap style="display:flex;flex-wrap:wrap;gap:8px;min-height:34px;margin-bottom:10px;"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <input data-new-tag placeholder="직접 추가" style="flex:1;min-width:0;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.08);color:white;padding:11px;font-size:13px;">
-        <button data-add-tag type="button" style="width:72px;border:none;border-radius:10px;background:rgba(241,128,145,0.9);color:white;font-size:13px;font-weight:900;cursor:pointer;">추가</button>
+        <button data-add-tag type="button" style="width:72px;border:none;border-radius:10px;background:rgba(213,138,149,0.9);color:white;font-size:13px;font-weight:900;cursor:pointer;">추가</button>
       </div>
       <label style="display:block;font-size:11px;color:rgba(255,255,255,0.62);font-weight:800;margin-bottom:6px;">메모</label>
       <textarea data-memo rows="3" style="width:100%;box-sizing:border-box;border-radius:10px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.08);color:white;padding:11px;font-size:13px;resize:vertical;margin-bottom:14px;"></textarea>
@@ -50,7 +50,7 @@
   function _chip(tag, onRemove) {
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;border:1px solid rgba(241,128,145,0.28);background:rgba(241,128,145,0.1);color:var(--accent2);font-size:12px;font-weight:800;cursor:pointer;';
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;border:1px solid rgba(213,138,149,0.28);background:rgba(213,138,149,0.1);color:var(--accent2);font-size:12px;font-weight:800;cursor:pointer;';
     chip.textContent = '#' + tag + ' x';
     chip.addEventListener('click', onRemove);
     return chip;

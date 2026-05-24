@@ -130,7 +130,7 @@ i.tab-bar__icon {
 
 .tab-bar__fab:active {
   /* 2026-05-01 ── 흔들림 픽스: scale 제거. 시각 피드백은 box-shadow 약화로 */
-  box-shadow: 0 4px 12px rgba(241,128,145,.20);
+  box-shadow: 0 4px 12px rgba(213,138,149,.20);
   transform: none !important;  /* 글로벌 button:active scale(0.96) 차단 */
 }
 
@@ -176,7 +176,7 @@ html[data-theme="dark"] .tab-bar {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: var(--brand-bg, #FFF1F3);
+  background: var(--brand-bg, #F7EFF0);
   color: var(--brand);
   display: grid;
   place-items: center;

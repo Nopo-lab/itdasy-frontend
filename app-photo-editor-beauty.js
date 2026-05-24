@@ -155,7 +155,7 @@
     let featuredHtml = '';
     if (featured.length) {
       featuredHtml = `
-        <div class="pe-group-label" style="color:#F18091;font-weight:800;">✦ 추천 보정 — ${esc(catLabel)}</div>
+        <div class="pe-group-label" style="color:#D58A95;font-weight:800;">✦ 추천 보정 — ${esc(catLabel)}</div>
         ${featured.map(k => _slider(esc, k, b[k])).join('')}
       `;
     }

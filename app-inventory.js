@@ -280,15 +280,15 @@
 
       .inv-filters { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
       .inv-filters .pill { padding:8px 14px; border:none; border-radius:999px; background:#F2F4F6; color:#4E5968; font-size:13px; font-weight:600; cursor:pointer; }
-      .inv-filters .pill.on { background:#FFF1F3; color:#E5586E; box-shadow:inset 0 0 0 1.5px #E5586E; }
+      .inv-filters .pill.on { background:#F7EFF0; color:#BC6675; box-shadow:inset 0 0 0 1.5px #BC6675; }
 
       .inv-progress { height:6px; background:#F2F4F6; border-radius:999px; margin-top:6px; overflow:hidden; }
       .inv-progress__fill { height:100%; border-radius:999px; transition:width .25s ease; }
       .inv-progress__fill.ok     { background:#22C58B; }
-      .inv-progress__fill.danger { background:#E5586E; }
+      .inv-progress__fill.danger { background:#BC6675; }
 
       .inv-badge { font-size:9px; padding:1px 5px; border-radius:3px; font-weight:700; }
-      .inv-badge.auto { background:#FFF1F3; color:#E5586E; }
+      .inv-badge.auto { background:#F7EFF0; color:#BC6675; }
       .inv-badge.man  { background:#F2F4F6; color:#4E5968; }
     `;
     document.head.appendChild(s);

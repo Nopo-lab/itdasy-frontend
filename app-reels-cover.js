@@ -57,7 +57,7 @@
       serviceName: opts.service_name || opts.serviceName || '',
       priceText: _formatPrice(opts.price || 0),
       shopName: opts.shop_name || opts.shopName || brand.shop_name || '',
-      brandColor: brand.brand_color || '#F18091',
+      brandColor: brand.brand_color || '#D58A95',
       watermark: brand.watermark_text || '',
     };
   }
@@ -83,7 +83,7 @@
             <div id="rcEmpty" style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px;text-align:center;color:#888;font-size:13px;">
               <div>사진 1장을 골라주세요</div>
               <button type="button" class="rc-btn rc-btn-primary" data-rc-act="pick"
-                style="padding:10px 18px;border:none;border-radius:12px;background:linear-gradient(135deg,#FF6B9D,#F18091);color:#fff;font-weight:700;cursor:pointer;">사진 고르기</button>
+                style="padding:10px 18px;border:none;border-radius:12px;background:linear-gradient(135deg,#FF6B9D,#D58A95);color:#fff;font-weight:700;cursor:pointer;">사진 고르기</button>
               <input type="file" id="rcPicker" accept="image/*" style="display:none;" />
             </div>
           </div>
@@ -112,7 +112,7 @@
           <button type="button" data-rc-act="export-png" class="rc-btn"
             style="flex:1;padding:11px 0;border:1px solid #e0e0e0;border-radius:12px;background:#fff;font-weight:700;cursor:pointer;">PNG 저장</button>
           <button type="button" data-rc-act="export-jpg" class="rc-btn rc-btn-primary"
-            style="flex:1;padding:11px 0;border:none;border-radius:12px;background:linear-gradient(135deg,#FF6B9D,#F18091);color:#fff;font-weight:700;cursor:pointer;">JPG 저장</button>
+            style="flex:1;padding:11px 0;border:none;border-radius:12px;background:linear-gradient(135deg,#FF6B9D,#D58A95);color:#fff;font-weight:700;cursor:pointer;">JPG 저장</button>
         </footer>
       </div>`;
     document.body.appendChild(sheet);

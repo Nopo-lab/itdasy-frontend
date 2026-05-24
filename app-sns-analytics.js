@@ -127,7 +127,7 @@
         ${(d.topPosts||[]).map(p => `<div style="display:flex;align-items:center;gap:12px;padding:12px;background:#fafafa;border-radius:12px;margin-bottom:8px;"><div style="width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;">${p.rank}</div><div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(p.caption)}</div><div style="font-size:11px;color:#888;margin-top:2px;">❤️ ${p.likes} · 💬 ${p.comments} · 👁 ${p.reach}</div></div></div>`).join('')}
       </div>
       <div style="padding:0 16px 32px;"><div style="font-size:14px;font-weight:800;margin-bottom:10px;">⏰ AI 추천 발행 시간</div>
-        <div style="background:linear-gradient(135deg,rgba(241,128,145,0.06),rgba(241,128,145,0.02));border:1px solid rgba(241,128,145,0.12);border-radius:14px;padding:16px;">
+        <div style="background:linear-gradient(135deg,rgba(213,138,149,0.06),rgba(213,138,149,0.02));border:1px solid rgba(213,138,149,0.12);border-radius:14px;padding:16px;">
           ${(d.bestTimes||[]).map(t => `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;"><div style="font-size:13px;font-weight:700;">${t.day} ${t.time}</div><div style="display:flex;align-items:center;gap:6px;"><div style="width:60px;height:6px;border-radius:3px;background:#eee;overflow:hidden;"><div style="width:${t.score}%;height:100%;background:var(--accent);border-radius:3px;"></div></div><span style="font-size:11px;font-weight:700;color:var(--accent);">${t.score}점</span></div></div>`).join('')}
         </div>
       </div>`;
@@ -142,10 +142,10 @@
     ctx.clearRect(0, 0, W, H);
     const maxL = Math.max(...daily.map(d => d.likes), 1);
     const pad = { t:20, b:30, l:10, r:10 }, cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
-    ctx.beginPath(); ctx.strokeStyle = '#F18091'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.strokeStyle = '#D58A95'; ctx.lineWidth = 2.5;
     daily.forEach((d, i) => { const x = pad.l+(i/(daily.length-1))*cw, y = pad.t+ch-(d.likes/maxL)*ch; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
     ctx.stroke();
-    ctx.font = '600 20px sans-serif'; ctx.fillStyle = '#F18091'; ctx.fillText('● 좋아요', pad.l+10, H-6);
+    ctx.font = '600 20px sans-serif'; ctx.fillStyle = '#D58A95'; ctx.fillText('● 좋아요', pad.l+10, H-6);
   }
   async function _open() {
     const sheet = _ensureSheet();

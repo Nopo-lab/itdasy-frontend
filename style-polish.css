@@ -2,17 +2,17 @@
 .insta-frame {
   display: none;
   background: rgba(var(--bg-rgb,255,255,255),0.97);
-  border: 1px solid rgba(241,128,145,0.18);
+  border: 1px solid rgba(213,138,149,0.18);
   border-radius: 24px;
   margin-top: 14px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(241,128,145,0.10), 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 8px 32px rgba(213,138,149,0.10), 0 2px 8px rgba(0,0,0,0.05);
 }
 .insta-frame.show { display: block; }
 .insta-frame-header {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px 11px;
-  border-bottom: 0.5px solid rgba(241,128,145,0.12);
+  border-bottom: 0.5px solid rgba(213,138,149,0.12);
 }
 .frame-avatar-ring {
   width: 34px; height: 34px; border-radius: 50%;
@@ -75,7 +75,7 @@
 .insta-hashtag-text { font-size: 12px; color: var(--accent2); line-height: 1.85; margin-top: 10px; word-break: break-word; }
 .insta-frame-actions {
   display: flex;
-  border-top: 0.5px solid rgba(241,128,145,0.12);
+  border-top: 0.5px solid rgba(213,138,149,0.12);
   margin-top: 6px;
 }
 .frame-action-btn {
@@ -85,9 +85,9 @@
   border: none; background: transparent; cursor: pointer;
   transition: background 0.15s; color: var(--text2);
 }
-.frame-action-btn + .frame-action-btn { border-left: 0.5px solid rgba(241,128,145,0.12); }
+.frame-action-btn + .frame-action-btn { border-left: 0.5px solid rgba(213,138,149,0.12); }
 .frame-action-btn.primary { color: var(--accent); }
-.frame-action-btn:active { background: rgba(241,128,145,0.07); }
+.frame-action-btn:active { background: rgba(213,138,149,0.07); }
 
 /* ───── 복사 토스트 (포지션·폰트 통일, safe-area 대응) ───── */
 .copy-toast {
@@ -177,7 +177,7 @@ body { font-size: 15px; line-height: 1.55; overscroll-behavior-y: contain; }
 .spl-logo {
   font-size: 52px;
   font-weight: 800;
-  color: #F18091;
+  color: #D58A95;
   letter-spacing: -0.04em;
   opacity: 0;
   transform: translateY(18px);
@@ -202,7 +202,7 @@ body { font-size: 15px; line-height: 1.55; overscroll-behavior-y: contain; }
 .spl-progress-wrap {
   width: 160px;
   height: 3px;
-  background: rgba(241,128,145,0.15);
+  background: rgba(213,138,149,0.15);
   border-radius: 2px;
   margin-top: 20px;
   overflow: hidden;
@@ -212,7 +212,7 @@ body { font-size: 15px; line-height: 1.55; overscroll-behavior-y: contain; }
 .spl-progress-fill {
   height: 100%;
   width: 0%;
-  background: #F18091;
+  background: #D58A95;
   border-radius: 2px;
   animation: splProgress 1.2s cubic-bezier(0.4,0,0.2,1) 0.9s forwards;
 }
@@ -388,8 +388,8 @@ html, body, * { scroll-behavior: smooth; }
 
 /* 10. 핑크 강조 버튼 glow pulse (CTA 용) */
 @keyframes pink-glow-pulse {
-  0%, 100% { box-shadow: 0 6px 20px rgba(241,128,145,0.35); }
-  50%      { box-shadow: 0 8px 28px rgba(241,128,145,0.55); }
+  0%, 100% { box-shadow: 0 6px 20px rgba(213,138,149,0.35); }
+  50%      { box-shadow: 0 8px 28px rgba(213,138,149,0.55); }
 }
 .pink-glow { animation: pink-glow-pulse 3s ease-in-out infinite; }
 
@@ -403,7 +403,7 @@ html, body, * { scroll-behavior: smooth; }
 
 /* 12. 포커스 링 — 접근성 유지하면서 덜 거슬리게 */
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
-  outline: 2px solid rgba(241,128,145,0.5);
+  outline: 2px solid rgba(213,138,149,0.5);
   outline-offset: 2px;
 }
 button:focus:not(:focus-visible) { outline: none; }

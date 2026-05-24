@@ -310,8 +310,8 @@
       { id: 'nanumpen', label: '나눔 펜' },
       { id: 'hand',     label: '핸드' },
     ];
-    const COLORS = ['#ffffff', '#1a1a20', '#F18091', '#FFC83D'];
-    const COLOR_LABEL = { '#ffffff': '흰', '#1a1a20': '검', '#F18091': '핑크', '#FFC83D': '노랑' };
+    const COLORS = ['#ffffff', '#1a1a20', '#D58A95', '#FFC83D'];
+    const COLOR_LABEL = { '#ffffff': '흰', '#1a1a20': '검', '#D58A95': '핑크', '#FFC83D': '노랑' };
     // [v204] 레이어 리스트 헤더
     const layers = _state.layers || [];
     const layerListHtml = layers.length > 1

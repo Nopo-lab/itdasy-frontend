@@ -56,7 +56,7 @@
 }
 .pe-iconbtn:active { transform: scale(.96); }
 .pe-btn-primary {
-  background: linear-gradient(135deg, #f18091, #d65b75);
+  background: linear-gradient(135deg, #D58A95, #d65b75);
   color: #fff; border: none;
   padding: 9px 16px;
   border-radius: 12px;
@@ -119,9 +119,9 @@
   -webkit-tap-highlight-color: rgba(255,255,255,0.18);
 }
 .pe-tab.on {
-  background: rgba(241,128,145,0.18);
+  background: rgba(213,138,149,0.18);
   color: #fff;
-  border-color: rgba(241,128,145,0.5);
+  border-color: rgba(213,138,149,0.5);
 }
 
 .pe-panel {
@@ -139,7 +139,7 @@
 .pe-action-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #f18091, #d65b75);
+  background: linear-gradient(135deg, #D58A95, #d65b75);
   color: #fff; border: none;
   border-radius: 12px;
   font-size: 13px; font-weight: 700;
@@ -162,9 +162,9 @@
   text-align: center;
 }
 .pe-chip-btn.on {
-  background: rgba(241,128,145,0.22);
+  background: rgba(213,138,149,0.22);
   color: #fff;
-  border-color: rgba(241,128,145,0.55);
+  border-color: rgba(213,138,149,0.55);
 }
 .pe-chip-btn:active { transform: scale(.97); }
 
@@ -190,14 +190,14 @@
   -webkit-appearance: none; appearance: none;
   width: 20px; height: 20px;
   border-radius: 50%;
-  background: #f18091;
+  background: #D58A95;
   border: 2px solid #fff;
   cursor: pointer;
 }
 .pe-slider input[type="range"]::-moz-range-thumb {
   width: 20px; height: 20px;
   border-radius: 50%;
-  background: #f18091;
+  background: #D58A95;
   border: 2px solid #fff;
   cursor: pointer;
 }
@@ -226,9 +226,9 @@
 .pe-input::placeholder { color: #6c6c78; }
 
 .pe-coming {
-  background: rgba(241,128,145,0.10);
+  background: rgba(213,138,149,0.10);
   color: #f9c4ce;
-  border: 1px dashed rgba(241,128,145,0.35);
+  border: 1px dashed rgba(213,138,149,0.35);
   border-radius: 12px;
   padding: 14px 16px;
   font-size: 12px; line-height: 1.5;

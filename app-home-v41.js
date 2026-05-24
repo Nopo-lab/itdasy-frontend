@@ -261,7 +261,7 @@
     const todayBk = Array.isArray(brief.today_bookings) ? brief.today_bookings.filter(b => b.status === 'confirmed') : [];
     if (todayBk.length > 0) {
       const next = todayBk[0];
-      cards.push({ ok: 0, cat: '오늘 손님 미리보기', dot: 'var(--brand-strong,#E5586E)',
+      cards.push({ ok: 0, cat: '오늘 손님 미리보기', dot: 'var(--brand-strong,#BC6675)',
         hl: (next.customer_name || '손님') + '님 — ' + (next.service_name || next.service || '시술'),
         desc: (next.memo ? '"' + next.memo + '"' : '메모 없음'),
         btn: '고객 메모 보기', act: 'openCustomers' });
@@ -310,7 +310,7 @@
       btn: '문구 만들기', act: 'openCaption' });
 
     // 7. 인스타 리마인드 (항상 표시)
-    cards.push({ ok: 0, cat: '인스타 리마인드', dot: 'var(--brand,#F18091)',
+    cards.push({ ok: 0, cat: '인스타 리마인드', dot: 'var(--brand,#D58A95)',
       hl: '최근 포스팅 확인해보세요',
       desc: '꾸준한 업로드가 고객 유입에 도움돼요',
       btn: '갤러리에서 올리기', act: 'openGallery' });
@@ -922,7 +922,7 @@
 
       /* 헤더 — wide PC 전용 */
       .hv5-hdr{display:flex;align-items:center;padding:0 4px 18px;gap:14px}
-      .hv5-hdr .av{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#FFF1F3,#fde2e7);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#E5586E;flex-shrink:0;overflow:hidden}
+      .hv5-hdr .av{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#F7EFF0,#fde2e7);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#BC6675;flex-shrink:0;overflow:hidden}
       .hv5-hdr .av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
       .hv5-hdr .meta{flex:1;min-width:0}
       .hv5-hdr .date{font-size:12px;color:#6B7684;font-weight:500;letter-spacing:-0.2px}
@@ -930,7 +930,7 @@
       .hv5-bell{width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid #E5E8EB;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#191F28;position:relative;flex-shrink:0;transition:background .15s}
       .hv5-bell:hover{background:#F7F8FA}
       .hv5-bell svg{width:20px;height:20px}
-      .hv5-bell-badge{position:absolute;top:-1px;right:-1px;min-width:16px;height:16px;border-radius:999px;background:#E5586E;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
+      .hv5-bell-badge{position:absolute;top:-1px;right:-1px;min-width:16px;height:16px;border-radius:999px;background:#BC6675;color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid #fff}
 
       /* 12-col 그리드 */
       .hv5-row{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-bottom:14px}
@@ -943,22 +943,22 @@
       .hv5-card-link:hover{color:#191F28}
 
       /* 매출 히어로 (와이드) — border 제거, 그림자만 */
-      .hv5-hero{background:linear-gradient(135deg,#FFF6F8 0%,var(--surface-2,#F7F8FA) 70%);border-radius:16px;border:1px solid var(--brand-bg,#FFF1F3);box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:26px 28px;display:flex;align-items:center;gap:32px;margin-bottom:14px}
+      .hv5-hero{background:linear-gradient(135deg,#FFF6F8 0%,var(--surface-2,#F7F8FA) 70%);border-radius:16px;border:1px solid var(--brand-bg,#F7EFF0);box-shadow:0 1px 3px rgba(0,0,0,0.04);padding:26px 28px;display:flex;align-items:center;gap:32px;margin-bottom:14px}
       .hv5-hero-l{flex:0 0 auto;min-width:280px}
       .hv5-hero-label{font-size:12px;font-weight:600;color:#333D4B;margin-bottom:8px;letter-spacing:-0.2px;display:flex;align-items:center;gap:8px}
-      .hv5-hero-label-month{padding:2px 8px;border-radius:999px;background:#FFF1F3;color:#E5586E;font-size:10px;font-weight:700}
+      .hv5-hero-label-month{padding:2px 8px;border-radius:999px;background:#F7EFF0;color:#BC6675;font-size:10px;font-weight:700}
       .hv5-hero-amt{font-size:44px;font-weight:800;letter-spacing:-1.5px;line-height:1;color:#191F28;font-variant-numeric:tabular-nums}
       .hv5-hero-meta{display:flex;gap:16px;margin-top:14px;align-items:center;flex-wrap:wrap}
       .hv5-hero-chip{font-size:13px;color:#6B7684;font-weight:500;letter-spacing:-0.2px}
       .hv5-hero-chip b{font-weight:700;color:#333D4B}
       .hv5-hero-r{flex:1;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
       .hv5-hero-r-link{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#6B7684;font-weight:600;cursor:pointer;text-decoration:none;padding:5px 10px;border-radius:999px;background:var(--surface-2,#F7F8FA);border:1px solid var(--border,rgba(0,0,0,.07));font-family:inherit;transition:color .12s}
-      .hv5-hero-r-link:hover{color:#E5586E}
+      .hv5-hero-r-link:hover{color:#BC6675}
       .hv5-hero-stats{display:flex;gap:10px}
       .hv5-hero-stat{flex:0 0 155px;background:rgba(255,255,255,0.7);border:1px solid var(--border,rgba(0,0,0,.07));border-radius:12px;padding:14px 16px}
       .hv5-hero-stat-l{font-size:11px;font-weight:600;color:#6B7684;letter-spacing:-0.2px}
       .hv5-hero-stat-v{font-size:17px;font-weight:700;margin-top:4px;letter-spacing:-0.3px;color:#191F28;font-variant-numeric:tabular-nums}
-      .hv5-hero-stat-v.pred{color:#E5586E}
+      .hv5-hero-stat-v.pred{color:#BC6675}
 
       /* 알림 (간결한 dot 리스트) */
       .hv5-noti-list{display:flex;flex-direction:column;gap:2px}
@@ -968,7 +968,7 @@
       .hv5-noti-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
       .hv5-noti-dot.amber{background:#D97706}
       .hv5-noti-dot.purple{background:#7C3AED}
-      .hv5-noti-dot.pink{background:#E5586E}
+      .hv5-noti-dot.pink{background:#BC6675}
       .hv5-noti-dot.cyan{background:#0891B2}
       .hv5-noti-body{flex:1;min-width:0}
       .hv5-noti-title{font-size:13px;font-weight:600;letter-spacing:-0.3px;color:#191F28}
@@ -984,14 +984,14 @@
       .hv5-slot{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:10px;border:none;background:transparent;cursor:pointer;text-align:left;width:100%;font-family:inherit;transition:background .1s;border-bottom:1px solid #F7F8FA}
       .hv5-slot:last-of-type{border-bottom:none}
       .hv5-slot:hover{background:#F7F8FA}
-      .hv5-slot.now{background:#FFF1F3}
+      .hv5-slot.now{background:#F7EFF0}
       .hv5-slot.now:hover{background:#FFE8EC}
       .hv5-s-time{width:50px;font-size:13px;font-weight:700;color:#6B7684;font-variant-numeric:tabular-nums;flex-shrink:0;letter-spacing:-0.3px}
-      .hv5-slot.now .hv5-s-time{color:#E5586E}
-      .hv5-s-bar{width:3px;height:32px;border-radius:2px;background:#F18091;flex-shrink:0}
-      .hv5-slot.now .hv5-s-bar{background:#E5586E}
+      .hv5-slot.now .hv5-s-time{color:#BC6675}
+      .hv5-s-bar{width:3px;height:32px;border-radius:2px;background:#D58A95;flex-shrink:0}
+      .hv5-slot.now .hv5-s-bar{background:#BC6675}
       /* 인덱스 % 5 컬러 — 같은 날 5색 순환 */
-      .hv5-slot-pink .hv5-s-bar{background:#E5586E}
+      .hv5-slot-pink .hv5-s-bar{background:#BC6675}
       .hv5-slot-blue .hv5-s-bar{background:#3B82F6}
       .hv5-slot-teal .hv5-s-bar{background:#0D9488}
       .hv5-slot-purple .hv5-s-bar{background:#7C3AED}
@@ -1001,7 +1001,7 @@
       .hv5-s-svc{font-size:12px;color:#333D4B;letter-spacing:-0.2px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .hv5-s-amt{font-size:12px;color:#333D4B;letter-spacing:-0.2px;font-variant-numeric:tabular-nums;margin-left:auto;text-align:right;flex-shrink:0}
       .hv5-s-badge{padding:4px 11px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:-0.2px;flex-shrink:0;margin-left:10px}
-      .hv5-s-badge.conf{background:#FFF1F3;color:#E5586E}
+      .hv5-s-badge.conf{background:#F7EFF0;color:#BC6675}
       .hv5-s-badge.done{background:#E8F5E9;color:#0F6E56}
       .hv5-s-badge.cncl{background:#F7F8FA;color:#8B95A1}
       .hv5-s-more{text-align:center;padding:11px;font-size:12px;font-weight:600;color:#6B7684;background:#F7F8FA;cursor:pointer;border:none;width:100%;font-family:inherit;border-radius:10px;margin-top:6px}
@@ -1029,12 +1029,12 @@
       .hv5-ai-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.06),0 1px 3px rgba(0,0,0,0.04)}
       .hv5-ai-tag{display:inline-flex;align-items:center;gap:5px;margin-bottom:12px}
       .hv5-ai-dot{width:6px;height:6px;border-radius:50%}
-      .hv5-ai-dot.pink{background:#E5586E}
+      .hv5-ai-dot.pink{background:#BC6675}
       .hv5-ai-dot.amber{background:#D97706}
       .hv5-ai-dot.purple{background:#7C3AED}
       .hv5-ai-dot.green{background:#0F6E56}
       .hv5-ai-dot.cyan{background:#0891B2}
-      .hv5-ai-dot.brand{background:#F18091}
+      .hv5-ai-dot.brand{background:#D58A95}
       .hv5-ai-tag-t{font-size:10.5px;font-weight:600;color:#6B7684;letter-spacing:-0.1px}
       .hv5-ai-hl{font-size:15px;font-weight:700;line-height:1.35;letter-spacing:-0.4px;margin-bottom:6px;color:#191F28}
       .hv5-ai-desc{font-size:11.5px;color:#6B7684;line-height:1.45;margin-bottom:16px;flex:1}
@@ -1211,7 +1211,7 @@
     return `<div class="hv5-card">
       <div class="hv5-card-h">
         <div class="hv5-card-title">AI 잇비가 챙겼어요</div>
-        <span style="font-size:11px;color:#E5586E;font-weight:700">${total}건</span>
+        <span style="font-size:11px;color:#BC6675;font-weight:700">${total}건</span>
       </div>
       <div class="hv5-noti-list">${items.map(it => `
         <button type="button" class="hv5-noti" data-hv-act="${_esc(it.act)}">
@@ -1312,7 +1312,7 @@
       }
       return `<div class="hv5-ai-card hv5-ai-card-page" data-ok="0" data-hv-act="${_esc(c.act || '')}" role="button" tabindex="0">
         <div class="hv5-ai-tag">
-          <div class="hv5-ai-dot" style="background:${_esc(c.dot || '#E5586E')}"></div>
+          <div class="hv5-ai-dot" style="background:${_esc(c.dot || '#BC6675')}"></div>
           <div class="hv5-ai-tag-t">${_esc(c.cat || '')}</div>
         </div>
         <div class="hv5-ai-hl">${_esc(c.hl || '')}</div>

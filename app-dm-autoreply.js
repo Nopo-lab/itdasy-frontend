@@ -356,7 +356,7 @@
               ${MODES.map(m => `
                 <button type="button" class="dm-autonomy-btn ${m.id === autonomy ? 'is-on' : ''}" data-act="autonomy-mode" data-mode="${m.id}"
                   style="flex:1;min-width:90px;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;
-                  ${m.id === autonomy ? 'background:linear-gradient(135deg,var(--accent,#f18091),#E96A7E);color:#fff;border:1px solid var(--accent,#f18091);' : 'background:#fff;color:#444;border:1px solid #e5e7eb;'}">
+                  ${m.id === autonomy ? 'background:linear-gradient(135deg,var(--accent,#D58A95),#E96A7E);color:#fff;border:1px solid var(--accent,#D58A95);' : 'background:#fff;color:#444;border:1px solid #e5e7eb;'}">
                   <div style="font-size:13px;font-weight:800;margin-bottom:3px;">${m.name}</div>
                   <div style="font-size:10px;font-weight:500;opacity:${m.id === autonomy ? '0.95' : '0.7'};line-height:1.35;">${m.desc}</div>
                 </button>
@@ -895,7 +895,7 @@
           // 인라인 스타일도 같이 토글 (re-render 안 해도 즉시 보이게)
           if (on) {
             b.style.cssText = b.style.cssText.replace(/background:[^;]+;?/g, '').replace(/color:[^;]+;?/g, '').replace(/border:[^;]+;?/g, '') +
-              ';background:linear-gradient(135deg,var(--accent,#f18091),#E96A7E);color:#fff;border:1px solid var(--accent,#f18091);';
+              ';background:linear-gradient(135deg,var(--accent,#D58A95),#E96A7E);color:#fff;border:1px solid var(--accent,#D58A95);';
           } else {
             b.style.cssText = b.style.cssText.replace(/background:[^;]+;?/g, '').replace(/color:[^;]+;?/g, '').replace(/border:[^;]+;?/g, '') +
               ';background:#fff;color:#444;border:1px solid #e5e7eb;';

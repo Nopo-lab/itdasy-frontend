@@ -4,7 +4,7 @@
 [data-ai-sug],
 [data-cust-chip] {
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(241, 128, 145, 0.18);
+  -webkit-tap-highlight-color: rgba(213,138,149, 0.18);
   -webkit-appearance: none;
   appearance: none;
   user-select: none;

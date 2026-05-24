@@ -202,7 +202,7 @@
     try {
       const img = await _loadImg(imageSrc);
       _drawCover(ctx, img, 60, 140, W - 120, H * 0.55);
-      ctx.strokeStyle = 'rgba(241,128,145,0.3)';
+      ctx.strokeStyle = 'rgba(213,138,149,0.3)';
       ctx.lineWidth = 4;
       ctx.strokeRect(60, 140, W - 120, H * 0.55);
     } catch (_) {
@@ -416,7 +416,7 @@
     btn.id = '_icQuickBtn';
     btn.type = 'button';
     btn.textContent = '⚡ 1초 캡션';
-    btn.style.cssText = 'padding:12px 16px; border:none; border-radius:14px; background:linear-gradient(135deg,var(--brand),#ff9aa8); color:#fff; font-weight:800; font-size:14px; cursor:pointer; min-height:44px; box-shadow:0 4px 12px rgba(241,128,145,0.3);';
+    btn.style.cssText = 'padding:12px 16px; border:none; border-radius:14px; background:linear-gradient(135deg,var(--brand),#ff9aa8); color:#fff; font-weight:800; font-size:14px; cursor:pointer; min-height:44px; box-shadow:0 4px 12px rgba(213,138,149,0.3);';
     btn.addEventListener('click', openInstantCaption);
     target.appendChild(btn);
     return true;

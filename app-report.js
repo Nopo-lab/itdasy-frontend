@@ -126,7 +126,7 @@
         </div>
       </div>
 
-      <div style="padding:12px;background:rgba(241,128,145,0.05);border-radius:10px;font-size:10px;color:#888;line-height:1.5;text-align:center;">
+      <div style="padding:12px;background:rgba(213,138,149,0.05);border-radius:10px;font-size:10px;color:#888;line-height:1.5;text-align:center;">
         🎀 잇데이가 매달 자동으로 집계해요. 월 마지막 날 알림으로도 보내드릴게요.
       </div>
     `;

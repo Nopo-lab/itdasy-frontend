@@ -74,16 +74,16 @@
         <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">${_sets.length}/${MAX_SETS} 세트 · 원터치로 캡션에 삽입</div>
 
         ${_sets.map((s, i) => `
-          <div style="background:rgba(241,128,145,0.04);border:1px solid rgba(241,128,145,0.1);border-radius:14px;padding:14px;margin-bottom:10px;">
+          <div style="background:rgba(213,138,149,0.04);border:1px solid rgba(213,138,149,0.1);border-radius:14px;padding:14px;margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <div style="font-size:14px;font-weight:700;">${_esc(s.name)}</div>
               <div style="display:flex;gap:6px;">
                 <button type="button" data-hashtag-act="copy" data-hashtag-idx="${i}" style="padding:4px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:11px;font-weight:600;cursor:pointer;">📋 복사</button>
-                <button type="button" data-hashtag-act="insert" data-hashtag-idx="${i}" style="padding:4px 10px;border:none;border-radius:8px;background:var(--accent,#F18091);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">삽입</button>
+                <button type="button" data-hashtag-act="insert" data-hashtag-idx="${i}" style="padding:4px 10px;border:none;border-radius:8px;background:var(--accent,#D58A95);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">삽입</button>
               </div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;">
-              ${s.tags.map(tag => `<span style="padding:4px 10px;border-radius:20px;background:rgba(241,128,145,0.08);color:var(--accent2);font-size:11px;font-weight:600;">${_esc(tag)}</span>`).join('')}
+              ${s.tags.map(tag => `<span style="padding:4px 10px;border-radius:20px;background:rgba(213,138,149,0.08);color:var(--accent2);font-size:11px;font-weight:600;">${_esc(tag)}</span>`).join('')}
             </div>
             <div style="margin-top:8px;display:flex;gap:6px;">
               <button type="button" data-hashtag-act="edit" data-hashtag-idx="${i}" style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;text-decoration:underline;">편집</button>

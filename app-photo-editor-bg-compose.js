@@ -59,7 +59,7 @@
   function _drawProcedural(ctx, render, w, h) {
     const fill = (g, stops) => { stops.forEach(s => g.addColorStop(s[0], s[1])); ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); };
     if (render === 'beige') return fill(ctx.createLinearGradient(0, 0, 0, h), [[0, '#f7eee1'], [1, '#ebdcc4']]);
-    if (render === 'pink_radial') return fill(ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.04, w * 0.5, h * 0.42, Math.max(w, h) * 0.75), [[0, '#fde2e8'], [0.55, '#fbb8c6'], [1, '#f18091']]);
+    if (render === 'pink_radial') return fill(ctx.createRadialGradient(w * 0.5, h * 0.42, w * 0.04, w * 0.5, h * 0.42, Math.max(w, h) * 0.75), [[0, '#fde2e8'], [0.55, '#fbb8c6'], [1, '#D58A95']]);
     if (render === 'black_lux') return fill(ctx.createLinearGradient(0, 0, 0, h), [[0, '#22222a'], [0.6, '#1a1a1f'], [1, '#0f0f13']]);
     fill(ctx.createLinearGradient(0, 0, w, h), [[0, '#f8f6f3'], [0.5, '#ececea'], [1, '#f4f2ef']]);
     ctx.save(); ctx.lineCap = 'round';

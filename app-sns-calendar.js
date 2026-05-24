@@ -186,7 +186,7 @@
       card.addEventListener('dragend', () => { card.style.opacity = '1'; });
     });
     sheet.querySelectorAll('.sns-cal-week-posts[data-date]').forEach(col => {
-      col.addEventListener('dragover', e => { e.preventDefault(); col.style.background = 'rgba(241,128,145,0.1)'; });
+      col.addEventListener('dragover', e => { e.preventDefault(); col.style.background = 'rgba(213,138,149,0.1)'; });
       col.addEventListener('dragleave', () => { col.style.background = ''; });
       col.addEventListener('drop', e => {
         e.preventDefault();
@@ -225,7 +225,7 @@
         ${posts.length === 0
           ? '<div style="text-align:center;padding:32px 0;color:#999;font-size:13px;">이 날짜에 게시물이 없어요</div>'
           : posts.map(p => `
-            <div style="background:rgba(241,128,145,0.04);border:1px solid rgba(241,128,145,0.12);border-radius:14px;padding:14px;margin-bottom:10px;">
+            <div style="background:rgba(213,138,149,0.04);border:1px solid rgba(213,138,149,0.12);border-radius:14px;padding:14px;margin-bottom:10px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <span style="font-size:12px;font-weight:700;color:var(--accent);">${p.time || '시간 미정'}</span>
                 <span style="font-size:10px;padding:3px 8px;border-radius:8px;background:${p.status==='published'?'#4ade80':p.status==='scheduled'?'#fbbf24':'#e5e7eb'};font-weight:600;">${p.status==='published'?'발행됨':p.status==='scheduled'?'예약':'초안'}</span>
@@ -316,7 +316,7 @@
         </label>
         <div style="display:flex;gap:8px;">
           <button id="snsEditCancel" style="flex:1;height:46px;border:1px solid #e5e7eb;border-radius:14px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;">취소</button>
-          <button id="snsEditSave" style="flex:1.5;height:46px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--accent,#F18091),var(--accent2,#e26a85));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
+          <button id="snsEditSave" style="flex:1.5;height:46px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-size:14px;font-weight:800;cursor:pointer;">저장</button>
         </div>
       </div>`;
     pop.style.display = 'flex';

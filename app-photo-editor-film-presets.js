@@ -209,7 +209,7 @@
       const hex = '#' + [r, g, b].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
       return `${hex} ${i * 50}%`;
     }).join(', ');
-    return `<button type="button" class="pe-chip-btn" data-film-preset="${id}" style="display:flex;flex-direction:column;align-items:stretch;padding:0;overflow:hidden;${isActive ? 'outline:3px solid #F18091;outline-offset:-3px;' : ''}">
+    return `<button type="button" class="pe-chip-btn" data-film-preset="${id}" style="display:flex;flex-direction:column;align-items:stretch;padding:0;overflow:hidden;${isActive ? 'outline:3px solid #D58A95;outline-offset:-3px;' : ''}">
       <div style="background:linear-gradient(135deg, ${colorStops});height:48px;"></div>
       <div style="padding:6px 8px;font-size:11px;font-weight:600;text-align:center;background:#fff;">${_esc(preset.label)}</div>
     </button>`;
@@ -225,7 +225,7 @@
       </div>
       <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:8px;margin:8px 0;">${cards}</div>
       ${activePreset ? `
-        <div style="background:rgba(241,128,145,0.06);border-radius:10px;padding:10px 12px;margin-top:8px;">
+        <div style="background:rgba(213,138,149,0.06);border-radius:10px;padding:10px 12px;margin-top:8px;">
           <div style="font-weight:700;font-size:13px;margin-bottom:4px;">${_esc(activePreset.label)}</div>
           <div style="font-size:11px;color:#666;margin-bottom:6px;">${_esc(activePreset.desc)}</div>
           <label class="pe-field" style="margin:0;">

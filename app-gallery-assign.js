@@ -93,7 +93,7 @@ function _renderAssignPopup() {
           <div style="display:flex;gap:8px;min-width:max-content;padding:2px;">
             ${unassigned.length ? unassigned.map(photo => {
               const sel = _selectedIds.has(photo.id);
-              return `<div data-photo-select="${_assignEsc(photo.id)}" style="flex-shrink:0;width:72px;cursor:pointer;"><div style="position:relative;width:72px;height:72px;border-radius:12px;overflow:hidden;border:3px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${sel ? '0 4px 12px rgba(241,128,145,0.55)' : '0 1px 3px rgba(0,0,0,0.08)'};">
+              return `<div data-photo-select="${_assignEsc(photo.id)}" style="flex-shrink:0;width:72px;cursor:pointer;"><div style="position:relative;width:72px;height:72px;border-radius:12px;overflow:hidden;border:3px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${sel ? '0 4px 12px rgba(213,138,149,0.55)' : '0 1px 3px rgba(0,0,0,0.08)'};">
                 <img src="${_assignEsc(photo.dataUrl)}" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;${sel ? 'filter:brightness(0.85);' : ''}">
                 <div style="position:absolute;top:4px;right:4px;width:26px;height:26px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.35)'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${sel ? '✓' : ''}</div>
               </div></div>`;

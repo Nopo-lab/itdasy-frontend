@@ -1060,7 +1060,7 @@ function _renderCaptionActionBar(caption, hashtags) {
         style="background:transparent;border:none;cursor:pointer;font-size:13px;color:var(--text-subtle);padding:4px 6px;">🚩 신고</button>
     </div>
     ${hasNextSlot ? `
-    <div style="background:rgba(241,128,145,0.07);border:1.5px solid rgba(241,128,145,0.2);border-radius:14px;padding:14px;">
+    <div style="background:rgba(213,138,149,0.07);border:1.5px solid rgba(213,138,149,0.2);border-radius:14px;padding:14px;">
       <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:10px;">다음 손님 글 써볼까요? ${progressText}</div>
       <div style="display:flex;gap:8px;">
         <button data-caption-next-slot="${_capEsc(nextSlot.id)}" style="flex:1;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:700;cursor:pointer;">${_capEsc(nextSlot.label)} 글쓰기 →</button>
@@ -1069,7 +1069,7 @@ function _renderCaptionActionBar(caption, hashtags) {
     </div>
     ` : `
     <div style="display:flex;gap:8px;">
-      <button data-caption-publish-options style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(241,128,145,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">발행 옵션 ▾</button>
+      <button data-caption-publish-options style="flex:1;padding:12px;border-radius:14px;border:1.5px solid rgba(213,138,149,0.3);background:transparent;color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;">발행 옵션 ▾</button>
       <button data-caption-preview style="flex:1;padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">인스타에 올리기</button>
     </div>
     `}

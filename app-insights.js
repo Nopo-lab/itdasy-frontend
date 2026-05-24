@@ -174,7 +174,7 @@
     const confLabel = { high: '높음', medium: '보통', low: '낮음' }[conf] || '';
     const confColor = { high: '#10B981', medium: '#F59E0B', low: '#94A3B8' }[conf] || '#94A3B8';
     return `
-      <div style="padding:14px;background:linear-gradient(135deg,rgba(241,128,145,0.08),rgba(241,128,145,0.02));border-radius:12px;margin-bottom:12px;">
+      <div style="padding:14px;background:linear-gradient(135deg,rgba(213,138,149,0.08),rgba(213,138,149,0.02));border-radius:12px;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="font-size:18px;">📈</span>
           <strong style="font-size:14px;">이번 주 매출 예상</strong>

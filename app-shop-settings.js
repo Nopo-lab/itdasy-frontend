@@ -164,7 +164,7 @@
           </div>
         `;
       }).join('')}
-      <div style="margin-top:6px;padding:10px 12px;background:rgba(241,128,145,0.05);border-radius:10px;font-size:11px;color:#888;line-height:1.5;">💡 시간 칸을 누르면 모바일에서 시간 휠이 떠요. 휴무 토글로 요일별 영업/휴무를 바꿀 수 있어요.</div>
+      <div style="margin-top:6px;padding:10px 12px;background:rgba(213,138,149,0.05);border-radius:10px;font-size:11px;color:#888;line-height:1.5;">💡 시간 칸을 누르면 모바일에서 시간 휠이 떠요. 휴무 토글로 요일별 영업/휴무를 바꿀 수 있어요.</div>
     `;
     // off 토글 → 행 전체 dim + 휴무 배지 색
     wrap.querySelectorAll('[data-hr-field="off"]').forEach(chk => {

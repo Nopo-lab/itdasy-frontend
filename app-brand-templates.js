@@ -11,7 +11,7 @@
  *     created_at: 1700000000000,
  *     watermark: { value, position, opacity },
  *     text_style: { value, x, y, color },
- *     brand_color: '#F18091',
+ *     brand_color: '#D58A95',
  *   }
  *
  * 공개:
@@ -80,7 +80,7 @@
         y: typeof tx.y === 'number' ? tx.y : 0.92,
         color: tx.color || '#ffffff',
       },
-      brand_color: (kit && kit.brand_color) || '#F18091',
+      brand_color: (kit && kit.brand_color) || '#D58A95',
     };
   }
 
@@ -210,7 +210,7 @@
     const items = arr.length ? arr.map(t => `
       <button type="button" data-bt-id="${_esc(t.id)}"
         style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid #eee;border-radius:14px;background:#fff;text-align:left;cursor:pointer;">
-        <span style="width:34px;height:34px;border-radius:10px;background:${_esc(t.brand_color || '#F18091')};display:inline-block;flex-shrink:0;"></span>
+        <span style="width:34px;height:34px;border-radius:10px;background:${_esc(t.brand_color || '#D58A95')};display:inline-block;flex-shrink:0;"></span>
         <span style="flex:1;min-width:0;">
           <span style="display:block;font-size:13px;font-weight:700;color:#222;">${_esc(t.name)}</span>
           <span style="display:block;font-size:11px;color:#888;margin-top:2px;">${_esc(t.watermark && t.watermark.value || '워터마크 없음')} · ${_esc(t.text_style && t.text_style.value || '텍스트 없음')}</span>

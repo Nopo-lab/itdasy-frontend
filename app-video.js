@@ -124,7 +124,7 @@
         <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:8px;">전환 효과</div>
         <div style="display:grid;grid-template-columns:repeat(${trans.length},1fr);gap:6px;margin-bottom:12px;">
           ${trans.map(t => `
-            <button data-trans="${t}" style="padding:8px 4px;border:1px solid ${_transition === t ? 'var(--accent,var(--brand))' : '#ddd'};border-radius:8px;background:${_transition === t ? 'rgba(241,128,145,0.1)' : '#fff'};color:${_transition === t ? 'var(--accent,var(--brand))' : '#555'};font-size:11px;font-weight:700;cursor:pointer;">${tLabel[t] || t}</button>
+            <button data-trans="${t}" style="padding:8px 4px;border:1px solid ${_transition === t ? 'var(--accent,var(--brand))' : '#ddd'};border-radius:8px;background:${_transition === t ? 'rgba(213,138,149,0.1)' : '#fff'};color:${_transition === t ? 'var(--accent,var(--brand))' : '#555'};font-size:11px;font-weight:700;cursor:pointer;">${tLabel[t] || t}</button>
           `).join('')}
         </div>
         <div style="display:flex;gap:10px;align-items:baseline;margin-bottom:6px;">
@@ -139,7 +139,7 @@
 
   function _aiSuggestBlock() {
     return `
-      <button data-ai-suggest style="width:100%;padding:10px;border:1px solid rgba(241,128,145,0.3);border-radius:10px;background:rgba(241,128,145,0.05);color:var(--accent,var(--brand));cursor:pointer;font-size:12px;font-weight:700;margin-bottom:12px;">
+      <button data-ai-suggest style="width:100%;padding:10px;border:1px solid rgba(213,138,149,0.3);border-radius:10px;background:rgba(213,138,149,0.05);color:var(--accent,var(--brand));cursor:pointer;font-size:12px;font-weight:700;margin-bottom:12px;">
         AI 자막 추천 받기
       </button>
     `;

@@ -64,7 +64,7 @@
       'gap:10px',
       'padding:10px 12px',
       'background:#ffffff',
-      'border:1px solid rgba(241,128,145,0.25)',
+      'border:1px solid rgba(213,138,149,0.25)',
       'border-radius:999px',
       'box-shadow:0 12px 32px rgba(0,0,0,0.18)',
       'max-width:calc(100vw - 32px)',
@@ -81,7 +81,7 @@
       </div>
       <span style="font-size:12.5px;font-weight:700;color:#333;line-height:1.3;">${_esc(name)}전·후 카드 만들까요?</span>
       <button type="button" data-ba-act="make"
-        style="padding:7px 12px;border:none;border-radius:999px;background:linear-gradient(135deg,#FF6B9D,#F18091);color:#fff;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0;">만들기</button>
+        style="padding:7px 12px;border:none;border-radius:999px;background:linear-gradient(135deg,#FF6B9D,#D58A95);color:#fff;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0;">만들기</button>
       <button type="button" data-ba-act="dismiss" aria-label="닫기"
         style="background:none;border:none;font-size:18px;color:#aaa;cursor:pointer;line-height:1;padding:0 4px;flex-shrink:0;">×</button>
     `;

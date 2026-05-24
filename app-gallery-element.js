@@ -17,7 +17,7 @@ function _elEsc(v) {
 }
 
 // 기본 텍스트 요소 생성
-function _createDefaultTextElement(text, color = '#f18091') {
+function _createDefaultTextElement(text, color = '#D58A95') {
   const canvas = document.createElement('canvas');
   canvas.width = 300; canvas.height = 100;
   const ctx = canvas.getContext('2d');
@@ -52,7 +52,7 @@ function _renderElementPanel() {
 
   const slot = _slots.find(s => s.id === _popupSlotId);
   const selectedPhotos = slot ? slot.photos.filter(p => _popupSelIds.has(p.id) && !p.hidden) : [];
-  const itdasyImg = _createDefaultTextElement('잇데이', '#f18091');
+  const itdasyImg = _createDefaultTextElement('잇데이', '#D58A95');
 
   body.innerHTML = `
     <div class="gp-section">
@@ -188,7 +188,7 @@ function selectDefaultElement(type) {
   // 기본 텍스트 요소 생성
   let elementImg;
   if (type === 'itdasy') {
-    elementImg = _createDefaultTextElement('잇데이', '#f18091');
+    elementImg = _createDefaultTextElement('잇데이', '#D58A95');
   } else {
     return;
   }

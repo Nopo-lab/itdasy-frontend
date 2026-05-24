@@ -24,7 +24,7 @@
     const W = canvas.width, H = canvas.height;
     // 배경 그라디언트 (핑크 투톤)
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, '#F18091');
+    grad.addColorStop(0, '#D58A95');
     grad.addColorStop(0.5, '#FFB3C1');
     grad.addColorStop(1, '#FFD87A');
     ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
@@ -130,7 +130,7 @@
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <button id="gs-save" style="padding:12px;border:1px solid #ddd;border-radius:10px;background:#fff;color:#555;font-weight:700;cursor:pointer;font-size:13px;">이미지 저장</button>
-          <button id="gs-share" style="padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#F18091,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:13px;">공유</button>
+          <button id="gs-share" style="padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,#D58A95,#D95F70);color:#fff;font-weight:800;cursor:pointer;font-size:13px;">공유</button>
         </div>
         <button id="gs-close" style="width:100%;margin-top:8px;padding:10px;border:none;background:#fafafa;color:#888;font-size:12px;cursor:pointer;border-radius:8px;">닫기</button>
       </div>

@@ -62,7 +62,7 @@
 .ic-box--lg { width: 32px; height: 32px; border-radius: 8px; font-size: 18px; }
 
 /* 카테고리 컬러 */
-.ic-box--pink   { background: #FFF1F3; color: #E5586E; }
+.ic-box--pink   { background: #F7EFF0; color: #BC6675; }
 .ic-box--blue   { background: #E6F1FB; color: #185FA5; }
 .ic-box--teal   { background: #E1F5EE; color: #0F6E56; }
 .ic-box--amber  { background: #FAEEDA; color: #854F0B; }
@@ -73,7 +73,7 @@
 .ic-box--red    { background: #FCEBEB; color: #A32D2D; }
 
 /* 다크모드 대응 */
-[data-theme="dark"] .ic-box--pink   { background: #3D1C22; color: #F18091; }
+[data-theme="dark"] .ic-box--pink   { background: #3D1C22; color: #D58A95; }
 [data-theme="dark"] .ic-box--blue   { background: #172A3F; color: #6DAFED; }
 [data-theme="dark"] .ic-box--teal   { background: #12302A; color: #5DD4B0; }
 [data-theme="dark"] .ic-box--amber  { background: #342510; color: #E6A832; }

@@ -85,7 +85,7 @@
           <h2 style="font-size:20px;font-weight:700;color:#191F28;margin:0;">시술 프리셋</h2>
           <p style="font-size:13px;color:#8B95A1;margin:4px 0 0;line-height:1.5;">한 번 설정하면 예약·매출이 자동으로 움직입니다</p>
         </div>
-        <button type="button" class="svc-add-btn" style="padding:10px 18px;border-radius:999px;background:#E5586E;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ 새 시술 추가</button>
+        <button type="button" class="svc-add-btn" style="padding:10px 18px;border-radius:999px;background:#BC6675;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">+ 새 시술 추가</button>
       </div>`;
   }
 
@@ -107,11 +107,11 @@
             <div style="font-size:17px;font-weight:700;color:#191F28;">${_esc(svc.name)}</div>
             <div style="font-size:13px;color:#8B95A1;margin-top:4px;">${dur}분 · ${_esc(_catLabel(svc.category))}</div>
           </div>
-          <div style="font-size:20px;font-weight:700;color:#E5586E;white-space:nowrap;">${_formatPrice(price)}</div>
+          <div style="font-size:20px;font-weight:700;color:#BC6675;white-space:nowrap;">${_formatPrice(price)}</div>
         </div>
         <!-- PROFIT_HIDDEN
         <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:14px;font-weight:600;color:${"$"}{margin >= 0 ? '#0F6E56' : '#E5586E'};">마진 ${"$"}{_formatPrice(margin)} (${"$"}{marginPct}%)</span>
+          <span style="font-size:14px;font-weight:600;color:${"$"}{margin >= 0 ? '#0F6E56' : '#BC6675'};">마진 ${"$"}{_formatPrice(margin)} (${"$"}{marginPct}%)</span>
           <span style="font-size:12px;color:#8B95A1;">재료원가 ${"$"}{_formatPrice(matCost)}</span>
         </div>
         -->
@@ -119,9 +119,9 @@
           <!-- INVENTORY_HIDDEN
           <span style="font-size:11px;padding:4px 10px;border-radius:999px;background:#F7F8FA;color:#4E5968;">${"$"}{consCount > 0 ? '소모재료 ' + consCount + '종' : '소모재료 미설정'}</span>
           -->
-          ${svc.retouch_period_days ? `<span style="font-size:11px;padding:4px 10px;border-radius:999px;background:#FFF1F3;color:#E5586E;">리터치 ${_esc(svc.retouch_period_days)}일</span>` : ''}
+          ${svc.retouch_period_days ? `<span style="font-size:11px;padding:4px 10px;border-radius:999px;background:#F7EFF0;color:#BC6675;">리터치 ${_esc(svc.retouch_period_days)}일</span>` : ''}
           <span style="margin-left:auto;font-size:11px;color:#8B95A1;">${usage}건 이번달</span>
-          <a data-svc-edit="${_esc(svc.id)}" style="font-size:12px;color:#E5586E;font-weight:600;cursor:pointer;text-decoration:none;">수정</a>
+          <a data-svc-edit="${_esc(svc.id)}" style="font-size:12px;color:#BC6675;font-weight:600;cursor:pointer;text-decoration:none;">수정</a>
         </div>
       </div>`;
   }
@@ -139,7 +139,7 @@
     const steps = ['프리셋 설정', '예약 추가', '예약 완료', '매출 기록', '리터치 알림'];
     const item = (s, i) => `
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:#FFF1F3;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#E5586E;">${i + 1}</div>
+        <div style="width:32px;height:32px;border-radius:50%;background:#F7EFF0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#BC6675;">${i + 1}</div>
         <div style="font-size:11px;color:#4E5968;white-space:nowrap;">${_esc(s)}</div>
       </div>`;
     return `
@@ -179,7 +179,7 @@
           <select id="svc-cat" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
             ${['etc','hair','nail','eye','skin','wax'].map(c => `<option value="${c}" ${(p.category||'etc')===c?'selected':''}>${_catLabel(c)}</option>`).join('')}
           </select>
-          <button id="svc-add" type="button" style="padding:10px 18px;background:#E5586E;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">추가</button>
+          <button id="svc-add" type="button" style="padding:10px 18px;background:#BC6675;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;">추가</button>
         </div>
       </div>`;
   }
@@ -239,7 +239,7 @@
       ${_addFormHTML(svc)}
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button id="svc-edit-cons" type="button" style="flex:1;padding:11px;border:1px solid #E5E8EB;background:#fff;border-radius:10px;font-size:13px;font-weight:600;color:#4E5968;cursor:pointer;">소모재료 설정</button>
-        <button id="svc-edit-del"  type="button" style="padding:11px 18px;border:1px solid #E5E8EB;background:#fff;border-radius:10px;font-size:13px;font-weight:600;color:#E5586E;cursor:pointer;">삭제</button>
+        <button id="svc-edit-del"  type="button" style="padding:11px 18px;border:1px solid #E5E8EB;background:#fff;border-radius:10px;font-size:13px;font-weight:600;color:#BC6675;cursor:pointer;">삭제</button>
       </div>`;
     window.openSheet({ title: `${svc.name} 수정`, body });
     setTimeout(() => {
@@ -300,7 +300,7 @@
           </select>
           <input id="cons-qty" type="number" step="0.1" placeholder="소모량" style="padding:10px;border:1px solid #ddd;border-radius:8px;">
         </div>
-        <button id="cons-add" type="button" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:8px;background:#E5586E;color:#fff;font-weight:700;cursor:pointer;">추가</button>
+        <button id="cons-add" type="button" style="width:100%;margin-top:8px;padding:11px;border:none;border-radius:8px;background:#BC6675;color:#fff;font-weight:700;cursor:pointer;">추가</button>
       </div>
       <div id="cons-list">${_renderConsRows(serviceId, rows)}</div>`;
     window.openSheet({ title: '재료 소모', body });

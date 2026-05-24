@@ -207,7 +207,7 @@
     return same ? `${t.getMonth() + 1}/${t.getDate()} 오늘` : `${t.getMonth() + 1}/${t.getDate()} (${dn})`;
   }
   const TAG_LABEL = { card: '카드', cash: '현금', transfer: '계좌', bank_transfer: '계좌', membership: '회원권', etc: '기타' };
-  const METHOD_COLOR = { card: '#F18091', cash: '#8B95A1', transfer: '#4A90D9', bank_transfer: '#4A90D9', membership: '#F8C4CC', etc: '#E5E8EB' };
+  const METHOD_COLOR = { card: '#D58A95', cash: '#8B95A1', transfer: '#4A90D9', bank_transfer: '#4A90D9', membership: '#F8C4CC', etc: '#E5E8EB' };
 
   // ── 카운트업 (easeOutCubic) ─────────────────────────────
   function _countUp(el, target, duration) {
@@ -244,12 +244,12 @@
       .rvm5-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
       @media (max-width: 820px){.rvm5-top2{flex-direction:column}.rvm5-left{flex:1 1 auto}}
 
-      .rvm5-hero{background:#FFF1F3;border-radius:14px;padding:22px 24px;margin-bottom:12px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
-      .rvm5-hero .amt{font-size:32px;font-weight:800;color:#E5586E;letter-spacing:-1.5px;line-height:1}
-      .rvm5-hero .cnt{font-size:13px;font-weight:600;color:#E5586E;opacity:0.65}
+      .rvm5-hero{background:#F7EFF0;border-radius:14px;padding:22px 24px;margin-bottom:12px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+      .rvm5-hero .amt{font-size:32px;font-weight:800;color:#BC6675;letter-spacing:-1.5px;line-height:1}
+      .rvm5-hero .cnt{font-size:13px;font-weight:600;color:#BC6675;opacity:0.65}
 
       .rvm5-ai{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#F7F8FA;border-radius:8px}
-      .rvm5-ai .badge{padding:3px 8px;border-radius:6px;background:#E5586E;color:#fff;font-size:9px;font-weight:800;flex-shrink:0;letter-spacing:0.3px}
+      .rvm5-ai .badge{padding:3px 8px;border-radius:6px;background:#BC6675;color:#fff;font-size:9px;font-weight:800;flex-shrink:0;letter-spacing:0.3px}
       .rvm5-ai .txt{font-size:13px;color:#191F28}
       .rvm5-ai .txt b{font-weight:700;color:#191F28}
 
@@ -278,9 +278,9 @@
       .rvm5-dr .a.under{color:#4E5968}
       .rvm5-dr .c{font-size:11px;color:#6B7684;width:30px;text-align:right;flex-shrink:0}
 
-      .rvm5-gb{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;margin-bottom:12px;background:#FFF1F3}
-      .rvm5-gb .t{font-size:12px;font-weight:600;color:#E5586E;flex:1;letter-spacing:-0.2px}
-      .rvm5-gb .btn{padding:5px 12px;border-radius:999px;font-size:10px;font-weight:600;border:1px solid #E5E8EB;background:#fff;color:#E5586E;cursor:pointer}
+      .rvm5-gb{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;margin-bottom:12px;background:#F7EFF0}
+      .rvm5-gb .t{font-size:12px;font-weight:600;color:#BC6675;flex:1;letter-spacing:-0.2px}
+      .rvm5-gb .btn{padding:5px 12px;border-radius:999px;font-size:10px;font-weight:600;border:1px solid #E5E8EB;background:#fff;color:#BC6675;cursor:pointer}
       .rvm5-gb .btn:hover{background:#F7F8FA}
 
       .rvm5-sl{font-size:13px;font-weight:700;color:#191F28;margin:0 0 12px;letter-spacing:-0.2px}
@@ -306,17 +306,17 @@
       .rvm5-mmnav .ar:disabled{opacity:0.25;cursor:not-allowed;pointer-events:none}
       .rvm5-mmnav .ml{font-size:14px;font-weight:700;letter-spacing:-0.3px}
 
-      .rvm5-mhero{background:#FFF1F3;border-radius:14px;padding:16px;margin-bottom:8px}
+      .rvm5-mhero{background:#F7EFF0;border-radius:14px;padding:16px;margin-bottom:8px}
       .rvm5-mhero-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-      .rvm5-mhero-top .amt{font-size:26px;font-weight:800;color:#E5586E;letter-spacing:-1.2px;line-height:1}
-      .rvm5-mhero-top .cnt{font-size:12px;font-weight:600;color:#E5586E;opacity:0.65}
+      .rvm5-mhero-top .amt{font-size:26px;font-weight:800;color:#BC6675;letter-spacing:-1.2px;line-height:1}
+      .rvm5-mhero-top .cnt{font-size:12px;font-weight:600;color:#BC6675;opacity:0.65}
       .rvm5-mhero-sub{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#E5E8EB;border-radius:8px;overflow:hidden;margin-top:12px}
       .rvm5-mhero-sub .c{background:#fff;padding:10px}
       .rvm5-mhero-sub .l{font-size:9px;color:#191F28;font-weight:600}
       .rvm5-mhero-sub .v{font-size:14px;font-weight:700;margin-top:2px;letter-spacing:-0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
       .rvm5-mai{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#fff;border:1px solid #E5E8EB;border-radius:14px;margin-bottom:8px}
-      .rvm5-mai .badge{padding:2px 7px;border-radius:5px;background:#E5586E;color:#fff;font-size:8px;font-weight:800;flex-shrink:0}
+      .rvm5-mai .badge{padding:2px 7px;border-radius:5px;background:#BC6675;color:#fff;font-size:8px;font-weight:800;flex-shrink:0}
       .rvm5-mai .txt{font-size:12px;color:#191F28}
       .rvm5-mai .txt b{font-weight:700}
 
@@ -347,9 +347,9 @@
       .rvm5-mli .am{font-size:13px;font-weight:700;letter-spacing:-0.2px;flex-shrink:0}
       .rvm5-mli .ch{font-size:12px;color:#C5CBD2;margin-left:1px;flex-shrink:0}
 
-      .rvm5-mgb{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;margin-bottom:8px;background:#FFF1F3}
-      .rvm5-mgb .t{font-size:11px;font-weight:600;color:#E5586E;flex:1}
-      .rvm5-mgb .btn{padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;border:1px solid #E5E8EB;background:#fff;color:#E5586E;cursor:pointer}
+      .rvm5-mgb{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:8px;margin-bottom:8px;background:#F7EFF0}
+      .rvm5-mgb .t{font-size:11px;font-weight:600;color:#BC6675;flex:1}
+      .rvm5-mgb .btn{padding:3px 10px;border-radius:999px;font-size:9px;font-weight:600;border:1px solid #E5E8EB;background:#fff;color:#BC6675;cursor:pointer}
 
       /* ═════ today/week 호환 — 옛 v4 톤 ═════ */
       .rvm-body{padding:20px}
@@ -359,10 +359,10 @@
       .rvm-pcstat .l{font-size:11px;color:#8B95A1}
       .rvm-pcstat .v{font-size:22px;font-weight:700;margin-top:6px;letter-spacing:-0.8px}
       .rvm-pcstat .s{font-size:11px;margin-top:4px;color:#8B95A1}
-      .rvm-pcstat.hi{background:#FFF1F3}
-      .rvm-pcstat.hi .l,.rvm-pcstat.hi .v{color:#E5586E}
+      .rvm-pcstat.hi{background:#F7EFF0}
+      .rvm-pcstat.hi .l,.rvm-pcstat.hi .v{color:#BC6675}
       .rvm-pcstat.predict{background:#fff;border:1px solid #E5E8EB}
-      .rvm-pcstat.predict .v{color:#E5586E}
+      .rvm-pcstat.predict .v{color:#BC6675}
       .rvm-cd{background:#fff;border:1px solid #E5E8EB;border-radius:14px;padding:16px}
       .rvm-sl{font-size:12px;font-weight:600;color:#8B95A1;margin:20px 0 8px;letter-spacing:-0.2px}
       .rvm-sl:first-child{margin-top:0}
@@ -377,18 +377,18 @@
       .rvm-db{flex:1;height:8px;background:#F2F4F6;border-radius:4px;overflow:hidden;position:relative}
       .rvm-df{height:100%;border-radius:4px}
       .rvm-df.over{background:#0F6E56}
-      .rvm-df.under{background:#E5586E}
+      .rvm-df.under{background:#BC6675}
       .rvm-dgoal{position:absolute;top:-2px;bottom:-2px;width:2px;background:#191F28;border-radius:1px;opacity:0.3}
       .rvm-damt{font-size:13px;font-weight:600;width:100px;text-align:right;flex-shrink:0;letter-spacing:-0.3px}
       .rvm-damt.over{color:#0F6E56}
-      .rvm-damt.under{color:#E5586E}
+      .rvm-damt.under{color:#BC6675}
       .rvm-dcnt{font-size:11px;color:#8B95A1;width:36px;flex-shrink:0;text-align:right}
       .rvm-mbody{padding:14px}
       .rvm-mcard{background:#fff;border-radius:14px;border:1px solid #E5E8EB;padding:16px;margin-bottom:10px}
       .rvm-mpad{padding:12px 14px}
-      .rvm-mmain{background:#FFF1F3;border:none;padding:18px}
-      .rvm-mmain .ml{font-size:11px;color:#E5586E;letter-spacing:-0.2px}
-      .rvm-mmain .mv{font-size:24px;font-weight:700;color:#E5586E;letter-spacing:-1.2px;line-height:1;margin-top:4px}
+      .rvm-mmain{background:#F7EFF0;border:none;padding:18px}
+      .rvm-mmain .ml{font-size:11px;color:#BC6675;letter-spacing:-0.2px}
+      .rvm-mmain .mv{font-size:24px;font-weight:700;color:#BC6675;letter-spacing:-1.2px;line-height:1;margin-top:4px}
       .rvm-mmain .ms{font-size:11px;color:#4E5968;margin-top:4px}
       .rvm-mg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#E5E8EB;border-radius:8px;overflow:hidden;margin-top:12px}
       .rvm-mg3 .c{background:#fff;padding:10px}
@@ -442,7 +442,7 @@
     const renderRow = (d) => {
       const ratio = Math.min(100, Math.round(d.total * 100 / maxVal));
       const over = goalAmt > 0 && d.total >= goalAmt;
-      const fillColor = over ? '#0F6E56' : (d.total > 0 ? '#F18091' : 'transparent');
+      const fillColor = over ? '#0F6E56' : (d.total > 0 ? '#D58A95' : 'transparent');
       const amtCls = goalAmt > 0 ? (over ? 'over' : 'under') : '';
       const goalPct = goalAmt && maxVal ? Math.round(goalAmt * 100 / maxVal) : 0;
       return `<div class="${cls}">
@@ -477,11 +477,11 @@
       const rec = recommendedGoal(summary);
       // [v201] 수동 목표 있어도 AI 추천 링크 항상 노출 (값이 같지 않으면). 별도 row 로 분리해서 가시성 ↑.
       const aiRow = (rec && rec !== goal.amount)
-        ? `<div style="margin-top:6px;font-size:11px;"><button type="button" data-rvm-act="accept-goal" data-amount="${rec}" style="background:none;border:none;color:var(--brand,#E5586E);text-decoration:underline;font-size:11px;cursor:pointer;padding:0;font-weight:700;">AI 추천 ${formatEstimate(rec)} 으로 변경</button></div>`
+        ? `<div style="margin-top:6px;font-size:11px;"><button type="button" data-rvm-act="accept-goal" data-amount="${rec}" style="background:none;border:none;color:var(--brand,#BC6675);text-decoration:underline;font-size:11px;cursor:pointer;padding:0;font-weight:700;">AI 추천 ${formatEstimate(rec)} 으로 변경</button></div>`
         : '';
       // [v202] 진행률 가시화 — 텍스트 옆에 막대 progress bar. 목표 갱신 시 즉시 width 변경.
       const progressBar = `<div style="width:100%;height:6px;background:#E5E8EB;border-radius:4px;overflow:hidden;margin-top:6px;">
-        <div style="width:${Math.min(100, rate)}%;height:100%;background:var(--brand,#E5586E);transition:width 0.3s;"></div>
+        <div style="width:${Math.min(100, rate)}%;height:100%;background:var(--brand,#BC6675);transition:width 0.3s;"></div>
       </div>`;
       return `<div class="${cls}">
         <div style="flex:1;">

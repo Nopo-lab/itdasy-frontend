@@ -21,7 +21,7 @@
     watermark_text: '',
     watermark_position: 'br',
     watermark_opacity: 0.85,
-    brand_color: '#F18091',
+    brand_color: '#D58A95',
   };
 
   var POS_KEYS = ['tl', 'tr', 'bl', 'br'];
@@ -149,7 +149,7 @@
       '    <label class="bk-label" for="bk-color">브랜드 컬러</label>',
       '    <div class="bk-color-row">',
       '      <input class="bk-color-input" id="bk-color" type="color" />',
-      '      <input class="bk-input bk-color-hex" id="bk-color-hex" type="text" maxlength="7" placeholder="#F18091" autocapitalize="off" autocorrect="off" />',
+      '      <input class="bk-input bk-color-hex" id="bk-color-hex" type="text" maxlength="7" placeholder="#D58A95" autocapitalize="off" autocorrect="off" />',
       '    </div>',
       '  </div>',
       '  <div class="bk-field">',

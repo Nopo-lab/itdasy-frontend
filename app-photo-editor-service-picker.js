@@ -46,7 +46,7 @@
       .pe-svc-item{border:1px solid #edf0f3;background:#fff;border-radius:14px;padding:11px 12px;text-align:left;display:flex;justify-content:space-between;gap:12px;align-items:center;cursor:pointer}
       .pe-svc-name{font-size:14px;font-weight:800;color:#191f28;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .pe-svc-meta{font-size:11px;color:#8b95a1;margin-top:3px}
-      .pe-svc-price{font-size:14px;font-weight:900;color:#e5586e;white-space:nowrap}
+      .pe-svc-price{font-size:14px;font-weight:900;color:#BC6675;white-space:nowrap}
       .pe-svc-empty{padding:18px;border:1px dashed #d8dde4;border-radius:14px;text-align:center;color:#6b7280;font-size:13px;line-height:1.5}
       .pe-svc-manage{border:none;background:#191f28;color:#fff;border-radius:12px;padding:11px 14px;font-size:13px;font-weight:800;cursor:pointer}
     `;

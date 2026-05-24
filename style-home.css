@@ -13,7 +13,7 @@
 .lp-svg { position: absolute; width: 56px; height: 56px; transform: rotate(-90deg); }
 
 .lp-circle {
-  fill: none; stroke: #F18091; stroke-width: 4;
+  fill: none; stroke: #D58A95; stroke-width: 4;
   stroke-dasharray: 157; stroke-dashoffset: 157;
   stroke-linecap: round; transition: stroke-dashoffset 0.05s linear;
 }
@@ -26,7 +26,7 @@
 .card-deck-item {
   position: absolute; inset: 0;
   border-radius: 16px; overflow: hidden; background: var(--bg2);
-  border: 1.5px solid rgba(241,128,145,0.15);
+  border: 1.5px solid rgba(213,138,149,0.15);
   cursor: pointer; user-select: none;
   transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   box-shadow: 0 4px 16px rgba(0,0,0,0.08);
@@ -45,7 +45,7 @@
 
 .card-deck-dot {
   width: 6px; height: 6px; border-radius: 50%;
-  background: rgba(241,128,145,0.25); transition: all 0.2s;
+  background: rgba(213,138,149,0.25); transition: all 0.2s;
 }
 .card-deck-dot.active { background: var(--accent2); width: 18px; border-radius: 3px; }
 
@@ -62,7 +62,7 @@
   overflow: hidden;
   box-shadow: 0 1px 6px rgba(0,0,0,0.04);
 }
-.upload-area:active { border-color: var(--accent); background: rgba(241,128,145,0.06); }
+.upload-area:active { border-color: var(--accent); background: rgba(213,138,149,0.06); }
 .upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .upload-icon { font-size: 28px; margin-bottom: 8px; }
 .upload-label { font-size: 13px; color: var(--text2); }
@@ -110,8 +110,8 @@
 
 /* 포트폴리오 카드 hover — 작업실 슬롯과 동일 패턴 (핑크 보더 + 그림자) */
 .portfolio-cell:hover {
-  border-color: var(--accent, #F18091) !important;
-  box-shadow: 0 4px 14px rgba(241, 128, 145, 0.18);
+  border-color: var(--accent, #D58A95) !important;
+  box-shadow: 0 4px 14px rgba(213,138,149, 0.18);
 }
 
 /* 포트폴리오 skeleton pulse — 로딩 체감 속도 개선 */
@@ -131,14 +131,14 @@
 
 /* STEP 1 연동 카드 */
 .hc-step1 {
-  background: linear-gradient(135deg, var(--brand-bg), rgba(241,128,145,.08));
-  border: 1.5px solid rgba(241,128,145,.25);
+  background: linear-gradient(135deg, var(--brand-bg), rgba(213,138,149,.08));
+  border: 1.5px solid rgba(213,138,149,.25);
   border-radius: var(--r-xl);
   padding: 28px 24px;
 }
 
 .hc-step-label {
-  font-size: 10px; font-weight: 700; color: #F18091;
+  font-size: 10px; font-weight: 700; color: #D58A95;
   letter-spacing: 0.14em; margin-bottom: 10px;
 }
 
@@ -195,7 +195,7 @@
   box-shadow: var(--shadow-brand);
   transition: transform 0.12s, box-shadow 0.12s;
 }
-.hc-main-cta:active { transform: scale(0.985); box-shadow: 0 4px 16px rgba(241,128,145,0.3); }
+.hc-main-cta:active { transform: scale(0.985); box-shadow: 0 4px 16px rgba(213,138,149,0.3); }
 
 .hc-cta-eyebrow {
   font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.7);
@@ -365,7 +365,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
   box-shadow: 0 1px 6px rgba(0,0,0,0.05);
 }
 .ob-shop-card:active { transform: scale(0.97); }
-.ob-shop-card.selected { border-color: var(--accent); background: rgba(241,128,145,0.06); }
+.ob-shop-card.selected { border-color: var(--accent); background: rgba(213,138,149,0.06); }
 
 .ob-shop-card.disabled {
   opacity: 0.38; cursor: not-allowed; pointer-events: none;
@@ -417,7 +417,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: 20px; padding: 22px 20px 18px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 12px rgba(241,128,145,0.08);
+  box-shadow: 0 2px 12px rgba(213,138,149,0.08);
 }
 
 .home-question-text {
@@ -438,7 +438,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 800; color: var(--accent2);
   overflow: visible; flex-shrink: 0;
-  border: 1px solid rgba(241,128,145,0.2);
+  border: 1px solid rgba(213,138,149,0.2);
 }
 /* 아바타 안의 이미지/이니셜만 잘리도록 inner clip */
 .profile-avatar > img,
@@ -483,7 +483,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 #captionLoadingPopup .cl-card {
   background: #fff; border-radius: 28px;
   padding: 32px 24px 28px; max-width: 320px; width: 100%; text-align: center;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.08); border: 1px solid rgba(241,128,145,0.15);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.08); border: 1px solid rgba(213,138,149,0.15);
 }
 
 /* [2026-04-27] 슬롯머신만 보이게 — clMsg/clHint 텍스트가 슬롯을 가려서 hide */
@@ -497,8 +497,8 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 
 .slot-window {
   height: 44px; overflow: hidden;
-  background: rgba(241,128,145,0.06);
-  border: 1.5px solid rgba(241,128,145,0.2);
+  background: rgba(213,138,149,0.06);
+  border: 1.5px solid rgba(213,138,149,0.2);
   border-radius: 12px; position: relative;
 }
 
@@ -522,8 +522,8 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 
 .slot-locked {
   display: none; position: absolute; inset: 0; z-index: 3;
-  background: linear-gradient(135deg, rgba(241,128,145,0.15), rgba(241,128,145,0.06));
-  border: 1.5px solid rgba(241,128,145,0.45);
+  background: linear-gradient(135deg, rgba(213,138,149,0.15), rgba(213,138,149,0.06));
+  border: 1.5px solid rgba(213,138,149,0.45);
   border-radius: 12px;
   align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800; color: var(--accent2);
