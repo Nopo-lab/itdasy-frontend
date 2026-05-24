@@ -1200,19 +1200,19 @@
   function _renderAlertsV5(brief, dmQueueCount, onlinePendingCount) {
     const items = [];
     const depositPending = (brief && brief.pending_booking_count) || 0;
-    if (depositPending > 0) {
-      items.push({ tone: 'amber', title: '결제 미확인 예약', desc: '입금 확인 후 승인하면 캘린더에 등록돼요', count: depositPending, act: 'openBookingApproval' });
-    }
+    // [2026-05-24] AI 잇비 주체 톤으로 재구성
     if (dmQueueCount > 0) {
-      items.push({ tone: 'purple', title: 'DM 자동응답 승인', desc: 'AI 잇비가 작성한 답장을 확인해 주세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
+      items.push({ tone: 'purple', title: `답장 ${dmQueueCount}건 써뒀어요`, desc: '확인하고 보내기만 하세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
     }
-    // [2026-05-24] 완료 안 된 예약 — 독립 배너 흡수
     const overdue = _overdueAlertContext(brief);
     if (overdue) {
-      items.push({ tone: 'pink', title: '완료 안 된 예약', desc: overdue.desc, count: overdue.count, act: 'completePending' });
+      items.push({ tone: 'pink', title: '미완료 예약 찾았어요', desc: overdue.desc, count: overdue.count, act: 'completePending' });
+    }
+    if (depositPending > 0) {
+      items.push({ tone: 'amber', title: '결제 미확인 예약', desc: '입금 확인하면 캘린더에 등록돼요', count: depositPending, act: 'openBookingApproval' });
     }
     if (onlinePendingCount > 0 && onlinePendingCount !== depositPending) {
-      items.push({ tone: 'cyan', title: '온라인 예약 승인 대기', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });
+      items.push({ tone: 'cyan', title: '새 예약 신청 들어왔어요', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });
     }
     // 단골 안부 — at_risk
     // [2026-05-20] 사실(며칠 전)만 표시. _relativeDays 재활용.
@@ -1231,7 +1231,7 @@
     const total = items.reduce((s, it) => s + it.count, 0);
     return `<div class="hv5-card">
       <div class="hv5-card-h">
-        <div class="hv5-card-title">확인 필요</div>
+        <div class="hv5-card-title">AI 잇비가 챙겼어요</div>
         <span style="font-size:11px;color:#E5586E;font-weight:700">${total}건</span>
       </div>
       <div class="hv5-noti-list">${items.map(it => `
