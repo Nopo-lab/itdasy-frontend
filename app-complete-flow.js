@@ -92,10 +92,11 @@
     sheet.className = 'cf-backdrop';
     sheet.innerHTML = `
       <div class="cf-card">
+        <div class="cf-handle" aria-hidden="true"></div>
         <div class="cf-header">
           <div class="cf-title-wrap">
-            <div class="cf-title">시술 완료</div>
-            <div class="cf-subtitle">결제 정보를 확인하고 마무리해 주세요</div>
+            <div class="cf-title" id="cfTitle">시술 완료</div>
+            <div class="cf-subtitle" id="cfSubtitle">결제 정보를 확인하고 마무리해 주세요</div>
           </div>
           <button id="cfClose" class="cf-close" aria-label="닫기">✕</button>
         </div>
@@ -114,7 +115,11 @@
     const s = document.createElement('style');
     s.id = 'cfStyles';
     s.textContent = `
-      /* ── 백드롭 (모바일=바텀시트, PC=센터 모달) ── */
+      /* ── [2026-05-25] 시술 완료 시트 — 라이트 전용 (다크 배경 버그 차단)
+         색 팔레트 고정: #FFF · #F7F8FA · #191F28 · #4E5968 · #8B95A1 · #BC6675(저장만)
+         토큰(var(--*)) 사용 금지 — 다크모드에서 내부만 검정으로 뜨던 버그 원천 차단 */
+
+      /* 백드롭 */
       .cf-backdrop {
         position:fixed; inset:0; z-index:10000; display:none;
         background:rgba(17, 24, 39, 0.5);
@@ -123,153 +128,148 @@
         align-items:flex-end; justify-content:center;
       }
       .cf-card {
+        color-scheme: light;
         width:100%;
-        background:#fff;
+        background:#FFFFFF;
+        color:#191F28;
         border-radius:24px 24px 0 0;
         max-height:92vh;
         display:flex; flex-direction:column;
-        padding:22px 20px 20px;
+        padding:10px 20px 20px;
         padding-bottom:max(20px,env(safe-area-inset-bottom));
         box-shadow:0 -8px 40px rgba(0,0,0,0.18);
         animation: cfSlideUp .28s cubic-bezier(.2,.7,.2,1);
       }
       @keyframes cfSlideUp { from { transform:translateY(40px); opacity:0; } to { transform:none; opacity:1; } }
       @keyframes cfFadeIn  { from { transform:translateY(8px) scale(.985); opacity:0; } to { transform:none; opacity:1; } }
-      /* PC — 센터 모달, max-width 제한 */
       @media (min-width: 768px) {
         .cf-backdrop { align-items:center; }
         .cf-card {
           width:auto;
           min-width:440px;
           max-width:460px;
-          border-radius:24px;
-          padding:26px 26px 24px;
+          border-radius:20px;
+          padding:14px 26px 24px;
           padding-bottom:24px;
           max-height:88vh;
           box-shadow:0 24px 60px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.08);
           animation: cfFadeIn .22s cubic-bezier(.2,.7,.2,1);
         }
+        .cf-card .cf-handle { display:none; }
       }
 
-      /* ── 헤더 ── [2026-05-24 메인홈 hv5 톤으로 평탄화] */
-      .cf-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:20px; }
+      /* 드래그 핸들 (모바일) */
+      .cf-handle {
+        width:36px; height:4px; border-radius:2px;
+        background:#E5E8EB;
+        margin:0 auto 12px;
+        flex-shrink:0;
+      }
+
+      /* 헤더 */
+      .cf-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; }
       .cf-title-wrap { flex:1; min-width:0; }
-      .cf-title { font-size:19px; font-weight:700; color:var(--text,#191F28); letter-spacing:-0.5px; line-height:1.2; }
-      .cf-subtitle { font-size:12.5px; color:var(--text-muted,#6B7684); margin-top:4px; font-weight:500; letter-spacing:-0.2px; }
+      .cf-title { font-size:18px; font-weight:700; color:#191F28; letter-spacing:-0.4px; line-height:1.25; }
+      .cf-subtitle { font-size:13px; color:#8B95A1; margin-top:4px; font-weight:500; letter-spacing:-0.2px; }
       .cf-close {
-        background:var(--surface-2,#F7F8FA); border:none;
-        width:34px; height:34px; border-radius:50%;
-        font-size:15px; cursor:pointer; color:var(--text-muted,#6B7684);
+        background:#F7F8FA; border:none;
+        width:32px; height:32px; border-radius:50%;
+        font-size:14px; cursor:pointer; color:#4E5968;
         transition: background .15s ease;
         flex-shrink:0;
       }
-      .cf-close:hover { background:var(--surface-3,#EBEBED); }
+      .cf-close:hover { background:#EBEDF0; }
 
       .cf-body { flex:1; overflow-y:auto; }
 
-      /* ── 섹션 ── */
+      /* 섹션 라벨 */
       .cf-section-label {
-        font-size:11.5px; font-weight:700; color:var(--text-subtle,#9CA3AF);
-        margin-bottom:8px; letter-spacing:0.2px;
-        text-transform:uppercase;
+        font-size:12px; font-weight:600; color:#8B95A1;
+        margin-bottom:8px; letter-spacing:-0.2px;
       }
 
-      /* ── 고객 정보 카드 — flat 회색 ── */
-      .cf-info-box {
-        padding:16px 18px;
-        background:var(--surface-2,#F7F8FA);
-        border-radius:12px; margin-bottom:18px;
-        border:0.5px solid var(--border,rgba(0,0,0,.06));
-      }
-      .cf-info-box .cf-section-label { color:var(--text-subtle,#9CA3AF); }
-      .cf-info-name { font-size:20px; font-weight:700; color:var(--text,#191F28); letter-spacing:-0.5px; line-height:1.2; }
-      .cf-info-svc  { font-size:13.5px; color:var(--text-muted,#6B7684); font-weight:500; margin-top:6px; letter-spacing:-0.2px; }
-
-      /* ── 금액 입력 ── */
+      /* 금액 입력 — 무테두리 회색 컨테이너 */
       .cf-amount-row {
         display:flex; align-items:baseline; gap:6px;
-        margin-bottom:16px; padding:16px 18px;
-        background:var(--surface-2,#F7F8FA); border:0.5px solid var(--border,rgba(0,0,0,.06));
-        border-radius:12px;
-        transition: border-color .15s ease, background .15s ease;
-      }
-      .cf-amount-row:focus-within {
-        border-color:var(--brand-strong,#BC6675);
-        background:var(--surface,#fff);
+        margin-bottom:18px; padding:16px 18px;
+        background:#F7F8FA;
+        border:none;
+        border-radius:14px;
       }
       .cf-amount-row input {
-        font-size:24px; font-weight:700; color:var(--text,#191F28);
+        font-size:24px; font-weight:700; color:#191F28;
         letter-spacing:-0.6px;
         font-family:inherit;
+        background:transparent;
       }
-      .cf-amount-row input::placeholder { color:var(--text-subtle,#D1D5DB); font-weight:500; }
+      .cf-amount-row input::placeholder { color:#C5CBD2; font-weight:500; }
 
-      /* ── 결제수단 pills — flat ── */
-      .cf-method-pills { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:18px; }
+      /* 결제수단 pills — flat 회색 / 선택=검정 */
+      .cf-method-pills { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:20px; }
       .cf-pill {
-        padding:13px 8px; border:0.5px solid var(--border,rgba(0,0,0,.08)); border-radius:12px;
+        padding:13px 8px; border:none; border-radius:12px;
         font-size:13.5px; font-weight:600; cursor:pointer;
-        background:var(--surface,#fff); color:var(--text-muted,#6B7684);
-        transition: all .15s ease;
+        background:#F7F8FA; color:#4E5968;
+        transition: background .12s ease, color .12s ease;
         font-family:inherit;
         letter-spacing:-0.2px;
       }
-      .cf-pill:hover { background:var(--surface-2,#F7F8FA); border-color:var(--border-strong,rgba(0,0,0,.12)); }
+      .cf-pill:hover { background:#EBEDF0; }
       .cf-pill.active {
-        background:var(--brand-bg,#F7EFF0);
-        color:var(--brand-strong,#BC6675);
-        border-color:var(--brand-strong,#BC6675);
+        background:#191F28;
+        color:#FFFFFF;
       }
 
-      /* ── 자동 처리 안내 ── */
+      /* 자동 처리 안내 — 깔끔한 한 줄씩 */
       .cf-auto-preview {
-        margin-bottom:20px; padding:14px 16px;
-        background:var(--surface-2,#F7F8FA); border:0.5px solid var(--border,rgba(0,0,0,.06));
+        margin-bottom:18px; padding:14px 16px;
+        background:#F7F8FA;
+        border:none;
         border-radius:12px;
       }
       .cf-preview-row {
         display:flex; align-items:center; gap:10px;
-        padding:4px 0; font-size:13px; color:var(--text-muted,#6B7684);
+        padding:3px 0; font-size:13px; color:#4E5968;
         font-weight:500; letter-spacing:-0.2px;
       }
       .cf-check {
         display:inline-flex; align-items:center; justify-content:center;
         width:18px; height:18px; border-radius:50%;
-        background:#10B981; color:#fff;
+        background:#10B981; color:#FFFFFF;
         font-size:10px; font-weight:700;
         flex-shrink:0;
       }
 
-      /* ── 메인 액션 ── */
+      /* 메인 액션 — 저장 버튼만 로즈 */
       .cf-actions { display:flex; gap:10px; }
       .cf-btn-skip {
-        flex:1; padding:15px; border:0.5px solid var(--border,rgba(0,0,0,.08)); border-radius:12px;
-        background:var(--surface,#fff); cursor:pointer; color:var(--text-muted,#6B7684);
+        flex:1; padding:15px; border:none; border-radius:12px;
+        background:#F7F8FA; cursor:pointer; color:#4E5968;
         font-weight:600; font-size:14px;
         font-family:inherit; letter-spacing:-0.2px;
-        transition: all .15s ease;
+        transition: background .12s ease;
       }
-      .cf-btn-skip:hover { background:var(--surface-2,#F7F8FA); border-color:var(--border-strong,rgba(0,0,0,.12)); }
+      .cf-btn-skip:hover { background:#EBEDF0; }
       .cf-btn-save {
         flex:2; padding:15px; border:none; border-radius:12px;
-        background:var(--brand-strong,#BC6675);
-        color:#fff; cursor:pointer; font-weight:700; font-size:15px;
+        background:#BC6675;
+        color:#FFFFFF; cursor:pointer; font-weight:700; font-size:15px;
         font-family:inherit; letter-spacing:-0.3px;
-        transition: transform .12s ease, background .15s ease;
+        transition: background .12s ease, transform .1s ease;
       }
-      .cf-btn-save:hover { background:var(--brand,#D58A95); }
+      .cf-btn-save:hover { background:#A8576A; }
       .cf-btn-save:active { transform:translateY(1px); }
 
-      /* ── 보조 액션 ── */
-      .cf-sub-actions { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:0.5px solid var(--border,rgba(0,0,0,.06)); }
+      /* 보조 액션 */
+      .cf-sub-actions { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #F2F4F6; }
       .cf-sub-btn {
-        flex:1; padding:12px; border:0.5px solid var(--border,rgba(0,0,0,.08)); border-radius:10px;
-        background:var(--surface,#fff); cursor:pointer; color:var(--text-muted,#6B7684);
+        flex:1; padding:12px; border:none; border-radius:10px;
+        background:#F7F8FA; cursor:pointer; color:#4E5968;
         font-weight:500; font-size:13px; font-family:inherit;
         letter-spacing:-0.2px;
-        transition: all .15s ease;
+        transition: background .12s ease, color .12s ease;
       }
-      .cf-sub-btn:hover { background:var(--surface-2,#F7F8FA); color:var(--text,#191F28); border-color:var(--border-strong,rgba(0,0,0,.12)); }
+      .cf-sub-btn:hover { background:#EBEDF0; color:#191F28; }
     `;
     document.head.appendChild(s);
   }
@@ -311,13 +311,26 @@
 
   function _render() {
     const c = _ctx;
+    // [2026-05-25] 헤더에 이름+시술/시간 흡수, cf-info-box 제거
+    const titleEl = document.getElementById('cfTitle');
+    const subEl   = document.getElementById('cfSubtitle');
+    if (titleEl) {
+      titleEl.textContent = c.customer_name ? `${c.customer_name}님 시술 완료` : '시술 완료';
+    }
+    if (subEl) {
+      const parts = [];
+      if (c.service_name) parts.push(c.service_name);
+      if (c.starts_at) {
+        try {
+          const d = new Date(c.starts_at);
+          const hh = String(d.getHours()).padStart(2, '0');
+          const mm = String(d.getMinutes()).padStart(2, '0');
+          parts.push(`${hh}:${mm}`);
+        } catch (_) { /* ignore */ }
+      }
+      subEl.textContent = parts.length ? parts.join(' · ') : '결제 정보를 확인하고 마무리해 주세요';
+    }
     document.getElementById('cfBody').innerHTML = `
-      <div class="cf-info-box">
-        <div class="cf-section-label">고객님 성함</div>
-        <div class="cf-info-name">${c.customer_name ? _esc(c.customer_name) : '<span style="color:#8B95A1;font-weight:600;">고객 미지정</span>'}</div>
-        ${c.service_name ? `<div class="cf-info-svc">${_esc(c.service_name)}</div>` : ''}
-      </div>
-
       ${_renderAmount()}
       ${_renderMethodPills()}
       ${_renderAutoPreview()}
