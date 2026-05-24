@@ -1278,3 +1278,40 @@
   margin-right: 6px;
   margin-left: auto;
 }
+
+/* ── [2026-05-24] 예약 상태 색상 범례 ─────────────────────── */
+.bk-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--text-muted, #6B7684);
+  flex-wrap: wrap;
+}
+.bk-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+.bk-legend__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* 모바일 toolbar 안에서는 한 줄로 wrap, 작게 */
+.bk-toolbar .bk-legend {
+  margin-left: auto;
+  padding-right: 4px;
+}
+@media (max-width: 480px) {
+  .bk-toolbar .bk-legend {
+    font-size: 10.5px;
+    gap: 7px;
+  }
+}

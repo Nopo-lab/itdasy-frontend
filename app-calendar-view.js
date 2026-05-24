@@ -753,8 +753,22 @@
       const lbl = { month: '월', week: '주' }[v];
       h += '<button class="bk-view__btn' + (v === _curView ? ' is-on' : '') + '" data-view="' + v + '">' + lbl + '</button>';
     });
-    h += '</div></div>';
+    h += '</div>';
+    h += _renderLegend();
+    h += '</div>';
     return h;
+  }
+
+  // [2026-05-24] 예약 상태 색상 범례
+  function _renderLegend() {
+    return (
+      '<div class="bk-legend" aria-label="예약 상태 범례">' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:var(--brand-strong,#BC6675)"></i>확정</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#10B981"></i>완료</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#9CA3AF"></i>취소</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#D97706"></i>노쇼</span>' +
+      '</div>'
+    );
   }
 
   // ============================================================
@@ -827,6 +841,7 @@
           <div class="bk-pc__spacer"></div>
           <!-- [2026-05-24] #bk-pc-stats (이번달 N건·매출) 제거 — 좌측 통계로 일원화 -->
           <div class="bk-view">${viewBtns}</div>
+          ${_renderLegend()}
           <button class="bk-pc__add-btn" id="bk-pc-add">+ 예약 추가</button>
           <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
         </div>`;
