@@ -401,8 +401,15 @@
 .bk-week-m__hour {
   height: var(--bk-h-mobile-week, 50px);
   border-top: 0.5px solid var(--border);
+  cursor: pointer;
+  transition: background .12s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .bk-week-m__hour:first-child { border-top: none; }
+/* [2026-05-24] 모바일 탭 피드백 — hover 미동작 환경 대응 */
+.bk-week-m__hour:active {
+  background: var(--brand-bg);
+}
 
 .bk-week-m__block {
   position: absolute;
