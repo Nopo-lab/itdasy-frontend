@@ -93,6 +93,10 @@
   function _statusDotColor(status) {
     return BK_STATUS_COLOR[status] || BK_STATUS_COLOR.confirmed;
   }
+  // [2026-05-26] 캘린더 렌더용 — 취소 예약은 표시 제외 (데이터는 _mappedCache 에 그대로 유지)
+  function _visibleCache() {
+    return (_mappedCache || []).filter(it => it.status !== 'cancelled');
+  }
   const PC_BREAKPOINT       = 1100;
 
   // === 상태 ===
@@ -966,8 +970,9 @@
     _saveState();
 
     if (_curView === 'month') {
-      const html = _cachedIsPC ? _renderMonthPC(_curYear, _curMonth, _mappedCache)
-                               : _renderMonthMobile(_curYear, _curMonth, _mappedCache);
+      const visible = _visibleCache();
+      const html = _cachedIsPC ? _renderMonthPC(_curYear, _curMonth, visible)
+                               : _renderMonthMobile(_curYear, _curMonth, visible);
       body.innerHTML = html;
       _bindMonthCells(body);
     } else if (_curView === 'week') {
@@ -979,16 +984,17 @@
   }
 
   function _renderWeekView(body) {
+    const visible = _visibleCache();
     if (_cachedIsPC) {
-      const r = _renderWeekPC(_curDate, _mappedCache);
+      const r = _renderWeekPC(_curDate, visible);
       body.innerHTML = r.html;
       const grid = body.querySelector('#bk-week-grid');
       _placeWeekPCBlocks(grid, r.items, r.start, r.ws);
       _bindTimetable(body, _curDate);
     } else {
       // 모바일 주간 — date strip + week grid
-      const strip = _renderDateStripMobile(_curDate, _mappedCache);
-      const r = _renderWeekMobile(_curDate, _mappedCache);
+      const strip = _renderDateStripMobile(_curDate, visible);
+      const r = _renderWeekMobile(_curDate, visible);
       body.innerHTML = strip + r.html;
       const grid = body.querySelector('#bk-week-m-grid');
       _placeWeekMBlocks(grid, r.items, r.start, r.ws);
@@ -998,15 +1004,16 @@
   }
 
   function _renderDayView(body) {
+    const visible = _visibleCache();
     if (_cachedIsPC) {
-      const r = _renderDayPC(_curDate, _mappedCache);
+      const r = _renderDayPC(_curDate, visible);
       body.innerHTML = r.html;
       const grid = body.querySelector('#bk-pc-day-grid');
       _placeDayPCBlocks(grid, r.items, r.start);
       _bindTimetable(body, _curDate);
     } else {
-      const strip = _renderDateStripMobile(_curDate, _mappedCache);
-      const r = _renderDayMobile(_curDate, _mappedCache);
+      const strip = _renderDateStripMobile(_curDate, visible);
+      const r = _renderDayMobile(_curDate, visible);
       body.innerHTML = strip + r.html;
       const grid = body.querySelector('#bk-day-grid');
       _placeDayBlocks(grid, r.items, r.start);
