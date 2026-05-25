@@ -250,7 +250,7 @@
     _pendingTimer = setTimeout(() => {
       try {
         if (_inflightCtrl) { try { _inflightCtrl.abort(); } catch (_e) { void _e; } }
-        _clearPending();
+        _clearChatPending();
         _history = _history.filter(m => m.role !== 'loading');
         _history.push({ role: 'assistant', text: '응답이 너무 늦어요. 다시 시도해 주세요.' });
         _renderHistory();
@@ -260,12 +260,12 @@
       } catch (_e) { void _e; }
     }, PENDING_TIMEOUT_MS);
   }
-  function _clearPending() {
+  function _clearChatPending() {
     try { localStorage.removeItem(PENDING_KEY); } catch (_e) { void _e; }
     if (_pendingTimer) { clearTimeout(_pendingTimer); _pendingTimer = null; }
     if (_pendingTickTimer) { clearInterval(_pendingTickTimer); _pendingTickTimer = null; }
   }
-  function _readPending() {
+  function _readChatPending() {
     try {
       const raw = localStorage.getItem(PENDING_KEY);
       if (!raw) return null;
@@ -749,7 +749,7 @@
       // loading — chat_pending 있으면 진행 시간 표시
       let elapsedHtml = '';
       try {
-        const pending = _readPending();
+        const pending = _readChatPending();
         if (pending && pending.started_at) {
           const sec = Math.max(0, Math.floor((Date.now() - pending.started_at) / 1000));
           const label = pending.kind === 'images' ? '사진 분석 중' : '답변 생성 중';
@@ -1652,9 +1652,21 @@
   let _sendInFlight = false;
   // [v178 2026-05-18] 사진 펜딩 (드래프트 첨부) — 갤러리/카메라 선택 시 자동 전송 X.
   //   입력창 위 칩으로 펜딩 → 사용자 텍스트 입력 후 ▷ 누르면 사진+텍스트 함께 전송.
-  let _pendingFiles = [];   // File 객체 배열 (실제 업로드용)
-  let _pendingThumbs = [];  // 미리보기 objectURL 배열 (인덱스 동기화)
-  let _pendingPhotoKind = '';
+  let _photoPending = null;
+  function _getPhotoPending() {
+    if (!_photoPending && window.ItdasyAssistantPendingPhotos && typeof window.ItdasyAssistantPendingPhotos.create === 'function') {
+      _photoPending = window.ItdasyAssistantPendingPhotos.create({ esc: _esc, send: () => _send() });
+    }
+    return _photoPending;
+  }
+  function _renderPending() {
+    const pending = _getPhotoPending();
+    if (pending) pending.render();
+  }
+  function _addPendingPhotos(files) {
+    const pending = _getPhotoPending();
+    if (pending) pending.add(files);
+  }
   function _bindActionButtons() {
     if (_delegationBound) return;
     _delegationBound = true;
@@ -1695,8 +1707,8 @@
     document.addEventListener('click', (e) => {
       if (typeof _assistantPhotoActions.handleClick === 'function' && _assistantPhotoActions.handleClick(e, {
         history: _history,
-        pendingFiles: _pendingFiles,
-        pendingThumbs: _pendingThumbs,
+        pendingFiles: (_getPhotoPending() && _getPhotoPending().files) || [],
+        pendingThumbs: (_getPhotoPending() && _getPhotoPending().thumbs) || [],
         renderPending: _renderPending,
         renderHistory: _renderHistory,
         openLightbox: _openLightbox,
@@ -2574,86 +2586,6 @@
     }
   }
 
-  // [v178 2026-05-18] 펜딩 사진 헬퍼 ─ 드래프트 첨부 UI
-  // [2026-05-25] 사진 종류 chip 추가 — 모든 사진에 '보정해서 올릴까요?' 응답이 나오는 한계를
-  //   사용자가 종류 chip 으로 직접 지정해 해결. 클릭하면 적절한 텍스트로 즉시 send.
-  const _ASST_PHOTO_CHIPS = [
-    { key: 'enhance', label: '✨ 사진 보정',   text: '이 사진 보정해줘' },
-    { key: 'card',    label: '🪪 명함 등록',   text: '이 명함 사진에서 이름·전화번호 뽑아서 고객으로 등록해줘' },
-    { key: 'price',   label: '🧾 영수증 입력', text: '이 영수증·가격표 사진에서 항목·금액 뽑아서 지출로 기록해줘' },
-    { key: 'kakao',   label: '💬 카톡 캡처',   text: '이 카톡 캡처에서 예약·매출·후기·고객 정보 자동으로 추출해줘' },
-  ];
-  function _renderPending() {
-    const wrap = document.getElementById('asstPending');
-    if (!wrap) return;
-    if (!_pendingFiles.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; wrap.style.flexDirection = ''; wrap.style.alignItems = ''; return; }
-    wrap.style.display = 'flex';
-    wrap.style.flexDirection = 'column';
-    wrap.style.alignItems = 'stretch';
-    const thumbsHtml = _pendingThumbs.map((url, i) => `
-      <div style="position:relative;width:54px;height:54px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#f0f0f0;border:1px solid rgba(0,0,0,0.06);">
-        <img src="${_esc(url)}" alt="첨부 사진 ${i + 1}" style="width:100%;height:100%;object-fit:cover;display:block;" />
-        <button data-pending-remove="${i}" aria-label="제거" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-weight:700;">×</button>
-      </div>
-    `).join('');
-    const chipsHtml = _ASST_PHOTO_CHIPS.map(c => {
-      const on = _pendingPhotoKind === c.key;
-      const style = on
-        ? 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.65);border-radius:999px;background:#6D28D9;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(109,40,217,0.2);'
-        : 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.25);border-radius:999px;background:#FAF5FF;color:#5B21B6;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;';
-      return `<button type="button" data-photo-chip="${c.key}" data-photo-chip-suggested="${on ? '1' : '0'}" style="${style}">${on ? '추천 · ' : ''}${c.label}</button>`;
-    }).join('');
-    wrap.innerHTML = `
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${thumbsHtml}</div>
-      <div style="font-size:10.5px;color:#6B7684;font-weight:600;margin-bottom:4px;padding:0 2px;">이 사진은? (탭해서 잇비에게 바로 보내기)</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">${chipsHtml}</div>
-    `;
-    wrap.querySelectorAll('[data-photo-chip]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const key = btn.dataset.photoChip;
-        const item = _ASST_PHOTO_CHIPS.find(c => c.key === key);
-        if (!item) return;
-        const input = document.getElementById('asstInput');
-        if (input) input.value = item.text;
-        try { _send(); } catch (_e) { /* ignore */ }
-      });
-    });
-  }
-  function _addPendingPhotos(files) {
-    const arr = Array.from(files || []).filter(Boolean);
-    const room = 10 - _pendingFiles.length;
-    if (room <= 0) {
-      if (window.showToast) window.showToast('한 번에 최대 10장까지만');
-      return;
-    }
-    arr.slice(0, room).forEach(f => {
-      _pendingFiles.push(f);
-      try { _pendingThumbs.push(URL.createObjectURL(f)); }
-      catch (_e) { _pendingThumbs.push(''); }
-    });
-    _renderPending();
-    _updatePendingPhotoKind();
-    setTimeout(() => document.getElementById('asstInput')?.focus(), 30);
-    if (window.hapticLight) window.hapticLight();
-  }
-  function _updatePendingPhotoKind() {
-    const f = _pendingFiles[0];
-    const classifier = window.ItdasyAssistantPhotoKind;
-    if (!f || !classifier || typeof classifier.classify !== 'function') return;
-    classifier.classify(f).then(kind => {
-      if (!_pendingFiles.length) return;
-      _pendingPhotoKind = kind || 'enhance';
-      _renderPending();
-    }).catch(() => {});
-  }
-  function _clearPending() {
-    _pendingThumbs.forEach(u => { try { URL.revokeObjectURL(u); } catch (_e) { void _e; } });
-    _pendingFiles = [];
-    _pendingThumbs = [];
-    _pendingPhotoKind = '';
-    _renderPending();
-  }
-
   async function _uploadPhotos(files) {
     if (_sendInFlight) return;
     // 단일 파일·FileList·배열 모두 허용
@@ -2886,7 +2818,7 @@
       _renderHistory();
       if (window.hapticLight) window.hapticLight();
       // [2026-04-26] 답변 도착 — pending 정리 + 챗봇 닫혀있으면 알림
-      _clearPending();
+      _clearChatPending();
       _notifyAnswerArrived();
     } catch (e) {
       _history = _history.filter(m => m.role !== 'loading');
@@ -2904,7 +2836,7 @@
       }
       _history.push({ role: 'assistant', text: _userMsg });
       _renderHistory();
-      _clearPending();
+      _clearChatPending();
     } finally {
       _sendInFlight = false;
       _inflightCtrl = null;
@@ -2919,9 +2851,8 @@
     // [v178 2026-05-18] 펜딩 사진 있으면 사진 + 텍스트 함께 전송.
     //   _uploadPhotos 안에서 input.value 를 question 으로 다시 읽으므로 텍스트 전달 OK.
     //   텍스트 비어있어도 OK — _uploadPhotos 가 빈 question 으로 제안 메시지 띄움.
-    if (_pendingFiles.length) {
-      const files = _pendingFiles.slice();
-      _clearPending();
+    if (_getPhotoPending() && _getPhotoPending().files.length) {
+      const files = _getPhotoPending().snapshotAndClear();
       _uploadPhotos(files);
       return;
     }
@@ -3190,7 +3121,7 @@
         });
         _renderHistory();
         if (window.hapticLight) window.hapticLight();
-        _clearPending();
+        _clearChatPending();
         _notifyAnswerArrived();
         return;
       }
@@ -3221,7 +3152,7 @@
       _renderHistory();
       if (window.hapticLight) window.hapticLight();
       // [2026-04-26] 답변 도착 — pending 정리 + 챗봇 닫혀있으면 알림
-      _clearPending();
+      _clearChatPending();
       _notifyAnswerArrived();
     } catch (e) {
       _history = _history.filter(m => m.role !== 'loading');
@@ -3230,7 +3161,7 @@
       if (isAbort) {
         // 메시지 추가 안 하고 조용히 종료 (chat_pending 으로 답변 복원 가능)
         _renderHistory();
-        _clearPending();
+        _clearChatPending();
         return;
       }
       // [2026-05-12 QA #5] 모든 에러를 '연결 불안정' 으로 뭉뚱그리지 말고 원인별 분기.
@@ -3253,7 +3184,7 @@
       }
       _history.push({ role: 'assistant', text: _errPrefix });
       _renderHistory();
-      _clearPending();
+      _clearChatPending();
     } finally {
       _sendInFlight = false;
       _inflightCtrl = null;
@@ -3366,7 +3297,7 @@
     // 챗봇 닫고 딴 일 하다가 다시 들어왔을 때, in-flight 사용자 메시지 + loading 표시.
     // 이미 _sendInFlight 로 진행 중이면 _history 에 이미 push 돼있으므로 중복 방지.
     try {
-      const pending = _readPending();
+      const pending = _readChatPending();
       if (pending && pending.user_msg && !_sendInFlight) {
         const ageMs = Date.now() - (pending.started_at || 0);
         if (ageMs < PENDING_TIMEOUT_MS) {
@@ -3390,7 +3321,7 @@
           }
         } else {
           // 타임아웃 지난 stale pending → 정리
-          _clearPending();
+          _clearChatPending();
         }
       }
     } catch (_e) { void _e; }
@@ -3452,14 +3383,14 @@
   // FAB 에 빨간 점 띄워서 챗봇 한번 열어보라고 유도. (실제 답변은 _loadServerHistory 가 가져옴)
   setTimeout(() => {
     try {
-      const pending = _readPending();
+      const pending = _readChatPending();
       if (!pending) return;
       const ageMs = Date.now() - (pending.started_at || 0);
       if (ageMs < PENDING_TIMEOUT_MS) {
         _setUnreadAnswer(true);
       } else {
         // stale → 정리
-        _clearPending();
+        _clearChatPending();
       }
     } catch (_e) { void _e; }
   }, 800);

@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260525-v270-assistant-mocks-off';
+const CACHE_VERSION = '20260525-v271-assistant-pending-photos';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -78,6 +78,7 @@ const STATIC_ASSETS = [
   './js/assistant/suggestion-controls.js',
   './js/assistant/photo-local-handlers.js',
   './js/assistant/photo-kind-classifier.js',
+  './js/assistant/pending-photos.js',
   './assistant-intent-router.js',
   './app-smart-capture.js',
   './app-ai-hub.js',
