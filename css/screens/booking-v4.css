@@ -1087,27 +1087,31 @@
   text-decoration: line-through;
 }
 
-/* no_show — 노란 + 흐림 */
+/* [2026-05-26] no_show — 빨강 (#E5484D) + 취소선 */
 .bk-block.bk-st-noshow,
 .bk-week-m__block.bk-st-noshow,
 .bk-week__block.bk-st-noshow,
 .bk-pc-day__block.bk-st-noshow {
-  background: #FEF3C7;
-  border-left-color: #D97706;
+  background: rgba(229,72,77,0.12);
 }
 .bk-st-noshow .bk-block__title,
 .bk-st-noshow .bk-week__block-title,
-.bk-st-noshow .bk-pc-day__block-title { color: #92400E; }
+.bk-st-noshow .bk-week-m__name,
+.bk-st-noshow .bk-pc-day__block-title {
+  color: #B0353A;
+  text-decoration: line-through;
+}
 .bk-st-noshow .bk-block__sub,
 .bk-st-noshow .bk-week__block-sub,
 .bk-st-noshow .bk-pc-day__block-time,
-.bk-st-noshow .bk-pc-day__block-service { color: #B45309; }
+.bk-st-noshow .bk-pc-day__block-service { color: #E5484D; opacity: 0.85; }
 
 /* 월별 이벤트 — no_show */
 .bk-month-m__evt.bk-st-noshow,
 .bk-month-pc__evt.bk-st-noshow {
-  background: #FEF3C7;
-  color: #92400E;
+  background: rgba(229,72,77,0.12);
+  color: #B0353A;
+  text-decoration: line-through;
 }
 
 /* 텍스트 줄바꿈 방지 (모든 블록) */
