@@ -11,7 +11,13 @@
 (function () {
   'use strict';
 
+  function _isLocalEnv() {
+    const h = window.location.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || window.location.protocol === 'file:';
+  }
+
   function _enabled() {
+    if (!_isLocalEnv()) return false;
     try {
       const params = new URLSearchParams(window.location.search || '');
       return params.get('debug') === '1' && params.get('assistant_mocks') === '1';
