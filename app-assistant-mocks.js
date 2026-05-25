@@ -11,6 +11,17 @@
 (function () {
   'use strict';
 
+  function _enabled() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      return params.get('debug') === '1' && params.get('assistant_mocks') === '1';
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  if (!_enabled()) return;
+
   function _wait(cb, tries) {
     if (window.ItdasyAssistant && typeof window.ItdasyAssistant.registerLocalHandler === 'function') {
       cb();
