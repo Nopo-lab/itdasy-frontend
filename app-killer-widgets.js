@@ -454,9 +454,9 @@
       }
       list.innerHTML = `<div style="font-size:11px;color:#888;margin-bottom:8px;font-weight:700;">대상 ${phones.length}명 — 각 버튼 탭 시 해당 번호로 문자 열립니다</div>` +
         phones.map(p => `
-          <button data-kw-sms-to="${p.phone}" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;padding:10px 12px;background:#FEF4F5;border:1px solid #F9D6DC;border-radius:10px;cursor:pointer;font-size:12.5px;color:#333;text-align:left;">
-            <span style="font-weight:800;flex:1;">${p.name}</span>
-            <span style="color:#888;font-size:11px;">${p.phone}</span>
+          <button data-kw-sms-to="${_esc(p.phone)}" style="display:flex;align-items:center;gap:8px;width:100%;margin-bottom:6px;padding:10px 12px;background:#FEF4F5;border:1px solid #F9D6DC;border-radius:10px;cursor:pointer;font-size:12.5px;color:#333;text-align:left;">
+            <span style="font-weight:800;flex:1;">${_esc(p.name)}</span>
+            <span style="color:#888;font-size:11px;">${_esc(p.phone)}</span>
             <span style="color:var(--brand-strong);font-weight:800;">📨 문자 열기</span>
           </button>`).join('');
       list.querySelectorAll('[data-kw-sms-to]').forEach(b => {
