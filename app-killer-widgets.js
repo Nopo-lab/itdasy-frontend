@@ -441,7 +441,7 @@
 
     // 전체 복사 (기존 단일 초안 모드)
     o.querySelector('#kw-sms-copy')?.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(document.getElementById('kw-sms-text').value); if (window.showToast) window.showToast('✅ 복사됨'); } catch(e) { /* ignore */ }
+      try { await navigator.clipboard.writeText(document.getElementById('kw-sms-text').value); if (window.showToast) window.showToast('✅ 복사됨'); } catch(e) { if (window.showToast) window.showToast('복사에 실패했어요'); }
     });
 
     // 대상 고객 리스트 로드 → 각 전화번호로 SMS 링크 생성

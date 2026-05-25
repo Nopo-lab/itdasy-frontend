@@ -157,7 +157,7 @@
     if ($c) $c.addEventListener('click', () => {
       close();
       if (typeof window.connectInstagram === 'function') {
-        try { window.connectInstagram(); } catch (_) { /* ignore */ }
+        try { window.connectInstagram(); } catch (_) { _toast('인스타 연동 중 문제가 생겼어요'); }
       } else {
         _toast('인스타 연동 진입점을 찾을 수 없어요');
       }

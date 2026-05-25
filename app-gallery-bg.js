@@ -326,7 +326,7 @@ async function applyTemplate(tplId, opts = {}) {
   const allBgs = [...DEFAULT_BACKGROUNDS, ..._loadUserBgs()];
   const bg = allBgs.find(b => b.id === tpl.bgId);
   for (const photo of selectedPhotos) {
-    if (bg) try { await _applyBgToPhoto(photo, bg, slot, target_ratio); } catch (_e) { /* ignore */ }
+    if (bg) try { await _applyBgToPhoto(photo, bg, slot, target_ratio); } catch (_e) { /* bg apply can fail for unsupported formats — skip photo */ }
   }
   if (progress) progress.style.display = 'none';
   _popupSelIds.clear();
