@@ -791,7 +791,6 @@ function openInstagramPreview(opts) {
       const dataUrl = upBtn.dataset.igpvSrc || src;
       const apiBase = window.API || '';
       const baseHeaders = window.authHeader ? Object.assign({}, window.authHeader()) : {};
-      baseHeaders['ngrok-skip-browser-warning'] = 'true';
 
       const originalLabel = upBtn.textContent;
       upBtn.disabled = true;

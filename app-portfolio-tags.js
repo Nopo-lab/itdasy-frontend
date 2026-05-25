@@ -104,7 +104,7 @@
     if (!confirm('삭제할까요?')) return;
     const res = await apiFetch('/portfolio/' + item.id, {
       method: 'DELETE',
-      headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
+      headers: authHeader(),
     });
     if (!res.ok) throw new Error('삭제 실패');
     showToast('삭제 완료');

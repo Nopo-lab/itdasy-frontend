@@ -140,8 +140,8 @@ async function loadPortfolio() {
     }
 
     const [itemsRes, tagsRes] = await Promise.all([
-      apiFetch(url, { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
-      apiFetch('/portfolio/tags', { headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' } }),
+      apiFetch(url, { headers: authHeader() }),
+      apiFetch('/portfolio/tags', { headers: authHeader() }),
     ]);
     _portfolioItems = await itemsRes.json();
     const tagData = await tagsRes.json();
@@ -315,7 +315,7 @@ async function deletePortfolioItem(id, overlay) {
   window._inlineConfirm('이 포트폴리오를 삭제할까요?', async () => {
     const res = await apiFetch('/portfolio/' + id, {
       method: 'DELETE',
-      headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' }
+      headers: authHeader()
     });
     if (res.ok) {
       overlay.remove();

@@ -276,7 +276,7 @@ async function doInstagramPublish(imageUrl, captionText) {
     setUploadProgress(10, '인스타 연결 중...');
     const res = await apiFetch('/instagram/publish', {
       method: 'POST',
-      headers: { ...authHeader(), 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      headers: { ...authHeader(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ image_url: imageUrl, caption: captionText }),
     });
     setUploadProgress(90, '업로드 완료 처리 중...');

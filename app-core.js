@@ -630,13 +630,13 @@ async function applyNewSession(newToken, opts) {
   }
 
   if (newUserId) {
-    try { localStorage.setItem('last_user_id', newUserId); } catch (_) { /* ignore */ }
+    try { localStorage.setItem('last_user_id', newUserId); } catch (_) { /* storage full / private mode */ }
   }
 
   // /auth/me 동기화 — fire-and-forget (await 제거: 첫 진입 ~200ms 단축)
   // user_id 는 JWT payload.sub 로 이미 확보, email/oauth_provider 만 백그라운드 보강.
   apiFetch('/auth/me', {
-    headers: { 'Authorization': 'Bearer ' + newToken, 'ngrok-skip-browser-warning': 'true' },
+    headers: { 'Authorization': 'Bearer ' + newToken },
   }).then(async (res) => {
     if (res && res.ok) {
       const me = await res.json();
@@ -1023,7 +1023,10 @@ async function localReset() {
   ['itdasy_consented','itdasy_consented_at','itdasy_latest_analysis',
    'onboarding_done','shop_name','shop_type'].forEach(k => localStorage.removeItem(k));
   // 인스타 연동도 백엔드에서 해제
-  try { await apiFetch('/instagram/disconnect', { method: 'POST', headers: authHeader() }); } catch(_) { /* ignore */ }
+  try {
+    const res = await apiFetch('/instagram/disconnect', { method: 'POST', headers: authHeader() });
+    if (!res.ok && typeof window.showToast === 'function') window.showToast('인스타 연결 해제에 실패했어요');
+  } catch (_) { /* network failure — UI 상태는 이미 초기화됨 */ }
   location.reload();
 }
 

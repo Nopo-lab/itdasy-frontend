@@ -2548,7 +2548,6 @@
     try {
       const headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
       headers['Content-Type'] = 'application/json';
-      headers['ngrok-skip-browser-warning'] = 'true';
       const apiBase = window.API || '';
       const res = await fetch(apiBase + '/persona/generate', {
         method: 'POST',

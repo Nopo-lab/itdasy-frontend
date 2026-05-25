@@ -851,7 +851,7 @@ async function doActualPublish() {
     // multipart FormData 는 /publish-file 에 보내야 함.
     const res = await apiFetch('/instagram/publish-file', {
       method: 'POST',
-      headers: { ...authHeader(), 'ngrok-skip-browser-warning': 'true' },
+      headers: authHeader(),
       body: formData
     });
 
