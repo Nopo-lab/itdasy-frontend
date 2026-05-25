@@ -441,18 +441,18 @@
 
   function _renderRelatedChips(m) {
     return (m.related && m.related.length) ? `
-      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
-        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">${_esc(q)}</button>`).join('')}
+      <div class="asst-chips asst-chips--related" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;cursor:pointer;font-size:12px;color:#4E5968;white-space:nowrap;font-weight:600;transition:all 0.12s;">${_esc(q)}</button>`).join('')}
       </div>` : '';
   }
 
   function _renderIntentChips(m, idx) {
     if (!Array.isArray(m.intent_chips) || !m.intent_chips.length) return '';
-    return `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+    return `<div class="asst-chips asst-chips--intent" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
       ${m.intent_chips.map(c => {
         const style = c.primary
-          ? 'padding:9px 16px;border:none;border-radius:100px;background:linear-gradient(135deg,var(--brand,#8B5CF6),var(--brand-strong,#7C3AED));color:#fff;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 2px 6px rgba(124,58,237,0.25);'
-          : 'padding:8px 14px;border:1.5px solid #E2D6F7;border-radius:100px;background:#F7F2FD;color:#6B21A8;cursor:pointer;font-size:13px;font-weight:700;';
+          ? 'padding:10px 18px;border:none;border-radius:999px;background:#191F28;color:#FFFFFF;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:-0.2px;'
+          : 'padding:9px 16px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:13px;font-weight:600;';
         return `<button data-asst-intent-chip="${idx}:${_esc(c.id)}" style="${style}">${_esc(c.label)}</button>`;
       }).join('')}
     </div>`;
@@ -461,7 +461,7 @@
   function _renderPhotoResult(m, idx) {
     if (!m.photo_result || !m.photo_result.dataUrl) return '';
     const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
-    const actsHtml = acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:6px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;color:#6B21A8;cursor:pointer;font-size:11px;font-weight:700;">${_esc(a.label)}</button>`).join('');
+    const actsHtml = acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:11px;font-weight:600;">${_esc(a.label)}</button>`).join('');
     const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
     return `<div style="margin-bottom:8px;">
       <img src="${_esc(m.photo_result.dataUrl)}" alt="보정 결과" style="max-width:240px;max-height:300px;border-radius:14px;display:block;box-shadow:0 4px 14px rgba(0,0,0,0.08);cursor:zoom-in;" data-asst-photo-result="${idx}" />
@@ -681,9 +681,9 @@
     if (!itemsTotal && !adjTotal) return '';
     const diff = expected - amount;
     const warn = (itemsTotal > 0 && amount > 0 && Math.abs(diff) > 100);
-    return `<div style="margin-top:10px;padding:8px 10px;background:hsl(220,20%,97%);border:1px solid hsl(220,15%,90%);border-radius:8px;font-size:11px;color:hsl(220,10%,30%);line-height:1.6;">
-      정가합 <b>${_f(itemsTotal)}</b> ${adjTotal > 0 ? `− 할인 <b style="color:#E07A5F;">${_f(adjTotal)}</b>` : ''} = 예상 <b>${_f(expected)}</b>
-      ${amount > 0 ? `<br/>결제금액 <b style="color:hsl(220,10%,15%);">${_f(amount)}</b>${warn ? ` <span style="color:#C2410C;font-weight:700;">⚠ 차이 ${_f(Math.abs(diff))}</span>` : (itemsTotal ? ' <span style="color:#388e3c;font-weight:700;">✓</span>' : '')}` : ''}
+    return `<div style="margin-top:10px;padding:10px 12px;background:#F7F8FA;border:none;border-radius:10px;font-size:11.5px;color:#4E5968;line-height:1.6;">
+      정가합 <b style="color:#191F28;">${_f(itemsTotal)}</b> ${adjTotal > 0 ? `− 할인 <b style="color:#191F28;">${_f(adjTotal)}</b>` : ''} = 예상 <b style="color:#191F28;">${_f(expected)}</b>
+      ${amount > 0 ? `<br/>결제금액 <b style="color:#191F28;">${_f(amount)}</b>${warn ? ` <span style="color:#C2410C;font-weight:700;">⚠ 차이 ${_f(Math.abs(diff))}</span>` : (itemsTotal ? ' <span style="color:#0F8746;font-weight:700;">✓</span>' : '')}` : ''}
     </div>`;
   }
 
@@ -951,31 +951,33 @@
   function _renderFallbackCard(extract, historyIdx, status) {
     if (!extract) return '';
     if (status === 'done') {
-      return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,hsl(145,45%,94%),hsl(145,45%,98%));border-radius:14px;border-left:3px solid hsl(145,50%,40%);">
-        <div style="font-size:11px;font-weight:700;color:hsl(145,50%,35%);">✓ 저장했어요</div>
+      return `<div class="asst-card asst-card--done" style="margin-top:8px;padding:12px 14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${_svg('ic-check', 13)}</span>
+        <span style="font-size:12px;font-weight:700;color:#0F8746;">저장했어요</span>
       </div>`;
     }
     if (status === 'failed') {
-      return `<div style="margin-top:6px;padding:10px 12px;background:hsl(0,70%,96%);border-radius:14px;border-left:3px solid hsl(0,70%,55%);">
-        <div style="font-size:11px;font-weight:700;color:hsl(0,70%,45%);">실패 — 다시 시도해 주세요</div>
+      return `<div class="asst-card asst-card--failed" style="margin-top:8px;padding:12px 14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#FBE9EA;color:#E5484D;">${_svg('ic-x', 12)}</span>
+        <span style="font-size:12px;font-weight:700;color:#E5484D;">실패 — 다시 시도해 주세요</span>
       </div>`;
     }
     const row = (label, field, val, placeholder) => `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         <span style="width:52px;font-size:11px;color:#8B95A1;font-weight:600;">${label}</span>
         <input data-fallback-field="${field}" data-fallback-idx="${historyIdx}" value="${_esc(val || '')}" placeholder="${_esc(placeholder)}"
-          style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,88%);border-radius:10px;font-size:12px;background:#fff;" />
+          style="flex:1;padding:9px 12px;border:none;border-radius:10px;font-size:13px;background:#F7F8FA;color:#191F28;color-scheme:light;outline:none;" />
       </div>`;
-    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid hsl(270,40%,88%);border-radius:14px;">
-      <div style="font-size:12px;font-weight:800;color:hsl(270,50%,45%);margin-bottom:8px;">대충 이렇게 맞아요?</div>
+    return `<div class="asst-card asst-card--fallback" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+      <div style="font-size:12px;font-weight:700;color:#191F28;margin-bottom:10px;letter-spacing:-0.2px;">대충 이렇게 맞아요?</div>
       ${row('이름', 'name', extract.name, '김서연')}
       ${row('전화', 'phone', extract.phone, '010-0000-0000')}
       ${row('금액', 'amount', extract.amount, '50000')}
       ${row('시간', 'time', extract.time, '내일 2시')}
-      <div style="display:flex;gap:6px;margin-top:10px;">
-        <button data-fallback-intent="customer" data-fallback-idx="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:10px;background:hsl(175,55%,50%);color:#fff;font-weight:800;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-user', 12)} 고객 추가</button>
-        <button data-fallback-intent="revenue" data-fallback-idx="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:10px;background:hsl(145,50%,40%);color:#fff;font-weight:800;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-dollar-sign', 12)} 매출 기록</button>
-        <button data-fallback-intent="booking" data-fallback-idx="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:10px;background:hsl(350,75%,60%);color:#fff;font-weight:800;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-calendar', 12)} 예약 추가</button>
+      <div style="display:flex;gap:6px;margin-top:12px;">
+        <button data-fallback-intent="customer" data-fallback-idx="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-user', 12)} 고객 추가</button>
+        <button data-fallback-intent="revenue" data-fallback-idx="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-dollar-sign', 12)} 매출 기록</button>
+        <button data-fallback-intent="booking" data-fallback-idx="${historyIdx}" style="flex:1;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:4px;letter-spacing:-0.2px;">${_svg('ic-calendar', 12)} 예약 추가</button>
       </div>
     </div>`;
   }
