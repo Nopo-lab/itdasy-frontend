@@ -991,13 +991,12 @@
       _placeWeekPCBlocks(grid, r.items, r.start, r.ws);
       _bindTimetable(body, _curDate);
     } else {
-      // 모바일 주간 — date strip + week grid
-      const strip = _renderDateStripMobile(_curDate, visible);
+      // [2026-05-26] 모바일 주간 — date strip 제거 (요일 헤더와 중복).
+      // _renderDateStripMobile 은 day 뷰에서만 호출.
       const r = _renderWeekMobile(_curDate, visible);
-      body.innerHTML = strip + r.html;
+      body.innerHTML = r.html;
       const grid = body.querySelector('#bk-week-m-grid');
       _placeWeekMBlocks(grid, r.items, r.start, r.ws);
-      _bindDateStrip(body);
       _bindTimetable(body, _curDate);
     }
   }
