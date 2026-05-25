@@ -1398,6 +1398,30 @@ function _toggleSignup(show) {
   }
 }
 
+// ───── OAuth redirect URL 검증 ─────
+const _ALLOWED_OAUTH_HOSTS = ['accounts.google.com', 'kauth.kakao.com', 'nid.naver.com'];
+function _isAllowedOAuthUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return _ALLOWED_OAUTH_HOSTS.includes(parsed.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+function _navigateOAuth(url) {
+  if (!_isAllowedOAuthUrl(url)) {
+    showToast('로그인 서버 응답이 유효하지 않아요. 잠시 후 다시 시도해주세요.', 'error');
+    return;
+  }
+  if (window.Capacitor?.Plugins?.Browser) {
+    window.Capacitor.Plugins.Browser.open({ url });
+  } else {
+    window.location.href = url;
+  }
+}
+
 // ───── Google OAuth 로그인 시작 ─────
 // 백엔드에 authorize URL 을 요청 → 사용자를 Google 로그인 페이지로 이동
 // 완료 후 /oauth-return.html 에서 토큰 저장
@@ -1410,12 +1434,7 @@ window.startGoogleLogin = async function () {
     );
     if (!res.ok) throw new Error('Google 로그인 준비 실패');
     const { url } = await res.json();
-    // Capacitor 네이티브 환경이면 in-app browser, 아니면 같은 탭 이동
-    if (window.Capacitor?.Plugins?.Browser) {
-      await window.Capacitor.Plugins.Browser.open({ url });
-    } else {
-      window.location.href = url;
-    }
+    _navigateOAuth(url);
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || 'Google 로그인 오류');
     showToast(msg, 'error');
@@ -1432,11 +1451,7 @@ window.startKakaoLogin = async function () {
     );
     if (!res.ok) throw new Error('카카오 로그인 준비 실패');
     const { url } = await res.json();
-    if (window.Capacitor?.Plugins?.Browser) {
-      await window.Capacitor.Plugins.Browser.open({ url });
-    } else {
-      window.location.href = url;
-    }
+    _navigateOAuth(url);
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '카카오 로그인 오류');
     showToast(msg, 'error');
@@ -1456,11 +1471,7 @@ window.startNaverLogin = async function () {
       if (window.showToast) window.showToast('네이버 로그인 설정이 아직 준비 중이에요');
       return;
     }
-    if (window.Capacitor?.Plugins?.Browser) {
-      await window.Capacitor.Plugins.Browser.open({ url: data.url });
-    } else {
-      window.location.href = data.url;
-    }
+    _navigateOAuth(data.url);
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '네이버 로그인 오류');
     showToast(msg || '네이버 로그인을 시작할 수 없어요', 'error');
