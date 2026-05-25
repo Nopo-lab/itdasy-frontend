@@ -466,7 +466,8 @@ function _obFinish() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
     body: JSON.stringify({ shop_name: name })
-  }).catch((err) => console.warn('[onboarding] 샵 이름 저장 실패', err));
+  }).then(res => { if (!res.ok) showToast('매장 정보 저장에 실패했어요. 설정에서 다시 시도해주세요'); })
+    .catch(() => showToast('매장 정보 저장에 실패했어요. 설정에서 다시 시도해주세요'));
 }
 
 async function obNext() {
