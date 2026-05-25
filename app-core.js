@@ -1281,7 +1281,7 @@ async function _tryBiometricLogin() {
     const token = await window.Biometric.verify();
     if (!token) return false;
     setToken(token);
-    try { await applyNewSession(token); } catch (_) { /* ignore */ }
+    try { await applyNewSession(token); } catch (_) { /* session init failed — reload recovers UI state */ location.reload(); }
     return true;
   } catch (_) { return false; }
 }
