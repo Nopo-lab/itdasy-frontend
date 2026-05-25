@@ -190,6 +190,7 @@
           if (window.showToast) window.showToast('8MB 초과 사진은 사용할 수 없어요');
           return;
         }
+        if (_slots[i]?.url) URL.revokeObjectURL(_slots[i].url);
         _slots[i] = { file, url: URL.createObjectURL(file), caption: _slots[i]?.caption || '' };
         _render();
       });
@@ -386,6 +387,7 @@
     a.href = url;
     a.download = fileName;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
     if (window.showToast) window.showToast('영상 저장됨 — 인스타 앱에서 이어서 편집하세요');
   }
 

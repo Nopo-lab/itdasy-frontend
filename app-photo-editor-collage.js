@@ -53,8 +53,9 @@
       let loaded = 0;
       files.forEach(f => {
         const img = new Image();
-        img.onload = () => { loaded++; if (loaded === files.length) { pop.querySelector('#collageCreateBtn').disabled = false; pop.querySelector('#collageCreateBtn').style.opacity = '1'; pop.querySelector('#collagePreview').innerHTML = `<div style="font-size:13px;color:var(--accent);font-weight:600;">${files.length}장 선택 완료 ✓</div>`; } };
-        img.src = URL.createObjectURL(f);
+        const objUrl = URL.createObjectURL(f);
+        img.onload = () => { URL.revokeObjectURL(objUrl); loaded++; if (loaded === files.length) { pop.querySelector('#collageCreateBtn').disabled = false; pop.querySelector('#collageCreateBtn').style.opacity = '1'; pop.querySelector('#collagePreview').innerHTML = `<div style="font-size:13px;color:var(--accent);font-weight:600;">${files.length}장 선택 완료 ✓</div>`; } };
+        img.src = objUrl;
         images.push(img);
       });
     });
