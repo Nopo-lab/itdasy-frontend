@@ -337,12 +337,34 @@ async function _saveSlotToGallery(slotId) {
   if (!validPhotos.length) { showToast('저장 가능한 사진 데이터가 없어요 — 다시 촬영해 주세요'); return; }
   await _maybeAutoMatchCustomer(slot);
   try {
+    // [2026-05-25] '앨범에 보관' 옵션 = 로컬 갤러리 + 서버 포트폴리오 동시 저장.
+    //   기존엔 saveToGallery (로컬) 만 호출되어 사용자가 포트폴리오에서 못 보던 버그.
     await saveToGallery(slot);
+    const visPhotos = (slot.photos || []).filter(p => p && !p.hidden);
+    const photosToUpload = visPhotos.length ? visPhotos : validPhotos;
+    let uploadedAny = false;
+    for (let i = 0; i < photosToUpload.length; i++) {
+      const p = photosToUpload[i];
+      try {
+        const blob = _dataUrlToBlob(p.editedDataUrl || p.dataUrl);
+        const fd = new FormData();
+        fd.append('image', blob, `slot_photo_${i + 1}.jpg`);
+        fd.append('photo_type', 'after');
+        fd.append('main_tag', slot.label || '');
+        fd.append('tags', '');
+        if (slot.customer_id) fd.append('customer_id', slot.customer_id);
+        const upRes = await apiFetch('/portfolio', { method: 'POST', headers: authHeader(), body: fd });
+        if (upRes.ok) uploadedAny = true;
+      } catch (_pe) { /* 일부 사진 실패 OK */ }
+    }
+    if (uploadedAny) {
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'portfolio_created' } })); } catch (_) { /* ignore */ }
+    }
     // [2026-05-04] 갤러리 보관 완료 시 마무리 탭에서 제거되도록 마킹
     slot.instagramPublished = true;
     try { await saveSlotToDB(slot); } catch(_e) { /* ignore */ }
-    
-    if (window.showToast) window.showToast('갤러리에 안전하게 보관됐어요 📁');
+
+    if (window.showToast) window.showToast(uploadedAny ? '포트폴리오·앨범에 저장됐어요 📁' : '앨범에 저장됐어요 (포트폴리오 업로드 실패)');
     if (window.hapticLight) window.hapticLight();
     await initFinishTab();
     // AI 추천 탭이 열려있으면 갱신
@@ -400,8 +422,8 @@ function _showPublishOptions(slotId) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           </div>
           <div style="flex:1;">
-            <div style="font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.2px;">앨범에 보관</div>
-            <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">서버 저장 · 포트폴리오에서 다시 보기</div>
+            <div style="font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.2px;">포트폴리오에 저장</div>
+            <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">서버에 업로드 · 포트폴리오 탭에서 바로 확인</div>
           </div>
           <i class="ph-duotone ph-caret-right" style="font-size:16px" aria-hidden="true"></i>
         </button>

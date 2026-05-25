@@ -89,7 +89,7 @@
         ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'purple' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'purple' })}
-        ${_rowHTML('undo',     'ic-rotate-ccw', 'AI 잇비 액션 되돌리기', '최근 30일 이력', { boxColor: 'amber' })}
+        ${/* [2026-05-25] 'AI 잇비 액션 되돌리기' 행 제거 — 잇비 채팅 ⋯ 메뉴로 단일 진입점화. */ ''}
         ${_rowHTML('failures', 'ic-bell',       '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">계정</div>
@@ -252,7 +252,7 @@
     // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
     if (act === 'sync')      { close(); setTimeout(() => window.forceSync && window.forceSync(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
-    if (act === 'undo')      { close(); setTimeout(() => window.openUndoHistory && window.openUndoHistory(), 200); return; }
+    // 'undo' 라우트는 잇비 채팅 ⋯ 메뉴로 일원화 (2026-05-25, 행 제거).
     if (act === 'failures')  { close(); setTimeout(() => window.openFailuresHub && window.openFailuresHub(), 200); return; }
     if (act === 'membership'){ close(); setTimeout(() => window.MembershipUI && window.MembershipUI.openExpiringList && window.MembershipUI.openExpiringList(30), 200); return; }
     if (act === 'support')   { close(); setTimeout(() => (window.openSupport || window.openSupportChat) && (window.openSupport || window.openSupportChat)(), 200); return; }

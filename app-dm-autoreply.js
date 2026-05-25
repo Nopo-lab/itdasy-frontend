@@ -89,6 +89,11 @@
   function _rawFetch(url, opts = {}, timeoutMs = 15000) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    // [2026-05-25] 외부에서 전달한 signal 도 존중 — abort 시 내부 ctrl 도 abort.
+    if (opts && opts.signal) {
+      if (opts.signal.aborted) ctrl.abort();
+      else opts.signal.addEventListener('abort', () => { try { ctrl.abort(); } catch (_e) { /* ignore */ } }, { once: true });
+    }
     return (window._origFetch || window.fetch)(url, { ...opts, signal: ctrl.signal })
       .finally(() => clearTimeout(timer));
   }
@@ -702,12 +707,19 @@
   }
 
   const _regenInFlight = new Set();  // logId별 중복 호출 방지
+  // [2026-05-25] 톤별 결과 캐시 — 같은 logId + tone 조합은 즉시 표시 (BE 호출 생략).
+  //   key: `${logId}::${tone}` · value: 생성된 텍스트
+  const _toneCache = new Map();
+  // [2026-05-25] 진행 중 AbortController — 사용자가 빠르게 다른 톤 누르면 이전 호출 취소.
+  const _regenAbort = new Map();
+  // [2026-05-25] 진행 메시지 점진적 업데이트 (체감 속도 개선) — interval id 보관.
+  const _regenTickers = new Map();
+
   async function _handleRegen(card) {
     // [2026-05-02 Phase 1.2++] 진짜 백엔드 호출 — fake hardcoded 제거.
     // POST /dm-confirm-queue/{log_id}/regenerate { tone } → 시간 컨텍스트 가드레일 보존.
     const logId = card.dataset.logId;
     const regenKey = String(logId || '');
-    if (regenKey && _regenInFlight.has(regenKey)) return;  // 이미 생성 중이면 중복 호출 방지
     if (!logId) {
       _toast('재생성하려면 먼저 메시지가 큐에 등록되어야 해요');
       return;
@@ -716,16 +728,51 @@
     const tone = toneBtn ? toneBtn.dataset.tone : 'friendly';
     const draftEl = card.querySelector('.dm-bubble--sent.is-draft');
     if (!draftEl) return;
-
     const orig = draftEl.textContent;
-    if (orig === '생성 중...' || orig === '생성 중…') return; 
 
-    const statusLabel = '생성 중…';
-    draftEl.textContent = statusLabel;
+    // [2026-05-25] 캐시 hit → 즉시 표시. BE 왕복 0초.
+    const cacheKey = `${regenKey}::${tone}`;
+    if (_toneCache.has(cacheKey)) {
+      const cached = _toneCache.get(cacheKey);
+      draftEl.textContent = cached;
+      draftEl.style.color = '';
+      _draftMap.set(regenKey, cached);
+      _haptic();
+      return;
+    }
+
+    // 이미 같은 톤 생성 중이면 무시, 다른 톤 생성 중이면 이전 호출 abort.
+    if (regenKey && _regenInFlight.has(regenKey)) {
+      const prevAbort = _regenAbort.get(regenKey);
+      if (prevAbort) { try { prevAbort.abort(); } catch (_e) { /* ignore */ } }
+    }
+
+    if (orig === '생성 중...' || orig === '생성 중…') {
+      // 메시지만 갈아끼우고 계속 진행
+    }
+
+    const tickerMessages = [
+      '톤 바꿔서 다시 쓰는 중…',
+      '말투 보정 중…',
+      '곧 도착해요…',
+    ];
+    let tickIdx = 0;
+    draftEl.textContent = tickerMessages[0];
     draftEl.style.color = '#aaa';
-    _draftMap.set(regenKey, statusLabel); // 폴링 시에도 '생성 중' 표시 유지
-    
+    _draftMap.set(regenKey, tickerMessages[0]);
+
+    // 점진적 메시지 — 2초 간격으로 갱신해서 멈춰있다는 인상 없게.
+    const tickId = setInterval(() => {
+      tickIdx = Math.min(tickerMessages.length - 1, tickIdx + 1);
+      const liveCard = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
+      const liveEl = liveCard ? liveCard.querySelector('.dm-bubble--sent.is-draft') : null;
+      if (liveEl) liveEl.textContent = tickerMessages[tickIdx];
+    }, 2000);
+    _regenTickers.set(regenKey, tickId);
+
     _regenInFlight.add(regenKey);
+    const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    if (ctrl) _regenAbort.set(regenKey, ctrl);
     const regenBtn = card.querySelector('[data-act="regen"]');
     if (regenBtn) {
       regenBtn.disabled = true;
@@ -737,46 +784,51 @@
         method: 'POST',
         headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ tone }),
-      }, 45000);
+        signal: ctrl ? ctrl.signal : undefined,
+      }, 25000);
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
-      
+
       // 서버 응답에서 새 텍스트 추출 (다양한 필드명 대응)
       const newText = d.ai_draft_text || d.text || d.reply_text || d.draft || d.generated_text || '';
-      
+
       // 폴링이 카드를 재렌더했을 수 있으므로 logId 로 최신 DOM 다시 조회
       const liveCard = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl = liveCard ? liveCard.querySelector('.dm-bubble--sent.is-draft') : draftEl;
-      
+
       if (newText) {
+        _toneCache.set(cacheKey, newText);   // 캐시 저장 → 다음 같은 톤은 즉시 표시
         _draftMap.set(regenKey, newText);
         if (liveEl) {
           liveEl.textContent = newText;
           liveEl.style.color = '';
         }
-        _toast('✓ 새 답장 생성됨');
       } else {
-        _draftMap.delete(regenKey); // 실패 시 맵에서 제거하여 원본(ai_draft_text) 노출 유도
+        _draftMap.delete(regenKey);
         if (liveEl) {
           liveEl.textContent = orig;
           liveEl.style.color = '';
         }
         _toast('새 답장이 비어 있어요. 다시 눌러주세요.');
       }
-      if (d.guarded) _toast('✓ 시간 정보 유지하며 톤만 변경됨');
+      if (d.guarded) _toast('✓ 시간 정보 유지');
     } catch (e) {
+      // AbortError = 사용자가 다른 톤으로 빠르게 전환한 경우. 토스트 생략.
+      if (e && e.name === 'AbortError') {
+        return;
+      }
       _draftMap.delete(regenKey);
       const liveCard2 = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveEl2 = liveCard2 ? liveCard2.querySelector('.dm-bubble--sent.is-draft') : draftEl;
-      if (liveEl2) { 
-        liveEl2.textContent = orig; 
-        liveEl2.style.color = ''; 
+      if (liveEl2) {
+        liveEl2.textContent = orig;
+        liveEl2.style.color = '';
       }
-      const msg = e?.name === 'AbortError'
-        ? '답장 만들기가 너무 오래 걸려 멈췄어요. 다시 눌러주세요.'
-        : (e.message || '');
-      _toast('재생성 실패: ' + msg);
+      _toast('재생성 실패: ' + (e.message || ''));
     } finally {
+      const t = _regenTickers.get(regenKey);
+      if (t) { clearInterval(t); _regenTickers.delete(regenKey); }
+      _regenAbort.delete(regenKey);
       _regenInFlight.delete(regenKey);
       const liveCard3 = document.querySelector(`.dm-card[data-log-id="${CSS.escape(logId)}"]`);
       const liveBtn = liveCard3 ? liveCard3.querySelector('[data-act="regen"]') : regenBtn;

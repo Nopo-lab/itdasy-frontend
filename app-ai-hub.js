@@ -37,14 +37,13 @@
       { act: 'photoEditor', icon: 'ph-magic-wand', boxColor: 'pink',
         name: '사진 편집기', meta: '자동 보정 · Before/After · 템플릿',
         type: 'badge' },
-      { act: 'caption', icon: 'ph-pencil-line', boxColor: 'pink',
-        name: 'SNS 캡션', meta: '사진 올리면 글·해시태그까지',
-        type: 'plain' },
+      // [2026-05-25] SNS 캡션 + AI 페르소나 통합 — 'AI 페르소나' 단일 진입점.
+      //   클릭 시 바텀시트로 3개 옵션(SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
       { act: 'hashtag', icon: 'ph-hash', boxColor: 'teal',
         name: '해시태그 매니저', meta: '업종별 추천 · 원터치 복사',
         type: 'plain' },
       { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'purple',
-        name: 'AI 페르소나', meta: '원장님 말투 학습 · 캡션 일관성',
+        name: 'AI 페르소나', meta: 'SNS 캡션 · 말투 분석 · 리포트',
         type: 'tag', tagText: '학습됨' },
       { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
@@ -226,10 +225,10 @@
   const _ROUTE_MAP = {
     dm:      'openDMAutoreplySettings',
     kakao:   'openKakaoHub',
-    persona: 'openPersonaSurveyModal',
-    caption: 'openCaptionScenarioPopup',
+    persona: '__personaHubOpen',   // [2026-05-25] SNS 캡션 + 페르소나 통합 시트
     hashtag: '__snsHashtagOpen',
     posts:   null,
+    // caption 단독 라우트는 persona 시트의 'SNS 캡션 만들기' 옵션으로 흡수 (2026-05-25)
     // memo / capture 라우트는 잇비 채팅에서 직접 호출 (행 자체 제거됨, 2026-05-25)
     photoEditor: '__photoEditorOpen',   // 함수 매핑 — 아래 _route에서 PhotoEditor.open()로 분기
   };
@@ -238,12 +237,69 @@
     if (act === 'posts') return typeof window.showTab === 'function';
     if (act === 'photoEditor') return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
     if (act === 'hashtag') return !!(window.SNSHashtag && typeof window.SNSHashtag.open === 'function');
+    if (act === 'persona') return true;   // 항상 진입 가능 (옵션 가용성은 시트 안에서 분기)
     const fn = _ROUTE_MAP[act];
     return !!(fn && typeof window[fn] === 'function');
   }
 
+  // [2026-05-25] AI 페르소나 통합 시트 — 3개 옵션 (SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
+  //   디자인은 캡션 시나리오 시트와 동일 톤 (바텀시트 + handle + 카드 옵션).
+  function _openPersonaHub() {
+    const id = 'aihPersonaSheet';
+    let overlay = document.getElementById(id);
+    if (overlay) { try { overlay.remove(); } catch (_e) { /* ignore */ } }
+    overlay = document.createElement('div');
+    overlay.id = id;
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;display:flex;align-items:flex-end;justify-content:center;';
+    const sheet = document.createElement('div');
+    sheet.style.cssText = 'width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 36px;box-sizing:border-box;max-height:88vh;overflow-y:auto;';
+    const handle = document.createElement('div');
+    handle.style.cssText = 'width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 20px;';
+    sheet.appendChild(handle);
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:6px;';
+    title.textContent = 'AI 페르소나';
+    sheet.appendChild(title);
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:12px;color:#888;margin-bottom:18px;line-height:1.5;';
+    hint.textContent = '원장님 말투 학습으로 SNS·DM 톤을 일관되게 유지해요.';
+    sheet.appendChild(hint);
+
+    const optBox = document.createElement('div');
+    optBox.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+    const _opt = (k, t, sub, color) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.personaOpt = k;
+      b.style.cssText = `text-align:left;padding:16px 18px;border:1px solid rgba(213,138,149,0.2);border-radius:16px;background:linear-gradient(135deg,#fffcfd,${color || '#fff5f7'});cursor:pointer;display:flex;flex-direction:column;gap:4px;`;
+      b.innerHTML = `<div style="font-size:14px;font-weight:800;color:#191F28;letter-spacing:-0.2px;">${t}</div><div style="font-size:11.5px;color:#6B7684;">${sub}</div>`;
+      return b;
+    };
+    optBox.appendChild(_opt('caption', 'SNS 캡션 생성', '사진 → 글·해시태그까지 한 번에', '#fff5f7'));
+    optBox.appendChild(_opt('relearn', '말투 새로 분석', '최근 게시물로 다시 학습 (인스타 필요)', '#FAF5FF'));
+    optBox.appendChild(_opt('report',  '분석 리포트 보기', '말투 패턴 · TOP5 · 이모지 · 해시태그', '#F0F9FF'));
+    sheet.appendChild(optBox);
+    overlay.appendChild(sheet);
+    const _close = () => { try { overlay.remove(); } catch (_e) { /* ignore */ } };
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) _close(); });
+    optBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-persona-opt]');
+      if (!btn) return;
+      const opt = btn.dataset.personaOpt;
+      _close();
+      try {
+        if (opt === 'caption' && typeof window.openCaptionScenarioPopup === 'function') return window.openCaptionScenarioPopup();
+        if (opt === 'relearn' && typeof window.openPersonaSurveyModal === 'function') return window.openPersonaSurveyModal();
+        if (opt === 'report'  && typeof window.showDetailedAnalysis === 'function')   return window.showDetailedAnalysis();
+        if (window.showToast) window.showToast('해당 기능을 찾을 수 없어요. 잠시 후 다시 시도해주세요');
+      } catch (_e) { if (window.showToast) window.showToast('화면을 여는 중 문제가 생겼어요'); }
+    });
+    document.body.appendChild(overlay);
+  }
+
   function _route(act) {
     const map = _ROUTE_MAP;
+    if (act === 'persona') { _openPersonaHub(); return; }
     if (act === 'photoEditor') {
       try { window.PhotoEditor.open({}); }
       catch (_e) { if (window.showToast) window.showToast('편집기를 여는 중 문제가 생겼어요'); }

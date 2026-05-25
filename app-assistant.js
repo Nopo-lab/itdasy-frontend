@@ -704,8 +704,9 @@
             • 사진 보정 · 배경 교체 · 전후 카드<br>
             • SNS 캡션 작성 · 인스타 게시<br>
             • 단골 안부 · 메시지 초안 작성<br>
-            • 말투 분석 · 영수증·명함·카톡 OCR<br>
-            <span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · "이번 달 매출"</span>
+            • 사진만 올려도 OK — 카톡 캡처·명함·영수증 자동 인식<br>
+            • 말투 분석 리포트<br>
+            <span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · 카톡 캡처/명함 사진 그냥 올리기</span>
           </div>
         </div>
       `;
@@ -2266,23 +2267,21 @@
     });
   }
 
-  // [2026-05-25] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기/카톡캡쳐/명함/가격표 OCR 통합.
-  //   내샵관리 AI 허브에서 빠진 진입점을 잇비 채팅 안으로 이동.
+  // [2026-05-25 v2] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기 2종만.
+  //   OCR(카톡·명함·가격표)은 메뉴 제거 → 사용자가 사진을 채팅에 올리면 잇비가 자연스럽게 처리.
+  //   위치: 화면 중앙(이전 align-items:flex-end 는 잇비 입력바에 가려서 안 보였음).
   function _openAssistantToolMenu() {
     const existing = document.getElementById('asstToolMenu');
     if (existing) { existing.remove(); return; }
     const box = document.createElement('div');
     box.id = 'asstToolMenu';
-    box.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
+    box.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:16px;';
     const _row = (k, t, sub) => `<button data-tool-act="${k}" style="text-align:left;padding:14px 16px;border:none;border-radius:14px;background:#F7F8FA;cursor:pointer;display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;font-weight:700;color:#191F28;">${t}</div><div style="font-size:11px;color:#6B7684;">${sub}</div></button>`;
     box.innerHTML = `
-      <div style="width:100%;max-width:460px;background:#fff;border-radius:20px 20px 0 0;padding:14px 14px max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;">
+      <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:16px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
         <div style="font-size:12px;color:#8B95A1;font-weight:700;padding:4px 4px 6px;">잇비 도구</div>
         ${_row('memo', '잇비 메모', '영구 메모 · 자동 학습 패턴')}
         ${_row('undo', '액션 되돌리기', '잇비가 한 일 되돌리기')}
-        ${_row('kakao', '카톡 캡처', '예약·매출·후기 자동 추출')}
-        ${_row('card', '명함 OCR', '사진 → 고객 등록')}
-        ${_row('price', '가격표 OCR', '발주서·영수증 자동 입력')}
         <button data-tool-act="cancel" style="padding:12px;border:none;border-radius:14px;background:#f2f2f2;color:#6B7684;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">닫기</button>
       </div>
     `;
@@ -2296,12 +2295,6 @@
       try {
         if (act === 'memo' && typeof window.openAssistantFactsSheet === 'function') return window.openAssistantFactsSheet();
         if (act === 'undo' && typeof window.openUndoHistory === 'function') return window.openUndoHistory();
-        if (act === 'kakao' && typeof window.openSmartCapture === 'function') return window.openSmartCapture('kakao');
-        if (act === 'card' && typeof window.openSmartCapture === 'function') return window.openSmartCapture('card');
-        if (act === 'price') {
-          if (typeof window.openInventoryOrderScan === 'function') return window.openInventoryOrderScan();
-          if (typeof window.openReceiptScan === 'function') return window.openReceiptScan('inventory_order');
-        }
       } catch (_e) { /* ignore */ }
     });
     document.body.appendChild(box);

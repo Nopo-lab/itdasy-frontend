@@ -261,8 +261,12 @@
     const todayBk = Array.isArray(brief.today_bookings) ? brief.today_bookings.filter(b => b.status === 'confirmed') : [];
     if (todayBk.length > 0) {
       const next = todayBk[0];
+      // [2026-05-25] '손님님' 이중 호칭 + em dash 깨짐 수정.
+      //   customer_name 비면 '손님' 단독, 있으면 'OOO님'. 구분자는 '·' 로 통일.
+      const _who = next.customer_name ? (next.customer_name + '님') : '손님';
+      const _svc = next.service_name || next.service || '시술';
       cards.push({ ok: 0, cat: '오늘 손님 미리보기', dot: 'var(--brand-strong,#BC6675)',
-        hl: (next.customer_name || '손님') + '님 — ' + (next.service_name || next.service || '시술'),
+        hl: _who + ' · ' + _svc,
         desc: (next.memo ? '"' + next.memo + '"' : '메모 없음'),
         btn: '고객 메모 보기', act: 'openCustomers' });
     } else {
@@ -701,9 +705,13 @@
         }
       },
       openGallery: () => {
+        // [2026-05-25] 'gallery' 탭은 존재하지 않음 (홈/내샵 2탭 구조). '마무리(finish)' 탭으로
+        //   진입해 갤러리 슬롯을 보고 인스타 업로드까지 갈 수 있게 한다.
         if (typeof window.showTab === 'function') {
-          const btn = document.querySelector('.tab-bar__btn[data-tab="gallery"]');
-          try { window.showTab('gallery', btn); } catch (_e) { /* ignore */ }
+          try { window.showTab('finish', null); } catch (_e) { /* ignore */ }
+        }
+        if (typeof window.initFinishTab === 'function') {
+          try { window.initFinishTab(); } catch (_e) { /* ignore */ }
         }
       },
       // 2026-05-01 ── 캡션 만들기 — app-caption.js 의 openCaptionScenarioPopup 호출
@@ -894,7 +902,8 @@
     window._homePendingTopId = top.id;
     window._homePendingTopBooking = top;
     // 형식: "박수민님 · 5/22(금) 17:00" + 여러건이면 "외 N건"
-    const name = (top.customer_name || '손님').trim() + '님';
+    const _trimmedName = (top.customer_name || '').trim();
+    const name = _trimmedName ? (_trimmedName + '님') : '손님';
     let dateTimeStr = '';
     try {
       const d = new Date(top.starts_at);

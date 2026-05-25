@@ -2,7 +2,7 @@
    app-failures-hub.js — 자동화 실패 알림함 (Phase 2)
    2026-04-28 신규.
    - md §16 원칙 7: 모든 자동화는 실패 시 원장에게 명확히 알려야 한다
-   - 카테고리: DM 발송 / 결제 / 동기화 / 재고 차감 / 카카오 발송
+   - 카테고리: DM 발송 / 결제 / 동기화 / 카카오 발송 (재고 폐지 2026-05-25)
    - 백엔드 GET /automation/failures (없으면 빈 상태 graceful)
    ─────────────────────────────────────────────────────────── */
 (function () {
@@ -14,8 +14,8 @@
     { key: 'dm',      label: 'DM 발송' },
     { key: 'payment', label: '결제' },
     { key: 'sync',    label: '동기화' },
-    { key: 'stock',   label: '재고 차감' },
     { key: 'kakao',   label: '카카오 발송' },
+    // [2026-05-25] 재고 기능 폐지 — 'stock' 카테고리 제거.
   ];
 
   let _activeCat = 'all';
@@ -92,9 +92,11 @@
   function _render() {
     const list = document.getElementById('fhList');
     if (!list) return;
+    // [2026-05-25] 재고 카테고리 폐지 — stock 항목은 백엔드가 보내도 화면에서 제외.
+    const baseItems = _items.filter(it => it && it.category !== 'stock');
     const filtered = _activeCat === 'all'
-      ? _items
-      : _items.filter(it => it.category === _activeCat);
+      ? baseItems
+      : baseItems.filter(it => it.category === _activeCat);
     if (!filtered.length) {
       list.innerHTML = `
         <div class="ss-empty">
@@ -111,7 +113,7 @@
   function _renderItem(it) {
     const icon = ({
       dm: 'ic-message-square', payment: 'ic-credit-card',
-      sync: 'ic-refresh-cw', stock: 'ic-package', kakao: 'ic-message-circle',
+      sync: 'ic-refresh-cw', kakao: 'ic-message-circle',
     })[it.category] || 'ic-alert-triangle';
     const ts = it.created_at ? _relTime(it.created_at) : '';
     const canRetry = it.retryable !== false;
