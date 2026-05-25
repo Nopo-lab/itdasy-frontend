@@ -55,12 +55,8 @@
       { act: 'posts', icon: 'ph-squares-four', boxColor: 'teal',
         name: '게시물 관리', meta: '완료 슬롯 · 마무리 탭',
         type: 'plain' },
-      { act: 'memo', icon: 'ic-bot', boxColor: 'violet',
-        name: 'AI 잇비 메모', meta: '영구 메모 + 자동 학습 패턴',
-        type: 'plain' },
-      { act: 'capture', icon: 'ph-scan', boxColor: 'violet',
-        name: '스마트 캡처', meta: '카톡 · 명함 · 가격표 OCR',
-        type: 'badge' },
+      // [2026-05-25] AI 잇비 메모 / 스마트 캡처 행 제거 — 잇비 대화창 안에서 직접 호출.
+      //   메모 = 잇비 채팅 헤더 메뉴, 카톡·명함·가격표 OCR = 잇비 채팅 + 버튼.
     ];
   }
 
@@ -234,8 +230,7 @@
     caption: 'openCaptionScenarioPopup',
     hashtag: '__snsHashtagOpen',
     posts:   null,
-    memo:    'openAssistantFactsSheet',
-    capture: 'openSmartCapture',
+    // memo / capture 라우트는 잇비 채팅에서 직접 호출 (행 자체 제거됨, 2026-05-25)
     photoEditor: '__photoEditorOpen',   // 함수 매핑 — 아래 _route에서 PhotoEditor.open()로 분기
   };
 

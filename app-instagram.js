@@ -188,14 +188,22 @@ function renderPersonaDash(p, showTestBtn) {
 }
 
 function showDetailedAnalysis() {
-  const raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}');
-  if (!raw.tone_summary) {
-    showToast('학습된 말투 데이터가 없습니다. 먼저 분석을 진행해주세요');
+  let raw = {};
+  try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {}; }
+  catch (_e) { raw = {}; }
+  // [2026-05-25] tone_summary 만 체크하면 style_summary 만 있는 경우 (내샵관리 카드는 보이는데
+  //   리포트 버튼 누르면 무반응) 사용자 혼란. style_summary 도 폴백으로 인정.
+  const hasAny = !!(raw && (raw.tone_summary || raw.style_summary || raw.tone));
+  if (!hasAny) {
+    if (window.showToast) window.showToast('학습된 말투 데이터가 없어요. 인스타 연동 후 분석을 진행해주세요');
     return;
   }
-  // 팝업 데이터 렌더링 (runPersonaAnalyze에 있는 로직 재사용)
-  renderDetailedPopup({ raw_analysis: raw, persona: { avg_caption_length: raw.avg_caption_length || 0, emojis: raw.emojis, hashtags: raw.hashtags, style_summary: raw.style_summary } });
-  document.getElementById('analyzeResultPopup').style.display = 'block';
+  // tone_summary 가 없으면 style_summary / tone 으로 채워서 렌더 (renderDetailedPopup 안정성)
+  if (!raw.tone_summary) raw.tone_summary = raw.tone || raw.style_summary || '';
+  renderDetailedPopup({ raw_analysis: raw, persona: { avg_caption_length: raw.avg_caption_length || 0, emojis: raw.emojis, hashtags: raw.hashtags, style_summary: raw.style_summary, tone: raw.tone || raw.tone_summary } });
+  const pop = document.getElementById('analyzeResultPopup');
+  if (pop) pop.style.display = 'block';
+  else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
 }
 
 function renderDetailedPopup(data) {

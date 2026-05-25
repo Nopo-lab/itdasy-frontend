@@ -665,3 +665,16 @@ function _loadImageSrc(src) {
     img.src = src;
   });
 }
+
+// [2026-05-25] 갤러리/마무리 탭에서 포트폴리오 업로드 직후 자동 새로고침.
+//   페이지 이동 없이 바로 반영되어 "안 쌓이는 것 같다" 체감 해소.
+if (typeof window !== 'undefined' && !window._portfolioDataListenerInit) {
+  window._portfolioDataListenerInit = true;
+  window.addEventListener('itdasy:data-changed', (e) => {
+    const kind = e && e.detail && e.detail.kind;
+    if (kind !== 'portfolio_created' && kind !== 'portfolio_updated') return;
+    if (typeof loadPortfolio === 'function') {
+      try { loadPortfolio(); } catch (_) { /* ignore */ }
+    }
+  });
+}

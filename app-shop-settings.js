@@ -48,8 +48,8 @@
             <input class="ss-input" id="ssShopPhone" placeholder="010-0000-0000" inputmode="tel"></div>
           <div class="ss-row"><span class="lbl">주소</span>
             <input class="ss-input" id="ssShopAddr" placeholder="도로명 주소"></div>
-          <div class="ss-row" style="flex-direction:column;align-items:stretch;"><span class="lbl" style="margin-bottom:8px;">영업시간 (요일별)</span>
-            <div id="ssShopHoursGrid" style="display:flex;flex-direction:column;gap:6px;"></div>
+          <div class="ss-row" style="flex-direction:column;align-items:stretch;min-width:0;"><span class="lbl" style="margin-bottom:8px;">영업시간 (요일별)</span>
+            <div id="ssShopHoursGrid" style="display:flex;flex-direction:column;gap:6px;min-width:0;width:100%;box-sizing:border-box;"></div>
           </div>
         </div>
 
@@ -145,19 +145,19 @@
         const h = hours[k] || { open: '10:00', close: '20:00', off: false };
         const off = !!h.off;
         return `
-          <div class="ss-hours-row" data-day="${k}" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${off ? '#FAFAFA' : '#fff'};border:1px solid ${off ? 'rgba(217,95,112,0.15)' : 'rgba(0,0,0,0.06)'};border-radius:14px;margin-bottom:8px;transition:background 0.15s;">
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:44px;flex-shrink:0;">
+          <div class="ss-hours-row" data-day="${k}" style="display:flex;align-items:center;gap:8px;padding:10px;background:${off ? '#FAFAFA' : '#fff'};border:1px solid ${off ? 'rgba(217,95,112,0.15)' : 'rgba(0,0,0,0.06)'};border-radius:14px;margin-bottom:8px;transition:background 0.15s;flex-wrap:wrap;box-sizing:border-box;width:100%;min-width:0;">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:36px;flex-shrink:0;">
               <span style="font-size:15px;font-weight:800;color:${off ? '#bbb' : 'var(--text,#222)'};line-height:1;">${_DAY_LABELS[k]}</span>
               <span style="font-size:10px;color:${off ? '#bbb' : 'var(--text3,#999)'};margin-top:2px;">요일</span>
             </div>
-            <div style="flex:1;display:flex;align-items:center;gap:6px;${off ? 'opacity:0.35;pointer-events:none;' : ''}">
+            <div style="flex:1 1 160px;min-width:0;display:flex;align-items:center;gap:4px;${off ? 'opacity:0.35;pointer-events:none;' : ''}">
               <input type="time" data-hr-field="open" value="${h.open || '10:00'}" ${off ? 'disabled' : ''}
-                style="flex:1;min-width:0;height:42px;padding:0 10px;border:1.5px solid #E5E5EA;border-radius:10px;font-size:15px;font-weight:600;text-align:center;background:#fff;-webkit-appearance:none;">
-              <span style="font-size:12px;color:var(--text3,#999);font-weight:600;">~</span>
+                style="flex:1 1 0;min-width:0;width:100%;height:40px;padding:0 6px;border:1.5px solid #E5E5EA;border-radius:10px;font-size:14px;font-weight:600;text-align:center;background:#fff;-webkit-appearance:none;box-sizing:border-box;">
+              <span style="font-size:12px;color:var(--text3,#999);font-weight:600;flex-shrink:0;">~</span>
               <input type="time" data-hr-field="close" value="${h.close || '20:00'}" ${off ? 'disabled' : ''}
-                style="flex:1;min-width:0;height:42px;padding:0 10px;border:1.5px solid #E5E5EA;border-radius:10px;font-size:15px;font-weight:600;text-align:center;background:#fff;-webkit-appearance:none;">
+                style="flex:1 1 0;min-width:0;width:100%;height:40px;padding:0 6px;border:1.5px solid #E5E5EA;border-radius:10px;font-size:14px;font-weight:600;text-align:center;background:#fff;-webkit-appearance:none;box-sizing:border-box;">
             </div>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;flex-shrink:0;padding:6px 10px;border-radius:999px;background:${off ? 'var(--accent2,#D95F70)' : 'transparent'};color:${off ? '#fff' : 'var(--text3,#888)'};font-size:11px;font-weight:700;border:1px solid ${off ? 'var(--accent2,#D95F70)' : 'transparent'};">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;flex-shrink:0;padding:6px 10px;border-radius:999px;background:${off ? 'var(--accent2,#D95F70)' : 'transparent'};color:${off ? '#fff' : 'var(--text3,#888)'};font-size:11px;font-weight:700;border:1px solid ${off ? 'var(--accent2,#D95F70)' : 'rgba(0,0,0,0.08)'};">
               <input type="checkbox" data-hr-field="off" ${off ? 'checked' : ''} style="display:none;">
               <span>${off ? '✕ 휴무' : '휴무'}</span>
             </label>

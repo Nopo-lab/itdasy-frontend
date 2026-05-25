@@ -510,23 +510,36 @@ async function publishSlotToInstagram(slotId) {
   if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
   await _maybeAutoMatchCustomer(slot);
   const visPhotos = slot.photos.filter(p => !p.hidden);
-  const photo = visPhotos[0] || slot.photos[0];
+  const photos = visPhotos.length ? visPhotos : slot.photos.slice(0, 1);
   const fullCaption = (slot.caption || '') + (slot.hashtags ? '\n\n' + slot.hashtags : '');
   try {
-    const blob = _dataUrlToBlob(photo.editedDataUrl || photo.dataUrl);
-    const fd   = new FormData();
-    fd.append('image', blob, 'slot_photo.jpg');
-    fd.append('photo_type', 'after');
-    fd.append('main_tag', slot.label);
-    fd.append('tags', '');
-    if (slot.customer_id) fd.append('customer_id', slot.customer_id);
-    const upRes  = await apiFetch('/portfolio', { method: 'POST', headers: authHeader(), body: fd });
-    if (!upRes.ok) { showToast('업로드 실패'); return; }
-    const upData = await upRes.json();
-    if (upData.auto_tagged && upData.tags) showToast('포트폴리오 태그도 자동으로 붙였어요');
-    const imgUrl = upData.image_url?.startsWith('http') ? upData.image_url : apiUrl(upData.image_url || '');
-    if (typeof doInstagramPublish === 'function') {
-      const success = await doInstagramPublish(imgUrl, fullCaption);
+    // [2026-05-25] 슬롯의 모든 사진을 포트폴리오에 저장(이전: 첫 1장만).
+    //   첫 응답 image_url 은 인스타 대표 이미지로 사용.
+    let firstImgUrl = '';
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      const blob = _dataUrlToBlob(p.editedDataUrl || p.dataUrl);
+      const fd = new FormData();
+      fd.append('image', blob, `slot_photo_${i + 1}.jpg`);
+      fd.append('photo_type', 'after');
+      fd.append('main_tag', slot.label || '');
+      fd.append('tags', '');
+      if (slot.customer_id) fd.append('customer_id', slot.customer_id);
+      const upRes = await apiFetch('/portfolio', { method: 'POST', headers: authHeader(), body: fd });
+      if (!upRes.ok) {
+        if (i === 0) { showToast('업로드 실패'); return; }
+        continue; // 일부 사진 실패는 무시하고 진행
+      }
+      const upData = await upRes.json();
+      if (i === 0) {
+        if (upData.auto_tagged && upData.tags) showToast('포트폴리오 태그도 자동으로 붙였어요');
+        firstImgUrl = upData.image_url?.startsWith('http') ? upData.image_url : apiUrl(upData.image_url || '');
+      }
+    }
+    // [2026-05-25] 포트폴리오 화면 자동 갱신 트리거.
+    try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'portfolio_created' } })); } catch (_) { /* ignore */ }
+    if (typeof doInstagramPublish === 'function' && firstImgUrl) {
+      const success = await doInstagramPublish(firstImgUrl, fullCaption);
       if (success) {
         slot.instagramPublished = true;
         slot.deferredAt = null;
@@ -535,6 +548,9 @@ async function publishSlotToInstagram(slotId) {
         try { await saveToGallery(slot); } catch (_e) { /* ignore */ }
         initFinishTab();
       }
+    } else {
+      // 인스타 미연동이어도 포트폴리오엔 들어갔으니 안내.
+      showToast('포트폴리오에 저장됐어요');
     }
   } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }

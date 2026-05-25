@@ -805,7 +805,10 @@
     cards.sort((a, b) => (+a.dataset.ok || 0) - (+b.dataset.ok || 0));
     cards.forEach(c => track.appendChild(c));
 
-    const perPage = 3;
+    // [2026-05-25] 모바일은 카드 1장씩 snap, PC 는 3장씩 그룹 페이징.
+    //   기존: perPage=3 고정 → 모바일 swipe 한번에 3장 넘어가 카드 못 봄.
+    const isMobile = window.matchMedia('(max-width: 540px)').matches;
+    const perPage = isMobile ? 1 : 3;
     const pages = Math.max(1, Math.ceil(cards.length / perPage));
     let page = 0;
     const prevBtn = container.querySelector('#hv5AiPrev');
@@ -830,16 +833,18 @@
         goTo(parseInt(d.dataset.hvAiPage, 10) || 0);
       });
     });
-    // 터치 스와이프 (모바일에서는 PC nav 숨김이라 swipe 가 주 수단)
-    let startX = 0;
-    track.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
-    track.addEventListener('touchend', (e) => {
-      const diff = startX - e.changedTouches[0].clientX;
-      if (Math.abs(diff) > 40) {
-        if (diff > 0) goTo(page + 1);
-        else goTo(page - 1);
-      }
-    }, { passive: true });
+    // 모바일은 CSS scroll-snap 이 처리. JS 강제 페이지 이동은 PC 만.
+    if (!isMobile) {
+      let startX = 0;
+      track.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+      track.addEventListener('touchend', (e) => {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 40) {
+          if (diff > 0) goTo(page + 1);
+          else goTo(page - 1);
+        }
+      }, { passive: true });
+    }
   }
 
   // ─────────── 메인 렌더 ───────────
@@ -1195,9 +1200,15 @@
     if (dmQueueCount > 0) {
       items.push({ tone: 'purple', title: `답장 ${dmQueueCount}건 써뒀어요`, desc: '확인하고 보내기만 하세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
     }
+    // [2026-05-25] 홈 알림 항목 유지 + 예약관리 캘린더 진입 시도 자동 시트로 동시 노출.
+    //   overdue_bookings 캐시는 캘린더가 brief 재요청 없이 사용 가능하도록 window 에도 저장.
     const overdue = _overdueAlertContext(brief);
     if (overdue) {
       items.push({ tone: 'pink', title: '미완료 예약 찾았어요', desc: overdue.desc, count: overdue.count, act: 'completePending' });
+      try { window._overdueBookings = Array.isArray(brief && brief.overdue_bookings) ? brief.overdue_bookings.slice() : []; }
+      catch (_) { /* ignore */ }
+    } else {
+      try { window._overdueBookings = []; } catch (_) { /* ignore */ }
     }
     if (depositPending > 0) {
       items.push({ tone: 'amber', title: '결제 미확인 예약', desc: '입금 확인하면 캘린더에 등록돼요', count: depositPending, act: 'openBookingApproval' });
@@ -1320,7 +1331,9 @@
         <button type="button" class="hv5-ai-btn" data-hv-act="${_esc(c.act || '')}">${_esc(c.btn || '확인')} ›</button>
       </div>`;
     }).join('');
-    const pages = Math.max(1, Math.ceil(total / 3));
+    // 모바일은 1장 단위 페이지, PC 는 3장 그룹 페이지 (캐러셀 nav 와 동기)
+    const _isMobile = window.matchMedia('(max-width: 540px)').matches;
+    const pages = Math.max(1, Math.ceil(total / (_isMobile ? 1 : 3)));
     const dots = Array.from({ length: pages }, (_, i) =>
       `<button type="button" class="hv5-ai-dot-nav${i === 0 ? ' on' : ''}" data-hv-ai-page="${i}" aria-label="페이지 ${i + 1}"></button>`
     ).join('');

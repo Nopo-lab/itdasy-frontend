@@ -141,9 +141,9 @@
       _applyState('denied');
       _injectBanner();
     } else {
-      // Non-EU: 기본 허용이지만 사용자에게 알림 배너는 여전히 표시
-      _applyState('granted');
-      _injectBanner();
+      // Non-EU(한국 등): 회원가입 시 이미 약관 동의 완료 → 배너 노출 안 함.
+      // localStorage 에도 저장해 향후 호출 시 isAnalyticsAllowed() 통과하도록.
+      _set('granted');
     }
   }
 

@@ -1991,10 +1991,37 @@
     // _pendingBookingCustomer 는 _bindFormExtras 가 소비하므로 여기선 트리거만.
     if (window._pendingBookingCustomer) {
       setTimeout(() => _openForm(_curDate, null), 50);
+    } else {
+      // [2026-05-25] 미완료 예약 자동 시트 — 세션당 1회.
+      //   홈 'AI잇비가 챙겼어요'에서 빼고 예약관리(타임테이블) 진입 시 안내.
+      _maybeShowOverdueSheet();
     }
 
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:end');
   };
+
+  // [2026-05-25] 미완료 예약 처리 시트 자동 호출 (세션 1회).
+  //   소스 우선순위: window._overdueBookings (홈 brief 캐시) → window._homePendingTopBooking
+  function _maybeShowOverdueSheet() {
+    try {
+      if (sessionStorage.getItem('itdasy_overdue_sheet_shown') === '1') return;
+      let candidate = null;
+      const list = Array.isArray(window._overdueBookings) ? window._overdueBookings : [];
+      const filtered = list.filter(b => b && b.id && b.status !== 'completed' && b.status !== 'cancelled' && b.status !== 'no_show');
+      if (filtered.length) {
+        filtered.sort((a, b) => new Date(a.starts_at || 0) - new Date(b.starts_at || 0));
+        candidate = filtered[0];
+      } else if (window._homePendingTopBooking) {
+        candidate = window._homePendingTopBooking;
+      }
+      if (!candidate || !candidate.id) return;
+      if (typeof window.CompleteFlow !== 'object' || typeof window.CompleteFlow.startFromBooking !== 'function') return;
+      sessionStorage.setItem('itdasy_overdue_sheet_shown', '1');
+      setTimeout(() => {
+        try { window.CompleteFlow.startFromBooking(candidate); } catch (_) { /* ignore */ }
+      }, 500);
+    } catch (_) { /* ignore */ }
+  }
 
   window.openBooking = async function (date) {
     await window.openCalendarView();

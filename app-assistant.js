@@ -19,8 +19,10 @@
   const _assistantGroupActions = window.ItdasyAssistantGroupActions || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
+    '사진 보정해줘',
     '캡션 만들어줘',
-    '재고 부족한 거?',
+    '인스타에 올려줘',
+    '단골 안부 메시지',
     '이번 달 매출',
   ];
 
@@ -58,6 +60,12 @@
   // 반환: { actions, dropped, droppedKinds[] }
   function _dedupeAndCapActions(actions) {
     if (!Array.isArray(actions) || actions.length === 0) {
+      return { actions: [], dropped: 0, droppedKinds: [] };
+    }
+    // [2026-05-25] 재고관리 기능 폐지(INVENTORY_HIDDEN). 백엔드 LLM 이 upsert_inventory 액션을
+    //   생성해도 프론트가 무시. 사용자 화면에 "재고 추가" 카드가 뜨지 않게 1차 차단.
+    actions = actions.filter(a => a && a.kind !== 'upsert_inventory' && a.kind !== 'delete_inventory');
+    if (actions.length === 0) {
       return { actions: [], dropped: 0, droppedKinds: [] };
     }
     const PER_KIND_CAP = 8;
@@ -381,7 +389,8 @@
           <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_svg('ic-bot', 22)}</span>
           <strong style="font-size:17px;">AI 잇비</strong>
           <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.15);color:#7C3AED;font-weight:700;">베타</span>
-          <button data-assistant-close aria-label="닫기" title="닫기" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-x', 16)}</button>
+          <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;">⋯</button>
+          <button data-assistant-close aria-label="닫기" title="닫기" style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-x', 16)}</button>
         </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
         <div id="asstQuickLabel" style="font-size:11px;color:#8B95A1;padding:8px 4px 4px;font-weight:600;">이런 것도 돼요</div>
@@ -409,6 +418,8 @@
     }
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeAssistant(); });
     sheet.querySelector('[data-assistant-close]')?.addEventListener('click', () => closeAssistant());
+    // [2026-05-25] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기/카톡캡쳐/명함/가격표 OCR 통합 진입점.
+    sheet.querySelector('[data-assistant-menu]')?.addEventListener('click', _openAssistantToolMenu);
     sheet.querySelector('#asstSend').addEventListener('click', _send);
     // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
@@ -686,7 +697,16 @@
       body.innerHTML = `
         <div style="padding:30px 20px;text-align:center;">
           <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(139,92,246,0.12);color:#7C3AED;margin-bottom:10px;">${_svg('ic-bot', 32)}</div>
-          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.<br><span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "매출 5만원 카드"</span></div>
+          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.</div>
+          <div style="margin-top:14px;text-align:left;display:inline-block;font-size:12px;color:#666;line-height:1.7;background:rgba(139,92,246,0.05);padding:12px 14px;border-radius:12px;">
+            <div style="font-weight:700;color:#5B21B6;margin-bottom:6px;">제가 도와드릴 수 있는 일</div>
+            • 예약/매출/고객 추가·수정·취소<br>
+            • 사진 보정 · 배경 교체 · 전후 카드<br>
+            • SNS 캡션 작성 · 인스타 게시<br>
+            • 단골 안부 · 메시지 초안 작성<br>
+            • 말투 분석 · 영수증·명함·카톡 OCR<br>
+            <span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · "이번 달 매출"</span>
+          </div>
         </div>
       `;
       return;
@@ -1978,8 +1998,17 @@
       const d = await _executeAction(msg.action);
       msg.action_status = 'done';
       _renderHistory();
-      if (d.kind === 'generate_bulk_message' && d.message_draft) {
-        _history.push({ role: 'assistant', text: '초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + d.message_draft });
+      // [2026-05-25] generate_bulk_message / draft_message — 백엔드가 빈 message_draft 반환 시
+      //   "메세지 초안이 비어있어요" 처럼 보여 사용자 혼란. 응답에 따라 친절한 안내로 분기.
+      const draftKinds = new Set(['generate_bulk_message', 'draft_message']);
+      const draftText = (d.message_draft || d.draft || '').trim();
+      if (draftKinds.has(d.kind)) {
+        if (draftText) {
+          _history.push({ role: 'assistant', text: '초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + draftText });
+        } else {
+          // 백엔드가 응답은 했지만 본문이 비어있음 — 어떤 고객에게 어떤 톤으로 쓸지 추가 정보를 요구.
+          _history.push({ role: 'assistant', text: '초안이 비어 있어요. 누구에게 보낼지(고객 이름)와 톤(친근하게/정중하게)을 알려주시면 다시 만들어드릴게요.' });
+        }
       } else {
         _history.push({ role: 'assistant', text: d.message || '✓ 완료했어요' });
       }
@@ -2235,6 +2264,47 @@
         }
       });
     });
+  }
+
+  // [2026-05-25] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기/카톡캡쳐/명함/가격표 OCR 통합.
+  //   내샵관리 AI 허브에서 빠진 진입점을 잇비 채팅 안으로 이동.
+  function _openAssistantToolMenu() {
+    const existing = document.getElementById('asstToolMenu');
+    if (existing) { existing.remove(); return; }
+    const box = document.createElement('div');
+    box.id = 'asstToolMenu';
+    box.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
+    const _row = (k, t, sub) => `<button data-tool-act="${k}" style="text-align:left;padding:14px 16px;border:none;border-radius:14px;background:#F7F8FA;cursor:pointer;display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;font-weight:700;color:#191F28;">${t}</div><div style="font-size:11px;color:#6B7684;">${sub}</div></button>`;
+    box.innerHTML = `
+      <div style="width:100%;max-width:460px;background:#fff;border-radius:20px 20px 0 0;padding:14px 14px max(14px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:12px;color:#8B95A1;font-weight:700;padding:4px 4px 6px;">잇비 도구</div>
+        ${_row('memo', '잇비 메모', '영구 메모 · 자동 학습 패턴')}
+        ${_row('undo', '액션 되돌리기', '잇비가 한 일 되돌리기')}
+        ${_row('kakao', '카톡 캡처', '예약·매출·후기 자동 추출')}
+        ${_row('card', '명함 OCR', '사진 → 고객 등록')}
+        ${_row('price', '가격표 OCR', '발주서·영수증 자동 입력')}
+        <button data-tool-act="cancel" style="padding:12px;border:none;border-radius:14px;background:#f2f2f2;color:#6B7684;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">닫기</button>
+      </div>
+    `;
+    const close = () => { try { box.remove(); } catch (_e) { void _e; } };
+    box.addEventListener('click', (e) => {
+      if (e.target === box) { close(); return; }
+      const btn = e.target.closest('[data-tool-act]');
+      if (!btn) return;
+      const act = btn.dataset.toolAct;
+      close();
+      try {
+        if (act === 'memo' && typeof window.openAssistantFactsSheet === 'function') return window.openAssistantFactsSheet();
+        if (act === 'undo' && typeof window.openUndoHistory === 'function') return window.openUndoHistory();
+        if (act === 'kakao' && typeof window.openSmartCapture === 'function') return window.openSmartCapture('kakao');
+        if (act === 'card' && typeof window.openSmartCapture === 'function') return window.openSmartCapture('card');
+        if (act === 'price') {
+          if (typeof window.openInventoryOrderScan === 'function') return window.openInventoryOrderScan();
+          if (typeof window.openReceiptScan === 'function') return window.openReceiptScan('inventory_order');
+        }
+      } catch (_e) { /* ignore */ }
+    });
+    document.body.appendChild(box);
   }
 
   // ── 사진 업로드 (챗봇 입력바 좌측 버튼) ─────────────────
