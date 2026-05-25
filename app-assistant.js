@@ -110,10 +110,9 @@
           }
         }
       }
-      // loading 표시 중이면 진행 시간(초)도 sig 에 포함 — 1초 단위 갱신 보장
-      if (last.role === 'loading') {
-        sig += '|t' + Math.floor(Date.now() / 1000);
-      }
+      // [2026-05-26] 옛 코드: loading 중 sig 에 초 단위 시각 포함 → 매초 전체 재렌더 →
+      // 메시지 영역 깜빡임·등장 애니메이션 재생·스크롤 튐. 경과시간은
+      // _tickLoadingElapsed() 로 #asstLoadingElapsed 텍스트만 부분갱신.
       return sig;
     } catch (_e) { return String(_history.length); }
   }
@@ -135,11 +134,11 @@
       const data = Object.assign({ started_at: Date.now() }, payload || {});
       localStorage.setItem(PENDING_KEY, JSON.stringify(data));
     } catch (_e) { void _e; }
-    // 진행 시간 1초마다 갱신 (sheet 열려있을 때만 의미 있음)
+    // [2026-05-26] 1초마다 경과시간만 부분갱신 (전체 _renderHistory 호출 X — 깜빡임 차단)
     if (_pendingTickTimer) { clearInterval(_pendingTickTimer); _pendingTickTimer = null; }
     _pendingTickTimer = setInterval(() => {
       const sheet = document.getElementById('assistantSheet');
-      if (sheet && sheet.style.display !== 'none') _renderHistory();
+      if (sheet && sheet.style.display !== 'none') _tickLoadingElapsed();
     }, 1000);
     // 60초 timeout
     if (_pendingTimer) { clearTimeout(_pendingTimer); _pendingTimer = null; }
@@ -581,8 +580,23 @@
       if (!pending || !pending.started_at) return '';
       const sec = Math.max(0, Math.floor((Date.now() - pending.started_at) / 1000));
       const label = pending.kind === 'images' ? '사진 분석 중' : '답변 생성 중';
-      return `<div style="font-size:11px;color:#888;margin-top:4px;">${label}… (${sec}초 경과)</div>`;
+      // [2026-05-26] 고정 id — _tickLoadingElapsed 가 텍스트만 부분갱신 (전체 재렌더 X)
+      return `<div id="asstLoadingElapsed" style="font-size:11px;color:#888;margin-top:4px;">${label}… (${sec}초 경과)</div>`;
     } catch (_e) { return ''; }
+  }
+
+  // [2026-05-26] 답변 대기 중 1초마다 #asstLoadingElapsed 텍스트만 갱신.
+  // 옛 동작은 _renderHistory() 전체 호출 → 깜빡임. 요소 없으면(loading 메시지 X) 노옵.
+  function _tickLoadingElapsed() {
+    const el = document.getElementById('asstLoadingElapsed');
+    if (!el) return;
+    try {
+      const pending = _readChatPending();
+      if (!pending || !pending.started_at) return;
+      const sec = Math.max(0, Math.floor((Date.now() - pending.started_at) / 1000));
+      const label = pending.kind === 'images' ? '사진 분석 중' : '답변 생성 중';
+      el.textContent = `${label}… (${sec}초 경과)`;
+    } catch (_e) { /* ignore */ }
   }
 
   // 재고·지출 품목 리스트 편집 UI
@@ -2712,7 +2726,7 @@
     if (_pendingTickTimer) return;
     _pendingTickTimer = setInterval(() => {
       const sh = document.getElementById('assistantSheet');
-      if (sh && sh.style.display !== 'none') _renderHistory();
+      if (sh && sh.style.display !== 'none') _tickLoadingElapsed();
     }, 1000);
   }
 
