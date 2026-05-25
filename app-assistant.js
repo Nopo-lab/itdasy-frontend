@@ -280,13 +280,14 @@
     sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;background:rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:opacity 0.05s ease-out;';
     // [2026-04-26 A5] 시트 내부 패널: safe-area-inset-top 추가 (노치 회피)
     sheet.innerHTML = `
-      <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;height:88vh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_svg('ic-bot', 22)}</span>
-          <strong style="font-size:17px;">AI 잇비</strong>
-          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(139,92,246,0.15);color:#7C3AED;font-weight:700;">베타</span>
-          <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="margin-left:auto;background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1;">⋯</button>
-          <button data-assistant-close aria-label="닫기" title="닫기" style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;color:#555;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-x', 16)}</button>
+      <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:#FFFFFF;border-radius:20px 20px 0 0;height:88vh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
+        <div style="display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;margin-bottom:10px;height:44px;">
+          <button data-assistant-close aria-label="닫기" title="닫기" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;justify-self:start;">${_svg('ic-x', 18)}</button>
+          <div style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
+            <strong style="font-size:16px;color:#191F28;font-weight:700;letter-spacing:-0.2px;">AI 잇비</strong>
+            <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#F2F4F6;color:#4E5968;font-weight:600;">베타</span>
+          </div>
+          <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;justify-self:end;">⋯</button>
         </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
         <div id="asstQuickLabel" style="font-size:11px;color:#8B95A1;padding:8px 4px 4px;font-weight:600;">이런 것도 돼요</div>
@@ -295,10 +296,10 @@
         <!-- [v178 2026-05-18] 사진 펜딩 영역 — 갤러리/카메라 선택 후 여기 미리보기. 송신 전까지 보임 -->
         <div id="asstPending" style="display:none;flex-wrap:wrap;gap:6px;padding:6px 4px 0;"></div>
         <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-          <button id="asstPhoto" aria-label="사진 업로드" title="사진 업로드" style="flex-shrink:0;width:44px;height:44px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s;">${_svg('ic-camera', 20)}</button>
-          <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" data-no-voice style="flex:1;padding:12px;border:1px solid #ddd;border-radius:14px;font-size:14px;min-width:0;" />
-          <button id="asstMicBtn" type="button" aria-label="음성 입력" title="음성 입력" style="flex-shrink:0;width:44px;height:44px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s, color 0.15s;">${_svg('ic-mic', 20)}</button>
-          <button id="asstSend" style="flex-shrink:0;padding:12px 18px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;gap:6px;">${_svg('ic-send', 14)} 보내기</button>
+          <button id="asstPhoto" aria-label="사진 업로드" title="사진 업로드" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#F2F4F6;color:#4E5968;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s;">${_svg('ic-camera', 18)}</button>
+          <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" data-no-voice style="flex:1;padding:11px 16px;border:none;border-radius:999px;font-size:14px;min-width:0;background:#F2F4F6;color:#191F28;outline:none;" />
+          <button id="asstMicBtn" type="button" aria-label="음성 입력" title="음성 입력" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#F2F4F6;color:#4E5968;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s, color 0.15s;">${_svg('ic-mic', 18)}</button>
+          <button id="asstSend" aria-label="보내기" title="보내기" style="flex-shrink:0;width:40px;height:40px;padding:0;border:none;border-radius:50%;background:#191F28;color:#FFFFFF;cursor:pointer;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-send', 16)}</button>
         </div>
         <input id="asstCamera" type="file" accept="image/*" capture="environment" multiple style="display:none;" />
         <input id="asstGallery" type="file" accept="image/*" multiple style="display:none;" />
@@ -419,14 +420,14 @@
     const relatedHtml = _renderRelatedChips(m);
     const intentChipsHtml = _renderIntentChips(m, idx);
     const photoResultHtml = _renderPhotoResult(m, idx);
-    return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
-      <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
-      <div style="max-width:85%;min-width:0;">
+    return `<div class="asst-msg asst-msg--ai" style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start;">
+      <div style="width:40px;height:40px;border-radius:50%;background:#F7EFF0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#BC6675;">${_svg('ic-bot', 22)}</div>
+      <div style="max-width:85%;min-width:0;flex:1;">
         ${photoResultHtml}
-        <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px 16px 16px 4px;font-size:13px;line-height:1.6;color:#222;white-space:pre-wrap;">${_esc(m.text)}</div>
-        <div style="margin-top:3px;padding-left:4px;">
+        <div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(m.text)}</div>
+        <div style="margin-top:4px;padding-left:2px;">
           <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
-            style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#bbb;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
+            style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
         </div>
         ${dupHtml}
         ${actionHtml}
@@ -483,17 +484,17 @@
 
   function _renderEmptyHistory() {
     return `<div style="padding:30px 20px;text-align:center;">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(139,92,246,0.12);color:#7C3AED;margin-bottom:10px;">${_svg('ic-bot', 32)}</div>
-      <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.</div>
-      <div style="margin-top:14px;text-align:left;display:inline-block;font-size:12px;color:#666;line-height:1.7;background:rgba(139,92,246,0.05);padding:12px 14px;border-radius:12px;">
-        <div style="font-weight:700;color:#5B21B6;margin-bottom:6px;">제가 도와드릴 수 있는 일</div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;background:#F7EFF0;color:#BC6675;margin-bottom:12px;">${_svg('ic-bot', 36)}</div>
+      <div style="font-size:15px;color:#191F28;line-height:1.6;font-weight:600;letter-spacing:-0.3px;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.</div>
+      <div style="margin-top:16px;text-align:left;display:inline-block;font-size:12px;color:#4E5968;line-height:1.7;background:#F7F8FA;padding:14px 16px;border-radius:14px;">
+        <div style="font-weight:700;color:#191F28;margin-bottom:6px;">제가 도와드릴 수 있는 일</div>
         • 예약/매출/고객 추가·수정·취소<br>
         • 사진 보정 · 배경 교체 · 전후 카드<br>
         • SNS 캡션 작성 · 인스타 게시<br>
         • 단골 안부 · 메시지 초안 작성<br>
         • 사진만 올려도 OK — 카톡 캡처·명함·영수증 자동 인식<br>
         • 말투 분석 리포트<br>
-        <span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · 카톡 캡처/명함 사진 그냥 올리기</span>
+        <span style="font-size:11px;color:#8B95A1;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · 카톡 캡처/명함 사진 그냥 올리기</span>
       </div>
     </div>`;
   }
@@ -507,8 +508,8 @@
   function _renderUserMessage(m, idx) {
     if (m._cachedHtml && m._cachedIdx === idx) return m._cachedHtml;
     const photosHtml = _renderUserPhotos(m, idx);
-    const html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <div style="max-width:85%;padding:10px 14px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${photosHtml}${_esc(m.text)}</div>
+    const html = `<div class="asst-msg asst-msg--user" style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+      <div style="max-width:85%;padding:11px 16px;background:#F2F4F6;color:#191F28;border-radius:18px 18px 4px 18px;font-size:14px;line-height:1.5;font-weight:500;letter-spacing:-0.2px;">${photosHtml}${_esc(m.text)}</div>
     </div>`;
     try { m._cachedHtml = html; m._cachedIdx = idx; } catch (_e) { void _e; }
     return html;
@@ -548,14 +549,21 @@
 
   function _renderLoadingMessage() {
     const elapsedHtml = _renderLoadingElapsed();
-    return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
-      <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
-      <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;">
-        <span style="display:inline-block;animation:asstDots 1.4s infinite;font-size:20px;color:#bbb;">···</span>
+    return `<div class="asst-msg asst-msg--ai" style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start;">
+      <div style="width:40px;height:40px;border-radius:50%;background:#F7EFF0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#BC6675;">${_svg('ic-bot', 22)}</div>
+      <div style="padding:2px 2px 0;display:flex;flex-direction:column;gap:4px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:14px;color:#4E5968;font-weight:500;letter-spacing:-0.2px;">잇비가 생각하고 있어요</span>
+          <span style="display:inline-flex;gap:3px;">
+            <span style="width:5px;height:5px;border-radius:50%;background:#8B95A1;animation:asstDot 1.2s infinite;animation-delay:0s;"></span>
+            <span style="width:5px;height:5px;border-radius:50%;background:#8B95A1;animation:asstDot 1.2s infinite;animation-delay:.2s;"></span>
+            <span style="width:5px;height:5px;border-radius:50%;background:#8B95A1;animation:asstDot 1.2s infinite;animation-delay:.4s;"></span>
+          </span>
+        </div>
         ${elapsedHtml}
       </div>
     </div>
-    <style>@keyframes asstDots { 0%,20% { opacity:0.2; } 50% { opacity:1; } 100% { opacity:0.2; } }</style>`;
+    <style>@keyframes asstDot { 0%,80%,100% { transform:translateY(0);opacity:.4; } 40% { transform:translateY(-3px);opacity:1; } }</style>`;
   }
 
   function _renderLoadingElapsed() {
