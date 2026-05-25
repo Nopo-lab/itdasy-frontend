@@ -18,6 +18,7 @@
   const _assistantSingleActions = window.ItdasyAssistantSingleActions || {};
   const _assistantGroupActions = window.ItdasyAssistantGroupActions || {};
   const _assistantSuggestionControls = window.ItdasyAssistantSuggestionControls || {};
+  const _assistantCardRenderers = window.ItdasyAssistantCardRenderers || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
     '사진 보정해줘',
@@ -902,348 +903,35 @@
     return [];
   }
 
-  function _renderUnifiedCard(msg, historyIdx) {
-    const groups = msg.action_groups || [];
-    const flat = _unifiedExecutionOrder(groups);
-    const total = flat.length;
-    const progress = msg.unified_progress;
-    const doneCount = flat.filter(f => f.it.status === 'done').length;
-    const failedCount = flat.filter(f => f.it.status === 'failed').length;
-    const skippedCount = flat.filter(f => f.it.skipped).length;
-    const allTouched = (doneCount + failedCount + skippedCount) >= total && total > 0;
-
-    // 완료 상태 — 축소된 성공 카드
-    if (allTouched && !progress) {
-      const label = failedCount
-        ? `${doneCount}건 저장 · ${failedCount}건 실패`
-        : (skippedCount ? `${doneCount}건 저장 · ${skippedCount}건 제외` : `${total}건 모두 저장 완료`);
-      return `<div style="margin-top:6px;padding:12px;background:linear-gradient(135deg,hsl(145,45%,94%),hsl(145,45%,98%));border-radius:14px;border-left:3px solid hsl(145,50%,40%);">
-        <div style="font-size:13px;font-weight:800;color:hsl(145,50%,30%);display:inline-flex;align-items:center;gap:6px;">${_svg('ic-check-circle', 14)} ${_esc(label)}</div>
-      </div>`;
-    }
-
-    // 행 아이콘·요약
-    const rowsHtml = flat.map((f) => {
-      const meta = _catMeta(f.kind);
-      const summary = _summarizeItem(f.it.action);
-      let statusIcon = `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:${meta.color};">${_svg(meta.icon, 14)}</span>`;
-      let rowBg = 'transparent';
-      let rowOpacity = 1;
-      let statusRight = '';
-      if (f.it.status === 'done') {
-        statusIcon = `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:hsl(145,50%,40%);">${_svg('ic-check-circle', 14)}</span>`;
-        rowBg = 'hsl(145,45%,97%)';
-        statusRight = `<span style="font-size:10px;color:hsl(145,50%,35%);font-weight:700;flex-shrink:0;">완료</span>`;
-      } else if (f.it.status === 'failed') {
-        statusIcon = `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:hsl(0,70%,50%);">${_svg('ic-x', 14)}</span>`;
-        rowBg = 'hsl(0,70%,97%)';
-        statusRight = `<span style="font-size:10px;color:hsl(0,70%,45%);font-weight:700;flex-shrink:0;">실패</span>`;
-      } else if (f.it.status === 'running') {
-        statusIcon = `<span style="width:16px;height:16px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;"><span style="display:inline-block;width:12px;height:12px;border:2px solid ${meta.color};border-top-color:transparent;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span></span>`;
-        statusRight = `<span style="font-size:10px;color:${meta.color};font-weight:700;flex-shrink:0;">저장 중…</span>`;
-      } else if (f.it.skipped) {
-        rowOpacity = 0.45;
-        statusRight = `<span style="font-size:10px;color:var(--text-subtle);font-weight:700;flex-shrink:0;">제외</span>`;
-      }
-      // 2026-04-26 버그B 픽스 — 실패 행에 사유(it.errorMsg) 함께 노출
-      const errorLine = (f.it.status === 'failed' && f.it.errorMsg)
-        ? `<div style="font-size:10px;color:hsl(0,60%,40%);margin-top:2px;line-height:1.4;">사유: ${_esc(f.it.errorMsg)}</div>`
-        : '';
-      return `
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${rowBg};border-radius:10px;opacity:${rowOpacity};">
-          ${statusIcon}
-          <div style="flex:1;min-width:0;font-size:12px;color:#333;line-height:1.4;">
-            <span style="font-weight:700;color:${_catMeta(f.kind).color};">${_esc(_catMeta(f.kind).label)}</span>
-            <span style="color:#555;">: ${_esc(summary)}</span>
-            ${errorLine}
-          </div>
-          ${statusRight}
-        </div>`;
-    }).join('');
-
-    // 진행 중 헤더
-    const progressLine = progress
-      ? `<div style="font-size:11px;color:hsl(350,60%,40%);font-weight:700;margin-top:2px;">${_esc(progress.label || '진행 중…')} · ${progress.current}/${progress.total}</div>`
-      : (allTouched
-          ? `<div style="font-size:11px;color:#888;margin-top:2px;">완료 ${doneCount} · 실패 ${failedCount} · 제외 ${skippedCount}</div>`
-          : `<div style="font-size:11px;color:#888;margin-top:2px;">${total}건을 한 번에 추가할 수 있어요</div>`);
-
-    // 헤더 (핑크 그라데이션)
-    const header = `
-      <div style="padding:12px 14px;background:linear-gradient(135deg,hsl(340,80%,95%),hsl(340,100%,98%));border-radius:14px 14px 0 0;border-bottom:1px solid hsl(340,30%,90%);">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:hsl(340,80%,60%);color:#fff;">${_svg('ic-layers', 16)}</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:800;color:hsl(340,60%,35%);">한 번에 추가할 내용 <span style="color:hsl(340,80%,50%);">(${total}건)</span></div>
-            ${progressLine}
-          </div>
-        </div>
-      </div>`;
-
-    // 액션 버튼 (진행 중 아니면 pulse 애니메이션)
-    const running = !!progress;
-    const hasRemaining = flat.some(f => !f.it.skipped && f.it.status !== 'done' && f.it.status !== 'running');
-    const runLabel = running
-      ? `진행 중 ${progress.current}/${progress.total}`
-      : (doneCount + failedCount + skippedCount > 0 && hasRemaining
-          ? `${_svg('ic-check', 13)} 남은 항목 추가하기`
-          : `${_svg('ic-check', 13)} 전체 추가하기`);
-    const pulseClass = (!running && hasRemaining) ? 'asst-unified-pulse' : '';
-
-    const controls = `
-      <div style="display:flex;gap:6px;padding:10px 12px;">
-        <button data-unified-edit="${historyIdx}" ${running ? 'disabled' : ''} style="flex:1;padding:10px;border:1px solid hsl(340,60%,70%);border-radius:10px;background:#fff;color:hsl(340,60%,40%);font-weight:800;cursor:${running ? 'not-allowed' : 'pointer'};font-size:12px;opacity:${running ? 0.5 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
-          ${_svg('ic-edit-3', 13)} 수정
-        </button>
-        <button data-unified-runall="${historyIdx}" ${running || !hasRemaining ? 'disabled' : ''} class="${pulseClass}" style="flex:2;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;font-weight:800;cursor:${running || !hasRemaining ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running || !hasRemaining ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
-          ${runLabel}
-        </button>
-      </div>`;
-
-    return `<div style="margin-top:6px;background:#fff;border:1px solid hsl(340,30%,88%);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(213,138,149,0.08);">
-      ${header}
-      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;">${rowsHtml}</div>
-      ${controls}
-    </div>
-    <style>
-      @keyframes asst-unified-pulse {
-        0%,100% { box-shadow: 0 0 0 0 rgba(213,138,149,0.55); }
-        50%     { box-shadow: 0 0 0 6px rgba(213,138,149,0); }
-      }
-      .asst-unified-pulse { animation: asst-unified-pulse 1.8s ease-in-out infinite; }
-      @keyframes asst-spin { to { transform: rotate(360deg); } }
-    </style>`;
+  function _cardRenderDeps() {
+    return {
+      esc: _esc,
+      svg: _svg,
+      catMeta: _catMeta,
+      summarizeItem: _summarizeItem,
+      unifiedExecutionOrder: _unifiedExecutionOrder,
+      renderDuplicateWarnings: _renderDuplicateWarnings,
+      renderItemsEditor: _renderItemsEditor,
+      renderAdjustmentsEditor: _renderAdjustmentsEditor,
+      renderExpenseSummary: _renderExpenseSummary,
+      categoryOptionsHtml: _categoryOptionsHtml,
+    };
   }
+
+  function _renderUnifiedCard(msg, historyIdx) {
+    if (typeof _assistantCardRenderers.renderUnifiedCard === 'function') {
+      return _assistantCardRenderers.renderUnifiedCard(msg, historyIdx, _cardRenderDeps());
+    }
+    return '';
+  }
+
+
 
   function _renderActionGroup(group, historyIdx, gIdx, duplicateWarnings) {
-    const meta = _catMeta(group.kind);
-    const total = group.items.length;
-    const done = group.items.filter(it => it.status === 'done').length;
-    const skipped = group.items.filter(it => it.skipped).length;
-    const remaining = total - done - skipped;
-    const allDone = total > 0 && (done + skipped) >= total && done > 0;
-
-    // 전부 완료된 경우 — 축소된 성공 카드
-    if (allDone) {
-      const label = skipped
-        ? `${meta.label} ${done}건 추가됨 (${skipped}건 제외)`
-        : `${meta.label} ${done}건 모두 추가됨`;
-      return `<div style="margin-top:6px;padding:12px;background:linear-gradient(135deg,hsl(145,45%,94%),hsl(145,45%,98%));border-radius:14px;border-left:3px solid hsl(145,50%,40%);">
-        <div style="font-size:13px;font-weight:800;color:hsl(145,50%,30%);display:inline-flex;align-items:center;gap:6px;">${_svg('ic-check-circle', 14)} ${_esc(label)}</div>
-      </div>`;
+    if (typeof _assistantCardRenderers.renderActionGroup === 'function') {
+      return _assistantCardRenderers.renderActionGroup(group, historyIdx, gIdx, duplicateWarnings, _cardRenderDeps());
     }
-
-    const headerLine = group.bulkProgress
-      ? `<div style="font-size:11px;color:${meta.color};font-weight:700;margin-top:2px;">진행 중 · ${group.bulkProgress.current}/${group.bulkProgress.total} 완료</div>`
-      : (done || skipped
-          ? `<div style="font-size:11px;color:#888;margin-top:2px;">완료 ${done} · 제외 ${skipped} · 남음 ${remaining}</div>`
-          : '');
-
-    const header = `
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:${meta.color}22;color:${meta.color};">${_svg(meta.icon, 16)}</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:800;color:#222;">${_esc(meta.label)} <span style="color:${meta.color};">(${total}건)</span></div>
-          ${headerLine}
-        </div>
-      </div>`;
-
-    const toggleIcon = group.expanded ? _svg('ic-chevron-down', 13) : _svg('ic-edit-3', 13);
-    const runIcon = _svg('ic-check', 13);
-    const controls = `
-      <div style="display:flex;gap:6px;">
-        <button data-group-toggle="${historyIdx}:${gIdx}" style="flex:1;padding:9px;border:1px solid ${meta.color};border-radius:10px;background:#fff;color:${meta.color};font-weight:800;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">
-          ${toggleIcon} ${group.expanded ? '접기' : '수정하기'}
-        </button>
-        <button data-group-runall="${historyIdx}:${gIdx}" ${group.bulkProgress ? 'disabled' : ''} style="flex:2;padding:9px;border:none;border-radius:10px;background:${meta.color};color:#fff;font-weight:800;cursor:${group.bulkProgress ? 'not-allowed' : 'pointer'};font-size:12px;opacity:${group.bulkProgress ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">
-          ${group.bulkProgress ? `진행 중 ${group.bulkProgress.current}/${group.bulkProgress.total}` : (done + skipped > 0 ? `${runIcon} 남은 ${remaining}개 추가` : `${runIcon} 전체 추가`)}
-        </button>
-      </div>`;
-
-    let listHtml = '';
-    if (group.expanded) {
-      const rows = group.items.map((it, iIdx) => {
-        const rowHtml = _renderGroupRow(it, historyIdx, gIdx, iIdx, meta);
-        // 이 아이템의 원래 action 인덱스 (it.origIdx) 에 해당하는 중복 경고만 앞에 붙임
-        const warnHtml = (it.origIdx != null && !it.skipped && it.status !== 'done')
-          ? _renderDuplicateWarnings(historyIdx, duplicateWarnings, it.origIdx)
-          : '';
-        return `${warnHtml}${rowHtml}`;
-      }).join('');
-      listHtml = `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed hsl(220,15%,88%);display:flex;flex-direction:column;gap:8px;">${rows}</div>
-        <div style="height:10px;"></div>`;
-    }
-
-    // 접힌 상태에서도 그룹 내 액션에 해당하는 중복 의심 개수 표시 (배너)
-    let dupBannerHtml = '';
-    if (!group.expanded && Array.isArray(duplicateWarnings) && duplicateWarnings.length) {
-      const origIdxSet = new Set(group.items.map(it => it.origIdx));
-      const hits = duplicateWarnings.filter(w => !w.dismissed && origIdxSet.has(w.action_index));
-      if (hits.length) {
-        dupBannerHtml = `<div style="margin-bottom:8px;padding:8px 10px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;font-size:11px;color:#C2410C;font-weight:700;display:inline-flex;align-items:center;gap:5px;">
-          ${_svg('ic-alert-triangle', 12)} 중복 의심 ${hits.length}건 — '수정하기' 눌러서 확인하세요
-        </div>`;
-      }
-    }
-
-    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${meta.color};border-radius:14px;">
-      ${header}
-      ${dupBannerHtml}
-      ${listHtml}
-      ${controls}
-    </div>`;
-  }
-
-  function _renderGroupRow(it, historyIdx, gIdx, iIdx, meta) {
-    const key = `${historyIdx}:${gIdx}:${iIdx}`;
-    const p = (it.action && it.action.payload) || {};
-
-    if (it.status === 'done') {
-      return `<div style="padding:9px 10px;border-radius:10px;background:hsl(145,45%,96%);border:1px solid hsl(145,45%,85%);font-size:12px;color:hsl(145,50%,30%);font-weight:700;display:inline-flex;align-items:center;gap:5px;width:100%;box-sizing:border-box;">
-        ${_svg('ic-check', 12)} <span>${_esc(_summarizeItem(it.action))}</span>
-      </div>`;
-    }
-    if (it.status === 'failed') {
-      // 2026-04-26 버그B 픽스 — 실패 사유(it.errorMsg) 가 있으면 함께 노출
-      const errLine = it.errorMsg
-        ? `<div style="font-size:11px;color:hsl(0,60%,35%);background:hsl(0,70%,98%);padding:6px 8px;border-radius:8px;margin-bottom:6px;line-height:1.4;">사유: ${_esc(it.errorMsg)}</div>`
-        : '';
-      return `<div style="padding:9px 10px;border-radius:10px;background:hsl(0,70%,96%);border:1px solid hsl(0,70%,85%);">
-        <div style="font-size:12px;color:hsl(0,70%,40%);font-weight:700;margin-bottom:6px;display:inline-flex;align-items:center;gap:5px;">${_svg('ic-x', 12)} <span>실패 — ${_esc(_summarizeItem(it.action))}</span></div>
-        ${errLine}
-        <button data-row-run="${key}" style="padding:6px 10px;border:1px solid ${meta.color};border-radius:8px;background:#fff;color:${meta.color};font-size:11px;font-weight:700;cursor:pointer;">다시 시도</button>
-      </div>`;
-    }
-    if (it.skipped) {
-      return `<div style="padding:9px 10px;border-radius:10px;background:#f5f5f5;border:1px dashed #ccc;opacity:0.55;display:flex;align-items:center;gap:8px;">
-        <div style="flex:1;font-size:12px;color:#888;text-decoration:line-through;">${iIdx + 1}. ${_esc(_summarizeItem(it.action))}</div>
-        <button data-row-unskip="${key}" style="padding:5px 9px;border:1px solid #ccc;border-radius:8px;background:#fff;color:var(--text-muted);font-size:11px;font-weight:700;cursor:pointer;">되돌리기</button>
-      </div>`;
-    }
-
-    // pending · editing
-    const editing = it.editing === true;
-    const summary = _summarizeItem(it.action);
-    // [2026-05-12 QA #3] confidence 3단계 색상 — 사용자가 직관적으로 신뢰도 인식.
-    // >=0.9 녹색 (배지 생략), 0.7~0.89 노랑 (참고), <0.7 빨강 (자동등록 차단).
-    const _conf = (it.action && typeof it.action.confidence === 'number') ? it.action.confidence : null;
-    let _confBadge = '';
-    if (_conf !== null) {
-      const pct = Math.round(_conf * 100);
-      if (_conf < 0.7) {
-        _confBadge = `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:10px;font-weight:700;">⚠️ 확인 필요 ${pct}%</span>`;
-      } else if (_conf < 0.9) {
-        _confBadge = `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fefce8;color:#a16207;border:1px solid #fde68a;border-radius:4px;font-size:10px;font-weight:600;">참고 ${pct}%</span>`;
-      } else {
-        // >= 0.9 는 배지 생략 (깔끔)
-      }
-    }
-    const rowHead = `<div style="font-size:12px;color:#222;font-weight:700;">${iIdx + 1}. ${_esc(summary)}${_confBadge}</div>`;
-
-    // 편집 가능 필드 (있는 것만 보여주기)
-    const editFields = [];
-    const addField = (field, label, val, extra) => {
-      if (val === undefined) return;
-      const ex = extra || {};
-      const type = ex.type || 'text';
-      if (ex.select) {
-        editFields.push(`
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
-            <select data-row-field="${key}:${field}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;">
-              <option value=""${val ? '' : ' selected'}>선택</option>
-              ${_categoryOptionsHtml(val)}
-            </select>
-          </div>`);
-      } else {
-        editFields.push(`
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
-            <input data-row-field="${key}:${field}" type="${type}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;" />
-          </div>`);
-      }
-    };
-    let itemsHtml = '';
-    if (editing) {
-      const kind = it.action && it.action.kind;
-      if (kind === 'upsert_inventory') {
-        if (!Array.isArray(p.items)) p.items = [];
-        itemsHtml = `
-          <div style="font-size:10px;font-weight:700;color:#888;margin-bottom:2px;">품목</div>
-          ${_renderItemsEditor(key, p.items, {
-            fieldAttr: 'row-field',
-            addAttr: 'row-item-add',
-            delAttr: 'row-item-delete',
-            color: meta.color,
-            compact: true,
-          })}`;
-        if ('memo' in p) addField('memo', '메모', p.memo);
-      } else if (kind === 'create_expense') {
-        // [QA-r11 PR3 2026-05-16] receipt-level — items + adjustments + 합계 요약 (그룹-행 모드).
-        addField('vendor', '가게', p.vendor == null ? '' : p.vendor);
-        addField('amount', '결제', p.amount == null ? '' : p.amount, { type: 'number' });
-        addField('category', '분류', p.category == null ? '' : p.category, { select: true });
-        addField('memo', '메모', p.memo == null ? '' : p.memo);
-        if (!Array.isArray(p.items)) p.items = [];
-        if (!Array.isArray(p.adjustments)) p.adjustments = [];
-        itemsHtml = `
-          <div style="font-size:10px;font-weight:700;color:#888;margin:8px 0 2px;">품목 (정가)</div>
-          ${_renderItemsEditor(key, p.items, {
-            fieldAttr: 'row-field',
-            addAttr: 'row-item-add',
-            delAttr: 'row-item-delete',
-            color: meta.color,
-            compact: true,
-          })}
-          <div style="font-size:10px;font-weight:700;color:#888;margin:8px 0 2px;">할인·쿠폰·포인트</div>
-          ${_renderAdjustmentsEditor(key, p.adjustments, {
-            fieldAttr: 'row-field',
-            addAttr: 'row-adjustment-add',
-            delAttr: 'row-adjustment-delete',
-            color: meta.color,
-            compact: true,
-          })}
-          ${_renderExpenseSummary(p)}`;
-      } else {
-        if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
-        if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
-        if ('service_name' in p) addField('service_name', '시술', p.service_name);
-        if ('amount' in p) addField('amount', '금액', p.amount);
-        if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
-        if ('memo' in p) addField('memo', '메모', p.memo);
-        if (!editFields.length) {
-          // fallback: 확인 문구만 고치게
-          editFields.push(`
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:50px;font-size:10px;color:#888;font-weight:700;">내용</span>
-              <input data-row-field="${key}:confirmation_text" value="${_esc(it.action.confirmation_text || '')}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;" />
-            </div>`);
-        }
-      }
-    }
-
-    const buttons = editing
-      ? `<div style="display:flex;gap:6px;margin-top:4px;">
-          <button data-row-save="${key}" style="flex:1;padding:7px;border:none;border-radius:8px;background:${meta.color};color:#fff;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-save', 12)} 저장</button>
-          <button data-row-editcancel="${key}" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;background:#fff;color:var(--text-muted);font-weight:700;cursor:pointer;font-size:11px;">취소</button>
-        </div>`
-      : `<div style="display:flex;gap:6px;margin-top:4px;">
-          <button data-row-run="${key}" style="flex:1;padding:7px;border:none;border-radius:8px;background:${meta.color};color:#fff;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-check', 12)} 추가</button>
-          <button data-row-edit="${key}" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#555;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-edit-3', 12)} 편집</button>
-          <button data-row-skip="${key}" style="flex:1;padding:7px;border:1px solid #ddd;border-radius:8px;background:#fff;color:#888;font-weight:700;cursor:pointer;font-size:11px;display:inline-flex;align-items:center;justify-content:center;gap:4px;">${_svg('ic-trash-2', 12)} 제외</button>
-        </div>`;
-
-    const status = it.status === 'running'
-      ? `<div style="font-size:10px;color:${meta.color};font-weight:700;margin-top:2px;">저장 중…</div>`
-      : '';
-
-    return `<div style="padding:9px 10px;border-radius:10px;background:hsl(340,100%,99%);border:1px solid hsl(340,30%,92%);display:flex;flex-direction:column;gap:6px;">
-      ${rowHead}
-      ${status}
-      ${editing && editFields.length ? `<div style="display:flex;flex-direction:column;gap:4px;">${editFields.join('')}</div>` : ''}
-      ${editing ? itemsHtml : ''}
-      ${buttons}
-    </div>`;
+    return '';
   }
 
   // Wave B4 — 휴리스틱 프리뷰 카드 (answer/actions 둘 다 비었을 때)
@@ -1280,79 +968,114 @@
   }
 
   // Wave B4 — 프리뷰 카드에서 골라 즉시 POST (현재 입력값 읽기)
+  function _fallbackBody() {
+    return document.getElementById('asstBody');
+  }
+
+  function _readFallbackData(idx, msg) {
+    const body = _fallbackBody();
+    const read = (field) => {
+      const sel = `[data-fallback-field="${field}"][data-fallback-idx="${idx}"]`;
+      const el = body ? body.querySelector(sel) : null;
+      return el ? el.value.trim() : (msg.fallback[field] || '');
+    };
+    return { name: read('name'), phone: read('phone'), amount: read('amount'), time: read('time') };
+  }
+
+  function _customerFallbackRequest(data) {
+    if (!data.name) throw new Error('이름이 필요해요');
+    return {
+      endpoint: '/customers',
+      kindKey: 'create_customer',
+      payload: { name: data.name, phone: data.phone || null, memo: null, tags: [], birthday: null },
+    };
+  }
+
+  function _revenueFallbackRequest(data) {
+    if (!data.amount || !(+data.amount > 0)) throw new Error('금액이 필요해요');
+    return {
+      endpoint: '/revenue',
+      kindKey: 'create_revenue',
+      payload: {
+        amount: Math.round(+data.amount),
+        method: 'card',
+        service_name: null,
+        customer_name: data.name || null,
+        memo: null,
+        recorded_at: new Date().toISOString(),
+      },
+    };
+  }
+
+  function _bookingFallbackRequest(data) {
+    if (!data.time) throw new Error('시간이 필요해요');
+    const startISO = _timeToISO(data.time);
+    if (!startISO) throw new Error('시간을 못 읽었어요');
+    return {
+      endpoint: '/bookings',
+      kindKey: 'create_booking',
+      payload: {
+        starts_at: startISO,
+        ends_at: new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString(),
+        customer_id: null,
+        customer_name: data.name || null,
+        service_name: null,
+        memo: null,
+        status: 'confirmed',
+      },
+    };
+  }
+
+  function _fallbackRequestForIntent(intent, data) {
+    if (intent === 'customer') return _customerFallbackRequest(data);
+    if (intent === 'revenue') return _revenueFallbackRequest(data);
+    if (intent === 'booking') return _bookingFallbackRequest(data);
+    throw new Error('알 수 없는 요청');
+  }
+
+  async function _postFallbackRequest(req) {
+    const fetcher = window.safeFetch || fetch;
+    const res = await fetcher(apiUrl(req.endpoint), {
+      method: 'POST',
+      headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'HTTP ' + res.status);
+    }
+  }
+
+  function _fallbackSuccess(msg, kindKey) {
+    msg.fallback_status = 'done';
+    _renderHistory();
+    try { _invalidateCachesFor(kindKey); } catch (_e) { void _e; }
+    _history.push({ role: 'assistant', text: '✓ 저장했어요' });
+    _renderHistory();
+    if (window.hapticSuccess) window.hapticSuccess();
+    if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+  }
+
+  function _fallbackFailure(msg, e) {
+    msg.fallback_status = 'failed';
+    _renderHistory();
+    const text = window._humanError ? window._humanError(e) : e.message;
+    _history.push({ role: 'assistant', text: '실패: ' + text });
+    _renderHistory();
+  }
+
   async function _submitFallback(idx, intent) {
     const msg = _history[idx];
     if (!msg || !msg.fallback) return;
-    // 사용자가 수정한 값 읽기
-    const body = document.getElementById('asstBody');
-    const read = (f) => {
-      const el = body ? body.querySelector(`[data-fallback-field="${f}"][data-fallback-idx="${idx}"]`) : null;
-      return el ? el.value.trim() : (msg.fallback[f] || '');
-    };
-    const data = { name: read('name'), phone: read('phone'), amount: read('amount'), time: read('time') };
+    const data = _readFallbackData(idx, msg);
     msg.fallback_status = 'running';
     _renderHistory();
     try {
-      let endpoint, payload, kindKey;
-      if (intent === 'customer') {
-        if (!data.name) throw new Error('이름이 필요해요');
-        endpoint = '/customers';
-        payload = { name: data.name, phone: data.phone || null, memo: null, tags: [], birthday: null };
-        kindKey = 'create_customer';
-      } else if (intent === 'revenue') {
-        if (!data.amount || !(+data.amount > 0)) throw new Error('금액이 필요해요');
-        endpoint = '/revenue';
-        payload = {
-          amount: Math.round(+data.amount),
-          method: 'card',
-          service_name: null,
-          customer_name: data.name || null,
-          memo: null,
-          recorded_at: new Date().toISOString(),
-        };
-        kindKey = 'create_revenue';
-      } else if (intent === 'booking') {
-        if (!data.time) throw new Error('시간이 필요해요');
-        const startISO = _timeToISO(data.time);
-        if (!startISO) throw new Error('시간을 못 읽었어요');
-        const endISO = new Date(new Date(startISO).getTime() + 60 * 60 * 1000).toISOString();
-        endpoint = '/bookings';
-        payload = {
-          starts_at: startISO,
-          ends_at: endISO,
-          customer_id: null,
-          customer_name: data.name || null,
-          service_name: null,
-          memo: null,
-          status: 'confirmed',
-        };
-        kindKey = 'create_booking';
-      } else {
-        throw new Error('알 수 없는 요청');
-      }
-      const fetcher = window.safeFetch || fetch;
-      const res = await fetcher(apiUrl(endpoint), {
-        method: 'POST',
-        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'HTTP ' + res.status);
-      }
-      msg.fallback_status = 'done';
-      _renderHistory();
-      // SWR 캐시 무효화 + data-changed 이벤트 (단일 액션과 동일 로직 재사용)
-      try { _invalidateCachesFor(kindKey); } catch (_e) { void _e; }
-      _history.push({ role: 'assistant', text: '✓ 저장했어요' });
-      _renderHistory();
-      if (window.hapticSuccess) window.hapticSuccess();
-      if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+      const req = _fallbackRequestForIntent(intent, data);
+      await _postFallbackRequest(req);
+      _fallbackSuccess(msg, req.kindKey);
     } catch (e) {
-      msg.fallback_status = 'failed';
-      _renderHistory();
-      _history.push({ role: 'assistant', text: '실패: ' + (window._humanError ? window._humanError(e) : e.message) });
-      _renderHistory();
+      _fallbackFailure(msg, e);
     }
   }
 
@@ -1963,9 +1686,9 @@
   // [v176 2026-05-18] 챗봇 사진+phrase → 채팅 안 자동 보정 결과 렌더.
   // 반환: true(처리됨, 백엔드 우회) / false(매칭 없음, OCR 폴백)
   // opts: { photoUrl, photos, question, customerCtx }
-  async function _runChatAutoEdit(opts) {
-    const ql = (opts.question || '').toLowerCase();
-    const intent = {
+  function _photoEditIntent(question) {
+    const ql = (question || '').toLowerCase();
+    return {
       edit: /(편집|보정|예쁘게|꾸미)/.test(ql),
       instagram: /(인스타|올려|게시|업로드|포스트)/.test(ql),
       ba: /(전후|before|애프터|b&a|비포)/i.test(ql),
@@ -1973,140 +1696,151 @@
       videoCard: /(릴스|reels|shorts|숏폼|cover|커버)/i.test(ql),
       explicit_editor: /(편집기|에디터|직접|손볼)/.test(ql),
     };
-    const shop = {
-      hair: /(헤어|볼륨|모발|hair)/.test(ql),
-      lash: /(속눈썹|lash)/.test(ql),
-      nail: /(네일|nail)/.test(ql),
-      wax: /(왁싱|피부|반영구|skin|tattoo)/i.test(ql),
-    };
+  }
 
-    // 명시 편집기 호출 → PhotoEditor 직접 진입
+  function _photoShopPreset(question) {
+    const ql = (question || '').toLowerCase();
+    if (/(헤어|볼륨|모발|hair)/.test(ql)) return 'hair';
+    if (/(속눈썹|lash)/.test(ql)) return 'lash';
+    if (/(네일|nail)/.test(ql)) return 'nail';
+    if (/(왁싱|피부|반영구|skin|tattoo)/i.test(ql)) return 'wax';
+    return 'shop';
+  }
+
+  function _openPhotoEditorForChat(opts, initialTab) {
+    if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
+      window.PhotoEditor.open({
+        src: opts.photoUrl,
+        initial_tab: initialTab,
+        customer_id: opts.customerCtx ? opts.customerCtx.id : undefined,
+      });
+    }
+  }
+
+  function _pushPhotoShortcutMessage(opts, text) {
+    _history.push({ role: 'user', text: opts.question, thumb: opts.photoUrl, photos: opts.photos });
+    _history.push({ role: 'assistant', text });
+    _renderHistory();
+  }
+
+  function _runPhotoEditorShortcut(opts, intent) {
     if (intent.explicit_editor) {
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        window.PhotoEditor.open({ src: opts.photoUrl, initial_tab: 'tune', customer_id: opts.customerCtx ? opts.customerCtx.id : undefined });
-      }
-      _history.push({ role: 'user', text: opts.question, thumb: opts.photoUrl, photos: opts.photos });
-      _history.push({ role: 'assistant', text: '편집기를 열었어요.' });
-      _renderHistory();
+      _openPhotoEditorForChat(opts, 'tune');
+      _pushPhotoShortcutMessage(opts, '편집기를 열었어요.');
       return true;
     }
-    // 누끼 단독 → PhotoEditor bg 탭
     if (intent.bg && !intent.edit && !intent.instagram) {
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        window.PhotoEditor.open({ src: opts.photoUrl, initial_tab: 'bg' });
-      }
-      _history.push({ role: 'user', text: opts.question, thumb: opts.photoUrl, photos: opts.photos });
-      _history.push({ role: 'assistant', text: '배경 화면을 열었어요.' });
-      _renderHistory();
+      _openPhotoEditorForChat(opts, 'bg');
+      _pushPhotoShortcutMessage(opts, '배경 화면을 열었어요.');
       return true;
     }
-    // 영상 자동 편집 대신 사진 카드/스토리 템플릿으로 유도한다.
     if (intent.videoCard) {
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        window.PhotoEditor.open({
-          src: opts.photoUrl,
-          initial_tab: 'template',
-          customer_id: opts.customerCtx ? opts.customerCtx.id : undefined,
-        });
-      }
-      _history.push({ role: 'user', text: opts.question, thumb: opts.photoUrl, photos: opts.photos });
-      _history.push({ role: 'assistant', text: '사진 카드 화면을 열었어요. 스토리용 이미지나 전후 카드로 바로 만들 수 있어요.' });
-      _renderHistory();
+      _openPhotoEditorForChat(opts, 'template');
+      _pushPhotoShortcutMessage(opts, '사진 카드 화면을 열었어요. 스토리용 이미지나 전후 카드로 바로 만들 수 있어요.');
       return true;
     }
-    // 전후 → PhotoEditor template 탭
     if (intent.ba) {
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        window.PhotoEditor.open({ src: opts.photoUrl, initial_tab: 'template', customer_id: opts.customerCtx ? opts.customerCtx.id : undefined });
-      }
-      _history.push({ role: 'user', text: opts.question, thumb: opts.photoUrl, photos: opts.photos });
-      _history.push({ role: 'assistant', text: '전·후 카드 화면을 열었어요. 두 번째 사진을 골라주세요.' });
-      _renderHistory();
+      _openPhotoEditorForChat(opts, 'template');
+      _pushPhotoShortcutMessage(opts, '전·후 카드 화면을 열었어요. 두 번째 사진을 골라주세요.');
       return true;
     }
+    return false;
+  }
 
-    // 핵심: 보정 또는 인스타 명령 — 자동 보정 후 결과 채팅에 표시
-    if (!intent.edit && !intent.instagram) {
-      return false; // 어떤 의도도 매칭 안 됨 → OCR 폴백
-    }
-
-    // user 메시지 + placeholder assistant 메시지
+  function _beginChatAutoEdit(opts) {
     _history.push({ role: 'user', text: opts.question, thumb: opts.photoUrl, photos: opts.photos });
     const placeholderIdx = _history.length;
     _history.push({ role: 'assistant', text: '보정 중이에요…', _processing: true });
     _renderHistory();
+    return placeholderIdx;
+  }
 
+  function _setAutoEditFailure(placeholderIdx, text) {
+    _history[placeholderIdx].text = text;
+    _history[placeholderIdx]._processing = false;
+    _renderHistory();
+  }
+
+  async function _processChatAutoEditPhoto(opts, intent, preset, placeholderIdx) {
     if (!window.ChatAutoEdit || typeof window.ChatAutoEdit.processPhoto !== 'function') {
-      _history[placeholderIdx].text = '자동 보정 모듈 로드 중이에요. 잠시 후 다시 시도해주세요.';
-      _history[placeholderIdx]._processing = false;
-      _renderHistory();
-      return true;
+      _setAutoEditFailure(placeholderIdx, '자동 보정 모듈 로드 중이에요. 잠시 후 다시 시도해주세요.');
+      return null;
     }
-    const preset = shop.hair ? 'hair' : shop.lash ? 'lash' : shop.nail ? 'nail' : shop.wax ? 'wax' : 'shop';
-    let result = null;
     try {
-      result = await window.ChatAutoEdit.processPhoto({
+      return await window.ChatAutoEdit.processPhoto({
         src: opts.photoUrl,
         preset,
         ratio: intent.instagram ? '4:5' : 'original',
         watermark: intent.instagram,
       });
     } catch (e) {
-      _history[placeholderIdx].text = '보정 실패: ' + ((e && e.message) || '알 수 없음');
-      _history[placeholderIdx]._processing = false;
-      _renderHistory();
-      return true;
+      _setAutoEditFailure(placeholderIdx, '보정 실패: ' + ((e && e.message) || '알 수 없음'));
+      return null;
     }
-    if (!result || !result.dataUrl) {
-      _history[placeholderIdx].text = '보정 결과를 받지 못했어요. 다시 시도해주세요.';
-      _history[placeholderIdx]._processing = false;
-      _renderHistory();
-      return true;
-    }
+  }
 
-    // 결과 메시지 교체
+  function _applyChatAutoEditResult(result, intent, placeholderIdx) {
+    if (!result || !result.dataUrl) {
+      _setAutoEditFailure(placeholderIdx, '보정 결과를 받지 못했어요. 다시 시도해주세요.');
+      return false;
+    }
     _history[placeholderIdx] = {
       role: 'assistant',
       text: intent.instagram ? '보정 완료! 인스타 미리보기를 열게요.' : '보정 완료! 미리보기 확인해주세요.',
       photo_result: { dataUrl: result.dataUrl, ratio: result.ratio, preset_label: result.preset_label },
-      photo_actions: intent.instagram
-        ? [{ id: 'instagram', label: '📷 미리보기' }, { id: 'editor', label: '더 손보기' }, { id: 'save', label: '저장' }]
-        : [{ id: 'instagram', label: '📷 인스타 미리보기' }, { id: 'editor', label: '더 손보기' }, { id: 'save', label: '저장' }, { id: 'retry', label: '다시' }],
+      photo_actions: _chatAutoEditActions(intent.instagram),
       photo_caption: '업종: ' + (result.preset_label || '자동'),
     };
     _renderHistory();
+    return true;
+  }
 
-    // [v182 2026-05-18] 인스타 분기 — 백엔드 /persona/generate + 에러 노출.
-    if (intent.instagram) {
-      const capRes = await _generateChatCaption({
-        preset,
-        question: opts.question,
-        customerCtx: opts.customerCtx,
-      });
-      const fullCaption = capRes.caption || '';
-      // 캡션 생성 실패 시 챗봇에 에러 메시지 push (사용자가 원인 알 수 있게)
-      if (capRes.error) {
-        _history.push({ role: 'assistant', text: '⚠️ ' + capRes.error + '\n캡션 없이 미리보기만 띄울게요.' });
-        _renderHistory();
-      }
-      try {
-        if (fullCaption && window.CaptionPrefill && typeof window.CaptionPrefill.set === 'function') {
-          window.CaptionPrefill.set(fullCaption);
-        }
-      } catch (_e) { void _e; }
-      setTimeout(() => {
-        if (typeof window.openInstagramPreview === 'function') {
-          try {
-            window.openInstagramPreview({
-              src: result.dataUrl,
-              ratio: result.ratio,
-              caption: fullCaption,
-              enableUpload: true,
-            });
-          } catch (_e2) { void _e2; }
-        }
-      }, 250);
+  function _chatAutoEditActions(isInstagram) {
+    if (isInstagram) {
+      return [{ id: 'instagram', label: '📷 미리보기' }, { id: 'editor', label: '더 손보기' }, { id: 'save', label: '저장' }];
     }
+    return [
+      { id: 'instagram', label: '📷 인스타 미리보기' },
+      { id: 'editor', label: '더 손보기' },
+      { id: 'save', label: '저장' },
+      { id: 'retry', label: '다시' },
+    ];
+  }
+
+  function _openInstagramPreviewLater(result, fullCaption) {
+    setTimeout(() => {
+      if (typeof window.openInstagramPreview === 'function') {
+        try {
+          window.openInstagramPreview({ src: result.dataUrl, ratio: result.ratio, caption: fullCaption, enableUpload: true });
+        } catch (_e2) { void _e2; }
+      }
+    }, 250);
+  }
+
+  async function _finishInstagramAutoEdit(opts, preset, result) {
+    const capRes = await _generateChatCaption({ preset, question: opts.question, customerCtx: opts.customerCtx });
+    const fullCaption = capRes.caption || '';
+    if (capRes.error) {
+      _history.push({ role: 'assistant', text: '⚠️ ' + capRes.error + '\n캡션 없이 미리보기만 띄울게요.' });
+      _renderHistory();
+    }
+    try {
+      if (fullCaption && window.CaptionPrefill && typeof window.CaptionPrefill.set === 'function') {
+        window.CaptionPrefill.set(fullCaption);
+      }
+    } catch (_e) { void _e; }
+    _openInstagramPreviewLater(result, fullCaption);
+  }
+
+  async function _runChatAutoEdit(opts) {
+    const intent = _photoEditIntent(opts.question);
+    if (_runPhotoEditorShortcut(opts, intent)) return true;
+    if (!intent.edit && !intent.instagram) return false;
+    const placeholderIdx = _beginChatAutoEdit(opts);
+    const preset = _photoShopPreset(opts.question);
+    const result = await _processChatAutoEditPhoto(opts, intent, preset, placeholderIdx);
+    if (!_applyChatAutoEditResult(result, intent, placeholderIdx)) return true;
+    if (intent.instagram) await _finishInstagramAutoEdit(opts, preset, result);
     return true;
   }
 
@@ -2191,592 +1925,613 @@
     return caption + (tags ? '\n\n' + tags : '');
   }
 
-  async function _uploadPhotos(files) {
-    if (_sendInFlight) return;
-    // 단일 파일·FileList·배열 모두 허용
-    if (!files) return;
-    if (!Array.isArray(files)) {
-      files = (files && typeof files.length === 'number') ? Array.from(files) : [files];
-    }
-    files = files.filter(Boolean).slice(0, 10);  // 최대 10장
-    if (files.length === 0) return;
+  function _normalizePhotoFiles(files) {
+    if (!files) return [];
+    const list = Array.isArray(files)
+      ? files
+      : ((files && typeof files.length === 'number') ? Array.from(files) : [files]);
+    return list.filter(Boolean).slice(0, 10);
+  }
 
-    _sendInFlight = true;
+  function _readUploadQuestion() {
     const input = document.getElementById('asstInput');
     const question = (input && input.value.trim()) || '';
     if (input) input.value = '';
-    const N = files.length;
+    return question;
+  }
 
-    // 2026-04-26 픽스 — 보낸 사진 N장 모두 보관 (썸네일 그리드 + 라이트박스용)
-    // 메모리 보호: 각 이미지 max 800px 로 dataURL 화 (미리보기 전용)
-    let photoUrls = [];
-    try {
-      photoUrls = await Promise.all(files.map(async (f) => {
-        try {
-          if (typeof window.compressImageForUpload === 'function') {
-            // 미리보기는 가벼운 800px·0.75 품질로 (10장 × ~80KB ≈ 800KB)
-            const small = await window.compressImageForUpload(f, 800, 0.75);
-            return await new Promise((resolve) => {
-              const r = new FileReader();
-              r.onload = () => resolve(r.result || '');
-              r.onerror = () => resolve('');
-              r.readAsDataURL(small);
-            });
-          }
-        } catch (_e) { void _e; }
-        // fallback: 원본 그대로 (helper 부재 시)
-        return await new Promise((resolve) => {
-          try {
-            const r = new FileReader();
-            r.onload = () => resolve(r.result || '');
-            r.onerror = () => resolve('');
-            r.readAsDataURL(f);
-          } catch (_e) { resolve(''); }
-        });
-      }));
-      photoUrls = photoUrls.filter(Boolean);
-    } catch (_e) { photoUrls = []; }
+  function _fileToDataUrl(file) {
+    return new Promise((resolve) => {
+      try {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result || '');
+        r.onerror = () => resolve('');
+        r.readAsDataURL(file);
+      } catch (_e) { resolve(''); }
+    });
+  }
 
-    // [v176 2026-05-18] 사진+텍스트 phrase shortcut — 채팅 안 자동 보정 결과 표시.
-    // 빈 텍스트 + 사진만 → 기존 OCR 흐름 유지 (회귀 0).
-    // 핵심: 보정/인스타 의도 → ChatAutoEdit.processPhoto → 결과 사진을 채팅 메시지로.
+  async function _previewUrlForFile(file) {
     try {
-      const photoUrl = photoUrls[0] || '';
-      if (photoUrl && question) {
-        let custCtx = null;
-        try {
-          if (window.CustomerCache && typeof window.CustomerCache.get === 'function') {
-            const list = window.CustomerCache.get() || [];
-            const ql = question.toLowerCase();
-            const hit = list.find(c => c && c.name && ql.includes(String(c.name).toLowerCase()));
-            if (hit) custCtx = { id: hit.id, name: hit.name };
-          }
-        } catch (_eC) { void _eC; }
-        const handled = await _runChatAutoEdit({
-          photoUrl, photos: photoUrls, question, customerCtx: custCtx,
-        });
-        if (handled) {
-          _sendInFlight = false;
-          if (window.hapticLight) window.hapticLight();
-          return; // 백엔드 호출 우회
-        }
+      if (typeof window.compressImageForUpload === 'function') {
+        const small = await window.compressImageForUpload(file, 800, 0.75);
+        return await _fileToDataUrl(small);
       }
-    } catch (_ePS) { void _ePS; }
+    } catch (_e) { void _e; }
+    return await _fileToDataUrl(file);
+  }
 
-    // [v178 2026-05-18] 사진 + (빈/비-OCR 텍스트) → 제안 메시지로 차단.
-    //   v176 phrase 매칭 실패 시 OCR 백엔드로 가서 "1장 분석했지만 자동저장 가능한
-    //   형태가 아니에요" 같은 폴백이 떴음 — 사장님 입장에서 의미 없음.
-    //   대신 "이 사진, 보정해서 인스타에 올릴까요?" 액션 제안.
-    //   영수증/매출/금액/메뉴 같은 OCR 의도 키워드는 기존 백엔드 OCR 로 통과.
-    const isOcrIntent = question && /(영수증|매출|금액|결제|판매|메뉴|상품)/.test(question);
-    if (photoUrls.length && !isOcrIntent) {
-      _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls });
-      _history.push({
-        role: 'assistant',
-        text: '이 사진, 보정해서 인스타에 올릴까요?',
-        intent_chips: [
-          { id: 'instagram', label: '네, 보정+인스타', question: '예쁘게 보정해서 인스타 올려줘', primary: true },
-          { id: 'ba',        label: '전후 카드',      question: '전후 카드 만들어줘' },
-          { id: 'editor',    label: '편집기 직접',    question: '편집기 열어줘' },
-        ],
-      });
-      _renderHistory();
-      _sendInFlight = false;
-      if (window.hapticLight) window.hapticLight();
-      return;
+  async function _makePhotoPreviewUrls(files) {
+    try {
+      const urls = await Promise.all(files.map(f => _previewUrlForFile(f)));
+      return urls.filter(Boolean);
+    } catch (_e) {
+      return [];
     }
+  }
 
-    // 플레이스홀더 메시지
-    const baseText = question || (N > 1 ? ('사진 ' + N + '장 업로드 중…') : '사진 업로드 중…');
-    const placeholderText = (N > 1 && question) ? (question + ' (외 ' + (N - 1) + '장 함께)') : baseText;
-    // thumb 은 호환성 위해 유지 (구버전 메시지 렌더용). photos 는 신규 그리드용.
+  function _photoCustomerContext(question) {
+    try {
+      if (!window.CustomerCache || typeof window.CustomerCache.get !== 'function') return null;
+      const list = window.CustomerCache.get() || [];
+      const ql = question.toLowerCase();
+      const hit = list.find(c => c && c.name && ql.includes(String(c.name).toLowerCase()));
+      return hit ? { id: hit.id, name: hit.name } : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  async function _tryPhotoShortcut(question, photoUrls) {
+    const photoUrl = photoUrls[0] || '';
+    if (!photoUrl || !question) return false;
+    try {
+      return await _runChatAutoEdit({
+        photoUrl,
+        photos: photoUrls,
+        question,
+        customerCtx: _photoCustomerContext(question),
+      });
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function _isOcrPhotoIntent(question) {
+    return !!(question && /(영수증|매출|금액|결제|판매|메뉴|상품)/.test(question));
+  }
+
+  function _pushPhotoSuggestion(question, photoUrls) {
+    _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls });
+    _history.push({
+      role: 'assistant',
+      text: '이 사진, 보정해서 인스타에 올릴까요?',
+      intent_chips: [
+        { id: 'instagram', label: '네, 보정+인스타', question: '예쁘게 보정해서 인스타 올려줘', primary: true },
+        { id: 'ba', label: '전후 카드', question: '전후 카드 만들어줘' },
+        { id: 'editor', label: '편집기 직접', question: '편집기 열어줘' },
+      ],
+    });
+    _renderHistory();
+  }
+
+  function _photoPlaceholderText(question, count) {
+    const base = question || (count > 1 ? ('사진 ' + count + '장 업로드 중…') : '사진 업로드 중…');
+    return (count > 1 && question) ? (question + ' (외 ' + (count - 1) + '장 함께)') : base;
+  }
+
+  function _pushPhotoUploadPlaceholder(question, count, photoUrls) {
+    const placeholderText = _photoPlaceholderText(question, count);
     _history.push({ role: 'user', text: placeholderText, thumb: photoUrls[0] || '', photos: photoUrls });
     _history.push({ role: 'loading', text: '' });
     _renderHistory();
+    _savePending({ kind: 'images', user_msg: placeholderText, photos_thumbs: photoUrls, question: question || '', n: count });
+  }
 
-    // [2026-04-26] in-flight 직렬화 — 챗봇 닫고 딴 일 해도 보낸 내역 유지
-    _savePending({
-      kind: 'images',
-      user_msg: placeholderText,
-      photos_thumbs: photoUrls,  // 이미 800px·0.75 압축된 dataURL
-      question: question || '',
-      n: N,
-    });
-
-    try {
-      // 각 파일 압축 (병렬). helper 없거나 실패하면 원본
-      const compressed = await Promise.all(files.map(async (f) => {
-        try {
-          if (typeof window.compressImageForUpload === 'function') {
-            return await window.compressImageForUpload(f, 1024, 0.85);
-          }
-        } catch (_e) { void _e; }
-        return f;
-      }));
-
-      const fd = new FormData();
-      compressed.forEach((blob, i) => {
-        const actualType = (blob && blob.type) || 'image/jpeg';
-        const ext = actualType.includes('png') ? '.png'
-          : actualType.includes('webp') ? '.webp'
-          : actualType.includes('heic') ? '.heic'
-          : '.jpg';
-        const safeName = (blob.name && /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(blob.name))
-          ? blob.name
-          : ('photo' + (i + 1) + ext);
-        fd.append('images', blob, safeName);
-      });
-      // 빈 question 도 항상 전송 (백엔드 Form 이 키 존재를 기대)
-      fd.append('question', question || '');
-      if (_sessionId) fd.append('session_id', String(_sessionId));
-
-      const auth = (window.authHeader && window.authHeader()) || {};
-      const ctrl = new AbortController();
-      _inflightCtrl = ctrl;  // pagehide 시 abort 용 등록
-      // 다중 이미지: 장당 60초 + 여유 버퍼. 최대 180초.
-      const timeoutMs = Math.min(60000 + 30000 * Math.max(0, N - 1), 180000);
-      const timeoutId = setTimeout(() => ctrl.abort(), timeoutMs);
-      let res;
+  async function _compressAssistantImages(files) {
+    return await Promise.all(files.map(async (file) => {
       try {
-        res = await apiFetch('/assistant/ask/images', {
-          method: 'POST',
-          headers: auth.Authorization ? { Authorization: auth.Authorization } : {},
-          body: fd,
-          signal: ctrl.signal,
-        });
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        if (fetchErr.name === 'AbortError') {
-          throw new Error('분석이 너무 오래 걸려요. 사진 수를 줄이거나 더 작은 사진으로 시도해주세요');
+        if (typeof window.compressImageForUpload === 'function') {
+          return await window.compressImageForUpload(file, 1024, 0.85);
         }
-        throw new Error('서버 연결 실패 — 인터넷 확인 후 다시 시도해주세요');
-      }
-      clearTimeout(timeoutId);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || ('서버 오류 (HTTP ' + res.status + ')'));
-      }
-      const d = await res.json();
-      _history = _history.filter(m => m.role !== 'loading');
+      } catch (_e) { void _e; }
+      return file;
+    }));
+  }
 
-      if (d.session_id) {
-        _sessionId = d.session_id;
-        try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
-      }
+  function _assistantImageName(blob, index) {
+    const actualType = (blob && blob.type) || 'image/jpeg';
+    const ext = actualType.includes('png') ? '.png'
+      : actualType.includes('webp') ? '.webp'
+      : actualType.includes('heic') ? '.heic'
+      : '.jpg';
+    if (blob.name && /.(jpg|jpeg|png|webp|heic|heif)$/i.test(blob.name)) return blob.name;
+    return 'photo' + (index + 1) + ext;
+  }
 
-      const _rawActionsList = (Array.isArray(d.actions) && d.actions.length)
-        ? d.actions
-        : (d.action && d.action.kind ? [d.action] : []);
-      // [QA-r10] OCR fallback repair 24개 복제 차단 — 프론트엔드 defensive dedupe.
-      const _dedupeRes = _dedupeAndCapActions(_rawActionsList);
-      const actionsList = _dedupeRes.actions;
-      if (_dedupeRes.dropped > 0) {
-        try { console.warn('[assistant] OCR actions dedupe', { raw: _rawActionsList.length, kept: actionsList.length, dropped: _dedupeRes.dropped, kinds: _dedupeRes.droppedKinds }); } catch (_e) { void _e; }
-      }
-      // [QA-NEXT #4] 각 action 의 AI 원본 payload 스냅샷 저장 → execute 시 original_payload 로 동봉.
-      const _imgQ = (window._lastAssistantQuestion || '');
-      actionsList.forEach(a => {
-        try {
-          if (a && a.payload && !a._ai_original) {
-            a._ai_original = JSON.parse(JSON.stringify(a.payload));
-          }
-          if (a && !a._source_question) a._source_question = _imgQ;
-        } catch (_e) { void _e; }
+  function _buildImagesFormData(compressed, question) {
+    const fd = new FormData();
+    compressed.forEach((blob, index) => fd.append('images', blob, _assistantImageName(blob, index)));
+    fd.append('question', question || '');
+    if (_sessionId) fd.append('session_id', String(_sessionId));
+    return fd;
+  }
+
+  async function _postAssistantImages(fd, count) {
+    const auth = (window.authHeader && window.authHeader()) || {};
+    const ctrl = new AbortController();
+    _inflightCtrl = ctrl;
+    const timeoutMs = Math.min(60000 + 30000 * Math.max(0, count - 1), 180000);
+    const timeoutId = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await apiFetch('/assistant/ask/images', {
+        method: 'POST',
+        headers: auth.Authorization ? { Authorization: auth.Authorization } : {},
+        body: fd,
+        signal: ctrl.signal,
       });
-      const msg = { role: 'assistant', text: d.answer || '사진을 확인했어요.' };
-      if (Array.isArray(d.related_questions) && d.related_questions.length) {
-        msg.related = d.related_questions.slice(0, 3);
+      return res;
+    } catch (fetchErr) {
+      if (fetchErr.name === 'AbortError') throw new Error('분석이 너무 오래 걸려요. 사진 수를 줄이거나 더 작은 사진으로 시도해주세요');
+      throw new Error('서버 연결 실패 — 인터넷 확인 후 다시 시도해주세요');
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  function _rememberAssistantSession(data) {
+    if (!data.session_id) return;
+    _sessionId = data.session_id;
+    try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
+  }
+
+  function _prepareAssistantActions(rawActions, sourceQuestion, logLabel) {
+    const dedupeRes = _dedupeAndCapActions(rawActions);
+    const actionsList = dedupeRes.actions;
+    if (dedupeRes.dropped > 0) {
+      try { console.warn(logLabel, { raw: rawActions.length, kept: actionsList.length, dropped: dedupeRes.dropped, kinds: dedupeRes.droppedKinds }); } catch (_e) { void _e; }
+    }
+    actionsList.forEach(a => {
+      try {
+        if (a && a.payload && !a._ai_original) a._ai_original = JSON.parse(JSON.stringify(a.payload));
+        if (a && !a._source_question) a._source_question = sourceQuestion || '';
+      } catch (_e) { void _e; }
+    });
+    return actionsList;
+  }
+
+  function _imageResponseMessage(data, actionsList, rawActionsList) {
+    const msg = { role: 'assistant', text: data.answer || '사진을 확인했어요.' };
+    if (Array.isArray(data.related_questions) && data.related_questions.length) msg.related = data.related_questions.slice(0, 3);
+    if (Array.isArray(data.duplicate_warnings) && data.duplicate_warnings.length) {
+      msg.duplicate_warnings = data.duplicate_warnings.map(w => ({ ...w, dismissed: false }));
+    }
+    _attachActionsToImageMessage(msg, actionsList);
+    if (!actionsList.length) _guardEmptyImageActions(msg, data, rawActionsList);
+    return msg;
+  }
+
+  function _attachActionsToImageMessage(msg, actionsList) {
+    if (actionsList.length === 1) {
+      msg.action = actionsList[0];
+      msg.action_status = 'pending';
+    } else if (actionsList.length > 1) {
+      msg.action_groups = _groupActions(actionsList);
+      if (_shouldUseUnifiedCard(msg.action_groups)) msg.unified_mode = true;
+    }
+  }
+
+  function _guardEmptyImageActions(msg, data, rawActionsList) {
+    const answer = (data.answer || '').trim();
+    const hasPrice = /([0-9]{2,3},[0-9]{3}|[0-9]{4,})\s*원/.test(answer);
+    if ((hasPrice && answer.length > 30) || rawActionsList.length > 0) {
+      msg.text = '분석은 됐지만 자동 저장 가능한 형태로 정리가 안 됐어요.\n사진을 다시 찍거나 직접 추가해주세요.';
+    }
+  }
+
+  async function _handleAssistantImageResponse(res) {
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || ('서버 오류 (HTTP ' + res.status + ')'));
+    }
+    const data = await res.json();
+    _history = _history.filter(m => m.role !== 'loading');
+    _rememberAssistantSession(data);
+    const rawActions = (Array.isArray(data.actions) && data.actions.length)
+      ? data.actions
+      : (data.action && data.action.kind ? [data.action] : []);
+    const actionsList = _prepareAssistantActions(rawActions, window._lastAssistantQuestion || '', '[assistant] OCR actions dedupe');
+    _history.push(_imageResponseMessage(data, actionsList, rawActions));
+    _renderHistory();
+    if (window.hapticLight) window.hapticLight();
+    _clearChatPending();
+    _notifyAnswerArrived();
+  }
+
+  function _photoUploadErrorMessage(e) {
+    const raw = (e && e.message) || '';
+    const isInternal = /^(Can't find variable|undefined is not|null is not|ReferenceError|TypeError|SyntaxError)/i.test(raw);
+    if (isInternal) return '사진 분석 중 오류가 발생했어요. 다시 시도해주세요.';
+    const human = window._humanError ? window._humanError(e) : raw || '알 수 없는 오류';
+    return '사진을 못 읽었어요: ' + human;
+  }
+
+  function _handlePhotoUploadError(e) {
+    _history = _history.filter(m => m.role !== 'loading');
+    try { console.error('[assistant/upload] error:', e); } catch (_logErr) { void _logErr; }
+    _history.push({ role: 'assistant', text: _photoUploadErrorMessage(e) });
+    _renderHistory();
+    _clearChatPending();
+  }
+
+  async function _uploadPhotos(files) {
+    if (_sendInFlight) return;
+    const selectedFiles = _normalizePhotoFiles(files);
+    if (!selectedFiles.length) return;
+    _sendInFlight = true;
+    const question = _readUploadQuestion();
+    const photoUrls = await _makePhotoPreviewUrls(selectedFiles);
+    try {
+      if (await _tryPhotoShortcut(question, photoUrls)) return;
+      if (photoUrls.length && !_isOcrPhotoIntent(question)) {
+        _pushPhotoSuggestion(question, photoUrls);
+        if (window.hapticLight) window.hapticLight();
+        return;
       }
-      // 중복 거래 경고 (영수증·주문내역 여러 장 업로드 대응)
-      if (Array.isArray(d.duplicate_warnings) && d.duplicate_warnings.length) {
-        msg.duplicate_warnings = d.duplicate_warnings.map(w => ({ ...w, dismissed: false }));
-      }
-      if (actionsList.length === 1) {
-        msg.action = actionsList[0];
-        msg.action_status = 'pending';
-        _history.push(msg);
-      } else if (actionsList.length > 1) {
-        // 카테고리별 그룹 카드 (2건 이상)
-        msg.action_groups = _groupActions(actionsList);
-        // 2~6건 · kind 2종 이상 혼합 → 통합 확인 카드로 시작 (사용자가 '수정' 누르면 그룹 카드로 전환)
-        if (_shouldUseUnifiedCard(msg.action_groups)) msg.unified_mode = true;
-        _history.push(msg);
-      } else {
-        // [QA-r6] actions=0 + answer 에 가격 패턴이 있는 모순 케이스 차단.
-        // 백엔드가 "0건 추출 + 영수증 prose 본문" 으로 응답하면 사용자는 가격은 보이는데
-        // 저장 카드가 없어 혼란. 메시지를 명확한 안내로 치환해 prose 노출 자체를 막음.
-        // [QA-r11 hotfix 2026-05-17] pending 미선언 ReferenceError 회귀 fix.
-        // 이 함수 (_uploadPhotos) 자체가 image upload 경로 → _wasImageUpload 는 항상 true.
-        // 이전 코드 'pending && pending.kind === images' 는 다른 함수 패턴 복사 흔적.
-        const _ans = (d.answer || '').trim();
-        const _hasPrice = /([0-9]{2,3},[0-9]{3}|[0-9]{4,})\s*원/.test(_ans);
-        const _wasImageUpload = true;
-        // [QA-r10] dedupe 후 0건이 된 케이스도 동일 안내 (raw 가 많았지만 전부 중복/빈 fallback 였던 경우)
-        if (_wasImageUpload && (_hasPrice && _ans.length > 30 || _rawActionsList.length > 0)) {
-          msg.text = '분석은 됐지만 자동 저장 가능한 형태로 정리가 안 됐어요.\n사진을 다시 찍거나 직접 추가해주세요.';
-        }
-        _history.push(msg);
-      }
-      // [QA-r11 2026-05-16] dedupe 안내문 제거. 백엔드가 짧은 요약 (예: "영수증 7장 분석했어요. 지출 7건 추가할까요?")
-      // 을 직접 생성하므로 프론트가 "(중복/빈 N건은 제외했어요)" 같은 내부 처리 문구를 덧붙이지 않음.
-      // 사용자 멘탈모델: 영수증 N장 = action N개 — 그대로 매칭.
-      _renderHistory();
-      if (window.hapticLight) window.hapticLight();
-      // [2026-04-26] 답변 도착 — pending 정리 + 챗봇 닫혀있으면 알림
-      _clearChatPending();
-      _notifyAnswerArrived();
+      _pushPhotoUploadPlaceholder(question, selectedFiles.length, photoUrls);
+      const compressed = await _compressAssistantImages(selectedFiles);
+      const fd = _buildImagesFormData(compressed, question);
+      await _handleAssistantImageResponse(await _postAssistantImages(fd, selectedFiles.length));
     } catch (e) {
-      _history = _history.filter(m => m.role !== 'loading');
-      // [QA-r11 hotfix 2026-05-17] JS ReferenceError / TypeError 같은 내부 에러를
-      // 그대로 노출하지 않음. 사용자 친화 메시지 + 콘솔에 원본 보존 (개발자 진단용).
-      try { console.error('[assistant/upload] error:', e); } catch (_logErr) { void _logErr; }
-      const _raw = (e && e.message) || '';
-      const _isInternalJsErr = /^(Can't find variable|undefined is not|null is not|ReferenceError|TypeError|SyntaxError)/i.test(_raw);
-      let _userMsg;
-      if (_isInternalJsErr) {
-        _userMsg = '사진 분석 중 오류가 발생했어요. 다시 시도해주세요.';
-      } else {
-        const human = window._humanError ? window._humanError(e) : _raw || '알 수 없는 오류';
-        _userMsg = '사진을 못 읽었어요: ' + human;
-      }
-      _history.push({ role: 'assistant', text: _userMsg });
-      _renderHistory();
-      _clearChatPending();
+      _handlePhotoUploadError(e);
     } finally {
       _sendInFlight = false;
       _inflightCtrl = null;
     }
   }
 
-  async function _send() {
-    if (_sendInFlight) return;  // 중복 송신 방지
-    const input = document.getElementById('asstInput');
-    const q = input.value.trim();
+  function _takePendingPhotoFiles() {
+    const pending = _getPhotoPending();
+    if (!pending || !pending.files.length) return null;
+    return pending.snapshotAndClear();
+  }
 
-    // [v178 2026-05-18] 펜딩 사진 있으면 사진 + 텍스트 함께 전송.
-    //   _uploadPhotos 안에서 input.value 를 question 으로 다시 읽으므로 텍스트 전달 OK.
-    //   텍스트 비어있어도 OK — _uploadPhotos 가 빈 question 으로 제안 메시지 띄움.
-    if (_getPhotoPending() && _getPhotoPending().files.length) {
-      const files = _getPhotoPending().snapshotAndClear();
-      _uploadPhotos(files);
-      return;
+  function _clearAssistantInput(input) {
+    if (input) input.value = '';
+  }
+
+  function _pushUserAssistantText(userText, assistantText) {
+    _history.push({ role: 'user', text: userText });
+    _history.push({ role: 'assistant', text: assistantText });
+    _renderHistory();
+  }
+
+  function _tryObviousIntent(input, q) {
+    try {
+      const result = window.AssistantIntent && window.AssistantIntent.classifyObvious(q);
+      if (!result || !result.matched) return false;
+      _clearAssistantInput(input);
+      _pushUserAssistantText(q, result.response);
+      return true;
+    } catch (_e) {
+      return false;
     }
+  }
 
-    if (!q) return;
+  function _lastPendingSingleAction() {
+    for (let i = _history.length - 1; i >= 0; i--) {
+      const m = _history[i];
+      if (m && m.role === 'assistant' && m.action && m.action.kind && m.action_status !== 'done') return m;
+    }
+    return null;
+  }
 
-    // [P0-1 2026-05-19] FE intent pre-parser — 인사·감사·도움말·소개에 한해 LLM 0회 즉시 응답.
-    // 매치 안 되면 false 반환 → 기존 keyword shortcut → LLM 흐름 그대로 진행 (안전).
-    // 롤백: localStorage.assistant_router_disabled = '1' 설정 시 항상 false (= 기존 동작).
+  function _isAffirmReply(q) {
+    return /^(응|그래|맞아|예|네|좋아|확인|진행|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
+  }
+
+  function _markActionFailed(message, err) {
+    message.action_status = 'failed';
+    message.action_error = window._humanError ? window._humanError(err) : ((err && err.message) || '알 수 없는 오류');
+    _renderHistory();
+    _history.push({ role: 'assistant', text: '실패: ' + message.action_error });
+    _renderHistory();
+  }
+
+  async function _tryAffirmAction(input, q) {
+    if (!_isAffirmReply(q)) return false;
+    const message = _lastPendingSingleAction();
+    if (!message) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    _renderHistory();
     try {
-      const _ir = window.AssistantIntent && window.AssistantIntent.classifyObvious(q);
-      if (_ir && _ir.matched) {
-        input.value = '';
-        _history.push({ role: 'user', text: q });
-        _history.push({ role: 'assistant', text: _ir.response });
-        _renderHistory();
-        return;
+      const data = await _executeAction(message.action);
+      message.action_status = 'done';
+      _renderHistory();
+      _history.push({ role: 'assistant', text: data.message || '✓ 완료했어요' });
+      _renderHistory();
+      if (window.hapticSuccess) window.hapticSuccess();
+      if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+    } catch (err) {
+      if (err && err.userCancelled) {
+        if (window.showToast) window.showToast('취소했어요');
+        return true;
       }
-    } catch (_e) { void _e; /* 라우터 에러 시 기존 흐름 fallback */ }
+      _markActionFailed(message, err);
+    }
+    return true;
+  }
 
-    // [P0-4-MT 2026-05-20] Multi-turn confirm — "응 / 그래 / 맞아" 같은 짧은 동의 응답을
-    // 직전 assistant 메시지의 pending action 재실행으로 처리.
-    // BE 가 두 번째 응답에 actions[] 빠뜨려도 사장님 의도 보전 (P0-4 nativeConfirm 거침).
-    // 매치 안 되면 그대로 fallthrough → 기존 LLM 흐름.
+  function _pushCancelBookingResult(input, q, result) {
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    if (result.kind === 'card') {
+      _history.push({
+        role: 'assistant',
+        text: result.action.confirmation_text || (result.customer.name + '님 예약 취소할까요?'),
+        action: result.action,
+        action_status: 'pending',
+      });
+    } else if (result.kind === 'message') {
+      _history.push({ role: 'assistant', text: result.text });
+    }
+    _renderHistory();
+  }
+
+  async function _tryCancelBookingShortcut(input, q) {
     try {
-      const _MT_AFFIRM = /^(응|그래|맞아|예|네|좋아|확인|진행|취소해|ok|좋|어어|ㅇㅇ|어)$/i;
-      if (_MT_AFFIRM.test(q.trim())) {
-        for (let i = _history.length - 1; i >= 0; i--) {
-          const m = _history[i];
-          if (m && m.role === 'assistant' && m.action && m.action.kind && m.action_status !== 'done') {
-            input.value = '';
-            _history.push({ role: 'user', text: q });
-            _renderHistory();
-            try {
-              const _d = await _executeAction(m.action);
-              m.action_status = 'done';
-              _renderHistory();
-              _history.push({ role: 'assistant', text: _d.message || '✓ 완료했어요' });
-              _renderHistory();
-              if (window.hapticSuccess) window.hapticSuccess();
-              if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
-            } catch (_err) {
-              if (_err && _err.userCancelled) {
-                if (window.showToast) window.showToast('취소했어요');
-                return;
-              }
-              m.action_status = 'failed';
-              m.action_error = window._humanError ? window._humanError(_err) : ((_err && _err.message) || '알 수 없는 오류');
-              _renderHistory();
-              _history.push({ role: 'assistant', text: '실패: ' + m.action_error });
-              _renderHistory();
-            }
-            return;
-          }
-        }
-      }
-    } catch (_e) { void _e; }
+      if (!window.AssistantIntent || typeof window.AssistantIntent.tryCancelBooking !== 'function') return false;
+      const result = await window.AssistantIntent.tryCancelBooking(q);
+      if (!result || !result.matched) return false;
+      _pushCancelBookingResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
 
-    // [P0-4-SQL 2026-05-20] 예약 취소 SQL-first — "{이름} 예약 취소" 패턴 직접 처리.
-    // 매치 시 FE 가 customer/booking 조회 → cancel_booking action 객체 생성 → 카드 렌더.
-    // BE LLM 우회 (actions=[] 누락 이슈 회피). 카드 '실행' 시 P0-4 confirm → /assistant/execute.
+  async function _tryAsyncIntentRule(input, q) {
     try {
-      if (window.AssistantIntent && typeof window.AssistantIntent.tryCancelBooking === 'function') {
-        // tryCancelBooking 은 async — 매치 안 되면 null, 매치 시 결과 객체.
-        const _cb = await window.AssistantIntent.tryCancelBooking(q);
-        if (_cb && _cb.matched) {
-          input.value = '';
-          _history.push({ role: 'user', text: q });
-          if (_cb.kind === 'card') {
-            // 카드 표시 — 사장님이 카드 '실행' 클릭 시 _executeAction → P0-4 confirm 거침
-            _history.push({
-              role: 'assistant',
-              text: _cb.action.confirmation_text || `${_cb.customer.name}님 예약 취소할까요?`,
-              action: _cb.action,
-              action_status: 'pending',
-            });
-          } else if (_cb.kind === 'message') {
-            _history.push({ role: 'assistant', text: _cb.text });
-          }
-          _renderHistory();
-          return;
-        }
-      }
-    } catch (_e) { void _e; /* 라우터 에러 시 기존 흐름 */ }
+      const rule = window.AssistantIntent?.findAsyncRule && window.AssistantIntent.findAsyncRule(q);
+      if (!rule) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'loading', text: '' });
+      _renderHistory();
+      await _runAsyncIntentRule(rule);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
 
-    // [P0-1.5 2026-05-20] SQL-first 비동기 router — 매출/예약 단순 조회 BE 직접 호출 (LLM 0회).
-    // 매치 시 user 메시지 + loading 표시 → fetch 응답 → 답변 갱신.
-    // fetch 실패 시 친절한 에러 메시지 + return (LLM 안 부름. 사용자 재시도 또는 다른 질문).
+  async function _runAsyncIntentRule(rule) {
     try {
-      const _ar = window.AssistantIntent && window.AssistantIntent.findAsyncRule && window.AssistantIntent.findAsyncRule(q);
-      if (_ar) {
-        input.value = '';
-        _history.push({ role: 'user', text: q });
-        _history.push({ role: 'loading', text: '' });
-        _renderHistory();
-        try {
-          const _r = await window.AssistantIntent.execAsyncRule(_ar);
-          _history = _history.filter(m => m.role !== 'loading');
-          _history.push({ role: 'assistant', text: _r.response });
-          _renderHistory();
-        } catch (_fetchErr) {
-          _history = _history.filter(m => m.role !== 'loading');
-          _history.push({ role: 'assistant', text: '⚠️ 일시적으로 조회가 안 됐어요. 잠시 후 다시 시도해 주세요.' });
-          _renderHistory();
-          try { console.warn('[assistant-intent] async fetch failed', _fetchErr); } catch (_e) { void _e; }
-        }
-        return;
-      }
-    } catch (_e) { void _e; /* 라우터 자체 에러 시 기존 흐름 */ }
+      const result = await window.AssistantIntent.execAsyncRule(rule);
+      _history = _history.filter(m => m.role !== 'loading');
+      _history.push({ role: 'assistant', text: result.response });
+      _renderHistory();
+    } catch (fetchErr) {
+      _history = _history.filter(m => m.role !== 'loading');
+      _history.push({ role: 'assistant', text: '⚠️ 일시적으로 조회가 안 됐어요. 잠시 후 다시 시도해 주세요.' });
+      _renderHistory();
+      try { console.warn('[assistant-intent] async fetch failed', fetchErr); } catch (_e) { void _e; }
+    }
+  }
 
-    // [2026-04-29 W5] 챗봇 keyword shortcut — 자주 쓰는 진입점은 LLM 호출 없이 즉시 시트 open
-    // [QA-r11 PR4-A 2026-05-16] 확장 — 갤러리/DM/영업시간/통계/백업/캡션/음성/리뷰/이탈/플랜.
-    const ql = q.toLowerCase();
-    const _shortcut = (fn) => { input.value = ''; try { fn(); } catch (_e) { void _e; } };
-    // [2026-05-23] 직원 음성명령 분기 제거 — 1인샵 전용으로 단순화 (StaffUI 폐기).
-    // [v168 2026-05-18] 사진 편집기 phrase shortcut — 백엔드 LLM 없이도 즉시 진입.
-    if (/(사진|이미지|포토)\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
-        || /(편집기|편집\s*화면|보정\s*화면|에디터)\s*(열|보여|시작|이동|가)?/.test(q)
+  function _runSheetShortcut(input, fn) {
+    _clearAssistantInput(input);
+    try { fn(); } catch (_e) { void _e; }
+  }
+
+  function _tryKeywordShortcut(input, q) {
+    if (_tryPhotoEditorShortcut(input, q)) return true;
+    if (_trySimpleOpenShortcut(input, q)) return true;
+    if (_tryTabShortcut(input, q)) return true;
+    return _tryUtilityShortcut(input, q);
+  }
+
+  function _tryPhotoEditorShortcut(input, q) {
+    const editor = window.PhotoEditor && typeof window.PhotoEditor.open === 'function';
+    if (!editor) return false;
+    if (/(사진|이미지|포토)\\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
+        || /(편집기|편집\\s*화면|보정\\s*화면|에디터)\\s*(열|보여|시작|이동|가)?/.test(q)
         || /^편집기?$/.test(q.trim())) {
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        _shortcut(() => window.PhotoEditor.open({}));
-        return;
-      }
+      _runSheetShortcut(input, () => window.PhotoEditor.open({}));
+      return true;
     }
-    // Brand Kit shortcut
-    if (/(브랜드\s*키트|brand\s*kit|샵\s*브랜드|워터마크\s*(설정|관리))/.test(q)) {
-      if (window.BrandKit && typeof window.BrandKit.open === 'function') { _shortcut(() => window.BrandKit.open()); return; }
+    if (/(전후|before\\s*after|b&a|비포\\s*애프터|시술\\s*전후).*?(카드|만들|보여|업로드)/.test(q)) {
+      _runSheetShortcut(input, () => window.PhotoEditor.open({ initial_tab: 'template' }));
+      return true;
     }
-    // B&A 카드 — 사진 편집기 템플릿 탭 시작.
-    if (/(전후|before\s*after|b&a|비포\s*애프터|시술\s*전후).*?(카드|만들|보여|업로드)/.test(q)) {
-      if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        _shortcut(() => window.PhotoEditor.open({ initial_tab: 'template' }));
-        return;
-      }
-    }
-    if (/회원권.*(만료|임박)/.test(q) || /만료.*회원권/.test(q)) {
-      if (window.MembershipUI && typeof window.MembershipUI.openExpiringList === 'function') { _shortcut(() => window.MembershipUI.openExpiringList(30)); return; }
-    }
-    // 갤러리·포트폴리오 — showTab 으로 갤러리 탭 진입
-    if (/(갤러리|포트폴리오|작품)\s*(열|보여|이동|가)/.test(q) || /^(갤러리|포트폴리오)$/.test(q.trim())) {
-      if (typeof window.showTab === 'function') { _shortcut(() => window.showTab('gallery', document.querySelector('.tab-bar__btn[data-tab="gallery"]'))); return; }
-    }
-    // DM 자동응답 설정
-    if (/(dm|디엠|자동\s*응답|자동\s*답장).*(설정|관리|편집|룰)/.test(q) || /자동\s*응답\s*(켜|꺼|on|off)/.test(q)) {
-      if (typeof window.openDMAutoreplySettings === 'function') { _shortcut(() => window.openDMAutoreplySettings()); return; }
-    }
-    // 영업시간·매장 정보 — 설정 허브
-    if (/(영업\s*시간|매장\s*정보|가게\s*정보|샵\s*정보|설정).*(변경|수정|확인|보기|열|관리)?/.test(q)) {
-      // "설정" 단독 또는 "영업시간 변경" 같은 패턴만 매치 — "고객 설정" 등은 fall-through
-      if (/^설정\s*$|영업\s*시간|매장\s*정보|가게\s*정보|샵\s*정보/.test(q)) {
-        if (typeof window.openSettingsHub === 'function') { _shortcut(() => window.openSettingsHub()); return; }
-      }
-    }
-    // 통계·매출 분석
-    if (/(통계|분석|인사이트|insight|매출\s*(요약|리포트|추이|분석))/.test(q)) {
-      if (typeof window.openInsights === 'function') { _shortcut(() => window.openInsights()); return; }
-    }
-    // 백업·복구
-    if (/(백업|복구|backup|데이터.*(내보내|받|export))/.test(q)) {
-      if (typeof window.openBackupScreen === 'function') { _shortcut(() => window.openBackupScreen()); return; }
-    }
-    // 캡션·문구 생성
-    if (/(캡션|문구|글|insta.*글|인스타.*글).*(만들|생성|작성|뽑)/.test(q) || /^(캡션|글)\s*(생성|만들기)$/.test(q.trim())) {
-      if (typeof window.openInstantCaption === 'function') { _shortcut(() => window.openInstantCaption()); return; }
-    }
-    // 음성 캡션·받아쓰기
-    if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
-      if (typeof window.openVoiceCaption === 'function') { _shortcut(() => window.openVoiceCaption()); return; }
-    }
-    // 리뷰·후기 요청
-    if (/(리뷰|후기)\s*(요청|보내|부탁|발송)/.test(q)) {
-      if (typeof window.openReviewRequests === 'function') { _shortcut(() => window.openReviewRequests()); return; }
-    }
-    // 이탈·위험 고객
-    if (/(이탈|위험|복귀|재방문)\s*(고객|손님|관리)?/.test(q) || /retention/i.test(q)) {
-      if (typeof window.openRetentionAI === 'function') { _shortcut(() => window.openRetentionAI()); return; }
-    }
-    // 결제·플랜 변경
-    if (/(결제|플랜|구독|업그레이드|pro|premium)\s*(변경|선택|보|관리|업)?/.test(q)) {
-      if (typeof window.openPlanPopup === 'function') { _shortcut(() => window.openPlanPopup()); return; }
-      if (typeof window.openPlan === 'function') { _shortcut(() => window.openPlan()); return; }
-    }
-    void ql;
+    return false;
+  }
 
-    _sendInFlight = true;
-    input.value = '';
-    // Wave B5 — 전송 시 typeahead chips 숨김
+  function _trySimpleOpenShortcut(input, q) {
+    const pairs = [
+      [/(브랜드\\s*키트|brand\\s*kit|샵\\s*브랜드|워터마크\\s*(설정|관리))/, () => window.BrandKit?.open?.()],
+      [/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)],
+      [/(dm|디엠|자동\\s*응답|자동\\s*답장).*(설정|관리|편집|룰)|자동\\s*응답\\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
+      [/(통계|분석|인사이트|insight|매출\\s*(요약|리포트|추이|분석))/, window.openInsights],
+      [/(백업|복구|backup|데이터.*(내보내|받|export))/, window.openBackupScreen],
+      [/(리뷰|후기)\\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
+      [/(이탈|위험|복귀|재방문)\\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
+    ];
+    return _runFirstShortcutPair(input, q, pairs);
+  }
+
+  function _runFirstShortcutPair(input, q, pairs) {
+    for (const pair of pairs) {
+      if (pair[0].test(q) && typeof pair[1] === 'function') {
+        _runSheetShortcut(input, pair[1]);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function _tryTabShortcut(input, q) {
+    if (/(갤러리|포트폴리오|작품)\\s*(열|보여|이동|가)/.test(q) || /^(갤러리|포트폴리오)$/.test(q.trim())) {
+      if (typeof window.showTab === 'function') {
+        _runSheetShortcut(input, () => window.showTab('gallery', document.querySelector('.tab-bar__btn[data-tab="gallery"]')));
+        return true;
+      }
+    }
+    if (/(영업\\s*시간|매장\\s*정보|가게\\s*정보|샵\\s*정보|설정).*(변경|수정|확인|보기|열|관리)?/.test(q)) {
+      return _trySettingsShortcut(input, q);
+    }
+    return false;
+  }
+
+  function _trySettingsShortcut(input, q) {
+    if (!/^설정\\s*$|영업\\s*시간|매장\\s*정보|가게\\s*정보|샵\\s*정보/.test(q)) return false;
+    if (typeof window.openSettingsHub !== 'function') return false;
+    _runSheetShortcut(input, () => window.openSettingsHub());
+    return true;
+  }
+
+  function _tryUtilityShortcut(input, q) {
+    if (/(캡션|문구|글|insta.*글|인스타.*글).*(만들|생성|작성|뽑)|^(캡션|글)\\s*(생성|만들기)$/.test(q.trim())) {
+      if (typeof window.openInstantCaption === 'function') { _runSheetShortcut(input, () => window.openInstantCaption()); return true; }
+    }
+    if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
+      if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
+    }
+    if (/(결제|플랜|구독|업그레이드|pro|premium)\\s*(변경|선택|보|관리|업)?/.test(q)) return _tryPlanShortcut(input);
+    return false;
+  }
+
+  function _tryPlanShortcut(input) {
+    if (typeof window.openPlanPopup === 'function') { _runSheetShortcut(input, () => window.openPlanPopup()); return true; }
+    if (typeof window.openPlan === 'function') { _runSheetShortcut(input, () => window.openPlan()); return true; }
+    return false;
+  }
+
+  function _hideSendHelpers() {
     try {
       const tb = document.getElementById('asstTypeahead');
       if (tb) { tb.style.display = 'none'; tb.innerHTML = ''; }
     } catch (_e) { void _e; }
-    // [2026-05-16] 전송 시 퀵액션 라벨+칩 숨기기 (대화 시작 후엔 빈 시그널 의미 없음)
     try {
-      const ql = document.getElementById('asstQuickLabel');
-      const qs = document.getElementById('asstSuggest');
-      if (ql) ql.style.display = 'none';
-      if (qs) qs.style.display = 'none';
+      const quickLabel = document.getElementById('asstQuickLabel');
+      const suggest = document.getElementById('asstSuggest');
+      if (quickLabel) quickLabel.style.display = 'none';
+      if (suggest) suggest.style.display = 'none';
     } catch (_e) { void _e; }
+  }
+
+  function _beginTextAsk(input, q) {
+    _sendInFlight = true;
+    _clearAssistantInput(input);
+    _hideSendHelpers();
     _history.push({ role: 'user', text: q });
     _history.push({ role: 'loading', text: '' });
     _renderHistory();
-
-    // [2026-04-26] in-flight 직렬화 — 챗봇 닫고 다시 들어와도 메시지·답변 유지
     _savePending({ kind: 'text', user_msg: q });
+  }
 
+  async function _postAssistantAsk(q) {
     const ctrl = new AbortController();
     _inflightCtrl = ctrl;
+    const res = await apiFetch('/assistant/ask', {
+      method: 'POST',
+      headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: q, session_id: _sessionId || undefined }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  }
+
+  function _rawActionsFromResponse(data) {
+    return (Array.isArray(data.actions) && data.actions.length)
+      ? data.actions
+      : (data.action && data.action.kind ? [data.action] : []);
+  }
+
+  function _pushFallbackAsk(q) {
+    _history.push({
+      role: 'assistant',
+      text: '정확히 못 알아들었어요. 아래처럼 정리해봤는데 맞나요?',
+      fallback: _heuristicExtract(q),
+    });
+    _renderHistory();
+    if (window.hapticLight) window.hapticLight();
+    _clearChatPending();
+    _notifyAnswerArrived();
+  }
+
+  function _textResponseMessage(data, actionsList) {
+    const msg = { role: 'assistant', text: data.answer || '답을 만들지 못했어요.' };
+    if (Array.isArray(data.related_questions) && data.related_questions.length) msg.related = data.related_questions.slice(0, 3);
+    if (Array.isArray(data.duplicate_warnings) && data.duplicate_warnings.length) {
+      msg.duplicate_warnings = data.duplicate_warnings.map(w => ({ ...w, dismissed: false }));
+    }
+    _attachActionsToImageMessage(msg, actionsList);
+    return msg;
+  }
+
+  function _finishAskResponse(q, data) {
+    _history = _history.filter(m => m.role !== 'loading');
+    _rememberAssistantSession(data);
+    const rawActions = _rawActionsFromResponse(data);
+    const actionsList = _prepareAssistantActions(rawActions, q, '[assistant] /ask actions dedupe');
+    if (!(data.answer || '').trim() && actionsList.length === 0) {
+      _pushFallbackAsk(q);
+      return;
+    }
+    _history.push(_textResponseMessage(data, actionsList));
+    _renderHistory();
+    if (window.hapticLight) window.hapticLight();
+    _clearChatPending();
+    _notifyAnswerArrived();
+  }
+
+  function _sendErrorText(e) {
+    const msg = (e && e.message) || '';
+    if (/409|conflict|중복|이미.*예약/.test(msg)) return '⚠️ ' + msg.replace(/^.*?(?:detail":\s*"|429:\s*|409:\s*)/, '').replace(/"\}.*$/, '');
+    if (/timeout|deadline|timed out|너무 오래/i.test(msg)) return '⏱️ 응답이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.';
+    if (/503|maintenance|점검/.test(msg)) return '🛠️ 서버 점검 중이에요. 5분 후 다시 시도해 주세요.';
+    if (/quota|429|rate.?limit/i.test(msg)) return '⏰ 잠깐 요청이 몰려서 늦어져요. 1분 후 다시 보내주세요.';
+    if (/403|permission|denied/i.test(msg)) return '🔒 권한 문제예요. 운영팀에 문의해 주세요.';
+    if (/network|failed to fetch|네트워크/i.test(msg) || !navigator.onLine) return '📡 인터넷 연결을 확인해 주세요.';
+    return '에러: ' + (window._humanError ? window._humanError(e) : msg);
+  }
+
+  function _handleSendError(e) {
+    _history = _history.filter(m => m.role !== 'loading');
+    if (e && e.name === 'AbortError') {
+      _renderHistory();
+      _clearChatPending();
+      return;
+    }
+    _history.push({ role: 'assistant', text: _sendErrorText(e) });
+    _renderHistory();
+    _clearChatPending();
+  }
+
+  async function _trySendShortcuts(input, q) {
+    if (_tryObviousIntent(input, q)) return true;
+    if (await _tryAffirmAction(input, q)) return true;
+    if (await _tryCancelBookingShortcut(input, q)) return true;
+    if (await _tryAsyncIntentRule(input, q)) return true;
+    return _tryKeywordShortcut(input, q);
+  }
+
+  async function _send() {
+    if (_sendInFlight) return;
+    const input = document.getElementById('asstInput');
+    const pendingFiles = _takePendingPhotoFiles();
+    if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
+    const q = input ? input.value.trim() : '';
+    if (!q) return;
+    if (await _trySendShortcuts(input, q)) return;
+    _beginTextAsk(input, q);
     try {
-      const res = await apiFetch('/assistant/ask', {
-        method: 'POST',
-        headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: q, session_id: _sessionId || undefined }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const d = await res.json();
-      _history = _history.filter(m => m.role !== 'loading');
-
-      // v1.1 — session_id 저장 (서버가 최초 생성 or 기존 사용)
-      if (d.session_id) {
-        _sessionId = d.session_id;
-        try { localStorage.setItem('assistant_session_id', String(_sessionId)); } catch (_e) { void _e; }
-      }
-
-      // 복수 액션 지원 — actions[] 우선, 없으면 단일 action 을 배열로
-      const _rawActionsList = (Array.isArray(d.actions) && d.actions.length)
-        ? d.actions
-        : (d.action && d.action.kind ? [d.action] : []);
-      // [QA-r10] 텍스트 /ask 경로에도 동일 dedupe — LLM 환각으로 같은 액션 반복 출력하는 경우 방어.
-      const _dedupeResAsk = _dedupeAndCapActions(_rawActionsList);
-      const actionsList = _dedupeResAsk.actions;
-      if (_dedupeResAsk.dropped > 0) {
-        try { console.warn('[assistant] /ask actions dedupe', { raw: _rawActionsList.length, kept: actionsList.length, dropped: _dedupeResAsk.dropped, kinds: _dedupeResAsk.droppedKinds }); } catch (_e) { void _e; }
-      }
-      // [QA-NEXT #4] AI 원본 payload 스냅샷 저장 (텍스트 /ask 경로)
-      actionsList.forEach(a => {
-        try {
-          if (a && a.payload && !a._ai_original) {
-            a._ai_original = JSON.parse(JSON.stringify(a.payload));
-          }
-          if (a && !a._source_question) a._source_question = q;
-        } catch (_e) { void _e; }
-      });
-
-      // Wave B4 — answer + actions 모두 빈값이면 휴리스틱 프리뷰 카드
-      const answerText = (d.answer || '').trim();
-      if (!answerText && actionsList.length === 0) {
-        const extract = _heuristicExtract(q);
-        _history.push({
-          role: 'assistant',
-          text: '정확히 못 알아들었어요. 아래처럼 정리해봤는데 맞나요?',
-          fallback: extract,
-        });
-        _renderHistory();
-        if (window.hapticLight) window.hapticLight();
-        _clearChatPending();
-        _notifyAnswerArrived();
-        return;
-      }
-
-      const msg = { role: 'assistant', text: d.answer || '답을 만들지 못했어요.' };
-      if (Array.isArray(d.related_questions) && d.related_questions.length) {
-        msg.related = d.related_questions.slice(0, 3);
-      }
-      // 중복 거래 경고 (영수증·주문내역 여러 장 업로드 대응)
-      if (Array.isArray(d.duplicate_warnings) && d.duplicate_warnings.length) {
-        msg.duplicate_warnings = d.duplicate_warnings.map(w => ({ ...w, dismissed: false }));
-      }
-
-      if (actionsList.length === 1) {
-        // 단일 액션: 답변 메시지에 '추가하기 ✓' 버튼 직접 붙임 (기존 UX)
-        msg.action = actionsList[0];
-        msg.action_status = 'pending';
-        _history.push(msg);
-      } else if (actionsList.length > 1) {
-        // 복수 액션: 카테고리별 그룹 카드로 묶어서 표시
-        msg.action_groups = _groupActions(actionsList);
-        // 2~6건 · kind 2종 이상 혼합 → 통합 확인 카드로 시작 (같은 kind 다수면 기존 그룹 카드 유지)
-        if (_shouldUseUnifiedCard(msg.action_groups)) msg.unified_mode = true;
-        _history.push(msg);
-      } else {
-        _history.push(msg);
-      }
-      _renderHistory();
-      if (window.hapticLight) window.hapticLight();
-      // [2026-04-26] 답변 도착 — pending 정리 + 챗봇 닫혀있으면 알림
-      _clearChatPending();
-      _notifyAnswerArrived();
+      _finishAskResponse(q, await _postAssistantAsk(q));
     } catch (e) {
-      _history = _history.filter(m => m.role !== 'loading');
-      const isAbort = e && (e.name === 'AbortError');
-      // [2026-04-28] AbortError 는 사용자에게 에러로 보이지 않게 — 보통 페이지 전환·백그라운드 시 발생
-      if (isAbort) {
-        // 메시지 추가 안 하고 조용히 종료 (chat_pending 으로 답변 복원 가능)
-        _renderHistory();
-        _clearChatPending();
-        return;
-      }
-      // [2026-05-12 QA #5] 모든 에러를 '연결 불안정' 으로 뭉뚱그리지 말고 원인별 분기.
-      let _errMsg = (e && e.message) || '';
-      let _errPrefix;
-      if (/409|conflict|중복|이미.*예약/.test(_errMsg)) {
-        _errPrefix = '⚠️ ' + _errMsg.replace(/^.*?(?:detail":\s*"|429:\s*|409:\s*)/, '').replace(/"\}.*$/, '');
-      } else if (/timeout|deadline|timed out|너무 오래/i.test(_errMsg)) {
-        _errPrefix = '⏱️ 응답이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.';
-      } else if (/503|maintenance|점검/.test(_errMsg)) {
-        _errPrefix = '🛠️ 서버 점검 중이에요. 5분 후 다시 시도해 주세요.';
-      } else if (/quota|429|rate.?limit/i.test(_errMsg)) {
-        _errPrefix = '⏰ 잠깐 요청이 몰려서 늦어져요. 1분 후 다시 보내주세요.';
-      } else if (/403|permission|denied/i.test(_errMsg)) {
-        _errPrefix = '🔒 권한 문제예요. 운영팀에 문의해 주세요.';
-      } else if (/network|failed to fetch|네트워크/i.test(_errMsg) || !navigator.onLine) {
-        _errPrefix = '📡 인터넷 연결을 확인해 주세요.';
-      } else {
-        _errPrefix = '에러: ' + (window._humanError ? window._humanError(e) : _errMsg);
-      }
-      _history.push({ role: 'assistant', text: _errPrefix });
-      _renderHistory();
-      _clearChatPending();
+      _handleSendError(e);
     } finally {
       _sendInFlight = false;
       _inflightCtrl = null;
