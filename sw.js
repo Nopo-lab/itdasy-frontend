@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260525-v271-assistant-pending-photos';
+const CACHE_VERSION = '20260525-v272-assistant-core-lightbox';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -72,6 +72,7 @@ const STATIC_ASSETS = [
   './app-pricelist.js',
   './app-assistant-facts.js',
   './js/assistant/kind-core.js',
+  './js/assistant/lightbox.js',
   './js/assistant/photo-actions.js',
   './js/assistant/single-action-controls.js',
   './js/assistant/group-action-controls.js',
@@ -79,6 +80,8 @@ const STATIC_ASSETS = [
   './js/assistant/photo-local-handlers.js',
   './js/assistant/photo-kind-classifier.js',
   './js/assistant/pending-photos.js',
+  './js/assistant/voice-input.js',
+  './js/assistant/cache-invalidation.js',
   './assistant-intent-router.js',
   './app-smart-capture.js',
   './app-ai-hub.js',

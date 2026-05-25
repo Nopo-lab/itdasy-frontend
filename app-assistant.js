@@ -60,120 +60,16 @@
   //   - kind 없거나 payload 빈 fallback 액션은 drop
   // 반환: { actions, dropped, droppedKinds[] }
   function _dedupeAndCapActions(actions) {
-    if (!Array.isArray(actions) || actions.length === 0) {
-      return { actions: [], dropped: 0, droppedKinds: [] };
+    if (typeof _assistantCore.dedupeAndCapActions === 'function') {
+      return _assistantCore.dedupeAndCapActions(actions);
     }
-    // [2026-05-25] 재고관리 기능 폐지(INVENTORY_HIDDEN). 백엔드 LLM 이 upsert_inventory 액션을
-    //   생성해도 프론트가 무시. 사용자 화면에 "재고 추가" 카드가 뜨지 않게 1차 차단.
-    actions = actions.filter(a => a && a.kind !== 'upsert_inventory' && a.kind !== 'delete_inventory');
-    if (actions.length === 0) {
-      return { actions: [], dropped: 0, droppedKinds: [] };
-    }
-    const PER_KIND_CAP = 8;
-    const TOTAL_CAP = 20;
-    // [QA-r11 2026-05-16] receipt-level dedupe — vendor+amount 만으로 dedupe 절대 금지.
-    // 올리브영 같은 매장은 같은 금액 영수증이 흔해 오탐. 영수증 메타 (image_hash + transaction_time +
-    // approval_no) 조합만 사용. 메타 부재 시에는 dedupe 보류 (안전 — keep all).
-    function _keyOf(a) {
-      const p = (a && a.payload) || {};
-      const kind = a && a.kind;
-      if (kind === 'create_expense') {
-        // 영수증 메타 우선 — 셋 중 하나라도 있으면 그것으로 키 생성.
-        const rmeta = (p.receipt_meta && typeof p.receipt_meta === 'object') ? p.receipt_meta : {};
-        const _img = (p.image_hash || rmeta.image_hash || '').toString();
-        const _txn = (rmeta.transaction_time || '').toString();
-        const _appr = (rmeta.approval_no || '').toString();
-        if (_img || _txn || _appr) {
-          return `expense|hash:${_img}|txn:${_txn}|appr:${_appr}`;
-        }
-        // 메타 부재 — JSON 전체 stringify 로 비교 (완전 동일 payload 만 같은 것으로 봄, 보수적).
-        try { return `expense|nometa|${JSON.stringify(p).slice(0, 200)}`; }
-        catch (_e) { void _e; return `expense|nometa|?`; }
-      }
-      if (kind === 'upsert_inventory') {
-        // 카드 표시: items[0].name · quantity
-        const it0 = (Array.isArray(p.items) && p.items[0]) || {};
-        return `inv|${(it0.name || '').trim().toLowerCase()}|${it0.quantity || 0}|${(it0.unit || '').trim()}`;
-      }
-      if (kind === 'create_revenue') {
-        // 카드 표시: customer_name · service_name · amount
-        return `rev|${(p.customer_name || p.name || '').trim()}|${(p.service_name || '').trim()}|${p.amount || 0}|${p.starts_at || ''}`;
-      }
-      if (kind === 'create_customer') {
-        return `cust|${(p.customer_name || p.name || '').trim()}|${(p.customer_phone || p.phone || '').trim()}`;
-      }
-      if (kind === 'create_booking') {
-        return `book|${(p.customer_name || p.name || '').trim()}|${(p.service_name || '').trim()}|${p.starts_at || ''}`;
-      }
-      try { return `${kind}|${JSON.stringify(p).slice(0, 100)}`; }
-      catch (_e) { void _e; return `${kind}|?`; }
-    }
-    const seen = new Map();
-    const perKind = {};
-    const droppedKindsSet = new Set();
-    let dropped = 0;
-    for (const a of actions) {
-      if (!a || !a.kind) { dropped++; continue; }
-      // payload 가 완전히 빈 fallback action (가게/상품/고객 모두 없음) drop
-      const p = a.payload || {};
-      const hasAnySignal = !!(
-        p.vendor || p.customer_name || p.name || p.service_name ||
-        p.amount || p.memo || p.customer_phone || p.phone || p.starts_at ||
-        (Array.isArray(p.items) && p.items.length && (p.items[0] && (p.items[0].name || p.items[0].quantity)))
-      );
-      if (!hasAnySignal) {
-        dropped++; droppedKindsSet.add(a.kind);
-        continue;
-      }
-      const k = _keyOf(a);
-      if (seen.has(k)) { dropped++; droppedKindsSet.add(a.kind); continue; }
-      const kc = perKind[a.kind] || 0;
-      if (kc >= PER_KIND_CAP) { dropped++; droppedKindsSet.add(a.kind); continue; }
-      if (seen.size >= TOTAL_CAP) { dropped++; droppedKindsSet.add(a.kind); continue; }
-      seen.set(k, a);
-      perKind[a.kind] = kc + 1;
-    }
-    return { actions: Array.from(seen.values()), dropped, droppedKinds: Array.from(droppedKindsSet) };
+    return { actions: Array.isArray(actions) ? actions : [], dropped: 0, droppedKinds: [] };
   }
 
   // actions[] 을 kind 순서대로 그룹핑 (첫 등장 순서 유지)
   function _groupActions(actions) {
-    // 2026-04-24 디버그 — actions 배열의 customer_name·service_name·amount 매핑이 행 인덱스와 일치하는지 추적
-    try {
-      if (window.__ASSISTANT_DEBUG__) {
-        const dump = (actions || []).map((a, i) => ({
-          i,
-          kind: a && a.kind,
-          customer_name: a && a.payload && (a.payload.customer_name || a.payload.name),
-          service_name: a && a.payload && a.payload.service_name,
-          amount: a && a.payload && a.payload.amount,
-        }));
-        console.log('[groupActions] input', JSON.stringify(dump));
-      }
-    } catch (_e) { void _e; }
-    const order = [];
-    const map = {};
-    (actions || []).forEach((a, i) => {
-      if (!a || !a.kind) return;
-      if (!map[a.kind]) { map[a.kind] = []; order.push(a.kind); }
-      map[a.kind].push({ action: a, skipped: false, status: 'pending', origIdx: i });
-    });
-    const groups = order.map(k => ({ kind: k, items: map[k], expanded: false, bulkProgress: null }));
-    try {
-      if (window.__ASSISTANT_DEBUG__) {
-        const summary = groups.map(g => ({
-          kind: g.kind,
-          items: g.items.map(it => ({
-            origIdx: it.origIdx,
-            customer_name: it.action && it.action.payload && (it.action.payload.customer_name || it.action.payload.name),
-            service_name: it.action && it.action.payload && it.action.payload.service_name,
-            amount: it.action && it.action.payload && it.action.payload.amount,
-          })),
-        }));
-        console.log('[groupActions] output', JSON.stringify(summary));
-      }
-    } catch (_e) { void _e; }
-    return groups;
+    if (typeof _assistantCore.groupActions === 'function') return _assistantCore.groupActions(actions);
+    return [];
   }
 
   let _history = [];  // [{role, text}]
@@ -232,7 +128,6 @@
   let _pendingTimer = null;
   let _inflightCtrl = null;     // 진행 중 fetch AbortController (페이지 언로드 시 abort)
   let _pendingTickTimer = null; // 진행 시간 표시용 1초 인터벌
-  let _hasUnreadAnswer = false; // 챗봇 닫혀있는데 답변 도착 → FAB 빨간 점
 
   function _savePending(payload) {
     try {
@@ -273,7 +168,6 @@
     } catch (_e) { return null; }
   }
   function _setUnreadAnswer(on) {
-    _hasUnreadAnswer = !!on;
     try {
       const fab = document.getElementById('assistantFab');
       if (!fab) return;
@@ -410,6 +304,13 @@
       </div>
     `;
     document.body.appendChild(sheet);
+    _installSheetTapStyle();
+    _bindSheetControls(sheet);
+    _renderSuggest();
+    return sheet;
+  }
+
+  function _installSheetTapStyle() {
     // iOS 300ms 딜레이 제거 — asstBody 안 버튼은 즉시 반응
     if (!document.getElementById('asst-tap-style')) {
       const st = document.createElement('style');
@@ -417,6 +318,9 @@
       st.textContent = '#assistantSheetPanel button { touch-action: manipulation; }';
       document.head.appendChild(st);
     }
+  }
+
+  function _bindSheetControls(sheet) {
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeAssistant(); });
     sheet.querySelector('[data-assistant-close]')?.addEventListener('click', () => closeAssistant());
     // [2026-05-25] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기/카톡캡쳐/명함/가격표 OCR 통합 진입점.
@@ -424,6 +328,13 @@
     sheet.querySelector('#asstSend').addEventListener('click', _send);
     // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
+    _bindSheetPhotoInputs(sheet);
+    _bindSheetTextInput(sheet);
+    const micBtn = sheet.querySelector('#asstMicBtn');
+    if (micBtn) micBtn.addEventListener('click', _startVoiceInput);
+  }
+
+  function _bindSheetPhotoInputs(sheet) {
     // [v178 2026-05-18] file input 선택 → 펜딩에 추가 (자동 전송 X). 사용자 ▷ 누르면 전송.
     sheet.querySelector('#asstCamera').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
@@ -435,6 +346,9 @@
       e.target.value = '';
       if (fs.length) _addPendingPhotos(fs);
     });
+  }
+
+  function _bindSheetTextInput(sheet) {
     sheet.querySelector('#asstInput').addEventListener('keydown', (e) => {
       // 한글 IME 조합 중 Enter 무시 (마지막 글자 중복/누락 방지)
       if (e.isComposing || e.keyCode === 229) return;
@@ -447,11 +361,6 @@
       const v = (e.target.value || '').trim();
       _typeTimer = setTimeout(() => _renderTypeahead(v), 200);
     });
-    // 2026-04-26 — 음성 입력 버튼 (Web Speech API)
-    const _micBtn = sheet.querySelector('#asstMicBtn');
-    if (_micBtn) _micBtn.addEventListener('click', _startVoiceInput);
-    _renderSuggest();
-    return sheet;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -461,138 +370,14 @@
   //   iOS Safari / Android Chrome / 데스크톱 Chrome 지원. Capacitor WebView
   //   는 폴백 미지원 — 별도 PR 에서 SpeechRecognizer 플러그인 통합.
   // ─────────────────────────────────────────────────────────────
-  let _voiceRec = null;  // 현재 동작 중 SpeechRecognition 인스턴스
-  let _voiceManualStop = false;  // 사용자가 토글로 끄면 true → onend 자동 재시작 안 함
+  let _voiceInput = null;
   function _startVoiceInput() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const input = document.getElementById('asstInput');
-    const btn = document.getElementById('asstMicBtn');
-    if (!SR) {
-      // Capacitor / 미지원 브라우저 폴백
-      showToast('이 환경은 음성 입력을 지원하지 않아요. 키보드로 입력해주세요.', 'warning');
-      return;
+    if (!_voiceInput && window.ItdasyAssistantVoiceInput) {
+      _voiceInput = window.ItdasyAssistantVoiceInput.create();
     }
-    // 이미 녹음 중이면 토글로 중지 (사용자 의도)
-    if (_voiceRec) {
-      _voiceManualStop = true;
-      try { _voiceRec.stop(); } catch (_e) { void _e; }
-      _voiceRec = null;
-      _voiceUiReset(btn);
-      return;
+    if (_voiceInput && typeof _voiceInput.start === 'function') {
+      _voiceInput.start();
     }
-    _voiceManualStop = false;
-    // [2026-04-27 v3] continuous 모드의 e.resultIndex 일관성 문제로 단어 중복 발생.
-    // 단순화: continuous=false (각 recognition 은 한 phrase 만 받고 onend) + onend 즉시 재시작.
-    // 각 인스턴스 = 1 final 결과만 처리 → 누적 추적 불필요.
-    const inputStartValue = (input && input.value) || '';
-    const baseSep = inputStartValue && !inputStartValue.endsWith(' ') ? inputStartValue + ' ' : inputStartValue;
-    function _newRec() {
-      const r = new SR();
-      r.lang = 'ko-KR';
-      r.continuous = false;  // 한 phrase 단위
-      r.interimResults = true;
-      r.maxAlternatives = 1;
-      let _localFinal = '';  // 이번 인스턴스의 final
-      r.onresult = (e) => {
-        if (!input) return;
-        let interimTxt = '';
-        let finalTxt = '';
-        for (let i = 0; i < e.results.length; i++) {
-          const res = e.results[i];
-          const t = res[0].transcript;
-          if (res.isFinal) finalTxt += t;
-          else interimTxt += t;
-        }
-        // _localFinal 은 이번 인스턴스에서 한 번만 final 잡힘 → 마지막 final 텍스트만 보관
-        if (finalTxt) _localFinal = finalTxt;
-        // 입력창 표시: 기존값 + 이번 인스턴스 final + 현재 interim
-        const cur = (input.value || '');
-        const baseForThis = cur.length >= baseSep.length ? cur.substring(0, baseSep.length) : baseSep;
-        input.value = baseForThis + (_localFinal || '') + (interimTxt || '');
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      };
-      r.onerror = (ev) => {
-        const code = ev && ev.error;
-        if (code === 'no-speech' && !_voiceManualStop) return;  // 무음은 무시 (재시작은 onend 에서)
-        if (code === 'aborted') return;  // 의도된 stop
-        _voiceUiReset(btn);
-        _voiceRec = null;
-        let msg = '음성 인식 실패 - 다시 시도해주세요';
-        if (code === 'not-allowed' || code === 'service-not-allowed') {
-          msg = '마이크 권한이 필요해요. 브라우저 설정을 확인해주세요.';
-        }
-        if (typeof window.showToast === 'function') window.showToast(msg);
-      };
-      r.onend = () => {
-        // 이번 인스턴스의 final 을 input 에 확정 (interim 정리)
-        if (input && _localFinal) {
-          const cur = input.value || '';
-          const baseForThis = cur.length >= baseSep.length ? cur.substring(0, baseSep.length) : baseSep;
-          // 이미 onresult 에서 한 번 _localFinal 추가했지만 interim 이 섞여있을 수 있어서 정리
-          input.value = baseForThis + _localFinal + ' ';
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-        if (_voiceManualStop) {
-          _voiceUiReset(btn);
-          _voiceRec = null;
-          if (input && input.value) {
-            if (typeof window.showToast === 'function') window.showToast('음성 인식 완료');
-          }
-          try { input && input.focus(); } catch (_e) { void _e; }
-          return;
-        }
-        // 자동 재시작 — 짧은 지연 (Chrome 재시작 가드)
-        try {
-          setTimeout(() => {
-            if (_voiceManualStop) return;
-            try {
-              const next = _newRec();
-              next.start();
-              _voiceRec = next;
-            } catch (_err) {
-              _voiceUiReset(btn);
-              _voiceRec = null;
-            }
-          }, 50);
-        } catch (_e) {
-          _voiceUiReset(btn);
-          _voiceRec = null;
-        }
-      };
-      return r;
-    }
-    try {
-      const rec = _newRec();
-      rec.start();
-      _voiceRec = rec;
-      _voiceUiActive(btn);
-      if (typeof window.showToast === 'function') window.showToast('듣고 있어요… (다시 누르면 멈춤)');
-    } catch (e) {
-      _voiceUiReset(btn);
-      _voiceRec = null;
-      if (typeof window.showToast === 'function') window.showToast('음성 시작 실패 - 잠시 후 다시 시도');
-    }
-  }
-  function _voiceUiActive(btn) {
-    if (!btn) return;
-    btn.style.background = 'rgba(220,53,69,0.92)';
-    btn.style.color = '#fff';
-    btn.style.borderColor = 'rgba(220,53,69,1)';
-    btn.style.animation = 'asst-mic-pulse 1s infinite';
-  }
-  function _voiceUiReset(btn) {
-    if (!btn) return;
-    btn.style.background = 'hsl(340,100%,98%)';
-    btn.style.color = 'hsl(350,60%,40%)';
-    btn.style.borderColor = 'hsl(340,78%,85%)';
-    btn.style.animation = '';
-  }
-  // 펄스 애니메이션 1회 주입 (중복 방지)
-  if (!document.getElementById('asst-mic-pulse-style')) {
-    const _st = document.createElement('style');
-    _st.id = 'asst-mic-pulse-style';
-    _st.textContent = '@keyframes asst-mic-pulse{0%{box-shadow:0 0 0 0 rgba(220,53,69,0.55)}70%{box-shadow:0 0 0 12px rgba(220,53,69,0)}100%{box-shadow:0 0 0 0 rgba(220,53,69,0)}}';
-    document.head.appendChild(_st);
   }
 
   // Wave B5 — 의도 예측 chips 렌더
@@ -630,34 +415,9 @@
       ? _renderDuplicateWarnings(idx, m.duplicate_warnings, 0)
       : '';
     const fallbackHtml = m.fallback ? _renderFallbackCard(m.fallback, idx, m.fallback_status) : '';
-    const relatedHtml = (m.related && m.related.length) ? `
-      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
-        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">${_esc(q)}</button>`).join('')}
-      </div>` : '';
-    // [v177 2026-05-18] 사진 업로드 직후 — 의도 칩 렌더. primary 는 그라데이션 강조.
-    let intentChipsHtml = '';
-    if (Array.isArray(m.intent_chips) && m.intent_chips.length) {
-      intentChipsHtml = `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
-        ${m.intent_chips.map(c => {
-          const s = c.primary
-            ? 'padding:9px 16px;border:none;border-radius:100px;background:linear-gradient(135deg,var(--brand,#8B5CF6),var(--brand-strong,#7C3AED));color:#fff;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 2px 6px rgba(124,58,237,0.25);'
-            : 'padding:8px 14px;border:1.5px solid #E2D6F7;border-radius:100px;background:#F7F2FD;color:#6B21A8;cursor:pointer;font-size:13px;font-weight:700;';
-          return `<button data-asst-intent-chip="${idx}:${_esc(c.id)}" style="${s}">${_esc(c.label)}</button>`;
-        }).join('')}
-      </div>`;
-    }
-    // [v176 2026-05-18] 자동 보정 결과 — 채팅 안에 사진 + 액션 버튼 렌더
-    let photoResultHtml = '';
-    if (m.photo_result && m.photo_result.dataUrl) {
-      const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
-      const actsHtml = acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:6px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;color:#6B21A8;cursor:pointer;font-size:11px;font-weight:700;">${_esc(a.label)}</button>`).join('');
-      const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
-      photoResultHtml = `<div style="margin-bottom:8px;">
-        <img src="${_esc(m.photo_result.dataUrl)}" alt="보정 결과" style="max-width:240px;max-height:300px;border-radius:14px;display:block;box-shadow:0 4px 14px rgba(0,0,0,0.08);cursor:zoom-in;" data-asst-photo-result="${idx}" />
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${actsHtml}</div>
-        ${capHtml}
-      </div>`;
-    }
+    const relatedHtml = _renderRelatedChips(m);
+    const intentChipsHtml = _renderIntentChips(m, idx);
+    const photoResultHtml = _renderPhotoResult(m, idx);
     return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
       <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
       <div style="max-width:85%;min-width:0;">
@@ -677,96 +437,134 @@
     </div>`;
   }
 
+  function _renderRelatedChips(m) {
+    return (m.related && m.related.length) ? `
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px;">
+        ${m.related.map(q => `<button data-suggest="${_esc(q)}" style="padding:5px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;cursor:pointer;font-size:11px;color:#6B21A8;white-space:nowrap;font-weight:700;transition:all 0.12s;">${_esc(q)}</button>`).join('')}
+      </div>` : '';
+  }
+
+  function _renderIntentChips(m, idx) {
+    if (!Array.isArray(m.intent_chips) || !m.intent_chips.length) return '';
+    return `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+      ${m.intent_chips.map(c => {
+        const style = c.primary
+          ? 'padding:9px 16px;border:none;border-radius:100px;background:linear-gradient(135deg,var(--brand,#8B5CF6),var(--brand-strong,#7C3AED));color:#fff;cursor:pointer;font-size:13px;font-weight:800;box-shadow:0 2px 6px rgba(124,58,237,0.25);'
+          : 'padding:8px 14px;border:1.5px solid #E2D6F7;border-radius:100px;background:#F7F2FD;color:#6B21A8;cursor:pointer;font-size:13px;font-weight:700;';
+        return `<button data-asst-intent-chip="${idx}:${_esc(c.id)}" style="${style}">${_esc(c.label)}</button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  function _renderPhotoResult(m, idx) {
+    if (!m.photo_result || !m.photo_result.dataUrl) return '';
+    const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
+    const actsHtml = acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:6px 10px;border:1px solid #E2D6F7;border-radius:100px;background:#F7F2FD;color:#6B21A8;cursor:pointer;font-size:11px;font-weight:700;">${_esc(a.label)}</button>`).join('');
+    const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
+    return `<div style="margin-bottom:8px;">
+      <img src="${_esc(m.photo_result.dataUrl)}" alt="보정 결과" style="max-width:240px;max-height:300px;border-radius:14px;display:block;box-shadow:0 4px 14px rgba(0,0,0,0.08);cursor:zoom-in;" data-asst-photo-result="${idx}" />
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${actsHtml}</div>
+      ${capHtml}
+    </div>`;
+  }
+
   function _renderHistoryImpl() {
     const body = document.getElementById('asstBody');
     if (!body) return;
     if (!_history.length) {
-      body.innerHTML = `
-        <div style="padding:30px 20px;text-align:center;">
-          <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(139,92,246,0.12);color:#7C3AED;margin-bottom:10px;">${_svg('ic-bot', 32)}</div>
-          <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.</div>
-          <div style="margin-top:14px;text-align:left;display:inline-block;font-size:12px;color:#666;line-height:1.7;background:rgba(139,92,246,0.05);padding:12px 14px;border-radius:12px;">
-            <div style="font-weight:700;color:#5B21B6;margin-bottom:6px;">제가 도와드릴 수 있는 일</div>
-            • 예약/매출/고객 추가·수정·취소<br>
-            • 사진 보정 · 배경 교체 · 전후 카드<br>
-            • SNS 캡션 작성 · 인스타 게시<br>
-            • 단골 안부 · 메시지 초안 작성<br>
-            • 사진만 올려도 OK — 카톡 캡처·명함·영수증 자동 인식<br>
-            • 말투 분석 리포트<br>
-            <span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · 카톡 캡처/명함 사진 그냥 올리기</span>
-          </div>
-        </div>
-      `;
+      body.innerHTML = _renderEmptyHistory();
       return;
     }
-    body.innerHTML = _history.map((m, idx) => {
-      if (m.role === 'user') {
-        // 렉 박멸 — user 메시지는 immutable 이므로 캐시. idx 가 바뀌면 (앞쪽 메시지 잘림) 무효화.
-        if (m._cachedHtml && m._cachedIdx === idx) return m._cachedHtml;
-        // 2026-04-26 픽스 — N장 모두 썸네일 그리드로 표시 (클릭 시 라이트박스)
-        // 구버전 호환: m.photos 없고 m.thumb 만 있으면 1장으로 간주
-        const photoArr = (Array.isArray(m.photos) && m.photos.length)
-          ? m.photos
-          : (m.thumb ? [m.thumb] : []);
-        let photosHtml = '';
-        if (photoArr.length === 1) {
-          // 1장이면 큰 썸네일 (기존 UX 유지)
-          photosHtml = `<img data-asst-photo="${idx}:0" src="${_esc(photoArr[0])}" alt="업로드 사진" style="max-width:180px;max-height:180px;border-radius:12px;margin-bottom:6px;display:block;object-fit:cover;cursor:zoom-in;" />`;
-        } else if (photoArr.length > 1) {
-          // 2장 이상 — 80×80 그리드. 4장 넘으면 wrap (자동 줄바꿈)
-          const cells = photoArr.map((u, i) => `
-            <div style="position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;flex-shrink:0;cursor:zoom-in;background:rgba(255,255,255,0.1);"
-              data-asst-photo="${idx}:${i}">
-              <img src="${_esc(u)}" alt="업로드 사진 ${i + 1}" style="width:100%;height:100%;object-fit:cover;display:block;" />
-            </div>`).join('');
-          photosHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-width:280px;">${cells}</div>`;
-        }
-        const html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-          <div style="max-width:85%;padding:10px 14px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${photosHtml}${_esc(m.text)}</div>
-        </div>`;
-        try { m._cachedHtml = html; m._cachedIdx = idx; } catch (_e) { void _e; }
-        return html;
-      }
-      if (m.role === 'assistant') {
-        // 렉 박멸 — assistant 메시지 dirty 체크. action/group 상태 변하면 무효화.
-        // 마지막 메시지(idx === _history.length-1)는 자주 변하니 캐시 안 함.
-        const isLast = idx === _history.length - 1;
-        if (!isLast) {
-          const dirtyKey = (m.action_status || '_') + '|' + (m.edit_mode ? '1' : '0')
-            + '|' + (m.fallback_status || '_')
-            + '|' + ((m.action_groups || []).map(g => (g.expanded ? 'E' : 'C') + ':'
-                + (g.items || []).map(it => (it.status || '_') + (it.editing ? 'e' : '') + (it.skipped ? 's' : '')).join(',')).join(';'))
-            + '|' + (m.photo_result ? 'P' + (m.photo_result.dataUrl ? m.photo_result.dataUrl.length : 0) : '_')
-            + '|' + (Array.isArray(m.intent_chips) ? 'C' + m.intent_chips.length : '_')
-            + '|' + idx;
-          if (m._cachedHtml && m._cachedDirtyKey === dirtyKey) return m._cachedHtml;
-          const html = _renderAssistantMessage(m, idx);
-          try { m._cachedHtml = html; m._cachedDirtyKey = dirtyKey; } catch (_e) { void _e; }
-          return html;
-        }
-        return _renderAssistantMessage(m, idx);
-      }
-      // loading — chat_pending 있으면 진행 시간 표시
-      let elapsedHtml = '';
-      try {
-        const pending = _readChatPending();
-        if (pending && pending.started_at) {
-          const sec = Math.max(0, Math.floor((Date.now() - pending.started_at) / 1000));
-          const label = pending.kind === 'images' ? '사진 분석 중' : '답변 생성 중';
-          elapsedHtml = `<div style="font-size:11px;color:#888;margin-top:4px;">${label}… (${sec}초 경과)</div>`;
-        }
-      } catch (_e) { void _e; }
-      return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
-        <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
-        <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;">
-          <span style="display:inline-block;animation:asstDots 1.4s infinite;font-size:20px;color:#bbb;">···</span>
-          ${elapsedHtml}
-        </div>
-      </div>
-      <style>@keyframes asstDots { 0%,20% { opacity:0.2; } 50% { opacity:1; } 100% { opacity:0.2; } }</style>`;
-    }).join('');
+    body.innerHTML = _history.map((m, idx) => _renderHistoryMessage(m, idx)).join('');
     body.scrollTop = body.scrollHeight;
     _bindActionButtons();
+  }
+
+  function _renderEmptyHistory() {
+    return `<div style="padding:30px 20px;text-align:center;">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:50%;background:rgba(139,92,246,0.12);color:#7C3AED;margin-bottom:10px;">${_svg('ic-bot', 32)}</div>
+      <div style="font-size:14px;color:#555;line-height:1.6;">안녕하세요 원장님 👋<br>궁금한 건 물어보고, 할 일은 맡겨주세요.</div>
+      <div style="margin-top:14px;text-align:left;display:inline-block;font-size:12px;color:#666;line-height:1.7;background:rgba(139,92,246,0.05);padding:12px 14px;border-radius:12px;">
+        <div style="font-weight:700;color:#5B21B6;margin-bottom:6px;">제가 도와드릴 수 있는 일</div>
+        • 예약/매출/고객 추가·수정·취소<br>
+        • 사진 보정 · 배경 교체 · 전후 카드<br>
+        • SNS 캡션 작성 · 인스타 게시<br>
+        • 단골 안부 · 메시지 초안 작성<br>
+        • 사진만 올려도 OK — 카톡 캡처·명함·영수증 자동 인식<br>
+        • 말투 분석 리포트<br>
+        <span style="font-size:11px;color:#888;">예: "김서연 2시 예약 추가" · "사진 보정해줘" · 카톡 캡처/명함 사진 그냥 올리기</span>
+      </div>
+    </div>`;
+  }
+
+  function _renderHistoryMessage(m, idx) {
+    if (m.role === 'user') return _renderUserMessage(m, idx);
+    if (m.role === 'assistant') return _renderCachedAssistantMessage(m, idx);
+    return _renderLoadingMessage();
+  }
+
+  function _renderUserMessage(m, idx) {
+    if (m._cachedHtml && m._cachedIdx === idx) return m._cachedHtml;
+    const photosHtml = _renderUserPhotos(m, idx);
+    const html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <div style="max-width:85%;padding:10px 14px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-radius:16px 16px 4px 16px;font-size:13px;line-height:1.5;">${photosHtml}${_esc(m.text)}</div>
+    </div>`;
+    try { m._cachedHtml = html; m._cachedIdx = idx; } catch (_e) { void _e; }
+    return html;
+  }
+
+  function _renderUserPhotos(m, idx) {
+    const photoArr = (Array.isArray(m.photos) && m.photos.length) ? m.photos : (m.thumb ? [m.thumb] : []);
+    if (photoArr.length === 1) {
+      return `<img data-asst-photo="${idx}:0" src="${_esc(photoArr[0])}" alt="업로드 사진" style="max-width:180px;max-height:180px;border-radius:12px;margin-bottom:6px;display:block;object-fit:cover;cursor:zoom-in;" />`;
+    }
+    if (photoArr.length <= 1) return '';
+    const cells = photoArr.map((u, i) => `
+      <div style="position:relative;width:80px;height:80px;border-radius:10px;overflow:hidden;flex-shrink:0;cursor:zoom-in;background:rgba(255,255,255,0.1);" data-asst-photo="${idx}:${i}">
+        <img src="${_esc(u)}" alt="업로드 사진 ${i + 1}" style="width:100%;height:100%;object-fit:cover;display:block;" />
+      </div>`).join('');
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;max-width:280px;">${cells}</div>`;
+  }
+
+  function _renderCachedAssistantMessage(m, idx) {
+    if (idx === _history.length - 1) return _renderAssistantMessage(m, idx);
+    const dirtyKey = _assistantDirtyKey(m, idx);
+    if (m._cachedHtml && m._cachedDirtyKey === dirtyKey) return m._cachedHtml;
+    const html = _renderAssistantMessage(m, idx);
+    try { m._cachedHtml = html; m._cachedDirtyKey = dirtyKey; } catch (_e) { void _e; }
+    return html;
+  }
+
+  function _assistantDirtyKey(m, idx) {
+    return (m.action_status || '_') + '|' + (m.edit_mode ? '1' : '0')
+      + '|' + (m.fallback_status || '_')
+      + '|' + ((m.action_groups || []).map(g => (g.expanded ? 'E' : 'C') + ':'
+          + (g.items || []).map(it => (it.status || '_') + (it.editing ? 'e' : '') + (it.skipped ? 's' : '')).join(',')).join(';'))
+      + '|' + (m.photo_result ? 'P' + (m.photo_result.dataUrl ? m.photo_result.dataUrl.length : 0) : '_')
+      + '|' + (Array.isArray(m.intent_chips) ? 'C' + m.intent_chips.length : '_')
+      + '|' + idx;
+  }
+
+  function _renderLoadingMessage() {
+    const elapsedHtml = _renderLoadingElapsed();
+    return `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;">
+      <div style="width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.15);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#7C3AED;">${_svg('ic-bot', 16)}</div>
+      <div style="padding:10px 14px;background:#fff;border:1px solid rgba(0,0,0,0.06);border-radius:16px;">
+        <span style="display:inline-block;animation:asstDots 1.4s infinite;font-size:20px;color:#bbb;">···</span>
+        ${elapsedHtml}
+      </div>
+    </div>
+    <style>@keyframes asstDots { 0%,20% { opacity:0.2; } 50% { opacity:1; } 100% { opacity:0.2; } }</style>`;
+  }
+
+  function _renderLoadingElapsed() {
+    try {
+      const pending = _readChatPending();
+      if (!pending || !pending.started_at) return '';
+      const sec = Math.max(0, Math.floor((Date.now() - pending.started_at) / 1000));
+      const label = pending.kind === 'images' ? '사진 분석 중' : '답변 생성 중';
+      return `<div style="font-size:11px;color:#888;margin-top:4px;">${label}… (${sec}초 경과)</div>`;
+    } catch (_e) { return ''; }
   }
 
   // 재고·지출 품목 리스트 편집 UI
@@ -904,8 +702,16 @@
 
   function _renderActionBubble(action, historyIdx, status, editing) {
     if (!action || !action.kind) return '';
-    // 2026-04-24 — icon 은 Lucide sprite id (문자열), 렌더 시 _svg() 로 변환
-    const kindBadge = {
+    const kindBadge = _actionKindBadge(action.kind);
+    if (status === 'done') return _renderActionDoneBubble();
+    if (status === 'failed') return _renderActionFailedBubble(historyIdx);
+    if (status === 'running') return _renderActionRunningBubble(kindBadge);
+    if (editing) return _renderActionEditBubble(action, historyIdx, kindBadge);
+    return _renderActionPendingBubble(action, historyIdx, kindBadge);
+  }
+
+  function _actionKindBadge(kind) {
+    return {
       create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: 'var(--brand)' },
       create_revenue:  { icon: 'ic-dollar-sign',    label: '매출 기록',       color: '#388e3c' },
       create_customer: { icon: 'ic-user',           label: '고객 등록',       color: '#4ECDC4' },
@@ -924,133 +730,123 @@
       mark_booking_completed:{ icon: 'ic-check-circle', label: '시술 완료',     color: '#15803D' },
       refund_revenue:        { icon: 'ic-corner-up-left', label: '환불 처리',   color: '#F97316' },
       update_service_price:  { icon: 'ic-dollar-sign',  label: '가격 변경',     color: '#0EA5E9' },
-    }[action.kind] || { icon: 'ic-check', label: action.kind, color: '#666' };
+    }[kind] || { icon: 'ic-check', label: kind, color: '#666' };
+  }
 
-    if (status === 'done') {
-      return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.12),rgba(76,175,80,0.02));border-radius:12px;border-left:3px solid #388e3c;">
-        <div style="font-size:11px;font-weight:700;color:#388e3c;display:inline-flex;align-items:center;gap:4px;">${_svg('ic-check', 12)} 완료</div>
-      </div>`;
-    }
-    if (status === 'failed') {
-      // 2026-04-26 버그B 픽스 — historyIdx 의 errorMsg 가 있으면 사유 노출
-      let errLine = '';
-      try {
-        const _msg = (Array.isArray(_history) ? _history[historyIdx] : null);
-        if (_msg && _msg.action_error) {
-          errLine = `<div style="font-size:11px;color:hsl(0,60%,35%);margin-top:4px;line-height:1.4;">사유: ${_esc(_msg.action_error)}</div>`;
-        }
-      } catch (_e) { void _e; }
-      return `<div style="margin-top:6px;padding:10px 12px;background:rgba(220,53,69,0.08);border-radius:12px;border-left:3px solid var(--danger);">
-        <div style="font-size:11px;font-weight:700;color:var(--danger);">실패 — 다시 말씀해 주세요</div>
-        ${errLine}
-      </div>`;
-    }
-    if (status === 'running') {
-      return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="display:inline-block;width:14px;height:14px;border:2px solid ${kindBadge.color};border-top-color:transparent;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span>
-          <span style="font-size:12px;font-weight:700;color:${kindBadge.color};">저장 중…</span>
-        </div>
-      </div>
-      <style>@keyframes asst-spin { to { transform: rotate(360deg); } }</style>`;
-    }
+  function _renderActionDoneBubble() {
+    return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.12),rgba(76,175,80,0.02));border-radius:12px;border-left:3px solid #388e3c;">
+      <div style="font-size:11px;font-weight:700;color:#388e3c;display:inline-flex;align-items:center;gap:4px;">${_svg('ic-check', 12)} 완료</div>
+    </div>`;
+  }
 
-    // 편집 모드 — 필드 인라인 수정
-    if (editing) {
-      const p = action.payload || {};
-      const editFields = [];
-      const addField = (field, label, val, extra) => {
-        if (val === undefined) return;
-        const ex = extra || {};
-        const type = ex.type || 'text';
-        if (ex.select) {
-          editFields.push(`
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
-              <select data-single-field="${historyIdx}:${field}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;">
-                <option value=""${val ? '' : ' selected'}>선택</option>
-                ${_categoryOptionsHtml(val)}
-              </select>
-            </div>`);
-        } else {
-          editFields.push(`
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
-              <input data-single-field="${historyIdx}:${field}" type="${type}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;" />
-            </div>`);
-        }
-      };
-
-      let itemsHtml = '';
-      if (action.kind === 'upsert_inventory') {
-        // 재고: items[] 만 편집
-        if (!Array.isArray(p.items)) p.items = [];
-        itemsHtml = `
-          <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin-bottom:4px;">품목</div>
-          ${_renderItemsEditor(String(historyIdx), p.items, {
-            fieldAttr: 'single-field',
-            addAttr: 'single-item-add',
-            delAttr: 'single-item-delete',
-            color: kindBadge.color,
-          })}`;
-        if ('memo' in p) addField('memo', '메모', p.memo);
-      } else if (action.kind === 'create_expense') {
-        // [QA-r11 PR3 2026-05-16] receipt-level expense 편집:
-        //   vendor / amount(결제금액) / category / memo + items[] + adjustments[] + 합계 요약.
-        addField('vendor', '가게', p.vendor == null ? '' : p.vendor);
-        addField('amount', '결제', p.amount == null ? '' : p.amount, { type: 'number' });
-        addField('category', '분류', p.category == null ? '' : p.category, { select: true });
-        addField('memo', '메모', p.memo == null ? '' : p.memo);
-        if (!Array.isArray(p.items)) p.items = [];
-        if (!Array.isArray(p.adjustments)) p.adjustments = [];
-        itemsHtml = `
-          <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">품목 (정가 기준)</div>
-          ${_renderItemsEditor(String(historyIdx), p.items, {
-            fieldAttr: 'single-field',
-            addAttr: 'single-item-add',
-            delAttr: 'single-item-delete',
-            color: kindBadge.color,
-          })}
-          <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">할인·쿠폰·포인트</div>
-          ${_renderAdjustmentsEditor(String(historyIdx), p.adjustments, {
-            fieldAttr: 'single-field',
-            addAttr: 'single-adjustment-add',
-            delAttr: 'single-adjustment-delete',
-            color: kindBadge.color,
-          })}
-          ${_renderExpenseSummary(p)}`;
-      } else {
-        // 기존 고객/매출/예약 필드
-        if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
-        if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
-        if ('service_name' in p) addField('service_name', '시술', p.service_name);
-        if ('amount' in p) addField('amount', '금액', p.amount);
-        if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
-        if ('memo' in p) addField('memo', '메모', p.memo);
-        if (!editFields.length) {
-          editFields.push(`
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">내용</span>
-              <input data-single-field="${historyIdx}:confirmation_text" value="${_esc(action.confirmation_text || '')}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;" />
-            </div>`);
-        }
+  function _renderActionFailedBubble(historyIdx) {
+    let errLine = '';
+    try {
+      const msg = Array.isArray(_history) ? _history[historyIdx] : null;
+      if (msg && msg.action_error) {
+        errLine = `<div style="font-size:11px;color:hsl(0,60%,35%);margin-top:4px;line-height:1.4;">사유: ${_esc(msg.action_error)}</div>`;
       }
+    } catch (_e) { void _e; }
+    return `<div style="margin-top:6px;padding:10px 12px;background:rgba(220,53,69,0.08);border-radius:12px;border-left:3px solid var(--danger);">
+      <div style="font-size:11px;font-weight:700;color:var(--danger);">실패 — 다시 말씀해 주세요</div>
+      ${errLine}
+    </div>`;
+  }
 
-      return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 14)}</span>
-          <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label} · 편집 모드</span>
-        </div>
-        ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${editFields.join('')}</div>` : ''}
-        ${itemsHtml}
-        <div style="display:flex;gap:6px;margin-top:10px;">
-          <button data-action-save="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-save', 13)} 저장</button>
-          <button data-action-editcancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
-        </div>
-      </div>`;
+  function _renderActionRunningBubble(kindBadge) {
+    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-block;width:14px;height:14px;border:2px solid ${kindBadge.color};border-top-color:transparent;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span>
+        <span style="font-size:12px;font-weight:700;color:${kindBadge.color};">저장 중…</span>
+      </div>
+    </div>
+    <style>@keyframes asst-spin { to { transform: rotate(360deg); } }</style>`;
+  }
+
+  function _renderActionEditBubble(action, historyIdx, kindBadge) {
+    const p = action.payload || {};
+    const editFields = [];
+    const addField = (field, label, val, extra) => _pushSingleEditField(editFields, historyIdx, field, label, val, extra);
+    const itemsHtml = _singleEditItemsHtml(action, historyIdx, p, kindBadge, addField);
+    if (!itemsHtml) _pushSingleBaseFields(action, p, editFields, addField, historyIdx);
+    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 14)}</span>
+        <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label} · 편집 모드</span>
+      </div>
+      ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${editFields.join('')}</div>` : ''}
+      ${itemsHtml}
+      <div style="display:flex;gap:6px;margin-top:10px;">
+        <button data-action-save="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-save', 13)} 저장</button>
+        <button data-action-editcancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
+      </div>
+    </div>`;
+  }
+
+  function _pushSingleEditField(list, historyIdx, field, label, val, extra) {
+    if (val === undefined) return;
+    const ex = extra || {};
+    if (ex.select) {
+      list.push(`<div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
+        <select data-single-field="${historyIdx}:${field}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;">
+          <option value=""${val ? '' : ' selected'}>선택</option>${_categoryOptionsHtml(val)}
+        </select>
+      </div>`);
+      return;
     }
+    list.push(`<div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
+      <input data-single-field="${historyIdx}:${field}" type="${ex.type || 'text'}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;" />
+    </div>`);
+  }
 
-    // pending (기본)
+  function _singleEditItemsHtml(action, historyIdx, p, kindBadge, addField) {
+    if (action.kind === 'upsert_inventory') {
+      if (!Array.isArray(p.items)) p.items = [];
+      if ('memo' in p) addField('memo', '메모', p.memo);
+      return `<div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin-bottom:4px;">품목</div>
+        ${_renderItemsEditor(String(historyIdx), p.items, {
+          fieldAttr: 'single-field', addAttr: 'single-item-add', delAttr: 'single-item-delete', color: kindBadge.color,
+        })}`;
+    }
+    if (action.kind !== 'create_expense') return '';
+    addField('vendor', '가게', p.vendor == null ? '' : p.vendor);
+    addField('amount', '결제', p.amount == null ? '' : p.amount, { type: 'number' });
+    addField('category', '분류', p.category == null ? '' : p.category, { select: true });
+    addField('memo', '메모', p.memo == null ? '' : p.memo);
+    if (!Array.isArray(p.items)) p.items = [];
+    if (!Array.isArray(p.adjustments)) p.adjustments = [];
+    return _singleExpenseEditors(historyIdx, p, kindBadge);
+  }
+
+  function _singleExpenseEditors(historyIdx, p, kindBadge) {
+    return `<div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">품목 (정가 기준)</div>
+      ${_renderItemsEditor(String(historyIdx), p.items, {
+        fieldAttr: 'single-field', addAttr: 'single-item-add', delAttr: 'single-item-delete', color: kindBadge.color,
+      })}
+      <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">할인·쿠폰·포인트</div>
+      ${_renderAdjustmentsEditor(String(historyIdx), p.adjustments, {
+        fieldAttr: 'single-field', addAttr: 'single-adjustment-add', delAttr: 'single-adjustment-delete', color: kindBadge.color,
+      })}
+      ${_renderExpenseSummary(p)}`;
+  }
+
+  function _pushSingleBaseFields(action, p, editFields, addField, historyIdx) {
+    if ('customer_name' in p || 'name' in p) addField('customer_name', '이름', p.customer_name ?? p.name);
+    if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
+    if ('service_name' in p) addField('service_name', '시술', p.service_name);
+    if ('amount' in p) addField('amount', '금액', p.amount);
+    if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
+    if ('memo' in p) addField('memo', '메모', p.memo);
+    if (editFields.length) return;
+    editFields.push(`<div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">내용</span>
+      <input data-single-field="${historyIdx}:confirmation_text" value="${_esc(action.confirmation_text || '')}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;" />
+    </div>`);
+  }
+
+  function _renderActionPendingBubble(action, historyIdx, kindBadge) {
     return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 14)}</span>
@@ -1369,15 +1165,6 @@
     };
     let itemsHtml = '';
     if (editing) {
-      // 2026-04-24 디버그 — 편집 모드 진입 시 (key, it.action.payload) 가 일치하는지 확인
-      try {
-        if (window.__ASSISTANT_DEBUG__) {
-          console.log('[renderGroupRow] edit', key, 'origIdx=', it.origIdx,
-            'customer_name=', p.customer_name || p.name,
-            'service_name=', p.service_name,
-            'amount=', p.amount);
-        }
-      } catch (_e) { void _e; }
       const kind = it.action && it.action.kind;
       if (kind === 'upsert_inventory') {
         if (!Array.isArray(p.items)) p.items = [];
@@ -1673,39 +1460,49 @@
     // [2026-05-12 QA #4] 편집 모드 input 변경 즉시 action state 에 반영.
     // 이전엔 저장 버튼 누를 때만 반영 → 다른 액션으로 _renderHistory 가 호출되면 입력값 사라짐.
     // 이제 input/change 이벤트마다 즉시 _applyEditField 로 state 갱신 (re-render 안 함, 포커스 유지).
-    document.addEventListener('input', (e) => {
-      const fld = e.target.closest('[data-row-field]');
-      if (!fld || !document.getElementById('asstBody')?.contains(fld)) return;
-      const parts = fld.getAttribute('data-row-field').split(':');
-      if (parts.length < 4) return;
-      const [hi, gi, ii] = [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10)];
-      const field = parts.slice(3).join(':');
-      const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-      const msg = _history[hi];
-      // single action (msg.action) 도 동일 패턴
-      const target = it ? it.action : (msg && msg.action ? msg.action : null);
-      if (!target) return;
-      if (!target.payload) target.payload = {};
-      try { _applyEditField(target, field, fld.value); } catch (_e) { /* ignore */ }
-    });
+    document.addEventListener('input', e => _handleRowFieldInput(e));
     // select 변경도 동일 처리
-    document.addEventListener('change', (e) => {
-      if (e.target.tagName !== 'SELECT') return;
-      const fld = e.target.closest('[data-row-field]');
-      if (!fld || !document.getElementById('asstBody')?.contains(fld)) return;
-      const parts = fld.getAttribute('data-row-field').split(':');
-      if (parts.length < 4) return;
-      const [hi, gi, ii] = [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10)];
-      const field = parts.slice(3).join(':');
-      const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
-      const msg = _history[hi];
-      const target = it ? it.action : (msg && msg.action ? msg.action : null);
-      if (!target) return;
-      if (!target.payload) target.payload = {};
-      try { _applyEditField(target, field, fld.value); } catch (_e) { /* ignore */ }
-    });
-    document.addEventListener('click', (e) => {
-      if (typeof _assistantPhotoActions.handleClick === 'function' && _assistantPhotoActions.handleClick(e, {
+    document.addEventListener('change', e => _handleRowFieldChange(e));
+    document.addEventListener('click', e => _handleAssistantClick(e), false);
+  }
+
+  function _handleRowFieldInput(e) {
+    const fld = _rowFieldFromEvent(e);
+    if (fld) _applyRowFieldChange(fld);
+  }
+
+  function _handleRowFieldChange(e) {
+    if (e.target.tagName !== 'SELECT') return;
+    const fld = _rowFieldFromEvent(e);
+    if (fld) _applyRowFieldChange(fld);
+  }
+
+  function _rowFieldFromEvent(e) {
+    const fld = e.target.closest('[data-row-field]');
+    return (fld && document.getElementById('asstBody')?.contains(fld)) ? fld : null;
+  }
+
+  function _applyRowFieldChange(fld) {
+    const parts = fld.getAttribute('data-row-field').split(':');
+    if (parts.length < 4) return;
+    const [hi, gi, ii] = [parseInt(parts[0], 10), parseInt(parts[1], 10), parseInt(parts[2], 10)];
+    const it = _history[hi]?.action_groups?.[gi]?.items?.[ii];
+    const msg = _history[hi];
+    const target = it ? it.action : (msg && msg.action ? msg.action : null);
+    if (!target) return;
+    if (!target.payload) target.payload = {};
+    try { _applyEditField(target, parts.slice(3).join(':'), fld.value); } catch (_e) { void _e; }
+  }
+
+  function _handleAssistantClick(e) {
+    if (_handlePhotoClick(e)) return;
+    if (_handleSingleActionClick(e)) return;
+    if (_handleGroupActionClick(e)) return;
+    _handleSuggestionClick(e);
+  }
+
+  function _handlePhotoClick(e) {
+    return typeof _assistantPhotoActions.handleClick === 'function' && _assistantPhotoActions.handleClick(e, {
         history: _history,
         pendingFiles: (_getPhotoPending() && _getPhotoPending().files) || [],
         pendingThumbs: (_getPhotoPending() && _getPhotoPending().thumbs) || [],
@@ -1714,10 +1511,11 @@
         openLightbox: _openLightbox,
         runChatAutoEdit: _runChatAutoEdit,
         isSendInFlight: () => _sendInFlight,
-      })) {
-        return;
-      }
-      if (typeof _assistantSingleActions.handleClick === 'function' && _assistantSingleActions.handleClick(e, {
+      });
+  }
+
+  function _handleSingleActionClick(e) {
+    return typeof _assistantSingleActions.handleClick === 'function' && _assistantSingleActions.handleClick(e, {
         history: _history,
         renderHistory: _renderHistory,
         runAction: _runAction,
@@ -1725,10 +1523,11 @@
         applyEditField: _applyEditField,
         stripEmptyItems: _stripEmptyItems,
         stripEmptyAdjustments: _stripEmptyAdjustments,
-      })) {
-        return;
-      }
-      if (typeof _assistantGroupActions.handleClick === 'function' && _assistantGroupActions.handleClick(e, {
+      });
+  }
+
+  function _handleGroupActionClick(e) {
+    return typeof _assistantGroupActions.handleClick === 'function' && _assistantGroupActions.handleClick(e, {
         history: _history,
         renderHistory: _renderHistory,
         submitFallback: _submitFallback,
@@ -1739,128 +1538,21 @@
         applyEditField: _applyEditField,
         stripEmptyItems: _stripEmptyItems,
         stripEmptyAdjustments: _stripEmptyAdjustments,
-      })) {
-        return;
-      }
-      if (typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
+      });
+  }
+
+  function _handleSuggestionClick(e) {
+    return typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
         isSending: () => _sendInFlight,
         send: _send,
-      })) {
-        return;
-      }
-    }, false);
+      });
   }
 
   // 캐시 무효화 + data-changed 이벤트 (단일 액션 실행 후 공통 로직)
   function _invalidateCachesFor(kind) {
-    // 각 kind 가 건드리는 SWR 키 목록 (app-core.js 의 실제 키와 일치해야 함)
-    // pv_cache::customers · pv_cache::bookings_all · pv_cache::revenue · pv_cache::inventory · pv_cache::today
-    // Wave D3 (2026-04-24): 모든 kind 에 대해 누락 없이 캐시 무효화 + today 반영
-    const _invalidateKinds = _externalInvalidateKinds[kind] || ({
-      create_customer: ['customer', 'customers', 'today'],
-      create_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
-      create_revenue: ['revenue', 'revenues', 'customer', 'customers', 'today', 'dashboard'],
-      update_revenue: ['revenue', 'revenues', 'customer', 'customers', 'today', 'dashboard'],
-      create_nps: ['nps', 'customer', 'customers'],
-      update_customer: ['customer', 'customers', 'today'],
-      update_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
-      cancel_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
-      reschedule_booking: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
-      upsert_inventory: ['inventory', 'inventories', 'today'],
-      create_expense: ['expense', 'expenses', 'revenue', 'revenues', 'today', 'dashboard'],
-      generate_bulk_message: [],
-      // [QA-r11 P0-2 2026-05-16] PR4-C 6종 누락 fix — 실행 후 화면 즉시 반영.
-      charge_membership: ['customer', 'customers', 'membership', 'today', 'dashboard'],
-      use_membership: ['customer', 'customers', 'membership', 'today', 'dashboard'],
-      mark_booking_no_show: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
-      mark_booking_completed: ['booking', 'bookings', 'bookings_all', 'customer', 'customers', 'today'],
-      refund_revenue: ['revenue', 'revenues', 'customer', 'customers', 'today', 'dashboard'],
-      update_service_price: ['service', 'services', 'today'],
-    })[kind] || [];
-    _invalidateKinds.forEach(k => {
-      try { sessionStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
-      try { localStorage.removeItem('pv_cache::' + k); } catch (_e) { void _e; }
-      // booking 은 날짜별 variants 도 싹쓸이
-      if (k === 'bookings' || k === 'booking' || k === 'bookings_all') {
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith('pv_cache::booking')) sessionStorage.removeItem(key);
-          }
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('pv_cache::booking')) localStorage.removeItem(key);
-          }
-        } catch (_e) { void _e; }
-      }
-      // customer 는 id 별 variants 도 싹쓸이
-      if (k === 'customer' || k === 'customers') {
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith('pv_cache::customer')) sessionStorage.removeItem(key);
-          }
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('pv_cache::customer')) localStorage.removeItem(key);
-          }
-        } catch (_e) { void _e; }
-      }
-      // expense 관련 키도 전부 제거
-      if (k === 'expense' || k === 'expenses') {
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith('pv_cache::expense')) sessionStorage.removeItem(key);
-          }
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('pv_cache::expense')) localStorage.removeItem(key);
-          }
-        } catch (_e) { void _e; }
-      }
-      // inventory 관련 키 variants 도 싹쓸이
-      if (k === 'inventory' || k === 'inventories') {
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith('pv_cache::inventor')) sessionStorage.removeItem(key);
-          }
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('pv_cache::inventor')) localStorage.removeItem(key);
-          }
-        } catch (_e) { void _e; }
-      }
-      // nps / revenue 관련 키도 전부 제거 (날짜·페이지 variants 방지)
-      if (k === 'nps' || k === 'revenue' || k === 'revenues') {
-        const prefix = 'pv_cache::' + (k === 'revenues' ? 'revenue' : k);
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith(prefix)) sessionStorage.removeItem(key);
-          }
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith(prefix)) localStorage.removeItem(key);
-          }
-        } catch (_e) { void _e; }
-      }
-      // [P0-2 2026-05-16] membership / service 관련 키도 variants 싹쓸이
-      if (k === 'membership' || k === 'memberships' || k === 'service' || k === 'services') {
-        const prefix = 'pv_cache::' + (k === 'memberships' ? 'membership' : (k === 'services' ? 'service' : k));
-        try {
-          for (let i = sessionStorage.length - 1; i >= 0; i--) {
-            const key = sessionStorage.key(i);
-            if (key && key.startsWith(prefix)) sessionStorage.removeItem(key);
-          }
-          for (let i = localStorage.length - 1; i >= 0; i--) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith(prefix)) localStorage.removeItem(key);
-          }
-        } catch (_e) { void _e; }
-      }
-    });
+    if (window.ItdasyAssistantCacheInvalidation) {
+      window.ItdasyAssistantCacheInvalidation.invalidate(kind, { externalInvalidateKinds: _externalInvalidateKinds });
+    }
     try {
       // [2026-04-26 A8 픽스] 다른 모듈(대시보드·고객·재고·매출·예약 등)은 정상 새로고침,
       //   챗봇 자기 자신만은 server history reload 를 스킵 → 그룹 메모리 상태 보존
@@ -1879,26 +1571,7 @@
     // [P0-4 2026-05-19] 위험 액션은 실행 직전 nativeConfirm 한 번 더.
     // bulk 흐름은 opts.skipConfirm = true 로 우회 (그룹 카드 단위 사용자 결정).
     // 롤백: localStorage.assistant_risky_confirm_disabled = '1' 시 항상 skip.
-    if (!opts.skipConfirm && action && RISKY_ACTION_KINDS.has(action.kind) && !action._confirmed) {
-      const _skipConfirm = (() => {
-        try { return localStorage.getItem('assistant_risky_confirm_disabled') === '1'; }
-        catch (_e) { void _e; return false; }
-      })();
-      if (!_skipConfirm && typeof window.nativeConfirm === 'function') {
-        const _meta = _catMeta(action.kind);
-        const _detail = action.confirmation_text || '';
-        const _confirmMsg = _detail
-          ? `${_detail}\n\n진짜 진행할까요?`
-          : `[${_meta.label}] 정말 진행할까요?`;
-        const _ok = await window.nativeConfirm(_meta.label, _confirmMsg, '실행', '취소');
-        if (!_ok) {
-          const _err = new Error('사용자가 취소했어요');
-          _err.userCancelled = true;
-          throw _err;
-        }
-        action._confirmed = true;
-      }
-    }
+    await _confirmRiskyActionIfNeeded(action, opts);
     // [v167 2026-05-17] 로컬 핸들러 우선 — open_photo_editor 같은 클라이언트 단독 액션은 백엔드 호출 우회.
     const localFn = _localKindHandlers[action.kind];
     if (typeof localFn === 'function') {
@@ -1918,14 +1591,7 @@
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      // [QA-NEXT #3] 백엔드 stages 단계 분리 — detail 이 dict(stages 포함) 일 수 있음
-      let msg = '';
-      if (err && typeof err.detail === 'object' && err.detail !== null) {
-        msg = err.detail.message || JSON.stringify(err.detail);
-      } else {
-        msg = err.detail || ('HTTP ' + res.status);
-      }
-      const e2 = new Error(msg);
+      const e2 = new Error(_executeErrorMessage(err, res.status));
       if (err && typeof err.detail === 'object') e2.stages = err.detail.stages || null;
       throw e2;
     }
@@ -1937,6 +1603,33 @@
       } catch (_e) { void _e; }
     }
     return d;
+  }
+
+  async function _confirmRiskyActionIfNeeded(action, opts) {
+    if (opts.skipConfirm || !action || !RISKY_ACTION_KINDS.has(action.kind) || action._confirmed) return;
+    if (_isRiskyConfirmDisabled() || typeof window.nativeConfirm !== 'function') return;
+    const meta = _catMeta(action.kind);
+    const detail = action.confirmation_text || '';
+    const msg = detail ? `${detail}\n\n진짜 진행할까요?` : `[${meta.label}] 정말 진행할까요?`;
+    const ok = await window.nativeConfirm(meta.label, msg, '실행', '취소');
+    if (!ok) {
+      const err = new Error('사용자가 취소했어요');
+      err.userCancelled = true;
+      throw err;
+    }
+    action._confirmed = true;
+  }
+
+  function _isRiskyConfirmDisabled() {
+    try { return localStorage.getItem('assistant_risky_confirm_disabled') === '1'; }
+    catch (_e) { return false; }
+  }
+
+  function _executeErrorMessage(err, status) {
+    if (err && typeof err.detail === 'object' && err.detail !== null) {
+      return err.detail.message || JSON.stringify(err.detail);
+    }
+    return (err && err.detail) || ('HTTP ' + status);
   }
 
   // [2026-05-21] 일괄 예약 취소 — intent-router 가 "{이름} 예약 전부 취소" 매칭 시 생성.
@@ -2261,101 +1954,10 @@
   // ─── 라이트박스 (업로드한 사진 클릭 시 큰 화면) ────────────
   // 2026-04-26 추가 — N장 사진을 좌우 화살표로 둘러보기.
   // 배경 어둡게 + ESC/배경 클릭 닫기 + 화살표 키 네비.
-  let _lightboxState = null;
   function _openLightbox(photos, startIdx) {
-    if (!photos || !photos.length) return;
-    // 이미 열려있으면 무시
-    if (document.getElementById('asstLightbox')) return;
-
-    _lightboxState = { photos, idx: Math.max(0, Math.min(startIdx || 0, photos.length - 1)) };
-
-    const overlay = document.createElement('div');
-    overlay.id = 'asstLightbox';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:10500;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom);opacity:0;transition:opacity 0.15s ease-out;';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', '업로드 사진 보기');
-
-    const renderInner = () => {
-      const s = _lightboxState;
-      if (!s) return;
-      const cur = s.photos[s.idx] || '';
-      const counter = `${s.idx + 1} / ${s.photos.length}`;
-      const hasPrev = s.idx > 0;
-      const hasNext = s.idx < s.photos.length - 1;
-      overlay.innerHTML = `
-        <button data-lightbox-close aria-label="닫기" title="닫기"
-          style="position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">
-          ${_svg('ic-x', 20)}
-        </button>
-        <div style="position:absolute;top:max(18px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.85);font-size:13px;font-weight:700;background:rgba(0,0,0,0.4);padding:6px 12px;border-radius:14px;">${counter}</div>
-        <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;overflow:hidden;">
-          <img src="${_esc(cur)}" alt="업로드 사진 ${s.idx + 1}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;" />
-        </div>
-        ${hasPrev ? `<button data-lightbox-prev aria-label="이전 사진" title="이전 사진"
-          style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-chevron-left', 22)}</button>` : ''}
-        ${hasNext ? `<button data-lightbox-next aria-label="다음 사진" title="다음 사진"
-          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,0.15);color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;">${_svg('ic-chevron-right', 22)}</button>` : ''}
-      `;
-    };
-    renderInner();
-
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => { overlay.style.opacity = '1'; });
-
-    const close = () => {
-      try { document.removeEventListener('keydown', onKey); } catch (_e) { void _e; }
-      try { overlay.style.opacity = '0'; } catch (_e) { void _e; }
-      setTimeout(() => { try { overlay.remove(); } catch (_e) { void _e; } }, 150);
-      _lightboxState = null;
-    };
-    const next = () => {
-      if (!_lightboxState) return;
-      if (_lightboxState.idx < _lightboxState.photos.length - 1) {
-        _lightboxState.idx += 1;
-        renderInner();
-      }
-    };
-    const prev = () => {
-      if (!_lightboxState) return;
-      if (_lightboxState.idx > 0) {
-        _lightboxState.idx -= 1;
-        renderInner();
-      }
-    };
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target.closest('[data-lightbox-close]')) { close(); return; }
-      if (e.target.closest('[data-lightbox-next]')) { next(); return; }
-      if (e.target.closest('[data-lightbox-prev]')) { prev(); return; }
-      // 배경(이미지·버튼 외) 클릭 시 닫기
-      if (e.target === overlay) close();
-    });
-
-    // 키보드 네비
-    const onKey = (ev) => {
-      if (ev.key === 'Escape') close();
-      else if (ev.key === 'ArrowRight') next();
-      else if (ev.key === 'ArrowLeft') prev();
-    };
-    document.addEventListener('keydown', onKey);
-
-    // 모바일 swipe (좌우)
-    let touchStartX = null;
-    overlay.addEventListener('touchstart', (e) => {
-      if (e.touches && e.touches.length === 1) touchStartX = e.touches[0].clientX;
-    }, { passive: true });
-    overlay.addEventListener('touchend', (e) => {
-      if (touchStartX == null) return;
-      const dx = (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : touchStartX) - touchStartX;
-      touchStartX = null;
-      if (Math.abs(dx) < 40) return;
-      if (dx < 0) next(); else prev();
-    }, { passive: true });
-  }
-
-  // 단일 파일 호환 래퍼 (옛 호출자 대응)
-  async function _uploadPhoto(file) {
-    return _uploadPhotos(file);
+    if (window.ItdasyAssistantLightbox && typeof window.ItdasyAssistantLightbox.open === 'function') {
+      window.ItdasyAssistantLightbox.open(photos, startIdx, { esc: _esc, svg: _svg });
+    }
   }
 
   // [v176 2026-05-18] 챗봇 사진+phrase → 채팅 안 자동 보정 결과 렌더.
@@ -2543,7 +2145,6 @@
     }
 
     const photo_context = (`${shopType} 시술. ${cfg.tagLabel}: ${typeStr}. ${axesText}`).trim().slice(0, 500);
-    console.log('[chat-caption] payload:', { category, photo_context });
 
     try {
       const headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
@@ -2562,27 +2163,32 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         console.warn('[chat-caption] /persona/generate 실패:', res.status, data);
-        const detail = String(data.detail || '');
-        let err = '캡션 생성 실패';
-        if (res.status === 401) err = '로그인이 만료됐어요. 다시 로그인해주세요';
-        else if (detail === 'consent_missing') err = 'AI 사용 동의가 필요해요 (프로필 → AI 보정 동의)';
-        else if (/quota_exceeded:caption/.test(detail)) err = '오늘 캡션 한도(3회)를 다 쓰셨어요. 내일 다시!';
-        else if (detail) err = detail.slice(0, 100);
-        return { caption: '', error: err };
+        return { caption: '', error: _captionErrorMessage(res.status, data.detail) };
       }
-      const caption = (data.caption || '').trim();
-      const tagsArr = Array.isArray(data.hashtags) ? data.hashtags : [];
-      const tags = tagsArr
-        .map(t => String(t || '').trim().replace(/^#+/, ''))
-        .filter(Boolean)
-        .map(t => '#' + t)
-        .join(' ');
-      const full = caption + (tags ? '\n\n' + tags : '');
-      return { caption: full, error: null };
+      return { caption: _captionWithTags(data), error: null };
     } catch (e) {
       console.warn('[chat-caption] 네트워크 실패:', e);
       return { caption: '', error: '네트워크 오류 — 잠시 후 다시 시도해주세요' };
     }
+  }
+
+  function _captionErrorMessage(status, detailValue) {
+    const detail = String(detailValue || '');
+    if (status === 401) return '로그인이 만료됐어요. 다시 로그인해주세요';
+    if (detail === 'consent_missing') return 'AI 사용 동의가 필요해요 (프로필 → AI 보정 동의)';
+    if (/quota_exceeded:caption/.test(detail)) return '오늘 캡션 한도(3회)를 다 쓰셨어요. 내일 다시!';
+    return detail ? detail.slice(0, 100) : '캡션 생성 실패';
+  }
+
+  function _captionWithTags(data) {
+    const caption = (data.caption || '').trim();
+    const tagsArr = Array.isArray(data.hashtags) ? data.hashtags : [];
+    const tags = tagsArr
+      .map(t => String(t || '').trim().replace(/^#+/, ''))
+      .filter(Boolean)
+      .map(t => '#' + t)
+      .join(' ');
+    return caption + (tags ? '\n\n' + tags : '');
   }
 
   async function _uploadPhotos(files) {
@@ -3068,19 +2674,6 @@
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
-      // [P0-DBG 2026-05-20] 카드 진단 — BE 응답의 actions 개수·kinds 콘솔 출력
-      // 카드 안 뜨는 케이스 추적용. 사용자가 F12 → Console 에서 확인 가능.
-      try {
-        const _kinds = Array.isArray(d.actions) ? d.actions.map(a => a && a.kind).filter(Boolean) : [];
-        const _singleKind = d.action && d.action.kind;
-        console.log('[assistant /ask DBG]', {
-          q,
-          actions_count: _kinds.length,
-          actions_kinds: _kinds,
-          single_action_kind: _singleKind || null,
-          answer_preview: (d.answer || '').slice(0, 100),
-        });
-      } catch (_e) { void _e; }
       _history = _history.filter(m => m.role !== 'loading');
 
       // v1.1 — session_id 저장 (서버가 최초 생성 or 기존 사용)
@@ -3215,55 +2808,58 @@
       //   서버 텍스트와 매칭해서 그룹 상태(expanded, bulkProgress, items.status, errorMsg)를
       //   보존한다. 그래야 "추가하기 누르고 잠깐 뒤에 새로고침되어도 고객명단/그룹 카드 유지".
       if (Array.isArray(data?.messages) && data.messages.length) {
-        const localByText = new Map();
-        for (const m of _history) {
-          if (!m || !m.text) continue;
-          const key = (m.role || 'assistant') + '::' + m.text;
-          if (!localByText.has(key)) localByText.set(key, m);
-        }
-        // [2026-04-26 백그라운드 픽스] in-flight (pending) 의 user 메시지가 server messages 에
-        // 아직 없으면 (서버 저장 전) _history 끝에 보존. loading 메시지도 마찬가지.
-        const serverTextSet = new Set(
-          data.messages.map(m => ((m.role || 'assistant') + '::' + (m.text || '')))
-        );
-        const survivors = [];
-        for (const m of _history) {
-          if (!m) continue;
-          if (m.role === 'loading') { survivors.push(m); continue; }
-          const key = (m.role || 'assistant') + '::' + (m.text || '');
-          // server 에 없는 user 메시지 = in-flight pending → 유지
-          if (m.role === 'user' && !serverTextSet.has(key)) survivors.push(m);
-        }
-        _history = data.messages.map(m => {
-          const role = m.role || 'assistant';
-          const text = m.text || '';
-          const merged = { role, text };
-          const local = localByText.get(role + '::' + text);
-          if (local) {
-            // 진행중 그룹/액션 상태 그대로 옮기기 (mutate-only 보존)
-            if (local.action_groups) merged.action_groups = local.action_groups;
-            if (local.unified_mode != null) merged.unified_mode = local.unified_mode;
-            if (local.unified_progress != null) merged.unified_progress = local.unified_progress;
-            if (local.action) merged.action = local.action;
-            if (local.action_status) merged.action_status = local.action_status;
-            if (local.action_error) merged.action_error = local.action_error;
-            if (local.action_orig_payload) merged.action_orig_payload = local.action_orig_payload;
-            if (local.edit_mode != null) merged.edit_mode = local.edit_mode;
-            if (local.duplicate_warnings) merged.duplicate_warnings = local.duplicate_warnings;
-            if (local.fallback) merged.fallback = local.fallback;
-            if (local.fallback_status) merged.fallback_status = local.fallback_status;
-            if (local.related) merged.related = local.related;
-            if (local.photos) merged.photos = local.photos;
-            if (local.thumb) merged.thumb = local.thumb;
-          }
-          return merged;
-        });
-        if (survivors.length) _history = _history.concat(survivors);
+        _history = _mergeServerHistory(data.messages);
       }
       _historyLoadedFromServer = true;
       _lastRenderedSig = ''; // 통째 갱신 → 강제 풀 렌더
       _renderHistory();
     } catch (_e) { /* offline 등 — 기존 _history 유지 */ }
+  }
+
+  function _mergeServerHistory(messages) {
+    const localByText = _localHistoryByText();
+    const survivors = _pendingHistorySurvivors(messages);
+    const merged = messages.map(m => _mergeServerMessage(m, localByText));
+    return survivors.length ? merged.concat(survivors) : merged;
+  }
+
+  function _localHistoryByText() {
+    const map = new Map();
+    for (const m of _history) {
+      if (!m || !m.text) continue;
+      const key = (m.role || 'assistant') + '::' + m.text;
+      if (!map.has(key)) map.set(key, m);
+    }
+    return map;
+  }
+
+  function _pendingHistorySurvivors(messages) {
+    const serverTextSet = new Set(messages.map(m => ((m.role || 'assistant') + '::' + (m.text || ''))));
+    return _history.filter(m => {
+      if (!m) return false;
+      if (m.role === 'loading') return true;
+      const key = (m.role || 'assistant') + '::' + (m.text || '');
+      return m.role === 'user' && !serverTextSet.has(key);
+    });
+  }
+
+  function _mergeServerMessage(m, localByText) {
+    const role = m.role || 'assistant';
+    const text = m.text || '';
+    const merged = { role, text };
+    const local = localByText.get(role + '::' + text);
+    if (local) _copyLocalMessageState(merged, local);
+    return merged;
+  }
+
+  function _copyLocalMessageState(merged, local) {
+    ['action_groups', 'unified_progress', 'action', 'action_status', 'action_error',
+      'action_orig_payload', 'duplicate_warnings', 'fallback', 'fallback_status',
+      'related', 'photos', 'thumb'].forEach(key => {
+      if (local[key]) merged[key] = local[key];
+    });
+    if (local.unified_mode != null) merged.unified_mode = local.unified_mode;
+    if (local.edit_mode != null) merged.edit_mode = local.edit_mode;
   }
   // "데이터 동기화" 버튼 / focus 복귀 시 강제 새로고침
   // [2026-04-26 A8 픽스] 자기 자신이 발사한 이벤트면 reload 안 함 (그룹 상태 보존)
@@ -3283,48 +2879,8 @@
   window.openAssistant = function () {
     _ensureSheet();
     const sheet = document.getElementById('assistantSheet');
-    // 2026-04-24 perf — DOM 미리 준비 + opacity 페이드 (display 토글 → opacity 토글)
-    sheet.style.display = 'block';
-    // 다음 프레임에 페이드 인
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      sheet.style.opacity = '1';
-      sheet.style.pointerEvents = 'auto';
-    }));
-    document.body.style.overflow = 'hidden';
-
-    // [2026-04-26 백그라운드 픽스] chat_pending 복원
-    // 챗봇 닫고 딴 일 하다가 다시 들어왔을 때, in-flight 사용자 메시지 + loading 표시.
-    // 이미 _sendInFlight 로 진행 중이면 _history 에 이미 push 돼있으므로 중복 방지.
-    try {
-      const pending = _readChatPending();
-      if (pending && pending.user_msg && !_sendInFlight) {
-        const ageMs = Date.now() - (pending.started_at || 0);
-        if (ageMs < PENDING_TIMEOUT_MS) {
-          // 이미 같은 텍스트의 user 메시지가 _history 에 있으면 skip
-          const dup = _history.some(m => m && m.role === 'user' && m.text === pending.user_msg);
-          if (!dup) {
-            const userMsg = { role: 'user', text: pending.user_msg };
-            if (Array.isArray(pending.photos_thumbs) && pending.photos_thumbs.length) {
-              userMsg.photos = pending.photos_thumbs;
-              userMsg.thumb = pending.photos_thumbs[0] || '';
-            }
-            _history.push(userMsg);
-            _history.push({ role: 'loading', text: '' });
-          }
-          // 진행 시간 tick 재가동 (1초마다 loading 메시지 갱신)
-          if (!_pendingTickTimer) {
-            _pendingTickTimer = setInterval(() => {
-              const sh = document.getElementById('assistantSheet');
-              if (sh && sh.style.display !== 'none') _renderHistory();
-            }, 1000);
-          }
-        } else {
-          // 타임아웃 지난 stale pending → 정리
-          _clearChatPending();
-        }
-      }
-    } catch (_e) { void _e; }
-
+    _showAssistantSheet(sheet);
+    _restoreChatPendingOnOpen();
     _lastRenderedSig = ''; // sheet 새로 열렸으니 강제 1회 풀 렌더
     _renderHistory();
     // 챗봇 열었으니 unread 점 제거
@@ -3335,28 +2891,73 @@
     _loadProactiveSuggestions();
     // [2026-05-16] 대화 없으면 퀵액션(이런 것도 돼요 + chips) 표시, 있으면 숨김.
     // 챗봇 닫았다 다시 열 때 _history 가 비어있을 수도/있을 수도 → 상태에 맞춰 갱신.
+    _syncQuickSuggestVisibility();
+    setTimeout(() => document.getElementById('asstInput')?.focus(), 60);
+    // [2026-04-26 A5] popstate 등록 + 스와이프 다운 닫기
+    _registerAssistantSheet();
+  };
+
+  function _showAssistantSheet(sheet) {
+    sheet.style.display = 'block';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      sheet.style.opacity = '1';
+      sheet.style.pointerEvents = 'auto';
+    }));
+    document.body.style.overflow = 'hidden';
+  }
+
+  function _restoreChatPendingOnOpen() {
+    try {
+      const pending = _readChatPending();
+      if (!pending || !pending.user_msg || _sendInFlight) return;
+      const ageMs = Date.now() - (pending.started_at || 0);
+      if (ageMs >= PENDING_TIMEOUT_MS) { _clearChatPending(); return; }
+      _pushPendingMessageIfNeeded(pending);
+      _ensurePendingTick();
+    } catch (_e) { void _e; }
+  }
+
+  function _pushPendingMessageIfNeeded(pending) {
+    const dup = _history.some(m => m && m.role === 'user' && m.text === pending.user_msg);
+    if (dup) return;
+    const userMsg = { role: 'user', text: pending.user_msg };
+    if (Array.isArray(pending.photos_thumbs) && pending.photos_thumbs.length) {
+      userMsg.photos = pending.photos_thumbs;
+      userMsg.thumb = pending.photos_thumbs[0] || '';
+    }
+    _history.push(userMsg);
+    _history.push({ role: 'loading', text: '' });
+  }
+
+  function _ensurePendingTick() {
+    if (_pendingTickTimer) return;
+    _pendingTickTimer = setInterval(() => {
+      const sh = document.getElementById('assistantSheet');
+      if (sh && sh.style.display !== 'none') _renderHistory();
+    }, 1000);
+  }
+
+  function _syncQuickSuggestVisibility() {
     try {
       const ql = document.getElementById('asstQuickLabel');
       const qs = document.getElementById('asstSuggest');
-      if (ql && qs) {
-        const show = !_history || _history.length === 0;
-        ql.style.display = show ? '' : 'none';
-        qs.style.display = show ? 'flex' : 'none';
-      }
+      if (!ql || !qs) return;
+      const show = !_history || _history.length === 0;
+      ql.style.display = show ? '' : 'none';
+      qs.style.display = show ? 'flex' : 'none';
     } catch (_e) { void _e; }
-    setTimeout(() => document.getElementById('asstInput')?.focus(), 60);
-    // [2026-04-26 A5] popstate 등록 + 스와이프 다운 닫기
+  }
+
+  function _registerAssistantSheet() {
     try {
-      if (typeof window._registerSheet === 'function') {
-        window._registerSheet('assistant', window.closeAssistant);
-      }
+      if (typeof window._registerSheet === 'function') window._registerSheet('assistant', window.closeAssistant);
       if (typeof window._markSheetOpen === 'function') window._markSheetOpen('assistant');
       const panel = document.getElementById('assistantSheetPanel');
       if (panel && typeof window._attachSwipeDownClose === 'function') {
         window._attachSwipeDownClose(panel, window.closeAssistant);
       }
     } catch (_e) { void _e; }
-  };
+  }
   window.closeAssistant = function () {
     const sheet = document.getElementById('assistantSheet');
     if (sheet) {

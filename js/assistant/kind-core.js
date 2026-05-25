@@ -253,6 +253,89 @@
     return flat;
   }
 
+  function _dedupeKeyOf(action) {
+    const p = (action && action.payload) || {};
+    const kind = action && action.kind;
+    if (kind === 'create_expense') return _expenseDedupeKey(p);
+    if (kind === 'upsert_inventory') {
+      const it0 = (Array.isArray(p.items) && p.items[0]) || {};
+      return `inv|${(it0.name || '').trim().toLowerCase()}|${it0.quantity || 0}|${(it0.unit || '').trim()}`;
+    }
+    if (kind === 'create_revenue') {
+      return `rev|${(p.customer_name || p.name || '').trim()}|${(p.service_name || '').trim()}|${p.amount || 0}|${p.starts_at || ''}`;
+    }
+    if (kind === 'create_customer') {
+      return `cust|${(p.customer_name || p.name || '').trim()}|${(p.customer_phone || p.phone || '').trim()}`;
+    }
+    if (kind === 'create_booking') {
+      return `book|${(p.customer_name || p.name || '').trim()}|${(p.service_name || '').trim()}|${p.starts_at || ''}`;
+    }
+    try { return `${kind}|${JSON.stringify(p).slice(0, 100)}`; }
+    catch (_e) { return `${kind}|?`; }
+  }
+
+  function _expenseDedupeKey(p) {
+    const rmeta = (p.receipt_meta && typeof p.receipt_meta === 'object') ? p.receipt_meta : {};
+    const imageHash = (p.image_hash || rmeta.image_hash || '').toString();
+    const transactionTime = (rmeta.transaction_time || '').toString();
+    const approvalNo = (rmeta.approval_no || '').toString();
+    if (imageHash || transactionTime || approvalNo) {
+      return `expense|hash:${imageHash}|txn:${transactionTime}|appr:${approvalNo}`;
+    }
+    try { return `expense|nometa|${JSON.stringify(p).slice(0, 200)}`; }
+    catch (_e) { return 'expense|nometa|?'; }
+  }
+
+  function _hasPayloadSignal(action) {
+    const p = (action && action.payload) || {};
+    return !!(
+      p.vendor || p.customer_name || p.name || p.service_name ||
+      p.amount || p.memo || p.customer_phone || p.phone || p.starts_at ||
+      (Array.isArray(p.items) && p.items.length && (p.items[0] && (p.items[0].name || p.items[0].quantity)))
+    );
+  }
+
+  function dedupeAndCapActions(actions) {
+    let list = Array.isArray(actions) ? actions : [];
+    list = list.filter(a => a && a.kind !== 'upsert_inventory' && a.kind !== 'delete_inventory');
+    if (!list.length) return { actions: [], dropped: 0, droppedKinds: [] };
+    const seen = new Map();
+    const perKind = {};
+    const droppedKindsSet = new Set();
+    let dropped = 0;
+    for (const action of list) {
+      if (!action || !action.kind || !_hasPayloadSignal(action)) {
+        dropped += 1;
+        if (action && action.kind) droppedKindsSet.add(action.kind);
+        continue;
+      }
+      const key = _dedupeKeyOf(action);
+      const kindCount = perKind[action.kind] || 0;
+      if (seen.has(key) || kindCount >= 8 || seen.size >= 20) {
+        dropped += 1;
+        droppedKindsSet.add(action.kind);
+        continue;
+      }
+      seen.set(key, action);
+      perKind[action.kind] = kindCount + 1;
+    }
+    return { actions: Array.from(seen.values()), dropped, droppedKinds: Array.from(droppedKindsSet) };
+  }
+
+  function groupActions(actions) {
+    const order = [];
+    const map = {};
+    (actions || []).forEach((action, index) => {
+      if (!action || !action.kind) return;
+      if (!map[action.kind]) {
+        map[action.kind] = [];
+        order.push(action.kind);
+      }
+      map[action.kind].push({ action, skipped: false, status: 'pending', origIdx: index });
+    });
+    return order.map(kind => ({ kind, items: map[kind], expanded: false, bulkProgress: null }));
+  }
+
   function _installApi() {
     const SUGGESTIONS = _suggestions();
     const CATEGORIES = _categories();
@@ -272,6 +355,8 @@
       catMeta,
       summarizeAction,
       unifiedExecutionOrder,
+      dedupeAndCapActions,
+      groupActions,
     });
     api.registerKindMeta = function (metaMap) {
       if (metaMap && typeof metaMap === 'object') Object.assign(CATEGORY, metaMap);
