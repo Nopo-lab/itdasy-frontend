@@ -17,6 +17,7 @@
   const _assistantPhotoActions = window.ItdasyAssistantPhotoActions || {};
   const _assistantSingleActions = window.ItdasyAssistantSingleActions || {};
   const _assistantGroupActions = window.ItdasyAssistantGroupActions || {};
+  const _assistantSuggestionControls = window.ItdasyAssistantSuggestionControls || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
     '사진 보정해줘',
@@ -596,23 +597,9 @@
 
   // Wave B5 — 의도 예측 chips 렌더
   function _renderTypeahead(text) {
-    const box = document.getElementById('asstTypeahead');
-    if (!box) return;
-    if (!text || text.length > 20) { box.style.display = 'none'; box.innerHTML = ''; return; }
-    const firstToken = text.split(/\s+/)[0];
-    if (!firstToken || firstToken.length < 2) { box.style.display = 'none'; box.innerHTML = ''; return; }
-    const customers = _getCustomers();
-    const match = customers.find(c => c.name.startsWith(firstToken) || c.name === firstToken);
-    if (!match) { box.style.display = 'none'; box.innerHTML = ''; return; }
-    const chips = [
-      `${match.name} 5만원 기록`,
-      `${match.name} 내일 2시 예약`,
-      `${match.name} 정보 보기`,
-    ];
-    box.innerHTML = chips.map(c => `
-      <button data-typeahead="${_esc(c)}" style="padding:6px 11px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);cursor:pointer;font-size:11px;color:hsl(350,60%,40%);white-space:nowrap;font-weight:700;">${_esc(c)}</button>
-    `).join('');
-    box.style.display = 'flex';
+    if (typeof _assistantSuggestionControls.renderTypeahead === 'function') {
+      _assistantSuggestionControls.renderTypeahead(text, { getCustomers: _getCustomers });
+    }
   }
 
   // 렉 박멸 — _renderHistory 호출 → 이번 frame 1회 실행 (RAF debounce)
@@ -1742,26 +1729,10 @@
       })) {
         return;
       }
-      const sug = e.target.closest('[data-suggest]');
-      const sheet = document.getElementById('assistantSheet');
-      if (sug && sheet && sheet.contains(sug)) {
-        if (_sendInFlight) return;  // 중복 방지
-        const q = sug.getAttribute('data-suggest');
-        const input = document.getElementById('asstInput');
-        if (input) { input.value = q; _send(); }
-        return;
-      }
-      // Wave B5 — typeahead chip: 입력창에 채우기만 (자동 전송 X)
-      const ta = e.target.closest('[data-typeahead]');
-      if (ta && sheet && sheet.contains(ta)) {
-        const q = ta.getAttribute('data-typeahead');
-        const input = document.getElementById('asstInput');
-        if (input) {
-          input.value = q;
-          input.focus();
-          const box = document.getElementById('asstTypeahead');
-          if (box) { box.style.display = 'none'; box.innerHTML = ''; }
-        }
+      if (typeof _assistantSuggestionControls.handleClick === 'function' && _assistantSuggestionControls.handleClick(e, {
+        isSending: () => _sendInFlight,
+        send: _send,
+      })) {
         return;
       }
     }, false);
@@ -2189,96 +2160,33 @@
   }
 
   function _renderSuggest() {
-    const el = document.getElementById('asstSuggest');
-    if (!el) return;
-    // data-suggest 만 두고 클릭은 document 위임 (중복 방지)
-    el.innerHTML = SUGGESTIONS.map(s => `
-      <button data-suggest="${_esc(s)}" style="flex-shrink:0;padding:8px 16px;border:1px solid rgba(0,0,0,.07);border-radius:999px;font-size:12px;color:#191F28;background:#fff;cursor:pointer;white-space:nowrap;">${_esc(s)}</button>
-    `).join('');
+    if (typeof _assistantSuggestionControls.renderSuggest === 'function') {
+      _assistantSuggestionControls.renderSuggest({ suggestions: SUGGESTIONS });
+    }
   }
 
   // [2026-04-29 F1] 능동 제안 carousel — today/brief 의 proactive_suggestions 상단 노출
-  let _proactiveLoadedAt = 0;
   async function _loadProactiveSuggestions() {
-    try {
-      // [2026-04-30] SWR 캐시 hit → 즉시 렌더 + 백그라운드 갱신
-      if (Date.now() - _proactiveLoadedAt < 300000) return;
-      if (!window.API || !window.authHeader) return;
-      // 1) sessionStorage 의 today/brief 캐시 hit 시도 (다른 화면이 이미 로드한 경우)
-      let d = null;
-      try {
-        const raw = sessionStorage.getItem('pv_cache::today');
-        if (raw) {
-          const obj = JSON.parse(raw);
-          if (Date.now() - obj.t < 300000) d = obj.d;
-        }
-      } catch (_e) { void _e; }
-      if (d) {
-        const suggestions = (d.proactive_suggestions || []).slice(0, 3);
-        _renderProactiveCarousel(suggestions);
-        _proactiveLoadedAt = Date.now();
-        // 백그라운드 갱신 (다음 호출용)
-        apiFetch('/today/brief', { headers: window.authHeader() })
-          .then(r => r.ok ? r.json() : null)
-          .then(fresh => {
-            if (fresh) {
-              try { sessionStorage.setItem('pv_cache::today', JSON.stringify({ t: Date.now(), d: fresh })); } catch (_e) { void _e; }
-            }
-          }).catch(() => { /* ignore */ });
-        return;
-      }
-      // 2) 캐시 miss — 직접 fetch
-      const res = await apiFetch('/today/brief', { headers: window.authHeader() });
-      if (!res.ok) return;
-      d = await res.json();
-      try { sessionStorage.setItem('pv_cache::today', JSON.stringify({ t: Date.now(), d })); } catch (_e) { void _e; }
-      const suggestions = (d.proactive_suggestions || []).slice(0, 3);
-      _renderProactiveCarousel(suggestions);
-      _proactiveLoadedAt = Date.now();
-    } catch (_e) { void _e; }
-  }
-  function _renderProactiveCarousel(suggestions) {
-    const sheet = document.getElementById('assistantSheet');
-    if (!sheet) return;
-    let box = sheet.querySelector('#asstProactive');
-    if (!box) {
-      const target = sheet.querySelector('#asstSuggest');
-      if (!target) return;
-      box = document.createElement('div');
-      box.id = 'asstProactive';
-      box.style.cssText = 'display:flex;gap:8px;overflow-x:auto;margin-top:6px;padding:4px 0;';
-      target.parentNode.insertBefore(box, target);
+    if (typeof _assistantSuggestionControls.loadProactiveSuggestions === 'function') {
+      await _assistantSuggestionControls.loadProactiveSuggestions();
     }
-    if (!suggestions || !suggestions.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
-    box.style.display = 'flex';
-    box.innerHTML = suggestions.map((s, i) => {
-      const text = _esc(s.text || '');
-      const chat = _esc(s.chat_input || s.text || '');
-      return `<button data-proactive-chat="${chat}" style="flex:0 0 auto;max-width:260px;padding:10px 14px;border:1px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);color:#5B21B6;cursor:pointer;font-size:12px;font-weight:600;text-align:left;line-height:1.35;white-space:normal;">${text}</button>`;
-    }).join('');
-    box.querySelectorAll('[data-proactive-chat]').forEach(b => {
-      b.addEventListener('click', () => {
-        const inp = document.getElementById('asstInput');
-        if (inp) {
-          inp.value = b.dataset.proactiveChat || '';
-          inp.focus();
-        }
-      });
-    });
   }
 
-  // [2026-05-25 v2] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기 2종만.
-  //   OCR(카톡·명함·가격표)은 메뉴 제거 → 사용자가 사진을 채팅에 올리면 잇비가 자연스럽게 처리.
-  //   위치: 화면 중앙(이전 align-items:flex-end 는 잇비 입력바에 가려서 안 보였음).
+  // [2026-05-25 v3] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기 2종만.
+  //   v2 는 document.body 에 z-index:10001 로 띄웠으나 잇비 시트가 opacity 로 stacking context
+  //   를 만들어서 모바일 일부 환경에서 위 z-index 가 안 통함 → 잇비 시트 panel 내부에
+  //   position:absolute 로 직접 append (같은 stacking context 안에서 항상 위).
   function _openAssistantToolMenu() {
     const existing = document.getElementById('asstToolMenu');
     if (existing) { existing.remove(); return; }
+    const panel = document.getElementById('assistantSheetPanel');
     const box = document.createElement('div');
     box.id = 'asstToolMenu';
-    box.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    // panel 안에서 position:absolute 로 가득 차게. panel 자체가 stacking context.
+    box.style.cssText = 'position:absolute;inset:0;z-index:9999;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;padding:16px;border-radius:20px 20px 0 0;';
     const _row = (k, t, sub) => `<button data-tool-act="${k}" style="text-align:left;padding:14px 16px;border:none;border-radius:14px;background:#F7F8FA;cursor:pointer;display:flex;flex-direction:column;gap:2px;"><div style="font-size:14px;font-weight:700;color:#191F28;">${t}</div><div style="font-size:11px;color:#6B7684;">${sub}</div></button>`;
     box.innerHTML = `
-      <div style="width:100%;max-width:420px;background:#fff;border-radius:20px;padding:16px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 40px rgba(0,0,0,0.18);">
+      <div style="width:100%;max-width:380px;background:#fff;border-radius:20px;padding:16px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">
         <div style="font-size:12px;color:#8B95A1;font-weight:700;padding:4px 4px 6px;">잇비 도구</div>
         ${_row('memo', '잇비 메모', '영구 메모 · 자동 학습 패턴')}
         ${_row('undo', '액션 되돌리기', '잇비가 한 일 되돌리기')}
@@ -2297,7 +2205,16 @@
         if (act === 'undo' && typeof window.openUndoHistory === 'function') return window.openUndoHistory();
       } catch (_e) { /* ignore */ }
     });
-    document.body.appendChild(box);
+    // panel 안에 append (잇비 시트의 stacking context 안에서 가장 위).
+    //   panel 이 없으면 (예외적 케이스) body 폴백.
+    if (panel) {
+      // panel 은 기본 position:absolute 라 stacking context 형성됨. 그 안에서 z-index 9999 면 충분.
+      panel.appendChild(box);
+    } else {
+      box.style.position = 'fixed';
+      box.style.zIndex = '10500';
+      document.body.appendChild(box);
+    }
   }
 
   // ── 사진 업로드 (챗봇 입력바 좌측 버튼) ─────────────────
@@ -2657,17 +2574,45 @@
   }
 
   // [v178 2026-05-18] 펜딩 사진 헬퍼 ─ 드래프트 첨부 UI
+  // [2026-05-25] 사진 종류 chip 추가 — 모든 사진에 '보정해서 올릴까요?' 응답이 나오는 한계를
+  //   사용자가 종류 chip 으로 직접 지정해 해결. 클릭하면 적절한 텍스트로 즉시 send.
+  const _ASST_PHOTO_CHIPS = [
+    { key: 'enhance', label: '✨ 사진 보정',   text: '이 사진 보정해줘' },
+    { key: 'card',    label: '🪪 명함 등록',   text: '이 명함 사진에서 이름·전화번호 뽑아서 고객으로 등록해줘' },
+    { key: 'price',   label: '🧾 영수증 입력', text: '이 영수증·가격표 사진에서 항목·금액 뽑아서 지출로 기록해줘' },
+    { key: 'kakao',   label: '💬 카톡 캡처',   text: '이 카톡 캡처에서 예약·매출·후기·고객 정보 자동으로 추출해줘' },
+  ];
   function _renderPending() {
     const wrap = document.getElementById('asstPending');
     if (!wrap) return;
-    if (!_pendingFiles.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+    if (!_pendingFiles.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; wrap.style.flexDirection = ''; wrap.style.alignItems = ''; return; }
     wrap.style.display = 'flex';
-    wrap.innerHTML = _pendingThumbs.map((url, i) => `
+    wrap.style.flexDirection = 'column';
+    wrap.style.alignItems = 'stretch';
+    const thumbsHtml = _pendingThumbs.map((url, i) => `
       <div style="position:relative;width:54px;height:54px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#f0f0f0;border:1px solid rgba(0,0,0,0.06);">
         <img src="${_esc(url)}" alt="첨부 사진 ${i + 1}" style="width:100%;height:100%;object-fit:cover;display:block;" />
         <button data-pending-remove="${i}" aria-label="제거" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-weight:700;">×</button>
       </div>
     `).join('');
+    const chipsHtml = _ASST_PHOTO_CHIPS.map(c =>
+      `<button type="button" data-photo-chip="${c.key}" style="flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.25);border-radius:999px;background:#FAF5FF;color:#5B21B6;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">${c.label}</button>`
+    ).join('');
+    wrap.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${thumbsHtml}</div>
+      <div style="font-size:10.5px;color:#6B7684;font-weight:600;margin-bottom:4px;padding:0 2px;">이 사진은? (탭해서 잇비에게 바로 보내기)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">${chipsHtml}</div>
+    `;
+    wrap.querySelectorAll('[data-photo-chip]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.photoChip;
+        const item = _ASST_PHOTO_CHIPS.find(c => c.key === key);
+        if (!item) return;
+        const input = document.getElementById('asstInput');
+        if (input) input.value = item.text;
+        try { _send(); } catch (_e) { /* ignore */ }
+      });
+    });
   }
   function _addPendingPhotos(files) {
     const arr = Array.from(files || []).filter(Boolean);

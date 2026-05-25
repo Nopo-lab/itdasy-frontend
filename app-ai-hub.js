@@ -289,8 +289,34 @@
       _close();
       try {
         if (opt === 'caption' && typeof window.openCaptionScenarioPopup === 'function') return window.openCaptionScenarioPopup();
-        if (opt === 'relearn' && typeof window.openPersonaSurveyModal === 'function') return window.openPersonaSurveyModal();
-        if (opt === 'report'  && typeof window.showDetailedAnalysis === 'function')   return window.showDetailedAnalysis();
+        // [2026-05-25] '말투 새로 분석' → runPersonaAnalyze(true) 즉시 호출 (이전: openPersonaSurveyModal 은 설문 모달이라 분석 트리거 아님).
+        if (opt === 'relearn') {
+          if (typeof window.runPersonaAnalyze === 'function') {
+            return window.runPersonaAnalyze(true);
+          }
+          if (typeof window.runAutoAnalysisAfterConnect === 'function') {
+            return window.runAutoAnalysisAfterConnect();
+          }
+          if (window.showToast) window.showToast('분석 모듈 로드 중 — 1~2초 후 다시 눌러주세요');
+          return;
+        }
+        // '분석 리포트 보기' → showDetailedAnalysis. 데이터 없으면 분석부터 트리거.
+        if (opt === 'report') {
+          let raw = {};
+          try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {}; }
+          catch (_e) { raw = {}; }
+          const hasAny = !!(raw && (raw.tone_summary || raw.style_summary || raw.tone));
+          if (hasAny && typeof window.showDetailedAnalysis === 'function') {
+            return window.showDetailedAnalysis();
+          }
+          // 데이터 없으면 분석 먼저 트리거 (인스타 연동 필요)
+          if (typeof window.runPersonaAnalyze === 'function') {
+            if (window.showToast) window.showToast('아직 분석 데이터가 없어요. 지금 분석을 시작할게요.');
+            return window.runPersonaAnalyze(true);
+          }
+          if (window.showToast) window.showToast('인스타 연동 후 말투 분석을 진행해주세요');
+          return;
+        }
         if (window.showToast) window.showToast('해당 기능을 찾을 수 없어요. 잠시 후 다시 시도해주세요');
       } catch (_e) { if (window.showToast) window.showToast('화면을 여는 중 문제가 생겼어요'); }
     });
