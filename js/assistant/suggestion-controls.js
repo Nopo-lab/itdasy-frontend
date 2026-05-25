@@ -1,0 +1,162 @@
+/* AI 잇비 — 추천 문구/입력 자동완성 처리
+   기본 추천 버튼과 오늘 브리핑 추천 카드를 app-assistant.js에서 분리. */
+(function () {
+  'use strict';
+
+  let _proactiveLoadedAt = 0;
+
+  function _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[ch]));
+  }
+
+  function _hideBox(box) {
+    if (!box) return;
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+
+  function renderSuggest(deps) {
+    const el = document.getElementById('asstSuggest');
+    if (!el) return;
+    const suggestions = (deps && deps.suggestions) || [];
+    el.innerHTML = suggestions.map(s => `
+      <button data-suggest="${_esc(s)}" style="flex-shrink:0;padding:8px 16px;border:1px solid rgba(0,0,0,.07);border-radius:999px;font-size:12px;color:#191F28;background:#fff;cursor:pointer;white-space:nowrap;">${_esc(s)}</button>
+    `).join('');
+  }
+
+  function renderTypeahead(text, deps) {
+    const box = document.getElementById('asstTypeahead');
+    if (!box) return;
+    if (!text || text.length > 20) { _hideBox(box); return; }
+    const firstToken = text.split(/\s+/)[0];
+    if (!firstToken || firstToken.length < 2) { _hideBox(box); return; }
+    const getCustomers = deps && deps.getCustomers;
+    const customers = typeof getCustomers === 'function' ? getCustomers() : [];
+    const match = customers.find(c => c.name.startsWith(firstToken) || c.name === firstToken);
+    if (!match) { _hideBox(box); return; }
+    const chips = [
+      `${match.name} 5만원 기록`,
+      `${match.name} 내일 2시 예약`,
+      `${match.name} 정보 보기`,
+    ];
+    box.innerHTML = chips.map(c => `
+      <button data-typeahead="${_esc(c)}" style="padding:6px 11px;border:1px solid hsl(340,78%,85%);border-radius:14px;background:hsl(340,100%,98%);cursor:pointer;font-size:11px;color:hsl(350,60%,40%);white-space:nowrap;font-weight:700;">${_esc(c)}</button>
+    `).join('');
+    box.style.display = 'flex';
+  }
+
+  function _readCachedToday() {
+    try {
+      const raw = sessionStorage.getItem('pv_cache::today');
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return Date.now() - obj.t < 300000 ? obj.d : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function _writeCachedToday(d) {
+    try {
+      sessionStorage.setItem('pv_cache::today', JSON.stringify({ t: Date.now(), d }));
+    } catch (_e) {
+      void _e;
+    }
+  }
+
+  function _refreshTodayInBackground() {
+    apiFetch('/today/brief', { headers: window.authHeader() })
+      .then(r => r.ok ? r.json() : null)
+      .then(fresh => { if (fresh) _writeCachedToday(fresh); })
+      .catch(() => {});
+  }
+
+  async function loadProactiveSuggestions() {
+    try {
+      if (Date.now() - _proactiveLoadedAt < 300000) return;
+      if (!window.API || !window.authHeader) return;
+      const cached = _readCachedToday();
+      if (cached) {
+        renderProactiveCarousel((cached.proactive_suggestions || []).slice(0, 3));
+        _proactiveLoadedAt = Date.now();
+        _refreshTodayInBackground();
+        return;
+      }
+      const res = await apiFetch('/today/brief', { headers: window.authHeader() });
+      if (!res.ok) return;
+      const d = await res.json();
+      _writeCachedToday(d);
+      renderProactiveCarousel((d.proactive_suggestions || []).slice(0, 3));
+      _proactiveLoadedAt = Date.now();
+    } catch (_e) {
+      void _e;
+    }
+  }
+
+  function renderProactiveCarousel(suggestions) {
+    const sheet = document.getElementById('assistantSheet');
+    if (!sheet) return;
+    let box = sheet.querySelector('#asstProactive');
+    if (!box) {
+      const target = sheet.querySelector('#asstSuggest');
+      if (!target) return;
+      box = document.createElement('div');
+      box.id = 'asstProactive';
+      box.style.cssText = 'display:flex;gap:8px;overflow-x:auto;margin-top:6px;padding:4px 0;';
+      target.parentNode.insertBefore(box, target);
+    }
+    if (!suggestions || !suggestions.length) { _hideBox(box); return; }
+    box.style.display = 'flex';
+    box.innerHTML = suggestions.map(s => {
+      const text = _esc(s.text || '');
+      const chat = _esc(s.chat_input || s.text || '');
+      return `<button data-proactive-chat="${chat}" style="flex:0 0 auto;max-width:260px;padding:10px 14px;border:1px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);color:#5B21B6;cursor:pointer;font-size:12px;font-weight:600;text-align:left;line-height:1.35;white-space:normal;">${text}</button>`;
+    }).join('');
+  }
+
+  function _fillInput(q, focusOnly) {
+    const input = document.getElementById('asstInput');
+    if (!input) return;
+    input.value = q || '';
+    if (focusOnly) input.focus();
+  }
+
+  function handleClick(e, deps) {
+    const sheet = document.getElementById('assistantSheet');
+    const send = deps && deps.send;
+    const isSending = deps && deps.isSending;
+    const sug = e.target.closest('[data-suggest]');
+    if (sug && sheet && sheet.contains(sug)) {
+      if (typeof isSending === 'function' && isSending()) return true;
+      _fillInput(sug.getAttribute('data-suggest'), false);
+      if (typeof send === 'function') send();
+      return true;
+    }
+    const ta = e.target.closest('[data-typeahead]');
+    if (ta && sheet && sheet.contains(ta)) {
+      _fillInput(ta.getAttribute('data-typeahead'), true);
+      _hideBox(document.getElementById('asstTypeahead'));
+      return true;
+    }
+    const proactive = e.target.closest('[data-proactive-chat]');
+    if (proactive && sheet && sheet.contains(proactive)) {
+      _fillInput(proactive.dataset.proactiveChat || '', true);
+      return true;
+    }
+    return false;
+  }
+
+  window.ItdasyAssistantSuggestionControls = {
+    renderSuggest,
+    renderTypeahead,
+    loadProactiveSuggestions,
+    renderProactiveCarousel,
+    handleClick,
+  };
+})();
