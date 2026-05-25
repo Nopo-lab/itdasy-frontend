@@ -720,31 +720,33 @@
   }
 
   function _actionKindBadge(kind) {
+    // [2026-05-26] 종류색 12+종 → 무채색 통일. 카드는 흰 배경 + 0.5px 무채 테두리.
+    const C = '#4E5968';
     return {
-      create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: 'var(--brand)' },
-      create_revenue:  { icon: 'ic-dollar-sign',    label: '매출 기록',       color: '#388e3c' },
-      create_customer: { icon: 'ic-user',           label: '고객 등록',       color: '#4ECDC4' },
-      create_nps:      { icon: 'ic-star',           label: '후기 기록',       color: '#FFD700' },
-      update_booking:  { icon: 'ic-edit-3',         label: '예약 수정',       color: '#A78BFA' },
-      cancel_booking:  { icon: 'ic-trash-2',        label: '예약 취소',       color: 'var(--danger)' },
-      reschedule_booking: { icon: 'ic-refresh-cw',  label: '예약 시간 변경',  color: '#0288D1' },
-      update_customer: { icon: 'ic-edit-3',         label: '고객 정보 수정',  color: '#4ECDC4' },
-      create_expense:  { icon: 'ic-credit-card',    label: '지출 기록',       color: '#E07A5F' },
-      upsert_inventory: { icon: 'ic-package',       label: '재고 추가',       color: '#2B8C7E' },
-      generate_bulk_message: { icon: 'ic-message-square', label: '단체 메시지 초안', color: '#FF8A5C' },
-      // [QA-r11 PR4-C 2026-05-16] 신규 6종 배지
-      charge_membership:     { icon: 'ic-credit-card',  label: '회원권 충전',   color: '#7C3AED' },
-      use_membership:        { icon: 'ic-credit-card',  label: '회원권 사용',   color: '#6D28D9' },
-      mark_booking_no_show:  { icon: 'ic-x-octagon',    label: '노쇼 처리',     color: 'var(--danger)' },
-      mark_booking_completed:{ icon: 'ic-check-circle', label: '시술 완료',     color: '#15803D' },
-      refund_revenue:        { icon: 'ic-corner-up-left', label: '환불 처리',   color: '#F97316' },
-      update_service_price:  { icon: 'ic-dollar-sign',  label: '가격 변경',     color: '#0EA5E9' },
-    }[kind] || { icon: 'ic-check', label: kind, color: '#666' };
+      create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: C },
+      create_revenue:  { icon: 'ic-dollar-sign',    label: '매출 기록',       color: C },
+      create_customer: { icon: 'ic-user',           label: '고객 등록',       color: C },
+      create_nps:      { icon: 'ic-star',           label: '후기 기록',       color: C },
+      update_booking:  { icon: 'ic-edit-3',         label: '예약 수정',       color: C },
+      cancel_booking:  { icon: 'ic-trash-2',        label: '예약 취소',       color: C },
+      reschedule_booking: { icon: 'ic-refresh-cw',  label: '예약 시간 변경',  color: C },
+      update_customer: { icon: 'ic-edit-3',         label: '고객 정보 수정',  color: C },
+      create_expense:  { icon: 'ic-credit-card',    label: '지출 기록',       color: C },
+      upsert_inventory: { icon: 'ic-package',       label: '재고 추가',       color: C },
+      generate_bulk_message: { icon: 'ic-message-square', label: '단체 메시지 초안', color: C },
+      charge_membership:     { icon: 'ic-credit-card',  label: '회원권 충전',   color: C },
+      use_membership:        { icon: 'ic-credit-card',  label: '회원권 사용',   color: C },
+      mark_booking_no_show:  { icon: 'ic-x-octagon',    label: '노쇼 처리',     color: C },
+      mark_booking_completed:{ icon: 'ic-check-circle', label: '시술 완료',     color: C },
+      refund_revenue:        { icon: 'ic-corner-up-left', label: '환불 처리',   color: C },
+      update_service_price:  { icon: 'ic-dollar-sign',  label: '가격 변경',     color: C },
+    }[kind] || { icon: 'ic-check', label: kind, color: C };
   }
 
   function _renderActionDoneBubble() {
-    return `<div style="margin-top:6px;padding:10px 12px;background:linear-gradient(135deg,rgba(76,175,80,0.12),rgba(76,175,80,0.02));border-radius:12px;border-left:3px solid #388e3c;">
-      <div style="font-size:11px;font-weight:700;color:#388e3c;display:inline-flex;align-items:center;gap:4px;">${_svg('ic-check', 12)} 완료</div>
+    return `<div class="asst-card asst-card--done" style="margin-top:8px;padding:12px 14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${_svg('ic-check', 13)}</span>
+      <span style="font-size:12px;font-weight:700;color:#0F8746;">완료</span>
     </div>`;
   }
 
@@ -753,20 +755,23 @@
     try {
       const msg = Array.isArray(_history) ? _history[historyIdx] : null;
       if (msg && msg.action_error) {
-        errLine = `<div style="font-size:11px;color:hsl(0,60%,35%);margin-top:4px;line-height:1.4;">사유: ${_esc(msg.action_error)}</div>`;
+        errLine = `<div style="font-size:11px;color:#B0353A;margin-top:4px;line-height:1.4;">사유: ${_esc(msg.action_error)}</div>`;
       }
     } catch (_e) { void _e; }
-    return `<div style="margin-top:6px;padding:10px 12px;background:rgba(220,53,69,0.08);border-radius:12px;border-left:3px solid var(--danger);">
-      <div style="font-size:11px;font-weight:700;color:var(--danger);">실패 — 다시 말씀해 주세요</div>
+    return `<div class="asst-card asst-card--failed" style="margin-top:8px;padding:12px 14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#FBE9EA;color:#E5484D;">${_svg('ic-x', 12)}</span>
+        <span style="font-size:12px;font-weight:700;color:#E5484D;">실패 — 다시 말씀해 주세요</span>
+      </div>
       ${errLine}
     </div>`;
   }
 
   function _renderActionRunningBubble(kindBadge) {
-    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="display:inline-block;width:14px;height:14px;border:2px solid ${kindBadge.color};border-top-color:transparent;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span>
-        <span style="font-size:12px;font-weight:700;color:${kindBadge.color};">저장 중…</span>
+    return `<div class="asst-card asst-card--running" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="display:inline-block;width:14px;height:14px;border:2px solid #C5CBD2;border-top-color:#191F28;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span>
+        <span style="font-size:13px;font-weight:600;color:#4E5968;">저장 중…</span>
       </div>
     </div>
     <style>@keyframes asst-spin { to { transform: rotate(360deg); } }</style>`;
@@ -778,16 +783,16 @@
     const addField = (field, label, val, extra) => _pushSingleEditField(editFields, historyIdx, field, label, val, extra);
     const itemsHtml = _singleEditItemsHtml(action, historyIdx, p, kindBadge, addField);
     if (!itemsHtml) _pushSingleBaseFields(action, p, editFields, addField, historyIdx);
-    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 14)}</span>
-        <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label} · 편집 모드</span>
+    return `<div class="asst-card asst-card--edit" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
+        <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label} · 편집 모드</span>
       </div>
-      ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">${editFields.join('')}</div>` : ''}
+      ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">${editFields.join('')}</div>` : ''}
       ${itemsHtml}
-      <div style="display:flex;gap:6px;margin-top:10px;">
-        <button data-action-save="${historyIdx}" style="flex:1;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-save', 13)} 저장</button>
-        <button data-action-editcancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
+      <div style="display:flex;gap:6px;margin-top:12px;">
+        <button data-action-save="${historyIdx}" style="flex:1;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">${_svg('ic-save', 14)} 저장</button>
+        <button data-action-editcancel="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:13px;font-weight:600;">취소</button>
       </div>
     </div>`;
   }
@@ -797,16 +802,16 @@
     const ex = extra || {};
     if (ex.select) {
       list.push(`<div style="display:flex;align-items:center;gap:8px;">
-        <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
-        <select data-single-field="${historyIdx}:${field}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;">
+        <span style="width:52px;font-size:11px;color:#8B95A1;font-weight:600;">${label}</span>
+        <select data-single-field="${historyIdx}:${field}" style="flex:1;padding:9px 12px;border:none;border-radius:10px;font-size:13px;background:#F7F8FA;color:#191F28;color-scheme:light;outline:none;">
           <option value=""${val ? '' : ' selected'}>선택</option>${_categoryOptionsHtml(val)}
         </select>
       </div>`);
       return;
     }
     list.push(`<div style="display:flex;align-items:center;gap:8px;">
-      <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
-      <input data-single-field="${historyIdx}:${field}" type="${ex.type || 'text'}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;background:#fff;" />
+      <span style="width:52px;font-size:11px;color:#8B95A1;font-weight:600;">${label}</span>
+      <input data-single-field="${historyIdx}:${field}" type="${ex.type || 'text'}" value="${_esc(val == null ? '' : val)}" style="flex:1;padding:9px 12px;border:none;border-radius:10px;font-size:13px;background:#F7F8FA;color:#191F28;color-scheme:light;outline:none;" />
     </div>`);
   }
 
@@ -814,7 +819,7 @@
     if (action.kind === 'upsert_inventory') {
       if (!Array.isArray(p.items)) p.items = [];
       if ('memo' in p) addField('memo', '메모', p.memo);
-      return `<div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin-bottom:4px;">품목</div>
+      return `<div style="font-size:11px;font-weight:600;color:#8B95A1;margin-bottom:4px;">품목</div>
         ${_renderItemsEditor(String(historyIdx), p.items, {
           fieldAttr: 'single-field', addAttr: 'single-item-add', delAttr: 'single-item-delete', color: kindBadge.color,
         })}`;
@@ -830,11 +835,11 @@
   }
 
   function _singleExpenseEditors(historyIdx, p, kindBadge) {
-    return `<div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">품목 (정가 기준)</div>
+    return `<div style="font-size:11px;font-weight:600;color:#8B95A1;margin:10px 0 4px;">품목 (정가 기준)</div>
       ${_renderItemsEditor(String(historyIdx), p.items, {
         fieldAttr: 'single-field', addAttr: 'single-item-add', delAttr: 'single-item-delete', color: kindBadge.color,
       })}
-      <div style="font-size:11px;font-weight:700;color:hsl(220,10%,50%);margin:10px 0 4px;">할인·쿠폰·포인트</div>
+      <div style="font-size:11px;font-weight:600;color:#8B95A1;margin:10px 0 4px;">할인·쿠폰·포인트</div>
       ${_renderAdjustmentsEditor(String(historyIdx), p.adjustments, {
         fieldAttr: 'single-field', addAttr: 'single-adjustment-add', delAttr: 'single-adjustment-delete', color: kindBadge.color,
       })}
@@ -850,22 +855,22 @@
     if ('memo' in p) addField('memo', '메모', p.memo);
     if (editFields.length) return;
     editFields.push(`<div style="display:flex;align-items:center;gap:8px;">
-      <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">내용</span>
-      <input data-single-field="${historyIdx}:confirmation_text" value="${_esc(action.confirmation_text || '')}" style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,85%);border-radius:10px;font-size:12px;" />
+      <span style="width:52px;font-size:11px;color:#8B95A1;font-weight:600;">내용</span>
+      <input data-single-field="${historyIdx}:confirmation_text" value="${_esc(action.confirmation_text || '')}" style="flex:1;padding:9px 12px;border:none;border-radius:10px;font-size:13px;background:#F7F8FA;color:#191F28;color-scheme:light;outline:none;" />
     </div>`);
   }
 
   function _renderActionPendingBubble(action, historyIdx, kindBadge) {
-    return `<div style="margin-top:6px;padding:12px;background:#fff;border:1px solid ${kindBadge.color};border-radius:12px;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 14)}</span>
-        <span style="font-size:11px;font-weight:700;color:${kindBadge.color};">${kindBadge.label}</span>
+    return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
+        <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label}</span>
       </div>
-      <div style="font-size:13px;color:#222;font-weight:600;margin-bottom:10px;line-height:1.5;">${_esc(action.confirmation_text || '')}</div>
+      <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(action.confirmation_text || '')}</div>
       <div style="display:flex;gap:6px;">
-        <button data-action-edit="${historyIdx}" style="flex:1;padding:9px;border:1px solid ${kindBadge.color};border-radius:8px;background:#fff;color:${kindBadge.color};font-weight:700;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 13)} 수정</button>
-        <button data-action-run="${historyIdx}" style="flex:2;padding:9px;border:none;border-radius:8px;background:${kindBadge.color};color:#fff;font-weight:800;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">추가하기 ${_svg('ic-check', 13)}</button>
-        <button data-action-cancel="${historyIdx}" style="flex:1;padding:9px;border:1px solid #eee;border-radius:8px;background:#fff;color:#888;cursor:pointer;font-size:12px;">취소</button>
+        <button data-action-edit="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 14)} 수정</button>
+        <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">추가하기 ${_svg('ic-check', 14)}</button>
+        <button data-action-cancel="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#8B95A1;cursor:pointer;font-size:13px;font-weight:500;">취소</button>
       </div>
     </div>`;
   }
@@ -957,7 +962,7 @@
     }
     const row = (label, field, val, placeholder) => `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        <span style="width:52px;font-size:11px;color:hsl(220,10%,50%);font-weight:700;">${label}</span>
+        <span style="width:52px;font-size:11px;color:#8B95A1;font-weight:600;">${label}</span>
         <input data-fallback-field="${field}" data-fallback-idx="${historyIdx}" value="${_esc(val || '')}" placeholder="${_esc(placeholder)}"
           style="flex:1;padding:7px 10px;border:1px solid hsl(220,15%,88%);border-radius:10px;font-size:12px;background:#fff;" />
       </div>`;
