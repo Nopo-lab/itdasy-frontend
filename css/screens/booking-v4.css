@@ -1018,30 +1018,46 @@
   opacity: 0.5;
 }
 
-/* confirmed — 기존 brand 핑크 (기본값이라 override 불필요, 명시용) */
-.bk-st-confirmed { /* background: var(--brand-bg); border-left-color: var(--brand-strong); */ }
+/* [2026-05-26] confirmed — 차분한 파랑 (#5B7FC4) */
+.bk-block.bk-st-confirmed,
+.bk-week-m__block.bk-st-confirmed,
+.bk-week__block.bk-st-confirmed,
+.bk-pc-day__block.bk-st-confirmed {
+  background: rgba(91,127,196,0.12);
+}
+.bk-st-confirmed .bk-block__title,
+.bk-st-confirmed .bk-week__block-title,
+.bk-st-confirmed .bk-pc-day__block-title { color: #2E4B85; }
+.bk-st-confirmed .bk-block__sub,
+.bk-st-confirmed .bk-week__block-sub,
+.bk-st-confirmed .bk-pc-day__block-time,
+.bk-st-confirmed .bk-pc-day__block-service { color: #5B7FC4; opacity: 0.85; }
 
-/* completed — 초록 */
+.bk-month-m__evt.bk-st-confirmed,
+.bk-month-pc__evt.bk-st-confirmed {
+  background: rgba(91,127,196,0.12);
+  color: #2E4B85;
+}
+
+/* completed — 초록 (#16B55E) */
 .bk-block.bk-st-completed,
 .bk-week-m__block.bk-st-completed,
 .bk-week__block.bk-st-completed,
 .bk-pc-day__block.bk-st-completed {
-  background: #E1F5EE;
-  border-left-color: #0F6E56;
+  background: rgba(22,181,94,0.12);
 }
 .bk-st-completed .bk-block__title,
 .bk-st-completed .bk-week__block-title,
-.bk-st-completed .bk-pc-day__block-title { color: #085041; }
+.bk-st-completed .bk-pc-day__block-title { color: #0F8746; }
 .bk-st-completed .bk-block__sub,
 .bk-st-completed .bk-week__block-sub,
 .bk-st-completed .bk-pc-day__block-time,
-.bk-st-completed .bk-pc-day__block-service { color: #0F6E56; opacity: 0.8; }
+.bk-st-completed .bk-pc-day__block-service { color: #16B55E; opacity: 0.85; }
 
-/* 월별 이벤트 — completed */
 .bk-month-m__evt.bk-st-completed,
 .bk-month-pc__evt.bk-st-completed {
-  background: #E1F5EE;
-  color: #0F6E56;
+  background: rgba(22,181,94,0.12);
+  color: #0F8746;
 }
 
 /* cancelled — 회색 + 취소선 */
@@ -1161,11 +1177,10 @@
   background: #C5CBD2;
   flex-shrink: 0;
 }
-.bk-c-pink .bk-bar   { background: #BC6675; }
-.bk-c-blue .bk-bar   { background: #3B82F6; }
-.bk-c-teal .bk-bar   { background: #0D9488; }
-.bk-c-purple .bk-bar { background: #7C3AED; }
-.bk-c-orange .bk-bar { background: #EA580C; }
+/* [2026-05-26] 5색 순환 폐지 → status 색 일원화 (.bk-st-* 가 배경 담당) */
+.bk-st-confirmed .bk-bar { background: #5B7FC4; }
+.bk-st-completed .bk-bar { background: #16B55E; }
+.bk-st-noshow    .bk-bar { background: #E5484D; }
 
 /* 본문 텍스트 */
 .bk-block--v6 .bk-block__title,

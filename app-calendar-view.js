@@ -83,9 +83,16 @@
   const HOUR_PX_PC_WEEK     = 60;
   const HOUR_PX_PC_DAY      = 60;   // [Step 5 · 2026-05-16] 60px — 1시간 블록에 3줄(고객/시각/시술) 여유 + CSS 와 동일
 
-  // [2026-05-17 v6] 캘린더 블록 색 — 인덱스 순서대로 5색 순환. 하루 안에서 차례 (mockup-calendar-blocks)
-  const BK_COLORS = ['pink', 'blue', 'teal', 'purple', 'orange'];
-  const BK_COLOR_HEX = { pink: '#BC6675', blue: '#3B82F6', teal: '#0D9488', purple: '#7C3AED', orange: '#EA580C' };
+  // [2026-05-26] 5색 순환 폐지 → status 기준 일원화.
+  //   확정 파랑 #5B7FC4 / 완료 초록 #16B55E / 노쇼 빨강 #E5484D
+  const BK_STATUS_COLOR = {
+    confirmed: '#5B7FC4',
+    completed: '#16B55E',
+    no_show:   '#E5484D',
+  };
+  function _statusDotColor(status) {
+    return BK_STATUS_COLOR[status] || BK_STATUS_COLOR.confirmed;
+  }
   const PC_BREAKPOINT       = 1100;
 
   // === 상태 ===
@@ -277,7 +284,7 @@
       its.slice(0, MAX).forEach((it, i) => {
         // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
         const tm = _fmt(new Date(it._raw.starts_at));
-        const dotColor = BK_COLOR_HEX[BK_COLORS[i % 5]];
+        const dotColor = _statusDotColor(it.status);
         const dot = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dotColor};margin-right:4px;vertical-align:middle"></span>`;
         h += `<div class="${p}__evt${_stCls(it.status)}">${dot}${tm} ${_esc(it.cust)}</div>`;
       });
@@ -367,9 +374,8 @@
       const isDim = it.status === 'cancelled' || it.status === 'no_show';
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const dim = isDim ? ' is-dim' : '';
-      const cc = ' bk-c-' + BK_COLORS[i % 5];  // [v6] 인덱스 순서대로 5색 순환
       const block = document.createElement('button');
-      block.className = 'bk-block bk-block--v6'+ dim + cc + _stCls(it.status);
+      block.className = 'bk-block bk-block--v6'+ dim + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.position = 'absolute';
       block.style.top = top + 'px';
@@ -441,8 +447,6 @@
       cellMap.set(key, cell);
     });
     const fragments = new Map();
-    // [v6] 모바일 주간 — 날짜별 인덱스 카운트
-    const dayIdxMap = new Map();
     items.forEach(it => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
@@ -455,16 +459,12 @@
         target = allCells[(s.getHours() - startH) * 7 + dayI];
       }
       if (!target) return;
-      const dKey = _ds(s);
-      const di = dayIdxMap.get(dKey) || 0;
-      dayIdxMap.set(dKey, di + 1);
-      const cc = ' bk-c-' + BK_COLORS[di % 5];
       const top = (s.getMinutes() / 60) * HOUR_PX_MOBILE_WEEK;
       const height = Math.max(15, ((e - s) / 60000 / 60) * HOUR_PX_MOBILE_WEEK);
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
       const dim2 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-week-m__block bk-week-m__block--v6'+ dim2 + cc + _stCls(it.status);
+      block.className = 'bk-week-m__block bk-week-m__block--v6'+ dim2 + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
@@ -542,23 +542,17 @@
       if (col.dataset.date) dayColMap.set(col.dataset.date, col);
     });
     const fragments = new Map();
-    // [v6] 주간: 날짜별로 인덱스 카운트 → 같은 날 안에서 5색 순환
-    const dayIdxMap = new Map();
     items.forEach(it => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
       const dayCol = dayColMap.get(_ds(s));
       if (!dayCol) return;
-      const dKey = _ds(s);
-      const di = dayIdxMap.get(dKey) || 0;
-      dayIdxMap.set(dKey, di + 1);
-      const cc = ' bk-c-' + BK_COLORS[di % 5];
       const top = (s.getHours() - startH) * HOUR_PX_PC_WEEK + (s.getMinutes() / 60) * HOUR_PX_PC_WEEK;
       const height = Math.max(30, ((e - s) / 60000 / 60) * HOUR_PX_PC_WEEK);
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
       const dim3 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-week__block bk-week__block--v6'+ dim3 + cc + _stCls(it.status);
+      block.className = 'bk-week__block bk-week__block--v6'+ dim3 + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
@@ -617,10 +611,9 @@
       const top = (s.getHours() - startH) * HOUR_PX_PC_DAY + (s.getMinutes() / 60) * HOUR_PX_PC_DAY;
       const height = Math.max(40, ((e - s) / 60000 / 60) * HOUR_PX_PC_DAY);
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
-      const cc = ' bk-c-' + BK_COLORS[i % 5];  // [v6] 인덱스 % 5
       const block = document.createElement('button');
       const dim4 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-pc-day__block bk-pc-day__block--v6'+ dim4 + cc + _stCls(it.status);
+      block.className = 'bk-pc-day__block bk-pc-day__block--v6'+ dim4 + _stCls(it.status);
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
