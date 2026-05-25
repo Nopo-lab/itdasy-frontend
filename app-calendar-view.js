@@ -756,14 +756,13 @@
     return h;
   }
 
-  // [2026-05-24] 예약 상태 색상 범례
+  // [2026-05-26] 예약 상태 색상 범례 — 취소 제거, status 3개로 일원화
   function _renderLegend() {
     return (
       '<div class="bk-legend" aria-label="예약 상태 범례">' +
-        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:var(--brand-strong,#BC6675)"></i>확정</span>' +
-        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#10B981"></i>완료</span>' +
-        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#9CA3AF"></i>취소</span>' +
-        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#D97706"></i>노쇼</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#5B7FC4"></i>확정</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#16B55E"></i>완료</span>' +
+        '<span class="bk-legend__item"><i class="bk-legend__dot" style="background:#E5484D"></i>노쇼</span>' +
       '</div>'
     );
   }
