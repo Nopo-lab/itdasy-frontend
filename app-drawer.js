@@ -27,16 +27,7 @@
     dm:        () => _call(['openDMAutoreplySettings']),
     kakao:     () => _call(['openKakaoHub']),
     persona:   () => _call(['openPersonaSurveyModal']),
-    posts:     () => {
-      try {
-        if (typeof window.showTab === 'function') {
-          const finishBtn = document.querySelector('.tab-bar__btn[data-tab="finish"]');
-          window.showTab('finish', finishBtn || null);
-        }
-        if (typeof window.initFinishTab === 'function') window.initFinishTab();
-        return true;
-      } catch (_) { return false; }
-    },
+    posts:     () => _call(['openFinishTab']),
     caption:   () => _call(['openCaptionScenarioPopup']),
     naver:     () => _call(['openNaverLink']),
     payment:   () => _call(['openRevenue', 'openRevenueHub', 'openRevenueInput']),

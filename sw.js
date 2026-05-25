@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260525-v268-assistant-suggestions';
+const CACHE_VERSION = '20260525-v269-ai-gpt-cleanup';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -43,6 +43,7 @@ const STATIC_ASSETS = [
   './style-dark.css',
   './style-hub.css',
   './app-core.js',
+  './js/navigation/entrypoints.js',
   './app-home-v41.js',
   './app-home-v41-config.js',
   './app-perf-recovery.js',
@@ -61,6 +62,7 @@ const STATIC_ASSETS = [
   './app-photo-editor-worker-filter.js',
   './app-photo-editor-bg-tab.js',
   './app-photo-editor-ai-mask.js',
+  './app-photo-editor-beauty-ai.js',
   './workers/photo-filter-worker.js',
   './app-photo-enhance.js',
   './app-gallery-element.js',
@@ -74,6 +76,8 @@ const STATIC_ASSETS = [
   './js/assistant/single-action-controls.js',
   './js/assistant/group-action-controls.js',
   './js/assistant/suggestion-controls.js',
+  './js/assistant/photo-local-handlers.js',
+  './js/assistant/photo-kind-classifier.js',
   './assistant-intent-router.js',
   './app-smart-capture.js',
   './app-ai-hub.js',

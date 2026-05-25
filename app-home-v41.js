@@ -705,14 +705,7 @@
         }
       },
       openGallery: () => {
-        // [2026-05-25] 'gallery' 탭은 존재하지 않음 (홈/내샵 2탭 구조). '마무리(finish)' 탭으로
-        //   진입해 갤러리 슬롯을 보고 인스타 업로드까지 갈 수 있게 한다.
-        if (typeof window.showTab === 'function') {
-          try { window.showTab('finish', null); } catch (_e) { /* ignore */ }
-        }
-        if (typeof window.initFinishTab === 'function') {
-          try { window.initFinishTab(); } catch (_e) { /* ignore */ }
-        }
+        if (typeof window.openFinishTab === 'function') return window.openFinishTab();
       },
       // 2026-05-01 ── 캡션 만들기 — app-caption.js 의 openCaptionScenarioPopup 호출
       openCaption: () => {

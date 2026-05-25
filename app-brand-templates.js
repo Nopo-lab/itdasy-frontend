@@ -27,6 +27,24 @@
 
   const BK_KEY = 'itdasy_brand_kit';
   const MAX_TEMPLATES = 12; // localStorage 1MB 이내 안전치
+  const DEFAULT_TEMPLATES = [
+    ['tpl_nail', '네일 - 핑크 골드', 'nail', '#D8A0B8', 'NEW NAIL', '#네일 #젤네일'],
+    ['tpl_lash', '속눈썹 - 블랙 글로우', 'lash', '#1F2937', 'LASH DAY', '#속눈썹 #연장'],
+    ['tpl_hair', '헤어 - 브라운 살롱', 'hair', '#8B5E3C', 'HAIR LOOK', '#헤어스타일 #염색'],
+    ['tpl_skin', '피부 - 클린 화이트', 'skin', '#93C5FD', 'SKIN CARE', '#피부관리 #맑은피부'],
+    ['tpl_extension', '붙임머리 - 무드 베이지', 'extension', '#C7A17A', 'EXTENSION', '#붙임머리 #롱헤어'],
+    ['tpl_waxing', '왁싱 - 미니멀 라인', 'waxing', '#111827', 'WAXING', '#왁싱 #바디케어'],
+  ].map(([id, name, shopType, color, text, hint]) => ({
+    id,
+    name,
+    shop_type: shopType,
+    is_default: true,
+    default_caption_hint: hint,
+    created_at: 0,
+    watermark: { value: '@instahandle', position: 'br', opacity: 0.82 },
+    text_style: { value: text, x: 0.5, y: 0.12, color: '#ffffff' },
+    brand_color: color,
+  }));
 
   function _readKit() {
     try { return JSON.parse(localStorage.getItem(BK_KEY) || '{}') || {}; }
@@ -52,7 +70,9 @@
 
   function list() {
     const kit = _readKit();
-    return Array.isArray(kit.templates) ? kit.templates.slice() : [];
+    const saved = Array.isArray(kit.templates) ? kit.templates.slice() : [];
+    const savedIds = new Set(saved.map(t => t && t.id).filter(Boolean));
+    return DEFAULT_TEMPLATES.filter(t => !savedIds.has(t.id)).concat(saved);
   }
 
   function _writeList(arr) {
@@ -215,8 +235,8 @@
           <span style="display:block;font-size:13px;font-weight:700;color:#222;">${_esc(t.name)}</span>
           <span style="display:block;font-size:11px;color:#888;margin-top:2px;">${_esc(t.watermark && t.watermark.value || '워터마크 없음')} · ${_esc(t.text_style && t.text_style.value || '텍스트 없음')}</span>
         </span>
-        <span data-bt-del="${_esc(t.id)}" role="button" aria-label="삭제"
-          style="color:#aaa;font-size:18px;padding:4px 8px;cursor:pointer;">×</span>
+        ${t.is_default ? '<span style="font-size:10px;color:#7C3AED;font-weight:800;">기본</span>' : `<span data-bt-del="${_esc(t.id)}" role="button" aria-label="삭제"
+          style="color:#aaa;font-size:18px;padding:4px 8px;cursor:pointer;">×</span>`}
       </button>
     `).join('') : `
       <div style="text-align:center;padding:24px;color:#888;font-size:13px;line-height:1.6;">

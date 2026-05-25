@@ -1,4 +1,4 @@
-/* 사진 편집기 — Film 프리셋 8종 (Sprint 5 v230 2026-05-19)
+/* 사진 편집기 — Film 프리셋 16종 (Sprint 5 v230 2026-05-19)
    뷰티 도메인 큐레이션. 3D LUT 32×32×32 함수형 생성 → Sprint 2 LUT3D 셰이더 재사용.
 
    8 프리셋 (LUT 함수):
@@ -52,6 +52,8 @@
     const p = 2 * l - q;
     return [_hue2rgb(p, q, h + 1/3), _hue2rgb(p, q, h), _hue2rgb(p, q, h - 1/3)];
   }
+  function _clamp(v) { return Math.max(0, Math.min(1, v)); }
+  function _contrast(v, amount) { return _clamp((v - 0.5) * amount + 0.5); }
 
   // ── 8 프리셋 LUT 함수 (입력 0~1, 출력 0~1) ──
   const PRESETS = {
@@ -153,6 +155,65 @@
         return _hslToRgb(h, Math.max(0, s * 0.95), l);
       },
     },
+    'vsco-a6': {
+      label: 'VSCO A6',
+      desc: '소프트 페이드 + 차분한 대비',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(r, g, b);
+        return _hslToRgb(h, s * 0.92, _clamp(0.06 + l * 0.9));
+      },
+    },
+    'kdrama-soft': {
+      label: '한드 소프트',
+      desc: '맑고 부드러운 피부톤',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(_clamp(r + 0.018), g, _clamp(b + 0.008));
+        return _hslToRgb(h, s * 0.88, _clamp(l * 1.08));
+      },
+    },
+    'golden-hour': {
+      label: '골든 아워',
+      desc: '따뜻한 석양 톤',
+      fn: (r, g, b) => [_clamp(r * 1.11 + 0.035), _clamp(g * 1.04 + 0.012), _clamp(b * 0.86)],
+    },
+    'studio-bw': {
+      label: '스튜디오 흑백',
+      desc: '깨끗한 흑백 대비',
+      fn: (r, g, b) => {
+        const y = _contrast(r * 0.3 + g * 0.59 + b * 0.11, 1.18);
+        return [y, y, y];
+      },
+    },
+    'pastel-cream': {
+      label: '파스텔 크림',
+      desc: '크림 배경 + 낮은 채도',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(r, g, b);
+        const [nr, ng, nb] = _hslToRgb(h, s * 0.72, _clamp(l * 1.07));
+        return [_clamp(nr + 0.035), _clamp(ng + 0.025), _clamp(nb + 0.005)];
+      },
+    },
+    'pink-fade': {
+      label: '핑크 페이드',
+      desc: '살롱용 분홍 무드',
+      fn: (r, g, b) => [_clamp(0.05 + r * 0.93), _clamp(0.035 + g * 0.9), _clamp(0.055 + b * 0.93)],
+    },
+    'vintage-film': {
+      label: '빈티지 필름',
+      desc: '살짝 바랜 필름 감성',
+      fn: (r, g, b) => {
+        const nr = _contrast(r, 1.08), ng = _contrast(g, 1.03), nb = _contrast(b, 0.92);
+        return [_clamp(0.08 + nr * 0.86), _clamp(0.06 + ng * 0.88), _clamp(0.04 + nb * 0.86)];
+      },
+    },
+    'mood-cinematic': {
+      label: '무드 시네마',
+      desc: '깊은 그림자 + 고급 톤',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(_contrast(r, 1.16), _contrast(g, 1.12), _contrast(b, 1.2));
+        return _hslToRgb(h, _clamp(s * 0.9), _clamp(l * 0.94));
+      },
+    },
   };
 
   // ── LUT 캔버스 생성 (한 프리셋당 1024×32) — lazy + 캐시 ──
@@ -219,7 +280,7 @@
     const f = _ensureState(state);
     const cards = Object.keys(PRESETS).map(id => _previewCard(id, PRESETS[id], f.presetId === id)).join('');
     const activePreset = f.presetId && PRESETS[f.presetId];
-    return `<div class="pe-field-label"><svg class="pe-ic" viewBox="0 0 24 24" style="margin-right:4px;"><use href="#ic-film"/></svg> 필름 프리셋 (뷰티 큐레이션 8종)</div>
+    return `<div class="pe-field-label"><svg class="pe-ic" viewBox="0 0 24 24" style="margin-right:4px;"><use href="#ic-film"/></svg> 필름 프리셋 (뷰티 큐레이션 16종)</div>
       <div class="pe-guide-box">
         탭하면 즉시 적용. 강도 슬라이더로 세기 조절. 다시 같은 카드 누르면 해제.
       </div>

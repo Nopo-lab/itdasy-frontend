@@ -1654,6 +1654,7 @@
   //   입력창 위 칩으로 펜딩 → 사용자 텍스트 입력 후 ▷ 누르면 사진+텍스트 함께 전송.
   let _pendingFiles = [];   // File 객체 배열 (실제 업로드용)
   let _pendingThumbs = [];  // 미리보기 objectURL 배열 (인덱스 동기화)
+  let _pendingPhotoKind = '';
   function _bindActionButtons() {
     if (_delegationBound) return;
     _delegationBound = true;
@@ -2595,9 +2596,13 @@
         <button data-pending-remove="${i}" aria-label="제거" style="position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-weight:700;">×</button>
       </div>
     `).join('');
-    const chipsHtml = _ASST_PHOTO_CHIPS.map(c =>
-      `<button type="button" data-photo-chip="${c.key}" style="flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.25);border-radius:999px;background:#FAF5FF;color:#5B21B6;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">${c.label}</button>`
-    ).join('');
+    const chipsHtml = _ASST_PHOTO_CHIPS.map(c => {
+      const on = _pendingPhotoKind === c.key;
+      const style = on
+        ? 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.65);border-radius:999px;background:#6D28D9;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(109,40,217,0.2);'
+        : 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.25);border-radius:999px;background:#FAF5FF;color:#5B21B6;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;';
+      return `<button type="button" data-photo-chip="${c.key}" data-photo-chip-suggested="${on ? '1' : '0'}" style="${style}">${on ? '추천 · ' : ''}${c.label}</button>`;
+    }).join('');
     wrap.innerHTML = `
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${thumbsHtml}</div>
       <div style="font-size:10.5px;color:#6B7684;font-weight:600;margin-bottom:4px;padding:0 2px;">이 사진은? (탭해서 잇비에게 바로 보내기)</div>
@@ -2627,13 +2632,25 @@
       catch (_e) { _pendingThumbs.push(''); }
     });
     _renderPending();
+    _updatePendingPhotoKind();
     setTimeout(() => document.getElementById('asstInput')?.focus(), 30);
     if (window.hapticLight) window.hapticLight();
+  }
+  function _updatePendingPhotoKind() {
+    const f = _pendingFiles[0];
+    const classifier = window.ItdasyAssistantPhotoKind;
+    if (!f || !classifier || typeof classifier.classify !== 'function') return;
+    classifier.classify(f).then(kind => {
+      if (!_pendingFiles.length) return;
+      _pendingPhotoKind = kind || 'enhance';
+      _renderPending();
+    }).catch(() => {});
   }
   function _clearPending() {
     _pendingThumbs.forEach(u => { try { URL.revokeObjectURL(u); } catch (_e) { void _e; } });
     _pendingFiles = [];
     _pendingThumbs = [];
+    _pendingPhotoKind = '';
     _renderPending();
   }
 
