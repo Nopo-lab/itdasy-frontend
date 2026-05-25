@@ -317,7 +317,16 @@
     if (!document.getElementById('asst-tap-style')) {
       const st = document.createElement('style');
       st.id = 'asst-tap-style';
-      st.textContent = '#assistantSheetPanel button { touch-action: manipulation; }';
+      st.textContent = [
+        '#assistantSheetPanel button { touch-action: manipulation; transition: background .12s ease, transform .08s ease; }',
+        '#assistantSheetPanel button:active { transform: scale(.96); }',
+        // [2026-05-26] 메시지·액션 카드 등장 — slide-up + fade
+        '#asstBody .asst-msg, #asstBody .asst-card { animation: asstSlideUp .4s ease both; }',
+        '@keyframes asstSlideUp { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }',
+        // 완료 체크 아이콘 pop
+        '.asst-card--done > span:first-child { animation: asstPop .35s cubic-bezier(.4,1.6,.6,1) both; }',
+        '@keyframes asstPop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }',
+      ].join('\n');
       document.head.appendChild(st);
     }
   }
