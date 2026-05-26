@@ -53,7 +53,7 @@
     if (opts.type === 'shine') return _paintShine(d, i, r, g, b, weight);
     if (opts.type === 'redness') return _paintRedness(d, i, r, g, b, weight);
     if (opts.type === 'gloss') return _paintGloss(d, i, r, g, b, lum, weight);
-    if (opts.type === 'blur') return _paintBlur(d, i, r, g, b, lum, weight);
+    if (opts.type === 'blur') return _paintBlur(d, i, r, g, b, lum, weight, width, height);
     if (opts.type === 'clone' || opts.type === 'heal') {
       _paintCloneOrHeal(d, i, width, height, weight, opts);
     }
@@ -78,17 +78,26 @@
   }
 
   function _paintGloss(d, i, r, g, b, lum, weight) {
-    if (lum <= 140) return;
-    d[i] = _clamp(r + 20 * weight);
-    d[i + 1] = _clamp(g + 20 * weight);
-    d[i + 2] = _clamp(b + 20 * weight);
+    const lift = lum > 140 ? 24 : (lum > 80 ? 14 : 6);
+    d[i] = _clamp(r + lift * weight);
+    d[i + 1] = _clamp(g + lift * weight);
+    d[i + 2] = _clamp(b + lift * weight);
   }
 
-  function _paintBlur(d, i, r, g, b, lum, weight) {
-    const mix = weight * 0.5;
-    d[i] = _clamp(r * (1 - mix) + lum * mix);
-    d[i + 1] = _clamp(g * (1 - mix) + lum * mix);
-    d[i + 2] = _clamp(b * (1 - mix) + lum * mix);
+  function _paintBlur(d, i, r, g, b, lum, weight, w, h) {
+    const idx = i >> 2, py = (idx / w) | 0, px = idx - py * w;
+    let rS = 0, gS = 0, bS = 0, n = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const nx = px + dx, ny = py + dy;
+      if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+      const j = (ny * w + nx) * 4;
+      rS += d[j]; gS += d[j + 1]; bS += d[j + 2]; n++;
+    }
+    if (!n) return;
+    const mix = weight * 0.7;
+    d[i] = _clamp(r * (1 - mix) + (rS / n) * mix);
+    d[i + 1] = _clamp(g * (1 - mix) + (gS / n) * mix);
+    d[i + 2] = _clamp(b * (1 - mix) + (bS / n) * mix);
   }
 
   function _paintCloneOrHeal(d, i, width, height, weight, opts) {

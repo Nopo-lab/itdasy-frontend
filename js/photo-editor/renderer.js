@@ -41,16 +41,27 @@
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
   function _boxBlur(img, w, h, r) {
-    const out = new ImageData(w, h);
-    const d = img.data, o = out.data;
+    const d = img.data;
+    const tmp = new Uint8ClampedArray(d.length);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      let rSum = 0, gSum = 0, bSum = 0, n = 0;
+      let rS = 0, gS = 0, bS = 0, n = 0;
       for (let kx = -r; kx <= r; kx++) {
         const xx = Math.min(w - 1, Math.max(0, x + kx)), p = (y * w + xx) * 4;
-        rSum += d[p]; gSum += d[p + 1]; bSum += d[p + 2]; n++;
+        rS += d[p]; gS += d[p + 1]; bS += d[p + 2]; n++;
       }
       const p = (y * w + x) * 4;
-      o[p] = rSum / n; o[p + 1] = gSum / n; o[p + 2] = bSum / n; o[p + 3] = d[p + 3];
+      tmp[p] = rS / n; tmp[p + 1] = gS / n; tmp[p + 2] = bS / n; tmp[p + 3] = d[p + 3];
+    }
+    const out = new ImageData(w, h);
+    const o = out.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let rS = 0, gS = 0, bS = 0, n = 0;
+      for (let ky = -r; ky <= r; ky++) {
+        const yy = Math.min(h - 1, Math.max(0, y + ky)), p = (yy * w + x) * 4;
+        rS += tmp[p]; gS += tmp[p + 1]; bS += tmp[p + 2]; n++;
+      }
+      const p = (y * w + x) * 4;
+      o[p] = rS / n; o[p + 1] = gS / n; o[p + 2] = bS / n; o[p + 3] = tmp[p + 3];
     }
     return out;
   }
@@ -60,7 +71,7 @@
       const src = ctx.getImageData(0, 0, w, h);
       const blur = _boxBlur(src, w, h, 1);
       const out = ctx.createImageData(w, h);
-      const k = 1 + strength * 1.2;
+      const k = 1 + strength * 0.8;
       for (let i = 0; i < src.data.length; i += 4) {
         out.data[i] = _clamp(src.data[i] + (src.data[i] - blur.data[i]) * (k - 1));
         out.data[i + 1] = _clamp(src.data[i + 1] + (src.data[i + 1] - blur.data[i + 1]) * (k - 1));
@@ -188,7 +199,10 @@
       a.brightness + ',' + a.saturate + ',' + a.sharpness + ',' + a.temperature + '|' +
       Object.values(s.beauty).join(',') + '|' +
       (s.relight ? s.relight.direction + ',' + s.relight.warmth + ',' + s.relight.intensity + ',' + s.relight.ambientBoost + ',' + s.relight.flash : '') + '|' +
-      (s.shadow ? s.shadow.mode : '') + '|' + (s.film ? JSON.stringify(s.film) : '');
+      (s.shadow ? s.shadow.mode : '') + '|' + (s.film ? JSON.stringify(s.film) : '') + '|' +
+      (s.curve ? JSON.stringify(s.curve) : '') + '|' +
+      (s.hsl ? JSON.stringify(s.hsl) : '') + '|' +
+      (s.selective ? JSON.stringify(s.selective) : '');
   }
 
   async function redraw(env) {

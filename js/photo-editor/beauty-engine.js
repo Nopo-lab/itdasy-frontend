@@ -7,19 +7,27 @@
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
   function _boxBlur(img, w, h, r) {
-    const out = new ImageData(w, h);
-    const d = img.data, o = out.data;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        let rSum = 0, gSum = 0, bSum = 0, n = 0;
-        for (let kx = -r; kx <= r; kx++) {
-          const xx = Math.min(w - 1, Math.max(0, x + kx));
-          const p = (y * w + xx) * 4;
-          rSum += d[p]; gSum += d[p + 1]; bSum += d[p + 2]; n++;
-        }
-        const p = (y * w + x) * 4;
-        o[p] = rSum / n; o[p + 1] = gSum / n; o[p + 2] = bSum / n; o[p + 3] = d[p + 3];
+    const d = img.data;
+    const tmp = new Uint8ClampedArray(d.length);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let rS = 0, gS = 0, bS = 0, n = 0;
+      for (let kx = -r; kx <= r; kx++) {
+        const xx = Math.min(w - 1, Math.max(0, x + kx)), p = (y * w + xx) * 4;
+        rS += d[p]; gS += d[p + 1]; bS += d[p + 2]; n++;
       }
+      const p = (y * w + x) * 4;
+      tmp[p] = rS / n; tmp[p + 1] = gS / n; tmp[p + 2] = bS / n; tmp[p + 3] = d[p + 3];
+    }
+    const out = new ImageData(w, h);
+    const o = out.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let rS = 0, gS = 0, bS = 0, n = 0;
+      for (let ky = -r; ky <= r; ky++) {
+        const yy = Math.min(h - 1, Math.max(0, y + ky)), p = (yy * w + x) * 4;
+        rS += tmp[p]; gS += tmp[p + 1]; bS += tmp[p + 2]; n++;
+      }
+      const p = (y * w + x) * 4;
+      o[p] = rS / n; o[p + 1] = gS / n; o[p + 2] = bS / n; o[p + 3] = tmp[p + 3];
     }
     return out;
   }
@@ -73,7 +81,7 @@
     const px = i >> 2, x = px % w, y = (px / w) | 0;
     const subjectW = Math.max(0, 1 - (Math.abs((x + 0.5) / w - 0.5) * 1.44 + Math.abs((y + 0.5) / h - 0.48) * 1.04));
     const edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
-    const isSkin = !edgeBg && r > 82 && r > g + 4 && g > bl - 6 && (r - bl) > 18 && (r - bl) < 105 && lum0 > 68 && lum0 < 238;
+    const isSkin = !edgeBg && r > 68 && r > g && g > bl - 10 && (r - bl) > 10 && (r - bl) < 120 && lum0 > 50 && lum0 < 245;
     const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
     const hairLike = !edgeBg && subjectW > 0.35 && !isSkin && lum0 > 14 && lum0 < 215 && ((hairSat0 < 110 && lum0 < 195) || lum0 < 110 || (bl < 95 && hairSat0 < 150));
     const mask = SmartMask && SmartMask.classify ? SmartMask.classify({ r, g, b: bl, lum: lum0, maxCh: maxCh0, minCh: minCh0, x, y, w, h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
@@ -81,8 +89,8 @@
       r, g, bl, lum0,
       skinW: mask ? mask.skin : (isSkin ? 1 : 0),
       hairW: mask ? mask.hair : (hairLike ? 1 : 0),
-      eyeW: mask ? mask.eye : 1,
-      nailW: mask ? mask.nail : 1,
+      eyeW: mask ? mask.eye : 0,
+      nailW: mask ? mask.nail : 0,
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }

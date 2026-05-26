@@ -92,7 +92,7 @@
     if (f.shadow) state.shadow = JSON.parse(JSON.stringify(f.shadow));
     if (f.watermark) Object.assign(state.watermark, f.watermark);
     if (f.bg) state.bg = JSON.parse(JSON.stringify(f.bg));
-    h.redraw(); h.pushHistory();
+    h.scheduleRedraw(); h.pushHistory();
     _toast(h, '적용: ' + f.name);
   }
 
@@ -249,7 +249,7 @@
     _each(panel, '[data-pe-slider]', 'dblclick', e => _resetAdjustOne(e, state, h));
     _on(panel, '[data-pe-tune-reset]', 'click', () => {
       state.adjust = { brightness: 100, saturate: 100, sharpness: 0, temperature: 0 };
-      h.renderPanel(); h.redraw(); h.pushHistory();
+      h.renderPanel(); h.scheduleRedraw(); h.pushHistory();
     });
     _each(panel, '[data-pe-transform]', 'click', e => h.applyTransform(e.currentTarget.dataset.peTransform));
   }
@@ -266,7 +266,7 @@
     const key = e.currentTarget.dataset.peSlider;
     const reset = { brightness: 100, saturate: 100, sharpness: 0, temperature: 0 };
     state.adjust[key] = reset[key] || 0;
-    h.renderPanel(); h.redraw(); h.pushHistory();
+    h.renderPanel(); h.scheduleRedraw(); h.pushHistory();
     _toast(h, '초기화: ' + key);
   }
 
@@ -351,12 +351,12 @@
 
   function _toggleTextFlag(state, h, key) {
     state.text[key] = !state.text[key];
-    h.renderPanel(); h.redraw(); h.pushHistory();
+    h.renderPanel(); h.scheduleRedraw(); h.pushHistory();
   }
 
   function _setTextValue(state, h, key, value) {
     state.text[key] = value;
-    h.renderPanel(); h.redraw(); h.pushHistory();
+    h.renderPanel(); h.scheduleRedraw(); h.pushHistory();
   }
 
   function _bindTextPrefill(panel, state, h) {
@@ -364,7 +364,7 @@
       const w = e.currentTarget.dataset.peTextPrefill;
       if (_openServicePickerIfNeeded(w, state)) return;
       state.text.value = _prefillValue(w, state);
-      h.syncTextToLayer(); h.renderPanel(); h.redraw(); h.pushHistory();
+      h.syncTextToLayer(); h.renderPanel(); h.scheduleRedraw(); h.pushHistory();
     });
   }
 
@@ -382,7 +382,7 @@
 
   function _bindBrand(panel, state, h) {
     _on(panel, '[data-pe-wm-val]', 'input', e => { state.watermark.value = e.target.value; h.scheduleRedraw(); });
-    _each(panel, '[data-pe-wm-pos]', 'click', e => { state.watermark.position = e.currentTarget.dataset.peWmPos; h.renderPanel(); h.redraw(); });
+    _each(panel, '[data-pe-wm-pos]', 'click', e => { state.watermark.position = e.currentTarget.dataset.peWmPos; h.renderPanel(); h.scheduleRedraw(); });
     _on(panel, '[data-pe-wm-opacity]', 'input', e => { state.watermark.opacity = +e.target.value / 100; h.scheduleRedraw(); });
     _on(panel, '[data-pe-wm-save]', 'click', () => _saveBrandWm(state, h));
     _on(panel, '[data-pe-wm-kit]', 'click', () => _openBrandKit(h));
@@ -417,7 +417,7 @@
       else if (bk.shop_name) state.watermark.value = bk.shop_name + (bk.instagram_handle ? ' · @' + bk.instagram_handle : '');
       if (bk.watermark_position) state.watermark.position = bk.watermark_position;
       if (typeof bk.watermark_opacity === 'number') state.watermark.opacity = bk.watermark_opacity;
-      h.renderPanel(); h.redraw();
+      h.renderPanel(); h.scheduleRedraw();
     } catch (_e) { void _e; }
   }
 
@@ -426,13 +426,13 @@
     state.watermark.value = state.shopName;
     const inp = panel.querySelector('[data-pe-wm-val]');
     if (inp) inp.value = state.watermark.value;
-    h.redraw();
+    h.scheduleRedraw();
   }
 
   function _bindExport(panel, state, h) {
     _each(panel, '[data-pe-ratio]', 'click', e => {
       state.ratio = e.currentTarget.dataset.peRatio;
-      h.renderPanel(); h.redraw(); h.pushHistory();
+      h.renderPanel(); h.scheduleRedraw(); h.pushHistory();
     });
     _each(panel, '[data-pe-export]', 'click', e => h.exportImage(e.currentTarget.dataset.peExport));
     _on(panel, '[data-pe-batch-apply]', 'click', e => _applyBatch(state, h, e.currentTarget));
