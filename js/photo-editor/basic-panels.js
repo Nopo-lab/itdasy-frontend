@@ -146,7 +146,11 @@
       return `<div class="pe-panel-row"><button type="button" class="pe-action-btn" data-pe-bg="open-existing">기존 누끼·배경 화면 열기</button></div>
         <div class="pe-hint">배경 모듈 로드 중이에요. 잠시 후 다시 열어주세요.</div>`;
     }
-    return `<div class="pe-field-label">배경 선택 (누끼 후 자동 합성)</div>
+    const blurVal = _state.bgBlur ? _state.bgBlur.strength : 0;
+    return `<div class="pe-field-label">배경 블러 (아웃포커스)</div>
+      ${_slider(h, '블러 강도', 'bgBlurStr', blurVal, 0, 100, 1)}
+      <div class="pe-hint" style="margin-bottom:14px;">인물은 선명하게, 배경만 부드럽게 날려요. 0이면 꺼짐.</div>
+      <div class="pe-field-label">배경 선택 (누끼 후 자동 합성)</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">${list.map(bg => _bgCard(bg, h)).join('')}</div>
       <div class="pe-panel-row pe-panel-grid-2">
         <button type="button" class="pe-chip-btn" data-pe-bg="restore">↺ 원본 사진으로</button>
@@ -271,6 +275,15 @@
   }
 
   function _bindBg(panel, state, h) {
+    _on(panel, '[data-pe-slider="bgBlurStr"]', 'input', e => {
+      if (!state.bgBlur) state.bgBlur = { strength: 0 };
+      state.bgBlur.strength = +e.target.value;
+      const out = panel.querySelector('[data-pe-slider-val="bgBlurStr"]');
+      if (out) out.textContent = e.target.value;
+      if (window.PhotoEditorBgBlur) window.PhotoEditorBgBlur.invalidateCache();
+      h.scheduleRedraw();
+    });
+    _on(panel, '[data-pe-slider="bgBlurStr"]', 'change', () => h.pushHistory());
     _on(panel, '[data-pe-bg="open-existing"]', 'click', () => {
       _toast(h, '기존 누끼·배경 화면을 여는 중…');
       (window.openGalleryBg || window.openBgGallery || window.openBgPanel || (() => {}))();

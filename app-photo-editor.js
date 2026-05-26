@@ -87,6 +87,7 @@
       template: { id: null, leftLabel: '전', rightLabel: '후', reviewText: '', priceLines: '' },
       shadow: { mode: 'none' },
       bg: { id: null },
+      bgBlur: { strength: 0 },
       // [v188 2026-05-18] 텍스트 v2 — stroke (외곽선), rotation, x slider 추가
       // [v204 2026-05-19] 다중 레이어 — _state.text 는 active layer alias.
       //   _state.layers[] 가 source of truth. text 비면 layers[0] = 빈 text layer.
