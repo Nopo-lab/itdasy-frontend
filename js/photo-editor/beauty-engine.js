@@ -75,7 +75,7 @@
     const edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
     const isSkin = !edgeBg && r > 82 && r > g + 4 && g > bl - 6 && (r - bl) > 18 && (r - bl) < 105 && lum0 > 68 && lum0 < 238;
     const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
-    const hairLike = !edgeBg && subjectW > 0.5 && !isSkin && lum0 > 18 && lum0 < 205 && ((hairSat0 < 88 && lum0 < 170) || lum0 < 92 || (bl < 80 && hairSat0 < 120));
+    const hairLike = !edgeBg && subjectW > 0.35 && !isSkin && lum0 > 14 && lum0 < 215 && ((hairSat0 < 110 && lum0 < 195) || lum0 < 110 || (bl < 95 && hairSat0 < 150));
     const mask = SmartMask && SmartMask.classify ? SmartMask.classify({ r, g, b: bl, lum: lum0, maxCh: maxCh0, minCh: minCh0, x, y, w, h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
     return {
       r, g, bl, lum0,
@@ -88,18 +88,18 @@
   }
 
   function _applyEye(d, i, p, c) {
-    if (c.eyeRedK > 0 && p.eyeW > 0.12 && p.lum0 > 105 && p.r > p.g + 8 && p.r > p.bl + 4 && Math.max(p.g, p.bl) > 70) {
-      d[i] = _clamp(d[i] - 34 * c.eyeRedK * p.eyeW);
-      d[i + 1] = _clamp(d[i + 1] + 7 * c.eyeRedK * p.eyeW);
-      d[i + 2] = _clamp(d[i + 2] + 10 * c.eyeRedK * p.eyeW);
+    if (c.eyeRedK > 0 && p.eyeW > 0.10 && p.lum0 > 95 && p.r > p.g + 6 && p.r > p.bl + 2 && Math.max(p.g, p.bl) > 60) {
+      d[i] = _clamp(d[i] - 52 * c.eyeRedK * p.eyeW);
+      d[i + 1] = _clamp(d[i + 1] + 12 * c.eyeRedK * p.eyeW);
+      d[i + 2] = _clamp(d[i + 2] + 16 * c.eyeRedK * p.eyeW);
     }
-    if (c.irisK > 0 && p.eyeW > 0.18 && p.lum0 > 18 && p.lum0 < 120 && p.skinW < 0.5) {
-      _contrastFromLum(d, i, p.lum0, 1 + 0.45 * c.irisK * p.eyeW, 0);
+    if (c.irisK > 0 && p.eyeW > 0.14 && p.lum0 > 16 && p.lum0 < 135 && p.skinW < 0.55) {
+      _contrastFromLum(d, i, p.lum0, 1 + 0.75 * c.irisK * p.eyeW, 0);
     }
-    if (c.catchK > 0 && p.eyeW > 0.08 && p.lum0 > 168 && Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl) < 55) {
-      d[i] = _clamp(d[i] + 12 * c.catchK * p.eyeW);
-      d[i + 1] = _clamp(d[i + 1] + 12 * c.catchK * p.eyeW);
-      d[i + 2] = _clamp(d[i + 2] + 14 * c.catchK * p.eyeW);
+    if (c.catchK > 0 && p.eyeW > 0.06 && p.lum0 > 155 && Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl) < 65) {
+      d[i] = _clamp(d[i] + 26 * c.catchK * p.eyeW);
+      d[i + 1] = _clamp(d[i + 1] + 26 * c.catchK * p.eyeW);
+      d[i + 2] = _clamp(d[i + 2] + 30 * c.catchK * p.eyeW);
     }
   }
 
@@ -110,20 +110,20 @@
   }
 
   function _applySkinTone(d, i, p, c) {
-    if (c.redK > 0 && p.redW > 0.18) {
-      d[i] = _clamp(d[i] - 30 * c.redK * p.redW);
-      d[i + 1] = _clamp(d[i + 1] + 4 * c.redK * p.redW);
-      d[i + 2] = _clamp(d[i + 2] + 5 * c.redK * p.redW);
+    if (c.redK > 0 && p.redW > 0.14) {
+      d[i] = _clamp(d[i] - 48 * c.redK * p.redW);
+      d[i + 1] = _clamp(d[i + 1] + 8 * c.redK * p.redW);
+      d[i + 2] = _clamp(d[i + 2] + 10 * c.redK * p.redW);
     }
-    if (c.yelK > 0 && (p.r - p.bl) > 15 && (p.r - p.bl) < 90 && p.r >= p.g && (p.g - p.bl) > 8 && p.r > 80 && p.skinW > 0.12) {
-      d[i] = _clamp(d[i] - 4 * c.yelK * p.skinW);
-      d[i + 1] = _clamp(d[i + 1] - 15 * c.yelK * p.skinW);
-      d[i + 2] = _clamp(d[i + 2] + 12 * c.yelK * p.skinW);
+    if (c.yelK > 0 && (p.r - p.bl) > 12 && (p.r - p.bl) < 95 && p.r >= p.g && (p.g - p.bl) > 5 && p.r > 72 && p.skinW > 0.10) {
+      d[i] = _clamp(d[i] - 8 * c.yelK * p.skinW);
+      d[i + 1] = _clamp(d[i + 1] - 26 * c.yelK * p.skinW);
+      d[i + 2] = _clamp(d[i + 2] + 20 * c.yelK * p.skinW);
     }
-    if (p.skinW <= 0.12) return;
-    if (c.skinK > 0) _add(d, i, 4 * c.skinK * p.skinW, 2 * c.skinK * p.skinW, c.skinK * p.skinW);
-    if (c.handK > 0) _add(d, i, 3 * c.handK * p.skinW, 1.5 * c.handK * p.skinW, -c.handK * p.skinW);
-    if (c.coolK > 0 && (p.bl > p.r - 10) && (p.bl - p.g) > 5) _add(d, i, 6 * c.coolK * p.skinW, 2 * c.coolK * p.skinW, -8 * c.coolK * p.skinW);
+    if (p.skinW <= 0.10) return;
+    if (c.skinK > 0) _add(d, i, 10 * c.skinK * p.skinW, 5 * c.skinK * p.skinW, 2.5 * c.skinK * p.skinW);
+    if (c.handK > 0) _add(d, i, 8 * c.handK * p.skinW, 4 * c.handK * p.skinW, -3 * c.handK * p.skinW);
+    if (c.coolK > 0 && (p.bl > p.r - 10) && (p.bl - p.g) > 5) _add(d, i, 12 * c.coolK * p.skinW, 4 * c.coolK * p.skinW, -16 * c.coolK * p.skinW);
   }
 
   function _add(d, i, r, g, b) {
@@ -133,21 +133,21 @@
   }
 
   function _applySkinTexture(d, i, p, c, blurD) {
-    if (p.skinW <= 0.12) return;
-    if (c.txK > 0 && blurD) _mixBlur(d, i, blurD, 0.4 * c.txK * p.skinW, 0);
+    if (p.skinW <= 0.10) return;
+    if (c.txK > 0 && blurD) _mixBlur(d, i, blurD, 0.65 * c.txK * p.skinW, 0);
     if (c.blemishK > 0 && blurD) {
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
       const blum = blurD[i] * 0.299 + blurD[i + 1] * 0.587 + blurD[i + 2] * 0.114;
-      if (Math.abs(lum - blum) > 12) _mixBlur(d, i, blurD, 0.6 * c.blemishK * p.skinW, 0);
+      if (Math.abs(lum - blum) > 8) _mixBlur(d, i, blurD, 0.85 * c.blemishK * p.skinW, 0);
     }
-    if (c.eyeShK > 0 && d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114 < 130) {
+    if (c.eyeShK > 0 && d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114 < 140) {
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-      const w2 = (130 - lum) / 130;
-      _add(d, i, 12 * c.eyeShK * w2 * p.skinW, 10 * c.eyeShK * w2 * p.skinW, 8 * c.eyeShK * w2 * p.skinW);
+      const w2 = (140 - lum) / 140;
+      _add(d, i, 22 * c.eyeShK * w2 * p.skinW, 18 * c.eyeShK * w2 * p.skinW, 14 * c.eyeShK * w2 * p.skinW);
     }
-    if (c.underK > 0 && p.lum0 < 145) {
-      const w3 = (145 - p.lum0) / 145;
-      _add(d, i, 10 * c.underK * w3 * p.skinW, 9 * c.underK * w3 * p.skinW, 7 * c.underK * w3 * p.skinW);
+    if (c.underK > 0 && p.lum0 < 155) {
+      const w3 = (155 - p.lum0) / 155;
+      _add(d, i, 20 * c.underK * w3 * p.skinW, 18 * c.underK * w3 * p.skinW, 14 * c.underK * w3 * p.skinW);
     }
   }
 
@@ -158,48 +158,48 @@
   }
 
   function _applyHair(d, i, p, c, blurD) {
-    if (p.hairW <= 0.18) return;
-    if (c.hairK > 0 && p.lum0 > 60 && p.lum0 < 200 && Math.abs(d[i] - d[i + 1]) < 45 && Math.abs(d[i + 1] - d[i + 2]) < 45) {
-      const specBoost = p.lum0 > 130 ? (p.lum0 - 130) / 70 * 0.6 + 1 : 1;
-      _add(d, i, 10 * c.hairK * specBoost * p.hairW, 14 * c.hairK * specBoost * p.hairW, 6 * c.hairK * specBoost * p.hairW);
+    if (p.hairW <= 0.14) return;
+    if (c.hairK > 0 && p.lum0 > 45 && p.lum0 < 210 && Math.abs(d[i] - d[i + 1]) < 55 && Math.abs(d[i + 1] - d[i + 2]) < 55) {
+      const specBoost = p.lum0 > 120 ? (p.lum0 - 120) / 80 * 0.8 + 1 : 1;
+      _add(d, i, 22 * c.hairK * specBoost * p.hairW, 28 * c.hairK * specBoost * p.hairW, 12 * c.hairK * specBoost * p.hairW);
     }
-    if (c.hairVolK > 0) _contrastFromLum(d, i, p.lum0, 1 + 0.34 * c.hairVolK * p.hairW, (p.lum0 > 108 ? 16 * c.hairVolK : -10 * c.hairVolK) * p.hairW);
-    if (c.hairEndK > 0 && blurD) _mixBlur(d, i, blurD, 0.38 * c.hairEndK * p.hairW, p.lum0 < 90 ? 4 * c.hairEndK * p.hairW : 0);
-    if (c.hairColK !== 0 && p.lum0 < 160) _add(d, i, 10 * c.hairColK * p.hairW, 3 * c.hairColK * p.hairW, -10 * c.hairColK * p.hairW);
+    if (c.hairVolK > 0) _contrastFromLum(d, i, p.lum0, 1 + 0.65 * c.hairVolK * p.hairW, (p.lum0 > 100 ? 30 * c.hairVolK : -18 * c.hairVolK) * p.hairW);
+    if (c.hairEndK > 0 && blurD) _mixBlur(d, i, blurD, 0.6 * c.hairEndK * p.hairW, p.lum0 < 90 ? 8 * c.hairEndK * p.hairW : 0);
+    if (c.hairColK !== 0 && p.lum0 < 175) _add(d, i, 18 * c.hairColK * p.hairW, 6 * c.hairColK * p.hairW, -18 * c.hairColK * p.hairW);
     if (c.hairPopK > 0) _applyHairPop(d, i, p, c);
-    if (c.scalpK > 0 && p.lum0 < 100 && Math.abs(p.r - p.g) < 30 && Math.abs(p.g - p.bl) < 30) {
-      _add(d, i, 10 * c.scalpK * p.hairW, 10 * c.scalpK * p.hairW, 6 * c.scalpK * p.hairW);
+    if (c.scalpK > 0 && p.lum0 < 115 && Math.abs(p.r - p.g) < 38 && Math.abs(p.g - p.bl) < 38) {
+      _add(d, i, 20 * c.scalpK * p.hairW, 20 * c.scalpK * p.hairW, 12 * c.scalpK * p.hairW);
     }
   }
 
   function _applyHairPop(d, i, p, c) {
     const maxCh = Math.max(p.r, p.g, p.bl), minCh = Math.min(p.r, p.g, p.bl);
-    if (maxCh - minCh <= 15 || p.lum0 >= 180) return;
-    const k = 0.85 * c.hairPopK * p.hairW;
+    if (maxCh - minCh <= 10 || p.lum0 >= 195) return;
+    const k = 1.4 * c.hairPopK * p.hairW;
     d[i] = _clamp(p.r + (p.r - p.lum0) * k);
     d[i + 1] = _clamp(p.g + (p.g - p.lum0) * k);
     d[i + 2] = _clamp(p.bl + (p.bl - p.lum0) * k);
   }
 
   function _applyDetail(d, i, p, c) {
-    if (c.nailK > 0 && p.nailW > 0.12 && p.lum0 > 180) _add(d, i, 8 * c.nailK * p.nailW, 8 * c.nailK * p.nailW, 8 * c.nailK * p.nailW);
-    if (c.lipK > 0 && p.r > p.g + 15 && p.r > p.bl + 15 && p.lum0 > 60 && p.lum0 < 200) _add(d, i, 15 * c.lipK, -3 * c.lipK, -3 * c.lipK);
-    if (c.eyeK > 0 && p.eyeW > 0.12 && p.lum0 < 90) {
-      d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.5 * c.eyeK * p.eyeW);
-      d[i + 1] = _clamp(d[i + 1] + (p.g - p.lum0) * 0.5 * c.eyeK * p.eyeW);
-      d[i + 2] = _clamp(d[i + 2] + (p.bl - p.lum0) * 0.5 * c.eyeK * p.eyeW);
+    if (c.nailK > 0 && p.nailW > 0.10 && p.lum0 > 160) _add(d, i, 18 * c.nailK * p.nailW, 18 * c.nailK * p.nailW, 18 * c.nailK * p.nailW);
+    if (c.lipK > 0 && p.r > p.g + 10 && p.r > p.bl + 10 && p.lum0 > 50 && p.lum0 < 210) _add(d, i, 28 * c.lipK, -6 * c.lipK, -6 * c.lipK);
+    if (c.eyeK > 0 && p.eyeW > 0.10 && p.lum0 < 100) {
+      d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.9 * c.eyeK * p.eyeW);
+      d[i + 1] = _clamp(d[i + 1] + (p.g - p.lum0) * 0.9 * c.eyeK * p.eyeW);
+      d[i + 2] = _clamp(d[i + 2] + (p.bl - p.lum0) * 0.9 * c.eyeK * p.eyeW);
     }
-    if (c.armK > 0 && p.skinW > 0.12 && p.lum0 < 130) _add(d, i, 8 * c.armK * p.skinW, 7 * c.armK * p.skinW, 5 * c.armK * p.skinW);
+    if (c.armK > 0 && p.skinW > 0.10 && p.lum0 < 140) _add(d, i, 16 * c.armK * p.skinW, 14 * c.armK * p.skinW, 10 * c.armK * p.skinW);
   }
 
   function _applySharpen(ctx, w, h, b) {
-    if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 300);
-    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 520);
-    if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 130);
-    if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 160);
-    if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 260);
-    if (b.browSharp > 10) _unsharpMask(ctx, w, h, b.browSharp / 180);
-    if (b.nailShape > 10) _unsharpMask(ctx, w, h, b.nailShape / 200);
+    if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 150);
+    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 260);
+    if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 65);
+    if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 80);
+    if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 130);
+    if (b.browSharp > 10) _unsharpMask(ctx, w, h, b.browSharp / 90);
+    if (b.nailShape > 10) _unsharpMask(ctx, w, h, b.nailShape / 100);
   }
 
   function apply(ctx, w, h, b) {
@@ -214,7 +214,7 @@
     const c = _coeffs(b);
     let blurD = null;
     if (c.blemishK > 0 || c.txK > 0 || c.hairEndK > 0) {
-      try { blurD = _boxBlur(data, w, h, 1).data; } catch (_e) { blurD = null; }
+      try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
     for (let i = 0; i < d.length; i += 4) {
       const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask);

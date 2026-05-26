@@ -181,6 +181,16 @@
     ctx.restore();
   }
 
+  let _fxCache = null;
+  function _fxHash(s) {
+    const a = s.adjust;
+    return s.originalSrc + '|' + s.ratio + '|' + (s.template && s.template.id || '') + '|' +
+      a.brightness + ',' + a.saturate + ',' + a.sharpness + ',' + a.temperature + '|' +
+      Object.values(s.beauty).join(',') + '|' +
+      (s.relight ? s.relight.direction + ',' + s.relight.warmth + ',' + s.relight.intensity + ',' + s.relight.ambientBoost + ',' + s.relight.flash : '') + '|' +
+      (s.shadow ? s.shadow.mode : '') + '|' + (s.film ? JSON.stringify(s.film) : '');
+  }
+
   async function redraw(env) {
     const cv = env.canvas, empty = env.empty, state = env.state;
     if (!cv || !state) return;
@@ -193,11 +203,20 @@
     const crop = computeCrop(state.originalImg, state.ratio);
     cv.width = crop.dw; cv.height = crop.dh;
     const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, crop.dw, crop.dh);
     if (state.showOriginal) { ctx.filter = 'none'; ctx.drawImage(state.originalImg, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.dw, crop.dh); return; }
-    _drawBase(env, cv, ctx, state.originalImg, crop);
-    if (await _applySharpness(env, cv, ctx, crop.dw, crop.dh) === false) return;
-    _applyDrawHooks(env, cv, ctx, crop.dw, crop.dh);
+    const hash = _fxHash(state);
+    if (_fxCache && _fxCache.hash === hash && _fxCache.w === crop.dw && _fxCache.h === crop.dh) {
+      ctx.drawImage(_fxCache.cv, 0, 0);
+    } else {
+      ctx.clearRect(0, 0, crop.dw, crop.dh);
+      _drawBase(env, cv, ctx, state.originalImg, crop);
+      if (await _applySharpness(env, cv, ctx, crop.dw, crop.dh) === false) return;
+      _applyDrawHooks(env, cv, ctx, crop.dw, crop.dh);
+      const cc = document.createElement('canvas');
+      cc.width = crop.dw; cc.height = crop.dh;
+      cc.getContext('2d').drawImage(cv, 0, 0);
+      _fxCache = { cv: cc, hash, w: crop.dw, h: crop.dh };
+    }
     ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     _drawTextLayers(ctx, crop.dw, crop.dh, state);
     if (state.watermark.value) drawWatermark(ctx, crop.dw, crop.dh, state.watermark);
