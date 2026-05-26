@@ -22,46 +22,11 @@
     document.head.appendChild(st);
   }
 
-  // Lucide SVG inline (이모지 금지 — CLAUDE.md UX 철학)
-  const _svg12 = (id) => `<svg width="12" height="12" style="vertical-align:-2px;" aria-hidden="true"><use href="#${id}"/></svg>`;
-  const SEGMENT_STYLE = {
-    vip:     { label: 'VIP', icon: _svg12('ic-star'), bg: 'linear-gradient(135deg,#FFD700,#FFA500)', color: '#fff' },
-    regular: { label: '단골', icon: _svg12('ic-star'), bg: 'linear-gradient(135deg,var(--brand),#FF6B9D)', color: '#fff' },
-    new:     { label: '신규', icon: _svg12('ic-sparkles'), bg: 'linear-gradient(135deg,#4ECDC4,#44A08D)', color: '#fff' },
-    absent:  { label: '휴면', icon: _svg12('ic-moon'), bg: 'linear-gradient(135deg,#95A5A6,#7F8C8D)', color: '#fff' },
-  };
-
-  const RETENTION_BADGE = {
-    ok:      null,
-    at_risk: { label: '이탈 임박', color: '#f57c00', bg: 'rgba(255,193,7,0.15)' },
-    lost:    { label: '이탈', color: 'var(--danger)', bg: 'rgba(220,53,69,0.12)' },
-  };
-
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
   }
 
   // [2026-05-19] _formatKRW 삭제 → formatMoney (format-money.js 공통 유틸)
-
-  function _dateShort(iso) {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function _relativeDays(iso) {
-    if (!iso) return '';
-    const diff = (Date.now() - new Date(iso).getTime()) / 86400000;
-    if (diff < 1) return '오늘';
-    if (diff < 7) return `${Math.round(diff)}일 전`;
-    if (diff < 30) return `${Math.round(diff / 7)}주 전`;
-    if (diff < 365) return `${Math.round(diff / 30)}개월 전`;
-    return `${Math.round(diff / 365)}년 전`;
-  }
-
-  function _initial(name) {
-    return (name || '?').trim().charAt(0);
-  }
 
   async function _apiGet(path) {
     if (!window.API || !window.authHeader) throw new Error('no-auth');
@@ -86,17 +51,6 @@
     }
   }
 
-  async function _apiPatch(path, body) {
-    if (!window.API || !window.authHeader) throw new Error('no-auth');
-    const res = await apiFetch(path, {
-      method: 'PATCH',
-      headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(body || {}),
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.status === 204 ? null : await res.json();
-  }
-
   // ── UI ──────────────────────────────────────────────────
   function _ensureSheet() {
     let sheet = document.getElementById('customerDashSheet');
@@ -119,263 +73,6 @@
     sheet.querySelector('[data-customer-dashboard-close]')?.addEventListener('click', () => closeCustomerDashboard());
     sheet.addEventListener('click', (e) => { if (e.target === sheet) closeCustomerDashboard(); });
     return sheet;
-  }
-
-
-  function _renderRegularMembership(d) {
-    const c = d.customer || {};
-    const tags = Array.isArray(c.tags) ? c.tags : [];
-    
-    // 기본 정보 & 태그 렌더링
-    const nextBooking = d.stats?.upcoming_bookings > 0 ? '예약 있음' : '없음';
-    const avgCycle = c.avg_cycle_weeks ? `${c.avg_cycle_weeks}주` : '—';
-
-    let html = `
-      <div class="cd-section">
-        <div class="cd-sec-title">기본 정보</div>
-        <div class="cd-info-row"><div class="cd-info-label">평균 방문 주기</div><div class="cd-info-value">${avgCycle}</div></div>
-        <div class="cd-info-row"><div class="cd-info-label">다음 예약</div><div class="cd-info-value">${nextBooking}</div></div>
-      </div>
-    `;
-
-    if (tags.length) {
-      html += `
-        <div class="cd-section">
-          <div class="cd-sec-title">태그</div>
-          <div class="cd-tags">
-            ${tags.map(t => `<div class="cd-tag">${_esc(t)}</div>`).join('')}
-          </div>
-        </div>
-      `;
-    }
-    return html;
-  }
-
-  function _renderRevenues(rows) {
-    if (!rows || !rows.length) return '';
-    // [v198] limit 5→10, 금액 0 인 경우 '-' 로 표시
-    return `
-      <div class="cd-section">
-        <div class="cd-sec-title">최근 방문 이력</div>
-        ${rows.slice(0, 10).map(r => {
-          const dt = String(r.recorded_at || '').slice(5, 10).replace('-', '/');
-          const amt = Number(r.amount) || 0;
-          const amtStr = amt > 0 ? (amt / 10000).toFixed(1) + '만원' : '-';
-          return `
-          <div class="cd-history-row">
-            <div class="cd-history-date">${dt}</div>
-            <div class="cd-history-text">${_esc(r.service_name || '시술')}</div>
-            <div class="cd-history-amount">${amtStr}</div>
-          </div>`;
-        }).join('')}
-      </div>
-    `;
-  }
-
-  function _renderBookings(rows) {
-    if (!rows || !rows.length) return _emptySection('예약 이력', '아직 예약이 없어요');
-    return `
-      <div style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <strong style="font-size:13px;">예약 이력</strong>
-          <span style="font-size:10px;color:#888;">최근 ${rows.length}건</span>
-        </div>
-        <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
-          ${rows.map((b, i) => {
-            const status = b.status === 'cancelled' ? '❌' : b.status === 'completed' ? '✓' : '•';
-            return `
-              <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}">
-                <div style="font-size:12px;font-weight:700;">${status} ${_dateShort(b.starts_at)} <span style="color:#888;font-weight:400;">${_esc(b.service_name || '시술')}</span></div>
-                ${b.memo ? `<div style="font-size:10px;color:#888;margin-top:2px;">${_esc(b.memo).slice(0, 50)}</div>` : ''}
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  function _renderNps(rows) {
-    if (!rows || !rows.length) return '';
-    return `
-      <div style="margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <strong style="font-size:13px;">⭐ 고객 후기</strong>
-          <span style="font-size:10px;color:#888;">${rows.length}건</span>
-        </div>
-        <div style="background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.05);overflow:hidden;">
-          ${rows.map((n, i) => {
-            const face = n.rating >= 9 ? '😍' : n.rating >= 7 ? '😐' : '😞';
-            const color = n.rating >= 9 ? '#388e3c' : n.rating >= 7 ? '#f57c00' : 'var(--danger)';
-            return `
-              <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid rgba(0,0,0,0.05);' : ''}display:flex;gap:10px;align-items:flex-start;">
-                <span style="font-size:18px;">${face}</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="display:flex;align-items:baseline;gap:6px;">
-                    <strong style="color:${color};font-size:14px;">${n.rating}</strong>
-                    <span style="font-size:10px;color:var(--text-subtle);margin-left:auto;">${_dateShort(n.responded_at)}</span>
-                  </div>
-                  ${n.comment ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${_esc(n.comment)}</div>` : ''}
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  function _renderMemo(d) {
-    if (!d.customer.memo) return '';
-    return `
-      <div style="margin-bottom:14px;padding:12px;background:#FFF9E6;border-radius:12px;border-left:3px solid #FFD54F;">
-        <div style="font-size:11px;color:#888;margin-bottom:4px;">원장님 메모</div>
-        <div style="font-size:13px;color:#555;line-height:1.5;white-space:pre-wrap;">${_esc(d.customer.memo)}</div>
-      </div>
-    `;
-  }
-
-  function _renderEditBar(id, customer) {
-    // [v198] 매출 입력 버튼 삭제 — 시술완료 플로우와 중복. 매출은 캘린더→시술완료 또는 매출 대시보드에서만.
-    return `
-      <div class="cd-actions">
-        <button class="cd-act-btn" data-act="booking">예약 잡기</button>
-        <button class="cd-act-btn primary" data-act="ms-topup" data-cust-id="${id}" data-cust-name="${_esc(customer.name||'')}">회원권 충전</button>
-      </div>
-    `;
-  }
-
-  function _emptySection(title, msg) {
-    return `
-      <div style="margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:700;margin-bottom:8px;">${title}</div>
-        <div style="padding:16px;background:#fafafa;border-radius:12px;text-align:center;font-size:12px;color:var(--text-subtle);">${msg}</div>
-      </div>
-    `;
-  }
-
-  async function _patchAndReload(id, patch) {
-    try {
-      await _apiPatch('/customers/' + id, patch);
-      // SWR 캐시 무효화 — 목록 화면이 다시 신선한 데이터 가져오도록
-      if (window.CustomerCache?.clear) window.CustomerCache.clear();
-      else {
-        try { localStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
-        try { sessionStorage.removeItem('pv_cache::customers'); } catch (_e) { void _e; }
-      }
-      try { sessionStorage.removeItem('pv_cache::customer'); } catch (_e) { void _e; }
-      window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_customer', id } }));
-      if (window.hapticLight) window.hapticLight();
-      // 대시보드 다시 그리기 (data-changed 리스너가 자동 재로드)
-      // 직접 호출도 보장
-      await window.openCustomerDashboard(id);
-    } catch (e) {
-      console.warn('[customer-membership] patch 실패:', e);
-      if (window.showToast) window.showToast('저장 실패 — 다시 시도해 주세요');
-    }
-  }
-
-  function _bindMembership(d) {
-    const sheet = document.getElementById('customerDashSheet');
-    if (!sheet) return;
-    const id = d.customer.id;
-
-    // 단골/멤버십 토글
-    sheet.querySelectorAll('[data-cm-toggle]').forEach(el => {
-      const key = el.dataset.cmToggle;
-      const handler = async () => {
-        const cur = el.getAttribute('aria-checked') === 'true';
-        const next = !cur;
-        const patch = { [key]: next };
-        // 단골 ON 시 ⭐ 미세 애니메이션
-        if (key === 'is_regular' && next) {
-          el.classList.add('cm-toggle--pulse');
-        }
-        await _patchAndReload(id, patch);
-      };
-      el.addEventListener('click', handler);
-      el.addEventListener('keydown', (ev) => {
-        if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); handler(); }
-      });
-    });
-
-    // 충전 버튼
-    sheet.querySelectorAll('[data-cm-charge]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const raw = btn.dataset.cmCharge;
-        let delta = 0;
-        if (raw === 'custom') {
-          window._inlinePrompt('충전 금액(원)', '50000', async (v) => {
-            let customDelta = parseInt(String(v).replace(/[^\d]/g, ''), 10) || 0;
-            if (customDelta <= 0) { if (window.showToast) window.showToast('금액을 다시 확인해 주세요'); return; }
-            const curBal2 = +d.customer.membership_balance || 0;
-            await _patchAndReload(id, { membership_balance: curBal2 + customDelta });
-          });
-          return;
-        } else {
-          delta = parseInt(raw, 10) || 0;
-        }
-        const curBal = +d.customer.membership_balance || 0;
-        await _patchAndReload(id, { membership_balance: curBal + delta });
-      });
-    });
-
-    // 만료일 변경
-    const expInput = sheet.querySelector('[data-cm-expires]');
-    if (expInput) {
-      expInput.addEventListener('change', async () => {
-        const v = expInput.value; // YYYY-MM-DD
-        if (!v) {
-          await _patchAndReload(id, { membership_expires_at: null });
-          return;
-        }
-        // ISO datetime — 23:59:59 으로 그날 끝까지
-        const iso = new Date(v + 'T23:59:59').toISOString();
-        await _patchAndReload(id, { membership_expires_at: iso });
-      });
-    }
-  }
-
-  function _bindActions(id, name) {
-    const sheet = document.getElementById('customerDashSheet');
-    if (!sheet) return;
-    sheet.querySelectorAll('[data-act]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const act = btn.dataset.act;
-        if (act === 'edit') {
-          closeCustomerDashboard();
-          if (typeof window.editCustomer === 'function') {
-            window.editCustomer(id);
-          } else if (typeof window.openCustomers === 'function') {
-            window.openCustomers();
-          }
-        } else if (act === 'booking') {
-          closeCustomerDashboard();
-          // 2026-05-01 ── openBooking 안 보임. openCalendarView 가 진짜 진입점.
-          // 고객 prefill 위해 _pendingBookingCustomer 세팅 후 호출.
-          window._pendingBookingCustomer = { id, name };
-          if (typeof window.openCalendarView === 'function') window.openCalendarView();
-          else if (typeof window.openBooking === 'function') window.openBooking();
-        } else if (act === 'nps') {
-          closeCustomerDashboard();
-          if (typeof window.openNps === 'function') window.openNps();
-        } else if (act === 'ms-topup') {
-          // 2026-05-01 ── 고객 dashboard 닫고 회원권 시트 열기 (이전: 안 닫음 → 시트가 dashboard 뒤에).
-          closeCustomerDashboard();
-          if (window.MembershipUI && typeof window.MembershipUI.openTopupSheet === 'function') {
-            const cid = parseInt(btn.dataset.custId, 10);
-            window.MembershipUI.openTopupSheet(cid, btn.dataset.custName || '');
-          }
-        } else if (act === 'ms-use') {
-          closeCustomerDashboard();
-          if (window.MembershipUI && typeof window.MembershipUI.openUseSheet === 'function') {
-            const cid = parseInt(btn.dataset.custId, 10);
-            const bal = parseInt(btn.dataset.custBal || '0', 10);
-            window.MembershipUI.openUseSheet(cid, btn.dataset.custName || '', bal);
-          }
-        }
-      });
-    });
   }
 
   // 현재 열려 있는 고객 id 기억 (data-changed 이벤트 시 재로드용)
@@ -410,70 +107,96 @@
       return (d.getMonth() + 1) + '/' + d.getDate();
     } catch (_e) { return null; }
   }
-  function _buildDetailHTMLv4(d) {
+
+  function _detailModel(d) {
     const c = (d && d.customer) || {};
     const stats = (d && d.stats) || {};
     const revenues = (d && d.recent_revenues) || [];
     const vc = Number(stats.visit_count || c.visit_count || 0);
     const totalRev = Number(stats.total_revenue || 0);
-    const totalMan = totalRev > 0 ? Math.round(totalRev / 10000) : 0;
     const avgDays = (c.avg_cycle_weeks ? Math.round(+c.avg_cycle_weeks * 7) : 0)
       || (d.retention && d.retention.avg_interval_days)
       || 0;
-    const badge = _visitBadgeClass(vc);
-    const phone = c.phone ? _esc(c.phone) : '';
-    const nextDate = _nextExpectedDate(stats, c);
-    const nudge = nextDate
-      ? `<div class="nudge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#BC6675" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-right:6px"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z"/><path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5L5 17z"/></svg> AI 잇비 다음 방문일 예상: ${_esc(nextDate)}</div>`
-      : '';
-    const top = _topService(revenues);
-    const pref = top ? `<div class="d-sec"><span>선호 시술</span></div><div class="d-pref">${_esc(top)}</div>` : '';
-    const vrRows = revenues.slice(0, 5).map(r => {
-      const dt = String(r.recorded_at || '').slice(5, 10).replace('-', '/');
-      const amt = Number(r.amount) || 0;
-      const man = amt > 0 ? Math.round(amt / 10000) + '만' : '-';
-      return `<div class="vr"><div class="vr-d">${_esc(dt)}</div><div class="vr-s">${_esc(r.service_name || '시술')}</div><div class="vr-p">${man}</div></div>`;
-    }).join('');
-    const vrHidden = revenues.slice(5, 20).map(r => {
-      const dt = String(r.recorded_at || '').slice(5, 10).replace('-', '/');
-      const amt = Number(r.amount) || 0;
-      const man = amt > 0 ? Math.round(amt / 10000) + '만' : '-';
-      // [v211] data-extra=1 로 식별 → 접기/펼치기 토글이 항상 동작
-      return `<div class="vr hidden" data-vr-extra="1"><div class="vr-d">${_esc(dt)}</div><div class="vr-s">${_esc(r.service_name || '시술')}</div><div class="vr-p">${man}</div></div>`;
-    }).join('');
-    const moreLink = revenues.length > 5
-      ? `<span class="d-sec-link" data-cv4-act="toggle-more">더보기</span>`
-      : '';
-    const memo = c.memo ? `<div class="d-sec"><span>메모</span></div><div class="memo">${_esc(c.memo)}</div>` : '';
+    return {
+      c,
+      stats,
+      revenues,
+      vc,
+      totalMan: totalRev > 0 ? Math.round(totalRev / 10000) : 0,
+      avgDays,
+      badge: _visitBadgeClass(vc),
+      phone: c.phone ? _esc(c.phone) : '',
+      nextDate: _nextExpectedDate(stats, c),
+    };
+  }
 
+  function _renderAiNudge(nextDate) {
+    if (!nextDate) return '';
+    return `<div class="nudge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#BC6675" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-right:6px"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z"/><path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5L5 17z"/></svg> AI 잇비 다음 방문일 예상: ${_esc(nextDate)}</div>`;
+  }
+
+  function _renderDetailHeader(m) {
+    return `
+      <div class="d-header">
+        <div class="d-name-row">
+          <div style="display:flex;align-items:center;">
+            <div class="d-name">${_esc(m.c.name || '손님')} 님</div>
+            <span class="d-badge-lg c-badge ${m.badge}">${m.vc}회 방문</span>
+          </div>
+        </div>
+        ${m.phone ? `<div class="d-phone">${m.phone}</div>` : ''}
+        <div class="d-actions">
+          <button class="d-act primary" data-cv4-act="booking">예약 잡기</button>
+          ${m.phone ? `<button class="d-act ghost" data-cv4-act="call">전화</button>` : ''}
+          <button class="d-act ghost" data-cv4-act="edit">정보수정</button>
+          <button class="d-act danger" data-cv4-act="delete">삭제</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function _renderDetailCards(m) {
+    return `
+      <div class="d-cards">
+        <div class="dc"><div class="dc-v">${m.vc}<small>회</small></div><div class="dc-l">총 방문일</div></div>
+        <div class="dc"><div class="dc-v">${m.totalMan}<small>만</small></div><div class="dc-l">총 매출</div></div>
+        <div class="dc"><div class="dc-v">${m.avgDays || '—'}<small>${m.avgDays ? '일' : ''}</small></div><div class="dc-l">평균 재방문 일</div></div>
+      </div>
+    `;
+  }
+
+  function _renderRevenueRow(r, hidden) {
+    const dt = String(r.recorded_at || '').slice(5, 10).replace('-', '/');
+    const amt = Number(r.amount) || 0;
+    const man = amt > 0 ? Math.round(amt / 10000) + '만' : '-';
+    const extra = hidden ? ' hidden" data-vr-extra="1' : '';
+    return `<div class="vr${extra}"><div class="vr-d">${_esc(dt)}</div><div class="vr-s">${_esc(r.service_name || '시술')}</div><div class="vr-p">${man}</div></div>`;
+  }
+
+  function _renderRevenueSection(revenues) {
+    if (!revenues.length) return '';
+    const rows = revenues.slice(0, 5).map(r => _renderRevenueRow(r, false)).join('');
+    const hidden = revenues.slice(5, 20).map(r => _renderRevenueRow(r, true)).join('');
+    const more = revenues.length > 5 ? '<span class="d-sec-link" data-cv4-act="toggle-more">더보기</span>' : '';
+    return `
+      <div class="d-sec"><span>시술 기록</span>${more}</div>
+      <div style="font-size:11px;color:var(--text-muted,#999);padding:0 4px 4px;">최근 15~20건의 시술 기록을 저장합니다</div>
+      <div class="vr-wrap">${rows}${hidden}</div>
+    `;
+  }
+
+  function _buildDetailHTMLv4(d) {
+    const m = _detailModel(d);
+    const top = _topService(m.revenues);
+    const pref = top ? `<div class="d-sec"><span>선호 시술</span></div><div class="d-pref">${_esc(top)}</div>` : '';
+    const memo = m.c.memo ? `<div class="d-sec"><span>메모</span></div><div class="memo">${_esc(m.c.memo)}</div>` : '';
     return `
       <div class="cv4-detail">
-        <div class="d-header">
-          <div class="d-name-row">
-            <div style="display:flex;align-items:center;">
-              <div class="d-name">${_esc(c.name || '손님')} 님</div>
-              <span class="d-badge-lg c-badge ${badge}">${vc}회 방문</span>
-            </div>
-          </div>
-          ${phone ? `<div class="d-phone">${phone}</div>` : ''}
-          <div class="d-actions">
-            <button class="d-act primary" data-cv4-act="booking">예약 잡기</button>
-            ${phone ? `<button class="d-act ghost" data-cv4-act="call">전화</button>` : ''}
-            <button class="d-act ghost" data-cv4-act="edit">정보수정</button>
-            <button class="d-act danger" data-cv4-act="delete">삭제</button>
-          </div>
-        </div>
-        ${nudge}
-        <div class="d-cards">
-          <div class="dc"><div class="dc-v">${vc}<small>회</small></div><div class="dc-l">총 방문일</div></div>
-          <div class="dc"><div class="dc-v">${totalMan}<small>만</small></div><div class="dc-l">총 매출</div></div>
-          <div class="dc"><div class="dc-v">${avgDays || '—'}<small>${avgDays ? '일' : ''}</small></div><div class="dc-l">평균 재방문 일</div></div>
-        </div>
+        ${_renderDetailHeader(m)}
+        ${_renderAiNudge(m.nextDate)}
+        ${_renderDetailCards(m)}
         ${pref}
-        ${revenues.length ? `
-        <div class="d-sec"><span>시술 기록</span>${moreLink}</div>
-        <div style="font-size:11px;color:var(--text-muted,#999);padding:0 4px 4px;">최근 15~20건의 시술 기록을 저장합니다</div>
-        <div class="vr-wrap">${vrRows}${vrHidden}</div>` : ''}
+        ${_renderRevenueSection(m.revenues)}
         ${memo}
       </div>
     `;
@@ -584,22 +307,11 @@
     _currentCustomerId = null;
   };
 
-  // [v212] 편집 모달 — 이름/전화/생일/메모/태그 수정
-  // [v220] 정보수정 + 신규 추가 공용 모달.
-  //   - c 가 null/undefined 또는 c.id 없으면 신규 추가 (Customer.create)
-  //   - c.id 있으면 정보수정 (Customer.update)
-  window._openCustomerEditSheet = function (c) {
-    c = c || {};
-    const isNew = !c.id;
-    const old = document.getElementById('custEditModal');
-    if (old) old.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'custEditModal';
-    wrap.style.cssText = 'position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+  function _customerEditHtml(c, isNew) {
     const tags = Array.isArray(c.tags) ? c.tags.join(', ') : '';
     const title = isNew ? '고객 추가' : '고객 정보수정';
     const saveLabel = isNew ? '추가' : '저장';
-    wrap.innerHTML = `
+    return `
       <div style="background:var(--surface,#fff);border-radius:18px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:24px;box-shadow:0 24px 64px rgba(0,0,0,0.18);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
           <strong style="font-size:18px;color:var(--text);">${title}</strong>
@@ -621,54 +333,83 @@
         </div>
       </div>
     `;
-    document.body.appendChild(wrap);
-    const close = () => wrap.remove();
+  }
+
+  function _readCustomerEditPayload(wrap) {
+    const name = wrap.querySelector('#cedName').value.trim();
+    if (!name) {
+      if (window.showToast) window.showToast('이름은 필수예요');
+      return null;
+    }
+    return {
+      name: name.slice(0, 50),
+      phone: wrap.querySelector('#cedPhone').value.trim() || null,
+      birthday: wrap.querySelector('#cedBirthday').value.trim() || null,
+      tags: wrap.querySelector('#cedTags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 10),
+      memo: wrap.querySelector('#cedMemo').value.trim() || null,
+    };
+  }
+
+  function _refreshCustomerDetailViews(id) {
+    const pcMount = document.querySelector('#customerSheet #cdDetailMount');
+    if (pcMount && pcMount.querySelector('.cv4-detail')) {
+      window._renderCustomerDetail(pcMount, id);
+    }
+    if (_currentCustomerId === id) {
+      const mobileBody = document.querySelector('#customerDashSheet #cdBody');
+      if (mobileBody) window._renderCustomerDetail(mobileBody, id);
+    }
+  }
+
+  async function _saveCustomerEdit(c, isNew, payload, close) {
+    const Customer = window.Customer;
+    if (!Customer) {
+      if (window.showToast) window.showToast('저장 함수 미준비');
+      return;
+    }
+    try {
+      if (isNew) {
+        await Customer.create(payload);
+        if (window.showToast) window.showToast(`${payload.name} 추가됨`);
+      } else {
+        await Customer.update(c.id, payload);
+        if (window.showToast) window.showToast('저장 완료');
+        _refreshCustomerDetailViews(c.id);
+      }
+      close();
+    } catch (e) {
+      console.warn('[customer edit]', e);
+      if (window.showToast) window.showToast(isNew ? '추가 실패 — 다시 시도해주세요' : '저장 실패 — 다시 시도해주세요');
+    }
+  }
+
+  function _bindCustomerEditModal(wrap, c, isNew, close) {
     wrap.addEventListener('click', (e) => { if (e.target === wrap) close(); });
     wrap.querySelector('#custEditClose').addEventListener('click', close);
     wrap.querySelector('#custEditCancel').addEventListener('click', close);
     wrap.querySelector('#cedName').focus();
     wrap.querySelector('#custEditSave').addEventListener('click', async () => {
-      const name = wrap.querySelector('#cedName').value.trim();
-      if (!name) {
-        if (window.showToast) window.showToast('이름은 필수예요');
-        return;
-      }
-      const payload = {
-        name: name.slice(0, 50),
-        phone: wrap.querySelector('#cedPhone').value.trim() || null,
-        birthday: wrap.querySelector('#cedBirthday').value.trim() || null,
-        tags: wrap.querySelector('#cedTags').value.split(',').map(t => t.trim()).filter(Boolean).slice(0, 10),
-        memo: wrap.querySelector('#cedMemo').value.trim() || null,
-      };
-      const Customer = window.Customer;
-      if (!Customer) {
-        if (window.showToast) window.showToast('저장 함수 미준비');
-        return;
-      }
-      try {
-        if (isNew) {
-          await Customer.create(payload);
-          if (window.showToast) window.showToast(`${payload.name} 추가됨`);
-          close();
-          // 리스트 새로고침은 itdasy:data-changed (create_customer) 가 자동 처리
-        } else {
-          await Customer.update(c.id, payload);
-          if (window.showToast) window.showToast('저장 완료');
-          close();
-          const pcMount = document.querySelector('#customerSheet #cdDetailMount');
-          if (pcMount && pcMount.querySelector('.cv4-detail')) {
-            window._renderCustomerDetail(pcMount, c.id);
-          }
-          if (_currentCustomerId === c.id) {
-            const mobileBody = document.querySelector('#customerDashSheet #cdBody');
-            if (mobileBody) window._renderCustomerDetail(mobileBody, c.id);
-          }
-        }
-      } catch (e) {
-        console.warn('[customer edit]', e);
-        if (window.showToast) window.showToast(isNew ? '추가 실패 — 다시 시도해주세요' : '저장 실패 — 다시 시도해주세요');
-      }
+      const payload = _readCustomerEditPayload(wrap);
+      if (payload) await _saveCustomerEdit(c, isNew, payload, close);
     });
+  }
+
+  // [v212] 편집 모달 — 이름/전화/생일/메모/태그 수정
+  // [v220] 정보수정 + 신규 추가 공용 모달.
+  //   - c 가 null/undefined 또는 c.id 없으면 신규 추가 (Customer.create)
+  //   - c.id 있으면 정보수정 (Customer.update)
+  window._openCustomerEditSheet = function (c) {
+    c = c || {};
+    const isNew = !c.id;
+    const old = document.getElementById('custEditModal');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'custEditModal';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:20px;';
+    wrap.innerHTML = _customerEditHtml(c, isNew);
+    document.body.appendChild(wrap);
+    const close = () => wrap.remove();
+    _bindCustomerEditModal(wrap, c, isNew, close);
   };
 
   // Wave D3 (2026-04-24) — 챗봇·외부 데이터 변경 감지 → 고객 상세 대시보드 재로드

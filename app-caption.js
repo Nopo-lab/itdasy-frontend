@@ -465,7 +465,6 @@ function renderCaptionKeywordTags() {
   if (!container) return;
 
   const keywords = getShopKeywords();
-  const deleted = _loadDeletedKeywords();
 
   // [SEC-R2-1] XSS 방지 — 키워드를 이스케이프하여 삽입
   container.innerHTML = keywords.map(k => {
@@ -532,21 +531,6 @@ function showAddKeywordInput() {
 
 // shopType → schemas.json category enum 매핑
 const _CAP_CAT_MAP = {'붙임머리':'extension','네일아트':'nail','네일':'nail'};
-
-// 400 에러 코드 → 사용자 안내 메시지
-// [2026-04-26] identity_incomplete / insufficient_posts 는 백엔드에서 더 이상 hard-fail로 막지 않음.
-// 캡션 생성은 기본 페르소나로 진행되며, 아래 메시지는 백엔드 폴백 전 구버전 호환용 안전망.
-const _CAP_ERR_MSG = {
-  'identity_incomplete':  '프로필을 완성하면 더 정교한 말투로 만들 수 있어요. 일단 일반 말투로 만들게요.',
-  'consent_missing':      'AI 처리 동의가 필요합니다',
-  'insufficient_posts':   '인스타 게시물이 더 모이면 사장님 말투에 맞춰 글이 나와요.',
-  'fingerprint_missing':  '인스타 게시물이 더 모이면 사장님 말투에 맞춰 글이 나와요.',
-  'generation_failed':    'AI 글 만들기에 실패했어요. 어떤 분위기로 만들까요? 다시 선택하시거나 1분 후 다시 시도해 주세요.',
-  'content_filtered':     'AI 가 안전 정책상 이 내용을 생성할 수 없어요. 키워드를 바꿔서 다시 시도해 주세요.',
-  'quota_exceeded':       '오늘 캡션 사용량을 다 쓰셨어요. 내일 다시 시도하거나 잇데이 멤버십을 확인해 주세요.',
-  'gemini_unavailable':   'AI 서버가 잠시 불안정해요. 1~2분 후 다시 시도해 주세요.',
-  'timeout':              'AI 응답이 지연되고 있어요. 네트워크 확인 후 다시 시도해 주세요.',
-};
 
 function generateCaption() {
   openCaptionScenarioPopup();
@@ -648,12 +632,11 @@ async function _doGenerateCaption(scenario, closePopup) {
     // 폴백 토스트가 떴다. 본질적인 캡션 생성 실패 메시지를 사용자에게 정확히 노출하기 위해
     // 직접 data 로 받는다. (HTTP 에러는 _personaFetch 내부에서 throw → catch 블록에서 처리)
     const data = await _personaFetch('POST', '/persona/generate', payload);
-    console.log('[caption.generate] 응답 수신:', { caption_len: (data.caption||'').length, log_id: data.log_id, used_tone: data.used_tone });
 
     const finalCaption = data.caption || '';
     // 2026-05-01 ── 백엔드 GenerateResponse 에 hashtags 필드 추가 후 반영.
     // persona.hashtags (사용자 등록 top20) 또는 SHOP_DEFAULT_HASHTAGS 폴백.
-    const hashtagsArr = Array.isArray(data.hashtags) ? data.hashtags : [];
+    const hashtagsArr = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : []);
     const hashes = hashtagsArr
       .map(t => String(t || '').trim().replace(/^#+/, ''))
       .filter(Boolean)
@@ -676,9 +659,6 @@ async function _doGenerateCaption(scenario, closePopup) {
     }
     _capAiDraft = finalCaption;
 
-    // [WIRING] 요청값 vs 서버 응답값 일치 확인
-    const respLT = data.length_tier;
-    const respTO = data.used_tone;
     // WIRING 디버그 로그 제거 (프로덕션 환경 민감 정보 노출 방지)
 
     hideCaptionLoader(true, () => {
@@ -1033,7 +1013,7 @@ async function regenerateCaption(overrides = {}) {
   }
 }
 
-function _renderCaptionActionBar(caption, hashtags) {
+function _renderCaptionActionBar(caption, _hashtags) {
   const actionBar = document.getElementById('captionActionBar');
   if (!actionBar) return;
 
@@ -1047,7 +1027,6 @@ function _renderCaptionActionBar(caption, hashtags) {
 
   const hasNextSlot = !!nextSlot;
   const progressText = totalCount > 0 ? `(완료 ${doneCount}/${totalCount})` : '';
-  const _btnBase = 'min-height:44px;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;';
 
   actionBar.style.display = 'block';
   actionBar.innerHTML = `
@@ -1175,4 +1154,18 @@ function _updateCaptionPreviewImage() {
     }
   }
 }
-window._updateCaptionPreviewImage = _updateCaptionPreviewImage;
+Object.assign(window, {
+  showOnboardingCaptionPopup,
+  saveOnboardingCaption,
+  _capSchedulePatch,
+  generateCaption,
+  openInstagramProfile,
+  closeUploadDone,
+  doActualPublish,
+  copyCaption,
+  copyAll,
+  flashBtn,
+  regenerateCaption,
+  saveCaptionToGallery,
+  _updateCaptionPreviewImage,
+});

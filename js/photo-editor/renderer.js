@@ -142,6 +142,7 @@
 
   function drawText(ctx, w, h, t) {
     if (!t.value) return;
+    if (t.curve && t.curve !== 'none') return _drawCurvedText(ctx, w, h, t);
     ctx.save();
     const fs = Math.round(w * ((t.size || 6) / 100));
     const fam = FONT_FAM[t.font] || FONT_FAM.sans;
@@ -158,6 +159,82 @@
       if (t.stroke) ctx.strokeText(ln, tx, y, w * 0.9);
       ctx.fillText(ln, tx, y, w * 0.9);
     });
+    ctx.restore();
+  }
+
+  function _drawCurvedText(ctx, w, h, t) {
+    ctx.save();
+    const fs = Math.round(w * ((t.size || 6) / 100));
+    const fam = FONT_FAM[t.font] || FONT_FAM.sans;
+    ctx.font = `${t.font === 'hand' || t.font === 'serif' ? '700' : '800'} ${fs}px ${fam}`;
+    ctx.fillStyle = t.color || '#ffffff';
+    if (t.stroke) {
+      ctx.lineWidth = Math.max(2, Math.round(fs * 0.08));
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = t.color === '#ffffff' || t.color === '#FFC83D' ? '#000' : '#fff';
+    }
+    if (!t.stroke && !t.bg) { ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = Math.round(fs * 0.18); }
+    const tx = w * t.x, ty = h * t.y;
+    const text = String(t.value).replace(/\n/g, ' ');
+    const chars = [...text];
+    const totalW = ctx.measureText(text).width;
+    if (t.curve === 'arch') {
+      const radius = Math.max(totalW * 0.55, fs * 3);
+      const arcLen = totalW / radius;
+      const startAngle = -Math.PI / 2 - arcLen / 2;
+      let angle = startAngle;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      chars.forEach(ch => {
+        const cw = ctx.measureText(ch).width;
+        angle += cw / 2 / radius;
+        const cx = tx + Math.cos(angle) * radius;
+        const cy = ty + radius + Math.sin(angle) * radius;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle + Math.PI / 2);
+        if (t.stroke) ctx.strokeText(ch, 0, 0);
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        angle += cw / 2 / radius;
+      });
+    } else if (t.curve === 'wave') {
+      const amp = fs * 0.8;
+      const freq = Math.PI * 2 / Math.max(totalW, 1);
+      let offsetX = -totalW / 2;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      chars.forEach(ch => {
+        const cw = ctx.measureText(ch).width;
+        offsetX += cw / 2;
+        const cx = tx + offsetX;
+        const cy = ty + Math.sin(offsetX * freq) * amp;
+        const slope = Math.cos(offsetX * freq) * amp * freq;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(Math.atan(slope));
+        if (t.stroke) ctx.strokeText(ch, 0, 0);
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        offsetX += cw / 2;
+      });
+    } else if (t.curve === 'circle') {
+      const radius = Math.max(totalW / (Math.PI * 1.5), fs * 2.5);
+      const arcLen = totalW / radius;
+      let angle = -arcLen / 2;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      chars.forEach(ch => {
+        const cw = ctx.measureText(ch).width;
+        angle += cw / 2 / radius;
+        const cx = tx + Math.cos(angle - Math.PI / 2) * radius;
+        const cy = ty + Math.sin(angle - Math.PI / 2) * radius;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        if (t.stroke) ctx.strokeText(ch, 0, 0);
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        angle += cw / 2 / radius;
+      });
+    }
     ctx.restore();
   }
 

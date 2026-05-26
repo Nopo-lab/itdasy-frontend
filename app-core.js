@@ -10,10 +10,11 @@
   if (isLocal || isDebug) return;
   const noop = function() {};
   if (typeof console !== 'undefined') {
-    console.log = noop;
-    console.info = noop;
-    console.warn = noop;
-    console.debug = noop;
+    const logger = console;
+    logger.log = noop;
+    logger.info = noop;
+    logger.warn = noop;
+    logger.debug = noop;
     // console.error 는 유지 — Sentry 등에서 캐치용
   }
 })();
@@ -77,6 +78,11 @@ const _TOKEN_KEY = 'itdasy_token::' + (API.includes('staging') ? 'staging' : (AP
 const _LEGACY_TOKEN_KEY = 'itdasy_' + 'token';
 
 let _instaHandle = '';  // checkInstaStatus에서 저장
+Object.defineProperty(window, '_instaHandle', {
+  configurable: true,
+  get() { return _instaHandle; },
+  set(value) { _instaHandle = value || ''; },
+});
 
 // ─── 토스트 시스템 v2 (큐 기반, 타입별 색상) ────────────────────
 const _toastQueue = [];
@@ -326,8 +332,6 @@ window.itdasyNormalizeShopType = function (raw) {
 function applyShopType(type) {
   const cfg = SHOP_CONFIG[type];
   if (!cfg) return;
-
-  const shopName = localStorage.getItem('shop_name') || '사장님';
 
   // 시술 태그 라벨
   const lbl = document.getElementById('typeTagLabel');
@@ -1501,7 +1505,7 @@ window.startNaverLogin = async function () {
     if (t === 'INPUT' || t === 'TEXTAREA' || e.target.isContentEditable) hideNav();
   });
 
-  document.addEventListener('focusout', (e) => {
+  document.addEventListener('focusout', () => {
     // 키보드가 내려가면서 focusout될 때 약간의 딜레이 후 복구 (다른 입력창으로 이동할 수 있으므로)
     setTimeout(() => {
       const active = document.activeElement;
@@ -1870,7 +1874,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260527-v299-asst-tone-pc';
+window.APP_BUILD = '20260527-v300-collage';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -1965,7 +1969,7 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     window.location.reload();
   });
 } else if (_isCapacitor) {
-  console.log('[SW] Capacitor 네이티브 — SW 미사용 (WebView 자체 캐시)');
+  console.warn('[SW] Capacitor 네이티브 — SW 미사용 (WebView 자체 캐시)');
 }
 
 // ───── Pull-to-Refresh (iOS PWA 전용) ─────
@@ -1975,8 +1979,6 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
   const THRESHOLD  = 120;
   const RESISTANCE = 0.4;
   const SPRING     = 'transform 0.5s cubic-bezier(0.34,1.56,0.64,1)';
-  const BAR_H      = 56;
-
   const LABEL = document.getElementById('ptrLabel');
   const EMOJI = document.getElementById('ptrEmoji');
 
@@ -2160,6 +2162,25 @@ window.API = API;
 window.apiUrl = apiUrl;
 window.apiFetch = apiFetch;
 window.authHeader = authHeader;
+Object.assign(window, {
+  showWelcome,
+  isKakaoTalk,
+  showInstallGuide,
+  hideInstallGuide,
+  updateHomeQuestion,
+  goCaption,
+  selectShopType,
+  obSkipShopType,
+  openSettings,
+  resetShopSetup,
+  localReset,
+  handle401,
+  closeDeleteAccountModal,
+  confirmDeleteAccount,
+  expandSmartMenu,
+  initMulti,
+  getSel,
+});
 
 // ──────────────────────────────────────────────
 // 보안 민감 버튼은 inline onclick 대신 addEventListener로 연결
@@ -2378,7 +2399,7 @@ window._inlineConfirm = _inlineConfirm;
 window._inlinePrompt = _inlinePrompt;
 
 // 2중 확인 유틸 — 레거시 호환 stub (호출처는 _inlineConfirm 으로 교체 완료)
-window._confirm2 = function (msg) {
+window._confirm2 = function (_msg) {
   console.warn('[_confirm2] deprecated — use _inlineConfirm');
   return false;
 };

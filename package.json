@@ -41,5 +41,13 @@
   },
   "overrides": {
     "tar": "^7.5.13"
+  },
+  "lint-staged": {
+    "*.js": [
+      "eslint --no-error-on-unmatched-pattern --max-warnings=0"
+    ],
+    "*.css": [
+      "stylelint"
+    ]
   }
 }

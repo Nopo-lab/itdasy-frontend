@@ -67,7 +67,6 @@ let _activePortfolioPhotoType = '';
 let _portfolioSearchVal = '';
 let _portfolioDragSrcId = null;
 let _portfolioItems = [];
-let _portfolioUploadPhotoType = 'general';
 
 function filterMainTag(btn, tag) {
   _activePortfolioMainTag = tag;
@@ -99,7 +98,7 @@ function _openPortfolioTagEditor(detail) {
 }
 
 function selectPhotoType(btn, type) {
-  _portfolioUploadPhotoType = type;
+  window._portfolioUploadPhotoType = type;
   document.querySelectorAll('.portfolio-type-btn').forEach(b => {
     const isSelected = b.dataset.type === type;
     if (b.dataset.type === 'before') {
@@ -344,11 +343,10 @@ function initLongPressUpload(areaId, inputSelector) {
   const circle = ring.querySelector('.lp-circle');
 
   const HOLD_MS = 700;
-  let timer = null, startPct = 0;
+  let timer = null;
 
   function startHold(e) {
     if (e.target.tagName === 'INPUT') return;
-    startPct = 0;
     const start = Date.now();
     const CIRC = 157;
     timer = setInterval(() => {
@@ -409,7 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // =====================================================================
 let _cardDeckPhotos = []; // {url, file}
 let _cardDeckCurrent = 0;
-let _cardDeckDragStart = null;
 
 function initCardDeck(containerId) {
   const wrap = document.getElementById(containerId);
@@ -678,3 +675,24 @@ if (typeof window !== 'undefined' && !window._portfolioDataListenerInit) {
     }
   });
 }
+
+Object.assign(window, {
+  filterMainTag,
+  filterSubTag,
+  loadPortfolio,
+  savePortfolioOrder,
+  openPortfolioItem,
+  deletePortfolioItem,
+  selectPhotoType,
+  initCardDeck,
+  addToCardDeck,
+  loadBgAssets,
+  detectFaceAfterEdit,
+  compositePersonOnCanvas,
+  renderBASplit,
+});
+
+Object.defineProperties(window, {
+  _detectedFaces: { get: () => _detectedFaces },
+  _editOriginalBlob: { get: () => _editOriginalBlob },
+});

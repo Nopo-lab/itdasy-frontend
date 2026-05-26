@@ -197,7 +197,8 @@
       <label class="pe-slider"><div class="pe-slider-head"><span>위치 (위↔아래)</span><span class="pe-slider-val">${Math.round(t.y * 100)}</span></div><input type="range" min="5" max="95" value="${Math.round(t.y * 100)}" data-pe-text-y /></label>
       <label class="pe-slider"><div class="pe-slider-head"><span>위치 (좌↔우)</span><span class="pe-slider-val">${Math.round(t.x * 100)}</span></div><input type="range" min="5" max="95" value="${Math.round(t.x * 100)}" data-pe-text-x /></label>
       <label class="pe-slider"><div class="pe-slider-head"><span>회전 (°)</span><span class="pe-slider-val">${t.rot}</span></div><input type="range" min="-45" max="45" value="${t.rot}" data-pe-text-rot /></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn${t.bg ? ' on' : ''}" data-pe-text-bg>배경 박스 ${t.bg ? '끄기' : '켜기'}</button><button type="button" class="pe-chip-btn${t.stroke ? ' on' : ''}" data-pe-text-stroke>외곽선 ${t.stroke ? '끄기' : '켜기'}</button></div>`;
+      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn${t.bg ? ' on' : ''}" data-pe-text-bg>배경 박스 ${t.bg ? '끄기' : '켜기'}</button><button type="button" class="pe-chip-btn${t.stroke ? ' on' : ''}" data-pe-text-stroke>외곽선 ${t.stroke ? '끄기' : '켜기'}</button></div>
+      <div class="pe-field-label" style="margin-top:10px;">곡선</div><div class="pe-panel-row pe-panel-grid-4">${['none','arch','wave','circle'].map(c => _chip(h, 'text-curve', c, { none:'직선', arch:'아치', wave:'물결', circle:'원형' }[c], (t.curve || 'none') === c)).join('')}</div>`;
   }
 
   function _panelBrand(state, h) {
@@ -358,6 +359,7 @@
     _on(panel, '[data-pe-text-bg]', 'click', () => _toggleTextFlag(state, h, 'bg'));
     _each(panel, '[data-pe-text-font]', 'click', e => _setTextValue(state, h, 'font', e.currentTarget.dataset.peTextFont));
     _each(panel, '[data-pe-text-color]', 'click', e => _setTextValue(state, h, 'color', e.currentTarget.dataset.peTextColor));
+    _each(panel, '[data-pe-text-curve]', 'click', e => _setTextValue(state, h, 'curve', e.currentTarget.dataset.peTextCurve));
     _on(panel, '[data-pe-text-color-picker]', 'input', e => { state.text.color = e.target.value; h.scheduleRedraw(); });
     _on(panel, '[data-pe-text-color-picker]', 'change', () => h.pushHistory());
   }
