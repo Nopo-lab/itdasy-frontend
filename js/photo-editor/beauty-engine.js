@@ -34,11 +34,11 @@
 
   function _unsharpMask(ctx, w, h, strength) {
     try {
-      strength = Math.min(Math.max(strength || 0, 0), 0.5);
+      strength = Math.min(Math.max(strength || 0, 0), 0.6);
       const src = ctx.getImageData(0, 0, w, h);
       const blur = _boxBlur(src, w, h, 1);
       const out = ctx.createImageData(w, h);
-      const k = 1 + strength * 0.7;
+      const k = 1 + strength * 0.5;
       for (let i = 0; i < src.data.length; i += 4) {
         out.data[i] = _clamp(src.data[i] + (src.data[i] - blur.data[i]) * (k - 1));
         out.data[i + 1] = _clamp(src.data[i + 1] + (src.data[i + 1] - blur.data[i + 1]) * (k - 1));
@@ -82,7 +82,7 @@
     const px = i >> 2, x = px % w, y = (px / w) | 0;
     const subjectW = Math.max(0, 1 - (Math.abs((x + 0.5) / w - 0.5) * 1.44 + Math.abs((y + 0.5) / h - 0.48) * 1.04));
     const edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
-    const isSkin = !edgeBg && r > 55 && r > g - 8 && g > bl - 10 && (r - bl) > 4 && (r - bl) < 120 && lum0 > 50 && lum0 < 245;
+    const isSkin = !edgeBg && r > 60 && r > g - 6 && g > bl - 10 && (r - bl) > 5 && (r - bl) < 120 && lum0 > 45 && lum0 < 248;
     const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
     const ny = (y + 0.5) / h;
     const upperHalf = ny < 0.55;
@@ -95,8 +95,8 @@
       r, g, bl, lum0,
       skinW: mask ? mask.skin : (isSkin ? 1 : 0),
       hairW: mask ? mask.hair : (hairLike ? 1 : 0),
-      eyeW: mask ? mask.eye : (ny > 0.25 && ny < 0.55 && lum0 < 150 ? 0.25 : 0),
-      nailW: mask ? mask.nail : (lum0 > 130 && lum0 < 220 ? 0.2 : 0),
+      eyeW: mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0),
+      nailW: mask ? mask.nail : (lum0 > 140 && lum0 < 210 && subjectW > 0.4 ? 0.15 : 0),
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }

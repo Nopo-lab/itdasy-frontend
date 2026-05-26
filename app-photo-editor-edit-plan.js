@@ -27,6 +27,7 @@
     if (step.action === 'set_watermark') return _assign(state.watermark, p, state, 'watermark');
     if (step.action === 'set_ratio') return _ratio(state, p);
     if (step.action === 'apply_film') return _film(state, p);
+    if (step.action === 'apply_nukki') return _nukki(state, p, helpers);
     if (step.action === 'export') return helpers.exportImage && helpers.exportImage(p.format || 'png');
     if (step.action === 'undo') return _undo(helpers);
     return false;
@@ -88,6 +89,45 @@
   function _film(state, p) {
     state.film = Object.assign({}, state.film || {}, p);
     state._lastModifiedKeys = ['film'];
+    return true;
+  }
+
+  function _nukki(state, p, helpers) {
+    var compose = window.PhotoEditorBgCompose;
+    if (!compose || !compose.compose) {
+      var bgTab = document.querySelector('#peTabs [data-pe-tab="bg"]');
+      if (bgTab) bgTab.click();
+      if (helpers.toast) helpers.toast('배경 탭에서 배경을 선택해 주세요.');
+      return true;
+    }
+    var bgType = p.bgType || 'pink_radial';
+    var ratio = state.ratio || '4:5';
+    var srcUrl = state.originalImg ? state.originalImg.src : null;
+    if (!srcUrl) { if (helpers.toast) helpers.toast('사진을 먼저 골라 주세요.'); return false; }
+    if (helpers.toast) helpers.toast('배경 제거 중...');
+    compose.compose({
+      srcUrl: srcUrl,
+      targetRatio: ratio,
+      bg: { type: 'procedural', render: bgType },
+      shadow: 'soft',
+    }).then(function (result) {
+      if (result && result.composedDataUrl && state) {
+        var img = new Image();
+        img.onload = function () {
+          state.originalImg = img;
+          state.removedBgDataUrl = result.removedBgDataUrl;
+          if (helpers.scheduleRedraw) helpers.scheduleRedraw();
+          if (helpers.pushHistory) helpers.pushHistory();
+          if (helpers.toast) helpers.toast('누끼 + 배경 적용 완료');
+        };
+        img.src = result.composedDataUrl;
+      }
+    }).catch(function (err) {
+      console.warn('[edit-plan] 누끼 실패:', err);
+      var bgTab = document.querySelector('#peTabs [data-pe-tab="bg"]');
+      if (bgTab) bgTab.click();
+      if (helpers.toast) helpers.toast('자동 배경 제거에 실패했어요. 배경 탭에서 직접 시도해 주세요.');
+    });
     return true;
   }
 

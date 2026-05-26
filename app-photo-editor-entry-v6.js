@@ -164,23 +164,7 @@
       </div>`;
   }
   function _buildFav() {
-    return `<div class="pe-fav-header">
-        <div class="pe-fav-title">추천 스타일</div>
-        <button type="button" class="pe-fav-more" data-pev6-card="film">더보기 ›</button>
-      </div>
-      <div class="pe-fav-strip">
-        <button type="button" class="pe-fav-card natural" data-pev6-card="film"></button>
-        <button type="button" class="pe-fav-card pink" data-pev6-card="film">
-          <span class="pe-sig-heart">${ICONS['heart-fill']}</span>
-        </button>
-        <button type="button" class="pe-fav-card warm" data-pev6-card="film"></button>
-        <button type="button" class="pe-fav-card pro" data-pev6-card="pro"><span class="pe-badge pro">PRO</span></button>
-      </div>
-      <button type="button" class="pe-alert" data-pev6-card="auto">
-        <span class="pe-alert-dot"></span>
-        <span class="pe-alert-msg">빠른 보정은 즉시 · 정밀 AI는 느림</span>
-        <span class="pe-alert-arr">›</span>
-      </button>`;
+    return '';
   }
   function _buildPresetCards(state) {
     if (window.PhotoEditorPresetCards && typeof window.PhotoEditorPresetCards.entryHTML === 'function') {

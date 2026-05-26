@@ -79,27 +79,26 @@
 
   function _paintGloss(d, i, r, g, b, lum, weight) {
     const spec = lum > 160 ? 38 : (lum > 120 ? 24 : (lum > 80 ? 14 : 5));
-    d[i] = _clamp(r + (spec + 5) * weight);
-    d[i + 1] = _clamp(g + (spec + 2) * weight);
+    d[i] = _clamp(r + spec * weight);
+    d[i + 1] = _clamp(g + spec * weight);
     d[i + 2] = _clamp(b + spec * weight);
   }
 
   function _paintBlur(d, i, r, g, b, _lum, weight, w, h) {
     const idx = i >> 2, py = (idx / w) | 0, px = idx - py * w;
-    const rad = Math.max(2, Math.round(weight * 5));
-    let rS = 0, gS = 0, bS = 0, wSum = 0;
+    const rad = Math.min(3, Math.max(1, Math.round(weight * 3)));
+    let rS = 0, gS = 0, bS = 0, n = 0;
     for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
       const nx = px + dx, ny = py + dy;
       if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-      const gw = Math.exp(-(dx * dx + dy * dy) / (2 * rad * rad));
       const j = (ny * w + nx) * 4;
-      rS += d[j] * gw; gS += d[j + 1] * gw; bS += d[j + 2] * gw; wSum += gw;
+      rS += d[j]; gS += d[j + 1]; bS += d[j + 2]; n++;
     }
-    if (wSum < 0.001) return;
-    const mix = weight * 0.85;
-    d[i] = _clamp(r * (1 - mix) + (rS / wSum) * mix);
-    d[i + 1] = _clamp(g * (1 - mix) + (gS / wSum) * mix);
-    d[i + 2] = _clamp(b * (1 - mix) + (bS / wSum) * mix);
+    if (!n) return;
+    const mix = weight * 0.88;
+    d[i] = _clamp(r * (1 - mix) + (rS / n) * mix);
+    d[i + 1] = _clamp(g * (1 - mix) + (gS / n) * mix);
+    d[i + 2] = _clamp(b * (1 - mix) + (bS / n) * mix);
   }
 
   function _paintCloneOrHeal(d, i, width, height, weight, opts) {

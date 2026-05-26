@@ -308,3 +308,10 @@
   display: flex; flex-direction: column; gap: 8px;
 }
 .pe-modal-actions .pe-action-btn { width: 100%; padding: 13px; font-size: 14px; }
+
+/* AI 잇비 카테고리별 예시 칩 */
+.pe-nl-examples { display: flex; flex-direction: column; gap: 10px; }
+.pe-nl-group { display: flex; flex-direction: column; gap: 4px; }
+.pe-nl-group-label { font-size: 11px; font-weight: 700; color: #8a8a96; letter-spacing: 0.02em; padding-left: 2px; }
+.pe-nl-group-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.pe-nl-group-chips .pe-chip-btn { font-size: 12px; padding: 5px 10px; border-radius: 16px; white-space: nowrap; }
