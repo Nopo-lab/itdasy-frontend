@@ -16,10 +16,11 @@
   function _skinScore(r, g, b, lum, subject) {
     const rb = r - b;
     const rg = r - g;
-    const warm = r > 78 && rg > 2 && g > b - 12 && rb > 14 && rb < 112;
-    const bright = lum > 58 && lum < 244;
-    const score = warm && bright ? 0.9 : 0;
-    return _clamp01(score * Math.max(subject, 0.18));
+    const warm = r > 70 && rg > -4 && g > b - 14 && rb > 8 && rb < 125;
+    const bright = lum > 45 && lum < 248;
+    if (!warm || !bright) return 0;
+    const conf = 0.6 + Math.min(rg, 20) / 50 + Math.min(rb, 40) / 100;
+    return _clamp01(Math.min(conf, 0.95) * Math.max(subject, 0.22));
   }
 
   function _hairScore(r, g, b, lum, sat, subject, skin, x, y, w, h) {
@@ -36,17 +37,18 @@
   function _eyeScore(r, g, b, lum, sat, x, y, w, h, subject) {
     const nx = (x + 0.5) / Math.max(1, w);
     const ny = (y + 0.5) / Math.max(1, h);
-    const faceBand = _clamp01(1 - Math.abs(ny - 0.38) * 5.2) * _clamp01(1 - Math.abs(nx - 0.5) * 2.35);
-    const irisOrLash = lum > 16 && lum < 138;
-    const whiteCatch = lum > 150 && sat < 68 && Math.max(r, g, b) - Math.min(r, g, b) < 62;
-    return _clamp01(faceBand * subject * (irisOrLash ? 0.9 : (whiteCatch ? 0.55 : 0)));
+    const faceBand = _clamp01(1 - Math.abs(ny - 0.42) * 3.0) * _clamp01(1 - Math.abs(nx - 0.5) * 1.8);
+    const irisOrLash = lum > 12 && lum < 150;
+    const whiteCatch = lum > 140 && sat < 75 && Math.max(r, g, b) - Math.min(r, g, b) < 70;
+    return _clamp01(faceBand * Math.max(subject, 0.3) * (irisOrLash ? 0.92 : (whiteCatch ? 0.6 : 0)));
   }
 
-  function _nailScore(lum, sat, subject, skin, hair) {
-    const glossy = lum > 168 && sat < 90;
-    const colored = sat > 42 && lum > 78 && lum < 238;
-    const base = (glossy ? 0.45 : 0) + (colored ? 0.55 : 0) + (skin > 0.22 ? 0.18 : 0);
-    return _clamp01(base * subject * (hair > 0.42 ? 0.25 : 1));
+  function _nailScore(lum, sat, subject, skin) {
+    const glossy = lum > 150 && sat < 100;
+    const colored = sat > 35 && lum > 65 && lum < 245;
+    const nude = lum > 130 && lum < 210 && sat < 45;
+    const base = (glossy ? 0.5 : 0) + (colored ? 0.55 : 0) + (nude ? 0.35 : 0) + (skin > 0.18 ? 0.2 : 0);
+    return _clamp01(base * Math.max(subject, 0.3));
   }
 
   function classify(p) {
@@ -59,7 +61,7 @@
     const skin = Math.max(_skinScore(r, g, b, lum, subject), p.isSkinFallback ? 0.42 : 0);
     const hair = Math.max(_hairScore(r, g, b, lum, sat, subject, skin, p.x || 0, p.y || 0, p.w || 1, p.h || 1), p.hairFallback ? 0.35 : 0);
     const eye = _eyeScore(r, g, b, lum, sat, p.x || 0, p.y || 0, p.w || 1, p.h || 1, subject);
-    const nail = _nailScore(lum, sat, subject, skin, hair);
+    const nail = _nailScore(lum, sat, subject, skin);
     const red = r > g + 8 && r > b + 4 ? Math.max(skin, eye, subject * 0.42) : 0;
     return { subject, skin: _clamp01(skin), hair: _clamp01(hair), eye, nail, redness: _clamp01(red) };
   }
