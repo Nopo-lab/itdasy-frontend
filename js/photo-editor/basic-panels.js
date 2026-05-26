@@ -220,7 +220,9 @@
       <div class="pe-panel-row pe-panel-grid-4">${['original','1:1','4:5','9:16'].map(rv => _chip(h, 'ratio', rv, rv === 'original' ? '원본' : rv, state.ratio === rv)).join('')}</div>
       <div class="pe-panel-row pe-panel-grid-2" style="margin-top:12px;"><button type="button" class="pe-action-btn" data-pe-export="png">PNG 저장</button><button type="button" class="pe-action-btn" data-pe-export="jpg">JPG 저장</button></div>
       <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn" data-pe-export="png2">2배 고화질</button><button type="button" class="pe-chip-btn" data-pe-export="webp">WebP 저장</button></div>
-      <div class="pe-panel-row" style="margin-top:8px;"><button type="button" class="pe-action-btn" data-pe-export="set">피드+스토리 세트 저장</button></div>${batchHtml}
+      <div class="pe-panel-row" style="margin-top:8px;"><button type="button" class="pe-action-btn" data-pe-export="set">피드+스토리 세트 저장</button></div>
+      <div class="pe-field-label" style="margin-top:12px;">SNS 개별 저장</div>
+      <div class="pe-panel-row pe-panel-grid-2"><button type="button" class="pe-chip-btn" data-pe-export="feed">피드 4:5 (1080×1350)</button><button type="button" class="pe-chip-btn" data-pe-export="story">스토리 9:16 (1080×1920)</button></div>${batchHtml}
       <div class="pe-hint">저장 시 원본은 보존됩니다. 편집본만 다운로드 또는 갤러리에 추가돼요.</div>`;
   }
 

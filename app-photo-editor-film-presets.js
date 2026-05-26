@@ -214,6 +214,58 @@
         return _hslToRgb(h, _clamp(s * 0.9), _clamp(l * 0.94));
       },
     },
+    'peach-glow': {
+      label: '피치 글로우',
+      desc: '복숭아빛 따뜻한 글로우',
+      fn: (r, g, b) => [_clamp(r * 1.06 + 0.02), _clamp(g * 1.01), _clamp(b * 0.94)],
+    },
+    'mint-fresh': {
+      label: '민트 프레시',
+      desc: '시원한 민트 톤',
+      fn: (r, g, b) => [_clamp(r * 0.95), _clamp(g * 1.04 + 0.01), _clamp(b * 1.02)],
+    },
+    'mocha-matte': {
+      label: '모카 매트',
+      desc: '매트한 갈색 톤 (커피)',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(r, g, b);
+        return _hslToRgb(h, _clamp(s * 0.82), _clamp(l * 0.95 + 0.04));
+      },
+    },
+    'rose-gold': {
+      label: '로즈 골드',
+      desc: '고급스러운 로즈 골드',
+      fn: (r, g, b) => [_clamp(r * 1.05 + 0.03), _clamp(g * 0.97), _clamp(b * 0.95)],
+    },
+    'clean-white': {
+      label: '클린 화이트',
+      desc: '밝고 깨끗한 화이트 톤',
+      fn: (r, g, b) => {
+        const lift = 0.06;
+        return [_clamp(r + lift), _clamp(g + lift + 0.01), _clamp(b + lift + 0.02)];
+      },
+    },
+    'honey-warm': {
+      label: '허니 웜',
+      desc: '꿀 같은 따뜻한 노랑',
+      fn: (r, g, b) => [_clamp(r * 1.04 + 0.02), _clamp(g * 1.02 + 0.01), _clamp(b * 0.9)],
+    },
+    'ash-cool': {
+      label: '애쉬 쿨',
+      desc: '재 같은 차가운 회색 톤',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(r, g, b);
+        return _hslToRgb(h, _clamp(s * 0.7), l);
+      },
+    },
+    'sunset-drama': {
+      label: '선셋 드라마',
+      desc: '극적인 석양 오렌지',
+      fn: (r, g, b) => {
+        const [h, s, l] = _rgbToHsl(_contrast(r, 1.12), _contrast(g, 1.08), _contrast(b, 1.15));
+        return _hslToRgb(h, _clamp(s * 1.15), _clamp(l * 0.97));
+      },
+    },
   };
 
   // ── LUT 캔버스 생성 (한 프리셋당 1024×32) — lazy + 캐시 ──

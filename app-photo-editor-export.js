@@ -18,9 +18,19 @@
     const cv = document.getElementById('peCanvas');
     if (!cv) return;
     if (format === 'set') return _savePostSet(cv, state, helpers);
+    if (format === 'feed') return _saveSingleRatio(cv, 1080, 1350, 'feed-4x5', state, helpers);
+    if (format === 'story') return _saveSingleRatio(cv, 1080, 1920, 'story-9x16', state, helpers);
     const opt = _getOption(format);
     const exportCv = _makeExportCanvas(cv, opt.scale);
     exportCv.toBlob((blob) => _finishSave(blob, exportCv, opt, state, helpers), opt.mime, opt.quality);
+  }
+
+  function _saveSingleRatio(cv, w, h, name, state, helpers) {
+    const out = _makeCoverCanvas(cv, w, h);
+    _downloadCanvas(out, 'itdasy-' + name + '-' + Date.now() + '.png');
+    _toast(helpers, name + ' 저장 완료 (' + w + '×' + h + ')');
+    if (state) state._savedAtCursor = state.historyCursor;
+    _notifyExport();
   }
 
   function _savePostSet(cv, state, helpers) {

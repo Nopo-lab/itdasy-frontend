@@ -29,6 +29,8 @@
 
   let _images = [];
   let _selectedLayout = null;
+  let _ratio = '1:1';
+  let _gap = 4;
 
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
 
@@ -54,6 +56,14 @@
         <div style="font-size:12px;font-weight:700;color:#aaa;margin-bottom:6px;">레이아웃</div>
         <div id="collageLayoutChips" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       </div>
+      <div id="collageOptionsSection" style="display:none;margin-top:10px;">
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <button type="button" class="pe-chip-btn on" data-collage-ratio="1:1">1:1</button>
+          <button type="button" class="pe-chip-btn" data-collage-ratio="4:5">4:5 피드</button>
+          <button type="button" class="pe-chip-btn" data-collage-ratio="9:16">9:16 스토리</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:#aaa;">간격 <input type="range" min="0" max="16" value="4" data-collage-gap style="flex:1;"> <span data-collage-gap-val>4</span>px</label>
+      </div>
       <canvas id="collagePreviewCv" width="360" height="360" style="display:none;width:100%;border-radius:12px;margin-top:12px;background:#111;"></canvas>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button data-collage-close style="flex:1;height:42px;border:1px solid rgba(255,255,255,0.12);border-radius:12px;background:transparent;color:#ccc;font-weight:600;cursor:pointer;">취소</button>
@@ -64,6 +74,18 @@
     pop.querySelector('[data-collage-close]').addEventListener('click', () => { pop.style.display = 'none'; });
     pop.querySelector('#collageFileInput').addEventListener('change', e => _onFilesSelected(e, pop));
     pop.querySelector('#collageCreateBtn').addEventListener('click', () => _create(pop));
+    pop.querySelectorAll('[data-collage-ratio]').forEach(btn => btn.addEventListener('click', () => {
+      _ratio = btn.dataset.collageRatio;
+      pop.querySelectorAll('[data-collage-ratio]').forEach(b => b.classList.toggle('on', b === btn));
+      _renderPreview(pop);
+    }));
+    const gapInp = pop.querySelector('[data-collage-gap]');
+    if (gapInp) gapInp.addEventListener('input', () => {
+      _gap = +gapInp.value;
+      const v = pop.querySelector('[data-collage-gap-val]');
+      if (v) v.textContent = _gap;
+      _renderPreview(pop);
+    });
   }
 
   function _onFilesSelected(e, pop) {
@@ -97,6 +119,8 @@
     _selectedLayout = layouts[0];
     const section = pop.querySelector('#collageLayoutSection');
     section.style.display = 'block';
+    const opts = pop.querySelector('#collageOptionsSection');
+    if (opts) opts.style.display = 'block';
     pop.querySelector('#collageLayoutChips').innerHTML = _layoutChips(n);
     pop.querySelectorAll('[data-collage-layout]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -112,11 +136,18 @@
     _renderPreview(pop);
   }
 
+  function _ratioDims(base) {
+    if (_ratio === '4:5') return [base, Math.round(base * 5 / 4)];
+    if (_ratio === '9:16') return [base, Math.round(base * 16 / 9)];
+    return [base, base];
+  }
+
   function _renderPreview(pop) {
     const cv = pop.querySelector('#collagePreviewCv');
     if (!cv || !_selectedLayout) return;
     cv.style.display = 'block';
-    _drawCollage(cv, _images, _selectedLayout, 360, 360);
+    const [pw, ph] = _ratioDims(360);
+    _drawCollage(cv, _images, _selectedLayout, pw, ph);
   }
 
   function _drawCollage(cv, images, layout, W, H) {
@@ -124,7 +155,7 @@
     const ctx = cv.getContext('2d');
     ctx.fillStyle = '#1a1a20';
     ctx.fillRect(0, 0, W, H);
-    const gap = Math.round(W * 0.005);
+    const gap = _gap != null ? _gap : Math.round(W * 0.005);
     const r = Math.round(W * 0.015);
     layout.cells.forEach((c, i) => {
       if (i >= images.length) return;
@@ -182,7 +213,8 @@
 
   function _composeHQ(images, layout) {
     const cv = document.createElement('canvas');
-    _drawCollage(cv, images, layout, 1080, 1080);
+    const [ow, oh] = _ratioDims(1080);
+    _drawCollage(cv, images, layout, ow, oh);
     return cv.toDataURL('image/jpeg', 0.93);
   }
 
