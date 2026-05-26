@@ -45,6 +45,10 @@ const CATS = [
     { id: 'price-lash',      cat: 'price', label: '속눈썹 가격표',    prefillText: 'LASH MENU', accent: 'soft' },
     { id: 'price-makeup',    cat: 'price', label: '메이크업 가격표',  prefillText: 'MAKEUP', accent: 'soft' },
     { id: 'price-wax',       cat: 'price', label: '왁싱 가격표',     prefillText: 'WAX MENU', accent: 'soft' },
+    // ── Before/After 프리미엄 3 ──
+    { id: 'ba-cream',   cat: 'feed', label: 'B/A 크림',   prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-sage',    cat: 'feed', label: 'B/A 세이지',  prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-dark',    cat: 'feed', label: 'B/A 다크',    prefillText: 'Before & After', accent: 'gold' },
     // ── 명함 5 ──
     { id: 'card-minimal',    cat: 'card',  label: '미니멀',   prefillText: '샵 안내', accent: 'soft' },
     { id: 'card-gold',       cat: 'card',  label: '골드',     prefillText: 'OUR SHOP', accent: 'gold' },

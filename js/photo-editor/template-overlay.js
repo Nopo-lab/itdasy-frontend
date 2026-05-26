@@ -35,6 +35,9 @@
       'price-lash': () => _drawPriceTable(ctx, dw, dh, '속눈썹 메뉴', accent, shopName, ['풀세트 / 80,000원','리터치 / 45,000원','클렌징 / 15,000원','제거 / 10,000원']),
       'price-makeup': () => _drawPriceTable(ctx, dw, dh, '메이크업 메뉴', accent, shopName, ['데일리 / 60,000원','파티 / 90,000원','웨딩 / 200,000원','촬영 / 120,000원']),
       'price-wax': () => _drawPriceTable(ctx, dw, dh, '왁싱 메뉴', accent, shopName, ['브라질리언 / 60,000원','다리 / 50,000원','얼굴 / 25,000원','겨드랑이 / 20,000원']),
+      'ba-cream': () => _drawBACream(ctx, dw, dh, head, accent, shopName),
+      'ba-sage': () => _drawBASage(ctx, dw, dh, head, accent, shopName),
+      'ba-dark': () => _drawBADark(ctx, dw, dh, head, accent, shopName),
       'card-minimal': () => _drawCardMinimal(ctx, dw, dh, head, accent, shopName),
       'card-gold': () => _drawCardGold(ctx, dw, dh, head, accent, shopName),
       'card-pink': () => _drawCardPink(ctx, dw, dh, head, accent, shopName),
@@ -218,6 +221,89 @@
     ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fillRect(0, dh*0.55, dw, dh*0.45);
     ctx.fillStyle = '#222'; ctx.font = `600 ${Math.round(dh*0.028)}px sans-serif`; items.forEach((row, i) => ctx.fillText(row, dw*0.08, dh*0.63 + i*dh*0.06));
     ctx.fillStyle = accent; ctx.font = `500 ${Math.round(dh*0.02)}px sans-serif`; ctx.fillText(shop, dw*0.06, dh*0.97);
+  }
+
+  function _drawBACream(ctx, dw, dh, _head, _accent, shop) {
+    ctx.fillStyle = _grad(ctx, 0, 0, 0, dh, '#f5efe6', '#e8ddd0');
+    ctx.fillRect(0, 0, dw, dh);
+    for (let i = 0; i < 5; i++) { ctx.fillStyle = 'rgba(180,160,130,0.04)'; ctx.beginPath(); ctx.ellipse(dw * (0.2 + i * 0.18), dh * (0.15 + i * 0.12), dw * 0.25, dh * 0.08, -0.3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#6b5c4c'; ctx.textAlign = 'center';
+    ctx.font = `400 ${Math.round(dh * 0.022)}px sans-serif`; ctx.fillText('@' + (shop || 'salon'), dw / 2, dh * 0.06);
+    ctx.font = `italic 700 ${Math.round(dh * 0.055)}px "Playfair Display", Georgia, serif`; ctx.fillText('Before & After', dw / 2, dh * 0.14);
+    const fw = dw * 0.4, fh = dh * 0.5, gap = dw * 0.04, y = dh * 0.2;
+    const x1 = dw / 2 - fw - gap / 2, x2 = dw / 2 + gap / 2;
+    ctx.strokeStyle = 'rgba(160,140,110,0.35)'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    _roundRect(ctx, x1 - 4, y - 4, fw + 8, fh + 8, 14); ctx.stroke();
+    _roundRect(ctx, x2 - 4, y - 4, fw + 8, fh + 8, 14); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; _roundRect(ctx, x1, y, fw, fh, 12); ctx.fill();
+    _roundRect(ctx, x2, y, fw, fh, 12); ctx.fill();
+    ctx.fillStyle = '#5a4e40'; ctx.font = `600 ${Math.round(dh * 0.024)}px sans-serif`;
+    ctx.fillText('Before', x1 + fw / 2, y + fh + dh * 0.04);
+    ctx.fillStyle = '#999'; ctx.font = `400 ${Math.round(dh * 0.018)}px sans-serif`;
+    ctx.fillText('시술전', x1 + fw / 2, y + fh + dh * 0.065);
+    ctx.fillStyle = '#5a4e40'; ctx.font = `600 ${Math.round(dh * 0.024)}px sans-serif`;
+    ctx.fillText('After', x2 + fw / 2, y + fh + dh * 0.04);
+    ctx.fillStyle = '#999'; ctx.font = `400 ${Math.round(dh * 0.018)}px sans-serif`;
+    ctx.fillText('시술후', x2 + fw / 2, y + fh + dh * 0.065);
+    ctx.fillStyle = 'rgba(240,232,218,0.95)'; _roundRect(ctx, dw * 0.2, dh * 0.88, dw * 0.6, dh * 0.05, 20); ctx.fill();
+    ctx.fillStyle = '#8a7a65'; ctx.font = `500 ${Math.round(dh * 0.018)}px sans-serif`;
+    ctx.fillText('@' + (shop || 'salon'), dw / 2, dh * 0.912);
+    ctx.fillStyle = '#b8a88a'; ctx.font = `400 ${Math.round(dh * 0.016)}px sans-serif`;
+    ctx.fillText(shop || 'Beauty Salon', dw / 2, dh * 0.97);
+  }
+
+  function _drawBASage(ctx, dw, dh, _head, _accent, shop) {
+    ctx.fillStyle = _grad(ctx, 0, 0, dw, dh, '#c5cdb8', '#a8b299');
+    ctx.fillRect(0, 0, dw, dh);
+    ctx.globalAlpha = 0.06;
+    for (let i = 0; i < 3; i++) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(dw * (0.7 + i * 0.1), dh * (0.2 + i * 0.25), dw * 0.15, dh * 0.3, 0.5, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#3d4a2e'; ctx.textAlign = 'center';
+    ctx.font = `italic 700 ${Math.round(dh * 0.045)}px "Playfair Display", Georgia, serif`; ctx.fillText('Before & After', dw / 2, dh * 0.07);
+    ctx.font = `400 ${Math.round(dh * 0.02)}px sans-serif`; ctx.fillText('시술 전후 모습을 확인해 보세요!', dw / 2, dh * 0.105);
+    const fw = dw * 0.42, fh = dh * 0.55, gap = dw * 0.03, y = dh * 0.16;
+    const x1 = dw / 2 - fw - gap / 2, x2 = dw / 2 + gap / 2;
+    ctx.strokeStyle = 'rgba(61,74,46,0.3)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+    _roundRect(ctx, x1 - 3, y - 3, fw + 6, fh + 6, 16); ctx.stroke();
+    _roundRect(ctx, x2 - 3, y - 3, fw + 6, fh + 6, 16); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(210,218,198,0.5)'; _roundRect(ctx, x1, y, fw, fh, 14); ctx.fill();
+    _roundRect(ctx, x2, y, fw, fh, 14); ctx.fill();
+    ctx.fillStyle = '#3d4a2e'; ctx.font = `italic 600 ${Math.round(dh * 0.026)}px "Playfair Display", Georgia, serif`;
+    ctx.fillText('Before', x1 + fw / 2, y + fh + dh * 0.035);
+    ctx.fillText('After', x2 + fw / 2, y + fh + dh * 0.035);
+    ctx.fillStyle = '#5d6e4a'; ctx.font = `400 ${Math.round(dh * 0.016)}px sans-serif`;
+    ctx.fillText('전', x1 + fw / 2, y + fh + dh * 0.06);
+    ctx.fillText('후', x2 + fw / 2, y + fh + dh * 0.06);
+    ctx.strokeStyle = '#3d4a2e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(dw * 0.15, dh * 0.86); ctx.lineTo(dw * 0.85, dh * 0.86); ctx.stroke();
+    ctx.fillStyle = '#3d4a2e'; ctx.font = `600 ${Math.round(dh * 0.016)}px sans-serif`;
+    ctx.fillText(shop ? shop.toUpperCase() : 'BEAUTY SALON', dw / 2, dh * 0.9);
+  }
+
+  function _drawBADark(ctx, dw, dh, _head, accent, shop) {
+    ctx.fillStyle = '#1a1a1f'; ctx.fillRect(0, 0, dw, dh);
+    const goldGrad = _grad(ctx, 0, 0, dw, 0, '#c9a96e', '#e8cc8c');
+    ctx.fillStyle = goldGrad; ctx.textAlign = 'center';
+    ctx.font = `italic 700 ${Math.round(dh * 0.05)}px "Playfair Display", Georgia, serif`; ctx.fillText('Before & After', dw / 2, dh * 0.08);
+    ctx.strokeStyle = 'rgba(201,169,110,0.3)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(dw * 0.1, dh * 0.11); ctx.lineTo(dw * 0.9, dh * 0.11); ctx.stroke();
+    const fw = dw * 0.42, fh = dh * 0.58, gap = dw * 0.03, y = dh * 0.15;
+    const x1 = dw / 2 - fw - gap / 2, x2 = dw / 2 + gap / 2;
+    ctx.strokeStyle = 'rgba(201,169,110,0.25)'; ctx.lineWidth = 1.5;
+    _roundRect(ctx, x1 - 3, y - 3, fw + 6, fh + 6, 10); ctx.stroke();
+    _roundRect(ctx, x2 - 3, y - 3, fw + 6, fh + 6, 10); ctx.stroke();
+    ctx.fillStyle = goldGrad; ctx.font = `600 ${Math.round(dh * 0.022)}px sans-serif`;
+    ctx.fillText('BEFORE', x1 + fw / 2, y + fh + dh * 0.035);
+    ctx.fillText('AFTER', x2 + fw / 2, y + fh + dh * 0.035);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = `400 ${Math.round(dh * 0.016)}px sans-serif`;
+    ctx.fillText('시술전', x1 + fw / 2, y + fh + dh * 0.058);
+    ctx.fillText('시술후', x2 + fw / 2, y + fh + dh * 0.058);
+    ctx.strokeStyle = 'rgba(201,169,110,0.2)'; ctx.beginPath(); ctx.moveTo(dw * 0.1, dh * 0.88); ctx.lineTo(dw * 0.9, dh * 0.88); ctx.stroke();
+    ctx.fillStyle = goldGrad; ctx.font = `500 ${Math.round(dh * 0.018)}px sans-serif`;
+    ctx.fillText(shop ? shop.toUpperCase() : 'BEAUTY STUDIO', dw / 2, dh * 0.93);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = `400 ${Math.round(dh * 0.014)}px sans-serif`;
+    ctx.fillText(accent === 'gold' ? 'Premium Beauty Service' : shop, dw / 2, dh * 0.96);
   }
 
   function _drawCardMinimal(ctx, dw, dh, head, accent, shop) {
