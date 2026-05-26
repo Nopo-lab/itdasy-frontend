@@ -165,7 +165,10 @@
     wrap.querySelectorAll('.pe-tab').forEach(b => b.classList.toggle('on', b.dataset.peTab === _state.activeTab));
   }
 
-  const _panelRenderers = { auto: _panelAuto, tune: _panelTune, bg: _panelBg, text: _panelText, brand: _panelBrand, export: _panelExport };
+  const _panelRenderers = {};
+  function _slider(label, key, val, min, max, step) {
+    return `<label class="pe-slider"><div class="pe-slider-head"><span>${_esc(label)}</span><span class="pe-slider-val" data-pe-slider-val="${key}">${val}</span></div><input type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-pe-slider="${key}" /></label>`;
+  }
   function _renderPanel() {
     const panel = document.getElementById('pePanel');
     if (!panel || !_state) return;
@@ -177,411 +180,7 @@
     _bindPanel(panel, tab);
   }
 
-  // ── 패널들 (메인 유지: auto/tune/bg/text/brand/export) ──
-  const _CHIP = (attr, val, label, on) => `<button type="button" class="pe-chip-btn${on?' on':''}" data-pe-${attr}="${val}">${_esc(label)}</button>`;
-  function _slider(label, key, val, min, max, step) {
-    return `<label class="pe-slider"><div class="pe-slider-head"><span>${_esc(label)}</span><span class="pe-slider-val" data-pe-slider-val="${key}">${val}</span></div><input type="range" min="${min}" max="${max}" step="${step}" value="${val}" data-pe-slider="${key}" /></label>`;
-  }
-  function _shopPresetLabel() {
-    try {
-      const p = window.PhotoEnhance && window.PhotoEnhance.getShopPreset && window.PhotoEnhance.getShopPreset();
-      return (p && p.label) || '일반';
-    } catch (_e) { return '일반'; }
-  }
-  function _panelAuto() {
-    const shopLabel = _shopPresetLabel();
-    const cur = _state.autoIntensity || 'standard';
-    const intChip = (k, label) => `<button type="button" class="pe-chip-btn${cur===k?' on':''}" data-pe-auto-intensity="${k}">${label}</button>`;
-    // [v184] 즐겨찾기 프리셋 5슬롯
-    const favs = _loadFavorites();
-    const favHtml = favs.length
-      ? favs.map((f, i) => `<button type="button" class="pe-chip-btn" data-pe-fav-apply="${i}" title="${_esc(f.name)}">★ ${_esc(f.name)}</button>`).join('')
-      : '<div class="pe-hint" style="margin:0;">아직 저장된 프리셋이 없어요. 슬라이더 조정 후 ↓ 버튼으로 저장.</div>';
-    return `<div class="pe-panel-row"><button type="button" class="pe-action-btn" data-pe-auto="all">⚡ 한 번에 자동 보정</button></div>
-      <div class="pe-panel-row"><button type="button" class="pe-action-btn" data-pe-auto="shop">⚡ 우리 샵 업종 자동 (현재: ${_esc(shopLabel)})</button></div>
-      <div class="pe-field-label" style="margin-top:10px;">강도</div>
-      <div class="pe-panel-row pe-panel-grid-4">${intChip('natural','자연')}${intChip('standard','표준')}${intChip('strong','강조')}</div>
-      <div class="pe-field-label" style="margin-top:10px;">업종별 자동 (강도 적용)</div>
-      <div class="pe-panel-row pe-panel-grid-2">${_CHIP('auto','hair','헤어·붙임머리')}${_CHIP('auto','scalp','두피·탈모')}${_CHIP('auto','makeup','메이크업·눈썹')}${_CHIP('auto','lash','속눈썹')}${_CHIP('auto','nail','네일·패디')}${_CHIP('auto','wax','왁싱·바디·피부')}</div>
-      <div class="pe-field-label" style="margin-top:10px;">분위기</div>
-      <div class="pe-panel-row pe-panel-grid-4">${_CHIP('auto','bright','밝게')}${_CHIP('auto','vivid','선명')}${_CHIP('auto','warm','따뜻')}${_CHIP('auto','cool','차갑게')}</div>
-      <div class="pe-field-label" style="margin-top:14px;">★ 내 즐겨찾기 프리셋 (${favs.length}/5)</div>
-      <div class="pe-panel-row pe-panel-grid-2" style="flex-wrap:wrap;">${favHtml}</div>
-      <div class="pe-panel-row" style="margin-top:6px;"><button type="button" class="pe-chip-btn" data-pe-fav-save>현재 슬라이더 → 프리셋 저장</button></div>
-      <div class="pe-hint">표준이 기본. 자연은 0.7배, 강조는 1.4배.</div>`;
-  }
-
-  // [v184 2026-05-18] 즐겨찾기 프리셋 — localStorage 5슬롯.
-  //   각 슬롯: { name, adjust, beauty, film, shadow, watermark, bg }
-  const _FAV_KEY = 'itdasy_pe_favorites';
-  function _loadFavorites() {
-    try { return JSON.parse(localStorage.getItem(_FAV_KEY) || '[]') || []; }
-    catch (_e) { return []; }
-  }
-  function _saveFavoritesList(list) {
-    try { localStorage.setItem(_FAV_KEY, JSON.stringify(list.slice(0, 5))); }
-    catch (_e) { void _e; }
-  }
-  function _saveCurrentAsFavorite() {
-    const list = _loadFavorites();
-    if (list.length >= 5) {
-      _toast('5개 한도. 기존 프리셋 길게 눌러 삭제 후 다시 저장');
-      return;
-    }
-    window._inlinePrompt('프리셋 이름 (예: 헤어 진하게)', '내 프리셋 ' + (list.length + 1), (name) => {
-      list.push({
-        name: String(name).slice(0, 20),
-        adjust: JSON.parse(JSON.stringify(_state.adjust)),
-        beauty: JSON.parse(JSON.stringify(_state.beauty)),
-        film: JSON.parse(JSON.stringify(_state.film || {})),
-        shadow: JSON.parse(JSON.stringify(_state.shadow || { mode: 'none' })),
-        watermark: JSON.parse(JSON.stringify(_state.watermark || {})),
-        bg: JSON.parse(JSON.stringify(_state.bg || { id: null })),
-      });
-      _saveFavoritesList(list);
-      _renderPanel();
-      _toast('프리셋 저장: ' + name);
-    });
-    return;
-  }
-  function _applyFavorite(idx) {
-    const list = _loadFavorites();
-    const f = list[idx];
-    if (!f) return _toast('프리셋을 찾지 못했어요');
-    if (f.adjust) Object.assign(_state.adjust, f.adjust);
-    if (f.beauty) Object.assign(_state.beauty, f.beauty);
-    if (f.film) _state.film = JSON.parse(JSON.stringify(f.film));
-    if (f.shadow) _state.shadow = JSON.parse(JSON.stringify(f.shadow));
-    if (f.watermark) Object.assign(_state.watermark, f.watermark);
-    if (f.bg) _state.bg = JSON.parse(JSON.stringify(f.bg));
-    _redraw(); _pushHistory();
-    _toast('적용: ' + f.name);
-  }
-  function _panelTune() {
-    const a = _state.adjust;
-    return `${_slider('밝기','brightness',a.brightness,50,150,1)}${_slider('채도','saturate',a.saturate,50,150,1)}${_slider('선명도','sharpness',a.sharpness,0,100,1)}${_slider('색온도','temperature',a.temperature,-50,50,1)}
-      <div class="pe-field-label" style="margin-top:10px;">방향 (v202 신규)</div>
-      <div class="pe-panel-row pe-panel-grid-4">
-        <button type="button" class="pe-chip-btn" data-pe-transform="rotL">↺ 90°</button>
-        <button type="button" class="pe-chip-btn" data-pe-transform="rotR">↻ 90°</button>
-        <button type="button" class="pe-chip-btn" data-pe-transform="flipH">⇋ 좌우</button>
-        <button type="button" class="pe-chip-btn" data-pe-transform="flipV">⇵ 상하</button>
-      </div>
-      <div class="pe-panel-row" style="margin-top:8px;"><button type="button" class="pe-chip-btn" data-pe-tune-reset>슬라이더 초기화</button></div>
-      <div class="pe-hint">방향 버튼은 원본 이미지를 회전·반전 시킵니다. 슬라이더는 따로 초기화.</div>`;
-  }
-  function _panelBg() {
-    // [v186 2026-05-18] 편집기 내부 통합 — app-gallery-bg.js 의 GALLERY_BG_LIST + composeBgForEditor 사용.
-    const list = (typeof window.GALLERY_BG_LIST === 'function') ? window.GALLERY_BG_LIST() : [];
-    if (!list.length) {
-      return `<div class="pe-panel-row"><button type="button" class="pe-action-btn" data-pe-bg="open-existing">기존 누끼·배경 화면 열기</button></div>
-        <div class="pe-hint">배경 모듈 로드 중이에요. 잠시 후 다시 열어주세요.</div>`;
-    }
-    const cards = list.map(bg => {
-      const preview = bg.imageData
-        ? `<img src="${_esc(bg.imageData)}" alt="${_esc(bg.name)}" style="width:100%;height:100%;object-fit:cover;display:block;" />`
-        : `<div style="width:100%;height:100%;background:${_esc(bg.gradient || bg.color || '#fff')};"></div>`;
-      return `<button type="button" data-pe-bg-id="${_esc(bg.id)}"
-        style="position:relative;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1.5px solid rgba(255,255,255,0.10);background:transparent;cursor:pointer;padding:0;">
-        ${preview}
-        <div style="position:absolute;left:0;right:0;bottom:0;padding:3px 6px;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;font-weight:700;text-align:center;">${_esc(bg.name)}</div>
-      </button>`;
-    }).join('');
-    return `<div class="pe-field-label">배경 선택 (누끼 후 자동 합성)</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">${cards}</div>
-      <div class="pe-panel-row pe-panel-grid-2">
-        <button type="button" class="pe-chip-btn" data-pe-bg="restore">↺ 원본 사진으로</button>
-        <button type="button" class="pe-chip-btn" data-pe-bg="open-existing">기존 배경 화면</button>
-      </div>
-      <div class="pe-hint">카드 누르면 자동 누끼 + 합성. 같은 사진은 누끼 캐시되어 다른 배경 즉시 적용. Free 한도 누끼 2/일.</div>`;
-  }
-  function _panelText() {
-    // [v204 2026-05-19] 다중 레이어 — _state.layers 우선, active layer 가 _state.text alias
-    _ensureLayers();
-    const t = _state.text;  // active layer 가 _state.text 와 동기화됨
-    // [v206 2026-05-19] 폰트 4 → 9 종 (Google Fonts 5 추가). 모두 무료·상업 OK.
-    const FONTS = [
-      { id: 'sans',     label: 'Sans' },
-      { id: 'serif',    label: 'Serif' },
-      { id: 'playfair', label: 'Playfair' },
-      { id: 'nserif',   label: '명조' },
-      { id: 'bhan',     label: '블랙 한산스' },
-      { id: 'gowun',    label: '고운 도담' },
-      { id: 'gaegu',    label: '개구' },
-      { id: 'nanumpen', label: '나눔 펜' },
-      { id: 'hand',     label: '핸드' },
-    ];
-    const COLORS = ['#ffffff', '#1a1a20', '#D58A95', '#FFC83D'];
-    const COLOR_LABEL = { '#ffffff': '흰', '#1a1a20': '검', '#D58A95': '핑크', '#FFC83D': '노랑' };
-    // [v204] 레이어 리스트 헤더
-    const layers = _state.layers || [];
-    const layerListHtml = layers.length > 1
-      ? `<div class="pe-field-label">텍스트 레이어 (${layers.length})</div>
-         <div class="pe-panel-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
-           ${layers.map((l, i) => `<button type="button" class="pe-chip-btn${l.id === _state.activeLayerId ? ' on' : ''}" data-pe-layer-select="${l.id}" title="${_esc(l.value || '(빈 텍스트)').slice(0, 20)}">${i + 1}. ${_esc((l.value || '빈 텍스트').slice(0, 8))}</button>`).join('')}
-         </div>`
-      : '';
-    const layerActionsHtml = `
-      <div class="pe-panel-row" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-        <button type="button" class="pe-chip-btn" data-pe-layer-add>＋ 새 텍스트</button>
-        <button type="button" class="pe-chip-btn" data-pe-sticker-open>🎨 스티커</button>
-        ${layers.length > 1 ? '<button type="button" class="pe-chip-btn" data-pe-layer-del>🗑 삭제</button>' : ''}
-        ${layers.length > 1 ? '<button type="button" class="pe-chip-btn" data-pe-layer-up>↑ 위로</button>' : ''}
-      </div>`;
-    return `${layerListHtml}${layerActionsHtml}<label class="pe-field"><span>텍스트 (여러 줄 가능 — Enter)</span><textarea class="pe-input" data-pe-text-val rows="3" maxlength="120" placeholder="시술명·이벤트 문구 등&#10;여러 줄도 OK">${_esc(t.value)}</textarea></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">${_CHIP('text-prefill','service','시술 선택')}${_CHIP('text-prefill','price','가격 넣기')}</div>
-      <div class="pe-field-label" style="margin-top:10px;">폰트</div>
-      <div class="pe-panel-row pe-panel-grid-4">${FONTS.map(f => `<button type="button" class="pe-chip-btn${t.font===f.id?' on':''}" data-pe-text-font="${f.id}">${f.label}</button>`).join('')}</div>
-      <div class="pe-field-label" style="margin-top:10px;">색상</div>
-      <div class="pe-panel-row pe-panel-grid-4">${COLORS.map(c => `<button type="button" class="pe-chip-btn${t.color===c?' on':''}" data-pe-text-color="${c}" style="background:${c};color:${c==='#ffffff'||c==='#FFC83D'?'#222':'#fff'};">${COLOR_LABEL[c]}</button>`).join('')}</div>
-      <!-- [v202 2026-05-18] 색상 무한 선택 (S1-1) -->
-      <div class="pe-panel-row" style="margin-top:6px;align-items:center;gap:8px;">
-        <label style="font-size:11px;color:#c9c9d0;display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
-          <span>커스텀 색상:</span>
-          <input type="color" data-pe-text-color-picker value="${_esc(t.color)}" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:transparent;" />
-        </label>
-      </div>
-      <label class="pe-slider"><div class="pe-slider-head"><span>크기</span><span class="pe-slider-val">${t.size}</span></div><input type="range" min="3" max="12" value="${t.size}" data-pe-text-size /></label>
-      <label class="pe-slider"><div class="pe-slider-head"><span>위치 (위↔아래)</span><span class="pe-slider-val">${Math.round(t.y*100)}</span></div><input type="range" min="5" max="95" value="${Math.round(t.y*100)}" data-pe-text-y /></label>
-      <label class="pe-slider"><div class="pe-slider-head"><span>위치 (좌↔우)</span><span class="pe-slider-val">${Math.round(t.x*100)}</span></div><input type="range" min="5" max="95" value="${Math.round(t.x*100)}" data-pe-text-x /></label>
-      <label class="pe-slider"><div class="pe-slider-head"><span>회전 (°)</span><span class="pe-slider-val">${t.rot}</span></div><input type="range" min="-45" max="45" value="${t.rot}" data-pe-text-rot /></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn${t.bg?' on':''}" data-pe-text-bg>배경 박스 ${t.bg?'끄기':'켜기'}</button><button type="button" class="pe-chip-btn${t.stroke?' on':''}" data-pe-text-stroke>외곽선 ${t.stroke?'끄기':'켜기'}</button></div>`;
-  }
-  function _panelBrand() {
-    const w = _state.watermark, sym = { tl:'↖', tr:'↗', bl:'↙', br:'↘' };
-    return `<label class="pe-field"><span>워터마크 문구</span><input type="text" class="pe-input" data-pe-wm-val placeholder="@샵아이디 · 샵이름" value="${_esc(w.value)}" maxlength="40" /></label>
-      <div class="pe-field-label">위치</div>
-      <div class="pe-panel-row pe-panel-grid-4">${['tl','tr','bl','br'].map(p => _CHIP('wm-pos', p, sym[p], w.position===p)).join('')}</div>
-      <label class="pe-slider"><div class="pe-slider-head"><span>투명도</span><span class="pe-slider-val">${Math.round(w.opacity*100)}%</span></div><input type="range" min="20" max="100" value="${Math.round(w.opacity*100)}" data-pe-wm-opacity /></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn" data-pe-wm-save>기본값으로 저장</button><button type="button" class="pe-chip-btn" data-pe-wm-kit>Brand Kit 전체 설정</button></div>`;
-  }
-  function _panelExport() {
-    const r = _state.ratio;
-    // [v206 2026-05-19] 배치 편집 — 갤러리 slot 사진 N장 일괄 자동 보정
-    //   조건: window._slots / window._popupSlotId 존재 (갤러리 모듈 로드됨)
-    const batch = window.PhotoEditorBatch;
-    const slotInfo = batch && typeof batch.getCurrentSlot === 'function'
-      ? batch.getCurrentSlot()
-      : null;
-    const batchHtml = slotInfo
-      ? `<div class="pe-field-label" style="margin-top:12px;">배치 편집 (v206)</div>
-         <div class="pe-panel-row"><button type="button" class="pe-action-btn" data-pe-batch-apply>📦 이 슬롯 사진 ${slotInfo.count}장 모두 같은 보정 일괄 적용</button></div>
-         <div class="pe-hint">현재 슬라이더 설정으로 슬롯 (${_esc(slotInfo.label)}) 다른 사진까지 한 번에 보정.</div>`
-      : '';
-    return `<div class="pe-field-label">비율</div>
-      <div class="pe-panel-row pe-panel-grid-4">${['original','1:1','4:5','9:16'].map(rv => _CHIP('ratio', rv, rv === 'original' ? '원본' : rv, r===rv)).join('')}</div>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:12px;"><button type="button" class="pe-action-btn" data-pe-export="png">PNG 저장</button><button type="button" class="pe-action-btn" data-pe-export="jpg">JPG 저장</button></div>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn" data-pe-export="png2">2배 고화질</button><button type="button" class="pe-chip-btn" data-pe-export="webp">WebP 저장</button></div>
-      <div class="pe-panel-row" style="margin-top:8px;"><button type="button" class="pe-action-btn" data-pe-export="set">피드+스토리 세트 저장</button></div>
-      ${batchHtml}
-      <div class="pe-hint">저장 시 원본은 보존됩니다. 편집본만 다운로드 또는 갤러리에 추가돼요.</div>`;
-  }
-
-  // ── 패널 바인딩 ───────────────────────────────────────
-  const _each = (panel, sel, ev, fn) => panel.querySelectorAll(sel).forEach(el => el.addEventListener(ev, fn));
-  const _on   = (panel, sel, ev, fn) => panel.querySelector(sel)?.addEventListener(ev, fn);
-
-  function _bindBrandKitSync() {
-    window.addEventListener('itdasy:brand-kit:updated', () => {
-      try {
-        const bk = window.BrandKit && window.BrandKit.get && window.BrandKit.get();
-        if (!bk) return;
-        const wm = _state.watermark;
-        if (bk.watermark_text) wm.value = bk.watermark_text;
-        else if (bk.shop_name) wm.value = bk.shop_name + (bk.instagram_handle ? ' · @' + bk.instagram_handle : '');
-        if (bk.watermark_position) wm.position = bk.watermark_position;
-        if (typeof bk.watermark_opacity === 'number') wm.opacity = bk.watermark_opacity;
-        _renderPanel(); _redraw();
-      } catch (_e) { void _e; }
-    }, { once: true });
-  }
-
-  function _saveBrandWm() {
-    try {
-      const wm = _state.watermark;
-      const p = { watermark_text: wm.value, watermark_position: wm.position, watermark_opacity: wm.opacity };
-      if (window.BrandKit && typeof window.BrandKit.save === 'function') window.BrandKit.save(p);
-      else {
-        const bk = JSON.parse(localStorage.getItem('itdasy_brand_kit') || '{}');
-        localStorage.setItem('itdasy_brand_kit', JSON.stringify(Object.assign(bk, p)));
-      }
-      _toast('워터마크 기본값을 저장했어요');
-    } catch (_e) { _toast('저장에 실패했어요'); }
-  }
-
-  const _BINDERS = {
-    auto(panel) {
-      _each(panel, '[data-pe-auto]', 'click', e => _applyAuto(e.currentTarget.dataset.peAuto));
-      _each(panel, '[data-pe-auto-intensity]', 'click', e => {
-        _state.autoIntensity = e.currentTarget.dataset.peAutoIntensity;
-        _renderPanel();
-        _toast('강도: ' + (_state.autoIntensity === 'natural' ? '자연' : _state.autoIntensity === 'strong' ? '강조' : '표준'));
-      });
-      // [v184] 즐겨찾기 — 클릭 적용 / 길게 눌러 삭제
-      _each(panel, '[data-pe-fav-apply]', 'click', e => _applyFavorite(+e.currentTarget.dataset.peFavApply));
-      _each(panel, '[data-pe-fav-apply]', 'contextmenu', e => {
-        e.preventDefault();
-        const i = +e.currentTarget.dataset.peFavApply;
-        const list = _loadFavorites();
-        window._inlineConfirm('프리셋 "' + (list[i] && list[i].name) + '" 삭제할까요?', () => {
-          list.splice(i, 1); _saveFavoritesList(list); _renderPanel(); _toast('프리셋 삭제');
-        });
-      });
-      _on(panel, '[data-pe-fav-save]', 'click', _saveCurrentAsFavorite);
-    },
-    tune(panel) {
-      _each(panel, '[data-pe-slider]', 'input', (e) => {
-        const inp = e.currentTarget, key = inp.dataset.peSlider;
-        _state.adjust[key] = +inp.value;
-        const out = panel.querySelector(`[data-pe-slider-val="${key}"]`);
-        if (out) out.textContent = inp.value;
-        _scheduleRedraw();
-      });
-      _each(panel, '[data-pe-slider]', 'change', () => _pushHistory());
-      // [v202] 슬라이더 더블탭 reset (S1-2)
-      _each(panel, '[data-pe-slider]', 'dblclick', (e) => {
-        const key = e.currentTarget.dataset.peSlider;
-        const RESET = { brightness: 100, saturate: 100, sharpness: 0, temperature: 0 };
-        _state.adjust[key] = RESET[key] || 0;
-        _renderPanel(); _redraw(); _pushHistory();
-        _toast('초기화: ' + key);
-      });
-      _on(panel, '[data-pe-tune-reset]', 'click', () => {
-        _state.adjust = { brightness: 100, saturate: 100, sharpness: 0, temperature: 0 };
-        _renderPanel(); _redraw(); _pushHistory();
-      });
-      // [v202] 회전·좌우반전 (S1-3) — originalImg 자체를 변환 후 swap
-      _each(panel, '[data-pe-transform]', 'click', (e) => _applyTransform(e.currentTarget.dataset.peTransform));
-    },
-    bg(panel) {
-      _on(panel, '[data-pe-bg="open-existing"]', 'click', () => {
-        _toast('기존 누끼·배경 화면을 여는 중…');
-        (window.openGalleryBg || window.openBgGallery || window.openBgPanel || (() => {}))();
-      });
-      // [v186] 원본 복원 — _state.originalSrc 다시 로드 + 누끼 캐시 무효
-      _on(panel, '[data-pe-bg="restore"]', 'click', () => {
-        if (!_state.preBgOriginalSrc) return _toast('원본이 이미 보이고 있어요');
-        _loadImage(_state.preBgOriginalSrc);
-        _state.removedBgDataUrl = null;
-        _state.preBgOriginalSrc = null;
-        _toast('원본 사진으로 복원');
-      });
-      // [v186] 배경 카드 클릭 → composeBgForEditor 호출
-      _each(panel, '[data-pe-bg-id]', 'click', async (e) => {
-        const bgId = e.currentTarget.dataset.peBgId;
-        if (!_state.originalImg) return _toast('먼저 사진을 골라주세요');
-        if (typeof window.composeBgForEditor !== 'function') return _toast('배경 모듈 로드 중이에요. 잠시 후 다시.');
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        _toast('누끼 + 배경 합성 중…');
-        try {
-          // 첫 적용 시 현재 originalSrc 백업 — 복원용
-          if (!_state.preBgOriginalSrc) _state.preBgOriginalSrc = _state.originalSrc;
-          const srcUrl = _state.preBgOriginalSrc;  // 원본 (다른 배경 재선택 시 일관)
-          const ratio = (_state.ratio && _state.ratio !== 'original') ? _state.ratio : '1:1';
-          const result = await window.composeBgForEditor(srcUrl, bgId, ratio, _state.removedBgDataUrl);
-          _state.removedBgDataUrl = result.removedBgDataUrl;  // 누끼 캐시 — 다음 배경에 재활용
-          // 결과 dataURL → originalImg 교체
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload = () => {
-            _state.originalImg = img;
-            _state.originalSrc = result.composedDataUrl;
-            _pushHistory();
-            _redraw();
-            _toast('배경 적용 완료');
-            btn.disabled = false;
-          };
-          img.onerror = () => { _toast('합성 이미지 로드 실패'); btn.disabled = false; };
-          img.src = result.composedDataUrl;
-        } catch (err) {
-          console.warn('[bg] 합성 실패:', err);
-          _toast('합성 실패: ' + ((err && err.message) || '').slice(0, 60));
-          btn.disabled = false;
-        }
-      });
-    },
-    text(panel) {
-      // [v204] 레이어 관리 — 추가/삭제/선택/순서
-      _on(panel, '[data-pe-layer-add]', 'click', _addLayer);
-      _on(panel, '[data-pe-layer-del]', 'click', _deleteLayer);
-      _on(panel, '[data-pe-layer-up]',  'click', _moveLayerUp);
-      // [v205 2026-05-19] 스티커 라이브러리 열기
-      _on(panel, '[data-pe-sticker-open]', 'click', () => {
-        if (window.PhotoEditor && typeof window.PhotoEditor.openStickerLibrary === 'function') {
-          window.PhotoEditor.openStickerLibrary();
-        } else {
-          _toast('스티커 모듈 로드 중이에요');
-        }
-      });
-      _each(panel, '[data-pe-layer-select]', 'click', (e) => _selectLayer(e.currentTarget.dataset.peLayerSelect));
-      _on(panel, '[data-pe-text-val]', 'input', (e) => { _state.text.value = e.target.value; _syncTextToLayer(); _redraw(); });
-      _on(panel, '[data-pe-text-y]',   'input', (e) => { _state.text.y = +e.target.value / 100; _redraw(); });
-      _on(panel, '[data-pe-text-x]',   'input', (e) => { _state.text.x = +e.target.value / 100; _redraw(); });
-      _on(panel, '[data-pe-text-rot]', 'input', (e) => { _state.text.rot = +e.target.value; _redraw(); });
-      _on(panel, '[data-pe-text-size]','input', (e) => {
-        _state.text.size = +e.target.value;
-        _redraw();
-      });
-      _on(panel, '[data-pe-text-stroke]', 'click', () => {
-        _state.text.stroke = !_state.text.stroke;
-        _renderPanel(); _redraw(); _pushHistory();
-      });
-      _each(panel, '[data-pe-text-font]', 'click', (e) => {
-        _state.text.font = e.currentTarget.dataset.peTextFont;
-        _renderPanel(); _redraw(); _pushHistory();
-      });
-      _each(panel, '[data-pe-text-color]', 'click', (e) => {
-        _state.text.color = e.currentTarget.dataset.peTextColor;
-        _renderPanel(); _redraw(); _pushHistory();
-      });
-      // [v202] 색상 무한 선택 picker
-      _on(panel, '[data-pe-text-color-picker]', 'input', (e) => {
-        _state.text.color = e.target.value;
-        _redraw();
-      });
-      _on(panel, '[data-pe-text-color-picker]', 'change', () => _pushHistory());
-      _on(panel, '[data-pe-text-bg]', 'click', () => {
-        _state.text.bg = !_state.text.bg;
-        _renderPanel(); _redraw(); _pushHistory();
-      });
-      _each(panel, '[data-pe-text-prefill]', 'click', (e) => {
-        const w = e.currentTarget.dataset.peTextPrefill;
-        if (w === 'service' && window.PhotoEditorServicePicker?.open) { window.PhotoEditorServicePicker.open(w); return; }
-        if (w === 'price' && !_state.price && window.PhotoEditorServicePicker?.open) { window.PhotoEditorServicePicker.open(w); return; }
-        if (w === 'service') _state.text.value = _state.serviceName || '시술 결과';
-        else if (w === 'price') _state.text.value = window.PhotoEditorServicePicker?.formatPrice ? window.PhotoEditorServicePicker.formatPrice(_state.price) : (_state.price ? (_state.price / 10000).toFixed(0) + '만원' : '가격 문의');
-        _syncTextToLayer(); _renderPanel(); _redraw(); _pushHistory();
-      });
-    },
-    brand(panel) {
-      _on(panel, '[data-pe-wm-val]', 'input', (e) => { _state.watermark.value = e.target.value; _redraw(); });
-      _each(panel, '[data-pe-wm-pos]', 'click', (e) => { _state.watermark.position = e.currentTarget.dataset.peWmPos; _renderPanel(); _redraw(); });
-      _on(panel, '[data-pe-wm-opacity]', 'input', (e) => { _state.watermark.opacity = +e.target.value / 100; _redraw(); });
-      _on(panel, '[data-pe-wm-save]', 'click', _saveBrandWm);
-      _on(panel, '[data-pe-wm-kit]', 'click', () => {
-        if (window.BrandKit && typeof window.BrandKit.open === 'function') window.BrandKit.open();
-        else _toast('Brand Kit 모듈을 불러오는 중이에요');
-      });
-      _bindBrandKitSync();
-      if (!_state.watermark.value && _state.shopName) {
-        _state.watermark.value = _state.shopName;
-        const inp = panel.querySelector('[data-pe-wm-val]');
-        if (inp) inp.value = _state.watermark.value;
-        _redraw();
-      }
-    },
-    export(panel) {
-      _each(panel, '[data-pe-ratio]',  'click', (e) => { _state.ratio = e.currentTarget.dataset.peRatio; _renderPanel(); _redraw(); _pushHistory(); });
-      _each(panel, '[data-pe-export]', 'click', (e) => _exportImage(e.currentTarget.dataset.peExport));
-      // [v206] 배치 편집 — 슬롯 다른 사진에 같은 보정 일괄 적용
-      _on(panel, '[data-pe-batch-apply]', 'click', (e) => {
-        const batch = window.PhotoEditorBatch;
-        if (!batch || typeof batch.applyToSlot !== 'function') return _toast('배치 편집 모듈을 불러오는 중이에요');
-        batch.applyToSlot(_state, _helpers, e.currentTarget);
-      });
-    },
-  };
+  // 기본 화면 패널은 js/photo-editor/basic-panels.js 에서 등록합니다.
   function _bindPanel(panel, tab) {
     // [v227 Sprint 3] selective 가 아닌 탭 진입 시 핀 마커 자동 제거
     if (tab !== 'selective' && window.PhotoEditorSelective && typeof window.PhotoEditorSelective.onLeave === 'function') {
@@ -589,7 +188,6 @@
     }
     const ext = _externalPanels[tab];
     if (ext && typeof ext.bind === 'function') { try { ext.bind(panel, _state, _helpers); } catch (_e) { void _e; } return; }
-    if (_BINDERS[tab]) _BINDERS[tab](panel);
   }
 
   // ── 자동 보정 프리셋 ─────────────────────────────────
@@ -611,36 +209,16 @@
     _toast(preset.label + ' 자동 (' + (intensity === 'natural' ? '자연' : intensity === 'strong' ? '강조' : '표준') + ') 적용');
   }
   // [v204 2026-05-19] 다중 텍스트 레이어 헬퍼 — _state.text ↔ active layer 동기화
-  function _ensureLayers() {
-    if (window.PhotoEditorLayers && typeof window.PhotoEditorLayers.ensure === 'function') {
-      window.PhotoEditorLayers.ensure(_state);
-    }
+  function _callLayers(name, ...args) {
+    const layers = window.PhotoEditorLayers;
+    if (layers && typeof layers[name] === 'function') layers[name](_state, _helpers, ...args);
   }
-  function _syncTextToLayer() {
-    if (window.PhotoEditorLayers && typeof window.PhotoEditorLayers.syncText === 'function') {
-      window.PhotoEditorLayers.syncText(_state);
-    }
-  }
-  function _addLayer() {
-    if (window.PhotoEditorLayers && typeof window.PhotoEditorLayers.add === 'function') {
-      window.PhotoEditorLayers.add(_state, _helpers);
-    }
-  }
-  function _deleteLayer() {
-    if (window.PhotoEditorLayers && typeof window.PhotoEditorLayers.remove === 'function') {
-      window.PhotoEditorLayers.remove(_state, _helpers);
-    }
-  }
-  function _selectLayer(id) {
-    if (window.PhotoEditorLayers && typeof window.PhotoEditorLayers.select === 'function') {
-      window.PhotoEditorLayers.select(_state, _helpers, id);
-    }
-  }
-  function _moveLayerUp() {
-    if (window.PhotoEditorLayers && typeof window.PhotoEditorLayers.moveUp === 'function') {
-      window.PhotoEditorLayers.moveUp(_state, _helpers);
-    }
-  }
+  function _ensureLayers() { _callLayers('ensure'); }
+  function _syncTextToLayer() { _callLayers('syncText'); }
+  function _addLayer() { _callLayers('add'); }
+  function _deleteLayer() { _callLayers('remove'); }
+  function _selectLayer(id) { _callLayers('select', id); }
+  function _moveLayerUp() { _callLayers('moveUp'); }
 
   // [v202 2026-05-18] 사진 회전·좌우/상하 반전 (S1-3) — originalImg 자체를 변환 후 swap.
   //   rotL/rotR/flipH/flipV. swap 시 history push.
@@ -690,263 +268,44 @@
 
   // ── 캔버스 합성 ───────────────────────────────────────
   async function _redraw() {
-    const seq = ++_redrawSeq;
+    const renderer = window.PhotoEditorRenderer;
     const cv = document.getElementById('peCanvas'), empty = document.getElementById('peCanvasEmpty');
-    if (!cv || !_state) return;
-    if (!_state.originalImg) { cv.style.display = 'none'; if (empty) empty.style.display = 'flex'; return; }
-    if (empty) empty.style.display = 'none';
-    cv.style.display = 'block';
-    const img = _state.originalImg;
-    // 템플릿 활성화 시 외부 훅으로 분기.
-    if (_state.template.id && typeof _drawHooks.template === 'function') {
-      try { _drawHooks.template(cv, img, _state, _helpers); return; } catch (_e) { void _e; }
+    if (!renderer || typeof renderer.redraw !== 'function') {
+      if (cv) cv.style.display = _state && _state.originalImg ? 'block' : 'none';
+      if (empty) empty.style.display = _state && _state.originalImg ? 'none' : 'flex';
+      return;
     }
-    const { sx, sy, sw, sh, dw, dh } = _computeCrop(img, _state.ratio);
-    cv.width = dw; cv.height = dh;
-    const ctx = cv.getContext('2d');
-    ctx.clearRect(0, 0, dw, dh);
-    if (_state.showOriginal) { ctx.filter = 'none'; ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh); return; }
-    const a = _state.adjust, temp = a.temperature;
-    // [v226 Sprint 2] gl_tone hook 이 있으면 GL 톤 합성 (전역 톤만 — beauty 영역 마스킹은 아래 별도)
-    // 없거나 GL 미지원이면 기존 CSS filter 폴백 사용
-    const useGLTone = typeof _drawHooks.gl_tone === 'function' && window.PhotoEditorGLCtx && window.PhotoEditorGLCtx.supported;
-    if (!useGLTone) {
-      const sepia = Math.max(0, temp) / 100, contrast = 100 + Math.max(0, -temp) * 0.3;
-      ctx.filter = `brightness(${a.brightness}%) saturate(${a.saturate}%) contrast(${contrast}%) sepia(${sepia})`;
-    } else {
-      ctx.filter = 'none';
-    }
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
-    ctx.filter = 'none';
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-    if (useGLTone) {
-      try { _drawHooks.gl_tone(cv, _state.adjust, _helpers); } catch (_e) { void _e; }
-    }
-    if (a.sharpness > 10) {
-      const useGLBlur = typeof _drawHooks.gl_blur === 'function' && window.PhotoEditorGLCtx && window.PhotoEditorGLCtx.supported;
-      if (useGLBlur) {
-        try { _drawHooks.gl_blur(cv, a.sharpness, _helpers); } catch (_e) { _unsharpMask(ctx, dw, dh, a.sharpness / 100); }
-      } else {
-        const WF = window.PhotoEditorWorkerFilter;
-        if (WF && WF.shouldUse && WF.shouldUse(cv)) {
-          try {
-            await WF.unsharpCanvas(cv, a.sharpness / 100);
-            if (seq !== _redrawSeq) return;
-          } catch (_e) {
-            _unsharpMask(ctx, dw, dh, a.sharpness / 100);
-          }
-        } else {
-          _unsharpMask(ctx, dw, dh, a.sharpness / 100);
-        }
-      }
-    }
-    if (typeof _drawHooks.relight === 'function') {
-      try { _drawHooks.relight(cv, _state, _helpers); } catch (_e) { void _e; }
-    }
-    if (typeof _drawHooks.beauty === 'function') {
-      try { _drawHooks.beauty(ctx, dw, dh, _state.beauty, _helpers); } catch (_e) { void _e; }
-    }
-    // [v227 Sprint 3] Selective 부분 보정 — 핀 N개면 각 핀 mask 기반 GL pass
-    if (typeof _drawHooks.gl_selective === 'function') {
-      try { _drawHooks.gl_selective(cv, _state, _helpers); } catch (_e) { void _e; }
-    }
-    // [v228 Sprint 4] Pro 탭 — Tone Curve (1D LUT) + HSL 분리
-    if (typeof _drawHooks.gl_curve === 'function') {
-      try { _drawHooks.gl_curve(cv, _state, _helpers); } catch (_e) { void _e; }
-    }
-    if (typeof _drawHooks.gl_hsl === 'function') {
-      try { _drawHooks.gl_hsl(cv, _state, _helpers); } catch (_e) { void _e; }
-    }
-    // [v230 Sprint 5] 필름 프리셋 (3D LUT) — 가장 마지막에 톤 색감 적용
-    if (typeof _drawHooks.gl_film === 'function') {
-      try { _drawHooks.gl_film(cv, _state, _helpers); } catch (_e) { void _e; }
-    }
-    ctx.filter = 'none';
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-    // [v204 2026-05-19] 다중 텍스트 레이어 — layers[] 우선, 없으면 단일 text 폴백
-    if (Array.isArray(_state.layers) && _state.layers.length > 0) {
-      _state.layers.forEach(l => { if (l && l.value) _drawText(ctx, dw, dh, l); });
-    } else if (_state.text && _state.text.value) {
-      _drawText(ctx, dw, dh, _state.text);
-    }
-    if (_state.watermark.value) _drawWatermark(ctx, dw, dh, _state.watermark);
-    // [v217] tplV2 오버레이 — Templates v2 가 등록한 추가 합성 (워터마크 위)
-    if (typeof _drawHooks.tplV2_overlay === 'function') {
-      try { _drawHooks.tplV2_overlay(ctx, dw, dh, _state, _helpers); } catch (_e) { void _e; }
-    }
-  }
-
-  function _computeCrop(img, ratio) {
-    const iw = img.naturalWidth, ih = img.naturalHeight;
-    if (ratio === 'original') {
-      const maxPixels = 16777216;  // 4032×3024 원본은 그대로, 초고해상도만 안전 축소
-      const k = iw * ih > maxPixels ? Math.sqrt(maxPixels / (iw * ih)) : 1;
-      return { sx: 0, sy: 0, sw: iw, sh: ih, dw: Math.round(iw * k), dh: Math.round(ih * k) };
-    }
-    const [rw, rh] = ratio.split(':').map(Number);
-    const targetAR = rw / rh, imgAR = iw / ih;
-    let sw, sh, sx, sy;
-    if (imgAR > targetAR) { sh = ih; sw = Math.round(ih * targetAR); sx = Math.round((iw - sw) / 2); sy = 0; }
-    else                  { sw = iw; sh = Math.round(iw / targetAR); sx = 0; sy = Math.round((ih - sh) / 2); }
-    const outW = Math.min(1080, sw), outH = Math.round(outW / targetAR);
-    return { sx, sy, sw, sh, dw: outW, dh: outH };
-  }
-
-  // 간단 unsharp mask — 박스 블러로 저주파 만든 뒤 (원본 - 저주파) 가산.
-  function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
-  function _boxBlur(img, w, h, r) {
-    const out = new ImageData(w, h);
-    const d = img.data, o = out.data;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      let rSum = 0, gSum = 0, bSum = 0, n = 0;
-      for (let kx = -r; kx <= r; kx++) {
-        const xx = Math.min(w - 1, Math.max(0, x + kx)), p = (y * w + xx) * 4;
-        rSum += d[p]; gSum += d[p+1]; bSum += d[p+2]; n++;
-      }
-      const p = (y * w + x) * 4;
-      o[p] = rSum / n; o[p+1] = gSum / n; o[p+2] = bSum / n; o[p+3] = d[p+3];
-    }
-    return out;
-  }
-  function _unsharpMask(ctx, w, h, strength) {
-    try {
-      const src = ctx.getImageData(0, 0, w, h);
-      const blur = _boxBlur(src, w, h, 1);
-      const out = ctx.createImageData(w, h);
-      const k = 1 + strength * 1.2;
-      for (let i = 0; i < src.data.length; i += 4) {
-        out.data[i]   = _clamp(src.data[i]   + (src.data[i]   - blur.data[i])   * (k - 1));
-        out.data[i+1] = _clamp(src.data[i+1] + (src.data[i+1] - blur.data[i+1]) * (k - 1));
-        out.data[i+2] = _clamp(src.data[i+2] + (src.data[i+2] - blur.data[i+2]) * (k - 1));
-        out.data[i+3] = src.data[i+3];
-      }
-      ctx.putImageData(out, 0, 0);
-    } catch (_e) { /* CORS·메모리 부족 시 skip */ }
-  }
-
-  // [v184 2026-05-18] 텍스트 렌더 — 폰트 4종 + 색상 + 배경 박스 + 사이즈
-  // [v206 2026-05-19] Google Fonts 5종 추가 — 모두 OFL/Apache 상업 OK.
-  //   Playfair Display, Noto Serif KR, Black Han Sans, Gowun Dodum, Gaegu, Nanum Pen Script
-  const _FONT_FAM = {
-    sans:     'Pretendard, "Noto Sans KR", sans-serif',
-    serif:    'Georgia, "Noto Serif KR", serif',
-    playfair: '"Playfair Display", "Noto Serif KR", Georgia, serif',
-    nserif:   '"Noto Serif KR", "Nanum Myeongjo", serif',
-    bhan:     '"Black Han Sans", "Noto Sans KR", sans-serif',
-    gowun:    '"Gowun Dodum", "Noto Sans KR", sans-serif',
-    gaegu:    '"Gaegu", "Noto Sans KR", cursive',
-    nanumpen: '"Nanum Pen Script", "Gaegu", cursive',
-    hand:     '"Brush Script MT", "Nanum Pen Script", cursive',
-  };
-  function _drawText(ctx, w, h, t) {
-    if (!t.value) return;
-    ctx.save();
-    const sizeK = (t.size || 6) / 100;  // 3~12 → 0.03~0.12
-    const fs = Math.round(w * sizeK);
-    const fam = _FONT_FAM[t.font] || _FONT_FAM.sans;
-    const weight = t.font === 'hand' || t.font === 'serif' ? '700' : '800';
-    ctx.font = `${weight} ${fs}px ${fam}`;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const tx = w * t.x, ty = h * t.y;
-    // [v188] 회전 — ctx.translate + rotate. 텍스트 그리는 좌표는 (0,0)
-    const rot = +t.rot || 0;
-    if (rot !== 0) {
-      ctx.translate(tx, ty);
-      ctx.rotate(rot * Math.PI / 180);
-      ctx.translate(-tx, -ty);
-    }
-    // [v190] 다중 줄 — \n 으로 split, lineHeight = fs * 1.25
-    const lines = String(t.value).split('\n').filter(s => s.length > 0);
-    const lineH = Math.round(fs * 1.25);
-    const totalH = lineH * lines.length;
-    // 배경 박스 — 가장 넓은 줄 기준
-    if (t.bg) {
-      let maxW = 0;
-      for (const ln of lines) maxW = Math.max(maxW, ctx.measureText(ln).width);
-      const padX = Math.round(fs * 0.4), padY = Math.round(fs * 0.25);
-      const bw = Math.min(w * 0.95, maxW + padX * 2);
-      const bh = totalH + padY * 2;
-      const isLight = (t.color === '#ffffff' || t.color === '#FFC83D');
-      ctx.fillStyle = isLight ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
-      ctx.fillRect(tx - bw / 2, ty - bh / 2, bw, bh);
-    } else if (!t.stroke) {
-      ctx.shadowColor = 'rgba(0,0,0,0.45)';
-      ctx.shadowBlur = Math.round(fs * 0.18);
-    }
-    // [v188] 외곽선
-    if (t.stroke) {
-      ctx.lineWidth = Math.max(2, Math.round(fs * 0.08));
-      ctx.lineJoin = 'round';
-      const isLight = (t.color === '#ffffff' || t.color === '#FFC83D');
-      ctx.strokeStyle = isLight ? '#000' : '#fff';
-    }
-    ctx.fillStyle = t.color || '#ffffff';
-    // 각 줄 그리기 — 첫 줄이 중앙 위쪽에서 시작하도록 ty 보정
-    const startY = ty - (totalH - lineH) / 2;
-    lines.forEach((ln, i) => {
-      const y = startY + i * lineH;
-      if (t.stroke) ctx.strokeText(ln, tx, y, w * 0.9);
-      ctx.fillText(ln, tx, y, w * 0.9);
+    const seq = ++_redrawSeq;
+    return renderer.redraw({
+      canvas: cv,
+      empty,
+      state: _state,
+      drawHooks: _drawHooks,
+      helpers: _helpers,
+      seq,
+      getSeq: () => _redrawSeq,
     });
-    ctx.restore();
-  }
-
-  // wm.position 매핑: [align, baseline, x계수, y계수] — x = w*fx + pad*sign, y = h*fy + pad*sign
-  const _WM_POS = {
-    tl: ['left',  'top',    0, 0,  1,  1],
-    tr: ['right', 'top',    1, 0, -1,  1],
-    bl: ['left',  'bottom', 0, 1,  1, -1],
-    br: ['right', 'bottom', 1, 1, -1, -1],
-  };
-  function _drawWatermark(ctx, w, h, wm) {
-    ctx.save();
-    const fs = Math.max(12, Math.round(w * 0.022));
-    ctx.font = `600 ${fs}px Pretendard, "Noto Sans KR", sans-serif`;
-    ctx.globalAlpha = wm.opacity;
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4;
-    const pad = Math.round(w * 0.025);
-    const c = _WM_POS[wm.position] || _WM_POS.br;
-    ctx.textAlign = c[0]; ctx.textBaseline = c[1];
-    ctx.fillText(wm.value, w * c[2] + pad * c[4], h * c[3] + pad * c[5]);
-    ctx.restore();
   }
 
   // ── history ──────────────────────────────────────────
-  // [v204 2026-05-19] layers + activeLayerId snapshot — undo/redo 시 다중 텍스트 복원
-  const _SNAP_KEYS = ['originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio', 'text', 'watermark', 'beauty', 'relight', 'template', 'autoIntensity', 'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl', 'shadow', 'bg'];
-  function _snapshot() {
-    const o = {};
-    for (const k of _SNAP_KEYS) o[k] = _state[k];
-    return JSON.parse(JSON.stringify(o));
-  }
   function _pushHistory() {
-    if (!_state) return;
-    _state.history = _state.history.slice(0, _state.historyCursor + 1);
-    _state.history.push(_snapshot());
-    if (_state.history.length > 20) _state.history.shift();
-    _state.historyCursor = _state.history.length - 1;
+    window.PhotoEditorHistory?.push?.(_state);
   }
   function _undo() {
-    if (!_state || _state.historyCursor <= 0) return _toast('되돌릴 작업이 없어요');
-    _state.historyCursor -= 1;
-    _restoreSnapshot(_state.history[_state.historyCursor]);
+    const snap = window.PhotoEditorHistory?.undo?.(_state);
+    if (!snap) return _toast('되돌릴 작업이 없어요');
+    _restoreSnapshot(snap);
   }
-  // [v183 2026-05-18] Redo — historyCursor 가 history.length-1 보다 작으면 앞으로.
   function _redo() {
-    if (!_state || _state.historyCursor >= _state.history.length - 1) return _toast('다시 실행할 작업이 없어요');
-    _state.historyCursor += 1;
-    _restoreSnapshot(_state.history[_state.historyCursor]);
+    const snap = window.PhotoEditorHistory?.redo?.(_state);
+    if (!snap) return _toast('다시 실행할 작업이 없어요');
+    _restoreSnapshot(snap);
   }
 
   function _restoreSnapshot(s) {
     if (!_state || !s) return;
     const prevSrc = _state.originalSrc;
-    for (const k of _SNAP_KEYS) if (s[k] !== undefined) _state[k] = s[k];
+    window.PhotoEditorHistory?.applySnapshot?.(_state, s);
     if (typeof _ensureLayers === 'function') _ensureLayers();  // [v204] reference 재동기
     if (s.originalSrc && s.originalSrc !== prevSrc) return _restoreSnapshotImage(s.originalSrc);
     _renderPanel(); _redraw();
@@ -987,6 +346,19 @@
       try { window.PhotoEditorEntryV6?.refresh?.(); } catch (_e) { void _e; }
     };
     img.onerror = () => _toast('사진을 불러오지 못했어요');
+    img.src = src;
+  }
+  function _replaceImage(src, message) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      _state.originalImg = img;
+      _state.originalSrc = src;
+      _pushHistory();
+      _redraw();
+      if (message) _toast(message);
+    };
+    img.onerror = () => _toast('합성 이미지 로드 실패');
     img.src = src;
   }
 
@@ -1061,9 +433,15 @@
   // 외부 모듈용 helpers (beauty / templates).
   const _helpers = {
     esc: _esc, toast: _toast, scheduleRedraw: _scheduleRedraw, redraw: _redraw,
-    pushHistory: _pushHistory, renderPanel: _renderPanel, drawWatermark: _drawWatermark, slider: _slider,
+    pushHistory: _pushHistory, renderPanel: _renderPanel,
+    drawWatermark: (...args) => window.PhotoEditorRenderer?.drawWatermark?.(...args),
+    slider: _slider,
     getState: () => _state, applyStatePatch: _applyStatePatch,
-    unsharpMask: _unsharpMask,
+    applyAuto: _applyAuto, applyTransform: _applyTransform, loadImage: _loadImage, replaceImage: _replaceImage,
+    ensureLayers: _ensureLayers, syncTextToLayer: _syncTextToLayer,
+    addLayer: _addLayer, deleteLayer: _deleteLayer, selectLayer: _selectLayer, moveLayerUp: _moveLayerUp,
+    exportImage: _exportImage,
+    unsharpMask: (...args) => window.PhotoEditorRenderer?.unsharpMask?.(...args),
     applyDrawHook: (name, ...args) => {
       if (typeof _drawHooks[name] !== 'function') return undefined;
       return _drawHooks[name](...args);
