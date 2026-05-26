@@ -45,35 +45,35 @@
 }
 .pe-back-btn:active { transform: scale(.93); }
 .pe-iconbtn {
-  background: rgba(255,255,255,0.07);
-  color: #f7f7f9;
+  background: rgba(0,0,0,0.3);
+  color: #fff;
   border: none;
-  border-radius: 10px;
-  width: 38px; height: 38px;
-  font-size: 14px; font-weight: 700;
+  border-radius: 50%;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(255,255,255,0.18);
+  backdrop-filter: blur(8px);
 }
-.pe-iconbtn:active { transform: scale(.96); }
+.pe-iconbtn:active { transform: scale(.93); }
 .pe-btn-primary {
-  background: linear-gradient(135deg, #D58A95, #d65b75);
+  background: linear-gradient(135deg, #D58A95, #c66a80);
   color: #fff; border: none;
-  padding: 9px 16px;
-  border-radius: 12px;
+  padding: 8px 20px;
+  border-radius: 20px;
   font-size: 13px; font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(255,255,255,0.22);
 }
-.pe-btn-primary:active { transform: scale(.97); }
+.pe-btn-primary:active { transform: scale(.96); opacity: 0.9; }
 
 .pe-stage {
   flex: 1; min-height: 0;
   display: flex; align-items: center; justify-content: center;
-  background: #050507;
-  padding: 12px;
+  background: #0a0a0f;
+  padding: 0;
   overflow: hidden;
+  position: relative;
 }
 /* [v203 2026-05-19] 핀치 줌·패닝 — wrap 에 transform 적용 (자식 canvas/mask/cursor 모두 같이) */
 .pe-canvas-wrap {
@@ -134,13 +134,15 @@
 .pe-tab.on .pe-tab-icon { stroke-width: 2.2; }
 
 .pe-panel {
-  background: #15151c;
+  background: linear-gradient(180deg, #18181f 0%, #111117 100%);
   padding: 14px 14px 22px;
   max-height: 38vh;
   overflow-y: auto;
   flex-shrink: 0;
   border-top: 1px solid rgba(255,255,255,0.05);
+  scrollbar-width: none;
 }
+.pe-panel::-webkit-scrollbar { display: none; }
 .pe-panel-row { margin-bottom: 10px; }
 .pe-panel-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .pe-panel-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -148,66 +150,72 @@
 .pe-action-btn {
   width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #D58A95, #d65b75);
-  color: #fff; border: none;
-  border-radius: 12px;
+  background: rgba(213,138,149,0.15);
+  color: #D58A95; border: 1px solid rgba(213,138,149,0.25);
+  border-radius: 14px;
   font-size: 13px; font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(255,255,255,0.22);
+  transition: background 0.15s;
 }
-.pe-action-btn:active { transform: scale(.98); }
+.pe-action-btn:active { background: rgba(213,138,149,0.25); transform: scale(.98); }
 
 .pe-chip-btn {
   background: rgba(255,255,255,0.06);
-  color: #e8e8ee;
+  color: #d0d0d8;
   border: 1px solid rgba(255,255,255,0.08);
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 9px 14px;
+  border-radius: 20px;
   font-size: 12px; font-weight: 600;
   cursor: pointer;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(255,255,255,0.18);
   text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .pe-chip-btn.on {
-  background: rgba(213,138,149,0.22);
+  background: rgba(213,138,149,0.2);
   color: #fff;
-  border-color: rgba(213,138,149,0.55);
+  border-color: rgba(213,138,149,0.5);
 }
 .pe-chip-btn:active { transform: scale(.97); }
 
 .pe-slider {
   display: block;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .pe-slider-head {
-  display: flex; justify-content: space-between;
-  font-size: 12px; color: #c9c9d0;
-  margin-bottom: 6px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; color: #a0a0ac;
+  margin-bottom: 5px;
 }
-.pe-slider-val { color: #f7f7f9; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pe-slider-val {
+  color: #fff; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255,255,255,0.08);
+  padding: 2px 8px; border-radius: 8px;
+  font-size: 11px;
+}
 .pe-slider input[type="range"] {
   width: 100%;
   -webkit-appearance: none; appearance: none;
-  height: 4px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 4px;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
   touch-action: manipulation;
 }
 .pe-slider input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 20px; height: 20px;
+  width: 18px; height: 18px;
   border-radius: 50%;
-  background: #D58A95;
-  border: 2px solid #fff;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(213,138,149,0.5);
   cursor: pointer;
 }
 .pe-slider input[type="range"]::-moz-range-thumb {
-  width: 20px; height: 20px;
+  width: 18px; height: 18px;
   border-radius: 50%;
-  background: #D58A95;
-  border: 2px solid #fff;
+  background: #fff;
+  box-shadow: 0 1px 6px rgba(213,138,149,0.5);
   cursor: pointer;
 }
 
@@ -218,21 +226,24 @@
 .pe-field > span,
 .pe-field-label {
   display: block;
-  font-size: 11px; color: #c9c9d0;
-  margin-bottom: 6px; letter-spacing: 0.3px;
+  font-size: 11px; color: #7a7a88;
+  margin-bottom: 6px; letter-spacing: 0.5px;
+  font-weight: 600;
   text-transform: uppercase;
 }
 .pe-input {
   width: 100%;
-  background: rgba(255,255,255,0.06);
-  color: #f7f7f9;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 10px;
-  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  color: #f0f0f5;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 11px 14px;
   font-size: 13px;
   box-sizing: border-box;
+  transition: border-color 0.15s;
 }
-.pe-input::placeholder { color: #6c6c78; }
+.pe-input:focus { border-color: rgba(213,138,149,0.5); outline: none; }
+.pe-input::placeholder { color: #55555f; }
 
 .pe-coming {
   background: rgba(213,138,149,0.10);
@@ -245,9 +256,16 @@
 }
 
 .pe-hint {
-  font-size: 11px; color: #8b8b94;
+  font-size: 11px; color: #6b6b76;
   line-height: 1.5;
   margin-top: 8px;
+}
+.pe-group-label {
+  font-size: 11px; font-weight: 700; color: #9090a0;
+  letter-spacing: 0.3px;
+  margin: 14px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 
 /* 저장 후 다음 단계 모달 */
