@@ -230,15 +230,21 @@
     if (needCpuSmooth || c.hairEndK > 0) {
       try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
+    let _dbgSkin = 0, _dbgHair = 0, _dbgChanged = 0;
     for (let i = 0; i < d.length; i += 4) {
       const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask);
+      const before = d[i] + d[i + 1] + d[i + 2];
       _applyEye(d, i, p, c);
       _applySkinTone(d, i, p, c);
       _applySkinTexture(d, i, p, c, blurD);
       _applyHair(d, i, p, c, blurD);
       _applyDetail(d, i, p, c);
+      if (p.skinW > 0.1) _dbgSkin++;
+      if (p.hairW > 0.14) _dbgHair++;
+      if (d[i] + d[i + 1] + d[i + 2] !== before) _dbgChanged++;
     }
     ctx.putImageData(data, 0, 0);
+    if (!apply._logged) { apply._logged = true; const total = d.length / 4; console.log('[beauty] 픽셀 분류:', { total, skin: _dbgSkin, hair: _dbgHair, changed: _dbgChanged, skinPct: (100 * _dbgSkin / total).toFixed(1) + '%', hairPct: (100 * _dbgHair / total).toFixed(1) + '%', changedPct: (100 * _dbgChanged / total).toFixed(1) + '%' }); }
     _applySharpen(ctx, w, h, b);
   }
 
