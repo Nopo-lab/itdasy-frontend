@@ -207,11 +207,10 @@
     if (smoothStr > 0) {
       const bilateral = window.PhotoEditorGLBilateral;
       if (bilateral && typeof bilateral.apply === 'function') {
-        const result = bilateral.apply(ctx.canvas, smoothStr);
-        if (result) {
-          ctx.drawImage(result, 0, 0);
-          skinSmoothed = true;
-        }
+        try {
+          const result = bilateral.apply(ctx.canvas, smoothStr);
+          if (result) { ctx.drawImage(result, 0, 0); skinSmoothed = true; }
+        } catch (_e) { void _e; }
       }
     }
     engine.apply(ctx, w, h, b, skinSmoothed);

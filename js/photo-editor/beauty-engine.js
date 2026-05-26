@@ -83,7 +83,12 @@
     const edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
     const isSkin = !edgeBg && r > 68 && r > g && g > bl - 10 && (r - bl) > 10 && (r - bl) < 120 && lum0 > 50 && lum0 < 245;
     const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
-    const hairLike = !edgeBg && subjectW > 0.35 && !isSkin && lum0 > 14 && lum0 < 215 && ((hairSat0 < 110 && lum0 < 195) || lum0 < 110 || (bl < 95 && hairSat0 < 150));
+    const ny = (y + 0.5) / h;
+    const upperHalf = ny < 0.55;
+    const hairLike = !edgeBg && subjectW > 0.3 && lum0 > 14 && lum0 < 220 && (
+      (!isSkin && ((hairSat0 < 110 && lum0 < 195) || lum0 < 110 || (bl < 95 && hairSat0 < 150)))
+      || (upperHalf && lum0 < 160 && hairSat0 < 100)
+    );
     const mask = SmartMask && SmartMask.classify ? SmartMask.classify({ r, g, b: bl, lum: lum0, maxCh: maxCh0, minCh: minCh0, x, y, w, h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
     return {
       r, g, bl, lum0,

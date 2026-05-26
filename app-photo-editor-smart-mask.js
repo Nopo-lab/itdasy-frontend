@@ -22,12 +22,15 @@
     return _clamp01(score * Math.max(subject, 0.18));
   }
 
-  function _hairScore(r, g, b, lum, sat, subject, skin) {
+  function _hairScore(r, g, b, lum, sat, subject, skin, x, y, w, h) {
     const neutral = Math.abs(r - g) < 52 && Math.abs(g - b) < 58;
-    const dark = lum > 14 && lum < 120;
-    const dyed = lum > 45 && lum < 205 && sat > 18 && sat < 132;
-    const score = (dark || neutral || dyed) && skin < 0.42 ? 0.82 : 0;
-    return _clamp01(score * Math.max(subject, 0.2));
+    const dark = lum > 14 && lum < 130;
+    const dyed = lum > 45 && lum < 210 && sat > 15 && sat < 145;
+    const ny = (y + 0.5) / Math.max(1, h);
+    const upperBoost = ny < 0.5 ? 0.25 : 0;
+    const skinOk = skin < 0.65 || ny < 0.45;
+    const score = (dark || neutral || dyed) && skinOk ? 0.82 + upperBoost : 0;
+    return _clamp01(score * Math.max(subject, 0.25));
   }
 
   function _eyeScore(r, g, b, lum, sat, x, y, w, h, subject) {
@@ -54,7 +57,7 @@
     const sat = maxCh - minCh;
     const subject = _subjectWeight(p.x || 0, p.y || 0, p.w || 1, p.h || 1);
     const skin = Math.max(_skinScore(r, g, b, lum, subject), p.isSkinFallback ? 0.42 : 0);
-    const hair = Math.max(_hairScore(r, g, b, lum, sat, subject, skin), p.hairFallback ? 0.35 : 0);
+    const hair = Math.max(_hairScore(r, g, b, lum, sat, subject, skin, p.x || 0, p.y || 0, p.w || 1, p.h || 1), p.hairFallback ? 0.35 : 0);
     const eye = _eyeScore(r, g, b, lum, sat, p.x || 0, p.y || 0, p.w || 1, p.h || 1, subject);
     const nail = _nailScore(lum, sat, subject, skin, hair);
     const red = r > g + 8 && r > b + 4 ? Math.max(skin, eye, subject * 0.42) : 0;
