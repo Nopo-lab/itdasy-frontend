@@ -200,7 +200,21 @@
   function _applyBeauty(ctx, w, h, b) {
     const engine = window.PhotoEditorBeautyEngine;
     if (!engine || typeof engine.apply !== 'function') return;
-    engine.apply(ctx, w, h, b);
+    let skinSmoothed = false;
+    const txK = (b.textureSmooth || 0) / 100;
+    const blemK = (b.blemish || 0) / 100;
+    const smoothStr = Math.max(txK, blemK);
+    if (smoothStr > 0) {
+      const bilateral = window.PhotoEditorGLBilateral;
+      if (bilateral && typeof bilateral.apply === 'function') {
+        const result = bilateral.apply(ctx.canvas, smoothStr);
+        if (result) {
+          ctx.drawImage(result, 0, 0);
+          skinSmoothed = true;
+        }
+      }
+    }
+    engine.apply(ctx, w, h, b, skinSmoothed);
   }
 
   // ── 메인 모듈 준비될 때까지 폴링 후 등록 ──

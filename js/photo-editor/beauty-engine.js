@@ -210,7 +210,7 @@
     if (b.nailShape > 10) _unsharpMask(ctx, w, h, b.nailShape / 100);
   }
 
-  function apply(ctx, w, h, b) {
+  function apply(ctx, w, h, b, skinSmoothed) {
     if (!b || !_hasAny(b)) return;
     let data;
     try { data = ctx.getImageData(0, 0, w, h); } catch (e) {
@@ -221,7 +221,8 @@
     const d = data.data;
     const c = _coeffs(b);
     let blurD = null;
-    if (c.blemishK > 0 || c.txK > 0 || c.hairEndK > 0) {
+    const needCpuSmooth = !skinSmoothed && (c.blemishK > 0 || c.txK > 0);
+    if (needCpuSmooth || c.hairEndK > 0) {
       try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
     for (let i = 0; i < d.length; i += 4) {
