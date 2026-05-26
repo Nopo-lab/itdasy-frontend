@@ -98,92 +98,89 @@
   function _attach(wrap, state) {
     if (!wrap || wrap._zoomBound) return;
     wrap._zoomBound = true;
-    const z = _ensureZoomState(state);
-    _applyTransform(wrap, z);
+    const ctx = _zoomCtx(wrap, state);
+    _applyTransform(wrap, ctx.z);
+    _bindTouchZoom(ctx);
+    _bindWheelZoom(ctx);
+    wrap._zoomCleanup = () => _cleanupWrap(ctx);
+  }
 
-    let startDist = 0, startScale = 1, startMid = null;
-    let startTx = 0, startTy = 0;
-    let panStart = null;
-    let lastTap = 0;
-
-    function _onTouchStart(e) {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        startDist = _dist(e.touches[0], e.touches[1]);
-        startScale = z.scale;
-        startMid = _mid(e.touches[0], e.touches[1]);
-        startTx = z.tx; startTy = z.ty;
-        panStart = null;
-      } else if (e.touches.length === 1) {
-        const isBrushTab = state && state.activeTab === 'brush';
-        if (!isBrushTab && z.scale > 1.05) {
-          panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-          startTx = z.tx; startTy = z.ty;
-        }
-      }
-    }
-    function _onTouchMove(e) {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const d = _dist(e.touches[0], e.touches[1]);
-        const m = _mid(e.touches[0], e.touches[1]);
-        const ratio = d / Math.max(1, startDist);
-        const nextScale = startScale * ratio;
-        let nextTx = z.tx, nextTy = z.ty;
-        if (startMid) {
-          nextTx = startTx + (m.x - startMid.x);
-          nextTy = startTy + (m.y - startMid.y);
-        }
-        z.tx = nextTx; z.ty = nextTy;
-        _applyScale(wrap, state, z, nextScale);
-      } else if (e.touches.length === 1 && panStart) {
-        e.preventDefault();
-        const nextTx = startTx + (e.touches[0].clientX - panStart.x);
-        const nextTy = startTy + (e.touches[0].clientY - panStart.y);
-        _applyPan(wrap, state, z, nextTx, nextTy);
-      }
-    }
-    function _onTouchEnd(e) {
-      if (e.touches.length === 0) {
-        panStart = null;
-        if (z.scale < 1.05) _reset(wrap, state, z);
-        const now = Date.now();
-        if (now - lastTap < 300 && z.scale > 1.05) {
-          _reset(wrap, state, z);
-          lastTap = 0;
-        } else {
-          lastTap = now;
-        }
-      }
-    }
-
-    wrap.addEventListener('touchstart', _onTouchStart, { passive: false });
-    wrap.addEventListener('touchmove',  _onTouchMove,  { passive: false });
-    wrap.addEventListener('touchend',   _onTouchEnd);
-    wrap.addEventListener('touchcancel', _onTouchEnd);
-
-    function _onWheel(e) {
-      if (!e.ctrlKey && !e.metaKey) return;
-      e.preventDefault();
-      // 정밀: scale 에 비례한 스텝 (작은 줌에선 작게, 큰 줌에선 크게)
-      const stepK = z.scale < 4 ? 0.1 : (z.scale < 12 ? 0.4 : 1.2);
-      const delta = e.deltaY > 0 ? -stepK : stepK;
-      const next = z.scale + delta;
-      if (next < 1.05) _reset(wrap, state, z);
-      else _applyScale(wrap, state, z, next);
-    }
-    wrap.addEventListener('wheel', _onWheel, { passive: false });
-
-    wrap._zoomCleanup = function () {
-      wrap.removeEventListener('touchstart', _onTouchStart);
-      wrap.removeEventListener('touchmove',  _onTouchMove);
-      wrap.removeEventListener('touchend',   _onTouchEnd);
-      wrap.removeEventListener('touchcancel', _onTouchEnd);
-      wrap.removeEventListener('wheel', _onWheel);
-      wrap._zoomBound = false;
-      _reset(wrap, state, z);
-      wrap.style.transform = '';
+  function _zoomCtx(wrap, state) {
+    return {
+      wrap, state, z: _ensureZoomState(state), startDist: 0, startScale: 1,
+      startMid: null, startTx: 0, startTy: 0, panStart: null, lastTap: 0,
     };
+  }
+
+  function _bindTouchZoom(ctx) {
+    ctx.onTouchStart = e => _onTouchStart(ctx, e);
+    ctx.onTouchMove = e => _onTouchMove(ctx, e);
+    ctx.onTouchEnd = e => _onTouchEnd(ctx, e);
+    ctx.wrap.addEventListener('touchstart', ctx.onTouchStart, { passive: false });
+    ctx.wrap.addEventListener('touchmove', ctx.onTouchMove, { passive: false });
+    ctx.wrap.addEventListener('touchend', ctx.onTouchEnd);
+    ctx.wrap.addEventListener('touchcancel', ctx.onTouchEnd);
+  }
+
+  function _onTouchStart(ctx, e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      ctx.startDist = _dist(e.touches[0], e.touches[1]);
+      ctx.startScale = ctx.z.scale;
+      ctx.startMid = _mid(e.touches[0], e.touches[1]);
+      ctx.startTx = ctx.z.tx; ctx.startTy = ctx.z.ty; ctx.panStart = null;
+    } else if (e.touches.length === 1 && !(ctx.state && ctx.state.activeTab === 'brush') && ctx.z.scale > 1.05) {
+      ctx.panStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      ctx.startTx = ctx.z.tx; ctx.startTy = ctx.z.ty;
+    }
+  }
+
+  function _onTouchMove(ctx, e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const d = _dist(e.touches[0], e.touches[1]);
+      const m = _mid(e.touches[0], e.touches[1]);
+      ctx.z.tx = ctx.startTx + (ctx.startMid ? m.x - ctx.startMid.x : 0);
+      ctx.z.ty = ctx.startTy + (ctx.startMid ? m.y - ctx.startMid.y : 0);
+      _applyScale(ctx.wrap, ctx.state, ctx.z, ctx.startScale * (d / Math.max(1, ctx.startDist)));
+    } else if (e.touches.length === 1 && ctx.panStart) {
+      e.preventDefault();
+      _applyPan(ctx.wrap, ctx.state, ctx.z, ctx.startTx + e.touches[0].clientX - ctx.panStart.x, ctx.startTy + e.touches[0].clientY - ctx.panStart.y);
+    }
+  }
+
+  function _onTouchEnd(ctx, e) {
+    if (e.touches.length !== 0) return;
+    ctx.panStart = null;
+    if (ctx.z.scale < 1.05) _reset(ctx.wrap, ctx.state, ctx.z);
+    const now = Date.now();
+    if (now - ctx.lastTap < 300 && ctx.z.scale > 1.05) { _reset(ctx.wrap, ctx.state, ctx.z); ctx.lastTap = 0; }
+    else ctx.lastTap = now;
+  }
+
+  function _bindWheelZoom(ctx) {
+    ctx.onWheel = e => _onWheel(ctx, e);
+    ctx.wrap.addEventListener('wheel', ctx.onWheel, { passive: false });
+  }
+
+  function _onWheel(ctx, e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const stepK = ctx.z.scale < 4 ? 0.1 : (ctx.z.scale < 12 ? 0.4 : 1.2);
+    const next = ctx.z.scale + (e.deltaY > 0 ? -stepK : stepK);
+    if (next < 1.05) _reset(ctx.wrap, ctx.state, ctx.z);
+    else _applyScale(ctx.wrap, ctx.state, ctx.z, next);
+  }
+
+  function _cleanupWrap(ctx) {
+    ctx.wrap.removeEventListener('touchstart', ctx.onTouchStart);
+    ctx.wrap.removeEventListener('touchmove', ctx.onTouchMove);
+    ctx.wrap.removeEventListener('touchend', ctx.onTouchEnd);
+    ctx.wrap.removeEventListener('touchcancel', ctx.onTouchEnd);
+    ctx.wrap.removeEventListener('wheel', ctx.onWheel);
+    ctx.wrap._zoomBound = false;
+    _reset(ctx.wrap, ctx.state, ctx.z);
+    ctx.wrap.style.transform = '';
   }
 
   function _cleanup() {

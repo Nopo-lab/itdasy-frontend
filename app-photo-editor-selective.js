@@ -116,9 +116,12 @@
       polygonHTML = `<svg style="position:absolute;left:${offX}px;top:${offY}px;width:${W}px;height:${H}px;pointer-events:none;" viewBox="0 0 ${W} ${H}">${polysvg}</svg>`;
     }
     c.innerHTML = polygonHTML + radialHTML;
-    _bindMarkers(c, shorter);
-    // polygon 클릭 핸들러 (svg 안 polygon 은 별도 바인딩)
-    c.querySelectorAll('polygon[data-pin-id]').forEach(poly => {
+    _bindMarkers(c);
+    _bindPolygonMarkers(c);
+  }
+
+  function _bindPolygonMarkers(container) {
+    container.querySelectorAll('polygon[data-pin-id]').forEach(poly => {
       const id = poly.dataset.pinId;
       poly.style.pointerEvents = 'auto';
       poly.addEventListener('click', () => {
@@ -130,7 +133,7 @@
     });
   }
 
-  function _bindMarkers(container, shorter) {
+  function _bindMarkers(container) {
     container.querySelectorAll('[data-pin-id]').forEach(el => {
       const id = el.dataset.pinId;
       el.addEventListener('pointerdown', (e) => {
@@ -253,7 +256,13 @@
     sel.enabled = true;  // selective 탭 진입 시 활성
     _bindCanvasDoubleTap();
     _refreshMarkers();
+    _bindPinChips(panel, sel, helpers);
+    _bindAddPin(panel, state, sel, helpers);
+    _bindSubSections(panel, state, helpers);
+    _bindSelectiveSliders(panel, state, helpers);
+  }
 
+  function _bindPinChips(panel, sel, helpers) {
     panel.querySelectorAll('[data-sel-pin]').forEach(btn => {
       btn.addEventListener('click', () => {
         sel.activeId = btn.dataset.selPin;
@@ -261,8 +270,12 @@
         helpers.renderPanel();
       });
     });
+  }
+
+  function _bindAddPin(panel, state, sel, helpers) {
     const addBtn = panel.querySelector('[data-sel-add]');
-    if (addBtn) addBtn.addEventListener('click', () => {
+    if (!addBtn) return;
+    addBtn.addEventListener('click', () => {
       if (sel.pins.length >= MAX_PINS) {
         if (helpers.toast) helpers.toast('핀은 최대 ' + MAX_PINS + '개까지');
         return;
@@ -271,13 +284,18 @@
       _refreshMarkers();
       helpers.renderPanel(); helpers.redraw();
     });
-    // face-mask sub-section bind (AI 자동 영역 버튼 핸들러)
+  }
+
+  function _bindSubSections(panel, state, helpers) {
     if (window.PhotoEditorFaceMask && typeof window.PhotoEditorFaceMask.bindSubSection === 'function') {
-      try { window.PhotoEditorFaceMask.bindSubSection(panel, state, helpers); } catch (_e) { /* ignore */ }
+      try { window.PhotoEditorFaceMask.bindSubSection(panel, state, helpers); } catch (_e) { void _e; }
     }
     if (window.PhotoEditorAIMask && typeof window.PhotoEditorAIMask.bindSubSection === 'function') {
-      try { window.PhotoEditorAIMask.bindSubSection(panel, state, helpers); } catch (_e) { /* ignore */ }
+      try { window.PhotoEditorAIMask.bindSubSection(panel, state, helpers); } catch (_e) { void _e; }
     }
+  }
+
+  function _bindSelectiveSliders(panel, state, helpers) {
     panel.querySelectorAll('[data-sel-slider]').forEach(input => {
       input.addEventListener('input', () => {
         const active = _getActive(state);

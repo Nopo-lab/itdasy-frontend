@@ -36,11 +36,9 @@
       _canvas.addEventListener('webglcontextlost', (e) => {
         e.preventDefault();
         _supported = false;
-        console.warn('[GLCtx] context lost — 폴백 모드 전환');
       });
       _canvas.addEventListener('webglcontextrestored', () => {
         _supported = true;
-        console.info('[GLCtx] context restored');
       });
       return true;
     } catch (_e) {

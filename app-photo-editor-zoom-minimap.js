@@ -62,7 +62,7 @@
     // 매 viewport draw 마다 thumb 다시 그리지 않고, 이전 viewport 만 지움 → 단순화 위해 전체 다시
     _drawThumbIfNeeded(detail.snapshot);
     const { scale, tx, ty } = detail;
-    const { dx, dy, dw, dh, sw, sh } = _thumbCache;
+    const { dx, dy, dw, sw, sh } = _thumbCache;
     // 가시 영역 = sw/scale × sh/scale (snapshot 픽셀 단위)
     // 중심: sw/2 - tx/scale, sh/2 - ty/scale
     const visSx = sw / 2 - tx / scale - sw / (2 * scale);

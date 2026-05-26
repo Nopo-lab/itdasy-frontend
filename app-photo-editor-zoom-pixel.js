@@ -31,7 +31,6 @@
   'use strict';
   if (window.PhotoEditorZoomPixel) return;
 
-  let _wrap = null;
   let _state = null;
   let _peCanvas = null;
   let _snapshot = null;       // offscreen canvas (원본 사이즈)
@@ -39,7 +38,6 @@
   let _peCanvasDisplayOld = ''; // 복원용
 
   function _enter(wrap, state /*, z */) {
-    _wrap = wrap;
     _state = state;
     _peCanvas = wrap.querySelector('#peCanvas') || document.getElementById('peCanvas');
     if (!_peCanvas) return;
@@ -128,7 +126,7 @@
       _peCanvas.style.display = _peCanvasDisplayOld;
     }
     _overlay = null; _snapshot = null; _peCanvas = null;
-    _wrap = null; _state = null;
+    _state = null;
     _notifyOverlays();
   }
 

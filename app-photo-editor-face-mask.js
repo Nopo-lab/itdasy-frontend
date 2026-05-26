@@ -64,64 +64,77 @@
   // 영역 추가: regionId → polygon 핀 생성
   async function _addRegion(state, regionId, helpers) {
     const sel = _ensureSel(state);
-    const Sel = window.PhotoEditorSelective;
-    if (Sel && sel.pins.length >= (Sel.MAX_PINS || 3)) {
-      if (helpers && helpers.toast) helpers.toast('핀은 최대 ' + (Sel.MAX_PINS || 3) + '개까지');
-      return;
-    }
     const region = REGIONS.find(r => r.id === regionId);
     if (!region) return;
     const source = state.originalImg;
-    if (!source) {
-      if (helpers && helpers.toast) helpers.toast('사진을 먼저 불러오세요');
-      return;
-    }
-    sel.faceStatus = 'loading';
-    if (helpers && helpers.renderPanel) helpers.renderPanel();
-
-    // MediaPipe 진행률 표시
-    const ML = window.MediaPipeLoader;
-    if (ML && ML.onProgress) {
-      if (_progressCleanup) _progressCleanup();
-      _progressCleanup = ML.onProgress((p, status) => {
-        sel.faceProgress = p;
-        sel.faceStatus = status === 'failed' ? 'failed' : (status === 'ready' ? 'loading' : 'loading');
-        if (helpers && helpers.renderPanel) helpers.renderPanel();
-      });
-    }
-
-    let landmarks;
-    try {
-      landmarks = await _detect(source);
-    } catch (_e) {
-      sel.faceStatus = 'failed';
-      if (helpers && helpers.renderPanel) helpers.renderPanel();
-      return;
-    } finally {
-      if (_progressCleanup) { _progressCleanup(); _progressCleanup = null; }
-    }
-
-    if (!landmarks || landmarks.length === 0) {
-      sel.faceStatus = 'noface';
-      if (helpers && helpers.renderPanel) helpers.renderPanel();
-      if (helpers && helpers.toast) helpers.toast('얼굴을 찾지 못했어요. 정면 사진을 사용해주세요');
-      return;
-    }
-
-    // landmark indices → polygon (source 좌표)
-    if (!ML.regionPolygon) {
-      sel.faceStatus = 'failed';
-      if (helpers && helpers.renderPanel) helpers.renderPanel();
-      return;
-    }
-    const polygon = ML.regionPolygon(landmarks, region.mediaName);
+    if (!_canAddRegion(sel, source, helpers)) return;
+    _setFaceStatus(sel, helpers, 'loading');
+    _bindProgress(sel, helpers);
+    const landmarks = await _loadLandmarks(source, sel, helpers);
+    if (!landmarks) return;
+    const polygon = _regionPolygon(landmarks, region, sel, helpers);
     if (!polygon || polygon.length < 3) {
-      sel.faceStatus = 'failed';
-      if (helpers && helpers.renderPanel) helpers.renderPanel();
+      _setFaceStatus(sel, helpers, 'failed');
       if (helpers && helpers.toast) helpers.toast(region.label + ' 영역을 잡지 못했어요');
       return;
     }
+    _appendRegionPin(sel, region, polygon, helpers);
+  }
 
+  function _canAddRegion(sel, source, helpers) {
+    const Sel = window.PhotoEditorSelective;
+    if (Sel && sel.pins.length >= (Sel.MAX_PINS || 3)) {
+      if (helpers && helpers.toast) helpers.toast('핀은 최대 ' + (Sel.MAX_PINS || 3) + '개까지');
+      return false;
+    }
+    if (!source) {
+      if (helpers && helpers.toast) helpers.toast('사진을 먼저 불러오세요');
+      return false;
+    }
+    return true;
+  }
+
+  function _setFaceStatus(sel, helpers, status) {
+    sel.faceStatus = status;
+    if (helpers && helpers.renderPanel) helpers.renderPanel();
+  }
+
+  function _bindProgress(sel, helpers) {
+    const ML = window.MediaPipeLoader;
+    if (!ML || !ML.onProgress) return;
+    if (_progressCleanup) _progressCleanup();
+    _progressCleanup = ML.onProgress((p, status) => {
+      sel.faceProgress = p;
+      sel.faceStatus = status === 'failed' ? 'failed' : 'loading';
+      if (helpers && helpers.renderPanel) helpers.renderPanel();
+    });
+  }
+
+  async function _loadLandmarks(source, sel, helpers) {
+    try {
+      const landmarks = await _detect(source);
+      if (_progressCleanup) { _progressCleanup(); _progressCleanup = null; }
+      if (landmarks && landmarks.length) return landmarks;
+      _setFaceStatus(sel, helpers, 'noface');
+      if (helpers && helpers.toast) helpers.toast('얼굴을 찾지 못했어요. 정면 사진을 사용해주세요');
+    } catch (_e) {
+      _setFaceStatus(sel, helpers, 'failed');
+    } finally {
+      if (_progressCleanup) { _progressCleanup(); _progressCleanup = null; }
+    }
+    return null;
+  }
+
+  function _regionPolygon(landmarks, region, sel, helpers) {
+    const ML = window.MediaPipeLoader;
+    if (!ML || !ML.regionPolygon) {
+      _setFaceStatus(sel, helpers, 'failed');
+      return null;
+    }
+    return ML.regionPolygon(landmarks, region.mediaName);
+  }
+
+  function _appendRegionPin(sel, region, polygon, helpers) {
     const id = 'face-' + Date.now();
     sel.pins.push({
       id,

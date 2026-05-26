@@ -186,44 +186,47 @@
   }
 
   function _bindBrushPanel(panel, state, helpers) {
+    const env = _brushEnv(panel, state, helpers);
+    if (!env) return;
+    _bindBrushOptions(env);
+    _bindBrushCanvas(env);
+    _bindBrushActions(env);
+  }
+
+  function _brushEnv(panel, state, helpers) {
     const b = _ensureBrushState(state);
     const mainCv = document.getElementById('peCanvas');
     if (!mainCv || !state.originalImg) {
       if (helpers && helpers.toast) helpers.toast('먼저 사진을 골라주세요');
-      return;
+      return null;
     }
     const mask = _ensureMaskCanvas(mainCv);
-    const mctx = mask.getContext('2d');
-    const cursor = _ensureCursorRing(mainCv);
+    return { panel, state, helpers, b, mainCv, mask, mctx: mask.getContext('2d'), cursor: _ensureCursorRing(mainCv) };
+  }
 
+  function _renderPanel(helpers) { if (helpers && helpers.renderPanel) helpers.renderPanel(); }
+  function _toast(helpers, msg) { if (helpers && helpers.toast) helpers.toast(msg); }
+  function _brushColor(b) { return (BRUSHES[b.type] && BRUSHES[b.type].color) || 'rgba(255,255,255,0.5)'; }
+
+  function _bindBrushOptions(env) {
+    const { panel, b, helpers } = env;
     panel.querySelectorAll('[data-pe-brush-type]').forEach(btn => {
       btn.addEventListener('click', () => {
         b.type = btn.dataset.peBrushType;
-        // [v187] 클론·힐링 외 다른 브러시 선택 시 소스/대기 상태 초기화
-        if (!_CLONE_TYPES.has(b.type)) {
-          b.sourcePt = null; b.firstStrokePt = null; b.awaitingSource = false;
-        }
-        // 패널 다시 렌더 — cloneHint UI 갱신
-        helpers && helpers.renderPanel && helpers.renderPanel();
+        if (!_CLONE_TYPES.has(b.type)) { b.sourcePt = null; b.firstStrokePt = null; b.awaitingSource = false; }
+        _renderPanel(helpers);
       });
     });
-    // [v189] 그리기 모드 토글
     panel.querySelectorAll('[data-pe-brush-selmode]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        b.selMode = btn.dataset.peBrushSelmode;
-        helpers && helpers.renderPanel && helpers.renderPanel();
-      });
+      btn.addEventListener('click', () => { b.selMode = btn.dataset.peBrushSelmode; _renderPanel(helpers); });
     });
-    // [v187] 소스 지정 버튼 / 소스 초기화
-    panel.querySelector('[data-pe-brush-set-source]')?.addEventListener('click', () => {
-      b.awaitingSource = !b.awaitingSource;
-      helpers && helpers.renderPanel && helpers.renderPanel();
-    });
-    panel.querySelector('[data-pe-brush-clear-source]')?.addEventListener('click', () => {
-      b.sourcePt = null; b.firstStrokePt = null;
-      helpers && helpers.renderPanel && helpers.renderPanel();
-    });
+    panel.querySelector('[data-pe-brush-set-source]')?.addEventListener('click', () => { b.awaitingSource = !b.awaitingSource; _renderPanel(helpers); });
+    panel.querySelector('[data-pe-brush-clear-source]')?.addEventListener('click', () => { b.sourcePt = null; b.firstStrokePt = null; _renderPanel(helpers); });
+    _bindBrushSliders(env);
+  }
 
+  function _bindBrushSliders(env) {
+    const { panel, b } = env;
     panel.querySelector('[data-pe-brush-size]')?.addEventListener('input', e => {
       b.size = +e.target.value;
       const out = panel.querySelector('[data-pe-brush-size-val]');
@@ -234,183 +237,172 @@
       const out = panel.querySelector('[data-pe-brush-strength-val]');
       if (out) out.textContent = e.target.value;
     });
+  }
 
-    function _getXY(e) {
-      const r = mainCv.getBoundingClientRect();
-      const cx = e.touches ? e.touches[0].clientX : e.clientX;
-      const cy = e.touches ? e.touches[0].clientY : e.clientY;
-      const sx = mainCv.width / r.width, sy = mainCv.height / r.height;
-      return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
-    }
-    function _drawAt(x, y) {
+  function _getXY(env, e) {
+    const r = env.mainCv.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: (cx - r.left) * (env.mainCv.width / r.width), y: (cy - r.top) * (env.mainCv.height / r.height) };
+  }
+
+  function _drawAt(env, x, y) {
+    const { b, mctx } = env;
+    mctx.globalCompositeOperation = b.type === 'eraser' ? 'destination-out' : 'source-over';
+    mctx.fillStyle = _brushColor(b);
+    mctx.beginPath();
+    mctx.arc(x, y, b.size, 0, Math.PI * 2);
+    mctx.fill();
+  }
+
+  function _brushStart(env, e) {
+    const { state, b, helpers } = env;
+    if (state.activeTab !== 'brush') return;
+    e.preventDefault();
+    const p = _getXY(env, e);
+    if (b.awaitingSource && _CLONE_TYPES.has(b.type)) return _setBrushSource(env, p);
+    if (_CLONE_TYPES.has(b.type) && !b.sourcePt) return _toast(helpers, '먼저 [📍 소스 지정] 누르고 복사할 영역 탭하세요');
+    if (_CLONE_TYPES.has(b.type)) b.firstStrokePt = { x: p.x, y: p.y };
+    b.drawing = true; b.lastX = p.x; b.lastY = p.y;
+    if (b.selMode === 'rect') b.rectStart = { x: p.x, y: p.y };
+    else if (b.selMode === 'lasso') b.lassoPath = [{ x: p.x, y: p.y }];
+    else _drawAt(env, p.x, p.y);
+  }
+
+  function _setBrushSource(env, p) {
+    const { b, helpers } = env;
+    b.sourcePt = { x: p.x, y: p.y };
+    b.awaitingSource = false;
+    b.firstStrokePt = null;
+    _toast(helpers, '소스 지정됨. 칠하고 싶은 영역 드래그');
+    _renderPanel(helpers);
+  }
+
+  function _brushMove(env, e) {
+    const { state, b } = env;
+    if (!b.drawing || state.activeTab !== 'brush') return;
+    e.preventDefault();
+    const p = _getXY(env, e);
+    if (b.selMode === 'rect') return _brushRectMove(env, p);
+    if (b.selMode === 'lasso') return _brushLassoMove(env, p);
+    _brushFreeMove(env, p);
+  }
+
+  function _brushRectMove(env, p) {
+    const { b, mask, mctx } = env;
+    if (!b.rectStart) return;
+    mctx.clearRect(0, 0, mask.width, mask.height);
+    const x1 = Math.min(b.rectStart.x, p.x), y1 = Math.min(b.rectStart.y, p.y);
+    const x2 = Math.max(b.rectStart.x, p.x), y2 = Math.max(b.rectStart.y, p.y);
+    mctx.globalCompositeOperation = b.type === 'eraser' ? 'destination-out' : 'source-over';
+    mctx.fillStyle = _brushColor(b);
+    mctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+    b.lastX = p.x; b.lastY = p.y;
+  }
+
+  function _brushLassoMove(env, p) {
+    const { b, mask, mctx } = env;
+    b.lassoPath.push({ x: p.x, y: p.y });
+    mctx.clearRect(0, 0, mask.width, mask.height);
+    mctx.strokeStyle = _brushColor(b);
+    mctx.lineWidth = 2;
+    mctx.beginPath();
+    b.lassoPath.forEach((pt, i) => i ? mctx.lineTo(pt.x, pt.y) : mctx.moveTo(pt.x, pt.y));
+    mctx.stroke();
+    b.lastX = p.x; b.lastY = p.y;
+  }
+
+  function _brushFreeMove(env, p) {
+    const b = env.b;
+    const dx = p.x - b.lastX, dy = p.y - b.lastY;
+    const n = Math.max(1, Math.floor(Math.sqrt(dx * dx + dy * dy) / Math.max(1, b.size / 4)));
+    for (let i = 1; i <= n; i++) _drawAt(env, b.lastX + dx * i / n, b.lastY + dy * i / n);
+    b.lastX = p.x; b.lastY = p.y;
+  }
+
+  function _brushEnd(env) {
+    const { b, mask, mctx } = env;
+    if (b.drawing && b.selMode === 'lasso' && b.lassoPath.length >= 3) {
+      mctx.clearRect(0, 0, mask.width, mask.height);
       mctx.globalCompositeOperation = b.type === 'eraser' ? 'destination-out' : 'source-over';
-      mctx.fillStyle = (BRUSHES[b.type] && BRUSHES[b.type].color) || 'rgba(255,255,255,0.5)';
+      mctx.fillStyle = _brushColor(b);
       mctx.beginPath();
-      mctx.arc(x, y, b.size, 0, Math.PI * 2);
-      mctx.fill();
+      b.lassoPath.forEach((pt, i) => i ? mctx.lineTo(pt.x, pt.y) : mctx.moveTo(pt.x, pt.y));
+      mctx.closePath(); mctx.fill();
     }
-    function _start(e) {
-      if (state.activeTab !== 'brush') return;
-      e.preventDefault();
-      const p = _getXY(e);
-      if (b.awaitingSource && _CLONE_TYPES.has(b.type)) {
-        b.sourcePt = { x: p.x, y: p.y };
-        b.awaitingSource = false;
-        b.firstStrokePt = null;
-        if (helpers && helpers.toast) helpers.toast('소스 지정됨. 칠하고 싶은 영역 드래그');
-        helpers && helpers.renderPanel && helpers.renderPanel();
-        return;
-      }
-      if (_CLONE_TYPES.has(b.type) && !b.sourcePt) {
-        if (helpers && helpers.toast) helpers.toast('먼저 [📍 소스 지정] 누르고 복사할 영역 탭하세요');
-        return;
-      }
-      if (_CLONE_TYPES.has(b.type)) b.firstStrokePt = { x: p.x, y: p.y };
-      b.drawing = true; b.lastX = p.x; b.lastY = p.y;
-      if (b.selMode === 'rect') {
-        b.rectStart = { x: p.x, y: p.y };
-      } else if (b.selMode === 'lasso') {
-        b.lassoPath = [{ x: p.x, y: p.y }];
-      } else {
-        _drawAt(p.x, p.y);
-      }
-    }
-    function _move(e) {
-      if (!b.drawing || state.activeTab !== 'brush') return;
-      e.preventDefault();
-      const p = _getXY(e);
-      if (b.selMode === 'rect') {
-        if (!b.rectStart) return;
-        mctx.clearRect(0, 0, mask.width, mask.height);
-        const x1 = Math.min(b.rectStart.x, p.x), y1 = Math.min(b.rectStart.y, p.y);
-        const x2 = Math.max(b.rectStart.x, p.x), y2 = Math.max(b.rectStart.y, p.y);
-        mctx.globalCompositeOperation = b.type === 'eraser' ? 'destination-out' : 'source-over';
-        mctx.fillStyle = (BRUSHES[b.type] && BRUSHES[b.type].color) || 'rgba(255,255,255,0.5)';
-        mctx.fillRect(x1, y1, x2 - x1, y2 - y1);
-        b.lastX = p.x; b.lastY = p.y;
-        return;
-      }
-      if (b.selMode === 'lasso') {
-        // [v191] 점 누적 + 매 프레임 라이브 폴리곤 라인 그리기 (마스크 아직 채우지 않음)
-        b.lassoPath.push({ x: p.x, y: p.y });
-        mctx.clearRect(0, 0, mask.width, mask.height);
-        mctx.strokeStyle = (BRUSHES[b.type] && BRUSHES[b.type].color) || 'rgba(255,255,255,0.5)';
-        mctx.lineWidth = 2;
-        mctx.beginPath();
-        b.lassoPath.forEach((pt, i) => i ? mctx.lineTo(pt.x, pt.y) : mctx.moveTo(pt.x, pt.y));
-        mctx.stroke();
-        b.lastX = p.x; b.lastY = p.y;
-        return;
-      }
-      // free 모드
-      const dx = p.x - b.lastX, dy = p.y - b.lastY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const step = Math.max(1, b.size / 4);
-      const n = Math.max(1, Math.floor(dist / step));
-      for (let i = 1; i <= n; i++) _drawAt(b.lastX + dx * i / n, b.lastY + dy * i / n);
-      b.lastX = p.x; b.lastY = p.y;
-    }
-    function _end() {
-      // [v191] lasso end — 폴리곤 close + fill (실제 마스크 채움)
-      if (b.drawing && b.selMode === 'lasso' && b.lassoPath.length >= 3) {
-        mctx.clearRect(0, 0, mask.width, mask.height);
-        mctx.globalCompositeOperation = b.type === 'eraser' ? 'destination-out' : 'source-over';
-        mctx.fillStyle = (BRUSHES[b.type] && BRUSHES[b.type].color) || 'rgba(255,255,255,0.5)';
-        mctx.beginPath();
-        b.lassoPath.forEach((pt, i) => i ? mctx.lineTo(pt.x, pt.y) : mctx.moveTo(pt.x, pt.y));
-        mctx.closePath();
-        mctx.fill();
-      }
-      b.drawing = false;
-      b.rectStart = null;
-      b.lassoPath = [];
-    }
+    b.drawing = false;
+    b.rectStart = null;
+    b.lassoPath = [];
+  }
 
-    // [v202] cursor 핸들러 — 브러시 크기 따라 원 크기 동적
-    function _showCursor() {
-      if (state.activeTab !== 'brush') return;
-      cursor.style.display = 'block';
-    }
-    function _hideCursor() { cursor.style.display = 'none'; }
-    function _moveCursor(e) {
-      if (state.activeTab !== 'brush') return;
-      const r = mainCv.getBoundingClientRect();
-      // CSS px 기준 브러시 크기 — canvas pixel size vs CSS rect size 비율
-      const cssK = r.width / Math.max(1, mainCv.width);
-      const sz = Math.max(8, b.size * cssK * 2);
-      cursor.style.width = sz + 'px';
-      cursor.style.height = sz + 'px';
-      cursor.style.left = (e.clientX - r.left) + 'px';
-      cursor.style.top = (e.clientY - r.top) + 'px';
-    }
-
-    // 메인 canvas 에 brush 이벤트 — 편집기를 다시 열 때 이전 state 를 물고 있지 않게 재등록.
-    _unbindBrushEvents(mainCv);
+  function _bindBrushCanvas(env) {
+    const cv = env.mainCv;
+    _unbindBrushEvents(cv);
     const handlers = [
-      ['mousedown', _start],
-      ['touchstart', _start],
-      ['mousemove', _move],
-      ['touchmove', _move],
-      ['mouseup', _end],
-      ['mouseleave', _end],
-      ['touchend', _end],
-      ['mouseenter', _showCursor],
-      ['mousemove', _moveCursor],
-      ['mouseleave', _hideCursor],
+      ['mousedown', e => _brushStart(env, e)], ['touchstart', e => _brushStart(env, e)],
+      ['mousemove', e => _brushMove(env, e)], ['touchmove', e => _brushMove(env, e)],
+      ['mouseup', () => _brushEnd(env)], ['mouseleave', () => _brushEnd(env)], ['touchend', () => _brushEnd(env)],
+      ['mouseenter', () => _showCursor(env)], ['mousemove', e => _moveCursor(env, e)], ['mouseleave', () => _hideCursor(env)],
     ];
     handlers.forEach(([ev, fn]) => {
       const opts = ev === 'touchstart' || ev === 'touchmove' ? { passive: false } : undefined;
-      mainCv.addEventListener(ev, fn, opts);
+      cv.addEventListener(ev, fn, opts);
     });
-    mainCv._brushHandlers = handlers;
-    mainCv._brushBound = true;
+    cv._brushHandlers = handlers;
+    cv._brushBound = true;
+  }
 
+  function _showCursor(env) {
+    if (env.state.activeTab === 'brush') env.cursor.style.display = 'block';
+  }
+  function _hideCursor(env) { env.cursor.style.display = 'none'; }
+  function _moveCursor(env, e) {
+    if (env.state.activeTab !== 'brush') return;
+    const r = env.mainCv.getBoundingClientRect();
+    const sz = Math.max(8, env.b.size * (r.width / Math.max(1, env.mainCv.width)) * 2);
+    env.cursor.style.width = sz + 'px'; env.cursor.style.height = sz + 'px';
+    env.cursor.style.left = (e.clientX - r.left) + 'px'; env.cursor.style.top = (e.clientY - r.top) + 'px';
+  }
+
+  function _bindBrushActions(env) {
+    const { panel, mask, mctx, helpers } = env;
     panel.querySelector('[data-pe-brush-clear]')?.addEventListener('click', () => {
       mctx.clearRect(0, 0, mask.width, mask.height);
-      if (helpers && helpers.toast) helpers.toast('마스크 초기화');
+      _toast(helpers, '마스크 초기화');
     });
-    // [v202 2026-05-18] 마스크 invert (S1-14) — 캔버스 전체 alpha 반전
-    panel.querySelector('[data-pe-brush-invert]')?.addEventListener('click', () => {
-      try {
-        const img = mctx.getImageData(0, 0, mask.width, mask.height);
-        const d = img.data;
-        const color = (BRUSHES[b.type] && BRUSHES[b.type].color) || 'rgba(255,255,255,0.5)';
-        // color "rgba(R,G,B,A)" 파싱
-        const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-        const r = m ? +m[1] : 255, g = m ? +m[2] : 255, bl = m ? +m[3] : 255;
-        const a = m && m[4] !== undefined ? Math.round(+m[4] * 255) : 128;
-        for (let i = 0; i < d.length; i += 4) {
-          const wasFilled = d[i + 3] > 10;
-          if (wasFilled) {
-            d[i + 3] = 0;
-          } else {
-            d[i] = r; d[i + 1] = g; d[i + 2] = bl; d[i + 3] = a;
-          }
-        }
-        mctx.putImageData(img, 0, 0);
-        if (helpers && helpers.toast) helpers.toast('마스크 반전');
-      } catch (e) {
-        if (helpers && helpers.toast) helpers.toast('반전 실패: ' + (e.message || ''));
-      }
-    });
+    panel.querySelector('[data-pe-brush-invert]')?.addEventListener('click', () => _invertMask(env));
+    panel.querySelector('[data-pe-brush-apply]')?.addEventListener('click', () => _applyBrush(env));
+  }
 
-    panel.querySelector('[data-pe-brush-apply]')?.addEventListener('click', () => {
-      const baseCv = _makeBrushBaseCanvas(state, mainCv) || mainCv;
-      const effects = window.PhotoEditorBrushEffects;
-      const ok = effects && typeof effects.apply === 'function'
-        ? effects.apply(baseCv, mask, b)
-        : false;
-      if (ok) {
-        const committed = _commitBrushCanvas(baseCv, state, helpers, () => {
-          mctx.clearRect(0, 0, mask.width, mask.height);
-          if (helpers && helpers.toast) helpers.toast('부분 보정 적용 완료');
-        });
-        if (!committed) {
-          mctx.clearRect(0, 0, mask.width, mask.height);
-          if (helpers && helpers.toast) helpers.toast('부분 보정 적용 완료');
-        }
-      }
+  function _invertMask(env) {
+    const { b, mask, mctx, helpers } = env;
+    try {
+      const img = mctx.getImageData(0, 0, mask.width, mask.height);
+      const rgba = _brushColor(b).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+      const r = rgba ? +rgba[1] : 255, g = rgba ? +rgba[2] : 255, bl = rgba ? +rgba[3] : 255;
+      const a = rgba && rgba[4] !== undefined ? Math.round(+rgba[4] * 255) : 128;
+      for (let i = 0; i < img.data.length; i += 4) _invertPixel(img.data, i, r, g, bl, a);
+      mctx.putImageData(img, 0, 0);
+      _toast(helpers, '마스크 반전');
+    } catch (e) { _toast(helpers, '반전 실패: ' + (e.message || '')); }
+  }
+
+  function _invertPixel(d, i, r, g, bl, a) {
+    if (d[i + 3] > 10) d[i + 3] = 0;
+    else { d[i] = r; d[i + 1] = g; d[i + 2] = bl; d[i + 3] = a; }
+  }
+
+  function _applyBrush(env) {
+    const { state, mainCv, mask, mctx, b, helpers } = env;
+    const baseCv = _makeBrushBaseCanvas(state, mainCv) || mainCv;
+    const effects = window.PhotoEditorBrushEffects;
+    const ok = effects && typeof effects.apply === 'function' ? effects.apply(baseCv, mask, b) : false;
+    if (!ok) return;
+    const committed = _commitBrushCanvas(baseCv, state, helpers, () => {
+      mctx.clearRect(0, 0, mask.width, mask.height);
+      _toast(helpers, '부분 보정 적용 완료');
     });
+    if (!committed) { mctx.clearRect(0, 0, mask.width, mask.height); _toast(helpers, '부분 보정 적용 완료'); }
   }
 
   // 탭 떠날 때 마스크 정리 — _state.activeTab 감시 (메인이 알려주는 hook 없으므로 mutation)

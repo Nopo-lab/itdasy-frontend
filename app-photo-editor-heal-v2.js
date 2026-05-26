@@ -27,19 +27,25 @@
   function _inpaint(canvas, cx, cy, r) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    // 영향 박스 (안전 영역)
-    const pad = Math.round(r * 1.8);
-    const x0 = Math.max(0, cx - pad);
-    const y0 = Math.max(0, cy - pad);
-    const x1 = Math.min(W, cx + pad);
-    const y1 = Math.min(H, cy + pad);
-    if (x1 <= x0 || y1 <= y0) return;
-    const w = x1 - x0;
-    const h = y1 - y0;
-    const img = ctx.getImageData(x0, y0, w, h);
+    const box = _inpaintBox(W, H, cx, cy, r);
+    if (!box) return;
+    const img = ctx.getImageData(box.x0, box.y0, box.w, box.h);
     const d = img.data;
+    const sample = _sampleAround(d, box, W, H, cx, cy, r);
+    if (!sample) return;
+    _blendPatch(d, box, cx, cy, r, sample);
+    ctx.putImageData(img, box.x0, box.y0);
+  }
 
-    // 8방향 sample 색 (잡티 영역 바깥의 정상 픽셀)
+  function _inpaintBox(W, H, cx, cy, r) {
+    const pad = Math.round(r * 1.8);
+    const x0 = Math.max(0, cx - pad), y0 = Math.max(0, cy - pad);
+    const x1 = Math.min(W, cx + pad), y1 = Math.min(H, cy + pad);
+    if (x1 <= x0 || y1 <= y0) return null;
+    return { x0, y0, w: x1 - x0, h: y1 - y0, pad };
+  }
+
+  function _sampleAround(d, box, W, H, cx, cy, r) {
     const sampleDist = Math.round(r * 1.5);
     const angles = [0, 45, 90, 135, 180, 225, 270, 315];
     let sumR = 0, sumG = 0, sumB = 0, cnt = 0;
@@ -48,40 +54,42 @@
       const sx = Math.round(cx + Math.cos(rad) * sampleDist);
       const sy = Math.round(cy + Math.sin(rad) * sampleDist);
       if (sx < 0 || sy < 0 || sx >= W || sy >= H) return;
-      // 작은 3×3 평균으로 노이즈 감소
-      let lr = 0, lg = 0, lb = 0, lc = 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const px = sx + dx, py = sy + dy;
-          if (px < 0 || py < 0 || px >= W || py >= H) continue;
-          const idx = ((py - y0) * w + (px - x0)) * 4;
-          if (idx < 0 || idx >= d.length) continue;
-          lr += d[idx]; lg += d[idx + 1]; lb += d[idx + 2]; lc++;
-        }
-      }
-      if (lc > 0) { sumR += lr / lc; sumG += lg / lc; sumB += lb / lc; cnt++; }
+      const px = _sample3x3(d, box, W, H, sx, sy);
+      if (px) { sumR += px.r; sumG += px.g; sumB += px.b; cnt++; }
     });
-    if (cnt === 0) return;
-    const avgR = sumR / cnt, avgG = sumG / cnt, avgB = sumB / cnt;
+    return cnt ? { r: sumR / cnt, g: sumG / cnt, b: sumB / cnt } : null;
+  }
 
-    // 가우시안 페더로 alpha blend (잡티 중심 = 100%, 경계 = 0%)
-    const sigma = r * 0.55;
-    const inv2sig2 = 1 / (2 * sigma * sigma);
-    for (let yy = 0; yy < h; yy++) {
-      for (let xx = 0; xx < w; xx++) {
-        const idx = (yy * w + xx) * 4;
-        const gx = xx + x0 - cx;
-        const gy = yy + y0 - cy;
-        const dist2 = gx * gx + gy * gy;
-        if (dist2 > pad * pad) continue;
-        const alpha = Math.exp(-dist2 * inv2sig2);  // 0~1
-        if (alpha < 0.02) continue;
-        d[idx]     = Math.round(d[idx]     * (1 - alpha) + avgR * alpha);
-        d[idx + 1] = Math.round(d[idx + 1] * (1 - alpha) + avgG * alpha);
-        d[idx + 2] = Math.round(d[idx + 2] * (1 - alpha) + avgB * alpha);
+  function _sample3x3(d, box, W, H, sx, sy) {
+    let r = 0, g = 0, b = 0, count = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const px = sx + dx, py = sy + dy;
+        if (px < 0 || py < 0 || px >= W || py >= H) continue;
+        const idx = ((py - box.y0) * box.w + (px - box.x0)) * 4;
+        if (idx < 0 || idx >= d.length) continue;
+        r += d[idx]; g += d[idx + 1]; b += d[idx + 2]; count++;
       }
     }
-    ctx.putImageData(img, x0, y0);
+    return count ? { r: r / count, g: g / count, b: b / count } : null;
+  }
+
+  function _blendPatch(d, box, cx, cy, r, sample) {
+    const sigma = r * 0.55;
+    const inv2sig2 = 1 / (2 * sigma * sigma);
+    for (let yy = 0; yy < box.h; yy++) {
+      for (let xx = 0; xx < box.w; xx++) {
+        const idx = (yy * box.w + xx) * 4;
+        const gx = xx + box.x0 - cx, gy = yy + box.y0 - cy;
+        const dist2 = gx * gx + gy * gy;
+        if (dist2 > box.pad * box.pad) continue;
+        const alpha = Math.exp(-dist2 * inv2sig2);  // 0~1
+        if (alpha < 0.02) continue;
+        d[idx] = Math.round(d[idx] * (1 - alpha) + sample.r * alpha);
+        d[idx + 1] = Math.round(d[idx + 1] * (1 - alpha) + sample.g * alpha);
+        d[idx + 2] = Math.round(d[idx + 2] * (1 - alpha) + sample.b * alpha);
+      }
+    }
   }
 
   // 사진 클릭 → originalImg 의 좌표로 변환 → inpaint → originalImg 갱신

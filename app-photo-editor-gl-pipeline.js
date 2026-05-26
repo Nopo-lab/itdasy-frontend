@@ -56,7 +56,6 @@ vec4 applyMask(vec4 original, vec4 effect) {
   let _quadBuf = null;
   let _fbos = null;  // [{ fbo, tex, width, height }, ...] ping-pong
   let _maskTex = null;
-  let _maskCanvas = null; // 현재 업로드된 mask canvas (변경 감지)
 
   function _ensureQuad(gl) {
     if (_vao) return;
@@ -122,7 +121,6 @@ vec4 applyMask(vec4 original, vec4 effect) {
     // 내용만 갱신하므로 매번 재업로드 필요. 핀 3개 시 5~15ms 추가 — 허용 범위.
     if (_maskTex) gl.deleteTexture(_maskTex);
     _maskTex = _uploadImage(gl, maskCanvas);
-    _maskCanvas = maskCanvas;
     return _maskTex;
   }
 
@@ -139,6 +137,54 @@ vec4 applyMask(vec4 original, vec4 effect) {
         else if (val.length === 3) gl.uniform3fv(loc, val);
         else if (val.length === 4) gl.uniform4fv(loc, val);
       }
+    });
+  }
+
+  function _runPass(gl, op, srcTex, target, w, h) {
+    if (!op || !op.program) return null;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null);
+    gl.viewport(0, 0, w, h);
+    gl.useProgram(op.program);
+    _bindImage(gl, op.program, srcTex);
+    _bindMask(gl, op);
+    _bindTextures(gl, op.program, op.textures);
+    _bindUniforms(gl, op.program, op.uniforms);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return target ? target.tex : srcTex;
+  }
+
+  function _bindImage(gl, program, tex) {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    const loc = gl.getUniformLocation(program, 'u_image');
+    if (loc) gl.uniform1i(loc, 0);
+  }
+
+  function _bindMask(gl, op) {
+    const uMask = gl.getUniformLocation(op.program, 'u_mask');
+    const uMaskEn = gl.getUniformLocation(op.program, 'u_maskEnabled');
+    if (!op.mask) {
+      if (uMaskEn) gl.uniform1i(uMaskEn, 0);
+      return;
+    }
+    gl.activeTexture(gl.TEXTURE1);
+    const mTex = _uploadMask(gl, op.mask);
+    gl.bindTexture(gl.TEXTURE_2D, mTex);
+    if (uMask) gl.uniform1i(uMask, 1);
+    if (uMaskEn) gl.uniform1i(uMaskEn, 1);
+  }
+
+  function _bindTextures(gl, program, textures) {
+    if (!textures) return;
+    let slot = 2;
+    Object.keys(textures).forEach(name => {
+      const tex = textures[name];
+      if (!tex) return;
+      gl.activeTexture(gl.TEXTURE0 + slot);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      const loc = gl.getUniformLocation(program, name);
+      if (loc !== null) gl.uniform1i(loc, slot);
+      slot++;
     });
   }
 
@@ -159,60 +205,10 @@ vec4 applyMask(vec4 original, vec4 effect) {
     let dstIdx = 0;
 
     gl.bindVertexArray(_vao);
-
     for (let i = 0; i < ops.length; i++) {
-      const op = ops[i];
-      if (!op || !op.program) continue;
-      const isLast = (i === ops.length - 1);
-      const target = isLast ? null : _fbos[dstIdx];
-      gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null);
-      gl.viewport(0, 0, w, h);
-      gl.useProgram(op.program);
-
-      // u_image (이전 결과)
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, srcTex);
-      const uImg = gl.getUniformLocation(op.program, 'u_image');
-      if (uImg) gl.uniform1i(uImg, 0);
-
-      // u_mask + u_maskEnabled
-      const uMask = gl.getUniformLocation(op.program, 'u_mask');
-      const uMaskEn = gl.getUniformLocation(op.program, 'u_maskEnabled');
-      if (op.mask) {
-        // [v233 fix] mask 업로드 전에 TEXTURE1 로 전환.
-        // 이전에는 TEXTURE0 에 mask 를 업로드해 u_image 원본 자리가 mask 로 바뀌었다.
-        gl.activeTexture(gl.TEXTURE1);
-        const mTex = _uploadMask(gl, op.mask);
-        gl.bindTexture(gl.TEXTURE_2D, mTex);
-        if (uMask) gl.uniform1i(uMask, 1);
-        if (uMaskEn) gl.uniform1i(uMaskEn, 1);
-      } else {
-        if (uMaskEn) gl.uniform1i(uMaskEn, 0);
-      }
-
-      // [v228 Sprint 4] 추가 sampler 텍스처 (u_lut 등) — slot 2 부터
-      if (op.textures) {
-        let slot = 2;
-        Object.keys(op.textures).forEach(name => {
-          const tex = op.textures[name];
-          if (!tex) return;
-          gl.activeTexture(gl.TEXTURE0 + slot);
-          gl.bindTexture(gl.TEXTURE_2D, tex);
-          const loc = gl.getUniformLocation(op.program, name);
-          if (loc !== null) gl.uniform1i(loc, slot);
-          slot++;
-        });
-      }
-
-      // 커스텀 uniforms
-      _bindUniforms(gl, op.program, op.uniforms);
-
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-      if (!isLast) {
-        srcTex = target.tex;
-        dstIdx = 1 - dstIdx;
-      }
+      const next = _runPass(gl, ops[i], srcTex, i === ops.length - 1 ? null : _fbos[dstIdx], w, h);
+      if (!next) continue;
+      if (next !== srcTex) { srcTex = next; dstIdx = 1 - dstIdx; }
     }
 
     gl.bindVertexArray(null);
@@ -229,7 +225,7 @@ vec4 applyMask(vec4 original, vec4 effect) {
       if (_vao) Ctx.gl.deleteVertexArray(_vao);
       if (_quadBuf) Ctx.gl.deleteBuffer(_quadBuf);
     }
-    _vao = null; _quadBuf = null; _maskTex = null; _maskCanvas = null;
+    _vao = null; _quadBuf = null; _maskTex = null;
   }
 
   window.PhotoEditorGLPipeline = {

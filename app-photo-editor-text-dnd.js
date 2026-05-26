@@ -28,97 +28,102 @@
   function _bind(canvas) {
     if (!canvas || _bound) return;
     _bound = true;
+    _bindPointerDrag(canvas);
+    _bindPinch(canvas);
+  }
 
+  function _bindPointerDrag(canvas) {
     let lastTap = 0;
-
     canvas.addEventListener('pointerdown', (e) => {
-      const { state, helpers } = _ctx();
-      if (!state || state.activeTab !== 'text') return;
-      const layer = _hitTest(canvas, state, e);
-      if (!layer) return;
-      e.preventDefault();
-      // 더블탭 감지
-      const now = Date.now();
-      if (now - lastTap < 350) {
-        _editInline(layer, helpers);
-        lastTap = 0;
-        return;
-      }
-      lastTap = now;
-      _selectLayer(state, helpers, layer);
-      _dragState = {
-        layerId: layer.id,
-        startX: e.clientX,
-        startY: e.clientY,
-        startLayerX: layer.x,
-        startLayerY: layer.y,
-        canvasRect: canvas.getBoundingClientRect(),
-        pointerId: e.pointerId,
-      };
-      try { canvas.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      lastTap = _onPointerDown(canvas, e, lastTap);
     });
-
-    canvas.addEventListener('pointermove', (e) => {
-      if (!_dragState || e.pointerId !== _dragState.pointerId) return;
-      const { state, helpers } = _ctx();
-      if (!state) return;
-      e.preventDefault();
-      const dx = (e.clientX - _dragState.startX) / _dragState.canvasRect.width;
-      const dy = (e.clientY - _dragState.startY) / _dragState.canvasRect.height;
-      const layer = state.layers.find(l => l.id === _dragState.layerId);
-      if (!layer) return;
-      layer.x = Math.max(0, Math.min(1, _dragState.startLayerX + dx));
-      layer.y = Math.max(0, Math.min(1, _dragState.startLayerY + dy));
-      state.text = layer;
-      if (window.PhotoEditorLayers && window.PhotoEditorLayers.syncText) window.PhotoEditorLayers.syncText(state);
-      if (helpers && helpers.redraw) helpers.redraw();
-    });
-
-    canvas.addEventListener('pointerup', (e) => {
-      const { helpers } = _ctx();
-      if (_dragState && e.pointerId === _dragState.pointerId) {
-        if (helpers && helpers.pushHistory) helpers.pushHistory();
-        _dragState = null;
-      }
-    });
-
+    canvas.addEventListener('pointermove', (e) => _onPointerMove(e));
+    canvas.addEventListener('pointerup', (e) => _onPointerEnd(e));
     canvas.addEventListener('pointercancel', () => { _dragState = null; });
+  }
 
-    // 두 손가락 핀치/회전 (touchevents)
-    canvas.addEventListener('touchmove', (e) => {
-      if (e.touches.length !== 2) return;
-      const { state, helpers } = _ctx();
-      if (!state || state.activeTab !== 'text') return;
-      const layer = _activeLayer(state);
-      if (!layer) return;
-      e.preventDefault();
-      const t1 = e.touches[0], t2 = e.touches[1];
-      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-      const angle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
-      if (!_pinchState || _pinchState.layerId !== layer.id) {
-        _pinchState = {
-          layerId: layer.id,
-          startDist: dist,
-          startAngle: angle,
-          startSize: layer.size || 6,
-          startRot: layer.rot || 0,
-        };
-        return;
-      }
-      const ratio = dist / _pinchState.startDist;
-      layer.size = Math.max(2, Math.min(24, _pinchState.startSize * ratio));
-      const angleDelta = (angle - _pinchState.startAngle) * 180 / Math.PI;
-      layer.rot = _pinchState.startRot + angleDelta;
-      if (helpers && helpers.redraw) helpers.redraw();
-    }, { passive: false });
+  function _onPointerDown(canvas, e, lastTap) {
+    const { state, helpers } = _ctx();
+    if (!state || state.activeTab !== 'text') return lastTap;
+    const layer = _hitTest(canvas, state, e);
+    if (!layer) return lastTap;
+    e.preventDefault();
+    const now = Date.now();
+    if (now - lastTap < 350) { _editInline(layer, helpers); return 0; }
+    _selectLayer(state, helpers, layer);
+    _dragState = _dragStart(canvas, e, layer);
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) { void _; }
+    return now;
+  }
 
-    canvas.addEventListener('touchend', (e) => {
-      const { helpers } = _ctx();
-      if (e.touches.length < 2 && _pinchState) {
-        if (helpers && helpers.pushHistory) helpers.pushHistory();
-        _pinchState = null;
-      }
-    });
+  function _dragStart(canvas, e, layer) {
+    return {
+      layerId: layer.id, startX: e.clientX, startY: e.clientY,
+      startLayerX: layer.x, startLayerY: layer.y,
+      canvasRect: canvas.getBoundingClientRect(), pointerId: e.pointerId,
+    };
+  }
+
+  function _onPointerMove(e) {
+    if (!_dragState || e.pointerId !== _dragState.pointerId) return;
+    const { state, helpers } = _ctx();
+    if (!state) return;
+    e.preventDefault();
+    const layer = state.layers.find(l => l.id === _dragState.layerId);
+    if (!layer) return;
+    layer.x = Math.max(0, Math.min(1, _dragState.startLayerX + (e.clientX - _dragState.startX) / _dragState.canvasRect.width));
+    layer.y = Math.max(0, Math.min(1, _dragState.startLayerY + (e.clientY - _dragState.startY) / _dragState.canvasRect.height));
+    state.text = layer;
+    if (window.PhotoEditorLayers && window.PhotoEditorLayers.syncText) window.PhotoEditorLayers.syncText(state);
+    if (helpers && helpers.redraw) helpers.redraw();
+  }
+
+  function _onPointerEnd(e) {
+    const { helpers } = _ctx();
+    if (_dragState && e.pointerId === _dragState.pointerId) {
+      if (helpers && helpers.pushHistory) helpers.pushHistory();
+      _dragState = null;
+    }
+  }
+
+  function _bindPinch(canvas) {
+    canvas.addEventListener('touchmove', (e) => _onPinchMove(e), { passive: false });
+    canvas.addEventListener('touchend', (e) => _onPinchEnd(e));
+  }
+
+  function _onPinchMove(e) {
+    if (e.touches.length !== 2) return;
+    const { state, helpers } = _ctx();
+    if (!state || state.activeTab !== 'text') return;
+    const layer = _activeLayer(state);
+    if (!layer) return;
+    e.preventDefault();
+    const next = _pinchNext(layer, e.touches[0], e.touches[1]);
+    if (!next) return;
+    layer.size = next.size;
+    layer.rot = next.rot;
+    if (helpers && helpers.redraw) helpers.redraw();
+  }
+
+  function _pinchNext(layer, t1, t2) {
+    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+    const angle = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX);
+    if (!_pinchState || _pinchState.layerId !== layer.id) {
+      _pinchState = { layerId: layer.id, startDist: dist, startAngle: angle, startSize: layer.size || 6, startRot: layer.rot || 0 };
+      return null;
+    }
+    return {
+      size: Math.max(2, Math.min(24, _pinchState.startSize * (dist / _pinchState.startDist))),
+      rot: _pinchState.startRot + (angle - _pinchState.startAngle) * 180 / Math.PI,
+    };
+  }
+
+  function _onPinchEnd(e) {
+    const { helpers } = _ctx();
+    if (e.touches.length < 2 && _pinchState) {
+      if (helpers && helpers.pushHistory) helpers.pushHistory();
+      _pinchState = null;
+    }
   }
 
   function _activeLayer(state) {

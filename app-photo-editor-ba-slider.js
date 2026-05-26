@@ -1,22 +1,7 @@
-/* 사진 편집기 — Before/After 인터랙티브 슬라이더 (PE-2, 2026-05-19)
-   md 기준 핵심 기능.
-
-   기능:
-     • 전/후 사진을 하나의 캔버스에 겹치고, 드래그 가능한 구분선으로 비교
-     • 수직(좌우) / 수평(상하) 모드 전환
-     • 터치 & 마우스 드래그 지원
-     • 라벨 커스터마이징 (BEFORE/AFTER 또는 전/후)
-     • 구분선 스타일 3종 (라인/그라데이션/없음)
-     • PNG/JPG export — 현재 슬라이더 위치 그대로 저장
-     • 인스타 미리보기 연동
-
-   등록: PhotoEditor._internal.registerTabPanel('ba', ...)
-   TABS 에 ba 탭이 없으면 동적으로 추가.
-*/
+/* 사진 편집기 — Before/After 인터랙티브 슬라이더 */
 (function () {
   'use strict';
 
-  // ── 상태 ──
   let _baState = {
     enabled: false,
     secondImg: null,
@@ -31,65 +16,24 @@
   };
 
   let _dragging = false;
-  let _overlayEl = null;
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
   }
 
-  // ── 패널 HTML ──
-  function _panelHTML(state) {
+  function _panelHTML() {
     const ba = _baState;
-    const modeBtn = (m, label) =>
-      `<button type="button" class="pe-chip-btn${ba.mode===m?' on':''}" data-ba-mode="${m}">${label}</button>`;
-    const styleBtn = (s, label) =>
-      `<button type="button" class="pe-chip-btn${ba.dividerStyle===s?' on':''}" data-ba-style="${s}">${label}</button>`;
-
     return `
       <div class="pe-field-label">Before / After 비교</div>
       <div class="pe-panel-row">
         <button type="button" class="pe-action-btn" data-ba-pick>📷 비교할 사진 고르기 (${ba.secondImg ? '선택됨 ✓' : '미선택'})</button>
       </div>
       <input type="file" id="baPicker" accept="image/*" style="display:none" />
-
-      <div class="pe-field-label" style="margin-top:12px;">비교 방향</div>
-      <div class="pe-panel-row pe-panel-grid-2">
-        ${modeBtn('vertical','⇋ 좌우 비교')}
-        ${modeBtn('horizontal','⇵ 상하 비교')}
-      </div>
-
-      <div class="pe-field-label" style="margin-top:10px;">구분선 스타일</div>
-      <div class="pe-panel-row pe-panel-grid-3" style="display:flex;gap:6px;">
-        ${styleBtn('line','라인')}
-        ${styleBtn('gradient','그라데이션')}
-        ${styleBtn('none','없음')}
-      </div>
-
-      <label class="pe-field" style="margin-top:10px;">
-        <span>왼쪽/위 라벨</span>
-        <input type="text" class="pe-input" data-ba-left value="${_esc(ba.leftLabel)}" maxlength="12" />
-      </label>
-      <label class="pe-field">
-        <span>오른쪽/아래 라벨</span>
-        <input type="text" class="pe-input" data-ba-right value="${_esc(ba.rightLabel)}" maxlength="12" />
-      </label>
-
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">
-        <button type="button" class="pe-chip-btn${ba.labelVisible?' on':''}" data-ba-label-toggle>
-          라벨 ${ba.labelVisible ? '숨기기' : '보이기'}
-        </button>
-        <button type="button" class="pe-chip-btn" data-ba-animate>✨ 슬라이드 애니메이션</button>
-      </div>
-
-      <label class="pe-slider" style="margin-top:10px;">
-        <div class="pe-slider-head">
-          <span>슬라이더 위치</span>
-          <span class="pe-slider-val">${Math.round(ba.position * 100)}%</span>
-        </div>
-        <input type="range" min="0" max="100" value="${Math.round(ba.position * 100)}" data-ba-pos />
-      </label>
-
+      ${_modeSection(ba)}
+      ${_styleSection(ba)}
+      ${_labelSection(ba)}
+      ${_controlSection(ba)}
       <div class="pe-panel-row" style="margin-top:10px;">
         <button type="button" class="pe-action-btn" data-ba-export>💾 현재 비교 화면 저장</button>
       </div>
@@ -100,78 +44,87 @@
       </div>`;
   }
 
-  // ── 패널 바인딩 ──
+  function _modeSection(ba) {
+    const btn = (m, label) => `<button type="button" class="pe-chip-btn${ba.mode === m ? ' on' : ''}" data-ba-mode="${m}">${label}</button>`;
+    return `<div class="pe-field-label" style="margin-top:12px;">비교 방향</div>
+      <div class="pe-panel-row pe-panel-grid-2">${btn('vertical', '⇋ 좌우 비교')}${btn('horizontal', '⇵ 상하 비교')}</div>`;
+  }
+
+  function _styleSection(ba) {
+    const btn = (s, label) => `<button type="button" class="pe-chip-btn${ba.dividerStyle === s ? ' on' : ''}" data-ba-style="${s}">${label}</button>`;
+    return `<div class="pe-field-label" style="margin-top:10px;">구분선 스타일</div>
+      <div class="pe-panel-row pe-panel-grid-3" style="display:flex;gap:6px;">${btn('line', '라인')}${btn('gradient', '그라데이션')}${btn('none', '없음')}</div>`;
+  }
+
+  function _labelSection(ba) {
+    return `<label class="pe-field" style="margin-top:10px;"><span>왼쪽/위 라벨</span><input type="text" class="pe-input" data-ba-left value="${_esc(ba.leftLabel)}" maxlength="12" /></label>
+      <label class="pe-field"><span>오른쪽/아래 라벨</span><input type="text" class="pe-input" data-ba-right value="${_esc(ba.rightLabel)}" maxlength="12" /></label>`;
+  }
+
+  function _controlSection(ba) {
+    return `<div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">
+        <button type="button" class="pe-chip-btn${ba.labelVisible ? ' on' : ''}" data-ba-label-toggle>라벨 ${ba.labelVisible ? '숨기기' : '보이기'}</button>
+        <button type="button" class="pe-chip-btn" data-ba-animate>✨ 슬라이드 애니메이션</button>
+      </div>
+      <label class="pe-slider" style="margin-top:10px;"><div class="pe-slider-head"><span>슬라이더 위치</span><span class="pe-slider-val">${Math.round(ba.position * 100)}%</span></div><input type="range" min="0" max="100" value="${Math.round(ba.position * 100)}" data-ba-pos /></label>`;
+  }
+
   function _bindPanel(panel, state, helpers) {
-    const { redraw, pushHistory, toast, renderPanel } = helpers;
+    _bindPhotoPick(panel, helpers);
+    _bindModeStyle(panel, helpers);
+    _bindLabels(panel, helpers);
+    _bindControls(panel, state, helpers);
+    _attachCanvasDrag(helpers);
+  }
 
-    // 사진 고르기
-    panel.querySelector('[data-ba-pick]')?.addEventListener('click', () => {
-      panel.querySelector('#baPicker')?.click();
-    });
+  function _bindPhotoPick(panel, helpers) {
+    panel.querySelector('[data-ba-pick]')?.addEventListener('click', () => panel.querySelector('#baPicker')?.click());
     panel.querySelector('#baPicker')?.addEventListener('change', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (!f) return;
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        _baState.secondImg = img;
-        _baState.secondSrc = URL.createObjectURL(f);
-        _baState.enabled = true;
-        renderPanel(); redraw(); pushHistory();
-        toast('비교 사진 선택 완료');
-      };
-      img.onerror = () => toast('사진 로드 실패');
-      img.src = URL.createObjectURL(f);
+      const file = e.target.files && e.target.files[0];
+      if (file) _loadSecondImage(file, helpers);
     });
+  }
 
-    // 모드 전환
+  function _loadSecondImage(file, helpers) {
+    const src = URL.createObjectURL(file);
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      _baState.secondImg = img;
+      _baState.secondSrc = src;
+      _baState.enabled = true;
+      helpers.renderPanel(); helpers.redraw(); helpers.pushHistory();
+      helpers.toast('비교 사진 선택 완료');
+    };
+    img.onerror = () => helpers.toast('사진 로드 실패');
+    img.src = src;
+  }
+
+  function _bindModeStyle(panel, helpers) {
     panel.querySelectorAll('[data-ba-mode]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _baState.mode = btn.dataset.baMode;
-        renderPanel(); redraw();
-      });
+      btn.addEventListener('click', () => { _baState.mode = btn.dataset.baMode; helpers.renderPanel(); helpers.redraw(); });
     });
-
-    // 구분선 스타일
     panel.querySelectorAll('[data-ba-style]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _baState.dividerStyle = btn.dataset.baStyle;
-        renderPanel(); redraw();
-      });
+      btn.addEventListener('click', () => { _baState.dividerStyle = btn.dataset.baStyle; helpers.renderPanel(); helpers.redraw(); });
     });
+  }
 
-    // 라벨 입력
-    panel.querySelector('[data-ba-left]')?.addEventListener('input', (e) => {
-      _baState.leftLabel = e.target.value; redraw();
-    });
-    panel.querySelector('[data-ba-right]')?.addEventListener('input', (e) => {
-      _baState.rightLabel = e.target.value; redraw();
-    });
-
-    // 라벨 토글
+  function _bindLabels(panel, helpers) {
+    panel.querySelector('[data-ba-left]')?.addEventListener('input', (e) => { _baState.leftLabel = e.target.value; helpers.redraw(); });
+    panel.querySelector('[data-ba-right]')?.addEventListener('input', (e) => { _baState.rightLabel = e.target.value; helpers.redraw(); });
     panel.querySelector('[data-ba-label-toggle]')?.addEventListener('click', () => {
       _baState.labelVisible = !_baState.labelVisible;
-      renderPanel(); redraw();
+      helpers.renderPanel(); helpers.redraw();
     });
+  }
 
-    // 슬라이더 위치
+  function _bindControls(panel, state, helpers) {
     panel.querySelector('[data-ba-pos]')?.addEventListener('input', (e) => {
       _baState.position = +e.target.value / 100;
-      redraw();
+      helpers.redraw();
     });
-
-    // 애니메이션
-    panel.querySelector('[data-ba-animate]')?.addEventListener('click', () => {
-      _animateSlider(redraw);
-    });
-
-    // 저장
-    panel.querySelector('[data-ba-export]')?.addEventListener('click', () => {
-      _exportBA(state, helpers);
-    });
-
-    // 캔버스 드래그 이벤트 연결
-    _attachCanvasDrag(helpers);
+    panel.querySelector('[data-ba-animate]')?.addEventListener('click', () => _animateSlider(helpers.redraw));
+    panel.querySelector('[data-ba-export]')?.addEventListener('click', () => _exportBA(state, helpers));
   }
 
   // ── 캔버스 드래그 ──
@@ -239,107 +192,94 @@
     requestAnimationFrame(frame);
   }
 
-  // ── 캔버스 합성 (drawHook) ──
-  function _drawBA(ctx, dw, dh, _beautyState, helpers) {
-    // 이 훅은 beauty 와 다른 방식으로 호출 — 아래 _redrawOverride 에서 직접 사용
-  }
-
   // BA 모드 활성화 시 _redraw 를 오버라이드하는 대신, template drawHook 패턴 활용
   function _drawBAComposite(cv, img, state, helpers) {
     if (!_baState.enabled || !_baState.secondImg || !img) return;
-
-    const W = Math.min(1080, img.naturalWidth || img.width);
-    const ratio = W / (img.naturalWidth || img.width);
-    const H = Math.round((img.naturalHeight || img.height) * ratio);
-
-    cv.width = W; cv.height = H;
+    const size = _baSize(img);
+    const W = size.W, H = size.H;
+    cv.width = W;
+    cv.height = H;
     const ctx = cv.getContext('2d');
     ctx.clearRect(0, 0, W, H);
-
-    const pos = _baState.position;
-    const isV = _baState.mode === 'vertical';
-
-    // 원본 (BEFORE) — 전체 그리기
     ctx.drawImage(_baState.secondImg, 0, 0, W, H);
+    _drawAfterClip(ctx, img, state, helpers, W, H);
+    _drawDivider(ctx, W, H, _baState.position, _baState.mode === 'vertical');
+    if (_baState.labelVisible) _drawLabel(ctx, W, H, _baState.position, _baState.mode === 'vertical');
+    if (state.watermark && state.watermark.value && helpers && typeof helpers.drawWatermark === 'function') {
+      helpers.drawWatermark(ctx, W, H, state.watermark);
+    }
+  }
 
-    // 편집본 (AFTER) — 클리핑
+  function _baSize(img) {
+    const W = Math.min(1080, img.naturalWidth || img.width);
+    const ratio = W / (img.naturalWidth || img.width);
+    return { W, H: Math.round((img.naturalHeight || img.height) * ratio) };
+  }
+
+  function _drawAfterClip(ctx, img, state, helpers, W, H) {
+    const pos = _baState.position, isV = _baState.mode === 'vertical';
     ctx.save();
     ctx.beginPath();
-    if (isV) {
-      ctx.rect(Math.round(W * pos), 0, W, H);
-    } else {
-      ctx.rect(0, Math.round(H * pos), W, H);
-    }
+    if (isV) ctx.rect(Math.round(W * pos), 0, W, H);
+    else ctx.rect(0, Math.round(H * pos), W, H);
     ctx.clip();
-
-    // 편집 필터 적용 (tune/beauty 등)
-    const a = state.adjust || {};
-    const temp = a.temperature || 0;
-    const sepia = Math.max(0, temp) / 100;
-    const contrast = 100 + Math.max(0, -temp) * 0.3;
-    ctx.filter = `brightness(${a.brightness||100}%) saturate(${a.saturate||100}%) contrast(${contrast}%) sepia(${sepia})`;
+    const a = state.adjust || {}, temp = a.temperature || 0;
+    const sepia = Math.max(0, temp) / 100, contrast = 100 + Math.max(0, -temp) * 0.3;
+    ctx.filter = `brightness(${a.brightness || 100}%) saturate(${a.saturate || 100}%) contrast(${contrast}%) sepia(${sepia})`;
     ctx.drawImage(img, 0, 0, W, H);
     ctx.filter = 'none';
-
-    // 뷰티 보정 적용
     if (helpers && typeof helpers.applyDrawHook === 'function') {
       try { helpers.applyDrawHook('beauty', ctx, W, H, state.beauty, helpers); } catch (_e) { void _e; }
     }
     ctx.restore();
+  }
 
-    // ── 구분선 ──
-    if (_baState.dividerStyle !== 'none') {
-      ctx.save();
-      const lineW = _baState.dividerStyle === 'gradient' ? 6 : 3;
+  function _drawDivider(ctx, W, H, pos, isV) {
+    if (_baState.dividerStyle === 'none') return;
+    ctx.save();
+    if (isV) _drawVerticalDivider(ctx, W, H, pos);
+    else _drawHorizontalDivider(ctx, W, H, pos);
+    ctx.restore();
+  }
 
-      if (isV) {
-        const x = Math.round(W * pos);
-        if (_baState.dividerStyle === 'gradient') {
-          const grad = ctx.createLinearGradient(x - 12, 0, x + 12, 0);
-          grad.addColorStop(0, 'rgba(255,255,255,0)');
-          grad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
-          grad.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = grad;
-          ctx.fillRect(x - 12, 0, 24, H);
-        } else {
-          ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-          ctx.lineWidth = lineW;
-          ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          ctx.shadowBlur = 4;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        }
-        // 드래그 핸들 (원형)
-        _drawHandle(ctx, x, H / 2, isV);
-      } else {
-        const y = Math.round(H * pos);
-        if (_baState.dividerStyle === 'gradient') {
-          const grad = ctx.createLinearGradient(0, y - 12, 0, y + 12);
-          grad.addColorStop(0, 'rgba(255,255,255,0)');
-          grad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
-          grad.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, y - 12, W, 24);
-        } else {
-          ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-          ctx.lineWidth = lineW;
-          ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          ctx.shadowBlur = 4;
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-        }
-        _drawHandle(ctx, W / 2, y, isV);
-      }
-      ctx.restore();
+  function _drawVerticalDivider(ctx, W, H, pos) {
+    const x = Math.round(W * pos);
+    if (_baState.dividerStyle === 'gradient') {
+      _drawDividerGradient(ctx, x - 12, 0, x + 12, 0, x - 12, 0, 24, H);
+    } else {
+      _strokeDivider(ctx, x, 0, x, H);
     }
+    _drawHandle(ctx, x, H / 2, true);
+  }
 
-    // ── 라벨 ──
-    if (_baState.labelVisible) {
-      _drawLabel(ctx, W, H, pos, isV);
+  function _drawHorizontalDivider(ctx, W, H, pos) {
+    const y = Math.round(H * pos);
+    if (_baState.dividerStyle === 'gradient') {
+      _drawDividerGradient(ctx, 0, y - 12, 0, y + 12, 0, y - 12, W, 24);
+    } else {
+      _strokeDivider(ctx, 0, y, W, y);
     }
+    _drawHandle(ctx, W / 2, y, false);
+  }
 
-    // ── 워터마크 ──
-    if (state.watermark && state.watermark.value && helpers && typeof helpers.drawWatermark === 'function') {
-      helpers.drawWatermark(ctx, W, H, state.watermark);
-    }
+  function _drawDividerGradient(ctx, x0, y0, x1, y1, rx, ry, rw, rh) {
+    const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(rx, ry, rw, rh);
+  }
+
+  function _strokeDivider(ctx, x0, y0, x1, y1) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
   }
 
   function _drawHandle(ctx, x, y, isVertical) {
@@ -464,8 +404,14 @@
   function _register() {
     if (!window.PhotoEditor || !window.PhotoEditor._internal) return false;
     const internal = window.PhotoEditor._internal;
+    _ensureBaTab();
+    internal.registerTabPanel('ba', { html: _panelHTML, bind: _bindPanel });
+    _bindBaRedraw(internal);
+    _wrapRedraw(internal);
+    return true;
+  }
 
-    // 'ba' 탭을 TABS 에 동적 추가 — 'template' 앞에 삽입
+  function _ensureBaTab() {
     const tabsNav = document.getElementById('peTabs');
     if (tabsNav && !tabsNav.querySelector('[data-pe-tab="ba"]')) {
       const templateTab = tabsNav.querySelector('[data-pe-tab="template"]');
@@ -476,71 +422,46 @@
       baBtn.textContent = 'B/A 비교';
       if (templateTab) tabsNav.insertBefore(baBtn, templateTab);
       else tabsNav.appendChild(baBtn);
-
-      // 탭 클릭 이벤트 — 기존 sheet 의 click delegate 가 data-pe-tab 처리
-      // 추가 클릭 핸들러 불필요 (메인 모듈의 _bindSheet 에서 처리)
     }
+  }
 
-    // 패널 등록
-    internal.registerTabPanel('ba', { html: _panelHTML, bind: _bindPanel });
-
-    // drawHook 등록 — 'ba' 탭 활성화 시에만 합성
-    // template drawHook 패턴: _drawHooks['template'] → _redraw 에서 호출됨.
-    // ba 는 template 과 동일 레벨에서 동작. activeTab === 'ba' 면 합성.
-    // 단, 기존 drawHook 은 'beauty'와 'template' 만 지원. ba 용으로 우회.
-    //
-    // 방법: template drawHook 을 래핑하여 ba 탭일 때 ba 합성 수행
-    const origTemplateHook = internal.getState && null; // 기존 template hook 보존
-
-    // ba 전용 redraw 오버라이드 — _redraw 이벤트 리스닝
+  function _bindBaRedraw(internal) {
+    if (internal._baRedrawBound) return;
+    internal._baRedrawBound = true;
     window.addEventListener('itdasy:pe:redraw', () => {
-      const state = internal.getState();
-      if (!state || state.activeTab !== 'ba' || !_baState.enabled) return;
-      const cv = document.getElementById('peCanvas');
-      if (!cv || !state.originalImg) return;
-      _drawBAComposite(cv, state.originalImg, state, internal.helpers);
+      _drawIfActive(internal);
     });
-
-    // _redraw 에 훅 — 기존 _redraw 끝나면 ba 탭이면 덮어씀
-    // 더 안전한 방법: 50ms 마다 체크하여 ba 탭 활성화 시 캔버스 다시 그림
     let _lastTab = null;
-    const _checkInterval = setInterval(() => {
+    setInterval(() => {
       try {
         const state = internal.getState();
         if (!state) return;
         if (state.activeTab === 'ba' && _baState.enabled && _baState.secondImg) {
-          if (_lastTab !== 'ba') {
-            // 탭 전환 직후 — 즉시 BA 합성
-            const cv = document.getElementById('peCanvas');
-            if (cv && state.originalImg) {
-              _drawBAComposite(cv, state.originalImg, state, internal.helpers);
-            }
-          }
+          if (_lastTab !== 'ba') _drawIfActive(internal);
           _lastTab = 'ba';
         } else {
           _lastTab = state.activeTab;
         }
       } catch (_e) { void _e; }
     }, 100);
+  }
 
-    // scheduleRedraw 를 래핑하여 ba 탭일 때 BA 합성 트리거
-    const origSchedule = internal.helpers.scheduleRedraw;
+  function _drawIfActive(internal) {
+    const state = internal.getState();
+    if (!state || state.activeTab !== 'ba' || !_baState.enabled || !_baState.secondImg) return;
+    const cv = document.getElementById('peCanvas');
+    if (cv && state.originalImg) _drawBAComposite(cv, state.originalImg, state, internal.helpers);
+  }
+
+  function _wrapRedraw(internal) {
+    if (internal.helpers._baRedrawWrapped) return;
     const origRedraw = internal.helpers.redraw;
+    internal.helpers._baRedrawWrapped = true;
 
     internal.helpers.redraw = function () {
       origRedraw();
-      try {
-        const state = internal.getState();
-        if (state && state.activeTab === 'ba' && _baState.enabled && _baState.secondImg) {
-          const cv = document.getElementById('peCanvas');
-          if (cv && state.originalImg) {
-            _drawBAComposite(cv, state.originalImg, state, internal.helpers);
-          }
-        }
-      } catch (_e) { void _e; }
+      try { _drawIfActive(internal); } catch (_e) { void _e; }
     };
-
-    return true;
   }
 
   // 폴링 등록
