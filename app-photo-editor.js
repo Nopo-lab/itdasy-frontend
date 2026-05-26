@@ -15,15 +15,21 @@
   'use strict';
 
   const TABS = [
-    { id: 'auto', label: '자동' }, { id: 'tune', label: '보정' },
-    { id: 'beauty', label: '뷰티' }, { id: 'brush', label: '부분 보정' },
-    { id: 'selective', label: '셀렉티브' }, { id: 'pro', label: '프로' },
-    { id: 'relight', label: '조명' }, { id: 'film', label: '필름' },
-    { id: 'bg', label: '누끼·배경' }, { id: 'ba', label: 'B/A 비교' },
-    { id: 'template', label: '템플릿' },
-    { id: 'text', label: '텍스트' }, { id: 'brand', label: '브랜드' },
-    { id: 'ai', label: 'AI' },
-    { id: 'export', label: '내보내기' },
+    { id: 'auto', label: '자동', icon: 'wand-sparkles' },
+    { id: 'tune', label: '보정', icon: 'sun' },
+    { id: 'beauty', label: '뷰티', icon: 'sparkles' },
+    { id: 'brush', label: '리터치', icon: 'pen-line' },
+    { id: 'selective', label: '셀렉티브', icon: 'droplet' },
+    { id: 'pro', label: '프로', icon: 'layers' },
+    { id: 'relight', label: '조명', icon: 'sun' },
+    { id: 'film', label: '필름', icon: 'film' },
+    { id: 'bg', label: '배경', icon: 'image' },
+    { id: 'ba', label: 'B/A', icon: 'eye' },
+    { id: 'template', label: '템플릿', icon: 'layers' },
+    { id: 'text', label: '텍스트', icon: 'edit-3' },
+    { id: 'brand', label: '브랜드', icon: 'tag' },
+    { id: 'ai', label: 'AI', icon: 'bot' },
+    { id: 'export', label: '저장', icon: 'download' },
   ];
 
   let _state = null;                  // 합성 상태 (단일 세션)
@@ -123,11 +129,10 @@
     sheet.style.display = 'none';
     sheet.innerHTML = `<div class="pe-root" role="dialog" aria-modal="true" aria-label="사진 편집기">
       <header class="pe-topbar">
-        <button type="button" class="pe-back-btn" data-pe-act="close" aria-label="편집기 닫고 뒤로가기"><span class="pe-back-arrow" aria-hidden="true">‹</span><span class="pe-back-label">뒤로</span></button>
-        <div class="pe-title">사진 편집기</div>
-        <button type="button" class="pe-iconbtn" data-pe-act="compare" aria-label="원본 비교">원본</button>
-        <button type="button" class="pe-iconbtn" data-pe-act="undo" aria-label="되돌리기">⤺</button>
-        <button type="button" class="pe-iconbtn" data-pe-act="redo" aria-label="다시 실행">⤻</button>
+        <button type="button" class="pe-back-btn" data-pe-act="close" aria-label="뒤로"><svg style="width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-chevron-left"/></svg></button>
+        <div class="pe-topbar-spacer"></div>
+        <button type="button" class="pe-iconbtn" data-pe-act="undo" aria-label="되돌리기"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-rotate-ccw"/></svg></button>
+        <button type="button" class="pe-topbar-chip" data-pe-act="compare">원본</button>
         <button type="button" class="pe-btn-primary" data-pe-act="save">저장</button></header>
       <main class="pe-stage"><div class="pe-canvas-wrap">
         <canvas id="peCanvas" class="pe-canvas"></canvas>
@@ -135,7 +140,7 @@
           <div style="font-size:13px;color:#888;margin-bottom:10px;">편집할 사진을 골라주세요</div>
           <button type="button" class="pe-btn-primary" data-pe-act="pick">사진 고르기</button>
           <input type="file" id="pePicker" accept="image/*" style="display:none" /></div></div></main>
-      <nav class="pe-tabs" id="peTabs">${TABS.map(t => `<button type="button" class="pe-tab" data-pe-tab="${t.id}">${_esc(t.label)}</button>`).join('')}</nav>
+      <nav class="pe-tabs" id="peTabs">${TABS.map(t => `<button type="button" class="pe-tab" data-pe-tab="${t.id}"><svg class="pe-tab-icon"><use href="#ic-${t.icon}"/></svg><span>${_esc(t.label)}</span></button>`).join('')}</nav>
       <section class="pe-panel" id="pePanel"></section></div>`;
     document.body.appendChild(sheet);
     _bindSheet(sheet);

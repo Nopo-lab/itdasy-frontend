@@ -19,30 +19,31 @@
 
 .pe-topbar {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px;
-  background: rgba(20, 20, 26, 0.95);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 8px 12px;
+  padding-top: max(8px, env(safe-area-inset-top, 8px));
+  background: transparent;
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
   flex-shrink: 0;
 }
-.pe-title { flex: 1; font-size: 14px; font-weight: 700; }
+.pe-topbar-spacer { flex: 1; }
+.pe-topbar-chip {
+  background: rgba(255,255,255,0.12);
+  color: #fff; border: none; border-radius: 16px;
+  padding: 6px 14px; font-size: 12px; font-weight: 600;
+  cursor: pointer; backdrop-filter: blur(8px);
+}
 .pe-back-btn {
-  display: flex; align-items: center; gap: 4px;
-  background: rgba(255,255,255,0.10);
-  color: #f7f7f9;
-  border: none;
-  border-radius: 12px;
-  padding: 8px 12px 8px 8px;
-  font-size: 13px; font-weight: 600;
+  display: flex; align-items: center;
+  background: rgba(0,0,0,0.3);
+  color: #fff; border: none;
+  border-radius: 50%;
+  width: 36px; height: 36px;
+  justify-content: center;
   cursor: pointer;
+  backdrop-filter: blur(8px);
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(255,255,255,0.22);
 }
-.pe-back-btn:active { transform: scale(.96); background: rgba(255,255,255,0.16); }
-.pe-back-arrow {
-  font-size: 22px; font-weight: 800;
-  line-height: 1; transform: translateY(-1px);
-}
-.pe-back-label { letter-spacing: 0.2px; }
+.pe-back-btn:active { transform: scale(.93); }
 .pe-iconbtn {
   background: rgba(255,255,255,0.07);
   color: #f7f7f9;
@@ -97,32 +98,40 @@
 }
 
 .pe-tabs {
-  display: flex; gap: 4px;
+  display: flex; gap: 2px;
   overflow: auto hidden;
-  background: rgba(20,20,26,0.95);
+  background: rgba(20,20,26,0.97);
   border-top: 1px solid rgba(255,255,255,0.06);
-  padding: 8px 10px;
+  padding: 6px 6px env(safe-area-inset-bottom, 0);
   scrollbar-width: none;
   flex-shrink: 0;
 }
 .pe-tabs::-webkit-scrollbar { display: none; }
 .pe-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
   background: transparent;
-  color: #b9b9c2;
-  border: 1px solid rgba(255,255,255,0.08);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 12px; font-weight: 600;
+  color: #8a8a96;
+  border: none;
+  padding: 6px 10px 4px;
+  border-radius: 10px;
+  font-size: 10px; font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   touch-action: manipulation;
-  -webkit-tap-highlight-color: rgba(255,255,255,0.18);
+  -webkit-tap-highlight-color: transparent;
+  min-width: 52px;
+  transition: color 0.15s, background 0.15s;
+}
+.pe-tab-icon {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
 }
 .pe-tab.on {
-  background: rgba(213,138,149,0.18);
-  color: #fff;
-  border-color: rgba(213,138,149,0.5);
+  background: rgba(213,138,149,0.12);
+  color: #D58A95;
 }
+.pe-tab.on .pe-tab-icon { stroke-width: 2.2; }
 
 .pe-panel {
   background: #15151c;
