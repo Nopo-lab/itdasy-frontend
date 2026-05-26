@@ -1874,7 +1874,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260527-v308-photo-editor-upgrade';
+window.APP_BUILD = '20260527-v309-sw-error-fix';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -1924,12 +1924,21 @@ document.addEventListener('DOMContentLoaded', () => {
 const _isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
 if ('serviceWorker' in navigator && !_isCapacitor) {
+  const _safeSwUpdate = (reg) => {
+    try {
+      const p = reg && reg.update && reg.update();
+      if (p && typeof p.catch === 'function') p.catch(err => console.warn('[SW] 업데이트 확인 실패:', err?.message || err));
+    } catch (err) {
+      console.warn('[SW] 업데이트 확인 실패:', err?.message || err);
+    }
+  };
+
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(reg => {
       const u = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
       if (u && !u.endsWith('/sw.js')) {
         console.warn('[SW] 구 SW 언레지스터:', u);
-        reg.unregister();
+        reg.unregister().catch(() => {});
       }
     });
   }).catch(() => {});
@@ -1939,7 +1948,7 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
   navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' })
     .then(reg => {
       // 페이지 진입 시마다 강제 update 시도 (sw.js fresh fetch + 새 SW 발견 시 install)
-      try { reg.update(); } catch (_) { /* ignore */ }
+      _safeSwUpdate(reg);
       const askVersion = () => {
         const ch = new MessageChannel();
         ch.port1.onmessage = (ev) => {
@@ -1956,7 +1965,7 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
       });
       navigator.serviceWorker.addEventListener('controllerchange', askVersion);
       // 1시간마다 자동 update 시도 (사용자 앱 안 닫고 오래 쓰는 케이스)
-      setInterval(() => { try { reg.update(); } catch (_) { /* ignore */ } }, 60 * 60 * 1000);
+      setInterval(() => _safeSwUpdate(reg), 60 * 60 * 1000);
     })
     .catch(err => {
       console.warn('[SW] 등록 실패:', {
