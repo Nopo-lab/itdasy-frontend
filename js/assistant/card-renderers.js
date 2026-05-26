@@ -32,8 +32,9 @@
   }
 
   function renderDoneCard(deps, label) {
-    return `<div style="margin-top:6px;padding:12px;background:linear-gradient(135deg,hsl(145,45%,94%),hsl(145,45%,98%));border-radius:14px;border-left:3px solid hsl(145,50%,40%);">
-      <div style="font-size:13px;font-weight:800;color:hsl(145,50%,30%);display:inline-flex;align-items:center;gap:6px;">${svg(deps, 'ic-check-circle', 14)} ${esc(deps, label)}</div>
+    return `<div style="margin-top:8px;padding:12px 14px;background:var(--surface);border:0.5px solid var(--border);border-radius:14px;display:flex;align-items:center;gap:8px;">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${svg(deps, 'ic-check', 13)}</span>
+      <span style="font-size:12px;font-weight:700;color:#0F8746;">${esc(deps, label)}</span>
     </div>`;
   }
 
@@ -44,72 +45,82 @@
   }
 
   function unifiedRowState(deps, f, meta) {
+    // [2026-05-26] 아이콘 색 무채(var(--text-subtle)) — ic-wallet(매출)만 로즈 강조
+    const baseIconColor = (f.kind === 'create_revenue') ? 'var(--brand-strong)' : 'var(--text-subtle)';
     const base = { rowBg: 'transparent', rowOpacity: 1, statusRight: '' };
     if (f.it.status === 'done') {
       return {
-        rowBg: 'hsl(145,45%,97%)',
-        rowOpacity: 1,
-        statusRight: '<span style="font-size:10px;color:hsl(145,50%,35%);font-weight:700;flex-shrink:0;">완료</span>',
-        icon: `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:hsl(145,50%,40%);">${svg(deps, 'ic-check-circle', 14)}</span>`,
+        ...base,
+        statusRight: '<span style="font-size:10px;color:#0F8746;font-weight:700;flex-shrink:0;">완료</span>',
+        icon: `<span style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#0F8746;">${svg(deps, 'ic-check-circle', 14)}</span>`,
       };
     }
     if (f.it.status === 'failed') {
       return {
-        rowBg: 'hsl(0,70%,97%)',
-        rowOpacity: 1,
-        statusRight: '<span style="font-size:10px;color:hsl(0,70%,45%);font-weight:700;flex-shrink:0;">실패</span>',
-        icon: `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:hsl(0,70%,50%);">${svg(deps, 'ic-x', 14)}</span>`,
+        ...base,
+        statusRight: '<span style="font-size:10px;color:#E5484D;font-weight:700;flex-shrink:0;">실패</span>',
+        icon: `<span style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#E5484D;">${svg(deps, 'ic-x', 14)}</span>`,
       };
     }
     if (f.it.status === 'running') {
       return {
         ...base,
-        statusRight: `<span style="font-size:10px;color:${meta.color};font-weight:700;flex-shrink:0;">저장 중…</span>`,
-        icon: `<span style="width:16px;height:16px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;"><span style="display:inline-block;width:12px;height:12px;border:2px solid ${meta.color};border-top-color:transparent;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span></span>`,
+        statusRight: `<span style="font-size:10px;color:var(--text-muted);font-weight:700;flex-shrink:0;">저장 중…</span>`,
+        icon: `<span style="width:18px;height:18px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;"><span style="display:inline-block;width:12px;height:12px;border:2px solid #C5CBD2;border-top-color:#191F28;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span></span>`,
       };
     }
     return {
       ...base,
       rowOpacity: f.it.skipped ? 0.45 : 1,
       statusRight: f.it.skipped ? '<span style="font-size:10px;color:var(--text-subtle);font-weight:700;flex-shrink:0;">제외</span>' : '',
-      icon: `<span style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:${meta.color};">${svg(deps, meta.icon, 14)}</span>`,
+      icon: `<span style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:${baseIconColor};">${svg(deps, meta.icon, 16)}</span>`,
     };
   }
 
-  function unifiedRow(deps, f) {
+  function unifiedRow(deps, f, isLast) {
     const meta = metaFor(deps, f.kind);
     const state = unifiedRowState(deps, f, meta);
     const errorLine = (f.it.status === 'failed' && f.it.errorMsg)
-      ? `<div style="font-size:10px;color:hsl(0,60%,40%);margin-top:2px;line-height:1.4;">사유: ${esc(deps, f.it.errorMsg)}</div>`
+      ? `<div style="font-size:10px;color:#E5484D;margin-top:2px;line-height:1.4;">사유: ${esc(deps, f.it.errorMsg)}</div>`
       : '';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:${state.rowBg};border-radius:10px;opacity:${state.rowOpacity};">
+    const sep = isLast ? '' : 'border-bottom:0.5px solid var(--border);';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 2px;${sep}opacity:${state.rowOpacity};">
       ${state.icon}
-      <div style="flex:1;min-width:0;font-size:12px;color:#333;line-height:1.4;">
-        <span style="font-weight:700;color:${meta.color};">${esc(deps, meta.label)}</span>
-        <span style="color:#555;">: ${esc(deps, summaryFor(deps, f.it.action))}</span>
+      <div style="flex:1;min-width:0;font-size:13px;line-height:1.4;letter-spacing:-0.2px;">
+        <span style="font-weight:500;color:var(--text);">${esc(deps, meta.label)}</span>
+        <span style="color:var(--text-muted);"> · ${esc(deps, summaryFor(deps, f.it.action))}</span>
         ${errorLine}
       </div>
       ${state.statusRight}
     </div>`;
   }
 
-  function unifiedProgressLine(deps, progress, stats) {
+  function unifiedProgressLine(deps, historyIdx, progress, stats) {
+    // id 부여 — _runUnifiedAll 에서 textContent / width 부분갱신
+    let txt;
+    let pct = 0;
     if (progress) {
-      return `<div style="font-size:11px;color:hsl(350,60%,40%);font-weight:700;margin-top:2px;">${esc(deps, progress.label || '진행 중…')} · ${progress.current}/${progress.total}</div>`;
+      txt = (progress.label || '진행 중') + ' · ' + progress.current + '/' + progress.total;
+      pct = progress.total ? Math.round((progress.current / progress.total) * 100) : 0;
+    } else if (stats.allTouched) {
+      txt = `완료 ${stats.doneCount} · 실패 ${stats.failedCount} · 제외 ${stats.skippedCount}`;
+      pct = 100;
+    } else {
+      txt = `${stats.total}건을 한 번에 추가할 수 있어요`;
     }
-    if (stats.allTouched) {
-      return `<div style="font-size:11px;color:#888;margin-top:2px;">완료 ${stats.doneCount} · 실패 ${stats.failedCount} · 제외 ${stats.skippedCount}</div>`;
-    }
-    return `<div style="font-size:11px;color:#888;margin-top:2px;">${stats.total}건을 한 번에 추가할 수 있어요</div>`;
+    return `<div id="unifiedProgress-${historyIdx}" style="font-size:11px;color:var(--text-subtle);margin-top:2px;letter-spacing:-0.2px;">${esc(deps, txt)}</div>
+      <div id="unifiedProgressBar-${historyIdx}" style="margin-top:6px;height:3px;background:var(--surface-2);border-radius:2px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:var(--brand);transition:width .25s ease;"></div>
+      </div>`;
   }
 
-  function unifiedHeader(deps, progress, stats) {
-    return `<div style="padding:12px 14px;background:linear-gradient(135deg,hsl(340,80%,95%),hsl(340,100%,98%));border-radius:14px 14px 0 0;border-bottom:1px solid hsl(340,30%,90%);">
+  function unifiedHeader(deps, historyIdx, progress, stats) {
+    return `<div style="padding:12px 14px;background:var(--surface);">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:hsl(340,80%,60%);color:#fff;">${svg(deps, 'ic-layers', 16)}</span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;color:var(--text-subtle);"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-check-circle"/></svg></span>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:800;color:hsl(340,60%,35%);">한 번에 추가할 내용 <span style="color:hsl(340,80%,50%);">(${stats.total}건)</span></div>
-          ${unifiedProgressLine(deps, progress, stats)}
+          <div style="font-size:13px;font-weight:500;color:var(--text);letter-spacing:-0.2px;">한 번에 추가할 내용 <span style="color:var(--text-subtle);font-weight:400;">(${stats.total}건)</span></div>
+          ${unifiedProgressLine(deps, historyIdx, progress, stats)}
         </div>
       </div>
     </div>`;
@@ -121,17 +132,15 @@
     const touched = stats.doneCount + stats.failedCount + stats.skippedCount > 0;
     const runLabel = running ? `진행 중 ${progress.current}/${progress.total}`
       : (touched && hasRemaining ? `${svg(deps, 'ic-check', 13)} 남은 항목 추가하기` : `${svg(deps, 'ic-check', 13)} 전체 추가하기`);
-    const pulseClass = (!running && hasRemaining) ? 'asst-unified-pulse' : '';
-    return `<div style="display:flex;gap:6px;padding:10px 12px;">
-      <button data-unified-edit="${historyIdx}" ${running ? 'disabled' : ''} style="flex:1;padding:10px;border:1px solid hsl(340,60%,70%);border-radius:10px;background:#fff;color:hsl(340,60%,40%);font-weight:800;cursor:${running ? 'not-allowed' : 'pointer'};font-size:12px;opacity:${running ? 0.5 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">${svg(deps, 'ic-edit-3', 13)} 수정</button>
-      <button data-unified-runall="${historyIdx}" ${running || !hasRemaining ? 'disabled' : ''} class="${pulseClass}" style="flex:2;padding:10px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;font-weight:800;cursor:${running || !hasRemaining ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running || !hasRemaining ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;">${runLabel}</button>
+    return `<div id="unifiedControls-${historyIdx}" style="display:flex;gap:6px;padding:12px 14px 14px;">
+      <button data-unified-edit="${historyIdx}" ${running ? 'disabled' : ''} style="flex:1;padding:11px;border:0.5px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text-muted);font-weight:600;cursor:${running ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running ? 0.5 : 1};">수정</button>
+      <button data-unified-runall="${historyIdx}" ${running || !hasRemaining ? 'disabled' : ''} class="asst-unified-runbtn" style="flex:2;padding:11px;border:none;border-radius:10px;background:#3D434D;color:#FFFFFF;font-weight:700;cursor:${running || !hasRemaining ? 'not-allowed' : 'pointer'};font-size:13px;opacity:${running || !hasRemaining ? 0.6 : 1};display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">${runLabel}</button>
     </div>`;
   }
 
   function unifiedStyle() {
     return `<style>
-      @keyframes asst-unified-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(213,138,149,0.55); } 50% { box-shadow: 0 0 0 6px rgba(213,138,149,0); } }
-      .asst-unified-pulse { animation: asst-unified-pulse 1.8s ease-in-out infinite; }
+      .asst-unified-runbtn:hover:not(:disabled) { background: #4A5260 !important; }
       @keyframes asst-spin { to { transform: rotate(360deg); } }
     </style>`;
   }
@@ -141,10 +150,10 @@
     const stats = unifiedStats(flat);
     const progress = msg.unified_progress;
     if (stats.allTouched && !progress) return renderDoneCard(deps, unifiedDoneLabel(stats));
-    const rowsHtml = flat.map(f => unifiedRow(deps, f)).join('');
-    return `<div style="margin-top:6px;background:#fff;border:1px solid hsl(340,30%,88%);border-radius:14px;overflow:hidden;box-shadow:0 2px 8px rgba(213,138,149,0.08);">
-      ${unifiedHeader(deps, progress, stats)}
-      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px;">${rowsHtml}</div>
+    const rowsHtml = flat.map((f, i) => unifiedRow(deps, f, i === flat.length - 1)).join('');
+    return `<div style="margin-top:8px;background:var(--surface);border:0.5px solid var(--border);border-left:3px solid var(--brand);border-radius:0 12px 12px 0;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+      ${unifiedHeader(deps, historyIdx, progress, stats)}
+      <div style="padding:2px 14px;display:flex;flex-direction:column;">${rowsHtml}</div>
       ${unifiedControls(deps, historyIdx, progress, stats, flat)}
     </div>${unifiedStyle()}`;
   }

@@ -747,7 +747,7 @@
     const C = '#4E5968';
     return {
       create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: C },
-      create_revenue:  { icon: 'ic-dollar-sign',    label: '매출 기록',       color: C },
+      create_revenue:  { icon: 'ic-wallet',         label: '매출 기록',       color: C },
       create_customer: { icon: 'ic-user',           label: '고객 등록',       color: C },
       create_nps:      { icon: 'ic-star',           label: '후기 기록',       color: C },
       update_booking:  { icon: 'ic-edit-3',         label: '예약 수정',       color: C },
@@ -1584,7 +1584,8 @@
     if (!targets.length) return;
 
     msg.unified_progress = { current: 0, total: targets.length, label: '저장 중' };
-    _renderHistory();
+    // [2026-05-26] 진행 중 _renderHistory 호출 X — 깜빡임 차단. 부분 갱신만.
+    _updateUnifiedProgress(historyIdx, 0, targets.length, '저장 중');
 
     let okCount = 0;
     let failCount = 0;
@@ -1593,7 +1594,7 @@
       const meta = _catMeta(f.kind);
       f.it.status = 'running';
       msg.unified_progress.label = `${meta.label} 저장 중`;
-      _renderHistory();
+      _updateUnifiedProgress(historyIdx, i, targets.length, `${meta.label} 저장 중`);
       try {
         // [P0-4 2026-05-19] 통합 진행 — 그룹 단위 사용자 결정이므로 개별 confirm skip
         await _executeAction(f.it.action, { skipConfirm: true });
@@ -1605,13 +1606,15 @@
         failCount++;
       }
       msg.unified_progress.current = i + 1;
-      _renderHistory();
+      _updateUnifiedProgress(historyIdx, i + 1, targets.length, '저장 중');
     }
 
     msg.unified_progress = null;
-    _renderHistory();
 
-    // 완료 토스트 + 대시보드 갱신
+    // 컨트롤 영역만 부분 교체 — "✓ 전체 완료" 잠금
+    _lockUnifiedControls(historyIdx);
+
+    // summary 메시지 push + 마지막 1회 _renderHistory (옛 동작은 매 단계마다 호출 → 깜빡임)
     if (okCount > 0) {
       const summary = failCount
         ? `✓ ${okCount}건 저장 · ${failCount}건 실패`
@@ -1624,6 +1627,33 @@
       _history.push({ role: 'assistant', text: `실패 ${failCount}건 — '수정' 눌러서 다시 확인해 주세요` });
       _renderHistory();
     }
+
+    // 스크롤 — 통째로 scrollTop = scrollHeight 대신 마지막 요소 부드럽게
+    try {
+      const body = document.getElementById('asstBody');
+      if (body && body.lastElementChild) {
+        body.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  // [2026-05-26] 통합 카드 진행 텍스트·진행바 부분갱신 — _renderHistory 호출 회피
+  function _updateUnifiedProgress(historyIdx, current, total, label) {
+    const txt = document.getElementById('unifiedProgress-' + historyIdx);
+    if (txt) {
+      txt.textContent = (label || '진행 중') + ' · ' + current + '/' + total;
+    }
+    const bar = document.getElementById('unifiedProgressBar-' + historyIdx);
+    if (bar && bar.firstElementChild) {
+      const pct = total ? Math.round((current / total) * 100) : 0;
+      bar.firstElementChild.style.width = pct + '%';
+    }
+  }
+
+  function _lockUnifiedControls(historyIdx) {
+    const c = document.getElementById('unifiedControls-' + historyIdx);
+    if (!c) return;
+    c.innerHTML = '<button disabled style="flex:1;padding:11px;border:none;border-radius:10px;background:var(--surface-2);color:var(--text-muted);font-weight:600;font-size:13px;cursor:not-allowed;display:inline-flex;align-items:center;justify-content:center;gap:6px;">✓ 전체 완료</button>';
   }
 
   function _renderSuggest() {
