@@ -115,9 +115,11 @@
   }
 
   function unifiedHeader(deps, historyIdx, progress, stats) {
+    // [2026-05-26] ic-list-checks 인라인 SVG (sprite 미등록 — Lucide list-checks paths)
+    const iconListChecks = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 17 5 19 8 16"/><polyline points="3 7 5 9 8 6"/><line x1="11" y1="8" x2="21" y2="8"/><line x1="11" y1="16" x2="21" y2="16"/></svg>';
     return `<div style="padding:12px 14px;background:var(--surface);">
       <div style="display:flex;align-items:center;gap:8px;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;color:var(--text-subtle);"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-check-circle"/></svg></span>
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;color:var(--text-subtle);">${iconListChecks}</span>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:500;color:var(--text);letter-spacing:-0.2px;">한 번에 추가할 내용 <span style="color:var(--text-subtle);font-weight:400;">(${stats.total}건)</span></div>
           ${unifiedProgressLine(deps, historyIdx, progress, stats)}

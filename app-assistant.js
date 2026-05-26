@@ -325,6 +325,12 @@
         // 완료 체크 아이콘 pop
         '.asst-card--done > span:first-child { animation: asstPop .35s cubic-bezier(.4,1.6,.6,1) both; }',
         '@keyframes asstPop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }',
+        // [2026-05-26] PC 시트 폭 720px 가운데 정렬. 모바일은 그대로.
+        '@media (min-width:1024px) {',
+        '  #assistantSheetPanel { max-width: 720px; margin: 0 auto; left: 0; right: 0; }',
+        '  #asstBody .asst-msg, #asstBody .asst-user-msg { max-width: 95% !important; }',
+        '  #asstBody .asst-msg--ai > div:last-child, #asstBody .asst-msg--user > div { max-width: 95% !important; }',
+        '}',
       ].join('\n');
       document.head.appendChild(st);
     }
