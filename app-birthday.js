@@ -103,7 +103,6 @@
       return;
     }
 
-    const tmplOptions = d.message_templates || [];
     body.innerHTML = `
       <div style="margin-bottom:14px;padding:12px;background:rgba(139,92,246,0.06);border-radius:12px;">
         <div style="font-size:11px;color:#6D28D9;font-weight:700;margin-bottom:6px;">축하 메시지 팁</div>

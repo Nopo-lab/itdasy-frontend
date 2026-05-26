@@ -90,7 +90,6 @@
 
     // T-330 — 아침 한 줄 요약 (가장 위)
     const thisMonth = brief.this_month_total || 0;
-    const prevMonth = brief.prev_month_total || 0;
     const momPctNum = brief.mom_delta_pct;
     const momSign = momPctNum == null ? '' : (momPctNum >= 0 ? ' +' : ' ');
     const headline = `

@@ -1,3 +1,4 @@
+/* exported saveToGallery, loadGalleryItems, deleteGalleryItem, saveSlotToDB, loadSlotsFromDB, deleteSlotFromDB */
 // ── 갤러리 IndexedDB 레이어 ────────────────────────────────────
 // openGalleryDB / saveToGallery / loadGalleryItems / deleteGalleryItem
 // saveSlotToDB / loadSlotsFromDB / deleteSlotFromDB
@@ -115,3 +116,9 @@ async function clearGalleryDB() {
   } catch (_) { return false; }
 }
 window.clearGalleryDB = clearGalleryDB;
+window.saveToGallery = saveToGallery;
+window.loadGalleryItems = loadGalleryItems;
+window.deleteGalleryItem = deleteGalleryItem;
+window.saveSlotToDB = saveSlotToDB;
+window.loadSlotsFromDB = loadSlotsFromDB;
+window.deleteSlotFromDB = deleteSlotFromDB;

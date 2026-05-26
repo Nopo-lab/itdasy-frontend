@@ -58,7 +58,7 @@
     state.activeLayerId = id;
     _ensure(state);
     if (helpers && helpers.renderPanel) helpers.renderPanel();
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
   }
 
   function _moveUp(state, helpers) {
@@ -77,7 +77,7 @@
 
   function _commit(helpers) {
     if (helpers && helpers.renderPanel) helpers.renderPanel();
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
     if (helpers && helpers.pushHistory) helpers.pushHistory();
   }
 

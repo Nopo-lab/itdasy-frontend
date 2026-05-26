@@ -35,6 +35,16 @@
     'card-pink':      ['cardSoft', 'WELCOME', 'WELCOME', '처음 오시는 고객님께'],
     'card-dark':      ['cardDark', 'STUDIO', 'STUDIO', '시술 상담 가능'],
     'card-nature':    ['cardNature', 'CALM BEAUTY', 'STUDIO', '편안한 관리 공간'],
+    'ba-cream':        ['baCompose', 'BEFORE / AFTER', 'Before & After', '결과 비교 컷'],
+    'ba-sage':         ['baCompose', 'BEFORE / AFTER', 'Before & After', '자연스러운 변화'],
+    'ba-dark':         ['baCompose', 'BEFORE / AFTER', 'Before & After', '프리미엄 결과'],
+    'ba-2split-h':     ['baCompose', 'BEFORE / AFTER', 'Before & After', '피드용 전후사진'],
+    'ba-2split-v':     ['baCompose', 'STORY BEFORE / AFTER', 'Before & After', '스토리용 전후사진'],
+    'ba-3process':     ['baCompose', 'PROCESS', 'Before → After', '과정까지 보여주는 전후사진'],
+    'ba-4grid':        ['baCompose', 'PORTFOLIO', 'Portfolio', '대표 결과 모음'],
+    'ba-price':        ['baCompose', 'PRICE', 'Before & After', '가격 안내'],
+    'ba-event':        ['baCompose', 'EVENT', 'Before & After', '이번 주 예약 가능'],
+    'ba-review':       ['baCompose', 'REAL REVIEW', 'Real Review', '고객 후기'],
   };
 
   const PAL = {
@@ -49,10 +59,13 @@
   }
 
   function _brandData(tpl) {
+    const shop = window.PhotoEditorShopData?.get?.() || {};
     return {
-      shop: tpl.shopName || '잇데이 스튜디오',
-      accent: _safeColor(tpl.bg, PAL.copper),
+      shop: tpl.shopName || shop.shopName || '잇데이 스튜디오',
+      accent: _safeColor(tpl.bg || shop.primaryColor, PAL.copper),
       bg: _safeColor(tpl.bg, PAL.copper),
+      price: tpl.price || '',
+      review: tpl.review || '',
     };
   }
 
@@ -67,7 +80,11 @@
     const meta = META[tpl.id];
     if (!found || !meta) return;
     const b = _brandData(tpl);
-    const data = { type: meta[0], kicker: meta[1], head: found.prefillText || meta[2], sub: meta[3], shop: b.shop, accent: b.accent };
+    const data = { type: meta[0], kicker: meta[1], head: found.prefillText || meta[2], sub: meta[3], shop: b.shop, accent: b.accent, price: b.price, review: b.review };
+    if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
+      window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
+      return;
+    }
     _draw(ctx, dw, dh, data);
   }
 

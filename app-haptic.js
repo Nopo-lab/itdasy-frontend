@@ -138,7 +138,7 @@
   // Android 뒤로가기 버튼 처리 — 탭 히스토리 또는 앱 종료
   const AppPlugin = window.Capacitor?.Plugins?.App;
   if (isNative && AppPlugin) {
-    AppPlugin.addListener('backButton', ({ canGoBack }) => {
+    AppPlugin.addListener('backButton', () => {
       // 1) 열려있는 팝업/모달 먼저 닫기
       const openPopup = document.querySelector(
         '.popup[style*="display: flex"], .modal-overlay[style*="display: flex"], ' +

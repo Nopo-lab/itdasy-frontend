@@ -31,10 +31,10 @@ void main() {
     return !!_progComposite;
   }
 
-  function _generateMask(peCanvas, featherRadius) {
+  function _generateMask(peCanvas, featherRadius, srcKey) {
     const w = peCanvas.width, h = peCanvas.height;
-    const cacheKey = w + 'x' + h;
-    if (_maskCache && _maskCache.key === cacheKey && _maskCache.src === peCanvas._bgBlurSrc) {
+    const cacheKey = w + 'x' + h + '|' + (srcKey || '');
+    if (_maskCache && _maskCache.key === cacheKey) {
       return _maskCache.canvas;
     }
     const SM = window.PhotoEditorSmartMask;
@@ -63,16 +63,39 @@ void main() {
     }
     mCtx.putImageData(mImg, 0, 0);
 
-    if (featherRadius > 0) {
-      _featherMask(mCtx, w, h, featherRadius);
-    }
+    _morphMask(mCtx, w, h);
+    if (featherRadius > 0) _featherMask(mCtx, w, h, featherRadius);
+    _applyDepthFalloff(mCtx, w, h);
 
-    _maskCache = { key: cacheKey, src: peCanvas._bgBlurSrc, canvas: maskCv };
+    _maskCache = { key: cacheKey, canvas: maskCv };
     return maskCv;
   }
 
+  function _morphMask(ctx, w, h) {
+    _morphPass(ctx, w, h, true);
+    _morphPass(ctx, w, h, false);
+  }
+
+  function _morphPass(ctx, w, h, dilate) {
+    const src = ctx.getImageData(0, 0, w, h);
+    const out = ctx.createImageData(w, h);
+    const d = src.data, o = out.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let best = dilate ? 0 : 255;
+      for (let ky = -1; ky <= 1; ky++) for (let kx = -1; kx <= 1; kx++) {
+        const nx = Math.min(w - 1, Math.max(0, x + kx));
+        const ny = Math.min(h - 1, Math.max(0, y + ky));
+        const v = d[(ny * w + nx) * 4];
+        best = dilate ? Math.max(best, v) : Math.min(best, v);
+      }
+      const i = (y * w + x) * 4;
+      o[i] = best; o[i + 1] = best; o[i + 2] = best; o[i + 3] = 255;
+    }
+    ctx.putImageData(out, 0, 0);
+  }
+
   function _featherMask(ctx, w, h, r) {
-    const passes = Math.min(r, 3);
+    const passes = Math.min(r + 1, 5);
     for (let p = 0; p < passes; p++) {
       const src = ctx.getImageData(0, 0, w, h);
       const out = ctx.createImageData(w, h);
@@ -82,7 +105,8 @@ void main() {
         for (let ky = -2; ky <= 2; ky++) for (let kx = -2; kx <= 2; kx++) {
           const nx = Math.min(w - 1, Math.max(0, x + kx));
           const ny = Math.min(h - 1, Math.max(0, y + ky));
-          sum += d[(ny * w + nx) * 4]; n++;
+          const gw = _gauss5(kx) * _gauss5(ky);
+          sum += d[(ny * w + nx) * 4] * gw; n += gw;
         }
         const i = (y * w + x) * 4;
         const v = sum / n;
@@ -90,6 +114,24 @@ void main() {
       }
       ctx.putImageData(out, 0, 0);
     }
+  }
+
+  function _gauss5(v) {
+    return v === 0 ? 6 : Math.abs(v) === 1 ? 4 : 1;
+  }
+
+  function _applyDepthFalloff(ctx, w, h) {
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const nx = (x + 0.5) / w - 0.5;
+      const ny = (y + 0.5) / h - 0.48;
+      const center = Math.max(0, 1 - Math.sqrt(nx * nx * 1.6 + ny * ny * 1.2));
+      const v = Math.max(d[i], Math.round(center * 72));
+      d[i] = Math.min(255, v); d[i + 1] = d[i]; d[i + 2] = d[i];
+    }
+    ctx.putImageData(img, 0, 0);
   }
 
   function _uploadTex(gl, source) {
@@ -118,7 +160,7 @@ void main() {
     const w = peCanvas.width, h = peCanvas.height;
     const str = s.strength / 100;
     const feather = Math.round(1 + str * 3);
-    const maskCv = _generateMask(peCanvas, feather);
+    const maskCv = _generateMask(peCanvas, feather, state.originalSrc);
     if (!maskCv) return;
 
     const blurProg = Ctx.compileProgram(Pipe.VS_COMMON, Pipe.FS_HEADER + BlurMod.FS_BLUR);
@@ -128,6 +170,7 @@ void main() {
     const blurredCanvas = Pipe.run(peCanvas, [
       { program: blurProg, uniforms: { u_radius: blurRadius, u_dir: [1, 0], u_texSize: [w, h] } },
       { program: blurProg, uniforms: { u_radius: blurRadius, u_dir: [0, 1], u_texSize: [w, h] } },
+      { program: blurProg, uniforms: { u_radius: blurRadius * 0.65, u_dir: [1, 1], u_texSize: [w, h] } },
     ], { width: w, height: h });
     if (!blurredCanvas) return;
 

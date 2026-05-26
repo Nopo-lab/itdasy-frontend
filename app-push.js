@@ -28,7 +28,6 @@
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       localStorage.setItem('itdasy_push_token', token);
-      console.info('[push] 서버 등록 완료 platform=' + platform);
     } catch (e) {
       console.warn('[push] 서버 등록 실패:', e);
     }
@@ -47,7 +46,6 @@
     try {
       const perm = await PushNotifications.requestPermissions();
       if (perm.receive !== 'granted') {
-        console.info('[push] 권한 거부됨');
         return;
       }
       await PushNotifications.register();

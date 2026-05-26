@@ -35,7 +35,7 @@
   }
 
   function _bindPanel(panel, edState, helpers) {
-    const redraw = helpers.redraw, pushHistory = helpers.pushHistory;
+    const scheduleRedraw = helpers.scheduleRedraw, pushHistory = helpers.pushHistory;
     const s = _state(edState);
     panel.querySelectorAll('[data-relight]').forEach(inp => {
       inp.addEventListener('input', () => {
@@ -43,20 +43,20 @@
         s[key] = key === 'direction' ? +inp.value / 100 : +inp.value;
         const out = panel.querySelector(`[data-relight-val="${key}"]`);
         if (out) out.textContent = inp.value;
-        redraw();
+        scheduleRedraw();
       });
       inp.addEventListener('change', () => pushHistory && pushHistory());
     });
     panel.querySelectorAll('[data-relight-preset]').forEach(btn => {
       btn.addEventListener('click', () => {
         Object.assign(s, _preset(btn.dataset.relightPreset));
-        helpers.renderPanel(); redraw(); pushHistory && pushHistory();
+        helpers.renderPanel(); scheduleRedraw(); pushHistory && pushHistory();
         helpers.toast && helpers.toast(btn.textContent.trim() + ' 적용');
       });
     });
     panel.querySelector('[data-relight-reset]')?.addEventListener('click', () => {
       Object.assign(s, DEF);
-      helpers.renderPanel(); redraw(); pushHistory && pushHistory();
+      helpers.renderPanel(); scheduleRedraw(); pushHistory && pushHistory();
     });
   }
 

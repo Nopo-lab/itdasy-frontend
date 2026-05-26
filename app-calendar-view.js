@@ -26,7 +26,7 @@
   // [2026-05-23] STAFF_CACHE_KEY 제거 — 직원 기능 폐지
 
   // === 2026 한국 공휴일 ===
-  const HOLIDAYS_2026 = {
+  const _HOLIDAYS_2026 = {
     '1-1':'신정','2-16':'설날 연휴','2-17':'설날','2-18':'설날 연휴',
     '3-1':'삼일절','3-2':'대체공휴일','5-5':'어린이날','5-25':'부처님오신날',
     '6-6':'현충일','8-15':'광복절','8-17':'대체공휴일',
@@ -285,7 +285,7 @@
       // [2026-05-17 v6] 각 줄에 작은 6px 컬러 dot — 그날 안에서 5색 순환
       const MAX = isPC ? 5 : 3;
       h += `<div class="${p}__events">`;
-      its.slice(0, MAX).forEach((it, i) => {
+      its.slice(0, MAX).forEach((it, _i) => {
         // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
         const tm = _fmt(new Date(it._raw.starts_at));
         const dotColor = _statusDotColor(it.status);
@@ -370,7 +370,7 @@
 
   function _placeDayBlocks(grid, items, startH) {
     if (!grid) return;
-    items.forEach((it, i) => {
+    items.forEach((it, _i) => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
       const top = (s.getHours() - startH) * HOUR_PX_MOBILE_DAY + (s.getMinutes() / 60) * HOUR_PX_MOBILE_DAY;
@@ -538,7 +538,7 @@
     return { html: h, items: filtered, start, ws };
   }
 
-  function _placeWeekPCBlocks(grid, items, startH, weekStart) {
+  function _placeWeekPCBlocks(grid, items, startH, _weekStart) {
     if (!grid) return;
     // [PERF P3-2] DOM 쿼리 1회 캐싱 + DocumentFragment 배치 삽입
     const dayColMap = new Map();
@@ -609,7 +609,7 @@
     if (!grid) return;
     const col = grid.querySelector('.bk-pc-day__col');
     if (!col) return;
-    items.forEach((it, i) => {
+    items.forEach((it, _i) => {
       const s = new Date(it._raw.starts_at);
       const e = new Date(it._raw.ends_at);
       const top = (s.getHours() - startH) * HOUR_PX_PC_DAY + (s.getMinutes() / 60) * HOUR_PX_PC_DAY;
@@ -812,7 +812,7 @@
   // ============================================================
   // §16 PC 진입 — myshop-v3 의 .ms-side 재사용
   // ============================================================
-  function _buildPCHeaderHTML(subTxt) {
+  function _buildPCHeaderHTML(_subTxt) {
     // [v200 DAY_VIEW_HIDDEN] 일간 탭 제거 — PC 도 동일.
     const viewBtns = ['month','week'].map(v => {
       const lbl = { month:'월', week:'주' }[v];
@@ -1197,7 +1197,7 @@
         // 폴백: ctx.item이 null이면 재탐색 (strict + loose)
         if (!ctx.item) {
           ctx.item = _mappedCache.find(m => String(m.id) === btn.dataset.bookingId)
-                  || _mappedCache.find(m => m.id == btn.dataset.bookingId);
+                  || _mappedCache.find(m => String(m.id) === String(btn.dataset.bookingId));
         }
         if (ctx.item) {
           // [2026-05-22] 모든 status 에서 CompleteFlow 우선 (사장 요청: 예약 카드 + 시술완료 체크).
@@ -1234,7 +1234,7 @@
     return slots;
   }
 
-  function _buildFormHTML(existing, slots, dateStr, defStart, defEnd, autoSlot) {
+  function _buildFormHTML(existing, slots, dateStr, defStart, defEnd, _autoSlot) {
     const isEdit = !!existing;
     // 시/분 파싱
     const [defH, defM] = defStart.split(':').map(Number);
@@ -1694,7 +1694,7 @@
     _updateBalance();
   }
 
-  function _bindFormSave(body, existing, date) {
+  function _bindFormSave(body, existing, _date) {
     body.querySelector('#bfSave').addEventListener('click', async () => {
       const d = body.querySelector('#bfDate').value;
       if (!d) { if (window.showToast) window.showToast('날짜를 입력해 주세요'); return; }
@@ -1767,7 +1767,7 @@
     });
   }
 
-  function _bindFormActions(body, existing, date) {
+  function _bindFormActions(body, existing, _date) {
     body.querySelector('#bfDelete')?.addEventListener('click', () => {
       window._inlineConfirm('이 예약을 삭제할까요?', async () => {
         try {

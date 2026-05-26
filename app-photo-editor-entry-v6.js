@@ -182,8 +182,14 @@
         <span class="pe-alert-arr">›</span>
       </button>`;
   }
+  function _buildPresetCards(state) {
+    if (window.PhotoEditorPresetCards && typeof window.PhotoEditorPresetCards.entryHTML === 'function') {
+      return window.PhotoEditorPresetCards.entryHTML(state);
+    }
+    return '';
+  }
   function _buildHTML(state) {
-    return _buildHeader() + _buildCanvas(state) + _buildLargeCards()
+    return _buildHeader() + _buildCanvas(state) + _buildPresetCards(state) + _buildLargeCards()
       + _buildMediumCards() + _buildTools() + _buildFav();
   }
 
@@ -223,6 +229,12 @@
         }, 50);
         return;
       }
+    }
+    const presetBtn = e.target.closest('[data-pe-preset]');
+    if (presetBtn) {
+      if (!_hasImage()) { _pickThenOpen('auto'); return; }
+      if (window.PhotoEditorPresetCards?.apply?.(presetBtn.dataset.pePreset)) _gotoEditor('auto', 'auto');
+      return;
     }
     const cardBtn = e.target.closest('[data-pev6-card]');
     if (cardBtn) _openCard(cardBtn.dataset.pev6Card);

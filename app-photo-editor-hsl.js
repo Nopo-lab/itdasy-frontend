@@ -200,7 +200,7 @@ void main() {
         Object.assign(h.light, preset.light || {});
         h.enabled = true;
         if (helpers.toast) helpers.toast('HSL 프리셋: ' + b.textContent);
-        helpers.renderPanel(); helpers.redraw();
+        helpers.renderPanel(); helpers.scheduleRedraw();
         if (helpers.pushHistory) helpers.pushHistory();
       });
     });
@@ -225,13 +225,13 @@ void main() {
     if (resetBtn) resetBtn.addEventListener('click', () => {
       const h = _ensureState(state);
       COLORS.forEach(c => { h.sat[c.id] = 0; h.light[c.id] = 0; });
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
     const toggleBtn = panel.querySelector('[data-hsl-toggle]');
     if (toggleBtn) toggleBtn.addEventListener('click', () => {
       const h = _ensureState(state);
       h.enabled = !h.enabled;
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
   }
 

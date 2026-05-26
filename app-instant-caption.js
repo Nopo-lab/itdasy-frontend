@@ -355,8 +355,6 @@
 
       _setProgress('② 캡션 작성 중…', 60);
       caption = await _generateCaption(meta);
-      console.log('[instant-caption] caption 생성:', (caption || '').slice(0, 60));
-
       if (!caption || !caption.trim()) {
         // 백엔드가 200 OK 로 빈 문자열 돌려주는 케이스 — 사용자에게 명확히 안내
         console.error('[instant-caption] 빈 캡션 응답');

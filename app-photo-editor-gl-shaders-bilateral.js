@@ -13,6 +13,11 @@ uniform float u_sigmaR;
 
 void main() {
   vec4 center = texture(u_image, v_uv);
+  float skinProb = u_maskEnabled ? texture(u_mask, v_uv).r : 1.0;
+  if (skinProb < 0.15) {
+    outColor = center;
+    return;
+  }
   vec3 cRgb = center.rgb;
   vec3 sum = vec3(0.0);
   float wSum = 0.0;
@@ -20,8 +25,8 @@ void main() {
   float sr2 = 2.0 * u_sigmaR * u_sigmaR;
   vec2 px = 1.0 / u_texSize;
 
-  for (int i = -3; i <= 3; i++) {
-    for (int j = -3; j <= 3; j++) {
+  for (int i = -4; i <= 4; i++) {
+    for (int j = -4; j <= 4; j++) {
       vec2 off = vec2(float(i), float(j)) * px;
       vec3 s = texture(u_image, v_uv + off).rgb;
       float sd = float(i * i + j * j);
@@ -33,9 +38,8 @@ void main() {
   }
 
   vec3 smoothed = sum / max(wSum, 0.001);
-  vec4 effect = vec4(smoothed, center.a);
-  vec4 original = center;
-  outColor = applyMask(original, effect);
+  vec4 effect = vec4(mix(center.rgb, smoothed, skinProb), center.a);
+  outColor = effect;
 }
 `;
 
@@ -51,7 +55,7 @@ void main() {
     return !!_prog;
   }
 
-  function apply(peCanvas, strength) {
+  function apply(peCanvas, strength, skinMask) {
     if (strength <= 0 || !_ensure()) return null;
     const Pipe = window.PhotoEditorGLPipeline;
     if (!Pipe || typeof Pipe.run !== 'function') return null;
@@ -62,6 +66,7 @@ void main() {
     return Pipe.run(peCanvas, [{
       program: _prog,
       uniforms: { u_texSize: [w, h], u_sigmaS: sigmaS, u_sigmaR: sigmaR },
+      mask: skinMask || null,
     }], { width: w, height: h });
   }
 

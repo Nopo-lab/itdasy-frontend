@@ -7,13 +7,21 @@
   const SNAP_KEYS = [
     'originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio',
     'text', 'watermark', 'beauty', 'relight', 'template', 'autoIntensity',
-    'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl', 'shadow', 'bg',
+    'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl', 'shadow', 'bg', 'bgBlur', 'tplV2',
   ];
 
   function snapshot(state) {
     const out = {};
-    for (const key of SNAP_KEYS) out[key] = state[key];
-    return JSON.parse(JSON.stringify(out));
+    const prev = state.history && state.history[state.historyCursor];
+    for (const key of SNAP_KEYS) out[key] = _copySnapValue(state, key, prev);
+    return out;
+  }
+
+  function _copySnapValue(state, key, prev) {
+    const value = state[key];
+    if (key === 'originalSrc' && prev && value === prev[key]) return prev[key];
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
   }
 
   function push(state) {

@@ -43,7 +43,7 @@
 
   // ── 패널 바인딩 ───────────────────────────────────────
   function _bindTemplatePanel(panel, state, helpers) {
-    const { renderPanel, redraw, pushHistory } = helpers;
+    const { renderPanel, scheduleRedraw, pushHistory } = helpers;
     panel.querySelectorAll('[data-pe-tpl]').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.peTpl;
@@ -65,7 +65,7 @@
           const cust = state.customerName ? state.customerName + '님' : '손님';
           state.template.reviewText = '"' + cust + '께서 정성껏 해주셔서 만족스러웠어요. 다음에 또 방문할게요."';
         }
-        renderPanel(); redraw(); pushHistory();
+        renderPanel(); scheduleRedraw(); pushHistory();
       });
     });
     panel.querySelector('[data-pe-pick-2nd]')?.addEventListener('click', () => document.getElementById('pePicker2')?.click());
@@ -73,7 +73,7 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return;
       const img = new Image();
-      img.onload = () => { state.secondImg = img; redraw(); pushHistory(); };
+      img.onload = () => { state.secondImg = img; scheduleRedraw(); pushHistory(); };
       img.src = URL.createObjectURL(f);
     });
     panel.querySelector('[data-pe-tpl-left]')?.addEventListener('input', (e) => { state.template.leftLabel = e.target.value; _queueTemplateRedraw(helpers); });
@@ -112,7 +112,7 @@
   function _flushTemplateRedraw(helpers) {
     clearTimeout(_templateInputTimer);
     _templateInputTimer = null;
-    if (helpers && typeof helpers.redraw === 'function') helpers.redraw();
+    if (helpers && typeof helpers.scheduleRedraw === 'function') helpers.scheduleRedraw();
   }
 
   function _resetCanvasState(ctx, W, H) {

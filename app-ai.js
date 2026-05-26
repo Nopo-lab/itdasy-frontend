@@ -1,5 +1,6 @@
 // Itdasy Studio - AI 추천 탭 (갤러리/미발행 슬롯 연동)
 
+/* exported doInstagramPublish */
 // =====================================================================
 // ===== AI 추천 탭 — 미발행 슬롯 카드 =====
 // =====================================================================
@@ -298,3 +299,5 @@ async function doInstagramPublish(imageUrl, captionText) {
     return false;
   }
 }
+
+window.doInstagramPublish = doInstagramPublish;

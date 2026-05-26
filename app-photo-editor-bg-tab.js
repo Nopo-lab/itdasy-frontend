@@ -102,7 +102,7 @@
       img.onload = () => {
         state.originalImg = img;
         state.originalSrc = src;
-        helpers.redraw();
+        helpers.scheduleRedraw();
         if (helpers.pushHistory) helpers.pushHistory();
         resolve();
       };

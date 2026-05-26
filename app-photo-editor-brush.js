@@ -140,7 +140,7 @@
       state.originalSrc = dataUrl;
       state.removedBgDataUrl = null;
       state.preBgOriginalSrc = null;
-      if (helpers && helpers.redraw) helpers.redraw();
+      if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
       if (helpers && helpers.pushHistory) helpers.pushHistory();
       if (onDone) onDone();
     };

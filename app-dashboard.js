@@ -427,7 +427,6 @@
     if (!body) return;
     // [2026-04-26 0초딜레이] 캐시에 모든 path 가 있으면 skeleton 없이 바로 렌더
     // (캐시 _cache 자체에 들어있으면 = sessionStorage 도 있음 → _cachedGet 즉시 반환)
-    const period0 = _getPeriod();
     const period = _getPeriod();
     const prevPath = _prevPeriodPath(period);
     const naverPath = null;
@@ -447,7 +446,7 @@
     ];
 
     function _renderFromData(data) {
-      const [monthRev, prevRev, todayRev, periodRev, custList, bookList, ret, inventory, naverData, briefData] = data;
+      const [monthRev, prevRev, todayRev, periodRev, custList, bookList, ret, _inventory, naverData, briefData] = data;
       const stats = _aggregateStats(
         (monthRev || {}).items || [],
         (todayRev || {}).items || [],

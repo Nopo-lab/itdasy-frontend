@@ -147,7 +147,7 @@
     sel.activeId = id;
     sel.faceStatus = 'ready';
     if (helpers && helpers.renderPanel) helpers.renderPanel();
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
     if (helpers && helpers.pushHistory) helpers.pushHistory();
     if (helpers && helpers.toast) helpers.toast(region.label + ' 영역 추가 — 슬라이더로 보정해보세요');
   }

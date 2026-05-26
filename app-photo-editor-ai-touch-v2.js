@@ -215,7 +215,7 @@
         state.originalImg = img;
         state.originalSrc = url;
         const h = PE._internal.helpers || {};
-        if (h.redraw) h.redraw();
+        if (h.scheduleRedraw) h.scheduleRedraw();
         if (h.pushHistory) h.pushHistory();
         _toast('정밀 얼굴 보정 완료 (' + shopType + ' 모드)');
       };

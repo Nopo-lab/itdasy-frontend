@@ -16,7 +16,7 @@
   function _skinScore(r, g, b, lum, subject) {
     const rb = r - b;
     const rg = r - g;
-    const warm = r > 70 && rg > -4 && g > b - 14 && rb > 8 && rb < 125;
+    const warm = r > 70 && rg > -12 && g > b - 14 && rb > 3 && rb < 125;
     const bright = lum > 45 && lum < 248;
     if (!warm || !bright) return 0;
     const conf = 0.6 + Math.min(rg, 20) / 50 + Math.min(rb, 40) / 100;

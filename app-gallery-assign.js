@@ -1,3 +1,4 @@
+/* exported openAssignPopup */
 // Itdasy Studio — 배정 팝업 (사진 → 손님 슬롯)
 // 의존: app-gallery-utils.js, app-gallery-db.js, app-gallery-workshop.js
 
@@ -191,3 +192,5 @@ async function _renumberSlots() {
     try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
   }
 }
+
+window.openAssignPopup = openAssignPopup;

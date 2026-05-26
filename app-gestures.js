@@ -278,5 +278,4 @@
   }
 
   /* ── 5. 디버그 — 로드 확인 ───────────────────────────── */
-  if (window.console && console.debug) console.debug('[gestures] initialized');
 })();

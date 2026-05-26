@@ -796,7 +796,7 @@
     </div>`;
   }
 
-  function _renderActionRunningBubble(kindBadge) {
+  function _renderActionRunningBubble(_kindBadge) {
     return `<div class="asst-card asst-card--running" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="display:inline-block;width:14px;height:14px;border:2px solid #C5CBD2;border-top-color:#191F28;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span>

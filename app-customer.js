@@ -729,7 +729,7 @@
   window._customerBack = _closeDetail;
 
   // [A4] popstate 리스너 — 뒤로가기 시 디테일 닫기
-  window.addEventListener('popstate', (e) => {
+  window.addEventListener('popstate', () => {
     if (_isDetailOpen) {
       _closeDetail();
     }
@@ -882,7 +882,6 @@
       const close = (val) => { pop.remove(); resolve(val); };
 
       const render = () => {
-        const items = _cache || [];
         const q = searchEl.value;
         const trimmed = q.trim();
         const hits = search(q);

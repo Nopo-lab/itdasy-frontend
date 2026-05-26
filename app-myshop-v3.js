@@ -355,8 +355,6 @@
   }
   function _sideOpsHTML(brief) {
     const todayN = _todayBookingsList(brief).length;
-    const lowStock = brief && Array.isArray(brief.low_stock) ? brief.low_stock.length :
-                     (brief && typeof brief.low_stock === 'number' ? brief.low_stock : 0);
     return [
       '<div class="ms-side__section">운영</div>',
       _sideItemHTML({ act: 'booking',   iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg>',    label: '예약관리', badge: todayN > 0 ? todayN : null, badgeClass: 'is-ok' }),

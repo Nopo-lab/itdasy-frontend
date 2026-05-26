@@ -429,6 +429,8 @@
     if (patch.relight) Object.assign(_state.relight, patch.relight);
     if (patch.template) Object.assign(_state.template, patch.template);
     if (patch.bg) Object.assign(_state.bg, patch.bg);
+    if (patch.bgBlur) _state.bgBlur = Object.assign({}, _state.bgBlur || {}, patch.bgBlur);
+    if (patch.tplV2) _state.tplV2 = Object.assign({}, _state.tplV2 || {}, patch.tplV2);
     if (patch.beautyFocus !== undefined) _state.beautyFocus = patch.beautyFocus;
     if (patch.activeTab) _state.activeTab = patch.activeTab;
     if (patch.autoIntensity) _state.autoIntensity = patch.autoIntensity;

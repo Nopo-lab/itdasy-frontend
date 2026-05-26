@@ -518,7 +518,6 @@
     try {
       const res = await _patchBooking(_ctx.booking_id, payload);
       const eff = res?.completion_effects || {};
-      console.log('[complete-flow] PATCH 응답:', { payload, completion_effects: eff, amount: res?.amount });
       // [v200] 매출/홈/고객/허브/대시보드 모든 SWR 캐시 일괄 무효화
       _invalidateAllCaches();
       if (_ctx.booking_id) _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });

@@ -93,7 +93,7 @@
       _baState.secondImg = img;
       _baState.secondSrc = src;
       _baState.enabled = true;
-      helpers.renderPanel(); helpers.redraw(); helpers.pushHistory();
+      helpers.renderPanel(); helpers.scheduleRedraw(); helpers.pushHistory();
       helpers.toast('비교 사진 선택 완료');
     };
     img.onerror = () => helpers.toast('사진 로드 실패');
@@ -102,28 +102,28 @@
 
   function _bindModeStyle(panel, helpers) {
     panel.querySelectorAll('[data-ba-mode]').forEach(btn => {
-      btn.addEventListener('click', () => { _baState.mode = btn.dataset.baMode; helpers.renderPanel(); helpers.redraw(); });
+      btn.addEventListener('click', () => { _baState.mode = btn.dataset.baMode; helpers.renderPanel(); helpers.scheduleRedraw(); });
     });
     panel.querySelectorAll('[data-ba-style]').forEach(btn => {
-      btn.addEventListener('click', () => { _baState.dividerStyle = btn.dataset.baStyle; helpers.renderPanel(); helpers.redraw(); });
+      btn.addEventListener('click', () => { _baState.dividerStyle = btn.dataset.baStyle; helpers.renderPanel(); helpers.scheduleRedraw(); });
     });
   }
 
   function _bindLabels(panel, helpers) {
-    panel.querySelector('[data-ba-left]')?.addEventListener('input', (e) => { _baState.leftLabel = e.target.value; helpers.redraw(); });
-    panel.querySelector('[data-ba-right]')?.addEventListener('input', (e) => { _baState.rightLabel = e.target.value; helpers.redraw(); });
+    panel.querySelector('[data-ba-left]')?.addEventListener('input', (e) => { _baState.leftLabel = e.target.value; helpers.scheduleRedraw(); });
+    panel.querySelector('[data-ba-right]')?.addEventListener('input', (e) => { _baState.rightLabel = e.target.value; helpers.scheduleRedraw(); });
     panel.querySelector('[data-ba-label-toggle]')?.addEventListener('click', () => {
       _baState.labelVisible = !_baState.labelVisible;
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
   }
 
   function _bindControls(panel, state, helpers) {
     panel.querySelector('[data-ba-pos]')?.addEventListener('input', (e) => {
       _baState.position = +e.target.value / 100;
-      helpers.redraw();
+      helpers.scheduleRedraw();
     });
-    panel.querySelector('[data-ba-animate]')?.addEventListener('click', () => _animateSlider(helpers.redraw));
+    panel.querySelector('[data-ba-animate]')?.addEventListener('click', () => _animateSlider(helpers.scheduleRedraw));
     panel.querySelector('[data-ba-export]')?.addEventListener('click', () => _exportBA(state, helpers));
   }
 
@@ -150,14 +150,14 @@
       _dragging = true;
       const rect = cv.getBoundingClientRect();
       _baState.position = getPos(e, rect);
-      helpers.redraw();
+      helpers.scheduleRedraw();
     };
     const onMove = (e) => {
       if (!_dragging) return;
       e.preventDefault();
       const rect = cv.getBoundingClientRect();
       _baState.position = getPos(e, rect);
-      helpers.redraw();
+      helpers.scheduleRedraw();
     };
     const onEnd = () => { _dragging = false; };
 
@@ -480,7 +480,7 @@
       _baState.enabled = true;
       const helpers = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.helpers;
       if (helpers && typeof helpers.renderPanel === 'function') helpers.renderPanel();
-      if (helpers && typeof helpers.redraw === 'function') helpers.redraw();
+      if (helpers && typeof helpers.scheduleRedraw === 'function') helpers.scheduleRedraw();
     },
     setPosition: (p) => { _baState.position = Math.max(0, Math.min(1, p)); },
   };

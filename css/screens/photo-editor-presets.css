@@ -1,0 +1,74 @@
+.pe-entry-v6 .pe-preset-cats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+
+.pe-entry-v6 .pe-preset-cat {
+  min-height: 42px;
+  border: 1px solid #e8eaee;
+  border-radius: 8px;
+  background: #fff;
+  color: #16181d;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.pe-entry-v6 .pe-preset-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 2px 0 18px;
+  margin-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pe-entry-v6 .pe-preset-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.pe-entry-v6 .pe-preset-card {
+  flex: 0 0 118px;
+  min-height: 154px;
+  border: 1px solid #eceef2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+  color: #111318;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.pe-entry-v6 .pe-preset-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(17, 19, 24, 0.08);
+}
+
+.pe-entry-v6 .pe-preset-name,
+.pe-entry-v6 .pe-preset-cat-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pe-entry-v6 .pe-preset-name {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pe-entry-v6 .pe-preset-cat-label {
+  margin-top: 3px;
+  color: #77808f;
+  font-size: 10px;
+  font-weight: 600;
+}

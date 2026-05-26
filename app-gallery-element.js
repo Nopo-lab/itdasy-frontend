@@ -1,3 +1,4 @@
+/* exported openElementPanel, updateElementOpacity, cancelElementEdit, saveElementEdit */
 // Itdasy Studio - 요소창고 (app-gallery.js에서 분리)
 
 // ═══════════════════════════════════════════════════════
@@ -374,3 +375,8 @@ async function _applyElementToPhoto(photo, slot) {
   photo.mode = 'element';
   await saveSlotToDB(slot);
 }
+
+window.openElementPanel = openElementPanel;
+window.updateElementOpacity = updateElementOpacity;
+window.cancelElementEdit = cancelElementEdit;
+window.saveElementEdit = saveElementEdit;

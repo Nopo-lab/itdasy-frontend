@@ -42,7 +42,7 @@
     });
     sel.activeId = id;
     helpers.renderPanel();
-    helpers.redraw();
+    helpers.scheduleRedraw();
     if (helpers.pushHistory) helpers.pushHistory();
     helpers.toast((mode === 'background' ? '배경' : '사람/시술') + ' 영역 추가');
   }

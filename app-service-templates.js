@@ -44,16 +44,16 @@
   async function deleteTemplate(id) { await _req('DELETE', `/services/${id}`); return true; }
 
   /* INVENTORY_HIDDEN — /inventory fetch 차단. 호출은 그대로 빈 배열 반환. */
-  async function loadInventoryItems() {
+  async function _loadInventoryItems() {
     _inventoryCache = [];
     return _inventoryCache;
   }
-  async function loadConsumptions(serviceId) {
+  async function _loadConsumptions(serviceId) {
     try { return await _req('GET', `/services/${serviceId}/consumptions`); }
     catch (_) { return []; }
   }
-  async function createConsumption(serviceId, body) { return _req('POST', `/services/${serviceId}/consumptions`, body); }
-  async function deleteConsumption(serviceId, consumptionId) { await _req('DELETE', `/services/${serviceId}/consumptions/${consumptionId}`); return true; }
+  async function _createConsumption(serviceId, body) { return _req('POST', `/services/${serviceId}/consumptions`, body); }
+  async function _deleteConsumption(serviceId, consumptionId) { await _req('DELETE', `/services/${serviceId}/consumptions/${consumptionId}`); return true; }
 
   // ── 이번달 사용량 (매출에서 service_name 카운트) ─────────
   async function _loadMonthUsage() {

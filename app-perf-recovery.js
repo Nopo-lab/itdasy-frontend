@@ -181,7 +181,7 @@
         try {
           const m = performance.measure(label.replace(':end', ''), 'itdasy:' + start, 'itdasy:' + label);
           if (m && typeof m.duration === 'number') {
-            console.log('[itdasy-perf]', label.replace(':end', ''), m.duration.toFixed(2), 'ms');
+            console.warn('[itdasy-perf]', label.replace(':end', ''), m.duration.toFixed(2), 'ms');
           }
         } catch (_) { /* mark 가 없을 수 있음 */ }
       }

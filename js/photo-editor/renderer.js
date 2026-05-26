@@ -68,10 +68,11 @@
 
   function unsharpMask(ctx, w, h, strength) {
     try {
+      strength = Math.min(Math.max(strength || 0, 0), 0.6);
       const src = ctx.getImageData(0, 0, w, h);
       const blur = _boxBlur(src, w, h, 1);
       const out = ctx.createImageData(w, h);
-      const k = 1 + strength * 0.8;
+      const k = 1 + strength * 0.5;
       for (let i = 0; i < src.data.length; i += 4) {
         out.data[i] = _clamp(src.data[i] + (src.data[i] - blur.data[i]) * (k - 1));
         out.data[i + 1] = _clamp(src.data[i + 1] + (src.data[i + 1] - blur.data[i + 1]) * (k - 1));
@@ -178,63 +179,54 @@
     const text = String(t.value).replace(/\n/g, ' ');
     const chars = [...text];
     const totalW = ctx.measureText(text).width;
-    if (t.curve === 'arch') {
-      const radius = Math.max(totalW * 0.55, fs * 3);
-      const arcLen = totalW / radius;
-      const startAngle = -Math.PI / 2 - arcLen / 2;
-      let angle = startAngle;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      chars.forEach(ch => {
-        const cw = ctx.measureText(ch).width;
-        angle += cw / 2 / radius;
-        const cx = tx + Math.cos(angle) * radius;
-        const cy = ty + radius + Math.sin(angle) * radius;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(angle + Math.PI / 2);
-        if (t.stroke) ctx.strokeText(ch, 0, 0);
-        ctx.fillText(ch, 0, 0);
-        ctx.restore();
-        angle += cw / 2 / radius;
-      });
-    } else if (t.curve === 'wave') {
-      const amp = fs * 0.8;
-      const freq = Math.PI * 2 / Math.max(totalW, 1);
-      let offsetX = -totalW / 2;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      chars.forEach(ch => {
-        const cw = ctx.measureText(ch).width;
-        offsetX += cw / 2;
-        const cx = tx + offsetX;
-        const cy = ty + Math.sin(offsetX * freq) * amp;
-        const slope = Math.cos(offsetX * freq) * amp * freq;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(Math.atan(slope));
-        if (t.stroke) ctx.strokeText(ch, 0, 0);
-        ctx.fillText(ch, 0, 0);
-        ctx.restore();
-        offsetX += cw / 2;
-      });
-    } else if (t.curve === 'circle') {
-      const radius = Math.max(totalW / (Math.PI * 1.5), fs * 2.5);
-      const arcLen = totalW / radius;
-      let angle = -arcLen / 2;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      chars.forEach(ch => {
-        const cw = ctx.measureText(ch).width;
-        angle += cw / 2 / radius;
-        const cx = tx + Math.cos(angle - Math.PI / 2) * radius;
-        const cy = ty + Math.sin(angle - Math.PI / 2) * radius;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(angle);
-        if (t.stroke) ctx.strokeText(ch, 0, 0);
-        ctx.fillText(ch, 0, 0);
-        ctx.restore();
-        angle += cw / 2 / radius;
-      });
-    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    if (t.curve === 'arch') _drawArchText(ctx, chars, totalW, fs, tx, ty, t);
+    else if (t.curve === 'wave') _drawWaveText(ctx, chars, totalW, fs, tx, ty, t);
+    else if (t.curve === 'circle') _drawCircleText(ctx, chars, totalW, fs, tx, ty, t);
+    ctx.restore();
+  }
+
+  function _drawArchText(ctx, chars, totalW, fs, tx, ty, t) {
+    const radius = Math.max(totalW * 0.55, fs * 3);
+    let angle = -Math.PI / 2 - (totalW / radius) / 2;
+    chars.forEach(ch => {
+      const cw = ctx.measureText(ch).width;
+      angle += cw / 2 / radius;
+      _drawRotatedChar(ctx, ch, tx + Math.cos(angle) * radius, ty + radius + Math.sin(angle) * radius, angle + Math.PI / 2, t);
+      angle += cw / 2 / radius;
+    });
+  }
+
+  function _drawWaveText(ctx, chars, totalW, fs, tx, ty, t) {
+    const amp = fs * 0.8;
+    const freq = Math.PI * 2 / Math.max(totalW, 1);
+    let offsetX = -totalW / 2;
+    chars.forEach(ch => {
+      const cw = ctx.measureText(ch).width;
+      offsetX += cw / 2;
+      const cy = ty + Math.sin(offsetX * freq) * amp;
+      _drawRotatedChar(ctx, ch, tx + offsetX, cy, Math.atan(Math.cos(offsetX * freq) * amp * freq), t);
+      offsetX += cw / 2;
+    });
+  }
+
+  function _drawCircleText(ctx, chars, totalW, fs, tx, ty, t) {
+    const radius = Math.max(totalW / (Math.PI * 1.5), fs * 2.5);
+    let angle = -(totalW / radius) / 2;
+    chars.forEach(ch => {
+      const cw = ctx.measureText(ch).width;
+      angle += cw / 2 / radius;
+      _drawRotatedChar(ctx, ch, tx + Math.cos(angle - Math.PI / 2) * radius, ty + Math.sin(angle - Math.PI / 2) * radius, angle, t);
+      angle += cw / 2 / radius;
+    });
+  }
+
+  function _drawRotatedChar(ctx, ch, x, y, angle, t) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    if (t.stroke) ctx.strokeText(ch, 0, 0);
+    ctx.fillText(ch, 0, 0);
     ctx.restore();
   }
 
@@ -281,7 +273,7 @@
       (s.curve ? JSON.stringify(s.curve) : '') + '|' +
       (s.hsl ? JSON.stringify(s.hsl) : '') + '|' +
       (s.selective ? JSON.stringify(s.selective) : '') + '|' +
-      (s.bgBlur ? s.bgBlur.strength : 0);
+      (s.bgBlur ? JSON.stringify(s.bgBlur) : '0');
   }
 
   async function redraw(env) {

@@ -14,6 +14,7 @@
   ];
   const COLORS = ['#ffffff', '#1a1a20', '#D58A95', '#FFC83D'];
   const COLOR_LABEL = { '#ffffff': '흰', '#1a1a20': '검', '#D58A95': '핑크', '#FFC83D': '노랑' };
+  let _textInputTimer = null;
 
   function _esc(h, s) {
     if (h && typeof h.esc === 'function') return h.esc(s);
@@ -189,7 +190,7 @@
     const t = state.text;
     return `${_layerListHTML(state, h)}${_layerActionsHTML(state)}
       <label class="pe-field"><span>텍스트 (여러 줄 가능 — Enter)</span><textarea class="pe-input" data-pe-text-val rows="3" maxlength="120" placeholder="시술명·이벤트 문구 등&#10;여러 줄도 OK">${_esc(h, t.value)}</textarea></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">${_chip(h, 'text-prefill','service','시술 선택')}${_chip(h, 'text-prefill','price','가격 넣기')}</div>
+      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;">${_chip(h, 'text-prefill','service','시술 선택')}${_chip(h, 'text-prefill','price','가격 넣기')}${_chip(h, 'text-prefill','shop','샵정보 삽입')}</div>
       <div class="pe-field-label" style="margin-top:10px;">폰트</div><div class="pe-panel-row pe-panel-grid-4">${_fontButtons(t)}</div>
       <div class="pe-field-label" style="margin-top:10px;">색상</div><div class="pe-panel-row pe-panel-grid-4">${_colorButtons(t)}</div>
       <div class="pe-panel-row" style="margin-top:6px;align-items:center;gap:8px;"><label style="font-size:11px;color:#c9c9d0;display:inline-flex;align-items:center;gap:8px;cursor:pointer;"><span>커스텀 색상:</span><input type="color" data-pe-text-color-picker value="${_esc(h, t.color)}" style="width:36px;height:36px;border:none;border-radius:8px;cursor:pointer;background:transparent;" /></label></div>
@@ -349,7 +350,12 @@
   }
 
   function _bindTextValues(panel, state, h) {
-    _on(panel, '[data-pe-text-val]', 'input', e => { state.text.value = e.target.value; h.syncTextToLayer(); h.scheduleRedraw(); });
+    _on(panel, '[data-pe-text-val]', 'input', e => {
+      state.text.value = e.target.value;
+      h.syncTextToLayer();
+      clearTimeout(_textInputTimer);
+      _textInputTimer = setTimeout(() => { _textInputTimer = null; h.scheduleRedraw(); }, 80);
+    });
     _on(panel, '[data-pe-text-y]', 'input', e => { state.text.y = +e.target.value / 100; h.scheduleRedraw(); });
     _on(panel, '[data-pe-text-x]', 'input', e => { state.text.x = +e.target.value / 100; h.scheduleRedraw(); });
     _on(panel, '[data-pe-text-rot]', 'input', e => { state.text.rot = +e.target.value; h.scheduleRedraw(); });
@@ -393,8 +399,17 @@
 
   function _prefillValue(w, state) {
     if (w === 'service') return state.serviceName || '시술 결과';
+    if (w === 'shop') return _shopText(state);
     if (window.PhotoEditorServicePicker?.formatPrice) return window.PhotoEditorServicePicker.formatPrice(state.price);
     return state.price ? (state.price / 10000).toFixed(0) + '만원' : '가격 문의';
+  }
+
+  function _shopText(state) {
+    const shop = window.PhotoEditorShopData?.get?.() || {};
+    const name = shop.shopName || state.shopName || '우리 샵';
+    const insta = shop.instagram ? ' @' + shop.instagram.replace(/^@/, '') : '';
+    const booking = shop.bookingUrl ? '\n예약 ' + shop.bookingUrl : '';
+    return name + insta + booking;
   }
 
   function _bindBrand(panel, state, h) {

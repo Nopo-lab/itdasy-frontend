@@ -1,3 +1,4 @@
+/* exported openEnhancePanel */
 // Itdasy Studio - 시술 사진 디테일 보정 v2 (2026-05-03)
 
 const _ENHANCE_DEFAULTS = {
@@ -320,3 +321,5 @@ async function applyEnhanceToSelected() {
     if (progress) progress.style.display = 'none';
   }
 }
+
+window.openEnhancePanel = openEnhancePanel;

@@ -234,8 +234,6 @@
     const body = document.getElementById('importBody');
     const kind = _currentKind;
     const cols = kind === 'customer' ? ['name', 'phone', 'memo'] : ['amount', 'customer_name', 'service_name', 'method'];
-    const colLabels = { name: '이름', phone: '연락처', memo: '메모', amount: '금액', customer_name: '고객', service_name: '시술', method: '결제' };
-
     body.innerHTML = `
       <div style="padding:4px;">
         <button data-import-back style="background:none;border:none;font-size:13px;color:#888;margin-bottom:10px;cursor:pointer;">← 다시 선택</button>

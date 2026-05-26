@@ -221,7 +221,7 @@
         c.points.rgb = pts.map(p => p.slice());
         c.enabled = true;
         if (helpers.toast) helpers.toast('곡선 프리셋: ' + b.textContent);
-        helpers.renderPanel(); helpers.redraw();
+        helpers.renderPanel(); helpers.scheduleRedraw();
         if (helpers.pushHistory) helpers.pushHistory();
       });
     });
@@ -235,13 +235,13 @@
     const resetBtn = panel.querySelector('[data-curve-reset]');
     if (resetBtn) resetBtn.addEventListener('click', () => {
       _reset(state);
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
     const toggleBtn = panel.querySelector('[data-curve-toggle]');
     if (toggleBtn) toggleBtn.addEventListener('click', () => {
       const c = _ensureState(state);
       c.enabled = !c.enabled;
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
     const cv = panel.querySelector('#peCurveCanvas');
     if (cv) { _drawCurveCanvas(cv, state); _bindCurveCanvas(cv, state, helpers); }

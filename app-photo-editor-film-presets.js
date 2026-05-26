@@ -359,7 +359,7 @@
         // 같은 거 다시 누르면 해제
         if (f.presetId === id) f.presetId = null;
         else { f.presetId = id; f.strength = 75; }
-        helpers.renderPanel(); helpers.redraw();
+        helpers.renderPanel(); helpers.scheduleRedraw();
         if (helpers.pushHistory) helpers.pushHistory();
         if (helpers.toast && f.presetId) helpers.toast('필름 프리셋: ' + PRESETS[id].label);
       });
@@ -376,7 +376,7 @@
     if (reset) reset.addEventListener('click', () => {
       const f = _ensureState(state);
       f.presetId = null; f.strength = 100;
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
   }
 

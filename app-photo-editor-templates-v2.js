@@ -95,7 +95,7 @@
     const state = PE._internal.getState();
     if (!state) return;
     // 비율 설정
-    state.aspect = cat.ratio;
+    state.ratio = cat.ratio;
     state.tplV2 = {
       id: tpl.id,
       label: tpl.label,
@@ -115,7 +115,7 @@
         active.bg = true;
       }
     }
-    if (PE._internal.helpers && PE._internal.helpers.redraw) PE._internal.helpers.redraw();
+    if (PE._internal.helpers && PE._internal.helpers.scheduleRedraw) PE._internal.helpers.scheduleRedraw();
     if (PE._internal.helpers && PE._internal.helpers.pushHistory) PE._internal.helpers.pushHistory();
     _toast('템플릿 적용: ' + tpl.label);
     _sheetEl.style.display = 'none';

@@ -40,7 +40,6 @@
       reach: p.reach || (p.like_count + p.comments_count * 3),
       permalink: p.permalink || '',
     }));
-    const days = ['일','월','화','수','목','금','토'];
     const bestTimes = (j.best_hours || []).map((b) => {
       const h = b.hour;
       const label = h < 12 ? `오전 ${h || 12}시` : (h === 12 ? '낮 12시' : `오후 ${h - 12}시`);

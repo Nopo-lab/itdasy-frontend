@@ -118,7 +118,7 @@
   }
 
   function _done(helpers, msg) {
-    helpers.redraw();
+    helpers.scheduleRedraw();
     helpers.pushHistory && helpers.pushHistory();
     helpers.renderPanel();
     _toast(helpers, msg);

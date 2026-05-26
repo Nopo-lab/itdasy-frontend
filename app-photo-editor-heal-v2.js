@@ -117,7 +117,7 @@
     newImg.onload = () => {
       _stateRef.originalImg = newImg;
       _stateRef.originalSrc = url;
-      if (_helpersRef && _helpersRef.redraw) _helpersRef.redraw();
+      if (_helpersRef && _helpersRef.scheduleRedraw) _helpersRef.scheduleRedraw();
       if (_helpersRef && _helpersRef.pushHistory) _helpersRef.pushHistory();
       if (_helpersRef && _helpersRef.toast) _helpersRef.toast('잡티 제거 완료 — 다른 곳도 클릭 가능');
     };

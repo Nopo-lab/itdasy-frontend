@@ -208,12 +208,38 @@
       const bilateral = window.PhotoEditorGLBilateral;
       if (bilateral && typeof bilateral.apply === 'function') {
         try {
-          const result = bilateral.apply(ctx.canvas, smoothStr);
+          const result = bilateral.apply(ctx.canvas, smoothStr, _skinMaskCanvas(ctx.canvas));
           if (result) { ctx.drawImage(result, 0, 0); skinSmoothed = true; }
         } catch (_e) { void _e; }
       }
     }
     engine.apply(ctx, w, h, b, skinSmoothed);
+  }
+
+  function _skinMaskCanvas(canvas) {
+    const SM = window.PhotoEditorSmartMask;
+    if (!SM || typeof SM.classify !== 'function') return null;
+    const w = canvas.width, h = canvas.height;
+    let data;
+    try { data = canvas.getContext('2d').getImageData(0, 0, w, h); }
+    catch (_e) { return null; }
+    const mask = document.createElement('canvas');
+    mask.width = w; mask.height = h;
+    const out = mask.getContext('2d').createImageData(w, h);
+    _fillSkinMask(data.data, out.data, w, h, SM);
+    mask.getContext('2d').putImageData(out, 0, 0);
+    return mask;
+  }
+
+  function _fillSkinMask(src, dst, w, h, SM) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = src[i], g = src[i + 1], b = src[i + 2];
+      const lum = r * 0.299 + g * 0.587 + b * 0.114;
+      const p = SM.classify({ r, g, b, lum, maxCh: Math.max(r, g, b), minCh: Math.min(r, g, b), x, y, w, h });
+      const v = Math.round(Math.max(p.skin || 0, Math.min(p.redness || 0, 0.5)) * 255);
+      dst[i] = v; dst[i + 1] = v; dst[i + 2] = v; dst[i + 3] = 255;
+    }
   }
 
   // ── 메인 모듈 준비될 때까지 폴링 후 등록 ──

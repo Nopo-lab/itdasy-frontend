@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260527-v307-full-redesign';
+const CACHE_VERSION = '20260527-v308-photo-editor-upgrade';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -65,6 +65,8 @@ const STATIC_ASSETS = [
   './app-photo-editor-worker-filter.js',
   './js/photo-editor/history.js',
   './js/photo-editor/renderer.js',
+  './app-photo-editor-shop-data.js',
+  './app-photo-editor-preset-cards.js',
   './js/photo-editor/basic-panels.js',
   './app-photo-editor-bg-tab.js',
   './app-photo-editor-ai-mask.js',
@@ -89,6 +91,12 @@ const STATIC_ASSETS = [
   './js/assistant/photo-workflow-commands.js',
   './js/photo-editor/template-market-data.js',
   './js/photo-editor/template-overlay.js',
+  './app-photo-editor-ba-compose.js',
+  './app-photo-editor-edit-plan.js',
+  './app-photo-editor-intent-parser.js',
+  './app-photo-editor-nl-template.js',
+  './app-photo-editor-nl-modify.js',
+  './app-photo-editor-nl-apply.js',
   './js/assistant/photo-kind-classifier.js',
   './js/assistant/pending-photos.js',
   './js/assistant/voice-input.js',

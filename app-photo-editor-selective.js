@@ -172,7 +172,7 @@
         _removePin(_stateRef, id);
         _refreshMarkers();
         if (_helpersRef && _helpersRef.renderPanel) _helpersRef.renderPanel();
-        if (_helpersRef && _helpersRef.redraw) _helpersRef.redraw();
+        if (_helpersRef && _helpersRef.scheduleRedraw) _helpersRef.scheduleRedraw();
       });
     });
   }
@@ -199,7 +199,7 @@
         _addPin(_stateRef, x, y);
         _refreshMarkers();
         if (_helpersRef && _helpersRef.renderPanel) _helpersRef.renderPanel();
-        if (_helpersRef && _helpersRef.redraw) _helpersRef.redraw();
+        if (_helpersRef && _helpersRef.scheduleRedraw) _helpersRef.scheduleRedraw();
         _lastDoubleTap = 0;
       } else {
         _lastDoubleTap = now;
@@ -282,7 +282,7 @@
       }
       _addPin(state, 0.5, 0.5);
       _refreshMarkers();
-      helpers.renderPanel(); helpers.redraw();
+      helpers.renderPanel(); helpers.scheduleRedraw();
     });
   }
 

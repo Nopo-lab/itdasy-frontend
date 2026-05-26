@@ -1,3 +1,4 @@
+/* exported initCaptionSlotPicker, publishFromCaption */
 // Itdasy Studio - 글쓰기 탭 (app-gallery.js에서 분리)
 
 function _writeEsc(v) {
@@ -457,3 +458,6 @@ async function doPublishFromCaption() {
     showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message));
   }
 }
+
+window.initCaptionSlotPicker = initCaptionSlotPicker;
+window.publishFromCaption = publishFromCaption;

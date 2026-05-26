@@ -6,6 +6,7 @@
 
 const CATS = [
     { id: 'feed',    label: '피드',    ratio: '4:5', size: [1080, 1350] },
+    { id: 'ba',      label: '전후사진', ratio: '4:5', size: [1080, 1350] },
     { id: 'story',   label: '스토리',  ratio: '9:16', size: [1080, 1920] },
     { id: 'reels',   label: '세로 홍보', ratio: '9:16', size: [1080, 1920] },
     { id: 'event',   label: '이벤트',  ratio: '1:1', size: [1080, 1080] },
@@ -46,9 +47,16 @@ const CATS = [
     { id: 'price-makeup',    cat: 'price', label: '메이크업 가격표',  prefillText: 'MAKEUP', accent: 'soft' },
     { id: 'price-wax',       cat: 'price', label: '왁싱 가격표',     prefillText: 'WAX MENU', accent: 'soft' },
     // ── Before/After 프리미엄 3 ──
-    { id: 'ba-cream',   cat: 'feed', label: 'B/A 크림',   prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-sage',    cat: 'feed', label: 'B/A 세이지',  prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-dark',    cat: 'feed', label: 'B/A 다크',    prefillText: 'Before & After', accent: 'gold' },
+    { id: 'ba-cream',    cat: 'ba', label: 'B/A 크림',      prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-sage',     cat: 'ba', label: 'B/A 세이지',     prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-dark',     cat: 'ba', label: 'B/A 다크',       prefillText: 'Before & After', accent: 'gold' },
+    { id: 'ba-2split-h', cat: 'ba', label: '2분할 피드',     prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-2split-v', cat: 'ba', label: '2분할 스토리',   prefillText: 'Before & After', accent: 'primary' },
+    { id: 'ba-3process', cat: 'ba', label: '3단계 과정',     prefillText: 'Before → After', accent: 'gold' },
+    { id: 'ba-4grid',    cat: 'ba', label: '2x2 포트폴리오', prefillText: 'Portfolio', accent: 'soft' },
+    { id: 'ba-price',    cat: 'ba', label: '전후 + 가격표',  prefillText: 'Before & After', accent: 'gold' },
+    { id: 'ba-event',    cat: 'ba', label: '전후 + 이벤트',  prefillText: 'Event Before', accent: 'primary' },
+    { id: 'ba-review',   cat: 'ba', label: '전후 + 후기',    prefillText: 'Real Review', accent: 'soft' },
     // ── 명함 5 ──
     { id: 'card-minimal',    cat: 'card',  label: '미니멀',   prefillText: '샵 안내', accent: 'soft' },
     { id: 'card-gold',       cat: 'card',  label: '골드',     prefillText: 'OUR SHOP', accent: 'gold' },

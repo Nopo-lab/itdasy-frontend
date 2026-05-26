@@ -75,7 +75,7 @@
     layer.y = Math.max(0, Math.min(1, _dragState.startLayerY + (e.clientY - _dragState.startY) / _dragState.canvasRect.height));
     state.text = layer;
     if (window.PhotoEditorLayers && window.PhotoEditorLayers.syncText) window.PhotoEditorLayers.syncText(state);
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
   }
 
   function _onPointerEnd(e) {
@@ -102,7 +102,7 @@
     if (!next) return;
     layer.size = next.size;
     layer.rot = next.rot;
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
   }
 
   function _pinchNext(layer, t1, t2) {
@@ -174,7 +174,7 @@
       window.PhotoEditorLayers.ensure(state);
     }
     if (helpers && helpers.renderPanel) helpers.renderPanel();
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
   }
 
   function _editInline(layer, helpers) {
@@ -183,7 +183,7 @@
     if (next === null) return;
     layer.value = next;
     if (helpers && helpers.renderPanel) helpers.renderPanel();
-    if (helpers && helpers.redraw) helpers.redraw();
+    if (helpers && helpers.scheduleRedraw) helpers.scheduleRedraw();
     if (helpers && helpers.pushHistory) helpers.pushHistory();
   }
 

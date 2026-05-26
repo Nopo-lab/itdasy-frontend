@@ -34,10 +34,11 @@
 
   function _unsharpMask(ctx, w, h, strength) {
     try {
+      strength = Math.min(Math.max(strength || 0, 0), 0.5);
       const src = ctx.getImageData(0, 0, w, h);
       const blur = _boxBlur(src, w, h, 1);
       const out = ctx.createImageData(w, h);
-      const k = 1 + strength * 1.2;
+      const k = 1 + strength * 0.7;
       for (let i = 0; i < src.data.length; i += 4) {
         out.data[i] = _clamp(src.data[i] + (src.data[i] - blur.data[i]) * (k - 1));
         out.data[i + 1] = _clamp(src.data[i + 1] + (src.data[i + 1] - blur.data[i + 1]) * (k - 1));
@@ -81,7 +82,7 @@
     const px = i >> 2, x = px % w, y = (px / w) | 0;
     const subjectW = Math.max(0, 1 - (Math.abs((x + 0.5) / w - 0.5) * 1.44 + Math.abs((y + 0.5) / h - 0.48) * 1.04));
     const edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
-    const isSkin = !edgeBg && r > 68 && r > g && g > bl - 10 && (r - bl) > 10 && (r - bl) < 120 && lum0 > 50 && lum0 < 245;
+    const isSkin = !edgeBg && r > 55 && r > g - 8 && g > bl - 10 && (r - bl) > 4 && (r - bl) < 120 && lum0 > 50 && lum0 < 245;
     const isReddish = !edgeBg && subjectW > 0.55 && r > 80 && r > g && (r - bl) > 10 && (r - bl) < 140;
     const ny = (y + 0.5) / h;
     const upperHalf = ny < 0.55;
@@ -94,8 +95,8 @@
       r, g, bl, lum0,
       skinW: mask ? mask.skin : (isSkin ? 1 : 0),
       hairW: mask ? mask.hair : (hairLike ? 1 : 0),
-      eyeW: mask ? mask.eye : 0,
-      nailW: mask ? mask.nail : 0,
+      eyeW: mask ? mask.eye : (ny > 0.25 && ny < 0.55 && lum0 < 150 ? 0.25 : 0),
+      nailW: mask ? mask.nail : (lum0 > 130 && lum0 < 220 ? 0.2 : 0),
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }
@@ -230,21 +231,15 @@
     if (needCpuSmooth || c.hairEndK > 0) {
       try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
-    let _dbgSkin = 0, _dbgHair = 0, _dbgChanged = 0;
     for (let i = 0; i < d.length; i += 4) {
       const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask);
-      const before = d[i] + d[i + 1] + d[i + 2];
       _applyEye(d, i, p, c);
       _applySkinTone(d, i, p, c);
       _applySkinTexture(d, i, p, c, blurD);
       _applyHair(d, i, p, c, blurD);
       _applyDetail(d, i, p, c);
-      if (p.skinW > 0.1) _dbgSkin++;
-      if (p.hairW > 0.14) _dbgHair++;
-      if (d[i] + d[i + 1] + d[i + 2] !== before) _dbgChanged++;
     }
     ctx.putImageData(data, 0, 0);
-    if (!apply._logged) { apply._logged = true; const total = d.length / 4; console.log('[beauty] 픽셀 분류:', { total, skin: _dbgSkin, hair: _dbgHair, changed: _dbgChanged, skinPct: (100 * _dbgSkin / total).toFixed(1) + '%', hairPct: (100 * _dbgHair / total).toFixed(1) + '%', changedPct: (100 * _dbgChanged / total).toFixed(1) + '%' }); }
     _applySharpen(ctx, w, h, b);
   }
 

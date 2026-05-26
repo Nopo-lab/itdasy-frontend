@@ -542,6 +542,7 @@ window.disconnectInstagram = disconnectInstagram;
 // [QA #8] 외부에서 IG 상태 재조회 (호환 alias — 일부 코드가 checkInstagramStatus 라는 이름으로 호출).
 window.checkInstaStatus = checkInstaStatus;
 window.checkInstagramStatus = checkInstaStatus;
+/* exported connectInstagram */
 // [2026-05-21] 설정 → 말투분석 / 인스타 재분석 진입점. app-settings-hub·app-oauth-return·app-persona-survey 에서 window.runPersonaAnalyze 로 호출 → 노출 누락 시 silent fail.
 window.runPersonaAnalyze = runPersonaAnalyze;
 window.reAnalyzePersona = reAnalyzePersona;
@@ -721,7 +722,6 @@ function openInstagramPreview(opts) {
   }
 
   const shopName     = (localStorage.getItem('shop_name') || '잇데이 스튜디오');
-  const shopHandle   = (localStorage.getItem('shop_name') || 'itdasy').toLowerCase().replace(/\s/g, '');
   const avatarLetter = (shopName[0] || '잇');
 
   // 미리보기 사진 영역 — ratio 별 aspect-ratio 자동 매핑
@@ -847,8 +847,6 @@ function openInstagramPreview(opts) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
-        console.log('[ig-preview] 발행 성공:', data.media_id);
-
         if (window.showToast) window.showToast('인스타 피드에 올라갔어요 🎉');
         if (typeof window.createConfetti === 'function') {
           for (let i = 0; i < 20; i++) setTimeout(window.createConfetti, i * 100);
@@ -874,3 +872,4 @@ function openInstagramPreview(opts) {
   return meta;
 }
 window.openInstagramPreview = openInstagramPreview;
+window.connectInstagram = connectInstagram;

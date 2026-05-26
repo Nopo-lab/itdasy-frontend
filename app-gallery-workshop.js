@@ -1,3 +1,4 @@
+/* exported goWorkshopUpload, togglePhotoSelect */
 // Itdasy Studio — 작업실 탭 핵심 (상태·업로드·슬롯카드·드래그)
 // 의존: app-gallery-utils.js, app-gallery-db.js (먼저 로드)
 // slot-editor / assign 이 읽는 setter 함수도 여기에 정의.
@@ -648,3 +649,6 @@ function _hideDragIndicator() {
 function _onDragEnd() {
   if (_dragPhotoId) { _hideDragIndicator(); _dragPhotoId = null; _dragSrcEl = null; }
 }
+
+window.goWorkshopUpload = goWorkshopUpload;
+window.togglePhotoSelect = togglePhotoSelect;

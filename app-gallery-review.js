@@ -1,3 +1,4 @@
+/* exported updateReviewScale, cancelReviewEdit, saveReviewEdit */
 // Itdasy Studio - 리뷰 스티커 (app-gallery.js에서 분리)
 
 // ═══════════════════════════════════════════════════════
@@ -371,3 +372,6 @@ async function selectReviewTextOnly(idx) {
   }
 }
 try { if (typeof window !== 'undefined') { window.selectReviewTextOnly = selectReviewTextOnly; } } catch (_e) { void _e; }
+window.updateReviewScale = updateReviewScale;
+window.cancelReviewEdit = cancelReviewEdit;
+window.saveReviewEdit = saveReviewEdit;

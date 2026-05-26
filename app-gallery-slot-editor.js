@@ -1,3 +1,4 @@
+/* exported saveAndCloseSlotPopup, toggleBAMode */
 // Itdasy Studio — 슬롯 팝업 / BA 모드 / 미리보기
 // 의존: app-gallery-utils.js, app-gallery-db.js, app-gallery-workshop.js
 // 상태 쓰기는 app-gallery-workshop.js 의 setter 함수 경유 (직접 변이 금지)
@@ -403,3 +404,6 @@ async function _applyBABetween(before, after, slot) {
     await saveSlotToDB(slot);
   } catch (e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
+
+window.saveAndCloseSlotPopup = saveAndCloseSlotPopup;
+window.toggleBAMode = toggleBAMode;

@@ -1,3 +1,4 @@
+/* exported openBgPanel, openTemplatePanel */
 // Itdasy Studio - 배경창고 + 템플릿 (app-gallery.js에서 분리)
 
 // ═══════════════════════════════════════════════════════
@@ -377,3 +378,6 @@ window.composeBgForEditor = async function (srcUrl, bgId, target_ratio, preRemov
     shadow: opts.shadow || { mode: 'none' },
   });
 };
+
+window.openBgPanel = openBgPanel;
+window.openTemplatePanel = openTemplatePanel;
