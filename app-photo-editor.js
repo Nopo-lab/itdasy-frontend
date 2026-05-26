@@ -19,7 +19,8 @@
     { id: 'beauty', label: '뷰티' }, { id: 'brush', label: '부분 보정' },
     { id: 'selective', label: '셀렉티브' }, { id: 'pro', label: '프로' },
     { id: 'relight', label: '조명' }, { id: 'film', label: '필름' },
-    { id: 'bg', label: '누끼·배경' }, { id: 'template', label: '템플릿' },
+    { id: 'bg', label: '누끼·배경' }, { id: 'ba', label: 'B/A 비교' },
+    { id: 'template', label: '템플릿' },
     { id: 'text', label: '텍스트' }, { id: 'brand', label: '브랜드' },
     { id: 'export', label: '내보내기' },
   ];
@@ -1038,6 +1039,14 @@
 
   function _applyStatePatch(patch) {
     if (!_state || !patch) return false;
+    if (patch.adjust) Object.assign(_state.adjust, patch.adjust);
+    if (patch.beauty) Object.assign(_state.beauty, patch.beauty);
+    if (patch.relight) Object.assign(_state.relight, patch.relight);
+    if (patch.template) Object.assign(_state.template, patch.template);
+    if (patch.bg) Object.assign(_state.bg, patch.bg);
+    if (patch.beautyFocus !== undefined) _state.beautyFocus = patch.beautyFocus;
+    if (patch.activeTab) _state.activeTab = patch.activeTab;
+    if (patch.autoIntensity) _state.autoIntensity = patch.autoIntensity;
     if (patch.watermark) Object.assign(_state.watermark, patch.watermark);
     if (patch.text) {
       _ensureLayers();

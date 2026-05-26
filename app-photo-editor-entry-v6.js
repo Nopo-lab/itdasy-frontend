@@ -13,6 +13,9 @@
   let _backBound = false;
   let _origOpen = null;
   let _origOpenFromAction = null;
+  let _pendingCardAfterPick = null;
+  let _openSeq = 0;
+  let _featureSeq = -1;
 
   // ── Lucide SVG (DESIGN_SYSTEM 의 ti-* 아이콘을 인라인 SVG 로 — 외부 폰트 의존 제거) ──
   // index.html 의 ic-* 스프라이트가 있으면 그걸 써도 됨. 우선 inline 으로 시작.
@@ -56,6 +59,7 @@
     'brush':    'brush',
     'template': 'template',
     'pro':      'pro',
+    'ba':       'ba',
   };
   const TAB_TO_CARD = {
     auto: 'auto',
@@ -79,18 +83,18 @@
     relight: '조명',
     hair: '헤어 디테일',
     detail: '디테일',
-    retouch: '리터치',
+    retouch: '잡티 지우기',
     save: '저장',
     bg: '배경·누끼',
     crop: '자르기',
-    tune: '보정',
+    tune: '수동 보정',
     export: '사이즈',
     text: '텍스트',
     brand: '브랜드',
     brush: '잡티',
-    template: '프레임',
-    pro: '프리셋',
-    ba: '원본 비교',
+    template: '홍보 템플릿',
+    pro: '고급',
+    ba: '비포/애프터',
   };
 
   function _esc(s) {
@@ -149,11 +153,11 @@
   function _buildTools() {
     return `<div class="pe-sec-hd">자세히</div>
       <div class="pe-card-grid-tools">
-        ${_toolItem('tune', 'adjustments', '보정', true)}
+        ${_toolItem('tune', 'adjustments', '수동 보정', false)}
         ${_toolItem('relight', 'sparkles', '조명', false)}
-        ${_toolItem('retouch', 'droplet', '리터치', false)}
-        ${_toolItem('template', 'frame', '프레임', false)}
-        ${_toolItem('ba', 'arrows-lr', 'B/A', false)}
+        ${_toolItem('retouch', 'droplet', '잡티', false)}
+        ${_toolItem('template', 'frame', '템플릿', false)}
+        ${_toolItem('ba', 'arrows-lr', '전후', false)}
         ${_toolItem('hair', 'stack', '헤어', false)}
         ${_toolItem('brand', 'sticker', '브랜드', false)}
         ${_toolItem('pro', 'bookmark', '고급', false)}
@@ -221,20 +225,28 @@
       }
     }
     const cardBtn = e.target.closest('[data-pev6-card]');
-    if (cardBtn) {
-      const cardKey = cardBtn.dataset.pev6Card;
-      if (cardKey === 'ba') {
-        // B/A 슬라이더 — 기존 ba-slider 모듈에 위임
-        _gotoEditor('auto', cardKey);
-        setTimeout(() => {
-          const compare = document.querySelector('#photoEditorSheet [data-pe-act="compare"]');
-          if (compare) compare.click();
-        }, 50);
-        return;
-      }
-      const tab = CARD_TO_TAB[cardKey] || 'auto';
-      _gotoEditor(tab, cardKey);
-    }
+    if (cardBtn) _openCard(cardBtn.dataset.pev6Card);
+  }
+
+  function _state() {
+    try { return window.PhotoEditor?._internal?.getState?.(); }
+    catch (_e) { return null; }
+  }
+
+  function _hasImage() {
+    const st = _state();
+    return !!(st && st.originalImg && st.originalImg.src);
+  }
+
+  function _pickThenOpen(cardKey) {
+    _pendingCardAfterPick = cardKey || 'auto';
+    const picker = document.getElementById('pePicker');
+    if (picker) picker.click();
+  }
+
+  function _openCard(cardKey) {
+    if (!_hasImage()) { _pickThenOpen(cardKey); return; }
+    _gotoEditor(CARD_TO_TAB[cardKey] || 'auto', cardKey);
   }
 
   function _hideEntry() {
@@ -293,8 +305,9 @@
 
   function _gotoEditor(tabId, cardKey) {
     const sheet = document.getElementById('photoEditorSheet');
+    _featureSeq = _openSeq;
     try {
-      const st = window.PhotoEditor?._internal?.getState?.();
+      const st = _state();
       if (st) st.beautyFocus = cardKey === 'hair' ? 'hair' : null;
     } catch (_e) { void _e; }
     _setFeatureMode(sheet, true, cardKey || tabId);
@@ -320,11 +333,18 @@
 
   function _refreshEntryIfVisible() {
     const sheet = document.getElementById('photoEditorSheet');
+    if (_pendingCardAfterPick && _hasImage()) {
+      const card = _pendingCardAfterPick;
+      _pendingCardAfterPick = null;
+      _gotoEditor(CARD_TO_TAB[card] || 'auto', card);
+      return;
+    }
     if (sheet && sheet.classList.contains('pe-has-entry-v6')) _showEntry();
   }
 
-  function _showAfterOpen(opts) {
+  function _showAfterOpen(opts, seq) {
     const tab = opts && opts.initial_tab;
+    if (!tab && _featureSeq === seq) return;
     if (!tab) { _showEntry(); return; }
     const sheet = document.getElementById('photoEditorSheet');
     if (!sheet) return;
@@ -334,9 +354,10 @@
   }
 
   function _scheduleAfterOpen(opts) {
-    requestAnimationFrame(() => { try { _showAfterOpen(opts || {}); } catch (_e) { void _e; } });
-    setTimeout(() => { try { _showAfterOpen(opts || {}); } catch (_e) { void _e; } }, 220);
-    setTimeout(() => { try { _showAfterOpen(opts || {}); } catch (_e) { void _e; } }, 700);
+    const seq = ++_openSeq;
+    requestAnimationFrame(() => { try { _showAfterOpen(opts || {}, seq); } catch (_e) { void _e; } });
+    setTimeout(() => { try { _showAfterOpen(opts || {}, seq); } catch (_e) { void _e; } }, 220);
+    setTimeout(() => { try { _showAfterOpen(opts || {}, seq); } catch (_e) { void _e; } }, 700);
   }
 
   function _wrapOpen() {

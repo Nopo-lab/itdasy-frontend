@@ -708,6 +708,7 @@ function openInstagramPreview(opts) {
     } catch (_e) { void _e; }
   }
   const enableUpload = !!opts.enableUpload;
+  const hidePop = () => pop.style.setProperty('display', 'none', 'important');
 
   let pop = document.getElementById('_igPreviewPop');
   if (!pop) {
@@ -715,7 +716,7 @@ function openInstagramPreview(opts) {
     pop.id = '_igPreviewPop';
     // [v178 2026-05-18] z-index 9000 → 10020. 챗봇(9999)·편집기(10000)·편집기 sub-modal(10010) 위로 모두 덮음.
     pop.style.cssText = 'position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
-    pop.onclick = e => { if (e.target === pop) pop.style.display = 'none'; };
+    pop.onclick = e => { if (e.target === pop) hidePop(); };
     document.body.appendChild(pop);
   }
 
@@ -770,16 +771,16 @@ function openInstagramPreview(opts) {
       </div>
     </div>
   `;
-  pop.style.display = 'flex';
-  pop.querySelector('[data-ig-preview-x]')?.addEventListener('click', () => { pop.style.display = 'none'; });
+  pop.style.setProperty('display', 'flex', 'important');
+  pop.querySelector('[data-ig-preview-x]')?.addEventListener('click', hidePop);
 
   // [v179 2026-05-18] 버튼 핸들러 바인딩 (innerHTML 재적용 후 항상 새로 wire)
   const closeBtn = pop.querySelector('#_igPreviewClose');
-  if (closeBtn) closeBtn.onclick = () => { pop.style.display = 'none'; };
+  if (closeBtn) closeBtn.onclick = hidePop;
   const captionBtn = pop.querySelector('#_igPreviewCaptionBtn');
   if (captionBtn) {
     captionBtn.onclick = () => {
-      pop.style.display = 'none';
+      hidePop();
       if (typeof window.openCaptionScenarioPopup === 'function') window.openCaptionScenarioPopup();
     };
   }
@@ -857,7 +858,7 @@ function openInstagramPreview(opts) {
             window.CaptionPrefill.clear();
           }
         } catch (_e) { void _e; }
-        pop.style.display = 'none';
+        hidePop();
       } catch (e) {
         console.warn('[ig-preview] 인스타 발행 실패:', e);
         const msg = (e && e.message) || '알 수 없음';

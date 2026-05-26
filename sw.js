@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260526-v285-photo-editor-meitu-route';
+const CACHE_VERSION = '20260526-v286-photo-editor-voice-workflow';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -79,6 +79,7 @@ const STATIC_ASSETS = [
   './js/assistant/group-action-controls.js',
   './js/assistant/suggestion-controls.js',
   './js/assistant/photo-local-handlers.js',
+  './js/assistant/photo-workflow-commands.js',
   './js/assistant/photo-kind-classifier.js',
   './js/assistant/pending-photos.js',
   './js/assistant/voice-input.js',

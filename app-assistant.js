@@ -2373,6 +2373,7 @@
   function _tryPhotoEditorShortcut(input, q) {
     const editor = window.PhotoEditor && typeof window.PhotoEditor.open === 'function';
     if (!editor) return false;
+    if (window.ItdasyAssistantPhotoCommands?.tryRun?.(input, q, { clearInput: _clearAssistantInput })) return true;
     if (/(사진|이미지|포토)\\s*(편집|보정|수정|꾸미|예쁘게|만들|업로드)/.test(q)
         || /(편집기|편집\\s*화면|보정\\s*화면|에디터)\\s*(열|보여|시작|이동|가)?/.test(q)
         || /^편집기?$/.test(q.trim())) {
