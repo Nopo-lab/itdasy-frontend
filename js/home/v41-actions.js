@@ -1,0 +1,102 @@
+/* Home v4.1 button actions */
+(function () {
+  'use strict';
+
+  function _tap() {
+    if (!window.hapticLight) return;
+    try { window.hapticLight(); } catch (_e) { /* ignore */ }
+  }
+
+  function _openCalendar() {
+    if (typeof window.openCalendarView === 'function') return window.openCalendarView();
+    if (typeof window.showTab !== 'function') return undefined;
+    const btn = document.querySelector('.tab-bar__btn[data-tab="calendar"]');
+    try { window.showTab('calendar', btn); } catch (_e) { /* ignore */ }
+    return undefined;
+  }
+
+  function _openCaption() {
+    if (typeof window.openCaptionScenarioPopup === 'function') return window.openCaptionScenarioPopup();
+    if (typeof window.openNavSheet === 'function') return window.openNavSheet();
+    return undefined;
+  }
+
+  function _openCustomers() {
+    if (typeof window.openCustomerHub === 'function') return window.openCustomerHub();
+    if (typeof window.openCustomers === 'function') return window.openCustomers();
+    return undefined;
+  }
+
+  function _openRevenue() {
+    if (typeof window.openRevenue === 'function') { window.openRevenue(); return; }
+    if (typeof window.openRevenueHub === 'function') window.openRevenueHub();
+  }
+
+  async function _loadPendingBooking(id) {
+    let booking = window._homePendingTopBooking || { id };
+    try {
+      if (!window.authHeader) return booking;
+      const headers = window.authHeader();
+      if (!headers || !headers.Authorization) return booking;
+      const res = await apiFetch('/bookings/' + id, { headers });
+      if (res.ok) booking = await res.json();
+    } catch (_e) { /* booking fallback */ }
+    return booking;
+  }
+
+  async function _completePending() {
+    const id = window._homePendingTopId;
+    if (!id) {
+      if (window.showToast) window.showToast('완료할 예약 없음');
+      return;
+    }
+    const flow = window.CompleteFlow;
+    if (!flow || typeof flow.startFromBooking !== 'function') {
+      if (window.showToast) window.showToast('완료 처리 모듈 준비 중');
+      return;
+    }
+    const booking = await _loadPendingBooking(id);
+    try { flow.startFromBooking(booking); } catch (_e) {
+      if (window.showToast) window.showToast('완료 처리 시트 열기 실패');
+    }
+  }
+
+  const ACTIONS = {
+    openCalendar: _openCalendar,
+    openGallery: () => {
+      if (typeof window.openFinishTab === 'function') return window.openFinishTab();
+      return undefined;
+    },
+    openCaption: _openCaption,
+    bell: () => {
+      if (typeof window.openNotifications === 'function') window.openNotifications();
+    },
+    openBookingApproval: () => {
+      if (typeof window.openBookingApproval === 'function') window.openBookingApproval();
+    },
+    openDMConfirmQueue: () => {
+      if (typeof window.openDMConfirmQueue === 'function') return window.openDMConfirmQueue();
+      if (typeof window.openDMQueue === 'function') return window.openDMQueue();
+      return undefined;
+    },
+    openInsights: () => {
+      if (typeof window.openInsights === 'function') return window.openInsights();
+      if (typeof window.openCustomerInsights === 'function') return window.openCustomerInsights();
+      return undefined;
+    },
+    openCustomers: _openCustomers,
+    openRevenue: _openRevenue,
+    completePending: _completePending,
+  };
+
+  function run(act) {
+    _tap();
+    if (!act) return;
+    if (ACTIONS[act]) { ACTIONS[act](); return; }
+    if (typeof window[act] === 'function') {
+      try { window[act](); } catch (_e) { /* ignore */ }
+    }
+  }
+
+  window.HomeV41Actions = { run };
+})();
