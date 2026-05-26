@@ -118,7 +118,7 @@
     if (PE._internal.helpers && PE._internal.helpers.scheduleRedraw) PE._internal.helpers.scheduleRedraw();
     if (PE._internal.helpers && PE._internal.helpers.pushHistory) PE._internal.helpers.pushHistory();
     _toast('템플릿 적용: ' + tpl.label);
-    _sheetEl.style.display = 'none';
+    if (_sheetEl) _sheetEl.style.display = 'none';
   }
 
   function _toast(msg) {
@@ -179,7 +179,7 @@
     });
   }
 
-  window.PhotoEditorTemplatesV2 = { open: _open, TEMPLATES, CATS };
+  window.PhotoEditorTemplatesV2 = { open: _open, apply: _apply, TEMPLATES, CATS };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _watchPanel);

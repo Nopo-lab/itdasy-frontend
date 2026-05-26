@@ -60,6 +60,26 @@
     skin:   ['자극 부위 자연 복원', '잡티 AI 제거'],
     general: ['AI 일반 보정 보강'],
   };
+  const BEAUTY_LOOKS = [
+    { id: 'classic', label: '클래식 모드', cat: 'general', icon: '◉', patch: { skin: 16, redness: 18, textureSmooth: 12 } },
+    { id: 'photoshop', label: '포토샵', cat: 'skin', icon: '✦', patch: { skin: 24, blemish: 26, textureSmooth: 20, eyeShadow: 12 } },
+    { id: 'proof', label: '컨셉 화보', cat: 'makeup', icon: '▣', patch: { skin: 18, lipPop: 20, eyeColor: 14, browSharp: 18, catchLight: 16 } },
+    { id: 'iphone', label: 'iPhone모드', cat: 'general', icon: '▢', patch: { skin: 10, redness: 14, textureSmooth: 6 } },
+    { id: 'dslr', label: 'DSLR', cat: 'hair', icon: '◎', patch: { hairDetail: 28, hairShine: 26, closeUpDetail: 18 } },
+    { id: 'ccd', label: 'CCD', cat: 'general', icon: '◌', patch: { skin: 10, redness: 10, lipPop: 12 } },
+    { id: 'hair', label: '헤어 컬러', cat: 'hair', icon: '⌁', patch: { hairShine: 48, hairDetail: 34, hairColorPop: 30, hairVolume: 18 } },
+    { id: 'lash', label: '속눈썹', cat: 'lash', icon: '⌕', patch: { lashSharp: 52, irisClear: 30, catchLight: 26, underEyeClean: 18 } },
+    { id: 'nail', label: '네일', cat: 'nail', icon: '◧', patch: { nailGloss: 58, nailShape: 40, handSkin: 18, coolness: 18 } },
+    { id: 'glow', label: 'AI 글로우', cat: 'skin', icon: '✧', patch: { skin: 24, redness: 22, blemish: 18, catchLight: 26 } },
+  ];
+  const BEAUTY_FOCUS = [
+    { id: 'general', label: 'Hot🔥' },
+    { id: 'hair', label: '헤어' },
+    { id: 'skin', label: '피부' },
+    { id: 'lash', label: '속눈썹' },
+    { id: 'nail', label: '네일' },
+    { id: 'makeup', label: '메이크업' },
+  ];
 
   // [v192] 정규화 헬퍼 (app-core.js itdasyNormalizeShopType) 활용. 없으면 폴백 분기.
   function _detectShopCat() {
@@ -117,6 +137,8 @@
     const aiItems = cat ? (AI_FEATURES[cat] || []) : [];
     const catLabel = { hair: '헤어·붙임머리·미용', lash: '속눈썹', nail: '네일', wax: '왁싱·피부·반영구' }[cat || ''] || '';
 
+    const quickHtml = _beautyQuickHTML(esc, cat);
+
     let featuredHtml = '';
     if (featured.length) {
       featuredHtml = `
@@ -147,12 +169,38 @@
       aiHtml = '<div class="pe-hint" style="color:#7f7f87;margin-top:14px;">느린 AI 기능은 준비된 것만 별도 버튼으로 보여줘요. 이 화면은 즉시 보정만 다룹니다.</div>';
     }
 
-    return `${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+    return `${quickHtml}${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+  }
+
+  function _beautyQuickHTML(esc, cat) {
+    return `<div class="pe-beauty-hero">
+      <div>
+        <div class="pe-beauty-hero-kicker">뷰티캠식 빠른 보정</div>
+        <strong>원하는 느낌을 먼저 고르세요</strong>
+        <p>선택 후 아래 슬라이더로 세기만 살짝 조절</p>
+      </div>
+    </div>
+    <div class="pe-beauty-focus">${BEAUTY_FOCUS.map(item =>
+      `<button type="button" class="${cat === item.id ? 'on' : ''}" data-pe-beauty-focus="${item.id}">${esc(item.label)}</button>`
+    ).join('')}</div>
+    <div class="pe-beauty-look-grid">${_beautyLooksFor(cat).map(item => `
+      <button type="button" class="pe-beauty-look" data-pe-beauty-look="${item.id}">
+        <span>${esc(item.icon)}</span>
+        <b>${esc(item.label)}</b>
+      </button>
+    `).join('')}</div>`;
+  }
+
+  function _beautyLooksFor(cat) {
+    return BEAUTY_LOOKS
+      .filter(item => cat === 'general' || item.cat === cat || item.cat === 'general')
+      .slice(0, 8);
   }
 
   function _bindBeautyPanel(panel, state, helpers) {
     const scheduleRedraw = helpers.scheduleRedraw;
     const pushHistory = helpers.pushHistory;
+    _bindBeautyQuick(panel, state, helpers);
     panel.querySelectorAll('[data-pe-slider]').forEach(inp => {
       inp.addEventListener('input', () => {
         const key = inp.dataset.peSlider;
@@ -194,6 +242,29 @@
         if (window.showToast) window.showToast('AI 보정은 카드 발급 후 활성화 예정이에요');
       });
     });
+  }
+
+  function _bindBeautyQuick(panel, state, helpers) {
+    panel.querySelectorAll('[data-pe-beauty-focus]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.beautyFocus = btn.dataset.peBeautyFocus;
+        helpers.renderPanel();
+      });
+    });
+    panel.querySelectorAll('[data-pe-beauty-look]').forEach(btn => {
+      btn.addEventListener('click', () => _applyBeautyLook(btn.dataset.peBeautyLook, state, helpers));
+    });
+  }
+
+  function _applyBeautyLook(id, state, helpers) {
+    const look = BEAUTY_LOOKS.find(item => item.id === id);
+    if (!look) return;
+    Object.assign(state.beauty, look.patch);
+    if (look.cat && look.cat !== 'general') state.beautyFocus = look.cat;
+    helpers.renderPanel();
+    helpers.scheduleRedraw();
+    helpers.pushHistory();
+    if (helpers.toast) helpers.toast(look.label + ' 적용');
   }
 
   // ── 뷰티 보정 (픽셀 처리는 beauty-engine.js 담당) ──

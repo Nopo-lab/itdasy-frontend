@@ -14,6 +14,7 @@
   let _origOpen = null;
   let _origOpenFromAction = null;
   let _pendingCardAfterPick = null;
+  let _pendingTemplateAfterPick = null;
   let _openSeq = 0;
   let _featureSeq = -1;
 
@@ -220,6 +221,11 @@
       if (window.PhotoEditorPresetCards?.apply?.(presetBtn.dataset.pePreset)) _gotoEditor('auto', 'auto');
       return;
     }
+    const templateBtn = e.target.closest('[data-pe-template-card]');
+    if (templateBtn) {
+      _applyTemplateCard(templateBtn.dataset.peTemplateCard);
+      return;
+    }
     const cardBtn = e.target.closest('[data-pev6-card]');
     if (cardBtn) _openCard(cardBtn.dataset.pev6Card);
   }
@@ -238,6 +244,23 @@
     _pendingCardAfterPick = cardKey || 'auto';
     const picker = document.getElementById('pePicker');
     if (picker) picker.click();
+  }
+
+  function _pickThenTemplate(tplId) {
+    _pendingTemplateAfterPick = tplId;
+    const picker = document.getElementById('pePicker');
+    if (picker) picker.click();
+  }
+
+  function _applyTemplateCard(tplId) {
+    if (!_hasImage()) { _pickThenTemplate(tplId); return; }
+    if (window.PhotoEditorTemplatesV2 && typeof window.PhotoEditorTemplatesV2.apply === 'function') {
+      window.PhotoEditorTemplatesV2.apply(tplId);
+      _gotoEditor('template', 'template');
+      return;
+    }
+    _gotoEditor('template', 'template');
+    setTimeout(() => window.PhotoEditorTemplatesV2?.open?.('ba'), 80);
   }
 
   function _openCard(cardKey) {
@@ -328,6 +351,12 @@
   }
 
   function _refreshEntryIfVisible() {
+    if (_pendingTemplateAfterPick && _hasImage()) {
+      const tplId = _pendingTemplateAfterPick;
+      _pendingTemplateAfterPick = null;
+      _applyTemplateCard(tplId);
+      return;
+    }
     const sheet = document.getElementById('photoEditorSheet');
     if (_pendingCardAfterPick && _hasImage()) {
       const card = _pendingCardAfterPick;

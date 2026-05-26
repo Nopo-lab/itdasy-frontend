@@ -4,6 +4,9 @@
   if (window.PhotoEditorBACompose) return;
 
   const LABELS = {
+    'ba-flower-shadow': ['Before', 'After'],
+    'ba-polaroid': ['Before', 'After'],
+    'ba-editorial': ['Before', 'After'],
     'ba-2split-h': ['BEFORE', 'AFTER'],
     'ba-2split-v': ['BEFORE', 'AFTER'],
     'ba-3process': ['BEFORE', 'PROCESS', 'AFTER'],
@@ -43,6 +46,9 @@
   }
 
   function _layout(ctx, w, h, before, after, id, data) {
+    if (id === 'ba-flower-shadow') return _flowerShadow(ctx, w, h, before, after, data);
+    if (id === 'ba-polaroid') return _polaroid(ctx, w, h, before, after, data);
+    if (id === 'ba-editorial') return _editorial(ctx, w, h, before, after, data);
     if (id === 'ba-2split-v' || id === 'ba-event') return _vertical(ctx, w, h, before, after, id, data);
     if (id === 'ba-3process') return _process(ctx, w, h, before, after, data);
     if (id === 'ba-4grid') return _grid(ctx, w, h, before, after, data);
@@ -59,6 +65,59 @@
     if (id === 'ba-price') _priceRows(ctx, w, h, data);
     else if (id === 'ba-review') _review(ctx, w, h, data);
     else _footer(ctx, w, h, data);
+  }
+
+  function _flowerShadow(ctx, w, h, before, after, data) {
+    _softBotanical(ctx, w, h);
+    ctx.fillStyle = '#141414';
+    ctx.textAlign = 'center';
+    ctx.font = `400 ${Math.round(h * 0.052)}px Georgia, "Times New Roman", serif`;
+    ctx.fillText(data.head || 'Before & After', w / 2, h * 0.1);
+    ctx.font = `400 ${Math.round(h * 0.025)}px "Noto Serif KR", serif`;
+    ctx.fillText(data.sub || '시술 전후 모습을 확인해 보세요!', w / 2, h * 0.145);
+    ctx.strokeStyle = '#151515';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(w * 0.1, h * 0.21); ctx.lineTo(w * 0.9, h * 0.21); ctx.stroke();
+    const pad = w * 0.1, gap = w * 0.045, top = h * 0.29;
+    const boxW = (w - pad * 2 - gap) / 2, boxH = h * 0.44;
+    _roundedPhoto(ctx, before, pad, top, boxW, boxH, 22, true, true);
+    _roundedPhoto(ctx, after, pad + boxW + gap, top, boxW, boxH, 22, false, true);
+    _scriptLabel(ctx, pad + boxW / 2, h * 0.79, 'Before', '전');
+    _scriptLabel(ctx, pad + boxW + gap + boxW / 2, h * 0.79, 'After', '후');
+    _smallBrand(ctx, w, h, data, '#171717');
+  }
+
+  function _polaroid(ctx, w, h, before, after, data) {
+    ctx.fillStyle = '#eee9e2'; ctx.fillRect(0, 0, w, h);
+    _softShadow(ctx, w * 0.52, h * 0.03, w * 0.42, h * 0.12);
+    ctx.fillStyle = '#5f4a3e';
+    ctx.textAlign = 'center';
+    ctx.font = `400 ${Math.round(h * 0.072)}px Georgia, "Times New Roman", serif`;
+    ctx.fillText(data.head || 'Before & After', w / 2, h * 0.19);
+    const pad = w * 0.055, gap = w * 0.02, top = h * 0.29;
+    const boxW = (w - pad * 2 - gap) / 2, boxH = h * 0.5;
+    _polaroidPhoto(ctx, before, pad, top, boxW, boxH, 'Before', '시술전', true);
+    _polaroidPhoto(ctx, after, pad + boxW + gap, top, boxW, boxH, 'After', '시술후', false);
+    _searchPill(ctx, w, h, data.shop || '@itdasy');
+  }
+
+  function _editorial(ctx, w, h, before, after, data) {
+    ctx.fillStyle = '#f6f1e9'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#d9c8b3'; ctx.fillRect(0, h * 0.82, w, h * 0.18);
+    ctx.fillStyle = '#3a2d27';
+    ctx.textAlign = 'center';
+    ctx.font = `700 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`;
+    ctx.fillText('@' + String(data.shop || 'itdasy').replace(/^@/, ''), w / 2, h * 0.09);
+    ctx.font = `400 ${Math.round(h * 0.065)}px Georgia, "Times New Roman", serif`;
+    ctx.fillText(data.head || 'Before & After', w / 2, h * 0.19);
+    const pad = w * 0.08, gap = w * 0.035, top = h * 0.29;
+    const boxW = (w - pad * 2 - gap) / 2, boxH = h * 0.46;
+    _framedPhoto(ctx, before, pad, top, boxW, boxH, true);
+    _framedPhoto(ctx, after, pad + boxW + gap, top, boxW, boxH, false);
+    _searchPill(ctx, w, h, '@' + String(data.shop || 'itdasy').replace(/^@/, '').toUpperCase());
+    ctx.fillStyle = '#fff';
+    ctx.font = `600 ${Math.round(h * 0.032)}px Georgia, "Times New Roman", serif`;
+    ctx.fillText(data.shop || 'Itdasy beauty salon', w / 2, h * 0.9);
   }
 
   function _vertical(ctx, w, h, before, after, id, data) {
@@ -103,6 +162,109 @@
     ctx.strokeStyle = 'rgba(255,255,255,0.86)';
     ctx.lineWidth = Math.max(2, w * 0.012);
     ctx.strokeRect(x, y, w, h);
+    ctx.restore();
+  }
+
+  function _roundedPhoto(ctx, img, x, y, w, h, r, before, dashed) {
+    ctx.save();
+    _rr(ctx, x, y, w, h, r);
+    ctx.clip();
+    ctx.filter = before ? 'brightness(94%) saturate(90%)' : 'brightness(104%) saturate(108%) contrast(104%)';
+    _cover(ctx, img, x, y, w, h);
+    ctx.restore();
+    ctx.save();
+    _rr(ctx, x, y, w, h, r);
+    ctx.strokeStyle = dashed ? 'rgba(20,20,20,0.8)' : 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = Math.max(2, w * 0.008);
+    if (dashed) ctx.setLineDash([10, 6]);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function _polaroidPhoto(ctx, img, x, y, w, h, label, kor, before) {
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,0.12)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 8;
+    ctx.fillRect(x, y, w, h);
+    ctx.restore();
+    _photo(ctx, img, x + w * 0.045, y + w * 0.045, w * 0.91, h * 0.76, before);
+    ctx.fillStyle = '#5f4a3e';
+    ctx.font = `400 ${Math.round(h * 0.052)}px Georgia, "Times New Roman", serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(label, x + w * 0.09, y + h * 0.92);
+    ctx.font = `500 ${Math.round(h * 0.038)}px "Noto Serif KR", serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(kor, x + w * 0.91, y + h * 0.92);
+  }
+
+  function _framedPhoto(ctx, img, x, y, w, h, before) {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(x, y, w, h);
+    _cover(ctx, img, x + w * 0.045, y + w * 0.045, w * 0.91, h * 0.78);
+    ctx.fillStyle = '#5f4a3e';
+    ctx.font = `400 ${Math.round(h * 0.05)}px Georgia, "Times New Roman", serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(before ? 'Before' : 'After', x + w * 0.08, y + h * 0.92);
+    ctx.font = `500 ${Math.round(h * 0.035)}px "Noto Serif KR", serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(before ? '시술전' : '시술후', x + w * 0.92, y + h * 0.92);
+  }
+
+  function _scriptLabel(ctx, x, y, en, ko) {
+    ctx.fillStyle = '#202020';
+    ctx.textAlign = 'center';
+    ctx.font = `400 42px "Brush Script MT", "Segoe Script", cursive`;
+    ctx.fillText(en, x, y);
+    ctx.font = '400 28px "Noto Serif KR", serif';
+    ctx.fillText(ko, x, y + 42);
+  }
+
+  function _smallBrand(ctx, w, h, data, color) {
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.font = `600 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`;
+    ctx.fillText(String(data.shop || 'REALLYGREATSITE.COM').toUpperCase(), w / 2, h * 0.94);
+  }
+
+  function _softBotanical(ctx, w, h) {
+    ctx.fillStyle = '#e7e5de';
+    ctx.fillRect(0, 0, w, h);
+    ctx.save();
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#6e756c';
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.ellipse(w * (0.78 + i * 0.03), h * (0.3 + i * 0.09), w * 0.04, h * 0.16, -0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    _softShadow(ctx, w * 0.08, h * 0.76, w * 0.35, h * 0.1);
+  }
+
+  function _softShadow(ctx, x, y, w, h) {
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#151515';
+    ctx.filter = 'blur(18px)';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, -0.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function _searchPill(ctx, w, h, label) {
+    const x = w * 0.32, y = h * 0.8, pw = w * 0.36, ph = h * 0.052;
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    _rr(ctx, x, y, pw, ph, ph / 2);
+    ctx.fill();
+    ctx.fillStyle = '#6b5a50';
+    ctx.font = `700 ${Math.round(ph * 0.34)}px "Noto Sans KR", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + pw / 2, y + ph / 2);
     ctx.restore();
   }
 
@@ -164,6 +326,9 @@
   }
 
   function _bg(tpl) {
+    if (tpl && tpl.id === 'ba-flower-shadow') return '#e7e5de';
+    if (tpl && tpl.id === 'ba-polaroid') return '#eee9e2';
+    if (tpl && tpl.id === 'ba-editorial') return '#f6f1e9';
     if (tpl && tpl.id === 'ba-dark') return '#24252B';
     if (tpl && tpl.id === 'ba-sage') return '#E5EADF';
     return '#FFFAF2';

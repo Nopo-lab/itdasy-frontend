@@ -48,6 +48,9 @@ const CATS = [
     { id: 'price-wax',       cat: 'price', label: '왁싱 가격표',     prefillText: 'WAX MENU', accent: 'soft' },
     // ── Before/After 프리미엄 3 ──
     { id: 'ba-cream',    cat: 'ba', label: 'B/A 크림',      prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-flower-shadow', cat: 'ba', label: '꽃 그림자 전후', prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-polaroid', cat: 'ba', label: '폴라로이드 전후', prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-editorial', cat: 'ba', label: '에디토리얼 전후', prefillText: 'Before & After', accent: 'gold' },
     { id: 'ba-sage',     cat: 'ba', label: 'B/A 세이지',     prefillText: 'Before & After', accent: 'soft' },
     { id: 'ba-dark',     cat: 'ba', label: 'B/A 다크',       prefillText: 'Before & After', accent: 'gold' },
     { id: 'ba-2split-h', cat: 'ba', label: '2분할 피드',     prefillText: 'Before & After', accent: 'soft' },
