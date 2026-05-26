@@ -76,7 +76,13 @@
       activeTab: opts.initial_tab || 'auto', ratio: 'original',
       autoIntensity: 'standard',  // [v183] natural | standard | strong
       adjust: { brightness: 100, saturate: 100, sharpness: 0, temperature: 0 },
-      beauty: { skin: 0, redness: 0, hairShine: 0, nailGloss: 0, lashSharp: 0, blemish: 0, handSkin: 0, hairColor: 0, hairDetail: 0, eyeShadow: 0 },
+      beauty: {
+        skin: 0, redness: 0, blemish: 0, eyeShadow: 0, textureSmooth: 0, yellowness: 0,
+        lipPop: 0, eyeColor: 0, browSharp: 0,
+        handSkin: 0, nailGloss: 0, coolness: 0, nailShape: 0,
+        hairShine: 0, hairVolume: 0, hairEndsClean: 0, hairColor: 0, hairDetail: 0, hairColorPop: 0, scalpBoost: 0, hairyArm: 0,
+        eyeRedness: 0, irisClear: 0, catchLight: 0, underEyeClean: 0, lashSharp: 0, closeUpDetail: 0,
+      },
       relight: { direction: 0.5, warmth: 0, intensity: 0, ambientBoost: 0, flash: 0 },
       template: { id: null, leftLabel: '전', rightLabel: '후', reviewText: '', priceLines: '' },
       shadow: { mode: 'none' },

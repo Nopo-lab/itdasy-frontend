@@ -205,7 +205,11 @@
   function apply(ctx, w, h, b) {
     if (!b || !_hasAny(b)) return;
     let data;
-    try { data = ctx.getImageData(0, 0, w, h); } catch (_e) { return; }
+    try { data = ctx.getImageData(0, 0, w, h); } catch (e) {
+      console.warn('[beauty-engine] getImageData 실패 — canvas tainted?', e.message);
+      if (!apply._warned) { apply._warned = true; if (window.showToast) window.showToast('뷰티 보정 불가 — 사진을 파일에서 다시 불러와 주세요'); }
+      return;
+    }
     const d = data.data;
     const c = _coeffs(b);
     let blurD = null;

@@ -112,8 +112,8 @@
 
   function _applyDrawHooks(env, cv, ctx, dw, dh) {
     const hooks = env.drawHooks, state = env.state, helpers = env.helpers;
-    if (typeof hooks.relight === 'function') try { hooks.relight(cv, state, helpers); } catch (_e) { void _e; }
-    if (typeof hooks.beauty === 'function') try { hooks.beauty(ctx, dw, dh, state.beauty, helpers); } catch (_e) { void _e; }
+    if (typeof hooks.relight === 'function') try { hooks.relight(cv, state, helpers); } catch (e) { console.warn('[renderer] relight hook 오류:', e.message); }
+    if (typeof hooks.beauty === 'function') try { hooks.beauty(ctx, dw, dh, state.beauty, helpers); } catch (e) { console.warn('[renderer] beauty hook 오류:', e.message); }
     if (typeof hooks.gl_selective === 'function') try { hooks.gl_selective(cv, state, helpers); } catch (_e) { void _e; }
     if (typeof hooks.gl_curve === 'function') try { hooks.gl_curve(cv, state, helpers); } catch (_e) { void _e; }
     if (typeof hooks.gl_hsl === 'function') try { hooks.gl_hsl(cv, state, helpers); } catch (_e) { void _e; }

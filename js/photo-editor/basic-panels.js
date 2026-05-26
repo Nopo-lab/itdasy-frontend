@@ -333,11 +333,11 @@
   }
 
   function _bindTextValues(panel, state, h) {
-    _on(panel, '[data-pe-text-val]', 'input', e => { state.text.value = e.target.value; h.syncTextToLayer(); h.redraw(); });
-    _on(panel, '[data-pe-text-y]', 'input', e => { state.text.y = +e.target.value / 100; h.redraw(); });
-    _on(panel, '[data-pe-text-x]', 'input', e => { state.text.x = +e.target.value / 100; h.redraw(); });
-    _on(panel, '[data-pe-text-rot]', 'input', e => { state.text.rot = +e.target.value; h.redraw(); });
-    _on(panel, '[data-pe-text-size]', 'input', e => { state.text.size = +e.target.value; h.redraw(); });
+    _on(panel, '[data-pe-text-val]', 'input', e => { state.text.value = e.target.value; h.syncTextToLayer(); h.scheduleRedraw(); });
+    _on(panel, '[data-pe-text-y]', 'input', e => { state.text.y = +e.target.value / 100; h.scheduleRedraw(); });
+    _on(panel, '[data-pe-text-x]', 'input', e => { state.text.x = +e.target.value / 100; h.scheduleRedraw(); });
+    _on(panel, '[data-pe-text-rot]', 'input', e => { state.text.rot = +e.target.value; h.scheduleRedraw(); });
+    _on(panel, '[data-pe-text-size]', 'input', e => { state.text.size = +e.target.value; h.scheduleRedraw(); });
   }
 
   function _bindTextStyles(panel, state, h) {
@@ -345,7 +345,7 @@
     _on(panel, '[data-pe-text-bg]', 'click', () => _toggleTextFlag(state, h, 'bg'));
     _each(panel, '[data-pe-text-font]', 'click', e => _setTextValue(state, h, 'font', e.currentTarget.dataset.peTextFont));
     _each(panel, '[data-pe-text-color]', 'click', e => _setTextValue(state, h, 'color', e.currentTarget.dataset.peTextColor));
-    _on(panel, '[data-pe-text-color-picker]', 'input', e => { state.text.color = e.target.value; h.redraw(); });
+    _on(panel, '[data-pe-text-color-picker]', 'input', e => { state.text.color = e.target.value; h.scheduleRedraw(); });
     _on(panel, '[data-pe-text-color-picker]', 'change', () => h.pushHistory());
   }
 
@@ -381,9 +381,9 @@
   }
 
   function _bindBrand(panel, state, h) {
-    _on(panel, '[data-pe-wm-val]', 'input', e => { state.watermark.value = e.target.value; h.redraw(); });
+    _on(panel, '[data-pe-wm-val]', 'input', e => { state.watermark.value = e.target.value; h.scheduleRedraw(); });
     _each(panel, '[data-pe-wm-pos]', 'click', e => { state.watermark.position = e.currentTarget.dataset.peWmPos; h.renderPanel(); h.redraw(); });
-    _on(panel, '[data-pe-wm-opacity]', 'input', e => { state.watermark.opacity = +e.target.value / 100; h.redraw(); });
+    _on(panel, '[data-pe-wm-opacity]', 'input', e => { state.watermark.opacity = +e.target.value / 100; h.scheduleRedraw(); });
     _on(panel, '[data-pe-wm-save]', 'click', () => _saveBrandWm(state, h));
     _on(panel, '[data-pe-wm-kit]', 'click', () => _openBrandKit(h));
     _bindBrandKitSync(state, h);

@@ -76,7 +76,10 @@
       const d = imgData.data;
       _walk(d, w, h, s);
       ctx.putImageData(imgData, 0, 0);
-    } catch (_e) { void _e; }
+    } catch (e) {
+      console.warn('[relight] getImageData 실패 — canvas tainted?', e.message);
+      if (!_drawRelight._warned) { _drawRelight._warned = true; if (window.showToast) window.showToast('조명 보정 불가 — 사진을 파일에서 다시 불러와 주세요'); }
+    }
   }
 
   function _walk(d, w, h, s) {
