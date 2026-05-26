@@ -126,7 +126,7 @@
   function _register() {
     const PE = window.PhotoEditor;
     if (!PE || !PE._internal) return false;
-    PE._internal.registerTabPanel('pro', { html: _panelHTML, bind: _bindPanel });
+    PE._internal.registerTabPanel('ai', { html: _panelHTML, bind: _bindPanel });
     return true;
   }
   if (!_register()) {

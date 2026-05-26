@@ -22,6 +22,7 @@
     { id: 'bg', label: '누끼·배경' }, { id: 'ba', label: 'B/A 비교' },
     { id: 'template', label: '템플릿' },
     { id: 'text', label: '텍스트' }, { id: 'brand', label: '브랜드' },
+    { id: 'ai', label: 'AI' },
     { id: 'export', label: '내보내기' },
   ];
 
