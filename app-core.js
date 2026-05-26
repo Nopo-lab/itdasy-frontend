@@ -1870,7 +1870,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260526-v298-asst-tone-pc';
+window.APP_BUILD = '20260527-v299-asst-tone-pc';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
