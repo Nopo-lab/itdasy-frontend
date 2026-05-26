@@ -12,6 +12,7 @@
   let _wrapped = false;
   let _backBound = false;
   let _origOpen = null;
+  let _origOpenFromAction = null;
 
   // ── Lucide SVG (DESIGN_SYSTEM 의 ti-* 아이콘을 인라인 SVG 로 — 외부 폰트 의존 제거) ──
   // index.html 의 ic-* 스프라이트가 있으면 그걸 써도 됨. 우선 inline 으로 시작.
@@ -55,6 +56,22 @@
     'brush':    'brush',
     'template': 'template',
     'pro':      'pro',
+  };
+  const TAB_TO_CARD = {
+    auto: 'auto',
+    tune: 'tune',
+    beauty: 'detail',
+    brush: 'retouch',
+    selective: 'retouch',
+    pro: 'pro',
+    relight: 'relight',
+    film: 'film',
+    bg: 'bg',
+    template: 'template',
+    text: 'text',
+    brand: 'brand',
+    export: 'save',
+    ba: 'ba',
   };
   const CARD_LABELS = {
     auto: '빠른 자동보정',
@@ -306,21 +323,41 @@
     if (sheet && sheet.classList.contains('pe-has-entry-v6')) _showEntry();
   }
 
+  function _showAfterOpen(opts) {
+    const tab = opts && opts.initial_tab;
+    if (!tab) { _showEntry(); return; }
+    const sheet = document.getElementById('photoEditorSheet');
+    if (!sheet) return;
+    _ensureEntry();
+    _hideEntry();
+    _setFeatureMode(sheet, true, TAB_TO_CARD[tab] || tab || 'auto');
+  }
+
+  function _scheduleAfterOpen(opts) {
+    requestAnimationFrame(() => { try { _showAfterOpen(opts || {}); } catch (_e) { void _e; } });
+    setTimeout(() => { try { _showAfterOpen(opts || {}); } catch (_e) { void _e; } }, 220);
+    setTimeout(() => { try { _showAfterOpen(opts || {}); } catch (_e) { void _e; } }, 700);
+  }
+
   function _wrapOpen() {
     if (_wrapped) return;
     if (!window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') return;
     _origOpen = window.PhotoEditor.open;
+    _origOpenFromAction = window.PhotoEditor.openFromAction;
     window.PhotoEditor.open = function (opts) {
       const ret = _origOpen.call(window.PhotoEditor, opts || {});
-      try {
-        // 한 프레임 양보 — sheet 가 display:flex 로 보인 다음에 entry 오버레이 띄움
-        requestAnimationFrame(() => { try { _showEntry(); } catch (_e) { void _e; } });
-        setTimeout(_refreshEntryIfVisible, 220);
-        setTimeout(_refreshEntryIfVisible, 700);
-      } catch (_e) { void _e; }
+      try { _scheduleAfterOpen(opts || {}); } catch (_e) { void _e; }
       _bindFeatureBack();
       return ret;
     };
+    if (typeof _origOpenFromAction === 'function') {
+      window.PhotoEditor.openFromAction = function (payload) {
+        const ret = _origOpenFromAction.call(window.PhotoEditor, payload || {});
+        try { _scheduleAfterOpen(payload || {}); } catch (_e) { void _e; }
+        _bindFeatureBack();
+        return ret;
+      };
+    }
     _wrapped = true;
     _bindFeatureBack();
   }
