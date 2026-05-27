@@ -79,6 +79,13 @@
   padding: 0 14px;
 }
 
+.pe-entry-v6 .pe-preset-cat.on {
+  border-color: #17181d;
+  background: #17181d;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(17, 19, 24, 0.12);
+}
+
 .pe-entry-v6 .pe-look-strip,
 .pe-entry-v6 .pe-template-strip {
   display: flex;
@@ -208,6 +215,31 @@
   aspect-ratio: 9 / 16;
 }
 
+.pe-entry-v6 .pe-template-card.is-feed .pe-template-mini {
+  background: linear-gradient(145deg, #efe7dc, #b88268);
+}
+
+.pe-entry-v6 .pe-template-card.is-process .pe-template-mini {
+  aspect-ratio: 9 / 16;
+  background: linear-gradient(160deg, #20242c, #c69b63);
+}
+
+.pe-entry-v6 .pe-template-card.is-event .pe-template-mini {
+  background: linear-gradient(135deg, #fff5e2, #d68c63);
+}
+
+.pe-entry-v6 .pe-template-card.is-price .pe-template-mini {
+  background: linear-gradient(135deg, #f8f4ec, #ded4c4);
+}
+
+.pe-entry-v6 .pe-template-card.is-card .pe-template-mini {
+  background: linear-gradient(135deg, #17181d, #c69b63);
+}
+
+.pe-entry-v6 .pe-template-card.is-dark-card .pe-template-mini {
+  background: linear-gradient(135deg, #111217, #2e3038);
+}
+
 .pe-entry-v6 .pe-template-title {
   display: block;
   margin-top: 13%;
@@ -248,6 +280,43 @@
   border: 2px solid rgba(36, 31, 28, 0.7);
   border-radius: 8px;
   background: linear-gradient(160deg, #fff, #c8b19c);
+}
+
+.pe-entry-v6 .pe-template-poster,
+.pe-entry-v6 .pe-template-list,
+.pe-entry-v6 .pe-template-card-lines {
+  display: block;
+  width: 78%;
+  margin: 13% auto 0;
+}
+
+.pe-entry-v6 .pe-template-poster i {
+  display: block;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.74);
+}
+
+.pe-entry-v6 .pe-template-poster b {
+  display: block;
+  width: 58%;
+  height: 10px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: rgba(33, 28, 24, 0.54);
+}
+
+.pe-entry-v6 .pe-template-list i,
+.pe-entry-v6 .pe-template-card-lines i {
+  display: block;
+  height: 9px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(33, 28, 24, 0.38);
+}
+
+.pe-entry-v6 .pe-template-card-lines i {
+  background: rgba(255,255,255,0.62);
 }
 
 .pe-entry-v6 .pe-template-card.is-polaroid .pe-template-photos i {

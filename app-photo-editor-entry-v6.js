@@ -114,7 +114,7 @@
   }
   function _buildCanvas(state) {
     const hasImg = !!(state && state.originalImg && state.originalImg.src);
-    const previewSrc = hasImg ? state.originalImg.src : '';
+    const previewSrc = hasImg ? (state._entryPreviewSrc || state.originalImg.src) : '';
     return `<div class="pe-entry-canvas ${hasImg ? '' : 'empty'}">
         ${hasImg ? `<img src="${_esc(previewSrc)}" alt="편집 사진">` : ''}
         <button type="button" class="pe-entry-pickbtn" data-pev6-act="pick">${hasImg ? '다른 사진' : '사진 고르기'}</button>
@@ -226,6 +226,11 @@
       _applyTemplateCard(templateBtn.dataset.peTemplateCard);
       return;
     }
+    const categoryBtn = e.target.closest('[data-pev6-category]');
+    if (categoryBtn) {
+      if (window.PhotoEditorPresetCards?.setCategory?.(categoryBtn.dataset.pev6Category)) _showEntry();
+      return;
+    }
     const cardBtn = e.target.closest('[data-pev6-card]');
     if (cardBtn) _openCard(cardBtn.dataset.pev6Card);
   }
@@ -284,9 +289,23 @@
     let state = null;
     try { state = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState(); }
     catch (_e) { state = null; }
+    _syncEntryPreview(state);
     entry.innerHTML = _buildHTML(state || {});
     entry.classList.remove('hidden');
     sheet.classList.add('pe-has-entry-v6');
+  }
+
+  function _syncEntryPreview(state) {
+    if (!state || !state.originalImg) return;
+    const editedSrc = _readEditedCanvas();
+    if (editedSrc) state._entryPreviewSrc = editedSrc;
+  }
+
+  function _readEditedCanvas() {
+    const canvas = document.getElementById('peCanvas');
+    if (!canvas || !canvas.width || !canvas.height) return '';
+    try { return canvas.toDataURL('image/jpeg', 0.92); }
+    catch (_e) { return ''; }
   }
 
   function _setFeatureTitle(sheet, cardKey) {
@@ -327,7 +346,7 @@
     _featureSeq = _openSeq;
     try {
       const st = _state();
-      if (st) st.beautyFocus = cardKey === 'hair' ? 'hair' : null;
+      if (st && cardKey === 'hair') st.beautyFocus = 'hair';
     } catch (_e) { void _e; }
     _setFeatureMode(sheet, true, cardKey || tabId);
     _hideEntry();

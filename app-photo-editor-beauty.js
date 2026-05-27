@@ -62,11 +62,11 @@
   };
   const BEAUTY_LOOKS = [
     { id: 'classic', label: '클래식 모드', cat: 'general', icon: '◉', patch: { skin: 16, redness: 18, textureSmooth: 12 } },
-    { id: 'photoshop', label: '포토샵', cat: 'skin', icon: '✦', patch: { skin: 24, blemish: 26, textureSmooth: 20, eyeShadow: 12 } },
+    { id: 'soft-clean', label: '결 정리', cat: 'skin', icon: '✦', patch: { skin: 24, blemish: 26, textureSmooth: 20, eyeShadow: 12 } },
     { id: 'proof', label: '컨셉 화보', cat: 'makeup', icon: '▣', patch: { skin: 18, lipPop: 20, eyeColor: 14, browSharp: 18, catchLight: 16 } },
-    { id: 'iphone', label: 'iPhone모드', cat: 'general', icon: '▢', patch: { skin: 10, redness: 14, textureSmooth: 6 } },
-    { id: 'dslr', label: 'DSLR', cat: 'hair', icon: '◎', patch: { hairDetail: 28, hairShine: 26, closeUpDetail: 18 } },
-    { id: 'ccd', label: 'CCD', cat: 'general', icon: '◌', patch: { skin: 10, redness: 10, lipPop: 12 } },
+    { id: 'natural-light', label: '자연광', cat: 'general', icon: '▢', patch: { skin: 10, redness: 14, textureSmooth: 6 } },
+    { id: 'clear-detail', label: '또렷한 결', cat: 'hair', icon: '◎', patch: { hairDetail: 28, hairShine: 26, closeUpDetail: 18 } },
+    { id: 'film-soft', label: '필름톤', cat: 'general', icon: '◌', patch: { skin: 10, redness: 10, lipPop: 12 } },
     { id: 'hair', label: '헤어 컬러', cat: 'hair', icon: '⌁', patch: { hairShine: 48, hairDetail: 34, hairColorPop: 30, hairVolume: 18 } },
     { id: 'lash', label: '속눈썹', cat: 'lash', icon: '⌕', patch: { lashSharp: 52, irisClear: 30, catchLight: 26, underEyeClean: 18 } },
     { id: 'nail', label: '네일', cat: 'nail', icon: '◧', patch: { nailGloss: 58, nailShape: 40, handSkin: 18, coolness: 18 } },
@@ -175,7 +175,7 @@
   function _beautyQuickHTML(esc, cat) {
     return `<div class="pe-beauty-hero">
       <div>
-        <div class="pe-beauty-hero-kicker">뷰티캠식 빠른 보정</div>
+        <div class="pe-beauty-hero-kicker">살롱 사진 빠른 보정</div>
         <strong>원하는 느낌을 먼저 고르세요</strong>
         <p>선택 후 아래 슬라이더로 세기만 살짝 조절</p>
       </div>
