@@ -79,7 +79,6 @@
             <span class="ms-toggle__track"></span>
             <span class="ms-toggle__knob"></span>
           </button>
-          ${chev}
         </div>`;
     }
     if (row.type === 'tag') {
@@ -107,7 +106,7 @@
       ? `<span class="${boxCls}">${iconInner}</span>`
       : iconInner;
     return `
-      <div class="ms-aih__row" role="button" tabindex="0" data-act="${_esc(row.act)}">
+      <div class="ms-aih__row" role="button" tabindex="0" data-act="${_esc(row.act)}" data-type="${_esc(row.type || '')}">
         <span class="ms-aih__icon">${iconHtml}</span>
         <span class="ms-aih__info">
           <span class="ms-aih__name">${_esc(row.name)}${newBadge}</span>
@@ -176,6 +175,8 @@
 
       const row = e.target.closest('.ms-aih__row');
       if (row) {
+        // [2026-05-28] 토글 행은 트랙/knob 외 영역도 라우팅 X — 토글 클릭만 작동
+        if (row.dataset.type === 'toggle') return;
         const act = row.dataset.act;
         // [2026-05-12 QA #7] 진입점 함수가 없을 때 sheet 만 닫혀서 사용자가
         // "다른 이상한 페이지로 이동한" 인상 받던 문제. 함수 존재 선검증.
@@ -191,6 +192,7 @@
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const row = e.target.closest('.ms-aih__row');
       if (!row) return;
+      if (row.dataset.type === 'toggle') return;
       e.preventDefault();
       const act = row.dataset.act;
       if (!_canRoute(act)) {
