@@ -227,6 +227,19 @@
     const nav = document.getElementById(NAV_ID);
     if (!nav) return;
     nav.innerHTML = _buildHTML();
+    // v319 — 활성 서브칩/카테고리를 행 가운데로 (행만 스크롤 → 페이지 스크롤 부작용 없음)
+    _centerActive(nav, '.pe-nav-v7-subchips', '.pe-nav-v7-chip.on');
+    _centerActive(nav, '.pe-nav-v7-cats', '.pe-nav-v7-cat.on');
+  }
+
+  function _centerActive(nav, rowSel, activeSel) {
+    const row = nav.querySelector(rowSel);
+    const el = row && row.querySelector(activeSel);
+    if (!row || !el) return;
+    const target = el.offsetLeft - (row.clientWidth - el.clientWidth) / 2;
+    const left = Math.max(0, target);
+    try { row.scrollTo({ left: left, behavior: 'smooth' }); }
+    catch (_e) { row.scrollLeft = left; }
   }
 
   function mount() {
