@@ -292,6 +292,7 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
   font-family: inherit;
 }
 .ms-toggle__track {
+  display: block;  /* span/div 모두 — width/height 100% 적용 위해 */
   width: 100%; height: 100%;
   background: #D1D6DB;  /* OFF — 명확한 회색 */
   border-radius: var(--r-pill);
@@ -300,6 +301,7 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
 }
 .ms-toggle.is-on .ms-toggle__track { background: var(--ok); }  /* ON — 잇데이 초록 */
 .ms-toggle__knob {
+  display: block;
   position: absolute; top: 2px; left: 2px;
   width: 18px; height: 18px;
   background: #fff; border-radius: 50%;
