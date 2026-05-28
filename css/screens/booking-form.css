@@ -383,18 +383,51 @@
 }
 .bf-btn-danger:hover { background:#FDECEC; }
 
-/* 월 → 주 전환 애니메이션 */
+/* 월 → 주 전환 — 슬라이드 업 (좌→우 X) */
 .cv-month-out .bk-month-m__cells,
 .cv-month-out .bk-pc-month__cells {
-  animation: cvMonthOut .25s ease-out forwards;
+  animation: cvMonthOutUp .3s cubic-bezier(.2,.7,.3,1) forwards;
 }
-@keyframes cvMonthOut {
-  to { transform: translateY(-12px); opacity:.15; }
+@keyframes cvMonthOutUp {
+  to { transform: translateY(-40px); opacity: 0; }
 }
-.cv-week-slidein {
-  animation: cvWeekIn .35s ease-out both;
+.cv-week-slidein { animation: cvWeekSlideUp .4s ease-out both; }
+@keyframes cvWeekSlideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
-@keyframes cvWeekIn {
-  from { transform: translateY(20px); opacity:0; }
-  to { transform: translateY(0); opacity:1; }
+
+/* PC 우측 패널 잇비 박스 (모바일에선 시술 카드 안 .bf-svc-itby 가 표시) */
+.bf-itby-pc {
+  background: #FDF7F8;
+  border: 0.5px solid #F4C0D1;
+  border-radius: 10px;
+  padding: 9px 11px;
+  margin-bottom: 10px;
+}
+.bf-itby-pc .bf-itby { margin: 0; padding: 0; background: transparent; gap: 6px; }
+.bf-itby-pc .bf-itby-icon { background: transparent; color: #BC6675; width: auto; height: auto; }
+.bf-itby-pc .bf-itby-text { font-size: 10px; font-weight: 500; color: #BC6675; }
+@media (min-width: 1100px) {
+  .bf-service-card .bf-svc-itby { display: none !important; }
+}
+@media (max-width: 1099px) {
+  .bf-side-right .bf-itby-pc { display: none !important; }
+}
+
+/* AI 잇비의 고객 정보 분석 — 로딩 점 3개 통통 */
+.bf-itbi-dots {
+  display: inline-flex; gap: 4px; align-items: center;
+  padding: 4px 0;
+}
+.bf-itbi-dots span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #BC6675;
+  animation: bfBounce 1.2s infinite ease-in-out both;
+}
+.bf-itbi-dots span:nth-child(1) { animation-delay: -0.32s; }
+.bf-itbi-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bfBounce {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+  40%           { transform: scale(1); opacity: 1; }
 }

@@ -214,8 +214,10 @@
 
   function _renderSkeleton() {
     return '<section class="cd-ai-brief cd-ai-brief--loading">'
-      + '<div class="cd-ai-brief__head"><strong>AI 잇비의 고객 정보 분석</strong></div>'
-      + '<div class="cd-ai-brief__summary" style="opacity:.4;">불러오는 중…</div>'
+      + '<div class="cd-ai-brief__head">'
+      + '<svg width="14" height="14" aria-hidden="true" style="vertical-align:-2px;color:#BC6675;"><use href="#ic-bot"/></svg>'
+      + ' <strong>AI 잇비의 고객 정보 분석</strong></div>'
+      + '<div class="cd-ai-brief__summary"><span class="bf-itbi-dots"><span></span><span></span><span></span></span></div>'
       + '</section>';
   }
 

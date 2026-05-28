@@ -1417,10 +1417,10 @@
         <input type="hidden" id="bfSvc" value="${_esc(existing?.service_name || '')}" />
         <input id="bfSvcCustom" class="bf-svc-input" placeholder="시술명 직접 입력" style="display:none" maxlength="50" autocomplete="off" />
       </div>
-      <div id="bfItbyBox" class="bf-svc-itby" style="display:none">
+      <div class="bf-itby-box bf-svc-itby" style="display:none">
         <div class="bf-itby">
           <span class="bf-itby-icon"><svg width="11" height="11" aria-hidden="true"><use href="#ic-bot"/></svg></span>
-          <span class="bf-itby-text" id="bfItbyText"></span>
+          <span class="bf-itby-text"></span>
         </div>
       </div>
       <div class="bf-amount-rows">
@@ -1446,6 +1446,12 @@
         </span>`
       : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
     html += `<aside class="bf-side-right">`;
+    html += `<div class="bf-itby-box bf-itby-pc" style="display:none">
+      <div class="bf-itby">
+        <span class="bf-itby-icon"><svg width="12" height="12" aria-hidden="true"><use href="#ic-bot"/></svg></span>
+        <span class="bf-itby-text"></span>
+      </div>
+    </div>`;
     html += `<div class="bf-card bf-money-card">
       <div class="bf-money">
         <div class="bf-money-row amount">
@@ -1741,27 +1747,21 @@
       body.querySelectorAll('.bf-balance-num').forEach(el => { el.textContent = bal; });
     }
     async function _runItbyLearning(svcName) {
-      const box = body.querySelector('#bfItbyBox');
-      const text = body.querySelector('#bfItbyText');
-      if (!box || !text) return;
-      if (!svcName || !custId || !window.Booking?.getCustomerLearning) {
-        box.style.display = 'none';
-        return;
-      }
+      const boxes = body.querySelectorAll('.bf-itby-box');
+      const texts = body.querySelectorAll('.bf-itby-text');
+      if (!boxes.length) return;
+      const _hide = () => boxes.forEach(b => b.style.display = 'none');
+      if (!svcName || !custId || !window.Booking?.getCustomerLearning) { _hide(); return; }
       try {
         const learn = await window.Booking.getCustomerLearning(custId, svcName);
-        if (!learn || (!learn.avgAmount && !learn.avgDeposit)) {
-          box.style.display = 'none';
-          return;
-        }
+        if (!learn || (!learn.avgAmount && !learn.avgDeposit)) { _hide(); return; }
         let msg = '잇비가 가격 찾아왔어요';
         if (learn.avgDeposit) {
           const man = Math.round(learn.avgDeposit / 10000);
           msg += ` · 평소 예약금 ${man}만원도 같이 넣었어요`;
         }
-        text.textContent = msg;
-        box.style.display = 'block';
-        // 사용자가 안 건드린 경우에만 자동 채움
+        texts.forEach(t => t.textContent = msg);
+        boxes.forEach(b => b.style.display = 'block');
         const amtInp = body.querySelector('#bfAmount');
         const depInp = body.querySelector('#bfDeposit');
         if (amtInp && !amtInp.value && learn.avgAmount) {
@@ -1773,7 +1773,7 @@
           _setMoneyDisplay('deposit', learn.avgDeposit);
         }
         _updateBalanceDisplay();
-      } catch (_) { box.style.display = 'none'; }
+      } catch (_) { _hide(); }
     }
     function _renderChips(names) {
       const wrap = body.querySelector('#bfSvcChips');
