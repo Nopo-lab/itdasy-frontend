@@ -188,6 +188,23 @@
 }
 .bf-svc-input:focus { border-color:#191F28; }
 
+/* 잇비 분석 박스 안 메모 — "● 메모 · 본문" 한 줄 */
+.bf-itbi-memo {
+  display:flex; align-items:flex-start; gap:5px;
+  padding:8px 10px 0;
+  font-size:11px; line-height:1.4;
+  flex-wrap:wrap;
+}
+.bf-itbi-memo:empty { display:none; }
+.bf-itbi-memo-dot {
+  width:5px; height:5px; border-radius:50%;
+  background:#BC6675; flex-shrink:0;
+  margin-top:6px;
+}
+.bf-itbi-memo-label { color:#BC6675; font-weight:500; }
+.bf-itbi-memo-sep { color:#D9DCE0; }
+.bf-itbi-memo-text { color:#4E5968; white-space:normal; word-break:break-word; flex:1; min-width:0; }
+
 /* 잇비 한 마디 */
 .bf-itby {
   display:flex; align-items:center; gap:8px;

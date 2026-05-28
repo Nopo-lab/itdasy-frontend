@@ -172,7 +172,12 @@
     opts = opts || {};
     const summary = _renderSummaryLine(b);
     const prediction = _renderPredictionLine(b);
-    const memo = b.memo ? '<div class="cd-ai-brief__memo">' + _esc(b.memo.slice(0, 100)) + '</div>' : '';
+    const memo = b.memo
+      ? '<div class="bf-itbi-memo"><span class="bf-itbi-memo-dot"></span>'
+        + '<span class="bf-itbi-memo-label">메모</span>'
+        + '<span class="bf-itbi-memo-sep">·</span>'
+        + '<span class="bf-itbi-memo-text">' + _esc(b.memo.slice(0, 100)) + '</span></div>'
+      : '';
     const chips = (window.CustomerChips && typeof window.CustomerChips.renderTopN === 'function')
       ? window.CustomerChips.renderTopN(customer, 3) : '';
     const chipsBlock = chips ? '<div class="cd-ai-brief__chips">' + chips + '</div>' : '';
@@ -388,7 +393,7 @@
       + 'background:linear-gradient(135deg,rgba(213,138,149,.08),rgba(167,139,250,.06));'
       + 'border:1px solid rgba(213,138,149,.20);border-radius:14px;}'
       + '.cd-ai-brief--stale{background:linear-gradient(135deg,rgba(213,138,149,.05),rgba(167,139,250,.04));}'
-      + '.cd-ai-brief--stale .cd-ai-brief__summary,.cd-ai-brief--stale .cd-ai-brief__memo{color:#888;}'
+      + '.cd-ai-brief--stale .cd-ai-brief__summary{color:#888;}'
       + '.cd-ai-brief__head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:8px;color:var(--brand-strong,#a04050);font-size:12px;letter-spacing:.3px;}'
       + '.cd-ai-brief__head-left{display:inline-flex;align-items:center;gap:6px;}'
       + '.cd-ai-brief__head-right{display:inline-flex;align-items:center;gap:6px;}'
@@ -404,8 +409,7 @@
       + '.cd-ai-brief__pred-chip{display:inline-block;padding:3px 8px;'
       + 'background:rgba(255,255,255,.7);color:#666;border:1px solid rgba(0,0,0,.05);'
       + 'border-radius:999px;font-size:11px;font-weight:500;}'
-      + '.cd-ai-brief__memo{margin-top:8px;padding:8px 10px;background:rgba(255,255,255,.55);'
-      + 'border-left:3px solid rgba(213,138,149,.4);border-radius:6px;font-size:11px;color:#555;line-height:1.4;}'
+      + '.cd-ai-brief--stale .bf-itbi-memo-text{color:#888;}'
       + '.cd-ai-brief__chips{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;}'
       + '.cd-ai-brief__chips .cust-chip{margin-left:0;}';
     document.head.appendChild(st);
