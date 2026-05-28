@@ -11,18 +11,25 @@
   .bf-wrap { max-width: 900px; padding: 18px 18px 24px; }
   .bf-grid { display: grid; grid-template-columns: 220px 1fr; gap: 18px; }
 }
-.bf-aside { display: none; }
-@media (min-width: 900px) {
-  .bf-aside { display: block; }
-  .bf-aside .bf-mini-cal,
-  .bf-aside .bf-info-card {
-    background:#fff; border:0.5px solid #E5E8EB; border-radius:12px;
-    padding:12px 14px; margin-bottom:8px;
+/* PC 3컬럼 (≥1100px): 좌사이드 200px + 가운데 1fr + 우 sticky 280px */
+.bf-root { display:block; }
+.bf-side-left, .bf-side-right { display:contents; }
+@media (min-width: 1100px) {
+  .bf-wrap { max-width:1100px; padding:18px 18px 24px; }
+  .bf-root {
+    display:grid;
+    grid-template-columns: 200px 1fr 280px;
+    gap:12px;
+    align-items:start;
   }
-  .bf-aside .bf-info-card .bf-ic-label { font-size:11px; color:#8B95A1; font-weight:500; letter-spacing:-0.2px; }
-  .bf-aside .bf-info-card .bf-ic-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; margin-top:6px; }
-  .bf-aside .bf-info-card .bf-ic-key { font-size:11px; color:#8B95A1; }
-  .bf-aside .bf-info-card .bf-ic-val { font-size:13px; color:#191F28; font-weight:500; text-align:right; }
+  .bf-side-left, .bf-side-right { display:block; }
+  .bf-side-right { position:sticky; top:14px; }
+  .bf-side-left .bf-card { padding:11px 14px; }
+  .bf-side-left .bf-side-date { font-size:13px; font-weight:500; color:#191F28; letter-spacing:-0.3px; }
+  .bf-side-left .bf-side-meta { font-size:11px; color:#8B95A1; margin-top:2px; }
+}
+@media (max-width: 1099px) {
+  .bf-side-left { display:none; }
 }
 
 @keyframes bfFadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
@@ -219,29 +226,43 @@
 }
 .bf-itby-text { font-size:10px; font-weight:500; color:#BC6675; letter-spacing:-0.2px; line-height:1.45; }
 
-/* 금액 라인 */
+/* 금액 위계 — 시술비·예약금 작게 / 잔금 큰 폰트 */
 .bf-money { padding:2px 0; }
 .bf-money-row {
   display:flex; align-items:center; justify-content:space-between;
-  padding:8px 0;
+  padding:6px 0;
 }
-.bf-money-row.divider { border-top:0.5px solid #F0F1F4; padding-top:10px; }
-.bf-money-key { font-size:12px; color:#4E5968; letter-spacing:-0.2px; }
-.bf-money-row.total .bf-money-key { font-size:12px; color:#191F28; font-weight:500; }
+.bf-money-row.deposit { border-bottom:0.5px solid #F0F1F4; padding-bottom:10px; }
+.bf-money-row.total { padding:12px 0 4px; }
+.bf-money-key { font-size:11px; color:#8B95A1; letter-spacing:-0.2px; }
+.bf-money-row.total .bf-money-key { font-size:13px; color:#191F28; font-weight:500; }
 .bf-money-val {
   display:inline-flex; align-items:baseline; gap:3px;
-  font-size:12px; font-weight:500; color:#191F28;
+  font-size:13px; font-weight:500; color:#191F28;
   font-variant-numeric: tabular-nums;
   cursor:pointer;
   border-radius:6px; padding:2px 6px; margin:-2px -6px;
   transition: background .12s;
 }
 .bf-money-val:hover { background:#F7F8FA; }
-.bf-money-val .bf-num { font-size:12px; }
+.bf-money-val .bf-num { font-size:13px; }
 .bf-money-row.deposit .bf-money-val .bf-num { color:#BC6675; }
-.bf-money-row.deposit .bf-money-val.empty .bf-num { color:#B0B8C1; }
-.bf-money-row.total .bf-money-val .bf-num { font-size:16px; }
+.bf-money-row.total .bf-money-val { padding:0; margin:0; }
+.bf-money-row.total .bf-money-val .bf-num {
+  font-size:20px; letter-spacing:-0.4px;
+}
+@media (min-width: 1100px) {
+  .bf-money-row.total .bf-money-val .bf-num { font-size:24px; letter-spacing:-0.5px; }
+  .bf-money-row.total .bf-money-val .bf-money-unit { font-size:13px; }
+}
 .bf-money-unit { font-size:10px; color:#8B95A1; }
+/* 빈 값 → "탭해서 입력 ›" 분홍 텍스트 */
+.bf-amount-link {
+  background:none; border:none; padding:0; margin:0;
+  font-family:inherit; font-size:11px; font-weight:500;
+  color:#BC6675; cursor:pointer; letter-spacing:-0.2px;
+}
+.bf-amount-link:hover { text-decoration:underline; }
 .bf-money-input {
   width:110px; text-align:right;
   border:none; outline:none; background:transparent;
@@ -309,13 +330,13 @@
   background:#fff;
   padding:10px 14px;
   border-top:0.5px solid #F0F1F4;
-  display:flex; gap:8px;
+  display:grid; grid-template-columns:1fr 2fr; gap:6px;
   z-index:10;
   margin: 12px -14px -96px;
 }
-@media (min-width: 900px) {
+@media (min-width: 1100px) {
   .bf-cta {
-    position:static; padding:14px 0 0; border-top:none; margin:0;
+    position:static; padding:0; border-top:none; margin:8px 0 0;
     background:transparent;
   }
 }

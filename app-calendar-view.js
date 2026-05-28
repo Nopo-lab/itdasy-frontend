@@ -1322,6 +1322,12 @@
     const endTimeLabel = _endLbl(defH * 60 + defM + durMin);
 
     let html = `<button class="cv-form-back" id="cv-form-back">← 뒤로</button>`;
+    html += `<div class="bf-root">`;
+    // 좌측 사이드 (PC ≥1100px만 노출, 모바일 숨김)
+    html += `<aside class="bf-side-left">
+      <div class="bf-card"><div class="bf-side-date" id="bfSideDate">${dateLabel}</div>${dayCnt > 0 ? `<div class="bf-side-meta" id="bfSideMeta">${dayCnt}건 예약됨</div>` : '<div class="bf-side-meta" id="bfSideMeta"></div>'}</div>
+    </aside>`;
+    html += `<section class="bf-center">`;
     if (isEdit) {
       html += `<div class="bf-card"><div class="bf-label">상태</div><div class="bf-status-row">
         <button type="button" data-bf-status="confirmed" class="bf-status-btn${existing.status==='confirmed'?' on':''}">확정</button>
@@ -1397,9 +1403,17 @@
         <span class="bf-itby-text" id="bfItbyText"></span>
       </div>
     </div>`;
-    // 금액 라인 (예상 시술비 / 예상 예약금 / 잔금)
+    html += `</section>`;
+    // 우측 sticky 패널 — 금액 + 메모 + CTA
     const _initAmt = Number(existing?.amount) || 0;
     const _initDep = Number(existing?.deposit) || 0;
+    const _depCell = _initDep > 0
+      ? `<span class="bf-money-val" data-money-edit="deposit">
+          <span class="bf-num" data-hv-count="${_initDep}">${_initDep.toLocaleString('ko-KR')}</span>
+          <span class="bf-money-unit">원</span>
+        </span>`
+      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
+    html += `<aside class="bf-side-right">`;
     html += `<div class="bf-card">
       <div class="bf-money">
         <div class="bf-money-row amount">
@@ -1411,12 +1425,9 @@
         </div>
         <div class="bf-money-row deposit">
           <span class="bf-money-key">예상 예약금</span>
-          <span class="bf-money-val ${_initDep > 0 ? '' : 'empty'}" data-money-edit="deposit">
-            <span class="bf-num" data-hv-count="${_initDep}">${_initDep > 0 ? _initDep.toLocaleString('ko-KR') : '—'}</span>
-            <span class="bf-money-unit">원</span>
-          </span>
+          ${_depCell}
         </div>
-        <div class="bf-money-row total divider">
+        <div class="bf-money-row total">
           <span class="bf-money-key">잔금</span>
           <span class="bf-money-val" id="bfBalanceVal">
             <span class="bf-num" id="bfBalance">${Math.max(0, _initAmt - _initDep).toLocaleString('ko-KR')}</span>
@@ -1427,7 +1438,6 @@
       <input type="hidden" id="bfAmount" value="${_initAmt || ''}" />
       <input type="hidden" id="bfDeposit" value="${_initDep || ''}" />
     </div>`;
-    // 메모 카드 (직원 제거)
     html += `<div class="bf-card">
       <button type="button" class="bf-memo-toggle${existing?.memo ? ' open' : ''}" id="bfMemoToggle">
         <span class="bf-memo-toggle-left">
@@ -1446,6 +1456,7 @@
       ${isEdit ? '<button type="button" id="bfDelete" class="bf-btn-danger">삭제</button>' : '<button type="button" id="cv-form-back2" class="bf-btn-secondary">취소</button>'}
       <button type="button" id="bfSave" class="bf-btn-primary">${isEdit ? '변경 저장' : '예약 저장'}</button>
     </div>`;
+    html += `</aside></div>`;
     return html;
   }
 
@@ -1488,11 +1499,14 @@
       dateInput.addEventListener('change', () => {
         const d = new Date(dateInput.value + 'T00:00:00');
         const DOW2 = ['일','월','화','수','목','금','토'];
-        const lbl = body.querySelector('#bfDateLabel');
-        if (lbl) lbl.textContent = (d.getMonth()+1) + '월 ' + d.getDate() + '일 ' + DOW2[d.getDay()] + '요일';
-        const meta = body.querySelector('#bfDateMeta');
+        const dLbl = (d.getMonth()+1) + '월 ' + d.getDate() + '일 ' + DOW2[d.getDay()] + '요일';
+        const lbl = body.querySelector('#bfDateLabel'); if (lbl) lbl.textContent = dLbl;
+        const sideLbl = body.querySelector('#bfSideDate'); if (sideLbl) sideLbl.textContent = dLbl;
         const cnt = (_mappedCache || []).filter(it => _ds(new Date(it.starts_at)) === dateInput.value && it.status !== 'cancelled' && it.status !== 'no_show').length;
-        if (meta) meta.textContent = (_ds(new Date()) === dateInput.value ? '오늘' : DOW2[d.getDay()] + '요일') + ' · ' + cnt + '건 예약됨';
+        const meta = body.querySelector('#bfDateMeta');
+        if (meta) meta.textContent = cnt > 0 ? cnt + '건 예약됨' : '';
+        const sideMeta = body.querySelector('#bfSideMeta');
+        if (sideMeta) sideMeta.textContent = cnt > 0 ? cnt + '건 예약됨' : '';
         _checkConflict();
       });
     }
@@ -1660,11 +1674,24 @@
     function _setMoneyDisplay(field, val) {
       const row = body.querySelector(`.bf-money-row.${field}`);
       if (!row) return;
-      const numEl = row.querySelector('.bf-num');
       const valEl = row.querySelector('.bf-money-val');
-      if (!numEl || !valEl) return;
-      const from = parseInt(numEl.dataset.hvCount || '0', 10) || 0;
+      if (!valEl) return;
+      const isDep = field === 'deposit';
       const to = +val || 0;
+      // 예약금 빈 값 → "탭해서 입력 ›" 복귀
+      if (isDep && to <= 0) {
+        valEl.classList.add('empty');
+        valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
+        return;
+      }
+      // 숫자 셀로 보장 (button 상태였다면 갈아끼움)
+      let numEl = valEl.querySelector('.bf-num');
+      if (!numEl) {
+        valEl.classList.remove('empty');
+        valEl.innerHTML = '<span class="bf-num" data-hv-count="0">0</span><span class="bf-money-unit">원</span>';
+        numEl = valEl.querySelector('.bf-num');
+      }
+      const from = parseInt(numEl.dataset.hvCount || '0', 10) || 0;
       // 카운트업
       const dur = 380;
       const t0 = performance.now();
@@ -1672,12 +1699,9 @@
         const t = Math.min(1, (now - t0) / dur);
         const eased = 1 - Math.pow(1 - t, 3);
         const cur = Math.round(from + (to - from) * eased);
-        numEl.textContent = (to <= 0 && field === 'deposit') ? '—' : cur.toLocaleString('ko-KR');
+        numEl.textContent = cur.toLocaleString('ko-KR');
         if (t < 1) requestAnimationFrame(step);
-        else {
-          numEl.dataset.hvCount = String(to);
-          valEl.classList.toggle('empty', field === 'deposit' && to <= 0);
-        }
+        else { numEl.dataset.hvCount = String(to); }
       };
       requestAnimationFrame(step);
     }
@@ -1865,13 +1889,14 @@
           const raw = inp.value.replace(/[^0-9]/g, '');
           const n = parseInt(raw, 10) || 0;
           if (hidden) hidden.value = n > 0 ? String(n) : '';
-          // 재렌더
           const isDep = field === 'deposit';
-          const emptyCls = isDep && n <= 0 ? ' empty' : '';
-          valEl.className = 'bf-money-val' + emptyCls;
+          valEl.className = 'bf-money-val' + (isDep && n <= 0 ? ' empty' : '');
           valEl.dataset.moneyEdit = field;
-          const disp = (isDep && n <= 0) ? '—' : n.toLocaleString('ko-KR');
-          valEl.innerHTML = `<span class="bf-num" data-hv-count="${n}">${disp}</span><span class="bf-money-unit">원</span>`;
+          if (isDep && n <= 0) {
+            valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
+          } else {
+            valEl.innerHTML = `<span class="bf-num" data-hv-count="${n}">${n.toLocaleString('ko-KR')}</span><span class="bf-money-unit">원</span>`;
+          }
           _updateBalanceDisplay();
         };
         inp.addEventListener('blur', commit);
