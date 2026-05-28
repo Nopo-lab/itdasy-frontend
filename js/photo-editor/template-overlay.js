@@ -45,7 +45,19 @@
       'card-nature': () => _drawCardNature(ctx, dw, dh, head, accent, shopName),
     };
     const fn = dispatch[t.id];
-    if (fn) fn();
+    if (fn) {
+      fn();
+    } else if (typeof t.id === 'string' && /^ba-/.test(t.id) && window.PhotoEditorBACompose && typeof window.PhotoEditorBACompose.draw === 'function') {
+      // v327 fix — dispatch 에 없는 BA 시리즈(예: ba-hair-cream)는 BACompose 로 위임.
+      //   templates-v2 ↔ premium-templates 가 같은 'tplV2_overlay' hook 을 register 해서 경합.
+      //   어느 쪽이 winner 든 BA 합성이 그려지도록 양쪽에서 동일 경로 보장.
+      try {
+        const st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState
+          ? window.PhotoEditor._internal.getState() : null;
+        const data = { head: head, sub: t.label || '', shop: shopName, accent: accent };
+        window.PhotoEditorBACompose.draw(ctx, dw, dh, st, t, data);
+      } catch (e) { console.warn('[template-overlay] BACompose 위임 실패:', e && e.message); }
+    }
     ctx.restore();
   }
 
