@@ -1,12 +1,9 @@
 /* ─────────────────────────────────────────────────────────────
-   시술 완료 액션 (#4 · 2026-05-16 UX 개선)
+   시술 완료 시트 (2026-05-29 재디자인)
 
-   변경:
-   - 블록 클릭 시 바로 이 팝업이 열림 (편집폼 거치지 않음).
-   - 금액 인라인 편집 가능 (프리셋 기본값 + 직접 수정).
-   - "예약 시간·고객 수정" 링크로 편집폼 진입 가능
-     (itdasy:open-booking-edit 이벤트, 캘린더가 수신).
-   - BE 는 PATCH /bookings/{id} 시 자동 매출생성 + 재고차감 + 리터치.
+   - 메인홈 톤: 0.5px solid #E5E8EB · radius 14px · padding 16px
+   - 노쇼 모드는 같은 시트 안에서 setMode('noshow') 로 전환
+   - 옵션 토글: 매출 포함 / 시술 주기 기록 (페이드 설명)
 
    공개 API:
    - CompleteFlow.startFromBooking(booking)
@@ -15,13 +12,19 @@
 (function () {
   'use strict';
 
-  let _ctx = null;  // { booking_id, customer_id, customer_name, service_name, amount, method }
+  let _ctx = null;
 
   const METHODS = [
     { key: 'card',       label: '카드' },
     { key: 'cash',       label: '현금' },
-    { key: 'transfer',   label: '계좌이체' },
+    { key: 'transfer',   label: '계좌' },
     { key: 'membership', label: '회원권' },
+  ];
+  const NOSHOW_METHODS = [
+    { key: 'card',     label: '카드' },
+    { key: 'cash',     label: '현금' },
+    { key: 'transfer', label: '계좌' },
+    { key: 'none',     label: '없음' },
   ];
 
   function _esc(s) {
@@ -49,11 +52,20 @@
     try {
       if (typeof window.loadServiceTemplates === 'function') await window.loadServiceTemplates();
       const amount = _servicePriceFor(_ctx.service_name);
-      if (amount) {
-        _ctx.amount = amount;
-        _render();   // 금액 채워서 다시 그리기
-      }
+      if (amount) { _ctx.amount = amount; _render(); }
     } catch (e) { console.warn('[complete-flow] 기본 금액 자동입력 실패:', e); }
+  }
+
+  async function _hydrateVisitCount() {
+    if (!_ctx?.customer_id || _ctx.visit_count != null) return;
+    try {
+      const res = await apiFetch('/customers/' + _ctx.customer_id, { headers: window.authHeader() });
+      if (res.ok) {
+        const c = await res.json();
+        _ctx.visit_count = Number(c?.visit_count || 0);
+        _render();
+      }
+    } catch (e) { /* 옵셔널 */ }
   }
 
   function _emitChange(kind, extra) {
@@ -64,9 +76,9 @@
     } catch (e) { console.warn('[complete-flow] 화면 갱신 알림 실패:', e); }
   }
   function _refreshConnectedViews() {
-    try { if (window.Dashboard?.refresh)  Promise.resolve(window.Dashboard.refresh(true)).catch(e => console.warn('[complete-flow] 대시보드 갱신 실패:', e)); } catch(e){ console.warn('[complete-flow] 대시보드 갱신 시작 실패:', e); }
-    try { if (window.MyShopV3?.refresh)   Promise.resolve(window.MyShopV3.refresh()).catch(e => console.warn('[complete-flow] 내샵 갱신 실패:', e)); } catch(e){ console.warn('[complete-flow] 내샵 갱신 시작 실패:', e); }
-    try { if (window.RevenueHub?.refresh) Promise.resolve(window.RevenueHub.refresh()).catch(e => console.warn('[complete-flow] 매출 갱신 실패:', e)); } catch(e){ console.warn('[complete-flow] 매출 갱신 시작 실패:', e); }
+    try { if (window.Dashboard?.refresh)  Promise.resolve(window.Dashboard.refresh(true)).catch(()=>{}); } catch(e){}
+    try { if (window.MyShopV3?.refresh)   Promise.resolve(window.MyShopV3.refresh()).catch(()=>{}); } catch(e){}
+    try { if (window.RevenueHub?.refresh) Promise.resolve(window.RevenueHub.refresh()).catch(()=>{}); } catch(e){}
   }
 
   async function _apiPatch(path, body) {
@@ -78,10 +90,20 @@
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return await res.json();
   }
-  // BE 응답 그대로 반환 (completion_effects 포함)
   function _patchBooking(id, patch) {
     if (window.Booking?.update) return window.Booking.update(id, patch);
     return _apiPatch('/bookings/' + id, patch);
+  }
+
+  function _invalidateAllCaches() {
+    ['today', 'week', 'month'].forEach(p => {
+      try { localStorage.removeItem('pv_cache::revenue::' + p); } catch (e) {}
+      try { sessionStorage.removeItem('pv_cache::revenue::' + p); } catch (e) {}
+    });
+    ['hv41_cache::brief', 'pv_cache::customers', 'rh_cache', 'pv_cache::dashboard'].forEach(k => {
+      try { localStorage.removeItem(k); } catch (e) {}
+      try { sessionStorage.removeItem(k); } catch (e) {}
+    });
   }
 
   function _ensureSheet() {
@@ -90,21 +112,8 @@
     sheet = document.createElement('div');
     sheet.id = 'completeFlowSheet';
     sheet.className = 'cf-backdrop';
-    sheet.innerHTML = `
-      <div class="cf-card">
-        <div class="cf-handle" aria-hidden="true"></div>
-        <div class="cf-header">
-          <div class="cf-title-wrap">
-            <div class="cf-title" id="cfTitle">시술 완료</div>
-            <div class="cf-subtitle" id="cfSubtitle">결제 정보를 확인하고 마무리해 주세요</div>
-          </div>
-          <button id="cfClose" class="cf-close" aria-label="닫기">✕</button>
-        </div>
-        <div id="cfBody" class="cf-body"></div>
-      </div>
-    `;
+    sheet.innerHTML = `<div class="cf-card" id="cfCard"><div id="cfRoot"></div></div>`;
     document.body.appendChild(sheet);
-    sheet.querySelector('#cfClose')?.addEventListener('click', _close);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) _close(); });
     _ensureStyles();
     return sheet;
@@ -115,359 +124,392 @@
     const s = document.createElement('style');
     s.id = 'cfStyles';
     s.textContent = `
-      /* ── [2026-05-25] 시술 완료 시트 — 라이트 전용 (다크 배경 버그 차단)
-         색 팔레트 고정: #FFF · #F7F8FA · #191F28 · #4E5968 · #8B95A1 · #BC6675(저장만)
-         토큰(var(--*)) 사용 금지 — 다크모드에서 내부만 검정으로 뜨던 버그 원천 차단 */
-
-      /* 백드롭 */
-      .cf-backdrop {
-        position:fixed; inset:0; z-index:10000; display:none;
-        background:rgba(17, 24, 39, 0.5);
-        backdrop-filter: blur(2px);
-        -webkit-backdrop-filter: blur(2px);
-        align-items:flex-end; justify-content:center;
-      }
-      .cf-card {
-        color-scheme: light;
-        width:100%;
-        background:#FFFFFF;
-        color:#191F28;
-        border-radius:24px 24px 0 0;
-        max-height:92vh;
-        display:flex; flex-direction:column;
-        padding:10px 20px 20px;
-        padding-bottom:max(20px,env(safe-area-inset-bottom));
-        box-shadow:0 -8px 40px rgba(0,0,0,0.18);
-        animation: cfSlideUp .28s cubic-bezier(.2,.7,.2,1);
-      }
-      @keyframes cfSlideUp { from { transform:translateY(40px); opacity:0; } to { transform:none; opacity:1; } }
-      @keyframes cfFadeIn  { from { transform:translateY(8px) scale(.985); opacity:0; } to { transform:none; opacity:1; } }
-      @media (min-width: 768px) {
-        .cf-backdrop { align-items:center; }
-        .cf-card {
-          width:auto;
-          min-width:440px;
-          max-width:460px;
-          border-radius:20px;
-          padding:14px 26px 24px;
-          padding-bottom:24px;
-          max-height:88vh;
-          box-shadow:0 24px 60px rgba(0,0,0,0.22), 0 4px 12px rgba(0,0,0,0.08);
-          animation: cfFadeIn .22s cubic-bezier(.2,.7,.2,1);
-        }
-        .cf-card .cf-handle { display:none; }
-      }
-
-      /* 드래그 핸들 (모바일) */
-      .cf-handle {
-        width:36px; height:4px; border-radius:2px;
-        background:#E5E8EB;
-        margin:0 auto 12px;
-        flex-shrink:0;
-      }
+      .cf-backdrop { position:fixed; inset:0; z-index:10000; display:none;
+        background:rgba(0,0,0,0.5); align-items:center; justify-content:center; padding:16px; }
+      .cf-card { color-scheme:light; width:100%; max-width:420px; background:#fff; color:#191F28;
+        border:0.5px solid #E5E8EB; border-radius:14px; overflow:hidden;
+        box-shadow:0 12px 40px rgba(0,0,0,0.12);
+        animation: cfFadeIn .2s cubic-bezier(.2,.7,.2,1);
+        transition: background .2s ease; }
+      .cf-card.cf-noshow { background:#FAFAFB; }
+      @keyframes cfFadeIn { from { transform:translateY(8px) scale(.985); opacity:0; } to { transform:none; opacity:1; } }
 
       /* 헤더 */
-      .cf-header { display:flex; align-items:flex-start; gap:12px; margin-bottom:18px; }
-      .cf-title-wrap { flex:1; min-width:0; }
-      .cf-title { font-size:18px; font-weight:700; color:#191F28; letter-spacing:-0.4px; line-height:1.25; }
-      .cf-subtitle { font-size:13px; color:#8B95A1; margin-top:4px; font-weight:500; letter-spacing:-0.2px; }
-      .cf-close {
-        background:#F7F8FA; border:none;
-        width:32px; height:32px; border-radius:50%;
-        font-size:14px; cursor:pointer; color:#4E5968;
-        transition: background .15s ease;
-        flex-shrink:0;
-      }
-      .cf-close:hover { background:#EBEDF0; }
+      .cf-hd { display:flex; align-items:center; justify-content:space-between; padding:12px 12px 0; min-height:32px; }
+      .cf-hd-left { display:flex; align-items:center; gap:4px; }
+      .cf-hd-right { display:flex; align-items:center; gap:2px; }
+      .cf-iconbtn { width:32px; height:32px; border:none; background:transparent; cursor:pointer;
+        color:#4E5968; font-size:16px; border-radius:8px; transition:background .12s; padding:0;
+        display:inline-flex; align-items:center; justify-content:center; font-family:inherit; }
+      .cf-iconbtn:hover { background:#F2F4F6; }
+      .cf-back { font-size:13px; color:#8B95A1; padding:0 8px; height:32px; border:none; background:transparent;
+        cursor:pointer; border-radius:8px; font-family:inherit; letter-spacing:-0.2px; }
+      .cf-back:hover { background:#F2F4F6; color:#4E5968; }
+      .cf-menu-wrap { position:relative; }
+      .cf-menu-pop { position:absolute; top:36px; right:0; min-width:180px; background:#fff;
+        border:0.5px solid #E5E8EB; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.1);
+        padding:4px; z-index:5; display:none; }
+      .cf-menu-pop.open { display:block; }
+      .cf-menu-item { display:block; width:100%; padding:10px 12px; border:none; background:transparent;
+        text-align:left; font-size:13px; color:#191F28; cursor:pointer; border-radius:8px;
+        font-family:inherit; letter-spacing:-0.2px; }
+      .cf-menu-item:hover { background:#F7F8FA; }
 
-      .cf-body { flex:1; overflow-y:auto; }
+      /* 고객 영역 */
+      .cf-cust { display:flex; align-items:center; gap:10px; padding:4px 16px 18px; }
+      .cf-bar { width:3px; height:44px; border-radius:2px; background:#BC6675; flex-shrink:0; }
+      .cf-card.cf-noshow .cf-bar { background:#8B95A1; }
+      .cf-cust-text { flex:1; min-width:0; }
+      .cf-name-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+      .cf-name { font-size:18px; font-weight:500; color:#191F28; letter-spacing:-0.4px; }
+      .cf-badge { font-size:11px; padding:1px 6px; border-radius:999px; font-weight:600; letter-spacing:-0.1px; }
+      .cf-badge-gray { background:#F2F4F6; color:#8B95A1; }
+      .cf-badge-green { background:#E1F5EE; color:#16B55E; }
+      .cf-badge-pink { background:#F7EFF0; color:#BC6675; }
+      .cf-badge-red { background:#FDECEC; color:#E5484D; }
+      .cf-sub { font-size:12px; color:#8B95A1; margin-top:3px; letter-spacing:-0.2px; }
 
-      /* 섹션 라벨 */
-      .cf-section-label {
-        font-size:12px; font-weight:600; color:#8B95A1;
-        margin-bottom:8px; letter-spacing:-0.2px;
-      }
+      /* 잇비 한마디 (노쇼) */
+      .cf-itby { margin:0 16px 12px; padding:8px 10px; background:#fff;
+        border:0.5px solid #F0F1F4; border-radius:8px; font-size:12px; color:#4E5968;
+        letter-spacing:-0.2px; line-height:1.5; }
+      .cf-itby b { color:#191F28; font-weight:600; }
 
-      /* 금액 입력 — 무테두리 회색 컨테이너 */
-      .cf-amount-row {
-        display:flex; align-items:baseline; gap:6px;
-        margin-bottom:18px; padding:16px 18px;
-        background:#F7F8FA;
-        border:none;
-        border-radius:14px;
-      }
-      .cf-amount-row input {
-        font-size:24px; font-weight:700; color:#191F28;
-        letter-spacing:-0.6px;
-        font-family:inherit;
-        background:transparent;
-      }
-      .cf-amount-row input::placeholder { color:#C5CBD2; font-weight:500; }
+      /* 금액 섹션 */
+      .cf-sec { padding:16px; border-top:0.5px solid #F0F1F4; }
+      .cf-label { font-size:11px; color:#8B95A1; font-weight:500; letter-spacing:-0.2px; margin-bottom:8px; }
+      .cf-amt-row { display:flex; align-items:baseline; gap:4px; border-bottom:1.5px solid #191F28; padding-bottom:6px; }
+      .cf-amt-input { flex:1; min-width:0; border:none; outline:none; background:transparent;
+        font-size:26px; font-weight:500; color:#191F28; text-align:right; letter-spacing:-0.5px;
+        font-family:inherit; padding:0; }
+      .cf-amt-input::placeholder { color:#D1D6DB; }
+      .cf-unit { font-size:14px; color:#8B95A1; }
+      .cf-chips { display:flex; justify-content:flex-end; gap:6px; margin-top:10px; flex-wrap:wrap; }
+      .cf-chip { padding:7px 14px; border:0.5px solid #E5E8EB; border-radius:999px; background:#fff;
+        color:#4E5968; font-size:12px; font-weight:500; cursor:pointer; font-family:inherit;
+        letter-spacing:-0.2px; transition: background .12s, color .12s; }
+      .cf-chip:hover { background:#F7F8FA; color:#191F28; }
 
-      /* 결제수단 pills — flat 회색 / 선택=검정 */
-      .cf-method-pills { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:20px; }
-      .cf-pill {
-        padding:13px 8px; border:none; border-radius:12px;
-        font-size:13.5px; font-weight:600; cursor:pointer;
-        background:#F7F8FA; color:#4E5968;
-        transition: background .12s ease, color .12s ease;
-        font-family:inherit;
-        letter-spacing:-0.2px;
-      }
-      .cf-pill:hover { background:#EBEDF0; }
-      .cf-pill.active {
-        background:#191F28;
-        color:#FFFFFF;
-      }
+      /* 결제수단 */
+      .cf-pay-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+      .cf-pay { padding:11px 0; border:0.5px solid #E5E8EB; border-radius:10px; background:#fff;
+        color:#4E5968; font-size:12px; font-weight:500; cursor:pointer; font-family:inherit;
+        letter-spacing:-0.2px; transition: background .12s, color .12s, border-color .12s; }
+      .cf-pay:hover { background:#F7F8FA; }
+      .cf-pay.on { background:#191F28; color:#fff; border-color:#191F28; }
 
-      /* 자동 처리 안내 — 깔끔한 한 줄씩 */
-      .cf-auto-preview {
-        margin-bottom:18px; padding:14px 16px;
-        background:#F7F8FA;
-        border:none;
-        border-radius:12px;
-      }
-      .cf-preview-row {
-        display:flex; align-items:center; gap:10px;
-        padding:3px 0; font-size:13px; color:#4E5968;
-        font-weight:500; letter-spacing:-0.2px;
-      }
-      .cf-check {
-        display:inline-flex; align-items:center; justify-content:center;
-        width:18px; height:18px; border-radius:50%;
-        background:#10B981; color:#FFFFFF;
-        font-size:10px; font-weight:700;
-        flex-shrink:0;
-      }
+      /* 옵션 토글 */
+      .cf-opts { padding:6px 16px; }
+      .cf-opt-row { display:flex; align-items:center; justify-content:space-between; gap:12px;
+        padding:14px 0; border-bottom:0.5px solid #F0F1F4; cursor:pointer; }
+      .cf-opt-row:last-child { border-bottom:none; }
+      .cf-opt-text { flex:1; min-width:0; }
+      .cf-opt-label { font-size:13px; font-weight:500; color:#191F28; letter-spacing:-0.2px; }
+      .cf-opt-desc { font-size:11px; color:#8B95A1; height:14px; overflow:hidden; line-height:14px;
+        margin-top:2px; transition: opacity .25s ease; letter-spacing:-0.2px; }
+      .cf-toggle { width:38px; height:22px; border-radius:999px; background:#D1D6DB; position:relative;
+        flex-shrink:0; transition: background .2s ease; cursor:pointer; }
+      .cf-toggle.on { background:#16B55E; }
+      .cf-toggle::after { content:''; position:absolute; top:2px; left:2px; width:18px; height:18px;
+        border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+        transition: transform .2s ease; }
+      .cf-toggle.on::after { transform:translateX(16px); }
 
-      /* 메인 액션 — 저장 버튼만 로즈 */
-      .cf-actions { display:flex; gap:10px; }
-      .cf-btn-skip {
-        flex:1; padding:15px; border:none; border-radius:12px;
-        background:#F7F8FA; cursor:pointer; color:#4E5968;
-        font-weight:600; font-size:14px;
-        font-family:inherit; letter-spacing:-0.2px;
-        transition: background .12s ease;
-      }
-      .cf-btn-skip:hover { background:#EBEDF0; }
-      .cf-btn-save {
-        flex:2; padding:15px; border:none; border-radius:12px;
-        background:#BC6675;
-        color:#FFFFFF; cursor:pointer; font-weight:700; font-size:15px;
-        font-family:inherit; letter-spacing:-0.3px;
-        transition: background .12s ease, transform .1s ease;
-      }
-      .cf-btn-save:hover { background:#A8576A; }
-      .cf-btn-save:active { transform:translateY(1px); }
-
-      /* 보조 액션 */
-      .cf-sub-actions { display:flex; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #F2F4F6; }
-      .cf-sub-btn {
-        flex:1; padding:12px; border:none; border-radius:10px;
-        background:#F7F8FA; cursor:pointer; color:#4E5968;
-        font-weight:500; font-size:13px; font-family:inherit;
-        letter-spacing:-0.2px;
-        transition: background .12s ease, color .12s ease;
-      }
-      .cf-sub-btn:hover { background:#EBEDF0; color:#191F28; }
+      /* CTA */
+      .cf-cta-wrap { padding:6px 16px 14px; }
+      .cf-cta { width:100%; padding:15px; border:none; border-radius:12px; background:#191F28;
+        color:#fff; font-size:14px; font-weight:500; cursor:pointer; font-family:inherit;
+        letter-spacing:-0.3px; transition: background .12s; }
+      .cf-cta:hover { background:#3D434D; }
+      .cf-cta.cf-cta-noshow { background:#3D434D; }
+      .cf-cta.cf-cta-noshow:hover { background:#191F28; }
+      .cf-cta:disabled { opacity:0.6; cursor:default; }
+      .cf-sub-acts { display:flex; justify-content:center; gap:14px; margin-top:12px; }
+      .cf-link { background:transparent; border:none; color:#8B95A1; font-size:12px;
+        text-decoration:underline; cursor:pointer; font-family:inherit; padding:4px 6px;
+        letter-spacing:-0.2px; }
+      .cf-link:hover { color:#4E5968; }
     `;
     document.head.appendChild(s);
   }
 
-  function _renderAmount() {
-    const amt = _ctx.amount;
-    const valStr = amt ? Number(amt).toLocaleString('ko-KR') : '';
-    return `
-      <div class="cf-section-label">시술 금액</div>
-      <div class="cf-amount-row">
-        <input type="text" id="cfAmountInput" inputmode="numeric"
-          value="${_esc(valStr)}"
-          placeholder="금액 입력"
-          style="flex:1;min-width:0;border:none;background:transparent;outline:none;padding:0;"
-        />
-        <span style="font-size:16px;color:#8B95A1;font-weight:600;">원</span>
-      </div>`;
+  function _visitBadge(n) {
+    if (n == null) return '';
+    if (n >= 10) return `<span class="cf-badge cf-badge-pink">${n}회</span>`;
+    if (n >= 3)  return `<span class="cf-badge cf-badge-green">${n}회</span>`;
+    return `<span class="cf-badge cf-badge-gray">${n}회</span>`;
   }
-  function _renderMethodPills() {
-    return `
-      <div class="cf-section-label">결제수단</div>
-      <div class="cf-method-pills">
-        ${METHODS.map(m => `
-          <button class="cf-pill ${m.key === _ctx.method ? 'active' : ''}" data-method="${m.key}" type="button">${m.label}</button>
-        `).join('')}
-      </div>`;
+  function _subtitle() {
+    const parts = [];
+    if (_ctx.service_name) parts.push(_ctx.service_name);
+    if (_ctx.starts_at) {
+      try {
+        const d = new Date(_ctx.starts_at);
+        const wk = ['일','월','화','수','목','금','토'][d.getDay()];
+        const hh = String(d.getHours()).padStart(2,'0');
+        const mm = String(d.getMinutes()).padStart(2,'0');
+        parts.push(`${d.getMonth()+1}/${d.getDate()}(${wk}) ${hh}:${mm}`);
+      } catch (e) {}
+    }
+    return parts.join(' · ');
   }
-  function _renderAutoPreview() {
-    const willRevenue = !!_ctx.amount && _ctx.amount > 0;
+
+  function _renderComplete() {
+    const c = _ctx;
+    const visit = _visitBadge(c.visit_count);
+    const sub = _subtitle();
+    const valStr = c.amount ? Number(c.amount).toLocaleString('ko-KR') : '';
+    const methodsHtml = METHODS.map(m =>
+      `<button class="cf-pay ${m.key === c.method ? 'on' : ''}" data-method="${m.key}" type="button">${m.label}</button>`
+    ).join('');
     return `
-      <div class="cf-auto-preview">
-        <div class="cf-preview-row"><span class="cf-check">✓</span><span>${willRevenue ? `매출 ${_esc(_fmt(_ctx.amount))} 자동 기록` : '매출은 기록되지 않아요 (금액 없음)'}</span></div>
-        <!-- INVENTORY_HIDDEN
-        <div class="cf-preview-row"><span class="cf-check">✓</span><span>소모재료 자동 차감 (프리셋 설정 기준)</span></div>
-        -->
-        <div class="cf-preview-row"><span class="cf-check">✓</span><span>리터치 알림 자동 등록 (프리셋 설정 주기)</span></div>
-      </div>`;
+      <div class="cf-hd">
+        <div class="cf-hd-left"></div>
+        <div class="cf-hd-right">
+          <div class="cf-menu-wrap">
+            <button class="cf-iconbtn" id="cfMenuBtn" aria-label="더보기" type="button">⋯</button>
+            <div class="cf-menu-pop" id="cfMenuPop">
+              <button class="cf-menu-item" id="cfEditBooking" type="button">예약 시간·고객 수정</button>
+            </div>
+          </div>
+          <button class="cf-iconbtn" id="cfClose" aria-label="닫기" type="button">✕</button>
+        </div>
+      </div>
+      <div class="cf-cust">
+        <div class="cf-bar"></div>
+        <div class="cf-cust-text">
+          <div class="cf-name-row"><span class="cf-name">${_esc(c.customer_name || '고객')}</span>${visit}</div>
+          ${sub ? `<div class="cf-sub">${_esc(sub)}</div>` : ''}
+        </div>
+      </div>
+      <div class="cf-sec">
+        <div class="cf-label">시술 금액</div>
+        <div class="cf-amt-row">
+          <input class="cf-amt-input" id="cfAmtInput" type="text" inputmode="numeric" pattern="[0-9,]*"
+            value="${_esc(valStr)}" placeholder="0" />
+          <span class="cf-unit">원</span>
+        </div>
+        <div class="cf-chips">
+          <button class="cf-chip" data-add="10000" type="button">+1만</button>
+          <button class="cf-chip" data-add="50000" type="button">+5만</button>
+          <button class="cf-chip" data-add="100000" type="button">+10만</button>
+        </div>
+      </div>
+      <div class="cf-sec">
+        <div class="cf-label">결제수단</div>
+        <div class="cf-pay-grid">${methodsHtml}</div>
+      </div>
+      <div class="cf-opts">
+        <div class="cf-opt-row" data-opt="includeRevenue">
+          <div class="cf-opt-text">
+            <div class="cf-opt-label">매출에 포함</div>
+            <div class="cf-opt-desc">${c.includeRevenue ? '이번달 매출에 더해요' : '매출에서 빠져요'}</div>
+          </div>
+          <div class="cf-toggle ${c.includeRevenue ? 'on' : ''}"></div>
+        </div>
+        <div class="cf-opt-row" data-opt="learnCycle">
+          <div class="cf-opt-text">
+            <div class="cf-opt-label">시술 주기 기록</div>
+            <div class="cf-opt-desc">${c.learnCycle ? '잇비가 다음 시기 알려드려요' : '잇비 학습에서 빠져요'}</div>
+          </div>
+          <div class="cf-toggle ${c.learnCycle ? 'on' : ''}"></div>
+        </div>
+      </div>
+      <div class="cf-cta-wrap">
+        <button class="cf-cta" id="cfSave" type="button">시술 완료</button>
+        <div class="cf-sub-acts">
+          <button class="cf-link" id="cfNoShow" type="button">노쇼 처리</button>
+          <button class="cf-link" id="cfCancel" type="button">예약 취소</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function _renderNoShow() {
+    const c = _ctx;
+    const sub = _subtitle();
+    const valStr = c.deposit ? Number(c.deposit).toLocaleString('ko-KR') : '';
+    const methodsHtml = NOSHOW_METHODS.map(m =>
+      `<button class="cf-pay ${m.key === c.depositMethod ? 'on' : ''}" data-method="${m.key}" type="button">${m.label}</button>`
+    ).join('');
+    return `
+      <div class="cf-hd">
+        <div class="cf-hd-left">
+          <button class="cf-back" id="cfBack" type="button">‹ 되돌리기</button>
+        </div>
+        <div class="cf-hd-right">
+          <button class="cf-iconbtn" id="cfClose" aria-label="닫기" type="button">✕</button>
+        </div>
+      </div>
+      <div class="cf-cust">
+        <div class="cf-bar"></div>
+        <div class="cf-cust-text">
+          <div class="cf-name-row">
+            <span class="cf-name">${_esc(c.customer_name || '고객')}</span>
+            <span class="cf-badge cf-badge-red">노쇼</span>
+          </div>
+          ${sub ? `<div class="cf-sub">${_esc(sub)} · 미방문</div>` : `<div class="cf-sub">미방문</div>`}
+        </div>
+      </div>
+      <div class="cf-itby">
+        놓치셨네요. 받으신 <b>예약금</b>만 매출에 잡고 ${_esc(c.customer_name || '')}님 기록엔 <b>미방문</b>으로 남길게요.
+      </div>
+      <div class="cf-sec">
+        <div class="cf-label">받은 예약금</div>
+        <div class="cf-amt-row">
+          <input class="cf-amt-input" id="cfAmtInput" type="text" inputmode="numeric" pattern="[0-9,]*"
+            value="${_esc(valStr)}" placeholder="0" />
+          <span class="cf-unit">원</span>
+        </div>
+        <div class="cf-chips">
+          <button class="cf-chip" data-add="10000" type="button">+1만</button>
+          <button class="cf-chip" data-add="30000" type="button">+3만</button>
+          <button class="cf-chip" data-add="50000" type="button">+5만</button>
+        </div>
+      </div>
+      <div class="cf-sec">
+        <div class="cf-label">예약금 결제수단</div>
+        <div class="cf-pay-grid">${methodsHtml}</div>
+      </div>
+      <div class="cf-cta-wrap" style="padding-top:14px;">
+        <button class="cf-cta cf-cta-noshow" id="cfSaveNoShow" type="button">노쇼로 기록</button>
+      </div>
+    `;
+  }
+
+  function _bindAmountInput(id, key) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (e) => {
+      const raw = e.target.value.replace(/[^0-9]/g, '');
+      const num = parseInt(raw, 10);
+      _ctx[key] = Number.isFinite(num) && num > 0 ? num : null;
+      e.target.value = _ctx[key] ? _ctx[key].toLocaleString('ko-KR') : '';
+    });
   }
 
   function _render() {
-    const c = _ctx;
-    // [2026-05-25] 헤더에 이름+시술/시간 흡수, cf-info-box 제거
-    const titleEl = document.getElementById('cfTitle');
-    const subEl   = document.getElementById('cfSubtitle');
-    if (titleEl) {
-      titleEl.textContent = c.customer_name ? `${c.customer_name}님 시술 완료` : '시술 완료';
-    }
-    if (subEl) {
-      const parts = [];
-      if (c.service_name) parts.push(c.service_name);
-      if (c.starts_at) {
-        try {
-          const d = new Date(c.starts_at);
-          const hh = String(d.getHours()).padStart(2, '0');
-          const mm = String(d.getMinutes()).padStart(2, '0');
-          parts.push(`${hh}:${mm}`);
-        } catch (_) { /* ignore */ }
-      }
-      subEl.textContent = parts.length ? parts.join(' · ') : '결제 정보를 확인하고 마무리해 주세요';
-    }
-    document.getElementById('cfBody').innerHTML = `
-      ${_renderAmount()}
-      ${_renderMethodPills()}
-      ${_renderAutoPreview()}
+    const card = document.getElementById('cfCard');
+    const root = document.getElementById('cfRoot');
+    if (!card || !root) return;
+    card.classList.toggle('cf-noshow', _ctx.mode === 'noshow');
+    root.innerHTML = _ctx.mode === 'noshow' ? _renderNoShow() : _renderComplete();
 
-      <div class="cf-actions">
-        <button id="cfSave" type="button" class="cf-btn-save" style="width:100%;">시술 완료</button>
-      </div>
-      <div class="cf-sub-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="cfSkip" type="button" class="cf-sub-btn">건너뛰기 (매출 미기록)</button>
-        <button id="cfNoShow" type="button" class="cf-sub-btn">노쇼</button>
-        <button id="cfCancel" type="button" class="cf-sub-btn" style="color:#EF4444;">예약 취소</button>
-      </div>
-      <div class="cf-sub-actions">
-        <button id="cfEditBooking" type="button" class="cf-sub-btn">예약 시간·고객 수정</button>
-        <!-- INVENTORY_HIDDEN
-        <button id="cfInventory" type="button" class="cf-sub-btn">재고 확인</button>
-        -->
-      </div>
-    `;
+    document.getElementById('cfClose')?.addEventListener('click', _close);
 
-    document.getElementById('cfSkip').addEventListener('click', _skipAndComplete);
-    document.getElementById('cfSave').addEventListener('click', _saveAll);
-    document.getElementById('cfNoShow').addEventListener('click', _noShow);
-    document.getElementById('cfCancel').addEventListener('click', _cancelBooking);
-    /* INVENTORY_HIDDEN */ // document.getElementById('cfInventory').addEventListener('click', _openInventory);
-    document.querySelectorAll('.cf-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _ctx.method = btn.dataset.method;
-        document.querySelectorAll('.cf-pill').forEach(b => b.classList.toggle('active', b === btn));
-      });
-    });
-    // 금액 인라인 편집 (천 단위 콤마 + 숫자만)
-    const amtInput = document.getElementById('cfAmountInput');
-    if (amtInput) {
-      amtInput.addEventListener('input', (e) => {
-        const raw = e.target.value.replace(/[^0-9]/g, '');
-        const num = parseInt(raw, 10);
-        _ctx.amount = Number.isFinite(num) && num > 0 ? num : null;
-        e.target.value = _ctx.amount ? _ctx.amount.toLocaleString('ko-KR') : '';
-      });
+    if (_ctx.mode === 'noshow') {
+      document.getElementById('cfBack')?.addEventListener('click', () => { _ctx.mode = 'complete'; _render(); });
+      _bindAmountInput('cfAmtInput', 'deposit');
+      document.querySelectorAll('.cf-chip').forEach(b => b.addEventListener('click', () => {
+        _ctx.deposit = (_ctx.deposit || 0) + Number(b.dataset.add || 0);
+        _render();
+      }));
+      document.querySelectorAll('.cf-pay').forEach(b => b.addEventListener('click', () => {
+        _ctx.depositMethod = b.dataset.method; _render();
+      }));
+      document.getElementById('cfSaveNoShow')?.addEventListener('click', _saveNoShow);
+      return;
     }
-    // 예약 시간·고객 수정 — 팝업 닫고 캘린더 편집폼 진입 이벤트 발행
+
+    // complete mode
+    const menuBtn = document.getElementById('cfMenuBtn');
+    const menuPop = document.getElementById('cfMenuPop');
+    menuBtn?.addEventListener('click', (e) => { e.stopPropagation(); menuPop?.classList.toggle('open'); });
+    document.addEventListener('click', _closeMenuOutside, { once: true });
     document.getElementById('cfEditBooking')?.addEventListener('click', () => {
-      const bookingId = _ctx.booking_id;
-      _close();
-      if (bookingId) {
-        window.dispatchEvent(new CustomEvent('itdasy:open-booking-edit', { detail: { booking_id: bookingId } }));
-      }
+      const id = _ctx.booking_id; _close();
+      if (id) window.dispatchEvent(new CustomEvent('itdasy:open-booking-edit', { detail: { booking_id: id } }));
     });
+    _bindAmountInput('cfAmtInput', 'amount');
+    document.querySelectorAll('.cf-chip').forEach(b => b.addEventListener('click', () => {
+      _ctx.amount = (_ctx.amount || 0) + Number(b.dataset.add || 0);
+      _render();
+    }));
+    document.querySelectorAll('.cf-pay').forEach(b => b.addEventListener('click', () => {
+      _ctx.method = b.dataset.method; _render();
+    }));
+    document.querySelectorAll('.cf-opt-row').forEach(row => row.addEventListener('click', () => {
+      const k = row.dataset.opt; _ctx[k] = !_ctx[k]; _render();
+    }));
+    document.getElementById('cfSave')?.addEventListener('click', _saveAll);
+    document.getElementById('cfNoShow')?.addEventListener('click', () => {
+      _ctx.mode = 'noshow';
+      if (_ctx.depositMethod == null) _ctx.depositMethod = 'cash';
+      _render();
+    });
+    document.getElementById('cfCancel')?.addEventListener('click', _cancelBooking);
   }
 
-  /* INVENTORY_HIDDEN
-  function _openInventory() {
-    _close();
-    if (typeof window.openInventoryHub === 'function') window.openInventoryHub();
-    else if (window.showToast) window.showToast('재고 화면을 불러올 수 없어요');
-  }
-  */
-
-  // [v200] 캐시 무효화 공통 헬퍼 — 시술완료/건너뛰기/노쇼/취소 어떤 액션이든 동일하게 호출
-  function _invalidateAllCaches() {
-    ['today', 'week', 'month'].forEach(p => {
-      try { localStorage.removeItem('pv_cache::revenue::' + p); } catch (_e) { void _e; }
-      try { sessionStorage.removeItem('pv_cache::revenue::' + p); } catch (_e) { void _e; }
-    });
-    ['hv41_cache::brief', 'pv_cache::customers', 'rh_cache', 'pv_cache::dashboard'].forEach(k => {
-      try { localStorage.removeItem(k); } catch (_e) { void _e; }
-      try { sessionStorage.removeItem(k); } catch (_e) { void _e; }
-    });
+  function _closeMenuOutside() {
+    document.getElementById('cfMenuPop')?.classList.remove('open');
   }
 
-  // 매출 미기록 — BE에 skip_revenue 플래그 전달 (리터치/재고는 그대로 처리됨)
-  async function _skipAndComplete() {
-    if (!_ctx.booking_id) { _close(); return; }
-    // [v198] 미래 예약 완료 차단 — 자정 기준, 당일까지 허용
+  async function _saveAll() {
     if (_ctx.starts_at) {
       const bd = new Date(_ctx.starts_at); bd.setHours(0, 0, 0, 0);
-      const today = new Date();            today.setHours(0, 0, 0, 0);
-      if (bd > today) {
-        if (window.showToast) window.showToast('아직 시술일이 안 됐어요');
-        return;
-      }
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      if (bd > today) { if (window.showToast) window.showToast('아직 시술일이 안 됐어요'); return; }
     }
-    const btn = document.getElementById('cfSkip');
-    if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
+    const btn = document.getElementById('cfSave');
+    const includeRev = _ctx.includeRevenue !== false;
+    if (includeRev && (!_ctx.amount || _ctx.amount <= 0)) {
+      if (window.showToast) window.showToast('금액을 입력해 주세요');
+      document.getElementById('cfAmtInput')?.focus();
+      return;
+    }
+    btn.disabled = true; btn.textContent = '저장 중…';
+    const payload = { status: 'completed', payment_method: _ctx.method || 'card' };
+    if (includeRev) payload.amount = _ctx.amount;
+    else payload.skip_revenue = true;
+    if (_ctx.learnCycle === false) payload.skip_retouch = true;
     try {
-      await _patchBooking(_ctx.booking_id, { status: 'completed', skip_revenue: true });
-      _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
+      const res = await _patchBooking(_ctx.booking_id, payload);
+      const eff = res?.completion_effects || {};
       _invalidateAllCaches();
-      if (window.showToast) window.showToast('예약 완료 (매출 미기록)');
+      _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
+      if (eff.revenue_created) _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id, revenue_id: eff.revenue_id });
+      if (window.hapticSuccess) window.hapticSuccess();
+      if (window.showToast) {
+        if (eff.revenue_created) window.showToast(`${_fmt(_ctx.amount)} 매출 자동 기록됨`);
+        else window.showToast('예약 완료 (매출 미기록)');
+      }
       _close();
       _refreshConnectedViews();
     } catch (e) {
-      console.warn('[complete-flow] 매출 미기록 완료 실패:', e);
-      if (btn) { btn.disabled = false; btn.textContent = '건너뛰기 (매출 미기록)'; }
-      if (window.showToast) window.showToast('완료 처리 실패: ' + (e.message || ''));
+      btn.disabled = false; btn.textContent = '시술 완료';
+      if (window.showToast) window.showToast('실패: ' + (e.message || ''));
     }
   }
 
-  // [v206] 노쇼 처리 — BE 가 booking.deposit 보면 자동으로 매출 기록.
-  // 예약폼에서 미리 deposit 저장돼 있으면 그 값 사용 (prompt 의 default). 사용자가 더 받겠다면 수정 가능.
-  async function _noShow() {
+  async function _saveNoShow() {
     if (!_ctx.booking_id) { _close(); return; }
-    const v = window.prompt('예약금 (위약금) 금액 (원). 0 또는 빈값 = 매출 미기록.\n예: 50000 = 5만원',
-                             String(_ctx.deposit || 0));
-    if (v === null) return;
-    const cleaned = String(v).replace(/[^0-9]/g, '');
-    const deposit = parseInt(cleaned, 10) || 0;
-    const btn = document.getElementById('cfNoShow');
-    if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
+    const btn = document.getElementById('cfSaveNoShow');
+    const dep = _num(_ctx.deposit) || 0;
+    const method = _ctx.depositMethod || 'cash';
+    btn.disabled = true; btn.textContent = '처리 중…';
     try {
-      // BE 가 status='no_show' 보면 booking.deposit 으로 매출 자동 기록.
-      // FE 는 deposit 값만 갱신해서 보내면 됨. skip_revenue 는 0 일 때만.
-      const payload = deposit > 0
-        ? { status: 'no_show', deposit, payment_method: (_ctx.method || 'cash'),
+      const payload = (dep > 0 && method !== 'none')
+        ? { status: 'no_show', deposit: dep, payment_method: method,
             customer_name: _ctx.customer_name || null }
         : { status: 'no_show', skip_revenue: true,
             customer_name: _ctx.customer_name || null };
       await _patchBooking(_ctx.booking_id, payload);
       _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
-      if (deposit > 0) _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
+      if (dep > 0 && method !== 'none') _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
       _invalidateAllCaches();
       if (window.showToast) {
-        window.showToast(deposit > 0
-          ? `노쇼 · 예약금 ${deposit.toLocaleString('ko-KR')}원 매출 기록`
+        window.showToast(dep > 0 && method !== 'none'
+          ? `노쇼 · 예약금 ${dep.toLocaleString('ko-KR')}원 매출 기록`
           : '노쇼 처리됐어요');
       }
       _close();
       _refreshConnectedViews();
     } catch (e) {
-      console.warn('[complete-flow] 노쇼 실패:', e);
-      if (btn) { btn.disabled = false; btn.textContent = '노쇼'; }
+      btn.disabled = false; btn.textContent = '노쇼로 기록';
       if (window.showToast) window.showToast('처리 실패: ' + (e.message || ''));
     }
   }
 
-  // [v200] 예약 취소 — BE status 'cancelled'. confirm 후 실행.
   async function _cancelBooking() {
     if (!_ctx.booking_id) { _close(); return; }
     if (!window.confirm('이 예약을 취소할까요?')) return;
@@ -481,59 +523,8 @@
       _close();
       _refreshConnectedViews();
     } catch (e) {
-      console.warn('[complete-flow] 취소 실패:', e);
       if (btn) { btn.disabled = false; btn.textContent = '예약 취소'; }
       if (window.showToast) window.showToast('취소 실패: ' + (e.message || ''));
-    }
-  }
-
-  async function _saveAll() {
-    // [v198] 미래 예약 완료 차단 — 자정 기준, 당일까지 허용
-    if (_ctx.starts_at) {
-      const bd = new Date(_ctx.starts_at); bd.setHours(0, 0, 0, 0);
-      const today = new Date();            today.setHours(0, 0, 0, 0);
-      if (bd > today) {
-        if (window.showToast) window.showToast('아직 시술일이 안 됐어요');
-        return;
-      }
-    }
-    const btn = document.getElementById('cfSave');
-    // [2026-05-16] amount 비어있으면 차단 — 자동 매출 기록은 amount>0 필수.
-    //   매출 기록 없이 완료만 하고 싶으면 "건너뛰기" 버튼을 명확히 누르도록 유도.
-    if (!_ctx.amount || _ctx.amount <= 0) {
-      if (window.showToast) window.showToast('금액을 입력해 주세요. 매출 미기록 완료는 "건너뛰기"');
-      const amtInput = document.getElementById('cfAmountInput');
-      if (amtInput) {
-        amtInput.focus();
-        amtInput.parentElement?.animate?.(
-          [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }],
-          { duration: 240, easing: 'ease-in-out' }
-        );
-      }
-      return;
-    }
-    btn.disabled = true; btn.textContent = '저장 중…';
-    // 사용자 인라인 편집 금액도 BE 에 전달 — BE 가 booking.amount 업데이트 후 매출 자동기록에 사용
-    const payload = { status: 'completed', payment_method: _ctx.method || 'card', amount: _ctx.amount };
-    try {
-      const res = await _patchBooking(_ctx.booking_id, payload);
-      const eff = res?.completion_effects || {};
-      // [v200] 매출/홈/고객/허브/대시보드 모든 SWR 캐시 일괄 무효화
-      _invalidateAllCaches();
-      if (_ctx.booking_id) _emitChange('update_booking', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id });
-      if (eff.revenue_created) _emitChange('create_revenue', { booking_id: _ctx.booking_id, customer_id: _ctx.customer_id, revenue_id: eff.revenue_id });
-      if (window.hapticSuccess) window.hapticSuccess();
-      if (window.showToast) {
-        if (eff.revenue_created) window.showToast(`${_fmt(_ctx.amount)} 매출 자동 기록됨`);
-        else if (eff.revenue_skipped) window.showToast('예약 완료 (매출 미기록)');
-        else if (res && 'completion_effects' in res) window.showToast('예약 완료 (매출 기록은 다음 화면에서 확인하세요)');
-        else window.showToast('예약 완료 · 옛 버전 BE — 화면 새로고침 필요');
-      }
-      _close();
-      _refreshConnectedViews();
-    } catch (e) {
-      btn.disabled = false; btn.textContent = '시술 완료';
-      if (window.showToast) window.showToast('실패: ' + (e.message || ''));
     }
   }
 
@@ -543,39 +534,47 @@
     document.body.style.overflow = '';
   }
 
+  function _openWith(ctx) {
+    _ctx = Object.assign({
+      mode: 'complete',
+      includeRevenue: true,
+      learnCycle: true,
+      visit_count: null,
+      deposit: 0,
+      depositMethod: 'cash',
+    }, ctx);
+    _ensureSheet();
+    document.getElementById('completeFlowSheet').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    _render();
+    _hydrateAmountFromServices();
+    _hydrateVisitCount();
+  }
+
   window.CompleteFlow = {
     startFromBooking(booking) {
       if (!booking) return;
-      _ctx = {
+      _openWith({
         booking_id: booking.id,
         customer_id: booking.customer_id || null,
         customer_name: booking.customer_name || null,
         service_name: booking.service_name || null,
         amount: _num(booking.amount) || _servicePriceFor(booking.service_name),
         method: booking.payment_method || 'card',
-        starts_at: booking.starts_at || null,  // [v198] 미래예약 가드용
-        deposit: _num(booking.deposit) || 0,    // [v206] 노쇼 prompt 기본값
-      };
-      _ensureSheet();
-      document.getElementById('completeFlowSheet').style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-      _render();
-      _hydrateAmountFromServices();
+        starts_at: booking.starts_at || null,
+        deposit: _num(booking.deposit) || 0,
+        visit_count: booking.visit_count != null ? Number(booking.visit_count) : null,
+      });
     },
     show(opts) {
-      _ctx = {
+      _openWith({
         booking_id: opts?.booking_id || null,
         customer_id: opts?.customer_id || null,
         customer_name: opts?.customer_name || null,
         service_name: opts?.service_name || null,
         amount: _num(opts?.default_amount) || _servicePriceFor(opts?.service_name),
         method: 'card',
-      };
-      _ensureSheet();
-      document.getElementById('completeFlowSheet').style.display = 'flex';
-      document.body.style.overflow = 'hidden';
-      _render();
-      _hydrateAmountFromServices();
+      });
     },
   };
   window.closeCompleteFlow = _close;
