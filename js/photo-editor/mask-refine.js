@@ -203,6 +203,51 @@
     return out;
   }
 
+  // v332 — 점 집합의 convex hull (Andrew's monotone chain)
+  function convexHull(points) {
+    const pts = (points || []).filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y));
+    if (pts.length < 3) return pts.slice();
+    pts.sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [];
+    for (const p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const p = pts[i];
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    upper.pop(); lower.pop();
+    return lower.concat(upper);
+  }
+
+  // v332 — 회전 타원 → mask (rx/ry = 반경, angleRad = 라디안)
+  function ellipseToMask(cx, cy, rx, ry, angleRad, w, h) {
+    const sz = _safeSize(w, h);
+    const out = new Float32Array(sz.n);
+    if (!rx || !ry) return out;
+    const cosA = Math.cos(angleRad || 0), sinA = Math.sin(angleRad || 0);
+    const irx2 = 1 / (rx * rx), iry2 = 1 / (ry * ry);
+    const r = Math.ceil(Math.sqrt(rx * rx + ry * ry));
+    const x0 = Math.max(0, Math.floor(cx - r));
+    const x1 = Math.min(sz.w - 1, Math.ceil(cx + r));
+    const y0 = Math.max(0, Math.floor(cy - r));
+    const y1 = Math.min(sz.h - 1, Math.ceil(cy + r));
+    for (let y = y0; y <= y1; y++) {
+      const dy = y - cy;
+      for (let x = x0; x <= x1; x++) {
+        const dx = x - cx;
+        const lx = dx * cosA + dy * sinA;
+        const ly = -dx * sinA + dy * cosA;
+        if (lx * lx * irx2 + ly * ly * iry2 <= 1) out[y * sz.w + x] = 1;
+      }
+    }
+    return out;
+  }
+
   window.MaskRefine = {
     polygonToMask,
     gaussianFeather,
@@ -214,5 +259,7 @@
     intersectMask,
     unionMask,
     invertMask,
+    convexHull,
+    ellipseToMask,
   };
 })();

@@ -141,6 +141,9 @@
     };
   }
 
+  // ── Tier 1 hand 어댑터 (v332 — mask-hand-adapter.js 로 분리) ──
+  function _getHandAdapter() { return window.MaskHandAdapter || null; }
+
   // ── Tier 2: MediaPipe Face Landmarker polygon → mask ─────
   async function _tier2_facePolygon(img, regionName) {
     const ML = _getMediaPipe();
@@ -298,14 +301,31 @@
           // Tier 1 Selfie Segmentation 미사용 — Tier 3 휴리스틱 (subject inverse)
           result = await _tier3_heuristic(img, 'backgroundMask');
           break;
-        case 'nailMask':
-          // v313: Hand Landmarker 미적용 → pendingImplementation
-          result = _emptyResult('pendingImplementation', 'Hand Landmarker 적용은 v315');
-          result.sourceTier = 0;
+        case 'nailMask': {
+          // v332 — Tier 1 Hand Landmarker (mask-hand-adapter) 우선 시도
+          const HA = _getHandAdapter();
+          if (HA && typeof HA.nailMask === 'function') {
+            const t1 = await HA.nailMask(img, _imgSize(img));
+            if (t1 && t1.mask) {
+              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0, status: 'ready' }, t1);
+              break;
+            }
+          }
+          result = await _tier3_heuristic(img, 'nailMask');
           break;
-        case 'handSkinMask':
+        }
+        case 'handSkinMask': {
+          const HA = _getHandAdapter();
+          if (HA && typeof HA.handSkinMask === 'function') {
+            const t1 = await HA.handSkinMask(img, _imgSize(img));
+            if (t1 && t1.mask) {
+              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0, status: 'ready' }, t1);
+              break;
+            }
+          }
           result = await _tier3_heuristic(img, 'handSkinMask');
           break;
+        }
         case 'eyelashBandMask': {
           // Tier 2: eye polygon 을 위로 8% 확장 (edge refinement 는 v315 튜닝)
           const RF = _getRefine();
