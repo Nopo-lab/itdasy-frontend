@@ -186,9 +186,48 @@
     try { sessionStorage.removeItem('pv_cache::dashboard'); } catch (_e) { void _e; }
   }
 
+  // [2026-05-29] 잇비 학습 — 고객별 시술명별 평균 시술비/예약금 (최근 5회, 취소 제외).
+  // 1) 현재 로드된 _items (월 캐시) 에서 매칭 시도 → 충분하면 즉시 반환
+  // 2) 부족하면 /customers/{id}/dashboard 의 recent_revenues + recent_bookings 으로 보강
+  const _learnCache = {};
+  async function getCustomerLearning(customerId, serviceName) {
+    if (!customerId || !serviceName) return null;
+    const key = customerId + '|' + serviceName;
+    const hit = _learnCache[key];
+    if (hit && Date.now() - hit.t < 5 * 60 * 1000) return hit.v;
+
+    // 1) 메모리 캐시 (월 단위 _items)
+    const local = _items.filter(b => String(b.customer_id) === String(customerId)
+      && String(b.service_name || '').trim() === String(serviceName).trim()
+      && b.status !== 'cancelled');
+    const useLocal = local.slice(-5);
+    let amts = useLocal.map(b => +b.amount || 0).filter(Boolean);
+    let deps = useLocal.map(b => +b.deposit || 0).filter(Boolean);
+
+    // 2) 부족하면 dashboard fetch
+    if (amts.length < 1) {
+      try {
+        if (window.authHeader) {
+          const r = await apiFetch('/customers/' + customerId + '/dashboard', { headers: window.authHeader() });
+          if (r.ok) {
+            const d = await r.json();
+            const revs = (d.recent_revenues || [])
+              .filter(x => String(x.service_name || '').trim() === String(serviceName).trim());
+            amts = revs.map(x => +x.amount || 0).filter(Boolean).slice(0, 5);
+          }
+        }
+      } catch (_) { /* 옵셔널 */ }
+    }
+    const avg = (arr) => arr.length ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length) : null;
+    const v = { avgAmount: avg(amts), avgDeposit: avg(deps), count: amts.length };
+    _learnCache[key] = { t: Date.now(), v };
+    return v;
+  }
+
   window.Booking = {
     list, create, update, remove, hasConflict,
     shopHours: _shopHours,
+    getCustomerLearning,
     _invalidateCache,
     get _items()    { return _items; },
     get isOffline() { return _isOffline; },
