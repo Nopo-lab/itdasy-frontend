@@ -1,0 +1,131 @@
+/* 사진 편집기 — Nav v7 (v329 2026-05-28 nav-v7 preview)
+   2단 하단 메뉴: [상단=활성 카테고리의 서브칩 / 하단=카테고리]
+   기본 OFF — 플래그 활성(localStorage.PE_NAV_V7=1 또는 ?nav_v7=1) 일 때만 .pe-nav-v7-active 클래스로 표시.
+*/
+
+/* 컨테이너 */
+.pe-nav-v7 {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;          /* .pe-tabs(z 미지정) 위로 */
+  flex-direction: column;
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* 활성 시 — pe-tabs 는 숨김, nav-v7 표시 */
+#photoEditorSheet.pe-nav-v7-active .pe-tabs {
+  display: none !important;
+}
+#photoEditorSheet.pe-nav-v7-active .pe-nav-v7 {
+  display: flex;
+}
+/* pe-panel 위치를 nav-v7 높이만큼 위로 — 2단(50+62=112) + safe-area */
+#photoEditorSheet.pe-nav-v7-active .pe-panel {
+  bottom: calc(112px + env(safe-area-inset-bottom, 0));
+}
+
+/* 행 공통 */
+.pe-nav-v7-row {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow: auto hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.pe-nav-v7-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* 상단 = 서브칩 행 */
+.pe-nav-v7-subchips {
+  height: 50px;
+  padding: 8px 14px 0;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.pe-nav-v7-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: #5a5b62;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  border-radius: 999px;
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+}
+.pe-nav-v7-chip.on {
+  color: #17181d;
+}
+.pe-nav-v7-chip.on::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(135deg, #ff7aa2, #ff5277);
+}
+
+/* 하단 = 카테고리 행 */
+.pe-nav-v7-cats {
+  height: 62px;
+  padding: 6px 10px 0;
+  gap: 4px;
+  align-items: flex-start;
+  background: #fff;
+}
+.pe-nav-v7-cat {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 2px;
+  border: 0;
+  background: transparent;
+  color: #888a91;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 56px;
+}
+.pe-nav-v7-cat.on {
+  color: #17181d;
+}
+.pe-nav-v7-cat .pe-nav-v7-ic {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.pe-nav-v7-cat .pe-nav-v7-ic svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pe-nav-v7-cat.on .pe-nav-v7-ic svg {
+  stroke-width: 2;
+}
+.pe-nav-v7-cat-label {
+  line-height: 1.2;
+}
