@@ -2043,13 +2043,7 @@
     _bindFormExtras(body, existing);
     _bindFormSave(body, existing, date);
     if (existing) _bindFormActions(body, existing, date);
-    // 빈 슬롯 클릭 시 고객 picker 자동 오픈
-    if (!existing && pendS) {
-      setTimeout(() => {
-        const card = body.querySelector('#bfCustCard');
-        if (card && document.body.contains(card)) card.click();
-      }, 300);
-    }
+    // [2026-05-29] 빈 슬롯 클릭 시 고객 picker 자동 오픈 제거 — 폼만 열고 사용자가 직접 선택
   }
 
 
