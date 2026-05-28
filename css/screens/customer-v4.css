@@ -48,7 +48,7 @@
 /* ── 고객 row ─────────────────────────────────── */
 #customerSheet .c-row {
   display:flex;align-items:center;padding:13px 0;border-bottom:1px solid var(--border,#F5F5F7);
-  cursor:pointer;transition:background .12s;position:relative;padding-left:10px;
+  cursor:pointer;transition:background .12s;position:relative;padding-left:16px;
 }
 #customerSheet .c-row:active { background:var(--surface-2,#FAFAFA); }
 #customerSheet .c-row:last-child { border-bottom:none; }
