@@ -33,15 +33,32 @@
     if (_sheetEl) return _sheetEl;
     _sheetEl = document.createElement('div');
     _sheetEl.id = 'tplV2Sheet';
-    _sheetEl.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:10050;display:none;flex-direction:column;';
+    _sheetEl.style.cssText = 'position:fixed;inset:0;background:#111217;z-index:10050;display:none;flex-direction:column;';
     _sheetEl.innerHTML = `
-      <header style="padding:14px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #eee;">
-        <button type="button" id="tpv2Close" class="pe-action-btn" style="background:#eee;">닫기</button>
-        <div style="font-weight:700;flex:1;">템플릿 마켓 (30+)</div>
-        <input type="search" id="tpv2Search" placeholder="검색…" style="border:1px solid #ddd;padding:6px 10px;border-radius:8px;font-size:13px;" />
+      <style>
+        /* v320-A 캔바풍 템플릿 카드 폴리싱 — 다크 프리미엄 테마(studio.css) 기반 (scoped #tplV2Sheet) */
+        #tplV2Sheet .tpv2-card { position:relative; border:1px solid rgba(255,250,242,.08); border-radius:14px; overflow:hidden; background:#fff; cursor:pointer; padding:0; text-align:left; box-shadow:0 2px 8px rgba(0,0,0,.35); transition:box-shadow .16s ease, transform .12s ease; -webkit-tap-highlight-color:transparent; }
+        #tplV2Sheet .tpv2-card:hover { box-shadow:0 10px 26px rgba(0,0,0,.5); transform:translateY(-2px); }
+        #tplV2Sheet .tpv2-card:active { transform:translateY(0) scale(.985); box-shadow:0 3px 10px rgba(0,0,0,.45); }
+        #tplV2Sheet .tpv2-thumb { display:flex; align-items:center; justify-content:center; text-align:center; color:#fff; font-weight:700; font-size:14px; line-height:1.32; padding:12px; font-family:Georgia,"Noto Serif KR",serif; letter-spacing:.2px; text-shadow:0 1px 6px rgba(0,0,0,.32); }
+        #tplV2Sheet .tpv2-meta { padding:8px 10px 10px; background:#fff; }
+        #tplV2Sheet .tpv2-name { font-size:12.5px; font-weight:700; color:#2b2620; }
+        #tplV2Sheet .tpv2-sub { font-size:10px; font-weight:600; color:#a89e8d; margin-top:2px; }
+        #tplV2Sheet .tpv2-badge { position:absolute; top:8px; left:8px; font-size:9px; font-weight:800; letter-spacing:.5px; padding:3px 7px; border-radius:7px; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+        #tplV2Sheet .tpv2-badge.free { background:#1f9d63; }
+        #tplV2Sheet .tpv2-badge.pro { background:linear-gradient(135deg,#caa15a,#a9823f); color:#1a160f; }
+        #tplV2Sheet .pe-chip-btn { border:1px solid transparent; background:rgba(255,250,242,.08); border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:600; color:#cfc7b8; white-space:nowrap; cursor:pointer; transition:all .14s ease; }
+        #tplV2Sheet .pe-chip-btn.on { background:linear-gradient(135deg,#caa15a,#a9823f); color:#1a160f; }
+        #tplV2Sheet .tpv2-hd-title { font-family:Georgia,"Noto Serif KR",serif; font-weight:700; font-size:17px; color:#f7f1e8; white-space:nowrap; }
+        #tplV2Sheet .tpv2-hd-sub { font-size:11px; color:#b3aa9a; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      </style>
+      <header style="padding:14px 16px;display:flex;align-items:center;gap:10px;">
+        <button type="button" id="tpv2Close" style="flex-shrink:0;background:rgba(255,250,242,.12);color:#f7f1e8;border:none;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;">닫기</button>
+        <div style="flex:1;min-width:0;"><div class="tpv2-hd-title">템플릿</div><div class="tpv2-hd-sub">초보 원장님도 바로 쓰는 SNS 디자인</div></div>
+        <input type="search" id="tpv2Search" placeholder="검색…" style="flex-shrink:0;width:96px;" />
       </header>
-      <div id="tpv2Cats" style="padding:10px 16px;display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid #eee;background:#fafafa;"></div>
-      <div id="tpv2Grid" style="flex:1;overflow-y:auto;padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;"></div>
+      <div id="tpv2Cats" style="padding:11px 16px;display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
+      <div id="tpv2Grid" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;"></div>
     `;
     document.body.appendChild(_sheetEl);
     _sheetEl.querySelector('#tpv2Close').addEventListener('click', () => { _sheetEl.style.display = 'none'; });
@@ -72,10 +89,13 @@
       const color = _accentColor(t.accent, bk);
       const cat = CATS.find(c => c.id === t.cat);
       const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
+      const isFree = t.tier !== 'pro';
+      const badge = `<span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>`;
       return `
-        <button type="button" class="tpv2-card" data-tpv2-tpl="${t.id}" style="border:1px solid #eee;border-radius:14px;overflow:hidden;background:#fff;cursor:pointer;padding:0;text-align:left;">
-          <div style="aspect-ratio:${ar};background:linear-gradient(135deg, ${color}33, ${color});display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;text-shadow:0 1px 4px rgba(0,0,0,0.3);">${_esc(t.prefillText || t.label)}</div>
-          <div style="padding:8px 10px;font-size:12px;font-weight:600;">${_esc(t.label)}</div>
+        <button type="button" class="tpv2-card" data-tpv2-tpl="${t.id}">
+          ${badge}
+          <div class="tpv2-thumb" style="aspect-ratio:${ar};background:linear-gradient(135deg, ${color}33, ${color});">${_esc(t.prefillText || t.label)}</div>
+          <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div></div>
         </button>
       `;
     }).join('');
