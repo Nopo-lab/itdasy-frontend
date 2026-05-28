@@ -81,7 +81,11 @@
         const FLD = window.faceLandmarksDetection;
         const detector = await FLD.createDetector(
           FLD.SupportedModels.MediaPipeFaceMesh,
-          { runtime: 'tfjs', refineLandmarks: false, maxFaces: 1 }
+          // v340 hotfix — refineLandmarks:true. 478 landmark(홍채 468~477 추가 + 눈/입 정밀화).
+          //   목적: eyeMask 양쪽 눈 검출 안정화. 모든 소비자는 named region(인덱스 ≤466)만 사용 →
+          //   깨짐 없이 정밀도만 향상. (lashSharp/eyelash 연결은 v340 에 포함 X — v317 에서 별도 진행)
+          //   비상시 PE_MASK_DISABLE='1' 로 마스크 적용 차단.
+          { runtime: 'tfjs', refineLandmarks: true, maxFaces: 1 }
         );
         _state.detector = detector;
         _setProgress(100, 'ready');

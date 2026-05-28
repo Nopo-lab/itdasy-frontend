@@ -97,11 +97,22 @@
     const mask = SmartMask && SmartMask.classify ? SmartMask.classify({ r, g, b: bl, lum: lum0, maxCh: maxCh0, minCh: minCh0, x, y, w, h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
 
     // v316 — RegionMask 우선 lookup. 미적용 키는 v312 휴리스틱 fallback.
-    const idx = y * w + x;
+    //   v340 — 마스크는 원본(maskW×maskH) 해상도. 캔버스(w×h)가 다운스케일됐으면 좌표 환산.
+    //   동일 해상도(대부분 경우)면 midx = y*w+x 그대로 (무변화·빠른 경로).
     const useM = regionMasks && regionMasks.useMasks;
     const sc = regionMasks && regionMasks._scale;
+    const mw = (regionMasks && regionMasks.maskW) || w;
+    const mh = (regionMasks && regionMasks.maskH) || h;
+    let midx;
+    if (mw === w && mh === h) {
+      midx = y * w + x;                                   // 동일 해상도 — 빠른 경로 (무변화)
+    } else {
+      const mx = Math.min(mw - 1, Math.max(0, (x * mw / w) | 0));   // 경계 clamp (out-of-range 방지)
+      const my = Math.min(mh - 1, Math.max(0, (y * mh / h) | 0));
+      midx = my * mw + mx;
+    }
     function _rm(key, fallback) {
-      if (useM && useM[key]) return (useM[key][idx] || 0) * (sc[key] || 1);
+      if (useM && useM[key]) return (useM[key][midx] || 0) * (sc[key] || 1);
       return fallback;
     }
 

@@ -72,6 +72,9 @@
       wallClockMs: Math.round(t1 - t0),         // 호출자 측 대기 (캐시 hit 시 → 0~수ms)
       maskMs: r.inferenceTimeMs || 0,           // Provider 내부 측정 (detect+compute 합산)
       reason: r.reason || '',
+      // v340 — eyeMask 좌/우 coverage (한쪽만 인식 진단)
+      eyeLeftCoverage: typeof r.eyeLeftCoverage === 'number' ? r.eyeLeftCoverage : null,
+      eyeRightCoverage: typeof r.eyeRightCoverage === 'number' ? r.eyeRightCoverage : null,
       _mask: r.mask || null,
     };
   }
@@ -108,10 +111,14 @@
         detectMs: r.maskMs,           // Provider 내부 (Face/Hand detect + compute)
         waitMs: r.wallClockMs,        // 호출자 측 대기 (캐시 hit 시 ~0)
         v316: reco.label,
+        eyeL: r.eyeLeftCoverage != null ? r.eyeLeftCoverage : '',   // v340 — eyeMask 만
+        eyeR: r.eyeRightCoverage != null ? r.eyeRightCoverage : '',
         reason: r.reason.slice(0, 40),
       };
     });
     console.table(table);
+
+    const eyeSum = _eyeCoverageSummary(results);   // v340 — 좌/우 coverage 로그 + WARN
 
     console.log('[QA] total ' + totalMs + 'ms (sequential; Face/Hand detect 는 source 당 1회 캐시)');
     console.log('[QA] false-positive overlap (0 가 좋음, 0.3+ 위험):');
@@ -124,7 +131,26 @@
     console.log('  - RegionMaskQA.visualize() → 사진 위 마스크 색 오버레이');
     console.log('  - await RegionMaskQA.copyResultsAsJSON() → 결과 JSON 클립보드 복사');
     console.groupEnd();
-    return { sizeWxH: sz, totalMs: totalMs, table: table, fpChecks: fpChecks, results: results };
+    return {
+      sizeWxH: sz, totalMs: totalMs, table: table, fpChecks: fpChecks, results: results,
+      eyeLeftCoverage: eyeSum.eL,
+      eyeRightCoverage: eyeSum.eR,
+      eyeOneSideWarn: eyeSum.warn,
+    };
+  }
+
+  // v340 — eyeMask 좌/우 coverage 요약 + 한쪽만 인식 경고 (정면 얼굴 기준)
+  function _eyeCoverageSummary(results) {
+    const eye = results.eyeMask || {};
+    const eL = eye.eyeLeftCoverage, eR = eye.eyeRightCoverage;
+    let warn = false;
+    if (eL != null && eR != null) {
+      warn = (eL > 0.0005 && eR < 0.0001) || (eR > 0.0005 && eL < 0.0001);
+      console.log('[QA] eyeMask 좌/우 coverage — leftEye=' + eL + ' / rightEye=' + eR +
+        (warn ? '  ❌ WARN: 한쪽 눈만 인식 (정면 얼굴이면 비정상)'
+              : (eL > 0 && eR > 0 ? '  ✅ 양쪽 인식' : '  (눈 미검출)')));
+    }
+    return { eL: eL != null ? eL : null, eR: eR != null ? eR : null, warn: warn };
   }
 
   // v316 자동 적용 권고 (v336 — maskType + sourceTier + status + confidence 종합)

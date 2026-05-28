@@ -71,7 +71,8 @@
 
     // 하나도 못 모으면 null → beauty-engine 완전 v312 동작
     if (!Object.keys(useMasks).length) return null;
-    return { useMasks: useMasks, _scale: _scale, meta: meta };
+    // maskW/maskH — 마스크는 원본 해상도로 빌드됨. 캔버스가 다운스케일됐을 때 좌표 환산용.
+    return { useMasks: useMasks, _scale: _scale, meta: meta, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
   }
 
   // v316 — sync 버전. renderer 가 매 redraw 마다 호출.
@@ -95,7 +96,7 @@
       _scale[k] = scale;
     }
     if (!Object.keys(useMasks).length) return null;
-    return { useMasks: useMasks, _scale: _scale };
+    return { useMasks: useMasks, _scale: _scale, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
   }
 
   // 디버그용 — 콘솔에서 확인 가능

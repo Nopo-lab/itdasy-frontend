@@ -243,6 +243,9 @@
           const RF = _getRefine();
           const l = await _tier2_facePolygon(img, 'leftEye');
           const r2 = await _tier2_facePolygon(img, 'rightEye');
+          // v340 — 좌/우 polygon coverage 따로 측정 (한쪽만 인식 진단용)
+          const lCov = (RF && l.mask) ? RF.maskCoverage(l.mask) : 0;
+          const rCov = (RF && r2.mask) ? RF.maskCoverage(r2.mask) : 0;
           if (RF && l.mask && r2.mask) {
             const merged = RF.unionMask(l.mask, r2.mask);
             result = {
@@ -258,6 +261,21 @@
           } else {
             result = await _tier3_heuristic(img, 'eyeMask');
           }
+          // v340 — 좌/우 coverage 노출 + 비대칭(한쪽만) 경고
+          result.eyeLeftCoverage = +lCov.toFixed(4);
+          result.eyeRightCoverage = +rCov.toFixed(4);
+          const oneEye = (lCov > 0.0005 && rCov < 0.0001) || (rCov > 0.0005 && lCov < 0.0001);
+          if (oneEye) {
+            result.reason = (result.reason ? result.reason + '; ' : '') +
+              'ONE-EYE: leftEye=' + lCov.toFixed(4) + ' rightEye=' + rCov.toFixed(4) +
+              ' (한쪽 polygon coverage≈0 — 얼굴 각도/landmark 불안정 추정)';
+          }
+          try {
+            if (window.localStorage && localStorage.getItem('PE_MASK_DEBUG') === '1') {
+              console.log('[eyeMask] leftEye coverage=' + lCov.toFixed(4) +
+                ' / rightEye coverage=' + rCov.toFixed(4) + (oneEye ? '  ⚠ ONE-EYE' : ''));
+            }
+          } catch (_e) { /* ignore */ }
           break;
         }
         case 'backgroundMask':

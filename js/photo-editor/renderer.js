@@ -25,7 +25,9 @@
   function computeCrop(img, ratio) {
     const iw = img.naturalWidth, ih = img.naturalHeight;
     if (ratio === 'original') {
-      const maxPixels = 16777216;
+      // v340 — 작업 캔버스 상한 16.7M(4096px) → 4.19M(2048px). 큰 사진의 redraw 픽셀 walk 비용
+      //   대폭 절감(렉 완화). 2048px 는 IG/포트폴리오에 충분한 품질. (마스크는 maskW/H 환산으로 정확 유지)
+      const maxPixels = 4194304;
       const k = iw * ih > maxPixels ? Math.sqrt(maxPixels / (iw * ih)) : 1;
       return { sx: 0, sy: 0, sw: iw, sh: ih, dw: Math.round(iw * k), dh: Math.round(ih * k) };
     }

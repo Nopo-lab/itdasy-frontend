@@ -204,7 +204,9 @@
     panel.querySelectorAll('[data-pe-slider]').forEach(inp => {
       inp.addEventListener('input', () => {
         const key = inp.dataset.peSlider;
-        state.beauty[key] = +inp.value;
+        const v = +inp.value;
+        if (state.beauty[key] === v) return;   // 같은 값 → redraw 중복 방지 (렉 완화)
+        state.beauty[key] = v;
         const out = panel.querySelector(`[data-pe-slider-val="${key}"]`);
         if (out) out.textContent = inp.value;
         scheduleRedraw();
