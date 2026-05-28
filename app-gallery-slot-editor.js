@@ -405,10 +405,22 @@ async function _applyBABetween(before, after, slot) {
   } catch (e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
+// 비상 fallback — PE_WORKSHOP_NEW_EDITOR_DISABLE='1' 이면 새 에디터 브릿지 끄고 기존 slot 패널로.
+function _workshopNewEditorDisabled() {
+  try { return !!(window.localStorage && localStorage.getItem('PE_WORKSHOP_NEW_EDITOR_DISABLE') === '1'); }
+  catch (_e) { return false; }
+}
+
 // ── 손님 사진 1장 → 최신 PhotoEditor 로 편집 (저장 시 손님 사진에 반영) ──────
 // 슬롯 하단 툴바(누끼/보정/로고/템플릿)가 옛 패널 대신 이 경로로 모던 에디터를 연다.
 //   활성 사진 = 선택 1장, 없으면 사진이 1장뿐일 때 그 사진.
+//   PE_WORKSHOP_NEW_EDITOR_DISABLE='1' → 기존 패널(openBgPanel/openEnhancePanel/...) 로 폴백.
 function openSlotPhotoInEditor(tab) {
+  if (_workshopNewEditorDisabled()) {
+    const fb = { bg: 'openBgPanel', beauty: 'openEnhancePanel', text: 'openElementPanel', template: 'openTemplatePanel' }[tab];
+    if (fb && typeof window[fb] === 'function') return window[fb]();
+    return;
+  }
   if (!window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') {
     if (typeof showToast === 'function') showToast('사진 편집기를 불러오는 중이에요. 잠시 후 다시 시도해주세요');
     return;
