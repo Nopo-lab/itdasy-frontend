@@ -155,11 +155,17 @@
     const projRaw = data._projected_total;
     const projected = projRaw == null ? null
       : (Number.isFinite(Number(projRaw)) ? Number(projRaw) : null);
+    const _comma = (n) => Number(n || 0).toLocaleString('ko-KR');
     const predChipHtml = projected == null ? '' : `
-      <button type="button" class="hv5-pred-chip" data-hv-act="openRevenue" aria-label="잇비 분석 이번달 매출">
-        <span class="hv5-pred-chip-label">잇비 분석 이번달 매출</span>
+      <button type="button" class="hv5-pred-chip" data-hv-act="openRevenue" aria-label="잇비 분석 이번달 예상 매출">
+        <span class="hv5-pred-chip-label">잇비 분석 이번달 예상 매출</span>
         <span class="hv5-pred-chip-amt"><span data-hv-count="${projected}">${formatMoney(projected)}</span></span>
       </button>`;
+    const predRowHtml = projected == null ? '' : `
+      <div class="hv5-rev-sum-row hv5-rev-sum-bot">
+        <span class="hv5-rev-sum-pred-label">잇비 분석 이번달 예상 매출</span>
+        <span class="hv5-rev-sum-pred-val"><span data-hv-count="${projected}">${_comma(projected)}</span><span class="hv5-rev-sum-unit">원</span></span>
+      </div>`;
     return `<div class="hv5"><div class="hv5-hdr">
       <div class="av" data-hv-avatar aria-hidden="true">${esc(shopInitial(shop))}</div>
       <div class="meta">
@@ -175,7 +181,14 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8C6 4.68629 8.68629 2 12 2C15.3137 2 18 4.68629 18 8C18 15 21 17 21 17H3C3 17 6 15 6 8Z"/><path d="M10 20C10.5 21 11.2 21.5 12 21.5C12.8 21.5 13.5 21 14 20"/></svg>
         <span id="dashBellBadge" class="hv5-bell-badge" style="display:none"></span>
       </button>
-    </div>`;
+    </div>
+    <button type="button" class="hv5-rev-sum" data-hv-act="openRevenue" aria-label="${monthLabel} 매출 상세">
+      <div class="hv5-rev-sum-row hv5-rev-sum-top">
+        <span class="hv5-rev-sum-label">${monthLabel} 매출</span>
+        <span class="hv5-rev-sum-val"><span data-hv-count="${monthTotal}">${_comma(monthTotal)}</span><span class="hv5-rev-sum-unit">원</span></span>
+      </div>
+      ${predRowHtml}
+    </button>`;
   }
 
   function fallbackBookings(brief) {

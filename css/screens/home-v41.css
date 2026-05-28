@@ -723,6 +723,32 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
 .hv5-pred-chip-label { font-size: 9px; color: #BC6675; font-weight: 500; margin-bottom: 2px; }
 .hv5-pred-chip-amt { font-size: 16px; color: #191F28; font-weight: 500; letter-spacing: -0.3px; }
 .hv5-pred-chip-amt > span { font-size: 16px; color: #191F28; letter-spacing: -0.3px; }
+.hv5-rev-chip-label, .hv5-pred-chip-label, .hv5-rev-chip-amt, .hv5-pred-chip-amt { white-space: nowrap; }
+
+/* 모바일 B안 — 매출 요약 카드 (한 카드 위계) */
+.hv5-rev-sum {
+  display: none;
+  width: calc(100% - 20px);
+  margin: 0 10px 10px;
+  padding: 10px 12px;
+  background: #FAFAFB; border: 0.5px solid #E5E8EB; border-radius: 10px;
+  cursor: pointer; font-family: inherit; text-align: left;
+}
+.hv5-rev-sum:active { background: #F2F4F6; }
+.hv5-rev-sum-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hv5-rev-sum-bot { border-top: 0.5px solid #E5E8EB; margin-top: 8px; padding-top: 8px; }
+.hv5-rev-sum-label { font-size: 10px; color: #8B95A1; font-weight: 500; letter-spacing: -0.2px; }
+.hv5-rev-sum-val { display: inline-flex; align-items: baseline; gap: 2px; }
+.hv5-rev-sum-val > span:first-child { font-size: 18px; font-weight: 500; color: #191F28; letter-spacing: -0.3px; font-variant-numeric: tabular-nums; }
+.hv5-rev-sum-unit { font-size: 11px; color: #8B95A1; }
+.hv5-rev-sum-pred-label { font-size: 10px; color: #BC6675; font-weight: 500; letter-spacing: -0.2px; }
+.hv5-rev-sum-pred-val { display: inline-flex; align-items: baseline; gap: 2px; }
+.hv5-rev-sum-pred-val > span:first-child { font-size: 13px; font-weight: 500; color: #191F28; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 767px) {
+  .hv5-rev-chip, .hv5-pred-chip { display: none; }
+  .hv5-rev-sum { display: block; }
+}
 
 /* pulse 애니메이션 (잇비 상태 dot 등 공용) */
 @keyframes hv-pulse {
