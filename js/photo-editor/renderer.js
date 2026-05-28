@@ -22,22 +22,32 @@
     br: ['right', 'bottom', 1, 1, -1, -1],
   };
 
-  function computeCrop(img, ratio) {
+  // v340 — final 작업 캔버스 상한 4.19M(2048px). v343 — preview(드래그 중) 상한 ~1.3M(긴 변 ~1280px).
+  const FULL_MAX_PIXELS = 4194304;
+  const PREVIEW_MAX_PIXELS = 1300000;
+  function computeCrop(img, ratio, preview) {
     const iw = img.naturalWidth, ih = img.naturalHeight;
+    let crop;
     if (ratio === 'original') {
-      // v340 — 작업 캔버스 상한 16.7M(4096px) → 4.19M(2048px). 큰 사진의 redraw 픽셀 walk 비용
-      //   대폭 절감(렉 완화). 2048px 는 IG/포트폴리오에 충분한 품질. (마스크는 maskW/H 환산으로 정확 유지)
-      const maxPixels = 4194304;
-      const k = iw * ih > maxPixels ? Math.sqrt(maxPixels / (iw * ih)) : 1;
-      return { sx: 0, sy: 0, sw: iw, sh: ih, dw: Math.round(iw * k), dh: Math.round(ih * k) };
+      const k = iw * ih > FULL_MAX_PIXELS ? Math.sqrt(FULL_MAX_PIXELS / (iw * ih)) : 1;
+      crop = { sx: 0, sy: 0, sw: iw, sh: ih, dw: Math.round(iw * k), dh: Math.round(ih * k) };
+    } else {
+      const [rw, rh] = ratio.split(':').map(Number);
+      const targetAR = rw / rh, imgAR = iw / ih;
+      let sw, sh, sx, sy;
+      if (imgAR > targetAR) { sh = ih; sw = Math.round(ih * targetAR); sx = Math.round((iw - sw) / 2); sy = 0; }
+      else { sw = iw; sh = Math.round(iw / targetAR); sx = 0; sy = Math.round((ih - sh) / 2); }
+      const outW = Math.min(1080, sw), outH = Math.round(outW / targetAR);
+      crop = { sx, sy, sw, sh, dw: outW, dh: outH };
     }
-    const [rw, rh] = ratio.split(':').map(Number);
-    const targetAR = rw / rh, imgAR = iw / ih;
-    let sw, sh, sx, sy;
-    if (imgAR > targetAR) { sh = ih; sw = Math.round(ih * targetAR); sx = Math.round((iw - sw) / 2); sy = 0; }
-    else { sw = iw; sh = Math.round(iw / targetAR); sx = 0; sy = Math.round((ih - sh) / 2); }
-    const outW = Math.min(1080, sw), outH = Math.round(outW / targetAR);
-    return { sx, sy, sw, sh, dw: outW, dh: outH };
+    // v343 — preview 면 출력 해상도만 ~1.3M 로 추가 다운스케일(드래그 per-frame 픽셀 walk 대폭↓).
+    //   원본 crop(sx..sh)은 그대로 → 마스크는 maskW/H 환산으로 정합 유지. final 시 풀해상도 재렌더.
+    if (preview && crop.dw * crop.dh > PREVIEW_MAX_PIXELS) {
+      const pk = Math.sqrt(PREVIEW_MAX_PIXELS / (crop.dw * crop.dh));
+      crop.dw = Math.max(1, Math.round(crop.dw * pk));
+      crop.dh = Math.max(1, Math.round(crop.dh * pk));
+    }
+    return crop;
   }
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
@@ -287,7 +297,7 @@
     if (state.template.id && typeof env.drawHooks.template === 'function') {
       try { env.drawHooks.template(cv, state.originalImg, state, env.helpers); return; } catch (_e) { void _e; }
     }
-    const crop = computeCrop(state.originalImg, state.ratio);
+    const crop = computeCrop(state.originalImg, state.ratio, env.preview);
     cv.width = crop.dw; cv.height = crop.dh;
     const ctx = cv.getContext('2d');
     if (state.showOriginal) { ctx.filter = 'none'; ctx.drawImage(state.originalImg, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.dw, crop.dh); return; }

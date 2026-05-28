@@ -197,6 +197,12 @@
       .slice(0, 8);
   }
 
+  // v343 — fast preview 활성 여부 (PE_FAST_PREVIEW_DISABLE='1' → v342 방식 풀해상도 즉시)
+  function _fastPreviewOn() {
+    try { return !(window.localStorage && localStorage.getItem('PE_FAST_PREVIEW_DISABLE') === '1'); }
+    catch (_e) { return true; }
+  }
+
   function _bindBeautyPanel(panel, state, helpers) {
     const scheduleRedraw = helpers.scheduleRedraw;
     const pushHistory = helpers.pushHistory;
@@ -209,9 +215,12 @@
         state.beauty[key] = v;
         const out = panel.querySelector(`[data-pe-slider-val="${key}"]`);
         if (out) out.textContent = inp.value;
-        scheduleRedraw();
+        scheduleRedraw(_fastPreviewOn());   // v343 — 드래그 중 저해상도 preview (플래그 OFF 면 full)
       });
-      inp.addEventListener('change', () => pushHistory());
+      // v343 — 손 뗄 때 풀해상도 final 1회 (+히스토리). pointerup/touchend 는 final redraw 만(coalesced).
+      inp.addEventListener('change', () => { scheduleRedraw(); pushHistory(); });
+      inp.addEventListener('pointerup', () => scheduleRedraw());
+      inp.addEventListener('touchend', () => scheduleRedraw());
       // [v202 2026-05-18] 더블탭 reset (S1-2)
       inp.addEventListener('dblclick', () => {
         const key = inp.dataset.peSlider;

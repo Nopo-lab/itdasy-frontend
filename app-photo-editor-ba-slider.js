@@ -459,8 +459,11 @@
     internal.helpers._baRedrawWrapped = true;
 
     internal.helpers.redraw = function () {
-      origRedraw();
+      // v343 — 인자(preview 등) + 반환값(promise) 투명 전달. 기존엔 origRedraw() 무인자 호출이라
+      //   preview 플래그가 버려졌음(드래그 저해상도 preview 무력화).
+      const r = origRedraw.apply(this, arguments);
       try { _drawIfActive(internal); } catch (_e) { void _e; }
+      return r;
     };
   }
 

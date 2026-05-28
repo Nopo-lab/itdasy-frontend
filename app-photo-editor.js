@@ -39,12 +39,18 @@
   // 드래그 슬라이더 동안 픽셀 합성 폭주 방지 — [v202] 80 → 32ms (반응성 ↑, 모바일 발열 모니터링)
   let _redrawScheduled = null;
   let _redrawSeq = 0;
-  function _scheduleRedraw() {
+  let _pendingFinal = false;
+  // v343 — preview(드래그 중 저해상도) / final(릴리즈 시 풀해상도) 통합 스케줄러.
+  //   scheduleRedraw()/scheduleRedraw(false) → final(풀, 기존 호출부 전부 그대로).
+  //   scheduleRedraw(true) → preview(저해상도). 디바운스 윈도우에 final 요청이 끼면 final 우선.
+  function _scheduleRedraw(preview) {
+    if (!preview) _pendingFinal = true;
     if (_redrawScheduled) return;
     _redrawScheduled = setTimeout(() => {
       _redrawScheduled = null;
+      const final = _pendingFinal; _pendingFinal = false;
       try {
-        const p = _redraw();
+        const p = _redraw(!final);
         if (p && typeof p.catch === 'function') p.catch(() => {});
       } catch (_e) { void _e; }
     }, 32);
@@ -285,7 +291,7 @@
   }
 
   // ── 캔버스 합성 ───────────────────────────────────────
-  async function _redraw() {
+  async function _redraw(preview) {
     const renderer = window.PhotoEditorRenderer;
     const cv = document.getElementById('peCanvas'), empty = document.getElementById('peCanvasEmpty');
     if (!renderer || typeof renderer.redraw !== 'function') {
@@ -302,6 +308,7 @@
       helpers: _helpers,
       seq,
       getSeq: () => _redrawSeq,
+      preview: !!preview,   // v343 — 드래그 중 저해상도 preview
     });
   }
 
@@ -349,8 +356,15 @@
 
   // ── 저장 / 내보내기 ───────────────────────────────────
   async function _save() {
+    await _ensureFinalRender();   // v343 — 저장/onSave 는 반드시 풀해상도 결과로 (preview 저해상도 오염 방지)
     if (_state && typeof _state.onSave === 'function') return _saveViaCallback();
     return _exportImage('png');
+  }
+  // v343 — 대기 중 preview/redraw 취소 후 풀해상도 1회 동기 보장
+  async function _ensureFinalRender() {
+    if (_redrawScheduled) { clearTimeout(_redrawScheduled); _redrawScheduled = null; }
+    _pendingFinal = false;
+    try { await _redraw(false); } catch (_e) { void _e; }
   }
   // 저장 콜백 경로 — 편집본을 dataURL 로 넘기고 에디터를 완전히 종료(작업실 슬롯으로 복귀).
   function _saveViaCallback() {
