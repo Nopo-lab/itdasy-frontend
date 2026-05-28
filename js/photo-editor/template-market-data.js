@@ -4,14 +4,16 @@
 
   if (window.PhotoEditorTemplateMarketData) return;
 
-const CATS = [
-    { id: 'feed',    label: '피드',    ratio: '4:5', size: [1080, 1350] },
+// v320-B — 초보 원장님 우선순위 6개(전후사진/피드/스토리/가격표/명함/이벤트) 먼저 노출.
+//   세로 홍보(reels)는 삭제하지 않고 끝에 유지(기존 데이터 보존).
+  const CATS = [
     { id: 'ba',      label: '전후사진', ratio: '4:5', size: [1080, 1350] },
+    { id: 'feed',    label: '피드',    ratio: '4:5', size: [1080, 1350] },
     { id: 'story',   label: '스토리',  ratio: '9:16', size: [1080, 1920] },
-    { id: 'reels',   label: '세로 홍보', ratio: '9:16', size: [1080, 1920] },
-    { id: 'event',   label: '이벤트',  ratio: '1:1', size: [1080, 1080] },
     { id: 'price',   label: '가격표',  ratio: '4:5', size: [1080, 1350] },
     { id: 'card',    label: '명함',    ratio: '1:1', size: [1080, 1080] },
+    { id: 'event',   label: '이벤트',  ratio: '1:1', size: [1080, 1080] },
+    { id: 'reels',   label: '세로 홍보', ratio: '9:16', size: [1080, 1920] },
   ];
 
   // 템플릿 데이터 — 각 템플릿은 layout 함수 가짐

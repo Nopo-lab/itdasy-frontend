@@ -8,7 +8,7 @@
   const TEMPLATES = MARKET_DATA.TEMPLATES;
 
   let _sheetEl = null;
-  let _selectedCat = 'feed';
+  let _selectedCat = 'ba';   // v320-B — 전후사진 먼저 노출
   let _searchTerm = '';
 
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
