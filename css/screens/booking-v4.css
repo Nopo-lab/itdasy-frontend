@@ -1342,3 +1342,64 @@
     gap: 7px;
   }
 }
+
+/* [2026-05-28] 시간축 동적 확장 — 운영시간 밖 라벨은 분홍(브랜드) 색으로 "영업외 예약" 신호 */
+.bk-day__hour-label.is-off,
+.bk-week-m__time-cell.is-off,
+.bk-week__time-cell.is-off,
+.bk-pc-day__time-cell.is-off {
+  color: var(--brand-strong);
+}
+
+/* [2026-05-28] 정보카드 재디자인 — PC 좌측 패널 (펼친 상태 디폴트) */
+.bk-stat-card {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-family: var(--font-sans);
+  box-sizing: border-box;
+}
+.bk-stat-card__head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+}
+.bk-stat-card__label { font-size: 11px; color: #8B95A1; font-weight: 400; }
+.bk-stat-card__count { font-size: 20px; color: #191F28; font-weight: 500; line-height: 1; }
+.bk-stat-card__note  { font-size: 10px; color: #B0B8C1; margin-top: 2px; font-weight: 400; }
+.bk-stat-card__row {
+  display: flex; margin-top: 10px;
+}
+.bk-stat-card__cell {
+  flex: 1; display: flex; flex-direction: column; gap: 2px; align-items: flex-start;
+  padding: 0 8px;
+  border-right: 0.5px solid var(--border, #E5E8EB);
+}
+.bk-stat-card__cell:last-child { border-right: none; }
+.bk-stat-card__cell-label { font-size: 11px; color: #8B95A1; font-weight: 400; }
+.bk-stat-card__cell-val   { font-size: 13px; color: #191F28; font-weight: 500; }
+.bk-stat-card__cell.is-cancel .bk-stat-card__cell-label,
+.bk-stat-card__cell.is-cancel .bk-stat-card__cell-val {
+  color: var(--danger);
+}
+
+/* 모바일 카드 — 접힘 디폴트, 탭하면 펼침 */
+.bk-stat-card--m {
+  display: block; text-align: left;
+  border: 0.5px solid transparent;
+  background: var(--surface-2);
+  cursor: pointer;
+  padding: 12px 14px;
+}
+.bk-stat-card--m .bk-stat-card__label { font-size: 10px; }
+.bk-stat-card--m .bk-stat-card__count { font-size: 16px; }
+.bk-stat-card--m.is-open { border-color: var(--brand); }
+.bk-stat-card__compact {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 4px; font-size: 11px; color: #8B95A1; font-weight: 400;
+}
+.bk-stat-card__caret { font-size: 12px; color: #B0B8C1; }
+.bk-stat-mobile-row {
+  display: grid; gap: 8px; padding: 8px 12px;
+  grid-template-columns: 1fr 1fr;
+}
+.bk-stat-mobile-row.is-single { grid-template-columns: 1fr; }

@@ -138,9 +138,10 @@
   function _isPC() { return window.innerWidth >= PC_BREAKPOINT; }
 
   function _saveState() {
+    // [2026-05-28] view 필드 저장 제거 — 디폴트 월. 주/월 토글은 세션 내 메모리만 유지.
     try {
       localStorage.setItem(STATE_KEY, JSON.stringify({
-        view: _curView, y: _curYear, m: _curMonth, dateISO: _ds(_curDate),
+        y: _curYear, m: _curMonth, dateISO: _ds(_curDate),
       }));
     } catch (_e) { void _e; }
   }
@@ -216,8 +217,9 @@
   function _calcStats(items) {
     const today = new Date();
     const todayDS = _ds(today);
-    let todayCnt = 0, todayDone = 0, todayWait = 0, todayNoShow = 0;
-    let viewCnt = 0;
+    // [2026-05-28] 라벨 "대기" → "예정". 4칸 분할 위해 todayCancel 추가.
+    let todayCnt = 0, todayDone = 0, todayUpcoming = 0, todayNoShow = 0, todayCancel = 0;
+    let viewCnt = 0, viewDone = 0, viewUpcoming = 0, viewNoShow = 0, viewCancel = 0;
 
     // 현재 뷰에 맞는 범위 계산
     let viewStart, viewEnd, viewLabel, viewGroupLabel;
@@ -247,16 +249,24 @@
         todayCnt++;
         if (it.status === 'completed') todayDone++;
         else if (it.status === 'no_show') todayNoShow++;
-        else if (it.status !== 'cancelled') todayWait++;
+        else if (it.status === 'cancelled') todayCancel++;
+        else todayUpcoming++;
       }
-      if (sd >= viewStart && sd < viewEnd && it.status !== 'cancelled' && it.status !== 'no_show') {
-        viewCnt++;
+      if (sd >= viewStart && sd < viewEnd) {
+        if (it.status === 'completed') { viewDone++; viewCnt++; }
+        else if (it.status === 'confirmed') { viewUpcoming++; viewCnt++; }
+        else if (it.status === 'no_show') viewNoShow++;
+        else if (it.status === 'cancelled') viewCancel++;
+        else { viewUpcoming++; viewCnt++; }
       }
     });
 
     const DOW = '일월화수목금토';
-    const todayLabel = `${today.getMonth()+1}/${today.getDate()}(${DOW.charAt(today.getDay())})`;
-    return { todayCnt, todayDone, todayWait, todayNoShow, todayLabel, viewCnt, viewLabel, viewGroupLabel };
+    const todayLabel = `오늘 ${today.getMonth()+1}/${today.getDate()}(${DOW.charAt(today.getDay())})`;
+    return {
+      todayCnt, todayDone, todayUpcoming, todayNoShow, todayCancel, todayLabel,
+      viewCnt, viewDone, viewUpcoming, viewNoShow, viewCancel, viewLabel, viewGroupLabel,
+    };
   }
 
   function _monthSummary(items) {
@@ -353,11 +363,11 @@
     const tt = _ttHours();
     const dayDS = _ds(date);
     const filtered = _filterByStaff(mapped).filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
-    const { start, end } = _expandHoursForItems(tt.start, tt.end, filtered);
+    const { start, end, shopStart, shopEnd } = _expandHoursForItems(tt.start, tt.end, filtered);
     let h = '<div class="bk-day" id="bk-day-grid" data-date="' + dayDS + '" data-start-h="' + start + '">';
     for (let hr = start; hr < end; hr++) {
       h += '<div class="bk-day__row">';
-      h += '<div class="bk-day__hour-label">' + _pad(hr) + ':00</div>';
+      h += '<div class="bk-day__hour-label' + _hourLabelCls(hr, shopStart, shopEnd) + '">' + _pad(hr) + ':00</div>';
       h += '<div class="bk-day__hour-content" data-hour="' + hr + '">';
       h += '<div class="bk-day__slot-half" data-hour="' + hr + '" data-min="0"></div>';
       h += '<div class="bk-day__slot-half" data-hour="' + hr + '" data-min="30"></div>';
@@ -412,7 +422,7 @@
       const sd = new Date(m._raw.starts_at);
       return sd >= ws && sd < we;
     });
-    const { start, end } = _expandHoursForItems(tt.start, tt.end, inWeek);
+    const { start, end, shopStart, shopEnd } = _expandHoursForItems(tt.start, tt.end, inWeek);
 
     let h = '<div class="bk-week-m" data-start-h="' + start + '">';
     // header
@@ -429,7 +439,7 @@
     // grid
     h += '<div class="bk-week-m__grid" id="bk-week-m-grid">';
     for (let hr = start; hr < end; hr++) {
-      h += '<div class="bk-week-m__time-cell">' + hr + '</div>';
+      h += '<div class="bk-week-m__time-cell' + _hourLabelCls(hr, shopStart, shopEnd) + '">' + hr + '</div>';
       for (let dayI = 0; dayI < 7; dayI++) {
         const d = new Date(ws); d.setDate(ws.getDate() + dayI);
         const ymd = _ds(d);
@@ -506,7 +516,7 @@
       const sd = new Date(m._raw.starts_at);
       return sd >= ws && sd < we;
     });
-    const { start, end } = _expandHoursForItems(tt.start, tt.end, inWeek);
+    const { start, end, shopStart, shopEnd } = _expandHoursForItems(tt.start, tt.end, inWeek);
 
     let h = '<div class="bk-pc-main" data-start-h="' + start + '">';
     h += '<div class="bk-week__header"><div class="bk-week__h-cell"></div>';
@@ -522,7 +532,7 @@
     h += '<div class="bk-week__grid" id="bk-week-grid">';
     h += '<div class="bk-week__time-col">';
     for (let hr = start; hr < end; hr++) {
-      h += '<div class="bk-week__time-cell">' + _pad(hr) + ':00</div>';
+      h += '<div class="bk-week__time-cell' + _hourLabelCls(hr, shopStart, shopEnd) + '">' + _pad(hr) + ':00</div>';
     }
     h += '</div>';
     for (let i = 0; i < 7; i++) {
@@ -578,7 +588,7 @@
     const tt = _ttHours();
     const dayDS = _ds(date);
     const filtered = mapped.filter(m => _ds(new Date(m._raw.starts_at)) === dayDS);
-    const { start, end } = _expandHoursForItems(tt.start, tt.end, filtered);
+    const { start, end, shopStart, shopEnd } = _expandHoursForItems(tt.start, tt.end, filtered);
     const totalCnt = filtered.length;
     const totalRev = filtered.reduce((s, it) => s + (it.amount || 0), 0);
     const meta = totalCnt + '건' + (totalRev ? ' · 매출 ' + formatMoney(totalRev) : '');
@@ -593,7 +603,7 @@
     h += `<div class="bk-pc-day__grid" id="bk-pc-day-grid" style="grid-template-columns:${headerCols}">`;
     h += '<div class="bk-pc-day__time-col">';
     for (let hr = start; hr < end; hr++) {
-      h += '<div class="bk-pc-day__time-cell">' + _pad(hr) + ':00</div>';
+      h += '<div class="bk-pc-day__time-cell' + _hourLabelCls(hr, shopStart, shopEnd) + '">' + _pad(hr) + ':00</div>';
     }
     h += '</div>';
     h += '<div class="bk-pc-day__col">';
@@ -633,7 +643,7 @@
   }
 
   // ============================================================
-  // §11 영업시간
+  // §11 영업시간 — 시간축 동적 확장 (영업외 라벨은 분홍)
   // ============================================================
   function _ttHours() {
     const h = window.Booking?.shopHours ? window.Booking.shopHours() : { start: 10, end: 22, slotMin: 30 };
@@ -641,20 +651,26 @@
     const end   = Math.max(start + 1, Math.min(24, h.end ?? 22));
     return { start, end };
   }
-  // 영업시간 밖에 예약이 있으면 그리드 범위를 확장 (위/아래 잘림 방지)
+  // 운영시간(shopStart/shopEnd) 보존 + 예약으로 확장된 범위 둘 다 반환.
+  // 시간 라벨 렌더에서 운영시간 밖 라벨은 분홍색으로 표시하기 위함.
   function _expandHoursForItems(start, end, items) {
     let s = start, e = end;
-    if (!items || !items.length) return { start: s, end: e };
-    for (const it of items) {
-      const sd = new Date(it._raw.starts_at);
-      const ed = new Date(it._raw.ends_at);
-      if (isNaN(sd) || isNaN(ed)) continue;
-      const sh = sd.getHours();
-      const eh = ed.getHours() + (ed.getMinutes() > 0 ? 1 : 0);
-      if (sh < s) s = Math.max(0, sh);
-      if (eh > e) e = Math.min(24, eh);
+    if (items && items.length) {
+      for (const it of items) {
+        const sd = new Date(it._raw.starts_at);
+        const ed = new Date(it._raw.ends_at);
+        if (isNaN(sd) || isNaN(ed)) continue;
+        const sh = sd.getHours();
+        const eh = ed.getHours() + (ed.getMinutes() > 0 ? 1 : 0);
+        if (sh < s) s = Math.max(0, sh);
+        if (eh > e) e = Math.min(24, eh);
+      }
     }
-    return { start: s, end: e };
+    return { start: s, end: e, shopStart: start, shopEnd: end };
+  }
+  // 라벨에 영업외 클래스 부여. 운영시간 [shopStart, shopEnd) 밖이면 is-off.
+  function _hourLabelCls(hr, shopStart, shopEnd) {
+    return (hr < shopStart || hr >= shopEnd) ? ' is-off' : '';
   }
 
   // ============================================================
@@ -708,24 +724,89 @@
 
   // [2026-05-23] _renderStaffList 제거 — 직원 기능 폐지
 
-  // [2026-05-24] 새 마크업 — 오늘 그룹 (큰 숫자 + 완료/대기/노쇼 인라인) + 뷰 그룹.
+  // [2026-05-28] 4칸 분할 카드 (완료·예정·노쇼·취소). 메인 숫자 = 완료+예정 (취소·노쇼 제외).
+  //   isMobile=true 이면 button 형태(접힘/펴짐), false 이면 PC 펼친 상태.
+  //   open=true 이면 4칸 표시 (모바일에서만 영향).
+  function _renderStatCard(kind, s, opts) {
+    opts = opts || {};
+    const isMobile = !!opts.mobile;
+    const open = !!opts.open;
+    let label, count, note, done, upcoming, noShow, cancel;
+    if (kind === 'today') {
+      label = s.todayLabel;
+      count = s.todayDone + s.todayUpcoming;
+      note  = '취소·노쇼 제외';
+      done = s.todayDone; upcoming = s.todayUpcoming; noShow = s.todayNoShow; cancel = s.todayCancel;
+    } else {
+      label = s.viewGroupLabel + ' · ' + s.viewLabel;
+      count = s.viewCnt;
+      note  = '취소·노쇼 제외';
+      done = s.viewDone; upcoming = s.viewUpcoming; noShow = s.viewNoShow; cancel = s.viewCancel;
+    }
+    const cardCls = isMobile ? 'bk-stat-card bk-stat-card--m' + (open ? ' is-open' : '') : 'bk-stat-card';
+    const tag = isMobile ? 'button' : 'div';
+    const typeAttr = isMobile ? ' type="button"' : '';
+    let h = '<' + tag + ' class="' + cardCls + '" data-card="' + kind + '"' + typeAttr + '>';
+    h += '<div class="bk-stat-card__head">';
+    h +=   '<div>';
+    h +=     '<div class="bk-stat-card__label">' + _esc(label) + '</div>';
+    h +=     '<div class="bk-stat-card__note">' + note + '</div>';
+    h +=   '</div>';
+    h +=   '<div class="bk-stat-card__count">' + count + '건</div>';
+    h += '</div>';
+    if (isMobile && !open) {
+      h += '<div class="bk-stat-card__compact">';
+      h +=   '<span>완료 ' + done + ' · 예정 ' + upcoming + '</span>';
+      h +=   '<span class="bk-stat-card__caret">›</span>';
+      h += '</div>';
+    } else {
+      h += '<div class="bk-stat-card__row">';
+      h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">완료</span><span class="bk-stat-card__cell-val">' + done + '</span></div>';
+      h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">예정</span><span class="bk-stat-card__cell-val">' + upcoming + '</span></div>';
+      h +=   '<div class="bk-stat-card__cell"><span class="bk-stat-card__cell-label">노쇼</span><span class="bk-stat-card__cell-val">' + noShow + '</span></div>';
+      h +=   '<div class="bk-stat-card__cell is-cancel"><span class="bk-stat-card__cell-label">취소</span><span class="bk-stat-card__cell-val">' + cancel + '</span></div>';
+      h += '</div>';
+    }
+    h += '</' + tag + '>';
+    return h;
+  }
+
   function _renderStats() {
     const s = _calcStats(_mappedCache);
-    let h = '<div class="bk-stats" style="display:flex;flex-direction:column;gap:14px;">';
-    h += '<div class="bk-stats__group" style="background:var(--surface-2);border-radius:14px;padding:14px 16px;">';
-    h += '<div style="font-size:11px;font-weight:700;color:var(--text-subtle);letter-spacing:-0.2px;">오늘 · ' + _esc(s.todayLabel) + '</div>';
-    h += '<div style="font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-top:4px;">예약 ' + s.todayCnt + '건</div>';
-    h += '<div style="font-size:11px;color:var(--text-subtle);margin-top:6px;letter-spacing:-0.2px;">';
-    h += '<span style="color:#10A56B;font-weight:600;">완료 ' + s.todayDone + '</span> · ';
-    h += '<span>대기 ' + s.todayWait + '</span> · ';
-    h += '<span style="color:var(--danger);">노쇼 ' + s.todayNoShow + '</span>';
-    h += '</div></div>';
-    h += '<div class="bk-stats__group" style="background:var(--surface-2);border-radius:14px;padding:14px 16px;">';
-    h += '<div style="font-size:11px;font-weight:700;color:var(--text-subtle);letter-spacing:-0.2px;">' + _esc(s.viewGroupLabel) + ' · ' + _esc(s.viewLabel) + '</div>';
-    h += '<div style="font-size:24px;font-weight:800;color:var(--text);letter-spacing:-0.5px;margin-top:4px;">예약 ' + s.viewCnt + '건</div>';
-    h += '</div>';
+    return '<div class="bk-stats" style="display:flex;flex-direction:column;gap:14px;">'
+         + _renderStatCard('today', s)
+         + _renderStatCard('view', s)
+         + '</div>';
+  }
+
+  // 모바일 카드 영역 — 뷰별 다른 노출 + 접힘 토글
+  const _mobileCardOpen = { today: false, view: false };
+  function _renderMobileCards() {
+    const s = _calcStats(_mappedCache);
+    const single = (_curView === 'week');
+    let h = '<div class="bk-stat-mobile-row' + (single ? ' is-single' : '') + '" id="bk-mobile-stats">';
+    h += _renderStatCard('today', s, { mobile: true, open: _mobileCardOpen.today });
+    if (!single) h += _renderStatCard('view', s, { mobile: true, open: _mobileCardOpen.view });
     h += '</div>';
     return h;
+  }
+  function _bindMobileCards(root) {
+    if (!root) return;
+    root.querySelectorAll('.bk-stat-card--m').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const k = btn.dataset.card;
+        if (k !== 'today' && k !== 'view') return;
+        _mobileCardOpen[k] = !_mobileCardOpen[k];
+        _refreshMobileCards();
+      });
+    });
+  }
+  function _refreshMobileCards() {
+    const o = _overlay(); if (!o) return;
+    const mount = o.querySelector('#bk-mobile-stats-mount');
+    if (!mount) return;
+    mount.innerHTML = _renderMobileCards();
+    _bindMobileCards(mount);
   }
 
   // [2026-05-24] 모바일 헤더 sub — 뷰 따라 이번달/이번주/그날 카운트
@@ -798,6 +879,7 @@
           <button class="bk-today-btn" id="bk-today-btn">오늘</button>
         </div>
         <div id="bk-toolbar-mount">${_renderToolbar()}</div>
+        <div id="bk-mobile-stats-mount">${_renderMobileCards()}</div>
         <div class="cal-body bk-body" id="bk-body" style="flex:1;display:flex;flex-direction:column;overflow:hidden;"></div>
         <button class="bk-fab" id="bk-fab" aria-label="예약 추가" style="font-size:26px;font-weight:600;line-height:1;">+</button>
       </div>`;
@@ -805,6 +887,7 @@
     document.body.appendChild(o);
     _bindHeader(o);
     _bindToolbar(o);
+    _bindMobileCards(o.querySelector('#bk-mobile-stats-mount'));
     _bindEscClose();
     _renderViewBody();
   }
@@ -980,6 +1063,7 @@
       _renderDayView(body);
     }
     _refreshPCLeft();
+    _refreshMobileCards();
   }
 
   function _renderWeekView(body) {
@@ -1947,20 +2031,19 @@
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:start');
     const existing = _overlay(); if (existing) existing.remove();
 
-    // 상태 복원
+    // 상태 복원 — [2026-05-28] view는 항상 'month' 로 진입 (saveState에서도 제외)
     const saved = _loadState();
     const now = new Date();
     if (saved && saved.dateISO) {
       _curDate = new Date(saved.dateISO + 'T00:00:00');
-      _curView = saved.view || 'month';
       _curYear = saved.y || now.getFullYear();
       _curMonth = saved.m || (now.getMonth() + 1);
     } else {
       _curYear = now.getFullYear();
       _curMonth = now.getMonth() + 1;
       _curDate = now;
-      _curView = 'month';   // [2026-05-16] 예약관리 첫 진입 = 월 캘린더
     }
+    _curView = 'month';
     _miniMonth = { y: _curYear, m: _curMonth };
     _cachedIsPC = _isPC();
 
