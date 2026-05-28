@@ -327,40 +327,21 @@
           break;
         }
         case 'eyelashBandMask': {
-          // Tier 2: eye polygon 을 위로 8% 확장 (edge refinement 는 v315 튜닝)
-          const RF = _getRefine();
-          const ML = _getMediaPipe();
-          if (!ML || !RF) { result = _emptyResult('failed', 'mediapipe/refine missing'); break; }
-          const landmarks = await ML.detect(img);
-          if (!landmarks) { result = _emptyResult('fallback', 'no landmarks'); break; }
-          const sz = _imgSize(img);
-          const shift = -sz.h * 0.04;
-          function _shifted(name) {
-            const p = ML.regionPolygon(landmarks, name);
-            if (!p) return null;
-            return p.map(pt => ({ x: pt.x, y: pt.y + shift }));
+          // v333 — mask-eyelash-adapter (eye polygon upper band ∩ Sobel dark-line) 위임
+          const EA = window.MaskEyelashAdapter;
+          if (EA && typeof EA.eyelashBandMask === 'function') {
+            const t1 = await EA.eyelashBandMask(img);
+            if (t1 && t1.mask) {
+              result = Object.assign({
+                sourceTier: 2,
+                inferenceTimeMs: 0,
+                // confidence 낮으면 자동 적용 안 하도록 fallback 으로 표기
+                status: t1._lowConfidence ? 'fallback' : 'ready',
+              }, t1);
+              break;
+            }
           }
-          const lp = _shifted('leftEye'), rp = _shifted('rightEye');
-          if (!lp && !rp) { result = _emptyResult('fallback', 'eye polygon missing'); break; }
-          let mask = new Float32Array(sz.w * sz.h);
-          if (lp) {
-            const m = RF.polygonToMask(lp, sz.w, sz.h);
-            mask = RF.unionMask(mask, m);
-          }
-          if (rp) {
-            const m = RF.polygonToMask(rp, sz.w, sz.h);
-            mask = RF.unionMask(mask, m);
-          }
-          const feathered = RF.gaussianFeather(mask, sz.w, sz.h, 3);
-          result = {
-            mask: feathered,
-            confidence: RF.maskConfidence(feathered, 0.4),
-            coverage: RF.maskCoverage(feathered),
-            sourceTier: 2,
-            inferenceTimeMs: 0,
-            status: 'ready',
-            reason: 'eye polygon shifted up (refinement v315)',
-          };
+          result = _emptyResult('fallback', 'eyelash adapter unavailable');
           break;
         }
         case 'hairBoundaryMask':
