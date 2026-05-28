@@ -210,6 +210,17 @@
       }, 0);
   }
 
+  function _emptyStateMessage(brief) {
+    const h = new Date().getHours();
+    const todayCount = (brief && (brief.today_bookings_count || (Array.isArray(brief.today_bookings) && brief.today_bookings.length))) || 0;
+    if (todayCount === 0) return '오늘은 여유 있는 하루네요. 갤러리 정리 어때요?';
+    if (h >= 6 && h < 11)  return '좋은 아침이에요. 오늘 무엇을 도와드릴까요?';
+    if (h >= 11 && h < 14) return '점심 시간이네요. 잠깐 쉬셨어요?';
+    if (h >= 14 && h < 18) return '오늘 어떻게 흘러가고 있어요?';
+    if (h >= 18 && h < 22) return '오늘 마무리 잘 하셨어요?';
+    return '수고 많으셨어요. 푹 쉬세요';
+  }
+
   function renderItbiCard(brief) {
     const data = brief || {};
     const lastMsg = (typeof data.assistant_last_message === 'string' && data.assistant_last_message.trim())
@@ -218,7 +229,7 @@
     const lastTime = (typeof data.assistant_last_time === 'string') ? data.assistant_last_time : '';
     const isEmpty = !lastMsg;
     const msgHtml = isEmpty
-      ? '오늘은 잇비가 챙겨드릴 게 없어요. 첫 메시지를 보내보세요'
+      ? esc(_emptyStateMessage(data))
       : esc(lastMsg);
     const confirm = (data.assistant_confirm_action && typeof data.assistant_confirm_action === 'object')
       ? data.assistant_confirm_action : null;
@@ -248,11 +259,12 @@
           ${timeHtml}
         </div>
       </div>
-      <div class="hv5-itbi-input" data-hv-act="openAssistant" role="button" tabindex="0">
-        <span class="hv5-itbi-input-icon"><svg width="18" height="18" aria-hidden="true"><use href="#ic-camera"/></svg></span>
-        <span class="hv5-itbi-input-placeholder">잇비에게 무엇이든 물어보세요</span>
-        <span class="hv5-itbi-input-icon"><svg width="16" height="16" aria-hidden="true"><use href="#ic-mic"/></svg></span>
-        <span class="hv5-itbi-send"><svg width="14" height="14" aria-hidden="true"><use href="#ic-send"/></svg></span>
+      <div class="hv5-itbi-input">
+        <button type="button" class="hv5-itbi-input-icon" data-itbi-act="photo" aria-label="사진 첨부"><svg width="18" height="18" aria-hidden="true"><use href="#ic-camera"/></svg></button>
+        <input type="text" class="hv5-itbi-input-field" placeholder="잇비에게 무엇이든 물어보세요" data-itbi-input />
+        <button type="button" class="hv5-itbi-input-icon" data-itbi-act="voice" aria-label="음성 입력"><svg width="16" height="16" aria-hidden="true"><use href="#ic-mic"/></svg></button>
+        <button type="button" class="hv5-itbi-send" data-itbi-act="send" aria-label="보내기"><svg width="14" height="14" aria-hidden="true"><use href="#ic-send"/></svg></button>
+        <input type="file" accept="image/*" data-itbi-file style="display:none;" />
       </div>
     </section>`;
   }

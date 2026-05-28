@@ -2826,6 +2826,28 @@
     try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('assistant'); } catch (_e) { void _e; }
   };
 
+  // [2026-05-28] 메인홈 잇비 카드 진입 — 옵션으로 사진/음성/즉시전송 지원
+  window.AssistantSheet = {
+    open: function (opts) {
+      window.openAssistant();
+      const o = opts || {};
+      setTimeout(() => {
+        try {
+          if (o.attachPhoto instanceof File) _addPendingPhotos([o.attachPhoto]);
+          if (typeof o.sendImmediate === 'string' && o.sendImmediate.trim()) {
+            const input = document.getElementById('asstInput');
+            if (input) input.value = o.sendImmediate.trim();
+            _send();
+          }
+          if (o.startVoice) {
+            document.getElementById('asstMicBtn')?.click();
+          }
+        } catch (_e) { /* ignore */ }
+      }, 120);
+    },
+    close: function () { return window.closeAssistant && window.closeAssistant(); }
+  };
+
   // 2026-04-24 perf — 앱 idle 시 시트 DOM 미리 생성. 첫 탭 latency 0.3s+ → ~0.05s
   if (typeof requestIdleCallback === 'function') {
     requestIdleCallback(() => { try { _ensureSheet(); } catch (_e) { /* ignore */ } }, { timeout: 3000 });

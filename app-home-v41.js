@@ -189,8 +189,59 @@
         window.HomeV41Actions.run(el.dataset.hvAct || '');
       });
     });
+    _bindItbiCardInput(container);
     // AI 캐러셀 paging (3-per-page)
     _bindAiCarousel(container);
+  }
+
+  // [2026-05-28] 메인홈 잇비 카드 입력 — 카메라/음성/보내기 → 시트 진입
+  function _bindItbiCardInput(container) {
+    const input = container.querySelector('[data-itbi-input]');
+    const fileInput = container.querySelector('[data-itbi-file]');
+    const openSheet = (opts) => {
+      const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
+      if (typeof open === 'function') open(opts || {});
+    };
+    container.querySelectorAll('[data-itbi-act]').forEach(btn => {
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const act = btn.dataset.itbiAct;
+        if (act === 'photo') {
+          fileInput?.click();
+        } else if (act === 'voice') {
+          if (!navigator.mediaDevices?.getUserMedia) {
+            if (window.showToast) window.showToast('이 브라우저는 음성 입력을 지원하지 않아요');
+            return;
+          }
+          navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => { stream.getTracks().forEach(t => t.stop()); openSheet({ startVoice: true }); })
+            .catch(() => { if (window.showToast) window.showToast('마이크 권한이 필요해요'); });
+        } else if (act === 'send') {
+          const text = (input?.value || '').trim();
+          openSheet(text ? { sendImmediate: text } : {});
+          if (input) input.value = '';
+        }
+      });
+    });
+    if (input) {
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && !ev.shiftKey) {
+          ev.preventDefault();
+          const text = input.value.trim();
+          openSheet(text ? { sendImmediate: text } : {});
+          input.value = '';
+        }
+      });
+      // 카드 자체 클릭 라우팅이 input 포커스 막지 않도록
+      input.addEventListener('click', (ev) => ev.stopPropagation());
+    }
+    if (fileInput) {
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (file) openSheet({ attachPhoto: file });
+        fileInput.value = '';
+      });
+    }
   }
 
   function _bindAiCarousel(container) {

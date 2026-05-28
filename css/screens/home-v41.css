@@ -801,11 +801,15 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
   width: 32px; height: 32px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   color: #4E5968; flex-shrink: 0; cursor: pointer;
+  background: transparent; border: 0; padding: 0;
 }
-.hv5-itbi-input-placeholder {
-  flex: 1; min-width: 0; font-size: 13px; color: #B0B8C1;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+.hv5-itbi-input-icon:active { background: rgba(0,0,0,0.04); }
+.hv5-itbi-input-field {
+  flex: 1; min-width: 0; font-size: 13px; color: #191F28;
+  background: transparent; border: 0; outline: 0;
+  padding: 0; font-family: inherit;
 }
+.hv5-itbi-input-field::placeholder { color: #B0B8C1; }
 .hv5-itbi-send {
   width: 34px; height: 34px; border-radius: 50%;
   background: #191F28; color: #fff;
