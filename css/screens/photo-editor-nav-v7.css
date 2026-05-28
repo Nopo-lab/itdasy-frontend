@@ -29,6 +29,18 @@
   bottom: calc(112px + env(safe-area-inset-bottom, 0));
 }
 
+/* v330 — entry-v6 카드 그리드/프리셋 영역 hide (사진 픽커만 노출) */
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-sec-hd,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-card-grid-l,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-card-grid-m,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-card-grid-tools,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-preset-hero,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-preset-cats,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-look-strip,
+#photoEditorSheet.pe-nav-v7-active .pe-entry-v6 .pe-template-showcase {
+  display: none !important;
+}
+
 /* 행 공통 */
 .pe-nav-v7-row {
   display: flex;

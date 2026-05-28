@@ -103,15 +103,26 @@
     try { return new URLSearchParams(window.location.search).get(qs); }
     catch (_e) { return null; }
   }
+  // v330 cutover — default ON.
+  //   비활성: localStorage.PE_NAV_V7='0' 또는 URL ?nav_v7=0
+  //   활성:   기본값 (또는 명시 '1')
   function isEnabled() {
-    try { if (window.localStorage && localStorage.getItem(FLAG_KEY) === '1') return true; }
-    catch (_e) { /* ignore */ }
-    return _query('nav_v7') === '1';
+    const urlVal = _query('nav_v7');
+    if (urlVal === '0') return false;
+    if (urlVal === '1') return true;
+    try {
+      if (window.localStorage) {
+        const v = localStorage.getItem(FLAG_KEY);
+        if (v === '0') return false;
+        // v === '1' 또는 null/undefined 모두 ON 으로 간주
+      }
+    } catch (_e) { /* ignore */ }
+    return true;
   }
   function setEnabled(on) {
     try {
-      if (on) localStorage.setItem(FLAG_KEY, '1');
-      else localStorage.removeItem(FLAG_KEY);
+      if (on) localStorage.removeItem(FLAG_KEY);   // default ON 으로 복귀
+      else    localStorage.setItem(FLAG_KEY, '0'); // 명시 OFF
     } catch (_e) { /* ignore */ }
     if (on) { try { mount(); } catch (_e) { /* ignore */ } }
     else    { try { unmount(); } catch (_e) { /* ignore */ } }
