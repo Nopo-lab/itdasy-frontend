@@ -162,6 +162,77 @@
     return null;  // v315 에서 실제 검출 구현 — 지금은 null 만 반환
   }
 
+  // ── Image Segmenter (v331 2026-05-28 hair-specific) ──────────────
+  // MediaPipe Tasks Vision Image Segmenter — hair_segmenter.tflite (~3MB).
+  // 사용: RegionMaskProvider 가 hairMask Tier 1 로 호출.
+  // 실패 시 (CDN 불가, ESM 미지원 등) graceful 폴백 — null 반환. Provider 가 Tier 2 로 fallback.
+  const _segState = {
+    hair: { status: 'idle', segmenter: null, loadPromise: null, error: null },
+  };
+  const TASKS_VISION_VERSION = '0.10.14';
+  const TASKS_VISION_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@' + TASKS_VISION_VERSION;
+  const HAIR_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/hair_segmenter/float32/latest/hair_segmenter.tflite';
+
+  async function _loadImageSegmenter(modelType) {
+    const type = modelType || 'hair';
+    if (type !== 'hair') return null; // v331: hair 만
+    const s = _segState[type];
+    if (s.status === 'ready') return s.segmenter;
+    if (s.loadPromise) return s.loadPromise;
+    s.status = 'loading';
+    s.loadPromise = (async () => {
+      try {
+        // ESM dynamic import — vision_bundle.mjs 가 FilesetResolver, ImageSegmenter export
+        const mod = await import(/* webpackIgnore: true */ TASKS_VISION_BASE + '/vision_bundle.mjs');
+        const FilesetResolver = mod.FilesetResolver;
+        const ImageSegmenter = mod.ImageSegmenter;
+        if (!FilesetResolver || !ImageSegmenter) throw new Error('tasks-vision exports missing');
+        const vision = await FilesetResolver.forVisionTasks(TASKS_VISION_BASE + '/wasm');
+        const seg = await ImageSegmenter.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: HAIR_MODEL_URL },
+          runningMode: 'IMAGE',
+          outputCategoryMask: true,
+          outputConfidenceMasks: false,
+        });
+        s.segmenter = seg;
+        s.status = 'ready';
+        return seg;
+      } catch (e) {
+        s.error = e && e.message;
+        s.status = 'failed';
+        s.loadPromise = null;
+        return null; // graceful — Provider 가 Tier 2 로 폴백
+      }
+    })();
+    return s.loadPromise;
+  }
+
+  // img(HTMLImageElement|Canvas) → categoryMask (Uint8Array length w*h). 헤어=1, 비-헤어=0.
+  // 실패 시 null. 호출자는 null 이면 폴백.
+  async function _segmentHair(img) {
+    try {
+      const seg = await _loadImageSegmenter('hair');
+      if (!seg) return null;
+      const result = seg.segment(img);
+      if (!result) return null;
+      // outputCategoryMask: true → result.categoryMask (MPMask, getAsUint8Array 가능)
+      const cm = result.categoryMask;
+      if (!cm) return null;
+      const u8 = cm.getAsUint8Array ? cm.getAsUint8Array() : null;
+      const w = (cm.width || (img.naturalWidth || img.width)) | 0;
+      const h = (cm.height || (img.naturalHeight || img.height)) | 0;
+      try { cm.close && cm.close(); } catch (_e) { /* ignore */ }
+      if (!u8) return null;
+      return { mask: u8, w, h };
+    } catch (e) {
+      console.warn('[mediapipe] hair segment fail:', e && e.message);
+      return null;
+    }
+  }
+
+  function _hairSegStatus() { return _segState.hair.status; }
+  function _hairSegError()  { return _segState.hair.error; }
+
   window.MediaPipeLoader = {
     REGIONS,
     load: _load,
@@ -179,5 +250,10 @@
     detectHand: _detectHand,
     handStatus: () => _handState.status,
     handError: () => _handState.error,
+    // v331 — Hair Image Segmenter (Tier 1)
+    loadImageSegmenter: _loadImageSegmenter,
+    segmentHair: _segmentHair,
+    hairSegStatus: _hairSegStatus,
+    hairSegError: _hairSegError,
   };
 })();
