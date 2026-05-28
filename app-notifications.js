@@ -58,8 +58,9 @@
     sheet.innerHTML = `
       <div style="position:absolute;inset:auto 0 0 0;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:80vh;display:flex;flex-direction:column;padding:18px;padding-bottom:max(18px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:22px;">🔔</span>
+          <svg width="22" height="22" aria-hidden="true" style="color:#191F28;"><use href="#ic-bell"/></svg>
           <strong style="font-size:17px;">알림</strong>
+          <span id="notifHeaderBadge" style="display:none;background:#BC6675;color:#fff;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;"></span>
           <button data-notif-all style="margin-left:auto;font-size:11px;color:#888;background:none;border:none;cursor:pointer;">전부 읽음</button>
           <button data-notif-close style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
@@ -89,31 +90,33 @@
     return new Date(iso).toLocaleDateString('ko-KR');
   }
 
-  function _iconByKind(kind) {
-    return {
-      booking_soon: '⏰',
-      birthday: '🎂',
-      retention: '💝',
-      proactive_morning_brief: '☀️',
-      booking_confirm_prev_day: '📅',
-      announcement: '📣',
-      support_reply: '💬',
-      support_ai_reply: '🤖',
-      // [2026-04-29 W5] 회원권 만료/잔액 알림
-      membership_expire_7d: '💳',
-      membership_expire_1d: '⚠️',
-      membership_low_30: '💳',
-      membership_low_10: '⚠️',
-      // [2026-04-30 Sprint 7] DM 사장 확인 대기 / 신규 고객 등록 대기
-      dm_pending_confirm: '📨',
-      dm_customer_register: '👤',
-      dm_action_pending: '📨',
-      // [2026-04-30 기능 4] 위험 키워드 즉시 알림
-      dm_risk_alert: '🚨',
-      // [2026-05-07] 온라인/DM 예약 입금 대기 — 클릭 시 승인 시트
-      public_booking_pending: '🆕',
-    }[kind] || '🔔';
+  // [2026-05-28] 사이드바 아이콘과 통일 — kind별 박스 색 + SVG sprite
+  function _iconBoxByKind(kind) {
+    const ICON_MAP = {
+      booking_soon:              { bg: '#E1F5EE', color: '#1D9E75', icon: 'ic-calendar-check', link: '예약관리 보기 →' },
+      booking_confirm_prev_day:  { bg: '#E1F5EE', color: '#1D9E75', icon: 'ic-calendar-check', link: '예약관리 보기 →' },
+      dm_risk_alert:             { bg: '#FDECEC', color: '#E5484D', icon: 'ic-alert-triangle', link: 'DM 관리 보기 →' },
+      announcement:              { bg: '#F7F8FA', color: '#4E5968', icon: 'ic-megaphone',      link: '공지 보기 →' },
+    };
+    return ICON_MAP[kind] || { bg: '#F7F8FA', color: '#4E5968', icon: 'ic-bell', link: '' };
   }
+  function _iconBoxHtml(kind) {
+    const c = _iconBoxByKind(kind);
+    return `<span style="width:36px;height:36px;border-radius:10px;background:${c.bg};color:${c.color};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" aria-hidden="true"><use href="#${c.icon}"/></svg></span>`;
+  }
+  function _isUnread(n) { return n.read === false || n.read == null; }
+  function _isToday(iso) {
+    if (!iso) return false;
+    const d = new Date(iso); const t = new Date();
+    return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+  }
+  function _groupKey(n) {
+    if (n.kind === 'dm_risk_alert') return 'urgent';
+    if (_isToday(n.scheduled_at)) return 'today';
+    return 'past';
+  }
+  const _GROUP_LABEL = { urgent: '긴급', today: '오늘', past: '이전' };
+  const _GROUP_COLOR = { urgent: '#E5484D', today: '#8B95A1', past: '#8B95A1' };
 
   // [2026-04-30] 알림 kind 별 click → 적절한 화면으로 이동
   function _openByKind(n) {
@@ -155,16 +158,46 @@
       `;
       return;
     }
-    body.innerHTML = _items.map(n => `
-      <div data-notif-id="${n.id}" style="display:flex;gap:12px;padding:12px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 3px rgba(0,0,0,0.04);cursor:pointer;">
-        <div style="width:40px;height:40px;border-radius:12px;background:rgba(213,138,149,0.1);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${_iconByKind(n.kind)}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:700;color:#222;">${_esc(n.title)}</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</div>
-          <div style="font-size:10px;color:var(--text-subtle);margin-top:3px;">${_esc(_relativeTime(n.scheduled_at))}</div>
-        </div>
-      </div>
-    `).join('');
+    // [2026-05-28] 그룹핑 (긴급/오늘/이전) + 미읽/읽음 시각 구분
+    const groups = { urgent: [], today: [], past: [] };
+    _items.forEach(n => groups[_groupKey(n)].push(n));
+    const renderCard = (n) => {
+      const c = _iconBoxByKind(n.kind);
+      const unread = _isUnread(n);
+      const titleColor = unread ? '#191F28' : '#4E5968';
+      const cardOpacity = unread ? 1 : 0.55;
+      const dot = unread ? '<span style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:#BC6675;"></span>' : '';
+      const timeText = (unread ? '' : '읽음 · ') + _esc(_relativeTime(n.scheduled_at));
+      const linkLabel = c.link ? `<span style="font-size:10px;color:#8B95A1;margin-left:8px;">${c.link}</span>` : '';
+      return `<button type="button" data-notif-id="${n.id}" style="position:relative;display:flex;gap:12px;padding:12px;width:100%;background:transparent;border:0;border-radius:10px;text-align:left;cursor:pointer;opacity:${cardOpacity};font-family:inherit;">
+        ${dot}${_iconBoxHtml(n.kind)}
+        <span style="flex:1;min-width:0;">
+          <span style="display:block;font-size:13px;font-weight:500;color:${titleColor};">${_esc(n.title)}</span>
+          <span style="display:block;font-size:11px;color:#4E5968;margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</span>
+          <span style="display:block;font-size:10px;color:#B0B8C1;margin-top:4px;">${timeText}${linkLabel}</span>
+        </span>
+      </button>`;
+    };
+    const groupHtml = (key) => {
+      const list = groups[key];
+      if (!list.length) return '';
+      const label = _GROUP_LABEL[key];
+      const color = _GROUP_COLOR[key];
+      const sep = key === 'urgent' ? '' : 'border-top:0.5px solid #F0F1F4;';
+      return `<div style="${sep}"><div style="padding:14px 16px 6px;font-size:10px;font-weight:500;letter-spacing:0.3px;color:${color};">${label}</div>${list.map(renderCard).join('')}</div>`;
+    };
+    body.innerHTML = groupHtml('urgent') + groupHtml('today') + groupHtml('past');
+    // 헤더 미읽 카운트 뱃지
+    const unreadCount = _items.filter(_isUnread).length;
+    const headerBadge = document.getElementById('notifHeaderBadge');
+    if (headerBadge) {
+      if (unreadCount > 0) {
+        headerBadge.textContent = unreadCount > 99 ? '99+' : String(unreadCount);
+        headerBadge.style.display = 'inline-block';
+      } else {
+        headerBadge.style.display = 'none';
+      }
+    }
     body.querySelectorAll('[data-notif-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = parseInt(el.dataset.notifId, 10);
@@ -441,14 +474,25 @@
     });
   }
 
+  // [2026-05-28] 메인홈 잇비 카드/오늘 예약과 중복되거나 불필요한 알림은 알림함에서 제외.
+  // 추후 백엔드 /notifications/pending 자체에서 제외하는 게 정석.
+  const EXCLUDED_KINDS = [
+    'proactive_morning_brief',  // 좋은 아침 — 메인홈 잇비 카드와 중복
+    'dm_pending_confirm',       // DM 답장 대기 — 메인홈 잇비 챙겼어요
+    'dm_customer_register',     // DM 새 고객 — 동일
+    'public_booking_pending',   // 외부 예약 요청 — 동일
+    'birthday',                 // 생일 — 불필요
+  ];
+
   async function _poll() {
     const d = await _fetch();
     if (d && Array.isArray(d.items)) {
+      const items = d.items.filter(it => !EXCLUDED_KINDS.includes(it.kind));
       // 신규 알림 도착 시 햅틱
-      if (d.items.length > _items.length && window.hapticLight) {
+      if (items.length > _items.length && window.hapticLight) {
         try { window.hapticLight(); } catch (_) { void 0; }
       }
-      _items = d.items;
+      _items = items;
       _updateBadge();
       _renderAnnouncementCard();
       _renderMembershipAlertCard();

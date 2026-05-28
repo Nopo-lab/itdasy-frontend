@@ -328,8 +328,7 @@
         // [2026-05-28] 잇비 시트 열리면 PC 사이드바/헤더 가려서 풀모달처럼 보이게
         '@media (min-width: 768px) {',
         '  body.assistant-open .side-nav,',
-        '  body.assistant-open .app-header,',
-        '  body.assistant-open #appBrand { visibility: hidden; }',
+        '  body.assistant-open .app-header { visibility: hidden; }',
         '  body.assistant-open { padding-left: 0 !important; padding-top: 0 !important; }',
         '}',
         // [2026-05-28] PC 모달 B안 — 가운데 큰 모달 (1080×900). 모바일은 풀스크린 그대로.
