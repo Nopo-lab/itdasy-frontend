@@ -152,6 +152,14 @@
     const data = brief || {};
     const monthTotal = Number(data.this_month_total) || 0;
     const monthLabel = (new Date().getMonth() + 1) + '월';
+    const projRaw = data._projected_total;
+    const projected = projRaw == null ? null
+      : (Number.isFinite(Number(projRaw)) ? Number(projRaw) : null);
+    const predChipHtml = projected == null ? '' : `
+      <button type="button" class="hv5-pred-chip" data-hv-act="openRevenue" aria-label="AI 예상 매출">
+        <span class="hv5-pred-chip-label">AI 예상</span>
+        <span class="hv5-pred-chip-amt"><span data-hv-count="${projected}">${formatMoney(projected)}</span></span>
+      </button>`;
     return `<div class="hv5"><div class="hv5-hdr">
       <div class="av" data-hv-avatar aria-hidden="true">${esc(shopInitial(shop))}</div>
       <div class="meta">
@@ -162,6 +170,7 @@
         <span class="hv5-rev-chip-label">${monthLabel} 매출</span>
         <span class="hv5-rev-chip-amt"><span data-hv-count="${monthTotal}">${formatMoney(monthTotal)}</span></span>
       </button>
+      ${predChipHtml}
       <button type="button" class="hv5-bell" data-hv-act="bell" aria-label="알림">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8C6 4.68629 8.68629 2 12 2C15.3137 2 18 4.68629 18 8C18 15 21 17 21 17H3C3 17 6 15 6 8Z"/><path d="M10 20C10.5 21 11.2 21.5 12 21.5C12.8 21.5 13.5 21 14 20"/></svg>
         <span id="dashBellBadge" class="hv5-bell-badge" style="display:none"></span>
@@ -226,7 +235,7 @@
           <span class="hv5-itbi-avatar"><svg width="18" height="18" aria-hidden="true"><use href="#ic-bot"/></svg></span>
           <div class="hv5-itbi-head-text">
             <div class="hv5-itbi-name-row"><strong class="hv5-itbi-name">AI 잇비</strong><span class="hv5-itbi-beta">베타</span></div>
-            <div class="hv5-itbi-status"><span class="hv5-itbi-status-dot"></span>대기중</div>
+            <div class="hv5-itbi-status"><span class="hv5-itbi-status-dot"></span>원장님 기다리는 중</div>
           </div>
         </div>
         <button type="button" class="hv5-itbi-all" data-hv-act="openAssistant">전체 보기 ›</button>

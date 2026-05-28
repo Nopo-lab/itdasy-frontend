@@ -698,10 +698,28 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
 }
 .hv5-hdr .hv5-bell:active { background: #F7F8FA; }
 .hv5-hdr .hv5-bell-badge {
-  position: absolute; top: 7px; right: 7px;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: #E5484D; border: 2px solid #fff;
+  position: absolute; top: 6px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #BC6675; border: 0;
   display: block;
+}
+
+/* [2026-05-28] AI 예상 매출 칩 (라벨 핑크 · 숫자 검정) */
+.hv5-pred-chip {
+  display: inline-flex; flex-direction: column; align-items: flex-end;
+  gap: 1px; padding: 7px 12px;
+  background: #fff; border: 0.5px solid #E5E8EB; border-radius: 8px;
+  cursor: pointer; line-height: 1;
+}
+.hv5-pred-chip:active { background: #F7F8FA; }
+.hv5-pred-chip-label { font-size: 10px; color: #BC6675; font-weight: 500; }
+.hv5-pred-chip-amt { font-size: 13px; color: #191F28; font-weight: 500; }
+.hv5-pred-chip-amt > span { font-size: 13px; color: #191F28; }
+
+/* pulse 애니메이션 (잇비 상태 dot 등 공용) */
+@keyframes hv-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(1.15); }
 }
 
 /* 잇비 카드 컨테이너 */
@@ -730,11 +748,12 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
   background: #F7EFF0; padding: 2px 6px; border-radius: 4px;
 }
 .hv5-itbi-status {
-  font-size: 11px; color: #8B95A1; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #BC6675; display: inline-flex; align-items: center; gap: 4px;
 }
 .hv5-itbi-status-dot {
-  width: 5px; height: 5px; border-radius: 50%; background: #8B95A1;
+  width: 6px; height: 6px; border-radius: 50%; background: #BC6675;
   display: inline-block;
+  animation: hv-pulse 1.8s ease-in-out infinite;
 }
 .hv5-itbi-all {
   background: none; border: 0; padding: 0;
