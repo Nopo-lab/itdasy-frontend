@@ -148,6 +148,20 @@
     else ctx.arc(b.cx, b.cy, Math.min(b.rx, b.ry), 0, Math.PI * 2);
   }
 
+  // ── Hand Landmarker (v313 stub — 실제 로드/검출은 v315) ──
+  // 의도: RegionMaskProvider 가 nailMask/handSkinMask 를 위해 인터페이스 호출 가능하도록
+  //       시그니처만 제공. 호출하면 즉시 null + status:'pendingImplementation' 반환.
+  const _handState = {
+    status: 'pendingImplementation',   // v315 에서 'idle' → 'loading' → 'ready' 흐름
+    error: 'Hand Landmarker 실제 적용은 v315 예정',
+  };
+  async function _loadHandLandmarker() {
+    return null;  // v315 에서 실제 로드 구현
+  }
+  async function _detectHand(_source) {
+    return null;  // v315 에서 실제 검출 구현 — 지금은 null 만 반환
+  }
+
   window.MediaPipeLoader = {
     REGIONS,
     load: _load,
@@ -160,5 +174,10 @@
     drawFallbackEllipsePath: _drawFallbackEllipsePath,
     isReady: () => _state.status === 'ready',
     onProgress: _onProgress,
+    // v313 stub — v315 에서 실제 구현
+    loadHandLandmarker: _loadHandLandmarker,
+    detectHand: _detectHand,
+    handStatus: () => _handState.status,
+    handError: () => _handState.error,
   };
 })();

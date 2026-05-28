@@ -357,6 +357,14 @@
     img.onload = () => {
       _state.originalImg = img; _state.originalSrc = src; _pushHistory(); _redraw(); _renderPanel();
       try { window.PhotoEditorEntryV6?.refresh?.(); } catch (_e) { void _e; }
+      // [v313 2026-05-28] RegionMaskProvider precompute — fire-and-forget.
+      //   실패해도 기존 사진편집기 동작에 영향 없어야 함. 보정 엔진에 연결 X.
+      try {
+        if (window.RegionMaskProvider && typeof window.RegionMaskProvider.precompute === 'function') {
+          window.RegionMaskProvider.precompute(img).catch(err =>
+            console.warn('[mask] precompute failed:', err && err.message));
+        }
+      } catch (e) { console.warn('[mask] precompute call failed:', e && e.message); }
     };
     img.onerror = () => _toast('사진을 불러오지 못했어요');
     img.src = src;
