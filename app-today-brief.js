@@ -19,7 +19,11 @@
   }
 
   // [Phase 7] Phosphor 전환 — SVG path 맵 → 클래스 맵.
+  // [2026-05-28] arrow 만 sprite use 로 (chevron 통일 정책)
   function _ic(name) {
+    if (name === 'arrow') {
+      return '<svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>';
+    }
     const map = {
       clock:    'ph-clock',
       dollar:   'ph-currency-dollar',
@@ -29,7 +33,6 @@
       sparkles: 'ph-sparkle',
       sun:      'ph-sun',
       target:   'ph-target',
-      arrow:    'ph-caret-right',
     };
     const cls = map[name];
     return cls ? `<i class="ph-duotone ${cls}" style="font-size:16px;" aria-hidden="true"></i>` : '';

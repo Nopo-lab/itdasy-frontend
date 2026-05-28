@@ -403,7 +403,7 @@ function _showPublishOptions(slotId) {
           <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">어디로 보낼까요?</div>
         </div>
         <button data-publish-close style="width:30px;height:30px;border-radius:999px;background:var(--bg2,#f8f8f9);border:none;color:var(--text2);cursor:pointer;display:grid;place-items:center;">
-          <i class="ph-duotone ph-x" style="font-size:14px" aria-hidden="true"></i>
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg>
         </button>
       </div>
       <div style="display:flex;flex-direction:column;">
@@ -415,7 +415,7 @@ function _showPublishOptions(slotId) {
             <div style="font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.2px;">인스타에 올리기</div>
             <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">미리보기 후 바로 발행</div>
           </div>
-          <i class="ph-duotone ph-caret-right" style="font-size:16px" aria-hidden="true"></i>
+          <svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
         </button>
         <button data-publish-action="save" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:transparent;width:100%;cursor:pointer;text-align:left;border-bottom:1px solid var(--border);">
           <div style="width:40px;height:40px;border-radius:12px;background:var(--bg2,#f8f8f9);display:grid;place-items:center;color:var(--text);">
@@ -425,7 +425,7 @@ function _showPublishOptions(slotId) {
             <div style="font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.2px;">포트폴리오에 저장</div>
             <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">서버에 업로드 · 포트폴리오 탭에서 바로 확인</div>
           </div>
-          <i class="ph-duotone ph-caret-right" style="font-size:16px" aria-hidden="true"></i>
+          <svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
         </button>
         <button data-publish-action="download" style="display:flex;align-items:center;gap:14px;padding:14px 20px;border:none;background:transparent;width:100%;cursor:pointer;text-align:left;">
           <div style="width:40px;height:40px;border-radius:12px;background:var(--bg2,#f8f8f9);display:grid;place-items:center;color:var(--text);">
@@ -435,7 +435,7 @@ function _showPublishOptions(slotId) {
             <div style="font-size:14px;font-weight:800;color:var(--text);letter-spacing:-0.2px;">내 폰에 저장</div>
             <div style="font-size:11.5px;color:var(--text3);margin-top:2px;">사진 + 캡션 폰 갤러리로</div>
           </div>
-          <i class="ph-duotone ph-caret-right" style="font-size:16px" aria-hidden="true"></i>
+          <svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
         </button>
       </div>
     </div>

@@ -34,7 +34,7 @@
     el.innerHTML = `
       <header class="ss-topbar">
         <button type="button" class="ss-back" data-ss-back aria-label="뒤로">
-          <i class="ph-duotone ph-arrow-left" aria-hidden="true"></i>
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
         <div class="ss-title">샵 정보</div>
         <button type="button" class="ss-action" data-ss-save>저장</button>

@@ -865,7 +865,7 @@
       <div class="cal-sheet" style="display:flex;flex-direction:column;height:100%;">
         <div class="bk-header">
           <button class="bk-header__back" id="bk-back" aria-label="닫기">
-            <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
+            <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
           </button>
           <div class="bk-header__title-wrap">
             <div style="display:flex;align-items:center;gap:6px;">
@@ -904,16 +904,16 @@
     return `
         <div class="bk-pc__header">
           <button class="bk-header__back" id="bk-back" aria-label="닫기" title="ESC 또는 클릭으로 닫기">
-            <i class="ph-duotone ph-x" style="font-size:16px" aria-hidden="true"></i>
+            <svg width="16" height="16" aria-hidden="true"><use href="#ic-x"/></svg>
           </button>
           <div class="bk-pc__title">예약</div>
           <div class="bk-pc__month-nav">
             <button class="bk-pc__nav-btn" id="bk-pc-prev" aria-label="이전 달">
-              <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
+              <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
             </button>
             <div class="bk-pc__month-label" id="bk-month-label">${_curYear}년 ${_curMonth}월</div>
             <button class="bk-pc__nav-btn" id="bk-pc-next" aria-label="다음 달">
-              <i class="ph-duotone ph-caret-right" style="font-size:14px" aria-hidden="true"></i>
+              <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
             </button>
           </div>
           <button class="bk-today-btn" id="bk-today-btn" style="margin-left:4px;">오늘</button>
@@ -1606,12 +1606,12 @@
         // 2026-05-01 ── X 버튼의 SVG 에 pointer-events:none 으로 자식 클릭을 X 버튼에 위임
         card.innerHTML = `<div class="bf-cust-avatar">${_esc((picked.name || '?')[0])}</div>
           <div class="bf-cust-info"><div class="bf-cust-name">${_esc(picked.name || '')} ${badge}</div><div class="bf-cust-meta" id="bfCustMeta">${meta}</div></div>
-          <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 선택 해제"><i class="ph-duotone ph-x" style="font-size:11px" aria-hidden="true"></i></button>`;
+          <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 선택 해제"><svg width="11" height="11" aria-hidden="true"><use href="#ic-x"/></svg></button>`;
         body.querySelector('#bfCustName').value = picked.name || '';
       } else {
         card.className = 'bf-cust-card empty';
         card.innerHTML = `<div class="bf-cust-avatar empty">+</div><div class="bf-cust-info"><div class="bf-cust-empty-text">고객을 골라주세요</div></div>
-          <i class="ph-duotone ph-caret-right bf-cust-chev" style="font-size:14px" aria-hidden="true"></i>`;
+          <svg class="bf-cust-chev" width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>`;
       }
     }
     const _doPick = async () => {

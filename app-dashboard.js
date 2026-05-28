@@ -73,6 +73,10 @@
   // Phase 5: Phosphor 이름 (ph-*)이면 <i> 렌더, 그 외엔 레거시 SVG path 폴백.
   function _ic(nameOrPaths, w) {
     const s = w || 18;
+    // [2026-05-28] sprite use 분기 — 'ic-' 접두는 index.html sprite 심볼
+    if (typeof nameOrPaths === 'string' && nameOrPaths.startsWith('ic-')) {
+      return `<svg width="${s}" height="${s}" aria-hidden="true"><use href="#${nameOrPaths}"/></svg>`;
+    }
     if (typeof nameOrPaths === 'string' && nameOrPaths.startsWith('ph-')) {
       return `<i class="ph-duotone ${nameOrPaths}" style="font-size:${s}px;" aria-hidden="true"></i>`;
     }
@@ -96,7 +100,7 @@
     video:     'ph-video-camera',
     upload:    'ph-upload',
     sparkles:  'ph-sparkle',
-    chevRight: 'ph-caret-right',
+    chevRight: 'ic-chevron-right',
   };
 
   // ── 기간 라벨 / 비교 라벨 ─────────────────────────────

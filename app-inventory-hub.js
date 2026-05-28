@@ -130,7 +130,7 @@
         <div class="ocr-sub">AI가 자동으로 재고 정리</div>
       </div>
       <span class="ocr-chev">
-        <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
+        <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
       </span>
     </button>`;
   }
@@ -147,7 +147,7 @@
   function _renderHeader() {
     return `<div class="hub-header">
       <button class="hub-back" data-act="close" aria-label="뒤로가기">
-        <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
+        <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
       </button>
       <span class="hub-title">재고관리</span>
       <div style="flex:1;position:relative;max-width:180px;">

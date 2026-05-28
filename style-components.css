@@ -615,3 +615,10 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
 @media (width <= 767px) {
   .cw-chatbot-card { display: none !important; }
 }
+
+/* [2026-05-28] 아이콘 sprite 공통 — chevron/x 색·layout */
+.ic-chevron, .ic-arrow, .ic-back-btn svg, .ms-menu__chev {
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+.ms-menu__item:hover .ms-menu__chev { color: var(--text-muted); }

@@ -510,7 +510,7 @@
     return `
       <div class="rv-header">
         <button type="button" class="rv-header__back" data-rv-act="close" aria-label="뒤로가기">
-          <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
         <div class="rv-header__title-wrap">
           <div class="rv-header__title">매출관리</div>

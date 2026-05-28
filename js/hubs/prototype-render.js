@@ -83,7 +83,7 @@
       '<span class="cust-info"><span class="cust-name-row"><span class="cust-name">' + _esc(c.name) + '</span>' +
       (cl.visits > 0 ? '<span class="cust-visits">방문 ' + cl.visits + '회</span>' : '') + '</span>' +
       '<span class="cust-meta">' + _customerBadges(c, cl) + (meta.length ? '<span>' + meta.join(' · ') + '</span>' : '') + '</span></span>' +
-      '<span class="cust-chev"><i class="ph-duotone ph-caret-right" aria-hidden="true"></i></span>' +
+      '<span class="cust-chev"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg></span>' +
     '</button>';
   }
 

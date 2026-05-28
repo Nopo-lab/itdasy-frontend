@@ -67,7 +67,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
           <span style="display:inline-flex;align-items:center;color:#7C3AED;"><i class="ph-duotone ph-pen" aria-hidden="true"></i></span>
           <strong style="font-size:17px;">멘트 관리</strong>
-          <button id="dmrClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><i class="ph-duotone ph-x" aria-hidden="true"></i></button>
+          <button id="dmrClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
 
         <!-- 탭 -->
@@ -359,7 +359,7 @@
       <div id="dmrEditCard" style="width:100%;max-width:560px;background:#fff;border-radius:20px 20px 0 0;max-height:94vh;overflow-y:auto;padding:18px 18px max(18px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
           <strong style="font-size:16px;">${it.id ? '멘트 편집' : '새 멘트 추가'}</strong>
-          <button id="dmrEditClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><i class="ph-duotone ph-x" aria-hidden="true"></i></button>
+          <button id="dmrEditClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
 
         <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">제목 (사장만 보는 라벨)</label>

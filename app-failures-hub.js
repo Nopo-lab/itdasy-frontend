@@ -35,7 +35,7 @@
     el.innerHTML = `
       <header class="ss-topbar">
         <button type="button" class="ss-back" data-fh-back aria-label="뒤로">
-          <i class="ph-duotone ph-arrow-left" aria-hidden="true"></i>
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
         <div class="ss-title">자동화 실패 알림함</div>
         <button type="button" class="ss-action" data-fh-refresh>새로고침</button>

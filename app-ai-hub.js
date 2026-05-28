@@ -70,7 +70,7 @@
 
   // ── 행 우측 영역 마크업 ────────────────────────────────────────
   function _rightHtml(row) {
-    const chev = `<i class="ph-duotone ph-caret-right" aria-hidden="true"></i>`;
+    const chev = `<svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>`;
     if (row.type === 'toggle') {
       const on = _getToggle(row.toggleKey);
       return `

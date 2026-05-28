@@ -33,7 +33,7 @@
   function _renderHeader() {
     return `<div class="hub-header">
       <button class="hub-back" data-act="close" aria-label="뒤로가기">
-        <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
+        <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
       </button>
       <span class="hub-title">매출 상세 리포트</span>
     </div>`;
@@ -136,7 +136,7 @@
     overlay.id = OID; overlay.className = 'rr-overlay';
     overlay.innerHTML = `<div class="hub-header">
       <button class="hub-back" data-act="close" aria-label="뒤로가기">
-        <i class="ph-duotone ph-caret-left" aria-hidden="true"></i>
+        <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
       </button>
       <span class="hub-title">매출 상세 리포트</span>
     </div>

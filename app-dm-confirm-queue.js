@@ -52,7 +52,7 @@
           <span style="display:inline-flex;align-items:center;color:#7C3AED;"><i class="ph-duotone ph-bell" aria-hidden="true"></i></span>
           <strong style="font-size:17px;">DM 사장 확인 대기</strong>
           <span id="dcqCount" style="font-size:11px;background:#FEF3C7;color:#B45309;padding:2px 8px;border-radius:99px;font-weight:700;">0건</span>
-          <button id="dcqClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><i class="ph-duotone ph-x" aria-hidden="true"></i></button>
+          <button id="dcqClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
         <div style="font-size:11px;color:#888;margin-bottom:12px;line-height:1.5;">
           AI 가 초안 만들어둔 답장. 손님에겐 "잠시만요" 자동 발송됨. 30분 무응답 → template fallback 자동.

@@ -268,7 +268,7 @@
 
   // ─────────── 운영 메뉴 4개 ───────────
   // 메뉴 행 한 개를 만드는 헬퍼 (운영 / 허브 / 계정 공통)
-  const _CHEV_SVG = '<i class="ph-duotone ph-caret-right ms-menu__chev" style="font-size:16px" aria-hidden="true"></i>';
+  const _CHEV_SVG = '<svg class="ms-menu__chev" width="16" height="16" aria-hidden="true"><use href="#ic-chevron-right"/></svg>';
   function _menuItemHTML(opt) {
     // opt: { act, iconSVG, iconClass, name, meta, metaClass, badge }
     const iconCls = opt.iconClass ? ` ${opt.iconClass}` : '';

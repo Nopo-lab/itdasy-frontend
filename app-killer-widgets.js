@@ -537,7 +537,7 @@
       </div>
       <p class="kw-t">${_esc(t)}</p>
       <p class="kw-s">${_esc(s)}</p>
-      <div class="kw-foot"><span>${_esc(cta)}</span><i class="ph-duotone ph-caret-right" style="font-size:12px" aria-hidden="true"></i></div>
+      <div class="kw-foot"><span>${_esc(cta)}</span><svg width="12" height="12" aria-hidden="true"><use href="#ic-chevron-right"/></svg></div>
     </button>`;
   }
 

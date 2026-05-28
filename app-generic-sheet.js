@@ -44,7 +44,7 @@
     overlay.innerHTML = `
       <div class="hub-header">
         <button class="hub-back" type="button" aria-label="닫기" data-gs-act="close">
-          <i class="ph-duotone ph-caret-left" style="font-size:16px" aria-hidden="true"></i>
+          <svg width="16" height="16" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
         <span class="hub-title">${titleEsc}</span>
       </div>

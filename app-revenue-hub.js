@@ -107,7 +107,7 @@
   function _renderMobileHeader() {
     return `<div class="rv-header">
       <button type="button" class="rv-header__back" data-act="close" aria-label="뒤로가기">
-        <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
+        <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
       </button>
       <div class="rv-header__title-wrap"><div class="rv-header__title">매출 기록</div></div>
       <button type="button" class="rv-header__action" data-act="excel">
@@ -119,7 +119,7 @@
   function _renderPCHeader() {
     return `<div class="rv-pc__header">
       <button type="button" class="rv-header__back" data-act="close" aria-label="닫기" style="margin-right:8px;">
-        <i class="ph-duotone ph-x" style="font-size:14px" aria-hidden="true"></i>
+        <svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg>
       </button>
       <div class="rv-pc__title">매출 기록</div>
       <div class="rv-pc__spacer"></div>
@@ -185,7 +185,7 @@
     return `<button type="button" data-act="report" style="display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;margin:12px 0;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--r-md);font-size:13px;font-weight:600;color:var(--text);cursor:pointer;text-align:left;">
       <i class="ph-duotone ph-chart-bar" aria-hidden="true"></i>
       <span style="flex:1;">상세 리포트</span>
-      <i class="ph-duotone ph-caret-right" aria-hidden="true"></i>
+      <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>
     </button>`;
   }
 

@@ -157,7 +157,7 @@
     return `
       <div class="dm-header">
         <button type="button" class="dm-header__back" data-act="close" aria-label="닫기">
-          <i class="ph-duotone ph-caret-left" style="font-size:14px" aria-hidden="true"></i>
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
         <div class="dm-header__title">DM 자동응답</div>
         <button type="button" class="dm-header__action" data-act="save">저장</button>
