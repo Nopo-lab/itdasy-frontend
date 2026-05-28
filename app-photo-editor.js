@@ -57,7 +57,9 @@
   }
   window.addEventListener('popstate', () => {
     const sheet = document.getElementById('photoEditorSheet');
-    if (sheet && sheet.classList.contains('pe-v6-feature-mode') && window.PhotoEditorEntryV6?.backToMenu) {
+    // 임베드 모드(onSave — 작업실 슬롯에서 열림): 뒤로 = entry-v6 메뉴로 빠지지 말고 완전 종료(슬롯 복귀).
+    const embedded = !!(_state && _state.onSave);
+    if (!embedded && sheet && sheet.classList.contains('pe-v6-feature-mode') && window.PhotoEditorEntryV6?.backToMenu) {
       _historyPushed = false;
       window.PhotoEditorEntryV6.backToMenu();
       _pushHistoryState();
@@ -79,6 +81,9 @@
       // [v175 2026-05-18] 챗봇 사진+텍스트 shortcut 진입 시 컨텍스트 보존 (다음 라운드에 활용).
       customerId: opts.customer_id || null,
       customerName: opts.customer_name || '',
+      // 저장 콜백 — 있으면 저장 버튼이 PNG 다운로드 대신 편집본 dataURL 을 콜백에 넘기고 종료.
+      //   (작업실 손님 사진 편집 → 손님 사진에 되돌려쓰기 용도)
+      onSave: typeof opts.onSave === 'function' ? opts.onSave : null,
       autoShop: !!opts.autoShop,
       activeTab: opts.initial_tab || 'auto', ratio: 'original',
       autoIntensity: 'standard',  // [v183] natural | standard | strong
@@ -343,7 +348,26 @@
   }
 
   // ── 저장 / 내보내기 ───────────────────────────────────
-  async function _save() { return _exportImage('png'); }
+  async function _save() {
+    if (_state && typeof _state.onSave === 'function') return _saveViaCallback();
+    return _exportImage('png');
+  }
+  // 저장 콜백 경로 — 편집본을 dataURL 로 넘기고 에디터를 완전히 종료(작업실 슬롯으로 복귀).
+  function _saveViaCallback() {
+    const cv = document.getElementById('peCanvas');
+    if (!cv || !_state) return;
+    let dataUrl;
+    try { dataUrl = cv.toDataURL('image/jpeg', 0.92); }
+    catch (e) { return _toast('저장 실패 — 사진을 파일에서 다시 불러와 주세요'); }
+    const cb = _state.onSave;
+    _state._savedAtCursor = _state.historyCursor;   // dirty 경고 방지
+    try { cb(dataUrl); } catch (err) { console.warn('[photo-editor] onSave 콜백 실패:', err && err.message); }
+    _toast('편집이 적용됐어요');
+    // feature-mode(entry-v6) 클래스를 먼저 제거해 닫을 때 메뉴로 안 빠지게 → 완전 종료
+    const sheet = document.getElementById('photoEditorSheet');
+    if (sheet) sheet.classList.remove('pe-v6-feature-mode');
+    _close();
+  }
   async function _exportImage(format) {
     const exp = window.PhotoEditorExport;
     if (!exp || typeof exp.save !== 'function') return _toast('저장 모듈을 불러오는 중이에요');
@@ -418,7 +442,11 @@
       }
     }
     const sheet = document.getElementById('photoEditorSheet');
-    if (sheet) sheet.style.setProperty('display', 'none', 'important');
+    if (sheet) {
+      // 임베드 모드(onSave)는 닫을 때 entry-v6 feature-mode 메뉴로 안 빠지게 클래스 해제
+      if (_state && _state.onSave) sheet.classList.remove('pe-v6-feature-mode');
+      sheet.style.setProperty('display', 'none', 'important');
+    }
     document.body.style.overflow = '';
     try { if (window.PhotoEditor && typeof window.PhotoEditor._brushCleanup === 'function') window.PhotoEditor._brushCleanup(); }
     catch (_e) { void _e; }

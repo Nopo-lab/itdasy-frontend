@@ -405,5 +405,37 @@ async function _applyBABetween(before, after, slot) {
   } catch (e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
 
+// ── 손님 사진 1장 → 최신 PhotoEditor 로 편집 (저장 시 손님 사진에 반영) ──────
+// 슬롯 하단 툴바(누끼/보정/로고/템플릿)가 옛 패널 대신 이 경로로 모던 에디터를 연다.
+//   활성 사진 = 선택 1장, 없으면 사진이 1장뿐일 때 그 사진.
+function openSlotPhotoInEditor(tab) {
+  if (!window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') {
+    if (typeof showToast === 'function') showToast('사진 편집기를 불러오는 중이에요. 잠시 후 다시 시도해주세요');
+    return;
+  }
+  const slot = _slots.find(s => s.id === _popupSlotId);
+  if (!slot) return;
+  const visible = (slot.photos || []).filter(p => !p.hidden);
+  if (!visible.length) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
+  let photo = null;
+  if (_popupSelIds.size === 1) photo = visible.find(p => _popupSelIds.has(p.id));
+  else if (_popupSelIds.size === 0 && visible.length === 1) photo = visible[0];
+  if (!photo) { if (typeof showToast === 'function') showToast('편집할 사진 1장을 선택해주세요'); return; }
+
+  window.PhotoEditor.open({
+    src: photo.editedDataUrl || photo.dataUrl,
+    initial_tab: tab || 'auto',
+    customer_name: slot.label || '',
+    onSave: async (dataUrl) => {
+      photo.editedDataUrl = dataUrl;
+      photo.mode = 'enhanced';
+      try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
+      _renderPopupPhotoGrid(slot);
+      if (typeof showToast === 'function') showToast('편집본이 손님 사진에 반영됐어요');
+    },
+  });
+}
+
 window.saveAndCloseSlotPopup = saveAndCloseSlotPopup;
 window.toggleBAMode = toggleBAMode;
+window.openSlotPhotoInEditor = openSlotPhotoInEditor;

@@ -41,7 +41,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 스튜디오</title>
 <script>
-window.__LATEST_BUILD__ = '20260529-v338-navfix';
+window.__LATEST_BUILD__ = '20260529-v339-slot-editor';
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -1999,12 +1999,16 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'portfolio-empty-workshop': () => { tab('workshop'); call('initWorkshopTab'); },
       'slot-close': () => call('closeSlotPopup'),
       'slot-save-close': () => call('saveAndCloseSlotPopup'),
-      'bg-panel-open': () => call('openBgPanel'),
-      'enhance-panel-open': () => call('openEnhancePanel'),
+      // [작업실 손님 사진 편집 → 최신 PhotoEditor 로 라우팅]
+      //   누끼/보정/로고/템플릿은 옛 슬롯 패널 대신 모던 에디터를 해당 탭으로 연다 (저장 시 손님 사진에 반영).
+      //   전후합성(2장 BA 합성)·리뷰는 단일사진 에디터로 대체 불가 → slot 전용 기능 유지.
+      //   openSlotPhotoInEditor 미로드 시 call 은 no-op (안전).
+      'bg-panel-open': () => callFirst(['openSlotPhotoInEditor', 'openBgPanel'], ['bg']),
+      'enhance-panel-open': () => callFirst(['openSlotPhotoInEditor', 'openEnhancePanel'], ['beauty']),
       'ba-toggle': () => call('toggleBAMode'),
-      'element-panel-open': () => call('openElementPanel'),
+      'element-panel-open': () => callFirst(['openSlotPhotoInEditor', 'openElementPanel'], ['text']),
       'review-panel-open': () => call('openReviewPanel'),
-      'template-panel-open': () => call('openTemplatePanel'),
+      'template-panel-open': () => callFirst(['openSlotPhotoInEditor', 'openTemplatePanel'], ['template']),
       'enhance-panel-close': () => call('closeEnhancePanel'),
       'bg-panel-close': () => call('closeBgPanel'),
       'element-panel-close': () => call('closeElementPanel'),
@@ -2107,7 +2111,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-gallery-db.js" defer></script>
 <script src="app-gallery-workshop.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-gallery-assign.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-slot-editor.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-gallery-slot-editor.js?v=20260529-v339-slot-editor" defer></script>
 <script src="app-photo-editor-bg-compose.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-gallery-bg.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-photo-editor-bg-cache.js?v=20260520-v250-template-mask-hotfix" defer></script>
@@ -2217,7 +2221,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [v206.7 2026-05-19] 사진 편집기 7파일 분할 (main + layers + export + batch + beauty + templates + brush effects) -->
 <script src="app-photo-editor-worker-filter.js?v=20260521-v252-photo-shadow-batch" defer></script>
 <script src="js/photo-editor/history.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor.js?v=20260529-v338-navfix" defer></script>
+<script src="app-photo-editor.js?v=20260529-v339-slot-editor" defer></script>
 <script src="js/photo-editor/renderer.js?v=20260527-v307-full-redesign" defer></script>
 <script src="app-photo-editor-shop-data.js?v=20260527-v308-photo-editor-upgrade" defer></script>
 <script src="app-photo-editor-preset-cards.js?v=20260528-v328-ba-overlay-fix" defer></script>
