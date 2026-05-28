@@ -344,9 +344,9 @@
         '  #asstBody .asst-msg--ai { margin-right: auto !important; justify-content: flex-start !important; }',
         '  #asstBody .asst-msg--user { margin-left: auto !important; justify-content: flex-end !important; }',
         '  #asstBody .asst-msg--ai > div:last-child, #asstBody .asst-msg--user > div { max-width: 88% !important; }',
-        '  #assistantSheetHeader { padding-left: 24px; padding-right: 24px; }',
-        '  #asstBody { padding: 16px 32px !important; }',
-        '  #asstFooter { padding: 12px 32px; }',
+        '  #assistantSheetHeader { padding-left: 20px; padding-right: 20px; }',
+        '  #asstBody { padding: 16px 20px !important; }',
+        '  #asstFooter { padding: 12px 20px; }',
         '}',
       ].join('\n');
       document.head.appendChild(st);

@@ -699,9 +699,11 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
 .hv5-hdr .hv5-bell:active { background: #F7F8FA; }
 .hv5-hdr .hv5-bell-badge {
   position: absolute; top: 6px; right: 6px;
-  width: 7px; height: 7px; border-radius: 50%;
+  width: 7px !important; height: 7px !important;
+  min-width: 0 !important; padding: 0 !important;
+  border-radius: 50% !important;
   background: #BC6675; border: 0;
-  display: block;
+  display: block; font-size: 0;
 }
 
 /* [2026-05-28] AI 예상 매출 칩 (라벨 핑크 · 숫자 검정) */
