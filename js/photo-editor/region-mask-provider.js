@@ -344,10 +344,43 @@
           result = _emptyResult('fallback', 'eyelash adapter unavailable');
           break;
         }
-        case 'hairBoundaryMask':
-          // hairMask 의 edge feather — v315 에서 구체화. 지금은 fallback.
-          result = _emptyResult('pendingImplementation', 'hairMask edge feather 는 v315');
+        case 'hairBoundaryMask': {
+          // v334 — hairMask 두 단계 블러 차이 = 경계 band.
+          //   blur_near (r=2) ↔ blur_far (r=8) 의 절대 차이가 큰 픽셀이 경계.
+          //   distance transform 없이 가벼운 근사.
+          const RF = _getRefine();
+          if (!RF) { result = _emptyResult('failed', 'mask-refine missing'); break; }
+          const hair = await getMask(img, 'hairMask');
+          if (!hair || !hair.mask) { result = _emptyResult('fallback', 'hairMask not ready'); break; }
+          const sz = _imgSize(img);
+          const near = RF.gaussianFeather(hair.mask, sz.w, sz.h, 2);
+          const far  = RF.gaussianFeather(hair.mask, sz.w, sz.h, 8);
+          const diff = new Float32Array(sz.w * sz.h);
+          let maxV = 0;
+          for (let i = 0; i < diff.length; i++) {
+            const v = Math.abs(near[i] - far[i]);
+            diff[i] = v;
+            if (v > maxV) maxV = v;
+          }
+          if (maxV > 0) {
+            const k = 1 / maxV;
+            for (let i = 0; i < diff.length; i++) diff[i] = Math.min(1, diff[i] * k * 1.4);
+          }
+          const final = RF.gaussianFeather(diff, sz.w, sz.h, 2);
+          const cov = RF.maskCoverage(final);
+          if (cov < 0.002) { result = _emptyResult('fallback', 'boundary too thin'); break; }
+          result = {
+            mask: final,
+            confidence: RF.maskConfidence(final, 0.3),
+            coverage: cov,
+            sourceTier: 2,
+            inferenceTimeMs: 0,
+            status: 'ready',
+            featherRadius: 2,
+            reason: 'hairMask blur differential (r=2 vs r=8)',
+          };
           break;
+        }
         default:
           result = _emptyResult('failed', 'unknown region: ' + regionType);
       }
