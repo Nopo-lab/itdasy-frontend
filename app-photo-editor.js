@@ -391,6 +391,9 @@
     sheet.style.setProperty('display', 'flex', 'important');
     document.body.style.overflow = 'hidden';
     _renderTabs(); _renderPanel(); _redraw();
+    // Nav v7 — 편집기 열 때마다 mount 보장. nav-v7 의 _boot 폴링(페이지 로드 후 9.6초)이
+    //   만료된 뒤 편집기를 열면 mount 가 영영 안 돼 옛 .pe-tabs 로 보이던 회귀 방지.
+    try { if (window.PhotoEditorNavV7?.isEnabled?.()) window.PhotoEditorNavV7.mount(); } catch (_e) { void _e; }
     try { window.PhotoEditorTextDnD?.bind?.(sheet.querySelector('#peCanvas')); } catch (_e) { void _e; }
     if (opts.src) _loadImage(opts.src);
     _pushHistoryState();
