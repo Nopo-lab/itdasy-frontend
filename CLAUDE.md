@@ -1,5 +1,14 @@
 # itdasy-frontend-test-yeunjun (연준 스테이징)
 
+## 🚨 디자인 정책 (2026-05-28 ~ )
+
+**다크모드 정비 보류 중** — 모든 디자인·CSS 작업은 **라이트모드 기준**으로만 진행.
+`html[data-theme="dark"]` 블록(tokens.css)은 토큰 정리 끝난 뒤 일괄 재점검 예정.
+
+- 새 컴포넌트 작성 시 다크모드 토큰 매핑 안 해도 OK
+- 기존 다크모드 블록은 건드리지 말 것 (복원용)
+- 다크모드 활성화 키: `app-theme.js DARK_MODE_DISABLED = false`
+
 **언어**: 한국말, 쉬운말. 원영님은 코딩 초보.
 
 - 역할: 연준 전용 프론트 검증 레포. 배포 `https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/`

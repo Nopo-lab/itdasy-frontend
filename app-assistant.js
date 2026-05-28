@@ -280,7 +280,7 @@
     // [2026-04-26 A5] 시트 내부 패널: safe-area-inset-top 추가 (노치 회피)
     sheet.innerHTML = `
       <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:#FFFFFF;border-radius:20px 20px 0 0;height:88vh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
-        <div style="display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;margin-bottom:10px;height:44px;">
+        <div id="assistantSheetHeader" style="display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;margin-bottom:10px;height:44px;">
           <button data-assistant-close aria-label="닫기" title="닫기" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;justify-self:start;">${_svg('ic-x', 18)}</button>
           <div style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
             <strong style="font-size:16px;color:#191F28;font-weight:700;letter-spacing:-0.2px;">AI 잇비</strong>
@@ -294,7 +294,7 @@
         <div id="asstTypeahead" style="display:none;gap:6px;overflow-x:auto;margin-top:6px;padding:2px 0;"></div>
         <!-- [v178 2026-05-18] 사진 펜딩 영역 — 갤러리/카메라 선택 후 여기 미리보기. 송신 전까지 보임 -->
         <div id="asstPending" style="display:none;flex-wrap:wrap;gap:6px;padding:6px 4px 0;"></div>
-        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+        <div id="asstFooter" style="display:flex;gap:8px;margin-top:8px;align-items:center;">
           <button id="asstPhoto" aria-label="사진 업로드" title="사진 업로드" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#F2F4F6;color:#4E5968;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s;">${_svg('ic-camera', 18)}</button>
           <input id="asstInput" placeholder="샵 관련해서 물어보세요…" maxlength="300" data-no-voice style="flex:1;padding:11px 16px;border:none;border-radius:999px;font-size:14px;min-width:0;background:#F2F4F6;color:#191F28;outline:none;" />
           <button id="asstMicBtn" type="button" aria-label="음성 입력" title="음성 입력" style="flex-shrink:0;width:40px;height:40px;border:none;border-radius:50%;background:#F2F4F6;color:#4E5968;cursor:pointer;padding:0;display:inline-flex;align-items:center;justify-content:center;transition:background 0.15s, color 0.15s;">${_svg('ic-mic', 18)}</button>
@@ -325,11 +325,26 @@
         // 완료 체크 아이콘 pop
         '.asst-card--done > span:first-child { animation: asstPop .35s cubic-bezier(.4,1.6,.6,1) both; }',
         '@keyframes asstPop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }',
-        // [2026-05-26] PC 시트 폭 720px 가운데 정렬. 모바일은 그대로.
-        '@media (min-width:1024px) {',
-        '  #assistantSheetPanel { max-width: 720px; margin: 0 auto; left: 0; right: 0; }',
-        '  #asstBody .asst-msg, #asstBody .asst-user-msg { max-width: 95% !important; }',
-        '  #asstBody .asst-msg--ai > div:last-child, #asstBody .asst-msg--user > div { max-width: 95% !important; }',
+        // [2026-05-28] PC 모달 B안 — 가운데 큰 모달 (1080×900). 모바일은 풀스크린 그대로.
+        '@media (min-width: 1024px) {',
+        '  #assistantSheetPanel {',
+        '    inset: auto !important;',
+        '    position: fixed !important;',
+        '    top: 50% !important;',
+        '    left: 50% !important;',
+        '    transform: translate(-50%, -50%) !important;',
+        '    width: min(1080px, 90vw) !important;',
+        '    height: min(900px, 90vh) !important;',
+        '    max-width: none !important;',
+        '    border-radius: 20px !important;',
+        '    overflow: hidden !important;',
+        '    margin: 0 !important;',
+        '  }',
+        '  #asstBody .asst-msg, #asstBody .asst-user-msg { max-width: 88% !important; }',
+        '  #asstBody .asst-msg--ai > div:last-child, #asstBody .asst-msg--user > div { max-width: 88% !important; }',
+        '  #assistantSheetHeader { padding-left: 24px; padding-right: 24px; }',
+        '  #asstBody { padding: 16px 32px !important; }',
+        '  #asstFooter { padding: 12px 32px; }',
         '}',
       ].join('\n');
       document.head.appendChild(st);

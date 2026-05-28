@@ -9,10 +9,13 @@
   const STORAGE_KEY = 'itdasy_theme';
   const MODES = ['light', 'dark'];
   const LABELS = { light: '라이트', dark: '다크' };
+  // [2026-05-28] 라이트 정비 중 — 다크모드 비활성. 정비 끝나면 false로 복원.
+  const DARK_MODE_DISABLED = true;
   // Phase6: Phosphor 전환 — sprite href → ph-* class. themeToggleIcon은 <i>.
   const ICON_CLASS = { light: 'ph-sun', dark: 'ph-moon' };
 
   function _current() {
+    if (DARK_MODE_DISABLED) return 'light';
     const saved = localStorage.getItem(STORAGE_KEY);
     if (MODES.includes(saved)) return saved;
     // [2026-05-20] 초기 사용자(localStorage 비어있음) 는 무조건 라이트로 시작.
@@ -50,6 +53,12 @@
   }
 
   window.toggleTheme = function () {
+    if (DARK_MODE_DISABLED) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('다크모드는 정비 중이에요. 잠시만요 🔧');
+      }
+      return;
+    }
     const cur = _current();
     const next = MODES[(MODES.indexOf(cur) + 1) % MODES.length];
     localStorage.setItem(STORAGE_KEY, next);

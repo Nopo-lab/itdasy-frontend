@@ -517,8 +517,8 @@ details[open] > summary > svg:first-child { transform: rotate(180deg); }
   box-shadow: 0 4px 14px rgba(213,138,149,0.28);
 }
 @media (width >= 768px) {
-  .ws-empty__bottom { left: var(--side-nav-width, 232px); bottom: 24px; }
-  .ws-empty__cta { max-width: 360px; }
+  /* [2026-05-28] PC에선 가운데 .ws-empty 카드가 클릭 드롭존이라 하단 고정 CTA 중복 */
+  .ws-empty__bottom { display: none; }
 }
 .ws-top-row {
   display: flex; align-items: center; justify-content: flex-end; gap: 8px;
