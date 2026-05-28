@@ -147,16 +147,23 @@
     return Number(hit && hit.default_price) || 0;
   }
 
-  function renderHeader() {
+  function renderHeader(brief) {
     const shop = shopName();
+    const data = brief || {};
+    const monthTotal = Number(data.this_month_total) || 0;
+    const monthLabel = (new Date().getMonth() + 1) + '월';
     return `<div class="hv5"><div class="hv5-hdr">
       <div class="av" data-hv-avatar aria-hidden="true">${esc(shopInitial(shop))}</div>
       <div class="meta">
         <div class="date">${esc(todayKor())}</div>
         <div class="shop">${esc(shop)}</div>
       </div>
+      <button type="button" class="hv5-rev-chip" data-hv-act="openRevenue" aria-label="${monthLabel} 매출 상세">
+        <span class="hv5-rev-chip-label">${monthLabel} 매출</span>
+        <span class="hv5-rev-chip-amt"><span data-hv-count="${monthTotal}">${formatMoney(monthTotal)}</span></span>
+      </button>
       <button type="button" class="hv5-bell" data-hv-act="bell" aria-label="알림">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8C6 4.68629 8.68629 2 12 2C15.3137 2 18 4.68629 18 8C18 15 21 17 21 17H3C3 17 6 15 6 8Z"/><path d="M10 20C10.5 21 11.2 21.5 12 21.5C12.8 21.5 13.5 21 14 20"/></svg>
         <span id="dashBellBadge" class="hv5-bell-badge" style="display:none"></span>
       </button>
     </div>`;
@@ -194,45 +201,51 @@
       }, 0);
   }
 
-  function renderHero(brief) {
+  function renderItbiCard(brief) {
     const data = brief || {};
-    const monthTotal = Number(data.this_month_total) || 0;
-    const projectedRaw = data._projected_total;
-    const projected = projectedRaw == null ? null
-      : (Number.isFinite(Number(projectedRaw)) ? Number(projectedRaw) : null);
-    const bookings = fallbackBookings(data);
-    const completedCount = bookings.filter(b => b && b.status === 'completed').length;
-    const monthLabel = (new Date().getMonth() + 1) + '월';
-    return heroHtml({
-      monthTotal,
-      monthCount: monthCount(data, completedCount),
-      todayExpected: todayExpected(bookings),
-      projected,
-      monthLabel,
-    });
-  }
-
-  function heroHtml(info) {
-    return `<div class="hv5-hero">
-      <div class="hv5-hero-l">
-        <div class="hv5-hero-label">이번달 매출 <span class="hv5-hero-label-month">${info.monthLabel}</span></div>
-        <div class="hv5-hero-amt" data-hv-count="${info.monthTotal}">${formatMoney(info.monthTotal)}</div>
-        <div class="hv5-hero-meta"><div class="hv5-hero-chip">완료 <b>${info.monthCount}건</b></div></div>
-      </div>
-      <div class="hv5-hero-r">
-        <button type="button" class="hv5-hero-r-link" data-hv-act="openRevenue">매출 상세 ›</button>
-        <div class="hv5-hero-stats">
-          <div class="hv5-hero-stat">
-            <div class="hv5-hero-stat-l">오늘 예상 매출</div>
-            <div class="hv5-hero-stat-v pred" data-hv-count="${info.todayExpected}">${info.todayExpected > 0 ? formatEstimate(info.todayExpected) : '0원'}</div>
-          </div>
-          <div class="hv5-hero-stat">
-            <div class="hv5-hero-stat-l">이번달 AI 예상 매출</div>
-            <div class="hv5-hero-stat-v" data-hv-count="${info.projected == null ? 0 : info.projected}">${info.projected == null ? '집계 중…' : formatEstimate(info.projected)}</div>
+    const lastMsg = (typeof data.assistant_last_message === 'string' && data.assistant_last_message.trim())
+      ? data.assistant_last_message.trim()
+      : '';
+    const lastTime = (typeof data.assistant_last_time === 'string') ? data.assistant_last_time : '';
+    const isEmpty = !lastMsg;
+    const msgHtml = isEmpty
+      ? '오늘은 잇비가 챙겨드릴 게 없어요. 첫 메시지를 보내보세요'
+      : esc(lastMsg);
+    const confirm = (data.assistant_confirm_action && typeof data.assistant_confirm_action === 'object')
+      ? data.assistant_confirm_action : null;
+    const actionsHtml = confirm
+      ? `<div class="hv5-itbi-actions">
+          <button type="button" class="hv5-itbi-action-btn is-primary" data-hv-act="${esc(confirm.confirmAct || 'openAssistant')}">${esc(confirm.confirmLabel || '네, 등록할게요')}</button>
+          <button type="button" class="hv5-itbi-action-btn" data-hv-act="${esc(confirm.cancelAct || 'openAssistant')}">${esc(confirm.cancelLabel || '아니요')}</button>
+        </div>`
+      : '';
+    const timeHtml = lastTime ? `<div class="hv5-itbi-msg-time">${esc(lastTime)}</div>` : '';
+    return `<section class="hv5-itbi-card">
+      <div class="hv5-itbi-head">
+        <div class="hv5-itbi-head-l">
+          <span class="hv5-itbi-avatar"><svg width="18" height="18" aria-hidden="true"><use href="#ic-bot"/></svg></span>
+          <div class="hv5-itbi-head-text">
+            <div class="hv5-itbi-name-row"><strong class="hv5-itbi-name">AI 잇비</strong><span class="hv5-itbi-beta">베타</span></div>
+            <div class="hv5-itbi-status"><span class="hv5-itbi-status-dot"></span>대기중</div>
           </div>
         </div>
+        <button type="button" class="hv5-itbi-all" data-hv-act="openAssistant">전체 보기 ›</button>
       </div>
-    </div>`;
+      <div class="hv5-itbi-msg${isEmpty ? ' is-empty' : ''}">
+        <span class="hv5-itbi-msg-avatar"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></span>
+        <div class="hv5-itbi-msg-body">
+          <div class="hv5-itbi-msg-text">${msgHtml}</div>
+          ${actionsHtml}
+          ${timeHtml}
+        </div>
+      </div>
+      <div class="hv5-itbi-input" data-hv-act="openAssistant" role="button" tabindex="0">
+        <span class="hv5-itbi-input-icon"><svg width="18" height="18" aria-hidden="true"><use href="#ic-image"/></svg></span>
+        <span class="hv5-itbi-input-placeholder">잇비에게 무엇이든 물어보세요</span>
+        <span class="hv5-itbi-input-icon"><svg width="16" height="16" aria-hidden="true"><use href="#ic-mic"/></svg></span>
+        <span class="hv5-itbi-send"><svg width="14" height="14" aria-hidden="true"><use href="#ic-send"/></svg></span>
+      </div>
+    </section>`;
   }
 
   function overdueAlertContext(brief) {
@@ -437,8 +450,8 @@
     const bookingHtml = renderBooking(brief);
     const alertsHtml = renderAlerts(brief, dmQueueCount || 0, onlinePendingCount || 0);
     return [
-      renderHeader(),
-      renderHero(brief),
+      renderHeader(brief),
+      renderItbiCard(brief),
       middleRow(bookingHtml, alertsHtml),
       renderAiRecs(cards),
     ].join('');
