@@ -52,6 +52,12 @@
     if (id === 'ba-2split-v' || id === 'ba-event') return _vertical(ctx, w, h, before, after, id, data);
     if (id === 'ba-3process') return _process(ctx, w, h, before, after, data);
     if (id === 'ba-4grid') return _grid(ctx, w, h, before, after, data);
+    // v326 BA 12종 시리즈 — 스타일 suffix 로 기존 함수 라우팅
+    if (typeof id === 'string' && /^ba-(hair|nail|lash|skin)-/.test(id)) {
+      if (/-cream$/.test(id))    return _flowerShadow(ctx, w, h, before, after, data);
+      if (/-polaroid$/.test(id)) return _polaroid(ctx, w, h, before, after, data);
+      // -dark 등 그 외는 기본 horizontal (다크 배경은 _bg() 에서 처리)
+    }
     _horizontal(ctx, w, h, before, after, id, data);
   }
 
@@ -331,6 +337,12 @@
     if (tpl && tpl.id === 'ba-editorial') return '#f6f1e9';
     if (tpl && tpl.id === 'ba-dark') return '#24252B';
     if (tpl && tpl.id === 'ba-sage') return '#E5EADF';
+    // v326 BA 12종 시리즈 배경 (스타일 suffix 별)
+    if (tpl && tpl.id) {
+      if (/-cream$/.test(tpl.id))    return '#e7e5de';
+      if (/-polaroid$/.test(tpl.id)) return '#eee9e2';
+      if (/-dark$/.test(tpl.id))     return '#24252B';
+    }
     return '#FFFAF2';
   }
 

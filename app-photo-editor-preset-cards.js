@@ -27,19 +27,24 @@
     { id: 'vintage-mood', label: '빈티지 무드', category: 'filter', tone: 'linear-gradient(145deg,#f8d9be,#65758c)', adjust: { brightness: 104, saturate: 116, sharpness: 8, temperature: 10 }, film: { presetId: 'cream', strength: 58 } },
     { id: 'ai-glow', label: '글로우 리터치', category: 'retouch', beautyFocus: 'skin', tone: 'linear-gradient(145deg,#fff6cf,#eec0cc)', adjust: { brightness: 111, saturate: 106, sharpness: 8, temperature: 4 }, beauty: { skin: 30, redness: 22, blemish: 28, textureSmooth: 26, catchLight: 20 } },
   ];
+  // v326 — tier: 'free'|'pro' 마킹 + BA 시리즈 일부 노출
   const TEMPLATE_CARDS = [
-    { id: 'ba-cream', label: '크림 전후', sub: 'Before/After', style: 'cream', group: 'ba', type: 'ba' },
-    { id: 'ba-flower-shadow', label: '꽃 그림자 전후', sub: '고급 살롱', style: 'shadow', group: 'ba', type: 'ba' },
-    { id: 'ba-polaroid', label: '폴라로이드 전후', sub: '인스타 피드', style: 'polaroid', group: 'ba', type: 'ba' },
-    { id: 'ba-editorial', label: '에디토리얼 전후', sub: '잡지 느낌', style: 'editorial', group: 'ba', type: 'ba' },
-    { id: 'feed-showcase', label: '시술 자랑 피드', sub: '포트폴리오', style: 'feed', group: 'promo', type: 'feed' },
-    { id: 'story-open', label: '스토리 오픈', sub: '9:16 홍보', style: 'story', group: 'promo', type: 'story' },
-    { id: 'reels-process', label: '시술 과정', sub: '세로 홍보', style: 'process', group: 'promo', type: 'story' },
-    { id: 'event-discount', label: '할인 이벤트', sub: '즉시 홍보', style: 'event', group: 'promo', type: 'promo' },
-    { id: 'price-hair', label: '헤어 가격표', sub: '메뉴판', style: 'price', group: 'promo', type: 'price' },
-    { id: 'price-nail', label: '네일 가격표', sub: '메뉴판', style: 'price', group: 'promo', type: 'price' },
-    { id: 'card-gold', label: '골드 명함', sub: '샵 안내', style: 'card', group: 'promo', type: 'card' },
-    { id: 'card-dark', label: '블랙 명함', sub: '프리미엄', style: 'dark-card', group: 'promo', type: 'card' },
+    // BA 그룹 (free 5 / pro 1) — 부위별 시리즈 + 기존 폴라로이드 + 에디토리얼(pro)
+    { id: 'ba-hair-cream',    label: '헤어 전후 (크림)',  sub: 'Hair B/A',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-nail-cream',    label: '네일 전후 (크림)',  sub: 'Nail B/A',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-lash-polaroid', label: '속눈썹 전후 (폴라)', sub: 'Lash B/A',    style: 'polaroid', group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-skin-cream',    label: '피부 전후 (크림)',  sub: 'Skin B/A',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-polaroid',      label: '폴라로이드 전후',   sub: '인스타 피드',  style: 'polaroid', group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-editorial',     label: '에디토리얼 전후',   sub: '잡지 느낌',    style: 'editorial', group: 'ba', type: 'ba', tier: 'pro'  },
+    // 홍보 그룹 (free 4 / pro 2)
+    { id: 'feed-showcase',    label: '시술 자랑 피드',    sub: '포트폴리오',   style: 'feed',     group: 'promo', type: 'feed',  tier: 'free' },
+    { id: 'story-open',       label: '스토리 오픈',       sub: '9:16 홍보',    style: 'story',    group: 'promo', type: 'story', tier: 'free' },
+    { id: 'reels-process',    label: '시술 과정',         sub: '세로 홍보',    style: 'process',  group: 'promo', type: 'story', tier: 'free' },
+    { id: 'event-discount',   label: '할인 이벤트',       sub: '즉시 홍보',    style: 'event',    group: 'promo', type: 'promo', tier: 'free' },
+    { id: 'price-hair',       label: '헤어 가격표',       sub: '메뉴판',       style: 'price',    group: 'promo', type: 'price', tier: 'free' },
+    { id: 'price-nail',       label: '네일 가격표',       sub: '메뉴판',       style: 'price',    group: 'promo', type: 'price', tier: 'free' },
+    { id: 'card-gold',        label: '골드 명함',         sub: '샵 안내',      style: 'card',     group: 'promo', type: 'card',  tier: 'pro'  },
+    { id: 'card-dark',        label: '블랙 명함',         sub: '프리미엄',     style: 'dark-card', group: 'promo', type: 'card', tier: 'pro'  },
   ];
 
   function _esc(s) {
@@ -83,7 +88,11 @@
   }
 
   function _templateButton(tpl) {
+    const badge = tpl.tier === 'free'
+      ? '<span class="pe-tpl-free">Free</span>'
+      : (tpl.tier === 'pro' ? '<span class="pe-tpl-pro">Pro</span>' : '');
     return `<button type="button" class="pe-template-card is-${_esc(tpl.style)}" data-pe-template-card="${_esc(tpl.id)}">
+      ${badge}
       <span class="pe-template-mini">
         <span class="pe-template-title">${_esc(_templateTitle(tpl))}</span>
         <span class="pe-template-line"></span>

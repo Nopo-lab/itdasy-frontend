@@ -167,6 +167,7 @@
 }
 
 .pe-entry-v6 .pe-template-card {
+  position: relative;
   flex: 0 0 154px;
   border: 1px solid rgba(28, 32, 40, 0.08);
   border-radius: 8px;
@@ -177,6 +178,29 @@
   font-family: inherit;
   cursor: pointer;
   box-shadow: 0 10px 24px rgba(33, 28, 24, 0.08);
+}
+
+/* v326 — Free / Pro 배지 */
+.pe-entry-v6 .pe-tpl-free,
+.pe-entry-v6 .pe-tpl-pro {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(33, 28, 24, 0.18);
+}
+.pe-entry-v6 .pe-tpl-free {
+  background: linear-gradient(135deg, #ff7aa2, #ff5277);
+}
+.pe-entry-v6 .pe-tpl-pro {
+  background: linear-gradient(135deg, #d9b063, #b6873d);
 }
 
 .pe-entry-v6 .pe-template-mini {

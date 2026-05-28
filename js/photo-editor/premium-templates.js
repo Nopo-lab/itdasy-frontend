@@ -48,6 +48,19 @@
     'ba-price':        ['baCompose', 'PRICE', 'Before & After', '가격 안내'],
     'ba-event':        ['baCompose', 'EVENT', 'Before & After', '이번 주 예약 가능'],
     'ba-review':       ['baCompose', 'REAL REVIEW', 'Real Review', '고객 후기'],
+    // v326 — BA 12종 시리즈 (부위 × 스타일). baCompose 로 위임, 라우팅은 ba-compose.js
+    'ba-hair-cream':    ['baCompose', 'HAIR BEFORE / AFTER', 'Hair Transformation', '시술 전후 모습'],
+    'ba-hair-polaroid': ['baCompose', 'HAIR BEFORE / AFTER', 'Hair Before & After', '인스타 피드용'],
+    'ba-hair-dark':     ['baCompose', 'HAIR DETAIL',         'Hair Style Change', '프리미엄 결과'],
+    'ba-nail-cream':    ['baCompose', 'NAIL BEFORE / AFTER', 'Nail Before & After', '깨끗하게 정돈된 네일'],
+    'ba-nail-polaroid': ['baCompose', 'NAIL BEFORE / AFTER', 'Fresh Nail Look', '손끝 변화 컷'],
+    'ba-nail-dark':     ['baCompose', 'NAIL DETAIL',         'Nail Art Detail', '디테일 강조'],
+    'ba-lash-cream':    ['baCompose', 'LASH BEFORE / AFTER', 'Lash Before & After', '풍성한 속눈썹 컷'],
+    'ba-lash-polaroid': ['baCompose', 'LASH BEFORE / AFTER', 'New Lash Look', '눈매가 또렷해진 결과'],
+    'ba-lash-dark':     ['baCompose', 'LASH DETAIL',         'Lash Volume Detail', '디테일 강조'],
+    'ba-skin-cream':    ['baCompose', 'SKIN BEFORE / AFTER', 'Skin Care Result', '결이 매끈한 결과'],
+    'ba-skin-polaroid': ['baCompose', 'SKIN BEFORE / AFTER', 'Clear Skin Glow', '맑아진 피부 컷'],
+    'ba-skin-dark':     ['baCompose', 'SKIN DETAIL',         'Skin Texture Detail', '디테일 강조'],
   };
 
   const PAL = {
