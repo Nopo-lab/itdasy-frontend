@@ -37,13 +37,9 @@
   function _updateBadge() {
     const badge = document.getElementById('dashBellBadge');
     if (!badge) return;
-    const n = _items.length;
-    if (n > 0) {
-      badge.style.display = 'flex';
-      badge.textContent = n > 9 ? '9+' : String(n);
-    } else {
-      badge.style.display = 'none';
-    }
+    // [2026-05-28] 숫자 표기 제거 — dot만 보임
+    badge.textContent = '';
+    badge.style.display = _items.length > 0 ? 'block' : 'none';
   }
 
   async function _markRead(id) {
