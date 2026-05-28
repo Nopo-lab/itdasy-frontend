@@ -108,15 +108,24 @@
   }
 
   // canvas 또는 image element 입력 → landmarks 배열 반환 (없으면 null)
+  // v336 — promise 캐시 (WeakMap<source, Promise<landmarks>>). 같은 source 중복 호출 시 1회만 estimateFaces 실행.
+  const _faceDetectPromise = new WeakMap();
   async function _detect(source) {
-    try {
-      const detector = await _load();
-      const preds = await detector.estimateFaces(source, { flipHorizontal: false });
-      if (!preds || !preds.length) return null;
-      return preds[0].keypoints; // [{x, y, z?, name?}, ...]
-    } catch (_e) {
-      return null;
-    }
+    if (!source) return null;
+    let p = _faceDetectPromise.get(source);
+    if (p) return p;
+    p = (async () => {
+      try {
+        const detector = await _load();
+        const preds = await detector.estimateFaces(source, { flipHorizontal: false });
+        if (!preds || !preds.length) return null;
+        return preds[0].keypoints;
+      } catch (_e) {
+        return null;
+      }
+    })();
+    _faceDetectPromise.set(source, p);
+    return p;
   }
 
   // landmarks 와 영역명을 받아 polygon 좌표 배열 반환
@@ -175,6 +184,9 @@
           baseOptions: { modelAssetPath: HAND_MODEL_URL },
           runningMode: 'IMAGE',
           numHands: 2,
+          // v336 — false-positive 감소 (default 0.5 → 0.7)
+          minHandDetectionConfidence: 0.7,
+          minHandPresenceConfidence: 0.7,
         });
         _handState.landmarker = hl;
         _handState.status = 'ready';
@@ -189,24 +201,36 @@
     return _handState.loadPromise;
   }
 
-  // img(HTMLImageElement|Canvas) → [{landmarks:[{x,y,z}*21], handedness}, ...] | null
+  // img(HTMLImageElement|Canvas) → [{landmarks:[{x,y,z}*21], handedness, score}, ...] | null
+  // v336 — promise 캐시 + handedness score 노출 (어댑터 no-hand 판정용).
+  const _handDetectPromise = new WeakMap();
   async function _detectHand(source) {
-    try {
-      const hl = await _loadHandLandmarker();
-      if (!hl || !source) return null;
-      const res = hl.detect(source);
-      if (!res || !res.landmarks || !res.landmarks.length) return null;
-      const sz = { w: source.naturalWidth || source.width || 0, h: source.naturalHeight || source.height || 0 };
-      // landmark .x/.y 는 0~1 normalized → 픽셀 좌표로 변환
-      const hands = res.landmarks.map((pts, i) => ({
-        landmarks: pts.map(p => ({ x: p.x * sz.w, y: p.y * sz.h, z: p.z || 0 })),
-        handedness: (res.handedness && res.handedness[i] && res.handedness[i][0] && res.handedness[i][0].categoryName) || 'Unknown',
-      }));
-      return hands;
-    } catch (e) {
-      console.warn('[mediapipe] hand detect fail:', e && e.message);
-      return null;
-    }
+    if (!source) return null;
+    let p = _handDetectPromise.get(source);
+    if (p) return p;
+    p = (async () => {
+      try {
+        const hl = await _loadHandLandmarker();
+        if (!hl) return null;
+        const res = hl.detect(source);
+        if (!res || !res.landmarks || !res.landmarks.length) return null;
+        const sz = { w: source.naturalWidth || source.width || 0, h: source.naturalHeight || source.height || 0 };
+        const hands = res.landmarks.map((pts, i) => {
+          const hd = res.handedness && res.handedness[i] && res.handedness[i][0];
+          return {
+            landmarks: pts.map(p2 => ({ x: p2.x * sz.w, y: p2.y * sz.h, z: p2.z || 0 })),
+            handedness: (hd && hd.categoryName) || 'Unknown',
+            score: (hd && typeof hd.score === 'number') ? hd.score : 0,
+          };
+        });
+        return hands;
+      } catch (e) {
+        console.warn('[mediapipe] hand detect fail:', e && e.message);
+        return null;
+      }
+    })();
+    _handDetectPromise.set(source, p);
+    return p;
   }
 
   // ── Image Segmenter (v331 2026-05-28 hair-specific) ──────────────

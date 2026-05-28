@@ -16,11 +16,19 @@
   function _ml() { return window.MediaPipeLoader || null; }
   function _rf() { return window.MaskRefine || null; }
 
+  // v336 — handedness score 임계 0.7 (낮은 점수는 false-positive 가능성)
+  const HAND_SCORE_MIN = 0.7;
+
   async function _detectHands(img) {
     const ML = _ml();
     if (!ML || typeof ML.detectHand !== 'function' || !img) return null;
-    try { return await ML.detectHand(img); }
+    let hands = null;
+    try { hands = await ML.detectHand(img); }
     catch (_e) { return null; }
+    if (!hands || !hands.length) return null;
+    // 점수 임계 미달 손은 제외
+    const filtered = hands.filter(h => (h.score || 0) >= HAND_SCORE_MIN);
+    return filtered.length ? filtered : null;
   }
 
   function _nailEllipseMask(hand, w, h, RF) {
@@ -45,11 +53,17 @@
     return acc;
   }
 
+  function _avgScore(hands) {
+    if (!hands || !hands.length) return 0;
+    let s = 0; for (const h of hands) s += (h.score || 0);
+    return s / hands.length;
+  }
+
   async function nailMask(img, sz) {
     const RF = _rf();
-    if (!RF) return null;
+    if (!RF) return { status: 'failed', reason: 'mask-refine missing' };
     const hands = await _detectHands(img);
-    if (!hands || !hands.length) return null;
+    if (!hands || !hands.length) return { status: 'noHand', reason: 'no hand detected (score < ' + HAND_SCORE_MIN + ' or empty)' };
     let union = new Float32Array(sz.w * sz.h);
     for (const hand of hands) {
       const m = _nailEllipseMask(hand, sz.w, sz.h, RF);
@@ -58,10 +72,12 @@
     const featherR = Math.max(2, Math.round(Math.min(sz.w, sz.h) * 0.003));
     const feathered = RF.gaussianFeather(union, sz.w, sz.h, featherR);
     const coverage = RF.maskCoverage(feathered);
-    if (coverage < 0.001) return null;
+    if (coverage < 0.001) return { status: 'noHand', reason: 'nail union empty (degenerate landmarks)' };
     return {
+      status: 'ready',
       mask: feathered,
-      confidence: RF.maskConfidence(feathered, 0.4),
+      handsAvgScore: _avgScore(hands),
+      handsCount: hands.length,
       coverage: coverage,
       featherRadius: featherR,
       reason: 'Hand Landmarker fingertip ellipse',
@@ -70,9 +86,9 @@
 
   async function handSkinMask(img, sz) {
     const RF = _rf();
-    if (!RF) return null;
+    if (!RF) return { status: 'failed', reason: 'mask-refine missing' };
     const hands = await _detectHands(img);
-    if (!hands || !hands.length) return null;
+    if (!hands || !hands.length) return { status: 'noHand', reason: 'no hand detected' };
     let union = new Float32Array(sz.w * sz.h);
     for (const hand of hands) {
       const hull = RF.convexHull(hand.landmarks);
@@ -80,16 +96,18 @@
       const m = RF.polygonToMask(hull, sz.w, sz.h);
       union = RF.unionMask(union, m);
     }
-    // 손톱 빼기
+    // 손톱 빼기 — nailMask 동일 캐시(detectHand promise) 재사용
     const nail = await nailMask(img, sz);
     if (nail && nail.mask) union = RF.subtractMask(union, nail.mask);
     const featherR = Math.max(3, Math.round(Math.min(sz.w, sz.h) * 0.004));
     const feathered = RF.gaussianFeather(union, sz.w, sz.h, featherR);
     const coverage = RF.maskCoverage(feathered);
-    if (coverage < 0.005) return null;
+    if (coverage < 0.005) return { status: 'noHand', reason: 'hand-skin coverage too low' };
     return {
+      status: 'ready',
       mask: feathered,
-      confidence: RF.maskConfidence(feathered, 0.4),
+      handsAvgScore: _avgScore(hands),
+      handsCount: hands.length,
       coverage: coverage,
       featherRadius: featherR,
       reason: 'Hand Landmarker convex hull − nailMask',

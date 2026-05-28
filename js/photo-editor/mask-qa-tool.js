@@ -56,7 +56,7 @@
     return uni > 0 ? inter / uni : 0;
   }
 
-  // 단일 마스크 측정
+  // 단일 마스크 측정 — wallClockMs(호출자 측 대기), maskMs(Provider 내부 측정)
   async function _measureOne(img, regionType) {
     const t0 = performance.now ? performance.now() : Date.now();
     let r = null;
@@ -69,7 +69,8 @@
       status: r.status || 'failed',
       coverage: +(r.coverage || 0).toFixed(4),
       confidence: +(r.confidence || 0).toFixed(3),
-      inferenceTimeMs: r.inferenceTimeMs || Math.round(t1 - t0),
+      wallClockMs: Math.round(t1 - t0),         // 호출자 측 대기 (캐시 hit 시 → 0~수ms)
+      maskMs: r.inferenceTimeMs || 0,           // Provider 내부 측정 (detect+compute 합산)
       reason: r.reason || '',
       _mask: r.mask || null,
     };
@@ -97,21 +98,22 @@
     // 표 출력용 (mask 객체 제거)
     const table = REGION_TYPES.map(t => {
       const r = results[t];
-      const reco = _v316Reco(r);
+      const reco = _v316Reco(t, r);
       return {
         mask: t,
         tier: r.sourceTier,
         status: r.status,
         coverage: r.coverage,
         confidence: r.confidence,
-        ms: r.inferenceTimeMs,
+        detectMs: r.maskMs,           // Provider 내부 (Face/Hand detect + compute)
+        waitMs: r.wallClockMs,        // 호출자 측 대기 (캐시 hit 시 ~0)
         v316: reco.label,
         reason: r.reason.slice(0, 40),
       };
     });
     console.table(table);
 
-    console.log('[QA] total ' + totalMs + 'ms (sequential, precompute 캐시 hit 가능)');
+    console.log('[QA] total ' + totalMs + 'ms (sequential; Face/Hand detect 는 source 당 1회 캐시)');
     console.log('[QA] false-positive overlap (0 가 좋음, 0.3+ 위험):');
     console.table(Object.entries(fpChecks).map(([k, v]) => ({
       check: k, overlap: +v.toFixed(3),
@@ -125,16 +127,52 @@
     return { sizeWxH: sz, totalMs: totalMs, table: table, fpChecks: fpChecks, results: results };
   }
 
-  // v316 자동 적용 권고 — 사용자가 plan 에서 정한 임계와 일치
-  function _v316Reco(r) {
-    if (r.status === 'pendingImplementation') return { label: 'X-not-impl', strength: 0 };
-    if (r.status === 'failed') return { label: 'X-failed', strength: 0 };
-    // eyelash/nail 은 conservative
-    const conservative = (r.maskType === 'eyelashBandMask' || r.maskType === 'nailMask');
-    const c = r.confidence;
-    if (c >= 0.7) return { label: 'AUTO-1.0x', strength: 1.0 };
-    if (c >= 0.4) return { label: conservative ? 'WEAK-0.4x' : 'WEAK-0.6x', strength: conservative ? 0.4 : 0.6 };
-    return { label: 'BRUSH-only', strength: 0 };
+  // v316 자동 적용 권고 (v336 — maskType + sourceTier + status + confidence 종합)
+  //   - lip/eye T2 ready: confidence 무관 AUTO 가능 (Face landmark 신뢰 가능)
+  //   - skin T2 ready: confidence ≥ 0.7 AUTO, else WEAK
+  //   - hair T1 ready: confidence ≥ 0.7 AUTO (overlap 감점 후), T2/T3 → WEAK/BRUSH
+  //   - background: T3 만 가능 → 절대 AUTO 금지 (max WEAK)
+  //   - eyelash/nail: 실제 사진 QA 통과 전까지 WEAK 또는 BRUSH-only (conservative)
+  //   - status: 'noHand' / 'failed' / 'pendingImplementation' → X
+  function _v316Reco(regionType, r) {
+    const s = r.status;
+    if (s === 'pendingImplementation') return { label: 'X-not-impl' };
+    if (s === 'failed') return { label: 'X-failed' };
+    if (s === 'noHand') return { label: 'X-no-hand' };
+    const tier = r.sourceTier || 0;
+    const c = r.confidence || 0;
+
+    // backgroundMask: T3 만 — AUTO 절대 금지
+    if (regionType === 'backgroundMask') {
+      return { label: c >= 0.4 ? 'WEAK-0.4x' : 'BRUSH-only' };
+    }
+
+    // eyelash/nail: 보수적 (실제 QA 통과 전까지 WEAK 한도)
+    if (regionType === 'eyelashBandMask' || regionType === 'nailMask') {
+      if (c >= 0.7) return { label: 'WEAK-0.6x' };
+      if (c >= 0.4) return { label: 'WEAK-0.4x' };
+      return { label: 'BRUSH-only' };
+    }
+
+    // lip/eye T2 ready: confidence 무관 AUTO (Face landmark 신뢰 가능)
+    if ((regionType === 'lipMask' || regionType === 'eyeMask') && tier === 2 && s === 'ready') {
+      return { label: 'AUTO-1.0x' };
+    }
+
+    // skin T2 ready: confidence ≥ 0.7 AUTO
+    if (regionType === 'skinMask' && tier === 2 && s === 'ready' && c >= 0.7) {
+      return { label: 'AUTO-1.0x' };
+    }
+
+    // hair T1 ready: confidence ≥ 0.7 AUTO
+    if (regionType === 'hairMask' && tier === 1 && s === 'ready' && c >= 0.7) {
+      return { label: 'AUTO-1.0x' };
+    }
+
+    // 일반 규칙
+    if (c >= 0.7) return { label: 'AUTO-1.0x' };
+    if (c >= 0.4) return { label: 'WEAK-0.6x' };
+    return { label: 'BRUSH-only' };
   }
 
   async function runOnCurrentImage() {

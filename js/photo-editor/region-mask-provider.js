@@ -94,55 +94,12 @@
     return { w: w | 0, h: h | 0 };
   }
 
-  // ── Tier 1: Hair Image Segmenter (MediaPipe Tasks Vision) ──
-  // v331 — hair-specific segmenter 가 가용하면 픽셀 단위 마스크 반환.
-  // 실패/모델 미로드/저신뢰도 → null 반환 → 호출자 Tier 2 로 폴백.
-  async function _tier1_hairSegmentation(img) {
-    const ML = _getMediaPipe();
-    const RF = _getRefine();
-    if (!ML || !RF || typeof ML.segmentHair !== 'function') {
-      return _emptyResult('failed', 'image segmenter unavailable');
-    }
-    const sz = _imgSize(img);
-    if (!sz.w || !sz.h) return _emptyResult('failed', 'invalid image size');
-    let seg = null;
-    try { seg = await ML.segmentHair(img); }
-    catch (e) { return _emptyResult('failed', 'segmentHair error: ' + (e && e.message)); }
-    if (!seg || !seg.mask || !seg.mask.length) return _emptyResult('fallback', 'segmenter returned empty');
-    // hair_segmenter.tflite: category 1 = hair, 0 = background
-    // mask 차원이 원본과 다를 수 있어 nearest-neighbor 업/다운샘플로 sz 에 맞춤
-    const out = new Float32Array(sz.w * sz.h);
-    const sw = seg.w | 0, sh = seg.h | 0;
-    if (!sw || !sh) return _emptyResult('failed', 'segmenter mask dims missing');
-    for (let y = 0; y < sz.h; y++) {
-      const sy = Math.min(sh - 1, Math.floor(y * sh / sz.h));
-      const dstRow = y * sz.w;
-      const srcRow = sy * sw;
-      for (let x = 0; x < sz.w; x++) {
-        const sx = Math.min(sw - 1, Math.floor(x * sw / sz.w));
-        out[dstRow + x] = seg.mask[srcRow + sx] >= 1 ? 1 : 0;
-      }
-    }
-    const featherRadius = Math.max(3, Math.round(Math.min(sz.w, sz.h) * 0.004));
-    const feathered = RF.gaussianFeather(out, sz.w, sz.h, featherRadius);
-    const coverage = RF.maskCoverage(feathered);
-    const confidence = RF.maskConfidence(feathered, 0.5);
-    // 매우 낮은 커버리지 (얼굴 없음 등) → 폴백
-    if (coverage < 0.005) return _emptyResult('fallback', 'segmenter coverage too low');
-    return {
-      mask: feathered,
-      confidence: confidence,
-      coverage: coverage,
-      sourceTier: 1,
-      inferenceTimeMs: 0,
-      status: 'ready',
-      featherRadius: featherRadius,
-      reason: 'hair_segmenter.tflite (Tier 1)',
-    };
-  }
+  // ── Tier 1 hair 어댑터 (v336 — mask-hair-adapter.js 로 분리) ──
+  function _getHairAdapter() { return window.MaskHairAdapter || null; }
 
   // ── Tier 1 hand 어댑터 (v332 — mask-hand-adapter.js 로 분리) ──
   function _getHandAdapter() { return window.MaskHandAdapter || null; }
+  function _getConfidence() { return window.MaskConfidence || null; }
 
   // ── Tier 2: MediaPipe Face Landmarker polygon → mask ─────
   async function _tier2_facePolygon(img, regionName) {
@@ -251,22 +208,28 @@
             const eye2 = await _tier2_facePolygon(img, 'rightEye');
             const lip = await _tier2_facePolygon(img, 'lips');
             let mask = r.mask;
-            if (RF && eye.mask)  mask = RF.subtractMask(mask, eye.mask);
-            if (RF && eye2.mask) mask = RF.subtractMask(mask, eye2.mask);
-            if (RF && lip.mask)  mask = RF.subtractMask(mask, lip.mask);
+            let subOk = 0;
+            if (RF && eye.mask)  { mask = RF.subtractMask(mask, eye.mask); subOk++; }
+            if (RF && eye2.mask) { mask = RF.subtractMask(mask, eye2.mask); subOk++; }
+            if (RF && lip.mask)  { mask = RF.subtractMask(mask, lip.mask); subOk++; }
             r.mask = mask;
             r.coverage = RF ? RF.maskCoverage(mask) : r.coverage;
-            r.confidence = RF ? RF.maskConfidence(mask, 0.5) : r.confidence;
+            r._subtracted = subOk >= 2;
           }
           if (r.status === 'ready') { result = r; break; }
           result = await _tier3_heuristic(img, regionType);
           break;
         }
         case 'hairMask': {
-          // v331 — Tier 1 hair-specific Image Segmenter 우선 시도
-          const t1 = await _tier1_hairSegmentation(img);
-          if (t1.status === 'ready') { result = t1; break; }
-          // Tier 2: foreheadTop polygon 을 위로 확장 (땅 위 헤어 가정) — 1차 근사
+          // v336 — Tier 1 (mask-hair-adapter) → Tier 2 (foreheadTop) → Tier 3
+          const HA = _getHairAdapter();
+          if (HA && typeof HA.hairMask === 'function') {
+            const t1 = await HA.hairMask(img, _imgSize(img));
+            if (t1 && t1.status === 'ready' && t1.mask) {
+              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0 }, t1);
+              break;
+            }
+          }
           const r = await _tier2_facePolygon(img, 'foreheadTop');
           if (r.status === 'ready') { result = r; result.reason = 'foreheadTop polygon (approx)'; break; }
           result = await _tier3_heuristic(img, regionType);
@@ -302,12 +265,17 @@
           result = await _tier3_heuristic(img, 'backgroundMask');
           break;
         case 'nailMask': {
-          // v332 — Tier 1 Hand Landmarker (mask-hand-adapter) 우선 시도
+          // v336 — Tier 1 Hand Landmarker. 어댑터가 status('ready'|'noHand'|'failed') 반환.
+          //   noHand 면 Tier 3 폴백 안 함 (얼굴 사진 등에서 false-positive 방지).
           const HA = _getHandAdapter();
           if (HA && typeof HA.nailMask === 'function') {
             const t1 = await HA.nailMask(img, _imgSize(img));
-            if (t1 && t1.mask) {
-              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0, status: 'ready' }, t1);
+            if (t1 && t1.status === 'ready' && t1.mask) {
+              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0 }, t1);
+              break;
+            }
+            if (t1 && t1.status === 'noHand') {
+              result = _emptyResult('noHand', t1.reason || 'no hand detected');
               break;
             }
           }
@@ -318,8 +286,12 @@
           const HA = _getHandAdapter();
           if (HA && typeof HA.handSkinMask === 'function') {
             const t1 = await HA.handSkinMask(img, _imgSize(img));
-            if (t1 && t1.mask) {
-              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0, status: 'ready' }, t1);
+            if (t1 && t1.status === 'ready' && t1.mask) {
+              result = Object.assign({ sourceTier: 1, inferenceTimeMs: 0 }, t1);
+              break;
+            }
+            if (t1 && t1.status === 'noHand') {
+              result = _emptyResult('noHand', t1.reason || 'no hand detected');
               break;
             }
           }
@@ -327,21 +299,29 @@
           break;
         }
         case 'eyelashBandMask': {
-          // v333 — mask-eyelash-adapter (eye polygon upper band ∩ Sobel dark-line) 위임
+          // v336 — reason 명확화. 세 가지 실패 경로 분리:
+          //   1) 어댑터 미로드 → 'failed: adapter not loaded'
+          //   2) 어댑터 호출 결과 null (얼굴 미검출/band 너무 얇음/refine 실패) → 'fallback: <reason>'
+          //   3) 어댑터 throw → 'failed: <message>'
           const EA = window.MaskEyelashAdapter;
-          if (EA && typeof EA.eyelashBandMask === 'function') {
+          if (!EA || typeof EA.eyelashBandMask !== 'function') {
+            result = _emptyResult('failed', 'eyelash adapter not loaded');
+            break;
+          }
+          try {
             const t1 = await EA.eyelashBandMask(img);
             if (t1 && t1.mask) {
               result = Object.assign({
                 sourceTier: 2,
                 inferenceTimeMs: 0,
-                // confidence 낮으면 자동 적용 안 하도록 fallback 으로 표기
                 status: t1._lowConfidence ? 'fallback' : 'ready',
               }, t1);
-              break;
+            } else {
+              result = _emptyResult('fallback', 'no face landmarks or band too thin');
             }
+          } catch (e) {
+            result = _emptyResult('failed', 'eyelash adapter error: ' + (e && e.message));
           }
-          result = _emptyResult('fallback', 'eyelash adapter unavailable');
           break;
         }
         case 'hairBoundaryMask': {
@@ -389,6 +369,11 @@
     }
     const t1 = (performance && performance.now) ? performance.now() : Date.now();
     result.inferenceTimeMs = Math.round(t1 - t0);
+    // v336 — confidence 신산식으로 일괄 재계산 (mask-confidence.js — coverage 와 분리)
+    const MC = _getConfidence();
+    if (MC && typeof MC.compute === 'function') {
+      result.confidence = MC.compute(regionType, result);
+    }
     return result;
   }
 
