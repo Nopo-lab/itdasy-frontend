@@ -23,13 +23,16 @@
   };
 
   // v340 — final 작업 캔버스 상한 4.19M(2048px). v343 — preview(드래그 중) 상한 ~1.3M(긴 변 ~1280px).
+  // v345 — exportFull(저장/내보내기) 상한 16.7M(~4096px) → 화면은 가볍게, 저장본은 고화질.
   const FULL_MAX_PIXELS = 4194304;
   const PREVIEW_MAX_PIXELS = 1300000;
-  function computeCrop(img, ratio, preview) {
+  const EXPORT_MAX_PIXELS = 16777216;
+  function computeCrop(img, ratio, preview, exportFull) {
     const iw = img.naturalWidth, ih = img.naturalHeight;
     let crop;
     if (ratio === 'original') {
-      const k = iw * ih > FULL_MAX_PIXELS ? Math.sqrt(FULL_MAX_PIXELS / (iw * ih)) : 1;
+      const cap = exportFull ? EXPORT_MAX_PIXELS : FULL_MAX_PIXELS;
+      const k = iw * ih > cap ? Math.sqrt(cap / (iw * ih)) : 1;
       crop = { sx: 0, sy: 0, sw: iw, sh: ih, dw: Math.round(iw * k), dh: Math.round(ih * k) };
     } else {
       const [rw, rh] = ratio.split(':').map(Number);
@@ -37,7 +40,7 @@
       let sw, sh, sx, sy;
       if (imgAR > targetAR) { sh = ih; sw = Math.round(ih * targetAR); sx = Math.round((iw - sw) / 2); sy = 0; }
       else { sw = iw; sh = Math.round(iw / targetAR); sx = 0; sy = Math.round((ih - sh) / 2); }
-      const outW = Math.min(1080, sw), outH = Math.round(outW / targetAR);
+      const outW = Math.min(exportFull ? 2160 : 1080, sw), outH = Math.round(outW / targetAR);
       crop = { sx, sy, sw, sh, dw: outW, dh: outH };
     }
     // v343 — preview 면 출력 해상도만 ~1.3M 로 추가 다운스케일(드래그 per-frame 픽셀 walk 대폭↓).
@@ -297,22 +300,25 @@
     if (state.template.id && typeof env.drawHooks.template === 'function') {
       try { env.drawHooks.template(cv, state.originalImg, state, env.helpers); return; } catch (_e) { void _e; }
     }
-    const crop = computeCrop(state.originalImg, state.ratio, env.preview);
+    const crop = computeCrop(state.originalImg, state.ratio, env.preview, env.exportFull);
     cv.width = crop.dw; cv.height = crop.dh;
     const ctx = cv.getContext('2d');
     if (state.showOriginal) { ctx.filter = 'none'; ctx.drawImage(state.originalImg, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.dw, crop.dh); return; }
     const hash = _fxHash(state);
-    if (_fxCache && _fxCache.hash === hash && _fxCache.w === crop.dw && _fxCache.h === crop.dh) {
+    const useCache = !env.exportFull;   // v345 — export 렌더는 캐시 read/write 안 함(화면 캐시 오염 방지)
+    if (useCache && _fxCache && _fxCache.hash === hash && _fxCache.w === crop.dw && _fxCache.h === crop.dh) {
       ctx.drawImage(_fxCache.cv, 0, 0);
     } else {
       ctx.clearRect(0, 0, crop.dw, crop.dh);
       _drawBase(env, cv, ctx, state.originalImg, crop);
       if (await _applySharpness(env, cv, ctx, crop.dw, crop.dh) === false) return;
       _applyDrawHooks(env, cv, ctx, crop.dw, crop.dh);
-      const cc = document.createElement('canvas');
-      cc.width = crop.dw; cc.height = crop.dh;
-      cc.getContext('2d').drawImage(cv, 0, 0);
-      _fxCache = { cv: cc, hash, w: crop.dw, h: crop.dh };
+      if (useCache) {
+        const cc = document.createElement('canvas');
+        cc.width = crop.dw; cc.height = crop.dh;
+        cc.getContext('2d').drawImage(cv, 0, 0);
+        _fxCache = { cv: cc, hash, w: crop.dw, h: crop.dh };
+      }
     }
     ctx.filter = 'none'; ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     _drawTextLayers(ctx, crop.dw, crop.dh, state);

@@ -291,7 +291,7 @@
   }
 
   // ── 캔버스 합성 ───────────────────────────────────────
-  async function _redraw(preview) {
+  async function _redraw(preview, exportFull) {
     const renderer = window.PhotoEditorRenderer;
     const cv = document.getElementById('peCanvas'), empty = document.getElementById('peCanvasEmpty');
     if (!renderer || typeof renderer.redraw !== 'function') {
@@ -308,7 +308,8 @@
       helpers: _helpers,
       seq,
       getSeq: () => _redrawSeq,
-      preview: !!preview,   // v343 — 드래그 중 저해상도 preview
+      preview: !!preview,        // v343 — 드래그 중 저해상도 preview
+      exportFull: !!exportFull,  // v345 — 저장/내보내기용 원본급 고화질
     });
   }
 
@@ -356,15 +357,18 @@
 
   // ── 저장 / 내보내기 ───────────────────────────────────
   async function _save() {
-    await _ensureFinalRender();   // v343 — 저장/onSave 는 반드시 풀해상도 결과로 (preview 저해상도 오염 방지)
+    await _renderForExport();   // v345 — 저장/onSave 직전 원본급(exportFull) 고화질 1회 렌더
     if (_state && typeof _state.onSave === 'function') return _saveViaCallback();
-    return _exportImage('png');
+    const r = await _exportImage('png');
+    try { await _redraw(false); } catch (_e) { void _e; }   // 화면 캔버스 final(2048)로 복귀
+    return r;
   }
-  // v343 — 대기 중 preview/redraw 취소 후 풀해상도 1회 동기 보장
-  async function _ensureFinalRender() {
+  // v345 — 대기 중 preview/redraw 취소 후 peCanvas 를 exportFull(원본급)로 1회 렌더.
+  //   저장본/slot onSave 가 preview 저해상도(또는 2048 final)가 아닌 원본급 고화질로 나가도록 보장.
+  async function _renderForExport() {
     if (_redrawScheduled) { clearTimeout(_redrawScheduled); _redrawScheduled = null; }
     _pendingFinal = false;
-    try { await _redraw(false); } catch (_e) { void _e; }
+    try { await _redraw(false, true); } catch (_e) { void _e; }
   }
   // 저장 콜백 경로 — 편집본을 dataURL 로 넘기고 에디터를 완전히 종료(작업실 슬롯으로 복귀).
   function _saveViaCallback() {
