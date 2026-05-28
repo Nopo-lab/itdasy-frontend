@@ -156,8 +156,8 @@
     const projected = projRaw == null ? null
       : (Number.isFinite(Number(projRaw)) ? Number(projRaw) : null);
     const predChipHtml = projected == null ? '' : `
-      <button type="button" class="hv5-pred-chip" data-hv-act="openRevenue" aria-label="AI 예상 매출">
-        <span class="hv5-pred-chip-label">AI 예상</span>
+      <button type="button" class="hv5-pred-chip" data-hv-act="openRevenue" aria-label="잇비 분석 이번달 매출">
+        <span class="hv5-pred-chip-label">잇비 분석 이번달 매출</span>
         <span class="hv5-pred-chip-amt"><span data-hv-count="${projected}">${formatMoney(projected)}</span></span>
       </button>`;
     return `<div class="hv5"><div class="hv5-hdr">
@@ -249,7 +249,7 @@
         </div>
       </div>
       <div class="hv5-itbi-input" data-hv-act="openAssistant" role="button" tabindex="0">
-        <span class="hv5-itbi-input-icon"><svg width="18" height="18" aria-hidden="true"><use href="#ic-image"/></svg></span>
+        <span class="hv5-itbi-input-icon"><svg width="18" height="18" aria-hidden="true"><use href="#ic-camera"/></svg></span>
         <span class="hv5-itbi-input-placeholder">잇비에게 무엇이든 물어보세요</span>
         <span class="hv5-itbi-input-icon"><svg width="16" height="16" aria-hidden="true"><use href="#ic-mic"/></svg></span>
         <span class="hv5-itbi-send"><svg width="14" height="14" aria-hidden="true"><use href="#ic-send"/></svg></span>

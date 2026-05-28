@@ -276,7 +276,7 @@
     sheet = document.createElement('div');
     sheet.id = 'assistantSheet';
     // 2026-04-24 perf — opacity 트랜지션. [2026-04-26 A10] 0.10s → 0.05s 단축.
-    sheet.style.cssText = 'position:fixed;inset:0;z-index:10500;display:none;background:rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:opacity 0.05s ease-out;';
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:10500;display:none;background:rgba(0,0,0,0.7);opacity:0;pointer-events:none;transition:opacity 0.05s ease-out;';
     // [2026-04-26 A5] 시트 내부 패널: safe-area-inset-top 추가 (노치 회피)
     sheet.innerHTML = `
       <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:#FFFFFF;border-radius:20px 20px 0 0;height:88vh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
@@ -325,6 +325,13 @@
         // 완료 체크 아이콘 pop
         '.asst-card--done > span:first-child { animation: asstPop .35s cubic-bezier(.4,1.6,.6,1) both; }',
         '@keyframes asstPop { 0% { transform: scale(0); opacity: 0; } 60% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); } }',
+        // [2026-05-28] 잇비 시트 열리면 PC 사이드바/헤더 가려서 풀모달처럼 보이게
+        '@media (min-width: 768px) {',
+        '  body.assistant-open .side-nav,',
+        '  body.assistant-open .app-header,',
+        '  body.assistant-open #appBrand { visibility: hidden; }',
+        '  body.assistant-open { padding-left: 0 !important; padding-top: 0 !important; }',
+        '}',
         // [2026-05-28] PC 모달 B안 — 가운데 큰 모달 (1080×900). 모바일은 풀스크린 그대로.
         '@media (min-width: 1024px) {',
         '  #assistantSheetPanel {',
@@ -1744,7 +1751,7 @@
     if (existing) { existing.remove(); return; }
     const box = document.createElement('div');
     box.id = 'asstPhotoSheet';
-    box.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
+    box.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
     box.innerHTML = `
       <div style="width:100%;max-width:460px;background:#fff;border-radius:20px 20px 0 0;padding:12px 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;">
         <button data-photo-choice="camera" style="padding:16px;border:none;border-radius:14px;background:hsl(340,100%,98%);color:hsl(350,60%,40%);font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;">${_svg('ic-camera', 18)} 사진 찍기</button>
@@ -2751,6 +2758,7 @@
       sheet.style.pointerEvents = 'auto';
     }));
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('assistant-open');
   }
 
   function _restoreChatPendingOnOpen() {
@@ -2814,6 +2822,7 @@
       setTimeout(() => { sheet.style.display = 'none'; }, 50);
     }
     document.body.style.overflow = '';
+    document.body.classList.remove('assistant-open');
     // [2026-04-26 A5] hash 정리
     try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('assistant'); } catch (_e) { void _e; }
   };
