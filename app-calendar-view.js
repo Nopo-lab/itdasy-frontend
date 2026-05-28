@@ -34,46 +34,7 @@
     '10-3':'개천절','10-5':'대체공휴일','10-9':'한글날','12-25':'크리스마스',
   };
 
-  // [2026-05-04] 시간 선택 휠 네이티브 스냅 스타일 주입
-  (function _injectWheelStyle() {
-    if (typeof document === 'undefined' || document.getElementById('bf-tp-wheel-style')) return;
-    const s = document.createElement('style');
-    s.id = 'bf-tp-wheel-style';
-    s.textContent = `
-      .bf-tp-wheel {
-        height: 140px !important;
-        overflow-y: scroll !important;
-        scroll-snap-type: y mandatory !important;
-        
-        scrollbar-width: none;
-        position: relative;
-      }
-      .bf-tp-wheel::-webkit-scrollbar { display: none; }
-      .bf-tp-inner {
-        padding: 56px 0 !important; /* 상하 2칸씩 여백 (140/2 - 28/2 = 56) */
-        display: flex;
-        flex-direction: column;
-        transition: none !important;
-        transform: none !important;
-      }
-      .bf-tp-row {
-        height: 28px !important;
-        line-height: 28px !important;
-        scroll-snap-align: center !important;
-        flex: 0 0 28px !important;
-        opacity: 0.35;
-        transition: opacity 0.2s, font-weight 0.2s, transform 0.2s;
-        transform: scale(0.9);
-      }
-      .bf-tp-row.current {
-        opacity: 1 !important;
-        font-weight: 700 !important;
-        color: var(--brand, var(--brand)) !important;
-        transform: scale(1.15) !important;
-      }
-    `;
-    document.head.appendChild(s);
-  })();
+  // [2026-05-29] 휠 스타일은 booking-form.css 가 단일 소스. 옛 인라인 주입 폐지 (충돌 제거)
 
   // === 시간 그리드 단위 ===
   // CSS 변수와 동일해야 블록(absolute) 위치 / 셀(grid row) 정렬이 맞음
@@ -1345,7 +1306,9 @@
     const apRows = ['오전','오후'].map((lbl, i) =>
       `<div class="bf-tp-row${i === startW.ap ? ' current' : ''}" data-val="${i}">${lbl}</div>`).join('');
     let h12Rows = '';
-    for (let i = 1; i <= 12; i++) h12Rows += `<div class="bf-tp-row${i === startW.h12 ? ' current' : ''}" data-val="${i}">${i}</div>`;
+    // [2026-05-29] 12시부터 시작 — [12, 1, 2, ..., 11]
+    const H12_ORDER = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    H12_ORDER.forEach(i => { h12Rows += `<div class="bf-tp-row${i === startW.h12 ? ' current' : ''}" data-val="${i}">${i}</div>`; });
     let m10Rows = '';
     for (let v = 0; v < 60; v += 10) m10Rows += `<div class="bf-tp-row${v === startW.m10 ? ' current' : ''}" data-val="${v}">${_pad(v)}</div>`;
 
@@ -1403,14 +1366,15 @@
       <div class="bf-dur-chips" id="bfDurChips">${durChips}</div>
       <input type="hidden" id="bfDurVal" value="${durMin}" />
     </div>`;
-    // 고객 카드 (라벨 제거)
+    // 고객 카드 (라벨 제거, + 박스 → 좌측 직선)
     html += `<div class="bf-card">
       <button type="button" class="bf-cust-card${existing?.customer_name ? '' : ' empty'}" id="bfCustCard">
         ${existing?.customer_name
-          ? `<div class="bf-cust-avatar">${_esc((existing.customer_name||'')[0])}</div>
+          ? `<div class="bf-cust-bar"></div>
              <div class="bf-cust-info"><div class="bf-cust-name">${_esc(existing.customer_name)}</div><div class="bf-cust-meta" id="bfCustMeta"></div></div>
              <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 해제">×</button>`
-          : `<div class="bf-cust-avatar empty">+</div><div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
+          : `<div class="bf-cust-bar empty"></div>
+             <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
              <span class="bf-cust-chev" aria-hidden="true">›</span>`}
       </button>
       <input type="hidden" id="bfCustName" value="${_esc(existing?.customer_name || '')}" />
@@ -1643,21 +1607,23 @@
         const bm = rawBirth.match(/^(\d{1,2})[-/](\d{1,2})$/) || rawBirth.match(/^\d{4}-(\d{1,2})-(\d{1,2})/);
         const td = new Date();
         const isBirthday = bm && +bm[1] === td.getMonth() + 1 && +bm[2] === td.getDate();
+        // 방문 뱃지 — 1~2회 회색 / 3회 이상 녹색 / 10회 이상 분홍
+        const visitBadge = visits > 0
+          ? `<span class="bf-cust-badge ${visits >= 10 ? 'pink' : visits >= 3 ? 'green' : ''}">방문 ${visits}회</span>`
+          : '';
         const meta = [
-          visits ? '<b>방문 ' + visits + '회</b>' : '',
           bal ? '회원권 ' + (bal / 10000).toFixed(bal >= 100000 ? 0 : 1) + '만' : '',
           isBirthday ? '오늘 생일' : '',
         ].filter(Boolean).join(' · ');
-        const badge = (picked.is_regular || visits >= 5) ? '<span class="bf-cust-badge">단골</span>' : '';
-        // 2026-05-01 ── X 버튼의 SVG 에 pointer-events:none 으로 자식 클릭을 X 버튼에 위임
-        card.innerHTML = `<div class="bf-cust-avatar">${_esc((picked.name || '?')[0])}</div>
-          <div class="bf-cust-info"><div class="bf-cust-name">${_esc(picked.name || '')} ${badge}</div><div class="bf-cust-meta" id="bfCustMeta">${meta}</div></div>
-          <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 선택 해제"><svg width="11" height="11" aria-hidden="true"><use href="#ic-x"/></svg></button>`;
+        card.innerHTML = `<div class="bf-cust-bar"></div>
+          <div class="bf-cust-info"><div class="bf-cust-name">${_esc(picked.name || '')}${visitBadge}</div>${meta ? `<div class="bf-cust-meta" id="bfCustMeta">${meta}</div>` : ''}</div>
+          <button type="button" class="bf-cust-clear" id="bfCustClear" aria-label="고객 선택 해제">×</button>`;
         body.querySelector('#bfCustName').value = picked.name || '';
       } else {
         card.className = 'bf-cust-card empty';
-        card.innerHTML = `<div class="bf-cust-avatar empty">+</div><div class="bf-cust-info"><div class="bf-cust-empty-text">고객을 골라주세요</div></div>
-          <svg class="bf-cust-chev" width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>`;
+        card.innerHTML = `<div class="bf-cust-bar empty"></div>
+          <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
+          <span class="bf-cust-chev" aria-hidden="true">›</span>`;
       }
     }
     const _doPick = async () => {
@@ -1773,10 +1739,17 @@
           if (ci) ci.style.display = 'none';
           const tpl = _selectedSvc && (window._serviceTemplatesCache || []).find(t => t.name === _selectedSvc);
           if (tpl && tpl.default_duration_min > 0) { _durMin = tpl.default_duration_min; _updateDur(); }
+          // [2026-05-29] 시술 칩 클릭마다 가격 갈아끼움 (이전: !value 가드로 한번만 채워짐 버그)
           const amtInp = body.querySelector('#bfAmount');
-          if (tpl && amtInp && !amtInp.value) {
-            amtInp.value = String(Number(tpl.default_price) || 0);
-            _setMoneyDisplay('amount', Number(tpl.default_price) || 0);
+          if (_selectedSvc && tpl && amtInp) {
+            const newAmt = Number(tpl.default_price) || 0;
+            amtInp.value = newAmt > 0 ? String(newAmt) : '';
+            _setMoneyDisplay('amount', newAmt);
+            _updateBalanceDisplay();
+          } else if (!_selectedSvc && amtInp) {
+            // 칩 해제 시 (toggle off) 0 으로
+            amtInp.value = '';
+            _setMoneyDisplay('amount', 0);
             _updateBalanceDisplay();
           }
           // 잇비 학습 — 고객 + 시술 둘 다 있을 때
@@ -1884,7 +1857,10 @@
         const cur = +(hidden?.value) || 0;
         valEl.innerHTML = `<input type="text" inputmode="numeric" class="bf-money-input" value="${cur || ''}" placeholder="0" /><span class="bf-money-unit">원</span>`;
         const inp = valEl.querySelector('input');
-        inp.focus(); inp.select();
+        inp.style.webkitTapHighlightColor = 'transparent';
+        inp.focus();
+        try { inp.setSelectionRange(0, (inp.value || '').length); } catch (_) {}
+        inp.select && inp.select();
         const commit = () => {
           const raw = inp.value.replace(/[^0-9]/g, '');
           const n = parseInt(raw, 10) || 0;

@@ -67,40 +67,44 @@
 .bf-date-chev { color:#8B95A1; font-size:18px; line-height:1; flex-shrink:0; }
 .bf-date-native { position:absolute; opacity:0; pointer-events:none; width:0; height:0; }
 
-/* 시간 휠 픽커 — 3개 (오전/오후, 1~12, 분 10단위) */
+/* 시간 휠 픽커 — 3컬럼 (오전/오후 · 12,1..11 · 분 10단위) */
 .bf-time-picker {
   position:relative;
   background:#F2F4F6;
   border-radius:12px;
   padding:6px;
-  display:flex; gap:4px;
+  display:grid; grid-template-columns: 1fr 1fr 1fr;
   height:150px;
   touch-action:pan-y;
+  overflow:hidden;
 }
 .bf-tp-selection {
   position:absolute;
-  left:8px; right:8px;
+  left:6px; right:6px;
   top:50%; transform:translateY(-22px);
   height:44px;
   background:#fff;
   border-radius:8px;
   box-shadow:0 1px 3px rgba(0,0,0,0.06);
-  pointer-events:none; z-index:0;
+  pointer-events:none; z-index:1;
 }
 .bf-tp-wheel {
-  flex:1; position:relative; z-index:1;
+  position:relative; z-index:2;
   height:100%; overflow-y:auto; overflow-x:hidden;
   text-align:center;
   scroll-snap-type: y mandatory;
   -ms-overflow-style:none; scrollbar-width:none;
   scroll-behavior:smooth;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%);
 }
 .bf-tp-wheel::-webkit-scrollbar { display:none; }
-.bf-tp-inner { padding: calc(75px - 22px) 0; }
+/* 위·아래 53px 빈 padding — (150 - 44) / 2 = 53. 첫·끝 항목도 가운데 정렬 */
+.bf-tp-inner { padding: 53px 0; }
 .bf-tp-row {
   height:44px; line-height:44px;
-  font-size:17px; font-weight:500;
-  color:#C5CBD2;
+  font-size:13px; font-weight:500;
+  color:#B0B8C1;
   font-variant-numeric: tabular-nums;
   scroll-snap-align: center;
   scroll-snap-stop: always;
@@ -108,14 +112,8 @@
   transition: color .15s, font-size .15s, font-weight .15s;
 }
 .bf-tp-row.current {
-  color:#191F28; font-weight:600;
-  font-size:19px; letter-spacing:-0.3px;
-  animation: bfWheelPop .25s cubic-bezier(.2,.7,.3,1.2);
-}
-@keyframes bfWheelPop {
-  0% { transform:scale(1); }
-  50% { transform:scale(1.07); }
-  100% { transform:scale(1); }
+  color:#191F28; font-weight:500;
+  font-size:25px; letter-spacing:-0.4px;
 }
 
 /* 소요 시간 */
@@ -137,33 +135,25 @@
 .bf-dur-chip:hover { background:#F7F8FA; color:#191F28; }
 .bf-dur-chip.on { background:#191F28; color:#fff; border-color:#191F28; }
 
-/* 고객 카드 */
+/* 고객 카드 — + 박스 ❌, 좌측 직선 막대 */
 .bf-cust-card {
   display:flex; align-items:center; gap:10px;
   width:100%; border:none; background:transparent; padding:0;
   cursor:pointer; font-family:inherit; text-align:left;
 }
-.bf-cust-avatar {
-  width:22px; height:22px; border-radius:50%;
-  background:#BC6675; color:#fff;
-  display:flex; align-items:center; justify-content:center;
-  font-size:11px; font-weight:600;
-  flex-shrink:0;
-}
-.bf-cust-avatar.empty {
-  background:transparent; border:1.5px dashed #C5CBD2;
-  color:#C5CBD2;
-}
+.bf-cust-bar { width:3px; height:44px; border-radius:2px; background:#BC6675; flex-shrink:0; }
+.bf-cust-bar.empty { height:36px; background:#D1D6DB; }
 .bf-cust-info { flex:1; min-width:0; }
 .bf-cust-name {
-  font-size:13px; font-weight:500; color:#191F28; letter-spacing:-0.2px;
-  display:flex; align-items:center; gap:6px;
+  font-size:15px; font-weight:500; color:#191F28; letter-spacing:-0.3px;
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
 }
 .bf-cust-badge {
-  font-size:10px; padding:1px 5px; border-radius:999px; font-weight:500;
+  font-size:10px; padding:1px 6px; border-radius:999px; font-weight:500;
   background:#F2F4F6; color:#8B95A1;
 }
-.bf-cust-badge.regular { background:#F7EFF0; color:#BC6675; }
+.bf-cust-badge.green { background:#E1F5EE; color:#16B55E; }
+.bf-cust-badge.pink { background:#F7EFF0; color:#BC6675; }
 .bf-cust-meta { font-size:11px; color:#8B95A1; margin-top:2px; letter-spacing:-0.2px; }
 .bf-cust-empty-text { font-size:12px; color:#8B95A1; letter-spacing:-0.2px; }
 .bf-cust-chev { color:#8B95A1; font-size:18px; line-height:1; flex-shrink:0; }
@@ -236,14 +226,23 @@
 .bf-money-row.total .bf-money-val .bf-num { font-size:16px; }
 .bf-money-unit { font-size:10px; color:#8B95A1; }
 .bf-money-input {
-  width:90px; text-align:right;
+  width:110px; text-align:right;
   border:none; outline:none; background:transparent;
   font-size:12px; font-weight:500; color:#191F28;
   font-family:inherit; font-variant-numeric: tabular-nums;
-  padding:0;
+  padding:0 0 2px; margin:0;
+  border-bottom:1.5px solid #191F28;
+  -webkit-appearance:none; appearance:none;
+  box-shadow:none;
+}
+.bf-money-input:focus {
+  outline:none !important;
+  box-shadow:none !important;
+  border-bottom:1.5px solid #191F28 !important;
 }
 .bf-money-row.total .bf-money-input { font-size:16px; }
 .bf-money-row.deposit .bf-money-input { color:#BC6675; }
+.bf-money-val:has(.bf-money-input) { background:transparent !important; }
 
 /* 메모 카드 */
 .bf-memo-toggle {

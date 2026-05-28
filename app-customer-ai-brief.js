@@ -192,8 +192,8 @@
       + '<section class="cd-ai-brief' + staleClass + '">'
       + '  <div class="cd-ai-brief__head">'
       + '    <span class="cd-ai-brief__head-left">'
-      + '      <svg width="14" height="14" aria-hidden="true" style="vertical-align:-2px;"><use href="#ic-sparkles"/></svg>'
-      + '      <strong>AI 브리핑</strong>'
+      + '      <svg width="14" height="14" aria-hidden="true" style="vertical-align:-2px;"><use href="#ic-bot"/></svg>'
+      + '      <strong>AI 잇비의 고객 정보 분석</strong>'
       + '    </span>'
       + '    <span class="cd-ai-brief__head-right">'
       + staleBadge
@@ -209,7 +209,7 @@
 
   function _renderSkeleton() {
     return '<section class="cd-ai-brief cd-ai-brief--loading">'
-      + '<div class="cd-ai-brief__head"><strong>AI 브리핑</strong></div>'
+      + '<div class="cd-ai-brief__head"><strong>AI 잇비의 고객 정보 분석</strong></div>'
       + '<div class="cd-ai-brief__summary" style="opacity:.4;">불러오는 중…</div>'
       + '</section>';
   }
