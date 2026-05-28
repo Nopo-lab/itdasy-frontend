@@ -141,6 +141,8 @@
     if (s === 'noHand') return { label: 'X-no-hand' };
     const tier = r.sourceTier || 0;
     const c = r.confidence || 0;
+    // v337 — confidence 0 + status='fallback' = 마스크 자체 없음 (eyelash 등)
+    if (c === 0 && s === 'fallback') return { label: 'X-no-mask' };
 
     // backgroundMask: T3 만 — AUTO 절대 금지
     if (regionType === 'backgroundMask') {

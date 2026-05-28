@@ -21,6 +21,9 @@
   function compute(regionType, r) {
     const status = r && r.status;
     if (!status || status === 'failed' || status === 'noHand' || status === 'pendingImplementation') return 0;
+    // v337 — mask null 또는 coverage 0 이면 confidence 0 (자동 적용 후보 제외)
+    //   eyelash 처럼 'fallback' status 인데 실제 mask 가 없는 경우 WEAK 처리 방지.
+    if (!r.mask || (typeof r.coverage === 'number' && r.coverage < 0.001)) return 0;
     const tier = r.sourceTier || 0;
 
     if (tier === 3) {
