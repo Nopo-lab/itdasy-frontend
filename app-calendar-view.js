@@ -1321,11 +1321,26 @@
     };
     const endTimeLabel = _endLbl(defH * 60 + defM + durMin);
 
+    // 오늘/이번주 카운트 (좌측 정보 카드용)
+    const _todayKey = _ds(new Date());
+    const _isActive = (it) => it.status !== 'cancelled' && it.status !== 'no_show';
+    const _todayCnt = (_mappedCache || []).filter(it => _ds(new Date(it.starts_at)) === _todayKey && _isActive(it)).length;
+    const _now = new Date();
+    const _wkStart = new Date(_now); _wkStart.setDate(_now.getDate() - _now.getDay()); _wkStart.setHours(0,0,0,0);
+    const _wkEnd = new Date(_wkStart); _wkEnd.setDate(_wkStart.getDate() + 7);
+    const _weekCnt = (_mappedCache || []).filter(it => {
+      const t = new Date(it.starts_at).getTime();
+      return t >= _wkStart.getTime() && t < _wkEnd.getTime() && _isActive(it);
+    }).length;
+    const _today = new Date();
+    const _todayLabel = `${_today.getMonth()+1}/${_today.getDate()}(${['일','월','화','수','목','금','토'][_today.getDay()]})`;
+
     let html = `<button class="cv-form-back" id="cv-form-back">← 뒤로</button>`;
     html += `<div class="bf-root">`;
-    // 좌측 사이드 (PC ≥1100px만 노출, 모바일 숨김)
+    // 좌측 사이드 (PC ≥1100px 만) — 오늘 / 이번주 정보 카드
     html += `<aside class="bf-side-left">
-      <div class="bf-card"><div class="bf-side-date" id="bfSideDate">${dateLabel}</div>${dayCnt > 0 ? `<div class="bf-side-meta" id="bfSideMeta">${dayCnt}건 예약됨</div>` : '<div class="bf-side-meta" id="bfSideMeta"></div>'}</div>
+      <div class="bf-card"><div class="bf-side-label">오늘</div><div class="bf-side-date">${_todayLabel}</div><div class="bf-side-meta">${_todayCnt}건</div></div>
+      <div class="bf-card"><div class="bf-side-label">이번주</div><div class="bf-side-meta">${_weekCnt}건 예약</div></div>
     </aside>`;
     html += `<section class="bf-center">`;
     if (isEdit) {
@@ -1386,21 +1401,38 @@
       <input type="hidden" id="bfCustName" value="${_esc(existing?.customer_name || '')}" />
       <div id="bfAiBriefMount" style="margin-top:10px;"></div>
     </div>`;
-    // 시술 카드
-    html += `<div class="bf-card">
-      <div class="bf-svc-head">
-        <span class="bf-svc-sub">시술 종류, 자주 받은 순으로 자동 정렬</span>
-        <button type="button" class="bf-svc-more" id="bfSvcMore">전체 ›</button>
+    // 시술 카드 — 칩 + 잇비 한 마디 + (모바일) 금액 라인 통합
+    const _initAmt0 = Number(existing?.amount) || 0;
+    const _initDep0 = Number(existing?.deposit) || 0;
+    const _depCellMobile = _initDep0 > 0
+      ? `<span class="bf-money-val" data-money-edit="deposit"><span class="bf-num" data-hv-count="${_initDep0}">${_initDep0.toLocaleString('ko-KR')}</span><span class="bf-money-unit">원</span></span>`
+      : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
+    html += `<div class="bf-card bf-service-card">
+      <div class="bf-svc-pad">
+        <div class="bf-svc-head">
+          <span class="bf-svc-sub">시술 종류, 자주 받은 순으로 자동 정렬</span>
+          <button type="button" class="bf-svc-more" id="bfSvcMore">전체 ›</button>
+        </div>
+        <div class="bf-svc-chips" id="bfSvcChips"></div>
+        <input type="hidden" id="bfSvc" value="${_esc(existing?.service_name || '')}" />
+        <input id="bfSvcCustom" class="bf-svc-input" placeholder="시술명 직접 입력" style="display:none" maxlength="50" autocomplete="off" />
       </div>
-      <div class="bf-svc-chips" id="bfSvcChips"></div>
-      <input type="hidden" id="bfSvc" value="${_esc(existing?.service_name || '')}" />
-      <input id="bfSvcCustom" class="bf-svc-input" placeholder="시술명 직접 입력" style="display:none" maxlength="50" autocomplete="off" />
-    </div>`;
-    // 잇비 한 마디 (학습 후 표시)
-    html += `<div id="bfItbyBox" style="display:none">
-      <div class="bf-itby">
-        <span class="bf-itby-icon"><svg width="11" height="11" aria-hidden="true"><use href="#ic-bot"/></svg></span>
-        <span class="bf-itby-text" id="bfItbyText"></span>
+      <div id="bfItbyBox" class="bf-svc-itby" style="display:none">
+        <div class="bf-itby">
+          <span class="bf-itby-icon"><svg width="11" height="11" aria-hidden="true"><use href="#ic-bot"/></svg></span>
+          <span class="bf-itby-text" id="bfItbyText"></span>
+        </div>
+      </div>
+      <div class="bf-amount-rows">
+        <div class="bf-money">
+          <div class="bf-money-row amount"><span class="bf-money-key">예상 시술비</span>
+            <span class="bf-money-val" data-money-edit="amount"><span class="bf-num" data-hv-count="${_initAmt0}">${_initAmt0 ? _initAmt0.toLocaleString('ko-KR') : '0'}</span><span class="bf-money-unit">원</span></span>
+          </div>
+          <div class="bf-money-row deposit"><span class="bf-money-key">예상 예약금</span>${_depCellMobile}</div>
+          <div class="bf-money-row total"><span class="bf-money-key">잔금</span>
+            <span class="bf-money-val"><span class="bf-num bf-balance-num">${Math.max(0, _initAmt0 - _initDep0).toLocaleString('ko-KR')}</span><span class="bf-money-unit">원</span></span>
+          </div>
+        </div>
       </div>
     </div>`;
     html += `</section>`;
@@ -1414,7 +1446,7 @@
         </span>`
       : `<span class="bf-money-val empty" data-money-edit="deposit"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`;
     html += `<aside class="bf-side-right">`;
-    html += `<div class="bf-card">
+    html += `<div class="bf-card bf-money-card">
       <div class="bf-money">
         <div class="bf-money-row amount">
           <span class="bf-money-key">예상 시술비</span>
@@ -1429,8 +1461,8 @@
         </div>
         <div class="bf-money-row total">
           <span class="bf-money-key">잔금</span>
-          <span class="bf-money-val" id="bfBalanceVal">
-            <span class="bf-num" id="bfBalance">${Math.max(0, _initAmt - _initDep).toLocaleString('ko-KR')}</span>
+          <span class="bf-money-val">
+            <span class="bf-num bf-balance-num" data-hv-count="${Math.max(0, _initAmt - _initDep)}">${Math.max(0, _initAmt - _initDep).toLocaleString('ko-KR')}</span>
             <span class="bf-money-unit">원</span>
           </span>
         </div>
@@ -1672,45 +1704,41 @@
     // --- 시술 칩 + 잇비 학습 ---
     let _selectedSvc = existing?.service_name || '';
     function _setMoneyDisplay(field, val) {
-      const row = body.querySelector(`.bf-money-row.${field}`);
-      if (!row) return;
-      const valEl = row.querySelector('.bf-money-val');
-      if (!valEl) return;
       const isDep = field === 'deposit';
       const to = +val || 0;
-      // 예약금 빈 값 → "탭해서 입력 ›" 복귀
-      if (isDep && to <= 0) {
-        valEl.classList.add('empty');
-        valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
-        return;
-      }
-      // 숫자 셀로 보장 (button 상태였다면 갈아끼움)
-      let numEl = valEl.querySelector('.bf-num');
-      if (!numEl) {
-        valEl.classList.remove('empty');
-        valEl.innerHTML = '<span class="bf-num" data-hv-count="0">0</span><span class="bf-money-unit">원</span>';
-        numEl = valEl.querySelector('.bf-num');
-      }
-      const from = parseInt(numEl.dataset.hvCount || '0', 10) || 0;
-      // 카운트업
-      const dur = 380;
-      const t0 = performance.now();
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / dur);
-        const eased = 1 - Math.pow(1 - t, 3);
-        const cur = Math.round(from + (to - from) * eased);
-        numEl.textContent = cur.toLocaleString('ko-KR');
-        if (t < 1) requestAnimationFrame(step);
-        else { numEl.dataset.hvCount = String(to); }
-      };
-      requestAnimationFrame(step);
+      body.querySelectorAll(`.bf-money-row.${field}`).forEach(row => {
+        const valEl = row.querySelector('.bf-money-val');
+        if (!valEl) return;
+        if (isDep && to <= 0) {
+          valEl.classList.add('empty');
+          valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
+          return;
+        }
+        let numEl = valEl.querySelector('.bf-num');
+        if (!numEl) {
+          valEl.classList.remove('empty');
+          valEl.innerHTML = '<span class="bf-num" data-hv-count="0">0</span><span class="bf-money-unit">원</span>';
+          numEl = valEl.querySelector('.bf-num');
+        }
+        const from = parseInt(numEl.dataset.hvCount || '0', 10) || 0;
+        const dur = 380;
+        const t0 = performance.now();
+        const step = (now) => {
+          const t = Math.min(1, (now - t0) / dur);
+          const eased = 1 - Math.pow(1 - t, 3);
+          const cur = Math.round(from + (to - from) * eased);
+          numEl.textContent = cur.toLocaleString('ko-KR');
+          if (t < 1) requestAnimationFrame(step);
+          else { numEl.dataset.hvCount = String(to); }
+        };
+        requestAnimationFrame(step);
+      });
     }
     function _updateBalanceDisplay() {
       const a = +(body.querySelector('#bfAmount')?.value) || 0;
       const d = +(body.querySelector('#bfDeposit')?.value) || 0;
-      const bal = Math.max(0, a - d);
-      const balEl = body.querySelector('#bfBalance');
-      if (balEl) balEl.textContent = bal.toLocaleString('ko-KR');
+      const bal = Math.max(0, a - d).toLocaleString('ko-KR');
+      body.querySelectorAll('.bf-balance-num').forEach(el => { el.textContent = bal; });
     }
     async function _runItbyLearning(svcName) {
       const box = body.querySelector('#bfItbyBox');
@@ -1889,14 +1917,7 @@
           const raw = inp.value.replace(/[^0-9]/g, '');
           const n = parseInt(raw, 10) || 0;
           if (hidden) hidden.value = n > 0 ? String(n) : '';
-          const isDep = field === 'deposit';
-          valEl.className = 'bf-money-val' + (isDep && n <= 0 ? ' empty' : '');
-          valEl.dataset.moneyEdit = field;
-          if (isDep && n <= 0) {
-            valEl.innerHTML = '<button type="button" class="bf-amount-link">탭해서 입력 ›</button>';
-          } else {
-            valEl.innerHTML = `<span class="bf-num" data-hv-count="${n}">${n.toLocaleString('ko-KR')}</span><span class="bf-money-unit">원</span>`;
-          }
+          _setMoneyDisplay(field, n);  // 시술 카드 + 우측 패널 양쪽 동기화
           _updateBalanceDisplay();
         };
         inp.addEventListener('blur', commit);

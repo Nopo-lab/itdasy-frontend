@@ -25,7 +25,8 @@
   .bf-side-left, .bf-side-right { display:block; }
   .bf-side-right { position:sticky; top:14px; }
   .bf-side-left .bf-card { padding:11px 14px; }
-  .bf-side-left .bf-side-date { font-size:13px; font-weight:500; color:#191F28; letter-spacing:-0.3px; }
+  .bf-side-left .bf-side-label { font-size:11px; color:#8B95A1; font-weight:500; letter-spacing:-0.2px; }
+  .bf-side-left .bf-side-date { font-size:13px; font-weight:500; color:#191F28; letter-spacing:-0.3px; margin-top:2px; }
   .bf-side-left .bf-side-meta { font-size:11px; color:#8B95A1; margin-top:2px; }
 }
 @media (max-width: 1099px) {
@@ -194,6 +195,21 @@
   outline:none; transition: border-color .15s;
 }
 .bf-svc-input:focus { border-color:#191F28; }
+
+/* 시술 카드 — 칩 + 잇비 박스 + 금액 라인 한 카드 안 */
+.bf-service-card { padding:0; }
+.bf-service-card .bf-svc-pad { padding:11px 14px; }
+.bf-service-card .bf-svc-itby { border-top:0.5px solid #F0F1F4; }
+.bf-service-card .bf-svc-itby .bf-itby { margin:0; border-radius:0; padding:10px 14px; background:#FAFAFB; }
+.bf-service-card .bf-amount-rows { border-top:0.5px solid #F0F1F4; padding:11px 14px; }
+
+/* PC: 시술 카드 안 금액 숨김 (우측 패널로 이동) · 모바일: 우측 패널 금액 숨김 */
+@media (min-width: 1100px) {
+  .bf-service-card .bf-amount-rows { display:none; }
+}
+@media (max-width: 1099px) {
+  .bf-side-right .bf-money-card { display:none; }
+}
 
 /* 잇비 분석 박스 안 메모 — "● 메모 · 본문" 한 줄 */
 .bf-itbi-memo {
