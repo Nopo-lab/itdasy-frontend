@@ -99,6 +99,21 @@
     return { useMasks: useMasks, _scale: _scale, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
   }
 
+  // v317 — lashSharp 전용 eyelashBandMask sync 조회. conf≥0.4 일 때만 {mask, scale} 반환.
+  //   eyelashBandMask 는 LAZY 라 첫 호출 시 getCachedSync 가 백그라운드 계산 트리거(1회), 이후 캐시 read.
+  //   conf<0.4 / 미캐시 / PE_MASK_DISABLE → null → 호출자는 전역 unsharp fallback.
+  function getLashMaskSync(img) {
+    if (!img) return null;
+    if (_disabled()) return null;
+    const RP = window.RegionMaskProvider;
+    if (!RP || typeof RP.getCachedSync !== 'function') return null;
+    const r = RP.getCachedSync(img, 'eyelashBandMask');
+    if (!r || !r.mask) return null;
+    const scale = _scaleOf('eyelashBandMask', r.confidence || 0);
+    if (scale <= 0) return null;
+    return { mask: r.mask, scale: scale };
+  }
+
   // 디버그용 — 콘솔에서 확인 가능
   function explain(img) {
     return getMasksForBeauty(img).then(r => {
@@ -111,6 +126,7 @@
   window.MaskApplication = {
     getMasksForBeauty,
     getMasksForBeautySync,
+    getLashMaskSync,
     explain,
     V316_FIRST,
     _scaleOf,

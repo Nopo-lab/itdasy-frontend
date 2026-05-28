@@ -54,6 +54,43 @@
     }
   }
 
+  // v317 — landmark-free fallback. 얼굴 미검출(눈 클로즈업 등)에서 Face Landmarker 가
+  //   null 이면 호출. 중앙 밴드(좌우 8% / 상하 20·22% 제외)에서만 Sobel dark-line 후보 유지.
+  //   얼굴 전체 사진이면 노이즈가 많아 → 항상 sourceTier 3 / confidence 0.3 (<0.4) 로
+  //   자동 적용 안 됨. RegionMaskQA 가 coverage 0 대신 측정값을 보여주기 위한 용도.
+  function _heuristicBandMask(img, sz) {
+    const RF = _rf();
+    if (!RF) return null;
+    const darkEdge = _darkEdgeMask(img, sz);
+    if (!darkEdge) return null;
+    const x0 = Math.floor(sz.w * 0.08), x1 = Math.ceil(sz.w * 0.92);
+    const y0 = Math.floor(sz.h * 0.20), y1 = Math.ceil(sz.h * 0.78);
+    const out = new Float32Array(sz.w * sz.h);
+    for (let y = y0; y < y1; y++) {
+      const row = y * sz.w;
+      for (let x = x0; x < x1; x++) out[row + x] = darkEdge[row + x];
+    }
+    const feathered = RF.gaussianFeather(out, sz.w, sz.h, 2);
+    const coverage = RF.maskCoverage(feathered);
+    if (coverage < 0.0008) return null;
+    return { mask: feathered, coverage: coverage, featherRadius: 2 };
+  }
+
+  function _heuristicResult(img, sz) {
+    const hb = _heuristicBandMask(img, sz);
+    if (!hb) return null;
+    return {
+      mask: hb.mask,
+      confidence: 0.3,        // Provider 가 mask-confidence(tier3) 로 재계산해도 0.3 → 자동적용 X
+      coverage: hb.coverage,
+      featherRadius: hb.featherRadius,
+      sourceTier: 3,          // Object.assign override → tier3 → conf 0.3 (<0.4)
+      _lowConfidence: true,
+      _heuristicBand: true,
+      reason: 'landmark-free central-band Sobel dark-line (QA only, conf<0.4)',
+    };
+  }
+
   function _upperBand(landmarks, regionName, shiftY, sz) {
     const ML = _ml(), RF = _rf();
     if (!ML || !RF) return null;
@@ -69,16 +106,17 @@
   async function eyelashBandMask(img) {
     const ML = _ml(), RF = _rf();
     if (!ML || !RF || !img) return null;
-    let landmarks = null;
-    try { landmarks = await ML.detect(img); }
-    catch (_e) { return null; }
-    if (!landmarks || !landmarks.length) return null;
     const sz = _imgSize(img);
     if (!sz.w || !sz.h) return null;
+    let landmarks = null;
+    try { landmarks = await ML.detect(img); }
+    catch (_e) { landmarks = null; }
+    // v317 — 얼굴 미검출 시 landmark-free fallback (자동적용 안 됨, QA용)
+    if (!landmarks || !landmarks.length) return _heuristicResult(img, sz);
     const shiftY = -sz.h * 0.06;
     const bandL = _upperBand(landmarks, 'leftEye', shiftY, sz);
     const bandR = _upperBand(landmarks, 'rightEye', shiftY, sz);
-    if (!bandL && !bandR) return null;
+    if (!bandL && !bandR) return _heuristicResult(img, sz);
     let band = new Float32Array(sz.w * sz.h);
     if (bandL) band = RF.unionMask(band, bandL);
     if (bandR) band = RF.unionMask(band, bandR);

@@ -296,6 +296,15 @@
       if (MA && typeof MA.getMasksForBeautySync === 'function' && img) {
         regionMasks = MA.getMasksForBeautySync(img);
       }
+      // v317 — 속눈썹: lashSharp 사용 시에만 eyelashBandMask 페치 (conf≥0.4면 밴드만 샤픈, 아니면 전역 unsharp)
+      if ((b.lashSharp || 0) > 10 && MA && typeof MA.getLashMaskSync === 'function' && img) {
+        const lash = MA.getLashMaskSync(img);
+        if (lash) {
+          if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
+          regionMasks.lashMask = lash.mask;
+          regionMasks.lashScale = lash.scale;
+        }
+      }
     } catch (_e) { regionMasks = null; }
     engine.apply(ctx, w, h, b, skinSmoothed, regionMasks);
   }

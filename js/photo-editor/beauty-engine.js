@@ -242,10 +242,52 @@
     if (c.armK > 0 && p.skinW > 0.10 && p.lum0 < 140) _add(d, i, 16 * c.armK * p.skinW, 14 * c.armK * p.skinW, 10 * c.armK * p.skinW);
   }
 
-  function _applySharpen(ctx, w, h, b) {
+  // v317 — 영역 한정 unsharp (lashSharp 용). mask>임계 픽셀만 샤픈, 나머지는 원본 유지.
+  //   mask 는 원본(mw×mh) 해상도 → 캔버스(w×h) 좌표 환산 + 경계 clamp (v340 정합과 동일 규칙).
+  function _unsharpMaskRegion(ctx, w, h, strength, mask, scale, mw, mh) {
+    try {
+      strength = Math.min(Math.max(strength || 0, 0), 0.6);
+      const src = ctx.getImageData(0, 0, w, h);
+      const blur = _boxBlur(src, w, h, 1);
+      const out = ctx.createImageData(w, h);
+      const k = 1 + strength * 0.5;
+      const same = (mw === w && mh === h);
+      for (let i = 0, idx = 0; i < src.data.length; i += 4, idx++) {
+        let midx;
+        if (same) midx = idx;
+        else {
+          const x = idx % w, y = (idx / w) | 0;
+          const mx = Math.min(mw - 1, Math.max(0, (x * mw / w) | 0));
+          const my = Math.min(mh - 1, Math.max(0, (y * mh / h) | 0));
+          midx = my * mw + mx;
+        }
+        const mwgt = Math.min(1, (mask[midx] || 0) * (scale || 1));
+        if (mwgt <= 0.01) {
+          out.data[i] = src.data[i]; out.data[i + 1] = src.data[i + 1];
+          out.data[i + 2] = src.data[i + 2]; out.data[i + 3] = src.data[i + 3];
+          continue;
+        }
+        const sr = _clamp(src.data[i] + (src.data[i] - blur.data[i]) * (k - 1));
+        const sg = _clamp(src.data[i + 1] + (src.data[i + 1] - blur.data[i + 1]) * (k - 1));
+        const sb = _clamp(src.data[i + 2] + (src.data[i + 2] - blur.data[i + 2]) * (k - 1));
+        out.data[i] = src.data[i] * (1 - mwgt) + sr * mwgt;
+        out.data[i + 1] = src.data[i + 1] * (1 - mwgt) + sg * mwgt;
+        out.data[i + 2] = src.data[i + 2] * (1 - mwgt) + sb * mwgt;
+        out.data[i + 3] = src.data[i + 3];
+      }
+      ctx.putImageData(out, 0, 0);
+    } catch (_e) { void _e; }
+  }
+
+  function _applySharpen(ctx, w, h, b, regionMasks) {
     if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 150);
     if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 260);
-    if (b.lashSharp > 10) _unsharpMask(ctx, w, h, b.lashSharp / 65);
+    // v317 — lashSharp: eyelashBandMask(conf≥0.4) 있으면 밴드만 샤픈, 아니면 기존 전역 unsharp(회귀안전)
+    if (b.lashSharp > 10) {
+      const lm = regionMasks && regionMasks.lashMask;
+      if (lm) _unsharpMaskRegion(ctx, w, h, b.lashSharp / 65, lm, regionMasks.lashScale || 1, regionMasks.maskW || w, regionMasks.maskH || h);
+      else _unsharpMask(ctx, w, h, b.lashSharp / 65);
+    }
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 80);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 130);
     if (b.browSharp > 10) _unsharpMask(ctx, w, h, b.browSharp / 90);
@@ -277,7 +319,7 @@
       _applyDetail(d, i, p, c);
     }
     ctx.putImageData(data, 0, 0);
-    _applySharpen(ctx, w, h, b);
+    _applySharpen(ctx, w, h, b, regionMasks);
   }
 
   window.PhotoEditorBeautyEngine = { apply };
