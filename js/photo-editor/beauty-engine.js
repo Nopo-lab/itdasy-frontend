@@ -74,7 +74,11 @@
     };
   }
 
-  function _pixel(d, i, w, h, SmartMask) {
+  // v316 — regionMasks 인자 추가 (있으면 픽셀 좌표 lookup, 없으면 기존 v312 휴리스틱).
+  //   regionMasks = { useMasks: {skinMask, hairMask, lipMask, eyeMask, hairBoundaryMask}, _scale: {key→0.6|1.0} }
+  //   useMasks 에 없는 key 는 자동으로 v312 휴리스틱 fallback.
+  //   nailW 는 v316 1차에서 제외 — 항상 기존 휴리스틱.
+  function _pixel(d, i, w, h, SmartMask, regionMasks) {
     const r = d[i], g = d[i + 1], bl = d[i + 2];
     const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
     const maxCh0 = Math.max(r, g, bl), minCh0 = Math.min(r, g, bl);
@@ -91,12 +95,24 @@
       || (upperHalf && lum0 < 160 && hairSat0 < 100)
     );
     const mask = SmartMask && SmartMask.classify ? SmartMask.classify({ r, g, b: bl, lum: lum0, maxCh: maxCh0, minCh: minCh0, x, y, w, h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
+
+    // v316 — RegionMask 우선 lookup. 미적용 키는 v312 휴리스틱 fallback.
+    const idx = y * w + x;
+    const useM = regionMasks && regionMasks.useMasks;
+    const sc = regionMasks && regionMasks._scale;
+    function _rm(key, fallback) {
+      if (useM && useM[key]) return (useM[key][idx] || 0) * (sc[key] || 1);
+      return fallback;
+    }
+
     return {
       r, g, bl, lum0,
-      skinW: mask ? mask.skin : (isSkin ? 1 : 0),
-      hairW: mask ? mask.hair : (hairLike ? 1 : 0),
-      eyeW: mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0),
-      nailW: mask ? mask.nail : (lum0 > 140 && lum0 < 210 && subjectW > 0.4 ? 0.15 : 0),
+      skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
+      hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
+      eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
+      lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
+      boundaryW: _rm('hairBoundaryMask', 0),             // 없으면 0 → hairEnd 는 hairW fallback
+      nailW: mask ? mask.nail : (lum0 > 140 && lum0 < 210 && subjectW > 0.4 ? 0.15 : 0), // v316 제외 — 기존 휴리스틱
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }
@@ -178,7 +194,11 @@
       _add(d, i, 22 * c.hairK * specBoost * p.hairW, 28 * c.hairK * specBoost * p.hairW, 12 * c.hairK * specBoost * p.hairW);
     }
     if (c.hairVolK > 0) _contrastFromLum(d, i, p.lum0, 1 + 0.65 * c.hairVolK * p.hairW, (p.lum0 > 100 ? 30 * c.hairVolK : -18 * c.hairVolK) * p.hairW);
-    if (c.hairEndK > 0 && blurD) _mixBlur(d, i, blurD, 0.6 * c.hairEndK * p.hairW, p.lum0 < 90 ? 8 * c.hairEndK * p.hairW : 0);
+    // v316 — hairEndK 는 boundary mask 있으면 우선 사용 (경계만 끝정리), 없으면 hairW
+    if (c.hairEndK > 0 && blurD) {
+      const ew = (p.boundaryW || 0) > 0.10 ? p.boundaryW : p.hairW;
+      _mixBlur(d, i, blurD, 0.6 * c.hairEndK * ew, p.lum0 < 90 ? 8 * c.hairEndK * ew : 0);
+    }
     if (c.hairColK !== 0 && p.lum0 < 175) _add(d, i, 18 * c.hairColK * p.hairW, 6 * c.hairColK * p.hairW, -18 * c.hairColK * p.hairW);
     if (c.hairPopK > 0) _applyHairPop(d, i, p, c);
     if (c.scalpK > 0 && p.lum0 < 115 && Math.abs(p.r - p.g) < 38 && Math.abs(p.g - p.bl) < 38) {
@@ -196,8 +216,13 @@
   }
 
   function _applyDetail(d, i, p, c) {
+    // nail — v316 미연결, 기존 동작 유지 (nailW 는 SmartMask 또는 휴리스틱)
     if (c.nailK > 0 && p.nailW > 0.10 && p.lum0 > 160) _add(d, i, 18 * c.nailK * p.nailW, 18 * c.nailK * p.nailW, 18 * c.nailK * p.nailW);
-    if (c.lipK > 0 && p.r > p.g + 10 && p.r > p.bl + 10 && p.lum0 > 50 && p.lum0 < 210) _add(d, i, 28 * c.lipK, -6 * c.lipK, -6 * c.lipK);
+    // lip — v316 lipMask 연결. mask 있으면 lipW 기반 가중, 없으면 lipW=1 + 색 기반 검출 (v312 동일)
+    if (c.lipK > 0 && p.r > p.g + 10 && p.r > p.bl + 10 && p.lum0 > 50 && p.lum0 < 210) {
+      const lw = p.lipW != null ? p.lipW : 1;
+      _add(d, i, 28 * c.lipK * lw, -6 * c.lipK * lw, -6 * c.lipK * lw);
+    }
     if (c.eyeK > 0 && p.eyeW > 0.10 && p.lum0 < 100) {
       d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.9 * c.eyeK * p.eyeW);
       d[i + 1] = _clamp(d[i + 1] + (p.g - p.lum0) * 0.9 * c.eyeK * p.eyeW);
@@ -216,7 +241,8 @@
     if (b.nailShape > 10) _unsharpMask(ctx, w, h, b.nailShape / 100);
   }
 
-  function apply(ctx, w, h, b, skinSmoothed) {
+  // v316 — regionMasks 인자 추가. null/undefined 면 기존 v312 휴리스틱 동작 (완전 동등).
+  function apply(ctx, w, h, b, skinSmoothed, regionMasks) {
     if (!b || !_hasAny(b)) return;
     let data;
     try { data = ctx.getImageData(0, 0, w, h); } catch (e) {
@@ -232,7 +258,7 @@
       try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
     for (let i = 0; i < d.length; i += 4) {
-      const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask);
+      const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask, regionMasks);
       _applyEye(d, i, p, c);
       _applySkinTone(d, i, p, c);
       _applySkinTexture(d, i, p, c, blurD);

@@ -442,6 +442,17 @@
     return _buildStatsArray(map);
   }
 
+  // v316 — sync 캐시 lookup. 미캐시면 백그라운드 trigger (fire-and-forget).
+  function getCachedSync(img, regionType) {
+    if (!img) return null;
+    const cache = _cache.get(img);
+    const cached = cache && cache.get(regionType);
+    if (cached) return cached;
+    // 백그라운드 계산 트리거 — 다음 redraw 에 캐시 hit 기대
+    try { getMask(img, regionType).catch(() => {}); } catch (_e) { /* ignore */ }
+    return null;
+  }
+
   function invalidate(img) {
     if (!img) return;
     _cache.delete(img);
@@ -463,6 +474,7 @@
   window.RegionMaskProvider = {
     precompute,
     getMask,
+    getCachedSync,
     getStats,
     invalidate,
     setDebug,

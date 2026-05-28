@@ -284,7 +284,18 @@
         } catch (_e) { void _e; }
       }
     }
-    engine.apply(ctx, w, h, b, skinSmoothed);
+    // v316 — RegionMask 우선 (sync 캐시 hit 만). 미캐시/비활성/conf<0.4 → null → v312 휴리스틱 fallback.
+    let regionMasks = null;
+    try {
+      const MA = window.MaskApplication;
+      const PE = window.PhotoEditor;
+      const st = PE && PE._internal && PE._internal.getState ? PE._internal.getState() : null;
+      const img = st && st.originalImg;
+      if (MA && typeof MA.getMasksForBeautySync === 'function' && img) {
+        regionMasks = MA.getMasksForBeautySync(img);
+      }
+    } catch (_e) { regionMasks = null; }
+    engine.apply(ctx, w, h, b, skinSmoothed, regionMasks);
   }
 
   function _skinMaskCanvas(canvas) {
