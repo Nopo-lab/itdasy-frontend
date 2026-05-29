@@ -76,6 +76,18 @@
     });
   }
 
+  // [T-007 2026-05-29] 현재 업종에 맞는 템플릿(id 에 업종 키워드 포함)을 앞으로 정렬.
+  //   예: 네일샵이면 price-nail / ba-nail-* 이 같은 카테고리 내에서 먼저 노출.
+  function _shopKeyword() {
+    try {
+      const norm = (typeof window.itdasyNormalizeShopType === 'function')
+        ? window.itdasyNormalizeShopType(localStorage.getItem('shop_type') || '') : null;
+      const cat = norm && norm.cat;
+      const map = { nail: 'nail', hair: 'hair', scalp: 'hair', lash: 'lash', skin: 'skin', makeup: 'makeup', wax: 'wax' };
+      return (cat && map[cat]) || '';
+    } catch (_e) { return ''; }
+  }
+
   function _renderGrid() {
     const grid = _sheetEl.querySelector('#tpv2Grid');
     const bk = _getBrandKit();
@@ -84,6 +96,18 @@
       if (!_searchTerm) return true;
       return (t.label + ' ' + (t.prefillText || '')).toLowerCase().includes(_searchTerm.toLowerCase());
     });
+    // 업종 매칭 우선 (안정 정렬 — 동순위는 원래 순서 유지).
+    const kw = _shopKeyword();
+    if (kw) {
+      filtered
+        .map((t, i) => [t, i])
+        .sort((a, b) => {
+          const am = a[0].id.includes(kw) ? 0 : 1;
+          const bm = b[0].id.includes(kw) ? 0 : 1;
+          return am - bm || a[1] - b[1];
+        })
+        .forEach((pair, idx) => { filtered[idx] = pair[0]; });
+    }
     if (!filtered.length) { grid.innerHTML = `<div style="grid-column:1/-1;color:#999;padding:24px;text-align:center;">검색 결과 없음</div>`; return; }
     grid.innerHTML = filtered.map(t => {
       const color = _accentColor(t.accent, bk);

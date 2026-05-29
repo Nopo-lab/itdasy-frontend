@@ -46,6 +46,13 @@
     catch (_e) { return null; }
   }
 
+  function _currentCanvasUrl() {
+    const cv = document.getElementById('peCanvas');
+    if (!cv || !cv.width || !cv.height) return '';
+    try { return cv.toDataURL('image/jpeg', 0.92); }
+    catch (_e) { return ''; }
+  }
+
   function _recommendMessage(payload) {
     const target = payload.service_name ? `${payload.service_name} 사진` : '이 사진';
     return `${target}은 먼저 자연스럽게 밝기와 선명도를 맞춘 뒤, 필요하면 템플릿이나 캡션까지 이어가면 좋아요.`;
@@ -76,10 +83,41 @@
       _openEditor(Object.assign({ preset: 'instagram_feed' }, _payload(action)), 'export');
       return { message: '저장·내보내기 화면을 열었어요' };
     });
-    _registerOne(api, 'attach_photo_to_customer', async _action => {
+    _registerOne(api, 'attach_photo_to_customer', async action => {
+      // [T-003/T-004 2026-05-29] 실제 시술기록 연결(로컬+백엔드). 모듈 없으면 기존 우회.
+      if (window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function') {
+        const p = _payload(action);
+        const r = await window.TreatmentLink.attachPhotoToCustomer({
+          dataUrl: _currentCanvasUrl(),
+          serviceName: p.service_name || '',
+          price: p.price || 0,
+        });
+        if (r.cancelled) return { message: '고객 선택을 취소했어요' };
+        const nm = (r.customer && r.customer.name) || '고객';
+        return { message: r.ok ? `${nm}님 기록에 사진을 연결했어요` : '사진 연결에 실패했어요. 다시 시도해주세요' };
+      }
       const picked = await _pickCustomer();
       if (picked && typeof window.openFinishTab === 'function') window.openFinishTab();
       return { message: picked ? `${picked.name || '고객'}님 사진 연결 화면을 열었어요` : '고객 선택을 취소했어요' };
+    });
+    // [T-004 2026-05-29] 시술 기록 생성 — 백엔드 /treatments 실결선(graceful).
+    //   디버그 전용 mock(app-assistant-mocks.js)은 운영서 미등록 → 항상 로드되는 여기서 실핸들러 제공.
+    _registerOne(api, 'create_treatment_record', async action => {
+      if (!(window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function')) {
+        return { message: '시술 기록 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요' };
+      }
+      const p = _payload(action);
+      const customer = (p.customer_id != null) ? { id: p.customer_id, name: p.customer_name || '' } : null;
+      const r = await window.TreatmentLink.attachPhotoToCustomer({
+        customer: customer,
+        dataUrl: _currentCanvasUrl(),
+        serviceName: p.service_name || '',
+        price: p.price || 0,
+        memo: p.memo || '',
+      });
+      if (r.cancelled) return { message: '고객 선택을 취소했어요' };
+      const nm = (r.customer && r.customer.name) || '고객';
+      return { message: r.ok ? `${nm}님 시술 기록을 저장했어요` : '시술 기록 저장에 실패했어요. 서버 연결을 확인해 주세요' };
     });
     _registerOne(api, 'analyze_photo_and_recommend_edit', async action => ({ message: _recommendMessage(_payload(action)) }));
     _registerOne(api, 'prepare_instagram_post_bundle', async action => {

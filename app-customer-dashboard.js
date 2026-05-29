@@ -185,6 +185,47 @@
     `;
   }
 
+  // [T-005 2026-05-29] 시술 사진 타임라인 — 비동기 채움(로컬 갤러리 + 백엔드 recent_photos).
+  //   _buildDetailHTMLv4 는 동기라 placeholder 만 두고, mount 후 _fillPhotoTimeline 이 채운다.
+  function _photoThumb(src, label) {
+    if (!src) return '';
+    return `<div style="position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:var(--surface-2,#f2f2f2);"><img src="${src}" alt="${_esc(label || '시술 사진')}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" /></div>`;
+  }
+  function _renderPhotoSection(customerId) {
+    const cid = _esc(String(customerId == null ? '' : customerId));
+    return `<div class="d-sec" data-cv4-photos-head hidden style="margin-top:6px;"><span>시술 사진</span></div>
+      <div id="cv4-photos-${cid}" data-cv4-photos style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 4px 4px;"></div>`;
+  }
+  async function _fillPhotoTimeline(scopeEl, d) {
+    if (!scopeEl) return;
+    const wrap = scopeEl.querySelector('[data-cv4-photos]');
+    if (!wrap) return;
+    const cid = (d && d.customer && d.customer.id != null) ? d.customer.id : null;
+    const items = [];
+    // 1) 로컬 갤러리 (오프라인 동작, 1차 소스)
+    try {
+      if (cid != null && typeof window.loadGalleryItemsByCustomer === 'function') {
+        const local = await window.loadGalleryItemsByCustomer(cid);
+        (local || []).forEach(it => {
+          (it.photos || []).forEach(p => { if (p && p.dataUrl) items.push({ src: p.dataUrl, label: it.label }); });
+        });
+      }
+    } catch (_e) { void 0; }
+    // 2) 백엔드 recent_photos (있으면 병합)
+    try {
+      const rp = (d && (d.recent_photos || (d.stats && d.stats.recent_photos))) || [];
+      (rp || []).forEach(p => {
+        const src = typeof p === 'string' ? p : (p && (p.url || p.photo_url || p.src) || '');
+        const label = (p && typeof p === 'object') ? (p.service_name || '') : '';
+        if (src) items.push({ src, label });
+      });
+    } catch (_e) { void 0; }
+    if (!items.length) return; // 빈 상태 — 섹션 숨김 유지
+    const head = scopeEl.querySelector('[data-cv4-photos-head]');
+    if (head) head.hidden = false;
+    wrap.innerHTML = items.slice(0, 12).map(it => _photoThumb(it.src, it.label)).join('');
+  }
+
   function _buildDetailHTMLv4(d) {
     const m = _detailModel(d);
     const top = _topService(m.revenues);
@@ -196,6 +237,7 @@
         ${_renderAiNudge(m.nextDate)}
         ${_renderDetailCards(m)}
         ${pref}
+        ${_renderPhotoSection(m.c.id)}
         ${_renderRevenueSection(m.revenues)}
         ${memo}
       </div>
@@ -263,12 +305,15 @@
       const d = await _apiGet('/customers/' + customerId + '/dashboard');
       mountEl.innerHTML = _buildDetailHTMLv4(d);
       _bindDetailV4(mountEl, d);
+      _fillPhotoTimeline(mountEl, d);
     } catch (e) {
       // 폴백 — /customers/{id} 만 받아서 최소 정보 표시
       try {
         const cust = await _apiGet('/customers/' + customerId);
-        mountEl.innerHTML = _buildDetailHTMLv4({ customer: cust, stats: {}, recent_revenues: [] });
-        _bindDetailV4(mountEl, { customer: cust, stats: {}, recent_revenues: [] });
+        const fb = { customer: cust, stats: {}, recent_revenues: [] };
+        mountEl.innerHTML = _buildDetailHTMLv4(fb);
+        _bindDetailV4(mountEl, fb);
+        _fillPhotoTimeline(mountEl, fb);
         if (typeof window.showToast === 'function') window.showToast('기본 정보로 표시 중이에요');
       } catch (_) {
         mountEl.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--danger);font-size:13px;">불러오기 실패<br><span style="color:#888;font-size:11px;">${_esc(e?.message || '네트워크 오류')}</span></div>`;

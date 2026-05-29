@@ -477,11 +477,83 @@
     return { matched: true, kind: 'card', action, customer, booking: b };
   }
 
+  // ─── [T-008] 예약 생성 자연어 ("{이름} 예약 잡아줘") ────────
+  //   안전 설계: 자연어 시간 파싱은 오인 위험이 커서 하지 않고, 고객을 해석해
+  //   예약 화면을 고객까지 채워서 연다(대시보드 "예약 잡기"와 동일 _pendingBookingCustomer 패턴).
+  const _CREATE_VERB = /예약\s*(을|를)?\s*(잡아\s*줘|잡아주|잡아|잡아라|잡|추가|등록|넣어\s*줘|넣어|만들어\s*줘|만들어)/;
+  const _CREATE_STOPS = new Set(['잡아', '잡아줘', '추가', '등록', '넣어', '만들어', '손님', '고객', '님', '이', '그', '저', '새']);
+
+  function _extractCreateTarget(q) {
+    const t = _trim(q);
+    if (_CANCEL_VERB.test(t)) return null;   // 취소 의도가 우선
+    if (!_CREATE_VERB.test(t)) return null;
+    if (!/예약/.test(t)) return null;
+    const stripped = _stripDateTokens(t);
+    const candidates = [];
+    const re = /([가-힣]{2,5})/g;
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      const w = m[1];
+      if (_NAME_STOP_WORDS.has(w) || _CREATE_STOPS.has(w)) continue;
+      let blocked = false;
+      _NAME_STOP_WORDS.forEach((s) => { if (w.includes(s)) blocked = true; });
+      _CREATE_STOPS.forEach((s) => { if (s.length >= 2 && w.includes(s)) blocked = true; });
+      if (blocked) continue;
+      candidates.push(w);
+    }
+    // 이름 없으면("이 손님 예약 잡아줘") name='' → 고객 미지정으로 예약 화면 오픈.
+    return { name: candidates.length ? candidates[candidates.length - 1] : '', dateHint: _extractDateHint(t) };
+  }
+
+  // 결과: { matched, kind:'open_booking', customer:{id,name}|null, text } 또는 { kind:'message', text }
+  async function tryCreateBooking(text) {
+    if (_disabled()) return null;
+    const target = _extractCreateTarget(text);
+    if (!target) return null;
+
+    if (!target.name) {
+      return { matched: true, kind: 'open_booking', customer: null, text: '예약 화면을 열었어요. 고객과 시간을 골라주세요.' };
+    }
+
+    let customers;
+    try {
+      const r = await _fetchJson('/customers?limit=500');
+      customers = (r && r.items) || [];
+    } catch (_e) {
+      void _e;
+      return { matched: true, kind: 'message', text: '⚠️ 고객 정보 조회 실패. 잠시 후 다시.' };
+    }
+
+    const scored = customers
+      .map((c) => ({ c, score: _nameMatches(target.name, c.name || '') }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (scored.length === 0) {
+      return { matched: true, kind: 'open_booking', customer: null,
+        text: `🔍 ${target.name}님을 못 찾았어요. 예약 화면을 열었으니 새 고객으로 추가하거나 다른 고객을 선택해 주세요.` };
+    }
+
+    const topScore = scored[0].score;
+    const tied = scored.filter((x) => x.score === topScore);
+    if (tied.length > 1 && topScore < 100) {
+      const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
+      return { matched: true, kind: 'message',
+        text: `🔍 비슷한 이름 ${tied.length}명 있어요. 정확한 이름으로 다시 알려주세요:\n${lines.join('\n')}` };
+    }
+
+    const customer = tied[0].c;
+    _bumpStats('create_booking');
+    return { matched: true, kind: 'open_booking', customer: { id: customer.id, name: customer.name },
+      text: `${customer.name}님으로 예약 화면을 열었어요. 시간을 골라주세요.` };
+  }
+
   // ─── public API ─────────────────────────────────────────
   window.AssistantIntent = {
     classifyObvious,
     findAsyncRule,
     execAsyncRule,
+    tryCreateBooking,
     tryCancelBooking,
     // 디버깅용 — 현재 통계 조회
     getStats: () => ({ ...window[STATS_KEY], byType: { ...window[STATS_KEY].byType } }),

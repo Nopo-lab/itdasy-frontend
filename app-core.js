@@ -466,10 +466,14 @@ function _obFinish() {
   updateHeaderProfile(null, null, null);
   showToast(`${name} 시작해요`, 'success');
 
+  // [T-001 2026-05-29] shop_type 도 서버 저장 — 교차기기/캐시삭제 시 업종 유실 방지.
+  //   백엔드 ShopSettingsUpdate 가 shop_type 수용(schemas/shop.py). GET 시 다시 읽어옴(checkOnboarding).
+  const _obBody = { shop_name: name };
+  if (obShopType) _obBody.shop_type = obShopType;
   apiFetch('/shop/settings', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...authHeader() },
-    body: JSON.stringify({ shop_name: name })
+    body: JSON.stringify(_obBody)
   }).then(res => { if (!res.ok) showToast('매장 정보 저장에 실패했어요. 설정에서 다시 시도해주세요'); })
     .catch(() => showToast('매장 정보 저장에 실패했어요. 설정에서 다시 시도해주세요'));
 }
@@ -1874,7 +1878,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260529-v348-nail-gloss';
+window.APP_BUILD = '20260529-v351-photo-customer-link';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

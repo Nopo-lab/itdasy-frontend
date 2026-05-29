@@ -2390,6 +2390,30 @@
     }
   }
 
+  // [T-008 2026-05-29] "{이름} 예약 잡아줘" → 고객 해석 후 예약 화면을 고객까지 채워 오픈.
+  async function _tryCreateBookingShortcut(input, q) {
+    try {
+      if (!window.AssistantIntent || typeof window.AssistantIntent.tryCreateBooking !== 'function') return false;
+      const result = await window.AssistantIntent.tryCreateBooking(q);
+      if (!result || !result.matched) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'assistant', text: result.text });
+      _renderHistory();
+      if (result.kind === 'open_booking') {
+        window._pendingBookingCustomer = (result.customer && result.customer.id != null)
+          ? { id: result.customer.id, name: result.customer.name } : null;
+        setTimeout(() => {
+          if (typeof window.openCalendarView === 'function') window.openCalendarView();
+          else if (typeof window.openBooking === 'function') window.openBooking();
+        }, 80);
+      }
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   async function _tryAsyncIntentRule(input, q) {
     try {
       const rule = window.AssistantIntent?.findAsyncRule && window.AssistantIntent.findAsyncRule(q);
@@ -2615,6 +2639,7 @@
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
     if (await _tryCancelBookingShortcut(input, q)) return true;
+    if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryAsyncIntentRule(input, q)) return true;
     return _tryKeywordShortcut(input, q);
   }

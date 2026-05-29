@@ -4,6 +4,17 @@
 
   if (window.PhotoEditorTemplateOverlay) return;
 
+  // [T-006] 가격표 메뉴 — 샵의 실제 서비스가 있으면 그것, 없으면 전달된 업종 기본값.
+  function _menu(fallback) {
+    try {
+      if (window.ItdasyPriceMenu && typeof window.ItdasyPriceMenu.shopMenu === 'function') {
+        const real = window.ItdasyPriceMenu.shopMenu();
+        if (real && real.length) return real;
+      }
+    } catch (_e) { void 0; }
+    return fallback;
+  }
+
   function draw(ctx, dw, dh, t, brand) {
     const accent = brand.bg || '#7b61ff';
     const shopName = brand.shopName || '잇데이 스튜디오';
@@ -30,11 +41,12 @@
       'event-newcomer': () => _drawEventNewcomer(ctx, dw, dh, head, accent, shopName),
       'event-deadline': () => _drawEventDeadline(ctx, dw, dh, head, accent, shopName),
       'event-gift': () => _drawEventGift(ctx, dw, dh, head, accent, shopName),
-      'price-hair': () => _drawPriceTable(ctx, dw, dh, '헤어 메뉴', accent, shopName, ['컷 / 45,000원','펌 / 180,000원','컬러 / 220,000원','드라이 / 25,000원']),
-      'price-nail': () => _drawPriceTable(ctx, dw, dh, '네일 메뉴', accent, shopName, ['젤네일 / 50,000원','속눈썹 / 60,000원','케어 / 25,000원','연장 / 70,000원']),
-      'price-lash': () => _drawPriceTable(ctx, dw, dh, '속눈썹 메뉴', accent, shopName, ['풀세트 / 80,000원','리터치 / 45,000원','클렌징 / 15,000원','제거 / 10,000원']),
-      'price-makeup': () => _drawPriceTable(ctx, dw, dh, '메이크업 메뉴', accent, shopName, ['데일리 / 60,000원','파티 / 90,000원','웨딩 / 200,000원','촬영 / 120,000원']),
-      'price-wax': () => _drawPriceTable(ctx, dw, dh, '왁싱 메뉴', accent, shopName, ['브라질리언 / 60,000원','다리 / 50,000원','얼굴 / 25,000원','겨드랑이 / 20,000원']),
+      // [T-006] 샵의 실제 서비스 우선(_menu), 없으면 업종 기본 메뉴 폴백.
+      'price-hair': () => _drawPriceTable(ctx, dw, dh, '헤어 메뉴', accent, shopName, _menu(['컷 / 45,000원','펌 / 180,000원','컬러 / 220,000원','드라이 / 25,000원'])),
+      'price-nail': () => _drawPriceTable(ctx, dw, dh, '네일 메뉴', accent, shopName, _menu(['젤네일 / 50,000원','속눈썹 / 60,000원','케어 / 25,000원','연장 / 70,000원'])),
+      'price-lash': () => _drawPriceTable(ctx, dw, dh, '속눈썹 메뉴', accent, shopName, _menu(['풀세트 / 80,000원','리터치 / 45,000원','클렌징 / 15,000원','제거 / 10,000원'])),
+      'price-makeup': () => _drawPriceTable(ctx, dw, dh, '메이크업 메뉴', accent, shopName, _menu(['데일리 / 60,000원','파티 / 90,000원','웨딩 / 200,000원','촬영 / 120,000원'])),
+      'price-wax': () => _drawPriceTable(ctx, dw, dh, '왁싱 메뉴', accent, shopName, _menu(['브라질리언 / 60,000원','다리 / 50,000원','얼굴 / 25,000원','겨드랑이 / 20,000원'])),
       'ba-cream': () => _drawBACream(ctx, dw, dh, head, accent, shopName),
       'ba-sage': () => _drawBASage(ctx, dw, dh, head, accent, shopName),
       'ba-dark': () => _drawBADark(ctx, dw, dh, head, accent, shopName),

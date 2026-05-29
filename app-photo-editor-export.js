@@ -140,8 +140,22 @@
     if (act === 'close') return modal.remove();
     modal.remove();
     if (act === 'caption') _openCaption(helpers);
-    else if (act === 'attach') _toast(helpers, '편집본을 고객 상세의 사진에 첨부하려면 시술 기록 화면을 열어주세요');
+    else if (act === 'attach') _attachToCustomer(dataUrl, state, helpers);
     else if (act === 'instagram') _openInstagram(dataUrl, state, helpers);
+  }
+
+  // [T-003 2026-05-29] 편집본을 고객 시술기록에 연결 (로컬 갤러리 + 백엔드 graceful).
+  function _attachToCustomer(dataUrl, state, helpers) {
+    if (window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function') {
+      window.TreatmentLink.attachPhotoToCustomer({
+        dataUrl: dataUrl,
+        serviceName: (state && state.serviceName) || '',
+        price: (state && state.price) || 0,
+        customerId: (state && state.customerId) || null,
+      });
+    } else {
+      _toast(helpers, '고객 연결 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요');
+    }
   }
 
   function _openCaption(helpers) {
