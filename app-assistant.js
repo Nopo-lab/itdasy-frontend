@@ -2412,6 +2412,26 @@
     }
   }
 
+  // [T-114] "오늘 브리핑/뭐 해야/샵 상태" → 오늘 운영 우선순위 요약(읽기 전용). 단순 조회는 미감지.
+  async function _tryDailyBriefingShortcut(input, q) {
+    try {
+      if (!window.ItdasyDailyBriefing || !window.ItdasyDailyBriefing.detect(q)) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'loading', text: '' });
+      _renderHistory();
+      let res;
+      try { res = await window.ItdasyDailyBriefing.run(); }
+      catch (_e) { res = null; }
+      _history = _history.filter((m) => m.role !== 'loading');
+      _history.push({ role: 'assistant', text: (res && res.message) || '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   // [T-110] "{고객} 안부/리터치/재방문 문자 초안 써줘" → draft_message 즉시 실행(발송 아님) + 초안 + 복사.
   //   "보내줘" 가 와도 실제 발송 안 함 — 초안만 만들고 확인 안내. draft_message 는 mutation/undo 없음.
   async function _tryDraftMessageShortcut(input, q) {
@@ -2764,6 +2784,7 @@
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
+    if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)
     if (await _tryAsyncIntentRule(input, q)) return true;
     return _tryKeywordShortcut(input, q);
   }
