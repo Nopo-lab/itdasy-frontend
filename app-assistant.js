@@ -2456,10 +2456,28 @@
   }
 
   function _tryKeywordShortcut(input, q) {
+    if (_tryPhotoFlowShortcut(input, q)) return true;   // [T-104] 홍보 풀체인 — 단일 보정/편집기 오픈보다 먼저
     if (_tryPhotoEditorShortcut(input, q)) return true;
     if (_trySimpleOpenShortcut(input, q)) return true;
     if (_tryTabShortcut(input, q)) return true;
     return _tryUtilityShortcut(input, q);
+  }
+
+  // [T-104] "이 사진 홍보용으로 예쁘게" → 업종 보정 적용 + 다음 단계 제안. 미매칭 시 false(기존 경로 유지).
+  function _tryPhotoFlowShortcut(input, q) {
+    try {
+      if (!window.ItdasyPhotoFlow || !window.ItdasyPhotoFlow.detectPhotoFlowIntent(q)) return false;
+      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+      const res = window.ItdasyPhotoFlow.runPromoFlow(q, ctx);
+      if (!res || !res.message) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'assistant', text: res.message });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      return false;
+    }
   }
 
   function _tryPhotoEditorShortcut(input, q) {
