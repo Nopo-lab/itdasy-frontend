@@ -1796,6 +1796,8 @@ function closeNavSheet() {
 
 // 탭 전환
 function showTab(id, btn) {
+  // [T-101] 잇비 컨텍스트용 현재 탭 노출 (context-resolver 가 읽음).
+  try { window.__ITDASY_CURRENT_TAB__ = id; } catch (_e) { void 0; }
   // P3.1 #2: .tab 바깥 요소 잔존 방지
   if (typeof closeSlotPopup === 'function') closeSlotPopup();
   const sg = document.getElementById('_nextSlotGuide');
@@ -1887,7 +1889,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260529-v351-photo-customer-link';
+window.APP_BUILD = '20260530-v352-assistant-context';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

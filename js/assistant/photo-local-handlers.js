@@ -102,6 +102,11 @@
     });
     // [T-004 2026-05-29] 시술 기록 생성 — 백엔드 /treatments 실결선(graceful).
     //   디버그 전용 mock(app-assistant-mocks.js)은 운영서 미등록 → 항상 로드되는 여기서 실핸들러 제공.
+    // [T-101 메모 · 이중경로 주의] create_treatment_record 는 두 경로가 공존한다:
+    //   (1) 이 프론트 로컬 핸들러 → TreatmentLink → 로컬 갤러리 + POST /treatments
+    //   (2) 백엔드 /assistant/execute 의 create_treatment_record (assistant.py, undo 지원)
+    //   현재는 로컬 핸들러가 registerLocalHandler 로 (2)보다 우선 가로채 (1)로만 실행됨.
+    //   정본 경로 결정은 후속 티켓(중복 생성 방지). T-101 에서는 경로 변경 없음.
     _registerOne(api, 'create_treatment_record', async action => {
       if (!(window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function')) {
         return { message: '시술 기록 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요' };

@@ -113,6 +113,8 @@
     } catch (err) {
       console.warn('[photo-export] 저장 알림 실패:', err);
     }
+    // [T-101] 잇비 "방금 작업" 컨텍스트.
+    try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction('사진 저장'); } catch (_e) { void 0; }
   }
 
   function _showNextSteps(cv, state, helpers) {

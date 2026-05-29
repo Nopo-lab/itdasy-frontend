@@ -1369,6 +1369,7 @@
     if (typeof localFn === 'function') {
       const d = await localFn(action) || {};
       _invalidateCachesFor(action.kind);
+      try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction(action.kind); } catch (_e) { void 0; }
       return { kind: action.kind, message: d.message || '✓ 완료', ...d };
     }
     const body = { kind: action.kind, payload: action.payload || {} };
@@ -1394,6 +1395,7 @@
         if (navigator.clipboard) await navigator.clipboard.writeText(d.message_draft);
       } catch (_e) { void _e; }
     }
+    try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction(d.kind || action.kind); } catch (_e) { void 0; }
     return d;
   }
 
@@ -2153,6 +2155,11 @@
     compressed.forEach((blob, index) => fd.append('images', blob, _assistantImageName(blob, index)));
     fd.append('question', question || '');
     if (_sessionId) fd.append('session_id', String(_sessionId));
+    // [T-101] "이 사진" 맥락 — context_hint best-effort (백엔드가 안 읽어도 무해).
+    try {
+      const h = window.ItdasyAssistantContext && window.ItdasyAssistantContext.buildHint();
+      if (h) fd.append('context_hint', h);
+    } catch (_e) { void 0; }
     return fd;
   }
 
@@ -2558,10 +2565,15 @@
   async function _postAssistantAsk(q) {
     const ctrl = new AbortController();
     _inflightCtrl = ctrl;
+    // [T-101] 현재 상황(화면/고객/사진/업종/최근작업)을 context_hint 로 동봉 →
+    //   백엔드가 LLM 프롬프트 [힌트] 블록에 주입(assistant.py:2956). 실패해도 ask 는 정상.
+    let _hint;
+    try { _hint = window.ItdasyAssistantContext && window.ItdasyAssistantContext.buildHint(); }
+    catch (_e) { _hint = undefined; }
     const res = await apiFetch('/assistant/ask', {
       method: 'POST',
       headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, session_id: _sessionId || undefined }),
+      body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined }),
       signal: ctrl.signal,
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);

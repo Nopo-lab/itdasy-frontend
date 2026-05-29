@@ -74,6 +74,8 @@
       window.dispatchEvent(new CustomEvent('itdasy:treatments:changed', { detail: { customer_id: cust.id } }));
     } catch (_e) { void 0; }
     const name = cust.name || '고객';
+    // [T-101] 잇비 "방금 작업" 컨텍스트.
+    try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction('사진 고객연결'); } catch (_e) { void 0; }
     if (local || remote.ok) _toast(`${name}님 기록에 사진을 연결했어요`, 'success');
     else _toast(`${name}님을 선택했지만 저장에 실패했어요`, 'error');
     return { ok: !!(local || remote.ok), customer: cust, local: !!local, remote: remote.ok };

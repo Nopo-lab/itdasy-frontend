@@ -306,6 +306,11 @@
       mountEl.innerHTML = _buildDetailHTMLv4(d);
       _bindDetailV4(mountEl, d);
       _fillPhotoTimeline(mountEl, d);
+      // [T-101] 잇비 "이 손님" 컨텍스트에 이름 채움 (UI 에 표시된 이름만).
+      try {
+        const _nm = (d && d.customer && d.customer.name) || '';
+        window.__ITDASY_CURRENT_CUSTOMER__ = { id: customerId, name: _nm };
+      } catch (_e) { void 0; }
     } catch (e) {
       // 폴백 — /customers/{id} 만 받아서 최소 정보 표시
       try {
@@ -324,6 +329,8 @@
   window.openCustomerDashboard = async function (id) {
     if (!id) return;
     _currentCustomerId = id;
+    // [T-101] 잇비 "이 손님" 컨텍스트 — 이름은 detail 로드 후 채움.
+    try { window.__ITDASY_CURRENT_CUSTOMER__ = { id: id, name: '' }; } catch (_e) { void 0; }
     _ensureSheet();
     const sheet = document.getElementById('customerDashSheet');
     sheet.style.display = 'flex';
@@ -350,6 +357,8 @@
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
     _currentCustomerId = null;
+    // [T-101] "이 손님" 컨텍스트 해제.
+    try { window.__ITDASY_CURRENT_CUSTOMER__ = null; } catch (_e) { void 0; }
   };
 
   function _customerEditHtml(c, isNew) {
