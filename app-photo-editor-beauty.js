@@ -314,6 +314,18 @@
           regionMasks.lashScale = lash.scale;
         }
       }
+      // v350 — 네일: nailGloss/nailShape 사용 시에만 nailMask 페치. 안전 게이트 통과 시에만 useMasks 주입.
+      //   미통과(noHand/저신뢰) → null → beauty-engine 이 v348 휴리스틱 그대로 (보정 안 죽음).
+      if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10) && MA && typeof MA.getNailMaskSync === 'function' && img) {
+        const nail = MA.getNailMaskSync(img);
+        if (nail) {
+          if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
+          if (!regionMasks.useMasks) regionMasks.useMasks = {};
+          if (!regionMasks._scale) regionMasks._scale = {};
+          regionMasks.useMasks.nailMask = nail.mask;
+          regionMasks._scale.nailMask = nail.scale;
+        }
+      }
     } catch (_e) { regionMasks = null; }
     engine.apply(ctx, w, h, b, skinSmoothed, regionMasks);
   }

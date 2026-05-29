@@ -15,6 +15,9 @@
   //   nailGloss 적용 강도 (현재 flat +18 → 광택 타겟 강화)
   const NAIL_GLOSS_BASE = 14;     // 기본 밝힘 (번들거림 억제 위해 절제)
   const NAIL_GLOSS_SPEC = 30;     // 하이라이트 추가 광택 (체감 핵심 — 글리터/반짝임)
+  // v350 — nailMask(ready) 연결 시 휴리스틱 최소 union 배율.
+  //   mask 가 손톱면을 작게/일부만 잡아도 보정이 완전히 사라지지 않게 휴리스틱을 이 배율로 유지.
+  const NAIL_MASK_FALLBACK = 0.45;
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
@@ -83,6 +86,17 @@
     return Math.min(1, base);
   }
 
+  // v350 — nailMask 안전 blend. useM.nailMask(게이트 통과)면 mask primary + 휴리스틱 최소 union,
+  //   미연결이면 휴리스틱 그대로 반환(noHand/저신뢰 → 절대 0 아님 → v348 픽셀단위 동일).
+  function _nailBlend(useM, sc, midx, heuristicW) {
+    if (useM && useM.nailMask) {
+      const mv = (useM.nailMask[midx] || 0) * ((sc && sc.nailMask) || 1);
+      const fb = heuristicW * NAIL_MASK_FALLBACK;
+      return mv > fb ? mv : fb;                                                  // max(mask, 휴리스틱×0.45)
+    }
+    return heuristicW;
+  }
+
   function _coeffs(b) {
     return {
       skinK: (b.skin || 0) / 100, redK: (b.redness || 0) / 100,
@@ -102,7 +116,7 @@
   // v316 — regionMasks 인자 추가 (있으면 픽셀 좌표 lookup, 없으면 기존 v312 휴리스틱).
   //   regionMasks = { useMasks: {skinMask, hairMask, lipMask, eyeMask, hairBoundaryMask}, _scale: {key→0.6|1.0} }
   //   useMasks 에 없는 key 는 자동으로 v312 휴리스틱 fallback.
-  //   nailW 는 v316 1차에서 제외 — 항상 기존 휴리스틱.
+  //   nailW 는 v350 부터 nailMask(ready 게이트 통과) 있으면 _nailBlend, 없으면 v348 휴리스틱.
   function _pixel(d, i, w, h, SmartMask, regionMasks) {
     const r = d[i], g = d[i + 1], bl = d[i + 2];
     const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
@@ -148,7 +162,7 @@
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
       lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
       boundaryW: _rm('hairBoundaryMask', 0),             // 없으면 0 → hairEnd 는 hairW fallback
-      nailW: mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin), // v348 휴리스틱 강화 (nailMask 미연결 유지)
+      nailW: _nailBlend(useM, sc, midx, mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin)), // v350 nailMask 안전 조건부 (미연결 시 v348 휴리스틱 동일)
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }

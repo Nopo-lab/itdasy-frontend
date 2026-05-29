@@ -25,11 +25,36 @@
   // v316 1차 연결 대상
   const V316_FIRST = ['skinMask', 'hairMask', 'lipMask', 'eyeMask', 'hairBoundaryMask'];
 
+  // v350 — nailMask 안전 조건부 게이트 상수 (실사진 부족 시 이 값만 조정).
+  const NAIL_CONF_MIN = 0.7;     // 최소 신뢰도 (Hand Landmarker ready 기준)
+  const NAIL_COV_MIN  = 0.0005;  // 너무 작게 잡힌 마스크 거부 (점 단위 false-positive)
+  const NAIL_COV_MAX  = 0.08;    // 너무 크게 잡힌 마스크 거부 (손 전체로 번진 경우)
+  const NAIL_MASK_SCALE = 1.0;   // ready 일 때 mask 가중 배율
+
   function _disabled() {
     try {
       if (window.localStorage && localStorage.getItem('PE_MASK_DISABLE') === '1') return true;
     } catch (_e) { /* ignore */ }
     return false;
+  }
+
+  // v350 — nailMask 전용 비상 off (PE_MASK_DISABLE 와 독립).
+  function _nailDisabled() {
+    try {
+      if (window.localStorage && localStorage.getItem('PE_NAIL_MASK_DISABLE') === '1') return true;
+    } catch (_e) { /* ignore */ }
+    return false;
+  }
+
+  // v350 — nailMask 안전 게이트. 전부 통과해야 mask 사용, 하나라도 미달이면 false → 휴리스틱 유지.
+  //   noHand/failed/fallback/pendingImplementation 은 status!=='ready' 또는 mask 없음 → 자동 false.
+  function _nailGatePass(r) {
+    if (!r || r.status !== 'ready' || !r.mask) return false;
+    if (r.sourceTier !== 1) return false;                  // Hand Landmarker(Tier1)만 신뢰 — Tier3 휴리스틱 마스크 거부
+    if ((r.confidence || 0) < NAIL_CONF_MIN) return false;
+    const cov = r.coverage || 0;
+    if (cov < NAIL_COV_MIN || cov > NAIL_COV_MAX) return false;
+    return true;
   }
 
   function _scaleOf(maskType, confidence) {
@@ -114,6 +139,19 @@
     return { mask: r.mask, scale: scale };
   }
 
+  // v350 — nailGloss/nailShape 전용 nailMask sync 조회. 게이트 통과 시에만 {mask, scale}.
+  //   getLashMaskSync 미러. noHand/저신뢰/미캐시/PE_NAIL_MASK_DISABLE → null → 호출자는 v348 휴리스틱 유지.
+  //   nailMask 는 LAZY → 첫 호출 시 getCachedSync 가 백그라운드 계산 1회 트리거, 이후 캐시 read.
+  function getNailMaskSync(img) {
+    if (!img) return null;
+    if (_disabled() || _nailDisabled()) return null;
+    const RP = window.RegionMaskProvider;
+    if (!RP || typeof RP.getCachedSync !== 'function') return null;
+    const r = RP.getCachedSync(img, 'nailMask');
+    if (!_nailGatePass(r)) return null;
+    return { mask: r.mask, scale: NAIL_MASK_SCALE, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
   // 디버그용 — 콘솔에서 확인 가능
   function explain(img) {
     return getMasksForBeauty(img).then(r => {
@@ -127,8 +165,10 @@
     getMasksForBeauty,
     getMasksForBeautySync,
     getLashMaskSync,
+    getNailMaskSync,
     explain,
     V316_FIRST,
     _scaleOf,
+    _nailGatePass,
   };
 })();
