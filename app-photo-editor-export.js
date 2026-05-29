@@ -154,6 +154,7 @@
         serviceName: (state && state.serviceName) || '',
         price: (state && state.price) || 0,
         customerId: (state && state.customerId) || null,
+        source: 'photoeditor_attach',
       });
     } else {
       _toast(helpers, '고객 연결 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요');

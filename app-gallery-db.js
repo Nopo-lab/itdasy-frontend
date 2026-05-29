@@ -52,8 +52,24 @@ async function saveToGallery(slot) {
     // [T-002 2026-05-29] 고객 연결 — 없으면 null (IndexedDB 인덱스서 스킵).
     customer_id: slot.customer_id != null ? slot.customer_id : null,
     customer_name: slot.customer_name || '',
+    // [T-107 2026-05-30] 중복 첨부 방지 키 + 출처(assistant/photoeditor_attach/unknown).
+    dedupeKey: slot.dedupeKey || null,
+    source: slot.source || (slot.dedupeKey ? 'unknown' : undefined),
     savedAt: Date.now(),
+    updatedAt: Date.now(),
   };
+  // [T-107] dedupeKey 가 있고 같은 키 항목이 이미 있으면 새로 추가하지 않고 기존 항목 갱신
+  //   → 고객 타임라인 중복 썸네일 방지. 조회 실패해도(아래 catch) 저장은 그대로 진행(사진 보존 우선).
+  if (item.dedupeKey) {
+    try {
+      const existing = await _findGalleryByDedupeKey(item.dedupeKey);
+      if (existing) {
+        item.id = existing.id;                              // 같은 id → put 이 갱신
+        item.savedAt = existing.savedAt || item.savedAt;    // 최초 생성시각 보존
+        item.updatedAt = Date.now();
+      }
+    } catch (_e) { void 0; }
+  }
   return new Promise((resolve, reject) => {
     const tx = db.transaction(_GALLERY_STORE, 'readwrite');
     tx.objectStore(_GALLERY_STORE).put(item);
@@ -79,6 +95,14 @@ async function loadGalleryItemsByCustomer(customerId) {
   const all = await loadGalleryItems();
   const key = String(customerId);
   return all.filter(it => it && it.customer_id != null && String(it.customer_id) === key);
+}
+
+// [T-107 2026-05-30] dedupeKey 로 기존 갤러리 항목 찾기 (중복 첨부 방지). 없으면 null.
+async function _findGalleryByDedupeKey(key) {
+  if (!key) return null;
+  const all = await loadGalleryItems();
+  // 가장 최근(savedAt desc 정렬됨) 것 우선.
+  return all.find(it => it && it.dedupeKey === key) || null;
 }
 
 async function deleteGalleryItem(id) {

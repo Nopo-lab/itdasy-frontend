@@ -7,7 +7,12 @@
    - 백엔드 treatments.photos 는 photo_id/URL 을 기대(base64 불가)하므로, 사진 자체는 로컬 갤러리에 두고
      백엔드엔 메타(고객·날짜·서비스·가격)만 보낸다. 대시보드가 둘을 합쳐 보여준다(T-005).
 
-   진입점: photo-editor 저장 후 "고객 기록에 첨부", 잇비 attach_photo_to_customer / create_treatment_record. */
+   진입점: photo-editor 저장 후 "고객 기록에 첨부", 잇비 attach_photo_to_customer / create_treatment_record.
+
+   [T-107 · 2026-05-30] 정본 단일화: 사진→고객 첨부의 **유일한 정본 경로**는 이 TreatmentLink 다.
+     잇비 create_treatment_record 도 로컬 핸들러가 우선 가로채 여기로 수렴(백엔드 execute 분기는 사장).
+     중복 첨부 방지: opts.source + dedupeKey(고객+사진) → saveToGallery 가 같은 키면 기존 항목 갱신.
+     후속(T-108): backend treatments 병합(cross-device) · 오프라인 재시도 · 첨부 undo. */
 (function () {
   'use strict';
 
@@ -26,6 +31,27 @@
     catch (_e) { return null; }
   }
 
+  // [T-107] 경량 content-hash — 같은 사진 재첨부 dedupe 용. 전체 문자열을 스트라이드 샘플링해
+  //   (길이 + 균등 분포 64샘플) djb2 해시. 편집 결과가 다르면 base64 가 전반적으로 바뀌어 키도 달라짐.
+  function _hashDataUrl(s) {
+    try {
+      if (!s) return '0';
+      const len = s.length;
+      let h = 5381 ^ len;
+      const stride = Math.max(1, Math.floor(len / 64));
+      for (let i = 0; i < len; i += stride) {
+        h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+      }
+      return (h >>> 0).toString(36) + '_' + len.toString(36);
+    } catch (_e) { return String(Date.now()); }
+  }
+
+  // [T-107] dedupeKey: 1순위 customer_id+local_photo_id, 없으면 customer_id+dataUrl 해시.
+  function _dedupeKey(opts, cust) {
+    const base = opts.localPhotoId ? String(opts.localPhotoId) : _hashDataUrl(opts.dataUrl);
+    return 'c' + cust.id + ':' + base;
+  }
+
   // 편집본을 로컬 갤러리에 고객 연결로 저장. dataUrl 없으면 건너뜀.
   async function _saveLocal(opts, cust) {
     if (typeof window.saveToGallery !== 'function' || !opts.dataUrl) return null;
@@ -33,11 +59,14 @@
       return await window.saveToGallery({
         id: _uid(),
         label: opts.serviceName || '시술 사진',
-        photos: [{ id: _uid(), dataUrl: opts.dataUrl, mode: 'after' }],
+        photos: [{ id: opts.localPhotoId || _uid(), dataUrl: opts.dataUrl, mode: 'after' }],
         caption: '',
         hashtags: '',
         customer_id: cust.id,
         customer_name: cust.name || '',
+        // [T-107] 중복 첨부 방지 키 + 출처. saveToGallery 가 같은 dedupeKey 면 기존 항목 갱신.
+        dedupeKey: _dedupeKey(opts, cust),
+        source: opts.source || 'unknown',
       });
     } catch (_e) { return null; }
   }

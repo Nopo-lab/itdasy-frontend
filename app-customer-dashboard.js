@@ -196,30 +196,51 @@
     return `<div class="d-sec" data-cv4-photos-head hidden style="margin-top:6px;"><span>시술 사진</span></div>
       <div id="cv4-photos-${cid}" data-cv4-photos style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 4px 4px;"></div>`;
   }
+  // [T-107] dedupeKey 가 같은 항목은 최신 ts 1개만 남김. 키 없는 항목(구 데이터/백엔드)은 모두 유지.
+  function _dedupePhotoItems(items) {
+    const byKey = new Map();
+    const out = [];
+    (items || []).forEach(it => {
+      if (!it || !it.src) return;
+      if (!it.dedupeKey) { out.push(it); return; }
+      const prev = byKey.get(it.dedupeKey);
+      if (!prev) { byKey.set(it.dedupeKey, it); out.push(it); }
+      else if ((it.ts || 0) > (prev.ts || 0)) {
+        prev.src = it.src; prev.label = it.label; prev.ts = it.ts; // 최신으로 교체(자리 유지)
+      }
+    });
+    return out;
+  }
+
   async function _fillPhotoTimeline(scopeEl, d) {
     if (!scopeEl) return;
     const wrap = scopeEl.querySelector('[data-cv4-photos]');
     if (!wrap) return;
     const cid = (d && d.customer && d.customer.id != null) ? d.customer.id : null;
-    const items = [];
-    // 1) 로컬 갤러리 (오프라인 동작, 1차 소스)
+    let items = [];
+    // 1) 로컬 갤러리 (오프라인 동작, 1차 소스). dedupeKey/시각을 함께 보존(T-107).
     try {
       if (cid != null && typeof window.loadGalleryItemsByCustomer === 'function') {
         const local = await window.loadGalleryItemsByCustomer(cid);
         (local || []).forEach(it => {
-          (it.photos || []).forEach(p => { if (p && p.dataUrl) items.push({ src: p.dataUrl, label: it.label }); });
+          const ts = it.updatedAt || it.savedAt || 0;
+          (it.photos || []).forEach(p => {
+            if (p && p.dataUrl) items.push({ src: p.dataUrl, label: it.label, dedupeKey: it.dedupeKey || null, ts });
+          });
         });
       }
     } catch (_e) { void 0; }
-    // 2) 백엔드 recent_photos (있으면 병합)
+    // 2) 백엔드 recent_photos (있으면 병합). 현재 대시보드 응답엔 없어 보통 빈 값.
     try {
       const rp = (d && (d.recent_photos || (d.stats && d.stats.recent_photos))) || [];
       (rp || []).forEach(p => {
         const src = typeof p === 'string' ? p : (p && (p.url || p.photo_url || p.src) || '');
         const label = (p && typeof p === 'object') ? (p.service_name || '') : '';
-        if (src) items.push({ src, label });
+        if (src) items.push({ src, label, dedupeKey: null, ts: 0 });
       });
     } catch (_e) { void 0; }
+    // [T-107] dedupeKey 기준 중복 제거 — 같은 키는 최신(updatedAt/savedAt) 1개만. 키 없으면 그대로 유지.
+    items = _dedupePhotoItems(items);
     if (!items.length) return; // 빈 상태 — 섹션 숨김 유지
     const head = scopeEl.querySelector('[data-cv4-photos-head]');
     if (head) head.hidden = false;

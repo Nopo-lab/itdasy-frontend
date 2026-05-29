@@ -91,6 +91,7 @@
           dataUrl: _currentCanvasUrl(),
           serviceName: p.service_name || '',
           price: p.price || 0,
+          source: 'assistant',
         });
         if (r.cancelled) return { message: '고객 선택을 취소했어요' };
         const nm = (r.customer && r.customer.name) || '고객';
@@ -119,6 +120,7 @@
         serviceName: p.service_name || '',
         price: p.price || 0,
         memo: p.memo || '',
+        source: 'assistant',
       });
       if (r.cancelled) return { message: '고객 선택을 취소했어요' };
       const nm = (r.customer && r.customer.name) || '고객';
