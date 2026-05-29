@@ -915,11 +915,15 @@
   }
 
   function _renderActionPendingBubble(action, historyIdx, kindBadge) {
+    // [T-109] 마케팅/발송 액션은 실행 전 안전 라벨(실발송 가능/초안/게시준비) 표시.
+    const _safety = (window.ItdasyMarketingSafety && typeof window.ItdasyMarketingSafety.renderSafetyHTML === 'function')
+      ? window.ItdasyMarketingSafety.renderSafetyHTML(action, _esc) : '';
     return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label}</span>
       </div>
+      ${_safety}
       <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(action.confirmation_text || '')}</div>
       <div style="display:flex;gap:6px;">
         <button data-action-edit="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 14)} 수정</button>
