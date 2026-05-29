@@ -25,6 +25,19 @@
       label: '눈썹',
       patch: { browSharp: 34, eyeColor: 12, skin: 12, redness: 10, closeUpDetail: 10 },
     },
+    // 네일 — v348 자연스러운 광택 강화와 어울리게 "고급스럽게 반짝임" 중심.
+    // 손톱 표면 위주로 정리, 피부/붉은기/텍스처는 약하게, 전체 샤픈·과밝기 없음.
+    nail_focus: {
+      label: '네일',
+      patch: { nailGloss: 62, nailShape: 32, handSkin: 16, skin: 12, redness: 8, textureSmooth: 6 },
+      note: '네일 광택과 글리터를 자연스럽게 살렸어요 — 과한 보정 없이 손톱 표면 중심으로 정리했어요',
+    },
+    // 헤어 — hairMask/hairBoundary 안정 가정, 모발 윤기·결감 중심. 피부 보정은 약하게.
+    hair_focus: {
+      label: '헤어',
+      patch: { hairShine: 38, hairDetail: 35, hairVolume: 25, hairColorPop: 18, hairEndsClean: 18, skin: 10, redness: 8 },
+      note: '헤어 윤기와 결감을 살렸어요 — 머리카락 디테일은 살리고 피부 보정은 과하지 않게 맞췄어요',
+    },
   };
 
   function _shopType() {
@@ -32,12 +45,24 @@
     catch (_e) { return ''; }
   }
 
-  function recommend() {
+  // shop_type / 명령 키워드 → 레시피 라우팅.
+  // 1순위 shop_type, 2순위 사용자 명령 키워드, 둘 다 없으면 natural fallback.
+  function recommend(cmd) {
     const t = _shopType();
+    // ── 1순위: shop_type ──
+    if (/(네일|네일샵|패디|패디큐어|nail|pedi)/.test(t)) return 'nail_focus';
+    if (/(헤어|붙임머리|염색|펌|두피|hair)/.test(t)) return 'hair_focus';
     if (/(속눈썹|lash)/.test(t)) return 'lash_focus';
     if (/(눈썹|brow)/.test(t)) return 'brow_focus';
     if (/(메이크업|makeup)/.test(t)) return 'glam';
     if (/(피부|skin)/.test(t)) return 'natural';
+    // ── 2순위: 사용자 명령 키워드 ──
+    if (cmd) {
+      const c = String(cmd).toLowerCase();
+      if (/(네일|손톱|젤네일|글리터|프렌치|파츠|큐티클|nail)/.test(c)) return 'nail_focus';
+      if (/(헤어|머리|염색|컬러|뿌리|윤기|볼륨|웨이브|붙임머리|hair)/.test(c)) return 'hair_focus';
+    }
+    // ── 3순위: natural fallback ──
     return 'natural';
   }
 
@@ -64,7 +89,7 @@
     if (panel) _applyInputs(panel, recipe.patch);
     api.helpers && api.helpers.scheduleRedraw && api.helpers.scheduleRedraw();
     api.helpers && api.helpers.pushHistory && api.helpers.pushHistory();
-    if (api.helpers && api.helpers.toast) api.helpers.toast('AI 추천: ' + recipe.label);
+    if (api.helpers && api.helpers.toast) api.helpers.toast(recipe.note || ('AI 추천: ' + recipe.label));
     return true;
   }
 
