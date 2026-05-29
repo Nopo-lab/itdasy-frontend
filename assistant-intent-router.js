@@ -722,7 +722,8 @@
   }
 
   // ─── [T-110] 메시지 초안(draft_message) — 발송 아님, 초안만 ──────────────
-  const _MSG_NOUN = /(문자|메시지|메세지|문구|안내문|멘트|초안|dm|디엠)/i;
+  // [T-113] "리터치 안내 써줘" 처럼 명사가 '안내'뿐인 경우도 포함(draft 동사와 결합 시에만 발동).
+  const _MSG_NOUN = /(문자|메시지|메세지|문구|안내문|안내|멘트|초안|dm|디엠)/i;
   const _MSG_VERB = /(써|써줘|작성|만들|짜|뽑|보내|발송|초안)/;
   const _MSG_STOPS = new Set(['문자', '메시지', '메세지', '문구', '안내문', '멘트', '초안', '안부', '리터치',
     '재방문', '감사', '안내', '예약', '방문', '생일', '디엠', '손님', '고객', '님', '이', '그', '저', '한테', '에게']);
@@ -757,6 +758,58 @@
       return w;
     }
     return '';
+  }
+
+  // [T-113] 업종(shop_type) 라벨·카테고리.
+  function _draftShopInfo() {
+    try {
+      const raw = localStorage.getItem('shop_type') || '';
+      const norm = (typeof window.itdasyNormalizeShopType === 'function') ? window.itdasyNormalizeShopType(raw) : null;
+      const cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[raw]) || null;
+      return { label: (norm && norm.label) || raw || '', cat: (norm && norm.cat) || '', defaultService: cfg && cfg.defaultTag };
+    } catch (_e) { return { label: '', cat: '', defaultService: '' }; }
+  }
+
+  // [T-113] 업종×목적별 CTA/문구 가이드 한 줄 (LLM 힌트용 — 그대로 복붙 아님).
+  function _draftGuide(cat, tone) {
+    const G = {
+      nail:   { retouch_offer: '젤 유지 상태 확인 + 자연스러운 리터치/새 디자인 예약 유도', warm_checkin: '손끝 컨디션 가볍게 안부', we_miss_you: '오랜만 안부 + 부담 없는 재방문' },
+      hair:   { retouch_offer: '머릿결·컬러·뿌리/붙임머리 연결부 관리 시기 안내', warm_checkin: '스타일 유지 상태 가볍게 안부', we_miss_you: '오랜만 안부 + 컬러/펌 리터치 제안' },
+      lash:   { retouch_offer: '컬·연장 유지 상태 확인 + 리터치 주기 안내', warm_checkin: '눈가 컨디션 가볍게 안부', we_miss_you: '오랜만 안부 + 리터치 권유' },
+      skin:   { retouch_offer: '지난 관리 후 피부 컨디션 체크 + 다음 관리 주기 안내', warm_checkin: '피부 컨디션 가볍게 안부', we_miss_you: '오랜만 안부 + 관리 재개 제안' },
+      wax:    { retouch_offer: '재방문 주기 안내 + 피부 진정 관리 팁', warm_checkin: '가볍게 안부', we_miss_you: '오랜만 안부 + 재방문 제안' },
+      makeup: { retouch_offer: '다음 행사/촬영 예약 안내', warm_checkin: '가볍게 안부', we_miss_you: '오랜만 안부' },
+      scalp:  { retouch_offer: '두피 관리 주기 안내', warm_checkin: '두피 컨디션 안부', we_miss_you: '오랜만 안부' },
+    };
+    const byCat = G[cat] || {};
+    return byCat[tone] || byCat.retouch_offer || '자연스러운 안부 + 부담 없는 재방문 유도';
+  }
+
+  // [T-113] 고객의 최근 시술명 (로컬 갤러리 — TreatmentLink 가 저장한 label). 없으면 ''.
+  async function _recentService(customerId) {
+    try {
+      if (typeof window.loadGalleryItemsByCustomer !== 'function') return '';
+      const items = await window.loadGalleryItemsByCustomer(customerId);
+      const hit = (items || []).find((it) => it && it.label && it.label !== '시술 사진');
+      return hit ? String(hit.label).slice(0, 30) : '';
+    } catch (_e) { return ''; }
+  }
+
+  // [T-113] body_md 힌트 + 카드용 컨텍스트 요약 생성. (≤200자, 안전 문구 원칙 포함)
+  async function _buildDraftHint(customer, tone, purpose) {
+    const shop = _draftShopInfo();
+    const recent = await _recentService(customer.id);
+    const guide = _draftGuide(shop.cat, tone);
+    const svc = recent || shop.defaultService || '';
+    const parts = [];
+    if (shop.label) parts.push('업종:' + shop.label);
+    if (svc) parts.push('최근시술:' + svc);
+    parts.push('가이드:' + guide);
+    parts.push('과장/의료/효과보장 표현 금지, 부담 없는 톤');
+    const hint = parts.join('. ').slice(0, 200);
+    const summary = [recent ? '최근 시술: ' + recent : null, shop.label ? '업종: ' + shop.label : null]
+      .filter(Boolean).join(' / ');
+    return { hint, summary, hasRecent: !!recent };
   }
 
   // 결과: {kind:'execute', action} | {kind:'message', text} | null(초안 의도 아님)
@@ -795,14 +848,20 @@
       else return { kind: 'message', text: '어느 고객에게 보낼 문구를 만들까요? 고객 이름을 알려주시거나 고객 상세를 먼저 열어주세요.' };
     }
 
+    // [T-113] 업종+최근시술 기반 힌트로 body_md 보강(백엔드 무수정 — body_hint 로 LLM 에 주입).
+    let hintInfo = { hint: purpose, summary: '', hasRecent: false };
+    try { hintInfo = await _buildDraftHint(customer, tone, purpose); } catch (_e) { void 0; }
+
     _bumpStats('draft_message');
     return {
       kind: 'execute',
       hadSendWord: /(보내|발송)/.test(t),
       customer, tone,
+      contextSummary: hintInfo.summary,
+      hasRecent: hintInfo.hasRecent,
       action: {
         kind: 'draft_message',
-        payload: { customer_id: customer.id, customer_name: customer.name, tone, body_md: purpose },
+        payload: { customer_id: customer.id, customer_name: customer.name, tone, body_md: hintInfo.hint || purpose },
         _source_question: text,
       },
     };

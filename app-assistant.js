@@ -2440,7 +2440,11 @@
           const head = result.hadSendWord
             ? `${name}님께 보낼 문구 초안을 만들었어요. (실제 발송은 하지 않았어요 — 복사해서 확인 후 사용하세요)`
             : `${name}님께 보낼 초안을 만들었어요. 실제 발송은 하지 않았고, 복사해서 확인 후 사용하시면 돼요.`;
-          _history.push({ role: 'assistant', text: head + '\n\n---\n' + draft + '\n---\n(클립보드에 복사됨)' });
+          // [T-113] 사용한 컨텍스트 요약 / 정보 부족 안내.
+          const _ctxLine = result.contextSummary
+            ? '\n📋 ' + result.contextSummary
+            : (result.hasRecent === false ? '\n📋 최근 시술 정보가 부족해서 기본 안내 초안으로 만들었어요.' : '');
+          _history.push({ role: 'assistant', text: head + _ctxLine + '\n\n---\n' + draft + '\n---\n(클립보드에 복사됨)' });
         } else {
           _history.push({ role: 'assistant', text: '초안이 비어 있어요. 톤(안부/리터치/감사)이나 고객을 더 구체적으로 알려주세요.' });
         }
