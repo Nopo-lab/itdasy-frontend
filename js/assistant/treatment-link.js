@@ -97,6 +97,16 @@
       ? { id: opts.customer.id, name: opts.customer.name || '' }
       : await _pickCustomer(opts.customerId);
     if (!cust) return { ok: false, cancelled: true };
+    // [T-104.5] 저장 전에 같은 dedupeKey 가 이미 있는지 확인 → 중복 여부를 호출측에 알림(메시지 분기용).
+    //   실제 중복 차단은 saveToGallery(T-107) 가 기존 항목 갱신으로 처리.
+    let wasDuplicate = false;
+    try {
+      if (opts.dataUrl && typeof window.loadGalleryItemsByCustomer === 'function') {
+        const key = _dedupeKey(opts, cust);
+        const existing = await window.loadGalleryItemsByCustomer(cust.id);
+        wasDuplicate = (existing || []).some(it => it && it.dedupeKey === key);
+      }
+    } catch (_e) { wasDuplicate = false; }
     const local = await _saveLocal(opts, cust);
     const remote = await _createBackend(opts, cust);
     try {
@@ -107,7 +117,7 @@
     try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction('사진 고객연결'); } catch (_e) { void 0; }
     if (local || remote.ok) _toast(`${name}님 기록에 사진을 연결했어요`, 'success');
     else _toast(`${name}님을 선택했지만 저장에 실패했어요`, 'error');
-    return { ok: !!(local || remote.ok), customer: cust, local: !!local, remote: remote.ok };
+    return { ok: !!(local || remote.ok), customer: cust, local: !!local, remote: remote.ok, wasDuplicate: wasDuplicate };
   }
 
   window.TreatmentLink = { attachPhotoToCustomer };

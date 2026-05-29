@@ -2463,6 +2463,24 @@
     return _tryUtilityShortcut(input, q);
   }
 
+  // [T-104.5] photo-flow 가 "저장할까요?" 제안 후 사용자가 "응/저장해줘" → 실제 고객 기록 저장.
+  //   pending 없거나 저장의도 아니면 false(기존 파이프라인 계속). 기존 confirm 카드는 _tryAffirmAction 이 먼저.
+  async function _tryPhotoFlowSaveConfirm(input, q) {
+    try {
+      if (!window.ItdasyPhotoFlow || !window.ItdasyPhotoFlow.hasPendingSave || !window.ItdasyPhotoFlow.hasPendingSave()) return false;
+      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+      const res = await window.ItdasyPhotoFlow.confirmSave(q, ctx);
+      if (!res) return false;   // 저장 의도 아님 → pending 유지, 다른 핸들러로
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'assistant', text: res.message });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   // [T-104] "이 사진 홍보용으로 예쁘게" → 업종 보정 적용 + 다음 단계 제안. 미매칭 시 false(기존 경로 유지).
   function _tryPhotoFlowShortcut(input, q) {
     try {
@@ -2668,6 +2686,7 @@
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
+    if (await _tryPhotoFlowSaveConfirm(input, q)) return true;   // [T-104.5] 기존 confirm 다음 — photo-flow 저장 확인
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryAsyncIntentRule(input, q)) return true;

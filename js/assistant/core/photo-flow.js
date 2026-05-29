@@ -108,8 +108,92 @@
       : '보정을 적용하는 중 문제가 있었어요. 편집기에서 직접 조정해 주세요.';
     const message = [head].concat(suggestNextStep(res.recipeId, ctx)).join('\n');
     try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction('홍보용 보정'); } catch (_e) { void 0; }
+    // [T-104.5] 저장 제안 pending 남김 — 사용자가 "저장해줘/응" 하면 confirmSave 가 실제 저장.
+    _setPendingSave(ctx, res.recipeId);
     return { ok: res.applied, recipeId: res.recipeId, message: message };
   }
 
-  window.ItdasyPhotoFlow = { canRun, detectPhotoFlowIntent, runPromoFlow, applyBestBeautyPreset, suggestNextStep };
+  // ───────── T-104.5: 저장 확인 흐름 (자동 저장 금지, 사용자 명령 후에만) ─────────
+  const PENDING_TTL_MS = 5 * 60 * 1000;
+  const _SAVE_RE = /(저장|기록\s*(에)?\s*(저장|남겨|남길|첨부)|첨부|남겨\s*줘|기록해)/;
+  const _AFFIRM_RE = /^(응|어|어어|네|예|그래|그래줘|좋아|좋|ㅇㅇ|당연|해줘|진행)$/i;
+
+  function _setPendingSave(ctx, recipeId) {
+    try {
+      const cust = ctx && ctx.currentCustomer;
+      const photo = ctx && ctx.currentPhoto;
+      window.__ITDASY_PENDING_PHOTO_FLOW = {
+        type: 'attach_current_photo_to_customer',
+        customerId: cust ? cust.id : null,
+        customerName: cust ? (cust.name || '') : '',
+        serviceName: (photo && photo.serviceName) || '',
+        recipeId: recipeId || '',
+        source: 'assistant',
+        createdAt: Date.now(),
+      };
+    } catch (_e) { void 0; }
+  }
+
+  function _getValidPending() {
+    try {
+      const p = window.__ITDASY_PENDING_PHOTO_FLOW;
+      if (!p || p.type !== 'attach_current_photo_to_customer') return null;
+      if (Date.now() - (p.createdAt || 0) > PENDING_TTL_MS) { window.__ITDASY_PENDING_PHOTO_FLOW = null; return null; }
+      return p;
+    } catch (_e) { return null; }
+  }
+
+  function hasPendingSave() { return !!_getValidPending(); }
+
+  function _isSaveReply(text) {
+    const t = String(text || '').trim();
+    return _SAVE_RE.test(t) || _AFFIRM_RE.test(t);
+  }
+
+  function _currentCanvasUrl() {
+    const cv = document.getElementById('peCanvas');
+    if (!cv || !cv.width || !cv.height) return '';
+    try { return cv.toDataURL('image/jpeg', 0.92); }
+    catch (_e) { return ''; }
+  }
+
+  // 사용자의 "저장해줘/응" 응답 처리. pending 없거나 저장의도 아니면 null(파이프라인 계속).
+  async function confirmSave(text, ctx) {
+    const pending = _getValidPending();
+    if (!pending) return null;                 // photo-flow pending 없음 → 이 경로 아님
+    if (!_isSaveReply(text)) return null;       // 저장/확정 의도 아님 → pending 유지(만료까지)
+    window.__ITDASY_PENDING_PHOTO_FLOW = null;  // consume
+
+    ctx = ctx || (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+    const dataUrl = _currentCanvasUrl();
+    if (!dataUrl) {
+      return { ok: false, message: '현재 편집 중인 사진이 없어서 저장할 수 없어요. 먼저 사진을 열어주세요.' };
+    }
+    // 고객: 현재 선택 우선, 없으면 pending 의 고객, 그래도 없으면 안내(자동 추측 금지).
+    const live = ctx.currentCustomer;
+    const cust = (live && live.id != null) ? { id: live.id, name: live.name || '' }
+      : (pending.customerId != null ? { id: pending.customerId, name: pending.customerName || '' } : null);
+    if (!cust) {
+      return { ok: false, needCustomer: true,
+        message: '어느 고객에게 저장할까요? 고객을 먼저 선택한 뒤 다시 "저장해줘"라고 말씀해 주세요.' };
+    }
+    if (!(window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function')) {
+      return { ok: false, message: '저장 모듈을 불러오는 중이에요. 잠시 후 다시 시도해 주세요.' };
+    }
+    const res = await window.TreatmentLink.attachPhotoToCustomer({
+      customer: cust,
+      dataUrl: dataUrl,
+      serviceName: pending.serviceName || '',
+      source: 'assistant',
+    });
+    const name = cust.name || '고객';
+    let message;
+    if (res && res.wasDuplicate) message = `이미 ${name}님 기록에 저장된 사진이라 중복 저장하지 않았어요.`;
+    else if (res && res.ok && res.remote) message = `${name}님 시술 사진 기록에 저장했어요.`;
+    else if (res && res.ok) message = `${name}님 기록(로컬)에는 저장했지만 서버 동기화는 실패했어요. 네트워크 확인 후 다시 시도할 수 있어요.`;
+    else message = '저장에 실패했어요. 잠시 후 다시 시도해 주세요.';
+    return { ok: !!(res && res.ok), wasDuplicate: !!(res && res.wasDuplicate), message: message };
+  }
+
+  window.ItdasyPhotoFlow = { canRun, detectPhotoFlowIntent, runPromoFlow, applyBestBeautyPreset, suggestNextStep, confirmSave, hasPendingSave };
 })();
