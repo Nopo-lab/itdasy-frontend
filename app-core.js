@@ -167,6 +167,14 @@ function updateHeaderProfile(handle, tone, picUrl) {
   if (!el) return;
   el.style.display = 'flex';
 
+  // [2026-05-29] 사진 URL 이 비면 캐시된 인스타 프사로 폴백.
+  //   /me 응답 후 재렌더(아래 updateHeaderProfile(handle,null,'')) 등이 빈 값으로 덮어
+  //   인스타 프사가 떴다가 사라지던 버그 방지. 로그아웃·연동해제는 호출 전에 캐시를 지우므로
+  //   그때는 정상적으로 이니셜로 떨어짐.
+  if (!picUrl) {
+    try { picUrl = localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { picUrl = ''; }
+  }
+
   const shopName = localStorage.getItem('shop_name') || '사장님';
   const shopNameEl = document.getElementById('headerShopName');
   if (shopNameEl) shopNameEl.textContent = shopName;
@@ -1012,7 +1020,8 @@ async function resetShopSetup() {
 
   // 2. 로컬 정리 — 샵·온보딩·인스타 동의·말투 분석
   ['shop_name', 'shop_type', 'onboarding_done',
-   'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis']
+   'itdasy_consented', 'itdasy_consented_at', 'itdasy_latest_analysis',
+   'itdasy:ig_profile_pic', 'itdasy:ig_handle', 'itdasy:ig_connected_cache']
     .forEach(k => { try { localStorage.removeItem(k); } catch (_e) { void _e; } });
 
   // 3. 메모리 + 헤더/말투 카드 즉시 비우기
