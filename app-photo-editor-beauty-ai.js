@@ -40,22 +40,48 @@
     },
   };
 
-  function _shopType() {
-    try { return String(localStorage.getItem('shop_type') || '').toLowerCase(); }
+  function _shopTypeRaw() {
+    try { return String(localStorage.getItem('shop_type') || ''); }
     catch (_e) { return ''; }
+  }
+
+  // shop_type → 레시피. app-core 의 itdasyNormalizeShopType(8종 cat) 활용.
+  //   미용·헤어샵·두피탈모·풋케어·네일아트·extension 등 변형까지 안정 판별.
+  //   헬퍼 미로드 시 raw 정규식 폴백. 속눈썹/눈썹 분리는 cat(lash) 먼저 → glam 회귀 방지.
+  function _byShopType(raw) {
+    const norm = (typeof window.itdasyNormalizeShopType === 'function')
+      ? window.itdasyNormalizeShopType(raw) : null;
+    if (norm) {
+      const cat = norm.cat;
+      if (cat === 'nail') return 'nail_focus';
+      if (cat === 'hair' || cat === 'scalp') return 'hair_focus';
+      if (cat === 'lash') return 'lash_focus';
+      // makeup cat 은 메이크업+눈썹 공용 → 눈썹은 brow_focus 유지
+      if (cat === 'makeup') return /(눈썹|brow)/.test(raw.toLowerCase()) ? 'brow_focus' : 'glam';
+      if (cat === 'skin') return 'natural';
+      // wax / general: 명시 카테고리는 없지만 raw 에 헤어/네일 단서(염색·펌 등)가 있으면 활용
+      const r = raw.toLowerCase();
+      if (/(염색|펌|웨이브|머릿결|머리|헤어)/.test(r)) return 'hair_focus';
+      if (/(네일|손톱|젤네일)/.test(r)) return 'nail_focus';
+      return null; // 단서 없음 → 키워드·fallback 으로
+    }
+    // 폴백: 헬퍼 미로드 (속눈썹 부분일치 방지 위해 lash 먼저)
+    const t = raw.toLowerCase();
+    if (/(속눈썹|lash)/.test(t)) return 'lash_focus';
+    if (/(네일|패디|풋케어|nail|pedi|foot)/.test(t)) return 'nail_focus';
+    if (/(헤어|미용|붙임머리|염색|펌|두피|탈모|extension|hair)/.test(t)) return 'hair_focus';
+    if (/(눈썹|brow)/.test(t)) return 'brow_focus';
+    if (/(메이크업|makeup)/.test(t)) return 'glam';
+    if (/(피부|skin)/.test(t)) return 'natural';
+    return null;
   }
 
   // shop_type / 명령 키워드 → 레시피 라우팅.
   // 1순위 shop_type, 2순위 사용자 명령 키워드, 둘 다 없으면 natural fallback.
   function recommend(cmd) {
-    const t = _shopType();
     // ── 1순위: shop_type ──
-    if (/(네일|네일샵|패디|패디큐어|nail|pedi)/.test(t)) return 'nail_focus';
-    if (/(헤어|붙임머리|염색|펌|두피|hair)/.test(t)) return 'hair_focus';
-    if (/(속눈썹|lash)/.test(t)) return 'lash_focus';
-    if (/(눈썹|brow)/.test(t)) return 'brow_focus';
-    if (/(메이크업|makeup)/.test(t)) return 'glam';
-    if (/(피부|skin)/.test(t)) return 'natural';
+    const byShop = _byShopType(_shopTypeRaw());
+    if (byShop) return byShop;
     // ── 2순위: 사용자 명령 키워드 ──
     if (cmd) {
       const c = String(cmd).toLowerCase();
