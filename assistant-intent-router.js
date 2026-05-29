@@ -483,12 +483,32 @@
   const _CREATE_VERB = /예약\s*(을|를)?\s*(잡아\s*줘|잡아주|잡아|잡아라|잡|추가|등록|넣어\s*줘|넣어|만들어\s*줘|만들어)/;
   const _CREATE_STOPS = new Set(['잡아', '잡아줘', '추가', '등록', '넣어', '만들어', '손님', '고객', '님', '이', '그', '저', '새']);
 
+  // 시간대 단어(이름 오인 방지). 서비스명은 SHOP_CONFIG treatments 에서 동적으로 제거.
+  const _PERIOD_WORDS = /(오전|오후|저녁|아침|밤|낮|정오|새벽)/g;
+  function _stripServiceWords(s) {
+    try {
+      const st = localStorage.getItem('shop_type') || '';
+      const cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null;
+      const list = (cfg && cfg.treatments) || [];
+      let out = s;
+      list.forEach((sv) => { if (sv) out = out.split(sv).join(' '); });
+      return out;
+    } catch (_e) { return s; }
+  }
+
   function _extractCreateTarget(q) {
     const t = _trim(q);
     if (_CANCEL_VERB.test(t)) return null;   // 취소 의도가 우선
     if (!_CREATE_VERB.test(t)) return null;
     if (!/예약/.test(t)) return null;
-    const stripped = _stripDateTokens(t);
+    // [P0-C] "{이름}님" 접미가 가장 강한 신호 — 서비스/시간 단어 오인 방지.
+    const honor = t.match(/([가-힣]{2,4})님/);
+    if (honor && !_NAME_STOP_WORDS.has(honor[1]) && !_CREATE_STOPS.has(honor[1])) {
+      return { name: honor[1], dateHint: _extractDateHint(t) };
+    }
+    // 접미 없으면: 날짜·시간대·서비스 단어 제거 후 첫 한글 후보를 이름으로.
+    let stripped = _stripDateTokens(t).replace(_PERIOD_WORDS, ' ');
+    stripped = _stripServiceWords(stripped);
     const candidates = [];
     const re = /([가-힣]{2,5})/g;
     let m;
@@ -501,18 +521,22 @@
       if (blocked) continue;
       candidates.push(w);
     }
-    // 이름 없으면("이 손님 예약 잡아줘") name='' → 고객 미지정으로 예약 화면 오픈.
-    return { name: candidates.length ? candidates[candidates.length - 1] : '', dateHint: _extractDateHint(t) };
+    // 이름 없으면("이 손님 예약 잡아줘") name='' → currentCustomer fallback.
+    return { name: candidates.length ? candidates[0] : '', dateHint: _extractDateHint(t) };
   }
 
-  // 결과: { matched, kind:'open_booking', customer:{id,name}|null, text } 또는 { kind:'message', text }
-  async function tryCreateBooking(text) {
+  // 결과: { matched, kind:'card'|'slots'|'open_booking'|'message', ... }
+  //   [P0-C] ctx.currentCustomer 로 "이 손님" 해석. 고객 확정되면 시간 파싱 → 카드/빈시간 추천.
+  async function tryCreateBooking(text, ctx) {
     if (_disabled()) return null;
     const target = _extractCreateTarget(text);
     if (!target) return null;
 
+    // 이름 없음("이 손님 예약 잡아줘" 등) → 현재 고객 사용, 없으면 안내.
     if (!target.name) {
-      return { matched: true, kind: 'open_booking', customer: null, text: '예약 화면을 열었어요. 고객과 시간을 골라주세요.' };
+      const cur = ctx && ctx.currentCustomer;
+      if (cur && cur.id != null) return _bookingForCustomer({ id: cur.id, name: cur.name || '고객' }, text);
+      return { matched: true, kind: 'message', text: '어느 고객 예약을 잡을까요? 고객 이름을 알려주시거나 고객 상세를 먼저 열어주세요.' };
     }
 
     let customers;
@@ -530,22 +554,171 @@
       .sort((a, b) => b.score - a.score);
 
     if (scored.length === 0) {
-      return { matched: true, kind: 'open_booking', customer: null,
-        text: `🔍 ${target.name}님을 못 찾았어요. 예약 화면을 열었으니 새 고객으로 추가하거나 다른 고객을 선택해 주세요.` };
+      return { matched: true, kind: 'message',
+        text: `🔍 ${target.name}님을 못 찾았어요. 이름을 다시 확인해 주시거나, 새 고객이면 고객 추가 후 예약해 주세요.` };
     }
 
     const topScore = scored[0].score;
     const tied = scored.filter((x) => x.score === topScore);
-    if (tied.length > 1 && topScore < 100) {
+    if (tied.length > 1) {
+      // 동명이인(정확히 같은 이름 포함) — 누구인지 확정 못 하므로 안내. 전화번호로 구분 요청.
       const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
       return { matched: true, kind: 'message',
-        text: `🔍 비슷한 이름 ${tied.length}명 있어요. 정확한 이름으로 다시 알려주세요:\n${lines.join('\n')}` };
+        text: `🔍 같은/비슷한 이름 ${tied.length}명 있어요. 전화번호나 정확한 이름으로 다시 알려주세요:\n${lines.join('\n')}` };
     }
 
     const customer = tied[0].c;
-    _bumpStats('create_booking');
-    return { matched: true, kind: 'open_booking', customer: { id: customer.id, name: customer.name },
-      text: `${customer.name}님으로 예약 화면을 열었어요. 시간을 골라주세요.` };
+    return _bookingForCustomer({ id: customer.id, name: customer.name }, text);
+  }
+
+  // ─── [P0-C] 예약 생성 완성: 시간 해석 + 빈시간 추천 + create_booking 카드 ────────
+  const _WEEKDAYS = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
+
+  // 날짜 base(해당 날 00:00) 해석: 요일/이번주/다음주 + 기존 dateHint(오늘/내일/MM월DD일).
+  function _resolveDateBase(text) {
+    const today = new Date();
+    const wd = text.match(/([일월화수목금토])요일/);
+    if (wd) {
+      const target = _WEEKDAYS[wd[1]];
+      const nextWeek = /다음\s*주|담주/.test(text);
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      let add = (target - d.getDay() + 7) % 7;
+      if (add === 0) add = 7;            // 같은 요일이면 다음 주로
+      if (nextWeek) add += 7;
+      d.setDate(d.getDate() + add);
+      return d;
+    }
+    const hint = _extractDateHint(text);
+    if (!hint) return null;
+    if (hint.dayOffset != null) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      d.setDate(d.getDate() + hint.dayOffset);
+      return d;
+    }
+    if (hint.m) return new Date(hint.y, hint.m - 1, hint.d);
+    return null;
+  }
+
+  // 시간 해석 → { hour, min, concrete } | { period } | null
+  function _resolveTime(text) {
+    const hm = text.match(/(\d{1,2})\s*시\s*(\d{1,2})?\s*분?/) || text.match(/(\d{1,2}):(\d{2})/);
+    const isPM = /오후|저녁|밤/.test(text);
+    const isAM = /오전|아침/.test(text);
+    if (hm) {
+      let hour = parseInt(hm[1], 10);
+      const min = hm[2] ? parseInt(hm[2], 10) : (/반/.test(text) ? 30 : 0);
+      if (isPM && hour < 12) hour += 12;
+      if (isAM && hour === 12) hour = 0;
+      if (hour >= 0 && hour <= 23) return { hour, min, concrete: true };
+    }
+    if (isPM) return { period: 'pm' };
+    if (isAM) return { period: 'am' };
+    if (/저녁|밤/.test(text)) return { period: 'evening' };
+    return null;
+  }
+
+  function _shopDefaultService() {
+    try {
+      const st = localStorage.getItem('shop_type') || '';
+      const cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null;
+      return (cfg && cfg.defaultTag) || '';
+    } catch (_e) { return ''; }
+  }
+
+  // 텍스트에서 서비스명 추출(업종 treatments 매칭) → 없으면 기본 서비스.
+  function _extractService(text) {
+    try {
+      const st = localStorage.getItem('shop_type') || '';
+      const cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null;
+      const list = (cfg && cfg.treatments) || [];
+      for (const s of list) { if (s && text.includes(s)) return s; }
+    } catch (_e) { void 0; }
+    return _shopDefaultService();
+  }
+
+  function _fmtSlot(d) {
+    const wd = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${d.getMonth() + 1}/${d.getDate()}(${wd}) ${hh}:${mm}`;
+  }
+
+  // 빈 시간 추천: 영업시간 내 1시간 슬롯 중 충돌 없는 미래 시각 N개. Booking 전역 활용.
+  async function _suggestSlots(dateBase, period, max) {
+    max = max || 3;
+    if (!(window.Booking && typeof window.Booking.list === 'function')) return [];
+    const base = dateBase || (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d; })();
+    const hours = (window.Booking.shopHours && window.Booking.shopHours()) || { start: 10, end: 22 };
+    let lo = hours.start, hi = hours.end;
+    if (period === 'am') hi = Math.min(hi, 12);
+    else if (period === 'pm') lo = Math.max(lo, 12);
+    else if (period === 'evening') lo = Math.max(lo, 18);
+    const from = new Date(base); from.setHours(0, 0, 0, 0);
+    const to = new Date(base); to.setHours(23, 59, 59, 0);
+    try { await window.Booking.list(from.toISOString(), to.toISOString()); } catch (_e) { void 0; }
+    const now = Date.now();
+    const out = [];
+    for (let h = lo; h < hi && out.length < max; h++) {
+      const s = new Date(base); s.setHours(h, 0, 0, 0);
+      const e = new Date(s.getTime() + 60 * 60000);
+      if (s.getTime() <= now) continue;
+      if (window.Booking.hasConflict && window.Booking.hasConflict(s.toISOString(), e.toISOString())) continue;
+      out.push(s);
+    }
+    return out;
+  }
+
+  function _bookingCard(customer, startDate, service, text) {
+    const svc = service || '';
+    const label = _fmtSlot(startDate);
+    return {
+      matched: true, kind: 'card',
+      action: {
+        kind: 'create_booking',
+        payload: {
+          customer_id: customer.id, customer_name: customer.name,
+          service_name: svc || null, starts_at: startDate.toISOString(), duration_min: 60,
+        },
+        confirmation_text: `${customer.name}님 ${label}${svc ? ' ' + svc : ''} 예약 잡을까요?`,
+        _source_question: text,
+      },
+      customer,
+    };
+  }
+
+  // 고객 확정 후 시간 해석 → 카드 또는 빈시간 추천. (tryCreateBooking 에서 호출)
+  async function _bookingForCustomer(customer, text) {
+    const dateBase = _resolveDateBase(text);
+    const time = _resolveTime(text);
+    const service = _extractService(text);
+    if (dateBase && time && time.concrete) {
+      const start = new Date(dateBase); start.setHours(time.hour, time.min || 0, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60000);
+      if (window.Booking && window.Booking.hasConflict) {
+        try {
+          const f = new Date(dateBase); f.setHours(0, 0, 0, 0);
+          const t = new Date(dateBase); t.setHours(23, 59, 59, 0);
+          await window.Booking.list(f.toISOString(), t.toISOString());
+        } catch (_e) { void 0; }
+        if (window.Booking.hasConflict(start.toISOString(), end.toISOString())) {
+          const alts = await _suggestSlots(dateBase, null, 3);
+          const lines = alts.map((d) => '· ' + _fmtSlot(d));
+          return { matched: true, kind: 'slots',
+            text: `${_fmtSlot(start)} 에는 이미 예약이 있어요. 대신 비어 있는 시간이에요:\n${lines.join('\n') || '(이 날은 빈 시간이 없어요. 다른 날로 말씀해 주세요)'}` };
+        }
+      }
+      _bumpStats('create_booking');
+      return _bookingCard(customer, start, service, text);
+    }
+    // 시간 없음/모호 → 빈시간 추천
+    const slots = await _suggestSlots(dateBase, time && time.period, 3);
+    if (!slots.length) {
+      return { matched: true, kind: 'message',
+        text: `${customer.name}님 예약을 잡을 시간을 알려주세요. (예: "내일 오후 3시", "다음 주 토요일 2시")` };
+    }
+    const lines = slots.map((d) => '· ' + _fmtSlot(d));
+    return { matched: true, kind: 'slots',
+      text: `${customer.name}님 예약 가능 시간이에요. 원하시는 시간을 말씀해 주세요:\n${lines.join('\n')}` };
   }
 
   // ─── public API ─────────────────────────────────────────

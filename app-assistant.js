@@ -2397,24 +2397,35 @@
     }
   }
 
-  // [T-008 2026-05-29] "{이름} 예약 잡아줘" → 고객 해석 후 예약 화면을 고객까지 채워 오픈.
+  // [T-008/P0-C] "{이름} 예약 잡아줘" → 고객+시간 해석 → 확인 카드(create_booking) 또는 빈시간 추천.
   async function _tryCreateBookingShortcut(input, q) {
     try {
       if (!window.AssistantIntent || typeof window.AssistantIntent.tryCreateBooking !== 'function') return false;
-      const result = await window.AssistantIntent.tryCreateBooking(q);
+      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+      const result = await window.AssistantIntent.tryCreateBooking(q, ctx);
       if (!result || !result.matched) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
-      _history.push({ role: 'assistant', text: result.text });
-      _renderHistory();
-      if (result.kind === 'open_booking') {
-        window._pendingBookingCustomer = (result.customer && result.customer.id != null)
-          ? { id: result.customer.id, name: result.customer.name } : null;
-        setTimeout(() => {
-          if (typeof window.openCalendarView === 'function') window.openCalendarView();
-          else if (typeof window.openBooking === 'function') window.openBooking();
-        }, 80);
+      if (result.kind === 'card' && result.action) {
+        // [P0-C] 예약 확인 카드 — pending single-action 으로 푸시 → "응/예약해줘" 는 _tryAffirmAction 이 실행.
+        _history.push({
+          role: 'assistant',
+          text: result.action.confirmation_text || (result.customer && result.customer.name + '님 예약 잡을까요?'),
+          action: result.action,
+          action_status: 'pending',
+        });
+      } else {
+        _history.push({ role: 'assistant', text: result.text });
+        if (result.kind === 'open_booking') {
+          window._pendingBookingCustomer = (result.customer && result.customer.id != null)
+            ? { id: result.customer.id, name: result.customer.name } : null;
+          setTimeout(() => {
+            if (typeof window.openCalendarView === 'function') window.openCalendarView();
+            else if (typeof window.openBooking === 'function') window.openBooking();
+          }, 80);
+        }
       }
+      _renderHistory();
       return true;
     } catch (_e) {
       return false;
