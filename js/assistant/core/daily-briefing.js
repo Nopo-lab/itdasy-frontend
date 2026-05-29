@@ -96,6 +96,7 @@
     const [brief, bk, unlinked] = await Promise.all([_fetchBrief(), _bookingsAndGaps(), _unlinkedPhotoCount()]);
     const lines = [];
     const recs = [];
+    const actions = [];   // [T-115] 추천 버튼(안전 — 화면 이동/초안 경로만)
 
     // 처리할 거리(시그널)가 하나도 없으면 = 조용한 날 → 친절 안내. (공백만 있는 빈 스케줄은 시그널 아님)
     const hasSignal = bk.count > 0 || unlinked > 0
@@ -117,23 +118,28 @@
     }
     // 리터치
     if (brief && brief.retouch_due_count > 0) {
-      const names = (brief.retouch_due_customers || []).slice(0, 3).map((c) => c.name).filter(Boolean);
+      const custs = (brief.retouch_due_customers || []).slice(0, 3).map((c) => ({ id: c.id, name: c.name })).filter((c) => c.name);
+      const names = custs.map((c) => c.name);
       lines.push(`리터치 시기 지난 고객 ${brief.retouch_due_count}명${names.length ? ': ' + names.join('·') : ''}`);
       recs.push(`리터치 고객 ${Math.min(brief.retouch_due_count, 3)}명에게 안내 초안 만들기`);
+      actions.push({ id: 'retouch_draft', kind: 'retouch_draft', label: '리터치 안내 초안', safety: 'safe', payload: { customers: custs } });
     }
     // 이탈 임박
     if (brief && brief.at_risk_count > 0) {
       lines.push(`한동안 안 오신 고객 ${brief.at_risk_count}명`);
+      actions.push({ id: 'at_risk', kind: 'open_at_risk', label: '이탈 고객 확인', safety: 'safe', payload: { count: brief.at_risk_count } });
     }
     // 미연결 사진
     if (unlinked > 0) {
       lines.push(`최근 저장한 사진 ${unlinked}장이 아직 고객 기록에 안 붙었어요`);
       recs.push(`미연결 사진 ${unlinked}장 고객 기록에 연결`);
+      actions.push({ id: 'unlinked_photos', kind: 'open_unlinked_photos', label: '미연결 사진 확인', safety: 'safe', payload: { count: unlinked } });
     }
     // 매출 미기록
     if (brief && brief.unrecorded_count > 0) {
       lines.push(`매출 미기록 ${brief.unrecorded_count}건`);
       recs.push(`매출 미기록 ${brief.unrecorded_count}건 정리`);
+      actions.push({ id: 'unrecorded_revenue', kind: 'open_unrecorded', label: '매출 미기록 정리', safety: 'safe', payload: { count: brief.unrecorded_count } });
     }
     // 매출 + 어제 대비
     if (brief && brief.revenue_total > 0) {
@@ -148,6 +154,9 @@
     if (bk.gaps.length && recs.length < 3) {
       recs.push(`${_hhmm(bk.gaps[0].s)} 공백에 단골 예약 제안`);
     }
+    if (bk.gaps.length && actions.length < 5) {
+      actions.push({ id: 'empty_slot', kind: 'open_empty_slot', label: '공백 시간 활용', safety: 'safe', payload: { first: _hhmm(bk.gaps[0].s) } });
+    }
     // 백엔드 능동 추천 보강 (중복 최소화)
     if (brief && Array.isArray(brief.proactive_suggestions)) {
       brief.proactive_suggestions.forEach((s) => {
@@ -161,15 +170,55 @@
     }
 
     if (!lines.length) {
-      return { message: '오늘은 특별히 처리할 알림이 없어요. 예약과 매출 흐름은 안정적이에요.' };
+      return { message: '오늘은 특별히 처리할 알림이 없어요. 예약과 매출 흐름은 안정적이에요.', actions: [] };
     }
     let msg = '☀️ 오늘 브리핑이에요.\n\n' + lines.map((l) => '• ' + l).join('\n');
     if (recs.length) {
       msg += '\n\n추천:\n' + recs.slice(0, 3).map((r, i) => `${i + 1}. ${r}`).join('\n');
     }
     try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction('오늘 브리핑'); } catch (_e) { void 0; }
-    return { message: msg };
+    return { message: msg, actions: actions };
   }
 
-  window.ItdasyDailyBriefing = { detect, run };
+  // [T-115] 추천 버튼 클릭 → 안전한 다음 단계로만 연결. 자동 발송/예약/매출생성/기록수정 0.
+  //   반환: { chatInput? } (잇비 입력으로 보낼 문장) | { message? } | { navigated? }.
+  function _nav(fn) { try { if (typeof fn === 'function') { fn(); return true; } } catch (_e) { void 0; } return false; }
+
+  function runAction(action) {
+    if (!action || !action.kind) return { message: '' };
+    const p = action.payload || {};
+    switch (action.kind) {
+      case 'retouch_draft': {
+        const custs = Array.isArray(p.customers) ? p.customers : [];
+        if (custs.length === 1) {
+          // 1명 → 기존 T-110/T-113 draft 경로로(잇비 입력 전송). 발송 아님(초안).
+          return { chatInput: `${custs[0].name} 리터치 안내 문구 만들어줘` };
+        }
+        if (custs.length > 1) {
+          const names = custs.map((c) => c.name).join(', ');
+          return { message: `리터치 대상: ${names} 중 누구에게 초안을 만들까요? 이름을 말씀해 주세요. (예: "${custs[0].name} 리터치 안내 문구 만들어줘")` };
+        }
+        return { message: '리터치 대상 고객이 없어요.' };
+      }
+      case 'open_unlinked_photos':
+        _nav(() => window.showTab && window.showTab('workshop'));
+        return { navigated: true, message: '작업실을 열었어요. 사진을 선택한 뒤 "이 사진 고객 기록에 저장해줘"로 연결할 수 있어요. (자동 연결은 하지 않아요)' };
+      case 'open_unrecorded':
+        if (_nav(() => window.openBooking && window.openBooking()) || _nav(() => window.openCalendarView && window.openCalendarView())) {
+          return { navigated: true, message: '예약/완료 화면을 열었어요. 미기록 건을 완료 처리하면 매출로 기록돼요. (자동 기록은 하지 않아요)' };
+        }
+        return { message: '매출 미기록은 예약 화면에서 완료 처리로 정리할 수 있어요.' };
+      case 'open_at_risk':
+        if (_nav(() => window.openRetentionAI && window.openRetentionAI())) return { navigated: true, message: '이탈 위험 고객 화면을 열었어요. (메시지는 확인 후 직접 보내세요)' };
+        if (_nav(() => window.openCustomers && window.openCustomers())) return { navigated: true, message: '고객 화면을 열었어요.' };
+        return { message: '이탈 임박 고객은 고객 관리 화면에서 확인할 수 있어요.' };
+      case 'open_empty_slot':
+        _nav(() => window.openCalendarView && window.openCalendarView());
+        return { navigated: true, message: '예약 화면을 열었어요. (공백에 맞는 고객 추천 기능은 곧 추가될 예정이에요)' };
+      default:
+        return { message: '' };
+    }
+  }
+
+  window.ItdasyDailyBriefing = { detect, run, runAction };
 })();

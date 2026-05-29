@@ -474,7 +474,16 @@
         ${fallbackHtml}
         ${relatedHtml}
         ${intentChipsHtml}
+        ${_renderBriefingActions(m, idx)}
       </div>
+    </div>`;
+  }
+
+  // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
+  function _renderBriefingActions(m, idx) {
+    if (!Array.isArray(m.briefing_actions) || !m.briefing_actions.length) return '';
+    return `<div class="asst-chips asst-chips--brief" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
+      ${m.briefing_actions.map((a) => `<button data-asst-brief-act="${idx}:${_esc(a.id)}" style="padding:9px 16px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:13px;font-weight:600;">${_esc(a.label)}</button>`).join('')}
     </div>`;
   }
 
@@ -1291,10 +1300,34 @@
   }
 
   function _handleAssistantClick(e) {
+    if (_handleBriefingActionClick(e)) return;   // [T-115] 브리핑 추천 버튼
     if (_handlePhotoClick(e)) return;
     if (_handleSingleActionClick(e)) return;
     if (_handleGroupActionClick(e)) return;
     _handleSuggestionClick(e);
+  }
+
+  // [T-115] 브리핑 추천 버튼 클릭 → daily-briefing.runAction(안전: 화면이동/초안경로). 자동 발송/생성 0.
+  function _handleBriefingActionClick(e) {
+    const el = e.target.closest && e.target.closest('[data-asst-brief-act]');
+    if (!el) return false;
+    try {
+      const [idxStr, actId] = String(el.dataset.asstBriefAct).split(':');
+      const msg = _history[+idxStr];
+      const action = msg && Array.isArray(msg.briefing_actions)
+        ? msg.briefing_actions.find((a) => a.id === actId) : null;
+      if (!action || !window.ItdasyDailyBriefing || typeof window.ItdasyDailyBriefing.runAction !== 'function') return true;
+      const r = window.ItdasyDailyBriefing.runAction(action);
+      if (r && r.chatInput) {
+        // 초안 경로 — 잇비 입력으로 전송(T-110/T-113 draft 로 라우팅, 발송 아님).
+        const input = document.getElementById('asstInput');
+        if (input) { input.value = r.chatInput; _send(); }
+      } else if (r && r.message) {
+        _history.push({ role: 'assistant', text: r.message });
+        _renderHistory();
+      }
+    } catch (_e) { void 0; }
+    return true;
   }
 
   function _handlePhotoClick(e) {
@@ -2424,7 +2457,11 @@
       try { res = await window.ItdasyDailyBriefing.run(); }
       catch (_e) { res = null; }
       _history = _history.filter((m) => m.role !== 'loading');
-      _history.push({ role: 'assistant', text: (res && res.message) || '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' });
+      _history.push({
+        role: 'assistant',
+        text: (res && res.message) || '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+        briefing_actions: (res && Array.isArray(res.actions)) ? res.actions : [],   // [T-115] 추천 버튼
+      });
       _renderHistory();
       return true;
     } catch (_e) {
