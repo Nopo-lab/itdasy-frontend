@@ -721,12 +721,100 @@
       text: `${customer.name}님 예약 가능 시간이에요. 원하시는 시간을 말씀해 주세요:\n${lines.join('\n')}` };
   }
 
+  // ─── [T-110] 메시지 초안(draft_message) — 발송 아님, 초안만 ──────────────
+  const _MSG_NOUN = /(문자|메시지|메세지|문구|안내문|멘트|초안|dm|디엠)/i;
+  const _MSG_VERB = /(써|써줘|작성|만들|짜|뽑|보내|발송|초안)/;
+  const _MSG_STOPS = new Set(['문자', '메시지', '메세지', '문구', '안내문', '멘트', '초안', '안부', '리터치',
+    '재방문', '감사', '안내', '예약', '방문', '생일', '디엠', '손님', '고객', '님', '이', '그', '저', '한테', '에게']);
+
+  function _draftTone(t) {
+    if (/리터치/.test(t)) return 'retouch_offer';
+    if (/(첫\s*방문|첫방문)/.test(t)) return 'first_visit_thanks';
+    if (/(감사|고마)/.test(t)) return 'vip_thanks';
+    if (/(예약\s*안내|예약\s*확인|예약\s*리마인|방문\s*안내|예약\s*알림)/.test(t)) return 'confirm_reminder';
+    if (/생일/.test(t)) return 'birthday';
+    if (/(오래|뜸|이탈|안\s*오|안오신|안\s*오신|발길)/.test(t)) return 'we_miss_you';
+    return 'warm_checkin'; // 안부/재방문/기본
+  }
+
+  // 이름이 아닌 단어(의도 명사 + 동사) — 이름 추출 전에 제거. "만들어줘"/"재방문" 등 오인 방지.
+  const _MSG_NONAME = /(안부|리터치|재방문|방문\s*감사|감사|안내문|안내|예약|방문|생일|이탈|단골|문자|메시지|메세지|문구|멘트|초안|디엠|손님|고객|만들어\s*줘|만들어|만들|써\s*줘|써|작성해\s*줘|작성|짜\s*줘|짜|뽑아|뽑|보내\s*줘|보내|발송|해\s*줘|해주|보낼|줄)/g;
+
+  function _extractMsgTarget(t) {
+    // "{이름}님" 접미가 가장 강한 신호.
+    const honor = t.match(/([가-힣]{2,4})님/);
+    if (honor && !_MSG_STOPS.has(honor[1])) return honor[1];
+    // 접미 없으면: 날짜·시간대·의도/동사 단어 제거 후 첫 한글 후보.
+    let stripped = _stripDateTokens(t).replace(_PERIOD_WORDS, ' ').replace(_MSG_NONAME, ' ');
+    const re = /([가-힣]{2,5})/g;
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      const w = m[1];
+      if (_MSG_STOPS.has(w)) continue;
+      let blocked = false;
+      _MSG_STOPS.forEach((s) => { if (s.length >= 2 && w.includes(s)) blocked = true; });
+      if (blocked) continue;
+      return w;
+    }
+    return '';
+  }
+
+  // 결과: {kind:'execute', action} | {kind:'message', text} | null(초안 의도 아님)
+  async function tryDraftMessage(text, ctx) {
+    if (_disabled()) return null;
+    const t = _trim(text);
+    // 예약 생성/취소 의도가 우선(충돌 방지)
+    if (_CREATE_VERB.test(t) || _CANCEL_VERB.test(t)) return null;
+    if (!_MSG_NOUN.test(t) || !_MSG_VERB.test(t)) return null;
+
+    const tone = _draftTone(t);
+    const purpose = t.slice(0, 120);
+
+    // 고객 해석: 이름 → currentCustomer → 안내
+    const name = _extractMsgTarget(t);
+    let customer = null;
+    if (name) {
+      let customers;
+      try { const r = await _fetchJson('/customers?limit=500'); customers = (r && r.items) || []; }
+      catch (_e) { return { kind: 'message', text: '⚠️ 고객 정보 조회 실패. 잠시 후 다시.' }; }
+      const scored = customers.map((c) => ({ c, score: _nameMatches(name, c.name || '') }))
+        .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+      if (!scored.length) {
+        return { kind: 'message', text: `🔍 ${name}님을 못 찾았어요. 이름을 확인해 주시거나 고객 상세를 먼저 열어주세요.` };
+      }
+      const top = scored[0].score;
+      const tied = scored.filter((x) => x.score === top);
+      if (tied.length > 1) {
+        const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
+        return { kind: 'message', text: `🔍 같은/비슷한 이름 ${tied.length}명 있어요. 전화번호로 구분해 주세요:\n${lines.join('\n')}` };
+      }
+      customer = { id: tied[0].c.id, name: tied[0].c.name };
+    } else {
+      const cur = ctx && ctx.currentCustomer;
+      if (cur && cur.id != null) customer = { id: cur.id, name: cur.name || '고객' };
+      else return { kind: 'message', text: '어느 고객에게 보낼 문구를 만들까요? 고객 이름을 알려주시거나 고객 상세를 먼저 열어주세요.' };
+    }
+
+    _bumpStats('draft_message');
+    return {
+      kind: 'execute',
+      hadSendWord: /(보내|발송)/.test(t),
+      customer, tone,
+      action: {
+        kind: 'draft_message',
+        payload: { customer_id: customer.id, customer_name: customer.name, tone, body_md: purpose },
+        _source_question: text,
+      },
+    };
+  }
+
   // ─── public API ─────────────────────────────────────────
   window.AssistantIntent = {
     classifyObvious,
     findAsyncRule,
     execAsyncRule,
     tryCreateBooking,
+    tryDraftMessage,
     tryCancelBooking,
     // 디버깅용 — 현재 통계 조회
     getStats: () => ({ ...window[STATS_KEY], byType: { ...window[STATS_KEY].byType } }),

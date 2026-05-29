@@ -2401,6 +2401,50 @@
     }
   }
 
+  // [T-110] "{고객} 안부/리터치/재방문 문자 초안 써줘" → draft_message 즉시 실행(발송 아님) + 초안 + 복사.
+  //   "보내줘" 가 와도 실제 발송 안 함 — 초안만 만들고 확인 안내. draft_message 는 mutation/undo 없음.
+  async function _tryDraftMessageShortcut(input, q) {
+    try {
+      if (!window.AssistantIntent || typeof window.AssistantIntent.tryDraftMessage !== 'function') return false;
+      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+      const result = await window.AssistantIntent.tryDraftMessage(q, ctx);
+      if (!result) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      if (result.kind === 'message') {
+        _history.push({ role: 'assistant', text: result.text });
+        _renderHistory();
+        return true;
+      }
+      // kind === 'execute' — draft_message 는 safe(발송 없음) → 바로 실행하고 초안 표시.
+      _history.push({ role: 'loading', text: '' });
+      _renderHistory();
+      try {
+        const d = await _executeAction(result.action);
+        _history = _history.filter((m) => m.role !== 'loading');
+        const draft = (d && (d.message_draft || d.draft) || '').trim();
+        const name = (result.customer && result.customer.name) || '고객';
+        if (draft) {
+          try { if (navigator.clipboard) await navigator.clipboard.writeText(draft); } catch (_e) { void 0; }
+          const head = result.hadSendWord
+            ? `${name}님께 보낼 문구 초안을 만들었어요. (실제 발송은 하지 않았어요 — 복사해서 확인 후 사용하세요)`
+            : `${name}님께 보낼 초안을 만들었어요. 실제 발송은 하지 않았고, 복사해서 확인 후 사용하시면 돼요.`;
+          _history.push({ role: 'assistant', text: head + '\n\n---\n' + draft + '\n---\n(클립보드에 복사됨)' });
+        } else {
+          _history.push({ role: 'assistant', text: '초안이 비어 있어요. 톤(안부/리터치/감사)이나 고객을 더 구체적으로 알려주세요.' });
+        }
+        _renderHistory();
+      } catch (e) {
+        _history = _history.filter((m) => m.role !== 'loading');
+        _history.push({ role: 'assistant', text: '초안 생성에 실패했어요. 잠시 후 다시 시도해 주세요.' });
+        _renderHistory();
+      }
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   // [T-008/P0-C] "{이름} 예약 잡아줘" → 고객+시간 해석 → 확인 카드(create_booking) 또는 빈시간 추천.
   async function _tryCreateBookingShortcut(input, q) {
     try {
@@ -2704,6 +2748,7 @@
     if (await _tryPhotoFlowSaveConfirm(input, q)) return true;   // [T-104.5] 기존 confirm 다음 — photo-flow 저장 확인
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
+    if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
     if (await _tryAsyncIntentRule(input, q)) return true;
     return _tryKeywordShortcut(input, q);
   }
