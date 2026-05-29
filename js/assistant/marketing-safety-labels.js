@@ -15,6 +15,17 @@
   'use strict';
   if (window.ItdasyMarketingSafety) return;
 
+  // [T-111] 대량 메시지 정책 — 코드로 고정. 출시 전 안전 가드.
+  //   현재(BULK_DRAFT): generate_bulk_message 는 초안만 생성, 실제 대량 발송 없음 → safe.
+  //   향후(BULK_SEND): 실제 대량 발송이 결선되는 순간 반드시:
+  //     ① level 'danger' 로 승격  ② RISKY_ACTION_KINDS(kind-core.js) 에 추가해 nativeConfirm 게이팅
+  //     ③ 영향 고객 수 + 최종 확인 + 야간(21~08시) 광고 제한 안내  ④ 별도 kind(예: send_bulk_message) 권장.
+  //   현재 BULK_SEND 는 미구현(NOT_IMPLEMENTED) — 프론트는 어떤 경우에도 대량 발송을 실행하지 않는다.
+  const BULK_POLICY = {
+    BULK_DRAFT: { level: 'safe', implemented: true,  note: '초안만 생성, 실제 대량 발송 없음' },
+    BULK_SEND:  { level: 'danger', implemented: false, note: '대량 실발송 — 미구현. 결선 시 danger 승격 + nativeConfirm 필수' },
+  };
+
   // 반환: { level:'safe'|'confirm'|'danger', badge, message } | null(비마케팅)
   function getMarketingSafetyLabel(action) {
     if (!action || !action.kind) return null;
@@ -27,8 +38,9 @@
         message: '메시지 초안만 만들어요. 실제 발송은 하지 않습니다. 복사·수정 후 사용하세요.' };
     }
     if (kind === 'generate_bulk_message') {
+      // [T-111] 초안만(safe). 실발송 결선 시 danger 승격 — BULK_POLICY 참조.
       return { level: 'confirm', badge: '대량 초안',
-        message: '여러 고객 대상 문구 초안만 만들어요. 실제 대량 발송은 하지 않습니다.' };
+        message: '여러 고객 대상 문구 초안만 만들어요. 실제 대량 발송은 하지 않습니다. (대량 발송 기능은 안전 확인 후 별도 제공 예정)' };
     }
     if (kind === 'send_message') {
       if (channel === 'kakao' || channel === 'dm') {
@@ -66,5 +78,8 @@
     </div>`;
   }
 
-  window.ItdasyMarketingSafety = { getMarketingSafetyLabel, renderSafetyHTML };
+  // [T-111] 대량 실발송 차단 가드 — 현재 항상 true(미구현). 발송류 코드가 호출해 방어할 수 있게 노출.
+  function isBulkSendBlocked() { return !BULK_POLICY.BULK_SEND.implemented; }
+
+  window.ItdasyMarketingSafety = { getMarketingSafetyLabel, renderSafetyHTML, BULK_POLICY, isBulkSendBlocked };
 })();

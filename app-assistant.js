@@ -1480,7 +1480,18 @@
       const draftText = (d.message_draft || d.draft || '').trim();
       if (draftKinds.has(d.kind)) {
         if (draftText) {
-          _history.push({ role: 'assistant', text: '초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + draftText });
+          if (d.kind === 'generate_bulk_message') {
+            // [T-111] 대량 메시지 = 초안만(safe). 실제 대량 발송은 절대 하지 않음.
+            //   ⚠️ 향후 실발송 결선 시 danger 승격 필수(nativeConfirm + 영향 고객 수 + 최종 확인).
+            const _n = Array.isArray(d.target_names) ? d.target_names.length : null;
+            const _head = (_n != null)
+              ? `총 ${_n}명 대상 메시지 초안을 만들었어요.`
+              : '여러 고객 대상 메시지 초안을 만들었어요.';
+            _history.push({ role: 'assistant',
+              text: `${_head}\n실제 대량 발송은 하지 않았습니다. 내용을 확인한 뒤 필요한 채널에 복사해서 사용하세요.\n(대량 발송 기능은 안전 확인 후 별도로 제공될 예정이에요)\n\n---\n${draftText}\n---\n(클립보드에 복사됨)` });
+          } else {
+            _history.push({ role: 'assistant', text: '초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + draftText });
+          }
         } else {
           // 백엔드가 응답은 했지만 본문이 비어있음 — 어떤 고객에게 어떤 톤으로 쓸지 추가 정보를 요구.
           _history.push({ role: 'assistant', text: '초안이 비어 있어요. 누구에게 보낼지(고객 이름)와 톤(친근하게/정중하게)을 알려주시면 다시 만들어드릴게요.' });
