@@ -147,6 +147,12 @@
     return Number(hit && hit.default_price) || 0;
   }
 
+  function appVer() {
+    // app-core.js _updateVersionBadge 와 동일 포맷 (예: 20260529-v348-... → v348)
+    const v = String(window.APP_BUILD || '');
+    return 'v' + v.replace(/^20\d{6}-?/, '').replace(/^v?(\d+).*$/, '$1');
+  }
+
   function renderHeader(brief) {
     const shop = shopName();
     const data = brief || {};
@@ -166,7 +172,11 @@
         <span class="hv5-rev-sum-pred-label">잇비 분석 이번달 예상 매출</span>
         <span class="hv5-rev-sum-pred-val"><span data-hv-count="${projected}">${_comma(projected)}</span><span class="hv5-rev-sum-unit">원</span></span>
       </div>`;
-    return `<div class="hv5"><div class="hv5-hdr">
+    return `<div class="hv5"><div class="hv5-brand-row">
+      <span class="hv5-brand-text">잇데이</span>
+      <span class="hv5-brand-ver">${esc(appVer())}</span>
+      <div class="hv5-itdaesy-pill">잇데이</div>
+    </div><div class="hv5-hdr">
       <div class="av" data-hv-avatar aria-hidden="true">${esc(shopInitial(shop))}</div>
       <div class="meta">
         <div class="date">${esc(todayKor())}</div>
