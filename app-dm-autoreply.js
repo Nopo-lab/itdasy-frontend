@@ -187,16 +187,20 @@
   }
 
   function _renderActivate(status, conversations) {
-    const on = status.global_enabled !== false && _settings?.enabled !== false;
+    // [2026-05-29] global_enabled === false 면 인스타 OAuth 미연결 — 토글 disabled
+    const igConnected = status.global_enabled !== false;
+    const on = igConnected && _settings?.enabled !== false;
     const dotCls = on ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
-    const txt = on ? '자동응답 켜짐' : '자동응답 꺼짐';
+    const txt = igConnected
+      ? (on ? '자동응답 켜짐' : '자동응답 꺼짐')
+      : '인스타그램 연결 필요';
     return `
       <div class="dm-activate" data-dm-activate>
         <div class="dm-activate__status">
           <div class="${dotCls}"></div>
           <div class="dm-activate__status-text">${txt}</div>
-          <button type="button" class="dm-toggle ${on ? 'is-on' : ''}" data-act="enable-toggle"
-                  aria-pressed="${on}" aria-label="DM 자동응답 켜기/끄기" style="margin-left:auto;">
+          <button type="button" class="dm-toggle ${on ? 'is-on' : ''}${igConnected ? '' : ' is-disabled'}" data-act="enable-toggle"
+                  aria-pressed="${on}" aria-disabled="${!igConnected}" aria-label="DM 자동응답 켜기/끄기" style="margin-left:auto;">
             <span class="dm-toggle__track"></span><span class="dm-toggle__knob"></span>
           </button>
         </div>
@@ -1064,6 +1068,12 @@
     // 2026-05-01 ── 활성화 카드 ON/OFF 토글 (시트 안 닫고 즉시 반영)
     sheet.querySelector('[data-act="enable-toggle"]')?.addEventListener('click', (e) => {
       const btn = e.currentTarget;
+      // [2026-05-29] 인스타 미연결 시 토글 차단
+      if (btn.classList.contains('is-disabled')) {
+        _toast('인스타그램 연결 먼저 해주세요');
+        _haptic();
+        return;
+      }
       const next = !btn.classList.contains('is-on');
       btn.classList.toggle('is-on', next);
       btn.setAttribute('aria-pressed', String(next));

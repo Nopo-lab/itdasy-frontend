@@ -161,6 +161,7 @@
 }
 .subscreen-overlay .ss-switch.is-on { background: #22c55e; }  /* vivid green = ON */
 .subscreen-overlay .ss-switch.is-on::after { transform: translateX(18px); }
+.subscreen-overlay .ss-switch.is-disabled { opacity: 0.4; cursor: not-allowed; background: #D1D6DB; }
 
 .subscreen-overlay .ss-cta {
   width: 100%;

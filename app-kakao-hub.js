@@ -84,14 +84,14 @@
     // 템플릿 렌더
     const tpl = el.querySelector('#kkTemplates');
     if (tpl) {
-      tpl.innerHTML = TEMPLATES.map((t, i) => `
+      tpl.innerHTML = TEMPLATES.map((t) => `
         <div class="ss-toggle" style="align-items:flex-start;">
           <div style="flex:1;min-width:0;">
             <div class="ss-toggle-lbl">${_esc(t.title)}</div>
             <div class="ss-toggle-sub" style="margin-top:6px;line-height:1.5;color:var(--text2,#555);background:var(--bg2,#f6f6f7);padding:8px 10px;border-radius:10px;">${_esc(t.body)}</div>
           </div>
-          <div class="ss-switch ${i < 3 ? 'is-on' : ''}" role="switch"
-            aria-checked="${i < 3 ? 'true' : 'false'}" tabindex="0" data-kk-template="${t.key}"></div>
+          <div class="ss-switch is-disabled" role="switch"
+            aria-checked="false" aria-disabled="true" tabindex="-1" data-kk-template="${t.key}"></div>
         </div>
       `).join('');
     }
@@ -108,10 +108,9 @@
       }
       const sw = e.target.closest('[data-kk-template]');
       if (sw) {
-        sw.classList.toggle('is-on');
-        sw.setAttribute('aria-checked', sw.classList.contains('is-on') ? 'true' : 'false');
+        // [2026-05-29] 카카오 채널 미연결 — 토글 비활성. 안내만.
         _haptic();
-        _toast('연결 후 자동 적용돼요');
+        _toast('카카오 비즈니스 채널 연결 후 켜져요 (Phase 2 출시 예정)');
       }
     });
     return el;

@@ -189,6 +189,8 @@
 }
 .dm-toggle.is-on .dm-toggle__track { background: #22c55e; }  /* vivid green = ON */
 .dm-toggle.is-on .dm-toggle__knob { transform: translateX(18px); }
+.dm-toggle.is-disabled { opacity: 0.4; cursor: not-allowed; }
+.dm-toggle.is-disabled .dm-toggle__track { background: #D1D6DB; }
 
 /* 작은 토글 (운영시간 외 응답 등 36x22) */
 .dm-toggle--small {
