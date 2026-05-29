@@ -346,12 +346,14 @@
         '    overflow: hidden !important;',
         '    margin: 0 !important;',
         '  }',
-        '  #asstBody .asst-msg, #asstBody .asst-user-msg { max-width: 92% !important; }',
+        // [2026-05-29] PC 메시지 영역 가운데 max-width 720px 컨테이너 (헤더·입력창은 풀폭 유지)
+        '  #asstBody { padding: 16px 0 !important; display: flex; flex-direction: column; align-items: center; }',
+        '  #asstBody > * { width: 100%; max-width: 720px; padding-left: 20px; padding-right: 20px; box-sizing: border-box; }',
+        '  #asstBody .asst-msg, #asstBody .asst-user-msg { max-width: 100% !important; }',
         '  #asstBody .asst-msg--ai { margin-right: auto !important; justify-content: flex-start !important; }',
         '  #asstBody .asst-msg--user { margin-left: auto !important; justify-content: flex-end !important; }',
         '  #asstBody .asst-msg--ai > div:last-child, #asstBody .asst-msg--user > div { max-width: 88% !important; }',
         '  #assistantSheetHeader { padding-left: 20px; padding-right: 20px; }',
-        '  #asstBody { padding: 16px 20px !important; }',
         '  #asstFooter { padding: 12px 20px; }',
         '}',
       ].join('\n');
