@@ -850,28 +850,11 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
   flex-shrink: 0;
 }
 
-/* ============ [2026-05-29] 모바일 컴팩트 — 양옆 12px·위 10px·로고 헤더 흡수 ============
-   PC(≥1100px)는 전역 .app-header 유지 → 브랜드 행 숨김. 모바일만 흡수. */
-.hv5-brand-row {
-  display: none; align-items: center; gap: 5px;
-  padding-bottom: 10px; margin-bottom: 10px;
-  border-bottom: 0.5px solid #F0F1F4;
-}
-.hv5-brand-text { font-size: 14px; font-weight: 700; color: #BC6675; }
-.hv5-brand-ver { font-size: 8px; color: #B0B8C1; }
-.hv5-itdaesy-pill {
-  margin-left: auto; padding: 4px 10px;
-  background: #F7EFF0; color: #BC6675;
-  border-radius: 999px; font-size: 11px; font-weight: 500;
-}
-@media (max-width: 1100px) {
-  /* 연결 후 메인홈(#homePostConnect 표시 중)에서만 적용 — 연결 전 온보딩·다른 탭은 무영향 */
-  body:has(#tab-home.active):has(#homePostConnect[style*="flex"]) .app-header { display: none; }
-  #tab-home:has(#homePostConnect[style*="flex"]) {
-    padding: max(10px, env(safe-area-inset-top)) 12px calc(100px + env(safe-area-inset-bottom));
-  }
-  #homePostConnect { padding-left: 0; padding-right: 0; }
-  .hv5-brand-row { display: flex; }
-  #homeV41Root { padding: 0 !important; }
-  .hv5-row { gap: 8px !important; margin-bottom: 8px !important; }
-}
+/* ============ [2026-05-29] 메인홈 컴팩트 — 양옆 12px·위 여백 축소 ============
+   전역 상단바(.app-header)는 그대로 두고 콘텐츠만 위로/양옆으로 붙임.
+   모바일·PC 공통, 렌더 상태와 무관하게 안정적용(게이트 없음). 다른 탭·온보딩 무영향. */
+/* !important: PC 분기의 #tab-home.tab(style-responsive.css)보다 우선. 하단 패딩(탭바 여백)은 보존 */
+#tab-home { padding-top: 12px !important; padding-left: 12px !important; padding-right: 12px !important; }
+#homePostConnect { padding-left: 0; padding-right: 0; }
+#homeV41Root { padding: 0 !important; }
+#tab-home .hv5-row { gap: 8px !important; margin-bottom: 8px !important; }

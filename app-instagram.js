@@ -71,7 +71,9 @@ async function checkInstaStatus(fromLogin = false) {
       // [2026-05-08 28차 2단계] 인스타 연결되면 dismissed 자동 해제 — 해제 후 다시 미연결 시 카드 다시 보이게
       try { localStorage.removeItem('itdasy_ipc_dismissed'); } catch (_e) { void _e; }
       _instaHandle = data.handle || '';
-      updateHeaderProfile(_instaHandle, data.persona ? data.persona.tone : null, data.profile_picture_url || '');
+      // fresh 응답에 사진 URL 이 없을 때 이니셜로 덮지 않고 캐시된 프로필 사진 유지 (위 63줄에서 저장됨)
+      const _cachedPic = (function () { try { return localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { return ''; } })();
+      updateHeaderProfile(_instaHandle, data.persona ? data.persona.tone : null, data.profile_picture_url || _cachedPic);
       updateStep('stepInsta', true);
       _renderTokenExpiryBanner(data.expires_at);
       if (window.KillerWidgets && typeof window.KillerWidgets.renderRow === 'function') {
