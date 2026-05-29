@@ -12,7 +12,7 @@
 **언어**: 한국말, 쉬운말. 원영님은 코딩 초보.
 
 - 역할: 연준 전용 프론트 검증 레포. 배포 `https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/`
-- 백엔드: `itdasy_backend-test` (Railway staging). 토큰 키: `itdasy_token::staging`
+- 백엔드: `itdasy_backend-test` (Cloud Run staging). `PROD_API` = `https://itdasy-backend-staging-644329093453.asia-northeast3.run.app` (app-core.js:57). 토큰 키: `itdasy_token::staging`
 - 상속: 루트 `../CLAUDE.md` + `../AGENTS.md §3, §4`
 - 워크플로우: 1) 여기서 먼저 → 2) 검증 후 `itdasy-frontend`(운영) 승격
 - 트랙: 4줄 이상 / API / Capacitor = 표준(티켓→플랜→승인→코드→T4→T1→머지), 문서·1~3줄 = 경량
