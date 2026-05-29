@@ -100,25 +100,27 @@ localStorage.setItem('PE_NAV_V7','0'); location.reload();
 
 **예상 PR 크기**: ~150줄
 
-### C. v318 — nail/handSkin 추가 QA (보류 마스크 2)
+### C. v318 — nail/handSkin 추가 QA → **보류 확정 (won't-wire, 2026-05-29 QA)**
 
-**현재 상태**:
-- nailMask: 손 있는 사진에서 status='ready', fingertip ellipse 적용 (handsAvgScore 기반 conf 0.6~0.95)
-- 손 없는 사진에서 status='noHand' (false-positive 방지 성공)
-- **미검증**: 손톱 위치 정확도, fingertip ellipse rx/ry 튜닝
+**QA 결론 (헤드리스 5장 + detectHand 격리 프로브, `scripts/mask-qa-headless.js PHOTO_QA_MODE=nail`)**:
 
-**해야 할 일**:
-1. 네일 클로즈업 사진 5장으로 수동 QA (`RegionMaskQA.visualize()` + `getStats`)
-2. handedness score 분포 분석 (다양한 손 모양·각도)
-3. fingertip ellipse 파라미터 튜닝 (`mask-hand-adapter.js`의 `rx = len * 0.35`, `ry = len * 0.22`)
-4. QA 통과 시 v316에 nailGloss/nailShape/handSkin 슬라이더 연결
+| 항목 | 결과 |
+|---|---|
+| Hand Landmarker 로드 | ✅ 정상 (헤드리스 456ms, 에러 0) |
+| 네일샵 포즈(손등 평면·프렌치네일) 탐지 | ❌ conf 0.3/0.5/0.7 **전부 0개** |
+| 얼굴 사진 false-positive | ⚠️ handedness 0.993 로 손 1개 (오탐) |
+| 어댑터 `HAND_SCORE_MIN=0.7` 필터 효과 | ❌ 무력 — handedness 점수는 탐지되면 항상 ~0.99 |
 
-**파일**:
-- `js/photo-editor/mask-hand-adapter.js` (튜닝)
-- `js/photo-editor/mask-application.js` V316_FIRST에 nail/handSkin 추가
-- `js/photo-editor/beauty-engine.js` _applyDetail / _applySkinTone 분기
+**결정**: nailMask/handSkinMask 를 v316 에 **연결하지 않음**.
+- 이유: MediaPipe Hand Landmarker 는 손바닥 제스처 포즈 학습 모델이라 네일샵 대표 포즈(손등 평면)에서 recall 실패. 진짜 네일 손은 놓치고 얼굴엔 FP. 연결 시 "슬라이더 변화 0"(rule 3) + "QA 미통과 연결"(rule 4) 위반.
+- **현재 안전**: nailMask 미연결 → 네일은 `beauty-engine.js:126` 휘도 휴리스틱(`lum0 140~210 & subjectW>0.4`)으로 동작. nailShape 는 `_applySharpen` 전역 unsharp. 깨진 마스크 연결 시 오히려 퇴보.
 
-**전제**: 5장 네일 클로즈업 QA 결과 확인 후만 v316 통합.
+**나중에 네일 정밀도 올리려면 (item H 영역, Hand Landmarker 아님)**:
+1. 휴리스틱 개선 — specular highlight + 채도 높은 폴리시 색 기반 nail 검출 강화 (마스크 모델 불필요, 비용 0)
+2. 전용 nail segmentation 모델 (별도 .tflite, 비용·용량 검토 필요)
+3. **실제 원장님 네일샵 사진** 으로 재QA — loremflickr/commons 샘플은 품질 낮음(옛 광고·삽화 섞임). 원장님 실사진 확보 시 휴리스틱 1번 튜닝 권장.
+
+**QA 도구**: `scripts/mask-qa-headless.js` 에 `PHOTO_QA_MODE=nail` 모드 추가됨(원격 5장 fetch). 재현: `PHOTO_QA_MODE=nail PHOTO_QA_URL='http://127.0.0.1:8080/?v=maskqa' node scripts/mask-qa-headless.js`
 
 ### D. v319 — Nav v7 + 카테고리 폴리싱
 
@@ -147,21 +149,29 @@ localStorage.setItem('PE_NAV_V7','0'); location.reload();
 
 **파일**: `js/photo-editor/template-overlay.js` (+100), CSS (+50)
 
-### F. v321 — Hair Tier 1 정확도 검증
+### F. v321 — Hair Tier 1 정확도 검증 → **검증 완료: Tier 1 precision-safe (2026-05-29 QA)**
 
-**현재**: hair_segmenter.tflite (Tier 1 활성, hairMask 자동 적용).
+**QA 결과** (`scripts/mask-qa-headless.js PHOTO_QA_MODE=hair`, 엣지케이스 5장 + fpChecks.hair_vs_bg):
 
-**검증 항목**:
-1. 어두운 배경 / 어두운 옷 사진에서 hair_vs_bg overlap (false-positive)
-2. 짧은 머리 / 단발 사진에서 hairMask 깨끗하게 잡히는지
-3. 모자/액세서리 있는 사진
-4. 다양한 헤어 컬러 (블론드 / 핑크 / 회색)
+| # | 사진 | Tier | coverage | **hair_vs_bg (FP)** | hair_vs_skin |
+|---|---|---|---|---|---|
+| 1 | 갈색 단발(전신·머리 작음) | T1 ready | 0.016 | **0.000** ✅ | 0.025 |
+| 2 | 단발 뒷모습(검은옷) | T3 fallback | 0.406 | 0.212 ⚠️ | 0.322 |
+| 3 | 헤어 포트레이트 | T1 ready | 0.019 | **0.000** ✅ | 0.000 |
+| 4 | 곱슬 헤어 | T1 ready | 0.284 | **0.000** ✅ | 0.080 |
+| 5 | 헤어 포트레이트 | T1 ready | 0.139 | **0.000** ✅ | 0.000 |
 
-QA 결과 따라:
-- false-positive 높으면 hair_vs_bg overlap 기반 confidence 감점 추가
-- 또는 hairMask Tier 1 결과 후처리 (배경 색상 빼기)
+**결론**:
+1. ✅ **Tier 1 (hair_segmenter.tflite) 은 배경 false-positive 없음** — 작동하는 모든 케이스 `hair_vs_bg=0.000`. 인수인계가 예상한 "FP 높으면 confidence 감점" 조건 **미발동** → Tier 1 에 감점/후처리 **불필요**. (감점 코드 추가 안 함이 정답)
+2. ⚠️ FP(`hair_vs_bg=0.212`) 는 **Tier 1 실패 → Tier 3 휴리스틱 폴백** 에서만 발생(#2). Tier 3 hair conf=0.5 → v316 scale 0.6 자동적용이라 배경에 약하게 보정 번짐. 단, 이건 기존 v312 동작 범위.
+3. ⚠️ **recall 갭**: 단발 뒷모습(#2) 같은 뒷통수 헤어샷에서 Tier 1 세그멘터가 빠짐. 살롱은 뒷통수 샷이 흔하므로 잠재 개선 포인트.
 
-**파일**: `js/photo-editor/mask-hair-adapter.js` (+30), `js/photo-editor/mask-confidence.js` (+10)
+**남은(저우선) 개선 후보** — 실제 원장님 헤어 사진 확보 후만 안전:
+- Tier 3 hair conf 0.5 → 0.39 강등 시 v316 자동적용 제외 → beauty-engine 내부 `hairLike`(subjectW·edgeBg 게이팅 더 강함)로 폴백 → #2 류 배경 FP 감소 기대. 단 Tier3 가 잘 되는 다수 케이스 회귀 위험 있어 실사진 QA 전 보류.
+- 뒷통수 recall 갭은 segmenter 입력 전처리/임계 조정 별도 PR.
+
+**QA 도구**: `scripts/mask-qa-headless.js` 에 `PHOTO_QA_MODE=hair` 추가됨. 재현: `PHOTO_QA_MODE=hair PHOTO_QA_URL='http://127.0.0.1:8080/?v=maskqa' node scripts/mask-qa-headless.js`
+※ loremflickr/commons 샘플 품질 한계 — 정밀 튜닝은 실제 원장님 사진 필요.
 
 ### G. v322 — Provider 코드 리팩토링 (선택)
 
@@ -231,10 +241,15 @@ QA 결과 따라:
 
 ## 진행률 (사용자 체감 기준)
 
-- 부위 인식 정확도 ↑: **80%** (skin/hair/lip/eye 완료, eyelash/nail 보류)
-- 하단 2단 메뉴: **100%** (v330 cutover)
-- 캔바 무료 템플릿: **80%** (v327 + BA 12종, 폴리싱 v320 남음)
+- 부위 인식 정확도 ↑: **90%** (skin/hair/lip/eye + eyelash(v317) 완료, hair Tier1 검증 완료(F), nail 은 Hand Landmarker 부적합 확인 → 휴리스틱 유지(C))
+- 하단 2단 메뉴: **100%** (v330 cutover + v319 폴리싱)
+- 캔바 무료 템플릿: **100%** (v327 + BA 12종 + v320-A/B 폴리싱)
 - 중복 진입점 제거: **70%** (v330 — 카드 그리드 hide)
-- 메인 진입 직접화: **60%** (entry-v6 hide만, 완전 제거는 v319)
+- 메인 진입 직접화: **60%** (entry-v6 hide만, 완전 제거는 v319 일부)
 
-**전체 ~80%**. v317~v321 진행 시 90% 이상 도달.
+**전체 ~88%**. 남은 큰 항목: 진입화면 완전 단순화(D 잔여), 실제 원장님 사진 기반 nail 휴리스틱·hair recall 튜닝(C/F 후속), G(provider 리팩토링)·H(장기).
+
+### 2026-05-29 세션 추가 (C·F 검증)
+- **C (nail/handSkin)**: QA 결과 Hand Landmarker 가 네일샵 손등 포즈 recall 실패 + 얼굴 FP → v316 미연결 확정(won't-wire). 네일은 휘도 휴리스틱 유지. 상세 §C.
+- **F (hair Tier 1)**: QA 결과 Tier 1 hair_vs_bg=0.000 (precision-safe) → confidence 감점 불필요 확정. FP 는 Tier 3 폴백에서만. 상세 §F.
+- QA 도구: `scripts/mask-qa-headless.js` 에 `PHOTO_QA_MODE=nail|hair` 모드 추가.
