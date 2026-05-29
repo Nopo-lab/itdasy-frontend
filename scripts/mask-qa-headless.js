@@ -82,7 +82,12 @@ const REF_PHOTOS = [
   { label: 'Image#3 IVE 헤어+손', path: '/Users/kang-yeonjun/Downloads/KakaoTalk_Photo_2026-05-29-00-27-11.jpeg' },
 ];
 function loadLocalFaces() {
-  return REF_PHOTOS.map(p => {
+  // PHOTO_QA_FILES=경로1,경로2,... → 그 파일들로 대체 (실제 원장님 사진 QA용)
+  let photos = REF_PHOTOS;
+  if (process.env.PHOTO_QA_FILES) {
+    photos = process.env.PHOTO_QA_FILES.split(',').map((p, i) => ({ label: `Local#${i + 1} ${path.basename(p.trim())}`, path: p.trim() }));
+  }
+  return photos.map(p => {
     try {
       const buf = fs.readFileSync(p.path);
       const ext = (p.path.split('.').pop() || 'jpeg').toLowerCase();

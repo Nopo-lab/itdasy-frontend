@@ -113,12 +113,35 @@ localStorage.setItem('PE_NAV_V7','0'); location.reload();
 
 **결정**: nailMask/handSkinMask 를 v316 에 **연결하지 않음**.
 - 이유: MediaPipe Hand Landmarker 는 손바닥 제스처 포즈 학습 모델이라 네일샵 대표 포즈(손등 평면)에서 recall 실패. 진짜 네일 손은 놓치고 얼굴엔 FP. 연결 시 "슬라이더 변화 0"(rule 3) + "QA 미통과 연결"(rule 4) 위반.
+- **실사진 재검증(2026-05-29)**: 원장님 제공 실제 네일샵 사진 5장(핑크3D/글리터누드/단네일/어두운피부 2손/핑크프렌치) **전부 noHand**. 손가락 펼친 포즈조차 0개. won't-wire 100% 확정.
 - **현재 안전**: nailMask 미연결 → 네일은 `beauty-engine.js:126` 휘도 휴리스틱(`lum0 140~210 & subjectW>0.4`)으로 동작. nailShape 는 `_applySharpen` 전역 unsharp. 깨진 마스크 연결 시 오히려 퇴보.
 
-**나중에 네일 정밀도 올리려면 (item H 영역, Hand Landmarker 아님)**:
-1. 휴리스틱 개선 — specular highlight + 채도 높은 폴리시 색 기반 nail 검출 강화 (마스크 모델 불필요, 비용 0)
-2. 전용 nail segmentation 모델 (별도 .tflite, 비용·용량 검토 필요)
-3. **실제 원장님 네일샵 사진** 으로 재QA — loremflickr/commons 샘플은 품질 낮음(옛 광고·삽화 섞임). 원장님 실사진 확보 시 휴리스틱 1번 튜닝 권장.
+**→ v348 네일 gloss 자연 강화 적용 (2026-05-29, beauty-engine.js 만 수정)**
+
+문제였던 점: 이전 `nailW` 가 flat **0.15** 라 nailGloss +18 부스트가 실효 ~2 수준으로 죽음. `lum 140~210` 상한이 글리터·스페큘러 하이라이트(>210)를 오히려 제외.
+
+수정 내용 (`js/photo-editor/beauty-engine.js`):
+- `_nailWeight()` 신규 — nailW 를 graded(0~1)로: specular/글리터 하이라이트(>205, 무채색) + 밝은 네일면(150~205) + 폴리시 채도. `subjectW>0.45 & !edgeBg` 로 배경 배제, `isSkin & 비광택 → ×0.25` 로 손가락살 번짐 방지.
+- nailGloss: 기본 밝힘 + 하이라이트 추가 광택(차가운 파랑 +4% = 유리질감). nailShape: 전역 unsharp → **nailW 마스크 영역 unsharp**(`_unsharpMaskRegion`)로 네일면만 또렷.
+
+**강도 상수** (`beauty-engine.js` 상단, 과하면 여기만 조정):
+| 상수 | 값 | 역할 |
+|---|---|---|
+| `NAIL_SPEC_LUM` | 205 | 이상 휘도 = 광택/글리터 하이라이트 (>210 제외 문제 해소) |
+| `NAIL_SPEC_DESAT` | 48 | 하이라이트 무채색 조건 (붉은 피부 번들 제외) |
+| `NAIL_BRIGHT_MIN` | 150 | 밝은 네일면 시작 |
+| `NAIL_SAT_MIN` | 50 | 폴리시 색 채도 시작 |
+| `NAIL_SUBJECT_MIN` | 0.45 | 주피사체 영역 한정 (배경 방지) |
+| `NAIL_SKIN_SUPPRESS` | 0.25 | 비광택 맨살 억제 배율 (손가락 번짐 방지) |
+| `NAIL_GLOSS_BASE` | 14 | 기본 밝힘 |
+| `NAIL_GLOSS_SPEC` | 30 | 하이라이트 추가 광택 (체감 핵심) — 번들 나면 먼저 ↓ |
+
+**판정 (실사진 5장 before/after, gloss85/shape55, `output/playwright/nail-natural-N-before-after.png`)**: **5/5 PASS**
+- #1 핑크3D ✅ / #2 글리터누드 ✅(글리터 확 삼, 배경 번짐0) / #3 단네일 ✅ / #4 어두운피부2손 ✅(**하얀 번짐 0** 핵심통과) / #5 핑크글리터 ✅
+- 기준(광택↑·번들없음·글리터생존·어두운피부 번짐없음, 4장↑) 충족 → 적용 확정.
+- 회귀 안전: nailGloss/nailShape=0(기본)이면 기존과 완전 동일. face 경로 무영향. Landmarker 여전히 미연결.
+
+**남은(장기, H)**: 전용 nail segmentation 모델(.tflite) — 비용·용량 검토 시.
 
 **QA 도구**: `scripts/mask-qa-headless.js` 에 `PHOTO_QA_MODE=nail` 모드 추가됨(원격 5장 fetch). 재현: `PHOTO_QA_MODE=nail PHOTO_QA_URL='http://127.0.0.1:8080/?v=maskqa' node scripts/mask-qa-headless.js`
 
@@ -164,7 +187,7 @@ localStorage.setItem('PE_NAV_V7','0'); location.reload();
 **결론**:
 1. ✅ **Tier 1 (hair_segmenter.tflite) 은 배경 false-positive 없음** — 작동하는 모든 케이스 `hair_vs_bg=0.000`. 인수인계가 예상한 "FP 높으면 confidence 감점" 조건 **미발동** → Tier 1 에 감점/후처리 **불필요**. (감점 코드 추가 안 함이 정답)
 2. ⚠️ FP(`hair_vs_bg=0.212`) 는 **Tier 1 실패 → Tier 3 휴리스틱 폴백** 에서만 발생(#2). Tier 3 hair conf=0.5 → v316 scale 0.6 자동적용이라 배경에 약하게 보정 번짐. 단, 이건 기존 v312 동작 범위.
-3. ⚠️ **recall 갭**: 단발 뒷모습(#2) 같은 뒷통수 헤어샷에서 Tier 1 세그멘터가 빠짐. 살롱은 뒷통수 샷이 흔하므로 잠재 개선 포인트.
+3. ✅ **recall 도 OK (실사진 확인)**: 앞서 loremflickr 샘플(#2)에서 의심했던 뒷통수 recall 갭은 **쓰레기 샘플 탓**. 원장님 제공 실제 헤어 뒷모습 2장(흑발 전후 단발/롱웨이브, 흑발+하이라이트) **둘 다 Tier1 ready, cov 0.38, hair_vs_bg=0.000** — 시안 오버레이가 머리에 정확히 입혀짐(스크린샷 확인). 살롱 뒷통수샷에서 Tier1 깨끗하게 작동. **F 후속 튜닝도 불필요 확정.**
 
 **남은(저우선) 개선 후보** — 실제 원장님 헤어 사진 확보 후만 안전:
 - Tier 3 hair conf 0.5 → 0.39 강등 시 v316 자동적용 제외 → beauty-engine 내부 `hairLike`(subjectW·edgeBg 게이팅 더 강함)로 폴백 → #2 류 배경 FP 감소 기대. 단 Tier3 가 잘 되는 다수 케이스 회귀 위험 있어 실사진 QA 전 보류.
