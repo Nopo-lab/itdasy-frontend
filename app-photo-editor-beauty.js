@@ -253,6 +253,47 @@
         if (window.showToast) window.showToast('AI 보정은 카드 발급 후 활성화 예정이에요');
       });
     });
+    // T-117 — 패널 진입/카테고리 전환 직후 첫 슬라이더가 화면 안에 들어오게 자동 스크롤
+    _focusFirstSlider(panel);
+  }
+
+  // T-117 — 추천 보정 라벨(또는 첫 슬라이더)을 패널 가시영역 상단 근처로.
+  //   패널 내부 스크롤만 이동(window/페이지 점프 없음). 앵커를 패널 상단 10px
+  //   지점으로 맞추되, 레이아웃 안정화 타이밍 차로 생기는 over/under-shoot 를
+  //   몇 프레임에 걸쳐 양방향 보정해 수렴시킨다. 콘텐츠가 다 보이면 scrollTop
+  //   이 0 으로 클램프되어 no-op → 회귀 위험 없음.
+  //   ⚠️ html 이 scroll-behavior:smooth 라 panel.scrollTop= 도 애니메이션이 걸려
+  //      rAF 보정 루프와 충돌(읽는 값이 애니메이션 중간값) → 일시적으로 auto 로
+  //      우회해 즉시 이동시킨다.
+  function _focusFirstSlider(panel) {
+    if (!panel) return;
+    let tries = 0;
+    const adjust = () => {
+      // 첫 번째 "보이는" 슬라이더 기준(상단의 AI 추천/hero/칩 라벨은 앵커로 쓰지 않는다).
+      const sliders = panel.querySelectorAll('.pe-slider');
+      let firstSlider = null;
+      for (let i = 0; i < sliders.length; i++) {
+        if (sliders[i].offsetParent !== null) { firstSlider = sliders[i]; break; }
+      }
+      if (!firstSlider) return;
+      // 슬라이더 바로 위 그룹 라벨이 있으면 그 라벨까지 보이게 라벨을 앵커로.
+      let anchor = firstSlider;
+      const prev = firstSlider.previousElementSibling;
+      if (prev && prev.classList && prev.classList.contains('pe-group-label')) anchor = prev;
+      try {
+        const cTop = panel.getBoundingClientRect().top;
+        const aTop = anchor.getBoundingClientRect().top;
+        const delta = (aTop - cTop) - 10;   // 앵커가 패널 상단 10px 아래에 오도록
+        if (Math.abs(delta) > 4) {
+          const prevSB = panel.style.scrollBehavior;
+          panel.style.scrollBehavior = 'auto';   // smooth 우회 → 즉시 이동
+          panel.scrollTop = Math.max(0, panel.scrollTop + delta);
+          panel.style.scrollBehavior = prevSB || '';
+        }
+      } catch (_e) { void _e; }
+      if (++tries < 3) requestAnimationFrame(adjust);
+    };
+    requestAnimationFrame(adjust);
   }
 
   function _bindBeautyQuick(panel, state, helpers) {

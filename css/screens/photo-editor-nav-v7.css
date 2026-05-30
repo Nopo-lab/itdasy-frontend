@@ -24,9 +24,12 @@
 #photoEditorSheet.pe-nav-v7-active .pe-nav-v7 {
   display: flex;
 }
-/* pe-panel 위치를 nav-v7 높이만큼 위로 — 2단(50+62=112) + safe-area */
+/* T-117 — pe-panel 은 static flex item 이라 bottom 이 무효였음(겹침 미해결).
+   nav-v7(2단 50+62=112) 이 fixed 로 패널 하단을 덮으므로, 패널 안쪽 하단에
+   nav 높이만큼 여백을 줘서 마지막 슬라이더가 nav 위로 스크롤되어 닿게 한다.
+   studio/pro.css 의 .pe-panel padding !important 를 이기려면 !important 필요. */
 #photoEditorSheet.pe-nav-v7-active .pe-panel {
-  bottom: calc(112px + env(safe-area-inset-bottom, 0));
+  padding-bottom: calc(112px + env(safe-area-inset-bottom, 0) + 24px) !important;
 }
 
 /* v330 — entry-v6 카드 그리드/프리셋 영역 hide (사진 픽커만 노출) */
