@@ -70,8 +70,30 @@
 
 ---
 
+## 🟢 사진편집기 출시 QA — 종료 (2026-05-31)
+
+출시 QA 라운드 완료. **P0/P1 없음 → 베타 출시 가능.** 런타임은 더 건드리지 않는다(고도화는 아래 P2만).
+회귀 감시 하니스 6종 확보: `scripts/{photo-controls-visibility,bg-replace,release,t119-attach,t118-slider,p2-mask}-qa.js`.
+
+해결 완료: T-117 조작부 가시성(v363) · T-116 배경/누끼 검증 · T-120 BA 즉시반영+배경 피드백(v364) ·
+T-119 저장/export/slot/attach/dedupe + T-119-A export 안내(v365) · T-118 슬라이더 체감 검증(강도 조정 없음).
+
+### 남은 P2 고도화 (출시 후, 사진편집기 런타임 재오픈 금지 — 별도 티켓으로만)
+1. **네일 클로즈업 no-hand 마스크 품질** — 손가락만 큰 클로즈업에서 MediaPipe Hand 미검출 →
+   `nailMask` tier0. nailShape/coolness 가 휴리스틱만 사용. 강도 문제 아님(마스크 품질).
+2. **눈/입술 정밀 재검증** — lipPop/eyeColor/catchLight 가 약하게 측정되나 마스크는 정상(tier2 AUTO).
+   세로 사진 letterbox 로 측정 box 정렬 오차 가능 → 정렬 정확한 클로즈업(P2_EYE/P2_LIP)으로 실측 후 판단.
+   섣부른 상수 상향은 작은 영역 과보정 위험.
+3. **bg-safe 통합** — bg 탭이 누끼 다운스케일·재시도·단계별 status 이벤트 래퍼(`composeBgForEditor`)를
+   우회. 현재는 단계 토스트로만 보강. 통합 시 큰 사진 안정성·진행바 개선.
+4. **nav-v7 서브칩 세분화** — 템플릿 카테고리 피드/스토리/가격 서브칩이 동일 `template` 패널로 매핑.
+5. **T-108** — cross-device treatments 병합 · 오프라인 영속 재시도 큐 · attach undo.
+
+---
+
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-20 | 최초 작성. 3대 모놀리스 분할 계획 + 백엔드 미결 과제 기록 |
+| 2026-05-31 | 사진편집기 출시 QA 종료 기록 + 남은 P2 고도화 5종 백로그 추가 |
