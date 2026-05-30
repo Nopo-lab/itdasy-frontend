@@ -66,12 +66,15 @@
     const bg = list.find(x => x.id === bgId);
     if (!bg || !window.PhotoEditorBgCompose) return helpers.toast('배경 모듈 로드 중이에요');
     btn.disabled = true;
-    helpers.toast('누끼 + 그림자 합성 중...');
+    // [T-120] 진행 피드백 — compose 가 누끼+합성을 한 번에 처리(엔진 미수정)하므로,
+    //   누끼 캐시 유무로 시작 단계 메시지를 분기한다.
+    //   첫 적용=누끼 필요 → '누끼 정리 중…' / 캐시 재사용(그림자·다른 배경 재선택) → '배경 합성 중…'
+    helpers.toast(state.removedBgDataUrl ? '배경 합성 중…' : '누끼 정리 중…');
     try {
       await _applyBgId(bgId, state, helpers, '배경 적용 완료');
     } catch (err) {
       console.warn('[photo-bg-tab] 합성 실패:', err);
-      helpers.toast('합성 실패: ' + ((err && err.message) || '').slice(0, 60));
+      helpers.toast('배경 적용 실패: ' + ((err && err.message) || '알 수 없는 오류').slice(0, 60));
     } finally {
       btn.disabled = false;
     }
@@ -82,6 +85,8 @@
     const bg = list.find(x => x.id === bgId);
     if (!bg || !window.PhotoEditorBgCompose) throw new Error('배경 모듈 로드 실패');
     if (!state.preBgOriginalSrc) state.preBgOriginalSrc = state.originalSrc;
+    // [T-120] 누끼가 끝난(캐시 확보) 뒤 합성/그림자 단계 진입을 알림 — 누끼 필요했던 경우에만.
+    const needCutout = !state.removedBgDataUrl;
     const result = await window.PhotoEditorBgCompose.compose({
       srcUrl: state.preBgOriginalSrc,
       bg,
@@ -91,6 +96,7 @@
     });
     state.bg = { id: bg.id };
     state.removedBgDataUrl = result.removedBgDataUrl;
+    if (needCutout && doneMsg) helpers.toast('배경 합성 중…');
     await _swapImage(state, result.composedDataUrl, helpers);
     if (doneMsg) helpers.toast(doneMsg);
   }

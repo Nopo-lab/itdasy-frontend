@@ -431,16 +431,17 @@
     window.addEventListener('itdasy:pe:redraw', () => {
       _drawIfActive(internal);
     });
-    let _lastTab = null;
+    // [T-120 BA P1] scheduleRedraw 는 _wrapRedraw(helpers.redraw)를 우회해(_scheduleRedraw
+    //   가 클로저 원본 _redraw 직접 호출) BA 합성을 건너뛴다. 기존엔 _lastTab!=='ba' 가드
+    //   탓에 "탭 전환 순간" 1회만 그려, 이미 BA 탭인 채로 비교사진을 고르면 픽 직후 캔버스가
+    //   원본 그대로였다. → 가드 제거: BA 탭 + 비교사진 활성이면 100ms tick 마다 합성 보장.
+    //   (픽/드래그/모드 변경 모두 ≤100ms 내 반영)
     setInterval(() => {
       try {
         const state = internal.getState();
         if (!state) return;
         if (state.activeTab === 'ba' && _baState.enabled && _baState.secondImg) {
-          if (_lastTab !== 'ba') _drawIfActive(internal);
-          _lastTab = 'ba';
-        } else {
-          _lastTab = state.activeTab;
+          _drawIfActive(internal);
         }
       } catch (_e) { void _e; }
     }, 100);
