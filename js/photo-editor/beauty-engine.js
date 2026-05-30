@@ -34,6 +34,16 @@
   const HAIR_ENDS_MIX = 0.42;       // 외곽 띠 soften 강도
   const HAIR_ENDS_FALLBACK = 0.3;   // hairMask 없을 때 hairW fallback soften (과장 금지 — 약하게)
 
+  // ── [T-142 catchLight / T-143 lashSharp] 눈 효과 상수 ──
+  const CATCH_OPACITY = 0.38;       // [2차조정] catchLight 중심 alpha (0.42→0.38, 고해상도 눈동자 뜸 추가 후퇴)
+  const CATCH_RAD_RATIO = 0.10;     // 한쪽 눈 폭 대비 반경 + 눈높이×0.20 상한(아래) — 작은 반짝 점
+  const CATCH_COV_MIN = 0.0003;     // eyeMask bbox 면적 하한(이하=비정상 → 합성 스킵)
+  const CATCH_COV_MAX = 0.15;       // 상한(이상=오검출 → 스킵)
+  const LASH_ROI_BOT = 0.45;        // eyeMask bbox 상단 0~45% = 속눈썹/눈 위 라인 ROI
+  const LASH_GLOBAL_FALLBACK = 120; // eyeMask 도 없을 때 전역 unsharp 분모 (기존 65 → 약화)
+  const EYE_MASK_THRESH = 0.25;     // eyeMask 임계 — tier2 polygon 은 feather 로 max≈0.43 라 0.5 면 전부 탈락(작동X). 0.25 로.
+  const LASH_DARKEN = 0.22;         // [1차조정] lashSharp ROI 어두운 선 darken 강도(속눈썹 진하게). unsharp 보완.
+
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
   function _boxBlur(img, w, h, r) {
@@ -82,6 +92,59 @@
     const band = new Float32Array(n);
     for (let i = 0; i < n; i++) band[i] = (bin[i] > 0.5 && ero[i] < 0.5) ? 1 : 0;  // 머리 ∧ ¬내부 = 외곽 띠
     return band;
+  }
+
+  // [T-142/143] eyeMask 픽셀 bbox (mask 좌표). 없으면 null.
+  function _eyeBBox(mask, mw, mh) {
+    let minX = mw, minY = mh, maxX = -1, maxY = -1, cnt = 0;
+    for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {
+      if (mask[y * mw + x] > EYE_MASK_THRESH) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; cnt++; }
+    }
+    if (maxX < 0) return null;
+    return { minX, minY, maxX, maxY, w: maxX - minX + 1, h: maxY - minY + 1, cnt };
+  }
+
+  // [T-142] eyeMask 좌/우 눈 무게중심에 작은 soft highlight 합성(눈 생기). 흰자/피부 회피 위해
+  //   작은 반경 + 무게중심(눈동자 근처)에만. opacity 절제. 그린 눈 수 반환.
+  function _drawCatchlight(ctx, w, h, mask, mw, mh, opacity) {
+    const bb = _eyeBBox(mask, mw, mh);
+    if (!bb) return 0;
+    const cov = bb.cnt / (mw * mh);
+    if (cov < CATCH_COV_MIN || cov > CATCH_COV_MAX) return 0;   // 비정상 bbox → 스킵
+    const sx = w / mw, sy = h / mh, midX = (bb.minX + bb.maxX) / 2;
+    const halves = [[bb.minX, Math.floor(midX)], [Math.ceil(midX), bb.maxX]];
+    let drawn = 0;
+    ctx.save();
+    for (const [x0, x1] of halves) {
+      let sxx = 0, syy = 0, c = 0;
+      for (let y = bb.minY; y <= bb.maxY; y++) for (let x = x0; x <= x1; x++) { if (mask[y * mw + x] > EYE_MASK_THRESH) { sxx += x; syy += y; c++; } }
+      if (c < 5) continue;                                       // 한쪽만 인식 시 빈쪽 스킵
+      const ecx = (sxx / c) * sx, ecy = (syy / c) * sy - bb.h * 0.05 * sy;  // 무게중심 약간 위
+      // [1차조정] 반경을 눈동자 크기(눈 높이) 기준으로 제한 — 고해상도에서 눈 전체 밝힘 방지.
+      //   min(한눈폭×0.10, 눈높이×0.30). 눈동자보다 작은 "생기 점".
+      const eyeW = (x1 - x0 + 1) * sx, eyeH = bb.h * sy;
+      const rad = Math.max(2, Math.min(eyeW * CATCH_RAD_RATIO, eyeH * 0.20));  // [2차] 0.30→0.20 더 작은 점
+      const grad = ctx.createRadialGradient(ecx, ecy, 0, ecx, ecy, rad);
+      grad.addColorStop(0, 'rgba(255,255,255,' + opacity + ')');
+      grad.addColorStop(0.45, 'rgba(255,255,255,' + (opacity * 0.4) + ')');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(ecx, ecy, rad, 0, Math.PI * 2); ctx.fill();
+      drawn++;
+    }
+    ctx.restore();
+    return drawn;
+  }
+
+  // [T-143] eyeMask bbox 상단 0~LASH_ROI_BOT(45%) ∩ eyeMask = 속눈썹/눈 위 라인 ROI (mask 좌표).
+  function _eyeUpperROI(mask, mw, mh) {
+    const bb = _eyeBBox(mask, mw, mh);
+    if (!bb) return null;
+    const botY = bb.minY + bb.h * LASH_ROI_BOT;
+    const roi = new Float32Array(mw * mh);
+    for (let y = bb.minY; y <= botY && y < mh; y++) for (let x = bb.minX; x <= bb.maxX; x++) {
+      const idx = y * mw + x; if (mask[idx] > EYE_MASK_THRESH) roi[idx] = 1;   // eyeMask 내부 상단만
+    }
+    return roi;
   }
 
   function _unsharpMask(ctx, w, h, strength) {
@@ -196,6 +259,7 @@
       r, g, bl, lum0, ny,                                // [T-140] ny = 세로 정규화 위치 (뿌리/상단 lift 용)
       hasHairMask: !!(useM && useM.hairMask),             // [T-140/141] hairMask 실제 연결 여부 (fallback 분기)
       hasBoundaryMask: !!(useM && useM.hairBoundaryMask), // [T-140/141] 경계 band 마스크 연결 여부
+      hasEyeMask: !!(useM && useM.eyeMask),               // [T-142] eyeMask 연결 시 catchLight 는 합성으로 대체
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
@@ -216,7 +280,9 @@
     if (c.irisK > 0 && p.eyeW > 0.14 && p.lum0 > 16 && p.lum0 < 135 && p.skinW < 0.55) {
       _contrastFromLum(d, i, p.lum0, 1 + 0.75 * c.irisK * p.eyeW, 0);
     }
-    if (c.catchK > 0 && p.eyeW > 0.06 && p.lum0 > 155 && Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl) < 65) {
+    // [T-142] eyeMask 있으면 catchLight 는 루프 후 _drawCatchlight 합성으로 대체(여기선 스킵).
+    //   eyeMask 없을 때만 기존 "밝은 픽셀 강조" fallback 유지(과장 금지 — 기존 강도 그대로).
+    if (c.catchK > 0 && !p.hasEyeMask && p.eyeW > 0.06 && p.lum0 > 155 && Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl) < 65) {
       d[i] = _clamp(d[i] + 26 * c.catchK * p.eyeW);
       d[i + 1] = _clamp(d[i + 1] + 26 * c.catchK * p.eyeW);
       d[i + 2] = _clamp(d[i + 2] + 30 * c.catchK * p.eyeW);
@@ -399,14 +465,47 @@
     } catch (_e) { void _e; }
   }
 
+  // [T-143] ROI 내부 "어두운 선"(속눈썹/눈 위 라인)만 약하게 darken → 라인이 진해 보임.
+  //   밝은 픽셀(피부/흰자)은 안 건드림 → 노이즈/거칠어짐 방지. mask>임계 & 주변보다 어두운 픽셀만.
+  function _darkenRegionDarkLines(ctx, w, h, strength, mask, mw, mh) {
+    try {
+      const src = ctx.getImageData(0, 0, w, h);
+      const d = src.data, same = (mw === w && mh === h);
+      for (let idx = 0; idx < w * h; idx++) {
+        const i = idx << 2;
+        let midx;
+        if (same) midx = idx; else { const x = idx % w, y = (idx / w) | 0; midx = Math.min(mh - 1, (y * mh / h) | 0) * mw + Math.min(mw - 1, (x * mw / w) | 0); }
+        const m = mask[midx] || 0;
+        if (m <= 0.25) continue;                                   // ROI 밖
+        const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+        if (lum >= 150) continue;                                  // 밝은 피부/흰자 제외 — 어두운 선만
+        const dk = strength * m * (1 - lum / 150);                 // 어두울수록 더 진하게
+        d[i] = _clamp(d[i] * (1 - dk)); d[i + 1] = _clamp(d[i + 1] * (1 - dk)); d[i + 2] = _clamp(d[i + 2] * (1 - dk));
+      }
+      ctx.putImageData(src, 0, 0);
+    } catch (_e) { void _e; }
+  }
+
   function _applySharpen(ctx, w, h, b, regionMasks, nailMaskArr) {
     if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 150);
     if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 260);
-    // v317 — lashSharp: eyelashBandMask(conf≥0.4) 있으면 밴드만 샤픈, 아니면 기존 전역 unsharp(회귀안전)
+    // [T-143] lashSharp: lashMask(밴드) 우선 → 없으면 eyeMask 상단 ROI → 둘 다 없으면 약화된 전역.
+    //   전역 샤픈(사진 전체)으로 빠지던 문제 해소: eyeMask 만 있어도 눈 위 라인만 샤픈.
     if (b.lashSharp > 10) {
       const lm = regionMasks && regionMasks.lashMask;
-      if (lm) _unsharpMaskRegion(ctx, w, h, b.lashSharp / 65, lm, regionMasks.lashScale || 1, regionMasks.maskW || w, regionMasks.maskH || h);
-      else _unsharpMask(ctx, w, h, b.lashSharp / 65);
+      const em = regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask;
+      const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+      const dk = LASH_DARKEN * Math.min(1, b.lashSharp / 100);      // 어두운 선 darken 강도
+      if (lm) {
+        _unsharpMaskRegion(ctx, w, h, b.lashSharp / 65, lm, regionMasks.lashScale || 1, mw, mh);
+        _darkenRegionDarkLines(ctx, w, h, dk, lm, mw, mh);
+      } else if (em) {
+        const roi = _eyeUpperROI(em, mw, mh);                       // eyeMask bbox 상단 ROI
+        if (roi) { _unsharpMaskRegion(ctx, w, h, b.lashSharp / 65, roi, 1, mw, mh); _darkenRegionDarkLines(ctx, w, h, dk, roi, mw, mh); }
+        else _unsharpMask(ctx, w, h, b.lashSharp / LASH_GLOBAL_FALLBACK);
+      } else {
+        _unsharpMask(ctx, w, h, b.lashSharp / LASH_GLOBAL_FALLBACK);  // 약화된 전역(기존 65→120)
+      }
     }
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 80);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 130);
@@ -457,6 +556,13 @@
       _applyDetail(d, i, p, c);
     }
     ctx.putImageData(data, 0, 0);
+    // [T-142] catchLight 합성 — eyeMask 있을 때 좌/우 눈동자 근처에 작은 하이라이트(생기).
+    //   eyeMask 없으면 _applyEye 의 fallback(밝은 픽셀 강조)이 이미 처리됨.
+    if (c.catchK > 0 && regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask) {
+      try {
+        _drawCatchlight(ctx, w, h, regionMasks.useMasks.eyeMask, regionMasks.maskW || w, regionMasks.maskH || h, CATCH_OPACITY * c.catchK);
+      } catch (_e) { void _e; }
+    }
     _applySharpen(ctx, w, h, b, regionMasks, nailMaskArr);
   }
 
