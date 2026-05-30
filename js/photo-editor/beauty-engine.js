@@ -19,6 +19,21 @@
   //   mask 가 손톱면을 작게/일부만 잡아도 보정이 완전히 사라지지 않게 휴리스틱을 이 배율로 유지.
   const NAIL_MASK_FALLBACK = 0.45;
 
+  // ── [T-140 hairVolume 볼륨 착시 / T-141 hairEndsClean 머리끝] 튜닝 상수 ──
+  //   과보정/배경 침범 시 여기 숫자만 조정. rollback: HAIR_VOL_*=0, HAIR_VOL_CONTRAST=0.65, HAIR_ENDS_*=기존값.
+  //   원리: hairBoundaryMask(경계 band) 안에서 hairW(머리쪽) 높은 픽셀의 명부엔 rim highlight,
+  //         암부엔 미세 depth shadow → 외곽 라인·입체감 부각(형태 warping 없이). 배경(hairW 낮음)은 제외.
+  const HAIR_VOL_RIM_HI = 26;       // [1차상향] 경계 명부 rim highlight (16→26) 외곽 더 또렷
+  const HAIR_VOL_RIM_LO = 22;       // [1차상향] 경계 암부 depth shadow (14→22) 입체 음영
+  const HAIR_VOL_ROOT_LIFT = 14;    // [1차상향] 상단/뿌리 lift (9→14) 정수리 풍성
+  const HAIR_VOL_ROOT_TOP = 0.42;   // 뿌리 영역 상단 비율
+  const HAIR_VOL_CONTRAST = 0.42;   // [1차상향] contrast 보조 (0.32→0.42, 기존 0.65 보단 낮게)
+  const HAIR_VOL_RIM_LUM = 120;     // rim 명/암 분기 휘도
+  const HAIR_VOL_WEAK_RIM = 0.5;    // [신규] boundaryMask WEAK/없을 때 hairW 기반 rim 보강 배율
+  // T-141 — 외곽 부스스함만 soften. 본체(hairW 높음) 보존.
+  const HAIR_ENDS_MIX = 0.42;       // 외곽 띠 soften 강도
+  const HAIR_ENDS_FALLBACK = 0.3;   // hairMask 없을 때 hairW fallback soften (과장 금지 — 약하게)
+
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
   function _boxBlur(img, w, h, r) {
@@ -45,6 +60,28 @@
       o[p] = rS / n; o[p + 1] = gS / n; o[p + 2] = bS / n; o[p + 3] = tmp[p + 3];
     }
     return out;
+  }
+
+  // [T-141 재구현] hairMask 외곽 띠 = hairMask AND NOT(erosion). 내부 본체/가닥은 제외.
+  //   separable min-filter(반경 r)로 erosion → 머리 외곽선(배경 인접)만 1, 내부는 0.
+  //   mask: Float32Array(0~1), mw×mh. 반환: Float32Array outerBand(0/1).
+  function _hairOuterBand(mask, mw, mh, r) {
+    const n = mw * mh;
+    const bin = new Float32Array(n);
+    for (let i = 0; i < n; i++) bin[i] = mask[i] > 0.5 ? 1 : 0;
+    const tmp = new Float32Array(n);
+    for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {  // horizontal min
+      let m = 1; for (let k = -r; k <= r; k++) { const xx = x + k < 0 ? 0 : x + k >= mw ? mw - 1 : x + k; const v = bin[y * mw + xx]; if (v < m) m = v; }
+      tmp[y * mw + x] = m;
+    }
+    const ero = new Float32Array(n);
+    for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) {  // vertical min
+      let m = 1; for (let k = -r; k <= r; k++) { const yy = y + k < 0 ? 0 : y + k >= mh ? mh - 1 : y + k; const v = tmp[yy * mw + x]; if (v < m) m = v; }
+      ero[y * mw + x] = m;
+    }
+    const band = new Float32Array(n);
+    for (let i = 0; i < n; i++) band[i] = (bin[i] > 0.5 && ero[i] < 0.5) ? 1 : 0;  // 머리 ∧ ¬내부 = 외곽 띠
+    return band;
   }
 
   function _unsharpMask(ctx, w, h, strength) {
@@ -156,12 +193,15 @@
     }
 
     return {
-      r, g, bl, lum0,
+      r, g, bl, lum0, ny,                                // [T-140] ny = 세로 정규화 위치 (뿌리/상단 lift 용)
+      hasHairMask: !!(useM && useM.hairMask),             // [T-140/141] hairMask 실제 연결 여부 (fallback 분기)
+      hasBoundaryMask: !!(useM && useM.hairBoundaryMask), // [T-140/141] 경계 band 마스크 연결 여부
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
       lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
       boundaryW: _rm('hairBoundaryMask', 0),             // 없으면 0 → hairEnd 는 hairW fallback
+      hairOuterW: (regionMasks && regionMasks._hairOuterBand) ? (regionMasks._hairOuterBand[midx] || 0) : -1,  // [T-141] erosion 외곽 띠(1=외곽, 0=본체, -1=마스크없음)
       nailW: _nailBlend(useM, sc, midx, mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin)), // v350 nailMask 안전 조건부 (미연결 시 v348 휴리스틱 동일)
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
@@ -243,11 +283,46 @@
       const specBoost = p.lum0 > 120 ? (p.lum0 - 120) / 80 * 0.8 + 1 : 1;
       _add(d, i, 22 * c.hairK * specBoost * p.hairW, 28 * c.hairK * specBoost * p.hairW, 12 * c.hairK * specBoost * p.hairW);
     }
-    if (c.hairVolK > 0) _contrastFromLum(d, i, p.lum0, 1 + 0.65 * c.hairVolK * p.hairW, (p.lum0 > 100 ? 30 * c.hairVolK : -18 * c.hairVolK) * p.hairW);
-    // v316 — hairEndK 는 boundary mask 있으면 우선 사용 (경계만 끝정리), 없으면 hairW
+    // [T-140] 머리 풍성감 — 색만 변하지 않게 "볼륨 착시" 강화.
+    //   ① 경계 band(boundaryW) ∩ 머리쪽(hairW) 에 rim highlight(명부)/depth shadow(암부) → 외곽 입체.
+    //   ② 상단/뿌리(ny<ROOT_TOP) 머리에 약한 lift → 정수리 풍성.
+    //   ③ 기존 명암 contrast 는 보조로 절반 이하. 배경(hairW 낮음)·얼굴(skinW)은 가드로 제외.
+    if (c.hairVolK > 0) {
+      _contrastFromLum(d, i, p.lum0, 1 + HAIR_VOL_CONTRAST * c.hairVolK * p.hairW, 0);
+      // rim/뿌리 효과는 hairMask 가 실제 연결됐을 때만(색기반 휴리스틱 오검출로 배경 안 건드림).
+      //   [얼굴 가드 강화] skinW<0.25 (기존 0.35) — 머리카락-얼굴 경계 침범 축소.
+      if (p.hasHairMask && p.skinW < 0.25 && p.hairW > 0.25) {
+        // 경계 가중 edgeW: boundaryMask 가 또렷하면 그대로, WEAK/없으면 hairW 중간대역(0.5 근처
+        //   = 머리↔배경 전이 = 경계 근사)으로 보강. 배경(hairW<0.25)은 위 게이트로 제외.
+        const bw = p.boundaryW || 0;
+        let edgeW = (p.hasBoundaryMask && bw > 0.12) ? bw : 0;
+        if (edgeW < 0.12 && p.hairW < 0.8) {
+          edgeW = HAIR_VOL_WEAK_RIM * Math.max(0, 1 - Math.abs(p.hairW - 0.5) / 0.3);  // hairW 0.5 근처 최대
+        }
+        if (edgeW > 0.06) {
+          const rim = c.hairVolK * edgeW;
+          if (p.lum0 > HAIR_VOL_RIM_LUM) _add(d, i, HAIR_VOL_RIM_HI * rim, HAIR_VOL_RIM_HI * rim, HAIR_VOL_RIM_HI * rim * 0.9);
+          else _add(d, i, -HAIR_VOL_RIM_LO * rim, -HAIR_VOL_RIM_LO * rim, -HAIR_VOL_RIM_LO * rim);
+        }
+        // 상단/뿌리 lift — 정수리 풍성 (머리 본체 위쪽)
+        if (p.ny != null && p.ny < HAIR_VOL_ROOT_TOP && p.hairW > 0.4) {
+          const rootW = c.hairVolK * p.hairW * (1 - p.ny / HAIR_VOL_ROOT_TOP);
+          _add(d, i, HAIR_VOL_ROOT_LIFT * rootW, HAIR_VOL_ROOT_LIFT * rootW, HAIR_VOL_ROOT_LIFT * rootW * 0.9);
+        }
+      }
+    }
+    // [T-141 재구현] 머리끝/잔머리 정리 — hairMask erosion 외곽 띠(hairOuterW)에서만 soften.
+    //   eroded 내부 본체/가닥/웨이브는 hairOuterW=0 → 절대 미접촉(본체 디테일 보존).
+    //   hairOuterW: 1=외곽 띠, 0=본체, -1=hairMask 없음(약한 fallback).
     if (c.hairEndK > 0 && blurD) {
-      const ew = (p.boundaryW || 0) > 0.10 ? p.boundaryW : p.hairW;
-      _mixBlur(d, i, blurD, 0.6 * c.hairEndK * ew, p.lum0 < 90 ? 8 * c.hairEndK * ew : 0);
+      if (p.hairOuterW > 0.5) {
+        // 진짜 외곽 띠만 — 배경 방향 soften (부스스함 정돈)
+        _mixBlur(d, i, blurD, HAIR_ENDS_MIX * c.hairEndK, p.lum0 < 90 ? 6 * c.hairEndK : 0);
+      } else if (p.hairOuterW < 0 && !p.hasHairMask) {
+        // hairMask 없음 → 약한 hairW fallback (과장 금지, 본체 과블러 방지)
+        _mixBlur(d, i, blurD, HAIR_ENDS_FALLBACK * c.hairEndK * p.hairW, 0);
+      }
+      // hairOuterW===0 (본체) → 미접촉
     }
     if (c.hairColK !== 0 && p.lum0 < 175) _add(d, i, 18 * c.hairColK * p.hairW, 6 * c.hairColK * p.hairW, -18 * c.hairColK * p.hairW);
     if (c.hairPopK > 0) _applyHairPop(d, i, p, c);
@@ -359,6 +434,16 @@
     if (needCpuSmooth || c.hairEndK > 0) {
       try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
+    // [T-141 재구현] hairEndsClean 외곽 띠 1회 생성(hairMask erosion). 본체/내부가닥은 띠에서 빠짐.
+    //   regionMasks._hairOuterBand 에 붙여 _pixel 에서 lookup. hairMask 없으면 null → 약한 fallback.
+    if (regionMasks && regionMasks.useMasks && regionMasks.useMasks.hairMask && c.hairEndK > 0) {
+      try {
+        const hm = regionMasks.useMasks.hairMask;
+        const mw = regionMasks.maskW || w, mh = regionMasks.maskH || h;
+        const r = Math.max(2, Math.round(Math.min(mw, mh) * 0.015));   // 외곽 띠 두께 ≈ 1.5%
+        regionMasks._hairOuterBand = _hairOuterBand(hm, mw, mh, r);
+      } catch (_e) { regionMasks._hairOuterBand = null; }
+    } else if (regionMasks) { regionMasks._hairOuterBand = null; }
     // v348 — nailShape 를 nailW 영역만 샤픈하기 위해 픽셀 walk 중 네일 가중치 수집
     let nailMaskArr = null;
     if (b.nailShape > 10) { try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; } }
