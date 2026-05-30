@@ -42,6 +42,36 @@ async function main() {
       document.getElementById('loginPassword').value = pw;
       document.getElementById('loginBtn').click();
     };
+    // [2026-05-31] 매출 합계(today/week/month) 어느 기간이든 늘었는지 — month 만 보면
+    //   당일 매출이 보정 전 누락될 수 있으므로 다중 기간으로 자동매출 생성을 탐지.
+    window.__revCounts = async function () {
+      const auth = window.authHeader ? window.authHeader() : {};
+      const out = {};
+      for (const p of ['today', 'week', 'month']) {
+        try { const r = await window.apiFetch('/revenue?period=' + p, { headers: auth }); if (r.ok) { const d = await r.json(); out[p] = (d.items || []).length; } else out[p] = null; }
+        catch (_e) { out[p] = null; }
+      }
+      return out;
+    };
+    // [2026-05-31] prefix 기준 cleanup 대상 매출 재탐색 — 단순 PATCH 완료가 백엔드 자동매출을
+    //   만들어도(report.created.revenue 가 비어도) 누락 없이 삭제하기 위해 today/week/month 를
+    //   훑어 service_name/memo 에 prefix 포함된 revenue id 를 모은다(중복 제거).
+    window.__findRevByPrefix = async function (prefix) {
+      const auth = window.authHeader ? window.authHeader() : {};
+      const ids = new Set();
+      for (const p of ['today', 'week', 'month']) {
+        try {
+          const r = await window.apiFetch('/revenue?period=' + p, { headers: auth });
+          if (!r.ok) continue;
+          const d = await r.json();
+          for (const row of (d.items || [])) {
+            const hay = String(row.service_name || '') + ' ' + String(row.memo || '');
+            if (row && row.id != null && hay.indexOf(prefix) >= 0) ids.add(row.id);
+          }
+        } catch (_e) { void _e; }
+      }
+      return Array.from(ids);
+    };
   });
 
   const report = { prefix: PREFIX, url: PAGES, baseline: {}, steps: [], created: { customer: null, booking: null, revenue: null }, cleanup: {}, severeErrors: [] };
@@ -73,7 +103,8 @@ async function main() {
       const auth = window.authHeader ? window.authHeader() : {};
       let revCount = null, revTotal = null;
       try { const r = await window.apiFetch('/revenue/summary?period=month', { headers: auth }); if (r.ok) { const d = await r.json(); revCount = d.count; revTotal = d.total; } } catch (_e) { void _e; }
-      return { customers: cust.length, bookings: book.length, revCount, revTotal };
+      const revCounts = await window.__revCounts();
+      return { customers: cust.length, bookings: book.length, revCount, revTotal, revCounts };
     });
     report.baseline = base;
     step('baseline', '기준 수집', JSON.stringify(base), true);
@@ -109,14 +140,18 @@ async function main() {
     if (pageErr) throw new Error('완료 처리 중 pageerror: ' + pageErr);
 
     // ── 매출 자동 반영 확인 → 없으면 수동 기록 ──
+    //   ⚠️ 이 경로는 단순 PATCH {status:'completed'} (CompleteFlow UI 모달이 아님).
+    //      백엔드 apply_completion_effects 가 amount 있는 예약 완료 시 자동매출을 만들 수 있다
+    //      (CompleteFlow 검증은 scripts/complete-flow-qa.js 가 담당).
+    //      자동매출은 today/week/month 어디든 잡힐 수 있으므로 다중 기간 합으로 판정한다
+    //      (month 만 보면 보정 전 누락 가능 — 실제 그 오판으로 잔존 매출이 생겼던 이력 있음).
     await page.waitForTimeout(1500);
-    const afterDone = await ev(async () => {
-      const auth = window.authHeader ? window.authHeader() : {};
-      try { const r = await window.apiFetch('/revenue/summary?period=month', { headers: auth }); if (r.ok) { const d = await r.json(); return { count: d.count, total: d.total }; } } catch (_e) { void _e; }
-      return null;
-    });
-    const autoRevenue = afterDone && base.revCount != null && afterDone.count > base.revCount;
-    step('revenue_auto', '완료 시 매출 자동 반영?', `baseline=${base.revCount}/${base.revTotal} → after=${afterDone && afterDone.count}/${afterDone && afterDone.total}`, true, autoRevenue ? '자동 기록됨' : '자동 아님 → 수동 기록 시도');
+    const baseCounts = base.revCounts || {};
+    const afterCounts = await ev(() => window.__revCounts());
+    const baseMax = Math.max(0, ...Object.values(baseCounts).filter(v => v != null));
+    const afterMax = Math.max(0, ...Object.values(afterCounts).filter(v => v != null));
+    const autoRevenue = afterMax > baseMax;
+    step('revenue_auto', '완료(단순 PATCH) 시 매출 자동 반영?', `counts ${JSON.stringify(baseCounts)} → ${JSON.stringify(afterCounts)}`, true, autoRevenue ? '자동 기록됨(백엔드 훅)' : '자동 아님 → 수동 기록 시도');
     if (!autoRevenue) {
       const rev = await ev(async ({ prefix, custId }) => {
         try { const r = await window.Revenue.create({ amount: 50000, method: 'card', service_name: prefix + ' 시술', customer_id: custId, customer_name: prefix + ' 손님', memo: prefix }); return { ok: true, id: r && r.id }; }
@@ -160,7 +195,18 @@ async function main() {
       try { const r = await ev(async ([f, i]) => { try { await window[f].remove(i); return { ok: true }; } catch (e) { return { ok: false, err: String(e && e.message) }; } }, [fn, id]); cl[kind] = { id, deleted: r.ok, err: r.err }; }
       catch (e) { cl[kind] = { id, deleted: false, err: String(e && e.message) }; }
     };
-    await delOne('revenue', report.created.revenue, 'Revenue');
+    // [2026-05-31] 매출 cleanup 강화: 단순 PATCH 완료가 백엔드 자동매출을 만들 수 있으므로,
+    //   report.created.revenue(수동 생성분) + prefix 로 재탐색한 매출 id 를 합쳐 모두 삭제한다.
+    //   (예약/고객 삭제 전에 매출부터 — paired 링크 정리 위해.)
+    let revIds = [];
+    try { revIds = (await ev(p => window.__findRevByPrefix(p), PREFIX)) || []; } catch (_e) { revIds = []; }
+    if (report.created.revenue && !revIds.includes(report.created.revenue)) revIds.push(report.created.revenue);
+    cl.revenue = [];
+    for (const rid of revIds) {
+      try { const r = await ev(async i => { try { await window.Revenue.remove(i); return { ok: true }; } catch (e) { return { ok: false, err: String(e && e.message) }; } }, rid); cl.revenue.push({ id: rid, deleted: r.ok, err: r.err }); }
+      catch (e) { cl.revenue.push({ id: rid, deleted: false, err: String(e && e.message) }); }
+    }
+    if (!revIds.length) cl.revenue = [{ id: null, deleted: 'n/a (자동/수동 매출 없음)' }];
     await delOne('booking', report.created.booking, 'Booking');
     await delOne('customer', report.created.customer, 'Customer');
     report.cleanup = cl;
@@ -173,7 +219,9 @@ async function main() {
         const book = (await window.Booking.list(from, to).catch(() => [])) || [];
         return { customers: cust.length, bookings: book.length };
       });
-      report.baselineRestored = back;
+      // prefix 매출 잔존 0 확인 (cleanup 누락 감지)
+      const leftoverRev = await ev(p => window.__findRevByPrefix(p), PREFIX).catch(() => []);
+      report.baselineRestored = { ...back, leftoverRevenue: leftoverRev };
     } catch (_e) { void _e; }
     report.severeErrors = errors.filter(e => !/favicon|ResizeObserver|TensorFlow|XNNPACK|sw\.js/i.test(e));
     await browser.close();
