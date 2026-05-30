@@ -147,18 +147,33 @@
   }
 
   // [T-003 2026-05-29] 편집본을 고객 시술기록에 연결 (로컬 갤러리 + 백엔드 graceful).
-  function _attachToCustomer(dataUrl, state, helpers) {
-    if (window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function') {
-      window.TreatmentLink.attachPhotoToCustomer({
+  // [T-119-A 2026-05-31] attachPhotoToCustomer() 결과를 받아 중복/서버실패를 명확히 안내.
+  //   기존엔 결과를 무시해 중복·서버실패에도 "연결했어요"만 떴음. assistant/photo-flow 와 동일 수준으로 정합.
+  //   성공/완전실패는 TreatmentLink 가 이미 토스트를 띄우므로 이중 표시를 피해 중복·서버실패만 추가 안내.
+  async function _attachToCustomer(dataUrl, state, helpers) {
+    if (!(window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function')) {
+      return _toast(helpers, '고객 연결 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요');
+    }
+    let res;
+    try {
+      res = await window.TreatmentLink.attachPhotoToCustomer({
         dataUrl: dataUrl,
         serviceName: (state && state.serviceName) || '',
         price: (state && state.price) || 0,
         customerId: (state && state.customerId) || null,
         source: 'photoeditor_attach',
       });
-    } else {
-      _toast(helpers, '고객 연결 모듈을 불러오는 중이에요. 잠시 후 다시 시도해주세요');
+    } catch (err) {
+      console.warn('[photo-export] 고객 첨부 실패:', err);
+      return _toast(helpers, '고객 기록 저장 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요');
     }
+    if (!res || res.cancelled) return;   // 고객 선택 취소 → 조용히 종료(기존 동작 유지)
+    if (res.wasDuplicate) {
+      _toast(helpers, '이미 고객 기록에 저장된 사진이라 중복 저장하지 않았어요.');
+    } else if (res.local === true && res.remote === false) {
+      _toast(helpers, '고객 기록(로컬)에는 저장했지만 서버 동기화는 실패했어요. 네트워크가 안정되면 다시 시도해 주세요.');
+    }
+    // 성공(local && remote)·완전실패(!ok)는 TreatmentLink 가 이미 토스트를 띄우므로 추가하지 않는다.
   }
 
   function _openCaption(helpers) {
