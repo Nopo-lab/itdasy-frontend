@@ -45,6 +45,11 @@
   const LASH_DARKEN = 0.22;         // [1차조정] lashSharp ROI 어두운 선 darken 강도(속눈썹 진하게). unsharp 보완.
   const EYE_COLOR_SAT_MIN = 28;     // [T-146 조정] eyeColor — 채도 임계 14→28. 맨 눈꺼풀 살구빛 제외, 진짜 아이섀도(채도 높음)만 강화(과함 방지).
   const NAIL_SHAPE_DARKEN = 0.18;   // [T-144 2차] nailW ROI 어두운 아트 라인/젤 경계 darken(윤곽 또렷). lum<150 만 → 광택면 보존.
+  const TEXTURE_EDGE_TAU = 22;      // [T-152] edge-preserving 임계 — lum 차 이상이면 edge(보존), 이하 평탄(블러)
+  const BLEMISH_DARK_TAU = 9;       // [T-151] 잡티 검출 하한 — 넓은블러(주변 피부톤)보다 이만큼 어두운 작은 점만
+  const BLEMISH_DARK_MAX = 45;      // [T-151] 상한 — 이보다 어두우면 잡티 아님(속눈썹/눈썹/머리=검정) → 제외
+  const BLEMISH_LUM_MIN = 70;       // [T-151] 이보다 어두운 픽셀 제외(검은 눈매/눈썹). 잡티는 피부톤 영역.
+  const BLEMISH_BLEND = 0.8;        // [T-151] 잡티 → 주변 피부톤 blend 상한(흐림 아닌 채움)
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
@@ -160,6 +165,29 @@
       const idx = y * mw + x;
       if (mask[idx] > EYE_MASK_THRESH) continue;   // 눈알(흰자/홍채) 제외
       roi[idx] = 1;                                 // 눈꺼풀/언더(주변)만
+    }
+    return roi;
+  }
+
+  // [T-153] 눈밑/눈가 ROI(0~1 falloff) = eyeMask bbox 아래(언더아이) 확장 − 눈알.
+  //   중심(눈 바로 아래) 1.0, 아래·옆으로 갈수록 0 → 광대/얼굴 번짐 방지. eyeShadow/underEyeClean 공용.
+  function _eyeUnderROI(mask, mw, mh) {
+    const bb = _eyeBBox(mask, mw, mh);
+    if (!bb) return null;
+    const topY = Math.floor(bb.maxY - bb.h * 0.15);          // 눈 하단부터
+    const botY = Math.min(mh - 1, Math.ceil(bb.maxY + bb.h * 0.9));  // 아래로 0.9×h
+    const cx = (bb.minX + bb.maxX) / 2, halfW = Math.max(1, (bb.maxX - bb.minX) / 2);
+    const span = Math.max(1, botY - topY);
+    const roi = new Float32Array(mw * mh);
+    for (let y = topY; y <= botY; y++) {
+      const vf = 1 - Math.max(0, (y - topY) / span);          // 세로 falloff(눈에 가까울수록 강)
+      for (let x = bb.minX; x <= bb.maxX; x++) {
+        const idx = y * mw + x;
+        if (mask[idx] > EYE_MASK_THRESH) continue;            // 눈알 제외
+        const hf = 1 - Math.min(1, Math.abs(x - cx) / halfW); // 가로 falloff(중앙 강)
+        const w = vf * Math.max(0.25, hf);
+        if (w > roi[idx]) roi[idx] = w;
+      }
     }
     return roi;
   }
@@ -285,6 +313,7 @@
       boundaryW: _rm('hairBoundaryMask', 0),             // 없으면 0 → hairEnd 는 hairW fallback
       hairOuterW: (regionMasks && regionMasks._hairOuterBand) ? (regionMasks._hairOuterBand[midx] || 0) : -1,  // [T-141] erosion 외곽 띠(1=외곽, 0=본체, -1=마스크없음)
       eyeLidW: (regionMasks && regionMasks._eyeLidROI) ? (regionMasks._eyeLidROI[midx] || 0) : 0,  // [T-146] 눈꺼풀/언더 ROI
+      eyeUnderW: (regionMasks && regionMasks._eyeUnderROI) ? (regionMasks._eyeUnderROI[midx] || 0) : 0,  // [T-153] 눈밑/눈가 ROI(falloff)
       satCh: hairSat0,                                   // [T-146] 채도(max-min) — 색 있는 곳만 eyeColor 적용
       nailW: _nailBlend(useM, sc, midx, mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin)), // v350 nailMask 안전 조건부 (미연결 시 v348 휴리스틱 동일)
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
@@ -338,22 +367,45 @@
     d[i + 2] = _clamp(d[i + 2] + b);
   }
 
-  function _applySkinTexture(d, i, p, c, blurD) {
+  function _applySkinTexture(d, i, p, c, blurD, wideBlurD) {
     if (p.skinW <= 0.10) return;
-    if (c.txK > 0 && blurD) _mixBlur(d, i, blurD, 0.65 * c.txK * p.skinW, 0);
-    if (c.blemishK > 0 && blurD) {
+    // [T-152] textureSmooth — edge-preserving. 평탄한 피부(모공/결, lum 차 작음)만 블러, 눈/입/윤곽
+    //   edge(blurD 와 lum 차 큼)는 보존 → 플라스틱 방지. 강도 0.65→0.55(보수적).
+    if (c.txK > 0 && blurD) {
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
       const blum = blurD[i] * 0.299 + blurD[i + 1] * 0.587 + blurD[i + 2] * 0.114;
-      if (Math.abs(lum - blum) > 8) _mixBlur(d, i, blurD, 0.85 * c.blemishK * p.skinW, 0);
+      const edge = Math.min(1, Math.abs(lum - blum) / TEXTURE_EDGE_TAU);   // 0(평탄)~1(edge)
+      const mix = 0.55 * c.txK * p.skinW * (1 - edge);                     // edge 일수록 블러 0
+      if (mix > 0.001) _mixBlur(d, i, blurD, mix, 0);
     }
-    if (c.eyeShK > 0 && d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114 < 140) {
+    // [T-151] blemish — 작은 잡티(넓은블러=주변 피부톤보다 어두운 작은 점)만 주변톤으로 blend(inpaint-like).
+    //   흐림 아닌 "주변 피부색 채움". 밝은 점·큰 음영·윤곽은 제외(피부결 보존). 큰 점/흉터 완전제거는 목표 아님.
+    if (c.blemishK > 0 && wideBlurD) {
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-      const w2 = (140 - lum) / 140;
-      _add(d, i, 22 * c.eyeShK * w2 * p.skinW, 18 * c.eyeShK * w2 * p.skinW, 14 * c.eyeShK * w2 * p.skinW);
+      const wlum = wideBlurD[i] * 0.299 + wideBlurD[i + 1] * 0.587 + wideBlurD[i + 2] * 0.114;
+      const dark = wlum - lum;                                   // 주변 피부톤보다 어두운 정도
+      // 잡티 = 주변보다 "약간" 어두운(TAU~MAX) 피부톤 점. 속눈썹/눈썹/머리(매우 어두움 or lum 낮음) 제외 → 눈 오염 방지.
+      if (dark > BLEMISH_DARK_TAU && dark < BLEMISH_DARK_MAX && lum > BLEMISH_LUM_MIN && p.eyeW < 0.12) {
+        const spotW = Math.min(1, (dark - BLEMISH_DARK_TAU) / 30);
+        _mixBlur(d, i, wideBlurD, BLEMISH_BLEND * c.blemishK * p.skinW * spotW, 0);  // 주변 피부톤으로 채움
+      }
     }
-    if (c.underK > 0 && p.lum0 < 155) {
-      const w3 = (155 - p.lum0) / 155;
-      _add(d, i, 20 * c.underK * w3 * p.skinW, 18 * c.underK * w3 * p.skinW, 14 * c.underK * w3 * p.skinW);
+    // [T-153] eyeShadow/underEyeClean — eyeMask 언더 ROI(falloff)의 어두운 픽셀만 밝힘 → 눈밑/눈가만,
+    //   얼굴 전체 X. eyeMask 없으면 기존보다 약한 fallback(얼굴 전체 어두운 곳).
+    if (c.eyeShK > 0 || c.underK > 0) {
+      const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      const strength = c.eyeShK + c.underK;                      // 두 슬라이더 합산(같은 눈밑/눈가 다크 완화)
+      if (p.hasEyeMask) {
+        const uw = p.eyeUnderW || 0;
+        if (uw > 0.05 && lum < 175 && p.skinW > 0.10) {
+          const dk = (175 - lum) / 175;                          // 어두울수록 강하게
+          const k = strength * uw * p.skinW * dk;
+          _add(d, i, 24 * k, 21 * k, 16 * k);                    // skin tone(R>G>B) 보정 밝힘
+        }
+      } else {
+        // fallback (eyeMask 없음) — 얼굴 전체 어두운 곳, 기존보다 약하게(22→13)
+        if (lum < 145) { const w2 = (145 - lum) / 145; const k = strength * w2 * p.skinW * 0.55; _add(d, i, 24 * k, 21 * k, 16 * k); }
+      }
     }
   }
 
@@ -581,6 +633,9 @@
     if (needCpuSmooth || c.hairEndK > 0) {
       try { blurD = _boxBlur(data, w, h, 2).data; } catch (_e) { blurD = null; }
     }
+    // [T-151] blemish 용 넓은 블러(주변 피부톤 추정, r≈6). blemishK>0 일 때만 1패스.
+    let wideBlurD = null;
+    if (c.blemishK > 0) { try { wideBlurD = _boxBlur(data, w, h, 6).data; } catch (_e) { wideBlurD = null; } }
     // [T-141 재구현] hairEndsClean 외곽 띠 1회 생성(hairMask erosion). 본체/내부가닥은 띠에서 빠짐.
     //   regionMasks._hairOuterBand 에 붙여 _pixel 에서 lookup. hairMask 없으면 null → 약한 fallback.
     if (regionMasks && regionMasks.useMasks && regionMasks.useMasks.hairMask && c.hairEndK > 0) {
@@ -596,6 +651,11 @@
       try { regionMasks._eyeLidROI = _eyeLidROI(regionMasks.useMasks.eyeMask, regionMasks.maskW || w, regionMasks.maskH || h); }
       catch (_e) { regionMasks._eyeLidROI = null; }
     } else if (regionMasks) { regionMasks._eyeLidROI = null; }
+    // [T-153] eyeShadow/underEyeClean 눈밑/눈가 ROI 1회 생성(eyeMask bbox 아래 falloff − 눈알).
+    if (regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask && (c.eyeShK > 0 || c.underK > 0)) {
+      try { regionMasks._eyeUnderROI = _eyeUnderROI(regionMasks.useMasks.eyeMask, regionMasks.maskW || w, regionMasks.maskH || h); }
+      catch (_e) { regionMasks._eyeUnderROI = null; }
+    } else if (regionMasks) { regionMasks._eyeUnderROI = null; }
     // v348 — nailShape 를 nailW 영역만 샤픈하기 위해 픽셀 walk 중 네일 가중치 수집
     let nailMaskArr = null;
     if (b.nailShape > 10) { try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; } }
@@ -604,7 +664,7 @@
       if (nailMaskArr) nailMaskArr[i >> 2] = p.nailW;
       _applyEye(d, i, p, c);
       _applySkinTone(d, i, p, c);
-      _applySkinTexture(d, i, p, c, blurD);
+      _applySkinTexture(d, i, p, c, blurD, wideBlurD);
       _applyHair(d, i, p, c, blurD);
       _applyDetail(d, i, p, c);
     }

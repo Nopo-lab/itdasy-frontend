@@ -86,7 +86,7 @@
     if (/풍성|볼륨/.test(input)) return [{ action: 'set_beauty', params: { hairVolume: 68, hairShine: 38, hairDetail: 22, hairEndsClean: 15 }, description_ko: '머리 풍성하게' }];
     if (/잔머리/.test(input)) return [{ action: 'set_beauty', params: { hairEndsClean: 65, hairDetail: 28 }, description_ko: '잔머리 정리' }];
     if (/머리결|머리카락/.test(input)) return [{ action: 'set_beauty', params: { hairShine: 55, hairVolume: 32, hairEndsClean: 30, hairDetail: 18 }, description_ko: '머리결 정리' }];
-    if (/뿌리|두피|탈모/.test(input)) return [{ action: 'set_beauty', params: { scalpBoost: 55, hairVolume: 40 }, description_ko: '두피 커버' }];
+    if (/뿌리|두피|탈모/.test(input)) return [{ action: 'set_beauty', params: { scalpBoost: 55, hairVolume: 40 }, description_ko: '두피 톤 보강' }];
     if (/염색|컬러.*머리|헤어.*컬러|탈색/.test(input)) return [{ action: 'set_beauty', params: { hairColorPop: 55, hairColor: 30, hairShine: 25 }, description_ko: '염색 색감 강조' }];
     if (/웨이브|파마|컬/.test(input)) return [{ action: 'set_beauty', params: { hairVolume: 55, hairDetail: 35, hairShine: 30 }, description_ko: '웨이브 강조' }];
     if (/스트레이트|생머리/.test(input)) return [{ action: 'set_beauty', params: { hairShine: 55, hairEndsClean: 45, hairDetail: 15 }, description_ko: '생머리 윤기' }];
@@ -106,7 +106,7 @@
 
     // 피부 계열
     if (/모공/.test(input)) return [{ action: 'set_beauty', params: { textureSmooth: 45, skin: 25, blemish: 15 }, description_ko: '모공 정리' }];
-    if (/여드름|트러블/.test(input)) return [{ action: 'set_beauty', params: { blemish: 50, redness: 35, skin: 20, textureSmooth: 12 }, description_ko: '트러블 커버' }];
+    if (/여드름|트러블/.test(input)) return [{ action: 'set_beauty', params: { blemish: 50, redness: 35, skin: 20, textureSmooth: 12 }, description_ko: '트러블 완화' }];
     if (/기미|주근깨|잡티/.test(input)) return [{ action: 'set_beauty', params: { blemish: 45, skin: 22, yellowness: 18 }, description_ko: '기미/잡티 완화' }];
     if (/주름/.test(input)) return [{ action: 'set_beauty', params: { textureSmooth: 40, skin: 20 }, description_ko: '주름 완화' }];
     if (/붉은기|홍조/.test(input)) return [{ action: 'set_beauty', params: { redness: 55, skin: 15 }, description_ko: '붉은기 진정' }];
@@ -154,7 +154,7 @@
     if (/염색|컬러/.test(input)) return '염색 색감을 더 선명하게 살려요.';
     if (/모공/.test(input)) return '모공을 자연스럽게 정리해요.';
     if (/다크서클/.test(input)) return '눈 밑 다크서클을 완화해요.';
-    if (/여드름|트러블/.test(input)) return '트러블을 자연스럽게 커버해요.';
+    if (/여드름|트러블/.test(input)) return '트러블 부위를 자연스럽게 완화해요.';
     if (/붉은기|홍조/.test(input)) return '붉은기를 진정시켜요.';
     if (/왁싱|제모/.test(input)) return '왁싱 후 피부를 깔끔하게 정리해요.';
     if (/반영구/.test(input)) return '반영구 시술 결과를 선명하게 보여줘요.';
