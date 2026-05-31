@@ -85,6 +85,7 @@
     // 헤어 계열
     if (/풍성|볼륨/.test(input)) return [{ action: 'set_beauty', params: { hairVolume: 68, hairShine: 38, hairDetail: 22, hairEndsClean: 15 }, description_ko: '머리 풍성하게' }];
     if (/잔머리/.test(input)) return [{ action: 'set_beauty', params: { hairEndsClean: 65, hairDetail: 28 }, description_ko: '잔머리 정리' }];
+    if (/머리\s*끝|모발\s*끝/.test(input)) return [{ action: 'set_beauty', params: { hairEndsClean: 55, hairDetail: 22, hairShine: 20 }, description_ko: '머리끝 정리' }];
     if (/머리결|머리카락/.test(input)) return [{ action: 'set_beauty', params: { hairShine: 55, hairVolume: 32, hairEndsClean: 30, hairDetail: 18 }, description_ko: '머리결 정리' }];
     if (/뿌리|두피|탈모/.test(input)) return [{ action: 'set_beauty', params: { scalpBoost: 55, hairVolume: 40 }, description_ko: '두피 톤 보강' }];
     if (/염색|컬러.*머리|헤어.*컬러|탈색/.test(input)) return [{ action: 'set_beauty', params: { hairColorPop: 55, hairColor: 30, hairShine: 25 }, description_ko: '염색 색감 강조' }];
@@ -93,16 +94,19 @@
     if (/헤어|머리|윤기/.test(input)) return [{ action: 'apply_preset', params: { preset: 'hair-gloss' }, description_ko: '헤어 윤기' }];
 
     // 네일 계열
+    if (/손\s*피부|손등|손\s*톤|손.*칙칙/.test(input)) return [{ action: 'set_beauty', params: { handSkin: 50, nailGloss: 15 }, description_ko: '손 피부톤 정리' }];
     if (/큐티클|각질.*손/.test(input)) return [{ action: 'set_beauty', params: { handSkin: 45, nailGloss: 30 }, description_ko: '큐티클 정리' }];
-    if (/젤|아크릴|네일아트/.test(input)) return [{ action: 'set_beauty', params: { nailGloss: 65, nailShape: 45, handSkin: 20 }, description_ko: '네일 광택' }];
+    if (/젤|아크릴|네일아트|네일.*반짝|네일.*광택|손톱.*광택/.test(input)) return [{ action: 'set_beauty', params: { nailGloss: 65, nailShape: 45, handSkin: 20 }, description_ko: '네일 광택' }];
+    if (/네일.*경계|경계.*또렷|네일.*또렷|네일.*선명|손톱.*또렷/.test(input)) return [{ action: 'set_beauty', params: { nailShape: 48, nailGloss: 22, handSkin: 12 }, description_ko: '네일 경계 또렷' }];
     if (/손톱|네일/.test(input)) return [{ action: 'apply_preset', params: { preset: 'nail-crisp' }, description_ko: '네일 선명' }];
 
     // 속눈썹/눈 계열
+    if (/눈빛|눈동자.*반짝|반짝.*눈|또렷.*눈빛/.test(input)) return [{ action: 'set_beauty', params: { catchLight: 32, irisClear: 22, lashSharp: 16 }, description_ko: '눈빛 또렷하게' }];
     if (/속눈썹|연장|펌.*눈/.test(input)) return [{ action: 'apply_preset', params: { preset: 'lash-clear' }, description_ko: '속눈썹 또렷' }];
     if (/다크서클|눈밑/.test(input)) return [{ action: 'set_beauty', params: { underEyeClean: 55, eyeShadow: 20 }, description_ko: '다크서클 완화' }];
-    if (/눈.*또렷|눈.*크[게게]|눈.*선명/.test(input)) return [{ action: 'set_beauty', params: { irisClear: 40, catchLight: 30, lashSharp: 35 }, description_ko: '눈 또렷하게' }];
     if (/눈썹|반영구.*눈/.test(input)) return [{ action: 'set_beauty', params: { browSharp: 50 }, description_ko: '눈썹 또렷' }];
-    if (/아이라인|아이섀도/.test(input)) return [{ action: 'set_beauty', params: { eyeColor: 35, eyeShadow: 30, lashSharp: 20 }, description_ko: '아이 메이크업 강조' }];
+    if (/눈.*또렷|눈.*크[게게]|눈.*선명/.test(input)) return [{ action: 'set_beauty', params: { irisClear: 40, catchLight: 30, lashSharp: 35 }, description_ko: '눈 또렷하게' }];
+    if (/아이.*색감|눈.*색감|아이.*컬러|아이라인|아이섀도/.test(input)) return [{ action: 'set_beauty', params: { eyeColor: 38, eyeShadow: 24, lashSharp: 18 }, description_ko: '아이 색감 강조' }];
 
     // 피부 계열
     if (/모공/.test(input)) return [{ action: 'set_beauty', params: { textureSmooth: 45, skin: 25, blemish: 15 }, description_ko: '모공 정리' }];
@@ -115,6 +119,7 @@
       { action: 'set_adjust', params: { brightness: 112, temperature: 4 }, description_ko: '톤업' },
       { action: 'set_beauty', params: { skin: 22, redness: 18, yellowness: 15 }, description_ko: '피부 화사하게' },
     ];
+    if (/피부\s*결|살결|결\s*정리/.test(input)) return [{ action: 'set_beauty', params: { textureSmooth: 42, skin: 18, blemish: 12 }, description_ko: '피부결 정리' }];
     if (/매끈|보들|부드럽/.test(input)) return [{ action: 'set_beauty', params: { textureSmooth: 38, skin: 28, blemish: 18 }, description_ko: '매끈한 피부' }];
     if (/피부/.test(input)) return [{ action: 'set_beauty', params: { skin: 28, redness: 22, blemish: 24, textureSmooth: 16 }, description_ko: '피부 정리' }];
 
@@ -150,10 +155,24 @@
       return '배경을 제거하고 새 배경을 입혀요.';
     }
     if (/풍성|볼륨/.test(input)) return '머리카락에 볼륨과 윤기를 더해요.';
+    if (/머리\s*끝|모발\s*끝/.test(input)) return '머리끝을 정돈해 깔끔하게 보이도록 해요.';
     if (/잔머리/.test(input)) return '잔머리를 깔끔하게 정리해요.';
+    if (/눈빛|눈동자.*반짝|반짝.*눈/.test(input)) return '눈동자 빛을 살려 눈빛을 또렷하게 보이도록 해요.';
+    if (/아이.*색감|눈.*색감|아이.*컬러/.test(input)) return '아이 메이크업 색감을 또렷하게 살려요.';
+    if (/네일.*반짝|네일.*광택|젤|아크릴/.test(input)) return '네일에 광택을 더해 또렷하게 보이도록 해요.';
+    if (/네일.*경계|경계.*또렷|네일.*또렷|네일.*선명|손톱/.test(input)) return '네일 경계를 또렷하게 다듬어요.';
+    if (/손\s*피부|손등|손\s*톤/.test(input)) return '손 피부톤을 자연스럽게 정리해요.';
+    if (/피부\s*결|살결/.test(input)) return '피부결을 매끄럽게 정리해요.';
+    if (/속눈썹|연장|펌.*눈/.test(input)) return '속눈썹을 또렷하게 살려요.';
+    if (/눈썹|반영구.*눈/.test(input)) return '눈썹을 또렷하게 다듬어요.';
+    if (/눈.*또렷|눈.*크[게게]|눈.*선명/.test(input)) return '눈동자와 속눈썹을 또렷하게 살려요.';
+    if (/입술|립/.test(input)) return '입술 발색을 생기있게 살려요.';
+    if (/기미|주근깨|잡티/.test(input)) return '잡티를 자연스럽게 완화해요.';
+    if (/매끈|보들|부드럽/.test(input)) return '피부를 매끄럽게 정리해요.';
+    if (/머리결|머리카락|윤기|생머리|스트레이트/.test(input)) return '머리결에 윤기를 더해 정돈해요.';
     if (/염색|컬러/.test(input)) return '염색 색감을 더 선명하게 살려요.';
     if (/모공/.test(input)) return '모공을 자연스럽게 정리해요.';
-    if (/다크서클/.test(input)) return '눈 밑 다크서클을 완화해요.';
+    if (/다크서클|눈밑/.test(input)) return '눈 밑 칙칙함과 다크서클을 완화해요.';
     if (/여드름|트러블/.test(input)) return '트러블 부위를 자연스럽게 완화해요.';
     if (/붉은기|홍조/.test(input)) return '붉은기를 진정시켜요.';
     if (/왁싱|제모/.test(input)) return '왁싱 후 피부를 깔끔하게 정리해요.';
