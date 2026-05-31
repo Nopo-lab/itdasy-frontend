@@ -43,6 +43,8 @@
   const LASH_GLOBAL_FALLBACK = 120; // eyeMask 도 없을 때 전역 unsharp 분모 (기존 65 → 약화)
   const EYE_MASK_THRESH = 0.25;     // eyeMask 임계 — tier2 polygon 은 feather 로 max≈0.43 라 0.5 면 전부 탈락(작동X). 0.25 로.
   const LASH_DARKEN = 0.22;         // [1차조정] lashSharp ROI 어두운 선 darken 강도(속눈썹 진하게). unsharp 보완.
+  const EYE_COLOR_SAT_MIN = 28;     // [T-146 조정] eyeColor — 채도 임계 14→28. 맨 눈꺼풀 살구빛 제외, 진짜 아이섀도(채도 높음)만 강화(과함 방지).
+  const NAIL_SHAPE_DARKEN = 0.18;   // [T-144 2차] nailW ROI 어두운 아트 라인/젤 경계 darken(윤곽 또렷). lum<150 만 → 광택면 보존.
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
@@ -143,6 +145,21 @@
     const roi = new Float32Array(mw * mh);
     for (let y = bb.minY; y <= botY && y < mh; y++) for (let x = bb.minX; x <= bb.maxX; x++) {
       const idx = y * mw + x; if (mask[idx] > EYE_MASK_THRESH) roi[idx] = 1;   // eyeMask 내부 상단만
+    }
+    return roi;
+  }
+
+  // [T-146] 눈꺼풀/언더(아이섀도) ROI = eyeMask bbox 위(0.7×h)·아래(0.5×h) 확장 − eyeMask 내부(흰자/홍채 제외).
+  function _eyeLidROI(mask, mw, mh) {
+    const bb = _eyeBBox(mask, mw, mh);
+    if (!bb) return null;
+    const topY = Math.max(0, Math.floor(bb.minY - bb.h * 0.7));
+    const botY = Math.min(mh - 1, Math.ceil(bb.maxY + bb.h * 0.5));
+    const roi = new Float32Array(mw * mh);
+    for (let y = topY; y <= botY; y++) for (let x = bb.minX; x <= bb.maxX; x++) {
+      const idx = y * mw + x;
+      if (mask[idx] > EYE_MASK_THRESH) continue;   // 눈알(흰자/홍채) 제외
+      roi[idx] = 1;                                 // 눈꺼풀/언더(주변)만
     }
     return roi;
   }
@@ -260,12 +277,15 @@
       hasHairMask: !!(useM && useM.hairMask),             // [T-140/141] hairMask 실제 연결 여부 (fallback 분기)
       hasBoundaryMask: !!(useM && useM.hairBoundaryMask), // [T-140/141] 경계 band 마스크 연결 여부
       hasEyeMask: !!(useM && useM.eyeMask),               // [T-142] eyeMask 연결 시 catchLight 는 합성으로 대체
+      hasLipMask: !!(useM && useM.lipMask),               // [T-145] lipMask 연결 시 색게이트 완화 + 발색 강화
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
       lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
       boundaryW: _rm('hairBoundaryMask', 0),             // 없으면 0 → hairEnd 는 hairW fallback
       hairOuterW: (regionMasks && regionMasks._hairOuterBand) ? (regionMasks._hairOuterBand[midx] || 0) : -1,  // [T-141] erosion 외곽 띠(1=외곽, 0=본체, -1=마스크없음)
+      eyeLidW: (regionMasks && regionMasks._eyeLidROI) ? (regionMasks._eyeLidROI[midx] || 0) : 0,  // [T-146] 눈꺼풀/언더 ROI
+      satCh: hairSat0,                                   // [T-146] 채도(max-min) — 색 있는 곳만 eyeColor 적용
       nailW: _nailBlend(useM, sc, midx, mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin)), // v350 nailMask 안전 조건부 (미연결 시 v348 휴리스틱 동일)
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
@@ -415,24 +435,43 @@
       const add = (NAIL_GLOSS_BASE + NAIL_GLOSS_SPEC * spec) * gw;
       _add(d, i, add, add, add * 1.04);   // 하이라이트 살짝 차갑게(파랑 +4%) = 유리질 광택감
     }
-    // lip — v316 lipMask 연결. mask 있으면 lipW 기반 가중, 없으면 lipW=1 + 색 기반 검출 (v312 동일)
-    if (c.lipK > 0 && p.r > p.g + 10 && p.r > p.bl + 10 && p.lum0 > 50 && p.lum0 < 210) {
-      const lw = p.lipW != null ? p.lipW : 1;
-      _add(d, i, 28 * c.lipK * lw, -6 * c.lipK * lw, -6 * c.lipK * lw);
+    // [T-145] lipPop 입술 발색 — lipMask(max≈0.82) 있으면 ROI 한정 + 색게이트 완화로 누드/연한 입술도
+    //   발색. 채도/value 강화 + 약한 gloss. 치아(흰색 r≈g≈b)·피부는 lipMask/색게이트로 제외.
+    if (c.lipK > 0) {
+      let inLip, lw;
+      if (p.hasLipMask) { inLip = p.lipW > 0.20; lw = Math.min(1, p.lipW * 1.4); }     // 마스크 영역 — 색게이트 불필요
+      else { inLip = (p.r > p.g + 10 && p.r > p.bl + 10); lw = 1; }                    // 마스크 없음 — 기존 색 검출
+      if (inLip && p.lum0 > 45 && p.lum0 < 220) {
+        const lk = c.lipK * lw;
+        _add(d, i, 30 * lk, -8 * lk, -5 * lk);                                         // 붉은 발색
+        d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.45 * lk);                              // 채도(발색) 강화
+        if (p.lum0 > 155) { const g = 12 * lk * ((p.lum0 - 155) / 65); _add(d, i, g, g, g * 1.02); }  // 약한 gloss
+      }
     }
-    if (c.eyeK > 0 && p.eyeW > 0.10 && p.lum0 < 100) {
-      d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.9 * c.eyeK * p.eyeW);
-      d[i + 1] = _clamp(d[i + 1] + (p.g - p.lum0) * 0.9 * c.eyeK * p.eyeW);
-      d[i + 2] = _clamp(d[i + 2] + (p.bl - p.lum0) * 0.9 * c.eyeK * p.eyeW);
+    // [T-146] eyeColor 아이 색감 — 눈꺼풀/언더 ROI(eyeLidW)의 "색 있는 곳(채도>SAT_MIN)"만 채도 강화.
+    //   무채색 맨피부는 satCh 작아 거의 무효 → 피부 오염 방지. 눈알(흰자/홍채)은 ROI 에서 제외됨.
+    if (c.eyeK > 0) {
+      if (p.eyeLidW > 0.5 && p.satCh > EYE_COLOR_SAT_MIN && p.lum0 > 30 && p.lum0 < 225) {
+        const ek = c.eyeK * Math.min(1, (p.satCh - EYE_COLOR_SAT_MIN) / 70);   // 채도 클수록 강하게
+        d[i] = _clamp(p.r + (p.r - p.lum0) * 0.5 * ek);                         // [조정] 0.7→0.5
+        d[i + 1] = _clamp(p.g + (p.g - p.lum0) * 0.5 * ek);
+        d[i + 2] = _clamp(p.bl + (p.bl - p.lum0) * 0.5 * ek);
+      } else if (!p.hasEyeMask && p.eyeW > 0.10 && p.lum0 < 100) {
+        // eyeMask 없을 때만 기존 색기반 fallback(어두운 눈 영역)
+        d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.9 * c.eyeK * p.eyeW);
+        d[i + 1] = _clamp(d[i + 1] + (p.g - p.lum0) * 0.9 * c.eyeK * p.eyeW);
+        d[i + 2] = _clamp(d[i + 2] + (p.bl - p.lum0) * 0.9 * c.eyeK * p.eyeW);
+      }
     }
     if (c.armK > 0 && p.skinW > 0.10 && p.lum0 < 140) _add(d, i, 16 * c.armK * p.skinW, 14 * c.armK * p.skinW, 10 * c.armK * p.skinW);
   }
 
   // v317 — 영역 한정 unsharp (lashSharp 용). mask>임계 픽셀만 샤픈, 나머지는 원본 유지.
   //   mask 는 원본(mw×mh) 해상도 → 캔버스(w×h) 좌표 환산 + 경계 clamp (v340 정합과 동일 규칙).
-  function _unsharpMaskRegion(ctx, w, h, strength, mask, scale, mw, mh) {
+  function _unsharpMaskRegion(ctx, w, h, strength, mask, scale, mw, mh, maxS, minW) {
     try {
-      strength = Math.min(Math.max(strength || 0, 0), 0.6);
+      strength = Math.min(Math.max(strength || 0, 0), maxS || 0.6);   // [T-144] maxS 로 상한 조정(기본 0.6)
+      const mw0 = minW || 0.01;                                       // [T-144] mask 가중 하한 — 이하 픽셀은 미적용(손가락 살 제외)
       const src = ctx.getImageData(0, 0, w, h);
       const blur = _boxBlur(src, w, h, 1);
       const out = ctx.createImageData(w, h);
@@ -448,7 +487,7 @@
           midx = my * mw + mx;
         }
         const mwgt = Math.min(1, (mask[midx] || 0) * (scale || 1));
-        if (mwgt <= 0.01) {
+        if (mwgt <= mw0) {
           out.data[i] = src.data[i]; out.data[i + 1] = src.data[i + 1];
           out.data[i + 2] = src.data[i + 2]; out.data[i + 3] = src.data[i + 3];
           continue;
@@ -467,8 +506,9 @@
 
   // [T-143] ROI 내부 "어두운 선"(속눈썹/눈 위 라인)만 약하게 darken → 라인이 진해 보임.
   //   밝은 픽셀(피부/흰자)은 안 건드림 → 노이즈/거칠어짐 방지. mask>임계 & 주변보다 어두운 픽셀만.
-  function _darkenRegionDarkLines(ctx, w, h, strength, mask, mw, mh) {
+  function _darkenRegionDarkLines(ctx, w, h, strength, mask, mw, mh, mthresh) {
     try {
+      const th = mthresh || 0.25;                                  // [T-144] nail 은 0.55(확실한 손톱면만 → 손가락 살 제외)
       const src = ctx.getImageData(0, 0, w, h);
       const d = src.data, same = (mw === w && mh === h);
       for (let idx = 0; idx < w * h; idx++) {
@@ -476,7 +516,7 @@
         let midx;
         if (same) midx = idx; else { const x = idx % w, y = (idx / w) | 0; midx = Math.min(mh - 1, (y * mh / h) | 0) * mw + Math.min(mw - 1, (x * mw / w) | 0); }
         const m = mask[midx] || 0;
-        if (m <= 0.25) continue;                                   // ROI 밖
+        if (m <= th) continue;                                     // ROI 밖
         const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
         if (lum >= 150) continue;                                  // 밝은 피부/흰자 제외 — 어두운 선만
         const dk = strength * m * (1 - lum / 150);                 // 어두울수록 더 진하게
@@ -510,10 +550,18 @@
     if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 80);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 130);
     if (b.browSharp > 10) _unsharpMask(ctx, w, h, b.browSharp / 90);
-    // v348 — nailShape: 전역 unsharp 대신 nailW 영역만 샤픈 → 네일 표면만 또렷, 손가락/배경 안 건드림
+    // [T-144] nailShape: nailW(휴리스틱/마스크) 영역만 강하게 경계 샤픈 → 젤 컬러·아트 라인·경계 또렷.
+    //   nailMaskArr 는 no-hand 여도 _nailWeight 휴리스틱(폴리시 색/광택/밝기)으로 채워짐 → 손/배경 제외.
+    //   maxS 2.0 으로 unsharp 상한 상향(기존 clamp 0.6 은 k=1.3 으로 약했음). 전역 fallback 은 매우 약화.
     if (b.nailShape > 10) {
-      if (nailMaskArr) _unsharpMaskRegion(ctx, w, h, b.nailShape / 90, nailMaskArr, 1, w, h);
-      else _unsharpMask(ctx, w, h, b.nailShape / 100);
+      if (nailMaskArr) {
+        // [2차→롤백+게이트] darken/과샤픈은 글리터 네일에서 손가락 살 침범(fingerSkin>nailEdge) → 제거.
+        //   nailW 가 충분히 높은(손톱면 확실) 픽셀만 darken 하도록 _darkenRegionDarkLines 임계를 nailW 로 상향.
+        // [2차 안전] unsharp 은 nailW>0.4(확실 손톱면)만 → 누드/글리터에서 손가락 살(nailW 낮음) 침범 차단.
+        //   darken 도 nailW>0.55. 색 뚜렷한 네일은 손톱 nailW 높아 작동, 누드/글리터는 약효지만 침범 없음(nailGloss 가 반짝 담당).
+        _unsharpMaskRegion(ctx, w, h, b.nailShape / 55, nailMaskArr, 1, w, h, 1.6, 0.4);
+        _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
+      } else _unsharpMask(ctx, w, h, b.nailShape / 200);   // nailW 수집 안 됨 → 거의 no-op(전역 샤픈 회피)
     }
   }
 
@@ -543,6 +591,11 @@
         regionMasks._hairOuterBand = _hairOuterBand(hm, mw, mh, r);
       } catch (_e) { regionMasks._hairOuterBand = null; }
     } else if (regionMasks) { regionMasks._hairOuterBand = null; }
+    // [T-146] eyeColor 눈꺼풀/언더 ROI 1회 생성(eyeMask bbox 확장 − 눈알). regionMasks._eyeLidROI.
+    if (regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask && c.eyeK > 0) {
+      try { regionMasks._eyeLidROI = _eyeLidROI(regionMasks.useMasks.eyeMask, regionMasks.maskW || w, regionMasks.maskH || h); }
+      catch (_e) { regionMasks._eyeLidROI = null; }
+    } else if (regionMasks) { regionMasks._eyeLidROI = null; }
     // v348 — nailShape 를 nailW 영역만 샤픈하기 위해 픽셀 walk 중 네일 가중치 수집
     let nailMaskArr = null;
     if (b.nailShape > 10) { try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; } }
