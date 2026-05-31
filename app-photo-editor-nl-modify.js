@@ -32,18 +32,28 @@
     if (/정사각|1.*1/.test(input)) return { steps: [{ action: 'set_ratio', params: { ratio: '1:1' }, description_ko: '정사각형' }] };
     if (/원본.*비율|원래.*비율/.test(input)) return { steps: [{ action: 'set_ratio', params: { ratio: 'original' }, description_ko: '원본 비율' }] };
 
-    // 강도 줄이기/높이기
-    if (/덜|과해|줄여|약하게|살짝만|연하게/.test(input)) return _lessPlan(input);
+    // 강도 줄이기/높이기 ([T-161] 너무/진해/낮춰 도 줄이기로 인식)
+    if (/덜|과해|과하|줄여|낮춰|약하게|살짝만|연하게|너무|진해|센\b|세게/.test(input)) return _lessPlan(input);
     if (/더|늘려|강하게|팍|쎄게|확|많이|진하게/.test(input)) return _morePlan(input);
 
     return null;
   }
 
+  // [T-161] 적용한 효과를 차분히 낮춤. 항목 키워드 있으면 그 효과만 낮은 절대값으로.
   function _lessPlan(input) {
     var steps = [];
-    if (/피부|뷰티|보정/.test(input) || !/밝|채도|선명/.test(input)) {
-      steps.push({ action: 'set_beauty', params: { skin: 8, redness: 8, blemish: 6, textureSmooth: 4, hairShine: 12, nailGloss: 12, lashSharp: 10 }, description_ko: '뷰티 줄이기' });
+    var b = {};
+    if (/풍성|볼륨/.test(input)) { b.hairVolume = 18; b.hairDetail = 8; }
+    if (/광택|윤기/.test(input)) {
+      if (/네일|손톱|젤|아크릴/.test(input)) b.nailGloss = 18;
+      else if (/머리|헤어|모발/.test(input)) b.hairShine = 18;
+      else { b.nailGloss = 18; b.hairShine = 18; }
     }
+    if (/입술|립|발색/.test(input)) b.lipPop = 18;
+    if (/눈빛|반짝/.test(input)) { b.catchLight = 12; b.lashSharp = 12; }
+    if (/속눈썹/.test(input)) b.lashSharp = 14;
+    if (/색감/.test(input)) b.eyeColor = 14;
+    if (Object.keys(b).length) steps.push({ action: 'set_beauty', params: b, description_ko: '효과 약하게' });
     if (/밝/.test(input)) steps.push({ action: 'set_adjust', params: { brightness: 98 }, description_ko: '밝기 줄이기' });
     if (/채도/.test(input)) steps.push({ action: 'set_adjust', params: { saturate: 96 }, description_ko: '채도 줄이기' });
     if (/선명/.test(input)) steps.push({ action: 'set_adjust', params: { sharpness: 4 }, description_ko: '선명도 줄이기' });

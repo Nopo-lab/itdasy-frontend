@@ -21,9 +21,41 @@
     회색: 'gray', 그레이: 'gray',
   };
 
+  // [T-161] 라우팅 정책 — 상대조정(줄여/조금)이 붙어도 강화 효과로 보낼지 판단
+  // 문제 완화형 부위·증상 키워드 (줄여/낮춰가 붙어도 '기능 intent')
+  var PROBLEM = /여드름|트러블|잡티|기미|주근깨|다크서클|눈밑|칙칙|붉은기|홍조|노란기|누런|푸른기|푸르|모공|주름|피부\s*결|살결/;
+  // 진짜 modify(이미 적용한 효과 강도 낮추기) 문맥
+  var STRONG_MODIFY = /방금|전체|효과|너무|과해|과하|보정|진해|센\b|세게/;
+  // 기능 효과 키워드 (조금/살짝 + 이거면 약한 강도 기능 preset)
+  var FEATURE_KW = /풍성|볼륨|머리|헤어|모발|윤기|눈빛|반짝|속눈썹|네일|손톱|젤|입술|립|발색|색감|피부|잡티|모공|광택/;
+  var WEAK = /조금|살짝|약간|은은/;
+
+  var REDUCE_VERB = /줄여|낮춰|덜|약하게/; // 적용한 효과를 낮추라는 축소 동사
+
+  // 줄여/조금이 붙어도 강화 효과(기능 intent)로 보낼 명령인가
+  function _forceFeature(input) {
+    if (STRONG_MODIFY.test(input)) return false;     // 방금/너무/과해 등은 modify 유지
+    if (PROBLEM.test(input)) return true;            // 부위+증상 완화형(줄여 붙어도 보정 적용)
+    // 조금/살짝 + 기능 → 약한 강도 기능. 단 '줄여/낮춰'(효과 축소)면 modify 로 보냄
+    if (WEAK.test(input) && FEATURE_KW.test(input) && !REDUCE_VERB.test(input)) return true;
+    return false;
+  }
+
+  // 조금/살짝 → 같은 기능을 약한 강도로 (set_beauty 값만 축소, adjust 는 유지)
+  function _weaken(input, steps) {
+    if (!(WEAK.test(input) && !STRONG_MODIFY.test(input))) return steps;
+    return steps.map(function (s) {
+      if (s.action !== 'set_beauty' || !s.params) return s;
+      var p = {};
+      for (var k in s.params) { var v = Math.round(s.params[k] * 0.45); p[k] = v > 0 ? Math.max(8, v) : v; }
+      return { action: 'set_beauty', params: p, description_ko: (s.description_ko || '') + ' (살짝)' };
+    });
+  }
+
   function parse(text) {
     var input = String(text || '').trim();
     var intent = _intent(input);
+    if (_forceFeature(input)) intent = 'beautify';   // [T-161] 완화형/약한 기능은 기능 intent
     var steps = _steps(input, intent);
     return {
       version: '1.0', intent: intent,
@@ -48,11 +80,13 @@
     if (intent === 'bg') return _bgSteps(input);
     var template = window.PhotoEditorNLTemplate && window.PhotoEditorNLTemplate.plan ? window.PhotoEditorNLTemplate.plan(input) : null;
     if (template) return template.steps;
+    // [T-161] 완화형/약한 기능 명령은 NLModify(상대조정)보다 먼저 강화 효과로 라우팅
+    if (_forceFeature(input)) return _weaken(input, _beautySteps(input));
     var modify = window.PhotoEditorNLModify && window.PhotoEditorNLModify.plan ? window.PhotoEditorNLModify.plan(input) : null;
     if (modify) return modify.steps;
     if (intent === 'export') return [{ action: 'export', params: { format: 'png' }, description_ko: '저장' }];
     if (intent === 'adjust') return _adjustSteps(input);
-    return _beautySteps(input);
+    return _weaken(input, _beautySteps(input));
   }
 
   // ── 배경/누끼 ──
@@ -114,6 +148,7 @@
     if (/기미|주근깨|잡티/.test(input)) return [{ action: 'set_beauty', params: { blemish: 45, skin: 22, yellowness: 18 }, description_ko: '기미/잡티 완화' }];
     if (/주름/.test(input)) return [{ action: 'set_beauty', params: { textureSmooth: 40, skin: 20 }, description_ko: '주름 완화' }];
     if (/붉은기|홍조/.test(input)) return [{ action: 'set_beauty', params: { redness: 55, skin: 15 }, description_ko: '붉은기 진정' }];
+    if (/푸른기|푸르|창백|핏기/.test(input)) return [{ action: 'set_beauty', params: { coolness: 38, skin: 12, redness: 10 }, description_ko: '푸른기 완화' }];
     if (/노란|누런|칙칙|피부톤/.test(input)) return [{ action: 'set_beauty', params: { yellowness: 40, skin: 18, coolness: 12 }, description_ko: '피부톤 정리' }];
     if (/화사|환하|광채|톤업/.test(input)) return [
       { action: 'set_adjust', params: { brightness: 112, temperature: 4 }, description_ko: '톤업' },
@@ -147,6 +182,36 @@
     return [{ action: 'apply_preset', params: { preset: 'salon-clean' }, description_ko: '기본 예쁨 보정' }];
   }
 
+  // [T-161] 완화형/약화/낮추기 맥락의 정직 안내문 — 일반 설명보다 먼저 (제거/완전 금지)
+  function _explainRel(input) {
+    if (PROBLEM.test(input) && !STRONG_MODIFY.test(input)) {
+      if (/여드름|트러블/.test(input)) return '트러블이 덜 도드라지게 완화했어요.';
+      if (/기미|주근깨|잡티/.test(input)) return WEAK.test(input) ? '잡티가 자연스럽게 덜 보이도록 약하게 보정했어요.' : '잡티가 덜 도드라지게 완화했어요.';
+      if (/다크서클|눈밑|칙칙/.test(input)) return '눈밑 칙칙함이 덜해 보이도록 눈밑만 자연스럽게 밝혔어요.';
+      if (/붉은기|홍조/.test(input)) return '붉은기를 자연스럽게 진정시켰어요.';
+      if (/노란기|누런/.test(input)) return '노란기를 줄여 피부톤을 정리했어요.';
+      if (/푸른기|푸르|창백|핏기/.test(input)) return '푸른기를 줄여 혈색을 자연스럽게 살렸어요.';
+      if (/피부\s*결|살결/.test(input)) return WEAK.test(input) ? '피부결을 과하지 않게 살짝 정리했어요.' : '피부결을 자연스럽게 정리했어요.';
+      if (/모공/.test(input)) return '모공을 자연스럽게 정리했어요.';
+      if (/주름/.test(input)) return '주름이 덜 도드라지게 완화했어요.';
+    }
+    if (WEAK.test(input) && !STRONG_MODIFY.test(input) && !REDUCE_VERB.test(input)) {
+      if (/입술|립|발색/.test(input)) return '입술 발색을 과하지 않게 살짝 살렸어요.';
+      if (/눈빛|반짝/.test(input)) return '눈빛을 과하지 않게 살짝 또렷하게 살렸어요.';
+      if (/속눈썹/.test(input)) return '속눈썹을 살짝 또렷하게 살렸어요.';
+      if (/아이.*색감|눈.*색감/.test(input)) return '아이 색감을 과하지 않게 살짝 살렸어요.';
+    }
+    if (STRONG_MODIFY.test(input) || /줄여|낮춰|덜|약하게/.test(input)) {
+      if (/풍성|볼륨/.test(input)) return '머리 볼륨을 조금 차분하게 줄였어요.';
+      if (/광택|윤기/.test(input)) return '광택을 덜 도드라지게 줄였어요.';
+      if (/입술|립|발색/.test(input)) return '입술 발색을 살짝 차분하게 낮췄어요.';
+      if (/눈빛|반짝/.test(input)) return '눈빛 효과를 조금 차분하게 낮췄어요.';
+      if (/속눈썹/.test(input)) return '속눈썹 강조를 살짝 낮췄어요.';
+      if (/색감/.test(input)) return '색감을 조금 차분하게 낮췄어요.';
+    }
+    return null;
+  }
+
   // ── 설명 생성 ──
   function _explain(input, intent) {
     if (intent === 'bg') {
@@ -154,6 +219,8 @@
       if (/투명/.test(input)) return '배경을 투명하게 제거해요.';
       return '배경을 제거하고 새 배경을 입혀요.';
     }
+    var rel = _explainRel(input);
+    if (rel) return rel;
     if (/풍성|볼륨/.test(input)) return '머리카락에 볼륨과 윤기를 더해요.';
     if (/머리\s*끝|모발\s*끝/.test(input)) return '머리끝을 정돈해 깔끔하게 보이도록 해요.';
     if (/잔머리/.test(input)) return '잔머리를 깔끔하게 정리해요.';
