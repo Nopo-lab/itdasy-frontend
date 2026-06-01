@@ -76,9 +76,9 @@
     } catch (e) { console.warn('[complete-flow] 화면 갱신 알림 실패:', e); }
   }
   function _refreshConnectedViews() {
-    try { if (window.Dashboard?.refresh)  Promise.resolve(window.Dashboard.refresh(true)).catch(()=>{}); } catch(e){}
-    try { if (window.MyShopV3?.refresh)   Promise.resolve(window.MyShopV3.refresh()).catch(()=>{}); } catch(e){}
-    try { if (window.RevenueHub?.refresh) Promise.resolve(window.RevenueHub.refresh()).catch(()=>{}); } catch(e){}
+    try { if (window.Dashboard?.refresh)  Promise.resolve(window.Dashboard.refresh(true)).catch(_e => { void _e; }); } catch(e){ void e; }
+    try { if (window.MyShopV3?.refresh)   Promise.resolve(window.MyShopV3.refresh()).catch(_e => { void _e; }); } catch(e){ void e; }
+    try { if (window.RevenueHub?.refresh) Promise.resolve(window.RevenueHub.refresh()).catch(_e => { void _e; }); } catch(e){ void e; }
   }
 
   async function _apiPatch(path, body) {
@@ -97,12 +97,12 @@
 
   function _invalidateAllCaches() {
     ['today', 'week', 'month'].forEach(p => {
-      try { localStorage.removeItem('pv_cache::revenue::' + p); } catch (e) {}
-      try { sessionStorage.removeItem('pv_cache::revenue::' + p); } catch (e) {}
+      try { localStorage.removeItem('pv_cache::revenue::' + p); } catch (e) { void e; }
+      try { sessionStorage.removeItem('pv_cache::revenue::' + p); } catch (e) { void e; }
     });
     ['hv41_cache::brief', 'pv_cache::customers', 'rh_cache', 'pv_cache::dashboard'].forEach(k => {
-      try { localStorage.removeItem(k); } catch (e) {}
-      try { sessionStorage.removeItem(k); } catch (e) {}
+      try { localStorage.removeItem(k); } catch (e) { void e; }
+      try { sessionStorage.removeItem(k); } catch (e) { void e; }
     });
   }
 
@@ -249,7 +249,7 @@
         const hh = String(d.getHours()).padStart(2,'0');
         const mm = String(d.getMinutes()).padStart(2,'0');
         parts.push(`${d.getMonth()+1}/${d.getDate()}(${wk}) ${hh}:${mm}`);
-      } catch (e) {}
+      } catch (e) { void e; }
     }
     return parts.join(' · ');
   }

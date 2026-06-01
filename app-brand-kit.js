@@ -22,6 +22,9 @@
     watermark_position: 'br',
     watermark_opacity: 0.85,
     brand_color: '#D58A95',
+    brand_tone: '',
+    forbidden_words: '',
+    booking_phrase: '',
   };
 
   var POS_KEYS = ['tl', 'tr', 'bl', 'br'];
@@ -40,6 +43,9 @@
     out.watermark_opacity = _clampOp(out.watermark_opacity);
     if (!_hex(out.brand_color)) out.brand_color = DEFAULTS.brand_color;
     if (POS_KEYS.indexOf(out.watermark_position) === -1) out.watermark_position = DEFAULTS.watermark_position;
+    out.brand_tone = String(out.brand_tone || '').slice(0, 80);
+    out.forbidden_words = String(out.forbidden_words || '').slice(0, 120);
+    out.booking_phrase = String(out.booking_phrase || '').slice(0, 100);
     return out;
   }
 
@@ -60,6 +66,15 @@
   }
 
   function get() { return _read(); }
+
+  function voiceHint() {
+    var s = _read();
+    return [
+      s.brand_tone ? '말투: ' + s.brand_tone : '',
+      s.forbidden_words ? '쓰지 말 표현: ' + s.forbidden_words : '',
+      s.booking_phrase ? '예약 안내: ' + s.booking_phrase : '',
+    ].filter(Boolean).join(' / ');
+  }
 
   function save(partial) {
     var next = _normalize(Object.assign({}, _read(), partial || {}));
@@ -153,6 +168,18 @@
       '    </div>',
       '  </div>',
       '  <div class="bk-field">',
+      '    <label class="bk-label" for="bk-tone">샵 말투</label>',
+      '    <input class="bk-input" id="bk-tone" type="text" maxlength="80" placeholder="예) 친근하지만 너무 가볍지 않게" />',
+      '  </div>',
+      '  <div class="bk-field">',
+      '    <label class="bk-label" for="bk-forbidden">쓰지 말 표현</label>',
+      '    <input class="bk-input" id="bk-forbidden" type="text" maxlength="120" placeholder="예) 완전 보장, 무조건, 과한 할인" />',
+      '  </div>',
+      '  <div class="bk-field">',
+      '    <label class="bk-label" for="bk-booking-phrase">예약 안내 문구</label>',
+      '    <input class="bk-input" id="bk-booking-phrase" type="text" maxlength="100" placeholder="예) 예약 문의는 프로필 링크로 편하게 주세요" />',
+      '  </div>',
+      '  <div class="bk-field">',
       '    <label class="bk-label">브랜드 템플릿</label>',
       '    <button type="button" class="bk-btn bk-btn-secondary" data-action="open-templates" style="width:100%;">저장된 템플릿 열기 (<span data-role="templates-count">0</span>)</button>',
       '    <p class="bk-hint">사진 편집기에서 만든 텍스트·워터마크·색상 조합을 저장하고 1-탭으로 다시 적용해요.</p>',
@@ -182,6 +209,7 @@
       name: $('#bk-shop-name'), ig: $('#bk-instagram'), phone: $('#bk-phone'),
       wm: $('#bk-watermark'), op: $('#bk-opacity'), opVal: $('[data-role="opacity-val"]'),
       color: $('#bk-color'), hex: $('#bk-color-hex'), pos: $('[data-role="position"]'),
+      tone: $('#bk-tone'), forbid: $('#bk-forbidden'), booking: $('#bk-booking-phrase'),
     };
     els.name.value = state.shop_name || '';
     els.ig.value = _cleanHandle(state.instagram_handle);
@@ -191,6 +219,9 @@
     els.opVal.textContent = Math.round(state.watermark_opacity * 100) + '%';
     els.color.value = state.brand_color;
     els.hex.value = state.brand_color;
+    els.tone.value = state.brand_tone || '';
+    els.forbid.value = state.forbidden_words || '';
+    els.booking.value = state.booking_phrase || '';
 
     var current = { position: state.watermark_position };
 
@@ -242,6 +273,9 @@
           watermark_position: current.position,
           watermark_opacity: parseFloat(els.op.value),
           brand_color: hex,
+          brand_tone: els.tone.value.trim(),
+          forbidden_words: els.forbid.value.trim(),
+          booking_phrase: els.booking.value.trim(),
         });
         if (saved && typeof window.showToast === 'function') {
           window.showToast('✅ 브랜드 키트를 저장했어요', 'success');
@@ -273,5 +307,5 @@
     document.removeEventListener('keydown', _onEsc);
   }
 
-  window.BrandKit = { get: get, save: save, open: open, close: close };
+  window.BrandKit = { get: get, save: save, open: open, close: close, voiceHint: voiceHint };
 })();

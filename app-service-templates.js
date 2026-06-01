@@ -76,6 +76,35 @@
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
   function _catLabel(c) { return ({hair:'헤어', nail:'네일', eye:'속눈썹', skin:'피부', wax:'왁싱', etc:'기타'})[c] || c || '기타'; }
   function _formatPrice(n) { const v = Number(n) || 0; return v.toLocaleString('ko-KR') + '원'; }
+  const STARTERS = {
+    nail: [{ name:'젤네일 기본', p:60000, d:90, r:21 }, { name:'손 케어', p:30000, d:45, r:28 }, { name:'패디 기본', p:70000, d:90, r:28 }],
+    hair: [{ name:'디자인컷', p:35000, d:60, r:42 }, { name:'뿌리염색', p:70000, d:90, r:42 }, { name:'다운펌', p:50000, d:60, r:28 }],
+    eye: [{ name:'속눈썹펌', p:55000, d:60, r:35 }, { name:'속눈썹 연장', p:80000, d:90, r:21 }, { name:'리터치', p:45000, d:45, r:21 }],
+    skin: [{ name:'피부 기본관리', p:70000, d:60, r:28 }, { name:'진정관리', p:80000, d:70, r:21 }, { name:'윤곽관리', p:90000, d:80, r:14 }],
+    wax: [{ name:'브로우 정리', p:35000, d:40, r:28 }, { name:'왁싱 기본', p:60000, d:60, r:35 }, { name:'메이크업', p:100000, d:90, r:0 }],
+  };
+
+  function _starterCat() {
+    try {
+      const raw = localStorage.getItem('shop_type') || '';
+      const norm = window.itdasyNormalizeShopType ? window.itdasyNormalizeShopType(raw) : null;
+      const cat = (norm && norm.cat) || raw;
+      if (/lash|eye|속눈썹/.test(cat)) return 'eye';
+      if (/nail|네일/.test(cat)) return 'nail';
+      if (/hair|헤어|미용/.test(cat)) return 'hair';
+      if (/skin|피부/.test(cat)) return 'skin';
+      if (/wax|brow|makeup|왁싱|브로우|메이크업/.test(cat)) return 'wax';
+    } catch (_e) { void 0; }
+    return 'nail';
+  }
+
+  function _starterList() { return STARTERS[_starterCat()] || STARTERS.nail; }
+  function _renderStarterChips() {
+    const list = _starterList();
+    return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'
+      + list.map((s, i) => '<button type="button" data-svc-starter="' + i + '" style="padding:7px 10px;border:1px solid rgba(188,102,117,.18);border-radius:999px;background:#fff;color:#BC6675;font-size:11px;font-weight:700;cursor:pointer;">' + _esc(s.name) + '</button>').join('')
+      + '</div>';
+  }
 
   // ── 헤더 ───────────────────────────────────────────────
   function _renderHeader() {
@@ -168,6 +197,7 @@
     return `
       <div style="padding:16px;background:#F7F8FA;border-radius:14px;">
         <div style="font-size:13px;font-weight:700;color:#191F28;margin-bottom:10px;">새 시술 정보</div>
+        ${p.id ? '' : _renderStarterChips()}
         <div style="display:grid;grid-template-columns:2fr 1fr 80px;gap:6px;margin-bottom:6px;">
           <input id="svc-name" placeholder="시술 이름" value="${_esc(p.name || '')}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
           <input id="svc-price" type="number" placeholder="기본 금액" value="${_esc(p.default_price || '')}" style="padding:10px;border:1px solid #ddd;border-radius:8px;background:#fff;">
@@ -203,6 +233,11 @@
 
   function _bindAddHandlers() {
     const btn = document.getElementById('svc-add');
+    document.querySelectorAll('[data-svc-starter]').forEach(el => {
+      if (el._wired) return;
+      el._wired = true;
+      el.addEventListener('click', () => _applyStarter(el.getAttribute('data-svc-starter')));
+    });
     if (!btn || btn._wired) return;
     btn._wired = true;
     btn.addEventListener('click', async () => {
@@ -229,6 +264,14 @@
         if (window.showToast) window.showToast('추가 실패: ' + (window._humanError ? window._humanError(e) : e.message), 'error');
       }
     });
+  }
+
+  function _applyStarter(idx) {
+    const s = _starterList()[Number(idx) || 0];
+    if (!s) return;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+    set('svc-name', s.name); set('svc-price', s.p); set('svc-dur', s.d); set('svc-retouch', s.r || '');
+    set('svc-cat', _starterCat());
   }
 
   // ── 통합 편집 ──────────────────────────────────────────

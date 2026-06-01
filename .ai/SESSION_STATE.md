@@ -2,7 +2,30 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-05-27 · v312 — 사진편집기 미리보기·템플릿 정리
+**LAST UPDATED:** 2026-06-02 · 사진편집 기능명 계약 QA + 헤어/네일 체감 보강
+
+---
+
+## 🟣 2026-06-02 — 사진편집 기능명 계약 QA + 헤어/네일 체감 보강
+
+배경: 사용자 요청. 디자인은 그대로 두고, 사진편집 기능명이 실제 효과와 맞는지 전수조사 가능한 기준부터 만들고 체감 부족한 부분을 보강.
+
+완료:
+- 디자인/CSS는 건드리지 않음.
+- `app-photo-editor-beauty.js`: "머리 풍성감"이 색만 바뀌지 않고 머리 외곽 윤곽이 더 풍성하게 느껴지도록 보강.
+- `app-photo-editor-beauty.js`: "네일 광택"이 손 전체가 밝아지는 방식이 아니라 손톱 안쪽에 실제 광택선이 생기도록 보강.
+- `scripts/photo-beauty-contract-qa.js`, `scripts/photo-beauty-contract-harness.js` 신규: 머리 풍성감/네일 광택/눈빛 반짝임/잡티 완화가 이름대로 작동하는지 자동 확인.
+
+확인:
+- `node scripts/photo-beauty-contract-qa.js` 통과: 4개 기능 모두 OK.
+- `npx eslint app-photo-editor-beauty.js scripts/photo-beauty-contract-qa.js scripts/photo-beauty-contract-harness.js --no-error-on-unmatched-pattern` 통과.
+- `npm run smoke` 통과: 220 scripts, build `20260602-v377-customer-cache-fix`.
+- `npm test -- --runInBand` 정상 종료(테스트 파일 없음).
+- `npm run lint`: 빨간 오류 0개, 기존 정리 경고 36개 남음.
+
+남음 / 다음 세션:
+- 샵별 필수 보정 계약 QA를 더 늘리기: 헤어(뿌리/머리끝), 속눈썹(속눈썹 선명도), 피부(붉은기/결), 왁싱(자극 완화), 메이크업(입술/아이색감), 네일(경계 또렷함).
+- 실제 샘플 사진 기반 전수 QA는 별도 폴더의 고정 샘플 세트가 있으면 더 정확해짐.
 
 ---
 

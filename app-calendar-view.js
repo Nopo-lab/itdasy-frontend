@@ -1612,7 +1612,7 @@
           if (isCur && !r.classList.contains('current')) changed = true;
           r.classList.toggle('current', isCur);
         });
-        if (changed && navigator.vibrate) { try { navigator.vibrate(5); } catch(_) {} }
+        if (changed && navigator.vibrate) { try { navigator.vibrate(5); } catch (_) { void _; } }
         _updateDur();
       };
 
@@ -1902,7 +1902,7 @@
 
     // 금액 라인 — 탭 시 인라인 input 으로 변환
     body.querySelectorAll('.bf-money-val[data-money-edit]').forEach(valEl => {
-      valEl.addEventListener('click', (e) => {
+      valEl.addEventListener('click', (_e) => {
         const field = valEl.dataset.moneyEdit; // 'amount' | 'deposit'
         if (valEl.querySelector('input')) return;
         const hidden = body.querySelector(field === 'amount' ? '#bfAmount' : '#bfDeposit');
@@ -1911,7 +1911,7 @@
         const inp = valEl.querySelector('input');
         inp.style.webkitTapHighlightColor = 'transparent';
         inp.focus();
-        try { inp.setSelectionRange(0, (inp.value || '').length); } catch (_) {}
+        try { inp.setSelectionRange(0, (inp.value || '').length); } catch (_) { void _; }
         inp.select && inp.select();
         const commit = () => {
           const raw = inp.value.replace(/[^0-9]/g, '');

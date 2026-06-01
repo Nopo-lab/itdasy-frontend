@@ -55,6 +55,10 @@
 
   function _api() { return (window.API || ''); }
   function _toast(msg) { if (typeof window.showToast === 'function') window.showToast(msg); }
+  function _brandKit() { return (window.BrandKit && typeof window.BrandKit.get === 'function') ? window.BrandKit.get() : {}; }
+  function _brandVoiceHint() {
+    return (window.BrandKit && typeof window.BrandKit.voiceHint === 'function') ? window.BrandKit.voiceHint() : '';
+  }
 
   async function _fetchJson(method, path, body) {
     const headers = window.authHeader ? window.authHeader() : {};
@@ -112,6 +116,8 @@
     if (cfg.lengthHint) parts.push(cfg.lengthHint + ' 길이.');
     if (cfg.colorHint) parts.push(cfg.colorHint + ' 컬러.');
     parts.push('자연스럽고 만족스러운 마무리. 손님께서 좋아하셨음.');
+    const voice = _brandVoiceHint();
+    if (voice) parts.push('[샵 말투 기억] ' + voice);
 
     const payload = {
       category: cfg.category,
@@ -182,9 +188,11 @@
   }
 
   async function _renderStory(imageSrc, caption) {
+    const brand = _brandKit();
+    const watermark = brand.watermark_text || brand.shop_name || (brand.instagram_handle ? '@' + brand.instagram_handle : '@itdasy');
     // app-story-template.js 의 renderStory 가 등록되어 있으면 그걸 우선 사용
     if (typeof window._renderStoryTemplate === 'function') {
-      return window._renderStoryTemplate({ imageSrc, caption, tagLine: '오늘의 시술', watermark: '@itdasy' });
+      return window._renderStoryTemplate({ imageSrc, caption, tagLine: '오늘의 시술', watermark });
     }
 
     const canvas = document.createElement('canvas');
@@ -230,7 +238,7 @@
     ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = '28px Pretendard, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('@itdasy · 잇데이 스튜디오', W / 2, H - 60);
+    ctx.fillText(watermark, W / 2, H - 60);
 
     return canvas.toDataURL('image/png');
   }

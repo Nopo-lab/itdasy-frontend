@@ -369,6 +369,79 @@
       }
     } catch (_e) { regionMasks = null; }
     engine.apply(ctx, w, h, b, skinSmoothed, regionMasks);
+    _contractBoost(ctx, w, h, b, regionMasks);
+  }
+
+  function _maskAt(mask, mw, mh, x, y, w, h) {
+    if (!mask) return 0;
+    const mx = Math.min(mw - 1, Math.max(0, (x * mw / w) | 0));
+    const my = Math.min(mh - 1, Math.max(0, (y * mh / h) | 0));
+    return mask[my * mw + mx] || 0;
+  }
+
+  function _contractBoost(ctx, w, h, b, regionMasks) {
+    if (!regionMasks || !regionMasks.useMasks) return;
+    if ((b.hairVolume || 0) > 14) _hairShapeBoost(ctx, w, h, b, regionMasks);
+    if ((b.nailGloss || 0) > 14) _nailGlossSweep(ctx, w, h, b, regionMasks);
+  }
+
+  function _hairShapeBoost(ctx, w, h, b, regionMasks) {
+    const hair = regionMasks.useMasks.hairMask;
+    if (!hair) return;
+    let img;
+    try { img = ctx.getImageData(0, 0, w, h); } catch (_e) { return; }
+    const src = new Uint8ClampedArray(img.data);
+    const d = img.data, mw = regionMasks.maskW || w, mh = regionMasks.maskH || h;
+    const skin = regionMasks.useMasks.skinMask, k = Math.min(1, (b.hairVolume || 0) / 100);
+    const rad = Math.max(1, Math.min(4, Math.round(1 + k * 3)));
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) if (_maskAt(hair, mw, mh, x, y, w, h) > 0.28) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    if (maxX <= minX || maxY <= minY) return;
+    minX = Math.max(1, minX - rad - 1); minY = Math.max(1, minY - rad - 1);
+    maxX = Math.min(w - 2, maxX + rad + 1); maxY = Math.min(h - 2, maxY + rad + 1);
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      if (_maskAt(hair, mw, mh, x, y, w, h) > 0.28 || _maskAt(skin, mw, mh, x, y, w, h) > 0.22) continue;
+      let si = -1;
+      for (let di = 0; di < dirs.length && si < 0; di++) for (let r = 1; r <= rad; r++) {
+        const nx = x + dirs[di][0] * r, ny = y + dirs[di][1] * r;
+        if (nx <= 0 || nx >= w - 1 || ny <= 0 || ny >= h - 1) continue;
+        if (_maskAt(hair, mw, mh, nx, ny, w, h) > 0.58) { si = (ny * w + nx) * 4; break; }
+      }
+      if (si < 0) continue;
+      const i = (y * w + x) * 4, a = 0.07 + k * 0.16;
+      d[i] = d[i] * (1 - a) + src[si] * a;
+      d[i + 1] = d[i + 1] * (1 - a) + src[si + 1] * a;
+      d[i + 2] = d[i + 2] * (1 - a) + src[si + 2] * a;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  function _nailGlossSweep(ctx, w, h, b, regionMasks) {
+    const nail = regionMasks.useMasks.nailMask;
+    if (!nail) return;
+    let img;
+    try { img = ctx.getImageData(0, 0, w, h); } catch (_e) { return; }
+    const d = img.data, mw = regionMasks.maskW || w, mh = regionMasks.maskH || h;
+    let minX = w, minY = h, maxX = 0, maxY = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (_maskAt(nail, mw, mh, x, y, w, h) > 0.38) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    if (maxX <= minX || maxY <= minY) return;
+    const gw = Math.max(1, maxX - minX), gh = Math.max(1, maxY - minY), k = Math.min(1, (b.nailGloss || 0) / 100);
+    for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+      const m = _maskAt(nail, mw, mh, x, y, w, h);
+      if (m <= 0.38) continue;
+      const nx = (x - minX) / gw, ny = (y - minY) / gh;
+      const line = Math.max(0, 1 - Math.abs((nx - ny * 0.25) - 0.62) / 0.11);
+      const add = (18 + 18 * line) * k * m * line, i = (y * w + x) * 4;
+      d[i] = Math.min(255, d[i] + add);
+      d[i + 1] = Math.min(255, d[i + 1] + add);
+      d[i + 2] = Math.min(255, d[i + 2] + add * 1.04);
+    }
+    ctx.putImageData(img, 0, 0);
   }
 
   function _skinMaskCanvas(canvas) {

@@ -18,15 +18,34 @@
 
   function _money(n) { return (n || 0).toLocaleString('ko-KR'); }
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
+  function _safeColor(value, fallback) {
+    const raw = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(raw) ? raw : fallback;
+  }
+
+  function _brand() {
+    const bk = (window.BrandKit && typeof window.BrandKit.get === 'function') ? window.BrandKit.get() : {};
+    const shop = (bk.shop_name || bk.shopName || '').trim();
+    const ig = (bk.instagram_handle || bk.instagram || '').trim().replace(/^@+/, '');
+    return {
+      shopName: shop,
+      instagram: ig,
+      bookingPhrase: (bk.booking_phrase || '').trim(),
+      primary: _safeColor(bk.brand_color || bk.primary_color, '#D58A95'),
+      accent: _safeColor(bk.accent_color || bk.primary || '', '#FFD87A'),
+    };
+  }
 
   function _drawCard(canvas, report) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    // 배경 그라디언트 (핑크 투톤)
+    const brand = _brand();
+    const shopName = brand.shopName || '우리 샵';
+    // 배경 그라디언트 (브랜드 키트 색상 우선)
     const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, '#D58A95');
-    grad.addColorStop(0.5, '#FFB3C1');
-    grad.addColorStop(1, '#FFD87A');
+    grad.addColorStop(0, brand.primary);
+    grad.addColorStop(0.55, '#FFB3C1');
+    grad.addColorStop(1, brand.accent);
     ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
 
     // 블러 원 장식
@@ -46,7 +65,7 @@
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.font = '800 36px -apple-system, "Pretendard", "Noto Sans KR", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${report.year}년 ${report.month}월 성장 리포트`, W/2, H * 0.26);
+    _wrapText(ctx, `${shopName} ${report.year}년 ${report.month}월 성장 리포트`, W/2, H * 0.24, W - 180, 44);
 
     // 매출 핵심 숫자
     ctx.fillStyle = '#fff';
@@ -75,16 +94,18 @@
     });
 
     // 따뜻한 멘트
-    if (report.warm_message) {
+    const warm = [report.warm_message, brand.bookingPhrase].filter(Boolean).join('\n');
+    if (warm) {
       ctx.fillStyle = 'rgba(255,255,255,0.95)';
       ctx.font = '700 30px -apple-system, "Pretendard", sans-serif';
-      _wrapText(ctx, report.warm_message, W/2, H * 0.74, W - 200, 44);
+      _wrapText(ctx, warm, W/2, H * 0.72, W - 200, 44);
     }
 
-    // 로고
+    // 샵 워터마크
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.font = '900 36px -apple-system, "Pretendard", sans-serif';
-    ctx.fillText('🎀 잇데이', W/2, H - 80);
+    const mark = brand.instagram ? shopName + ' · @' + brand.instagram : shopName;
+    ctx.fillText(mark, W/2, H - 80);
   }
 
   function _roundRect(ctx, x, y, w, h, r) {
@@ -124,7 +145,7 @@
     o.style.cssText = `position:fixed;inset:0;z-index:10002;background:rgba(20,8,16,0.82);display:flex;align-items:center;justify-content:center;padding:16px;animation:pvFadeIn 0.2s ease;`;
     o.innerHTML = `
       <div style="width:100%;max-width:360px;background:#fff;border-radius:22px;overflow:hidden;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div style="font-size:14px;font-weight:900;text-align:center;margin-bottom:12px;">${report.year}.${report.month} 월간 성장 리포트</div>
+        <div style="font-size:14px;font-weight:900;text-align:center;margin-bottom:12px;">${_esc(_brand().shopName || '우리 샵')} ${report.year}.${report.month} 성장 리포트</div>
         <div style="position:relative;aspect-ratio:9/16;border-radius:16px;overflow:hidden;margin-bottom:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);">
           <canvas id="gs-canvas" width="1080" height="1920" style="width:100%;height:100%;display:block;"></canvas>
         </div>

@@ -8,6 +8,26 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
   }
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
+  function _brand() {
+    const bk = (window.BrandKit && typeof window.BrandKit.get === 'function') ? window.BrandKit.get() : {};
+    return {
+      tone: String(bk.brand_tone || '').trim(),
+      bookingPhrase: String(bk.booking_phrase || '').trim(),
+      forbiddenWords: String(bk.forbidden_words || '').split(/[,，\n]/).map(v => v.trim()).filter(Boolean),
+    };
+  }
+
+  function _safeDraft(text, brand) {
+    let out = String(text || '');
+    const policy = window.ItdasyMarketingDraftPolicy;
+    if (policy && typeof policy.sanitize === 'function') out = policy.sanitize(out);
+    (brand.forbiddenWords || []).forEach(word => {
+      const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp(escaped, 'g'), '');
+    });
+    return out.replace(/\s{2,}/g, ' ').trim();
+  }
+
   function _api(method, path, body) {
     if (!window.API || !window.authHeader) return Promise.reject(new Error('no-auth'));
     return apiFetch(path, {
@@ -38,7 +58,12 @@
   function _message(item) {
     const name = item.customer_name || '고객님';
     const link = item.review_link || item.link || '';
-    return `${name}, 오늘 시술 만족스러우셨다면 짧은 리뷰 부탁드려요. 남겨주신 리뷰는 큰 힘이 됩니다.${link ? ' ' + link : ''}`.trim();
+    const brand = _brand();
+    const soft = /친근|따뜻|부드/.test(brand.tone);
+    const base = soft
+      ? `${name}, 오늘 함께해 주셔서 감사해요. 괜찮으셨다면 짧은 리뷰 한 줄 부탁드려도 될까요? 남겨주신 리뷰는 큰 힘이 됩니다.`
+      : `${name}, 오늘 시술 만족스러우셨다면 짧은 리뷰 부탁드려요. 남겨주신 리뷰는 큰 힘이 됩니다.`;
+    return _safeDraft([base, brand.bookingPhrase, link].filter(Boolean).join(' '), brand);
   }
 
   function _ensure() {

@@ -28,6 +28,10 @@
       phone: bk.phone || '',
       address: bk.address || '',
       bookingUrl: bk.booking_url || bk.bookingUrl || '',
+      bookingPhrase: bk.booking_phrase || '',
+      brandTone: bk.brand_tone || '',
+      forbiddenWords: bk.forbidden_words || '',
+      watermarkText: bk.watermark_text || '',
       primaryColor: bk.primary_color || bk.primary || '#D58A95',
       accentColor: bk.accent_color || bk.accent || '#C69B63',
     };
@@ -47,9 +51,10 @@
 
   function textBlock(state) {
     const data = get();
-    const name = data.shopName || (state && state.shopName) || '우리 샵';
+    const name = data.watermarkText || data.shopName || (state && state.shopName) || '우리 샵';
     const bits = [name];
     if (data.instagram) bits.push('@' + data.instagram.replace(/^@/, ''));
+    if (data.bookingPhrase) bits.push(data.bookingPhrase);
     if (data.bookingUrl) bits.push('예약 ' + data.bookingUrl);
     return bits.join('\n');
   }

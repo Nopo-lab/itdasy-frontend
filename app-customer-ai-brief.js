@@ -386,6 +386,64 @@
     _bindRefresh(container, customerId, customer, fpNow);
   }
 
+  function _memoryFacts(d) {
+    const c = (d && d.customer) || {}, stats = (d && d.stats) || {}, rows = (d && d.recent_revenues) || [];
+    const photoN = Number(d && d.__localPhotoCount) || 0;
+    const visits = Number(stats.visit_count || c.visit_count || 0);
+    const top = {};
+    rows.forEach(r => { const n = (r && r.service_name || '').trim(); if (n) top[n] = (top[n] || 0) + 1; });
+    const best = Object.keys(top).sort((a, b) => top[b] - top[a])[0] || '';
+    const avgDays = c.avg_cycle_weeks ? Math.round(Number(c.avg_cycle_weeks) * 7) : 0;
+    const facts = [];
+    if (best) facts.push('선호 시술 ' + best);
+    if (visits) facts.push('방문 ' + visits + '회');
+    if (avgDays) facts.push('평균 ' + avgDays + '일 주기');
+    if (photoN) facts.push('사진 기록 ' + photoN + '장');
+    if (c.memo) facts.push('메모 있음');
+    return { facts, score: Math.min(100, facts.length * 20), hasPhoto: photoN > 0, hasMemo: !!c.memo };
+  }
+
+  function _renderMemoryCard(d) {
+    const m = _memoryFacts(d);
+    if (!m.facts.length) return '';
+    const todo = !m.hasPhoto ? '시술 사진을 연결하면 다음 안내가 더 정확해져요.'
+      : (!m.hasMemo ? '선호 스타일을 메모해두면 잇비가 더 잘 기억해요.' : '이 고객 기억이 잘 쌓이고 있어요.');
+    return '<section class="cd-memory-card">'
+      + '<div class="cd-memory-head"><strong>가게 기억</strong><span>기억도 ' + m.score + '%</span></div>'
+      + '<div class="cd-memory-facts">' + m.facts.map(x => '<span>' + _esc(x) + '</span>').join('') + '</div>'
+      + '<div class="cd-memory-todo">' + _esc(todo) + '</div>'
+      + '</section>';
+  }
+
+  async function _dashboardForMemory(customerId) {
+    if (!window.apiFetch || !window.authHeader) return null;
+    const res = await window.apiFetch('/customers/' + encodeURIComponent(customerId) + '/dashboard', { headers: window.authHeader() });
+    if (!res || !res.ok) return null;
+    const d = await res.json();
+    try {
+      const photos = typeof window.loadGalleryItemsByCustomer === 'function'
+        ? await window.loadGalleryItemsByCustomer(customerId) : [];
+      d.__localPhotoCount = (photos || []).length;
+    } catch (_e) { d.__localPhotoCount = 0; }
+    return d;
+  }
+
+  function _patchCustomerMemoryCard() {
+    const original = window._renderCustomerDetail;
+    if (typeof original !== 'function' || original.__memoryPatched) return;
+    const patched = async function (mountEl, customerId) {
+      await original.apply(this, arguments);
+      try {
+        const d = await _dashboardForMemory(customerId);
+        if (!d || !mountEl || mountEl.querySelector('.cd-memory-card')) return;
+        const anchor = mountEl.querySelector('.d-cards');
+        if (anchor) anchor.insertAdjacentHTML('afterend', _renderMemoryCard(d));
+      } catch (_e) { void 0; }
+    };
+    patched.__memoryPatched = true;
+    window._renderCustomerDetail = patched;
+  }
+
   // 스타일 1회 주입 (전용 CSS 파일 만들지 않고 모듈 내부 보관).
   if (typeof document !== 'undefined' && !document.getElementById('cd-ai-brief-style')) {
     const st = document.createElement('style');
@@ -413,9 +471,13 @@
       + 'border-radius:999px;font-size:11px;font-weight:500;}'
       + '.cd-ai-brief--stale .bf-itbi-memo-text{color:#888;}'
       + '.cd-ai-brief__chips{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;}'
-      + '.cd-ai-brief__chips .cust-chip{margin-left:0;}';
+      + '.cd-ai-brief__chips .cust-chip{margin-left:0;}'
+      + '.cd-memory-card{margin:0 0 14px;padding:12px 14px;background:#fff;border:1px solid rgba(25,31,40,.08);border-radius:14px;box-shadow:0 6px 18px rgba(25,31,40,.04);}.cd-memory-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#191F28;margin-bottom:8px;}.cd-memory-head span{color:#BC6675;font-weight:700;}'
+      + '.cd-memory-facts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}.cd-memory-facts span{padding:4px 8px;border-radius:999px;background:#F7F8FA;color:#4E5968;font-size:11px;font-weight:700;}.cd-memory-todo{font-size:12px;color:#6B7684;line-height:1.45;}';
     document.head.appendChild(st);
   }
+
+  _patchCustomerMemoryCard();
 
   // 테스트·디버깅용 노출.
   window.CustomerAIBrief = {
