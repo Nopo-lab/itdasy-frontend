@@ -46,7 +46,12 @@
     return '';
   }
 
-  function buildPromoCaptionDraft(recipeId) { return CAPTION[recipeId] || DEFAULT_CAPTION; }
+  function buildPromoCaptionDraft(recipeId) {
+    // [J-5] 공통 마케팅 정책으로 캡션 톤·금지어 통일. 모듈 없으면 로컬 폴백.
+    var P = window.ItdasyMarketingDraftPolicy;
+    if (P && typeof P.caption === 'function') return P.caption(recipeId);
+    return CAPTION[recipeId] || DEFAULT_CAPTION;
+  }
 
   function buildPromoTemplateSuggestion(_recipeId) {
     return '전후 비교·인스타 피드형·스토리 홍보형 템플릿도 적용할 수 있어요. 아래 [템플릿 보기]에서 골라보세요.';

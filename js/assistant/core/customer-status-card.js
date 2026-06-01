@@ -143,8 +143,11 @@
   // Action Hub 버튼(최대 5, 전부 safe). 초안은 chat_suggest 로 기존 draft 경로 위임(발송 아님). 예약 자동생성 없음.
   function buildCustomerStatusActions(s) {
     var nm = s.name;
-    var acts = [{ id: 'retouch_draft', kind: 'chat_suggest', label: '리터치 초안 만들기', phase: 'safe', payload: { text: nm + '님 리터치 안내 문구 만들어줘' } }];
-    if (s.noNext || s.isAtRisk) acts.push({ id: 'revisit_draft', kind: 'chat_suggest', label: '재방문 안내 초안', phase: 'safe', payload: { text: nm + '님 재방문 안내 문구 만들어줘' } });
+    // [J-5] 초안 프롬프트는 공통 마케팅 정책으로 통일(없으면 로컬 폴백).
+    var P = window.ItdasyMarketingDraftPolicy;
+    var sug = function (type) { return (P && P.chatSuggest) ? P.chatSuggest(type, { name: nm }) : (nm + '님 안내 문구 만들어줘'); };
+    var acts = [{ id: 'retouch_draft', kind: 'chat_suggest', label: '리터치 초안 만들기', phase: 'safe', payload: { text: sug('retouch_offer') } }];
+    if (s.noNext || s.isAtRisk) acts.push({ id: 'revisit_draft', kind: 'chat_suggest', label: '재방문 안내 초안', phase: 'safe', payload: { text: sug('rebook_nudge') } });
     if (s.photoCount > 0) acts.push({ id: 'open_photos', kind: 'open_workshop', label: '사진 기록 확인', phase: 'safe', payload: {} });
     if (s.noNext) acts.push({ id: 'empty_slots', kind: 'open_calendar', label: '빈시간 보기', phase: 'safe', payload: {} });
     acts.push({ id: 'open_cust', kind: 'open_customer', label: '고객 기록 열기', phase: 'safe', payload: {} });

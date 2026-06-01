@@ -184,6 +184,12 @@
   //   J-1~J-3 체인 연결(safe nav/draft, confirm 안내). 자동 발송/예약/매출생성/기록수정/고객연결 0.
   //   반환: { message, hubActions } | { message }. 버튼은 route:'hub'(data-asst-hub-act) → ActionHub 가 처리.
   function _act(id, kind, label, phase, payload) { return { id, kind, label, phase, payload: payload || {}, route: 'hub' }; }
+  // [J-5] 초안 프롬프트는 공통 마케팅 정책으로 통일(없으면 폴백).
+  function _sug(type, name) {
+    var P = window.ItdasyMarketingDraftPolicy;
+    if (P && P.chatSuggest) return P.chatSuggest(type, name ? { name } : null);
+    return (name ? name + '님 ' : '') + '안내 문구 만들어줘';
+  }
 
   function _retouchCard(p) {
     const custs = Array.isArray(p.customers) ? p.customers : [];
@@ -192,7 +198,7 @@
       return { message: `${nm}님 리터치 안내가 필요해요. 먼저 고객 상태를 확인하거나, 안내 초안을 만들 수 있어요.`,
         hubActions: [
           _act('cust_status', 'chat_suggest', '고객 상태 확인', 'safe', { text: `${nm}님 뭐 챙겨야 돼?` }),
-          _act('retouch', 'chat_suggest', '리터치 초안 만들기', 'safe', { text: `${nm}님 리터치 안내 문구 만들어줘` }),
+          _act('retouch', 'chat_suggest', '리터치 초안 만들기', 'safe', { text: _sug('retouch_offer', nm) }),
           _act('open_cust', 'open_customer', '고객 기록 열기', 'safe', {}),
         ] };
     }
@@ -228,14 +234,14 @@
         return { message: '한동안 안 오신 고객이 있어요. 고객 상태를 확인하거나 재방문 안내 초안을 만들 수 있어요. (실제 발송은 하지 않아요)',
           hubActions: [
             _act('cust_status', 'chat_suggest', '고객 상태 확인', 'safe', { text: '오래 안 온 손님 챙겨줘' }),
-            _act('revisit', 'chat_suggest', '재방문 안내 초안', 'safe', { text: '재방문 안내 문구 만들어줘' }),
+            _act('revisit', 'chat_suggest', '재방문 안내 초안', 'safe', { text: _sug('rebook_nudge') }),
             _act('open_cust', 'open_customer', '고객 기록 열기', 'safe', {}),
           ] };
       case 'open_empty_slot':
         return { message: '비어 있는 시간이 있어요. 빈 시간을 확인하거나 재방문 안내 초안을 만들 수 있어요. (자동 예약은 하지 않아요)',
           hubActions: [
             _act('slots', 'open_calendar', '빈시간 보기', 'safe', {}),
-            _act('revisit', 'chat_suggest', '재방문 안내 초안', 'safe', { text: '재방문 안내 문구 만들어줘' }),
+            _act('revisit', 'chat_suggest', '재방문 안내 초안', 'safe', { text: _sug('rebook_nudge') }),
             _act('book', 'create_booking', '예약 카드 만들기', 'confirm', {}),
           ] };
       default:

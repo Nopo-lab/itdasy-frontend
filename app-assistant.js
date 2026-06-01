@@ -1554,7 +1554,9 @@
       // [2026-05-25] generate_bulk_message / draft_message — 백엔드가 빈 message_draft 반환 시
       //   "메세지 초안이 비어있어요" 처럼 보여 사용자 혼란. 응답에 따라 친절한 안내로 분기.
       const draftKinds = new Set(['generate_bulk_message', 'draft_message']);
-      const draftText = (d.message_draft || d.draft || '').trim();
+      // [J-5] 백엔드 draft 본문도 공통 마케팅 정책으로 금지어/과장어 정리(발송 아님, 표시 전 정규화).
+      const _mp = window.ItdasyMarketingDraftPolicy;
+      const draftText = ((_mp && _mp.sanitize) ? _mp.sanitize(d.message_draft || d.draft || '') : (d.message_draft || d.draft || '')).trim();
       if (draftKinds.has(d.kind)) {
         if (draftText) {
           if (d.kind === 'generate_bulk_message') {
@@ -1567,7 +1569,9 @@
             _history.push({ role: 'assistant',
               text: `${_head}\n실제 대량 발송은 하지 않았습니다. 내용을 확인한 뒤 필요한 채널에 복사해서 사용하세요.\n(대량 발송 기능은 안전 확인 후 별도로 제공될 예정이에요)\n\n---\n${draftText}\n---\n(클립보드에 복사됨)` });
           } else {
-            _history.push({ role: 'assistant', text: '초안을 클립보드에 복사했어요. 카톡·문자에 붙여넣으세요.\n\n---\n' + draftText });
+            // [J-5] 단건 초안 — 발송 안 함 안내 통일.
+            const _note = (_mp && _mp.safetyNote) ? _mp.safetyNote('retouch_offer') : '초안만 만들었어요. 실제 발송은 하지 않았어요.';
+            _history.push({ role: 'assistant', text: _note + ' 확인 후 카톡·문자에 붙여넣어 사용하세요.\n\n---\n' + draftText });
           }
         } else {
           // 백엔드가 응답은 했지만 본문이 비어있음 — 어떤 고객에게 어떤 톤으로 쓸지 추가 정보를 요구.
