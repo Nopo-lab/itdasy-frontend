@@ -138,7 +138,7 @@
     if (/눈빛|눈동자.*반짝|반짝.*눈|또렷.*눈빛/.test(input)) return [{ action: 'set_beauty', params: { catchLight: 32, irisClear: 22, lashSharp: 16 }, description_ko: '눈빛 또렷하게' }];
     if (/속눈썹|연장|펌.*눈/.test(input)) return [{ action: 'apply_preset', params: { preset: 'lash-clear' }, description_ko: '속눈썹 또렷' }];
     if (/다크서클|눈밑/.test(input)) return [{ action: 'set_beauty', params: { underEyeClean: 55, eyeShadow: 20 }, description_ko: '다크서클 완화' }];
-    if (/눈썹|반영구.*눈/.test(input)) return [{ action: 'set_beauty', params: { browSharp: 50 }, description_ko: '눈썹 또렷' }];
+    if (/눈썹|반영구.*눈/.test(input)) return [{ action: 'set_beauty', params: { browSharp: 50 }, description_ko: '눈썹·디테일 선명' }];
     if (/눈.*또렷|눈.*크[게게]|눈.*선명/.test(input)) return [{ action: 'set_beauty', params: { irisClear: 40, catchLight: 30, lashSharp: 35 }, description_ko: '눈 또렷하게' }];
     if (/아이.*색감|눈.*색감|아이.*컬러|아이라인|아이섀도/.test(input)) return [{ action: 'set_beauty', params: { eyeColor: 38, eyeShadow: 24, lashSharp: 18 }, description_ko: '아이 색감 강조' }];
 
@@ -231,7 +231,7 @@
     if (/손\s*피부|손등|손\s*톤/.test(input)) return '손 피부톤을 자연스럽게 정리해요.';
     if (/피부\s*결|살결/.test(input)) return '피부결을 매끄럽게 정리해요.';
     if (/속눈썹|연장|펌.*눈/.test(input)) return '속눈썹을 또렷하게 살려요.';
-    if (/눈썹|반영구.*눈/.test(input)) return '눈썹을 또렷하게 다듬어요.';
+    if (/눈썹|반영구.*눈/.test(input)) return '눈썹 주변 디테일이 또렷해 보이도록 선명도를 보강했어요.';
     if (/눈.*또렷|눈.*크[게게]|눈.*선명/.test(input)) return '눈동자와 속눈썹을 또렷하게 살려요.';
     if (/입술|립/.test(input)) return '입술 발색을 생기있게 살려요.';
     if (/기미|주근깨|잡티/.test(input)) return '잡티를 자연스럽게 완화해요.';
