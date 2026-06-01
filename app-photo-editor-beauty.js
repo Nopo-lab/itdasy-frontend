@@ -14,7 +14,7 @@
     // 메이크업 (v192 신규)
     lipPop:        { label: '입술 발색',       group: 'face', min: 0,   max: 100, step: 1 },
     eyeColor:      { label: '아이 색감',       group: 'face', min: 0,   max: 100, step: 1 },
-    browSharp:     { label: '눈썹 선명',       group: 'face', min: 0,   max: 100, step: 1 },
+    browSharp:     { label: '선명도 (눈썹 포함)', group: 'face', min: 0,   max: 100, step: 1 },
     // 손·네일
     handSkin:      { label: '손/발 피부톤',    group: 'hand', min: 0,   max: 100, step: 1 },
     nailGloss:     { label: '네일 광택',       group: 'hand', min: 0,   max: 100, step: 1 },
@@ -25,17 +25,17 @@
     hairVolume:    { label: '머리 풍성감',     group: 'hair', min: 0,   max: 100, step: 1 },
     hairEndsClean: { label: '머리끝 정리',     group: 'hair', min: 0,   max: 100, step: 1 },
     hairColor:     { label: '모발 색감 (- 차가운 / + 따뜻)', group: 'hair', min: -50, max: 50, step: 1 },
-    hairDetail:    { label: '머리결',          group: 'hair', min: 0,   max: 100, step: 1 },
+    hairDetail:    { label: '머리결 선명도 (전체)', group: 'hair', min: 0,   max: 100, step: 1 },
     hairColorPop:  { label: '염색 컬러 강조',  group: 'hair', min: 0,   max: 100, step: 1 },
     scalpBoost:    { label: '두피 톤 (풍성감)', group: 'hair', min: 0,   max: 100, step: 1 },
-    hairyArm:      { label: '바디 잔털 시각화 ↓', group: 'face', min: 0, max: 100, step: 1 },
+    hairyArm:      { label: '팔/다리 톤 보정', group: 'face', min: 0, max: 100, step: 1 },
     // 속눈썹
     eyeRedness:    { label: '눈 붉음 완화',     group: 'lash', min: 0,   max: 100, step: 1 },
     irisClear:     { label: '눈동자 또렷',      group: 'lash', min: 0,   max: 100, step: 1 },
     catchLight:    { label: '눈빛 반짝임',      group: 'lash', min: 0,   max: 100, step: 1 },
     underEyeClean: { label: '눈밑 칙칙함',      group: 'lash', min: 0,   max: 100, step: 1 },
     lashSharp:     { label: '속눈썹 선명도',   group: 'lash', min: 0,   max: 100, step: 1 },
-    closeUpDetail: { label: '눈가 디테일 (close-up)', group: 'lash', min: 0,   max: 100, step: 1 },
+    closeUpDetail: { label: '전체 선명도 (클로즈업)', group: 'lash', min: 0,   max: 100, step: 1 },
   };
 
   // shop_type → 추천 보정 슬라이더 우선순위. v192 신규 3 카테고리 (makeup/scalp/general).
