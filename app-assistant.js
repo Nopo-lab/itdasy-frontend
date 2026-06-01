@@ -482,6 +482,10 @@
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
   function _renderBriefingActions(m, idx) {
     if (!Array.isArray(m.briefing_actions) || !m.briefing_actions.length) return '';
+    // [J-1] Action Hub 규격으로 렌더(phase 라벨링). 클릭은 기존 data-asst-brief-act 경로(T-115 runAction) 유지.
+    if (window.ItdasyActionHub && typeof window.ItdasyActionHub.renderActionHub === 'function') {
+      return window.ItdasyActionHub.renderActionHub(m.briefing_actions, { idx, defaultRoute: 'brief' });
+    }
     return `<div class="asst-chips asst-chips--brief" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
       ${m.briefing_actions.map((a) => `<button data-asst-brief-act="${idx}:${_esc(a.id)}" style="padding:9px 16px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:13px;font-weight:600;">${_esc(a.label)}</button>`).join('')}
     </div>`;
@@ -508,12 +512,18 @@
 
   function _renderPhotoResult(m, idx) {
     if (!m.photo_result || !m.photo_result.dataUrl) return '';
-    const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
-    const actsHtml = acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:11px;font-weight:600;">${_esc(a.label)}</button>`).join('');
+    // [J-1] hub_actions 있으면 Action Hub 규격으로 렌더. 없으면(과거 메시지) 기존 photo_actions 폴백.
+    let actsHtml;
+    if (Array.isArray(m.hub_actions) && m.hub_actions.length && window.ItdasyActionHub) {
+      actsHtml = window.ItdasyActionHub.renderActionHub(m.hub_actions, { idx, defaultRoute: 'photo' });
+    } else {
+      const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
+      actsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:11px;font-weight:600;">${_esc(a.label)}</button>`).join('')}</div>`;
+    }
     const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
     return `<div style="margin-bottom:8px;">
       <img src="${_esc(m.photo_result.dataUrl)}" alt="보정 결과" style="max-width:240px;max-height:300px;border-radius:14px;display:block;box-shadow:0 4px 14px rgba(0,0,0,0.08);cursor:zoom-in;" data-asst-photo-result="${idx}" />
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${actsHtml}</div>
+      ${actsHtml}
       ${capHtml}
     </div>`;
   }
@@ -1301,10 +1311,34 @@
 
   function _handleAssistantClick(e) {
     if (_handleBriefingActionClick(e)) return;   // [T-115] 브리핑 추천 버튼
+    if (_handleActionHubClick(e)) return;        // [J-1] Action Hub 공통 버튼(data-asst-hub-act)
     if (_handlePhotoClick(e)) return;
     if (_handleSingleActionClick(e)) return;
     if (_handleGroupActionClick(e)) return;
     _handleSuggestionClick(e);
+  }
+
+  // [J-1] Action Hub 버튼 클릭 → ItdasyActionHub.handleActionClick(안전: safe 연결 / confirm 안내 / danger 차단).
+  //   자동 발송·게시·예약·고객추측 0. safe 만 즉시 연결, confirm/danger 는 안내·차단.
+  function _handleActionHubClick(e) {
+    const el = e.target.closest && e.target.closest('[data-asst-hub-act]');
+    if (!el) return false;
+    try {
+      const [idxStr, actId] = String(el.dataset.asstHubAct).split(':');
+      const msg = _history[+idxStr];
+      const action = msg && Array.isArray(msg.hub_actions)
+        ? msg.hub_actions.find((a) => a.id === actId) : null;
+      if (!action || !window.ItdasyActionHub || typeof window.ItdasyActionHub.handleActionClick !== 'function') return true;
+      const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
+      if (r.chatInput) {
+        const input = document.getElementById('asstInput');
+        if (input) { input.value = r.chatInput; _send(); }
+      } else if (r.message) {
+        _history.push({ role: 'assistant', text: r.message });
+        _renderHistory();
+      }
+    } catch (_e) { void 0; }
+    return true;
   }
 
   // [T-115] 브리핑 추천 버튼 클릭 → daily-briefing.runAction(안전: 화면이동/초안경로). 자동 발송/생성 0.
@@ -1938,6 +1972,7 @@
       text: intent.instagram ? '보정 완료! 인스타 미리보기를 열게요.' : '보정 완료! 미리보기 확인해주세요.',
       photo_result: { dataUrl: result.dataUrl, ratio: result.ratio, preset_label: result.preset_label },
       photo_actions: _chatAutoEditActions(intent.instagram),
+      hub_actions: _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동')),
       photo_caption: '업종: ' + (result.preset_label || '자동'),
     };
     _renderHistory();
@@ -1954,6 +1989,20 @@
       { id: 'save', label: '저장' },
       { id: 'retry', label: '다시' },
     ];
+  }
+
+  // [J-1] 사진 결과 버튼을 Action Hub 규격으로. 기존 동작(instagram/editor/save/retry)은 route:'photo'(photo-actions.js)
+  //   로 그대로 유지하고, 템플릿 보기(safe)·고객기록 저장(confirm)을 hub 경로로 덧붙임. 라벨 이모지 제거(CLAUDE 아이콘 규칙).
+  function _photoHubActions(isInstagram, dataUrl, caption) {
+    const acts = [
+      { id: 'instagram', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'photo' },
+      { id: 'editor', kind: 'open_photo_editor', label: '더 손보기', phase: 'safe', route: 'photo' },
+      { id: 'save', kind: 'export_image', label: '내보내기', phase: 'safe', route: 'photo' },
+    ];
+    if (!isInstagram) acts.push({ id: 'retry', kind: 'retry_edit', label: '다시 보정', phase: 'safe', route: 'photo' });
+    acts.push({ id: 'pe_template', kind: 'open_template_panel', label: '템플릿 보기', phase: 'safe', route: 'hub', payload: { dataUrl } });
+    acts.push({ id: 'save_customer', kind: 'save_photo_to_customer', label: '고객기록에 저장', phase: 'confirm', route: 'hub', payload: { caption } });
+    return acts;
   }
 
   function _openInstagramPreviewLater(result, fullCaption) {
