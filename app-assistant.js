@@ -1342,8 +1342,8 @@
       if (r.chatInput) {
         const input = document.getElementById('asstInput');
         if (input) { input.value = r.chatInput; _send(); }
-      } else if (r.message) {
-        _history.push({ role: 'assistant', text: r.message });
+      } else if (r.message || (Array.isArray(r.hubActions) && r.hubActions.length)) {
+        _history.push({ role: 'assistant', text: r.message || '', hub_actions: Array.isArray(r.hubActions) ? r.hubActions : [] });
         _renderHistory();
       }
     } catch (_e) { void 0; }
@@ -1365,8 +1365,9 @@
         // 초안 경로 — 잇비 입력으로 전송(T-110/T-113 draft 로 라우팅, 발송 아님).
         const input = document.getElementById('asstInput');
         if (input) { input.value = r.chatInput; _send(); }
-      } else if (r && r.message) {
-        _history.push({ role: 'assistant', text: r.message });
+      } else if (r && (r.message || (Array.isArray(r.hubActions) && r.hubActions.length))) {
+        // [J-4] 추천 클릭 → 한 카드 + Action Hub 체인 버튼(safe/confirm). 자동 실행 없음.
+        _history.push({ role: 'assistant', text: r.message || '', hub_actions: Array.isArray(r.hubActions) ? r.hubActions : [] });
         _renderHistory();
       }
     } catch (_e) { void 0; }

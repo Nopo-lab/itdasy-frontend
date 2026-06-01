@@ -180,41 +180,64 @@
     return { message: msg, actions: actions };
   }
 
-  // [T-115] 추천 버튼 클릭 → 안전한 다음 단계로만 연결. 자동 발송/예약/매출생성/기록수정 0.
-  //   반환: { chatInput? } (잇비 입력으로 보낼 문장) | { message? } | { navigated? }.
-  function _nav(fn) { try { if (typeof fn === 'function') { fn(); return true; } } catch (_e) { void 0; } return false; }
+  // [T-115/J-4] 추천 버튼 클릭 → 다음 단계를 "한 카드 + Action Hub 버튼"으로 펼침.
+  //   J-1~J-3 체인 연결(safe nav/draft, confirm 안내). 자동 발송/예약/매출생성/기록수정/고객연결 0.
+  //   반환: { message, hubActions } | { message }. 버튼은 route:'hub'(data-asst-hub-act) → ActionHub 가 처리.
+  function _act(id, kind, label, phase, payload) { return { id, kind, label, phase, payload: payload || {}, route: 'hub' }; }
 
+  function _retouchCard(p) {
+    const custs = Array.isArray(p.customers) ? p.customers : [];
+    if (custs.length === 1) {
+      const nm = custs[0].name;
+      return { message: `${nm}님 리터치 안내가 필요해요. 먼저 고객 상태를 확인하거나, 안내 초안을 만들 수 있어요.`,
+        hubActions: [
+          _act('cust_status', 'chat_suggest', '고객 상태 확인', 'safe', { text: `${nm}님 뭐 챙겨야 돼?` }),
+          _act('retouch', 'chat_suggest', '리터치 초안 만들기', 'safe', { text: `${nm}님 리터치 안내 문구 만들어줘` }),
+          _act('open_cust', 'open_customer', '고객 기록 열기', 'safe', {}),
+        ] };
+    }
+    if (custs.length > 1) {
+      const btns = custs.slice(0, 5).map((c) => _act('pick_' + c.id, 'chat_suggest', c.name, 'safe', { text: `${c.name}님 뭐 챙겨야 돼?` }));
+      return { message: `리터치 안내가 필요한 고객이 있어요: ${custs.map((c) => c.name).join(', ')}. 누구부터 볼까요? (자동으로 고르지 않아요)`, hubActions: btns };
+    }
+    return { message: '리터치 대상 고객이 없어요.' };
+  }
+
+  // [J-4] 각 추천을 체인 버튼 세트로 확장. 기존 kind 유지하고 반환만 강화.
   function runAction(action) {
     if (!action || !action.kind) return { message: '' };
     const p = action.payload || {};
     switch (action.kind) {
-      case 'retouch_draft': {
-        const custs = Array.isArray(p.customers) ? p.customers : [];
-        if (custs.length === 1) {
-          // 1명 → 기존 T-110/T-113 draft 경로로(잇비 입력 전송). 발송 아님(초안).
-          return { chatInput: `${custs[0].name} 리터치 안내 문구 만들어줘` };
-        }
-        if (custs.length > 1) {
-          const names = custs.map((c) => c.name).join(', ');
-          return { message: `리터치 대상: ${names} 중 누구에게 초안을 만들까요? 이름을 말씀해 주세요. (예: "${custs[0].name} 리터치 안내 문구 만들어줘")` };
-        }
-        return { message: '리터치 대상 고객이 없어요.' };
-      }
+      case 'retouch_draft':
+        return _retouchCard(p);
       case 'open_unlinked_photos':
-        _nav(() => window.showTab && window.showTab('workshop'));
-        return { navigated: true, message: '작업실을 열었어요. 사진을 선택한 뒤 "이 사진 고객 기록에 저장해줘"로 연결할 수 있어요. (자동 연결은 하지 않아요)' };
+        return { message: '고객 기록에 아직 연결되지 않은 사진이 있어요. 사진을 확인한 뒤 고객 기록에 저장할 수 있어요. (자동 연결은 하지 않아요)',
+          hubActions: [
+            _act('open_ws', 'open_workshop', '미연결 사진 확인', 'safe', {}),
+            _act('promo', 'chat_suggest', '홍보용으로 정리', 'safe', { text: '이 사진 홍보용으로 예쁘게 해줘' }),
+            _act('save_cust', 'save_photo_to_customer', '고객기록에 저장', 'confirm', {}),
+          ] };
       case 'open_unrecorded':
-        if (_nav(() => window.openBooking && window.openBooking()) || _nav(() => window.openCalendarView && window.openCalendarView())) {
-          return { navigated: true, message: '예약/완료 화면을 열었어요. 미기록 건을 완료 처리하면 매출로 기록돼요. (자동 기록은 하지 않아요)' };
-        }
-        return { message: '매출 미기록은 예약 화면에서 완료 처리로 정리할 수 있어요.' };
+        return { message: '매출 미기록 건이 있어요. 매출 화면에서 확인하고 정리할 수 있어요. (자동 기록은 하지 않아요)',
+          hubActions: [
+            _act('rev', 'open_revenue', '매출 확인', 'safe', {}),
+            _act('bookings', 'open_calendar', '미기록 예약 보기', 'safe', {}),
+            _act('rec_rev', 'record_revenue', '매출 기록하기', 'confirm', {}),
+          ] };
       case 'open_at_risk':
-        if (_nav(() => window.openRetentionAI && window.openRetentionAI())) return { navigated: true, message: '이탈 위험 고객 화면을 열었어요. (메시지는 확인 후 직접 보내세요)' };
-        if (_nav(() => window.openCustomers && window.openCustomers())) return { navigated: true, message: '고객 화면을 열었어요.' };
-        return { message: '이탈 임박 고객은 고객 관리 화면에서 확인할 수 있어요.' };
+        return { message: '한동안 안 오신 고객이 있어요. 고객 상태를 확인하거나 재방문 안내 초안을 만들 수 있어요. (실제 발송은 하지 않아요)',
+          hubActions: [
+            _act('cust_status', 'chat_suggest', '고객 상태 확인', 'safe', { text: '오래 안 온 손님 챙겨줘' }),
+            _act('revisit', 'chat_suggest', '재방문 안내 초안', 'safe', { text: '재방문 안내 문구 만들어줘' }),
+            _act('open_cust', 'open_customer', '고객 기록 열기', 'safe', {}),
+          ] };
       case 'open_empty_slot':
-        _nav(() => window.openCalendarView && window.openCalendarView());
-        return { navigated: true, message: '예약 화면을 열었어요. (공백에 맞는 고객 추천 기능은 곧 추가될 예정이에요)' };
+        return { message: '비어 있는 시간이 있어요. 빈 시간을 확인하거나 재방문 안내 초안을 만들 수 있어요. (자동 예약은 하지 않아요)',
+          hubActions: [
+            _act('slots', 'open_calendar', '빈시간 보기', 'safe', {}),
+            _act('revisit', 'chat_suggest', '재방문 안내 초안', 'safe', { text: '재방문 안내 문구 만들어줘' }),
+            _act('book', 'create_booking', '예약 카드 만들기', 'confirm', {}),
+          ] };
       default:
         return { message: '' };
     }
