@@ -112,7 +112,15 @@
     if (BRIEF_KINDS[kind] && window.ItdasyDailyBriefing && typeof window.ItdasyDailyBriefing.runAction === 'function') {
       return window.ItdasyDailyBriefing.runAction(action) || { message: '' };
     }
-    if (phase === 'confirm') return { message: CONFIRM_MSG[kind] || '확인 단계가 필요한 작업이에요. 확인 후 진행할 수 있어요.' };
+    if (phase === 'confirm') {
+      // 고객기록 저장은 고객 인지형 안내(자동 저장 X) — 실제 저장은 기존 pending/confirmSave 경로(사용자 "저장해줘").
+      if (kind === 'save_photo_to_customer') {
+        return { message: p.customerName
+          ? ('이 사진을 ' + p.customerName + '님 기록에 저장할까요? "저장해줘"라고 말씀해 주세요. (자동 저장은 하지 않아요)')
+          : '고객을 먼저 선택해 주세요. 고객을 선택하면 이 보정본을 기록에 저장할 수 있어요.' };
+      }
+      return { message: CONFIRM_MSG[kind] || '확인 단계가 필요한 작업이에요. 확인 후 진행할 수 있어요.' };
+    }
 
     // safe 라우팅
     switch (kind) {
@@ -122,7 +130,12 @@
         _nav(function () { window.PhotoEditor && window.PhotoEditor.open && window.PhotoEditor.open({ src: p.dataUrl, initial_tab: p.tab || 'tune' }); });
         return { navigated: true };
       case 'open_template_panel':
-        _nav(function () { window.PhotoEditor && window.PhotoEditor.open && window.PhotoEditor.open({ src: p.dataUrl, initial_tab: 'template' }); });
+        _nav(function () {
+          var PE = window.PhotoEditor; var pe = PE && PE._internal;
+          // 편집기가 이미 열려 있으면 사진 유지한 채 탭만 전환, 아니면 src 로 새로 열기.
+          if (pe && typeof pe.applyStatePatch === 'function' && pe.getState && pe.getState()) pe.applyStatePatch({ activeTab: 'template' });
+          else if (PE && PE.open) PE.open({ src: p.dataUrl, initial_tab: 'template' });
+        });
         return { navigated: true, message: '템플릿 탭을 열었어요.' };
       case 'open_instagram':
         _nav(function () { window.openInstagramPreview && window.openInstagramPreview({ src: p.dataUrl, ratio: p.ratio || '4:5', caption: p.caption || '', enableUpload: true }); });

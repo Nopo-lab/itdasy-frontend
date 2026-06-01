@@ -475,8 +475,17 @@
         ${relatedHtml}
         ${intentChipsHtml}
         ${_renderBriefingActions(m, idx)}
+        ${_renderHubActions(m, idx)}
       </div>
     </div>`;
+  }
+
+  // [J-2] 일반 메시지의 Action Hub 버튼(hub_actions). photo_result 안에서 이미 렌더되는 경우는 제외(중복 방지).
+  function _renderHubActions(m, idx) {
+    if (m.photo_result) return '';
+    if (!Array.isArray(m.hub_actions) || !m.hub_actions.length) return '';
+    if (!(window.ItdasyActionHub && typeof window.ItdasyActionHub.renderActionHub === 'function')) return '';
+    return window.ItdasyActionHub.renderActionHub(m.hub_actions, { idx, defaultRoute: 'hub' });
   }
 
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
@@ -2636,7 +2645,8 @@
   }
 
   function _tryKeywordShortcut(input, q) {
-    if (_tryPhotoFlowShortcut(input, q)) return true;   // [T-104] 홍보 풀체인 — 단일 보정/편집기 오픈보다 먼저
+    if (_tryPromoPhotoChain(input, q)) return true;     // [J-2] 홍보 사진 체인(보정+캡션+템플릿+버튼) — photo-flow 보다 먼저
+    if (_tryPhotoFlowShortcut(input, q)) return true;   // [T-104] 홍보 풀체인(폴백) — 단일 보정/편집기 오픈보다 먼저
     if (_tryPhotoEditorShortcut(input, q)) return true;
     if (_trySimpleOpenShortcut(input, q)) return true;
     if (_tryTabShortcut(input, q)) return true;
@@ -2654,6 +2664,24 @@
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
       _history.push({ role: 'assistant', text: res.message });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  // [J-2] "이 사진 홍보용으로 예쁘게" → 보정 + 캡션 초안 + 템플릿 추천 + Action Hub 버튼. 미매칭/모듈없음 시 false.
+  function _tryPromoPhotoChain(input, q) {
+    try {
+      const C = window.ItdasyPromoPhotoChain;
+      if (!C || !C.detectPromoPhotoChain || !C.detectPromoPhotoChain(q)) return false;
+      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+      const res = C.runPromoPhotoChain(q, ctx);
+      if (!res || !res.message) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'assistant', text: res.message, hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [] });
       _renderHistory();
       return true;
     } catch (_e) {
