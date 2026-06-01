@@ -21,6 +21,7 @@
     copy_caption: 'safe', open_photo_editor: 'safe', open_template_panel: 'safe',
     open_calendar: 'safe', open_customer: 'safe', open_revenue: 'safe', open_workshop: 'safe',
     show_unlinked_photos: 'safe', show_empty_slots: 'safe', open_instagram: 'safe', export_image: 'safe',
+    chat_suggest: 'safe',  // 잇비 입력창에 문장 채워 보냄(초안/조회 등 기존 경로로 위임 — 발송/생성 아님)
     // safe — 브리핑 추천(T-115: 화면이동/초안 경로만)
     retouch_draft: 'safe', open_unlinked_photos: 'safe', open_unrecorded: 'safe',
     open_at_risk: 'safe', open_empty_slot: 'safe',
@@ -112,18 +113,25 @@
     if (BRIEF_KINDS[kind] && window.ItdasyDailyBriefing && typeof window.ItdasyDailyBriefing.runAction === 'function') {
       return window.ItdasyDailyBriefing.runAction(action) || { message: '' };
     }
-    if (phase === 'confirm') {
-      // 고객기록 저장은 고객 인지형 안내(자동 저장 X) — 실제 저장은 기존 pending/confirmSave 경로(사용자 "저장해줘").
-      if (kind === 'save_photo_to_customer') {
-        return { message: p.customerName
-          ? ('이 사진을 ' + p.customerName + '님 기록에 저장할까요? "저장해줘"라고 말씀해 주세요. (자동 저장은 하지 않아요)')
-          : '고객을 먼저 선택해 주세요. 고객을 선택하면 이 보정본을 기록에 저장할 수 있어요.' };
-      }
-      return { message: CONFIRM_MSG[kind] || '확인 단계가 필요한 작업이에요. 확인 후 진행할 수 있어요.' };
-    }
+    if (phase === 'confirm') return _confirmMsg(kind, p);
+    return _safeRoute(kind, p);
+  }
 
-    // safe 라우팅
+  function _confirmMsg(kind, p) {
+    // 고객기록 저장은 고객 인지형 안내(자동 저장 X) — 실제 저장은 기존 pending/confirmSave 경로(사용자 "저장해줘").
+    if (kind === 'save_photo_to_customer') {
+      return { message: p.customerName
+        ? ('이 사진을 ' + p.customerName + '님 기록에 저장할까요? "저장해줘"라고 말씀해 주세요. (자동 저장은 하지 않아요)')
+        : '고객을 먼저 선택해 주세요. 고객을 선택하면 이 보정본을 기록에 저장할 수 있어요.' };
+    }
+    return { message: CONFIRM_MSG[kind] || '확인 단계가 필요한 작업이에요. 확인 후 진행할 수 있어요.' };
+  }
+
+  // safe 라우팅 (기존 화면이동/복사/초안 경로 위임)
+  function _safeRoute(kind, p) {
     switch (kind) {
+      case 'chat_suggest':
+        return { chatInput: p.text || p.chatInput || '' };
       case 'copy_caption':
         return { message: _copy(p.caption || p.text || '') ? '캡션을 복사했어요. 붙여넣어 사용하세요.' : '복사할 캡션이 없어요.' };
       case 'open_photo_editor':

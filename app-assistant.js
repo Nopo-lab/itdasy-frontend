@@ -2576,6 +2576,25 @@
   }
 
   // [T-008/P0-C] "{이름} 예약 잡아줘" → 고객+시간 해석 → 확인 카드(create_booking) 또는 빈시간 추천.
+  // [J-3] "민지님 뭐 챙겨야 돼? / 이 손님 리터치 해야 돼? / 오래 안 온 손님" → 고객 상태 카드 + Action Hub 버튼.
+  //   조회 전용. 자동 발송/예약/저장/추측 0. 미매칭/모듈없음 시 false(기존 경로 유지).
+  async function _tryCustomerStatusCard(input, q) {
+    try {
+      const C = window.ItdasyCustomerStatusCard;
+      if (!C || !C.detectCustomerStatusIntent || !C.detectCustomerStatusIntent(q)) return false;
+      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+      const res = await C.run(q, ctx);
+      if (!res || !res.message) return false;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _history.push({ role: 'assistant', text: res.message, hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [] });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   async function _tryCreateBookingShortcut(input, q) {
     try {
       if (!window.AssistantIntent || typeof window.AssistantIntent.tryCreateBooking !== 'function') return false;
@@ -2899,6 +2918,7 @@
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
     if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)
+    if (await _tryCustomerStatusCard(input, q)) return true;     // [J-3] 고객 상태 카드(읽기 전용 + 다음액션 버튼)
     if (await _tryAsyncIntentRule(input, q)) return true;
     return _tryKeywordShortcut(input, q);
   }
