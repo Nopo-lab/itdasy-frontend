@@ -40,6 +40,19 @@ async function main() {
     let fbNoCrash = true;
     try { TH.make({ id: '__no_such_template__', label: 'x' }, { ratio: '1:1' }); } catch (_e) { fbNoCrash = false; }
     r.fallbackNoCrash = fbNoCrash;
+
+    // [TPL-2] 태그 커버리지 — 55종 전부 industry/purpose 보유, 태그없는 카드 0.
+    const MD = window.PhotoEditorTemplateMarketData;
+    r.tags = { total: 0, missingInd: [], missingPur: [], indDist: {}, purDist: {} };
+    (MD.TEMPLATES || []).forEach(t => {
+      r.tags.total++;
+      if (!t.industry) r.tags.missingInd.push(t.id);
+      if (!t.purpose) r.tags.missingPur.push(t.id);
+      r.tags.indDist[t.industry] = (r.tags.indDist[t.industry] || 0) + 1;
+      r.tags.purDist[t.purpose] = (r.tags.purDist[t.purpose] || 0) + 1;
+    });
+    // 추천 문구 생성 확인
+    r.tags.recSample = MD.recommendText ? MD.recommendText(MD.TEMPLATES.find(t => t.id.indexOf('nail') >= 0) || MD.TEMPLATES[0]) : '';
     return r;
   });
 
