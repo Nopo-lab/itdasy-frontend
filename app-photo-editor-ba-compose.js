@@ -3,6 +3,21 @@
   'use strict';
   if (window.PhotoEditorBACompose) return;
 
+  // [TPL-1 fix] rounded-rect path 헬퍼 — _roundedPhoto/_pill 등이 호출하나 정의 누락(Reference1Error)으로
+  //   cream/polaroid 계열 BA 템플릿(_flowerShadow/_polaroid)이 적용·썸네일 모두 실패하던 기존 버그 복구.
+  //   path 만 그림(clip/stroke 는 호출측). ctx.roundRect 있으면 사용, 없으면 arcTo 폴백.
+  function _rr(ctx, x, y, w, h, r) {
+    const rad = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') { ctx.roundRect(x, y, w, h, rad); return; }
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  }
+
   const LABELS = {
     'ba-flower-shadow': ['Before', 'After'],
     'ba-polaroid': ['Before', 'After'],

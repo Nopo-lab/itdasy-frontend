@@ -115,17 +115,88 @@
       const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
       const isFree = t.tier !== 'pro';
       const badge = `<span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>`;
+      // [TPL-1] 실 썸네일 — overlay/ba-compose 오프스크린 렌더. 실패 시 기존 gradient + 라벨 fallback.
+      const fb = `background:linear-gradient(135deg, ${color}33, ${color});`;
       return `
         <button type="button" class="tpv2-card" data-tpv2-tpl="${t.id}">
           ${badge}
-          <div class="tpv2-thumb" style="aspect-ratio:${ar};background:linear-gradient(135deg, ${color}33, ${color});">${_esc(t.prefillText || t.label)}</div>
+          <div class="tpv2-thumb" data-tpv2-thumb="${t.id}" data-tpv2-ratio="${cat.ratio}" data-tpv2-accent="${color}" style="aspect-ratio:${ar};${fb}">${_esc(t.prefillText || t.label)}</div>
           <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div></div>
         </button>
       `;
     }).join('');
     grid.querySelectorAll('[data-tpv2-tpl]').forEach(b => {
-      b.addEventListener('click', () => _apply(b.dataset.tpv2Tpl));
+      b.addEventListener('click', () => _openPreview(b.dataset.tpv2Tpl));
     });
+    _renderThumbs(grid, bk);
+  }
+
+  // [TPL-1] 카드 썸네일 lazy 렌더 — 보이는 카드만 오프스크린 렌더→이미지 주입. 실패 시 gradient 유지.
+  function _renderThumbs(grid, bk) {
+    const TH = window.PhotoEditorTemplateThumb;
+    if (!TH || !TH.make) return;   // 모듈 없으면 fallback(gradient) 그대로
+    const paint = (el) => {
+      if (!el || el.dataset.tpv2Done) return;
+      const t = TEMPLATES.find(x => x.id === el.dataset.tpv2Thumb);
+      if (!t) return;
+      const url = TH.make(t, { ratio: el.dataset.tpv2Ratio, accent: el.dataset.tpv2Accent, shopName: bk.shopName, logo: bk.logo });
+      if (url) {
+        el.style.backgroundImage = `url(${url})`;
+        el.style.backgroundSize = 'cover';
+        el.style.backgroundPosition = 'center';
+        el.textContent = '';   // 라벨 텍스트 제거(이미지가 디자인을 보여줌)
+      }
+      el.dataset.tpv2Done = '1';   // 성공/실패 모두 1회만 시도(실패 시 gradient+라벨 유지)
+    };
+    const thumbs = grid.querySelectorAll('[data-tpv2-thumb]');
+    if (typeof IntersectionObserver === 'function') {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { paint(e.target); io.unobserve(e.target); } });
+      }, { root: grid.closest('#tplV2Sheet') || null, rootMargin: '200px' });
+      thumbs.forEach(el => io.observe(el));
+    } else {
+      thumbs.forEach(paint);
+    }
+  }
+
+  // [TPL-1] 카드 탭 → 큰 미리보기 시트. Pro 잠금이어도 미리보기는 보임. "적용하기"로 _apply.
+  function _openPreview(tplId) {
+    const tpl = TEMPLATES.find(t => t.id === tplId);
+    if (!tpl) return;
+    const cat = CATS.find(c => c.id === tpl.cat);
+    const bk = _getBrandKit();
+    const color = _accentColor(tpl.accent, bk);
+    const TH = window.PhotoEditorTemplateThumb;
+    const isFree = tpl.tier !== 'pro';
+    const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
+    // 편집 중 사진 있으면 "내 사진으로 미리보기", 없으면 placeholder 썸네일(크게)
+    const big = (TH && TH.make) ? TH.make(tpl, { ratio: cat.ratio, accent: color, shopName: bk.shopName, logo: bk.logo, base: 640 }) : null;
+    let pv = document.getElementById('tpv2PreviewSheet');
+    if (!pv) {
+      pv = document.createElement('div'); pv.id = 'tpv2PreviewSheet';
+      pv.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:24px;';
+      document.body.appendChild(pv);
+    }
+    const imgHtml = big
+      ? `<div style="aspect-ratio:${ar};max-height:62vh;border-radius:14px;background:#fff url(${big}) center/contain no-repeat;box-shadow:0 12px 40px rgba(0,0,0,.5);"></div>`
+      : `<div style="aspect-ratio:${ar};max-height:62vh;border-radius:14px;background:linear-gradient(135deg,${color}33,${color});display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${_esc(tpl.prefillText || tpl.label)}</div>`;
+    pv.innerHTML = `
+      <div style="background:#1b1b1f;border-radius:20px;padding:18px;max-width:420px;width:100%;text-align:center;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <strong style="color:#fff;font-size:15px;">${_esc(tpl.label)}</strong>
+          <span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>
+        </div>
+        ${imgHtml}
+        <div style="color:#c5cbd2;font-size:12px;margin-top:10px;">${_esc(cat.label)} · ${cat.ratio}${isFree ? '' : ' · Pro 템플릿'}</div>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button type="button" id="tpv2PvClose" style="flex:1;padding:12px;border-radius:12px;border:1px solid #3a3a40;background:transparent;color:#c5cbd2;font-weight:700;cursor:pointer;">닫기</button>
+          <button type="button" id="tpv2PvApply" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">${isFree ? '이 템플릿 적용' : 'Pro 템플릿 적용'}</button>
+        </div>
+      </div>`;
+    pv.style.display = 'flex';
+    pv.onclick = (e) => { if (e.target === pv) pv.style.display = 'none'; };
+    pv.querySelector('#tpv2PvClose').onclick = () => { pv.style.display = 'none'; };
+    pv.querySelector('#tpv2PvApply').onclick = () => { pv.style.display = 'none'; _apply(tplId); };
   }
 
   // 템플릿 적용: PhotoEditor 상태에 카드 정보 + 텍스트 레이어 prefill
