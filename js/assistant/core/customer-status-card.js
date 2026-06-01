@@ -156,8 +156,20 @@
   }
 
   // 메인. 반환 { message, hubActions } | { message }(안내/후보). 채팅 푸시는 호출측.
+  // [J-6.1] 신규 세션엔 Customer._cache 가 비어 search()가 0건 → 이름 고객이 "고객 먼저 선택"으로 빠짐.
+  //   search 전 캐시 1회 보장. 자동 추측 없음(검색 대상만 채움). 실패해도 기존 안내로 fallback.
+  async function ensureCustomerCache() {
+    try {
+      var C = window.Customer;
+      if (!C || typeof C.list !== 'function') return;
+      if (C._cache && C._cache.length) return;   // 이미 적재됨 → 과호출 방지
+      await C.list();
+    } catch (_e) { void 0; }
+  }
+
   async function run(text, ctx) {
     ctx = ctx || (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
+    await ensureCustomerCache();                 // [J-6.1] search 전 캐시 보장
     var r = resolveCustomerForStatus(text, ctx);
     if (r.none) {
       return { message: '고객을 먼저 선택해 주세요. 고객을 선택하면 최근 시술, 리터치 여부, 사진 기록까지 같이 확인해드릴게요.' };
