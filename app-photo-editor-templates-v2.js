@@ -10,6 +10,18 @@
   let _sheetEl = null;
   let _selectedCat = 'ba';   // v320-B — 전후사진 먼저 노출
   let _searchTerm = '';
+  let _selectedTag = '';     // [TPL-2] 업종/용도 필터('' = 전체). 'ind:nail' | 'pur:before_after'
+  const IND_LABEL = MARKET_DATA.INDUSTRY_LABEL || {};
+  const PUR_LABEL = MARKET_DATA.PURPOSE_LABEL || {};
+  // [TPL-2] 필터칩 목록(전체 + 업종 + 용도). 카드 cat 카테고리와 별개의 교차 필터.
+  const TAG_FILTERS = [
+    { key: '', label: '전체' },
+    { key: 'ind:nail', label: '네일' }, { key: 'ind:hair', label: '헤어' }, { key: 'ind:lash', label: '속눈썹' },
+    { key: 'ind:brow', label: '눈썹' }, { key: 'ind:skin', label: '피부' }, { key: 'ind:makeup', label: '메이크업' }, { key: 'ind:common', label: '공통' },
+    { key: 'pur:before_after', label: '전후' }, { key: 'pur:review', label: '후기' }, { key: 'pur:event', label: '이벤트' },
+    { key: 'pur:booking', label: '예약' }, { key: 'pur:retouch', label: '리터치' }, { key: 'pur:price', label: '가격표' },
+    { key: 'pur:story', label: '스토리' }, { key: 'pur:feed', label: '피드' },
+  ];
 
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -51,6 +63,12 @@
         #tplV2Sheet .pe-chip-btn.on { background:linear-gradient(135deg,#caa15a,#a9823f); color:#1a160f; }
         #tplV2Sheet .tpv2-hd-title { font-family:Georgia,"Noto Serif KR",serif; font-weight:700; font-size:17px; color:#f7f1e8; white-space:nowrap; }
         #tplV2Sheet .tpv2-hd-sub { font-size:11px; color:#b3aa9a; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #tplV2Sheet .tpv2-tagfilter { padding:0 16px 9px; display:flex; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        #tplV2Sheet .tpv2-tagchip { border:1px solid rgba(255,250,242,.14); background:transparent; border-radius:999px; padding:5px 11px; font-size:11.5px; font-weight:600; color:#b3aa9a; white-space:nowrap; cursor:pointer; transition:all .14s ease; }
+        #tplV2Sheet .tpv2-tagchip.on { background:#f0e6d4; color:#2b2620; border-color:#f0e6d4; }
+        #tplV2Sheet .tpv2-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
+        #tplV2Sheet .tpv2-tag { font-size:9.5px; font-weight:700; color:#7d7468; background:#f0ece4; border-radius:5px; padding:2px 6px; }
+        #tplV2Sheet .tpv2-empty { grid-column:1/-1; color:#999; padding:28px 12px; text-align:center; font-size:13px; }
       </style>
       <header style="padding:14px 16px;display:flex;align-items:center;gap:10px;">
         <button type="button" id="tpv2Close" style="flex-shrink:0;background:rgba(255,250,242,.12);color:#f7f1e8;border:none;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;">닫기</button>
@@ -58,11 +76,13 @@
         <input type="search" id="tpv2Search" placeholder="검색…" style="flex-shrink:0;width:96px;" />
       </header>
       <div id="tpv2Cats" style="padding:11px 16px;display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;"></div>
+      <div id="tpv2TagFilter" class="tpv2-tagfilter"></div>
       <div id="tpv2Grid" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;"></div>
     `;
     document.body.appendChild(_sheetEl);
     _sheetEl.querySelector('#tpv2Close').addEventListener('click', () => { _sheetEl.style.display = 'none'; });
     _sheetEl.querySelector('#tpv2Search').addEventListener('input', (e) => { _searchTerm = e.target.value || ''; _renderGrid(); });
+    _renderTagFilter();
     return _sheetEl;
   }
 
@@ -74,6 +94,31 @@
     cats.querySelectorAll('[data-tpv2-cat]').forEach(b => {
       b.addEventListener('click', () => { _selectedCat = b.dataset.tpv2Cat; _renderCats(); _renderGrid(); });
     });
+  }
+
+  // [TPL-2] 업종/용도 교차 필터칩. cat 카테고리와 별개로 industry/purpose 로 좁힘.
+  function _renderTagFilter() {
+    const wrap = _sheetEl.querySelector('#tpv2TagFilter');
+    if (!wrap) return;
+    // [TPL-2] 매칭 템플릿 0개인 필터칩은 숨김(헷갈림 방지). '전체'는 항상 노출.
+    const visible = TAG_FILTERS.filter(f => {
+      if (!f.key) return true;
+      const [kind, val] = f.key.split(':');
+      return TEMPLATES.some(t => kind === 'ind' ? t.industry === val : t.purpose === val);
+    });
+    wrap.innerHTML = visible.map(f =>
+      `<button type="button" class="tpv2-tagchip ${_selectedTag === f.key ? 'on' : ''}" data-tpv2-tag="${f.key}">${_esc(f.label)}</button>`
+    ).join('');
+    wrap.querySelectorAll('[data-tpv2-tag]').forEach(b => {
+      b.addEventListener('click', () => { _selectedTag = b.dataset.tpv2Tag; _renderTagFilter(); _renderGrid(); });
+    });
+  }
+
+  // 태그 필터 통과 여부('' = 전체, 'ind:x' / 'pur:x').
+  function _passTag(t) {
+    if (!_selectedTag) return true;
+    const [kind, val] = _selectedTag.split(':');
+    return kind === 'ind' ? (t.industry === val) : (t.purpose === val);
   }
 
   // [T-007 2026-05-29] 현재 업종에 맞는 템플릿(id 에 업종 키워드 포함)을 앞으로 정렬.
@@ -91,8 +136,12 @@
   function _renderGrid() {
     const grid = _sheetEl.querySelector('#tpv2Grid');
     const bk = _getBrandKit();
+    // [TPL-2] 태그 필터 활성 시 cat 경계를 넘어 전체에서 industry/purpose 로 좁힘(원장이 "네일 전후"를 바로 찾게).
+    //   태그 없으면 기존 cat 카테고리 기준. 검색어는 항상 AND.
+    const tagActive = !!_selectedTag;
     const filtered = TEMPLATES.filter(t => {
-      if (t.cat !== _selectedCat) return false;
+      if (tagActive) { if (!_passTag(t)) return false; }
+      else if (t.cat !== _selectedCat) return false;
       if (!_searchTerm) return true;
       return (t.label + ' ' + (t.prefillText || '')).toLowerCase().includes(_searchTerm.toLowerCase());
     });
@@ -108,7 +157,7 @@
         })
         .forEach((pair, idx) => { filtered[idx] = pair[0]; });
     }
-    if (!filtered.length) { grid.innerHTML = `<div style="grid-column:1/-1;color:#999;padding:24px;text-align:center;">검색 결과 없음</div>`; return; }
+    if (!filtered.length) { grid.innerHTML = `<div class="tpv2-empty">해당 조건의 템플릿이 없어요. 다른 업종·용도 칩을 눌러보세요.</div>`; return; }
     grid.innerHTML = filtered.map(t => {
       const color = _accentColor(t.accent, bk);
       const cat = CATS.find(c => c.id === t.cat);
@@ -117,11 +166,14 @@
       const badge = `<span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>`;
       // [TPL-1] 실 썸네일 — overlay/ba-compose 오프스크린 렌더. 실패 시 기존 gradient + 라벨 fallback.
       const fb = `background:linear-gradient(135deg, ${color}33, ${color});`;
+      // [TPL-2] 업종/용도 태그칩(공통은 업종칩 생략 — 노이즈 방지).
+      const indL = IND_LABEL[t.industry], purL = PUR_LABEL[t.purpose];
+      const tags = [(t.industry && t.industry !== 'common') ? `<span class="tpv2-tag">#${_esc(indL)}</span>` : '', purL ? `<span class="tpv2-tag">#${_esc(purL)}</span>` : ''].join('');
       return `
         <button type="button" class="tpv2-card" data-tpv2-tpl="${t.id}">
           ${badge}
           <div class="tpv2-thumb" data-tpv2-thumb="${t.id}" data-tpv2-ratio="${cat.ratio}" data-tpv2-accent="${color}" style="aspect-ratio:${ar};${fb}">${_esc(t.prefillText || t.label)}</div>
-          <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div></div>
+          <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div><div class="tpv2-tags">${tags}</div></div>
         </button>
       `;
     }).join('');
@@ -187,7 +239,12 @@
           <span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>
         </div>
         ${imgHtml}
-        <div style="color:#c5cbd2;font-size:12px;margin-top:10px;">${_esc(cat.label)} · ${cat.ratio}${isFree ? '' : ' · Pro 템플릿'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-top:10px;">
+          ${(tpl.industry && tpl.industry !== 'common') ? `<span class="tpv2-tag">#${_esc(IND_LABEL[tpl.industry] || '')}</span>` : ''}
+          ${PUR_LABEL[tpl.purpose] ? `<span class="tpv2-tag">#${_esc(PUR_LABEL[tpl.purpose])}</span>` : ''}
+        </div>
+        <div style="color:#e8d9b8;font-size:12px;margin-top:7px;font-weight:600;">${_esc((MARKET_DATA.recommendText && MARKET_DATA.recommendText(tpl)) || '')}</div>
+        <div style="color:#c5cbd2;font-size:11px;margin-top:3px;">${_esc(cat.label)} · ${cat.ratio}${isFree ? '' : ' · Pro 템플릿'}</div>
         <div style="display:flex;gap:8px;margin-top:14px;">
           <button type="button" id="tpv2PvClose" style="flex:1;padding:12px;border-radius:12px;border:1px solid #3a3a40;background:transparent;color:#c5cbd2;font-weight:700;cursor:pointer;">닫기</button>
           <button type="button" id="tpv2PvApply" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">${isFree ? '이 템플릿 적용' : 'Pro 템플릿 적용'}</button>

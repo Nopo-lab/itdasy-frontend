@@ -90,5 +90,47 @@
     { id: 'card-nature',     cat: 'card',  tier: 'free', label: '내추럴',   prefillText: 'STUDIO', accent: 'soft' },
   ];
 
-  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES };
+  // [TPL-2] 업종/용도 태그 — id·cat·label 키워드로 자동 도출(55종 수동태깅 대신 견고).
+  //   industry: nail/hair/lash/brow/skin/makeup/common · purpose: before_after/review/price/event/retouch/booking/story/reel_cover/portfolio/feed/promo
+  const INDUSTRY_LABEL = { nail: '네일', hair: '헤어', lash: '속눈썹', brow: '눈썹', skin: '피부', makeup: '메이크업', common: '공통' };
+  const PURPOSE_LABEL = {
+    before_after: '전후', review: '후기', price: '가격표', event: '이벤트', retouch: '리터치',
+    booking: '예약', story: '스토리', reel_cover: '릴스', portfolio: '포트폴리오', feed: '피드', promo: '홍보',
+  };
+  function industryOf(t) {
+    const s = (t.id + ' ' + (t.label || '') + ' ' + (t.prefillText || ''));
+    if (/nail|네일|손톱|젤/.test(s)) return 'nail';
+    if (/hair|헤어|머리|염색|펌|컷/.test(s)) return 'hair';
+    if (/lash|eyelash|속눈썹|연장/.test(s)) return 'lash';
+    if (/brow|눈썹/.test(s)) return 'brow';
+    if (/skin|facial|피부|결|wax|왁싱/.test(s)) return 'skin';
+    if (/makeup|메이크업|화장/.test(s)) return 'makeup';
+    return 'common';
+  }
+  function purposeOf(t) {
+    const id = t.id, cat = t.cat, s = (id + ' ' + (t.label || '') + ' ' + (t.prefillText || ''));
+    if (/^ba-|before|after|전후|compare|2split|3process|4grid/.test(id)) return 'before_after';
+    if (/review|후기|testimonial/.test(s)) return 'review';
+    if (/price|가격|menu|메뉴/.test(s)) return 'price';
+    if (/event|이벤트|sale|할인|discount|gift|증정|deadline|마감|member|회원|newcomer|신규/.test(s)) return 'event';
+    if (/retouch|리터치|revisit|rebook|재방문/.test(s)) return 'retouch';
+    if (cat === 'card' || /명함|booking|예약|attend|출석|qa|q&a/.test(s)) return 'booking';
+    if (cat === 'story') return 'story';
+    if (cat === 'reels') return 'reel_cover';
+    if (/portfolio|포트폴리오|showcase|자랑/.test(s)) return 'portfolio';
+    if (cat === 'feed') return 'feed';
+    return 'promo';
+  }
+  // 모든 템플릿에 industry/purpose 주입(1회).
+  TEMPLATES.forEach((t) => { if (!t.industry) t.industry = industryOf(t); if (!t.purpose) t.purpose = purposeOf(t); });
+
+  // 추천 상황 문구(큰 미리보기용).
+  function recommendText(t) {
+    const ind = INDUSTRY_LABEL[t.industry] || '공통';
+    const pur = PURPOSE_LABEL[t.purpose] || '홍보';
+    const indPart = t.industry === 'common' ? '' : (ind + ' ');
+    return indPart + pur + '에 추천';
+  }
+
+  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText };
 })();
