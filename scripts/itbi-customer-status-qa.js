@@ -76,6 +76,19 @@ async function main() {
     window.openCustomers = function () {}; window.openCalendarView = function () {}; window.showTab = function () {};
     (ctxRes.hubActions || []).forEach(a => { try { window.ItdasyActionHub.handleActionClick(a, {}); } catch (_e) { void 0; } });
     r.safety = { sendMessage: calls.filter(c => c === 'sendMessage').length, bookingCreate: calls.filter(c => c === 'Booking.create').length, publish: calls.filter(c => c === 'publishInstagram').length, treatmentAttach: calls.filter(c => c === 'TreatmentLink.attach').length };
+
+    // [J-6.1] 캐시 프리로드 픽스 — 신규 세션(_cache=null)에서 run()이 Customer.list() 1회 호출 후 search 성공.
+    let listCalls = 0; let cache = null;
+    window.Customer = { get _cache() { return cache; }, list: async function () { listCalls++; cache = [{ id: 10, name: '김민지' }, { id: 11, name: '이수진' }]; return cache; }, search: function (q) { return (cache || []).filter(c => c.name.includes(q)); } };
+    const fresh = await C.run('김민지님 뭐 챙겨야 돼?', {});           // 신규세션 → list 적재 → 카드
+    const beforeCached = listCalls; const cached = await C.run('이수진님 뭐 챙겨야 돼?', {});  // 캐시 있음 → list 추가호출 0
+    cache = null; window.Customer.list = async function () { throw new Error('net'); };
+    const failRes = await C.run('김민지님 뭐 챙겨야 돼?', {});          // list 실패 → 기존 안내 fallback
+    r.cachePreload = {
+      newSession_card: /상태를 정리했어요/.test(fresh.message), newSession_listCalls: listCalls > 0 ? 1 : 0,
+      cached_extraListCalls: listCalls - beforeCached, cached_card: /상태를 정리했어요/.test(cached.message),
+      listFail_guide: /고객을 먼저 선택/.test(failRes.message),
+    };
     return r;
   });
 
