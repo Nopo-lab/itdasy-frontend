@@ -306,6 +306,7 @@
       hasBoundaryMask: !!(useM && useM.hairBoundaryMask), // [T-140/141] 경계 band 마스크 연결 여부
       hasEyeMask: !!(useM && useM.eyeMask),               // [T-142] eyeMask 연결 시 catchLight 는 합성으로 대체
       hasLipMask: !!(useM && useM.lipMask),               // [T-145] lipMask 연결 시 색게이트 완화 + 발색 강화
+      hasNailMask: !!(useM && useM.nailMask),             // [PE-2] nailMask 연결 시 nailGloss 풀강도, 없으면 안전 fallback
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
@@ -497,11 +498,17 @@
   function _applyDetail(d, i, p, c) {
     // nail gloss — v348 자연 강화. 기본 밝힘 + 하이라이트 추가 광택(글리터/반짝임), nailW(네일면)만.
     //   강도는 상단 NAIL_GLOSS_* 상수로 조정. 번들거림 나면 SPEC 먼저 낮춤.
-    if (c.nailK > 0 && p.nailW > 0.12) {
-      const gw = c.nailK * p.nailW;
-      const spec = p.lum0 > 195 ? Math.min(1, (p.lum0 - 195) / 55) : 0;
-      const add = (NAIL_GLOSS_BASE + NAIL_GLOSS_SPEC * spec) * gw;
-      _add(d, i, add, add, add * 1.04);   // 하이라이트 살짝 차갑게(파랑 +4%) = 유리질 광택감
+    // [PE-2] nailMask 있으면 기존(임계 0.12·풀강도), 없으면 안전 fallback(임계 0.35·강도 0.5)
+    //   → 마스크/저신뢰 시 매끈·밝은 손/배경/소매에 광택 번지던 문제 차단. 확실한 네일 후보는 유지.
+    if (c.nailK > 0) {
+      const nthr = p.hasNailMask ? 0.12 : 0.45;
+      const nconf = p.hasNailMask ? 1 : 0.4;
+      if (p.nailW > nthr) {
+        const gw = c.nailK * p.nailW * nconf;
+        const spec = p.lum0 > 195 ? Math.min(1, (p.lum0 - 195) / 55) : 0;
+        const add = (NAIL_GLOSS_BASE + NAIL_GLOSS_SPEC * spec) * gw;
+        _add(d, i, add, add, add * 1.04);   // 하이라이트 살짝 차갑게(파랑 +4%) = 유리질 광택감
+      }
     }
     // [T-145] lipPop 입술 발색 — lipMask(max≈0.82) 있으면 ROI 한정 + 색게이트 완화로 누드/연한 입술도
     //   발색. 채도/value 강화 + 약한 gloss. 치아(흰색 r≈g≈b)·피부는 lipMask/색게이트로 제외.

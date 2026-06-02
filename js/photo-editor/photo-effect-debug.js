@@ -58,7 +58,7 @@
       rois.lip = { x: 108, y: 184, w: 40, h: 14 };
       rois.subject = { x: 56, y: 40, w: 144, h: 180 };
     } else if (kind === 'nail') {
-      ctx.fillStyle = '#e8c4a8'; ctx.fillRect(40, 60, 176, 150);          // 손 피부
+      ctx.fillStyle = '#d6ab8e'; ctx.fillRect(40, 60, 176, 150);          // 손 피부(현실적 톤 — 네일급 과밝음 아님)
       rois.handSkin = { x: 40, y: 60, w: 176, h: 150 };
       _noise(ctx, 40, 60, 176, 150, 8);
       var nailC = ['#e8c9b8', '#d8d2c8', '#b03a4a', '#caa0b0', '#7a6a60']; // 누드/무채/레드/글리터풍/다크
