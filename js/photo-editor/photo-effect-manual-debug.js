@@ -375,10 +375,87 @@
     return a;
   }
 
+  // [PE-ER5 진단2] 실제 apply 전/후 raw delta + 엔진 소스 확인 — "후보는 있는데 previewSteps=0" 원인 확정.
+  async function traceEyeRednessApply(opts) {
+    if (!_ensureBefore()) return null;
+    opts = opts || {};
+    var strength = opts.strength == null ? 100 : opts.strength;
+    var out = { paramPassed: { eyeRedness: strength }, cEyeRedK: strength / 100 };
+    // 1) 배포된 엔진 소스에 PE-ER4 코드가 실제 있는지
+    try {
+      var src = await fetch('js/photo-editor/beauty-engine.js?cb=' + Date.now()).then(function (r) { return r.text(); });
+      out.loadedBeautyEngineHasPEER4 = /skinPenalty/.test(src) && /scleraW/.test(src) && /0\.70 \? 0\.2/.test(src);
+      out.hasBrightNeutralSat = /brightW/.test(src) && /neutralW/.test(src) && /satW/.test(src);
+    } catch (e) { out.loadedBeautyEngineHasPEER4 = 'fetch실패:' + String(e).slice(0, 40); }
+    var w = _before.w, h = _before.h, b = _before.imageData;
+    // 2) 실제 엔진 apply (오프스크린, 라이브 무손상) → raw delta
+    var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    var ctx = cv.getContext('2d', { willReadFrequently: true });
+    var id = ctx.createImageData(w, h); id.data.set(b); ctx.putImageData(id, 0, 0);
+    var regionMasks = null;
+    try {
+      var MA = window.MaskApplication, st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
+      var img = st && st.originalImg;
+      if (MA && MA.getMasksForBeautySync && img) regionMasks = MA.getMasksForBeautySync(img) || null;
+    } catch (e) { regionMasks = null; }
+    window.PhotoEditorBeautyEngine.apply(ctx, w, h, { eyeRedness: strength }, false, regionMasks);
+    var after = ctx.getImageData(0, 0, w, h).data;
+    var gt0 = 0, gt2 = 0, maxAbs = 0, sumAbs = 0, sumDR = 0, drCnt = 0;
+    for (var i = 0; i < after.length; i += 4) {
+      var dr = after[i] - b[i], dg = after[i + 1] - b[i + 1], db = after[i + 2] - b[i + 2];
+      var m = Math.max(Math.abs(dr), Math.abs(dg), Math.abs(db));
+      if (m > 0) gt0++; if (m > 2) gt2++; if (m > maxAbs) maxAbs = m; sumAbs += m;
+      if (dr !== 0) { sumDR += dr; drCnt++; }
+    }
+    out.rawChangedPixelsDeltaGt0 = gt0;
+    out.changedPixelsDeltaGt2 = gt2;
+    out.maxActualDelta = maxAbs;
+    out.sumAbsDelta = sumAbs;
+    out.avgDR_overChangedPixels = drCnt ? +(sumDR / drCnt).toFixed(3) : 0;
+    out.changedPixelsHaveNegativeDR = drCnt > 0 && sumDR < 0;
+    // 3) 게이트 복제 — eligible/k/expectedDR (inspect 와 동일 로직)
+    var SM = window.PhotoEditorSmartMask, useM = regionMasks && regionMasks.useMasks, sc = regionMasks && regionMasks._scale;
+    var mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+    function rm(key, midx, fb) { return (useM && useM[key]) ? (useM[key][midx] || 0) * ((sc && sc[key]) || 1) : fb; }
+    var eyeRedK = strength / 100, eligible = 0, sumK = 0, maxK = 0;
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var j = (y * w + x) * 4, r = b[j], g = b[j + 1], bl = b[j + 2];
+      var lum0 = r * 0.299 + g * 0.587 + bl * 0.114, maxc = Math.max(r, g, bl), minc = Math.min(r, g, bl), sat = maxc - minc;
+      var subjectW = Math.max(0, 1 - (Math.abs((x + 0.5) / w - 0.5) * 1.44 + Math.abs((y + 0.5) / h - 0.48) * 1.04));
+      var edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
+      var isSkin = !edgeBg && r > 60 && r > g - 6 && g > bl - 10 && (r - bl) > 5 && (r - bl) < 120 && lum0 > 45 && lum0 < 248;
+      var ny = (y + 0.5) / h;
+      var hairLike = !edgeBg && subjectW > 0.3 && lum0 > 14 && lum0 < 220 && ((!isSkin && ((sat < 110 && lum0 < 195) || lum0 < 110 || (bl < 95 && sat < 150))) || (ny < 0.55 && lum0 < 160 && sat < 100));
+      var mask = (SM && SM.classify) ? SM.classify({ r: r, g: g, b: bl, lum: lum0, maxCh: maxc, minCh: minc, x: x, y: y, w: w, h: h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
+      var midx; if (mw === w && mh === h) midx = y * w + x; else { var mx = Math.min(mw - 1, Math.max(0, (x * mw / w) | 0)), my = Math.min(mh - 1, Math.max(0, (y * mh / h) | 0)); midx = my * mw + mx; }
+      var eyeW = rm('eyeMask', midx, mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0));
+      if (eyeW <= 0.10) continue;
+      var skinW = rm('skinMask', midx, mask ? mask.skin : (isSkin ? 1 : 0));
+      var warmBrown = (r - g > 18 && r - bl > 28);
+      var scleraW = Math.min(1, Math.max(0, (lum0 - 135) / 45)) * Math.min(1, Math.max(0, (42 - sat) / 22)) * Math.min(1, Math.max(0, (48 - sat) / 28)) * (skinW > 0.70 ? 0.2 : (skinW > 0.35 ? 0.45 : 1)) * (warmBrown ? 0 : 1);
+      if (scleraW > 0.08 && r > g + 3 && r > bl + 1) { var k = eyeRedK * eyeW * scleraW; eligible++; sumK += k; if (k > maxK) maxK = k; }
+    }
+    out.eligiblePixels = eligible;
+    out.maxK = +maxK.toFixed(4);
+    out.avgK = eligible ? +(sumK / eligible).toFixed(4) : 0;
+    out.maxExpectedDR = +(-52 * maxK).toFixed(2);
+    out.avgExpectedDR = +(-52 * (eligible ? sumK / eligible : 0)).toFixed(3);
+    // 4) 원인
+    if (out.loadedBeautyEngineHasPEER4 !== true) out.reasonIfZero = 'engine stale — 배포본에 PE-ER4 코드 미포함';
+    else if (out.maxActualDelta === 0 && eligible > 0) out.reasonIfZero = 'condition drift — 게이트는 eligible 예측하나 실제 apply 변화 0(엔진 조건/eyeRedK 경로 점검)';
+    else if (out.maxActualDelta === 0) out.reasonIfZero = 'no eligible & no change';
+    else if (out.changedPixelsDeltaGt2 === 0) out.reasonIfZero = 'k too small / measurement threshold — 실제 변화는 있으나 |Δ|≤2 라 previewSteps(|Δ|>3)·dR평균에서 0으로 보임 (maxDelta=' + out.maxActualDelta + ')';
+    else out.reasonIfZero = 'apply 는 픽셀을 바꿈(|Δ|>2 ' + out.changedPixelsDeltaGt2 + '개) — previewSteps ROI 평균/threshold가 가린 것';
+    console.log('=== eyeRedness APPLY TRACE (PE-ER5) ===');
+    console.log(JSON.stringify(out, null, 2));
+    return out;
+  }
+
   window.PhotoEffectManualDebug = {
     captureCurrent: captureCurrent, preview: preview, previewSteps: previewSteps, previewAll: previewAll,
     previewSuspects: previewSuspects, reset: reset, exportReport: exportReport,
-    inspectItbiRoutes: inspectItbiRoutes, previewItbi: previewItbi, inspectEyeRednessGate: inspectEyeRednessGate,
+    inspectItbiRoutes: inspectItbiRoutes, previewItbi: previewItbi,
+    inspectEyeRednessGate: inspectEyeRednessGate, traceEyeRednessApply: traceEyeRednessApply,
     LABELS: LABELS, PARAMS: PARAMS, SUSPECTS: SUSPECTS,
   };
   console.log('[PhotoEffectManualDebug] 로드됨. PhotoEffectManualDebug.captureCurrent() 부터 시작하세요.');
