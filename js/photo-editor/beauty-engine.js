@@ -551,7 +551,13 @@
         d[i + 2] = _clamp(d[i + 2] + (p.bl - p.lum0) * 0.9 * c.eyeK * p.eyeW);
       }
     }
-    if (c.armK > 0 && p.skinW > 0.10 && p.lum0 < 140) _add(d, i, 16 * c.armK * p.skinW, 14 * c.armK * p.skinW, 10 * c.armK * p.skinW);
+    // [PE-3] hairyArm(팔/다리 톤 보정) — hard cutoff lum<140 이 밝은 팔/손 피부를 전부 제외해 no-op 이던 문제.
+    //   falloff 가중으로 변경: 전 피부(lum<215)에 적용하되 어두운 부위 강·밝은 부위 약(최소 0.35) → 과미백 방지.
+    //   방향(밝게/약warm)·계수(16/14/10)·skinW 게이트 유지. 털/선 강조 아님(per-pixel 톤).
+    if (c.armK > 0 && p.skinW > 0.10 && p.lum0 < 215) {
+      const armW = c.armK * p.skinW * Math.min(1, Math.max(0.35, (205 - p.lum0) / 130));
+      _add(d, i, 16 * armW, 14 * armW, 10 * armW);
+    }
   }
 
   // v317 — 영역 한정 unsharp (lashSharp 용). mask>임계 픽셀만 샤픈, 나머지는 원본 유지.
