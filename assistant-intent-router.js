@@ -785,20 +785,22 @@
     return byCat[tone] || byCat.retouch_offer || '자연스러운 안부 + 부담 없는 재방문 유도';
   }
 
-  // [T-113] 고객의 최근 시술명 (로컬 갤러리 — TreatmentLink 가 저장한 label). 없으면 ''.
+  // [T-113] 고객 갤러리 신호 — 최근 시술명 + 사진 수. (TreatmentLink 가 저장한 label 기준)
+  //   recent: 의미있는 시술 라벨(없으면 ''), count: 이 고객의 사진 기록 수.
   async function _recentService(customerId) {
     try {
-      if (typeof window.loadGalleryItemsByCustomer !== 'function') return '';
-      const items = await window.loadGalleryItemsByCustomer(customerId);
-      const hit = (items || []).find((it) => it && it.label && it.label !== '시술 사진');
-      return hit ? String(hit.label).slice(0, 30) : '';
-    } catch (_e) { return ''; }
+      if (typeof window.loadGalleryItemsByCustomer !== 'function') return { recent: '', count: 0 };
+      const items = (await window.loadGalleryItemsByCustomer(customerId)) || [];
+      const hit = items.find((it) => it && it.label && it.label !== '시술 사진');
+      return { recent: hit ? String(hit.label).slice(0, 30) : '', count: items.length };
+    } catch (_e) { return { recent: '', count: 0 }; }
   }
 
   // [T-113] body_md 힌트 + 카드용 컨텍스트 요약 생성. (≤200자, 안전 문구 원칙 포함)
   async function _buildDraftHint(customer, tone, purpose) {
     const shop = _draftShopInfo();
-    const recent = await _recentService(customer.id);
+    const gal = await _recentService(customer.id);
+    const recent = gal.recent;
     const guide = _draftGuide(shop.cat, tone);
     const svc = recent || shop.defaultService || '';
     const parts = [];
@@ -809,7 +811,9 @@
     const hint = parts.join('. ').slice(0, 200);
     const summary = [recent ? '최근 시술: ' + recent : null, shop.label ? '업종: ' + shop.label : null]
       .filter(Boolean).join(' / ');
-    return { hint, summary, hasRecent: !!recent };
+    // [EG-1] 재료 전무 — 최근시술·사진·메모 모두 없으면 얇은 초안 대신 정직 안내로 단락.
+    const noMaterial = !recent && gal.count === 0 && !customer.hasMemo;
+    return { hint, summary, hasRecent: !!recent, noMaterial };
   }
 
   // 결과: {kind:'execute', action} | {kind:'message', text} | null(초안 의도 아님)
@@ -841,16 +845,22 @@
         const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
         return { kind: 'message', text: `🔍 같은/비슷한 이름 ${tied.length}명 있어요. 전화번호로 구분해 주세요:\n${lines.join('\n')}` };
       }
-      customer = { id: tied[0].c.id, name: tied[0].c.name };
+      const rec = tied[0].c;
+      customer = { id: rec.id, name: rec.name, hasMemo: !!(rec.memo || rec.notes || rec.note || rec.memo_md) };
     } else {
       const cur = ctx && ctx.currentCustomer;
-      if (cur && cur.id != null) customer = { id: cur.id, name: cur.name || '고객' };
+      if (cur && cur.id != null) customer = { id: cur.id, name: cur.name || '고객', hasMemo: !!(cur.memo || cur.notes || cur.note) };
       else return { kind: 'message', text: '어느 고객에게 보낼 문구를 만들까요? 고객 이름을 알려주시거나 고객 상세를 먼저 열어주세요.' };
     }
 
     // [T-113] 업종+최근시술 기반 힌트로 body_md 보강(백엔드 무수정 — body_hint 로 LLM 에 주입).
-    let hintInfo = { hint: purpose, summary: '', hasRecent: false };
+    let hintInfo = { hint: purpose, summary: '', hasRecent: false, noMaterial: false };
     try { hintInfo = await _buildDraftHint(customer, tone, purpose); } catch (_e) { void 0; }
+
+    // [EG-1] 이력·사진·메모 모두 부족 → 얇은 초안 대신 정직 안내(발송 0, 백엔드 호출 0).
+    if (hintInfo.noMaterial) {
+      return { kind: 'message', text: `${customer.name}님은 아직 리터치 초안을 만들 기록이 부족해요. 최근 시술 기록이나 사진을 먼저 남기면 더 자연스럽게 작성할 수 있어요. (실제 발송은 하지 않았어요)` };
+    }
 
     _bumpStats('draft_message');
     return {
