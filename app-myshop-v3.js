@@ -574,7 +574,8 @@
     _ensureMsPersonaStyles();
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}'); } catch (_e) { raw = null; }
-    const summary = raw && typeof raw.style_summary === 'string' && raw.style_summary.trim();
+    // [F3] showDetailedAnalysis 와 동일 기준 — style_summary/tone_summary/tone 중 하나라도 있으면 노출.
+    const summary = ((raw && (raw.style_summary || raw.tone_summary || raw.tone)) || '').toString().trim();
     if (!summary) return '';
     const collapsed = localStorage.getItem('ms_persona_collapsed') === '1';
     const body = collapsed

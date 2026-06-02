@@ -33,6 +33,23 @@ function _renderTokenExpiryBanner(expiresAtIso) {
   }
 }
 
+// [F1] /instagram/status 의 살아있는 persona → itdasy_latest_analysis 재수화.
+//   내샵관리/AI Hub/인스타 화면의 "분석 리포트"는 이 localStorage 캐시만 읽는데, 캐시는 연결 직후
+//   90초 폴링(L#332)·수동 재분석(L#458)에서만 채워짐. 그 창을 놓치면(이탈/콜드스타트/기기변경/캐시삭제)
+//   백엔드엔 persona 가 있어도 리포트가 영원히 빔. → 캐시가 비었거나 무효일 때만 status persona 로 채움.
+//   기존 풍부본(raw_analysis·top5 포함)은 절대 덮어쓰지 않음. 저장 포맷은 L#332 폴링 저장본과 동일.
+function _hydrateAnalysisCacheFromStatus(persona) {
+  try {
+    if (!persona || !(persona.style_summary || persona.tone)) return false;
+    let cur = {};
+    try { cur = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {}; } catch (_e) { cur = {}; }
+    if (cur && (cur.style_summary || cur.tone_summary || cur.tone)) return false;  // 기존 유효 캐시 보존
+    const flat = { ...persona, tone_summary: persona.tone || '', style_summary: persona.style_summary || '' };
+    localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat));
+    return true;
+  } catch (_e) { return false; }
+}
+
 // ===== 인스타그램 연동 =====
 async function checkInstaStatus(fromLogin = false) {
   if (!getToken()) return;
@@ -55,6 +72,10 @@ async function checkInstaStatus(fromLogin = false) {
     };
 
     if (data.connected) {
+      // [F1/F2] 아래 DOM 렌더(updateHeaderProfile·배너 등)보다 먼저 — 그쪽이 실패해도 분석 캐시
+      //   재수화·상태 저장은 보장. 내샵관리/리포트는 itdasy_latest_analysis 만 읽으므로 이게 핵심.
+      _hydrateAnalysisCacheFromStatus(data.persona || {});
+      try { localStorage.setItem('itdasy_persona_status', data.style_analysis_status || ''); } catch (_e) { void _e; }
       // 2026-05-01 ── 다음 방문 시 깜빡임 없게 캐시. checkInstaStatus 응답 오기 전에
       // 인라인 스크립트가 이 캐시 보고 즉시 homePostConnect 표시.
       try {
@@ -195,7 +216,17 @@ function showDetailedAnalysis() {
   //   리포트 버튼 누르면 무반응) 사용자 혼란. style_summary 도 폴백으로 인정.
   const hasAny = !!(raw && (raw.tone_summary || raw.style_summary || raw.tone));
   if (!hasAny) {
-    if (window.showToast) window.showToast('학습된 말투 데이터가 없어요. 인스타 연동 후 분석을 진행해주세요');
+    // [F2] 빈 화면/무반응 대신 분석 상태별 안내. pending=진행 중, failed=재시도, 그 외=연동 안내.
+    let st = '';
+    try { st = localStorage.getItem('itdasy_persona_status') || ''; } catch (_e) { st = ''; }
+    if (st === 'pending') {
+      if (window.showToast) window.showToast('말투 분석 중이에요. 잠시 뒤 다시 확인해 주세요.');
+    } else if (st === 'failed') {
+      // [F2] safe 안내만 — 리포트 열기로 자동 재분석 금지. 재분석은 사용자가 직접 동선을 눌러야 함.
+      if (window.showToast) window.showToast('말투 분석에 실패했어요. 설정 → 말투 분석에서 다시 시도해 주세요.');
+    } else {
+      if (window.showToast) window.showToast('학습된 말투 데이터가 없어요. 인스타 연동 후 분석을 진행해주세요');
+    }
     return;
   }
   // tone_summary 가 없으면 style_summary / tone 으로 채워서 렌더 (renderDetailedPopup 안정성)
