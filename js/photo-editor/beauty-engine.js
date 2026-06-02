@@ -331,7 +331,7 @@
       const brightW = Math.min(1, Math.max(0, (p.lum0 - 135) / 45));
       const neutralW = Math.min(1, Math.max(0, (42 - chSpan) / 22));
       const satW = Math.min(1, Math.max(0, (48 - p.satCh) / 28));
-      const skinPenalty = p.skinW > 0.70 ? 0 : (p.skinW > 0.35 ? 0.45 : 1);   // hard block 아닌 penalty
+      const skinPenalty = p.skinW > 0.70 ? 0.2 : (p.skinW > 0.35 ? 0.45 : 1);   // [PE-ER4] 흰자 skin 오분류(>0.70) no-op 방지 — 0→0.2 (warm/neutral 가중이 갈색 청록 재발은 계속 차단)
       const scleraW = brightW * neutralW * satW * skinPenalty * (warmBrown ? 0 : 1);
       if (scleraW > 0.08 && p.r > p.g + 3 && p.r > p.bl + 1) {
         const k = c.eyeRedK * p.eyeW * scleraW;
