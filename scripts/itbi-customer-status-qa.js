@@ -53,10 +53,10 @@ async function main() {
     };
     // 2. 명시 고객(소연=유일) → 카드
     const okRes = await C.run('박소연님 뭐 챙겨야 돼?', {});
-    r.single = { hasCard: /상태를 정리했어요/.test(okRes.message), noSendNote: /실제 발송이나 예약은 하지 않았어요/.test(okRes.message), actions: (okRes.hubActions || []).length, phases: (okRes.hubActions || []).map(a => a.phase) };
+    r.single = { hasCard: /고객 상태예요/.test(okRes.message), noSendNote: /실제 발송이나 예약은 하지 않았어요/.test(okRes.message), actions: (okRes.hubActions || []).length, phases: (okRes.hubActions || []).map(a => a.phase) };
     // 3. 동명이인(민지 → 김민지/이민지) → 후보
     const ambRes = await C.run('민지님 뭐 챙겨야 돼?', {});
-    r.ambiguous = { isCandidate: /누구 상태를 볼까요|여러 고객/.test(ambRes.message), autoPicked: /상태를 정리했어요/.test(ambRes.message) };
+    r.ambiguous = { isCandidate: /누구 상태를 볼까요|여러 고객/.test(ambRes.message), autoPicked: /고객 상태예요/.test(ambRes.message) };
     // 4. 고객 없음
     const noneRes = await C.run('이 손님 리터치 해야 돼?', {});
     r.none = { guide: /고객을 먼저 선택/.test(noneRes.message) };
@@ -66,8 +66,10 @@ async function main() {
     // 6. 버튼 phase/내용 (현재고객 컨텍스트로 카드)
     const ctxRes = await C.run('이 손님 뭐 챙겨야 돼?', { currentCustomer: { id: 10, name: '김민지' } });
     r.ctxCard = {
-      hasCard: /김민지님 상태/.test(ctxRes.message),
-      retouchCheckpoint: /리터치 안내를 보내기 좋은/.test(ctxRes.message),
+      hasCard: /김민지님 고객 상태/.test(ctxRes.message),
+      hasStyle: /선호 스타일 추정/.test(ctxRes.message),     // [⑤]
+      hasTiming: /리터치 타이밍/.test(ctxRes.message),        // [⑤]
+      hasRecActions: /추천 행동/.test(ctxRes.message),        // [⑤]
       allSafe: (ctxRes.hubActions || []).every(a => a.phase === 'safe'),
       kinds: (ctxRes.hubActions || []).map(a => a.kind),
       count: (ctxRes.hubActions || []).length,
@@ -85,8 +87,8 @@ async function main() {
     cache = null; window.Customer.list = async function () { throw new Error('net'); };
     const failRes = await C.run('김민지님 뭐 챙겨야 돼?', {});          // list 실패 → 기존 안내 fallback
     r.cachePreload = {
-      newSession_card: /상태를 정리했어요/.test(fresh.message), newSession_listCalls: listCalls > 0 ? 1 : 0,
-      cached_extraListCalls: listCalls - beforeCached, cached_card: /상태를 정리했어요/.test(cached.message),
+      newSession_card: /고객 상태예요/.test(fresh.message), newSession_listCalls: listCalls > 0 ? 1 : 0,
+      cached_extraListCalls: listCalls - beforeCached, cached_card: /고객 상태예요/.test(cached.message),
       listFail_guide: /고객을 먼저 선택/.test(failRes.message),
     };
     return r;
