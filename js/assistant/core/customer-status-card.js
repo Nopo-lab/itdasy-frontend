@@ -69,15 +69,31 @@
   }
 
   async function _galleryFor(cust) {
-    var out = { count: 0, recentLabel: '', recentAt: 0 };
+    var out = { count: 0, recentLabel: '', recentAt: 0, texts: [] };
     if (typeof window.loadGalleryItemsByCustomer !== 'function') return out;
     var items = [];
     try { items = (await window.loadGalleryItemsByCustomer(cust.id)) || []; } catch (_e) { items = []; }
     out.count = items.length;
     var labelled = items.filter(function (it) { return it && it.label && it.label !== '시술 사진'; });
     if (labelled.length) out.recentLabel = String(labelled[0].label).slice(0, 30);
-    items.forEach(function (it) { if (it && it.savedAt > out.recentAt) out.recentAt = it.savedAt; });
+    items.forEach(function (it) {
+      if (it && it.savedAt > out.recentAt) out.recentAt = it.savedAt;
+      // [⑤] 선호 스타일 추정용 텍스트(라벨/제목/메모) 수집.
+      [it && it.label, it && it.title, it && it.memo].forEach(function (t) { if (t && t !== '시술 사진') out.texts.push(String(t)); });
+    });
     return out;
+  }
+
+  // [⑤] 업종 추론 — 고객 시술/사진 텍스트 + shop_type. (market-data inferTags 와 유사하나 고객 텍스트 기반)
+  function _industryOf(texts, shopType) {
+    var s = (texts || []).join(' ') + ' ' + (shopType || '');
+    if (/네일|손톱|젤|아트|글리터|프렌치|누드|파츠/.test(s)) return 'nail';
+    if (/헤어|머리|염색|펌|컷|탈색|클리닉|레이어/.test(s)) return 'hair';
+    if (/속눈썹|래쉬|연장/.test(s)) return 'lash';
+    if (/눈썹|브로우/.test(s)) return 'brow';
+    if (/피부|스킨|페이셜|결|모공|관리/.test(s)) return 'skin';
+    if (/메이크업|화장|발색/.test(s)) return 'makeup';
+    return '';
   }
 
   async function _retouchDue(cust) {
@@ -98,8 +114,13 @@
     var lastDays = bk.last ? _daysAgo(bk.last.starts_at) : null;
     var galDays = gal.recentAt ? _daysAgo(gal.recentAt) : null;
     var lastVisitDays = (lastDays != null && galDays != null) ? Math.min(lastDays, galDays) : (lastDays != null ? lastDays : galDays);
-    return {
-      id: customer.id, name: customer.name || '고객',
+    // [⑤] 선호 스타일/타이밍/추천행동 인사이트 — 기존 데이터(사진 텍스트·시술명)만 사용.
+    var styleTexts = (gal.texts || []).concat([(bk.last && bk.last.service_name) || '']).filter(Boolean);
+    var shopType = '';
+    try { shopType = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && (function () { var c = window.ItdasyAssistantContext.collect(); return c && c.shopType && (c.shopType.cat || c.shopType.label); })()) || ''; } catch (_e) { void 0; }
+    var industry = _industryOf(styleTexts, shopType);
+    var s = {
+      id: customer.id, name: customer.name || '고객', industry: industry,
       recentService: gal.recentLabel || (bk.last && bk.last.service_name) || '',
       lastVisitDays: lastVisitDays,
       nextBooking: bk.next ? _ymd(bk.next.starts_at) : '',
@@ -108,6 +129,13 @@
       isAtRisk: lastVisitDays != null && lastVisitDays >= 30,
       noNext: !bk.next,
     };
+    var CI = window.ItdasyCustomerInsight;
+    if (CI) {
+      s.style = CI.inferStyle(styleTexts, industry);
+      s.timing = CI.retouchTiming(lastVisitDays, industry);
+      s.recActions = CI.recommendActions({ timing: s.timing, isRetouchDue: s.isRetouchDue, photoCount: s.photoCount, noNext: s.noNext, lastVisitDays: lastVisitDays });
+    }
+    return s;
   }
 
   function _checkpoint(s) {
@@ -120,15 +148,22 @@
   function buildCustomerStatusMessage(s) {
     var lastTxt = (s.lastVisitDays != null) ? (s.lastVisitDays + '일 전') : '확인된 방문 기록 없음';
     var photoTxt = s.photoCount > 0 ? ('사진 기록 ' + s.photoCount + '장' + (s.recentPhoto ? ' (최근 ' + s.recentPhoto + ')' : '')) : '확인된 사진 기록 없음';
-    var recs = _recLabels(s).map(function (r, i) { return (i + 1) + '. ' + r; });
-    return s.name + '님 상태를 정리했어요.\n\n'
+    var msg = s.name + '님 고객 상태예요.\n\n'
       + '최근 시술: ' + (s.recentService || '확인된 기록 없음') + '\n'
       + '마지막 방문: ' + lastTxt + '\n'
       + '다음 예약: ' + (s.nextBooking || '아직 없음') + '\n'
-      + '사진 기록: ' + photoTxt + '\n'
-      + '체크 포인트: ' + _checkpoint(s)
-      + '\n\n추천:\n' + recs.join('\n')
-      + '\n\n실제 발송이나 예약은 하지 않았어요.';
+      + '사진 기록: ' + photoTxt;
+    // [⑤] 선호 스타일 추정
+    if (s.style && s.style.summary) msg += '\n\n선호 스타일 추정:\n· ' + s.style.summary;
+    // [⑤] 리터치 타이밍
+    if (s.timing && s.timing.text) msg += '\n\n리터치 타이밍:\n· ' + s.timing.text;
+    // [⑤] 추천 행동(랭킹) — recActions 있으면 사용, 없으면 기존 라벨 폴백
+    var recList = (s.recActions && s.recActions.length)
+      ? s.recActions.map(function (a, i) { return (i + 1) + '. ' + a.label; })
+      : _recLabels(s).map(function (r, i) { return (i + 1) + '. ' + r; });
+    msg += '\n\n추천 행동:\n' + recList.join('\n');
+    msg += '\n\n실제 발송이나 예약은 하지 않았어요.';
+    return msg;
   }
 
   function _recLabels(s) {
@@ -141,17 +176,36 @@
   }
 
   // Action Hub 버튼(최대 5, 전부 safe). 초안은 chat_suggest 로 기존 draft 경로 위임(발송 아님). 예약 자동생성 없음.
+  // [⑤] 추천 행동 랭킹(recActions)을 버튼으로. 모두 safe/confirm, danger 0. 최대 4개.
   function buildCustomerStatusActions(s) {
     var nm = s.name;
     // [J-5] 초안 프롬프트는 공통 마케팅 정책으로 통일(없으면 로컬 폴백).
     var P = window.ItdasyMarketingDraftPolicy;
     var sug = function (type) { return (P && P.chatSuggest) ? P.chatSuggest(type, { name: nm }) : (nm + '님 안내 문구 만들어줘'); };
-    var acts = [{ id: 'retouch_draft', kind: 'chat_suggest', label: '리터치 초안 만들기', phase: 'safe', payload: { text: sug('retouch_offer') } }];
-    if (s.noNext || s.isAtRisk) acts.push({ id: 'revisit_draft', kind: 'chat_suggest', label: '재방문 안내 초안', phase: 'safe', payload: { text: sug('rebook_nudge') } });
-    if (s.photoCount > 0) acts.push({ id: 'open_photos', kind: 'open_workshop', label: '사진 기록 확인', phase: 'safe', payload: {} });
-    if (s.noNext) acts.push({ id: 'empty_slots', kind: 'open_calendar', label: '빈시간 보기', phase: 'safe', payload: {} });
+    // recActions 키 → 버튼 매핑(중복 제거, 순서 유지). 없으면 기존 규칙.
+    var byKey = {
+      retouch: { id: 'retouch_draft', kind: 'chat_suggest', label: '리터치 초안 만들기', phase: 'safe', payload: { text: sug('retouch_offer') } },
+      promo: { id: 'promo_photo', kind: 'chat_suggest', label: '홍보 사진 만들기', phase: 'safe', payload: { text: '이 사진 홍보용으로 예쁘게 해줘' } },
+      revisit: { id: 'revisit_draft', kind: 'chat_suggest', label: '재방문 안내 초안', phase: 'safe', payload: { text: sug('rebook_nudge') } },
+      review: { id: 'review_draft', kind: 'chat_suggest', label: '후기 요청 초안', phase: 'safe', payload: { text: sug('review_request') } },
+      tidy: { id: 'open_photos', kind: 'open_workshop', label: '사진 기록 정리', phase: 'safe', payload: {} },
+    };
+    var acts = [];
+    if (s.recActions && s.recActions.length) {
+      s.recActions.forEach(function (a) { if (byKey[a.key]) acts.push(byKey[a.key]); });
+      if (s.noNext && !acts.some(function (x) { return x.id === 'empty_slots'; })) acts.push({ id: 'empty_slots', kind: 'open_calendar', label: '빈시간 보기', phase: 'safe', payload: {} });
+    } else {
+      // 폴백(인사이트 모듈 없음) — 기존 규칙
+      acts.push(byKey.retouch);
+      if (s.noNext || s.isAtRisk) acts.push(byKey.revisit);
+      if (s.photoCount > 0) acts.push({ id: 'open_photos', kind: 'open_workshop', label: '사진 기록 확인', phase: 'safe', payload: {} });
+      if (s.noNext) acts.push({ id: 'empty_slots', kind: 'open_calendar', label: '빈시간 보기', phase: 'safe', payload: {} });
+    }
     acts.push({ id: 'open_cust', kind: 'open_customer', label: '고객 기록 열기', phase: 'safe', payload: {} });
-    var list = acts.slice(0, 5);
+    // 중복 id 제거 + 최대 4(+고객 기록 열기는 마지막 유지). 총 5 상한.
+    var seen = {}, list = [];
+    acts.forEach(function (a) { if (!seen[a.id]) { seen[a.id] = 1; list.push(a); } });
+    list = list.slice(0, 5);
     return (window.ItdasyActionHub && window.ItdasyActionHub.normalizeActions) ? window.ItdasyActionHub.normalizeActions(list, 'hub') : list;
   }
 
