@@ -345,15 +345,31 @@
   }
 
   function _applySkinTone(d, i, p, c) {
-    if (c.redK > 0 && p.redW > 0.14) {
-      d[i] = _clamp(d[i] - 48 * c.redK * p.redW);
-      d[i + 1] = _clamp(d[i + 1] + 8 * c.redK * p.redW);
-      d[i + 2] = _clamp(d[i + 2] + 10 * c.redK * p.redW);
+    // [PE-TONE] redness — 피부 전체 일괄(redW 0/1·계수 48)로 회색/초록 시체톤 되던 문제.
+    //   실제 붉은 정도(redExcess) 비례 + 계수 48→26 + 입술/눈/머리 제외 → 진짜 붉은 픽셀만 보정.
+    if (c.redK > 0 && p.skinW > 0.10 && p.eyeW < 0.12 && p.hairW < 0.5) {
+      const redExcess = Math.min(1, Math.max(0, ((p.r - Math.max(p.g, p.bl)) - 18) / 40));   // 0~1 graded
+      const lipGuard = (p.hasLipMask && p.lipW > 0.20) || (p.satCh > 70 && p.r > p.g + 40);   // 입술/진한 적색 메이크업 보존
+      const rw = redExcess * (p.redW > 0.14 ? 1 : 0.25);                                      // redW 없으면 fallback 약하게(0.25)
+      const k = lipGuard ? 0 : c.redK * rw;
+      if (k > 0) {
+        d[i] = _clamp(d[i] - 26 * k);
+        d[i + 1] = _clamp(d[i + 1] + 5 * k);
+        d[i + 2] = _clamp(d[i + 2] + 6 * k);
+      }
     }
-    if (c.yelK > 0 && (p.r - p.bl) > 12 && (p.r - p.bl) < 95 && p.r >= p.g && (p.g - p.bl) > 5 && p.r > 72 && p.skinW > 0.10) {
-      d[i] = _clamp(d[i] - 8 * c.yelK * p.skinW);
-      d[i + 1] = _clamp(d[i + 1] - 26 * c.yelK * p.skinW);
-      d[i + 2] = _clamp(d[i + 2] + 20 * c.yelK * p.skinW);
+    // [PE-TONE] yellowness — skinW 균일(계수 -26G/+20B)로 보라/분홍 마스크 되던 문제.
+    //   실제 노란 정도(yelExcess) 비례 + 계수 하향 + hue 안전장치(B는 R 넘지 않음) → 노란 피부만 보정.
+    if (c.yelK > 0 && p.skinW > 0.10 && p.eyeW < 0.12 && p.hairW < 0.5 && p.r > 72) {
+      const lipGuardY = (p.hasLipMask && p.lipW > 0.20) || (p.satCh > 70 && p.r > p.g + 40);
+      const yelExcess = Math.min(1, Math.max(0, ((p.g - p.bl) - 8) / 28));                    // 0~1 graded
+      const ky = lipGuardY ? 0 : c.yelK * p.skinW * yelExcess;
+      if (ky > 0) {
+        const nb = _clamp(d[i + 2] + 10 * ky);                                                // B 증가 20→10
+        d[i] = _clamp(d[i] - 4 * ky);
+        d[i + 1] = _clamp(d[i + 1] - 13 * ky);                                                // G 감소 26→13
+        d[i + 2] = Math.min(nb, d[i] - 4);                                                    // hue 안전: B ≤ R-4 (보라/분홍 차단)
+      }
     }
     if (p.skinW <= 0.10) return;
     if (c.skinK > 0) _add(d, i, 10 * c.skinK * p.skinW, 5 * c.skinK * p.skinW, 2.5 * c.skinK * p.skinW);

@@ -40,7 +40,7 @@
       ctx.fillStyle = '#ebc8b0'; ctx.fillRect(56, 40, 144, 180);          // 피부(lum≈210)
       rois.skin = { x: 56, y: 40, w: 144, h: 180 };
       _noise(ctx, 56, 40, 144, 180, 10);
-      ctx.fillStyle = '#d98a7a'; ctx.fillRect(66, 128, 28, 24);           // 붉은 볼
+      ctx.fillStyle = '#d0968e'; ctx.fillRect(66, 128, 28, 24);           // 붉은 볼(현실적 채도 — 입술 아님)
       rois.redCheek = { x: 66, y: 128, w: 28, h: 24 };
       // [v2] 잡티 — 주변 피부톤보다 ~25 어두운 옅은 점(엔진 BLEMISH_DARK 9~45 범위). 큰점/검정 제외 규칙 회피.
       ctx.fillStyle = '#c3a48f'; ctx.fillRect(150, 116, 6, 6); ctx.fillRect(120, 150, 6, 6); ctx.fillRect(96, 124, 5, 5);
