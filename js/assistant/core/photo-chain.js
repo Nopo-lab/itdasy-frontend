@@ -38,13 +38,7 @@
       && window.ItdasyPhotoFlow.detectPhotoFlowIntent(text));
   }
 
-  function _canvasUrl() {
-    try {
-      var cv = document.getElementById('peCanvas');
-      if (cv && cv.width && cv.height) return cv.toDataURL('image/jpeg', 0.92);
-    } catch (_e) { void 0; }
-    return '';
-  }
+  // [CF-4] 내보내기/게시 준비 이미지는 photo-chain 이 고정 캡처하지 않고, 클릭 시점에 action-hub 가 라이브 재캡처.
 
   function buildPromoCaptionDraft(recipeId) {
     // [J-5] 공통 마케팅 정책으로 캡션 톤·금지어 통일. 모듈 없으면 로컬 폴백.
@@ -68,17 +62,18 @@
     return [];
   }
 
-  // Action Hub 버튼 4개: 캡션복사(safe)·템플릿보기(safe)·고객기록저장(confirm)·내보내기(safe). 게시 버튼 없음.
-  //   [TPL-3] '템플릿 보기' payload 에 추천 id 전달 → 갤러리 진입 시 추천 3개 상단 고정.
+  // Action Hub 버튼: 템플릿보기·인스타 미리보기·캡션복사·내보내기(safe) + 고객기록저장(confirm, 보조).
+  //   [TPL-3] '템플릿 보기'에 추천 id 전달. [CF-3] 인스타 미리보기(게시 준비, 실게시 아님) 추가.
+  //   [CF-4] export/instagram dataUrl 은 payload 고정 안 함 — 클릭 시점에 action-hub 가 라이브 캔버스 재캡처.
   function buildPromoActions(ctx, recipeId, caption, recoIds) {
     var cust = ctx && ctx.currentCustomer;
-    var dataUrl = _canvasUrl();
     var acts = [
+      { id: 'pe_template', kind: 'open_template_panel', label: '템플릿 보기', phase: 'safe', payload: { recommendedIds: recoIds || [] } },
+      { id: 'ig_preview', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', payload: { caption: caption } },
       { id: 'copy_caption', kind: 'copy_caption', label: '캡션 복사', phase: 'safe', payload: { caption: caption } },
-      { id: 'pe_template', kind: 'open_template_panel', label: '템플릿 보기', phase: 'safe', payload: { dataUrl: dataUrl, recommendedIds: recoIds || [] } },
+      { id: 'export', kind: 'export_image', label: '내보내기', phase: 'safe', payload: {} },
       { id: 'save_customer', kind: 'save_photo_to_customer', label: '고객기록에 저장', phase: 'confirm',
         payload: { customerName: (cust && cust.name) || '' } },
-      { id: 'export', kind: 'export_image', label: '내보내기', phase: 'safe', payload: { dataUrl: dataUrl } },
     ];
     return (window.ItdasyActionHub && window.ItdasyActionHub.normalizeActions)
       ? window.ItdasyActionHub.normalizeActions(acts, 'hub') : acts;

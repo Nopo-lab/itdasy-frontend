@@ -151,11 +151,19 @@
           else if (PE && PE.open) PE.open({ src: p.dataUrl, initial_tab: 'template' });
         });
         return { navigated: true, message: (p.recommendedIds && p.recommendedIds.length) ? '추천 템플릿을 열었어요.' : '템플릿 탭을 열었어요.' };
-      case 'open_instagram':
-        _nav(function () { window.openInstagramPreview && window.openInstagramPreview({ src: p.dataUrl, ratio: p.ratio || '4:5', caption: p.caption || '', enableUpload: true }); });
-        return { navigated: true };
-      case 'export_image':
-        return { message: _exportImage(p.dataUrl) ? '이미지를 저장했어요.' : '저장할 이미지가 없어요.' };
+      case 'open_instagram': {
+        // [CF-4] 클릭 시점 라이브 캔버스 재캡처(템플릿 적용본 반영). 없으면 payload fallback.
+        var igUrl = _liveCanvasUrl() || p.dataUrl;
+        if (!igUrl) return { message: '게시할 이미지가 없어요. 먼저 사진을 열어주세요.' };
+        _nav(function () { window.openInstagramPreview && window.openInstagramPreview({ src: igUrl, ratio: p.ratio || '4:5', caption: p.caption || '', enableUpload: true }); });
+        return { navigated: true, message: '인스타 미리보기를 열었어요. (게시는 확인 후 직접 진행돼요)' };
+      }
+      case 'export_image': {
+        // [CF-4] 내보내기도 클릭 시점 재캡처 — 템플릿 적용 후 최신본 저장.
+        var exUrl = _liveCanvasUrl() || p.dataUrl;
+        if (!exUrl) return { message: '저장할 이미지가 없어요. 먼저 사진을 열어주세요.' };
+        return { message: _exportImage(exUrl) ? '이미지를 저장했어요.' : '저장에 실패했어요.' };
+      }
       case 'open_calendar': case 'show_empty_slots':
         _nav(function () { window.openCalendarView && window.openCalendarView(); });
         return { navigated: true, message: '예약 화면을 열었어요.' };
@@ -171,6 +179,16 @@
       default:
         return { message: '' };
     }
+  }
+
+  // [CF-4] 현재 편집기 캔버스(#peCanvas)를 클릭 시점에 재캡처 — 템플릿 적용본 등 최신 화면 반영.
+  //   캔버스 없으면 ''(호출측이 payload fallback / "사진 열어주세요" 안내).
+  function _liveCanvasUrl() {
+    try {
+      var cv = document.getElementById('peCanvas');
+      if (cv && cv.width && cv.height) return cv.toDataURL('image/jpeg', 0.92);
+    } catch (_e) { void 0; }
+    return '';
   }
 
   function _exportImage(dataUrl) {
