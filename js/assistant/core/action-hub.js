@@ -139,12 +139,18 @@
         return { navigated: true };
       case 'open_template_panel':
         _nav(function () {
+          // [TPL-3] 추천 id 있으면 템플릿 갤러리를 추천 3개 상단 고정으로 연다.
+          var recos = (p.recommendedIds && p.recommendedIds.length) ? p.recommendedIds : null;
+          if (recos && window.PhotoEditorTemplatesV2 && typeof window.PhotoEditorTemplatesV2.open === 'function') {
+            window.PhotoEditorTemplatesV2.open({ recommendedIds: recos });
+            return;
+          }
           var PE = window.PhotoEditor; var pe = PE && PE._internal;
           // 편집기가 이미 열려 있으면 사진 유지한 채 탭만 전환, 아니면 src 로 새로 열기.
           if (pe && typeof pe.applyStatePatch === 'function' && pe.getState && pe.getState()) pe.applyStatePatch({ activeTab: 'template' });
           else if (PE && PE.open) PE.open({ src: p.dataUrl, initial_tab: 'template' });
         });
-        return { navigated: true, message: '템플릿 탭을 열었어요.' };
+        return { navigated: true, message: (p.recommendedIds && p.recommendedIds.length) ? '추천 템플릿을 열었어요.' : '템플릿 탭을 열었어요.' };
       case 'open_instagram':
         _nav(function () { window.openInstagramPreview && window.openInstagramPreview({ src: p.dataUrl, ratio: p.ratio || '4:5', caption: p.caption || '', enableUpload: true }); });
         return { navigated: true };

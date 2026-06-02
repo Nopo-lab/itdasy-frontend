@@ -11,6 +11,7 @@
   let _selectedCat = 'ba';   // v320-B — 전후사진 먼저 노출
   let _searchTerm = '';
   let _selectedTag = '';     // [TPL-2] 업종/용도 필터('' = 전체). 'ind:nail' | 'pur:before_after'
+  let _recoIds = [];         // [TPL-3] 잇비 추천 템플릿 id(상단 고정 섹션)
   const IND_LABEL = MARKET_DATA.INDUSTRY_LABEL || {};
   const PUR_LABEL = MARKET_DATA.PURPOSE_LABEL || {};
   // [TPL-2] 필터칩 목록(전체 + 업종 + 용도). 카드 cat 카테고리와 별개의 교차 필터.
@@ -168,34 +169,45 @@
         })
         .forEach((pair, idx) => { filtered[idx] = pair[0]; });
     }
-    if (!filtered.length) { grid.innerHTML = `<div class="tpv2-empty">해당 조건의 템플릿이 없어요. 다른 업종·용도 칩을 눌러보세요.</div>`; return; }
-    grid.innerHTML = filtered.map(t => {
-      const color = _accentColor(t.accent, bk);
-      const cat = CATS.find(c => c.id === t.cat);
-      const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
-      const isFree = t.tier !== 'pro';
-      const badge = `<span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>`;
-      // [TPL-1] 실 썸네일 — overlay/ba-compose 오프스크린 렌더. 실패 시 기존 gradient + 라벨 fallback.
-      const fb = `background:linear-gradient(135deg, ${color}33, ${color});`;
-      // [TPL-2] 업종/용도 태그칩(공통은 업종칩 생략 — 노이즈 방지).
-      const indL = IND_LABEL[t.industry], purL = PUR_LABEL[t.purpose];
-      const tags = [(t.industry && t.industry !== 'common') ? `<span class="tpv2-tag">#${_esc(indL)}</span>` : '', purL ? `<span class="tpv2-tag">#${_esc(purL)}</span>` : ''].join('');
-      // [TPL-4] Pro = 고급/잠금 시각 + 가치문구 1줄(왜 Pro인지). 썸네일은 가리지 않음. Free = 빠른 사용 힌트.
-      const lock = isFree ? '' : `<span class="tpv2-lock" aria-hidden="true">${_LOCK_SVG}</span>`;
-      const proLine = isFree ? '' : `<div class="tpv2-provalue">${_SPARK_SVG}${_esc((MARKET_DATA.proValueText && MARKET_DATA.proValueText(t)) || '브랜드형 고급 디자인')}</div>`;
-      const freeLine = isFree ? `<div class="tpv2-free-hint">바로 쓰는 기본형</div>` : '';
-      return `
-        <button type="button" class="tpv2-card ${isFree ? '' : 'is-pro'}" data-tpv2-tpl="${t.id}">
-          ${badge}${lock}
-          <div class="tpv2-thumb" data-tpv2-thumb="${t.id}" data-tpv2-ratio="${cat.ratio}" data-tpv2-accent="${color}" style="aspect-ratio:${ar};${fb}">${_esc(t.prefillText || t.label)}</div>
-          <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div><div class="tpv2-tags">${tags}</div>${proLine}${freeLine}</div>
-        </button>
-      `;
-    }).join('');
+    // [TPL-3] 추천 섹션 — 잇비 추천 id 있으면 상단 고정(태그/검색 없을 때만).
+    const recoTpls = (!tagActive && !_searchTerm && _recoIds.length)
+      ? _recoIds.map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean) : [];
+    let html = '';
+    if (recoTpls.length) {
+      html += `<div style="grid-column:1/-1;font-size:12px;font-weight:800;color:#e8d9b8;padding:2px 2px 0;">잇비 추천 ${recoTpls.length}</div>`;
+      html += recoTpls.map(t => _cardHtml(t, bk)).join('');
+      html += `<div style="grid-column:1/-1;height:1px;background:rgba(255,250,242,.1);margin:4px 0;"></div>`;
+      html += `<div style="grid-column:1/-1;font-size:12px;font-weight:700;color:#b3aa9a;padding:2px;">${_esc((CATS.find(c=>c.id===_selectedCat)||{}).label || '전체')} 템플릿</div>`;
+    }
+    if (!filtered.length && !recoTpls.length) { grid.innerHTML = `<div class="tpv2-empty">해당 조건의 템플릿이 없어요. 다른 업종·용도 칩을 눌러보세요.</div>`; return; }
+    html += filtered.map(t => _cardHtml(t, bk)).join('');
+    grid.innerHTML = html;
     grid.querySelectorAll('[data-tpv2-tpl]').forEach(b => {
       b.addEventListener('click', () => _openPreview(b.dataset.tpv2Tpl));
     });
     _renderThumbs(grid, bk);
+  }
+
+  // [TPL-1/2/4] 템플릿 카드 HTML(썸네일+배지+태그+Pro가치). _renderGrid·추천섹션 공용.
+  function _cardHtml(t, bk) {
+    const color = _accentColor(t.accent, bk);
+    const cat = CATS.find(c => c.id === t.cat) || { ratio: '4:5', label: '' };
+    const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
+    const isFree = t.tier !== 'pro';
+    const badge = `<span class="tpv2-badge ${isFree ? 'free' : 'pro'}">${isFree ? 'FREE' : 'PRO'}</span>`;
+    const fb = `background:linear-gradient(135deg, ${color}33, ${color});`;
+    const indL = IND_LABEL[t.industry], purL = PUR_LABEL[t.purpose];
+    const tags = [(t.industry && t.industry !== 'common') ? `<span class="tpv2-tag">#${_esc(indL)}</span>` : '', purL ? `<span class="tpv2-tag">#${_esc(purL)}</span>` : ''].join('');
+    const lock = isFree ? '' : `<span class="tpv2-lock" aria-hidden="true">${_LOCK_SVG}</span>`;
+    const proLine = isFree ? '' : `<div class="tpv2-provalue">${_SPARK_SVG}${_esc((MARKET_DATA.proValueText && MARKET_DATA.proValueText(t)) || '브랜드형 고급 디자인')}</div>`;
+    const freeLine = isFree ? `<div class="tpv2-free-hint">바로 쓰는 기본형</div>` : '';
+    return `
+      <button type="button" class="tpv2-card ${isFree ? '' : 'is-pro'}" data-tpv2-tpl="${t.id}">
+        ${badge}${lock}
+        <div class="tpv2-thumb" data-tpv2-thumb="${t.id}" data-tpv2-ratio="${cat.ratio}" data-tpv2-accent="${color}" style="aspect-ratio:${ar};${fb}">${_esc(t.prefillText || t.label)}</div>
+        <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div><div class="tpv2-tags">${tags}</div>${proLine}${freeLine}</div>
+      </button>
+    `;
   }
 
   // [TPL-1] 카드 썸네일 lazy 렌더 — 보이는 카드만 오프스크린 렌더→이미지 주입. 실패 시 gradient 유지.
@@ -327,10 +339,18 @@
     }
   }
 
-  function _open(initialCat) {
+  // [TPL-3] open(initialCat) 또는 open({cat, recommendedIds}). 추천 id 있으면 상단 추천 섹션 고정.
+  function _open(arg) {
     _ensureSheet();
+    let initialCat = null;
+    if (arg && typeof arg === 'object') {
+      initialCat = arg.cat || null;
+      _recoIds = Array.isArray(arg.recommendedIds) ? arg.recommendedIds.slice(0, 3) : [];
+    } else { initialCat = arg || null; _recoIds = []; }
     if (initialCat) _selectedCat = initialCat;
+    _selectedTag = '';   // 추천/일반 진입 시 태그필터 초기화(혼동 방지)
     _renderCats();
+    _renderTagFilter();
     _renderGrid();
     _sheetEl.style.display = 'flex';
   }

@@ -147,5 +147,64 @@
     return '브랜드형 고급 홍보 디자인';
   }
 
-  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText };
+  // [TPL-3] 명령 텍스트(+선택 shop_type)로 업종/목적 추론.
+  function inferTags(text, shopType) {
+    const t = String(text || '');
+    let ind = '';
+    if (/네일|손톱|아트|글리터|프렌치|젤네일/.test(t)) ind = 'nail';
+    else if (/헤어|머리|염색|클리닉|컷|펌(?!.*눈)/.test(t)) ind = 'hair';
+    else if (/속눈썹|래쉬|연장|눈썹\s*펌/.test(t)) ind = 'lash';
+    else if (/눈썹|브로우/.test(t)) ind = 'brow';
+    else if (/피부|스킨|페이셜|피부관리/.test(t)) ind = 'skin';
+    else if (/메이크업|화장/.test(t)) ind = 'makeup';
+    if (!ind && shopType) {   // 명시 없으면 shop_type 약하게 반영
+      const st = String(shopType).toLowerCase();
+      if (/nail|네일/.test(st)) ind = 'nail'; else if (/hair|헤어/.test(st)) ind = 'hair';
+      else if (/lash|속눈썹/.test(st)) ind = 'lash'; else if (/brow|눈썹/.test(st)) ind = 'brow';
+      else if (/skin|피부/.test(st)) ind = 'skin'; else if (/makeup|메이크업/.test(st)) ind = 'makeup';
+    }
+    let pur = '';
+    if (/전후|before|after|비교/.test(t)) pur = 'before_after';
+    else if (/스토리|9.?16/.test(t)) pur = 'story';
+    else if (/가격|메뉴|금액/.test(t)) pur = 'price';
+    else if (/이벤트|할인|프로모션/.test(t)) pur = 'event';
+    else if (/후기|리뷰/.test(t)) pur = 'review';
+    else if (/리터치|재방문/.test(t)) pur = 'retouch';
+    else if (/예약/.test(t)) pur = 'booking';
+    else if (/피드|인스타|게시물|4.?5|1.?1/.test(t)) pur = 'feed';
+    return { ind, pur };
+  }
+
+  // [TPL-3] 업종/목적 기반 템플릿 추천 — 상위 limit개. 점수: 목적일치 3 + 업종일치 2 + 홍보계열 보너스.
+  //   명시 업종/목적 우선, 없으면 common + promo/feed/story/before_after fallback.
+  function recommendTemplates(text, ctx, limit) {
+    limit = limit || 3;
+    const st = ctx && (ctx.shopType && ctx.shopType.cat || ctx.shopType);
+    const { ind, pur } = inferTags(text, st);
+    const PROMO_FALLBACK = { before_after: 4, feed: 3, story: 2, promo: 2, portfolio: 1 };
+    const scored = TEMPLATES.map((tpl) => {
+      let s = 0;
+      if (pur && tpl.purpose === pur) s += 3;
+      if (ind && tpl.industry === ind) s += 3;                              // 업종 일치 = 목적과 동등(살롱 특화)
+      if (ind && ind !== 'common' && tpl.industry === 'common') s += 0.3;   // 업종 명시 시 공통도 약간
+      if (!pur) s += (PROMO_FALLBACK[tpl.purpose] || 0) * 0.5;               // 목적 없으면 홍보계열 우대
+      // Free 약간 우선(바로 사용 가능) — 동점 시 Free 먼저
+      if (tpl.tier !== 'pro') s += 0.2;
+      return { tpl, s };
+    }).filter((x) => x.s > 0);
+    scored.sort((a, b) => b.s - a.s);
+    let picks = scored.slice(0, limit).map((x) => x.tpl);
+    // [TPL-3] 업종+목적 둘 다 명시인데 추천에 업종 일치가 0개면, 업종 일치 1개를 끼워넣음(살롱 특화 보장).
+    if (ind && ind !== 'common' && pur && !picks.some((t) => t.industry === ind)) {
+      const indPick = scored.find((x) => x.tpl.industry === ind);
+      if (indPick) { picks = picks.slice(0, limit - 1); picks.unshift(indPick.tpl); }
+    }
+    if (picks.length < limit) {   // fallback 채움(중복 제외)
+      const have = new Set(picks.map((t) => t.id));
+      TEMPLATES.forEach((tpl) => { if (picks.length < limit && !have.has(tpl.id) && (PROMO_FALLBACK[tpl.purpose] || tpl.purpose === 'before_after')) { picks.push(tpl); have.add(tpl.id); } });
+    }
+    return picks.slice(0, limit);
+  }
+
+  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText, inferTags, recommendTemplates };
 })();

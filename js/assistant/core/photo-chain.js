@@ -54,16 +54,28 @@
   }
 
   function buildPromoTemplateSuggestion(_recipeId) {
-    return '전후 비교·인스타 피드형·스토리 홍보형 템플릿도 적용할 수 있어요. 아래 [템플릿 보기]에서 골라보세요.';
+    return '바로 쓸 만한 템플릿 3개를 골라봤어요. 카드를 눌러 미리보고 적용하세요.';
+  }
+
+  // [TPL-3] 업종/목적 기반 추천 템플릿 3개 id. market-data.recommendTemplates 위임.
+  function buildPromoTemplateRecos(text, ctx) {
+    try {
+      var MD = window.PhotoEditorTemplateMarketData;
+      if (MD && typeof MD.recommendTemplates === 'function') {
+        return MD.recommendTemplates(text, ctx, 3).map(function (t) { return t.id; });
+      }
+    } catch (_e) { void 0; }
+    return [];
   }
 
   // Action Hub 버튼 4개: 캡션복사(safe)·템플릿보기(safe)·고객기록저장(confirm)·내보내기(safe). 게시 버튼 없음.
-  function buildPromoActions(ctx, recipeId, caption) {
+  //   [TPL-3] '템플릿 보기' payload 에 추천 id 전달 → 갤러리 진입 시 추천 3개 상단 고정.
+  function buildPromoActions(ctx, recipeId, caption, recoIds) {
     var cust = ctx && ctx.currentCustomer;
     var dataUrl = _canvasUrl();
     var acts = [
       { id: 'copy_caption', kind: 'copy_caption', label: '캡션 복사', phase: 'safe', payload: { caption: caption } },
-      { id: 'pe_template', kind: 'open_template_panel', label: '템플릿 보기', phase: 'safe', payload: { dataUrl: dataUrl } },
+      { id: 'pe_template', kind: 'open_template_panel', label: '템플릿 보기', phase: 'safe', payload: { dataUrl: dataUrl, recommendedIds: recoIds || [] } },
       { id: 'save_customer', kind: 'save_photo_to_customer', label: '고객기록에 저장', phase: 'confirm',
         payload: { customerName: (cust && cust.name) || '' } },
       { id: 'export', kind: 'export_image', label: '내보내기', phase: 'safe', payload: { dataUrl: dataUrl } },
@@ -87,15 +99,17 @@
     var recipeId = res.recipeId || 'natural';
     var caption = buildPromoCaptionDraft(recipeId);
     var effect = res.ok ? (EFFECT[recipeId] || DEFAULT_EFFECT) : '보정 적용 중 일부 문제가 있어 편집기에서 직접 조정할 수 있어요.';
+    var recoIds = buildPromoTemplateRecos(text, ctx);   // [TPL-3] 추천 템플릿 3개
     var msg = '홍보용으로 보정했어요.\n' + effect
       + '\n\n캡션 초안:\n"' + caption + '"'
       + '\n\n' + buildPromoTemplateSuggestion(recipeId)
       + '\n\n실제 게시나 발송은 하지 않았어요.';
-    return { ok: !!res.ok, recipeId: recipeId, caption: caption, message: msg, hubActions: buildPromoActions(ctx, recipeId, caption) };
+    return { ok: !!res.ok, recipeId: recipeId, caption: caption, message: msg,
+      templateRecos: recoIds, hubActions: buildPromoActions(ctx, recipeId, caption, recoIds) };
   }
 
   window.ItdasyPromoPhotoChain = {
-    detectPromoPhotoChain, runPromoPhotoChain,
+    detectPromoPhotoChain, runPromoPhotoChain, buildPromoTemplateRecos,
     buildPromoCaptionDraft, buildPromoTemplateSuggestion, buildPromoActions,
   };
 })();
