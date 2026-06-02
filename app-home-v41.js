@@ -202,6 +202,9 @@
       const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
       if (typeof open === 'function') open(opts || {});
     };
+    if (window.HomeV41ItbiPrompts && typeof window.HomeV41ItbiPrompts.bind === 'function') {
+      window.HomeV41ItbiPrompts.bind(container, { fileInput, openSheet });
+    }
     container.querySelectorAll('[data-itbi-act]').forEach(btn => {
       btn.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
@@ -235,13 +238,18 @@
       // 카드 자체 클릭 라우팅이 input 포커스 막지 않도록
       input.addEventListener('click', (ev) => ev.stopPropagation());
     }
-    if (fileInput) {
-      fileInput.addEventListener('change', () => {
-        const file = fileInput.files && fileInput.files[0];
-        if (file) openSheet({ attachPhoto: file });
-        fileInput.value = '';
-      });
-    }
+    _bindItbiFileInput(fileInput, openSheet);
+  }
+
+  function _bindItbiFileInput(fileInput, openSheet) {
+    if (!fileInput) return;
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      const sendImmediate = fileInput.dataset.itbiPrompt || '';
+      if (file) openSheet(sendImmediate ? { attachPhoto: file, sendImmediate } : { attachPhoto: file });
+      fileInput.dataset.itbiPrompt = '';
+      fileInput.value = '';
+    });
   }
 
   function _bindAiCarousel(container) {

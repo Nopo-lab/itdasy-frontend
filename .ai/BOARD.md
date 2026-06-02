@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-05-27 by Codex (v312 — 사진편집기 미리보기·템플릿 정리)
+**LAST UPDATED:** 2026-06-02 by Codex (W 시리즈 — 첫 경험 Instagram Ready 카드)
 
 bootstrap:OK @ 2026-05-21 02:05
 bootstrap:OK @ 2026-05-21 13:30
@@ -18,6 +18,28 @@ bootstrap:OK @ 2026-05-26 19:28
 bootstrap:OK @ 2026-05-26 22:21
 bootstrap:OK @ 2026-05-27 02:12
 bootstrap:OK @ 2026-05-27 12:13
+bootstrap:OK @ 2026-06-02 22:24
+
+---
+
+## 2026-06-02 — W 시리즈 첫 경험 Instagram Ready 카드 (Codex)
+
+수정:
+- 홈 첫 추천을 "사진 홍보용으로 만들기" 중심 3개 버튼으로 고정.
+- 사진 첨부 칩을 홍보 이미지/피드/전후 비교/자연 보정 중심으로 변경.
+- 잇비 홍보 결과를 Before/After + Instagram Ready + 캡션 + 템플릿 3개 + 다음 버튼 카드로 정리.
+- 고객기록 저장은 확인 안내, 리터치 안내는 초안 버튼으로 연결. 자동 게시/발송/예약/저장 없음.
+- 500줄 규칙을 기능 축소가 아닌 모듈 분리 기준으로 문서 반영.
+
+확인:
+- W-007 첫 경험 QA, 홍보 체인, 템플릿 추천, Action Hub, 브리핑, 고객 상태 카드, beta-smoke 통과.
+- `npm run smoke`, `npm test -- --runInBand` 통과.
+- 자동 검사: 오류 0, 기존 경고 35개.
+
+주의:
+- `beauty-engine.js`, Meta/Instagram/OAuth 파일 미접촉.
+- `assistant-intent-router.js` 기존 WIP 보존.
+- 커밋 전 원영님 승인 대기.
 
 ---
 

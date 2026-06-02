@@ -58,8 +58,13 @@
    - **분할 완료된 파일부터 단계적으로 `error` 로 승격** (파일 단위 override 로)
    - 순서: Phase 2 에서 `app-caption.js` → `app-portfolio.js` → `app-gallery.js` 모놀리스가 분할되는 대로 해당 파일에서 `error` 로 올림
 
-4. **파일 500줄 초과 시 신규 기능 금지**
-   - 기존 수정은 허용, 새 함수 추가 금지. 새 기능은 반드시 새 파일로.
+4. **파일 500줄 제한은 구현 회피가 아니라 모듈 분리 기준**
+   - 기능 정확성, 안전성, 회귀 없음이 500줄 제한보다 우선.
+   - 500줄 때문에 기능·예외 처리·QA를 빼거나 압축 코드로 가독성을 망가뜨리지 않음.
+   - 신규 파일은 500줄 이하를 원칙으로 설계하고, 커지면 helper / policy / renderer / QA 하니스로 분리.
+   - 이미 큰 파일(`app-assistant.js`, `assistant-intent-router.js` 등)은 wrapper/dispatcher 등 최소 hunk만 수정하고 실제 로직은 `js/assistant/core/*`, `js/photo-editor/*` 등으로 분리.
+   - 500줄 초과가 불가피하면 먼저 보고: 왜 분리가 어려운지, 초과 예상 줄 수, 대안, 회귀 위험, 추후 분리 계획.
+   - 작업 보고에는 "파일 크기/분리 판단" 섹션을 포함.
 
 5. **빈 catch `catch(e) {}` 금지**
    - 최소 `console.warn` 1줄 + 사용자 영향 경로면 토스트

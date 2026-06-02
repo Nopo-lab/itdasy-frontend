@@ -464,31 +464,42 @@
     const fallbackHtml = m.fallback ? _renderFallbackCard(m.fallback, idx, m.fallback_status) : '';
     const relatedHtml = _renderRelatedChips(m);
     const intentChipsHtml = _renderIntentChips(m, idx);
+    const promoResultHtml = _renderPromoResult(m, idx);
     const photoResultHtml = _renderPhotoResult(m, idx);
+    const looseTextHtml = promoResultHtml ? '' : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(_normMsg(m.text))}</div>`;
+    const reportHtml = promoResultHtml ? '' : `<div style="margin-top:4px;padding-left:2px;">
+          <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
+            style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
+        </div>`;
     return `<div class="asst-msg asst-msg--ai" style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start;">
       <div style="width:40px;height:40px;border-radius:50%;background:#F7EFF0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#BC6675;">${_svg('ic-bot', 22)}</div>
       <div style="max-width:85%;min-width:0;flex:1;">
+        ${promoResultHtml}
         ${photoResultHtml}
-        <div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(_normMsg(m.text))}</div>
-        <div style="margin-top:4px;padding-left:2px;">
-          <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
-            style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
-        </div>
+        ${looseTextHtml}
+        ${reportHtml}
         ${dupHtml}
         ${actionHtml}
         ${groupsHtml}
         ${fallbackHtml}
         ${relatedHtml}
         ${intentChipsHtml}
-        ${_renderTplRecos(m, idx)}
+        ${promoResultHtml ? '' : _renderTplRecos(m, idx)}
         ${_renderBriefingActions(m, idx)}
-        ${_renderHubActions(m, idx)}
+        ${promoResultHtml ? '' : _renderHubActions(m, idx)}
       </div>
     </div>`;
   }
 
+  function _renderPromoResult(m, idx) {
+    const R = window.ItdasyPromoResultCard;
+    if (!m.promo_result || !R || typeof R.render !== 'function') return '';
+    return R.render(m, idx, { esc: _esc });
+  }
+
   // [J-2] 일반 메시지의 Action Hub 버튼(hub_actions). photo_result 안에서 이미 렌더되는 경우는 제외(중복 방지).
   function _renderHubActions(m, idx) {
+    if (m.promo_result) return '';
     if (m.photo_result) return '';
     if (!Array.isArray(m.hub_actions) || !m.hub_actions.length) return '';
     if (!(window.ItdasyActionHub && typeof window.ItdasyActionHub.renderActionHub === 'function')) return '';
@@ -498,6 +509,7 @@
   // [CF-2] 잇비 메시지에 추천 템플릿 3개 카드 직접 표시. templates-v2.recoCardHtml 재사용(썸네일·배지·태그·Pro가치).
   //   카드 클릭→큰 미리보기(bindRecoCards). 흰 채팅 배경이라 카드는 자체 스타일 포함.
   function _renderTplRecos(m, idx) {
+    if (m.promo_result) return '';
     if (!Array.isArray(m.tpl_recos) || !m.tpl_recos.length) return '';
     const TV = window.PhotoEditorTemplatesV2;
     if (!TV || typeof TV.recoCardHtml !== 'function') return '';
@@ -538,6 +550,7 @@
   }
 
   function _renderPhotoResult(m, idx) {
+    if (m.promo_result) return '';
     if (!m.photo_result || !m.photo_result.dataUrl) return '';
     // [J-1] hub_actions 있으면 Action Hub 규격으로 렌더. 없으면(과거 메시지) 기존 photo_actions 폴백.
     let actsHtml;
@@ -634,6 +647,7 @@
       + '|' + (m.fallback_status || '_')
       + '|' + ((m.action_groups || []).map(g => (g.expanded ? 'E' : 'C') + ':'
           + (g.items || []).map(it => (it.status || '_') + (it.editing ? 'e' : '') + (it.skipped ? 's' : '')).join(',')).join(';'))
+      + '|' + (m.promo_result ? 'W' + ((m.promo_result.afterDataUrl || '').length) : '_')
       + '|' + (m.photo_result ? 'P' + (m.photo_result.dataUrl ? m.photo_result.dataUrl.length : 0) : '_')
       + '|' + (Array.isArray(m.intent_chips) ? 'C' + m.intent_chips.length : '_')
       + '|' + idx;
@@ -2001,18 +2015,24 @@
     }
   }
 
-  function _applyChatAutoEditResult(result, intent, placeholderIdx) {
+  function _applyChatAutoEditResult(result, intent, placeholderIdx, opts, preset) {
     if (!result || !result.dataUrl) {
       _setAutoEditFailure(placeholderIdx, '보정 결과를 받지 못했어요. 다시 시도해주세요.');
       return false;
     }
+    const promo = intent.instagram && window.ItdasyPromoResultBuilder
+      ? window.ItdasyPromoResultBuilder.fromAutoEdit({
+          result, preset, question: opts.question, photoUrl: opts.photoUrl, customerCtx: opts.customerCtx,
+        })
+      : null;
     _history[placeholderIdx] = {
       role: 'assistant',
-      text: intent.instagram ? '보정 완료! 인스타 미리보기를 열게요.' : '보정 완료! 미리보기 확인해주세요.',
+      text: promo ? '' : (intent.instagram ? '보정 완료! 인스타 미리보기를 열게요.' : '보정 완료! 미리보기 확인해주세요.'),
       photo_result: { dataUrl: result.dataUrl, ratio: result.ratio, preset_label: result.preset_label },
-      photo_actions: _chatAutoEditActions(intent.instagram),
-      hub_actions: _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동')),
-      photo_caption: '업종: ' + (result.preset_label || '자동'),
+      promo_result: promo ? promo.promoResult : null,
+      photo_actions: promo ? [] : _chatAutoEditActions(intent.instagram),
+      hub_actions: promo ? promo.hubActions : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동')),
+      photo_caption: promo ? promo.promoResult.caption : '업종: ' + (result.preset_label || '자동'),
     };
     _renderHistory();
     return true;
@@ -2076,8 +2096,8 @@
     const placeholderIdx = _beginChatAutoEdit(opts);
     const preset = _photoShopPreset(opts.question);
     const result = await _processChatAutoEditPhoto(opts, intent, preset, placeholderIdx);
-    if (!_applyChatAutoEditResult(result, intent, placeholderIdx)) return true;
-    if (intent.instagram) await _finishInstagramAutoEdit(opts, preset, result);
+    if (!_applyChatAutoEditResult(result, intent, placeholderIdx, opts, preset)) return true;
+    if (intent.instagram && !_history[placeholderIdx].promo_result) await _finishInstagramAutoEdit(opts, preset, result);
     return true;
   }
 
@@ -2733,7 +2753,10 @@
       // [CF-2] 추천 템플릿 3개를 메시지에 직접 카드로 표시(잇비 응답만 보고 고르게).
       _history.push({ role: 'assistant', text: res.message,
         hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [],
-        tpl_recos: Array.isArray(res.templateRecos) ? res.templateRecos : [] });
+        tpl_recos: Array.isArray(res.templateRecos) ? res.templateRecos : [],
+        promo_result: res.promoResult || null,
+        photo_result: res.promoResult && res.promoResult.afterDataUrl
+          ? { dataUrl: res.promoResult.afterDataUrl, ratio: '4:5' } : null });
       _renderHistory();
       return true;
     } catch (_e) {

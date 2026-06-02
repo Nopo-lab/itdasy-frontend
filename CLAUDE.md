@@ -16,7 +16,7 @@
 - 상속: 루트 `../CLAUDE.md` + `../AGENTS.md §3, §4`
 - 워크플로우: 1) 여기서 먼저 → 2) 검증 후 `itdasy-frontend`(운영) 승격
 - 트랙: 4줄 이상 / API / Capacitor = 표준(티켓→플랜→승인→코드→T4→T1→머지), 문서·1~3줄 = 경량
-- 코드 룰: 함수 50줄·파일 500줄 (ESLint 강제). 초과 시 분할 티켓 + 원영님 승인
+- 코드 룰: 함수 50줄·파일 500줄 기준은 유지하되, 기능 완성도를 해치지 말 것. 큰 파일은 최소 연결만 수정하고 실제 로직은 작은 모듈로 분리
 - 서버 호출: 직접 주소를 붙이지 말고 `window.apiUrl()` / `window.apiFetch()` 사용
 - 분할 대상: `app-caption.js` / `app-portfolio.js` / `app-gallery.js` — Phase 2 (T-101/102/103)
 - 로컬: `python3 -m http.server 8080` · `npx cap sync android` · Android 빌드는 GitHub Actions 권장

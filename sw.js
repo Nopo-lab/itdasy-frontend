@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260602-v388-eg-polish';
+const CACHE_VERSION = '20260603-v390-first-wow';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -47,6 +47,7 @@ const STATIC_ASSETS = [
   './app-home-v41-config.js',
   './js/home/v41-styles.js',
   './js/home/v41-actions.js',
+  './js/home/v41-itbi-prompts.js',
   './js/home/v41-renderers.js',
   './app-home-v41.js',
   './app-perf-recovery.js',
@@ -89,6 +90,8 @@ const STATIC_ASSETS = [
   './js/assistant/suggestion-controls.js',
   './js/assistant/photo-local-handlers.js',
   './js/assistant/photo-workflow-commands.js',
+  './js/assistant/core/promo-result-builder.js',
+  './js/assistant/promo-result-card.js',
   './js/photo-editor/template-market-data.js',
   './js/photo-editor/template-overlay.js',
   './app-photo-editor-ba-compose.js',

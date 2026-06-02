@@ -191,7 +191,7 @@
     </button>`;
   }
 
-  function fallbackBookings(brief) {
+  function _fallbackBookings(brief) {
     let bk = Array.isArray(brief.today_bookings) ? brief.today_bookings : [];
     if (bk.length || !window.Booking || typeof window.Booking.list !== 'function') return bk;
     try {
@@ -202,7 +202,7 @@
     return bk;
   }
 
-  function monthCount(brief, completedCount) {
+  function _monthCount(brief, completedCount) {
     let count = Number(brief.this_month_count) || 0;
     if (!count && window.Revenue && Array.isArray(window.Revenue._items)) {
       try {
@@ -214,7 +214,7 @@
     return count || Number(brief.completed_count) || completedCount;
   }
 
-  function todayExpected(bookings) {
+  function _todayExpected(bookings) {
     return bookings
       .filter(b => b && b.status === 'confirmed')
       .reduce((sum, b) => {
@@ -253,6 +253,7 @@
         </div>`
       : '';
     const timeHtml = lastTime ? `<div class="hv5-itbi-msg-time">${esc(lastTime)}</div>` : '';
+    const promptsHtml = window.HomeV41ItbiPrompts ? window.HomeV41ItbiPrompts.render(esc) : '';
     return `<section class="hv5-itbi-card">
       <div class="hv5-itbi-head">
         <div class="hv5-itbi-head-l">
@@ -272,6 +273,7 @@
           ${timeHtml}
         </div>
       </div>
+      ${promptsHtml}
       <div class="hv5-itbi-input">
         <button type="button" class="hv5-itbi-input-icon" data-itbi-act="photo" aria-label="사진 첨부"><svg width="18" height="18" aria-hidden="true"><use href="#ic-camera"/></svg></button>
         <input type="text" class="hv5-itbi-input-field" placeholder="잇비에게 무엇이든 물어보세요" data-itbi-input />

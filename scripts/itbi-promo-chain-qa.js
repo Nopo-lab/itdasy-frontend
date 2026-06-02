@@ -66,7 +66,7 @@ async function main() {
     const okRun = C.runPromoPhotoChain('네일 사진 홍보용으로 보정해줘', { currentCustomer: { id: 1, name: '김민지' } });
     window.ItdasyPhotoFlow.runPromoFlow = realRun;
     r.run = {
-      noPhoto_msg: /사진을 먼저 열어주세요/.test(noPhoto.message),
+      noPhoto_msg: /사진을 (먼저 )?열어주세요|먼저 편집할 사진을 열어주세요/.test(noPhoto.message),
       ok_hasCaption: /캡션 초안/.test(okRun.message),
       ok_noSendNote: /실제 게시나 발송은 하지 않았어요/.test(okRun.message),
       ok_actions: (okRun.hubActions || []).length,

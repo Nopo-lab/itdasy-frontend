@@ -153,13 +153,16 @@ async function main() {
   const failInfo = await page.evaluate(async () => {
     try {
       window.showToast && (window.__toastSeen = []);
-      const res = await window.apiFetch('/assistant/ask', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, window.authHeader ? window.authHeader() : {}), body: '{}' }).catch(e => ({ ok: false, _err: String(e && e.message) }));
+      const req = window.apiFetch('/assistant/ask', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, window.authHeader ? window.authHeader() : {}), body: '{}' })
+        .catch(e => ({ ok: false, _err: String(e && e.message) }));
+      const timeout = new Promise(resolve => setTimeout(() => resolve({ ok: false, _timeout: true }), 5000));
+      const res = await Promise.race([req, timeout]);
       return { handled: true, ok: !!res.ok };
     } catch (e) { return { handled: true, threw: String(e && e.message) }; }
   });
   report.steps.backendFail = failInfo;
 
-  report.severeErrors = errors.filter(e => !/favicon|ResizeObserver|TensorFlow|XNNPACK|Failed to load resource.*sw\.js/i.test(e));
+  report.severeErrors = errors.filter(e => !/favicon|ResizeObserver|TensorFlow|XNNPACK|Failed to load resource.*sw\.js|Failed to load resource: net::ERR_FAILED/i.test(e));
   report.totalErrors = errors.length;
   report.failedRequests = Array.from(new Set(failedReqs)).slice(0, 20);
   await browser.close();

@@ -4,10 +4,10 @@
   'use strict';
 
   const PHOTO_CHIPS = [
-    { key: 'enhance', label: '✨ 사진 보정',   text: '이 사진 보정해줘' },
-    { key: 'card',    label: '🪪 명함 등록',   text: '이 명함 사진에서 이름·전화번호 뽑아서 고객으로 등록해줘' },
-    { key: 'price',   label: '🧾 영수증 입력', text: '이 영수증·가격표 사진에서 항목·금액 뽑아서 지출로 기록해줘' },
-    { key: 'kakao',   label: '💬 카톡 캡처',   text: '이 카톡 캡처에서 예약·매출·후기·고객 정보 자동으로 추출해줘' },
+    { key: 'enhance', label: '홍보용 이미지 만들기', text: '이 사진 인스타 홍보용으로 예쁘게 해줘' },
+    { key: 'card',    label: '인스타 피드용으로',   text: '이 사진 인스타 피드용으로 정리해줘' },
+    { key: 'price',   label: '전후 비교 카드로',     text: '이 사진 전후 비교 카드로 만들어줘' },
+    { key: 'kakao',   label: '자연스럽게 보정',       text: '이 사진 자연스럽게 보정해줘' },
   ];
 
   function _escDefault(s) {
