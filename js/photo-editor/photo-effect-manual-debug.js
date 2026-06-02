@@ -303,10 +303,82 @@
     return report;
   }
 
+  // [PE-ER5 진단] eyeRedness 게이트 내부값 계측 — 엔진 _pixel/_applyEye 로직을 그대로 복제(읽기 전용).
+  //   왜 k(scleraW)가 0인지 숫자로: eyeW 후보 수, scleraW 0 원인(bright/neutral/sat/warmBrown/red/skin), max/avg.
+  function inspectEyeRednessGate(opts) {
+    if (!_ensureBefore()) return null;
+    opts = opts || {};
+    var w = _before.w, h = _before.h, b = _before.imageData;
+    var regionMasks = null;
+    try {
+      var MA = window.MaskApplication, st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
+      var img = st && st.originalImg;
+      if (MA && typeof MA.getMasksForBeautySync === 'function' && img) regionMasks = MA.getMasksForBeautySync(img) || null;
+    } catch (_e) { regionMasks = null; }
+    var SM = window.PhotoEditorSmartMask;
+    var useM = regionMasks && regionMasks.useMasks, sc = regionMasks && regionMasks._scale;
+    var mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+    function rm(key, midx, fb) { return (useM && useM[key]) ? (useM[key][midx] || 0) * ((sc && sc[key]) || 1) : fb; }
+    var a = { total: w * h, eyeMaskPresent: !!(useM && useM.eyeMask), skinMaskPresent: !!(useM && useM.skinMask),
+      eyeWPass: 0, redCondPass: 0, brightZero: 0, neutralZero: 0, satZero: 0, warmBrownBlocked: 0,
+      skinPenalty02: 0, scleraWover008: 0, maxScleraW: 0, sumScleraW: 0, samples: [] };
+    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+      var i = (y * w + x) * 4, r = b[i], g = b[i + 1], bl = b[i + 2];
+      var lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
+      var maxc = Math.max(r, g, bl), minc = Math.min(r, g, bl), sat = maxc - minc;
+      var subjectW = Math.max(0, 1 - (Math.abs((x + 0.5) / w - 0.5) * 1.44 + Math.abs((y + 0.5) / h - 0.48) * 1.04));
+      var edgeBg = subjectW < 0.5 || y < h * 0.02 || y > h * 0.96;
+      var isSkin = !edgeBg && r > 60 && r > g - 6 && g > bl - 10 && (r - bl) > 5 && (r - bl) < 120 && lum0 > 45 && lum0 < 248;
+      var ny = (y + 0.5) / h;
+      var hairLike = !edgeBg && subjectW > 0.3 && lum0 > 14 && lum0 < 220 && ((!isSkin && ((sat < 110 && lum0 < 195) || lum0 < 110 || (bl < 95 && sat < 150))) || (ny < 0.55 && lum0 < 160 && sat < 100));
+      var mask = (SM && SM.classify) ? SM.classify({ r: r, g: g, b: bl, lum: lum0, maxCh: maxc, minCh: minc, x: x, y: y, w: w, h: h, isSkinFallback: isSkin, hairFallback: hairLike }) : null;
+      var midx; if (mw === w && mh === h) midx = y * w + x; else { var mx = Math.min(mw - 1, Math.max(0, (x * mw / w) | 0)), my = Math.min(mh - 1, Math.max(0, (y * mh / h) | 0)); midx = my * mw + mx; }
+      var eyeW = rm('eyeMask', midx, mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0));
+      if (eyeW <= 0.10) continue;
+      a.eyeWPass++;
+      var skinW = rm('skinMask', midx, mask ? mask.skin : (isSkin ? 1 : 0));
+      var warmBrown = (r - g > 18 && r - bl > 28);
+      var brightW = Math.min(1, Math.max(0, (lum0 - 135) / 45));
+      var neutralW = Math.min(1, Math.max(0, (42 - sat) / 22));
+      var satW = Math.min(1, Math.max(0, (48 - sat) / 28));
+      var skinPenalty = skinW > 0.70 ? 0.2 : (skinW > 0.35 ? 0.45 : 1);
+      var scleraW = brightW * neutralW * satW * skinPenalty * (warmBrown ? 0 : 1);
+      var redCond = (r > g + 3 && r > bl + 1);
+      if (brightW === 0) a.brightZero++;
+      if (neutralW === 0) a.neutralZero++;
+      if (satW === 0) a.satZero++;
+      if (warmBrown) a.warmBrownBlocked++;
+      if (skinPenalty === 0.2) a.skinPenalty02++;
+      if (redCond) a.redCondPass++;
+      if (scleraW > a.maxScleraW) a.maxScleraW = scleraW;
+      a.sumScleraW += scleraW;
+      if (scleraW > 0.08 && redCond) a.scleraWover008++;
+      if (a.samples.length < 8 && eyeW > 0.10) a.samples.push({ x: x, y: y, lum0: Math.round(lum0), satCh: sat, chSpan: sat, skinW: +skinW.toFixed(2), brightW: +brightW.toFixed(2), neutralW: +neutralW.toFixed(2), satW: +satW.toFixed(2), skinPenalty: skinPenalty, scleraW: +scleraW.toFixed(3), warmBrown: warmBrown, redCond: redCond });
+    }
+    a.avgScleraW = a.eyeWPass ? +(a.sumScleraW / a.eyeWPass).toFixed(4) : 0;
+    a.maxScleraW = +a.maxScleraW.toFixed(4);
+    var rec;
+    if (a.eyeWPass === 0) rec = 'eyeW>0.10 후보 0개 — 눈/흰자 영역 자체가 미검출(eyeMask 없음+fallback 미발화). scleraW와 무관. → eyeW 게이트/eyeMask가 1차 원인.';
+    else if (a.scleraWover008 > 0) rec = 'scleraW>0.08 후보 ' + a.scleraWover008 + '개 존재 → 엔진은 작동해야 함. 적용부/다른 원인 재확인.';
+    else {
+      var c = [], n = a.eyeWPass;
+      if (a.brightZero / n > 0.4) c.push('brightW(lum<135)');
+      if (a.neutralZero / n > 0.4) c.push('neutralW(chSpan>42)');
+      if (a.satZero / n > 0.4) c.push('satW(satCh>48)');
+      if (a.warmBrownBlocked / n > 0.4) c.push('warmBrown(r-g>18&r-b>28)');
+      if (a.redCondPass === 0) c.push('redCond(r>g+3) 통과 0');
+      rec = 'eyeW 후보 ' + n + '개 중 scleraW>0.08 가 0. 주원인: ' + (c.join(', ') || '복합(maxScleraW=' + a.maxScleraW + ', 문턱 0.08 근처)') + '. samples 참고.';
+    }
+    a.recommendedFix = rec;
+    console.log('=== eyeRedness GATE DIAG (PE-ER5) ===');
+    console.log(JSON.stringify(a, null, 2));
+    return a;
+  }
+
   window.PhotoEffectManualDebug = {
     captureCurrent: captureCurrent, preview: preview, previewSteps: previewSteps, previewAll: previewAll,
     previewSuspects: previewSuspects, reset: reset, exportReport: exportReport,
-    inspectItbiRoutes: inspectItbiRoutes, previewItbi: previewItbi,
+    inspectItbiRoutes: inspectItbiRoutes, previewItbi: previewItbi, inspectEyeRednessGate: inspectEyeRednessGate,
     LABELS: LABELS, PARAMS: PARAMS, SUSPECTS: SUSPECTS,
   };
   console.log('[PhotoEffectManualDebug] 로드됨. PhotoEffectManualDebug.captureCurrent() 부터 시작하세요.');
