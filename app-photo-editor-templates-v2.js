@@ -398,7 +398,53 @@
     });
   }
 
-  window.PhotoEditorTemplatesV2 = { open: _open, apply: _apply, TEMPLATES, CATS };
+  // [CF-2] 잇비 메시지용 — 추천 카드 mini HTML + 큰 미리보기 public 노출.
+  //   카드 HTML: 썸네일·배지·이름·태그·Pro가치(TPL-1/2/4 _cardHtml 재사용). data-tpv2-tpl 로 클릭 식별.
+  function recoCardHtml(tplId) {
+    var t = TEMPLATES.find(function (x) { return x.id === tplId; });
+    if (!t) return '';
+    var bk = _getBrandKit();
+    var color = _accentColor(t.accent, bk);
+    var cat = CATS.find(function (c) { return c.id === t.cat; }) || { ratio: '4:5', label: '' };
+    var ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
+    var isFree = t.tier !== 'pro';
+    var indL = IND_LABEL[t.industry], purL = PUR_LABEL[t.purpose];
+    var tagTxt = [(t.industry && t.industry !== 'common') ? '#' + indL : '', purL ? '#' + purL : ''].filter(Boolean).join(' ');
+    var badgeBg = isFree ? '#1f9d63' : 'linear-gradient(135deg,#caa15a,#a9823f)';
+    var badgeColor = isFree ? '#fff' : '#1a160f';
+    var proVal = isFree ? '바로 쓰는 기본형' : ((MARKET_DATA.proValueText && MARKET_DATA.proValueText(t)) || '브랜드형 고급 디자인');
+    var proColor = isFree ? '#8B95A1' : '#a9823f';
+    // 흰 채팅 배경용 자체 인라인 스타일 mini 카드. data-tpv2-thumb 로 썸네일 주입, data-tpv2-tpl 로 클릭.
+    return '<button type="button" data-tpv2-tpl="' + _esc(t.id) + '" style="position:relative;border:1px solid #E5E8EB;border-radius:12px;overflow:hidden;background:#fff;cursor:pointer;padding:0;text-align:left;box-shadow:0 1px 4px rgba(0,0,0,.08);">'
+      + '<span style="position:absolute;top:6px;left:6px;z-index:2;font-size:8.5px;font-weight:800;padding:2px 6px;border-radius:6px;background:' + badgeBg + ';color:' + badgeColor + ';">' + (isFree ? 'FREE' : 'PRO') + '</span>'
+      + '<div data-tpv2-thumb="' + _esc(t.id) + '" data-tpv2-ratio="' + cat.ratio + '" data-tpv2-accent="' + color + '" style="aspect-ratio:' + ar + ';background:linear-gradient(135deg,' + color + '33,' + color + ');display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;text-align:center;padding:6px;">' + _esc(t.prefillText || t.label) + '</div>'
+      + '<div style="padding:6px 7px 8px;"><div style="font-size:11px;font-weight:700;color:#2b2620;line-height:1.25;">' + _esc(t.label) + '</div>'
+      + (tagTxt ? '<div style="font-size:9px;color:#7d7468;margin-top:2px;">' + _esc(tagTxt) + '</div>' : '')
+      + '<div style="font-size:9px;color:' + proColor + ';font-weight:700;margin-top:3px;">' + _esc(proVal) + '</div></div>'
+      + '</button>';
+  }
+  // 잇비가 추천 카드 영역을 그린 뒤, 그 컨테이너에 썸네일 즉시 주입 + 클릭→미리보기 바인딩.
+  //   추천 카드는 3개뿐 + 어시스턴트 시트 안 → IO root 불일치 회피 위해 즉시 paint.
+  function bindRecoCards(containerEl) {
+    if (!containerEl) return;
+    var TH = window.PhotoEditorTemplateThumb, bk = _getBrandKit();
+    containerEl.querySelectorAll('[data-tpv2-thumb]').forEach(function (el) {
+      if (TH && TH.make && !el.dataset.tpv2Done) {
+        try {
+          var t = TEMPLATES.find(function (x) { return x.id === el.dataset.tpv2Thumb; });
+          var url = t && TH.make(t, { ratio: el.dataset.tpv2Ratio, accent: el.dataset.tpv2Accent, shopName: bk.shopName, logo: bk.logo });
+          if (url) { el.style.backgroundImage = 'url(' + url + ')'; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; el.textContent = ''; }
+        } catch (_e) { void 0; }
+        el.dataset.tpv2Done = '1';
+      }
+    });
+    containerEl.querySelectorAll('[data-tpv2-tpl]').forEach(function (b) {
+      b.addEventListener('click', function () { _openPreview(b.dataset.tpv2Tpl); });
+    });
+  }
+  function openPreview(tplId) { _ensureSheet(); _openPreview(tplId); }
+
+  window.PhotoEditorTemplatesV2 = { open: _open, apply: _apply, openPreview, recoCardHtml, bindRecoCards, TEMPLATES, CATS };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _watchPanel);

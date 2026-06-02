@@ -93,8 +93,13 @@
     // 보정 적용 + 업종 판단 + 저장 pending (기존 T-104/T-104.5 흐름 그대로)
     var res = window.ItdasyPhotoFlow.runPromoFlow(text, ctx) || {};
     if (res.needsPhoto) {
+      // [CF-1] 안내만 하지 말고 "사진 열기" 다음 행동 버튼 제공.
+      var openActs = (window.ItdasyActionHub && window.ItdasyActionHub.normalizeActions)
+        ? window.ItdasyActionHub.normalizeActions([{ id: 'open_pe', kind: 'open_photo_editor', label: '사진 열기', phase: 'safe', payload: {} }], 'hub')
+        : [{ id: 'open_pe', kind: 'open_photo_editor', label: '사진 열기', phase: 'safe', payload: {} }];
       return { ok: false, needsPhoto: true,
-        message: '사진을 먼저 열어주세요. 사진을 열면 홍보용 보정과 캡션 초안까지 이어서 도와드릴게요.' };
+        message: '먼저 편집할 사진을 열어주세요. 사진을 열면 홍보용 보정, 캡션, 템플릿 추천까지 이어서 도와드릴게요.',
+        hubActions: openActs };
     }
     var recipeId = res.recipeId || 'natural';
     var caption = buildPromoCaptionDraft(recipeId);

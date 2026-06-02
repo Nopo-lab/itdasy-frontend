@@ -474,6 +474,7 @@
         ${fallbackHtml}
         ${relatedHtml}
         ${intentChipsHtml}
+        ${_renderTplRecos(m, idx)}
         ${_renderBriefingActions(m, idx)}
         ${_renderHubActions(m, idx)}
       </div>
@@ -486,6 +487,17 @@
     if (!Array.isArray(m.hub_actions) || !m.hub_actions.length) return '';
     if (!(window.ItdasyActionHub && typeof window.ItdasyActionHub.renderActionHub === 'function')) return '';
     return window.ItdasyActionHub.renderActionHub(m.hub_actions, { idx, defaultRoute: 'hub' });
+  }
+
+  // [CF-2] 잇비 메시지에 추천 템플릿 3개 카드 직접 표시. templates-v2.recoCardHtml 재사용(썸네일·배지·태그·Pro가치).
+  //   카드 클릭→큰 미리보기(bindRecoCards). 흰 채팅 배경이라 카드는 자체 스타일 포함.
+  function _renderTplRecos(m, idx) {
+    if (!Array.isArray(m.tpl_recos) || !m.tpl_recos.length) return '';
+    const TV = window.PhotoEditorTemplatesV2;
+    if (!TV || typeof TV.recoCardHtml !== 'function') return '';
+    const cards = m.tpl_recos.map(id => TV.recoCardHtml(id)).filter(Boolean).join('');
+    if (!cards) return '';
+    return `<div class="asst-tpl-recos" data-asst-tpl-recos="${idx}" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${cards}</div>`;
   }
 
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
@@ -547,6 +559,13 @@
     body.innerHTML = _history.map((m, idx) => _renderHistoryMessage(m, idx)).join('');
     body.scrollTop = body.scrollHeight;
     _bindActionButtons();
+    // [CF-2] 추천 템플릿 카드 썸네일 주입 + 클릭→미리보기 바인딩.
+    try {
+      const TV = window.PhotoEditorTemplatesV2;
+      if (TV && typeof TV.bindRecoCards === 'function') {
+        body.querySelectorAll('[data-asst-tpl-recos]').forEach((el) => TV.bindRecoCards(el));
+      }
+    } catch (_e) { void 0; }
   }
 
   function _renderEmptyHistory() {
@@ -2705,7 +2724,10 @@
       if (!res || !res.message) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
-      _history.push({ role: 'assistant', text: res.message, hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [] });
+      // [CF-2] 추천 템플릿 3개를 메시지에 직접 카드로 표시(잇비 응답만 보고 고르게).
+      _history.push({ role: 'assistant', text: res.message,
+        hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [],
+        tpl_recos: Array.isArray(res.templateRecos) ? res.templateRecos : [] });
       _renderHistory();
       return true;
     } catch (_e) {
