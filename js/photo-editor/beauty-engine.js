@@ -322,7 +322,9 @@
   }
 
   function _applyEye(d, i, p, c) {
-    if (c.eyeRedK > 0 && p.eyeW > 0.10 && p.lum0 > 95 && p.r > p.g + 6 && p.r > p.bl + 2 && Math.max(p.g, p.bl) > 60) {
+    // [PE-ER] eyeRedness — 흰자/충혈(밝음·저채도·비피부)만. 갈색 눈썹/아이라인/눈가가 lum>95·r>g 게이트로
+    //   통과해 R−52로 청록 멍 되던 문제 → lum>150·satCh<50·skinW<0.5 추가로 제외. 계수/방향은 유지.
+    if (c.eyeRedK > 0 && p.eyeW > 0.10 && p.lum0 > 150 && p.satCh < 50 && p.skinW < 0.5 && p.r > p.g + 6 && p.r > p.bl + 2) {
       d[i] = _clamp(d[i] - 52 * c.eyeRedK * p.eyeW);
       d[i + 1] = _clamp(d[i + 1] + 12 * c.eyeRedK * p.eyeW);
       d[i + 2] = _clamp(d[i + 2] + 16 * c.eyeRedK * p.eyeW);
