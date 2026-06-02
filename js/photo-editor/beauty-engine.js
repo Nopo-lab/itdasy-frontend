@@ -322,17 +322,22 @@
   }
 
   function _applyEye(d, i, p, c) {
-    // [PE-ER2] eyeRedness — 1차(lum150·satCh50·skinW0.5)로도 갈색 눈썹/눈가 청록 잔존 →
-    //   "sclera 전용"으로 더 좁힘: 밝고(155+) 거의 회백(채널차<32·satCh<38)·비피부(skinW<0.35) + warm 갈색 제외.
-    //   흰자/충혈만 통과, 눈썹/아이라인/갈색 눈가/눈두덩 제외. 계수/방향 유지.
+    // [PE-ER3] eyeRedness — 2차 hard gate(skinW<0.35 등)가 흰자 오분류 시 기능을 죽여 no-op이 됨.
+    //   hard cutoff 대신 sclera-like soft weight(밝음·중성·저채도·비피부 penalty·warm제외)로 강도 조절.
+    //   흰자/충혈엔 약하게라도 적용, 눈썹/갈색 눈가는 weight≈0. 계수/방향 유지.
     if (c.eyeRedK > 0 && p.eyeW > 0.10) {
-      const chSpan = Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl);   // 중성색일수록 작음
-      const scleraLike = p.lum0 > 155 && p.satCh < 38 && p.skinW < 0.35 && chSpan < 32
-        && !(p.r - p.g > 18 && p.r - p.bl > 28);                            // 갈색/warm 픽셀 제외
-      if (scleraLike && p.r > p.g + 4 && p.r > p.bl + 1) {
-        d[i] = _clamp(d[i] - 52 * c.eyeRedK * p.eyeW);
-        d[i + 1] = _clamp(d[i + 1] + 12 * c.eyeRedK * p.eyeW);
-        d[i + 2] = _clamp(d[i + 2] + 16 * c.eyeRedK * p.eyeW);
+      const chSpan = Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl);
+      const warmBrown = (p.r - p.g > 18 && p.r - p.bl > 28);
+      const brightW = Math.min(1, Math.max(0, (p.lum0 - 135) / 45));
+      const neutralW = Math.min(1, Math.max(0, (42 - chSpan) / 22));
+      const satW = Math.min(1, Math.max(0, (48 - p.satCh) / 28));
+      const skinPenalty = p.skinW > 0.70 ? 0 : (p.skinW > 0.35 ? 0.45 : 1);   // hard block 아닌 penalty
+      const scleraW = brightW * neutralW * satW * skinPenalty * (warmBrown ? 0 : 1);
+      if (scleraW > 0.08 && p.r > p.g + 3 && p.r > p.bl + 1) {
+        const k = c.eyeRedK * p.eyeW * scleraW;
+        d[i] = _clamp(d[i] - 52 * k);
+        d[i + 1] = _clamp(d[i + 1] + 12 * k);
+        d[i + 2] = _clamp(d[i + 2] + 16 * k);
       }
     }
     if (c.irisK > 0 && p.eyeW > 0.14 && p.lum0 > 16 && p.lum0 < 135 && p.skinW < 0.55) {
