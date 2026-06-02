@@ -111,18 +111,25 @@
   function _metrics(after) {
     var b = _before.imageData, w = _before.w, h = _before.h;
     var n = 0, chg = 0, sAbs = 0, sL = 0, sR = 0, sG = 0, sB = 0, outN = 0, outChg = 0;
+    var gt0 = 0, gt2 = 0, maxDelta = 0, sDRchg = 0, drChgN = 0;   // [PE-ER5] raw 지표 — 국소·미세 변화가 가려지지 않게
     var bx = w * 0.18, by = h * 0.18;
     for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
       var i = (y * w + x) * 4;
-      var dch = Math.max(Math.abs(after[i] - b[i]), Math.abs(after[i + 1] - b[i + 1]), Math.abs(after[i + 2] - b[i + 2]));
+      var dr = after[i] - b[i];
+      var dch = Math.max(Math.abs(dr), Math.abs(after[i + 1] - b[i + 1]), Math.abs(after[i + 2] - b[i + 2]));
       n++; if (dch > 3) chg++; sAbs += dch; sL += _lum(after, i) - _lum(b, i);
-      sR += after[i] - b[i]; sG += after[i + 1] - b[i + 1]; sB += after[i + 2] - b[i + 2];
+      sR += dr; sG += after[i + 1] - b[i + 1]; sB += after[i + 2] - b[i + 2];
+      if (dch > 0) gt0++; if (dch > 2) gt2++; if (dch > maxDelta) maxDelta = dch;
+      if (dr !== 0) { sDRchg += dr; drChgN++; }
       if (x < bx || x > w - bx || y < by || y > h - by) { outN++; if (dch > 3) outChg++; }   // 추정 비대상 테두리
     }
     return {
       changedRatio: +(chg / n).toFixed(3), avgDelta: +(sAbs / n).toFixed(2), lumDelta: +(sL / n).toFixed(2),
       dR: +(sR / n).toFixed(2), dG: +(sG / n).toFixed(2), dB: +(sB / n).toFixed(2),
       outsidePollution_est: outN ? +(outChg / outN).toFixed(3) : 0,
+      // [PE-ER5] 국소/미세 효과 가시화: ROI 평균(dR)이 0으로 보여도 실제 변화 픽셀 수/최대치/방향 확인용
+      rawChangedPixelsDeltaGt0: gt0, changedPixelsDeltaGt2: gt2, maxActualDelta: maxDelta,
+      avgDR_overChangedPixels: drChgN ? +(sDRchg / drChgN).toFixed(3) : 0,
     };
   }
 
@@ -217,7 +224,8 @@
       if (s === 100) c._row.appendChild(_labeled(_diffThumb(res.after, 120), 'diff'));
     });
     var mono = metr[1].changedRatio <= metr[2].changedRatio + 0.005 && metr[1].avgDelta <= metr[2].avgDelta + 0.3;
-    c.querySelector('div').textContent += mono ? '  ✓ monotonic' : '  ✗ non-monotonic';
+    c.querySelector('div').textContent += (mono ? '  ✓ monotonic' : '  ✗ non-monotonic')
+      + '  · @100 변화px ' + metr[2].changedPixelsDeltaGt2 + '(|Δ|>2) / maxΔ ' + metr[2].maxActualDelta + ' / dRΔ ' + metr[2].avgDR_overChangedPixels;
     if (!mono) c.style.border = '2px solid #e5484d';
     _body().prepend(c);
     var rep = { param: param, label: LABELS[param], steps: { '50': metr[1], '100': metr[2] }, monotonic: mono, suspect: _suspect(param, metr[2], mono) };
