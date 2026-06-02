@@ -579,7 +579,13 @@
   }
 
   function _applySharpen(ctx, w, h, b, regionMasks, nailMaskArr) {
-    if (b.hairDetail > 10) _unsharpMask(ctx, w, h, b.hairDetail / 150);
+    // [PE-5] hairDetail(머리결 선명) — hairMask 있으면 머리 영역만 샤픈, 없으면 배경/얼굴/옷 오염 줄이려 약화 전역.
+    if (b.hairDetail > 10) {
+      const hm = regionMasks && regionMasks.useMasks && regionMasks.useMasks.hairMask;
+      const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+      if (hm) _unsharpMaskRegion(ctx, w, h, b.hairDetail / 150, hm, (regionMasks._scale && regionMasks._scale.hairMask) || 1, mw, mh);
+      else _unsharpMask(ctx, w, h, b.hairDetail / 300);   // 약화 전역(기존 150 → 300)
+    }
     if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 260);
     // [T-143] lashSharp: lashMask(밴드) 우선 → 없으면 eyeMask 상단 ROI → 둘 다 없으면 약화된 전역.
     //   전역 샤픈(사진 전체)으로 빠지던 문제 해소: eyeMask 만 있어도 눈 위 라인만 샤픈.
@@ -599,9 +605,19 @@
         _unsharpMask(ctx, w, h, b.lashSharp / LASH_GLOBAL_FALLBACK);  // 약화된 전역(기존 65→120)
       }
     }
-    if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 80);
+    // [PE-5] closeUpDetail(전역 선명도) — divisor 80 은 strength≈48 부터 0.6 clamp 라 50/100 동일했음.
+    //   167 로 조정 → 0~100 이 0~0.6 선형(50≈0.30 < 100≈0.60), @100 최대치는 기존(0.6)과 동일.
+    if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 167);
     if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 130);
-    if (b.browSharp > 10) _unsharpMask(ctx, w, h, b.browSharp / 90);
+    // [PE-5] browSharp(눈썹 포함 선명) — eyeMask 상단 ROI(눈/눈썹 라인) 있으면 그 영역만 샤픈.
+    //   눈/눈썹 ROI 없으면(예: 헤어 뒷모습) 거의 no-op(매우 약한 전역) → hairDetail 처럼 전역 샤픈되지 않게.
+    if (b.browSharp > 10) {
+      const em = regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask;
+      const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+      const roi = em ? _eyeUpperROI(em, mw, mh) : null;
+      if (roi) _unsharpMaskRegion(ctx, w, h, b.browSharp / 90, roi, 1, mw, mh);
+      else _unsharpMask(ctx, w, h, b.browSharp / 400);   // 거의 no-op(기존 90 → 400)
+    }
     // [T-144] nailShape: nailW(휴리스틱/마스크) 영역만 강하게 경계 샤픈 → 젤 컬러·아트 라인·경계 또렷.
     //   nailMaskArr 는 no-hand 여도 _nailWeight 휴리스틱(폴리시 색/광택/밝기)으로 채워짐 → 손/배경 제외.
     //   maxS 2.0 으로 unsharp 상한 상향(기존 clamp 0.6 은 k=1.3 으로 약했음). 전역 fallback 은 매우 약화.
