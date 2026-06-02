@@ -24,6 +24,9 @@
   ];
 
   function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  // [TPL-4] Lucide 인라인 SVG (스프라이트 심볼 부재 → 직접 삽입, 이모지 미사용)
+  const _LOCK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  const _SPARK_SVG = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-right:1px;"><path d="M12 2l1.8 5.6L19 9l-5.2 1.4L12 16l-1.8-5.6L5 9l5.2-1.4z"/></svg>';
 
   function _getBrandKit() {
     try {
@@ -69,6 +72,14 @@
         #tplV2Sheet .tpv2-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; }
         #tplV2Sheet .tpv2-tag { font-size:9.5px; font-weight:700; color:#7d7468; background:#f0ece4; border-radius:5px; padding:2px 6px; }
         #tplV2Sheet .tpv2-empty { grid-column:1/-1; color:#999; padding:28px 12px; text-align:center; font-size:13px; }
+        /* [TPL-4] Pro 시각 차별 — 썸네일은 보이되 고급/잠금 느낌. */
+        #tplV2Sheet .tpv2-card.is-pro { border-color:rgba(202,161,90,.55); box-shadow:0 2px 10px rgba(169,130,63,.35); }
+        #tplV2Sheet .tpv2-card.is-pro .tpv2-thumb::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(26,22,15,0) 55%,rgba(26,22,15,.32)); pointer-events:none; }
+        #tplV2Sheet .tpv2-thumb { position:relative; }
+        #tplV2Sheet .tpv2-badge.pro { letter-spacing:.6px; }            /* Pro 배지 강화(골드 그라데이션 기존 + 자간) */
+        #tplV2Sheet .tpv2-lock { position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:50%; background:rgba(26,22,15,.62); color:#f0e0b8; display:flex; align-items:center; justify-content:center; font-size:11px; z-index:2; }
+        #tplV2Sheet .tpv2-provalue { font-size:9.5px; font-weight:700; color:#a9823f; margin-top:3px; display:flex; align-items:center; gap:3px; }
+        #tplV2Sheet .tpv2-free-hint { font-size:9.5px; color:#9aa0a6; margin-top:3px; }
       </style>
       <header style="padding:14px 16px;display:flex;align-items:center;gap:10px;">
         <button type="button" id="tpv2Close" style="flex-shrink:0;background:rgba(255,250,242,.12);color:#f7f1e8;border:none;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;">닫기</button>
@@ -169,11 +180,15 @@
       // [TPL-2] 업종/용도 태그칩(공통은 업종칩 생략 — 노이즈 방지).
       const indL = IND_LABEL[t.industry], purL = PUR_LABEL[t.purpose];
       const tags = [(t.industry && t.industry !== 'common') ? `<span class="tpv2-tag">#${_esc(indL)}</span>` : '', purL ? `<span class="tpv2-tag">#${_esc(purL)}</span>` : ''].join('');
+      // [TPL-4] Pro = 고급/잠금 시각 + 가치문구 1줄(왜 Pro인지). 썸네일은 가리지 않음. Free = 빠른 사용 힌트.
+      const lock = isFree ? '' : `<span class="tpv2-lock" aria-hidden="true">${_LOCK_SVG}</span>`;
+      const proLine = isFree ? '' : `<div class="tpv2-provalue">${_SPARK_SVG}${_esc((MARKET_DATA.proValueText && MARKET_DATA.proValueText(t)) || '브랜드형 고급 디자인')}</div>`;
+      const freeLine = isFree ? `<div class="tpv2-free-hint">바로 쓰는 기본형</div>` : '';
       return `
-        <button type="button" class="tpv2-card" data-tpv2-tpl="${t.id}">
-          ${badge}
+        <button type="button" class="tpv2-card ${isFree ? '' : 'is-pro'}" data-tpv2-tpl="${t.id}">
+          ${badge}${lock}
           <div class="tpv2-thumb" data-tpv2-thumb="${t.id}" data-tpv2-ratio="${cat.ratio}" data-tpv2-accent="${color}" style="aspect-ratio:${ar};${fb}">${_esc(t.prefillText || t.label)}</div>
-          <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div><div class="tpv2-tags">${tags}</div></div>
+          <div class="tpv2-meta"><div class="tpv2-name">${_esc(t.label)}</div><div class="tpv2-sub">${_esc(cat.label)}</div><div class="tpv2-tags">${tags}</div>${proLine}${freeLine}</div>
         </button>
       `;
     }).join('');
@@ -244,16 +259,28 @@
           ${PUR_LABEL[tpl.purpose] ? `<span class="tpv2-tag">#${_esc(PUR_LABEL[tpl.purpose])}</span>` : ''}
         </div>
         <div style="color:#e8d9b8;font-size:12px;margin-top:7px;font-weight:600;">${_esc((MARKET_DATA.recommendText && MARKET_DATA.recommendText(tpl)) || '')}</div>
+        ${isFree ? '' : `<div style="color:#caa15a;font-size:12px;margin-top:6px;font-weight:700;">${_SPARK_SVG} ${_esc((MARKET_DATA.proValueText && MARKET_DATA.proValueText(tpl)) || '브랜드형 고급 디자인')}</div>`}
         <div style="color:#c5cbd2;font-size:11px;margin-top:3px;">${_esc(cat.label)} · ${cat.ratio}${isFree ? '' : ' · Pro 템플릿'}</div>
         <div style="display:flex;gap:8px;margin-top:14px;">
           <button type="button" id="tpv2PvClose" style="flex:1;padding:12px;border-radius:12px;border:1px solid #3a3a40;background:transparent;color:#c5cbd2;font-weight:700;cursor:pointer;">닫기</button>
-          <button type="button" id="tpv2PvApply" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">${isFree ? '이 템플릿 적용' : 'Pro 템플릿 적용'}</button>
+          <button type="button" id="tpv2PvApply" style="flex:2;padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,${isFree ? 'var(--accent,#D58A95),var(--accent2,#e26a85)' : '#caa15a,#a9823f'});color:${isFree ? '#fff' : '#1a160f'};font-weight:800;cursor:pointer;">${isFree ? '이 템플릿 적용' : 'Pro로 사용'}</button>
         </div>
       </div>`;
     pv.style.display = 'flex';
     pv.onclick = (e) => { if (e.target === pv) pv.style.display = 'none'; };
     pv.querySelector('#tpv2PvClose').onclick = () => { pv.style.display = 'none'; };
-    pv.querySelector('#tpv2PvApply').onclick = () => { pv.style.display = 'none'; _apply(tplId); };
+    pv.querySelector('#tpv2PvApply').onclick = () => { pv.style.display = 'none'; _applyGated(tplId, isFree); };
+  }
+
+  // [TPL-4] Pro 적용 게이트 — 기존 플랜 로직(isPaidPlan) 재사용. 유료면 적용, 무료면 안전 안내(+가능하면 업그레이드 팝업).
+  //   결제 신규 연결 안 함. Free 는 기존대로 즉시 적용.
+  function _applyGated(tplId, isFree) {
+    if (isFree) { _apply(tplId); return; }
+    let paid = false;
+    try { paid = (typeof window.isPaidPlan === 'function') ? !!window.isPaidPlan() : false; } catch (_e) { paid = false; }
+    if (paid) { _apply(tplId); return; }
+    _toast('Pro 템플릿은 잇데이 멤버십에서 사용할 수 있어요');
+    try { if (typeof window.openPlanPopup === 'function') window.openPlanPopup(); } catch (_e) { void 0; }
   }
 
   // 템플릿 적용: PhotoEditor 상태에 카드 정보 + 텍스트 레이어 prefill

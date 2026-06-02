@@ -132,5 +132,20 @@
     return indPart + pur + '에 추천';
   }
 
-  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText };
+  // [TPL-4] Pro 가치문구 — "왜 Pro인지" 1줄. id 구조/카테고리/용도 기반 자동(수동 0).
+  //   단순 색변경이 아니라 구조적 고급(다분할/정보내장/타이포)을 강조.
+  function proValueText(t) {
+    const id = t.id;
+    if (/2split|3process|4grid|grid/.test(id)) return '다분할 고급 레이아웃';
+    if (/editorial|dark|sage|gold/.test(id)) return '브랜드 무드 고급 디자인';
+    if (t.purpose === 'price' || /price|가격/.test(id)) return '가격·메뉴 정보 포함 구성';
+    if (t.purpose === 'review') return '후기 강조 레이아웃';
+    if (t.purpose === 'event') return '이벤트 홍보 최적화 구성';
+    if (t.purpose === 'retouch' || t.purpose === 'booking') return '예약·리터치 안내 구성';
+    if (t.cat === 'story' || t.cat === 'reels') return '세로 스토리 홍보 최적화';
+    if (t.cat === 'feed') return '피드용 고급 타이포';
+    return '브랜드형 고급 홍보 디자인';
+  }
+
+  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText };
 })();
