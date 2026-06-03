@@ -1,0 +1,44 @@
+{
+  "checkedAt": "2026-06-01T22:13:25.536Z",
+  "results": [
+    {
+      "id": "hairVolume",
+      "label": "머리 풍성감",
+      "ok": true,
+      "metric": {
+        "outerRingDarken": 14.27,
+        "ok": true
+      }
+    },
+    {
+      "id": "nailGloss",
+      "label": "네일 광택",
+      "ok": true,
+      "metric": {
+        "nailLift": 12.37,
+        "outsideSkinLift": 4.58,
+        "ok": true
+      }
+    },
+    {
+      "id": "catchLight",
+      "label": "눈빛 반짝임",
+      "ok": true,
+      "metric": {
+        "eyeHighlightLift": 33.22,
+        "ok": true
+      }
+    },
+    {
+      "id": "blemish",
+      "label": "잡티 완화",
+      "ok": true,
+      "metric": {
+        "spotLift": 2.57,
+        "spotPeakLift": 7.89,
+        "otherSkinLift": -0.01,
+        "ok": true
+      }
+    }
+  ]
+}

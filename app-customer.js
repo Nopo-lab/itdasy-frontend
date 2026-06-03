@@ -314,9 +314,9 @@
     const chipsHTML = `
       <div id="customerSegments" class="cv4-chips">
         <button data-seg="all"          class="cv4-chip is-on">전체</button>
-        <button data-seg="first_visit"  class="cv4-chip off">첫방문</button>
-        <button data-seg="revisit"      class="cv4-chip green">재방문</button>
-        <button data-seg="regular"      class="cv4-chip brand">단골</button>
+        <button data-seg="visits12"     class="cv4-chip off">1~2회</button>
+        <button data-seg="visits3plus"  class="cv4-chip green">3회 이상</button>
+        <button data-seg="visits10plus" class="cv4-chip brand">10회 이상</button>
         <button data-seg="atrisk"       class="cv4-chip off">오래된 방문</button>
         <button data-seg="member"       class="cv4-chip off">회원권</button>
       </div>`;
@@ -444,19 +444,17 @@
       const ATRISK_DAYS = 60;
       items = items.filter(c => {
         const vc = c.visit_count || 0;
-        // [2026-06-03] 첫방문/재방문/단골 3분류 (단골 = 3회+ 또는 수동 단골)
-        if (seg === 'first_visit')   return vc === 1;
-        if (seg === 'revisit')       return vc === 2;
-        if (seg === 'regular')       return vc >= 3 || !!c.is_regular;
-        if (seg === 'member')        return !!c.membership_active || (Number(c.membership_balance) > 0);
-        // legacy 호환 — 옛 칩/저장값(localStorage)이 들어와도 안 깨지게 새 정의에 매핑
+        // [v208] 5칩 단순화 — visits12/visits3plus/visits10plus/member
         if (seg === 'visits12')      return vc >= 1 && vc <= 2;
-        if (seg === 'visits3plus')   return vc >= 3 || !!c.is_regular;
+        if (seg === 'visits3plus')   return vc >= 3 && vc < 10;
         if (seg === 'visits10plus')  return vc >= 10;
-        if (seg === 'new')           return vc === 1;
+        if (seg === 'member')        return !!c.membership_active || (Number(c.membership_balance) > 0);
+        // legacy 호환 (옛 칩 값이 localStorage 에 남아있는 경우)
+        if (seg === 'regular')       return !!c.is_regular;
+        if (seg === 'new')           return vc <= 1;
         if (seg === 'visits1')       return vc === 1;
-        if (seg === 'visits23')      return vc === 2;
-        if (seg === 'visits4plus')   return vc >= 3;
+        if (seg === 'visits23')      return vc >= 2 && vc <= 3;
+        if (seg === 'visits4plus')   return vc >= 4;
         if (seg === 'atrisk') {
           if (!c.last_visit_at) return false;
           const t = Date.parse(c.last_visit_at);
