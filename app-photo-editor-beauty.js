@@ -379,6 +379,16 @@
           regionMasks._scale.scleraMask = sclera.scale;
         }
       }
+      // PE-M2 — 눈썹: browSharp 사용 시에만 browMask 페치. 게이트 통과 시 regionMasks.browMask 주입(lashMask 패턴, useMasks 아님).
+      //   미통과(랜드마크 없음/저신뢰/coverage 밖/disable) → null → beauty-engine 이 기존 eyeMask 상단 ROI → 약한 전역 유지.
+      if ((b.browSharp || 0) > 10 && MA && typeof MA.getBrowMaskSync === 'function' && img) {
+        const brow = MA.getBrowMaskSync(img);
+        if (brow) {
+          if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
+          regionMasks.browMask = brow.mask;
+          regionMasks.browScale = brow.scale;
+        }
+      }
     } catch (_e) { regionMasks = null; }
     engine.apply(ctx, w, h, b, skinSmoothed, regionMasks);
     _contractBoost(ctx, w, h, b, regionMasks);

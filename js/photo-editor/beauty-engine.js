@@ -659,11 +659,15 @@
     // [PE-5] browSharp(눈썹 포함 선명) — eyeMask 상단 ROI(눈/눈썹 라인) 있으면 그 영역만 샤픈.
     //   눈/눈썹 ROI 없으면(예: 헤어 뒷모습) 거의 no-op(매우 약한 전역) → hairDetail 처럼 전역 샤픈되지 않게.
     if (b.browSharp > 10) {
+      const bm = regionMasks && regionMasks.browMask;                                                      // [PE-M2] 눈썹 마스크 있으면 우선
       const em = regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask;
       const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
-      const roi = em ? _eyeUpperROI(em, mw, mh) : null;
-      if (roi) _unsharpMaskRegion(ctx, w, h, b.browSharp / 90, roi, 1, mw, mh);
-      else _unsharpMask(ctx, w, h, b.browSharp / 400);   // 거의 no-op(기존 90 → 400)
+      if (bm) _unsharpMaskRegion(ctx, w, h, b.browSharp / 90, bm, regionMasks.browScale || 1, mw, mh);      // [PE-M2] browMask ROI 만 샤픈(계수 동일)
+      else {                                                                                               // [PE-M2] browMask 없음 → 기존 eyeMask 상단 ROI → 약한 전역 fallback 그대로
+        const roi = em ? _eyeUpperROI(em, mw, mh) : null;
+        if (roi) _unsharpMaskRegion(ctx, w, h, b.browSharp / 90, roi, 1, mw, mh);
+        else _unsharpMask(ctx, w, h, b.browSharp / 400);   // 거의 no-op(기존 90 → 400)
+      }
     }
     // [T-144] nailShape: nailW(휴리스틱/마스크) 영역만 강하게 경계 샤픈 → 젤 컬러·아트 라인·경계 또렷.
     //   nailMaskArr 는 no-hand 여도 _nailWeight 휴리스틱(폴리시 색/광택/밝기)으로 채워짐 → 손/배경 제외.

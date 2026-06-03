@@ -34,6 +34,7 @@ async function main() {
     ok('A1 handSkin unwired', reg('handSkinMask') && reg('handSkinMask').unwired === true);
     ok('A2 nail conditional', reg('nailMask') && reg('nailMask').conditional === true);
     ok('A3 sclera conditional', reg('scleraMask') && reg('scleraMask').conditional === true);
+    ok('A4 brow 행 + conditional + 라벨', reg('browMask') && reg('browMask').conditional === true && reg('browMask').labels && reg('browMask').labels.strong === '눈썹 선명 보정에 정밀 사용');
 
     // B/C. getStats 스텁으로 고신뢰 주입 후 라벨 검증
     const orig = RP.getStats;
@@ -42,6 +43,7 @@ async function main() {
       { maskType: 'nailMask', confidence: 0.85, status: 'ready', sourceTier: 1, coverage: 0.01 },
       { maskType: 'scleraMask', confidence: 0.5, status: 'ready', sourceTier: 2, coverage: 0.005 },
       { maskType: 'handSkinMask', confidence: 0.9, status: 'ready', sourceTier: 1, coverage: 0.1 },
+      { maskType: 'browMask', confidence: 0.85, status: 'ready', sourceTier: 2, coverage: 0.01 },
     ]);
     let model;
     try { model = UI.buildModel({ originalImg: {} }); } finally { RP.getStats = orig; }
@@ -51,6 +53,7 @@ async function main() {
     ok('C1 skin(비조건부) 정밀 적용됨', row('skinMask').status === '정밀 적용됨', row('skinMask').status);
     ok('C2 nail(조건부) 필요 시 정밀 적용', row('nailMask').status === '필요 시 정밀 적용', row('nailMask').status);
     ok('C3 sclera(조건부) 필요 시 약하게 적용', row('scleraMask').status === '필요 시 약하게 적용', row('scleraMask').status);
+    ok('C4 brow 고신뢰 → 눈썹 선명 보정에 정밀 사용', row('browMask').status === '눈썹 선명 보정에 정밀 사용', row('browMask').status);
 
     // D. 보조문구
     const h = UI.html({ originalImg: {} });
@@ -75,12 +78,16 @@ async function main() {
     set('PE_SCLERA_MASK_DISABLE');
     out.scleraDisabled = UI.buildModel({ originalImg: {} }).rows.find(r => r.id === 'scleraMask').status === '비활성화됨';
     clr('PE_SCLERA_MASK_DISABLE');
+    set('PE_BROW_MASK_DISABLE');
+    out.browDisabled = UI.buildModel({ originalImg: {} }).rows.find(r => r.id === 'browMask').status === '눈썹 정밀 마스크 미사용';
+    clr('PE_BROW_MASK_DISABLE');
     out.noPhoto = UI.buildModel({ originalImg: null }).rows.every(r => r.tone === 'disabled');
     return out;
   });
   res.checks.push({ name: 'E1 PE_MASK_DISABLE → 전체 비활성화됨', pass: flagCheck.allDisabled });
   res.checks.push({ name: 'E2 PE_NAIL_MASK_DISABLE → 네일 비활성화됨', pass: flagCheck.nailDisabled });
   res.checks.push({ name: 'E3 PE_SCLERA_MASK_DISABLE → 흰자 비활성화됨', pass: flagCheck.scleraDisabled });
+  res.checks.push({ name: 'E4 PE_BROW_MASK_DISABLE → 눈썹 정밀 마스크 미사용', pass: flagCheck.browDisabled });
   res.checks.push({ name: 'F1 사진 없음 → disabled', pass: flagCheck.noPhoto });
 
   const severe = errors.filter(e => !/favicon|ResizeObserver|TensorFlow|XNNPACK|Failed to load resource|ERR_|tfjs|WebGL|backend/i.test(e));

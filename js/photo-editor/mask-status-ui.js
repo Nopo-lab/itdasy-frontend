@@ -13,9 +13,11 @@
     { id: 'nailMask', label: '네일', note: '네일 광택·모양 보정을 켤 때 사용', conditional: true },
     { id: 'handSkinMask', label: '손', note: '손·발 톤은 기본 피부 보정으로 처리', unwired: true },
     { id: 'scleraMask', label: '흰자', note: '눈 충혈 완화 보정을 켤 때 사용', conditional: true },
+    { id: 'browMask', label: '눈썹', note: '눈썹 선명(browSharp) 보정을 켤 때 사용', conditional: true,
+      labels: { strong: '눈썹 선명 보정에 정밀 사용', weak: '눈썹 선명 보정에 약하게 참고', fallback: '기본 선명도 방식으로 처리 중', disable: '눈썹 정밀 마스크 미사용' } },
     { id: 'backgroundMask', label: '배경', note: '상태 표시/합성 준비용' },
   ];
-  const LAZY = new Set(['nailMask', 'handSkinMask', 'scleraMask']);
+  const LAZY = new Set(['nailMask', 'handSkinMask', 'scleraMask', 'browMask']);
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
@@ -38,15 +40,18 @@
   }
 
   function _statusFor(region, row, hasPhoto, flags) {
+    const L = region.labels || {};                       // [PE-M2] 영역별 문구 오버라이드(눈썹 등)
+    const FB = L.fallback || '기본 보정으로 처리 중';
     if (!hasPhoto) return _row(region, 'disabled', '사진을 먼저 열어주세요', 0, '');
-    if (flags.all) return _row(region, 'disabled', '비활성화됨', 0, '전체 마스크가 꺼져 있어 기본 보정으로 처리합니다.');
+    if (flags.all) return _row(region, 'disabled', '비활성화됨', 0, '전체 마스크가 꺼져 있어 기본 보정으로 처리합니다.');   // 전체 OFF 는 일괄 문구
     if (region.id === 'nailMask' && flags.nail) return _row(region, 'disabled', '비활성화됨', 0, '네일 마스크가 꺼져 있어 기본 보정으로 처리합니다.');
     if (region.id === 'scleraMask' && flags.sclera) return _row(region, 'disabled', '비활성화됨', 0, '흰자 마스크가 꺼져 있어 기본 보정으로 처리합니다.');
+    if (region.id === 'browMask' && flags.brow) return _row(region, 'disabled', L.disable || '비활성화됨', 0, '눈썹 정밀 마스크가 꺼져 있어 기본 선명도로 처리합니다.');  // [PE-M2]
     // [PE-R5a-2] 엔진 미연결 영역(손) — '정밀 적용됨'처럼 보이지 않게 항상 정직한 fallback 표기.
     //   손/발 톤 보정은 현재 기본 피부 보정(skinW) 경로로 처리됨. 손 전용 정밀 마스크는 미연결.
     if (region.unwired) return _row(region, 'fallback', '기본 보정으로 처리 중', 0, '손·발 톤은 기본 피부 보정으로 처리해요. 손 전용 정밀 마스크는 준비 중이에요.');
     if (!row) {
-      const label = LAZY.has(region.id) ? '기본 보정으로 처리 중' : '준비 중';
+      const label = LAZY.has(region.id) ? FB : '준비 중';
       const detail = LAZY.has(region.id)
         ? '필요할 때 계산됩니다. 아직은 기본 보정으로 처리합니다.'
         : '사진 분석이 끝나면 상태가 바뀝니다.';
@@ -54,12 +59,12 @@
     }
     const conf = Number(row.confidence || 0);
     if (row.status === 'failed' || row.status === 'noHand' || row.status === 'pendingImplementation') {
-      return _row(region, 'fallback', '기본 보정으로 처리 중', conf, row.reason || '마스크를 안정적으로 찾지 못했습니다.');
+      return _row(region, 'fallback', FB, conf, row.reason || '마스크를 안정적으로 찾지 못했습니다.');
     }
-    // [PE-R5a-2] nail/sclera 는 해당 보정(네일 광택·눈 충혈)을 켤 때만 적용 → 조건부 문구로 오해 방지.
-    if (conf >= 0.7) return _row(region, 'strong', region.conditional ? '필요 시 정밀 적용' : '정밀 적용됨', conf, _detail(row));
-    if (conf >= 0.4) return _row(region, 'weak', region.conditional ? '필요 시 약하게 적용' : '약하게 적용됨', conf, _detail(row));
-    return _row(region, 'fallback', '기본 보정으로 처리 중', conf, row.reason || '신뢰도가 낮아 기본 보정으로 처리합니다.');
+    // [PE-R5a-2/PE-M2] nail/sclera/brow 는 해당 보정 켤 때만 적용 → 조건부·영역별 문구로 오해 방지.
+    if (conf >= 0.7) return _row(region, 'strong', L.strong || (region.conditional ? '필요 시 정밀 적용' : '정밀 적용됨'), conf, _detail(row));
+    if (conf >= 0.4) return _row(region, 'weak', L.weak || (region.conditional ? '필요 시 약하게 적용' : '약하게 적용됨'), conf, _detail(row));
+    return _row(region, 'fallback', FB, conf, row.reason || '신뢰도가 낮아 기본 보정으로 처리합니다.');
   }
 
   function _detail(row) {
@@ -86,7 +91,7 @@
     const img = state && state.originalImg;
     const hasPhoto = !!img;
     const stats = _statsMap(img);
-    const flags = { all: _flag('PE_MASK_DISABLE'), nail: _flag('PE_NAIL_MASK_DISABLE'), sclera: _flag('PE_SCLERA_MASK_DISABLE') };
+    const flags = { all: _flag('PE_MASK_DISABLE'), nail: _flag('PE_NAIL_MASK_DISABLE'), sclera: _flag('PE_SCLERA_MASK_DISABLE'), brow: _flag('PE_BROW_MASK_DISABLE') };
     return {
       hasPhoto,
       providerReady: !!(window.RegionMaskProvider && window.RegionMaskProvider.isReady && window.RegionMaskProvider.isReady()),

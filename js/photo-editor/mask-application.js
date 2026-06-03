@@ -36,6 +36,11 @@
   const SCLERA_COV_MAX_DEFAULT = 0.03;  // 손/배경 오검출 거부. 눈 클로즈업 정상사진서 reject 시 PE_SCLERA_COV_MAX 로 0.05 까지 상향
   const SCLERA_CONF_MIN = 0.4;    // 미달 → 휴리스틱 유지
 
+  // PE-M2 — browMask 안전 게이트. 눈썹은 작으므로 coverage 범위 좁게. 미달 → 기존 eyeMask ROI fallback.
+  const BROW_COV_MIN = 0.0003;
+  const BROW_COV_MAX = 0.04;      // 과도(눈/이마 번짐 추정) → reject
+  const BROW_CONF_MIN = 0.4;
+
   function _disabled() {
     try {
       if (window.localStorage && localStorage.getItem('PE_MASK_DISABLE') === '1') return true;
@@ -197,6 +202,37 @@
     return { mask: r.mask, scale: _scaleOf('scleraMask', r.confidence || 0), confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
   }
 
+  // PE-M2 — browMask 전용 비상 off. disable 시 browSharp 는 기존 eyeMask 상단 ROI 경로 유지.
+  function _browDisabled() {
+    try {
+      if (window.localStorage && localStorage.getItem('PE_BROW_MASK_DISABLE') === '1') return true;
+    } catch (_e) { /* ignore */ }
+    return false;
+  }
+
+  // PE-M2 — browMask 안전 게이트. Tier2(landmark) + conf≥0.4 + coverage 범위. 미달 → null → 기존 fallback.
+  function _browGatePass(r) {
+    if (!r || r.status !== 'ready' || !r.mask) return false;
+    if (r.sourceTier !== 2) return false;
+    if ((r.confidence || 0) < BROW_CONF_MIN) return false;
+    const cov = r.coverage || 0;
+    if (cov < BROW_COV_MIN || cov > BROW_COV_MAX) return false;
+    return true;
+  }
+
+  // PE-M2 — browSharp 전용 browMask sync 조회. getScleraMaskSync 미러.
+  //   게이트 미통과/미캐시/disable → null → beauty-engine 이 기존 eyeMask 상단 ROI → 약한 전역 유지.
+  //   browMask 는 LAZY → 첫 호출 시 getCachedSync 가 백그라운드 계산 1회 트리거, 이후 캐시 read.
+  function getBrowMaskSync(img) {
+    if (!img) return null;
+    if (_disabled() || _browDisabled()) return null;
+    const RP = window.RegionMaskProvider;
+    if (!RP || typeof RP.getCachedSync !== 'function') return null;
+    const r = RP.getCachedSync(img, 'browMask');
+    if (!_browGatePass(r)) return null;
+    return { mask: r.mask, scale: _scaleOf('browMask', r.confidence || 0), confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
   // 디버그용 — 콘솔에서 확인 가능
   function explain(img) {
     return getMasksForBeauty(img).then(r => {
@@ -212,10 +248,12 @@
     getLashMaskSync,
     getNailMaskSync,
     getScleraMaskSync,
+    getBrowMaskSync,
     explain,
     V316_FIRST,
     _scaleOf,
     _nailGatePass,
     _scleraGatePass,
+    _browGatePass,
   };
 })();

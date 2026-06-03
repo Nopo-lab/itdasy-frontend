@@ -35,6 +35,7 @@
       if (regionType === 'lipMask') return 0.9;
       if (regionType === 'eyeMask') return 0.85;
       if (regionType === 'scleraMask') return 0.8;   // PE-M1 — eye 폴리곤−홍채 기하. 안정적이라 scale 1.0 (≥0.7)
+      if (regionType === 'browMask') return 0.75;     // PE-M2 — 눈썹 convex hull polygon
 
       if (regionType === 'skinMask') return r._subtracted ? 0.85 : 0.7;
       if (regionType === 'hairMask') return 0.5;          // foreheadTop polygon (approx)

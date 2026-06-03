@@ -72,7 +72,7 @@
   // precompute 대상 (가벼움)
   const PRECOMPUTE_REGIONS = ['skinMask', 'hairMask', 'lipMask', 'eyeMask', 'backgroundMask'];
   // lazy (호출 시점에 계산)
-  const LAZY_REGIONS = ['nailMask', 'handSkinMask', 'eyelashBandMask', 'hairBoundaryMask', 'scleraMask'];
+  const LAZY_REGIONS = ['nailMask', 'handSkinMask', 'eyelashBandMask', 'hairBoundaryMask', 'scleraMask', 'browMask'];
   const ALL_REGIONS = PRECOMPUTE_REGIONS.concat(LAZY_REGIONS);
 
   function _emptyResult(status, reason) {
@@ -388,6 +388,17 @@
             if (t && t.mask) { result = t; break; }
           }
           result = _emptyResult('fallback', 'sclera adapter unavailable or no iris(478) landmarks');
+          break;
+        }
+        case 'browMask': {
+          // PE-M2 — 눈썹 정밀 마스크 = 좌/우 눈썹 convex hull. 무거운 기하는 mask-brow-adapter 위임.
+          //   눈썹 랜드마크 부족/측면 → fallback → browSharp 는 기존 eyeMask 상단 ROI 유지.
+          const BA = window.MaskBrowAdapter;
+          if (BA && typeof BA.browMask === 'function') {
+            const t = await BA.browMask(img, _imgSize(img));
+            if (t && t.mask) { result = t; break; }
+          }
+          result = _emptyResult('fallback', 'brow adapter unavailable or no eyebrow landmarks');
           break;
         }
         default:
