@@ -42,7 +42,7 @@
       { id: 'shop-auto',     label: '우리 샵 자동', tab: 'auto' },
       { id: 'shop-hair',     label: '헤어 추천',    tab: 'beauty', beautyFocus: 'hair' },
       { id: 'shop-nail',     label: '네일 추천',    tab: 'beauty', beautyFocus: 'nail' },
-      { id: 'shop-template', label: '전후 추천',    tab: 'template' },
+      { id: 'shop-template', label: '시술 전후 추천', tab: 'template' },
     ]},
     { id: 'edit',     label: '편집', icon: 'adjustments', chips: [
       { id: 'edit-all',     label: '전체',      tab: 'tune' },
