@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-06-02 by Codex (W 시리즈 — 첫 경험 Instagram Ready 카드)
+**LAST UPDATED:** 2026-06-03 by Codex (PE-R2 사진편집 시작 화면 리뉴얼)
 
 bootstrap:OK @ 2026-05-21 02:05
 bootstrap:OK @ 2026-05-21 13:30
@@ -19,6 +19,33 @@ bootstrap:OK @ 2026-05-26 22:21
 bootstrap:OK @ 2026-05-27 02:12
 bootstrap:OK @ 2026-05-27 12:13
 bootstrap:OK @ 2026-06-02 22:24
+bootstrap:OK @ 2026-06-03 18:40
+bootstrap:OK @ 2026-06-03 20:01
+
+---
+
+## 2026-06-03 — PE-R2 사진편집 시작 화면 리뉴얼 (Codex)
+
+수정:
+- 사진 선택 전 첫 화면을 "사진 한 장으로 홍보 이미지 만들기" 중심으로 재정리.
+- 메인 버튼은 "사진 선택" 하나를 가장 크게 노출.
+- 보조 버튼은 "내 샵 추천 보기", "템플릿으로 만들기" 2개로 제한.
+- AI는 "AI 보정 베타 · 준비 중" 작은 진입만 표시.
+- 업종별 대표 카드 3개 이하로 정리.
+- 사진 선택 후에는 "바로 보정 / 템플릿에 넣기 / 저장하기" 3개 큰 버튼만 노출.
+
+확인:
+- 390×844 모바일에서 빈 화면/사진 선택 후 화면 깨짐 없음.
+- 바로 보정 → 편집, 템플릿에 넣기 → 템플릿, 저장하기 → 저장 연결 정상.
+- 하단 7개 메뉴 유지.
+- 저장/되돌리기 버튼 노출 유지.
+- pageerror 0.
+- `node --check`, 관련 파일 자동 검사, `npm run smoke`, `npm test -- --runInBand`, 공백 검사 통과.
+- 캡처: `output/playwright/pe-r2-empty-mobile.png`, `output/playwright/pe-r2-ready-mobile.png`.
+
+주의:
+- `beauty-engine.js`, `app-photo-editor-nav-v7.js`, `app-photo-editor.js`, `index.html`, `sw.js`, Meta/Instagram/예약/매출/백엔드/AI API/크레딧/Pro 미수정.
+- 기존 WIP diff가 남아 있으니 이번 PR에는 `app-photo-editor-entry-v6.js`, `css/screens/photo-editor-entry-v6.css` 중심으로 선별 필요.
 
 ---
 
@@ -40,6 +67,27 @@ bootstrap:OK @ 2026-06-02 22:24
 - `beauty-engine.js`, Meta/Instagram/OAuth 파일 미접촉.
 - `assistant-intent-router.js` 기존 WIP 보존.
 - 커밋 전 원영님 승인 대기.
+
+---
+
+## 2026-06-03 — PE-R1+PE-R3 사진편집 메뉴/라벨 정리 (Codex)
+
+수정:
+- 사진편집 하단 메뉴를 AI / 내 샵 / 편집 / 배경 / 템플릿 / 텍스트 / 저장 7개로 고정.
+- 헤어/뷰티/리터치/브랜드/B&A/셀렉티브 같은 중복 대메뉴 표기를 7개 구조 안으로 정리.
+- 머리 풍성감 → 모발 입체감, AI 추천 메이크업 → 추천 보정, AI 글로우 → 글로우 보정, 브랜드 → 샵 정보, B/A → 전후 비교, 셀렉티브 → 부분 보정으로 화면 이름 정리.
+- `beauty-engine.js`, `index.html`, `sw.js`, Meta/Instagram/예약/매출/백엔드 미수정.
+
+확인:
+- 모바일 390×844 기준 하단 7개 메뉴 한 줄 표시, 넘침 없음.
+- 각 메뉴 첫 버튼이 기존 기능으로 정상 연결됨.
+- 모발 입체감/추천 보정/샵 정보/전후 비교 라벨 확인.
+- 슬라이더 변경, 되돌리기, 저장 버튼 노출 확인.
+- `node --check`, 관련 파일 자동 검사, `npm run smoke`, `npm test -- --runInBand`, `npm run lint` 확인. 빨간 오류 0개, 기존 경고 66개.
+- 화면 캡처: `output/playwright/pe-r1-r3-mobile.png`.
+
+주의:
+- 현재 워크트리에는 이번 작업 전부터 `index.html`, `sw.js`, `app-core.js`, `app-customer.js`, `app-myshop-v3.js`, `css/screens/myshop-v3.css` 등 기존 변경이 있음. 이번 작업에서는 미접촉.
 
 ---
 

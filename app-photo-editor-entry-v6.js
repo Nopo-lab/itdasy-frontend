@@ -40,7 +40,6 @@
     'close':      '<svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   };
   function _ic(name) { return '<span class="pe-ic">' + (ICONS[name] || '') + '</span>'; }
-  function _circleIc(name) { return ICONS[name] || ''; }
 
   // ── 카드 → 기존 탭 매핑 ──────────────────────────
   const CARD_TO_TAB = {
@@ -82,8 +81,8 @@
     auto: '빠른 자동보정',
     film: '톤·필터',
     relight: '조명',
-    hair: '헤어 디테일',
-    detail: '디테일',
+    hair: '헤어 보정',
+    detail: '부위 보정',
     retouch: '잡티 지우기',
     save: '저장',
     bg: '배경·누끼',
@@ -91,11 +90,38 @@
     tune: '수동 보정',
     export: '사이즈',
     text: '텍스트',
-    brand: '브랜드',
+    brand: '샵 정보',
     brush: '잡티',
     template: '홍보 템플릿',
     pro: '고급',
-    ba: '비포/애프터',
+    ba: '전후 비교',
+  };
+  const SHOP_ENTRY = {
+    nail: {
+      label: '네일샵',
+      sub: '네일 보정과 홍보 템플릿을 먼저 보여드릴게요',
+      cards: [['detail', '네일 보정', '광택·손 피부톤'], ['template', '가격표 템플릿', '시술표 만들기'], ['template', '이벤트 템플릿', '이달의 디자인']]
+    },
+    hair: {
+      label: '헤어샵',
+      sub: '시술 전후와 스타일 피드에 맞춰 시작해요',
+      cards: [['hair', '헤어 보정', '윤기·모발 입체감'], ['ba', '전후 비교', '시술 변화 보여주기'], ['template', '후기 템플릿', '고객 후기 카드']]
+    },
+    skin: {
+      label: '피부관리샵',
+      sub: '전후 비교와 피부톤 보정을 먼저 추천해요',
+      cards: [['detail', '피부 보정', '톤·붉은기·결'], ['ba', '전후 비교', '관리 변화 보여주기'], ['template', '후기 템플릿', '리뷰 홍보 카드']]
+    },
+    lash: {
+      label: '속눈썹샵',
+      sub: '눈매 전후와 후기 카드에 맞춰 시작해요',
+      cards: [['detail', '눈·속눈썹', '눈빛·속눈썹 선명'], ['ba', '전후 비교', '시술 전후'], ['template', '후기 템플릿', '예약 유도 카드']]
+    },
+    common: {
+      label: '뷰티샵',
+      sub: '보정부터 템플릿까지 바로 이어서 만들어요',
+      cards: [['auto', '추천 보정', '샵 사진 빠른 정리'], ['template', '홍보 템플릿', '피드·스토리'], ['ba', '전후 비교', '변화 보여주기']]
+    }
   };
 
   function _esc(s) {
@@ -112,70 +138,68 @@
         </div>
       </div>`;
   }
-  function _buildCanvas(state) {
+  function _shopEntry() {
+    let raw = '';
+    try { raw = localStorage.getItem('shop_type') || ''; } catch (_e) { raw = ''; }
+    const norm = typeof window.itdasyNormalizeShopType === 'function' ? window.itdasyNormalizeShopType(raw) : null;
+    const cat = String((norm && (norm.cat || norm.id || norm.label)) || raw || '').toLowerCase();
+    if (/nail|네일/.test(cat)) return SHOP_ENTRY.nail;
+    if (/hair|헤어|두피/.test(cat)) return SHOP_ENTRY.hair;
+    if (/skin|피부|esthetic|에스테틱/.test(cat)) return SHOP_ENTRY.skin;
+    if (/lash|속눈썹/.test(cat)) return SHOP_ENTRY.lash;
+    return SHOP_ENTRY.common;
+  }
+  function _buildCanvas(state, compact) {
     const hasImg = !!(state && state.originalImg && state.originalImg.src);
     const previewSrc = hasImg ? (state._entryPreviewSrc || state.originalImg.src) : '';
-    return `<div class="pe-entry-canvas ${hasImg ? '' : 'empty'}">
+    return `<div class="pe-entry-canvas ${hasImg ? 'ready' : 'empty'} ${compact ? 'compact' : ''}">
         ${hasImg ? `<img src="${_esc(previewSrc)}" alt="편집 사진">` : ''}
-        <button type="button" class="pe-entry-pickbtn" data-pev6-act="pick">${hasImg ? '다른 사진' : '사진 고르기'}</button>
+        ${hasImg ? '<button type="button" class="pe-entry-pickbtn" data-pev6-act="pick">다른 사진</button>' : ''}
       </div>`;
   }
-  function _buildLargeCards() {
-    return `<div class="pe-sec-hd">빠르게 끝내기</div>
-      <div class="pe-card-grid-l">
-        <button type="button" class="pe-card-l" data-pev6-card="auto">
-          <span class="pe-badge ai" style="top:10px;right:10px">즉시</span>
-          ${_ic('wand')}
-          <div><div class="pe-title">빠른 자동보정</div><div class="pe-sub">밝기 · 컬러 · 잡티</div></div>
-        </button>
-        <button type="button" class="pe-card-l" data-pev6-card="film">
-          ${_ic('sparkles')}
-          <div><div class="pe-title">톤·필터</div><div class="pe-sub">살롱톤 · 네일샷</div></div>
-        </button>
-      </div>`;
-  }
-  function _buildMediumCards() {
-    return `<div class="pe-card-grid-m">
-        <button type="button" class="pe-card-m" data-pev6-card="bg">${_ic('eraser')}<div class="pe-title">배경·누끼</div></button>
-        <button type="button" class="pe-card-m" data-pev6-card="detail">${_ic('adjustments')}<div class="pe-title">디테일</div></button>
-        <button type="button" class="pe-card-m" data-pev6-card="text">${_ic('typography')}<div class="pe-title">텍스트</div></button>
-        <button type="button" class="pe-card-m" data-pev6-card="save">
-          <span class="pe-badge hot">Hot</span>${_ic('resize')}<div class="pe-title">저장</div>
-        </button>
-      </div>`;
-  }
-  function _toolItem(card, icon, label, badgeAi) {
-    const badge = badgeAi ? '<span class="pe-badge ai">AI</span>' : '';
-    return `<button type="button" class="pe-tool" data-pev6-card="${card}">
-        <div class="pe-tool-circle">${_circleIc(icon)}${badge}</div>
-        <span class="pe-tool-label">${label}</span>
+  function _actionButton(card, label, sub, kind) {
+    return `<button type="button" class="pe-entry-action ${kind || ''}" data-pev6-card="${_esc(card)}">
+        <strong>${_esc(label)}</strong><span>${_esc(sub)}</span>
       </button>`;
   }
-  function _buildTools() {
-    return `<div class="pe-sec-hd">자세히</div>
-      <div class="pe-card-grid-tools">
-        ${_toolItem('tune', 'adjustments', '수동 보정', false)}
-        ${_toolItem('relight', 'sparkles', '조명', false)}
-        ${_toolItem('retouch', 'droplet', '잡티', false)}
-        ${_toolItem('template', 'frame', '템플릿', false)}
-        ${_toolItem('ba', 'arrows-lr', '전후', false)}
-        ${_toolItem('hair', 'stack', '헤어', false)}
-        ${_toolItem('brand', 'sticker', '브랜드', false)}
-        ${_toolItem('pro', 'bookmark', '고급', false)}
-      </div>`;
+  function _buildEmptyStart(profile) {
+    const cards = profile.cards.slice(0, 3).map(c => _actionButton(c[0], c[1], c[2], 'recommend')).join('');
+    return `<section class="pe-entry-start">
+        <div class="pe-entry-copy">
+          <span class="pe-entry-kicker">${_esc(profile.label)} 추천 시작</span>
+          <h2>사진 한 장으로 홍보 이미지 만들기</h2>
+          <p>${_esc(profile.sub)}</p>
+        </div>
+        ${_buildCanvas({}, false)}
+        <button type="button" class="pe-entry-main-cta" data-pev6-act="pick">${_ic('sparkles')}사진 선택</button>
+        <div class="pe-entry-secondary">
+          ${_actionButton('auto', '내 샵 추천 보기', '추천 보정으로 시작', 'secondary')}
+          ${_actionButton('template', '템플릿으로 만들기', '피드·스토리 카드', 'secondary')}
+        </div>
+        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">AI 보정 베타 · 준비 중</button>
+        <div class="pe-entry-recommend">${cards}</div>
+      </section>`;
   }
-  function _buildFav() {
-    return '';
-  }
-  function _buildPresetCards(state) {
-    if (window.PhotoEditorPresetCards && typeof window.PhotoEditorPresetCards.entryHTML === 'function') {
-      return window.PhotoEditorPresetCards.entryHTML(state);
-    }
-    return '';
+  function _buildReadyStart(state, profile) {
+    return `<section class="pe-entry-start ready">
+        <div class="pe-entry-copy">
+          <span class="pe-entry-kicker">${_esc(profile.label)} 사진 준비됨</span>
+          <h2>다음 작업을 골라주세요</h2>
+          <p>보정, 템플릿, 저장 중 하나로 바로 이어갈 수 있어요</p>
+        </div>
+        ${_buildCanvas(state, true)}
+        <div class="pe-entry-quick">
+          ${_actionButton('tune', '바로 보정', '편집 메뉴로 이동', 'quick')}
+          ${_actionButton('template', '템플릿에 넣기', '홍보물 만들기', 'quick')}
+          ${_actionButton('save', '저장하기', '저장 메뉴로 이동', 'quick')}
+        </div>
+        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">AI 보정 베타 · 준비 중</button>
+      </section>`;
   }
   function _buildHTML(state) {
-    return _buildHeader() + _buildCanvas(state) + _buildPresetCards(state) + _buildLargeCards()
-      + _buildMediumCards() + _buildTools() + _buildFav();
+    const profile = _shopEntry();
+    const hasImg = !!(state && state.originalImg && state.originalImg.src);
+    return _buildHeader() + (hasImg ? _buildReadyStart(state, profile) : _buildEmptyStart(profile));
   }
 
   function _ensureEntry() {
@@ -212,6 +236,10 @@
           const undo = document.querySelector('#photoEditorSheet [data-pe-act="undo"]');
           if (undo) undo.click();
         }, 50);
+        return;
+      }
+      if (a === 'ai-beta') {
+        if (window.showToast) window.showToast('AI 보정 베타는 준비 중이에요. 지금은 추천 보정을 먼저 써보세요');
         return;
       }
     }

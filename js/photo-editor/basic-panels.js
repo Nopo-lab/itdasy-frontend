@@ -1,4 +1,4 @@
-/* 사진 편집기 — 기본 화면 패널 (자동/보정/배경/텍스트/브랜드/저장) */
+/* 사진 편집기 — 기본 화면 패널 (자동/보정/배경/텍스트/샵 정보/저장) */
 (function () {
   'use strict';
 
@@ -208,7 +208,7 @@
       <div class="pe-field-label">위치</div>
       <div class="pe-panel-row pe-panel-grid-4">${['tl','tr','bl','br'].map(p => _chip(h, 'wm-pos', p, sym[p], w.position === p)).join('')}</div>
       <label class="pe-slider"><div class="pe-slider-head"><span>투명도</span><span class="pe-slider-val">${Math.round(w.opacity * 100)}%</span></div><input type="range" min="20" max="100" value="${Math.round(w.opacity * 100)}" data-pe-wm-opacity /></label>
-      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn" data-pe-wm-save>기본값으로 저장</button><button type="button" class="pe-chip-btn" data-pe-wm-kit>Brand Kit 전체 설정</button></div>`;
+      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:8px;"><button type="button" class="pe-chip-btn" data-pe-wm-save>기본값으로 저장</button><button type="button" class="pe-chip-btn" data-pe-wm-kit>샵 정보 전체 설정</button></div>`;
   }
 
   function _panelExport(state, h) {
@@ -434,7 +434,7 @@
 
   function _openBrandKit(h) {
     if (window.BrandKit && typeof window.BrandKit.open === 'function') window.BrandKit.open();
-    else _toast(h, 'Brand Kit 모듈을 불러오는 중이에요');
+    else _toast(h, '샵 정보 모듈을 불러오는 중이에요');
   }
 
   function _bindBrandKitSync(state, h) {

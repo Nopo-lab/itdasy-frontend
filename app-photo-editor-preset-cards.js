@@ -10,7 +10,7 @@
     { id: 'skin-care', label: '피부 보정', tab: 'beauty' },
     { id: 'ba', label: '전후 템플릿', tab: 'template' },
     { id: 'filter', label: '색감 보정', tab: 'film' },
-    { id: 'retouch', label: '리터치', tab: 'beauty' },
+    { id: 'retouch', label: '부분 보정', tab: 'beauty' },
     { id: 'promo', label: '홍보', tab: 'template' },
   ];
   const PRESETS = [
@@ -25,15 +25,15 @@
     { id: 'soft-glow', label: '부드러운 광채', category: 'skin-care', beautyFocus: 'makeup', tone: 'linear-gradient(145deg,#fff,#f3d7e8)', adjust: { brightness: 112, saturate: 104, sharpness: 10, temperature: -2 }, beauty: { skin: 28, redness: 28, blemish: 20, textureSmooth: 20, lipPop: 16, catchLight: 18 } },
     { id: 'clear-detail', label: '또렷한 선명', category: 'filter', tone: 'linear-gradient(145deg,#e9eef4,#9ca8b8)', adjust: { brightness: 103, saturate: 108, sharpness: 34, temperature: 0 }, relight: { ambientBoost: 8, intensity: 8 } },
     { id: 'vintage-mood', label: '빈티지 무드', category: 'filter', tone: 'linear-gradient(145deg,#f8d9be,#65758c)', adjust: { brightness: 104, saturate: 116, sharpness: 8, temperature: 10 }, film: { presetId: 'cream', strength: 58 } },
-    { id: 'ai-glow', label: '글로우 리터치', category: 'retouch', beautyFocus: 'skin', tone: 'linear-gradient(145deg,#fff6cf,#eec0cc)', adjust: { brightness: 111, saturate: 106, sharpness: 8, temperature: 4 }, beauty: { skin: 30, redness: 22, blemish: 28, textureSmooth: 26, catchLight: 20 } },
+    { id: 'ai-glow', label: '글로우 보정', category: 'retouch', beautyFocus: 'skin', tone: 'linear-gradient(145deg,#fff6cf,#eec0cc)', adjust: { brightness: 111, saturate: 106, sharpness: 8, temperature: 4 }, beauty: { skin: 30, redness: 22, blemish: 28, textureSmooth: 26, catchLight: 20 } },
   ];
   // v326 — tier: 'free'|'pro' 마킹 + BA 시리즈 일부 노출
   const TEMPLATE_CARDS = [
     // BA 그룹 (free 5 / pro 1) — 부위별 시리즈 + 기존 폴라로이드 + 에디토리얼(pro)
-    { id: 'ba-hair-cream',    label: '헤어 전후 (크림)',  sub: 'Hair B/A',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
-    { id: 'ba-nail-cream',    label: '네일 전후 (크림)',  sub: 'Nail B/A',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
-    { id: 'ba-lash-polaroid', label: '속눈썹 전후 (폴라)', sub: 'Lash B/A',    style: 'polaroid', group: 'ba', type: 'ba', tier: 'free' },
-    { id: 'ba-skin-cream',    label: '피부 전후 (크림)',  sub: 'Skin B/A',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-hair-cream',    label: '헤어 전후 (크림)',  sub: '헤어 전후',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-nail-cream',    label: '네일 전후 (크림)',  sub: '네일 전후',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-lash-polaroid', label: '속눈썹 전후 (폴라)', sub: '속눈썹 전후', style: 'polaroid', group: 'ba', type: 'ba', tier: 'free' },
+    { id: 'ba-skin-cream',    label: '피부 전후 (크림)',  sub: '피부 전후',    style: 'cream',    group: 'ba', type: 'ba', tier: 'free' },
     { id: 'ba-polaroid',      label: '폴라로이드 전후',   sub: '인스타 피드',  style: 'polaroid', group: 'ba', type: 'ba', tier: 'free' },
     { id: 'ba-editorial',     label: '에디토리얼 전후',   sub: '잡지 느낌',    style: 'editorial', group: 'ba', type: 'ba', tier: 'pro'  },
     // 홍보 그룹 (free 4 / pro 2)

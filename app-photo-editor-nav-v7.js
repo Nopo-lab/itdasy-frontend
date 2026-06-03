@@ -33,46 +33,44 @@
   // ── 카테고리 + 서브칩 정의 ─────────────────────────────
   // 서브칩 → 기존 탭(tab) + (옵션) beautyFocus 매핑
   const CATEGORIES = [
-    { id: 'scene',    label: '장면', icon: 'sparkles', chips: [
-      { id: 'auto',         label: '자동',     tab: 'auto' },
-      { id: 'film',         label: '필름',     tab: 'film' },
-      { id: 'relight',      label: '조명',     tab: 'relight' },
+    { id: 'ai',       label: 'AI', icon: 'sparkles', chips: [
+      { id: 'ai-tools',     label: 'AI 도구',   tab: 'ai' },
+      { id: 'ai-reco',      label: '추천 보정', tab: 'beauty' },
+      { id: 'ai-ready',     label: '준비 중',   tab: 'ai' },
+    ]},
+    { id: 'shop',     label: '내 샵', icon: 'wand', chips: [
+      { id: 'shop-auto',     label: '우리 샵 자동', tab: 'auto' },
+      { id: 'shop-hair',     label: '헤어 추천',    tab: 'beauty', beautyFocus: 'hair' },
+      { id: 'shop-nail',     label: '네일 추천',    tab: 'beauty', beautyFocus: 'nail' },
+      { id: 'shop-template', label: '전후 추천',    tab: 'template' },
     ]},
     { id: 'edit',     label: '편집', icon: 'adjustments', chips: [
-      { id: 'tune',         label: '보정',     tab: 'tune' },
-      { id: 'crop',         label: '자르기',   tab: 'export' },
-      { id: 'pro',          label: '프로',     tab: 'pro' },
+      { id: 'edit-all',     label: '전체',      tab: 'tune' },
+      { id: 'edit-skin',    label: '피부',      tab: 'beauty', beautyFocus: 'skin' },
+      { id: 'edit-eye-lip', label: '눈·입술',   tab: 'beauty', beautyFocus: 'makeup' },
+      { id: 'edit-hair',    label: '헤어',      tab: 'beauty', beautyFocus: 'hair' },
+      { id: 'edit-hand',    label: '손·네일',   tab: 'beauty', beautyFocus: 'nail' },
+      { id: 'edit-part',    label: '부분 보정', tab: 'selective' },
     ]},
-    { id: 'retouch',  label: '리터치', icon: 'droplet', chips: [
-      { id: 'beauty',       label: '뷰티',     tab: 'beauty' },
-      { id: 'brush',        label: '잡티',     tab: 'brush' },
-      { id: 'selective',    label: '셀렉티브', tab: 'selective' },
-      { id: 'ai',           label: 'AI',       tab: 'ai' },
+    { id: 'bg',       label: '배경', icon: 'frame', chips: [
+      { id: 'bg-blur',      label: '배경 흐림', tab: 'bg' },
+      { id: 'bg-select',    label: '배경 선택', tab: 'bg' },
+      { id: 'bg-cutout',    label: '누끼',      tab: 'bg' },
     ]},
-    { id: 'hair',     label: '헤어', icon: 'stack', chips: [
-      { id: 'hair-detail',  label: '디테일',   tab: 'beauty', beautyFocus: 'hair' },
-      { id: 'hair-volume',  label: '풍성',     tab: 'beauty', beautyFocus: 'hair' },
-      { id: 'hair-color',   label: '컬러',     tab: 'beauty', beautyFocus: 'hair' },
-    ]},
-    { id: 'makeup',   label: '뷰티', icon: 'wand', chips: [
-      { id: 'makeup-lip',   label: '입술',     tab: 'beauty', beautyFocus: 'makeup' },
-      { id: 'makeup-eye',   label: '아이',     tab: 'beauty', beautyFocus: 'makeup' },
-      { id: 'makeup-glow',  label: '광채',     tab: 'beauty', beautyFocus: 'makeup' },
-    ]},
-    { id: 'template', label: '템플릿', icon: 'frame', chips: [
-      { id: 'tpl-ba',       label: '전후',     tab: 'ba' },
-      { id: 'tpl-feed',     label: '피드',     tab: 'template' },
-      { id: 'tpl-story',    label: '스토리',   tab: 'template' },
-      { id: 'tpl-price',    label: '가격',     tab: 'template' },
-      { id: 'tpl-bg',       label: '배경',     tab: 'bg' },
+    { id: 'template', label: '템플릿', icon: 'stack', chips: [
+      { id: 'tpl-ba',       label: '전후 비교', tab: 'ba' },
+      { id: 'tpl-feed',     label: '피드',      tab: 'template' },
+      { id: 'tpl-story',    label: '스토리',    tab: 'template' },
+      { id: 'tpl-price',    label: '가격표',    tab: 'template' },
     ]},
     { id: 'text',     label: '텍스트', icon: 'typography', chips: [
-      { id: 'text-add',     label: '텍스트',   tab: 'text' },
-      { id: 'text-brand',   label: '브랜드',   tab: 'brand' },
+      { id: 'text-add',     label: '텍스트',  tab: 'text' },
+      { id: 'text-brand',   label: '샵 정보', tab: 'brand' },
     ]},
     { id: 'export',   label: '저장', icon: 'resize', chips: [
-      { id: 'export-ratio', label: '비율',     tab: 'export' },
-      { id: 'export-save',  label: '내보내기', tab: 'export' },
+      { id: 'export-ratio', label: '비율',        tab: 'export' },
+      { id: 'export-save',  label: '저장',        tab: 'export' },
+      { id: 'export-set',   label: '피드/스토리', tab: 'export' },
     ]},
   ];
 
@@ -95,8 +93,8 @@
   }
 
   // ── 상태 ──────────────────────────────────────────────
-  let _activeCategory = 'scene';
-  let _activeChip = 'auto';
+  let _activeCategory = 'shop';
+  let _activeChip = 'shop-auto';
   let _mounted = false;
 
   function _query(qs) {

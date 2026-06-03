@@ -22,12 +22,12 @@
     nailShape:     { label: '네일 경계 선명',  group: 'hand', min: 0,   max: 100, step: 1 },
     // 모발
     hairShine:     { label: '모발 윤기',       group: 'hair', min: 0,   max: 100, step: 1 },
-    hairVolume:    { label: '머리 풍성감',     group: 'hair', min: 0,   max: 100, step: 1 },
+    hairVolume:    { label: '모발 입체감',     group: 'hair', min: 0,   max: 100, step: 1 },
     hairEndsClean: { label: '머리끝 정리',     group: 'hair', min: 0,   max: 100, step: 1 },
     hairColor:     { label: '모발 색감 (- 차가운 / + 따뜻)', group: 'hair', min: -50, max: 50, step: 1 },
     hairDetail:    { label: '머리결 선명도 (전체)', group: 'hair', min: 0,   max: 100, step: 1 },
     hairColorPop:  { label: '염색 컬러 강조',  group: 'hair', min: 0,   max: 100, step: 1 },
-    scalpBoost:    { label: '두피 톤 (풍성감)', group: 'hair', min: 0,   max: 100, step: 1 },
+    scalpBoost:    { label: '두피 톤 보정',    group: 'hair', min: 0,   max: 100, step: 1 },
     hairyArm:      { label: '팔/다리 톤 보정', group: 'face', min: 0, max: 100, step: 1 },
     // 속눈썹
     eyeRedness:    { label: '눈 붉음 완화',     group: 'lash', min: 0,   max: 100, step: 1 },
@@ -51,14 +51,14 @@
   };
 
   const AI_FEATURES = {
-    hair:   ['컬·웨이브 또렷하게', '잔머리 정리', '볼륨/풍성함 강화', '두피·정수리 휑함 완화', '붙임머리 결합부 자연스럽게'],
-    scalp:  ['두피 휑함 자연 보완', '잔모 강조', 'AI 모발 풍성함'],
-    makeup: ['AI 메이크업 가상 시술', '발색 자연 보강', '얼굴 부위 자동 마스크'],
+    hair:   ['컬·웨이브 또렷하게', '잔머리 정리', '모발 입체감 강화', '두피·정수리 휑함 완화', '붙임머리 결합부 자연스럽게'],
+    scalp:  ['두피 휑함 자연 보완', '잔모 강조', '모발 입체감 보정'],
+    makeup: ['추천 보정', '발색 자연 보강', '얼굴 부위 자동 마스크'],
     lash:   ['빈 부분 자연스럽게 보완', '연장 결합부 정리'],
     nail:   ['큐티클·주변부 정리', '컬러 정확도 보정', '배경 깔끔화'],
     wax:    ['부위 강조 자동', '결 자연 보정 (강도)'],
-    skin:   ['자극 부위 자연 복원', '잡티 완화 (AI)'],
-    general: ['AI 일반 보정 보강'],
+    skin:   ['자극 부위 자연 복원', '잡티 완화 보강'],
+    general: ['추천 보정 보강'],
   };
   const BEAUTY_LOOKS = [
     { id: 'classic', label: '클래식 모드', cat: 'general', icon: '◉', patch: { skin: 16, redness: 18, textureSmooth: 12 } },
@@ -70,7 +70,7 @@
     { id: 'hair', label: '헤어 컬러', cat: 'hair', icon: '⌁', patch: { hairShine: 48, hairDetail: 34, hairColorPop: 30, hairVolume: 18 } },
     { id: 'lash', label: '속눈썹', cat: 'lash', icon: '⌕', patch: { lashSharp: 52, irisClear: 30, catchLight: 26, underEyeClean: 18 } },
     { id: 'nail', label: '네일', cat: 'nail', icon: '◧', patch: { nailGloss: 58, nailShape: 40, handSkin: 18, coolness: 18 } },
-    { id: 'glow', label: 'AI 글로우', cat: 'skin', icon: '✧', patch: { skin: 24, redness: 22, blemish: 18, catchLight: 26 } },
+    { id: 'glow', label: '글로우 보정', cat: 'skin', icon: '✧', patch: { skin: 24, redness: 22, blemish: 18, catchLight: 26 } },
   ];
   const BEAUTY_FOCUS = [
     { id: 'general', label: 'Hot🔥' },

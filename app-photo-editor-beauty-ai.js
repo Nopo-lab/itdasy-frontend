@@ -1,4 +1,4 @@
-/* 사진 편집기 — AI 메이크업 추천 버튼
+/* 사진 편집기 — 추천 보정 버튼
    기존 뷰티 슬라이더 위에 1탭 레시피만 추가한다. */
 (function () {
   'use strict';
@@ -115,7 +115,7 @@
     if (panel) _applyInputs(panel, recipe.patch);
     api.helpers && api.helpers.scheduleRedraw && api.helpers.scheduleRedraw();
     api.helpers && api.helpers.pushHistory && api.helpers.pushHistory();
-    if (api.helpers && api.helpers.toast) api.helpers.toast(recipe.note || ('AI 추천: ' + recipe.label));
+    if (api.helpers && api.helpers.toast) api.helpers.toast(recipe.note || ('추천 보정: ' + recipe.label));
     return true;
   }
 
@@ -129,7 +129,7 @@
     const html = Object.keys(RECIPES).map(id => _chip(id, RECIPES[id], id === selected)).join('');
     const box = document.createElement('div');
     box.dataset.beautyAiWrap = '1';
-    box.innerHTML = `<div class="pe-group-label" style="color:#7C3AED;font-weight:800;">AI 추천 메이크업</div>
+    box.innerHTML = `<div class="pe-group-label" style="color:#7C3AED;font-weight:800;">추천 보정</div>
       <div style="display:flex;gap:6px;overflow-x:auto;margin:6px 0 10px;">${html}</div>`;
     panel.insertBefore(box, panel.firstChild);
     box.addEventListener('click', e => {

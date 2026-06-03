@@ -2,7 +2,124 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-06-02 · W 시리즈 첫 경험 구현 완료
+**LAST UPDATED:** 2026-06-03 · PE-R2 사진편집 시작 화면 리뉴얼 완료
+
+---
+
+## 🟣 2026-06-03 — PE-R2 사진편집 시작 화면 리뉴얼 완료
+
+배경: 원영님 승인. PE-R2 범위는 사진 선택 전 empty state 리뉴얼 + 사진 선택 후 quick action 3개 + 업종별 대표 카드 최대 3개.
+
+완료:
+- 사진 선택 전 첫 화면을 "사진 한 장으로 홍보 이미지 만들기" 중심으로 정리.
+- 메인 CTA를 "사진 선택" 하나로 크게 노출.
+- 보조 CTA는 "내 샵 추천 보기", "템플릿으로 만들기" 2개로 제한.
+- AI는 "AI 보정 베타 · 준비 중" 작은 진입으로만 표시. 실제 생성형 API처럼 과장하지 않음.
+- 업종별 추천 카드는 entry 파일 안 작은 상수로 처리:
+  - 네일샵: 네일 보정 / 가격표 템플릿 / 이벤트 템플릿
+  - 헤어샵: 헤어 보정 / 전후 비교 / 후기 템플릿
+  - 피부관리샵: 피부 보정 / 전후 비교 / 후기 템플릿
+  - 속눈썹샵: 눈·속눈썹 / 전후 비교 / 후기 템플릿
+  - 기본 뷰티샵: 추천 보정 / 홍보 템플릿 / 전후 비교
+- 사진 선택 후에는 "바로 보정 / 템플릿에 넣기 / 저장하기" 3개 큰 버튼만 노출.
+- 3개 버튼 연결:
+  - 바로 보정 → 기존 편집 탭(tune)
+  - 템플릿에 넣기 → 기존 템플릿 탭(template)
+  - 저장하기 → 기존 저장 탭(export)
+
+수정 파일:
+- `app-photo-editor-entry-v6.js`
+- `css/screens/photo-editor-entry-v6.css`
+
+확인:
+- 390×844 모바일에서 빈 화면 깨짐 없음.
+- "사진 선택" CTA가 가장 크게 보임.
+- 사진 선택 전 보조 CTA 2개, 업종 추천 카드 3개 유지.
+- 사진 선택 후 quick action 3개 정상 표시.
+- 하단 7개 메뉴 유지.
+- 바로 보정/템플릿에 넣기/저장하기 연결 정상.
+- 저장/되돌리기 버튼 노출 유지, history cursor 회귀 없음.
+- pageerror 0.
+- `node --check app-photo-editor-entry-v6.js` 통과.
+- 관련 파일 자동 검사 통과.
+- `npm run smoke` 통과: 227 scripts.
+- `npm test -- --runInBand` 통과: 테스트 파일 없음.
+- 공백 검사 통과.
+- 캡처:
+  - `output/playwright/pe-r2-empty-mobile.png`
+  - `output/playwright/pe-r2-ready-mobile.png`
+
+주의:
+- `beauty-engine.js` 미수정.
+- `app-photo-editor-nav-v7.js` 재변경 없음.
+- `app-photo-editor.js`, `index.html`, `sw.js`, Meta/Instagram/예약/매출/백엔드/AI API/크레딧/Pro 미수정.
+- 현재 워크트리에는 작업 전부터 `app-photo-editor-nav-v7.js`, `app-photo-editor.js`, `index.html`, `sw.js` 등 기존 변경이 남아 있음. 이번 PR에는 PE-R2 범위 파일만 선별 필요.
+
+---
+
+## 🟣 2026-06-03 — PE-R1+PE-R3 사진편집 메뉴/라벨 정리 완료
+
+배경: 원영님 승인. 첫 PR 범위를 PE-R1 하단 메뉴 7개 구조 정리 + PE-R3 중복 제거/라벨 정직화로 제한.
+
+완료:
+- 하단 메뉴를 AI / 내 샵 / 편집 / 배경 / 템플릿 / 텍스트 / 저장 7개로 고정.
+- 헤어/뷰티/리터치 등 중복 대메뉴를 제거하고, 기존 기능은 새 7개 구조 안의 소분류로 연결.
+- 내 샵은 기능 복제가 아니라 우리 샵 자동/헤어 추천/네일 추천/전후 추천 진입점으로 구성.
+- 편집 소분류는 전체/피부/눈·입술/헤어/손·네일/부분 보정으로 정리.
+- 라벨 정직화:
+  - 머리 풍성감 → 모발 입체감
+  - AI 추천 메이크업 → 추천 보정
+  - AI 글로우 → 글로우 보정
+  - 브랜드 → 샵 정보
+  - B/A → 전후 비교
+  - 셀렉티브 → 부분 보정
+- 기존 내부 key/param 은 유지.
+
+수정 파일:
+- `app-photo-editor-nav-v7.js`
+- `app-photo-editor-beauty.js`
+- `app-photo-editor-beauty-ai.js`
+- `app-photo-editor-preset-cards.js`
+- `app-photo-editor-entry-v6.js`
+- `app-photo-editor.js`
+- `js/photo-editor/basic-panels.js`
+- `css/screens/photo-editor-nav-v7.css`
+
+확인:
+- 모바일 390×844 기준 하단 7개 메뉴 한 줄 표시, 넘침 없음.
+- 각 메뉴 첫 버튼이 기존 기능으로 정상 연결됨.
+- 모발 입체감/추천 보정/샵 정보/전후 비교 라벨 확인.
+- 슬라이더 변경, 되돌리기, 저장 버튼 노출 확인.
+- `node --check` 통과.
+- 관련 파일 자동 검사 통과: 오류 0, `app-photo-editor-beauty.js` 기존 긴 함수 경고 1개.
+- `npm run smoke` 통과: 227 scripts, build `20260602-v389-ig-report-hydrate`.
+- `npm test -- --runInBand` 통과: 테스트 파일 없음.
+- `npm run lint` 통과 경로 확인: 오류 0, 기존 경고 66개.
+- pageerror 0.
+- 캡처: `output/playwright/pe-r1-r3-mobile.png`.
+
+주의:
+- `beauty-engine.js` 미수정.
+- `index.html`, `sw.js`, Meta/Instagram, 예약/매출, 백엔드, AI API/크레딧/Pro 연결 미수정.
+- 현재 워크트리에 `index.html`, `sw.js`, `app-core.js`, `app-customer.js`, `app-myshop-v3.js`, `css/screens/myshop-v3.css` 등 기존 변경이 남아 있음. 이번 작업에서는 건드리지 않음.
+- 다음 권장 순서: PE-R2 사진 선택창 리뉴얼.
+
+---
+
+## 🟣 2026-06-03 — 사진편집 출시 전 리뉴얼 계획 정리
+
+배경: 원영님 요청. PE 시리즈 엔진 안정화 이후, 출시 전 사진편집기 화면 구조/하단 메뉴/템플릿/AI 도입 계획을 정리.
+
+확인:
+- 현재 사진편집 하단은 기본 탭 15개, nav-v7 기준 8개 큰 메뉴로 나뉘어 있어 7개 구조로 재정리 필요.
+- 첫 화면은 프리셋/템플릿 카드가 이미 있으나, "사진 한 장 → 홍보물 완성" 느낌을 더 강하게 보여줘야 함.
+- 템플릿 데이터는 전후/피드/스토리/가격표/명함/이벤트와 Free/Pro 구분이 이미 있어, 디자인 고도화와 적용 흐름 정리가 우선.
+- AI API 파일은 업스케일/배경 생성/오브젝트 제거 중심이라, 네일 홍보컷/헤어 볼륨/피부 정리/잔털 정리는 별도 client/API 설계 필요.
+- `beauty-engine.js`는 안정화 완료로 보고 직접 수정하지 않는 방향 유지.
+
+주의:
+- 제품 파일은 수정하지 않음.
+- `.ai/BOARD.md`에는 bootstrap 기록만 추가.
 
 ---
 
