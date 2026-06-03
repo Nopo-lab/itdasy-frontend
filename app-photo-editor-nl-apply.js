@@ -13,7 +13,7 @@
     { label: '조정', items: ['더 밝게', '덜 과하게', '따뜻한 톤으로', '원래대로'] },
   ];
 
-  function _html() {
+  function _html(state) {
     var chips = EXAMPLE_GROUPS.map(function (g) {
       var btns = g.items.map(function (x) {
         return '<button type="button" class="pe-chip-btn" data-pe-nl-example="' + _esc(x) + '">' + _esc(x) + '</button>';
@@ -21,8 +21,10 @@
       return '<div class="pe-nl-group"><span class="pe-nl-group-label">' + _esc(g.label) + '</span>' +
         '<div class="pe-nl-group-chips">' + btns + '</div></div>';
     }).join('');
+    var maskStatus = window.MaskStatusUI && typeof window.MaskStatusUI.html === 'function'
+      ? window.MaskStatusUI.html(state) : '';
 
-    return '<label class="pe-field"><span>잇비에게 말하기</span>' +
+    return maskStatus + '<label class="pe-field"><span>잇비에게 말하기</span>' +
       '<textarea class="pe-input" data-pe-nl-text rows="3" maxlength="200" placeholder="예: 머리 풍성하게 해줘, 누끼 핑크색으로"></textarea></label>' +
       '<div class="pe-nl-examples" style="margin-top:8px;max-height:220px;overflow-y:auto;">' + chips + '</div>' +
       '<div class="pe-panel-row" style="margin-top:10px;"><button type="button" class="pe-action-btn" data-pe-nl-run>적용하기</button></div>' +
@@ -30,6 +32,9 @@
   }
 
   function _bind(panel, state, helpers) {
+    if (window.MaskStatusUI && typeof window.MaskStatusUI.bind === 'function') {
+      window.MaskStatusUI.bind(panel, state, helpers);
+    }
     panel.querySelectorAll('[data-pe-nl-example]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var input = panel.querySelector('[data-pe-nl-text]');
