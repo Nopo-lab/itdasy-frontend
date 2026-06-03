@@ -25,7 +25,8 @@
   function _panelHTML() {
     const ba = _baState;
     return `
-      <div class="pe-field-label">Before / After 비교</div>
+      <div class="pe-field-label">보정 전후 / 원본 비교</div>
+      <p class="pe-hint" style="margin:2px 0 8px;">보정 전후·원본을 나란히 보는 도구예요. (시술 전후 홍보물은 템플릿 탭의 ‘시술 전후’를 쓰세요)</p>
       <div class="pe-panel-row">
         <button type="button" class="pe-action-btn" data-ba-pick>📷 비교할 사진 고르기 (${ba.secondImg ? '선택됨 ✓' : '미선택'})</button>
       </div>
@@ -419,7 +420,7 @@
       baBtn.type = 'button';
       baBtn.className = 'pe-tab';
       baBtn.dataset.peTab = 'ba';
-      baBtn.textContent = 'B/A 비교';
+      baBtn.textContent = '보정 비교';
       if (templateTab) tabsNav.insertBefore(baBtn, templateTab);
       else tabsNav.appendChild(baBtn);
     }

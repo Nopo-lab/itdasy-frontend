@@ -47,9 +47,9 @@
       'price-lash': () => _drawPriceTable(ctx, dw, dh, '속눈썹 메뉴', accent, shopName, _menu(['풀세트 / 80,000원','리터치 / 45,000원','클렌징 / 15,000원','제거 / 10,000원'])),
       'price-makeup': () => _drawPriceTable(ctx, dw, dh, '메이크업 메뉴', accent, shopName, _menu(['데일리 / 60,000원','파티 / 90,000원','웨딩 / 200,000원','촬영 / 120,000원'])),
       'price-wax': () => _drawPriceTable(ctx, dw, dh, '왁싱 메뉴', accent, shopName, _menu(['브라질리언 / 60,000원','다리 / 50,000원','얼굴 / 25,000원','겨드랑이 / 20,000원'])),
-      'ba-cream': () => _drawBACream(ctx, dw, dh, head, accent, shopName),
-      'ba-sage': () => _drawBASage(ctx, dw, dh, head, accent, shopName),
-      'ba-dark': () => _drawBADark(ctx, dw, dh, head, accent, shopName),
+      // [UX-BA-2 P1] ba-cream/sage/dark 는 dispatch 에서 제거 → 아래 /^ba-/ 위임으로 BACompose 렌더.
+      //   기존 _drawBACream/Sage/Dark 는 사진 없이 빈 프레임만 그려, "시술 전후" 추천인데 편집 사진이
+      //   After 에 안 들어가던 문제(redRatio 0) 수정. (구 함수는 잔존하나 미참조 — varsIgnorePattern ^_ 로 lint-safe)
       'card-minimal': () => _drawCardMinimal(ctx, dw, dh, head, accent, shopName),
       'card-gold': () => _drawCardGold(ctx, dw, dh, head, accent, shopName),
       'card-pink': () => _drawCardPink(ctx, dw, dh, head, accent, shopName),

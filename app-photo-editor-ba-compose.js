@@ -18,6 +18,10 @@
     ctx.closePath();
   }
 
+  // [UX-BA-2] 시술 전 사진(secondImg) 없으면 true → before 슬롯을 가짜 흑백 대신 placeholder 로.
+  //   draw() 진입마다 갱신. 썸네일(null state)·미리보기·실제 적용 모두 동일 정책.
+  let _hasBefore = false;
+
   const LABELS = {
     'ba-flower-shadow': ['Before', 'After'],
     'ba-polaroid': ['Before', 'After'],
@@ -32,8 +36,9 @@
   };
 
   function draw(ctx, w, h, state, tpl, data) {
+    _hasBefore = !!(state && state.secondImg);   // [UX-BA-2] 시술 전 사진 유무
     const after = _copyCanvas(ctx.canvas);
-    const before = _beforeCanvas(state, after);
+    const before = _beforeCanvas(state, after);   // secondImg 있을 때만 실제 사용 (없으면 placeholder)
     ctx.save();
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = _bg(tpl);
@@ -174,7 +179,39 @@
     _footer(ctx, w, h, data);
   }
 
+  // [UX-BA-2] 시술 전 사진 없을 때 before 슬롯 placeholder (가짜 흑백 금지).
+  //   점선 박스 + 카메라(+) + 안내문구. 썸네일처럼 작으면 텍스트 생략.
+  function _beforePlaceholder(ctx, x, y, w, h, rounded) {
+    ctx.save();
+    if (rounded) _rr(ctx, x, y, w, h, Math.min(22, w * 0.08));
+    else { ctx.beginPath(); ctx.rect(x, y, w, h); }
+    ctx.fillStyle = 'rgba(0,0,0,0.045)';
+    ctx.fill();
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = Math.max(2, w * 0.012);
+    ctx.strokeStyle = 'rgba(90,78,64,0.55)';
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const cx = x + w / 2, cy = y + h * 0.42, r = Math.min(w, h) * 0.11;
+    ctx.strokeStyle = 'rgba(90,78,64,0.62)';
+    ctx.lineWidth = Math.max(2, w * 0.014);
+    ctx.beginPath(); ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx, cy + r); ctx.stroke();
+    if (w >= 140) {                                   // 썸네일/소형은 텍스트 생략(가독 불가)
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(74,62,48,0.9)';
+      ctx.font = `700 ${Math.round(Math.min(w, h) * 0.092)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText('시술 전 사진 추가', cx, cy + h * 0.2);
+      ctx.fillStyle = 'rgba(120,108,92,0.85)';
+      ctx.font = `400 ${Math.round(Math.min(w, h) * 0.062)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText('추가하면 전후 비교가', cx, cy + h * 0.31);
+      ctx.fillText('완성돼요', cx, cy + h * 0.39);
+    }
+    ctx.restore();
+  }
+
   function _photo(ctx, img, x, y, w, h, before, alpha) {
+    if (before && !_hasBefore) { _beforePlaceholder(ctx, x, y, w, h, false); return; }   // [UX-BA-2]
     ctx.save();
     ctx.globalAlpha = alpha || 1;
     ctx.filter = before ? 'brightness(92%) grayscale(15%)' : 'saturate(108%) brightness(103%)';
@@ -187,6 +224,7 @@
   }
 
   function _roundedPhoto(ctx, img, x, y, w, h, r, before, dashed) {
+    if (before && !_hasBefore) { _beforePlaceholder(ctx, x, y, w, h, true); return; }   // [UX-BA-2]
     ctx.save();
     _rr(ctx, x, y, w, h, r);
     ctx.clip();
@@ -223,7 +261,8 @@
   function _framedPhoto(ctx, img, x, y, w, h, before) {
     ctx.fillStyle = '#fff';
     ctx.fillRect(x, y, w, h);
-    _cover(ctx, img, x + w * 0.045, y + w * 0.045, w * 0.91, h * 0.78);
+    if (before && !_hasBefore) _beforePlaceholder(ctx, x + w * 0.045, y + w * 0.045, w * 0.91, h * 0.78, false);   // [UX-BA-2]
+    else _cover(ctx, img, x + w * 0.045, y + w * 0.045, w * 0.91, h * 0.78);
     ctx.fillStyle = '#5f4a3e';
     ctx.font = `400 ${Math.round(h * 0.05)}px Georgia, "Times New Roman", serif`;
     ctx.textAlign = 'left';

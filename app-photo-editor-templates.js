@@ -17,7 +17,7 @@
   let _templateInputTimer = null;
   let _selectedPromoCat = 'recommend';
   const PROMO_CATS = [
-    ['recommend', '추천'], ['ba', '전후 비교'], ['feed', '피드'], ['story', '스토리'],
+    ['recommend', '추천'], ['ba', '시술 전후'], ['feed', '피드'], ['story', '스토리'],
     ['price', '가격표'], ['event', '이벤트'], ['review', '후기'], ['shop', '샵 소개'],
   ];
   const SHOP_RECS = {
@@ -79,13 +79,27 @@
     </div>`;
   }
 
+  // [UX-BA-2] ba-* 시술 전후 템플릿 중 실제 before 사진(secondImg)을 쓰는 것 = ba-compose 경유.
+  //   ba-cream/sage/dark 는 빈 프레임(사진 미사용)이라 제외. 마켓(tplV2) 적용분만 대상(레거시 ba-h/v 는 자체 피커 보유).
+  const _BA_NO_PHOTO = { 'ba-cream': 1, 'ba-sage': 1, 'ba-dark': 1 };
+  function _baNeedsBefore(id) { return typeof id === 'string' && /^ba-/.test(id) && !_BA_NO_PHOTO[id]; }
+
   function _buildAppliedCtas(state) {
-    const applied = !!(state && (state.template && state.template.id || state.tplV2 && state.tplV2.id));
-    if (!applied) return '';
-    const label = state.tplV2 && state.tplV2.label || state.template && state.template.id || '템플릿';
+    const marketId = state && state.tplV2 && state.tplV2.id;
+    const appliedId = marketId || (state && state.template && state.template.id) || '';
+    if (!appliedId) return '';
+    const label = state.tplV2 && state.tplV2.label || appliedId || '템플릿';
+    // 마켓 시술 전후 템플릿인데 시술 전 사진이 없으면 → 가짜 Before 대신 추가 안내(레거시 ba-h/v 는 기본 템플릿 영역서 처리)
+    const needBefore = _baNeedsBefore(marketId) && !(state && state.secondImg);
+    const beforeBlock = needBefore ? `<div class="pe-tpl-before-need" style="margin:8px 0;padding:10px 12px;border:1px dashed rgba(120,90,60,.45);border-radius:12px;background:rgba(120,90,60,.06);">
+        <p style="margin:0 0 8px;font-size:12.5px;color:#6b5a45;line-height:1.4;">시술 전 사진을 추가하면 전후 비교가 완성돼요.<br>없으면 Before 칸은 안내로 표시돼요.</p>
+        <button type="button" class="pe-action-btn" data-pe-pick-2nd>시술 전 사진 추가</button>
+        <input type="file" id="pePicker2" accept="image/*" style="display:none" />
+      </div>` : '';
     return `<div class="pe-tpl-loop-done">
       <strong>${_esc(label)} 적용됨</strong>
-      <div><button type="button" class="pe-chip-btn" data-pe-r4-go="text">텍스트 수정</button><button type="button" class="pe-action-btn" data-pe-r4-go="export">저장하기</button></div>
+      ${beforeBlock}
+      <div><button type="button" class="pe-chip-btn" data-pe-r4-go="text">텍스트 수정</button><button type="button" class="pe-action-btn" data-pe-r4-go="export">저장·게시 준비</button></div>
     </div>`;
   }
 
@@ -93,7 +107,7 @@
     const t = state.template;
     const tplBtn = (id, label) => `<button type="button" class="pe-chip-btn ${t.id===id?'on':''}" data-pe-tpl="${id}">${_esc(label)}</button>`;
     const baExtra = (t.id === 'ba-h' || t.id === 'ba-v') ? `
-      <div class="pe-panel-row" style="margin-top:8px;"><button type="button" class="pe-action-btn" data-pe-pick-2nd>두 번째 사진 고르기</button></div>
+      <div class="pe-panel-row" style="margin-top:8px;"><button type="button" class="pe-action-btn" data-pe-pick-2nd>시술 전 사진 추가</button></div>
       <input type="file" id="pePicker2" accept="image/*" style="display:none" />
       <label class="pe-field" style="margin-top:8px;"><span>왼쪽/위 라벨</span><input type="text" class="pe-input" data-pe-tpl-left value="${_esc(t.leftLabel)}" maxlength="8" /></label>
       <label class="pe-field"><span>오른쪽/아래 라벨</span><input type="text" class="pe-input" data-pe-tpl-right value="${_esc(t.rightLabel)}" maxlength="8" /></label>` : '';
@@ -101,11 +115,14 @@
     const priceExtra = t.id === 'price' ? `<label class="pe-field" style="margin-top:8px;"><span>가격 라인 (줄바꿈으로 구분)</span><textarea class="pe-input" data-pe-tpl-price rows="4" maxlength="200" placeholder="시술명 | 가격&#10;예) 붙임머리 20인치 | 120,000원">${_esc(t.priceLines)}</textarea></label>` : '';
     const serviceExtra = t.id === 'service' ? `<div class="pe-hint">상단에 시술명 + 소요시간 + 가격이 자동으로 들어가요. (브랜드 탭의 샵명도 함께)</div>` : '';
     const storyExtra = t.id === 'story' ? `<div class="pe-hint">인스타 스토리용 9:16 화면으로 저장돼요. 시술명, 가격, 샵명이 자동으로 들어갑니다.</div>` : '';
-    return `<div class="pe-field-label">기본 템플릿</div>
-      <div class="pe-panel-row pe-panel-grid-2">${tplBtn('ba-h','전후 비교 좌우')}${tplBtn('ba-v','전후 비교 상하')}${tplBtn('service','시술 안내')}${tplBtn('price','가격표')}</div>
+    // [UX-CTA-1] 기본 템플릿 묶음을 details 로 접어 첫 화면 과밀 해소. 레거시 템플릿 적용 중이면 펼침(open).
+    return `<details class="pe-tpl-legacy" ${t.id ? 'open' : ''} style="margin-top:10px;">
+      <summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:#8a7c68;padding:6px 2px;list-style:none;">기본 템플릿 더보기 ▾</summary>
+      <div class="pe-panel-row pe-panel-grid-2" style="margin-top:6px;">${tplBtn('ba-h','시술 전후 좌우')}${tplBtn('ba-v','시술 전후 상하')}${tplBtn('service','시술 안내')}${tplBtn('price','가격표')}</div>
       <div class="pe-panel-row pe-panel-grid-2">${tplBtn('review','후기 카드')}${tplBtn('story','스토리 9:16')}</div>
       <div class="pe-panel-row">${tplBtn(null,'템플릿 해제')}</div>
-      ${baExtra}${reviewExtra}${priceExtra}${serviceExtra}${storyExtra}`;
+      ${baExtra}${reviewExtra}${priceExtra}${serviceExtra}${storyExtra}
+    </details>`;
   }
 
   function _catChip(pair) {
@@ -198,7 +215,7 @@
       const f = e.target.files && e.target.files[0];
       if (!f) return;
       const img = new Image();
-      img.onload = () => { state.secondImg = img; scheduleRedraw(); pushHistory(); };
+      img.onload = () => { state.secondImg = img; scheduleRedraw(); renderPanel(); pushHistory(); };   // [UX-BA-2] 패널 갱신(추가 버튼 숨김)
       img.src = URL.createObjectURL(f);
     });
     panel.querySelector('[data-pe-tpl-left]')?.addEventListener('input', (e) => { state.template.leftLabel = e.target.value; _queueTemplateRedraw(helpers); });

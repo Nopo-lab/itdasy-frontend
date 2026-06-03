@@ -7,7 +7,7 @@
 // v320-B — 초보 원장님 우선순위 6개(전후사진/피드/스토리/가격표/명함/이벤트) 먼저 노출.
 //   세로 홍보(reels)는 삭제하지 않고 끝에 유지(기존 데이터 보존).
   const CATS = [
-    { id: 'ba',      label: '전후 비교', ratio: '4:5', size: [1080, 1350] },
+    { id: 'ba',      label: '시술 전후', ratio: '4:5', size: [1080, 1350] },
     { id: 'feed',    label: '피드',    ratio: '4:5', size: [1080, 1350] },
     { id: 'story',   label: '스토리',  ratio: '9:16', size: [1080, 1920] },
     { id: 'price',   label: '가격표',  ratio: '4:5', size: [1080, 1350] },
@@ -50,19 +50,19 @@
     { id: 'price-makeup',    cat: 'price', tier: 'free', label: '메이크업 가격표',  prefillText: 'MAKEUP', accent: 'soft' },
     { id: 'price-wax',       cat: 'price', tier: 'pro',  label: '왁싱 가격표',     prefillText: 'WAX MENU', accent: 'soft' },
     // ── Before/After 기존 13 (free 3 / pro 10) ──
-    { id: 'ba-cream',        cat: 'ba', tier: 'free', label: 'B/A 크림',      prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-flower-shadow',cat: 'ba', tier: 'free', label: '꽃 그림자 전후', prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-polaroid',     cat: 'ba', tier: 'free', label: '폴라로이드 전후', prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-editorial',    cat: 'ba', tier: 'pro',  label: '에디토리얼 전후', prefillText: 'Before & After', accent: 'gold' },
-    { id: 'ba-sage',         cat: 'ba', tier: 'pro',  label: 'B/A 세이지',     prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-dark',         cat: 'ba', tier: 'pro',  label: 'B/A 다크',       prefillText: 'Before & After', accent: 'gold' },
-    { id: 'ba-2split-h',     cat: 'ba', tier: 'pro',  label: '2분할 피드',     prefillText: 'Before & After', accent: 'soft' },
-    { id: 'ba-2split-v',     cat: 'ba', tier: 'pro',  label: '2분할 스토리',   prefillText: 'Before & After', accent: 'primary' },
-    { id: 'ba-3process',     cat: 'ba', tier: 'pro',  label: '3단계 과정',     prefillText: 'Before → After', accent: 'gold' },
-    { id: 'ba-4grid',        cat: 'ba', tier: 'pro',  label: '2x2 포트폴리오', prefillText: 'Portfolio', accent: 'soft' },
-    { id: 'ba-price',        cat: 'ba', tier: 'pro',  label: '전후 + 가격표',  prefillText: 'Before & After', accent: 'gold' },
-    { id: 'ba-event',        cat: 'ba', tier: 'pro',  label: '전후 + 이벤트',  prefillText: 'Event Before', accent: 'primary' },
-    { id: 'ba-review',       cat: 'ba', tier: 'pro',  label: '전후 + 후기',    prefillText: 'Real Review', accent: 'soft' },
+    { id: 'ba-cream',        cat: 'ba', tier: 'free', label: '시술 전후 (크림)',     prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-flower-shadow',cat: 'ba', tier: 'free', label: '시술 전후 (꽃그림자)', prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-polaroid',     cat: 'ba', tier: 'free', label: '시술 전후 (폴라로이드)', prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-editorial',    cat: 'ba', tier: 'pro',  label: '시술 전후 (에디토리얼)', prefillText: 'Before & After', accent: 'gold' },
+    { id: 'ba-sage',         cat: 'ba', tier: 'pro',  label: '시술 전후 (세이지)',   prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-dark',         cat: 'ba', tier: 'pro',  label: '시술 전후 (다크)',     prefillText: 'Before & After', accent: 'gold' },
+    { id: 'ba-2split-h',     cat: 'ba', tier: 'pro',  label: '시술 전후 2분할 (피드)',   prefillText: 'Before & After', accent: 'soft' },
+    { id: 'ba-2split-v',     cat: 'ba', tier: 'pro',  label: '시술 전후 2분할 (스토리)', prefillText: 'Before & After', accent: 'primary' },
+    { id: 'ba-3process',     cat: 'ba', tier: 'pro',  label: '시술 과정 3단계',     prefillText: 'Before → After', accent: 'gold' },
+    { id: 'ba-4grid',        cat: 'ba', tier: 'pro',  label: '시술 포트폴리오 2x2', prefillText: 'Portfolio', accent: 'soft' },
+    { id: 'ba-price',        cat: 'ba', tier: 'pro',  label: '시술 전후 + 가격표',  prefillText: 'Before & After', accent: 'gold' },
+    { id: 'ba-event',        cat: 'ba', tier: 'pro',  label: '시술 전후 + 이벤트',  prefillText: 'Event Before', accent: 'primary' },
+    { id: 'ba-review',       cat: 'ba', tier: 'pro',  label: '시술 전후 + 후기',    prefillText: 'Real Review', accent: 'soft' },
     // ── BA 시리즈 12종 (v326 신규, 모두 free) ─────────────────────
     //   부위별(헤어/네일/속눈썹/피부) × 스타일별(cream/polaroid/dark)
     //   렌더는 기존 _flowerShadow/_polaroid/_horizontal+dark 함수 재활용 (ba-compose.js 의 id 분기에 추가)
@@ -94,7 +94,7 @@
   //   industry: nail/hair/lash/brow/skin/makeup/common · purpose: before_after/review/price/event/retouch/booking/story/reel_cover/portfolio/feed/promo
   const INDUSTRY_LABEL = { nail: '네일', hair: '헤어', lash: '속눈썹', brow: '눈썹', skin: '피부', makeup: '메이크업', common: '공통' };
   const PURPOSE_LABEL = {
-    before_after: '전후', review: '후기', price: '가격표', event: '이벤트', retouch: '리터치',
+    before_after: '시술 전후', review: '후기', price: '가격표', event: '이벤트', retouch: '리터치',
     booking: '예약', story: '스토리', reel_cover: '릴스', portfolio: '포트폴리오', feed: '피드', promo: '홍보',
   };
   function industryOf(t) {
