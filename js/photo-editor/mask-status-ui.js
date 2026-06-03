@@ -10,9 +10,9 @@
     { id: 'hairMask', label: '헤어', note: '피부/배경과 헷갈리면 기본 보정' },
     { id: 'eyeMask', label: '눈', note: '눈빛·속눈썹 보정 보조' },
     { id: 'lipMask', label: '입술', note: '발색 보정 보조' },
-    { id: 'nailMask', label: '네일', note: '손/배경과 헷갈리면 기본 보정' },
-    { id: 'handSkinMask', label: '손', note: '손 피부톤 보정 보조' },
-    { id: 'scleraMask', label: '흰자', note: '눈썹/갈색 눈가와 헷갈리면 기본 보정' },
+    { id: 'nailMask', label: '네일', note: '네일 광택·모양 보정을 켤 때 사용', conditional: true },
+    { id: 'handSkinMask', label: '손', note: '손·발 톤은 기본 피부 보정으로 처리', unwired: true },
+    { id: 'scleraMask', label: '흰자', note: '눈 충혈 완화 보정을 켤 때 사용', conditional: true },
     { id: 'backgroundMask', label: '배경', note: '상태 표시/합성 준비용' },
   ];
   const LAZY = new Set(['nailMask', 'handSkinMask', 'scleraMask']);
@@ -42,6 +42,9 @@
     if (flags.all) return _row(region, 'disabled', '비활성화됨', 0, '전체 마스크가 꺼져 있어 기본 보정으로 처리합니다.');
     if (region.id === 'nailMask' && flags.nail) return _row(region, 'disabled', '비활성화됨', 0, '네일 마스크가 꺼져 있어 기본 보정으로 처리합니다.');
     if (region.id === 'scleraMask' && flags.sclera) return _row(region, 'disabled', '비활성화됨', 0, '흰자 마스크가 꺼져 있어 기본 보정으로 처리합니다.');
+    // [PE-R5a-2] 엔진 미연결 영역(손) — '정밀 적용됨'처럼 보이지 않게 항상 정직한 fallback 표기.
+    //   손/발 톤 보정은 현재 기본 피부 보정(skinW) 경로로 처리됨. 손 전용 정밀 마스크는 미연결.
+    if (region.unwired) return _row(region, 'fallback', '기본 보정으로 처리 중', 0, '손·발 톤은 기본 피부 보정으로 처리해요. 손 전용 정밀 마스크는 준비 중이에요.');
     if (!row) {
       const label = LAZY.has(region.id) ? '기본 보정으로 처리 중' : '준비 중';
       const detail = LAZY.has(region.id)
@@ -53,8 +56,9 @@
     if (row.status === 'failed' || row.status === 'noHand' || row.status === 'pendingImplementation') {
       return _row(region, 'fallback', '기본 보정으로 처리 중', conf, row.reason || '마스크를 안정적으로 찾지 못했습니다.');
     }
-    if (conf >= 0.7) return _row(region, 'strong', '정밀 적용됨', conf, _detail(row));
-    if (conf >= 0.4) return _row(region, 'weak', '약하게 적용됨', conf, _detail(row));
+    // [PE-R5a-2] nail/sclera 는 해당 보정(네일 광택·눈 충혈)을 켤 때만 적용 → 조건부 문구로 오해 방지.
+    if (conf >= 0.7) return _row(region, 'strong', region.conditional ? '필요 시 정밀 적용' : '정밀 적용됨', conf, _detail(row));
+    if (conf >= 0.4) return _row(region, 'weak', region.conditional ? '필요 시 약하게 적용' : '약하게 적용됨', conf, _detail(row));
     return _row(region, 'fallback', '기본 보정으로 처리 중', conf, row.reason || '신뢰도가 낮아 기본 보정으로 처리합니다.');
   }
 
@@ -96,7 +100,8 @@
     const disabled = !model.hasPhoto ? ' disabled' : '';
     return `<section class="pe-mask-status" data-mask-status-card>
       <div class="pe-field-label">정밀 마스크 상태</div>
-      <div class="pe-hint">사진을 분석해 피부·헤어·눈·입술 같은 영역을 더 안전하게 보정해요. 신뢰도가 낮으면 기본 보정으로 처리합니다.</div>
+      <div class="pe-hint">사진을 분석해 피부·헤어·눈·입술 같은 영역을 더 안전하게 보정해요.</div>
+      <div class="pe-hint">신뢰도가 높으면 정밀 마스크로, 중간이면 정밀 마스크를 약하게 참고하고, 낮으면 기본 보정으로 처리해요. (네일·흰자는 해당 보정을 켤 때만 적용)</div>
       <div class="pe-panel-row" style="margin:10px 0;"><button type="button" class="pe-chip-btn" data-mask-status-refresh${disabled}>상태 새로고침</button></div>
       ${!model.hasPhoto ? '<div class="pe-hint">사진을 먼저 열어주세요.</div>' : ''}
       <div class="pe-mask-status-grid">${model.rows.map(_rowHtml).join('')}</div>
