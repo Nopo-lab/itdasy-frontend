@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-06-03 by Codex (PE-R2 사진편집 시작 화면 리뉴얼)
+**LAST UPDATED:** 2026-06-03 by Codex (PE-R4 템플릿 루프 강화)
 
 bootstrap:OK @ 2026-05-21 02:05
 bootstrap:OK @ 2026-05-21 13:30
@@ -21,6 +21,27 @@ bootstrap:OK @ 2026-05-27 12:13
 bootstrap:OK @ 2026-06-02 22:24
 bootstrap:OK @ 2026-06-03 18:40
 bootstrap:OK @ 2026-06-03 20:01
+bootstrap:OK @ 2026-06-03 20:41
+
+---
+
+## 2026-06-03 — PE-R4 사진편집 템플릿 루프 강화 (Codex)
+
+수정:
+- 템플릿 탭 상단에 "편집한 사진으로 홍보물 만들기" 시작 카드 추가.
+- 현재 편집 사진 미리보기, "추천 템플릿 적용", "전체 템플릿 보기" 진입 정리.
+- 업종별 추천 템플릿 3개 노출. 네일 기준 `price-nail`, `event-discount`, `ba-nail-cream`.
+- 카테고리 칩 8개 정리: 추천, 전후 비교, 피드, 스토리, 가격표, 이벤트, 후기, 샵 소개.
+- 템플릿 적용 후 "텍스트 수정"은 텍스트 탭, "저장하기"는 저장 탭으로 연결.
+- 추천 템플릿 적용 전 상태를 기록해서 되돌리기 1회로 템플릿이 빠지게 보정.
+
+확인:
+- 390×844 모바일 화면 확인. 캡처: `output/playwright/pe-r4-template-mobile.png`, `output/playwright/pe-r4-after-apply-mobile.png`.
+- pageerror 0, 화면 오류 0.
+- 문법 검사, 변경 파일 자동 검사, 스타일 검사, `npm run smoke`, `npm test -- --runInBand`, `git diff --check` 통과.
+
+주의:
+- `beauty-engine.js`, `index.html`, `sw.js`, 하단 메뉴, 시작 화면, 백엔드/AI/결제/Meta/Instagram/예약/매출 미수정.
 
 ---
 

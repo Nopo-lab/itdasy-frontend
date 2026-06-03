@@ -15,14 +15,81 @@
 
   const TEMPLATE_MAX_DIM = 2200;
   let _templateInputTimer = null;
+  let _selectedPromoCat = 'recommend';
+  const PROMO_CATS = [
+    ['recommend', '추천'], ['ba', '전후 비교'], ['feed', '피드'], ['story', '스토리'],
+    ['price', '가격표'], ['event', '이벤트'], ['review', '후기'], ['shop', '샵 소개'],
+  ];
+  const SHOP_RECS = {
+    nail: ['price-nail', 'event-discount', 'ba-nail-cream'],
+    hair: ['ba-hair-cream', 'feed-showcase', 'feed-review'],
+    skin: ['ba-skin-cream', 'feed-review', 'event-gift'],
+    lash: ['ba-lash-cream', 'story-open', 'card-minimal'],
+    common: ['ba-cream', 'feed-showcase', 'story-open'],
+  };
+  const CAT_RECS = {
+    ba: ['ba-cream', 'ba-nail-cream', 'ba-hair-cream'],
+    feed: ['feed-showcase', 'feed-review', 'feed-notice'],
+    story: ['story-open', 'story-qa', 'story-attend'],
+    price: ['price-nail', 'price-hair', 'price-lash'],
+    event: ['event-discount', 'event-gift', 'event-newcomer'],
+    review: ['feed-review', 'ba-review', 'reels-review'],
+    shop: ['card-minimal', 'card-nature', 'card-gold'],
+  };
+  const CAT_TO_MARKET = { ba: 'ba', feed: 'feed', story: 'story', price: 'price', event: 'event', review: 'feed', shop: 'card' };
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
   }
+  function _toast(msg) {
+    if (window.showToast) window.showToast(msg);
+  }
 
   // ── 패널 HTML ─────────────────────────────────────────
   function _panelTemplateHTML(state) {
+    return _buildPromoHero(state) + _buildPromoCards(state) + _buildAppliedCtas(state) + _buildLegacyControls(state);
+  }
+
+  function _buildPromoHero(state) {
+    const ids = _recommendIds();
+    const first = ids[0] || 'ba-cream';
+    const img = _previewSrc(state);
+    const ready = !!(state && state.originalImg);
+    return `<section class="pe-tpl-loop-hero">
+      <div class="pe-tpl-loop-copy">
+        <span>템플릿</span><strong>편집한 사진으로 홍보물 만들기</strong>
+        <p>${ready ? '현재 사진을 피드, 스토리, 가격표 홍보물로 바로 넣을 수 있어요.' : '먼저 사진을 선택하면 추천 템플릿에 바로 넣을 수 있어요.'}</p>
+      </div>
+      <div class="pe-tpl-loop-preview">${img ? `<img src="${_esc(img)}" alt="현재 편집 사진">` : '<b>사진 준비 전</b>'}<i>홍보물 미리보기</i></div>
+      <div class="pe-tpl-loop-actions">
+        <button type="button" class="pe-action-btn" data-pe-r4-apply-reco="${_esc(first)}">추천 템플릿 적용</button>
+        <button type="button" class="pe-chip-btn" data-pe-r4-open-all>전체 템플릿 보기</button>
+      </div>
+    </section>`;
+  }
+
+  function _buildPromoCards(state) {
+    const ids = _selectedPromoCat === 'recommend' ? _recommendIds() : (CAT_RECS[_selectedPromoCat] || []);
+    const heading = _selectedPromoCat === 'recommend' ? '우리 샵 추천 템플릿' : (_catLabel(_selectedPromoCat) + ' 템플릿');
+    return `<div class="pe-tpl-loop-section">
+      <div class="pe-tpl-loop-head"><strong>${_esc(heading)}</strong><span>3개만 먼저 보여드릴게요</span></div>
+      <div class="pe-tpl-loop-cats">${PROMO_CATS.map(_catChip).join('')}</div>
+      <div class="pe-tpl-loop-grid">${ids.slice(0, 3).map(id => _promoCard(id, state)).join('')}</div>
+    </div>`;
+  }
+
+  function _buildAppliedCtas(state) {
+    const applied = !!(state && (state.template && state.template.id || state.tplV2 && state.tplV2.id));
+    if (!applied) return '';
+    const label = state.tplV2 && state.tplV2.label || state.template && state.template.id || '템플릿';
+    return `<div class="pe-tpl-loop-done">
+      <strong>${_esc(label)} 적용됨</strong>
+      <div><button type="button" class="pe-chip-btn" data-pe-r4-go="text">텍스트 수정</button><button type="button" class="pe-action-btn" data-pe-r4-go="export">저장하기</button></div>
+    </div>`;
+  }
+
+  function _buildLegacyControls(state) {
     const t = state.template;
     const tplBtn = (id, label) => `<button type="button" class="pe-chip-btn ${t.id===id?'on':''}" data-pe-tpl="${id}">${_esc(label)}</button>`;
     const baExtra = (t.id === 'ba-h' || t.id === 'ba-v') ? `
@@ -34,20 +101,78 @@
     const priceExtra = t.id === 'price' ? `<label class="pe-field" style="margin-top:8px;"><span>가격 라인 (줄바꿈으로 구분)</span><textarea class="pe-input" data-pe-tpl-price rows="4" maxlength="200" placeholder="시술명 | 가격&#10;예) 붙임머리 20인치 | 120,000원">${_esc(t.priceLines)}</textarea></label>` : '';
     const serviceExtra = t.id === 'service' ? `<div class="pe-hint">상단에 시술명 + 소요시간 + 가격이 자동으로 들어가요. (브랜드 탭의 샵명도 함께)</div>` : '';
     const storyExtra = t.id === 'story' ? `<div class="pe-hint">인스타 스토리용 9:16 화면으로 저장돼요. 시술명, 가격, 샵명이 자동으로 들어갑니다.</div>` : '';
-    return `<div class="pe-field-label">템플릿</div>
-      <div class="pe-panel-row pe-panel-grid-2">${tplBtn('ba-h','B&A 좌우')}${tplBtn('ba-v','B&A 상하')}${tplBtn('service','시술 안내')}${tplBtn('price','가격표')}</div>
+    return `<div class="pe-field-label">기본 템플릿</div>
+      <div class="pe-panel-row pe-panel-grid-2">${tplBtn('ba-h','전후 비교 좌우')}${tplBtn('ba-v','전후 비교 상하')}${tplBtn('service','시술 안내')}${tplBtn('price','가격표')}</div>
       <div class="pe-panel-row pe-panel-grid-2">${tplBtn('review','후기 카드')}${tplBtn('story','스토리 9:16')}</div>
       <div class="pe-panel-row">${tplBtn(null,'템플릿 해제')}</div>
       ${baExtra}${reviewExtra}${priceExtra}${serviceExtra}${storyExtra}`;
   }
 
+  function _catChip(pair) {
+    const on = _selectedPromoCat === pair[0] ? ' on' : '';
+    return `<button type="button" class="pe-chip-btn${on}" data-pe-r4-cat="${_esc(pair[0])}">${_esc(pair[1])}</button>`;
+  }
+
+  function _promoCard(id) {
+    const tpl = _marketTpl(id);
+    if (!tpl) return '';
+    const tier = tpl.tier === 'pro' ? 'PRO' : 'FREE';
+    return `<button type="button" class="pe-tpl-loop-card" data-pe-r4-tpl="${_esc(id)}">
+      <span class="pe-tpl-loop-badge ${tpl.tier === 'pro' ? 'pro' : 'free'}">${tier}</span>
+      <strong>${_esc(tpl.label)}</strong><small>${_esc(_purposeLabel(tpl))}</small>
+    </button>`;
+  }
+
+  function _marketTpl(id) {
+    const list = window.PhotoEditorTemplateMarketData && window.PhotoEditorTemplateMarketData.TEMPLATES;
+    return Array.isArray(list) ? list.find(t => t.id === id) : null;
+  }
+
+  function _purposeLabel(tpl) {
+    const data = window.PhotoEditorTemplateMarketData || {};
+    const pur = data.PURPOSE_LABEL && tpl && data.PURPOSE_LABEL[tpl.purpose];
+    const ind = data.INDUSTRY_LABEL && tpl && data.INDUSTRY_LABEL[tpl.industry];
+    return [ind && tpl.industry !== 'common' ? ind : '', pur || '홍보물'].filter(Boolean).join(' · ');
+  }
+
+  function _catLabel(id) {
+    const found = PROMO_CATS.find(pair => pair[0] === id);
+    return found ? found[1] : '추천';
+  }
+
+  function _recommendIds() {
+    const cat = _shopCat();
+    return (SHOP_RECS[cat] || SHOP_RECS.common).filter(_marketTpl).slice(0, 3);
+  }
+
+  function _shopCat() {
+    let raw = '';
+    try { raw = localStorage.getItem('shop_type') || ''; } catch (_e) { raw = ''; }
+    const norm = typeof window.itdasyNormalizeShopType === 'function' ? window.itdasyNormalizeShopType(raw) : null;
+    const cat = String((norm && (norm.cat || norm.label)) || raw || '').toLowerCase();
+    if (/nail|네일/.test(cat)) return 'nail';
+    if (/hair|헤어|scalp|두피/.test(cat)) return 'hair';
+    if (/skin|피부|esthetic|에스테틱/.test(cat)) return 'skin';
+    if (/lash|속눈썹/.test(cat)) return 'lash';
+    return 'common';
+  }
+
+  function _previewSrc(state) {
+    const cv = document.getElementById('peCanvas');
+    try { if (cv && cv.width && cv.height) return cv.toDataURL('image/jpeg', 0.78); }
+    catch (_e) { void 0; }
+    return state && state.originalSrc ? state.originalSrc : '';
+  }
+
   // ── 패널 바인딩 ───────────────────────────────────────
   function _bindTemplatePanel(panel, state, helpers) {
     const { renderPanel, scheduleRedraw, pushHistory } = helpers;
+    _bindPromoLoop(panel, state, helpers);
     panel.querySelectorAll('[data-pe-tpl]').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.peTpl;
         state.template.id = (id === 'null' || id === '' || id === null) ? null : id;
+        state.tplV2 = null;
         if (!state.template.id) state.secondImg = null;
         // [v184 2026-05-18] B&A 라벨 자동 prefill — 챗봇·고객 컨텍스트에서 시술명 받았으면 활용
         if (state.template.id === 'ba-h' || state.template.id === 'ba-v') {
@@ -85,6 +210,53 @@
     panel.querySelectorAll('[data-pe-tpl-left],[data-pe-tpl-right],[data-pe-tpl-review],[data-pe-tpl-price]').forEach(el => {
       el.addEventListener('change', () => { _flushTemplateRedraw(helpers); pushHistory(); });
     });
+  }
+
+  function _bindPromoLoop(panel, state, helpers) {
+    panel.querySelectorAll('[data-pe-r4-cat]').forEach(btn => {
+      btn.addEventListener('click', () => { _selectedPromoCat = btn.dataset.peR4Cat || 'recommend'; helpers.renderPanel(); });
+    });
+    panel.querySelector('[data-pe-r4-open-all]')?.addEventListener('click', () => _openMarket());
+    panel.querySelector('[data-pe-r4-apply-reco]')?.addEventListener('click', (e) =>
+      _applyMarketTemplate(e.currentTarget.dataset.peR4ApplyReco, helpers));
+    panel.querySelectorAll('[data-pe-r4-tpl]').forEach(btn => {
+      btn.addEventListener('click', () => _selectMarketTemplate(btn.dataset.peR4Tpl, helpers));
+    });
+    panel.querySelectorAll('[data-pe-r4-go]').forEach(btn => {
+      btn.addEventListener('click', () => _goTab(btn.dataset.peR4Go, state, helpers));
+    });
+  }
+
+  function _openMarket() {
+    const api = window.PhotoEditorTemplatesV2;
+    if (!api || typeof api.open !== 'function') return _toast('전체 템플릿을 불러오는 중이에요');
+    api.open({ cat: CAT_TO_MARKET[_selectedPromoCat] || 'ba', recommendedIds: _recommendIds() });
+  }
+
+  function _selectMarketTemplate(tplId, helpers) {
+    const tpl = _marketTpl(tplId);
+    const api = window.PhotoEditorTemplatesV2;
+    if (!tpl || !api) return _toast('템플릿을 불러오는 중이에요');
+    if (tpl.tier === 'pro' && typeof api.openPreview === 'function') { api.openPreview(tplId); return; }
+    _applyMarketTemplate(tplId, helpers);
+  }
+
+  function _applyMarketTemplate(tplId, helpers) {
+    const api = window.PhotoEditorTemplatesV2;
+    if (!api || typeof api.apply !== 'function') return _toast('템플릿을 불러오는 중이에요');
+    const state = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState();
+    if (state && state.tplV2 === undefined) state.tplV2 = null;
+    if (state && helpers && typeof helpers.pushHistory === 'function') helpers.pushHistory();
+    if (state && state.template) { state.template.id = null; state.secondImg = null; }
+    api.apply(tplId);
+    if (helpers && typeof helpers.renderPanel === 'function') helpers.renderPanel();
+  }
+
+  function _goTab(tab, state, helpers) {
+    const btn = document.querySelector('#peTabs [data-pe-tab="' + tab + '"]');
+    if (btn) { btn.click(); return; }
+    if (state) state.activeTab = tab;
+    if (helpers && typeof helpers.renderPanel === 'function') helpers.renderPanel();
   }
 
   // ── 캔버스 합성 — drawHook 진입점 ──────────────────────

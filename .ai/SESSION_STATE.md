@@ -1443,6 +1443,17 @@ ultra-plan 진행률:
 
 ## 이전 체크포인트 아카이브
 
+### LAST CHECKPOINT — 2026-06-03 20:41 KST
+
+- 사진편집 PE-R4: 템플릿 탭을 “편집한 사진으로 홍보물 만들기” 흐름으로 정리.
+- 상단 시작 카드, 업종별 추천 템플릿 3개, 8개 카테고리 칩, 적용 후 “텍스트 수정/저장하기” 연결 추가.
+- 추천 템플릿 적용 후 되돌리기 1회로 템플릿이 빠지도록 적용 전 상태를 기록.
+- 자동 확인: 문법 검사, 변경 파일 자동 검사, 스타일 검사, smoke, test, `git diff --check`, 모바일 390×844 화면 확인 통과.
+- 금지영역: `beauty-engine.js`, `index.html`, `sw.js`, 하단 메뉴, 시작 화면, 백엔드/AI/결제/Meta/Instagram/예약/매출 미수정.
+- 화면 확인 스크린샷:
+  - `output/playwright/pe-r4-template-mobile.png`
+  - `output/playwright/pe-r4-after-apply-mobile.png`
+
 ### LAST CHECKPOINT — 2026-05-27 07:35 KST
 
 - 사진편집 v310: 원영님 피드백 반영. 캔바풍 전후사진 템플릿 카드 10종을 첫 화면에 노출.
