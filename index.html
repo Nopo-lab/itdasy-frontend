@@ -2276,22 +2276,24 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-photo-editor-smart-mask.js?v=20260527-v307-full-redesign" defer></script>
 <!-- [v313 2026-05-28] RegionMaskProvider 인프라 — 로딩 순서 엄수: refine → overlay → provider -->
 <script src="js/photo-editor/mask-refine.js?v=20260529-v336-qa-fix" defer></script>
-<script src="js/photo-editor/mask-debug-overlay.js?v=20260529-v336-qa-fix" defer></script>
+<script src="js/photo-editor/mask-debug-overlay.js?v=20260603-pe-m1-sclera" defer></script>
 <!-- [v336] maskType별 confidence 산식 (coverage 와 분리) -->
-<script src="js/photo-editor/mask-confidence.js?v=20260529-v316-mask-applied" defer></script>
+<script src="js/photo-editor/mask-confidence.js?v=20260603-pe-m1-sclera" defer></script>
 <!-- [v336] Hair Image Segmenter → hairMask Tier 1 어댑터 -->
 <script src="js/photo-editor/mask-hair-adapter.js?v=20260529-v336-qa-fix" defer></script>
 <!-- [v332] Hand Landmarker → nailMask / handSkinMask 어댑터 (provider 보다 먼저) -->
 <script src="js/photo-editor/mask-hand-adapter.js?v=20260529-v336-qa-fix" defer></script>
 <!-- [v333] eyelashBandMask 어댑터 (eye polygon × Sobel dark-line) -->
 <script src="js/photo-editor/mask-eyelash-adapter.js?v=20260529-v341-eyelash" defer></script>
-<script src="js/photo-editor/region-mask-provider.js?v=20260529-v340-photoeditor-mask-sampling" defer></script>
+<!-- [PE-M1] scleraMask 어댑터 (eye 폴리곤 − 홍채 ellipse → eyeRedness 영역 게이트) -->
+<script src="js/photo-editor/mask-sclera-adapter.js?v=20260603-pe-m1-sclera" defer></script>
+<script src="js/photo-editor/region-mask-provider.js?v=20260603-pe-m1-sclera" defer></script>
 <!-- [v316] 마스크 → beauty engine 적용 어댑터 (PE_MASK_DISABLE=1 로 비활성) -->
-<script src="js/photo-editor/mask-application.js?v=20260529-v350-nail-mask-conditional" defer></script>
+<script src="js/photo-editor/mask-application.js?v=20260603-pe-m1-sclera" defer></script>
 <!-- [v335] 마스크 QA 도구 (콘솔 호출 — RegionMaskQA.runOnCurrentImage()) -->
 <script src="js/photo-editor/mask-qa-tool.js?v=20260529-v340-photoeditor-mask-sampling" defer></script>
-<script src="js/photo-editor/beauty-engine.js?v=20260531-v369-skin-core" defer></script>
-<script src="app-photo-editor-beauty.js?v=20260530-v363-photo-controls-visibility" defer></script>
+<script src="js/photo-editor/beauty-engine.js?v=20260603-pe-m1-sclera" defer></script>
+<script src="app-photo-editor-beauty.js?v=20260603-pe-m1-sclera" defer></script>
 <script src="app-photo-editor-beauty-ai.js?v=20260529-v349-beauty-ai-shop-focus" defer></script>
 <script src="app-photo-editor-ai-api.js?v=20260527-v307-full-redesign" defer></script>
 <script src="app-photo-editor-relight.js?v=20260527-v307-full-redesign" defer></script>

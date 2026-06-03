@@ -72,7 +72,7 @@
   // precompute 대상 (가벼움)
   const PRECOMPUTE_REGIONS = ['skinMask', 'hairMask', 'lipMask', 'eyeMask', 'backgroundMask'];
   // lazy (호출 시점에 계산)
-  const LAZY_REGIONS = ['nailMask', 'handSkinMask', 'eyelashBandMask', 'hairBoundaryMask'];
+  const LAZY_REGIONS = ['nailMask', 'handSkinMask', 'eyelashBandMask', 'hairBoundaryMask', 'scleraMask'];
   const ALL_REGIONS = PRECOMPUTE_REGIONS.concat(LAZY_REGIONS);
 
   function _emptyResult(status, reason) {
@@ -377,6 +377,17 @@
             featherRadius: 2,
             reason: 'hairMask blur differential (r=2 vs r=8)',
           };
+          break;
+        }
+        case 'scleraMask': {
+          // PE-M1 — 흰자 정밀 마스크 = eye 폴리곤 − 홍채. 무거운 기하는 mask-sclera-adapter 위임.
+          //   refineLandmarks(478) 없거나 어댑터 미로드 → fallback → eyeRedness 는 휴리스틱 유지.
+          const SA = window.MaskScleraAdapter;
+          if (SA && typeof SA.scleraMask === 'function') {
+            const t = await SA.scleraMask(img, _imgSize(img));
+            if (t && t.mask) { result = t; break; }
+          }
+          result = _emptyResult('fallback', 'sclera adapter unavailable or no iris(478) landmarks');
           break;
         }
         default:

@@ -31,6 +31,11 @@
   const NAIL_COV_MAX  = 0.08;    // 너무 크게 잡힌 마스크 거부 (손 전체로 번진 경우)
   const NAIL_MASK_SCALE = 1.0;   // ready 일 때 mask 가중 배율
 
+  // PE-M1 — scleraMask 안전 게이트 상수. 흰자는 작으므로 coverage 범위 좁게.
+  const SCLERA_COV_MIN = 0.0002;  // 점 단위 false-positive 거부
+  const SCLERA_COV_MAX_DEFAULT = 0.03;  // 손/배경 오검출 거부. 눈 클로즈업 정상사진서 reject 시 PE_SCLERA_COV_MAX 로 0.05 까지 상향
+  const SCLERA_CONF_MIN = 0.4;    // 미달 → 휴리스틱 유지
+
   function _disabled() {
     try {
       if (window.localStorage && localStorage.getItem('PE_MASK_DISABLE') === '1') return true;
@@ -152,6 +157,46 @@
     return { mask: r.mask, scale: NAIL_MASK_SCALE, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
   }
 
+  // PE-M1 — scleraMask 전용 비상 off (PE_MASK_DISABLE 와 독립). disable 시 PE-ER 동결 버전과 pixel-identical.
+  function _scleraDisabled() {
+    try {
+      if (window.localStorage && localStorage.getItem('PE_SCLERA_MASK_DISABLE') === '1') return true;
+    } catch (_e) { /* ignore */ }
+    return false;
+  }
+
+  // PE-M1 — coverage 상한 런타임 튜닝 (눈 클로즈업 정상사진이 reject 되면 PE_SCLERA_COV_MAX='0.05').
+  function _scleraCovMax() {
+    try {
+      const v = window.localStorage && parseFloat(localStorage.getItem('PE_SCLERA_COV_MAX'));
+      if (Number.isFinite(v) && v > 0 && v <= 0.2) return v;
+    } catch (_e) { /* ignore */ }
+    return SCLERA_COV_MAX_DEFAULT;
+  }
+
+  // PE-M1 — scleraMask 안전 게이트. Tier2(landmark) + conf≥0.4 + coverage 범위. 미달 → null → 휴리스틱 유지.
+  function _scleraGatePass(r) {
+    if (!r || r.status !== 'ready' || !r.mask) return false;
+    if (r.sourceTier !== 2) return false;
+    if ((r.confidence || 0) < SCLERA_CONF_MIN) return false;
+    const cov = r.coverage || 0;
+    if (cov < SCLERA_COV_MIN || cov > _scleraCovMax()) return false;
+    return true;
+  }
+
+  // PE-M1 — eyeRedness 전용 scleraMask sync 조회. getNailMaskSync 미러.
+  //   게이트 미통과/미캐시/disable → null → beauty-engine 이 기존 PE-ER 휴리스틱(eyeW) 유지.
+  //   scleraMask 는 LAZY → 첫 호출 시 getCachedSync 가 백그라운드 계산 1회 트리거, 이후 캐시 read.
+  function getScleraMaskSync(img) {
+    if (!img) return null;
+    if (_disabled() || _scleraDisabled()) return null;
+    const RP = window.RegionMaskProvider;
+    if (!RP || typeof RP.getCachedSync !== 'function') return null;
+    const r = RP.getCachedSync(img, 'scleraMask');
+    if (!_scleraGatePass(r)) return null;
+    return { mask: r.mask, scale: _scaleOf('scleraMask', r.confidence || 0), confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
   // 디버그용 — 콘솔에서 확인 가능
   function explain(img) {
     return getMasksForBeauty(img).then(r => {
@@ -166,9 +211,11 @@
     getMasksForBeautySync,
     getLashMaskSync,
     getNailMaskSync,
+    getScleraMaskSync,
     explain,
     V316_FIRST,
     _scaleOf,
     _nailGatePass,
+    _scleraGatePass,
   };
 })();

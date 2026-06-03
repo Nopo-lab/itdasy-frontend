@@ -367,6 +367,18 @@
           regionMasks._scale.nailMask = nail.scale;
         }
       }
+      // PE-M1 — 흰자: eyeRedness 사용 시에만 scleraMask 페치. 안전 게이트 통과 시에만 useMasks 주입.
+      //   미통과(refine 없음/저신뢰/coverage 밖) → null → beauty-engine 이 기존 PE-ER 휴리스틱(eyeW) 그대로.
+      if ((b.eyeRedness || 0) > 0 && MA && typeof MA.getScleraMaskSync === 'function' && img) {
+        const sclera = MA.getScleraMaskSync(img);
+        if (sclera) {
+          if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
+          if (!regionMasks.useMasks) regionMasks.useMasks = {};
+          if (!regionMasks._scale) regionMasks._scale = {};
+          regionMasks.useMasks.scleraMask = sclera.mask;
+          regionMasks._scale.scleraMask = sclera.scale;
+        }
+      }
     } catch (_e) { regionMasks = null; }
     engine.apply(ctx, w, h, b, skinSmoothed, regionMasks);
     _contractBoost(ctx, w, h, b, regionMasks);

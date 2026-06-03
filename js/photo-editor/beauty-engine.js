@@ -307,6 +307,8 @@
       hasEyeMask: !!(useM && useM.eyeMask),               // [T-142] eyeMask 연결 시 catchLight 는 합성으로 대체
       hasLipMask: !!(useM && useM.lipMask),               // [T-145] lipMask 연결 시 색게이트 완화 + 발색 강화
       hasNailMask: !!(useM && useM.nailMask),             // [PE-2] nailMask 연결 시 nailGloss 풀강도, 없으면 안전 fallback
+      hasScleraMask: !!(useM && useM.scleraMask),         // [PE-M1] scleraMask 연결 시 eyeRedness 영역 게이트로 사용
+      scleraW: _rm('scleraMask', 0),                      // [PE-M1] 흰자 마스크 가중 (미연결 시 0 — _applyEye 가 eyeW 폴백)
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
@@ -325,7 +327,10 @@
     // [PE-ER3] eyeRedness — 2차 hard gate(skinW<0.35 등)가 흰자 오분류 시 기능을 죽여 no-op이 됨.
     //   hard cutoff 대신 sclera-like soft weight(밝음·중성·저채도·비피부 penalty·warm제외)로 강도 조절.
     //   흰자/충혈엔 약하게라도 적용, 눈썹/갈색 눈가는 weight≈0. 계수/방향 유지.
-    if (c.eyeRedK > 0 && p.eyeW > 0.10) {
+    // [PE-M1] scleraMask 연결 시 영역 게이트를 eyeW→scleraW 로 정밀화. 아래 색 refine(bright/neutral/sat/
+    //   skinPenalty/warmBrown)은 그대로 유지 — 마스크는 영역만 좁힘, 내부 강제 적용 아님(청록 재발 방지).
+    const regionW = p.hasScleraMask ? p.scleraW : p.eyeW;
+    if (c.eyeRedK > 0 && regionW > 0.10) {
       const chSpan = Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl);
       const warmBrown = (p.r - p.g > 18 && p.r - p.bl > 28);
       const brightW = Math.min(1, Math.max(0, (p.lum0 - 135) / 45));
@@ -334,7 +339,7 @@
       const skinPenalty = p.skinW > 0.70 ? 0.2 : (p.skinW > 0.35 ? 0.45 : 1);   // [PE-ER4] 흰자 skin 오분류(>0.70) no-op 방지 — 0→0.2 (warm/neutral 가중이 갈색 청록 재발은 계속 차단)
       const scleraW = brightW * neutralW * satW * skinPenalty * (warmBrown ? 0 : 1);
       if (scleraW > 0.08 && p.r > p.g + 3 && p.r > p.bl + 1) {
-        const k = c.eyeRedK * p.eyeW * scleraW;
+        const k = c.eyeRedK * regionW * scleraW;
         d[i] = _clamp(d[i] - 52 * k);
         d[i + 1] = _clamp(d[i + 1] + 12 * k);
         d[i + 2] = _clamp(d[i + 2] + 16 * k);

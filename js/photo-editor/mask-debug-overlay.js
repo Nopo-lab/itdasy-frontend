@@ -39,6 +39,7 @@
     handSkinMask:     [255, 180, 100], // 오렌지
     eyelashBandMask:  [180, 80,  255], // 보라
     hairBoundaryMask: [0,   180, 255], // 라이트블루
+    scleraMask:       [80,  220, 255], // PE-M1 흰자(밝은 청록)
   };
   const ALPHA = 0.35;
 
