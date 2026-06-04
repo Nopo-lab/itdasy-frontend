@@ -138,6 +138,9 @@
     const catLabel = { hair: '헤어·붙임머리·미용', lash: '속눈썹', nail: '네일', wax: '왁싱·피부·반영구' }[cat || ''] || '';
 
     const quickHtml = _beautyQuickHTML(esc, cat);
+    // PE-AI-1A — 부위 기반 추천 카드 (온디바이스, 슬라이더 위에). 모듈 없으면 빈 문자열.
+    const recoHtml = (window.PhotoEditorRecoCards && typeof window.PhotoEditorRecoCards.html === 'function')
+      ? window.PhotoEditorRecoCards.html(state) : '';
 
     let featuredHtml = '';
     if (featured.length) {
@@ -169,7 +172,7 @@
       aiHtml = '<div class="pe-hint" style="color:#7f7f87;margin-top:14px;">느린 AI 기능은 준비된 것만 별도 버튼으로 보여줘요. 이 화면은 즉시 보정만 다룹니다.</div>';
     }
 
-    return `${quickHtml}${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+    return `${quickHtml}${recoHtml}${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
   }
 
   function _beautyQuickHTML(esc, cat) {
@@ -207,6 +210,10 @@
     const scheduleRedraw = helpers.scheduleRedraw;
     const pushHistory = helpers.pushHistory;
     _bindBeautyQuick(panel, state, helpers);
+    // PE-AI-1A — 부위 기반 추천 카드 바인드 (적용은 아래 슬라이더 경로와 동일).
+    if (window.PhotoEditorRecoCards && typeof window.PhotoEditorRecoCards.bind === 'function') {
+      try { window.PhotoEditorRecoCards.bind(panel, state, helpers); } catch (_e) { void _e; }
+    }
     panel.querySelectorAll('[data-pe-slider]').forEach(inp => {
       inp.addEventListener('input', () => {
         const key = inp.dataset.peSlider;

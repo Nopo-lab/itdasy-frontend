@@ -431,6 +431,67 @@ input[data-studio-slider]::-webkit-slider-thumb {
   background: rgba(255,250,242,0.1);
 }
 
+/* PE-AI-1A — 부위 기반 추천 카드 */
+.pe-reco {
+  border: 1px solid rgba(255,250,242,0.1);
+  border-radius: 14px;
+  background: rgba(255,250,242,0.06);
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.pe-reco-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.pe-reco-card {
+  border: 1px solid rgba(255,250,242,0.1);
+  border-radius: 12px;
+  background: rgba(17,18,23,0.46);
+  padding: 10px 11px;
+}
+
+.pe-reco-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pe-reco-head strong {
+  color: #fffaf2;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pe-reco-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pe-reco-chip {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255,250,242,0.78);
+  background: rgba(255,250,242,0.08);
+  border: 1px solid rgba(255,250,242,0.1);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.pe-reco-chip b {
+  color: #fffaf2;
+  font-weight: 900;
+}
+
+.pe-reco-apply {
+  width: 100%;
+}
+
 #tplV2Sheet {
   background: #111217 !important;
   color: #f7f1e8 !important;
