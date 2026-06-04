@@ -351,6 +351,9 @@
         '    border-radius: 20px !important;',
         '    overflow: hidden !important;',
         '    margin: 0 !important;',
+        // [2026-06-05] 가운데 모달이라 사이드바 회피용 padding-left:232px(style-components.css) 취소 → 좌우 대칭
+        '    padding-left: 16px !important;',
+        '    padding-right: 16px !important;',
         '  }',
         // [2026-05-29] PC 메시지 영역 가운데 max-width 720px 컨테이너 (헤더·입력창은 풀폭 유지)
         '  #asstBody { padding: 16px 0 !important; display: flex; flex-direction: column; align-items: center; }',
