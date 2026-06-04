@@ -460,9 +460,11 @@
 
         <div class="rvm5-card">
           <div class="rvm5-card-t">날짜별 매출</div>
-          <div class="rvcal-grid" data-rvcal-grid></div>
+          <div class="rvcal-wrap" data-rvcal-wrap>
+            <div class="rvcal-grid" data-rvcal-grid></div>
+            <div class="rvcal-detail is-empty" data-rvcal-detail></div>
+          </div>
         </div>
-        <div data-rvcal-detail></div>
       </div>`;
     _bindEvents(container);
     _mountCalendar(container, items);
@@ -506,9 +508,11 @@
         ${aiRow}
         <div class="rvm5-mc">
           <div class="t">날짜별 매출</div>
-          <div class="rvcal-grid" data-rvcal-grid></div>
+          <div class="rvcal-wrap" data-rvcal-wrap>
+            <div class="rvcal-grid" data-rvcal-grid></div>
+            <div class="rvcal-detail is-empty" data-rvcal-detail></div>
+          </div>
         </div>
-        <div data-rvcal-detail></div>
       </div>`;
     _bindEvents(container);
     _mountCalendar(container, items);
