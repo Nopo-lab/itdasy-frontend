@@ -563,8 +563,12 @@
       actsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:11px;font-weight:600;">${_esc(a.label)}</button>`).join('')}</div>`;
     }
     const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
+    // [잇비 결과 카드 v0] 결과 카드 3개 — 적용 누르면 원본+initialState 로 편집기 오픈(핸드오프).
+    const cardsHtml = (m.itbi_cards && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.renderHTML === 'function')
+      ? window.PhotoEditorItbiCards.renderHTML(m.itbi_cards, idx) : '';
     return `<div style="margin-bottom:8px;">
       <img src="${_esc(m.photo_result.dataUrl)}" alt="보정 결과" style="max-width:240px;max-height:300px;border-radius:14px;display:block;box-shadow:0 4px 14px rgba(0,0,0,0.08);cursor:zoom-in;" data-asst-photo-result="${idx}" />
+      ${cardsHtml}
       ${actsHtml}
       ${capHtml}
     </div>`;
@@ -1361,11 +1365,29 @@
 
   function _handleAssistantClick(e) {
     if (_handleBriefingActionClick(e)) return;   // [T-115] 브리핑 추천 버튼
+    if (_handleItbiCardClick(e)) return;         // [잇비 결과 카드 v0] 결과 카드 적용 → 편집기 핸드오프
     if (_handleActionHubClick(e)) return;        // [J-1] Action Hub 공통 버튼(data-asst-hub-act)
     if (_handlePhotoClick(e)) return;
     if (_handleSingleActionClick(e)) return;
     if (_handleGroupActionClick(e)) return;
     _handleSuggestionClick(e);
+  }
+
+  // [잇비 결과 카드 v0] 카드 [적용] 클릭 → 원본 src + initialState(params)로 편집기 오픈.
+  //   적용 누르기 전엔 편집기 state 를 절대 안 건드림. 자동 저장/게시/발송 0.
+  function _handleItbiCardClick(e) {
+    const el = e.target && e.target.closest && e.target.closest('[data-asst-itbi-card]');
+    if (!el) return false;
+    const parts = (el.getAttribute('data-asst-itbi-card') || '').split(':');
+    const idx = +parts[0], cardId = parts[1];
+    const m = _history[idx];
+    const cards = m && m.itbi_cards;
+    if (!Array.isArray(cards)) return true;
+    const card = cards.find((c) => c.id === cardId);
+    const src = m.photo_result && m.photo_result.originalSrc;
+    if (!card || !src || !window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') return true;
+    window.PhotoEditor.open({ src: src, initial_tab: card.initial_tab || 'beauty', initialState: card.state });
+    return true;
   }
 
   // [J-1] Action Hub 버튼 클릭 → ItdasyActionHub.handleActionClick(안전: safe 연결 / confirm 안내 / danger 차단).
@@ -2027,13 +2049,27 @@
           result, preset, question: opts.question, photoUrl: opts.photoUrl, customerCtx: opts.customerCtx,
         })
       : null;
+    // [잇비 핸드오프] 적용 파라미터 + 원본 src 보존(채팅→편집기 유실 방지). 원본은 dataURL(readAsDataURL)이라 revoke 안 됨.
+    const handoff = {
+      originalSrc: opts.photoUrl,
+      params: {
+        beauty: result.beauty || null,
+        adjust: result.adjust || null,
+        ratio: result.ratio || 'original',
+        autoIntensity: result.intensity || 'standard',
+      },
+    };
+    // [잇비 결과 카드 v0] non-promo 경로에서만 카드 3개 구성(promo/인스타 경로는 기존 유지 — 후속 PR).
+    const itbiCards = (!promo && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.fromResult === 'function')
+      ? window.PhotoEditorItbiCards.fromResult(result, opts) : null;
     _history[placeholderIdx] = {
       role: 'assistant',
-      text: promo ? '' : (intent.instagram ? '보정 완료! 인스타 미리보기를 열게요.' : '보정 완료! 미리보기 확인해주세요.'),
-      photo_result: { dataUrl: result.dataUrl, ratio: result.ratio, preset_label: result.preset_label },
+      text: promo ? '' : (intent.instagram ? '보정 완료! 인스타 미리보기를 열게요.' : '보정 완료! 어떻게 만들까요?'),
+      photo_result: { dataUrl: result.dataUrl, ratio: result.ratio, preset_label: result.preset_label, params: handoff.params, originalSrc: handoff.originalSrc },
+      itbi_cards: itbiCards,
       promo_result: promo ? promo.promoResult : null,
       photo_actions: promo ? [] : _chatAutoEditActions(intent.instagram),
-      hub_actions: promo ? promo.hubActions : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동')),
+      hub_actions: promo ? promo.hubActions : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동'), handoff),
       photo_caption: promo ? promo.promoResult.caption : '업종: ' + (result.preset_label || '자동'),
     };
     _renderHistory();
@@ -2054,10 +2090,15 @@
 
   // [J-1] 사진 결과 버튼을 Action Hub 규격으로. 기존 동작(instagram/editor/save/retry)은 route:'photo'(photo-actions.js)
   //   로 그대로 유지하고, 템플릿 보기(safe)·고객기록 저장(confirm)을 hub 경로로 덧붙임. 라벨 이모지 제거(CLAUDE 아이콘 규칙).
-  function _photoHubActions(isInstagram, dataUrl, caption) {
+  function _photoHubActions(isInstagram, dataUrl, caption, handoff) {
+    // [잇비 핸드오프] "더 손보기"는 구운 dataUrl 이 아니라 원본 src + initialState(params)로 편집기를 연다.
+    //   payload 없으면(과거 메시지) 기존처럼 원본 없이 열림 — 회귀 아님.
+    const editorPayload = (handoff && handoff.originalSrc)
+      ? { photo_url: handoff.originalSrc, initial_tab: 'beauty', initialState: handoff.params }
+      : {};
     const acts = [
       { id: 'instagram', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'photo' },
-      { id: 'editor', kind: 'open_photo_editor', label: '더 손보기', phase: 'safe', route: 'photo' },
+      { id: 'editor', kind: 'open_photo_editor', label: '더 손보기', phase: 'safe', route: 'photo', payload: editorPayload },
       { id: 'save', kind: 'export_image', label: '내보내기', phase: 'safe', route: 'photo' },
     ];
     if (!isInstagram) acts.push({ id: 'retry', kind: 'retry_edit', label: '다시 보정', phase: 'safe', route: 'photo' });

@@ -264,6 +264,12 @@
       height: crop.dh,
       ratio: ratio,
       preset_label: resolved ? (resolved.label || '자동') : '원본',
+      // [잇비 핸드오프] 적용한 보정 파라미터 — 편집기 initialState 전달용(채팅→편집기 유실 방지).
+      //   구운 dataUrl 대신 원본 src + 이 params 로 편집기를 열어 슬라이더 값이 유지되게 한다.
+      beauty: resolved ? (resolved.beauty || null) : null,
+      adjust: resolved ? (resolved.adjust || null) : null,
+      intensity: opts.intensity || 'standard',
+      preset: preset,
     };
   }
 

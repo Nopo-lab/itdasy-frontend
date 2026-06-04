@@ -430,6 +430,11 @@
     opts = opts || {};
     const sheet = _ensureSheet();
     _state = _initState(opts);
+    // [잇비 핸드오프] initialState 화이트리스트 병합 — history seed 전에 처리해 cursor 0 이 "잇비 적용 결과"가 되게 함.
+    //   initialState 가 없으면(기존 호출) 병합 자체를 건너뛰어 기존 동작과 100% 동일.
+    if (opts.initialState && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.mergeInitialState === 'function') {
+      try { window.PhotoEditorItbiCards.mergeInitialState(_state, opts.initialState); } catch (_e) { void _e; }
+    }
     sheet.style.setProperty('display', 'flex', 'important');
     document.body.style.overflow = 'hidden';
     _renderTabs(); _renderPanel(); _redraw();
@@ -476,7 +481,7 @@
   }
   function _openFromAction(p) {
     p = p || {};
-    return _open({ src: p.photo_url || p.src, initial_tab: p.initial_tab || 'auto', serviceName: p.service_name || '', price: +p.price || 0 });
+    return _open({ src: p.photo_url || p.src, initial_tab: p.initial_tab || 'auto', serviceName: p.service_name || '', price: +p.price || 0, initialState: p.initialState || null });
   }
 
   function _applyStatePatch(patch) {
