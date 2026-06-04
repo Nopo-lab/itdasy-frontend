@@ -109,10 +109,10 @@
     }
     // [2026-04-29 W5] 회원권 통계 항목
     if (d.membership_expiring_30d > 0) {
-      items.push({ ic: 'sparkles', label: `회원권 만료 임박 ${d.membership_expiring_30d}건 — 충전 안내 보낼 시점`, color: '#7C3AED', action: 'membership_expiring' });
+      items.push({ ic: 'sparkles', label: `회원권 만료 임박 ${d.membership_expiring_30d}건 — 충전 안내 보낼 시점`, color: '#BC6675', action: 'membership_expiring' });
     }
     if (d.membership_low_balance > 0) {
-      items.push({ ic: 'sparkles', label: `회원권 잔액 부족 ${d.membership_low_balance}명`, color: '#A78BFA' });
+      items.push({ ic: 'sparkles', label: `회원권 잔액 부족 ${d.membership_low_balance}명`, color: '#D58A95' });
     }
     if (d.retouch_due_count > 0) {
       const first = (d.retouch_due_customers || [])[0] || {};
@@ -130,8 +130,8 @@
         if (s && s.text) {
           items.push({
             ic: 'sparkles',
-            label: s.text,
-            color: '#7C3AED',
+            label: (window.dedupeNim ? window.dedupeNim(s.text) : s.text),  // '연영님님' → '연영님' 방어
+            color: '#BC6675',
             chat_input: s.chat_input || '',
             action: 'chat_input',
           });

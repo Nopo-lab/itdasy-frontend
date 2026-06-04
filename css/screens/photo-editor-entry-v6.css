@@ -288,7 +288,7 @@
   color: #fff;
   line-height: 1.4;
 }
-.pe-entry-v6 .pe-badge.ai  { background: #7C3AED; }
+.pe-entry-v6 .pe-badge.ai  { background: var(--brand-strong); }
 .pe-entry-v6 .pe-badge.hot { background: #F36; top: 5px; right: 5px; }
 .pe-entry-v6 .pe-badge.pro { background: #fff; color: #111; top: 5px; right: 5px; }
 

@@ -202,7 +202,7 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
 .hv-dot--red    { background: var(--danger); }
 .hv-dot--coral  { background: #D85A30; }
 .hv-dot--green  { background: var(--ok); }
-.hv-dot--purple { background: #7F77DD; }
+.hv-dot--purple { background: var(--brand); }
 
 /* 사진 스택 */
 .hv-card__photos { display: flex; }

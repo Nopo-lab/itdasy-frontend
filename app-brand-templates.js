@@ -235,7 +235,7 @@
           <span style="display:block;font-size:13px;font-weight:700;color:#222;">${_esc(t.name)}</span>
           <span style="display:block;font-size:11px;color:#888;margin-top:2px;">${_esc(t.watermark && t.watermark.value || '워터마크 없음')} · ${_esc(t.text_style && t.text_style.value || '텍스트 없음')}</span>
         </span>
-        ${t.is_default ? '<span style="font-size:10px;color:#7C3AED;font-weight:800;">기본</span>' : `<span data-bt-del="${_esc(t.id)}" role="button" aria-label="삭제"
+        ${t.is_default ? '<span style="font-size:10px;color:#BC6675;font-weight:800;">기본</span>' : `<span data-bt-del="${_esc(t.id)}" role="button" aria-label="삭제"
           style="color:#aaa;font-size:18px;padding:4px 8px;cursor:pointer;">×</span>`}
       </button>
     `).join('') : `

@@ -28,6 +28,17 @@ window._esc = window._esc || function (s) {
   });
 };
 
+// [2026-06-05] 호칭 헬퍼 — 이름이 이미 '님'으로 끝나면 중복 안 붙임 ("연영님님" 버그 방지).
+//   withHonorific('연영')='연영님', withHonorific('연영님')='연영님', withHonorific('')=''
+window.withHonorific = window.withHonorific || function (name) {
+  var n = String(name == null ? '' : name).trim().replace(/(님)+$/, '');
+  return n ? n + '님' : '';
+};
+// 표시단 방어 — 완성 문자열의 '님님…' 을 '님' 으로 축약 (BE/외부 텍스트에도 적용)
+window.dedupeNim = window.dedupeNim || function (str) {
+  return String(str == null ? '' : str).replace(/님(\s*님)+/g, '님');
+};
+
 // ===== data-changed 디바운스 dispatch (PerfFix) =====
 // 빠른 연속 조작(예: 고객 일괄 추가) 시 21개 모듈이 매번 동시 발동 → UI 렉.
 // force_sync/focus_sync 만 즉시, 그 외엔 50ms 디바운스로 1회만 발동.

@@ -73,7 +73,7 @@
     ].join(';') + ';';
     const beforeUrl = pair.before && pair.before.image_url || '';
     const afterUrl = pair.after && pair.after.image_url || '';
-    const name = pair.customer_name ? (pair.customer_name + '님 ') : '';
+    const name = pair.customer_name ? (window.withHonorific(pair.customer_name) + ' ') : '';
     chip.innerHTML = `
       <div style="display:flex;flex-shrink:0;">
         ${beforeUrl ? `<img src="${_esc(beforeUrl)}" style="width:30px;height:30px;border-radius:8px;object-fit:cover;border:2px solid #fff;" alt="" />` : ''}

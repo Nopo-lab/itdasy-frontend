@@ -33,13 +33,13 @@
     const labelLead = items[0].days_until === 0 ? '오늘' : items[0].days_until === 1 ? '내일' : `${items[0].days_until}일 뒤`;
 
     return `
-      <div data-birthday-open style="padding:14px;border-radius:14px;background:linear-gradient(135deg,rgba(139,92,246,0.12),rgba(139,92,246,0.02));border:1px solid rgba(139,92,246,0.25);margin-bottom:14px;display:flex;align-items:center;gap:10px;cursor:pointer;">
-        <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#A78BFA,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;">🎂</div>
+      <div data-birthday-open style="padding:14px;border-radius:14px;background:linear-gradient(135deg,rgba(213, 138, 149,0.12),rgba(213, 138, 149,0.02));border:1px solid rgba(213, 138, 149,0.25);margin-bottom:14px;display:flex;align-items:center;gap:10px;cursor:pointer;">
+        <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#D58A95,#D58A95);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;">🎂</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:12px;font-weight:800;margin-bottom:2px;color:#6D28D9;">${labelLead} 생일 · ${items.length}명</div>
+          <div style="font-size:12px;font-weight:800;margin-bottom:2px;color:#BC6675;">${labelLead} 생일 · ${items.length}명</div>
           <div style="font-size:11px;color:var(--text-muted);line-height:1.4;">${namesStr}${items.length > priority.length ? ` 외 ${items.length - priority.length}명` : ''}</div>
         </div>
-        <div style="padding:6px 12px;border-radius:8px;background:#fff;color:#6D28D9;font-size:11px;font-weight:700;">축하하기 →</div>
+        <div style="padding:6px 12px;border-radius:8px;background:#fff;color:#BC6675;font-size:11px;font-weight:700;">축하하기 →</div>
       </div>
     `;
   }
@@ -104,8 +104,8 @@
     }
 
     body.innerHTML = `
-      <div style="margin-bottom:14px;padding:12px;background:rgba(139,92,246,0.06);border-radius:12px;">
-        <div style="font-size:11px;color:#6D28D9;font-weight:700;margin-bottom:6px;">축하 메시지 팁</div>
+      <div style="margin-bottom:14px;padding:12px;background:rgba(213, 138, 149,0.06);border-radius:12px;">
+        <div style="font-size:11px;color:#BC6675;font-weight:700;margin-bottom:6px;">축하 메시지 팁</div>
         <div style="font-size:11px;color:var(--text-muted);line-height:1.5;">템플릿을 복사해서 카카오톡으로 보내세요. 짧고 따뜻한 한마디면 충분해요.</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
@@ -113,12 +113,12 @@
           <div style="padding:12px;background:#fff;border-radius:12px;border:1px solid rgba(0,0,0,0.06);box-shadow:0 1px 3px rgba(0,0,0,0.04);">
             <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
               <strong style="font-size:15px;">${_esc(c.name)}</strong>
-              <span style="font-size:11px;color:#8B5CF6;font-weight:700;">${_esc(_relativeLabel(c.days_until))}</span>
+              <span style="font-size:11px;color:#D58A95;font-weight:700;">${_esc(_relativeLabel(c.days_until))}</span>
               <span style="margin-left:auto;font-size:10px;color:var(--text-subtle);">${_esc(c.birthday)}</span>
             </div>
             <div style="font-size:11px;color:#888;margin-bottom:8px;">${c.phone ? _esc(c.phone) + ' · ' : ''}방문 ${c.visit_count}회</div>
             <div style="display:flex;gap:6px;">
-              <button data-copy-msg="${_esc(c.name)}" style="flex:1;padding:9px;border:1px solid rgba(139,92,246,0.3);border-radius:8px;background:rgba(139,92,246,0.05);color:#6D28D9;cursor:pointer;font-weight:700;font-size:12px;">축하 메시지 복사</button>
+              <button data-copy-msg="${_esc(c.name)}" style="flex:1;padding:9px;border:1px solid rgba(213, 138, 149,0.3);border-radius:8px;background:rgba(213, 138, 149,0.05);color:#BC6675;cursor:pointer;font-weight:700;font-size:12px;">축하 메시지 복사</button>
             </div>
           </div>
         `).join('')}

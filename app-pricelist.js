@@ -29,18 +29,18 @@
         </div>
         <div style="font-size:12px;color:#777;line-height:1.55;margin-bottom:14px;">
           샵 가격표 사진 한 장만 올려주세요. AI 가 시술명·가격을 인식해서 자동 등록해요.<br>
-          이후 AI 잇비에 <span style="background:#FAF5FF;color:#5B21B6;padding:1px 6px;border-radius:6px;font-weight:600;">"강연준 다운펌, 디자인컷"</span> 만 적어도 합산 매출 등록 제안돼요.
+          이후 AI 잇비에 <span style="background:#F7EFF0;color:#BC6675;padding:1px 6px;border-radius:6px;font-weight:600;">"강연준 다운펌, 디자인컷"</span> 만 적어도 합산 매출 등록 제안돼요.
         </div>
 
-        <div id="plUploadArea" style="border:2px dashed #DDD6FE;border-radius:14px;padding:30px 16px;text-align:center;background:#FAF5FF;cursor:pointer;">
+        <div id="plUploadArea" style="border:2px dashed #F0DADF;border-radius:14px;padding:30px 16px;text-align:center;background:#F7EFF0;cursor:pointer;">
           <div style="font-size:34px;margin-bottom:6px;">📷</div>
-          <div style="font-size:14px;font-weight:700;color:#5B21B6;margin-bottom:4px;">탭해서 사진 선택</div>
+          <div style="font-size:14px;font-weight:700;color:#BC6675;margin-bottom:4px;">탭해서 사진 선택</div>
           <div style="font-size:11px;color:#888;">JPG · PNG · 6MB 이하</div>
           <input id="plFile" type="file" accept="image/*" style="display:none;">
         </div>
 
         <div id="plProgress" style="display:none;text-align:center;padding:30px 0;">
-          <div class="pl-spin" style="display:inline-block;width:40px;height:40px;border:4px solid #DDD6FE;border-top-color:#7C3AED;border-radius:50%;animation:plspin 0.8s linear infinite;"></div>
+          <div class="pl-spin" style="display:inline-block;width:40px;height:40px;border:4px solid #F0DADF;border-top-color:#BC6675;border-radius:50%;animation:plspin 0.8s linear infinite;"></div>
           <div style="margin-top:12px;font-size:13px;color:#555;">AI 가 가격표 읽는 중… (5~15초)</div>
         </div>
 
@@ -123,12 +123,12 @@
                 <div style="font-size:13px;font-weight:600;color:#333;">${_esc(s.name)}</div>
                 <div style="font-size:10px;color:#888;margin-top:2px;">${_esc(s.category)} · ${s.default_duration_min || 60}분</div>
               </div>
-              <div style="font-size:14px;font-weight:700;color:#7C3AED;">${formatMoney(s.default_price)}</div>
+              <div style="font-size:14px;font-weight:700;color:#BC6675;">${formatMoney(s.default_price)}</div>
             </div>
           `).join('')}
         </div>
         <div style="display:flex;gap:8px;margin-top:14px;">
-          <button id="plDone" style="flex:1;padding:14px;border:none;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;">완료</button>
+          <button id="plDone" style="flex:1;padding:14px;border:none;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;">완료</button>
           <button id="plMore" style="flex:1;padding:14px;border:1px solid #ddd;background:#fff;color:#555;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;">사진 한 장 더</button>
         </div>
       `;

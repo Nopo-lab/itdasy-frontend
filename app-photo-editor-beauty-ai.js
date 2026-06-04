@@ -129,7 +129,7 @@
     const html = Object.keys(RECIPES).map(id => _chip(id, RECIPES[id], id === selected)).join('');
     const box = document.createElement('div');
     box.dataset.beautyAiWrap = '1';
-    box.innerHTML = `<div class="pe-group-label" style="color:#7C3AED;font-weight:800;">추천 보정</div>
+    box.innerHTML = `<div class="pe-group-label" style="color:#BC6675;font-weight:800;">추천 보정</div>
       <div style="display:flex;gap:6px;overflow-x:auto;margin:6px 0 10px;">${html}</div>`;
     panel.insertBefore(box, panel.firstChild);
     box.addEventListener('click', e => {

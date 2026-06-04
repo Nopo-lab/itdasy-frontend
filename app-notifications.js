@@ -249,16 +249,16 @@
     const total = memNotifs.length;
     const a = memNotifs[0];
     host.innerHTML = `
-      <div role="status" style="background:linear-gradient(135deg,#F3E8FF 0%,#E9D5FF 100%);border:1px solid #C4B5FD;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
+      <div role="status" style="background:linear-gradient(135deg,#F7EFF0 0%,#FCE7EC 100%);border:1px solid #F0DADF;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#A78BFA;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">💳</div>
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#D58A95;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">💳</div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:600;color:#7C3AED;letter-spacing:0.2px;margin-bottom:2px;">회원권 알림 ${total > 1 ? `(${total}건)` : ''}</div>
+            <div style="font-size:11px;font-weight:600;color:#BC6675;letter-spacing:0.2px;margin-bottom:2px;">회원권 알림 ${total > 1 ? `(${total}건)` : ''}</div>
             <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
             <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;">${_esc(a.body || '')}</div>
             <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-              <button data-mem-open="${a.id}" data-mem-payload='${(a.payload || '{}').replace(/'/g, '&#39;')}' style="background:#7C3AED;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">충전 안내</button>
-              <button data-mem-dismiss="${a.id}" style="background:none;border:none;color:#7C3AED;font-size:11px;cursor:pointer;">나중에</button>
+              <button data-mem-open="${a.id}" data-mem-payload='${(a.payload || '{}').replace(/'/g, '&#39;')}' style="background:#BC6675;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">충전 안내</button>
+              <button data-mem-dismiss="${a.id}" style="background:none;border:none;color:#BC6675;font-size:11px;cursor:pointer;">나중에</button>
             </div>
           </div>
         </div>

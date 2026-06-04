@@ -114,9 +114,9 @@
     if (!suggestions || !suggestions.length) { _hideBox(box); return; }
     box.style.display = 'flex';
     box.innerHTML = suggestions.map(s => {
-      const text = _esc(s.text || '');
+      const text = _esc((window.dedupeNim ? window.dedupeNim(s.text || '') : (s.text || '')));
       const chat = _esc(s.chat_input || s.text || '');
-      return `<button data-proactive-chat="${chat}" style="flex:0 0 auto;max-width:260px;padding:10px 14px;border:1px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);color:#5B21B6;cursor:pointer;font-size:12px;font-weight:600;text-align:left;line-height:1.35;white-space:normal;">${text}</button>`;
+      return `<button data-proactive-chat="${chat}" style="flex:0 0 auto;max-width:260px;padding:10px 14px;border:1px solid #F0DADF;border-radius:14px;background:linear-gradient(135deg,#F7EFF0,#FCE7EC);color:#BC6675;cursor:pointer;font-size:12px;font-weight:600;text-align:left;line-height:1.35;white-space:normal;">${text}</button>`;
     }).join('');
   }
 

@@ -36,7 +36,7 @@
     return { permanent: 'ic-bot', preference: 'ic-star', pattern: 'ic-sparkles' }[kind] || 'ic-bot';
   }
   function _kindColor(kind) {
-    return { permanent: '#7C3AED', preference: 'var(--brand)', pattern: '#3B82F6' }[kind] || '#7C3AED';
+    return { permanent: '#BC6675', preference: 'var(--brand)', pattern: '#3B82F6' }[kind] || '#BC6675';
   }
 
   function _ensureSheet() {
@@ -49,18 +49,18 @@
     sheet.innerHTML = `
       <div id="afsCard" style="width:100%;max-width:520px;background:#fff;border-radius:20px 20px 0 0;max-height:88vh;display:flex;flex-direction:column;padding:18px 18px 0;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_ic('ic-bot', 18)}</span>
+          <span style="display:inline-flex;align-items:center;color:#BC6675;">${_ic('ic-bot', 18)}</span>
           <strong style="font-size:17px;">AI 잇비 메모</strong>
-          <span style="font-size:11px;background:#FAF5FF;color:#5B21B6;padding:2px 8px;border-radius:99px;font-weight:700;">사장님 머릿속</span>
+          <span style="font-size:11px;background:#F7EFF0;color:#BC6675;padding:2px 8px;border-radius:99px;font-weight:700;">사장님 머릿속</span>
           <button id="afsClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;">${_ic('ic-x', 18)}</button>
         </div>
         <div style="font-size:12px;color:#777;line-height:1.5;margin-bottom:12px;">
-          여기 적은 메모는 AI 잇비가 매번 참고해요. <span style="color:#5B21B6;font-weight:600;">"화요일 오전 예약 안 받음"</span> / <span style="color:#5B21B6;font-weight:600;">"강연준은 글루 알러지"</span> 같은 거.
-          <br>AI 잇비한테 <span style="background:#FAF5FF;padding:1px 6px;border-radius:6px;color:#5B21B6;font-weight:600;">"기억해"</span> 라고 말해도 자동 저장돼요.
+          여기 적은 메모는 AI 잇비가 매번 참고해요. <span style="color:#BC6675;font-weight:600;">"화요일 오전 예약 안 받음"</span> / <span style="color:#BC6675;font-weight:600;">"강연준은 글루 알러지"</span> 같은 거.
+          <br>AI 잇비한테 <span style="background:#F7EFF0;padding:1px 6px;border-radius:6px;color:#BC6675;font-weight:600;">"기억해"</span> 라고 말해도 자동 저장돼요.
         </div>
         <div id="afsAdd" style="display:flex;gap:6px;margin-bottom:10px;">
           <input id="afsInput" type="text" maxlength="500" placeholder="새 메모 (예: 일요일은 휴무)" style="flex:1;padding:11px;border:1px solid #ddd;border-radius:10px;font-size:13px;">
-          <button id="afsAddBtn" style="padding:11px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">+ 추가</button>
+          <button id="afsAddBtn" style="padding:11px 16px;border:none;border-radius:10px;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:700;font-size:13px;cursor:pointer;">+ 추가</button>
         </div>
         <div id="afsList" style="flex:1;overflow-y:auto;padding-bottom:18px;">
           <div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;">불러오는 중…</div>

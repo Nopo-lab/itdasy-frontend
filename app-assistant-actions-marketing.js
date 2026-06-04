@@ -32,21 +32,21 @@
     draft_message:           { icon: 'ic-pen-line',      label: '메시지 초안', color: '#0EA5E9' },
     send_message:            { icon: 'ic-send',          label: '메시지 발송', color: 'var(--danger)' },
     create_treatment_record: { icon: 'ic-check-circle',  label: '시술 기록',   color: '#15803D' },
-    apply_photo_enhance:     { icon: 'ic-wand-sparkles', label: '사진 보정',   color: '#A78BFA' },
-    remove_bg_and_swap:      { icon: 'ic-scissors',      label: '배경 교체',   color: '#7C3AED' },
+    apply_photo_enhance:     { icon: 'ic-wand-sparkles', label: '사진 보정',   color: '#D58A95' },
+    remove_bg_and_swap:      { icon: 'ic-scissors',      label: '배경 교체',   color: '#BC6675' },
     make_before_after:       { icon: 'ic-layers',        label: '전·후 카드',  color: '#2B8C7E' },
     draft_caption:           { icon: 'ic-sparkles',      label: '캡션 초안',   color: '#D58A95' },
     publish_instagram:       { icon: 'ic-upload',        label: '인스타 게시', color: 'var(--danger)' },
     // P0-PE (사진 편집기, 2026-05-17 v167)
     open_photo_editor:       { icon: 'ic-sliders-horizontal', label: '편집기 열기', color: '#D58A95' },
-    apply_photo_preset:      { icon: 'ic-wand-sparkles', label: '자동 보정',    color: '#A78BFA' },
-    adjust_photo:            { icon: 'ic-sliders-horizontal', label: '수동 보정', color: '#A78BFA' },
+    apply_photo_preset:      { icon: 'ic-wand-sparkles', label: '자동 보정',    color: '#D58A95' },
+    adjust_photo:            { icon: 'ic-sliders-horizontal', label: '수동 보정', color: '#D58A95' },
     add_text_overlay:        { icon: 'ic-pen-line',      label: '텍스트 추가',  color: '#0EA5E9' },
     add_watermark:           { icon: 'ic-badge',         label: '워터마크',     color: '#0EA5E9' },
     export_marketing_image:  { icon: 'ic-upload',        label: '편집본 저장',  color: '#15803D' },
     // P0-CHATBOT-SHORTCUT (v175, 2026-05-18) — 챗봇 사진+텍스트 즉시 진입 트리오
     attach_photo_to_customer:        { icon: 'ic-image-plus', label: '고객 사진 첨부',     color: '#15803D' },
-    analyze_photo_and_recommend_edit:{ icon: 'ic-sparkles',   label: '사진 분석',          color: '#A78BFA' },
+    analyze_photo_and_recommend_edit:{ icon: 'ic-sparkles',   label: '사진 분석',          color: '#D58A95' },
     prepare_instagram_post_bundle:   { icon: 'ic-upload',     label: '인스타 게시 묶음',   color: 'var(--danger)' },
   };
 

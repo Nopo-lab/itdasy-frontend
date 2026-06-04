@@ -18,9 +18,9 @@
 
   function _chipStyle(on) {
     if (on) {
-      return 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.65);border-radius:999px;background:#6D28D9;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(109,40,217,0.2);';
+      return 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.65);border-radius:999px;background:#BC6675;color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:0 3px 10px rgba(109,40,217,0.2);';
     }
-    return 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.25);border-radius:999px;background:#FAF5FF;color:#5B21B6;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;';
+    return 'flex-shrink:0;padding:6px 12px;border:1px solid rgba(124,58,237,0.25);border-radius:999px;background:#F7EFF0;color:#BC6675;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;';
   }
 
   function _wrap() {

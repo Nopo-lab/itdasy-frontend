@@ -478,7 +478,7 @@
     const customer = _guessCustomerName(voiceText);
     _pendingRevisit = { weeks: interval.weeks, customer, text: voiceText };
 
-    const who = customer && customer.name ? customer.name + '님' : '손님';
+    const who = customer && customer.name ? window.withHonorific(customer.name) : '손님';
     msg.textContent = who + ' · ' + interval.weeks + '주 후 재방문 추천 알림을 예약에 등록할까요?';
     box.style.display = 'block';
   }
@@ -590,7 +590,7 @@
     btn.type = 'button';
     btn.setAttribute('data-haptic', 'medium');
     btn.innerHTML = _svg('ic-mic', 16) + ' 음성 캡션';
-    btn.style.cssText = 'padding:12px 16px; border:none; border-radius:14px; background:linear-gradient(135deg,#7C3AED,#A78BFA); color:#fff; font-weight:800; font-size:14px; cursor:pointer; min-height:44px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(124,58,237,0.3);';
+    btn.style.cssText = 'padding:12px 16px; border:none; border-radius:14px; background:linear-gradient(135deg,#BC6675,#D58A95); color:#fff; font-weight:800; font-size:14px; cursor:pointer; min-height:44px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(124,58,237,0.3);';
     btn.addEventListener('click', openVoiceCaption);
     target.appendChild(btn);
     return true;

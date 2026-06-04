@@ -4,7 +4,7 @@
   'use strict';
 
   const PHOTO_KIND_META = {
-    adjust_photo: { icon: 'ic-sliders', label: '사진 보정', color: '#7C3AED' },
+    adjust_photo: { icon: 'ic-sliders', label: '사진 보정', color: '#BC6675' },
     add_text_overlay: { icon: 'ic-type', label: '텍스트 추가', color: '#0EA5E9' },
     add_watermark: { icon: 'ic-stamp', label: '워터마크', color: '#D58A95' },
     export_marketing_image: { icon: 'ic-download', label: '마케팅 이미지', color: '#2563EB' },

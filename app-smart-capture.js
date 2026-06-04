@@ -24,7 +24,7 @@
     sheet.innerHTML = `
       <div id="scCard" style="width:100%;max-width:540px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;padding:18px 18px max(18px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;color:#7C3AED;">${_ic('ic-image-plus', 20)}</span>
+          <span style="display:inline-flex;align-items:center;color:#BC6675;">${_ic('ic-image-plus', 20)}</span>
           <strong id="scTitle" style="font-size:17px;">스마트 캡처</strong>
           <button id="scClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;">${_ic('ic-x', 18)}</button>
         </div>
@@ -34,10 +34,10 @@
             <div style="font-size:13px;font-weight:800;color:#92400E;">카톡 캡처</div>
             <div style="font-size:10px;color:#92400E80;margin-top:3px;">예약·매출·후기 자동 추출</div>
           </button>
-          <button data-mode="card" class="sc-mode-btn" style="padding:18px 8px;border:2px solid #DDD6FE;border-radius:14px;background:linear-gradient(135deg,#FAF5FF,#F3E8FF);cursor:pointer;text-align:center;">
-            <div style="color:#5B21B6;margin-bottom:8px;display:inline-flex;">${_ic('ic-credit-card', 28)}</div>
-            <div style="font-size:13px;font-weight:800;color:#5B21B6;">명함</div>
-            <div style="font-size:10px;color:#5B21B680;margin-top:3px;">사진 1장 → 고객 등록</div>
+          <button data-mode="card" class="sc-mode-btn" style="padding:18px 8px;border:2px solid #F0DADF;border-radius:14px;background:linear-gradient(135deg,#F7EFF0,#F7EFF0);cursor:pointer;text-align:center;">
+            <div style="color:#BC6675;margin-bottom:8px;display:inline-flex;">${_ic('ic-credit-card', 28)}</div>
+            <div style="font-size:13px;font-weight:800;color:#BC6675;">명함</div>
+            <div style="font-size:10px;color:#BC667580;margin-top:3px;">사진 1장 → 고객 등록</div>
           </button>
           <button data-mode="inventory_order" class="sc-mode-btn" style="padding:18px 8px;border:2px solid #6EE7B7;border-radius:14px;background:linear-gradient(135deg,#ECFDF5,#D1FAE5);cursor:pointer;text-align:center;">
             <div style="color:#065F46;margin-bottom:8px;display:inline-flex;">${_ic('ic-dollar-sign', 28)}</div>
@@ -100,14 +100,14 @@
     const _ic = (id, size = 26) => `<svg width="${size}" height="${size}" aria-hidden="true"><use href="#${id}"/></svg>`;
     const isKakao = mode === 'kakao';
     work.innerHTML = `
-      <div id="scUpload" style="border:2px dashed ${isKakao ? '#FBBF24' : '#DDD6FE'};border-radius:14px;padding:30px 16px;text-align:center;background:${isKakao ? '#FFFBEB' : '#FAF5FF'};cursor:pointer;transition:all 0.2s;">
-        <div style="color:${isKakao ? '#92400E' : '#5B21B6'};margin-bottom:8px;display:inline-flex;">${_ic(isKakao ? 'ic-message-square' : 'ic-camera', 36)}</div>
-        <div style="font-size:14px;font-weight:700;color:${isKakao ? '#92400E' : '#5B21B6'};margin-bottom:4px;">탭해서 사진 선택</div>
+      <div id="scUpload" style="border:2px dashed ${isKakao ? '#FBBF24' : '#F0DADF'};border-radius:14px;padding:30px 16px;text-align:center;background:${isKakao ? '#FFFBEB' : '#F7EFF0'};cursor:pointer;transition:all 0.2s;">
+        <div style="color:${isKakao ? '#92400E' : '#BC6675'};margin-bottom:8px;display:inline-flex;">${_ic(isKakao ? 'ic-message-square' : 'ic-camera', 36)}</div>
+        <div style="font-size:14px;font-weight:700;color:${isKakao ? '#92400E' : '#BC6675'};margin-bottom:4px;">탭해서 사진 선택</div>
         <div style="font-size:11px;color:#888;">${isKakao ? '카카오톡 채팅 캡처' : '명함 정면 사진'}</div>
         <input id="scFile" type="file" accept="image/*" style="display:none;">
       </div>
       <div id="scProgress" style="display:none;text-align:center;padding:30px 0;">
-        <div style="display:inline-block;width:36px;height:36px;border:4px solid #DDD6FE;border-top-color:#7C3AED;border-radius:50%;animation:plspin 0.8s linear infinite;"></div>
+        <div style="display:inline-block;width:36px;height:36px;border:4px solid #F0DADF;border-top-color:#BC6675;border-radius:50%;animation:plspin 0.8s linear infinite;"></div>
         <div style="margin-top:10px;font-size:13px;color:#555;">AI 가 인식 중… (5~12초)</div>
       </div>
       <div id="scResult" style="display:none;margin-top:14px;"></div>
@@ -175,7 +175,7 @@
           <label style="display:flex;align-items:flex-start;gap:8px;padding:10px;background:#FAFAFA;border-radius:10px;margin-bottom:6px;cursor:pointer;">
             <input type="checkbox" data-idx="${idx}" checked style="margin-top:2px;flex-shrink:0;">
             <div style="flex:1;font-size:12px;line-height:1.5;">
-              <div style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:${typeColor[it.type] || '#5B21B6'};margin-bottom:3px;">
+              <div style="display:inline-flex;align-items:center;gap:5px;font-weight:700;color:${typeColor[it.type] || '#BC6675'};margin-bottom:3px;">
                 ${_ic2(typeIcon[it.type] || 'ic-sparkles', 13)}
                 <span>${typeLabel[it.type] || '?'}</span>
               </div>
@@ -244,8 +244,8 @@
       return;
     }
     resultBox.innerHTML = `
-      <div style="padding:14px;background:#FAF5FF;border:1px solid #DDD6FE;border-radius:12px;margin-bottom:12px;">
-        <div style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#5B21B6;font-weight:700;margin-bottom:8px;"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i>인식 결과 (검토 후 등록)</div>
+      <div style="padding:14px;background:#F7EFF0;border:1px solid #F0DADF;border-radius:12px;margin-bottom:12px;">
+        <div style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#BC6675;font-weight:700;margin-bottom:8px;"><i class="ph-duotone ph-sparkle" aria-hidden="true"></i>인식 결과 (검토 후 등록)</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <label style="font-size:11px;color:var(--text-muted);">이름 <input id="scCardName" value="${_esc(c.name || '')}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></label>
           <label style="font-size:11px;color:var(--text-muted);">전화 <input id="scCardPhone" value="${_esc(c.phone || '')}" style="width:100%;margin-top:3px;padding:9px;border:1px solid #ddd;border-radius:8px;font-size:13px;"></label>
@@ -253,7 +253,7 @@
         </div>
         <div style="font-size:10px;color:#888;margin-top:6px;">신뢰도 ${Math.round((d.confidence || 0) * 100)}%</div>
       </div>
-      <button id="scCardSave" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:800;font-size:14px;cursor:pointer;">고객 등록</button>
+      <button id="scCardSave" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:800;font-size:14px;cursor:pointer;">고객 등록</button>
     `;
     resultBox.querySelector('#scCardSave').addEventListener('click', async () => {
       const name = resultBox.querySelector('#scCardName').value.trim();

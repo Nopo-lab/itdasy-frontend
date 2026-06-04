@@ -65,39 +65,39 @@
     sheet.innerHTML = `
       <div id="dmrCard" style="width:100%;max-width:580px;background:#fff;border-radius:20px 20px 0 0;max-height:94vh;display:flex;flex-direction:column;padding:16px 18px max(16px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;color:#7C3AED;"><i class="ph-duotone ph-pen" aria-hidden="true"></i></span>
+          <span style="display:inline-flex;align-items:center;color:#BC6675;"><i class="ph-duotone ph-pen" aria-hidden="true"></i></span>
           <strong style="font-size:17px;">멘트 관리</strong>
           <button id="dmrClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
 
         <!-- 탭 -->
         <div role="tablist" style="display:flex;gap:0;background:#F4F4F8;border-radius:12px;padding:3px;margin-bottom:12px;">
-          <button id="dmrTabBasic" role="tab" aria-selected="true" style="flex:1;padding:8px;border:none;background:#fff;color:#5B21B6;font-weight:700;font-size:12px;border-radius:9px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.05);">기본 멘트 (6종)</button>
+          <button id="dmrTabBasic" role="tab" aria-selected="true" style="flex:1;padding:8px;border:none;background:#fff;color:#BC6675;font-weight:700;font-size:12px;border-radius:9px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,0.05);">기본 멘트 (6종)</button>
           <button id="dmrTabAdvanced" role="tab" aria-selected="false" style="flex:1;padding:8px;border:none;background:transparent;color:#888;font-weight:700;font-size:12px;border-radius:9px;cursor:pointer;">상황별 매뉴얼</button>
         </div>
 
         <!-- 영역 (기본 멘트 6종) -->
         <div id="dmrBasicSection" style="flex:1;overflow-y:auto;display:block;">
-          <button id="dmrAutoGen" type="button" style="width:100%;display:flex;align-items:center;gap:10px;padding:13px;border:1px solid #DDD6FE;border-radius:12px;background:linear-gradient(135deg,#FAF5FF,#E0E7FF);margin-bottom:14px;cursor:pointer;text-align:left;">
+          <button id="dmrAutoGen" type="button" style="width:100%;display:flex;align-items:center;gap:10px;padding:13px;border:1px solid #F0DADF;border-radius:12px;background:linear-gradient(135deg,#F7EFF0,#F7EFF0);margin-bottom:14px;cursor:pointer;text-align:left;">
             <i class="ph-duotone ph-magic-wand" aria-hidden="true"></i>
             <div style="flex:1;">
-              <div style="font-size:13px;font-weight:800;color:#5B21B6;">내 톤 분석 + 6종 멘트 자동 작성</div>
-              <div style="font-size:11px;color:#5B21B680;margin-top:2px;line-height:1.4;">DM + 인스타 게시물에서 사장 말투 학습 → 자동 작성</div>
+              <div style="font-size:13px;font-weight:800;color:#BC6675;">내 톤 분석 + 6종 멘트 자동 작성</div>
+              <div style="font-size:11px;color:#BC667580;margin-top:2px;line-height:1.4;">DM + 인스타 게시물에서 사장 말투 학습 → 자동 작성</div>
             </div>
-            <span id="dmrAutoGenSpinner" style="display:none;width:14px;height:14px;border:2px solid #DDD6FE;border-top-color:#5B21B6;border-radius:50%;animation:plspin 0.8s linear infinite;"></span>
+            <span id="dmrAutoGenSpinner" style="display:none;width:14px;height:14px;border:2px solid #F0DADF;border-top-color:#BC6675;border-radius:50%;animation:plspin 0.8s linear infinite;"></span>
           </button>
           <div id="dmrBasicList"></div>
           <div style="margin-top:14px;display:flex;gap:8px;">
-            <button id="dmrBasicSave" style="flex:1;padding:13px;border:none;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:800;font-size:13px;border-radius:12px;cursor:pointer;">기본 멘트 저장</button>
+            <button id="dmrBasicSave" style="flex:1;padding:13px;border:none;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:800;font-size:13px;border-radius:12px;cursor:pointer;">기본 멘트 저장</button>
           </div>
         </div>
 
         <!-- 영역 (상황별 매뉴얼) -->
         <div id="dmrAdvancedSection" style="flex:1;overflow-y:auto;display:none;">
           <div style="font-size:11px;color:#888;margin-bottom:12px;line-height:1.5;">
-            예시: <span style="color:#5B21B6;font-weight:600;">"점심시간 12~13시 → 1시 이후 답"</span> / <span style="color:#5B21B6;font-weight:600;">"단골 + 인사 → 언니 또 와주셨네"</span>
+            예시: <span style="color:#BC6675;font-weight:600;">"점심시간 12~13시 → 1시 이후 답"</span> / <span style="color:#BC6675;font-weight:600;">"단골 + 인사 → 언니 또 와주셨네"</span>
           </div>
-          <button id="dmrAdd" style="margin-bottom:14px;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;">
+          <button id="dmrAdd" style="margin-bottom:14px;padding:11px;border:none;border-radius:12px;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;">
             <i class="ph-duotone ph-plus" aria-hidden="true"></i>새 매뉴얼 추가
           </button>
           <div id="dmrList"><div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;">불러오는 중…</div></div>
@@ -117,11 +117,11 @@
     function _switchTab(which) {
       const isB = which === 'basic';
       tabB.style.background = isB ? '#fff' : 'transparent';
-      tabB.style.color = isB ? '#5B21B6' : '#888';
+      tabB.style.color = isB ? '#BC6675' : '#888';
       tabB.style.boxShadow = isB ? '0 1px 2px rgba(0,0,0,0.05)' : 'none';
       tabB.setAttribute('aria-selected', isB ? 'true' : 'false');
       tabA.style.background = !isB ? '#fff' : 'transparent';
-      tabA.style.color = !isB ? '#5B21B6' : '#888';
+      tabA.style.color = !isB ? '#BC6675' : '#888';
       tabA.style.boxShadow = !isB ? '0 1px 2px rgba(0,0,0,0.05)' : 'none';
       tabA.setAttribute('aria-selected', !isB ? 'true' : 'false');
       secB.style.display = isB ? 'block' : 'none';
@@ -204,9 +204,9 @@
       return `
         <div style="margin-bottom:12px;">
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-            <svg width="13" height="13" aria-hidden="true" style="color:#7C3AED;"><use href="#${icon}"/></svg>
+            <svg width="13" height="13" aria-hidden="true" style="color:#BC6675;"><use href="#${icon}"/></svg>
             <span style="font-size:12px;font-weight:700;color:#555;">${label}</span>
-            <button type="button" data-regen="${cat}" class="dmr-regen-btn" style="margin-left:auto;font-size:10px;font-weight:700;color:#5B21B6;background:#FAF5FF;border:1px solid #DDD6FE;padding:3px 8px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;">
+            <button type="button" data-regen="${cat}" class="dmr-regen-btn" style="margin-left:auto;font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border:1px solid #F0DADF;padding:3px 8px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;">
               <i class="ph-duotone ph-magic-wand" aria-hidden="true"></i>다시 작성
             </button>
           </div>
@@ -281,7 +281,7 @@
         if (it.trigger_time_start && it.trigger_time_end) triggers.push(`${it.trigger_time_start}~${it.trigger_time_end}`);
         if (it.trigger_customer_type && it.trigger_customer_type !== 'all') triggers.push(_CUST_LABEL[it.trigger_customer_type] || it.trigger_customer_type);
         const triggerSummary = triggers.length ? triggers.join(' · ') : '<span style="color:var(--danger);">트리거 없음 (매칭 안 됨)</span>';
-        const modeColor = it.mode === 'exact' ? '#10B981' : '#7C3AED';
+        const modeColor = it.mode === 'exact' ? '#10B981' : '#BC6675';
         return `
           <div data-id="${it.id}" style="padding:12px;background:#FAFAFA;border:1px solid #f0f0f0;border-radius:14px;margin-bottom:8px;${!it.enabled ? 'opacity:0.5;' : ''}">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
@@ -293,7 +293,7 @@
             <div style="font-size:12px;color:#333;background:#fff;padding:8px 10px;border-radius:8px;line-height:1.5;margin-bottom:8px;">${_esc(it.reply_text)}</div>
             <div style="display:flex;gap:6px;">
               <button class="dmr-toggle" data-id="${it.id}" data-enabled="${it.enabled}" style="flex:1;padding:7px;border:1px solid #ddd;background:#fff;color:#555;font-weight:600;font-size:11px;border-radius:8px;cursor:pointer;">${it.enabled ? '⏸ 비활성' : '▶ 활성'}</button>
-              <button class="dmr-edit" data-id="${it.id}" style="flex:1;padding:7px;border:1px solid #DDD6FE;background:#FAF5FF;color:#5B21B6;font-weight:700;font-size:11px;border-radius:8px;cursor:pointer;">✏️ 편집</button>
+              <button class="dmr-edit" data-id="${it.id}" style="flex:1;padding:7px;border:1px solid #F0DADF;background:#F7EFF0;color:#BC6675;font-weight:700;font-size:11px;border-radius:8px;cursor:pointer;">✏️ 편집</button>
               <button class="dmr-del" data-id="${it.id}" style="padding:7px 12px;border:1px solid #FCA5A5;background:#fff;color:#B91C1C;font-weight:700;font-size:11px;border-radius:8px;cursor:pointer;">삭제</button>
             </div>
           </div>
@@ -366,7 +366,7 @@
         <input id="dmrTitle" type="text" maxlength="80" value="${_esc(it.title)}" placeholder="예: 점심시간 안내" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;margin-bottom:12px;box-sizing:border-box;">
 
         <label style="font-size:11px;font-weight:700;color:#555;display:block;margin-bottom:4px;">발송 멘트 (손님이 받을 답장)</label>
-        <textarea id="dmrReplyText" maxlength="2000" rows="3" style="width:100%;padding:10px;border:1px solid #DDD6FE;background:#FAF5FF;border-radius:8px;font-size:13px;line-height:1.5;margin-bottom:12px;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(it.reply_text)}</textarea>
+        <textarea id="dmrReplyText" maxlength="2000" rows="3" style="width:100%;padding:10px;border:1px solid #F0DADF;background:#F7EFF0;border-radius:8px;font-size:13px;line-height:1.5;margin-bottom:12px;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(it.reply_text)}</textarea>
 
         <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:10px;margin-bottom:14px;">
           <div style="font-size:11px;font-weight:800;color:#92400E;margin-bottom:8px;">📌 트리거 (이 조건 만족 시 매칭)</div>
@@ -408,8 +408,8 @@
             <div style="font-size:13px;font-weight:800;color:${it.mode === 'exact' ? '#10B981' : '#555'};">그대로 발송</div>
             <div style="font-size:10px;color:#888;margin-top:3px;">AI 안 거침 (빠름·비용 0)</div>
           </label>
-          <label class="dmr-mode-card" data-mode="as_base" style="padding:11px;border:2px solid ${it.mode === 'as_base' ? '#7C3AED' : '#e5e5e5'};background:${it.mode === 'as_base' ? '#7C3AED15' : '#fff'};border-radius:10px;cursor:pointer;text-align:center;">
-            <div style="font-size:13px;font-weight:800;color:${it.mode === 'as_base' ? '#7C3AED' : '#555'};">AI 톤 다듬기</div>
+          <label class="dmr-mode-card" data-mode="as_base" style="padding:11px;border:2px solid ${it.mode === 'as_base' ? '#BC6675' : '#e5e5e5'};background:${it.mode === 'as_base' ? '#BC667515' : '#fff'};border-radius:10px;cursor:pointer;text-align:center;">
+            <div style="font-size:13px;font-weight:800;color:${it.mode === 'as_base' ? '#BC6675' : '#555'};">AI 톤 다듬기</div>
             <div style="font-size:10px;color:#888;margin-top:3px;">페르소나 톤으로 자연스럽게</div>
           </label>
         </div>
@@ -422,7 +422,7 @@
 
         <div style="display:flex;gap:8px;">
           <button id="dmrCancel" style="flex:1;padding:13px;border:1px solid #ddd;background:#fff;color:#555;font-weight:700;font-size:13px;border-radius:12px;cursor:pointer;">취소</button>
-          <button id="dmrSave" style="flex:2;padding:13px;border:none;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:800;font-size:13px;border-radius:12px;cursor:pointer;">${it.id ? '수정 저장' : '추가'}</button>
+          <button id="dmrSave" style="flex:2;padding:13px;border:none;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:800;font-size:13px;border-radius:12px;cursor:pointer;">${it.id ? '수정 저장' : '추가'}</button>
         </div>
       </div>
     `;
@@ -437,7 +437,7 @@
         overlay.querySelector('#dmrMode').value = m;
         overlay.querySelectorAll('.dmr-mode-card').forEach(x => {
           const on = x.dataset.mode === m;
-          const color = x.dataset.mode === 'exact' ? '#10B981' : '#7C3AED';
+          const color = x.dataset.mode === 'exact' ? '#10B981' : '#BC6675';
           x.style.border = on ? `2px solid ${color}` : '2px solid #e5e5e5';
           x.style.background = on ? color + '15' : '#fff';
           const t = x.querySelector('div:first-child');

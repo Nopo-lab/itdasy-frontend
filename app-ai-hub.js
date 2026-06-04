@@ -42,7 +42,7 @@
       { act: 'hashtag', icon: 'ph-hash', boxColor: 'teal',
         name: '해시태그 매니저', meta: '업종별 추천 · 원터치 복사',
         type: 'plain' },
-      { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'purple',
+      { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'pink',
         name: 'AI 페르소나', meta: 'SNS 캡션 · 말투 분석 · 리포트',
         type: 'tag', tagText: '학습됨' },
       { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
@@ -295,7 +295,7 @@
     const optBox = document.createElement('div');
     optBox.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
     optBox.appendChild(_personaOption('caption', '캡션 만들기', '사진 → 글·해시태그까지 한 번에', '#fff5f7'));
-    optBox.appendChild(_personaOption('relearn', '말투 새로 분석', '최근 게시물로 다시 학습 (인스타 필요)', '#FAF5FF'));
+    optBox.appendChild(_personaOption('relearn', '말투 새로 분석', '최근 게시물로 다시 학습 (인스타 필요)', '#F7EFF0'));
     optBox.appendChild(_personaOption('report',  '분석 리포트 보기', '말투 패턴 · TOP5 · 이모지 · 해시태그', '#F0F9FF'));
     optBox.addEventListener('click', e => {
       const btn = e.target.closest('[data-persona-opt]');

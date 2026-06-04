@@ -86,9 +86,9 @@
       </div>
       <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
       <div class="ms-sh">
-        ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'purple' })}
+        ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'pink' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
-        ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'purple' })}
+        ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
         ${/* [2026-05-25] 'AI 잇비 액션 되돌리기' 행 제거 — 잇비 채팅 ⋯ 메뉴로 단일 진입점화. */ ''}
         ${_rowHTML('failures', 'ic-bell',       '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
       </div>

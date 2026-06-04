@@ -35,7 +35,7 @@
   function _intentColor(intent) {
     return {
       pricing: '#B45309', booking: '#1E40AF', hours: '#0E7490',
-      location: '#15803D', review: '#9D174D', greeting: '#5B21B6',
+      location: '#15803D', review: '#9D174D', greeting: '#BC6675',
       complaint: '#B91C1C', unknown: '#6B7280',
     }[intent] || '#6B7280';
   }
@@ -49,7 +49,7 @@
     sheet.innerHTML = `
       <div id="dcqCard" style="width:100%;max-width:560px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;padding:18px 18px max(18px,env(safe-area-inset-bottom));">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;color:#7C3AED;"><i class="ph-duotone ph-bell" aria-hidden="true"></i></span>
+          <span style="display:inline-flex;align-items:center;color:#BC6675;"><i class="ph-duotone ph-bell" aria-hidden="true"></i></span>
           <strong style="font-size:17px;">DM 사장 확인 대기</strong>
           <span id="dcqCount" style="font-size:11px;background:#FEF3C7;color:#B45309;padding:2px 8px;border-radius:99px;font-weight:700;">0건</span>
           <button id="dcqClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
@@ -170,10 +170,10 @@
           ? it.ai_draft_candidates
           : (it.ai_draft_text ? [it.ai_draft_text] : []);
         const cardsHtml = candidates.map((c, idx) => `
-          <label class="dcq-cand" data-idx="${idx}" style="display:block;padding:10px 12px;border:2px solid ${idx === 0 ? '#A78BFA' : '#e5e5e5'};border-radius:10px;background:${idx === 0 ? '#FAF5FF' : '#fff'};margin-bottom:6px;cursor:pointer;transition:all .15s;">
+          <label class="dcq-cand" data-idx="${idx}" style="display:block;padding:10px 12px;border:2px solid ${idx === 0 ? '#D58A95' : '#e5e5e5'};border-radius:10px;background:${idx === 0 ? '#F7EFF0' : '#fff'};margin-bottom:6px;cursor:pointer;transition:all .15s;">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-              <span style="font-size:10px;font-weight:800;color:${idx === 0 ? '#5B21B6' : '#888'};background:${idx === 0 ? '#DDD6FE' : '#F4F4F8'};padding:1px 7px;border-radius:99px;">${_CAND_LABELS[idx] || `후보 ${idx+1}`}</span>
-              <input type="radio" name="dcq-cand-${it.id}" value="${idx}" ${idx === 0 ? 'checked' : ''} style="margin-left:auto;accent-color:#7C3AED;">
+              <span style="font-size:10px;font-weight:800;color:${idx === 0 ? '#BC6675' : '#888'};background:${idx === 0 ? '#F0DADF' : '#F4F4F8'};padding:1px 7px;border-radius:99px;">${_CAND_LABELS[idx] || `후보 ${idx+1}`}</span>
+              <input type="radio" name="dcq-cand-${it.id}" value="${idx}" ${idx === 0 ? 'checked' : ''} style="margin-left:auto;accent-color:#BC6675;">
             </div>
             <div style="font-size:13px;color:#333;line-height:1.5;white-space:pre-wrap;">${_esc(c)}</div>
           </label>
@@ -193,9 +193,9 @@
           ${actInfo}
           <div style="margin-bottom:8px;">${cardsHtml}</div>
           <details style="margin-bottom:8px;">
-            <summary style="font-size:11px;color:#7C3AED;cursor:pointer;font-weight:600;">✏️ 직접 수정해서 발송</summary>
-            <textarea class="dcq-edit" rows="3" style="width:100%;margin-top:6px;padding:9px;border:1px solid #DDD6FE;border-radius:8px;font-size:13px;line-height:1.5;background:#FAF5FF;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(candidates[0] || '')}</textarea>
-            <button class="dcq-send-edit" style="margin-top:6px;width:100%;padding:9px;border:none;background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;font-weight:700;font-size:12px;border-radius:10px;cursor:pointer;">수정한 텍스트로 발송</button>
+            <summary style="font-size:11px;color:#BC6675;cursor:pointer;font-weight:600;">✏️ 직접 수정해서 발송</summary>
+            <textarea class="dcq-edit" rows="3" style="width:100%;margin-top:6px;padding:9px;border:1px solid #F0DADF;border-radius:8px;font-size:13px;line-height:1.5;background:#F7EFF0;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(candidates[0] || '')}</textarea>
+            <button class="dcq-send-edit" style="margin-top:6px;width:100%;padding:9px;border:none;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:700;font-size:12px;border-radius:10px;cursor:pointer;">수정한 텍스트로 발송</button>
           </details>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button class="dcq-send" style="flex:1;min-width:120px;padding:11px;border:none;background:linear-gradient(135deg,#10B981,#34D399);color:#fff;font-weight:800;font-size:13px;border-radius:10px;cursor:pointer;">${sendBtnLabel}</button>
@@ -211,8 +211,8 @@
           if (!card) return;
           card.querySelectorAll('.dcq-cand').forEach(x => {
             const isOn = x === el;
-            x.style.border = isOn ? '2px solid #A78BFA' : '2px solid #e5e5e5';
-            x.style.background = isOn ? '#FAF5FF' : '#fff';
+            x.style.border = isOn ? '2px solid #D58A95' : '2px solid #e5e5e5';
+            x.style.background = isOn ? '#F7EFF0' : '#fff';
             const r = x.querySelector('input[type=radio]');
             if (r) r.checked = isOn;
           });

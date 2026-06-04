@@ -389,7 +389,7 @@
               <div class="dm-rows__label">상황별 멘트 관리</div>
               <div style="font-size:11px;color:#888;margin-top:3px;">사장 톤 분석 또는 정중 톤 기본값으로 6종 자동 채움</div>
             </div>
-            <button type="button" data-act="open-manual-replies" style="background:#FAF5FF;border:1px solid #DDD6FE;color:#5B21B6;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">멘트 관리 →</button>
+            <button type="button" data-act="open-manual-replies" style="background:#F7EFF0;border:1px solid #F0DADF;color:#BC6675;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">멘트 관리 →</button>
           </div>
           <div class="dm-rows__item">
             <div style="flex:1;">
@@ -575,7 +575,7 @@
     const bulkBtn = sendable.length > 0
       ? `<button type="button" data-act="retention-bulk-send" data-count="${sendable.length}"
             style="margin-top:10px;width:100%;padding:11px;border-radius:12px;border:none;
-              background:#6366F1;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
+              background:#BC6675;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
             전체 발송 (${sendable.length}명)
           </button>`
       : '';
