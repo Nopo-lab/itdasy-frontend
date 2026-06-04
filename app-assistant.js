@@ -345,7 +345,7 @@
         '    top: 50% !important;',
         '    left: 50% !important;',
         '    transform: translate(-50%, -50%) !important;',
-        '    width: min(1080px, 90vw) !important;',
+        '    width: min(960px, 90vw) !important;',
         '    height: min(900px, 90vh) !important;',
         '    max-width: none !important;',
         '    border-radius: 20px !important;',
@@ -354,10 +354,9 @@
         '  }',
         // [2026-05-29] PC 메시지 영역 가운데 max-width 720px 컨테이너 (헤더·입력창은 풀폭 유지)
         '  #asstBody { padding: 16px 0 !important; display: flex; flex-direction: column; align-items: center; }',
-        '  #asstBody > * { width: 100%; max-width: 720px; padding-left: 20px; padding-right: 20px; box-sizing: border-box; }',
+        // [2026-06-05] 메시지 컬럼 가운데정렬(좌우 대칭). 버블 좌/우 정렬은 메시지 내부 flex 가 처리.
+        '  #asstBody > * { width: 100%; max-width: 880px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px; box-sizing: border-box; }',
         '  #asstBody .asst-msg, #asstBody .asst-user-msg { max-width: 100% !important; }',
-        '  #asstBody .asst-msg--ai { margin-right: auto !important; justify-content: flex-start !important; }',
-        '  #asstBody .asst-msg--user { margin-left: auto !important; justify-content: flex-end !important; }',
         '  #asstBody .asst-msg--ai > div:last-child, #asstBody .asst-msg--user > div { max-width: 88% !important; }',
         '  #assistantSheetHeader { padding-left: 20px; padding-right: 20px; }',
         '  #asstFooter { padding: 12px 20px; }',
