@@ -45,6 +45,10 @@
       else { _viewMonth += 1; }
     }
   }
+  function _goThisMonth() {
+    const now = new Date();
+    _viewYear = now.getFullYear(); _viewMonth = now.getMonth() + 1;
+  }
 
   function _R() { return window.Revenue || {}; }
 
@@ -223,6 +227,9 @@
       .rvm5-mnav .arrow:hover:not(:disabled){background:#F7F8FA}
       .rvm5-mnav .arrow:disabled{opacity:0.25;cursor:not-allowed;pointer-events:none}
       .rvm5-mnav .label{font-size:15px;font-weight:700;color:#191F28;letter-spacing:-0.4px}
+      .rvm5-today{margin-left:8px;padding:0 12px;height:30px;border:1px solid #E5E8EB;border-radius:8px;background:#F7F8FA;color:#4E5968;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+      .rvm5-today:disabled{opacity:0.35;cursor:default;pointer-events:none}
+      .rvm5-mmnav .rvm5-today{height:26px;padding:0 10px;font-size:11px;margin-left:6px}
       .rvm5-past-badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#F7F8FA;font-size:11px;font-weight:600;color:#6B7684;margin-left:6px}
 
       /* PC 2컬럼 상단 */
@@ -429,6 +436,7 @@
           <button type="button" class="arrow" data-rvm-act="prev-month" aria-label="이전달">‹</button>
           <div class="label">${_esc(_monthLabel())}${pastBadge}</div>
           <button type="button" class="arrow" data-rvm-act="next-month" aria-label="다음달"${isCur ? ' disabled' : ''}>›</button>
+          <button type="button" class="rvm5-today" data-rvm-act="this-month"${isCur ? ' disabled' : ''}>오늘</button>
         </div>
 
         <div class="rvm5-top2">
@@ -480,6 +488,7 @@
           <button type="button" class="ar" data-rvm-act="prev-month" aria-label="이전달">‹</button>
           <div class="ml">${_esc(_monthLabel())}${pastBadge}</div>
           <button type="button" class="ar" data-rvm-act="next-month" aria-label="다음달"${isCur ? ' disabled' : ''}>›</button>
+          <button type="button" class="rvm5-today" data-rvm-act="this-month"${isCur ? ' disabled' : ''}>오늘</button>
         </div>
         <div class="rvm5-mhero">
           <div class="rvm5-mhero-top">
@@ -559,6 +568,8 @@
             _goNextMonth();
             _triggerRerender();
           }
+        } else if (act === 'this-month') {
+          if (!_isCurrentMonth()) { _goThisMonth(); _triggerRerender(); }
         }
       });
     });

@@ -28,6 +28,11 @@
     try { return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' }); }
     catch (_e) { return ''; }
   }
+  // 시술명 표기 — 내부 태그([auto_booking:ID]) 절대 노출 X. service_name 우선, 없으면 '예약 매출'.
+  function _svcName(r) {
+    const nm = String((r && r.service_name) || '').replace(/\s*\[auto_booking:[^\]]*\]/gi, '').trim();
+    return nm || '예약 매출';
+  }
   function _normMethod(m) {
     let k = String(m || 'card').toLowerCase();
     if (k === 'bank_transfer') k = 'transfer';
@@ -49,6 +54,15 @@
     s.id = 'rvcalStyles';
     s.textContent = `
       .rvcal-grid .bk-month-m__cell--sel{outline:2px solid var(--brand-strong,#BC6675);outline-offset:-2px;border-radius:6px;z-index:1}
+      /* 매출 칩 — 예약 .bk-month-m__evt(8px) 보다 크고 날짜 아래 로즈 알약 */
+      .rvcal-grid .bk-month-m__cells{grid-auto-rows:64px}
+      .rvcal-grid .bk-month-m__cell{padding:6px 5px 5px 7px}
+      .rvcal-grid .bk-month-m__evt{font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:4px;margin-top:4px;align-self:flex-start;line-height:1.45;font-variant-numeric:tabular-nums;background:var(--brand-bg,#F7EFF0);color:var(--brand-strong,#BC6675)}
+      @media(min-width:1100px){
+        .rvcal-grid .bk-month-m__cells{grid-auto-rows:78px}
+        .rvcal-grid .bk-month-m__num{font-size:13px}
+        .rvcal-grid .bk-month-m__evt{font-size:13px;padding:2px 9px;margin-top:5px}
+      }
       .rvcal-detail{margin-top:14px;background:var(--surface,#fff);border:.5px solid var(--border,rgba(0,0,0,.07));border-radius:16px;padding:16px 18px;box-shadow:var(--shadow-sm,0 2px 8px rgba(0,0,0,.04))}
       .rvcal-detail.is-empty{color:var(--text-subtle,#8B95A1);font-size:12.5px;text-align:center;padding:22px 18px;font-weight:500}
       .rvcal-dh{display:flex;align-items:center;border-left:3px solid var(--brand-strong,#BC6675);padding-left:11px;margin-bottom:6px}
@@ -80,7 +94,7 @@
     const methodStr = METHOD_ORDER.filter(k => counts[k]).map(k => `${TAG_LABEL[k]} ${counts[k]}`).join(' · ');
     const sub = `${list.length}팀 완료${methodStr ? ' · ' + methodStr : ''}`;
     const rows = list.map(r => {
-      const nm = _esc(r.service_name || r.memo || '시술');
+      const nm = _esc(_svcName(r));
       const pm = TAG_LABEL[_normMethod(r.method)];
       return `<div class="rvcal-li"><span class="nm">${nm}</span><span class="pm">${pm}</span><span class="am">${_money(r.amount)}</span></div>`;
     }).join('');

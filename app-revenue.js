@@ -518,20 +518,8 @@
         </div>
         <button type="button" class="rv-header__action" data-rv-act="add-form">+ 입력</button>
       </div>
-      <div class="rv-periods">
-        <div class="rv-periods__row" style="display:flex;gap:6px;align-items:center;">
-          ${PERIODS.map(p => `<button type="button" class="rv-periods__btn${p === _currentPeriod ? ' is-on' : ''}" data-rv-act="period" data-period="${p}" style="flex-shrink:0;min-width:40px;">${PERIOD_LABEL[p]}</button>`).join('')}
-        </div>
-        <div class="rv-anchor" style="display:flex;gap:6px;align-items:center;padding:10px 0 4px;font-size:12px;flex-wrap:wrap;">
-          <button type="button" data-rv-act="anchor-shift" data-delta="-1" aria-label="이전" style="width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;color:var(--text);">‹</button>
-          <input type="date" data-rv-anchor value="${_anchorDate}" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);" />
-          <button type="button" data-rv-act="anchor-shift" data-delta="1" aria-label="다음" style="width:32px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;color:var(--text);">›</button>
-          <button type="button" data-rv-act="anchor-today" style="padding:0 12px;height:32px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;font-weight:600;color:var(--text);">오늘</button>
-          <span style="color:var(--text-subtle,#888);font-size:12px;margin-left:auto;">${_periodDisplayLabel()}</span>
-        </div>
-      </div>
+      <!-- [2026-06-05] 일/주/월 토글·구 날짜네비 제거 — 월 캘린더 단일. 월 네비는 RevenueMonth(캘린더) 가 담당. -->
       <div class="rv-body" id="rvBody"></div>
-      <button type="button" class="rv-fab" data-rv-act="add-form" aria-label="매출 입력" style="font-size:24px;font-weight:600;line-height:1;">+</button>
       <datalist id="rvDataCustomer"></datalist>
       <datalist id="rvDataService"></datalist>`;
   }
@@ -569,27 +557,13 @@
       <datalist id="rvDataCustomer"></datalist>
       <datalist id="rvDataService"></datalist>`;
   }
-  // today/month 가 공용으로 사용 — period 인자 받음
-  function _renderPCHeaderHTML(period) {
-    const cur = period || _currentPeriod;
-    const periods = PERIODS.map(p =>
-      `<button type="button" class="rv-pc__period-btn${p === cur ? ' is-on' : ''}" data-rv-act="period" data-period="${p}">${PERIOD_LABEL[p]}</button>`
-    ).join('');
-    // [v221] 단위 + 앵커 날짜 + 화살표 + 오늘 버튼 (직접지정/오늘/지난주 등 6칩 통합)
-    const anchorForm = `
-      <div class="rv-pc__anchor" style="display:flex;gap:6px;align-items:center;padding:10px 0 0;font-size:13px;flex-wrap:wrap;">
-        <button type="button" data-rv-act="anchor-shift" data-delta="-1" aria-label="이전" style="width:34px;height:34px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;color:var(--text);">‹</button>
-        <input type="date" data-rv-anchor value="${_anchorDate}" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text);" />
-        <button type="button" data-rv-act="anchor-shift" data-delta="1" aria-label="다음" style="width:34px;height:34px;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;color:var(--text);">›</button>
-        <button type="button" data-rv-act="anchor-today" style="padding:0 14px;height:34px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:13px;font-weight:600;color:var(--text);">오늘</button>
-        <span style="color:var(--text-subtle,#888);font-size:13px;margin-left:6px;">${_periodDisplayLabel()}</span>
-      </div>`;
+  // [2026-06-05] 매출관리 월 캘린더 단일 — 일/주 토글·구 날짜네비 제거. 월 네비는 RevenueMonth 가 담당.
+  function _renderPCHeaderHTML() {
     return `<div class="rv-pc__header">
       <div class="rv-pc__title">매출관리</div>
       <div class="rv-pc__spacer"></div>
-      <div class="rv-pc__periods">${periods}</div>
       <button type="button" class="rv-pc__add" data-rv-act="add-form">+ 매출 입력</button>
-    </div>${anchorForm}`;
+    </div>`;
   }
   function _renderPCChartShellHTML() {
     return `<div class="rv-pc-chart" id="rvPCChart">
