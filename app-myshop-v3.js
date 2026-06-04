@@ -219,7 +219,14 @@
       ? `${mom >= 0 ? '+' : ''}${Number(mom).toFixed(0)}% ${mom >= 0 ? '↑' : '↓'} 전월 대비`
       : '';
     const custVal = totalC != null ? `${totalC}명` : (atRiskN ? `이탈 ${atRiskN}` : '—');
-    const custTrend = newC != null ? `신규 ${newC}` : (atRiskN ? `이탈 위험 ${atRiskN}명` : '');
+    // [2026-06-03] 신규 단일수치 → 방문 기준 3분해. BE 새 필드 없으면(미배포·구캐시) 기존 '신규 N' 폴백.
+    const fv = brief && brief.first_visit_count;
+    const rv = brief && brief.revisit_count;
+    const rg = brief && brief.regular_count;
+    const has3 = [fv, rv, rg].some(v => v != null);
+    const custTrend = has3
+      ? `첫방문 ${fv || 0} · 재방문 ${rv || 0} · 단골 ${rg || 0}`
+      : (newC != null ? `신규 ${newC}` : (atRiskN ? `이탈 위험 ${atRiskN}명` : ''));
     const bookVal = `${todayN}건`;
     const bookTrend = pendingN ? `대기 ${pendingN}건` : '오늘 예약';
 

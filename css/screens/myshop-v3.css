@@ -51,6 +51,9 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
 #tab-dashboard .ms-body,
 #tab-dashboard .ms-pc { padding-left: 0; padding-right: 0; }
 
+/* [2026-06-02] PC 전용 — 사이드바에서 '내 샵 관리' 진입 숨김 (.ms-side 는 ≥768px 에서만 렌더 → 모바일 영향 0). */
+.ms-side__item[data-side-tab="dashboard"] { display: none; }
+
 /* ─────────────────────────────────────────────────────────────
    모바일 헤더
    ───────────────────────────────────────────────────────────── */
