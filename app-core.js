@@ -187,10 +187,17 @@ function updateHeaderProfile(handle, tone, picUrl) {
   const avatarEl = document.getElementById('headerAvatar');
   if (avatarEl) {
     const badge = document.getElementById('headerProviderBadge');
+    const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
     if (picUrl) {
-      avatarEl.innerHTML = `<img src="${window._esc(picUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      // referrerpolicy: 인스타 CDN 은 referrer 있으면 403 → no-referrer 필수
+      avatarEl.innerHTML = `<img src="${window._esc(picUrl)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+      // [2026-06-05] CDN 403/URL 만료 시 깨진 이미지 대신 이니셜로 폴백
+      const _img = avatarEl.querySelector('img');
+      if (_img) _img.onerror = function () {
+        avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
+        if (badge) avatarEl.appendChild(badge);
+      };
     } else {
-      const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
       avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
     }
     // 배지 다시 붙이기 (innerHTML 로 날아갔으므로)
@@ -206,11 +213,13 @@ function updateHeaderProfile(handle, tone, picUrl) {
   if (fh && handle) fh.textContent = '@' + handle.replace('@','');
   const fi = document.getElementById('frameAvatarInner');
   if (fi) {
+    const fLetter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
     if (picUrl) {
-      fi.innerHTML = `<img src="${window._esc(picUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">`;
+      fi.innerHTML = `<img src="${window._esc(picUrl)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover;">`;
+      const _fimg = fi.querySelector('img');
+      if (_fimg) _fimg.onerror = function () { fi.innerHTML = `<span id="frameAvatarLetter">${window._esc(fLetter)}</span>`; };
     } else {
-      const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
-      fi.innerHTML = `<span id="frameAvatarLetter">${window._esc(letter)}</span>`;
+      fi.innerHTML = `<span id="frameAvatarLetter">${window._esc(fLetter)}</span>`;
     }
   }
 }

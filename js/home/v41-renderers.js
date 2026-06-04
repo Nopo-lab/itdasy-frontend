@@ -35,9 +35,15 @@
     if (!slot) return;
     const img = document.querySelector('#headerAvatar img');
     const src = img && img.src ? img.src : '';
-    slot.innerHTML = src
-      ? `<img src="${esc(src)}" alt="" class="hv-header__avatar-img">`
-      : `<span class="hv-header__initial">${esc(shopInitial(shopName()))}</span>`;
+    const initialHTML = `<span class="hv-header__initial">${esc(shopInitial(shopName()))}</span>`;
+    if (src) {
+      // referrerpolicy: 인스타 CDN 403 방지. onerror: 만료/실패 시 깨진 이미지 대신 이니셜.
+      slot.innerHTML = `<img src="${esc(src)}" alt="" class="hv-header__avatar-img" referrerpolicy="no-referrer">`;
+      const av = slot.querySelector('img');
+      if (av) av.onerror = function () { slot.innerHTML = initialHTML; };
+    } else {
+      slot.innerHTML = initialHTML;
+    }
   }
 
   function minToHuman(min) {
