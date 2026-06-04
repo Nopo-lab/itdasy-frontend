@@ -244,12 +244,19 @@
   // §5 모바일 — 월 그리드
   // ============================================================
   // 월 그리드 공통 — 모바일/PC 모두 사용. clsPrefix: 'bk-month-m' or 'bk-pc-month'
-  function _buildMonthCellHTML(d, year, month, byDay, today, p, isPC) {
+  function _buildMonthCellHTML(d, year, month, byDay, today, p, isPC, opts) {
     const isToday = today.getFullYear() === year && today.getMonth() + 1 === month && today.getDate() === d;
     const dateStr = year + '-' + _pad(month) + '-' + _pad(d);
     let cls = `${p}__cell` + (isToday ? ` ${p}__cell--today` : '');
+    if (opts && opts.selected === dateStr) cls += ` ${p}__cell--sel`;
     let h = `<div class="${cls}" data-cal-day="${dateStr}" role="button" tabindex="0">`;
     h += `<div class="${p}__num">${d}</div>`;
+    // [2026-06-05] 공용 그리드 — opts.dayChip 제공 시(매출 등) 예약칩 대신 칩 1개 렌더. 예약은 opts 없음(기본 경로).
+    if (opts && typeof opts.dayChip === 'function') {
+      const chip = opts.dayChip(dateStr, d);
+      if (chip) h += chip;
+      return h + '</div>';
+    }
     const its = byDay[d] || [];
     if (its.length) {
       // [2026-05-16] PC/모바일 모두 시간 + 이름만, 최대 5줄.
@@ -269,7 +276,7 @@
     return h + '</div>';
   }
 
-  function _buildMonthGrid(year, month, mapped, p, isPC) {
+  function _buildMonthGrid(year, month, mapped, p, isPC, opts) {
     const filtered = _filterByStaff(mapped);
     const byDay = {};
     filtered.forEach(m => { (byDay[m.d] = byDay[m.d] || []).push(m); });
@@ -281,7 +288,7 @@
     for (let i = 0; i < firstDow; i++) {
       cells += `<div class="${p}__cell ${p}__cell--other"><div class="${p}__num">${prevLast - firstDow + 1 + i}</div></div>`;
     }
-    for (let d = 1; d <= lastDate; d++) cells += _buildMonthCellHTML(d, year, month, byDay, today, p, isPC);
+    for (let d = 1; d <= lastDate; d++) cells += _buildMonthCellHTML(d, year, month, byDay, today, p, isPC, opts);
     const rem = (firstDow + lastDate) % 7;
     if (rem > 0) {
       for (let i = 1; i <= 7 - rem; i++) {
@@ -2316,5 +2323,18 @@
       }
     }, 200);
   });
+
+  // [2026-06-05] 공용 월 그리드 — 매출 캘린더 등 다른 모듈이 .bk-month-m 그리드를 그대로 재사용.
+  //   예약 칩 대신 opts.dayChip(dateStr) 가 반환한 칩을 칸에 넣음. 예약 자체 렌더는 무변경.
+  window.CalendarView = window.CalendarView || {};
+  window.CalendarView.buildMonthGridHTML = function (o) {
+    o = o || {};
+    const DOW = ['일','월','화','수','목','금','토'];
+    let h = '<div class="bk-month-m"><div class="bk-month-m__dow-row">';
+    DOW.forEach(dd => { h += '<div class="bk-month-m__dow">' + dd + '</div>'; });
+    h += '</div><div class="bk-month-m__cells">';
+    h += _buildMonthGrid(o.year, o.month, [], 'bk-month-m', false, { dayChip: o.dayChip, selected: o.selected });
+    return h + '</div></div>';
+  };
 
 })();

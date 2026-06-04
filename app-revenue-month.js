@@ -191,23 +191,10 @@
   function clearGoal() {
     try { localStorage.removeItem(GOAL_KEY); } catch (_e) { /* silent */ }
   }
-  function recommendedGoal(summary) {
-    const prev = +summary.prev_full_month || 0;
-    if (!prev) return 0;
-    return Math.max(1000, Math.round(prev / 22 / 1000) * 1000);
-  }
-
   // ── 헬퍼 ───────────────────────────────────────────────
   const _esc = (s) => (_R()._esc ? _R()._esc(s) : String(s == null ? '' : s));
-  // [2026-05-19] _krw 삭제 → formatMoney / formatEstimate (format-money.js 공통 유틸)
-  function _dayLabel(s, today) {
-    const t = new Date(s);
-    const dn = ['일', '월', '화', '수', '목', '금', '토'][t.getDay()];
-    const same = today && t.toDateString() === today.toDateString();
-    return same ? `${t.getMonth() + 1}/${t.getDate()} 오늘` : `${t.getMonth() + 1}/${t.getDate()} (${dn})`;
-  }
-  const TAG_LABEL = { card: '카드', cash: '현금', transfer: '계좌', bank_transfer: '계좌', membership: '회원권', etc: '기타' };
-  const METHOD_COLOR = { card: '#D58A95', cash: '#8B95A1', transfer: '#4A90D9', bank_transfer: '#4A90D9', membership: '#F8C4CC', etc: '#E5E8EB' };
+  // [2026-06-05] recommendedGoal·_dayLabel·TAG_LABEL·METHOD_COLOR 제거 —
+  //   일별리스트/결제바/목표배너가 칩 캘린더(app-revenue-calendar.js)로 대체되며 미사용.
 
   // ── 카운트업 (easeOutCubic) ─────────────────────────────
   function _countUp(el, target, duration) {
@@ -406,138 +393,23 @@
     document.head.appendChild(s);
   }
 
-  // ── 결제수단 분포 ──────────────────────────────────────
-  function _renderPaymentBarsV5(by_method, total, isMobile) {
-    const order = ['card', 'cash', 'transfer', 'bank_transfer', 'membership', 'etc'];
-    const rows = order
-      .filter(k => by_method && by_method[k])
-      .map(k => ({ k, label: TAG_LABEL[k] || k, total: by_method[k] || 0 }))
-      .filter(x => x.total > 0)
-      .sort((a, b) => b.total - a.total);
-    const cls = isMobile ? 'rvm5-mbr' : 'rvm5-br';
-    if (!rows.length || !total) {
-      return `<div style="font-size:11px;color:#8B95A1;padding:6px 0;">아직 데이터가 없어요</div>`;
-    }
-    return rows.map(r => {
-      const pct = Math.round(r.total * 100 / total);
-      const color = METHOD_COLOR[r.k] || '#E5E8EB';
-      return `<div class="${cls}">
-        <div class="lb">${_esc(r.label)}</div>
-        <div class="tk"><div class="fl" style="width:${pct}%;background:${color};"></div></div>
-        <div class="pc">${pct}%</div>
-      </div>`;
-    }).join('');
-  }
-
-  // ── 일별 매출 — LIMIT 7일 + 더보기 ───────────────────────
-  function _renderDailyListV5(summary, goal, isMobile, uidPrefix) {
-    const list = (summary.daily || []);
-    if (!list.length) return `<div style="font-size:11px;color:#8B95A1;padding:6px 0;">아직 데이터가 없어요</div>`;
-    const LIMIT = 7;
-    const goalAmt = goal && goal.amount > 0 ? goal.amount : 0;
-    const maxVal = Math.max(goalAmt * 1.4, ...list.map(d => d.total)) || 1;
-    const today = new Date();
-    const cls = isMobile ? 'rvm5-md' : 'rvm5-dr';
-
-    const renderRow = (d) => {
-      const ratio = Math.min(100, Math.round(d.total * 100 / maxVal));
-      const over = goalAmt > 0 && d.total >= goalAmt;
-      const fillColor = over ? '#0F6E56' : (d.total > 0 ? '#D58A95' : 'transparent');
-      const amtCls = goalAmt > 0 ? (over ? 'over' : 'under') : '';
-      const goalPct = goalAmt && maxVal ? Math.round(goalAmt * 100 / maxVal) : 0;
-      return `<div class="${cls}">
-        <div class="d">${_esc(_dayLabel(d.date, today))}</div>
-        <div class="bar">
-          ${d.total > 0 ? `<div class="f" style="width:${ratio}%;background:${fillColor};"></div>` : ''}
-          ${goalAmt ? `<div class="gl" style="left:${goalPct}%;"></div>` : ''}
-        </div>
-        <div class="a ${amtCls}">${formatMoney(d.total)}</div>
-        <div class="c">${d.count}건</div>
-      </div>`;
-    };
-
-    const visible = list.slice(0, LIMIT).map(renderRow).join('');
-    const hidden = list.slice(LIMIT);
-    if (!hidden.length) return visible;
-    const uid = (uidPrefix || 'rvm-daily') + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-    const hiddenRows = hidden.map(renderRow).join('');
-    return visible
-      + `<div id="${uid}" class="rvm5-hidden">${hiddenRows}</div>`
-      + `<button type="button" class="rvm5-more" data-rvm-toggle="${uid}" data-rvm-total="${hidden.length}" data-rvm-unit="일">나머지 ${hidden.length}일 더보기 ▾</button>`;
-  }
-
-  function _renderGoalBannerV5(summary, goal, isMobile, isPast) {
-    const cls = isMobile ? 'rvm5-mgb' : 'rvm5-gb';
-    if (isPast) return '';  // 과거 월: 목표 설정/수정 의미 X
-    if (goal && goal.amount > 0) {
-      const list = summary.daily || [];
-      const days = list.filter(d => d.total > 0).length;
-      const hit = list.filter(d => d.total >= goal.amount).length;
-      const rate = days ? Math.round(hit * 100 / days) : 0;
-      const rec = recommendedGoal(summary);
-      // [v201] 수동 목표 있어도 AI 추천 링크 항상 노출 (값이 같지 않으면). 별도 row 로 분리해서 가시성 ↑.
-      const aiRow = (rec && rec !== goal.amount)
-        ? `<div style="margin-top:6px;font-size:11px;"><button type="button" data-rvm-act="accept-goal" data-amount="${rec}" style="background:none;border:none;color:var(--brand,#BC6675);text-decoration:underline;font-size:11px;cursor:pointer;padding:0;font-weight:700;">AI 추천 ${formatEstimate(rec)} 으로 변경</button></div>`
-        : '';
-      // [v202] 진행률 가시화 — 텍스트 옆에 막대 progress bar. 목표 갱신 시 즉시 width 변경.
-      const progressBar = `<div style="width:100%;height:6px;background:#E5E8EB;border-radius:4px;overflow:hidden;margin-top:6px;">
-        <div style="width:${Math.min(100, rate)}%;height:100%;background:var(--brand,#BC6675);transition:width 0.3s;"></div>
-      </div>`;
-      return `<div class="${cls}">
-        <div style="flex:1;">
-          <div class="t">목표 ${formatMoney(goal.amount)}/일 · 달성 ${rate}%</div>
-          ${progressBar}
-          ${aiRow}
-        </div>
-        <button type="button" class="btn" data-rvm-act="edit-goal">수정</button>
-      </div>`;
-    }
-    const rec = recommendedGoal(summary);
-    if (!rec) {
-      return `<div class="${cls}">
-        <div class="t">일일 목표를 설정해보세요</div>
-        <button type="button" class="btn" data-rvm-act="edit-goal">설정</button>
-      </div>`;
-    }
-    return `<div class="${cls}">
-      <div class="t">저번달 일평균 ${formatEstimate(rec)} 기반 추천</div>
-      <button type="button" class="btn" data-rvm-act="accept-goal" data-amount="${rec}">설정</button>
-    </div>`;
-  }
-
-  // ── 매출 내역 — LIMIT 5 + 더보기 ───────────────────────
-  function _renderTransactionListV5(items, isMobile, uidPrefix) {
-    const sorted = [...items].sort((a, b) => new Date(b.recorded_at || b.created_at) - new Date(a.recorded_at || a.created_at));
-    if (!sorted.length) return `<div class="rvm5-empty">아직 매출 내역이 없어요</div>`;
-    const LIMIT = 5;
-    const liCls = isMobile ? 'rvm5-mli' : 'rvm5-li';
-    const renderRow = (r) => {
-      const t = new Date(r.recorded_at || r.created_at);
-      const date = (t.getMonth() + 1) + '/' + t.getDate();
-      const who = r.customer_name ? _esc(r.customer_name) : '제품 판매';
-      const svc = r.service_name ? ` · ${_esc(r.service_name)}` : '';
-      return `<div class="${liCls}">
-        <div class="dt">${_esc(date)}</div>
-        <div class="nm">${who}${svc}</div>
-        <div class="am">${formatMoney(r.amount)}</div>
-        <span class="ch">›</span>
-      </div>`;
-    };
-    const visible = sorted.slice(0, LIMIT).map(renderRow).join('');
-    const hidden = sorted.slice(LIMIT);
-    if (!hidden.length) return visible;
-    const uid = (uidPrefix || 'rvm-tx') + '-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-    const hiddenRows = hidden.map(renderRow).join('');
-    return visible
-      + `<div id="${uid}" class="rvm5-hidden">${hiddenRows}</div>`
-      + `<button type="button" class="rvm5-more" data-rvm-toggle="${uid}" data-rvm-total="${hidden.length}" data-rvm-unit="건">나머지 ${hidden.length}건 더보기 ▾</button>`;
-  }
 
   // ── PC 렌더 (mockup-v6 2컬럼) ─────────────────────────
+  // [2026-06-05] 칩 캘린더 마운트 — 예약 월그리드 재사용(app-revenue-calendar.js)
+  function _mountCalendar(container, items) {
+    const grid = container.querySelector('[data-rvcal-grid]');
+    const detail = container.querySelector('[data-rvcal-detail]');
+    if (grid && window.RevenueCalendar) {
+      window.RevenueCalendar.renderInto(grid, detail, {
+        items: Array.isArray(items) ? items : [],
+        year: _viewYear, month: _viewMonth,
+      });
+    }
+  }
+
   function renderPC(container, summary, items) {
     _ensureStyles();
     const R = _R();
-    const goal = readGoal();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
     // [2026-05-20] 두 개념 분리:
@@ -573,34 +445,25 @@
             -->
           </div>
           <div class="rvm5-right">
-            <div class="rvm5-card">
-              <div class="rvm5-card-t">결제수단</div>
-              ${_renderPaymentBarsV5(summary.by_method, summary.total, false)}
-            </div>
             ${pendingRow}
             ${aiRow}
           </div>
         </div>
 
-        <div class="rvm5-card" style="margin-bottom:16px">
-          <div class="rvm5-card-t">일별 매출</div>
-          ${_renderGoalBannerV5(summary, goal, false, isPast)}
-          ${_renderDailyListV5(summary, goal, false, 'rvm-daily-pc')}
-        </div>
-
         <div class="rvm5-card">
-          <div class="rvm5-card-t">매출 내역</div>
-          ${_renderTransactionListV5(items, false, 'rvm-tx-pc')}
+          <div class="rvm5-card-t">날짜별 매출</div>
+          <div class="rvcal-grid" data-rvcal-grid></div>
         </div>
+        <div data-rvcal-detail></div>
       </div>`;
     _bindEvents(container);
+    _mountCalendar(container, items);
     _afterRenderAnim(container, summary, false);
   }
 
   // ── 모바일 렌더 ─────────────────────────────────────────
   function renderMobile(container, summary, items) {
     _ensureStyles();
-    const goal = readGoal();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
     const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
@@ -633,20 +496,13 @@
         ${pendingRow}
         ${aiRow}
         <div class="rvm5-mc">
-          <div class="t">결제수단</div>
-          ${_renderPaymentBarsV5(summary.by_method, summary.total, true)}
+          <div class="t">날짜별 매출</div>
+          <div class="rvcal-grid" data-rvcal-grid></div>
         </div>
-        <div class="rvm5-mc">
-          <div class="t">일별 매출</div>
-          ${_renderGoalBannerV5(summary, goal, true, isPast)}
-          ${_renderDailyListV5(summary, goal, true, 'rvm-daily-m')}
-        </div>
-        <div class="rvm5-mc">
-          <div class="t">매출 내역</div>
-          ${_renderTransactionListV5(items, true, 'rvm-tx-m')}
-        </div>
+        <div data-rvcal-detail></div>
       </div>`;
     _bindEvents(container);
+    _mountCalendar(container, items);
     _afterRenderAnim(container, summary, true);
   }
 
