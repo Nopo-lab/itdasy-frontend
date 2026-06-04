@@ -109,6 +109,48 @@ const fakeResult = {
   check('8. renderHTML 3버튼 + data속성 + escape', btnCount === 3 && escaped, 'btns=' + btnCount);
 }
 
+// ── PR1: promo 경로 핸드오프 ──
+
+// 9. promo-style 결과도 fromResult 로 params 보존(promo 카드도 beauty 유지)
+{
+  const promoResult = { dataUrl: 'data:image/jpeg;base64,BBBB', ratio: '4:5', preset_label: '네일', beauty: { nailGloss: 60 }, adjust: { brightness: 102 }, intensity: 'standard', preset: 'nail' };
+  const cards = CARDS.fromResult(promoResult, { photoUrl: promoResult.dataUrl });
+  check('9. promo-style 결과 → 카드 3개 + params 보존', Array.isArray(cards) && cards.length === 3 && cards.every((c) => c.state.beauty === promoResult.beauty), cards ? 'beauty=' + JSON.stringify(cards[0].state.beauty) : 'null');
+}
+
+// 10. injection 로직 미러: open_photo_editor 에만 initialState 주입, 나머지 불변, 비파괴
+{
+  // app-assistant.js _injectHandoffIntoHubActions 와 동일 규칙(미러). 실제 함수는 브라우저 IIFE 라 여기선 규칙 검증.
+  function injectMirror(actions, handoff) {
+    if (!Array.isArray(actions) || !handoff || !handoff.originalSrc) return actions;
+    return actions.map((a) => (a && a.kind === 'open_photo_editor')
+      ? Object.assign({}, a, { payload: Object.assign({}, a.payload || {}, { photo_url: handoff.originalSrc, initial_tab: 'beauty', initialState: handoff.params }) })
+      : a);
+  }
+  const orig = [
+    { id: 'ig', kind: 'open_instagram', payload: { dataUrl: 'x' } },
+    { id: 'open_pe', kind: 'open_photo_editor', payload: {} },
+    { id: 'save', kind: 'save_photo_to_customer', payload: { customerName: 'A' } },
+  ];
+  const handoff = { originalSrc: 'data:orig', params: { beauty: { nailGloss: 60 }, ratio: '4:5' } };
+  const out = injectMirror(orig, handoff);
+  const editor = out.find((a) => a.kind === 'open_photo_editor');
+  const igUntouched = out[0] === orig[0]; // 비-editor 액션은 원본 참조 유지(비파괴)
+  const origEmpty = Object.keys(orig[1].payload).length === 0; // 원본 미변경
+  check('10. injection: editor 만 initialState 주입 + 비파괴', editor.payload.initialState === handoff.params && editor.payload.photo_url === 'data:orig' && igUntouched && origEmpty);
+}
+
+// 11. 소스 회귀 가드: assistant.js PR1 와이어링 존재
+{
+  const a = fs.readFileSync(path.join(__dirname, '..', 'app-assistant.js'), 'utf8');
+  const hasInject = /_injectHandoffIntoHubActions/.test(a);
+  const hasPromoRender = /_renderItbiCardsPromo/.test(a);
+  const cardsUnconditional = /promo·비-promo 모두 카드/.test(a) || /itbiCards = \(window\.PhotoEditorItbiCards/.test(a);
+  const promoHubInjected = /promo \? _injectHandoffIntoHubActions\(promo\.hubActions, handoff\)/.test(a);
+  check('11. assistant.js PR1 와이어링(주입/렌더/무조건카드/promo hub)', hasInject && hasPromoRender && cardsUnconditional && promoHubInjected,
+    JSON.stringify({ hasInject, hasPromoRender, cardsUnconditional, promoHubInjected }));
+}
+
 let allPass = true;
 console.log('\n=== 잇비 결과 카드 v0 + 핸드오프 QA ===');
 for (const r of results) { if (!r.pass) allPass = false; console.log((r.pass ? 'PASS' : 'FAIL') + '  ' + r.name + (r.detail ? '  [' + r.detail + ']' : '')); }

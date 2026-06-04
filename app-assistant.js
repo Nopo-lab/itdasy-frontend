@@ -477,6 +477,7 @@
       <div style="width:40px;height:40px;border-radius:50%;background:#F7EFF0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#BC6675;">${_svg('ic-bot', 22)}</div>
       <div style="max-width:85%;min-width:0;flex:1;">
         ${promoResultHtml}
+        ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
         ${reportHtml}
@@ -497,6 +498,14 @@
     const R = window.ItdasyPromoResultCard;
     if (!m.promo_result || !R || typeof R.render !== 'function') return '';
     return R.render(m, idx, { esc: _esc });
+  }
+
+  // [PR1] promo 경로 전용 잇비 결과 카드 렌더. 비-promo 는 _renderPhotoResult 안에서 이미 렌더되므로
+  //   promo_result 가 있을 때만 별도 렌더(중복 방지). 클릭은 기존 _handleItbiCardClick 재사용.
+  function _renderItbiCardsPromo(m, idx) {
+    if (!m.promo_result || !m.itbi_cards) return '';
+    if (!(window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.renderHTML === 'function')) return '';
+    return window.PhotoEditorItbiCards.renderHTML(m.itbi_cards, idx);
   }
 
   // [J-2] 일반 메시지의 Action Hub 버튼(hub_actions). photo_result 안에서 이미 렌더되는 경우는 제외(중복 방지).
@@ -2059,8 +2068,8 @@
         autoIntensity: result.intensity || 'standard',
       },
     };
-    // [잇비 결과 카드 v0] non-promo 경로에서만 카드 3개 구성(promo/인스타 경로는 기존 유지 — 후속 PR).
-    const itbiCards = (!promo && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.fromResult === 'function')
+    // [잇비 결과 카드 v0/PR1] promo·비-promo 모두 카드 3개 구성(fromResult 재사용).
+    const itbiCards = (window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.fromResult === 'function')
       ? window.PhotoEditorItbiCards.fromResult(result, opts) : null;
     _history[placeholderIdx] = {
       role: 'assistant',
@@ -2069,7 +2078,8 @@
       itbi_cards: itbiCards,
       promo_result: promo ? promo.promoResult : null,
       photo_actions: promo ? [] : _chatAutoEditActions(intent.instagram),
-      hub_actions: promo ? promo.hubActions : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동'), handoff),
+      // [PR1] promo hubActions 의 open_photo_editor 도 원본+initialState 를 싣게 post-process(photo-chain.js 미수정 — 코덱스 충돌 회피).
+      hub_actions: promo ? _injectHandoffIntoHubActions(promo.hubActions, handoff) : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동'), handoff),
       photo_caption: promo ? promo.promoResult.caption : '업종: ' + (result.preset_label || '자동'),
     };
     _renderHistory();
@@ -2086,6 +2096,23 @@
       { id: 'save', label: '저장' },
       { id: 'retry', label: '다시' },
     ];
+  }
+
+  // [PR1] promo hubActions 의 open_photo_editor 액션에 원본 src + initialState(params) 주입.
+  //   photo-chain.js 의 promo 액션 빌더는 payload:{} 라 핸드오프 유실 → 여기서 비파괴 복제 후 보강.
+  //   기존 promo 흐름(인스타/템플릿/캡션/고객기록)은 그대로, editor 진입만 보정값 유지.
+  function _injectHandoffIntoHubActions(actions, handoff) {
+    if (!Array.isArray(actions) || !handoff || !handoff.originalSrc) return actions;
+    return actions.map((a) => {
+      if (a && a.kind === 'open_photo_editor') {
+        return Object.assign({}, a, {
+          payload: Object.assign({}, a.payload || {}, {
+            photo_url: handoff.originalSrc, initial_tab: 'beauty', initialState: handoff.params,
+          }),
+        });
+      }
+      return a;
+    });
   }
 
   // [J-1] 사진 결과 버튼을 Action Hub 규격으로. 기존 동작(instagram/editor/save/retry)은 route:'photo'(photo-actions.js)
