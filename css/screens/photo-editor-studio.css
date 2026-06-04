@@ -492,6 +492,48 @@ input[data-studio-slider]::-webkit-slider-thumb {
   width: 100%;
 }
 
+/* PE-AI-1B — AI 정밀 추천 버튼 / 로딩 / 동의 모달 */
+.pe-reco-precise-btn {
+  border: 1px solid rgba(131,236,192,0.35);
+  background: rgba(31,157,99,0.16);
+  color: #83ecc0;
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.pe-reco-precise-btn:disabled { opacity: 0.55; cursor: default; }
+
+.pe-reco-loading {
+  font-size: 11px;
+  color: rgba(255,250,242,0.7);
+  padding: 6px 2px;
+}
+
+.pe-reco-consent-ov {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  padding: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+.pe-reco-consent {
+  width: 100%;
+  max-width: 340px;
+  background: #1b1c22;
+  border: 1px solid rgba(255,250,242,0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+.pe-reco-consent-title { color: #fffaf2; font-size: 15px; font-weight: 900; margin-bottom: 8px; }
+.pe-reco-consent-body { color: rgba(255,250,242,0.78); font-size: 12px; line-height: 1.5; margin-bottom: 16px; }
+.pe-reco-consent-btns { display: flex; gap: 8px; justify-content: flex-end; }
+
 #tplV2Sheet {
   background: #111217 !important;
   color: #f7f1e8 !important;

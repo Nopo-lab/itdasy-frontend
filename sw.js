@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260604-v392-pe-ai-1a';
+const CACHE_VERSION = '20260604-v393-pe-ai-1b';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -75,6 +75,8 @@ const STATIC_ASSETS = [
   './js/photo-editor/beauty-engine.js',
   './js/photo-editor/reco-map.js',
   './js/photo-editor/reco-region.js',
+  './js/photo-editor/reco-vision-client.js',
+  './js/photo-editor/reco-consent.js',
   './js/photo-editor/reco-cards-ui.js',
   './app-photo-editor-beauty-ai.js',
   './workers/photo-filter-worker.js',
