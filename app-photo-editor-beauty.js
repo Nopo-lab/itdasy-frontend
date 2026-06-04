@@ -364,7 +364,7 @@
       }
       // v350 — 네일: nailGloss/nailShape 사용 시에만 nailMask 페치. 안전 게이트 통과 시에만 useMasks 주입.
       //   미통과(noHand/저신뢰) → null → beauty-engine 이 v348 휴리스틱 그대로 (보정 안 죽음).
-      if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10) && MA && typeof MA.getNailMaskSync === 'function' && img) {
+      if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10 || (window.PhotoEditorCuticle && window.PhotoEditorCuticle.active())) && MA && typeof MA.getNailMaskSync === 'function' && img) {
         const nail = MA.getNailMaskSync(img);
         if (nail) {
           if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
@@ -412,6 +412,7 @@
     if (!regionMasks || !regionMasks.useMasks) return;
     if ((b.hairVolume || 0) > 14) _hairShapeBoost(ctx, w, h, b, regionMasks);
     if ((b.nailGloss || 0) > 14) _nailGlossSweep(ctx, w, h, b, regionMasks);
+    if (window.PhotoEditorCuticle && window.PhotoEditorCuticle.active()) window.PhotoEditorCuticle.apply(ctx, w, h, b, regionMasks);
   }
 
   function _hairShapeBoost(ctx, w, h, b, regionMasks) {
