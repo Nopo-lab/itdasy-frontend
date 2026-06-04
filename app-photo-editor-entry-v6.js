@@ -95,6 +95,7 @@
     template: '홍보 템플릿',
     pro: '고급',
     ba: '전후 비교',
+    ai: '홍보컷 만들기',
   };
   const SHOP_ENTRY = {
     nail: {
@@ -176,7 +177,7 @@
           ${_actionButton('auto', '내 샵 추천 보기', '추천 보정으로 시작', 'secondary')}
           ${_actionButton('template', '템플릿으로 만들기', '피드·스토리 카드', 'secondary')}
         </div>
-        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">AI 보정 베타 · 준비 중</button>
+        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">홍보컷 만들기</button>
         <div class="pe-entry-recommend">${cards}</div>
       </section>`;
   }
@@ -193,7 +194,7 @@
           ${_actionButton('template', '템플릿에 넣기', '홍보물 만들기', 'quick')}
           ${_actionButton('save', '저장하기', '저장 메뉴로 이동', 'quick')}
         </div>
-        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">AI 보정 베타 · 준비 중</button>
+        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">홍보컷 만들기</button>
       </section>`;
   }
   function _buildHTML(state) {
@@ -239,7 +240,11 @@
         return;
       }
       if (a === 'ai-beta') {
-        if (window.showToast) window.showToast('AI 보정 베타는 준비 중이에요. 지금은 추천 보정을 먼저 써보세요');
+        if (!_hasImage()) {
+          if (window.showToast) window.showToast('사진을 먼저 선택하면 홍보컷을 만들 수 있어요');
+          return;
+        }
+        _gotoEditor('ai', 'ai');
         return;
       }
     }
