@@ -50,6 +50,20 @@
     general: ['skin', 'redness', 'blemish', 'textureSmooth'],
   };
 
+  // [PR-4b] 부위 소분류 — 샵분기(헤어/네일추천) 대신 부위로. 슬라이더는 해당 region.keys 에만 배치(코 없음).
+  const REGIONS = [
+    { id: 'eye',  label: '눈',      keys: ['eyeRedness', 'irisClear', 'catchLight', 'underEyeClean', 'lashSharp', 'eyeColor', 'eyeShadow'] },
+    { id: 'brow', label: '눈썹',    keys: ['browSharp'] },
+    { id: 'lip',  label: '입',      keys: ['lipPop'] },
+    { id: 'skin', label: '피부',    keys: ['skin', 'redness', 'blemish', 'textureSmooth', 'yellowness'] },
+    { id: 'hair', label: '헤어',    keys: ['hairShine', 'hairVolume', 'hairEndsClean', 'hairColor', 'hairDetail', 'hairColorPop', 'scalpBoost'] },
+    { id: 'hand', label: '손·네일', keys: ['handSkin', 'nailGloss', 'coolness', 'nailShape'] },
+  ];
+  const REGION_ETC_KEYS = ['hairyArm', 'closeUpDetail'];   // 기타/고급(부위 밖)
+  // 샵 종류 → 기본 진입 부위 힌트(추천 메뉴 아님, 첫 선택만).
+  const SHOPCAT_TO_REGION = { hair: 'hair', scalp: 'hair', lash: 'eye', makeup: 'skin', nail: 'hand', wax: 'skin', skin: 'skin', general: 'skin' };
+  function _defaultRegion() { return SHOPCAT_TO_REGION[_detectShopCat() || 'general'] || 'skin'; }
+
   const AI_FEATURES = {
     hair:   ['컬·웨이브 또렷하게', '잔머리 정리', '모발 입체감 강화', '두피·정수리 휑함 완화', '붙임머리 결합부 자연스럽게'],
     scalp:  ['두피 휑함 자연 보완', '잔모 강조', '모발 입체감 보정'],
@@ -131,56 +145,28 @@
     const b = Object.assign({}, DEF, state.beauty || {});
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-    const cat = state.beautyFocus || _detectShopCat();
-    const featured = cat ? (SHOP_FEATURED[cat] || []) : [];
-    const otherKeys = Object.keys(SLIDERS).filter(k => !featured.includes(k));
-    const aiItems = cat ? (AI_FEATURES[cat] || []) : [];
-    const catLabel = { hair: '헤어·붙임머리·미용', lash: '속눈썹', nail: '네일', wax: '왁싱·피부·반영구' }[cat || ''] || '';
+    // [PR-4b] 보정 진입 = 부위 소분류 단일 흐름. 샵분기(beautyFocus/SHOP_FEATURED) 칩 제거.
+    const region = state.beautyRegion || _defaultRegion();
+    const reg = REGIONS.find(r => r.id === region) || REGIONS[0];
 
-    const quickHtml = _beautyQuickHTML(esc, cat);
-    // PE-AI-1A — 부위 기반 추천 카드 (온디바이스, 슬라이더 위에). 모듈 없으면 빈 문자열.
+    // [PR-4b] 룩 그리드(클래식/글램/헤어컬러/네일 프리셋)는 기본 노출 제거 — 목표 UX = 추천 카드 1개 + 부위보정.
+    //   _beautyQuickHTML/_applyBeautyLook 함수는 보존(기능 삭제 아님), 렌더만 제외.
+    // PE-AI-1A — 부위 기반 추천 카드 (온디바이스, 슬라이더 위 = 잇비 추천 1개). 모듈 없으면 빈 문자열.
     const recoHtml = (window.PhotoEditorRecoCards && typeof window.PhotoEditorRecoCards.html === 'function')
       ? window.PhotoEditorRecoCards.html(state) : '';
 
-    let featuredHtml = '';
-    if (featured.length) {
-      featuredHtml = `
-        <div class="pe-group-label" style="color:#D58A95;font-weight:800;">✦ 추천 보정 — ${esc(catLabel)}</div>
-        ${featured.map(k => _slider(esc, k, b[k])).join('')}
-      `;
-    }
+    // [PR-4b] 부위 칩: 눈/눈썹/입/피부/헤어/손·네일. 선택 부위 슬라이더만 표시.
+    const regionChips = `<div class="pe-beauty-focus" role="tablist">${REGIONS.map(r =>
+      `<button type="button" class="${reg.id === r.id ? 'on' : ''}" data-pe-beauty-region="${r.id}">${esc(r.label)}</button>`
+    ).join('')}</div>`;
+    const regionSliders = reg.keys.map(k => _slider(esc, k, b[k])).join('');
 
-    let moreHtml = '';
-    if (otherKeys.length) {
-      if (featured.length) {
-        moreHtml = `
-          <button type="button" data-pe-beauty-toggle="1"
-            style="margin:14px 0 6px;width:100%;padding:10px;background:rgba(255,255,255,0.05);color:#c9c9d0;border:1px dashed rgba(255,255,255,0.18);border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">
-            ＋ 전체 보정 보기 (+${otherKeys.length})
-          </button>
-          <div id="peBeautyMore" hidden>
-            ${_groupedHTML(esc, otherKeys, b)}
-          </div>
-        `;
-      } else {
-        moreHtml = _groupedHTML(esc, otherKeys, b);
-      }
-    }
-
-    let aiHtml = '';
-    if (aiItems.length) {
-      aiHtml = '<div class="pe-hint" style="color:#7f7f87;margin-top:14px;">느린 AI 기능은 준비된 것만 별도 버튼으로 보여줘요. 이 화면은 즉시 보정만 다룹니다.</div>';
-    }
-
-    // [PR3a] 슬라이더(featured+more)를 "세부 조정(고급)" 접힘으로 → 추천/잇비 카드가 먼저 보이게.
-    //   슬라이더 렌더/이벤트/값 적용 로직 불변. 내부 peBeautyMore(전체 보정 보기) 토글도 그대로 동작.
-    const sliderBlock = `${featuredHtml}${moreHtml}`;
-    const advHtml = sliderBlock.trim()
-      ? `<button type="button" data-pe-beauty-adv="1" class="pe-beauty-adv-toggle" aria-expanded="false"
+    // 세부 조정(고급) — 부위 밖 기타(전체 선명도/팔다리 톤). 기본 접힘.
+    const advBody = REGION_ETC_KEYS.map(k => _slider(esc, k, b[k])).join('');
+    const advHtml = `<button type="button" data-pe-beauty-adv="1" class="pe-beauty-adv-toggle" aria-expanded="false"
             style="margin:14px 0 4px;width:100%;padding:11px;background:rgba(0,0,0,0.04);color:#4E5968;border:1px solid #E5E8EB;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">세부 조정 (고급) ▾</button>
-         <div id="peBeautyAdv" hidden>${sliderBlock}</div>`
-      : '';
-    return `${quickHtml}${recoHtml}${advHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+         <div id="peBeautyAdv" hidden>${advBody}</div>`;
+    return `${recoHtml}${regionChips}${regionSliders}${advHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
   }
 
   function _beautyQuickHTML(esc, cat) {
@@ -191,9 +177,6 @@
         <p>선택 후 아래 슬라이더로 세기만 살짝 조절</p>
       </div>
     </div>
-    <div class="pe-beauty-focus">${BEAUTY_FOCUS.map(item =>
-      `<button type="button" class="${cat === item.id ? 'on' : ''}" data-pe-beauty-focus="${item.id}">${esc(item.label)}</button>`
-    ).join('')}</div>
     <div class="pe-beauty-look-grid">${_beautyLooksFor(cat).map(item => `
       <button type="button" class="pe-beauty-look" data-pe-beauty-look="${item.id}">
         <span>${esc(item.icon)}</span>
@@ -324,6 +307,14 @@
   }
 
   function _bindBeautyQuick(panel, state, helpers) {
+    // [PR-4b] 부위 칩 — 선택 부위만 슬라이더 표시. 재렌더는 기존 renderPanel 경로 재사용.
+    panel.querySelectorAll('[data-pe-beauty-region]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.beautyRegion = btn.dataset.peBeautyRegion;
+        helpers.renderPanel();
+      });
+    });
+    // (구) 샵분기 focus 칩 — 잔존 시 호환(현재 미렌더)
     panel.querySelectorAll('[data-pe-beauty-focus]').forEach(btn => {
       btn.addEventListener('click', () => {
         state.beautyFocus = btn.dataset.peBeautyFocus;
