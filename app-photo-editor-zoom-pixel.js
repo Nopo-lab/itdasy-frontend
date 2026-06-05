@@ -91,8 +91,10 @@
     // 가정: snapshot 의 한 변 = peCanvas 의 디스플레이 크기와 같다 (peCanvas 는 보통 1080 픽셀, display 도 비슷).
     // 즉 snapshot 1px ≈ display 1px (scale=1). scale=8 이면 snapshot 1px = display 8px.
     // 따라서 가시 snapshot 영역 = cssW / z.scale × cssH / z.scale
-    const visW = cssW / z.scale;
-    const visH = cssH / z.scale;
+    // [PR-D2] 고배율(50x↑)·scale=0 에서 0px/NaN drawImage 방어 — 최소 1px 보장.
+    const _sc = (z.scale && isFinite(z.scale) && z.scale > 0) ? z.scale : 1;
+    const visW = Math.max(1, cssW / _sc);
+    const visH = Math.max(1, cssH / _sc);
 
     // 중심: cssW/2, cssH/2 의 디스플레이 픽셀이 snapshot 의 어디?
     // z.tx, z.ty 는 디스플레이 중심에서 이동량. 음수 tx = 오른쪽으로 본다.

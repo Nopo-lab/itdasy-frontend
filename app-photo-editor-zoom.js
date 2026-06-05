@@ -16,7 +16,7 @@
 (function () {
   'use strict';
 
-  const MIN = 1.0, MAX = 32.0;               // v225: 4 → 32
+  const MIN = 1.0, MAX = 50.0;               // v225: 4 → 32 · [PR-D2] 32 → 50 (더 디테일한 확대, view transform 만)
   const PIXEL_ENTER = 8.0, PIXEL_EXIT = 7.0; // hysteresis
 
   function _ensureZoomState(state) {
