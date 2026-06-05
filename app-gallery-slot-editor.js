@@ -464,16 +464,22 @@ function openSlotPhotoInEditor(tab) {
   if (!photo) photo = visible[0];
   if (!photo) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
 
+  // [#1] 손님 사진 여러 장 → 편집기에서 좌우로 넘기며 편집(완료→다음). photoSet 으로 목록+활성 인덱스 전달.
+  const startIndex = Math.max(0, visible.findIndex(p => p.id === photo.id));
   window.PhotoEditor.open({
     src: photo.editedDataUrl || photo.dataUrl,
     initial_tab: tab || 'auto',
     customer_name: slot.label || '',
-    onSave: async (dataUrl) => {
-      photo.editedDataUrl = dataUrl;
-      photo.mode = 'enhanced';
-      try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
+    photoSet: {
+      list: visible.map(pp => ({ id: pp.id, src: pp.editedDataUrl || pp.dataUrl })),
+      index: startIndex,
+    },
+    // 각 사진 저장은 그 사진(id)에만 반영 — 다른 사진 오염 없음.
+    onSavePhoto: (photoId, dataUrl) => {
+      const tp = (slot.photos || []).find(pp => pp.id === photoId);
+      if (tp) { tp.editedDataUrl = dataUrl; tp.mode = 'enhanced'; }
+      try { saveSlotToDB(slot); } catch (_e) { /* ignore */ }
       _renderPopupPhotoGrid(slot);
-      if (typeof showToast === 'function') showToast('편집본이 손님 사진에 반영됐어요');
     },
   });
 }

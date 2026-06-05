@@ -64,7 +64,7 @@
   window.addEventListener('popstate', () => {
     const sheet = document.getElementById('photoEditorSheet');
     // 임베드 모드(onSave — 작업실 슬롯에서 열림): 뒤로 = entry-v6 메뉴로 빠지지 말고 완전 종료(슬롯 복귀).
-    const embedded = !!(_state && _state.onSave);
+    const embedded = !!(_state && (_state.onSave || _state.photoSet));   // [#1] 작업실 임베드(단일 onSave 또는 멀티 photoSet)
     if (!embedded && sheet && sheet.classList.contains('pe-v6-feature-mode') && window.PhotoEditorEntryV6?.backToMenu) {
       _historyPushed = false;
       window.PhotoEditorEntryV6.backToMenu();
@@ -90,6 +90,9 @@
       // 저장 콜백 — 있으면 저장 버튼이 PNG 다운로드 대신 편집본 dataURL 을 콜백에 넘기고 종료.
       //   (작업실 손님 사진 편집 → 손님 사진에 되돌려쓰기 용도)
       onSave: typeof opts.onSave === 'function' ? opts.onSave : null,
+      // [#1] 한 손님 사진 여러 장을 한 흐름에서 좌우로 넘기며 편집(완료→다음). 작업실 슬롯에서 주입.
+      photoSet: (opts.photoSet && Array.isArray(opts.photoSet.list) && opts.photoSet.list.length) ? { list: opts.photoSet.list.slice(), index: opts.photoSet.index | 0 } : null,
+      onSavePhoto: typeof opts.onSavePhoto === 'function' ? opts.onSavePhoto : null,
       autoShop: !!opts.autoShop,
       activeTab: opts.initial_tab || 'auto', ratio: 'original',
       autoIntensity: 'standard',  // [v183] natural | standard | strong
@@ -142,6 +145,11 @@
     sheet.innerHTML = `<div class="pe-root" role="dialog" aria-modal="true" aria-label="사진 편집기">
       <header class="pe-topbar">
         <button type="button" class="pe-back-btn" data-pe-act="close" aria-label="뒤로"><svg style="width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-chevron-left"/></svg></button>
+        <div class="pe-set-nav" id="peSetNav" hidden style="display:flex;align-items:center;gap:6px;margin-left:4px;">
+          <button type="button" class="pe-iconbtn" data-pe-act="set-prev" aria-label="이전 사진" style="font-size:20px;line-height:1;">‹</button>
+          <span id="peSetIdx" style="font-size:12px;font-weight:800;color:#4E5968;min-width:34px;text-align:center;">1/1</span>
+          <button type="button" class="pe-iconbtn" data-pe-act="set-next" aria-label="다음 사진" style="font-size:20px;line-height:1;">›</button>
+        </div>
         <div class="pe-topbar-spacer"></div>
         <button type="button" class="pe-iconbtn" data-pe-act="undo" aria-label="되돌리기"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-rotate-ccw"/></svg></button>
         <button type="button" class="pe-topbar-chip" data-pe-act="compare">원본</button>
@@ -159,7 +167,7 @@
     return sheet;
   }
 
-  const _ACTS = { close: () => _close(), undo: () => _undo(), redo: () => _redo(), save: () => _save(), compare: () => _toggleCompare() };
+  const _ACTS = { close: () => _close(), undo: () => _undo(), redo: () => _redo(), save: () => _save(), compare: () => _toggleCompare(), 'set-prev': () => _setNavGo(-1), 'set-next': () => _setNavGo(1) };
   function _bindSheet(sheet) {
     sheet.addEventListener('click', (e) => {
       const act = e.target.closest('[data-pe-act]')?.dataset.peAct;
@@ -359,6 +367,7 @@
   // ── 저장 / 내보내기 ───────────────────────────────────
   async function _save() {
     await _renderForExport();   // v345 — 저장/onSave 직전 원본급(exportFull) 고화질 1회 렌더
+    if (_state && _state.photoSet && _state.onSavePhoto) return _saveSetAdvance();   // [#1] 완료 → 다음 사진
     if (_state && typeof _state.onSave === 'function') return _saveViaCallback();
     const r = await _exportImage('png');
     try { await _redraw(false); } catch (_e) { void _e; }   // 화면 캔버스 final(2048)로 복귀
@@ -387,6 +396,60 @@
     if (sheet) sheet.classList.remove('pe-v6-feature-mode');
     _close();
   }
+  // ── [#1] 여러 장 편집 흐름 (사진별 독립, 완료→다음, 좌우 네비) ──
+  function _saveCurrentSetPhoto() {
+    const cv = document.getElementById('peCanvas');
+    if (!cv || !_state || !_state.photoSet) return false;
+    let dataUrl;
+    try { dataUrl = cv.toDataURL('image/jpeg', 0.92); }
+    catch (e) { _toast('저장 실패 — 사진을 다시 불러와 주세요'); return false; }
+    const cur = _state.photoSet.list[_state.photoSet.index];
+    _state._savedAtCursor = _state.historyCursor;
+    try { _state.onSavePhoto(cur && cur.id, dataUrl); } catch (err) { console.warn('[photo-editor] onSavePhoto 실패:', err && err.message); }
+    if (cur) cur.src = dataUrl;   // 방금 결과를 목록에도 반영(되돌아와도 최신)
+    return true;
+  }
+  function _saveSetAdvance() {
+    if (!_saveCurrentSetPhoto()) return;
+    const ps = _state.photoSet;
+    if (ps.index >= ps.list.length - 1) {
+      _toast('모든 사진 편집 완료');
+      const sheet = document.getElementById('photoEditorSheet');
+      if (sheet) sheet.classList.remove('pe-v6-feature-mode');
+      return _close();
+    }
+    _gotoSetPhoto(ps.index + 1, '다음 사진');
+  }
+  function _setNavGo(dir) {
+    if (!_state || !_state.photoSet) return;
+    const ps = _state.photoSet, ni = ps.index + dir;
+    if (ni < 0 || ni >= ps.list.length) return;
+    _saveCurrentSetPhoto();   // 이동 전 현재 편집 저장(손실 방지)
+    _gotoSetPhoto(ni, null);
+  }
+  function _gotoSetPhoto(i, toastMsg) {
+    if (!_state || !_state.photoSet) return;
+    _state.photoSet.index = i;
+    const fresh = _initState({});   // 사진별 독립 — 슬라이더/조정 초기화(로드 src 에 기존 편집 이미 반영)
+    _state.beauty = fresh.beauty; _state.adjust = fresh.adjust; _state.relight = fresh.relight;
+    _state.template = fresh.template; _state.tplV2 = null; _state.secondImg = null;
+    _state.history = []; _state.historyCursor = -1;
+    _renderSetNav();
+    _loadImage(_state.photoSet.list[i].src);
+    _renderPanel();
+    if (toastMsg) _toast(toastMsg + ' ' + (i + 1) + '/' + _state.photoSet.list.length);
+  }
+  function _renderSetNav() {
+    const nav = document.getElementById('peSetNav'), idx = document.getElementById('peSetIdx');
+    const ps = _state && _state.photoSet;
+    if (nav) {
+      if (ps && ps.list.length > 1) { nav.hidden = false; if (idx) idx.textContent = (ps.index + 1) + '/' + ps.list.length; }
+      else nav.hidden = true;
+    }
+    const saveBtn = document.querySelector('#photoEditorSheet [data-pe-act="save"]');
+    if (saveBtn && ps) saveBtn.textContent = (ps.index >= ps.list.length - 1) ? '완료' : '완료 →';
+  }
+
   async function _exportImage(format) {
     const exp = window.PhotoEditorExport;
     if (!exp || typeof exp.save !== 'function') return _toast('저장 모듈을 불러오는 중이에요');
@@ -448,6 +511,7 @@
     try { if (window.PhotoEditorNavV7?.isEnabled?.()) window.PhotoEditorNavV7.mount(); } catch (_e) { void _e; }
     try { window.PhotoEditorTextDnD?.bind?.(sheet.querySelector('#peCanvas')); } catch (_e) { void _e; }
     if (opts.src) _loadImage(opts.src);
+    _renderSetNav();   // [#1] 멀티 사진이면 ◀ N/M ▶ 네비 노출 + 저장 라벨 '완료 →'
     _pushHistoryState();
     // [v203 2026-05-19] 핀치 줌 attach — wrap 자식 (메인 canvas + 마스크 + 커서) 모두 같이 변환
     try {
@@ -472,7 +536,7 @@
     const sheet = document.getElementById('photoEditorSheet');
     if (sheet) {
       // 임베드 모드(onSave)는 닫을 때 entry-v6 feature-mode 메뉴로 안 빠지게 클래스 해제
-      if (_state && _state.onSave) sheet.classList.remove('pe-v6-feature-mode');
+      if (_state && (_state.onSave || _state.photoSet)) sheet.classList.remove('pe-v6-feature-mode');
       sheet.style.setProperty('display', 'none', 'important');
     }
     document.body.style.overflow = '';
