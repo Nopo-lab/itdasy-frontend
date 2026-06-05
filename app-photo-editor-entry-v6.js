@@ -177,7 +177,8 @@
           ${_actionButton('auto', '내 샵 추천 보기', '추천 보정으로 시작', 'secondary')}
           ${_actionButton('template', '템플릿으로 만들기', '피드·스토리 카드', 'secondary')}
         </div>
-        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">홍보컷 만들기</button>
+        <!-- [PR-6] 생성형 홍보컷 진입 숨김 — generative 미연결, 핸들러(ai-beta)/Bria WIP 코드 보존 -->
+
         <div class="pe-entry-recommend">${cards}</div>
       </section>`;
   }
@@ -194,7 +195,8 @@
           ${_actionButton('template', '템플릿에 넣기', '홍보물 만들기', 'quick')}
           ${_actionButton('save', '저장하기', '저장 메뉴로 이동', 'quick')}
         </div>
-        <button type="button" class="pe-entry-beta" data-pev6-act="ai-beta">홍보컷 만들기</button>
+        <!-- [PR-6] 생성형 홍보컷 진입 숨김 — generative 미연결, 핸들러(ai-beta)/Bria WIP 코드 보존 -->
+
       </section>`;
   }
   function _buildHTML(state) {
