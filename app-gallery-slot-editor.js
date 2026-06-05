@@ -13,12 +13,19 @@ function _slotEsc(v) {
   }[c]));
 }
 
+// [PR-1] 슬롯 팝업 멀티 사진 스테이지 — 활성(편집 대상) 사진 id.
+//   현재(PR-1): 첫 장 자동 활성 + 탭 전환 + 시각 표시. 슬롯 데이터는 불변.
+//   다음(PR-3): 이 active photo 가 하단 메뉴의 PhotoEditor.open({onSave}) "편집 대상" 기준이 됨.
+//   기존 _popupSelIds(다중 선택: 일괄삭제/BA)는 그대로 유지 — _activePhotoId 는 그와 독립된 단일 편집 대상.
+let _activePhotoId = null;
+
 // ── 슬롯 팝업 열기 / 닫기 ──────────────────────────────────────
 async function openSlotPopup(slotId) {
   const slot = _slots.find(s => s.id === slotId);
   if (!slot) return;
   _setPopupSlotId(slotId);
   _clearPopupSelIds();
+  _activePhotoId = null;   // [PR-1] 렌더에서 첫 사진 자동 활성
 
   document.getElementById('slotPopupLabel').textContent = slot.label + (slot.status === 'done' ? ' ✓' : '');
   const popup = document.getElementById('slotPopup');
@@ -158,6 +165,11 @@ function _renderPopupPhotoGrid(slot) {
 
   const visiblePhotos = (slot.photos || []).filter(p => !p.hidden);
 
+  // [PR-1] 활성(편집 대상) 사진 보정 — 없거나 사라졌으면 첫 사진 자동 활성. 순서는 photos 배열 그대로.
+  if (!_activePhotoId || !visiblePhotos.some(p => p.id === _activePhotoId)) {
+    _activePhotoId = visiblePhotos[0] ? visiblePhotos[0].id : null;
+  }
+
   if (selCount) selCount.textContent = _popupSelIds.size;
   if (bulkBar)  bulkBar.style.display = _popupSelIds.size > 0 ? 'block' : 'none';
 
@@ -174,6 +186,7 @@ function _renderPopupPhotoGrid(slot) {
   grid.innerHTML = '';
   visiblePhotos.forEach(photo => {
     const sel   = _popupSelIds.has(photo.id);
+    const active = photo.id === _activePhotoId;   // [PR-1] 편집 대상
     const baLbl = baLabelMap[photo.id];
 
     const wrap = document.createElement('div');
@@ -181,16 +194,18 @@ function _renderPopupPhotoGrid(slot) {
     wrap.addEventListener('contextmenu', e => e.preventDefault());
 
     const imgBox = document.createElement('div');
-    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
+    // [PR-1] 활성 사진은 box-shadow 링으로 강조(선택 border 와 독립). 선택 border 는 기존 그대로.
+    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${active ? '0 0 0 3px var(--accent,#D58A95)' : 'none'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
     imgBox.innerHTML = `
       <img src="${_slotEsc(photo.editedDataUrl || photo.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;">
       <div style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.3)'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;">${sel ? '✓' : ''}</div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,0.55);font-size:9px;color:${modeColor[photo.mode]};font-weight:700;">${modeLabel[photo.mode] || '원본'}</div>
       ${baLbl ? `<div style="position:absolute;top:3px;left:3px;background:${baLbl==='BEFORE'?'rgba(100,149,237,0.92)':'rgba(213,138,149,0.92)'};border-radius:4px;padding:2px 6px;font-size:9px;color:#fff;font-weight:800;">${baLbl}</div>` : ''}
+      ${active ? '<div style="position:absolute;top:3px;left:50%;transform:translateX(-50%);background:var(--accent,#D58A95);border-radius:6px;padding:2px 8px;font-size:9px;color:#fff;font-weight:800;z-index:3;white-space:nowrap;">편집 대상</div>' : ''}
       <button data-unassign-photo style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
     `;
     imgBox.querySelector('[data-unassign-photo]')?.addEventListener('click', e => unassignPopupPhoto(photo.id, e));
-    imgBox.addEventListener('click', e => { e.stopPropagation(); togglePopupPhotoSel(photo.id); });
+    imgBox.addEventListener('click', e => { e.stopPropagation(); _activePhotoId = photo.id; togglePopupPhotoSel(photo.id); });  // [PR-1] 탭 시 활성 사진 전환(+기존 선택 토글 유지)
     imgBox.style.webkitTapHighlightColor = 'transparent';
     wrap.appendChild(imgBox);
 
