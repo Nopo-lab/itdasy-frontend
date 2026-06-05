@@ -218,6 +218,16 @@ window.__LATEST_BUILD__ = '20260605-v394-l3-generative-mock';
   <symbol id="ic-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
   </symbol>
+  <!-- [PR-2] 작업실 편집기형 하단 메뉴 아이콘 (Lucide) -->
+  <symbol id="ic-layout-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>
+  </symbol>
+  <symbol id="ic-type" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/>
+  </symbol>
+  <symbol id="ic-arrow-left-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>
+  </symbol>
   <symbol id="ic-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
     <polyline points="22 4 12 14.01 9 11.01"/>
@@ -1680,25 +1690,32 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   </header>
   <!-- 2026-04-24 — 툴바(배경/B/A/요소) 키워지면서 본문 스크롤 여유도 함께 확대 (FAB+안드로이드 nav 가려짐 방지) -->
   <div id="slotPopupBody" class="dt-body" style="padding-bottom:calc(220px + env(safe-area-inset-bottom));"></div>
-  <!-- 하단 도구바 (ws-toolbar) -->
+  <!-- 하단 도구바 (ws-toolbar) — [PR-2] 편집기형 메뉴: 부위보정/배경/템플릿/텍스트/전후/저장.
+       data-static-action 값은 기존 유지(핸들러/라우팅 무변경), 라벨·아이콘·순서만 변경. 아이콘=Lucide. -->
   <div id="slotToolbar" class="ws-toolbar">
-    <button data-static-action="bg-panel-open" class="ws-toolbar__btn" aria-label="누끼따기">
-      <i class="ph-duotone ph-image ic" aria-hidden="true"></i>누끼따기
+    <!-- [PR-2] 활성(편집 대상) 사진 컨텍스트 헤더(툴바 첫 행) — _renderPopupPhotoGrid 에서 갱신 -->
+    <div id="slotActiveCtx" class="ws-active-ctx" aria-live="polite"></div>
+    <button data-static-action="enhance-panel-open" class="ws-toolbar__btn" aria-label="부위 보정">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-sparkles"/></svg>부위보정
     </button>
-    <button data-static-action="enhance-panel-open" class="ws-toolbar__btn" aria-label="보정">
-      <i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>보정
-    </button>
-    <button id="baBtnToolbar" data-static-action="ba-toggle" class="ws-toolbar__btn" aria-label="전후합성">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3L4 7l4 4M4 7h16M16 21l4-4-4-4m4 4H4"/></svg>전후합성
-    </button>
-    <button data-static-action="element-panel-open" class="ws-toolbar__btn" aria-label="로고">
-      <i class="ph-duotone ph-sparkle ic" aria-hidden="true"></i>로고
-    </button>
-    <button data-static-action="review-panel-open" class="ws-toolbar__btn" aria-label="리뷰">
-      <i class="ph-duotone ph-star ic" aria-hidden="true"></i>리뷰
+    <button data-static-action="bg-panel-open" class="ws-toolbar__btn" aria-label="배경">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-image"/></svg>배경
     </button>
     <button data-static-action="template-panel-open" class="ws-toolbar__btn" aria-label="템플릿">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>템플릿
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-layout-grid"/></svg>템플릿
+    </button>
+    <button data-static-action="element-panel-open" class="ws-toolbar__btn" aria-label="텍스트">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-type"/></svg>텍스트
+    </button>
+    <button id="baBtnToolbar" data-static-action="ba-toggle" class="ws-toolbar__btn" aria-label="전후">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-arrow-left-right"/></svg>전후
+    </button>
+    <button data-static-action="slot-save-close" class="ws-toolbar__btn" aria-label="저장">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-save"/></svg>저장
+    </button>
+    <!-- [PR-2 옵션2] 리뷰: 기능/핸들러(review-panel-open) 보존, 기본 노출만 제외(PR-2.5 더보기 승격 예정) -->
+    <button data-static-action="review-panel-open" class="ws-toolbar__btn" aria-label="리뷰" style="display:none;">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-star"/></svg>리뷰
     </button>
   </div>
 </div>
@@ -2122,7 +2139,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-gallery-db.js" defer></script>
 <script src="app-gallery-workshop.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-gallery-assign.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-slot-editor.js?v=20260605-pr1-active-photo" defer></script>
+<script src="app-gallery-slot-editor.js?v=20260605-pr2-toolbar-menu" defer></script>
 <script src="app-photo-editor-bg-compose.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-gallery-bg.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-photo-editor-bg-cache.js?v=20260520-v250-template-mask-hotfix" defer></script>

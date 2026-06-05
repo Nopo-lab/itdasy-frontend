@@ -170,6 +170,19 @@ function _renderPopupPhotoGrid(slot) {
     _activePhotoId = visiblePhotos[0] ? visiblePhotos[0].id : null;
   }
 
+  // [PR-2] 활성 사진 컨텍스트 헤더 갱신 (2장 이상일 때만 표시 — 단일 사진이면 숨김이 더 깔끔).
+  const ctxEl = document.getElementById('slotActiveCtx');
+  if (ctxEl) {
+    const aIdx = visiblePhotos.findIndex(p => p.id === _activePhotoId);
+    if (visiblePhotos.length >= 2 && aIdx >= 0) {
+      ctxEl.textContent = '편집 대상 ' + (aIdx + 1) + '/' + visiblePhotos.length;
+      ctxEl.style.display = '';
+    } else {
+      ctxEl.textContent = '';
+      ctxEl.style.display = 'none';
+    }
+  }
+
   if (selCount) selCount.textContent = _popupSelIds.size;
   if (bulkBar)  bulkBar.style.display = _popupSelIds.size > 0 ? 'block' : 'none';
 

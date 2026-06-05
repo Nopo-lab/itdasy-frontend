@@ -113,10 +113,23 @@
   border-top: 1px solid var(--border);
   padding: 8px 10px calc(14px + env(safe-area-inset-bottom, 0px));
   display: flex;
+  flex-wrap: wrap;            /* [PR-2] 활성 헤더(풀폭 첫 행) + 버튼 6개 1행 */
   gap: 6px;
   z-index: 2;
-  overflow-x: auto;
+  overflow-x: hidden;
 }
+
+/* [PR-2] 활성(편집 대상) 사진 컨텍스트 헤더 — 툴바 첫 행 풀폭 */
+.ws-active-ctx {
+  flex: 0 0 100%;
+  order: -1;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-strong, var(--accent));
+  padding: 2px 2px 4px;
+  line-height: 1.2;
+}
+.ws-active-ctx:empty { display: none; }
 
 .ws-toolbar__btn {
   flex: 1;
