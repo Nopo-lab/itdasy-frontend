@@ -130,7 +130,7 @@ function _renderPopupBody(slot) {
   body.innerHTML = `
     ${usageHtml}
     <input type="file" id="popupPhotoInput" data-popup-upload accept="image/*" multiple style="display:none;">
-    <div id="popupPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px;"></div>
+    <div id="popupPhotoGrid" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin-bottom:12px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
     <div id="popupBulkBar" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-size:12px;font-weight:700;color:var(--text);"><span id="popupSelCount">0</span>장 선택됨</div>
@@ -203,18 +203,21 @@ function _renderPopupPhotoGrid(slot) {
     const baLbl = baLabelMap[photo.id];
 
     const wrap = document.createElement('div');
-    wrap.style.cssText = 'display:flex;flex-direction:column;gap:3px;user-select:none;-webkit-user-select:none;';
+    // [#1 carousel] 슬라이드 — 가로 스와이프(스크롤 스냅). 한 장 크게 + 다음 살짝 보임.
+    wrap.style.cssText = 'flex:0 0 78%;scroll-snap-align:center;display:flex;flex-direction:column;gap:3px;user-select:none;-webkit-user-select:none;';
+    wrap.dataset.wsSlide = '1'; wrap.dataset.photoId = photo.id;
     wrap.addEventListener('contextmenu', e => e.preventDefault());
 
     const imgBox = document.createElement('div');
+    imgBox.dataset.imgbox = '1';
     // [PR-1] 활성 사진은 box-shadow 링으로 강조(선택 border 와 독립). 선택 border 는 기존 그대로.
-    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${active ? '0 0 0 3px var(--accent,#D58A95)' : 'none'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
+    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${active ? '0 0 0 3px var(--accent,#D58A95)' : 'none'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
     imgBox.innerHTML = `
       <img src="${_slotEsc(photo.editedDataUrl || photo.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;">
       <div style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.3)'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;">${sel ? '✓' : ''}</div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,0.55);font-size:9px;color:${modeColor[photo.mode]};font-weight:700;">${modeLabel[photo.mode] || '원본'}</div>
       ${baLbl ? `<div style="position:absolute;top:3px;left:3px;background:${baLbl==='BEFORE'?'rgba(100,149,237,0.92)':'rgba(213,138,149,0.92)'};border-radius:4px;padding:2px 6px;font-size:9px;color:#fff;font-weight:800;">${baLbl}</div>` : ''}
-      ${active ? '<div style="position:absolute;top:3px;left:50%;transform:translateX(-50%);background:var(--accent,#D58A95);border-radius:6px;padding:2px 8px;font-size:9px;color:#fff;font-weight:800;z-index:3;white-space:nowrap;">편집 대상</div>' : ''}
+      <div data-active-badge style="position:absolute;top:3px;left:50%;transform:translateX(-50%);background:var(--accent,#D58A95);border-radius:6px;padding:2px 8px;font-size:9px;color:#fff;font-weight:800;z-index:3;white-space:nowrap;display:${active ? '' : 'none'};">편집 대상</div>
       <button data-unassign-photo style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
     `;
     imgBox.querySelector('[data-unassign-photo]')?.addEventListener('click', e => unassignPopupPhoto(photo.id, e));
@@ -239,14 +242,9 @@ function _renderPopupPhotoGrid(slot) {
     grid.appendChild(wrap);
   });
 
-  // 마지막 칸 +추가 카드 — 남은 열 수만큼 span 해서 빈공간 0
-  const N = visiblePhotos.length;
-  const cols = 3;
-  const remainder = N % cols;
-  const span = remainder === 0 ? cols : cols - remainder;
-
+  // [#1 carousel] '사진 더 추가'도 슬라이드 한 칸(정사각).
   const addCell = document.createElement('div');
-  addCell.style.cssText = `grid-column:span ${span};aspect-ratio:${span}/1;border-radius:10px;background:var(--bg2,#f8f8f9);border:1.5px dashed var(--border,rgba(0,0,0,0.1));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;user-select:none;`;
+  addCell.style.cssText = 'flex:0 0 78%;scroll-snap-align:center;aspect-ratio:1/1;border-radius:12px;background:var(--bg2,#f8f8f9);border:1.5px dashed var(--border,rgba(0,0,0,0.1));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;user-select:none;';
   addCell.innerHTML = `
     <div style="width:32px;height:32px;border-radius:50%;background:#fff;display:grid;place-items:center;color:var(--accent,var(--brand));">
       <i class="ph-duotone ph-plus" style="font-size:16px" aria-hidden="true"></i>
@@ -255,6 +253,39 @@ function _renderPopupPhotoGrid(slot) {
   `;
   addCell.addEventListener('click', () => document.getElementById('popupPhotoInput').click());
   grid.appendChild(addCell);
+
+  // [#1 carousel] 좌우 스와이프 → 가운데 사진을 활성(편집 대상)으로. 스크롤 정착 시 갱신(재렌더 X, 스크롤 보존).
+  if (!grid._carouselBound) {
+    grid._carouselBound = true;
+    let t = null;
+    grid.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(() => _updateCarouselActive(grid), 90); }, { passive: true });
+  }
+  // 활성 사진 슬라이드로 스크롤 위치 맞춤(렌더 직후)
+  requestAnimationFrame(() => {
+    const cur = grid.querySelector(`[data-photo-id="${_activePhotoId}"]`);
+    if (cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+  });
+}
+
+// [#1 carousel] 스크롤 가운데 슬라이드 = 활성 사진. 링/배지/헤더만 갱신(재렌더 없이 스크롤 보존).
+function _updateCarouselActive(grid) {
+  const slides = [...grid.querySelectorAll('[data-photo-id]')];
+  if (!slides.length) return;
+  const center = grid.scrollLeft + grid.clientWidth / 2;
+  let best = null, bd = Infinity;
+  slides.forEach(s => { const c = s.offsetLeft + s.offsetWidth / 2; const d = Math.abs(c - center); if (d < bd) { bd = d; best = s; } });
+  if (!best || !best.dataset.photoId) return;
+  if (_activePhotoId === best.dataset.photoId) return;
+  _activePhotoId = best.dataset.photoId;
+  slides.forEach(s => {
+    const on = s.dataset.photoId === _activePhotoId;
+    const box = s.querySelector('[data-imgbox]'); if (box) box.style.boxShadow = on ? '0 0 0 3px var(--accent,#D58A95)' : 'none';
+    const badge = s.querySelector('[data-active-badge]'); if (badge) badge.style.display = on ? '' : 'none';
+  });
+  const vis = slides.filter(s => s.dataset.photoId);
+  const i = vis.findIndex(s => s.dataset.photoId === _activePhotoId);
+  const ctx = document.getElementById('slotActiveCtx');
+  if (ctx) { if (vis.length >= 2 && i >= 0) { ctx.textContent = '편집 대상 ' + (i + 1) + '/' + vis.length; ctx.style.display = ''; } else { ctx.style.display = 'none'; } }
 }
 
 // ── 팝업 사진 선택 토글 ────────────────────────────────────────
