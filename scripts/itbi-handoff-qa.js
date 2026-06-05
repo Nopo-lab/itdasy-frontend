@@ -151,6 +151,46 @@ const fakeResult = {
     JSON.stringify({ hasInject, hasPromoRender, cardsUnconditional, promoHubInjected }));
 }
 
+// ── PR2: 카드 ②③ intent/meta 전달 ──
+
+// 12. fromResult meta: ②bgIntent, ③templateIntent/captionContext, ①meta 없음
+{
+  const cards = CARDS.fromResult({ ...fakeResult }, { question: '네일 홍보용으로 예쁘게', shop_type: 'nail' });
+  const c1 = cards.find((c) => c.id === 'natural');
+  const c2 = cards.find((c) => c.id === 'promo');
+  const c3 = cards.find((c) => c.id === 'publish');
+  const ok = !c1.meta &&
+    c2.meta && c2.meta.bgIntent && c2.meta.bgIntent.kind === 'clean_background' &&
+    c3.meta && c3.meta.templateIntent && c3.meta.captionContext &&
+    c3.meta.captionContext.shopType === 'nail' && c3.meta.captionContext.originalPrompt === '네일 홍보용으로 예쁘게';
+  check('12. fromResult meta: ②bgIntent ③template/caption ①없음', ok,
+    JSON.stringify({ c1: c1.meta, c2: c2.meta && c2.meta.bgIntent, c3keys: c3.meta && Object.keys(c3.meta) }));
+}
+
+// 13. sanitizeMeta: 화이트리스트(유효 bgIntent 유지, invalid kind/미지키 제거)
+{
+  const out = CARDS.sanitizeMeta({ bgIntent: { kind: 'clean_background', source: 'itbi_card' }, evil: 1, bgIntent2: { kind: 'delete_all' } });
+  const out2 = CARDS.sanitizeMeta({ bgIntent: { kind: 'nuke_everything' } }); // invalid kind → 드롭 → null
+  const ok = out && out.bgIntent && out.bgIntent.kind === 'clean_background' && !('evil' in out) && !('bgIntent2' in out) && out2 === null;
+  check('13. sanitizeMeta 화이트리스트(유효 유지/invalid·미지키 드롭)', ok, JSON.stringify({ out, out2 }));
+}
+
+// 14. 회귀: meta 없음 → null (itbiMeta 없으면 open 기존과 동일)
+{
+  check('14. sanitizeMeta(null/undefined/{}) → null', CARDS.sanitizeMeta(null) === null && CARDS.sanitizeMeta(undefined) === null && CARDS.sanitizeMeta({}) === null);
+}
+
+// 15. 소스 회귀 가드: photo-editor.js itbiMeta inert 보관 + assistant 카드 meta 전달
+{
+  const pe = fs.readFileSync(path.join(__dirname, '..', 'app-photo-editor.js'), 'utf8');
+  const a = fs.readFileSync(path.join(__dirname, '..', 'app-assistant.js'), 'utf8');
+  const peStores = /_state\.itbiMeta = window\.PhotoEditorItbiCards\.sanitizeMeta/.test(pe) && /itbiMeta: null/.test(pe);
+  const peNoAutoRun = !/itbiMeta[\s\S]{0,200}(apply_nukki|applyBg|apply_template|generate)/.test(pe); // 자동 실행 호출 없음(근사)
+  const aPassesMeta = /itbiMeta: card\.meta/.test(a);
+  check('15. itbiMeta inert 보관 + 카드 meta 전달 + 자동실행 없음', peStores && peNoAutoRun && aPassesMeta,
+    JSON.stringify({ peStores, peNoAutoRun, aPassesMeta }));
+}
+
 let allPass = true;
 console.log('\n=== 잇비 결과 카드 v0 + 핸드오프 QA ===');
 for (const r of results) { if (!r.pass) allPass = false; console.log((r.pass ? 'PASS' : 'FAIL') + '  ' + r.name + (r.detail ? '  [' + r.detail + ']' : '')); }

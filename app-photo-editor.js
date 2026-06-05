@@ -114,6 +114,7 @@
       activeLayerId: null, // [v204] 현재 편집 중 layer id
       watermark: { value: '', position: 'br', opacity: 0.85 },
       showOriginal: false, history: [], historyCursor: -1,
+      itbiMeta: null,   // [PR2] 잇비 카드 intent/meta 보관용(inert). 자동 실행 안 함.
     };
   }
 
@@ -435,6 +436,10 @@
     if (opts.initialState && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.mergeInitialState === 'function') {
       try { window.PhotoEditorItbiCards.mergeInitialState(_state, opts.initialState); } catch (_e) { void _e; }
     }
+    // [PR2] 잇비 카드 intent/meta 보관(inert) — bg/template/caption 자동 실행 안 함. 정제된 meta만 _state 에 보관.
+    if (opts.itbiMeta && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.sanitizeMeta === 'function') {
+      try { _state.itbiMeta = window.PhotoEditorItbiCards.sanitizeMeta(opts.itbiMeta); } catch (_e) { void _e; }
+    }
     sheet.style.setProperty('display', 'flex', 'important');
     document.body.style.overflow = 'hidden';
     _renderTabs(); _renderPanel(); _redraw();
@@ -481,7 +486,7 @@
   }
   function _openFromAction(p) {
     p = p || {};
-    return _open({ src: p.photo_url || p.src, initial_tab: p.initial_tab || 'auto', serviceName: p.service_name || '', price: +p.price || 0, initialState: p.initialState || null });
+    return _open({ src: p.photo_url || p.src, initial_tab: p.initial_tab || 'auto', serviceName: p.service_name || '', price: +p.price || 0, initialState: p.initialState || null, itbiMeta: p.itbiMeta || null });
   }
 
   function _applyStatePatch(patch) {

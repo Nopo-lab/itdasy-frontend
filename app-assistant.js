@@ -1395,7 +1395,7 @@
     const card = cards.find((c) => c.id === cardId);
     const src = m.photo_result && m.photo_result.originalSrc;
     if (!card || !src || !window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') return true;
-    window.PhotoEditor.open({ src: src, initial_tab: card.initial_tab || 'beauty', initialState: card.state });
+    window.PhotoEditor.open({ src: src, initial_tab: card.initial_tab || 'beauty', initialState: card.state, itbiMeta: card.meta || null });
     return true;
   }
 

@@ -32,24 +32,46 @@
       ratio: result.ratio || 'original',
       autoIntensity: result.intensity || 'standard',
     };
+    // [PR2] intent/meta — 실제 편집값(state) 과 분리. 편집기는 보관만 하고 자동 실행 안 함.
+    var shopType = (opts.shop_type || _readShopType() || '') + '';
+    var originalPrompt = (opts.question || '') + '';
+    var beautySummary = _beautySummary(result.beauty);
+    var publishMeta = {
+      templateIntent: { source: 'itbi_card' },
+      captionContext: { shopType: shopType, originalPrompt: originalPrompt, appliedBeautySummary: beautySummary },
+      shopType: shopType,
+      originalPrompt: originalPrompt,
+      appliedBeautySummary: beautySummary,
+    };
     var preview = result.dataUrl;
     return [
       {
         id: 'natural', title: '자연스럽게 보정', badge: '',
         desc: '시술 결과를 살린 기본 보정',
-        preview: preview, state: baseState, initial_tab: 'beauty',
+        preview: preview, state: baseState, initial_tab: 'beauty', meta: null,
       },
       {
         id: 'promo', title: '홍보컷 만들기', badge: '배경 정리',
         desc: '기본 보정 후 배경까지 정리 (적용하면 배경 탭에서 이어서)',
         preview: preview, state: baseState, initial_tab: 'bg',
+        meta: { bgIntent: { kind: 'clean_background', source: 'itbi_card' } },
       },
       {
         id: 'publish', title: '템플릿·캡션 게시준비', badge: '템플릿+캡션',
         desc: '보정 후 템플릿·캡션으로 게시 준비 (적용하면 템플릿 탭에서 이어서)',
-        preview: preview, state: baseState, initial_tab: 'template',
+        preview: preview, state: baseState, initial_tab: 'template', meta: publishMeta,
       },
     ];
+  }
+
+  function _readShopType() {
+    try { return (root.localStorage && localStorage.getItem('shop_type')) || ''; } catch (_e) { return ''; }
+  }
+
+  // 적용한 보정의 0 아닌 슬라이더 요약(캡션 맥락용). 실제 적용 X — 텍스트 메타만.
+  function _beautySummary(beauty) {
+    if (!beauty || typeof beauty !== 'object') return [];
+    return Object.keys(beauty).filter(function (k) { return (beauty[k] || 0) > 0; });
   }
 
   // ── 채팅 결과 영역에 들어갈 카드 HTML (버튼 추가 아님 — 결과 카드) ──
@@ -106,9 +128,35 @@
     return state;
   }
 
+  // [PR2] itbiMeta 화이트리스트 정제(순수). 편집기는 이 결과를 _state.itbiMeta 에 "보관만" — 자동 실행 X.
+  //   알 수 없는 키는 버림. 빈 결과면 null 반환(없으면 기존 open 과 완전 동일).
+  var _BG_KINDS = { clean_background: 1 };
+  function sanitizeMeta(meta) {
+    if (!meta || typeof meta !== 'object') return null;
+    var out = {};
+    if (meta.bgIntent && typeof meta.bgIntent === 'object' && _BG_KINDS[meta.bgIntent.kind]) {
+      out.bgIntent = { kind: meta.bgIntent.kind, source: String(meta.bgIntent.source || 'itbi_card') };
+    }
+    if (meta.templateIntent && typeof meta.templateIntent === 'object') {
+      out.templateIntent = { source: String(meta.templateIntent.source || 'itbi_card') };
+    }
+    if (meta.captionContext && typeof meta.captionContext === 'object') {
+      out.captionContext = {
+        shopType: String(meta.captionContext.shopType || ''),
+        originalPrompt: String(meta.captionContext.originalPrompt || ''),
+        appliedBeautySummary: Array.isArray(meta.captionContext.appliedBeautySummary) ? meta.captionContext.appliedBeautySummary.slice(0, 30) : [],
+      };
+    }
+    if (typeof meta.shopType === 'string') out.shopType = meta.shopType;
+    if (typeof meta.originalPrompt === 'string') out.originalPrompt = meta.originalPrompt;
+    if (Array.isArray(meta.appliedBeautySummary)) out.appliedBeautySummary = meta.appliedBeautySummary.slice(0, 30);
+    return Object.keys(out).length ? out : null;
+  }
+
   root.PhotoEditorItbiCards = {
     fromResult: fromResult,
     renderHTML: renderHTML,
     mergeInitialState: mergeInitialState,
+    sanitizeMeta: sanitizeMeta,
   };
 })();
