@@ -43,17 +43,24 @@
   // v343 — preview(드래그 중 저해상도) / final(릴리즈 시 풀해상도) 통합 스케줄러.
   //   scheduleRedraw()/scheduleRedraw(false) → final(풀, 기존 호출부 전부 그대로).
   //   scheduleRedraw(true) → preview(저해상도). 디바운스 윈도우에 final 요청이 끼면 final 우선.
+  // [PR-D1] setTimeout(32) → requestAnimationFrame. 한 프레임에 input 이벤트가 여러 번 와도
+  //   rAF 가 1회 렌더로 코얼레싱 + vsync 동기화 → 드래그가 더 부드럽고 비활성 탭에선 자동 중단.
+  //   렌더는 콜백 안에서 동기 실행 → 다음 input 은 다음 프레임에 묶임(렌더보다 빠르게 폭주 안 함).
+  //   값/알고리즘/preview·final 로직·history 빈도 전부 불변(스케줄러 타이머만 교체).
+  const _raf = (typeof window !== 'undefined' && window.requestAnimationFrame)
+    ? window.requestAnimationFrame.bind(window)
+    : (cb) => setTimeout(cb, 16);
   function _scheduleRedraw(preview) {
     if (!preview) _pendingFinal = true;
     if (_redrawScheduled) return;
-    _redrawScheduled = setTimeout(() => {
+    _redrawScheduled = _raf(() => {
       _redrawScheduled = null;
       const final = _pendingFinal; _pendingFinal = false;
       try {
         const p = _redraw(!final);
         if (p && typeof p.catch === 'function') p.catch(() => {});
       } catch (_e) { void _e; }
-    }, 32);
+    });
   }
   // Android 하드웨어 백 + iOS edge swipe — history.pushState 사용.
   let _historyPushed = false;
