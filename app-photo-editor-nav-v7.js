@@ -38,10 +38,11 @@
   //   기존 탭/패널(auto, beautyFocus 등)은 삭제 아님 — nav 노출만 제외(기능 보존).
   const CATEGORIES = [
     { id: 'beauty',   label: '부위보정', icon: 'sparkles', chips: [
-      { id: 'beauty-itbi',   label: '잇비에게 말하기', tab: 'ai' },
-      { id: 'beauty-region', label: '부위보정',        tab: 'beauty' },
-      { id: 'beauty-tune',   label: '전체 조정',       tab: 'tune' },
-      { id: 'beauty-part',   label: '부분 보정',       tab: 'selective' },
+      // [요청] '잇비에게 말하기' 탭 제거 — 잇비는 챗봇(app-assistant)이지 편집기 메뉴가 아님.
+      //   NL 보정은 잇비 챗봇에 말하면 IntentParser→EditPlan 으로 실행됨('ai' 패널/예시칩 편집기 미노출).
+      { id: 'beauty-region', label: '부위보정',  tab: 'beauty' },
+      { id: 'beauty-tune',   label: '전체 조정', tab: 'tune' },
+      { id: 'beauty-part',   label: '부분 보정', tab: 'selective' },
     ]},
     { id: 'bg',       label: '배경', icon: 'frame', chips: [
       { id: 'bg-blur',      label: '배경 흐림', tab: 'bg' },
