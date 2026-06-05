@@ -172,7 +172,15 @@
       aiHtml = '<div class="pe-hint" style="color:#7f7f87;margin-top:14px;">느린 AI 기능은 준비된 것만 별도 버튼으로 보여줘요. 이 화면은 즉시 보정만 다룹니다.</div>';
     }
 
-    return `${quickHtml}${recoHtml}${featuredHtml}${moreHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+    // [PR3a] 슬라이더(featured+more)를 "세부 조정(고급)" 접힘으로 → 추천/잇비 카드가 먼저 보이게.
+    //   슬라이더 렌더/이벤트/값 적용 로직 불변. 내부 peBeautyMore(전체 보정 보기) 토글도 그대로 동작.
+    const sliderBlock = `${featuredHtml}${moreHtml}`;
+    const advHtml = sliderBlock.trim()
+      ? `<button type="button" data-pe-beauty-adv="1" class="pe-beauty-adv-toggle" aria-expanded="false"
+            style="margin:14px 0 4px;width:100%;padding:11px;background:rgba(0,0,0,0.04);color:#4E5968;border:1px solid #E5E8EB;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">세부 조정 (고급) ▾</button>
+         <div id="peBeautyAdv" hidden>${sliderBlock}</div>`
+      : '';
+    return `${quickHtml}${recoHtml}${advHtml}${aiHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
   }
 
   function _beautyQuickHTML(esc, cat) {
@@ -252,6 +260,18 @@
           more.hidden = true;
           toggleBtn.textContent = '＋ 전체 보정 보기';
         }
+      });
+    }
+    // [PR3a] 세부 조정(고급) 접힘 토글 — featured+more 슬라이더 전체를 감싼 영역. 기존 peBeautyMore 와 독립.
+    const advBtn = panel.querySelector('[data-pe-beauty-adv]');
+    if (advBtn) {
+      advBtn.addEventListener('click', () => {
+        const adv = panel.querySelector('#peBeautyAdv');
+        if (!adv) return;
+        adv.hidden = !adv.hidden;
+        advBtn.setAttribute('aria-expanded', adv.hidden ? 'false' : 'true');
+        advBtn.textContent = adv.hidden ? '세부 조정 (고급) ▾' : '세부 조정 닫기 ▴';
+        if (!adv.hidden) _focusFirstSlider(panel);   // 펼칠 때만 첫 슬라이더로 스크롤
       });
     }
     // AI 준비 중 클릭 → 토스트
