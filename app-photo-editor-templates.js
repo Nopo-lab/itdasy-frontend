@@ -435,19 +435,21 @@
   }
 
   function _renderTemplatePrice(ctx, W, H, img, state, helpers) {
-    _drawFittedImage(ctx, img, 0, 0, W, Math.round(H * 0.5));
-    ctx.fillStyle = '#0c0c10'; ctx.fillRect(0, Math.round(H * 0.5), W, H);
+    // [#8] 사진이 가격표에 절반 가리던 것 → 사진 64% 우선, 가격 밴드 36% 컴팩트.
+    const split = Math.round(H * 0.64);
+    _drawFittedImage(ctx, img, 0, 0, W, split);
+    ctx.fillStyle = '#0c0c10'; ctx.fillRect(0, split, W, H - split);
 
     ctx.fillStyle = '#fff';
-    ctx.font = '800 56px Pretendard, "Noto Sans KR", sans-serif';
+    ctx.font = '800 48px Pretendard, "Noto Sans KR", sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText('PRICE', W / 2, Math.round(H * 0.55));
+    ctx.fillText('PRICE', W / 2, split + 34);
 
-    const lines = (state.template.priceLines || '붙임머리 20인치 | 120,000원\n속눈썹 연장 | 70,000원').split('\n');
-    ctx.font = '600 32px Pretendard, "Noto Sans KR", sans-serif';
-    lines.slice(0, 6).forEach((ln, idx) => {
+    const lines = (state.template.priceLines || '붙임머리 20인치 | 120,000원\n속눈썹 연장 | 70,000원').split('\n').filter(s => s.trim());
+    ctx.font = '600 30px Pretendard, "Noto Sans KR", sans-serif';
+    lines.slice(0, 5).forEach((ln, idx) => {
       const parts = ln.split('|').map(s => s.trim());
-      const y = Math.round(H * 0.68) + idx * 56;
+      const y = split + 120 + idx * 46;
       ctx.textAlign = 'left'; ctx.fillStyle = '#e8e8ee';
       ctx.fillText(parts[0] || '', 80, y);
       if (parts[1]) {
