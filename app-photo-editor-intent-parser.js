@@ -11,6 +11,9 @@
     retouch:  /지우[고개]|클론|힐링|부분.*블러|부분.*보정|스팟/,
     export:   /저장|내보내|다운로드|업로드|공유|보내/,
     modify:   /덜|좀 더|줄여|늘려|빼[줘고]|넣[어줘]|바꿔|원래대로|과해|강하게|약하게|살짝|많이|조금|확|팍|쎄게|연하게|진하게|흐리게|또렷하게|크게|작게|굵게|얇게|위로|아래로|왼쪽|오른쪽|가운데|중앙/,
+    // [PR-5] 조명(set_relight) / 자동·샵스타일 보정(getShopPreset) — 버튼 대신 잇비 채팅 자연어로.
+    relight:  /조명|스튜디오\s*조명|플래시|링라이트|어두운\s*곳|환하게|밝혀/,
+    auto:     /자동\s*보정|우리\s*샵\s*자동|샵\s*스타일|(네일|헤어|속눈썹|두피|메이크업|왁싱)\s*샵?\s*(사진)?\s*처럼/,
   };
 
   var BG_COLORS = {
@@ -66,6 +69,8 @@
   }
 
   function _intent(input) {
+    if (PATTERNS.relight.test(input)) return 'relight';   // [PR-5] 조명 (modify 의 '넣어줘' 보다 먼저)
+    if (PATTERNS.auto.test(input)) return 'auto';          // [PR-5] 자동·샵스타일
     if (PATTERNS.modify.test(input)) return 'modify';
     if (PATTERNS.bg.test(input)) return 'bg';
     if (PATTERNS.template.test(input)) return 'template';
@@ -78,6 +83,8 @@
 
   function _steps(input, intent) {
     if (intent === 'bg') return _bgSteps(input);
+    if (intent === 'relight') return _relightSteps(input);   // [PR-5]
+    if (intent === 'auto') return _autoSteps(input);          // [PR-5]
     var template = window.PhotoEditorNLTemplate && window.PhotoEditorNLTemplate.plan ? window.PhotoEditorNLTemplate.plan(input) : null;
     if (template) return template.steps;
     // [T-161] 완화형/약한 기능 명령은 NLModify(상대조정)보다 먼저 강화 효과로 라우팅
@@ -96,6 +103,37 @@
     if (/아웃포커|보케|흐리/.test(input)) return [{ action: 'apply_bgblur', params: { strength: 65 }, description_ko: '배경 아웃포커스' }];
     if (/투명/.test(input)) return [{ action: 'apply_nukki', params: { bgType: 'transparent' }, description_ko: '배경 투명 처리' }];
     return [{ action: 'apply_nukki', params: { bgType: bgType || 'pink_radial' }, description_ko: '누끼 + 배경 적용' }];
+  }
+
+  // ── [PR-5] 조명 (set_relight, relight.js 프리셋 재사용) ──
+  function _relightSteps(input) {
+    var preset;
+    if (/플래시/.test(input)) preset = { direction: 0.5, warmth: -4, intensity: 34, ambientBoost: 18, flash: 62 };
+    else if (/링라이트/.test(input)) preset = { direction: 0.5, warmth: 3, intensity: 42, ambientBoost: 26, flash: 34 };
+    else preset = { direction: 0.55, warmth: 8, intensity: 58, ambientBoost: 42, flash: 12 };   // 스튜디오/조명/환하게
+    return [{ action: 'set_relight', params: preset, description_ko: '조명 보정' }];
+  }
+
+  // ── [PR-5] 자동·샵스타일 보정 (getShopPreset 재사용) ──
+  function _autoSteps(input) {
+    var FORCE = ['네일', '헤어', '속눈썹', '두피', '메이크업', '왁싱'];
+    var key = null;
+    for (var i = 0; i < FORCE.length; i++) { if (input.indexOf(FORCE[i]) !== -1) { key = FORCE[i]; break; } }
+    var intensity = /강하게|세게|진하게/.test(input) ? 'strong' : (/자연|약하게|연하게|은은/.test(input) ? 'natural' : 'standard');
+    var pe = window.PhotoEnhance;
+    var preset = null;
+    if (pe && typeof pe.getShopPreset === 'function') {
+      try {
+        var st = '';
+        try { st = (window.localStorage && localStorage.getItem('shop_type')) || ''; } catch (_e) { st = ''; }
+        preset = pe.getShopPreset(key || st, intensity);
+      } catch (_e2) { preset = null; }
+    }
+    if (!preset) return [{ action: 'set_adjust', params: { brightness: 110, saturate: 108 }, description_ko: '자동 보정' }];
+    var steps = [];
+    if (preset.adjust) steps.push({ action: 'set_adjust', params: preset.adjust, description_ko: (preset.label || '자동') + ' 자동' });
+    if (preset.beauty) steps.push({ action: 'set_beauty', params: preset.beauty, description_ko: '부위 보정' });
+    return steps.length ? steps : [{ action: 'set_adjust', params: { brightness: 110 }, description_ko: '자동 보정' }];
   }
 
   // ── 수동 보정 ──
