@@ -749,8 +749,10 @@ function openInstagramPreview(opts) {
     // [v178 2026-05-18] z-index 9000 → 10020. 챗봇(9999)·편집기(10000)·편집기 sub-modal(10010) 위로 모두 덮음.
     pop.style.cssText = 'position:fixed;inset:0;z-index:10020;background:rgba(0,0,0,0.6);display:flex;align-items:flex-end;justify-content:center;';
     pop.onclick = e => { if (e.target === pop) hidePop(); };
-    document.body.appendChild(pop);
   }
+  // [P0b] 잇비 시트가 열려 있으면 시트 panel 내부로 마운트(입력창/시트 뒤로 안 깔림). 매번 재마운트.
+  if (window.ItdasyMountOverlay) window.ItdasyMountOverlay(pop);
+  else document.body.appendChild(pop);
 
   const shopName     = (localStorage.getItem('shop_name') || '잇데이 스튜디오');
   const avatarLetter = (shopName[0] || '잇');

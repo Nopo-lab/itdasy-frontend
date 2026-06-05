@@ -285,7 +285,7 @@
     sheet.style.cssText = 'position:fixed;inset:0;z-index:10500;display:none;background:rgba(0,0,0,0.7);opacity:0;pointer-events:none;transition:opacity 0.05s ease-out;';
     // [2026-04-26 A5] 시트 내부 패널: safe-area-inset-top 추가 (노치 회피)
     sheet.innerHTML = `
-      <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:#FFFFFF;border-radius:20px 20px 0 0;height:88vh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
+      <div id="assistantSheetPanel" style="position:absolute;inset:auto 0 0 0;background:#FFFFFF;border-radius:20px 20px 0 0;height:88vh;height:88dvh;display:flex;flex-direction:column;padding:max(8px,env(safe-area-inset-top)) 16px max(12px,env(safe-area-inset-bottom));">
         <div id="assistantSheetHeader" style="display:grid;grid-template-columns:32px 1fr 32px;align-items:center;gap:8px;margin-bottom:10px;height:44px;">
           <button data-assistant-close aria-label="닫기" title="닫기" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;justify-self:start;">${_svg('ic-x', 18)}</button>
           <div style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
@@ -294,7 +294,7 @@
           </div>
           <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;justify-self:end;">⋯</button>
         </div>
-        <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px;"></div>
+        <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px 4px 14px;"></div>
         <div id="asstQuickLabel" style="font-size:11px;color:#8B95A1;padding:8px 4px 4px;font-weight:600;">이런 것도 돼요</div>
         <div id="asstSuggest" style="display:flex;gap:6px;overflow-x:auto;margin-top:0;padding:4px 0;"></div>
         <div id="asstTypeahead" style="display:none;gap:6px;overflow-x:auto;margin-top:6px;padding:2px 0;"></div>
@@ -3201,6 +3201,20 @@
     setTimeout(() => document.getElementById('asstInput')?.focus(), 60);
     // [2026-04-26 A5] popstate 등록 + 스와이프 다운 닫기
     _registerAssistantSheet();
+  };
+
+  // [P0b] 풀스크린 오버레이(인스타/템플릿 미리보기 등)를 올바른 stacking context에 마운트.
+  //   잇비 시트가 열려 있으면 시트 panel 내부(같은 context)로 absolute 마운트 → 입력창/시트 뒤로 안 깔림.
+  //   닫혀 있으면 기존대로 body 에 fixed. (잇비 도구메뉴와 동일한 검증된 패턴)
+  window.ItdasyMountOverlay = function (el) {
+    if (!el) return;
+    try {
+      const sh = document.getElementById('assistantSheet');
+      const open = !!(sh && sh.style.display !== 'none' && sh.style.pointerEvents !== 'none');
+      const panel = open ? document.getElementById('assistantSheetPanel') : null;
+      if (panel) { el.style.position = 'absolute'; panel.appendChild(el); }
+      else { el.style.position = 'fixed'; document.body.appendChild(el); }
+    } catch (_e) { try { document.body.appendChild(el); } catch (_e2) { void _e2; } }
   };
 
   function _showAssistantSheet(sheet) {

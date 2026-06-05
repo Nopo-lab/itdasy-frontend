@@ -254,8 +254,10 @@
     if (!pv) {
       pv = document.createElement('div'); pv.id = 'tpv2PreviewSheet';
       pv.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:24px;';
-      document.body.appendChild(pv);
     }
+    // [P0b] 잇비 시트 열려 있으면 시트 panel 내부로 마운트(뒤로 안 깔림). 매번 재마운트.
+    if (window.ItdasyMountOverlay) window.ItdasyMountOverlay(pv);
+    else document.body.appendChild(pv);
     const imgHtml = big
       ? `<div style="aspect-ratio:${ar};max-height:62vh;border-radius:14px;background:#fff url(${big}) center/contain no-repeat;box-shadow:0 12px 40px rgba(0,0,0,.5);"></div>`
       : `<div style="aspect-ratio:${ar};max-height:62vh;border-radius:14px;background:linear-gradient(135deg,${color}33,${color});display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${_esc(tpl.prefillText || tpl.label)}</div>`;
