@@ -2285,7 +2285,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [v235 2026-05-20] 사진편집 진입 화면 v6 — Meitu 카드 그리드 (DESIGN_SYSTEM.md §3, §4 적용) -->
 <script src="app-photo-editor-entry-v6.js?v=20260528-v325-customer-row-pad" defer></script>
 <!-- [v329 2026-05-28] Nav v7 — 하단 2단 카테고리/서브칩 메뉴 (feature flag) -->
-<script src="app-photo-editor-nav-v7.js?v=20260604-ba-navlabel" defer></script>
+<script src="app-photo-editor-nav-v7.js?v=20260605-pr4a-menu-cleanup" defer></script>
 <script src="app-photo-editor-layers.js?v=20260519-v206.8-photo-complete" defer></script>
 <script src="app-photo-editor-service-picker.js?v=20260520-v250-template-mask-hotfix" defer></script>
 <script src="app-photo-editor-text-dnd.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
@@ -2331,10 +2331,12 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-photo-editor-nl-template.js?v=20260527-v308-photo-editor-upgrade" defer></script>
 <script src="app-photo-editor-nl-modify.js?v=20260531-v371-modify-align" defer></script>
 <script src="app-photo-editor-intent-parser.js?v=20260602-v379-brow-wording" defer></script>
-<script src="app-photo-editor-nl-apply.js?v=20260603-v391-pe-r5a-mask-status" defer></script>
+<!-- [PR-4a] nl-apply(잇비 NL 'ai' 패널)는 generative-l3 뒤로 이동 — 'ai' 탭을 잇비 NL이 소유(생성형 mock override 방지) -->
+
 <script src="js/photo-editor/generative-client.js?v=20260605-v394-l3-generative-mock" defer></script>
 <script src="js/photo-editor/generative-consent.js?v=20260605-v394-l3-generative-mock" defer></script>
 <script src="app-photo-editor-generative-l3.js?v=20260605-v394-l3-generative-mock" defer></script>
+<script src="app-photo-editor-nl-apply.js?v=20260605-pr4a-nl-restore" defer></script>
 <!-- [v185 2026-05-18] 부분 보정 브러시 (5종 + 지우개) -->
 <script src="app-photo-editor-brush-effects.js?v=20260527-v307-full-redesign" defer></script>
 <script src="app-photo-editor-brush.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>

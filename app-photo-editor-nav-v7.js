@@ -32,25 +32,16 @@
 
   // ── 카테고리 + 서브칩 정의 ─────────────────────────────
   // 서브칩 → 기존 탭(tab) + (옵션) beautyFocus 매핑
+  // [PR-4a] 중복 메뉴 정리: AI도구/추천보정/우리샵자동/헤어추천/네일추천 제거,
+  //   보정 진입을 "부위보정" 하나로 통합(잇비 NL + 부위보정 + 전체조정/부분보정 = 보정 컨텍스트 sub-chip).
+  //   헤어/피부/네일 별도 추천 메뉴 금지. 샵별 자동은 잇비 채팅 NL로(PR-5).
+  //   기존 탭/패널(auto, beautyFocus 등)은 삭제 아님 — nav 노출만 제외(기능 보존).
   const CATEGORIES = [
-    { id: 'ai',       label: 'AI', icon: 'sparkles', chips: [
-      { id: 'ai-tools',     label: 'AI 도구',   tab: 'ai' },
-      { id: 'ai-reco',      label: '추천 보정', tab: 'beauty' },
-      { id: 'ai-ready',     label: '준비 중',   tab: 'ai' },
-    ]},
-    { id: 'shop',     label: '내 샵', icon: 'wand', chips: [
-      { id: 'shop-auto',     label: '우리 샵 자동', tab: 'auto' },
-      { id: 'shop-hair',     label: '헤어 추천',    tab: 'beauty', beautyFocus: 'hair' },
-      { id: 'shop-nail',     label: '네일 추천',    tab: 'beauty', beautyFocus: 'nail' },
-      { id: 'shop-template', label: '시술 전후 추천', tab: 'template' },
-    ]},
-    { id: 'edit',     label: '편집', icon: 'adjustments', chips: [
-      { id: 'edit-all',     label: '전체',      tab: 'tune' },
-      { id: 'edit-skin',    label: '피부',      tab: 'beauty', beautyFocus: 'skin' },
-      { id: 'edit-eye-lip', label: '눈·입술',   tab: 'beauty', beautyFocus: 'makeup' },
-      { id: 'edit-hair',    label: '헤어',      tab: 'beauty', beautyFocus: 'hair' },
-      { id: 'edit-hand',    label: '손·네일',   tab: 'beauty', beautyFocus: 'nail' },
-      { id: 'edit-part',    label: '부분 보정', tab: 'selective' },
+    { id: 'beauty',   label: '부위보정', icon: 'sparkles', chips: [
+      { id: 'beauty-itbi',   label: '잇비에게 말하기', tab: 'ai' },
+      { id: 'beauty-region', label: '부위보정',        tab: 'beauty' },
+      { id: 'beauty-tune',   label: '전체 조정',       tab: 'tune' },
+      { id: 'beauty-part',   label: '부분 보정',       tab: 'selective' },
     ]},
     { id: 'bg',       label: '배경', icon: 'frame', chips: [
       { id: 'bg-blur',      label: '배경 흐림', tab: 'bg' },
@@ -58,7 +49,6 @@
       { id: 'bg-cutout',    label: '누끼',      tab: 'bg' },
     ]},
     { id: 'template', label: '템플릿', icon: 'stack', chips: [
-      { id: 'tpl-ba',       label: '전후 비교', tab: 'ba' },
       { id: 'tpl-feed',     label: '피드',      tab: 'template' },
       { id: 'tpl-story',    label: '스토리',    tab: 'template' },
       { id: 'tpl-price',    label: '가격표',    tab: 'template' },
@@ -66,6 +56,9 @@
     { id: 'text',     label: '텍스트', icon: 'typography', chips: [
       { id: 'text-add',     label: '텍스트',  tab: 'text' },
       { id: 'text-brand',   label: '샵 정보', tab: 'brand' },
+    ]},
+    { id: 'compare',  label: '전후', icon: 'compare', chips: [
+      { id: 'tpl-ba',       label: '전후 비교', tab: 'ba' },
     ]},
     { id: 'export',   label: '저장', icon: 'resize', chips: [
       { id: 'export-ratio', label: '비율',        tab: 'export' },
@@ -77,6 +70,7 @@
   // 인라인 SVG (entry-v6 와 동일 패턴 — 외부 폰트 의존 0)
   const ICONS = {
     'wand':       '<svg viewBox="0 0 24 24"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9h0M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>',
+    'compare':    '<svg viewBox="0 0 24 24"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg>',
     'sparkles':   '<svg viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>',
     'droplet':    '<svg viewBox="0 0 24 24"><path d="M12 2.69 5.66 9.04a8 8 0 1 0 12.68 0Z"/></svg>',
     'adjustments':'<svg viewBox="0 0 24 24"><circle cx="6" cy="10" r="2"/><path d="M6 4v4M6 12v8"/><circle cx="12" cy="16" r="2"/><path d="M12 4v10M12 18v2"/><circle cx="18" cy="7" r="2"/><path d="M18 4v1M18 9v11"/></svg>',
@@ -93,8 +87,8 @@
   }
 
   // ── 상태 ──────────────────────────────────────────────
-  let _activeCategory = 'shop';
-  let _activeChip = 'shop-auto';
+  let _activeCategory = 'beauty';      // [PR-4a] 기본 = 부위보정 카테고리
+  let _activeChip = 'beauty-region';   // [PR-4a] 기본 칩 = 부위보정(슬라이더)
   let _mounted = false;
 
   function _query(qs) {
