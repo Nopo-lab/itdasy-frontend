@@ -441,7 +441,8 @@ function _workshopNewEditorDisabled() {
 
 // ── 손님 사진 1장 → 최신 PhotoEditor 로 편집 (저장 시 손님 사진에 반영) ──────
 // 슬롯 하단 툴바(누끼/보정/로고/템플릿)가 옛 패널 대신 이 경로로 모던 에디터를 연다.
-//   활성 사진 = 선택 1장, 없으면 사진이 1장뿐일 때 그 사진.
+//   [PR-3] 편집 대상 = _activePhotoId(PR-1 활성, 기본 첫 장). 수동 선택 없이 active 사진을 연다.
+//   저장(onSave)은 그 active 사진의 editedDataUrl/mode 만 갱신 — 다른 사진 오염 없음.
 //   PE_WORKSHOP_NEW_EDITOR_DISABLE='1' → 기존 패널(openBgPanel/openEnhancePanel/...) 로 폴백.
 function openSlotPhotoInEditor(tab) {
   if (_workshopNewEditorDisabled()) {
@@ -457,10 +458,11 @@ function openSlotPhotoInEditor(tab) {
   if (!slot) return;
   const visible = (slot.photos || []).filter(p => !p.hidden);
   if (!visible.length) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
-  let photo = null;
-  if (_popupSelIds.size === 1) photo = visible.find(p => _popupSelIds.has(p.id));
-  else if (_popupSelIds.size === 0 && visible.length === 1) photo = visible[0];
-  if (!photo) { if (typeof showToast === 'function') showToast('편집할 사진 1장을 선택해주세요'); return; }
+  // [PR-3] 편집 대상 우선순위: 활성 사진(_activePhotoId) → 단일 선택 → 첫 장. active 기본값이 항상 있어 미선택 무동작 없음.
+  let photo = (_activePhotoId && visible.find(p => p.id === _activePhotoId)) || null;
+  if (!photo && _popupSelIds.size === 1) photo = visible.find(p => _popupSelIds.has(p.id));
+  if (!photo) photo = visible[0];
+  if (!photo) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
 
   window.PhotoEditor.open({
     src: photo.editedDataUrl || photo.dataUrl,
