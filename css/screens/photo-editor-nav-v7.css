@@ -147,3 +147,8 @@
   max-width: 100%;
   white-space: nowrap;
 }
+
+/* [PR-C1] C-lite: 슬롯 팝업 안(absolute)일 때 nav 도 fixed→absolute 로 .pe-sheet 기준 하단 고정 */
+#photoEditorSheet.pe-inline .pe-nav-v7 {
+  position: absolute;
+}

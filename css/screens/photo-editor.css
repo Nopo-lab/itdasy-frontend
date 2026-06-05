@@ -315,3 +315,48 @@
 .pe-nl-group-label { font-size: 11px; font-weight: 700; color: #8a8a96; letter-spacing: 0.02em; padding-left: 2px; }
 .pe-nl-group-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .pe-nl-group-chips .pe-chip-btn { font-size: 12px; padding: 5px 10px; border-radius: 16px; white-space: nowrap; }
+
+/* ──────────────────────────────────────────────────────────────
+   [PR-C1] 작업실 C-lite containment — 부위보정을 슬롯 팝업(#slotPopup) 안에
+   absolute 로 담아 슬라이드업. 전체화면 fixed(.pe-sheet) 를 .pe-inline 일 때만 덮음.
+   범위 전부 `.pe-inline` 스코프 → 일반/챗봇/타 메뉴 열기 영향 0.
+   롤백: window.PE_CLITE=false (클래스 미부여 → 이 블록 비활성).
+   ────────────────────────────────────────────────────────────── */
+.pe-sheet.pe-inline {
+  position: absolute;       /* #slotPopup(fixed) 내부에 갇힘 */
+  inset: 0;
+  z-index: 5;              /* 슬롯 팝업 헤더/툴바 위, 전역 오버레이엔 영향 없음 */
+  animation: pe-inline-up 240ms ease-out;
+}
+@keyframes pe-inline-up {
+  from { transform: translateY(100%); opacity: 0.5; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* [PR-C1] C-lite 썸네일 스트립 — 작업실 사진들과 연결감(번호/active 링). inline 일 때만 노출. */
+.pe-thumb-strip {
+  display: flex; gap: 8px; overflow-x: auto;
+  padding: 8px 12px 6px; flex-shrink: 0;
+  scrollbar-width: none; background: transparent;
+}
+.pe-thumb-strip::-webkit-scrollbar { display: none; }
+/* 상단 topbar 가 position:absolute 라 inline 스트립을 그 높이만큼 내려 겹침 방지 */
+.pe-sheet.pe-inline .pe-thumb-strip {
+  margin-top: calc(52px + env(safe-area-inset-top, 0px));
+}
+.pe-thumb {
+  position: relative; flex: 0 0 auto;
+  width: 52px; height: 52px; border-radius: 12px;
+  overflow: hidden; padding: 0; cursor: pointer;
+  border: 2px solid transparent; background: #eceef1;
+  -webkit-tap-highlight-color: transparent;
+}
+.pe-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pe-thumb.on { border-color: #6b5cff; box-shadow: 0 0 0 2px rgba(107,92,255,0.22); }
+.pe-thumb-num {
+  position: absolute; top: 2px; left: 2px;
+  min-width: 15px; height: 15px; padding: 0 3px;
+  background: rgba(0,0,0,0.55); color: #fff;
+  font-size: 9px; font-weight: 800; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+}

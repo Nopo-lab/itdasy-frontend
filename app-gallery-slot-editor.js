@@ -534,6 +534,8 @@ function openSlotPhotoInEditor(tab) {
     src: photo.editedDataUrl || photo.dataUrl,
     initial_tab: tab || 'auto',
     customer_name: slot.label || '',
+    // [PR-C1] 부위보정만 C-lite: 슬롯 팝업 안에 담겨 슬라이드업. 그 외 탭은 기존 전체화면.
+    inline: tab === 'beauty',
     photoSet: {
       list: visible.map(pp => ({ id: pp.id, src: pp.editedDataUrl || pp.dataUrl })),
       index: startIndex,

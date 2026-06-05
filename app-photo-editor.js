@@ -154,6 +154,7 @@
         <button type="button" class="pe-iconbtn" data-pe-act="undo" aria-label="되돌리기"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-rotate-ccw"/></svg></button>
         <button type="button" class="pe-topbar-chip" data-pe-act="compare">원본</button>
         <button type="button" class="pe-btn-primary" data-pe-act="save">저장</button></header>
+      <div class="pe-thumb-strip" id="peThumbStrip" hidden></div>
       <main class="pe-stage"><div class="pe-canvas-wrap">
         <canvas id="peCanvas" class="pe-canvas"></canvas>
         <div class="pe-canvas-empty" id="peCanvasEmpty">
@@ -413,7 +414,7 @@
     if (!_saveCurrentSetPhoto()) return;
     const ps = _state.photoSet;
     if (ps.index >= ps.list.length - 1) {
-      _toast('모든 사진 편집 완료');
+      _toast((_state && _state.inline) ? '변경사항이 저장되었어요' : '모든 사진 편집 완료');
       const sheet = document.getElementById('photoEditorSheet');
       if (sheet) sheet.classList.remove('pe-v6-feature-mode');
       return _close();
@@ -443,11 +444,36 @@
     const nav = document.getElementById('peSetNav'), idx = document.getElementById('peSetIdx');
     const ps = _state && _state.photoSet;
     if (nav) {
-      if (ps && ps.list.length > 1) { nav.hidden = false; if (idx) idx.textContent = (ps.index + 1) + '/' + ps.list.length; }
-      else nav.hidden = true;
+      // [PR-C1] inline(작업실 C-lite)에선 ◀N/M▶ 대신 썸네일 스트립으로 사진 전환 → 화살표 숨김.
+      //   peSetNav 인라인 style="display:flex" 때문에 hidden 속성이 안 먹음 → style.display 직접 제어.
+      const showArrows = !!(ps && ps.list.length > 1 && !(_state && _state.inline));
+      nav.hidden = !showArrows;
+      nav.style.display = showArrows ? 'flex' : 'none';
+      if (showArrows && idx) idx.textContent = (ps.index + 1) + '/' + ps.list.length;
     }
     const saveBtn = document.querySelector('#photoEditorSheet [data-pe-act="save"]');
     if (saveBtn && ps) saveBtn.textContent = (ps.index >= ps.list.length - 1) ? '완료' : '완료 →';
+    _renderThumbStrip();
+  }
+  // [PR-C1] 작업실 C-lite 썸네일 스트립 — 슬롯 사진들과 연결된 느낌. inline + 2장 이상일 때만.
+  function _renderThumbStrip() {
+    const strip = document.getElementById('peThumbStrip');
+    if (!strip) return;
+    const ps = _state && _state.photoSet;
+    const show = !!(ps && ps.list.length > 1 && _state && _state.inline);
+    strip.hidden = !show;
+    if (!show) { strip.innerHTML = ''; return; }
+    strip.innerHTML = ps.list.map((it, i) =>
+      `<button type="button" class="pe-thumb${i === ps.index ? ' on' : ''}" data-pe-thumb="${i}" aria-label="사진 ${i + 1}">`
+      + `<img src="${_esc(it.src)}" alt=""><span class="pe-thumb-num">${i + 1}</span></button>`).join('');
+    strip.querySelectorAll('[data-pe-thumb]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = +btn.dataset.peThumb;
+        if (!_state.photoSet || i === _state.photoSet.index) return;
+        _saveCurrentSetPhoto();      // 이동 전 현재 편집 저장(손실 방지) — 기존 경로 재사용
+        _gotoSetPhoto(i, null);
+      });
+    });
   }
   // [#1] 캔버스 좌우 스와이프(1지손가락)로 photoSet 사진 전환. 핀치줌/팬과 충돌 방지(줌 상태면 무시).
   function _bindSetSwipe() {
@@ -524,11 +550,23 @@
     if (opts.itbiMeta && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.sanitizeMeta === 'function') {
       try { _state.itbiMeta = window.PhotoEditorItbiCards.sanitizeMeta(opts.itbiMeta); } catch (_e) { void _e; }
     }
+    // [PR-C1] C-lite containment — opts.inline && #slotPopup 있고 킬스위치 off 가 아니면
+    //   시트를 슬롯 팝업 안으로 이동해 absolute 슬라이드업(전체화면 전환 느낌 제거).
+    //   조건 불충족 시 _state.inline=false → 기존 전체화면 폴백(안전).
+    _state.inline = !!(opts.inline && window.PE_CLITE !== false && document.getElementById('slotPopup'));
+    const _inlineHost = _state.inline ? document.getElementById('slotPopup') : null;
+    if (_inlineHost) {
+      sheet.classList.add('pe-inline');
+      if (sheet.parentElement !== _inlineHost) _inlineHost.appendChild(sheet);
+    } else {
+      sheet.classList.remove('pe-inline');
+      if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
+    }
     sheet.style.setProperty('display', 'flex', 'important');
     // [작업실 자연스러운 전환] 작업실에서 열린 임베드 모드(onSave/photoSet)는 라이트 테마 + 페이드로
     //   '검은 전체화면 창'이 튀는 느낌을 없애 작업실 안에서 이어지는 편집처럼 보이게 한다.
     sheet.classList.toggle('pe-embed-soft', !!(_state && (_state.onSave || _state.photoSet)));
-    document.body.style.overflow = 'hidden';
+    if (!_state.inline) document.body.style.overflow = 'hidden';   // [PR-C1] inline은 슬롯 팝업 스크롤락 보존
     _renderTabs(); _renderPanel(); _redraw();
     // Nav v7 — 편집기 열 때마다 mount 보장. nav-v7 의 _boot 폴링(페이지 로드 후 9.6초)이
     //   만료된 뒤 편집기를 열면 mount 가 영영 안 돼 옛 .pe-tabs 로 보이던 회귀 방지.
@@ -558,14 +596,18 @@
         return;
       }
     }
+    const _wasInline = !!(_state && _state.inline);
     const sheet = document.getElementById('photoEditorSheet');
     if (sheet) {
       // 임베드 모드(onSave)는 닫을 때 entry-v6 feature-mode 메뉴로 안 빠지게 클래스 해제
       if (_state && (_state.onSave || _state.photoSet)) sheet.classList.remove('pe-v6-feature-mode');
       sheet.classList.remove('pe-embed-soft');   // [작업실 전환] 다음 일반 열기 회귀 방지
+      sheet.classList.remove('pe-inline');        // [PR-C1] 다음 일반/챗봇 열기에 inline 잔류 금지
       sheet.style.setProperty('display', 'none', 'important');
+      // [PR-C1] 슬롯 팝업 안에 있던 시트를 body 로 원위치 — 다음 일반 열기 정상화
+      if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
     }
-    document.body.style.overflow = '';
+    if (!_wasInline) document.body.style.overflow = '';   // [PR-C1] inline은 슬롯 팝업 스크롤락 유지
     try { if (window.PhotoEditor && typeof window.PhotoEditor._brushCleanup === 'function') window.PhotoEditor._brushCleanup(); }
     catch (_e) { void _e; }
     // [v203] 핀치 줌 cleanup — wrap transform 초기화 + 이벤트 해제
