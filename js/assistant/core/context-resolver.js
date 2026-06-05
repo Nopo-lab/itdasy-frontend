@@ -98,7 +98,13 @@
         if (c.currentPhoto.activeTab) seg.push('탭=' + c.currentPhoto.activeTab);
         parts.push('현재사진=' + seg.join('/'));
       } else {
-        parts.push('현재사진 없음');
+        // [P0a] 편집기엔 없어도 잇비 SourceImage(작업실 active/채팅 업로드)가 잡은 사진이 있으면 출처를 알린다.
+        let srcNote = null;
+        try {
+          const s = window.ItdasySourceImage && window.ItdasySourceImage.resolve();
+          if (s) srcNote = (s.origin === 'chat') ? '채팅업로드' : (s.origin === 'workshop' ? '작업실선택' : '편집기');
+        } catch (_e) { void _e; }
+        parts.push(srcNote ? ('현재사진=' + srcNote) : '현재사진 없음');
       }
 
       if (c.recentAction) parts.push('최근작업=' + c.recentAction);

@@ -1710,6 +1710,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     <button id="baBtnToolbar" data-static-action="ba-toggle" class="ws-toolbar__btn" aria-label="전후">
       <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-arrow-left-right"/></svg>전후
     </button>
+    <!-- [P0a] 작업실→잇비 진입: active photo 컨텍스트를 실어 잇비를 연다(아이콘=잇비 FAB과 동일 #ic-bot) -->
+    <button data-static-action="slot-ask-itbi" class="ws-toolbar__btn" aria-label="잇비에게 묻기">
+      <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-bot"/></svg>잇비
+    </button>
     <button data-static-action="slot-save-close" class="ws-toolbar__btn" aria-label="저장">
       <svg class="ic" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-save"/></svg>저장
     </button>
@@ -2027,6 +2031,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'portfolio-empty-workshop': () => { tab('workshop'); call('initWorkshopTab'); },
       'slot-close': () => call('closeSlotPopup'),
       'slot-save-close': () => call('saveAndCloseSlotPopup'),
+      'slot-ask-itbi': () => call('openSlotItbiAsk'),   // [P0a] 작업실 active photo 컨텍스트로 잇비 열기
       // [작업실 손님 사진 편집 → 최신 PhotoEditor 로 라우팅]
       //   누끼/보정/로고/템플릿은 옛 슬롯 패널 대신 모던 에디터를 해당 탭으로 연다 (저장 시 손님 사진에 반영).
       //   전후합성(2장 BA 합성)·리뷰는 단일사진 에디터로 대체 불가 → slot 전용 기능 유지.
@@ -2139,7 +2144,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-gallery-db.js" defer></script>
 <script src="app-gallery-workshop.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-gallery-assign.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-slot-editor.js?v=20260605-carousel-guard" defer></script>
+<script src="app-gallery-slot-editor.js?v=20260606-p0a" defer></script>
 <script src="app-photo-editor-bg-compose.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-gallery-bg.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-photo-editor-bg-cache.js?v=20260520-v250-template-mask-hotfix" defer></script>
@@ -2236,7 +2241,9 @@ window._lazyImgly = function _lazyImgly() {
 <!-- risk:integration — AI 잇비 저장 후 화면 갱신은 app-assistant.js보다 먼저 로드 -->
 <script src="js/assistant/cache-invalidation.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- T-101 잇비 AssistantContext (app-assistant.js 보다 먼저 로드) -->
-<script src="js/assistant/core/context-resolver.js?v=20260530-v352-assistant-context" defer></script>
+<script src="js/assistant/core/context-resolver.js?v=20260606-p0a" defer></script>
+<!-- P0a 잇비 SourceImage — 작업실 active / 챗봇 업로드 사진 통합 컨텍스트 -->
+<script src="js/assistant/core/source-image.js?v=20260606-p0a-source-image" defer></script>
 <!-- T-104 잇비 사진 홍보 풀체인 오케스트레이터 (BeautyAI·AssistantContext 활용, app-assistant.js 보다 먼저) -->
 <script src="js/assistant/core/photo-flow.js?v=20260530-v355-photo-flow-save-confirm" defer></script>
 <!-- T-114 잇비 Daily Ops Briefing (today/brief·Booking·gallery 집계, app-assistant.js 보다 먼저) -->
@@ -2246,7 +2253,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- J-5 잇비 마케팅 초안 공통 정책 — 톤/금지어/안전라벨 (소비 모듈보다 먼저) -->
 <script src="js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy" defer></script>
 <!-- J-1 잇비 Action Hub — 결과→다음행동 버튼 공통층 (app-assistant.js 보다 먼저) -->
-<script src="js/assistant/core/action-hub.js?v=20260602-v385-cf-publish" defer></script>
+<script src="js/assistant/core/action-hub.js?v=20260606-p0a" defer></script>
 <!-- J-2 잇비 홍보용 사진 체인 — 보정→캡션→템플릿→버튼 (photo-flow·action-hub 보다 뒤, app-assistant 보다 먼저) -->
 <script src="js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish" defer></script>
 <script src="js/assistant/core/promo-result-builder.js?v=20260602-first-wow" defer></script>
@@ -2267,7 +2274,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="js/assistant/photo-kind-classifier.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 사진 첨부 대기 UI는 app-assistant.js보다 먼저 로드 -->
 <script src="js/assistant/pending-photos.js?v=20260525-v271-assistant-pending-photos" defer></script>
-<script src="app-assistant.js?v=20260605-itbi-meta-pr2" defer></script>
+<script src="app-assistant.js?v=20260606-p0a" defer></script>
 <!-- [2026-05-17 v166] AI 비서 마케팅·고객 케어 kind 8종 (CATEGORY 외부 등록) -->
 <script src="app-assistant-actions-marketing.js?v=20260521-v255-assistant-core" defer></script>
 <!-- [2026-05-18 v168] 사진 편집기 P1 + Brand Kit + Today Morning -->

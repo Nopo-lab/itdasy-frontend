@@ -148,20 +148,20 @@
           var PE = window.PhotoEditor; var pe = PE && PE._internal;
           // 편집기가 이미 열려 있으면 사진 유지한 채 탭만 전환, 아니면 src 로 새로 열기.
           if (pe && typeof pe.applyStatePatch === 'function' && pe.getState && pe.getState()) pe.applyStatePatch({ activeTab: 'template' });
-          else if (PE && PE.open) PE.open({ src: p.dataUrl, initial_tab: 'template' });
+          else if (PE && PE.open) PE.open({ src: p.dataUrl || _resolverUrl(), initial_tab: 'template' });   // [P0a] source 폴백
         });
         return { navigated: true, message: (p.recommendedIds && p.recommendedIds.length) ? '추천 템플릿을 열었어요.' : '템플릿 탭을 열었어요.' };
       case 'open_instagram': {
         // [CF-4] 클릭 시점 라이브 캔버스 재캡처(템플릿 적용본 반영). 없으면 payload fallback.
-        var igUrl = _liveCanvasUrl() || p.dataUrl;
-        if (!igUrl) return { message: '게시할 이미지가 없어요. 먼저 사진을 열어주세요.' };
+        var igUrl = _liveCanvasUrl() || p.dataUrl || _resolverUrl();   // [P0a] SourceImage 폴백
+        if (!igUrl) return { message: '사진을 먼저 선택하거나 업로드해 주세요.' };
         _nav(function () { window.openInstagramPreview && window.openInstagramPreview({ src: igUrl, ratio: p.ratio || '4:5', caption: p.caption || '', enableUpload: true }); });
         return { navigated: true, message: '인스타 미리보기를 열었어요. (게시는 확인 후 직접 진행돼요)' };
       }
       case 'export_image': {
         // [CF-4] 내보내기도 클릭 시점 재캡처 — 템플릿 적용 후 최신본 저장.
-        var exUrl = _liveCanvasUrl() || p.dataUrl;
-        if (!exUrl) return { message: '저장할 이미지가 없어요. 먼저 사진을 열어주세요.' };
+        var exUrl = _liveCanvasUrl() || p.dataUrl || _resolverUrl();   // [P0a] SourceImage 폴백
+        if (!exUrl) return { message: '사진을 먼저 선택하거나 업로드해 주세요.' };
         return { message: _exportImage(exUrl) ? '이미지를 저장했어요.' : '저장에 실패했어요.' };
       }
       case 'open_calendar': case 'show_empty_slots':
@@ -189,6 +189,14 @@
       if (cv && cv.width && cv.height) return cv.toDataURL('image/jpeg', 0.92);
     } catch (_e) { void 0; }
     return '';
+  }
+
+  // [P0a] 라이브 캔버스/payload 둘 다 없을 때 잇비 SourceImage(작업실 active/채팅 업로드)로 폴백.
+  function _resolverUrl() {
+    try {
+      var src = window.ItdasySourceImage && window.ItdasySourceImage.resolve();
+      return (src && src.dataUrl) ? src.dataUrl : '';
+    } catch (_e) { return ''; }
   }
 
   function _exportImage(dataUrl) {

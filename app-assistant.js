@@ -2503,6 +2503,9 @@
     _sendInFlight = true;
     const question = _readUploadQuestion();
     const photoUrls = await _makePhotoPreviewUrls(selectedFiles);
+    // [P0a] 채팅 업로드 사진을 잇비 SourceImage store 에 기록 — 이후 텍스트/버튼이 이 사진을 대상으로.
+    //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
+    try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
     try {
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question)) {
@@ -3049,6 +3052,11 @@
     return _tryKeywordShortcut(input, q);
   }
 
+  // [P0a] 사진 직후 후속 텍스트가 "그 사진"에 대한 명령인지(누끼/배경/보정/템플릿/홍보/인스타/업로드/손님 등).
+  function _looksPhotoFollowup(q) {
+    return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|캡션|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
+  }
+
   async function _send() {
     if (_sendInFlight) return;
     const input = document.getElementById('asstInput');
@@ -3056,6 +3064,19 @@
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
     const q = input ? input.value.trim() : '';
     if (!q) return;
+    // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
+    //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
+    if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
+      try {
+        const src = window.ItdasySourceImage.resolve();
+        if (src && src.origin === 'chat' && src.dataUrl) {
+          _sendInFlight = true;   // _uploadPhotos 와 동일하게 이중 전송 가드
+          try {
+            if (await _tryPhotoShortcut(q, [src.dataUrl])) { if (input) input.value = ''; return; }
+          } finally { _sendInFlight = false; }
+        }
+      } catch (_e) { void _e; }
+    }
     if (await _trySendShortcuts(input, q)) return;
     _beginTextAsk(input, q);
     try {

@@ -169,6 +169,7 @@ function _renderPopupPhotoGrid(slot) {
   if (!_activePhotoId || !visiblePhotos.some(p => p.id === _activePhotoId)) {
     _activePhotoId = visiblePhotos[0] ? visiblePhotos[0].id : null;
   }
+  _syncWorkshopSource();   // [P0a] active photo → 잇비 SourceImage store 최신화(열기/탭 시)
 
   // [PR-2] 활성 사진 컨텍스트 헤더 갱신 (2장 이상일 때만 표시 — 단일 사진이면 숨김이 더 깔끔).
   const ctxEl = document.getElementById('slotActiveCtx');
@@ -286,7 +287,36 @@ function _updateCarouselActive(grid) {
   const i = vis.findIndex(s => s.dataset.photoId === _activePhotoId);
   const ctx = document.getElementById('slotActiveCtx');
   if (ctx) { if (vis.length >= 2 && i >= 0) { ctx.textContent = '편집 대상 ' + (i + 1) + '/' + vis.length; ctx.style.display = ''; } else { ctx.style.display = 'none'; } }
+  _syncWorkshopSource();   // [P0a] 스와이프로 active 바뀌면 SourceImage store 최신화
 }
+
+// [P0a] 현재 작업실 active photo 를 잇비 SourceImage store 에 기록 — 잇비가 "작업실 그 사진"을 알게.
+//   작업실 onSave 경로는 건드리지 않음(읽기 전용 동기화만).
+function _syncWorkshopSource() {
+  try {
+    if (!window.ItdasySourceImage) return;
+    const slot = _slots.find(s => s.id === _popupSlotId);
+    if (!slot) return;
+    const photo = (slot.photos || []).find(p => p.id === _activePhotoId && !p.hidden);
+    if (!photo) return;
+    window.ItdasySourceImage.setWorkshop({
+      slotId: slot.id,
+      photoId: photo.id,
+      dataUrl: photo.editedDataUrl || photo.dataUrl,
+      originalUrl: photo.dataUrl,
+      editedDataUrl: photo.editedDataUrl || null,
+      customerId: slot.customer_id != null ? slot.customer_id : null,
+    });
+  } catch (_e) { void _e; }
+}
+
+// [P0a] 슬롯 팝업에서 잇비 열기 — active photo 컨텍스트를 store 에 실어 잇비를 연다.
+//   (슬롯 팝업이 FAB 을 가려 in-popup 진입이 필요)
+function openSlotItbiAsk() {
+  _syncWorkshopSource();
+  if (typeof window.openAssistant === 'function') window.openAssistant();
+}
+if (typeof window !== 'undefined') window.openSlotItbiAsk = openSlotItbiAsk;
 
 // ── 팝업 사진 선택 토글 ────────────────────────────────────────
 function togglePopupPhotoSel(id) {
