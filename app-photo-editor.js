@@ -449,6 +449,27 @@
     const saveBtn = document.querySelector('#photoEditorSheet [data-pe-act="save"]');
     if (saveBtn && ps) saveBtn.textContent = (ps.index >= ps.list.length - 1) ? '완료' : '완료 →';
   }
+  // [#1] 캔버스 좌우 스와이프(1지손가락)로 photoSet 사진 전환. 핀치줌/팬과 충돌 방지(줌 상태면 무시).
+  function _bindSetSwipe() {
+    const wrap = document.querySelector('#photoEditorSheet .pe-canvas-wrap');
+    if (!wrap || wrap._setSwipeBound) return;
+    wrap._setSwipeBound = true;
+    let sx = 0, sy = 0, st = 0, single = false;
+    wrap.addEventListener('touchstart', (e) => {
+      single = e.touches.length === 1;
+      if (single) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); }
+    }, { passive: true });
+    wrap.addEventListener('touchend', (e) => {
+      if (!single || !_state || !_state.photoSet || _state.photoSet.list.length < 2) return;
+      const t = e.changedTouches[0]; if (!t) return;
+      const dx = t.clientX - sx, dy = t.clientY - sy, dt = Date.now() - st;
+      let scale = 1; try { scale = new DOMMatrix(getComputedStyle(wrap).transform).a || 1; } catch (_e) { scale = 1; }
+      if (scale > 1.05) return;   // 확대 상태 → 팬 우선, 스와이프 네비 무시
+      if (dt < 600 && Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+        _setNavGo(dx < 0 ? 1 : -1);   // 왼쪽으로 밀면 다음, 오른쪽이면 이전
+      }
+    }, { passive: true });
+  }
 
   async function _exportImage(format) {
     const exp = window.PhotoEditorExport;
@@ -512,6 +533,7 @@
     try { window.PhotoEditorTextDnD?.bind?.(sheet.querySelector('#peCanvas')); } catch (_e) { void _e; }
     if (opts.src) _loadImage(opts.src);
     _renderSetNav();   // [#1] 멀티 사진이면 ◀ N/M ▶ 네비 노출 + 저장 라벨 '완료 →'
+    _bindSetSwipe();   // [#1] 캔버스 좌우 스와이프로 사진 전환
     _pushHistoryState();
     // [v203 2026-05-19] 핀치 줌 attach — wrap 자식 (메인 canvas + 마스크 + 커서) 모두 같이 변환
     try {
