@@ -55,12 +55,25 @@
   }
 
   function _beforeCanvas(state, fallback) {
-    const src = state && state.secondImg ? state.secondImg : fallback;
     const out = document.createElement('canvas');
     out.width = fallback.width; out.height = fallback.height;
     const ctx = out.getContext('2d');
-    ctx.filter = state && state.secondImg ? 'brightness(92%) saturate(90%)' : 'brightness(92%) grayscale(18%) sepia(8%)';
-    ctx.drawImage(src, 0, 0, out.width, out.height);
+    // [요청] 시술 전 사진(secondImg) 없으면 — after 의 흑백 복사를 '가짜 before'로 쓰지 않는다(가짜 전후 금지).
+    //   대신 '시술 전 사진 추가' 플레이스홀더를 그려 한 장 더 업로드를 유도(사진 가림 방지).
+    if (!(state && state.secondImg)) {
+      ctx.fillStyle = '#f1ece8';
+      ctx.fillRect(0, 0, out.width, out.height);
+      ctx.fillStyle = '#b8a99a';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const fs = Math.max(14, Math.round(out.width * 0.07));
+      ctx.font = '700 ' + fs + 'px sans-serif';
+      ctx.fillText('＋ 시술 전 사진', out.width / 2, out.height / 2 - fs * 0.6);
+      ctx.font = '500 ' + Math.round(fs * 0.62) + 'px sans-serif';
+      ctx.fillText('한 장 더 추가해 주세요', out.width / 2, out.height / 2 + fs * 0.7);
+      return out;
+    }
+    ctx.filter = 'brightness(92%) saturate(90%)';
+    ctx.drawImage(state.secondImg, 0, 0, out.width, out.height);
     ctx.filter = 'none';
     return out;
   }
