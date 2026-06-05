@@ -534,8 +534,9 @@ function openSlotPhotoInEditor(tab) {
     src: photo.editedDataUrl || photo.dataUrl,
     initial_tab: tab || 'auto',
     customer_name: slot.label || '',
-    // [PR-C1] 부위보정만 C-lite: 슬롯 팝업 안에 담겨 슬라이드업. 그 외 탭은 기존 전체화면.
-    inline: tab === 'beauty',
+    // [PR-C2] C-lite 확장: 부위보정/배경/템플릿/텍스트는 슬롯 팝업 안 슬라이드업.
+    //   전후(ba-toggle)는 별도 BA 플로우라 제외, 저장은 slot-save-close 라 해당 없음.
+    inline: tab === 'beauty' || tab === 'bg' || tab === 'template' || tab === 'text',
     photoSet: {
       list: visible.map(pp => ({ id: pp.id, src: pp.editedDataUrl || pp.dataUrl })),
       index: startIndex,
