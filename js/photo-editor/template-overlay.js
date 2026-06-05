@@ -240,11 +240,16 @@
   }
 
   function _drawPriceTable(ctx, dw, dh, title, accent, shop, items) {
-    ctx.fillStyle = accent; ctx.fillRect(0, 0, dw, dh*0.15); ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
-    ctx.font = `800 ${Math.round(dh*0.04)}px sans-serif`; ctx.fillText(title, dw*0.06, dh*0.09);
-    ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fillRect(0, dh*0.55, dw, dh*0.45);
-    ctx.fillStyle = '#222'; ctx.font = `600 ${Math.round(dh*0.028)}px sans-serif`; items.forEach((row, i) => ctx.fillText(row, dw*0.08, dh*0.63 + i*dh*0.06));
-    ctx.fillStyle = accent; ctx.font = `500 ${Math.round(dh*0.02)}px sans-serif`; ctx.fillText(shop, dw*0.06, dh*0.97);
+    // [#7] 사진이 가격표에 60% 가리던 것 → 사진 62% 우선, 가격 카드 38%(상단 제목바 + 항목).
+    const split = Math.round(dh * 0.62);
+    ctx.fillStyle = 'rgba(255,255,255,0.97)'; ctx.fillRect(0, split, dw, dh - split);
+    ctx.fillStyle = accent; ctx.fillRect(0, split, dw, Math.round(dh * 0.085));
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.font = `800 ${Math.round(dh * 0.032)}px sans-serif`;
+    ctx.fillText(title, dw * 0.06, split + dh * 0.056);
+    ctx.textAlign = 'right'; ctx.font = `500 ${Math.round(dh * 0.018)}px sans-serif`;
+    ctx.fillText(shop, dw * 0.94, split + dh * 0.056);
+    ctx.fillStyle = '#222'; ctx.textAlign = 'left'; ctx.font = `600 ${Math.round(dh * 0.026)}px sans-serif`;
+    items.slice(0, 5).forEach((row, i) => ctx.fillText(row, dw * 0.08, split + dh * 0.15 + i * dh * 0.05));
   }
 
   function _drawBACream(ctx, dw, dh, _head, _accent, shop) {

@@ -679,3 +679,64 @@ input[data-studio-slider]::-webkit-slider-thumb {
     min-width: 68px;
   }
 }
+
+/* ──────────────────────────────────────────────────────────────
+   [작업실 자연스러운 전환] 작업실(밝은 화면)에서 편집기를 열 때(.pe-embed-soft)
+   '검은 전체화면 창'이 튀는 느낌을 없애려고 라이트 테마로 덮는다.
+   레버리지: studio 의 CSS 변수(--pe-*)만 라이트로 재정의하면 var() 쓰는
+   대부분 컴포넌트(슬라이더 라벨/필드/카드/세그먼트/타이틀)가 한 번에 밝아진다.
+   하드코딩 크림색(#fffaf2/#e8d9b8) 쓰는 곳만 타깃으로 추가 보정.
+   범위는 전부 `.pe-embed-soft` 하위 → 일반(챗봇/기본) 편집기 열기엔 영향 0.
+   ────────────────────────────────────────────────────────────── */
+.pe-sheet.pe-embed-soft {
+  --pe-bg: #f4f5f7;
+  --pe-surface: #fff;
+  --pe-surface-2: #f1f2f4;
+  --pe-line: rgba(0, 0, 0, 0.08);
+  --pe-text: #1f2430;
+  --pe-muted: #6b7280;
+
+  background: #f4f5f7 !important;
+  animation: pe-embed-fade 200ms ease-out;
+}
+@keyframes pe-embed-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* 캔버스 스테이지 — 검은 void → 작업실 톤 밝은 면 */
+.pe-embed-soft .pe-stage { background: #eceef1; }
+.pe-embed-soft .pe-canvas {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+}
+.pe-embed-soft .pe-panel { background: #fff !important; color: #1f2430; }
+/* 상단바 버튼 — 밝은 스테이지 위에서 보이게(투명-흰 → 옅은 회색면+진한 글자) */
+.pe-embed-soft .pe-iconbtn,
+.pe-embed-soft .pe-back-btn,
+.pe-embed-soft .pe-action-btn-secondary,
+.pe-embed-soft .pe-chip-btn {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #1f2430 !important;
+}
+.pe-embed-soft .pe-topbar-chip {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1f2430;
+  backdrop-filter: none;
+}
+/* 패널 내부 하드코딩 밝은 글자 보정 */
+.pe-embed-soft .pe-slider-val,
+.pe-embed-soft .pe-action-label,
+.pe-embed-soft .pe-section-label,
+.pe-embed-soft .pe-tpl-loop-copy strong,
+.pe-embed-soft .pe-tpl-loop-head strong,
+.pe-embed-soft .pe-tpl-loop-done strong,
+.pe-embed-soft .pe-tpl-loop-card,
+.pe-embed-soft .pe-tpl-loop-preview i,
+.pe-embed-soft .pe-mask-status-row strong,
+.pe-embed-soft .pe-mask-status-row small,
+.pe-embed-soft .pe-mask-status-row em { color: #1f2430 !important; }
+.pe-embed-soft .pe-tpl-loop-card,
+.pe-embed-soft .pe-studio-card,
+.pe-embed-soft .pe-segment button { background: #f4f5f7 !important; }
+.pe-embed-soft .pe-input { background: #fff; color: #1f2430; }
+.pe-embed-soft .pe-hint { color: #8a8f99; }

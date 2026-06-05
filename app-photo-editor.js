@@ -525,6 +525,9 @@
       try { _state.itbiMeta = window.PhotoEditorItbiCards.sanitizeMeta(opts.itbiMeta); } catch (_e) { void _e; }
     }
     sheet.style.setProperty('display', 'flex', 'important');
+    // [작업실 자연스러운 전환] 작업실에서 열린 임베드 모드(onSave/photoSet)는 라이트 테마 + 페이드로
+    //   '검은 전체화면 창'이 튀는 느낌을 없애 작업실 안에서 이어지는 편집처럼 보이게 한다.
+    sheet.classList.toggle('pe-embed-soft', !!(_state && (_state.onSave || _state.photoSet)));
     document.body.style.overflow = 'hidden';
     _renderTabs(); _renderPanel(); _redraw();
     // Nav v7 — 편집기 열 때마다 mount 보장. nav-v7 의 _boot 폴링(페이지 로드 후 9.6초)이
@@ -559,6 +562,7 @@
     if (sheet) {
       // 임베드 모드(onSave)는 닫을 때 entry-v6 feature-mode 메뉴로 안 빠지게 클래스 해제
       if (_state && (_state.onSave || _state.photoSet)) sheet.classList.remove('pe-v6-feature-mode');
+      sheet.classList.remove('pe-embed-soft');   // [작업실 전환] 다음 일반 열기 회귀 방지
       sheet.style.setProperty('display', 'none', 'important');
     }
     document.body.style.overflow = '';

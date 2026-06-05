@@ -485,6 +485,9 @@ function openSlotPhotoInEditor(tab) {
     if (typeof showToast === 'function') showToast('사진 편집기를 불러오는 중이에요. 잠시 후 다시 시도해주세요');
     return;
   }
+  // [버그수정] 편집기가 이미 열려 있으면 재오픈 금지 — 편집 화면 여러 개/패널 섞임 방지.
+  const _peSheet = document.getElementById('photoEditorSheet');
+  if (_peSheet && _peSheet.style.display !== 'none') return;
   const slot = _slots.find(s => s.id === _popupSlotId);
   if (!slot) return;
   const visible = (slot.photos || []).filter(p => !p.hidden);
