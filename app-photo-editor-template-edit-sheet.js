@@ -15,6 +15,7 @@
   let _el = null;
   let _ctx = null;   // { templateId, state, helpers, onChange, slots, values }
   let _raf = 0;
+  let _undoTimer = 0;
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
@@ -27,6 +28,7 @@
 
   function close() {
     if (_raf) { cancelAnimationFrame(_raf); _raf = 0; }
+    _clearUndo();
     if (_el) _el.style.display = 'none';
   }
 
@@ -90,8 +92,16 @@
   function _servicesHTML(slot, services) {
     const rows = services.slice(0, MAX_SERVICES);
     while (rows.length < 4) rows.push({ name: '', desc: '', price: '' });
+    const ph = '가격표를 한 줄에 하나씩 붙여넣어요\n예) 물광케어 8만원\n진정관리 120000\n리프팅관리 150,000원';
     return `<div class="pe-tpl-edit-field pe-tpl-edit-services">
-      <label>${_esc(slot.label)} (최대 ${MAX_SERVICES}개)<button type="button" class="pe-tpl-edit-addrow" data-svc-add>+ 항목 추가</button></label>
+      <label>${_esc(slot.label)} (최대 ${MAX_SERVICES}개)<span class="pe-tpl-edit-svc-actions">
+        <button type="button" class="pe-tpl-edit-pastebtn" data-svc-paste>붙여넣기</button>
+        <button type="button" class="pe-tpl-edit-addrow" data-svc-add>+ 항목 추가</button></span></label>
+      <div class="pe-tpl-edit-paste" data-svc-paste-box hidden>
+        <textarea data-svc-paste-input rows="4" placeholder="${_esc(ph)}"></textarea>
+        <div class="pe-tpl-edit-paste-foot">
+          <button type="button" class="pe-tpl-edit-paste-cancel" data-svc-paste-cancel>취소</button>
+          <button type="button" class="pe-tpl-edit-paste-apply" data-svc-paste-apply>자동 배치</button></div></div>
       <div data-svc-list>${rows.map((r, i) => _svcRowHTML(r, i)).join('')}</div></div>`;
   }
   function _svcRowHTML(r, i) {
@@ -119,6 +129,9 @@
     });
     _el.querySelectorAll('[data-svc-row]').forEach(_bindSvcRow);
     _el.querySelector('[data-svc-add]')?.addEventListener('click', _addSvcRow);
+    _el.querySelector('[data-svc-paste]')?.addEventListener('click', () => _togglePaste());
+    _el.querySelector('[data-svc-paste-cancel]')?.addEventListener('click', () => _togglePaste(false));
+    _el.querySelector('[data-svc-paste-apply]')?.addEventListener('click', _applyPaste);
   }
 
   function _bindSvcRow(row) {
@@ -152,6 +165,69 @@
       if (name || price) list.push({ name: name, desc: desc, price: price });
     });
     _ctx.values.services = list;   // _ctx.values === state.tplV2.slotValues (동일 참조)
+  }
+
+  // ── 붙여넣기 자동 배치 (S5a) ──
+  // services 행 DOM 을 주어진 배열로 재구성(전체 교체). 편집 affordance 위해 최소 4행 패딩.
+  function _renderSvcList(rows) {
+    const list = _el.querySelector('[data-svc-list]');
+    if (!list) return;
+    const arr = (rows || []).slice(0, MAX_SERVICES).map(r => ({ name: r.name || '', desc: r.desc || '', price: r.price || '' }));
+    while (arr.length < 4) arr.push({ name: '', desc: '', price: '' });
+    list.innerHTML = arr.map((r, i) => _svcRowHTML(r, i)).join('');
+    list.querySelectorAll('[data-svc-row]').forEach(_bindSvcRow);
+  }
+
+  function _togglePaste(show) {
+    const box = _el.querySelector('[data-svc-paste-box]');
+    if (!box) return;
+    const open = (show === undefined) ? box.hasAttribute('hidden') : !!show;
+    if (open) { box.removeAttribute('hidden'); box.querySelector('[data-svc-paste-input]')?.focus(); }
+    else { box.setAttribute('hidden', ''); }
+  }
+
+  function _applyPaste() {
+    const FT = window.PhotoEditorTemplateFitText;
+    const ta = _el.querySelector('[data-svc-paste-input]');
+    if (!FT || !FT.parseServicePrices || !ta) return;
+    if (!ta.value.trim()) { _toast('붙여넣을 가격표를 입력해 주세요'); return; }
+    // 가격 없는 줄은 name 만 반영, 빈 줄은 parseServicePrices 가 무시.
+    const parsed = (FT.parseServicePrices(ta.value) || []).filter(r => (r.name || r.price));
+    if (!parsed.length) { _toast('가격표를 인식하지 못했어요'); return; }
+    const over = parsed.length > MAX_SERVICES;
+    const rows = parsed.slice(0, MAX_SERVICES).map(r => ({ name: r.name || '', desc: '', price: r.price || '' }));
+    const prev = (_ctx.values.services || []).map(r => ({ name: r.name || '', desc: r.desc || '', price: r.price || '' }));
+    _renderSvcList(rows);          // 전체 교체(overwrite)
+    _collectServices();
+    _schedule();
+    _togglePaste(false);
+    ta.value = '';
+    _showUndo(prev, over);
+  }
+
+  function _showUndo(prevServices, over) {
+    _clearUndo();
+    const sheet = _el && _el.querySelector('.pe-tpl-edit-sheet');
+    if (!sheet) return;
+    const msg = over ? ('가격표 ' + MAX_SERVICES + '개까지 자동 배치했어요') : '가격표를 자동 배치했어요';
+    const el = document.createElement('div');
+    el.className = 'pe-tpl-edit-undo';
+    el.innerHTML = '<span>' + _esc(msg) + '</span><button type="button" data-undo>되돌리기</button>';
+    sheet.appendChild(el);
+    el.querySelector('[data-undo]').addEventListener('click', () => {
+      _renderSvcList(prevServices);
+      _collectServices();
+      _schedule();
+      _clearUndo();
+      _toast('되돌렸어요');
+    });
+    _undoTimer = setTimeout(_clearUndo, 5000);
+  }
+
+  function _clearUndo() {
+    if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = 0; }
+    const ex = _el && _el.querySelector('.pe-tpl-edit-undo');
+    if (ex) ex.remove();
   }
 
   // 입력 즉시 state 반영(위에서 완료), 렌더만 rAF 디바운스.
