@@ -73,8 +73,13 @@
   // ── 필드 HTML ──
   function _fieldHTML(slot, values) {
     if (slot.type === 'image') {
+      // [S3a] before 슬롯만 사진 교체 노출 — state.secondImg(ba-compose 가 읽는 필드) 재사용, 렌더러 무변경.
+      if (slot.role === 'before') return _beforeSlotHTML(slot);
+      const note = slot.role === 'after'
+        ? '현재 편집 중인 사진이 \'시술 후\'로 들어가요.'
+        : '현재 편집 사진을 사용 중이에요.<br>사진 교체는 다음 단계에서 지원돼요.';
       return `<div class="pe-tpl-edit-field"><label>${_esc(slot.label)}</label>
-        <div class="pe-tpl-edit-imgnote">현재 편집 사진을 사용 중이에요.<br>사진 교체는 다음 단계에서 지원돼요.</div></div>`;
+        <div class="pe-tpl-edit-imgnote">${note}</div></div>`;
     }
     if (slot.type === 'list') {
       return _servicesHTML(slot, Array.isArray(values[slot.key]) ? values[slot.key] : []);
@@ -117,6 +122,27 @@
       <button type="button" class="pe-tpl-edit-svc-del" data-svc-del aria-label="삭제">${_CLOSE_SVG}</button></div>`;
   }
 
+  // [S3a] before 사진 슬롯 — 현재 secondImg 썸네일 + 파일 선택/비우기
+  function _beforeSlotHTML(slot) {
+    const img = _ctx && _ctx.state && _ctx.state.secondImg;
+    const has = !!img;
+    const thumb = has
+      ? `<img src="${_esc(img.src || '')}" alt="">`
+      : '<span class="pe-tpl-edit-imgplus">＋</span>';
+    return `<div class="pe-tpl-edit-field pe-tpl-edit-imgslot" data-img-slot="before">
+      <label>${_esc(slot.label)}</label>
+      <div class="pe-tpl-edit-imgrow">
+        <div class="pe-tpl-edit-imgthumb${has ? '' : ' is-empty'}" data-img-thumb>${thumb}</div>
+        <div class="pe-tpl-edit-imgbtns">
+          <button type="button" class="pe-tpl-edit-imgpick" data-img-pick>${has ? '다른 사진' : '파일에서 선택'}</button>
+          ${has ? '<button type="button" class="pe-tpl-edit-imgclear" data-img-clear>비우기</button>' : ''}
+        </div>
+      </div>
+      <input type="file" accept="image/*" data-img-input hidden>
+      <p class="pe-tpl-edit-imghint">시술 전 사진을 넣으면 전후가 완성돼요. (시술 후는 현재 편집 사진)</p>
+    </div>`;
+  }
+
   // ── 바인딩 ──
   function _bindFields() {
     _el.querySelectorAll('[data-edit-key]').forEach((inp) => {
@@ -132,6 +158,41 @@
     _el.querySelector('[data-svc-paste]')?.addEventListener('click', () => _togglePaste());
     _el.querySelector('[data-svc-paste-cancel]')?.addEventListener('click', () => _togglePaste(false));
     _el.querySelector('[data-svc-paste-apply]')?.addEventListener('click', _applyPaste);
+    _el.querySelectorAll('[data-img-slot="before"]').forEach(_bindImgSlot);
+  }
+
+  // [S3a] before 슬롯 바인딩
+  function _bindImgSlot(box) {
+    const input = box.querySelector('[data-img-input]');
+    box.querySelector('[data-img-pick]')?.addEventListener('click', () => input && input.click());
+    box.querySelector('[data-img-clear]')?.addEventListener('click', () => _setBefore(null));
+    input?.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const img = new Image();
+      img.onload = () => _setBefore(img);
+      img.onerror = () => _toast('사진을 불러오지 못했어요');
+      img.src = URL.createObjectURL(f);
+    });
+  }
+
+  function _setBefore(img) {
+    if (!_ctx || !_ctx.state) return;
+    _ctx.state.secondImg = img;   // ba-compose _beforeCanvas 가 읽음(없으면 placeholder)
+    _refreshBeforeSlot();
+    try { if (_ctx.helpers && _ctx.helpers.pushHistory) _ctx.helpers.pushHistory(); } catch (_e) { /* ignore */ }
+    _schedule();
+  }
+
+  function _refreshBeforeSlot() {
+    const box = _el.querySelector('[data-img-slot="before"]');
+    const slot = (_ctx.slots || []).find(s => s.type === 'image' && s.role === 'before');
+    if (!box || !slot) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = _beforeSlotHTML(slot);
+    const fresh = tmp.firstElementChild;
+    box.replaceWith(fresh);
+    _bindImgSlot(fresh);
   }
 
   function _bindSvcRow(row) {
