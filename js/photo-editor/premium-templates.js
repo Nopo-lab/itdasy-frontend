@@ -89,12 +89,13 @@
     return /^#[0-9a-f]{3,8}$/i.test(color || '') ? color : fallback;
   }
 
+  // [S2.1] 반환값 = 실제로 그렸는지(true/false). v2 hook 이 위임 후 fallback 판단에 사용.
   function _premiumHook(ctx, dw, dh, state) {
     const tpl = state && state.tplV2;
-    if (!tpl) return;
+    if (!tpl) return false;
     const found = _getTemplates().find(t => t.id === tpl.id);
     const meta = META[tpl.id];
-    if (!found || !meta) return;
+    if (!found || !meta) return false;
     const b = _brandData(tpl);
     // [S1] editable slot 얕은 연결 — slotValues 있으면 우선, 없으면 기존과 동일(무회귀).
     const sv = (tpl && tpl.slotValues) || {};
@@ -109,9 +110,10 @@
       beforeCap: sv.before_caption, afterCap: sv.after_caption };
     if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
       window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
-      return;
+      return true;
     }
     _draw(ctx, dw, dh, data);
+    return true;
   }
 
   function _draw(ctx, w, h, d) {

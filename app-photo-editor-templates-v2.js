@@ -401,6 +401,11 @@
     PE._internal.registerDrawHook('tplV2_overlay', (ctx, dw, dh, state) => {
       const tpl = state && state.tplV2;
       if (!tpl) return;
+      // [S2.1] slotValues 반영 — 갤러리 프리뷰와 동일한 slot-aware 렌더러(premium)로 위임.
+      //   premium 이 그릴 수 있으면(true) 거기서 끝 → 에디터 캔버스·저장 결과도 slotValues 반영.
+      const PT = window.PhotoEditorPremiumTemplates;
+      if (PT && typeof PT.renderHook === 'function' && PT.renderHook(ctx, dw, dh, state) === true) return;
+      // fallback — premium 미커버 템플릿만 기존 template-overlay 사용.
       const t = TEMPLATES.find(x => x.id === tpl.id);
       if (!t) return;
       window.PhotoEditorTemplateOverlay?.draw?.(ctx, dw, dh, t, tpl);
