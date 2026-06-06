@@ -307,6 +307,7 @@
     if (!PE || !PE._internal) { _toast('편집기를 먼저 열어주세요'); return; }
     const state = PE._internal.getState();
     if (!state) return;
+    const prevTpl = state.tplV2;   // [S1] 같은 템플릿 재적용 시 slot 값 보존용
     // 비율 설정
     state.ratio = cat.ratio;
     state.tplV2 = {
@@ -317,6 +318,24 @@
       logo: bk.logo,
       cat: cat.id,
     };
+    // [S1] editable slot 기반 — 신규 적용이면 기본값 생성, 같은 템플릿 재적용이면 기존 값 보존.
+    //   실패해도 기존 적용 경로 무회귀(try/guard). imageSlots.src '' = 현재 편집 사진 사용.
+    try {
+      const TS = window.PhotoEditorTemplateSlots;
+      if (TS) {
+        const same = !!(prevTpl && prevTpl.id === tpl.id);
+        state.tplV2.slotValues = (same && prevTpl.slotValues)
+          ? prevTpl.slotValues
+          : TS.getDefaultValues(tpl.id, tpl, { shopName: bk.shopName, serviceName: state.serviceName, price: state.price, customerName: state.customerName });
+        const kind = TS.inferTemplateKind(tpl.id, tpl);
+        const dflt = () => ({ src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 } });
+        state.tplV2.imageSlots = (same && prevTpl.imageSlots)
+          ? prevTpl.imageSlots
+          : (kind === 'before_after'
+              ? { before_photo: dflt(), after_photo: dflt() }
+              : { main_photo: dflt() });
+      }
+    } catch (_e) { /* slot 기반 실패해도 기존 적용 무회귀 */ }
     // 텍스트 레이어 prefill
     if (window.PhotoEditorLayers && window.PhotoEditorLayers.ensure) {
       window.PhotoEditorLayers.ensure(state);

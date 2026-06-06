@@ -161,6 +161,14 @@
         ctx.fillStyle = g; ctx.fillRect(0, 0, dim.w, dim.h);
       }
       const tplV2 = { id: t.id, label: t.label, bg: color, shopName: bk.shopName, logo: bk.logo, cat: cat.id };
+      // [S1] 프리뷰==적용 유지 — slotValues 주입(현재 적용 중이면 편집값, 아니면 기본값).
+      const TS = window.PhotoEditorTemplateSlots;
+      if (TS) {
+        const cur = state && state.tplV2;
+        tplV2.slotValues = (cur && cur.id === t.id && cur.slotValues)
+          ? cur.slotValues
+          : TS.getDefaultValues(t.id, t, { shopName: bk.shopName, serviceName: state && state.serviceName, price: state && state.price });
+      }
       const synth = {
         tplV2, originalImg: photo, secondImg: state && state.secondImg,
         shopName: state && state.shopName, serviceName: state && state.serviceName, price: state && state.price,

@@ -96,7 +96,13 @@
     const meta = META[tpl.id];
     if (!found || !meta) return;
     const b = _brandData(tpl);
-    const data = { type: meta[0], kicker: meta[1], head: found.prefillText || meta[2], sub: meta[3], shop: b.shop, accent: b.accent, price: b.price, review: b.review };
+    // [S1] editable slot 얕은 연결 — slotValues 있으면 우선, 없으면 기존과 동일(무회귀).
+    const sv = (tpl && tpl.slotValues) || {};
+    const data = { type: meta[0], kicker: meta[1],
+      head: sv.headline || found.prefillText || meta[2],
+      sub: sv.subtitle || meta[3],
+      shop: sv.shop_name || b.shop,
+      accent: b.accent, price: b.price, review: sv.review_text || b.review };
     if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
       window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
       return;
