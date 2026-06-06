@@ -47,7 +47,11 @@
   }
 
   // ── 패널 HTML ─────────────────────────────────────────
+  // [T1+T2 2026-06-06] 캔바식 갤러리(검색+칩+썸네일+현재사진 프리뷰)로 위임.
+  //   레거시 빌더/드로우 함수는 보존(폴백 + drawHook 'template' 호환).
   function _panelTemplateHTML(state) {
+    const g = window.PhotoEditorTemplateGallery;
+    if (g && typeof g.panelHTML === 'function') return g.panelHTML(state);
     return _buildPromoHero(state) + _buildPromoCards(state) + _buildAppliedCtas(state) + _buildLegacyControls(state);
   }
 
@@ -183,6 +187,8 @@
 
   // ── 패널 바인딩 ───────────────────────────────────────
   function _bindTemplatePanel(panel, state, helpers) {
+    const g = window.PhotoEditorTemplateGallery;
+    if (g && typeof g.bind === 'function') { g.bind(panel, state, helpers); return; }
     const { renderPanel, scheduleRedraw, pushHistory } = helpers;
     _bindPromoLoop(panel, state, helpers);
     panel.querySelectorAll('[data-pe-tpl]').forEach(btn => {

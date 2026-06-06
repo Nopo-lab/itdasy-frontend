@@ -357,21 +357,9 @@
     _sheetEl.style.display = 'flex';
   }
 
-  // MutationObserver — 템플릿 탭 활성일 때마다 버튼 주입
-  function _inject(panel) {
-    if (!panel || panel.querySelector('[data-pe-tplv2]')) return;
-    const PE = window.PhotoEditor;
-    const state = PE && PE._internal && PE._internal.getState();
-    if (!state || state.activeTab !== 'template') return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pe-action-btn';
-    btn.dataset.peTplv2 = '1';
-    btn.style.cssText = 'margin-top:12px;background:linear-gradient(135deg,#7b61ff,#5b8def);color:#fff;font-weight:600;width:100%;';
-    btn.textContent = '✨ 더 많은 템플릿 (30+) — 카테고리·검색';
-    btn.addEventListener('click', () => _open());
-    panel.appendChild(btn);
-  }
+  // [T1+T2 2026-06-06] 캔바식 갤러리 통합 — 패널 내 "더 많은 템플릿(30+)" 버튼 주입 중단.
+  //   마켓 모달(open/apply/openPreview) 공개 API 는 그대로 유지(갤러리·잇비가 호출).
+  function _inject() { /* no-op: 갤러리가 전체 탐색을 대체 */ }
 
   function _watchPanel() {
     const sheet = document.getElementById('photoEditorSheet');

@@ -373,21 +373,9 @@
     ctx.closePath();
   }
 
-  function _improveButton(panel) {
-    _register();
-    const btn = panel && panel.querySelector('[data-pe-tplv2]');
-    if (!btn) return;
-    if (btn.textContent !== '프리미엄 템플릿 30종') btn.textContent = '프리미엄 템플릿 30종';
-    if (!btn.classList.contains('pe-template-premium-btn')) btn.classList.add('pe-template-premium-btn');
-    if (btn.hasAttribute('style')) btn.removeAttribute('style');
-  }
-
-  function _watchPanel() {
-    const panel = document.getElementById('pePanel');
-    if (!panel) return setTimeout(_watchPanel, 700);
-    _improveButton(panel);
-    new MutationObserver(() => _improveButton(panel)).observe(panel, { childList: true, subtree: true });
-  }
+  // [T1+T2 2026-06-06] 캔바식 갤러리로 통합 — "프리미엄 템플릿 30종" 별도 버튼 강제 노출 제거.
+  //   렌더 hook(_premiumHook)·register 는 그대로 유지(적용·프리뷰 품질 동일).
+  function _watchPanel() { _register(); }
 
   function _register() {
     const PE = window.PhotoEditor;
@@ -407,7 +395,8 @@
     _watchPanel();
   }
 
-  window.PhotoEditorPremiumTemplates = { register: _register };
+  // renderHook: 갤러리 프리뷰가 "현재 사진 + 템플릿" 합성에 재사용(적용 결과와 동일한 렌더).
+  window.PhotoEditorPremiumTemplates = { register: _register, renderHook: _premiumHook };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot);
   else _boot();
 })();
