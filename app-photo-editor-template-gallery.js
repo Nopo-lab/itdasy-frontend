@@ -138,9 +138,19 @@
   }
 
   // 실패 없이 항상 dataURL 반환(사진 있으면 사진+오버레이, 없으면 살롱톤 + 라벨).
+  // djb2 해시(문자열 → 짧은 키). 편집 시 slotValues 변경 감지용.
+  function _hash(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+
   function _previewURL(t, state, basePx) {
     const sig = _photoSig(state);
-    const key = t.id + '|' + basePx + '|' + sig;
+    // [S2] 현재 적용 템플릿이면 slotValues 서명을 키에 포함(편집 시 stale 방지).
+    const cur = state && state.tplV2;
+    const slotSig = (cur && cur.id === t.id && cur.slotValues) ? '|' + _hash(JSON.stringify(cur.slotValues)) : '';
+    const key = t.id + '|' + basePx + '|' + sig + slotSig;
     if (_thumbCache[key]) return _thumbCache[key];
     const MD = _MD();
     const cat = MD.CATS.find(c => c.id === t.cat) || { ratio: '4:5' };
@@ -238,6 +248,7 @@
         <button type="button" class="pe-tplg-primary" data-pe-tplg-apply="${_esc(t.id)}">${applied ? '적용됨 ✓' : (isFree ? '이 템플릿 적용' : 'Pro로 적용')}</button>
         <button type="button" class="pe-tplg-secondary" data-pe-tplg-all>전체 템플릿 보기</button>
       </div>
+      <button type="button" class="pe-tplg-edit" data-pe-tplg-text-edit="${_esc(t.id)}">문구 편집</button>
     </div>`;
   }
 
@@ -353,6 +364,15 @@
       _showAll = true; _query = '';
       const si = panel.querySelector('[data-pe-tplg-search]'); if (si) si.value = '';
       _renderGrid(panel, state);
+    });
+    // [S2] 문구 편집 — apply-first(WYSIWYG): 먼저 적용(무료) 또는 게이트(PRO 미결제) → 시트 오픈.
+    panel.querySelector('[data-pe-tplg-text-edit]')?.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.peTplgTextEdit;
+      _applyTemplate(id, panel, state, panel._tplgHelpers);
+      if (!(state.tplV2 && state.tplV2.id === id)) return;   // 게이트 차단 시 시트 안 엶
+      const sheet = window.PhotoEditorTemplateEditSheet;
+      if (!sheet || typeof sheet.open !== 'function') { _toast('문구 편집을 불러오는 중이에요'); return; }
+      sheet.open({ templateId: id, templateData: _tplById(id), state: state, helpers: panel._tplgHelpers, onChange: () => _renderPreview(panel, state) });
     });
   }
 

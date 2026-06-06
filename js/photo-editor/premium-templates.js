@@ -102,7 +102,11 @@
       head: sv.headline || found.prefillText || meta[2],
       sub: sv.subtitle || meta[3],
       shop: sv.shop_name || b.shop,
-      accent: b.accent, price: b.price, review: sv.review_text || b.review };
+      accent: b.accent, price: b.price, review: sv.review_text || b.review,
+      // [S2] 편집 가능 슬롯 추가 연결(없으면 undefined → 렌더러가 기존 동작 유지)
+      services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
+      beforeLabel: sv.before_label, afterLabel: sv.after_label,
+      beforeCap: sv.before_caption, afterCap: sv.after_caption };
     if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
       window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
       return;
@@ -189,14 +193,35 @@
     _panel(ctx, w * 0.07, h * 0.1, w * 0.86, h * 0.8, 'rgba(255,250,242,0.94)', 24);
     _label(ctx, d.kicker, w * 0.13, h * 0.2, d.accent);
     _headline(ctx, d.head, w * 0.13, h * 0.28, w * 0.72, PAL.ink, 0.044);
-    const rows = _priceRows(d.kicker);
+    // [S2] slotValues.services 우선(빈 행 제외, 최대 5행 표시), 없으면 kicker 프리셋.
+    const rows = _svcRows(d);
+    const n = Math.max(rows.length, 1);
+    const step = Math.min(0.09, 0.4 / n);
     rows.forEach((row, i) => {
-      const y = h * (0.42 + i * 0.09);
+      const y = h * (0.42 + step * i);
       _small(ctx, row[0], w * 0.14, y, PAL.ink);
       _small(ctx, row[1], w * 0.72, y, d.accent);
-      _rule(ctx, w * 0.14, y + h * 0.025, w * 0.72, 'rgba(17,18,23,0.12)');
+      _rule(ctx, w * 0.14, y + step * h * 0.28, w * 0.72, 'rgba(17,18,23,0.12)');
     });
-    _small(ctx, d.shop, w * 0.14, h * 0.84, '#777');
+    // [S2] cta/phone 있으면 하단 중앙에, 없으면 기존 shop.
+    if (d.cta || d.phone) {
+      _center(ctx, d.cta || '예약 문의', w / 2, h * 0.845, d.accent, 0.022, 800);
+      if (d.phone) _center(ctx, d.phone, w / 2, h * 0.875, PAL.ink, 0.024, 700);
+    } else {
+      _small(ctx, d.shop, w * 0.14, h * 0.84, '#777');
+    }
+  }
+
+  // [S2] 가격 행 — services(편집값) 우선, 없으면 kicker 프리셋. [name, price] 형태.
+  function _svcRows(d) {
+    const FT = window.PhotoEditorTemplateFitText;
+    if (Array.isArray(d.services) && d.services.length) {
+      return d.services
+        .filter(s => s && (s.name || s.price))
+        .slice(0, 5)
+        .map(s => [s.name || '', s.price ? (FT ? FT.formatPrice(s.price) : s.price) : '']);
+    }
+    return _priceRows(d.kicker);
   }
 
   function _drawCard(ctx, w, h, d) {
@@ -226,6 +251,18 @@
   }
 
   function _quoteCard(ctx, w, h, d) {
+    const FT = window.PhotoEditorTemplateFitText;
+    // [S2] 후기 본문(review)이 있으면 후기 카드 레이아웃, 없으면 기존(헤드+부제+샵).
+    if (d.review && FT) {
+      _panel(ctx, w * 0.08, h * 0.55, w * 0.84, h * 0.37, 'rgba(255,250,242,0.96)', 24);
+      _label(ctx, d.kicker, w * 0.13, h * 0.62, d.accent);
+      _headline(ctx, d.head, w * 0.13, h * 0.69, w * 0.74, PAL.ink, 0.036);
+      FT.drawFitText(ctx, '“' + d.review + '”', { x: w * 0.13, y: h * 0.73, w: w * 0.74, h: h * 0.11 },
+        { maxFontSize: Math.round(h * 0.026), minFontSize: Math.round(h * 0.017), maxLines: 3, lineHeight: 1.34, color: '#444', weight: 500, valign: 'top' });
+      const foot = [d.customer || '', d.cta || ''].filter(Boolean).join('  ·  ') || (d.sub + ' · ' + d.shop);
+      _small(ctx, foot, w * 0.13, h * 0.88, '#666');
+      return;
+    }
     _panel(ctx, w * 0.08, h * 0.6, w * 0.84, h * 0.28, 'rgba(255,250,242,0.96)', 24);
     _label(ctx, d.kicker, w * 0.13, h * 0.68, d.accent);
     _headline(ctx, d.head, w * 0.13, h * 0.76, w * 0.74, PAL.ink, 0.038);

@@ -100,10 +100,32 @@
     _title(ctx, w, h, data, id);
     _photo(ctx, before, pad, top, boxW, boxH, true);
     _photo(ctx, after, pad + boxW + gap, top, boxW, boxH, false);
-    _labels(ctx, [[pad, top, boxW], [pad + boxW + gap, top, boxW]], h, LABELS[id] || LABELS['ba-2split-h']);
+    _labels(ctx, [[pad, top, boxW], [pad + boxW + gap, top, boxW]], h, _baLabels(id, data));
+    // [S2] before/after 캡션(편집값) — 사진 박스 아래.
+    _baCaption(ctx, pad + boxW / 2, top + boxH, data.beforeCap);
+    _baCaption(ctx, pad + boxW + gap + boxW / 2, top + boxH, data.afterCap);
     if (id === 'ba-price') _priceRows(ctx, w, h, data);
     else if (id === 'ba-review') _review(ctx, w, h, data);
     else _footer(ctx, w, h, data);
+  }
+
+  // [S2] 편집 가능 라벨 — slotValues.before_label/after_label 우선, 없으면 프리셋.
+  function _baLabels(id, data) {
+    const base = (LABELS[id] || LABELS['ba-2split-h']).slice();
+    if (data && data.beforeLabel) base[0] = data.beforeLabel;
+    if (data && data.afterLabel) base[1] = data.afterLabel;
+    return base;
+  }
+
+  function _baCaption(ctx, cx, boxBottom, text) {
+    if (!text) return;
+    const h = ctx.canvas.height;
+    ctx.save();
+    ctx.fillStyle = 'rgba(17,18,23,0.74)';
+    ctx.textAlign = 'center';
+    ctx.font = `600 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`;
+    ctx.fillText(String(text).slice(0, 24), cx, boxBottom + h * 0.032);
+    ctx.restore();
   }
 
   function _flowerShadow(ctx, w, h, before, after, data) {
@@ -165,7 +187,7 @@
     _title(ctx, w, h, data, id);
     _photo(ctx, before, pad, top, w - pad * 2, boxH, true);
     _photo(ctx, after, pad, top + boxH + gap, w - pad * 2, boxH, false);
-    _labels(ctx, [[pad, top, w - pad * 2], [pad, top + boxH + gap, w - pad * 2]], h, LABELS[id]);
+    _labels(ctx, [[pad, top, w - pad * 2], [pad, top + boxH + gap, w - pad * 2]], h, _baLabels(id, data));
     if (id === 'ba-event') _eventBand(ctx, w, h, data);
     else _footer(ctx, w, h, data);
   }
@@ -367,9 +389,21 @@
   }
 
   function _footer(ctx, w, h, data) {
+    ctx.textAlign = 'center';
+    // [S2] cta/phone(편집값) 있으면 표기, 없으면 기존 샵명.
+    if (data.cta || data.phone) {
+      ctx.fillStyle = '#D58A95';
+      ctx.font = `800 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(data.cta || '예약 문의', w / 2, h * 0.88);
+      if (data.phone) {
+        ctx.fillStyle = '#555';
+        ctx.font = `600 ${Math.round(h * 0.02)}px sans-serif`;
+        ctx.fillText(data.phone, w / 2, h * 0.915);
+      }
+      return;
+    }
     ctx.fillStyle = '#555';
     ctx.font = `600 ${Math.round(h * 0.018)}px sans-serif`;
-    ctx.textAlign = 'center';
     ctx.fillText(data.shop || '잇데이 스튜디오', w / 2, h * 0.88);
   }
 
