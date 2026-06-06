@@ -216,13 +216,13 @@ function _renderPopupPhotoGrid(slot) {
     const imgBox = document.createElement('div');
     imgBox.dataset.imgbox = '1';
     // [PR-1] 활성 사진은 box-shadow 링으로 강조(선택 border 와 독립). 선택 border 는 기존 그대로.
-    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};box-shadow:${active ? '0 0 0 3px var(--accent,#D58A95)' : 'none'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
+    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;border:2.5px solid ${sel ? '#5b7cfa' : 'transparent'};box-shadow:${active ? '0 0 0 3px #5b7cfa' : 'none'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
     imgBox.innerHTML = `
       <img src="${_slotEsc(photo.editedDataUrl || photo.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;">
       <div style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.3)'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;">${sel ? '✓' : ''}</div>
       <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,0.55);font-size:9px;color:${modeColor[photo.mode]};font-weight:700;">${modeLabel[photo.mode] || '원본'}</div>
       ${baLbl ? `<div style="position:absolute;top:3px;left:3px;background:${baLbl==='BEFORE'?'rgba(100,149,237,0.92)':'rgba(213,138,149,0.92)'};border-radius:4px;padding:2px 6px;font-size:9px;color:#fff;font-weight:800;">${baLbl}</div>` : ''}
-      <div data-active-badge style="position:absolute;top:3px;left:50%;transform:translateX(-50%);background:var(--accent,#D58A95);border-radius:6px;padding:2px 8px;font-size:9px;color:#fff;font-weight:800;z-index:3;white-space:nowrap;display:${active ? '' : 'none'};">편집 대상</div>
+      <div data-active-badge style="position:absolute;top:3px;left:50%;transform:translateX(-50%);background:#5b7cfa;border-radius:6px;padding:2px 8px;font-size:9px;color:#fff;font-weight:800;z-index:3;white-space:nowrap;display:${active ? '' : 'none'};">편집 대상</div>
       <button data-unassign-photo style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
     `;
     imgBox.querySelector('[data-unassign-photo]')?.addEventListener('click', e => unassignPopupPhoto(photo.id, e));

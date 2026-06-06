@@ -291,3 +291,43 @@
 .ba-cta:active { transform: scale(0.98); }
 .ba-cta--primary { grid-column: 1 / -1; background: #191f28; color: #fff; border: none; }
 .ba-cta--primary:disabled { background: #c8ccd2; color: #fff; cursor: not-allowed; transform: none; }
+
+/* ══ [C-lite 디자인 매칭] 첨부 이미지 기준 라이트 폴리싱 (CSS only, 로직 불변) ══ */
+#slotPopup, #photoEditorSheet.pe-inline {
+  --ws-clite-bg: #f7f8fb;
+  --ws-clite-surface: #fff;
+  --ws-clite-border: #e8eaf0;
+  --ws-clite-text: #111827;
+  --ws-clite-text-soft: #374151;
+  --ws-clite-muted: #6b7280;
+  --ws-clite-accent: #5b7cfa;
+  --ws-clite-accent-2: #6c63ff;
+  --ws-clite-accent-soft: rgba(91, 124, 250, 0.12);
+  --ws-clite-accent-ring: rgba(91, 124, 250, 0.35);
+}
+/* 슬롯 팝업 — 밝은 톤 */
+#slotPopup { background: var(--ws-clite-bg); }
+/* 상단바 */
+#slotPopup .dt-hdr { background: var(--ws-clite-surface); border-bottom: 1px solid rgba(232,234,240,0.8); }
+#slotPopup .dt-title { font-size: 15px; font-weight: 750; color: var(--ws-clite-text); letter-spacing: -0.03em; }
+#slotPopup .dt-back { border-radius: 14px; background: #f3f4f6; border: 1px solid var(--ws-clite-border); color: var(--ws-clite-text-soft); }
+/* 헤더 보조 '잇비' 버튼 (하단에서 이전) */
+#slotPopup .slot-itbi-hd {
+  width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0;
+  background: #f3f4f6; border: 1px solid var(--ws-clite-border);
+  color: var(--ws-clite-accent-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+}
+#slotPopup .slot-itbi-hd:active { transform: scale(0.96); background: var(--ws-clite-accent-soft); }
+/* 하단 메뉴 — 아이콘+라벨, 보더리스, accent active */
+#slotPopup .ws-toolbar {
+  background: rgba(255,255,255,0.97); border-top: 1px solid var(--ws-clite-border);
+  gap: 0; padding: 6px 6px calc(8px + env(safe-area-inset-bottom, 0px)); backdrop-filter: blur(12px);
+}
+#slotPopup .ws-toolbar__btn {
+  flex: 1; min-width: 0; border: 0; background: transparent; border-radius: 14px;
+  color: #4b5563; font-size: 10.5px; font-weight: 700; letter-spacing: -0.04em; gap: 3px; padding: 7px 2px;
+}
+#slotPopup .ws-toolbar__btn svg, #slotPopup .ws-toolbar__btn .ic { width: 19px; height: 19px; }
+#slotPopup .ws-toolbar__btn:active { transform: scale(0.96); background: var(--ws-clite-accent-soft); }
+#slotPopup .ws-toolbar__btn--active { color: var(--ws-clite-accent); background: var(--ws-clite-accent-soft); border: 0; }
+#slotPopup .ws-active-ctx { color: var(--ws-clite-muted); font-weight: 700; }

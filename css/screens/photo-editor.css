@@ -360,3 +360,39 @@
   font-size: 9px; font-weight: 800; border-radius: 999px;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* ══ [C-lite 디자인 매칭] inline 편집기 라이트 정밀화 (CSS only, 로직/수치 불변) ══ */
+#photoEditorSheet.pe-inline { --pe-c-accent: #5b7cfa; --pe-c-border: #e8eaf0; }
+/* 캔버스 영역을 밝은 카드처럼 */
+#photoEditorSheet.pe-inline .pe-canvas-wrap {
+  background: #f1f3f7; border-radius: 18px; border: 1px solid var(--pe-c-border);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.08); overflow: hidden;
+}
+#photoEditorSheet.pe-inline .pe-panel { border-radius: 22px 22px 0 0; box-shadow: 0 -12px 28px rgba(15,23,42,0.07); }
+/* 부위 칩 — accent active */
+#photoEditorSheet.pe-inline .pe-beauty-focus { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px; scrollbar-width: none; }
+#photoEditorSheet.pe-inline .pe-beauty-focus::-webkit-scrollbar { display: none; }
+#photoEditorSheet.pe-inline .pe-beauty-focus button {
+  flex: 0 0 auto; min-height: 34px; padding: 0 13px; border-radius: 999px;
+  border: 1px solid transparent; background: #f2f4f7; color: #374151;
+  font-size: 13px; font-weight: 750; cursor: pointer;
+}
+#photoEditorSheet.pe-inline .pe-beauty-focus button.on {
+  color: var(--pe-c-accent); background: rgba(91,124,250,0.12); border-color: rgba(91,124,250,0.2);
+}
+/* 슬라이더 — 트랙 얇은 회색 + 블루 thumb (studio 핑크 오버라이드) */
+#photoEditorSheet.pe-inline .pe-slider-head { color: #374151; }
+#photoEditorSheet.pe-inline .pe-slider-val { color: var(--pe-c-accent); font-weight: 800; }
+/* 기존 슬라이더는 input 의 background 자체를 트랙(rainbow/pink)으로 씀 → input bg 를 회색으로 덮고 thumb 만 블루. 효과 수치/이벤트 불변. */
+#photoEditorSheet.pe-inline .pe-slider input[type="range"] { background: #e5e7eb !important; height: 4px; border-radius: 999px; accent-color: var(--pe-c-accent); }
+#photoEditorSheet.pe-inline .pe-slider input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: transparent; }
+#photoEditorSheet.pe-inline .pe-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 17px; height: 17px; margin-top: -6.5px; border-radius: 999px;
+  background: #fff !important; border: 2px solid var(--pe-c-accent) !important; box-shadow: 0 3px 10px rgba(91,124,250,0.28) !important;
+}
+#photoEditorSheet.pe-inline .pe-slider input[type="range"]::-moz-range-track { height: 4px; border-radius: 999px; background: #e5e7eb; }
+#photoEditorSheet.pe-inline .pe-slider input[type="range"]::-moz-range-thumb { width: 17px; height: 17px; border-radius: 999px; background: #fff; border: 2px solid var(--pe-c-accent); box-shadow: 0 3px 10px rgba(91,124,250,0.28); }
+/* nav-v7 active accent 블루 통일 */
+#photoEditorSheet.pe-inline .pe-nav-v7 { background: rgba(255,255,255,0.97); border-top: 1px solid var(--pe-c-border); }
+#photoEditorSheet.pe-inline .pe-nav-v7-cat.on, #photoEditorSheet.pe-inline .pe-nav-v7-chip.on { color: var(--pe-c-accent); }
+#photoEditorSheet.pe-inline .pe-nav-v7-chip.on::after { background: linear-gradient(135deg, #5b7cfa, #6c63ff); }
