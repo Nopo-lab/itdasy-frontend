@@ -39,6 +39,7 @@
     if (!opts.state.tplV2.slotValues) opts.state.tplV2.slotValues = {};
     _ctx = { templateId: opts.templateId, state: opts.state, helpers: opts.helpers, onChange: opts.onChange, slots: slots, values: opts.state.tplV2.slotValues };
     _ensureEl();
+    _syncFooter();
     _el.querySelector('[data-edit-body]').innerHTML = slots.map(s => _fieldHTML(s, _ctx.values)).join('');
     _bindFields();
     _el.style.display = 'flex';
@@ -60,14 +61,48 @@
         </div>
         <div class="pe-tpl-edit-body" data-edit-body></div>
         <div class="pe-tpl-edit-foot">
-          <button type="button" class="pe-tpl-edit-cancel" data-edit-close>닫기</button>
-          <button type="button" class="pe-tpl-edit-apply" data-edit-apply>적용하기</button>
+          <div class="pe-tpl-edit-savehint" data-edit-savehint></div>
+          <div class="pe-tpl-edit-actions">
+            <button type="button" class="pe-tpl-edit-cancel" data-edit-close>닫기</button>
+            <button type="button" class="pe-tpl-edit-save" data-edit-save>저장 화면으로 이동</button>
+            <button type="button" class="pe-tpl-edit-apply" data-edit-apply>적용하고 닫기</button>
+          </div>
         </div>
       </div>`;
     const host = document.getElementById('photoEditorSheet') || document.body;
     host.appendChild(_el);
     _el.querySelectorAll('[data-edit-close]').forEach(b => b.addEventListener('click', close));
     _el.querySelector('[data-edit-apply]').addEventListener('click', () => { close(); _toast('문구를 적용했어요'); });
+    _el.querySelector('[data-edit-save]').addEventListener('click', _handleSaveAction);
+  }
+
+  function _syncFooter() {
+    if (!_el) return;
+    const embedded = _isEmbedded();
+    const save = _el.querySelector('[data-edit-save]');
+    const hint = _el.querySelector('[data-edit-savehint]');
+    if (save) save.textContent = embedded ? '작업실에 저장' : '저장 화면으로 이동';
+    if (hint) hint.textContent = embedded
+      ? '문구는 미리보기에 바로 반영돼요. 저장하면 작업실 사진에 적용돼요.'
+      : '문구는 미리보기에 바로 반영돼요. 최종 저장은 저장 화면에서 해요.';
+  }
+
+  function _isEmbedded() {
+    const st = _ctx && _ctx.state;
+    return !!(st && (st.onSave || st.photoSet));
+  }
+
+  async function _handleSaveAction() {
+    if (!_ctx || !_ctx.helpers) return;
+    if (_isEmbedded() && typeof _ctx.helpers.save === 'function') {
+      await _ctx.helpers.save();
+      close();
+      return;
+    }
+    close();
+    if (typeof _ctx.helpers.applyStatePatch === 'function') _ctx.helpers.applyStatePatch({ activeTab: 'export' });
+    else if (window.PhotoEditorEntryV6 && typeof window.PhotoEditorEntryV6.goto === 'function') window.PhotoEditorEntryV6.goto('export', 'save');
+    _toast('저장 화면을 열었어요');
   }
 
   // ── 필드 HTML ──

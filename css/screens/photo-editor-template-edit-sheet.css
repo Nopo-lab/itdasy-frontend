@@ -4,7 +4,7 @@
 .pe-tpl-edit {
   position: absolute;
   inset: 0;
-  z-index: 60;
+  z-index: 10020;
   display: flex;
   align-items: flex-end;
   -webkit-tap-highlight-color: transparent;
@@ -306,11 +306,22 @@
 
 .pe-tpl-edit-foot {
   display: grid;
-  grid-template-columns: 1fr 1.6fr;
-  gap: 10px;
+  gap: 8px;
   padding: 11px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid #f1f2f5;
   background: #fff;
+}
+.pe-tpl-edit-savehint {
+  color: #6b7280;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+.pe-tpl-edit-actions {
+  display: grid;
+  grid-template-columns: .8fr 1.15fr 1.25fr;
+  gap: 8px;
 }
 .pe-tpl-edit-cancel {
   height: 48px;
@@ -320,6 +331,16 @@
   color: #111827;
   font-size: 14px;
   font-weight: 800;
+  cursor: pointer;
+}
+.pe-tpl-edit-save {
+  height: 48px;
+  border: 1px solid #d6d3e6;
+  border-radius: 14px;
+  background: #faf9ff;
+  color: #6d28d9;
+  font-size: 13px;
+  font-weight: 850;
   cursor: pointer;
 }
 .pe-tpl-edit-apply {
@@ -349,4 +370,5 @@
 
 @media (width <= 430px) {
   .pe-tpl-edit-svc-line { grid-template-columns: 1fr 0.72fr; }
+  .pe-tpl-edit-actions { grid-template-columns: 1fr; }
 }

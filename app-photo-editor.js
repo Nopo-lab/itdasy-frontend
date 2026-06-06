@@ -658,6 +658,7 @@
     drawWatermark: (...args) => window.PhotoEditorRenderer?.drawWatermark?.(...args),
     slider: _slider,
     getState: () => _state, applyStatePatch: _applyStatePatch,
+    save: _save,
     applyAuto: _applyAuto, applyTransform: _applyTransform, loadImage: _loadImage, replaceImage: _replaceImage,
     ensureLayers: _ensureLayers, syncTextToLayer: _syncTextToLayer,
     addLayer: _addLayer, deleteLayer: _deleteLayer, selectLayer: _selectLayer, moveLayerUp: _moveLayerUp,
