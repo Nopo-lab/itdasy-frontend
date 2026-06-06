@@ -331,3 +331,42 @@
 #slotPopup .ws-toolbar__btn:active { transform: scale(0.96); background: var(--ws-clite-accent-soft); }
 #slotPopup .ws-toolbar__btn--active { color: var(--ws-clite-accent); background: var(--ws-clite-accent-soft); border: 0; }
 #slotPopup .ws-active-ctx { color: var(--ws-clite-muted); font-weight: 700; }
+
+/* ══ [PR-Design-2] 슬롯 기본 화면: 상단 스트립 + 중앙 큰 메인 ══ */
+#slotPopup .ws-strip { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 10px; scrollbar-width: none; }
+#slotPopup .ws-strip::-webkit-scrollbar { display: none; }
+#slotPopup .ws-strip-thumb {
+  position: relative; flex: 0 0 64px; width: 64px; height: 64px;
+  border-radius: 12px; overflow: hidden; padding: 0; cursor: pointer;
+  border: 2px solid transparent; background: #f3f4f6;
+  transition: border-color .16s, box-shadow .16s, transform .16s;
+}
+#slotPopup .ws-strip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+#slotPopup .ws-strip-thumb.is-active { border-color: #5b7cfa; box-shadow: 0 0 0 2px rgba(91,124,250,0.30); }
+#slotPopup .ws-strip-thumb:active { transform: scale(0.97); }
+#slotPopup .ws-strip-num { position: absolute; left: 4px; top: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: rgba(17,24,39,0.72); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+#slotPopup .ws-strip-check { position: absolute; right: 4px; top: 4px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; background: rgba(0,0,0,0.32); color: #fff; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+#slotPopup .ws-strip-check.on { background: #5b7cfa; }
+#slotPopup .ws-strip-ba { position: absolute; left: 4px; bottom: 4px; font-size: 8px; font-weight: 800; color: #fff; padding: 1px 5px; border-radius: 999px; }
+#slotPopup .ws-strip-ba.before { background: rgba(100,149,237,0.92); }
+#slotPopup .ws-strip-ba.after { background: rgba(213,138,149,0.92); }
+#slotPopup .ws-strip-add { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 12px; border: 1.5px dashed #d1d5db; background: #f5f6f8; color: #9ca3af; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+#slotPopup .ws-strip-add:active { transform: scale(0.97); }
+/* 중앙 큰 active 미리보기 */
+#slotPopup .ws-main {
+  position: relative; margin: 2px 0 12px; border-radius: 20px; overflow: hidden;
+  background: #f1f3f7; border: 1px solid var(--ws-clite-border, #e8eaf0);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.08);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 46vh; max-height: 58vh;
+}
+#slotPopup .ws-main-img { width: 100%; height: 100%; max-height: 58vh; object-fit: contain; display: block; }
+#slotPopup .ws-main-empty { color: #9ca3af; font-size: 13px; padding: 48px 12px; }
+#slotPopup .ws-main-pill { position: absolute; right: 12px; top: 12px; min-width: 44px; height: 30px; padding: 0 11px; border-radius: 999px; background: rgba(17,24,39,0.66); color: #fff; font-size: 13px; font-weight: 750; display: inline-flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+#slotPopup .ws-main-undo { position: absolute; right: 12px; bottom: 12px; width: 38px; height: 38px; border-radius: 999px; background: rgba(255,255,255,0.92); border: 1px solid rgba(232,234,240,0.9); box-shadow: 0 8px 20px rgba(15,23,42,0.12); color: #111827; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+#slotPopup .ws-main-undo:active { transform: scale(0.94); }
+/* 완료 버튼 — 슬롯 팝업 내부만 다크 네이비(전역 btn-primary 불변) */
+#slotPopup .dt-hdr .btn-primary { background: #111827 !important; color: #fff !important; border-radius: 16px !important; box-shadow: none !important; }
+@media (width <= 430px) {
+  #slotPopup .ws-strip-thumb, #slotPopup .ws-strip-add { flex-basis: 60px; width: 60px; height: 60px; }
+}

@@ -134,7 +134,9 @@ function _renderPopupBody(slot) {
   body.innerHTML = `
     ${usageHtml}
     <input type="file" id="popupPhotoInput" data-popup-upload accept="image/*" multiple style="display:none;">
-    <div id="popupPhotoGrid" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;margin-bottom:12px;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;"></div>
+    <!-- [PR-Design-2] 상단 작은 사진 스트립 + 중앙 큰 active 미리보기 (캐러셀 대체) -->
+    <div id="popupPhotoStrip" class="ws-strip"></div>
+    <div id="popupMainPreview" class="ws-main"></div>
     <div id="popupBulkBar" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:12px;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="font-size:12px;font-weight:700;color:var(--text);"><span id="popupSelCount">0</span>장 선택됨</div>
@@ -160,138 +162,92 @@ function _bindSlotPopupBody(body) {
   });
 }
 
-// ── 팝업 사진 그리드 렌더링 ────────────────────────────────────
+// ── [PR-Design-2] 팝업 사진 렌더 — 상단 스트립 + 중앙 큰 active 미리보기 ──
+//   (기존 큰 카드 캐러셀 대체. _activePhotoId/_popupSelIds/onSave/BA 폴백 경로 불변.)
 function _renderPopupPhotoGrid(slot) {
-  const grid    = document.getElementById('popupPhotoGrid');
+  const strip = document.getElementById('popupPhotoStrip');
+  const main  = document.getElementById('popupMainPreview');
   const bulkBar = document.getElementById('popupBulkBar');
   const selCount = document.getElementById('popupSelCount');
-  if (!grid) return;
+  if (!strip && !main) return;
 
   const visiblePhotos = (slot.photos || []).filter(p => !p.hidden);
-
-  // [PR-1] 활성(편집 대상) 사진 보정 — 없거나 사라졌으면 첫 사진 자동 활성. 순서는 photos 배열 그대로.
   if (!_activePhotoId || !visiblePhotos.some(p => p.id === _activePhotoId)) {
     _activePhotoId = visiblePhotos[0] ? visiblePhotos[0].id : null;
   }
-  _syncWorkshopSource();   // [P0a] active photo → 잇비 SourceImage store 최신화(열기/탭 시)
+  _syncWorkshopSource();
 
-  // [PR-2] 활성 사진 컨텍스트 헤더 갱신 (2장 이상일 때만 표시 — 단일 사진이면 숨김이 더 깔끔).
+  const aIdx = visiblePhotos.findIndex(p => p.id === _activePhotoId);
   const ctxEl = document.getElementById('slotActiveCtx');
-  if (ctxEl) {
-    const aIdx = visiblePhotos.findIndex(p => p.id === _activePhotoId);
-    if (visiblePhotos.length >= 2 && aIdx >= 0) {
-      ctxEl.textContent = '편집 대상 ' + (aIdx + 1) + '/' + visiblePhotos.length;
-      ctxEl.style.display = '';
-    } else {
-      ctxEl.textContent = '';
-      ctxEl.style.display = 'none';
-    }
-  }
+  if (ctxEl) { ctxEl.textContent = ''; ctxEl.style.display = 'none'; }   // N/M 은 메인 pill 로 대체
 
   if (selCount) selCount.textContent = _popupSelIds.size;
   if (bulkBar)  bulkBar.style.display = _popupSelIds.size > 0 ? 'block' : 'none';
 
-  const selArr    = [..._popupSelIds];
+  const selArr = [..._popupSelIds];
   const baLabelMap = {};
-  if (_baMode) {
-    if (selArr[0]) baLabelMap[selArr[0]] = 'BEFORE';
-    if (selArr[1]) baLabelMap[selArr[1]] = 'AFTER';
+  if (_baMode) { if (selArr[0]) baLabelMap[selArr[0]] = 'BEFORE'; if (selArr[1]) baLabelMap[selArr[1]] = 'AFTER'; }
+
+  // ── 상단 스트립 ──
+  if (strip) {
+    strip.innerHTML = '';
+    visiblePhotos.forEach((photo, i) => {
+      const sel = _popupSelIds.has(photo.id);
+      const active = photo.id === _activePhotoId;
+      const baLbl = baLabelMap[photo.id];
+      const thumb = document.createElement('button');
+      thumb.type = 'button';
+      thumb.className = 'ws-strip-thumb' + (active ? ' is-active' : '');
+      thumb.dataset.photoId = photo.id;
+      thumb.innerHTML =
+        `<img src="${_slotEsc(photo.editedDataUrl || photo.dataUrl)}" alt="">`
+        + `<span class="ws-strip-num">${i + 1}</span>`
+        + `<span class="ws-strip-check${sel ? ' on' : ''}" data-strip-check="${photo.id}">${sel ? '✓' : ''}</span>`
+        + (baLbl ? `<span class="ws-strip-ba ${baLbl === 'BEFORE' ? 'before' : 'after'}">${baLbl}</span>` : '');
+      thumb.addEventListener('click', (e) => {
+        if (e.target.closest('[data-strip-check]')) { e.stopPropagation(); togglePopupPhotoSel(photo.id); return; }  // 일괄 선택
+        if (_activePhotoId === photo.id) return;
+        _activePhotoId = photo.id;                                   // 편집 대상만 변경
+        _renderPopupPhotoGrid(slot);
+        if (window.hapticLight) window.hapticLight();
+      });
+      strip.appendChild(thumb);
+    });
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'ws-strip-add'; add.setAttribute('aria-label', '사진 추가');
+    add.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+    add.addEventListener('click', () => { const inp = document.getElementById('popupPhotoInput'); if (inp) inp.click(); });
+    strip.appendChild(add);
   }
 
-  const modeColor = { original: 'var(--text3)', ai_bg: 'var(--accent)', ba: '#8fa4ff', enhanced: '#10B981' };
-  const modeLabel = { original: '원본', ai_bg: 'AI합성', ba: '비포/애프터', enhanced: '보정' };
-
-  grid.innerHTML = '';
-  visiblePhotos.forEach(photo => {
-    const sel   = _popupSelIds.has(photo.id);
-    const active = photo.id === _activePhotoId;   // [PR-1] 편집 대상
-    const baLbl = baLabelMap[photo.id];
-
-    const wrap = document.createElement('div');
-    // [#1 carousel] 슬라이드 — 가로 스와이프(스크롤 스냅). 한 장 크게 + 다음 살짝 보임.
-    wrap.style.cssText = 'flex:0 0 78%;scroll-snap-align:center;display:flex;flex-direction:column;gap:3px;user-select:none;-webkit-user-select:none;';
-    wrap.dataset.wsSlide = '1'; wrap.dataset.photoId = photo.id;
-    wrap.addEventListener('contextmenu', e => e.preventDefault());
-
-    const imgBox = document.createElement('div');
-    imgBox.dataset.imgbox = '1';
-    // [PR-1] 활성 사진은 box-shadow 링으로 강조(선택 border 와 독립). 선택 border 는 기존 그대로.
-    imgBox.style.cssText = `position:relative;aspect-ratio:1/1;border-radius:14px;overflow:hidden;border:2.5px solid ${sel ? '#5b7cfa' : 'transparent'};box-shadow:${active ? '0 0 0 3px #5b7cfa' : 'none'};cursor:pointer;user-select:none;-webkit-user-select:none;`;
-    imgBox.innerHTML = `
-      <img src="${_slotEsc(photo.editedDataUrl || photo.dataUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;user-select:none;-webkit-user-select:none;-webkit-user-drag:none;">
-      <div style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:${sel ? 'var(--accent)' : 'rgba(0,0,0,0.3)'};display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;">${sel ? '✓' : ''}</div>
-      <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 5px;background:rgba(0,0,0,0.55);font-size:9px;color:${modeColor[photo.mode]};font-weight:700;">${modeLabel[photo.mode] || '원본'}</div>
-      ${baLbl ? `<div style="position:absolute;top:3px;left:3px;background:${baLbl==='BEFORE'?'rgba(100,149,237,0.92)':'rgba(213,138,149,0.92)'};border-radius:4px;padding:2px 6px;font-size:9px;color:#fff;font-weight:800;">${baLbl}</div>` : ''}
-      <div data-active-badge style="position:absolute;top:3px;left:50%;transform:translateX(-50%);background:#5b7cfa;border-radius:6px;padding:2px 8px;font-size:9px;color:#fff;font-weight:800;z-index:3;white-space:nowrap;display:${active ? '' : 'none'};">편집 대상</div>
-      <button data-unassign-photo style="position:absolute;top:${baLbl?'22':'3'}px;left:3px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:9px;cursor:pointer;z-index:2;line-height:1;">↩</button>
-    `;
-    imgBox.querySelector('[data-unassign-photo]')?.addEventListener('click', e => unassignPopupPhoto(photo.id, e));
-    imgBox.addEventListener('click', e => { e.stopPropagation(); _activePhotoId = photo.id; togglePopupPhotoSel(photo.id); });  // [PR-1] 탭 시 활성 사진 전환(+기존 선택 토글 유지)
-    imgBox.style.webkitTapHighlightColor = 'transparent';
-    wrap.appendChild(imgBox);
-
-    if (photo.mode === 'ba') {
-      const restoreBtn = document.createElement('button');
-      restoreBtn.textContent = '↩ 되돌리기';
-      restoreBtn.style.cssText = 'width:100%;padding:3px;border-radius:6px;border:1px solid rgba(143,164,255,0.5);background:transparent;font-size:10px;color:#8fa4ff;cursor:pointer;font-weight:700;';
-      restoreBtn.onclick = () => restoreBAPhoto(photo.id);
-      wrap.appendChild(restoreBtn);
+  // ── 중앙 큰 active 미리보기 ──
+  if (main) {
+    const ap = visiblePhotos.find(p => p.id === _activePhotoId) || visiblePhotos[0];
+    if (!ap) {
+      main.innerHTML = '<div class="ws-main-empty">사진을 추가해 주세요</div>';
+    } else {
+      const canRestore = !!(ap.editedDataUrl || (ap.mode && ap.mode !== 'original'));
+      main.innerHTML =
+        `<img src="${_slotEsc(ap.editedDataUrl || ap.dataUrl)}" alt="" class="ws-main-img">`
+        + (visiblePhotos.length >= 1 ? `<span class="ws-main-pill">${(aIdx >= 0 ? aIdx + 1 : 1)}/${visiblePhotos.length}</span>` : '')
+        + (canRestore ? `<button type="button" class="ws-main-undo" data-main-undo aria-label="원본으로 복원" title="원본으로 복원"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg></button>` : '');
+      main.querySelector('[data-main-undo]')?.addEventListener('click', () => restorePhotoOriginal(ap.id));
     }
-
-    const previewBtn = document.createElement('button');
-    previewBtn.textContent = '미리보기';
-    previewBtn.style.cssText = 'width:100%;padding:3px;border-radius:6px;border:1px solid var(--border);background:transparent;font-size:10px;color:var(--text3);cursor:pointer;';
-    previewBtn.onclick = () => showPhotoInstaPreview(photo.editedDataUrl || photo.dataUrl);
-    wrap.appendChild(previewBtn);
-
-    grid.appendChild(wrap);
-  });
-
-  // [#1 carousel] '사진 더 추가'도 슬라이드 한 칸(정사각).
-  const addCell = document.createElement('div');
-  addCell.style.cssText = 'flex:0 0 78%;scroll-snap-align:center;aspect-ratio:1/1;border-radius:12px;background:var(--bg2,#f8f8f9);border:1.5px dashed var(--border,rgba(0,0,0,0.1));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;user-select:none;';
-  addCell.innerHTML = `
-    <div style="width:32px;height:32px;border-radius:50%;background:#fff;display:grid;place-items:center;color:var(--accent,var(--brand));">
-      <i class="ph-duotone ph-plus" style="font-size:16px" aria-hidden="true"></i>
-    </div>
-    <div style="font-size:11px;font-weight:700;color:var(--text2,#5A6573);">사진 더 추가</div>
-  `;
-  addCell.addEventListener('click', () => document.getElementById('popupPhotoInput').click());
-  grid.appendChild(addCell);
-
-  // [#1 carousel] 좌우 스와이프 → 가운데 사진을 활성(편집 대상)으로. 스크롤 정착 시 갱신(재렌더 X, 스크롤 보존).
-  if (!grid._carouselBound) {
-    grid._carouselBound = true;
-    let t = null;
-    grid.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(() => _updateCarouselActive(grid), 90); }, { passive: true });
   }
-  // 활성 사진 슬라이드로 스크롤 위치 맞춤(렌더 직후)
-  requestAnimationFrame(() => {
-    const cur = grid.querySelector(`[data-photo-id="${_activePhotoId}"]`);
-    if (cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
-  });
 }
 
-// [#1 carousel] 스크롤 가운데 슬라이드 = 활성 사진. 링/배지/헤더만 갱신(재렌더 없이 스크롤 보존).
-function _updateCarouselActive(grid) {
-  const slides = [...grid.querySelectorAll('[data-photo-id]')];
-  if (!slides.length) return;
-  const center = grid.scrollLeft + grid.clientWidth / 2;
-  let best = null, bd = Infinity;
-  slides.forEach(s => { const c = s.offsetLeft + s.offsetWidth / 2; const d = Math.abs(c - center); if (d < bd) { bd = d; best = s; } });
-  if (!best || !best.dataset.photoId) return;
-  if (_activePhotoId === best.dataset.photoId) return;
-  _activePhotoId = best.dataset.photoId;
-  slides.forEach(s => {
-    const on = s.dataset.photoId === _activePhotoId;
-    const box = s.querySelector('[data-imgbox]'); if (box) box.style.boxShadow = on ? '0 0 0 3px var(--accent,#D58A95)' : 'none';
-    const badge = s.querySelector('[data-active-badge]'); if (badge) badge.style.display = on ? '' : 'none';
-  });
-  const vis = slides.filter(s => s.dataset.photoId);
-  const i = vis.findIndex(s => s.dataset.photoId === _activePhotoId);
-  const ctx = document.getElementById('slotActiveCtx');
-  if (ctx) { if (vis.length >= 2 && i >= 0) { ctx.textContent = '편집 대상 ' + (i + 1) + '/' + vis.length; ctx.style.display = ''; } else { ctx.style.display = 'none'; } }
-  _syncWorkshopSource();   // [P0a] 스와이프로 active 바뀌면 SourceImage store 최신화
+// [PR-Design-2] active photo 1장만 원본으로 얕은 복원(A안). BA 는 기존 경로 재사용. history 신설 없음.
+async function restorePhotoOriginal(photoId) {
+  const slot = _slots.find(s => s.id === _popupSlotId);
+  if (!slot) return;
+  const ph = slot.photos.find(p => p.id === photoId);
+  if (!ph) return;
+  if (ph.mode === 'ba') { return restoreBAPhoto(photoId); }   // BA 기존 복원 경로 무회귀
+  if (!ph.editedDataUrl && (!ph.mode || ph.mode === 'original')) return;   // 이미 원본
+  ph.editedDataUrl = null; ph.mode = 'original';               // 원본 dataUrl 은 보존
+  try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
+  _renderPopupPhotoGrid(slot);
+  if (typeof showToast === 'function') showToast('원본으로 되돌렸어요');
 }
 
 // [P0a] 현재 작업실 active photo 를 잇비 SourceImage store 에 기록 — 잇비가 "작업실 그 사진"을 알게.
