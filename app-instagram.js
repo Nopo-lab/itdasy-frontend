@@ -640,7 +640,7 @@ async function connectInstagram() {
 
   } catch(e) {
     showToast('연동 중 오류가 발생했습니다. 크롬/사파리에서 재시도해주세요');
-    btn.textContent = '연동하기';
+    btn.textContent = 'Instagram 연동';
     btn.disabled = false;
   }
 }
