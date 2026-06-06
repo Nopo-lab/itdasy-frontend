@@ -88,6 +88,10 @@
     if (!photoUrl) return true;
     deps.history.splice(hi - 1, 2);
     deps.renderHistory();
+    if (chip.id === 'template' && typeof deps.openTemplatePicker === 'function') {
+      deps.openTemplatePicker({ photoUrl, photos, question: chip.question, customerCtx: null });
+      return true;
+    }
     deps.runChatAutoEdit({ photoUrl, photos, question: chip.question, customerCtx: null });
     return true;
   }

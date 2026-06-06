@@ -593,6 +593,7 @@
     body.innerHTML = _history.map((m, idx) => _renderHistoryMessage(m, idx)).join('');
     body.scrollTop = body.scrollHeight;
     _bindActionButtons();
+    _bindAssistantTemplateCards(body);
     // [CF-2] 추천 템플릿 카드 썸네일 주입 + 클릭→미리보기 바인딩.
     try {
       const TV = window.PhotoEditorTemplatesV2;
@@ -600,6 +601,27 @@
         body.querySelectorAll('[data-asst-tpl-recos]').forEach((el) => TV.bindRecoCards(el));
       }
     } catch (_e) { void 0; }
+  }
+
+  function _bindAssistantTemplateCards(body) {
+    body.querySelectorAll('[data-asst-tpl-recos]').forEach((wrap) => {
+      if (wrap.dataset.asstTplBound === '1') return;
+      wrap.dataset.asstTplBound = '1';
+      wrap.addEventListener('click', _onAssistantTemplateCardClick, true);
+    });
+  }
+
+  function _onAssistantTemplateCardClick(e) {
+    const btn = e.target && e.target.closest && e.target.closest('[data-tpv2-tpl]');
+    if (!btn) return;
+    const wrap = btn.closest('[data-asst-tpl-recos]');
+    const msg = wrap ? _history[+wrap.dataset.asstTplRecos] : null;
+    const src = _templateSourceUrl({ payload: {} }, msg);
+    if (!src) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    _selectAssistantTemplate(src, btn.dataset.tpv2Tpl, {
+      payload: { dataUrl: src, recommendedIds: _templateIdsForPicker({}, msg) },
+    });
   }
 
   function _renderEmptyHistory() {
@@ -1410,6 +1432,7 @@
       const action = msg && Array.isArray(msg.hub_actions)
         ? msg.hub_actions.find((a) => a.id === actId) : null;
       if (!action || !window.ItdasyActionHub || typeof window.ItdasyActionHub.handleActionClick !== 'function') return true;
+      if (action.kind === 'open_template_panel' && _openAssistantTemplatePicker(action, msg)) return true;
       const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
       if (r.chatInput) {
         const input = document.getElementById('asstInput');
@@ -1420,6 +1443,195 @@
       }
     } catch (_e) { void 0; }
     return true;
+  }
+
+  function _openTemplatePickerFromPhoto(opts) {
+    const recos = _recommendTemplateIds(opts.question || '시술 완료 사진 인스타 템플릿');
+    const action = { payload: { dataUrl: opts.photoUrl, recommendedIds: recos } };
+    _history.push({ role: 'user', text: opts.question || '템플릿 먼저 보기', thumb: opts.photoUrl, photos: opts.photos });
+    _renderHistory();
+    return _openAssistantTemplatePicker(action, { photo_result: { dataUrl: opts.photoUrl }, tpl_recos: recos });
+  }
+
+  function _openAssistantTemplatePicker(action, msg) {
+    const src = _templateSourceUrl(action, msg);
+    if (!src) { if (window.showToast) window.showToast('사진을 먼저 선택해 주세요'); return true; }
+    const ids = _templateIdsForPicker(action, msg);
+    const TV = window.PhotoEditorTemplatesV2;
+    if (!TV || typeof TV.recoCardHtml !== 'function') return false;
+    _mountAssistantTemplatePicker(src, ids, action);
+    return true;
+  }
+
+  function _templateSourceUrl(action, msg) {
+    const p = (action && action.payload) || {};
+    return p.dataUrl || (msg && msg.photo_result && msg.photo_result.dataUrl)
+      || (msg && msg.promo_result && (msg.promo_result.afterDataUrl || msg.promo_result.dataUrl)) || '';
+  }
+
+  function _templateIdsForPicker(action, msg) {
+    const p = (action && action.payload) || {};
+    const ids = p.recommendedIds || (msg && (msg.tpl_recos || (msg.promo_result && msg.promo_result.templateRecos))) || [];
+    return (ids && ids.length ? ids : _recommendTemplateIds('시술 완료 사진 홍보 템플릿')).slice(0, 6);
+  }
+
+  function _recommendTemplateIds(text) {
+    try {
+      const MD = window.PhotoEditorTemplateMarketData;
+      if (MD && typeof MD.recommendTemplates === 'function') {
+        return MD.recommendTemplates(text || '', {}, 6).map(t => t.id).filter(Boolean);
+      }
+    } catch (_e) { void _e; }
+    return [];
+  }
+
+  function _mountAssistantTemplatePicker(src, ids, action) {
+    _removeAssistantTemplatePicker();
+    const panel = document.getElementById('assistantSheetPanel');
+    const sheet = document.getElementById('assistantSheet');
+    const host = panel || sheet || document.body;
+    const cards = _templatePickerCards(ids);
+    const ov = document.createElement('div');
+    ov.id = 'asstTemplatePicker';
+    ov.style.cssText = 'position:absolute;inset:0;z-index:40;background:rgba(25,31,40,.38);display:flex;align-items:flex-end;justify-content:center;padding:16px;';
+    ov.innerHTML = '<div style="width:100%;max-width:390px;max-height:72vh;overflow:auto;background:#fff;border-radius:22px 22px 18px 18px;padding:16px;box-shadow:0 -10px 34px rgba(25,31,40,.22);">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">' +
+      '<div><strong style="font-size:16px;color:#191F28;">템플릿 선택</strong><div style="font-size:12px;color:#8B95A1;margin-top:3px;">고르면 채팅창에서 적용본을 바로 보여드려요.</div></div>' +
+      '<button type="button" data-asst-tpl-close style="border:0;background:#F2F4F6;border-radius:999px;width:34px;height:34px;font-size:18px;cursor:pointer;">×</button></div>' +
+      '<div data-asst-tpl-grid style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">' + cards + '</div></div>';
+    host.appendChild(ov);
+    ov.querySelector('[data-asst-tpl-close]').addEventListener('click', _removeAssistantTemplatePicker);
+    ov.addEventListener('click', e => { if (e.target === ov) _removeAssistantTemplatePicker(); });
+    ov.querySelectorAll('[data-tpv2-tpl]').forEach(btn => {
+      btn.addEventListener('click', () => _selectAssistantTemplate(src, btn.dataset.tpv2Tpl, action));
+    });
+  }
+
+  function _templatePickerCards(ids) {
+    const TV = window.PhotoEditorTemplatesV2;
+    let list = ids && ids.length ? ids : _recommendTemplateIds('인스타 홍보 템플릿');
+    if ((!list || !list.length) && Array.isArray(TV.TEMPLATES)) list = TV.TEMPLATES.slice(0, 6).map(t => t.id);
+    const html = list.map(id => TV.recoCardHtml(id)).filter(Boolean).join('');
+    return html || '<div style="grid-column:1/-1;padding:20px;text-align:center;color:#8B95A1;font-size:13px;">추천 템플릿을 불러오는 중이에요.</div>';
+  }
+
+  function _removeAssistantTemplatePicker() {
+    const prev = document.getElementById('asstTemplatePicker');
+    if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+  }
+
+  async function _selectAssistantTemplate(src, tplId, action) {
+    _removeAssistantTemplatePicker();
+    const idx = _history.push({ role: 'assistant', text: '템플릿 적용본을 만드는 중이에요…', _processing: true }) - 1;
+    _renderHistory();
+    let preview = src;
+    try { preview = await _composeTemplatePreview(src, tplId); } catch (_e) { preview = src; }
+    const caption = await _captionForTemplate(tplId);
+    _history[idx] = _templatePreviewMessage(preview || src, tplId, caption, action);
+    _renderHistory();
+  }
+
+  async function _captionForTemplate(tplId) {
+    const label = _templateLabel(tplId);
+    let res = {};
+    try {
+      res = await _generateChatCaption({ question: label + ' 시술 완료 사진 인스타 캡션', customerCtx: null });
+    } catch (_e) { res = {}; }
+    const caption = res.caption || '시술 결과가 자연스럽게 보이는 사진이에요. 상담과 예약은 편하게 문의 주세요.';
+    try { if (caption && window.CaptionPrefill && window.CaptionPrefill.set) window.CaptionPrefill.set(caption); } catch (_e) { void _e; }
+    return caption;
+  }
+
+  function _templatePreviewMessage(dataUrl, tplId, caption, action) {
+    const ids = _templateIdsForPicker(action, null);
+    return {
+      role: 'assistant',
+      text: '템플릿 적용 미리보기예요. 캡션까지 준비했어요.',
+      photo_result: { dataUrl, ratio: '4:5', preset_label: _templateLabel(tplId), originalSrc: dataUrl },
+      photo_caption: caption,
+      hub_actions: [
+        { id: 'ig_preview', kind: 'open_instagram', label: '인스타 업로드 준비', phase: 'safe', route: 'hub', payload: { dataUrl, caption, ratio: '4:5' } },
+        { id: 'export', kind: 'export_image', label: '내보내기', phase: 'safe', route: 'hub', payload: { dataUrl } },
+        { id: 'tpl_again', kind: 'open_template_panel', label: '다른 템플릿', phase: 'safe', route: 'hub', payload: { dataUrl, recommendedIds: ids } },
+      ],
+    };
+  }
+
+  function _templateLabel(tplId) {
+    try {
+      const list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
+      const t = Array.isArray(list) ? list.find(x => x.id === tplId) : null;
+      return (t && t.label) || '홍보 템플릿';
+    } catch (_e) { return '홍보 템플릿'; }
+  }
+
+  async function _composeTemplatePreview(src, tplId) {
+    const img = await _loadImage(src);
+    if (!img) return src;
+    const tpl = _templateInfo(tplId);
+    const cv = document.createElement('canvas');
+    cv.width = 1080; cv.height = 1350;
+    const ctx = cv.getContext('2d');
+    _drawTemplateBackground(ctx, cv, tpl);
+    _drawTemplatePhoto(ctx, img, cv);
+    _drawTemplateText(ctx, cv, tpl);
+    try { return cv.toDataURL('image/jpeg', 0.9); } catch (_e) { return src; }
+  }
+
+  function _loadImage(src) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  }
+
+  function _templateInfo(tplId) {
+    try {
+      const list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
+      const t = Array.isArray(list) ? list.find(x => x.id === tplId) : null;
+      return t || { label: '오늘의 시술 사진', prefillText: 'BEAUTY RESULT', accent: 'soft' };
+    } catch (_e) { return { label: '오늘의 시술 사진', prefillText: 'BEAUTY RESULT', accent: 'soft' }; }
+  }
+
+  function _drawTemplateBackground(ctx, cv, tpl) {
+    const color = tpl.accent === 'gold' ? '#D8B56D' : (tpl.accent === 'primary' ? '#A78BFA' : '#F4ECE4');
+    const g = ctx.createLinearGradient(0, 0, cv.width, cv.height);
+    g.addColorStop(0, '#FFFFFF'); g.addColorStop(1, color);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    ctx.fillRect(58, 58, cv.width - 116, cv.height - 116);
+  }
+
+  function _drawTemplatePhoto(ctx, img, cv) {
+    const box = { x: 108, y: 180, w: cv.width - 216, h: 850 };
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    const scale = Math.max(box.w / iw, box.h / ih);
+    const dw = iw * scale, dh = ih * scale;
+    ctx.save();
+    _roundedRectPath(ctx, box.x, box.y, box.w, box.h, 34); ctx.clip();
+    ctx.drawImage(img, box.x + (box.w - dw) / 2, box.y + (box.h - dh) / 2, dw, dh);
+    ctx.restore();
+  }
+
+  function _roundedRectPath(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+  }
+
+  function _drawTemplateText(ctx, cv, tpl) {
+    ctx.fillStyle = '#191F28';
+    ctx.font = '700 54px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText((tpl.prefillText || tpl.label || 'BEAUTY RESULT').slice(0, 22), cv.width / 2, 1120);
+    ctx.fillStyle = '#6B7684';
+    ctx.font = '400 30px sans-serif';
+    ctx.fillText('시술 결과가 자연스럽게 보이도록 정리했어요', cv.width / 2, 1172);
   }
 
   // [T-115] 브리핑 추천 버튼 클릭 → daily-briefing.runAction(안전: 화면이동/초안경로). 자동 발송/생성 0.
@@ -1455,6 +1667,7 @@
         renderHistory: _renderHistory,
         openLightbox: _openLightbox,
         runChatAutoEdit: _runChatAutoEdit,
+        openTemplatePicker: _openTemplatePickerFromPhoto,
         isSendInFlight: () => _sendInFlight,
       });
   }
@@ -2053,7 +2266,7 @@
       _setAutoEditFailure(placeholderIdx, '보정 결과를 받지 못했어요. 다시 시도해주세요.');
       return false;
     }
-    const promo = intent.instagram && window.ItdasyPromoResultBuilder
+    const promo = intent.instagram && intent.ba && window.ItdasyPromoResultBuilder
       ? window.ItdasyPromoResultBuilder.fromAutoEdit({
           result, preset, question: opts.question, photoUrl: opts.photoUrl, customerCtx: opts.customerCtx,
         })
@@ -2167,7 +2380,7 @@
     const preset = _photoShopPreset(opts.question);
     const result = await _processChatAutoEditPhoto(opts, intent, preset, placeholderIdx);
     if (!_applyChatAutoEditResult(result, intent, placeholderIdx, opts, preset)) return true;
-    if (intent.instagram && !_history[placeholderIdx].promo_result) await _finishInstagramAutoEdit(opts, preset, result);
+    if (intent.instagram) await _finishInstagramAutoEdit(opts, preset, result);
     return true;
   }
 
@@ -2332,11 +2545,11 @@
     _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls });
     _history.push({
       role: 'assistant',
-      text: '이 사진, 보정해서 인스타에 올릴까요?',
+      text: '사진 1장 확인했어요. 시술 완료 사진으로 자연스럽게 보정할까요?',
       intent_chips: [
-        { id: 'instagram', label: '네, 보정+인스타', question: '예쁘게 보정해서 인스타 올려줘', primary: true },
-        { id: 'ba', label: '전후 카드', question: '전후 카드 만들어줘' },
-        { id: 'editor', label: '편집기 직접', question: '편집기 열어줘' },
+        { id: 'edit_done', label: '보정하기', question: '시술 완료사진으로 자연스럽게 보정해줘', primary: true },
+        { id: 'instagram', label: '보정하고 인스타 업로드까지', question: '시술 완료사진으로 자연스럽게 보정하고 인스타 업로드까지 준비해줘' },
+        { id: 'template', label: '템플릿 먼저 보기', question: '이 사진 템플릿 골라줘' },
       ],
     });
     _renderHistory();

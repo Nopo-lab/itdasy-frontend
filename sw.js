@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260605-v394-l3-generative-mock';
+const CACHE_VERSION = '20260606-v395-itbi-photo-chat-actions';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
