@@ -19,6 +19,10 @@ function _slotEsc(v) {
 //   기존 _popupSelIds(다중 선택: 일괄삭제/BA)는 그대로 유지 — _activePhotoId 는 그와 독립된 단일 편집 대상.
 let _activePhotoId = null;
 
+// [PR-E1] 전후 Before/After 선택 상태 — 기존 _popupSelIds(다중선택/삭제/구 BA 폴백)와 완전 분리.
+//   _baBefore/_baAfter = 선택된 photo id, _baFocus = 스트립에서 탭한 사진(지정 대상).
+let _baBefore = null, _baAfter = null, _baFocus = null;
+
 // ── 슬롯 팝업 열기 / 닫기 ──────────────────────────────────────
 async function openSlotPopup(slotId) {
   const slot = _slots.find(s => s.id === slotId);
@@ -377,6 +381,8 @@ async function addPhotosToPopup(input) {
 
 // ── 비포/애프터 모드 ───────────────────────────────────────────
 function toggleBAMode() {
+  // [PR-E1] 기본은 Before/After 선택 패널. window.PE_BA_SELECT=false 면 기존 즉시 BA 토글로 폴백.
+  if (window.PE_BA_SELECT !== false) { openBASelect(); return; }
   _setBAMode(!_baMode);
   const btn = document.getElementById('baBtnToolbar');
   if (btn) {
@@ -438,6 +444,96 @@ async function restoreBAPhoto(baPhotoId) {
   _renderPopupPhotoGrid(slot);
   showToast('원본 2장으로 복원됐어요');
 }
+
+// ── [PR-E1] 전후 Before/After 선택 패널 ───────────────────────────
+//   기존 toggleBAMode/_bulkApplyBA/renderBASplit 경로는 보존(폴백). 이 패널은 선택까지만.
+//   템플릿 후보/BACompose 합성/새 photo 추가는 E2/E3.
+function _baVisiblePhotos() {
+  const slot = _slots.find(s => s.id === _popupSlotId);
+  return slot ? (slot.photos || []).filter(p => !p.hidden) : [];
+}
+function openBASelect() {
+  const visible = _baVisiblePhotos();
+  if (visible.length < 2) { if (typeof showToast === 'function') showToast('전후는 사진을 2장 이상 올린 뒤 쓸 수 있어요'); return; }
+  // active photo = After 기본값(없으면 첫 장). Before 는 사용자가 지정.
+  _baAfter = (_activePhotoId && visible.some(p => p.id === _activePhotoId)) ? _activePhotoId : visible[0].id;
+  _baBefore = null; _baFocus = null;
+  _ensureBASelectPanel();
+  const panel = document.getElementById('baSelectPanel');
+  if (panel) { panel.hidden = false; panel.classList.add('on'); }
+  _renderBASelect();
+}
+function closeBASelect() {
+  const panel = document.getElementById('baSelectPanel');
+  if (panel) { panel.classList.remove('on'); panel.hidden = true; }
+  _baBefore = _baAfter = _baFocus = null;
+}
+function _ensureBASelectPanel() {
+  if (document.getElementById('baSelectPanel')) return;
+  const host = document.getElementById('slotPopup');
+  if (!host) return;
+  const el = document.createElement('div');
+  el.id = 'baSelectPanel';
+  el.className = 'ba-select-panel';
+  el.hidden = true;
+  el.innerHTML =
+    '<div class="ba-select-sheet">'
+    + '<div class="ba-select-hd"><div class="ba-select-ttl"><strong>전후 사진 선택</strong>'
+    + '<span>Before와 After 사진을 골라주세요</span></div>'
+    + '<button type="button" class="ba-select-x" data-ba-close aria-label="닫기">'
+    + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>'
+    + '<div class="ba-select-strip" id="baSelectStrip"></div>'
+    + '<div class="ba-select-cta">'
+    + '<button type="button" class="ba-cta" data-ba-assign="before">Before로 지정</button>'
+    + '<button type="button" class="ba-cta" data-ba-assign="after">After로 지정</button>'
+    + '<button type="button" class="ba-cta" data-ba-swap>서로 바꾸기</button>'
+    + '<button type="button" class="ba-cta ba-cta--primary" data-ba-template disabled>템플릿 고르기</button>'
+    + '</div></div>';
+  host.appendChild(el);
+  el.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-ba-close],[data-ba-assign],[data-ba-swap],[data-ba-template],[data-ba-pick]');
+    if (!t) { if (e.target === el) closeBASelect(); return; }   // 바깥(딤) 탭 → 닫기
+    if (t.hasAttribute('data-ba-close')) return closeBASelect();
+    if (t.hasAttribute('data-ba-pick')) { _baFocus = t.getAttribute('data-ba-pick'); return _renderBASelect(); }
+    if (t.hasAttribute('data-ba-assign')) return _baAssign(t.getAttribute('data-ba-assign'));
+    if (t.hasAttribute('data-ba-swap')) return _baSwap();
+    if (t.hasAttribute('data-ba-template')) return _baPickTemplate();
+  });
+}
+function _baAssign(role) {
+  if (!_baFocus) { if (typeof showToast === 'function') showToast('먼저 사진을 한 장 탭해서 골라주세요'); return; }
+  if (role === 'before') { if (_baFocus === _baAfter) _baAfter = _baBefore; _baBefore = _baFocus; }
+  else { if (_baFocus === _baBefore) _baBefore = _baAfter; _baAfter = _baFocus; }
+  if (window.hapticLight) window.hapticLight();
+  _renderBASelect();
+}
+function _baSwap() {
+  const t = _baBefore; _baBefore = _baAfter; _baAfter = t;
+  if (window.hapticLight) window.hapticLight();
+  _renderBASelect();
+}
+function _baReady() { return !!(_baBefore && _baAfter && _baBefore !== _baAfter); }
+function _baPickTemplate() {
+  // [E2 연결 지점] 여기서 BA 템플릿 후보(templates-v2 ba free)를 띄우게 확장.
+  if (!_baReady()) { if (typeof showToast === 'function') showToast('Before와 After를 서로 다른 사진으로 골라주세요'); return; }
+  if (typeof showToast === 'function') showToast('다음 단계에서 전후 템플릿을 고를 수 있어요 (준비 중)');
+}
+function _renderBASelect() {
+  const strip = document.getElementById('baSelectStrip');
+  if (!strip) return;
+  const visible = _baVisiblePhotos();
+  strip.innerHTML = visible.map(p => {
+    const role = p.id === _baBefore ? 'before' : (p.id === _baAfter ? 'after' : '');
+    const focus = p.id === _baFocus ? ' on' : '';
+    const badge = role === 'before' ? '<span class="ba-badge ba-badge--before">Before</span>'
+      : role === 'after' ? '<span class="ba-badge ba-badge--after">After</span>' : '';
+    return '<button type="button" class="ba-card' + focus + '" data-ba-pick="' + p.id + '">'
+      + '<img src="' + (p.editedDataUrl || p.dataUrl) + '" alt="">' + badge + '</button>';
+  }).join('');
+  const tplBtn = document.querySelector('#baSelectPanel [data-ba-template]');
+  if (tplBtn) tplBtn.disabled = !_baReady();
+}
+if (typeof window !== 'undefined') { window.openBASelect = openBASelect; window.closeBASelect = closeBASelect; }
 
 // ── 인스타 미리보기 ────────────────────────────────────────────
 function showPhotoInstaPreview(dataUrl) {
