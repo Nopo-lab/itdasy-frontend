@@ -241,6 +241,7 @@
   }
 
   function _drawPrice(ctx, w, h, d) {
+    if (d.palette) return _drawV3Price(ctx, w, h, d);   // [V3] palette 있으면 v3 전용(기존 무회귀)
     _scrim(ctx, w, h, 0.26);
     _panel(ctx, w * 0.07, h * 0.1, w * 0.86, h * 0.8, 'rgba(255,250,242,0.94)', 24);
     _label(ctx, d.kicker, w * 0.13, h * 0.2, d.accent);
@@ -303,6 +304,7 @@
   }
 
   function _quoteCard(ctx, w, h, d) {
+    if (d.palette) return _drawV3Review(ctx, w, h, d);   // [V3] palette 있으면 v3 전용(기존 무회귀)
     const FT = window.PhotoEditorTemplateFitText;
     // [S2] 후기 본문(review)이 있으면 후기 카드 레이아웃, 없으면 기존(헤드+부제+샵).
     if (d.review && FT) {
@@ -359,6 +361,89 @@
     if (k.includes('MAKEUP')) return [['데일리', '60,000'], ['촬영', '120,000'], ['웨딩', '200,000'], ['속눈썹 추가', '15,000']];
     if (k.includes('WAX')) return [['브라질리언', '60,000'], ['페이스', '25,000'], ['바디', '50,000~'], ['진정 케어', '20,000']];
     return [['컷', '45,000'], ['펌', '180,000~'], ['컬러', '220,000~'], ['클리닉', '80,000~']];
+  }
+
+  // ── [V3] palette 기반 전용 렌더 (preview DOM 레이아웃을 canvas 로 모사) ──
+  //   기존 _drawPrice/_quoteCard 는 미변경. palette 있을 때만 이 경로(무회귀).
+  function _clip(ctx, text, maxW) {
+    let s = String(text == null ? '' : text);
+    if (ctx.measureText(s).width <= maxW) return s;
+    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+    return s + '…';
+  }
+
+  function _drawV3Price(ctx, w, h, d) {
+    const bg = _pal(d, 'bg', '#FBEFEF'), ink = _pal(d, 'ink', '#3A2C2C');
+    const sub = _pal(d, 'sub', '#9A8585'), accent = _pal(d, 'accent', d.accent || '#C57E7E');
+    const line = _pal(d, 'line', '#E7CFCF');
+    const photo = d.mainPhoto;                 // 있으면 상단 밴드 유지(나머지 bg)
+    const splitY = photo ? Math.round(h * 0.34) : 0;
+    ctx.save();
+    ctx.fillStyle = bg; ctx.fillRect(0, splitY, w, h - splitY);
+    // 헤더
+    let y = splitY + h * 0.085;
+    ctx.textAlign = 'center';
+    if (d.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, String(d.shop).toUpperCase(), w * 0.8), w / 2, y); y += h * 0.05; }
+    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.05)}px "Noto Serif KR", serif`; ctx.fillText(_clip(ctx, d.head || '시술 가격표', w * 0.84), w / 2, y); y += h * 0.038;
+    if (d.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.sub, w * 0.8), w / 2, y); }
+    // 서비스 행
+    const rows = _svcRows(d); const n = Math.max(rows.length, 1);
+    const listTop = splitY + h * 0.30, listBottom = h * (d.cta || d.phone ? 0.84 : 0.92);
+    const step = (listBottom - listTop) / n;
+    rows.forEach((row, i) => {
+      const ry = listTop + step * i + step * 0.5;
+      ctx.textAlign = 'left'; ctx.fillStyle = ink; ctx.font = `700 ${Math.round(h * 0.024)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(_clip(ctx, row[0], w * 0.52), w * 0.12, ry);
+      ctx.textAlign = 'right'; ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.026)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(_clip(ctx, row[1], w * 0.32), w * 0.88, ry);
+      ctx.strokeStyle = line; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(w * 0.12, ry + step * 0.42); ctx.lineTo(w * 0.88, ry + step * 0.42); ctx.stroke();
+    });
+    // CTA / phone
+    ctx.textAlign = 'center';
+    if (d.cta || d.phone) {
+      if (d.cta) {
+        const cw = w * 0.44, ch = h * 0.05, cx = w / 2 - cw / 2, cy = h * 0.885;
+        _panel(ctx, cx, cy, cw, ch, accent, ch / 2);
+        ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(h * 0.022)}px "Noto Sans KR", sans-serif`; ctx.textAlign = 'center';
+        ctx.fillText(_clip(ctx, d.cta, cw * 0.85), w / 2, cy + ch * 0.66);
+      }
+      if (d.phone) { ctx.fillStyle = sub; ctx.font = `600 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(d.phone, w / 2, h * 0.955); }
+    }
+    ctx.restore();
+  }
+
+  function _drawV3Review(ctx, w, h, d) {
+    const bg = _pal(d, 'bg', '#FBEFEF'), ink = _pal(d, 'ink', '#3A2C2C');
+    const sub = _pal(d, 'sub', '#9A8585'), accent = _pal(d, 'accent', d.accent || '#C57E7E');
+    const FT = window.PhotoEditorTemplateFitText;
+    ctx.save();
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    ctx.textAlign = 'center';
+    let y = h * 0.15;
+    if (d.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, String(d.shop).toUpperCase(), w * 0.8), w / 2, y); y += h * 0.055; }
+    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.046)}px "Noto Serif KR", serif`; ctx.fillText(_clip(ctx, d.head || '고객님의 진심 후기', w * 0.84), w / 2, y); y += h * 0.045;
+    if (d.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.sub, w * 0.78), w / 2, y); y += h * 0.03; }
+    // 별점(유니코드 기호 — 이모지 아님)
+    ctx.fillStyle = '#FFB547'; ctx.font = `700 ${Math.round(h * 0.04)}px sans-serif`; ctx.fillText('★★★★★', w / 2, y + h * 0.04); y += h * 0.085;
+    // 인용 패널
+    const pX = w * 0.1, pW = w * 0.8, pY = y, pH = h * 0.32;
+    _panel(ctx, pX, pY, pW, pH, 'rgba(255,255,255,0.62)', 22);
+    const rev = '“' + String(d.review || '').slice(0, 120) + '”';
+    if (FT && FT.drawFitText) {
+      FT.drawFitText(ctx, rev, { x: pX + w * 0.05, y: pY + h * 0.04, w: pW - w * 0.1, h: pH * 0.6 },
+        { maxFontSize: Math.round(h * 0.026), minFontSize: Math.round(h * 0.017), maxLines: 4, lineHeight: 1.42, color: ink, weight: 500, valign: 'top' });
+    } else {
+      ctx.fillStyle = ink; ctx.font = `500 ${Math.round(h * 0.022)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, rev, pW - w * 0.1), w / 2, pY + h * 0.08);
+    }
+    if (d.customer) { ctx.textAlign = 'center'; ctx.fillStyle = sub; ctx.font = `700 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.customer, pW * 0.8), w / 2, pY + pH - h * 0.03); }
+    // CTA
+    if (d.cta) {
+      const cw = w * 0.46, ch = h * 0.05, cx = w / 2 - cw / 2, cy = h * 0.89;
+      _panel(ctx, cx, cy, cw, ch, accent, ch / 2);
+      ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(h * 0.022)}px "Noto Sans KR", sans-serif`; ctx.textAlign = 'center';
+      ctx.fillText(_clip(ctx, d.cta, cw * 0.85), w / 2, cy + ch * 0.66);
+    }
+    ctx.restore();
   }
 
   function _scrim(ctx, w, h, alpha) {
