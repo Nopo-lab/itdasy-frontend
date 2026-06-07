@@ -111,12 +111,11 @@
   // ── 필드 HTML ──
   function _fieldHTML(slot, values) {
     if (slot.type === 'image') {
-      // [S3b-1] main 슬롯은 대표 사진 교체 노출. before/after 는 기존 정책 유지.
+      // [S3b] main/after 슬롯은 사진 교체 노출. before 는 기존 S3a 정책 유지.
       if (slot.role === 'main') return _mainSlotHTML(slot);
       if (slot.role === 'before') return _beforeSlotHTML(slot);
-      const note = slot.role === 'after'
-        ? '현재 편집 중인 사진이 \'시술 후\'로 들어가요.'
-        : '현재 편집 사진을 사용 중이에요.<br>사진 교체는 다음 단계에서 지원돼요.';
+      if (slot.role === 'after') return _afterSlotHTML(slot);
+      const note = '현재 편집 사진을 사용 중이에요.<br>사진 교체는 다음 단계에서 지원돼요.';
       return `<div class="pe-tpl-edit-field"><label>${_esc(slot.label)}</label>
         <div class="pe-tpl-edit-imgnote">${note}</div></div>`;
     }
@@ -139,6 +138,12 @@
     return slots.main_photo;
   }
 
+  function _afterSlot() {
+    const slots = _ctx && _ctx.state && _ctx.state.tplV2 && _ctx.state.tplV2.imageSlots;
+    if (!slots.after_photo) slots.after_photo = { src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 } };
+    return slots.after_photo;
+  }
+
   function _mainSlotHTML(slot) {
     const main = _mainSlot();
     const has = !!(main && main.src);
@@ -157,6 +162,27 @@
       </div>
       <input type="file" accept="image/*" data-img-input hidden>
       <p class="pe-tpl-edit-imghint" data-main-img-hint>${stateText}</p>
+    </div>`;
+  }
+
+  function _afterSlotHTML(slot) {
+    const after = _afterSlot();
+    const has = !!(after && after.src);
+    const thumb = has
+      ? `<img src="${_esc(after.src)}" alt="">`
+      : '<span class="pe-tpl-edit-imgplus">＋</span>';
+    const stateText = has ? '선택한 After 사진을 사용 중이에요.' : '현재 편집 사진을 사용 중이에요.';
+    return `<div class="pe-tpl-edit-field pe-tpl-edit-imgslot" data-img-slot="after">
+      <label>${_esc(slot.label || '시술 후 사진')}</label>
+      <div class="pe-tpl-edit-imgrow">
+        <div class="pe-tpl-edit-imgthumb${has ? '' : ' is-empty'}" data-img-thumb>${thumb}</div>
+        <div class="pe-tpl-edit-imgbtns">
+          <button type="button" class="pe-tpl-edit-imgpick" data-img-pick>${has ? '다른 사진' : '파일에서 선택'}</button>
+          <button type="button" class="pe-tpl-edit-imgclear" data-img-clear>현재 편집 사진으로 되돌리기</button>
+        </div>
+      </div>
+      <input type="file" accept="image/*" data-img-input hidden>
+      <p class="pe-tpl-edit-imghint" data-after-img-hint>${stateText}</p>
     </div>`;
   }
 
@@ -226,6 +252,7 @@
     _el.querySelector('[data-svc-paste-apply]')?.addEventListener('click', _applyPaste);
     _el.querySelectorAll('[data-img-slot="before"]').forEach(_bindImgSlot);
     _el.querySelectorAll('[data-img-slot="main"]').forEach(_bindMainImgSlot);
+    _el.querySelectorAll('[data-img-slot="after"]').forEach(_bindAfterImgSlot);
   }
 
   function _bindMainImgSlot(box) {
@@ -302,6 +329,57 @@
     const fresh = tmp.firstElementChild;
     box.replaceWith(fresh);
     _bindMainImgSlot(fresh);
+  }
+
+  function _bindAfterImgSlot(box) {
+    const input = box.querySelector('[data-img-input]');
+    box.querySelector('[data-img-pick]')?.addEventListener('click', () => input && input.click());
+    box.querySelector('[data-img-clear]')?.addEventListener('click', () => _setAfterPhoto(''));
+    input?.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const out = await _compressMainPhoto(f);
+        _setAfterPhoto(out.dataUrl, false);
+        if (out.reduced) _toast('사진을 편집용 크기로 줄였어요');
+        else _toast('After 사진을 변경했어요');
+      } catch (err) {
+        console.warn('[template-edit] after photo load failed', err);
+        _toast('사진을 불러오지 못했어요');
+      } finally {
+        input.value = '';
+      }
+    });
+  }
+
+  function _setAfterPhoto(src, showToast) {
+    const after = _afterSlot();
+    after.src = src || '';
+    after.fit = 'cover';
+    after.focal = after.focal || { x: 0.5, y: 0.5 };
+    _primeAfterPhoto(after.src);
+    _refreshAfterSlot();
+    try { if (_ctx.helpers && _ctx.helpers.pushHistory) _ctx.helpers.pushHistory(); } catch (_e) { /* ignore */ }
+    _schedule();
+    if (showToast !== false) _toast(after.src ? 'After 사진을 변경했어요' : '현재 편집 사진을 사용해요');
+  }
+
+  function _primeAfterPhoto(src) {
+    if (!src || !window.PhotoEditorBACompose || !window.PhotoEditorBACompose.primeImage) return;
+    const img = new Image();
+    img.onload = () => window.PhotoEditorBACompose.primeImage(src, img);
+    img.src = src;
+  }
+
+  function _refreshAfterSlot() {
+    const box = _el.querySelector('[data-img-slot="after"]');
+    const slot = (_ctx.slots || []).find(s => s.type === 'image' && s.role === 'after');
+    if (!box || !slot) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = _afterSlotHTML(slot);
+    const fresh = tmp.firstElementChild;
+    box.replaceWith(fresh);
+    _bindAfterImgSlot(fresh);
   }
 
   // [S3a] before 슬롯 바인딩

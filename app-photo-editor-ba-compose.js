@@ -21,6 +21,7 @@
   // [UX-BA-2] 시술 전 사진(secondImg) 없으면 true → before 슬롯을 가짜 흑백 대신 placeholder 로.
   //   draw() 진입마다 갱신. 썸네일(null state)·미리보기·실제 적용 모두 동일 정책.
   let _hasBefore = false;
+  const SLOT_IMAGE_CACHE = {};
 
   const LABELS = {
     'ba-flower-shadow': ['Before', 'After'],
@@ -37,7 +38,7 @@
 
   function draw(ctx, w, h, state, tpl, data) {
     _hasBefore = !!(state && state.secondImg);   // [UX-BA-2] 시술 전 사진 유무
-    const after = _copyCanvas(ctx.canvas);
+    const after = _afterCanvas(state, _copyCanvas(ctx.canvas));
     const before = _beforeCanvas(state, after);   // secondImg 있을 때만 실제 사용 (없으면 placeholder)
     ctx.save();
     ctx.clearRect(0, 0, w, h);
@@ -51,6 +52,34 @@
     const out = document.createElement('canvas');
     out.width = canvas.width; out.height = canvas.height;
     out.getContext('2d').drawImage(canvas, 0, 0);
+    return out;
+  }
+
+  function _primeImage(src, img) {
+    if (src && img) SLOT_IMAGE_CACHE[src] = img;
+  }
+
+  function _slotImage(src) {
+    if (!src) return null;
+    const cached = SLOT_IMAGE_CACHE[src];
+    if (cached && (cached.complete || cached.naturalWidth || cached.width)) return cached;
+    const img = cached || new Image();
+    SLOT_IMAGE_CACHE[src] = img;
+    img.onload = () => {
+      try { window.PhotoEditor?._internal?.helpers?.scheduleRedraw?.(); } catch (_e) { /* ignore */ }
+    };
+    img.onerror = () => { delete SLOT_IMAGE_CACHE[src]; };
+    if (!cached) img.src = src;
+    return (img.complete || img.naturalWidth || img.width) ? img : null;
+  }
+
+  function _afterCanvas(state, fallback) {
+    const src = state && state.tplV2 && state.tplV2.imageSlots && state.tplV2.imageSlots.after_photo && state.tplV2.imageSlots.after_photo.src;
+    const img = _slotImage(src);
+    if (!img) return fallback;
+    const out = document.createElement('canvas');
+    out.width = fallback.width; out.height = fallback.height;
+    _cover(out.getContext('2d'), img, 0, 0, out.width, out.height);
     return out;
   }
 
@@ -447,5 +476,5 @@
     return '#FFFAF2';
   }
 
-  window.PhotoEditorBACompose = { draw };
+  window.PhotoEditorBACompose = { draw, primeImage: _primeImage };
 })();
