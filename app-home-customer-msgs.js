@@ -4,19 +4,25 @@
    - 데이터: 기존 GET /instagram/dm-reply/conversations (DM 화면과 동일 엔드포인트, 추가 비용 0).
    - 갱신: 홈 렌더 직후 refresh() + 홈 탭 활성 동안 10초 폴링 (DM list 폴링과 동일 주기).
    - 안읽음: 클라이언트 read 추적(localStorage). 첫 도입 시 현재 대화 전부 기준선(read) 처리 →
-            이후 새로 들어온 메시지만 '안읽음'. 카드 탭(대화 열기) 하면 read 처리.
-   - 카드 탭 → window.openDMThread(sender) (풀스크린 대화 재사용, 탭 이동 없음).
-   - 전체 보기 → window.openDMConversations().
+            이후 새로 들어온 메시지만 '안읽음'. 카드 탭 하면 read 처리(점만 off, 제거 X).
+   - 카드 탭 → window.openDMAutoreplySettings() (검토 대기 인박스: AI 초안 수정·전송) + 해당 손님으로 스크롤.
+   - 카드 제거: 답장 전송 성공(itdasy:dm-replied) 또는 X(dismiss) 때만. 새 메시지 오면 재등장.
+   - 전체 보기 → window.openDMConversations() (읽기전용 대화 history).
+   - 프사 없으면 사람 실루엣 아이콘.
 
    window.HomeCustomerMsgs = { refresh() }
 */
 (function () {
   'use strict';
 
-  const READ_KEY = 'itdasy:cmsg:read';   // { [sender_igsid]: lastReadISO }
+  const READ_KEY = 'itdasy:cmsg:read';        // { [sender_igsid]: lastReadISO } — 안읽음 점만 제어
+  const DISMISS_KEY = 'itdasy:cmsg:dismissed'; // { [sender_igsid]: dismissedAtISO } — 카드 제거(답장/X)
   const MAX_CARDS = 12;
   const POLL_MS = 10000;
   const MIN_FETCH_GAP = 8000;            // 홈 다중 렌더 시 캐시 재사용 (API 과호출 방지)
+
+  // 프사 없을 때 기본 아바타 — 사람 실루엣 (이니셜 X). color 는 .hv5-cmsg-av 의 brand-strong 사용.
+  const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
 
   let _cache = null;     // 마지막 conversations 배열
   let _lastFetch = 0;
@@ -63,16 +69,37 @@
     _writeMap(map);
   }
 
+  // ── dismiss(카드 제거) 추적 — 답장 전송/X 누름. '읽음'으로는 제거 X. ─────
+  //   dismissedAt 시점 이후 손님이 새 메시지를 보내면(last_seen 갱신) 카드 재등장.
+  function _dismissMap() {
+    try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || '{}') || {}; }
+    catch (_e) { return {}; }
+  }
+  function _writeDismiss(m) {
+    try { localStorage.setItem(DISMISS_KEY, JSON.stringify(m)); } catch (_e) { void _e; }
+  }
+  function _isDismissed(c, dmap) {
+    if (!c || !c.last_seen) return false;
+    const d = dmap[c.sender_igsid];
+    if (!d) return false;
+    const a = new Date(c.last_seen).getTime();
+    const b = new Date(d).getTime();
+    return Number.isFinite(a) && Number.isFinite(b) ? a <= b : false;
+  }
+  function _dismiss(sender) {
+    if (!sender) return;
+    const m = _dismissMap();
+    const c = (_cache || []).find(x => x && x.sender_igsid === sender);
+    m[sender] = (c && c.last_seen) || new Date().toISOString();
+    _writeDismiss(m);
+  }
+
   // ── 표시 헬퍼 ──────────────────────────────────────────────
   function _displayName(c) {
     const nick = (c.nickname || '').trim();
     if (nick) return nick;
     const tail = c.sender_tail || (c.sender_igsid || '').slice(-4);
     return '손님 …' + tail;
-  }
-  function _initial(name) {
-    const s = String(name || '').replace(/^@/, '').replace(/^손님\s*…?/, '').trim();
-    return (s && s.charAt(0)) || '손';
   }
   const _INTENT_LABEL = {
     pricing: '가격 문의', booking: '예약 문의', hours: '영업시간',
@@ -103,10 +130,12 @@
     const pic = (c.profile_pic || '').trim();
     const avCls = 'hv5-cmsg-av' + (unread ? ' is-unread' : '');
     const avStyle = pic ? ` style="background-image:url('${_esc(pic)}')"` : '';
-    const avInner = pic ? '' : _esc(_initial(name));
+    const avInner = pic ? '' : _AVATAR_SVG;   // 프사 없으면 사람 실루엣
     const last = (c.last_text || '').trim() || '메시지 없음';
     const intent = _intentLabel(c.last_intent);
-    return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${_esc(c.sender_igsid)}">
+    const sid = _esc(c.sender_igsid);
+    return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}">
+      <span class="hv5-cmsg-x" data-cmsg-dismiss="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 카드 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
         <div class="${avCls}"${avStyle}>${avInner}</div>
         <div class="hv5-cmsg-id">
@@ -125,9 +154,10 @@
     const row = document.getElementById('hv5CmsgRow');
     if (!sec || !row) return;
     const all = _cache || [];
-    // 친구·가족 등 톤 분석 제외 채팅방은 '고객 메시지'에서 숨김.
+    const dmap = _dismissMap();
+    // 친구·가족 등 톤 분석 제외 채팅방 숨김 + 답장/X 로 dismiss 된 카드 숨김(새 메시지 오면 재등장).
     const convos = all
-      .filter(c => c && c.sender_igsid && !c.excluded_from_analysis)
+      .filter(c => c && c.sender_igsid && !c.excluded_from_analysis && !_isDismissed(c, dmap))
       .slice()
       .sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
     if (!convos.length) { sec.hidden = true; return; }
@@ -171,7 +201,18 @@
       const more = e.target.closest('#hv5CmsgMore');
       if (more) {
         e.preventDefault();
+        // '전체 보기' = 읽기전용 대화 history 목록 (기존 유지)
         if (typeof window.openDMConversations === 'function') window.openDMConversations();
+        return;
+      }
+      // X(지우기) — 카드 탭보다 먼저 가로채서 dismiss (답장 안 하고 목록에서 제거)
+      const x = e.target.closest('[data-cmsg-dismiss]');
+      if (x && document.getElementById('hv5Cmsg')) {
+        e.preventDefault();
+        e.stopPropagation();
+        _dismiss(x.dataset.cmsgDismiss);
+        _renderFromCache();
+        try { window.hapticLight && window.hapticLight(); } catch (_e2) { void _e2; }
         return;
       }
       const card = e.target.closest('[data-cmsg-sender]');
@@ -179,13 +220,44 @@
         e.preventDefault();
         const sender = card.dataset.cmsgSender;
         if (!sender) return;
-        _markRead(sender);
-        _renderFromCache();             // 안읽음 점 즉시 제거
+        _markRead(sender);              // 안읽음 점만 off (제거는 답장/X 때만)
+        _renderFromCache();
         try { window.hapticLight && window.hapticLight(); } catch (_e2) { void _e2; }
-        if (typeof window.openDMThread === 'function') window.openDMThread(sender);
-        else if (typeof window.openDMConversations === 'function') window.openDMConversations();
+        _openReply(sender);
       }
     });
+  }
+
+  // 카드 탭 → DM 자동응답 관리(검토 대기) = AI 초안 수정·전송 가능 화면 재사용. 읽기전용 X.
+  //   해당 sender 의 인박스 카드로 스크롤(best-effort). 초안 없어도 인박스 버블이 입력 가능 + regenerate.
+  async function _openReply(sender) {
+    if (typeof window.openDMAutoreplySettings === 'function') {
+      try { await window.openDMAutoreplySettings(); } catch (_e) { void _e; }
+      _focusInboxCard(sender);
+    } else if (typeof window.openDMThread === 'function') {
+      window.openDMThread(sender);  // 폴백
+    } else if (typeof window.openDMConversations === 'function') {
+      window.openDMConversations();
+    }
+  }
+
+  // 열린 DM 자동응답 시트의 인박스에서 해당 손님(sender 끝 4자=tail) 카드로 스크롤 + 살짝 강조.
+  function _focusInboxCard(sender) {
+    const tail = (sender || '').slice(-4);
+    if (!tail) return;
+    setTimeout(() => {
+      const sheet = document.getElementById('dmAutoreplySheet');
+      if (!sheet) return;
+      const el = sheet.querySelector(`.dm-inbox [data-tail="${tail}"]`) || sheet.querySelector(`[data-tail="${tail}"]`);
+      if (!el) return;
+      const cardEl = el.closest('.dm-inbox > *') || el;
+      try { cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) { void _e; }
+      try {
+        cardEl.style.transition = 'box-shadow .3s';
+        cardEl.style.boxShadow = '0 0 0 2px var(--brand, #D58A95)';
+        setTimeout(() => { cardEl.style.boxShadow = ''; }, 1600);
+      } catch (_e) { void _e; }
+    }, 320);
   }
 
   // ── 폴링 (홈 탭 활성 + 섹션 존재 시에만) ──────────────────
@@ -215,8 +287,11 @@
       .hv5-cmsg-more{margin-left:auto;font-size:12px;color:var(--text-subtle);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 2px}
       .hv5-cmsg-row{display:flex;gap:11px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
       .hv5-cmsg-row::-webkit-scrollbar{display:none}
-      .hv5-cmsg-card{flex:0 0 168px;text-align:left;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;display:block}
+      .hv5-cmsg-card{position:relative;flex:0 0 168px;text-align:left;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;display:block}
       .hv5-cmsg-card:active{transform:scale(.98)}
+      .hv5-cmsg-x{position:absolute;top:6px;right:6px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--text-subtle);font-size:11px;line-height:1;background:transparent;z-index:1}
+      .hv5-cmsg-x:hover,.hv5-cmsg-x:active{background:var(--surface-2);color:var(--text-muted)}
+      .hv5-cmsg-av svg{width:20px;height:20px}
       .hv5-cmsg-ctop{display:flex;align-items:center;gap:9px;margin-bottom:10px}
       .hv5-cmsg-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;position:relative;background:var(--brand-bg) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--brand-strong);font-weight:700;font-size:14px}
       .hv5-cmsg-av.is-unread::after{content:"";position:absolute;top:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--brand);border:2px solid var(--surface)}
@@ -237,6 +312,20 @@
     // 새 DM 실시간: 데이터 변경 이벤트에도 가볍게 반응
     window.addEventListener('itdasy:data-changed', () => {
       if (document.getElementById('hv5Cmsg')) refresh();
+    });
+    // 답장 전송 성공(검토 대기 인박스) → 해당 손님 카드 자동 제거.
+    //   이벤트는 sender 끝 4자(tail) 만 줄 수 있어 endsWith 로 매칭.
+    window.addEventListener('itdasy:dm-replied', (ev) => {
+      const d = (ev && ev.detail) || {};
+      const sid = d.sender_igsid || '';
+      const tail = d.tail || '';
+      (_cache || []).forEach(c => {
+        if (!c || !c.sender_igsid) return;
+        if ((sid && c.sender_igsid === sid) || (tail && c.sender_igsid.endsWith(tail))) {
+          _dismiss(c.sender_igsid);
+        }
+      });
+      _renderFromCache();
     });
   }
 

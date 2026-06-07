@@ -653,6 +653,8 @@
         if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
         _toast(d.message || '처리 완료');
         _sendFeedback(tail, 'good');
+        // [2026-06-08] 홈 '고객 메시지' 카드 자동 제거용 — 답장 전송 성공 알림(sender tail 전달).
+        try { window.dispatchEvent(new CustomEvent('itdasy:dm-replied', { detail: { tail } })); } catch (_e) { void _e; }
         card.classList.add('is-sending');
         setTimeout(() => {
           card.remove();
