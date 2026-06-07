@@ -34,7 +34,11 @@
     const slot = container.querySelector('[data-hv-avatar]');
     if (!slot) return;
     const img = document.querySelector('#headerAvatar img');
-    const src = img && img.src ? img.src : '';
+    let src = img && img.src ? img.src : '';
+    // [2026-06-07] #headerAvatar 가 아직 동기화 안 됐어도 연동된 IG 프사를 직접 폴백 → 홈 아바타에 프사 표시.
+    if (!src) {
+      try { src = localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { src = ''; }
+    }
     const initialHTML = `<span class="hv-header__initial">${esc(shopInitial(shopName()))}</span>`;
     if (src) {
       // referrerpolicy: 인스타 CDN 403 방지. onerror: 만료/실패 시 깨진 이미지 대신 이니셜.

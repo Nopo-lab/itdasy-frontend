@@ -71,7 +71,8 @@ p {
   z-index: 100;
   background: rgba(242,244,246,0.97);
   border-bottom: 0.5px solid var(--border);
-  padding: 16px 20px 12px;
+  /* [2026-06-07] 상하 여백 축소 — 홈 상단 공백 최소화 (16/12 → 12/10) */
+  padding: 12px 20px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;

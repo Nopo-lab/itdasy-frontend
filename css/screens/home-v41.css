@@ -9,6 +9,10 @@
    DOM/JS 는 손대지 않으므로 외부 호환 유지. 다른 탭에서는 영향 없음. */
 body:has(#tab-home.active) #headerPersona { display: none !important; }
 
+/* [2026-06-07] 홈 상단 빈 공백 축소 — 전역 .tab(padding-top:24px) + #homeV41Root 이중 패딩으로
+   헤더~첫 카드 사이 공백이 과했음. 홈 탭에만 상단 패딩 축소(다른 탭 24px 유지). */
+#tab-home.tab.active { padding-top: 8px; }
+
 .hv-header {
   display: flex;
   align-items: center;
