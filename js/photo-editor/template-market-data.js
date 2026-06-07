@@ -206,5 +206,34 @@
     return picks.slice(0, limit);
   }
 
-  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText, inferTags, recommendTemplates };
+  // ── [V3-1] 템플릿 팩 v3 TOP 5 ───────────────────────────────────────────
+  //   ⚠️ TEMPLATES 에 넣지 않음 = 갤러리 미노출(이번 PR은 토대만, 노출은 V3-4).
+  //   palette: preview(template-pack-v3-data.js) 와 동일값 복제 — 표류 시 그쪽을 SSOT 로.
+  //   렌더러(premium/ba)는 V3_TOP5 에서 found + palette 를 읽는다. palette 없는 기존은 무회귀.
+  const V3_TOP5 = [
+    { id: 'v3-ba-clean-rose',    cat: 'ba',    tier: 'free', label: '시술 전후 · 클린 로즈', kind: 'before_after', industry: 'skin', accent: 'soft',    prefillText: 'Before & After',
+      palette: { bg: '#F7EBE6', ink: '#4A3B38', sub: '#9C8983', accent: '#B97F7A', line: '#E6D2CC', badge: '#8C7A76' } },
+    { id: 'v3-review-card',      cat: 'card',  tier: 'free', label: '후기 · 인용 카드',     kind: 'review',       industry: 'skin', accent: 'soft',    prefillText: 'REAL REVIEW',
+      palette: { bg: '#FBEFEF', ink: '#3A2C2C', sub: '#9A8585', accent: '#C57E7E', line: '#E7CFCF', badge: '#C57E7E' } },
+    { id: 'v3-price-clean-rose', cat: 'price', tier: 'free', label: '가격표 · 클린 로즈',    kind: 'price',        industry: 'skin', accent: 'soft',    prefillText: 'PRICE LIST',
+      palette: { bg: '#FBEFEF', ink: '#3A2C2C', sub: '#9A8585', accent: '#C57E7E', line: '#E7CFCF', badge: '#C57E7E' } },
+    { id: 'v3-ba-clean-blue',    cat: 'ba',    tier: 'free', label: '시술 전후 · 클린 블루', kind: 'before_after', industry: 'skin', accent: 'primary', prefillText: 'Before & After',
+      palette: { bg: '#EEF3F8', ink: '#28384A', sub: '#7E8C9A', accent: '#5B82B0', line: '#D6E0EC', badge: '#5B82B0' } },
+    { id: 'v3-ba-sns-pink',      cat: 'ba',    tier: 'free', label: '시술 전후 · 파스텔 핑크', kind: 'before_after', industry: 'nail', accent: 'primary', prefillText: 'Before & After',
+      palette: { bg: '#FCE9EE', ink: '#3F2C32', sub: '#A2868E', accent: '#F24E86', line: '#F6D3DD', badge: '#F24E86' } },
+  ];
+  function v3ById(id) { for (let i = 0; i < V3_TOP5.length; i++) if (V3_TOP5[i].id === id) return V3_TOP5[i]; return null; }
+
+  // ── [V3-4a] 노출/조회 분리 + 롤백 플래그 ───────────────────────────────
+  //   노출(visibleTemplates): 기본 v3 TOP5만. 조회(lookupById): v3+legacy 전체(저장본/보관함 안전).
+  //   롤백: window.PE_TPL_V3_DEFAULT=false → 기존 갤러리 복귀. dev: PE_TPL_SHOW_LEGACY=true → legacy 합류.
+  function _flagV3Default() { try { return window.PE_TPL_V3_DEFAULT !== false; } catch (_e) { return true; } }
+  function _flagShowLegacy() { try { return window.PE_TPL_SHOW_LEGACY === true; } catch (_e) { return false; } }
+  function visibleTemplates() {
+    if (!_flagV3Default()) return TEMPLATES.slice();                 // 롤백 → 기존 55종
+    return _flagShowLegacy() ? V3_TOP5.concat(TEMPLATES) : V3_TOP5.slice();
+  }
+  function lookupById(id) { return v3ById(id) || (TEMPLATES.find(function (t) { return t.id === id; }) || null); }
+
+  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText, inferTags, recommendTemplates, V3_TOP5, v3ById, visibleTemplates, lookupById };
 })();

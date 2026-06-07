@@ -42,7 +42,7 @@
     const before = _beforeCanvas(state, after);   // secondImg 있을 때만 실제 사용 (없으면 placeholder)
     ctx.save();
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = _bg(tpl);
+    ctx.fillStyle = _bg(tpl, data);
     ctx.fillRect(0, 0, w, h);
     _layout(ctx, w, h, before, after, tpl && tpl.id, data || {});
     ctx.restore();
@@ -129,10 +129,10 @@
     _title(ctx, w, h, data, id);
     _photo(ctx, before, pad, top, boxW, boxH, true);
     _photo(ctx, after, pad + boxW + gap, top, boxW, boxH, false);
-    _labels(ctx, [[pad, top, boxW], [pad + boxW + gap, top, boxW]], h, _baLabels(id, data));
+    _labels(ctx, [[pad, top, boxW], [pad + boxW + gap, top, boxW]], h, _baLabels(id, data), data);
     // [S2] before/after 캡션(편집값) — 사진 박스 아래.
-    _baCaption(ctx, pad + boxW / 2, top + boxH, data.beforeCap);
-    _baCaption(ctx, pad + boxW + gap + boxW / 2, top + boxH, data.afterCap);
+    _baCaption(ctx, pad + boxW / 2, top + boxH, data.beforeCap, data);
+    _baCaption(ctx, pad + boxW + gap + boxW / 2, top + boxH, data.afterCap, data);
     if (id === 'ba-price') _priceRows(ctx, w, h, data);
     else if (id === 'ba-review') _review(ctx, w, h, data);
     else _footer(ctx, w, h, data);
@@ -146,11 +146,11 @@
     return base;
   }
 
-  function _baCaption(ctx, cx, boxBottom, text) {
+  function _baCaption(ctx, cx, boxBottom, text, data) {
     if (!text) return;
     const h = ctx.canvas.height;
     ctx.save();
-    ctx.fillStyle = 'rgba(17,18,23,0.74)';
+    ctx.fillStyle = _pbg(data, 'ink') || 'rgba(17,18,23,0.74)';   // [V3] palette.ink 우선
     ctx.textAlign = 'center';
     ctx.font = `600 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`;
     ctx.fillText(String(text).slice(0, 24), cx, boxBottom + h * 0.032);
@@ -400,15 +400,24 @@
   }
 
   function _title(ctx, w, h, data, id) {
-    ctx.fillStyle = id === 'ba-event' ? '#fff' : '#17181d';
+    // [V3] palette.ink 우선(없으면 기존색 — 무회귀)
+    ctx.fillStyle = _pbg(data, 'ink') || (id === 'ba-event' ? '#fff' : '#17181d');
     ctx.textAlign = 'center';
     ctx.font = `800 ${Math.round(h * 0.042)}px "Noto Serif KR", serif`;
     ctx.fillText(data.head || 'Before & After', w / 2, h * 0.09);
   }
+  // [V3] palette 키 안전 추출 — 없으면 '' (falsy → 기존색 fallback)
+  function _pbg(data, key) {
+    const p = data && data.palette;
+    return (p && typeof p[key] === 'string' && p[key]) ? p[key] : '';
+  }
 
-  function _labels(ctx, boxes, h, labels) {
+  function _labels(ctx, boxes, h, labels, data) {
+    // [V3] after 라벨 = palette.accent, before 라벨 = palette.ink (없으면 기존색)
+    const aft = _pbg(data, 'accent') || '#D58A95';
+    const bef = _pbg(data, 'ink') || '#111217';
     boxes.forEach((box, i) => {
-      ctx.fillStyle = i === boxes.length - 1 ? '#D58A95' : '#111217';
+      ctx.fillStyle = i === boxes.length - 1 ? aft : bef;
       ctx.fillRect(box[0] + 10, box[1] + 10, Math.min(box[2] * 0.45, 126), h * 0.036);
       ctx.fillStyle = '#fff';
       ctx.font = `800 ${Math.round(h * 0.017)}px sans-serif`;
@@ -419,19 +428,21 @@
 
   function _footer(ctx, w, h, data) {
     ctx.textAlign = 'center';
-    // [S2] cta/phone(편집값) 있으면 표기, 없으면 기존 샵명.
+    const acc = _pbg(data, 'accent') || '#D58A95';
+    const subc = _pbg(data, 'sub') || '#555';
+    // [S2] cta/phone(편집값) 있으면 표기, 없으면 기존 샵명. [V3] palette 색 우선.
     if (data.cta || data.phone) {
-      ctx.fillStyle = '#D58A95';
+      ctx.fillStyle = acc;
       ctx.font = `800 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`;
       ctx.fillText(data.cta || '예약 문의', w / 2, h * 0.88);
       if (data.phone) {
-        ctx.fillStyle = '#555';
+        ctx.fillStyle = subc;
         ctx.font = `600 ${Math.round(h * 0.02)}px sans-serif`;
         ctx.fillText(data.phone, w / 2, h * 0.915);
       }
       return;
     }
-    ctx.fillStyle = '#555';
+    ctx.fillStyle = subc;
     ctx.font = `600 ${Math.round(h * 0.018)}px sans-serif`;
     ctx.fillText(data.shop || '잇데이 스튜디오', w / 2, h * 0.88);
   }
@@ -461,7 +472,9 @@
     ctx.fillText(data.sub || '이번 주 예약 가능', w / 2, h * 0.88);
   }
 
-  function _bg(tpl) {
+  function _bg(tpl, data) {
+    // [V3-1] v3 템플릿이면 palette.bg 우선(없으면 기존 분기 — 무회귀).
+    if (data && data.palette && typeof data.palette.bg === 'string' && data.palette.bg) return data.palette.bg;
     if (tpl && tpl.id === 'ba-flower-shadow') return '#e7e5de';
     if (tpl && tpl.id === 'ba-polaroid') return '#eee9e2';
     if (tpl && tpl.id === 'ba-editorial') return '#f6f1e9';
