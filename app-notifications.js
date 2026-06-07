@@ -244,7 +244,8 @@
     }
     const dismissed = _getDismissed();
     const memKinds = ['membership_expire_7d', 'membership_expire_1d', 'membership_low_30', 'membership_low_10'];
-    const memNotifs = _items.filter(n => memKinds.includes(n.kind) && !dismissed.includes(n.id));
+    // [2026-06-07] 홈 상단 인라인 카드 노출 중단 — 알림은 종(🔔) 목록에서만. 홈 상단 안 밀리게.
+    const memNotifs = [];
     // [2026-06-07] 비었을 때 display:none — 빈 호스트의 margin 12px 가 홈 상단 공백 만들던 문제.
     if (!memNotifs.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
     const total = memNotifs.length;
@@ -304,7 +305,9 @@
     }
     const dismissed = _getDismissed();
     const dmKinds = ['dm_pending_confirm', 'dm_customer_register', 'dm_action_pending', 'dm_risk_alert'];
-    const dmNotifs = _items.filter(n => dmKinds.includes(n.kind) && !dismissed.includes(n.id));
+    // [2026-06-07] 홈 상단 인라인 카드 노출 중단 — DM 은 '고객 메시지' 카드 줄로 이관됨(+ 종 목록).
+    //   홈 상단이 알림으로 안 밀리게. 배지·종 목록은 그대로 유지. (배열 비워 카드 미표시)
+    const dmNotifs = [];
     // [2026-06-07] 비었을 때 display:none — 빈 호스트 margin 으로 홈 상단 공백 생기던 문제.
     if (!dmNotifs.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
     // 위험 알림이 1건이라도 있으면 빨간 카드 우선
@@ -442,7 +445,8 @@
       else anchor.appendChild(host);
     }
     const dismissed = _getDismissed();
-    const pending = _items.filter(n => n.kind === 'public_booking_pending' && !dismissed.includes(n.id));
+    // [2026-06-07] 홈 상단 인라인 카드 노출 중단 — 알림은 종(🔔) 목록에서만. 홈 상단 안 밀리게.
+    const pending = [];
     // [2026-06-07] 비었을 때 display:none — 빈 호스트 margin 으로 홈 상단 공백 생기던 문제.
     if (!pending.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
     const a = pending[0];
