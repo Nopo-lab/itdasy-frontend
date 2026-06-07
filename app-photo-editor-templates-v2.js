@@ -331,7 +331,7 @@
           ? prevTpl.slotValues
           : TS.getDefaultValues(tpl.id, tpl, { shopName: bk.shopName, serviceName: state.serviceName, price: state.price, customerName: state.customerName });
         const kind = TS.inferTemplateKind(tpl.id, tpl);
-        const dflt = () => ({ src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 } });
+        const dflt = () => ({ src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 }, zoom: 1 });   // [S4] zoom 기본 1.0
         state.tplV2.imageSlots = (same && prevTpl.imageSlots)
           ? prevTpl.imageSlots
           : (kind === 'before_after'
