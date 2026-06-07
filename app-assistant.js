@@ -1493,11 +1493,19 @@
   }
 
   function _priceTemplateById(id) {
+    const MD = window.PhotoEditorTemplateMarketData;
+    const v3 = (MD && typeof MD.lookupById === 'function' && MD.lookupById(id))
+      || (MD && typeof MD.visibleTemplates === 'function' && MD.visibleTemplates().find(t => t && t.id === id));
+    if (v3) return v3;
     const list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
     return Array.isArray(list) ? list.find(t => t && t.id === id) : null;
   }
 
   function _firstPriceTemplate() {
+    const MD = window.PhotoEditorTemplateMarketData;
+    const visible = MD && typeof MD.visibleTemplates === 'function' ? MD.visibleTemplates() : [];
+    const fromVisible = Array.isArray(visible) ? visible.find(t => t && t.cat === 'price') : null;
+    if (fromVisible) return fromVisible;
     const list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
     return Array.isArray(list) ? list.find(t => t && t.cat === 'price') : null;
   }
