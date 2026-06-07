@@ -61,6 +61,12 @@
     'ba-skin-cream':    ['baCompose', 'SKIN BEFORE / AFTER', 'Skin Care Result', '결이 매끈한 결과'],
     'ba-skin-polaroid': ['baCompose', 'SKIN BEFORE / AFTER', 'Clear Skin Glow', '맑아진 피부 컷'],
     'ba-skin-dark':     ['baCompose', 'SKIN DETAIL',         'Skin Texture Detail', '디테일 강조'],
+    // [V3-1] 템플릿 팩 v3 TOP 5 — 렌더 경로 매핑(갤러리 미노출, 적용 시에만 동작). palette 는 found 에서 주입.
+    'v3-price-clean-rose': ['priceTable', 'PRICE LIST',  '시술 가격표',       '프리미엄 시술로 더 아름다운 변화를 경험하세요.'],
+    'v3-review-card':      ['feedReview', 'REAL REVIEW',  '고객님의 진심 후기', '시술 후 달라진 변화를 직접 확인해보세요.'],
+    'v3-ba-clean-rose':   ['baCompose',  'BEFORE / AFTER', '시술 전후',        '한 눈에 비교해보세요. 달라진 아름다움의 차이'],
+    'v3-ba-clean-blue':   ['baCompose',  'BEFORE / AFTER', '시술 전후',        '맑고 환한 피부 변화를 경험해보세요.'],
+    'v3-ba-sns-pink':     ['baCompose',  'BEFORE / AFTER', '시술 전후',        '달라진 모습을 눈으로 확인해보세요!'],
   };
 
   const PAL = {
@@ -87,6 +93,13 @@
 
   function _safeColor(color, fallback) {
     return /^#[0-9a-f]{3,8}$/i.test(color || '') ? color : fallback;
+  }
+
+  // [V3-1] palette 헬퍼 — d.palette[key] 있으면 그 색, 없으면 fallback(기존 PAL/하드코딩) → 무회귀.
+  //   v3 템플릿만 d.palette 가 채워지고, 기존 템플릿은 null 이라 항상 fallback(기존 동작 동일).
+  function _pal(d, key, fallback) {
+    const p = d && d.palette;
+    return (p && typeof p[key] === 'string' && p[key]) ? p[key] : fallback;
   }
 
   const SLOT_IMAGE_CACHE = {};
@@ -123,19 +136,23 @@
   function _premiumHook(ctx, dw, dh, state) {
     const tpl = state && state.tplV2;
     if (!tpl) return false;
-    const found = _getTemplates().find(t => t.id === tpl.id);
+    // [V3-1] found 조회에 v3 TOP5 포함(market-data.V3_TOP5). 기존 경로 우선, 없으면 v3.
+    const MD = window.PhotoEditorTemplateMarketData;
+    const found = _getTemplates().find(t => t.id === tpl.id) || (MD && MD.v3ById && MD.v3ById(tpl.id)) || null;
     const meta = META[tpl.id];
     if (!found || !meta) return false;
     const b = _brandData(tpl);
+    // [V3-1] palette — v3 템플릿이면 found.palette, 기존은 null(→ _pal 가 기존색 반환, 무회귀).
+    const palette = (found && found.palette) || null;
     // [S1] editable slot 얕은 연결 — slotValues 있으면 우선, 없으면 기존과 동일(무회귀).
     const sv = (tpl && tpl.slotValues) || {};
     const mainPhotoSrc = tpl && tpl.imageSlots && tpl.imageSlots.main_photo && tpl.imageSlots.main_photo.src;
     const mainPhoto = _slotImage(mainPhotoSrc);
-    const data = { type: meta[0], kicker: meta[1],
+    const data = { type: meta[0], kicker: meta[1], palette: palette,
       head: sv.headline || found.prefillText || meta[2],
       sub: sv.subtitle || meta[3],
       shop: sv.shop_name || b.shop,
-      accent: b.accent, price: b.price, review: sv.review_text || b.review,
+      accent: (palette && palette.accent) || b.accent, price: b.price, review: sv.review_text || b.review,
       // [S2] 편집 가능 슬롯 추가 연결(없으면 undefined → 렌더러가 기존 동작 유지)
       services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
       beforeLabel: sv.before_label, afterLabel: sv.after_label,

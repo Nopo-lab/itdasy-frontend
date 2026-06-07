@@ -42,7 +42,7 @@
     const before = _beforeCanvas(state, after);   // secondImg 있을 때만 실제 사용 (없으면 placeholder)
     ctx.save();
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = _bg(tpl);
+    ctx.fillStyle = _bg(tpl, data);
     ctx.fillRect(0, 0, w, h);
     _layout(ctx, w, h, before, after, tpl && tpl.id, data || {});
     ctx.restore();
@@ -461,7 +461,9 @@
     ctx.fillText(data.sub || '이번 주 예약 가능', w / 2, h * 0.88);
   }
 
-  function _bg(tpl) {
+  function _bg(tpl, data) {
+    // [V3-1] v3 템플릿이면 palette.bg 우선(없으면 기존 분기 — 무회귀).
+    if (data && data.palette && typeof data.palette.bg === 'string' && data.palette.bg) return data.palette.bg;
     if (tpl && tpl.id === 'ba-flower-shadow') return '#e7e5de';
     if (tpl && tpl.id === 'ba-polaroid') return '#eee9e2';
     if (tpl && tpl.id === 'ba-editorial') return '#f6f1e9';
