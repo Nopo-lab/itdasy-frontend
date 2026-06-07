@@ -1433,6 +1433,7 @@
         ? msg.hub_actions.find((a) => a.id === actId) : null;
       if (!action || !window.ItdasyActionHub || typeof window.ItdasyActionHub.handleActionClick !== 'function') return true;
       if (action.kind === 'open_template_panel' && _openAssistantTemplatePicker(action, msg)) return true;
+      if (action.kind === 'apply_price_template' && _applyPriceTemplateDraft(action, msg)) return true;
       const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
       if (r.chatInput) {
         const input = document.getElementById('asstInput');
@@ -1467,6 +1468,124 @@
     const p = (action && action.payload) || {};
     return p.dataUrl || (msg && msg.photo_result && msg.photo_result.dataUrl)
       || (msg && msg.promo_result && (msg.promo_result.afterDataUrl || msg.promo_result.dataUrl)) || '';
+  }
+
+  function _priceTemplateSource(action, msg) {
+    const p = (action && action.payload) || {};
+    if (p.dataUrl) return p.dataUrl;
+    if (msg && Array.isArray(msg.photos) && msg.photos[0]) return msg.photos[0];
+    if (msg && msg.thumb) return msg.thumb;
+    try {
+      const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve();
+      return (src && src.dataUrl) ? src.dataUrl : '';
+    } catch (_e) { return ''; }
+  }
+
+  function _priceTemplateDraft(action, msg) {
+    const p = (action && action.payload) || {};
+    return p.draft || (msg && msg.price_list_draft) || null;
+  }
+
+  function _priceIndustryKey(draft) {
+    const key = draft && draft.industry && draft.industry.key;
+    if (key === 'waxing') return 'wax';
+    return key || 'common';
+  }
+
+  function _priceTemplateById(id) {
+    const list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
+    return Array.isArray(list) ? list.find(t => t && t.id === id) : null;
+  }
+
+  function _firstPriceTemplate() {
+    const list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
+    return Array.isArray(list) ? list.find(t => t && t.cat === 'price') : null;
+  }
+
+  function _selectPriceTemplateId(draft, preferredId) {
+    if (preferredId && _priceTemplateById(preferredId)) return preferredId;
+    const map = { nail: 'price-nail', hair: 'price-hair', lash: 'price-lash', skin: 'price-makeup', makeup: 'price-makeup', common: 'price-makeup', wax: 'price-wax' };
+    const key = _priceIndustryKey(draft);
+    const first = map[key] || map.common;
+    if (_priceTemplateById(first)) return first;
+    if (key === 'wax' && _priceTemplateById('price-makeup')) return 'price-makeup';
+    if (_priceTemplateById('price-hair')) return 'price-hair';
+    const any = _firstPriceTemplate();
+    return any ? any.id : '';
+  }
+
+  function _priceServices(draft) {
+    return ((draft && draft.rows) || []).filter(Boolean).slice(0, 8).map(row => {
+      const name = String(row.name || row.service_name || '').trim();
+      const price = String(row.price || '').trim();
+      return { name, service_name: name, desc: '', description: '', price, duration: '', badge: '' };
+    }).filter(row => row.name || row.price);
+  }
+
+  function _priceSubtitle(draft) {
+    const key = _priceIndustryKey(draft);
+    const map = {
+      nail: '손끝에서 완성되는 깔끔한 변화를 합리적인 가격으로 만나보세요.',
+      hair: '나에게 어울리는 스타일 변화를 가격표로 한눈에 확인해보세요.',
+      lash: '자연스럽고 또렷한 눈매를 위한 시술 가격을 확인해보세요.',
+      skin: '피부 고민에 맞춘 관리 프로그램을 한눈에 정리했어요.',
+      makeup: '아름다운 순간을 위한 메이크업 가격을 확인해보세요.',
+      wax: '깔끔한 관리를 위한 시술 가격을 확인해보세요.',
+    };
+    return map[key] || '아름다움을 위한 특별한 관리, 합리적인 가격으로 만나보세요.';
+  }
+
+  function _injectPriceSlotValues(state, draft, services) {
+    if (!state || !state.tplV2) return false;
+    const next = Object.assign({}, state.tplV2.slotValues || {});
+    next.services = services;
+    next.headline = '시술 가격표';
+    next.subtitle = _priceSubtitle(draft);
+    next.cta = '예약 문의';
+    state.tplV2.slotValues = next;
+    return true;
+  }
+
+  function _openPriceEditSheet(state, tplId, tpl, helpers) {
+    const ES = window.PhotoEditorTemplateEditSheet;
+    if (!ES || typeof ES.open !== 'function') {
+      if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
+      return;
+    }
+    ES.open({ templateId: tplId, templateData: tpl, state, helpers, onChange: () => {} });
+  }
+
+  function _applyPriceTemplateDraft(action, msg) {
+    try {
+      const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
+      if (!PE || !PE.open || !PE._internal || !TV || !TV.apply) return false;
+      const draft = _priceTemplateDraft(action, msg);
+      const services = _priceServices(draft);
+      if (!services.length) return _priceTemplateFailed();
+      const p = (action && action.payload) || {};
+      const tplId = _selectPriceTemplateId(draft, p.preferredTemplateId);
+      const tpl = _priceTemplateById(tplId);
+      if (!tplId || !tpl) return _priceTemplateFailed();
+      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template' });
+      TV.apply(tplId);
+      const helpers = PE._internal.helpers || {};
+      const state = PE._internal.getState && PE._internal.getState();
+      if (!_injectPriceSlotValues(state, draft, services)) return _priceTemplateFailed();
+      if (helpers.renderPanel) helpers.renderPanel();
+      if (helpers.scheduleRedraw) helpers.scheduleRedraw();
+      if (helpers.pushHistory) helpers.pushHistory();
+      _openPriceEditSheet(state, tplId, tpl, helpers);
+      if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
+      return true;
+    } catch (e) {
+      try { console.warn('[assistant-price-list] apply failed', e); } catch (_logErr) { void _logErr; }
+      return _priceTemplateFailed();
+    }
+  }
+
+  function _priceTemplateFailed() {
+    if (window.showToast) window.showToast('가격표를 넣지 못했어요. 다시 시도해 주세요.');
+    return true;
   }
 
   function _templateIdsForPicker(action, msg) {
@@ -2942,6 +3061,17 @@
     }
   }
 
+  function _priceDraftActions(draft, photos) {
+    return [{
+      id: 'apply_price_template',
+      kind: 'apply_price_template',
+      label: '가격표 템플릿에 적용',
+      phase: 'safe',
+      route: 'hub',
+      payload: { draft, preferredTemplateId: 'v3-price-clean-rose', dataUrl: (photos && photos[0]) || '' },
+    }];
+  }
+
   function _tryPriceListDraft(input, q, photoUrls) {
     try {
       const P = window.ItdasyAssistantPriceList;
@@ -2951,7 +3081,14 @@
       const photos = _priceDraftPhotoUrls(photoUrls);
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q, thumb: photos[0] || '', photos: photos });
-      _history.push({ role: 'assistant', text: P.formatDraftMessage(result), price_list_draft: result });
+      _history.push({
+        role: 'assistant',
+        text: P.formatDraftMessage(result),
+        price_list_draft: result,
+        thumb: photos[0] || '',
+        photos: photos,
+        hub_actions: _priceDraftActions(result, photos),
+      });
       _renderHistory();
       if (window.hapticLight) window.hapticLight();
       return true;

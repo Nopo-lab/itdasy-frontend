@@ -18,7 +18,7 @@
   // kind → 안전 단계. (명시 phase 가 있으면 그게 우선)
   var PHASE = {
     // safe — 조회/이동/초안/복사/열기
-    copy_caption: 'safe', open_photo_editor: 'safe', open_template_panel: 'safe',
+    copy_caption: 'safe', open_photo_editor: 'safe', open_template_panel: 'safe', apply_price_template: 'safe',
     open_calendar: 'safe', open_customer: 'safe', open_revenue: 'safe', open_workshop: 'safe',
     show_unlinked_photos: 'safe', show_empty_slots: 'safe', open_instagram: 'safe', export_image: 'safe',
     chat_suggest: 'safe',  // 잇비 입력창에 문장 채워 보냄(초안/조회 등 기존 경로로 위임 — 발송/생성 아님)
