@@ -6,6 +6,9 @@
   const MARKET_DATA = window.PhotoEditorTemplateMarketData || { CATS: [], TEMPLATES: [] };
   const CATS = MARKET_DATA.CATS;
   const TEMPLATES = MARKET_DATA.TEMPLATES;
+  // [V3-4b] 노출=visibleTemplates(기본 v3 TOP5), 조회=lookupById(v3+legacy 전체 — apply/recoIds 안전)
+  function _vis() { return MARKET_DATA.visibleTemplates ? MARKET_DATA.visibleTemplates() : TEMPLATES.slice(); }
+  function _look(id) { return MARKET_DATA.lookupById ? MARKET_DATA.lookupById(id) : (TEMPLATES.find(function (t) { return t.id === id; }) || null); }
 
   let _sheetEl = null;
   let _selectedCat = 'ba';   // v320-B — 전후사진 먼저 노출
@@ -151,7 +154,7 @@
     // [TPL-2] 태그 필터 활성 시 cat 경계를 넘어 전체에서 industry/purpose 로 좁힘(원장이 "네일 전후"를 바로 찾게).
     //   태그 없으면 기존 cat 카테고리 기준. 검색어는 항상 AND.
     const tagActive = !!_selectedTag;
-    const filtered = TEMPLATES.filter(t => {
+    const filtered = _vis().filter(t => {   // [V3-4b] 노출 visible 기준(legacy 숨김/검색 누출 0)
       if (tagActive) { if (!_passTag(t)) return false; }
       else if (t.cat !== _selectedCat) return false;
       if (!_searchTerm) return true;
@@ -171,7 +174,7 @@
     }
     // [TPL-3] 추천 섹션 — 잇비 추천 id 있으면 상단 고정(태그/검색 없을 때만).
     const recoTpls = (!tagActive && !_searchTerm && _recoIds.length)
-      ? _recoIds.map(id => TEMPLATES.find(t => t.id === id)).filter(Boolean) : [];
+      ? _recoIds.map(id => _look(id)).filter(Boolean) : [];   // [V3-4b] 조회=lookup(legacy/v3)
     let html = '';
     if (recoTpls.length) {
       html += `<div style="grid-column:1/-1;font-size:12px;font-weight:800;color:#e8d9b8;padding:2px 2px 0;">잇비 추천 ${recoTpls.length}</div>`;
@@ -299,7 +302,7 @@
 
   // 템플릿 적용: PhotoEditor 상태에 카드 정보 + 텍스트 레이어 prefill
   function _apply(tplId) {
-    const tpl = TEMPLATES.find(t => t.id === tplId);
+    const tpl = _look(tplId);   // [V3-4b] 조회=lookup → v3/legacy 모두 적용 가능
     if (!tpl) return;
     const cat = CATS.find(c => c.id === tpl.cat);
     const bk = _getBrandKit();

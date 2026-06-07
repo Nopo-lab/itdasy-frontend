@@ -56,17 +56,16 @@
   }
 
   // ── 템플릿 선별 ──
-  function _tplById(id) { return _MD().TEMPLATES.find(t => t.id === id) || null; }
+  // [V3-4b] 노출=visibleTemplates(기본 v3 TOP5만), 조회=lookupById(v3+legacy 전체).
+  function _visible() { const MD = _MD(); return MD.visibleTemplates ? MD.visibleTemplates() : MD.TEMPLATES.slice(); }
+  // 조회는 전체(보관함/legacy 저장본 유지) — lookupById 우선, 없으면 기존 동작.
+  function _tplById(id) { const MD = _MD(); return (MD.lookupById ? MD.lookupById(id) : (MD.TEMPLATES.find(t => t.id === id) || null)); }
 
   function _recommendList() {
-    const MD = _MD();
-    let shopType = '';
-    try { shopType = localStorage.getItem('shop_type') || ''; } catch (_e) { void 0; }
-    if (MD.recommendTemplates) {
-      const picks = MD.recommendTemplates('', { shopType }, 12) || [];
-      if (picks.length) return picks;
-    }
-    return MD.TEMPLATES.filter(t => t.tier !== 'pro').slice(0, 12);
+    // [V3-4b] 추천도 visible 기준 — 기본은 v3 TOP5(free 우선) 12개 이내.
+    const vis = _visible();
+    const free = vis.filter(t => t.tier !== 'pro');
+    return (free.length ? free : vis).slice(0, 12);
   }
 
   function _chipMatch(chip, t) {
@@ -100,19 +99,19 @@
   }
 
   function _currentList() {
-    const MD = _MD();
     let base;
     if (_chip === 'library') {
+      // [V3-4b] 보관함은 조회=lookupById(전체) → legacy favorite/recent 유지 표시.
       const lib = _LIB();
       const ids = lib ? lib.listAll() : [];
       base = ids.map(_tplById).filter(Boolean);
     } else if (_showAll) {
-      base = MD.TEMPLATES.slice();
+      base = _visible();
     } else if (_chip === 'recommend') {
-      // 추천은 큐레이션 12개지만, 검색어가 있으면 전체에서 찾는다(원장이 "가격표"라 치면 전체 가격표 노출).
-      base = _query ? MD.TEMPLATES.slice() : _recommendList();
+      // [V3-4b] 검색어 있어도 visible 기준 → legacy 비노출(검색 누출 없음).
+      base = _query ? _visible() : _recommendList();
     } else {
-      base = MD.TEMPLATES.filter(t => _chipMatch(_chip, t));
+      base = _visible().filter(t => _chipMatch(_chip, t));
     }
     return base.filter(t => _matchQuery(t, _query));
   }
