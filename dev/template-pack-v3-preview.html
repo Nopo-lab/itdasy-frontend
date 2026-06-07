@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>템플릿 리빌드 팩 v3 — 독립 Preview</title>
+  <!-- 독립 페이지: 앱(index.html/sw.js)과 분리. 이 팩 전용 파일만 로드 -->
+  <link rel="stylesheet" href="../css/screens/photo-editor-template-pack-v3.css" />
+  <style>
+    /* 페이지 로컬 보조 — 한글 폰트 폴백(네트워크 없이 시스템 폰트) */
+    body.tpv3 { font-family: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  </style>
+</head>
+<body class="tpv3" data-device="desktop">
+
+  <div class="tpv3-toolbar">
+    <h1>템플릿 리빌드 팩 v3</h1>
+    <span class="tpv3-count" id="tpv3-count">…</span>
+    <span class="tpv3-spacer"></span>
+
+    <div class="tpv3-filter" role="group" aria-label="카테고리 필터">
+      <button data-tpv3-filter="all" aria-pressed="true">전체</button>
+      <button data-tpv3-filter="price" aria-pressed="false">가격표</button>
+      <button data-tpv3-filter="ba" aria-pressed="false">전후</button>
+      <button data-tpv3-filter="event" aria-pressed="false">이벤트</button>
+      <button data-tpv3-filter="card" aria-pressed="false">후기·샵</button>
+    </div>
+
+    <div class="tpv3-seg" role="group" aria-label="디바이스">
+      <button data-tpv3-device="desktop" aria-pressed="false">데스크탑</button>
+      <button data-tpv3-device="mobile" aria-pressed="true">모바일 390</button>
+    </div>
+  </div>
+
+  <main class="tpv3-grid" id="tpv3-grid"><!-- preview.js 가 채움 --></main>
+
+  <script src="../js/photo-editor/template-pack-v3-data.js"></script>
+  <script src="../js/photo-editor/template-pack-v3-preview.js"></script>
+  <script>
+    // 기본 디바이스 데스크탑으로 시작(toolbar 버튼 상태 동기화)
+    (function () {
+      document.body.setAttribute('data-device', 'desktop');
+      var d = document.querySelector('[data-tpv3-device="desktop"]');
+      var m = document.querySelector('[data-tpv3-device="mobile"]');
+      if (d) d.setAttribute('aria-pressed', 'true');
+      if (m) m.setAttribute('aria-pressed', 'false');
+    })();
+  </script>
+</body>
+</html>
