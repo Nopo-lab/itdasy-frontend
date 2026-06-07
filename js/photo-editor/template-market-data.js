@@ -224,5 +224,16 @@
   ];
   function v3ById(id) { for (let i = 0; i < V3_TOP5.length; i++) if (V3_TOP5[i].id === id) return V3_TOP5[i]; return null; }
 
-  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText, inferTags, recommendTemplates, V3_TOP5, v3ById };
+  // ── [V3-4a] 노출/조회 분리 + 롤백 플래그 ───────────────────────────────
+  //   노출(visibleTemplates): 기본 v3 TOP5만. 조회(lookupById): v3+legacy 전체(저장본/보관함 안전).
+  //   롤백: window.PE_TPL_V3_DEFAULT=false → 기존 갤러리 복귀. dev: PE_TPL_SHOW_LEGACY=true → legacy 합류.
+  function _flagV3Default() { try { return window.PE_TPL_V3_DEFAULT !== false; } catch (_e) { return true; } }
+  function _flagShowLegacy() { try { return window.PE_TPL_SHOW_LEGACY === true; } catch (_e) { return false; } }
+  function visibleTemplates() {
+    if (!_flagV3Default()) return TEMPLATES.slice();                 // 롤백 → 기존 55종
+    return _flagShowLegacy() ? V3_TOP5.concat(TEMPLATES) : V3_TOP5.slice();
+  }
+  function lookupById(id) { return v3ById(id) || (TEMPLATES.find(function (t) { return t.id === id; }) || null); }
+
+  window.PhotoEditorTemplateMarketData = { CATS, TEMPLATES, INDUSTRY_LABEL, PURPOSE_LABEL, industryOf, purposeOf, recommendText, proValueText, inferTags, recommendTemplates, V3_TOP5, v3ById, visibleTemplates, lookupById };
 })();
