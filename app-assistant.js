@@ -2720,6 +2720,7 @@
     //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
     try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
     try {
+      if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question)) {
         _pushPhotoSuggestion(question, photoUrls);
@@ -2927,6 +2928,35 @@
       _renderHistory();
       return true;
     } catch (_e) {
+      return false;
+    }
+  }
+
+  function _priceDraftPhotoUrls(photoUrls) {
+    if (photoUrls && photoUrls.length) return photoUrls;
+    try {
+      const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve();
+      return (src && src.origin === 'chat' && src.dataUrl) ? [src.dataUrl] : [];
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  function _tryPriceListDraft(input, q, photoUrls) {
+    try {
+      const P = window.ItdasyAssistantPriceList;
+      if (!P || typeof P.parseRequest !== 'function') return false;
+      const result = P.parseRequest(q);
+      if (!result || !result.matched || !result.rows || !result.rows.length) return false;
+      const photos = _priceDraftPhotoUrls(photoUrls);
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q, thumb: photos[0] || '', photos: photos });
+      _history.push({ role: 'assistant', text: P.formatDraftMessage(result), price_list_draft: result });
+      _renderHistory();
+      if (window.hapticLight) window.hapticLight();
+      return true;
+    } catch (e) {
+      try { console.warn('[assistant-price-list] draft failed', e); } catch (_logErr) { void _logErr; }
       return false;
     }
   }
@@ -3279,6 +3309,7 @@
     if (!q) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
+    if (_tryPriceListDraft(input, q)) return;
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();
