@@ -1,0 +1,187 @@
+/* 템플릿 리빌드 팩 v3 — 독립 preview 전용 스타일 (앱 미연결)
+ * 레이아웃은 % 기준(나중 canvas 포팅 쉽게). 팔레트는 캔버스에 인라인 CSS변수(--bg 등)로 주입.
+ */
+
+:root {
+  --tpv3-page-bg: #f4f5f7;
+  --tpv3-ui-ink: #191f28;
+  --tpv3-ui-sub: #6b7684;
+  --tpv3-ui-line: #e5e8eb;
+}
+
+* { box-sizing: border-box; }
+
+body.tpv3 {
+  margin: 0;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  background: var(--tpv3-page-bg);
+  color: var(--tpv3-ui-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── 툴바 ───────────────────────────────────────────── */
+.tpv3-toolbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--tpv3-ui-line);
+}
+.tpv3-toolbar h1 { font-size: 16px; margin: 0; font-weight: 800; }
+.tpv3-toolbar .tpv3-count { font-size: 12px; color: var(--tpv3-ui-sub); }
+.tpv3-spacer { flex: 1; }
+
+.tpv3-seg { display: inline-flex; border: 1px solid var(--tpv3-ui-line); border-radius: 999px; overflow: hidden; background: #fff; }
+.tpv3-seg button {
+  border: 0; background: transparent; padding: 7px 14px; font-size: 12px; font-weight: 600;
+  color: var(--tpv3-ui-sub); cursor: pointer;
+}
+.tpv3-seg button[aria-pressed="true"] { background: var(--tpv3-ui-ink); color: #fff; }
+
+.tpv3-filter { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.tpv3-filter button {
+  border: 1px solid var(--tpv3-ui-line); background: #fff; border-radius: 999px;
+  padding: 6px 12px; font-size: 12px; color: var(--tpv3-ui-sub); cursor: pointer; font-weight: 600;
+}
+.tpv3-filter button[aria-pressed="true"] { background: #fde7f0; border-color: #f4b6cf; color: #c2185b; }
+
+/* ── 그리드 ─────────────────────────────────────────── */
+.tpv3-grid {
+  display: grid; gap: 26px; padding: 26px 20px 80px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  max-width: 1480px; margin: 0 auto;
+}
+body.tpv3[data-device="mobile"] .tpv3-grid {
+  grid-template-columns: 1fr; max-width: 430px;
+}
+
+.tpv3-item { display: flex; flex-direction: column; gap: 8px; }
+.tpv3-item-head { display: flex; align-items: center; gap: 8px; }
+.tpv3-item-title { font-size: 13px; font-weight: 700; }
+.tpv3-item-id { font-size: 11px; color: var(--tpv3-ui-sub); }
+.tpv3-badge { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
+.tpv3-badge.free { background: #e6f4ea; color: #1f9d63; }
+.tpv3-badge.pro { background: linear-gradient(135deg, #caa15a, #a9823f); color: #fff; }
+.tpv3-badge.style { background: #eef1f5; color: #4e5968; }
+
+/* ── 템플릿 캔버스 (비율 박스) ──────────────────────── */
+.tpv3-canvas {
+  position: relative; width: 100%; overflow: hidden;
+  background: var(--bg, #fff); color: var(--ink, #222);
+  border-radius: 14px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.1);
+  /* 내부 비율 컨테이너용 컨테이너쿼리 폰트 스케일 */
+  container-type: inline-size;
+}
+.tpv3-canvas[data-ratio="4:5"] { aspect-ratio: 4 / 5; }
+.tpv3-canvas[data-ratio="1:1"] { aspect-ratio: 1 / 1; }
+.tpv3-pad { position: absolute; inset: 0; padding: 7%; display: flex; flex-direction: column; }
+
+/* 폰트 스케일: 캔버스 폭 기준(cqw) → 모바일/데스크탑 모두 비율 유지 */
+.tpv3-shop { font-size: 3.4cqw; letter-spacing: 0.12em; font-weight: 700; color: var(--accent, #c57e7e); text-transform: uppercase; }
+.tpv3-head { font-size: 8.2cqw; font-weight: 800; line-height: 1.08; margin: 1.5% 0 0; font-family: var(--head, inherit); word-break: keep-all; }
+/* 큰 배지(event-bold)와 헤더 겹침 방지 — 헤더를 배지 아래로 */
+.tpv3-pad.tpv3-has-badge .tpv3-head-wrap { padding-top: 18%; }
+.tpv3-canvas[data-style="luxe"] .tpv3-head { letter-spacing: 0.02em; }
+.tpv3-sub { font-size: 3.1cqw; color: var(--sub, #999); line-height: 1.4; margin-top: 2%;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tpv3-cta {
+  align-self: flex-start; margin-top: auto; font-size: 3.2cqw; font-weight: 700;
+  background: var(--accent, #c57e7e); color: #fff; border-radius: 999px; padding: 1.6% 4.5%;
+}
+.tpv3-canvas[data-style="luxe"] .tpv3-cta { background: var(--accent); color: #14110e; }
+.tpv3-phone { font-size: 2.8cqw; color: var(--sub); margin-top: 2.5%; }
+
+/* 헤더 정렬 변형 */
+.tpv3-center { text-align: center; align-items: center; }
+.tpv3-center .tpv3-cta { align-self: center; }
+
+/* ── 가격표 행 ──────────────────────────────────────── */
+.tpv3-svc { margin-top: 4%; display: flex; flex-direction: column; gap: 0; }
+.tpv3-svc-row {
+  display: flex; align-items: center; gap: 3%; padding: 2.6% 0;
+  border-bottom: 1px solid var(--line, #eee);
+}
+.tpv3-svc-row:last-child { border-bottom: 0; }
+.tpv3-svc-ic {
+  width: 9cqw; height: 9cqw; border-radius: 50%; flex-shrink: 0;
+  background: var(--line, #eee); display: flex; align-items: center; justify-content: center;
+}
+.tpv3-svc-main { flex: 1; min-width: 0; }
+.tpv3-svc-name { font-size: 3.5cqw; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpv3-svc-desc { font-size: 2.7cqw; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.5%; }
+.tpv3-svc-price { font-size: 4cqw; font-weight: 800; color: var(--accent, #c57e7e); white-space: nowrap; }
+.tpv3-canvas[data-style="luxe"] .tpv3-svc-price { color: var(--accent); }
+
+/* 멀티섹션 */
+.tpv3-section-label { font-size: 3.2cqw; font-weight: 800; margin: 3.5% 0 1%; color: var(--accent); }
+
+/* ── 전후 ───────────────────────────────────────────── */
+.tpv3-ba-pair { display: flex; gap: 3%; margin-top: 4%; }
+.tpv3-ba-col { flex: 1; display: flex; flex-direction: column; }
+.tpv3-ba-photo { position: relative; aspect-ratio: 3 / 4; border-radius: 8px; overflow: hidden; }
+.tpv3-ba-lab {
+  position: absolute; top: 6%; left: 50%; transform: translateX(-50%);
+  font-size: 3cqw; font-weight: 800; color: #fff; padding: 1% 5%; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+}
+.tpv3-ba-col:last-child .tpv3-ba-lab { background: var(--accent, #c57e7e); }
+.tpv3-ba-cap { font-size: 2.8cqw; text-align: center; margin-top: 3%; line-height: 1.3; color: var(--ink); }
+.tpv3-ba-cap.sub { color: var(--sub); }
+.tpv3-ba-arrow {
+  align-self: center; font-size: 5cqw; color: var(--accent); font-weight: 800;
+  display: flex; align-items: center;
+}
+
+/* 효과 아이콘 행 */
+.tpv3-effects { display: flex; gap: 2%; margin-top: 4%; }
+.tpv3-effect { flex: 1; text-align: center; }
+.tpv3-effect .dot { width: 8cqw; height: 8cqw; border-radius: 50%; margin: 0 auto 4%; background: var(--line); display: flex; align-items: center; justify-content: center; }
+.tpv3-effect .t { font-size: 2.6cqw; font-weight: 700; line-height: 1.2; }
+
+/* ── 후기 ───────────────────────────────────────────── */
+.tpv3-review-card { margin-top: 5%; background: rgba(255, 255, 255, 0.6); border-radius: 14px; padding: 6%; }
+.tpv3-stars { color: #ffb547; font-size: 4cqw; letter-spacing: 2px; }
+.tpv3-quote { font-size: 3.4cqw; line-height: 1.5; margin-top: 3%;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.tpv3-reviewer { display: flex; align-items: center; gap: 3%; margin-top: 4%; }
+.tpv3-reviewer .ava { width: 9cqw; height: 9cqw; border-radius: 50%; background: var(--line); overflow: hidden; }
+.tpv3-reviewer .who { font-size: 3cqw; font-weight: 700; color: var(--sub); }
+
+/* ── placeholder 이미지 ─────────────────────────────── */
+.tpv3-ph {
+  width: 100%; height: 100%; position: relative;
+  background: linear-gradient(135deg, var(--ph-a, #e8d9d4), var(--ph-b, #d3bdb6));
+  display: flex; align-items: center; justify-content: center;
+}
+.tpv3-ph svg { width: 38%; height: 38%; opacity: 0.55; }
+.tpv3-ph .lab { position: absolute; bottom: 6%; font-size: 2.4cqw; color: rgba(255, 255, 255, 0.9); letter-spacing: 0.1em; font-weight: 700; }
+
+/* 풀블리드 사진(럭셔리 전후) */
+.tpv3-fullphoto { flex: 1; display: flex; gap: 1.5%; margin: 4% 0; }
+.tpv3-fullphoto .tpv3-ba-photo { aspect-ratio: auto; flex: 1; border-radius: 6px; }
+
+/* ── 데코 ───────────────────────────────────────────── */
+.tpv3-deco-tape {
+  position: absolute; width: 18%; height: 5%; background: rgba(255, 255, 255, 0.55);
+  border: 1px dashed rgba(0, 0, 0, 0.12); transform: rotate(-6deg);
+}
+.tpv3-big-badge {
+  position: absolute; top: 6%; right: 6%; width: 26%; aspect-ratio: 1;
+  border-radius: 50%; background: var(--badge, #ffd24d); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 4.5cqw; font-weight: 900; transform: rotate(8deg);
+}
+.tpv3-coupon { margin-top: auto; border: 2px dashed var(--accent); border-radius: 12px; padding: 5%; position: relative; }
+.tpv3-coupon::before, .tpv3-coupon::after {
+  content: ''; position: absolute; top: 50%; width: 5%; aspect-ratio: 1; border-radius: 50%;
+  background: var(--bg); transform: translateY(-50%);
+}
+.tpv3-coupon::before { left: -3%; } .tpv3-coupon::after { right: -3%; }
+
+/* 정보 행(샵소개) */
+.tpv3-info { margin-top: auto; display: flex; flex-direction: column; gap: 1.5%; }
+.tpv3-info .r { font-size: 2.9cqw; color: var(--sub); }
+
+/* 카테고리 섹션 헤더(필터된 그룹 라벨은 미사용 — 단일 그리드) */
+.tpv3-hidden { display: none !important; }
