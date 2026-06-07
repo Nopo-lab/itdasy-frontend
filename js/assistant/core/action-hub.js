@@ -220,5 +220,91 @@
     return normalizeActions(acts, 'hub');
   }
 
+  var PRICE_INTENT = /가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격.*(만들|올려|정리|안내|보여)/;
+  var PRICE_TOKEN = /(\d+(?:\.\d+)?\s*만\s*원?|\d[\d,]*\s*원?)/;
+  var INDUSTRIES = [
+    { key: 'nail', label: '네일', re: /네일|손젤|젤네일|패디|손톱|젤\s*제거/ },
+    { key: 'lash', label: '속눈썹', re: /속눈썹|래쉬|lash|연장|언더|펌/ },
+    { key: 'skin', label: '피부', re: /피부|에스테틱|물광|진정|리프팅|여드름|스킨/ },
+    { key: 'waxing', label: '왁싱', re: /왁싱|제모/ },
+    { key: 'makeup', label: '메이크업', re: /메이크업|메이크|화장/ },
+    { key: 'hair', label: '헤어', re: /헤어|머리|커트|클리닉|염색|펌|붙임머리|모발/ },
+  ];
+
+  function _priceTools() { return window.PhotoEditorTemplateFitText || {}; }
+  function _fallbackFormatPrice(v) {
+    var s = String(v == null ? '' : v).trim();
+    var m = s.match(/(\d+(?:\.\d+)?)\s*만/);
+    var n = m ? Math.round(parseFloat(m[1]) * 10000) : parseInt(s.replace(/[^\d]/g, ''), 10);
+    return n > 0 ? n.toLocaleString('en-US') + '원' : s;
+  }
+  function _formatPrice(v) {
+    var fn = _priceTools().formatPrice;
+    return typeof fn === 'function' ? fn(v) : _fallbackFormatPrice(v);
+  }
+  function _parseServicePrices(text) {
+    var fn = _priceTools().parseServicePrices;
+    if (typeof fn === 'function') return fn(text);
+    return String(text || '').split('\n').map(function (line) {
+      var m = line.trim().match(/^(.*?)[\s]+(.+)$/);
+      return m ? { name: m[1].trim(), price: _formatPrice(m[2]) } : { name: line.trim(), price: '' };
+    });
+  }
+  function _inferIndustry(text) {
+    for (var i = 0; i < INDUSTRIES.length; i++) {
+      if (INDUSTRIES[i].re.test(text)) return { key: INDUSTRIES[i].key, label: INDUSTRIES[i].label };
+    }
+    return null;
+  }
+  function _splitPriceText(text) {
+    return String(text || '')
+      .replace(/(\d+(?:\.\d+)?\s*만원|\d[\d,]*\s*원)(?=[가-힣A-Za-z])/g, '$1\n')
+      .replace(/(\d+(?:\.\d+)?\s*만)(?!\s*원)(?=[가-힣A-Za-z])/g, '$1\n')
+      .replace(/(\d{4,})(?=[가-힣A-Za-z])/g, '$1\n')
+      .replace(/,(?!\d)/g, '\n')
+      .replace(/[，、]/g, '\n')
+      .replace(/\.(?=\s|$)/g, '\n')
+      .split('\n');
+  }
+  function _cleanPriceSegment(raw) {
+    var s = String(raw || '').trim();
+    s = s.replace(/\s*(으로|로)?\s*(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가)\s*(만들어줘|올려줘|정리해줘|보여줘|작성해줘|해줘|만들|올려|정리|작성).*$/g, '');
+    if (PRICE_TOKEN.test(s)) {
+      s = s.replace(/^(가격표|메뉴판)\s+/g, '');
+      s = s.replace(/\s*(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격)\s*$/g, '');
+    }
+    s = s.replace(/^(네일|헤어|피부|속눈썹|왁싱|메이크업)\s+(손님|고객|샵)\s*(이야|이에요|이예요|입니다|야)?\s*/g, '');
+    s = s.replace(/\s*(으로|로)\s*$/g, '').trim();
+    if (!PRICE_TOKEN.test(s) && /^(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격)\s*(만들어줘|올려줘|정리해줘|보여줘|작성해줘|해줘|만들|올려|정리|작성)?$/.test(s)) return '';
+    if (!PRICE_TOKEN.test(s) && /^(네일|헤어|피부|속눈썹|왁싱|메이크업)\s*(손님|고객|샵)?\s*(이야|이에요|이예요|입니다|야)?$/.test(s)) return '';
+    return s;
+  }
+  function _normalizeRows(rows) {
+    return (rows || []).map(function (row) {
+      var name = String((row && (row.name || row.service_name)) || '').trim();
+      var price = row && row.price ? _formatPrice(row.price) : '';
+      if (!price && PRICE_TOKEN.test(name) && !name.replace(PRICE_TOKEN, '').trim()) name = '';
+      return { name: name, price: price };
+    }).filter(function (row) { return row.name; });
+  }
+  function parsePriceListRequest(text) {
+    var raw = String(text || '').trim();
+    var cleaned = _splitPriceText(raw).map(_cleanPriceSegment).filter(Boolean).join('\n');
+    var rows = _normalizeRows(_parseServicePrices(cleaned));
+    var priced = rows.filter(function (row) { return !!row.price; }).length;
+    var industry = _inferIndustry(raw);
+    var matched = rows.length > 0 && (PRICE_INTENT.test(raw) || priced > 0 && (rows.length >= 2 || !!industry));
+    return { matched: matched, industry: industry, rows: rows, raw: raw };
+  }
+  function formatPriceListDraft(result) {
+    var r = result || {};
+    var head = (r.industry && r.industry.label ? r.industry.label + ' ' : '') + '가격표 초안을 만들었어요.';
+    var lines = (r.rows || []).slice(0, 12).map(function (row) {
+      return '- ' + row.name + (row.price ? ' ' + row.price : '');
+    });
+    return head + '\n\n' + lines.join('\n') + '\n\n다음 단계에서 템플릿에 바로 적용할 수 있게 연결할게요.';
+  }
+
   window.ItdasyActionHub = { PHASE, normalizeActions, isDangerAction, renderActionHub, handleActionClick, buildCommonActions };
+  window.ItdasyAssistantPriceList = { parseRequest: parsePriceListRequest, formatDraftMessage: formatPriceListDraft };
 })();
