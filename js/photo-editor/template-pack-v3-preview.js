@@ -241,8 +241,33 @@
     });
   }
 
+  // URL 쿼리(?device=mobile&cat=price)로 초기 상태 지정 — headless 캡처 편의용(앱 무관)
+  function applyQuery() {
+    try {
+      var q = {};
+      (location.search || '').replace(/^\?/, '').split('&').forEach(function (kv) {
+        if (!kv) return; var p = kv.split('='); q[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || '');
+      });
+      if (q.device === 'mobile' || q.device === 'desktop') {
+        document.body.setAttribute('data-device', q.device);
+        document.querySelectorAll('[data-tpv3-device]').forEach(function (b) {
+          b.setAttribute('aria-pressed', b.getAttribute('data-tpv3-device') === q.device ? 'true' : 'false');
+        });
+      }
+      if (q.cat) {
+        document.querySelectorAll('[data-tpv3-filter]').forEach(function (b) {
+          b.setAttribute('aria-pressed', b.getAttribute('data-tpv3-filter') === q.cat ? 'true' : 'false');
+        });
+        document.querySelectorAll('.tpv3-item').forEach(function (it) {
+          var show = (q.cat === 'all') || (it.getAttribute('data-cat') === q.cat);
+          it.classList.toggle('tpv3-hidden', !show);
+        });
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
   window.PhotoEditorTemplatePackV3Preview = { mount: mount };
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { mount(); bindControls(); });
-  } else { mount(); bindControls(); }
+    document.addEventListener('DOMContentLoaded', function () { mount(); bindControls(); applyQuery(); });
+  } else { mount(); bindControls(); applyQuery(); }
 })();
