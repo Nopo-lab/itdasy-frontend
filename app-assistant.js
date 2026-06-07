@@ -1563,6 +1563,59 @@
     ES.open({ templateId: tplId, templateData: tpl, state, helpers, onChange: () => {} });
   }
 
+  function _priceTemplateLabel(tpl, tplId) {
+    return String((tpl && (tpl.title || tpl.label || tpl.name)) || tplId || '가격표 템플릿');
+  }
+
+  function _priceResultPreviewRows(services) {
+    return (services || []).slice(0, 3).map(row => ({
+      name: String(row.service_name || row.name || '').trim(),
+      price: String(row.price || '').trim(),
+    }));
+  }
+
+  function _priceResultText(tpl, tplId, services) {
+    const rows = _priceResultPreviewRows(services);
+    const lines = rows.map(row => `- ${row.name}${row.price ? ' ' + row.price : ''}`);
+    return [
+      '가격표 템플릿에 넣었어요.',
+      '',
+      '문구를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '',
+      `템플릿: ${_priceTemplateLabel(tpl, tplId)}`,
+      `시술 ${services.length}개`,
+      ...lines,
+    ].join('\n');
+  }
+
+  function _priceResultPayload(tpl, tplId, services) {
+    return {
+      templateId: tplId,
+      templateLabel: _priceTemplateLabel(tpl, tplId),
+      servicesCount: services.length,
+      previewRows: _priceResultPreviewRows(services),
+    };
+  }
+
+  function _priceResultActions(payload) {
+    return [
+      { id: 'review_price_template_result', kind: 'review_price_template_result', label: '결과 확인', phase: 'safe', route: 'hub', payload },
+      { id: 'export_price_template_result', kind: 'export_image', label: '저장/내보내기', phase: 'safe', route: 'hub', payload },
+      { id: 'instagram_price_template_result', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'hub', payload: Object.assign({ ratio: '4:5' }, payload) },
+    ];
+  }
+
+  function _pushPriceTemplateResult(tpl, tplId, services) {
+    const payload = _priceResultPayload(tpl, tplId, services);
+    _history.push({
+      role: 'assistant',
+      text: _priceResultText(tpl, tplId, services),
+      price_template_result: payload,
+      hub_actions: _priceResultActions(payload),
+    });
+    _renderHistory();
+  }
+
   function _applyPriceTemplateDraft(action, msg) {
     try {
       const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
@@ -1584,6 +1637,7 @@
       if (helpers.pushHistory) helpers.pushHistory();
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
+      _pushPriceTemplateResult(tpl, tplId, services);
       return true;
     } catch (e) {
       try { console.warn('[assistant-price-list] apply failed', e); } catch (_logErr) { void _logErr; }

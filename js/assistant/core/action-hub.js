@@ -19,6 +19,7 @@
   var PHASE = {
     // safe — 조회/이동/초안/복사/열기
     copy_caption: 'safe', open_photo_editor: 'safe', open_template_panel: 'safe', apply_price_template: 'safe',
+    review_price_template_result: 'safe',
     open_calendar: 'safe', open_customer: 'safe', open_revenue: 'safe', open_workshop: 'safe',
     show_unlinked_photos: 'safe', show_empty_slots: 'safe', open_instagram: 'safe', export_image: 'safe',
     chat_suggest: 'safe',  // 잇비 입력창에 문장 채워 보냄(초안/조회 등 기존 경로로 위임 — 발송/생성 아님)
@@ -151,6 +152,8 @@
           else if (PE && PE.open) PE.open({ src: p.dataUrl || _resolverUrl(), initial_tab: 'template' });   // [P0a] source 폴백
         });
         return { navigated: true, message: (p.recommendedIds && p.recommendedIds.length) ? '추천 템플릿을 열었어요.' : '템플릿 탭을 열었어요.' };
+      case 'review_price_template_result':
+        return _reviewPriceTemplateResult();
       case 'open_instagram': {
         // [CF-4] 클릭 시점 라이브 캔버스 재캡처(템플릿 적용본 반영). 없으면 payload fallback.
         var igUrl = _liveCanvasUrl() || p.dataUrl || _resolverUrl();   // [P0a] SourceImage 폴백
@@ -179,6 +182,41 @@
       default:
         return { message: '' };
     }
+  }
+
+  function _reviewPriceTemplateResult() {
+    var PE = window.PhotoEditor; var pe = PE && PE._internal;
+    var state = pe && pe.getState && pe.getState();
+    if (!state || !state.tplV2) return { message: '가격표 편집 화면이 닫혔어요. 다시 가격표 템플릿에 적용해 주세요.' };
+    _showPhotoEditorSheet(state);
+    state.activeTab = 'template';
+    var helpers = pe.helpers || {};
+    if (helpers.renderPanel) helpers.renderPanel();
+    if (helpers.scheduleRedraw) helpers.scheduleRedraw();
+    _openTemplateEditSheet(state, helpers);
+    return { navigated: true, message: '가격표 편집 화면을 다시 열었어요.' };
+  }
+
+  function _showPhotoEditorSheet(state) {
+    var sheet = document.getElementById('photoEditorSheet');
+    if (sheet) sheet.style.setProperty('display', 'flex', 'important');
+    if (!state.inline) document.body.style.overflow = 'hidden';
+  }
+
+  function _openTemplateEditSheet(state, helpers) {
+    var ES = window.PhotoEditorTemplateEditSheet;
+    if (!ES || typeof ES.open !== 'function') return;
+    var tplId = state.tplV2 && state.tplV2.id;
+    ES.open({ templateId: tplId, templateData: _templateById(tplId), state: state, helpers: helpers, onChange: function () { return undefined; } });
+  }
+
+  function _templateById(id) {
+    var MD = window.PhotoEditorTemplateMarketData;
+    var found = (MD && typeof MD.lookupById === 'function' && MD.lookupById(id))
+      || (MD && typeof MD.visibleTemplates === 'function' && MD.visibleTemplates().find(function (t) { return t && t.id === id; }));
+    if (found) return found;
+    var list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
+    return Array.isArray(list) ? list.find(function (t) { return t && t.id === id; }) : null;
   }
 
   // [CF-4] 현재 편집기 캔버스(#peCanvas)를 클릭 시점에 재캡처 — 템플릿 적용본 등 최신 화면 반영.
