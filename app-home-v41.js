@@ -314,6 +314,8 @@
     window.HomeV41Render.syncAvatar(container);
     _scheduleAvatarRetry(container);
     _runCountUps(container);
+    // [2026-06-07] 고객 메시지 카드 줄 채우기 (DOM 재생성됐으니 매 렌더마다 갱신)
+    try { window.HomeCustomerMsgs && window.HomeCustomerMsgs.refresh(); } catch (_e) { void _e; }
   }
 
   function _showConnectionError(container) {

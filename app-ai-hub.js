@@ -175,8 +175,8 @@
 
       const row = e.target.closest('.ms-aih__row');
       if (row) {
-        // [2026-05-28] 토글 행은 트랙/knob 외 영역도 라우팅 X — 토글 클릭만 작동
-        if (row.dataset.type === 'toggle') return;
+        // [2026-06-07] 토글 행도 텍스트 영역 탭 → 상세 진입 (토글 클릭은 위에서 stopPropagation 으로 처리됨).
+        //   이전엔 여기서 return 해서 DM 자동화 행이 토글 전용 → 상세 진입 불가 버그.
         const act = row.dataset.act;
         // [2026-05-12 QA #7] 진입점 함수가 없을 때 sheet 만 닫혀서 사용자가
         // "다른 이상한 페이지로 이동한" 인상 받던 문제. 함수 존재 선검증.
@@ -190,9 +190,11 @@
     });
     sheet.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
+      // 토글 버튼에 포커스된 채 Enter/Space — 네이티브 click 으로 토글만 (상세 진입 X)
+      if (e.target.closest('[data-toggle]')) return;
       const row = e.target.closest('.ms-aih__row');
       if (!row) return;
-      if (row.dataset.type === 'toggle') return;
+      // [2026-06-07] 토글 행도 키보드 Enter/Space → 상세 진입 허용 (행 = role=button)
       e.preventDefault();
       const act = row.dataset.act;
       if (!_canRoute(act)) {

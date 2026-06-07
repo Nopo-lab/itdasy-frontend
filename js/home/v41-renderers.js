@@ -486,6 +486,19 @@
     return '';
   }
 
+  // [2026-06-07] 고객 메시지 카드 줄 — 빈 컨테이너만 렌더. 데이터는 app-home-customer-msgs.js 가
+  //   기존 /conversations 폴링으로 채움 (추가 비용 0). 카드 없으면 hidden 유지.
+  function renderCustomerMsgs() {
+    return `<section class="hv5-cmsg" id="hv5Cmsg" hidden aria-label="고객 메시지">
+      <div class="hv5-cmsg-head">
+        <span class="hv5-cmsg-title">고객 메시지</span>
+        <span class="hv5-cmsg-count" id="hv5CmsgCount"></span>
+        <button type="button" class="hv5-cmsg-more" id="hv5CmsgMore">전체 보기 ›</button>
+      </div>
+      <div class="hv5-cmsg-row" id="hv5CmsgRow"></div>
+    </section>`;
+  }
+
   function compose(brief, dmQueueCount, onlinePendingCount) {
     ensureStyles();
     const cards = buildCarouselCards(brief);
@@ -495,6 +508,7 @@
       renderHeader(brief),
       renderItbiCard(brief),
       middleRow(bookingHtml, alertsHtml),
+      renderCustomerMsgs(),
       renderAiRecs(cards),
     ].join('');
   }
