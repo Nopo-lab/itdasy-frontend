@@ -74,12 +74,13 @@
   }
 
   function _afterCanvas(state, fallback) {
-    const src = state && state.tplV2 && state.tplV2.imageSlots && state.tplV2.imageSlots.after_photo && state.tplV2.imageSlots.after_photo.src;
+    const slot = state && state.tplV2 && state.tplV2.imageSlots && state.tplV2.imageSlots.after_photo;
+    const src = slot && slot.src;
     const img = _slotImage(src);
     if (!img) return fallback;
     const out = document.createElement('canvas');
     out.width = fallback.width; out.height = fallback.height;
-    _cover(out.getContext('2d'), img, 0, 0, out.width, out.height);
+    _cover(out.getContext('2d'), img, 0, 0, out.width, out.height, slot.focal, slot.zoom);   // [S4]
     return out;
   }
 
@@ -101,8 +102,13 @@
       ctx.fillText('한 장 더 추가해 주세요', out.width / 2, out.height / 2 + fs * 0.7);
       return out;
     }
+    // [S4] before_photo 슬롯이 조정(focal≠0.5 또는 zoom>1)됐을 때만 cover+focal/zoom 적용.
+    //   기본값(0.5/1)이면 기존 stretch 그대로 → 무회귀.
+    const bslot = state.tplV2 && state.tplV2.imageSlots && state.tplV2.imageSlots.before_photo;
+    const adjusted = bslot && (((bslot.focal) && (bslot.focal.x !== 0.5 || bslot.focal.y !== 0.5)) || (isFinite(bslot.zoom) && bslot.zoom > 1));
     ctx.filter = 'brightness(92%) saturate(90%)';
-    ctx.drawImage(state.secondImg, 0, 0, out.width, out.height);
+    if (adjusted) _cover(ctx, state.secondImg, 0, 0, out.width, out.height, bslot.focal, bslot.zoom);
+    else ctx.drawImage(state.secondImg, 0, 0, out.width, out.height);
     ctx.filter = 'none';
     return out;
   }
@@ -392,11 +398,24 @@
     ctx.restore();
   }
 
-  function _cover(ctx, img, x, y, w, h) {
+  // [S4] cover crop + focal(0~1)·zoom(>=1). focal=0.5/zoom=1 → 기존 중앙 cover 와 동일(무회귀).
+  function _coverCrop(iw, ih, dw, dh, focal, zoom) {
+    const fx = (focal && isFinite(focal.x)) ? Math.max(0, Math.min(1, focal.x)) : 0.5;
+    const fy = (focal && isFinite(focal.y)) ? Math.max(0, Math.min(1, focal.y)) : 0.5;
+    const z = (isFinite(zoom) && zoom > 1) ? zoom : 1;
+    const sAR = iw / ih, dAR = dw / dh;
+    let sw, sh;
+    if (sAR > dAR) { sh = ih; sw = sh * dAR; } else { sw = iw; sh = sw / dAR; }
+    sw /= z; sh /= z;
+    let sx = (iw - sw) * fx, sy = (ih - sh) * fy;
+    sx = Math.max(0, Math.min(iw - sw, sx));
+    sy = Math.max(0, Math.min(ih - sh, sy));
+    return { sx, sy, sw, sh };
+  }
+  function _cover(ctx, img, x, y, w, h, focal, zoom) {
     const iw = img.width || img.naturalWidth, ih = img.height || img.naturalHeight;
-    const ar = w / h, iar = iw / ih;
-    const sw = iar > ar ? ih * ar : iw, sh = iar > ar ? ih : iw / ar;
-    ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h);
+    const c = _coverCrop(iw, ih, w, h, focal, zoom);
+    ctx.drawImage(img, c.sx, c.sy, c.sw, c.sh, x, y, w, h);
   }
 
   function _title(ctx, w, h, data, id) {

@@ -122,14 +122,26 @@
     return (img.complete || img.naturalWidth || img.width) ? img : null;
   }
 
-  function _drawCover(ctx, img, x, y, w, h) {
+  // [S4] cover crop + focal(0~1)·zoom(>=1). focal=0.5/zoom=1 → 기존 중앙 cover 와 픽셀 동일(무회귀).
+  function _coverCrop(iw, ih, dw, dh, focal, zoom) {
+    const fx = (focal && isFinite(focal.x)) ? Math.max(0, Math.min(1, focal.x)) : 0.5;
+    const fy = (focal && isFinite(focal.y)) ? Math.max(0, Math.min(1, focal.y)) : 0.5;
+    const z = (isFinite(zoom) && zoom > 1) ? zoom : 1;
+    const sAR = iw / ih, dAR = dw / dh;
+    let sw, sh;
+    if (sAR > dAR) { sh = ih; sw = sh * dAR; } else { sw = iw; sh = sw / dAR; }
+    sw /= z; sh /= z;
+    let sx = (iw - sw) * fx, sy = (ih - sh) * fy;
+    sx = Math.max(0, Math.min(iw - sw, sx));
+    sy = Math.max(0, Math.min(ih - sh, sy));
+    return { sx, sy, sw, sh };
+  }
+
+  function _drawCover(ctx, img, x, y, w, h, focal, zoom) {
     const iw = img && (img.naturalWidth || img.width), ih = img && (img.naturalHeight || img.height);
     if (!iw || !ih) return;
-    const sAR = iw / ih, dAR = w / h;
-    let sx, sy, sw, sh;
-    if (sAR > dAR) { sh = ih; sw = sh * dAR; sx = (iw - sw) / 2; sy = 0; }
-    else { sw = iw; sh = sw / dAR; sx = 0; sy = (ih - sh) / 2; }
-    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    const c = _coverCrop(iw, ih, w, h, focal, zoom);
+    ctx.drawImage(img, c.sx, c.sy, c.sw, c.sh, x, y, w, h);
   }
 
   // [S2.1] 반환값 = 실제로 그렸는지(true/false). v2 hook 이 위임 후 fallback 판단에 사용.
@@ -146,7 +158,8 @@
     const palette = (found && found.palette) || null;
     // [S1] editable slot 얕은 연결 — slotValues 있으면 우선, 없으면 기존과 동일(무회귀).
     const sv = (tpl && tpl.slotValues) || {};
-    const mainPhotoSrc = tpl && tpl.imageSlots && tpl.imageSlots.main_photo && tpl.imageSlots.main_photo.src;
+    const mainSlot = tpl && tpl.imageSlots && tpl.imageSlots.main_photo;
+    const mainPhotoSrc = mainSlot && mainSlot.src;
     const mainPhoto = _slotImage(mainPhotoSrc);
     const data = { type: meta[0], kicker: meta[1], palette: palette,
       head: sv.headline || found.prefillText || meta[2],
@@ -156,7 +169,9 @@
       // [S2] 편집 가능 슬롯 추가 연결(없으면 undefined → 렌더러가 기존 동작 유지)
       services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
       beforeLabel: sv.before_label, afterLabel: sv.after_label,
-      beforeCap: sv.before_caption, afterCap: sv.after_caption, mainPhoto: mainPhoto };
+      beforeCap: sv.before_caption, afterCap: sv.after_caption, mainPhoto: mainPhoto,
+      // [S4] main_photo 위치/확대
+      mainFocal: mainSlot && mainSlot.focal, mainZoom: mainSlot && mainSlot.zoom };
     if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
       window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
       return true;
@@ -170,7 +185,7 @@
     ctx.textBaseline = 'alphabetic';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    if (d.mainPhoto) _drawCover(ctx, d.mainPhoto, 0, 0, w, h);
+    if (d.mainPhoto) _drawCover(ctx, d.mainPhoto, 0, 0, w, h, d.mainFocal, d.mainZoom);
     if (d.type.startsWith('feed')) _drawFeed(ctx, w, h, d);
     else if (d.type.startsWith('story')) _drawStory(ctx, w, h, d);
     else if (d.type.startsWith('vertical')) _drawVertical(ctx, w, h, d);
