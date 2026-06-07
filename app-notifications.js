@@ -245,9 +245,11 @@
     const dismissed = _getDismissed();
     const memKinds = ['membership_expire_7d', 'membership_expire_1d', 'membership_low_30', 'membership_low_10'];
     const memNotifs = _items.filter(n => memKinds.includes(n.kind) && !dismissed.includes(n.id));
-    if (!memNotifs.length) { host.innerHTML = ''; return; }
+    // [2026-06-07] 비었을 때 display:none — 빈 호스트의 margin 12px 가 홈 상단 공백 만들던 문제.
+    if (!memNotifs.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
     const total = memNotifs.length;
     const a = memNotifs[0];
+    host.style.display = '';
     host.innerHTML = `
       <div role="status" style="background:linear-gradient(135deg,#F7EFF0 0%,#FCE7EC 100%);border:1px solid #F0DADF;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
@@ -303,7 +305,8 @@
     const dismissed = _getDismissed();
     const dmKinds = ['dm_pending_confirm', 'dm_customer_register', 'dm_action_pending', 'dm_risk_alert'];
     const dmNotifs = _items.filter(n => dmKinds.includes(n.kind) && !dismissed.includes(n.id));
-    if (!dmNotifs.length) { host.innerHTML = ''; return; }
+    // [2026-06-07] 비었을 때 display:none — 빈 호스트 margin 으로 홈 상단 공백 생기던 문제.
+    if (!dmNotifs.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
     // 위험 알림이 1건이라도 있으면 빨간 카드 우선
     const riskNotifs = dmNotifs.filter(n => n.kind === 'dm_risk_alert');
     const isRisk = riskNotifs.length > 0;
@@ -319,6 +322,7 @@
       : `DM 사장 확인 대기 ${total > 1 ? `(${total}건)` : ''}`;
     const iconClass = isRisk ? 'ph-warning' : 'ph-bell';
 
+    host.style.display = '';
     host.innerHTML = `
       <div role="status" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
@@ -439,9 +443,11 @@
     }
     const dismissed = _getDismissed();
     const pending = _items.filter(n => n.kind === 'public_booking_pending' && !dismissed.includes(n.id));
-    if (!pending.length) { host.innerHTML = ''; return; }
+    // [2026-06-07] 비었을 때 display:none — 빈 호스트 margin 으로 홈 상단 공백 생기던 문제.
+    if (!pending.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
     const a = pending[0];
     const total = pending.length;
+    host.style.display = '';
     host.innerHTML = `
       <div role="status" style="background:linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%);border:1px solid #FDE68A;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
