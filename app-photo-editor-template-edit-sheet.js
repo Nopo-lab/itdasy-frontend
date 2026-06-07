@@ -3,7 +3,7 @@
    PR-S1 의 slot 기반 구조를 사용해, 선택된 템플릿의 문구를 직접 수정한다.
    - 진입 전 갤러리가 템플릿을 먼저 적용(apply-first) → state.tplV2.slotValues 존재.
    - 입력 즉시 state.tplV2.slotValues 갱신 → scheduleRedraw(실제 캔버스) + onChange(갤러리 프리뷰).
-   - 사진 교체는 다음 단계(S3+). image slot 은 비활성 안내만.
+   - S3b-1: main_photo 대표 사진 교체 지원. before_photo 는 기존 S3a 흐름 유지.
 
    외부 노출: window.PhotoEditorTemplateEditSheet = { open, close, isOpen }
 */
@@ -16,6 +16,8 @@
   let _ctx = null;   // { templateId, state, helpers, onChange, slots, values }
   let _raf = 0;
   let _undoTimer = 0;
+  const MAIN_MAX_EDGE = 1600;
+  const MAIN_JPEG_QUALITY = 0.86;
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
@@ -37,6 +39,7 @@
     if (!TS || !opts || !opts.state || !opts.state.tplV2) return;
     const slots = TS.getSlots(opts.templateId, opts.templateData);
     if (!opts.state.tplV2.slotValues) opts.state.tplV2.slotValues = {};
+    if (!opts.state.tplV2.imageSlots) opts.state.tplV2.imageSlots = {};
     _ctx = { templateId: opts.templateId, state: opts.state, helpers: opts.helpers, onChange: opts.onChange, slots: slots, values: opts.state.tplV2.slotValues };
     _ensureEl();
     _syncFooter();
@@ -108,7 +111,8 @@
   // ── 필드 HTML ──
   function _fieldHTML(slot, values) {
     if (slot.type === 'image') {
-      // [S3a] before 슬롯만 사진 교체 노출 — state.secondImg(ba-compose 가 읽는 필드) 재사용, 렌더러 무변경.
+      // [S3b-1] main 슬롯은 대표 사진 교체 노출. before/after 는 기존 정책 유지.
+      if (slot.role === 'main') return _mainSlotHTML(slot);
       if (slot.role === 'before') return _beforeSlotHTML(slot);
       const note = slot.role === 'after'
         ? '현재 편집 중인 사진이 \'시술 후\'로 들어가요.'
@@ -127,6 +131,33 @@
     }
     return `<div class="pe-tpl-edit-field"><label>${_esc(slot.label)}</label>
       <input type="text" data-edit-key="${slot.key}" maxlength="${slot.max || 40}" value="${_esc(v || '')}" /></div>`;
+  }
+
+  function _mainSlot() {
+    const slots = _ctx && _ctx.state && _ctx.state.tplV2 && _ctx.state.tplV2.imageSlots;
+    if (!slots.main_photo) slots.main_photo = { src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 } };
+    return slots.main_photo;
+  }
+
+  function _mainSlotHTML(slot) {
+    const main = _mainSlot();
+    const has = !!(main && main.src);
+    const thumb = has
+      ? `<img src="${_esc(main.src)}" alt="">`
+      : '<span class="pe-tpl-edit-imgplus">＋</span>';
+    const stateText = has ? '선택한 대표 사진을 사용 중이에요.' : '현재 편집 사진을 사용 중이에요.';
+    return `<div class="pe-tpl-edit-field pe-tpl-edit-imgslot" data-img-slot="main">
+      <label>${_esc(slot.label || '대표 사진')}</label>
+      <div class="pe-tpl-edit-imgrow">
+        <div class="pe-tpl-edit-imgthumb${has ? '' : ' is-empty'}" data-img-thumb>${thumb}</div>
+        <div class="pe-tpl-edit-imgbtns">
+          <button type="button" class="pe-tpl-edit-imgpick" data-img-pick>${has ? '다른 사진' : '파일에서 선택'}</button>
+          <button type="button" class="pe-tpl-edit-imgclear" data-img-clear>현재 편집 사진으로 되돌리기</button>
+        </div>
+      </div>
+      <input type="file" accept="image/*" data-img-input hidden>
+      <p class="pe-tpl-edit-imghint" data-main-img-hint>${stateText}</p>
+    </div>`;
   }
 
   function _servicesHTML(slot, services) {
@@ -194,6 +225,83 @@
     _el.querySelector('[data-svc-paste-cancel]')?.addEventListener('click', () => _togglePaste(false));
     _el.querySelector('[data-svc-paste-apply]')?.addEventListener('click', _applyPaste);
     _el.querySelectorAll('[data-img-slot="before"]').forEach(_bindImgSlot);
+    _el.querySelectorAll('[data-img-slot="main"]').forEach(_bindMainImgSlot);
+  }
+
+  function _bindMainImgSlot(box) {
+    const input = box.querySelector('[data-img-input]');
+    box.querySelector('[data-img-pick]')?.addEventListener('click', () => input && input.click());
+    box.querySelector('[data-img-clear]')?.addEventListener('click', () => _setMainPhoto(''));
+    input?.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      try {
+        const out = await _compressMainPhoto(f);
+        _setMainPhoto(out.dataUrl, false);
+        if (out.reduced) _toast('사진을 편집용 크기로 줄였어요');
+        else _toast('대표 사진을 변경했어요');
+      } catch (err) {
+        console.warn('[template-edit] main photo load failed', err);
+        _toast('사진을 불러오지 못했어요');
+      } finally {
+        input.value = '';
+      }
+    });
+  }
+
+  function _compressMainPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try { resolve(_mainPhotoDataURL(img)); } catch (err) { reject(err); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image_load_failed')); };
+      img.src = url;
+    });
+  }
+
+  function _mainPhotoDataURL(img) {
+    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    if (!iw || !ih) throw new Error('invalid_image_size');
+    const scale = Math.min(1, MAIN_MAX_EDGE / Math.max(iw, ih));
+    const w = Math.max(1, Math.round(iw * scale));
+    const h = Math.max(1, Math.round(ih * scale));
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    cv.getContext('2d').drawImage(img, 0, 0, w, h);
+    return { dataUrl: cv.toDataURL('image/jpeg', MAIN_JPEG_QUALITY), reduced: scale < 1 };
+  }
+
+  function _setMainPhoto(src, showToast) {
+    const main = _mainSlot();
+    main.src = src || '';
+    main.fit = 'cover';
+    main.focal = main.focal || { x: 0.5, y: 0.5 };
+    _primeMainPhoto(main.src);
+    _refreshMainSlot();
+    try { if (_ctx.helpers && _ctx.helpers.pushHistory) _ctx.helpers.pushHistory(); } catch (_e) { /* ignore */ }
+    _schedule();
+    if (showToast !== false) _toast(main.src ? '대표 사진을 변경했어요' : '현재 편집 사진을 사용해요');
+  }
+
+  function _primeMainPhoto(src) {
+    if (!src || !window.PhotoEditorPremiumTemplates || !window.PhotoEditorPremiumTemplates.primeImage) return;
+    const img = new Image();
+    img.onload = () => window.PhotoEditorPremiumTemplates.primeImage(src, img);
+    img.src = src;
+  }
+
+  function _refreshMainSlot() {
+    const box = _el.querySelector('[data-img-slot="main"]');
+    const slot = (_ctx.slots || []).find(s => s.type === 'image' && s.role === 'main');
+    if (!box || !slot) return;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = _mainSlotHTML(slot);
+    const fresh = tmp.firstElementChild;
+    box.replaceWith(fresh);
+    _bindMainImgSlot(fresh);
   }
 
   // [S3a] before 슬롯 바인딩

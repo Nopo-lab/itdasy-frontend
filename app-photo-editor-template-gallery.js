@@ -145,12 +145,22 @@
     return h.toString(36);
   }
 
+  function _imageSlotsSig(imageSlots) {
+    if (!imageSlots) return '';
+    return Object.keys(imageSlots).sort().map((key) => {
+      const slot = imageSlots[key] || {};
+      const src = slot.src || '';
+      return key + ':' + src.length + ':' + src.slice(0, 24) + ':' + src.slice(-24);
+    }).join('|');
+  }
+
   function _previewURL(t, state, basePx) {
     const sig = _photoSig(state);
     // [S2] 현재 적용 템플릿이면 slotValues 서명을 키에 포함(편집 시 stale 방지).
     const cur = state && state.tplV2;
     const slotSig = (cur && cur.id === t.id && cur.slotValues) ? '|' + _hash(JSON.stringify(cur.slotValues)) : '';
-    const key = t.id + '|' + basePx + '|' + sig + slotSig;
+    const imageSig = (cur && cur.id === t.id && cur.imageSlots) ? '|' + _hash(_imageSlotsSig(cur.imageSlots)) : '';
+    const key = t.id + '|' + basePx + '|' + sig + slotSig + imageSig;
     if (_thumbCache[key]) return _thumbCache[key];
     const MD = _MD();
     const cat = MD.CATS.find(c => c.id === t.cat) || { ratio: '4:5' };
@@ -179,6 +189,7 @@
           ? cur.slotValues
           : TS.getDefaultValues(t.id, t, { shopName: bk.shopName, serviceName: state && state.serviceName, price: state && state.price });
       }
+      if (cur && cur.id === t.id && cur.imageSlots) tplV2.imageSlots = cur.imageSlots;
       const synth = {
         tplV2, originalImg: photo, secondImg: state && state.secondImg,
         shopName: state && state.shopName, serviceName: state && state.serviceName, price: state && state.price,

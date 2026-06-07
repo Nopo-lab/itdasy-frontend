@@ -89,6 +89,36 @@
     return /^#[0-9a-f]{3,8}$/i.test(color || '') ? color : fallback;
   }
 
+  const SLOT_IMAGE_CACHE = {};
+
+  function _primeImage(src, img) {
+    if (src && img) SLOT_IMAGE_CACHE[src] = img;
+  }
+
+  function _slotImage(src) {
+    if (!src) return null;
+    const cached = SLOT_IMAGE_CACHE[src];
+    if (cached && (cached.complete || cached.naturalWidth || cached.width)) return cached;
+    const img = cached || new Image();
+    SLOT_IMAGE_CACHE[src] = img;
+    img.onload = () => {
+      try { window.PhotoEditor?._internal?.helpers?.scheduleRedraw?.(); } catch (_e) { /* ignore */ }
+    };
+    img.onerror = () => { delete SLOT_IMAGE_CACHE[src]; };
+    if (!cached) img.src = src;
+    return (img.complete || img.naturalWidth || img.width) ? img : null;
+  }
+
+  function _drawCover(ctx, img, x, y, w, h) {
+    const iw = img && (img.naturalWidth || img.width), ih = img && (img.naturalHeight || img.height);
+    if (!iw || !ih) return;
+    const sAR = iw / ih, dAR = w / h;
+    let sx, sy, sw, sh;
+    if (sAR > dAR) { sh = ih; sw = sh * dAR; sx = (iw - sw) / 2; sy = 0; }
+    else { sw = iw; sh = sw / dAR; sx = 0; sy = (ih - sh) / 2; }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
+
   // [S2.1] 반환값 = 실제로 그렸는지(true/false). v2 hook 이 위임 후 fallback 판단에 사용.
   function _premiumHook(ctx, dw, dh, state) {
     const tpl = state && state.tplV2;
@@ -99,6 +129,8 @@
     const b = _brandData(tpl);
     // [S1] editable slot 얕은 연결 — slotValues 있으면 우선, 없으면 기존과 동일(무회귀).
     const sv = (tpl && tpl.slotValues) || {};
+    const mainPhotoSrc = tpl && tpl.imageSlots && tpl.imageSlots.main_photo && tpl.imageSlots.main_photo.src;
+    const mainPhoto = _slotImage(mainPhotoSrc);
     const data = { type: meta[0], kicker: meta[1],
       head: sv.headline || found.prefillText || meta[2],
       sub: sv.subtitle || meta[3],
@@ -107,7 +139,7 @@
       // [S2] 편집 가능 슬롯 추가 연결(없으면 undefined → 렌더러가 기존 동작 유지)
       services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
       beforeLabel: sv.before_label, afterLabel: sv.after_label,
-      beforeCap: sv.before_caption, afterCap: sv.after_caption };
+      beforeCap: sv.before_caption, afterCap: sv.after_caption, mainPhoto: mainPhoto };
     if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
       window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
       return true;
@@ -121,6 +153,7 @@
     ctx.textBaseline = 'alphabetic';
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+    if (d.mainPhoto) _drawCover(ctx, d.mainPhoto, 0, 0, w, h);
     if (d.type.startsWith('feed')) _drawFeed(ctx, w, h, d);
     else if (d.type.startsWith('story')) _drawStory(ctx, w, h, d);
     else if (d.type.startsWith('vertical')) _drawVertical(ctx, w, h, d);
@@ -441,7 +474,7 @@
   }
 
   // renderHook: 갤러리 프리뷰가 "현재 사진 + 템플릿" 합성에 재사용(적용 결과와 동일한 렌더).
-  window.PhotoEditorPremiumTemplates = { register: _register, renderHook: _premiumHook };
+  window.PhotoEditorPremiumTemplates = { register: _register, renderHook: _premiumHook, primeImage: _primeImage };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot);
   else _boot();
 })();
