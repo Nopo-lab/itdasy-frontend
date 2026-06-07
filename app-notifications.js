@@ -369,8 +369,9 @@
       if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
       else anchor.appendChild(host);
     }
-    const dismissed = _getDismissed();
-    const announcements = _items.filter(n => n.kind === 'announcement' && !dismissed.includes(n.id));
+    // [2026-06-07] 홈 인라인 '잇데이 공지' 카드 노출 제거 — 공지는 알림(벨) 목록/시트에서만 확인.
+    //   배지·알림목록·DM 확인 큐 카드 등 다른 알림 기능은 그대로 유지. BE seed 와 무관하게 홈 노출만 차단.
+    const announcements = [];
     if (!announcements.length) {
       host.innerHTML = '';
       host.style.display = 'none';  // 빈 카드 자리(margin) 흔적 제거

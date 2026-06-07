@@ -115,7 +115,7 @@
         </div>
       </div>
       <div class="hv5-cmsg-msg${unread ? ' un' : ''}">${_esc(last)}</div>
-      ${intent ? `<span class="hv5-cmsg-badge">${_esc(intent)}</span>` : ''}
+      <span class="hv5-cmsg-badge"${intent ? '' : ' style="visibility:hidden" aria-hidden="true"'}>${_esc(intent || ' ')}</span>
     </button>`;
   }
 

@@ -6,7 +6,7 @@
    디자인 기준: 인스타그램 다이렉트 메시지 (iOS).
    - 풀스크린 (sheet 아님)
    - 손님 말풍선: 회색 #EFEFEF
-   - 사장 말풍선: 인스타 그라디언트 (보라 → 핑크 → 주황)
+   - 사장 말풍선: 브랜드 로즈 그라디언트 [2026-06-07 보라 잔재 제거]
    - 헤더: 흰 바탕, 좌:back / 중앙:이름 / 우:info
    - 같은 분 연속 메시지 그룹화 — 시간 1번만
    - 사장 답장 source 는 말풍선 아래 작은 회색 caption
@@ -14,7 +14,8 @@
 (function () {
   'use strict';
 
-  const IG_GRADIENT = 'linear-gradient(135deg, #833AB4 0%, #C13584 35%, #E1306C 65%, #FD1D1D 100%)';
+  // [2026-06-07] 인스타 보라 그라디언트 → 브랜드 로즈 (DM 보라 잔재 제거). 변수명은 호환 위해 유지.
+  const IG_GRADIENT = 'linear-gradient(135deg, #D58A95 0%, #BC6675 100%)';
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
