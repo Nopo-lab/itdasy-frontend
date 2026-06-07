@@ -508,12 +508,13 @@
     const cards = buildCarouselCards(brief);
     const bookingHtml = renderBooking(brief);
     const alertsHtml = renderAlerts(brief, dmQueueCount || 0, onlinePendingCount || 0);
+    // [2026-06-08 F4] 홈 순서: 오늘의 예약 → 고객 메시지 → AI 잇비(챗봇) → AI 잇비 실시간 분석
     return [
       renderHeader(brief),
-      renderItbiCard(brief),
-      middleRow(bookingHtml, alertsHtml),
-      renderCustomerMsgs(),
-      renderAiRecs(cards),
+      middleRow(bookingHtml, alertsHtml),  // 오늘의 예약 (+ 알림)
+      renderCustomerMsgs(),                // 고객 메시지
+      renderItbiCard(brief),               // AI 잇비 (챗봇)
+      renderAiRecs(cards),                 // AI 잇비 실시간 분석
     ].join('');
   }
 

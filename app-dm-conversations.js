@@ -96,13 +96,16 @@
         <button id="dcvClose" aria-label="닫기" style="background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:4px;">
           <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
-        <strong style="font-size:18px;font-weight:700;color:#262626;letter-spacing:-0.3px;">메시지</strong>
+        <strong style="font-size:18px;font-weight:700;color:#262626;letter-spacing:-0.3px;">고객 DM</strong>
         <span id="dcvCount" style="font-size:12px;color:#8E8E8E;margin-left:4px;"></span>
+        <button id="dcvSettings" aria-label="자동응답 설정" title="자동응답 설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:6px;">
+          <i class="ph-duotone ph-gear" aria-hidden="true" style="font-size:20px;"></i>
+        </button>
       </div>
       <!-- 안내 한 줄 -->
       <div style="padding:8px 16px;background:#FAFAFA;border-bottom:1px solid #EFEFEF;">
         <div style="font-size:11px;color:#8E8E8E;line-height:1.5;">
-          채팅방을 누르면 대화 내용을 볼 수 있어요. 친구·가족 채팅방은 우측 깃발 아이콘으로 톤 분석에서 제외할 수 있어요.
+          채팅방을 누르면 대화를 보고 AI 초안으로 바로 답장할 수 있어요. 톱니(설정)에서 자동응답·응대 모드·톤을 바꿀 수 있어요.
         </div>
       </div>
       <!-- 리스트 -->
@@ -112,6 +115,11 @@
     `;
     document.body.appendChild(sheet);
     sheet.querySelector('#dcvClose').addEventListener('click', closeList);
+    // F3 — 톱니 '설정' = 기존 자동응답 설정(ON/OFF·응대 모드·표준응대·톤·시간·금지어·리텐션 등)
+    const _setBtn = sheet.querySelector('#dcvSettings');
+    if (_setBtn) _setBtn.addEventListener('click', () => {
+      if (typeof window.openDMAutoreplySettings === 'function') window.openDMAutoreplySettings();
+    });
     return sheet;
   }
 
@@ -236,21 +244,38 @@
       <div id="dthMessages" style="flex:1;overflow-y:auto;background:#fff;padding:14px 12px 6px;">
         <div style="text-align:center;color:#8E8E8E;padding:30px 0;font-size:13px;">불러오는 중…</div>
       </div>
-      <!-- 입력창 (인스타 흉내 — 실제로 발송 X, IG 본앱에서) -->
+      <!-- AI 초안 / 캘린더 안내 바 (잇비) -->
+      <div id="dthAiBar" style="display:none;padding:8px 12px;background:#F7F8FA;border-top:1px solid #EFEFEF;font-size:12px;color:#4E5968;"></div>
+      <!-- 입력 composer (챗봇 톤) -->
       <div style="padding:8px 12px max(12px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid #EFEFEF;">
-        <div style="display:flex;align-items:center;gap:8px;background:#FAFAFA;border:1px solid #EFEFEF;border-radius:99px;padding:8px 14px;">
-          <span style="flex:1;font-size:13px;color:#8E8E8E;">답장은 인스타그램 앱에서 보낼 수 있어요</span>
-          <i class="ph-duotone ph-link" aria-hidden="true"></i>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <button id="dthAiDraft" type="button" style="display:inline-flex;align-items:center;gap:5px;background:#191F28;color:#fff;border:none;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">✨ AI 초안</button>
+          <button id="dthRegen" type="button" style="display:none;background:#F2F4F6;color:#4E5968;border:none;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;">다시 생성</button>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:8px;">
+          <textarea id="dthInput" rows="1" placeholder="답장을 입력하세요" style="flex:1;background:#F2F4F6;border:none;border-radius:18px;padding:10px 14px;font-size:14px;line-height:1.4;resize:none;max-height:120px;box-sizing:border-box;font-family:inherit;color:#191F28;"></textarea>
+          <button id="dthSend" type="button" aria-label="전송" style="flex-shrink:0;width:40px;height:40px;border-radius:50%;background:#191F28;color:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;">↑</button>
         </div>
       </div>
     `;
     document.body.appendChild(sheet);
     sheet.querySelector('#dthBack').addEventListener('click', closeThread);
+    sheet.querySelector('#dthAiDraft').addEventListener('click', () => _onAiDraft());
+    sheet.querySelector('#dthRegen').addEventListener('click', () => _onAiDraft());
+    sheet.querySelector('#dthSend').addEventListener('click', () => _onSendReply());
+    const _ta = sheet.querySelector('#dthInput');
+    if (_ta) {
+      _ta.addEventListener('input', () => { _ta.style.height = 'auto'; _ta.style.height = Math.min(120, _ta.scrollHeight) + 'px'; });
+      _ta.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _onSendReply(); }
+      });
+    }
     return sheet;
   }
 
   let _curSender = null;
   let _curExcluded = false;
+  let _curLogId = null;   // 현재 대화의 검토대기 초안 log_id (send/send_edit 용)
 
   // ── [2026-05-02 Phase 1.2] 실시간 폴링 ──────────────────────
   // 사장이 화면 보고 있는 동안 8초 간격으로 신규 메시지 받아온다.
@@ -348,8 +373,16 @@
   async function openThread(sender_igsid) {
     if (!sender_igsid) return;
     _curSender = sender_igsid;
+    _curLogId = null;
     _threadMsgsCache = [];
     const sheet = _ensureThreadSheet();
+    // composer 초기화
+    const _ai = sheet && sheet.querySelector('#dthAiBar');
+    if (_ai) { _ai.style.display = 'none'; _ai.innerHTML = ''; }
+    const _in = sheet && sheet.querySelector('#dthInput');
+    if (_in) { _in.value = ''; _in.style.height = 'auto'; }
+    const _rg = sheet && sheet.querySelector('#dthRegen');
+    if (_rg) _rg.style.display = 'none';
     sheet.style.display = 'flex';
     sheet.style.animation = 'dmScreenIn .22s ease-out both';
     await _renderThread();
@@ -401,6 +434,9 @@
 
       const msgs = thread.messages || [];
       _threadMsgsCache = msgs;
+      // 이미 검토대기 초안(pending)이 있으면 그 log_id 확보 (send/send_edit 재사용)
+      const _pend = msgs.filter(m => m && m.source === 'pending' && m.log_id);
+      if (_pend.length) _curLogId = _pend[_pend.length - 1].log_id;
       if (!msgs.length) {
         msgsBox.innerHTML = `<div style="text-align:center;color:#8E8E8E;padding:30px 0;font-size:13px;">아직 메시지가 없어요.</div>`;
         return;
@@ -417,6 +453,123 @@
     if (!btn) return;
     btn.style.color = _curExcluded ? '#B45309' : '#262626';
     btn.title = _curExcluded ? '분석에 포함시키기' : '톤 분석에서 제외';
+  }
+
+  // ── [2026-06-08 F2] AI 초안 + 전송 (챗봇 톤, send/send_edit 재사용) ──────
+  function _postDraft() {
+    return _fetch('POST', `/instagram/dm-reply/conversations/${encodeURIComponent(_curSender)}/draft`);
+  }
+  function _aiBarEl() { const s = document.getElementById('dmThreadSheet'); return s && s.querySelector('#dthAiBar'); }
+  function _inputEl() { const s = document.getElementById('dmThreadSheet'); return s && s.querySelector('#dthInput'); }
+
+  function _renderAiBar(d) {
+    const bar = _aiBarEl();
+    if (!bar) return;
+    if (!d || !d.calendar_checked) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+    let gapStr = '';
+    if (d.free_gap_minutes != null) {
+      const h = Math.floor(d.free_gap_minutes / 60);
+      const mm = d.free_gap_minutes % 60;
+      gapStr = h >= 1 ? (mm ? `${h}시간 ${mm}분 비어있음` : `${h}시간 비어있음`) : `${d.free_gap_minutes}분 비어있음`;
+    }
+    if (d.slot_available) {
+      bar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-weight:700;color:#15803D;">✓ 캘린더 확인됨 · 비어있음</span>
+          ${d.requested_time ? `<span>${_esc(d.requested_time)}</span>` : ''}
+          ${gapStr ? `<span style="color:#8E8E8E;">· ${_esc(gapStr)}</span>` : ''}
+          <button id="dthApprove" type="button" style="margin-left:auto;background:linear-gradient(135deg,#10B981,#34D399);color:#fff;border:none;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer;">예약 승인 + 캘린더</button>
+        </div>`;
+      const ap = bar.querySelector('#dthApprove');
+      if (ap) ap.addEventListener('click', () => _onApproveBooking());
+    } else {
+      const alts = Array.isArray(d.alt_suggestions) ? d.alt_suggestions : [];
+      const altBtns = alts.map(a => {
+        const label = typeof a === 'string' ? a : (a && a.label) || '';
+        return label ? `<button type="button" class="dth-alt" data-label="${_esc(label)}" style="background:#fff;border:1px solid #F59E0B;color:#92400E;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">${_esc(label)}</button>` : '';
+      }).join('');
+      bar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-weight:700;color:#B91C1C;">✕ 그 시간은 예약이 있어요</span>
+          ${d.requested_time ? `<span>(${_esc(d.requested_time)})</span>` : ''}
+          ${altBtns ? `<span style="width:100%;color:#8E8E8E;margin-top:2px;">대안 시간 — 누르면 답장에 넣어요:</span>${altBtns}` : ''}
+        </div>`;
+      bar.querySelectorAll('.dth-alt').forEach(b => b.addEventListener('click', () => {
+        const inp = _inputEl();
+        if (inp) { inp.value = `${b.dataset.label} 어떠세요? 😊`; inp.focus(); }
+      }));
+    }
+    bar.style.display = 'block';
+  }
+
+  async function _onAiDraft() {
+    if (!_curSender) return;
+    const btn = document.getElementById('dthAiDraft');
+    const inp = _inputEl();
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '✨ 생성 중…'; }
+    try {
+      const d = await _postDraft();
+      _curLogId = d.log_id || _curLogId;
+      if (inp && d.ai_draft_text) {
+        inp.value = d.ai_draft_text;
+        inp.style.height = 'auto'; inp.style.height = Math.min(120, inp.scrollHeight) + 'px';
+      }
+      _renderAiBar(d);
+      const rg = document.getElementById('dthRegen');
+      if (rg) rg.style.display = 'inline-flex';
+    } catch (e) {
+      if (window.showToast) window.showToast('초안 생성 실패: ' + (e.message || ''));
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '✨ AI 초안'; }
+    }
+  }
+
+  function _afterSent() {
+    // 홈 '고객 메시지' 카드 자동 제거 신호 + 화면 갱신
+    try { window.dispatchEvent(new CustomEvent('itdasy:dm-replied', { detail: { sender_igsid: _curSender, tail: (_curSender || '').slice(-4) } })); } catch (_e) { void _e; }
+    _curLogId = null;
+    const bar = _aiBarEl(); if (bar) { bar.style.display = 'none'; bar.innerHTML = ''; }
+    const inp = _inputEl(); if (inp) { inp.value = ''; inp.style.height = 'auto'; }
+    const rg = document.getElementById('dthRegen'); if (rg) rg.style.display = 'none';
+    _renderThread().catch(() => {});
+  }
+
+  async function _onSendReply() {
+    if (!_curSender) return;
+    const inp = _inputEl();
+    const text = (inp && inp.value || '').trim();
+    if (!text) { if (window.showToast) window.showToast('답장 내용을 입력해주세요'); return; }
+    const btn = document.getElementById('dthSend');
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+    try {
+      // log_id 없으면 먼저 초안 생성(pending 로그)으로 확보 — 입력칸은 안 건드림
+      if (!_curLogId) {
+        try { const d = await _postDraft(); _curLogId = d.log_id || null; } catch (_e) { void _e; }
+      }
+      if (!_curLogId) throw new Error('초안을 만들 수 없어요');
+      await _fetch('POST', `/dm-confirm-queue/${encodeURIComponent(_curLogId)}/send_edit`, { edited_reply: text });
+      if (window.showToast) window.showToast('답장을 보냈어요 ✓');
+      _afterSent();
+    } catch (e) {
+      if (window.showToast) window.showToast('발송 실패: ' + (e.message || ''));
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    }
+  }
+
+  async function _onApproveBooking() {
+    if (!_curLogId) { if (window.showToast) window.showToast('초안을 먼저 생성해주세요'); return; }
+    const ap = document.getElementById('dthApprove');
+    if (ap) { ap.disabled = true; ap.style.opacity = '0.6'; }
+    try {
+      const r = await _fetch('POST', `/dm-confirm-queue/${encodeURIComponent(_curLogId)}/send`, { selected_index: 0 });
+      if (window.showToast) window.showToast(r.message || '예약 승인 + 발송 완료 ✓');
+      try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_booking', source: 'dm_thread' } })); } catch (_e) { void _e; }
+      _afterSent();
+    } catch (e) {
+      if (window.showToast) window.showToast('승인 실패: ' + (e.message || ''));
+      if (ap) { ap.disabled = false; ap.style.opacity = '1'; }
+    }
   }
 
   // ── 메시지 list HTML 빌더 (초기 렌더 + 폴링 공용) ─────────
@@ -442,10 +595,16 @@
       const showTime = !(nextSameMin && nextSameSide);
 
       if (isCustomer) {
+        // 손님 = 말풍선 없이 평문 (아바타 + 네이비 텍스트) — 챗봇 톤
         lines.push(`
-          <div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:2px;">
-            <div style="max-width:78%;background:#EFEFEF;color:#262626;padding:9px 14px;border-radius:22px;font-size:14px;line-height:1.4;word-break:break-word;">${_esc(m.text)}</div>
-            ${showTime ? `<div style="font-size:11px;color:#8E8E8E;margin:4px 0 8px 8px;">${_timeFmt(m.ts)}</div>` : ''}
+          <div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;">
+            <div style="width:26px;height:26px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(m.text)}</div>
+              ${showTime ? `<div style="font-size:11px;color:#8E8E8E;margin-top:3px;">${_timeFmt(m.ts)}</div>` : ''}
+            </div>
           </div>`);
       } else {
         const sourceLbl = {
@@ -457,14 +616,15 @@
           pending:      '확인 대기',
         }[m.source] || '';
         const isPending = m.source === 'pending';
+        // 내 답장 = 회색 말풍선 #F2F4F6 (우, radius 18 18 5 18). pending 만 점선 강조.
         const bubbleStyle = isPending
-          ? `background:#FFFBEB;color:#92400E;border:2px dashed #F59E0B;`
-          : `background:${IG_GRADIENT};color:#fff;`;
+          ? `background:#FFFBEB;color:#92400E;border:1px dashed #F59E0B;border-radius:18px 18px 5px 18px;`
+          : `background:#F2F4F6;color:#191F28;border-radius:18px 18px 5px 18px;`;
         lines.push(`
-          <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:2px;">
-            <div style="max-width:78%;${bubbleStyle}padding:9px 14px;border-radius:22px;font-size:14px;line-height:1.4;word-break:break-word;">${_esc(m.text)}${isPending ? '<div style="font-size:11px;margin-top:4px;font-weight:700;">사장 확인 대기 중</div>' : ''}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:10px;">
+            <div style="max-width:78%;${bubbleStyle}padding:9px 14px;font-size:14px;line-height:1.45;word-break:break-word;">${_esc(m.text)}${isPending ? '<div style="font-size:11px;margin-top:4px;font-weight:700;">사장 확인 대기 중</div>' : ''}</div>
             ${showTime ? `
-              <div style="display:flex;align-items:center;gap:6px;margin:4px 8px 8px 0;">
+              <div style="display:flex;align-items:center;gap:6px;margin:4px 4px 0 0;">
                 ${sourceLbl ? `<span style="font-size:10px;color:#8E8E8E;font-weight:600;">${sourceLbl}</span>` : ''}
                 <span style="font-size:11px;color:#8E8E8E;">${_timeFmt(m.ts)}</span>
               </div>` : ''}

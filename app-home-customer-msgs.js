@@ -129,15 +129,17 @@
     const unread = _isUnread(c, map);
     const pic = (c.profile_pic || '').trim();
     const avCls = 'hv5-cmsg-av' + (unread ? ' is-unread' : '');
-    const avStyle = pic ? ` style="background-image:url('${_esc(pic)}')"` : '';
-    const avInner = pic ? '' : _AVATAR_SVG;   // 프사 없으면 사람 실루엣
+    // 실루엣을 항상 깔고, 프사 있으면 <img> 로 덮음. onerror(깨짐) 시 img 제거 → 실루엣 폴백.
+    const avImg = pic
+      ? `<img class="hv5-cmsg-avimg" src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">`
+      : '';
     const last = (c.last_text || '').trim() || '메시지 없음';
     const intent = _intentLabel(c.last_intent);
     const sid = _esc(c.sender_igsid);
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}">
       <span class="hv5-cmsg-x" data-cmsg-dismiss="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 카드 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
-        <div class="${avCls}"${avStyle}>${avInner}</div>
+        <div class="${avCls}">${_AVATAR_SVG}${avImg}</div>
         <div class="hv5-cmsg-id">
           <div class="hv5-cmsg-nm">${_esc(name)}</div>
           <div class="hv5-cmsg-tm">${_esc(_relTime(c.last_seen))}</div>
@@ -228,36 +230,15 @@
     });
   }
 
-  // 카드 탭 → DM 자동응답 관리(검토 대기) = AI 초안 수정·전송 가능 화면 재사용. 읽기전용 X.
-  //   해당 sender 의 인박스 카드로 스크롤(best-effort). 초안 없어도 인박스 버블이 입력 가능 + regenerate.
-  async function _openReply(sender) {
-    if (typeof window.openDMAutoreplySettings === 'function') {
-      try { await window.openDMAutoreplySettings(); } catch (_e) { void _e; }
-      _focusInboxCard(sender);
-    } else if (typeof window.openDMThread === 'function') {
-      window.openDMThread(sender);  // 폴백
+  // 카드 탭 → 해당 손님 대화(챗봇 스타일, AI 초안·전송 가능)로. openDMThread 재설계본(F2) 재사용.
+  function _openReply(sender) {
+    if (typeof window.openDMThread === 'function') {
+      window.openDMThread(sender);
+    } else if (typeof window.openDMAutoreplySettings === 'function') {
+      window.openDMAutoreplySettings();   // 폴백
     } else if (typeof window.openDMConversations === 'function') {
       window.openDMConversations();
     }
-  }
-
-  // 열린 DM 자동응답 시트의 인박스에서 해당 손님(sender 끝 4자=tail) 카드로 스크롤 + 살짝 강조.
-  function _focusInboxCard(sender) {
-    const tail = (sender || '').slice(-4);
-    if (!tail) return;
-    setTimeout(() => {
-      const sheet = document.getElementById('dmAutoreplySheet');
-      if (!sheet) return;
-      const el = sheet.querySelector(`.dm-inbox [data-tail="${tail}"]`) || sheet.querySelector(`[data-tail="${tail}"]`);
-      if (!el) return;
-      const cardEl = el.closest('.dm-inbox > *') || el;
-      try { cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) { void _e; }
-      try {
-        cardEl.style.transition = 'box-shadow .3s';
-        cardEl.style.boxShadow = '0 0 0 2px var(--brand, #D58A95)';
-        setTimeout(() => { cardEl.style.boxShadow = ''; }, 1600);
-      } catch (_e) { void _e; }
-    }, 320);
   }
 
   // ── 폴링 (홈 탭 활성 + 섹션 존재 시에만) ──────────────────
@@ -292,6 +273,7 @@
       .hv5-cmsg-x{position:absolute;top:6px;right:6px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--text-subtle);font-size:11px;line-height:1;background:transparent;z-index:1}
       .hv5-cmsg-x:hover,.hv5-cmsg-x:active{background:var(--surface-2);color:var(--text-muted)}
       .hv5-cmsg-av svg{width:20px;height:20px}
+      .hv5-cmsg-avimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%}
       .hv5-cmsg-ctop{display:flex;align-items:center;gap:9px;margin-bottom:10px}
       .hv5-cmsg-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;position:relative;background:var(--brand-bg) center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:var(--brand-strong);font-weight:700;font-size:14px}
       .hv5-cmsg-av.is-unread::after{content:"";position:absolute;top:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--brand);border:2px solid var(--surface)}
