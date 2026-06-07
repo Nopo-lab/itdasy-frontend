@@ -229,9 +229,13 @@
   //   롤백: window.PE_TPL_V3_DEFAULT=false → 기존 갤러리 복귀. dev: PE_TPL_SHOW_LEGACY=true → legacy 합류.
   function _flagV3Default() { try { return window.PE_TPL_V3_DEFAULT !== false; } catch (_e) { return true; } }
   function _flagShowLegacy() { try { return window.PE_TPL_SHOW_LEGACY === true; } catch (_e) { return false; } }
+  // [V3-HF0] 기본 노출 보류 목록 — 데이터/조회(lookupById·v3ById)·렌더는 유지, visible 에서만 제외.
+  //   v3-ba-sns-pink: SNS 감성 미흡 → HOTFIX-3 재작업 후 복귀. 삭제 아님(직접/저장본 조회·적용 가능).
+  const V3_HIDDEN = ['v3-ba-sns-pink'];
+  function _v3Visible() { return V3_TOP5.filter(function (t) { return V3_HIDDEN.indexOf(t.id) === -1; }); }
   function visibleTemplates() {
     if (!_flagV3Default()) return TEMPLATES.slice();                 // 롤백 → 기존 55종
-    return _flagShowLegacy() ? V3_TOP5.concat(TEMPLATES) : V3_TOP5.slice();
+    return _flagShowLegacy() ? _v3Visible().concat(TEMPLATES) : _v3Visible().slice();
   }
   function lookupById(id) { return v3ById(id) || (TEMPLATES.find(function (t) { return t.id === id; }) || null); }
 
