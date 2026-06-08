@@ -1616,6 +1616,64 @@
     _renderHistory();
   }
 
+  // [I3a] 후기 카드 자동 적용 — 가격표 흐름 미러. 로직은 ItdasyTemplateAutoApply 모듈이 소유.
+  function _reviewResultActions(payload) {
+    return [
+      { id: 'review_review_template_result', kind: 'review_price_template_result', label: '결과 확인', phase: 'safe', route: 'hub', payload: payload },
+      { id: 'export_review_template_result', kind: 'export_image', label: '저장/내보내기', phase: 'safe', route: 'hub', payload: payload },
+      { id: 'instagram_review_template_result', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'hub', payload: Object.assign({ ratio: '4:5' }, payload) },
+    ];
+  }
+
+  function _reviewResultText(result) {
+    var lines = [
+      '후기 카드에 넣었어요.',
+      '',
+      '문구를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '',
+      '템플릿: ' + (result.templateLabel || '후기 인용 카드'),
+      '고객: ' + (result.customerLabel || '고객님'),
+    ];
+    if (result.reviewExcerpt) lines.push('후기: ' + result.reviewExcerpt + '…');
+    return lines.join('\n');
+  }
+
+  // 완료 카드 — dataURL 미포함(요약 payload + 버튼만). 저장/인스타는 클릭 시점 현재 캔버스 기준.
+  function _tryReviewCardShortcut(input, q) {
+    try {
+      var M = window.ItdasyTemplateAutoApply;
+      if (!M || typeof M.detectReviewCard !== 'function' || !M.detectReviewCard(q)) return false;
+      var ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
+      var result = M.handleReviewCard(q, ctx);
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      if (!result) {
+        _history.push({ role: 'assistant', text: '후기 카드를 넣지 못했어요. 사진을 먼저 선택하거나 다시 시도해 주세요.' });
+        _renderHistory();
+        return true;
+      }
+      var payload = {
+        templateId: result.templateId || 'v3-review-card',
+        templateLabel: result.templateLabel || '후기 인용 카드',
+        reviewExcerpt: result.reviewExcerpt || '',
+        customerLabel: result.customerLabel || '고객님',
+      };
+      _history.push({
+        role: 'assistant',
+        text: _reviewResultText(result),
+        review_template_result: payload,
+        hub_actions: _reviewResultActions(payload),
+      });
+      _renderHistory();
+      if (window.hapticLight) window.hapticLight();
+      if (window.showToast) window.showToast('후기 카드를 넣었어요. 문구 편집에서 확인해 주세요.');
+      return true;
+    } catch (e) {
+      try { console.warn('[assistant-review-card] apply failed', e); } catch (_logErr) { void _logErr; }
+      return false;
+    }
+  }
+
   function _applyPriceTemplateDraft(action, msg) {
     try {
       const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
@@ -3509,6 +3567,7 @@
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (_tryPriceListDraft(input, q)) return;
+    if (_tryReviewCardShortcut(input, q)) return;   // [I3a] 후기 카드 자동 적용 — promo chain/photo-followup 보다 먼저
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();
