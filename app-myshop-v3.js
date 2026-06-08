@@ -260,6 +260,18 @@
     return `<div class="ms-section"><div class="ms-section__title">계정</div><div class="ms-menu">${items}</div></div>`;
   }
 
+  // ─────────── 하단 푸터 링크 (쿠팡식 · 모바일 전용) ───────────
+  // [2026-06-09] 고객센터·로그아웃을 내샵관리 맨 아래 회색 작은 텍스트로 일원화.
+  function _renderFooterLinks() {
+    const linkStyle = 'background:none;border:0;padding:6px 10px;font-size:12px;color:var(--text-subtle);font-family:inherit;cursor:pointer;';
+    return `
+      <div class="ms-foot" style="display:flex;align-items:center;justify-content:center;gap:4px;padding:20px 0 28px;">
+        <button type="button" data-mv-act="support" style="${linkStyle}">고객센터</button>
+        <span style="color:var(--border-strong);font-size:11px;">|</span>
+        <button type="button" data-mv-act="logout" style="${linkStyle}">로그아웃</button>
+      </div>`;
+  }
+
   // ─────────── PC 사이드바 ───────────
   // 사이드바 행 헬퍼
   function _sideItemHTML(opt) {
@@ -548,6 +560,7 @@
       // 플랜·구독 — app-plan.js 에서 openPlanPopup 으로 노출. openPlan / openSupport 도 시도.
       plan:           () => (window.openPlan || window.openPlanPopup || (() => {}))(),
       support:        () => (window.openSupport || window.openSupportChat || (() => {}))(),
+      logout:         () => (window.logout || (() => {}))(),
       bell:           () => window.openNotifications && window.openNotifications(),
       editShop:       () => window.openShopSettings && window.openShopSettings(),
       'persona-toggle': () => {
@@ -617,6 +630,7 @@
             ${_renderOpsMenu(brief)}
             ${_renderHubMenu()}
             ${_renderAccountMenu()}
+            ${_renderFooterLinks()}
           </div>
         </div>
         ${_renderPCDash(brief)}

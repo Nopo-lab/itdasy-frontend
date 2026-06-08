@@ -59,16 +59,30 @@
     const provLabel = provMap[String(prov).toLowerCase()] || (prov ? prov : '이메일');
     return { provLabel, email };
   }
+  // 연동된 인스타 핸들 / 프사 — 캐시(itdasy:ig_handle / itdasy:ig_profile_pic) 기반.
+  function _igInfo() {
+    let handle = '';
+    let pic = '';
+    try { handle = localStorage.getItem('itdasy:ig_handle') || ''; } catch (_e) { void _e; }
+    try { pic = localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { void _e; }
+    return { handle, pic };
+  }
   function _accountHTML() {
     const { provLabel, email } = _accountInfo();
+    const { handle, pic } = _igInfo();
     const right = email ? `${_esc(provLabel)} · ${_esc(email)}` : _esc(provLabel);
+    // 인스타 연동 시: 프사 + @핸들 노출. 미연동 시: 기존 스토어 아이콘 + '현재 로그인'.
+    const avatar = pic
+      ? `<img src="${_esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;display:block;">`
+      : `<span class="ic-box ic-box--sm ic-box--blue">${_ic('ic-store', 14)}</span>`;
+    const name = handle ? `@${_esc(handle)}` : '현재 로그인';
     return `
       <div class="ms-section__title" style="margin-top:4px;">계정</div>
       <div class="ms-sh" id="shAccount">
         <div class="ms-sh__row" style="cursor:default;">
-          <div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--blue">${_ic('ic-store', 14)}</span></div>
+          <div class="ms-sh__icon">${avatar}</div>
           <div class="ms-sh__info">
-            <div class="ms-sh__name">현재 로그인</div>
+            <div class="ms-sh__name">${name}</div>
             <div class="ms-sh__meta">${right}</div>
           </div>
         </div>
@@ -87,6 +101,7 @@
       <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
       <div class="ms-sh">
         ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'pink' })}
+        ${_rowHTML('analysis_report', 'ic-bar-chart-3', '분석 리포트 보기', '최근 분석 결과 다시 보기 (재분석 안 함)', { boxColor: 'purple' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
         ${/* [2026-05-25] 'AI 잇비 액션 되돌리기' 행 제거 — 잇비 채팅 ⋯ 메뉴로 단일 진입점화. */ ''}
@@ -96,11 +111,8 @@
       <div class="ms-sh">
         ${_rowHTML('membership','ic-ticket',    '회원권',             '만료 임박 고객 · 충전 안내', { boxColor: 'coral' })}
       </div>
-      <div class="ms-section__title" style="margin-top:14px;">도움</div>
-      <div class="ms-sh">
-        ${_rowHTML('support',  'ic-headset',    '고객센터 · 문의',    '1:1 채팅 문의', { boxColor: 'blue' })}
-      </div>
     `;
+    // [2026-06-09] '도움(고객센터·문의)' 행 제거 — PC 사이드바 '문의하기' / 모바일 내샵관리 하단 링크로 일원화.
   }
   function _inlineHTML() {
     return `
@@ -131,19 +143,7 @@
       </div>
     `;
   }
-  function _logoutHTML() {
-    return `
-      <div class="ms-sh" style="margin-top:14px;">
-        <button type="button" class="ms-sh__row" data-act="logout">
-          <div class="ms-sh__icon" style="color:var(--danger);"><span class="ic-box ic-box--sm ic-box--red">${_ic('ic-arrow-left', 14)}</span></div>
-          <div class="ms-sh__info">
-            <div class="ms-sh__name" style="color:var(--danger);">로그아웃</div>
-            <div class="ms-sh__meta">현재 기기에서 로그아웃</div>
-          </div>
-        </button>
-      </div>
-    `;
-  }
+  // [2026-06-09] _logoutHTML 제거 — 로그아웃은 PC 사이드바 푸터 / 모바일 내샵관리 하단으로 이전.
   function _buildSheet() {
     const sheet = document.createElement('div');
     sheet.id = 'settingsHubSheet';
@@ -156,7 +156,6 @@
           ${_accountHTML()}
           ${_listHTML()}
           ${_inlineHTML()}
-          ${_logoutHTML()}
         </div>
       </div>
     `;
@@ -249,13 +248,15 @@
     if (act === 'instagram_disconnect') { close(); setTimeout(() => window.disconnectInstagram && window.disconnectInstagram(), 200); return; }
     if (act === 'naver')     { close(); setTimeout(() => window.openNaverLink && window.openNaverLink(), 200); return; }
     if (act === 'persona')   { close(); setTimeout(() => window.runPersonaAnalyze && window.runPersonaAnalyze(true), 200); return; }
+    // [2026-06-09] 분석 리포트 보기 — 캐시된 분석 결과 팝업 (재분석 X, persona 와 별개).
+    if (act === 'analysis_report') { close(); setTimeout(() => window.showDetailedAnalysis && window.showDetailedAnalysis(), 200); return; }
     // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
     if (act === 'sync')      { close(); setTimeout(() => window.forceSync && window.forceSync(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
     // 'undo' 라우트는 잇비 채팅 ⋯ 메뉴로 일원화 (2026-05-25, 행 제거).
     if (act === 'failures')  { close(); setTimeout(() => window.openFailuresHub && window.openFailuresHub(), 200); return; }
     if (act === 'membership'){ close(); setTimeout(() => window.MembershipUI && window.MembershipUI.openExpiringList && window.MembershipUI.openExpiringList(30), 200); return; }
-    if (act === 'support')   { close(); setTimeout(() => (window.openSupport || window.openSupportChat) && (window.openSupport || window.openSupportChat)(), 200); return; }
+    // [2026-06-09] 'support'/'logout' 라우트 제거 — 설정·연동에서 빠지고 사이드바/내샵관리 하단으로 이전.
     if (act === 'haptic') {
       try { window.toggleHapticSetting && window.toggleHapticSetting(); window.updateHapticToggleLabel && window.updateHapticToggleLabel(); } catch (_e) { void _e; }
       _refreshLabels();
@@ -269,12 +270,6 @@
     if (act === 'font') {
       try { window.cycleFontSize && window.cycleFontSize(); } catch (_e) { void _e; }
       _refreshLabels();
-      return;
-    }
-    if (act === 'logout') {
-      if (!confirm('로그아웃 하시겠어요?')) return;
-      try { if (typeof window.setToken === 'function') window.setToken(''); } catch (_e) { void _e; }
-      location.reload();
       return;
     }
   }
