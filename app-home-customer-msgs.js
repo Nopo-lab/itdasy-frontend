@@ -7,7 +7,7 @@
             이후 새로 들어온 메시지만 '안읽음'. 카드 탭 하면 read 처리(점만 off, 제거 X).
    - 카드 탭 → window.openDMAutoreplySettings() (검토 대기 인박스: AI 초안 수정·전송) + 해당 손님으로 스크롤.
    - 카드 제거: 답장 전송 성공(itdasy:dm-replied) 또는 X(dismiss) 때만. 새 메시지 오면 재등장.
-   - 전체 보기 → window.openDMConversations() (읽기전용 대화 history).
+   - 전체 보기 → window.openDMConfirmQueue() (실시간 DM 카드 리스트).
    - 프사 없으면 사람 실루엣 아이콘.
 
    window.HomeCustomerMsgs = { refresh() }
@@ -203,8 +203,9 @@
       const more = e.target.closest('#hv5CmsgMore');
       if (more) {
         e.preventDefault();
-        // '전체 보기' = 읽기전용 대화 history 목록 (기존 유지)
-        if (typeof window.openDMConversations === 'function') window.openDMConversations();
+        // [2026-06-08] '전체 보기' → 실시간 DM 카드 리스트 (옛 채팅방 목록 은퇴)
+        if (typeof window.openDMConfirmQueue === 'function') window.openDMConfirmQueue();
+        else if (typeof window.openDMConversations === 'function') window.openDMConversations();
         return;
       }
       // X(지우기) — 카드 탭보다 먼저 가로채서 dismiss (답장 안 하고 목록에서 제거)

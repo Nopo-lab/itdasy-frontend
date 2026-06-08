@@ -96,7 +96,7 @@
         <button id="dcvClose" aria-label="닫기" style="background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:4px;">
           <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
-        <strong style="font-size:18px;font-weight:700;color:#262626;letter-spacing:-0.3px;">고객 DM</strong>
+        <strong style="font-size:18px;font-weight:700;color:#262626;letter-spacing:-0.3px;">실시간 DM</strong>
         <span id="dcvCount" style="font-size:12px;color:#8E8E8E;margin-left:4px;"></span>
         <button id="dcvSettings" aria-label="자동응답 설정" title="자동응답 설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#262626;display:inline-flex;align-items:center;padding:6px;">
           <i class="ph-duotone ph-gear" aria-hidden="true" style="font-size:20px;"></i>
@@ -636,7 +636,12 @@
     return lines.join('');
   }
 
-  window.openDMConversations = openList;
+  // [2026-06-08] 옛 채팅방 목록 뷰 은퇴 — 모든 진입을 '실시간 DM' 카드 리스트로 통합.
+  //   openList/_refreshList 등 목록 함수는 죽은 코드(백로그) — 지금 삭제 X.
+  window.openDMConversations = function () {
+    if (typeof window.openDMConfirmQueue === 'function') return window.openDMConfirmQueue();
+    return openList();  // 최후 폴백 (카드 모듈 미로드 시)
+  };
   window.closeDMConversations = closeList;
   // [2026-06-08] 옛 풀 대화창(스레드 뷰) 은퇴 — 모든 진입을 '실시간 DM' 카드 리스트로 통합.
   //   openThread/_renderThread/composer 등 스레드 함수는 죽은 코드(백로그) — 지금 삭제 X.
