@@ -52,7 +52,13 @@
     sheet.querySelector('#dcqClose').addEventListener('click', close);
     const _setBtn = sheet.querySelector('#dcqSettings');
     if (_setBtn) _setBtn.addEventListener('click', () => {
-      if (typeof window.openDMAutoreplySettings === 'function') window.openDMAutoreplySettings();
+      if (typeof window.openDMAutoreplySettings !== 'function') return;
+      window.openDMAutoreplySettings();
+      // [2026-06-08] 설정 시트를 카드 위로 push (카드 sheet z=9988). 닫으면 카드로 복귀.
+      setTimeout(() => {
+        const s = document.getElementById('dmAutoreplySheet');
+        if (s) s.style.zIndex = '9996';
+      }, 0);
     });
     return sheet;
   }
@@ -151,27 +157,43 @@
     </div>`;
   }
   function _mainBtnLabel(it) {
-    if (_depositSignal(it.received_text)) return '예약 확정 + 전송';
-    if (it.action_required === 'booking_action') return it.extracted ? '전송 + 캘린더 등록' : '전송 (캘린더 등록)';
-    return '전송';
+    // [2026-06-08] 캘린더 등록은 BE 가 입금확정+이름 있을 때만 booking_action 부여 → 그때만 +캘린더.
+    //   신규 문의(action 없음)는 [전송]만.
+    return it.action_required === 'booking_action' ? '전송 + 캘린더 등록' : '전송';
+  }
+  function _gotoCalendar(ymd) {
+    try {
+      if (typeof window.showTab === 'function') {
+        const btn = document.querySelector('.tab-bar__btn[data-tab="calendar"]');
+        window.showTab('calendar', btn);
+      }
+      if (ymd && typeof window.openBooking === 'function') window.openBooking(ymd);
+      else if (typeof window.openCalendarView === 'function') window.openCalendarView();
+    } catch (_e) { void _e; }
   }
   function _cardHtml(it) {
     const tail = (it.sender_tail || '').slice(-4);
     const ex = it.extracted || null;
-    const name = (ex && ex.name) || ('손님 …' + tail);
+    const name = it.display_name || (ex && ex.name) || ('손님 …' + tail);
     const draft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
     const am = it.action_meta || {};
     const isBooking = it.action_required === 'booking_action';
+    const pic = (it.profile_pic || '').trim();
+    const avImg = pic
+      ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
+      : '';
+    const summary = (it.customer_summary || '').trim();
     return `
-      <div class="dcq-item" data-id="${it.id}" data-tail="${_esc(tail)}" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
+      <div class="dcq-item" data-id="${it.id}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;overflow:hidden;position:relative;">${_AVATAR_SVG}</div>
+          <div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;overflow:hidden;position:relative;">${_AVATAR_SVG}${avImg}</div>
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:6px;">
               <span style="font-size:14px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(name)}</span>
               ${_gradeBadge(it.customer_grade)}
             </div>
             <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${(it.minutes_waiting <= 0 ? '방금' : it.minutes_waiting + '분 전')} · ${_esc(_intentKo(it.intent))}</div>
+            ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
           </div>
         </div>
         <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(it.received_text)}</div>
@@ -196,6 +218,9 @@
   async function _refresh() {
     const list = document.getElementById('dcqList');
     if (!list) return;
+    // [2026-06-08] 수정(인라인 textarea) 중이면 폴링 재렌더 스킵 — 입력 내용/카드 안 닫히게.
+    const editing = Array.from(list.querySelectorAll('.dcq-edit')).some(t => t.style.display !== 'none');
+    if (editing) return;
     try {
       const items = await _fetch('GET', '/dm-confirm-queue');
       const count = items.length;
@@ -256,7 +281,13 @@
       const undoLogId = r.log_id || r.action_log_id || null;
       const baseMsg = r.message || '예약 등록됐어요';
 
-      if (isApproveSend && undoLogId && typeof window.showUndoToast === 'function') {
+      // [2026-06-08] 캘린더 등록(booking_action) 성공 → "캘린더에서 보기" 버튼 토스트
+      const bookingYmd = card.dataset.bookingDate || '';
+      const isBookingCreated = isApproveSend && (r.booking_id || (action === 'send' && bookingYmd));
+      if (isBookingCreated && window.showToast) {
+        try { window.showToast(baseMsg + ' · 캘린더에서 보기 →', { onClick: () => _gotoCalendar(bookingYmd) }); }
+        catch (_t) { window.showToast(baseMsg); }
+      } else if (isApproveSend && undoLogId && typeof window.showUndoToast === 'function') {
         // 백엔드가 action log id 를 돌려주면 "되돌리기 →" 버튼 토스트
         try { window.showUndoToast(baseMsg, undoLogId); } catch (_t) {
           if (window.showToast) window.showToast(baseMsg);
@@ -313,7 +344,35 @@
     } catch (_e) { return 0; }
   }
 
+  // [2026-06-08] 특정 손님 카드로 진입 — 홈 고객메시지 / 옛 스레드 진입점 통합.
+  //   초안 없으면 draft 엔드포인트로 pending 생성 후, 카드 리스트 열고 해당 카드로 스크롤·강조.
+  async function openForSender(sender) {
+    if (!sender) return open();
+    try {
+      const headers = window.authHeader ? window.authHeader() : {};
+      headers['Content-Type'] = 'application/json';
+      await apiFetch(`/instagram/dm-reply/conversations/${encodeURIComponent(sender)}/draft`, { method: 'POST', headers });
+    } catch (_e) { /* 이미 카드 있으면 그대로 */ }
+    await open();
+    setTimeout(() => {
+      const list = document.getElementById('dcqList');
+      if (!list) return;
+      const tail = String(sender).slice(-4);
+      let el = null;
+      try { el = list.querySelector(`[data-sender="${(window.CSS && CSS.escape) ? CSS.escape(sender) : sender}"]`); } catch (_e) { /* ignore */ }
+      if (!el) el = list.querySelector(`[data-tail="${tail}"]`);
+      if (!el) return;
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_e) { /* ignore */ }
+      try {
+        el.style.transition = 'box-shadow .3s';
+        el.style.boxShadow = '0 0 0 2px #BC6675';
+        setTimeout(() => { el.style.boxShadow = ''; }, 1600);
+      } catch (_e) { /* ignore */ }
+    }, 400);
+  }
+
   window.openDMConfirmQueue = open;
   window.closeDMConfirmQueue = close;
   window.refreshDMQueueBadge = refreshBadge;
+  window.openDMCardForSender = openForSender;
 })();

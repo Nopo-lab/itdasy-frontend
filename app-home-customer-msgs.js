@@ -230,12 +230,12 @@
     });
   }
 
-  // 카드 탭 → 해당 손님 대화(챗봇 스타일, AI 초안·전송 가능)로. openDMThread 재설계본(F2) 재사용.
+  // 카드 탭 → '실시간 DM' 카드 리스트에서 그 손님 카드로 포커스 (옛 풀 대화창 은퇴).
   function _openReply(sender) {
-    if (typeof window.openDMThread === 'function') {
-      window.openDMThread(sender);
-    } else if (typeof window.openDMAutoreplySettings === 'function') {
-      window.openDMAutoreplySettings();   // 폴백
+    if (typeof window.openDMCardForSender === 'function') {
+      window.openDMCardForSender(sender);
+    } else if (typeof window.openDMConfirmQueue === 'function') {
+      window.openDMConfirmQueue();
     } else if (typeof window.openDMConversations === 'function') {
       window.openDMConversations();
     }

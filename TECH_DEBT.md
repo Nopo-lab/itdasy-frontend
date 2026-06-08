@@ -103,6 +103,15 @@ T-119 저장/export/slot/attach/dedupe + T-119-A export 안내(v365) · T-118 �
 
 ---
 
+### `app-dm-conversations.js` 옛 스레드(풀 대화창) 죽은 코드 (~250줄)
+- 2026-06-08 '실시간 DM' 카드 리스트로 진입 통합, `openDMThread` 는 카드 리스트 리다이렉트로 은퇴.
+  스레드 렌더/컴포저 함수 잔존: `openThread` / `_renderThread` / `_buildMessagesHtml` / `_onAiDraft` /
+  `_onSendReply` / `_onApproveBooking` / `_renderAiBar` / `_postDraft` / 스레드 폴링 등.
+- **카드 흐름 검증 후** 일괄 삭제 + 파일 분할(현재 649줄). openList(목록)도 카드 진입이라
+  스레드 시트(#dmThreadSheet) 마크업·핸들러 전부 제거 가능.
+
+---
+
 ## 변경 이력
 
 | 날짜 | 내용 |

@@ -190,7 +190,9 @@
       list.querySelectorAll('.dcv-row').forEach(row => {
         row.addEventListener('click', (e) => {
           if (e.target.closest('.dcv-toggle-excl')) return;
-          openThread(row.dataset.sender);
+          // [2026-06-08] 스레드 은퇴 — 대화 클릭도 '실시간 DM' 카드로
+          if (typeof window.openDMCardForSender === 'function') window.openDMCardForSender(row.dataset.sender);
+          else openThread(row.dataset.sender);
         });
       });
       list.querySelectorAll('.dcv-toggle-excl').forEach(btn => {
@@ -636,6 +638,12 @@
 
   window.openDMConversations = openList;
   window.closeDMConversations = closeList;
-  window.openDMThread = openThread;
+  // [2026-06-08] 옛 풀 대화창(스레드 뷰) 은퇴 — 모든 진입을 '실시간 DM' 카드 리스트로 통합.
+  //   openThread/_renderThread/composer 등 스레드 함수는 죽은 코드(백로그) — 지금 삭제 X.
+  window.openDMThread = function (sender) {
+    if (typeof window.openDMCardForSender === 'function') return window.openDMCardForSender(sender);
+    if (typeof window.openDMConfirmQueue === 'function') return window.openDMConfirmQueue();
+    return openThread(sender);  // 최후 폴백 (카드 모듈 미로드 시)
+  };
   window.closeDMThread = closeThread;
 })();
