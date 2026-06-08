@@ -91,9 +91,22 @@ T-119 저장/export/slot/attach/dedupe + T-119-A export 안내(v365) · T-118 �
 
 ---
 
+## 🟡 죽은 코드 정리 (DM 작업 완료 후 별도 턴)
+
+### `app-dm-autoreply.js` 죽은 인박스 함수 (~150줄)
+- 2026-06-08 '실시간 DM' 카드 리스트(`app-dm-confirm-queue.js`)로 인박스 이관 후, autoreply 시트는
+  **설정 전용**으로 전환(compose 에서 인박스 렌더 제거 + 폴링 중단). 단, 옛 인박스 함수들이 파일에 남음:
+  `_renderInbox` / `_renderCard` / `_renderCustomerContext`(단골 초록뱃지) / `_renderThread`(인박스용) /
+  `_renderMiniTone` / `_handleSend` / `_handleReject` / `_handleMiniTone` / `_handleRegen` / `_refreshInbox` /
+  `_startInboxPoll` / `_stopInboxPoll` / `_draftMap` / `_userToneByLog` 등.
+- **검증 끝난 뒤** 새 카드 흐름 안정화 확인 후 일괄 삭제 + 파일 분할(현재 1319줄). 지금 삭제 시 설정 시트 회귀 위험.
+
+---
+
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-04-20 | 최초 작성. 3대 모놀리스 분할 계획 + 백엔드 미결 과제 기록 |
 | 2026-05-31 | 사진편집기 출시 QA 종료 기록 + 남은 P2 고도화 5종 백로그 추가 |
+| 2026-06-08 | '실시간 DM' 카드 재구성 후 app-dm-autoreply.js 죽은 인박스 함수 정리 백로그 등록 |
