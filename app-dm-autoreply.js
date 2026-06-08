@@ -572,8 +572,7 @@
       </div>`;
   }
 
-  // [2026-06-10] 예약 단계 배지 + 버튼 정의
-  // 단계: 정보수집 → 예약금안내 → 입금대기 → 예약확정
+  // [2026-06-10] 예약 단계 배지 + 칩(옵션) + 캘린더 확인 줄 + 칩 수정 인라인
   function _renderCard(conv, activeTone) {
     const tail = (conv.sender_tail || '????').slice(-4);
     const name = conv.sender_username || `손님 …${tail}`;
@@ -586,14 +585,42 @@
     const actMeta = conv.action_meta || {};
     const isBookingAction = actReq === 'booking_action';
     const calChecked = !!actMeta.calendar_checked;
-    // 단계 판별 — 상호 배타
-    const isDepositPending = !!actMeta.awaiting_deposit && !actMeta.deposit_sent; // 예약금 안내 초안
-    const isDepositSent    = !!actMeta.deposit_sent;                              // 입금 대기 중
-    // "그 시간 안됨" 대안 버튼 — 입금 대기·예약 확정 단계에선 노출 금지
+    const isDepositPending = !!actMeta.awaiting_deposit && !actMeta.deposit_sent;
+    const isDepositSent    = !!actMeta.deposit_sent;
     const showAltBtn = isBookingAction && calChecked && !actMeta.slot_available
       && !isDepositPending && !isDepositSent;
 
-    // ── 단계 배지 영역
+    // ── [5] 캘린더 확인 줄 (booking 카드 전용)
+    const calLine = (calChecked && actMeta.slot_available != null) ? `
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin:4px 0 2px;${actMeta.slot_available ? 'color:#166534;' : 'color:#B91C1C;'}">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        ${actMeta.slot_available
+          ? `캘린더 확인 · ${_esc(actMeta.time_kst || actMeta.requested_time || '')} 비어있음`
+          : `캘린더 확인 · ${_esc(actMeta.time_kst || actMeta.requested_time || '')} 이미 예약 있음`}
+      </div>` : '';
+
+    // ── [6] 옵션·메모 칩 (수정 가능)
+    const chips = [];
+    if (actMeta.name)    chips.push({ key: 'customer_name', label: actMeta.name, prefix: '성함' });
+    if (actMeta.phone)   chips.push({ key: 'phone',         label: actMeta.phone, prefix: '연락처' });
+    const rt = actMeta.time_kst || actMeta.requested_time || '';
+    if (rt)              chips.push({ key: 'requested_time', label: rt, prefix: '시간' });
+    if (actMeta.service_name) chips.push({ key: 'service_name', label: actMeta.service_name, prefix: '시술' });
+    const opts = actMeta.service_options || {};
+    if (opts.length)  chips.push({ key: 'length', label: opts.length, prefix: '인치', opts: true });
+    if (opts.color)   chips.push({ key: 'color',  label: opts.color,  prefix: '색상', opts: true });
+    if (opts.remove)  chips.push({ key: 'remove', label: opts.remove, prefix: '제거', opts: true });
+    if (opts.design)  chips.push({ key: 'design', label: opts.design, prefix: '디자인', opts: true });
+    if (actMeta.memo) chips.push({ key: 'memo', label: actMeta.memo, prefix: '요청', opts: false });
+    const chipsHtml = chips.length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px;">
+        ${chips.map(c => `<span class="dm-chip" data-chip-key="${_esc(c.key)}" data-chip-opts="${!!c.opts}" title="탭하면 수정"
+          style="display:inline-flex;align-items:center;gap:3px;background:#F2F4F6;color:#4E5968;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;word-break:keep-all;">
+          <span style="color:#8B95A1;font-size:10.5px;">${_esc(c.prefix)}</span> ${_esc(c.label)}
+        </span>`).join('')}
+      </div>` : '';
+
+    // ── 단계 배지
     let stageInfo = '';
     if (isBookingAction) {
       const timeStr = actMeta.time_kst || actMeta.requested_time || '';
@@ -603,9 +630,9 @@
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
             <span style="font-size:11px;font-weight:800;color:#92400E;">예약 확정 대기</span>
-            ${calChecked && actMeta.slot_available ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:1px 7px;border-radius:99px;font-weight:700;">캘린더 비어있음</span>' : ''}
           </div>
           ${timeStr ? `<div style="font-size:11.5px;color:#92400E;font-weight:700;">${_esc(timeStr)}${svcStr ? ' · ' + _esc(svcStr) : ''}</div>` : ''}
+          ${calLine}
         </div>`;
     } else if (isDepositSent) {
       stageInfo = `
@@ -619,21 +646,16 @@
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           <span style="font-size:11px;font-weight:700;color:#166534;">예약금 안내 전송 대기</span>
         </div>`;
+    } else if (calChecked) {
+      stageInfo = `<div style="margin:6px 0 2px;">${calLine}</div>`;
     }
 
-    // ── 버튼 영역 (단계별)
+    // ── 버튼
     let sendLabel, sendStyle = '';
-    if (isBookingAction) {
-      sendLabel = '예약 확정 (캘린더 등록 + 확정 DM 발송)';
-      sendStyle = 'background:#2B3A67;color:#fff;border-color:#2B3A67;';
-    } else if (isDepositSent) {
-      sendLabel = '답장 발송';
-    } else if (isDepositPending) {
-      sendLabel = '예약금 안내 전송';
-      sendStyle = 'background:#166534;color:#fff;border-color:#166534;';
-    } else {
-      sendLabel = '답장 발송';
-    }
+    if (isBookingAction)    { sendLabel = '예약 확정 (캘린더 등록 + 확정 DM 발송)'; sendStyle = 'background:#2B3A67;color:#fff;border-color:#2B3A67;'; }
+    else if (isDepositSent) { sendLabel = '답장 발송'; }
+    else if (isDepositPending) { sendLabel = '예약금 안내 전송'; sendStyle = 'background:#166534;color:#fff;border-color:#166534;'; }
+    else                    { sendLabel = '답장 발송'; }
 
     return `
       <div class="dm-card is-pending" data-tail="${_esc(tail)}" data-log-id="${_esc(logId)}" data-status="${_esc(status)}" data-action="${_esc(actReq)}">
@@ -646,6 +668,7 @@
         </div>
         <div><span class="dm-card__cat">${_esc(cat)}</span></div>
         ${_renderThread(conv, tail, logId)}
+        ${chipsHtml}
         ${stageInfo}
         ${_renderMiniTone((logId && _userToneByLog.get(logId)) || activeTone)}
         <div class="dm-actions" style="display:flex;flex-direction:column;gap:6px;">
@@ -1007,6 +1030,37 @@
       } else {
         _toast('연동된 고객 정보가 없습니다.');
       }
+    });
+
+    // [2026-06-10 BUG-7] 칩 인라인 수정 — 탭 → input → blur/Enter 저장
+    card.querySelectorAll('.dm-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (chip.querySelector('input')) return; // 이미 편집 중
+        const key = chip.dataset.chipKey;
+        const isOpts = chip.dataset.chipOpts === 'true';
+        const oldVal = chip.textContent.trim().split(' ').slice(1).join(' '); // prefix 제거
+        const input = document.createElement('input');
+        input.value = oldVal;
+        input.style.cssText = 'width:80px;border:none;outline:none;background:transparent;font-size:11.5px;font-weight:600;color:#191F28;';
+        chip.innerHTML = '';
+        chip.appendChild(input);
+        input.focus(); input.select();
+        const save = async () => {
+          const val = input.value.trim();
+          chip.textContent = chip.dataset.chipKey.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); // fallback
+          if (!val || val === oldVal || !logId) return;
+          const body = isOpts ? { service_options: { [key]: val } } : { [key]: val };
+          try {
+            await apiFetch(`/dm-confirm-queue/${encodeURIComponent(logId)}/update-slots`, {
+              method: 'POST', headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            _toast('수정됐어요');
+          } catch (_e) { _toast('수정 실패'); }
+        };
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+      });
     });
 
     card.querySelectorAll('.dm-mini-tone__chip').forEach(ch => {
