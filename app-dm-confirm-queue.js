@@ -145,6 +145,11 @@
     }
     return `<div style="font-size:12px;color:#BC6675;margin:10px 0 2px;">✕ 그 시간 예약 있음 — 대안 필요</div>`;
   }
+  // [2026-06-09] 예약금 안내 단계 — 입금 대기 표시(BE awaiting_deposit).
+  function _depositLine(am) {
+    if (!am || !am.awaiting_deposit) return '';
+    return `<div style="font-size:12px;color:#BC6675;font-weight:600;margin:8px 0 2px;">💰 예약금 입금 대기 — 입금 확인되면 [전송 + 캘린더 등록]</div>`;
+  }
   function _extractedChips(ex, am) {
     const name = (ex && ex.name) || (am && am.name);
     const phone = (ex && ex.phone) || (am && am.phone);
@@ -203,6 +208,7 @@
         <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(it.received_text)}</div>
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
+        ${_depositLine(am)}
         <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
