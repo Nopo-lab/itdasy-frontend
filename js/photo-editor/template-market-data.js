@@ -222,7 +222,16 @@
     { id: 'v3-ba-sns-pink',      cat: 'ba',    tier: 'free', label: '시술 전후 · 파스텔 핑크', kind: 'before_after', industry: 'nail', accent: 'primary', prefillText: 'Before & After',
       palette: { bg: '#FCE9EE', ink: '#3F2C32', sub: '#A2868E', accent: '#F24E86', line: '#F6D3DD', badge: '#F24E86' } },
   ];
-  function v3ById(id) { for (let i = 0; i < V3_TOP5.length; i++) if (V3_TOP5[i].id === id) return V3_TOP5[i]; return null; }
+  // [BP-2] 뷰티 팩 — 조회(lookupById/v3ById)에만 합류, visibleTemplates(갤러리)엔 미합류 = apply-only.
+  //   롤백: window.PE_BEAUTY_PACK=false → 비활성(조회/렌더에서 제외). 데이터 미로드 시 [] 안전.
+  const BEAUTY_PACK = (function () {
+    try {
+      const g = window.PhotoEditorBeautyPackData;
+      return (window.PE_BEAUTY_PACK !== false && g && Array.isArray(g.TEMPLATES)) ? g.TEMPLATES : [];
+    } catch (_e) { return []; }
+  })();
+  const V3_REGISTRY = V3_TOP5.concat(BEAUTY_PACK);   // 조회용(apply/render). 노출은 V3_TOP5 만 사용.
+  function v3ById(id) { for (let i = 0; i < V3_REGISTRY.length; i++) if (V3_REGISTRY[i].id === id) return V3_REGISTRY[i]; return null; }
 
   // ── [V3-4a] 노출/조회 분리 + 롤백 플래그 ───────────────────────────────
   //   노출(visibleTemplates): 기본 v3 TOP5만. 조회(lookupById): v3+legacy 전체(저장본/보관함 안전).
