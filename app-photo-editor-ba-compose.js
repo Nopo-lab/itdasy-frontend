@@ -120,6 +120,10 @@
     if (id === 'ba-2split-v' || id === 'ba-event') return _vertical(ctx, w, h, before, after, id, data);
     if (id === 'ba-3process') return _process(ctx, w, h, before, after, data);
     if (id === 'ba-4grid') return _grid(ctx, w, h, before, after, data);
+    // [HF2] v3 clean BA — palette + id 가드(legacy 무회귀)
+    if (data && data.palette && /^v3-ba-clean-/.test(id)) return _v3BAClean(ctx, w, h, before, after, id, data);
+    // [HF3] v3 sns pink BA — SNS 감성(폴라로이드/하트/스파클)
+    if (data && data.palette && id === 'v3-ba-sns-pink') return _v3BASns(ctx, w, h, before, after, id, data);
     // v326 BA 12종 시리즈 — 스타일 suffix 로 기존 함수 라우팅
     if (typeof id === 'string' && /^ba-(hair|nail|lash|skin)-/.test(id)) {
       if (/-cream$/.test(id))    return _flowerShadow(ctx, w, h, before, after, data);
@@ -142,6 +146,123 @@
     if (id === 'ba-price') _priceRows(ctx, w, h, data);
     else if (id === 'ba-review') _review(ctx, w, h, data);
     else _footer(ctx, w, h, data);
+  }
+
+  // [HF2] 텍스트 폭 클립
+  function _clipBA(ctx, text, maxW) {
+    let s = String(text == null ? '' : text);
+    if (ctx.measureText(s).width <= maxW) return s;
+    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+    return s + '…';
+  }
+  // [HF2] 라운드 pill 라벨(BEFORE/AFTER)
+  function _baPill(ctx, cx, cy, text, bgC, h) {
+    ctx.font = `800 ${Math.round(h * 0.017)}px "Noto Sans KR", sans-serif`;
+    const tw = ctx.measureText(text).width; const padX = h * 0.014, ph = h * 0.033;
+    const pw = tw + padX * 2, px = cx - pw / 2, py = cy - ph / 2;
+    _rr(ctx, px, py, pw, ph, ph / 2); ctx.fillStyle = bgC; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, cx, cy + h * 0.001); ctx.textBaseline = 'alphabetic';
+  }
+
+  // [HF2] v3 clean BA — 라운드 프레임 + pill 라벨 + 중앙 arrow + 효과 포인트 + CTA. rose/blue 는 palette 로 색 구분.
+  function _v3BAClean(ctx, w, h, before, after, id, data) {
+    const ink = _pbg(data, 'ink') || '#3A2C2C';
+    const sub = _pbg(data, 'sub') || '#9A8585';
+    const accent = _pbg(data, 'accent') || '#C57E7E';
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+    // 헤더
+    let y = h * 0.075;
+    if (data.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.017)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, String(data.shop).toUpperCase(), w * 0.8), w / 2, y); y += h * 0.04; }
+    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.044)}px "Noto Serif KR", serif`; ctx.fillText(_clipBA(ctx, data.head || '시술 전후', w * 0.86), w / 2, y); y += h * 0.032;
+    if (data.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, data.sub, w * 0.82), w / 2, y); }
+    // 사진 2분할(라운드)
+    const pad = w * 0.07, gap = w * 0.05, top = h * 0.205;
+    const boxW = (w - pad * 2 - gap) / 2, boxH = h * 0.45, r = w * 0.045;
+    _roundedPhoto(ctx, before, pad, top, boxW, boxH, r, true, false);
+    _roundedPhoto(ctx, after, pad + boxW + gap, top, boxW, boxH, r, false, false);
+    // pill 라벨
+    const labels = _baLabels(id, data);
+    _baPill(ctx, pad + boxW * 0.5, top + h * 0.032, labels[0] || 'BEFORE', ink, h);
+    _baPill(ctx, pad + boxW + gap + boxW * 0.5, top + h * 0.032, labels[1] || 'AFTER', accent, h);
+    // 중앙 화살표 원
+    const ax = pad + boxW + gap / 2, ay = top + boxH / 2, ar = w * 0.046;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ax, ay, ar * 1.12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(ax, ay, ar, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `700 ${Math.round(ar * 1.4)}px sans-serif`; ctx.fillText('›', ax, ay + ar * 0.04); ctx.textBaseline = 'alphabetic';
+    // caption
+    const capY = top + boxH;
+    if (data.beforeCap) _baCaption(ctx, pad + boxW / 2, capY, data.beforeCap, data);
+    if (data.afterCap) _baCaption(ctx, pad + boxW + gap + boxW / 2, capY, data.afterCap, data);
+    // 효과 포인트 3개
+    const fx = ['피부결 개선', '톤 정리', '윤기 케어'];
+    const fyY = h * 0.80;
+    fx.forEach((t, i) => {
+      const cxp = w * (0.22 + i * 0.28);
+      ctx.fillStyle = accent; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(cxp, fyY - h * 0.02, w * 0.011, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.font = `600 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`; ctx.fillText(t, cxp, fyY + h * 0.02);
+    });
+    // CTA pill
+    if (data.cta) {
+      const cw = w * 0.46, ch = h * 0.05, cx = w / 2 - cw / 2, cy = h * 0.89;
+      _rr(ctx, cx, cy, cw, ch, ch / 2); ctx.fillStyle = accent; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `800 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, data.cta, cw * 0.85), w / 2, cy + ch * 0.64);
+    }
+  }
+
+  // [HF3] 유니코드 글리프 데코(♥/✦ — 이모지 아님, 단색 글리프)
+  function _glyph(ctx, ch, cx, cy, size, color, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha; ctx.fillStyle = color;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${Math.round(size)}px sans-serif`;
+    ctx.fillText(ch, cx, cy); ctx.restore();
+  }
+  // [HF3] 회전 폴라로이드
+  function _rotPolaroid(ctx, img, x, y, w, h, rad, label, kor, before) {
+    ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rad);
+    _polaroidPhoto(ctx, img, -w / 2, -h / 2, w, h, label, kor, before);
+    ctx.restore();
+  }
+
+  // [HF3] v3 sns pink — 폴라로이드 2장 + 하트/스파클 + 손글씨 라벨. 핑크/크림 SNS 감성.
+  function _v3BASns(ctx, w, h, before, after, id, data) {
+    const ink = _pbg(data, 'ink') || '#3F2C32';
+    const sub = _pbg(data, 'sub') || '#A2868E';
+    const accent = _pbg(data, 'accent') || '#F24E86';
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+    // 헤더
+    let y = h * 0.08;
+    if (data.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.017)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, String(data.shop).toUpperCase(), w * 0.7), w / 2, y); y += h * 0.042; }
+    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.046)}px "Noto Serif KR", serif`;
+    const head = _clipBA(ctx, data.head || '시술 전후', w * 0.7);
+    ctx.fillText(head, w / 2, y);
+    const hw = ctx.measureText(head).width;
+    _glyph(ctx, '♥', w / 2 + hw / 2 + w * 0.045, y - h * 0.014, h * 0.034, accent, 0.95);   // 헤드 옆 하트
+    _glyph(ctx, '✦', w / 2 - hw / 2 - w * 0.04, y - h * 0.02, h * 0.026, accent, 0.7);
+    y += h * 0.03;
+    if (data.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, data.sub, w * 0.78), w / 2, y); }
+    // 폴라로이드 2장(살짝 회전)
+    const pw = w * 0.42, ph = h * 0.40, topY = h * 0.24;
+    _rotPolaroid(ctx, before, w * 0.05, topY, pw, ph, -0.055, (data.beforeLabel || 'Before'), '시술전', true);
+    _rotPolaroid(ctx, after, w * 0.53, topY, pw, ph, 0.055, (data.afterLabel || 'After'), '시술후', false);
+    // 스파클/하트 데코
+    _glyph(ctx, '✦', w * 0.5, topY + ph * 0.2, h * 0.03, accent, 0.85);
+    _glyph(ctx, '♥', w * 0.5, topY + ph * 0.75, h * 0.026, accent, 0.8);
+    _glyph(ctx, '✦', w * 0.92, topY + ph * 0.5, h * 0.022, accent, 0.5);
+    _glyph(ctx, '✦', w * 0.06, topY + ph * 0.9, h * 0.02, accent, 0.45);
+    // caption (폴라로이드 아래)
+    const capY = topY + ph + h * 0.05;
+    if (data.beforeCap || data.afterCap) {
+      ctx.fillStyle = ink; ctx.font = `600 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`;
+      if (data.beforeCap) ctx.fillText(_clipBA(ctx, data.beforeCap, w * 0.42), w * 0.26, capY);
+      if (data.afterCap) ctx.fillText(_clipBA(ctx, data.afterCap, w * 0.42), w * 0.74, capY);
+    }
+    // CTA pill
+    if (data.cta) {
+      const cw = w * 0.5, ch = h * 0.052, cx = w / 2 - cw / 2, cy = h * 0.88;
+      _rr(ctx, cx, cy, cw, ch, ch / 2); ctx.fillStyle = accent; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `800 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(_clipBA(ctx, data.cta, cw * 0.85), w / 2, cy + ch * 0.64);
+      _glyph(ctx, '♥', cx + cw + w * 0.03, cy + ch / 2, h * 0.024, accent, 0.8);
+    }
   }
 
   // [S2] 편집 가능 라벨 — slotValues.before_label/after_label 우선, 없으면 프리셋.
