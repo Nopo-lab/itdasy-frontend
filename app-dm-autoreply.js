@@ -678,7 +678,18 @@
             ${sendLabel}
           </button>
           ${showAltBtn ? `<button type="button" class="dm-action" data-act="alt" style="width:100%;justify-content:center;background:#FFFBEB;color:#92400E;border:1px solid #F59E0B;">불가 및 대안 시간 제안</button>` : ''}
-          <button type="button" class="dm-action is-reject" data-act="reject" style="width:100%;justify-content:center;">직접 거절 / 수정</button>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="dm-action is-reject" data-act="reject"
+              style="flex:1;justify-content:center;" title="카드 닫기 (손님 정보 보존)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              닫기
+            </button>
+            <button type="button" class="dm-action" data-act="reset-conversation"
+              style="flex:1;justify-content:center;background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5;" title="대화 초기화 (성함·예약 정보 삭제)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              대화 초기화
+            </button>
+          </div>
         </div>
       </div>`;
   }
@@ -822,28 +833,58 @@
     setTimeout(() => card.remove(), 460);
   }
 
+  // X(닫기) — 카드만 목록에서 숨김. pending_slots·손님 정보 보존 → 다음 메시지 이어짐.
   async function _handleReject(card) {
     const tail = card.dataset.tail;
     const logId = card.dataset.logId;
     _haptic();
     _sendFeedback(tail, 'bad');
-    // 좌측 슬라이드 — 인라인 transform 으로 .is-sending 의 120% 덮어씀
     card.style.transform = 'translateX(-120%)';
     card.classList.add('is-sending');
     setTimeout(() => card.remove(), 460);
-    // 2026-05-01 ── 실제 백엔드 discard. 결과 확인해서 실패면 사용자에게 알림.
     if (logId) {
       try {
+        // reset 파라미터 없음 → 기본 false → 슬롯 보존
         const res = await apiFetch(`/dm-confirm-queue/${encodeURIComponent(logId)}/discard`, {
           method: 'POST', headers: window.authHeader(),
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
-          _toast('거절 실패: ' + (d.detail || res.status));
+          _toast('닫기 실패: ' + (d.detail || res.status));
         }
-      } catch (e) { _toast('거절 실패: ' + (e.message || 'fetch')); }
+      } catch (e) { _toast('닫기 실패: ' + (e.message || 'fetch')); }
     }
-    _notifyDMChanged();  // 내샵관리 DM 카운트 즉시 갱신
+    _notifyDMChanged();
+  }
+
+  // "대화 초기화" — 확인 팝업 → [지우기] 확정 시에만 reset=true 로 슬롯 초기화
+  async function _handleResetConversation(card) {
+    const logId = card.dataset.logId;
+    _haptic();
+    const confirmed = await window.nativeConfirm(
+      '대화 초기화',
+      '이 손님의 대화를 초기화할까요?\n받아둔 성함·연락처·예약 정보가 모두 사라져요.'
+    ).catch(() => false);
+    if (!confirmed) return;
+    // 카드 애니메이션
+    card.style.transform = 'translateX(-120%)';
+    card.classList.add('is-sending');
+    setTimeout(() => card.remove(), 460);
+    if (logId) {
+      try {
+        const res = await apiFetch(
+          `/dm-confirm-queue/${encodeURIComponent(logId)}/discard?reset=true`,
+          { method: 'POST', headers: window.authHeader() }
+        );
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          _toast('초기화 실패: ' + (d.detail || res.status));
+        } else {
+          _toast('대화가 초기화됐어요');
+        }
+      } catch (e) { _toast('초기화 실패: ' + (e.message || 'fetch')); }
+    }
+    _notifyDMChanged();
   }
 
   // [2026-05-22] logId → 사장님이 카드별로 선택한 톤 보존. polling 재렌더 시에도 유지.
@@ -1019,6 +1060,7 @@
     card.dataset.bound = '1';
     card.querySelector('[data-act="send"]')?.addEventListener('click', () => _handleSend(card));
     card.querySelector('[data-act="reject"]')?.addEventListener('click', () => _handleReject(card));
+    card.querySelector('[data-act="reset-conversation"]')?.addEventListener('click', () => _handleResetConversation(card));
     card.querySelector('[data-act="regen"]')?.addEventListener('click', () => _handleRegen(card));
     card.querySelector('[data-act="alt"]')?.addEventListener('click', () => _handleAlt(card));
     
