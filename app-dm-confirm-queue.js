@@ -124,19 +124,26 @@
   function _depositSignal(text) {
     return /입금|송금|이체|보냈|결제했|입금했/.test(text || '');
   }
+  // [2026-06-08] 캘린더 확인 한 줄 — calendar_checked 인 카드만. 그레이/로즈 톤만(초록·노랑 X).
   function _bookingLine(am) {
-    if (!am) return '';
+    if (!am || !am.calendar_checked) return '';
     const t = am.time_kst || am.requested_time || '';
-    if (!t) return '';
-    let gapStr = '';
-    const gap = am.free_gap_minutes;
-    if (am.slot_available || (gap != null && gap > 0)) {
-      if (gap != null && gap > 0) {
-        const h = Math.floor(gap / 60), mm = gap % 60;
-        gapStr = ' · ' + (h >= 1 ? (mm ? `${h}시간 ${mm}분 비어있음` : `${h}시간 비어있음`) : `${gap}분 비어있음`);
-      } else gapStr = ' · 그 시간 비어있음';
+    // 날짜 (starts_at_iso → M/D)
+    let dateStr = '';
+    if (am.starts_at_iso) {
+      const d = new Date(am.starts_at_iso);
+      if (!isNaN(d.getTime())) dateStr = `${d.getMonth() + 1}/${d.getDate()} `;
     }
-    return `<div style="font-size:12px;color:#8B95A1;margin-top:8px;">예약 대기 · ${_esc(t)}${gapStr}</div>`;
+    if (am.slot_available) {
+      const gap = am.free_gap_minutes;
+      let gapStr = '';
+      if (gap != null && gap > 0) {
+        const h = Math.round(gap / 60);   // 분→시간 반올림
+        gapStr = h >= 1 ? ` (앞뒤 ${h}시간 여유)` : ` (앞뒤 ${gap}분 여유)`;
+      }
+      return `<div style="font-size:12px;color:#8B95A1;margin:10px 0 2px;">✓ 캘린더 확인 · ${_esc(dateStr + t)} 비어있음${gapStr}</div>`;
+    }
+    return `<div style="font-size:12px;color:#BC6675;margin:10px 0 2px;">✕ 그 시간 예약 있음 — 대안 필요</div>`;
   }
   function _extractedChips(ex, am) {
     const name = (ex && ex.name) || (am && am.name);
@@ -193,13 +200,13 @@
         </div>
         <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(it.received_text)}</div>
         ${_extractedChips(ex, am)}
+        ${_bookingLine(am)}
         <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">잇비 추천 답장</div>
             <div class="dcq-draft" style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(draft)}</div>
             <textarea class="dcq-edit" rows="3" style="display:none;width:100%;margin-top:6px;padding:10px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;line-height:1.5;background:#fff;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(draft)}</textarea>
-            ${isBooking ? _bookingLine(am) : ''}
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:12px;">
@@ -254,6 +261,7 @@
     if (!card) return;
     const id = card.dataset.id;
     const tail = card.dataset.tail || '';
+    const sender = card.dataset.sender || '';
 
     btn.disabled = true; btn.style.opacity = '0.6';
     try {
@@ -297,17 +305,29 @@
             detail: { kind: 'create_booking', source: 'dm_confirm', booking_id: r.booking_id || null }
           }));
         } catch (_evt) { /* ignore */ }
-        // 홈 '고객 메시지' 카드 자동 제거
-        try { window.dispatchEvent(new CustomEvent('itdasy:dm-replied', { detail: { tail } })); } catch (_e2) { /* ignore */ }
         try { if (typeof window.refreshDashBell === 'function') window.refreshDashBell(); } catch (_b) { /* ignore */ }
         try { if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') window.HomeV41.refresh(); } catch (_h) { /* ignore */ }
       }
 
-      // 카드 슬라이드 아웃
+      // [2026-06-08] 전송·예약확정·X(discard) 전부 — 홈 '고객 메시지' 카드 제거(전체 sender_igsid + tail).
+      try { window.dispatchEvent(new CustomEvent('itdasy:dm-replied', { detail: { sender_igsid: sender, tail } })); } catch (_e2) { /* ignore */ }
+
+      // 카드 슬라이드 아웃 + 남은 0건이면 시트 자동 닫기
       card.style.transition = 'all 0.25s ease-out';
       card.style.opacity = '0';
       card.style.transform = 'translateX(40px)';
-      setTimeout(() => { card.remove(); refreshBadge(); }, 250);
+      setTimeout(() => {
+        card.remove();
+        refreshBadge();
+        const _list = document.getElementById('dcqList');
+        const _remaining = _list ? _list.querySelectorAll('.dcq-item').length : 0;
+        const _cnt = document.getElementById('dcqCount');
+        if (_cnt) _cnt.textContent = _remaining + '건';
+        if (_remaining === 0) {
+          // 마지막 카드 처리 — 토스트 보이고 ~500ms 후 시트 닫기
+          setTimeout(() => { try { close(); } catch (_c) { /* ignore */ } }, 500);
+        }
+      }, 250);
     } catch (e) {
       if (window.showToast) window.showToast('실패: ' + e.message);
       btn.disabled = false; btn.style.opacity = '1';
