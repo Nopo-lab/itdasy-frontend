@@ -168,6 +168,7 @@
       accent: (palette && palette.accent) || b.accent, price: b.price, review: sv.review_text || b.review,
       // [S2] 편집 가능 슬롯 추가 연결(없으면 undefined → 렌더러가 기존 동작 유지)
       services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
+      serviceName: sv.service_name, reviewDate: sv.date,   // [HF1] review optional 라벨
       beforeLabel: sv.before_label, afterLabel: sv.after_label,
       beforeCap: sv.before_caption, afterCap: sv.after_caption, mainPhoto: mainPhoto,
       // [S4] main_photo 위치/확대
@@ -387,6 +388,25 @@
     return s + '…';
   }
 
+  // [HF1] 원형 프로필 — 사진 있으면 원형 클립, 없으면 이니셜 원(accent 연한 배경).
+  function _circleAvatar(ctx, img, cx, cy, r, accent) {
+    if (img && (img.naturalWidth || img.width)) {
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      _drawCover(ctx, img, cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.lineWidth = Math.max(1, r * 0.06); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.stroke(); ctx.restore();
+      return;
+    }
+    // 사진 없음 → 사람 실루엣(이니셜은 '30대' 등 나이 라벨에서 부정확하므로 실루엣 사용)
+    ctx.save();
+    ctx.fillStyle = accent; ctx.globalAlpha = 0.16; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = accent; ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.18, r * 0.40, 0, Math.PI * 2); ctx.fill();      // 머리
+    ctx.beginPath(); ctx.arc(cx, cy + r * 0.95, r * 0.75, 0, Math.PI * 2); ctx.fill();      // 어깨(clip 으로 하단만)
+    ctx.globalAlpha = 1; ctx.restore();
+  }
+
   function _drawV3Price(ctx, w, h, d) {
     const bg = _pal(d, 'bg', '#FBEFEF'), ink = _pal(d, 'ink', '#3A2C2C');
     const sub = _pal(d, 'sub', '#9A8585'), accent = _pal(d, 'accent', d.accent || '#C57E7E');
@@ -401,18 +421,59 @@
     if (d.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, String(d.shop).toUpperCase(), w * 0.8), w / 2, y); y += h * 0.05; }
     ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.05)}px "Noto Serif KR", serif`; ctx.fillText(_clip(ctx, d.head || '시술 가격표', w * 0.84), w / 2, y); y += h * 0.038;
     if (d.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.sub, w * 0.8), w / 2, y); }
-    // 서비스 행
-    const rows = _svcRows(d); const n = Math.max(rows.length, 1);
-    const listTop = splitY + h * 0.30, listBottom = h * (d.cta || d.phone ? 0.84 : 0.92);
-    const step = (listBottom - listTop) / n;
-    rows.forEach((row, i) => {
-      const ry = listTop + step * i + step * 0.5;
-      ctx.textAlign = 'left'; ctx.fillStyle = ink; ctx.font = `700 ${Math.round(h * 0.024)}px "Noto Sans KR", sans-serif`;
-      ctx.fillText(_clip(ctx, row[0], w * 0.52), w * 0.12, ry);
-      ctx.textAlign = 'right'; ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.026)}px "Noto Sans KR", sans-serif`;
-      ctx.fillText(_clip(ctx, row[1], w * 0.32), w * 0.88, ry);
-      ctx.strokeStyle = line; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(w * 0.12, ry + step * 0.42); ctx.lineTo(w * 0.88, ry + step * 0.42); ctx.stroke();
+    // [HF1] 서비스 행 — name+desc 2줄, badge pill, 정상가 취소선+이벤트가. 행 높이 고정(촘촘·상단정렬).
+    const FT = window.PhotoEditorTemplateFitText;
+    const badgeC = _pal(d, 'badge', accent);
+    const svc = (Array.isArray(d.services) ? d.services : []).filter(s => s && (s.name || s.price)).slice(0, 5);
+    const useSvc = svc.length ? svc : _svcRows(d).map(r => ({ name: r[0], price: r[1] }));
+    const n = Math.max(useSvc.length, 1);
+    const listTop = splitY + h * (photo ? 0.30 : 0.27);
+    const listBottom = h * (d.cta || d.phone ? 0.82 : 0.92);
+    const rowH = Math.min((listBottom - listTop) / n, h * 0.115);
+    const LX = w * 0.12, RX = w * 0.88;
+    useSvc.forEach((s, i) => {
+      const ry = listTop + rowH * i;
+      const cy = ry + rowH * 0.5;
+      const hasDesc = !!s.desc;
+      const nameY = hasDesc ? cy - rowH * 0.13 : cy;
+      // name
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = ink;
+      ctx.font = `700 ${Math.round(h * 0.024)}px "Noto Sans KR", sans-serif`;
+      const nameStr = _clip(ctx, s.name || '', w * 0.40);
+      ctx.fillText(nameStr, LX, nameY);
+      // badge pill (name 우측)
+      if (s.badge) {
+        const nw = ctx.measureText(nameStr).width;
+        const bf = Math.round(h * 0.014); ctx.font = `800 ${bf}px "Noto Sans KR", sans-serif`;
+        const bt = String(s.badge).toUpperCase(); const bw = ctx.measureText(bt).width;
+        const bx = LX + nw + w * 0.02, bpadX = w * 0.012, bh = h * 0.026;
+        _panel(ctx, bx, nameY - bh / 2, bw + bpadX * 2, bh, badgeC, bh / 2);
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.fillText(bt, bx + bpadX, nameY + bf * 0.05);
+      }
+      // desc
+      if (hasDesc) {
+        ctx.textAlign = 'left'; ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.0165)}px "Noto Sans KR", sans-serif`;
+        ctx.fillText(_clip(ctx, s.desc, w * 0.50), LX, cy + rowH * 0.20);
+      }
+      // price (정상가 취소선 + 이벤트가)
+      const priceStr = s.price ? (FT ? FT.formatPrice(s.price) : s.price) : '';
+      ctx.textAlign = 'right';
+      if (s.origPrice) {
+        const of = Math.round(h * 0.016); ctx.font = `500 ${of}px "Noto Sans KR", sans-serif`; ctx.fillStyle = sub;
+        const ostr = FT ? FT.formatPrice(s.origPrice) : s.origPrice;
+        const oy = nameY - rowH * 0.02; ctx.fillText(ostr, RX, oy);
+        const ow = ctx.measureText(ostr).width; ctx.strokeStyle = sub; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(RX - ow, oy); ctx.lineTo(RX, oy); ctx.stroke();
+        ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.026)}px "Noto Sans KR", sans-serif`;
+        ctx.fillText(_clip(ctx, priceStr, w * 0.34), RX, cy + rowH * 0.22);
+      } else {
+        ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.026)}px "Noto Sans KR", sans-serif`;
+        ctx.fillText(_clip(ctx, priceStr, w * 0.34), RX, cy);
+      }
+      // 구분선
+      if (i < useSvc.length - 1) { ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(LX, ry + rowH); ctx.lineTo(RX, ry + rowH); ctx.stroke(); }
     });
+    ctx.textBaseline = 'alphabetic';
     // CTA / phone
     ctx.textAlign = 'center';
     if (d.cta || d.phone) {
@@ -433,30 +494,44 @@
     const FT = window.PhotoEditorTemplateFitText;
     ctx.save();
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
-    ctx.textAlign = 'center';
-    let y = h * 0.15;
-    if (d.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, String(d.shop).toUpperCase(), w * 0.8), w / 2, y); y += h * 0.055; }
-    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.046)}px "Noto Serif KR", serif`; ctx.fillText(_clip(ctx, d.head || '고객님의 진심 후기', w * 0.84), w / 2, y); y += h * 0.045;
-    if (d.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.sub, w * 0.78), w / 2, y); y += h * 0.03; }
-    // 별점(유니코드 기호 — 이모지 아님)
-    ctx.fillStyle = '#FFB547'; ctx.font = `700 ${Math.round(h * 0.04)}px sans-serif`; ctx.fillText('★★★★★', w / 2, y + h * 0.04); y += h * 0.085;
-    // 인용 패널
-    const pX = w * 0.1, pW = w * 0.8, pY = y, pH = h * 0.32;
-    _panel(ctx, pX, pY, pW, pH, 'rgba(255,255,255,0.62)', 22);
-    const rev = '“' + String(d.review || '').slice(0, 120) + '”';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    let y = h * 0.14;
+    if (d.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, String(d.shop).toUpperCase(), w * 0.8), w / 2, y); y += h * 0.05; }
+    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.046)}px "Noto Serif KR", serif`; ctx.fillText(_clip(ctx, d.head || '고객님의 진심 후기', w * 0.84), w / 2, y); y += h * 0.042;
+    if (d.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.sub, w * 0.78), w / 2, y); y += h * 0.028; }
+    // 별점
+    ctx.fillStyle = '#FFB547'; ctx.font = `700 ${Math.round(h * 0.038)}px sans-serif`; ctx.fillText('★★★★★', w / 2, y + h * 0.038); y += h * 0.075;
+    // [HF1] 인용 패널 — 흰 카드 + accent 좌측바 + 인용부호(회색 탈피·로즈 강조). 높이는 본문 길이 기반.
+    const revText = String(d.review || '').slice(0, 120);
+    const pX = w * 0.09, pW = w * 0.82;
+    const pH = (revText.length > 48 ? h * 0.26 : h * 0.19);
+    const pY = y;
+    _panel(ctx, pX, pY, pW, pH, '#ffffff', 20);
+    ctx.fillStyle = accent; ctx.fillRect(pX + w * 0.03, pY + pH * 0.2, Math.max(3, w * 0.008), pH * 0.6); // 좌측 강조바
+    ctx.textAlign = 'left'; ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.05)}px Georgia, "Noto Serif KR", serif`;
+    ctx.fillText('“', pX + w * 0.06, pY + h * 0.055);
     if (FT && FT.drawFitText) {
-      FT.drawFitText(ctx, rev, { x: pX + w * 0.05, y: pY + h * 0.04, w: pW - w * 0.1, h: pH * 0.6 },
-        { maxFontSize: Math.round(h * 0.026), minFontSize: Math.round(h * 0.017), maxLines: 4, lineHeight: 1.42, color: ink, weight: 500, valign: 'top' });
+      FT.drawFitText(ctx, revText, { x: pX + w * 0.08, y: pY + pH * 0.28, w: pW - w * 0.13, h: pH * 0.6 },
+        { maxFontSize: Math.round(h * 0.024), minFontSize: Math.round(h * 0.017), maxLines: 4, lineHeight: 1.4, color: ink, weight: 500, valign: 'top' });
     } else {
-      ctx.fillStyle = ink; ctx.font = `500 ${Math.round(h * 0.022)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, rev, pW - w * 0.1), w / 2, pY + h * 0.08);
+      ctx.fillStyle = ink; ctx.font = `500 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, revText, pW - w * 0.16), pX + w * 0.08, pY + pH * 0.55);
     }
-    if (d.customer) { ctx.textAlign = 'center'; ctx.fillStyle = sub; ctx.font = `700 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.customer, pW * 0.8), w / 2, pY + pH - h * 0.03); }
+    // [HF1] 프로필 + 작성자/시술명/날짜
+    const ay = pY + pH + h * 0.05;
+    const r = h * 0.032; const cx = pX + r + w * 0.01;
+    _circleAvatar(ctx, d.mainPhoto, cx, ay, r, accent);
+    const tx = cx + r + w * 0.035;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    if (d.customer) { ctx.fillStyle = ink; ctx.font = `700 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, d.customer, w * 0.55), tx, ay - h * 0.012); }
+    const meta = [d.serviceName, d.reviewDate].filter(Boolean).join('  ·  ');
+    if (meta) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.016)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clip(ctx, meta, w * 0.55), tx, ay + h * 0.018); }
+    ctx.textBaseline = 'alphabetic';
     // CTA
     if (d.cta) {
-      const cw = w * 0.46, ch = h * 0.05, cx = w / 2 - cw / 2, cy = h * 0.89;
-      _panel(ctx, cx, cy, cw, ch, accent, ch / 2);
+      const cw = w * 0.46, ch = h * 0.05, ccx = w / 2 - cw / 2, ccy = h * 0.9;
+      _panel(ctx, ccx, ccy, cw, ch, accent, ch / 2);
       ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.round(h * 0.022)}px "Noto Sans KR", sans-serif`; ctx.textAlign = 'center';
-      ctx.fillText(_clip(ctx, d.cta, cw * 0.85), w / 2, cy + ch * 0.66);
+      ctx.fillText(_clip(ctx, d.cta, cw * 0.85), w / 2, ccy + ch * 0.66);
     }
     ctx.restore();
   }

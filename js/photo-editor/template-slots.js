@@ -81,10 +81,11 @@
     return '우리 살롱';
   }
 
+  // [HF1] badge·origPrice 는 optional — v3 렌더(_drawV3Price)만 표시, 기존 렌더·edit-sheet 는 무시(무회귀).
   const PRICE_SAMPLE = [
-    { name: '물광케어', desc: '수분 집중 케어', price: '80,000원' },
+    { name: '물광케어', desc: '수분 집중 케어', price: '80,000원', origPrice: '100,000원', badge: 'BEST' },
     { name: '진정관리', desc: '민감 피부 진정', price: '120,000원' },
-    { name: '리프팅관리', desc: '탄력 개선 관리', price: '150,000원' },
+    { name: '리프팅관리', desc: '탄력 개선 관리', price: '150,000원', origPrice: '180,000원', badge: 'EVENT' },
     { name: '여드름케어', desc: '트러블 집중 케어', price: '90,000원' },
   ];
 
@@ -106,6 +107,8 @@
         subtitle: '시술 후 달라진 변화를 확인해보세요.',
         review_text: '피부 결이 매끈해지고 화장이 훨씬 잘 먹어요. 꾸준히 관리받고 있어요 :)',
         customer_label: (ctx && ctx.customerName) ? (ctx.customerName + ' 고객님') : '30대 / 단골 고객님',
+        service_name: '물광 피부관리',   // [HF1] optional — v3 렌더만 작은 라벨로 표시
+        date: '',                         // [HF1] optional
         cta: '상담 예약하기',
       });
     }
