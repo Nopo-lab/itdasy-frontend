@@ -145,6 +145,18 @@
     }
     return `<div style="font-size:12px;color:#BC6675;margin:10px 0 2px;">✕ 그 시간 예약 있음 — 대안 필요</div>`;
   }
+  // [2026-06-09] 손님이 보낸 미답장 메시지 전부 — 말풍선 스택(손님 톤). 1건이면 기존과 동일.
+  function _receivedStack(it) {
+    const raw = (Array.isArray(it.received_messages) && it.received_messages.length)
+      ? it.received_messages
+      : [it.received_text || ''];
+    const msgs = raw.map(m => String(m || '').trim()).filter(Boolean);
+    if (msgs.length <= 1) {
+      return `<div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(msgs[0] || '')}</div>`;
+    }
+    const bubbles = msgs.map(m => `<div style="align-self:flex-start;max-width:88%;background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:9px 12px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word;">${_esc(m)}</div>`).join('');
+    return `<div style="display:flex;flex-direction:column;gap:5px;">${bubbles}</div>`;
+  }
   // [2026-06-09] 예약금 안내 단계 — 입금 대기 표시(BE awaiting_deposit).
   function _depositLine(am) {
     if (!am || !am.awaiting_deposit) return '';
@@ -205,7 +217,7 @@
             ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
           </div>
         </div>
-        <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(it.received_text)}</div>
+        ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
         ${_depositLine(am)}
