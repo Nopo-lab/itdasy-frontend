@@ -131,6 +131,7 @@
     if (!Array.isArray(out.sample_replies)) out.sample_replies = [];
     // [2026-06-09] 예약 양식 + 예약금 타입 방어
     out.booking_form = typeof out.booking_form === 'string' ? out.booking_form : '';
+    out.booking_form_greeting = typeof out.booking_form_greeting === 'string' ? out.booking_form_greeting : '';
     out.deposit_account = typeof out.deposit_account === 'string' ? out.deposit_account : '';
     if (out.deposit_amount != null) {
       const n = parseInt(out.deposit_amount, 10);
@@ -288,7 +289,7 @@
     return `
       <div style="margin-top:10px;padding:12px;background:var(--surface-2,#f5f6f8);border-radius:12px;">
         <div style="font-size:11px;color:var(--text-subtle);font-weight:600;margin-bottom:8px;">
-          ✨ 실제 DM 응답 미리보기
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px;"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>실제 DM 응답 미리보기
         </div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           ${items.map(it => `
@@ -348,17 +349,27 @@
       </div>`;
   }
 
-  // [2026-06-09] 예약 양식 + 예약금 계좌/금액 — 원장이 직접 작성(예시 하드코딩 금지).
+  // [2026-06-09] 예약 양식 + 예약금 계좌/금액 + [2026-06-10] 인사 멘트 + 이해 확정 카드
   //   placeholder 는 회색 안내일 뿐 저장값에 안 섞임(.value 만 읽음). 빈 값으로 시작.
   function _renderBooking(settings) {
     const form = _esc(settings.booking_form || '');
+    const greeting = _esc(settings.booking_form_greeting || '');
     const acct = _esc(settings.deposit_account || '');
     const amt = (settings.deposit_amount != null && settings.deposit_amount > 0) ? settings.deposit_amount : '';
+    // 저장된 매핑이 있으면 이해 카드 미리 렌더
+    const mapJson = settings.booking_form_map || '';
+    const mapCard = form && mapJson ? _renderFormMapCard(mapJson, false) : '';
     return `
       <div class="dm-section">
-        <div class="dm-section__title">예약 양식 <span class="dm-section__help">예약 문의 시 보낼 안내</span></div>
+        <div class="dm-section__title">예약 양식 <span class="dm-section__help">예약 문의 시 손님에게 보낼 안내</span></div>
+        <div class="dm-field" style="margin-bottom:8px;">
+          <label class="dm-field__label">양식 앞 인사 멘트 <span class="dm-section__help">비우면 양식만 발송</span></label>
+          <input type="text" class="dm-field__input" data-field="booking-form-greeting"
+            value="${greeting}" placeholder="예: 안녕하세요! 예약 도와드릴게요 :) 아래 양식으로 보내주세요">
+        </div>
         <textarea class="dm-ban" data-field="booking-form" rows="5"
-          placeholder="손님이 예약 문의하면 보낼 양식을 적어두세요.&#10;예) 아래 양식으로 보내주시면 예약 도와드릴게요 :)&#10;1. 성함 / 연락처&#10;2. 희망 시술&#10;3. 희망 날짜·시간&#10;4. 예약금 입금 후 확정">${form}</textarea>
+          placeholder="손님이 예약 문의하면 보낼 양식을 적어두세요.&#10;예)&#10;1. 성함 / 연락처&#10;2. 희망 시술&#10;3. 희망 날짜·시간 (1순위)&#10;4. 2순위 날짜·시간">${form}</textarea>
+        <div id="dm-form-map-area" style="margin-top:10px;">${mapCard}</div>
         <div class="dm-field">
           <label class="dm-field__label">예약금 계좌 (은행·예금주 포함)</label>
           <input type="text" class="dm-field__input" data-field="deposit-account"
@@ -372,6 +383,48 @@
             <span class="dm-field__unit">원</span>
           </div>
         </div>
+      </div>`;
+  }
+
+  // [2026-06-10] 매핑 JSON → "이렇게 이해했어요" 카드 HTML 빌더
+  // confirming=true 이면 [네 맞아요]/[수정할래요] 버튼 표시, false 면 숨김(기존 저장본 표시용)
+  function _renderFormMapCard(mapJson, confirming) {
+    let fmap = {};
+    try { fmap = JSON.parse(mapJson); if (typeof fmap !== 'object' || Array.isArray(fmap)) fmap = {}; } catch (_) { fmap = {}; }
+    const LABELS = {
+      name: '성함·연락처',
+      phone: '연락처',
+      primary_time: '1순위 날짜·시간',
+      secondary_time: '2순위 → 1순위 안 되면 여기로',
+      service: '시술',
+      options: '옵션 (인치·색상·제거 등)',
+      memo: '기타 메모',
+    };
+    const rows = Object.entries(fmap)
+      .filter(([k, v]) => v && k !== 'phone') // phone은 name과 묶임
+      .map(([k, v]) => {
+        const label = LABELS[k] || k;
+        return `<div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;">
+          <span style="flex-shrink:0;color:#8B95A1;min-width:140px;word-break:keep-all;">${_esc(label)}</span>
+          <span style="color:#191F28;font-weight:600;word-break:keep-all;">${_esc(String(v))}</span>
+        </div>`;
+      });
+    if (!rows.length) return '';
+    const btns = confirming ? `
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button type="button" data-act="form-map-confirm"
+          style="flex:1;height:40px;border-radius:10px;border:none;background:#2B3A67;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">네 맞아요</button>
+        <button type="button" data-act="form-map-edit"
+          style="flex:1;height:40px;border-radius:10px;border:1px solid #E0E0E6;background:#fff;color:#4E5968;font-size:13px;font-weight:600;cursor:pointer;">수정할래요</button>
+      </div>` : '';
+    return `
+      <div id="dm-form-map-card" style="background:#F7F8FA;border:1px solid #E8ECF1;border-radius:14px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-bot"/></svg>
+          <span style="font-size:12px;font-weight:700;color:#4E5968;">잇비가 이렇게 이해했어요</span>
+        </div>
+        <div style="display:flex;flex-direction:column;">${rows.join('')}</div>
+        ${btns}
       </div>`;
   }
 
@@ -542,8 +595,8 @@
 
     // 액션 버튼 라벨 — booking_action 이면 "예약 승인 + 캘린더 추가", 아니면 단순 발송
     const sendLabel = isBookingAction
-      ? '✓ 예약 승인 (캘린더 추가 + 확정 DM 발송)'
-      : '✓ 답장 발송';
+      ? '예약 승인 (캘린더 추가 + 확정 DM 발송)'
+      : '답장 발송';
 
     return `
       <div class="dm-card is-pending" data-tail="${_esc(tail)}" data-log-id="${_esc(logId)}" data-status="${_esc(status)}" data-action="${_esc(actReq)}">
@@ -563,7 +616,7 @@
             <i class="ph-duotone ph-paper-plane-tilt" style="font-size:12px" aria-hidden="true"></i>
             ${sendLabel}
           </button>
-          ${showAltBtn ? `<button type="button" class="dm-action" data-act="alt" style="width:100%;justify-content:center;background:#FFFBEB;color:#92400E;border:1px solid #F59E0B;">⏰ 불가 및 대안 시간 제안</button>` : ''}
+          ${showAltBtn ? `<button type="button" class="dm-action" data-act="alt" style="width:100%;justify-content:center;background:#FFFBEB;color:#92400E;border:1px solid #F59E0B;">불가 및 대안 시간 제안</button>` : ''}
           <button type="button" class="dm-action is-reject" data-act="reject" style="width:100%;justify-content:center;">직접 거절 / 수정</button>
         </div>
       </div>`;
@@ -622,7 +675,7 @@
         <div class="dm-section">
           <div class="dm-section__title">DM 검토 대기</div>
           <div class="dm-rows" style="padding:24px 14px;text-align:center;color:var(--text-subtle);font-size:12px;">
-            대기 중인 DM 이 없어요 ✨
+            대기 중인 DM이 없어요
           </div>
         </div>`;
     }
@@ -1053,16 +1106,62 @@
       const arr = String(e.target.value || '').split(',').map(s => s.trim()).filter(Boolean);
       _saveSettings({ blocked_keywords: arr });
     });
-    // [2026-06-09] 예약 양식 + 예약금 — blur 시 저장 (placeholder 는 .value 에 안 들어감)
-    sheet.querySelector('[data-field="booking-form"]')?.addEventListener('blur', (e) => {
-      _saveSettings({ booking_form: String(e.target.value || '').trim() });
+    // [2026-06-10] 양식 앞 인사 멘트 저장
+    sheet.querySelector('[data-field="booking-form-greeting"]')?.addEventListener('blur', (e) => {
+      _saveSettings({ booking_form_greeting: String(e.target.value || '').trim() });
     });
+    // [2026-06-10] 예약 양식 blur → 저장 + 매핑 조회 + "이렇게 이해했어요" 확정 카드
+    const formTA = sheet.querySelector('[data-field="booking-form"]');
+    if (formTA) {
+      formTA.addEventListener('blur', async (e) => {
+        const val = String(e.target.value || '').trim();
+        _saveSettings({ booking_form: val });
+        if (!val) { const a = sheet.querySelector('#dm-form-map-area'); if (a) a.innerHTML = ''; return; }
+        const area = sheet.querySelector('#dm-form-map-area');
+        if (!area) return;
+        area.innerHTML = `<div style="font-size:12px;color:#8B95A1;padding:8px 0;">잇비가 양식을 분석하는 중이에요…</div>`;
+        try {
+          const r = await _rawFetch(apiUrl('/instagram/dm-reply/settings/booking-form-map'), {
+            headers: window.authHeader(),
+          }, 15000);
+          if (!r || !r.ok) throw new Error('map fetch failed');
+          const d = await r.json();
+          const mapJson = d.map && Object.keys(d.map).length ? JSON.stringify(d.map) : '';
+          if (!mapJson) { area.innerHTML = ''; return; }
+          // 매핑을 settings 에 캐시 (재렌더 시 표시용)
+          if (_settings) _settings.booking_form_map = mapJson;
+          area.innerHTML = _renderFormMapCard(mapJson, true);
+          _bindFormMapButtons(sheet, mapJson);
+        } catch (_err) {
+          area.innerHTML = '';
+        }
+      });
+    }
+    // [2026-06-09] 예약금 계좌/금액
     sheet.querySelector('[data-field="deposit-account"]')?.addEventListener('blur', (e) => {
       _saveSettings({ deposit_account: String(e.target.value || '').trim() });
     });
     sheet.querySelector('[data-field="deposit-amount"]')?.addEventListener('blur', (e) => {
       const n = parseInt(String(e.target.value || '').replace(/[^0-9]/g, ''), 10);
       _saveSettings({ deposit_amount: (Number.isFinite(n) && n > 0) ? n : null });
+    });
+  }
+
+  // [2026-06-10] 이해 확정 카드 버튼 바인딩
+  function _bindFormMapButtons(sheet, mapJson) {
+    sheet.querySelector('[data-act="form-map-confirm"]')?.addEventListener('click', () => {
+      _haptic();
+      // 매핑 확정 — 카드 닫고 "이해 완료" 표시로 교체
+      const area = sheet.querySelector('#dm-form-map-area');
+      if (area) area.innerHTML = _renderFormMapCard(mapJson, false);
+      _toast('양식 이해 완료!');
+    });
+    sheet.querySelector('[data-act="form-map-edit"]')?.addEventListener('click', () => {
+      // 재편집 — 양식 textarea 에 포커스, 카드 숨김
+      const area = sheet.querySelector('#dm-form-map-area');
+      if (area) area.innerHTML = '';
+      const ta = sheet.querySelector('[data-field="booking-form"]');
+      if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
     });
   }
 
