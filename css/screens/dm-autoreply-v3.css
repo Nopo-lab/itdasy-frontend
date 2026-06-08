@@ -417,10 +417,12 @@
   outline: 0;
 }
 .dm-ban:focus { border-color: var(--border-strong); }
-.dm-ban::placeholder {
+/* 예약 양식 textarea + 예약금 인풋 = 완전히 같은 타입 램프(크기·줄간격·색) */
+.dm-ban::placeholder,
+.dm-field__input::placeholder {
   font-size: 13px;
-  color: var(--text-subtle);
   line-height: 1.5;
+  color: var(--text-subtle);
 }
 
 /* ── 예약 양식: 세로 스택 입력 필드 ─────────────────────── */
@@ -436,18 +438,18 @@
 }
 .dm-field__input {
   width: 100%;
-  padding: 11px 14px;
+  padding: 10px 14px;
   background: var(--surface-2);
   border: 0.5px solid var(--border);
   border-radius: var(--r-md);
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.5;
   color: var(--text);
   text-align: left;
   font-family: inherit;
   outline: 0;
 }
-.dm-field__input::placeholder { color: var(--text-subtle); }
 .dm-field__input:focus { border-color: var(--border-strong); }
 .dm-field__suffix {
   position: relative;
