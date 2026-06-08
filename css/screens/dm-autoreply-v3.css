@@ -417,6 +417,50 @@
   outline: 0;
 }
 .dm-ban:focus { border-color: var(--border-strong); }
+.dm-ban::placeholder {
+  font-size: 13px;
+  color: var(--text-subtle);
+  line-height: 1.5;
+}
+
+/* ── 예약 양식: 세로 스택 입력 필드 ─────────────────────── */
+.dm-field {
+  margin-top: 12px;
+}
+.dm-field__label {
+  display: block;
+  margin: 0 4px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.dm-field__input {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: left;
+  font-family: inherit;
+  outline: 0;
+}
+.dm-field__input::placeholder { color: var(--text-subtle); }
+.dm-field__input:focus { border-color: var(--border-strong); }
+.dm-field__suffix {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dm-field__suffix .dm-field__input { flex: 1; min-width: 0; }
+.dm-field__unit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+}
 
 /* ── DM inbox ───────────────────────────────────────────── */
 .dm-inbox {
