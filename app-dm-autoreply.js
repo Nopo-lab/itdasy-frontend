@@ -563,9 +563,10 @@
       </div>`;
   }
 
+  // [2026-06-10] 예약 단계 배지 + 버튼 정의
+  // 단계: 정보수집 → 예약금안내 → 입금대기 → 예약확정
   function _renderCard(conv, activeTone) {
     const tail = (conv.sender_tail || '????').slice(-4);
-    // [2026-05-02] sender_username (자동 수집된 @아이디) 우선 → 없으면 "손님 …{tail}"
     const name = conv.sender_username || `손님 …${tail}`;
     const cat = _categoryOf(conv.received_text);
     const time = _humanTime(conv.ts);
@@ -576,27 +577,54 @@
     const actMeta = conv.action_meta || {};
     const isBookingAction = actReq === 'booking_action';
     const calChecked = !!actMeta.calendar_checked;
-    const showAltBtn = isBookingAction && calChecked;
+    // 단계 판별 — 상호 배타
+    const isDepositPending = !!actMeta.awaiting_deposit && !actMeta.deposit_sent; // 예약금 안내 초안
+    const isDepositSent    = !!actMeta.deposit_sent;                              // 입금 대기 중
+    // "그 시간 안됨" 대안 버튼 — 입금 대기·예약 확정 단계에선 노출 금지
+    const showAltBtn = isBookingAction && calChecked && !actMeta.slot_available
+      && !isDepositPending && !isDepositSent;
 
-    // [Phase 1.2++] booking_action 메타 한 줄 요약 (사장 카드 라벨)
-    const actInfo = isBookingAction ? `
-      <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#FFF7E6;border:1px solid #FBBF24;border-radius:8px;margin:8px 0;">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-          <span style="font-size:11px;font-weight:800;color:#92400E;">예약 승인 대기</span>
-          ${calChecked ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:1px 7px;border-radius:99px;font-weight:700;">캘린더 확인됨</span>' : ''}
-        </div>
-        ${actMeta.owner_label ? `<div style="font-size:11.5px;color:#92400E;font-weight:700;line-height:1.4;">${_esc(actMeta.owner_label)}</div>` : `
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:#92400E;">
-            ${actMeta.time_kst ? `<span style="font-weight:700;">${_esc(actMeta.time_kst)}</span>` : (actMeta.requested_time ? `<span>${_esc(actMeta.requested_time)}</span>` : '')}
-            ${actMeta.service_name ? `<span>· ${_esc(actMeta.service_name)}</span>` : ''}
+    // ── 단계 배지 영역
+    let stageInfo = '';
+    if (isBookingAction) {
+      const timeStr = actMeta.time_kst || actMeta.requested_time || '';
+      const svcStr  = actMeta.service_name || '';
+      stageInfo = `
+        <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#FFF3CD;border:1px solid #F59E0B;border-radius:8px;margin:8px 0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
+            <span style="font-size:11px;font-weight:800;color:#92400E;">예약 확정 대기</span>
+            ${calChecked && actMeta.slot_available ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:1px 7px;border-radius:99px;font-weight:700;">캘린더 비어있음</span>' : ''}
           </div>
-        `}
-      </div>` : '';
+          ${timeStr ? `<div style="font-size:11.5px;color:#92400E;font-weight:700;">${_esc(timeStr)}${svcStr ? ' · ' + _esc(svcStr) : ''}</div>` : ''}
+        </div>`;
+    } else if (isDepositSent) {
+      stageInfo = `
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#EFF6FF;border:1px solid #93C5FD;border-radius:8px;margin:8px 0;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          <span style="font-size:11px;font-weight:700;color:#1D4ED8;">예약금 입금 대기 중</span>
+        </div>`;
+    } else if (isDepositPending) {
+      stageInfo = `
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;margin:8px 0;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          <span style="font-size:11px;font-weight:700;color:#166534;">예약금 안내 전송 대기</span>
+        </div>`;
+    }
 
-    // 액션 버튼 라벨 — booking_action 이면 "예약 승인 + 캘린더 추가", 아니면 단순 발송
-    const sendLabel = isBookingAction
-      ? '예약 승인 (캘린더 추가 + 확정 DM 발송)'
-      : '답장 발송';
+    // ── 버튼 영역 (단계별)
+    let sendLabel, sendStyle = '';
+    if (isBookingAction) {
+      sendLabel = '예약 확정 (캘린더 등록 + 확정 DM 발송)';
+      sendStyle = 'background:#2B3A67;color:#fff;border-color:#2B3A67;';
+    } else if (isDepositSent) {
+      sendLabel = '답장 발송';
+    } else if (isDepositPending) {
+      sendLabel = '예약금 안내 전송';
+      sendStyle = 'background:#166534;color:#fff;border-color:#166534;';
+    } else {
+      sendLabel = '답장 발송';
+    }
 
     return `
       <div class="dm-card is-pending" data-tail="${_esc(tail)}" data-log-id="${_esc(logId)}" data-status="${_esc(status)}" data-action="${_esc(actReq)}">
@@ -609,11 +637,12 @@
         </div>
         <div><span class="dm-card__cat">${_esc(cat)}</span></div>
         ${_renderThread(conv, tail, logId)}
-        ${actInfo}
+        ${stageInfo}
         ${_renderMiniTone((logId && _userToneByLog.get(logId)) || activeTone)}
         <div class="dm-actions" style="display:flex;flex-direction:column;gap:6px;">
-          <button type="button" class="dm-action is-send" data-act="send" style="width:100%;justify-content:center;">
-            <i class="ph-duotone ph-paper-plane-tilt" style="font-size:12px" aria-hidden="true"></i>
+          <button type="button" class="dm-action is-send" data-act="send"
+            style="width:100%;justify-content:center;${sendStyle}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
             ${sendLabel}
           </button>
           ${showAltBtn ? `<button type="button" class="dm-action" data-act="alt" style="width:100%;justify-content:center;background:#FFFBEB;color:#92400E;border:1px solid #F59E0B;">불가 및 대안 시간 제안</button>` : ''}
