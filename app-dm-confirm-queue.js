@@ -24,22 +24,6 @@
     return d;
   }
 
-  function _intentLabel(intent) {
-    return {
-      pricing: '견적', booking: '예약', hours: '⏰ 영업시간',
-      location: '📍 위치', review: '후기', greeting: '👋 인사',
-      complaint: '위험', unknown: '❓ 모름',
-    }[intent] || intent;
-  }
-
-  function _intentColor(intent) {
-    return {
-      pricing: '#B45309', booking: '#1E40AF', hours: '#0E7490',
-      location: '#15803D', review: '#9D174D', greeting: '#BC6675',
-      complaint: '#B91C1C', unknown: '#6B7280',
-    }[intent] || '#6B7280';
-  }
-
   function _ensureSheet() {
     let sheet = document.getElementById('dmConfirmQueueSheet');
     if (sheet) return sheet;
@@ -47,15 +31,16 @@
     sheet.id = 'dmConfirmQueueSheet';
     sheet.style.cssText = 'position:fixed;inset:0;z-index:9988;background:rgba(0,0,0,0.5);display:none;align-items:flex-end;justify-content:center;';
     sheet.innerHTML = `
-      <div id="dcqCard" style="width:100%;max-width:560px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;padding:18px 18px max(18px,env(safe-area-inset-bottom));">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="display:inline-flex;align-items:center;color:#BC6675;"><i class="ph-duotone ph-bell" aria-hidden="true"></i></span>
-          <strong style="font-size:17px;">DM 사장 확인 대기</strong>
-          <span id="dcqCount" style="font-size:11px;background:#FEF3C7;color:#B45309;padding:2px 8px;border-radius:99px;font-weight:700;">0건</span>
-          <button id="dcqClose" aria-label="닫기" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#888;display:inline-flex;align-items:center;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
+      <div id="dcqCard" style="width:100%;max-width:560px;background:#F7F8FA;border-radius:20px 20px 0 0;max-height:92vh;display:flex;flex-direction:column;padding:18px 16px max(18px,env(safe-area-inset-bottom));">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#F7EFF0;color:#BC6675;"><svg width="15" height="15" aria-hidden="true"><use href="#ic-bot"/></svg></span>
+          <strong style="font-size:17px;color:#191F28;">실시간 DM</strong>
+          <span id="dcqCount" style="font-size:11px;background:#F2F4F6;color:#4E5968;padding:2px 8px;border-radius:99px;font-weight:700;">0건</span>
+          <button id="dcqSettings" aria-label="자동응답 설정" title="자동응답 설정" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#4E5968;display:inline-flex;align-items:center;padding:4px;"><i class="ph-duotone ph-gear" aria-hidden="true" style="font-size:19px;"></i></button>
+          <button id="dcqClose" aria-label="닫기" style="background:none;border:none;cursor:pointer;color:#8B95A1;display:inline-flex;align-items:center;padding:4px;"><svg width="14" height="14" aria-hidden="true"><use href="#ic-x"/></svg></button>
         </div>
-        <div style="font-size:11px;color:#888;margin-bottom:12px;line-height:1.5;">
-          AI 가 초안 만들어둔 답장. 손님에겐 "잠시만요" 자동 발송됨. 30분 무응답 → template fallback 자동.
+        <div style="font-size:11.5px;color:#8B95A1;margin-bottom:12px;line-height:1.5;">
+          답장이 필요한 손님 메시지예요. 잇비 추천 답장을 확인하고 전송하세요.
         </div>
         <div id="dcqList" style="flex:1;overflow-y:auto;">
           <div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;">불러오는 중…</div>
@@ -65,6 +50,10 @@
     document.body.appendChild(sheet);
     sheet.addEventListener('click', (e) => { if (e.target === sheet) close(); });
     sheet.querySelector('#dcqClose').addEventListener('click', close);
+    const _setBtn = sheet.querySelector('#dcqSettings');
+    if (_setBtn) _setBtn.addEventListener('click', () => {
+      if (typeof window.openDMAutoreplySettings === 'function') window.openDMAutoreplySettings();
+    });
     return sheet;
   }
 
@@ -122,6 +111,88 @@
     else sheet.style.display = 'none';
   }
 
+  // ── [2026-06-08] 잇비 챗봇 톤 카드 빌더 ─────────────────────────
+  function _intentKo(i) {
+    return { pricing: '가격 문의', booking: '예약 문의', hours: '영업시간', location: '위치 문의',
+      review: '후기', greeting: '인사', complaint: '문의', unknown: '문의' }[i] || '문의';
+  }
+  const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
+  function _gradeBadge(grade) {
+    return `<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;padding:2px 8px;border-radius:99px;flex-shrink:0;">${_esc(grade || '신규')}</span>`;
+  }
+  function _depositSignal(text) {
+    return /입금|송금|이체|보냈|결제했|입금했/.test(text || '');
+  }
+  function _bookingLine(am) {
+    if (!am) return '';
+    const t = am.time_kst || am.requested_time || '';
+    if (!t) return '';
+    let gapStr = '';
+    const gap = am.free_gap_minutes;
+    if (am.slot_available || (gap != null && gap > 0)) {
+      if (gap != null && gap > 0) {
+        const h = Math.floor(gap / 60), mm = gap % 60;
+        gapStr = ' · ' + (h >= 1 ? (mm ? `${h}시간 ${mm}분 비어있음` : `${h}시간 비어있음`) : `${gap}분 비어있음`);
+      } else gapStr = ' · 그 시간 비어있음';
+    }
+    return `<div style="font-size:12px;color:#8B95A1;margin-top:8px;">예약 대기 · ${_esc(t)}${gapStr}</div>`;
+  }
+  function _extractedChips(ex, am) {
+    const name = (ex && ex.name) || (am && am.name);
+    const phone = (ex && ex.phone) || (am && am.phone);
+    const wish = (am && (am.time_kst || am.requested_time)) || '';
+    const chips = [];
+    if (name) chips.push('성함 ' + _esc(name));
+    if (phone) chips.push(_esc(phone));
+    if (wish) chips.push(_esc(wish));
+    if (!chips.length) return '';
+    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px 10px;border:1px solid #E5E8EB;border-radius:10px;background:#fff;">
+      ${chips.map(c => `<span style="font-size:11px;color:#4E5968;background:#F2F4F6;padding:3px 9px;border-radius:99px;">${c}</span>`).join('')}
+    </div>`;
+  }
+  function _mainBtnLabel(it) {
+    if (_depositSignal(it.received_text)) return '예약 확정 + 전송';
+    if (it.action_required === 'booking_action') return it.extracted ? '전송 + 캘린더 등록' : '전송 (캘린더 등록)';
+    return '전송';
+  }
+  function _cardHtml(it) {
+    const tail = (it.sender_tail || '').slice(-4);
+    const ex = it.extracted || null;
+    const name = (ex && ex.name) || ('손님 …' + tail);
+    const draft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
+    const am = it.action_meta || {};
+    const isBooking = it.action_required === 'booking_action';
+    return `
+      <div class="dcq-item" data-id="${it.id}" data-tail="${_esc(tail)}" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
+          <div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;overflow:hidden;position:relative;">${_AVATAR_SVG}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:14px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(name)}</span>
+              ${_gradeBadge(it.customer_grade)}
+            </div>
+            <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${(it.minutes_waiting <= 0 ? '방금' : it.minutes_waiting + '분 전')} · ${_esc(_intentKo(it.intent))}</div>
+          </div>
+        </div>
+        <div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(it.received_text)}</div>
+        ${_extractedChips(ex, am)}
+        <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+          <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">잇비 추천 답장</div>
+            <div class="dcq-draft" style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(draft)}</div>
+            <textarea class="dcq-edit" rows="3" style="display:none;width:100%;margin-top:6px;padding:10px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;line-height:1.5;background:#fff;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(draft)}</textarea>
+            ${isBooking ? _bookingLine(am) : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:12px;">
+          <button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;background:#191F28;color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;">${_esc(_mainBtnLabel(it))}</button>
+          <button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>
+          <button class="dcq-discard" data-act="discard" aria-label="지우기" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">✕</button>
+        </div>
+      </div>`;
+  }
+
   async function _refresh() {
     const list = document.getElementById('dcqList');
     if (!list) return;
@@ -131,126 +202,44 @@
       const cnt = document.getElementById('dcqCount');
       if (cnt) cnt.textContent = count + '건';
       if (!count) {
-        list.innerHTML = `<div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;line-height:1.6;">대기 중인 메시지가 없어요.<br>AI 가 자동 답변 잘 하고 있어요.</div>`;
+        list.innerHTML = `<div style="text-align:center;color:var(--text-subtle);padding:40px 20px;font-size:13px;line-height:1.6;">답장이 필요한 메시지가 없어요 ✨<br>잇비가 잘 챙기고 있어요.</div>`;
         return;
       }
-      const _actionLabel = {
-        booking_action: '예약 자동 생성',
-        revenue_action: '결제 확인',
-        cancel_action: '🗑 취소 처리',
-        customer_register_action: '👤 신규 고객 자동 등록',
-      };
-      // [기능 7] 후보 라벨 — 첫 번째는 기본, 나머지는 "짧게" / "따뜻하게"
-      const _CAND_LABELS = ['기본', '짧게', '따뜻하게', '정중'];
-      list.innerHTML = items.map(it => {
-        const actLbl = _actionLabel[it.action_required];
-        const actMeta = it.action_meta || {};
-        const actInfo = actLbl ? `
-          <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#FFF7E6;border:1px solid #FBBF24;border-radius:8px;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-              <span style="font-size:12px;font-weight:800;color:#92400E;">${actLbl}</span>
-              ${actMeta.calendar_checked ? `<span style="font-size:10px;background:#10B981;color:#fff;padding:1px 7px;border-radius:99px;font-weight:700;">캘린더 확인됨</span>` : ''}
-              <span style="margin-left:auto;font-size:10px;color:#92400E80;">승인 시 자동 실행</span>
-            </div>
-            ${actMeta.owner_label ? `<div style="font-size:12px;color:#92400E;font-weight:700;line-height:1.4;">${_esc(actMeta.owner_label)}</div>` : `
-              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-                ${actMeta.time_kst ? `<span style="font-size:11px;color:#92400E;font-weight:700;">${_esc(actMeta.time_kst)}</span>` : (actMeta.requested_time ? `<span style="font-size:11px;color:#92400E;">${_esc(actMeta.requested_time)}</span>` : '')}
-                ${actMeta.service_name ? `<span style="font-size:11px;color:#92400E;">· ${_esc(actMeta.service_name)}</span>` : ''}
-                ${actMeta.name ? `<span style="font-size:11px;color:#92400E;font-weight:700;">${_esc(actMeta.name)}</span>` : ''}
-                ${actMeta.phone ? `<span style="font-size:11px;color:#92400E;">${_esc(actMeta.phone)}</span>` : ''}
-                ${actMeta.service_interest ? `<span style="font-size:10px;background:#fff;padding:1px 6px;border-radius:99px;color:#92400E;">${_esc(actMeta.service_interest)}</span>` : ''}
-              </div>
-            `}
-            ${actMeta.confidence ? `<div style="font-size:10px;color:#92400E80;">신뢰도 ${Math.round((actMeta.confidence || 0) * 100)}%</div>` : ''}
-          </div>` : '';
-        // [Phase 1.1+] booking_action + calendar_checked 카드면 [거절+대안] 버튼 노출
-        const showDeclineAlt = it.action_required === 'booking_action' && actMeta.calendar_checked;
-        // [기능 7] 후보 list (없으면 ai_draft_text 1개로 fallback)
-        const candidates = (it.ai_draft_candidates && it.ai_draft_candidates.length)
-          ? it.ai_draft_candidates
-          : (it.ai_draft_text ? [it.ai_draft_text] : []);
-        const cardsHtml = candidates.map((c, idx) => `
-          <label class="dcq-cand" data-idx="${idx}" style="display:block;padding:10px 12px;border:2px solid ${idx === 0 ? '#D58A95' : '#e5e5e5'};border-radius:10px;background:${idx === 0 ? '#F7EFF0' : '#fff'};margin-bottom:6px;cursor:pointer;transition:all .15s;">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-              <span style="font-size:10px;font-weight:800;color:${idx === 0 ? '#BC6675' : '#888'};background:${idx === 0 ? '#F0DADF' : '#F4F4F8'};padding:1px 7px;border-radius:99px;">${_CAND_LABELS[idx] || `후보 ${idx+1}`}</span>
-              <input type="radio" name="dcq-cand-${it.id}" value="${idx}" ${idx === 0 ? 'checked' : ''} style="margin-left:auto;accent-color:#BC6675;">
-            </div>
-            <div style="font-size:13px;color:#333;line-height:1.5;white-space:pre-wrap;">${_esc(c)}</div>
-          </label>
-        `).join('');
-        const sendBtnLabel = it.action_required ? '✓ 승인 + 액션' : '✓ 선택 발송';
-        return `
-        <div data-id="${it.id}" style="padding:14px;background:#FAFAFA;border:1px solid #f0f0f0;border-radius:14px;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-            <span style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:${_intentColor(it.intent)};background:${_intentColor(it.intent)}15;padding:2px 8px;border-radius:99px;">${_intentLabel(it.intent)}</span>
-            <span style="font-size:10px;color:#888;">…${_esc(it.sender_tail)}</span>
-            <span style="margin-left:auto;font-size:10px;color:#888;">${it.minutes_waiting}분 대기</span>
-          </div>
-          <div style="font-size:12px;color:#555;background:#fff;padding:8px 10px;border-radius:8px;margin-bottom:8px;line-height:1.5;">
-            <span style="color:#888;font-size:10px;">손님</span><br>
-            ${_esc(it.received_text)}
-          </div>
-          ${actInfo}
-          <div style="margin-bottom:8px;">${cardsHtml}</div>
-          <details style="margin-bottom:8px;">
-            <summary style="font-size:11px;color:#BC6675;cursor:pointer;font-weight:600;">✏️ 직접 수정해서 발송</summary>
-            <textarea class="dcq-edit" rows="3" style="width:100%;margin-top:6px;padding:9px;border:1px solid #F0DADF;border-radius:8px;font-size:13px;line-height:1.5;background:#F7EFF0;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(candidates[0] || '')}</textarea>
-            <button class="dcq-send-edit" style="margin-top:6px;width:100%;padding:9px;border:none;background:linear-gradient(135deg,#BC6675,#D58A95);color:#fff;font-weight:700;font-size:12px;border-radius:10px;cursor:pointer;">수정한 텍스트로 발송</button>
-          </details>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="dcq-send" style="flex:1;min-width:120px;padding:11px;border:none;background:linear-gradient(135deg,#10B981,#34D399);color:#fff;font-weight:800;font-size:13px;border-radius:10px;cursor:pointer;">${sendBtnLabel}</button>
-            ${showDeclineAlt ? `<button class="dcq-decline-alt" style="padding:11px 12px;border:1px solid #F59E0B;background:#FFFBEB;color:#92400E;font-weight:700;font-size:12px;border-radius:10px;cursor:pointer;" title="이 시간은 안 되니 대안 시간을 손님에게 안내">⏰ 거절+대안</button>` : ''}
-            <button class="dcq-discard" style="padding:11px 14px;border:1px solid #FCA5A5;background:#fff;color:#B91C1C;font-weight:700;font-size:12px;border-radius:10px;cursor:pointer;">✕</button>
-          </div>
-        </div>
-      `;}).join('');
-      // 후보 카드 클릭 시 라디오 선택 + 시각 강조
-      list.querySelectorAll('.dcq-cand').forEach(el => {
-        el.addEventListener('click', () => {
-          const card = el.closest('[data-id]');
-          if (!card) return;
-          card.querySelectorAll('.dcq-cand').forEach(x => {
-            const isOn = x === el;
-            x.style.border = isOn ? '2px solid #D58A95' : '2px solid #e5e5e5';
-            x.style.background = isOn ? '#F7EFF0' : '#fff';
-            const r = x.querySelector('input[type=radio]');
-            if (r) r.checked = isOn;
-          });
-        });
-      });
-      list.querySelectorAll('.dcq-send').forEach(b => {
-        b.addEventListener('click', () => _doAction(b, 'send'));
-      });
-      list.querySelectorAll('.dcq-send-edit').forEach(b => {
-        b.addEventListener('click', () => _doAction(b, 'send_edit'));
-      });
-      list.querySelectorAll('.dcq-discard').forEach(b => {
-        b.addEventListener('click', () => _doAction(b, 'discard'));
-      });
-      list.querySelectorAll('.dcq-decline-alt').forEach(b => {
-        b.addEventListener('click', () => _doAction(b, 'decline_alt'));
-      });
+      list.innerHTML = items.map(_cardHtml).join('');
+      // 수정 버튼 → 인라인 textarea 노출
+      list.querySelectorAll('.dcq-edit-btn').forEach(b => b.addEventListener('click', () => {
+        const card = b.closest('[data-id]'); if (!card) return;
+        const ta = card.querySelector('.dcq-edit');
+        const draft = card.querySelector('.dcq-draft');
+        if (ta) { ta.style.display = 'block'; ta.focus(); }
+        if (draft) draft.style.display = 'none';
+        b.style.display = 'none';
+      }));
+      // 전송 → 수정 textarea 가 열려있고 내용 있으면 send_edit, 아니면 send(액션 실행)
+      list.querySelectorAll('.dcq-send').forEach(b => b.addEventListener('click', () => {
+        const card = b.closest('[data-id]'); if (!card) return;
+        const ta = card.querySelector('.dcq-edit');
+        const edited = (ta && ta.style.display !== 'none') ? (ta.value || '').trim() : '';
+        if (edited) _doAction(b, 'send_edit', edited);
+        else _doAction(b, 'send');
+      }));
+      list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
     } catch (e) {
       list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
     }
   }
 
-  async function _doAction(btn, action) {
+  async function _doAction(btn, action, editedText) {
     const card = btn.closest('[data-id]');
     if (!card) return;
     const id = card.dataset.id;
-    const editArea = card.querySelector('.dcq-edit');
-    const editedText = editArea ? editArea.value.trim() : '';
-    // [기능 7] 라디오 체크된 후보 idx
-    let selectedIdx = 0;
-    const checkedRadio = card.querySelector('input[type=radio]:checked');
-    if (checkedRadio) selectedIdx = parseInt(checkedRadio.value, 10) || 0;
+    const tail = card.dataset.tail || '';
 
     btn.disabled = true; btn.style.opacity = '0.6';
     try {
       let r;
       if (action === 'send') {
-        r = await _fetch('POST', `/dm-confirm-queue/${id}/send`, { selected_index: selectedIdx });
+        r = await _fetch('POST', `/dm-confirm-queue/${id}/send`, { selected_index: 0 });
       } else if (action === 'send_edit') {
         if (!editedText) {
           if (window.showToast) window.showToast('수정 내용이 비어있어요');
@@ -258,12 +247,6 @@
           return;
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send_edit`, { edited_reply: editedText });
-      } else if (action === 'decline_alt') {
-        if (!confirm('이 시간은 거절하고 대안 시간을 손님에게 안내할까요?')) {
-          btn.disabled = false; btn.style.opacity = '1';
-          return;
-        }
-        r = await _fetch('POST', `/dm-confirm-queue/${id}/decline-with-alternatives`);
       } else {
         r = await _fetch('POST', `/dm-confirm-queue/${id}/discard`);
       }
@@ -288,6 +271,8 @@
             detail: { kind: 'create_booking', source: 'dm_confirm', booking_id: r.booking_id || null }
           }));
         } catch (_evt) { /* ignore */ }
+        // 홈 '고객 메시지' 카드 자동 제거
+        try { window.dispatchEvent(new CustomEvent('itdasy:dm-replied', { detail: { tail } })); } catch (_e2) { /* ignore */ }
         try { if (typeof window.refreshDashBell === 'function') window.refreshDashBell(); } catch (_b) { /* ignore */ }
         try { if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') window.HomeV41.refresh(); } catch (_h) { /* ignore */ }
       }

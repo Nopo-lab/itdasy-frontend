@@ -1240,23 +1240,18 @@
     sheet.style.cssText = 'width:100%;max-width:640px;background:var(--surface);border-radius:24px 24px 0 0;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;';
 
     const tone = _settings.tone || 'friendly';
+    // [2026-06-08] 설정 전용 — 대화/검토대기(인박스)는 '실시간 DM' 카드 리스트로 이관됨.
+    //   여기는 자동응답 ON/OFF·응대 모드·톤·시간·금지어·리텐션 설정만.
     sheet.innerHTML = `
       ${_renderHeader()}
       <div class="dm-body">
         ${_renderActivate(status, conversations)}
         ${_renderPersona()}
-        <div class="dm-pc-grid">
-          <div>
-            ${_renderTone(_settings)}
-            ${_renderHours(_settings)}
-            ${_renderBan(_settings)}
-            ${_renderAdvanced(_settings)}
-          </div>
-          <div id="dmInboxMount">
-            ${_renderRetention()}
-            ${_renderInbox(conversations, tone)}
-          </div>
-        </div>
+        ${_renderTone(_settings)}
+        ${_renderHours(_settings)}
+        ${_renderBan(_settings)}
+        ${_renderAdvanced(_settings)}
+        ${_renderRetention()}
       </div>`;
 
     overlay.appendChild(sheet);
@@ -1268,8 +1263,7 @@
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeDMAutoreplySettings(); });
 
     if (window.SheetAnim?.open) window.SheetAnim.open(overlay, sheet);
-    // [2026-05-02 Phase 1.2] inbox 자동 갱신 — 8초마다 신규 DM 따라잡음
-    _startInboxPoll();
+    // [2026-06-08] 인박스 이관 — 설정 시트에선 폴링 안 함 (실시간 DM 카드가 담당).
   }
 
   // ── [2026-05-02] DM 자동응답 sheet 의 최근 DM (recent-conversations) 폴링 ──
