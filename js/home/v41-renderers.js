@@ -497,6 +497,7 @@
       <div class="hv5-cmsg-head">
         <span class="hv5-cmsg-title">고객 메시지</span>
         <span class="hv5-cmsg-count" id="hv5CmsgCount"></span>
+        <button type="button" class="hv5-cmsg-refresh" id="hv5CmsgRefresh" aria-label="새로고침" title="새로고침">↻</button>
         <button type="button" class="hv5-cmsg-more" id="hv5CmsgMore">전체 보기 ›</button>
       </div>
       <div class="hv5-cmsg-row" id="hv5CmsgRow"></div>

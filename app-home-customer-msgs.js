@@ -25,6 +25,7 @@
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
 
   let _cache = null;     // 마지막 conversations 배열
+  let _tokenValid = true; // 인스타 토큰 유효(BE token_valid). false면 재연결 배너.
   let _lastFetch = 0;
   let _inFlight = false;
   let _pollTimer = null;
@@ -162,7 +163,21 @@
       .filter(c => c && c.sender_igsid && !c.excluded_from_analysis && !_isDismissed(c, dmap))
       .slice()
       .sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
-    if (!convos.length) { sec.hidden = true; return; }
+    if (!convos.length) {
+      // [2026-06-08] 대화 0건 — 토큰 끊겼으면 빈 화면 대신 '재연결' 배너 (조용한 실패 방지)
+      if (_tokenValid === false) {
+        sec.hidden = false;
+        row.innerHTML = `<button type="button" id="hv5CmsgReconnect" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;">
+          <span style="width:36px;height:36px;border-radius:50%;background:var(--brand-bg);color:var(--brand-strong);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">⚠</span>
+          <span style="min-width:0;"><span style="display:block;font-size:13.5px;font-weight:700;color:var(--text);">인스타 연결이 끊겼어요</span><span style="display:block;font-size:12px;color:var(--text-subtle);margin-top:1px;">탭해서 다시 연결 →</span></span>
+        </button>`;
+        const cnt0 = document.getElementById('hv5CmsgCount');
+        if (cnt0) cnt0.textContent = '';
+      } else {
+        sec.hidden = true;
+      }
+      return;
+    }
 
     const map = _ensureBaseline(all);
     const unread = convos.filter(c => _isUnread(c, map)).length;
@@ -182,6 +197,8 @@
     if (!res.ok) return;
     const d = await res.json().catch(() => ({}));
     _cache = Array.isArray(d.conversations) ? d.conversations : [];
+    // [2026-06-08] 토큰 유효성 — 구버전 BE(필드 없음)는 valid 로 간주(=== false 일 때만 끊김)
+    _tokenValid = d.token_valid !== false;
     _lastFetch = Date.now();
   }
 
@@ -200,6 +217,22 @@
     if (_delegated) return;
     _delegated = true;
     document.body.addEventListener('click', (e) => {
+      // [2026-06-08] 새로고침 ↻ — 10초 폴링 기다리지 말고 즉시 재호출
+      const refreshBtn = e.target.closest('#hv5CmsgRefresh');
+      if (refreshBtn) {
+        e.preventDefault();
+        _lastFetch = 0;             // 강제 재호출 (gap 무시)
+        refreshBtn.classList.add('spin');
+        refresh().finally(() => { try { refreshBtn.classList.remove('spin'); } catch (_e2) { void _e2; } });
+        return;
+      }
+      // [2026-06-08] 인스타 재연결 배너 탭
+      const reconnect = e.target.closest('#hv5CmsgReconnect');
+      if (reconnect) {
+        e.preventDefault();
+        if (typeof window.connectInstagram === 'function') window.connectInstagram();
+        return;
+      }
       const more = e.target.closest('#hv5CmsgMore');
       if (more) {
         e.preventDefault();
@@ -266,7 +299,10 @@
       .hv5-cmsg-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:0 2px}
       .hv5-cmsg-title{font-size:15px;font-weight:700;color:var(--text)}
       .hv5-cmsg-count{font-size:11px;font-weight:700;color:var(--brand-strong);background:var(--brand-bg);padding:3px 9px;border-radius:999px}
-      .hv5-cmsg-more{margin-left:auto;font-size:12px;color:var(--text-subtle);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 2px}
+      .hv5-cmsg-refresh{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--text-subtle);font-size:15px;line-height:1;padding:4px 6px}
+      .hv5-cmsg-refresh.spin{animation:hv5cmsgspin .6s linear}
+      @keyframes hv5cmsgspin{to{transform:rotate(360deg)}}
+      .hv5-cmsg-more{margin-left:6px;font-size:12px;color:var(--text-subtle);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 2px}
       .hv5-cmsg-row{display:flex;gap:11px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
       .hv5-cmsg-row::-webkit-scrollbar{display:none}
       .hv5-cmsg-card{position:relative;flex:0 0 168px;text-align:left;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;display:block}
