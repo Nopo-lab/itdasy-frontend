@@ -1674,6 +1674,72 @@
     }
   }
 
+  // [I3b] 전후(BA) 카드 자동 적용 — 후기 흐름 미러. 로직은 ItdasyTemplateAutoApply 모듈이 소유.
+  function _lastUserPhotos() {
+    try {
+      for (var i = _history.length - 1, n = 0; i >= 0 && n < 8; i--, n++) {
+        var m = _history[i];
+        if (m && m.role === 'user' && Array.isArray(m.photos) && m.photos.length) return m.photos.slice(0, 2);
+      }
+    } catch (_e) { void _e; }
+    return [];
+  }
+
+  function _baResultActions(payload) {
+    return [
+      { id: 'review_ba_template_result', kind: 'review_price_template_result', label: '결과 확인', phase: 'safe', route: 'hub', payload: payload },
+      { id: 'export_ba_template_result', kind: 'export_image', label: '저장/내보내기', phase: 'safe', route: 'hub', payload: payload },
+      { id: 'instagram_ba_template_result', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'hub', payload: Object.assign({ ratio: '4:5' }, payload) },
+    ];
+  }
+
+  function _baResultText(result) {
+    return [
+      '전후 카드에 넣었어요.',
+      '',
+      '문구와 사진 위치를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '',
+      '템플릿: ' + (result.templateLabel || '시술 전후 카드'),
+      '전 사진: ' + (result.hasBefore ? '추가됨' : '아직 없음 (편집에서 추가)'),
+      '후 사진: 적용됨',
+    ].join('\n');
+  }
+
+  function _tryBeforeAfterCardShortcut(input, q) {
+    try {
+      var M = window.ItdasyTemplateAutoApply;
+      if (!M || typeof M.detectBeforeAfterCard !== 'function' || !M.detectBeforeAfterCard(q)) return false;
+      var ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
+      var result = M.handleBeforeAfterCard(q, ctx, { photos: _lastUserPhotos() });
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      if (!result || result.needsPhoto) {
+        _history.push({ role: 'assistant', text: '전후 카드를 만들려면 사진이 필요해요. 시술 후 사진을 먼저 올려 주세요.' });
+        _renderHistory();
+        return true;
+      }
+      var payload = {
+        templateId: result.templateId || 'v3-ba-clean-rose',
+        templateLabel: result.templateLabel || '시술 전후 카드',
+        hasBefore: !!result.hasBefore,
+        hasAfter: !!result.hasAfter,
+      };
+      _history.push({
+        role: 'assistant',
+        text: _baResultText(result),
+        ba_template_result: payload,
+        hub_actions: _baResultActions(payload),
+      });
+      _renderHistory();
+      if (window.hapticLight) window.hapticLight();
+      if (window.showToast) window.showToast('전후 카드를 넣었어요. 문구 편집에서 확인해 주세요.');
+      return true;
+    } catch (e) {
+      try { console.warn('[assistant-ba-card] apply failed', e); } catch (_logErr) { void _logErr; }
+      return false;
+    }
+  }
+
   function _applyPriceTemplateDraft(action, msg) {
     try {
       const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
@@ -3568,6 +3634,7 @@
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (_tryPriceListDraft(input, q)) return;
     if (_tryReviewCardShortcut(input, q)) return;   // [I3a] 후기 카드 자동 적용 — promo chain/photo-followup 보다 먼저
+    if (_tryBeforeAfterCardShortcut(input, q)) return;   // [I3b] 전후(BA) 카드 자동 적용 — promo chain/photo-followup 보다 먼저
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();
