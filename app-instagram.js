@@ -237,66 +237,103 @@ function showDetailedAnalysis() {
   else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
 }
 
+// [2026-06-09 Phase2] 말투 분석 리포트 — 흰 바탕 + 네이비 + 중립 그레이. 로즈는 ic-bot·인용 좌측선만.
+// 데이터(signature_phrases/caption_template/post_count)는 BE Phase1 이 raw_analysis·persona 로 내려줌.
+// 빈 섹션은 숨김(빈칸 방지). 제거: "비결 TOP5", "이렇게 쓰면 잘 돼요".
 function renderDetailedPopup(data) {
-    const p = data.persona;
+    const p = data.persona || {};
     const raw = data.raw_analysis || {};
-    const tFeatures = raw.tone_features || raw.tone_traits || [];
+    const NAVY = '#2B3A67';
+    const _esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    // 유연한 키 매핑 (Gemini 응답 변동성 대비)
-    const top5 = raw.top5_analysis || raw.top_5_analysis || raw.top5 || raw.success_highlights || [];
+    // raw_analysis 우선, persona 폴백
+    const toneText = (raw.tone_summary || p.tone || p.style_summary || '').trim();
+    const sigArr = (Array.isArray(raw.signature_phrases) ? raw.signature_phrases
+                   : Array.isArray(p.signature_phrases) ? p.signature_phrases : [])
+                   .map(s => String(s).trim()).filter(Boolean);
+    const capTmpl = (raw.caption_template || p.caption_template || '').trim();
+    const postCount = parseInt(raw.post_count != null ? raw.post_count : (p.post_count || 0), 10) || 0;
+    const handle = String(raw.instagram_handle || p.instagram_handle || _instaHandle || '').replace(/^@/, '').trim();
+    const avgLen = parseInt(p.avg_caption_length || raw.avg_caption_length || 0, 10) || 0;
+    const emojis = String(p.emojis || raw.emojis || '').trim();
+    // 해시태그 정리: 콤마 분리 + 각 항목 # 1개 (#태그 #태그)
+    const tags = String(p.hashtags || raw.hashtags || '')
+        .split(',').map(t => t.trim()).filter(Boolean)
+        .map(t => '#' + t.replace(/^#+/, '')).join(' ');
 
-    document.getElementById('analyzeResultBody').innerHTML = `
-    <div style="margin-bottom:24px; padding:16px; background:rgba(213,138,149,0.04); border-radius:16px; border:1px solid rgba(213,138,149,0.08);">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:6px; letter-spacing:0.5px;">분석 완료</div>
-        <div style="font-size:15px; font-weight:700; color:var(--text);">최근 게시물 기준 · 평균 ${p.avg_caption_length}자 글쓰기</div>
-    </div>
+    const subParts = [];
+    if (handle) subParts.push('@' + handle);
+    if (postCount > 0) subParts.push('게시물 ' + postCount + '개 분석');
+    const subLine = subParts.join(' · ');
 
-    <div style="margin-bottom:28px;">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">사장님 말투 스타일</div>
-        <div style="font-size:17px; font-weight:800; color:var(--text); margin-bottom:12px; line-height:1.4; word-break:keep-all;">"${raw.tone_summary || p.tone}"</div>
-        <div style="display:flex; flex-wrap:wrap; gap:8px;">
-        ${tFeatures.map(f => `<span style="background:rgba(213,138,149,0.07); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600;">${f}</span>`).join('')}
+    let html = `
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px;">
+        <span style="display:inline-flex; color:var(--brand);"><svg width="24" height="24" aria-hidden="true"><use href="#ic-bot"/></svg></span>
+        <div>
+            <div style="font-size:18px; font-weight:800; color:var(--text); letter-spacing:-0.4px;">말투 분석 리포트</div>
+            ${subLine ? `<div style="font-size:12px; color:var(--text-subtle); margin-top:2px; word-break:keep-all;">${_esc(subLine)}</div>` : ''}
         </div>
-    </div>
-
-    <div style="margin-bottom:32px;">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:12px; letter-spacing:0.5px;">잘 되는 게시물 비결 TOP 5</div>
-        <div style="display:flex; flex-direction:column; gap:12px;">
-        ${top5.length > 0 ? top5.map(item => `
-            <div style="background:white; border-radius:14px; padding:16px; border:1px solid rgba(0,0,0,0.04); box-shadow:0 4px 12px rgba(0,0,0,0.02); display:flex; gap:12px; align-items:flex-start;">
-                <div style="width:24px; height:24px; background:var(--accent2); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; flex-shrink:0;">${item.rank}</div>
-                <div style="font-size:13px; color:var(--text); line-height:1.5; font-weight:500; word-break:keep-all;">${item.why}</div>
-            </div>
-        `).join('') : '<div style="font-size:13px; color:var(--text3); text-align:center; padding:20px; background:#f9f9f9; border-radius:14px;">아직 데이터가 충분하지 않아요 🙏</div>'}
-        </div>
-    </div>
-
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
-        <div style="padding:16px; background:#f9f9f9; border-radius:16px;">
-            <div style="color:var(--text3); font-size:10px; font-weight:700; margin-bottom:8px;">자주 쓰는 이모지</div>
-            <div style="font-size:16px; letter-spacing:3px; word-break:break-all;">${p.emojis || '✨'}</div>
-        </div>
-        <div style="padding:16px; background:#f9f9f9; border-radius:16px; overflow:hidden;">
-            <div style="color:var(--text3); font-size:10px; font-weight:700; margin-bottom:8px;">자주 쓰는 해시태그</div>
-            <div style="font-size:11px; color:var(--accent); line-height:1.6; word-break:break-all;">${(p.hashtags || '#잇데이').replace(/,/g, ' ')}</div>
-        </div>
-    </div>
-
-    ${(() => {
-      // 상단 "말투 스타일" 과 동일/유사하면 하단 "이렇게 쓰면 잘 돼요" 숨기기 (중복 방지)
-      const top = (raw.tone_summary || p.tone || '').trim();
-      const bot = (raw.style_summary || p.style_summary || '').trim();
-      if (!bot || top === bot) return '';
-      // 부분 포함도 체크 (Gemini 가 비슷한 표현 반복하는 경우)
-      const shortCheck = bot.length > 0 && top.length > 0 && (top.includes(bot.slice(0, 12)) || bot.includes(top.slice(0, 12)));
-      if (shortCheck) return '';
-      return `
-    <div style="padding:24px; background:linear-gradient(135deg, #fffcfd, #fff5f7); border-radius:24px; border:1.5px solid rgba(213,138,149,0.2);">
-        <div style="color:var(--accent2); font-size:11px; font-weight:700; margin-bottom:10px; letter-spacing:0.5px;">이렇게 쓰면 잘 돼요</div>
-        <div style="font-size:14px; font-weight:700; color:var(--text); line-height:1.7; word-break:keep-all;">" ${bot} "</div>
     </div>`;
-    })()}
-    `;
+
+    if (toneText) {
+        html += `
+    <div style="margin-bottom:22px;">
+        <div style="font-size:11px; font-weight:700; color:var(--text-subtle); margin-bottom:8px; letter-spacing:0.3px;">사장님 말투</div>
+        <div style="border-left:3px solid var(--brand); padding:2px 0 2px 14px; font-size:16px; font-weight:700; color:var(--text); line-height:1.5; word-break:keep-all;">${_esc(toneText)}</div>
+    </div>`;
+    }
+
+    if (sigArr.length) {
+        html += `
+    <div style="margin-bottom:22px;">
+        <div style="font-size:11px; font-weight:700; color:var(--text-subtle); margin-bottom:10px; letter-spacing:0.3px;">자주 쓰는 표현</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        ${sigArr.map(s => `<span style="background:var(--surface-2); color:var(--text-muted); padding:7px 13px; border-radius:999px; font-size:13px; font-weight:600; word-break:keep-all;">${_esc(s)}</span>`).join('')}
+        </div>
+    </div>`;
+    }
+
+    if (capTmpl) {
+        html += `
+    <div style="margin-bottom:22px;">
+        <div style="font-size:11px; font-weight:700; color:var(--text-subtle); margin-bottom:10px; letter-spacing:0.3px;">늘 붙이는 고정 문구</div>
+        <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:14px; padding:14px 16px; font-size:13px; color:var(--text-muted); line-height:1.7; white-space:pre-wrap; word-break:keep-all;">${_esc(capTmpl)}</div>
+    </div>`;
+    }
+
+    html += `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:${tags ? '14px' : '24px'};">
+        <div style="padding:16px; background:var(--surface-2); border-radius:16px;">
+            <div style="color:var(--text-subtle); font-size:10px; font-weight:700; margin-bottom:8px;">평균 글자수</div>
+            <div style="font-size:18px; font-weight:800; color:var(--text);">${avgLen}<span style="font-size:12px; font-weight:600; color:var(--text-subtle);">자</span></div>
+        </div>
+        <div style="padding:16px; background:var(--surface-2); border-radius:16px; overflow:hidden;">
+            <div style="color:var(--text-subtle); font-size:10px; font-weight:700; margin-bottom:8px;">자주 쓰는 이모지</div>
+            <div style="font-size:16px; letter-spacing:2px; word-break:break-all;">${_esc(emojis) || '—'}</div>
+        </div>
+    </div>`;
+
+    if (tags) {
+        html += `
+    <div style="margin-bottom:24px; padding:14px 16px; background:var(--surface-2); border-radius:16px;">
+        <div style="color:var(--text-subtle); font-size:10px; font-weight:700; margin-bottom:8px;">자주 쓰는 해시태그</div>
+        <div style="font-size:12px; color:${NAVY}; font-weight:600; line-height:1.7; word-break:break-all;">${_esc(tags)}</div>
+    </div>`;
+    }
+
+    html += `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+        <button data-ig-write style="width:100%; height:52px; border-radius:14px; border:none; background:${NAVY}; color:#fff; font-size:15px; font-weight:800; cursor:pointer;">내 말투로 글 써보기</button>
+        <button data-static-action="analyze-result-close" style="width:100%; height:48px; border-radius:14px; border:1px solid var(--border-strong); background:#fff; color:var(--text-muted); font-size:14px; font-weight:700; cursor:pointer;">닫기</button>
+    </div>`;
+
+    const body = document.getElementById('analyzeResultBody');
+    if (!body) return;
+    body.innerHTML = html;
+    body.querySelector('[data-ig-write]')?.addEventListener('click', () => {
+        try { document.getElementById('analyzeResultPopup').style.display = 'none'; } catch (_e) { void _e; }
+        if (typeof showOnboardingCaptionPopup === 'function') showOnboardingCaptionPopup();
+    });
 }
 
 // [2026-05-13 QA #blocker1] 인스타 연동 직후 자동 분석 진입점 — backend 가 _auto_analyze_persona_bg
