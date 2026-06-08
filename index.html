@@ -1393,10 +1393,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     </div>
   </div>
 
-  <!-- [2026-06-09 Phase2] 말투 분석 리포트 — 헤더/버튼은 renderDetailedPopup 이 본문에 렌더.
-       z-index 상향(9999→10050): 내샵관리 화면 전환 후에도 위로 바로 뜨게(가려지던 버그 수정). -->
-  <div id="analyzeResultPopup" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.7); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); z-index:10050; overflow-y:auto; padding:24px 20px;">
-    <div class="animate-popup-in" style="max-width:420px; margin:40px auto; background:var(--surface); border-radius:28px; box-shadow:var(--shadow-md); border:1px solid var(--border); padding:28px; position:relative;">
+  <!-- [2026-06-09 Phase2 v9] 말투 분석 리포트 — 회색 배경 + 카드 2장(헤더/내용) 구조.
+       z-index 10050: 내샵관리 화면 전환 후에도 위로 즉시 뜨게(가려지던 버그 수정). -->
+  <div id="analyzeResultPopup" style="display:none; position:fixed; inset:0; background:#F2F4F6; z-index:10050; overflow-y:auto; padding:20px 16px 40px;">
+    <div class="animate-popup-in" style="max-width:420px; margin:0 auto;">
       <div id="analyzeResultBody"></div>
     </div>
   </div>
