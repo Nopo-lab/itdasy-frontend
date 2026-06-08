@@ -93,16 +93,16 @@
     const kind = inferTemplateKind(templateId, templateData);
     const shop = _shopName(ctx);
     const base = { shop_name: shop, cta: '예약 문의' };
+    let out;
     if (kind === 'price') {
-      return Object.assign(base, {
+      out = Object.assign(base, {
         headline: '시술 가격표',
         subtitle: '아름다움을 위한 특별한 관리, 합리적인 가격으로 만나보세요.',
         services: PRICE_SAMPLE.map(s => Object.assign({}, s)),
         phone: (ctx && ctx.phone) || '',
       });
-    }
-    if (kind === 'review') {
-      return Object.assign(base, {
+    } else if (kind === 'review') {
+      out = Object.assign(base, {
         headline: '고객님의 진심 후기',
         subtitle: '시술 후 달라진 변화를 확인해보세요.',
         review_text: '피부 결이 매끈해지고 화장이 훨씬 잘 먹어요. 꾸준히 관리받고 있어요 :)',
@@ -111,9 +111,8 @@
         date: '',                         // [HF1] optional
         cta: '상담 예약하기',
       });
-    }
-    if (kind === 'before_after') {
-      return Object.assign(base, {
+    } else if (kind === 'before_after') {
+      out = Object.assign(base, {
         headline: '시술 전후',
         subtitle: '한눈에 비교해보세요. 달라진 아름다움의 차이',
         before_label: 'BEFORE',
@@ -122,12 +121,16 @@
         after_caption: '맑고 균일한 피부 톤',
         cta: '상담 예약하기',
       });
+    } else {
+      // generic — 기존 렌더 무회귀: headline 은 템플릿 고유 문구 유지
+      out = Object.assign(base, {
+        headline: (templateData && (templateData.prefillText || templateData.label)) || '오늘의 시술',
+        subtitle: '',
+      });
     }
-    // generic — 기존 렌더 무회귀: headline 은 템플릿 고유 문구 유지
-    return Object.assign(base, {
-      headline: (templateData && (templateData.prefillText || templateData.label)) || '오늘의 시술',
-      subtitle: '',
-    });
+    // [BP-3] 템플릿 고유 defaultCopy 우선 — 현재 beauty 팩 엔트리만 보유(TOP5/legacy 는 defaultCopy 없음 → 무영향).
+    if (templateData && templateData.defaultCopy) Object.assign(out, templateData.defaultCopy);
+    return out;
   }
 
   // 저장값 우선 병합. slots 에 정의된 key 만 반영(이상 key 무시).
