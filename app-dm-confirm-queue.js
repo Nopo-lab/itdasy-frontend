@@ -148,10 +148,12 @@
   function _extractedChips(ex, am) {
     const name = (ex && ex.name) || (am && am.name);
     const phone = (ex && ex.phone) || (am && am.phone);
+    const svc = (am && am.service_name) || (ex && ex.service_interest) || '';
     const wish = (am && (am.time_kst || am.requested_time)) || '';
     const chips = [];
     if (name) chips.push('성함 ' + _esc(name));
     if (phone) chips.push(_esc(phone));
+    if (svc) chips.push(_esc(svc));
     if (wish) chips.push(_esc(wish));
     if (!chips.length) return '';
     return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px 10px;border:1px solid #E5E8EB;border-radius:10px;background:#fff;">
