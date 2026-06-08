@@ -1,0 +1,161 @@
+/* 잇비 템플릿 샘플 카탈로그 — 전후(before_after) 10개. 데이터 전용. (2026-06-08)
+   집계: template-sample-catalog.js. 카피/구조 변경 시 그쪽 QA 함께 통과시킬 것. */
+(function () {
+  'use strict';
+
+  var SAMPLES = [
+    {
+      id: 'skin_ba_texture_glow', purpose: 'before_after', industry: 'skin',
+      templateId: 'v3-ba-clean-rose', tier: 'free',
+      title: '피부 결·광채 전후',
+      triggers: ['피부 전후', '피부관리 전후', '물광 전후', '피부결 변화'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 3 },
+      match: { strong: ['물광 전후', '피부결 변화'], weak: ['피부', '전후', '비교'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '피부관리 전후 변화', subtitle: '피부결과 광채가 더 정돈되어 보이는 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '관리 전 피부 컨디션', after_caption: '관리 후 한층 정돈된 피부결',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'skin_ba_clean_blue_clinic', purpose: 'before_after', industry: 'skin',
+      templateId: 'v3-ba-clean-blue', tier: 'free',
+      title: '피부 톤업 전후 (클린 블루)',
+      triggers: ['피부 톤 전후', '톤업 전후', '브라이트닝 전후', '클린 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 4 },
+      match: { strong: ['톤업 전후', '브라이트닝 전후', '클린'], weak: ['피부', '전후', '비교'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '피부 톤업 전후', subtitle: '칙칙했던 피부 톤이 한층 맑게 정돈된 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '칙칙하고 균일하지 않던 톤', after_caption: '맑고 환하게 정돈된 피부 톤',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'skin_ba_acne_calm', purpose: 'before_after', industry: 'skin',
+      templateId: 'v3-ba-clean-rose', tier: 'free',
+      title: '여드름 케어 전후',
+      triggers: ['여드름 전후', '트러블 전후', '여드름 케어 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 3 },
+      match: { strong: ['여드름 전후', '트러블 전후'], weak: ['피부', '전후', '비교'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '여드름 케어 전후', subtitle: '붉고 울퉁불퉁하던 피부가 한결 차분해진 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '붉은 트러블과 울퉁불퉁한 피부결', after_caption: '진정되어 매끈하게 정돈된 피부결',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'nail_ba_sns_art', purpose: 'before_after', industry: 'nail',
+      templateId: 'v3-ba-sns-pink', tier: 'free',
+      title: '네일 아트 전후 (SNS 핑크)',
+      triggers: ['네일 전후', '네일 아트 전후', '손톱 변화', '젤네일 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 5 },
+      match: { strong: ['네일 아트 전후', '젤네일 전후'], weak: ['네일', '전후', '손톱'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '네일 전후 변화', subtitle: '밋밋했던 손끝이 화사하게 달라진 순간',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '컬러 없이 밋밋했던 손끝', after_caption: '분위기 살아난 화사한 디자인',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'nail_ba_sns_care', purpose: 'before_after', industry: 'nail',
+      templateId: 'v3-ba-sns-pink', tier: 'free',
+      title: '손톱 케어 전후 (SNS 핑크)',
+      triggers: ['손톱 케어 전후', '큐티클 전후', '네일 케어 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 4 },
+      match: { strong: ['손톱 케어 전후', '큐티클 전후'], weak: ['네일', '전후', '케어'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '손톱 케어 전후', subtitle: '거칠던 손끝이 깔끔하게 정리된 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '거칠고 정리 안 된 손톱', after_caption: '큐티클 정리로 매끈해진 손끝',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'lash_ba_natural', purpose: 'before_after', industry: 'lash',
+      templateId: 'v3-ba-clean-rose', tier: 'free',
+      title: '속눈썹 전후',
+      triggers: ['속눈썹 전후', '래쉬 전후', '눈매 전후', '속눈썹 펌 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 3 },
+      match: { strong: ['속눈썹 전후', '래쉬 전후'], weak: ['속눈썹', '전후', '눈매'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '속눈썹 전후 변화', subtitle: '처졌던 눈매가 또렷하게 살아난 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '처지고 힘없던 속눈썹', after_caption: '컬이 살아 또렷해진 눈매',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'lash_ba_volume', purpose: 'before_after', industry: 'lash',
+      templateId: 'v3-ba-sns-pink', tier: 'free',
+      title: '속눈썹 볼륨 전후 (SNS 핑크)',
+      triggers: ['속눈썹 연장 전후', '볼륨 래쉬 전후', '눈매 변화'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 4 },
+      match: { strong: ['속눈썹 연장 전후', '볼륨 래쉬 전후'], weak: ['속눈썹', '연장', '전후'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '속눈썹 전후 변화', subtitle: '비어 보이던 눈매가 또렷하고 풍성해진 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '비어 보이던 눈매', after_caption: '또렷하고 풍성해진 눈매',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'hair_ba_clinic', purpose: 'before_after', industry: 'hair',
+      templateId: 'v3-ba-clean-blue', tier: 'free',
+      title: '모발 클리닉 전후 (클린 블루)',
+      triggers: ['머릿결 전후', '클리닉 전후', '모발 전후', '헤어 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 3 },
+      match: { strong: ['머릿결 전후', '클리닉 전후'], weak: ['헤어', '전후', '모발'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '모발 케어 전후 변화', subtitle: '푸석하던 머릿결이 한결 윤기 있게 정돈된 변화',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '푸석하고 힘없던 모발', after_caption: '윤기 돌고 정돈된 머릿결',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'hair_ba_extension_volume', purpose: 'before_after', industry: 'hair',
+      templateId: 'v3-ba-sns-pink', tier: 'free',
+      title: '붙임머리 전후 (SNS 핑크)',
+      triggers: ['붙임머리 전후', '볼륨 전후', '긴머리 변화'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 4 },
+      match: { strong: ['붙임머리 전후', '볼륨 전후'], weak: ['헤어', '전후', '머리'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '붙임머리 전후 변화', subtitle: '밋밋하던 모발이 풍성하고 자연스럽게 달라진 순간',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '밋밋하고 힘없던 모발', after_caption: '풍성하고 자연스러운 볼륨',
+        cta: '예약 문의 주세요',
+      },
+    },
+    {
+      id: 'waxing_ba_clean', purpose: 'before_after', industry: 'waxing',
+      templateId: 'v3-ba-clean-rose', tier: 'free',
+      title: '왁싱 전후',
+      triggers: ['왁싱 전후', '제모 전후', '매끈 전후'],
+      negativeTriggers: ['가격표', '후기'],
+      scoreHints: { purpose: 10, industry: 8, style: 2 },
+      match: { strong: ['왁싱 전후', '제모 전후'], weak: ['전후', '케어'], exclude: ['가격표', '후기'] },
+      slotValues: {
+        headline: '왁싱 전후 변화', subtitle: '정리 전후를 한눈에 비교해보세요',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '정리 전 상태', after_caption: '매끈하게 정돈된 마무리',
+        cta: '예약 문의 주세요',
+      },
+    },
+  ];
+
+  if (typeof window !== 'undefined') window.ItdasyTemplateSampleCatalogBA = SAMPLES;
+  if (typeof module !== 'undefined' && module.exports) module.exports = SAMPLES;
+})();
