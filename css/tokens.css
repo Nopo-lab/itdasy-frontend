@@ -100,6 +100,16 @@ select:focus-visible {
   box-shadow: 0 0 0 3px var(--brand-bg);
 }
 
+/* [2026-06-09] iOS 포커스 자동 확대(줌) 방지 — 폼 컨트롤 글씨 16px 미만이면 Safari 가
+   포커스 시 화면을 확대함. viewport user-scalable=no 와 이중 방어.
+   tokens.css 가 가장 먼저 로드돼 컴포넌트 클래스(13px 등)에 밀리므로 !important 로 16px 하한 보장.
+   (user-scalable 을 무시하는 신형 Safari 까지 커버하는 확실한 방법) */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
 :focus:not(:focus-visible) {
   outline: none;
 }
