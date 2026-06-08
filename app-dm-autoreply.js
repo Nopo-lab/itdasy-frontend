@@ -1233,7 +1233,8 @@
 
     const overlay = document.createElement('div');
     overlay.id = 'dmAutoreplySheet';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
+    // [2026-06-08] z-index 9996 — 실시간 DM 카드 시트(9988) 위로. (설정이 카드 뒤에 깔리던 버그)
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9996;background:rgba(0,0,0,0.45);display:flex;align-items:flex-end;justify-content:center;';
 
     const sheet = document.createElement('div');
     sheet.className = 'dm-sheet';

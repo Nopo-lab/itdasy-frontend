@@ -52,13 +52,8 @@
     sheet.querySelector('#dcqClose').addEventListener('click', close);
     const _setBtn = sheet.querySelector('#dcqSettings');
     if (_setBtn) _setBtn.addEventListener('click', () => {
-      if (typeof window.openDMAutoreplySettings !== 'function') return;
-      window.openDMAutoreplySettings();
-      // [2026-06-08] 설정 시트를 카드 위로 push (카드 sheet z=9988). 닫으면 카드로 복귀.
-      setTimeout(() => {
-        const s = document.getElementById('dmAutoreplySheet');
-        if (s) s.style.zIndex = '9996';
-      }, 0);
+      // 설정 시트는 생성 시 z-index 9996(카드 9988 위) — setTimeout 보정 불필요.
+      if (typeof window.openDMAutoreplySettings === 'function') window.openDMAutoreplySettings();
     });
     return sheet;
   }
