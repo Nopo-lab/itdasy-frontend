@@ -1,31 +1,27 @@
-/* 홈 "고객 메시지" 카드 줄 (2026-06-07) — 카카오 '실시간 채팅' 참고.
-   디자인: ../mockup-home-dm-cards.html · 토큰: css/tokens.css
+/* 홈 "고객 메시지" 카드 줄 — 서버 '답장 필요' 기준 (2026-06-09 개편).
 
-   - 데이터: 기존 GET /instagram/dm-reply/conversations (DM 화면과 동일 엔드포인트, 추가 비용 0).
-   - 갱신: 홈 렌더 직후 refresh() + 홈 탭 활성 동안 10초 폴링 (DM list 폴링과 동일 주기).
-   - 안읽음: 클라이언트 read 추적(localStorage). 첫 도입 시 현재 대화 전부 기준선(read) 처리 →
-            이후 새로 들어온 메시지만 '안읽음'. 카드 탭 하면 read 처리(점만 off, 제거 X).
-   - 카드 탭 → window.openDMAutoreplySettings() (검토 대기 인박스: AI 초안 수정·전송) + 해당 손님으로 스크롤.
-   - 카드 제거: 답장 전송 성공(itdasy:dm-replied) 또는 X(dismiss) 때만. 새 메시지 오면 재등장.
-   - 전체 보기 → window.openDMConfirmQueue() (실시간 DM 카드 리스트).
-   - 프사 없으면 사람 실루엣 아이콘.
+   - 소스: GET /dm-confirm-queue (status=pending_confirm = 미답장/검토 대기). 실시간 DM 카드와 동일 소스.
+     → 처리완료·옛 대화(5/1·5/2 등)는 안 뜸. 좀비 제거.
+   - 카드 제거: X = 서버 discard(영구) / 답장 전송 성공(itdasy:dm-replied). localStorage 영구숨김 제거
+     → 초기화·재연동해도 부활 X (서버가 진실).
+   - 카드 탭 → window.openDMCardForSender(sender) (실시간 DM 카드로 포커스).
+   - 전체 보기 → window.openDMConfirmQueue() (전체 히스토리·카드 리스트).
+   - 토큰 끊김(X-Token-Valid: 0) + 0건 → '재연결' 배너. 새로고침 ↻ 버튼.
 
    window.HomeCustomerMsgs = { refresh() }
 */
 (function () {
   'use strict';
 
-  const READ_KEY = 'itdasy:cmsg:read';        // { [sender_igsid]: lastReadISO } — 안읽음 점만 제어
-  const DISMISS_KEY = 'itdasy:cmsg:dismissed'; // { [sender_igsid]: dismissedAtISO } — 카드 제거(답장/X)
   const MAX_CARDS = 12;
   const POLL_MS = 10000;
   const MIN_FETCH_GAP = 8000;            // 홈 다중 렌더 시 캐시 재사용 (API 과호출 방지)
 
-  // 프사 없을 때 기본 아바타 — 사람 실루엣 (이니셜 X). color 는 .hv5-cmsg-av 의 brand-strong 사용.
+  // 프사 없을 때 기본 아바타 — 사람 실루엣.
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
 
-  let _cache = null;     // 마지막 conversations 배열
-  let _tokenValid = true; // 인스타 토큰 유효(BE token_valid). false면 재연결 배너.
+  let _cache = null;      // 마지막 /dm-confirm-queue 아이템 배열
+  let _tokenValid = true; // 인스타 토큰 유효(X-Token-Valid). false면 재연결 배너.
   let _lastFetch = 0;
   let _inFlight = false;
   let _pollTimer = null;
@@ -37,71 +33,7 @@
     }[c]));
   }
 
-  // ── read(안읽음) 추적 ──────────────────────────────────────
-  function _readMap() {
-    try { return JSON.parse(localStorage.getItem(READ_KEY) || '{}') || {}; }
-    catch (_e) { return {}; }
-  }
-  function _writeMap(m) {
-    try { localStorage.setItem(READ_KEY, JSON.stringify(m)); } catch (_e) { void _e; }
-  }
-  // 첫 도입(키 없음) — 현재 대화 전부 기준선 처리. 이후 새 메시지만 안읽음으로 뜸.
-  function _ensureBaseline(convos) {
-    if (localStorage.getItem(READ_KEY) !== null) return _readMap();
-    const m = {};
-    (convos || []).forEach(c => {
-      if (c && c.sender_igsid && c.last_seen) m[c.sender_igsid] = c.last_seen;
-    });
-    _writeMap(m);
-    return m;
-  }
-  function _isUnread(c, map) {
-    if (!c || !c.last_seen) return false;
-    const r = map[c.sender_igsid];
-    if (!r) return true;
-    const a = new Date(c.last_seen).getTime();
-    const b = new Date(r).getTime();
-    return Number.isFinite(a) && Number.isFinite(b) ? a > b : false;
-  }
-  function _markRead(sender) {
-    const map = _readMap();
-    const c = (_cache || []).find(x => x && x.sender_igsid === sender);
-    map[sender] = (c && c.last_seen) || new Date().toISOString();
-    _writeMap(map);
-  }
-
-  // ── dismiss(카드 제거) 추적 — 답장 전송/X 누름. '읽음'으로는 제거 X. ─────
-  //   dismissedAt 시점 이후 손님이 새 메시지를 보내면(last_seen 갱신) 카드 재등장.
-  function _dismissMap() {
-    try { return JSON.parse(localStorage.getItem(DISMISS_KEY) || '{}') || {}; }
-    catch (_e) { return {}; }
-  }
-  function _writeDismiss(m) {
-    try { localStorage.setItem(DISMISS_KEY, JSON.stringify(m)); } catch (_e) { void _e; }
-  }
-  function _isDismissed(c, dmap) {
-    if (!c || !c.last_seen) return false;
-    const d = dmap[c.sender_igsid];
-    if (!d) return false;
-    const a = new Date(c.last_seen).getTime();
-    const b = new Date(d).getTime();
-    return Number.isFinite(a) && Number.isFinite(b) ? a <= b : false;
-  }
-  function _dismiss(sender) {
-    if (!sender) return;
-    const m = _dismissMap();
-    const c = (_cache || []).find(x => x && x.sender_igsid === sender);
-    m[sender] = (c && c.last_seen) || new Date().toISOString();
-    _writeDismiss(m);
-  }
-
   // ── 표시 헬퍼 ──────────────────────────────────────────────
-  function _displayName(c) {
-    const nick = (c.nickname || '').trim();
-    if (nick) return nick;
-    const tail = c.sender_tail || (c.sender_igsid || '').slice(-4);
-    return '손님 …' + tail;
-  }
   const _INTENT_LABEL = {
     pricing: '가격 문의', booking: '예약 문의', hours: '영업시간',
     location: '위치 문의', review: '후기', complaint: '문의',
@@ -124,30 +56,39 @@
     return d.toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
   }
 
-  // ── 카드 HTML ──────────────────────────────────────────────
-  function _cardHtml(c, map) {
-    const name = _displayName(c);
-    const unread = _isUnread(c, map);
-    const pic = (c.profile_pic || '').trim();
-    const avCls = 'hv5-cmsg-av' + (unread ? ' is-unread' : '');
-    // 실루엣을 항상 깔고, 프사 있으면 <img> 로 덮음. onerror(깨짐) 시 img 제거 → 실루엣 폴백.
+  function _name(it) {
+    return it.display_name || ('손님 …' + (it.sender_tail || (it.sender_igsid || '').slice(-4)));
+  }
+
+  // ── 카드 HTML (모든 카드 = 답장 필요 → 로즈 점 ON) ─────────
+  function _cardHtml(it) {
+    const name = _name(it);
+    const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img class="hv5-cmsg-avimg" src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()">`
       : '';
-    const last = (c.last_text || '').trim() || '메시지 없음';
-    const intent = _intentLabel(c.last_intent);
-    const sid = _esc(c.sender_igsid);
-    return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}">
-      <span class="hv5-cmsg-x" data-cmsg-dismiss="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 카드 지우기">✕</span>
+    const last = (it.received_text || '').trim() || '메시지 없음';
+    const intent = _intentLabel(it.intent);
+    const sid = _esc(it.sender_igsid || '');
+    const id = _esc(String(it.id));
+    return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
+      <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
-        <div class="${avCls}">${_AVATAR_SVG}${avImg}</div>
+        <div class="hv5-cmsg-av is-unread">${_AVATAR_SVG}${avImg}</div>
         <div class="hv5-cmsg-id">
           <div class="hv5-cmsg-nm">${_esc(name)}</div>
-          <div class="hv5-cmsg-tm">${_esc(_relTime(c.last_seen))}</div>
+          <div class="hv5-cmsg-tm">${_esc(_relTime(it.received_at))}</div>
         </div>
       </div>
-      <div class="hv5-cmsg-msg${unread ? ' un' : ''}">${_esc(last)}</div>
-      <span class="hv5-cmsg-badge"${intent ? '' : ' style="visibility:hidden" aria-hidden="true"'}>${_esc(intent || ' ')}</span>
+      <div class="hv5-cmsg-msg un">${_esc(last)}</div>
+      <span class="hv5-cmsg-badge"${intent ? '' : ' style="visibility:hidden" aria-hidden="true"'}>${intent ? _esc(intent) : ' '}</span>
+    </button>`;
+  }
+
+  function _reconnectBannerHtml() {
+    return `<button type="button" id="hv5CmsgReconnect" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;">
+      <span style="width:36px;height:36px;border-radius:50%;background:var(--brand-bg);color:var(--brand-strong);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">⚠</span>
+      <span style="min-width:0;"><span style="display:block;font-size:13.5px;font-weight:700;color:var(--text);">인스타 연결이 끊겼어요</span><span style="display:block;font-size:12px;color:var(--text-subtle);margin-top:1px;">탭해서 다시 연결 →</span></span>
     </button>`;
   }
 
@@ -156,49 +97,42 @@
     const sec = document.getElementById('hv5Cmsg');
     const row = document.getElementById('hv5CmsgRow');
     if (!sec || !row) return;
-    const all = _cache || [];
-    const dmap = _dismissMap();
-    // 친구·가족 등 톤 분석 제외 채팅방 숨김 + 답장/X 로 dismiss 된 카드 숨김(새 메시지 오면 재등장).
-    const convos = all
-      .filter(c => c && c.sender_igsid && !c.excluded_from_analysis && !_isDismissed(c, dmap))
+    const items = (_cache || [])
+      .filter(it => it && it.id != null && it.sender_igsid)
       .slice()
-      .sort((a, b) => new Date(b.last_seen || 0) - new Date(a.last_seen || 0));
-    if (!convos.length) {
-      // [2026-06-08] 대화 0건 — 토큰 끊겼으면 빈 화면 대신 '재연결' 배너 (조용한 실패 방지)
+      .sort((a, b) => new Date(b.received_at || 0) - new Date(a.received_at || 0));
+
+    const cnt = document.getElementById('hv5CmsgCount');
+    if (!items.length) {
+      // 0건 — 토큰 끊겼으면 '재연결' 배너, 아니면 진짜 0건 → 숨김
       if (_tokenValid === false) {
         sec.hidden = false;
-        row.innerHTML = `<button type="button" id="hv5CmsgReconnect" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);cursor:pointer;font-family:inherit;">
-          <span style="width:36px;height:36px;border-radius:50%;background:var(--brand-bg);color:var(--brand-strong);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">⚠</span>
-          <span style="min-width:0;"><span style="display:block;font-size:13.5px;font-weight:700;color:var(--text);">인스타 연결이 끊겼어요</span><span style="display:block;font-size:12px;color:var(--text-subtle);margin-top:1px;">탭해서 다시 연결 →</span></span>
-        </button>`;
-        const cnt0 = document.getElementById('hv5CmsgCount');
-        if (cnt0) cnt0.textContent = '';
+        row.innerHTML = _reconnectBannerHtml();
+        if (cnt) cnt.textContent = '';
       } else {
         sec.hidden = true;
       }
       return;
     }
 
-    const map = _ensureBaseline(all);
-    const unread = convos.filter(c => _isUnread(c, map)).length;
-    const cards = convos.slice(0, MAX_CARDS);
-
+    const cards = items.slice(0, MAX_CARDS);
     sec.hidden = false;
-    row.innerHTML = cards.map(c => _cardHtml(c, map)).join('');
-    const cnt = document.getElementById('hv5CmsgCount');
-    if (cnt) cnt.textContent = unread > 0 ? `· ${unread}건 새 메시지` : '';
+    row.innerHTML = cards.map(_cardHtml).join('');
+    if (cnt) cnt.textContent = `· ${items.length}건 답장 필요`;
   }
 
-  // ── fetch ──────────────────────────────────────────────────
+  // ── fetch (/dm-confirm-queue = 답장 필요) ──────────────────
   async function _fetchConvos() {
     const headers = window.authHeader ? window.authHeader() : {};
     if (!headers || !headers.Authorization) return;
-    const res = await apiFetch('/instagram/dm-reply/conversations', { headers });
+    const res = await apiFetch('/dm-confirm-queue', { headers });
     if (!res.ok) return;
-    const d = await res.json().catch(() => ({}));
-    _cache = Array.isArray(d.conversations) ? d.conversations : [];
-    // [2026-06-08] 토큰 유효성 — 구버전 BE(필드 없음)는 valid 로 간주(=== false 일 때만 끊김)
-    _tokenValid = d.token_valid !== false;
+    try {
+      const tv = res.headers && res.headers.get ? res.headers.get('X-Token-Valid') : null;
+      if (tv != null) _tokenValid = (tv !== '0' && tv.toLowerCase() !== 'false');
+    } catch (_e) { void _e; }
+    const d = await res.json().catch(() => []);
+    _cache = Array.isArray(d) ? d : (Array.isArray(d.items) ? d.items : []);
     _lastFetch = Date.now();
   }
 
@@ -212,59 +146,68 @@
     finally { _inFlight = false; }
   }
 
-  // ── 이벤트 위임 (카드 탭 / 전체 보기) ──────────────────────
+  // ── 서버 discard (영구) ────────────────────────────────────
+  async function _discardServer(id) {
+    if (!id) return;
+    try {
+      const headers = window.authHeader ? window.authHeader() : {};
+      await apiFetch(`/dm-confirm-queue/${encodeURIComponent(id)}/discard`, { method: 'POST', headers });
+    } catch (_e) { /* 실패해도 다음 폴링이 서버 기준으로 복원 */ }
+  }
+
+  // ── 이벤트 위임 ────────────────────────────────────────────
   function _bindDelegation() {
     if (_delegated) return;
     _delegated = true;
     document.body.addEventListener('click', (e) => {
-      // [2026-06-08] 새로고침 ↻ — 10초 폴링 기다리지 말고 즉시 재호출
+      // 새로고침 ↻
       const refreshBtn = e.target.closest('#hv5CmsgRefresh');
       if (refreshBtn) {
         e.preventDefault();
-        _lastFetch = 0;             // 강제 재호출 (gap 무시)
+        _lastFetch = 0;
         refreshBtn.classList.add('spin');
         refresh().finally(() => { try { refreshBtn.classList.remove('spin'); } catch (_e2) { void _e2; } });
         return;
       }
-      // [2026-06-08] 인스타 재연결 배너 탭
+      // 인스타 재연결 배너
       const reconnect = e.target.closest('#hv5CmsgReconnect');
       if (reconnect) {
         e.preventDefault();
         if (typeof window.connectInstagram === 'function') window.connectInstagram();
         return;
       }
+      // 전체 보기
       const more = e.target.closest('#hv5CmsgMore');
       if (more) {
         e.preventDefault();
-        // [2026-06-08] '전체 보기' → 실시간 DM 카드 리스트 (옛 채팅방 목록 은퇴)
         if (typeof window.openDMConfirmQueue === 'function') window.openDMConfirmQueue();
         else if (typeof window.openDMConversations === 'function') window.openDMConversations();
         return;
       }
-      // X(지우기) — 카드 탭보다 먼저 가로채서 dismiss (답장 안 하고 목록에서 제거)
-      const x = e.target.closest('[data-cmsg-dismiss]');
+      // X(지우기) = 서버 discard (영구). 카드 탭보다 먼저 가로챔.
+      const x = e.target.closest('[data-cmsg-discard]');
       if (x && document.getElementById('hv5Cmsg')) {
         e.preventDefault();
         e.stopPropagation();
-        _dismiss(x.dataset.cmsgDismiss);
+        const id = x.dataset.cmsgDiscard;
+        _cache = (_cache || []).filter(it => String(it.id) !== String(id));  // 낙관적 제거
         _renderFromCache();
         try { window.hapticLight && window.hapticLight(); } catch (_e2) { void _e2; }
+        _discardServer(id);
         return;
       }
+      // 카드 탭 → 실시간 DM 카드로 포커스
       const card = e.target.closest('[data-cmsg-sender]');
       if (card && document.getElementById('hv5Cmsg')) {
         e.preventDefault();
         const sender = card.dataset.cmsgSender;
         if (!sender) return;
-        _markRead(sender);              // 안읽음 점만 off (제거는 답장/X 때만)
-        _renderFromCache();
         try { window.hapticLight && window.hapticLight(); } catch (_e2) { void _e2; }
         _openReply(sender);
       }
     });
   }
 
-  // 카드 탭 → '실시간 DM' 카드 리스트에서 그 손님 카드로 포커스 (옛 풀 대화창 은퇴).
   function _openReply(sender) {
     if (typeof window.openDMCardForSender === 'function') {
       window.openDMCardForSender(sender);
@@ -332,17 +275,16 @@
     window.addEventListener('itdasy:data-changed', () => {
       if (document.getElementById('hv5Cmsg')) refresh();
     });
-    // 답장 전송 성공(검토 대기 인박스) → 해당 손님 카드 자동 제거.
-    //   이벤트는 sender 끝 4자(tail) 만 줄 수 있어 endsWith 로 매칭.
+    // 답장 전송/처리 성공 → 해당 손님 카드 즉시 제거(서버도 이미 pending 에서 빠짐).
     window.addEventListener('itdasy:dm-replied', (ev) => {
       const d = (ev && ev.detail) || {};
       const sid = d.sender_igsid || '';
       const tail = d.tail || '';
-      (_cache || []).forEach(c => {
-        if (!c || !c.sender_igsid) return;
-        if ((sid && c.sender_igsid === sid) || (tail && c.sender_igsid.endsWith(tail))) {
-          _dismiss(c.sender_igsid);
-        }
+      _cache = (_cache || []).filter(it => {
+        if (!it || !it.sender_igsid) return true;
+        if (sid && it.sender_igsid === sid) return false;
+        if (tail && it.sender_igsid.endsWith(tail)) return false;
+        return true;
       });
       _renderFromCache();
     });
