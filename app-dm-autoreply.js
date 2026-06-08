@@ -167,7 +167,7 @@
         <button type="button" class="dm-header__back" data-act="close" aria-label="닫기">
           <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
-        <div class="dm-header__title">DM 자동응답</div>
+        <div class="dm-header__title">DM 예약 양식 자동 전송</div>
         <button type="button" class="dm-header__action" data-act="save">저장</button>
       </div>`;
   }
@@ -200,15 +200,24 @@
     const on = igConnected && _settings?.enabled !== false;
     const dotCls = on ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
     const txt = igConnected
-      ? (on ? '자동응답 켜짐' : '자동응답 꺼짐')
+      ? (on ? '예약 양식 자동 전송 켜짐' : '예약 양식 자동 전송 꺼짐')
       : '인스타그램 연결 필요';
+    // [2026-06-10] 설명: 자동으로 나가는 건 예약 양식뿐
+    const desc = igConnected
+      ? (on
+        ? '예약 문의 오면 인사 멘트 + 양식을 자동으로 보내요. 나머지는 검토 후 전송.'
+        : '켜면 예약 문의에 양식을 자동 발송해요. 다른 자동 답장은 없어요.')
+      : '인스타 연동 후 사용할 수 있어요.';
     return `
       <div class="dm-activate" data-dm-activate>
         <div class="dm-activate__status">
           <div class="${dotCls}"></div>
-          <div class="dm-activate__status-text">${txt}</div>
+          <div style="flex:1;">
+            <div class="dm-activate__status-text">${txt}</div>
+            <div style="font-size:11px;color:var(--text-subtle,#8B95A1);margin-top:2px;word-break:keep-all;">${desc}</div>
+          </div>
           <button type="button" class="dm-toggle ${on ? 'is-on' : ''}${igConnected ? '' : ' is-disabled'}" data-act="enable-toggle"
-                  aria-pressed="${on}" aria-disabled="${!igConnected}" aria-label="DM 자동응답 켜기/끄기" style="margin-left:auto;">
+                  aria-pressed="${on}" aria-disabled="${!igConnected}" aria-label="예약 양식 자동 전송 켜기/끄기" style="margin-left:8px;flex-shrink:0;">
             <span class="dm-toggle__track"></span><span class="dm-toggle__knob"></span>
           </button>
         </div>
