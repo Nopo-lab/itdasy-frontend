@@ -144,6 +144,33 @@
     return slots.after_photo;
   }
 
+  // [S4-2] 슬롯 객체(focal/zoom 보장) — main_photo/after_photo/before_photo 공통 조정용.
+  function _imgSlot(key) {
+    const slots = _ctx && _ctx.state && _ctx.state.tplV2 && _ctx.state.tplV2.imageSlots;
+    if (!slots) return null;
+    if (!slots[key]) slots[key] = { src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 }, zoom: 1 };
+    if (!slots[key].focal) slots[key].focal = { x: 0.5, y: 0.5 };
+    if (slots[key].zoom == null) slots[key].zoom = 1;
+    return slots[key];
+  }
+
+  // [S4-2] 위치/확대 조정 블록 HTML — 미니 프리뷰(드래그=focal) + zoom 슬라이더 + 초기화.
+  function _slotAdjustHTML(slotKey, src) {
+    const s = _imgSlot(slotKey) || { focal: { x: 0.5, y: 0.5 }, zoom: 1 };
+    const fx = (s.focal && s.focal.x) || 0.5, fy = (s.focal && s.focal.y) || 0.5, z = s.zoom || 1;
+    const prevStyle = 'touch-action:none;width:100%;max-width:160px;aspect-ratio:4/5;border-radius:10px;overflow:hidden;cursor:grab;'
+      + 'background-repeat:no-repeat;background-color:#eee;'
+      + `background-image:url('${_esc(src || '')}');background-size:${(z * 100).toFixed(0)}% auto;background-position:${(fx * 100).toFixed(1)}% ${(fy * 100).toFixed(1)}%;`;
+    return `<div class="pe-tpl-edit-adjust" data-slot-adjust="${_esc(slotKey)}" style="margin-top:8px;display:flex;gap:10px;align-items:center;">
+      <div class="pe-tpl-edit-adjust-prev" data-adjust-prev style="${prevStyle}"></div>
+      <div class="pe-tpl-edit-adjust-ctrl" style="flex:1;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#6b7684;">
+        <span>위치는 드래그, 확대는 슬라이더</span>
+        <input type="range" min="1" max="3" step="0.05" value="${z}" data-adjust-zoom aria-label="확대" style="width:100%;" />
+        <button type="button" data-adjust-reset style="align-self:flex-start;padding:4px 10px;border:0.5px solid #E5E8EB;border-radius:8px;background:#fff;color:#4E5968;cursor:pointer;">초기화</button>
+      </div>
+    </div>`;
+  }
+
   function _mainSlotHTML(slot) {
     const main = _mainSlot();
     const has = !!(main && main.src);
@@ -162,6 +189,7 @@
       </div>
       <input type="file" accept="image/*" data-img-input hidden>
       <p class="pe-tpl-edit-imghint" data-main-img-hint>${stateText}</p>
+      ${has ? _slotAdjustHTML('main_photo', main.src) : ''}
     </div>`;
   }
 
@@ -183,6 +211,7 @@
       </div>
       <input type="file" accept="image/*" data-img-input hidden>
       <p class="pe-tpl-edit-imghint" data-after-img-hint>${stateText}</p>
+      ${has ? _slotAdjustHTML('after_photo', after.src) : ''}
     </div>`;
   }
 
@@ -232,6 +261,7 @@
       </div>
       <input type="file" accept="image/*" data-img-input hidden>
       <p class="pe-tpl-edit-imghint">시술 전 사진을 넣으면 전후가 완성돼요. (시술 후는 현재 편집 사진)</p>
+      ${has ? _slotAdjustHTML('before_photo', (img && img.src) || '') : ''}
     </div>`;
   }
 
@@ -255,7 +285,29 @@
     _el.querySelectorAll('[data-img-slot="after"]').forEach(_bindAfterImgSlot);
   }
 
+  // [S4-2] 위치(드래그=focal)/확대(슬라이더=zoom)/초기화 바인딩. 값은 slot 에 저장 → _schedule(즉시 redraw).
+  function _bindSlotAdjust(box, slotKey) {
+    const wrap = box.querySelector('[data-slot-adjust]'); if (!wrap) return;
+    const prev = wrap.querySelector('[data-adjust-prev]');
+    const zoomEl = wrap.querySelector('[data-adjust-zoom]');
+    const resetEl = wrap.querySelector('[data-adjust-reset]');
+    const slot = _imgSlot(slotKey); if (!slot) return;
+    const sync = () => { if (!prev) return; const z = slot.zoom || 1; prev.style.backgroundSize = (z * 100).toFixed(0) + '% auto'; prev.style.backgroundPosition = (slot.focal.x * 100).toFixed(1) + '% ' + (slot.focal.y * 100).toFixed(1) + '%'; };
+    const pushH = () => { try { if (_ctx.helpers && _ctx.helpers.pushHistory) _ctx.helpers.pushHistory(); } catch (_e) { /* ignore */ } };
+    let drag = null;
+    if (prev) {
+      prev.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, fx: slot.focal.x, fy: slot.focal.y, w: prev.clientWidth || 1, h: prev.clientHeight || 1 }; try { prev.setPointerCapture(e.pointerId); } catch (_e) { /* ignore */ } prev.style.cursor = 'grabbing'; });
+      prev.addEventListener('pointermove', (e) => { if (!drag) return; e.preventDefault(); slot.focal = { x: Math.max(0, Math.min(1, drag.fx + (e.clientX - drag.x) / drag.w)), y: Math.max(0, Math.min(1, drag.fy + (e.clientY - drag.y) / drag.h)) }; sync(); _schedule(); });
+      const end = () => { if (!drag) return; drag = null; prev.style.cursor = 'grab'; pushH(); };
+      prev.addEventListener('pointerup', end); prev.addEventListener('pointercancel', end);
+    }
+    if (zoomEl) zoomEl.addEventListener('input', () => { slot.zoom = parseFloat(zoomEl.value) || 1; sync(); _schedule(); });
+    if (zoomEl) zoomEl.addEventListener('change', pushH);
+    if (resetEl) resetEl.addEventListener('click', () => { slot.focal = { x: 0.5, y: 0.5 }; slot.zoom = 1; if (zoomEl) zoomEl.value = '1'; sync(); _schedule(); pushH(); });
+  }
+
   function _bindMainImgSlot(box) {
+    _bindSlotAdjust(box, 'main_photo');
     const input = box.querySelector('[data-img-input]');
     box.querySelector('[data-img-pick]')?.addEventListener('click', () => input && input.click());
     box.querySelector('[data-img-clear]')?.addEventListener('click', () => _setMainPhoto(''));
@@ -332,6 +384,7 @@
   }
 
   function _bindAfterImgSlot(box) {
+    _bindSlotAdjust(box, 'after_photo');
     const input = box.querySelector('[data-img-input]');
     box.querySelector('[data-img-pick]')?.addEventListener('click', () => input && input.click());
     box.querySelector('[data-img-clear]')?.addEventListener('click', () => _setAfterPhoto(''));
@@ -384,6 +437,7 @@
 
   // [S3a] before 슬롯 바인딩
   function _bindImgSlot(box) {
+    _bindSlotAdjust(box, 'before_photo');
     const input = box.querySelector('[data-img-input]');
     box.querySelector('[data-img-pick]')?.addEventListener('click', () => input && input.click());
     box.querySelector('[data-img-clear]')?.addEventListener('click', () => _setBefore(null));
