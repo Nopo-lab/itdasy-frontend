@@ -450,16 +450,17 @@
 .dm-field__input::placeholder { color: var(--text-subtle); }
 .dm-field__input:focus { border-color: var(--border-strong); }
 .dm-field__suffix {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  position: relative;
 }
-.dm-field__suffix .dm-field__input { flex: 1; min-width: 0; }
+.dm-field__input--unit { padding-right: 34px; }
 .dm-field__unit {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-  flex: 0 0 auto;
+  color: var(--text-subtle);
+  pointer-events: none;
 }
 
 /* ── DM inbox ───────────────────────────────────────────── */

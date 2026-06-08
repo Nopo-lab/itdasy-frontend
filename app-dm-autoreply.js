@@ -367,7 +367,7 @@
         <div class="dm-field">
           <label class="dm-field__label">예약금 금액</label>
           <div class="dm-field__suffix">
-            <input type="number" inputmode="numeric" class="dm-field__input" data-field="deposit-amount"
+            <input type="number" inputmode="numeric" class="dm-field__input dm-field__input--unit" data-field="deposit-amount"
               value="${amt}" placeholder="예: 20000" min="0">
             <span class="dm-field__unit">원</span>
           </div>
