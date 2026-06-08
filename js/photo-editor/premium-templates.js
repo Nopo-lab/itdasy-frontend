@@ -67,6 +67,10 @@
     'v3-ba-clean-rose':   ['baCompose',  'BEFORE / AFTER', '시술 전후',        '한 눈에 비교해보세요. 달라진 아름다움의 차이'],
     'v3-ba-clean-blue':   ['baCompose',  'BEFORE / AFTER', '시술 전후',        '맑고 환한 피부 변화를 경험해보세요.'],
     'v3-ba-sns-pink':     ['baCompose',  'BEFORE / AFTER', '시술 전후',        '달라진 모습을 눈으로 확인해보세요!'],
+    // [BP-2] 뷰티 팩 TOP3 — 렌더 경로 'beautyPack'(window.PhotoEditorBeautyPack 로 위임). 갤러리 미노출(apply-only).
+    'bp-price-blackgold':  ['beautyPack', 'PREMIUM CARE',   '프리미엄 케어 프로그램', '고객 맞춤 집중 관리'],
+    'bp-ba-nail-polaroid': ['beautyPack', 'BEFORE / AFTER', '네일 전후 변화',     '손끝 분위기가 달라지는 순간'],
+    'bp-review-lash-blue': ['beautyPack', 'REAL REVIEW',    '속눈썹 후기',        '또렷하고 자연스러운 눈매 변화'],
   };
 
   const PAL = {
@@ -175,6 +179,11 @@
       mainFocal: mainSlot && mainSlot.focal, mainZoom: mainSlot && mainSlot.zoom };
     if (meta[0] === 'baCompose' && window.PhotoEditorBACompose) {
       window.PhotoEditorBACompose.draw(ctx, dw, dh, state, tpl, data);
+      return true;
+    }
+    // [BP-2] 뷰티 팩 위임 — 신규 id에서만 진입. 기존 경로(_draw/baCompose) 무회귀.
+    if (meta[0] === 'beautyPack' && window.PhotoEditorBeautyPack) {
+      window.PhotoEditorBeautyPack.draw(ctx, dw, dh, state, tpl, data);
       return true;
     }
     _draw(ctx, dw, dh, data);
