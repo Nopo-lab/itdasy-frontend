@@ -360,9 +360,9 @@
         <textarea class="dm-ban" data-field="booking-form" rows="5"
           placeholder="손님이 예약 문의하면 보낼 양식을 적어두세요.&#10;예) 아래 양식으로 보내주시면 예약 도와드릴게요 :)&#10;1. 성함 / 연락처&#10;2. 희망 시술&#10;3. 희망 날짜·시간&#10;4. 예약금 입금 후 확정">${form}</textarea>
         <div class="dm-field">
-          <label class="dm-field__label">예약금 계좌</label>
+          <label class="dm-field__label">예약금 계좌 (은행·예금주 포함)</label>
           <input type="text" class="dm-field__input" data-field="deposit-account"
-            value="${acct}" placeholder="예: 카카오뱅크 3333-00-000000 홍길동">
+            value="${acct}" placeholder="예: 카카오뱅크 3333-00-000000 박수민">
         </div>
         <div class="dm-field">
           <label class="dm-field__label">예약금 금액</label>
