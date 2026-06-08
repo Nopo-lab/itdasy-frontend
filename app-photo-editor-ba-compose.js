@@ -122,6 +122,8 @@
     if (id === 'ba-4grid') return _grid(ctx, w, h, before, after, data);
     // [HF2] v3 clean BA — palette + id 가드(legacy 무회귀)
     if (data && data.palette && /^v3-ba-clean-/.test(id)) return _v3BAClean(ctx, w, h, before, after, id, data);
+    // [HF3] v3 sns pink BA — SNS 감성(폴라로이드/하트/스파클)
+    if (data && data.palette && id === 'v3-ba-sns-pink') return _v3BASns(ctx, w, h, before, after, id, data);
     // v326 BA 12종 시리즈 — 스타일 suffix 로 기존 함수 라우팅
     if (typeof id === 'string' && /^ba-(hair|nail|lash|skin)-/.test(id)) {
       if (/-cream$/.test(id))    return _flowerShadow(ctx, w, h, before, after, data);
@@ -204,6 +206,62 @@
       const cw = w * 0.46, ch = h * 0.05, cx = w / 2 - cw / 2, cy = h * 0.89;
       _rr(ctx, cx, cy, cw, ch, ch / 2); ctx.fillStyle = accent; ctx.fill();
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `800 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, data.cta, cw * 0.85), w / 2, cy + ch * 0.64);
+    }
+  }
+
+  // [HF3] 유니코드 글리프 데코(♥/✦ — 이모지 아님, 단색 글리프)
+  function _glyph(ctx, ch, cx, cy, size, color, alpha) {
+    ctx.save(); ctx.globalAlpha = alpha == null ? 1 : alpha; ctx.fillStyle = color;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = `${Math.round(size)}px sans-serif`;
+    ctx.fillText(ch, cx, cy); ctx.restore();
+  }
+  // [HF3] 회전 폴라로이드
+  function _rotPolaroid(ctx, img, x, y, w, h, rad, label, kor, before) {
+    ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rad);
+    _polaroidPhoto(ctx, img, -w / 2, -h / 2, w, h, label, kor, before);
+    ctx.restore();
+  }
+
+  // [HF3] v3 sns pink — 폴라로이드 2장 + 하트/스파클 + 손글씨 라벨. 핑크/크림 SNS 감성.
+  function _v3BASns(ctx, w, h, before, after, id, data) {
+    const ink = _pbg(data, 'ink') || '#3F2C32';
+    const sub = _pbg(data, 'sub') || '#A2868E';
+    const accent = _pbg(data, 'accent') || '#F24E86';
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center';
+    // 헤더
+    let y = h * 0.08;
+    if (data.shop) { ctx.fillStyle = accent; ctx.font = `800 ${Math.round(h * 0.017)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, String(data.shop).toUpperCase(), w * 0.7), w / 2, y); y += h * 0.042; }
+    ctx.fillStyle = ink; ctx.font = `800 ${Math.round(h * 0.046)}px "Noto Serif KR", serif`;
+    const head = _clipBA(ctx, data.head || '시술 전후', w * 0.7);
+    ctx.fillText(head, w / 2, y);
+    const hw = ctx.measureText(head).width;
+    _glyph(ctx, '♥', w / 2 + hw / 2 + w * 0.045, y - h * 0.014, h * 0.034, accent, 0.95);   // 헤드 옆 하트
+    _glyph(ctx, '✦', w / 2 - hw / 2 - w * 0.04, y - h * 0.02, h * 0.026, accent, 0.7);
+    y += h * 0.03;
+    if (data.sub) { ctx.fillStyle = sub; ctx.font = `500 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`; ctx.fillText(_clipBA(ctx, data.sub, w * 0.78), w / 2, y); }
+    // 폴라로이드 2장(살짝 회전)
+    const pw = w * 0.42, ph = h * 0.40, topY = h * 0.24;
+    _rotPolaroid(ctx, before, w * 0.05, topY, pw, ph, -0.055, (data.beforeLabel || 'Before'), '시술전', true);
+    _rotPolaroid(ctx, after, w * 0.53, topY, pw, ph, 0.055, (data.afterLabel || 'After'), '시술후', false);
+    // 스파클/하트 데코
+    _glyph(ctx, '✦', w * 0.5, topY + ph * 0.2, h * 0.03, accent, 0.85);
+    _glyph(ctx, '♥', w * 0.5, topY + ph * 0.75, h * 0.026, accent, 0.8);
+    _glyph(ctx, '✦', w * 0.92, topY + ph * 0.5, h * 0.022, accent, 0.5);
+    _glyph(ctx, '✦', w * 0.06, topY + ph * 0.9, h * 0.02, accent, 0.45);
+    // caption (폴라로이드 아래)
+    const capY = topY + ph + h * 0.05;
+    if (data.beforeCap || data.afterCap) {
+      ctx.fillStyle = ink; ctx.font = `600 ${Math.round(h * 0.018)}px "Noto Sans KR", sans-serif`;
+      if (data.beforeCap) ctx.fillText(_clipBA(ctx, data.beforeCap, w * 0.42), w * 0.26, capY);
+      if (data.afterCap) ctx.fillText(_clipBA(ctx, data.afterCap, w * 0.42), w * 0.74, capY);
+    }
+    // CTA pill
+    if (data.cta) {
+      const cw = w * 0.5, ch = h * 0.052, cx = w / 2 - cw / 2, cy = h * 0.88;
+      _rr(ctx, cx, cy, cw, ch, ch / 2); ctx.fillStyle = accent; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `800 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(_clipBA(ctx, data.cta, cw * 0.85), w / 2, cy + ch * 0.64);
+      _glyph(ctx, '♥', cx + cw + w * 0.03, cy + ch / 2, h * 0.024, accent, 0.8);
     }
   }
 

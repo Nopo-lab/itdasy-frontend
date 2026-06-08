@@ -231,7 +231,7 @@
   function _flagShowLegacy() { try { return window.PE_TPL_SHOW_LEGACY === true; } catch (_e) { return false; } }
   // [V3-HF0] 기본 노출 보류 목록 — 데이터/조회(lookupById·v3ById)·렌더는 유지, visible 에서만 제외.
   //   v3-ba-sns-pink: SNS 감성 미흡 → HOTFIX-3 재작업 후 복귀. 삭제 아님(직접/저장본 조회·적용 가능).
-  const V3_HIDDEN = ['v3-ba-sns-pink'];
+  const V3_HIDDEN = [];   // [HF3] v3-ba-sns-pink SNS 감성 재작업 완료 → 기본 노출 복귀
   function _v3Visible() { return V3_TOP5.filter(function (t) { return V3_HIDDEN.indexOf(t.id) === -1; }); }
   function visibleTemplates() {
     if (!_flagV3Default()) return TEMPLATES.slice();                 // 롤백 → 기존 55종
