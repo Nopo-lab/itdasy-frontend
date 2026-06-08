@@ -129,6 +129,13 @@
     out.prefer_template_first = Boolean(out.prefer_template_first);
     if (!Array.isArray(out.blocked_keywords)) out.blocked_keywords = [];
     if (!Array.isArray(out.sample_replies)) out.sample_replies = [];
+    // [2026-06-09] 예약 양식 + 예약금 타입 방어
+    out.booking_form = typeof out.booking_form === 'string' ? out.booking_form : '';
+    out.deposit_account = typeof out.deposit_account === 'string' ? out.deposit_account : '';
+    if (out.deposit_amount != null) {
+      const n = parseInt(out.deposit_amount, 10);
+      out.deposit_amount = (Number.isFinite(n) && n > 0) ? n : null;
+    }
     return out;
   }
 
@@ -338,6 +345,33 @@
       <div class="dm-section">
         <div class="dm-section__title">금지어 <span class="dm-section__help">쉼표로 구분</span></div>
         <textarea class="dm-ban" data-field="ban" placeholder="이 단어가 들어오면 사람이 직접 답장해요">${txt}</textarea>
+      </div>`;
+  }
+
+  // [2026-06-09] 예약 양식 + 예약금 계좌/금액 — 원장이 직접 작성(예시 하드코딩 금지).
+  //   placeholder 는 회색 안내일 뿐 저장값에 안 섞임(.value 만 읽음). 빈 값으로 시작.
+  function _renderBooking(settings) {
+    const form = _esc(settings.booking_form || '');
+    const acct = _esc(settings.deposit_account || '');
+    const amt = (settings.deposit_amount != null && settings.deposit_amount > 0) ? settings.deposit_amount : '';
+    return `
+      <div class="dm-section">
+        <div class="dm-section__title">예약 양식 <span class="dm-section__help">예약 문의 시 보낼 안내</span></div>
+        <textarea class="dm-ban" data-field="booking-form" rows="5"
+          placeholder="손님이 예약 문의하면 보낼 양식을 적어두세요.&#10;예) 아래 양식으로 보내주시면 예약 도와드릴게요 :)&#10;1. 성함 / 연락처&#10;2. 희망 시술&#10;3. 희망 날짜·시간&#10;4. 예약금 입금 후 확정">${form}</textarea>
+        <div class="dm-rows" style="margin-top:10px;">
+          <div class="dm-rows__item">
+            <div class="dm-rows__label">예약금 계좌</div>
+            <input type="text" class="dm-time__input" style="flex:1;min-width:0;text-align:left;"
+              data-field="deposit-account" value="${acct}" placeholder="예: 카카오뱅크 3333-00-000000 홍길동">
+          </div>
+          <div class="dm-rows__item">
+            <div class="dm-rows__label">예약금 금액</div>
+            <input type="number" inputmode="numeric" class="dm-time__input" style="width:140px;text-align:left;"
+              data-field="deposit-amount" value="${amt}" placeholder="예: 20000" min="0">
+            <span class="dm-rows__value">원</span>
+          </div>
+        </div>
       </div>`;
   }
 
@@ -1019,6 +1053,17 @@
       const arr = String(e.target.value || '').split(',').map(s => s.trim()).filter(Boolean);
       _saveSettings({ blocked_keywords: arr });
     });
+    // [2026-06-09] 예약 양식 + 예약금 — blur 시 저장 (placeholder 는 .value 에 안 들어감)
+    sheet.querySelector('[data-field="booking-form"]')?.addEventListener('blur', (e) => {
+      _saveSettings({ booking_form: String(e.target.value || '').trim() });
+    });
+    sheet.querySelector('[data-field="deposit-account"]')?.addEventListener('blur', (e) => {
+      _saveSettings({ deposit_account: String(e.target.value || '').trim() });
+    });
+    sheet.querySelector('[data-field="deposit-amount"]')?.addEventListener('blur', (e) => {
+      const n = parseInt(String(e.target.value || '').replace(/[^0-9]/g, ''), 10);
+      _saveSettings({ deposit_amount: (Number.isFinite(n) && n > 0) ? n : null });
+    });
   }
 
   function _bindHeader(sheet) {
@@ -1250,6 +1295,7 @@
         ${_renderPersona()}
         ${_renderTone(_settings)}
         ${_renderHours(_settings)}
+        ${_renderBooking(_settings)}
         ${_renderBan(_settings)}
         ${_renderAdvanced(_settings)}
         ${_renderRetention()}
