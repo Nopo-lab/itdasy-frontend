@@ -449,15 +449,26 @@
   }
 
   // [2026-06-08] 특정 손님 카드로 진입 — 홈 고객메시지 / 옛 스레드 진입점 통합.
-  //   초안 없으면 draft 엔드포인트로 pending 생성 후, 카드 리스트 열고 해당 카드로 스크롤·강조.
+  //   open() 먼저 → 스켈레톤 즉시 표시. 카드가 이미 큐에 있으면 draft 재생성 스킵.
   async function openForSender(sender) {
     if (!sender) return open();
-    try {
-      const headers = window.authHeader ? window.authHeader() : {};
-      headers['Content-Type'] = 'application/json';
-      await apiFetch(`/instagram/dm-reply/conversations/${encodeURIComponent(sender)}/draft`, { method: 'POST', headers });
-    } catch (_e) { /* 이미 카드 있으면 그대로 */ }
+    // 1. 화면 먼저 열기 (스켈레톤/기존 카드 즉시 표시)
     await open();
+    // 2. 카드가 이미 리스트에 있으면 draft 호출 스킵
+    const _list = document.getElementById('dcqList');
+    const _tail = String(sender).slice(-4);
+    let _existing = null;
+    try { _existing = _list && _list.querySelector(`[data-sender="${(window.CSS && CSS.escape) ? CSS.escape(sender) : sender}"]`); } catch (_e) { /* ignore */ }
+    if (!_existing) _existing = _list && _list.querySelector(`[data-tail="${_tail}"]`);
+    if (!_existing) {
+      // 카드 없을 때만 백그라운드 draft 생성 후 배지·리스트 갱신
+      const _h = window.authHeader ? window.authHeader() : {};
+      _h['Content-Type'] = 'application/json';
+      apiFetch(`/instagram/dm-reply/conversations/${encodeURIComponent(sender)}/draft`, { method: 'POST', headers: _h })
+        .then(() => { refreshBadge(); return _refresh(); })
+        .catch(() => {});
+    }
+    // 3. 스크롤·하이라이트 (기존 그대로)
     setTimeout(() => {
       const list = document.getElementById('dcqList');
       if (!list) return;
