@@ -241,7 +241,14 @@
   // [V3-HF0] 기본 노출 보류 목록 — 데이터/조회(lookupById·v3ById)·렌더는 유지, visible 에서만 제외.
   //   v3-ba-sns-pink: SNS 감성 미흡 → HOTFIX-3 재작업 후 복귀. 삭제 아님(직접/저장본 조회·적용 가능).
   const V3_HIDDEN = [];   // [HF3] v3-ba-sns-pink SNS 감성 재작업 완료 → 기본 노출 복귀
-  function _v3Visible() { return V3_TOP5.filter(function (t) { return V3_HIDDEN.indexOf(t.id) === -1; }); }
+  // [BP-4] 뷰티 팩 갤러리 노출 플래그(기본 노출). false → 갤러리에서만 숨김(lookup/apply 는 유지=apply-only 복귀).
+  //   마스터 PE_BEAUTY_PACK=false 면 BEAUTY_PACK=[] 라 여기서도 자동 제외(완전 비활성).
+  function _flagBeautyVisible() { try { return window.PE_BEAUTY_PACK_VISIBLE !== false; } catch (_e) { return true; } }
+  function _v3Visible() {
+    var vis = V3_TOP5.filter(function (t) { return V3_HIDDEN.indexOf(t.id) === -1; });
+    if (_flagBeautyVisible() && BEAUTY_PACK.length) vis = vis.concat(BEAUTY_PACK);   // [BP-4] TOP5 + beauty 노출
+    return vis;
+  }
   function visibleTemplates() {
     if (!_flagV3Default()) return TEMPLATES.slice();                 // 롤백 → 기존 55종
     return _flagShowLegacy() ? _v3Visible().concat(TEMPLATES) : _v3Visible().slice();

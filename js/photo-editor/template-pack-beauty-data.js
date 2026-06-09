@@ -20,8 +20,8 @@
 
   var TEMPLATES = [
     {
-      id: 'bp-price-blackgold', cat: 'price', tier: 'pro',
-      label: '가격표 · 블랙골드 프리미엄', kind: 'price', industry: 'skin',
+      id: 'bp-price-blackgold', cat: 'price', tier: 'free',
+      label: '가격표 · 블랙골드 프리미엄', kind: 'price', purpose: 'price', industry: 'skin',
       accent: 'gold', prefillText: 'PREMIUM CARE', ratio: '4:5',
       palette: { bg: '#14110E', ink: '#F3E9D6', sub: '#B9A98C', accent: '#C9A24B', line: '#3A3024', badge: '#C9A24B' },
       previewMeta: { decor: ['gold-emblem', 'diamond-divider', 'ribbon-badge', 'gold-pill', 'light-streak'], photoSlots: ['main'] },
@@ -40,7 +40,7 @@
     },
     {
       id: 'bp-ba-nail-polaroid', cat: 'ba', tier: 'free',
-      label: '시술 전후 · 네일 SNS 폴라로이드', kind: 'before_after', industry: 'nail',
+      label: '시술 전후 · 네일 SNS 폴라로이드', kind: 'before_after', purpose: 'before_after', industry: 'nail',
       accent: 'primary', prefillText: 'Before & After', ratio: '4:5',
       palette: { bg: '#FCDDE9', ink: '#4A3B3B', sub: '#9B7E86', accent: '#F2789F', line: '#F6D3DD', badge: '#EC4E86' },
       previewMeta: { decor: ['watercolor', 'sparkle', 'heart', 'polaroid', 'washi-tape', 'paperclip', 'torn-paper'], photoSlots: ['before', 'after'] },
@@ -54,7 +54,7 @@
     },
     {
       id: 'bp-review-lash-blue', cat: 'card', tier: 'free',
-      label: '후기 · 속눈썹 블루 카드', kind: 'review', industry: 'lash',
+      label: '후기 · 속눈썹 블루 카드', kind: 'review', purpose: 'review', industry: 'lash',
       accent: 'primary', prefillText: 'REAL REVIEW', ratio: '4:5',
       palette: { bg: '#EAF1F8', ink: '#4E6E8E', sub: '#8A98A8', accent: '#6E93B4', line: '#DCE6F0', badge: '#6E93B4' },
       previewMeta: { decor: ['watercolor-flower', 'sparkle', 'soft-card', 'quote', 'stars', 'line-icon'], photoSlots: ['main'] },
