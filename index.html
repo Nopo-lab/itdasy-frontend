@@ -41,7 +41,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 스튜디오</title>
 <script>
-window.__LATEST_BUILD__ = '20260609-v426-storage-default-template';
+window.__LATEST_BUILD__ = '20260609-v427-template-import-ocr';
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -117,6 +117,8 @@ window.__LATEST_BUILD__ = '20260609-v426-storage-default-template';
 <link rel="stylesheet" href="css/screens/photo-editor-template-gallery.css?v=20260609-v426-storage-default-template">
 <!-- [PR-S2 2026-06-06] 템플릿 문구 편집 하단 시트 -->
 <link rel="stylesheet" href="css/screens/photo-editor-template-edit-sheet.css?v=20260607-s3b1-main-photo">
+<!-- [P1-B 2026-06-09] 외부 가격표·홍보물 OCR 가져오기 시트 -->
+<link rel="stylesheet" href="css/screens/template-import.css?v=20260609-v427-template-import-ocr">
 <!-- [v235 2026-05-20] 사진편집 진입 화면 v6 (Meitu grammar + 친구 톤) -->
 <link rel="stylesheet" href="css/screens/photo-editor-entry-v6.css?v=20260520-v243-photo-editor-cache-bust">
 <link rel="stylesheet" href="css/screens/photo-editor-presets.css?v=20260528-v328-ba-overlay-fix">
@@ -2189,6 +2191,8 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-sheet-anim.js" defer></script>
 <!-- [2026-04-30] 가격표 사진 업로드 → ServiceTemplate 일괄 등록 -->
 <script src="app-pricelist.js" defer></script>
+<!-- [P1-B 2026-06-09] 외부 가격표·홍보물 이미지 OCR → 우리 editable 템플릿 재구성 (/templates/extract-ocr) -->
+<script src="app-template-import.js?v=20260609-v427-template-import-ocr" defer></script>
 <!-- [2026-04-30] 챗봇 영구 메모 + 사장님 프로필 (A1+A4) -->
 <script src="app-assistant-facts.js" defer></script>
 <!-- [2026-04-30] 스마트 캡처 — 카톡 자동 임포트 (E3) + 명함 OCR (E4) -->
