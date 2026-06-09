@@ -280,6 +280,20 @@
     return (bp && _tplExists(bp)) ? bp : fallbackId;
   }
 
+  // [기본] 우선순위: ①문장 명시(미지원·향후 훅) → ②purpose별 사용자 지정 기본 → ③matcher+bp 승격 → ④시스템 fallback.
+  //   기본 id 가 미등록이거나 purpose 불일치면 무시하고 기존 _bpUpgrade 흐름. 보관함/최근은 반영 안 함(자동적용 예측가능성).
+  function _resolveTemplateId(purpose, industry, fallbackId) {
+    try {
+      var LIB = window.PhotoEditorTemplateLibrary;
+      var def = (LIB && typeof LIB.getDefault === 'function') ? LIB.getDefault(purpose) : '';
+      if (def) {
+        var data = _tplDataById(def);
+        if (data && data.purpose === purpose) return def;   // 존재 + purpose 일치만
+      }
+    } catch (_e) { void 0; }
+    return _bpUpgrade(purpose, industry, fallbackId);
+  }
+
   function handleBeforeAfterCard(text, ctx, opts) {
     var ph = _resolveBaPhotos(opts);
     if (ph.needsPhoto) return { needsPhoto: true };
@@ -317,7 +331,7 @@
     var hadPhoto = !!photoUrl;
     if (!photoUrl) photoUrl = _solidBase();
     if (!photoUrl) return null;
-    var tpl = _bpUpgrade('review', payload.industry, payload.templateId || REVIEW_TPL_ID);   // [P0-A]
+    var tpl = _resolveTemplateId('review', payload.industry, payload.templateId || REVIEW_TPL_ID);   // [기본] 사용자 지정 우선
     var state = _runAutoApply(
       tpl, photoUrl,
       function (base) { return Object.assign({}, base, slots); },   // 샘플 slotValues 를 템플릿 base 위에 덮음
@@ -339,7 +353,7 @@
   function _applySampleBA(payload, slots, opts) {
     var ph = _resolveBaPhotos(opts);
     if (ph.needsPhoto) return { needsPhoto: true };
-    var tpl = _bpUpgrade('before_after', payload.industry, payload.templateId || BA_TPL_DEFAULT);   // [P0-A]
+    var tpl = _resolveTemplateId('before_after', payload.industry, payload.templateId || BA_TPL_DEFAULT);   // [기본] 사용자 지정 우선
     var state = _runAutoApply(
       tpl, ph.afterUrl,
       function (base) { return Object.assign({}, base, slots); },

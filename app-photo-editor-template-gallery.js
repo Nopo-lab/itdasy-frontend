@@ -35,6 +35,14 @@
 
   const _SEARCH_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>';
   const _BMK_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+  const _STAR_SVG = '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>';
+  // 잇비 자동적용 기본 지정 가능한 purpose 3종 (보관함/최근은 자동적용 미반영).
+  const DEFAULT_PURPOSES = ['price', 'review', 'before_after'];
+  function _defaultIdFor(purpose) {
+    const lib = _LIB();
+    if (!lib || typeof lib.getDefault !== 'function' || DEFAULT_PURPOSES.indexOf(purpose) === -1) return '';
+    return lib.getDefault(purpose) || '';
+  }
 
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
@@ -222,12 +230,14 @@
     const catL = (MD.CATS.find(c => c.id === t.cat) || {}).label || '';
     const sub = [(t.industry && t.industry !== 'common') ? ind : '', catL].filter(Boolean).join(' · ');
     const fav = _LIB() && _LIB().isFav(t.id);
+    const isDefault = _defaultIdFor(t.purpose) === t.id && !!t.id;
     const sel = (t.id === _selectedId) ? ' is-selected' : '';
     return `<button type="button" class="pe-tplg-card${sel}" data-pe-tplg-id="${_esc(t.id)}">
       <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}">
         <span class="pe-tplg-badge">${_esc(badge)}</span>
         ${/^bp-/.test(t.id) ? '<span class="pe-tplg-premium" style="position:absolute;top:8px;left:8px;z-index:3;background:linear-gradient(135deg,#E7CE8C,#C9A24B);color:#1B140A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.4px;box-shadow:0 1px 4px rgba(0,0,0,.18);">프리미엄</span>' : ''}
         ${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}
+        ${isDefault ? `<span class="pe-tplg-default-badge" aria-label="${_esc(SHORT_PURPOSE[t.purpose] || '')} 기본 템플릿">${_STAR_SVG}기본</span>` : ''}
         <span class="pe-tplg-bmk${fav ? ' on' : ''}" data-pe-tplg-bmk="${_esc(t.id)}" role="button" aria-label="보관함">${_BMK_SVG}</span>
       </div>
       <div class="pe-tplg-card-title">${_esc(t.label)}</div>
@@ -255,6 +265,9 @@
     const cat = MD.CATS.find(c => c.id === t.cat) || { ratio: '4:5', label: '' };
     const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
     const applied = state && state.tplV2 && state.tplV2.id === t.id;
+    const canDefault = DEFAULT_PURPOSES.indexOf(t.purpose) !== -1;
+    const isDefault = canDefault && _defaultIdFor(t.purpose) === t.id;
+    const purposeLabel = SHORT_PURPOSE[t.purpose] || '';
     return `<div class="pe-tplg-preview-inner">
       <div class="pe-tplg-preview-canvas" style="aspect-ratio:${ar};${url ? `background-image:url(${url});` : ''}"></div>
       <div class="pe-tplg-preview-meta"><strong>${_esc(t.label)}</strong>${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}</div>
@@ -262,6 +275,7 @@
         <button type="button" class="pe-tplg-primary" data-pe-tplg-apply="${_esc(t.id)}">${applied ? '적용됨 ✓' : (isFree ? '이 템플릿 적용' : 'Pro로 적용')}</button>
         <button type="button" class="pe-tplg-secondary" data-pe-tplg-all>전체 템플릿 보기</button>
       </div>
+      ${canDefault ? `<button type="button" class="pe-tplg-default-toggle${isDefault ? ' on' : ''}" data-pe-tplg-default="${_esc(t.id)}" data-pe-tplg-default-purpose="${_esc(t.purpose)}">${_STAR_SVG}${isDefault ? `${_esc(purposeLabel)} 기본 해제` : `${_esc(purposeLabel)} 기본으로 지정`}</button>` : ''}
       <button type="button" class="pe-tplg-edit" data-pe-tplg-text-edit="${_esc(t.id)}">문구 편집</button>
     </div>`;
   }
@@ -378,6 +392,24 @@
       _showAll = true; _query = '';
       const si = panel.querySelector('[data-pe-tplg-search]'); if (si) si.value = '';
       _renderGrid(panel, state);
+    });
+    // [기본] purpose 별 기본 템플릿 지정/해제 — 잇비 자동적용이 이 템플릿을 최우선으로 사용.
+    panel.querySelector('[data-pe-tplg-default]')?.addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      const id = btn.dataset.peTplgDefault;
+      const purpose = btn.dataset.peTplgDefaultPurpose;
+      const lib = _LIB();
+      if (!lib || typeof lib.setDefault !== 'function' || !id || !purpose) return;
+      const label = SHORT_PURPOSE[purpose] || '';
+      if (lib.getDefault(purpose) === id) {
+        lib.clearDefault(purpose);
+        _toast(`${label} 기본 지정을 해제했어요`);
+      } else {
+        lib.setDefault(purpose, id);
+        _toast(`잇비가 ${label}를 만들 때 이 템플릿을 써요`);
+      }
+      _renderPreview(panel, state);   // 버튼 라벨 갱신
+      _renderGrid(panel, state);      // 카드 "기본" 배지 갱신
     });
     // [S2] 문구 편집 — apply-first(WYSIWYG): 먼저 적용(무료) 또는 게이트(PRO 미결제) → 시트 오픈.
     panel.querySelector('[data-pe-tplg-text-edit]')?.addEventListener('click', (e) => {

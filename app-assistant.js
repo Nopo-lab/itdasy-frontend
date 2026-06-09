@@ -1929,6 +1929,12 @@
       // [P0-A] 가격표 자동적용 기본을 프리미엄팩으로 우선. 미등록/렌더불가면 payload(v3) 유지.
       let tplId = payload.templateId;
       if (_priceTemplateById('bp-price-blackgold')) tplId = 'bp-price-blackgold';
+      // [기본] 사용자가 지정한 가격표 기본이 최우선(존재+purpose 일치 시). 보관함/최근은 미반영.
+      try {
+        const LIB = window.PhotoEditorTemplateLibrary;
+        const def = (LIB && typeof LIB.getDefault === 'function') ? LIB.getDefault('price') : '';
+        if (def) { const d = _priceTemplateById(def); if (d && d.purpose === 'price') tplId = def; }
+      } catch (_e) { void 0; }
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
