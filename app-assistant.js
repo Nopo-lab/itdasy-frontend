@@ -1575,8 +1575,14 @@
     return function (dataUrl) {
       try {
         if (!dataUrl) return;
+        // [P2-2a] 저장 직전 편집기 state(tplV2)에서 재편집용 메타 캡처.
+        let _meta = null;
+        try {
+          const _st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
+          if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_st, m.purpose || 'price');
+        } catch (_me) { _meta = null; }
         if (typeof window.saveAssistantTemplateResult === 'function') {
-          window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || 'price', label: m.label || '잇비 템플릿', rid: rid });
+          window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || 'price', label: m.label || '잇비 템플릿', rid: rid, templateMeta: _meta });
         } else if (typeof window.saveToGallery === 'function') {   // 어댑터 미로드 폴백(갤러리만)
           window.saveToGallery({ id: 'asst_' + rid, label: m.label || '잇비 템플릿', photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }], caption: '', hashtags: '', source: 'assistant_template', dedupeKey: 'asst_tpl:' + (m.purpose || 'price') + ':' + rid });
         }

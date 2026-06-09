@@ -580,6 +580,25 @@ function openSlotPhotoInEditor(tab) {
   if (!photo) photo = visible[0];
   if (!photo) { if (typeof showToast === 'function') showToast('편집할 사진이 없어요'); return; }
 
+  // [P2-2a] 잇비 템플릿 결과(slot.templateMeta)는 baked 이미지가 아니라 템플릿 상태로 복원해 재편집.
+  //   복원 성공 시 여기서 종료. 메타 없거나 복원 실패면 아래 기존 baked 편집으로 폴백.
+  if (slot.templateMeta && typeof window.restoreAssistantTemplate === 'function') {
+    const _restoreOnSave = (dataUrl) => {
+      const tp = (slot.photos || []).find(pp => pp.id === photo.id);
+      if (tp) { tp.editedDataUrl = dataUrl; tp.mode = 'enhanced'; }
+      try {
+        const st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
+        if (st && typeof window.buildAssistantTemplateMeta === 'function') {
+          const nm = window.buildAssistantTemplateMeta(st, slot.templateMeta && slot.templateMeta.purpose, slot.templateMeta);
+          if (nm) slot.templateMeta = nm;   // [P2-2a] 재편집 후 메타 갱신(같은 슬롯)
+        }
+      } catch (_e) { /* keep prev meta */ }
+      try { saveSlotToDB(slot); } catch (_e2) { /* ignore */ }
+      try { if (typeof _renderPopupPhotoGrid === 'function') _renderPopupPhotoGrid(slot); } catch (_e3) { /* ignore */ }
+    };
+    if (window.restoreAssistantTemplate(slot, photo, _restoreOnSave)) return;
+  }
+
   // [#1] 손님 사진 여러 장 → 편집기에서 좌우로 넘기며 편집(완료→다음). photoSet 으로 목록+활성 인덱스 전달.
   const startIndex = Math.max(0, visible.findIndex(p => p.id === photo.id));
   window.PhotoEditor.open({

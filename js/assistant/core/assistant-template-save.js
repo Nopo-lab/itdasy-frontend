@@ -19,11 +19,33 @@
     catch (_e) { return 'r' + Date.now(); }
   }
 
+  // IndexedDB put 가 깨지지 않도록 구조화복제 안전(JSON 직렬화 가능)한 값만 남긴다(Image/함수 제거).
+  function _safeClone(o) { try { return o == null ? null : JSON.parse(JSON.stringify(o)); } catch (_e) { return null; } }
+
+  // [P2-2a] 저장/재편집 시 편집기 state(tplV2)에서 재편집용 메타를 캡처. 비직렬화 값은 제거.
+  //   prev: 재편집 시 이전 메타(누락 필드 보존용).
+  window.buildAssistantTemplateMeta = function (st, purpose, prev) {
+    try {
+      if (!st || !st.tplV2 || !st.tplV2.id) return prev || null;
+      return {
+        ver: 1,
+        purpose: purpose || (prev && prev.purpose) || '',
+        templateId: st.tplV2.id,
+        slotValues: _safeClone(st.tplV2.slotValues) || {},
+        imageSlots: _safeClone(st.tplV2.imageSlots) || null,
+        secondImg: (st.secondImg && st.secondImg.src) || (prev && prev.secondImg) || null,
+        baseSrc: st.originalSrc || (prev && prev.baseSrc) || null,
+        ratio: st.ratio || (prev && prev.ratio) || null,
+        updatedAt: Date.now(),
+      };
+    } catch (_e) { return prev || null; }
+  };
+
   // baked dataUrl → 작업실 슬롯 스키마 미러(app-gallery-workshop.js 슬롯 모양). 재편집 메타 없음.
   //   status:'done' = 완성 결과물 → 그리드 노출(published 아님) + 미완 배너 미유발.
-  function _buildSlot(dataUrl, rid, label) {
+  function _buildSlot(dataUrl, rid, label, templateMeta) {
     var ts = Date.now();
-    return {
+    var slot = {
       id: 'asst_' + rid,
       label: label || '잇비 결과',
       order: ts,                 // loadSlotsFromDB order 오름차순 → 뒤쪽 배치
@@ -33,6 +55,8 @@
       instagramPublished: false, deferredAt: null,
       createdAt: ts,
     };
+    if (templateMeta) slot.templateMeta = templateMeta;   // [P2-2a] 재편집 복원 메타(스키마리스 추가)
+    return slot;
   }
 
   // meta: { purpose, label, rid? }  rid 주면 gallery/slot 동일 키로 묶임(재저장 갱신).
@@ -59,10 +83,10 @@
       }
     } catch (e) { try { console.warn('[asst-save] gallery 실패', e && e.message); } catch (_l) { void _l; } }
 
-    // ② 작업실 슬롯 (P0-C 신규)
+    // ② 작업실 슬롯 (P0-C) + 재편집 메타(P2-2a)
     try {
       if (typeof window.saveSlotToDB === 'function') {
-        window.saveSlotToDB(_buildSlot(dataUrl, rid, label));
+        window.saveSlotToDB(_buildSlot(dataUrl, rid, label, m.templateMeta || null));
         saved.slot = true;
       }
     } catch (e) { try { console.warn('[asst-save] slot 실패', e && e.message); } catch (_l) { void _l; } }
