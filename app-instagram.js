@@ -581,7 +581,12 @@ async function runPersonaAnalyze(force) {
       renderPersonaDash(p, true);
       // 분석 완료 팝업 자동 오픈
       renderDetailedPopup({ raw_analysis: raw, persona: p });
-      document.getElementById('analyzeResultPopup').style.display = 'block';
+      const _apop = document.getElementById('analyzeResultPopup');
+      if (_apop) {
+        // [F6] body 최상위 이동 → 설정 시트(z-index 9996) 위로 즉시 노출
+        if (_apop.parentElement !== document.body) document.body.appendChild(_apop);
+        _apop.style.display = 'block';
+      }
       // [2026-04-24] 말투 테스트 자동 트리거 제거 — 사용자가 설정 메뉴에서 명시적 호출
       // window.openPersonaSurveyModal() 함수 자체는 app-persona-survey.js 에 그대로 남아있음
     }, 800);

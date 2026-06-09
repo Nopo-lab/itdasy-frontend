@@ -80,19 +80,7 @@
     } catch (_e) { return 0; }
   }
 
-  // [v6] 이번달 AI 예상 매출 — /revenue/summary 의 projected_total 사용
-  // [2026-05-20] 실패/미응답 = null (로딩 중), 성공 = 숫자(0 포함). FE 가 "집계중.." 과 "0원" 구분.
-  async function _fetchProjectedTotal() {
-    const headers = _authHeaders();
-    if (!window.API || !headers) return null;
-    try {
-      const res = await apiFetch('/revenue/summary?period=month', { headers });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const n = Number(data.projected_total);
-      return Number.isFinite(n) ? n : null;
-    } catch (_e) { return null; }
-  }
+  // [F1] _fetchProjectedTotal 제거 — 홈 상단 매출 표시 삭제됨
 
   // [v6] 카운트업 (easeOutCubic 0.8s) — 히어로 / stat 값
   function _countUp(el, target, ms) {
@@ -347,12 +335,11 @@
     if (_inFlight) return;
     _inFlight = true;
     try {
-      const [brief, slots, onlinePendingCount, dmQueueCount, projected] = await Promise.all([
+      const [brief, slots, onlinePendingCount, dmQueueCount] = await Promise.all([
         _fetchBrief().catch(() => null),
         _fetchSlots().catch(() => []),
         _fetchPendingCount().catch(() => 0),
         _fetchDMQueueCount().catch(() => 0),
-        _fetchProjectedTotal().catch(() => 0),  // [v6] 이번달 AI 예상
       ]);
       const merged = brief || (swr && swr.d) || {};
       // [A12] 모든 API 실패 시 에러 안내
@@ -362,7 +349,6 @@
       }
       merged._dmQueueCount = dmQueueCount;
       merged._onlinePendingCount = onlinePendingCount;
-      merged._projected_total = projected;  // [v6]
       try { _writeSWR(merged); } catch (_e) { void _e; }
       _hydrateHome(container, merged, dmQueueCount, onlinePendingCount);
       requestAnimationFrame(() => { window.scrollTo(0, 0); });
