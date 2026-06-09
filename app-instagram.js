@@ -233,8 +233,11 @@ function showDetailedAnalysis() {
   if (!raw.tone_summary) raw.tone_summary = raw.tone || raw.style_summary || '';
   renderDetailedPopup({ raw_analysis: raw, persona: { avg_caption_length: raw.avg_caption_length || 0, emojis: raw.emojis, hashtags: raw.hashtags, style_summary: raw.style_summary, tone: raw.tone || raw.tone_summary } });
   const pop = document.getElementById('analyzeResultPopup');
-  if (pop) pop.style.display = 'block';
-  else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
+  if (pop) {
+    // [2026-06-10 #5] 팝업이 다른 시트 아래에 깔리는 버그 — body 최상위로 이동해서 stacking context 이슈 완전 해결
+    if (pop.parentElement !== document.body) document.body.appendChild(pop);
+    pop.style.display = 'block';
+  } else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
 }
 
 // [2026-06-09 Phase2 v9] 말투 분석 리포트 — 회색 배경 + 헤더 카드 / 내용 카드 2장.
@@ -481,9 +484,13 @@ async function runPersonaAnalyze(force) {
   }, 2200);
 
   try {
-    const res = await apiFetch('/instagram/analyze' + (force ? '?force=true' : ''), {
+    // [2026-06-10 #4] 말투 분석은 Gemini 호출로 60~90s 걸릴 수 있어 safeFetch(120s) 사용.
+    //   브라우저 기본 fetch 는 네트워크 이슈 시 연결을 끊어 "네트워크 오류" 토스트가 뜨던 버그.
+    const _analyzeFetch = window.safeFetch || apiFetch;
+    const res = await _analyzeFetch(apiUrl('/instagram/analyze' + (force ? '?force=true' : '')), {
       method: 'POST',
-      headers: authHeader()
+      headers: authHeader(),
+      timeout: 120000,
     });
     clearInterval(ticker);
 
@@ -550,11 +557,21 @@ async function runPersonaAnalyze(force) {
 
   } catch(e) {
     clearInterval(ticker);
+    // [2026-06-10 #4] timeout은 "진행 중" 처리 — /status 폴링으로 완료 확인.
+    //   이전엔 타임아웃도 "네트워크 오류" 토스트가 떠서 사용자 혼란.
+    if (e && e.timeout) {
+      if (stepTxt) stepTxt.textContent = '분석 중 (백그라운드에서 계속 진행 중)...';
+      if (subTxt) subTxt.textContent = '완료되면 알려드릴게요. 화면을 닫아도 됩니다.';
+      setTimeout(() => {
+        if (overlay) overlay.style.display = 'none';
+        try { if (typeof showToast === 'function') showToast('분석이 진행 중이에요. 잠시 후 설정 > 말투 리포트에서 확인하세요'); } catch(_e){ void _e; }
+      }, 2000);
+      return;
+    }
     overlay.style.display = 'none';
-    // [2026-05-08 hotfix] 네트워크 실패도 옛 persona 카드 같이 숨김
     const pd = document.getElementById('personaDash');
     if (pd) pd.style.display = 'none';
-    showToast('네트워크 오류로 분석이 중단됐어요. 잠시 후 다시 시도해주세요');
+    showToast('분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요');
   }
 }
 

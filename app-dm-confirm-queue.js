@@ -157,24 +157,44 @@
     const bubbles = msgs.map(m => `<div style="align-self:flex-start;max-width:88%;background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:9px 12px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word;">${_esc(m)}</div>`).join('');
     return `<div style="display:flex;flex-direction:column;gap:5px;">${bubbles}</div>`;
   }
-  // [2026-06-09] 예약금 안내 단계 — 입금 대기 표시(BE awaiting_deposit).
+  // [2026-06-09] 예약금 안내 단계 — 입금 대기 표시(BE awaiting_deposit). 이모지 → lucide.
   function _depositLine(am) {
     if (!am || !am.awaiting_deposit) return '';
-    return `<div style="font-size:12px;color:#BC6675;font-weight:600;margin:8px 0 2px;">💰 예약금 입금 대기 — 입금 확인되면 [전송 + 캘린더 등록]</div>`;
+    return `<div style="display:flex;align-items:center;gap:5px;font-size:12px;color:#BC6675;font-weight:600;margin:8px 0 2px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20M7 15h.01M11 15h2"/></svg>
+      예약금 입금 대기 — 입금 확인되면 [전송 + 캘린더 등록]</div>`;
   }
+
+  // 무의미값 필터 — truthy 지만 표시 의미 없는 값
+  const _MEANINGLESS = new Set(['모르겠음','모름','?','미정','무','없음','없어요','몰라요','나중에','상관없음','아무거나','기타','etc','n/a','na','null','undefined','-','—','...','..']);
+  function _isMeaningless(v) { return !v || _MEANINGLESS.has(String(v).trim().toLowerCase()); }
+
+  // [2026-06-10 #2] 칩: 제목 + 옵션 포함 + 무의미값 필터
   function _extractedChips(ex, am) {
     const name = (ex && ex.name) || (am && am.name);
     const phone = (ex && ex.phone) || (am && am.phone);
     const svc = (am && am.service_name) || (ex && ex.service_interest) || '';
     const wish = (am && (am.time_kst || am.requested_time)) || '';
+    const opts = (am && am.service_options) || {};
+    const memo = (am && am.memo) || '';
     const chips = [];
-    if (name) chips.push('성함 ' + _esc(name));
-    if (phone) chips.push(_esc(phone));
-    if (svc) chips.push(_esc(svc));
-    if (wish) chips.push(_esc(wish));
+    if (!_isMeaningless(name))  chips.push({ prefix: '성함', val: name });
+    if (!_isMeaningless(phone)) chips.push({ prefix: '연락처', val: phone });
+    if (!_isMeaningless(svc))   chips.push({ prefix: '시술', val: svc });
+    if (!_isMeaningless(wish))  chips.push({ prefix: '시간', val: wish });
+    if (!_isMeaningless(opts.length))  chips.push({ prefix: '인치', val: opts.length });
+    if (!_isMeaningless(opts.color))   chips.push({ prefix: '색상', val: opts.color });
+    if (!_isMeaningless(opts.remove))  chips.push({ prefix: '제거', val: opts.remove });
+    if (!_isMeaningless(opts.design))  chips.push({ prefix: '디자인', val: opts.design });
+    if (!_isMeaningless(memo))  chips.push({ prefix: '요청', val: memo });
     if (!chips.length) return '';
-    return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;padding:8px 10px;border:1px solid #E5E8EB;border-radius:10px;background:#fff;">
-      ${chips.map(c => `<span style="font-size:11px;color:#4E5968;background:#F2F4F6;padding:3px 9px;border-radius:99px;">${c}</span>`).join('')}
+    return `<div style="margin-top:8px;padding:8px 10px;border:1px solid #E5E8EB;border-radius:10px;background:#fff;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8B95A1;font-weight:700;margin-bottom:6px;">
+        <svg width="12" height="12" aria-hidden="true"><use href="#ic-bot"/></svg>잇비가 정리한 정보
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${chips.map(c => `<span style="font-size:11px;color:#4E5968;background:#F2F4F6;padding:3px 9px;border-radius:99px;"><span style="color:#8B95A1;font-size:10px;">${c.prefix}</span> ${_esc(String(c.val))}</span>`).join('')}
+      </div>
     </div>`;
   }
   function _mainBtnLabel(it) {
@@ -232,7 +252,8 @@
         <div style="display:flex;gap:6px;margin-top:12px;">
           <button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;background:#191F28;color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;">${_esc(_mainBtnLabel(it))}</button>
           <button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>
-          <button class="dcq-discard" data-act="discard" aria-label="지우기" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">✕</button>
+          <button class="dcq-discard" data-act="discard" aria-label="닫기" title="카드 닫기 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <button class="dcq-reset" data-act="reset" aria-label="대화 초기화" title="대화 초기화 (정보 삭제)" style="padding:11px 14px;border:1px solid #FCA5A5;background:#FEF2F2;color:#DC2626;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
         </div>
       </div>`;
   }
@@ -271,6 +292,7 @@
         else _doAction(b, 'send');
       }));
       list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
+      list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
     } catch (e) {
       list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
     }
@@ -295,6 +317,11 @@
           return;
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send_edit`, { edited_reply: editedText });
+      } else if (action === 'reset') {
+        const ok = await window.nativeConfirm('대화 초기화', '이 손님의 대화를 초기화할까요?\n성함·연락처·예약 정보가 모두 사라져요.').catch(() => false);
+        if (!ok) { btn.disabled = false; btn.style.opacity = '1'; return; }
+        r = await _fetch('POST', `/dm-confirm-queue/${id}/discard?reset=true`);
+        if (window.showToast) window.showToast('대화가 초기화됐어요');
       } else {
         r = await _fetch('POST', `/dm-confirm-queue/${id}/discard`);
       }
