@@ -1435,6 +1435,8 @@
       if (action.kind === 'open_template_panel' && _openAssistantTemplatePicker(action, msg)) return true;
       if (action.kind === 'apply_price_template' && _applyPriceTemplateDraft(action, msg)) return true;
       const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
+      // [P0-A] "결과 확인" → 편집기 다시 열기 시, 채팅 닫아 편집시트를 최상단으로.
+      if (r.navigated && action.kind === 'review_price_template_result') _focusEditorCloseAssistant();
       if (r.chatInput) {
         const input = document.getElementById('asstInput');
         if (input) { input.value = r.chatInput; _send(); }
@@ -1552,6 +1554,12 @@
     next.cta = '예약 문의';
     state.tplV2.slotValues = next;
     return true;
+  }
+
+  // [P0-A] 템플릿 적용/문구편집 시트가 잇비 채팅 패널(z-index 10500)에 가리지 않도록 채팅을 닫아
+  //   편집기(10000)+편집시트를 최상단으로 노출. 결과 카드는 채팅 재오픈 시 그대로 남는다.
+  function _focusEditorCloseAssistant() {
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
   }
 
   function _openPriceEditSheet(state, tplId, tpl, helpers) {
@@ -1772,6 +1780,7 @@
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
+      _focusEditorCloseAssistant();   // [P0-A]
       return true;
     } catch (e) {
       try { console.warn('[assistant-price-list] apply failed', e); } catch (_logErr) { void _logErr; }
@@ -1807,7 +1816,9 @@
       const slotValues = (payload && payload.slotValues) || {};
       const services = Array.isArray(slotValues.services) ? slotValues.services : [];
       if (!services.length) return _priceTemplateFailed();
-      const tplId = payload.templateId;
+      // [P0-A] 가격표 자동적용 기본을 프리미엄팩으로 우선. 미등록/렌더불가면 payload(v3) 유지.
+      let tplId = payload.templateId;
+      if (_priceTemplateById('bp-price-blackgold')) tplId = 'bp-price-blackgold';
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
@@ -1823,6 +1834,7 @@
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
+      _focusEditorCloseAssistant();   // [P0-A]
       return true;
     } catch (e) {
       try { console.warn('[assistant-price-sample] apply failed', e); } catch (_logErr) { void _logErr; }
@@ -1869,6 +1881,7 @@
       }
       if (payload.purpose === 'review') _pushReviewResultCard(result);
       else _pushBaResultCard(result);
+      _focusEditorCloseAssistant();   // [P0-A] 편집기 포커스
       return true;
     } catch (e) {
       try { console.warn('[assistant-template-sample] apply failed', e); } catch (_logErr) { void _logErr; }

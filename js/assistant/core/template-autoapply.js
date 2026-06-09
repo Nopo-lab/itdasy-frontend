@@ -158,6 +158,7 @@
       'v3-ba-clean-rose': '시술 전후 · 클린 로즈',
       'v3-ba-clean-blue': '시술 전후 · 클린 블루',
       'v3-ba-sns-pink': '시술 전후 · 파스텔 핑크',
+      'bp-ba-nail-polaroid': '시술 전후 · 네일 폴라로이드',
     })[tplId] || '시술 전후 카드';
   }
 
@@ -232,6 +233,24 @@
   function _reviewTplData() {
     try { return (window.PhotoEditorTemplatesV2.TEMPLATES || []).find(function (t) { return t && t.id === REVIEW_TPL_ID; }) || null; } catch (_e) { return null; }
   }
+  // 임의 id 의 템플릿 데이터(market-data lookupById 우선 → V2 폴백). bp-* 포함.
+  function _tplDataById(id) {
+    try {
+      var MD = window.PhotoEditorTemplateMarketData;
+      var v = (MD && typeof MD.lookupById === 'function' && MD.lookupById(id)) || null;
+      if (v) return v;
+      return (window.PhotoEditorTemplatesV2.TEMPLATES || []).find(function (t) { return t && t.id === id; }) || null;
+    } catch (_e) { return null; }
+  }
+  // [P0-A] 등록 여부 확인(미등록 bp 로 apply 하면 렌더 실패 → fallback 유지용).
+  function _tplExists(id) { return !!_tplDataById(id); }
+  // [P0-A] 업종이 맞고 등록된 beautyPack 만 기본으로 승격. 불확실하면 v3 fallback.
+  function _bpUpgrade(purpose, industry, fallbackId) {
+    var bp = (purpose === 'review' && industry === 'lash') ? 'bp-review-lash-blue'
+      : (purpose === 'before_after' && industry === 'nail') ? 'bp-ba-nail-polaroid'
+        : '';
+    return (bp && _tplExists(bp)) ? bp : fallbackId;
+  }
 
   function handleBeforeAfterCard(text, ctx, opts) {
     var ph = _resolveBaPhotos(opts);
@@ -269,12 +288,12 @@
     var hadPhoto = !!photoUrl;
     if (!photoUrl) photoUrl = _solidBase();
     if (!photoUrl) return null;
-    var tpl = payload.templateId || REVIEW_TPL_ID;
+    var tpl = _bpUpgrade('review', payload.industry, payload.templateId || REVIEW_TPL_ID);   // [P0-A]
     var state = _runAutoApply(
       tpl, photoUrl,
       function (base) { return Object.assign({}, base, slots); },   // 샘플 slotValues 를 템플릿 base 위에 덮음
       function (st) { if (hadPhoto && st.tplV2.imageSlots && st.tplV2.imageSlots.main_photo) st.tplV2.imageSlots.main_photo.src = photoUrl; },
-      _reviewTplData()
+      _tplDataById(tpl)
     );
     if (!state) return null;
     var sv = state.tplV2.slotValues || {};
@@ -290,7 +309,7 @@
   function _applySampleBA(payload, slots, opts) {
     var ph = _resolveBaPhotos(opts);
     if (ph.needsPhoto) return { needsPhoto: true };
-    var tpl = payload.templateId || BA_TPL_DEFAULT;
+    var tpl = _bpUpgrade('before_after', payload.industry, payload.templateId || BA_TPL_DEFAULT);   // [P0-A]
     var state = _runAutoApply(
       tpl, ph.afterUrl,
       function (base) { return Object.assign({}, base, slots); },

@@ -143,6 +143,52 @@
     return null;
   }
 
+  // ── [P0-A] price: 사용자 입력에서 실제 시술명+가격만 추출(말 안 한 항목 임의 생성 금지) ──
+  // 시술명에서 걷어낼 명령/잡음 토큰.
+  var PRICE_NOISE = /(가격표|메뉴판|가격\s*안내|시술가|가격|만들어\s*줘|만들어|만들|제작|뽑아|뽑|생성|해\s*줘|해줘|넣어|보여\s*줘|부탁(해|드릴게|해요)?|템플릿|카드|줘)/g;
+  function _wonFrom(numStr, manFlag, cheonStr) {
+    var base = parseInt(String(numStr).replace(/,/g, ''), 10);
+    if (isNaN(base)) return 0;
+    if (manFlag) {
+      var w = base * 10000;
+      if (cheonStr) { var c = parseInt(cheonStr, 10); if (!isNaN(c)) w += c * 1000; }
+      return w;
+    }
+    return base;   // 원 단위(80000 / 80,000)
+  }
+  function _fmtWon(won) {
+    try { return won.toLocaleString('en-US') + '원'; } catch (_e) { return String(won) + '원'; }
+  }
+  // "물광 8만원, 리쥬란 12만" → [{name:'물광',price:'80,000원'}, {name:'리쥬란',price:'120,000원'}]
+  //   가격 신호(만/원/콤마/4자리+)가 있는 토큰만 가격으로 인정. 이름 없는 가격은 스킵(임의 생성 금지).
+  function parsePriceServices(text) {
+    // 천단위 콤마(80,000)를 항목 구분 콤마와 혼동하지 않도록 숫자 사이 콤마 먼저 제거.
+    var raw = String(text == null ? '' : text).replace(/(\d),(\d)/g, '$1$2');
+    var segs = raw.split(/\s*(?:,|、|\/|·|\n|및|그리고|하고|이랑|랑|와|과)\s*/);
+    var priceRe = /([0-9][0-9,]*)\s*(만)?\s*(?:([0-9]+)\s*천)?\s*(원)?/g;
+    var out = [];
+    segs.forEach(function (seg) {
+      if (!seg) return;
+      var best = null, mm;
+      priceRe.lastIndex = 0;
+      while ((mm = priceRe.exec(seg)) !== null) {
+        if (!mm[0] || !mm[0].trim()) { priceRe.lastIndex++; continue; }
+        var won = _wonFrom(mm[1], mm[2], mm[3]);
+        if (won < 1000) continue;
+        var signal = !!(mm[2] || mm[4] || /,/.test(mm[1]) || String(mm[1]).replace(/,/g, '').length >= 4);
+        if (!signal) continue;
+        best = { won: won, index: mm.index, len: mm[0].length };
+        break;
+      }
+      if (!best) return;
+      var name = seg.slice(0, best.index).replace(PRICE_NOISE, '').replace(/[은는이가:：~\-]/g, '').replace(/\s{2,}/g, ' ').trim();
+      if (!name) name = seg.slice(best.index + best.len).replace(PRICE_NOISE, '').replace(/\s{2,}/g, ' ').trim();
+      if (!name) return;   // 이름 없는 가격 → 임의 생성 금지(스킵)
+      out.push({ name: name, desc: '', price: _fmtWon(best.won), badge: '', origPrice: '' });
+    });
+    return out;
+  }
+
   function _sanitizeStr(s) {
     var out = String(s == null ? '' : s);
     BANNED_MAP.forEach(function (pair) { out = out.split(pair[0]).join(pair[1]); });
@@ -179,6 +225,16 @@
       var svc = _extractServiceName(nt);
       if (svc) overrides.service_name = svc;
     }
+    // [P0-A] price: 사용자가 말한 시술/가격만 services 로. 0건이면 카탈로그 3개 대신 1행 placeholder.
+    if (sample.purpose === 'price') {
+      var parsed = parsePriceServices(text);
+      if (parsed.length) {
+        overrides.services = parsed;
+      } else {
+        var pName = _extractServiceName(nt) || '시술명';
+        overrides.services = [{ name: pName, desc: '', price: '', badge: '', origPrice: '' }];
+      }
+    }
     // sample.slotValues 위에 override 얕은 병합 → 안전 필터.
     var merged = Object.assign({}, sample.slotValues || {}, overrides);
     var slotValues = sanitizeCopy(merged);
@@ -201,6 +257,7 @@
     rankTemplateSamples: rankTemplateSamples,
     toAutoApplyPayload: toAutoApplyPayload,
     sanitizeCopy: sanitizeCopy,
+    parsePriceServices: parsePriceServices,
   };
 
   if (typeof window !== 'undefined') window.ItdasyTemplateSampleMatcher = API;
