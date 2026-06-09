@@ -2639,6 +2639,7 @@
       <div style="width:100%;max-width:380px;background:#fff;border-radius:20px;padding:16px 14px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 40px rgba(0,0,0,0.25);">
         <div style="font-size:12px;color:#8B95A1;font-weight:700;padding:4px 4px 6px;">잇비 도구</div>
         ${_row('memo', '잇비 메모', '영구 메모 · 자동 학습 패턴')}
+        ${_row('import_tpl', '가격표·홍보물로 만들기', '기존 가격표 사진 → 우리 카드로 재구성')}
         ${_row('undo', '액션 되돌리기', '잇비가 한 일 되돌리기')}
         <button data-tool-act="cancel" style="padding:12px;border:none;border-radius:14px;background:#f2f2f2;color:#6B7684;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px;">닫기</button>
       </div>
@@ -2652,6 +2653,7 @@
       close();
       try {
         if (act === 'memo' && typeof window.openAssistantFactsSheet === 'function') return window.openAssistantFactsSheet();
+        if (act === 'import_tpl' && typeof window.openTemplateImport === 'function') return window.openTemplateImport();
         if (act === 'undo' && typeof window.openUndoHistory === 'function') return window.openUndoHistory();
       } catch (_e) { /* ignore */ }
     });
@@ -4132,6 +4134,11 @@
     },
     close: function () { return window.closeAssistant && window.closeAssistant(); }
   };
+
+  // [P1-B 2026-06-09] 외부 가격표 OCR → 우리 가격표 템플릿 적용. app-template-import.js 가 호출.
+  //   payload = { purpose:'price', slotValues:{services[],shop_name,headline,subtitle,cta,phone}, templateId:'' }
+  //   _applyPriceSample 내부에서 v426 기본템플릿 우선순위(getDefault('price') > bp-price-blackgold > fallback) 그대로.
+  window.ItdasyAssistantApplyPriceSample = function (payload) { return _applyPriceSample(payload); };
 
   // 2026-04-24 perf — 앱 idle 시 시트 DOM 미리 생성. 첫 탭 latency 0.3s+ → ~0.05s
   if (typeof requestIdleCallback === 'function') {
