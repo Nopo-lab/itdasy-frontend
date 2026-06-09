@@ -637,7 +637,7 @@
     } else if (isDepositSent) {
       stageInfo = `
         <div style="display:flex;align-items:center;gap:6px;padding:8px 10px;background:#EFF6FF;border:1px solid #93C5FD;border-radius:8px;margin:8px 0;">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20M7 15h.01M11 15h2"/></svg>
           <span style="font-size:11px;font-weight:700;color:#1D4ED8;">예약금 입금 대기 중</span>
         </div>`;
     } else if (isDepositPending) {
