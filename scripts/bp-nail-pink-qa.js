@@ -26,8 +26,11 @@ const afterURL = 'data:image/png;base64,' + png(6,180,60,90).toString('base64');
   page.on('pageerror', e => errs.push('pageerror: ' + String(e.message || e)));
   page.on('console', m => { if (m.type() === 'error') { const t = m.text(); if (!BENIGN.test(t)) cerrs.push('console.error: ' + t.slice(0, 160)); } });
 
+  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(4000);   // 라이브: 버전 불일치 1회 캐시버스트 리로드 정착 대기
+  try { await page.evaluate(async () => { try { const rs = await navigator.serviceWorker.getRegistrations(); rs.forEach(r => r.unregister()); if (window.caches) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } } catch (_) { /* noop */ } }); } catch (_) { /* context may have navigated */ }
   await page.goto(BASE, { waitUntil: 'networkidle', timeout: 60000 });
-  await page.evaluate(async () => { try { const rs = await navigator.serviceWorker.getRegistrations(); rs.forEach(r => r.unregister()); } catch (_) { /* noop */ } });
+  await page.waitForTimeout(1500);
   await page.waitForFunction(() => window.PhotoEditor && window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplateMarketData
     && window.PhotoEditorBeautyPack && window.buildAssistantTemplateMeta && window.restoreAssistantTemplate
     && window.loadGalleryItems && window.loadSlotsFromDB, null, { timeout: 30000 });
