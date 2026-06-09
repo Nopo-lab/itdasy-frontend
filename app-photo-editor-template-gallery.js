@@ -17,10 +17,10 @@
   const _thumbCache = {};   // key: id|px|photoSig → dataURL
 
   const CHIPS = [
-    ['recommend', '추천'], ['ba', '전후'], ['price', '가격표'], ['story', '스토리'],
+    ['recommend', '추천'], ['library', '보관함'],   // [P1b] 보관함을 앞쪽으로 — 발견성 개선
+    ['ba', '전후'], ['price', '가격표'], ['story', '스토리'],
     ['feed', '피드'], ['review', '후기'], ['event', '이벤트'],
     ['premium', '프리미엄팩'],   // [BP-4] 뷰티 팩 묶음 칩
-    ['library', '보관함'],
   ];
   const SHORT_PURPOSE = {
     before_after: '전후', review: '후기', price: '가격표', event: '이벤트', story: '스토리',
@@ -239,7 +239,7 @@
     if (!list.length) {
       if (_chip === 'library') {
         return `<div class="pe-tplg-empty"><strong>저장한 템플릿이 없어요</strong>
-          <p>템플릿을 보관하면 여기서 빠르게 다시 쓸 수 있어요.</p></div>`;
+          <p>마음에 드는 템플릿 카드의 오른쪽 아래 북마크를 누르면 여기에 모여요.</p></div>`;
       }
       return `<div class="pe-tplg-empty"><strong>검색 결과가 없어요</strong>
         <p>다른 검색어나 칩을 눌러보세요.</p></div>`;

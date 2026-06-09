@@ -388,12 +388,12 @@
     sheet.querySelector('#asstCamera').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
       e.target.value = '';  // 같은 파일 재선택 허용
-      if (fs.length) _addPendingPhotos(fs);
+      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA) _send(); }   // [P1b] 전후 2번째 사진은 바로 완성
     });
     sheet.querySelector('#asstGallery').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
       e.target.value = '';
-      if (fs.length) _addPendingPhotos(fs);
+      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA) _send(); }   // [P1b] 전후 2번째 사진은 바로 완성
     });
   }
 
@@ -1824,8 +1824,10 @@
     _pendingBA = { firstUrl: firstUrl, firstRole: role, requestText: requestText, ts: Date.now() };
     var keep = (role === 'before') ? '시술 전' : '시술 후';
     var need = (role === 'before') ? '시술 후' : '시술 전';
-    _history.push({ role: 'assistant', text: '이 사진을 ' + keep + ' 사진으로 둘게요.\n이제 ' + need + ' 사진을 채팅에 올려주시면 전후 카드를 완성할게요.' });
+    _history.push({ role: 'assistant', text: '이 사진을 ' + keep + ' 사진으로 둘게요.\n이제 ' + need + ' 사진을 올려주시면 전후 카드를 완성할게요.' });
     _renderHistory();
+    // [P1b] 클릭 제스처 안에서 갤러리 picker 즉시 오픈(취소돼도 안내 유지 + 채팅 업로드로도 완성).
+    try { var _gi = document.getElementById('asstGallery'); if (_gi) _gi.click(); } catch (_e) { void _e; }
   }
 
   // 두 번째 사진 도착 → 순서 매핑([0]=before,[1]=after) 후 완성. _resolveBaPhotos 규약 준수.
