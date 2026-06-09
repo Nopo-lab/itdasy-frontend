@@ -53,6 +53,21 @@
       },
     },
     {
+      id: 'bp-ba-nail-pink-polaroid', cat: 'ba', tier: 'free',
+      label: '시술 전후 · 네일 핑크 수채화 폴라로이드', kind: 'before_after', purpose: 'before_after', industry: 'nail',
+      accent: 'primary', prefillText: 'Before & After', ratio: '4:5',
+      palette: { bg: '#FCE9EE', ink: '#3F2C32', sub: '#A2868E', accent: '#F24E86', line: '#F6D3DD', badge: '#F24E86' },
+      previewMeta: { decor: ['watercolor', 'sparkle', 'heart', 'polaroid', 'washi-tape', 'paperclip', 'torn-paper', 'speech-bubble'], photoSlots: ['before', 'after'] },
+      // [BP] 레퍼런스(루미네일 "네일 전후 변화") 카피 — 현재 inert(getDefaultValues 사용).
+      defaultCopy: {
+        shop_name: '루미네일', shop_name_en: 'LUMI NAIL',
+        headline: '전후 변화', headline_accent: '네일', subtitle: '손끝 분위기가 달라지는 순간 ♡',
+        before_caption: '밋밋한 손끝,\n생기 없는 컬러 :(', after_caption: 'AFTER',
+        tags: ['컬러 정리', '광택 포인트', '손끝 무드 업 ↗'],
+        cta: 'DM / 예약문의', footer_left: '예쁜 네일은 기분까지 빛나게 해줘요 ♥', footer_right: '오늘의 네일, 내일의 기분♡',
+      },
+    },
+    {
       id: 'bp-review-lash-blue', cat: 'card', tier: 'free',
       label: '후기 · 속눈썹 블루 카드', kind: 'review', purpose: 'review', industry: 'lash',
       accent: 'primary', prefillText: 'REAL REVIEW', ratio: '4:5',
@@ -68,6 +83,6 @@
     },
   ];
 
-  window.PhotoEditorBeautyPackData = { VERSION: 'bp-2026060901', TEMPLATES: TEMPLATES };
+  window.PhotoEditorBeautyPackData = { VERSION: 'bp-2026060902', TEMPLATES: TEMPLATES };
   if (typeof module !== 'undefined' && module.exports) module.exports = window.PhotoEditorBeautyPackData;
 })();

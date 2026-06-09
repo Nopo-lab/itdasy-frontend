@@ -332,6 +332,72 @@
     if (sv.footer_right) { ctx.save(); ctx.translate(dw * 0.87, dh * 0.95); ctx.rotate(0.06); _text(ctx, sv.footer_right, 0, 0, '400 20px "Nanum Pen Script", cursive', '#E07FA0', 'center'); ctx.restore(); }
   }
 
+  // 말풍선 메모(흰 둥근 사각 + 꼬리) — 핑크 SNS팩 코너 노트용.
+  function _speechNote(ctx, cx, cy, w, h, text, c) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(236,78,134,0.18)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+    ctx.fillStyle = '#FFFFFF'; ctx.strokeStyle = c.accent || '#F2789F'; ctx.lineWidth = 2;
+    _rr(ctx, cx - w / 2, cy - h / 2, w, h, h / 2); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx - w * 0.16, cy + h / 2 - 2); ctx.lineTo(cx - w * 0.28, cy + h / 2 + h * 0.5); ctx.lineTo(cx - w * 0.02, cy + h / 2 - 2); ctx.closePath();
+    ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.strokeStyle = c.accent || '#F2789F'; ctx.stroke();
+    ctx.restore();
+    _text(ctx, text, cx, cy + 6, '400 19px "Nanum Pen Script", cursive', '#E07FA0', 'center');
+  }
+
+  // ── 2b · 네일 핑크 수채화 전후 폴라로이드 (ref: 루미네일) ──
+  //   기존 _skNailPolaroid 의 검증된 좌표/프리미티브를 재사용하되, 핑크 수채화 톤 + 말풍선/하단 찢긴 메모로 차별화.
+  //   기존 bp-ba-nail-polaroid 는 그대로 두고 신규 id 로만 동작(대체 X).
+  function _skNailPinkPolaroid(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    // 배경: 핑크 수채화(3-stop + 블롭 다수)
+    var g = ctx.createLinearGradient(0, 0, 0, dh); g.addColorStop(0, '#FFF3F7'); g.addColorStop(0.55, '#FCE3EC'); g.addColorStop(1, '#F9D3E1');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, dw, dh);
+    _blob(ctx, dw * 0.16, dh * 0.20, dw * 0.30, '#FFFFFF', 0.55); _blob(ctx, dw * 0.84, dh * 0.30, dw * 0.34, '#FFE6F0', 0.5);
+    _blob(ctx, dw * 0.50, dh * 0.50, dw * 0.40, '#FFFFFF', 0.32); _blob(ctx, dw * 0.22, dh * 0.80, dw * 0.30, '#FFDCEA', 0.5);
+    // 반짝이 + 하트 보석/장식
+    _gemHeart(ctx, dw * 0.075, dh * 0.10, 34, '#F06EA0'); _gemHeart(ctx, dw * 0.92, dh * 0.41, 30, '#F48FB1'); _gemHeart(ctx, dw * 0.90, dh * 0.67, 26, '#F06EA0');
+    var spk = [[0.12, 0.085], [0.42, 0.10], [0.90, 0.30], [0.10, 0.40], [0.93, 0.55], [0.55, 0.18], [0.86, 0.72], [0.30, 0.06]];
+    spk.forEach(function (s, i) { _sparkle(ctx, dw * s[0], dh * s[1], 9 + (i % 3) * 6, i % 2 ? '#F2789F' : '#FFFFFF'); });
+    _heart(ctx, dw * 0.25, dh * 0.085, 12, null, '#F2789F'); _heart(ctx, dw * 0.83, dh * 0.22, 13, '#F8B5CC', null); _heart(ctx, dw * 0.14, dh * 0.72, 11, null, '#F2789F');
+    // 상단 로고(타원 라인 + 하트)
+    _outlinePill(ctx, dw / 2, dh * 0.072, dw * 0.30, dh * 0.05, '#F2789F');
+    _heart(ctx, dw / 2 + dw * 0.135, dh * 0.072, 7, '#F2789F', null);
+    _text(ctx, data.shop || '루미네일', dw / 2, dh * 0.073, '700 28px "Gaegu", sans-serif', '#F2789F', 'center');
+    _text(ctx, sv.shop_name_en || 'LUMI NAIL', dw / 2, dh * 0.097, '700 12px "Playfair Display", serif', '#C97E96', 'center');
+    // 헤드라인: 강조어(핑크 브러시) + 본문(블랙 손글씨) + 밑줄/하트
+    var acc = sv.headline_accent || '네일', head = data.head || '전후 변화';
+    ctx.font = '400 86px "Black Han Sans", sans-serif';
+    var wAcc = ctx.measureText(acc).width, wHead = ctx.measureText(head).width, gapW = 24, totW = wAcc + gapW + wHead, sx = dw / 2 - totW / 2;
+    _text(ctx, acc, sx, dh * 0.165, '400 86px "Black Han Sans", sans-serif', '#F2789F', 'left');
+    _text(ctx, head, sx + wAcc + gapW, dh * 0.165, '400 86px "Black Han Sans", sans-serif', c.ink, 'left');
+    _brushUnderline(ctx, sx + wAcc + gapW, sx + totW, dh * 0.186, '#F2789F');
+    _heart(ctx, sx - 18, dh * 0.137, 12, '#F8B5CC', '#F2789F');
+    // 서브: 핑크 브러시 배너 위 텍스트
+    _brushHighlight(ctx, dw * 0.22, dh * 0.205, dw * 0.56, dh * 0.042, '#F8B5CC');
+    _text(ctx, data.sub || '손끝 분위기가 달라지는 순간 ♡', dw / 2, dh * 0.233, '400 30px "Gowun Dodum", sans-serif', c.ink, 'center');
+    // 좌측 찢긴 메모(before_caption)
+    var memo = (sv.before_caption || '밋밋한 손끝,\n생기 없는 컬러 :(').split('\n');
+    _tornPaper(ctx, dw * 0.03, dh * 0.40, dw * 0.21, dh * 0.10, '#FBF1F4', '#7A5560', memo);
+    // BEFORE 폴라로이드(좌, 작게, −5°, 클립)
+    var before = state && state.secondImg ? state.secondImg : null;
+    if (before && tpl.imageSlots && tpl.imageSlots.before_photo) { before._focal = tpl.imageSlots.before_photo.focal; before._zoom = tpl.imageSlots.before_photo.zoom; }
+    _polaroid(ctx, dw * 0.30, dh * 0.46, dw * 0.40, dh * 0.345, -0.087, before, 'BEFORE', 36, '#5A4248', c, { clip: true });
+    // AFTER 폴라로이드(우, 크게, +5°, 핑크 테이프, 위 겹침)
+    _polaroid(ctx, dw * 0.71, dh * 0.605, dw * 0.42, dh * 0.365, 0.087, _resolveAfter(state, tpl), 'AFTER', 56, '#EC4E86', c, { tape: true, tapeLabel: '♥ ' + (sv.shop_name_en || 'LUMI NAIL') });
+    // 특징 칩 3
+    var tags = (sv.tags && sv.tags.length) ? sv.tags : ['컬러 정리', '광택 포인트', '손끝 무드 업 ↗'];
+    for (var i = 0; i < Math.min(tags.length, 3); i++) _chipPill(ctx, dw * 0.05, dh * (0.665 + i * 0.052), dw * 0.27, dh * 0.042, tags[i], c);
+    // CTA(핑크 rounded pill + 하트)
+    _pinkPill(ctx, dw * 0.33, dh * 0.85, dw * 0.34, dh * 0.062, c);
+    _text(ctx, data.cta || 'DM / 예약문의', dw * 0.485, dh * 0.881, '700 26px "Gowun Dodum", sans-serif', '#FFFFFF', 'center');
+    _heart(ctx, dw * 0.605, dh * 0.879, 9, '#FFFFFF', null);
+    // 하단 찢긴 메모(footer_left) + 우하단 말풍선(footer_right)
+    if (sv.footer_left) _tornPaper(ctx, dw * 0.02, dh * 0.90, dw * 0.22, dh * 0.075, '#FBF1F4', '#7A5560', [sv.footer_left]);
+    if (sv.footer_right) _speechNote(ctx, dw * 0.78, dh * 0.93, dw * 0.30, dh * 0.06, sv.footer_right, c);
+  }
+
   // ── 블루 리뷰팩 프리미티브 ───────────────────────────
   function _blob(ctx, cx, cy, r, color, a) {
     ctx.save(); ctx.globalAlpha = a; var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
@@ -418,10 +484,11 @@
   var ROUTES = {
     'bp-price-blackgold': _skBlackGold,
     'bp-ba-nail-polaroid': _skNailPolaroid,
+    'bp-ba-nail-pink-polaroid': _skNailPinkPolaroid,
     'bp-review-lash-blue': _skLashReview,
   };
   // 좌표 튜닝 완료된 id — 워터마크 미표시. 미완성(스텁)만 SKELETON 표기.
-  var DONE = { 'bp-price-blackgold': true, 'bp-review-lash-blue': true, 'bp-ba-nail-polaroid': true };
+  var DONE = { 'bp-price-blackgold': true, 'bp-review-lash-blue': true, 'bp-ba-nail-polaroid': true, 'bp-ba-nail-pink-polaroid': true };
 
   function draw(ctx, dw, dh, state, tpl, data) {
     try {

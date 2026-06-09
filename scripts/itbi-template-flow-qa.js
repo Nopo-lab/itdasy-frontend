@@ -63,7 +63,7 @@ const afterW=(p)=>p.evaluate(()=>{const s=window.PhotoEditor._internal.getState&
 
   R.jsPageErrors=errs;
   // 판정
-  const ok = R.visible.v3===5 && R.visible.bp===3
+  const ok = R.visible.v3===5 && R.visible.bp===4   // v428: bp-ba-nail-pink-polaroid 추가로 BP 3→4
     && R.price.g>=1 && R.price.s>=1
     && R.review.g>=1 && R.review.s>=1
     && R.ba1_choice===3 && R.ba1_editorBefore===false && R.ba1_editorAfter===true && R.ba1_afterW===7 && R.ba1.g>=1 && R.ba1.s>=1
