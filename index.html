@@ -1010,7 +1010,8 @@ window.__LATEST_BUILD__ = '20260609-v426-storage-default-template';
       <span data-last-sync style="margin-left:auto;font-size:10.5px;color:var(--text-subtle,#aaa);font-weight:500;"></span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">예약·매출·고객·재고를 서버에서 다시 받아와요. 다른 기기랑 다르게 보일 때 누르세요.</span>
     </button>
-    <button class="sheet-row" data-static-action="settings-persona-analyze">내 말투 새로 분석하기</button>
+    <button class="sheet-row" data-static-action="settings-persona-report">분석 리포트 보기</button>
+    <button class="sheet-row" data-static-action="settings-persona-analyze">말투 다시 분석하기</button>
     <button class="sheet-row" data-static-action="settings-reset-shop">샵 정보 다시 설정하기</button>
     <button class="sheet-row" data-haptic="light" data-static-action="settings-support">
       <span class="ic-box ic-box--sm ic-box--blue" style="margin-right:6px;"><i class="ph-duotone ph-headset"></i></span> 고객센터 (문의하기)
@@ -2006,6 +2007,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'settings-connect-instagram': () => closeThen(() => call('connectInstagram')),
       'settings-disconnect-instagram': () => closeThen(() => call('disconnectInstagram')),
       'settings-force-sync': () => closeThen(() => call('forceSync')),
+      'settings-persona-report': () => closeThen(() => { if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis(); }),
       'settings-persona-analyze': () => closeThen(() => call('runPersonaAnalyze', [true])),
       'settings-reset-shop': () => closeThen(() => call('resetShopSetup')),
       'settings-support': () => closeThen(() => call('openSupportChat')),
