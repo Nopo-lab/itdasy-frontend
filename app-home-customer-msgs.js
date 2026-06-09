@@ -71,6 +71,10 @@
     const intent = _intentLabel(it.intent);
     const sid = _esc(it.sender_igsid || '');
     const id = _esc(String(it.id));
+    // [Task 2] 양식 자동발송 카드 배지
+    const formBadge = it.form_auto_sent
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:2px 7px;border-radius:99px;margin-top:5px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>양식 보냄</span>`
+      : '';
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
       <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
@@ -81,8 +85,27 @@
         </div>
       </div>
       <div class="hv5-cmsg-msg un">${_esc(last)}</div>
-      <span class="hv5-cmsg-badge"${intent ? '' : ' style="visibility:hidden" aria-hidden="true"'}>${intent ? _esc(intent) : ' '}</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span class="hv5-cmsg-badge"${intent ? '' : ' style="visibility:hidden" aria-hidden="true"'}>${intent ? _esc(intent) : ' '}</span>
+        ${formBadge}
+      </div>
     </button>`;
+  }
+
+  // [Task 3] 홈 스켈레톤 (초기 로딩 중 표시)
+  function _skeletonHtml() {
+    return Array.from({ length: 3 }, () =>
+      `<div style="flex:0 0 168px;background:#F7F8FA;border-radius:16px;padding:13px;flex-shrink:0;">
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:#E5E8EB;flex-shrink:0;"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:5px;justify-content:center;">
+            <div style="width:70%;height:10px;border-radius:5px;background:#E5E8EB;"></div>
+            <div style="width:40%;height:8px;border-radius:5px;background:#F2F4F6;"></div>
+          </div>
+        </div>
+        <div style="height:28px;border-radius:6px;background:#E5E8EB;"></div>
+      </div>`
+    ).join('');
   }
 
   function _reconnectBannerHtml() {
@@ -103,6 +126,13 @@
       .sort((a, b) => new Date(b.received_at || 0) - new Date(a.received_at || 0));
 
     const cnt = document.getElementById('hv5CmsgCount');
+    // [Task 3] 캐시 null = 최초 로드 중 → 스켈레톤 표시
+    if (_cache === null) {
+      sec.hidden = false;
+      row.innerHTML = `<div style="display:flex;gap:11px;overflow:hidden;padding:2px 2px 6px;">${_skeletonHtml()}</div>`;
+      if (cnt) cnt.textContent = '';
+      return;
+    }
     if (!items.length) {
       // 0건 — 토큰 끊겼으면 '재연결' 배너, 아니면 진짜 0건 → 숨김
       if (_tokenValid === false) {

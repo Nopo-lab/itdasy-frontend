@@ -42,8 +42,9 @@
         <div style="font-size:11.5px;color:#8B95A1;margin-bottom:12px;line-height:1.5;">
           답장이 필요한 손님 메시지예요. 잇비 추천 답장을 확인하고 전송하세요.
         </div>
+        <style>@keyframes dcqSpin{to{transform:rotate(360deg)}}</style>
         <div id="dcqList" style="flex:1;overflow-y:auto;">
-          <div style="text-align:center;color:var(--text-subtle);padding:30px 0;font-size:13px;">불러오는 중…</div>
+          <div style="display:flex;justify-content:center;padding:40px 20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:dcqSpin .8s linear infinite" aria-label="불러오는 중"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
         </div>
       </div>
     `;
@@ -220,23 +221,33 @@
   function _cardHtml(it) {
     const tail = (it.sender_tail || '').slice(-4);
     const ex = it.extracted || null;
+    const am = it.action_meta || {};
+    const isFormAuto = !!it.form_auto_sent;
+    const isPhotoOnly = !!am.photo_only;
     const name = it.display_name || (ex && ex.name) || ('손님 …' + tail);
     const _rawDraft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
     const draft = (!_rawDraft && isFormAuto) ? '손님 양식 답변 대기 중이에요…' : _rawDraft;
-    const am = it.action_meta || {};
     const isBooking = it.action_required === 'booking_action';
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
       : '';
     const summary = (it.customer_summary || '').trim();
-    const isFormAuto = !!it.form_auto_sent;
     const amJson = _esc(JSON.stringify({ awaiting_deposit: !!am.awaiting_deposit, deposit_sent: !!am.deposit_sent }));
     // [2] 양식 발송 배지 — 손님 답 대기 중이거나 정보 누적 중인 카드
     const formAutoBadge = isFormAuto
       ? `<div style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:3px 9px;border-radius:99px;margin-bottom:8px;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
           잇비가 예약 양식 보냈어요
+        </div>` : '';
+    // [Task 4] 사진 카드 배지 + 인스타 열기 안내
+    const photoOnlyBlock = isPhotoOnly
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:700;color:#EA580C;">손님이 사진을 보냈어요</div>
+            <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">인스타그램 DM에서 확인 후 직접 답장해 주세요</div>
+          </div>
         </div>` : '';
     return `
       <div class="dcq-item" data-id="${it.id}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
@@ -252,6 +263,7 @@
             ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
           </div>
         </div>
+        ${photoOnlyBlock}
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
@@ -285,6 +297,10 @@
     // [2026-06-08] 수정(인라인 textarea) 중이면 폴링 재렌더 스킵 — 입력 내용/카드 안 닫히게.
     const editing = Array.from(list.querySelectorAll('.dcq-edit')).some(t => t.style.display !== 'none');
     if (editing) return;
+    // [Task 3] 빈 화면이면 로딩 표시
+    if (!list.children.length) {
+      list.innerHTML = '<div style="display:flex;justify-content:center;padding:40px 20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:dcqSpin .8s linear infinite" aria-label="불러오는 중"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>';
+    }
     try {
       const items = await _fetch('GET', '/dm-confirm-queue');
       const count = items.length;
