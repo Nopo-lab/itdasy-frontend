@@ -18,7 +18,9 @@
 
   const CHIPS = [
     ['recommend', '추천'], ['ba', '전후'], ['price', '가격표'], ['story', '스토리'],
-    ['feed', '피드'], ['review', '후기'], ['event', '이벤트'], ['library', '보관함'],
+    ['feed', '피드'], ['review', '후기'], ['event', '이벤트'],
+    ['premium', '프리미엄팩'],   // [BP-4] 뷰티 팩 묶음 칩
+    ['library', '보관함'],
   ];
   const SHORT_PURPOSE = {
     before_after: '전후', review: '후기', price: '가격표', event: '이벤트', story: '스토리',
@@ -76,6 +78,7 @@
       case 'feed': return t.cat === 'feed' || t.purpose === 'feed';
       case 'review': return t.purpose === 'review';
       case 'event': return t.cat === 'event' || t.purpose === 'event';
+      case 'premium': return /^bp-/.test(t.id);   // [BP-4] 프리미엄팩 = 뷰티 팩(bp-*) 묶음
       default: return true;
     }
   }
@@ -223,6 +226,7 @@
     return `<button type="button" class="pe-tplg-card${sel}" data-pe-tplg-id="${_esc(t.id)}">
       <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}">
         <span class="pe-tplg-badge">${_esc(badge)}</span>
+        ${/^bp-/.test(t.id) ? '<span class="pe-tplg-premium" style="position:absolute;top:8px;left:8px;z-index:3;background:linear-gradient(135deg,#E7CE8C,#C9A24B);color:#1B140A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.4px;box-shadow:0 1px 4px rgba(0,0,0,.18);">프리미엄</span>' : ''}
         ${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}
         <span class="pe-tplg-bmk${fav ? ' on' : ''}" data-pe-tplg-bmk="${_esc(t.id)}" role="button" aria-label="보관함">${_BMK_SVG}</span>
       </div>
