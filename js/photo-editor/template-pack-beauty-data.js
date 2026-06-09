@@ -81,6 +81,47 @@
         thanks: '소중한 후기 감사합니다. ♡', cta: '상담 / 예약',
       },
     },
+    {
+      id: 'bp-ba-skin-acne-pink', cat: 'ba', tier: 'free',
+      label: '시술 전후 · 여드름 케어 핑크', kind: 'before_after', purpose: 'before_after', industry: 'skin',
+      accent: 'primary', prefillText: 'Before & After', ratio: '4:5',
+      palette: { bg: '#FCE9EF', ink: '#4A3A40', sub: '#B98A99', accent: '#F24E86', line: '#F6D3DD', badge: '#F24E86' },
+      previewMeta: { decor: ['watercolor', 'sparkle', 'heart', 'rounded-card', 'arrow', 'review-card', 'hashtags'], photoSlots: ['before', 'after'] },
+      // [BP] 레퍼런스(여드름 케어 2주 집중관리) — headline/subtitle/before·after_label·caption/cta 는 시트 편집,
+      //   나머지(headline_accent/badge/hashtags/review_*/profile_handle/top_sticker)는 defaultCopy 고정 카피.
+      defaultCopy: {
+        headline: '여드름 케어', headline_accent: '전후',
+        subtitle: '깨끗한 피부, 자신감 UP!',
+        badge: '2주 집중 관리 결과',
+        hashtags: ['#여드름진정', '#피부결개선', '#민감성피부OK', '#자신감회복'],
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '붉은 트러블·울퉁불퉁한 결', after_caption: '피부 진정·매끈해진 결',
+        review_quote: '화장 밀림이 줄었어요!',
+        review_body: '평소 트러블 때문에 화장도 잘 안 먹고 스트레스였는데, 2주 만에 피부가 진정되고 결이 매끈해졌어요!',
+        profile_handle: '@softglow_skin', top_sticker: '맑고 깨끗한 피부로!',
+        cta: '피부 변화 직접 경험',
+      },
+    },
+    {
+      id: 'bp-ba-hair-extension-polaroid', cat: 'ba', tier: 'free',
+      label: '시술 전후 · 붙임머리 폴라로이드', kind: 'before_after', purpose: 'before_after', industry: 'hair',
+      accent: 'primary', prefillText: 'Before & After', ratio: '4:5',
+      palette: { bg: '#EFE6F6', ink: '#2E2A36', sub: '#9B8AA8', accent: '#F24E86', line: '#E6DCEC', badge: '#A678C8' },
+      previewMeta: { decor: ['watercolor', 'sparkle', 'heart', 'polaroid', 'ribbon', 'best-badge', 'chip', 'arrow'], photoSlots: ['before', 'after'] },
+      // [BP] 레퍼런스(붙임머리 전후 BEST) — headline/subtitle/before·after_label·caption/cta 는 시트 편집,
+      //   나머지(headline_accent/shop_label/best_badge/ribbon/tags/bottom_memo/footer)는 defaultCopy 고정 카피.
+      defaultCopy: {
+        headline: '붙임머리', headline_accent: '전후',
+        subtitle: '자연스럽게 길어지고, 예뻐지는 마법',
+        shop_label: '#HAIR EXTENSION',
+        best_badge: 'BEST', ribbon: '볼륨감이 달라지는 순간',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '밋밋하고 힘없는 모발', after_caption: '풍성하고 자연스러운 볼륨',
+        tags: ['자연스러운 연결', '풍성한 볼륨감', '긴머리 변신 완성'],
+        bottom_memo: '나에게 딱 맞는 디자인으로 인생머리 완성!',
+        footer: 'YOUR BEAUTY, OUR PASSION', cta: '상담 가능',
+      },
+    },
   ];
 
   window.PhotoEditorBeautyPackData = { VERSION: 'bp-2026060902', TEMPLATES: TEMPLATES };

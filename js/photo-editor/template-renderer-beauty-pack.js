@@ -481,14 +481,152 @@
     _text(ctx, data.cta || '상담 / 예약', dw * 0.535, dh * 0.934, '700 28px "Gowun Dodum", sans-serif', '#fff', 'center');
   }
 
+  // ── 전후팩 공용 프리미티브(둥근 사진 카드 + 라벨 pill) ──
+  function _labelPill(ctx, x, y, w, h, text, bg, fg) {
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.15)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    ctx.fillStyle = bg; _rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.restore();
+    _text(ctx, text, x + w / 2, y + h * 0.68, '700 ' + Math.round(h * 0.46) + 'px "Noto Sans KR", sans-serif', fg, 'center');
+  }
+  // 흰 테두리 둥근 사진 카드(cover crop) + 상단 코너 라벨. 폴라로이드와 달리 깔끔한 매거진 카드.
+  function _photoLabeled(ctx, img, x, y, w, h, r, label, labelBg, align, c) {
+    ctx.save(); ctx.shadowColor = 'rgba(180,120,140,0.22)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 6;
+    ctx.fillStyle = '#FFFFFF'; _rr(ctx, x, y, w, h, r); ctx.fill(); ctx.restore();
+    ctx.save(); _rr(ctx, x, y, w, h, r); ctx.clip();
+    if (!(img && _coverDraw(ctx, img, x, y, w, h, img._focal, img._zoom))) {
+      ctx.fillStyle = c.line; ctx.fillRect(x, y, w, h);
+      _text(ctx, '＋ 사진', x + w / 2, y + h / 2, '600 22px "Noto Sans KR", sans-serif', c.sub, 'center');
+    }
+    ctx.restore();
+    var lw = w * 0.46, lh = h * 0.12, lx = (align === 'right') ? x + w - lw - w * 0.05 : x + w * 0.05, ly = y + h * 0.05;
+    _labelPill(ctx, lx, ly, lw, lh, label, labelBg, '#FFFFFF');
+  }
+
+  // ── 4 · 여드름 케어 전후 (핑크 집중관리, ref-8) ───────
+  function _skSkinAcnePink(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    var g = ctx.createLinearGradient(0, 0, 0, dh); g.addColorStop(0, '#FFF4F7'); g.addColorStop(0.5, '#FCE9EF'); g.addColorStop(1, '#FBE0EA');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, dw, dh);
+    _blob(ctx, dw * 0.14, dh * 0.10, dw * 0.30, '#FFFFFF', 0.5); _blob(ctx, dw * 0.90, dh * 0.16, dw * 0.26, '#FFE2EC', 0.5);
+    _blob(ctx, dw * 0.88, dh * 0.80, dw * 0.30, '#FFD9E6', 0.45); _blob(ctx, dw * 0.12, dh * 0.60, dw * 0.24, '#FFFFFF', 0.4);
+    _gemHeart(ctx, dw * 0.07, dh * 0.205, 24, '#F48FB1'); _heart(ctx, dw * 0.93, dh * 0.10, 12, '#F8B5CC', null);
+    [[0.90, 0.30], [0.10, 0.42], [0.94, 0.55]].forEach(function (s, i) { _sparkle(ctx, dw * s[0], dh * s[1], 9 + (i % 2) * 5, '#F2789F'); });
+    // 상단 서브 + 좌상단 손글씨 스티커
+    _text(ctx, data.sub || '깨끗한 피부, 자신감 UP!', dw / 2, dh * 0.05, '700 22px "Gowun Dodum", sans-serif', c.sub, 'center');
+    if (sv.top_sticker) { ctx.save(); ctx.translate(dw * 0.20, dh * 0.088); ctx.rotate(-0.1); _heart(ctx, -dw * 0.085, -dh * 0.011, 8, '#F8B5CC', null); _text(ctx, sv.top_sticker, 0, 0, '400 20px "Nanum Pen Script", cursive', '#E06B98', 'center'); ctx.restore(); }
+    // 헤드라인: 본문(ink) + 강조어(핑크, 하이라이트)
+    var head = data.head || '여드름 케어', acc = sv.headline_accent || '전후';
+    ctx.font = '400 70px "Black Han Sans", sans-serif';
+    var wHead = ctx.measureText(head).width, wAcc = ctx.measureText(acc).width, gapW = 22, totW = wHead + gapW + wAcc, sx = dw / 2 - totW / 2;
+    _brushHighlight(ctx, sx + wHead + gapW - 8, dh * 0.123, wAcc + 16, dh * 0.05, '#F8B5CC');
+    _text(ctx, head, sx, dh * 0.155, '400 70px "Black Han Sans", sans-serif', c.ink, 'left');
+    _text(ctx, acc, sx + wHead + gapW, dh * 0.155, '400 70px "Black Han Sans", sans-serif', c.accent, 'left');
+    // 핑크 배지 pill + 스파클
+    var badge = sv.badge || '2주 집중 관리 결과';
+    ctx.font = '700 22px "Gowun Dodum", sans-serif'; var bw = ctx.measureText(badge).width + 80;
+    _pinkPill(ctx, dw / 2 - bw / 2, dh * 0.185, bw, dh * 0.042, c);
+    _sparkle(ctx, dw / 2 - bw / 2 + 26, dh * 0.206, 9, '#FFFFFF'); _sparkle(ctx, dw / 2 + bw / 2 - 26, dh * 0.206, 9, '#FFFFFF');
+    _text(ctx, badge, dw / 2, dh * 0.214, '700 22px "Gowun Dodum", sans-serif', '#FFFFFF', 'center');
+    // 해시태그 한 줄
+    var tags = (sv.hashtags && sv.hashtags.length) ? sv.hashtags : ['#여드름진정', '#피부결개선', '#민감성피부OK', '#자신감회복'];
+    _text(ctx, tags.join('   '), dw / 2, dh * 0.262, '700 18px "Noto Sans KR", sans-serif', '#C77E97', 'center');
+    // 전후 사진 2분할(둥근 매거진 카드) + 중앙 화살표
+    var pad = dw * 0.045, gap = dw * 0.03, cardW = (dw - pad * 2 - gap) / 2, cardY = dh * 0.29, cardH = dh * 0.295;
+    var before = state && state.secondImg ? state.secondImg : null;
+    if (before && tpl.imageSlots && tpl.imageSlots.before_photo) { before._focal = tpl.imageSlots.before_photo.focal; before._zoom = tpl.imageSlots.before_photo.zoom; }
+    _photoLabeled(ctx, before, pad, cardY, cardW, cardH, 18, data.beforeLabel || 'BEFORE', '#5A4248', 'left', c);
+    _photoLabeled(ctx, _resolveAfter(state, tpl), pad + cardW + gap, cardY, cardW, cardH, 18, data.afterLabel || 'AFTER', c.accent, 'right', c);
+    var acx = pad + cardW + gap / 2, acy = cardY + cardH / 2;
+    ctx.save(); ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(acx, acy, dw * 0.032, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#FFF'; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(acx - 5, acy - 8); ctx.lineTo(acx + 6, acy); ctx.lineTo(acx - 5, acy + 8); ctx.stroke(); ctx.restore();
+    // 사진 아래 손글씨 캡션
+    _text(ctx, data.beforeCap || '붉은 트러블·울퉁불퉁한 결', pad + cardW / 2, cardY + cardH + 30, '400 19px "Nanum Pen Script", cursive', c.sub, 'center');
+    _text(ctx, data.afterCap || '피부 진정·매끈해진 결', pad + cardW + gap + cardW / 2, cardY + cardH + 30, '400 19px "Nanum Pen Script", cursive', '#E06B98', 'center');
+    // 후기 박스(흰 카드 + 원형 고객사진 + 인용)
+    var rbY = dh * 0.655, rbX = dw * 0.06, rbW = dw * 0.88, rbH = dh * 0.205;
+    _softCard(ctx, rbX, rbY, rbW, rbH, 24);
+    var rcx = rbX + rbH * 0.6, rcy = rbY + rbH / 2, rr = rbH * 0.34;
+    ctx.save(); ctx.beginPath(); ctx.arc(rcx, rcy, rr, 0, Math.PI * 2); ctx.clip(); ctx.fillStyle = '#F3DCE4'; ctx.fillRect(rcx - rr, rcy - rr, rr * 2, rr * 2); ctx.restore();
+    ctx.save(); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(rcx, rcy, rr, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    _text(ctx, '＋', rcx, rcy + 8, '600 24px "Noto Sans KR", sans-serif', '#C99', 'center');
+    var qx = rcx + rr + dw * 0.045;
+    _text(ctx, '“', qx - 4, rbY + dh * 0.052, '700 54px "Noto Serif KR", serif', c.accent, 'left');
+    _text(ctx, sv.review_quote || '화장 밀림이 줄었어요!', qx + 30, rbY + dh * 0.045, '700 24px "Gowun Dodum", sans-serif', c.accent, 'left');
+    var rb = sv.review_body || '평소 트러블 때문에 화장도 잘 안 먹고 스트레스였는데, 2주 만에 피부가 진정되고 결이 매끈해졌어요!';
+    if (window.PhotoEditorTemplateFitText && window.PhotoEditorTemplateFitText.drawFitText) {
+      window.PhotoEditorTemplateFitText.drawFitText(ctx, rb, { x: qx, y: rbY + dh * 0.065, w: rbW - (qx - rbX) - dw * 0.05, h: rbH - dh * 0.085 }, { maxFontSize: 18, minFontSize: 14, maxLines: 4, lineHeight: 1.5, color: '#6A565C', align: 'left', valign: 'top', weight: '400', fontFamily: '"Noto Sans KR", sans-serif' });
+    } else { _text(ctx, rb.slice(0, 28), qx, rbY + dh * 0.095, '400 16px "Noto Sans KR", sans-serif', '#6A565C', 'left'); }
+    // 우상단 회전 CTA 배지 + 하단 @handle
+    if (data.cta) { ctx.save(); ctx.translate(dw * 0.85, dh * 0.62); ctx.rotate(0.13); _outlinePill(ctx, 0, 0, dw * 0.26, dh * 0.036, c.accent); _text(ctx, data.cta, 0, dh * 0.009, '700 15px "Gowun Dodum", sans-serif', c.accent, 'center'); ctx.restore(); }
+    _text(ctx, sv.profile_handle || '@softglow_skin', dw / 2, dh * 0.95, '700 22px "Noto Sans KR", sans-serif', c.accent, 'center');
+  }
+
+  // ── 5 · 붙임머리 전후 (라벤더 폴라로이드, ref-9) ──────
+  function _skHairExtPolaroid(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    var g = ctx.createLinearGradient(0, 0, dw, dh); g.addColorStop(0, '#EFE6F6'); g.addColorStop(0.5, '#F6E6F0'); g.addColorStop(1, '#FBE3EC');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, dw, dh);
+    _blob(ctx, dw * 0.16, dh * 0.14, dw * 0.30, '#FFFFFF', 0.5); _blob(ctx, dw * 0.86, dh * 0.20, dw * 0.28, '#EAD9F2', 0.5);
+    _blob(ctx, dw * 0.50, dh * 0.55, dw * 0.40, '#FFFFFF', 0.3); _blob(ctx, dw * 0.20, dh * 0.84, dw * 0.28, '#F6D7E6', 0.45);
+    [[0.12, 0.10], [0.42, 0.07], [0.92, 0.34], [0.08, 0.46], [0.90, 0.60]].forEach(function (s, i) { _sparkle(ctx, dw * s[0], dh * s[1], 9 + (i % 3) * 5, i % 2 ? '#C9A6E0' : '#F2789F'); });
+    _heart(ctx, dw * 0.60, dh * 0.10, 13, '#F8B5CC', null);
+    // 좌상단 라벨 + 상단 손글씨
+    _text(ctx, sv.shop_label || '#HAIR EXTENSION', dw * 0.06, dh * 0.045, '700 16px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _text(ctx, data.sub || '자연스럽게 길어지고, 예뻐지는 마법', dw * 0.50, dh * 0.06, '400 24px "Nanum Pen Script", cursive', '#9B6FB0', 'center');
+    // BEST 배지(우상단 보라 원형)
+    var bbx = dw * 0.86, bby = dh * 0.10;
+    ctx.save(); var bg2 = ctx.createLinearGradient(bbx - 50, bby - 30, bbx + 50, bby + 30); bg2.addColorStop(0, '#C9A6E0'); bg2.addColorStop(1, '#A678C8');
+    ctx.shadowColor = 'rgba(166,120,200,0.4)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4; ctx.fillStyle = bg2;
+    ctx.beginPath(); ctx.arc(bbx, bby, dw * 0.08, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    _text(ctx, sv.best_badge || 'BEST', bbx, bby + 8, '800 26px "Montserrat", sans-serif', '#FFFFFF', 'center');
+    // 헤드라인: 본문(ink) + 강조어(핑크, 하이라이트)
+    var head = data.head || '붙임머리', acc = sv.headline_accent || '전후';
+    ctx.font = '400 76px "Black Han Sans", sans-serif';
+    var wHead = ctx.measureText(head).width, wAcc = ctx.measureText(acc).width, gapW = 22, totW = wHead + gapW + wAcc, sx = dw / 2 - totW / 2;
+    _text(ctx, head, sx, dh * 0.175, '400 76px "Black Han Sans", sans-serif', c.ink, 'left');
+    _brushHighlight(ctx, sx + wHead + gapW - 6, dh * 0.135, wAcc + 14, dh * 0.052, '#F8B5CC');
+    _text(ctx, acc, sx + wHead + gapW, dh * 0.175, '400 76px "Black Han Sans", sans-serif', c.accent, 'left');
+    // 검정 리본 배너
+    var rib = sv.ribbon || '볼륨감이 달라지는 순간';
+    ctx.font = '700 24px "Gowun Dodum", sans-serif'; var rw = ctx.measureText(rib).width + 96, rx = dw / 2 - rw / 2, ry = dh * 0.205;
+    ctx.save(); ctx.fillStyle = '#2A2230'; _rr(ctx, rx, ry, rw, dh * 0.046, 6); ctx.fill(); ctx.restore();
+    _sparkle(ctx, rx + 30, ry + dh * 0.023, 9, '#F2C9DC'); _sparkle(ctx, rx + rw - 30, ry + dh * 0.023, 9, '#F2C9DC');
+    _text(ctx, rib, dw / 2, ry + dh * 0.032, '700 24px "Gowun Dodum", sans-serif', '#FFFFFF', 'center');
+    // 폴라로이드 2장(캡션=before/after 설명)
+    var before = state && state.secondImg ? state.secondImg : null;
+    if (before && tpl.imageSlots && tpl.imageSlots.before_photo) { before._focal = tpl.imageSlots.before_photo.focal; before._zoom = tpl.imageSlots.before_photo.zoom; }
+    _polaroid(ctx, dw * 0.29, dh * 0.45, dw * 0.40, dh * 0.34, -0.05, before, data.beforeCap || '밋밋하고 힘없는 모발', 23, '#6A5566', c, {});
+    _polaroid(ctx, dw * 0.71, dh * 0.47, dw * 0.42, dh * 0.355, 0.05, _resolveAfter(state, tpl), data.afterCap || '풍성하고 자연스러운 볼륨', 23, '#E06B98', c, {});
+    // BEFORE/AFTER 코너 라벨
+    _labelPill(ctx, dw * 0.11, dh * 0.335, dw * 0.18, dh * 0.04, data.beforeLabel || 'BEFORE', '#2A2230', '#FFFFFF');
+    _labelPill(ctx, dw * 0.71, dh * 0.345, dw * 0.18, dh * 0.04, data.afterLabel || 'AFTER', c.accent, '#FFFFFF');
+    // 중앙 곡선 화살표
+    ctx.save(); ctx.strokeStyle = '#3A2F40'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(dw * 0.45, dh * 0.50); ctx.quadraticCurveTo(dw * 0.50, dh * 0.46, dw * 0.55, dh * 0.50); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(dw * 0.55, dh * 0.50); ctx.lineTo(dw * 0.527, dh * 0.487); ctx.moveTo(dw * 0.55, dh * 0.50); ctx.lineTo(dw * 0.534, dh * 0.515); ctx.stroke(); ctx.restore();
+    // 포인트 칩 3(좌하단)
+    var tags = (sv.tags && sv.tags.length) ? sv.tags : ['자연스러운 연결', '풍성한 볼륨감', '긴머리 변신 완성'];
+    for (var i = 0; i < Math.min(tags.length, 3); i++) _chipPill(ctx, dw * 0.05, dh * (0.70 + i * 0.058), dw * 0.40, dh * 0.046, tags[i], c);
+    // 하단 중앙 손글씨
+    if (sv.bottom_memo) { ctx.save(); ctx.translate(dw * 0.68, dh * 0.79); ctx.rotate(-0.04); _text(ctx, sv.bottom_memo, 0, 0, '400 21px "Nanum Pen Script", cursive', '#8A6FA0', 'center'); ctx.restore(); }
+    // 우하단 CTA pill(채팅 아이콘 + 텍스트 + 화살표)
+    _pinkPill(ctx, dw * 0.55, dh * 0.86, dw * 0.40, dh * 0.06, c);
+    _lineIcon(ctx, 'chat', dw * 0.615, dh * 0.888, 20, '#FFFFFF');
+    _text(ctx, data.cta || '상담 가능', dw * 0.74, dh * 0.898, '700 24px "Gowun Dodum", sans-serif', '#FFFFFF', 'center');
+    ctx.save(); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 3; ctx.lineCap = 'round'; var ax = dw * 0.885, ay = dh * 0.89; ctx.beginPath(); ctx.moveTo(ax - 5, ay - 7); ctx.lineTo(ax + 5, ay); ctx.lineTo(ax - 5, ay + 7); ctx.stroke(); ctx.restore();
+    // 푸터
+    _text(ctx, sv.footer || 'YOUR BEAUTY, OUR PASSION', dw / 2, dh * 0.965, '700 16px "Noto Sans KR", sans-serif', c.sub, 'center');
+  }
+
   var ROUTES = {
     'bp-price-blackgold': _skBlackGold,
     'bp-ba-nail-polaroid': _skNailPolaroid,
     'bp-ba-nail-pink-polaroid': _skNailPinkPolaroid,
+    'bp-ba-skin-acne-pink': _skSkinAcnePink,
+    'bp-ba-hair-extension-polaroid': _skHairExtPolaroid,
     'bp-review-lash-blue': _skLashReview,
   };
   // 좌표 튜닝 완료된 id — 워터마크 미표시. 미완성(스텁)만 SKELETON 표기.
-  var DONE = { 'bp-price-blackgold': true, 'bp-review-lash-blue': true, 'bp-ba-nail-polaroid': true, 'bp-ba-nail-pink-polaroid': true };
+  var DONE = { 'bp-price-blackgold': true, 'bp-review-lash-blue': true, 'bp-ba-nail-polaroid': true, 'bp-ba-nail-pink-polaroid': true, 'bp-ba-skin-acne-pink': true, 'bp-ba-hair-extension-polaroid': true };
 
   function draw(ctx, dw, dh, state, tpl, data) {
     try {

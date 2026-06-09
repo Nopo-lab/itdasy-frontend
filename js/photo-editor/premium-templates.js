@@ -71,6 +71,8 @@
     'bp-price-blackgold':  ['beautyPack', 'PREMIUM CARE',   '프리미엄 케어 프로그램', '고객 맞춤 집중 관리'],
     'bp-ba-nail-polaroid': ['beautyPack', 'BEFORE / AFTER', '네일 전후 변화',     '손끝 분위기가 달라지는 순간'],
     'bp-ba-nail-pink-polaroid': ['beautyPack', 'BEFORE / AFTER', '네일 전후 변화', '손끝 분위기가 달라지는 순간 ♡'],
+    'bp-ba-skin-acne-pink': ['beautyPack', 'BEFORE / AFTER', '여드름 케어 전후', '2주 집중 관리 결과'],
+    'bp-ba-hair-extension-polaroid': ['beautyPack', 'BEFORE / AFTER', '붙임머리 전후', '볼륨감이 달라지는 순간'],
     'bp-review-lash-blue': ['beautyPack', 'REAL REVIEW',    '속눈썹 후기',        '또렷하고 자연스러운 눈매 변화'],
   };
 
