@@ -75,9 +75,9 @@
     } catch (_e) { return ''; }
   }
 
-  // [P0-B] 잇비 자동적용 결과를 "저장" 시 갤러리(작업실 마무리 탭)에 baked 이미지로 남긴다.
-  //   기존 window.saveToGallery 재사용 — DB 함수/스키마 미수정. 재편집 메타 저장 안 함(P2-2 분리).
-  //   dedupeKey = 목적+요청id(열림당 1회) → 같은 결과 재저장은 갱신, 새 요청은 새 항목.
+  // [P0-B/P0-C] 잇비 자동적용 결과를 "저장" 시 마무리 갤러리 + 작업실 슬롯 둘 다에 baked 이미지로 남긴다.
+  //   실제 저장은 window.saveAssistantTemplateResult 어댑터(gallery + slot)에 위임. DB 함수/스키마 미수정.
+  //   rid = 열림당 1회 → gallery dedupeKey / slot id 동일 키로 묶여 재저장은 갱신, 새 요청만 새 항목.
   function _templateOnSave(meta) {
     var m = meta || {};
     var rid;
@@ -85,15 +85,12 @@
     catch (_e) { rid = 'r' + Date.now(); }
     return function (dataUrl) {
       try {
-        if (typeof window.saveToGallery !== 'function' || !dataUrl) return;
-        window.saveToGallery({
-          id: 'asst_' + rid,
-          label: m.label || '잇비 카드',
-          photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }],
-          caption: '', hashtags: '',
-          source: 'assistant_template',
-          dedupeKey: 'asst_tpl:' + (m.purpose || '') + ':' + rid,
-        });
+        if (!dataUrl) return;
+        if (typeof window.saveAssistantTemplateResult === 'function') {
+          window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || '', label: m.label || '잇비 카드', rid: rid });
+        } else if (typeof window.saveToGallery === 'function') {   // 어댑터 미로드 폴백(갤러리만)
+          window.saveToGallery({ id: 'asst_' + rid, label: m.label || '잇비 카드', photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }], caption: '', hashtags: '', source: 'assistant_template', dedupeKey: 'asst_tpl:' + (m.purpose || '') + ':' + rid });
+        }
         try { if (window.showToast) window.showToast('작업실에 저장했어요.'); } catch (_t) { void _t; }
       } catch (e) { try { console.warn('[autoapply] save failed', e && e.message); } catch (_l) { void _l; } }
     };
