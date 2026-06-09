@@ -1434,6 +1434,7 @@
       if (!action || !window.ItdasyActionHub || typeof window.ItdasyActionHub.handleActionClick !== 'function') return true;
       if (action.kind === 'open_template_panel' && _openAssistantTemplatePicker(action, msg)) return true;
       if (action.kind === 'apply_price_template' && _applyPriceTemplateDraft(action, msg)) return true;
+      if (action.kind === 'ba_role_choice') { _handleBaRoleChoice(action.payload || {}); return true; }   // [P1] 전후 1장 전/후 선택
       const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
       // [P0-A] "결과 확인" → 편집기 다시 열기 시, 채팅 닫아 편집시트를 최상단으로.
       if (r.navigated && action.kind === 'review_price_template_result') _focusEditorCloseAssistant();
@@ -1761,14 +1762,91 @@
     if (window.showToast) window.showToast('전후 카드를 넣었어요. 문구 편집에서 확인해 주세요.');
   }
 
+  // ── [P1] 전후 1장 전/후 선택 ──────────────────────────────
+  //   사진 1장으로 전후 요청 시 즉시 적용하지 않고 "이 사진은 전/후?" 선택 카드를 띄운다.
+  //   역할 선택 후 두 번째 사진을 받으면 기존 handleBeforeAfterCard(2장 경로)로 정확 매핑해 완성한다.
+  //   1장 복제·fake before 생성 금지. picker 강제 오픈 안 함(채팅 업로드 안내, picker는 P1b).
+  var _BA_PENDING_TTL = 10 * 60 * 1000;   // 10분
+  let _pendingBA = null;          // { firstUrl, firstRole:'before'|'after', requestText, ts }
+  let _baChoicePhotoUrl = null;   // 선택 카드 표시~클릭 사이 1장 dataURL 임시(히스토리에 미저장)
+
+  function _baCollectCtx() {
+    try { return (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {}; }
+    catch (_e) { return {}; }
+  }
+
+  function _pushBaChoiceCard(firstUrl, requestText) {
+    _baChoicePhotoUrl = firstUrl;
+    _history.push({
+      role: 'assistant',
+      text: '이 사진은 시술 전인가요, 시술 후인가요?\n나머지 한 장을 채팅에 올려주시면 전후 카드로 만들어 드릴게요.',
+      hub_actions: [
+        { id: 'ba_choice_before', kind: 'ba_role_choice', label: '시술 전 사진이에요', phase: 'safe', route: 'hub', payload: { role: 'before', requestText: requestText } },
+        { id: 'ba_choice_after', kind: 'ba_role_choice', label: '시술 후 사진이에요', phase: 'safe', route: 'hub', payload: { role: 'after', requestText: requestText } },
+        { id: 'ba_choice_asis', kind: 'ba_role_choice', label: '일단 이 사진으로 만들기', phase: 'safe', route: 'hub', payload: { role: 'asis', requestText: requestText } },
+      ],
+    });
+    _renderHistory();
+  }
+
+  // 주어진 photos(순서: [before, after] 또는 [after])로 기존 전후 카드 적용. handleBeforeAfterCard 재사용.
+  function _applyBaFromPhotos(requestText, photos, ctx) {
+    try {
+      var TA = window.ItdasyTemplateAutoApply;
+      if (!TA || typeof TA.handleBeforeAfterCard !== 'function') {
+        _history.push({ role: 'assistant', text: '전후 카드를 만들지 못했어요. 다시 시도해 주세요.' }); _renderHistory(); return false;
+      }
+      var result = TA.handleBeforeAfterCard(requestText || '전후 카드 만들어줘', ctx || {}, { photos: photos });
+      if (!result || result.needsPhoto) {
+        _history.push({ role: 'assistant', text: '전후 카드를 만들려면 사진이 필요해요. 사진을 올린 뒤 다시 시도해 주세요.' }); _renderHistory(); return false;
+      }
+      _pushBaResultCard(result);
+      _focusEditorCloseAssistant();
+      return true;
+    } catch (e) {
+      try { console.warn('[assistant-ba-p1] apply failed', e && e.message); } catch (_l) { void _l; }
+      _history.push({ role: 'assistant', text: '전후 카드를 만들지 못했어요. 다시 시도해 주세요.' }); _renderHistory(); return false;
+    }
+  }
+
+  function _handleBaRoleChoice(payload) {
+    var role = payload.role, requestText = payload.requestText || '전후 카드 만들어줘';
+    var firstUrl = _baChoicePhotoUrl;
+    _baChoicePhotoUrl = null;
+    if (!firstUrl) {
+      _history.push({ role: 'assistant', text: '사진 정보가 사라졌어요. 사진을 다시 올린 뒤 전후 카드를 요청해 주세요.' }); _renderHistory(); return;
+    }
+    if (role === 'asis') {   // 기존 1장 정책: after + before placeholder
+      _applyBaFromPhotos(requestText, [firstUrl], _baCollectCtx());
+      return;
+    }
+    // before/after 선택 → 현재 사진 보관 + 나머지 한 장 대기
+    _pendingBA = { firstUrl: firstUrl, firstRole: role, requestText: requestText, ts: Date.now() };
+    var keep = (role === 'before') ? '시술 전' : '시술 후';
+    var need = (role === 'before') ? '시술 후' : '시술 전';
+    _history.push({ role: 'assistant', text: '이 사진을 ' + keep + ' 사진으로 둘게요.\n이제 ' + need + ' 사진을 채팅에 올려주시면 전후 카드를 완성할게요.' });
+    _renderHistory();
+  }
+
+  // 두 번째 사진 도착 → 순서 매핑([0]=before,[1]=after) 후 완성. _resolveBaPhotos 규약 준수.
+  function _completePendingBA(secondUrl) {
+    var p = _pendingBA; _pendingBA = null;
+    if (!p || !p.firstUrl || !secondUrl) return false;
+    var ordered = (p.firstRole === 'before') ? [p.firstUrl, secondUrl] : [secondUrl, p.firstUrl];
+    return _applyBaFromPhotos(p.requestText, ordered, _baCollectCtx());
+  }
+
   function _tryBeforeAfterCardShortcut(input, q) {
     try {
       var M = window.ItdasyTemplateAutoApply;
       if (!M || typeof M.detectBeforeAfterCard !== 'function' || !M.detectBeforeAfterCard(q)) return false;
       var ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
-      var result = M.handleBeforeAfterCard(q, ctx, { photos: _lastUserPhotos() });
+      var photos = _lastUserPhotos();
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
+      // [P1] 사진 1장이면 즉시 적용하지 않고 전/후 선택 카드부터.
+      if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return true; }
+      var result = M.handleBeforeAfterCard(q, ctx, { photos: photos });
       if (!result || result.needsPhoto) {
         _history.push({ role: 'assistant', text: '전후 카드를 만들려면 사진이 필요해요. 시술 후 사진을 먼저 올려 주세요.' });
         _renderHistory();
@@ -1894,6 +1972,8 @@
         return true;
       }
       if (payload.purpose === 'price') { _applyPriceSample(payload); return true; }
+      // [P1] 전후 + 사진 1장이면 즉시 적용하지 않고 전/후 선택 카드부터.
+      if (payload.purpose === 'before_after' && photos.length === 1) { _pushBaChoiceCard(photos[0], q); return true; }
       const TA = window.ItdasyTemplateAutoApply;
       const result = (TA && typeof TA.applySample === 'function') ? TA.applySample(payload, ctx, { photos: photos }) : null;
       if (!result || result.needsPhoto) {
@@ -3164,6 +3244,19 @@
     // [P0a] 채팅 업로드 사진을 잇비 SourceImage store 에 기록 — 이후 텍스트/버튼이 이 사진을 대상으로.
     //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
     try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
+    // [P1] 전후 1장 선택 후 두 번째 사진 대기 중이면, 이번 업로드로 전후 카드를 완성.
+    if (_pendingBA && photoUrls[0]) {
+      if (Date.now() - _pendingBA.ts > _BA_PENDING_TTL) {
+        _pendingBA = null;   // 만료 → 일반 업로드 흐름으로 진행
+      } else {
+        const _baSecond = photoUrls[0];
+        _history.push({ role: 'user', text: '', photos: [_baSecond], thumb: _baSecond });
+        _renderHistory();
+        _completePendingBA(_baSecond);
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
+      }
+    }
     try {
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       if (await _tryPhotoShortcut(question, photoUrls)) return;
@@ -3770,6 +3863,7 @@
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
     const q = input ? input.value.trim() : '';
     if (!q) return;
+    if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (_tryTemplateSampleShortcut(input, q)) return;   // [M2] 매처 샘플 → I2/I3 자동 적용 — null 이면 false 로 아래 fallback
