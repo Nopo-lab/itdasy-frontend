@@ -326,7 +326,7 @@
   function alertItems(brief, dmQueueCount, onlinePendingCount) {
     const items = [];
     const depositPending = (brief && brief.pending_booking_count) || 0;
-    if (dmQueueCount > 0) items.push({ tone: 'purple', title: `답장 ${dmQueueCount}건 써뒀어요`, desc: '확인하고 보내기만 하세요', count: dmQueueCount, act: 'openDMConfirmQueue' });
+    // [F1] 홈 "답장 N건 써뒀어요" 항목 — 실시간 DM 카드와 중복 → 제거
     const overdue = overdueAlertContext(brief);
     if (overdue) items.push({ tone: 'pink', title: '미완료 예약 찾았어요', desc: overdue.desc, count: overdue.count, act: 'completePending' });
     setOverdueCache(brief, Boolean(overdue));

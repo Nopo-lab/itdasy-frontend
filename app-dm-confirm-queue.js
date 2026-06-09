@@ -197,10 +197,18 @@
       </div>
     </div>`;
   }
+  // [F2] 전송 버튼 라벨·스타일 — booking_action(예약 확정)은 로즈, 그 외 네이비
+  function _mainBtnStyle(it) {
+    const am = it.action_meta || {};
+    if (it.action_required === 'booking_action') return 'background:#BC6675;';
+    if (am.awaiting_deposit) return 'background:#BC6675;'; // 예약금 단계도 로즈
+    return 'background:#191F28;';
+  }
   function _mainBtnLabel(it) {
-    // [2026-06-08] 캘린더 등록은 BE 가 입금확정+이름 있을 때만 booking_action 부여 → 그때만 +캘린더.
-    //   신규 문의(action 없음)는 [전송]만.
-    return it.action_required === 'booking_action' ? '전송 + 캘린더 등록' : '전송';
+    const am = it.action_meta || {};
+    if (it.action_required === 'booking_action') return '예약 확정 + 전송';
+    if (am.awaiting_deposit) return '예약금 안내 전송';
+    return '전송';
   }
   function _gotoCalendar(ymd) {
     try {
@@ -250,10 +258,15 @@
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:12px;">
-          <button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;background:#191F28;color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;">${_esc(_mainBtnLabel(it))}</button>
+          <button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>
           <button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>
-          <button class="dcq-discard" data-act="discard" aria-label="닫기" title="카드 닫기 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-          <button class="dcq-reset" data-act="reset" aria-label="대화 초기화" title="대화 초기화 (정보 삭제)" style="padding:11px 14px;border:1px solid #FCA5A5;background:#FEF2F2;color:#DC2626;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></button>
+          <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
+        </div>
+        <div style="text-align:center;margin-top:8px;">
+          <button class="dcq-reset" data-act="reset" style="background:none;border:none;padding:6px 12px;font-size:11.5px;color:#C9CDD4;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>대화 초기화
+          </button>
         </div>
       </div>`;
   }
@@ -329,21 +342,14 @@
       // (app-booking-api.js 의 _invalidateCache 가 itdasy:data-changed 리스너로 발동)
       const isApproveSend = (action === 'send' || action === 'send_edit');
       const undoLogId = r.log_id || r.action_log_id || null;
-      const baseMsg = r.message || '예약 등록됐어요';
-
-      // [2026-06-08] 캘린더 등록(booking_action) 성공 → "캘린더에서 보기" 버튼 토스트
+      // [F3] 전송 후 체크 토스트 — 밋밋한 "발송 완료" 대신 "전송했어요 ✓"
       const bookingYmd = card.dataset.bookingDate || '';
       const isBookingCreated = isApproveSend && (r.booking_id || (action === 'send' && bookingYmd));
       if (isBookingCreated && window.showToast) {
-        try { window.showToast(baseMsg + ' · 캘린더에서 보기 →', { onClick: () => _gotoCalendar(bookingYmd) }); }
-        catch (_t) { window.showToast(baseMsg); }
-      } else if (isApproveSend && undoLogId && typeof window.showUndoToast === 'function') {
-        // 백엔드가 action log id 를 돌려주면 "되돌리기 →" 버튼 토스트
-        try { window.showUndoToast(baseMsg, undoLogId); } catch (_t) {
-          if (window.showToast) window.showToast(baseMsg);
-        }
-      } else if (window.showToast) {
-        window.showToast(baseMsg);
+        try { window.showToast('전송했어요 ✓ · 캘린더에서 보기 →', { onClick: () => _gotoCalendar(bookingYmd) }); }
+        catch (_t) { if (window.showToast) window.showToast('전송했어요 ✓'); }
+      } else if (isApproveSend && window.showToast) {
+        window.showToast('전송했어요 ✓');
       }
 
       if (isApproveSend) {

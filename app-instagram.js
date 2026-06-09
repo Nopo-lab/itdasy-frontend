@@ -524,6 +524,37 @@ async function runPersonaAnalyze(force) {
     }
 
     const data = await res.json();
+    // [B4] BE가 background 처리로 pending 반환 → runAutoAnalysisAfterConnect 폴링 흐름으로 전환
+    if (data && data.status === 'pending') {
+      clearInterval(ticker);
+      if (stepTxt) stepTxt.textContent = '분석 중이에요...';
+      if (subTxt)  subTxt.textContent  = '완료되면 알려드릴게요';
+      if (bar) bar.style.width = '40%';
+      // /instagram/status 폴링 — done 되면 결과 반영
+      const MAX_MS = 120_000; const startedAt = Date.now();
+      while (Date.now() - startedAt < MAX_MS) {
+        try {
+          const sr = await apiFetch('/instagram/status', { headers: authHeader() });
+          if (sr.ok) {
+            const sd = await sr.json();
+            if (sd && sd.persona && (sd.persona.style_summary || '').trim()) {
+              const sp = sd.persona;
+              if (bar) bar.style.width = '100%';
+              if (stepTxt) stepTxt.textContent = '분석 성공!';
+              if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
+              try { const flat = { ...sp, tone_summary: sp.tone || '', style_summary: sp.style_summary || '' }; localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat)); } catch(_e){ void _e; }
+              try { const cp = document.getElementById('headerAvatar')?.querySelector('img')?.src || ''; updateHeaderProfile(_instaHandle, sp.tone, cp); renderPersonaDash(sp, true); } catch(_e){ void _e; }
+              setTimeout(() => { if (overlay) overlay.style.display = 'none'; try { if (typeof showToast === 'function') showToast('말투 분석 완료!'); } catch(_e){ void _e; } }, 800);
+              return;
+            }
+          }
+        } catch(_e) { /* network blip */ }
+        await new Promise(r => setTimeout(r, 4000));
+      }
+      if (overlay) overlay.style.display = 'none';
+      try { if (typeof showToast === 'function') showToast('분석이 오래 걸리고 있어요. 설정 > 말투 리포트에서 확인하세요'); } catch(_e){ void _e; }
+      return;
+    }
     const p = data.persona;
     const raw = data.raw_analysis || {};
 
