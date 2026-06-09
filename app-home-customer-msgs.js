@@ -73,7 +73,7 @@
     const id = _esc(String(it.id));
     // [Task 2] 양식 자동발송 카드 배지
     const formBadge = it.form_auto_sent
-      ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:2px 7px;border-radius:99px;margin-top:5px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>양식 보냄</span>`
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:2px 7px;border-radius:99px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>양식발송완료</span>`
       : '';
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
       <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
@@ -85,8 +85,8 @@
         </div>
       </div>
       <div class="hv5-cmsg-msg un">${_esc(last)}</div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <span class="hv5-cmsg-badge"${intent ? '' : ' style="visibility:hidden" aria-hidden="true"'}>${intent ? _esc(intent) : ' '}</span>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;">
+        <span class="hv5-cmsg-badge" style="margin-top:0;${intent ? '' : 'visibility:hidden;'}"${intent ? '' : ' aria-hidden="true"'}>${intent ? _esc(intent) : ' '}</span>
         ${formBadge}
       </div>
     </button>`;
