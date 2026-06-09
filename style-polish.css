@@ -281,11 +281,12 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   .full-height { min-height: -webkit-fill-available; }
 }
 
-/* input zoom 방지 — iOS Safari 는 font-size < 16px 시 자동 줌 */
+/* [F1] iOS 줌 방지 — 실제 키보드 입력칸(text/email/password 등)만 16px 하한 적용.
+   textarea·select 는 제외 — 설정/캡션 텍스트 크기를 컴포넌트가 직접 제어. */
 input[type="text"], input[type="email"], input[type="password"],
 input[type="number"], input[type="tel"], input[type="search"],
-input[type="url"], textarea, select {
-  font-size: max(16px, 1em);
+input[type="url"] {
+  font-size: 16px;
 }
 
 /* 모멘텀 스크롤 */

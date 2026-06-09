@@ -326,7 +326,9 @@ function renderDetailedPopup(data) {
     body.innerHTML = html;
     body.querySelector('[data-ig-write]')?.addEventListener('click', () => {
         try { document.getElementById('analyzeResultPopup').style.display = 'none'; } catch (_e) { void _e; }
-        if (typeof showOnboardingCaptionPopup === 'function') showOnboardingCaptionPopup();
+        // [FE2] 시나리오 팝업(어떤 상황?) 우선, 없으면 onboarding 팝업
+        if (typeof window.openCaptionScenarioPopup === 'function') window.openCaptionScenarioPopup();
+        else if (typeof showOnboardingCaptionPopup === 'function') showOnboardingCaptionPopup();
     });
     body.querySelector('[data-ig-tag-toggle]')?.addEventListener('click', function () {
         const chips = body.querySelector('[data-ig-tag-chips]');
@@ -405,9 +407,15 @@ async function runAutoAnalysisAfterConnect() {
       updateHeaderProfile(_instaHandle, p.tone, curPic);
       renderPersonaDash(p, true);
     } catch (_e) { void _e; }
+    // [FE4] 재분석 완료 → 리포트 팝업 자동 노출
+    try {
+      const flat = { ...p, tone_summary: p.tone || '', style_summary: p.style_summary || '' };
+      localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat));
+    } catch (_e) { void _e; }
     setTimeout(() => {
       if (overlay) overlay.style.display = 'none';
-      try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료! 내샵관리 → 말투 분석 리포트에서 확인하세요'); } catch (_e) { void _e; }
+      if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
+      else try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
     }, 1000);
     return;
   }
