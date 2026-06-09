@@ -1562,10 +1562,10 @@
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
   }
 
-  // [P0-B] 잇비 자동적용 결과를 "저장" 시 갤러리(작업실 마무리 탭)에 baked 이미지로 남긴다.
-  //   기존 window.saveToGallery 재사용(gallery 스토어) — DB 함수/스키마 미수정. 재편집 메타 저장 안 함(P2-2 분리).
+  // [P0-B/P0-C] 잇비 자동적용 결과를 "저장" 시 마무리 갤러리 + 작업실 슬롯 둘 다에 baked 이미지로 남긴다.
   //   onSave 가 붙으면 편집기가 임베드 모드가 되어 저장이 _exportImage(다운로드) 대신 _saveViaCallback 으로 라우팅됨.
-  //   dedupeKey = 목적+요청id(열림당 1회 생성) → 같은 결과 재저장은 갱신, 새 요청은 새 항목.
+  //   실제 저장은 window.saveAssistantTemplateResult 어댑터(gallery saveToGallery + slot saveSlotToDB)에 위임.
+  //   rid = 열림당 1회 생성 → gallery dedupeKey / slot id 동일 키로 묶여 재저장은 갱신, 새 요청만 새 항목.
   function _assistantTemplateOnSave(meta) {
     const m = meta || {};
     let rid;
@@ -1573,15 +1573,12 @@
     catch (_e) { rid = 'r' + Date.now(); }
     return function (dataUrl) {
       try {
-        if (typeof window.saveToGallery !== 'function' || !dataUrl) return;
-        window.saveToGallery({
-          id: 'asst_' + rid,
-          label: m.label || '잇비 템플릿',
-          photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }],
-          caption: '', hashtags: '',
-          source: 'assistant_template',
-          dedupeKey: 'asst_tpl:' + (m.purpose || 'price') + ':' + rid,
-        });
+        if (!dataUrl) return;
+        if (typeof window.saveAssistantTemplateResult === 'function') {
+          window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || 'price', label: m.label || '잇비 템플릿', rid: rid });
+        } else if (typeof window.saveToGallery === 'function') {   // 어댑터 미로드 폴백(갤러리만)
+          window.saveToGallery({ id: 'asst_' + rid, label: m.label || '잇비 템플릿', photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }], caption: '', hashtags: '', source: 'assistant_template', dedupeKey: 'asst_tpl:' + (m.purpose || 'price') + ':' + rid });
+        }
         if (window.showToast) window.showToast('작업실에 저장했어요.');
       } catch (e) {
         try { console.warn('[assistant-template] save failed', e && e.message); } catch (_l) { void _l; }
