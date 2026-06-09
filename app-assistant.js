@@ -1562,6 +1562,33 @@
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
   }
 
+  // [P0-B] 잇비 자동적용 결과를 "저장" 시 갤러리(작업실 마무리 탭)에 baked 이미지로 남긴다.
+  //   기존 window.saveToGallery 재사용(gallery 스토어) — DB 함수/스키마 미수정. 재편집 메타 저장 안 함(P2-2 분리).
+  //   onSave 가 붙으면 편집기가 임베드 모드가 되어 저장이 _exportImage(다운로드) 대신 _saveViaCallback 으로 라우팅됨.
+  //   dedupeKey = 목적+요청id(열림당 1회 생성) → 같은 결과 재저장은 갱신, 새 요청은 새 항목.
+  function _assistantTemplateOnSave(meta) {
+    const m = meta || {};
+    let rid;
+    try { rid = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+    catch (_e) { rid = 'r' + Date.now(); }
+    return function (dataUrl) {
+      try {
+        if (typeof window.saveToGallery !== 'function' || !dataUrl) return;
+        window.saveToGallery({
+          id: 'asst_' + rid,
+          label: m.label || '잇비 템플릿',
+          photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }],
+          caption: '', hashtags: '',
+          source: 'assistant_template',
+          dedupeKey: 'asst_tpl:' + (m.purpose || 'price') + ':' + rid,
+        });
+        if (window.showToast) window.showToast('작업실에 저장했어요.');
+      } catch (e) {
+        try { console.warn('[assistant-template] save failed', e && e.message); } catch (_l) { void _l; }
+      }
+    };
+  }
+
   function _openPriceEditSheet(state, tplId, tpl, helpers) {
     const ES = window.PhotoEditorTemplateEditSheet;
     if (!ES || typeof ES.open !== 'function') {
@@ -1769,7 +1796,7 @@
       const tplId = _selectPriceTemplateId(draft, p.preferredTemplateId);
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
-      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template' });
+      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실
       TV.apply(tplId);
       const helpers = PE._internal.helpers || {};
       const state = PE._internal.getState && PE._internal.getState();
@@ -1823,7 +1850,7 @@
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
       try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-      PE.open({ src: source, initial_tab: 'template' });
+      PE.open({ src: source, initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실
       TV.apply(tplId);
       const helpers = PE._internal.helpers || {};
       const state = PE._internal.getState && PE._internal.getState();

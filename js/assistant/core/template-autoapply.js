@@ -75,13 +75,37 @@
     } catch (_e) { return ''; }
   }
 
+  // [P0-B] 잇비 자동적용 결과를 "저장" 시 갤러리(작업실 마무리 탭)에 baked 이미지로 남긴다.
+  //   기존 window.saveToGallery 재사용 — DB 함수/스키마 미수정. 재편집 메타 저장 안 함(P2-2 분리).
+  //   dedupeKey = 목적+요청id(열림당 1회) → 같은 결과 재저장은 갱신, 새 요청은 새 항목.
+  function _templateOnSave(meta) {
+    var m = meta || {};
+    var rid;
+    try { rid = Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+    catch (_e) { rid = 'r' + Date.now(); }
+    return function (dataUrl) {
+      try {
+        if (typeof window.saveToGallery !== 'function' || !dataUrl) return;
+        window.saveToGallery({
+          id: 'asst_' + rid,
+          label: m.label || '잇비 카드',
+          photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }],
+          caption: '', hashtags: '',
+          source: 'assistant_template',
+          dedupeKey: 'asst_tpl:' + (m.purpose || '') + ':' + rid,
+        });
+        try { if (window.showToast) window.showToast('작업실에 저장했어요.'); } catch (_t) { void _t; }
+      } catch (e) { try { console.warn('[autoapply] save failed', e && e.message); } catch (_l) { void _l; } }
+    };
+  }
+
   // ── 공용: open → apply → slotValues patch → (state patch) → redraw → 편집 시트 ──
-  function _runAutoApply(tplId, afterUrl, buildSlots, patchState, editTemplateData) {
+  function _runAutoApply(tplId, afterUrl, buildSlots, patchState, editTemplateData, onSave) {
     var PE = window.PhotoEditor;
     var TV = window.PhotoEditorTemplatesV2;
     if (!PE || !PE.open || !PE._internal || !TV || typeof TV.apply !== 'function') return null;
 
-    PE.open({ src: afterUrl, initial_tab: 'template' });
+    PE.open({ src: afterUrl, initial_tab: 'template', onSave: (typeof onSave === 'function' ? onSave : undefined) });   // [P0-B] 저장→작업실
     TV.apply(tplId);
 
     var state = (PE._internal.getState && PE._internal.getState()) || null;
@@ -132,7 +156,8 @@
       REVIEW_TPL_ID, photoUrl,
       function (base) { return buildReviewSlotValues(base, ctx, text); },
       function (st) { if (hadPhoto && st.tplV2.imageSlots && st.tplV2.imageSlots.main_photo) st.tplV2.imageSlots.main_photo.src = photoUrl; },
-      _reviewTplData()
+      _reviewTplData(),
+      _templateOnSave({ purpose: 'review', label: '후기 카드' })   // [P0-B]
     );
     if (!state) return null;
 
@@ -261,7 +286,8 @@
       tplId, ph.afterUrl,
       function (base) { return buildBASlotValues(base, ctx, text); },
       function (st) { if (!ph.beforeUrl && ph.prevSecond) st.secondImg = ph.prevSecond; },   // after_photo.src ''=현재 캔버스(=open 한 after)
-      _baTplData(tplId)
+      _baTplData(tplId),
+      _templateOnSave({ purpose: 'before_after', label: _baLabel(tplId) })   // [P0-B]
     );
     if (!state) return null;
 
@@ -293,7 +319,8 @@
       tpl, photoUrl,
       function (base) { return Object.assign({}, base, slots); },   // 샘플 slotValues 를 템플릿 base 위에 덮음
       function (st) { if (hadPhoto && st.tplV2.imageSlots && st.tplV2.imageSlots.main_photo) st.tplV2.imageSlots.main_photo.src = photoUrl; },
-      _tplDataById(tpl)
+      _tplDataById(tpl),
+      _templateOnSave({ purpose: 'review', label: '후기 카드' })   // [P0-B]
     );
     if (!state) return null;
     var sv = state.tplV2.slotValues || {};
@@ -314,7 +341,8 @@
       tpl, ph.afterUrl,
       function (base) { return Object.assign({}, base, slots); },
       function (st) { if (!ph.beforeUrl && ph.prevSecond) st.secondImg = ph.prevSecond; },
-      _baTplData(tpl)
+      _baTplData(tpl),
+      _templateOnSave({ purpose: 'before_after', label: _baLabel(tpl) })   // [P0-B]
     );
     if (!state) return null;
     if (ph.beforeUrl) _loadBeforeIntoState(ph.beforeUrl);
