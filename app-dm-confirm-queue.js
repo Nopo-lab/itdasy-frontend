@@ -135,13 +135,8 @@
       if (!isNaN(d.getTime())) dateStr = `${d.getMonth() + 1}/${d.getDate()} `;
     }
     if (am.slot_available) {
-      const gap = am.free_gap_minutes;
-      let gapStr = '';
-      if (gap != null && gap > 0) {
-        const h = Math.round(gap / 60);   // 분→시간 반올림
-        gapStr = h >= 1 ? ` (앞뒤 ${h}시간 여유)` : ` (앞뒤 ${gap}분 여유)`;
-      }
-      return `<div style="font-size:12px;color:#8B95A1;margin:10px 0 2px;">✓ 캘린더 확인 · ${_esc(dateStr + t)} 비어있음${gapStr}</div>`;
+      // [F5] "앞뒤 N시간 여유" 헷갈리는 문구 제거
+      return `<div style="font-size:12px;color:#8B95A1;margin:10px 0 2px;">✓ 캘린더 확인 · ${_esc(dateStr + t)} 비어있음</div>`;
     }
     return `<div style="font-size:12px;color:#BC6675;margin:10px 0 2px;">✕ 그 시간 예약 있음 — 대안 필요</div>`;
   }
@@ -201,7 +196,7 @@
   function _mainBtnStyle(it) {
     const am = it.action_meta || {};
     if (it.action_required === 'booking_action') return 'background:#BC6675;';
-    if (am.awaiting_deposit) return 'background:#BC6675;'; // 예약금 단계도 로즈
+    if (am.awaiting_deposit) return 'background:#BC6675;';
     return 'background:#191F28;';
   }
   function _mainBtnLabel(it) {
@@ -209,6 +204,15 @@
     if (it.action_required === 'booking_action') return '예약 확정 + 전송';
     if (am.awaiting_deposit) return '예약금 안내 전송';
     return '전송';
+  }
+  // deposit_sent 단계면 별도 버튼 노출 — 원장이 입금 확인 후 직접 확정
+  function _depositConfirmBtn(it) {
+    const am = it.action_meta || {};
+    if (!am.deposit_sent) return '';
+    return `<button class="dcq-confirm-deposit" data-act="confirm-deposit"
+      style="width:100%;padding:11px;border:none;background:#2B3A67;color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>입금 확인 + 예약 확정
+    </button>`;
   }
   function _gotoCalendar(ymd) {
     try {
@@ -263,6 +267,7 @@
           <button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
         </div>
+        ${_depositConfirmBtn(it)}
         <div style="text-align:center;margin-top:8px;">
           <button class="dcq-reset" data-act="reset" style="background:none;border:none;padding:6px 12px;font-size:11.5px;color:#C9CDD4;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>대화 초기화
@@ -306,6 +311,7 @@
       }));
       list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
       list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
+      list.querySelectorAll('.dcq-confirm-deposit').forEach(b => b.addEventListener('click', () => _doAction(b, 'confirm-deposit')));
     } catch (e) {
       list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
     }
@@ -330,6 +336,9 @@
           return;
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send_edit`, { edited_reply: editedText });
+      } else if (action === 'confirm-deposit') {
+        r = await _fetch('POST', `/dm-confirm-queue/${id}/confirm-deposit`);
+        if (window.showToast) window.showToast(r.ok ? '입금 확인 + 예약 확정됐어요 ✓' : (r.message || '확정 실패'));
       } else if (action === 'reset') {
         const ok = await window.nativeConfirm('대화 초기화', '이 손님의 대화를 초기화할까요?\n성함·연락처·예약 정보가 모두 사라져요.').catch(() => false);
         if (!ok) { btn.disabled = false; btn.style.opacity = '1'; return; }
