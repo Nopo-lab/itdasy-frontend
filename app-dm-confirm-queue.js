@@ -221,7 +221,8 @@
     const tail = (it.sender_tail || '').slice(-4);
     const ex = it.extracted || null;
     const name = it.display_name || (ex && ex.name) || ('손님 …' + tail);
-    const draft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
+    const _rawDraft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
+    const draft = (!_rawDraft && isFormAuto) ? '손님 양식 답변 대기 중이에요…' : _rawDraft;
     const am = it.action_meta || {};
     const isBooking = it.action_required === 'booking_action';
     const pic = (it.profile_pic || '').trim();
@@ -229,9 +230,17 @@
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
       : '';
     const summary = (it.customer_summary || '').trim();
+    const isFormAuto = !!it.form_auto_sent;
     const amJson = _esc(JSON.stringify({ awaiting_deposit: !!am.awaiting_deposit, deposit_sent: !!am.deposit_sent }));
+    // [2] 양식 발송 배지 — 손님 답 대기 중이거나 정보 누적 중인 카드
+    const formAutoBadge = isFormAuto
+      ? `<div style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:3px 9px;border-radius:99px;margin-bottom:8px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+          잇비가 예약 양식 보냈어요
+        </div>` : '';
     return `
       <div class="dcq-item" data-id="${it.id}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
+        ${formAutoBadge}
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
           <div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;overflow:hidden;position:relative;">${_AVATAR_SVG}${avImg}</div>
           <div style="flex:1;min-width:0;">
@@ -256,9 +265,9 @@
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:12px;">
-          <button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>
-          ${am.deposit_sent ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
+          ${(!isFormAuto || _rawDraft) ? `<button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>` : ''}
+          ${(am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
         </div>
         ${_depositConfirmBtn(it)}
