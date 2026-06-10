@@ -30,6 +30,8 @@
         const price = String((s && s.price) || '').trim();
         // 백엔드가 needs_price 를 주거나 가격이 비면 '가격 확인 필요' 행으로 표시(버리지 않음).
         const needsPrice = !!(s && s.needs_price) || !price || price === '문의';
+        // [U1] 가격은 읽었으나 인식이 흐린 행 — needs_price 가 아닐 때만(중복 표시 방지).
+        const lowConf = !needsPrice && !!(s && s.low_confidence);
         return {
           name: String((s && s.name) || '').trim(),
           desc: String((s && s.desc) || '').trim(),
@@ -38,6 +40,7 @@
           origPrice: '',
           duration: (s && typeof s.duration_min === 'number' && s.duration_min > 0) ? s.duration_min : '',
           needsPrice,
+          lowConf,
         };
       })
       .filter(s => s.name);   // 이름만 있으면 유지 — 가격 미확정 행도 살려 사용자가 채우게 함
@@ -196,11 +199,18 @@
     const conf = typeof ocr.confidence === 'number' ? ocr.confidence : 0;
     const lowConf = conf > 0 && conf < 0.5;
     const needCnt = services.filter(s => s.needsPrice).length;
-    const rows = services.slice(0, 12).map(s => `
-      <div class="tpli-srow${s.needsPrice ? ' tpli-srow-need' : ''}">
+    const lowCnt = services.filter(s => s.lowConf).length;   // [U1] 인식 흐린 행 수
+    const rows = services.slice(0, 12).map(s => {
+      const rowCls = s.needsPrice ? ' tpli-srow-need' : (s.lowConf ? ' tpli-srow-lowconf' : '');
+      const priceCls = s.needsPrice ? ' tpli-sprice-need' : (s.lowConf ? ' tpli-sprice-lowconf' : '');
+      const priceText = s.needsPrice ? (s.price || '가격 확인 필요') : s.price;
+      const tag = s.lowConf ? ' <span class="tpli-lowtag">확인</span>' : '';
+      return `
+      <div class="tpli-srow${rowCls}">
         <span class="tpli-sname">${_esc(s.name)}</span>
-        <span class="tpli-sprice${s.needsPrice ? ' tpli-sprice-need' : ''}">${_esc(s.price || '가격 확인 필요')}</span>
-      </div>`).join('');
+        <span class="tpli-sprice${priceCls}">${_esc(priceText)}${tag}</span>
+      </div>`;
+    }).join('');
     const moreN = services.length > 12 ? (services.length - 12) : 0;
 
     const meta = [];
@@ -215,6 +225,7 @@
       ${meta.length ? `<div class="tpli-meta">${meta.join(' · ')}</div>` : ''}
       ${lowConf ? `<div class="tpli-warn">인식 정확도가 낮아요. 카드 만든 뒤 문구·가격을 꼭 확인해 주세요.</div>` : ''}
       ${needCnt ? `<div class="tpli-warn">가격을 못 읽은 시술 ${needCnt}개가 있어요. 카드 만든 뒤 가격을 채워 주세요.</div>` : ''}
+      ${lowCnt ? `<div class="tpli-warn">인식이 흐린 시술 ${lowCnt}개에 '확인' 표시를 했어요. 이름·가격을 확인해 주세요.</div>` : ''}
       <div class="tpli-list">${rows}${moreN ? `<div class="tpli-more">외 ${moreN}개 더</div>` : ''}</div>
       <details class="tpli-raw"><summary>인식 원문 보기</summary><div>${_esc((ocr.raw_text || '').slice(0, 500))}</div></details>
       <div class="tpli-actions">
