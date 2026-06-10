@@ -10,10 +10,12 @@
   async function compressImageForUpload(file, maxEdge = 1024, quality = 0.85) {
     try {
       if (!file || !file.type || !file.type.startsWith('image/')) return file;
-      // HEIC/HEIF 등 브라우저에서 디코딩 불가한 포맷은 원본 반환
-      if (/heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name || '')) return file;
-      // 500KB 미만은 압축 이득이 적어 스킵
-      if (file.size && file.size < 500 * 1024) return file;
+      // [U4] HEIC/HEIF: 백엔드는 JPEG/PNG/WEBP 만 허용해 원본 HEIC 는 거부(소형=400, 6MB↑=413).
+      //   iOS Safari 는 <img>/canvas 로 HEIC 디코딩 가능 → 아래 경로에서 JPEG 로 변환 시도.
+      //   디코딩 불가 브라우저(데스크톱 Chrome 등)는 onload 실패 → `if (!img) return file` 로 원본 반환(기존 동작).
+      const isHeic = /heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name || '');
+      // 500KB 미만은 압축 이득이 적어 스킵 — 단 HEIC 는 작아도 변환이 필요해 스킵하지 않음.
+      if (!isHeic && file.size && file.size < 500 * 1024) return file;
 
       const url = URL.createObjectURL(file);
       const img = await new Promise((resolve, reject) => {
@@ -45,8 +47,9 @@
         catch (_e) { resolve(null); }
       });
       if (!blob) return file;
-      // 원본보다 크면 의미 없음 → 원본 사용
-      if (blob.size >= file.size) return file;
+      // 원본보다 크면 의미 없음 → 원본 사용. 단 HEIC 는 백엔드가 원본을 못 받으므로
+      // 변환 결과가 더 커도 JPEG 를 사용해야 한다(원본 회귀 금지).
+      if (!isHeic && blob.size >= file.size) return file;
 
       const baseName = (file.name || 'upload').replace(/\.[^.]+$/, '') + '.jpg';
       try {
