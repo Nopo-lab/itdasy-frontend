@@ -2016,8 +2016,9 @@
         _mappedCache = await _loadMonth(_curYear, _curMonth);
         _renderViewBody();
       } catch (err) {
+        // [2026-06-10 QA] 실제 사유 노출 — "저장 실패"만 떠서 원인(시간 충돌 등)을 알 수 없던 문제
         console.warn('[cal] save 실패:', err);
-        if (window.showToast) window.showToast('저장 실패');
+        if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(err) : (err?.message || '잠시 후 다시 시도해주세요')));
       }
     });
   }
