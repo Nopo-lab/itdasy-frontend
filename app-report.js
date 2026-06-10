@@ -10,9 +10,7 @@
   let _currentY = new Date().getFullYear();
   let _currentM = new Date().getMonth() + 1;
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _fmt(n) { return (+n || 0).toLocaleString('ko-KR') + '원'; }
 
   async function _fetch(year, month) {

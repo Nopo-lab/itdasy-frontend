@@ -3,15 +3,7 @@
 (function () {
   'use strict';
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   function _suggestions() {
     // [2026-05-25] 재고관리 기능 폐지(INVENTORY_HIDDEN). 사진/캡션/매출 흐름 추천으로 교체.

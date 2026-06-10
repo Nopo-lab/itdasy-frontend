@@ -92,12 +92,18 @@
           var _st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
           if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_st, m.purpose || '');
         } catch (_me) { _meta = null; }
+        // [2026-06-11 B7] 저장 결과 확인 후 토스트 — 실패했는데 "저장했어요" 금지
         if (typeof window.saveAssistantTemplateResult === 'function') {
-          window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || '', label: m.label || '잇비 카드', rid: rid, templateMeta: _meta });
+          Promise.resolve(window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || '', label: m.label || '잇비 카드', rid: rid, templateMeta: _meta }))
+            .then(function (saved) {
+              var ok = saved && (saved.slot || saved.gallery);
+              if (window.showToast) window.showToast(ok ? '작업실에 저장했어요. "저장한 카드 보여줘"라고 하면 바로 열어드려요' : '저장에 실패했어요 — 다시 시도해 주세요');
+            })
+            .catch(function () { if (window.showToast) window.showToast('저장에 실패했어요 — 다시 시도해 주세요'); });
         } else if (typeof window.saveToGallery === 'function') {   // 어댑터 미로드 폴백(갤러리만)
           window.saveToGallery({ id: 'asst_' + rid, label: m.label || '잇비 카드', photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }], caption: '', hashtags: '', source: 'assistant_template', dedupeKey: 'asst_tpl:' + (m.purpose || '') + ':' + rid });
+          try { if (window.showToast) window.showToast('작업실에 저장했어요.'); } catch (_t) { void _t; }
         }
-        try { if (window.showToast) window.showToast('작업실에 저장했어요.'); } catch (_t) { void _t; }
       } catch (e) { try { console.warn('[autoapply] save failed', e && e.message); } catch (_l) { void _l; } }
     };
   }

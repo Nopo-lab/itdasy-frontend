@@ -16,11 +16,7 @@
   const COLOR_LABEL = { '#ffffff': '흰', '#1a1a20': '검', '#D58A95': '핑크', '#FFC83D': '노랑' };
   let _textInputTimer = null;
 
-  function _esc(h, s) {
-    if (h && typeof h.esc === 'function') return h.esc(s);
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
-      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   function _chip(h, attr, val, label, on) {
     return `<button type="button" class="pe-chip-btn${on ? ' on' : ''}" data-pe-${attr}="${_esc(h, val)}">${_esc(h, label)}</button>`;

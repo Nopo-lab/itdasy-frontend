@@ -84,13 +84,33 @@
     } catch (e) { try { console.warn('[asst-save] gallery 실패', e && e.message); } catch (_l) { void _l; } }
 
     // ② 작업실 슬롯 (P0-C) + 재편집 메타(P2-2a)
+    // [2026-06-11 B7/B8] fire-and-forget → 완료 대기. 성공 시 최근 저장 기억 + 작업실 즉시 갱신.
+    var slotId = 'asst_' + rid;
+    var slotPromise = Promise.resolve(false);
     try {
       if (typeof window.saveSlotToDB === 'function') {
-        window.saveSlotToDB(_buildSlot(dataUrl, rid, label, m.templateMeta || null));
-        saved.slot = true;
+        slotPromise = Promise.resolve(window.saveSlotToDB(_buildSlot(dataUrl, rid, label, m.templateMeta || null)))
+          .then(function () { return true; })
+          .catch(function (e) {
+            try { console.warn('[asst-save] slot 실패', e && e.message); } catch (_l) { void _l; }
+            return false;
+          });
       }
     } catch (e) { try { console.warn('[asst-save] slot 실패', e && e.message); } catch (_l) { void _l; } }
 
-    return saved;
+    return slotPromise.then(function (ok) {
+      saved.slot = ok;
+      if (ok || saved.gallery) {
+        window._lastAssistantSave = { slotId: slotId, rid: rid, label: label, ts: Date.now() };
+        // 작업실이 이미 떠 있으면 리스트 즉시 갱신 (미로드 상태면 진입 시 어차피 DB 재로드)
+        try {
+          if (typeof window.initWorkshopTab === 'function' && !window.initWorkshopTab._loaderStub &&
+              document.getElementById('workshopRoot')) {
+            window.initWorkshopTab();
+          }
+        } catch (_r) { void _r; }
+      }
+      return saved;
+    });
   };
 })();

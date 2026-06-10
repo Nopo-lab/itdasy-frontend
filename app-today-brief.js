@@ -14,9 +14,7 @@
 (function () {
   'use strict';
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // [Phase 7] Phosphor 전환 — SVG path 맵 → 클래스 맵.
   // [2026-05-28] arrow 만 sprite use 로 (chevron 통일 정책)

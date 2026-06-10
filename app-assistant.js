@@ -268,9 +268,7 @@
     } catch (_e) { return null; }
   }
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // [EG-2] 채팅 버블은 white-space:pre-wrap 이라 메시지 끝 공백/과도한 개행이 그대로 보임.
   //   줄 끝 공백 제거 · 3줄 이상 개행을 2줄로 · 끝 공백 제거. (내부 의도된 줄바꿈은 보존)
@@ -1597,12 +1595,18 @@
           const _st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
           if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_st, m.purpose || 'price');
         } catch (_me) { _meta = null; }
+        // [2026-06-11 B7] 저장 결과 확인 후 토스트 — 실패했는데 "저장했어요" 금지
         if (typeof window.saveAssistantTemplateResult === 'function') {
-          window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || 'price', label: m.label || '잇비 템플릿', rid: rid, templateMeta: _meta });
+          Promise.resolve(window.saveAssistantTemplateResult(dataUrl, { purpose: m.purpose || 'price', label: m.label || '잇비 템플릿', rid: rid, templateMeta: _meta }))
+            .then((saved) => {
+              const ok = saved && (saved.slot || saved.gallery);
+              if (window.showToast) window.showToast(ok ? '작업실에 저장했어요. "저장한 카드 보여줘"라고 하면 바로 열어드려요' : '저장에 실패했어요 — 다시 시도해 주세요');
+            })
+            .catch(() => { if (window.showToast) window.showToast('저장에 실패했어요 — 다시 시도해 주세요'); });
         } else if (typeof window.saveToGallery === 'function') {   // 어댑터 미로드 폴백(갤러리만)
           window.saveToGallery({ id: 'asst_' + rid, label: m.label || '잇비 템플릿', photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }], caption: '', hashtags: '', source: 'assistant_template', dedupeKey: 'asst_tpl:' + (m.purpose || 'price') + ':' + rid });
+          if (window.showToast) window.showToast('작업실에 저장했어요.');
         }
-        if (window.showToast) window.showToast('작업실에 저장했어요.');
       } catch (e) {
         try { console.warn('[assistant-template] save failed', e && e.message); } catch (_l) { void _l; }
       }

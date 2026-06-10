@@ -16,11 +16,7 @@
   'use strict';
   var root = (typeof window !== 'undefined') ? window : globalThis;
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
-    });
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // ── 기존 processPhoto 결과 1건으로 카드 3개 구성 (추가 렌더 없음, 동기) ──
   function fromResult(result, opts) {

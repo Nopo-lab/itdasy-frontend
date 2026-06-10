@@ -13,10 +13,7 @@
   const METHOD_ORDER = ['card', 'cash', 'transfer', 'membership', 'etc'];
   const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _money(n) { return (+n || 0).toLocaleString('ko-KR'); }
   // 만원 단위 칩 표기 (천 단위 반올림). 0원/내역 없는 날은 호출 안 함.
   function _man(total) {

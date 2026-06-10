@@ -23,10 +23,7 @@
   let _posts = []; // { id, date:'YYYY-MM-DD', time:'HH:MM', caption, imageUrl, status:'draft'|'scheduled'|'published', platform:'instagram' }
   let _sheetEl = null;
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
-      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
 
   // ── 데이터 ──

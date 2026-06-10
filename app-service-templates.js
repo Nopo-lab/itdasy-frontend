@@ -73,7 +73,7 @@
   }
 
   // ── 유틸 ───────────────────────────────────────────────
-  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch])); }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _catLabel(c) { return ({hair:'헤어', nail:'네일', eye:'속눈썹', skin:'피부', wax:'왁싱', etc:'기타'})[c] || c || '기타'; }
   function _formatPrice(n) { const v = Number(n) || 0; return v.toLocaleString('ko-KR') + '원'; }
   const STARTERS = {

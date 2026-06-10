@@ -8,11 +8,7 @@
   'use strict';
 
   // ─── XSS 방어 ────────────────────────────────────────────
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
-      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-    ));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // ─── 아이콘 헬퍼 (sprite use only) ───────────────────────
   function _ic(id, size) {

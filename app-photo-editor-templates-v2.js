@@ -27,7 +27,7 @@
     { key: 'pur:story', label: '스토리' }, { key: 'pur:feed', label: '피드' },
   ];
 
-  function _esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   // [TPL-4] Lucide 인라인 SVG (스프라이트 심볼 부재 → 직접 삽입, 이모지 미사용)
   const _LOCK_SVG = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
   const _SPARK_SVG = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" style="margin-right:1px;"><path d="M12 2l1.8 5.6L19 9l-5.2 1.4L12 16l-1.8-5.6L5 9l5.2-1.4z"/></svg>';

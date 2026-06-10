@@ -26,11 +26,7 @@
   // ── 헬퍼 ─────────────────────────────────────────────────────────
   function _api() { return (window.API || ''); }
   function _toast(msg) { if (typeof window.showToast === 'function') window.showToast(msg); }
-  function _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _svg(id, size) {
     const sz = size || 16;
     return '<svg width="' + sz + '" height="' + sz + '" style="vertical-align:-2px;" aria-hidden="true"><use href="#' + id + '"/></svg>';

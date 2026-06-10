@@ -130,7 +130,8 @@ async function loadSlotsFromDB() {
   return new Promise((resolve, reject) => {
     const tx  = db.transaction(_GDB_STORE, 'readonly');
     const req = tx.objectStore(_GDB_STORE).getAll();
-    req.onsuccess = () => resolve((req.result || []).sort((a, b) => a.order - b.order));
+    // [2026-06-11 B7] 오름차순(옛것 위) → 내림차순: 방금 저장한 카드가 작업실 맨 위에 보이게
+    req.onsuccess = () => resolve((req.result || []).sort((a, b) => (b.order || 0) - (a.order || 0)));
     req.onerror   = () => reject(req.error);
   });
 }

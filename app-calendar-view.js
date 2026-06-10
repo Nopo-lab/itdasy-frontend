@@ -83,10 +83,7 @@
   // ============================================================
   // §1 헬퍼
   // ============================================================
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
-      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _pad(n)  { return String(n).padStart(2, '0'); }
   function _nextDay(dateStr) {
     // [2026-06-11 QA] toISOString()은 UTC 라 KST 자정이 "전날 15시"로 계산 → +1일 해도

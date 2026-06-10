@@ -24,11 +24,7 @@
     try { localStorage.setItem(key, on ? 'true' : 'false'); } catch (_e) { void _e; }
   }
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // ── 행 정의 ──────────────────────────────────────────────
   // type: 'toggle' | 'tag' | 'badge' | 'plain'

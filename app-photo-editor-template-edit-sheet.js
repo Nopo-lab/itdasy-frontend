@@ -19,10 +19,7 @@
   const MAIN_MAX_EDGE = 1600;
   const MAIN_JPEG_QUALITY = 0.86;
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _toast(msg) { if (window.toast) window.toast(msg); else if (window.showToast) window.showToast(msg); }
   const _CLOSE_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 

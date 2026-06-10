@@ -44,10 +44,7 @@
     return lib.getDefault(purpose) || '';
   }
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _MD() { return window.PhotoEditorTemplateMarketData || { CATS: [], TEMPLATES: [] }; }
   function _LIB() { return window.PhotoEditorTemplateLibrary; }
   function _toast(msg) {

@@ -27,11 +27,7 @@
   let _pollTimer = null;
   let _delegated = false;
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[c]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // ── 표시 헬퍼 ──────────────────────────────────────────────
   const _INTENT_LABEL = {

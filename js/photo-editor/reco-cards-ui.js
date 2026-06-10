@@ -13,11 +13,7 @@
   // reco region key → Vision detected_regions 어휘
   var VOCAB = { skin: 'skin', eye: 'eyes', brow: 'brows', lash: 'lashes', sclera: 'eyes', lip: 'lips', nail: 'nails', hair: 'hair', hand: 'hands' };
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]);
-    });
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   function _getState() {
     try {

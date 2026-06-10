@@ -12,10 +12,7 @@
   const API       = () => window.API  || '';
   const AUTH      = () => window.authHeader ? window.authHeader() : {};
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _fmtQty(r) {
     const n = Number(r?.quantity || 0);
     const d = Math.max(0, Math.min(3, Number(r?.decimal_places ?? 1)));

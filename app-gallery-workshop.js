@@ -583,6 +583,18 @@ async function _doMergeAutoGroups(count) {
 }
 window._mergeAutoGroups = _mergeAutoGroups;
 
+// [2026-06-11 B8] 잇비 "저장한 카드 보여줘" — 작업실 리스트 갱신 후 해당 슬롯 스크롤+하이라이트
+window.highlightWorkshopSlot = async function (slotId) {
+  try { await initWorkshopTab(); } catch (_e) { void _e; }
+  const card = document.querySelector('.ws-slot-card[data-slot-id="' + String(slotId).replace(/"/g, '') + '"]');
+  if (!card) return false;
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  card.style.transition = 'box-shadow 0.3s';
+  card.style.boxShadow = '0 0 0 3px var(--accent, #D58A95)';
+  setTimeout(() => { card.style.boxShadow = ''; }, 2200);
+  return true;
+};
+
 function _renderCompletionBanner() {
   const badge  = document.getElementById('wsCompletionBadge');
   const banner = document.getElementById('wsBanner');

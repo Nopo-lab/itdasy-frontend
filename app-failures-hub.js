@@ -157,10 +157,7 @@
     } catch (_) { return ''; }
   }
 
-  function _esc(s) {
-    return String(s == null ? '' : s)
-      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   function openFailuresHub() {
     const el = _ensureMounted();

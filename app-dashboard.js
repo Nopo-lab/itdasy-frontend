@@ -11,9 +11,7 @@
 (function () {
   'use strict';
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   // [2026-05-19] _formatKRWShort 삭제 → formatMan (format-money.js 공통 유틸)
 
   // T-326 — sessionStorage 캐시. [2026-04-30] 1분 → 5분 (재진입 hit 율 ↑, fetch 빈도 ↓)

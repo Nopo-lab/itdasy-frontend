@@ -68,11 +68,7 @@
   }
 
   var _ATTR = { hub: 'data-asst-hub-act', photo: 'data-asst-photo-act', brief: 'data-asst-brief-act' };
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
-    });
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _btnStyle(phase) {
     var base = 'padding:9px 16px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:600;';
     if (phase === 'confirm') return base + 'border:0.5px solid #C9D2DB;background:#F2F4F6;color:#3182F6;';

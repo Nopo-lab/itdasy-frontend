@@ -37,11 +37,7 @@
     }).catch(function () { return false; });
   }
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
-      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]);
-    });
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // 동의 모달. onAgree() = 서버 기록 성공 후. onDeny() = 거부/실패.
   function showModal(onAgree, onDeny) {

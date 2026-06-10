@@ -668,9 +668,7 @@
     return;
   }
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   function _openAddForm() {
     // [v220] 디테일에서 쓰는 _openCustomerEditSheet 을 그대로 재사용 (id 없이 호출 → 신규 추가 모달).

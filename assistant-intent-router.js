@@ -65,6 +65,23 @@
         return '네, 기억할게요 🧠 앞으로 그 지시대로 할게요 — 확실하지 않으면 임의로 진행하지 않고 먼저 확인할게요.\n(잇비 메모에 저장해뒀어요. 메뉴 ⋯ > 잇비 메모에서 언제든 수정 가능해요)';
       },
     },
+    // [2026-06-11 B8] "저장한 카드 작업실에서 보여줘" — 최근 저장 슬롯으로 이동+하이라이트
+    {
+      type: 'show_last_saved',
+      test: (q) => /(저장한|방금).{0,10}(카드|거|결과|템플릿)/.test(q) && /(보여|열어|어디)/.test(q),
+      response: () => {
+        const last = window._lastAssistantSave;
+        if (!last || !last.slotId) return '최근에 저장한 카드를 못 찾았어요. 카드를 저장한 뒤 다시 말씀해 주세요.';
+        setTimeout(() => {
+          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+          try { if (typeof showTab === 'function') showTab('workshop', null); } catch (_e) { void _e; }
+          const open = () => { if (typeof window.highlightWorkshopSlot === 'function') window.highlightWorkshopSlot(last.slotId); };
+          if (window.AppLoader && !window.AppLoader.loaded('photo')) window.AppLoader.ensure('photo').then(open);
+          else open();
+        }, 350);
+        return '네! 작업실에서 방금 저장한 카드를 열어드릴게요 →';
+      },
+    },
     // 인사
     {
       type: 'greeting',

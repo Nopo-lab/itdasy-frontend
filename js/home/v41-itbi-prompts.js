@@ -9,11 +9,7 @@
     { key: 'retouch', label: '고객 리터치 챙기기', text: '고객 리터치 챙기기' },
   ];
 
-  function _esc(s) {
-    return String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[ch]));
-  }
+  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   function _buttonStyle(item) {
     const base = 'border-radius:999px;padding:8px 11px;font-size:11.5px;font-weight:700;cursor:pointer;';
