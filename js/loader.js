@@ -56,27 +56,29 @@
      유휴 선로딩이 끝나기 전(부팅 직후 수 초)에 사용자가 사진 기능에
      진입하면 그룹 로드 후 진짜 함수로 이어준다. 그룹 D 모듈이 로드되며
      아래 스텁을 자기 정의로 덮어쓰므로 1회성. */
-  function _stub(name, after) {
+  function _stub(name, group, toastMsg) {
     const stub = function () {
       const args = arguments;
-      if (window.showToast) window.showToast('사진 도구 준비 중…');
-      ensure('photo').then(() => {
+      if (window.showToast) window.showToast(toastMsg || '준비 중…');
+      ensure(group).then(() => {
         const real = window[name];
         if (typeof real === 'function' && real !== stub) real.apply(null, args);
-        else if (typeof after === 'function') after.apply(null, args);
       });
     };
     stub._loaderStub = true;
     if (typeof window[name] !== 'function') window[name] = stub;
   }
-  _stub('initWorkshopTab');
-  _stub('initFinishTab');
-  _stub('initAiRecommendTab');
-  _stub('openGalleryWrite');
+  _stub('initWorkshopTab', 'photo', '사진 도구 준비 중…');
+  _stub('initFinishTab', 'photo', '사진 도구 준비 중…');
+  _stub('initAiRecommendTab', 'photo', '사진 도구 준비 중…');
+  _stub('openGalleryWrite', 'photo', '사진 도구 준비 중…');
+  /* [2단계] 잇비 — 외부 진입 함수는 openAssistant 하나 (조사 확인) */
+  _stub('openAssistant', 'assistant', '잇비 준비 중…');
 
-  /* ── 유휴 선로딩 — 홈 첫 페인트를 막지 않게 load 이후 idle 에 시작 ── */
+  /* ── 유휴 선로딩 — 홈 첫 페인트를 막지 않게 load 이후 idle 에 시작.
+       잇비(매일 쓰는 기능, 40개) 먼저 → 사진(106개) 순서. ── */
   function _prefetch() {
-    const go = () => { ensure('photo'); };
+    const go = () => { ensure('assistant').then(() => ensure('photo')); };
     if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 });
     else setTimeout(go, 1500);
   }

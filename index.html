@@ -37,6 +37,10 @@
      [2026-06-10] 주석과 달리 maximum-scale=1, user-scalable=no 가 남아있던 것 실제 제거 -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<!-- [2026-06-11] 콘솔 deprecated 경고 픽스 — 표준 meta 병기 (apple- 은 iOS 용으로 유지) -->
+<meta name="mobile-web-app-capable" content="yes">
+<!-- [2026-06-11] favicon.ico 404 픽스 — 브라우저 기본 요청을 기존 아이콘으로 연결 -->
+<link rel="icon" type="image/png" sizes="128x128" href="icons/icon-128.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="잇데이">
 <meta name="theme-color" content="#F2F4F6">
@@ -2121,8 +2125,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   })();
 </script>
 <script src="app-core.js?v=20260610-batch5"></script>
-<script src="js/load-groups.js?v=20260611-split1" defer></script>
-<script src="js/loader.js?v=20260611-split1" defer></script>
+<script src="js/load-groups.js?v=20260611-split2" defer></script>
+<script src="js/loader.js?v=20260611-split2" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260519-v228"></script>
 <script src="js/heic-convert.js?v=20260610-heic" defer></script>
@@ -2186,7 +2190,6 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [P1-B 2026-06-09] 외부 가격표·홍보물 이미지 OCR → 우리 editable 템플릿 재구성 (/templates/extract-ocr) -->
 <script src="app-template-import.js?v=20260610-v435-bg-ratio-thumb-fallback" defer></script>
 <!-- [2026-04-30] 챗봇 영구 메모 + 사장님 프로필 (A1+A4) -->
-<script src="app-assistant-facts.js?v=20260610-batch4" defer></script>
 <!-- [2026-04-30] 스마트 캡처 — 카톡 자동 임포트 (E3) + 명함 OCR (E4) -->
 <script src="app-smart-capture.js?v=20260610-quickwin" defer></script>
 <!-- [2026-04-30] AI 자동화 허브 — 사진편집/캡션/해시태그 중심 -->
@@ -2194,7 +2197,6 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [2026-04-30] 설정 · 연동 허브 — 샵정보/네이버/백업/실패/앱설정 통합 -->
 <script src="app-settings-hub.js?v=20260518-v193" defer></script>
 <!-- [2026-04-30] 챗봇 액션 되돌리기 + Chain 모드 토글 -->
-<script src="app-assistant-undo.js?v=20260610-batch4" defer></script>
 <!-- [2026-05-23] 직원 기능 제거 — 1인샵 전용 -->
 <!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
 <script src="app-customer-memo.js?v=20260610-batch4" defer></script>
@@ -2228,72 +2230,34 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [v176 2026-05-18] 챗봇 자동 보정 헬퍼 (headless canvas) — assistant 가 결과 사진을 채팅 안에 표시 -->
 <script src="app-chat-auto-edit.js?v=20260518-v183" defer></script>
 <!-- [P0-1 2026-05-19 / P0-1.5 2026-05-20] FE intent pre-parser + SQL-first 매출/예약 응답 -->
-<script src="assistant-intent-router.js?v=20260610-advice-intent" defer></script>
 <!-- risk:integration — AI 잇비 kind core는 app-assistant.js 및 확장 모듈보다 먼저 로드 -->
-<script src="js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- risk:integration — AI 잇비 카드 표시는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc" defer></script>
 <!-- risk:integration — AI 잇비 사진 크게 보기는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- risk:integration — AI 잇비 사진 클릭 처리는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/photo-actions.js?v=20260606-itbi-photo-chat-actions" defer></script>
 <!-- risk:integration — AI 잇비 단일 액션 버튼 처리는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/single-action-controls.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 그룹/통합 카드 버튼 처리는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/group-action-controls.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 추천/자동완성 처리는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/suggestion-controls.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 음성 입력은 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/voice-input.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- risk:integration — AI 잇비 저장 후 화면 갱신은 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/cache-invalidation.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- T-101 잇비 AssistantContext (app-assistant.js 보다 먼저 로드) -->
-<script src="js/assistant/core/context-resolver.js?v=20260606-p0a" defer></script>
 <!-- P0a 잇비 SourceImage — 작업실 active / 챗봇 업로드 사진 통합 컨텍스트 -->
-<script src="js/assistant/core/source-image.js?v=20260606-p0a-source-image" defer></script>
 <!-- T-104 잇비 사진 홍보 풀체인 오케스트레이터 (BeautyAI·AssistantContext 활용, app-assistant.js 보다 먼저) -->
-<script src="js/assistant/core/photo-flow.js?v=20260530-v355-photo-flow-save-confirm" defer></script>
 <!-- T-114 잇비 Daily Ops Briefing (today/brief·Booking·gallery 집계, app-assistant.js 보다 먼저) -->
 <!-- 4 잇비 브리핑 매출 우선순위 랭킹 (daily-briefing 보다 먼저) -->
-<script src="js/assistant/core/briefing-priority.js?v=20260602-v386-brief-rank" defer></script>
-<script src="js/assistant/core/daily-briefing.js?v=20260602-v386-brief-rank" defer></script>
 <!-- J-5 잇비 마케팅 초안 공통 정책 — 톤/금지어/안전라벨 (소비 모듈보다 먼저) -->
-<script src="js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy" defer></script>
 <!-- J-1 잇비 Action Hub — 결과→다음행동 버튼 공통층 (app-assistant.js 보다 먼저) -->
-<script src="js/assistant/core/action-hub.js?v=20260610-v443-itbi-safety-guards" defer></script>
 <!-- J-2 잇비 홍보용 사진 체인 — 보정→캡션→템플릿→버튼 (photo-flow·action-hub 보다 뒤, app-assistant 보다 먼저) -->
-<script src="js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish" defer></script>
 <!-- I3a 잇비 템플릿 자동 적용(후기 카드) — PhotoEditor/TemplatesV2/SourceImage 호출, app-assistant 보다 먼저 -->
-<script src="js/assistant/core/template-autoapply.js?v=20260609-v426-storage-default-template" defer></script>
-<script src="js/assistant/core/promo-result-builder.js?v=20260602-first-wow" defer></script>
-<script src="js/assistant/promo-result-card.js?v=20260602-first-wow" defer></script>
 <!-- J-3 잇비 고객 상태 카드 — 최근시술·방문·예약·사진+버튼 (Customer·Booking·gallery 재조합, app-assistant 보다 먼저) -->
 <!-- 5 잇비 고객 인사이트(선호 스타일/리터치 타이밍/추천행동) — customer-status-card 보다 먼저 -->
-<script src="js/assistant/core/customer-insight.js?v=20260602-v387-cust-insight" defer></script>
-<script src="js/assistant/core/customer-status-card.js?v=20260602-v387-cust-insight" defer></script>
 <!-- T-109 마케팅/발송 액션 안전 라벨 (app-assistant.js 보다 먼저) -->
-<script src="js/assistant/marketing-safety-labels.js?v=20260530-v359-bulk-draft-safety" defer></script>
 <!-- T-003/T-004 사진→고객 시술기록 연결 (photo-local-handlers·export 보다 먼저) -->
-<script src="js/assistant/treatment-link.js?v=20260530-v353-treatment-dedupe" defer></script>
 <!-- risk:integration — AI 잇비 사진 작업 로컬 처리는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/photo-local-handlers.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 사진편집 말 명령은 app-assistant.js보다 먼저 로드 -->
 <!-- risk:integration — AI 잇비 사진 종류 추정은 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/photo-kind-classifier.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 사진 첨부 대기 UI는 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/pending-photos.js?v=20260610-heic" defer></script>
 <!-- [M2] 템플릿 샘플 카탈로그(purpose 4) → 집계 → 매처. app-assistant.js 보다 먼저, 순서 엄수 -->
-<script src="js/assistant/core/template-sample-catalog-price.js?v=20260608-v416-template-sample-matcher-connect" defer></script>
-<script src="js/assistant/core/template-sample-catalog-review.js?v=20260608-v416-template-sample-matcher-connect" defer></script>
-<script src="js/assistant/core/template-sample-catalog-ba.js?v=20260608-v416-template-sample-matcher-connect" defer></script>
-<script src="js/assistant/core/template-sample-catalog-event.js?v=20260608-v416-template-sample-matcher-connect" defer></script>
-<script src="js/assistant/core/template-sample-catalog.js?v=20260608-v416-template-sample-matcher-connect" defer></script>
-<script src="js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus" defer></script>
-<script src="js/assistant/core/assistant-template-save.js?v=20260609-v425-itbi-template-meta-restore" defer></script>
-<script src="js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore" defer></script>
-<script src="app-assistant.js?v=20260610-v443-itbi-safety-guards" defer></script>
 <!-- [2026-05-17 v166] AI 비서 마케팅·고객 케어 kind 8종 (CATEGORY 외부 등록) -->
-<script src="app-assistant-actions-marketing.js?v=20260521-v255-assistant-core" defer></script>
 <!-- [2026-05-18 v168] 사진 편집기 P1 + Brand Kit + Today Morning -->
 <script src="app-brand-kit.js?v=20260518-v172" defer></script>
 <!-- [v206.7 2026-05-19] 사진 편집기 7파일 분할 (main + layers + export + batch + beauty + templates + brush effects) -->
