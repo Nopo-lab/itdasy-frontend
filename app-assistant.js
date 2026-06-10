@@ -468,7 +468,8 @@
     const intentChipsHtml = _renderIntentChips(m, idx);
     const promoResultHtml = _renderPromoResult(m, idx);
     const photoResultHtml = _renderPhotoResult(m, idx);
-    const looseTextHtml = promoResultHtml ? '' : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(_normMsg(m.text))}</div>`;
+    // [2026-06-10] LLM 마크다운 볼드(**텍스트**)가 별표 그대로 노출되던 버그 — escape 후 <strong> 변환 (XSS 안전)
+    const looseTextHtml = promoResultHtml ? '' : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(_normMsg(m.text)).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')}</div>`;
     const reportHtml = promoResultHtml ? '' : `<div style="margin-top:4px;padding-left:2px;">
           <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
             style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>

@@ -33,8 +33,9 @@
   } catch (err) { console.warn('[boot-cache] cleanup failed', err); }
 })();
 </script>
-<!-- viewport: maximum-scale 제거하여 확대 허용 (WCAG 접근성 + Apple 심사 요구) -->
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<!-- viewport: maximum-scale 제거하여 확대 허용 (WCAG 접근성 + Apple 심사 요구)
+     [2026-06-10] 주석과 달리 maximum-scale=1, user-scalable=no 가 남아있던 것 실제 제거 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="잇데이">
@@ -2132,8 +2133,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-dm-settings-cache.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-dm-autoreply.js?v=20260609-acct-hint" defer></script>
 <script src="app-dm-confirm-queue.js?v=20260609-msg-stack" defer></script>
-<script src="app-dm-conversations.js?v=20260608-list-retire" defer></script>
-<script src="app-dm-manual-replies.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-dm-conversations.js?v=20260610-quickwin" defer></script>
+<script src="app-dm-manual-replies.js?v=20260610-quickwin" defer></script>
 <script src="app-instagram.js?v=20260606-ig-connect-label" defer></script>
 <script src="app-persona-survey.js" defer></script>
 <script src="components/scenario-selector.js" defer></script>
@@ -2196,13 +2197,13 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [2026-04-30] 챗봇 영구 메모 + 사장님 프로필 (A1+A4) -->
 <script src="app-assistant-facts.js" defer></script>
 <!-- [2026-04-30] 스마트 캡처 — 카톡 자동 임포트 (E3) + 명함 OCR (E4) -->
-<script src="app-smart-capture.js" defer></script>
+<script src="app-smart-capture.js?v=20260610-quickwin" defer></script>
 <!-- [2026-04-30] AI 자동화 허브 — 사진편집/캡션/해시태그 중심 -->
 <script src="app-ai-hub.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- [2026-04-30] 설정 · 연동 허브 — 샵정보/네이버/백업/실패/앱설정 통합 -->
 <script src="app-settings-hub.js?v=20260518-v193" defer></script>
 <!-- [2026-04-30] 챗봇 액션 되돌리기 + Chain 모드 토글 -->
-<script src="app-assistant-undo.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-assistant-undo.js?v=20260610-quickwin" defer></script>
 <!-- [2026-05-23] 직원 기능 제거 — 1인샵 전용 -->
 <!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
 <script src="app-customer-memo.js?v=20260521-v254-api-fetch" defer></script>
@@ -2303,7 +2304,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus" defer></script>
 <script src="js/assistant/core/assistant-template-save.js?v=20260609-v425-itbi-template-meta-restore" defer></script>
 <script src="js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore" defer></script>
-<script src="app-assistant.js?v=20260609-v426-storage-default-template" defer></script>
+<script src="app-assistant.js?v=20260610-quickwin" defer></script>
 <!-- [2026-05-17 v166] AI 비서 마케팅·고객 케어 kind 8종 (CATEGORY 외부 등록) -->
 <script src="app-assistant-actions-marketing.js?v=20260521-v255-assistant-core" defer></script>
 <!-- [2026-05-18 v168] 사진 편집기 P1 + Brand Kit + Today Morning -->
@@ -2452,7 +2453,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-import-wizard.js" defer></script>
 <script src="app-killer-widgets.js?v=20260504-1" defer></script>
 <script src="app-autocomplete.js" defer></script>
-<script src="app-revenue-hub.js?v=20260518-v196" defer></script>
+<script src="app-revenue-hub.js?v=20260610-quickwin" defer></script>
 <script src="app-revenue-report.js" defer></script>
 <script src="js/hubs/prototype-render.js?v=20260504-1" defer></script>
 <!-- INVENTORY_HIDDEN <script src="app-inventory-hub.js?v=20260504-1" defer></script> -->

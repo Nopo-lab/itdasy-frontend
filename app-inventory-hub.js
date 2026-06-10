@@ -388,7 +388,7 @@
     const v = _collectInput(); if (!v) return;
     let body;
     try { body = _buildBody(v); } catch (e) {
-      if (window.showToast) window.showToast('' + e.message);
+      if (window.showToast) window.showToast('' + (window._humanError ? window._humanError(e) : e.message));
       // [QA #14] 이름 누락 시 사용자 시각 피드백 — 첫 입력칸 포커스
       try {
         const nameEl = document.getElementById(OID)?.querySelector('.hub-qadd [data-field="name"]');
@@ -409,14 +409,14 @@
       _emitInventoryChanged('create', created);
       if (window.hapticLight) window.hapticLight();
       if (window.showToast) window.showToast('추가 완료');
-    } catch (e) { if (window.showToast) window.showToast('저장 실패: ' + e.message); }
+    } catch (e) { if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
   }
 
   function _stackRow() {
     const v = _collectInput(); if (!v) return;
     let body;
     try { body = _buildBody(v); } catch (e) {
-      if (window.showToast) window.showToast('' + e.message); return;
+      if (window.showToast) window.showToast('' + (window._humanError ? window._humanError(e) : e.message)); return;
     }
     _state.pending.push(body);
     if (window.hapticLight) window.hapticLight();
@@ -444,7 +444,7 @@
       _emitInventoryChanged('batch_create', null);
       if (window.hapticLight) window.hapticLight();
       if (window.showToast) window.showToast(`${results.length}건 저장`);
-    } catch (e) { if (window.showToast) window.showToast('저장 실패: ' + e.message); }
+    } catch (e) { if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
   }
 
   // [QA-r10 2026-05-15] 단위 기반 기본 step.
@@ -557,7 +557,7 @@
       _state.editingId = null; _render();
       _emitInventoryChanged('update', updated);
       if (window.showToast) window.showToast('수정 완료');
-    } catch (e) { if (window.showToast) window.showToast('수정 실패: ' + e.message); }
+    } catch (e) { if (window.showToast) window.showToast('수정 실패: ' + (window._humanError ? window._humanError(e) : e.message)); }
   }
 
   /* ── open / close ──────────────────────────────────────────── */

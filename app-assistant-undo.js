@@ -58,7 +58,7 @@
         window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'undo' } }));
       } catch (_e) { void _e; }
     } catch (e) {
-      if (window.showToast) window.showToast('되돌리기 실패: ' + e.message);
+      if (window.showToast) window.showToast('되돌리기 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
   async function undoChain(chainId) {
@@ -72,7 +72,7 @@
         window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'undo' } }));
       } catch (_e) { void _e; }
     } catch (e) {
-      if (window.showToast) window.showToast('되돌리기 실패: ' + e.message);
+      if (window.showToast) window.showToast('되돌리기 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
@@ -212,7 +212,7 @@
         });
       });
     } catch (e) {
-      list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
+      list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc((window._humanError ? window._humanError(e) : e.message))}</div>`;
     }
   }
 
@@ -241,7 +241,7 @@
       }
       return r;
     } catch (e) {
-      if (window.showToast) window.showToast('Chain 실행 실패: ' + e.message);
+      if (window.showToast) window.showToast('Chain 실행 실패: ' + (window._humanError ? window._humanError(e) : e.message));
       return { ok: false, message: e.message };
     }
   }

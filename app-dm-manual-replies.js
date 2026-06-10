@@ -158,7 +158,7 @@
         }
         if (window.showToast) window.showToast('사장님 톤으로 6개 멘트 작성됐어요. 검토 후 저장!');
       } catch (e) {
-        if (window.showToast) window.showToast('자동 작성 실패: ' + (e.message || ''));
+        if (window.showToast) window.showToast('자동 작성 실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
       } finally {
         if (spinner) spinner.style.display = 'none';
         autoGenBtn.disabled = false;
@@ -186,7 +186,7 @@
         }
         if (window.showToast) window.showToast('기본 멘트 저장됐어요');
       } catch (e) {
-        if (window.showToast) window.showToast('저장 실패: ' + (e.message || ''));
+        if (window.showToast) window.showToast('저장 실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
       }
     });
 
@@ -241,7 +241,7 @@
             if (window.showToast) window.showToast('생성 결과 없음 — 톤 분석 데이터 부족');
           }
         } catch (e) {
-          if (window.showToast) window.showToast('실패: ' + (e.message || ''));
+          if (window.showToast) window.showToast('실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
         } finally {
           btn.disabled = false; btn.style.opacity = '1';
         }
@@ -313,7 +313,7 @@
             if (window.showToast) window.showToast('삭제됨');
             await _refresh();
           } catch (e) {
-            if (window.showToast) window.showToast('실패: ' + e.message);
+            if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
           }
         });
       });
@@ -330,12 +330,12 @@
             });
             await _refresh();
           } catch (e) {
-            if (window.showToast) window.showToast('실패: ' + e.message);
+            if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
           }
         });
       });
     } catch (e) {
-      list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
+      list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc((window._humanError ? window._humanError(e) : e.message))}</div>`;
     }
   }
 
@@ -473,7 +473,7 @@
         closeEdit();
         await _refresh();
       } catch (e) {
-        if (window.showToast) window.showToast('저장 실패: ' + e.message);
+        if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
       }
     });
   }

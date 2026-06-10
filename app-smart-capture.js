@@ -140,7 +140,7 @@
       progress.style.display = 'none';
       upArea.style.display = 'block';
       resultBox.style.display = 'block';
-      resultBox.innerHTML = `<div style="padding:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#991B1B;font-size:13px;line-height:1.5;">${_esc(e.message || '인식 실패')}</div>`;
+      resultBox.innerHTML = `<div style="padding:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#991B1B;font-size:13px;line-height:1.5;">${_esc((window._humanError ? window._humanError(e) : e.message) || '인식 실패')}</div>`;
     }
   }
 
@@ -215,7 +215,7 @@
         } catch (_e) { void _e; }
         close();
       } catch (e) {
-        if (window.showToast) window.showToast('등록 실패: ' + e.message);
+        if (window.showToast) window.showToast('등록 실패: ' + (window._humanError ? window._humanError(e) : e.message));
       }
     });
   }
@@ -280,7 +280,7 @@
         } catch (_e) { void _e; }
         close();
       } catch (e) {
-        if (window.showToast) window.showToast('등록 실패: ' + e.message);
+        if (window.showToast) window.showToast('등록 실패: ' + (window._humanError ? window._humanError(e) : e.message));
       }
     });
   }

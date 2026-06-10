@@ -214,7 +214,7 @@
         });
       });
     } catch (e) {
-      list.innerHTML = `<div style="text-align:center;color:#ED4956;padding:30px 20px;font-size:13px;">불러오기 실패: ${_esc(e.message)}</div>`;
+      list.innerHTML = `<div style="text-align:center;color:#ED4956;padding:30px 20px;font-size:13px;">불러오기 실패: ${_esc((window._humanError ? window._humanError(e) : e.message))}</div>`;
     }
   }
 
@@ -430,7 +430,7 @@
           _updateExcludeBtn();
           if (window.showToast) window.showToast(_curExcluded ? '톤 분석에서 제외됐어요' : '다시 분석 대상이에요');
         } catch (e) {
-          if (window.showToast) window.showToast('실패: ' + e.message);
+          if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
         }
       };
 
@@ -446,7 +446,7 @@
       msgsBox.innerHTML = _buildMessagesHtml(msgs);
       msgsBox.scrollTop = msgsBox.scrollHeight;
     } catch (e) {
-      msgsBox.innerHTML = `<div style="text-align:center;color:#ED4956;padding:30px 20px;font-size:13px;">불러오기 실패: ${_esc(e.message)}</div>`;
+      msgsBox.innerHTML = `<div style="text-align:center;color:#ED4956;padding:30px 20px;font-size:13px;">불러오기 실패: ${_esc((window._humanError ? window._humanError(e) : e.message))}</div>`;
     }
   }
 
@@ -520,7 +520,7 @@
       const rg = document.getElementById('dthRegen');
       if (rg) rg.style.display = 'inline-flex';
     } catch (e) {
-      if (window.showToast) window.showToast('초안 생성 실패: ' + (e.message || ''));
+      if (window.showToast) window.showToast('초안 생성 실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '✨ AI 초안'; }
     }
@@ -553,7 +553,7 @@
       if (window.showToast) window.showToast('답장을 보냈어요 ✓');
       _afterSent();
     } catch (e) {
-      if (window.showToast) window.showToast('발송 실패: ' + (e.message || ''));
+      if (window.showToast) window.showToast('발송 실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
     } finally {
       if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
     }
@@ -569,7 +569,7 @@
       try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_booking', source: 'dm_thread' } })); } catch (_e) { void _e; }
       _afterSent();
     } catch (e) {
-      if (window.showToast) window.showToast('승인 실패: ' + (e.message || ''));
+      if (window.showToast) window.showToast('승인 실패: ' + ((window._humanError ? window._humanError(e) : e.message) || ''));
       if (ap) { ap.disabled = false; ap.style.opacity = '1'; }
     }
   }

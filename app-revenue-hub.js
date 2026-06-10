@@ -333,7 +333,7 @@
     if (!v) return;
     let body;
     try { body = _buildBody(v); } catch (e) {
-      if (window.showToast) window.showToast('' + e.message); return;
+      if (window.showToast) window.showToast('' + (window._humanError ? window._humanError(e) : e.message)); return;
     }
     try {
       const res = await fetch(`${API()}/revenue`, {
@@ -350,7 +350,7 @@
       if (window.showToast) window.showToast('매출 추가 완료');
       try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_revenue', optimistic: false } })); } catch (_e) { void _e; }
     } catch (e) {
-      if (window.showToast) window.showToast('저장 실패: ' + e.message);
+      if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
@@ -359,7 +359,7 @@
     if (!v) return;
     let body;
     try { body = _buildBody(v); } catch (e) {
-      if (window.showToast) window.showToast('' + e.message); return;
+      if (window.showToast) window.showToast('' + (window._humanError ? window._humanError(e) : e.message)); return;
     }
     _state.pending.push(body);
     if (window.hapticLight) window.hapticLight();
@@ -390,7 +390,7 @@
       if (window.showToast) window.showToast(`${results.length}건 저장 완료`);
       try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_revenue', optimistic: false } })); } catch (_e) { void _e; }
     } catch (e) {
-      if (window.showToast) window.showToast('저장 실패: ' + e.message);
+      if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
@@ -417,7 +417,7 @@
       if (window.showToast) window.showToast('수정 완료');
       try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_revenue', optimistic: false } })); } catch (_e) { void _e; }
     } catch (e) {
-      if (window.showToast) window.showToast('수정 실패: ' + e.message);
+      if (window.showToast) window.showToast('수정 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
@@ -435,7 +435,7 @@
       if (window.showToast) window.showToast('삭제 완료');
       try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'delete_revenue', optimistic: false } })); } catch (_e) { void _e; }
     } catch (e) {
-      if (window.showToast) window.showToast('삭제 실패: ' + e.message);
+      if (window.showToast) window.showToast('삭제 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
 
