@@ -1035,23 +1035,25 @@
   }
 
   // [2026-05-02 Phase 1.2++] 불가 및 대안 시간 제안 — booking_action+calendar_checked 카드만
-  async function _handleAlt(card) {
+  function _handleAlt(card) {
     const logId = card.dataset.logId;
     if (!logId) return;
-    if (!confirm('이 시간 거절하고 대안 시간을 손님에게 안내할까요?')) return;
-    _haptic();
-    try {
-      const res = await apiFetch(`/dm-confirm-queue/${encodeURIComponent(logId)}/decline-with-alternatives`, {
-        method: 'POST', headers: window.authHeader(),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
-      _toast(d.message || `대안 시간 안내 발송 (${d.alternatives_sent || 0}개)`);
-      card.classList.add('is-sending');
-      setTimeout(() => { card.remove(); _notifyDMChanged(); }, 460);
-    } catch (e) {
-      _toast('실패: ' + (e.message || ''));
-    }
+    // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+    window._askConfirm('이 시간 거절하고 대안 시간을 손님에게 안내할까요?', async () => {
+      _haptic();
+      try {
+        const res = await apiFetch(`/dm-confirm-queue/${encodeURIComponent(logId)}/decline-with-alternatives`, {
+          method: 'POST', headers: window.authHeader(),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.detail || ('HTTP ' + res.status));
+        _toast(d.message || `대안 시간 안내 발송 (${d.alternatives_sent || 0}개)`);
+        card.classList.add('is-sending');
+        setTimeout(() => { card.remove(); _notifyDMChanged(); }, 460);
+      } catch (e) {
+        _toast('실패: ' + (window._humanError ? window._humanError(e) : (e.message || '')));
+      }
+    });
   }
 
   function _bindCard(card) {
@@ -1411,10 +1413,12 @@
     });
     const bulkBtn = listEl.querySelector('[data-act="retention-bulk-send"]');
     if (bulkBtn) {
-      bulkBtn.addEventListener('click', async () => {
+      bulkBtn.addEventListener('click', () => {
         const count = parseInt(bulkBtn.dataset.count || '0', 10);
         if (!count) return;
-        if (!confirm(`${count}명에게 리터치 안내 DM 발송할까요?`)) return;
+        if (bulkBtn.disabled) return;
+        // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+        window._askConfirm(`${count}명에게 리터치 안내 DM 발송할까요?`, async () => {
         _haptic();
         bulkBtn.disabled = true; bulkBtn.style.opacity = '0.6';
         const sendable = customers.filter(c => c.can_send_dm);
@@ -1428,6 +1432,7 @@
         }
         _toast(`${ok}명에게 DM 큐 등록됨`);
         bulkBtn.disabled = false; bulkBtn.style.opacity = '1';
+        });
       });
     }
   }

@@ -142,12 +142,13 @@
   }
 
   function _bindList(customerId, listEl) {
-    listEl.addEventListener('click', async (ev) => {
+    listEl.addEventListener('click', (ev) => {
       const btn = ev.target && ev.target.closest && ev.target.closest('[data-cm-del]');
       if (!btn) return;
       const memoId = btn.getAttribute('data-cm-del');
       if (!memoId) return;
-      if (typeof window.confirm === 'function' && !window.confirm('이 메모를 삭제할까요?')) return;
+      // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+      window._askConfirm('이 메모를 삭제할까요?', async () => {
       try {
         await _api('DELETE', '/customers/' + encodeURIComponent(customerId) + '/memos/' + encodeURIComponent(memoId));
         if (window.hapticLight) window.hapticLight();
@@ -164,6 +165,7 @@
         console.warn('[customer-memo] delete 실패:', e);
         if (window.showToast) window.showToast('삭제 실패 — 다시 시도해 주세요');
       }
+      });
     });
   }
 

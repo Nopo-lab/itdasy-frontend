@@ -35,7 +35,11 @@
   }
   function _save() {
     try { localStorage.setItem(LS_KEY, JSON.stringify(_posts)); }
-    catch (err) { console.warn('[SNSCalendar] 저장 실패', err); }
+    catch (err) {
+      // [2026-06-10] 침묵 실패 픽스 — 저장 안 됐는데 된 것처럼 보이던 문제
+      console.warn('[SNSCalendar] 저장 실패', err);
+      _toast('계획 저장에 실패했어요 — 저장 공간이 부족할 수 있어요');
+    }
   }
   function _postsForDate(dateStr) {
     return _posts.filter(p => p.date === dateStr);

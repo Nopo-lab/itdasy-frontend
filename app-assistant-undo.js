@@ -46,9 +46,16 @@
   }
 
   // ── 단일 액션 되돌리기 ──────────────────────────────────
-  async function undoAction(logId) {
-    if (!logId) return;
-    if (!confirm('방금 처리한 내용 되돌릴까요?')) return;
+  // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+  //   확정 후 완료 시점에 resolve — 호출부 `await undoAction()` 후 _refresh 가 결과 반영 뒤 돌게.
+  //   (취소 시 resolve 안 함 → 후속 refresh 불필요라 의도된 동작)
+  function undoAction(logId) {
+    if (!logId) return Promise.resolve();
+    return new Promise((resolve) => {
+      window._askConfirm('방금 처리한 내용 되돌릴까요?', async () => { await _doUndoAction(logId); resolve(true); });
+    });
+  }
+  async function _doUndoAction(logId) {
     try {
       const r = await _fetch('POST', `/assistant/undo/${logId}`);
       if (window.showToast) window.showToast(r.message || '되돌렸어요');
@@ -61,9 +68,13 @@
       if (window.showToast) window.showToast('되돌리기 실패: ' + (window._humanError ? window._humanError(e) : e.message));
     }
   }
-  async function undoChain(chainId) {
-    if (!chainId) return;
-    if (!confirm('이 Chain 실행 전체를 되돌릴까요? (전부 취소됩니다)')) return;
+  function undoChain(chainId) {
+    if (!chainId) return Promise.resolve();
+    return new Promise((resolve) => {
+      window._askConfirm('이 작업 전체를 되돌릴까요? (전부 취소됩니다)', async () => { await _doUndoChain(chainId); resolve(true); });
+    });
+  }
+  async function _doUndoChain(chainId) {
     try {
       const r = await _fetch('POST', `/assistant/undo/chain/${chainId}`);
       if (window.showToast) window.showToast(r.message || '되돌렸어요');

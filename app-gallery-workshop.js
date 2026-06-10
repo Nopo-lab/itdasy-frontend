@@ -127,7 +127,13 @@ async function initWorkshopTab() {
     _initDragEvents();
   }
 
-  try { _slots = await loadSlotsFromDB(); } catch (e) { console.warn('[workshop] 슬롯 불러오기 실패', e); _slots = []; }
+  try { _slots = await loadSlotsFromDB(); }
+  catch (e) {
+    // [2026-06-10] 침묵 실패 픽스 — 슬롯이 있는데 빈 화면으로 보이던 문제
+    console.warn('[workshop] 슬롯 불러오기 실패', e);
+    _slots = [];
+    if (window.showToast) window.showToast('작업 내역을 불러오지 못했어요 — 새로고침해 주세요');
+  }
   _scheduleBatchRender({ photoGrid: true, slotCards: true, banner: true });
 }
 

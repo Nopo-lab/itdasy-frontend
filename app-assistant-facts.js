@@ -111,16 +111,16 @@
         </div>
       `).join('');
       list.querySelectorAll('.afs-del').forEach(b => {
-        b.addEventListener('click', async () => {
-          if (!confirm('이 메모를 삭제할까요?')) return;
+        // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+        b.addEventListener('click', () => window._askConfirm('이 메모를 삭제할까요?', async () => {
           try {
             await _fetch('DELETE', '/assistant/facts/' + b.dataset.id);
             await _refresh();
             if (window.showToast) window.showToast('삭제됨');
           } catch (e) {
-            if (window.showToast) window.showToast('삭제 실패: ' + e.message);
+            if (window.showToast) window.showToast('삭제 실패: ' + (window._humanError ? window._humanError(e) : e.message));
           }
-        });
+        }));
       });
     } catch (e) {
       list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;

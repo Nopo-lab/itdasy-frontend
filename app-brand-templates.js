@@ -277,12 +277,13 @@
       const delId = e.target.closest('[data-bt-del]')?.dataset.btDel;
       if (delId) {
         e.stopPropagation();
-        if (window.confirm('이 템플릿을 삭제할까요?')) {
+        // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+        window._askConfirm('이 템플릿을 삭제할까요?', () => {
           remove(delId);
           // 다시 렌더
           closePicker();
           openPicker();
-        }
+        });
         return;
       }
       const id = e.target.closest('[data-bt-id]')?.dataset.btId;

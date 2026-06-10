@@ -2442,6 +2442,13 @@ function _inlinePrompt(msg, defaultVal, onSubmit) {
 window._inlineConfirm = _inlineConfirm;
 window._inlinePrompt = _inlinePrompt;
 
+// [2026-06-10] confirm() 대체 공용 헬퍼 — 네이티브 confirm 은 UI 전체를 멈추고(웹뷰/자동화 취약)
+//   디자인도 이질적이라 _inlineConfirm 우선, 없을 때만 네이티브 폴백.
+window._askConfirm = function (msg, onYes) {
+  if (window._inlineConfirm) return window._inlineConfirm(msg, onYes);
+  if (confirm(msg)) onYes();
+};
+
 // 2중 확인 유틸 — 레거시 호환 stub (호출처는 _inlineConfirm 으로 교체 완료)
 window._confirm2 = function (_msg) {
   console.warn('[_confirm2] deprecated — use _inlineConfirm');

@@ -191,26 +191,34 @@ function _toggleAiCheck(id, e) {
   });
 }
 
-async function _deleteAiSlot(id, e) {
+// [2026-06-10] confirm → _askConfirm (인라인) + 삭제 실패 침묵 → 토스트
+function _deleteAiSlot(id, e) {
   e?.stopPropagation();
-  if (!confirm('이 작업을 삭제할까요?')) return;
-  try {
-    await deleteSlotFromDB(id);
-    if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
-  } catch (e) { console.warn('[ai] 슬롯 삭제 실패', e); }
-  _aiRecommendChecked.delete(id);
-  initAiRecommendTab();
+  window._askConfirm('이 작업을 삭제할까요?', async () => {
+    try {
+      await deleteSlotFromDB(id);
+      if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
+    } catch (err) {
+      console.warn('[ai] 슬롯 삭제 실패', err);
+      if (window.showToast) window.showToast('삭제 실패 — 다시 시도해 주세요');
+    }
+    _aiRecommendChecked.delete(id);
+    initAiRecommendTab();
+  });
 }
 
-async function _batchDeleteAiSlots() {
+function _batchDeleteAiSlots() {
   if (!_aiRecommendChecked.size) return;
-  if (!confirm(`선택한 ${_aiRecommendChecked.size}개를 삭제할까요?`)) return;
-  for (const id of [..._aiRecommendChecked]) {
-    try { await deleteSlotFromDB(id); } catch (e) { console.warn('[ai] 선택 슬롯 삭제 실패', e); }
-    if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
-  }
-  _aiRecommendChecked.clear();
-  initAiRecommendTab();
+  window._askConfirm(`선택한 ${_aiRecommendChecked.size}개를 삭제할까요?`, async () => {
+    let failed = 0;
+    for (const id of [..._aiRecommendChecked]) {
+      try { await deleteSlotFromDB(id); } catch (err) { failed++; console.warn('[ai] 선택 슬롯 삭제 실패', err); }
+      if (typeof _slots !== 'undefined') _slots = _slots.filter(s => s.id !== id);
+    }
+    if (failed && window.showToast) window.showToast(`${failed}개는 삭제하지 못했어요`);
+    _aiRecommendChecked.clear();
+    initAiRecommendTab();
+  });
 }
 
 function _goToFinishSlot(slotId) {
