@@ -144,7 +144,6 @@ module.exports = {
         'app-report.js',
         'app-revenue-month.js',
         'app-revenue.js',
-        'app-service-recommend.js',
         'app-shop-settings.js',
         'app-smart-capture.js',
         'app-sns-calendar.js',

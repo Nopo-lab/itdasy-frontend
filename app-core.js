@@ -2386,6 +2386,8 @@ window._humanError = function (e) {
     return '로그인이 만료됐어요. 다시 로그인해주세요';
   if (/HTTP\s*403|forbidden/i.test(raw))
     return '이 작업 권한이 없어요';
+  if (/HTTP\s*400|bad request/i.test(raw))
+    return '입력값을 확인해주세요';
   if (/HTTP\s*404|not.found/i.test(raw))
     return '요청한 데이터를 찾지 못했어요';
   if (/HTTP\s*409/i.test(raw))

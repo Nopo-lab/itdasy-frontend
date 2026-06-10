@@ -171,7 +171,6 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-sns-hashtag.js?v=20260610-batch5',
   'app-receipt-scan.js?v=20260610-batch3',
   'app-import-wizard.js',
-  'app-public-link.js?v=20260521-v254-api-fetch',
   'app-waitlist.js?v=20260521-v254-api-fetch',
   'app-growth-story.js',
   'app-data-export.js?v=20260521-v254-api-fetch'

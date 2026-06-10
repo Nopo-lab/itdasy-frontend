@@ -89,9 +89,11 @@
   }
   function _pad(n)  { return String(n).padStart(2, '0'); }
   function _nextDay(dateStr) {
+    // [2026-06-11 QA] toISOString()은 UTC 라 KST 자정이 "전날 15시"로 계산 → +1일 해도
+    //   같은 날짜 반환 → 자정 넘는 예약(밤 11시+60분)이 ends<starts 로 BE 400 나던 버그 픽스.
     const d = new Date(dateStr + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    return _ds(d);
   }
   function _ds(d)   { return d.getFullYear() + '-' + _pad(d.getMonth()+1) + '-' + _pad(d.getDate()); }
   function _fmt(d)  { return _pad(d.getHours()) + ':' + _pad(d.getMinutes()); }
