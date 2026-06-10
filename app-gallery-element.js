@@ -141,10 +141,12 @@ function handleElementUpload(input) {
 
 function deleteElement(id, e) {
   e.stopPropagation();
-  if (!confirm('이 요소를 삭제할까요?')) return;
-  const elements = _loadUserElements();
-  _saveUserElements(elements.filter(el => el.id !== id));
-  _renderElementPanel();
+  // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+  window._askConfirm('이 요소를 삭제할까요?', () => {
+    const elements = _loadUserElements();
+    _saveUserElements(elements.filter(el => el.id !== id));
+    _renderElementPanel();
+  });
 }
 
 function selectElement(elementId) {

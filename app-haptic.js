@@ -113,7 +113,10 @@
         return !!r.value;
       } catch (_) { /* ignore */ }
     }
-    // 웹 폴백
+    // 웹 폴백 — [2026-06-10] 인라인 다이얼로그 우선 (네이티브 confirm 의 UI 블로킹/디자인 이질감 제거)
+    if (window._inlineConfirm) {
+      return new Promise((resolve) => window._inlineConfirm(`${title}\n${message}`, () => resolve(true), () => resolve(false)));
+    }
     return window.confirm(`${title}\n\n${message}`);
   };
 

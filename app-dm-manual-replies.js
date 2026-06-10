@@ -306,8 +306,8 @@
         });
       });
       list.querySelectorAll('.dmr-del').forEach(b => {
-        b.addEventListener('click', async () => {
-          if (!confirm('이 멘트를 삭제할까요?')) return;
+        // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+        b.addEventListener('click', () => window._askConfirm('이 멘트를 삭제할까요?', async () => {
           try {
             await _fetch('DELETE', `/dm-autoreply/manual-replies/${b.dataset.id}`);
             if (window.showToast) window.showToast('삭제됨');
@@ -315,7 +315,7 @@
           } catch (e) {
             if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
           }
-        });
+        }));
       });
       list.querySelectorAll('.dmr-toggle').forEach(b => {
         b.addEventListener('click', async () => {

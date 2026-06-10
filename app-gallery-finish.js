@@ -617,10 +617,12 @@ async function downloadSlotPhotos(slotId) {
   showToast('다운로드가 시작되었어요 📥');
 }
 
-async function deleteSlotFinish(slotId) {
-  if (!confirm('슬롯을 삭제할까요?')) return;
-  _slots = _slots.filter(s => s.id !== slotId);
-  try { await deleteSlotFromDB(slotId); } catch (_e) { /* ignore */ }
-  await _renumberSlots();
-  initFinishTab();
+function deleteSlotFinish(slotId) {
+  // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+  window._askConfirm('슬롯을 삭제할까요?', async () => {
+    _slots = _slots.filter(s => s.id !== slotId);
+    try { await deleteSlotFromDB(slotId); } catch (_e) { /* ignore */ }
+    await _renumberSlots();
+    initFinishTab();
+  });
 }

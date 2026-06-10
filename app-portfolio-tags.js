@@ -100,16 +100,22 @@
     if (typeof loadPortfolio === 'function') loadPortfolio();
   }
 
-  async function _delete(item, overlay) {
-    if (!confirm('삭제할까요?')) return;
-    const res = await apiFetch('/portfolio/' + item.id, {
-      method: 'DELETE',
-      headers: authHeader(),
+  function _delete(item, overlay) {
+    // [2026-06-10] confirm → _askConfirm + 실패 시 침묵(unhandled throw)이던 것 토스트로
+    window._askConfirm('이 사진을 삭제할까요?', async () => {
+      try {
+        const res = await apiFetch('/portfolio/' + item.id, {
+          method: 'DELETE',
+          headers: authHeader(),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        showToast('삭제 완료');
+        _close(overlay);
+        if (typeof loadPortfolio === 'function') loadPortfolio();
+      } catch (e) {
+        showToast('삭제 실패: ' + (window._humanError ? window._humanError(e) : e.message));
+      }
     });
-    if (!res.ok) throw new Error('삭제 실패');
-    showToast('삭제 완료');
-    _close(overlay);
-    if (typeof loadPortfolio === 'function') loadPortfolio();
   }
 
   function _wire(overlay, item, state) {

@@ -2403,19 +2403,20 @@ window._humanError = function (e) {
 };
 
 // --- Inline dialog helpers (Capacitor 호환) ---
-function _inlineConfirm(msg, onYes) {
+function _inlineConfirm(msg, onYes, onNo) {
+  // [2026-06-10] onNo(취소 콜백) 추가 — Promise<boolean> 래핑(nativeConfirm 등)이 가능하도록. 기존 호출엔 영향 없음.
   const el = document.createElement('div');
   el.className = 'bk-confirm-toast';
   el.innerHTML = `
     <div class="bk-confirm-toast__body">
-      <p>${msg}</p>
+      <p style="white-space:pre-line;">${msg}</p>
       <div class="bk-confirm-toast__btns">
         <button class="bk-confirm-toast__cancel">취소</button>
         <button class="bk-confirm-toast__ok">확인</button>
       </div>
     </div>`;
   document.body.appendChild(el);
-  el.querySelector('.bk-confirm-toast__cancel').onclick = () => el.remove();
+  el.querySelector('.bk-confirm-toast__cancel').onclick = () => { el.remove(); if (typeof onNo === 'function') onNo(); };
   el.querySelector('.bk-confirm-toast__ok').onclick = () => { el.remove(); onYes(); };
 }
 

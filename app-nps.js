@@ -235,15 +235,17 @@
 
   window._npsBack = _rerender;
 
-  async function _deleteEntry(id) {
-    if (!confirm('이 응답을 삭제할까요?')) return;
-    try {
-      await remove(id);
-      if (window.hapticLight) window.hapticLight();
-      _rerender();
-    } catch (e) {
-      if (window.showToast) window.showToast('삭제 실패');
-    }
+  function _deleteEntry(id) {
+    // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+    window._askConfirm('이 응답을 삭제할까요?', async () => {
+      try {
+        await remove(id);
+        if (window.hapticLight) window.hapticLight();
+        _rerender();
+      } catch (e) {
+        if (window.showToast) window.showToast('삭제 실패');
+      }
+    });
   }
 
   window.openNps = async function () {

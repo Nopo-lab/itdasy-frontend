@@ -31,7 +31,8 @@
     const slot = (window._slots || []).find(s => s && s.id === slotInfo.id);
     const photos = _visiblePhotos(slot);
     if (!photos.length) return _toast(helpers, '적용할 사진이 없어요');
-    if (!_confirmApply(photos.length)) return;
+    // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그, UI 블로킹 제거)
+    if (!(await _confirmApply(photos.length))) return;
 
     const settings = _buildSettings(state);
     const restoreText = _setBusy(buttonEl, photos.length);
@@ -223,8 +224,13 @@
   }
 
   function _confirmApply(count) {
-    if (typeof window.confirm !== 'function') return true;
-    return window.confirm('슬롯 사진 ' + count + '장에 현재 보정을 일괄 적용할까요? 원본은 보존되고 편집본만 갱신됩니다.');
+    const msg = '슬롯 사진 ' + count + '장에 현재 보정을 일괄 적용할까요? 원본은 보존되고 편집본만 갱신됩니다.';
+    // [2026-06-10] 인라인 다이얼로그 우선 (확정 true / 취소 false 로 resolve)
+    if (window._inlineConfirm) {
+      return new Promise((resolve) => window._inlineConfirm(msg, () => resolve(true), () => resolve(false)));
+    }
+    if (typeof window.confirm !== 'function') return Promise.resolve(true);
+    return Promise.resolve(window.confirm(msg));
   }
 
   function _setBusy(buttonEl, total) {

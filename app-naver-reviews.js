@@ -204,11 +204,11 @@
       }
     });
     if (existing) {
-      listEl.querySelector('#nrDelete').addEventListener('click', async () => {
-        if (!confirm('이 리뷰를 삭제할까요?')) return;
+      // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+      listEl.querySelector('#nrDelete').addEventListener('click', () => window._askConfirm('이 리뷰를 삭제할까요?', async () => {
         try { await remove(existing.id); if (window.hapticLight) window.hapticLight(); _rerender(); }
         catch (e) { if (window.showToast) window.showToast('삭제 실패'); }
-      });
+      }));
     }
   }
 

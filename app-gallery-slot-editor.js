@@ -521,16 +521,18 @@ function showPhotoInstaPreview(dataUrl) {
 }
 
 // ── 선택 일괄 삭제 ─────────────────────────────────────────────
-async function _bulkDeletePopup() {
+function _bulkDeletePopup() {
   const slot = _slots.find(s => s.id === _popupSlotId);
   if (!slot || !_popupSelIds.size) return;
-  if (!confirm(`선택한 ${_popupSelIds.size}장을 삭제할까요?`)) return;
-  _filterSlotPhotos(_popupSlotId, p => !_popupSelIds.has(p.id));
-  try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
-  _clearPopupSelIds();
-  _renderPopupPhotoGrid(slot);
-  _renderSlotCards();
-  showToast('삭제됨');
+  // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+  window._askConfirm(`선택한 ${_popupSelIds.size}장을 삭제할까요?`, async () => {
+    _filterSlotPhotos(_popupSlotId, p => !_popupSelIds.has(p.id));
+    try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
+    _clearPopupSelIds();
+    _renderPopupPhotoGrid(slot);
+    _renderSlotCards();
+    showToast('삭제됨');
+  });
 }
 
 // ── 비포/애프터 합성 (app-portfolio.js 공유 유틸 사용) ─────────

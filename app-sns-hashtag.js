@@ -174,11 +174,13 @@
   }
 
   function _deleteSet(idx) {
-    if (!confirm('이 해시태그 세트를 삭제할까요?')) return;
-    _sets.splice(idx, 1);
-    _save();
-    _renderPopup(document.getElementById('snsHashtagPop'));
-    _toast('세트 삭제 완료');
+    // [2026-06-10] confirm → _askConfirm (인라인 다이얼로그)
+    window._askConfirm('이 해시태그 세트를 삭제할까요?', () => {
+      _sets.splice(idx, 1);
+      _save();
+      _renderPopup(document.getElementById('snsHashtagPop'));
+      _toast('세트 삭제 완료');
+    });
   }
 
   window.SNSHashtag = {
