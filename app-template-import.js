@@ -14,8 +14,6 @@
   'use strict';
   if (window.openTemplateImport) return;
 
-  const PURPOSE_LABEL = { price: '가격표', review: '후기', before_after: '전후', promo: '홍보물' };
-
   function _esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, ch =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -79,7 +77,7 @@
         </div>
         <div class="tpli-desc">
           기존 가격표·홍보물 사진을 올리면 AI 가 <b>글자(시술·가격·문구)만</b> 읽어서
-          우리 템플릿으로 새로 만들어 드려요. (사진 디자인은 복제하지 않아요)
+          우리 가격표 카드로 새로 만들어 드려요. (사진 디자인은 복제하지 않아요)
         </div>
         <div id="tpliUpload" class="tpli-upload">
           <span class="tpli-upload-ic"><svg width="28" height="28" aria-hidden="true"><use href="#ic-image-plus"/></svg></span>
@@ -152,10 +150,21 @@
       let data = {};
       try { data = await res.json(); } catch (_e) { data = {}; }
 
-      if (res.status === 401) { _renderError('로그인이 필요해요. 다시 로그인 후 시도해 주세요.'); return; }
-      if (res.status === 413) { _renderError('사진이 너무 커요. 6MB 이하로 줄여서 올려 주세요.'); return; }
-      if (res.status === 422) { _renderError(data.detail || '가격표를 인식하지 못했어요. 더 선명한 사진으로 다시 시도해 주세요.', true); return; }
-      if (!res.ok) { _renderError((data && data.detail) || '인식에 실패했어요. 잠시 후 다시 시도해 주세요.', true); return; }
+      if (res.status === 401) { _renderError('로그인이 만료됐어요. 다시 로그인한 뒤 이용해 주세요.'); return; }
+      if (res.status === 413) { _renderError('이미지 용량이 너무 커요. 더 작은 이미지로 다시 올려 주세요.', true); return; }
+      if (res.status === 422) {
+        // 통일 톤 + '템플릿' 용어 차단(구버전 BE detail 대비 방어).
+        let msg = (data && data.detail) || '';
+        if (!msg || msg.indexOf('템플릿') >= 0) {
+          msg = '가격표 내용을 찾지 못했어요. 시술명과 가격이 선명하게 보이는 사진을 다시 올려 주세요.';
+        }
+        _renderError(msg, true); return;
+      }
+      if (!res.ok) {
+        let msg = (data && data.detail) || '인식에 실패했어요. 잠시 후 다시 시도해 주세요.';
+        if (msg.indexOf('템플릿') >= 0) msg = '인식에 실패했어요. 잠시 후 다시 시도해 주세요.';
+        _renderError(msg, true); return;
+      }
 
       _renderResult(data);
     } catch (e) {
@@ -175,11 +184,11 @@
     const purpose = ocr.purpose || 'promo';
     const services = _normalizeServices(ocr.services);
 
-    // price 가 아니거나 시술 0건이면 → 폴백(이번 P1-B 는 가격표만 적용).
+    // price 가 아니거나 시술 0건이면 → 폴백(이번 P1-B 는 가격표만 적용). 통일 톤.
     if (purpose !== 'price' || !services.length) {
       const why = purpose !== 'price'
-        ? `${PURPOSE_LABEL[purpose] || '홍보물'}로 보여요. 지금은 가격표 사진만 카드로 만들 수 있어요.`
-        : '시술·가격을 찾지 못했어요. 가격표가 또렷하게 보이는 사진으로 다시 올려 주세요.';
+        ? '가격표보다는 홍보물에 가까워 보여요. 이번 기능은 시술명과 가격이 함께 있는 이미지를 카드로 만들 수 있어요.'
+        : '가격표 내용을 찾지 못했어요. 시술명과 가격이 선명하게 보이는 사진을 다시 올려 주세요.';
       _renderError(why, true);
       return;
     }
