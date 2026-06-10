@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260610-v431-ocr-copy-unify';
+const CACHE_VERSION = '20260610-v432-bp-renderer-split';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -111,6 +111,7 @@ const STATIC_ASSETS = [
   './js/photo-editor/template-market-data.js',
   './js/photo-editor/template-pack-beauty-data.js',
   './js/photo-editor/template-renderer-beauty-pack.js',
+  './js/photo-editor/template-renderer-beauty-pack-draws.js',
   './js/photo-editor/template-overlay.js',
   './app-photo-editor-ba-compose.js',
   './app-photo-editor-edit-plan.js',
