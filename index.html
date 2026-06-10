@@ -104,7 +104,7 @@ window.__LATEST_BUILD__ = '20260610-v443-itbi-safety-guards';
 <link rel="stylesheet" href="css/screens/myshop-v3.css?v=20260604-pc-hide-redo">
 <link rel="stylesheet" href="css/screens/dm-autoreply-v3.css?v=20260609-field-unify">
 <!-- [2026-04-30] 예약관리 v4 — 모바일 + PC + 직원 필터 + now-line + 미니캘 + 통계 -->
-<link rel="stylesheet" href="css/screens/booking-v4.css?v=20260517-v161">
+<link rel="stylesheet" href="css/screens/booking-v4.css?v=20260611-week-dot">
 <link rel="stylesheet" href="css/screens/booking-form.css?v=20260610-booking-consistency">
 <link rel="stylesheet" href="css/screens/revenue-v5.css?v=20260517-v161">
 <link rel="stylesheet" href="css/screens/phase9-ux.css?v=20260506-v101">
@@ -2121,6 +2121,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   })();
 </script>
 <script src="app-core.js?v=20260610-batch5"></script>
+<script src="js/load-groups.js?v=20260611-split1" defer></script>
+<script src="js/loader.js?v=20260611-split1" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260519-v228"></script>
 <script src="js/heic-convert.js?v=20260610-heic" defer></script>
@@ -2159,21 +2161,7 @@ window._lazyImgly = function _lazyImgly() {
   return window._imglyLoading;
 };
 </script>
-<script src="app-gallery-utils.js" defer></script>
-<script src="app-gallery-db.js" defer></script>
-<script src="app-gallery-workshop.js?v=20260610-batch4" defer></script>
-<script src="app-gallery-assign.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-slot-editor.js?v=20260610-batch5" defer></script>
-<script src="app-photo-editor-bg-compose.js?v=20260610-final" defer></script>
-<script src="app-gallery-bg.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-photo-editor-bg-cache.js?v=20260610-final" defer></script>
-<script src="app-photo-editor-bg-safe.js?v=20260520-v250-template-mask-hotfix" defer></script>
-<script src="app-photo-editor-bg-blur.js?v=20260527-v307-full-redesign" defer></script>
 <script src="app-photo-enhance.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-element.js?v=20260610-batch5" defer></script>
-<script src="app-gallery-review.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-write.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-gallery-finish.js?v=20260610-batch5" defer></script>
 <script src="app-sample-captions.js" defer></script>
 <script src="app-push.js" defer></script>
 <script src="app-notifications.js?v=20260607-home-notif-bell-only" defer></script>
@@ -2240,7 +2228,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [v176 2026-05-18] 챗봇 자동 보정 헬퍼 (headless canvas) — assistant 가 결과 사진을 채팅 안에 표시 -->
 <script src="app-chat-auto-edit.js?v=20260518-v183" defer></script>
 <!-- [P0-1 2026-05-19 / P0-1.5 2026-05-20] FE intent pre-parser + SQL-first 매출/예약 응답 -->
-<script src="assistant-intent-router.js?v=20260610-v443-itbi-safety-guards" defer></script>
+<script src="assistant-intent-router.js?v=20260610-advice-intent" defer></script>
 <!-- risk:integration — AI 잇비 kind core는 app-assistant.js 및 확장 모듈보다 먼저 로드 -->
 <script src="js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- risk:integration — AI 잇비 카드 표시는 app-assistant.js보다 먼저 로드 -->
@@ -2290,7 +2278,6 @@ window._lazyImgly = function _lazyImgly() {
 <!-- risk:integration — AI 잇비 사진 작업 로컬 처리는 app-assistant.js보다 먼저 로드 -->
 <script src="js/assistant/photo-local-handlers.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 사진편집 말 명령은 app-assistant.js보다 먼저 로드 -->
-<script src="js/assistant/photo-workflow-commands.js?v=20260526-v286-photo-editor-voice-workflow" defer></script>
 <!-- risk:integration — AI 잇비 사진 종류 추정은 app-assistant.js보다 먼저 로드 -->
 <script src="js/assistant/photo-kind-classifier.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- risk:integration — AI 잇비 사진 첨부 대기 UI는 app-assistant.js보다 먼저 로드 -->
@@ -2310,132 +2297,41 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [2026-05-18 v168] 사진 편집기 P1 + Brand Kit + Today Morning -->
 <script src="app-brand-kit.js?v=20260518-v172" defer></script>
 <!-- [v206.7 2026-05-19] 사진 편집기 7파일 분할 (main + layers + export + batch + beauty + templates + brush effects) -->
-<script src="app-photo-editor-worker-filter.js?v=20260521-v252-photo-shadow-batch" defer></script>
-<script src="js/photo-editor/history.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor.js?v=20260610-heic" defer></script>
-<script src="app-photo-editor-itbi-cards.js?v=20260605-itbi-meta-pr2" defer></script>
-<script src="js/photo-editor/renderer.js?v=20260529-v345-export-quality" defer></script>
-<script src="app-photo-editor-shop-data.js?v=20260527-v308-photo-editor-upgrade" defer></script>
-<script src="app-photo-editor-preset-cards.js?v=20260528-v328-ba-overlay-fix" defer></script>
-<script src="js/photo-editor/basic-panels.js?v=20260527-v307-full-redesign" defer></script>
-<script src="app-photo-editor-bg-tab.js?v=20260530-v364-photo-editor-release-qa" defer></script>
 <!-- [v235 2026-05-20] 사진편집 진입 화면 v6 — Meitu 카드 그리드 (DESIGN_SYSTEM.md §3, §4 적용) -->
-<script src="app-photo-editor-entry-v6.js?v=20260605-pr6-hide-generative" defer></script>
 <!-- [v329 2026-05-28] Nav v7 — 하단 2단 카테고리/서브칩 메뉴 (feature flag) -->
-<script src="app-photo-editor-nav-v7.js?v=20260605-rm-itbi-tab" defer></script>
-<script src="app-photo-editor-layers.js?v=20260519-v206.8-photo-complete" defer></script>
-<script src="app-photo-editor-service-picker.js?v=20260520-v250-template-mask-hotfix" defer></script>
-<script src="app-photo-editor-text-dnd.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor-export.js?v=20260610-batch3" defer></script>
-<script src="app-photo-editor-batch.js?v=20260610-batch5" defer></script>
-<script src="app-photo-editor-collage.js?v=20260527-v307-full-redesign" defer></script>
-<script src="app-photo-editor-smart-mask.js?v=20260527-v307-full-redesign" defer></script>
 <!-- [v313 2026-05-28] RegionMaskProvider 인프라 — 로딩 순서 엄수: refine → overlay → provider -->
-<script src="js/photo-editor/mask-refine.js?v=20260529-v336-qa-fix" defer></script>
-<script src="js/photo-editor/mask-debug-overlay.js?v=20260603-pe-m1-sclera" defer></script>
 <!-- [v336] maskType별 confidence 산식 (coverage 와 분리) -->
-<script src="js/photo-editor/mask-confidence.js?v=20260604-pe-m2-brow" defer></script>
 <!-- [v336] Hair Image Segmenter → hairMask Tier 1 어댑터 -->
-<script src="js/photo-editor/mask-hair-adapter.js?v=20260529-v336-qa-fix" defer></script>
 <!-- [v332] Hand Landmarker → nailMask / handSkinMask 어댑터 (provider 보다 먼저) -->
-<script src="js/photo-editor/mask-hand-adapter.js?v=20260529-v336-qa-fix" defer></script>
 <!-- [v333] eyelashBandMask 어댑터 (eye polygon × Sobel dark-line) -->
-<script src="js/photo-editor/mask-eyelash-adapter.js?v=20260529-v341-eyelash" defer></script>
 <!-- [PE-M1] scleraMask 어댑터 (eye 폴리곤 − 홍채 ellipse → eyeRedness 영역 게이트) -->
-<script src="js/photo-editor/mask-sclera-adapter.js?v=20260603-pe-m1-sclera" defer></script>
 <!-- [PE-M2] browMask 어댑터 (눈썹 convex hull → browSharp 영역 게이트) -->
-<script src="js/photo-editor/mask-brow-adapter.js?v=20260604-pe-m2-brow" defer></script>
-<script src="js/photo-editor/region-mask-provider.js?v=20260604-pe-m2-brow" defer></script>
 <!-- [v316] 마스크 → beauty engine 적용 어댑터 (PE_MASK_DISABLE=1 로 비활성) -->
-<script src="js/photo-editor/mask-application.js?v=20260604-pe-m2-brow" defer></script>
-<script src="js/photo-editor/mask-status-ui.js?v=20260604-pe-m2-brow" defer></script>
 <!-- [v335] 마스크 QA 도구 (콘솔 호출 — RegionMaskQA.runOnCurrentImage()) -->
-<script src="js/photo-editor/mask-qa-tool.js?v=20260529-v340-photoeditor-mask-sampling" defer></script>
-<script src="js/photo-editor/beauty-engine.js?v=20260604-pe-m2-brow" defer></script>
 <!-- [PE-AI-1A] 부위 기반 슬라이더 추천 카드 (온디바이스) + [PE-AI-1B] Vision 정밀 추천(백엔드 경유) -->
-<script src="js/photo-editor/reco-map.js?v=20260604-pe-ai-1a" defer></script>
-<script src="js/photo-editor/reco-region.js?v=20260604-pe-ai-1a" defer></script>
-<script src="js/photo-editor/reco-vision-client.js?v=20260604-pe-ai-1b" defer></script>
-<script src="js/photo-editor/reco-consent.js?v=20260604-pe-ai-1b" defer></script>
-<script src="js/photo-editor/reco-cards-ui.js?v=20260604-pe-ai-1b" defer></script>
-<script src="app-photo-editor-beauty.js?v=20260605-pr4b-region" defer></script>
-<script src="app-photo-editor-cuticle.js?v=20260605-cuticle-poc" defer></script>
-<script src="app-photo-editor-beauty-ai.js?v=20260529-v349-beauty-ai-shop-focus" defer></script>
-<script src="app-photo-editor-ai-api.js?v=20260527-v307-full-redesign" defer></script>
-<script src="app-photo-editor-relight.js?v=20260527-v307-full-redesign" defer></script>
-<script src="app-photo-editor-templates.js?v=20260606-tplg1" defer></script>
-<script src="app-photo-editor-edit-plan.js?v=20260527-v308-photo-editor-upgrade" defer></script>
-<script src="app-photo-editor-nl-template.js?v=20260527-v308-photo-editor-upgrade" defer></script>
-<script src="app-photo-editor-nl-modify.js?v=20260531-v371-modify-align" defer></script>
-<script src="app-photo-editor-intent-parser.js?v=20260605-pr5-nl-relight-auto" defer></script>
 <!-- [PR-4a] nl-apply(잇비 NL 'ai' 패널)는 generative-l3 뒤로 이동 — 'ai' 탭을 잇비 NL이 소유(생성형 mock override 방지) -->
 
-<script src="js/photo-editor/generative-client.js?v=20260605-v394-l3-generative-mock" defer></script>
-<script src="js/photo-editor/generative-consent.js?v=20260605-v394-l3-generative-mock" defer></script>
-<script src="app-photo-editor-generative-l3.js?v=20260605-v394-l3-generative-mock" defer></script>
-<script src="app-photo-editor-nl-apply.js?v=20260605-pr4a-nl-restore" defer></script>
 <!-- [v185 2026-05-18] 부분 보정 브러시 (5종 + 지우개) -->
-<script src="app-photo-editor-brush-effects.js?v=20260527-v307-full-redesign" defer></script>
-<script src="app-photo-editor-brush.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
 <!-- [v203 2026-05-19] 핀치 줌·패닝 (부분 보정 정밀 작업용) -->
 <!-- [v225 2026-05-19 Sprint 1] Pixel Zoom 32x — MAX 4 → 32, 8x 이상 nearest 재렌더 + 그리드 + 미니맵 -->
-<script src="app-photo-editor-zoom.js?v=20260606-d2-zoom" defer></script>
-<script src="app-photo-editor-zoom-pixel.js?v=20260606-d2-zoom" defer></script>
-<script src="app-photo-editor-zoom-grid.js?v=20260519-v225-pixel-zoom-32x" defer></script>
-<script src="app-photo-editor-zoom-minimap.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
 <!-- [v226 2026-05-19 Sprint 2] WebGL2 보정 파이프라인 — 톤/블러 GL 위임, beauty 영역 마스킹 유지 -->
-<script src="app-photo-editor-gl-ctx.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor-gl-pipeline.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor-gl-shaders-tone.js?v=20260519-v226-webgl2" defer></script>
-<script src="app-photo-editor-gl-shaders-blur.js?v=20260519-v233-photo-render-hotfix" defer></script>
-<script src="app-photo-editor-gl-shaders-lut.js?v=20260519-v233-photo-render-hotfix" defer></script>
-<script src="app-photo-editor-gl-shaders-bilateral.js?v=20260526-v290-bilateral-skin" defer></script>
-<script src="app-photo-editor-gl-bridge.js?v=20260519-v226-webgl2" defer></script>
 <!-- [v227 2026-05-19 Sprint 3] Selective — 한 점 탭 부분 보정 (핀 3개 + 4 슬라이더) -->
-<script src="app-photo-editor-ai-mask.js?v=20260521-v252-photo-shadow-batch" defer></script>
-<script src="app-photo-editor-selective.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor-selective-mask.js?v=20260521-v252-photo-shadow-batch" defer></script>
 <!-- [v228 2026-05-19 Sprint 4] Pro 탭 — Tone Curve (1D LUT) + HSL 분리 -->
-<script src="app-photo-editor-curve.js?v=20260519-v230-mask-rgb-fix" defer></script>
-<script src="app-photo-editor-hsl.js?v=20260519-v230-mask-rgb-fix" defer></script>
-<script src="app-photo-editor-pro-tab.js?v=20260519-v228-curve-hsl" defer></script>
 <!-- [v229 2026-05-19 Sprint 4.5] Face Landmarks 자동 영역 mask (입술/눈/얼굴) + selective 페인트 버그 fix -->
-<script src="app-photo-editor-face-mask.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
 <!-- [v230 2026-05-19 Sprint 5] Spot Healing v2 + Film 프리셋 8종 + selective mask RGB-only fix -->
-<script src="app-photo-editor-heal-v2.js?v=20260526-v288-photo-editor-warning-cleanup" defer></script>
-<script src="app-photo-editor-film-presets.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <!-- [v205 2026-05-19] 스티커 라이브러리 (뷰티 도메인 30종 — 텍스트 기반 프리셋) -->
-<script src="app-photo-editor-stickers.js?v=20260519-v205" defer></script>
 <!-- [PE-2 2026-05-19] Before/After 인터랙티브 슬라이더 — md 핵심 기능 -->
-<script src="app-photo-editor-ba-slider.js?v=20260603-ux-ba-cta" defer></script>
 <!-- md 정리: PE-8/PE-9/PE-10 별도 기능은 숨김. PE-8은 빠른 보정에 흡수, PE-9는 템플릿으로 흡수, PE-10은 삭제 후보. -->
 <!-- [v223 2026-05-19] md 핵심: 해시태그 매니저만 유지. SNS 일정/예약/성과/크로스발행은 로드하지 않음. -->
 <script src="app-sns-hashtag.js?v=20260610-batch5" defer></script>
 <!-- [v223 2026-05-19] md 핵심: PE-1 정밀 보정 + PE-5 30종 템플릿. PE-4 드래그 텍스트는 보류라 로드하지 않음. -->
 <script src="app-mediapipe-loader.js?v=20260529-v340-photoeditor-mask-sampling" defer></script>
-<script src="app-photo-editor-ai-touch-v2.js?v=20260521-v251-photo-smart-mask" defer></script>
 <!-- [BP-2] 뷰티 팩 데이터 — market-data 가 조회 리스트에 합류시키므로 그 앞에 로드(apply-only) -->
-<script src="js/photo-editor/template-pack-beauty-data.js?v=20260610-v436-bp-event-spring" defer></script>
-<script src="js/photo-editor/template-market-data.js?v=20260609-v419-beauty-pack-gallery" defer></script>
 <!-- [PR-S1 2026-06-06] editable slot 기반 구조 (메타데이터 + 안전 텍스트/이미지 helper) -->
-<script src="js/photo-editor/template-slots.js?v=20260609-v418-beauty-pack-top3" defer></script>
-<script src="js/photo-editor/template-fit-text.js?v=20260606-s1" defer></script>
-<script src="js/photo-editor/price-menu.js?v=20260529-v351-price-menu" defer></script>
-<script src="js/photo-editor/template-overlay.js?v=20260605-price-photo62" defer></script>
 <!-- TPL-1 템플릿 실미리보기 썸네일 헬퍼 (overlay/ba-compose 재사용, templates-v2 보다 먼저) -->
-<script src="js/photo-editor/template-thumb.js?v=20260602-v380-tpl-thumb" defer></script>
-<script src="app-photo-editor-templates-v2.js?v=20260606-s21" defer></script>
-<script src="app-photo-editor-ba-compose.js?v=20260607-s3b2-after-photo" defer></script>
-<script src="js/photo-editor/studio-presets.js?v=20260520-v250-template-mask-hotfix" defer></script>
-<script src="js/photo-editor/premium-templates.js?v=20260610-v436-bp-event-spring" defer></script>
 <!-- [BP-2] 뷰티 팩 렌더러 — premium-templates 가 beautyPack 위임. fit-text 이후, 런타임 사용 -->
 <!-- [BP-6 분할] core(프리미티브 키트 + 디스패치) 먼저 → draws(id별 _sk* 등록) 뒤. 순서 필수. -->
-<script src="js/photo-editor/template-renderer-beauty-pack.js?v=20260610-v435-bg-ratio-thumb-fallback" defer></script>
-<script src="js/photo-editor/template-renderer-beauty-pack-draws.js?v=20260610-v436-bp-event-spring" defer></script>
 <!-- [T1+T2 2026-06-06] 캔바식 템플릿 갤러리 + 보관함 -->
-<script src="app-photo-editor-template-library.js?v=20260609-v426-storage-default-template" defer></script>
-<script src="app-photo-editor-template-gallery.js?v=20260609-v426-storage-default-template" defer></script>
-<script src="app-photo-editor-template-edit-sheet.js?v=20260607-s3b2-after-photo" defer></script>
 <!-- md 정리: PE-6 AR 가상시술과 영상 커버는 숨김. -->
 <!-- [v172 2026-05-18] 캡션 prefill + B&A 자동 chip -->
 <script src="app-caption-prefill.js?v=20260518-v172" defer></script>
@@ -2462,7 +2358,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-customer-ai-brief.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-customer-hub.js?v=20260519-v212" defer></script>
 <script src="app-customer-sync.js" defer></script>
-<script src="app-calendar-view.js?v=20260610-booking-consistency" defer></script>
+<script src="app-calendar-view.js?v=20260611-week-dot" defer></script>
 <script src="app-public-link.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-waitlist.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-reminder.js?v=20260521-v254-api-fetch" defer></script>

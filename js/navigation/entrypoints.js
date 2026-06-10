@@ -28,6 +28,12 @@
   }
 
   function openPhotoEditorFromAction(opts) {
+    // [2026-06-11 로딩분할 1단계] 사진 그룹 미로드 상태면 로드 후 재진입
+    if (window.AppLoader && !window.AppLoader.loaded('photo') && !window.PhotoEditor) {
+      _toast('사진 도구 준비 중…');
+      window.AppLoader.ensure('photo').then(() => openPhotoEditorFromAction(opts));
+      return true;
+    }
     try {
       if (window.PhotoEditor && typeof window.PhotoEditor.openFromAction === 'function') {
         window.PhotoEditor.openFromAction(opts || {});

@@ -232,6 +232,9 @@
     if (_disabled()) return null;
     const q = _trim(text);
     if (!q || q.length > 40) return null;
+    // [2026-06-10 QA] 조언성 질문은 숫자 숏컷이 가로채면 안 됨 — "오늘 매출 조언해줘"가
+    //   매출 숫자만 띄우고 끝나던 버그. 조언/분석 의도면 LLM 으로 보낸다.
+    if (/조언|추천|어떻게|어떡|어떄|팁|전략|분석|아이디어|뭐부터|뭘 해야|개선/.test(q)) return null;
     for (const rule of ASYNC_RULES) {
       try { if (rule.test(q)) return rule; }
       catch (_e) { void _e; }
