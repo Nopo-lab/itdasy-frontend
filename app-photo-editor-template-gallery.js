@@ -164,6 +164,19 @@
     }).join('|');
   }
 
+  // 렌더 실패/사진 미로드 폴백 썸네일 — 빈칸 대신 살롱톤 그래디언트 dataURL 반환.
+  function _fallbackThumb(dim, color) {
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = dim.w; cv.height = dim.h;
+      const ctx = cv.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, dim.w, dim.h);
+      g.addColorStop(0, '#f3e9ea'); g.addColorStop(1, color);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, dim.w, dim.h);
+      return cv.toDataURL('image/jpeg', 0.8);
+    } catch (_e) { return ''; }
+  }
+
   function _previewURL(t, state, basePx) {
     const sig = _photoSig(state);
     // [S2] 현재 적용 템플릿이면 slotValues 서명을 키에 포함(편집 시 stale 방지).
@@ -210,6 +223,8 @@
       else if (window.PhotoEditorTemplateOverlay) window.PhotoEditorTemplateOverlay.draw(ctx, dim.w, dim.h, t, tplV2);
       url = cv.toDataURL('image/jpeg', basePx > 480 ? 0.86 : 0.8);
     } catch (_e) { url = ''; }
+    // 렌더 실패 시 빈/깨진 박스 대신 살롱톤 그래디언트(주석 계약 "실패 없이 항상 dataURL" 복원).
+    if (!url) url = _fallbackThumb(dim, color);
     if (url) _thumbCache[key] = url;
     return url;
   }
@@ -297,17 +312,18 @@
   // ── 바인딩 ──
   function _paintThumbs(panel, state) {
     const nodes = panel.querySelectorAll('[data-pe-tplg-thumb]');
+    // 성공(비어있지 않은 url) 시에만 painted 마킹/관측 해제 → 일시적 렌더 실패가 빈칸으로 고정되지 않음.
     const paint = (el) => {
-      if (!el || el.dataset.painted) return;
+      if (!el || el.dataset.painted) return true;
       const t = _tplById(el.dataset.peTplgThumb);
-      if (!t) return;
+      if (!t) return true;
       const url = _previewURL(t, state, 320);
-      if (url) { el.style.backgroundImage = `url(${url})`; }
-      el.dataset.painted = '1';
+      if (url) { el.style.backgroundImage = `url(${url})`; el.dataset.painted = '1'; return true; }
+      return false;
     };
     if (typeof IntersectionObserver === 'function') {
       const io = new IntersectionObserver((entries) => {
-        entries.forEach(e => { if (e.isIntersecting) { paint(e.target); io.unobserve(e.target); } });
+        entries.forEach(e => { if (e.isIntersecting && paint(e.target)) io.unobserve(e.target); });
       }, { root: panel.closest('.pe-panel') || null, rootMargin: '300px' });
       nodes.forEach(el => io.observe(el));
     } else {

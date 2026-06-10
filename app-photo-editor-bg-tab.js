@@ -90,7 +90,8 @@
     const result = await window.PhotoEditorBgCompose.compose({
       srcUrl: state.preBgOriginalSrc,
       bg,
-      targetRatio: state.ratio && state.ratio !== 'original' ? state.ratio : '1:1',
+      // 'original'/미지정이면 정사각 강제하지 말고 원본 비율 유지 — 누끼 후 인물이 작아 보이던 문제 방지.
+      targetRatio: (state.ratio && state.ratio !== 'original') ? state.ratio : 'original',
       preRemovedBgUrl: state.removedBgDataUrl,
       shadow: state.shadow,
     });

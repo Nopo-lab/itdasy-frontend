@@ -10,10 +10,16 @@
     floating: { label: '떠 있는 느낌', blur: 18, opacity: 0.26, x: 0,  y: 44, scaleY: 0.26 },
   };
 
-  function ratioToSize(ratio) {
+  function ratioToSize(ratio, srcImg) {
     if (ratio === '4:5') return { w: 1080, h: 1350 };
     if (ratio === '9:16') return { w: 1080, h: 1920 };
-    return { w: 1080, h: 1080 };
+    if (ratio === '1:1') return { w: 1080, h: 1080 };
+    // 'original'/미지정 — 원본 비율 유지(긴 변 1440 캡). 세로 사진을 정사각으로 욱여넣어 작아 보이던 문제 방지.
+    const iw = (srcImg && (srcImg.naturalWidth || srcImg.width)) || 1080;
+    const ih = (srcImg && (srcImg.naturalHeight || srcImg.height)) || 1080;
+    const LONG = 1440;
+    const s = Math.min(1, LONG / Math.max(iw, ih));
+    return { w: Math.max(1, Math.round(iw * s)), h: Math.max(1, Math.round(ih * s)) };
   }
 
   function _blobFromDataUrl(dataUrl) {
@@ -112,7 +118,7 @@
     const bbox = _alphaBBox(personImg);
     const pw0 = bbox ? bbox.w : (personImg.naturalWidth || personImg.width);
     const ph0 = bbox ? bbox.h : (personImg.naturalHeight || personImg.height);
-    const scale = Math.min((CW * 0.85) / pw0, (CH * 0.85) / ph0);
+    const scale = Math.min((CW * 0.92) / pw0, (CH * 0.92) / ph0);
     return { bbox, dx: (CW - pw0 * scale) / 2, dy: (CH - ph0 * scale) / 2, dw: pw0 * scale, dh: ph0 * scale };
   }
 
@@ -167,7 +173,7 @@
       removedUrl = cache.toDataURL('image/png');
     }
     const personImg = await _loadImage(removedUrl);
-    const size = ratioToSize(opts.targetRatio || '1:1');
+    const size = ratioToSize(opts.targetRatio || '1:1', personImg);
     const bgCanvas = await _backgroundCanvas(opts.bg || {}, size.w, size.h);
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = size.w; finalCanvas.height = size.h;
