@@ -151,5 +151,29 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
   'app-assistant.js?v=20260610-v443-itbi-safety-guards',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
+  ],
+  extras: [
+  'app-backup.js',
+  'app-kakao-hub.js',
+  'app-naver-link.js',
+  'app-dm-settings-cache.js?v=20260521-v254-api-fetch',
+  'app-dm-autoreply.js?v=20260610-batch4',
+  'app-dm-confirm-queue.js?v=20260609-msg-stack',
+  'app-dm-conversations.js?v=20260610-quickwin',
+  'app-dm-manual-replies.js?v=20260610-batch5',
+  'app-persona-survey.js',
+  'app-support.js',
+  'app-membership.js',
+  'app-template-import.js?v=20260610-v435-bg-ratio-thumb-fallback',
+  'app-smart-capture.js?v=20260610-quickwin',
+  'app-import.js?v=20260521-v254-api-fetch',
+  'app-birthday.js?v=20260521-v254-api-fetch',
+  'app-sns-hashtag.js?v=20260610-batch5',
+  'app-receipt-scan.js?v=20260610-batch3',
+  'app-import-wizard.js',
+  'app-public-link.js?v=20260521-v254-api-fetch',
+  'app-waitlist.js?v=20260521-v254-api-fetch',
+  'app-growth-story.js',
+  'app-data-export.js?v=20260521-v254-api-fetch'
   ]
 });

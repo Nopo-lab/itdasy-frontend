@@ -69,4 +69,23 @@
     _closeAllHubs();
     if (btn.classList.contains('ms-side__item')) _markActive(btn);
   }, true);
+
+  // [2026-06-11 QA] 시트(허브)를 X/뒤로가기로 닫으면 화면은 홈인데 사이드바 활성 표시가
+  //   직전 메뉴(설정·연동 등)에 남던 버그 — 시트가 모두 닫힌 시점에 실제 보이는 탭으로 복원.
+  function _resyncActive() {
+    const openIds = ['revenueSheet', 'customerSheet', 'customerDashSheet', 'cal-overlay',
+      'settingsHubSheet', 'aiHubSheet', 'inventorySheet', 'dmConvSheet', 'navSheet', 'assistantSheet'];
+    const anyOpen = openIds.some((id) => {
+      const el = document.getElementById(id);
+      return el && el.style.display !== 'none' && el.offsetParent !== null;
+    });
+    if (anyOpen) return; // 아직 다른 시트가 떠 있으면 유지
+    const tabKey = document.getElementById('tab-dashboard')?.classList.contains('active') ? 'dashboard' : 'home';
+    _markActive(document.querySelector(`.ms-side__item[data-side-tab="${tabKey}"]`));
+  }
+  const _origMarkClosed = window._markSheetClosed;
+  window._markSheetClosed = function (name) {
+    try { if (typeof _origMarkClosed === 'function') _origMarkClosed(name); } catch (_e) { void _e; }
+    setTimeout(_resyncActive, 60);
+  };
 })();

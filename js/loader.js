@@ -74,11 +74,16 @@
   _stub('openGalleryWrite', 'photo', '사진 도구 준비 중…');
   /* [2단계] 잇비 — 외부 진입 함수는 openAssistant 하나 (조사 확인) */
   _stub('openAssistant', 'assistant', '잇비 준비 중…');
+  /* [3단계] 주변 기능(extras: DM·SNS·임포트·OCR·지원 등) — 사이드바/메뉴 직행 진입만 스텁 */
+  _stub('openDMConversations', 'extras', 'DM 준비 중…');
+  _stub('openSupport', 'extras', '준비 중…');
+  _stub('openSupportChat', 'extras', '준비 중…');
+  _stub('openDMManualReplies', 'extras', '준비 중…');
 
   /* ── 유휴 선로딩 — 홈 첫 페인트를 막지 않게 load 이후 idle 에 시작.
-       잇비(매일 쓰는 기능, 40개) 먼저 → 사진(106개) 순서. ── */
+       잇비(매일 쓰는 기능) → 주변 기능 → 사진(106개, 최대 덩어리) 순서. ── */
   function _prefetch() {
-    const go = () => { ensure('assistant').then(() => ensure('photo')); };
+    const go = () => { ensure('assistant').then(() => ensure('extras')).then(() => ensure('photo')); };
     if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 });
     else setTimeout(go, 1500);
   }
