@@ -411,20 +411,22 @@
   background: var(--brand-bg);
 }
 
+/* [2026-06-11] 주간뷰 1안 — 흰 배경 + 상태 점 (상태별 배경/좌측바 제거) */
 .bk-week-m__block {
   position: absolute;
   left: 1px;
   right: 1px;
-  background: var(--brand-bg);
-  border-left: 2px solid var(--brand-strong);
-  border-radius: 4px;
-  padding: 2px 3px;
+  background: #fff;
+  border: 0.5px solid #E5E8EB;
+  border-radius: 8px;
+  padding: 2px 4px;
   cursor: pointer;
   overflow: hidden;
-  font-size: 8.5px;
-  font-weight: 700;
-  color: var(--brand-strong);
   line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
 }
 
 /* ============================================================
@@ -742,20 +744,22 @@
 .bk-week__hour:first-child { border-top: none; }
 .bk-week__hour:hover { background: var(--brand-bg); }
 
+/* [2026-06-11] 주간뷰 1안 — 흰 배경 + 상태 점 (상태별 배경/좌측바 제거) */
 .bk-week__block {
   position: absolute;
   left: 4px;
   right: 4px;
-  background: var(--brand-bg);
-  border-left: 3px solid var(--brand-strong);
-  border-radius: 10px;
-  padding: 4px 6px;
+  background: #fff;
+  border: 0.5px solid #E5E8EB;
+  border-radius: 8px;
+  padding: 5px 8px;
   cursor: pointer;
   transition:
     transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
-  font-size: 10.5px;
+  display: flex;
+  align-items: center;
 }
 .bk-week__block:hover {
   transform: translateY(-2px);
@@ -1010,18 +1014,14 @@
 
 /* ═══ 상태 컬러코딩 (2026-05-16) ═══ */
 
-/* is-dim: 취소/노쇼 공통 */
+/* is-dim: 취소/노쇼 (일간뷰 — 주간뷰는 2026-06-11 상태점 디자인으로 대체) */
 .bk-block.is-dim,
-.bk-week-m__block.is-dim,
-.bk-week__block.is-dim,
 .bk-pc-day__block.is-dim {
   opacity: 0.5;
 }
 
 /* [2026-05-26] confirmed — 차분한 파랑 (#5B7FC4) */
 .bk-block.bk-st-confirmed,
-.bk-week-m__block.bk-st-confirmed,
-.bk-week__block.bk-st-confirmed,
 .bk-pc-day__block.bk-st-confirmed {
   background: rgba(91,127,196,0.12);
 }
@@ -1041,8 +1041,6 @@
 
 /* completed — 초록 (#16B55E) */
 .bk-block.bk-st-completed,
-.bk-week-m__block.bk-st-completed,
-.bk-week__block.bk-st-completed,
 .bk-pc-day__block.bk-st-completed {
   background: rgba(22,181,94,0.12);
 }
@@ -1062,8 +1060,6 @@
 
 /* cancelled — 회색 + 취소선 */
 .bk-block.bk-st-cancelled,
-.bk-week-m__block.bk-st-cancelled,
-.bk-week__block.bk-st-cancelled,
 .bk-pc-day__block.bk-st-cancelled {
   background: var(--surface-2);
   border-left-color: var(--text-subtle);
@@ -1089,8 +1085,6 @@
 
 /* [2026-05-26] no_show — 빨강 (#E5484D) + 취소선 */
 .bk-block.bk-st-noshow,
-.bk-week-m__block.bk-st-noshow,
-.bk-week__block.bk-st-noshow,
 .bk-pc-day__block.bk-st-noshow {
   background: rgba(229,72,77,0.12);
 }
@@ -1136,14 +1130,15 @@
    ============================================================ */
 .bk-block--v6,
 .bk-pc-day__block--v6,
+/* [2026-06-11] 주간뷰 1안 상태점 카드 — PC */
 .bk-week__block--v6 {
   background: #fff !important;
-  border: 1px solid var(--surface-2, #E5E8EB) !important;
+  border: 0.5px solid #E5E8EB !important;
   border-radius: 8px !important;
-  padding: 6px 10px 6px 0 !important;
+  padding: 5px 8px !important;
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
+  gap: 0 !important;
   overflow: hidden;
   color: var(--text, #191F28);
   text-align: left !important;  /* [v6] button 의 기본 center 덮어쓰기 */
@@ -1158,8 +1153,7 @@
 }
 
 .bk-block--v6 .bk-block__body,
-.bk-pc-day__block--v6 .bk-pc-day__block-body,
-.bk-week__block--v6 .bk-week__block-body {
+.bk-pc-day__block--v6 .bk-pc-day__block-body {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1218,54 +1212,28 @@
   text-overflow: ellipsis;
 }
 
-/* 주간 PC — 더 작은 톤 */
-.bk-week__block--v6 .bk-week__block-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text, #191F28);
-  letter-spacing: -0.2px;
-}
-.bk-week__block--v6 .bk-week__block-sub {
-  font-size: 11px;
-  color: var(--text-subtle, #8B95A1);
-}
 
-/* 주간 모바일 — 텍스트 한 줄 + 좌측 바 [2026-05-24 바·텍스트 간격 확보] */
+/* [2026-06-11] 주간뷰 1안 상태점 카드 — 모바일 (2줄: 점·시간 / 이름) */
 .bk-week-m__block--v6 {
   background: #fff !important;
-  border-radius: 4px !important;
-  padding: 2px 6px 2px 0 !important;
+  border: 0.5px solid #E5E8EB !important;
+  border-radius: 8px !important;
+  padding: 2px 4px !important;
   display: flex !important;
-  align-items: center !important;
-  gap: 7px !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: stretch !important;
+  gap: 0 !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   color: var(--text, #191F28);
   overflow: hidden;
 }
-.bk-week-m__block--v6 .bk-bar {
-  width: 2px;
-  margin: 2px 0;
-  margin-left: 3px;
-  border-radius: 1px;
-}
-.bk-week-m__block--v6 .bk-week-m__name {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-/* status 우선 — cancelled / no_show 회색 + dim */
+/* status 우선 — cancelled / no_show 회색 + dim (일간뷰. 주간뷰는 상태점 디자인) */
 .bk-block--v6.bk-st-cancelled,
 .bk-block--v6.bk-st-noshow,
 .bk-pc-day__block--v6.bk-st-cancelled,
-.bk-pc-day__block--v6.bk-st-noshow,
-.bk-week__block--v6.bk-st-cancelled,
-.bk-week__block--v6.bk-st-noshow,
-.bk-week-m__block--v6.bk-st-cancelled,
-.bk-week-m__block--v6.bk-st-noshow {
+.bk-pc-day__block--v6.bk-st-noshow {
   opacity: 0.55;
 }
 .bk-st-cancelled .bk-bar,
@@ -1275,21 +1243,17 @@
 
 /* [v6] 완료 — 살짝 흐림 + 우측 ✓ 마크. 좌측 바는 고객 색 유지. strikethrough X. */
 .bk-block--v6.bk-st-completed,
-.bk-pc-day__block--v6.bk-st-completed,
-.bk-week__block--v6.bk-st-completed,
-.bk-week-m__block--v6.bk-st-completed {
+.bk-pc-day__block--v6.bk-st-completed {
   background: #FBFCFD !important;
   opacity: 0.78;
 }
 .bk-block--v6.bk-st-completed:hover,
-.bk-pc-day__block--v6.bk-st-completed:hover,
-.bk-week__block--v6.bk-st-completed:hover {
+.bk-pc-day__block--v6.bk-st-completed:hover {
   opacity: 1;
 }
-/* ✓ 완료 마크 — 우측 끝에 초록 동그라미 (구분용) */
+/* ✓ 완료 마크 — 우측 끝에 초록 동그라미 (구분용). 주간뷰는 인라인 ✓ 사용 */
 .bk-block--v6.bk-st-completed::after,
-.bk-pc-day__block--v6.bk-st-completed::after,
-.bk-week__block--v6.bk-st-completed::after {
+.bk-pc-day__block--v6.bk-st-completed::after {
   content: '✓';
   display: inline-flex;
   align-items: center;

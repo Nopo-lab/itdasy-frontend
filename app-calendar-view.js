@@ -420,6 +420,34 @@
     return { html: h, items: filtered, start, ws };
   }
 
+  // [2026-06-11] 주간뷰 예약 카드 1안 — 흰 배경 + 상태 점 (월간뷰 점 언어와 통일).
+  //   확정 파랑 / 완료 초록 / 노쇼 빨강 = BK_STATUS_COLOR 재사용. PC는 1줄, 모바일은 2줄(점·시간 / 이름).
+  function _weekCardInner(it, isPC) {
+    const s = new Date(it._raw.starts_at);
+    const tm = _pad(s.getHours()) + ':' + _pad(s.getMinutes());
+    const dotC = _statusDotColor(it.status);
+    const done = it.status === 'completed';
+    const dim = (it.status === 'no_show' || it.status === 'cancelled');
+    const nameColor = done ? '#8B95A1' : (dim ? '#B0B8C1' : '#191F28');
+    const strike = dim ? 'text-decoration:line-through;' : '';
+    const dot = (sz) => '<span style="width:' + sz + 'px;height:' + sz + 'px;border-radius:50%;background:' + dotC + ';flex-shrink:0;display:inline-block;"></span>';
+    if (isPC) {
+      return '<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1;">'
+        + dot(8)
+        + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:' + nameColor + ';letter-spacing:-0.2px;' + strike + '">' + _esc(it.cust) + '</span>'
+        + '<span style="flex-shrink:0;font-size:11px;color:#8B95A1;' + strike + '">' + tm + '</span>'
+        + (done ? '<span style="flex-shrink:0;color:#16B55E;font-weight:700;font-size:12px;">✓</span>' : '')
+        + '</div>';
+    }
+    // 모바일: 좁은 컬럼(≈49px) — 점·시간을 윗줄에, 이름은 아랫줄(잘려도 점·시간은 보존)
+    return '<div style="display:flex;align-items:center;gap:3px;line-height:1.1;">'
+      + dot(7)
+      + '<span style="font-size:10px;color:#8B95A1;font-weight:600;flex-shrink:0;' + strike + '">' + tm + '</span>'
+      + (done ? '<span style="margin-left:auto;color:#16B55E;font-weight:700;font-size:10px;flex-shrink:0;">✓</span>' : '')
+      + '</div>'
+      + '<div style="font-size:12px;font-weight:600;color:' + nameColor + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2;margin-top:1px;' + strike + '">' + _esc(it.cust) + '</div>';
+  }
+
   function _placeWeekMBlocks(grid, items, startH, weekStart) {
     if (!grid) return;
     // [PERF P3-2] DOM 쿼리 1회 캐싱 + DocumentFragment 배치 삽입
@@ -445,12 +473,11 @@
       const height = Math.max(15, ((e - s) / 60000 / 60) * HOUR_PX_MOBILE_WEEK);
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
-      const dim2 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-week-m__block bk-week-m__block--v6'+ dim2 + _stCls(it.status);
+      block.className = 'bk-week-m__block bk-week-m__block--v6';
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
-      block.innerHTML = '<span class="bk-bar"></span><span class="bk-week-m__name">' + _esc(it.cust) + '</span>';
+      block.innerHTML = _weekCardInner(it, false);
       if (!fragments.has(target)) fragments.set(target, document.createDocumentFragment());
       fragments.get(target).appendChild(block);
     });
@@ -533,16 +560,11 @@
       const height = Math.max(30, ((e - s) / 60000 / 60) * HOUR_PX_PC_WEEK);
       // [2026-05-23] is-staff2 분기 제거 — 직원 기능 폐지
       const block = document.createElement('button');
-      const dim3 = (it.status === 'cancelled' || it.status === 'no_show') ? ' is-dim' : '';
-      block.className = 'bk-week__block bk-week__block--v6'+ dim3 + _stCls(it.status);
+      block.className = 'bk-week__block bk-week__block--v6';
       block.dataset.bookingId = it.id;
       block.style.top = top + 'px';
       block.style.height = height + 'px';
-      block.innerHTML = '<span class="bk-bar"></span>'
-        + '<div class="bk-week__block-body">'
-        + '<div class="bk-week__block-title">' + _esc(it.cust) + '</div>'
-        + (it.svc ? '<div class="bk-week__block-sub">' + _esc(it.svc) + '</div>' : '')
-        + '</div>';
+      block.innerHTML = _weekCardInner(it, true);
       if (!fragments.has(dayCol)) fragments.set(dayCol, document.createDocumentFragment());
       fragments.get(dayCol).appendChild(block);
     });
