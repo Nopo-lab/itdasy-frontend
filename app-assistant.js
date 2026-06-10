@@ -147,7 +147,9 @@
         if (_inflightCtrl) { try { _inflightCtrl.abort(); } catch (_e) { void _e; } }
         _clearChatPending();
         _history = _history.filter(m => m.role !== 'loading');
-        _history.push({ role: 'assistant', text: '응답이 너무 늦어요. 다시 시도해 주세요.' });
+        // [2026-06-10] 텍스트 질문이었으면 retry_q 저장 → 메시지에 [다시 시도] 버튼 노출
+        const _retryQ = (payload && payload.kind === 'text' && payload.user_msg) ? String(payload.user_msg) : '';
+        _history.push({ role: 'assistant', text: '응답이 너무 늦어요. 다시 시도해 주세요.', retry_q: _retryQ || undefined });
         _renderHistory();
         if (typeof window.toast === 'function') {
           window.toast('AI 잇비 응답이 너무 늦어요. 다시 시도해 주세요.');
@@ -375,6 +377,17 @@
     // [2026-05-25] 잇비 헤더 ⋯ 메뉴 — 메모/액션 되돌리기/카톡캡쳐/명함/가격표 OCR 통합 진입점.
     sheet.querySelector('[data-assistant-menu]')?.addEventListener('click', _openAssistantToolMenu);
     sheet.querySelector('#asstSend').addEventListener('click', _send);
+    // [2026-06-10] 타임아웃 메시지의 [다시 시도] 버튼 — 직전 질문을 입력창에 넣고 재전송
+    sheet.addEventListener('click', (e) => {
+      const rbtn = e.target.closest('[data-asst-retry]');
+      if (!rbtn) return;
+      const m = _history[parseInt(rbtn.dataset.asstRetry, 10)];
+      if (!m || !m.retry_q) return;
+      const input = document.getElementById('asstInput');
+      if (input) input.value = m.retry_q;
+      m.retry_q = null;
+      _send();
+    });
     // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
     _bindSheetPhotoInputs(sheet);
@@ -470,6 +483,8 @@
     const photoResultHtml = _renderPhotoResult(m, idx);
     // [2026-06-10] LLM 마크다운 볼드(**텍스트**)가 별표 그대로 노출되던 버그 — escape 후 <strong> 변환 (XSS 안전)
     const looseTextHtml = promoResultHtml ? '' : `<div style="padding:2px 2px 0;font-size:14px;line-height:1.55;color:#191F28;font-weight:500;white-space:pre-wrap;letter-spacing:-0.2px;">${_esc(_normMsg(m.text)).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')}</div>`;
+    // [2026-06-10] 타임아웃 메시지에 [다시 시도] 버튼 — 같은 질문 재타이핑 없이 1탭 재시도
+    const retryHtml = m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '';
     const reportHtml = promoResultHtml ? '' : `<div style="margin-top:4px;padding-left:2px;">
           <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
             style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
@@ -481,6 +496,7 @@
         ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
+        ${retryHtml}
         ${reportHtml}
         ${dupHtml}
         ${actionHtml}

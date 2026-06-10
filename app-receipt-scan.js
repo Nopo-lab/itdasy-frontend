@@ -378,12 +378,17 @@
     const body = overlay.querySelector('.rs-body');
 
     if (!items.length) {
+      // [2026-06-10] 막다른 화면 픽스 — [다시 찍기] 버튼으로 파일 선택을 즉시 재시도
       body.innerHTML = `
         <div style="padding:40px;text-align:center;color:#888;">
           <div style="font-size:36px;margin-bottom:10px;">🤷</div>
           <div style="font-size:13px;">이미지에서 데이터를 찾지 못했어요</div>
-          <div style="font-size:11px;color:var(--text-subtle);margin-top:6px;">영수증이 선명한지 확인해주세요</div>
+          <div style="font-size:11px;color:var(--text-subtle);margin-top:6px;">글자가 선명하게 보이게, 정면에서 찍은 사진이 잘 돼요</div>
+          <button type="button" data-rs-retry style="margin-top:16px;padding:12px 24px;border:none;border-radius:12px;background:#191F28;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">다시 찍기</button>
         </div>`;
+      body.querySelector('[data-rs-retry]')?.addEventListener('click', () => {
+        overlay.querySelector('#rs-file-input')?.click();
+      });
       return;
     }
 

@@ -512,7 +512,13 @@
 
   async function _cancelBooking() {
     if (!_ctx.booking_id) { _close(); return; }
+    // [2026-06-10] 네이티브 confirm → 인라인 다이얼로그 (UI 전체 블로킹 + 디자인 이질감 제거)
+    if (window._inlineConfirm) { window._inlineConfirm('이 예약을 취소할까요?', () => _doCancelBooking()); return; }
     if (!window.confirm('이 예약을 취소할까요?')) return;
+    return _doCancelBooking();
+  }
+
+  async function _doCancelBooking() {
     const btn = document.getElementById('cfCancel');
     if (btn) { btn.disabled = true; btn.textContent = '처리 중…'; }
     try {

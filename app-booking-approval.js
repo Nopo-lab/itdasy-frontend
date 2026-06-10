@@ -55,9 +55,13 @@
           </div>
         </div>`;
       }).join('');
+      // [2026-06-10] 네이티브 confirm → _inlineConfirm (UI 블로킹 제거, 디자인 통일)
+      const _askThen = (msg, run) => {
+        if (window._inlineConfirm) return window._inlineConfirm(msg, run);
+        if (confirm(msg)) run();
+      };
       body.querySelectorAll('[data-approve]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('입금 확인했나요? 승인 시 캘린더에 반영됩니다.')) return;
+        btn.addEventListener('click', () => _askThen('입금 확인했나요? 승인 시 캘린더에 반영됩니다.', async () => {
           btn.disabled = true;
           try {
             await _api('/public/book/admin/bookings/' + btn.dataset.approve + '/approve', { method: 'POST' });
@@ -68,11 +72,10 @@
             if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
             btn.disabled = false;
           }
-        });
+        }));
       });
       body.querySelectorAll('[data-reject]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('거절할까요? 고객에겐 별도 연락 필요.')) return;
+        btn.addEventListener('click', () => _askThen('거절할까요? 고객에겐 별도 연락 필요.', async () => {
           btn.disabled = true;
           try {
             await _api('/public/book/admin/bookings/' + btn.dataset.reject + '/reject', { method: 'POST' });
@@ -82,7 +85,7 @@
             if (window.showToast) window.showToast('실패: ' + (window._humanError ? window._humanError(e) : e.message));
             btn.disabled = false;
           }
-        });
+        }));
       });
     } catch (e) {
       body.innerHTML = `<div style="padding:40px;color:var(--danger);text-align:center;">오류: ${_esc(e.message)}</div>`;

@@ -422,8 +422,13 @@
   }
 
   async function _deleteRow(rowId) {
-    const ok = window._confirm2 ? window._confirm2('이 매출 기록을 삭제할까요?') : confirm('이 매출 기록을 삭제할까요?');
-    if (!ok) return;
+    // [2026-06-10] _confirm2 deprecated 스텁(항상 false) → 매출 삭제 무반응이던 버그 픽스
+    if (window._inlineConfirm) { window._inlineConfirm('이 매출 기록을 삭제할까요?', () => _doDeleteRow(rowId)); return; }
+    if (!confirm('이 매출 기록을 삭제할까요?')) return;
+    return _doDeleteRow(rowId);
+  }
+
+  async function _doDeleteRow(rowId) {
     try {
       const res = await fetch(`${API()}/revenue/${rowId}`, { method: 'DELETE', headers: AUTH() });
       if (!res.ok && res.status !== 204) throw new Error('HTTP ' + res.status);

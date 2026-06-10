@@ -313,15 +313,18 @@
         });
       }
       document.getElementById('svc-edit-cons')?.addEventListener('click', () => editConsumptions(svc.id));
-      document.getElementById('svc-edit-del')?.addEventListener('click', async () => {
-        const ok = window._confirm2 ? window._confirm2('이 시술을 삭제할까요?') : confirm('이 시술을 삭제할까요?');
-        if (!ok) return;
-        try {
-          await deleteTemplate(svc.id);
-          await Promise.all([loadServiceTemplates(), _loadMonthUsage()]);
-          if (window.showToast) window.showToast('삭제됨');
-          openServiceTemplates();
-        } catch (_e) { if (window.showToast) window.showToast('삭제 실패', 'error'); }
+      document.getElementById('svc-edit-del')?.addEventListener('click', () => {
+        // [2026-06-10] _confirm2 deprecated 스텁(항상 false) → 시술 삭제 무반응이던 버그 픽스
+        const _doDelete = async () => {
+          try {
+            await deleteTemplate(svc.id);
+            await Promise.all([loadServiceTemplates(), _loadMonthUsage()]);
+            if (window.showToast) window.showToast('삭제됨');
+            openServiceTemplates();
+          } catch (_e) { if (window.showToast) window.showToast('삭제 실패', 'error'); }
+        };
+        if (window._inlineConfirm) window._inlineConfirm('이 시술을 삭제할까요?', _doDelete);
+        else if (confirm('이 시술을 삭제할까요?')) _doDelete();
       });
     }, 50);
   }

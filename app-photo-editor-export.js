@@ -22,7 +22,22 @@
     if (format === 'story') return _saveSingleRatio(cv, 1080, 1920, 'story-9x16', state, helpers);
     const opt = _getOption(format);
     const exportCv = _makeExportCanvas(cv, opt.scale);
-    exportCv.toBlob((blob) => _finishSave(blob, exportCv, opt, state, helpers), opt.mime, opt.quality);
+    // [2026-06-10] toBlob 은 실패 시 콜백이 영영 안 올 수 있음(iOS 메모리 부족 등)
+    //   → "저장 중…" 안내 + 15초 워치독으로 멈춘 것처럼 보이는 상태 제거
+    _toast(helpers, '저장 중…');
+    let _done = false;
+    const _watchdog = setTimeout(() => {
+      if (_done) return;
+      _done = true;
+      _toast(helpers, '저장에 실패했어요 — 사진이 너무 클 수 있어요. 1배 화질(JPG)로 다시 시도해 보세요');
+    }, 15000);
+    exportCv.toBlob((blob) => {
+      if (_done) return;
+      _done = true;
+      clearTimeout(_watchdog);
+      if (!blob) return _toast(helpers, '저장에 실패했어요 — 1배 화질(JPG)로 다시 시도해 보세요');
+      _finishSave(blob, exportCv, opt, state, helpers);
+    }, opt.mime, opt.quality);
   }
 
   function _saveSingleRatio(cv, w, h, name, state, helpers) {

@@ -293,7 +293,14 @@ async function _handleDropZoneDrop(e) {
 }
 
 async function resetWorkshop() {
-  { const _ok = window._confirm2 ? window._confirm2('전체 초기화할까요?\n모든 사진과 슬롯이 삭제됩니다.') : confirm('전체 초기화할까요?\n모든 사진과 슬롯이 삭제됩니다.'); if (!_ok) return; }
+  // [2026-06-10] _confirm2 deprecated 스텁(항상 false) → 초기화 버튼 무반응이던 버그 픽스
+  const _msg = '전체 초기화할까요?\n모든 사진과 슬롯이 삭제됩니다.';
+  if (window._inlineConfirm) { window._inlineConfirm(_msg, () => _doResetWorkshop()); return; }
+  if (!confirm(_msg)) return;
+  return _doResetWorkshop();
+}
+
+async function _doResetWorkshop() {
   for (const slot of _slots) {
     try { await deleteSlotFromDB(slot.id); } catch (_e) { /* ignore */ }
   }
@@ -535,9 +542,14 @@ async function _mergeAutoGroups(count) {
     return;
   }
   if (!Array.isArray(_slots) || _slots.length < count) return;
-  const ok = window._confirm2 ? window._confirm2(`최근 ${count}개 슬롯을 1개로 합칠까요?`) : confirm(`최근 ${count}개 슬롯을 1개로 합칠까요?`);
-  if (!ok) return;
+  // [2026-06-10] _confirm2 deprecated 스텁(항상 false) → 합치기 무반응이던 버그 픽스
+  const _msg = `최근 ${count}개 슬롯을 1개로 합칠까요?`;
+  if (window._inlineConfirm) { window._inlineConfirm(_msg, () => _doMergeAutoGroups(count)); return; }
+  if (!confirm(_msg)) return;
+  return _doMergeAutoGroups(count);
+}
 
+async function _doMergeAutoGroups(count) {
   const targets = _slots.slice(-count);
   const keep = targets[0];
   const drop = targets.slice(1);

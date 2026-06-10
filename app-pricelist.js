@@ -150,7 +150,14 @@
       progress.style.display = 'none';
       upArea.style.display = 'block';
       resultBox.style.display = 'block';
-      resultBox.innerHTML = `<div style="padding:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#991B1B;font-size:13px;line-height:1.5;">${_esc(e.message || '인식 실패')}<br><span style="font-size:11px;color:#991B1B80;">사진이 흐리거나 가격표가 아닌 것 같아요. 더 선명한 사진으로 다시 시도해 주세요.</span></div>`;
+      // [2026-06-10] 에러 원인 분기 — 용량/형식/네트워크까지 전부 "흐린 사진" 탓하던 문구 픽스
+      const _raw = (e && e.message) || '';
+      const _mainMsg = window._humanError ? window._humanError(e) : (_raw || '인식 실패');
+      const _isQuality = !/HTTP|fetch|network|timeout|aborted|커요|많아요|만료|연결/i.test(_raw + _mainMsg);
+      const _hint = _isQuality
+        ? '사진이 흐리거나 가격표가 아닌 것 같아요. 더 선명한 사진으로 다시 시도해 주세요.'
+        : '잠시 후 다시 시도해 주세요.';
+      resultBox.innerHTML = `<div style="padding:14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;color:#991B1B;font-size:13px;line-height:1.5;">${_esc(_mainMsg)}<br><span style="font-size:11px;color:#991B1B80;">${_esc(_hint)}</span></div>`;
     }
   }
 

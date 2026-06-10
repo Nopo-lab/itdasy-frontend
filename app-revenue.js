@@ -705,11 +705,16 @@
     };
   }
   function _onSaveAddForm(modal, ctx) {
-    return async () => {
+    return async (ev) => {
+      // [2026-06-10] 더블탭 중복 제출 방지 — 느린 네트워크에서 두 번 눌러 매출 2건 기록되던 위험
+      if (modal._rfSaving) return;
       const amount = parseInt(modal.querySelector('#rfAmount').value, 10);
       if (!amount || amount <= 0) {
         if (window.showToast) window.showToast('금액을 입력해 주세요'); return;
       }
+      modal._rfSaving = true;
+      const _saveBtn = ev && ev.currentTarget && ev.currentTarget.tagName === 'BUTTON' ? ev.currentTarget : null;
+      if (_saveBtn) _saveBtn.disabled = true;
       const useMem = !!modal.querySelector('#rfUseMembership')?.checked;
       const payload = {
         amount, method: useMem ? 'membership' : ctx.method,
@@ -739,7 +744,10 @@
         await _loadAndRender();
       } catch (e) {
         console.warn('[revenue] save 실패:', e);
-        if (window.showToast) window.showToast('저장 실패: ' + (e?.message || ''), { error: true });
+        if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(e) : (e?.message || '')), { error: true });
+      } finally {
+        modal._rfSaving = false;
+        if (_saveBtn) _saveBtn.disabled = false;
       }
     };
   }

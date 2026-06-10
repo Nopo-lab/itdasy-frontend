@@ -486,7 +486,10 @@
       </div>
     `;
     listEl.querySelector('[data-inventory-back]')?.addEventListener('click', () => window._inventoryBack());
-    listEl.querySelector('#ifSave').addEventListener('click', async () => {
+    listEl.querySelector('#ifSave').addEventListener('click', async (ev) => {
+      const _btn = ev.currentTarget;
+      // [2026-06-10] 더블탭 중복 제출 방지
+      if (_btn.disabled) return;
       const payload = {
         name: document.getElementById('ifName').value.trim(),
         quantity: parseFloat(document.getElementById('ifQty').value) || 0,
@@ -495,6 +498,7 @@
         decimal_places: parseInt(document.getElementById('ifDecimalPlaces').value, 10) || 0,
       };
       if (!payload.name) { if (window.showToast) window.showToast('이름을 입력해 주세요'); return; }
+      _btn.disabled = true;
       try {
         if (existing) {
           // PATCH 구현 간소화 — 삭제+재생성 대신 adjust로 수량 맞춤 후 threshold만 교체 (offline 한정)
@@ -520,18 +524,24 @@
       } catch (e) {
         console.warn('[inventory] save 실패:', e);
         if (window.showToast) window.showToast('저장 실패');
+      } finally {
+        _btn.disabled = false;
       }
     });
     if (existing) {
-      listEl.querySelector('#ifDelete').addEventListener('click', async () => {
-        { const _ok = window._confirm2 ? window._confirm2('이 소모품을 삭제할까요?') : confirm('이 소모품을 삭제할까요?'); if (!_ok) return; }
-        try {
-          await remove(existing.id);
-          if (window.hapticLight) window.hapticLight();
-          _rerender();
-        } catch (e) {
-          if (window.showToast) window.showToast('삭제 실패');
-        }
+      listEl.querySelector('#ifDelete').addEventListener('click', () => {
+        // [2026-06-10] _confirm2 가 deprecated 스텁(항상 false)이라 삭제 버튼이 무반응이던 버그 픽스 → _inlineConfirm
+        const _doDelete = async () => {
+          try {
+            await remove(existing.id);
+            if (window.hapticLight) window.hapticLight();
+            _rerender();
+          } catch (e) {
+            if (window.showToast) window.showToast('삭제 실패');
+          }
+        };
+        if (window._inlineConfirm) window._inlineConfirm('이 소모품을 삭제할까요?', _doDelete);
+        else if (confirm('이 소모품을 삭제할까요?')) _doDelete();
       });
     }
   }
