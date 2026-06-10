@@ -3292,7 +3292,9 @@
     try {
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       if (await _tryPhotoShortcut(question, photoUrls)) return;
-      if (photoUrls.length && !_isOcrPhotoIntent(question)) {
+      // [2026-06-11 #8] 사진+캡션 요청은 보정 제안으로 새면 안 됨 — BE 이미지+질문 경로(캡션 생성)로 직행
+      const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
+      if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
         _pushPhotoSuggestion(question, photoUrls);
         if (window.hapticLight) window.hapticLight();
         return;
@@ -4046,6 +4048,13 @@
       _loadServerHistory(true);
     });
   }
+
+  // [2026-06-11 #7] 외부 모듈(action-hub 고객 픽커 등)이 잇비에 텍스트를 보내는 공식 통로
+  window._assistantSendText = function (text) {
+    const input = document.getElementById('asstInput');
+    if (input) input.value = String(text || '');
+    _send();
+  };
 
   window.openAssistant = function () {
     _ensureSheet();

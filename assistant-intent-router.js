@@ -45,6 +45,26 @@
   // response 는 함수 가능 — 시간대별 분기 등.
 
   const RULES = [
+    // [2026-06-11 #3] 정책/지시 문장 — "김민지 없으면 새 고객 만들지 말고 먼저 물어봐" 같은
+    //   안전 지시를 통계/조회로 오분류하던 버그. 최우선 매칭으로 차단하고, 잇비 영구 메모(facts)에
+    //   저장해 이후 LLM 응답에도 반영되게 한다.
+    {
+      type: 'policy_instruction',
+      test: (q) => /(하지\s*마|하지마|말\s*고\b|만들지\s*말|말지\s*말|금지|임의로\s*(하지|처리)|먼저\s*(물어|확인)|꼭\s*(물어|확인))/.test(q)
+        && /(고객|예약|매출|저장|등록|삭제|취소|만들|추가|보내|발송|DM|메시지)/.test(q),
+      response: (q) => {
+        try {
+          if (window.authHeader && typeof apiFetch === 'function') {
+            apiFetch('/assistant/facts', {
+              method: 'POST',
+              headers: Object.assign({ 'Content-Type': 'application/json' }, window.authHeader()),
+              body: JSON.stringify({ text: String(q).slice(0, 500), kind: 'permanent' }),
+            }).catch(() => {});
+          }
+        } catch (_e) { void _e; }
+        return '네, 기억할게요 🧠 앞으로 그 지시대로 할게요 — 확실하지 않으면 임의로 진행하지 않고 먼저 확인할게요.\n(잇비 메모에 저장해뒀어요. 메뉴 ⋯ > 잇비 메모에서 언제든 수정 가능해요)';
+      },
+    },
     // 인사
     {
       type: 'greeting',
@@ -235,6 +255,8 @@
     // [2026-06-10 QA] 조언성 질문은 숫자 숏컷이 가로채면 안 됨 — "오늘 매출 조언해줘"가
     //   매출 숫자만 띄우고 끝나던 버그. 조언/분석 의도면 LLM 으로 보낸다.
     if (/조언|추천|어떻게|어떡|어떄|팁|전략|분석|아이디어|뭐부터|뭘 해야|개선/.test(q)) return null;
+    // [2026-06-11 #3] 정책/지시 문장도 async 숫자 룰이 가로채면 안 됨 (위 RULES 의 policy_instruction 이 처리)
+    if (/(하지\s*마|하지마|말\s*고\b|만들지\s*말|금지|먼저\s*(물어|확인)|꼭\s*(물어|확인))/.test(q)) return null;
     for (const rule of ASYNC_RULES) {
       try { if (rule.test(q)) return rule; }
       catch (_e) { void _e; }

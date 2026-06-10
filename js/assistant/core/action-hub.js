@@ -121,9 +121,20 @@
   function _confirmMsg(kind, p) {
     // 고객기록 저장은 고객 인지형 안내(자동 저장 X) — 실제 저장은 기존 pending/confirmSave 경로(사용자 "저장해줘").
     if (kind === 'save_photo_to_customer') {
-      return { message: p.customerName
-        ? ('이 사진을 ' + p.customerName + '님 기록에 저장할까요? "저장해줘"라고 말씀해 주세요. (자동 저장은 하지 않아요)')
-        : '고객을 먼저 선택해 주세요. 고객을 선택하면 이 보정본을 기록에 저장할 수 있어요.' };
+      if (p.customerName) {
+        return { message: '이 사진을 ' + p.customerName + '님 기록에 저장할까요? "저장해줘"라고 말씀해 주세요. (자동 저장은 하지 않아요)' };
+      }
+      // [2026-06-11 #7] dead-end 픽스 — 안내문만 띄우고 끝나던 것을 고객 픽커를 실제로 열어
+      //   선택 즉시 기존 "저장해줘" 확정 경로로 이어준다 (자동 저장 아님 — 확정 카드 경로 유지).
+      if (window.Customer && typeof window.Customer.pick === 'function') {
+        window.Customer.pick({}).then(function (picked) {
+          if (picked && picked.name && typeof window._assistantSendText === 'function') {
+            window._assistantSendText(picked.name + ' 고객기록에 저장해줘');
+          }
+        }).catch(function () { void 0; });
+        return { message: '어느 고객 기록에 저장할까요? 목록에서 골라주세요.' };
+      }
+      return { message: '고객을 먼저 선택해 주세요. 고객을 선택하면 이 보정본을 기록에 저장할 수 있어요.' };
     }
     return { message: CONFIRM_MSG[kind] || '확인 단계가 필요한 작업이에요. 확인 후 진행할 수 있어요.' };
   }
