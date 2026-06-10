@@ -42,7 +42,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 스튜디오</title>
 <script>
-window.__LATEST_BUILD__ = '20260610-v436-bp-event-spring';
+window.__LATEST_BUILD__ = '20260610-v443-itbi-safety-guards';
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -2241,7 +2241,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [v176 2026-05-18] 챗봇 자동 보정 헬퍼 (headless canvas) — assistant 가 결과 사진을 채팅 안에 표시 -->
 <script src="app-chat-auto-edit.js?v=20260518-v183" defer></script>
 <!-- [P0-1 2026-05-19 / P0-1.5 2026-05-20] FE intent pre-parser + SQL-first 매출/예약 응답 -->
-<script src="assistant-intent-router.js?v=20260602-v388-eg-polish" defer></script>
+<script src="assistant-intent-router.js?v=20260610-v443-itbi-safety-guards" defer></script>
 <!-- risk:integration — AI 잇비 kind core는 app-assistant.js 및 확장 모듈보다 먼저 로드 -->
 <script src="js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split" defer></script>
 <!-- risk:integration — AI 잇비 카드 표시는 app-assistant.js보다 먼저 로드 -->
@@ -2273,7 +2273,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- J-5 잇비 마케팅 초안 공통 정책 — 톤/금지어/안전라벨 (소비 모듈보다 먼저) -->
 <script src="js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy" defer></script>
 <!-- J-1 잇비 Action Hub — 결과→다음행동 버튼 공통층 (app-assistant.js 보다 먼저) -->
-<script src="js/assistant/core/action-hub.js?v=20260608-i2c-price-result-card" defer></script>
+<script src="js/assistant/core/action-hub.js?v=20260610-v443-itbi-safety-guards" defer></script>
 <!-- J-2 잇비 홍보용 사진 체인 — 보정→캡션→템플릿→버튼 (photo-flow·action-hub 보다 뒤, app-assistant 보다 먼저) -->
 <script src="js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish" defer></script>
 <!-- I3a 잇비 템플릿 자동 적용(후기 카드) — PhotoEditor/TemplatesV2/SourceImage 호출, app-assistant 보다 먼저 -->
@@ -2305,7 +2305,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus" defer></script>
 <script src="js/assistant/core/assistant-template-save.js?v=20260609-v425-itbi-template-meta-restore" defer></script>
 <script src="js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore" defer></script>
-<script src="app-assistant.js?v=20260610-batch3" defer></script>
+<script src="app-assistant.js?v=20260610-v443-itbi-safety-guards" defer></script>
 <!-- [2026-05-17 v166] AI 비서 마케팅·고객 케어 kind 8종 (CATEGORY 외부 등록) -->
 <script src="app-assistant-actions-marketing.js?v=20260521-v255-assistant-core" defer></script>
 <!-- [2026-05-18 v168] 사진 편집기 P1 + Brand Kit + Today Morning -->

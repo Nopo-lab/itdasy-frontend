@@ -3529,6 +3529,14 @@
       const P = window.ItdasyAssistantPriceList;
       if (!P || typeof P.parseRequest !== 'function') return false;
       const result = P.parseRequest(q);
+      // [B10] 가격표 의도는 있으나 가격을 못 찾음 → 거짓 성공 대신 정직 안내(LLM 폴백으로 새지 않게 가로챔).
+      if (result && result.priceMissing && !result.matched) {
+        _clearAssistantInput(input);
+        _history.push({ role: 'user', text: q });
+        _history.push({ role: 'assistant', text: '가격표로 만들 수 있는 시술명과 가격을 찾지 못했어요. 가격이 함께 보이는 이미지를 올려 주세요.' });
+        _renderHistory();
+        return true;
+      }
       if (!result || !result.matched || !result.rows || !result.rows.length) return false;
       const photos = _priceDraftPhotoUrls(photoUrls);
       _clearAssistantInput(input);
@@ -3871,10 +3879,31 @@
     _clearChatPending();
   }
 
+  // [B4] 캡션/카피 의도(캡션·해시태그·홍보글·예약 유도 문구)는 고객검색/문자초안/예약보다 우선 라우팅.
+  //   "예약 유도 문구"의 "유도"를 고객명으로 오인하거나 draft_message/create_booking 으로 새는 문제 차단.
+  //   단, 고객 문자/DM 초안은 제외("김민지 예약 확인 문자 써줘"는 기존 draft 경로 유지).
+  function _looksCaptionIntent(q) {
+    const t = String(q || '');
+    if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;   // 고객 메시지/초안은 캡션 아님
+    if (/(캡션|해시\s*태그|hashtag)/i.test(t)) return true;
+    if (/홍보\s*글/.test(t)) return true;
+    if (/(예약\s*)?유도\s*문구/.test(t)) return true;
+    if (/(인스타|insta|sns|피드|스토리)\s*(글|문구|카피)/i.test(t)) return true;
+    return false;
+  }
+
+  function _tryCaptionIntentShortcut(input, q) {
+    if (!_looksCaptionIntent(q)) return false;
+    if (typeof window.openInstantCaption !== 'function') return false;
+    _runSheetShortcut(input, () => window.openInstantCaption());
+    return true;
+  }
+
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
     if (await _tryPhotoFlowSaveConfirm(input, q)) return true;   // [T-104.5] 기존 confirm 다음 — photo-flow 저장 확인
+    if (_tryCaptionIntentShortcut(input, q)) return true;        // [B4] 캡션/카피 의도 — 예약/문자초안보다 우선
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)

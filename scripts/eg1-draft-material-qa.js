@@ -25,10 +25,11 @@ async function main() {
     if (typeof window.authHeader !== 'function') window.authHeader = function () { return {}; };
 
     // 고객 목록 스텁: 빈이력(382) + 기록보유(10) + 메모보유(20)
+    // [A4 갱신] 정확 이름(score 100)만 자동 확정되므로 순수 한글 이름 사용(honor 추출=정확 일치).
     const CUSTOMERS = [
-      { id: 382, name: 'QA빈손님', phone: '010-0000-0382' },
-      { id: 10, name: 'QA기록손님', phone: '010-0000-0010' },
-      { id: 20, name: 'QA메모손님', phone: '010-0000-0020', memo: '글리터 좋아하심' },
+      { id: 382, name: '유빈', phone: '010-0000-0382' },
+      { id: 10, name: '하준', phone: '010-0000-0010' },
+      { id: 20, name: '서아', phone: '010-0000-0020', memo: '글리터 좋아하심' },
     ];
     window.apiFetch = async function (path) {
       if (/\/customers/.test(path)) return { ok: true, json: async () => ({ items: CUSTOMERS }) };
@@ -42,17 +43,17 @@ async function main() {
 
     const r = {};
     // 1. 빈이력 고객 → 기록 부족 안내(message), 백엔드/발송 0
-    const empty = await I.tryDraftMessage('QA빈손님님 리터치 안내 문구 만들어줘', {});
+    const empty = await I.tryDraftMessage('유빈님 리터치 안내 문구 만들어줘', {});
     r.empty = {
       kind: empty && empty.kind,
       isGuide: !!(empty && empty.kind === 'message' && /기록이 부족|기록을 먼저|기록이나 사진을 먼저/.test(empty.text || '')),
       hasNoSendNote: !!(empty && /발송은 하지 않/.test(empty.text || '')),
     };
     // 2. 기록 있는 고객(사진/시술) → 기존 초안 경로(execute) 정상
-    const rich = await I.tryDraftMessage('QA기록손님님 리터치 안내 문구 만들어줘', {});
+    const rich = await I.tryDraftMessage('하준님 리터치 안내 문구 만들어줘', {});
     r.rich = { kind: rich && rich.kind, hasRecent: !!(rich && rich.hasRecent), hasAction: !!(rich && rich.action && rich.action.kind === 'draft_message') };
     // 3. 메모만 있는 고객 → 재료 있음으로 간주(execute)
-    const memo = await I.tryDraftMessage('QA메모손님님 리터치 안내 문구 만들어줘', {});
+    const memo = await I.tryDraftMessage('서아님 리터치 안내 문구 만들어줘', {});
     r.memo = { kind: memo && memo.kind, isExecute: !!(memo && memo.kind === 'execute') };
 
     r.safety = calls;   // 가드 단계에서 백엔드 draft_message 실행/발송 0

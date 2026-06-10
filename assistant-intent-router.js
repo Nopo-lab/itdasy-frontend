@@ -262,6 +262,7 @@
   // 이름 추출 노이즈 차단 — 날짜·시간·서비스명·일반 동사 제거
   const _NAME_STOP_WORDS = new Set([
     '예약', '취소', '삭제', '캔슬', '전부', '모두', '전체', '모조리',
+    '유도', '문구', '캡션', '홍보', '해시', '해시태그',   // [B4] 카피/캡션 단어를 고객명으로 오추출 방지
     '오늘', '내일', '모레', '어제', '이번', '다음', '저번', '지난',
     '주말', '평일', '월요', '화요', '수요', '목요', '금요', '토요', '일요',
     '리터치', '볼륨', '머리', '자연', '붙임', '옴브레', '커트', '염색',
@@ -347,6 +348,24 @@
     return 0;
   }
 
+  // [A4] 고객 확정 결정: 정확 일치(score 100·단독)만 자동 확정. 90/80/60 등 유사 매칭과
+  //   동명이인(100·복수)은 조용히 선택하지 않고 확인/후보 안내로 멈춘다.
+  //   scored: [{ c, score }] 내림차순 정렬 가정(비어있지 않음). 반환 { customer } | { askText }.
+  function _decideCustomer(scored) {
+    const top = scored[0].score;
+    const tied = scored.filter((x) => x.score === top);
+    if (top === 100 && tied.length === 1) return { customer: tied[0].c };
+    const fmt = (x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`;
+    if (top === 100) {  // 동명이인 — 전화번호로 구분 요청
+      return { askText: `🔍 같은 이름 ${tied.length}명 있어요. 전화번호나 정확한 이름으로 다시 알려주세요:\n${tied.slice(0, 5).map(fmt).join('\n')}` };
+    }
+    // top < 100 — 유사 후보뿐. 자동 확정 금지(다른 고객 오선택 방지).
+    if (scored.length === 1) {
+      return { askText: `🔍 정확히 일치하는 고객은 없어요. 비슷한 이름으로 ${scored[0].c.name} 고객님이 있는데, 맞으면 정확한 이름으로 다시 말씀해 주세요.` };
+    }
+    return { askText: `🔍 정확히 일치하는 고객이 없어요. 비슷한 이름 후보예요. 정확한 이름으로 다시 알려주세요:\n${scored.slice(0, 5).map(fmt).join('\n')}` };
+  }
+
   function _formatBookingShort(b) {
     try {
       const t = new Date(b.starts_at);
@@ -386,19 +405,10 @@
       return { matched: true, kind: 'message', text: `🔍 ${target.name}님 정보를 찾지 못했어요. 이름 다시 확인해 주세요.` };
     }
 
-    // 동점 후보 여러 명이면 선택 안내
-    const topScore = scored[0].score;
-    const tied = scored.filter((x) => x.score === topScore);
-    if (tied.length > 1 && topScore < 100) {
-      const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
-      return {
-        matched: true,
-        kind: 'message',
-        text: `🔍 비슷한 이름 ${tied.length}명 있어요. 정확한 이름·전화번호로 다시 알려주세요:\n${lines.join('\n')}`,
-      };
-    }
-
-    const customer = tied[0].c; // 최고 점수 1명
+    // [A4] 정확 일치(100·단독)만 자동 확정. 유사/동명이인은 조용히 선택 금지 → 확인·후보 안내로 멈춤.
+    const _picked = _decideCustomer(scored);
+    if (_picked.askText) return { matched: true, kind: 'message', text: _picked.askText };
+    const customer = _picked.customer; // 정확 일치 1명
 
     // 2) 미래 예약 조회
     const nowISO = new Date().toISOString();
@@ -558,16 +568,10 @@
         text: `🔍 ${target.name}님을 못 찾았어요. 이름을 다시 확인해 주시거나, 새 고객이면 고객 추가 후 예약해 주세요.` };
     }
 
-    const topScore = scored[0].score;
-    const tied = scored.filter((x) => x.score === topScore);
-    if (tied.length > 1) {
-      // 동명이인(정확히 같은 이름 포함) — 누구인지 확정 못 하므로 안내. 전화번호로 구분 요청.
-      const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
-      return { matched: true, kind: 'message',
-        text: `🔍 같은/비슷한 이름 ${tied.length}명 있어요. 전화번호나 정확한 이름으로 다시 알려주세요:\n${lines.join('\n')}` };
-    }
-
-    const customer = tied[0].c;
+    // [A4] 정확 일치(100·단독)만 자동 확정. 유사/동명이인은 조용히 선택 금지 → 확인·후보 안내로 멈춤.
+    const _picked = _decideCustomer(scored);
+    if (_picked.askText) return { matched: true, kind: 'message', text: _picked.askText };
+    const customer = _picked.customer;
     return _bookingForCustomer({ id: customer.id, name: customer.name }, text);
   }
 
@@ -726,7 +730,8 @@
   const _MSG_NOUN = /(문자|메시지|메세지|문구|안내문|안내|멘트|초안|dm|디엠)/i;
   const _MSG_VERB = /(써|써줘|작성|만들|짜|뽑|보내|발송|초안)/;
   const _MSG_STOPS = new Set(['문자', '메시지', '메세지', '문구', '안내문', '멘트', '초안', '안부', '리터치',
-    '재방문', '감사', '안내', '예약', '방문', '생일', '디엠', '손님', '고객', '님', '이', '그', '저', '한테', '에게']);
+    '재방문', '감사', '안내', '예약', '방문', '생일', '디엠', '손님', '고객', '님', '이', '그', '저', '한테', '에게',
+    '유도', '캡션', '홍보', '해시', '해시태그']);   // [B4] 카피/캡션 단어를 고객명으로 오추출 방지
 
   function _draftTone(t) {
     if (/리터치/.test(t)) return 'retouch_offer';
@@ -739,7 +744,7 @@
   }
 
   // 이름이 아닌 단어(의도 명사 + 동사) — 이름 추출 전에 제거. "만들어줘"/"재방문" 등 오인 방지.
-  const _MSG_NONAME = /(안부|리터치|재방문|방문\s*감사|감사|안내문|안내|예약|방문|생일|이탈|단골|문자|메시지|메세지|문구|멘트|초안|디엠|손님|고객|만들어\s*줘|만들어|만들|써\s*줘|써|작성해\s*줘|작성|짜\s*줘|짜|뽑아|뽑|보내\s*줘|보내|발송|해\s*줘|해주|보낼|줄)/g;
+  const _MSG_NONAME = /(유도|캡션|홍보|해시\s*태그|해시|안부|리터치|재방문|방문\s*감사|감사|안내문|안내|예약|방문|생일|이탈|단골|문자|메시지|메세지|문구|멘트|초안|디엠|손님|고객|만들어\s*줘|만들어|만들|써\s*줘|써|작성해\s*줘|작성|짜\s*줘|짜|뽑아|뽑|보내\s*줘|보내|발송|해\s*줘|해주|보낼|줄)/g;
 
   function _extractMsgTarget(t) {
     // "{이름}님" 접미가 가장 강한 신호.
@@ -839,13 +844,10 @@
       if (!scored.length) {
         return { kind: 'message', text: `🔍 ${name}님을 못 찾았어요. 이름을 확인해 주시거나 고객 상세를 먼저 열어주세요.` };
       }
-      const top = scored[0].score;
-      const tied = scored.filter((x) => x.score === top);
-      if (tied.length > 1) {
-        const lines = tied.slice(0, 5).map((x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`);
-        return { kind: 'message', text: `🔍 같은/비슷한 이름 ${tied.length}명 있어요. 전화번호로 구분해 주세요:\n${lines.join('\n')}` };
-      }
-      const rec = tied[0].c;
+      // [A4] 정확 일치(100·단독)만 자동 확정. 유사/동명이인은 조용히 선택 금지 → 확인·후보 안내로 멈춤.
+      const _picked = _decideCustomer(scored);
+      if (_picked.askText) return { kind: 'message', text: _picked.askText };
+      const rec = _picked.customer;
       customer = { id: rec.id, name: rec.name, hasMemo: !!(rec.memo || rec.notes || rec.note || rec.memo_md) };
     } else {
       const cur = ctx && ctx.currentCustomer;

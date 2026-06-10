@@ -331,8 +331,11 @@
     var rows = _normalizeRows(_parseServicePrices(cleaned));
     var priced = rows.filter(function (row) { return !!row.price; }).length;
     var industry = _inferIndustry(raw);
-    var matched = rows.length > 0 && (PRICE_INTENT.test(raw) || priced > 0 && (rows.length >= 2 || !!industry));
-    return { matched: matched, industry: industry, rows: rows, raw: raw };
+    // [B10] 가격(priced) 0건이면 가격표 성공 금지 — 시술명/문구만으론 초안 만들지 않음(거짓 성공 차단).
+    var matched = priced > 0 && (PRICE_INTENT.test(raw) || rows.length >= 2 || !!industry);
+    // 가격표 의도는 있으나 가격을 못 찾음 → 호출측이 '가격 없음' 안내(거짓 성공 대신).
+    var priceMissing = priced === 0 && (PRICE_INTENT.test(raw) || !!industry);
+    return { matched: matched, priceMissing: priceMissing, priced: priced, industry: industry, rows: rows, raw: raw };
   }
   function formatPriceListDraft(result) {
     var r = result || {};
