@@ -58,7 +58,6 @@
       reschedule_booking:    { icon: 'ic-refresh-cw',      label: '예약 변경', color: '#0288D1' },
       create_expense:        { icon: 'ic-credit-card',     label: '지출 기록', color: '#E07A5F' },
       upsert_inventory:      { icon: 'ic-package',         label: '재고 입고', color: '#2B8C7E' },
-      create_nps:            { icon: 'ic-star',            label: '후기', color: '#FFD700' },
       generate_bulk_message: { icon: 'ic-message-square',  label: '메시지', color: '#FF8A5C' },
       charge_membership:     { icon: 'ic-credit-card',     label: '회원권 충전', color: '#BC6675' },
       use_membership:        { icon: 'ic-credit-card',     label: '회원권 사용', color: '#BC6675' },
@@ -236,7 +235,6 @@
       create_revenue: 4,
       create_expense: 5,
       upsert_inventory: 6,
-      create_nps: 7,
       generate_bulk_message: 8,
     };
   }

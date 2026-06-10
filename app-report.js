@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────────────────────────
    월말 자동 리포트 (2026-04-21)
 
-   매출·고객·NPS·인기시술을 한 장으로 요약.
+   매출·고객·인기시술을 한 장으로 요약.
    월 선택 네비 + 공유(캡처) 버튼.
    ──────────────────────────────────────────────────────────── */
 (function () {
@@ -77,7 +77,7 @@
   function _renderBody(d) {
     const body = document.getElementById('reportBody');
     if (!body) return;
-    const r = d.revenue, c = d.customers, n = d.nps, b = d.bookings;
+    const r = d.revenue, c = d.customers, b = d.bookings;
     const empty = (r.total || 0) === 0 && (c.unique_visitors || 0) === 0;
     if (empty) {
       body.innerHTML = `
@@ -94,7 +94,6 @@
         ${_renderKPI('총 매출', _fmt(r.total), `${r.count}건 · 평균 ${_fmt(r.avg_ticket)}`, 'var(--brand),var(--brand-strong)')}
         ${_renderKPI('방문 고객', `${c.unique_visitors}명`, `신규 ${c.new_registered} · 재방문 ${c.repeat_count}`, '#4ECDC4,#44A08D')}
         ${_renderKPI('리피트율', `${c.repeat_ratio_pct}%`, '2회 이상 방문한 비율', '#FFB347,#FF8A5C')}
-        ${_renderKPI('후기 점수', n.score != null ? n.score : '—', n.total ? `${n.total}명 응답 · 평균 ${n.avg}` : '응답 없음', '#D58A95,#BC6675')}
       </div>
 
       <!-- 인기 시술 -->

@@ -105,7 +105,6 @@ module.exports = {
         'app-assistant.js',
         'app-ba-auto-trigger.js',
         'app-backup.js',
-        'app-booking-approval.js',
         'app-brand-kit.js',
         'app-calendar-view.js',
         'app-chat-auto-edit.js',

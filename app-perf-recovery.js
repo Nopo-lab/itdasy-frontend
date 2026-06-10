@@ -89,7 +89,6 @@
     revenue:   { url: '/revenue?period=today', key: 'pv_cache::revenue::today' },
     inventory: { url: '/inventory',            key: 'pv_cache::inventory' },
     service:   { url: '/services',             key: 'pv_cache::service' },
-    nps:       { url: '/nps',                  key: 'pv_cache::nps' },
   };
   function _bookingRange() {
     const now = Date.now();

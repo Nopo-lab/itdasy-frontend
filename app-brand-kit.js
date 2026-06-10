@@ -179,11 +179,6 @@
       '    <label class="bk-label" for="bk-booking-phrase">예약 안내 문구</label>',
       '    <input class="bk-input" id="bk-booking-phrase" type="text" maxlength="100" placeholder="예) 예약 문의는 프로필 링크로 편하게 주세요" />',
       '  </div>',
-      '  <div class="bk-field">',
-      '    <label class="bk-label">브랜드 템플릿</label>',
-      '    <button type="button" class="bk-btn bk-btn-secondary" data-action="open-templates" style="width:100%;">저장된 템플릿 열기 (<span data-role="templates-count">0</span>)</button>',
-      '    <p class="bk-hint">사진 편집기에서 만든 텍스트·워터마크·색상 조합을 저장하고 1-탭으로 다시 적용해요.</p>',
-      '  </div>',
       '  <div class="bk-footer">',
       '    <button type="button" class="bk-btn bk-btn-secondary" data-action="close">취소</button>',
       '    <button type="button" class="bk-btn bk-btn-primary" data-action="save">저장</button>',
@@ -191,16 +186,6 @@
       '</div>',
     ].join('');
     return wrap;
-  }
-
-  function _countTemplates() {
-    try {
-      if (window.BrandTemplates && typeof window.BrandTemplates.list === 'function') {
-        return window.BrandTemplates.list().length;
-      }
-      var kit = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      return Array.isArray(kit.templates) ? kit.templates.length : 0;
-    } catch (_e) { return 0; }
   }
 
   function _bind(modal, state) {
@@ -242,26 +227,12 @@
       if (_hex(v)) els.color.value = v; else els.hex.value = els.color.value;
     });
 
-    // 템플릿 개수 채우기
-    try {
-      var countEl = modal.querySelector('[data-role="templates-count"]');
-      if (countEl) countEl.textContent = String(_countTemplates());
-    } catch (_e3) { void _e3; }
-
     modal.addEventListener('click', function (e) {
       if (e.target === modal) { close(); return; }
       var act = e.target.closest('[data-action]');
       if (!act) return;
       var a = act.getAttribute('data-action');
       if (a === 'close') return close();
-      if (a === 'open-templates') {
-        if (window.BrandTemplates && typeof window.BrandTemplates.openPicker === 'function') {
-          window.BrandTemplates.openPicker();
-        } else if (typeof window.showToast === 'function') {
-          window.showToast('브랜드 템플릿 모듈을 불러오는 중이에요');
-        }
-        return;
-      }
       if (a === 'save') {
         var hex = els.hex.value.trim();
         if (!_hex(hex)) hex = els.color.value;

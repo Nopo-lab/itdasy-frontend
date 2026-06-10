@@ -61,7 +61,7 @@
       if (window.showToast) window.showToast(r.message || '되돌렸어요');
       // 모든 데이터 캐시 무효화 (어떤 종류였는지 모르니 전부)
       try {
-        ['customer','booking','revenue','inventory','nps','service'].forEach(k => sessionStorage.removeItem('pv_cache::' + k));
+        ['customer','booking','revenue','inventory','service'].forEach(k => sessionStorage.removeItem('pv_cache::' + k));
         window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'undo' } }));
       } catch (_e) { void _e; }
     } catch (e) {
@@ -79,7 +79,7 @@
       const r = await _fetch('POST', `/assistant/undo/chain/${chainId}`);
       if (window.showToast) window.showToast(r.message || '되돌렸어요');
       try {
-        ['customer','booking','revenue','inventory','nps','service'].forEach(k => sessionStorage.removeItem('pv_cache::' + k));
+        ['customer','booking','revenue','inventory','service'].forEach(k => sessionStorage.removeItem('pv_cache::' + k));
         window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'undo' } }));
       } catch (_e) { void _e; }
     } catch (e) {
@@ -244,7 +244,7 @@
           });
         }
         try {
-          ['customer','booking','revenue','inventory','nps','service'].forEach(k => sessionStorage.removeItem('pv_cache::' + k));
+          ['customer','booking','revenue','inventory','service'].forEach(k => sessionStorage.removeItem('pv_cache::' + k));
           window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'chain', chain_id: r.chain_id } }));
         } catch (_e) { void _e; }
       } else {

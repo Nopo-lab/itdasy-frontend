@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260610-v443-itbi-safety-guards';
+const CACHE_VERSION = '20260611-v444-remove-naver-nps-brand-approval';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -22,7 +22,6 @@ const _API_GET_FALLBACK_PATHS = [
   '/services',
   // [P2] 대시보드 추가 fetch 도 오프라인 폴백 가능하게
   '/retention/at-risk',
-  '/naver-reviews/summary',
   '/notifications/pending',
 ];
 function _isCacheableApiGet(req, url) {
@@ -179,7 +178,7 @@ self.addEventListener('activate', event => {
 // ── 보조: API 등 동적 요청 분류 ──
 function _isDynamicApi(url) {
   // 같은 origin 의 API 또는 절대 URL 의 백엔드 — 둘 다 SW 미개입(브라우저 기본 fetch)
-  return /\/(api|auth|data-export|caption|persona|instagram|nps|booking|customer|inventory|revenue|admin|upload|image|iap)\//i.test(url.pathname);
+  return /\/(api|auth|data-export|caption|persona|instagram|booking|customer|inventory|revenue|admin|upload|image|iap)\//i.test(url.pathname);
 }
 
 // ── fetch: 정적 파일은 cache-first + 백그라운드 revalidate, API 는 SW 미개입 ──

@@ -71,9 +71,6 @@
     bell: () => {
       if (typeof window.openNotifications === 'function') window.openNotifications();
     },
-    openBookingApproval: () => {
-      if (typeof window.openBookingApproval === 'function') window.openBookingApproval();
-    },
     openDMConfirmQueue: () => {
       if (typeof window.openDMConfirmQueue === 'function') return window.openDMConfirmQueue();
       if (typeof window.openDMQueue === 'function') return window.openDMQueue();

@@ -299,15 +299,12 @@
     } catch (_e) { return ''; }
   }
 
-  function alertItems(brief, dmQueueCount, onlinePendingCount) {
+  function alertItems(brief, dmQueueCount) {
     const items = [];
-    const depositPending = (brief && brief.pending_booking_count) || 0;
     // [F1] 홈 "답장 N건 써뒀어요" 항목 — 실시간 DM 카드와 중복 → 제거
     const overdue = overdueAlertContext(brief);
     if (overdue) items.push({ tone: 'pink', title: '미완료 예약 찾았어요', desc: overdue.desc, count: overdue.count, act: 'completePending' });
     setOverdueCache(brief, Boolean(overdue));
-    if (depositPending > 0) items.push({ tone: 'amber', title: '결제 미확인 예약', desc: '입금 확인하면 캘린더에 등록돼요', count: depositPending, act: 'openBookingApproval' });
-    if (onlinePendingCount > 0 && onlinePendingCount !== depositPending) items.push({ tone: 'cyan', title: '새 예약 신청 들어왔어요', desc: '손님이 사장님 승인을 기다리고 있어요', count: onlinePendingCount, act: 'openBookingApproval' });
     return items;
   }
 
@@ -319,8 +316,8 @@
     } catch (_e) { /* ignore */ }
   }
 
-  function renderAlerts(brief, dmQueueCount, onlinePendingCount) {
-    const items = alertItems(brief, dmQueueCount, onlinePendingCount);
+  function renderAlerts(brief, dmQueueCount) {
+    const items = alertItems(brief, dmQueueCount);
     if (!items.length) return '';
     const total = items.reduce((s, it) => s + it.count, 0);
     return `<div class="hv5-card">
@@ -480,11 +477,11 @@
     </section>`;
   }
 
-  function compose(brief, dmQueueCount, onlinePendingCount) {
+  function compose(brief, dmQueueCount) {
     ensureStyles();
     const cards = buildCarouselCards(brief);
     const bookingHtml = renderBooking(brief);
-    const alertsHtml = renderAlerts(brief, dmQueueCount || 0, onlinePendingCount || 0);
+    const alertsHtml = renderAlerts(brief, dmQueueCount || 0);
     // [2026-06-08 F4] 홈 순서: 오늘의 예약 → 고객 메시지 → AI 잇비(챗봇) → AI 잇비 실시간 분석
     return [
       renderHeader(brief),

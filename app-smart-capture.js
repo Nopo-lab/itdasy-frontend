@@ -210,7 +210,7 @@
         if (!cm.ok) throw new Error(cd.detail || ('HTTP ' + cm.status));
         if (window.showToast) window.showToast(`${cd.imported}건 등록 (실패 ${cd.failed}건)`);
         try {
-          ['pv_cache::customer','pv_cache::booking','pv_cache::revenue','pv_cache::nps'].forEach(k => sessionStorage.removeItem(k));
+          ['pv_cache::customer','pv_cache::booking','pv_cache::revenue'].forEach(k => sessionStorage.removeItem(k));
           window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'kakao_import' } }));
         } catch (_e) { void _e; }
         close();

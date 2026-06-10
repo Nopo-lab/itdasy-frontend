@@ -901,7 +901,6 @@
       create_booking:  { icon: 'ic-calendar',       label: '예약 추가',       color: C },
       create_revenue:  { icon: 'ic-wallet',         label: '매출 기록',       color: C },
       create_customer: { icon: 'ic-user',           label: '고객 등록',       color: C },
-      create_nps:      { icon: 'ic-star',           label: '후기 기록',       color: C },
       update_booking:  { icon: 'ic-edit-3',         label: '예약 수정',       color: C },
       cancel_booking:  { icon: 'ic-trash-2',        label: '예약 취소',       color: C },
       reschedule_booking: { icon: 'ic-refresh-cw',  label: '예약 시간 변경',  color: C },

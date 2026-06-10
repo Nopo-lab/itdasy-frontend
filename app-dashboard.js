@@ -270,22 +270,16 @@
   }
 
   // ── 데이터 & 인사이트 리스트 ─────────────────────────────
-  function _insightItems(naverData) {
-    const naverPending = naverData && naverData.pending_reply > 0 ? naverData.pending_reply : null;
-    const naverBadge = naverPending ? `<span class="db-badge db-badge--warn">답변 ${naverPending}</span>` : '';
-    const naverSub = naverData && naverData.avg_score
-      ? `신규 ${naverData.new_count || 0}건 · 평균 ${naverData.avg_score}점`
-      : '네이버 리뷰 관리';
+  function _insightItems() {
     // [2026-05-16] '영상 리포트' (실제는 영상 합성 도구) 제거 — 사용자 요청
     return [
-      { ic: IC.star,     pink: true,  boxColor: 'amber',  label: '네이버 리뷰',   sub: naverSub,                          badge: naverBadge,                              fn: 'openNaverReviews' },
       { ic: IC.upload,   pink: false, boxColor: 'teal',   label: '데이터 불러오기', sub: '엑셀/CSV · 전자영수증 연동',    badge: '',                                     fn: 'openImport' },
       { ic: IC.sparkles, pink: true,  boxColor: 'pink',   label: 'AI 인사이트',   sub: '"이번주 집중할 3가지" 자동 추천', badge: '<span class="db-badge">NEW</span>',    fn: 'openInsights' },
     ];
   }
 
-  function _dataInsightsList(naverData) {
-    const items = _insightItems(naverData);
+  function _dataInsightsList() {
+    const items = _insightItems();
     return `
       <div class="db-menu">
         ${items.map(it => `
@@ -433,7 +427,6 @@
     // (캐시 _cache 자체에 들어있으면 = sessionStorage 도 있음 → _cachedGet 즉시 반환)
     const period = _getPeriod();
     const prevPath = _prevPeriodPath(period);
-    const naverPath = null;
 
     // [P1-2A] stale-while-revalidate — stale 캐시 즉시 렌더 → 백그라운드 fresh fetch → 다시 렌더
     const allPaths = [
@@ -445,12 +438,11 @@
       '/bookings',
       '/retention/at-risk',
       '/inventory',
-      naverPath,
       '/today/brief?period=' + period,
     ];
 
     function _renderFromData(data) {
-      const [monthRev, prevRev, todayRev, periodRev, custList, bookList, ret, _inventory, naverData, briefData] = data;
+      const [monthRev, prevRev, todayRev, periodRev, custList, bookList, ret, _inventory, briefData] = data;
       const stats = _aggregateStats(
         (monthRev || {}).items || [],
         (todayRev || {}).items || [],
@@ -465,7 +457,7 @@
         </div>
         ${_heroSection(stats, prevAmount, ret, custList || { total: 0, items: [] }, briefData, period)}
         <div class="db-sec"><h2>데이터 &amp; 인사이트</h2></div>
-        ${_dataInsightsList(naverData)}
+        ${_dataInsightsList()}
       `;
       _bindEvents();
     }
@@ -483,8 +475,7 @@
         staleData[5] || { items: [] },        // bookList
         staleData[6],                          // ret
         staleData[7],                          // inventory
-        staleData[8],                          // naverData
-        staleData[9],                          // briefData
+        staleData[8],                          // briefData
       ]);
     } else {
       _renderLoading();
@@ -500,7 +491,7 @@
         _cachedGet('/revenue?period=' + period).catch(() => ({ items: [] })),
         _cachedGet('/customers').catch(() => ({ total: 0, items: [] })),
       ]);
-      const fresh = [monthRev, prevRev, todayRev, periodRev, customers, { items: [] }, null, null, null, null];
+      const fresh = [monthRev, prevRev, todayRev, periodRev, customers, { items: [] }, null, null, null];
       _renderFromData(fresh);
 
       // 비핵심 데이터 백그라운드 로드 (UI 먼저 그린 후)
@@ -508,14 +499,12 @@
         _cachedGet('/bookings').catch(() => ({ items: [] })),
         _cachedGet('/retention/at-risk').catch(() => null),
         _cachedGet('/inventory').catch(() => null),
-        naverPath ? _cachedGet(naverPath).catch(() => null) : Promise.resolve(null),
         _cachedGet('/today/brief?period=' + period).catch(() => null),
-      ]).then(([bookings, atRisk, inventory, naver, brief]) => {
+      ]).then(([bookings, atRisk, inventory, brief]) => {
         fresh[5] = bookings;
         fresh[6] = atRisk;
         fresh[7] = inventory;
-        fresh[8] = naver;
-        fresh[9] = brief;
+        fresh[8] = brief;
         // 비핵심 데이터 도착 후 해당 위젯만 재렌더
         try { _renderBookingWidget && _renderBookingWidget(bookings); } catch(e){ console.warn('[dashboard] 예약 위젯 갱신 실패:', e); }
         try { _renderRetentionWidget && _renderRetentionWidget(atRisk); } catch(e){ console.warn('[dashboard] 위험 고객 위젯 갱신 실패:', e); }

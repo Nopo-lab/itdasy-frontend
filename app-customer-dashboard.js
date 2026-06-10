@@ -2,7 +2,7 @@
    고객 통합 대시보드 (Phase 4+ · 2026-04-20)
 
    GET /customers/{id}/dashboard 에서
-     customer / segment / stats / retention / recent_revenues / recent_bookings / recent_nps
+     customer / segment / stats / retention / recent_revenues / recent_bookings
    받아 하나의 예쁜 대시보드로 렌더.
 
    openCustomerDashboard(id) 로 진입 — 기존 app-customer.js 의 행 클릭이 이걸 호출.
@@ -488,7 +488,7 @@
   };
 
   // Wave D3 (2026-04-24) — 챗봇·외부 데이터 변경 감지 → 고객 상세 대시보드 재로드
-  // customer_id 지정 없어도 전체 영향 가능 (매출/예약/NPS 는 고객 dashboard 의 stats 에 영향)
+  // customer_id 지정 없어도 전체 영향 가능 (매출/예약 은 고객 dashboard 의 stats 에 영향)
   if (typeof window !== 'undefined' && !window._customerDashboardDataListenerInit) {
     window._customerDashboardDataListenerInit = true;
     window.addEventListener('itdasy:data-changed', async (e) => {
@@ -496,7 +496,7 @@
       const k = (e && e.detail && e.detail.kind) || '';
       if (!k) return;
       const affects = ['update_customer', 'create_revenue', 'update_revenue', 'create_booking',
-                       'update_booking', 'delete_booking', 'cancel_booking', 'reschedule_booking', 'create_nps'];
+                       'update_booking', 'delete_booking', 'cancel_booking', 'reschedule_booking'];
       if (!affects.includes(k)) return;
       const sheet = document.getElementById('customerDashSheet');
       if (!sheet || sheet.style.display === 'none') return;

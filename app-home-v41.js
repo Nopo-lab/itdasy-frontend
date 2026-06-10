@@ -57,17 +57,6 @@
     try { return await window.loadSlotsFromDB(); }
     catch (_e) { return []; }
   }
-  async function _fetchPendingCount() {
-    const headers = _authHeaders();
-    if (!window.API || !headers) return 0;
-    try {
-      const res = await apiFetch('/public/book/admin/pending', { headers });
-      if (!res.ok) return 0;
-      const data = await res.json();
-      return Array.isArray(data.items) ? data.items.length : 0;
-    } catch (_e) { return 0; }
-  }
-
   // DM 자동응답 승인 대기 큐 — 사장 확인 필요한 답장 N건
   async function _fetchDMQueueCount() {
     const headers = _authHeaders();
@@ -295,8 +284,8 @@
   let _lastContainerId = null;
   let _inFlight = false;
 
-  function _hydrateHome(container, brief, dmQueueCount, onlinePendingCount) {
-    container.innerHTML = window.HomeV41Render.compose(brief, dmQueueCount, onlinePendingCount);
+  function _hydrateHome(container, brief, dmQueueCount) {
+    container.innerHTML = window.HomeV41Render.compose(brief, dmQueueCount);
     _setupCarousel(container);
     _bindEvents(container, brief);
     window.HomeV41Render.syncAvatar(container);
@@ -326,7 +315,7 @@
     const swr = _readSWR();
     if (swr && swr.d) {
       try {
-        _hydrateHome(container, swr.d, swr.d._dmQueueCount || 0, swr.d._onlinePendingCount || 0);
+        _hydrateHome(container, swr.d, swr.d._dmQueueCount || 0);
         _watchHeaderAvatar();
         if (swr.fresh) return;
       } catch (_e) { /* fall through */ }
@@ -335,10 +324,9 @@
     if (_inFlight) return;
     _inFlight = true;
     try {
-      const [brief, slots, onlinePendingCount, dmQueueCount] = await Promise.all([
+      const [brief, slots, dmQueueCount] = await Promise.all([
         _fetchBrief().catch(() => null),
         _fetchSlots().catch(() => []),
-        _fetchPendingCount().catch(() => 0),
         _fetchDMQueueCount().catch(() => 0),
       ]);
       const merged = brief || (swr && swr.d) || {};
@@ -348,9 +336,8 @@
         return;
       }
       merged._dmQueueCount = dmQueueCount;
-      merged._onlinePendingCount = onlinePendingCount;
       try { _writeSWR(merged); } catch (_e) { void _e; }
-      _hydrateHome(container, merged, dmQueueCount, onlinePendingCount);
+      _hydrateHome(container, merged, dmQueueCount);
       requestAnimationFrame(() => { window.scrollTo(0, 0); });
     } finally {
       _inFlight = false;

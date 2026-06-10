@@ -122,10 +122,6 @@
   function _openByKind(n) {
     const kind = n.kind || '';
     try {
-      // [2026-05-07] 온라인/DM 예약 입금 대기 → 승인·거절 시트
-      if (kind === 'public_booking_pending') {
-        if (window.openBookingApproval) { window.openBookingApproval(); return true; }
-      }
       if (['dm_pending_confirm', 'dm_customer_register', 'dm_action_pending', 'dm_risk_alert'].includes(kind)) {
         if (window.openDMConfirmQueue) { window.openDMConfirmQueue(); return true; }
       }
@@ -430,61 +426,6 @@
     if (moreBtn) moreBtn.addEventListener('click', () => window.openNotifications && window.openNotifications());
   }
 
-  // [2026-05-07] 온라인 예약 입금 대기 — 홈 인라인 카드 (즉시 승인/거절 진입)
-  function _renderPendingBookingCard() {
-    const anchor = document.getElementById('home-today-brief')
-      || document.getElementById('homePostConnect')
-      || document.querySelector('main') || document.body;
-    if (!anchor) return;
-    let host = document.getElementById('itdPendingBookingHost');
-    if (!host) {
-      host = document.createElement('div');
-      host.id = 'itdPendingBookingHost';
-      host.style.cssText = 'margin:0 0 12px 0;';
-      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
-      else anchor.appendChild(host);
-    }
-    const dismissed = _getDismissed();
-    // [2026-06-07] 홈 상단 인라인 카드 노출 중단 — 알림은 종(🔔) 목록에서만. 홈 상단 안 밀리게.
-    const pending = [];
-    // [2026-06-07] 비었을 때 display:none — 빈 호스트 margin 으로 홈 상단 공백 생기던 문제.
-    if (!pending.length) { host.innerHTML = ''; host.style.display = 'none'; return; }
-    const a = pending[0];
-    const total = pending.length;
-    host.style.display = '';
-    host.innerHTML = `
-      <div role="status" style="background:linear-gradient(135deg,#FFFBEB 0%,#FEF3C7 100%);border:1px solid #FDE68A;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
-        <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#F59E0B;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">🆕</div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;font-weight:700;color:#B45309;letter-spacing:0.2px;margin-bottom:2px;">예약 승인 대기 ${total > 1 ? `(${total}건)` : ''}</div>
-            <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
-            <div style="font-size:12px;color:#525c70;margin-top:4px;line-height:1.5;">${_esc(a.body || '')}</div>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
-              <button data-pb-open style="background:#F59E0B;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">승인·거절 열기</button>
-              <button data-pb-dismiss="${a.id}" style="background:none;border:none;color:#92400E;font-size:11px;cursor:pointer;">나중에</button>
-              <span style="margin-left:auto;font-size:11px;color:#92400E80;">${_esc(_relativeTime(a.scheduled_at))}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-    host.querySelector('[data-pb-open]')?.addEventListener('click', async () => {
-      if (window.openBookingApproval) window.openBookingApproval();
-      for (const n of pending) {
-        try { await _markRead(n.id); } catch (_) { /* ignore */ }
-      }
-      _items = _items.filter(n => !pending.some(x => x.id === n.id));
-      _updateBadge();
-      _renderPendingBookingCard();
-    });
-    host.querySelector('[data-pb-dismiss]')?.addEventListener('click', (e) => {
-      const id = parseInt(e.currentTarget.dataset.pbDismiss, 10);
-      _addDismissed(id);
-      _renderPendingBookingCard();
-    });
-  }
-
   // [2026-05-28] 메인홈 잇비 카드/오늘 예약과 중복되거나 불필요한 알림은 알림함에서 제외.
   // 추후 백엔드 /notifications/pending 자체에서 제외하는 게 정석.
   const EXCLUDED_KINDS = [
@@ -508,7 +449,6 @@
       _renderAnnouncementCard();
       _renderMembershipAlertCard();
       _renderDMConfirmQueueCard();
-      _renderPendingBookingCard();
     }
   }
 
