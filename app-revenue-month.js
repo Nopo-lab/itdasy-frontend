@@ -274,7 +274,7 @@
 
       .rvm5-gb{display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;margin-bottom:12px;background:#F7EFF0}
       .rvm5-gb .t{font-size:12px;font-weight:600;color:#BC6675;flex:1;letter-spacing:-0.2px}
-      .rvm5-gb .btn{padding:5px 12px;border-radius:999px;font-size:10px;font-weight:600;border:1px solid #E5E8EB;background:#fff;color:#BC6675;cursor:pointer}
+      .rvm5-gb .btn{padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid #E5E8EB;background:#fff;color:#BC6675;cursor:pointer}
       .rvm5-gb .btn:hover{background:#F7F8FA}
 
       .rvm5-sl{font-size:13px;font-weight:700;color:#191F28;margin:0 0 12px;letter-spacing:-0.2px}
@@ -332,7 +332,7 @@
       .rvm5-md .a{font-size:12px;font-weight:600;width:78px;text-align:right;letter-spacing:-0.3px;flex-shrink:0}
       .rvm5-md .a.over{color:#0F6E56}
       .rvm5-md .a.under{color:#4E5968}
-      .rvm5-md .c{font-size:10px;color:#6B7684;width:24px;text-align:right;flex-shrink:0}
+      .rvm5-md .c{font-size:11px;color:#6B7684;width:24px;text-align:right;flex-shrink:0}
 
       .rvm5-mli{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #F7F8FA;cursor:pointer}
       .rvm5-mli:last-child{border:none}
@@ -394,7 +394,7 @@
       .rvm-mdot.man{background:#8B95A1}
       .rvm-minf{flex:1;min-width:0}
       .rvm-mln{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .rvm-mlsub{font-size:10px;color:#8B95A1;margin-top:2px}
+      .rvm-mlsub{font-size:11px;color:#8B95A1;margin-top:2px}
       .rvm-mlamt{font-size:14px;font-weight:600;flex-shrink:0;letter-spacing:-0.3px}
     `;
     document.head.appendChild(s);

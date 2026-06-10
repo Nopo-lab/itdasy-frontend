@@ -64,7 +64,7 @@
 }
 #customerSheet .c-name-txt { min-width:5em;display:inline-block; }
 #customerSheet .c-badge {
-  font-size:10px;padding:2px 7px;border-radius:8px;font-weight:600;
+  font-size:11px;padding:2px 7px;border-radius:8px;font-weight:600;
 }
 #customerSheet .c-badge.b1 { background:var(--surface-2,#F7F8FA);color:#999; }
 #customerSheet .c-badge.b2 { background:#EEFBF3;color:#16B55E; }

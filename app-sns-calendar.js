@@ -232,7 +232,7 @@
             <div style="background:rgba(213,138,149,0.04);border:1px solid rgba(213,138,149,0.12);border-radius:14px;padding:14px;margin-bottom:10px;">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                 <span style="font-size:12px;font-weight:700;color:var(--accent);">${p.time || '시간 미정'}</span>
-                <span style="font-size:10px;padding:3px 8px;border-radius:8px;background:${p.status==='published'?'#4ade80':p.status==='scheduled'?'#fbbf24':'#e5e7eb'};font-weight:600;">${p.status==='published'?'발행됨':p.status==='scheduled'?'예약':'초안'}</span>
+                <span style="font-size:11px;padding:3px 8px;border-radius:8px;background:${p.status==='published'?'#4ade80':p.status==='scheduled'?'#fbbf24':'#e5e7eb'};font-weight:600;">${p.status==='published'?'발행됨':p.status==='scheduled'?'예약':'초안'}</span>
               </div>
               <div style="font-size:13px;line-height:1.5;color:var(--text);">${_esc((p.caption||'내용 없음').slice(0,100))}</div>
               <div style="display:flex;gap:8px;margin-top:10px;">

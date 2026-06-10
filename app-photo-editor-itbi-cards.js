@@ -79,7 +79,7 @@
     if (!Array.isArray(cards) || !cards.length) return '';
     var items = cards.map(function (c) {
       var badge = c.badge
-        ? '<span style="font-size:10px;color:#8B5CF6;background:#F3EEFF;border-radius:8px;padding:1px 6px;margin-left:6px;">' + _esc(c.badge) + '</span>'
+        ? '<span style="font-size:11px;color:#8B5CF6;background:#F3EEFF;border-radius:8px;padding:1px 6px;margin-left:6px;">' + _esc(c.badge) + '</span>'
         : '';
       return '' +
         '<div style="display:flex;gap:10px;align-items:center;padding:8px;border:0.5px solid #E5E8EB;border-radius:14px;background:#fff;">' +

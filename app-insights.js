@@ -90,7 +90,7 @@
             <div style="display:flex;align-items:center;gap:6px;">
               <strong style="font-size:13px;">${_esc(c.name)}</strong>
               ${c.phone ? `<span style="font-size:11px;color:#888;">${_esc(c.phone)}</span>` : ''}
-              <span style="margin-left:auto;font-size:10px;padding:1px 6px;border-radius:3px;font-weight:700;background:${c.status === 'lost' ? 'rgba(220,53,69,0.15)' : 'rgba(255,193,7,0.2)'};color:${c.status === 'lost' ? 'var(--danger)' : '#f57c00'};">
+              <span style="margin-left:auto;font-size:11px;padding:1px 6px;border-radius:3px;font-weight:700;background:${c.status === 'lost' ? 'rgba(220,53,69,0.15)' : 'rgba(255,193,7,0.2)'};color:${c.status === 'lost' ? 'var(--danger)' : '#f57c00'};">
                 ${c.status === 'lost' ? '이탈' : '임박'}
               </span>
             </div>
@@ -178,14 +178,14 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="font-size:18px;">📈</span>
           <strong style="font-size:14px;">이번 주 매출 예상</strong>
-          <span style="margin-left:auto;font-size:10px;font-weight:700;color:${confColor};background:${confColor}20;padding:2px 7px;border-radius:99px;">신뢰도 ${confLabel}</span>
+          <span style="margin-left:auto;font-size:11px;font-weight:700;color:${confColor};background:${confColor}20;padding:2px 7px;border-radius:99px;">신뢰도 ${confLabel}</span>
         </div>
         <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
           <strong style="font-size:26px;color:var(--accent,var(--brand));font-variant-numeric:tabular-nums;">${formatMoney(data.predicted_week)}</strong>
           <span style="font-size:13px;color:${deltaColor};font-weight:700;">${arrow} ${up ? '+' : ''}${data.delta_pct}%</span>
         </div>
         <div style="margin-bottom:8px;">${_sparklineSVG(data.history || [], data.predicted_week)}</div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-subtle);margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-subtle);margin-bottom:8px;">
           <span>8주 전</span>
           <span>이번 주 누적 ${formatMoney(data.current_week)}</span>
           <span style="color:var(--brand);font-weight:700;">예측</span>

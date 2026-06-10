@@ -155,7 +155,7 @@
   min-width: 0;
 }
 .cv-mini-card {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text);
   padding: 1px 3px 1px 7px;
@@ -375,7 +375,7 @@
 }
 .cv-tt-hr {
   height: 60px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: #999;
   padding: 4px 6px 0 0;
@@ -460,7 +460,7 @@
   text-overflow: ellipsis;
 }
 .cv-tt-block .cv-tt-svc {
-  font-size: 10px;
+  font-size: 11px;
   color: #666;
   line-height: 1.2;
   white-space: nowrap;
@@ -477,7 +477,7 @@
   position: absolute;
   right: 5px;
   bottom: 3px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   color: #B8385A;
   letter-spacing: -0.3px;
@@ -527,7 +527,7 @@
 .cv-tt-day-hdr .cv-tt-dow {
   font-weight: 600;
   color: #777;
-  font-size: 10px;
+  font-size: 11px;
 }
 .cv-tt-day-hdr .cv-tt-dnum {
   font-weight: 700;

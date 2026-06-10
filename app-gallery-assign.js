@@ -67,11 +67,11 @@ function _renderAssignPopup() {
   const slotsHtml = _slots.map(slot => {
     const photos = (slot.photos || []).filter(p => !p.hidden);
     const photosPreview = photos.length > 0
-      ? photos.slice(0, 4).map(p => `<img src="${_assignEsc(p.editedDataUrl || p.dataUrl)}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0;">`).join('') + (photos.length > 4 ? `<div style="width:32px;height:32px;border-radius:6px;background:rgba(0,0,0,0.5);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+${photos.length-4}</div>` : '')
+      ? photos.slice(0, 4).map(p => `<img src="${_assignEsc(p.editedDataUrl || p.dataUrl)}" style="width:32px;height:32px;object-fit:cover;border-radius:6px;flex-shrink:0;">`).join('') + (photos.length > 4 ? `<div style="width:32px;height:32px;border-radius:6px;background:rgba(0,0,0,0.5);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">+${photos.length-4}</div>` : '')
       : '<div style="font-size:11px;color:var(--text3);">비어있음</div>';
 
     return `<div data-slot-drop="${_assignEsc(slot.id)}" ${_selectedIds.size > 0 ? `data-assign-slot="${_assignEsc(slot.id)}"` : ''} style="flex-shrink:0;width:140px;background:#fff;border:2px solid ${_selectedIds.size > 0 ? 'var(--accent)' : 'var(--border)'};border-radius:14px;padding:10px;position:relative;${_selectedIds.size > 0 ? 'cursor:pointer;' : ''}">
-      <button data-delete-slot="${_assignEsc(slot.id)}" style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.08);border:none;color:var(--text-subtle);font-size:10px;cursor:pointer;z-index:2;">✕</button>
+      <button data-delete-slot="${_assignEsc(slot.id)}" style="position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.08);border:none;color:var(--text-subtle);font-size:11px;cursor:pointer;z-index:2;">✕</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:6px;">${_assignEsc(slot.label)}</div>
       <div style="display:flex;gap:4px;overflow-x:auto;min-height:32px;align-items:center;">${photosPreview}</div>
       ${_selectedIds.size > 0 ? `<div style="margin-top:8px;padding:6px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-size:11px;font-weight:700;text-align:center;">여기에 넣기</div>` : ''}
@@ -105,7 +105,7 @@ function _renderAssignPopup() {
       <div style="flex:1;padding:12px 16px;overflow:hidden;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-size:11px;font-weight:700;color:var(--text3);">👤 손님 슬롯 ${_slots.length}개</div>
-          <button data-assign-add style="padding:5px 10px;border-radius:6px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:10px;font-weight:700;cursor:pointer;">+ 추가</button>
+          <button data-assign-add style="padding:5px 10px;border-radius:6px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font-size:11px;font-weight:700;cursor:pointer;">+ 추가</button>
         </div>
         <div style="overflow-x:auto;padding-bottom:8px;">
           <div style="display:flex;gap:10px;min-width:max-content;">

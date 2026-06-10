@@ -147,7 +147,7 @@
 .bk-date.is-on { background: var(--text); }
 
 .bk-date__dow {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   font-weight: 600;
 }
@@ -253,7 +253,7 @@
   margin-bottom: 4px;
 }
 .bk-month-m__dow {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   font-weight: 600;
   text-align: center;
@@ -291,7 +291,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .bk-month-m__num {
@@ -849,7 +849,7 @@
   overflow: hidden;
 }
 .bk-pc-month__evt {
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 6px;
   background: var(--brand-bg);
   color: var(--brand-strong);
@@ -865,7 +865,7 @@
 
 .bk-pc-month__evt:hover { transform: translateY(-1px); }
 .bk-pc-month__more {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   font-weight: 600;
   padding: 0 6px;
@@ -1226,7 +1226,7 @@
   letter-spacing: -0.2px;
 }
 .bk-week__block--v6 .bk-week__block-sub {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle, #8B95A1);
 }
 
@@ -1365,7 +1365,7 @@
 }
 .bk-stat-card__label { font-size: 11px; color: #8B95A1; font-weight: 400; }
 .bk-stat-card__count { font-size: 20px; color: #191F28; font-weight: 500; line-height: 1; }
-.bk-stat-card__note  { font-size: 10px; color: #B0B8C1; margin-top: 2px; font-weight: 400; }
+.bk-stat-card__note  { font-size: 11px; color: #B0B8C1; margin-top: 2px; font-weight: 400; }
 .bk-stat-card__row {
   display: flex; margin-top: 10px;
 }
@@ -1390,7 +1390,7 @@
   cursor: pointer;
   padding: 12px 14px;
 }
-.bk-stat-card--m .bk-stat-card__label { font-size: 10px; }
+.bk-stat-card--m .bk-stat-card__label { font-size: 11px; }
 .bk-stat-card--m .bk-stat-card__count { font-size: 16px; }
 .bk-stat-card--m.is-open { border-color: var(--brand); }
 .bk-stat-card__compact {

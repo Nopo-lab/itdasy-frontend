@@ -108,7 +108,7 @@
   right: 16px;
   bottom: 14px;
   color: #9b6474;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
 }
 .pe-entry-v6 .pe-entry-pickbtn {
@@ -251,7 +251,7 @@
   letter-spacing: -0.4px;
 }
 .pe-entry-v6 .pe-card-l .pe-sub {
-  font-size: 10px; color: #999; font-weight: 500; margin-top: 2px;
+  font-size: 11px; color: #999; font-weight: 500; margin-top: 2px;
 }
 
 /* ── 중 카드 4 ─────────────────────────────────── */
@@ -276,7 +276,7 @@
 .pe-entry-v6 .pe-card-m .pe-ic { width: 17px; height: 17px; }
 .pe-entry-v6 .pe-card-m .pe-ic svg { width: 17px; height: 17px; stroke: #fff; fill: none; stroke-width: 1.8; }
 .pe-entry-v6 .pe-card-m .pe-title {
-  font-size: 10px; font-weight: 600; color: #fff;
+  font-size: 11px; font-weight: 600; color: #fff;
 }
 
 /* ── 배지 ────────────────────────────────────── */

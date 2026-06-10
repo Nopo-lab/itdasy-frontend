@@ -86,8 +86,8 @@
               ${s.tags.map(tag => `<span style="padding:4px 10px;border-radius:20px;background:rgba(213,138,149,0.08);color:var(--accent2);font-size:11px;font-weight:600;">${_esc(tag)}</span>`).join('')}
             </div>
             <div style="margin-top:8px;display:flex;gap:6px;">
-              <button type="button" data-hashtag-act="edit" data-hashtag-idx="${i}" style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;text-decoration:underline;">편집</button>
-              ${s.id !== 'default' ? `<button type="button" data-hashtag-act="delete" data-hashtag-idx="${i}" style="font-size:10px;color:#ef4444;background:none;border:none;cursor:pointer;text-decoration:underline;">삭제</button>` : ''}
+              <button type="button" data-hashtag-act="edit" data-hashtag-idx="${i}" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;text-decoration:underline;">편집</button>
+              ${s.id !== 'default' ? `<button type="button" data-hashtag-act="delete" data-hashtag-idx="${i}" style="font-size:11px;color:#ef4444;background:none;border:none;cursor:pointer;text-decoration:underline;">삭제</button>` : ''}
             </div>
           </div>
         `).join('')}

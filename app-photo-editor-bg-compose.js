@@ -85,7 +85,8 @@
       const fd = new FormData();
       fd.append('file', _blobFromDataUrl(srcDataUrl), 'photo.jpg');
       const res = await apiFetch('/image/remove-bg', { method: 'POST', headers: authHeader(), body: fd });
-      if (res.status === 429) throw new Error('오늘 누끼따기 한도를 다 썼어요');
+      // [2026-06-10] 한도 문구에 리셋 시점 + 대안 안내 추가 (이탈 방지)
+      if (res.status === 429) throw new Error('오늘 배경제거 한도를 다 썼어요 — 내일 0시에 다시 채워져요. 플랜·구독에서 한도를 늘릴 수도 있어요');
       if (!res.ok) throw new Error('서버 누끼 실패');
       return await res.blob();
     } catch (serverErr) {

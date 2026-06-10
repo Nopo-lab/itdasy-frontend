@@ -76,9 +76,9 @@
           <div style="font-size:15px;font-weight:800;margin-bottom:2px;">${_esc(shopName)}</div>
           <div style="font-size:12px;color:#888;">@${_esc(handle)}</div>
           <div style="display:flex;gap:20px;margin-top:8px;">
-            <div style="text-align:center;"><div style="font-size:14px;font-weight:800;">${_posts.length}</div><div style="font-size:10px;color:#888;">게시물</div></div>
-            <div style="text-align:center;"><div style="font-size:14px;font-weight:800;">—</div><div style="font-size:10px;color:#888;">팔로워</div></div>
-            <div style="text-align:center;"><div style="font-size:14px;font-weight:800;">—</div><div style="font-size:10px;color:#888;">팔로잉</div></div>
+            <div style="text-align:center;"><div style="font-size:14px;font-weight:800;">${_posts.length}</div><div style="font-size:11px;color:#888;">게시물</div></div>
+            <div style="text-align:center;"><div style="font-size:14px;font-weight:800;">—</div><div style="font-size:11px;color:#888;">팔로워</div></div>
+            <div style="text-align:center;"><div style="font-size:14px;font-weight:800;">—</div><div style="font-size:11px;color:#888;">팔로잉</div></div>
           </div>
         </div>
       </div>
@@ -91,7 +91,7 @@
               ? `<img src="${_esc(p.imageUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;">`
               : `<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;">
                   <span style="font-size:20px;">📷</span>
-                  <span style="font-size:10px;color:#999;font-weight:600;">${_esc((p.caption||'').slice(0,15))}</span>
+                  <span style="font-size:11px;color:#999;font-weight:600;">${_esc((p.caption||'').slice(0,15))}</span>
                 </div>`}
             ${p.status==='scheduled' ? '<div style="position:absolute;top:4px;right:4px;background:rgba(251,191,36,0.9);color:#000;font-size:9px;font-weight:800;padding:2px 6px;border-radius:6px;">⏰ 예약</div>' : ''}
             ${p.status==='draft' ? '<div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.5);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;">초안</div>' : ''}

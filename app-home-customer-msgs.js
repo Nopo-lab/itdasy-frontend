@@ -73,7 +73,7 @@
     const id = _esc(String(it.id));
     // [Task 2] 양식 자동발송 카드 배지
     const formBadge = it.form_auto_sent
-      ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:2px 7px;border-radius:99px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>양식발송완료</span>`
+      ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:2px 7px;border-radius:99px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>양식발송완료</span>`
       : '';
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
       <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
@@ -289,10 +289,10 @@
       .hv5-cmsg-av.is-unread::after{content:"";position:absolute;top:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:var(--brand);border:2px solid var(--surface)}
       .hv5-cmsg-id{min-width:0;flex:1}
       .hv5-cmsg-nm{font-size:13.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .hv5-cmsg-tm{font-size:10px;color:var(--text-subtle);margin-top:1px}
+      .hv5-cmsg-tm{font-size:11px;color:var(--text-subtle);margin-top:1px}
       .hv5-cmsg-msg{font-size:12px;color:var(--text-muted);line-height:1.45;height:35px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
       .hv5-cmsg-msg.un{color:var(--text);font-weight:500}
-      .hv5-cmsg-badge{display:inline-block;margin-top:9px;font-size:10px;font-weight:700;color:var(--brand-strong);background:var(--brand-bg);padding:2px 8px;border-radius:6px}
+      .hv5-cmsg-badge{display:inline-block;margin-top:9px;font-size:11px;font-weight:700;color:var(--brand-strong);background:var(--brand-bg);padding:2px 8px;border-radius:6px}
     `;
     document.head.appendChild(s);
   }

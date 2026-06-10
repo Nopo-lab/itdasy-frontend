@@ -171,7 +171,7 @@
 
 /* ── 오프라인 배지 ─────────────────────────────────────────────── */
 .dt-offline-badge {
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 8px;
   border-radius: var(--r-pill);
   background: var(--warn);

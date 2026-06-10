@@ -12,7 +12,7 @@
   function _photo(label, url, idx, isAfter, esc) {
     const attr = isAfter ? ` data-asst-photo-result="${idx}"` : '';
     return `<div style="min-width:0;">
-      <div style="font-size:10px;font-weight:800;color:#6B7684;margin-bottom:5px;">${esc(label)}</div>
+      <div style="font-size:11px;font-weight:800;color:#6B7684;margin-bottom:5px;">${esc(label)}</div>
       <img${attr} src="${esc(url)}" alt="${esc(label)}" style="width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:12px;display:block;background:#F2F4F6;cursor:${isAfter ? 'zoom-in' : 'default'};" />
     </div>`;
   }
@@ -38,7 +38,7 @@
   function _captionBlock(caption, esc) {
     if (!caption) return '';
     return `<div style="margin-top:12px;padding:11px 12px;border-radius:12px;background:#F7F8FA;">
-      <div style="font-size:10px;color:#8B95A1;font-weight:800;margin-bottom:5px;">캡션 초안</div>
+      <div style="font-size:11px;color:#8B95A1;font-weight:800;margin-bottom:5px;">캡션 초안</div>
       <div style="font-size:12.5px;color:#333D4B;line-height:1.5;white-space:pre-wrap;">${esc(caption)}</div>
     </div>`;
   }
@@ -50,7 +50,7 @@
     const cards = ids.map(id => TV.recoCardHtml(id)).filter(Boolean).join('');
     if (!cards) return '';
     return `<div style="margin-top:12px;">
-      <div style="font-size:10px;color:#8B95A1;font-weight:800;margin-bottom:7px;">추천 템플릿 3개</div>
+      <div style="font-size:11px;color:#8B95A1;font-weight:800;margin-bottom:7px;">추천 템플릿 3개</div>
       <div class="asst-tpl-recos" data-asst-tpl-recos="${idx}" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;">${cards}</div>
     </div>`;
   }
@@ -82,8 +82,8 @@
       : '고객을 선택하면 시술 기록으로 저장할 수 있어요.';
     return `<div class="asst-promo-result" style="margin-bottom:10px;width:100%;max-width:360px;border:1px solid #E5E8EB;border-radius:16px;background:#fff;padding:12px;box-shadow:0 8px 22px rgba(25,31,40,.08);">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <span style="font-size:10px;font-weight:900;color:#4E5968;">Before / After</span>
-        <span style="font-size:10px;font-weight:900;color:#fff;background:#191F28;border-radius:999px;padding:5px 8px;">Instagram Ready</span>
+        <span style="font-size:11px;font-weight:900;color:#4E5968;">Before / After</span>
+        <span style="font-size:11px;font-weight:900;color:#fff;background:#191F28;border-radius:999px;padding:5px 8px;">Instagram Ready</span>
       </div>
       ${_imageBlock(p, idx, esc)}
       <div style="margin-top:11px;font-size:12.5px;line-height:1.5;color:#191F28;font-weight:700;">${esc(p.effect || '홍보용으로 자연스럽게 정리했어요.')}</div>

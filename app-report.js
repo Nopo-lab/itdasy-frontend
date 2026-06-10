@@ -67,9 +67,9 @@
     return `
       <div style="padding:16px;background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative;overflow:hidden;">
         <div style="position:absolute;top:-12px;right:-12px;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,${grad});opacity:0.2;"></div>
-        <div style="font-size:10px;color:#888;font-weight:700;margin-bottom:6px;position:relative;">${_esc(label)}</div>
+        <div style="font-size:11px;color:#888;font-weight:700;margin-bottom:6px;position:relative;">${_esc(label)}</div>
         <div style="font-size:22px;font-weight:900;color:#1a1a1a;line-height:1.1;letter-spacing:-0.3px;">${_esc(value)}</div>
-        <div style="font-size:10px;color:var(--text-subtle);margin-top:4px;">${_esc(sub)}</div>
+        <div style="font-size:11px;color:var(--text-subtle);margin-top:4px;">${_esc(sub)}</div>
       </div>
     `;
   }
@@ -117,16 +117,16 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:center;">
           <div style="padding:8px;background:rgba(0,0,0,0.03);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;">${b.total}</div>
-            <div style="font-size:10px;color:#888;">총 예약</div>
+            <div style="font-size:11px;color:#888;">총 예약</div>
           </div>
           <div style="padding:8px;background:rgba(220,53,69,0.08);border-radius:8px;">
             <div style="font-size:18px;font-weight:800;color:var(--danger);">${b.cancelled}</div>
-            <div style="font-size:10px;color:#888;">취소</div>
+            <div style="font-size:11px;color:#888;">취소</div>
           </div>
         </div>
       </div>
 
-      <div style="padding:12px;background:rgba(213,138,149,0.05);border-radius:10px;font-size:10px;color:#888;line-height:1.5;text-align:center;">
+      <div style="padding:12px;background:rgba(213,138,149,0.05);border-radius:10px;font-size:11px;color:#888;line-height:1.5;text-align:center;">
         🎀 잇데이가 매달 자동으로 집계해요. 월 마지막 날 알림으로도 보내드릴게요.
       </div>
     `;

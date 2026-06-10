@@ -339,7 +339,7 @@
 }
 .dm-tone__card.is-on .dm-tone__name { color: var(--surface); }
 .dm-tone__sample {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   margin-top: 3px;
   line-height: 1.4;

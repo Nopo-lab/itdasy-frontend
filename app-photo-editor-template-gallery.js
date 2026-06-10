@@ -250,7 +250,7 @@
     return `<button type="button" class="pe-tplg-card${sel}" data-pe-tplg-id="${_esc(t.id)}">
       <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}">
         <span class="pe-tplg-badge">${_esc(badge)}</span>
-        ${/^bp-/.test(t.id) ? '<span class="pe-tplg-premium" style="position:absolute;top:8px;left:8px;z-index:3;background:linear-gradient(135deg,#E7CE8C,#C9A24B);color:#1B140A;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.4px;box-shadow:0 1px 4px rgba(0,0,0,.18);">프리미엄</span>' : ''}
+        ${/^bp-/.test(t.id) ? '<span class="pe-tplg-premium" style="position:absolute;top:8px;left:8px;z-index:3;background:linear-gradient(135deg,#E7CE8C,#C9A24B);color:#1B140A;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.4px;box-shadow:0 1px 4px rgba(0,0,0,.18);">프리미엄</span>' : ''}
         ${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}
         ${isDefault ? `<span class="pe-tplg-default-badge" aria-label="${_esc(SHORT_PURPOSE[t.purpose] || '')} 기본 템플릿">${_STAR_SVG}기본</span>` : ''}
         <span class="pe-tplg-bmk${fav ? ' on' : ''}" data-pe-tplg-bmk="${_esc(t.id)}" role="button" aria-label="보관함">${_BMK_SVG}</span>

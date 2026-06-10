@@ -207,7 +207,7 @@
         <input class="rs-it-fld" data-idx="${idx}" data-iidx="${ii}" data-sub="quantity" type="number" min="0" value="${_esc(x.quantity == null ? 1 : x.quantity)}" placeholder="수량" style="padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:11px;">
         <input class="rs-it-fld" data-idx="${idx}" data-iidx="${ii}" data-sub="unit_price" type="number" min="0" value="${_esc(x.unit_price == null ? '' : x.unit_price)}" placeholder="단가" style="padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:11px;">
         <input class="rs-it-fld" data-idx="${idx}" data-iidx="${ii}" data-sub="total" type="number" min="0" value="${_esc(x.total == null ? '' : x.total)}" placeholder="합계" style="padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:11px;">
-        <button class="rs-it-del" data-idx="${idx}" data-iidx="${ii}" type="button" style="padding:0;border:1px solid #fca5a5;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:10px;">×</button>
+        <button class="rs-it-del" data-idx="${idx}" data-iidx="${ii}" type="button" style="padding:0;border:1px solid #fca5a5;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;">×</button>
       </div>`).join('');
     const adjKinds = [
       ['card_discount', '카드할인'], ['coupon', '쿠폰'], ['point', '포인트'],
@@ -220,18 +220,18 @@
           ${adjKinds.map(([v, l]) => `<option value="${v}"${v === a.kind ? ' selected' : ''}>${l}</option>`).join('')}
         </select>
         <input class="rs-adj-fld" data-idx="${idx}" data-aidx="${ai}" data-sub="amount" type="number" min="0" value="${_esc(a.amount == null ? '' : a.amount)}" placeholder="차감액" style="padding:5px 7px;border:1px solid #ddd;border-radius:6px;font-size:11px;">
-        <button class="rs-adj-del" data-idx="${idx}" data-aidx="${ai}" type="button" style="padding:0;border:1px solid #fca5a5;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:10px;">×</button>
+        <button class="rs-adj-del" data-idx="${idx}" data-aidx="${ai}" type="button" style="padding:0;border:1px solid #fca5a5;border-radius:6px;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:11px;">×</button>
       </div>`).join('');
     return `
       <div style="margin-top:8px;padding:8px 10px;background:hsl(220,20%,98%);border:1px solid hsl(220,15%,90%);border-radius:8px;">
-        <div style="font-size:10px;font-weight:700;color:#666;margin-bottom:4px;">품목 (정가 기준)</div>
+        <div style="font-size:11px;font-weight:700;color:#666;margin-bottom:4px;">품목 (정가 기준)</div>
         ${itemRows}
-        <button class="rs-it-add" data-idx="${idx}" type="button" style="margin-top:3px;padding:5px 8px;border:1px dashed #999;border-radius:6px;background:#fff;color:#666;font-size:10px;font-weight:700;cursor:pointer;">+ 품목 추가</button>
-        <div style="font-size:10px;font-weight:700;color:#666;margin:8px 0 4px;">할인·쿠폰·포인트</div>
+        <button class="rs-it-add" data-idx="${idx}" type="button" style="margin-top:3px;padding:5px 8px;border:1px dashed #999;border-radius:6px;background:#fff;color:#666;font-size:11px;font-weight:700;cursor:pointer;">+ 품목 추가</button>
+        <div style="font-size:11px;font-weight:700;color:#666;margin:8px 0 4px;">할인·쿠폰·포인트</div>
         ${adjRows}
-        <button class="rs-adj-add" data-idx="${idx}" type="button" style="margin-top:3px;padding:5px 8px;border:1px dashed #E07A5F;border-radius:6px;background:#fff;color:#E07A5F;font-size:10px;font-weight:700;cursor:pointer;">+ 할인 추가</button>
+        <button class="rs-adj-add" data-idx="${idx}" type="button" style="margin-top:3px;padding:5px 8px;border:1px dashed #E07A5F;border-radius:6px;background:#fff;color:#E07A5F;font-size:11px;font-weight:700;cursor:pointer;">+ 할인 추가</button>
         ${(itemsTotal > 0 || adjTotal > 0) ? `
-        <div style="margin-top:8px;padding:6px 8px;background:#fff;border:1px solid #ddd;border-radius:6px;font-size:10px;color:#444;line-height:1.5;">
+        <div style="margin-top:8px;padding:6px 8px;background:#fff;border:1px solid #ddd;border-radius:6px;font-size:11px;color:#444;line-height:1.5;">
           정가합 <b>${_f(itemsTotal)}</b>${adjTotal > 0 ? ` − 할인 <b style="color:#E07A5F;">${_f(adjTotal)}</b>` : ''} = 예상 <b>${_f(expected)}</b>
           ${amount > 0 ? `<br>결제금액 <b>${_f(amount)}</b>${warn ? ` <span style="color:#C2410C;font-weight:700;">⚠ 차이 ${_f(Math.abs(expected - amount))}</span>` : ' <span style="color:#388e3c;font-weight:700;">✓</span>'}` : ''}
         </div>` : ''}

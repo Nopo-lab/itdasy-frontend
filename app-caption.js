@@ -330,7 +330,7 @@ function _renderCaptionPhotoRow() {
 
     wrap.innerHTML = `
       <img src="${_capEsc(src)}" alt="" draggable="false" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;pointer-events:none;">
-      <button data-remove-cap-photo data-photo-index="${i}" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:10px;line-height:1;cursor:pointer;">×</button>
+      <button data-remove-cap-photo data-photo-index="${i}" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;line-height:1;cursor:pointer;">×</button>
       <div style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.8);background:rgba(0,0,0,0.35);border-radius:3px;padding:0 3px;">${i+1}</div>
     `;
     wrap.querySelector('[data-remove-cap-photo]')?.addEventListener('click', e => {
@@ -931,7 +931,7 @@ function _previewCaptionOnInsta() {
         <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);padding:2px;"><div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;">🎀</div></div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;">${_capEsc(handle)}</div>
-          <div style="font-size:10px;color:#888;">Sponsored · 서울</div>
+          <div style="font-size:11px;color:#888;">Sponsored · 서울</div>
         </div>
         <div style="font-size:18px;color:#262626;">⋯</div>
       </div>

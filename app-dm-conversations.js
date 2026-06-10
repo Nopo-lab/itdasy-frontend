@@ -627,7 +627,7 @@
             <div style="max-width:78%;${bubbleStyle}padding:9px 14px;font-size:14px;line-height:1.45;word-break:break-word;">${_esc(m.text)}${isPending ? '<div style="font-size:11px;margin-top:4px;font-weight:700;">사장 확인 대기 중</div>' : ''}</div>
             ${showTime ? `
               <div style="display:flex;align-items:center;gap:6px;margin:4px 4px 0 0;">
-                ${sourceLbl ? `<span style="font-size:10px;color:#8E8E8E;font-weight:600;">${sourceLbl}</span>` : ''}
+                ${sourceLbl ? `<span style="font-size:11px;color:#8E8E8E;font-weight:600;">${sourceLbl}</span>` : ''}
                 <span style="font-size:11px;color:#8E8E8E;">${_timeFmt(m.ts)}</span>
               </div>` : ''}
           </div>`);

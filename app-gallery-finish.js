@@ -493,7 +493,7 @@ function _previewSlotOnInsta(slotId) {
         <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);padding:2px;"><div style="width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#262626;">잇</div></div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;">${escapeHtml(handle)}</div>
-          <div style="font-size:10px;color:#888;">서울</div>
+          <div style="font-size:11px;color:#888;">서울</div>
         </div>
         <div style="font-size:18px;color:#262626;">⋯</div>
       </div>

@@ -193,7 +193,7 @@ async function loadPortfolio() {
       Object.values(tagData.sub_map || {}).forEach(arr => arr.forEach(t => allSubTags.add(t)));
       allSubTags.forEach(t => {
         const chip = document.createElement('button');
-        chip.style.cssText = 'padding:4px 10px; border-radius:20px; border:1px solid rgba(213,138,149,0.25); background:rgba(213,138,149,0.06); color:var(--accent2); font-size:10px; font-weight:600; cursor:pointer; transition:all 0.12s;';
+        chip.style.cssText = 'padding:4px 10px; border-radius:20px; border:1px solid rgba(213,138,149,0.25); background:rgba(213,138,149,0.06); color:var(--accent2); font-size:11px; font-weight:600; cursor:pointer; transition:all 0.12s;';
         chip.textContent = t;
         chip.onclick = () => {
           _activePortfolioSubTag = _activePortfolioSubTag === t ? '' : t;

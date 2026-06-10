@@ -206,7 +206,7 @@
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
             <svg width="13" height="13" aria-hidden="true" style="color:#BC6675;"><use href="#${icon}"/></svg>
             <span style="font-size:12px;font-weight:700;color:#555;">${label}</span>
-            <button type="button" data-regen="${cat}" class="dmr-regen-btn" style="margin-left:auto;font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border:1px solid #F0DADF;padding:3px 8px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;">
+            <button type="button" data-regen="${cat}" class="dmr-regen-btn" style="margin-left:auto;font-size:11px;font-weight:700;color:#BC6675;background:#F7EFF0;border:1px solid #F0DADF;padding:3px 8px;border-radius:99px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;">
               <i class="ph-duotone ph-magic-wand" aria-hidden="true"></i>다시 작성
             </button>
           </div>
@@ -286,8 +286,8 @@
           <div data-id="${it.id}" style="padding:12px;background:#FAFAFA;border:1px solid #f0f0f0;border-radius:14px;margin-bottom:8px;${!it.enabled ? 'opacity:0.5;' : ''}">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
               <strong style="font-size:13px;flex:1;">${_esc(it.title || '(이름 없음)')}</strong>
-              <span style="font-size:10px;font-weight:700;color:${modeColor};background:${modeColor}15;padding:2px 7px;border-radius:99px;">${_MODE_LABEL[it.mode] || it.mode}</span>
-              ${it.use_count > 0 ? `<span style="font-size:10px;color:#888;">${it.use_count}회 사용</span>` : ''}
+              <span style="font-size:11px;font-weight:700;color:${modeColor};background:${modeColor}15;padding:2px 7px;border-radius:99px;">${_MODE_LABEL[it.mode] || it.mode}</span>
+              ${it.use_count > 0 ? `<span style="font-size:11px;color:#888;">${it.use_count}회 사용</span>` : ''}
             </div>
             <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">${triggerSummary}</div>
             <div style="font-size:12px;color:#333;background:#fff;padding:8px 10px;border-radius:8px;line-height:1.5;margin-bottom:8px;">${_esc(it.reply_text)}</div>
@@ -406,11 +406,11 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
           <label class="dmr-mode-card" data-mode="exact" style="padding:11px;border:2px solid ${it.mode === 'exact' ? '#10B981' : '#e5e5e5'};background:${it.mode === 'exact' ? '#10B98115' : '#fff'};border-radius:10px;cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:${it.mode === 'exact' ? '#10B981' : '#555'};">그대로 발송</div>
-            <div style="font-size:10px;color:#888;margin-top:3px;">AI 안 거침 (빠름·비용 0)</div>
+            <div style="font-size:11px;color:#888;margin-top:3px;">AI 안 거침 (빠름·비용 0)</div>
           </label>
           <label class="dmr-mode-card" data-mode="as_base" style="padding:11px;border:2px solid ${it.mode === 'as_base' ? '#BC6675' : '#e5e5e5'};background:${it.mode === 'as_base' ? '#BC667515' : '#fff'};border-radius:10px;cursor:pointer;text-align:center;">
             <div style="font-size:13px;font-weight:800;color:${it.mode === 'as_base' ? '#BC6675' : '#555'};">AI 톤 다듬기</div>
-            <div style="font-size:10px;color:#888;margin-top:3px;">페르소나 톤으로 자연스럽게</div>
+            <div style="font-size:11px;color:#888;margin-top:3px;">페르소나 톤으로 자연스럽게</div>
           </label>
         </div>
         <input id="dmrMode" type="hidden" value="${_esc(it.mode || 'exact')}">

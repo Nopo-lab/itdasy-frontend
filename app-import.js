@@ -135,10 +135,10 @@
           <div style="border:2px dashed #ccc;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;">
             <div style="font-size:32px;margin-bottom:8px;">📥</div>
             <div style="font-size:14px;color:var(--text-muted);">CSV·엑셀 파일을 탭하세요</div>
-            <div style="font-size:10px;color:var(--text-subtle);margin-top:4px;">CSV · XLSX · 최대 10MB</div>
+            <div style="font-size:11px;color:var(--text-subtle);margin-top:4px;">CSV · XLSX · 최대 10MB</div>
           </div>
         </label>
-        <div style="font-size:10px;color:var(--text-subtle);margin-top:8px;line-height:1.6;padding:0 4px;">
+        <div style="font-size:11px;color:var(--text-subtle);margin-top:8px;line-height:1.6;padding:0 4px;">
           아이폰·카톡으로 받은 엑셀이 .zip 으로 뜨면 그대로 선택하세요. 자동 변환됩니다.
         </div>
       `;
@@ -153,10 +153,10 @@
           <div style="border:2px dashed #FFB347;border-radius:12px;padding:36px 16px;text-align:center;cursor:pointer;background:rgba(255,179,71,0.05);">
             <div style="font-size:32px;margin-bottom:8px;">📸</div>
             <div style="font-size:14px;color:var(--text-muted);font-weight:700;">스크린샷·사진 업로드</div>
-            <div style="font-size:10px;color:var(--text-subtle);margin-top:4px;">이전 앱 화면 그대로 찍어 올리세요</div>
+            <div style="font-size:11px;color:var(--text-subtle);margin-top:4px;">이전 앱 화면 그대로 찍어 올리세요</div>
           </div>
         </label>
-        <div style="font-size:10px;color:var(--text-subtle);margin-top:8px;line-height:1.6;padding:0 4px;">
+        <div style="font-size:11px;color:var(--text-subtle);margin-top:8px;line-height:1.6;padding:0 4px;">
           <b>AI Vision</b> 이 화면에서 고객 목록/매출을 자동 추출해요. 2~3초 소요.
         </div>
       `;

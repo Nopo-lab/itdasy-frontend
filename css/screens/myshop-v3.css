@@ -131,7 +131,7 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
 .ms-shop__stat { display: flex; flex-direction: column; gap: 2px; }
 .ms-shop__stat-label { font-size: 10.5px; color: var(--text-subtle); font-weight: 500; }
 .ms-shop__stat-value { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-.ms-shop__stat-trend { font-size: 10px; color: var(--ok); font-weight: 600; margin-top: 1px; }
+.ms-shop__stat-trend { font-size: 11px; color: var(--ok); font-weight: 600; margin-top: 1px; }
 .ms-shop__stat-trend.is-amber { color: var(--brand-strong); }
 
 /* ─────────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
 .ms-menu__meta.is-ok { color: var(--ok); font-weight: 600; }
 .ms-menu__right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .ms-menu__badge {
-  font-size: 10px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   padding: 2px 7px; border-radius: var(--r-pill);
   background: var(--brand-bg); color: var(--brand-strong);
 }
@@ -297,7 +297,7 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
 .ms-aih__right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .ms-aih__chev { color: var(--text-subtle); flex-shrink: 0; }
 .ms-aih__tag {
-  font-size: 10px; color: var(--text-subtle); font-weight: 600;
+  font-size: 11px; color: var(--text-subtle); font-weight: 600;
   padding: 2px 7px;
   background: var(--surface-2);
   border-radius: var(--r-pill);
@@ -420,7 +420,7 @@ body:has(#tab-dashboard.active) #tab-dashboard.tab { max-width: none !important;
   letter-spacing: -0.3px;
 }
 .ms-side__section {
-  font-size: 10px; color: var(--text-subtle); font-weight: 700;
+  font-size: 11px; color: var(--text-subtle); font-weight: 700;
   letter-spacing: 0.4px;
   padding: 12px 10px 6px;
   text-transform: uppercase;

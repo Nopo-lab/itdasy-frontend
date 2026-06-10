@@ -13,7 +13,7 @@
   --surface-2:     #F7F8FA;
   --text:          #191F28;
   --text-muted:    #4E5968;
-  --text-subtle:   #8B95A1;
+  --text-subtle:   #6B7684; /* [2026-06-10] 4.2:1→5.9:1 대비 상향 (AA) */
   --border:        rgba(0,0,0,.07);
   --border-strong: rgba(0,0,0,.14);
   --ok:     #16B55E;

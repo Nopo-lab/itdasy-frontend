@@ -303,7 +303,7 @@
         <div style="display:flex;flex-direction:column;gap:8px;">
           ${items.map(it => `
             <div style="display:flex;align-items:flex-start;gap:8px;">
-              <div style="font-size:10px;color:var(--text-subtle);font-weight:600;min-width:54px;padding-top:4px;">
+              <div style="font-size:11px;color:var(--text-subtle);font-weight:600;min-width:54px;padding-top:4px;">
                 ${_esc(it.ctx)}
               </div>
               <div style="flex:1;background:var(--surface,#fff);padding:8px 10px;border-radius:12px 12px 12px 4px;font-size:12px;line-height:1.5;color:var(--text);border:0.5px solid var(--border);">
@@ -463,7 +463,7 @@
                   style="flex:1;min-width:90px;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;
                   ${m.id === autonomy ? 'background:linear-gradient(135deg,var(--accent,#D58A95),#E96A7E);color:#fff;border:1px solid var(--accent,#D58A95);' : 'background:#fff;color:#444;border:1px solid #e5e7eb;'}">
                   <div style="font-size:13px;font-weight:800;margin-bottom:3px;">${m.name}</div>
-                  <div style="font-size:10px;font-weight:500;opacity:${m.id === autonomy ? '0.95' : '0.7'};line-height:1.35;">${m.desc}</div>
+                  <div style="font-size:11px;font-weight:500;opacity:${m.id === autonomy ? '0.95' : '0.7'};line-height:1.35;">${m.desc}</div>
                 </button>
               `).join('')}
             </div>
@@ -548,9 +548,9 @@
     if (!ctx) return '';
     const name = _esc(ctx.name || '');
     const badgeHtml = ctx.is_regular
-      ? '<span style="font-size:10px;background:#10B981;color:#fff;padding:2px 8px;border-radius:99px;font-weight:700;margin-left:4px;">단골</span>'
+      ? '<span style="font-size:11px;background:#10B981;color:#fff;padding:2px 8px;border-radius:99px;font-weight:700;margin-left:4px;">단골</span>'
       : (ctx.visit_count === 1
-        ? '<span style="font-size:10px;background:#3B82F6;color:#fff;padding:2px 8px;border-radius:99px;font-weight:700;margin-left:4px;">신규</span>'
+        ? '<span style="font-size:11px;background:#3B82F6;color:#fff;padding:2px 8px;border-radius:99px;font-weight:700;margin-left:4px;">신규</span>'
         : '');
     const lastInfo = (ctx.days_since_last_visit != null && ctx.last_service)
       ? `<span style="font-size:11px;color:rgba(255,255,255,0.6);margin-right:8px;">${ctx.days_since_last_visit}일 전 ${_esc(ctx.last_service)}</span>`
@@ -720,7 +720,7 @@
       const dmPart = c.can_send_dm
         ? `<button type="button" data-act="retention-send" data-cust-id="${_esc(String(c.customer_id || ''))}"
               style="font-size:11px;background:#10B981;color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:700;white-space:nowrap;">DM 발송</button>`
-        : `<span style="font-size:10px;color:rgba(255,255,255,0.4);white-space:nowrap;">인스타 미연결</span>`;
+        : `<span style="font-size:11px;color:rgba(255,255,255,0.4);white-space:nowrap;">인스타 미연결</span>`;
       return `
         <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.07);">
           <div style="flex:1;min-width:0;">

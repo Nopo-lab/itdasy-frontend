@@ -292,7 +292,7 @@
           <button data-assistant-close aria-label="닫기" title="닫기" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;justify-self:start;">${_svg('ic-x', 18)}</button>
           <div style="display:inline-flex;align-items:center;justify-content:center;gap:6px;">
             <strong style="font-size:16px;color:#191F28;font-weight:700;letter-spacing:-0.2px;">AI 잇비</strong>
-            <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#F2F4F6;color:#4E5968;font-weight:600;">베타</span>
+            <span style="font-size:11px;padding:2px 7px;border-radius:6px;background:#F2F4F6;color:#4E5968;font-weight:600;">베타</span>
           </div>
           <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;justify-self:end;">⋯</button>
         </div>
@@ -487,7 +487,7 @@
     const retryHtml = m.retry_q ? `<div style="margin-top:8px;"><button type="button" data-asst-retry="${idx}" style="padding:9px 18px;border:1px solid #E5E8EB;border-radius:999px;background:#fff;color:#191F28;font-size:13px;font-weight:600;cursor:pointer;">다시 시도</button></div>` : '';
     const reportHtml = promoResultHtml ? '' : `<div style="margin-top:4px;padding-left:2px;">
           <button data-report-ai="chat_answer" data-snippet="${_esc(m.text).replace(/"/g,'&quot;')}" data-source="/assistant/chat" aria-label="AI 답변 신고"
-            style="background:transparent;border:none;cursor:pointer;font-size:10px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
+            style="background:transparent;border:none;cursor:pointer;font-size:11px;color:#C5CBD2;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;">${_svg('ic-flag', 11)} 신고</button>
         </div>`;
     return `<div class="asst-msg asst-msg--ai" style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start;">
       <div style="width:40px;height:40px;border-radius:50%;background:#F7EFF0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#BC6675;">${_svg('ic-bot', 22)}</div>

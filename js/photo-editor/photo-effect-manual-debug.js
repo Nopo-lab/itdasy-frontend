@@ -194,7 +194,7 @@
   }
   function _labeled(canvas, label) {
     var wrap = document.createElement('div'); wrap.style.cssText = 'text-align:center;';
-    var l = document.createElement('div'); l.style.cssText = 'font-size:10px;color:#8b95a1;margin-bottom:2px;'; l.textContent = label;
+    var l = document.createElement('div'); l.style.cssText = 'font-size:11px;color:#8b95a1;margin-bottom:2px;'; l.textContent = label;
     wrap.appendChild(l); wrap.appendChild(canvas); return wrap;
   }
 
@@ -244,7 +244,7 @@
       var sus = _suspect(param, m, null);
       var cell = document.createElement('div'); cell.style.cssText = 'cursor:pointer;text-align:center;border:' + (sus ? '2px solid #e5484d' : '1px solid #e5e8eb') + ';border-radius:8px;padding:4px;';
       cell.appendChild(_thumb(res.after, _before.w, _before.h, 100));
-      var t = document.createElement('div'); t.style.cssText = 'font-size:10px;margin-top:2px;' + (sus ? 'color:#e5484d;font-weight:700;' : '');
+      var t = document.createElement('div'); t.style.cssText = 'font-size:11px;margin-top:2px;' + (sus ? 'color:#e5484d;font-weight:700;' : '');
       t.textContent = param + '\n' + (LABELS[param] || '') + '\nchg ' + m.changedRatio + (sus ? ' ⚠' : '');
       t.style.whiteSpace = 'pre-line'; cell.appendChild(t);
       cell.onclick = (function (pp) { return function () { preview(pp, 100); }; })(param);

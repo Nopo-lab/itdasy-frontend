@@ -121,7 +121,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #f5f5f5;">
               <div>
                 <div style="font-size:13px;font-weight:600;color:#333;">${_esc(s.name)}</div>
-                <div style="font-size:10px;color:#888;margin-top:2px;">${_esc(s.category)} · ${s.default_duration_min || 60}분</div>
+                <div style="font-size:11px;color:#888;margin-top:2px;">${_esc(s.category)} · ${s.default_duration_min || 60}분</div>
               </div>
               <div style="font-size:14px;font-weight:700;color:#BC6675;">${formatMoney(s.default_price)}</div>
             </div>

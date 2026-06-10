@@ -110,8 +110,8 @@
       ${STEPS.map((label, i) => `
         <div style="display:flex;align-items:center;flex:1;min-width:0;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-            <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${i < activeIdx ? 'var(--brand,var(--brand))' : i === activeIdx ? 'var(--brand,var(--brand))' : 'var(--border-strong,#ddd)'};background:${i < activeIdx ? 'var(--brand,var(--brand))' : i === activeIdx ? 'var(--brand-bg,#FEF4F5)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${i < activeIdx ? '#fff' : i === activeIdx ? 'var(--brand,var(--brand))' : 'var(--text-subtle,#bbb)'};">${i < activeIdx ? '<i class="ph-duotone ph-check" style="font-size:11px" aria-hidden="true"></i>' : i + 1}</div>
-            <div style="font-size:10px;font-weight:700;color:${i === activeIdx ? 'var(--brand,var(--brand))' : 'var(--text-subtle,#aaa)'};white-space:nowrap;">${label}</div>
+            <div style="width:24px;height:24px;border-radius:50%;border:2px solid ${i < activeIdx ? 'var(--brand,var(--brand))' : i === activeIdx ? 'var(--brand,var(--brand))' : 'var(--border-strong,#ddd)'};background:${i < activeIdx ? 'var(--brand,var(--brand))' : i === activeIdx ? 'var(--brand-bg,#FEF4F5)' : 'transparent'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:${i < activeIdx ? '#fff' : i === activeIdx ? 'var(--brand,var(--brand))' : 'var(--text-subtle,#bbb)'};">${i < activeIdx ? '<i class="ph-duotone ph-check" style="font-size:11px" aria-hidden="true"></i>' : i + 1}</div>
+            <div style="font-size:11px;font-weight:700;color:${i === activeIdx ? 'var(--brand,var(--brand))' : 'var(--text-subtle,#aaa)'};white-space:nowrap;">${label}</div>
           </div>
           ${i < STEPS.length - 1 ? `<div style="flex:1;height:2px;background:${i < activeIdx ? 'var(--brand,var(--brand))' : 'var(--border,#eee)'};margin:0 4px;margin-bottom:16px;"></div>` : ''}
         </div>
@@ -250,15 +250,15 @@
     const renderMapRow = (field, label, isCustom) => {
       const current = state.mapping[field] || '';
       const c = conf[field];
-      const confBadge = (!isCustom && c != null) ? `<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:${c >= 0.7 ? '#E8F5E9' : c >= 0.4 ? '#FFF3E0' : '#FFEBEE'};color:${c >= 0.7 ? '#2E7D32' : c >= 0.4 ? '#E68A00' : '#C62828'};font-weight:700;">${Math.round(c*100)}%</span>` : '';
+      const confBadge = (!isCustom && c != null) ? `<span style="font-size:11px;padding:2px 7px;border-radius:100px;background:${c >= 0.7 ? '#E8F5E9' : c >= 0.4 ? '#FFF3E0' : '#FFEBEE'};color:${c >= 0.7 ? '#2E7D32' : c >= 0.4 ? '#E68A00' : '#C62828'};font-weight:700;">${Math.round(c*100)}%</span>` : '';
       const options = ['<option value="">(짝짓지 않음)</option>'].concat(
         headers.map(h => `<option value="${_esc(h)}" ${h === current ? 'selected' : ''}>${_esc(h)}</option>`)
       ).join('');
-      const removeBtn = isCustom ? `<button data-remove-custom="${_esc(field)}" style="margin-left:6px;padding:4px 8px;border:none;background:#FFEBEE;color:#C62828;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">삭제</button>` : '';
+      const removeBtn = isCustom ? `<button data-remove-custom="${_esc(field)}" style="margin-left:6px;padding:4px 8px;border:none;background:#FFEBEE;color:#C62828;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">삭제</button>` : '';
       return `
         <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${isCustom ? '#F3E5F5' : 'var(--surface,#fff)'};border:1px solid ${isCustom ? '#CE93D8' : 'var(--border,#eee)'};border-radius:10px;margin-bottom:6px;">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12.5px;font-weight:700;color:var(--text,#333);">${_esc(label)}${isCustom ? ' <span style="font-size:10px;color:#7B1FA2;">새 항목</span>' : ''}</div>
+            <div style="font-size:12.5px;font-weight:700;color:var(--text,#333);">${_esc(label)}${isCustom ? ' <span style="font-size:11px;color:#7B1FA2;">새 항목</span>' : ''}</div>
           </div>
           <select data-map-field="${_esc(field)}" style="padding:6px 10px;border:1px solid var(--border-strong,#ddd);border-radius:8px;font-size:12px;background:var(--surface,#fff);color:var(--text,#333);">${options}</select>
           ${confBadge}
@@ -352,11 +352,11 @@
 
     const cardsHtml = previewRows.length ? previewRows.map((row, i) => `
       <div style="background:var(--surface-raised,#fafafa);border:1px solid var(--border,#eee);border-radius:12px;padding:12px 14px;">
-        <div style="font-size:10px;font-weight:800;color:var(--text-subtle,#aaa);margin-bottom:8px;">${i + 1}번째 줄</div>
+        <div style="font-size:11px;font-weight:800;color:var(--text-subtle,#aaa);margin-bottom:8px;">${i + 1}번째 줄</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;">
           ${mappedFields.map(([field, col]) => {
             const label = customLabelMap[field] || (KIND_TARGETS[state.kind]||[]).find(k => k[0] === field)?.[1] || field;
-            return `<div><div style="font-size:10px;color:var(--text-subtle,#888);margin-bottom:2px;">${_esc(label)}</div>
+            return `<div><div style="font-size:11px;color:var(--text-subtle,#888);margin-bottom:2px;">${_esc(label)}</div>
               <div style="font-size:12.5px;font-weight:700;color:var(--text,#222);">${_esc(String(row[col] ?? '—'))}</div></div>`;
           }).join('')}
         </div>

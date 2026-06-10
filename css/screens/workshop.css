@@ -96,7 +96,7 @@
 }
 
 .ws-slot-card__count {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   margin-top: 2px;
 }
@@ -233,7 +233,8 @@
 }
 
 .ws-panel__close {
-  width: 32px; height: 32px;
+  /* [2026-06-10] 32px → 40px — 터치 타겟 확대 (고령 사용자/실수탭 방지) */
+  width: 40px; height: 40px;
   display: grid;
   place-items: center;
   background: var(--surface-2);
@@ -344,8 +345,8 @@
 #slotPopup .ws-strip-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 #slotPopup .ws-strip-thumb.is-active { border-color: #5b7cfa; box-shadow: 0 0 0 2px rgba(91,124,250,0.30); }
 #slotPopup .ws-strip-thumb:active { transform: scale(0.97); }
-#slotPopup .ws-strip-num { position: absolute; left: 4px; top: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: rgba(17,24,39,0.72); color: #fff; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
-#slotPopup .ws-strip-check { position: absolute; right: 4px; top: 4px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; background: rgba(0,0,0,0.32); color: #fff; font-size: 10px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+#slotPopup .ws-strip-num { position: absolute; left: 4px; top: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: rgba(17,24,39,0.72); color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+#slotPopup .ws-strip-check { position: absolute; right: 4px; top: 4px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; background: rgba(0,0,0,0.32); color: #fff; font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center; }
 #slotPopup .ws-strip-check.on { background: #5b7cfa; }
 #slotPopup .ws-strip-ba { position: absolute; left: 4px; bottom: 4px; font-size: 8px; font-weight: 800; color: #fff; padding: 1px 5px; border-radius: 999px; }
 #slotPopup .ws-strip-ba.before { background: rgba(100,149,237,0.92); }

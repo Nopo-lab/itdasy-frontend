@@ -60,7 +60,7 @@
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <svg width="22" height="22" aria-hidden="true" style="color:#191F28;"><use href="#ic-bell"/></svg>
           <strong style="font-size:17px;">알림</strong>
-          <span id="notifHeaderBadge" style="display:none;background:#BC6675;color:#fff;font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;"></span>
+          <span id="notifHeaderBadge" style="display:none;background:#BC6675;color:#fff;font-size:11px;padding:2px 7px;border-radius:5px;font-weight:600;"></span>
           <button data-notif-all style="margin-left:auto;font-size:11px;color:#888;background:none;border:none;cursor:pointer;">전부 읽음</button>
           <button data-notif-close style="background:rgba(0,0,0,0.05);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;">✕</button>
         </div>
@@ -168,13 +168,13 @@
       const cardOpacity = unread ? 1 : 0.55;
       const dot = unread ? '<span style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:#BC6675;"></span>' : '';
       const timeText = (unread ? '' : '읽음 · ') + _esc(_relativeTime(n.scheduled_at));
-      const linkLabel = c.link ? `<span style="font-size:10px;color:#8B95A1;margin-left:8px;">${c.link}</span>` : '';
+      const linkLabel = c.link ? `<span style="font-size:11px;color:#8B95A1;margin-left:8px;">${c.link}</span>` : '';
       return `<button type="button" data-notif-id="${n.id}" style="position:relative;display:flex;gap:12px;padding:12px;width:100%;background:transparent;border:0;border-radius:10px;text-align:left;cursor:pointer;opacity:${cardOpacity};font-family:inherit;">
         ${dot}${_iconBoxHtml(n.kind)}
         <span style="flex:1;min-width:0;">
           <span style="display:block;font-size:13px;font-weight:500;color:${titleColor};">${_esc(n.title)}</span>
           <span style="display:block;font-size:11px;color:#4E5968;margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</span>
-          <span style="display:block;font-size:10px;color:#B0B8C1;margin-top:4px;">${timeText}${linkLabel}</span>
+          <span style="display:block;font-size:11px;color:#B0B8C1;margin-top:4px;">${timeText}${linkLabel}</span>
         </span>
       </button>`;
     };
@@ -184,7 +184,7 @@
       const label = _GROUP_LABEL[key];
       const color = _GROUP_COLOR[key];
       const sep = key === 'urgent' ? '' : 'border-top:0.5px solid #F0F1F4;';
-      return `<div style="${sep}"><div style="padding:14px 16px 6px;font-size:10px;font-weight:500;letter-spacing:0.3px;color:${color};">${label}</div>${list.map(renderCard).join('')}</div>`;
+      return `<div style="${sep}"><div style="padding:14px 16px 6px;font-size:11px;font-weight:500;letter-spacing:0.3px;color:${color};">${label}</div>${list.map(renderCard).join('')}</div>`;
     };
     body.innerHTML = groupHtml('urgent') + groupHtml('today') + groupHtml('past');
     // 헤더 미읽 카운트 뱃지
@@ -339,7 +339,7 @@
             <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
               <button data-dmq-open style="background:${colors.btn};color:${colors.btnText};border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">${isRisk ? '바로 확인' : '큐 열기'}</button>
               <button data-dmq-dismiss="${a.id}" style="background:none;border:none;color:${colors.subText};font-size:11px;cursor:pointer;">나중에</button>
-              <span style="margin-left:auto;font-size:10px;color:${colors.subText}80;">${_esc(_relativeTime(a.scheduled_at))}</span>
+              <span style="margin-left:auto;font-size:11px;color:${colors.subText}80;">${_esc(_relativeTime(a.scheduled_at))}</span>
             </div>
           </div>
         </div>
@@ -399,7 +399,7 @@
             <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
               <button data-ann-confirm="${a.id}" style="background:var(--brand);color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">확인</button>
               ${more > 0 ? `<button data-ann-more style="background:none;border:none;color:#7a8294;font-size:11px;cursor:pointer;">공지 ${more}개 더 보기</button>` : ''}
-              <span style="margin-left:auto;font-size:10px;color:#8b94a7;">${_esc(_relativeTime(a.scheduled_at))}</span>
+              <span style="margin-left:auto;font-size:11px;color:#8b94a7;">${_esc(_relativeTime(a.scheduled_at))}</span>
             </div>
           </div>
           <button data-ann-dismiss="${a.id}" aria-label="공지 닫기" style="position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;border:none;background:rgba(0,0,0,0.05);font-size:13px;color:#525c70;cursor:pointer;line-height:1;">✕</button>
@@ -463,7 +463,7 @@
             <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
               <button data-pb-open style="background:#F59E0B;color:#fff;border:none;padding:7px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;">승인·거절 열기</button>
               <button data-pb-dismiss="${a.id}" style="background:none;border:none;color:#92400E;font-size:11px;cursor:pointer;">나중에</button>
-              <span style="margin-left:auto;font-size:10px;color:#92400E80;">${_esc(_relativeTime(a.scheduled_at))}</span>
+              <span style="margin-left:auto;font-size:11px;color:#92400E80;">${_esc(_relativeTime(a.scheduled_at))}</span>
             </div>
           </div>
         </div>

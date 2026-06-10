@@ -915,7 +915,7 @@
           <div data-pick-id="${_esc(c.id)}" style="padding:12px 8px;border-bottom:1px solid #eee;cursor:pointer;border-radius:14px;${c.id === opts.selectedId ? 'background:rgba(213,138,149,0.08);' : ''}">
             <strong style="font-size:14px;">${_esc(c.name)}</strong>
             ${c.phone ? `<span style="font-size:12px;color:#888;margin-left:6px;">${_esc(c.phone)}</span>` : ''}
-            ${c.visit_count ? `<span style="font-size:10px;color:var(--accent,var(--brand));margin-left:6px;">방문 ${c.visit_count}</span>` : ''}
+            ${c.visit_count ? `<span style="font-size:11px;color:var(--accent,var(--brand));margin-left:6px;">방문 ${c.visit_count}</span>` : ''}
           </div>
         `).join('') + (moreCount > 0 ? `<div style="padding:12px;text-align:center;font-size:12px;color:#888;">검색어 입력 시 ${moreCount}명 더 볼 수 있어요</div>` : '');
         listEl.querySelectorAll('[data-pick-id]').forEach(row => {

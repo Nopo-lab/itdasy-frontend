@@ -120,7 +120,7 @@
   }
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
   function _gradeBadge(grade) {
-    return `<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;padding:2px 8px;border-radius:99px;flex-shrink:0;">${_esc(grade || '신규')}</span>`;
+    return `<span style="font-size:11px;font-weight:700;color:#BC6675;background:#F7EFF0;padding:2px 8px;border-radius:99px;flex-shrink:0;">${_esc(grade || '신규')}</span>`;
   }
   function _depositSignal(text) {
     return /입금|송금|이체|보냈|결제했|입금했/.test(text || '');
@@ -189,7 +189,7 @@
         <svg width="12" height="12" aria-hidden="true"><use href="#ic-bot"/></svg>잇비가 정리한 정보
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      ${chips.map(c => `<span style="font-size:11px;color:#4E5968;background:#F2F4F6;padding:3px 9px;border-radius:99px;"><span style="color:#8B95A1;font-size:10px;">${c.prefix}</span> ${_esc(String(c.val))}</span>`).join('')}
+      ${chips.map(c => `<span style="font-size:11px;color:#4E5968;background:#F2F4F6;padding:3px 9px;border-radius:99px;"><span style="color:#8B95A1;font-size:11px;">${c.prefix}</span> ${_esc(String(c.val))}</span>`).join('')}
       </div>
     </div>`;
   }

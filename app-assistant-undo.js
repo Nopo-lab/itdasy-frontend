@@ -136,7 +136,7 @@
             <input type="checkbox" id="uhsChainToggle">
             <span style="display:inline-flex;align-items:center;gap:5px;"><i class="ph-duotone ph-link" aria-hidden="true"></i><strong>묶음 처리 모드</strong> — 여러 작업을 한 번에 확인해요</span>
           </label>
-          <div style="margin-top:6px;font-size:10px;color:#BC667580;">민감한 작업(삭제·취소·메시지 발송)은 묶음 처리 모드여도 따로 확인. 실패 시 자동 되돌림.</div>
+          <div style="margin-top:6px;font-size:11px;color:#BC667580;">민감한 작업(삭제·취소·메시지 발송)은 묶음 처리 모드여도 따로 확인. 실패 시 자동 되돌림.</div>
         </div>
       </div>
     `;
@@ -191,7 +191,7 @@
             <div style="padding:10px 12px;background:#F7EFF0;border:1px solid #F0DADF;border-radius:12px;margin-bottom:8px;">
               <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
                 <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#BC6675;background:#fff;padding:3px 8px;border-radius:99px;"><i class="ph-duotone ph-link" aria-hidden="true"></i>Chain ${group.length}건</span>
-                <span style="font-size:10px;color:var(--text-subtle);">${dt.toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
+                <span style="font-size:11px;color:var(--text-subtle);">${dt.toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
                 <button class="uhs-undo-chain" data-chain="${cid}" style="margin-left:auto;background:#BC6675;border:none;color:#fff;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">전체 되돌리기</button>
               </div>
               ${group.map(g => `<div style="font-size:12px;color:#333;padding:4px 0 4px 20px;">${_esc(g.summary)}</div>`).join('')}
@@ -204,7 +204,7 @@
           <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:#FAFAFA;border-radius:12px;margin-bottom:6px;">
             <div style="flex:1;font-size:13px;color:#333;">
               <div>${_esc(it.summary)}</div>
-              <div style="font-size:10px;color:var(--text-subtle);margin-top:2px;">${dt.toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+              <div style="font-size:11px;color:var(--text-subtle);margin-top:2px;">${dt.toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
             </div>
             <button class="uhs-undo" data-id="${it.id}" style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #ddd;color:#555;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;"><i class="ph-duotone ph-arrow-counter-clockwise" aria-hidden="true"></i>되돌리기</button>
           </div>

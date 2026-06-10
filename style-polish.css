@@ -27,7 +27,7 @@
 }
 .frame-avatar-inner img { width: 100%; height: 100%; object-fit: cover; }
 .insta-frame-handle { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
-.insta-frame-meta   { font-size: 10px; color: var(--text3); margin-top: 1px; }
+.insta-frame-meta   { font-size: 11px; color: var(--text3); margin-top: 1px; }
 .insta-frame-body   { padding: 16px 16px 8px; }
 
 /* [2026-05-05 19차-B] 인스타 시뮬 — 사진 + dots + 액션 아이콘 */

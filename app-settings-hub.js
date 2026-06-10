@@ -129,7 +129,7 @@
           <div class="ms-ic__label">화면 테마</div>
           <div class="ms-ic__seg" id="shThemeSeg" role="group" aria-label="화면 테마">
             <button type="button" class="ms-ic__seg-btn" data-theme="light">라이트</button>
-            <button type="button" class="ms-ic__seg-btn" data-theme="dark" style="opacity:0.5;cursor:not-allowed;" title="정비 중 — 잠시만요">다크 <span style="background:#FEF7E5;color:#8B6F00;font-size:10px;padding:2px 7px;border-radius:5px;margin-left:4px;font-weight:600;">정비 중</span></button>
+            <button type="button" class="ms-ic__seg-btn" data-theme="dark" style="opacity:0.5;cursor:not-allowed;" title="정비 중 — 잠시만요">다크 <span style="background:#FEF7E5;color:#8B6F00;font-size:11px;padding:2px 7px;border-radius:5px;margin-left:4px;font-weight:600;">정비 중</span></button>
           </div>
         </div>
         <div class="ms-ic__row">

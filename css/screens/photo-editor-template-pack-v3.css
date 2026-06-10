@@ -60,7 +60,7 @@ body.tpv3[data-device="mobile"] .tpv3-grid {
 .tpv3-item-head { display: flex; align-items: center; gap: 8px; }
 .tpv3-item-title { font-size: 13px; font-weight: 700; }
 .tpv3-item-id { font-size: 11px; color: var(--tpv3-ui-sub); }
-.tpv3-badge { font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
+.tpv3-badge { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 6px; }
 .tpv3-badge.free { background: #e6f4ea; color: #1f9d63; }
 .tpv3-badge.pro { background: linear-gradient(135deg, #caa15a, #a9823f); color: #fff; }
 .tpv3-badge.style { background: #eef1f5; color: #4e5968; }

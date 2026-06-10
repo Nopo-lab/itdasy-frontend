@@ -183,7 +183,7 @@ function initCaptionSlotPicker() {
   container.style.display = 'block';
   container.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;">
-      <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:10px;">작업실 슬롯 <span style="font-size:10px;color:var(--text3);font-weight:400;">— 탭하면 사진이 연결돼요</span></div>
+      <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:10px;">작업실 슬롯 <span style="font-size:11px;color:var(--text3);font-weight:400;">— 탭하면 사진이 연결돼요</span></div>
       <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;" id="captionSlotCards">
         ${usableSlots.map(slot => {
           const thumb = (slot.photos || []).filter(p => !p.hidden)[0];
@@ -195,7 +195,7 @@ function initCaptionSlotPicker() {
             <div id="csPick_${_captionEsc(slot.id)}" data-caption-slot="${_captionEsc(slot.id)}" style="flex-shrink:0;width:64px;cursor:pointer;text-align:center;">
               <div style="position:relative;">
                 <img src="${_captionEsc(thumb.editedDataUrl || thumb.dataUrl)}" style="width:64px;height:64px;object-fit:cover;border-radius:10px;border:2px solid transparent;transition:border-color 0.2s;" id="csThumb_${_captionEsc(slot.id)}">
-                ${badge ? `<div style="position:absolute;top:-4px;right:-4px;background:#4caf50;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;border:2px solid #fff;">${badge}</div>` : ''}
+                ${badge ? `<div style="position:absolute;top:-4px;right:-4px;background:#4caf50;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2px solid #fff;">${badge}</div>` : ''}
               </div>
               <div style="font-size:9px;color:var(--text2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_captionEsc(slot.label)}</div>
             </div>
@@ -321,7 +321,7 @@ function _showCaptionPublishPreview(photos, caption) {
         </div>
         <div style="flex:1;">
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${_writeEsc(shopName)}</div>
-          <div style="font-size:10px;color:var(--text-subtle);">sponsored</div>
+          <div style="font-size:11px;color:var(--text-subtle);">sponsored</div>
         </div>
         <button style="padding:4px 12px;border-radius:6px;border:1.5px solid #dbdbdb;background:transparent;font-size:12px;font-weight:600;color:#262626;cursor:pointer;">팔로우</button>
         <button data-write-preview-close style="background:transparent;border:none;font-size:18px;color:var(--text-subtle);cursor:pointer;margin-left:8px;">×</button>

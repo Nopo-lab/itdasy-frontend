@@ -62,7 +62,7 @@
         #tplV2Sheet .tpv2-thumb { display:flex; align-items:center; justify-content:center; text-align:center; color:#fff; font-weight:700; font-size:14px; line-height:1.32; padding:12px; font-family:Georgia,"Noto Serif KR",serif; letter-spacing:.2px; text-shadow:0 1px 6px rgba(0,0,0,.32); }
         #tplV2Sheet .tpv2-meta { padding:8px 10px 10px; background:#fff; }
         #tplV2Sheet .tpv2-name { font-size:12.5px; font-weight:700; color:#2b2620; }
-        #tplV2Sheet .tpv2-sub { font-size:10px; font-weight:600; color:#a89e8d; margin-top:2px; }
+        #tplV2Sheet .tpv2-sub { font-size:11px; font-weight:600; color:#a89e8d; margin-top:2px; }
         #tplV2Sheet .tpv2-badge { position:absolute; top:8px; left:8px; font-size:9px; font-weight:800; letter-spacing:.5px; padding:3px 7px; border-radius:7px; color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.3); }
         #tplV2Sheet .tpv2-badge.free { background:#1f9d63; }
         #tplV2Sheet .tpv2-badge.pro { background:linear-gradient(135deg,#caa15a,#a9823f); color:#1a160f; }
@@ -434,7 +434,7 @@
     // 흰 채팅 배경용 자체 인라인 스타일 mini 카드. data-tpv2-thumb 로 썸네일 주입, data-tpv2-tpl 로 클릭.
     return '<button type="button" data-tpv2-tpl="' + _esc(t.id) + '" style="position:relative;border:1px solid #E5E8EB;border-radius:12px;overflow:hidden;background:#fff;cursor:pointer;padding:0;text-align:left;box-shadow:0 1px 4px rgba(0,0,0,.08);">'
       + '<span style="position:absolute;top:6px;left:6px;z-index:2;font-size:8.5px;font-weight:800;padding:2px 6px;border-radius:6px;background:' + badgeBg + ';color:' + badgeColor + ';">' + (isFree ? 'FREE' : 'PRO') + '</span>'
-      + '<div data-tpv2-thumb="' + _esc(t.id) + '" data-tpv2-ratio="' + cat.ratio + '" data-tpv2-accent="' + color + '" style="aspect-ratio:' + ar + ';background:linear-gradient(135deg,' + color + '33,' + color + ');display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;text-align:center;padding:6px;">' + _esc(t.prefillText || t.label) + '</div>'
+      + '<div data-tpv2-thumb="' + _esc(t.id) + '" data-tpv2-ratio="' + cat.ratio + '" data-tpv2-accent="' + color + '" style="aspect-ratio:' + ar + ';background:linear-gradient(135deg,' + color + '33,' + color + ');display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;text-align:center;padding:6px;">' + _esc(t.prefillText || t.label) + '</div>'
       + '<div style="padding:6px 7px 8px;"><div style="font-size:11px;font-weight:700;color:#2b2620;line-height:1.25;">' + _esc(t.label) + '</div>'
       + (tagTxt ? '<div style="font-size:9px;color:#7d7468;margin-top:2px;">' + _esc(tagTxt) + '</div>' : '')
       + '<div style="font-size:9px;color:' + proColor + ';font-weight:700;margin-top:3px;">' + _esc(proVal) + '</div></div>'

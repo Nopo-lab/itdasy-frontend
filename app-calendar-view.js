@@ -842,7 +842,7 @@
               <button id="bk-month-next" aria-label="다음 달" style="background:none;border:none;font-size:16px;cursor:pointer;padding:4px 6px;color:var(--text-primary,#333);">&gt;</button>
             </div>
             <div class="bk-header__sub" id="bk-month-sub">${subTxt}</div>
-            <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;margin-left:6px;">오프라인</span>
+            <span id="cal-offline-badge" style="display:none;font-size:11px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;margin-left:6px;">오프라인</span>
           </div>
           <button class="bk-today-btn" id="bk-today-btn">오늘</button>
         </div>
@@ -890,7 +890,7 @@
           <div class="bk-view">${viewBtns}</div>
           ${_renderLegend()}
           <button class="bk-pc__add-btn" id="bk-pc-add">+ 예약 추가</button>
-          <span id="cal-offline-badge" style="display:none;font-size:10px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
+          <span id="cal-offline-badge" style="display:none;font-size:11px;font-weight:700;color:var(--danger);background:rgba(220,53,69,.1);padding:2px 8px;border-radius:999px;">오프라인</span>
         </div>`;
   }
 

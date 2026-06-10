@@ -51,28 +51,28 @@
     if (f.it.status === 'done') {
       return {
         ...base,
-        statusRight: '<span style="font-size:10px;color:#0F8746;font-weight:700;flex-shrink:0;">완료</span>',
+        statusRight: '<span style="font-size:11px;color:#0F8746;font-weight:700;flex-shrink:0;">완료</span>',
         icon: `<span style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#0F8746;">${svg(deps, 'ic-check-circle', 14)}</span>`,
       };
     }
     if (f.it.status === 'failed') {
       return {
         ...base,
-        statusRight: '<span style="font-size:10px;color:#E5484D;font-weight:700;flex-shrink:0;">실패</span>',
+        statusRight: '<span style="font-size:11px;color:#E5484D;font-weight:700;flex-shrink:0;">실패</span>',
         icon: `<span style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#E5484D;">${svg(deps, 'ic-x', 14)}</span>`,
       };
     }
     if (f.it.status === 'running') {
       return {
         ...base,
-        statusRight: `<span style="font-size:10px;color:var(--text-muted);font-weight:700;flex-shrink:0;">저장 중…</span>`,
+        statusRight: `<span style="font-size:11px;color:var(--text-muted);font-weight:700;flex-shrink:0;">저장 중…</span>`,
         icon: `<span style="width:18px;height:18px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;"><span style="display:inline-block;width:12px;height:12px;border:2px solid #C5CBD2;border-top-color:#191F28;border-radius:50%;animation:asst-spin 0.8s linear infinite;"></span></span>`,
       };
     }
     return {
       ...base,
       rowOpacity: f.it.skipped ? 0.45 : 1,
-      statusRight: f.it.skipped ? '<span style="font-size:10px;color:var(--text-subtle);font-weight:700;flex-shrink:0;">제외</span>' : '',
+      statusRight: f.it.skipped ? '<span style="font-size:11px;color:var(--text-subtle);font-weight:700;flex-shrink:0;">제외</span>' : '',
       icon: `<span style="width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:${baseIconColor};">${svg(deps, meta.icon, 16)}</span>`,
     };
   }
@@ -81,7 +81,7 @@
     const meta = metaFor(deps, f.kind);
     const state = unifiedRowState(deps, f, meta);
     const errorLine = (f.it.status === 'failed' && f.it.errorMsg)
-      ? `<div style="font-size:10px;color:#E5484D;margin-top:2px;line-height:1.4;">사유: ${esc(deps, f.it.errorMsg)}</div>`
+      ? `<div style="font-size:11px;color:#E5484D;margin-top:2px;line-height:1.4;">사유: ${esc(deps, f.it.errorMsg)}</div>`
       : '';
     const sep = isLast ? '' : 'border-bottom:0.5px solid var(--border);';
     return `<div style="display:flex;align-items:center;gap:10px;padding:10px 2px;${sep}opacity:${state.rowOpacity};">
@@ -262,9 +262,9 @@
     if (conf === null || conf >= 0.9) return '';
     const pct = Math.round(conf * 100);
     if (conf < 0.7) {
-      return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:10px;font-weight:700;">⚠️ 확인 필요 ${pct}%</span>`;
+      return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:11px;font-weight:700;">⚠️ 확인 필요 ${pct}%</span>`;
     }
-    return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fefce8;color:#a16207;border:1px solid #fde68a;border-radius:4px;font-size:10px;font-weight:600;">참고 ${pct}%</span>`;
+    return `<span style="display:inline-block;margin-left:6px;padding:1px 6px;background:#fefce8;color:#a16207;border:1px solid #fde68a;border-radius:4px;font-size:11px;font-weight:600;">참고 ${pct}%</span>`;
   }
 
   function fieldHtml(deps, key, field, label, val, extra) {
@@ -273,7 +273,7 @@
     if (ex.select) return selectFieldHtml(deps, key, field, label, val);
     const type = ex.type || 'text';
     return `<div style="display:flex;align-items:center;gap:6px;">
-      <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
+      <span style="width:50px;font-size:11px;color:#888;font-weight:700;">${label}</span>
       <input data-row-field="${key}:${field}" type="${type}" value="${esc(deps, val == null ? '' : val)}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;" />
     </div>`;
   }
@@ -281,7 +281,7 @@
   function selectFieldHtml(deps, key, field, label, val) {
     const options = deps.categoryOptionsHtml ? deps.categoryOptionsHtml(val) : '';
     return `<div style="display:flex;align-items:center;gap:6px;">
-      <span style="width:50px;font-size:10px;color:#888;font-weight:700;">${label}</span>
+      <span style="width:50px;font-size:11px;color:#888;font-weight:700;">${label}</span>
       <select data-row-field="${key}:${field}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;background:#fff;">
         <option value=""${val ? '' : ' selected'}>선택</option>
         ${options}
@@ -294,7 +294,7 @@
     const memo = ('memo' in p) ? fieldHtml(deps, key, 'memo', '메모', p.memo) : '';
     return {
       fields: [],
-      itemsHtml: `<div style="font-size:10px;font-weight:700;color:#888;margin-bottom:2px;">품목</div>
+      itemsHtml: `<div style="font-size:11px;font-weight:700;color:#888;margin-bottom:2px;">품목</div>
         ${deps.renderItemsEditor(key, p.items, { fieldAttr: 'row-field', addAttr: 'row-item-add', delAttr: 'row-item-delete', color: meta.color, compact: true })}${memo}`,
     };
   }
@@ -309,9 +309,9 @@
         fieldHtml(deps, key, 'category', '분류', p.category == null ? '' : p.category, { select: true }),
         fieldHtml(deps, key, 'memo', '메모', p.memo == null ? '' : p.memo),
       ],
-      itemsHtml: `<div style="font-size:10px;font-weight:700;color:#888;margin:8px 0 2px;">품목 (정가)</div>
+      itemsHtml: `<div style="font-size:11px;font-weight:700;color:#888;margin:8px 0 2px;">품목 (정가)</div>
         ${deps.renderItemsEditor(key, p.items, { fieldAttr: 'row-field', addAttr: 'row-item-add', delAttr: 'row-item-delete', color: meta.color, compact: true })}
-        <div style="font-size:10px;font-weight:700;color:#888;margin:8px 0 2px;">할인·쿠폰·포인트</div>
+        <div style="font-size:11px;font-weight:700;color:#888;margin:8px 0 2px;">할인·쿠폰·포인트</div>
         ${deps.renderAdjustmentsEditor(key, p.adjustments, { fieldAttr: 'row-field', addAttr: 'row-adjustment-add', delAttr: 'row-adjustment-delete', color: meta.color, compact: true })}
         ${deps.renderExpenseSummary(p)}`,
     };
@@ -331,7 +331,7 @@
 
   function fallbackConfirmationField(deps, key, it) {
     return `<div style="display:flex;align-items:center;gap:6px;">
-      <span style="width:50px;font-size:10px;color:#888;font-weight:700;">내용</span>
+      <span style="width:50px;font-size:11px;color:#888;font-weight:700;">내용</span>
       <input data-row-field="${key}:confirmation_text" value="${esc(deps, it.action.confirmation_text || '')}" style="flex:1;padding:6px 8px;border:1px solid hsl(220,15%,85%);border-radius:8px;font-size:11px;" />
     </div>`;
   }
@@ -363,7 +363,7 @@
     const content = editContent(deps, key, it, p, meta);
     const head = `<div style="font-size:12px;color:#222;font-weight:700;">${iIdx + 1}. ${esc(deps, summaryFor(deps, it.action))}${confidenceBadge(deps, it.action)}</div>`;
     const status = it.status === 'running'
-      ? `<div style="font-size:10px;color:${meta.color};font-weight:700;margin-top:2px;">저장 중…</div>`
+      ? `<div style="font-size:11px;color:${meta.color};font-weight:700;margin-top:2px;">저장 중…</div>`
       : '';
     return `<div style="padding:9px 10px;border-radius:10px;background:hsl(340,100%,99%);border:1px solid hsl(340,30%,92%);display:flex;flex-direction:column;gap:6px;">
       ${head}

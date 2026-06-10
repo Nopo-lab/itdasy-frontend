@@ -152,7 +152,7 @@ void main() {
       const v = (_mode === 'sat' ? h.sat[c.id] : h.light[c.id]) || 0;
       return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0;">
         <span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${c.swatch};flex-shrink:0;"></span>
-        <div style="width:90px;font-size:11px;line-height:1.2;"><div style="font-weight:600;">${_esc(c.label)}</div><div style="color:#888;font-size:10px;">${_esc(HINTS[c.id] || '')}</div></div>
+        <div style="width:90px;font-size:11px;line-height:1.2;"><div style="font-weight:600;">${_esc(c.label)}</div><div style="color:#888;font-size:11px;">${_esc(HINTS[c.id] || '')}</div></div>
         <input type="range" min="-100" max="100" step="1" value="${v}" data-hsl-slider="${c.id}" style="flex:1;">
         <span data-hsl-val="${c.id}" style="width:32px;text-align:right;font-size:11px;color:#888;">${v}</span>
       </div>`;

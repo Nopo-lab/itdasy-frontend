@@ -105,7 +105,7 @@
       }
       list.innerHTML = facts.map(f => `
         <div style="display:flex;align-items:flex-start;gap:8px;padding:11px 12px;background:#FAFAFA;border-radius:12px;margin-bottom:8px;">
-          <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:${_kindColor(f.kind)};background:${_kindColor(f.kind)}15;padding:3px 8px;border-radius:99px;line-height:1.3;"><svg width="10" height="10" aria-hidden="true"><use href="#${_kindIcon(f.kind)}"/></svg>${_kindLabel(f.kind)}</span>
+          <span style="flex-shrink:0;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:${_kindColor(f.kind)};background:${_kindColor(f.kind)}15;padding:3px 8px;border-radius:99px;line-height:1.3;"><svg width="10" height="10" aria-hidden="true"><use href="#${_kindIcon(f.kind)}"/></svg>${_kindLabel(f.kind)}</span>
           <div style="flex:1;font-size:13px;line-height:1.45;color:#333;word-break:break-word;">${_esc(f.text)}</div>
           <button class="afs-del" data-id="${f.id}" style="flex-shrink:0;background:none;border:none;color:var(--text-subtle);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;" title="삭제">✕</button>
         </div>

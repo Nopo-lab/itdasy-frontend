@@ -861,7 +861,7 @@ function openInstagramPreview(opts) {
     : `<div style="width:100%;aspect-ratio:${meta.ar};background:#f0f0f0;display:flex;align-items:center;justify-content:center;color:#999;font-size:13px;">사진을 먼저 편집해 주세요</div>`;
 
   // 비율 배지 (어떤 포맷으로 보여지는지 사장님이 한눈에)
-  const ratioBadge = `<span style="display:inline-block;padding:2px 8px;border-radius:8px;background:rgba(213,138,149,0.12);color:var(--accent2,#e26a85);font-size:10px;font-weight:700;margin-left:6px;">${meta.key} · ${meta.w}×${meta.h}</span>`;
+  const ratioBadge = `<span style="display:inline-block;padding:2px 8px;border-radius:8px;background:rgba(213,138,149,0.12);color:var(--accent2,#e26a85);font-size:11px;font-weight:700;margin-left:6px;">${meta.key} · ${meta.w}×${meta.h}</span>`;
 
   pop.innerHTML = `
     <div style="width:100%;max-width:480px;background:#fff;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;">
@@ -874,7 +874,7 @@ function openInstagramPreview(opts) {
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:13px;font-weight:700;line-height:1.2;">${shopName}</div>
-          <div style="font-size:10px;color:var(--text-subtle,#888);">미리보기 ${ratioBadge}</div>
+          <div style="font-size:11px;color:var(--text-subtle,#888);">미리보기 ${ratioBadge}</div>
         </div>
         <button data-ig-preview-x style="background:transparent;border:none;font-size:20px;color:var(--text-subtle,#888);cursor:pointer;margin-left:8px;" aria-label="닫기">×</button>
       </div>
@@ -890,7 +890,7 @@ function openInstagramPreview(opts) {
         <div style="font-size:11px;color:var(--text-subtle,#888);font-weight:700;margin-bottom:4px;">캡션 (수정 가능)</div>
         <textarea id="_igPreviewCaption" rows="5" placeholder="캡션을 입력하세요…"
           style="width:100%;padding:10px;border:1px solid #E2D6F7;border-radius:10px;font-size:13px;color:#262626;line-height:1.5;background:#fff;resize:vertical;font-family:inherit;box-sizing:border-box;">${captionPrefill.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
-        <div style="font-size:10px;color:var(--text-subtle,#888);margin-top:4px;">${captionPrefill ? '자동 생성된 캡션이에요. 사장님 톤으로 다듬어 보세요.' : '메시지에 시술 정보를 같이 적으면 캡션이 자동 생성돼요.'}</div>
+        <div style="font-size:11px;color:var(--text-subtle,#888);margin-top:4px;">${captionPrefill ? '자동 생성된 캡션이에요. 사장님 톤으로 다듬어 보세요.' : '메시지에 시술 정보를 같이 적으면 캡션이 자동 생성돼요.'}</div>
       </div>
       <div style="padding:0 12px 28px;display:flex;gap:8px;">
         <button id="_igPreviewClose" style="flex:1;height:46px;border-radius:14px;border:1.5px solid #dbdbdb;background:#fff;color:#262626;font-size:13px;font-weight:700;cursor:pointer;">닫기</button>

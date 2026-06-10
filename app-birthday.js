@@ -114,7 +114,7 @@
             <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
               <strong style="font-size:15px;">${_esc(c.name)}</strong>
               <span style="font-size:11px;color:#D58A95;font-weight:700;">${_esc(_relativeLabel(c.days_until))}</span>
-              <span style="margin-left:auto;font-size:10px;color:var(--text-subtle);">${_esc(c.birthday)}</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--text-subtle);">${_esc(c.birthday)}</span>
             </div>
             <div style="font-size:11px;color:#888;margin-bottom:8px;">${c.phone ? _esc(c.phone) + ' · ' : ''}방문 ${c.visit_count}회</div>
             <div style="display:flex;gap:6px;">
@@ -123,7 +123,7 @@
           </div>
         `).join('')}
       </div>
-      <div style="margin-top:16px;padding:12px;background:#fafafa;border-radius:10px;font-size:10px;color:#888;line-height:1.6;">
+      <div style="margin-top:16px;padding:12px;background:#fafafa;border-radius:10px;font-size:11px;color:#888;line-height:1.6;">
         📌 알림톡 대행사 연동 후에는 <b>자동 발송</b> 가능. 그 전까지는 버튼 한 번 → 카톡 앱에 붙여넣기.
       </div>
     `;

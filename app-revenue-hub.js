@@ -213,11 +213,15 @@
   function _renderRow(r) {
     if (_state.editingId === r.id) return _renderEditRow(r);
     const tag = `<span class="rv-tag ${TAG_CLS[r.method] || ''}">${TAG_LABEL[r.method] || _esc(r.method || '카드')}</span>`;
+    // [2026-06-10] 예약 완료로 자동 기록된 매출 표시 — BE memo 의 [auto_booking:{id}] 마커 활용.
+    //   수동으로 또 입력하는 이중 기록 실수 방지용.
+    const isAuto = /\[auto_booking:/.test(r.memo || '');
+    const autoTag = isAuto ? `<span class="rv-tag" style="background:#EEF1F4;color:#6B7684;" title="예약 완료 시 자동 기록됨">자동</span>` : '';
     return `<div class="rv-list__item" data-id="${_esc(r.id)}">
       <div class="rv-list__amount">${_formatMan(r.amount)}</div>
       <div class="rv-list__info">
         <div class="rv-list__service">${_esc(r.service_name || '—')}</div>
-        <div class="rv-list__meta">${tag}${r.customer_name ? `<span class="rv-list__customer">${_esc(r.customer_name)}</span>` : ''}</div>
+        <div class="rv-list__meta">${tag}${autoTag}${r.customer_name ? `<span class="rv-list__customer">${_esc(r.customer_name)}</span>` : ''}</div>
       </div>
       <button type="button" class="rv-list__delete" data-act="edit" data-id="${_esc(r.id)}" aria-label="수정" style="color:var(--text-muted);">
         <i class="ph-duotone ph-pencil-simple" aria-hidden="true"></i>

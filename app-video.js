@@ -53,7 +53,7 @@
       <header class="dt-hdr">
         <button class="dt-back" data-video-close aria-label="뒤로"><svg width="20" height="20" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>
         <h1 class="dt-title">영상 만들기</h1>
-        <span id="videoBadge" style="font-size:10px;padding:2px 6px;border-radius:4px;"></span>
+        <span id="videoBadge" style="font-size:11px;padding:2px 6px;border-radius:4px;"></span>
       </header>
       <div class="dt-body" id="videoBody"></div>
     `;

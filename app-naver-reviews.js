@@ -155,7 +155,7 @@
     listEl.innerHTML = '<div class="dt-list">' + _items.map(r => `
       <button class="dt-list-it" data-id="${r.id}" type="button">
         <div class="dt-list-it__main">
-          <p class="dt-list-it__title"><span style="color:#FFB800;">${_starLine(r.rating)}</span> ${_esc(r.author_name||'익명')}${r.visited_at ? ` <span style="font-size:10px;font-weight:400;color:var(--text-subtle);">${_esc(r.visited_at)}</span>` : ''}</p>
+          <p class="dt-list-it__title"><span style="color:#FFB800;">${_starLine(r.rating)}</span> ${_esc(r.author_name||'익명')}${r.visited_at ? ` <span style="font-size:11px;font-weight:400;color:var(--text-subtle);">${_esc(r.visited_at)}</span>` : ''}</p>
           ${r.content ? `<p class="dt-list-it__sub">${_esc(r.content).slice(0, 80)}${r.content.length > 80 ? '…' : ''}</p>` : ''}
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>

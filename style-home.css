@@ -138,7 +138,7 @@
 }
 
 .hc-step-label {
-  font-size: 10px; font-weight: 700; color: #D58A95;
+  font-size: 11px; font-weight: 700; color: #D58A95;
   letter-spacing: 0.14em; margin-bottom: 10px;
 }
 
@@ -174,7 +174,7 @@
 }
 
 .hc-preview-label {
-  font-size: 10px; font-weight: 700; color: var(--text3);
+  font-size: 11px; font-weight: 700; color: var(--text3);
   letter-spacing: 0.08em; margin-bottom: 12px;
 }
 
@@ -198,7 +198,7 @@
 .hc-main-cta:active { transform: scale(0.985); box-shadow: 0 4px 16px rgba(213,138,149,0.3); }
 
 .hc-cta-eyebrow {
-  font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.7);
+  font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
   letter-spacing: 0.06em; margin-bottom: 6px;
 }
 
@@ -220,7 +220,7 @@
 }
 
 .pd-title {
-  font-size: 10px; font-weight: 700; color: var(--text3);
+  font-size: 11px; font-weight: 700; color: var(--text3);
   letter-spacing: 0.08em; margin-bottom: 14px;
 }
 
@@ -375,7 +375,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 
 .ob-shop-badge {
   position: absolute; top: 10px; right: 10px;
-  font-size: 10px; font-weight: 600; color: var(--text3);
+  font-size: 11px; font-weight: 600; color: var(--text3);
   background: var(--bg3); border-radius: 6px; padding: 2px 7px;
   letter-spacing: 0;
 }
@@ -514,7 +514,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 
 .slot-item {
   height: 44px; display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: var(--accent2);
+  font-size: 11px; font-weight: 700; color: var(--accent2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   padding: 0 6px; letter-spacing: -0.02em; flex-shrink: 0;
   max-width: 100%; box-sizing: border-box;

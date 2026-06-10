@@ -91,7 +91,7 @@
 .pe-studio-hero span,
 .pe-studio-tag {
   color: var(--pe-copper);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -270,7 +270,7 @@ input[data-studio-slider]::-webkit-slider-thumb {
   border-radius: 999px;
   background: rgba(17,18,23,0.72);
   color: #fffaf2;
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 800;
 }
@@ -397,7 +397,7 @@ input[data-studio-slider]::-webkit-slider-thumb {
 .pe-mask-status-row small,
 .pe-mask-status-row em {
   color: rgba(255,250,242,0.64);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.35;
 }
 
@@ -409,7 +409,7 @@ input[data-studio-slider]::-webkit-slider-thumb {
 .pe-mask-badge {
   border-radius: 999px;
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -474,7 +474,7 @@ input[data-studio-slider]::-webkit-slider-thumb {
 }
 
 .pe-reco-chip {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: rgba(255,250,242,0.78);
   background: rgba(255,250,242,0.08);

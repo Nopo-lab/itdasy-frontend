@@ -95,7 +95,7 @@
   border-top: 0.5px solid rgba(229,88,110,0.18);
 }
 .ipc-bubble-label {
-  font-size: 10px; font-weight: 800; color: var(--brand);
+  font-size: 11px; font-weight: 800; color: var(--brand);
   letter-spacing: 0.3px;
   margin-bottom: 8px;
   text-transform: uppercase;

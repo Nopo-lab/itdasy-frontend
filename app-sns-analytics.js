@@ -112,14 +112,14 @@
       <header style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.06);">
         <button data-sns-analytics-close style="background:none;border:none;font-size:18px;cursor:pointer;margin-right:12px;">‹</button>
         <div style="font-size:15px;font-weight:800;">📊 게시물 성과 대시보드</div>
-        ${d._fromServer ? '<span style="margin-left:auto;font-size:10px;color:#4ade80;font-weight:700;">● 실시간</span>' : '<span style="margin-left:auto;font-size:10px;color:#888;">데모</span>'}
+        ${d._fromServer ? '<span style="margin-left:auto;font-size:11px;color:#4ade80;font-weight:700;">● 실시간</span>' : '<span style="margin-left:auto;font-size:11px;color:#888;">데모</span>'}
       </header>
       ${d._notice ? `<div style="padding:8px 16px;background:#fff8e1;color:#8a6d3b;font-size:11px;border-bottom:1px solid #ffe0a3;">${_esc(d._notice)}</div>` : ''}
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:16px;">
-        <div style="background:linear-gradient(135deg,#fff0f3,#ffe4ea);border-radius:14px;padding:16px;"><div style="font-size:10px;font-weight:700;color:var(--accent2);margin-bottom:4px;">총 좋아요</div><div style="font-size:24px;font-weight:900;">${(s.totalLikes||0).toLocaleString()}</div></div>
-        <div style="background:linear-gradient(135deg,#f0f4ff,#e4edff);border-radius:14px;padding:16px;"><div style="font-size:10px;font-weight:700;color:#5b7dbd;margin-bottom:4px;">총 댓글</div><div style="font-size:24px;font-weight:900;">${(s.totalComments||0).toLocaleString()}</div></div>
-        <div style="background:linear-gradient(135deg,#f0fff4,#e4ffe9);border-radius:14px;padding:16px;"><div style="font-size:10px;font-weight:700;color:#4aa865;margin-bottom:4px;">평균 도달</div><div style="font-size:24px;font-weight:900;">${(s.avgReach||0).toLocaleString()}</div></div>
-        <div style="background:linear-gradient(135deg,#fffbf0,#fff5e4);border-radius:14px;padding:16px;"><div style="font-size:10px;font-weight:700;color:#c4882b;margin-bottom:4px;">성장률</div><div style="font-size:24px;font-weight:900;">${s.growthRate>0?'+':''}${s.growthRate||0}%</div></div>
+        <div style="background:linear-gradient(135deg,#fff0f3,#ffe4ea);border-radius:14px;padding:16px;"><div style="font-size:11px;font-weight:700;color:var(--accent2);margin-bottom:4px;">총 좋아요</div><div style="font-size:24px;font-weight:900;">${(s.totalLikes||0).toLocaleString()}</div></div>
+        <div style="background:linear-gradient(135deg,#f0f4ff,#e4edff);border-radius:14px;padding:16px;"><div style="font-size:11px;font-weight:700;color:#5b7dbd;margin-bottom:4px;">총 댓글</div><div style="font-size:24px;font-weight:900;">${(s.totalComments||0).toLocaleString()}</div></div>
+        <div style="background:linear-gradient(135deg,#f0fff4,#e4ffe9);border-radius:14px;padding:16px;"><div style="font-size:11px;font-weight:700;color:#4aa865;margin-bottom:4px;">평균 도달</div><div style="font-size:24px;font-weight:900;">${(s.avgReach||0).toLocaleString()}</div></div>
+        <div style="background:linear-gradient(135deg,#fffbf0,#fff5e4);border-radius:14px;padding:16px;"><div style="font-size:11px;font-weight:700;color:#c4882b;margin-bottom:4px;">성장률</div><div style="font-size:24px;font-weight:900;">${s.growthRate>0?'+':''}${s.growthRate||0}%</div></div>
       </div>
       <div style="padding:0 16px 16px;"><div style="font-size:14px;font-weight:800;margin-bottom:10px;">📈 30일 추이</div><canvas id="snsAnalyticsChart" width="800" height="300" style="width:100%;height:150px;border-radius:14px;background:#fafafa;"></canvas></div>
       <div style="padding:0 16px 16px;"><div style="font-size:14px;font-weight:800;margin-bottom:10px;">🏆 최고 성과 TOP 5</div>

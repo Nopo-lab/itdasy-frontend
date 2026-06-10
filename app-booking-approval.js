@@ -44,7 +44,7 @@
         <div style="background:#fff;border:1px solid #FDE68A;border-radius:12px;padding:14px;margin-bottom:10px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
             <strong style="font-size:14px;">${_esc(b.customer_name)}</strong>
-            <span style="font-size:10px;color:#B45309;background:#FFFBEA;padding:2px 6px;border-radius:100px;font-weight:700;">입금 대기</span>
+            <span style="font-size:11px;color:#B45309;background:#FFFBEA;padding:2px 6px;border-radius:100px;font-weight:700;">입금 대기</span>
             <span style="margin-left:auto;font-size:11px;color:var(--text-muted);">${_fmt(b.starts_at)}</span>
           </div>
           <div style="font-size:12px;color:var(--text-muted);">${_esc(b.service_name || '시술')}</div>

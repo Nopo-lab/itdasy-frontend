@@ -148,7 +148,7 @@
           <div class="ss-hours-row" data-day="${k}" style="display:flex;align-items:center;gap:8px;padding:10px;background:${off ? '#FAFAFA' : '#fff'};border:1px solid ${off ? 'rgba(217,95,112,0.15)' : 'rgba(0,0,0,0.06)'};border-radius:14px;margin-bottom:8px;transition:background 0.15s;flex-wrap:wrap;box-sizing:border-box;width:100%;min-width:0;">
             <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:36px;flex-shrink:0;">
               <span style="font-size:15px;font-weight:800;color:${off ? '#bbb' : 'var(--text,#222)'};line-height:1;">${_DAY_LABELS[k]}</span>
-              <span style="font-size:10px;color:${off ? '#bbb' : 'var(--text3,#999)'};margin-top:2px;">요일</span>
+              <span style="font-size:11px;color:${off ? '#bbb' : 'var(--text3,#999)'};margin-top:2px;">요일</span>
             </div>
             <div style="flex:1 1 160px;min-width:0;display:flex;align-items:center;gap:4px;${off ? 'opacity:0.35;pointer-events:none;' : ''}">
               <input type="time" data-hr-field="open" value="${h.open || '10:00'}" ${off ? 'disabled' : ''}

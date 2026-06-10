@@ -169,7 +169,7 @@
   display:flex; align-items:center; gap:6px; flex-wrap:wrap;
 }
 .bf-cust-badge {
-  font-size:10px; padding:1px 6px; border-radius:999px; font-weight:500;
+  font-size:11px; padding:1px 6px; border-radius:999px; font-weight:500;
   background:#F2F4F6; color:#8B95A1;
 }
 .bf-cust-badge.green { background:#E1F5EE; color:#16B55E; }
@@ -252,7 +252,7 @@
   background:#BC6675; color:#fff;
   display:flex; align-items:center; justify-content:center;
 }
-.bf-itby-text { font-size:10px; font-weight:500; color:#BC6675; letter-spacing:-0.2px; line-height:1.45; }
+.bf-itby-text { font-size:11px; font-weight:500; color:#BC6675; letter-spacing:-0.2px; line-height:1.45; }
 
 /* 금액 위계 — 시술비·예약금 작게 / 잔금 큰 폰트 */
 .bf-money { padding:2px 0; }
@@ -283,7 +283,7 @@
   .bf-money-row.total .bf-money-val .bf-num { font-size:24px; letter-spacing:-0.5px; }
   .bf-money-row.total .bf-money-val .bf-money-unit { font-size:13px; }
 }
-.bf-money-unit { font-size:10px; color:#8B95A1; }
+.bf-money-unit { font-size:11px; color:#8B95A1; }
 /* 빈 값 → "탭해서 입력 ›" 분홍 텍스트 */
 .bf-amount-link {
   background:none; border:none; padding:0; margin:0;
@@ -320,7 +320,7 @@
 .bf-memo-icon { font-size:11px; line-height:1; color:#8B95A1; transition: transform .2s; }
 .bf-memo-toggle.open .bf-memo-icon { transform: rotate(180deg); }
 .bf-memo-title { font-size:12px; font-weight:500; color:#191F28; letter-spacing:-0.2px; }
-.bf-memo-hint { font-size:10px; color:#8B95A1; letter-spacing:-0.2px; }
+.bf-memo-hint { font-size:11px; color:#8B95A1; letter-spacing:-0.2px; }
 .bf-memo-fields { margin-top:10px; display:none; }
 .bf-memo-toggle.open + .bf-memo-fields { display:block; }
 .bf-memo {
@@ -332,7 +332,7 @@
 }
 .bf-memo:focus { border-color:#191F28; }
 .bf-memo::placeholder { color:#C5CBD2; }
-.bf-memo-counter { font-size:10px; color:#8B95A1; text-align:right; margin-top:4px; }
+.bf-memo-counter { font-size:11px; color:#8B95A1; text-align:right; margin-top:4px; }
 
 /* 충돌 경고 */
 .dt-conflict {
@@ -419,7 +419,7 @@
 }
 .bf-itby-pc .bf-itby { margin: 0; padding: 0; background: transparent; gap: 6px; }
 .bf-itby-pc .bf-itby-icon { background: transparent; color: #BC6675; width: auto; height: auto; }
-.bf-itby-pc .bf-itby-text { font-size: 10px; font-weight: 500; color: #BC6675; }
+.bf-itby-pc .bf-itby-text { font-size: 11px; font-weight: 500; color: #BC6675; }
 @media (min-width: 1100px) {
   .bf-service-card .bf-svc-itby { display: none !important; }
 }
