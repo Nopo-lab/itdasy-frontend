@@ -645,33 +645,62 @@
     modal.id = 'rvAddModal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9001;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;justify-content:center;';
     const _isEdit = !!(prefill && prefill._edit_id);
+    const _title = _isEdit ? '매출 편집'
+      : (prefill?.recorded_date ? prefill.recorded_date.slice(5).replace('-', '/') + ' 매출 입력' : '매출 입력');
+    // 결제수단 4칩 (etc 제거 — 기존 etc 데이터 표시는 _tagHTML 에서 그대로 유지)
+    const _methods = [['card', '카드'], ['cash', '현금'], ['transfer', '계좌'], ['membership', '회원권']];
     modal.innerHTML = `
-      <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:18px;padding-bottom:max(18px,env(safe-area-inset-bottom));max-height:90vh;overflow-y:auto;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <strong style="font-size:18px;color:var(--text);">${_isEdit ? '매출 편집' : (prefill?.recorded_date ? prefill.recorded_date.slice(5).replace('-', '/') + ' 매출 입력' : '매출 입력')}</strong>
-          <button type="button" data-rv-modal-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);" aria-label="닫기">✕</button>
+      <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:18px 16px;padding-bottom:max(18px,env(safe-area-inset-bottom));max-height:92vh;overflow-y:auto;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+          <strong style="font-size:17px;color:#191F28;letter-spacing:-0.3px;">${_title}</strong>
+          <button type="button" data-rv-modal-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:#8B95A1;" aria-label="닫기">✕</button>
         </div>
-        <label style="display:block;font-size:12px;color:var(--text-subtle);margin-bottom:4px;">금액 (원) *</label>
-        <input id="rfAmount" type="number" inputmode="numeric" style="width:100%;padding:12px;border:0.5px solid var(--border);border-radius:8px;margin-bottom:10px;font-size:16px;background:var(--surface);" placeholder="50000" />
-        <div style="display:flex;gap:6px;margin-bottom:10px;">
-          ${['card','cash','transfer','etc'].map(m => `
-            <button type="button" data-rf-method="${m}" style="flex:1;padding:10px;border:0.5px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);">${TAG_LABEL[m]}</button>
+
+        <!-- 금액: 화면 중앙 큰 표시 -->
+        <div style="display:flex;align-items:baseline;justify-content:center;gap:4px;padding:10px 0 12px;">
+          <input id="rfAmount" type="text" inputmode="numeric" autocomplete="off" placeholder="0"
+            style="width:auto;max-width:74%;border:none;outline:none;text-align:right;font-size:32px;font-weight:600;color:#191F28;background:transparent;padding:0;letter-spacing:-0.5px;" />
+          <span style="font-size:18px;color:#8B95A1;font-weight:600;">원</span>
+        </div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:18px;">
+          ${[10000, 50000, 100000].map(v => `
+            <button type="button" data-rf-add="${v}" style="padding:7px 14px;border:0.5px solid #E5E8EB;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#4E5968;font-weight:500;">+${v / 10000}만</button>
           `).join('')}
         </div>
-        <label style="display:block;font-size:12px;color:var(--text-subtle);margin-bottom:4px;">서비스</label>
-        <input id="rfService" list="rvDataService" style="width:100%;padding:10px;border:0.5px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--surface);" placeholder="${_rvShopExample()}" maxlength="50" />
-        <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
-          <input id="rfCustomerName" readonly style="flex:1;padding:10px;border:0.5px solid var(--border);border-radius:8px;background:var(--surface-2);" placeholder="고객 (선택)" />
-          <button type="button" id="rfCustomerPick" style="padding:10px 14px;border:0.5px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;font-size:12px;color:var(--text);">👤 선택</button>
+
+        <!-- 결제수단 -->
+        <label style="display:block;font-size:11px;color:#8B95A1;margin-bottom:6px;">결제수단</label>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:18px;">
+          ${_methods.map(([m, label]) => `
+            <button type="button" data-rf-method="${m}" style="padding:11px 0;border:0.5px solid #E5E8EB;border-radius:12px;background:#fff;cursor:pointer;font-size:13px;color:#4E5968;font-weight:500;">${label}</button>
+          `).join('')}
         </div>
-        <label id="rfMembershipToggle" style="display:none;align-items:center;gap:8px;padding:10px;background:var(--brand-bg);border:0.5px solid var(--brand-strong);border-radius:8px;margin-bottom:10px;cursor:pointer;font-size:13px;color:var(--brand-strong);">
-          <input type="checkbox" id="rfUseMembership" style="width:18px;height:18px;cursor:pointer;">
-          <span>💳 회원권으로 결제 (잔액 자동 차감)</span>
-          <span id="rfMembershipBalance" style="margin-left:auto;font-size:11px;font-weight:700;"></span>
-        </label>
-        <label style="display:block;font-size:12px;color:var(--text-subtle);margin-bottom:4px;">메모</label>
-        <textarea id="rfMemo" rows="2" style="width:100%;padding:10px;border:0.5px solid var(--border);border-radius:8px;margin-bottom:10px;font-family:inherit;resize:vertical;background:var(--surface);" maxlength="200"></textarea>
-        <button type="button" id="rfSave" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--brand-strong);color:#fff;font-weight:700;cursor:pointer;font-size:15px;">저장</button>
+
+        <!-- 시술 (선택) -->
+        <label style="display:block;font-size:11px;color:#8B95A1;margin-bottom:6px;">시술 (선택)</label>
+        <div id="rfServiceChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <input id="rfServiceCustom" type="text" maxlength="50" placeholder="시술명 직접 입력"
+          style="display:none;width:100%;padding:10px 12px;border:0.5px solid #E5E8EB;border-radius:12px;margin-bottom:8px;font-size:14px;color:#191F28;background:#fff;box-sizing:border-box;" />
+        <div style="height:10px;"></div>
+
+        <!-- 고객 (선택) — 예약 폼과 동일 카드 패턴 -->
+        <label style="display:block;font-size:11px;color:#8B95A1;margin-bottom:6px;">고객 (선택)</label>
+        <div style="border:0.5px solid #E5E8EB;border-radius:12px;padding:12px;margin-bottom:18px;">
+          <button type="button" class="bf-cust-card empty" id="rfCustCard">
+            <div class="bf-cust-bar empty"></div>
+            <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
+            <span class="bf-cust-chev" aria-hidden="true">›</span>
+          </button>
+        </div>
+
+        <!-- 메모 (선택) -->
+        <label style="display:block;font-size:11px;color:#8B95A1;margin-bottom:6px;">메모 (선택)</label>
+        <textarea id="rfMemo" rows="2" maxlength="200" placeholder="예) 디자인 변경, 재방문 손님 등"
+          style="width:100%;padding:10px 12px;border:0.5px solid #E5E8EB;border-radius:12px;margin-bottom:18px;font-family:inherit;font-size:14px;resize:vertical;color:#191F28;background:#fff;box-sizing:border-box;"></textarea>
+
+        <!-- 저장 (금액 연동 라벨) -->
+        <button type="button" id="rfSave" disabled
+          style="width:100%;padding:14px;border:none;border-radius:12px;background:#C8CCD2;color:#fff;font-weight:600;cursor:not-allowed;font-size:15px;">금액을 입력해주세요</button>
       </div>`;
     document.body.appendChild(modal);
     modal.addEventListener('click', (e) => { if (e.target === modal) _closeAddModal(); });
@@ -682,45 +711,66 @@
     const m = document.getElementById('rvAddModal');
     if (m) m.remove();
   }
+  // 고객 카드 채우기 (예약 폼 bf-cust 패턴) — name 없으면 빈 상태로 복원
+  function _renderCustomerCard(modal, ctx) {
+    const card = modal.querySelector('#rfCustCard');
+    if (!card) return;
+    if (ctx.customer_name) {
+      const bal = ctx._memBalance > 0 ? `회원권 잔액 ${ctx._memBalance.toLocaleString('ko-KR')}원` : '';
+      card.classList.remove('empty');
+      card.innerHTML = `
+        <div class="bf-cust-bar"></div>
+        <div class="bf-cust-info"><div class="bf-cust-name">${_esc(ctx.customer_name)}</div>${bal ? `<div class="bf-cust-meta">${bal}</div>` : ''}</div>
+        <span class="bf-cust-clear" id="rfCustClear" role="button" aria-label="고객 해제" style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#8B95A1;cursor:pointer;flex-shrink:0;">×</span>`;
+      const clr = card.querySelector('#rfCustClear');
+      if (clr) clr.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ctx.customer_id = null; ctx.customer_name = null; ctx._memBalance = 0;
+        _renderCustomerCard(modal, ctx);
+        if (ctx._refreshMem) ctx._refreshMem();
+      });
+    } else {
+      card.classList.add('empty');
+      card.innerHTML = `
+        <div class="bf-cust-bar empty"></div>
+        <div class="bf-cust-info"><div class="bf-cust-empty-text">고객 골라주세요</div></div>
+        <span class="bf-cust-chev" aria-hidden="true">›</span>`;
+    }
+  }
   function _onPickCustomer(modal, ctx) {
-    return async () => {
+    return async (e) => {
+      // 해제(×) 클릭은 카드 자체 핸들러가 처리 — 피커 재오픈 방지
+      if (e && e.target && e.target.id === 'rfCustClear') return;
       if (!window.Customer || !window.Customer.pick) {
         if (window.showToast) window.showToast('고객 모듈 로드 중…'); return;
       }
       const picked = await window.Customer.pick();
       if (picked === null) return;
       ctx.customer_id = picked.id;
-      modal.querySelector('#rfCustomerName').value = picked.name || '';
-      const memToggle = modal.querySelector('#rfMembershipToggle');
-      const memBal = modal.querySelector('#rfMembershipBalance');
-      const memCheck = modal.querySelector('#rfUseMembership');
-      if (memCheck) memCheck.checked = false;
-      if (picked.membership_active && (picked.membership_balance || 0) > 0) {
-        memToggle.style.display = 'flex';
-        memBal.textContent = `잔액 ${(picked.membership_balance || 0).toLocaleString()}원`;
-      } else {
-        memToggle.style.display = 'none';
-        memBal.textContent = '';
-      }
+      ctx.customer_name = picked.name || '';
+      ctx._memBalance = (picked.membership_active && (picked.membership_balance || 0) > 0)
+        ? (picked.membership_balance || 0) : 0;
+      _renderCustomerCard(modal, ctx);
+      if (ctx._refreshMem) ctx._refreshMem();
     };
   }
   function _onSaveAddForm(modal, ctx) {
     return async (ev) => {
       // [2026-06-10] 더블탭 중복 제출 방지 — 느린 네트워크에서 두 번 눌러 매출 2건 기록되던 위험
       if (modal._rfSaving) return;
-      const amount = parseInt(modal.querySelector('#rfAmount').value, 10);
+      const amount = parseInt(String(modal.querySelector('#rfAmount').value).replace(/[^0-9]/g, ''), 10);
       if (!amount || amount <= 0) {
         if (window.showToast) window.showToast('금액을 입력해 주세요'); return;
       }
       modal._rfSaving = true;
       const _saveBtn = ev && ev.currentTarget && ev.currentTarget.tagName === 'BUTTON' ? ev.currentTarget : null;
       if (_saveBtn) _saveBtn.disabled = true;
-      const useMem = !!modal.querySelector('#rfUseMembership')?.checked;
+      const useMem = ctx.method === 'membership';
       const payload = {
-        amount, method: useMem ? 'membership' : ctx.method,
-        service_name: modal.querySelector('#rfService').value.trim() || null,
+        amount, method: ctx.method,
+        service_name: ctx.service_name || null,
         customer_id: ctx.customer_id,
-        customer_name: modal.querySelector('#rfCustomerName').value.trim() || null,
+        customer_name: ctx.customer_name || null,
         memo: modal.querySelector('#rfMemo').value.trim() || null,
       };
       // [2026-06-10 QA] 캘린더에서 고른 날짜로 기록 (정오 KST — 날짜 경계 안전)
@@ -754,34 +804,122 @@
     };
   }
   function _wireAddForm(modal, prefill) {
+    const _isEdit = !!(prefill && prefill._edit_id);
     const ctx = {
       method: prefill?.method || 'card',
       customer_id: prefill?.customer_id || null,
+      customer_name: prefill?.customer_name || null,
+      service_name: prefill?.service_name || null,
       _edit_id: prefill?._edit_id || null,
       // [2026-06-10 QA] 매출 캘린더 "이 날 매출 입력" — 과거 날짜로 기록 (YYYY-MM-DD)
       recorded_date: prefill?.recorded_date || null,
+      _memBalance: 0,
+      // 편집 모드에서 기존 method 가 membership 이면 잔액 미확인이어도 유지
+      _editMem: _isEdit && prefill?.method === 'membership',
     };
-    const setMethod = (m) => {
+    const amtInput = modal.querySelector('#rfAmount');
+    const saveBtn = modal.querySelector('#rfSave');
+
+    // ── 금액: 콤마 자동 포맷 + 저장 버튼 라벨 연동 ──
+    const _getAmt = () => parseInt(String(amtInput.value).replace(/[^0-9]/g, ''), 10) || 0;
+    const _syncSave = () => {
+      const a = _getAmt();
+      saveBtn.disabled = a <= 0;
+      saveBtn.textContent = a > 0 ? `${a.toLocaleString('ko-KR')}원 ${_isEdit ? '수정 저장' : '기록하기'}` : '금액을 입력해주세요';
+      saveBtn.style.background = a > 0 ? '#191F28' : '#C8CCD2';
+      saveBtn.style.cursor = a > 0 ? 'pointer' : 'not-allowed';
+    };
+    const _setAmt = (n) => { amtInput.value = n > 0 ? n.toLocaleString('ko-KR') : ''; _syncSave(); };
+    amtInput.addEventListener('input', () => { _setAmt(_getAmt()); });
+    modal.querySelectorAll('[data-rf-add]').forEach(b => b.addEventListener('click', () => {
+      _setAmt(_getAmt() + (parseInt(b.dataset.rfAdd, 10) || 0));
+    }));
+
+    // ── 결제수단 칩 (회원권은 잔액 보유 고객 선택 시에만 활성) ──
+    const _setMethod = (m, opts) => {
+      if (m === 'membership' && ctx._memBalance <= 0 && !ctx._editMem && !(opts && opts.force)) {
+        if (window.showToast) window.showToast('회원권 보유 고객을 먼저 선택해주세요');
+        return;
+      }
       ctx.method = m;
       modal.querySelectorAll('[data-rf-method]').forEach(b => {
         const on = b.dataset.rfMethod === m;
-        b.style.background = on ? 'var(--brand-strong)' : 'var(--surface)';
-        b.style.color = on ? '#fff' : 'var(--text)';
-        b.style.borderColor = on ? 'var(--brand-strong)' : 'var(--border)';
+        b.style.background = on ? '#191F28' : '#fff';
+        b.style.color = on ? '#fff' : '#4E5968';
+        b.style.borderColor = on ? '#191F28' : '#E5E8EB';
       });
     };
-    setMethod(ctx.method);
-    modal.querySelectorAll('[data-rf-method]').forEach(b => b.addEventListener('click', () => setMethod(b.dataset.rfMethod)));
-    modal.querySelector('#rfCustomerPick').addEventListener('click', _onPickCustomer(modal, ctx));
-    modal.querySelector('#rfSave').addEventListener('click', _onSaveAddForm(modal, ctx));
-    if (prefill?.customer_name) modal.querySelector('#rfCustomerName').value = prefill.customer_name;
-    // [v206] 편집 모드 prefill — amount/service/memo 채움 + 저장 버튼 라벨 변경
-    if (prefill?._edit_id) {
-      if (prefill.amount) modal.querySelector('#rfAmount').value = prefill.amount;
-      if (prefill.service_name) modal.querySelector('#rfService').value = prefill.service_name;
+    const _refreshMem = () => {
+      const chip = modal.querySelector('[data-rf-method="membership"]');
+      if (!chip) return;
+      chip.style.opacity = (ctx._memBalance > 0 || ctx._editMem) ? '1' : '0.4';
+      if (ctx._memBalance <= 0 && !ctx._editMem && ctx.method === 'membership') _setMethod('card', { force: true });
+    };
+    ctx._refreshMem = _refreshMem;
+    modal.querySelectorAll('[data-rf-method]').forEach(b => b.addEventListener('click', () => _setMethod(b.dataset.rfMethod)));
+
+    // ── 고객 카드 (예약 폼 패턴 재사용) ──
+    modal.querySelector('#rfCustCard').addEventListener('click', _onPickCustomer(modal, ctx));
+
+    // ── 시술 칩 ──
+    _renderServiceChips(modal, ctx, { getAmt: _getAmt, setAmt: _setAmt });
+
+    // ── 저장 ──
+    saveBtn.addEventListener('click', _onSaveAddForm(modal, ctx));
+
+    // ── prefill 반영 ──
+    if (ctx.customer_name) _renderCustomerCard(modal, ctx);
+    if (_isEdit) {
+      if (prefill.amount) _setAmt(Number(prefill.amount) || 0);
       if (prefill.memo) modal.querySelector('#rfMemo').value = prefill.memo;
-      const saveBtn = modal.querySelector('#rfSave');
-      if (saveBtn) saveBtn.textContent = '수정 저장';
+    }
+    _setMethod(ctx.method, { force: true });
+    _refreshMem();
+    _syncSave();
+  }
+
+  // 등록된 시술 프리셋 상위 6개 칩 + "+직접". 칩 선택 시 금액 비어있으면 프리셋 가격 자동 채움.
+  function _renderServiceChips(modal, ctx, hooks) {
+    const host = modal.querySelector('#rfServiceChips');
+    const customInput = modal.querySelector('#rfServiceCustom');
+    if (!host || !customInput) return;
+    const list = Array.isArray(window._serviceTemplatesCache) ? window._serviceTemplatesCache.slice(0, 6) : [];
+    const _chipStyle = (on) => `padding:7px 12px;border:0.5px solid ${on ? '#191F28' : '#E5E8EB'};border-radius:999px;background:${on ? '#191F28' : '#fff'};color:${on ? '#fff' : '#4E5968'};cursor:pointer;font-size:12px;font-weight:500;`;
+    host.innerHTML = list.map(t => {
+      const nm = String(t.name || '').trim();
+      const price = Number(t.default_price) || 0;
+      const on = !!ctx.service_name && ctx.service_name === nm;
+      return `<button type="button" data-rf-svc="${_esc(nm)}" data-rf-price="${price}" style="${_chipStyle(on)}">${_esc(nm)}</button>`;
+    }).join('') + `<button type="button" id="rfSvcCustomBtn" style="${_chipStyle(false)}">+ 직접</button>`;
+    const _selectChip = (activeEl) => {
+      host.querySelectorAll('[data-rf-svc]').forEach(c => c.setAttribute('style', _chipStyle(c === activeEl)));
+      const cb = modal.querySelector('#rfSvcCustomBtn');
+      if (cb) cb.setAttribute('style', _chipStyle(activeEl === null && customInput.style.display !== 'none'));
+    };
+    host.querySelectorAll('[data-rf-svc]').forEach(chip => chip.addEventListener('click', () => {
+      ctx.service_name = chip.dataset.rfSvc;
+      customInput.style.display = 'none';
+      customInput.value = '';
+      _selectChip(chip);
+      const price = parseInt(chip.dataset.rfPrice, 10) || 0;
+      if (price > 0 && hooks.getAmt() <= 0) hooks.setAmt(price);
+    }));
+    modal.querySelector('#rfSvcCustomBtn').addEventListener('click', () => {
+      customInput.style.display = 'block';
+      customInput.focus();
+      ctx.service_name = customInput.value.trim() || null;
+      _selectChip(null);
+    });
+    customInput.addEventListener('input', () => { ctx.service_name = customInput.value.trim() || null; });
+    // prefill: 칩에 없는 시술명이면 직접 입력에 노출
+    if (ctx.service_name) {
+      const match = Array.from(host.querySelectorAll('[data-rf-svc]')).find(c => c.dataset.rfSvc === ctx.service_name);
+      if (match) _selectChip(match);
+      else { customInput.style.display = 'block'; customInput.value = ctx.service_name; _selectChip(null); }
+    }
+    // 캐시 비었으면 비동기 로드 후 재렌더
+    if (!list.length && typeof window.loadServiceTemplates === 'function') {
+      window.loadServiceTemplates().then(() => _renderServiceChips(modal, ctx, hooks)).catch(() => {});
     }
   }
 
