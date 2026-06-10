@@ -194,9 +194,18 @@
     const end   = () => { if (t) clearTimeout(t); if (_state && _state.showOriginal) { _state.showOriginal = false; _redraw(); } };
     cv.addEventListener('mousedown', start);  cv.addEventListener('touchstart', start, { passive: true });
     cv.addEventListener('mouseup', end);      cv.addEventListener('mouseleave', end);    cv.addEventListener('touchend', end);
-    sheet.querySelector('#pePicker').addEventListener('change', (e) => {
-      const f = e.target.files && e.target.files[0];
-      if (f) _loadImage(URL.createObjectURL(f));
+    sheet.querySelector('#pePicker').addEventListener('change', async (e) => {
+      let f = e.target.files && e.target.files[0];
+      if (!f) return;
+      // [2026-06-10] 아이폰 HEIC → JPG 자동 변환 (js/heic-convert.js) — 실패 시 토스트는 유틸이 처리
+      if (window.HeicConvert && window.HeicConvert.isHeic(f)) {
+        try { f = await window.HeicConvert.toJpeg(f); }
+        catch (_e) {
+          if (window.showToast) window.showToast('아이폰 사진(HEIC) 변환에 실패했어요 — 설정 > 카메라 > 포맷을 "높은 호환성"으로 바꿔보세요');
+          return;
+        }
+      }
+      _loadImage(URL.createObjectURL(f));
     });
   }
 

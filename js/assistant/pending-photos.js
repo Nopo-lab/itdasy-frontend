@@ -97,6 +97,15 @@
 
   function _add(ctx, inputFiles) {
     const arr = Array.from(inputFiles || []).filter(Boolean);
+    // [2026-06-10] 아이폰 HEIC → JPG 자동 변환 후 추가 (js/heic-convert.js)
+    if (window.HeicConvert && arr.some(window.HeicConvert.isHeic)) {
+      window.HeicConvert.normalizeAll(arr).then(converted => _addReady(ctx, converted));
+      return;
+    }
+    _addReady(ctx, arr);
+  }
+
+  function _addReady(ctx, arr) {
     const room = 10 - ctx.files.length;
     if (room <= 0) {
       if (typeof window.showToast === 'function') window.showToast('한 번에 최대 10장까지만');

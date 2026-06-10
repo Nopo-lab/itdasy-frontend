@@ -212,7 +212,11 @@ function _bindWorkshopShell(root) {
 
 // ── 사진 업로드 ────────────────────────────────────────────────
 async function handleGalleryUpload(input) {
-  const files     = Array.isArray(input) ? input : Array.from(input.files || []);
+  let files = Array.isArray(input) ? input : Array.from(input.files || []);
+  // [2026-06-10] 아이폰 HEIC → JPG 자동 변환 (js/heic-convert.js, 실패 파일은 토스트 후 제외)
+  if (window.HeicConvert && files.some(window.HeicConvert.isHeic)) {
+    files = await window.HeicConvert.normalizeAll(files);
+  }
   const remaining = 20 - _photos.length;
   const toAdd     = files.slice(0, remaining);
   if (files.length > remaining) showToast(`최대 20장까지 가능해요 (${remaining}장 추가됨)`);
@@ -282,7 +286,8 @@ async function handleGalleryUpload(input) {
 
 async function _handleDropZoneDrop(e) {
   e.preventDefault();
-  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+  // [2026-06-10] HEIC 는 type 이 비어 오는 브라우저가 있어 확장자 판별 추가 (변환은 handleGalleryUpload 에서)
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || (window.HeicConvert && window.HeicConvert.isHeic(f)));
   if (!files.length) { showToast('이미지 파일만 올릴 수 있어요'); return; }
   await handleGalleryUpload(files);
 }
