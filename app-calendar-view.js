@@ -1968,6 +1968,18 @@
           return;
         }
       }
+      // [2026-06-10] 신규 예약은 고객 필수 — 이름 없는 "이름 없음" 예약 생성 차단.
+      //   (기존 예약 수정은 과거 데이터 호환 위해 그대로 허용)
+      if (!existing && !body.querySelector('#bfCustName').value.trim()) {
+        if (window.showToast) window.showToast('고객을 먼저 선택해주세요');
+        const custCard = body.querySelector('#bfCustCard');
+        if (custCard) {
+          custCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          custCard.classList.add('bf-cust-required');
+          setTimeout(() => custCard.classList.remove('bf-cust-required'), 1600);
+        }
+        return;
+      }
       // [2026-05-16] 시술명: chip 선택값(#bfSvc) 또는 직접입력값(#bfSvcCustom) 둘 다 폴백
       const svcSelected = body.querySelector('#bfSvc').value.trim();
       const svcCustom   = (body.querySelector('#bfSvcCustom')?.value || '').trim();

@@ -119,9 +119,13 @@
   }
 
   function todayBookings(brief) {
+    // [2026-06-10] ①취소·노쇼 제외 (BE 필터의 프론트 이중 방어 — 캘린더 기준과 통일)
+    //   ②"오늘" 비교를 로컬 날짜로 — toISOString()은 UTC 라 KST 0~9시에 어제로 어긋남.
     const list = (brief && brief.today_bookings) || [];
-    const ymd = new Date().toISOString().split('T')[0];
+    const n = new Date();
+    const ymd = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
     return list
+      .filter(b => b.status !== 'cancelled' && b.status !== 'no_show')
       .filter(b => (b.starts_at || '').startsWith(ymd))
       .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
   }

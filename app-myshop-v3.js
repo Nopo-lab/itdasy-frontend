@@ -83,12 +83,16 @@
   }
   // [2026-05-19] _won/_wonShort 삭제 → formatMoney (format-money.js 공통 유틸)
   function _todayYMD() {
-    return new Date().toISOString().split('T')[0];
+    // [2026-06-10] 로컬 날짜로 — toISOString()은 UTC 라 KST 0~9시에 어제로 어긋남.
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
   }
   function _todayBookingsList(brief) {
+    // [2026-06-10] 취소·노쇼 제외 — 홈/캘린더와 카운트 기준 통일 (BE 필터의 이중 방어).
     const list = (brief && brief.today_bookings) || [];
     const ymd = _todayYMD();
     return list
+      .filter(b => b.status !== 'cancelled' && b.status !== 'no_show')
       .filter(b => (b.starts_at || '').startsWith(ymd))
       .sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
   }

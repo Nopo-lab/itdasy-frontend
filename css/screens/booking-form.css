@@ -151,6 +151,18 @@
 }
 .bf-cust-bar { width:3px; height:44px; border-radius:2px; background:#BC6675; flex-shrink:0; }
 .bf-cust-bar.empty { height:36px; background:#D1D6DB; }
+/* [2026-06-10] 고객 미선택 저장 시도 시 흔들림 강조 (app-calendar-view.js bfSave 검증) */
+.bf-cust-required { animation: bfCustShake 0.4s ease; }
+.bf-cust-required .bf-cust-bar.empty { background: var(--danger, #EF4444); }
+.bf-cust-required .bf-cust-empty-text { color: var(--danger, #EF4444); }
+@keyframes bfCustShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bf-cust-required { animation: none; }
+}
 .bf-cust-info { flex:1; min-width:0; }
 .bf-cust-name {
   font-size:15px; font-weight:500; color:#191F28; letter-spacing:-0.3px;
