@@ -80,7 +80,7 @@ window.__LATEST_BUILD__ = '20260610-v443-itbi-safety-guards';
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Serif+KR:wght@500;700&family=Black+Han+Sans&family=Gowun+Dodum&family=Gaegu:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tokens.css?v=20260609-input-16px">
+<link rel="stylesheet" href="css/tokens.css?v=20260610-qafix">
 <link rel="stylesheet" href="css/icons.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css" integrity="sha384-UVFvhZP7fWAENUPOoq61rJg5ef6QZW0k5vpAn71041/QS4STvUcJQCGNhStZLGx9" crossorigin="anonymous">
 <link rel="stylesheet" href="css/components.css">
@@ -1844,7 +1844,9 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <div class="copy-toast" id="copyToast"></div>
 
 <!-- ───── 구독 플랜 팝업 (md 정리: 월 6,900원 단일 멤버십 + 비용 큰 기능 제한) ───── -->
-<div id="planPopup" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:16px;">
+<!-- [2026-06-10 QA] z-index 9999→11500: 고객 픽커(10001)·잇비(10500) 위에 떠야
+     "한도 도달 → 업그레이드 유도" 팝업이 가려지지 않음 (막다른 실패 금지 원칙) -->
+<div id="planPopup" style="display:none;position:fixed;inset:0;z-index:11500;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;padding:16px;">
   <div style="background:#fff;border-radius:24px;max-width:420px;width:100%;max-height:92vh;overflow-y:auto;padding:28px 20px calc(28px + env(safe-area-inset-bottom));box-shadow:0 20px 60px rgba(0,0,0,0.2);position:relative;">
     <button id="planCloseBtn" aria-label="닫기" style="position:absolute;top:12px;right:12px;background:none;border:none;font-size:24px;cursor:pointer;color:#999;width:44px;height:44px;">✕</button>
 
@@ -2208,7 +2210,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [2026-05-23] 직원 기능 제거 — 1인샵 전용 -->
 <!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
 <script src="app-customer-memo.js?v=20260610-batch4" defer></script>
-<script src="app-revenue.js?v=20260610-batch3" defer></script>
+<script src="app-revenue.js?v=20260610-qafix" defer></script>
 <!-- Step 3A (2026-05-16) — 매출관리 뷰 분할 (today/week + month) -->
 <script src="app-revenue-today.js?v=20260519-v221" defer></script>
 <script src="app-revenue-month.js?v=20260605-rev-cal-split" defer></script>
@@ -2232,7 +2234,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="js/home/v41-actions.js?v=20260526-v293-home-warning-cleanup" defer></script>
 <script src="js/home/v41-itbi-prompts.js?v=20260602-first-wow" defer></script>
 <script src="js/home/v41-renderers.js?v=20260610-booking-consistency" defer></script>
-<script src="app-home-v41.js?v=20260526-v293-home-warning-cleanup" defer></script>
+<script src="app-home-v41.js?v=20260610-qafix" defer></script>
 <script src="app-home-customer-msgs.js?v=20260609-queue-source" defer></script>
 <!-- [2026-04-30] 내샵관리 v3 — 모바일 메인 + PC 사이드바·도넛·위젯·피드 -->
 <script src="app-myshop-v3.js?v=20260610-booking-consistency" defer></script>

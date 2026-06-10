@@ -648,7 +648,7 @@
     modal.innerHTML = `
       <div style="background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:18px;padding-bottom:max(18px,env(safe-area-inset-bottom));max-height:90vh;overflow-y:auto;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <strong style="font-size:18px;color:var(--text);">${_isEdit ? '매출 편집' : '매출 입력'}</strong>
+          <strong style="font-size:18px;color:var(--text);">${_isEdit ? '매출 편집' : (prefill?.recorded_date ? prefill.recorded_date.slice(5).replace('-', '/') + ' 매출 입력' : '매출 입력')}</strong>
           <button type="button" data-rv-modal-close style="margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);" aria-label="닫기">✕</button>
         </div>
         <label style="display:block;font-size:12px;color:var(--text-subtle);margin-bottom:4px;">금액 (원) *</label>
@@ -723,6 +723,8 @@
         customer_name: modal.querySelector('#rfCustomerName').value.trim() || null,
         memo: modal.querySelector('#rfMemo').value.trim() || null,
       };
+      // [2026-06-10 QA] 캘린더에서 고른 날짜로 기록 (정오 KST — 날짜 경계 안전)
+      if (ctx.recorded_date && !ctx._edit_id) payload.recorded_at = ctx.recorded_date + 'T12:00:00+09:00';
       try {
         // [v206] _edit_id 있으면 PATCH, 없으면 create
         if (ctx._edit_id) {
@@ -756,6 +758,8 @@
       method: prefill?.method || 'card',
       customer_id: prefill?.customer_id || null,
       _edit_id: prefill?._edit_id || null,
+      // [2026-06-10 QA] 매출 캘린더 "이 날 매출 입력" — 과거 날짜로 기록 (YYYY-MM-DD)
+      recorded_date: prefill?.recorded_date || null,
     };
     const setMethod = (m) => {
       ctx.method = m;
@@ -884,6 +888,15 @@
     try {
       if (typeof window._registerSheet === 'function') window._registerSheet('revenue', window.closeRevenue);
       if (typeof window._markSheetOpen === 'function') window._markSheetOpen('revenue');
+    } catch (_e) { void _e; }
+    // [2026-06-10 QA] 매출 캘린더 "이 날 매출 입력" — 화면만 다시 열리고 아무 동작 없던 버그 픽스:
+    //   stash 된 날짜가 있으면 해당 날짜로 입력 폼 자동 오픈.
+    try {
+      const _pf = window._revenueHubPrefillDate;
+      if (_pf) {
+        window._revenueHubPrefillDate = '';
+        setTimeout(() => _openAddForm({ recorded_date: _pf }), 120);
+      }
     } catch (_e) { void _e; }
   };
   window._openRevenueAddFor = async function (customerId, customerName) {

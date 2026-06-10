@@ -399,7 +399,9 @@ textarea:focus, input[type="text"]:focus {
 
 /* Inline confirm/prompt (Capacitor 호환) */
 .bk-confirm-toast {
-  position: fixed; inset: 0; z-index: 9999;
+  /* [2026-06-10 QA] 9999 → 12000 — 잇비 챗(10500)·예약 폼(9988)·고객 픽커(10001) 등
+     시트 뒤에 확인창이 깔려서 안 보이던 버그 픽스 (confirm 전면 인라인화 후속) */
+  position: fixed; inset: 0; z-index: 12000;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.45);
 }

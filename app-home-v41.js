@@ -426,8 +426,10 @@
       if (!root) return;
       // 홈 탭 비활성이어도 아바타는 최신화 (다음 진입 시 깜빡임 방지)
       window.HomeV41Render.syncAvatar(root);
-      const homeTab = document.getElementById('tab-home');
-      if (homeTab && homeTab.classList.contains('active')) _doRender(root);
+      // [2026-06-10 QA] 탭 활성 조건 제거 — 예약관리에서 예약 추가/취소 후 홈에 와도
+      //   옛 DOM 이 그대로 남아 "반영이 한참 걸리는" 문제 픽스. 데이터 변경 이벤트는
+      //   드물어서 백그라운드 재렌더 비용 무시 가능.
+      _doRender(root);
     });
   }
 
