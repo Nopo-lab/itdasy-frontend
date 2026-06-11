@@ -604,9 +604,15 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
   showCaptionLoader();
 
   const shopType = localStorage.getItem('shop_type') || '붙임머리';
-  const cfg = SHOP_CONFIG[shopType] || SHOP_CONFIG['붙임머리'];
+  // [2026-06-12] shop_type 이 SHOP_CONFIG 에 없으면(예: 'beauty') 붙임머리 cfg+defaultTag('24인치')
+  //   강제 폴백 → "인치 선택: 24인치" 가 들어가 업종 무관 붙임머리 캡션이 나오던 버그.
+  //   미매핑 업종은 중립 문구로, defaultTag·업종 라벨(인치 등) 주입 금지.
+  const cfg = SHOP_CONFIG[shopType];
   const types = getSel('typeTags');
-  const typeStr = types.length > 0 ? types.join(', ') : cfg.defaultTag;
+  // 매핑된 업종만 "업종 시술. 라벨: 태그." / 미매핑은 "뷰티 시술." + 사용자가 직접 고른 태그만.
+  const baseContext = cfg
+    ? `${shopType} 시술. ${cfg.tagLabel}: ${types.length > 0 ? types.join(', ') : cfg.defaultTag}.`
+    : (types.length > 0 ? `뷰티 시술. 선택: ${types.join(', ')}.` : '뷰티 시술.');
 
   // 작업실 슬롯 연결 정보
   const slotNote = (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined')
@@ -620,7 +626,7 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
   const specialText = (scenario && scenario.special_context) ? scenario.special_context : '';
 
   const category      = _CAP_CAT_MAP[shopType] || 'extension';
-  const photo_context = `${shopType} 시술. ${cfg.tagLabel}: ${typeStr}. ${slotNote}${axesText} ${specialText}`.trim();
+  const photo_context = `${baseContext} ${slotNote}${axesText} ${specialText}`.trim();
   const length_tier   = 'medium';
   const tone_override = 'normal';
 

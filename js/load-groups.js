@@ -151,7 +151,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
   'js/assistant/core/assistant-template-save.js?v=20260611-galaxy-fix',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260612-v447-itbi-memory-savedcard',
+  'app-assistant.js?v=20260612-v448-shoptype-neutral',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

@@ -2961,14 +2961,11 @@
 
     let shopType = '';
     try { shopType = localStorage.getItem('shop_type') || '붙임머리'; } catch (_e) { shopType = '붙임머리'; }
-    const cfg = SC[shopType] || SC['붙임머리'];
+    // [2026-06-12] 미매핑 shop_type(예 'beauty')에 붙임머리 cfg/defaultTag('24인치') 강제 폴백하던 버그.
+    const cfg = SC[shopType];  // 미매핑이면 undefined → 아래에서 중립 문구
     const category = CAT_MAP[shopType] || 'extension';
 
-    // typeStr — 챗봇 메시지에서 인치/스타일 추출, 없으면 cfg.defaultTag (UI 태그 selector 대체)
     const q = (opts.question || '').trim();
-    let typeStr = cfg.defaultTag;
-    const lenMatch = q.match(/(\d{1,3}\s*인치)/);
-    if (lenMatch) typeStr = lenMatch[1].replace(/\s+/g, '');
 
     // axesText — 챗봇 메시지 + 고객. _doGenerateCaption 의 axes.customer/situation/photo 자리.
     let axesText = '';
@@ -2980,7 +2977,17 @@
       axesText = '오늘 시술 후 자연스럽게 마무리. 손님께서 좋아하셨음.';
     }
 
-    const photo_context = (`${shopType} 시술. ${cfg.tagLabel}: ${typeStr}. ${axesText}`).trim().slice(0, 500);
+    // 매핑 업종만 "업종 시술. 라벨: 태그." (인치는 메시지에서 추출, 없으면 defaultTag).
+    //   미매핑은 "뷰티 시술." 중립 — 사용자 원문은 axesText 에 이미 담겨 정보 손실 없음.
+    let baseCtx;
+    if (cfg) {
+      const lenMatch = q.match(/(\d{1,3}\s*인치)/);
+      const typeStr = lenMatch ? lenMatch[1].replace(/\s+/g, '') : cfg.defaultTag;
+      baseCtx = `${shopType} 시술. ${cfg.tagLabel}: ${typeStr}.`;
+    } else {
+      baseCtx = '뷰티 시술.';
+    }
+    const photo_context = (`${baseCtx} ${axesText}`).trim().slice(0, 500);
 
     try {
       const headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
