@@ -94,7 +94,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-photo-editor-ba-slider.js?v=20260603-ux-ba-cta',
   'app-photo-editor-ai-touch-v2.js?v=20260521-v251-photo-smart-mask',
   'js/photo-editor/template-pack-beauty-data.js?v=20260610-v436-bp-event-spring',
-  'js/photo-editor/template-market-data.js?v=20260609-v419-beauty-pack-gallery',
+  'js/photo-editor/template-market-data.js?v=20260611-v444-tpl-badge-fix',
   'js/photo-editor/template-slots.js?v=20260609-v418-beauty-pack-top3',
   'js/photo-editor/template-fit-text.js?v=20260606-s1',
   'js/photo-editor/price-menu.js?v=20260529-v351-price-menu',
@@ -107,7 +107,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo-editor/template-renderer-beauty-pack.js?v=20260610-v435-bg-ratio-thumb-fallback',
   'js/photo-editor/template-renderer-beauty-pack-draws.js?v=20260610-v436-bp-event-spring',
   'app-photo-editor-template-library.js?v=20260609-v426-storage-default-template',
-  'app-photo-editor-template-gallery.js?v=20260609-v426-storage-default-template',
+  'app-photo-editor-template-gallery.js?v=20260611-v444-tpl-badge-fix',
   'app-photo-editor-template-edit-sheet.js?v=20260607-s3b2-after-photo'
   ],
   assistant: [

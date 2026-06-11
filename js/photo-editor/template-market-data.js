@@ -231,6 +231,9 @@
     } catch (_e) { return []; }
   })();
   const V3_REGISTRY = V3_TOP5.concat(BEAUTY_PACK);   // 조회용(apply/render). 노출은 V3_TOP5 만 사용.
+  // [HF-badge] V3_TOP5/뷰티팩은 kind 만 있고 purpose 가 없어 카드 배지가 '홍보'로 오표시 → kind→purpose 주입(1회).
+  //   (기존 BEAUTY_PACK 은 purpose 가 채워져 있어 if(!purpose) 로 건너뜀 = 무회귀.)
+  V3_REGISTRY.forEach((t) => { if (!t.purpose) t.purpose = t.kind || purposeOf(t); if (!t.industry) t.industry = industryOf(t); });
   function v3ById(id) { for (let i = 0; i < V3_REGISTRY.length; i++) if (V3_REGISTRY[i].id === id) return V3_REGISTRY[i]; return null; }
 
   // ── [V3-4a] 노출/조회 분리 + 롤백 플래그 ───────────────────────────────
