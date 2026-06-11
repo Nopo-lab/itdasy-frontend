@@ -41,6 +41,24 @@
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
 
+  // [2026-06-12] 예약금 금액 파싱 — "5만원"→50000, "5만5천"→55000, "50000"→50000.
+  //   기존 parseInt 는 비숫자 제거 후 파싱이라 "5만원"→5 로 깨졌다.
+  function _parseKRW(raw) {
+    let s = String(raw == null ? '' : raw).replace(/[,\s원]/g, '');
+    if (!s) return null;
+    if (/^\d+$/.test(s)) { const n = parseInt(s, 10); return n > 0 ? n : null; }
+    let total = 0, matched = false;
+    const eok = s.match(/(\d+)억/);   if (eok) { total += parseInt(eok[1], 10) * 1e8; matched = true; }
+    const man = s.match(/(\d+)만/);   if (man) { total += parseInt(man[1], 10) * 1e4; matched = true; }
+    const cheon = s.match(/(\d+)천/); if (cheon) { total += parseInt(cheon[1], 10) * 1e3; matched = true; }
+    // "5만5000" 처럼 만 뒤에 남은 숫자
+    const tail = s.match(/만(\d{3,4})$/); if (tail) { total += parseInt(tail[1], 10); }
+    if (matched) return total > 0 ? total : null;
+    const digits = s.replace(/[^0-9]/g, '');
+    const n = digits ? parseInt(digits, 10) : 0;
+    return n > 0 ? n : null;
+  }
+
   // 키워드 → 카테고리 추론 (백엔드 미존재) — TODO[v1.5]: 서버 분류
   function _categoryOf(text) {
     const s = String(text || '');
@@ -383,8 +401,8 @@
         <div class="dm-field">
           <label class="dm-field__label">예약금 금액</label>
           <div class="dm-field__suffix">
-            <input type="number" inputmode="numeric" class="dm-field__input dm-field__input--unit" data-field="deposit-amount"
-              value="${amt}" placeholder="예: 20000" min="0">
+            <input type="text" inputmode="numeric" class="dm-field__input dm-field__input--unit" data-field="deposit-amount"
+              value="${amt}" placeholder="예: 20000 또는 2만원">
             <span class="dm-field__unit">원</span>
           </div>
         </div>
@@ -586,6 +604,17 @@
     const showAltBtn = isBookingAction && calChecked && !actMeta.slot_available
       && !isDepositPending && !isDepositSent;
 
+    // ── [2026-06-12] 예약 양식 미설정 유도 — booking 카드인데 booking_form 없으면 상단 인라인 안내.
+    const _intentNow = conv.intent || _categoryOf(conv.received_text);
+    const _isBookingCard = _intentNow === 'booking' || _intentNow === '예약 문의'
+      || isBookingAction || isDepositPending || isDepositSent;
+    const _noForm = !((_settings && (_settings.booking_form || '')).toString().trim());
+    const formNotice = (_isBookingCard && _noForm) ? `
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;padding:9px 11px;background:#FFF7ED;border:1px solid #FDBA74;border-radius:10px;margin:0 0 8px;">
+        <span style="font-size:11.5px;color:#9A3412;font-weight:600;line-height:1.4;word-break:keep-all;">예약 양식을 만들어두면 잇비가 자동으로 보내드려요</span>
+        <button type="button" data-act="goto-booking-form" style="flex-shrink:0;background:#EA580C;color:#fff;border:none;border-radius:8px;padding:6px 11px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">양식 만들기</button>
+      </div>` : '';
+
     // ── [5] 캘린더 확인 줄 (booking 카드 전용)
     const calLine = (calChecked && actMeta.slot_available != null) ? `
       <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin:4px 0 2px;${actMeta.slot_available ? 'color:#166534;' : 'color:#B91C1C;'}">
@@ -663,6 +692,7 @@
           <div class="dm-card__pending-badge">${pending ? '검토 대기' : '학습 피드백'}</div>
         </div>
         <div><span class="dm-card__cat">${_esc(cat)}</span></div>
+        ${formNotice}
         ${_renderThread(conv, tail, logId)}
         ${chipsHtml}
         ${stageInfo}
@@ -1057,6 +1087,17 @@
     if (card.dataset.bound === '1') return;
     card.dataset.bound = '1';
     card.querySelector('[data-act="send"]')?.addEventListener('click', () => _handleSend(card));
+    // [2026-06-12] 예약 양식 미설정 안내 → 같은 시트의 양식 섹션으로 스크롤 + 포커스 (팝업 없이 인라인 이동).
+    card.querySelector('[data-act="goto-booking-form"]')?.addEventListener('click', () => {
+      _haptic();
+      const ta = document.querySelector('[data-field="booking-form"]');
+      if (ta) {
+        ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => ta.focus(), 350);
+      } else {
+        _toast('DM 설정에서 예약 양식을 만들어주세요');
+      }
+    });
     card.querySelector('[data-act="reject"]')?.addEventListener('click', () => _handleReject(card));
     card.querySelector('[data-act="reset-conversation"]')?.addEventListener('click', () => _handleResetConversation(card));
     card.querySelector('[data-act="regen"]')?.addEventListener('click', () => _handleRegen(card));
@@ -1274,8 +1315,16 @@
       _saveSettings({ deposit_account: String(e.target.value || '').trim() });
     });
     sheet.querySelector('[data-field="deposit-amount"]')?.addEventListener('blur', (e) => {
-      const n = parseInt(String(e.target.value || '').replace(/[^0-9]/g, ''), 10);
-      _saveSettings({ deposit_amount: (Number.isFinite(n) && n > 0) ? n : null });
+      const raw = String(e.target.value || '').trim();
+      const n = _parseKRW(raw);  // "5만원"→50000 등 만/천 단위 해석
+      _saveSettings({ deposit_amount: n });
+      if (n != null) {
+        // 입력 정규화 + 확인 토스트 ("50,000원으로 저장했어요")
+        e.target.value = String(n);
+        _toast(`${n.toLocaleString('ko-KR')}원으로 저장했어요`);
+      } else if (raw) {
+        _toast('예약금 금액을 숫자로 입력해주세요 (예: 2만원)');
+      }
     });
   }
 

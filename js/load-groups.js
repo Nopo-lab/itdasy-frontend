@@ -159,7 +159,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-kakao-hub.js',
   'app-naver-link.js',
   'app-dm-settings-cache.js?v=20260521-v254-api-fetch',
-  'app-dm-autoreply.js?v=20260610-batch4',
+  'app-dm-autoreply.js?v=20260612-dm-form-deposit',
   'app-dm-confirm-queue.js?v=20260609-msg-stack',
   'app-dm-conversations.js?v=20260610-quickwin',
   'app-dm-manual-replies.js?v=20260610-batch5',
