@@ -1795,6 +1795,7 @@
   var _BA_PENDING_TTL = 10 * 60 * 1000;   // 10분
   let _pendingBA = null;          // { firstUrl, firstRole:'before'|'after', requestText, ts }
   let _baChoicePhotoUrl = null;   // 선택 카드 표시~클릭 사이 1장 dataURL 임시(히스토리에 미저장)
+  let _pendingCaptionPhoto = null; // 사진+캡션 요청 시 시술내역 입력 대기 중인 photo dataUrl
 
   function _baCollectCtx() {
     try { return (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {}; }
@@ -3295,10 +3296,18 @@
     }
     try {
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
-      // [2026-06-11 #8 v2] 사진+캡션 요청 → 홍보(promo) 플로우로 — 캡션+카드가 같이 나오는 기존 경로.
-      //   (v1 의 BE 이미지 API 직행은 영수증 정리용이라 "정리가 안 됐어요"가 떴음 — 갤럭시 실측 FAIL 수정)
+      // [2026-06-11 #8 v3] 사진+캡션 요청 → 시술내역 입력 대기 후 캡션 생성 (보정 없음).
+      //   v2는 홍보 플로우로 라우팅해 "보정 완료! 인스타 미리보기" 바로 띄우는 오동작이 있었음.
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
-      if (_isCaptionIntent && await _tryPhotoShortcut('이 사진 인스타 홍보용으로 만들어줘', photoUrls)) return;
+      if (_isCaptionIntent && photoUrls.length) {
+        try { if (window.ItdasySourceImage && window.ItdasySourceImage.set) window.ItdasySourceImage.set({ origin: 'chat', dataUrl: photoUrls[0] }); } catch (_e) { void _e; }
+        _pendingCaptionPhoto = photoUrls[0];
+        _history.push({ role: 'user', text: question || '캡션 만들어줘', thumb: photoUrls[0], photos: photoUrls });
+        _history.push({ role: 'assistant', text: '사진 받았어요!\n어떤 시술인가요? 예: "레이어드 컷" · "붙임머리 S컬" 처럼 시술명을 입력하시면 캡션을 바로 만들어드릴게요.' });
+        _renderHistory();
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
+      }
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
         _pushPhotoSuggestion(question, photoUrls);
@@ -3933,6 +3942,29 @@
     const q = input ? input.value.trim() : '';
     if (!q) return;
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
+    // [사진+캡션 pending] 시술내역 입력 대기 → 캡션 생성 후 인스타 미리보기 버튼
+    if (_pendingCaptionPhoto) {
+      const _capPhotoUrl = _pendingCaptionPhoto;
+      _pendingCaptionPhoto = null;
+      _sendInFlight = true;
+      _beginTextAsk(input, q);
+      try {
+        const _capRes = await _generateChatCaption({ question: q + ' 시술 완료 인스타 캡션', customerCtx: null });
+        const _capText = (_capRes && _capRes.caption) || '오늘도 멋진 시술 완료! 예약·상담은 DM 또는 전화 주세요 😊';
+        _history[_history.length - 1] = {
+          role: 'assistant',
+          text: '캡션을 만들었어요 ✍️',
+          photo_result: { dataUrl: _capPhotoUrl, ratio: '4:5' },
+          photo_caption: _capText,
+          hub_actions: [
+            { id: 'ig_preview', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'hub', payload: { dataUrl: _capPhotoUrl, caption: _capText, ratio: '4:5' } },
+          ],
+        };
+        _renderHistory();
+      } catch (_capErr) { _handleSendError(_capErr); }
+      finally { _sendInFlight = false; _inflightCtrl = null; }
+      return;
+    }
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (_tryTemplateSampleShortcut(input, q)) return;   // [M2] 매처 샘플 → I2/I3 자동 적용 — null 이면 false 로 아래 fallback
