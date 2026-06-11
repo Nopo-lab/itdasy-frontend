@@ -852,7 +852,7 @@
       } catch (_) { /* ignore */ }
     return new Promise((resolve) => {
       const pop = document.createElement('div');
-      pop.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;';
+      pop.style.cssText = 'position:fixed;inset:0;z-index:10800;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;' /* [2026-06-11] 잇비(10500) 위로 — 픽커 가림 픽스 */;
       pop.innerHTML = `
         <div style="width:100%;background:var(--bg,#fff);border-radius:20px 20px 0 0;max-height:75vh;display:flex;flex-direction:column;padding:16px;padding-bottom:max(16px,env(safe-area-inset-bottom));">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">

@@ -113,7 +113,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   assistant: [
   'app-assistant-facts.js?v=20260610-batch4',
   'app-assistant-undo.js?v=20260610-batch4',
-  'assistant-intent-router.js?v=20260611-b7b8',
+  'assistant-intent-router.js?v=20260611-galaxy-fix',
   'js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
   'js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split',
@@ -147,9 +147,9 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-catalog-event.js?v=20260608-v416-template-sample-matcher-connect',
   'js/assistant/core/template-sample-catalog.js?v=20260608-v416-template-sample-matcher-connect',
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
-  'js/assistant/core/assistant-template-save.js?v=20260611-b7b8',
+  'js/assistant/core/assistant-template-save.js?v=20260611-galaxy-fix',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260611-b7b8',
+  'app-assistant.js?v=20260611-galaxy-fix',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

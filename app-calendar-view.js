@@ -650,9 +650,14 @@
         const ed = new Date(it._raw.ends_at);
         if (isNaN(sd) || isNaN(ed)) continue;
         const sh = sd.getHours();
-        const eh = ed.getHours() + (ed.getMinutes() > 0 ? 1 : 0);
+        // [2026-06-11 QA] 자정 넘김 예약(23:40~익일 00:40)은 종료시(0시)만 보면 확장이 안 돼
+        //   21시 축에서 안 보이던 버그 — 다음날로 넘어가면 그날 칼럼은 24시까지 확장.
+        const crosses = ed.getDate() !== sd.getDate();
+        const eh = crosses ? 24 : (ed.getHours() + (ed.getMinutes() > 0 ? 1 : 0));
         if (sh < s) s = Math.max(0, sh);
-        if (eh > e) e = Math.min(24, eh);
+        // 시작 시각이 축 끝보다 늦은 경우(영업시간 밖 늦은 예약)도 확장
+        const endCand = Math.max(eh, sh + 1);
+        if (endCand > e) e = Math.min(24, endCand);
       }
     }
     return { start: s, end: e, shopStart: start, shopEnd: end };
@@ -1277,6 +1282,7 @@
           // 옛 분기는 cancelled 만 편집폼이라 picker 만 뜨는 회귀 인식 → 통일.
           // CompleteFlow 안에 "예약 시간·고객 수정" 링크로 편집폼 진입은 그대로.
           const raw = ctx.item._raw;
+          btn._cfOpenedAt = Date.now();   // [2026-06-11 QA] click 폴백 이중 오픈 방지 마킹
           if (window.CompleteFlow?.startFromBooking) {
             window.CompleteFlow.startFromBooking(raw);
           } else {
@@ -1293,6 +1299,20 @@
       await _commitDragDrop(dropped, ctx.item);
     });
     btn.addEventListener('pointercancel', cleanup);
+    // [2026-06-11 QA] 갤럭시 실측: 터치 스크롤 제스처와 겹치면 pointerup 이 pointercancel 로
+    //   끊겨 완료 카드가 안 뜨고, 합성 click 만 남는 케이스 — click 폴백으로 보강.
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (ctx.dragMode) return;
+      if (btn._cfOpenedAt && Date.now() - btn._cfOpenedAt < 600) return; // pointerup 이 이미 처리
+      const item = ctx.item
+        || _mappedCache.find(m => String(m.id) === String(btn.dataset.bookingId));
+      if (!item) return;
+      btn._cfOpenedAt = Date.now();
+      const raw = item._raw;
+      if (window.CompleteFlow?.startFromBooking) window.CompleteFlow.startFromBooking(raw);
+      else _openForm(new Date(raw.starts_at), raw);
+    });
     btn.style.touchAction = 'none';
   }
 

@@ -53,6 +53,14 @@
       test: (q) => /(하지\s*마|하지마|말\s*고\b|만들지\s*말|말지\s*말|금지|임의로\s*(하지|처리)|먼저\s*(물어|확인)|꼭\s*(물어|확인))/.test(q)
         && /(고객|예약|매출|저장|등록|삭제|취소|만들|추가|보내|발송|DM|메시지)/.test(q),
       response: (q) => {
+        // [2026-06-11 QA] 같은 정책 반복 시 메모 중복 누적 방지 — 최근 저장분과 비교
+        try {
+          const seen = JSON.parse(localStorage.getItem('itdasy_policy_saved') || '[]');
+          const norm = String(q).replace(/\s+/g, '');
+          if (seen.includes(norm)) return '네, 그건 이미 기억하고 있어요 🧠 (메뉴 ⋯ > 잇비 메모에서 확인 가능)';
+          seen.push(norm);
+          localStorage.setItem('itdasy_policy_saved', JSON.stringify(seen.slice(-20)));
+        } catch (_d) { void _d; }
         try {
           if (window.authHeader && typeof apiFetch === 'function') {
             apiFetch('/assistant/facts', {
@@ -70,7 +78,9 @@
       type: 'show_last_saved',
       test: (q) => /(저장한|방금).{0,10}(카드|거|결과|템플릿)/.test(q) && /(보여|열어|어디)/.test(q),
       response: () => {
-        const last = window._lastAssistantSave;
+        let last = window._lastAssistantSave;
+        // [2026-06-11 QA] 새로고침 후에도 기억 — localStorage 폴백
+        if (!last) { try { last = JSON.parse(localStorage.getItem('itdasy_last_asst_save') || 'null'); } catch (_e) { last = null; } }
         if (!last || !last.slotId) return '최근에 저장한 카드를 못 찾았어요. 카드를 저장한 뒤 다시 말씀해 주세요.';
         setTimeout(() => {
           try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }

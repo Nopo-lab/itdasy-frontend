@@ -3295,9 +3295,11 @@
     }
     try {
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
-      if (await _tryPhotoShortcut(question, photoUrls)) return;
-      // [2026-06-11 #8] 사진+캡션 요청은 보정 제안으로 새면 안 됨 — BE 이미지+질문 경로(캡션 생성)로 직행
+      // [2026-06-11 #8 v2] 사진+캡션 요청 → 홍보(promo) 플로우로 — 캡션+카드가 같이 나오는 기존 경로.
+      //   (v1 의 BE 이미지 API 직행은 영수증 정리용이라 "정리가 안 됐어요"가 떴음 — 갤럭시 실측 FAIL 수정)
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
+      if (_isCaptionIntent && await _tryPhotoShortcut('이 사진 인스타 홍보용으로 만들어줘', photoUrls)) return;
+      if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
         _pushPhotoSuggestion(question, photoUrls);
         if (window.hapticLight) window.hapticLight();
