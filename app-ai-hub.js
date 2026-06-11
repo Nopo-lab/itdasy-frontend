@@ -30,9 +30,7 @@
   // type: 'toggle' | 'tag' | 'badge' | 'plain'
   function _rows() {
     return [
-      { act: 'photoEditor', icon: 'ph-magic-wand', boxColor: 'pink',
-        name: '사진 편집기', meta: '자동 보정 · Before/After · 템플릿',
-        type: 'badge' },
+      // [2026-06-11] 사진편집기 AI허브 노출 제거 — 작업실 내부 진입으로 통일
       // [2026-05-25] SNS 캡션 + AI 페르소나 통합 — 'AI 페르소나' 단일 진입점.
       //   클릭 시 바텀시트로 3개 옵션(SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
       { act: 'hashtag', icon: 'ph-hash', boxColor: 'teal',
