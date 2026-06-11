@@ -16,16 +16,24 @@ function loadModules() {
   eval(fs.readFileSync(path.join(core, 'memory-intent.js'), 'utf8'));
   // eslint-disable-next-line no-eval
   eval(fs.readFileSync(path.join(core, 'saved-cards-intent.js'), 'utf8'));
-  return { MEM: global.window.ItbiMemoryIntent, SAVED: global.window.ItbiSavedCardsIntent };
+  // eslint-disable-next-line no-eval
+  eval(fs.readFileSync(path.join(core, 'create-intent.js'), 'utf8'));
+  return {
+    MEM: global.window.ItbiMemoryIntent,
+    SAVED: global.window.ItbiSavedCardsIntent,
+    CREATE: global.window.ItbiCreateIntent,
+  };
 }
-const { MEM, SAVED } = loadModules();
+const { MEM, SAVED, CREATE } = loadModules();
 
-// 통합 라우팅(생성 매처 제외): memory → saved(open/query/edit) → none
+// 통합 라우팅(실제 _send 순서): memory → saved(open/query/edit) → create(bare 생성) → none
 function route(q) {
   const m = MEM.classify(q);
   if (m && ['save', 'recall', 'forget', 'save_empty'].includes(m.mode)) return 'memory';
   const s = SAVED.classify(q);
   if (s && s.matched) return 'saved:' + s.mode;
+  const c = CREATE.classify(q);
+  if (c && c.purpose) return 'create:' + c.purpose;
   return 'none';
 }
 function accepts(exp, got) {
@@ -71,11 +79,25 @@ describe('잇비 메모리 — 저장/회상/삭제', () => {
   ])('"%s" → memory', (q) => expect(route(q)).toBe('memory'));
 });
 
-describe('타도메인/생성/사진 — 저장카드로 새지 않음', () => {
+describe('잇비 카드 생성(create) — 업종 없는 bare 생성도 백엔드로 안 샘', () => {
   it.each([
-    '고객 카드 보여줘', '예약 카드 보여줘', '손님 카드 보여줘', '오늘 매출 보여줘', '회원 명단 보여줘',
-    '이거 인스타 올려', '이 사진 보정해줘', '저장해줘', '그냥 보여줘', '예약 목록 보여줘',
-  ])('"%s" → none', (q) => expect(route(q)).toBe('none'));
+    ['가격표 만들어줘', 'price'], ['후기 카드 만들어줘', 'review'], ['전후사진 카드 만들어줘', 'before_after'],
+    ['이벤트 카드 만들어줘', 'event'], ['카드 만들어줘', 'generic'], ['예쁜 카드 만들어줘', 'generic'],
+    ['레이어드컷 가격표 만들어줘', 'price'], ['남자펌 가격표 만들어줘', 'price'], ['속눈썹 연장 가격표 만들어줘', 'price'],
+    ['피부관리 이벤트 만들어줘', 'event'], ['후기 카드 하나 뽑아줘', 'review'], ['전후 카드 만들어', 'before_after'],
+    ['새 가격표 만들어줘', 'price'], ['리뷰 카드 만들어줘', 'review'], ['가격표 새로 만들래', 'price'],
+    ['눈썹 문신 가격표 만들어줘', 'price'],
+  ])('"%s" → create:%s', (q, p) => expect(route(q)).toBe('create:' + p));
+});
+
+describe('타도메인/조회·수정·메모/사진 — create 로 오분류 금지', () => {
+  it.each([
+    ['고객 카드 보여줘', 'none'], ['예약 카드 보여줘', 'none'], ['손님 카드 보여줘', 'none'],
+    ['오늘 매출 보여줘', 'none'], ['회원 명단 보여줘', 'none'], ['이거 인스타 올려', 'none'],
+    ['이 사진 보정해줘', 'none'], ['그냥 보여줘', 'none'], ['예약 목록 보여줘', 'none'],
+    ['예약 카드 만들어줘', 'none'], ['예약 잡아줘', 'none'], ['만들어줘', 'none'],
+    ['저장된 카드 보여줘', 'saved:query'], ['방금 만든 거 수정해줘', 'saved:edit'], ['보정 전 확인 기억해', 'memory'],
+  ])('"%s" → %s', (q, exp) => expect(route(q)).toBe(exp));
 });
 
 describe('메모 의미 dedupe(병합 안전) — isSimilar', () => {

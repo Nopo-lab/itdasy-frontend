@@ -17,7 +17,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-gallery-review.js?v=20260521-v254-api-fetch',
   'app-gallery-write.js?v=20260521-v254-api-fetch',
   'app-gallery-finish.js?v=20260610-batch5',
-  'js/assistant/photo-workflow-commands.js?v=20260526-v286-photo-editor-voice-workflow',
+  'js/assistant/photo-workflow-commands.js?v=20260612-v450b-domain-card-guard',
   'app-photo-editor-worker-filter.js?v=20260521-v252-photo-shadow-batch',
   'js/photo-editor/history.js?v=20260526-v288-photo-editor-warning-cleanup',
   'app-photo-editor.js?v=20260610-heic',
@@ -132,6 +132,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/action-hub.js?v=20260611-r3fix',
   'js/assistant/core/memory-intent.js?v=20260612-v447c-itbi-fuzz',
   'js/assistant/core/saved-cards-intent.js?v=20260612-v447c-itbi-fuzz',
+  'js/assistant/core/create-intent.js?v=20260612-v450b-create',
   'js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish',
   'js/assistant/core/template-autoapply.js?v=20260611-b7b8',
   'js/assistant/core/promo-result-builder.js?v=20260602-first-wow',
@@ -151,7 +152,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
   'js/assistant/core/assistant-template-save.js?v=20260611-galaxy-fix',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260612-v448-shoptype-neutral',
+  'app-assistant.js?v=20260612-v450b-create',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

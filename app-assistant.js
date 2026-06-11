@@ -3553,7 +3553,11 @@
       if (!P || typeof P.parseRequest !== 'function') return false;
       const result = P.parseRequest(q);
       // [B10] 가격표 의도는 있으나 가격을 못 찾음 → 거짓 성공 대신 정직 안내(LLM 폴백으로 새지 않게 가로챔).
+      //   [QA퍼징] 단, 사진이 함께 온 경우(=이미지에서 가격 추출 실패)에만 안내. 사진 없는 bare "가격표 만들어줘"는
+      //   여기서 막다른 안내로 끝내지 말고 false 반환 → 뒤의 create 폴백이 가격표 템플릿 피커를 연다.
       if (result && result.priceMissing && !result.matched) {
+        const _ph = _priceDraftPhotoUrls(photoUrls);
+        if (!_ph.length) return false;
         _clearAssistantInput(input);
         _history.push({ role: 'user', text: q });
         _history.push({ role: 'assistant', text: '가격표로 만들 수 있는 시술명과 가격을 찾지 못했어요. 가격이 함께 보이는 이미지를 올려 주세요.' });
@@ -3980,6 +3984,57 @@
     finally { _sendInFlight = false; }
   }
 
+  // [QA퍼징] 업종 키워드 없는 bare 생성("가격표 만들어줘")을 백엔드로 안 새게 — 목적별 템플릿 편집기/피커로 연결.
+  //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
+  const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid' };
+  const _CREATE_LABEL = { price: '가격표', review: '후기 카드', before_after: '전후 카드', event: '이벤트 카드', generic: '카드' };
+  function _openCreateTemplate(purpose) {
+    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
+    if (!PE || typeof PE.open !== 'function') return false;
+    let source = '';
+    try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
+    PE.open({ src: source, initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });
+    const tplId = _CREATE_DEFAULT_TPL[purpose];
+    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    _focusEditorCloseAssistant();
+    return true;
+  }
+  async function _tryCreateIntentFallback(input, q) {
+    let c = null;
+    try { c = window.ItbiCreateIntent && window.ItbiCreateIntent.classify(q); } catch (_e) { c = null; }
+    if (!c || !c.purpose) return false;
+    _sendInFlight = true;
+    try {
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_l) { void _l; }
+      const p = c.purpose;
+      if (p === 'event') {
+        _history.push({ role: 'assistant', text: '이벤트 카드는 아직 준비 중이에요. 지금은 가격표·후기·전후 카드를 바로 만들 수 있어요 — 어떤 걸 만들까요?' });
+        _renderHistory();
+        return true;
+      }
+      const opened = _openCreateTemplate(p);
+      if (opened) {
+        const msg = (p === 'generic')
+          ? '템플릿을 열었어요. 마음에 드는 디자인을 골라 문구를 넣어보세요. 저장하면 작업실에 모여요.'
+          : (_CREATE_LABEL[p] || '카드') + ' 템플릿을 열었어요. 디자인을 고르고 문구를 채워보세요. 저장하면 작업실에서 다시 편집할 수 있어요.';
+        _history.push({ role: 'assistant', text: msg });
+        _renderHistory();
+        return true;
+      }
+      // 편집기 미가용 — 작업실로라도 보내 정직 안내(백엔드로 안 샘).
+      try { if (typeof window.showTab === 'function') window.showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]')); } catch (_t) { void _t; }
+      _history.push({ role: 'assistant', text: '작업실을 열었어요. 여기서 ' + (_CREATE_LABEL[p] || '카드') + '를 만들 수 있어요.' });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      try { _history.push({ role: 'assistant', text: '카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' }); _renderHistory(); } catch (_e2) { void _e2; }
+      return true;
+    } finally { _sendInFlight = false; }
+  }
+
   async function _send() {
     if (_sendInFlight) return;
     const input = document.getElementById('asstInput');
@@ -4032,6 +4087,8 @@
         }
       } catch (_e) { void _e; }
     }
+    // [QA퍼징] 업종 없는 bare 생성("가격표 만들어줘")은 매처가 못 잡음 → 백엔드 전 마지막으로 가로채 목적별 템플릿으로.
+    if (await _tryCreateIntentFallback(input, q)) return;
     if (await _trySendShortcuts(input, q)) return;
     _beginTextAsk(input, q);
     try {
