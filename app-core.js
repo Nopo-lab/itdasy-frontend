@@ -1728,23 +1728,27 @@ window.addEventListener('load', function() {
         const pd = document.getElementById('personaDash');
         if (pd) pd.style.display = 'none';
       } catch (_e) { void _e; }
-      try {
-        if (typeof window.runAutoAnalysisAfterConnect === 'function') {
-          window.runAutoAnalysisAfterConnect();
-        } else if (typeof runPersonaAnalyze === 'function') {
-          runPersonaAnalyze();
-        }
-      } catch (_e) { void _e; }
     }
-    checkInstaStatus().then(() => {
-      // (connected=success 는 위에서 이미 처리됨 — runPersonaAnalyze 즉시 호출)
-      const params = new URLSearchParams(window.location.search);
+    // [2026-06-12] connected=success 직후 경합 제거 — checkInstaStatus 를 먼저 await 로 끝내
+    //   (재연동 캐시 정리 선행) 그 다음에 runAutoAnalysisAfterConnect 시작. 동시 출발 금지.
+    (async () => {
+      try { await checkInstaStatus(); } catch (_e) { void _e; }
+      if (_justOAuthed) {
+        try {
+          if (typeof window.runAutoAnalysisAfterConnect === 'function') {
+            window.runAutoAnalysisAfterConnect();
+          } else if (typeof runPersonaAnalyze === 'function') {
+            runPersonaAnalyze();
+          }
+        } catch (_e) { void _e; }
+      }
       // Chrome 이동 후 자동 연동 시작
+      const params = new URLSearchParams(window.location.search);
       if (params.get('auto_connect') === '1') {
         history.replaceState(null, '', window.location.pathname);
         setTimeout(connectInstagram, 500);
       }
-    });
+    })();
 
     // 기존 동의 완료 시각 복원
     const consentedAt = localStorage.getItem('itdasy_consented_at');

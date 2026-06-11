@@ -368,9 +368,12 @@ async function runAutoAnalysisAfterConnect() {
   const startedAt = Date.now();
   const MAX_MS = 90_000;
   const STEP_MS = 3_000;
+  const MIN_OVERLAY_MS = 2_500;   // [2026-06-12] 즉시 성공해도 오버레이 최소 2.5초 노출 (깜빡임 방지)
   let progressPct = 10;
   let success = false;
+  let failCode = null;            // [2026-06-12] BG 분석 실패 사유 (media_fetch_failed/no_captioned_posts/ai_failed)
   let lastStatusData = null;
+  console.log('[IG-ANALYZE] start');
 
   // 백그라운드 task 진행 시각화 — 시간 흐름에 따라 prograss bar 자연스럽게 증가
   while (Date.now() - startedAt < MAX_MS) {
@@ -382,6 +385,13 @@ async function runAutoAnalysisAfterConnect() {
         const p = (d && d.persona) || null;
         if (p && (p.style_summary || '').trim()) {
           success = true;
+          console.log('[IG-ANALYZE] success', { handle: d.handle, post_count: p.post_count });
+          break;
+        }
+        // [2026-06-12] BG 분석이 사유 코드 남기고 실패 → 폴링 중단·사유별 안내.
+        if (d && d.style_analysis_status === 'failed' && d.analysis_error) {
+          failCode = d.analysis_error;
+          console.log('[IG-ANALYZE] failed', { analysis_error: failCode });
           break;
         }
       }
@@ -399,13 +409,22 @@ async function runAutoAnalysisAfterConnect() {
     await new Promise(r => setTimeout(r, STEP_MS));
   }
 
+  // [2026-06-12] 즉시 성공/실패해도 오버레이가 최소 2.5초는 보이게 — "로딩 없음" 인상 방지.
+  const _elapsed = Date.now() - startedAt;
+  if (_elapsed < MIN_OVERLAY_MS) await new Promise(r => setTimeout(r, MIN_OVERLAY_MS - _elapsed));
+
+  // [2026-06-12] BG 분석이 명시적으로 실패 → 오버레이 닫고 사유별 안내 + 재분석 버튼.
+  if (failCode) {
+    _showAnalyzeError(failCode);
+    return;
+  }
+
   if (success && lastStatusData) {
     const p = lastStatusData.persona || {};
     if (bar) bar.style.width = '100%';
     if (stepTxt) stepTxt.textContent = '분석 성공!';
     if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
-    // [2026-05-21] /instagram/status 는 raw_analysis 안 줘서 persona 만 저장하면
-    // 나중 showDetailedAnalysis 가 raw.tone_summary 체크 실패 → "데이터 없음" 으로 끝나는 버그.
+    // [2026-05-21] localStorage 저장은 그대로 유지 (다른 화면·다음 방문이 읽음).
     // persona 필드를 raw_analysis 호환 형태로 평탄화해서 저장.
     try {
       const flat = { ...p, tone_summary: p.tone || '', style_summary: p.style_summary || '' };
@@ -416,20 +435,20 @@ async function runAutoAnalysisAfterConnect() {
       updateHeaderProfile(_instaHandle, p.tone, curPic);
       renderPersonaDash(p, true);
     } catch (_e) { void _e; }
-    // [FE4] 재분석 완료 → 리포트 팝업 자동 노출
-    try {
-      const flat = { ...p, tone_summary: p.tone || '', style_summary: p.style_summary || '' };
-      localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat));
-    } catch (_e) { void _e; }
+    // [2026-06-12] 리포트 팝업은 localStorage 경유(showDetailedAnalysis) 금지 — 재연동 캐시 정리와
+    //   경합하면 팝업 대신 토스트만 뜸. 폴링으로 받은 persona 를 renderDetailedPopup 에 직접 전달.
     setTimeout(() => {
       if (overlay) overlay.style.display = 'none';
-      if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
-      else try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
+      console.log('[IG-ANALYZE] open-report');
+      if (!_openReportPopupDirect(p)) {
+        try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
+      }
     }, 1000);
     return;
   }
 
   // Timeout fallback — BG task 가 실패했거나 너무 느림. force 재분석 1회.
+  console.log('[IG-ANALYZE] timeout-fallback force-reanalyze');
   if (stepTxt) stepTxt.textContent = '한 번 더 시도하는 중…';
   try {
     const r2 = await apiFetch('/instagram/analyze?force=true', { method: 'POST', headers: authHeader() });
@@ -437,6 +456,7 @@ async function runAutoAnalysisAfterConnect() {
       const d2 = await r2.json();
       const p = d2.persona || {};
       if (p.style_summary) {
+        console.log('[IG-ANALYZE] fallback-success');
         try { localStorage.setItem('itdasy_latest_analysis', JSON.stringify({ ...(d2.raw_analysis || {}), ...p })); } catch (_e) { void _e; }
         try {
           const curPic = document.getElementById('headerAvatar')?.querySelector('img')?.src || '';
@@ -444,7 +464,9 @@ async function runAutoAnalysisAfterConnect() {
           renderPersonaDash(p, true);
         } catch (_e) { void _e; }
         if (overlay) overlay.style.display = 'none';
-        try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e) { void _e; }
+        if (!_openReportPopupDirect(p)) {
+          try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e) { void _e; }
+        }
         return;
       }
     } else {
@@ -454,16 +476,62 @@ async function runAutoAnalysisAfterConnect() {
         const detail = (j && j.detail) || '';
         if (typeof detail === 'string' && detail) friendly = detail;
       } catch (_e) { void _e; }
+      console.log('[IG-ANALYZE] fallback-failed', { detail: friendly });
       if (overlay) overlay.style.display = 'none';
       try { if (typeof showToast === 'function') showToast(friendly); } catch (_e) { void _e; }
       return;
     }
   } catch (_e) { /* ignore */ }
 
+  console.log('[IG-ANALYZE] timeout-give-up');
   if (overlay) overlay.style.display = 'none';
   try { if (typeof showToast === 'function') showToast('분석이 평소보다 오래 걸려요. 설정 > 말투 새로 분석 으로 다시 시도해주세요'); } catch (_e) { void _e; }
 }
 window.runAutoAnalysisAfterConnect = runAutoAnalysisAfterConnect;
+
+// [2026-06-12] 폴링으로 받은 persona 를 localStorage 경유 없이 리포트 팝업에 직접 전달·오픈.
+//   재연동 캐시 정리(checkInstaStatus)와 경합해도 팝업이 토스트로 새지 않게.
+function _openReportPopupDirect(p) {
+  try {
+    const flat = { ...p, tone_summary: p.tone || p.tone_summary || '', style_summary: p.style_summary || '' };
+    renderDetailedPopup({ raw_analysis: flat, persona: p });
+    const pop = document.getElementById('analyzeResultPopup');
+    if (pop) {
+      // stacking context 이슈 방지 — body 최상위로
+      if (pop.parentElement !== document.body) document.body.appendChild(pop);
+      pop.style.display = 'block';
+      return true;
+    }
+  } catch (_e) { console.log('[IG-ANALYZE] popup-open-failed', _e && _e.message); }
+  return false;
+}
+
+// [2026-06-12] 말투 분석 실패 사유별 안내 배너 + 재분석 버튼 (showToast 는 액션 버튼 미지원).
+function _showAnalyzeError(code) {
+  const MSG = {
+    media_fetch_failed: '게시물을 가져올 수 없어요. 인스타가 프로페셔널(비즈니스/크리에이터) 계정인지 확인해 주세요.',
+    no_captioned_posts: '분석하려면 캡션(글)이 있는 게시물이 필요해요.',
+    ai_failed:          '분석이 잠시 실패했어요. 잠시 후 다시 시도해 주세요.',
+  };
+  console.log('[IG-ANALYZE] show-error', { code });
+  const overlay = document.getElementById('analyzeOverlay');
+  if (overlay) overlay.style.display = 'none';
+  let barEl = document.getElementById('igAnalyzeErrorBar');
+  if (!barEl) {
+    barEl = document.createElement('div');
+    barEl.id = 'igAnalyzeErrorBar';
+    barEl.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 16px);z-index:99999;max-width:calc(100vw - 32px);background:#FEE8E8;color:#A32D2D;padding:12px 16px;border-radius:14px;box-shadow:var(--shadow-md,0 4px 16px rgba(0,0,0,.12));font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;';
+    document.body.appendChild(barEl);
+  }
+  barEl.innerHTML = '<span style="flex:1;word-break:keep-all;line-height:1.4;"></span>' +
+    '<button data-ig-retry style="flex-shrink:0;background:#A32D2D;color:#fff;border:none;border-radius:10px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;">다시 분석</button>';
+  barEl.querySelector('span').textContent = MSG[code] || '말투 분석에 실패했어요. 다시 시도해 주세요.';
+  barEl.style.display = 'flex';
+  barEl.querySelector('[data-ig-retry]').onclick = () => {
+    barEl.style.display = 'none';
+    if (typeof window.runPersonaAnalyze === 'function') window.runPersonaAnalyze(true);
+  };
+}
 
 
 async function reAnalyzePersona() {
