@@ -3934,6 +3934,45 @@
     return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|캡션|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
   }
 
+  // [QA#7] 메모리 인텐트(기억해/뭐 기억해?/기억하지 마) — 백엔드 전에 가로채 dedupe + 응답 제어.
+  async function _tryMemoryShortcut(input, q) {
+    try {
+      if (!window.ItbiMemoryIntent || !window.ItbiMemoryIntent.classify(q)) return false;
+      _sendInFlight = true;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      let res = null;
+      try { res = await window.ItbiMemoryIntent.handle(q); }
+      catch (_h) { res = { reply: '메모를 처리하지 못했어요. 잠시 후 다시 시도해 주세요.' }; }
+      _history.push({ role: 'assistant', text: (res && res.reply) || '메모를 확인했어요.' });
+      _renderHistory();
+      if (res && res.openSheet && typeof window.openAssistantFactsSheet === 'function') {
+        try { window.openAssistantFactsSheet(); } catch (_s) { void _s; }
+      }
+      return true;
+    } catch (_e) { return false; }
+    finally { _sendInFlight = false; }
+  }
+
+  // [QA#6] "저장한 카드 보여줘" — 작업실 진입 + 저장 카드 조회(IndexedDB). 가격표 '생성' 경로보다 먼저 호출.
+  async function _trySavedCardsShortcut(input, q) {
+    try {
+      if (!window.ItbiSavedCardsIntent || !window.ItbiSavedCardsIntent.classify(q)) return false;
+      _sendInFlight = true;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      let res = null;
+      try { res = await window.ItbiSavedCardsIntent.handle(q); }
+      catch (_h) { res = { reply: '작업실을 여는 데 문제가 있었어요. 작업실 탭을 직접 눌러봐 주세요.' }; }
+      _history.push({ role: 'assistant', text: (res && res.reply) || '작업실을 열었어요.' });
+      _renderHistory();
+      return true;
+    } catch (_e) { return false; }
+    finally { _sendInFlight = false; }
+  }
+
   async function _send() {
     if (_sendInFlight) return;
     const input = document.getElementById('asstInput');
@@ -3965,6 +4004,10 @@
       finally { _sendInFlight = false; _inflightCtrl = null; }
       return;
     }
+    // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
+    if (await _tryMemoryShortcut(input, q)) return;
+    // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
+    if (await _trySavedCardsShortcut(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (_tryTemplateSampleShortcut(input, q)) return;   // [M2] 매처 샘플 → I2/I3 자동 적용 — null 이면 false 로 아래 fallback

@@ -130,6 +130,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/daily-briefing.js?v=20260602-v386-brief-rank',
   'js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy',
   'js/assistant/core/action-hub.js?v=20260611-r3fix',
+  'js/assistant/core/memory-intent.js?v=20260612-v447-merge-safe-dedupe',
+  'js/assistant/core/saved-cards-intent.js?v=20260612-v447-merge-saved-cards',
   'js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish',
   'js/assistant/core/template-autoapply.js?v=20260611-b7b8',
   'js/assistant/core/promo-result-builder.js?v=20260602-first-wow',
@@ -149,7 +151,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
   'js/assistant/core/assistant-template-save.js?v=20260611-galaxy-fix',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260611-caption-card-fix',
+  'app-assistant.js?v=20260612-v447-itbi-memory-savedcard',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
