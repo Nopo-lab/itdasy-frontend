@@ -72,6 +72,15 @@ async function checkInstaStatus(fromLogin = false) {
     };
 
     if (data.connected) {
+      // [2026-06-12 Bug] 다른 계정으로 재연동 시 옛 분석 리포트가 localStorage 에 잔존하는 문제.
+      //   캐시된 핸들과 새 data.handle 이 다르면(둘 다 truthy) 옛 분석 캐시부터 제거 →
+      //   아래 hydrate 가 새 persona 로 다시 채움.
+      try {
+        const _prevHandle = localStorage.getItem('itdasy:ig_handle');
+        if (_prevHandle && data.handle && _prevHandle !== data.handle) {
+          localStorage.removeItem('itdasy_latest_analysis');
+        }
+      } catch (_e) { void _e; }
       // [F1/F2] 아래 DOM 렌더(updateHeaderProfile·배너 등)보다 먼저 — 그쪽이 실패해도 분석 캐시
       //   재수화·상태 저장은 보장. 내샵관리/리포트는 itdasy_latest_analysis 만 읽으므로 이게 핵심.
       _hydrateAnalysisCacheFromStatus(data.persona || {});
