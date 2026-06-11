@@ -373,6 +373,11 @@ async function runAutoAnalysisAfterConnect() {
   const bar     = document.getElementById('analyzeProgressBar');
   const stepTxt = document.getElementById('analyzeStepText');
   const subTxt  = document.getElementById('analyzeSubText');
+  // [2026-06-12] 오버레이 종료 = 분석 흐름 끝 → OAuth inflight 플래그 해제(SW reload 가드 풀기).
+  const _endOverlay = () => {
+    if (overlay) overlay.style.display = 'none';
+    try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
+  };
   if (overlay) overlay.style.display = 'flex';
   if (bar) bar.style.width = '10%';
   if (stepTxt) stepTxt.textContent = 'AI 말투 분석 시작했어요';
@@ -452,7 +457,7 @@ async function runAutoAnalysisAfterConnect() {
     // [2026-06-12] 리포트 팝업은 localStorage 경유(showDetailedAnalysis) 금지 — 재연동 캐시 정리와
     //   경합하면 팝업 대신 토스트만 뜸. 폴링으로 받은 persona 를 renderDetailedPopup 에 직접 전달.
     setTimeout(() => {
-      if (overlay) overlay.style.display = 'none';
+      _endOverlay();
       console.log('[IG-ANALYZE] open-report');
       if (!_openReportPopupDirect(p)) {
         try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
@@ -477,7 +482,7 @@ async function runAutoAnalysisAfterConnect() {
           updateHeaderProfile(_instaHandle, p.tone, curPic);
           renderPersonaDash(p, true);
         } catch (_e) { void _e; }
-        if (overlay) overlay.style.display = 'none';
+        _endOverlay();
         if (!_openReportPopupDirect(p)) {
           try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e) { void _e; }
         }
@@ -491,14 +496,14 @@ async function runAutoAnalysisAfterConnect() {
         if (typeof detail === 'string' && detail) friendly = detail;
       } catch (_e) { void _e; }
       console.log('[IG-ANALYZE] fallback-failed', { detail: friendly });
-      if (overlay) overlay.style.display = 'none';
+      _endOverlay();
       try { if (typeof showToast === 'function') showToast(friendly); } catch (_e) { void _e; }
       return;
     }
   } catch (_e) { /* ignore */ }
 
   console.log('[IG-ANALYZE] timeout-give-up');
-  if (overlay) overlay.style.display = 'none';
+  _endOverlay();
   try { if (typeof showToast === 'function') showToast('분석이 평소보다 오래 걸려요. 설정 > 말투 새로 분석 으로 다시 시도해주세요'); } catch (_e) { void _e; }
 }
 window.runAutoAnalysisAfterConnect = runAutoAnalysisAfterConnect;
@@ -530,6 +535,7 @@ function _showAnalyzeError(code) {
   console.log('[IG-ANALYZE] show-error', { code });
   const overlay = document.getElementById('analyzeOverlay');
   if (overlay) overlay.style.display = 'none';
+  try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
   let barEl = document.getElementById('igAnalyzeErrorBar');
   if (!barEl) {
     barEl = document.createElement('div');
@@ -816,13 +822,18 @@ async function connectInstagram() {
     if (baseOrigin === 'null' || baseOrigin === 'file://') {
       baseOrigin = window.location.href.split('/index.html')[0];
     } else {
-      baseOrigin += window.location.pathname.replace(/\/index\.html$/, '');
+      // [2026-06-12] pathname 의 // 누적 접기 — return_to 슬래시 증식(재연동마다 +1) 원인 제거.
+      baseOrigin += window.location.pathname.replace(/\/index\.html$/, '').replace(/\/{2,}/g, '/');
     }
     const origin = encodeURIComponent(baseOrigin);
     // Capacitor 네이티브 앱에선 OAuth 완료 후 딥링크(itdasy://oauth/callback)로 앱에 복귀
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    const returnTo = isNative ? 'itdasy://oauth/callback' : baseOrigin + '/';
+    // 끝의 슬래시를 하나로 정규화 후 단일 '/' 부여 — baseOrigin 이 '/' 로 끝나도 '//' 안 됨.
+    const returnTo = isNative ? 'itdasy://oauth/callback' : baseOrigin.replace(/\/+$/, '') + '/';
     const returnToEnc = encodeURIComponent(returnTo);
+    // [2026-06-12] OAuth 출발 표시 — 복귀 직후 SW controllerchange→reload 가 ?connected=success
+    //   를 날리지 못하게 app-core 의 reload 가드가 이 플래그를 본다. 분석 오버레이 종료 시 remove.
+    try { sessionStorage.setItem('itdasy_oauth_inflight', '1'); } catch (_e) { void _e; }
     window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
 
   } catch(e) {

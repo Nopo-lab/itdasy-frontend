@@ -70,22 +70,45 @@
     if (btn.classList.contains('ms-side__item')) _markActive(btn);
   }, true);
 
-  // [2026-06-11 QA] 시트(허브)를 X/뒤로가기로 닫으면 화면은 홈인데 사이드바 활성 표시가
-  //   직전 메뉴(설정·연동 등)에 남던 버그 — 시트가 모두 닫힌 시점에 실제 보이는 탭으로 복원.
-  function _resyncActive() {
-    const openIds = ['revenueSheet', 'customerSheet', 'customerDashSheet', 'cal-overlay',
-      'settingsHubSheet', 'aiHubSheet', 'inventorySheet', 'dmConvSheet', 'navSheet', 'assistantSheet'];
-    const anyOpen = openIds.some((id) => {
-      const el = document.getElementById(id);
-      return el && el.style.display !== 'none' && el.offsetParent !== null;
-    });
-    if (anyOpen) return; // 아직 다른 시트가 떠 있으면 유지
+  // [2026-06-11 QA] 시트를 X/뒤로가기로 닫으면 활성 표시가 직전 메뉴에 남던 버그 +
+  //   [2026-06-12] 새로고침·hashchange 로 화면이 바뀌어도 동기화 안 되던 회귀(#revenue 인데 활성=홈).
+  //   → 현재 보이는 화면/시트 기준으로 .is-active 동기화. 클릭 핸들러와 _markActive 공용.
+  //   부팅·hashchange·시트 종료 시 호출.
+  const _SCREEN_MAP = [
+    { action: 'revenue',      sheets: ['revenueSheet'] },
+    { action: 'customer',     sheets: ['customerSheet', 'customerDashSheet'] },
+    { action: 'customer-dm',  sheets: ['dmConvSheet'] },
+    { action: 'inventory',    sheets: ['inventorySheet'] },
+    { action: 'calendar',     sheets: ['cal-overlay'] },
+    { action: 'ai-hub',       sheets: ['aiHubSheet'] },
+    { action: 'settings-hub', sheets: ['settingsHubSheet'] },
+    { action: 'plan',         sheets: ['planPopup'] },
+    { action: 'support',      sheets: ['supportChatModal'] },
+  ];
+  const _visible = (id) => {
+    const el = document.getElementById(id);
+    return !!(el && el.style.display !== 'none' && el.offsetParent !== null);
+  };
+  function _syncActive() {
+    // 만들기/어시스턴트 등 임시 시트가 떠 있으면 직전 활성 유지(덮어쓰지 않음)
+    if (['navSheet', 'assistantSheet'].some(_visible)) return;
+    for (const m of _SCREEN_MAP) {
+      if (m.sheets.some(_visible)) {
+        _markActive(document.querySelector(`.ms-side__item[data-static-action="${m.action}"]`));
+        return;
+      }
+    }
+    // 열린 화면 없음 → 실제 보이는 탭(홈/내샵관리)
     const tabKey = document.getElementById('tab-dashboard')?.classList.contains('active') ? 'dashboard' : 'home';
     _markActive(document.querySelector(`.ms-side__item[data-side-tab="${tabKey}"]`));
   }
   const _origMarkClosed = window._markSheetClosed;
   window._markSheetClosed = function (name) {
     try { if (typeof _origMarkClosed === 'function') _origMarkClosed(name); } catch (_e) { void _e; }
-    setTimeout(_resyncActive, 60);
+    setTimeout(_syncActive, 60);
   };
+  // 부팅 시 + 해시 변경 시 동기화 (시트 복원이 끝난 뒤 반영되도록 약간 지연)
+  window.addEventListener('hashchange', () => setTimeout(_syncActive, 60));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(_syncActive, 120));
+  else setTimeout(_syncActive, 120);
 })();

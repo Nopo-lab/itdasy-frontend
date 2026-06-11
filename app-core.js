@@ -19,6 +19,20 @@
   }
 })();
 
+// ===== [2026-06-12] pathname 슬래시 증식 정규화 =====
+// 재연동 시 return_to 가 `.../yeunjun//` 처럼 슬래시가 누적되면 매번 새 SW scope 가
+// 생겨 SW 가 9개씩 등록되고, controllerchange→reload 로 ?connected=success 가 날아감.
+// 부팅 최상단에서 pathname 의 // 를 / 로 접어 정규화. 쿼리스트링·해시는 그대로 보존.
+(function _normalizePathSlashes() {
+  try {
+    var p = location.pathname;
+    if (/\/{2,}/.test(p)) {
+      var fixed = p.replace(/\/{2,}/g, '/');
+      history.replaceState(null, '', fixed + location.search + location.hash);
+    }
+  } catch (_e) { /* ignore */ }
+})();
+
 // ===== XSS 방어 유틸 (글로벌) =====
 // 사용자 입력 / API 응답을 innerHTML에 넣기 전 _esc()로 감싸기.
 // textContent 대체 가능하면 그쪽이 우선.
@@ -1728,6 +1742,10 @@ window.addEventListener('load', function() {
         const pd = document.getElementById('personaDash');
         if (pd) pd.style.display = 'none';
       } catch (_e) { void _e; }
+    } else {
+      // [2026-06-12] OAuth 복귀가 아닌 일반 부팅(연동 실패·취소 포함)이면 inflight 플래그 정리 —
+      //   잔존 시 이후 SW 업데이트 controllerchange→reload 를 계속 막는다.
+      try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
     }
     // [2026-06-12] connected=success 직후 경합 제거 — checkInstaStatus 를 먼저 await 로 끝내
     //   (재연동 캐시 정리 선행) 그 다음에 runAutoAnalysisAfterConnect 시작. 동시 출발 금지.
@@ -1972,11 +1990,17 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     }
   };
 
+  // [2026-06-12] 정규 scope = 슬래시 정규화된 현재 디렉터리(슬래시 1개). 비정규 scope SW 정리용.
+  const _canonScope = location.pathname.replace(/\/{2,}/g, '/').replace(/[^/]*$/, '');
+
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(reg => {
       const u = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
-      if (u && !u.endsWith('/sw.js')) {
-        console.warn('[SW] 구 SW 언레지스터:', u);
+      // 스크립트가 sw.js 가 아니거나(구 SW), scope path 에 // 누적된 비정규 scope → 언레지스터.
+      const scopePath = (reg.scope || '').replace(/^https?:\/\//, '');
+      const badScope = /\/{2,}/.test(scopePath);
+      if ((u && !u.endsWith('/sw.js')) || badScope) {
+        console.warn('[SW] 비정규 SW 언레지스터:', reg.scope || u);
         reg.unregister().catch(() => {});
       }
     });
@@ -1984,7 +2008,8 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
 
   // [2026-04-28] updateViaCache: 'none' — sw.js 자체를 HTTP 캐시 안 함 → 매번 새 sw.js fetch
   // 이전엔 기본값 'imports' 라 옛 sw.js 가 영구 서빙되던 버그.
-  navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' })
+  // [2026-06-12] scope 명시 — './' 는 누적 슬래시 경로에 매번 새 scope SW 를 만든다. 정규 scope 고정.
+  navigator.serviceWorker.register('sw.js', { scope: _canonScope, updateViaCache: 'none' })
     .then(reg => {
       // 페이지 진입 시마다 강제 update 시도 (sw.js fresh fetch + 새 SW 발견 시 install)
       _safeSwUpdate(reg);
@@ -2014,6 +2039,9 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // [2026-06-12] OAuth 복귀 직후 새 SW 활성화로 reload 되면 ?connected=success 가 날아가
+    //   분석 오버레이가 못 뜬다. 연동 진행 중(itdasy_oauth_inflight)이면 reload 건너뜀.
+    try { if (sessionStorage.getItem('itdasy_oauth_inflight')) return; } catch (_e) { void _e; }
     window.location.reload();
   });
 } else if (_isCapacitor) {
