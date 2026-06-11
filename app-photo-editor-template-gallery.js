@@ -299,6 +299,19 @@
     return list.map(_cardHTML).join('');
   }
 
+  // [2026-06-12] BA(전후)류 템플릿 판별 — 캔버스 placeholder("시술 전 사진 추가")가
+  //   탭이 안 되는 문제의 짝: 패널에 실제 추가 버튼을 노출하기 위한 판별자.
+  function _isBAKind(t) {
+    if (!t) return false;
+    try {
+      const TS = window.PhotoEditorTemplateSlots;
+      if (TS && typeof TS.inferTemplateKind === 'function') {
+        return TS.inferTemplateKind(t.id, t) === 'before_after';
+      }
+    } catch (_e) { /* fallback below */ }
+    return /(^|-)ba-/.test(String(t.id || ''));
+  }
+
   function _previewHTML(t, state) {
     if (!t) return '';
     const isFree = t.tier !== 'pro';
@@ -307,10 +320,14 @@
     const cat = MD.CATS.find(c => c.id === t.cat) || { ratio: '4:5', label: '' };
     const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
     const applied = state && state.tplV2 && state.tplV2.id === t.id;
-    // [기본] 기본 지정은 썸네일 카드의 "기본" 배지 탭으로 일원화 → 미리보기 토글 버튼 제거.
+    // [2026-06-12] 전후 템플릿 적용됐는데 시술 전 사진이 없으면 — 추가 버튼을 패널에 직접 노출.
+    //   기존엔 "문구 편집" 시트 안에만 있어서 발견 불가능했음.
+    const needsBefore = applied && _isBAKind(t) && !(state && state.secondImg);
     return `<div class="pe-tplg-preview-inner">
       <div class="pe-tplg-preview-canvas" style="aspect-ratio:${ar};${url ? `background-image:url(${url});` : ''}"></div>
       <div class="pe-tplg-preview-meta"><strong>${_esc(t.label)}</strong>${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}</div>
+      ${needsBefore ? `<button type="button" class="pe-tplg-primary" data-pe-tplg-before-pick style="margin-bottom:8px;">＋ 시술 전 사진 추가 (전후 완성)</button>
+      <input type="file" accept="image/*" data-pe-tplg-before-input style="display:none" />` : ''}
       <div class="pe-tplg-selected-actions">
         <button type="button" class="pe-tplg-primary" data-pe-tplg-apply="${_esc(t.id)}">${applied ? '적용됨 ✓' : (isFree ? '이 템플릿 적용' : 'Pro로 적용')}</button>
         <button type="button" class="pe-tplg-secondary" data-pe-tplg-all>전체 템플릿 보기</button>
@@ -440,6 +457,28 @@
       const si = panel.querySelector('[data-pe-tplg-search]'); if (si) si.value = '';
       _renderGrid(panel, state);
     });
+    // [2026-06-12] 전후 템플릿 — "시술 전 사진 추가" (edit-sheet _setBefore 와 동일 동작)
+    const beforeBtn = panel.querySelector('[data-pe-tplg-before-pick]');
+    const beforeInput = panel.querySelector('[data-pe-tplg-before-input]');
+    if (beforeBtn && beforeInput) {
+      beforeBtn.addEventListener('click', () => beforeInput.click());
+      beforeInput.addEventListener('change', (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          if (state) state.secondImg = img;
+          try {
+            if (helpers && typeof helpers.pushHistory === 'function') helpers.pushHistory();
+            if (helpers && typeof helpers.scheduleRedraw === 'function') helpers.scheduleRedraw();
+          } catch (_e) { /* ignore */ }
+          _toast('시술 전 사진을 넣었어요 — 전후 완성!');
+          _renderPreview(panel, state);
+        };
+        img.onerror = () => _toast('사진을 불러오지 못했어요');
+        img.src = URL.createObjectURL(f);
+      });
+    }
     // [기본] 지정/해제는 썸네일 카드 "기본" 배지 탭(_bindCards)에서 처리 — 미리보기 토글 버튼 제거됨.
     // [S2] 문구 편집 — apply-first(WYSIWYG): 먼저 적용(무료) 또는 게이트(PRO 미결제) → 시트 오픈.
     panel.querySelector('[data-pe-tplg-text-edit]')?.addEventListener('click', (e) => {

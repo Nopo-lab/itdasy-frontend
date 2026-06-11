@@ -16,7 +16,13 @@
   const COLOR_LABEL = { '#ffffff': '흰', '#1a1a20': '검', '#D58A95': '핑크', '#FFC83D': '노랑' };
   let _textInputTimer = null;
 
-  function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
+  /* [2026-06-12] f23f66a 회귀 수정 — 이 파일 호출부 전체가 _esc(h, s) 2인자 시그니처인데
+     1인자로 바꾸면서 h(helpers 객체)가 그대로 문자열화돼 "[object Object]" 노출.
+     h는 무시하고 app-core 정본(window._esc)에 위임. 1인자 호출도 호환. */
+  function _esc(h, s) {
+    if (arguments.length === 1) s = h;
+    return window._esc(s);
+  }
 
   function _chip(h, attr, val, label, on) {
     return `<button type="button" class="pe-chip-btn${on ? ' on' : ''}" data-pe-${attr}="${_esc(h, val)}">${_esc(h, label)}</button>`;

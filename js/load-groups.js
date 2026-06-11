@@ -25,7 +25,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo-editor/renderer.js?v=20260529-v345-export-quality',
   'app-photo-editor-shop-data.js?v=20260527-v308-photo-editor-upgrade',
   'app-photo-editor-preset-cards.js?v=20260528-v328-ba-overlay-fix',
-  'js/photo-editor/basic-panels.js?v=20260527-v307-full-redesign',
+  'js/photo-editor/basic-panels.js?v=20260612-v450-esc-fix',
   'app-photo-editor-bg-tab.js?v=20260530-v364-photo-editor-release-qa',
   'app-photo-editor-entry-v6.js?v=20260605-pr6-hide-generative',
   'app-photo-editor-nav-v7.js?v=20260605-rm-itbi-tab',
@@ -107,7 +107,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo-editor/template-renderer-beauty-pack.js?v=20260610-v435-bg-ratio-thumb-fallback',
   'js/photo-editor/template-renderer-beauty-pack-draws.js?v=20260610-v436-bp-event-spring',
   'app-photo-editor-template-library.js?v=20260609-v426-storage-default-template',
-  'app-photo-editor-template-gallery.js?v=20260611-v444-tpl-badge-fix',
+  'app-photo-editor-template-gallery.js?v=20260612-v450-ba-before-btn',
   'app-photo-editor-template-edit-sheet.js?v=20260607-s3b2-after-photo'
   ],
   assistant: [
