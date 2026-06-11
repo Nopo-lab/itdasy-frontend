@@ -554,6 +554,7 @@ function openCaptionScenarioPopup() {
   sheet.appendChild(handle);
 
   const title = document.createElement('div');
+  title.id = 'capScenarioTitle';
   title.style.cssText = 'font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:6px;';
   title.textContent = '어떤 상황이에요?';
   sheet.appendChild(title);
@@ -583,7 +584,8 @@ function openCaptionScenarioPopup() {
   window.renderScenarioSelector(selectorWrap, async (result) => {
     selectorWrap.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--text-subtle);font-size:14px;">캡션 만드는 중...</div>';
     title.textContent = '잠깐만요!';
-    await _doGenerateCaption(result, () => _closeCaptionScenarioPopup(overlay));
+    // selectorWrap = 인라인 결과 host (글쓰기 화면이 닫혀 있을 때 시트 안에서 결과 노출용)
+    await _doGenerateCaption(result, () => _closeCaptionScenarioPopup(overlay), selectorWrap);
   });
 }
 
@@ -595,7 +597,7 @@ function _closeCaptionScenarioPopup(overlay) {
   if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
 }
 
-async function _doGenerateCaption(scenario, closePopup) {
+async function _doGenerateCaption(scenario, closePopup, inlineHost) {
   const btn = document.getElementById('captionBtn');
   if (btn) btn.disabled = true;
 
@@ -662,19 +664,17 @@ async function _doGenerateCaption(scenario, closePopup) {
     // WIRING 디버그 로그 제거 (프로덕션 환경 민감 정보 노출 방지)
 
     hideCaptionLoader(true, () => {
-      closePopup();
       // 피드백 #1 3단계: 첫 캡션 완성 플래그 (인디케이터 3단계 표시용)
       if (!localStorage.getItem('_first_caption_done')) {
         localStorage.setItem('_first_caption_done', new Date().toISOString());
       }
+      // 글쓰기 화면 textarea 에 값 채움(숨겨져 있어도) — 복사/미리보기/더손보기 가 이 값을 재사용.
       const ta = document.getElementById('captionText');
-      ta.value = finalCaption;
-      _capAutoGrow(ta);
-      document.getElementById('captionHash').value = hashes;
+      if (ta) { ta.value = finalCaption; _capAutoGrow(ta); }
+      const hashEl = document.getElementById('captionHash');
+      if (hashEl) hashEl.value = hashes;
 
-      const micro = document.getElementById('captionEditMicro');
-      if (micro) micro.style.display = _lastLogId ? 'flex' : 'none';
-
+      // 작업실 슬롯 연결 저장 (기존)
       if (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined') {
         const slot = _slots.find(s => s.id === _captionSlotId);
         if (slot) {
@@ -689,6 +689,20 @@ async function _doGenerateCaption(scenario, closePopup) {
         }
       }
 
+      // [2026-06-12] 리포트→"내 말투로 글 써보기" 처럼 글쓰기 화면(tab-caption)이 닫혀 있으면
+      //   #captionText 에 써도 화면에 안 보여 결과가 유실되던 버그. 글쓰기 화면이 비활성이면
+      //   팝업을 닫지 말고 시트 안에서 결과를 바로 노출 (UX 원칙: 화면 이동 금지, 인라인 우선).
+      const writingActive = !!(ta && ta.offsetParent !== null);
+      if (!writingActive && inlineHost) {
+        _renderInlineCaptionResult(inlineHost, finalCaption, hashes, closePopup);
+        if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
+        return;
+      }
+
+      // ── 글쓰기 화면 활성 경로 (기존)
+      closePopup();
+      const micro = document.getElementById('captionEditMicro');
+      if (micro) micro.style.display = _lastLogId ? 'flex' : 'none';
       _renderCaptionActionBar(finalCaption, hashes);
       if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
 
@@ -782,6 +796,49 @@ async function _doGenerateCaption(scenario, closePopup) {
       showToast(userMsg);
     });
   }
+}
+
+// [2026-06-12] 글쓰기 화면이 닫혀 있을 때(리포트→글써보기 등) 시나리오 시트 안에서 결과를 바로 노출.
+//   캡션+해시태그 텍스트 + [복사] [인스타 미리보기] [글쓰기 화면에서 더 손보기]. 화면 이동 없음.
+//   복사/미리보기는 이미 #captionText·#captionHash 에 채워둔 값을 쓰는 기존 함수를 재사용.
+function _renderInlineCaptionResult(host, caption, hashes, closePopup) {
+  if (!host) return;
+  const full = hashes ? `${caption}\n\n${hashes}` : caption;
+  const t = document.getElementById('capScenarioTitle');
+  if (t) t.textContent = '완성됐어요 ✨';
+  host.innerHTML = `
+    <div style="white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.7;color:#222;background:#F7F8FA;border-radius:14px;padding:16px;max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">${_capEsc(caption)}${hashes ? `<div style="margin-top:12px;color:#1e7abf;">${_capEsc(hashes)}</div>` : ''}</div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button data-cap-inline-copy style="flex:1;padding:13px;border-radius:13px;border:1.5px solid var(--border,#E5E7EB);background:#fff;color:#1a1a1a;font-size:13px;font-weight:700;cursor:pointer;">복사</button>
+      <button data-cap-inline-preview style="flex:1;padding:13px;border-radius:13px;border:1.5px solid rgba(213,138,149,0.3);background:transparent;color:var(--accent,#BC6675);font-size:13px;font-weight:700;cursor:pointer;">인스타 미리보기</button>
+    </div>
+    <button data-cap-inline-edit style="width:100%;margin-top:8px;padding:13px;border-radius:13px;border:none;background:linear-gradient(135deg,var(--accent,#BC6675),var(--accent2,#D58A95));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">글쓰기 화면에서 더 손보기</button>
+  `;
+  host.querySelector('[data-cap-inline-copy]')?.addEventListener('click', () => {
+    try {
+      navigator.clipboard.writeText(full).then(() => { if (window.showToast) showToast('글 복사 완료! 📋'); });
+    } catch (_e) { if (window.showToast) showToast('복사가 안 돼요. 길게 눌러 복사해주세요'); }
+  });
+  host.querySelector('[data-cap-inline-preview]')?.addEventListener('click', () => {
+    try { _previewCaptionOnInsta(); } catch (_e) { if (window.showToast) showToast('미리보기를 열 수 없어요'); }
+  });
+  host.querySelector('[data-cap-inline-edit]')?.addEventListener('click', () => {
+    if (typeof closePopup === 'function') closePopup();
+    try { showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]')); } catch (_e) { void _e; }
+    // 글쓰기 화면 진입 후 값/액션바/미리보기 동기화
+    setTimeout(() => {
+      const ta2 = document.getElementById('captionText');
+      if (ta2) { ta2.value = caption; _capAutoGrow(ta2); }
+      const h2 = document.getElementById('captionHash');
+      if (h2) h2.value = hashes || '';
+      try { _renderCaptionActionBar(caption, hashes); } catch (_e) { void _e; }
+      try { _updateCaptionPreviewImage(); } catch (_e) { void _e; }
+      const frame = document.getElementById('captionResult');
+      if (frame && typeof frame.scrollIntoView === 'function') {
+        setTimeout(() => frame.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+      }
+    }, 80);
+  });
 }
 
 
