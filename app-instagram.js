@@ -81,6 +81,20 @@ async function checkInstaStatus(fromLogin = false) {
           localStorage.removeItem('itdasy_latest_analysis');
         }
       } catch (_e) { void _e; }
+      // [2026-06-12 Bug] 같은 핸들 재연동·재분석 후 서버는 done 인데 캐시가 옛 분석본을 유지해
+      //   리포트가 안 갱신되는 문제. status=done 이고 서버 style_summary 가 캐시와 다르면 서버
+      //   persona 로 덮어쓰기(_hydrate 의 "기존 유효 캐시 보존" 우회). flat 포맷은 폴링 저장본과 동일.
+      try {
+        const _sp = data.persona || {};
+        if (data.style_analysis_status === 'done' && (_sp.style_summary || '').trim()) {
+          let _cur = {};
+          try { _cur = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {}; } catch (_e) { _cur = {}; }
+          if ((_cur.style_summary || '') !== _sp.style_summary) {
+            const _flat = { ..._sp, tone_summary: _sp.tone || '', style_summary: _sp.style_summary || '' };
+            localStorage.setItem('itdasy_latest_analysis', JSON.stringify(_flat));
+          }
+        }
+      } catch (_e) { void _e; }
       // [F1/F2] 아래 DOM 렌더(updateHeaderProfile·배너 등)보다 먼저 — 그쪽이 실패해도 분석 캐시
       //   재수화·상태 저장은 보장. 내샵관리/리포트는 itdasy_latest_analysis 만 읽으므로 이게 핵심.
       _hydrateAnalysisCacheFromStatus(data.persona || {});
