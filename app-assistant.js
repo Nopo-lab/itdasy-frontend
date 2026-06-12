@@ -449,6 +449,23 @@
 
   // 렉 박멸 — _renderHistory 호출 → 이번 frame 1회 실행 (RAF debounce)
   // sheet 닫혀있으면 skip. 50개 이상이면 자동 cap.
+  // [모드 P1] 훅 레벨 추적 로그 — push/render 도달 + sheet/body 상태(다음 QA 추적용, prod muzzle).
+  function _pmDbg(tag, obj) { try { (console.debug || console.log).call(console, '[PM/hook]', tag, obj || {}); } catch (_e) { void _e; } }
+  // [모드 P1] 강제 렌더 — 멈춘/대기 RAF 가 _renderHistory 의 `if(_renderRafId)return` 에 막아
+  //   PM 메시지가 안 그려지던 블로커 방어. 대기 RAF 취소 + sig 초기화 후 렌더.
+  function _pmForceRender() {
+    try { if (_renderRafId) { (window.cancelAnimationFrame || window.clearTimeout).call(window, _renderRafId); _renderRafId = 0; } } catch (_e) { void _e; }
+    _lastRenderedSig = '';
+    _renderHistory();
+  }
+  function _pmSheetState() {
+    try {
+      const sh = document.getElementById('assistantSheet');
+      return { sheet: !!sh, display: sh ? (sh.style.display || 'def') : 'none',
+        body: !!document.getElementById('asstBody'), raf: _renderRafId };
+    } catch (_e) { return {}; }
+  }
+
   function _renderHistory() {
     _capHistory();
     if (_renderRafId) return; // 이미 예약됨
@@ -3347,7 +3364,9 @@
         let _pmMsg = null;
         try { _pmMsg = await window.ItdasyPhotoMode.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
         _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }, { local_only: true }));
-        _renderHistory();
+        _pmDbg('upload.push', { len: _history.length, keys: Object.keys(_pmMsg || {}) });
+        _pmForceRender();
+        _pmDbg('upload.render', _pmSheetState());
         _sendInFlight = false; _inflightCtrl = null;
         return;
       }
@@ -4253,7 +4272,9 @@
           // local_only: 서버 미저장 → _mergeServerHistory 에서 보존(드롭 방지).
           _history.push({ role: 'user', text: q, local_only: true });
           _history.push(Object.assign({ role: 'assistant' }, _pmMsg, { local_only: true }));
-          _renderHistory();
+          _pmDbg('send.push', { len: _history.length, keys: Object.keys(_pmMsg), text: (_pmMsg.text || '').slice(0, 24) });
+          _pmForceRender();
+          _pmDbg('send.render', _pmSheetState());
           _sendInFlight = false; _inflightCtrl = null;
           return;
         }
@@ -4341,6 +4362,12 @@
     const localByText = _localHistoryByText();
     const survivors = _pendingHistorySurvivors(messages);
     const merged = messages.map(m => _mergeServerMessage(m, localByText));
+    // [모드 P1] 머지가 PM 로컬 메시지를 떨구는지 추적 — localOnly 가 in/out 다르면 드롭 발생.
+    try {
+      const _in = _history.filter(m => m && m.local_only).length;
+      const _out = survivors.filter(m => m && m.local_only).length;
+      if (_in) _pmDbg('merge', { server: messages.length, localOnlyIn: _in, localOnlyOut: _out });
+    } catch (_e) { void _e; }
     return survivors.length ? merged.concat(survivors) : merged;
   }
 
