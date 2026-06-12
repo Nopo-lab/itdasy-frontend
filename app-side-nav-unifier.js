@@ -60,6 +60,11 @@
     if (btn) btn.classList.add('is-active');
   }
 
+  // [2026-06-12 fix] 클릭 직후 보호창 — 클릭이 _closeAllHubs→_markSheetClosed 를 쏘면
+  //   60ms 뒤 _syncActive 가 도는데, 그 시점엔 새 화면이 아직 안 열려 "열린 화면 없음→홈"
+  //   으로 방금 세팅한 활성을 되돌리던 자기-경합. 클릭 후 900ms 는 sync 가 양보한다.
+  let _lastManualTs = 0;
+
   // capture: true → inline onclick 이전에 실행되어 기존 hub 먼저 종료
   document.addEventListener('click', function (ev) {
     const btn = ev.target && ev.target.closest && ev.target.closest('.ms-side__item, .ms-side__fab');
@@ -67,7 +72,7 @@
     // 홈/내샵관리는 showTab 이 자체 처리하므로 close 만 호출 (열린 hub 닫고 탭 노출).
     // 만들기(.ms-side__fab) 도 다른 hub 자동 종료 → 새 navSheet 깔끔히 표시.
     _closeAllHubs();
-    if (btn.classList.contains('ms-side__item')) _markActive(btn);
+    if (btn.classList.contains('ms-side__item')) { _markActive(btn); _lastManualTs = Date.now(); }
   }, true);
 
   // [2026-06-11 QA] 시트를 X/뒤로가기로 닫으면 활성 표시가 직전 메뉴에 남던 버그 +
@@ -93,6 +98,9 @@
     return !!(el && el.style.display !== 'none' && el.offsetHeight > 0);
   };
   function _syncActive() {
+    // [2026-06-12 fix] 사용자가 방금 직접 클릭했으면(900ms) 그 선택을 존중 — 화면 열리기
+    //   전의 중간 sync 가 홈으로 되돌리던 경합 차단.
+    if (Date.now() - _lastManualTs < 900) return;
     // 만들기/어시스턴트 등 임시 시트가 떠 있으면 직전 활성 유지(덮어쓰지 않음)
     if (['navSheet', 'assistantSheet'].some(_visible)) return;
     for (const m of _SCREEN_MAP) {
