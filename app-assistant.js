@@ -450,7 +450,7 @@
   // 렉 박멸 — _renderHistory 호출 → 이번 frame 1회 실행 (RAF debounce)
   // sheet 닫혀있으면 skip. 50개 이상이면 자동 cap.
   // [모드 P1] 훅 레벨 추적 로그 — push/render 도달 + sheet/body 상태(다음 QA 추적용, prod muzzle).
-  function _pmDbg(tag, obj) { try { (console.debug || console.log).call(console, '[PM/hook]', tag, obj || {}); } catch (_e) { void _e; } }
+  function _pmDbg(_tag, _obj) {}
   // [모드 P1] 강제 렌더 — 멈춘/대기 RAF 가 _renderHistory 의 `if(_renderRafId)return` 에 막아
   //   PM 메시지가 안 그려지던 블로커 방어. 대기 RAF 취소 + sig 초기화 후 렌더.
   function _pmForceRender() {
@@ -1669,9 +1669,9 @@
     const rows = _priceResultPreviewRows(services);
     const lines = rows.map(row => `- ${row.name}${row.price ? ' ' + row.price : ''}`);
     return [
-      '가격표 템플릿에 넣었어요.',
+      '가격표 카드 초안을 만들었어요.',
       '',
-      '문구를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '문구를 고치고 저장하면 작업실에 보관돼요.',
       '',
       `템플릿: ${_priceTemplateLabel(tpl, tplId)}`,
       `시술 ${services.length}개`,
@@ -1718,14 +1718,14 @@
 
   function _reviewResultText(result) {
     var lines = [
-      '후기 카드에 넣었어요.',
+      '후기 카드 초안을 만들었어요.',
       '',
-      '문구를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '후기 문구를 고치고 저장하면 작업실에 보관돼요.',
       '',
       '템플릿: ' + (result.templateLabel || '후기 인용 카드'),
-      '고객: ' + (result.customerLabel || '고객님'),
     ];
-    if (result.reviewExcerpt) lines.push('후기: ' + result.reviewExcerpt + '…');
+    if (result.customerLabel) lines.push('고객명: ' + result.customerLabel);
+    if (result.reviewExcerpt) lines.push('미리보기: ' + result.reviewExcerpt + '…');
     return lines.join('\n');
   }
 
@@ -1792,9 +1792,9 @@
 
   function _baResultText(result) {
     return [
-      '전후 카드에 넣었어요.',
+      '전후 카드 초안을 만들었어요.',
       '',
-      '문구와 사진 위치를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '시술 전·후 사진 위치를 확인하고 저장하면 작업실에 보관돼요.',
       '',
       '템플릿: ' + (result.templateLabel || '시술 전후 카드'),
       '전 사진: ' + (result.hasBefore ? '추가됨' : '아직 없음 (편집에서 추가)'),
@@ -1875,7 +1875,7 @@
     _pendingBaIntent = { requestText: q || '전후 카드 만들어줘', ts: Date.now() };
     _history.push({
       role: 'assistant',
-      text: '전후 카드는 시술 전·후 사진 2장으로 만들어요.\n① 시술 전 사진, ② 시술 후 사진을 채팅에 올려주시면 자동으로 전/후로 배치해 카드를 완성해드릴게요. (1장만 올리면 어느 쪽인지 물어볼게요)',
+      text: '전후 카드는 시술 전·후 사진 2장이 필요해요.\n사진 2장을 올려주시면 순서대로 전/후에 넣어 카드 초안을 만들게요. 1장만 올리면 어느 쪽 사진인지 먼저 물어볼게요.',
       hub_actions: [{ id: 'ba_add_photo', kind: 'ba_add_photo', label: '사진 올리기', phase: 'safe', route: 'hub', payload: {} }],
     });
     _renderHistory();
@@ -2059,7 +2059,7 @@
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
       if (payload.purpose === 'event' || !payload.autoApplyEligible) {
-        _history.push({ role: 'assistant', text: '이벤트 템플릿은 준비 중이에요. 지금은 가격표·후기·전후 카드부터 만들 수 있어요.' });
+        _history.push({ role: 'assistant', text: '이벤트 템플릿은 준비 중이에요. 대신 가격표·후기·전후 카드로 먼저 만들 수 있어요.' });
         _renderHistory();
         return true;
       }
@@ -4182,7 +4182,7 @@
 
   // [QA퍼징] 업종 키워드 없는 bare 생성("가격표 만들어줘")을 백엔드로 안 새게 — 목적별 템플릿 편집기/피커로 연결.
   //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
-  const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid' };
+  const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid', generic: 'card-minimal' };
   const _CREATE_LABEL = { price: '가격표', review: '후기 카드', before_after: '전후 카드', event: '이벤트 카드', generic: '카드' };
   function _openCreateTemplate(purpose) {
     const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
@@ -4211,7 +4211,7 @@
       if (p === 'event') {
         // [activeCard] 이벤트는 아직 카드 생성 불가 → available:false 로 기억해 "그거 다시 보여줘"가 빈 작업실 대신 정직 안내로.
         try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: '이벤트 카드', available: false, origin: 'create' }); } catch (_ac) { void _ac; }
-        _history.push({ role: 'assistant', text: '이벤트 카드는 아직 준비 중이에요. 지금은 가격표·후기·전후 카드를 바로 만들 수 있어요 — 어떤 걸 만들까요?' });
+        _history.push({ role: 'assistant', text: '이벤트 템플릿은 준비 중이에요. 대신 가격표·후기 카드로 먼저 만들 수 있어요.' });
         _renderHistory();
         return true;
       }
@@ -4223,8 +4223,8 @@
       const opened = _openCreateTemplate(p);
       if (opened) {
         const msg = (p === 'generic')
-          ? '템플릿을 열었어요. 마음에 드는 디자인을 골라 문구를 넣어보세요. 저장하면 작업실에 모여요.'
-          : (_CREATE_LABEL[p] || '카드') + ' 템플릿을 열었어요. 디자인을 고르고 문구를 채워보세요. 저장하면 작업실에서 다시 편집할 수 있어요.';
+          ? '무난하게 쓰기 좋은 카드 템플릿을 열었어요. 문구를 고치고 저장하면 작업실에 보관돼요.'
+          : (_CREATE_LABEL[p] || '카드') + ' 초안을 만들었어요. 문구를 고치고 저장하면 작업실에서 다시 편집할 수 있어요.';
         _history.push({ role: 'assistant', text: msg });
         _renderHistory();
         return true;

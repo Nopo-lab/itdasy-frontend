@@ -33,7 +33,8 @@
     if (/(이벤트|행사|프로모션|세일|할인|기념|오픈\s*기념)/.test(t)) return 'event';
     if (/(후기|리뷰|review)/i.test(t)) return 'review';
     if (/(가격표|메뉴판|단가표|프라이스|price|가격\s*안내)/i.test(t)) return 'price';
-    if (/(카드|템플릿|디자인|홍보물|게시물)/.test(t)) return 'generic';
+    if (/(카드|템플릿|디자인|홍보물|게시물|버전)/.test(t)) return 'generic';
+    if (/(예쁘|고급|깔끔|감성|인스타|고객(님)?(한테|에게)?\s*보낼)/.test(t)) return 'generic';
     return null;
   }
 
@@ -45,9 +46,11 @@
     //   단독 "ㄱ"/"하나"/"그거 하나"(목적명사 없음)는 여기서 null → fallback/문맥으로.
     var purpose = _purpose(t);
     if (!purpose) return null;
-    if (DOMAIN_RE.test(t)) return null;     // 고객/예약/매출 카드 → 양보
+    var cardCreate = /(카드|템플릿|게시물|홍보물|버전)/.test(t) && CREATE_RE.test(t);
+    var sendVersion = /고객(님)?(한테|에게)?\s*보낼\s*버전/.test(t) && CREATE_RE.test(t);
+    if (DOMAIN_RE.test(t) && !sendVersion) return null;     // 고객/예약/매출 카드 → 양보
     // '보여/수정/저장/기억' 등 다른 의도가 섞이면 그쪽 우선(앞단에서 잡히지만 이중 가드).
-    if (NOT_CREATE_RE.test(t)) return null;
+    if (NOT_CREATE_RE.test(t) && !cardCreate && !sendVersion) return null;
     // 명시 생성동사(만들/뽑아…) 또는 축약 생성신호(하나/ㄱ/ㄱㄱ…)가 있어야 create.
     if (CREATE_RE.test(t) || SHORT_CREATE_RE.test(t)) return { purpose: purpose };
     return null;

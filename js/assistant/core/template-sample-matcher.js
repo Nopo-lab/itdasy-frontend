@@ -31,7 +31,7 @@
     skin: ['피부', '물광', '리쥬란', '여드름', '스킨부스터', '관리', '에스테틱'],
     nail: ['네일', '젤네일', '손젤', '패디', '페디', '아트', '손톱'],
     lash: ['속눈썹', '속눈썹펌', '연장', '래쉬'],
-    hair: ['헤어', '두피', '클리닉', '염색', '펌', '붙임머리', '모발', '머릿결'],
+    hair: ['헤어', '두피', '클리닉', '염색', '펌', '커트', '컷', '레이어드컷', '남자펌', '붙임머리', '모발', '머릿결'],
     waxing: ['왁싱', '브라질리언', '눈썹왁싱', '제모'],
     makeup: ['메이크업', '데일리메이크업', '혼주', '촬영', '화장', '글램'],
   };
@@ -83,6 +83,10 @@
     var neg = sample.negativeTriggers || [];
     var cutTok = excl.concat(neg).filter(function (t) { return nt.indexOf(_norm(t)) !== -1; });
     if (cutTok.length) { reasons.push('CUT(exclude/neg):' + cutTok.join(',')); return -Infinity; }
+    if (purposes.length && purposes.indexOf(sample.purpose) === -1) {
+      reasons.push('CUT(purpose-mismatch):' + sample.purpose);
+      return -Infinity;
+    }
 
     var score = 0;
     if (purposes.indexOf(sample.purpose) !== -1) { score += 10; reasons.push('purpose:' + sample.purpose + '+10'); }
@@ -134,10 +138,18 @@
     return (m && m[1]) ? (m[1] + '님') : null;
   }
   function _extractServiceName(nt) {
+    if (/이달의아트|월간아트|시즌아트/.test(nt)) return '이달의 아트';
+    if (/속눈썹연장|래쉬연장|볼륨래쉬/.test(nt)) return '속눈썹 연장';
+    if (/속눈썹펌|래쉬펌/.test(nt)) return '속눈썹 펌';
     if (/네일|젤네일|손젤|패디|페디|아트/.test(nt)) return '네일';
     if (/속눈썹|래쉬/.test(nt)) return '속눈썹';
     if (/피부|물광|리쥬란|여드름/.test(nt)) return '피부관리';
-    if (/헤어|두피|염색|모발|붙임머리/.test(nt)) return '헤어';
+    if (/레이어드컷|레이어드커트/.test(nt)) return '레이어드컷';
+    if (/남자펌|맨즈펌|남성펌/.test(nt)) return '남자펌';
+    if (/염색|컬러/.test(nt)) return '염색';
+    if (/커트|컷/.test(nt)) return '디자인 커트';
+    if (/펌/.test(nt)) return '펌';
+    if (/헤어|두피|모발|붙임머리/.test(nt)) return '헤어';
     if (/왁싱|제모/.test(nt)) return '왁싱';
     if (/메이크업|화장/.test(nt)) return '메이크업';
     return null;
@@ -166,13 +178,19 @@
     var raw = String(text == null ? '' : text).replace(/(\d),(\d)/g, '$1$2');
     var segs = raw.split(/\s*(?:,|、|\/|·|\n|및|그리고|하고|이랑|랑|와|과)\s*/);
     var priceRe = /([0-9][0-9,]*)\s*(만)?\s*(?:([0-9]+)\s*천)?\s*(원)?/g;
+    var phoneRe = /01[016789]\s*-?\s*\d{3,4}\s*-?\s*\d{4}/g;
     var out = [];
     segs.forEach(function (seg) {
       if (!seg) return;
+      var phoneSpans = [], pm;
+      phoneRe.lastIndex = 0;
+      while ((pm = phoneRe.exec(seg)) !== null) phoneSpans.push([pm.index, pm.index + pm[0].length]);
       var best = null, mm;
       priceRe.lastIndex = 0;
       while ((mm = priceRe.exec(seg)) !== null) {
         if (!mm[0] || !mm[0].trim()) { priceRe.lastIndex++; continue; }
+        var inPhone = phoneSpans.some(function (span) { return mm.index >= span[0] && mm.index < span[1]; });
+        if (inPhone) continue;
         var won = _wonFrom(mm[1], mm[2], mm[3]);
         if (won < 1000) continue;
         var signal = !!(mm[2] || mm[4] || /,/.test(mm[1]) || String(mm[1]).replace(/,/g, '').length >= 4);
@@ -232,7 +250,8 @@
         overrides.services = parsed;
       } else {
         var pName = _extractServiceName(nt) || '시술명';
-        overrides.services = [{ name: pName, desc: '', price: '', badge: '', origPrice: '' }];
+        if (pName !== '시술명') overrides.headline = pName + ' 가격표';
+        overrides.services = [{ name: pName, desc: '상담 후 고객님께 맞는 구성으로 안내해요', price: '', badge: '', origPrice: '' }];
       }
     }
     // sample.slotValues 위에 override 얕은 병합 → 안전 필터.
