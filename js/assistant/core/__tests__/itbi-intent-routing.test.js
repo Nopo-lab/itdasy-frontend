@@ -90,6 +90,23 @@ describe('잇비 카드 생성(create) — 업종 없는 bare 생성도 백엔�
   ])('"%s" → create:%s', (q, p) => expect(route(q)).toBe('create:' + p));
 });
 
+describe('잇비 축약 생성(P1-3) — 목적명사 + 하나/ㄱ/ㄱㄱ', () => {
+  it.each([
+    ['가격표 ㄱ', 'price'], ['가격표 ㄱㄱ', 'price'], ['가격표 하나', 'price'],
+    ['후기 하나', 'review'], ['후기 ㄱ', 'review'], ['전후 하나', 'before_after'],
+    ['비포애프터 하나', 'before_after'], ['이벤트 하나', 'event'], ['이벤트 ㄱ', 'event'],
+    ['카드 하나', 'generic'], ['예쁜 카드 하나', 'generic'], ['템플릿 하나', 'generic'],
+  ])('"%s" → create:%s', (q, p) => expect(route(q)).toBe('create:' + p));
+
+  it.each([
+    ['저장된 카드 하나 보여줘', 'saved:query'], ['고객 카드 보여줘', 'none'], ['예약 카드 보여줘', 'none'],
+    ['매출 카드 보여줘', 'none'], ['하나만 수정', 'none'],
+    ['ㄱ', 'none'], ['하나', 'none'],
+    // "X 저장"은 saved-cards 의 SAVED_CUE('저장')가 잡아 query(작업실). 실앱 "그거 하나 저장"은 activeCard. 어느 쪽이든 create 아님.
+    ['카드 하나 저장', 'saved:query'], ['그거 하나 저장', 'saved:query'],
+  ])('가드 "%s" → %s (create 아님)', (q, exp) => expect(route(q)).toBe(exp));
+});
+
 describe('타도메인/조회·수정·메모/사진 — create 로 오분류 금지', () => {
   it.each([
     ['고객 카드 보여줘', 'none'], ['예약 카드 보여줘', 'none'], ['손님 카드 보여줘', 'none'],

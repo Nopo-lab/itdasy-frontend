@@ -18,9 +18,12 @@
   if (window.ItbiCreateIntent) return;
 
   // 명확한 생성 동사.
-  var CREATE_RE = /(만들|맹글|제작|뽑아|뽑아줘|디자인\s*해|새로\s*만|하나\s*만들|만들어|제작해)/;
+  var CREATE_RE = /(만들|맹글|제작|뽑아|뽑아줘|디자인\s*해|새로\s*만|하나\s*만들|만들어|제작해|만들자|만들래|하자|해보자)/;
+  // [P1-3] 축약 생성 신호 — '목적명사'와 함께일 때만 생성으로 본다(단독 "ㄱ"/"하나"는 목적명사 없어 null).
+  //   "가격표 ㄱ", "후기 하나", "이벤트 ㄱㄱ" 처럼 원장님 최빈 축약. 조회/수정/저장 동사가 섞이면 NOT_CREATE 가 먼저 차단.
+  var SHORT_CREATE_RE = /(하나|한\s*개|두\s*개|(^|\s)ㄱㄱ?($|\s)|뚝딱)/;
   // 생성이 아닌 신호(조회/수정/메모/사진·발송) — 하나라도 있으면 create 아님.
-  var NOT_CREATE_RE = /(보여|보고\s*싶|열어|열어봐|다시|목록|꺼내|찾아|수정|편집|고쳐|고치|바꿔|바꾸|기억|메모|잊어|삭제|지워|올려|업로드|인스타|게시|누끼|보정|캡션|전송|발송|문자|공유|보내)/;
+  var NOT_CREATE_RE = /(보여|보고\s*싶|열어|열어봐|다시|목록|꺼내|찾아|수정|편집|고쳐|고치|바꿔|바꾸|기억|메모|잊어|삭제|지워|저장|보관|올려|업로드|인스타|게시|누끼|보정|캡션|전송|발송|문자|공유|보내)/;
   // 타도메인(예약/고객/매출…) 생성 = 디자인 카드 아님 → 양보(예약 카드 만들기 등은 예약 플로우/백엔드).
   var DOMAIN_RE = /(예약|고객|손님|매출|회원|명단|연락처|예약금|문자|dm|디엠|환불|정산)/i;
 
@@ -38,13 +41,16 @@
   function classify(q) {
     var t = String(q || '').trim();
     if (!t) return null;
-    if (!CREATE_RE.test(t)) return null;
-    if (DOMAIN_RE.test(t)) return null;
-    // '수정/보여' 등 다른 의도가 섞이면 그쪽이 우선(앞단에서 잡히지만 이중 가드).
-    if (NOT_CREATE_RE.test(t)) return null;
+    // 목적명사(가격표/후기/전후/이벤트/카드/템플릿…)가 먼저 있어야 함 →
+    //   단독 "ㄱ"/"하나"/"그거 하나"(목적명사 없음)는 여기서 null → fallback/문맥으로.
     var purpose = _purpose(t);
     if (!purpose) return null;
-    return { purpose: purpose };
+    if (DOMAIN_RE.test(t)) return null;     // 고객/예약/매출 카드 → 양보
+    // '보여/수정/저장/기억' 등 다른 의도가 섞이면 그쪽 우선(앞단에서 잡히지만 이중 가드).
+    if (NOT_CREATE_RE.test(t)) return null;
+    // 명시 생성동사(만들/뽑아…) 또는 축약 생성신호(하나/ㄱ/ㄱㄱ…)가 있어야 create.
+    if (CREATE_RE.test(t) || SHORT_CREATE_RE.test(t)) return { purpose: purpose };
+    return null;
   }
 
   window.ItbiCreateIntent = { classify: classify, purposeOf: _purpose };
