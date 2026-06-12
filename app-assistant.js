@@ -3893,7 +3893,9 @@
     if (/503|maintenance|점검/.test(msg)) return '🛠️ 서버 점검 중이에요. 5분 후 다시 시도해 주세요.';
     if (/quota|429|rate.?limit/i.test(msg)) return '⏰ 잠깐 요청이 몰려서 늦어져요. 1분 후 다시 보내주세요.';
     if (/403|permission|denied/i.test(msg)) return '🔒 권한 문제예요. 운영팀에 문의해 주세요.';
-    if (/network|failed to fetch|네트워크/i.test(msg) || !navigator.onLine) return '📡 인터넷 연결을 확인해 주세요.';
+    // [P1-5] 진짜 오프라인일 때만 '인터넷 연결' 문구. 온라인인데 fetch 실패면 거짓말 대신 정직하게.
+    if (!navigator.onLine) return '📡 지금 오프라인 상태예요. 인터넷 연결을 확인해 주세요.';
+    if (/network|failed to fetch|네트워크/i.test(msg)) return '⚠️ 잠깐 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.';
     return '에러: ' + (window._humanError ? window._humanError(e) : msg);
   }
 
@@ -4067,6 +4069,34 @@
     catch (_e) { void _e; }
   }
 
+  // [P1-5] 미지원(세부편집)/평가·재시도/문맥부족 발화를 백엔드로 안 보내고 정직하게 안내(인터넷오류 거짓 수렴 차단).
+  function _tryUnsupportedGuide(input, q) {
+    const U = window.ItbiUnsupportedIntent;
+    if (!U || typeof U.classify !== 'function') return false;
+    const c = U.classify(q);
+    if (!c) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    const AC = window.ItbiActiveCard;
+    const hasActive = !!(AC && AC.has() && AC.get() && AC.get().available !== false);
+    const inEditor = _isEditorOpen();
+    let reply;
+    if (c.kind === 'edit_detail') {
+      reply = (inEditor || hasActive)
+        ? '아직 글자 크기·색·위치 같은 세부 편집은 말로 못 해요. 편집기에서 직접 고쳐주세요 — 저장하면 작업실에 모여요.'
+        : '세부 편집은 카드를 연 다음 편집기에서 직접 할 수 있어요. "저장된 카드 보여줘"라고 하면 카드를 열어드릴게요.';
+    } else if (c.kind === 'retry_alt') {
+      reply = hasActive
+        ? '아직 다른 디자인으로 자동 변경하는 건 준비 중이에요. 지금은 편집기에서 직접 고치거나, 새로 만들려면 "가격표 만들어줘"처럼 말씀해 주세요.'
+        : '아직 다른 디자인 자동 변경은 준비 중이에요. 새로 만들려면 "후기 카드 만들어줘"처럼, 저장한 걸 고치려면 "저장된 카드 보여줘"라고 해주세요.';
+    } else {
+      reply = '어떤 카드를 말씀하시는지 못 찾았어요. "저장된 카드 보여줘"로 최근 작업을 먼저 열거나, "가격표 만들어줘"처럼 새로 만들어보세요.';
+    }
+    _history.push({ role: 'assistant', text: reply });
+    _renderHistory();
+    return true;
+  }
+
   // [QA퍼징] 업종 키워드 없는 bare 생성("가격표 만들어줘")을 백엔드로 안 새게 — 목적별 템플릿 편집기/피커로 연결.
   //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
   const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid' };
@@ -4179,6 +4209,8 @@
     // [QA퍼징] 업종 없는 bare 생성("가격표 만들어줘")은 매처가 못 잡음 → 백엔드 전 마지막으로 가로채 목적별 템플릿으로.
     if (await _tryCreateIntentFallback(input, q)) return;
     if (await _trySendShortcuts(input, q)) return;
+    // [P1-5] 세부편집/평가·재시도/문맥부족 발화는 백엔드로 보내지 말고(=인터넷오류 거짓 수렴 방지) 정직하게 안내.
+    if (_tryUnsupportedGuide(input, q)) return;
     _beginTextAsk(input, q);
     try {
       _finishAskResponse(q, await _postAssistantAsk(q));

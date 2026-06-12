@@ -131,7 +131,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy',
   'js/assistant/core/action-hub.js?v=20260611-r3fix',
   'js/assistant/core/memory-intent.js?v=20260612-v447c-itbi-fuzz',
-  'js/assistant/core/active-card.js?v=20260612-v451-activecard',
+  'js/assistant/core/active-card.js?v=20260612-v452-honest-fail',
+  'js/assistant/core/unsupported-intent.js?v=20260612-v452-honest-fail',
   'js/assistant/core/saved-cards-intent.js?v=20260612-v447c-itbi-fuzz',
   'js/assistant/core/create-intent.js?v=20260612-v450b-create',
   'js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish',
@@ -153,7 +154,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
   'js/assistant/core/assistant-template-save.js?v=20260612-v451-activecard',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260612-v451-activecard',
+  'app-assistant.js?v=20260612-v452-honest-fail',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
