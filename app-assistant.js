@@ -1449,6 +1449,7 @@
       if (action.kind === 'open_template_panel' && _openAssistantTemplatePicker(action, msg)) return true;
       if (action.kind === 'apply_price_template' && _applyPriceTemplateDraft(action, msg)) return true;
       if (action.kind === 'ba_role_choice') { _handleBaRoleChoice(action.payload || {}); return true; }   // [P1] 전후 1장 전/후 선택
+      if (action.kind === 'ba_add_photo') { try { _openPhotoSheet(); } catch (_e) { void _e; } return true; }   // [BA 동선] "사진 올리기" → 갤러리/카메라 선택
       const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
       // [P0-A] "결과 확인" → 편집기 다시 열기 시, 채팅 닫아 편집시트를 최상단으로.
       if (r.navigated && action.kind === 'review_price_template_result') _focusEditorCloseAssistant();
@@ -1817,6 +1818,35 @@
     _renderHistory();
   }
 
+  // [BA 동선] "전후/비포애프터" 생성 발화의 사진 0/1/2장 분기 단일 진입점.
+  //   0장: 빈 BA 템플릿을 덩그러니 열지 말고 → 2장 필요 안내 + "사진 올리기" 버튼(가짜 before 안 채움).
+  //   1장: 전/후 역할 선택 카드(_pushBaChoiceCard) → 나머지 1장 업로드로 완성.
+  //   2장+: 기존 handleBeforeAfterCard 그대로(정책 불변).
+  function _openBeforeAfterCreate(q) {
+    const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
+    const photos = _lastUserPhotos();
+    if (photos.length >= 2) {
+      try {
+        const TA = window.ItdasyTemplateAutoApply;
+        const result = (TA && typeof TA.handleBeforeAfterCard === 'function') ? TA.handleBeforeAfterCard(q, ctx, { photos: photos }) : null;
+        if (result && !result.needsPhoto) {
+          _pushBaResultCard(result);
+          try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'before_after', label: '전후 카드', available: true, origin: 'create' }); } catch (_ac) { void _ac; }
+          _focusEditorCloseAssistant();
+          return;
+        }
+      } catch (_e) { void _e; }
+    }
+    if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return; }
+    // 0장 — 시술 전/후 2장 흐름을 명확히 안내하고 업로드로 바로 이어지게.
+    _history.push({
+      role: 'assistant',
+      text: '전후 카드는 시술 전·후 사진 2장으로 만들어요.\n① 시술 전 사진, ② 시술 후 사진을 채팅에 올려주시면 자동으로 전/후로 배치해 카드를 완성해드릴게요. (1장만 올리면 어느 쪽인지 물어볼게요)',
+      hub_actions: [{ id: 'ba_add_photo', kind: 'ba_add_photo', label: '사진 올리기', phase: 'safe', route: 'hub', payload: {} }],
+    });
+    _renderHistory();
+  }
+
   // 주어진 photos(순서: [before, after] 또는 [after])로 기존 전후 카드 적용. handleBeforeAfterCard 재사용.
   function _applyBaFromPhotos(requestText, photos, ctx) {
     try {
@@ -1870,19 +1900,9 @@
     try {
       var M = window.ItdasyTemplateAutoApply;
       if (!M || typeof M.detectBeforeAfterCard !== 'function' || !M.detectBeforeAfterCard(q)) return false;
-      var ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
-      var photos = _lastUserPhotos();
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
-      // [P1] 사진 1장이면 즉시 적용하지 않고 전/후 선택 카드부터.
-      if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return true; }
-      var result = M.handleBeforeAfterCard(q, ctx, { photos: photos });
-      if (!result || result.needsPhoto) {
-        _history.push({ role: 'assistant', text: '전후 카드를 만들려면 사진이 필요해요. 시술 후 사진을 먼저 올려 주세요.' });
-        _renderHistory();
-        return true;
-      }
-      _pushBaResultCard(result);
+      _openBeforeAfterCreate(q);   // [BA 동선] 사진 0/1/2장 분기 통일(빈 템플릿 금지)
       return true;
     } catch (e) {
       try { console.warn('[assistant-ba-card] apply failed', e); } catch (_logErr) { void _logErr; }
@@ -4130,6 +4150,11 @@
         try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: '이벤트 카드', available: false, origin: 'create' }); } catch (_ac) { void _ac; }
         _history.push({ role: 'assistant', text: '이벤트 카드는 아직 준비 중이에요. 지금은 가격표·후기·전후 카드를 바로 만들 수 있어요 — 어떤 걸 만들까요?' });
         _renderHistory();
+        return true;
+      }
+      if (p === 'before_after') {
+        // [BA 동선] 빈 전후 템플릿 직행 금지 — 사진 0/1/2장 분기(2장 필요 안내 + 업로드 동선)로 통일.
+        _openBeforeAfterCreate(q);
         return true;
       }
       const opened = _openCreateTemplate(p);
