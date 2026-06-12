@@ -107,7 +107,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo-editor/template-renderer-beauty-pack.js?v=20260610-v435-bg-ratio-thumb-fallback',
   'js/photo-editor/template-renderer-beauty-pack-draws.js?v=20260610-v436-bp-event-spring',
   'app-photo-editor-template-library.js?v=20260609-v426-storage-default-template',
-  'app-photo-editor-template-gallery.js?v=20260612-v450-ba-before-btn',
+  'app-photo-editor-template-gallery.js?v=20260612-v452-tplg-ratio',
   'app-photo-editor-template-edit-sheet.js?v=20260607-s3b2-after-photo'
   ],
   assistant: [

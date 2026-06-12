@@ -274,8 +274,12 @@
     const defaultBadge = canDefault
       ? `<span class="pe-tplg-default-badge${isDefault ? ' on' : ''}" data-pe-tplg-default="${_esc(t.id)}" data-pe-tplg-default-purpose="${_esc(t.purpose)}" role="button" aria-pressed="${isDefault ? 'true' : 'false'}" aria-label="${_esc(purposeLabel)} 기본 템플릿${isDefault ? ' (지정됨, 탭하면 해제)' : '으로 지정'}">${_STAR_SVG}${isDefault ? '<span class="pe-tplg-default-txt">기본</span>' : ''}</span>`
       : '';
+    // [2026-06-12 배치C] 카드 비율 = 카테고리 데이터(ratio) 기준 — 1:1 하드코딩으로
+    //   4:5/9:16 템플릿 썸네일이 제멋대로 잘려 갤러리가 난장판이던 문제.
+    const _ratio = ((MD.CATS.find(c => c.id === t.cat) || {}).ratio) || '4:5';
+    const _arCss = _ratio === '9:16' ? '9 / 16' : (_ratio === '1:1' ? '1 / 1' : '4 / 5');
     return `<button type="button" class="pe-tplg-card${sel}" data-pe-tplg-id="${_esc(t.id)}">
-      <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}">
+      <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}" style="aspect-ratio:${_arCss};">
         <span class="pe-tplg-badge">${_esc(badge)}</span>
         ${/^bp-/.test(t.id) ? '<span class="pe-tplg-premium" style="position:absolute;top:8px;left:8px;z-index:3;background:linear-gradient(135deg,#E7CE8C,#C9A24B);color:#1B140A;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.4px;box-shadow:0 1px 4px rgba(0,0,0,.18);">프리미엄</span>' : ''}
         ${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}
