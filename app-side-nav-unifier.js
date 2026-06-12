@@ -87,7 +87,10 @@
   ];
   const _visible = (id) => {
     const el = document.getElementById(id);
-    return !!(el && el.style.display !== 'none' && el.offsetParent !== null);
+    // [2026-06-12 fix] offsetParent 는 position:fixed 요소에서 항상 null —
+    //   매출관리 등 fixed 시트가 전부 '안 보임' 판정돼 활성이 홈으로 폴백되던 원인.
+    //   display:none 이면 offsetHeight 0 이므로 높이로 판정.
+    return !!(el && el.style.display !== 'none' && el.offsetHeight > 0);
   };
   function _syncActive() {
     // 만들기/어시스턴트 등 임시 시트가 떠 있으면 직전 활성 유지(덮어쓰지 않음)
@@ -111,4 +114,8 @@
   window.addEventListener('hashchange', () => setTimeout(_syncActive, 60));
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(_syncActive, 120));
   else setTimeout(_syncActive, 120);
+  // [2026-06-12 fix] 해시 복원(#revenue 등)은 데이터 로드 후 늦게 열림 — 120ms 1회로는
+  //   부팅 타이밍을 못 잡아서 지연 재동기화 2회 추가 (이미 맞으면 no-op).
+  setTimeout(_syncActive, 900);
+  setTimeout(_syncActive, 2500);
 })();
