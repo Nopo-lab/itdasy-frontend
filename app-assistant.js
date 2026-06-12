@@ -399,12 +399,12 @@
     sheet.querySelector('#asstCamera').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
       e.target.value = '';  // 같은 파일 재선택 허용
-      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA) _send(); }   // [P1b] 전후 2번째 사진은 바로 완성
+      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA || _pendingBaIntent) _send(); }   // [P1b] 전후 2번째/0장 업로드는 바로 BA 흐름으로
     });
     sheet.querySelector('#asstGallery').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
       e.target.value = '';
-      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA) _send(); }   // [P1b] 전후 2번째 사진은 바로 완성
+      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA || _pendingBaIntent) _send(); }   // [P1b] 전후 2번째/0장 업로드는 바로 BA 흐름으로
     });
   }
 
@@ -1829,6 +1829,7 @@
   let _pendingBA = null;          // { firstUrl, firstRole:'before'|'after', requestText, ts }
   let _baChoicePhotoUrl = null;   // 선택 카드 표시~클릭 사이 1장 dataURL 임시(히스토리에 미저장)
   let _pendingCaptionPhoto = null; // 사진+캡션 요청 시 시술내역 입력 대기 중인 photo dataUrl
+  let _pendingBaIntent = null;    // [BA 동선] "전후 하나"(0장) 직후 업로드 사진을 BA 흐름으로 잇는 대기상태 { requestText, ts }
 
   function _baCollectCtx() {
     try { return (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {}; }
@@ -1870,6 +1871,8 @@
     }
     if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return; }
     // 0장 — 시술 전/후 2장 흐름을 명확히 안내하고 업로드로 바로 이어지게.
+    //   [자동연결] 직후 업로드 사진을 BA 로 잇기 위해 대기상태 세팅(완료/취소/다른 텍스트/만료 시 clear).
+    _pendingBaIntent = { requestText: q || '전후 카드 만들어줘', ts: Date.now() };
     _history.push({
       role: 'assistant',
       text: '전후 카드는 시술 전·후 사진 2장으로 만들어요.\n① 시술 전 사진, ② 시술 후 사진을 채팅에 올려주시면 자동으로 전/후로 배치해 카드를 완성해드릴게요. (1장만 올리면 어느 쪽인지 물어볼게요)',
@@ -3355,6 +3358,21 @@
         return;
       }
     }
+    // [BA 동선 자동연결] "전후 하나"(0장) 직후 업로드 → 자동으로 전후 흐름(1장=역할선택, 2장+=생성).
+    //   전후 요청 직후의 업로드에만 적용(_pendingBaIntent). 일반 업로드/만료는 아래 일반 경로로.
+    if (_pendingBaIntent && photoUrls.length) {
+      if (Date.now() - _pendingBaIntent.ts > _BA_PENDING_TTL) {
+        _pendingBaIntent = null;   // 만료 → 일반 업로드 흐름
+      } else {
+        const _baReq = _pendingBaIntent.requestText || '전후 카드 만들어줘';
+        _pendingBaIntent = null;   // 소비(완료)
+        _history.push({ role: 'user', text: '', photos: photoUrls, thumb: photoUrls[0] });
+        _renderHistory();
+        _openBeforeAfterCreate(_baReq);   // _lastUserPhotos() 가 방금 푼 사진을 봄 → 1장=역할선택, 2장=생성
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
+      }
+    }
     try {
       // [모드 P1] 사진편집 모드 활성, 또는 (사진만 + 텍스트 없음) → photo-mode 가 접수/진행을 가져감.
       if (window.ItdasyPhotoMode && photoUrls.length && (window.ItdasyPhotoMode.isActive() || !question)) {
@@ -4234,6 +4252,8 @@
     if (!q) return;
     _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
+    // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
+    if (_pendingBaIntent) { _pendingBaIntent = null; }
     // [사진+캡션 pending] 시술내역 입력 대기 → 캡션 생성 후 인스타 미리보기 버튼
     if (_pendingCaptionPhoto) {
       const _capPhotoUrl = _pendingCaptionPhoto;
