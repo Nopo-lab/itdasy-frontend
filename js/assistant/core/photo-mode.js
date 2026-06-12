@@ -29,6 +29,7 @@
   function stepLabel() { return S.active ? (STEP_LABEL[S.step] || '진행 중') : ''; }
 
   // ── 작은 헬퍼 ──
+  function _log() { try { var a = ['[PM]'].concat(Array.prototype.slice.call(arguments)); (console.debug || console.log).apply(console, a); } catch (_e) { void 0; } }
   function _shopType() { try { return localStorage.getItem('shop_type') || ''; } catch (_e) { return ''; } }
   function _loadImg(url) {
     return new Promise(function (res) {
@@ -227,18 +228,27 @@
   // 사진 수신 → 접수(또는 BA 두 번째 사진 완성)
   async function handlePhotos(photoUrls, question, _ctx) {
     photoUrls = (photoUrls || []).filter(Boolean);
+    _log('handlePhotos', { n: photoUrls.length, active: S.active, step: S.step });
     if (!photoUrls.length) return null;
-    // BA 두 번째 사진 대기 중
+    // BA 두 번째 사진 대기 중 → 전 사진으로 채워 손질로.
     if (S.active && S.step === 'ba_second') {
       S.photos.push({ url: photoUrls[0], role: null });
       _assignBaRoles(true);
-      return _msgFix();
+      _log('ba_second→fix', { photos: S.photos.length });
+      return await _msgFix();
+    }
+    // [C] 진행 중(접수/await_photo 외) 추가 업로드 → 사진 누적만, 단계 유지(중복 카드 push 방지).
+    if (S.active && S.step && S.step !== 'await_photo') {
+      photoUrls.forEach(function (u) { S.photos.push({ url: u, role: null }); });
+      _log('accumulate', { step: S.step, photos: S.photos.length });
+      return { text: '사진을 더 받았어요 (총 ' + S.photos.length + '장). 위에서 이어서 골라주세요 🙂' };
     }
     // 신규 접수
     S.active = true;
     S.workflow = 'basic';
     S.photos = photoUrls.map(function (u) { return { url: u, role: null }; });
     S.customer = await _matchCustomer();
+    _log('intake', { customer: S.customer && S.customer.name });
     var m = _msgIntake();
     if (m._next === 'template') { delete m._next; return await _msgTemplate(false); }
     return m;
@@ -247,6 +257,7 @@
   // 텍스트(또는 칩 라벨) 수신
   async function handleText(q, _ctx) {
     q = (q || '').trim();
+    _log('handleText', { q: q, active: S.active, step: S.step });
     // 비활성 + 시작 발화 → 모드 진입(사진 요청)
     if (!S.active) {
       if (!START_RE.test(q)) return null;

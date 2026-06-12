@@ -3341,11 +3341,12 @@
     try {
       // [모드 P1] 사진편집 모드 활성, 또는 (사진만 + 텍스트 없음) → photo-mode 가 접수/진행을 가져감.
       if (window.ItdasyPhotoMode && photoUrls.length && (window.ItdasyPhotoMode.isActive() || !question)) {
-        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls });
+        // local_only: 서버 미저장 PM 사진 말풍선/응답 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
+        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
         _renderHistory();
         let _pmMsg = null;
         try { _pmMsg = await window.ItdasyPhotoMode.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
-        _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }));
+        _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }, { local_only: true }));
         _renderHistory();
         _sendInFlight = false; _inflightCtrl = null;
         return;
@@ -4249,8 +4250,9 @@
         try { _pmMsg = await _PM.handleText(q, null); } catch (_e) { _pmMsg = null; }
         if (_pmMsg) {
           _clearAssistantInput(input);
-          _history.push({ role: 'user', text: q });
-          _history.push(Object.assign({ role: 'assistant' }, _pmMsg));
+          // local_only: 서버 미저장 → _mergeServerHistory 에서 보존(드롭 방지).
+          _history.push({ role: 'user', text: q, local_only: true });
+          _history.push(Object.assign({ role: 'assistant' }, _pmMsg, { local_only: true }));
           _renderHistory();
           _sendInFlight = false; _inflightCtrl = null;
           return;
@@ -4357,6 +4359,9 @@
     return _history.filter(m => {
       if (!m) return false;
       if (m.role === 'loading') return true;
+      // [모드 P1] 서버 미저장 로컬 전용 메시지(PM 응답·PM 사진 말풍선)는 서버 머지 때 드롭 금지.
+      //   (assistant 로컬 메시지는 기본 survivor 가 아니어서 사라지던 블로커 + text='' 사진 말풍선 보존)
+      if (m.local_only) return true;
       const key = (m.role || 'assistant') + '::' + (m.text || '');
       return m.role === 'user' && !serverTextSet.has(key);
     });
