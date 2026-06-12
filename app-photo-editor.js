@@ -692,7 +692,7 @@
     _toast('스티커 추가: ' + (preset.value || ''));
   }
 
-  window.PhotoEditor = { open: _open, close: _close, openFromAction: _openFromAction, addStickerLayer: _addStickerLayer };
+  window.PhotoEditor = { open: _open, close: _close, openFromAction: _openFromAction, addStickerLayer: _addStickerLayer, save: _save };
   // 외부 모듈 (beauty / templates) 등록 API.
   //   registerTabPanel(tabId, { html: (state)=>string, bind: (panel, state, helpers)=>void })
   //   registerDrawHook(name, fn)   • name: 'beauty' | 'template' (호출은 _redraw 안)

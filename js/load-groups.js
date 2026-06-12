@@ -5,7 +5,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   photo: [
   'app-gallery-utils.js',
   'app-gallery-db.js?v=20260611-b7b8',
-  'app-gallery-workshop.js?v=20260611-b7b8',
+  'app-gallery-workshop.js?v=20260612-v451-activecard',
   'app-gallery-assign.js?v=20260521-v254-api-fetch',
   'app-gallery-slot-editor.js?v=20260610-batch5',
   'app-photo-editor-bg-compose.js?v=20260610-final',
@@ -20,7 +20,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/photo-workflow-commands.js?v=20260612-v450b-domain-card-guard',
   'app-photo-editor-worker-filter.js?v=20260521-v252-photo-shadow-batch',
   'js/photo-editor/history.js?v=20260526-v288-photo-editor-warning-cleanup',
-  'app-photo-editor.js?v=20260610-heic',
+  'app-photo-editor.js?v=20260612-v451-activecard',
   'app-photo-editor-itbi-cards.js?v=20260605-itbi-meta-pr2',
   'js/photo-editor/renderer.js?v=20260529-v345-export-quality',
   'app-photo-editor-shop-data.js?v=20260527-v308-photo-editor-upgrade',
@@ -131,6 +131,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy',
   'js/assistant/core/action-hub.js?v=20260611-r3fix',
   'js/assistant/core/memory-intent.js?v=20260612-v447c-itbi-fuzz',
+  'js/assistant/core/active-card.js?v=20260612-v451-activecard',
   'js/assistant/core/saved-cards-intent.js?v=20260612-v447c-itbi-fuzz',
   'js/assistant/core/create-intent.js?v=20260612-v450b-create',
   'js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish',
@@ -150,9 +151,9 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-catalog-event.js?v=20260608-v416-template-sample-matcher-connect',
   'js/assistant/core/template-sample-catalog.js?v=20260608-v416-template-sample-matcher-connect',
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
-  'js/assistant/core/assistant-template-save.js?v=20260611-galaxy-fix',
+  'js/assistant/core/assistant-template-save.js?v=20260612-v451-activecard',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260612-v450b-create',
+  'app-assistant.js?v=20260612-v451-activecard',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

@@ -1731,6 +1731,7 @@
         return true;
       }
       _pushReviewResultCard(result);
+      try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'review', label: '후기 카드', templateId: (result && result.templateId) || null, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
       return true;
     } catch (e) {
       try { console.warn('[assistant-review-card] apply failed', e); } catch (_logErr) { void _logErr; }
@@ -1911,6 +1912,7 @@
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
+      try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) || '가격표', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
       _focusEditorCloseAssistant();   // [P0-A]
       return true;
     } catch (e) {
@@ -1971,6 +1973,7 @@
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
+      try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) || '가격표', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
       _focusEditorCloseAssistant();   // [P0-A]
       return true;
     } catch (e) {
@@ -3984,6 +3987,86 @@
     finally { _sendInFlight = false; }
   }
 
+  // [activeCard P0] 편집기 시트가 열려있나(닫혀도 display!=='none' 이면 채팅 뒤에 떠 있는 것).
+  function _isEditorOpen() {
+    try { const s = document.getElementById('photoEditorSheet'); return !!s && getComputedStyle(s).display !== 'none'; }
+    catch (_e) { return false; }
+  }
+  async function _ensurePhotoGroup() {
+    try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+  }
+  // 저장된 슬롯을 편집기에 복원(그거 수정 — 저장본). 성공 true.
+  async function _reopenSavedSlotInEditor(slotId, label, purpose) {
+    try {
+      if (typeof window.loadSlotsFromDB !== 'function') return false;
+      const slots = await window.loadSlotsFromDB();
+      const slot = (slots || []).find(s => s && s.id === slotId);
+      if (!slot) return false;
+      if (slot.templateMeta && typeof window.restoreAssistantTemplate === 'function') {
+        _focusEditorCloseAssistant();
+        const photo = (slot.photos || [])[0] || null;
+        const ok = window.restoreAssistantTemplate(slot, photo, _assistantTemplateOnSave({ purpose: purpose || (slot.templateMeta && slot.templateMeta.purpose) || 'price', label: label || slot.label }));
+        if (ok) return true;
+      }
+      // 메타 없으면 작업실에서 하이라이트(베이크 이미지만 있는 옛 슬롯).
+      _openWorkshopHighlightSlot(slotId);
+      return true;
+    } catch (_e) { return false; }
+  }
+  function _openWorkshopHighlightSlot(slotId) {
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    try { if (typeof window.showTab === 'function') window.showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]')); } catch (_e) { void _e; }
+    try { if (slotId != null && typeof window.highlightWorkshopSlot === 'function') window.highlightWorkshopSlot(slotId); else if (typeof window.initWorkshopTab === 'function') window.initWorkshopTab(); } catch (_e) { void _e; }
+  }
+
+  // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장 전이라도 '방금 만든/편집 중 카드'를 대상으로.
+  //   activeCard 없으면 false → 저장카드 조회 경로로 폴백. (저장카드보다 activeCard 우선)
+  async function _tryActiveCardShortcut(input, q) {
+    const AC = window.ItbiActiveCard;
+    if (!AC || !AC.has()) return false;
+    const ref = AC.classifyRef(q);
+    if (!ref) return false;
+    const card = AC.get();
+    _sendInFlight = true;
+    try {
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      await _ensurePhotoGroup();
+      const editorOpen = _isEditorOpen();
+      const name = card.label || '카드';
+      let reply;
+      if (card.available === false) {
+        // 이벤트처럼 아직 못 만든 카드 — 거짓 안내 금지, 정직 안내.
+        reply = name + '는 아직 준비 중이라 ' + (ref.verb === 'save' ? '저장할' : '보여드릴') + ' 게 없어요. 가격표·후기·전후 카드는 바로 만들 수 있어요 — 만들어드릴까요?';
+      } else if (ref.verb === 'save') {
+        if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '"' + name + '"는 이미 작업실에 저장돼 있어요. 작업실에 띄워뒀어요.'; }
+        else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
+          try { await window.PhotoEditor.save(); reply = '방금 만든 "' + name + '"를 작업실에 저장했어요. "그거 수정"이라고 하면 다시 열어드려요.'; }
+          catch (_s) { reply = '저장 중에 문제가 있었어요. 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
+        } else { _reopenTemplateForActive(card); reply = '"' + name + "\" 편집기를 다시 열었어요. 마무리하고 '그거 저장'이라고 해주세요."; }
+      } else if (ref.verb === 'edit') {
+        if (editorOpen) { _focusEditorCloseAssistant(); reply = '방금 만든 "' + name + '"를 편집기에서 열어뒀어요. 바로 고치면 돼요.'; }
+        else if (card.slotId != null) { const ok = await _reopenSavedSlotInEditor(card.slotId, name, card.purpose); reply = ok ? '저장한 "' + name + '"를 편집기에서 열었어요.' : '"' + name + '"를 작업실에 띄웠어요. 카드를 누르면 편집할 수 있어요.'; }
+        else { _reopenTemplateForActive(card); reply = '방금 만든 "' + name + '" 템플릿을 다시 열었어요. 고치고 저장하면 작업실에 모여요.'; }
+      } else { // show
+        if (editorOpen) { _focusEditorCloseAssistant(); reply = '방금 만든 "' + name + '"예요. 편집기에서 보고 계세요 — 고칠 게 있으면 말씀해 주세요.'; }
+        else if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '방금 만든 "' + name + '"를 작업실에 띄웠어요. 카드를 누르면 다시 편집할 수 있어요.'; }
+        else { _reopenTemplateForActive(card); reply = '방금 만든 "' + name + '"를 다시 열었어요. 저장 안 하면 새로고침 후엔 사라지니 "그거 저장"이라고 해주세요.'; }
+      }
+      _history.push({ role: 'assistant', text: reply });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      try { _history.push({ role: 'assistant', text: '방금 만든 카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' }); _renderHistory(); } catch (_e2) { void _e2; }
+      return true;
+    } finally { _sendInFlight = false; }
+  }
+  function _reopenTemplateForActive(card) {
+    try { if (card && card.purpose && card.purpose !== 'event') _openCreateTemplate(card.purpose); }
+    catch (_e) { void _e; }
+  }
+
   // [QA퍼징] 업종 키워드 없는 bare 생성("가격표 만들어줘")을 백엔드로 안 새게 — 목적별 템플릿 편집기/피커로 연결.
   //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
   const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid' };
@@ -3996,6 +4079,8 @@
     PE.open({ src: source, initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });
     const tplId = _CREATE_DEFAULT_TPL[purpose];
     if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    // [activeCard P0] 방금 만든(편집 중) 카드 기억 — 저장 전에도 "그거 저장/수정/다시 보여줘" 가 가리킬 수 있게.
+    try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
     _focusEditorCloseAssistant();
     return true;
   }
@@ -4011,6 +4096,8 @@
       try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_l) { void _l; }
       const p = c.purpose;
       if (p === 'event') {
+        // [activeCard] 이벤트는 아직 카드 생성 불가 → available:false 로 기억해 "그거 다시 보여줘"가 빈 작업실 대신 정직 안내로.
+        try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: '이벤트 카드', available: false, origin: 'create' }); } catch (_ac) { void _ac; }
         _history.push({ role: 'assistant', text: '이벤트 카드는 아직 준비 중이에요. 지금은 가격표·후기·전후 카드를 바로 만들 수 있어요 — 어떤 걸 만들까요?' });
         _renderHistory();
         return true;
@@ -4068,6 +4155,8 @@
     }
     // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
     if (await _tryMemoryShortcut(input, q)) return;
+    // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
+    if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
     if (await _trySavedCardsShortcut(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면

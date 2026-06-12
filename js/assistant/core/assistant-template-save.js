@@ -104,6 +104,8 @@
         window._lastAssistantSave = { slotId: slotId, rid: rid, label: label, ts: Date.now() };
         // [2026-06-11 QA] 새로고침하면 기억이 증발하던 버그 — localStorage 영속화
         try { localStorage.setItem('itdasy_last_asst_save', JSON.stringify(window._lastAssistantSave)); } catch (_p) { void _p; }
+        // [activeCard P0] 저장 완료 → 직전 산출물 포인터를 저장 슬롯과 연결("그거 저장" 후 "그거 수정"이 저장본 로드).
+        try { if (window.ItbiActiveCard && window.ItbiActiveCard.has()) window.ItbiActiveCard.linkSlot(slotId, dataUrl); } catch (_ac) { void _ac; }
         // 작업실이 이미 떠 있으면 리스트 즉시 갱신 (미로드 상태면 진입 시 어차피 DB 재로드)
         try {
           if (typeof window.initWorkshopTab === 'function' && !window.initWorkshopTab._loaderStub &&

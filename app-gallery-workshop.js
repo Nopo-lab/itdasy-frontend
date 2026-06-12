@@ -586,6 +586,13 @@ window._mergeAutoGroups = _mergeAutoGroups;
 // [2026-06-11 B8] 잇비 "저장한 카드 보여줘" — 작업실 리스트 갱신 후 해당 슬롯 스크롤+하이라이트
 window.highlightWorkshopSlot = async function (slotId) {
   try { await initWorkshopTab(); } catch (_e) { void _e; }
+  // [activeCard P0] 작업실에서 띄운 슬롯을 '활성 카드'로 기억 — 이후 "그거 수정/저장"이 이 슬롯을 가리킨다.
+  try {
+    const _s = (_slots || []).find(s => s && s.id === slotId);
+    if (_s && window.ItbiActiveCard) {
+      window.ItbiActiveCard.set({ purpose: (_s.templateMeta && _s.templateMeta.purpose) || 'generic', label: _s.label || '카드', templateId: (_s.templateMeta && _s.templateMeta.templateId) || null, slotId: _s.id, available: true, origin: 'workshop' });
+    }
+  } catch (_e) { void _e; }
   const card = document.querySelector('.ws-slot-card[data-slot-id="' + String(slotId).replace(/"/g, '') + '"]');
   if (!card) return false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
