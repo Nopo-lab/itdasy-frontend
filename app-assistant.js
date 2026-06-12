@@ -494,6 +494,7 @@
         ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
+        ${_renderPmTpls(m, idx)}
         ${retryHtml}
         ${reportHtml}
         ${dupHtml}
@@ -542,6 +543,19 @@
     const cards = m.tpl_recos.map(id => TV.recoCardHtml(id)).filter(Boolean).join('');
     if (!cards) return '';
     return `<div class="asst-tpl-recos" data-asst-tpl-recos="${idx}" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${cards}</div>`;
+  }
+
+  // [모드 P1] 사진편집 모드 — 사용자 사진을 끼운 템플릿 미리보기 행(가로 스크롤).
+  //   카드 = data-suggest 버튼(클릭 시 라벨 명령을 입력+_send → photo-mode handleText 라우팅, 기존 클릭 경로 재사용).
+  function _renderPmTpls(m, idx) {
+    if (!Array.isArray(m.pm_tpls) || !m.pm_tpls.length) return '';
+    const cards = m.pm_tpls.map(t => `
+      <button type="button" data-suggest="${_esc(t.cmd)}" style="flex:0 0 116px;border:1.5px solid var(--border,#eee);border-radius:14px;overflow:hidden;background:#fff;padding:0;cursor:pointer;text-align:center;">
+        ${t.badge ? `<div style="background:var(--brand-bg,#F7EFF0);color:var(--brand-strong,#BC6675);font-size:9.5px;font-weight:800;padding:4px 0;">${_esc(t.badge)}</div>` : ''}
+        <img src="${_esc(t.previewUrl || '')}" alt="${_esc(t.label || '')}" style="width:100%;height:138px;object-fit:cover;display:block;background:#F4ECE4;" />
+        <div style="font-size:11px;font-weight:700;padding:7px 4px;color:var(--text,#191F28);">${_esc(t.label || '')}</div>
+      </button>`).join('');
+    return `<div data-asst-pm-tpls="${idx}" style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">${cards}</div>`;
   }
 
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
@@ -3325,6 +3339,17 @@
       }
     }
     try {
+      // [모드 P1] 사진편집 모드 활성, 또는 (사진만 + 텍스트 없음) → photo-mode 가 접수/진행을 가져감.
+      if (window.ItdasyPhotoMode && photoUrls.length && (window.ItdasyPhotoMode.isActive() || !question)) {
+        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls });
+        _renderHistory();
+        let _pmMsg = null;
+        try { _pmMsg = await window.ItdasyPhotoMode.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
+        _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }));
+        _renderHistory();
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
+      }
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       // [2026-06-11 #8 v3] 사진+캡션 요청 → 시술내역 입력 대기 후 캡션 생성 (보정 없음).
       //   v2는 홍보 플로우로 라우팅해 "보정 완료! 인스타 미리보기" 바로 띄우는 오동작이 있었음.
@@ -4177,6 +4202,9 @@
     } finally { _sendInFlight = false; }
   }
 
+  // [모드 P1] 사진편집 모드 중 무관 질문이 통과했을 때, 백엔드 응답 뒤 붙일 재안내 라벨.
+  let _photoModeReannounce = '';
+
   async function _send() {
     if (_sendInFlight) return;
     const input = document.getElementById('asstInput');
@@ -4184,6 +4212,7 @@
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
     const q = input ? input.value.trim() : '';
     if (!q) return;
+    _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [사진+캡션 pending] 시술내역 입력 대기 → 캡션 생성 후 인스타 미리보기 버튼
     if (_pendingCaptionPhoto) {
@@ -4210,6 +4239,27 @@
     }
     // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
     if (await _tryMemoryShortcut(input, q)) return;
+    // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
+    {
+      const _PM = window.ItdasyPhotoMode;
+      if (_PM && (_PM.isActive() || (_PM.START_RE && _PM.START_RE.test(q)))) {
+        const _wasActive = _PM.isActive();
+        _sendInFlight = true;   // await 동안 중복 전송 차단
+        let _pmMsg = null;
+        try { _pmMsg = await _PM.handleText(q, null); } catch (_e) { _pmMsg = null; }
+        if (_pmMsg) {
+          _clearAssistantInput(input);
+          _history.push({ role: 'user', text: q });
+          _history.push(Object.assign({ role: 'assistant' }, _pmMsg));
+          _renderHistory();
+          _sendInFlight = false; _inflightCtrl = null;
+          return;
+        }
+        _sendInFlight = false;   // 미처리(null) → 기존 파이프라인 계속
+        // 무관 질문 → 통과시키고, 백엔드 응답 뒤 "하던 거 이어가요" 재안내 예약.
+        if (_wasActive) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
+      }
+    }
     // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
     if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
@@ -4244,6 +4294,11 @@
     } finally {
       _sendInFlight = false;
       _inflightCtrl = null;
+    }
+    // [모드 P1] 사진편집 모드 중 무관 질문이었으면 응답 뒤 한 줄 재안내.
+    if (_photoModeReannounce) {
+      try { _history.push({ role: 'assistant', text: '하던 거 이어가요: ' + _photoModeReannounce }); _renderHistory(); } catch (_e) { void _e; }
+      _photoModeReannounce = '';
     }
   }
 

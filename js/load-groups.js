@@ -107,7 +107,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/photo-editor/template-renderer-beauty-pack.js?v=20260610-v435-bg-ratio-thumb-fallback',
   'js/photo-editor/template-renderer-beauty-pack-draws.js?v=20260610-v436-bp-event-spring',
   'app-photo-editor-template-library.js?v=20260609-v426-storage-default-template',
-  'app-photo-editor-template-gallery.js?v=20260612-v452-tplg-ratio',
+  'app-photo-editor-template-gallery.js?v=20260612-v455-photo-mode',
   'app-photo-editor-template-edit-sheet.js?v=20260607-s3b2-after-photo'
   ],
   assistant: [
@@ -136,6 +136,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/saved-cards-intent.js?v=20260612-v447c-itbi-fuzz',
   'js/assistant/core/create-intent.js?v=20260612-v453-short-create',
   'js/assistant/core/photo-chain.js?v=20260602-v385-cf-publish',
+  'js/assistant/core/photo-mode.js?v=20260612-v455-photo-mode',
   'js/assistant/core/template-autoapply.js?v=20260611-b7b8',
   'js/assistant/core/promo-result-builder.js?v=20260602-first-wow',
   'js/assistant/promo-result-card.js?v=20260602-first-wow',
@@ -154,7 +155,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260609-v420-itbi-price-parse-focus',
   'js/assistant/core/assistant-template-save.js?v=20260612-v451-activecard',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260612-v454-ba-photo-flow',
+  'app-assistant.js?v=20260612-v455-photo-mode',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

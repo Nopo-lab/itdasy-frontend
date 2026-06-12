@@ -519,5 +519,6 @@
     _paintThumbs(panel, state);
   }
 
-  window.PhotoEditorTemplateGallery = { panelHTML, bind };
+  // [2026-06-12 모드 P1] 잇비 사진편집 모드가 "사용자 사진 끼운 미리보기" 생성에 재사용 (로직 복제 금지).
+  window.PhotoEditorTemplateGallery = { panelHTML, bind, previewURL: _previewURL };
 })();
