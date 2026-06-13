@@ -98,9 +98,11 @@
     return !!(el && el.style.display !== 'none' && el.offsetHeight > 0);
   };
   function _syncActive() {
-    // [2026-06-12 fix] 사용자가 방금 직접 클릭했으면(900ms) 그 선택을 존중 — 화면 열리기
+    // [2026-06-12 fix] 사용자가 방금 직접 클릭했으면 그 선택을 존중 — 화면 열리기
     //   전의 중간 sync 가 홈으로 되돌리던 경합 차단.
-    if (Date.now() - _lastManualTs < 900) return;
+    //   [2026-06-13] 900→2500ms: 고객관리처럼 데이터 로드가 느린 화면은 900ms 안에
+    //   안 열려서 가드 만료 후 sync 가 또 홈으로 되돌렸음 (라이브 실측).
+    if (Date.now() - _lastManualTs < 2500) return;
     // 만들기/어시스턴트 등 임시 시트가 떠 있으면 직전 활성 유지(덮어쓰지 않음)
     if (['navSheet', 'assistantSheet'].some(_visible)) return;
     for (const m of _SCREEN_MAP) {
