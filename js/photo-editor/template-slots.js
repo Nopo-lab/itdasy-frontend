@@ -82,11 +82,13 @@
   }
 
   // [HF1] badge·origPrice 는 optional — v3 렌더(_drawV3Price)만 표시, 기존 렌더·edit-sheet 는 무시(무회귀).
+  //   [정합성] 업종 중립 placeholder — 네일/헤어/속눈썹/피부 어디서 가격표를 열어도 '남의 업종' 시술명이
+  //   채워지지 않게(예전 '물광케어/여드름케어' 는 피부 전용이라 네일샵에 어색). 사용자가 바로 교체하는 예시값.
   const PRICE_SAMPLE = [
-    { name: '물광케어', desc: '수분 집중 케어', price: '80,000원', origPrice: '100,000원', badge: 'BEST' },
-    { name: '진정관리', desc: '민감 피부 진정', price: '120,000원' },
-    { name: '리프팅관리', desc: '탄력 개선 관리', price: '150,000원', origPrice: '180,000원', badge: 'EVENT' },
-    { name: '여드름케어', desc: '트러블 집중 케어', price: '90,000원' },
+    { name: '시그니처 메뉴', desc: '대표 인기 시술', price: '80,000원', origPrice: '100,000원', badge: 'BEST' },
+    { name: '베이직 메뉴', desc: '기본 시술', price: '50,000원' },
+    { name: '프리미엄 메뉴', desc: '집중 케어', price: '120,000원', origPrice: '150,000원', badge: 'EVENT' },
+    { name: '데일리 메뉴', desc: '간편 시술', price: '40,000원' },
   ];
 
   function getDefaultValues(templateId, templateData, ctx) {
@@ -105,9 +107,10 @@
       out = Object.assign(base, {
         headline: '고객님의 진심 후기',
         subtitle: '시술 후 달라진 변화를 확인해보세요.',
-        review_text: '피부 결이 매끈해지고 화장이 훨씬 잘 먹어요. 꾸준히 관리받고 있어요 :)',
+        // [정합성] 업종 중립 후기 — 피부 전용 표현('피부 결/화장 잘 먹어요') 제거.
+        review_text: '처음부터 끝까지 꼼꼼하게 신경 써주셔서 결과가 정말 마음에 들어요. 다음에도 또 받으러 올게요 :)',
         customer_label: (ctx && ctx.customerName) ? (ctx.customerName + ' 고객님') : '30대 / 단골 고객님',
-        service_name: '물광 피부관리',   // [HF1] optional — v3 렌더만 작은 라벨로 표시
+        service_name: '',                 // [HF1] optional — v3 렌더만 작은 라벨로 표시(업종 중립 위해 기본 비움)
         date: '',                         // [HF1] optional
         cta: '상담 예약하기',
       });
@@ -117,8 +120,9 @@
         subtitle: '한눈에 비교해보세요. 달라진 아름다움의 차이',
         before_label: 'BEFORE',
         after_label: 'AFTER',
-        before_caption: '칙칙한 피부 톤',
-        after_caption: '맑고 균일한 피부 톤',
+        // [정합성] 업종 중립 캡션 — 피부 가정('칙칙한 피부 톤') 제거. BEFORE/AFTER 라벨은 위에 유지.
+        before_caption: '시술 전',
+        after_caption: '시술 후',
         cta: '상담 예약하기',
       });
     } else {
@@ -129,7 +133,12 @@
       });
     }
     // [BP-3] 템플릿 고유 defaultCopy 우선 — 현재 beauty 팩 엔트리만 보유(TOP5/legacy 는 defaultCopy 없음 → 무영향).
-    if (templateData && templateData.defaultCopy) Object.assign(out, templateData.defaultCopy);
+    if (templateData && templateData.defaultCopy) {
+      Object.assign(out, templateData.defaultCopy);
+      // [정합성] 데모 카피의 샵 이름이 실제 사용자 샵명을 덮지 않게 — 사용자 BrandKit/ctx 값이 우선.
+      //   ('에끌레르 에스테틱'·'루미네일' 같은 레퍼런스 데모명이 모든 사용자 카드에 박히던 문제.)
+      out.shop_name = _shopName(ctx);
+    }
     return out;
   }
 
