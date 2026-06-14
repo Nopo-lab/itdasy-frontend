@@ -50,39 +50,35 @@
     }
   }
 
-  function minToHuman(min) {
-    const n = Math.max(0, Math.round(Number(min) || 0));
-    if (n < 60) return n + '분';
-    const h = Math.floor(n / 60);
-    const m = n % 60;
-    return m === 0 ? h + '시간' : h + '시간 ' + m + '분';
-  }
-
-  function cardTodayGuest(brief) {
-    const list = Array.isArray(brief.today_bookings)
-      ? brief.today_bookings.filter(b => b.status === 'confirmed')
-      : [];
-    if (!list.length) return { ok: 1, cat: '오늘 손님', dot: '#10B981', okMsg: '오늘 예약을 확인해보세요' };
-    const next = list[0];
-    const who = next.customer_name ? (next.customer_name + '님') : '손님';
-    const svc = next.service_name || next.service || '시술';
-    return {
-      ok: 0, cat: '오늘 손님 미리보기', dot: 'var(--brand-strong,#BC6675)',
-      hl: who + ' · ' + svc,
-      desc: next.memo ? '"' + next.memo + '"' : '메모 없음',
-      btn: '고객 메모 보기', act: 'openCustomers',
-    };
+  function cardRevenue(brief) {
+    const total = Number(brief.this_month_total) || 0;
+    const base = { ok: 0, cat: '이번달 매출', btn: '매출 보기', act: 'openRevenue' };
+    if (total === 0) {
+      return { ...base, dot: '#3B82F6', hl: '아직 이번달 매출이 없어요', desc: '첫 매출 기록해보기' };
+    }
+    const won = Math.round(total / 10000) + '만원';
+    const mom = brief.mom_delta_pct;                 // 숫자 또는 null
+    const p = (mom == null) ? null : Math.round(mom); // 정수 반올림 (BE는 소수1자리)
+    const goal = Number(brief.monthly_goal) || 0;
+    const hl = won + (p == null ? '' : ` · 전월대비 ${p >= 0 ? '+' : ''}${p}%`);
+    const desc = (goal > 0 && goal - total > 0)
+      ? `목표까지 ${Math.round((goal - total) / 10000)}만원 남았어요`
+      : (goal > 0 ? '이번달 목표 달성!' : '요일별 매출 패턴 보기');
+    const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc };
+    if (p != null && p < 0) card.alert = true;       // 마이너스일 때만 '확인 필요'에 포함
+    return card;
   }
 
   function cardAtRisk(brief) {
     const raw = brief.at_risk;
     const count = Array.isArray(raw) ? raw.length : (Number(raw) || 0);
     if (!count) return { ok: 1, cat: '단골 관리', dot: '#10B981', okMsg: '이탈 위험 손님 없어요' };
+    const name = (Array.isArray(raw) && raw[0] && raw[0].name) ? raw[0].name : '단골';
     return {
-      ok: 0, cat: '단골 이탈 감지', dot: 'var(--danger)',
-      hl: count + '명 방문 주기 넘었어요',
-      desc: '평균 주기보다 오래 안 오신 손님',
-      btn: '고객 목록', act: 'openCustomers',
+      ok: 0, cat: '단골 챙기기', dot: 'var(--danger)', alert: true,
+      hl: count === 1 ? `${name}님, 안부 보낼 때` : `${name}님 외 ${count - 1}명, 안부 보낼 때`,
+      desc: '평소보다 오래 안 오셨어요',
+      btn: '고객 보기', act: 'openCustomers',
     };
   }
 
@@ -91,15 +87,13 @@
     if (!emptySlots.length) {
       return { ok: 1, cat: '이번주 빈 시간', dot: '#10B981', okMsg: '이번주 일정이 꽉 찼어요' };
     }
-    const top = emptySlots[0] || {};
-    const hl = top.type === 'fullday'
-      ? `${top.day_label}요일 종일 비어요`
-      : `${minToHuman(top.gap_min)} · ${top.day_label}요일 ${top.from}~${top.to}`;
-    const more = emptySlots.length > 1 ? ` 외 ${emptySlots.length - 1}건` : '';
+    const fmt = s => s.type === 'fullday' ? `${s.day_label} 종일` : `${s.day_label} ${s.from}~${s.to}`;
+    const hl = emptySlots.slice(0, 2).map(fmt).join(' · ') + ' 비어요';
+    const n = emptySlots.length;
+    const desc = n > 2 ? `외 ${n - 2}곳 더 · 단골 안부나 프로모션 타이밍` : '단골 안부나 프로모션 타이밍';
     return {
       ok: 0, cat: '이번주 빈 시간', dot: '#0891B2',
-      hl: hl + more,
-      desc: '비어있는 시간에 프로모션이나 단골 안부 어떠세요?',
+      hl, desc,
       btn: '예약 잡기', act: 'openCalendar',
     };
   }
@@ -107,12 +101,8 @@
   function buildCarouselCards(brief) {
     const data = brief || {};
     const cards = [
-      cardTodayGuest(data),
+      cardRevenue(data),
       cardAtRisk(data),
-      { ok: 0, cat: '요일별 매출', dot: '#3B82F6', hl: '이번주 매출 패턴 보기', desc: '요일별 매출 비교 · 프로모션 타이밍', btn: '자세히', act: 'openRevenue' },
-      { ok: 0, cat: 'SNS 글 써주기', dot: 'var(--cyan,#0891B2)', hl: '갤러리 사진으로 문구 써줄까요?', desc: 'AI가 게시물 문구를 만들어드려요', btn: '문구 만들기', act: 'openCaption' },
-      { ok: 0, cat: '인스타 리마인드', dot: 'var(--brand,#D58A95)', hl: '최근 포스팅 확인해보세요', desc: '꾸준한 업로드가 고객 유입에 도움돼요', btn: '갤러리에서 올리기', act: 'openGallery' },
-      { ok: 1, cat: '노쇼 예측', dot: '#10B981', okMsg: '노쇼 위험 손님 없어요' },
       cardEmptySlots(data),
     ];
     return cards.sort((a, b) => a.ok - b.ok);
@@ -403,7 +393,7 @@
   function renderAiRecs(cards) {
     if (!cards || !cards.length) return '</div>';
     const total = cards.length;
-    const todoCnt = cards.filter(c => !c.ok).length;
+    const todoCnt = cards.filter(c => c.alert).length;
     const cardHtml = cards.map(renderAiCard).join('');
     const navHtml = renderAiNav(total);
     return `<div class="hv5-ai">

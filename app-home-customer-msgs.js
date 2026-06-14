@@ -111,6 +111,17 @@
     </button>`;
   }
 
+  // 토큰 정상 + 0건 → 빈 상태 카드 (상시 표시). 인라인 style: _ensureStyles 1회 주입이라 새 클래스 안 먹을 수 있음.
+  function _emptyStateHtml() {
+    return `<div style="width:100%;display:flex;align-items:center;gap:11px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);">
+      <span style="width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <span style="min-width:0;">
+        <span style="display:block;font-size:13.5px;font-weight:700;color:var(--text-subtle);">새 메시지 없어요</span>
+        <span style="display:block;font-size:11px;color:var(--text-subtle);margin-top:2px;">메시지가 오면 여기에 미리보기가 떠요</span>
+      </span>
+    </div>`;
+  }
+
   // ── 렌더 (캐시 → DOM) ──────────────────────────────────────
   function _renderFromCache() {
     const sec = document.getElementById('hv5Cmsg');
@@ -130,13 +141,15 @@
       return;
     }
     if (!items.length) {
-      // 0건 — 토큰 끊겼으면 '재연결' 배너, 아니면 진짜 0건 → 숨김
+      // 0건 — 토큰 끊겼으면 '재연결' 배너, 아니면 빈 상태 카드 상시 표시
       if (_tokenValid === false) {
         sec.hidden = false;
         row.innerHTML = _reconnectBannerHtml();
         if (cnt) cnt.textContent = '';
       } else {
-        sec.hidden = true;
+        sec.hidden = false;
+        if (cnt) cnt.textContent = '';
+        row.innerHTML = _emptyStateHtml();
       }
       return;
     }
