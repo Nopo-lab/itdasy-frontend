@@ -51,6 +51,9 @@
     if (/작업실/.test(t) && !CREATE_RE.test(t) && !hasEdit) return { matched: true, mode: 'open' };
     // 2) 순수 생성 제외 — 저장단서/다시/조회·편집 동사·대명사참조가 하나도 없을 때만 양보.
     if (CREATE_RE.test(t) && !SAVED_CUE.test(t) && !again && !hasShow && !hasEdit && !PRONOUN_REF_RE.test(t)) return null;
+    // [2026-06-14 QA] "응 그거 취소해" 처럼 예약/취소/매출 액션이 섞이면 저장카드 조회가 아님 →
+    //   양보(예약 취소 확인 흐름·백엔드 문맥으로 넘김). 단 "저장한 카드" 명시는 예외.
+    if (/(예약|취소|노쇼|예약금|매출|확정|완료해|완료\s*처리)/.test(t) && !EXPLICIT_RE.test(t)) return null;
     var blockedDomain = DOMAIN_BLOCK_RE.test(t) && !SAVED_CUE.test(t);
     // 3) 명시 저장카드 → 무조건 조회/편집.
     var explicit = EXPLICIT_RE.test(t);

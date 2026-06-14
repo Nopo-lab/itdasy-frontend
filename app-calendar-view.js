@@ -1191,6 +1191,20 @@
         const min = parseInt(slot.getAttribute('data-min') || '0', 10);
         const startD = new Date(ymd + 'T00:00:00');
         startD.setHours(hr, min, 0, 0);
+        // [2026-06-14 QA] 주간뷰에서 기존 예약 위를 클릭해도 블록 핸들러가 안 잡혀
+        //   "신규 예약 추가"가 뜨던 문제. 클릭 시간대에 예약이 있으면 그 예약을 연다(폴백).
+        const _covering = (_visibleCache() || []).find(it => {
+          const raw = it._raw || it;
+          if (!raw || !raw.starts_at) return false;
+          const s = new Date(raw.starts_at), e = new Date(raw.ends_at || raw.starts_at);
+          return _ds(s) === ymd && s <= startD && startD < e;
+        });
+        if (_covering) {
+          const raw = _covering._raw || _covering;
+          if (window.CompleteFlow?.startFromBooking) window.CompleteFlow.startFromBooking(raw);
+          else _openForm(new Date(raw.starts_at), raw);
+          return;
+        }
         window._pendingBookingSlot = {
           starts_at: `${ymd}T${_pad(hr)}:${_pad(min)}:00+09:00`,
           ends_at:   `${ymd}T${_pad(hr + 1)}:${_pad(min)}:00+09:00`,

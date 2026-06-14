@@ -475,15 +475,17 @@
     if (_picked.askText) return { matched: true, kind: 'message', text: _picked.askText };
     const customer = _picked.customer; // 정확 일치 1명
 
-    // 2) 미래 예약 조회
-    const nowISO = new Date().toISOString();
+    // 2) 예약 조회 — [2026-06-14 QA] from 을 "오늘 0시"로. 기존 from=now 는 오전 10시 예약을
+    //    오후에 조회하면 과거로 빠져 "예정된 예약이 없어요" 오답("오늘 예약 확인"은 보이는데 취소는 안 됨).
+    const _todayStart = new Date(); _todayStart.setHours(0, 0, 0, 0);
+    const todayStartISO = _todayStart.toISOString();
     const futureEndISO = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(); // 90일 안
     let bookings;
     try {
-      const r = await _fetchJson(`/bookings?from=${encodeURIComponent(nowISO)}&to=${encodeURIComponent(futureEndISO)}`);
+      const r = await _fetchJson(`/bookings?from=${encodeURIComponent(todayStartISO)}&to=${encodeURIComponent(futureEndISO)}`);
       bookings = ((r && r.items) || []).filter((b) =>
         b.customer_id === customer.id || (b.customer_name && b.customer_name === customer.name)
-      ).filter((b) => b.status !== 'cancelled');
+      ).filter((b) => b.status !== 'cancelled' && b.status !== 'completed' && b.status !== 'no_show');
     } catch (_e) {
       void _e;
       return { matched: true, kind: 'message', text: '⚠️ 예약 정보 조회 실패. 잠시 후 다시.' };
