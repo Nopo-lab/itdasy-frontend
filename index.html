@@ -46,7 +46,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 스튜디오</title>
 <script>
-window.__LATEST_BUILD__ = '20260614-v463-qa6b';
+window.__LATEST_BUILD__ = '20260614-v464-portone-billing';
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -1945,6 +1945,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     </div>
 
     <button id="planActionBtn" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(241,128,145,0.3);min-height:52px;">월 6,900원 시작하기</button>
+    <div id="planSubMeta" style="display:none;text-align:center;margin-top:10px;font-size:12px;color:#666;"></div>
+    <button id="planCancelBtn" style="display:none;width:100%;margin-top:10px;padding:12px;border-radius:12px;border:1px solid #e5e5e5;background:#fff;color:#999;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;">구독 취소</button>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:#bbb;">가격·횟수는 스토어 심사 전 최종 확정</div>
   </div>
 </div>
@@ -2184,7 +2186,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     });
   })();
 </script>
-<script src="app-core.js?v=20260614-v462-itbi-routing"></script>
+<script src="app-core.js?v=20260614-v464-portone-billing"></script>
 <script src="js/load-groups.js?v=20260613-v459-neutral-copy" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
@@ -2227,7 +2229,8 @@ window._lazyImgly = function _lazyImgly() {
 <!-- 터치 제스처 통합 (시트 swipe-down · 캘린더 좌우 · 리스트 swipe · 길게누르기) -->
 <script src="app-gestures.js" defer></script>
 <script src="app-theme.js?v=20260520-v242" defer></script>
-<script src="app-plan.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-billing.js?v=20260614-v464-portone-billing" defer></script>
+<script src="app-plan.js?v=20260614-v464-portone-billing" defer></script>
 <script src="app-customer-cache.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-customer.js?v=20260611-galaxy-fix" defer></script>
 <script src="app-customer-dashboard.js?v=20260526-v290-customer-warning-cleanup" defer></script>

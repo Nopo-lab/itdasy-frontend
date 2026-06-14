@@ -107,6 +107,7 @@
       </div>
       <div class="ms-section__title" style="margin-top:14px;">계정</div>
       <div class="ms-sh">
+        ${_rowHTML('subscription','ic-credit-card', '구독 관리',          '플랜 · 결제 · 취소', { boxColor: 'pink' })}
         ${_rowHTML('membership','ic-ticket',    '회원권',             '만료 임박 고객 · 충전 안내', { boxColor: 'coral' })}
       </div>
     `;
@@ -253,6 +254,7 @@
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
     // 'undo' 라우트는 잇비 채팅 ⋯ 메뉴로 일원화 (2026-05-25, 행 제거).
     if (act === 'failures')  { close(); setTimeout(() => window.openFailuresHub && window.openFailuresHub(), 200); return; }
+    if (act === 'subscription'){ close(); setTimeout(() => window.openPlanPopup && window.openPlanPopup(), 200); return; }
     if (act === 'membership'){ close(); setTimeout(() => window.MembershipUI && window.MembershipUI.openExpiringList && window.MembershipUI.openExpiringList(30), 200); return; }
     // [2026-06-09] 'support'/'logout' 라우트 제거 — 설정·연동에서 빠지고 사이드바/내샵관리 하단으로 이전.
     if (act === 'haptic') {

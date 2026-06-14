@@ -9,6 +9,8 @@
 
   let _selectedPlan = 'pro';
   let _currentPlan = 'free';
+  let _cancelScheduled = false;   // 취소 예약(만료일까지 유지)
+  let _periodEnd = null;          // 다음 결제일/만료일
 
   function _planDisplayName(plan) {
     if (plan === 'free') return '체험';
@@ -24,9 +26,16 @@
     _updatePlanCardHighlight();
     if (window.hapticLight) window.hapticLight();
 
-    // 사용량 로드
+    // 사용량/상태 로드 + 결제 가능여부(graceful)
     _loadUsage().catch(() => {});
-    _loadStatus().catch(() => {});
+    _loadStatus().then(() => _applyBillingAvailability()).catch(() => {});
+
+    // 취소 버튼 바인딩 (idempotent)
+    const cancelBtn = document.getElementById('planCancelBtn');
+    if (cancelBtn && !cancelBtn._bound) {
+      cancelBtn._bound = true;
+      cancelBtn.addEventListener('click', doCancelSubscription);
+    }
 
     // 카드 클릭 바인딩 (idempotent)
     document.querySelectorAll('#planPopup .plan-card').forEach((card) => {
@@ -118,9 +127,44 @@
       if (!res.ok) return;
       const d = await res.json();
       _currentPlan = (d.plan || 'free').toLowerCase();
+      _cancelScheduled = !!d.cancel_at_period_end;
+      _periodEnd = d.current_period_end || d.next_bill_at || null;
       _updateActionButton();
       _updatePlanBadgeUI(_currentPlan);
+      _renderSubMeta();
     } catch (_) { void 0; }
+  }
+
+  // 구독 메타(만료일/취소 예약) + 취소 버튼 노출. planPopup 안에서만 의미 있음.
+  function _renderSubMeta() {
+    const meta = document.getElementById('planSubMeta');
+    const cancelBtn = document.getElementById('planCancelBtn');
+    const paid = _currentPlan === 'pro' || _currentPlan === 'premium';
+    if (meta) {
+      if (paid && _periodEnd) {
+        const dt = new Date(_periodEnd);
+        const ds = isNaN(dt.getTime()) ? '' : (dt.getFullYear() + '.' + (dt.getMonth() + 1) + '.' + dt.getDate());
+        meta.textContent = _cancelScheduled ? ('취소 예약됨 · ' + ds + '까지 이용 가능') : ('다음 결제일 ' + ds);
+        meta.style.display = 'block';
+      } else {
+        meta.style.display = 'none';
+      }
+    }
+    if (cancelBtn) cancelBtn.style.display = (paid && !_cancelScheduled) ? 'block' : 'none';
+  }
+
+  // [graceful disable] 웹에서 결제 불가(env 미설정)면 결제 버튼 비활성. 네이티브는 별도(IAP).
+  async function _applyBillingAvailability() {
+    const btn = document.getElementById('planActionBtn');
+    if (!btn || _selectedPlan === _currentPlan || _isNative()) return;
+    if (!window.ItdasyBilling) return;
+    try {
+      const avail = await window.ItdasyBilling.isWebBillingAvailable();
+      if (!avail) {
+        btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed';
+        btn.textContent = '결제 준비 중';
+      }
+    } catch (_e) { void 0; }
   }
 
   function _updatePlanBadgeUI(plan) {
@@ -144,6 +188,10 @@
     } catch (_) { void 0; }
   }
 
+  function _isNative() {
+    return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+
   async function doPlanAction() {
     if (_selectedPlan === _currentPlan) return;
     if (_selectedPlan === 'free') {
@@ -152,50 +200,54 @@
       return;
     }
 
-    // 네이티브 앱: IAP 플로우로 이동
-    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    if (isNative) {
+    // 네이티브 앱: 앱스토어 IAP 만 사용 (Apple/Google anti-steering — 웹 PG 호출 금지).
+    if (_isNative()) {
       if (window.hapticMedium) window.hapticMedium();
-      if (typeof window.showToast === 'function') {
-        window.showToast('월 6,900원 결제 화면으로 이동합니다 (준비중)');
-      }
+      if (typeof window.showToast === 'function') window.showToast('앱에서는 앱스토어 결제로 진행돼요 (준비중)');
       // TODO: @capacitor-community/in-app-purchases 플러그인 호출
       return;
     }
 
-    // 웹: 기존 백엔드의 pro 체험 API를 단일 멤버십 시작으로 사용
-    if (_currentPlan === 'free' && _selectedPlan === 'pro') {
-      try {
-        const res = await apiFetch('/subscription/start-trial', {
-          method: 'POST',
-          headers: window.authHeader(),
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.detail || '요청 실패');
-        }
+    // 웹/PC: 포트원 PG 결제 (빌링키 우선, 단건 폴백 — app-billing.js)
+    if (!window.ItdasyBilling) {
+      if (typeof window.showToast === 'function') window.showToast('결제 모듈을 불러오지 못했어요');
+      return;
+    }
+    const btn = document.getElementById('planActionBtn');
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; btn.textContent = '결제 진행 중…'; }
+    try {
+      const r = await window.ItdasyBilling.startWebSubscription('pro');
+      if (r && r.ok) {
         if (window.hapticSuccess) window.hapticSuccess();
-        if (typeof window.showToast === 'function') window.showToast('잇데이 멤버십 시작!');
         _currentPlan = 'pro';
         _updateActionButton();
         _updatePlanBadgeUI('pro');
         setTimeout(closePlanPopup, 1200);
-      } catch (e) {
-        if (window.hapticError) window.hapticError();
-        if (typeof window.showToast === 'function') window.showToast('체험 시작 실패: ' + (e.message || ''));
+      } else if (btn) {
+        btn.disabled = false; btn.style.opacity = '1'; btn.textContent = orig;
       }
-      return;
+    } catch (e) {
+      if (window.hapticError) window.hapticError();
+      if (typeof window.showToast === 'function') window.showToast('결제 실패: ' + (e.message || ''));
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = orig; }
     }
+  }
 
-    if (typeof window.showToast === 'function') {
-      window.showToast('웹에서는 신청만 가능해요. 실제 결제는 모바일 앱에서 진행해주세요');
-    }
+  // 구독 취소 — 만료일까지 Pro 유지(서버 cancel_at_period_end).
+  async function doCancelSubscription() {
+    if (!window.ItdasyBilling) return;
+    if (!window.confirm('구독을 취소할까요? 만료일까지는 계속 이용할 수 있어요.')) return;
+    const r = await window.ItdasyBilling.cancelSubscription();
+    if (r && r.ok) { _cancelScheduled = true; _renderSubMeta(); }
   }
 
   // 전역 노출 (index.html onclick 에서 참조)
   window.openPlanPopup = openPlanPopup;
   window.closePlanPopup = closePlanPopup;
   window.doPlanAction = doPlanAction;
+  window.doCancelSubscription = doCancelSubscription;
+  window.refreshPlanStatus = _loadStatus;   // 결제/취소 성공 후 app-billing 이 호출
 
   // 외부에서 현재 플랜 조회 (고객·매출 한도 분기용)
   window.getCurrentPlan = () => _currentPlan;
