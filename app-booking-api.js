@@ -107,13 +107,24 @@
     return _fetchFreshBookings(fromISO, toISO, key);
   }
 
-  function hasConflict(startsAt, endsAt, excludeId) {
+  // [2026-06-14 QA] 충돌 예약 객체를 반환 → 안내문에 고객명 노출 가능. 없으면 null.
+  //   취소·노쇼는 슬롯을 비우므로 충돌 대상에서 제외. ends_at 없으면 기본 60분으로 폴백.
+  const _DEFAULT_DUR_MS = 60 * 60 * 1000;
+  function findConflict(startsAt, endsAt, excludeId) {
     const sv = new Date(startsAt).getTime(), ev = new Date(endsAt).getTime();
-    return _items.some(b => {
+    if (!Number.isFinite(sv) || !Number.isFinite(ev)) return null;
+    return _items.find(b => {
       if (excludeId && b.id === excludeId) return false;
-      const bs = new Date(b.starts_at).getTime(), be = new Date(b.ends_at).getTime();
+      if (b.status === 'cancelled' || b.status === 'no_show') return false;
+      const bs = new Date(b.starts_at).getTime();
+      if (!Number.isFinite(bs)) return false;
+      let be = new Date(b.ends_at).getTime();
+      if (!Number.isFinite(be)) be = bs + _DEFAULT_DUR_MS;
       return !(ev <= bs || sv >= be);
-    });
+    }) || null;
+  }
+  function hasConflict(startsAt, endsAt, excludeId) {
+    return findConflict(startsAt, endsAt, excludeId) != null;
   }
 
   async function create(payload) {
@@ -225,7 +236,7 @@
   }
 
   window.Booking = {
-    list, create, update, remove, hasConflict,
+    list, create, update, remove, hasConflict, findConflict,
     shopHours: _shopHours,
     getCustomerLearning,
     _invalidateCache,

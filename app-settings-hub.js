@@ -71,15 +71,17 @@
     const avatar = pic
       ? `<img src="${_esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;display:block;">`
       : `<span class="ic-box ic-box--sm ic-box--blue">${_ic('ic-store', 14)}</span>`;
-    const name = handle ? `@${_esc(handle)}` : '현재 로그인';
+    // [2026-06-14 QA] 두 정보가 라벨 없이 섞여 보이던 문제 — 명확히 분리.
+    const igVal = handle ? `@${_esc(handle)}` : '미연동';
+    const lbl = (t) => `<span style="color:#8B95A1;font-weight:500;font-size:11px;margin-right:5px;">${t}</span>`;
     return `
       <div class="ms-section__title" style="margin-top:4px;">계정</div>
       <div class="ms-sh" id="shAccount">
         <div class="ms-sh__row" style="cursor:default;">
           <div class="ms-sh__icon">${avatar}</div>
           <div class="ms-sh__info">
-            <div class="ms-sh__name">${name}</div>
-            <div class="ms-sh__meta">${right}</div>
+            <div class="ms-sh__name">${lbl('연결된 인스타계정')}${igVal}</div>
+            <div class="ms-sh__meta">${lbl('로그인된 아이디')}${right}</div>
           </div>
         </div>
       </div>

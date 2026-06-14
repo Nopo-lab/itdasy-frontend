@@ -401,14 +401,17 @@
   // 데이터 변경 이벤트 — 홈 탭 활성 시 재렌더 + 아바타 즉시 동기화
   if (!window._homeV41DataListenerInit) {
     window._homeV41DataListenerInit = true;
+    let _retryTimers = [];
+    const _clearSWR = () => {
+      try { localStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
+      try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
+    };
     window.addEventListener('itdasy:data-changed', (ev) => {
       const kind = (ev && ev.detail && ev.detail.kind) || '';
+      const isBookingish = /booking|revenue|completion|customer/.test(kind);
       // [v201] 안전망 — booking/revenue/completion 관련이면 brief SWR 캐시 즉시 삭제.
       //   booking-api 측 무효화가 있긴 하지만 racy 케이스 방어.
-      if (/booking|revenue|completion|customer/.test(kind)) {
-        try { localStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
-        try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
-      }
+      if (isBookingish) _clearSWR();
       const root = document.getElementById('homeV41Root');
       if (!root) return;
       // 홈 탭 비활성이어도 아바타는 최신화 (다음 진입 시 깜빡임 방지)
@@ -417,6 +420,19 @@
       //   옛 DOM 이 그대로 남아 "반영이 한참 걸리는" 문제 픽스. 데이터 변경 이벤트는
       //   드물어서 백그라운드 재렌더 비용 무시 가능.
       _doRender(root);
+      // [2026-06-14 QA] 예약 추가/완료 직후 /assistant/brief 가 옛 값을 반환(서버 반영
+      //   지연)해 즉시 재fetch 가 stale 를 받던 문제. 수동 새로고침은 수 초 뒤라 정상이었음.
+      //   → 지연 재fetch 안전망: 캐시 비우고 한두 번 더 갱신해 백엔드 지연을 따라잡음.
+      if (isBookingish) {
+        _retryTimers.forEach(clearTimeout); _retryTimers = [];
+        [1500, 4000].forEach((ms) => {
+          _retryTimers.push(setTimeout(() => {
+            _clearSWR();
+            const r = document.getElementById('homeV41Root');
+            if (r) _doRender(r);
+          }, ms));
+        });
+      }
     });
   }
 

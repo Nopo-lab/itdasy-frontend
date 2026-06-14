@@ -85,6 +85,14 @@
   // ============================================================
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _pad(n)  { return String(n).padStart(2, '0'); }
+  // [2026-06-14 QA] 시간 겹침 안내문 — 충돌 예약의 고객명 + 시술시간대 노출.
+  function _conflictMsg(b) {
+    if (!b) return '이 시간에 이미 예약이 있어요';
+    const _hm = (iso) => { try { const d = new Date(iso); return `${_pad(d.getHours())}:${_pad(d.getMinutes())}`; } catch (_e) { return ''; } };
+    const name = (b.customer_name || '').trim();
+    const span = b.starts_at && b.ends_at ? ` (${_hm(b.starts_at)}~${_hm(b.ends_at)})` : '';
+    return name ? `${name} 고객님 시술시간과 겹쳐요${span}` : `이 시간에 이미 예약이 있어요${span}`;
+  }
   function _nextDay(dateStr) {
     // [2026-06-11 QA] toISOString()은 UTC 라 KST 자정이 "전날 15시"로 계산 → +1일 해도
     //   같은 날짜 반환 → 자정 넘는 예약(밤 11시+60분)이 ends<starts 로 BE 400 나던 버그 픽스.
@@ -1217,7 +1225,7 @@
     const oS = new Date(bookingItem._raw.starts_at), oE = new Date(bookingItem._raw.ends_at);
     const durMin = Math.round((oE - oS) / 60000);
     const newEnd = new Date(newStart.getTime() + durMin * 60000);
-    const conflict = window.Booking?.hasConflict?.(newStart.toISOString(), newEnd.toISOString(), bookingItem.id);
+    const conflict = window.Booking?.findConflict?.(newStart.toISOString(), newEnd.toISOString(), bookingItem.id) || null;
     slotEl.classList.add(conflict ? 'cv-drop-conflict' : 'cv-drop-target');
     return { ymd, hr, conflict, newStart, newEnd };
   }
@@ -1225,7 +1233,7 @@
   // drag-drop helper — drop 후 PATCH 저장
   async function _commitDragDrop(dropped, bookingItem) {
     if (!dropped || dropped.conflict || !bookingItem) {
-      if (dropped?.conflict && window.showToast) window.showToast('이 시간엔 다른 예약이 있어요');
+      if (dropped?.conflict && window.showToast) window.showToast(_conflictMsg(dropped.conflict));
       return;
     }
     try {
@@ -1504,10 +1512,12 @@
       <div class="bf-money">
         <div class="bf-money-row amount">
           <span class="bf-money-key">예상 시술비</span>
-          <span class="bf-money-val" data-money-edit="amount">
-            <span class="bf-num" data-hv-count="${_initAmt}">${_initAmt ? _initAmt.toLocaleString('ko-KR') : '0'}</span>
-            <span class="bf-money-unit">원</span>
-          </span>
+          ${_initAmt > 0
+            ? `<span class="bf-money-val" data-money-edit="amount">
+                <span class="bf-num" data-hv-count="${_initAmt}">${_initAmt.toLocaleString('ko-KR')}</span>
+                <span class="bf-money-unit">원</span>
+              </span>`
+            : `<span class="bf-money-val empty" data-money-edit="amount"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`}
         </div>
         <div class="bf-money-row deposit">
           <span class="bf-money-key">예상 예약금</span>
@@ -1921,9 +1931,12 @@
       const eh = Math.floor(endMin / 60) % 24, em = endMin % 60;
       const starts = `${d}T${_pad(_startH)}:${_pad(_startM)}:00+09:00`;
       const ends = `${d}T${_pad(eh)}:${_pad(em)}:00+09:00`;
-      const conflict = window.Booking.hasConflict(starts, ends, existing?.id);
+      const conflict = window.Booking.findConflict(starts, ends, existing?.id);
       const el = body.querySelector('#bfConflict');
-      if (el) el.style.display = conflict ? 'block' : 'none';
+      if (el) {
+        el.style.display = conflict ? 'block' : 'none';
+        if (conflict) el.textContent = _conflictMsg(conflict);
+      }
     }
     _checkConflict();
 
@@ -2004,8 +2017,9 @@
       {
         const starts = `${d}T${sTime}:00+09:00`;
         const ends = `${endDate}T${eTime}:00+09:00`;
-        if (window.Booking?.hasConflict?.(starts, ends, existing?.id)) {
-          if (window.showToast) window.showToast('이 시간에 이미 예약이 있어요');
+        const conflict = window.Booking?.findConflict?.(starts, ends, existing?.id);
+        if (conflict) {
+          if (window.showToast) window.showToast(_conflictMsg(conflict));
           return;
         }
       }

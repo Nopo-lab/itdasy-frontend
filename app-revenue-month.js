@@ -422,6 +422,10 @@
     // [2026-05-20] 두 개념 분리:
     //   · 남은 예약 완료 시 = pending_bookings_total (future confirmed 예약 amount 합)
     //   · 이번달 예상 매출 = projected_total (현재 페이스로 월말 외삽)
+    // [2026-06-14 QA] 예약금 넣은 확정 예약 = 확정매출. 완료 매출과 별도로 보여줌.
+    const depositRow = (Number(summary.confirmed_deposit_total) > 0)
+      ? `<div class="rvm5-ai"><span class="badge">확정매출</span><span class="txt">예약금 <b>${formatMoney(summary.confirmed_deposit_total)}</b></span></div>`
+      : '';
     const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
       ? `<div class="rvm5-ai"><span class="badge">남은 예약</span><span class="txt">모두 완료 시 <b>+${formatEstimate(summary.pending_bookings_total)}</b></span></div>`
       : '';
@@ -453,6 +457,7 @@
             -->
           </div>
           <div class="rvm5-right">
+            ${depositRow}
             ${pendingRow}
             ${aiRow}
           </div>
@@ -476,6 +481,9 @@
     _ensureStyles();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
+    const depositRow = (Number(summary.confirmed_deposit_total) > 0)
+      ? `<div class="rvm5-mai"><span class="badge">확정매출</span><span class="txt">예약금 <b>${formatMoney(summary.confirmed_deposit_total)}</b></span></div>`
+      : '';
     const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
       ? `<div class="rvm5-mai"><span class="badge">남은 예약</span><span class="txt">모두 완료 시 <b>+${formatEstimate(summary.pending_bookings_total)}</b></span></div>`
       : '';
@@ -504,6 +512,7 @@
           </div>
           -->
         </div>
+        ${depositRow}
         ${pendingRow}
         ${aiRow}
         <div class="rvm5-mc">
