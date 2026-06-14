@@ -16,10 +16,11 @@ function load() {
 }
 const S = load();
 
-describe('shouldStart — 사진 동반 편집/홍보 발화 진입(이슈1)', () => {
+describe('shouldStart — 사진 동반이면 일원화 진입(이슈1/6)', () => {
   test.each([
     '홍보용으로 예쁘게 해줘', '이거 보정해줘', '예쁘게 꾸며줘',
     '전후로 만들어줘', '후기 카드로', '자연스럽게 정리해줘',
+    '이거 둘 다 해줘', '해줘', '',   // 동사/명사 없어도 사진 동반이면 진입(레거시 BA 가로채기 제거)
   ])('사진+"%s" → 진입', (q) => {
     expect(S.shouldStart(q, { hasPhoto: true })).toBe(true);
   });

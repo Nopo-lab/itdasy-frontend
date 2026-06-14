@@ -2079,9 +2079,11 @@
     _history.push({ role: 'user', text: q, photos: photos || [], thumb: photos && photos[0], local_only: true });
     let msg = null;
     try {
-      msg = photos && photos.length
-        ? await PM.handlePhotos(photos, q, null)
-        : await PM.handleText(q, null);
+      // [이슈6] 이미 사진편집 모드 진행 중이면 사진을 재-push 하지 않는다(중복 누적 → 한 장만 처리 방지).
+      //   진행 중엔 텍스트(칩 라벨)로만 단계 진행, 비활성일 때만 사진으로 새 세션 시작.
+      msg = PM.isActive()
+        ? await PM.handleText(q, null)
+        : (photos && photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null));
     } catch (_e) { msg = null; }
     _history.push(Object.assign({ role: 'assistant' }, msg || { text: '사진편집 모드로 이어갈게요. 편집할 사진을 보내주세요.' }, { local_only: true }));
     _pmForceRender();

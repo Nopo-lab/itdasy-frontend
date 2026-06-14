@@ -412,7 +412,11 @@
       case 'template': {
         if (/보정만/.test(q)) { S.workflow = 'basic'; S.lastTemplateId = null; return await _msgFix(); }
         if (/전체 템플릿/.test(q)) return await _msgTemplate(true);
-        var opt = (S.choices.tplOptions || []).find(function (o) { return o.label === q; });
+        var opts = S.choices.tplOptions || [];
+        var opt = opts.find(function (o) { return o.label === q; });
+        // 부분(prefix) 매칭 폴백 — 사용자가 라벨 일부만 입력/축약("시술 전후" → "시술 전후 (크림)")해도
+        //   레거시 경로로 새지 않게 photo-mode 안에서 BA/템플릿으로 정확히 흡수.
+        if (!opt && q.length >= 2) opt = opts.find(function (o) { return o.label.indexOf(q) === 0 || q.indexOf(o.label) === 0; });
         if (opt) {
           S.lastTemplateId = opt.id;
           S.workflow = /^ba/.test(opt.id) ? 'ba' : 'template';
