@@ -24,6 +24,28 @@ bootstrap:OK @ 2026-06-03 20:01
 bootstrap:OK @ 2026-06-03 20:41
 bootstrap:OK @ 2026-06-05 07:19
 bootstrap:OK @ 2026-06-14 15:35
+bootstrap:OK @ 2026-06-14 17:02
+
+---
+
+## 2026-06-14 — 잇비 사진편집 실사용 6이슈 정리 (Claude, 진행중)
+
+태그: `bootstrap:OK` · `risk:integration` · `legacy-ba:strangler` · `delete:none-this-pr`
+
+연준님 실사용 제보 6건 → photo-mode 일원화(strangler)로 정리:
+1. 전후 선택 후 2번째 사진 올리면 처음으로 돌아감 → 입구를 photo-mode 로 몰아 레거시 BA 가로채기 차단.
+2. 기본 템플릿 실제 설정값 읽어 1번 카드 "기본 템플릿" 배지.
+3. "작업실에서 보기" 채팅 뒤 깔림 → closeAssistant 후 노출.
+4. 인스타 미리보기 → "이대로 올리기" → 마지막 확인 → 업로드 (무확인 즉시 업로드 금지, 3단계).
+5. 캡션 전 시술 내역 입력 질문(+"그냥 알아서 써줘" 건너뛰기).
+6. 사진 2장 시술 자랑/후기 → 두 장 순차 처리, 각자 템플릿, 결과 카드 각각.
+
+원칙:
+- 이번 PR 통째 삭제 없음(`delete:none-this-pr`). 레거시 BA = `@deprecated` + 도달 경로 차단만. 실제 삭제는 QA 통과 후 후속 PR.
+- app-assistant.js 최소 수정. 큰 로직은 `js/assistant/core/photo-mode.js` / `photo-mode-support.js`.
+- `_tryPhotoShortcut`/`_runChatAutoEdit` 일반 보정 경로 보존.
+
+플랜: `~/.claude/plans/1-proud-globe.md`
 
 ---
 

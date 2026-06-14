@@ -1853,6 +1853,11 @@
     if (window.showToast) window.showToast('전후 카드를 넣었어요. 문구 편집에서 확인해 주세요.');
   }
 
+  // @deprecated [2026-06-14 이슈1] 레거시 전후(BA) 자동연결 흐름.
+  //   사진 업로드는 이제 ItdasyPhotoMode 로 일원화되어(_uploadPhotos), 아래 _openBeforeAfterCreate /
+  //   _pendingBA / _pendingBaIntent / _completePendingBA / _pushBaChoiceCard / _handleBaRoleChoice /
+  //   _tryBeforeAfterCardShortcut 는 정상 동선에서 도달하지 않는다(텍스트 "전후"는 photo-mode.shouldStart 가,
+  //   샘플 before_after 는 _startPhotoModeFromSample 가 가져감). 실제 삭제는 스테이징 QA 통과 후 후속 PR(delete:none-this-pr).
   // ── [P1] 전후 1장 전/후 선택 ──────────────────────────────
   //   사진 1장으로 전후 요청 시 즉시 적용하지 않고 "이 사진은 전/후?" 선택 카드를 띄운다.
   //   역할 선택 후 두 번째 사진을 받으면 기존 handleBeforeAfterCard(2장 경로)로 정확 매핑해 완성한다.
@@ -3398,7 +3403,10 @@
     try {
       // 사진편집 모드가 사진 업로드 흐름을 통합 처리한다. 가격표·DM 등은 shouldStart 에서 제외.
       const PM = window.ItdasyPhotoMode;
-      const pmWantsPhoto = PM && photoUrls.length && (
+      // [이슈1] 가격표/메뉴판/DM/발송은 shouldStart 의 BLOCK_RE 가, OCR(영수증·매출)은 여기 가드가 제외.
+      //   그 외 사진 업로드는 사진편집 모드로 일원화 → 레거시 BA(_pendingBA*) 가로채기 제거.
+      const _pmBlocked = _isOcrPhotoIntent(question);
+      const pmWantsPhoto = PM && photoUrls.length && !_pmBlocked && (
         PM.isActive() || !question || (PM.shouldStart && PM.shouldStart(question, { hasPhoto: true }))
       );
       if (pmWantsPhoto) {

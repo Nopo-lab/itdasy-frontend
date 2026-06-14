@@ -7,6 +7,10 @@
   var START_RE = /(사진|이미지|포토|촬영본).*(편집|만들|꾸미|시켜|보정|수정|홍보|예쁘|카드|전후|후기|리뷰|인스타|sns|피드|스토리|캡션|문구|해시\s*태그|올릴|게시)|(전후|비포\s*애프터|before\s*after|후기|리뷰)\s*(사진|카드|템플릿)?\s*(만들|해줘|뽑아|꾸며|보정|제작)?/i;
   var CAPTION_RE = /(캡션|홍보\s*글|홍보글|해시\s*태그|문구|인스타\s*(글|피드\s*글)|sns\s*글)/i;
   var BLOCK_RE = /(가격표|메뉴판|문자|디엠|\bdm\b|메시지|메세지|카톡|알림톡|발송)/i;
+  // [이슈1] 사진이 함께 올라온 경우, 명사(사진/이미지) 없이도 편집·홍보 의도 동사만으로 사진편집 모드 진입.
+  //   "홍보용으로 예쁘게 해줘" 처럼 START_RE 의 명사 조건에 안 걸리던 발화를 photo-mode 로 흡수.
+  //   가격표/OCR(영수증·매출) 등은 BLOCK_RE/_uploadPhotos 가드가 먼저 제외하므로 안전.
+  var EDIT_RE = /(편집|보정|꾸며|꾸미|예쁘|예쁜|이쁘|홍보|시켜|손질|화사|자연스럽|카드\s*만들|템플릿|전후|비포|후기|리뷰)/i;
 
   var EFFECT = {
     nail_focus: '손끝 라인과 광택이 사진에서 더 또렷해 보이도록 정리했어요.',
@@ -28,6 +32,8 @@
     var q = String(text || '').trim();
     if (!q || isExcluded(q)) return false;
     if (opts && opts.hasPhoto && CAPTION_RE.test(q)) return true;
+    // [이슈1] 사진 동반 발화는 편집/홍보 동사만으로도 진입(명사 생략 허용).
+    if (opts && opts.hasPhoto && EDIT_RE.test(q)) return true;
     return START_RE.test(q);
   }
 

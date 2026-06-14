@@ -17,16 +17,18 @@
   // 전역 상태 1개 — TTL 없음, exit() 까지 유지.
   var S = _fresh();
   function _fresh() {
-    return { active: false, workflow: 'basic', step: null, photos: [],
+    return { active: false, workflow: 'basic', step: null, photos: [], photoIdx: 0,
       customer: null, choices: {}, lastTemplateId: null, result: null, caption: '',
       captionHint: '', lastTemplateExpanded: false, past: [] };
   }
+  // [이슈6] 현재 처리 중인 사진(2장 순차 처리 시 photoIdx 가 0→1 로 진행). 안전 폴백 photos[0].
+  function _curPhoto() { return S.photos[S.photoIdx] || S.photos[0] || null; }
 
   // ── 단계 라벨 (모드 배지/재안내용) ──
   var STEP_LABEL = {
     intake: '접수', await_photo: '사진 받기', template: '템플릿 고르기',
     ba_role: '사진 확인', ba_second: '전 사진 받기', fix: '사진 손질',
-    caption_input: '시술명 입력', done: '완성 확인', saved: '완료',
+    caption_input: '시술명 입력', svc_ask: '시술 내역 입력', done: '완성 확인', saved: '완료',
   };
   function stepLabel() { return S.active ? (STEP_LABEL[S.step] || '진행 중') : ''; }
 
@@ -67,6 +69,13 @@
     try { return window.PhotoEditorTemplateMarketData.lookupById(id) || { id: id, cat: 'feed', accent: 'soft', label: id }; }
     catch (_e) { return { id: id, cat: 'feed', accent: 'soft', label: id }; }
   }
+  // [이슈2] purpose 별 사용자 지정 기본 템플릿 id 조회(없으면 ''). 라이브러리 미로딩/예외도 '' 폴백.
+  function _libDefault(purpose) {
+    try { var L = window.PhotoEditorTemplateLibrary; return (L && typeof L.getDefault === 'function') ? (L.getDefault(purpose) || '') : ''; }
+    catch (_e) { return ''; }
+  }
+  // 설정된 기본 템플릿 중 1순위(전후→후기→가격) id. 1번 카드로 올려 "기본 템플릿" 배지 표시.
+  function _defaultFirstId() { return _libDefault('before_after') || _libDefault('review') || _libDefault('price') || ''; }
   function _catRatio(catId) {
     try { var c = (window.PhotoEditorTemplateMarketData.CATS || []).find(function (x) { return x.id === catId; }); return (c && c.ratio) || '4:5'; }
     catch (_e) { return '4:5'; }
@@ -172,23 +181,28 @@
     var ids = expanded
       ? ['ba-cream', 'feed-showcase', 'feed-review', 'ba-hair-cream', 'price-hair', 'event-discount']
       : ['ba-cream', 'feed-showcase', 'feed-review'];
-    // 1번 카드를 지난번 템플릿으로 교체
+    // [이슈2] 1번 카드 = 사용자 지정 기본 템플릿(우선) > 지난번 템플릿.
+    var defId = _defaultFirstId();
     var last = null; try { last = localStorage.getItem(LAST_KEY); } catch (_e) { last = null; }
-    if (last && ids.indexOf(last) === -1) ids[0] = last;
-    var cards = [];
-    var opts = [];
+    var firstId = defId || (last && ids.indexOf(last) === -1 ? last : '');
+    if (firstId) ids = [firstId].concat(ids.filter(function (x) { return x !== firstId; }));
+    // [이슈6] 비-BA 미리보기는 현재 차례 사진(_curPhoto). BA 는 전/후 쌍(photos[0]/[1]).
+    var cur = _curPhoto();
+    var cards = [], opts = [];
     for (var i = 0; i < ids.length; i++) {
       var id = ids[i];
-      var t = _lookup(id);
-      var label = t.label || id;
-      var slots = /^ba/.test(id) ? { before_photo: { src: S.photos[0] && S.photos[0].url }, after_photo: { src: (S.photos[1] || S.photos[0] || {}).url } } : { main_photo: { src: S.photos[0] && S.photos[0].url } };
+      var label = _lookup(id).label || id;
+      var slots = /^ba/.test(id)
+        ? { before_photo: { src: S.photos[0] && S.photos[0].url }, after_photo: { src: (S.photos[1] || S.photos[0] || {}).url } }
+        : { main_photo: { src: cur && cur.url } };
       var url = await _preview(id, slots, 320);
-      // cmd = 사람이 읽을 라벨(말풍선에 그대로 보임). handleText 가 라벨→id 매핑으로 해석.
-      cards.push({ cmd: label, label: label, previewUrl: url, badge: (last && id === last) ? '지난번에 쓴 템플릿' : '' });
+      var badge = (defId && id === defId) ? '기본 템플릿' : (last && id === last) ? '지난번에 쓴 템플릿' : '';
+      cards.push({ cmd: label, label: label, previewUrl: url, badge: badge });
       opts.push({ id: id, label: label });
     }
     S.choices.tplOptions = opts;
-    return { text: '뭘 만들까요? **보내주신 사진을 끼워서** 미리 보여드릴게요.',
+    var head = S.photos.length > 1 ? ('**사진 ' + (S.photoIdx + 1) + '/' + S.photos.length + '** · ') : '';
+    return { text: head + '뭘 만들까요? **보내주신 사진을 끼워서** 미리 보여드릴게요.',
       pm_tpls: cards, related: ['템플릿 없이 보정만', '전체 템플릿 보기'] };
   }
 
@@ -202,8 +216,8 @@
   // 사진 손질 — 보정본 생성 후 photo_result 카드
   async function _msgFix(intensity) {
     S.step = 'fix';
-    // 후 사진(= 보정 대상): BA면 role=after, 아니면 photos[0]
-    var target = S.photos.find(function (p) { return p.role === 'after'; }) || S.photos[0];
+    // 후 사진(= 보정 대상): BA면 role=after, 아니면 현재 차례 사진(_curPhoto). [이슈6]
+    var target = S.photos.find(function (p) { return p.role === 'after'; }) || _curPhoto();
     var r = await _autoEdit(target.url, intensity);
     S.result = { afterUrl: r.dataUrl, presetLabel: r.preset_label || '' };
     target.editedUrl = r.dataUrl;
@@ -217,7 +231,8 @@
   async function _msgDone(regenCaption) {
     S.step = 'done';
     var tplId = S.lastTemplateId || 'feed-showcase';
-    var afterUrl = (S.result && S.result.afterUrl) || (S.photos[0] && S.photos[0].url);
+    var cur = _curPhoto();
+    var afterUrl = (S.result && S.result.afterUrl) || (cur && cur.url);
     var beforeP = S.photos.find(function (p) { return p.role === 'before'; });
     var slots = /^ba/.test(tplId)
       ? { before_photo: { src: (beforeP || S.photos[0] || {}).url }, after_photo: { src: afterUrl } }
@@ -229,13 +244,23 @@
     return { text: '완성본이에요. 문구는 **사장님 말투로** 미리 써뒀어요 — 고칠 부분만 알려주세요.',
       photo_result: { dataUrl: composed, ratio: '4:5' },
       photo_caption: capLine,
-      related: ['이대로 저장', '문구 다시 써줘', '템플릿 바꾸기'] };
+      related: ['이대로 저장', '인스타 미리보기', '문구 다시 써줘', '템플릿 바꾸기'] };
   }
 
   function _msgCaptionPrompt() {
     S.step = 'caption_input';
     return { text: '사진 받았어요! 어떤 시술인가요? 예: "레이어드 컷" · "붙임머리 S컬" 처럼 시술명을 알려주시면 인스타 문구를 바로 써드릴게요.',
       related: ['지난번처럼', '손님 연결 안 할래요', '끝낼래요'] };
+  }
+
+  // [이슈5] 손질 완료 후, 캡션 자동 생성 전에 시술 내역을 먼저 묻는다(건너뛰기 허용).
+  function _msgServiceAsk() {
+    S.step = 'svc_ask';
+    return { text: '거의 다 됐어요! 캡션에 넣을 **시술 내역**을 알려주세요. 예: "레이어드 컷" · "붙임머리 S컬". 사진에 맞춰 문구를 써드려요.',
+      related: ['그냥 알아서 써줘'] };
+  }
+  async function _doneForWorkflow() {
+    return await (S.workflow === 'basic' && !S.lastTemplateId ? _msgDoneBasic() : _msgDone(false));
   }
 
   async function _msgCaptionDone(hint, regenCaption) {
@@ -257,7 +282,8 @@
 
   // 저장 + 고객 자동 연결
   async function _msgSaved() {
-    var dataUrl = (S.result && S.result.composedUrl) || (S.result && S.result.afterUrl) || (S.photos[0] && S.photos[0].url);
+    var cur = _curPhoto();
+    var dataUrl = (S.result && S.result.composedUrl) || (S.result && S.result.afterUrl) || (cur && cur.url);
     var label = S.customer ? (S.customer.name + ' 손님') : '잇비 사진편집';
     try { localStorage.setItem(LAST_KEY, S.result && S.result.tplId ? S.result.tplId : (S.lastTemplateId || '')); } catch (_e) { void 0; }
     try {
@@ -272,10 +298,17 @@
         linked = ' · 고객기록 자동 연결';
       } catch (_e) { linked = ''; }
     }
+    // [이슈6] 비-BA 다중 사진: 다음 차례가 남으면 카드 저장 후 다음 사진 템플릿부터 이어간다.
+    if (!/^ba/.test(S.lastTemplateId || '') && (S.photoIdx + 1) < S.photos.length) {
+      S.photoIdx += 1; S.result = null; S.caption = ''; S.captionHint = '';
+      var next = await _msgTemplate(false);
+      next.text = '✓ ' + S.photoIdx + '번째 사진 저장 완료! 이제 ' + next.text;
+      return next;
+    }
     S.step = 'saved';
     var slot = S.customer ? (S.customer.name + ' 손님 슬롯') : '작업실 슬롯';
     return { text: '✓ 작업실에 저장했어요 — ' + slot + linked + '\n\n다음은 뭐 할까요?',
-      related: ['작업실에서 보기', '다른 사진 편집', '끝낼래요'] };
+      related: ['작업실에서 보기', '인스타 미리보기', '다른 사진 편집', '끝낼래요'] };
   }
 
   async function _msgCurrent() {
@@ -287,6 +320,7 @@
       case 'ba_second': return _msgBaRole();
       case 'fix': return await _msgFix();
       case 'caption_input': return _msgCaptionPrompt();
+      case 'svc_ask': return _msgServiceAsk();
       case 'done': return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint, false) : await _msgDone(false);
       case 'saved': return { text: '작업실에 저장한 상태예요. 다음 작업을 골라주세요.', related: ['작업실에서 보기', '다른 사진 편집', '끝낼래요'] };
       default: return { text: '사진편집 모드예요. 편집할 사진을 보내주세요.' };
@@ -394,31 +428,42 @@
         return null;
 
       case 'fix':
-        if (/이대로|좋아요/.test(q)) return await (S.workflow === 'basic' && !S.lastTemplateId ? _msgDoneBasic() : _msgDone(false));
+        if (/이대로|좋아요/.test(q)) return _msgServiceAsk();   // [이슈5] 캡션 전 시술 내역 게이트
         if (/자연스럽/.test(q)) return await _msgFix('natural');
         if (/화사/.test(q)) return await _msgFix('strong');
-        if (/원본/.test(q)) { if (S.result) S.result.afterUrl = (S.photos[0] && S.photos[0].url); return await _msgFix(null); }
+        if (/원본/.test(q)) { if (S.result) { var _cp = _curPhoto(); S.result.afterUrl = (_cp && _cp.url); } return await _msgFix(null); }
         if (/직접/.test(q)) return await _toWorkshop();
         return null;
+
+      case 'svc_ask':   // [이슈5] 시술 내역 입력 또는 "그냥 알아서 써줘" 건너뛰기
+        if (!/알아서|그냥/.test(q)) S.captionHint = q;
+        return await _doneForWorkflow();
 
       case 'caption_input':
         if (/연결 안/.test(q)) { S.customer = null; return _msgCaptionPrompt(); }
         return await _msgCaptionDone(q, true);
 
       case 'done':
+        if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
         if (/저장/.test(q)) return await _msgSaved();
         if (/문구/.test(q)) return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint || '지난번처럼', true) : await _msgDone(true);
         if (/템플릿 바꾸|템플릿 고르/.test(q)) return await _msgTemplate(false);
         return null;
 
       case 'saved':
-        if (/작업실/.test(q)) { _openWorkshop(); var t = { text: '작업실을 열었어요. 방금 만든 카드가 슬롯에 들어있어요.' }; exit(); return t; }
-        if (/다른 사진/.test(q)) { var keepCust = S.customer; S = _fresh(); S.active = true; S.customer = keepCust; S.step = 'await_photo'; return { text: '좋아요, 다음 사진을 보내주세요.' }; }
-        return null;
+        return _handleSavedText(q);
 
       default:
         return null;
     }
+  }
+
+  // 'saved' 단계 분기(파일 함수 50줄 규칙 준수 위해 분리).
+  function _handleSavedText(q) {
+    if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
+    if (/작업실/.test(q)) { _openWorkshop(); var t = { text: '작업실을 열었어요. 방금 만든 카드가 슬롯에 들어있어요.' }; exit(); return t; }
+    if (/다른 사진/.test(q)) { var keepCust = S.customer; S = _fresh(); S.active = true; S.customer = keepCust; S.step = 'await_photo'; return { text: '좋아요, 다음 사진을 보내주세요.' }; }
+    return null;
   }
 
   // ── 보조 동작 ──
@@ -436,12 +481,13 @@
   async function _msgDoneBasic() {
     S.step = 'done';
     if (!S.caption) S.caption = await _caption();
-    var url = (S.result && S.result.afterUrl) || (S.photos[0] && S.photos[0].url);
+    var cur = _curPhoto();
+    var url = (S.result && S.result.afterUrl) || (cur && cur.url);
     S.result = Object.assign(S.result || {}, { composedUrl: url });
     var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비했어요.';
     return { text: '보정 완성본이에요. 문구도 **사장님 말투로** 써뒀어요.',
       photo_result: { dataUrl: url, ratio: '4:5' }, photo_caption: capLine,
-      related: ['이대로 저장', '문구 다시 써줘'] };
+      related: ['이대로 저장', '인스타 미리보기', '문구 다시 써줘'] };
   }
   // 직접 만질래요 → 작업실 슬롯 생성(편집기 자동 오픈 금지)
   async function _toWorkshop() {
@@ -455,8 +501,23 @@
       related: ['작업실에서 보기', '끝낼래요'] };
   }
   function _openWorkshop() {
+    // [이슈3] 잇비 채팅 시트(z-index 10500)가 작업실을 가리지 않도록 먼저 닫는다.
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void 0; }
     try { if (typeof window.showTab === 'function') window.showTab('workshop', document.querySelector('.tab-bar__fab[data-tab="workshop"]') || null); } catch (_e) { void 0; }
     try { if (typeof window.initWorkshopTab === 'function') window.initWorkshopTab(); } catch (_e) { void 0; }
+  }
+  // [이슈4] 합성 완성본 + 캡션으로 인스타 미리보기 팝업 열기. 업로드는 팝업 내 "올리기"→최종 확인(nativeConfirm)
+  //   →publish-file 의 3단계가 openInstagramPreview 에 내장돼 있어 그대로 재사용(무확인 즉시 업로드 없음).
+  //   open_instagram 액션 핸들러는 라이브 캔버스(#peCanvas)를 우선 캡처해 합성본을 덮을 수 있으므로 직접 호출.
+  function _openInstaPreview() {
+    var cur = _curPhoto();
+    var url = (S.result && (S.result.composedUrl || S.result.afterUrl)) || (cur && cur.url) || '';
+    if (!url) return { text: '먼저 완성본을 만든 뒤 인스타 미리보기를 열 수 있어요.' };
+    try {
+      if (typeof window.openInstagramPreview === 'function')
+        window.openInstagramPreview({ src: url, caption: S.caption || '', ratio: '4:5', enableUpload: true });
+    } catch (_e) { void 0; }
+    return { text: '인스타 미리보기를 열었어요. **"인스타에 올리기"** 를 누르면 마지막 확인 후 올라가요.' };
   }
 
   window.ItdasyPhotoMode = {
