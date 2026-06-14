@@ -294,6 +294,12 @@
           </div>
           <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;justify-self:end;">⋯</button>
         </div>
+        <div id="asstModebar" style="display:none;align-items:center;gap:8px;margin:-4px 4px 8px;padding:8px 10px;border-radius:12px;background:#F7EFF0;color:#BC6675;font-size:12px;font-weight:700;">
+          <span data-pm-step style="color:#4E5968;font-weight:600;">사진편집 모드</span>
+          <button type="button" data-pm-nav="back" style="margin-left:auto;border:none;background:transparent;color:#4E5968;font-size:11.5px;font-weight:700;cursor:pointer;padding:4px 6px;">이전</button>
+          <button type="button" data-pm-nav="restart" style="border:none;background:transparent;color:#4E5968;font-size:11.5px;font-weight:700;cursor:pointer;padding:4px 6px;">처음부터</button>
+          <button type="button" data-pm-nav="exit" style="border:none;background:transparent;color:#BC6675;font-size:11.5px;font-weight:800;cursor:pointer;padding:4px 6px;">종료</button>
+        </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px 4px 14px;"></div>
         <div id="asstQuickLabel" style="font-size:11px;color:#8B95A1;padding:8px 4px 4px;font-weight:600;">이런 것도 돼요</div>
         <div id="asstSuggest" style="display:flex;gap:6px;overflow-x:auto;margin-top:0;padding:4px 0;"></div>
@@ -386,6 +392,15 @@
       m.retry_q = null;
       _send();
     });
+    sheet.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pm-nav]');
+      if (!btn) return;
+      const cmd = btn.dataset.pmNav === 'back' ? '← 이전'
+        : (btn.dataset.pmNav === 'restart' ? '처음부터' : '끝낼래요');
+      const input = document.getElementById('asstInput');
+      if (input) input.value = cmd;
+      _send();
+    });
     // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
     _bindSheetPhotoInputs(sheet);
@@ -456,7 +471,9 @@
   function _pmForceRender() {
     try { if (_renderRafId) { (window.cancelAnimationFrame || window.clearTimeout).call(window, _renderRafId); _renderRafId = 0; } } catch (_e) { void _e; }
     _lastRenderedSig = '';
+    _syncPhotoModeBar();
     _renderHistory();
+    try { window.setTimeout(_syncPhotoModeBar, 0); } catch (_e) { void _e; }
   }
   function _pmSheetState() {
     try {
@@ -632,6 +649,7 @@
   function _renderHistoryImpl() {
     const body = document.getElementById('asstBody');
     if (!body) return;
+    _syncPhotoModeBar();
     if (!_history.length) {
       body.innerHTML = _renderEmptyHistory();
       return;
@@ -646,6 +664,20 @@
       if (TV && typeof TV.bindRecoCards === 'function') {
         body.querySelectorAll('[data-asst-tpl-recos]').forEach((el) => TV.bindRecoCards(el));
       }
+    } catch (_e) { void 0; }
+  }
+
+  function _syncPhotoModeBar() {
+    try {
+      const bar = document.getElementById('asstModebar');
+      if (!bar) return;
+      const PM = window.ItdasyPhotoMode;
+      const active = !!(PM && PM.isActive && PM.isActive());
+      bar.style.display = active ? 'flex' : 'none';
+      if (!active) return;
+      const step = PM.stepLabel && PM.stepLabel();
+      const label = bar.querySelector('[data-pm-step]');
+      if (label) label.textContent = '사진편집 모드' + (step ? ' · ' + step : '');
     } catch (_e) { void 0; }
   }
 
@@ -1828,7 +1860,6 @@
   var _BA_PENDING_TTL = 10 * 60 * 1000;   // 10분
   let _pendingBA = null;          // { firstUrl, firstRole:'before'|'after', requestText, ts }
   let _baChoicePhotoUrl = null;   // 선택 카드 표시~클릭 사이 1장 dataURL 임시(히스토리에 미저장)
-  let _pendingCaptionPhoto = null; // 사진+캡션 요청 시 시술내역 입력 대기 중인 photo dataUrl
   let _pendingBaIntent = null;    // [BA 동선] "전후 하나"(0장) 직후 업로드 사진을 BA 흐름으로 잇는 대기상태 { requestText, ts }
 
   function _baCollectCtx() {
@@ -2036,10 +2067,26 @@
     }
   }
 
+  async function _startPhotoModeFromSample(input, q, photos) {
+    const PM = window.ItdasyPhotoMode;
+    if (!PM) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q, photos: photos || [], thumb: photos && photos[0], local_only: true });
+    let msg = null;
+    try {
+      msg = photos && photos.length
+        ? await PM.handlePhotos(photos, q, null)
+        : await PM.handleText(q, null);
+    } catch (_e) { msg = null; }
+    _history.push(Object.assign({ role: 'assistant' }, msg || { text: '사진편집 모드로 이어갈게요. 편집할 사진을 보내주세요.' }, { local_only: true }));
+    _pmForceRender();
+    return true;
+  }
+
   // [M2] 매처 샷컷 — 자연어 → 샘플 매칭 → 기존 I2/I3 자동 적용. 기존 price/review/ba 샷컷보다 앞.
   //   매칭 단계 실패/예외는 부수효과 0 으로 false → 기존 fallback(_tryPriceListDraft 등) 그대로.
   //   매칭 성공 후(=user 메시지 push 후) 예외는 true 로 흡수 → 이중 push 방지.
-  function _tryTemplateSampleShortcut(input, q) {
+  async function _tryTemplateSampleShortcut(input, q) {
     let payload = null, ctx = {}, photos = [];
     try {
       const MM = window.ItdasyTemplateSampleMatcher;
@@ -2056,6 +2103,9 @@
     }
     // ── 매칭 성공: 여기부터 소비. 이후 오류는 true 로 흡수(이중 push 방지). ──
     try {
+      if (payload.purpose === 'review' || payload.purpose === 'before_after') {
+        return await _startPhotoModeFromSample(input, q, photos);
+      }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
       if (payload.purpose === 'event' || !payload.autoApplyEligible) {
@@ -2910,7 +2960,7 @@
       itbi_cards: itbiCards,
       promo_result: promo ? promo.promoResult : null,
       photo_actions: promo ? [] : _chatAutoEditActions(intent.instagram),
-      // [PR1] promo hubActions 의 open_photo_editor 도 원본+initialState 를 싣게 post-process(photo-chain.js 미수정 — 코덱스 충돌 회피).
+      // [PR1] promo hubActions 의 open_photo_editor 도 원본+initialState 를 싣게 보강.
       hub_actions: promo ? _injectHandoffIntoHubActions(promo.hubActions, handoff) : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동'), handoff),
       photo_caption: promo ? promo.promoResult.caption : '업종: ' + (result.preset_label || '자동'),
     };
@@ -2931,7 +2981,7 @@
   }
 
   // [PR1] promo hubActions 의 open_photo_editor 액션에 원본 src + initialState(params) 주입.
-  //   photo-chain.js 의 promo 액션 빌더는 payload:{} 라 핸드오프 유실 → 여기서 비파괴 복제 후 보강.
+  //   promo 액션 payload 가 비어 있으면 핸드오프가 유실되므로 여기서 비파괴 복제 후 보강.
   //   기존 promo 흐름(인스타/템플릿/캡션/고객기록)은 그대로, editor 진입만 보정값 유지.
   function _injectHandoffIntoHubActions(actions, handoff) {
     if (!Array.isArray(actions) || !handoff || !handoff.originalSrc) return actions;
@@ -3345,42 +3395,18 @@
     // [P0a] 채팅 업로드 사진을 잇비 SourceImage store 에 기록 — 이후 텍스트/버튼이 이 사진을 대상으로.
     //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
     try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
-    // [P1] 전후 1장 선택 후 두 번째 사진 대기 중이면, 이번 업로드로 전후 카드를 완성.
-    if (_pendingBA && photoUrls[0]) {
-      if (Date.now() - _pendingBA.ts > _BA_PENDING_TTL) {
-        _pendingBA = null;   // 만료 → 일반 업로드 흐름으로 진행
-      } else {
-        const _baSecond = photoUrls[0];
-        _history.push({ role: 'user', text: '', photos: [_baSecond], thumb: _baSecond });
-        _renderHistory();
-        _completePendingBA(_baSecond);
-        _sendInFlight = false; _inflightCtrl = null;
-        return;
-      }
-    }
-    // [BA 동선 자동연결] "전후 하나"(0장) 직후 업로드 → 자동으로 전후 흐름(1장=역할선택, 2장+=생성).
-    //   전후 요청 직후의 업로드에만 적용(_pendingBaIntent). 일반 업로드/만료는 아래 일반 경로로.
-    if (_pendingBaIntent && photoUrls.length) {
-      if (Date.now() - _pendingBaIntent.ts > _BA_PENDING_TTL) {
-        _pendingBaIntent = null;   // 만료 → 일반 업로드 흐름
-      } else {
-        const _baReq = _pendingBaIntent.requestText || '전후 카드 만들어줘';
-        _pendingBaIntent = null;   // 소비(완료)
-        _history.push({ role: 'user', text: '', photos: photoUrls, thumb: photoUrls[0] });
-        _renderHistory();
-        _openBeforeAfterCreate(_baReq);   // _lastUserPhotos() 가 방금 푼 사진을 봄 → 1장=역할선택, 2장=생성
-        _sendInFlight = false; _inflightCtrl = null;
-        return;
-      }
-    }
     try {
-      // [모드 P1] 사진편집 모드 활성, 또는 (사진만 + 텍스트 없음) → photo-mode 가 접수/진행을 가져감.
-      if (window.ItdasyPhotoMode && photoUrls.length && (window.ItdasyPhotoMode.isActive() || !question)) {
+      // 사진편집 모드가 사진 업로드 흐름을 통합 처리한다. 가격표·DM 등은 shouldStart 에서 제외.
+      const PM = window.ItdasyPhotoMode;
+      const pmWantsPhoto = PM && photoUrls.length && (
+        PM.isActive() || !question || (PM.shouldStart && PM.shouldStart(question, { hasPhoto: true }))
+      );
+      if (pmWantsPhoto) {
         // local_only: 서버 미저장 PM 사진 말풍선/응답 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
         _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
         _renderHistory();
         let _pmMsg = null;
-        try { _pmMsg = await window.ItdasyPhotoMode.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
+        try { _pmMsg = await PM.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
         _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }, { local_only: true }));
         _pmDbg('upload.push', { len: _history.length, keys: Object.keys(_pmMsg || {}) });
         _pmForceRender();
@@ -3389,18 +3415,7 @@
         return;
       }
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
-      // [2026-06-11 #8 v3] 사진+캡션 요청 → 시술내역 입력 대기 후 캡션 생성 (보정 없음).
-      //   v2는 홍보 플로우로 라우팅해 "보정 완료! 인스타 미리보기" 바로 띄우는 오동작이 있었음.
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
-      if (_isCaptionIntent && photoUrls.length) {
-        try { if (window.ItdasySourceImage && window.ItdasySourceImage.set) window.ItdasySourceImage.set({ origin: 'chat', dataUrl: photoUrls[0] }); } catch (_e) { void _e; }
-        _pendingCaptionPhoto = photoUrls[0];
-        _history.push({ role: 'user', text: question || '캡션 만들어줘', thumb: photoUrls[0], photos: photoUrls });
-        _history.push({ role: 'assistant', text: '사진 받았어요!\n어떤 시술인가요? 예: "레이어드 컷" · "붙임머리 S컬" 처럼 시술명을 입력하시면 캡션을 바로 만들어드릴게요.' });
-        _renderHistory();
-        _sendInFlight = false; _inflightCtrl = null;
-        return;
-      }
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
         _pushPhotoSuggestion(question, photoUrls);
@@ -3740,71 +3755,10 @@
   }
 
   function _tryKeywordShortcut(input, q) {
-    if (_tryPromoPhotoChain(input, q)) return true;     // [J-2] 홍보 사진 체인(보정+캡션+템플릿+버튼) — photo-flow 보다 먼저
-    if (_tryPhotoFlowShortcut(input, q)) return true;   // [T-104] 홍보 풀체인(폴백) — 단일 보정/편집기 오픈보다 먼저
     if (_tryPhotoEditorShortcut(input, q)) return true;
     if (_trySimpleOpenShortcut(input, q)) return true;
     if (_tryTabShortcut(input, q)) return true;
     return _tryUtilityShortcut(input, q);
-  }
-
-  // [T-104.5] photo-flow 가 "저장할까요?" 제안 후 사용자가 "응/저장해줘" → 실제 고객 기록 저장.
-  //   pending 없거나 저장의도 아니면 false(기존 파이프라인 계속). 기존 confirm 카드는 _tryAffirmAction 이 먼저.
-  async function _tryPhotoFlowSaveConfirm(input, q) {
-    try {
-      if (!window.ItdasyPhotoFlow || !window.ItdasyPhotoFlow.hasPendingSave || !window.ItdasyPhotoFlow.hasPendingSave()) return false;
-      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
-      const res = await window.ItdasyPhotoFlow.confirmSave(q, ctx);
-      if (!res) return false;   // 저장 의도 아님 → pending 유지, 다른 핸들러로
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      _history.push({ role: 'assistant', text: res.message });
-      _renderHistory();
-      return true;
-    } catch (_e) {
-      return false;
-    }
-  }
-
-  // [J-2] "이 사진 홍보용으로 예쁘게" → 보정 + 캡션 초안 + 템플릿 추천 + Action Hub 버튼. 미매칭/모듈없음 시 false.
-  function _tryPromoPhotoChain(input, q) {
-    try {
-      const C = window.ItdasyPromoPhotoChain;
-      if (!C || !C.detectPromoPhotoChain || !C.detectPromoPhotoChain(q)) return false;
-      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
-      const res = C.runPromoPhotoChain(q, ctx);
-      if (!res || !res.message) return false;
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      // [CF-2] 추천 템플릿 3개를 메시지에 직접 카드로 표시(잇비 응답만 보고 고르게).
-      _history.push({ role: 'assistant', text: res.message,
-        hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [],
-        tpl_recos: Array.isArray(res.templateRecos) ? res.templateRecos : [],
-        promo_result: res.promoResult || null,
-        photo_result: res.promoResult && res.promoResult.afterDataUrl
-          ? { dataUrl: res.promoResult.afterDataUrl, ratio: '4:5' } : null });
-      _renderHistory();
-      return true;
-    } catch (_e) {
-      return false;
-    }
-  }
-
-  // [T-104] "이 사진 홍보용으로 예쁘게" → 업종 보정 적용 + 다음 단계 제안. 미매칭 시 false(기존 경로 유지).
-  function _tryPhotoFlowShortcut(input, q) {
-    try {
-      if (!window.ItdasyPhotoFlow || !window.ItdasyPhotoFlow.detectPhotoFlowIntent(q)) return false;
-      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
-      const res = window.ItdasyPhotoFlow.runPromoFlow(q, ctx);
-      if (!res || !res.message) return false;
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      _history.push({ role: 'assistant', text: res.message });
-      _renderHistory();
-      return true;
-    } catch (_e) {
-      return false;
-    }
   }
 
   function _tryPhotoEditorShortcut(input, q) {
@@ -4017,7 +3971,6 @@
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
-    if (await _tryPhotoFlowSaveConfirm(input, q)) return true;   // [T-104.5] 기존 confirm 다음 — photo-flow 저장 확인
     if (_tryCaptionIntentShortcut(input, q)) return true;        // [B4] 캡션/카피 의도 — 예약/문자초안보다 우선
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
@@ -4216,8 +4169,29 @@
         return true;
       }
       if (p === 'before_after') {
-        // [BA 동선] 빈 전후 템플릿 직행 금지 — 사진 0/1/2장 분기(2장 필요 안내 + 업로드 동선)로 통일.
-        _openBeforeAfterCreate(q);
+        const PM = window.ItdasyPhotoMode;
+        if (PM) {
+          const photos = _lastUserPhotos();
+          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
+          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '전후 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
+          _pmForceRender();
+          return true;
+        }
+        _history.push({ role: 'assistant', text: '전후 카드는 사진 2장이 필요해요. 사진편집 모드에서 사진을 보내주세요.' });
+        _renderHistory();
+        return true;
+      }
+      if (p === 'review') {
+        const PM = window.ItdasyPhotoMode;
+        if (PM) {
+          const photos = _lastUserPhotos();
+          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
+          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '후기 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
+          _pmForceRender();
+          return true;
+        }
+        _history.push({ role: 'assistant', text: '후기 카드는 사진편집 모드에서 만들 수 있어요. 사진을 보내주세요.' });
+        _renderHistory();
         return true;
       }
       const opened = _openCreateTemplate(p);
@@ -4254,35 +4228,15 @@
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
     // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
     if (_pendingBaIntent) { _pendingBaIntent = null; }
-    // [사진+캡션 pending] 시술내역 입력 대기 → 캡션 생성 후 인스타 미리보기 버튼
-    if (_pendingCaptionPhoto) {
-      const _capPhotoUrl = _pendingCaptionPhoto;
-      _pendingCaptionPhoto = null;
-      _sendInFlight = true;
-      _beginTextAsk(input, q);
-      try {
-        const _capRes = await _generateChatCaption({ question: q + ' 시술 완료 인스타 캡션', customerCtx: null });
-        const _capText = (_capRes && _capRes.caption) || '오늘도 멋진 시술 완료! 예약·상담은 DM 또는 전화 주세요 😊';
-        _history[_history.length - 1] = {
-          role: 'assistant',
-          text: '캡션을 만들었어요 ✍️',
-          photo_result: { dataUrl: _capPhotoUrl, ratio: '4:5' },
-          photo_caption: _capText,
-          hub_actions: [
-            { id: 'ig_preview', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'hub', payload: { dataUrl: _capPhotoUrl, caption: _capText, ratio: '4:5' } },
-          ],
-        };
-        _renderHistory();
-      } catch (_capErr) { _handleSendError(_capErr); }
-      finally { _sendInFlight = false; _inflightCtrl = null; }
-      return;
-    }
     // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
     if (await _tryMemoryShortcut(input, q)) return;
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
       const _PM = window.ItdasyPhotoMode;
-      if (_PM && (_PM.isActive() || (_PM.START_RE && _PM.START_RE.test(q)))) {
+      const _pmStart = _PM && (
+        _PM.isActive() || (_PM.shouldStart ? _PM.shouldStart(q, { hasPhoto: false }) : (_PM.START_RE && _PM.START_RE.test(q)))
+      );
+      if (_pmStart) {
         const _wasActive = _PM.isActive();
         _sendInFlight = true;   // await 동안 중복 전송 차단
         let _pmMsg = null;
@@ -4309,10 +4263,8 @@
     if (await _trySavedCardsShortcut(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
-    if (_tryTemplateSampleShortcut(input, q)) return;   // [M2] 매처 샘플 → I2/I3 자동 적용 — null 이면 false 로 아래 fallback
+    if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
     if (_tryPriceListDraft(input, q)) return;
-    if (_tryReviewCardShortcut(input, q)) return;   // [I3a] 후기 카드 자동 적용 — promo chain/photo-followup 보다 먼저
-    if (_tryBeforeAfterCardShortcut(input, q)) return;   // [I3b] 전후(BA) 카드 자동 적용 — promo chain/photo-followup 보다 먼저
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();

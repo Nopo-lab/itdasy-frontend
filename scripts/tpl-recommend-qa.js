@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-/* TPL-3 잇비 홍보 체인 → 템플릿 3개 추천 QA (런타임 미수정, 텍스트만 — 실사진 불필요)
+/* TPL-3 잇비 사진모드 → 템플릿 3개 추천 QA (런타임 미수정, 텍스트만 — 실사진 불필요)
    - recommendTemplates: 명령별 업종/목적 매칭 상위3
    - 추천 3개 전부 industry/purpose 태그 보유(TPL-2 회귀 0)
-   - photo-chain.buildPromoTemplateRecos 위임 동작
+   - photo-mode-support.buildTemplateRecos 위임 동작
    - fallback: 업종 불명확 → common/promo/feed/story 계열
    실행: python3 -m http.server 8099 후 node scripts/tpl-recommend-qa.js (PHOTO_QA_URL 지정 가능) */
 
@@ -17,7 +17,7 @@ async function main() {
   page.on('console', m => { if (m.type() === 'error') errors.push('console.error: ' + m.text().slice(0, 140)); });
 
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await page.waitForFunction(() => window.PhotoEditorTemplateMarketData && window.ItdasyPromoPhotoChain, null, { timeout: 45000 });
+  await page.waitForFunction(() => window.PhotoEditorTemplateMarketData && window.ItdasyPhotoModeSupport, null, { timeout: 45000 });
 
   const out = await page.evaluate(() => {
     const MD = window.PhotoEditorTemplateMarketData;
@@ -37,9 +37,9 @@ async function main() {
       return { cmd: c.cmd, n: recs.length, ids, allTagged, indHit, purHit,
         inds: recs.map(t => t.industry), purs: recs.map(t => t.purpose) };
     });
-    // photo-chain 위임
-    const chainRecos = window.ItdasyPromoPhotoChain.buildPromoTemplateRecos('네일 홍보용으로 해줘', {});
-    return { rows, chainRecos, chainN: (chainRecos || []).length };
+    // photo-mode-support 위임
+    const modeRecos = window.ItdasyPhotoModeSupport.buildTemplateRecos('네일 홍보용으로 해줘', {});
+    return { rows, modeRecos, modeN: (modeRecos || []).length };
   });
 
   out.severeErrors = errors.filter(e => !/favicon|ResizeObserver|TensorFlow|XNNPACK/i.test(e));

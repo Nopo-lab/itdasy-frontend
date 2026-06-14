@@ -2,7 +2,56 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-06-03 · PE-R2 사진편집 시작 화면 리뉴얼 완료
+**LAST UPDATED:** 2026-06-14 · 잇비 사진편집 모드 통합 마무리 완료
+
+---
+
+## 🟣 2026-06-14 — 잇비 사진편집 모드 통합 마무리 완료
+
+배경: 원영님이 받은 `05-itbi-photo-mode-chat.html`, 작업계획서, 인수인계 문서를 확인한 뒤 "사진 한 장 → 잇비가 안내 → 홍보 결과 만들기" 흐름을 기존 잇비 대화창 안으로 합치는 작업.
+
+완료:
+- 옛날 사진 대화 흐름 2개를 로딩 목록에서 제거하고 파일도 삭제.
+- 새 보조 파일 `js/assistant/core/photo-mode-support.js` 추가. 홍보/전후/후기/캡션 요청은 사진편집 모드로 보내고, 가격표/메뉴판/DM/카카오/발송 요청은 제외.
+- 사진을 올리거나 "인스타 홍보용으로 만들어줘", "전후사진 카드 만들어줘", "캡션 써줘"라고 말하면 새 사진편집 모드로 들어가게 연결.
+- 사진+문구를 같이 올리면 바로 다음 질문으로 이어지게 정리.
+- 사진편집 모드 안에 이전 / 처음부터 / 종료 버튼 추가.
+- 전후사진 흐름에서 뒤로가기를 누르면 역할 선택 질문으로 돌아가게 보정.
+- 캡션만 필요한 경우에도 사진편집 모드 안에서 문구 초안을 만들게 추가.
+- 자동 게시, 자동 발송, 자동 저장은 하지 않도록 안전 버튼만 유지.
+
+수정 파일:
+- `app-assistant.js`
+- `index.html`
+- `js/load-groups.js`
+- `js/assistant/core/photo-mode.js`
+- `js/assistant/core/photo-mode-support.js`
+- `js/assistant/core/promo-result-builder.js`
+- `js/assistant/core/marketing-draft-policy.js`
+- `scripts/photo-mode-guided-qa.js`
+- `scripts/itbi-promo-chain-qa.js`
+- `scripts/itbi-first-wow-qa.js`
+- `scripts/tpl-recommend-qa.js`
+- `scripts/itbi-marketing-draft-policy-qa.js`
+- `scripts/t119-attach-qa.js`
+
+삭제 파일:
+- `js/assistant/core/photo-flow.js`
+- `js/assistant/core/photo-chain.js`
+
+확인:
+- 주요 파일 문법 확인 통과.
+- 사진편집 모드 전용 확인 통과: 홍보/캡션/전후사진 진입, 가격표/DM 제외, 이전/처음부터/종료 버튼, 옛날 전역 기능 제거.
+- 기존 대표 확인 통과: 첫 경험, 템플릿 추천, 홍보 흐름, 마케팅 문구 정책, 사진 첨부 흐름.
+- `npm run smoke` 통과: 90 scripts.
+- `npm test -- --runInBand` 통과: 2개 묶음, 115개 테스트.
+- `npm run lint` 확인: 빨간 오류 0개, 기존 경고 106개.
+- 공백 검사 통과.
+
+주의:
+- 실제 사진 저장/보정 엔진 고도화는 이번 범위가 아님.
+- 브라우저 캡처는 보조로만 확인했다. 자동 화면 도구에서 대화창 부모가 숨김 상태로 잡혀 최종 판정에는 쓰지 않음.
+- 작업 전부터 `output/photo-beauty-contract-qa-report.json`, `.claude/`, `output/ocr-pricelist-import-qa-report.md` 변경/추가가 남아 있었고 이번 작업과 섞지 않음.
 
 ---
 

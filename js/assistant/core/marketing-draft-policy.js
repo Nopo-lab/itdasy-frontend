@@ -3,7 +3,7 @@
    리터치/재방문/안부/후기/캡션/사진메모/빈시간/이벤트 초안의 톤·금지어·안전 라벨·발송안함 문구를 한 곳으로 통일.
    새 LLM/백엔드 0 — 기존 draft_message·caption 출력을 공통 정책으로 정렬(sanitize/normalize)만.
 
-   재사용처: photo-chain(캡션) · customer-status-card(초안 프롬프트) · daily-briefing(추천 문구) · app-assistant(draft 표시 sanitize).
+   재사용처: photo-mode-support(캡션) · customer-status-card(초안 프롬프트) · daily-briefing(추천 문구) · app-assistant(draft 표시 sanitize).
    안전: 실제 발송/게시/예약/저장 자동 실행 0. 이 모듈은 문자열 생성/정리만 한다. */
 (function () {
   'use strict';
@@ -51,7 +51,7 @@
     return '초안만 만들었어요.';
   }
 
-  // 업종별 안전 캡션(홍보용 사진 체인 재사용). recipeId = photo-flow 레시피.
+  // 업종별 안전 캡션(사진편집 모드 재사용). recipeId = 사진 보정 성격.
   var CAPTION = {
     nail_focus: '은은한 광택감과 손끝 라인이 살아나는 깔끔한 네일 디자인이에요. 부담스럽지 않게 포인트를 주고 싶은 분들께 추천드려요.',
     hair_focus: '머릿결의 윤기와 스타일 라인을 자연스럽게 살린 시술 사진이에요. 분위기 전환을 원하시는 분들께 잘 어울리는 스타일입니다.',

@@ -1,6 +1,6 @@
 /* [모드 P1] 잇비 사진편집 모드 — 2026-06-12
    디자인 확정안: mockups/05-itbi-photo-mode-chat.html (단계·문구·칩 그대로)
-   패턴: photo-flow.js / photo-chain.js 와 동일 — 모듈은 "메시지 객체"만 반환,
+   패턴: 모듈은 "메시지 객체"만 반환,
          채팅 push 는 app-assistant 훅이 수행. 칩은 related[] (라벨=명령 → handleText 라우팅).
    재사용(복제 금지): window.PhotoEditorTemplateGallery.previewURL, window.ChatAutoEdit.processPhoto,
      window.PhotoEditorTemplateMarketData.lookupById, window.Booking, window.CustomerCache,
@@ -11,26 +11,52 @@
   if (window.ItdasyPhotoMode) return;
 
   var LAST_KEY = 'itdasy_photo_mode_last';
-  var START_RE = /(사진|이미지).*(편집|만들|꾸미|시켜)/;
+  var Support = window.ItdasyPhotoModeSupport || null;
+  var START_RE = (Support && Support.START_RE) || /(사진|이미지).*(편집|만들|꾸미|시켜|보정|홍보|예쁘)/;
 
   // 전역 상태 1개 — TTL 없음, exit() 까지 유지.
   var S = _fresh();
   function _fresh() {
     return { active: false, workflow: 'basic', step: null, photos: [],
-      customer: null, choices: {}, lastTemplateId: null, result: null, caption: '' };
+      customer: null, choices: {}, lastTemplateId: null, result: null, caption: '',
+      captionHint: '', lastTemplateExpanded: false, past: [] };
   }
 
   // ── 단계 라벨 (모드 배지/재안내용) ──
   var STEP_LABEL = {
     intake: '접수', await_photo: '사진 받기', template: '템플릿 고르기',
     ba_role: '사진 확인', ba_second: '전 사진 받기', fix: '사진 손질',
-    done: '완성 확인', saved: '완료',
+    caption_input: '시술명 입력', done: '완성 확인', saved: '완료',
   };
   function stepLabel() { return S.active ? (STEP_LABEL[S.step] || '진행 중') : ''; }
 
   // ── 작은 헬퍼 ──
   function _log() { try { var a = ['[PM]'].concat(Array.prototype.slice.call(arguments)); (console.debug || console.log).apply(console, a); } catch (_e) { void 0; } }
   function _shopType() { try { return localStorage.getItem('shop_type') || ''; } catch (_e) { return ''; } }
+  function shouldStart(q, opts) {
+    return Support && typeof Support.shouldStart === 'function' ? Support.shouldStart(q, opts) : START_RE.test(String(q || ''));
+  }
+  function _looksCaptionRequest(q) {
+    if (Support && Support.CAPTION_RE) return Support.CAPTION_RE.test(String(q || ''));
+    return /(캡션|홍보\s*글|홍보글|해시\s*태그|문구|인스타\s*(글|피드\s*글))/i.test(String(q || ''));
+  }
+  function _snapshot() {
+    try {
+      var copy = Object.assign({}, S, { past: [] });
+      return JSON.parse(JSON.stringify(copy));
+    } catch (_e) { return null; }
+  }
+  function _remember() {
+    var snap = _snapshot();
+    if (!snap) return;
+    S.past = S.past || [];
+    S.past.push(snap);
+    if (S.past.length > 8) S.past.shift();
+  }
+  function _restore(snap, past) {
+    S = Object.assign(_fresh(), snap || {});
+    S.past = past || [];
+  }
   function _loadImg(url) {
     return new Promise(function (res) {
       try { var i = new Image(); i.onload = function () { res(i); }; i.onerror = function () { res(null); }; i.src = url; }
@@ -103,19 +129,28 @@
     var m = { '붙임머리': 'extension', '네일아트': 'nail', '네일': 'nail' };
     return m[_shopType()] || 'extension';
   }
-  async function _caption() {
+  async function _caption(hint) {
     try {
       var headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
       headers['Content-Type'] = 'application/json';
       var ctxName = S.customer ? (S.customer.name + ' 손님. ') : '';
-      var body = { category: _category(), photo_context: (_shopType() + ' 시술. ' + ctxName + '오늘 작업 완성본.').slice(0, 500), length_tier: 'medium', tone_override: 'normal' };
+      var treatment = hint || S.captionHint || '';
+      var body = { category: _category(), photo_context: (_shopType() + ' 시술. ' + ctxName + treatment + ' 오늘 작업 완성본.').slice(0, 500), length_tier: 'medium', tone_override: 'normal' };
       var res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers: headers, body: JSON.stringify(body) });
       var data = await res.json().catch(function () { return {}; });
-      if (!res.ok) return '';
+      if (!res.ok) return _captionFallback();
       var cap = (data.caption || '').trim();
       var tags = Array.isArray(data.hashtags) ? data.hashtags.map(function (t) { return '#' + String(t).replace(/^#+/, ''); }).join(' ') : '';
-      return tags ? (cap + '\n\n' + tags) : cap;
-    } catch (_e) { return ''; }
+      return tags ? (cap + '\n\n' + tags) : (cap || _captionFallback());
+    } catch (_e) { return _captionFallback(); }
+  }
+
+  function _captionFallback() {
+    var recipe = Support && typeof Support.recipeFromText === 'function'
+      ? Support.recipeFromText(S.captionHint || _shopType()) : 'natural';
+    return Support && typeof Support.buildCaptionDraft === 'function'
+      ? Support.buildCaptionDraft(recipe)
+      : '시술 결과가 잘 보이도록 자연스럽게 정리한 사진이에요. 편하게 문의 주세요.';
   }
 
   // ════════════════════════ 단계별 메시지 빌더 ════════════════════════
@@ -133,6 +168,7 @@
   // 템플릿 고르기 — pm_tpls 카드(사용자 사진 끼운 previewURL) + 칩
   async function _msgTemplate(expanded) {
     S.step = 'template';
+    S.lastTemplateExpanded = !!expanded;
     var ids = expanded
       ? ['ba-cream', 'feed-showcase', 'feed-review', 'ba-hair-cream', 'price-hair', 'event-discount']
       : ['ba-cream', 'feed-showcase', 'feed-review'];
@@ -196,6 +232,29 @@
       related: ['이대로 저장', '문구 다시 써줘', '템플릿 바꾸기'] };
   }
 
+  function _msgCaptionPrompt() {
+    S.step = 'caption_input';
+    return { text: '사진 받았어요! 어떤 시술인가요? 예: "레이어드 컷" · "붙임머리 S컬" 처럼 시술명을 알려주시면 인스타 문구를 바로 써드릴게요.',
+      related: ['지난번처럼', '손님 연결 안 할래요', '끝낼래요'] };
+  }
+
+  async function _msgCaptionDone(hint, regenCaption) {
+    S.step = 'done';
+    S.workflow = 'caption';
+    if (hint && !/지난번처럼/.test(hint)) S.captionHint = hint;
+    if (!S.caption || regenCaption) S.caption = await _caption(S.captionHint);
+    var url = (S.photos[0] && (S.photos[0].editedUrl || S.photos[0].url)) || '';
+    S.result = Object.assign(S.result || {}, { composedUrl: url });
+    var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비했어요.';
+    var recipe = Support && typeof Support.recipeFromText === 'function' ? Support.recipeFromText(S.captionHint || _shopType()) : 'natural';
+    var recos = Support && typeof Support.buildTemplateRecos === 'function' ? Support.buildTemplateRecos(S.captionHint || '사진 홍보용', {}) : [];
+    var actions = Support && typeof Support.buildActions === 'function'
+      ? Support.buildActions({ currentCustomer: S.customer }, recipe, S.caption, recos, url) : [];
+    return { text: '캡션을 만들었어요. 사진과 함께 인스타에 올릴 문구로 바로 쓸 수 있어요.',
+      photo_result: { dataUrl: url, ratio: '4:5' }, photo_caption: capLine,
+      hub_actions: actions, related: ['이대로 저장', '문구 다시 써줘', '템플릿 고르기'] };
+  }
+
   // 저장 + 고객 자동 연결
   async function _msgSaved() {
     var dataUrl = (S.result && S.result.composedUrl) || (S.result && S.result.afterUrl) || (S.photos[0] && S.photos[0].url);
@@ -217,6 +276,29 @@
     var slot = S.customer ? (S.customer.name + ' 손님 슬롯') : '작업실 슬롯';
     return { text: '✓ 작업실에 저장했어요 — ' + slot + linked + '\n\n다음은 뭐 할까요?',
       related: ['작업실에서 보기', '다른 사진 편집', '끝낼래요'] };
+  }
+
+  async function _msgCurrent() {
+    switch (S.step) {
+      case 'intake': return _msgIntake();
+      case 'await_photo': return { text: '편집할 사진을 보내주세요 — 손님 사진이면 예약과 자동으로 연결해드릴게요.' };
+      case 'template': return await _msgTemplate(S.lastTemplateExpanded);
+      case 'ba_role': return _msgBaRole();
+      case 'ba_second': return _msgBaRole();
+      case 'fix': return await _msgFix();
+      case 'caption_input': return _msgCaptionPrompt();
+      case 'done': return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint, false) : await _msgDone(false);
+      case 'saved': return { text: '작업실에 저장한 상태예요. 다음 작업을 골라주세요.', related: ['작업실에서 보기', '다른 사진 편집', '끝낼래요'] };
+      default: return { text: '사진편집 모드예요. 편집할 사진을 보내주세요.' };
+    }
+  }
+
+  async function back() {
+    var past = S.past || [];
+    if (!S.active || !past.length) return { text: '이전 단계가 없어요. 처음부터 하거나 계속 진행할 수 있어요.', related: ['처음부터', '끝낼래요'] };
+    var prev = past.pop();
+    _restore(prev, past);
+    return await _msgCurrent();
   }
 
   // ════════════════════════ 공개 API ════════════════════════
@@ -245,10 +327,11 @@
     }
     // 신규 접수
     S.active = true;
-    S.workflow = 'basic';
+    S.workflow = _looksCaptionRequest(question) ? 'caption' : 'basic';
     S.photos = photoUrls.map(function (u) { return { url: u, role: null }; });
     S.customer = await _matchCustomer();
     _log('intake', { customer: S.customer && S.customer.name });
+    if (S.workflow === 'caption' && !S.customer) return _msgCaptionPrompt();
     var m = _msgIntake();
     if (m._next === 'template') { delete m._next; return await _msgTemplate(false); }
     return m;
@@ -258,21 +341,38 @@
   async function handleText(q, _ctx) {
     q = (q || '').trim();
     _log('handleText', { q: q, active: S.active, step: S.step });
-    // 비활성 + 시작 발화 → 모드 진입(사진 요청)
-    if (!S.active) {
-      if (!START_RE.test(q)) return null;
-      S.active = true; S.step = 'await_photo';
-      return { text: '좋아요, 사진편집 모드예요. 편집할 **사진을 보내주세요** — 손님 사진이면 예약과 자동으로 연결해드릴게요.' };
-    }
-    // 전역 명령
-    if (/^(그만|취소|종료|끝낼래요|끝낼래|나가기)$/.test(q)) { exit(); return { text: '사진편집 모드를 종료했어요. 필요하면 다시 불러주세요 🙂' }; }
-    if (/^처음부터/.test(q)) { if (S.photos.length) { S.step = null; S.result = null; S.caption = ''; return await _msgTemplate(false); } S.step = 'await_photo'; return { text: '처음부터 할게요. 편집할 사진을 다시 보내주세요.' }; }
+    if (!S.active) return _startFromText(q);
+    var globalMsg = await _handleGlobalText(q);
+    if (globalMsg) return globalMsg;
+    _remember();
+    return await _handleStepText(q);
+  }
 
+  function _startFromText(q) {
+    if (!shouldStart(q, { hasPhoto: false })) return null;
+    S.active = true; S.step = 'await_photo';
+    return { text: '좋아요, 사진편집 모드예요. 편집할 **사진을 보내주세요** — 손님 사진이면 예약과 자동으로 연결해드릴게요.' };
+  }
+
+  async function _handleGlobalText(q) {
+    if (/^(그만|취소|종료|끝낼래요|끝낼래|나가기)$/.test(q)) {
+      exit();
+      return { text: '사진편집 모드를 종료했어요. 필요하면 다시 불러주세요 🙂' };
+    }
+    if (/^(←\s*)?이전|뒤로|한\s*단계/.test(q)) return await back();
+    if (/^처음부터/.test(q)) {
+      S = _fresh(); S.active = true; S.step = 'await_photo';
+      return { text: '처음부터 할게요. 편집할 사진을 다시 보내주세요.' };
+    }
+    return null;
+  }
+
+  async function _handleStepText(q) {
     switch (S.step) {
       case 'intake':
-        if (/^맞아요$/.test(q)) return await _msgTemplate(false);
-        if (/다른 손님/.test(q)) { S.customer = await _pickCustomer(); return await _msgTemplate(false); }
-        if (/연결 안/.test(q)) { S.customer = null; return await _msgTemplate(false); }
+        if (/^맞아요$/.test(q)) return S.workflow === 'caption' ? _msgCaptionPrompt() : await _msgTemplate(false);
+        if (/다른 손님/.test(q)) { S.customer = await _pickCustomer(); return S.workflow === 'caption' ? _msgCaptionPrompt() : await _msgTemplate(false); }
+        if (/연결 안/.test(q)) { S.customer = null; return S.workflow === 'caption' ? _msgCaptionPrompt() : await _msgTemplate(false); }
         return null;
 
       case 'template': {
@@ -301,10 +401,14 @@
         if (/직접/.test(q)) return await _toWorkshop();
         return null;
 
+      case 'caption_input':
+        if (/연결 안/.test(q)) { S.customer = null; return _msgCaptionPrompt(); }
+        return await _msgCaptionDone(q, true);
+
       case 'done':
         if (/저장/.test(q)) return await _msgSaved();
-        if (/문구/.test(q)) return await _msgDone(true);
-        if (/템플릿 바꾸/.test(q)) return await _msgTemplate(false);
+        if (/문구/.test(q)) return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint || '지난번처럼', true) : await _msgDone(true);
+        if (/템플릿 바꾸|템플릿 고르/.test(q)) return await _msgTemplate(false);
         return null;
 
       case 'saved':
@@ -355,5 +459,14 @@
     try { if (typeof window.initWorkshopTab === 'function') window.initWorkshopTab(); } catch (_e) { void 0; }
   }
 
-  window.ItdasyPhotoMode = { isActive: isActive, handlePhotos: handlePhotos, handleText: handleText, exit: exit, stepLabel: stepLabel, START_RE: START_RE };
+  window.ItdasyPhotoMode = {
+    isActive: isActive,
+    shouldStart: shouldStart,
+    handlePhotos: handlePhotos,
+    handleText: handleText,
+    back: back,
+    exit: exit,
+    stepLabel: stepLabel,
+    START_RE: START_RE,
+  };
 })();

@@ -4,7 +4,7 @@
    - safetyNote: 연락=발송안함 / 캡션=게시안함
    - caption/template: 타입·업종별 생성, 금지어 0
    - chatSuggest: 타입별 검증된 프롬프트
-   - 통합: photo-chain/customer-status/daily-briefing 가 정책 사용
+   - 통합: photo-mode-support/customer-status/daily-briefing 가 정책 사용
    실행: python3 -m http.server 8099 후 node scripts/itbi-marketing-draft-policy-qa.js (PHOTO_QA_URL 지정 가능) */
 
 const { chromium } = require('playwright');
@@ -18,7 +18,7 @@ async function main() {
   page.on('console', m => { if (m.type() === 'error') errors.push('console.error: ' + m.text().slice(0, 140)); });
 
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await page.waitForFunction(() => window.ItdasyMarketingDraftPolicy, null, { timeout: 45000 });
+  await page.waitForFunction(() => window.ItdasyMarketingDraftPolicy && window.ItdasyPhotoModeSupport, null, { timeout: 45000 });
 
   const out = await page.evaluate(() => {
     const P = window.ItdasyMarketingDraftPolicy;
@@ -55,7 +55,7 @@ async function main() {
     r.template = { count: tmpls.length, forbidden: tmpls.filter(t => P.hasForbidden(t)) };
     // 6. 통합 — 소비 모듈이 정책 사용
     r.integration = {
-      photoChain: !!(window.ItdasyPromoPhotoChain && window.ItdasyPromoPhotoChain.buildPromoCaptionDraft('nail_focus') === P.caption('nail_focus')),
+      photoModeSupport: !!(window.ItdasyPhotoModeSupport && window.ItdasyPhotoModeSupport.buildCaptionDraft('nail_focus') === P.caption('nail_focus')),
       statusCardSug: (function () {
         if (!window.ItdasyCustomerStatusCard) return 'n/a';
         const a = window.ItdasyCustomerStatusCard.buildCustomerStatusActions({ name: '김민지', noNext: true, isAtRisk: false, photoCount: 0 });

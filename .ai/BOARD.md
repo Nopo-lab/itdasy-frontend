@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-06-03 by Codex (PE-R4 템플릿 루프 강화)
+**LAST UPDATED:** 2026-06-14 by Codex (잇비 사진편집 모드 통합 마무리)
 
 bootstrap:OK @ 2026-05-21 02:05
 bootstrap:OK @ 2026-05-21 13:30
@@ -22,6 +22,28 @@ bootstrap:OK @ 2026-06-02 22:24
 bootstrap:OK @ 2026-06-03 18:40
 bootstrap:OK @ 2026-06-03 20:01
 bootstrap:OK @ 2026-06-03 20:41
+bootstrap:OK @ 2026-06-05 07:19
+bootstrap:OK @ 2026-06-14 15:35
+
+---
+
+## 2026-06-14 — 잇비 사진편집 모드 통합 마무리 (Codex)
+
+수정:
+- 잇비 대화창의 사진 홍보/전후사진/후기/캡션 요청을 새 사진편집 모드 하나로 합침.
+- 가격표/메뉴판/DM/카카오/발송 요청은 사진편집 모드로 잘못 들어가지 않게 막음.
+- 사진+문구를 같이 올렸을 때 바로 다음 질문으로 이어지게 정리.
+- 이전 / 처음부터 / 종료 버튼을 대화창 상단에 추가.
+- 옛날 사진 흐름 파일 2개 제거: `photo-flow.js`, `photo-chain.js`.
+
+확인:
+- 사진편집 모드 전용 확인, 첫 경험, 템플릿 추천, 홍보 흐름, 마케팅 문구 정책, 사진 첨부 흐름 통과.
+- `npm run smoke`, `npm test -- --runInBand`, 공백 검사 통과.
+- 자동 검사: 빨간 오류 0개, 기존 경고 106개.
+
+주의:
+- 실제 사진 저장/보정 엔진 고도화는 이번 범위가 아님.
+- 작업 전부터 남아 있던 `output/photo-beauty-contract-qa-report.json`, `.claude/`, `output/ocr-pricelist-import-qa-report.md` 는 이번 작업과 별개.
 
 ---
 

@@ -24,7 +24,7 @@ async function main() {
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForFunction(() => (
     window.HomeV41Render && window.HomeV41ItbiPrompts &&
-    window.ItdasyAssistantPendingPhotos && window.ItdasyPromoPhotoChain &&
+    window.ItdasyAssistantPendingPhotos && window.ItdasyPhotoMode && window.ItdasyPhotoModeSupport &&
     window.ItdasyPromoResultCard && window.ItdasyActionHub
   ), null, { timeout: 45000 });
 
@@ -46,10 +46,11 @@ async function main() {
       firstStrong: /background:#191F28|background:\s*#191F28/i.test(promptBtns[0] && promptBtns[0].getAttribute('style') || ''),
     };
 
-    const noPhoto = window.ItdasyPromoPhotoChain.runPromoPhotoChain('이 사진 인스타 홍보용으로 예쁘게 해줘', {});
+    const noPhoto = await window.ItdasyPhotoMode.handleText('이 사진 인스타 홍보용으로 예쁘게 해줘', {});
+    window.ItdasyPhotoMode.exit();
     r.noPhoto = {
-      needsPhoto: !!noPhoto.needsPhoto,
-      hasOpenPhoto: (noPhoto.hubActions || []).some(a => /사진 열기/.test(a.label || '')),
+      needsPhoto: /사진/.test(noPhoto.text || ''),
+      hasOpenPhoto: /보내주세요|사진/.test(noPhoto.text || ''),
     };
 
     const chips = window.ItdasyAssistantPendingPhotos.PHOTO_CHIPS || [];
@@ -70,14 +71,14 @@ async function main() {
       labels: chips.map(c => c.label),
       sendCount,
       inputText: input.value,
-      startsPromo: window.ItdasyPromoPhotoChain.detectPromoPhotoChain(input.value),
+      startsPromo: window.ItdasyPhotoMode.shouldStart(input.value, { hasPhoto: true }),
     };
     if (madeWrap) wrap.remove();
     if (madeInput) input.remove();
 
-    const recos = window.ItdasyPromoPhotoChain.buildPromoTemplateRecos('네일 사진 홍보용으로 해줘', {});
-    const caption = window.ItdasyPromoPhotoChain.buildPromoCaptionDraft('nail_focus');
-    const actions = window.ItdasyPromoPhotoChain.buildPromoActions(
+    const recos = window.ItdasyPhotoModeSupport.buildTemplateRecos('네일 사진 홍보용으로 해줘', {});
+    const caption = window.ItdasyPhotoModeSupport.buildCaptionDraft('nail_focus');
+    const actions = window.ItdasyPhotoModeSupport.buildActions(
       { currentCustomer: null }, 'nail_focus', caption, recos, 'data:image/png;base64,after'
     );
     const msg = {
@@ -88,7 +89,7 @@ async function main() {
       promo_result: {
         recipeId: 'nail_focus',
         industryLabel: '네일',
-        effect: window.ItdasyPromoPhotoChain.buildPromoEffectText('nail_focus'),
+        effect: window.ItdasyPhotoModeSupport.buildEffectText('nail_focus'),
         caption,
         templateRecos: recos,
         beforeDataUrl: 'data:image/png;base64,before',
@@ -124,11 +125,11 @@ async function main() {
       dangerActions: actions.filter(a => a.phase === 'danger').length,
     };
     r.regression = {
-      cf1: !!noPhoto.needsPhoto,
+      cf1: /사진/.test(noPhoto.text || ''),
       cf4: typeof window.ItdasyActionHub.handleActionClick === 'function',
       tpl: recos.length === 3,
       j1: !!window.ItdasyActionHub,
-      j2: !!window.ItdasyPromoPhotoChain,
+      j2: !!window.ItdasyPhotoMode && !!window.ItdasyPhotoModeSupport,
       j3: !!window.ItdasyCustomerStatusCard,
       j5: !!window.ItdasyMarketingDraftPolicy,
       briefing: !!window.ItdasyDailyBriefing,
