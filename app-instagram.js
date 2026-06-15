@@ -607,11 +607,11 @@ async function runPersonaAnalyze(force) {
   const subTxt  = document.getElementById('analyzeSubText');
 
   const steps = [
-    { pct: 10, text: '게시물 수집 중...', sub: '최근 30개 게시물을 가져오고 있어요' },
-    { pct: 35, text: '말투 분석 중...', sub: '사장님만의 문체 패턴을 파악하는 중' },
-    { pct: 55, text: '해시태그 패턴 분석 중...', sub: '자주 쓰신 해시태그 top20 추출 중' },
-    { pct: 75, text: '인기 게시물 특징 분석 중...', sub: '좋아요·댓글 많은 게시물의 공통점 파악 중' },
-    { pct: 90, text: '말투 데이터 완성 중...', sub: 'AI가 분석 결과를 정리하고 있어요' },
+    { pct: 10, text: '게시물 가져오는 중…',       sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 35, text: '최근 게시물을 읽는 중…',     sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 55, text: '사장님 말투 익히는 중…',     sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 75, text: '해시태그·이모지 모으는 중…', sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 90, text: '완료! 잇비가 자료 정리 중…', sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
   ];
 
   overlay.style.display = 'flex';
@@ -688,7 +688,12 @@ async function runPersonaAnalyze(force) {
               if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
               try { const flat = { ...sp, tone_summary: sp.tone || '', style_summary: sp.style_summary || '' }; localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat)); } catch(_e){ void _e; }
               try { const cp = document.getElementById('headerAvatar')?.querySelector('img')?.src || ''; updateHeaderProfile(_instaHandle, sp.tone, cp); renderPersonaDash(sp, true); } catch(_e){ void _e; }
-              setTimeout(() => { if (overlay) overlay.style.display = 'none'; try { if (typeof showToast === 'function') showToast('말투 분석 완료!'); } catch(_e){ void _e; } }, 800);
+              setTimeout(() => {
+                if (overlay) overlay.style.display = 'none';
+                if (!_openReportPopupDirect(sp)) {
+                  try { if (typeof showToast === 'function') showToast('말투 분석 완료!'); } catch(_e){ void _e; }
+                }
+              }, 800);
               return;
             }
           }
