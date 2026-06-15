@@ -208,7 +208,7 @@
     const automationTotal = 7;
     const items = [
       _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg>', name: '잇비 · 자동화', meta: `${automationOn}개 켜짐 · ${automationTotal - automationOn}개 꺼짐`, badge: automationTotal }),
-      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="17" height="17" aria-hidden="true"><use href="#ic-settings"/></svg>', name: '설정', meta: '샵정보 · 데이터 · 백업' }),
+      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<i class="ph-duotone ph-gear-six" style="font-size:19px;"></i>', name: '설정', meta: '샵정보 · 데이터 · 백업' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">통합 허브</div><div class="ms-menu">${items}</div></div>`;
   }
