@@ -614,6 +614,7 @@ async function runPersonaAnalyze(force) {
 
   if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   overlay.style.display = 'flex';
+  const _reStart = Date.now();
   let stepIdx = 0;
 
   // 애니메이션: API 응답 전까지 단계 순서대로 진행
@@ -687,6 +688,8 @@ async function runPersonaAnalyze(force) {
               if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
               try { const flat = { ...sp, tone_summary: sp.tone || '', style_summary: sp.style_summary || '' }; localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat)); } catch(_e){ void _e; }
               try { const cp = document.getElementById('headerAvatar')?.querySelector('img')?.src || ''; updateHeaderProfile(_instaHandle, sp.tone, cp); renderPersonaDash(sp, true); } catch(_e){ void _e; }
+              const _re = Date.now() - _reStart;
+              if (_re < 4800) await new Promise(r => setTimeout(r, 4800 - _re));
               setTimeout(() => {
                 if (overlay) overlay.style.display = 'none';
                 if (!_openReportPopupDirect(sp)) {
@@ -724,6 +727,8 @@ async function runPersonaAnalyze(force) {
     updateHeaderProfile(_instaHandle, p.tone, curPic);
     renderPersonaDash(p);
 
+    const _re = Date.now() - _reStart;
+    if (_re < 4800) await new Promise(r => setTimeout(r, 4800 - _re));
     setTimeout(() => {
       overlay.style.display = 'none';
       renderPersonaDash(p, true);
