@@ -4289,6 +4289,12 @@
         _sendInFlight = true;   // await 동안 중복 전송 차단
         let _pmMsg = null;
         try { _pmMsg = await _PM.handleText(q, null); } catch (_e) { _pmMsg = null; }
+        // [§4] 작업실 등으로 네비게이션만 한 경우 — 채팅 push/재렌더 생략(닫히는 중 캡션 카드 깜빡임 방지).
+        if (_pmMsg && _pmMsg.pm_navigated) {
+          _clearAssistantInput(input);
+          _sendInFlight = false; _inflightCtrl = null;
+          return;
+        }
         if (_pmMsg) {
           _clearAssistantInput(input);
           // local_only: 서버 미저장 → _mergeServerHistory 에서 보존(드롭 방지).

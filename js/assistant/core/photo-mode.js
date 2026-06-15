@@ -19,7 +19,9 @@
   function _fresh() {
     return { active: false, workflow: 'basic', step: null, photos: [], photoIdx: 0,
       customer: null, choices: {}, lastTemplateId: null, result: null, caption: '',
-      captionHint: '', lastTemplateExpanded: false, past: [] };
+      captionHint: '', lastTemplateExpanded: false, past: [],
+      // [§2] 캡션 재생성 context — "더 길게/짧게/인스타 말투로/해시태그 더"가 갱신, _caption 이 payload 로 사용.
+      captionLen: 'medium', captionTone: 'normal', captionMoreTags: false };
   }
   // [이슈6] 현재 처리 중인 사진(2장 순차 처리 시 photoIdx 가 0→1 로 진행). 안전 폴백 photos[0].
   function _curPhoto() { return S.photos[S.photoIdx] || S.photos[0] || null; }
@@ -138,13 +140,29 @@
     var m = { '붙임머리': 'extension', '네일아트': 'nail', '네일': 'nail' };
     return m[_shopType()] || 'extension';
   }
-  async function _caption(hint) {
+  // [§2] 인스타 말투 분석(itdasy_latest_analysis) 요약을 캡션 프롬프트(photo_context)에 녹인다.
+  function _instaAnalysisHint() {
+    try {
+      var a = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
+      var bits = [];
+      if (a.tone_summary || a.tone) bits.push('말투 ' + (a.tone_summary || a.tone));
+      if (a.style_summary) bits.push('스타일 ' + a.style_summary);
+      if (a.avg_caption_length) bits.push('평소 캡션 약 ' + a.avg_caption_length + '자');
+      return bits.length ? (' 우리 인스타 말투(' + bits.join(', ') + ')에 맞춰서.') : '';
+    } catch (_e) { return ''; }
+  }
+  async function _caption(hint, opts) {
+    opts = opts || {};
     try {
       var headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
       headers['Content-Type'] = 'application/json';
       var ctxName = S.customer ? (S.customer.name + ' 손님. ') : '';
       var treatment = hint || S.captionHint || '';
-      var body = { category: _category(), photo_context: (_shopType() + ' 시술. ' + ctxName + treatment + ' 오늘 작업 완성본.').slice(0, 500), length_tier: 'medium', tone_override: 'normal' };
+      var analysis = _instaAnalysisHint();
+      var more = S.captionMoreTags ? ' 해시태그를 평소보다 더 다양하게 많이 넣어주세요.' : '';
+      var vary = opts.regen ? ' 이전과 다른 새로운 버전으로 작성해주세요.' : '';
+      var ctxStr = (_shopType() + ' 시술. ' + ctxName + treatment + analysis + more + vary + ' 오늘 작업 완성본.').slice(0, 500);
+      var body = { category: _category(), photo_context: ctxStr, length_tier: (S.captionLen || 'medium'), tone_override: (S.captionTone || 'normal') };
       var res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers: headers, body: JSON.stringify(body) });
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok) return _captionFallback();
@@ -238,7 +256,7 @@
       ? { before_photo: { src: (beforeP || S.photos[0] || {}).url }, after_photo: { src: afterUrl } }
       : { main_photo: { src: afterUrl } };
     var composed = await _preview(tplId, slots, 720);
-    if (!S.caption || regenCaption) S.caption = await _caption();
+    if (!S.caption || regenCaption) S.caption = await _caption(null, { regen: !!regenCaption });
     S.result = Object.assign(S.result || {}, { composedUrl: composed, tplId: tplId });
     var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비하고 있어요.';
     return { text: '완성본이에요. 문구는 **사장님 말투로** 미리 써뒀어요 — 고칠 부분만 알려주세요.',
@@ -267,7 +285,7 @@
     S.step = 'done';
     S.workflow = 'caption';
     if (hint && !/지난번처럼/.test(hint)) S.captionHint = hint;
-    if (!S.caption || regenCaption) S.caption = await _caption(S.captionHint);
+    if (!S.caption || regenCaption) S.caption = await _caption(S.captionHint, { regen: !!regenCaption });
     var url = (S.photos[0] && (S.photos[0].editedUrl || S.photos[0].url)) || '';
     S.result = Object.assign(S.result || {}, { composedUrl: url });
     var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비했어요.';
@@ -398,15 +416,18 @@
       S = _fresh(); S.active = true; S.step = 'await_photo';
       return { text: '처음부터 할게요. 편집할 사진을 다시 보내주세요.' };
     }
-    // [§6] 사진 2장을 이미 받은 상태에서 "전후 카드 만들어줘"(+ "첫 번째 전, 두 번째 후" 순서) 명시 →
-    //   사진을 다시 요구하지 않고 바로 전/후 역할 배정 후 진행. (기존: 어느 step case에도 안 걸려 재요청되던 버그)
+    // [§6/§3] 사진 2장을 이미 받은 상태에서 "전후 카드/템플릿 만들어줘"(+ 순서 지정) 명시 →
+    //   사진 재요청·후사진 단독 보정(_msgFix)으로 빠지지 않고 전/후 역할 배정 후 전후 카드를 바로 합성한다.
     if (S.active && S.photos.length >= 2
         && /(전후|비포\s*애프터|before\s*after)/i.test(q)
-        && /(만들|해줘|제작|뽑|꾸며|카드)/.test(q)) {
+        && /(만들|해줘|제작|뽑|꾸며|카드|템플릿)/.test(q)) {
       S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
       S.workflow = 'ba';
       _assignBaRoles(_baOrderSwap(q));   // 첫=전/둘=후 기본, "첫 번째 후/두 번째 전"이면 swap
-      return await _msgFix();
+      // [§3] 후사진 보정 화면 건너뛰고 전후 카드 합성에 쓸 after 이미지를 직접 지정.
+      var _afterP = S.photos.find(function (p) { return p.role === 'after'; });
+      S.result = Object.assign(S.result || {}, { afterUrl: (_afterP || S.photos[1] || {}).url });
+      return await _msgDone(false);
     }
     return null;
   }
@@ -468,11 +489,7 @@
         return await _msgCaptionDone(q, true);
 
       case 'done':
-        if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
-        if (/저장/.test(q)) return await _msgSaved();
-        if (/문구/.test(q)) return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint || '지난번처럼', true) : await _msgDone(true);
-        if (/템플릿 바꾸|템플릿 고르/.test(q)) return await _msgTemplate(false);
-        return null;
+        return await _handleDoneText(q);
 
       case 'saved':
         return _handleSavedText(q);
@@ -482,12 +499,45 @@
     }
   }
 
+  // 'done' 단계 분기(파일 함수 50줄 규칙 준수 위해 분리).
+  async function _handleDoneText(q) {
+    if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
+    if (/저장/.test(q)) return await _msgSaved();
+    if (/템플릿 바꾸|템플릿 고르/.test(q)) return await _msgTemplate(false);
+    // [§2] "더 길게/짧게/인스타 말투로/해시태그 더/캡션 다시" → 직전 시술내역+말투 context 유지하고 재생성.
+    var adj = _captionAdjust(q);
+    if (adj || /문구/.test(q)) {
+      if (adj) {
+        if (adj.len) S.captionLen = adj.len;
+        if (adj.tone) S.captionTone = adj.tone;
+        if (adj.moreTags) S.captionMoreTags = true;
+      }
+      return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint || '지난번처럼', true) : await _msgDone(true);
+    }
+    return null;
+  }
+
   // 'saved' 단계 분기(파일 함수 50줄 규칙 준수 위해 분리).
   function _handleSavedText(q) {
     if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
-    if (/작업실/.test(q)) { _openWorkshop(); var t = { text: '작업실을 열었어요. 방금 만든 카드가 슬롯에 들어있어요.' }; exit(); return t; }
+    // [§4] 작업실로 이동 — 채팅 메시지 push/재렌더를 하지 않는다. (재렌더 시 닫히는 트랜지션 중 직전 캡션 카드가 1초 깜빡이던 버그)
+    if (/작업실/.test(q)) { _openWorkshop(); exit(); return { pm_navigated: true }; }
     if (/다른 사진/.test(q)) { var keepCust = S.customer; S = _fresh(); S.active = true; S.customer = keepCust; S.step = 'await_photo'; return { text: '좋아요, 다음 사진을 보내주세요.' }; }
     return null;
+  }
+
+  // [§2] 캡션 재생성 조절 의도 파싱 — 길이/말투/해시태그/재생성. 없으면 null.
+  function _captionAdjust(q) {
+    q = String(q || '');
+    var out = null;
+    function set(k, v) { out = out || {}; out[k] = v; }
+    if (/(더\s*길게|길게|분량.*(늘|많|크)|자세히|상세히|풍부하게|넉넉)/.test(q)) set('len', 'long');
+    if (/(더\s*짧게|짧게|간결|핵심만|줄여|간단)/.test(q)) set('len', 'short');
+    if (/(인스타\s*(말투|스럽|식|느낌)|더\s*인스타|화려|이모지\s*(더|많)|꾸며서|발랄|트렌디)/.test(q)) set('tone', 'ornate');
+    if (/(담백|깔끔한\s*말투|차분|이모지\s*(빼|줄|없)|점잖|격식)/.test(q)) set('tone', 'plain');
+    if (/(해시\s*태그|해시태그).*(더|추가|많|넣)/.test(q)) set('moreTags', true);
+    if (/(캡션\s*(다시|새로)|다시\s*(써|만들|생성|해)|다른\s*(버전|느낌|걸로)|새\s*버전|새로\s*써)/.test(q)) set('regen', true);
+    return out;
   }
 
   // ── 보조 동작 ──
