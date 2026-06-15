@@ -539,13 +539,25 @@
         if (/반대/.test(q)) { _assignBaRoles(true); return await _composeBaCard(); }
         return null;
 
-      case 'fix':
+      case 'fix': {
         if (/이대로|좋아요/.test(q)) return _msgServiceAsk();   // [이슈5] 캡션 전 시술 내역 게이트
         if (/자연스럽/.test(q)) return await _msgFix('natural');
         if (/화사/.test(q)) return await _msgFix('strong');
         if (/원본/.test(q)) { if (S.result) { var _cp = _curPhoto(); S.result.afterUrl = (_cp && _cp.url); } return await _msgFix(null); }
         if (/직접/.test(q)) return await _toWorkshop();
+        // [Phase5/qa-F] 말투/길이만 말하면 설정만 반영하고 보정 유지.
+        var adjF = _captionAdjust(q);
+        if (adjF && _isPureAdjust(q)) {
+          if (adjF.len) S.captionLen = adjF.len;
+          if (adjF.tone) S.captionTone = adjF.tone;
+          if (adjF.moreTags) S.captionMoreTags = true;
+          if (adjF.minLines) S.captionMinLines = adjF.minLines;
+          return await _msgFix();
+        }
+        // [Phase5/qa-F] 시술명/설명("레이어드 컷")을 말하면 가격표·다른 템플릿으로 새지 않고 현재 flow 의 시술내역으로 흡수.
+        if (q.length >= 2 && !/^(취소|그만|종료|끝|뒤로|이전)/.test(q)) { S.captionHint = q; return await _doneForWorkflow(); }
         return null;
+      }
 
       case 'svc_ask': {  // [이슈5] 시술 내역 입력 또는 "그냥 알아서 써줘" 건너뛰기
         // [qa-F] 미리보기 요청은 시술내역으로 오인하지 않는다 — 캡션 먼저 만들도록 재안내.
