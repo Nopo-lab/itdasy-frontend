@@ -293,31 +293,40 @@ function renderDetailedPopup(data) {
         ? `<img src="${_esc(picUrl)}" style="width:62px;height:62px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
         : SIL;
 
-    // ── 헤더 카드 ([1] border hairline, shadow 제거, 토큰화)
+    // ── 히어로 섹션
     let html = `
-    <div style="background:var(--surface);border-radius:var(--r-md);border:0.5px solid var(--border);padding:24px 20px 20px;text-align:center;margin-bottom:12px;">
-      <div style="width:62px;height:62px;border-radius:50%;background:#F2F4F6;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;overflow:hidden;">${avatarInner}</div>
-      ${handle ? `<div style="font-size:17px;font-weight:700;color:var(--text);letter-spacing:-0.3px;">@${_esc(handle)}</div>` : ''}
-      ${postCount > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px;"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>게시물 ${postCount}개 분석 완료</span>` : ''}
+    <div style="background:#FBEAF0;border-radius:26px 26px 0 0;padding:32px 20px 24px;text-align:center;">
+      <div style="margin-bottom:14px;display:flex;justify-content:center;">
+        <svg width="46" height="46" class="itb-float" aria-hidden="true"><use href="#ic-bot"/></svg>
+      </div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:6px;">말투 분석이 완료됐어요!</div>
+      <div style="font-size:13px;color:${ROSE};font-weight:600;">${postCount > 0 ? `게시물 ${postCount}개 분석 완료` : '말투 분석 완료'}</div>
     </div>`;
 
-    // ── style_summary 한 줄 요약 (헤더 카드 바로 아래)
-    const styleSummary = String(
-        raw.style_summary || p.style_summary || raw.tone_summary || ''
-    ).trim();
-    if (styleSummary) {
-        html += `
-    <div style="background:var(--surface);border-radius:var(--r-md);border:0.5px solid var(--border);padding:16px 20px;margin-bottom:12px;">
-      <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:6px;">원장님 말투</div>
-      <div style="font-size:14px;color:var(--text);line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
+    // ── 아바타/핸들/배지
+    html += `
+    <div style="padding:20px 20px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:50%;background:#F2F4F6;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">${avatarInner}</div>
+      <div>
+        ${handle ? `<div style="font-size:15px;font-weight:700;color:var(--text);">@${_esc(handle)}</div>` : ''}
+        ${postCount > 0 ? `<div style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:4px;"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${postCount}개 분석</div>` : ''}
+      </div>
     </div>`;
-    }
 
-    // ── 내용 카드 (섹션 간 .5px 구분선, 박스 중첩 금지)
-    const DIV = '<div style="height:.5px;background:#F0F1F3;"></div>';
+    // ── 섹션 목록 (hairline 구분선)
+    const DIV = '<div style="height:.5px;background:var(--border);"></div>';
     const secs = [];
 
-    // [5] 말끝 칩 (고정문구보다 위에 배치)
+    // 말투
+    const styleSummary = String(raw.style_summary || p.style_summary || raw.tone_summary || '').trim();
+    if (styleSummary) {
+        secs.push(`<div style="padding:18px 20px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:6px;">원장님 말투</div>
+            <div style="font-size:14px;color:var(--text);line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
+        </div>`);
+    }
+
+    // 말끝 칩 (고정문구보다 위에 배치)
     if (sigArr.length) {
         const sigChips = sigArr.map(s =>
             `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(s)}</span>`
@@ -328,7 +337,7 @@ function renderDetailedPopup(data) {
         </div>`);
     }
 
-    // [6] 고정문구: 항상 렌더, 없으면 '없음'
+    // 고정문구: 항상 렌더, 없으면 '없음'
     secs.push(`<div style="padding:18px 20px;">
         <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 꼭 쓰는 고정문구</div>
         ${capTmpl
@@ -358,19 +367,21 @@ function renderDetailedPopup(data) {
     }
 
     if (secs.length) {
-        html += `<div style="background:var(--surface);border-radius:var(--r-md);border:0.5px solid var(--border);overflow:hidden;margin-bottom:20px;">${secs.join(DIV)}</div>`;
+        html += `<div style="overflow:hidden;">${secs.join(DIV)}</div>`;
     }
 
-    // ── CTA ([4] 버튼 배경 var(--text) 네이비, ROSE는 배지 전용)
+    // ── CTA
     html += `
-    <div style="text-align:center;margin-bottom:12px;">
-        <span style="font-size:12px;color:var(--text-subtle);">잇비가 말투분석한 걸로 테스트해보세요</span>
-    </div>
-    <button data-ig-write style="width:100%;height:52px;border-radius:14px;border:none;background:var(--text);color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-        <svg width="20" height="20" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-bot"/></svg>내 말투로 글 써보기
-    </button>
-    <div style="text-align:center;">
-        <button data-static-action="analyze-result-close" style="background:none;border:none;padding:10px 20px;font-size:13px;color:var(--text-subtle);cursor:pointer;">다음에 할게요</button>
+    <div style="padding:20px;">
+        <div style="text-align:center;margin-bottom:12px;">
+            <span style="font-size:12px;color:var(--text-subtle);">잇비가 말투분석한 걸로 테스트해보세요</span>
+        </div>
+        <button data-ig-write style="width:100%;height:52px;border-radius:14px;border:none;background:var(--text);color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+            <svg width="20" height="20" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-bot"/></svg>내 말투로 글 써보기
+        </button>
+        <div style="text-align:center;">
+            <button data-static-action="analyze-result-close" style="background:none;border:none;padding:10px 20px;font-size:13px;color:var(--text-subtle);cursor:pointer;">다음에 할게요</button>
+        </div>
     </div>`;
 
     const body = document.getElementById('analyzeResultBody');
@@ -410,7 +421,7 @@ async function runAutoAnalysisAfterConnect() {
   if (overlay) overlay.style.display = 'flex';
   if (bar) bar.style.width = '10%';
   if (stepTxt) stepTxt.textContent = 'AI 말투 분석 시작했어요';
-  if (subTxt)  subTxt.textContent  = '게시물 가져오고 사장님 문체 학습 중이에요…';
+  if (subTxt)  subTxt.textContent  = '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요';
   try { if (typeof showToast === 'function') showToast('🪄 AI 말투 분석을 시작했어요. 결과 곧 보여드릴게요'); } catch (_e) { void _e; }
 
   const startedAt = Date.now();
@@ -470,8 +481,7 @@ async function runAutoAnalysisAfterConnect() {
   if (success && lastStatusData) {
     const p = lastStatusData.persona || {};
     if (bar) bar.style.width = '100%';
-    if (stepTxt) stepTxt.textContent = '분석 성공!';
-    if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
+    if (stepTxt) stepTxt.textContent = '완료! 잇비가 자료 정리 중…';
     // [2026-05-21] localStorage 저장은 그대로 유지 (다른 화면·다음 방문이 읽음).
     // persona 필드를 raw_analysis 호환 형태로 평탄화해서 저장.
     try {
@@ -547,7 +557,7 @@ function _openReportPopupDirect(p) {
     if (pop) {
       // stacking context 이슈 방지 — body 최상위로
       if (pop.parentElement !== document.body) document.body.appendChild(pop);
-      pop.style.display = 'block';
+      pop.style.display = 'flex';
       return true;
     }
   } catch (_e) { console.log('[IG-ANALYZE] popup-open-failed', _e && _e.message); }
@@ -719,7 +729,7 @@ async function runPersonaAnalyze(force) {
       if (_apop) {
         // [F6] body 최상위 이동 → 설정 시트(z-index 9996) 위로 즉시 노출
         if (_apop.parentElement !== document.body) document.body.appendChild(_apop);
-        _apop.style.display = 'block';
+        _apop.style.display = 'flex';
       }
       // [2026-04-24] 말투 테스트 자동 트리거 제거 — 사용자가 설정 메뉴에서 명시적 호출
       // window.openPersonaSurveyModal() 함수 자체는 app-persona-survey.js 에 그대로 남아있음
