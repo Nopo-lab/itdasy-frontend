@@ -546,8 +546,16 @@
   }
   // [§6/§3] 전후 카드 바로 합성 — 두 사진 모두 사용. 후사진 단독 보정(_msgFix) 건너뜀.
   async function _composeBaCard() {
-    var afterP = S.photos.find(function (p) { return p.role === 'after'; });
-    S.result = Object.assign(S.result || {}, { afterUrl: (afterP || S.photos[1] || {}).url });
+    // [§2 qa-E] 보정은 유지하되 단일 보정 화면으로 빠지지 않게 — 후사진을 전후 카드 파이프라인 '안에서' 자연 보정 후 합성.
+    var afterP = S.photos.find(function (p) { return p.role === 'after'; }) || S.photos[1] || S.photos[0];
+    var afterUrl = (afterP && afterP.url) || '';
+    try {
+      if (afterUrl) {
+        var r = await _autoEdit(afterUrl, 'standard');   // 후사진 홍보용 자연 보정(피부/밝기/선명도/색감)
+        if (r && r.dataUrl) { afterUrl = r.dataUrl; if (afterP) afterP.editedUrl = r.dataUrl; }
+      }
+    } catch (_e) { void _e; }
+    S.result = Object.assign(S.result || {}, { afterUrl: afterUrl, presetLabel: '자연 보정 적용', baEnhanced: true });
     return await _msgDone(false);
   }
   async function _pickCustomer() {

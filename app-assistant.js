@@ -538,6 +538,7 @@
         ${relatedHtml}
         ${intentChipsHtml}
         ${promoResultHtml ? '' : _renderTplRecos(m, idx)}
+        ${_renderEventChoices(m, idx)}
         ${_renderBriefingActions(m, idx)}
         ${promoResultHtml ? '' : _renderHubActions(m, idx)}
       </div>
@@ -577,6 +578,16 @@
     const cards = m.tpl_recos.map(id => TV.recoCardHtml(id)).filter(Boolean).join('');
     if (!cards) return '';
     return `<div class="asst-tpl-recos" data-asst-tpl-recos="${idx}" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${cards}</div>`;
+  }
+
+  // [§1 qa-E] 이벤트 카드 선택지 — recoCardHtml 비주얼 재사용. 클릭 시 _openPreview 대신 편집기를 직접 연다(버튼 무반응 해결).
+  function _renderEventChoices(m, idx) {
+    if (!Array.isArray(m.event_choices) || !m.event_choices.length) return '';
+    const TV = window.PhotoEditorTemplatesV2;
+    if (!TV || typeof TV.recoCardHtml !== 'function') return '';
+    const cards = m.event_choices.map(c => TV.recoCardHtml(c.id)).filter(Boolean).join('');
+    if (!cards) return '';
+    return `<div class="asst-event-recos" data-asst-event-recos="${idx}" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${cards}</div>`;
   }
 
   // [모드 P1] 사진편집 모드 — 사용자 사진을 끼운 템플릿 미리보기 행(가로 스크롤).
@@ -663,6 +674,18 @@
       const TV = window.PhotoEditorTemplatesV2;
       if (TV && typeof TV.bindRecoCards === 'function') {
         body.querySelectorAll('[data-asst-tpl-recos]').forEach((el) => TV.bindRecoCards(el));
+        // [§1 qa-E] 이벤트 선택지: 썸네일은 주입하되, 클릭은 _openPreview(편집기 필요)가 아니라 편집기 직접 오픈으로.
+        body.querySelectorAll('[data-asst-event-recos]').forEach((el) => {
+          try { TV.bindRecoCards(el); } catch (_t) { void _t; }
+          el.addEventListener('click', (e) => {
+            const btn = e.target.closest && e.target.closest('[data-tpv2-tpl]');
+            if (!btn) return;
+            e.stopImmediatePropagation(); e.preventDefault();
+            const id = btn.dataset.tpv2Tpl;
+            const labelEl = btn.querySelector('div div') || btn.querySelector('div');
+            _openEventTemplate(id, (labelEl && labelEl.textContent && labelEl.textContent.trim()) || '이벤트 카드');
+          }, true);   // capture: bindRecoCards 의 버블 _openPreview 보다 먼저 실행 → 가로채기
+        });
       }
     } catch (_e) { void 0; }
   }
@@ -4276,17 +4299,43 @@
   //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
   const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid', event: 'bp-event-spring-mixed', generic: 'card-minimal' };
   const _CREATE_LABEL = { price: '가격표', review: '후기 카드', before_after: '전후 카드', event: '이벤트 카드', generic: '카드' };
-  // [§1] 이벤트 요청 → 일반 템플릿 메뉴가 아니라 '이벤트 전용 카드 선택지'를 채팅에 표시(기존 템플릿 카드 스타일 재사용).
-  const _EVENT_CARD_IDS = ['event-discount', 'event-newcomer', 'event-deadline', 'event-gift', 'event-member'];
+  // [§1] 이벤트 요청 → 일반 템플릿 메뉴가 아니라 '이벤트 전용 카드 선택지'를 채팅에 표시. 적용 버튼은 편집기를 직접 연다.
+  const _EVENT_CHOICES = [
+    { id: 'event-discount', label: '할인 이벤트' },
+    { id: 'event-newcomer', label: '신규 고객 이벤트' },
+    { id: 'event-deadline', label: '마감임박 이벤트' },
+    { id: 'event-gift', label: '증정 이벤트' },
+    { id: 'event-member', label: '회원 이벤트' },
+  ];
   async function _pushEventCardChoices(q) {
     try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
     const lead = /네일/.test(q || '') ? '네일 ' : (/속눈썹|래쉬|lash/i.test(q || '') ? '속눈썹 ' : '');
     _history.push({
       role: 'assistant',
-      text: lead + '이벤트 카드를 골라보세요. 마음에 드는 디자인을 누르면 기간·혜택만 바꿔서 바로 만들 수 있어요.',
-      tpl_recos: _EVENT_CARD_IDS,
+      text: lead + '어떤 이벤트 카드로 만들까요? 아래에서 고르고 "이 템플릿 적용"을 누르면 기간·혜택만 바꿔서 바로 만들 수 있어요.',
+      event_choices: _EVENT_CHOICES,
     });
     _renderHistory();
+  }
+  // [§1 qa-E] 이벤트 카드 적용 — 편집기를 열면서 해당 이벤트 템플릿 적용(저장→작업실). _apply(편집기 필요)와 달리 무반응 없음.
+  let _eventApplyInFlight = false;
+  function _openEventTemplate(tplId, label) {
+    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
+    if (!PE || typeof PE.open !== 'function') { try { if (window.showToast) window.showToast('편집기를 열 수 없어요. 잠시 후 다시 시도해 주세요.'); } catch (_t) { void _t; } return; }
+    if (_eventApplyInFlight) return;   // 중복 클릭 방지
+    _eventApplyInFlight = true; setTimeout(() => { _eventApplyInFlight = false; }, 1200);
+    let source = '';
+    try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
+    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'event', label: label || '이벤트 카드' }) });
+    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: label || '이벤트 카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
+    _focusEditorCloseAssistant();
+  }
+  // [§1 qa-E] 이벤트 의도 — "이벤트/이벤트 카드/회원 이벤트/오픈 이벤트…" 전부 이벤트 선택지로(작업실/일반메뉴로 새지 않게).
+  function _looksEventIntent(q) {
+    const t = String(q || '');
+    if (/(보여|목록|저장한|작업실|수정|삭제|지워|올려|발송|문자|디엠)/.test(t)) return false;
+    return /이벤트/.test(t);
   }
   function _openCreateTemplate(purpose) {
     const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
@@ -4416,6 +4465,8 @@
     if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
     if (await _trySavedCardsShortcut(input, q)) return;
+    // [§1 qa-E] 이벤트 의도 — 작업실/일반 템플릿 메뉴로 새지 않게 가장 먼저 이벤트 카드 선택지로.
+    if (_looksEventIntent(q)) { _clearAssistantInput(input); _history.push({ role: 'user', text: q }); await _pushEventCardChoices(q); return; }
     // [§7] 캡션/문구 의도 — 사진이 있어도 사진편집(_looksPhotoFollowup)·템플릿으로 새지 않게 먼저 가로챈다.
     if (await _tryCaptionConversation(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면

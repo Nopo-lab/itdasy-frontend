@@ -87,6 +87,13 @@
       reasons.push('CUT(purpose-mismatch):' + sample.purpose);
       return -Infinity;
     }
+    // [§3 qa-E] 가격표 샘플은 명시적 price 의도 또는 카드 생성 신호가 있을 때만 — 생성 신호 없는 '바 시술명'
+    //   ("레이어드 컷")이 업종(hair) 점수만으로 가격표로 오인되던 문제 차단(시술자랑/전후 flow 후속 입력 보호).
+    if (sample.purpose === 'price' && purposes.indexOf('price') === -1
+        && !/(카드|템플릿|만들|맹글|제작|뽑|디자인|하나|한\s*개|ㄱ)/.test(nt)) {
+      reasons.push('CUT(price-bare-service)');
+      return -Infinity;
+    }
 
     var score = 0;
     if (purposes.indexOf(sample.purpose) !== -1) { score += 10; reasons.push('purpose:' + sample.purpose + '+10'); }
