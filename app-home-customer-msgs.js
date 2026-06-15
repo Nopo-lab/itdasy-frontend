@@ -56,10 +56,10 @@
     return it.display_name || ('손님 …' + (it.sender_tail || (it.sender_igsid || '').slice(-4)));
   }
 
-  // [2026-06-16] 채널 마크 — 아바타 우하단 모서리(프사 유지, X·언리드닷과 충돌 X). 공유 모듈 정본.
+  // [2026-06-16] 채널 마크 — 아바타 좌상단 모서리(원형 아바타 코너 여백이라 프사 안 가림, X=우상단·언리드닷과 충돌 X). 공유 모듈 정본.
   function _channelMark(channel) {
     return (window.ChannelMark && window.ChannelMark.mark)
-      ? window.ChannelMark.mark(channel, { size: 16, pos: 'position:absolute;bottom:-2px;right:-2px;' })
+      ? window.ChannelMark.mark(channel, { size: 16, pos: 'position:absolute;top:-2px;left:-2px;' })
       : '';
   }
 
