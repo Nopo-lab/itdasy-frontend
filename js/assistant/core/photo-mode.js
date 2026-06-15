@@ -18,7 +18,7 @@
   var S = _fresh();
   function _fresh() {
     return { active: false, workflow: 'basic', step: null, photos: [], photoIdx: 0,
-      customer: null, choices: {}, lastTemplateId: null, result: null, caption: '',
+      customer: null, customerSuggest: null, choices: {}, lastTemplateId: null, result: null, caption: '',
       captionHint: '', lastTemplateExpanded: false, past: [],
       // [§2] 캡션 재생성 context — "더 길게/짧게/인스타 말투로/해시태그 더"가 갱신, _caption 이 payload 로 사용.
       captionLen: 'medium', captionTone: 'normal', captionMoreTags: false, captionMinLines: 0 };
@@ -43,6 +43,10 @@
   function _looksCaptionRequest(q) {
     if (Support && Support.CAPTION_RE) return Support.CAPTION_RE.test(String(q || ''));
     return /(캡션|홍보\s*글|홍보글|해시\s*태그|문구|인스타\s*(글|피드\s*글))/i.test(String(q || ''));
+  }
+  // [qa-G #4] 홍보/보정/카드 의도 — 사진 업로드 시 고객확인보다 홍보 흐름을 우선시키기 위한 판별.
+  function _looksPromoEdit(q) {
+    return /(홍보|예쁘게|보정|꾸며|인스타|업로드|올릴|올려|게시|피드|스토리|릴스|전후|비포|애프터|카드|캡션|문구|광고)/i.test(String(q || ''));
   }
   // [qa-F] 명시적 인스타 미리보기 요청만 true. "인스타스럽게/말투/느낌"(톤 수정)은 false → 미리보기 안 뜸.
   function _looksPreview(q) {
@@ -366,8 +370,29 @@
     }
     S.step = 'saved';
     var slot = S.customer ? (S.customer.name + ' 손님 슬롯') : '작업실 슬롯';
-    return { text: '✓ 작업실에 저장했어요 — ' + slot + linked + '\n\n다음은 뭐 할까요?',
-      related: ['작업실에서 보기', '인스타 미리보기', '다른 사진 편집', '끝낼래요'] };
+    var rel = ['작업실에서 보기', '인스타 미리보기', '다른 사진 편집', '끝낼래요'];
+    // [qa-G #4] 홍보 흐름에서 고객을 자동 연결하지 않았다면 — 완성 후 '선택적으로' 연결 제안.
+    if (!S.customer && S.customerSuggest && S.customerSuggest.name) {
+      rel.splice(1, 0, S.customerSuggest.name + ' 고객 기록에 연결');
+    }
+    return { text: '✓ 작업실에 저장했어요 — ' + slot + linked + '\n\n다음은 뭐 할까요?', related: rel };
+  }
+
+  // [qa-G #4] 완성 후 사용자가 동의했을 때만 매칭 고객 기록에 연결.
+  async function _linkSuggestedCustomer() {
+    var c = S.customerSuggest;
+    if (!c) return { text: '연결할 고객 정보가 없어요.', related: ['작업실에서 보기', '끝낼래요'] };
+    var cur = _curPhoto();
+    var url = (S.result && (S.result.composedUrl || S.result.afterUrl)) || (cur && cur.url);
+    try {
+      if (window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function')
+        await window.TreatmentLink.attachPhotoToCustomer({ customer: { id: c.id, name: c.name }, dataUrl: url, source: 'itbi_guided' });
+      else return { text: '고객 연결 기능을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.', related: ['작업실에서 보기', '끝낼래요'] };
+    } catch (_e) {
+      return { text: c.name + ' 고객 기록 연결에 실패했어요. 잠시 후 다시 시도해 주세요.', related: ['작업실에서 보기', '끝낼래요'] };
+    }
+    S.customer = c; S.customerSuggest = null;
+    return { text: '✓ ' + c.name + ' 고객 기록에 연결했어요.', related: ['작업실에서 보기', '다른 사진 편집', '끝낼래요'] };
   }
 
   async function _msgCurrent() {
@@ -423,7 +448,10 @@
     S.workflow = _looksCaptionRequest(question) ? 'caption' : 'basic';
     S.photos = photoUrls.map(function (u) { return { url: u, role: null }; });
     S.customer = await _matchCustomer();
-    _log('intake', { customer: S.customer && S.customer.name });
+    // [qa-G #4] 홍보/보정 의도면 "○○ 손님 맞아요?" 고객확인을 최우선으로 띄우지 않는다(인터럽트 금지).
+    //   매칭 고객은 제안(customerSuggest)으로만 두고 바로 홍보/보정 흐름으로. 연결은 완성 후 선택.
+    if (_looksPromoEdit(question) && S.customer) { S.customerSuggest = S.customer; S.customer = null; }
+    _log('intake', { customer: S.customer && S.customer.name, suggest: S.customerSuggest && S.customerSuggest.name });
     if (S.workflow === 'caption' && !S.customer) return _msgCaptionPrompt();
     var m = _msgIntake();
     if (m._next === 'template') { delete m._next; return await _msgTemplate(false); }
@@ -544,7 +572,7 @@
         return await _handleDoneText(q);
 
       case 'saved':
-        return _handleSavedText(q);
+        return await _handleSavedText(q);
 
       default:
         return null;
@@ -573,8 +601,12 @@
   }
 
   // 'saved' 단계 분기(파일 함수 50줄 규칙 준수 위해 분리).
-  function _handleSavedText(q) {
+  async function _handleSavedText(q) {
     if (_looksPreview(q)) return _openInstaPreview();   // [qa-F/이슈4] 명시적 미리보기만
+    // [qa-G #4] 완성 후 사용자가 '고객 연결' 선택 시에만 매칭 고객 기록에 연결.
+    if (S.customerSuggest && (/고객\s*기록.*연결|고객.*연결|연결할래|연결해\s*줘|연결해줘/.test(q) || (S.customerSuggest.name && q.indexOf(S.customerSuggest.name) === 0 && /연결/.test(q)))) {
+      return await _linkSuggestedCustomer();
+    }
     // [§4] 작업실로 이동 — 채팅 메시지 push/재렌더를 하지 않는다. (재렌더 시 닫히는 트랜지션 중 직전 캡션 카드가 1초 깜빡이던 버그)
     if (/작업실/.test(q)) { _openWorkshop(); exit(); return { pm_navigated: true }; }
     if (/다른 사진/.test(q)) { var keepCust = S.customer; S = _fresh(); S.active = true; S.customer = keepCust; S.step = 'await_photo'; return { text: '좋아요, 다음 사진을 보내주세요.' }; }

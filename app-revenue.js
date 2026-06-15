@@ -1159,7 +1159,10 @@
       const k = (e && e.detail && e.detail.kind) || '';
       if (!k) return;
       if (k === 'create_revenue' || k === 'update_revenue' || k === 'delete_revenue' || k === 'create_expense' ||
-          k.indexOf('revenue') !== -1 || k.indexOf('expense') !== -1) {
+          k.indexOf('revenue') !== -1 || k.indexOf('expense') !== -1 ||
+          // [qa-G #1] 예약금(deposit)·예약 상태 변경도 확정매출(예약금)·예정매출 요약에 영향 → 캐시 무효화 후 재조회.
+          //   예약 상세에서 예약금 저장 시 update_booking/create_booking 이 발생하므로 매출 요약을 갱신해야 반영됨.
+          k.indexOf('booking') !== -1) {
         _clearSWRRevenue();
         const sheet = document.getElementById('revenueSheet');
         if (sheet && sheet.style.display !== 'none') {
