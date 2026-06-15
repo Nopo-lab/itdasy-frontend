@@ -38,7 +38,7 @@
       <div class="ms-sheet__handle"></div>
       <div class="ms-sheet__head">
         <div class="ms-sheet__head-left">
-          <div class="ms-sheet__title">설정 · 연동</div>
+          <div class="ms-sheet__title">연동관리</div>
           <div class="ms-sheet__sub">샵 정보 · 외부 연동 · 백업</div>
         </div>
         <button type="button" class="ms-sheet__close" id="shClose" aria-label="닫기">✕</button>

@@ -138,9 +138,6 @@
     const todayN = _todayBookingsList(brief).length;
     const pendingN = brief && Array.isArray(brief.pending_bookings) ? brief.pending_bookings.length : 0;
 
-    const revTrend = mom != null
-      ? `${mom >= 0 ? '+' : ''}${Number(mom).toFixed(0)}% ${mom >= 0 ? '↑' : '↓'} 전월 대비`
-      : '';
     const custVal = totalC != null ? `${totalC}명` : (atRiskN ? `이탈 ${atRiskN}` : '—');
     // [2026-06-03] 신규 단일수치 → 방문 기준 3분해. BE 새 필드 없으면(미배포·구캐시) 기존 '신규 N' 폴백.
     const fv = brief && brief.first_visit_count;
@@ -153,7 +150,7 @@
     const bookVal = `${todayN}건`;
     const bookTrend = pendingN ? `대기 ${pendingN}건` : '오늘 예약';
 
-    return { rev, revTrend, custVal, custTrend, bookVal, bookTrend };
+    return { rev, custVal, custTrend, bookVal, bookTrend };
   }
   function _renderShopCard(brief) {
     const shop = _shopName();
@@ -179,7 +176,6 @@
           <div class="ms-shop__stat">
             <div class="ms-shop__stat-label">이번달 매출</div>
             <div class="ms-shop__stat-value">${_esc(formatMoney(s.rev))}</div>
-            ${s.revTrend ? `<div class="ms-shop__stat-trend">${_esc(s.revTrend)}</div>` : ''}
           </div>
           <div class="ms-shop__stat">
             <div class="ms-shop__stat-label">고객</div>
@@ -252,8 +248,8 @@
     const automationOn = _automationOnCount();
     const automationTotal = 7;
     const items = [
-      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', name: 'AI · 자동화', meta: `${automationOn}개 켜짐 · ${automationTotal - automationOn}개 꺼짐`, badge: automationTotal }),
-      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', name: '설정 · 연동', meta: '샵정보 · 직원 · 네이버 · 백업' }),
+      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', name: '잇비 · 자동화', meta: `${automationOn}개 켜짐 · ${automationTotal - automationOn}개 꺼짐`, badge: automationTotal }),
+      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', name: '연동관리', meta: '샵정보 · 직원 · 네이버 · 백업' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">통합 허브</div><div class="ms-menu">${items}</div></div>`;
   }
@@ -311,8 +307,8 @@
     const automationOn = _automationOnCount();
     return [
       '<div class="ms-side__section">통합 허브</div>',
-      _sideItemHTML({ act: 'aiHub',    iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', label: 'AI · 자동화', badge: `${automationOn}/7`, badgeClass: 'is-ok' }),
-      _sideItemHTML({ act: 'settings', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', label: '설정 · 연동' }),
+      _sideItemHTML({ act: 'aiHub',    iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', label: '잇비 · 자동화', badge: `${automationOn}/7`, badgeClass: 'is-ok' }),
+      _sideItemHTML({ act: 'settings', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', label: '연동관리' }),
     ].join('');
   }
   function _sideAccountHTML() {

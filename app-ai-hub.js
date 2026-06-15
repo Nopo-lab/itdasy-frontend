@@ -121,7 +121,7 @@
         <div class="ms-sheet__handle"></div>
         <div class="ms-sheet__head">
           <div class="ms-sheet__head-left">
-            <div id="aihTitle" class="ms-sheet__title">AI · 자동화</div>
+            <div id="aihTitle" class="ms-sheet__title">잇비 · 자동화</div>
             <div class="ms-sheet__sub" id="aihSub">${_esc(sub)}</div>
           </div>
           <button type="button" class="ms-sheet__close" data-close="1" aria-label="닫기">✕</button>
@@ -240,90 +240,12 @@
     return !!(fn && typeof window[fn] === 'function');
   }
 
-  function _personaOption(k, t, sub, color) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.personaOpt = k;
-    b.style.cssText = `text-align:left;padding:16px 18px;border:1px solid rgba(213,138,149,0.2);border-radius:16px;background:linear-gradient(135deg,#fffcfd,${color || '#fff5f7'});cursor:pointer;display:flex;flex-direction:column;gap:4px;`;
-    b.innerHTML = `<div style="font-size:14px;font-weight:800;color:#191F28;letter-spacing:-0.2px;">${t}</div><div style="font-size:11.5px;color:#6B7684;">${sub}</div>`;
-    return b;
-  }
-
-  function _hasPersonaReportData() {
-    try {
-      const raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
-      return !!(raw && (raw.tone_summary || raw.style_summary || raw.tone));
-    } catch (_e) {
-      return false;
-    }
-  }
-
-  function _runPersonaRelearn() {
-    if (typeof window.runPersonaAnalyze === 'function') return window.runPersonaAnalyze(true);
-    if (typeof window.runAutoAnalysisAfterConnect === 'function') return window.runAutoAnalysisAfterConnect();
-    if (window.showToast) window.showToast('분석 모듈 로드 중 — 1~2초 후 다시 눌러주세요');
-    return null;
-  }
-
-  function _openPersonaReport() {
-    if (_hasPersonaReportData() && typeof window.showDetailedAnalysis === 'function') {
-      return window.showDetailedAnalysis();
-    }
-    if (typeof window.runPersonaAnalyze === 'function') {
-      if (window.showToast) window.showToast('아직 분석 데이터가 없어요. 지금 분석을 시작할게요.');
-      return window.runPersonaAnalyze(true);
-    }
-    if (window.showToast) window.showToast('인스타 연동 후 말투 분석을 진행해주세요');
-    return null;
-  }
-
-  function _handlePersonaOption(opt) {
-    if (opt === 'caption' && typeof window.openCaptionScenarioPopup === 'function') {
-      return window.openCaptionScenarioPopup();
-    }
-    if (opt === 'relearn') return _runPersonaRelearn();
-    if (opt === 'report') return _openPersonaReport();
-    if (window.showToast) window.showToast('해당 기능을 찾을 수 없어요. 잠시 후 다시 시도해주세요');
-    return null;
-  }
-
-  function _personaOptionsBox(close) {
-    const optBox = document.createElement('div');
-    optBox.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
-    optBox.appendChild(_personaOption('caption', '캡션 만들기', '사진 → 글·해시태그까지 한 번에', '#fff5f7'));
-    optBox.appendChild(_personaOption('relearn', '말투 새로 분석', '최근 게시물로 다시 학습 (인스타 필요)', '#F7EFF0'));
-    optBox.appendChild(_personaOption('report',  '분석 리포트 보기', '말투 패턴 · TOP5 · 이모지 · 해시태그', '#F0F9FF'));
-    optBox.addEventListener('click', e => {
-      const btn = e.target.closest('[data-persona-opt]');
-      if (!btn) return;
-      close();
-      try { _handlePersonaOption(btn.dataset.personaOpt); }
-      catch (_e) { if (window.showToast) window.showToast('화면을 여는 중 문제가 생겼어요'); }
-    });
-    return optBox;
-  }
-
-  // [2026-05-25] AI 페르소나 통합 시트 — 3개 옵션 (SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
-  function _openPersonaHub() {
-    const id = 'aihPersonaSheet';
-    let overlay = document.getElementById(id);
-    if (overlay) { try { overlay.remove(); } catch (_e) { /* ignore */ } }
-    overlay = document.createElement('div');
-    overlay.id = id;
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;display:flex;align-items:flex-end;justify-content:center;';
-    const sheet = document.createElement('div');
-    sheet.style.cssText = 'width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 36px;box-sizing:border-box;max-height:88vh;overflow-y:auto;';
-    sheet.innerHTML = '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 20px;"></div><div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:6px;">AI 페르소나</div><div style="font-size:12px;color:#888;margin-bottom:18px;line-height:1.5;">원장님 말투 학습으로 SNS·DM 톤을 일관되게 유지해요.</div>';
-    const close = () => { try { overlay.remove(); } catch (_e) { /* ignore */ } };
-    sheet.appendChild(_personaOptionsBox(close));
-    overlay.appendChild(sheet);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-    document.body.appendChild(overlay);
-  }
-
   function _route(act) {
     const map = _ROUTE_MAP;
-    if (act === 'persona') { _openPersonaHub(); return; }
+    if (act === 'persona') {
+      if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
+      return;
+    }
     if (act === 'photoEditor') {
       if (typeof window.openPhotoEditorFromAction === 'function') {
         window.openPhotoEditorFromAction({ initial_tab: 'auto' });
