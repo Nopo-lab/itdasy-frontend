@@ -259,7 +259,7 @@ function showDetailedAnalysis() {
   if (pop) {
     // [2026-06-10 #5] 팝업이 다른 시트 아래에 깔리는 버그 — body 최상위로 이동해서 stacking context 이슈 완전 해결
     if (pop.parentElement !== document.body) document.body.appendChild(pop);
-    pop.style.display = 'block';
+    pop.style.display = 'flex';
   } else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
 }
 
@@ -290,7 +290,7 @@ function renderDetailedPopup(data) {
     const picUrl = (() => { try { return localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { return ''; } })();
     const SIL = '<svg viewBox="0 0 24 24" width="36" height="36" fill="#C9CDD4" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
     const avatarInner = picUrl
-        ? `<img src="${_esc(picUrl)}" style="width:62px;height:62px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
+        ? `<img src="${_esc(picUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
         : SIL;
 
     // ── 히어로 섹션
@@ -418,23 +418,30 @@ async function runAutoAnalysisAfterConnect() {
     if (overlay) overlay.style.display = 'none';
     try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
   };
+  if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   if (overlay) overlay.style.display = 'flex';
-  if (bar) bar.style.width = '10%';
-  if (stepTxt) stepTxt.textContent = 'AI 말투 분석 시작했어요';
+  const STEP_MSGS = ['게시물 가져오는 중…','최근 게시물을 읽는 중…','사장님 말투 익히는 중…','해시태그·이모지 모으는 중…'];
+  let _mi = 0;
+  if (stepTxt) stepTxt.textContent = STEP_MSGS[0];
+  if (bar) bar.style.width = '22%';
+  const _msgTimer = setInterval(() => {
+    _mi = Math.min(_mi + 1, STEP_MSGS.length - 1);
+    if (stepTxt) stepTxt.textContent = STEP_MSGS[_mi];
+    if (bar) bar.style.width = (22 + _mi * 18) + '%';
+  }, 1200);
   if (subTxt)  subTxt.textContent  = '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요';
   try { if (typeof showToast === 'function') showToast('🪄 AI 말투 분석을 시작했어요. 결과 곧 보여드릴게요'); } catch (_e) { void _e; }
 
   const startedAt = Date.now();
   const MAX_MS = 90_000;
   const STEP_MS = 3_000;
-  const MIN_OVERLAY_MS = 2_500;   // [2026-06-12] 즉시 성공해도 오버레이 최소 2.5초 노출 (깜빡임 방지)
-  let progressPct = 10;
+  const MIN_OVERLAY_MS = 4_800;
   let success = false;
   let failCode = null;            // [2026-06-12] BG 분석 실패 사유 (media_fetch_failed/no_captioned_posts/ai_failed)
   let lastStatusData = null;
   console.log('[IG-ANALYZE] start');
 
-  // 백그라운드 task 진행 시각화 — 시간 흐름에 따라 prograss bar 자연스럽게 증가
+  // 백그라운드 task 폴링 — 멘트·게이지는 _msgTimer 가 단독 소유
   while (Date.now() - startedAt < MAX_MS) {
     try {
       const res = await apiFetch('/instagram/status', { headers: authHeader() });
@@ -455,20 +462,11 @@ async function runAutoAnalysisAfterConnect() {
         }
       }
     } catch (_e) { /* network blip ok */ }
-    // bar progress 흐름 (10 → 88% 까지 점진적)
-    progressPct = Math.min(88, progressPct + 6);
-    if (bar) bar.style.width = progressPct + '%';
-    if (stepTxt) {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      if (elapsed < 15) stepTxt.textContent = '게시물 가져오는 중…';
-      else if (elapsed < 35) stepTxt.textContent = '최근 게시물을 읽는 중…';
-      else if (elapsed < 60) stepTxt.textContent = '사장님 말투 익히는 중…';
-      else stepTxt.textContent = '해시태그·이모지 모으는 중…';
-    }
     await new Promise(r => setTimeout(r, STEP_MS));
   }
 
-  // [2026-06-12] 즉시 성공/실패해도 오버레이가 최소 2.5초는 보이게 — "로딩 없음" 인상 방지.
+  clearInterval(_msgTimer);
+  // 즉시 성공/실패해도 오버레이가 최소 4.8초는 보이게 — "로딩 없음" 인상 방지.
   const _elapsed = Date.now() - startedAt;
   if (_elapsed < MIN_OVERLAY_MS) await new Promise(r => setTimeout(r, MIN_OVERLAY_MS - _elapsed));
 
@@ -614,6 +612,7 @@ async function runPersonaAnalyze(force) {
     { pct: 90, text: '완료! 잇비가 자료 정리 중…', sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
   ];
 
+  if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   overlay.style.display = 'flex';
   let stepIdx = 0;
 
