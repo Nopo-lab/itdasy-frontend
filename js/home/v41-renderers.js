@@ -98,13 +98,40 @@
     };
   }
 
+  // 회원권 — 데이터 없으면 null(조건부 노출). 잔액부족 우선, 없으면 만료임박.
+  function cardMembership(brief) {
+    const low = Number(brief.membership_low_balance) || 0;
+    const exp = Number(brief.membership_expiring_30d) || 0;
+    if (!low && !exp) return null;
+    let hl;
+    if (low > 0) {
+      const name = brief.membership_low_first_name || '회원';
+      hl = low === 1 ? `${name}님 회원권 잔액 얼마 안 남았어요` : `회원권 잔액 부족 ${low}명`;
+    } else {
+      const name = brief.membership_expiring_first_name || '회원';
+      hl = exp === 1 ? `${name}님 회원권 곧 만료돼요` : `회원권 만료 임박 ${exp}건`;
+    }
+    return { ok: 0, cat: '회원권', dot: 'var(--brand,#D58A95)', hl, desc: '충전 안내 보낼 시점', btn: '안내 보내기', act: 'openMembership', alert: true };
+  }
+
+  // 리터치 — 데이터 없으면 null(조건부 노출).
+  function cardRetouch(brief) {
+    const n = Number(brief.retouch_due_count) || 0;
+    if (!n) return null;
+    const name = brief.retouch_due_first_name || '손님';
+    const hl = n === 1 ? `${name}님 리터치 시기예요` : `${name}님 외 ${n - 1}명 리터치 때예요`;
+    return { ok: 0, cat: '리터치 시기', dot: '#0D9488', hl, desc: '안내 DM 보낼 타이밍', btn: '안내 보내기', act: 'openCustomers', alert: true };
+  }
+
   function buildCarouselCards(brief) {
     const data = brief || {};
     const cards = [
       cardRevenue(data),
       cardAtRisk(data),
       cardEmptySlots(data),
-    ];
+      cardMembership(data),
+      cardRetouch(data),
+    ].filter(Boolean);
     return cards.sort((a, b) => a.ok - b.ok);
   }
 

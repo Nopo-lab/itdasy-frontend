@@ -83,6 +83,15 @@
     },
     openCustomers: _openCustomers,
     openRevenue: _openRevenue,
+    // [2026-06-15] 회원권 카드 → 만료 임박 리스트(실존 핸들러) → 폴백 고객 허브.
+    //   window.openMembership 은 현재 없음 → openMembershipExpiring/MembershipUI 로 라우팅.
+    openMembership: () => {
+      if (typeof window.openMembership === 'function') return window.openMembership();
+      if (typeof window.openMembershipExpiring === 'function') return window.openMembershipExpiring(30);
+      if (window.MembershipUI && typeof window.MembershipUI.openExpiringList === 'function') return window.MembershipUI.openExpiringList();
+      if (typeof window.openCustomerHub === 'function') return window.openCustomerHub();
+      return undefined;
+    },
     completePending: _completePending,
   };
 
