@@ -43,11 +43,16 @@
           </div>
           <div class="ss-card-sub">네이버 톡톡 문의를 통합 인박스에서 한 번에. 잇비가 답장 초안까지 준비해드려요.</div>
           <ol style="margin:10px 0 0 18px;padding:0;font-size:12px;color:var(--text2,#555);line-height:1.7;">
-            <li>네이버 톡톡 <strong>파트너센터</strong> 접속</li>
-            <li>개발자도구 → 챗봇API 설정에서 <strong>파트너 ID · 인증키</strong> 발급</li>
+            <li>아래 버튼으로 <strong>네이버 톡톡 파트너센터</strong> 접속 (네이버 로그인)</li>
+            <li>챗봇 API 설정에서 <strong>파트너 ID · 인증키</strong> 발급</li>
             <li>아래 <strong>Webhook 주소</strong>를 파트너센터에 등록</li>
             <li>파트너 ID·인증키 입력 → "연결하기"</li>
           </ol>
+          <a href="https://partner.talk.naver.com/" target="_blank" rel="noopener noreferrer"
+             style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;padding:12px;border:1.5px solid #03C75A;border-radius:11px;color:#03C75A;font-size:13.5px;font-weight:700;text-decoration:none;">
+            네이버 톡톡 파트너센터 열기
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#03C75A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+          </a>
         </div>
 
         <div class="ss-card">

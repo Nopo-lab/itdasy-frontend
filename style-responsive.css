@@ -213,6 +213,14 @@
     overflow-y: auto !important;
     z-index: 950 !important;            /* 사이드바(10000) 보다 아래 */
   }
+  /* [2026-06-16] ⚠️ 모든 subscreen-overlay(설정 하위화면: 네이버톡톡/네이버예약/백업/카톡허브/DM설정 등)
+     PC 에서 사이드바(232px)에 왼쪽이 잘리던 문제 일괄 수정. inset:0 → 사이드바 우측·헤더 아래로 오프셋.
+     ⚠️ 이 클래스는 transform(translateX) 슬라이드로 열고닫으므로 transform/inset 통째로 덮지 말 것 —
+     left/top 만 오프셋(애니메이션 보존). 새 하위화면도 .subscreen-overlay 쓰면 자동 적용됨. */
+  .subscreen-overlay {
+    top: var(--app-header-h) !important;
+    left: 232px !important;
+  }
   /* v211 — 고객 시트 PC 한 화면 분할: overflow hidden 으로 좌/우 별도 스크롤. */
   #customerSheet.cv4-pc {
     overflow: hidden !important;
