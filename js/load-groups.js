@@ -117,6 +117,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split',
   'js/assistant/core/booking-context.js?v=20260615-v470-qag',
   'js/assistant/core/customer-add-guard.js?v=20260615-v470-qag',
+  'js/assistant/core/customer-phone-intent.js?v=20260615-v472-customer-phone',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
   'js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split',
   'js/assistant/photo-actions.js?v=20260606-itbi-photo-chat-actions',

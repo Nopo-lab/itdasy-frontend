@@ -3644,6 +3644,20 @@
     }
   }
 
+  // [Phase3] 고객 연락처 자연어 추가/수정 — add-guard 보다 먼저(연락처 동반 발화 흡수).
+  async function _tryCustomerPhoneIntent(input, q) {
+    try {
+      const P = window.ItdasyCustomerPhoneIntent;
+      if (!P || typeof P.tryRun !== 'function') return false;
+      const result = await P.tryRun(q);
+      if (!result || !result.matched) return false;
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   // [T-114] "오늘 브리핑/뭐 해야/샵 상태" → 오늘 운영 우선순위 요약(읽기 전용). 단순 조회는 미감지.
   async function _tryDailyBriefingShortcut(input, q) {
     try {
@@ -4179,6 +4193,7 @@
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
+    if (await _tryCustomerPhoneIntent(input, q)) return true;   // [Phase3] 연락처 자연어(add-guard 보다 먼저)
     if (await _tryCustomerAddGuard(input, q)) return true;
     if (await _tryCaptionConversation(input, q)) return true;     // [§2-5] 캡션 — 대화형 생성/재생성(1초캡션 팝업 금지)
     if (await _tryCancelBookingShortcut(input, q)) return true;
