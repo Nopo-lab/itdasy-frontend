@@ -38,7 +38,16 @@
         <div style="font-size:11.5px;color:#8B95A1;margin-bottom:12px;line-height:1.5;">
           답장이 필요한 손님 메시지예요. 잇비 추천 답장을 확인하고 전송하세요.
         </div>
-        <style>@keyframes dcqSpin{to{transform:rotate(360deg)}}</style>
+        <style>@keyframes dcqSpin{to{transform:rotate(360deg)}}
+          #dcqTabs::-webkit-scrollbar{display:none}
+          .dcq-tab{font-size:12.5px;padding:6px 11px;border-radius:9px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;white-space:nowrap;cursor:pointer;font-weight:600;font-family:inherit;flex:none;}
+          .dcq-tab.on{background:#191F28;border-color:#191F28;color:#fff;}</style>
+        <div id="dcqTabs" style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;">
+          <button type="button" class="dcq-tab on" data-filter="all">전체 0</button>
+          <button type="button" class="dcq-tab" data-filter="instagram">인스타 0</button>
+          <button type="button" class="dcq-tab" data-filter="kakao">카톡 0</button>
+          <button type="button" class="dcq-tab" data-filter="naver">네이버 톡톡 0</button>
+        </div>
         <div id="dcqList" style="flex:1;overflow-y:auto;">
           <div style="display:flex;justify-content:center;padding:40px 20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:dcqSpin .8s linear infinite" aria-label="불러오는 중"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
         </div>
@@ -51,6 +60,14 @@
     if (_setBtn) _setBtn.addEventListener('click', () => {
       // 설정 시트는 생성 시 z-index 9996(카드 9988 위) — setTimeout 보정 불필요.
       if (typeof window.openDMAutoreplySettings === 'function') window.openDMAutoreplySettings();
+    });
+    // [2026-06-16] 채널 필터 탭 — 재조회 없이 캐시(_lastItems) 로 즉시 필터.
+    const _tabs = sheet.querySelector('#dcqTabs');
+    if (_tabs) _tabs.addEventListener('click', (e) => {
+      const t = e.target.closest('.dcq-tab');
+      if (!t) return;
+      _activeFilter = t.getAttribute('data-filter') || 'all';
+      _applyAndRender();
     });
     return sheet;
   }
@@ -214,6 +231,15 @@
       else if (typeof window.openCalendarView === 'function') window.openCalendarView();
     } catch (_e) { void _e; }
   }
+  // [2026-06-16] 통합 인박스 — 채널 마크/필터. BE channel: 'instagram'|'kakao'|'naver'(talktalk 정규화됨).
+  let _lastItems = [];
+  let _activeFilter = 'all';
+  const _CH_LABEL = { all: '전체', instagram: '인스타', kakao: '카톡', naver: '네이버 톡톡' };
+
+  // 채널 마크/정규화 — 공유 모듈(js/channel-mark.js) 정본 사용(중복 정의 금지). 폴백 instagram.
+  function _normChannel(c) { return (window.ChannelMark && window.ChannelMark.norm) ? window.ChannelMark.norm(c) : 'instagram'; }
+  function _channelMark(c) { return (window.ChannelMark && window.ChannelMark.mark) ? window.ChannelMark.mark(c) : ''; }
+
   function _cardHtml(it) {
     const tail = (it.sender_tail || '').slice(-4);
     const ex = it.extracted || null;
@@ -246,7 +272,8 @@
           </div>
         </div>` : '';
     return `
-      <div class="dcq-item" data-id="${it.id}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
+      <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
+        ${_channelMark(it.channel)}
         ${formAutoBadge}
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
           <div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;overflow:hidden;position:relative;">${_AVATAR_SVG}${avImg}</div>
@@ -298,41 +325,65 @@
       list.innerHTML = '<div style="display:flex;justify-content:center;padding:40px 20px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:dcqSpin .8s linear infinite" aria-label="불러오는 중"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>';
     }
     try {
-      const items = await _fetch('GET', '/dm-confirm-queue');
-      const count = items.length;
+      _lastItems = await _fetch('GET', '/dm-confirm-queue');
       const cnt = document.getElementById('dcqCount');
-      if (cnt) cnt.textContent = count + '건';
-      if (!count) {
-        list.innerHTML = `<div style="text-align:center;color:var(--text-subtle);padding:40px 20px;font-size:13px;line-height:1.6;">답장이 필요한 메시지가 없어요 ✨<br>잇비가 잘 챙기고 있어요.</div>`;
-        return;
-      }
-      list.innerHTML = items.map(_cardHtml).join('');
-      // 수정 버튼 → 인라인 textarea 노출
-      list.querySelectorAll('.dcq-edit-btn').forEach(b => b.addEventListener('click', () => {
-        const card = b.closest('[data-id]'); if (!card) return;
-        const ta = card.querySelector('.dcq-edit');
-        const draft = card.querySelector('.dcq-draft');
-        if (ta) { ta.style.display = 'block'; ta.focus(); }
-        if (draft) draft.style.display = 'none';
-        b.style.display = 'none';
-      }));
-      // 전송 → 수정 textarea 가 열려있고 내용 있으면 send_edit, 아니면 send(액션 실행)
-      list.querySelectorAll('.dcq-send').forEach(b => b.addEventListener('click', () => {
-        const card = b.closest('[data-id]'); if (!card) return;
-        const am = (() => { try { return JSON.parse(card.dataset.am || '{}'); } catch(_e){ return {}; } })();
-        // [F2] deposit_sent 단계 메인 버튼 → confirm-deposit 액션
-        if (am.deposit_sent) { _doAction(b, 'confirm-deposit'); return; }
-        const ta = card.querySelector('.dcq-edit');
-        const edited = (ta && ta.style.display !== 'none') ? (ta.value || '').trim() : '';
-        if (edited) _doAction(b, 'send_edit', edited);
-        else _doAction(b, 'send');
-      }));
-      list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
-      list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
-      list.querySelectorAll('.dcq-confirm-deposit').forEach(b => b.addEventListener('click', () => _doAction(b, 'confirm-deposit')));
+      if (cnt) cnt.textContent = _lastItems.length + '건';
+      _applyAndRender();
     } catch (e) {
       list.innerHTML = `<div style="text-align:center;color:var(--danger);padding:20px;font-size:12px;">불러오기 실패: ${_esc(e.message)}</div>`;
     }
+  }
+
+  // [2026-06-16] 탭 카운트 갱신 — 전체 items 기준(필터 무관).
+  function _updateTabCounts(all) {
+    const counts = { all: all.length, instagram: 0, kakao: 0, naver: 0 };
+    all.forEach(it => { const c = _normChannel(it.channel); if (counts[c] != null) counts[c] += 1; });
+    document.querySelectorAll('#dcqTabs .dcq-tab').forEach(t => {
+      const f = t.getAttribute('data-filter');
+      t.textContent = (_CH_LABEL[f] || f) + ' ' + (counts[f] || 0);
+      t.classList.toggle('on', f === _activeFilter);
+    });
+  }
+
+  // [2026-06-16] 캐시(_lastItems) → 활성 필터 적용 후 렌더 + 핸들러 바인딩(동작 보존).
+  function _applyAndRender() {
+    const list = document.getElementById('dcqList');
+    if (!list) return;
+    const all = _lastItems || [];
+    _updateTabCounts(all);
+    if (!all.length) {
+      list.innerHTML = `<div style="text-align:center;color:var(--text-subtle);padding:40px 20px;font-size:13px;line-height:1.6;">답장이 필요한 메시지가 없어요 ✨<br>잇비가 잘 챙기고 있어요.</div>`;
+      return;
+    }
+    const items = _activeFilter === 'all' ? all : all.filter(it => _normChannel(it.channel) === _activeFilter);
+    if (!items.length) {
+      list.innerHTML = `<div style="text-align:center;color:#8B95A1;padding:40px 20px;font-size:13px;line-height:1.6;">${_esc(_CH_LABEL[_activeFilter] || '')} 채널 메시지가 없어요</div>`;
+      return;
+    }
+    list.innerHTML = items.map(_cardHtml).join('');
+    // 수정 버튼 → 인라인 textarea 노출
+    list.querySelectorAll('.dcq-edit-btn').forEach(b => b.addEventListener('click', () => {
+      const card = b.closest('[data-id]'); if (!card) return;
+      const ta = card.querySelector('.dcq-edit');
+      const draft = card.querySelector('.dcq-draft');
+      if (ta) { ta.style.display = 'block'; ta.focus(); }
+      if (draft) draft.style.display = 'none';
+      b.style.display = 'none';
+    }));
+    // 전송 → 수정 textarea 가 열려있고 내용 있으면 send_edit, 아니면 send(액션 실행)
+    list.querySelectorAll('.dcq-send').forEach(b => b.addEventListener('click', () => {
+      const card = b.closest('[data-id]'); if (!card) return;
+      const am = (() => { try { return JSON.parse(card.dataset.am || '{}'); } catch(_e){ return {}; } })();
+      // [F2] deposit_sent 단계 메인 버튼 → confirm-deposit 액션
+      if (am.deposit_sent) { _doAction(b, 'confirm-deposit'); return; }
+      const ta = card.querySelector('.dcq-edit');
+      const edited = (ta && ta.style.display !== 'none') ? (ta.value || '').trim() : '';
+      if (edited) _doAction(b, 'send_edit', edited);
+      else _doAction(b, 'send');
+    }));
+    list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
+    list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
+    list.querySelectorAll('.dcq-confirm-deposit').forEach(b => b.addEventListener('click', () => _doAction(b, 'confirm-deposit')));
   }
 
   async function _doAction(btn, action, editedText) {

@@ -56,6 +56,13 @@
     return it.display_name || ('손님 …' + (it.sender_tail || (it.sender_igsid || '').slice(-4)));
   }
 
+  // [2026-06-16] 채널 마크 — 아바타 우하단 모서리(프사 유지, X·언리드닷과 충돌 X). 공유 모듈 정본.
+  function _channelMark(channel) {
+    return (window.ChannelMark && window.ChannelMark.mark)
+      ? window.ChannelMark.mark(channel, { size: 16, pos: 'position:absolute;bottom:-2px;right:-2px;' })
+      : '';
+  }
+
   // ── 카드 HTML (모든 카드 = 답장 필요 → 로즈 점 ON) ─────────
   function _cardHtml(it) {
     const name = _name(it);
@@ -74,7 +81,7 @@
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
       <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
-        <div class="hv5-cmsg-av is-unread">${_AVATAR_SVG}${avImg}</div>
+        <div class="hv5-cmsg-av is-unread">${_AVATAR_SVG}${avImg}${_channelMark(it.channel)}</div>
         <div class="hv5-cmsg-id">
           <div class="hv5-cmsg-nm">${_esc(name)}</div>
           <div class="hv5-cmsg-tm">${_esc(_relTime(it.received_at))}</div>

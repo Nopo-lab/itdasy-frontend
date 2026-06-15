@@ -1611,6 +1611,15 @@ ultra-plan 진행률:
 
 - 없음.
 
+### 2026-06-16 — 통합 인박스: DM → 다채널 표시 (로컬 커밋)
+
+DM 전용 인박스를 인스타/카톡/네이버 톡톡 멀티채널 표시로. BE `DMMessageLog.channel`(2a) 기반. 렌더만 교체, 로직 0 변경(인스타 회귀-0).
+- `js/channel-mark.js`(신규): `window.ChannelMark.norm/mark` 공유 글리프 — instagram=#E1306C 카메라 / kakao=#FEE500 말풍선 / naver=#03C75A 볼드N. 이모지 금지·브랜드 글리프. app-core 직후 로드(index.html), 두 소비자 공용(중복 정의 금지).
+- `app-dm-confirm-queue.js`(실시간 DM): 카드 우상단 채널 마크(프사 위 덮지 않음) + 채널 필터 탭 `[전체·인스타·카톡·네이버 톡톡]`(카운트 동적, 재조회 없이 `_lastItems` 캐시 필터). 답장/수정(인라인 textarea)/전송(send·send_edit)/무시(discard)/초기화(reset)/입금확인(confirm-deposit) 바인딩 축자 보존.
+- `app-home-customer-msgs.js`(홈 고객메시지): 아바타 우하단 모서리에 채널 마크(프사·X·언리드닷 유지, 3개 가로 구조 유지).
+- BE(itdasy_backend-test) `dm_confirm_queue.QueueItemOut`에 `channel` 추가, `talktalk→naver` 정규화. FE는 필드 없으면 instagram 폴백.
+- 검증: node --check 3파일 OK. 현재 라이브 채널=인스타뿐 → 전부 인스타 마크로 표시.
+
 2026-04-20 ~ 2026-05-06 이전 체크포인트는 `.ai/CHANGELOG_2026-05.md` 참조.
 
 ---
