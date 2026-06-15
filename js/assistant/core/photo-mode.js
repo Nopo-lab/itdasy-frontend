@@ -295,10 +295,11 @@
     S.step = 'done';
     var tplId = S.lastTemplateId || 'feed-showcase';
     var cur = _curPhoto();
-    var afterUrl = (S.result && S.result.afterUrl) || (cur && cur.url);
-    var beforeP = S.photos.find(function (p) { return p.role === 'before'; });
-    var slots = /^ba/.test(tplId)
-      ? { before_photo: { src: (beforeP || S.photos[0] || {}).url }, after_photo: { src: afterUrl } }
+    var isBA = /^ba/.test(tplId);
+    // [Phase3-C #2/#3] BA 는 전/후 모두 보정·직접편집 결과(_baSlotSrc)를 사용 — 마무리 단계에서 전 사진이 원본으로 되돌아가지 않게.
+    var afterUrl = isBA ? _baSlotSrc(_baPhoto('after')) : ((S.result && S.result.afterUrl) || (cur && cur.url));
+    var slots = isBA
+      ? { before_photo: { src: _baSlotSrc(_baPhoto('before')) }, after_photo: { src: afterUrl } }
       : { main_photo: { src: afterUrl } };
     var composed = await _preview(tplId, slots, 720);
     if (!S.caption || regenCaption) S.caption = await _caption(null, { regen: !!regenCaption });
@@ -349,9 +350,24 @@
     var dataUrl = (S.result && S.result.composedUrl) || (S.result && S.result.afterUrl) || (cur && cur.url);
     var label = S.customer ? (S.customer.name + ' 손님') : '잇비 사진편집';
     try { localStorage.setItem(LAST_KEY, S.result && S.result.tplId ? S.result.tplId : (S.lastTemplateId || '')); } catch (_e) { void 0; }
+    // [Phase3-C #4] 전후 카드는 전/후 두 사진(직접편집/보정 결과 포함)을 templateMeta 로 저장 →
+    //   작업실에서 "다시 편집" 시 restoreAssistantTemplate 가 전·후 사진을 그대로 복원(편집 가능).
+    var _meta = null;
+    if (S.workflow === 'ba' || /^ba/.test(S.lastTemplateId || '')) {
+      var _bUrl = _baSlotSrc(_baPhoto('before'));
+      var _aUrl = _baSlotSrc(_baPhoto('after'));
+      _meta = {
+        templateId: (S.result && S.result.tplId) || S.lastTemplateId || 'ba-cream',
+        purpose: 'before_after',
+        baseSrc: _aUrl,
+        secondImg: _bUrl,
+        imageSlots: { before_photo: { src: _bUrl }, after_photo: { src: _aUrl } },
+        ratio: '4:5',
+      };
+    }
     try {
       if (typeof window.saveAssistantTemplateResult === 'function')
-        await window.saveAssistantTemplateResult(dataUrl, { purpose: S.workflow, label: label, source: 'itbi_guided' });
+        await window.saveAssistantTemplateResult(dataUrl, { purpose: S.workflow, label: label, source: 'itbi_guided', templateMeta: _meta });
     } catch (_e) { void 0; }
     var linked = '';
     if (S.customer && window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function') {
@@ -430,12 +446,14 @@
     photoUrls = (photoUrls || []).filter(Boolean);
     _log('handlePhotos', { n: photoUrls.length, active: S.active, step: S.step });
     if (!photoUrls.length) return null;
-    // BA 두 번째 사진 대기 중 → 전 사진으로 채워 손질로.
+    // BA 두 번째 사진 대기 중 → '시술 전' 사진으로 채워 전후 카드 바로 합성([Phase3-C #5] 단독 보정 화면 금지).
     if (S.active && S.step === 'ba_second') {
       S.photos.push({ url: photoUrls[0], role: null });
-      _assignBaRoles(true);
-      _log('ba_second→fix', { photos: S.photos.length });
-      return await _msgFix();
+      S.workflow = 'ba';
+      if (!S.lastTemplateId) S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
+      _assignBaRoles(true);   // 먼저 올린 사진 = 후, 방금 받은 '시술 전' = 전
+      _log('ba_second→compose', { photos: S.photos.length });
+      return await _composeBaCard();
     }
     // [C] 진행 중(접수/await_photo 외) 추가 업로드 → 사진 누적만, 단계 유지(중복 카드 push 방지).
     if (S.active && S.step && S.step !== 'await_photo') {
@@ -447,6 +465,17 @@
     S.active = true;
     S.workflow = _looksCaptionRequest(question) ? 'caption' : 'basic';
     S.photos = photoUrls.map(function (u) { return { url: u, role: null }; });
+    // [Phase3-C #1] 사진 2장을 캡션에 "전후 만들어줘"와 함께 올린 경우 → 템플릿 고르기/단독 보정 거치지 않고 바로 전후 카드.
+    if (S.photos.length >= 2
+        && /(전후|비포\s*애프터|before\s*after)/i.test(String(question || ''))
+        && /(만들|해줘|제작|뽑|꾸며|카드|템플릿)/.test(String(question || ''))) {
+      S.customer = await _matchCustomer();
+      if (S.customer) { S.customerSuggest = S.customer; S.customer = null; }
+      S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
+      S.workflow = 'ba';
+      _assignBaRoles(_baOrderSwap(question));
+      return await _composeBaCard();
+    }
     S.customer = await _matchCustomer();
     // [qa-G #4] 홍보/보정 의도면 "○○ 손님 맞아요?" 고객확인을 최우선으로 띄우지 않는다(인터럽트 금지).
     //   매칭 고객은 제안(customerSuggest)으로만 두고 바로 홍보/보정 흐름으로. 연결은 완성 후 선택.
@@ -484,6 +513,20 @@
     if (/^처음부터/.test(q)) {
       S = _fresh(); S.active = true; S.step = 'await_photo';
       return { text: '처음부터 할게요. 편집할 사진을 다시 보내주세요.' };
+    }
+    // [Phase3-C #1] 사진 1장 + 전후 요청 → (단독 보정 X) 시술 전 사진 1장 더 요청. 0장은 await_photo 로 처리됨.
+    if (S.active && S.photos.length === 1
+        && /(전후|비포\s*애프터|before\s*after)/i.test(q)
+        && /(만들|해줘|제작|뽑|꾸며|카드|템플릿)/.test(q)) {
+      S.workflow = 'ba';
+      S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
+      S.step = 'ba_second';
+      return { text: '전후 카드엔 사진 2장이 필요해요. **시술 전** 사진 1장 더 보내주세요.' };
+    }
+    // [Phase3-C #3] 전후 카드가 만들어진 뒤 "전 사진 편집 / 후 사진 편집" → 해당 슬롯만 편집기로.
+    if (S.active && S.workflow === 'ba' && S.photos.length >= 2) {
+      if (/(^|\s)전\s*사진?\s*(편집|수정|손질|고치)/.test(q) || /^전\s*편집$/.test(q)) return _openBaSlotEditor('before');
+      if (/(^|\s)후\s*사진?\s*(편집|수정|손질|고치)/.test(q) || /^후\s*편집$/.test(q)) return _openBaSlotEditor('after');
     }
     // [§6/§3] 사진 2장을 이미 받은 상태에서 "전후 카드/템플릿 만들어줘"(+ 순서 지정) 명시 →
     //   사진 재요청·후사진 단독 보정(_msgFix)으로 빠지지 않고 전/후 역할 배정 후 전후 카드를 바로 합성한다.
@@ -663,31 +706,67 @@
     S.photos[0].role = swap ? 'after' : 'before';
     S.photos[1].role = swap ? 'before' : 'after';
   }
-  // [§6/§3] 전후 카드 바로 합성 — 두 사진 모두 사용. 후사진 단독 보정(_msgFix) 건너뜀.
-  async function _composeBaCard() {
-    // [§2 qa-E] 보정은 유지하되 단일 보정 화면으로 빠지지 않게 — 후사진을 전후 카드 파이프라인 '안에서' 자연 보정 후 합성.
-    var afterP = S.photos.find(function (p) { return p.role === 'after'; }) || S.photos[1] || S.photos[0];
-    var afterUrl = (afterP && afterP.url) || '';
-    try {
-      if (afterUrl) {
-        var r = await _autoEdit(afterUrl, 'standard');   // 후사진 홍보용 자연 보정(피부/밝기/선명도/색감)
-        if (r && r.dataUrl) { afterUrl = r.dataUrl; if (afterP) afterP.editedUrl = r.dataUrl; }
-      }
-    } catch (_e) { void _e; }
-    S.result = Object.assign(S.result || {}, { afterUrl: afterUrl, presetLabel: '자연 보정 적용', baEnhanced: true });
-    // [qa-F §4] 전후 카드 미리보기는 만들되, 시술내역 없이 캡션을 자동 생성하지 않는다.
-    //   카드 합성 → 시술내역 게이트(svc_ask). 내역을 받으면 _doneForWorkflow→_msgDone 이 그 내용으로 캡션 생성.
+  function _baPhoto(role) { return S.photos.find(function (p) { return p.role === role; }) || (role === 'before' ? S.photos[0] : (S.photos[1] || S.photos[0])); }
+  // 슬롯에 쓸 URL — 직접 편집본 > 자동 보정본 > 원본.
+  function _baSlotSrc(p) { return (p && (p.editedUrl || p.url)) || ''; }
+
+  // [Phase3-C #2] 전/후 두 사진 모두 자동 보정(아직 직접 편집/보정 안 한 슬롯만).
+  //   전 사진은 '자연(natural)' 으로 가볍게(전후 비교 유지), 후 사진은 'standard' 로 또렷하게.
+  async function _autoEditBaPhotos() {
+    var before = _baPhoto('before');
+    var after = _baPhoto('after');
+    async function ensure(p, intensity) {
+      if (!p || p.editedUrl || p.manualEdit) return;   // 이미 보정/직접편집된 슬롯은 건너뜀
+      try { var r = await _autoEdit(p.url, intensity); if (r && r.dataUrl) { p.editedUrl = r.dataUrl; p.autoDone = true; } }
+      catch (_e) { void _e; }
+    }
+    await ensure(before, 'natural');
+    await ensure(after, 'standard');
+  }
+
+  // 현재 슬롯 URL 로 전후 카드 합성 메시지 빌드(보정/편집 재실행 없음).
+  async function _buildBaCardMsg(headline) {
     var tplId = S.lastTemplateId || 'ba-cream';
-    var beforeP = S.photos.find(function (p) { return p.role === 'before'; }) || S.photos[0];
-    var slots = { before_photo: { src: (beforeP || {}).url }, after_photo: { src: afterUrl } };
+    var beforeUrl = _baSlotSrc(_baPhoto('before'));
+    var afterUrl = _baSlotSrc(_baPhoto('after'));
+    var slots = { before_photo: { src: beforeUrl }, after_photo: { src: afterUrl } };
     var composed = await _preview(tplId, slots, 720);
-    S.result = Object.assign(S.result, { composedUrl: composed, tplId: tplId });
+    S.result = Object.assign(S.result || {}, { composedUrl: composed, afterUrl: afterUrl, beforeUrl: beforeUrl, tplId: tplId, baEnhanced: true, presetLabel: '자연 보정 적용' });
     S.workflow = 'ba';
-    S.step = 'svc_ask';
-    return { text: '전후 카드를 만들었어요! **시술 내용**을 알려주시면 전후 변화에 맞는 캡션까지 써드릴게요.\n예: "레이어드컷, 무거운 머리 정리, 얼굴형 보완"',
+    return { text: headline,
       photo_result: { dataUrl: composed, ratio: '4:5' },
-      photo_caption: '시술 내역을 알려주시면 캡션을 써드려요',
-      related: ['그냥 알아서 써줘'] };
+      photo_caption: '전·후 각각 따로 편집할 수도 있어요',
+      related: ['전 사진 편집', '후 사진 편집', '그냥 알아서 써줘'] };
+  }
+
+  // [§6/§3] 전후 카드 바로 합성 — 두 사진 모두 보정·사용. 후사진 단독 보정(_msgFix) 건너뜀.
+  async function _composeBaCard() {
+    await _autoEditBaPhotos();   // [#2] 전·후 둘 다 자연 보정
+    // [qa-F §4] 카드만 만들고 시술내역 없이 캡션 자동 생성 금지 → svc_ask 게이트.
+    S.step = 'svc_ask';
+    return await _buildBaCardMsg('전후 카드를 만들었어요! 전·후 사진 모두 자연 보정했어요. **시술 내용**을 알려주시면 전후 변화에 맞는 캡션까지 써드릴게요.\n예: "레이어드컷, 무거운 머리 정리, 얼굴형 보완"');
+  }
+
+  // [Phase3-C #3] 전/후 사진 각각 직접 편집 — 해당 슬롯 1장만 편집기로 열고, 저장 시 그 슬롯만 갱신 후 카드 재합성.
+  function _openBaSlotEditor(role) {
+    var p = _baPhoto(role);
+    if (!p) return { text: '편집할 사진을 찾지 못했어요.' };
+    if (!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function')) return { text: '사진 편집기를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' };
+    var label = role === 'before' ? '전' : '후';
+    try {
+      window.PhotoEditor.open({
+        src: _baSlotSrc(p),
+        initial_tab: 'auto',
+        customer_name: (S.customer && S.customer.name) || '',
+        onSave: function (dataUrl) {
+          if (!dataUrl) return;
+          p.editedUrl = dataUrl; p.manualEdit = true;   // [#3] 해당 슬롯만 반영
+          Promise.resolve(_buildBaCardMsg(label + ' 사진 편집을 반영했어요. 전후 카드를 다시 만들었어요.'))
+            .then(function (msg) { try { if (typeof window._pmPushCard === 'function') window._pmPushCard(msg); } catch (_e) { void _e; } });
+        },
+      });
+    } catch (_e) { return { text: label + ' 사진 편집기를 여는 데 문제가 있었어요. 다시 시도해 주세요.' }; }
+    return { text: label + ' 사진을 편집기에서 열었어요. 다 고치고 저장하면 전후 카드로 돌아와요.' };
   }
   async function _pickCustomer() {
     try { if (window.Customer && typeof window.Customer.pick === 'function') { var c = await window.Customer.pick({}); return c && c.id != null ? { id: c.id, name: c.name || '고객' } : null; } }

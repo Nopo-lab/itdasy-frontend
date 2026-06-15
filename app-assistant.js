@@ -4725,6 +4725,19 @@
     _send();
   };
 
+  // [Phase3-C #3] 사진편집 모드(전후 카드)에서 비동기 콜백(예: 전/후 슬롯 편집 저장)으로
+  //   완성된 카드 메시지를 채팅에 다시 띄울 때 사용. photo-mode 가 호출.
+  window._pmPushCard = function (msg) {
+    try {
+      if (!msg) return;
+      const sh = document.getElementById('assistantSheet');
+      const closed = !sh || sh.style.display === 'none' || !sh.style.display;
+      if (closed && typeof window.openAssistant === 'function') window.openAssistant();
+      _history.push(Object.assign({ role: 'assistant', local_only: true }, msg));
+      _pmForceRender();
+    } catch (_e) { void _e; }
+  };
+
   window.openAssistant = function () {
     _ensureSheet();
     const sheet = document.getElementById('assistantSheet');
