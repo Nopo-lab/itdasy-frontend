@@ -21,7 +21,7 @@
       customer: null, choices: {}, lastTemplateId: null, result: null, caption: '',
       captionHint: '', lastTemplateExpanded: false, past: [],
       // [§2] 캡션 재생성 context — "더 길게/짧게/인스타 말투로/해시태그 더"가 갱신, _caption 이 payload 로 사용.
-      captionLen: 'medium', captionTone: 'normal', captionMoreTags: false };
+      captionLen: 'medium', captionTone: 'normal', captionMoreTags: false, captionMinLines: 0 };
   }
   // [이슈6] 현재 처리 중인 사진(2장 순차 처리 시 photoIdx 가 0→1 로 진행). 안전 폴백 photos[0].
   function _curPhoto() { return S.photos[S.photoIdx] || S.photos[0] || null; }
@@ -43,6 +43,11 @@
   function _looksCaptionRequest(q) {
     if (Support && Support.CAPTION_RE) return Support.CAPTION_RE.test(String(q || ''));
     return /(캡션|홍보\s*글|홍보글|해시\s*태그|문구|인스타\s*(글|피드\s*글))/i.test(String(q || ''));
+  }
+  // [qa-F] 명시적 인스타 미리보기 요청만 true. "인스타스럽게/말투/느낌"(톤 수정)은 false → 미리보기 안 뜸.
+  function _looksPreview(q) {
+    if (Support && typeof Support.looksPreviewRequest === 'function') return Support.looksPreviewRequest(q);
+    return /(미리\s*보기|피드에서|업로드\s*화면)/.test(String(q || '')) && !/인스타\s*(말투|스럽|식|느낌)/.test(String(q || ''));
   }
   function _snapshot() {
     try {
@@ -151,6 +156,21 @@
       return bits.length ? (' 우리 인스타 말투(' + bits.join(', ') + ')에 맞춰서.') : '';
     } catch (_e) { return ''; }
   }
+  // [qa-F §5] 길이 지시문 — long 이면 풍부하게(최소 줄수 명시), short 면 간결하게.
+  function _lenInstruction() {
+    if (S.captionLen === 'long') {
+      var min = S.captionMinLines && S.captionMinLines >= 2 ? S.captionMinLines : 5;
+      return ' 캡션을 길고 풍부하게 — 시술 포인트·전후 변화·고객 공감·예약 유도(CTA)·해시태그를 담아 최소 ' + min + '줄 이상 줄바꿈하여 작성해주세요.';
+    }
+    if (S.captionLen === 'short') return ' 캡션을 핵심만 담아 짧고 간결하게 작성해주세요.';
+    return '';
+  }
+  // [qa-F §5] "더 길게/5줄 이상"인데 결과가 직전보다 짧으면 이전 캡션 유지(짧아지지 않게).
+  function _keepLonger(fresh, prev) {
+    if (S.captionLen !== 'long' || !prev || !fresh) return fresh;
+    var fl = String(fresh).replace(/\s+/g, '').length, pl = String(prev).replace(/\s+/g, '').length;
+    return fl < pl ? prev : fresh;
+  }
   async function _caption(hint, opts) {
     opts = opts || {};
     try {
@@ -161,7 +181,8 @@
       var analysis = _instaAnalysisHint();
       var more = S.captionMoreTags ? ' 해시태그를 평소보다 더 다양하게 많이 넣어주세요.' : '';
       var vary = opts.regen ? ' 이전과 다른 새로운 버전으로 작성해주세요.' : '';
-      var ctxStr = (_shopType() + ' 시술. ' + ctxName + treatment + analysis + more + vary + ' 오늘 작업 완성본.').slice(0, 500);
+      var lenInstr = _lenInstruction();   // [qa-F §5] 길이/최소 줄수 지시
+      var ctxStr = (_shopType() + ' 시술. ' + ctxName + treatment + analysis + lenInstr + more + vary + ' 오늘 작업 완성본.').slice(0, 500);
       var body = { category: _category(), photo_context: ctxStr, length_tier: (S.captionLen || 'medium'), tone_override: (S.captionTone || 'normal') };
       var res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers: headers, body: JSON.stringify(body) });
       var data = await res.json().catch(function () { return {}; });
@@ -256,7 +277,7 @@
       ? { before_photo: { src: (beforeP || S.photos[0] || {}).url }, after_photo: { src: afterUrl } }
       : { main_photo: { src: afterUrl } };
     var composed = await _preview(tplId, slots, 720);
-    if (!S.caption || regenCaption) S.caption = await _caption(null, { regen: !!regenCaption });
+    if (!S.caption || regenCaption) { var _f = await _caption(null, { regen: !!regenCaption }); S.caption = regenCaption ? _keepLonger(_f, S.caption) : _f; }
     S.result = Object.assign(S.result || {}, { composedUrl: composed, tplId: tplId });
     var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비하고 있어요.';
     return { text: '완성본이에요. 문구는 **사장님 말투로** 미리 써뒀어요 — 고칠 부분만 알려주세요.',
@@ -285,7 +306,7 @@
     S.step = 'done';
     S.workflow = 'caption';
     if (hint && !/지난번처럼/.test(hint)) S.captionHint = hint;
-    if (!S.caption || regenCaption) S.caption = await _caption(S.captionHint, { regen: !!regenCaption });
+    if (!S.caption || regenCaption) { var _f = await _caption(S.captionHint, { regen: !!regenCaption }); S.caption = regenCaption ? _keepLonger(_f, S.caption) : _f; }
     var url = (S.photos[0] && (S.photos[0].editedUrl || S.photos[0].url)) || '';
     S.result = Object.assign(S.result || {}, { composedUrl: url });
     var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비했어요.';
@@ -478,9 +499,22 @@
         if (/직접/.test(q)) return await _toWorkshop();
         return null;
 
-      case 'svc_ask':   // [이슈5] 시술 내역 입력 또는 "그냥 알아서 써줘" 건너뛰기
+      case 'svc_ask': {  // [이슈5] 시술 내역 입력 또는 "그냥 알아서 써줘" 건너뛰기
+        // [qa-F] 미리보기 요청은 시술내역으로 오인하지 않는다 — 캡션 먼저 만들도록 재안내.
+        if (_looksPreview(q)) return { text: '먼저 시술 내용을 알려주시면, 캡션을 만든 뒤에 미리보기를 보여드릴게요.', related: ['그냥 알아서 써줘'] };
+        // [qa-F] 시술내역 대신 톤/길이만 말한 경우("인스타스럽게"·"더 길게") — 설정만 반영하고 시술내역을 다시 묻는다.
+        //   (시술명이 섞인 "레이어드컷 인스타스럽게"는 시술내역으로 처리.)
+        var adj0 = _captionAdjust(q);
+        if (adj0 && _isPureAdjust(q) && !/알아서|그냥/.test(q)) {
+          if (adj0.len) S.captionLen = adj0.len;
+          if (adj0.tone) S.captionTone = adj0.tone;
+          if (adj0.moreTags) S.captionMoreTags = true;
+          if (adj0.minLines) S.captionMinLines = adj0.minLines;
+          return { text: '말투는 그렇게 맞춰둘게요! 그런데 캡션에 넣을 **시술 내역**을 먼저 알려주세요. 예: "레이어드컷, 얼굴형 보완".', related: ['그냥 알아서 써줘'] };
+        }
         if (!/알아서|그냥/.test(q)) S.captionHint = q;
         return await _doneForWorkflow();
+      }
 
       case 'caption_input':
         if (/연결 안/.test(q)) { S.customer = null; return _msgCaptionPrompt(); }
@@ -499,25 +533,28 @@
 
   // 'done' 단계 분기(파일 함수 50줄 규칙 준수 위해 분리).
   async function _handleDoneText(q) {
-    if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
-    if (/저장/.test(q)) return await _msgSaved();
-    if (/템플릿 바꾸|템플릿 고르/.test(q)) return await _msgTemplate(false);
-    // [§2] "더 길게/짧게/인스타 말투로/해시태그 더/캡션 다시" → 직전 시술내역+말투 context 유지하고 재생성.
+    // [qa-F §6] 문구 톤/길이/해시태그 수정을 미리보기보다 먼저 — "인스타스럽게/말투로"가 미리보기를 열던 버그 차단.
+    //   직전 시술내역+말투 context 유지하고 재생성. ("더 길게/짧게/5줄 이상/해시태그 더/캡션 다시")
     var adj = _captionAdjust(q);
     if (adj || /문구/.test(q)) {
       if (adj) {
         if (adj.len) S.captionLen = adj.len;
         if (adj.tone) S.captionTone = adj.tone;
         if (adj.moreTags) S.captionMoreTags = true;
+        if (adj.minLines) S.captionMinLines = adj.minLines;
       }
       return S.workflow === 'caption' ? await _msgCaptionDone(S.captionHint || '지난번처럼', true) : await _msgDone(true);
     }
+    // [qa-F §6/이슈4] 명시적 미리보기 단어("인스타 미리보기/피드에서 보기")일 때만 미리보기.
+    if (_looksPreview(q)) return _openInstaPreview();
+    if (/저장/.test(q)) return await _msgSaved();
+    if (/템플릿 바꾸|템플릿 고르/.test(q)) return await _msgTemplate(false);
     return null;
   }
 
   // 'saved' 단계 분기(파일 함수 50줄 규칙 준수 위해 분리).
   function _handleSavedText(q) {
-    if (/인스타/.test(q)) return _openInstaPreview();   // [이슈4]
+    if (_looksPreview(q)) return _openInstaPreview();   // [qa-F/이슈4] 명시적 미리보기만
     // [§4] 작업실로 이동 — 채팅 메시지 push/재렌더를 하지 않는다. (재렌더 시 닫히는 트랜지션 중 직전 캡션 카드가 1초 깜빡이던 버그)
     if (/작업실/.test(q)) { _openWorkshop(); exit(); return { pm_navigated: true }; }
     if (/다른 사진/.test(q)) { var keepCust = S.customer; S = _fresh(); S.active = true; S.customer = keepCust; S.step = 'await_photo'; return { text: '좋아요, 다음 사진을 보내주세요.' }; }
@@ -530,12 +567,30 @@
     var out = null;
     function set(k, v) { out = out || {}; out[k] = v; }
     if (/(더\s*길게|길게|분량.*(늘|많|크)|자세히|상세히|풍부하게|넉넉)/.test(q)) set('len', 'long');
+    // [qa-F §5] "5줄 이상/여러 줄/N문단" → 길게 + 최소 줄수 보장.
+    var ml = q.match(/(\d+)\s*(줄|문단)\s*(이상|넘게|이상으로|정도)?/);
+    if (ml || /(여러\s*줄|다섯\s*줄|문단으로|여러\s*문단)/.test(q)) {
+      set('len', 'long');
+      var n = ml ? parseInt(ml[1], 10) : 5;
+      if (/문단/.test(q) && ml) n = Math.max(n * 2, 5);   // N문단 ≈ 줄수로 환산
+      if (n >= 2 && n <= 30) set('minLines', n);
+    }
     if (/(더\s*짧게|짧게|간결|핵심만|줄여|간단)/.test(q)) set('len', 'short');
     if (/(인스타\s*(말투|스럽|식|느낌)|더\s*인스타|화려|이모지\s*(더|많)|꾸며서|발랄|트렌디)/.test(q)) set('tone', 'ornate');
-    if (/(담백|깔끔한\s*말투|차분|이모지\s*(빼|줄|없)|점잖|격식)/.test(q)) set('tone', 'plain');
+    // [qa-F §5] "고급스럽게/세련/우아/프리미엄"도 정제된 톤(plain)으로, "자연스럽게/과하지 않게"는 재생성으로 수렴.
+    if (/(담백|깔끔한\s*말투|차분|이모지\s*(빼|줄|없)|점잖|격식|고급|세련|우아|프리미엄|품격)/.test(q)) set('tone', 'plain');
+    if (/(자연스럽게|내추럴|과하지\s*않게|담담)/.test(q)) set('regen', true);
     if (/(해시\s*태그|해시태그).*(더|추가|많|넣)/.test(q)) set('moreTags', true);
     if (/(캡션\s*(다시|새로)|다시\s*(써|만들|생성|해)|다른\s*(버전|느낌|걸로)|새\s*버전|새로\s*써)/.test(q)) set('regen', true);
     return out;
+  }
+
+  // [qa-F] 톤/길이/해시태그 조정어만 있고 실제 시술명이 없는지(시술내역 게이트에서 오인 방지).
+  //   조정 관련 단어/조사/공통어를 모두 지우고 남은 한글이 2자 미만이면 '순수 조정'으로 본다.
+  var _ADJUST_WORDS_RE = /(더|좀|조금|훨씬|길게|짧게|간결|핵심만|줄여|간단|인스타|말투|스럽게|스럽|식|느낌|화려|이모지|많이|많게|빼고|빼|줄이고|없이|꾸며서|발랄|트렌디|담백|깔끔|차분|점잖|격식|고급|세련|우아|프리미엄|품격|자연|내추럴|과하지|않게|해시\s*태그|해시태그|추가|넣어|넣게|다시|새로|새|버전|풍부하게|넉넉|자세히|상세히|분량|늘려|크게|여러\s*줄|다섯\s*줄|문단으로|문단|줄|이상|넘게|정도|으로|로|하게|해줘|써줘|만들어|만들|줘|요|해|주세요)/g;
+  function _isPureAdjust(q) {
+    var stripped = String(q || '').replace(_ADJUST_WORDS_RE, '').replace(/[0-9\s.,!?·~"'`]/g, '');
+    return stripped.length < 2;
   }
 
   // ── 보조 동작 ──
@@ -556,7 +611,19 @@
       }
     } catch (_e) { void _e; }
     S.result = Object.assign(S.result || {}, { afterUrl: afterUrl, presetLabel: '자연 보정 적용', baEnhanced: true });
-    return await _msgDone(false);
+    // [qa-F §4] 전후 카드 미리보기는 만들되, 시술내역 없이 캡션을 자동 생성하지 않는다.
+    //   카드 합성 → 시술내역 게이트(svc_ask). 내역을 받으면 _doneForWorkflow→_msgDone 이 그 내용으로 캡션 생성.
+    var tplId = S.lastTemplateId || 'ba-cream';
+    var beforeP = S.photos.find(function (p) { return p.role === 'before'; }) || S.photos[0];
+    var slots = { before_photo: { src: (beforeP || {}).url }, after_photo: { src: afterUrl } };
+    var composed = await _preview(tplId, slots, 720);
+    S.result = Object.assign(S.result, { composedUrl: composed, tplId: tplId });
+    S.workflow = 'ba';
+    S.step = 'svc_ask';
+    return { text: '전후 카드를 만들었어요! **시술 내용**을 알려주시면 전후 변화에 맞는 캡션까지 써드릴게요.\n예: "레이어드컷, 무거운 머리 정리, 얼굴형 보완"',
+      photo_result: { dataUrl: composed, ratio: '4:5' },
+      photo_caption: '시술 내역을 알려주시면 캡션을 써드려요',
+      related: ['그냥 알아서 써줘'] };
   }
   async function _pickCustomer() {
     try { if (window.Customer && typeof window.Customer.pick === 'function') { var c = await window.Customer.pick({}); return c && c.id != null ? { id: c.id, name: c.name || '고객' } : null; } }

@@ -2901,7 +2901,8 @@
     const ql = (question || '').toLowerCase();
     return {
       edit: /(편집|보정|예쁘게|꾸미)/.test(ql),
-      instagram: /(인스타|올려|게시|업로드|포스트)/.test(ql),
+      // [qa-F §6] "인스타스럽게/말투로/느낌으로"는 문구 톤 수정이지 미리보기가 아니므로 instagram 라우팅에서 제외.
+      instagram: /(인스타|올려|게시|업로드|포스트)/.test(ql) && !/인스타\s*(말투|스럽|식|느낌)/.test(ql),
       ba: /(전후|before|애프터|b&a|비포)/i.test(ql),
       bg: /(누끼|배경)/.test(ql),
       videoCard: /(릴스|reels|shorts|숏폼|cover|커버)/i.test(ql),

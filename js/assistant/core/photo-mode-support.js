@@ -6,6 +6,11 @@
 
   var START_RE = /(사진|이미지|포토|촬영본).*(편집|만들|꾸미|시켜|보정|수정|홍보|예쁘|카드|전후|후기|리뷰|인스타|sns|피드|스토리|캡션|문구|해시\s*태그|올릴|게시)|(전후|비포\s*애프터|before\s*after|후기|리뷰)\s*(사진|카드|템플릿)?\s*(만들|해줘|뽑아|꾸며|보정|제작)?/i;
   var CAPTION_RE = /(캡션|홍보\s*글|홍보글|해시\s*태그|문구|인스타\s*(글|피드\s*글)|sns\s*글)/i;
+  // [qa-F] 인스타 '미리보기'(화면 띄우기) vs '인스타스럽게'(문구 톤 수정) 분리.
+  //   미리보기는 명시적 단어가 있을 때만 — "인스타 미리보기/피드에서 보기/업로드 화면/올린 모습".
+  //   "인스타스럽게·인스타 말투로·인스타 느낌으로"는 미리보기가 아니라 톤 수정이므로 false.
+  var PREVIEW_RE = /(미리\s*보기|피드.*(보여|어떻게|모습|올린)|피드에서|업로드\s*(화면|모습)|올린\s*모습|올리면\s*어떻게|게시.*(화면|모습))/;
+  var TONE_INSTA_RE = /인스타\s*(말투|스럽|식|느낌)/;
   // 사진편집 모드로 보내면 안 되는 의도(가격표/메뉴판/문자/DM/발송 + 영수증·매출 OCR).
   var BLOCK_RE = /(가격표|메뉴판|문자|디엠|\bdm\b|메시지|메세지|카톡|알림톡|발송|영수증|매출|정산)/i;
 
@@ -24,6 +29,13 @@
   };
 
   function isExcluded(text) { return BLOCK_RE.test(String(text || '')); }
+
+  // [qa-F] 명시적 인스타 미리보기 요청인지. "인스타스럽게/말투/느낌"(톤 수정)은 false.
+  function looksPreviewRequest(text) {
+    var t = String(text || '');
+    if (TONE_INSTA_RE.test(t) && !PREVIEW_RE.test(t)) return false;   // 톤 수정 단독은 미리보기 아님
+    return PREVIEW_RE.test(t);
+  }
 
   function shouldStart(text, opts) {
     var q = String(text || '').trim();
@@ -84,7 +96,9 @@
   window.ItdasyPhotoModeSupport = {
     START_RE: START_RE,
     CAPTION_RE: CAPTION_RE,
+    PREVIEW_RE: PREVIEW_RE,
     isExcluded: isExcluded,
+    looksPreviewRequest: looksPreviewRequest,
     shouldStart: shouldStart,
     recipeFromText: recipeFromText,
     buildCaptionDraft: buildCaptionDraft,
