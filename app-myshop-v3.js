@@ -128,30 +128,6 @@
   }
 
   // ─────────── 샵 카드 ───────────
-  function _shopStats(brief) {
-    const rev = (brief && brief.this_month_total) || 0;
-    const mom = brief && (brief.mom_delta_pct != null ? brief.mom_delta_pct : null);
-    const newC = brief && (brief.new_customer_count != null ? brief.new_customer_count : null);
-    const totalC = brief && (brief.total_customers != null ? brief.total_customers : null);
-    const atRiskN = brief && Array.isArray(brief.at_risk) ? brief.at_risk.length :
-                    (brief && typeof brief.at_risk_count === 'number' ? brief.at_risk_count : 0);
-    const todayN = _todayBookingsList(brief).length;
-    const pendingN = brief && Array.isArray(brief.pending_bookings) ? brief.pending_bookings.length : 0;
-
-    const custVal = totalC != null ? `${totalC}명` : (atRiskN ? `이탈 ${atRiskN}` : '—');
-    // [2026-06-03] 신규 단일수치 → 방문 기준 3분해. BE 새 필드 없으면(미배포·구캐시) 기존 '신규 N' 폴백.
-    const fv = brief && brief.first_visit_count;
-    const rv = brief && brief.revisit_count;
-    const rg = brief && brief.regular_count;
-    const has3 = [fv, rv, rg].some(v => v != null);
-    const custTrend = has3
-      ? `첫방문 ${fv || 0} · 재방문 ${rv || 0} · 단골 ${rg || 0}`
-      : (newC != null ? `신규 ${newC}` : (atRiskN ? `이탈 위험 ${atRiskN}명` : ''));
-    const bookVal = `${todayN}건`;
-    const bookTrend = pendingN ? `대기 ${pendingN}건` : '오늘 예약';
-
-    return { rev, custVal, custTrend, bookVal, bookTrend };
-  }
   function _renderShopCard(brief) {
     const shop = _shopName();
     const initial = _shopInitial(shop);
@@ -159,7 +135,6 @@
     const avatarHTML = avatarUrl
       ? `<img src="${_esc(avatarUrl)}" alt="" data-ms-avatar-fallback="${_esc(initial)}" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;">`
       : _esc(initial);
-    const s = _shopStats(brief);
     return `
       <div class="ms-shop">
         <div class="ms-shop__top">
@@ -171,22 +146,6 @@
           <button type="button" class="ms-shop__edit" data-mv-act="editShop" aria-label="샵 정보 편집">
             <i class="ph-duotone ph-pencil-simple" style="font-size:14px" aria-hidden="true"></i>
           </button>
-        </div>
-        <div class="ms-shop__stats">
-          <div class="ms-shop__stat">
-            <div class="ms-shop__stat-label">이번달 매출</div>
-            <div class="ms-shop__stat-value">${_esc(formatMoney(s.rev))}</div>
-          </div>
-          <div class="ms-shop__stat">
-            <div class="ms-shop__stat-label">고객</div>
-            <div class="ms-shop__stat-value">${_esc(s.custVal)}</div>
-            ${s.custTrend ? `<div class="ms-shop__stat-trend">${_esc(s.custTrend)}</div>` : ''}
-          </div>
-          <div class="ms-shop__stat">
-            <div class="ms-shop__stat-label">예약</div>
-            <div class="ms-shop__stat-value">${_esc(s.bookVal)}</div>
-            <div class="ms-shop__stat-trend is-amber">${_esc(s.bookTrend)}</div>
-          </div>
         </div>
       </div>
     `;
@@ -488,58 +447,11 @@
   }
 
   // ─────────── PC 메인 컴포지션 ───────────
-  // [2026-05-16] 인스타 말투 분석 리포트 카드 — 홈에서 내샵관리로 이전 (사용자 요청).
-  // 데이터 소스: localStorage('itdasy_latest_analysis') — 인스타 분석 완료 시 저장됨.
-  // 접어두기: localStorage('ms_persona_collapsed') = '1' / '0'.
-  function _ensureMsPersonaStyles() {
-    if (document.getElementById('msPersonaStyles')) return;
-    const s = document.createElement('style');
-    s.id = 'msPersonaStyles';
-    s.textContent = `
-      .ms-persona { background:#fff; border:1px solid #E5E8EB; border-radius:16px; padding:16px 18px; margin:12px 0; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
-      .ms-persona__head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-      .ms-persona__title { font-size:14px; font-weight:700; color:#191F28; letter-spacing:-0.2px; }
-      .ms-persona__toggle { padding:6px 12px; border:1px solid #E5E8EB; background:#fff; border-radius:999px; font-size:12px; font-weight:600; color:#4E5968; cursor:pointer; }
-      .ms-persona__toggle:hover { background:#F7F8FA; }
-      .ms-persona__body { margin-top:12px; padding:14px 16px; background:rgba(213,138,149,0.06); border-radius:12px; border:1px solid rgba(213,138,149,0.15); }
-      .ms-persona__label { font-size:11px; font-weight:700; color:#BC6675; letter-spacing:-0.2px; margin-bottom:6px; }
-      .ms-persona__summary { font-size:13px; color:#191F28; line-height:1.6; font-weight:500; }
-      .ms-persona__detail { margin-top:12px; padding:10px 14px; border:1px solid #BC6675; background:#fff; color:#BC6675; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; }
-      .ms-persona__detail:hover { background:#F7EFF0; }
-    `;
-    document.head.appendChild(s);
-  }
-  function _renderPersonaCard() {
-    _ensureMsPersonaStyles();
-    let raw = null;
-    try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}'); } catch (_e) { raw = null; }
-    // [F3] showDetailedAnalysis 와 동일 기준 — style_summary/tone_summary/tone 중 하나라도 있으면 노출.
-    const summary = ((raw && (raw.style_summary || raw.tone_summary || raw.tone)) || '').toString().trim();
-    if (!summary) return '';
-    const collapsed = localStorage.getItem('ms_persona_collapsed') === '1';
-    const body = collapsed
-      ? ''
-      : `<div class="ms-persona__body">
-           <div class="ms-persona__label">사장님 말투</div>
-           <div class="ms-persona__summary">${_esc(summary)}</div>
-           <button type="button" class="ms-persona__detail" data-ms-persona-detail>전체 분석 리포트 보기</button>
-         </div>`;
-    const toggleLbl = collapsed ? '펼치기' : '접기';
-    return `
-      <section class="ms-persona" aria-label="말투 분석 리포트">
-        <header class="ms-persona__head">
-          <div class="ms-persona__title">말투 분석 리포트</div>
-          <button type="button" class="ms-persona__toggle" data-mv-act="persona-toggle" aria-expanded="${collapsed ? 'false' : 'true'}">${toggleLbl}</button>
-        </header>
-        ${body}
-      </section>`;
-  }
 
   function _renderPCDash(brief) {
     return `
       <main class="ms-pc" aria-label="내샵관리 PC 대시보드">
         ${_renderShopCard(brief)}
-        ${_renderPersonaCard()}
         <div class="ms-dash">
           ${_renderPCDonut(brief)}
           ${_renderPCWidgets(brief)}
@@ -566,11 +478,6 @@
       logout:         () => (window.logout || (() => {}))(),
       bell:           () => window.openNotifications && window.openNotifications(),
       editShop:       () => window.openShopSettings && window.openShopSettings(),
-      'persona-toggle': () => {
-        const cur = localStorage.getItem('ms_persona_collapsed') === '1';
-        try { localStorage.setItem('ms_persona_collapsed', cur ? '0' : '1'); } catch (_e) { /* silent */ }
-        if (window.MyShopV3 && typeof window.MyShopV3.refresh === 'function') window.MyShopV3.refresh();
-      },
       createShortcut: () => window.openAiHub && window.openAiHub(),
       goHome: () => {
         if (typeof window.showTab === 'function') {
@@ -598,23 +505,6 @@
         img.replaceWith(span);
       }, { once: true });
     });
-    // [2026-05-22] _renderPersonaCard 가 모바일·PC 양쪽에 렌더 → 카드 2개. querySelector 는
-    // 첫 번째만 매칭 → 사용자가 두 번째 누르면 무반응. querySelectorAll 로 모두 바인딩.
-    // 추가: window.showDetailedAnalysis 가 timing/error 로 undefined 인 케이스 fallback 토스트.
-    container.querySelectorAll('[data-ms-persona-detail]').forEach(_btn => {
-      _btn.addEventListener('click', () => {
-        if (typeof window.showDetailedAnalysis === 'function') {
-          try { window.showDetailedAnalysis(); }
-          catch (e) {
-            console.error('[ms-persona-detail] showDetailedAnalysis 실행 실패:', e);
-            if (window.showToast) window.showToast('리포트 표시 실패. 잠시 후 다시 시도해주세요');
-          }
-        } else {
-          console.warn('[ms-persona-detail] window.showDetailedAnalysis undefined — app-instagram.js 미로드?');
-          if (window.showToast) window.showToast('분석 모듈 로드중. 1~2초 후 다시 눌러주세요');
-        }
-      });
-    });
   }
 
   // ─────────── 메인 컴포지션 ───────────
@@ -629,7 +519,6 @@
           ${_renderHeader()}
           <div class="ms-body">
             ${_renderShopCard(brief)}
-            ${_renderPersonaCard()}
             ${_renderOpsMenu(brief)}
             ${_renderHubMenu()}
             ${_renderAccountMenu()}
