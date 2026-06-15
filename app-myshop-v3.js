@@ -45,10 +45,18 @@
     try {
       const res = await apiFetch('/assistant/brief', { headers });
       if (!res.ok) return null;
-      const data = await res.json();
+      const data = await _withBookingRevenue(await res.json());
       _writeSWR(data);
       return data;
     } catch (_e) { return null; }
+  }
+  async function _withBookingRevenue(data) {
+    if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichBrief !== 'function') return data;
+    try { return await window.BookingRevenueOverlay.enrichBrief(data); }
+    catch (err) {
+      console.warn('[myshop] 예약금 보강 실패:', err);
+      return data;
+    }
   }
   // ─────────── 헬퍼 ───────────
   function _shopName() {
@@ -347,7 +355,7 @@
         gradient: 'var(--border-strong)',
       };
     }
-    const LBL = { card: '카드', cash: '현금', transfer: '계좌', membership: '회원권', etc: '기타' };
+    const LBL = { card: '카드', cash: '현금', transfer: '계좌', booking_deposit: '예약금', membership: '회원권', etc: '기타' };
     const COLORS = [
       'var(--brand-strong)',
       'color-mix(in srgb, var(--brand-strong) 55%, var(--surface))',

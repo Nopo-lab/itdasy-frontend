@@ -2067,13 +2067,21 @@
         deposit:       depVal > 0 ? depVal : null,
       };
       try {
+        const changeDetail = {
+          customer_id: payload.customer_id,
+          customer_name: payload.customer_name,
+          service_name: payload.service_name,
+          starts_at: payload.starts_at,
+          amount: payload.amount,
+          deposit: payload.deposit,
+        };
         if (existing) {
           await window.Booking.update(existing.id, payload);
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: payload.customer_id } }));
+          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { ...changeDetail, kind: 'update_booking', booking_id: existing.id } }));
         } else {
           const created = await window.Booking.create(payload);
           window.dispatchEvent(new CustomEvent('booking:created', { detail: { customer_name: payload.customer_name, customer_id: payload.customer_id || null } }));
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_booking', booking_id: created?.id || null, customer_id: payload.customer_id } }));
+          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { ...changeDetail, kind: 'create_booking', booking_id: created?.id || null } }));
         }
         if (window.hapticLight) window.hapticLight();
         const _name = payload.customer_name || '';

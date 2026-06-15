@@ -194,8 +194,24 @@
     // 홈의 오늘 예상매출 / 완료 카운트에 영향을 주므로 stale 방지.
     try { localStorage.removeItem('hv41_cache::brief');     } catch (_e) { void _e; }
     try { sessionStorage.removeItem('hv41_cache::brief');   } catch (_e) { void _e; }
+    try { localStorage.removeItem('mv3_cache::brief');      } catch (_e) { void _e; }
+    try { sessionStorage.removeItem('mv3_cache::brief');    } catch (_e) { void _e; }
     try { localStorage.removeItem('pv_cache::dashboard');   } catch (_e) { void _e; }
     try { sessionStorage.removeItem('pv_cache::dashboard'); } catch (_e) { void _e; }
+    _removeRevenueCache();
+  }
+
+  function _removeRevenueCache() {
+    const prefix = 'pv_cache::revenue::';
+    try { _removeStoragePrefix(localStorage, prefix); } catch (_e) { void _e; }
+    try { _removeStoragePrefix(sessionStorage, prefix); } catch (_e) { void _e; }
+  }
+
+  function _removeStoragePrefix(store, prefix) {
+    for (let i = store.length - 1; i >= 0; i--) {
+      const key = store.key(i);
+      if (key && key.indexOf(prefix) === 0) store.removeItem(key);
+    }
   }
 
   // [2026-05-29] 잇비 학습 — 고객별 시술명별 평균 시술비/예약금 (최근 5회, 취소 제외).

@@ -2448,6 +2448,14 @@
     } catch (_e) { void _e; }
   }
 
+  function _rememberExecutedAction(action, data) {
+    try {
+      if (window.ItdasyBookingContext && typeof window.ItdasyBookingContext.rememberAction === 'function') {
+        window.ItdasyBookingContext.rememberAction(action, data);
+      }
+    } catch (_e) { void _e; }
+  }
+
   // 순수 실행기 — action 객체만 받아 POST, 결과 반환. UI 갱신은 호출자가.
   // [QA-NEXT #4] action._ai_original (AI 추출 시점 payload 스냅샷) 있으면 original_payload 동봉 →
   // 백엔드에서 final vs original diff 를 UserCorrection 으로 학습.
@@ -2462,6 +2470,7 @@
     if (typeof localFn === 'function') {
       const d = await localFn(action) || {};
       _invalidateCachesFor(action.kind);
+      _rememberExecutedAction(action, { kind: action.kind, ...d });
       try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction(action.kind); } catch (_e) { void 0; }
       return { kind: action.kind, message: d.message || '✓ 완료', ...d };
     }
@@ -2488,6 +2497,7 @@
         if (navigator.clipboard) await navigator.clipboard.writeText(d.message_draft);
       } catch (_e) { void _e; }
     }
+    _rememberExecutedAction(action, d);
     try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction(d.kind || action.kind); } catch (_e) { void 0; }
     return d;
   }
@@ -3535,7 +3545,7 @@
   }
 
   function _isAffirmReply(q) {
-    return /^(응|그래|맞아|예|네|좋아|확인|진행|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
+    return /^(응|그래|맞아|예|네|좋아|확인|진행|완료|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
   }
 
   function _markActionFailed(message, err) {
@@ -3571,20 +3581,29 @@
     return true;
   }
 
-  function _pushCancelBookingResult(input, q, result) {
+  function _pushShortcutResult(input, q, result) {
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q });
-    if (result.kind === 'card') {
+    if (result.kind === 'card' && result.action) {
       _history.push({
         role: 'assistant',
-        text: result.action.confirmation_text || (result.customer.name + '님 예약 취소할까요?'),
+        text: result.action.confirmation_text || result.text || '진행할까요?',
         action: result.action,
         action_status: 'pending',
       });
     } else if (result.kind === 'message') {
-      _history.push({ role: 'assistant', text: result.text });
+      _history.push({
+        role: 'assistant',
+        text: result.text || '',
+        related: Array.isArray(result.related) ? result.related : undefined,
+        hub_actions: Array.isArray(result.hub_actions) ? result.hub_actions : undefined,
+      });
     }
     _renderHistory();
+  }
+
+  function _pushCancelBookingResult(input, q, result) {
+    _pushShortcutResult(input, q, result);
   }
 
   async function _tryCancelBookingShortcut(input, q) {
@@ -3593,6 +3612,32 @@
       const result = await window.AssistantIntent.tryCancelBooking(q);
       if (!result || !result.matched) return false;
       _pushCancelBookingResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  async function _tryBookingContextShortcut(input, q) {
+    try {
+      const C = window.ItdasyBookingContext;
+      if (!C || typeof C.tryRun !== 'function') return false;
+      const result = await C.tryRun(q);
+      if (!result || !result.matched) return false;
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  async function _tryCustomerAddGuard(input, q) {
+    try {
+      const G = window.ItdasyCustomerAddGuard;
+      if (!G || typeof G.tryRun !== 'function') return false;
+      const result = await G.tryRun(q);
+      if (!result || !result.matched) return false;
+      _pushShortcutResult(input, q, result);
       return true;
     } catch (_e) {
       return false;
@@ -3802,6 +3847,7 @@
   async function _runAsyncIntentRule(rule) {
     try {
       const result = await window.AssistantIntent.execAsyncRule(rule);
+      try { window.ItdasyBookingContext?.rememberList?.(result); } catch (_ctxErr) { void _ctxErr; }
       _history = _history.filter(m => m.role !== 'loading');
       _history.push({ role: 'assistant', text: result.response });
       _renderHistory();
@@ -4133,8 +4179,10 @@
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
+    if (await _tryCustomerAddGuard(input, q)) return true;
     if (await _tryCaptionConversation(input, q)) return true;     // [§2-5] 캡션 — 대화형 생성/재생성(1초캡션 팝업 금지)
     if (await _tryCancelBookingShortcut(input, q)) return true;
+    if (await _tryBookingContextShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
     if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)

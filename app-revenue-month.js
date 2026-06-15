@@ -83,7 +83,7 @@
       if (!cached.fresh) {
         _refreshSummaryInBackground(auth, isCur).catch(() => {});
       }
-      return cachedSummary;
+      return await _withBookingOverlay(cachedSummary);
     }
     // 캐시 미스 — 정상 fetch
     return await _doFetchSummary(auth, isCur);
@@ -94,7 +94,7 @@
     if (!isCur) url += '&year=' + _viewYear + '&month=' + _viewMonth;
     const res = await apiFetch(url, { headers: { ...auth, 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const summary = await res.json();
+    const summary = await _withBookingOverlay(await res.json());
     const R = _R();
     if (R._swrWriteKey) R._swrWriteKey(_monthSwrKey(), summary);
     if (!isCur) {
@@ -113,6 +113,11 @@
       _viewItems = null;
     }
     return summary;
+  }
+
+  async function _withBookingOverlay(summary) {
+    if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichSummary !== 'function') return summary;
+    return await window.BookingRevenueOverlay.enrichSummary(summary, { year: _viewYear, month: _viewMonth });
   }
 
   async function _refreshSummaryInBackground(auth, isCur) {
@@ -164,7 +169,7 @@
     });
     const daily = Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
 
-    return {
+    const summary = {
       period: 'month', year: now.getFullYear(), month: now.getMonth() + 1, is_past: false,
       total, count, net_total,
       /* PROFIT_HIDDEN */ material_cost_total: 0,
@@ -180,6 +185,9 @@
       by_method,
       _fallback: true,
     };
+    if (!window.BookingRevenueOverlay || !window.Booking) return summary;
+    const agg = window.BookingRevenueOverlay.summarizeBookings(window.Booking._items || [], summary);
+    return window.BookingRevenueOverlay.mergeSummary(summary, agg);
   }
 
   // ── AI 일일 목표 ────────────────────────────────────────

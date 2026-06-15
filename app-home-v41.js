@@ -44,12 +44,20 @@
         console.warn('[brief] API 응답 실패:', res.status);
         return null;
       }
-      const data = await res.json();
+      const data = await _withBookingRevenue(await res.json());
       _writeSWR(data);
       return data;
     } catch (_e) {
       console.warn('[brief] fetch 예외:', _e);
       return null;
+    }
+  }
+  async function _withBookingRevenue(data) {
+    if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichBrief !== 'function') return data;
+    try { return await window.BookingRevenueOverlay.enrichBrief(data); }
+    catch (err) {
+      console.warn('[brief] 예약금 보강 실패:', err);
+      return data;
     }
   }
   async function _fetchSlots() {

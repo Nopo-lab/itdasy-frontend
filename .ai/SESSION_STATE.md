@@ -2,7 +2,100 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-06-14 · 잇비 사진편집 모드 통합 마무리 완료
+**LAST UPDATED:** 2026-06-15 · 예약금 매출 반영 수정
+
+---
+
+## 🟣 2026-06-15 — 예약금 매출 반영 수정
+
+배경: 원영님이 예약 생성 때 예약금 20,000원을 넣어도 내샵관리와 매출관리에 바로 반영되지 않는다고 제보.
+
+완료:
+- 예약금 계산 보강 파일을 새로 추가해서, 서버 매출 숫자가 예약금을 빼고 와도 화면에서 예약 목록을 보고 즉시 보태게 함.
+- 내샵관리와 홈의 "이번달 매출"에 확정 예약의 예약금을 바로 반영.
+- 매출관리 이번달 화면의 총매출/예약금/남은 예약/예상 매출을 같은 기준으로 정리.
+- 예약금은 이미 받은 돈으로 총매출에 포함하고, 남은 예약은 시술비에서 예약금을 뺀 금액으로 계산.
+- 예약 생성/수정 때 내샵관리·매출관리 캐시를 같이 비워 실시간 반영되게 보강.
+- 빌드: `20260615-v471-qag`.
+
+수정 파일:
+- `js/revenue/booking-revenue-overlay.js`
+- `js/revenue/__tests__/booking-revenue-overlay.test.js`
+- `app-revenue-month.js`
+- `app-myshop-v3.js`
+- `app-home-v41.js`
+- `app-booking-api.js`
+- `app-calendar-view.js`
+- `index.html`
+- `app-core.js`
+- `sw.js`
+
+확인:
+- 예약금 계산 테스트 통과: 4개.
+- 전체 테스트 통과: 136개.
+- 기본 실행 확인 통과: 92 scripts, build `20260615-v471-qag`.
+- 자동 검사 확인: 빨간 오류 0개, 기존 노란 경고 108개.
+- 브라우저 확인 통과: 10만원 예약/예약금 2만원 기준 내샵관리 20,000원, 매출관리 총매출 20,000원, 예약금 20,000원, 남은 예약 80,000원, 예상 100,000원.
+
+주의:
+- 작업 전부터 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md` 변경/추가는 이번 수정과 별개.
+
+---
+
+## 🟣 2026-06-15 — 잇비 고객 확인/예약 취소 복구 수정
+
+배경: 원영님이 잇비 실사용 중 남은 문제를 제보.
+- "강연준 고객 추가해"라고 했을 때 이미 고객 명단에 있으면 먼저 확인해야 함.
+- "내일 예약"을 본 뒤 "그거 취소해", "12:00 강연준 취소해", "내일 예약 복구해"가 이어져야 함.
+
+완료:
+- 잇비가 고객 추가 요청을 받으면 고객 명단에서 같은 이름을 먼저 찾고, 있으면 "이 고객님 맞나요?"와 고객 정보를 먼저 보여줌.
+- "맞아요 고객 기록 열기"는 기존 고객 기록을 열고, "새 고객으로 추가"는 별도 추가 확인 카드로 이어짐.
+- 잇비가 방금 보여준 예약 목록을 잠깐 기억해서 "그거 취소해", "12:00 강연준 취소해", "응 그거 취소해"를 이해함.
+- 방금 취소한 예약을 기억해서 "내일 예약 복구해", "내일예약 되돌리기"로 복구 확인 카드를 띄움.
+- 원영님이 실제로 쓰는 "완료"도 확인 답변으로 처리되게 추가.
+- 빌드: `20260615-v470-qag`.
+
+수정 파일:
+- `app-assistant.js`
+- `assistant-intent-router.js`
+- `js/assistant/core/booking-context.js`
+- `js/assistant/core/customer-add-guard.js`
+- `js/load-groups.js`
+- `index.html`
+- `app-core.js`
+- `sw.js`
+
+확인:
+- 브라우저 재현 통과: 기존 고객 확인, 고객 기록 열기, 내일 예약 목록, 그거 취소, 완료로 취소, 취소 뒤 예약 없음, 복구 카드, 완료로 복구.
+- 추가 재현 통과: "12:00 강연준 취소해", "응 그거 취소해".
+- 문법 확인 통과.
+- `npm run smoke` 통과: 91 scripts, build `20260615-v470-qag`.
+- `npm test -- --runInBand` 통과: 132개.
+- `npm run lint` 확인: 빨간 오류 0개, 기존 노란 경고 108개.
+- 공백 검사 통과.
+
+주의:
+- 실제 스테이징 로그인 데이터로 최종 확인은 원영님 계정에서 한 번 더 보면 좋음.
+- 작업 전부터 남아 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md` 변경/추가는 이번 수정과 섞지 않음.
+
+---
+
+## 🟣 2026-06-15 — 결제 PG/프론트 표시 상태 확인
+
+배경: 원영님이 "PG 연결 제대로 됐나, 승인 후 env 받아 Cloud Run에 넣으면 되는지, env 없이 구현한 프론트를 보고 싶다"고 요청.
+
+확인:
+- 프론트 `app-billing.js`는 PortOne 결제 SDK를 결제 시점에만 불러오고, `/billing/config`에서 공개 설정을 받아 동작함.
+- 스테이징 백엔드 `/health` 응답 정상: `db:true`, `env:true`.
+- 스테이징 백엔드 `/billing/config` 응답: `enabled:false`, `storeId:""`, `channelKey:""`. 즉 결제사 승인 후 받은 결제 env를 Cloud Run에 넣기 전에는 결제 UI가 "준비 중"이 되는 상태가 정상.
+- `/billing/issue`는 로그인 없이는 `401 Not authenticated`로 막힘. 결제 생성 경로가 공개로 뚫려 있지는 않음.
+- env 없이 프론트 로컬 화면 표시 확인 완료. 로컬 서버: `http://0.0.0.0:8091/?debug=1`.
+- Playwright 모바일 캡처: `output/playwright/current-frontend-no-env-mobile.png`.
+
+주의:
+- 현재 로컬 백엔드 코드에서는 `/billing/*` 라우터 위치가 검색되지 않았지만, 배포된 스테이징 Cloud Run은 `/billing/config`, `/billing/issue`를 응답함. 배포본과 로컬 백엔드 폴더 차이는 후속 확인 필요.
+- 작업 중 `.ai/BOARD.md`에는 부팅 기록만 추가. 기존 변경 파일(`output/photo-beauty-contract-qa-report.json`, `.claude/`, `output/ocr-pricelist-import-qa-report.md`)은 건드리지 않음.
 
 ---
 

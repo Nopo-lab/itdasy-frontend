@@ -113,8 +113,10 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   assistant: [
   'app-assistant-facts.js?v=20260610-batch4',
   'app-assistant-undo.js?v=20260610-batch4',
-  'assistant-intent-router.js?v=20260611-caption-card-fix',
+  'assistant-intent-router.js?v=20260615-v470-qag',
   'js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split',
+  'js/assistant/core/booking-context.js?v=20260615-v470-qag',
+  'js/assistant/core/customer-add-guard.js?v=20260615-v470-qag',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
   'js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split',
   'js/assistant/photo-actions.js?v=20260606-itbi-photo-chat-actions',
@@ -154,7 +156,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260612-v451-activecard',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260613-v459-template-round',
+  'app-assistant.js?v=20260615-v470-qag',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

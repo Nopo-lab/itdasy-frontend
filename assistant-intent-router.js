@@ -309,7 +309,7 @@
     const data = await rule.fetch();
     const response = rule.format(data);
     _bumpStats(rule.type);
-    return { matched: true, type: rule.type, response };
+    return { matched: true, type: rule.type, response, data };
   }
 
   // ─── [P0-4-SQL] 예약 취소 SQL-first ─────────────────────
@@ -549,6 +549,7 @@
       confidence: 0.95,
       _source_question: text,
       _ai_original: { booking_id: b.id, customer_name: customer.name },
+      _context_booking: b,
     };
     _bumpStats('cancel_booking');
     return { matched: true, kind: 'card', action, customer, booking: b };
