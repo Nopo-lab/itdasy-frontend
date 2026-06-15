@@ -1263,6 +1263,67 @@
     }
   }
 
+  // [Phase4] 예약 카드 탭 → 읽기전용 상세 시트(완료/매출 UI 가 바로 열리지 않음). 버튼으로 수정/완료/취소/닫기.
+  function _bookingStatusLabel(s) {
+    return s === 'cancelled' ? '취소됨' : s === 'no_show' ? '노쇼' : s === 'done' ? '완료' : '예약 확정';
+  }
+  function _openBookingDetail(raw) {
+    if (!raw) return;
+    const fmtT = (iso) => { try { const d = new Date(iso); return _pad(d.getHours()) + ':' + _pad(d.getMinutes()); } catch (_e) { return ''; } };
+    const dateStr = (() => { try { return _ds(new Date(raw.starts_at)); } catch (_e) { return ''; } })();
+    const timeStr = fmtT(raw.starts_at) + (raw.ends_at ? '~' + fmtT(raw.ends_at) : '');
+    const esc = (s) => (window._esc ? window._esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
+    const old = document.getElementById('cv-booking-detail'); if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'cv-booking-detail';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10040;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;';
+    const rows = [['고객', raw.customer_name || '고객 미지정'], ['일시', (dateStr + ' ' + timeStr).trim()]];
+    if (raw.service_name) rows.push(['시술', raw.service_name]);
+    rows.push(['상태', _bookingStatusLabel(raw.status)]);
+    if (raw.deposit != null && +raw.deposit > 0) rows.push(['예약금', (+raw.deposit).toLocaleString() + '원']);
+    if (raw.amount != null && +raw.amount > 0) rows.push(['예상 시술비', (+raw.amount).toLocaleString() + '원']);
+    if (raw.memo) rows.push(['메모', raw.memo]);
+    const rowsHtml = rows.map(([k, v]) => `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line,#eee);"><span style="min-width:64px;color:var(--text-subtle,#888);font-size:13px;">${esc(k)}</span><span style="flex:1;font-size:14px;font-weight:600;color:var(--text,#222);white-space:pre-line;">${esc(v)}</span></div>`).join('');
+    ov.innerHTML = `
+      <div style="background:var(--surface,#fff);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <strong style="font-size:16px;color:var(--text,#222);">예약 상세</strong>
+          <button type="button" data-bd="close" aria-label="닫기" style="border:none;background:transparent;font-size:22px;color:var(--text-subtle,#999);cursor:pointer;line-height:1;">×</button>
+        </div>
+        <div style="margin-bottom:14px;">${rowsHtml}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button type="button" data-bd="edit" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--accent2,#e26a85);background:transparent;color:var(--accent2,#e26a85);font-weight:800;cursor:pointer;">수정</button>
+          <button type="button" data-bd="done" data-haptic style="padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">시술 완료</button>
+          <button type="button" data-bd="cancel" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--line,#ddd);background:transparent;color:var(--text-subtle,#888);font-weight:700;cursor:pointer;">예약 취소</button>
+          <button type="button" data-bd="close2" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--line,#ddd);background:transparent;color:var(--text,#444);font-weight:700;cursor:pointer;">닫기</button>
+        </div>
+      </div>`;
+    if (window.ItdasyMountOverlay) window.ItdasyMountOverlay(ov); else document.body.appendChild(ov);
+    const close = () => { try { ov.remove(); } catch (_e) { void _e; } };
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) return close();
+      const t = e.target.closest('[data-bd]'); if (!t) return;
+      const act = t.dataset.bd;
+      if (act === 'close' || act === 'close2') return close();
+      if (act === 'edit') { close(); _openForm(new Date(raw.starts_at), raw); return; }
+      if (act === 'done') { close(); if (window.CompleteFlow && window.CompleteFlow.startFromBooking) window.CompleteFlow.startFromBooking(raw); else _openForm(new Date(raw.starts_at), raw); return; }
+      if (act === 'cancel') {
+        close();
+        window._inlineConfirm((raw.customer_name || '이') + '님 예약을 취소할까요?', async () => {
+          try {
+            await window.Booking.update(raw.id, { status: 'cancelled' });
+            window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: raw.id } }));
+            if (window.showToast) window.showToast('예약을 취소했어요');
+            _mappedCache = await _loadMonth(_curYear, _curMonth);
+            _renderViewBody();
+          } catch (err) {
+            if (window.showToast) window.showToast('취소 실패: ' + (window._humanError ? window._humanError(err) : '잠시 후 다시 시도해주세요'));
+          }
+        });
+      }
+    });
+  }
+
   function _bindBlockDragDrop(btn, body, _HOUR_PX, LONG_PRESS_MS) {
     const ctx = { pressTimer: null, dragMode: false, startY: 0, startX: 0, dragColEl: null, item: null };
     const cleanup = () => {
@@ -1305,11 +1366,7 @@
           // CompleteFlow 안에 "예약 시간·고객 수정" 링크로 편집폼 진입은 그대로.
           const raw = ctx.item._raw;
           btn._cfOpenedAt = Date.now();   // [2026-06-11 QA] click 폴백 이중 오픈 방지 마킹
-          if (window.CompleteFlow?.startFromBooking) {
-            window.CompleteFlow.startFromBooking(raw);
-          } else {
-            _openForm(new Date(raw.starts_at), raw);
-          }
+          _openBookingDetail(raw);   // [Phase4] 완료 UI 바로 X — 읽기전용 상세 먼저
         } else {
           console.warn('[BK] 블록 클릭 매칭 실패:', btn.dataset.bookingId, _mappedCache.map(m => m.id));
         }
@@ -1332,8 +1389,7 @@
       if (!item) return;
       btn._cfOpenedAt = Date.now();
       const raw = item._raw;
-      if (window.CompleteFlow?.startFromBooking) window.CompleteFlow.startFromBooking(raw);
-      else _openForm(new Date(raw.starts_at), raw);
+      _openBookingDetail(raw);   // [Phase4] 완료 UI 바로 X — 읽기전용 상세 먼저
     });
     btn.style.touchAction = 'none';
   }
