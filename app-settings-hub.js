@@ -94,7 +94,7 @@
         ${_rowHTML('shopinfo', 'ic-store',      '샵 정보',     '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
         ${_rowHTML('instagram','ic-instagram', '인스타그램 연결 및 재연결', '콘텐츠 발행 · 말투 분석용', { boxColor: 'pink' })}
         ${_rowHTML('instagram_disconnect','ic-instagram','인스타그램 연결 해제', '토큰 즉시 폐기 · 잇데이 로그인은 유지', { boxColor: 'red', danger: true })}
-        ${_rowHTML('naver',    'ic-link',       '네이버 예약 연동',   '연결 상태 확인', { metaClass: 'is-ok', boxColor: 'teal' })}
+        ${_rowHTML('naver_talk', '', '네이버 톡톡 연동', '문의 통합 수신 · 잇비 초안', { iconHtml: '<span class="ic-box ic-box--sm" style="background:#03C75A;color:#fff;font-weight:800;font-style:italic;display:inline-flex;align-items:center;justify-content:center;" aria-hidden="true">N</span>' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
       <div class="ms-sh">
@@ -165,9 +165,11 @@
     const o = opt || {};
     const metaCls = o.metaClass ? ` ${_esc(o.metaClass)}` : '';
     const nameStyle = o.danger ? ' style="color:var(--danger);"' : '';
-    const iconHtml = o.boxColor
-      ? `<div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--${_esc(o.boxColor)}">${_ic(icon, 14)}</span></div>`
-      : `<div class="ms-sh__icon">${_ic(icon, 16)}</div>`;
+    const iconHtml = o.iconHtml
+      ? `<div class="ms-sh__icon">${o.iconHtml}</div>`  // 커스텀 브랜드 글리프(예: 네이버 N) — 이모지 금지
+      : o.boxColor
+        ? `<div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--${_esc(o.boxColor)}">${_ic(icon, 14)}</span></div>`
+        : `<div class="ms-sh__icon">${_ic(icon, 16)}</div>`;
     return `
       <button type="button" class="ms-sh__row" data-act="${_esc(act)}">
         ${iconHtml}
@@ -245,7 +247,7 @@
     if (act === 'shopinfo')  { close(); setTimeout(() => window.openShopSettings && window.openShopSettings(), 200); return; }
     if (act === 'instagram') { close(); setTimeout(() => window.connectInstagram && window.connectInstagram(), 200); return; }
     if (act === 'instagram_disconnect') { close(); setTimeout(() => window.disconnectInstagram && window.disconnectInstagram(), 200); return; }
-    if (act === 'naver')     { close(); setTimeout(() => window.openNaverLink && window.openNaverLink(), 200); return; }
+    if (act === 'naver_talk') { close(); setTimeout(() => window.openNaverTalkLink && window.openNaverTalkLink(), 200); return; }
     if (act === 'persona')   { close(); setTimeout(() => window.runPersonaAnalyze && window.runPersonaAnalyze(true), 200); return; }
     // [2026-06-09] 분석 리포트 보기 — 캐시된 분석 결과 팝업 (재분석 X, persona 와 별개).
     if (act === 'analysis_report') { close(); setTimeout(() => window.showDetailedAnalysis && window.showDetailedAnalysis(), 200); return; }

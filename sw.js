@@ -64,6 +64,7 @@ const STATIC_ASSETS = [
   './app-pricelist.js',
   './app-ai-hub.js',
   './app-settings-hub.js',
+  './app-naver-talk-link.js',
   './app-sheet-anim.js',
   './app-emoji-storage.js',
   './manifest.json',

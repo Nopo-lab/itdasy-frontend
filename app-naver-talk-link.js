@@ -1,0 +1,210 @@
+/* ───────────────────────────────────────────────────────────
+   app-naver-talk-link.js — 네이버 톡톡 연동 (2026-06-16 신규)
+   - 원장이 셀프로 파트너 ID·인증키 입력 → IntegrationSetting(naver_talk) 저장.
+   - 수신 파이프(/talktalk/webhook) + NaverTalkAdapter 는 BE에 이미 구현됨.
+   - app-naver-link.js 의 subscreen-overlay / ss-* 디자인 시스템 그대로 재사용.
+   ─────────────────────────────────────────────────────────── */
+(function () {
+  'use strict';
+
+  const ID = 'naverTalkLinkScreen';
+  // 네이버 N 글리프 — 초록 사각형 + 흰색 굵은 이탤릭 N (channel-mark.js naver 마크와 동색). 이모지 금지.
+  const N_BADGE = '<span aria-hidden="true" style="width:20px;height:20px;border-radius:6px;background:#03C75A;color:#fff;font-size:12px;font-weight:800;font-style:italic;display:inline-flex;align-items:center;justify-content:center;flex:none;">N</span>';
+
+  function _api() { return window.API || ''; }
+  function _auth() { try { return (window.authHeader && window.authHeader()) || {}; } catch (_) { return {}; } }
+  function _toast(m) { if (window.showToast) window.showToast(m); }
+  function _haptic() { try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; } }
+  function _webhookUrl() { return _api() + '/talktalk/webhook'; }
+
+  function _ensureMounted() {
+    let el = document.getElementById(ID);
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = ID;
+    el.className = 'subscreen-overlay';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = `
+      <header class="ss-topbar">
+        <button type="button" class="ss-back" data-nt-back aria-label="뒤로">
+          <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
+        </button>
+        <div class="ss-title" style="display:flex;align-items:center;gap:7px;">${N_BADGE}네이버 톡톡 연동</div>
+      </header>
+      <div class="ss-body">
+        <div class="ss-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+            <div class="ss-card-tt" style="margin:0;">연결 상태</div>
+            <span class="ss-status ss-status--off" id="ntStatus"><span class="dot"></span>미연결</span>
+          </div>
+          <div class="ss-card-sub">네이버 톡톡 문의를 통합 인박스에서 한 번에. 잇비가 답장 초안까지 준비해드려요.</div>
+          <ol style="margin:10px 0 0 18px;padding:0;font-size:12px;color:var(--text2,#555);line-height:1.7;">
+            <li>네이버 톡톡 <strong>파트너센터</strong> 접속</li>
+            <li>개발자도구 → 챗봇API 설정에서 <strong>파트너 ID · 인증키</strong> 발급</li>
+            <li>아래 <strong>Webhook 주소</strong>를 파트너센터에 등록</li>
+            <li>파트너 ID·인증키 입력 → "연결하기"</li>
+          </ol>
+        </div>
+
+        <div class="ss-card">
+          <div class="ss-card-tt">연결 정보 입력</div>
+          <div class="ss-row"><span class="lbl">파트너 ID</span>
+            <input class="ss-input" id="ntPartnerId" placeholder="예: wc1a2b3c" autocomplete="off"></div>
+          <div class="ss-row"><span class="lbl">인증키 (Authorization)</span>
+            <input class="ss-input" id="ntAuthToken" placeholder="파트너센터에서 발급받은 키" autocomplete="off"></div>
+          <div class="ss-row" style="align-items:flex-start;">
+            <span class="lbl">Webhook 주소 <span style="color:var(--text3,#b8b5ac);">(파트너센터에 등록)</span></span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+            <code id="ntWebhook" style="flex:1;min-width:0;font-size:11px;background:#F2F4F6;border-radius:8px;padding:9px 10px;color:#444;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_webhookUrl()}</code>
+            <button type="button" class="ss-action" data-nt-copy>복사</button>
+          </div>
+          <div class="ss-card-sub" style="margin-top:8px;">
+            <strong style="color:var(--text2,#555);">파트너 ID·인증키 찾는 법</strong><br>
+            네이버 톡톡 파트너센터 → 개발자도구 → 챗봇API 설정 → 생성
+          </div>
+          <button type="button" class="ss-cta" data-nt-connect>연결하기</button>
+        </div>
+
+        <div class="ss-card">
+          <div class="ss-card-tt">수신 옵션</div>
+          <div class="ss-toggle">
+            <div>
+              <div class="ss-toggle-lbl">잇비 답장 초안 준비</div>
+              <div class="ss-toggle-sub">새 문의가 오면 잇비가 답장 초안을 미리 작성</div>
+            </div>
+            <div class="ss-switch is-on" role="switch" aria-checked="true" tabindex="0" data-nt-toggle="draft"></div>
+          </div>
+          <div class="ss-toggle">
+            <div>
+              <div class="ss-toggle-lbl">새 문의 알림</div>
+              <div class="ss-toggle-sub">톡톡 문의가 들어오면 알려드려요</div>
+            </div>
+            <div class="ss-switch is-on" role="switch" aria-checked="true" tabindex="0" data-nt-toggle="notify"></div>
+          </div>
+          <div class="ss-toggle">
+            <div>
+              <div class="ss-toggle-lbl">자동 발송</div>
+              <div class="ss-toggle-sub">원장님 확인 없이 바로 전송 · 권장 안 함</div>
+            </div>
+            <div class="ss-switch" role="switch" aria-checked="false" tabindex="0" data-nt-toggle="autosend"></div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(el);
+
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('[data-nt-back]')) { closeNaverTalkLink(); return; }
+      if (e.target.closest('[data-nt-connect]')) { _connect(); return; }
+      if (e.target.closest('[data-nt-copy]')) { _copyWebhook(); return; }
+      const sw = e.target.closest('[data-nt-toggle]');
+      if (sw) {
+        sw.classList.toggle('is-on');
+        sw.setAttribute('aria-checked', sw.classList.contains('is-on') ? 'true' : 'false');
+        _haptic();
+        try {
+          localStorage.setItem('itdasy_nt_' + sw.getAttribute('data-nt-toggle'),
+            sw.classList.contains('is-on') ? '1' : '0');
+        } catch (_e) { void _e; }
+      }
+    });
+    return el;
+  }
+
+  function _hydrate() {
+    const get = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+    // 입력값 복원 — partner_id 만(인증키는 보안상 미저장, 재연결 시 재입력).
+    const pid = get('itdasy_nt_partner_id') || '';
+    const pidEl = document.getElementById('ntPartnerId');
+    if (pidEl) pidEl.value = pid;
+    const hook = document.getElementById('ntWebhook');
+    if (hook) hook.textContent = _webhookUrl();
+    // 토글 복원 — draft/notify 기본 ON, autosend 기본 OFF.
+    const tg = { draft: '1', notify: '1', autosend: '0' };
+    Object.keys(tg).forEach((k) => {
+      const saved = get('itdasy_nt_' + k);
+      const on = (saved == null) ? (tg[k] === '1') : (saved === '1');
+      const sw = document.querySelector('[data-nt-toggle="' + k + '"]');
+      if (sw) {
+        sw.classList.toggle('is-on', on);
+        sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      }
+    });
+    _setStatus(get('itdasy_nt_linked') === '1');
+  }
+
+  function _setStatus(linked) {
+    const el = document.getElementById('ntStatus');
+    if (!el) return;
+    el.className = linked ? 'ss-status ss-status--on' : 'ss-status ss-status--off';
+    el.innerHTML = '<span class="dot"></span>' + (linked ? '연결됨' : '미연결');
+  }
+
+  function _copyWebhook() {
+    const url = _webhookUrl();
+    const done = () => { _haptic(); _toast('복사됐어요'); };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done).catch(() => _fallbackCopy(url, done));
+        return;
+      }
+    } catch (_e) { void _e; }
+    _fallbackCopy(url, done);
+  }
+
+  function _fallbackCopy(text, done) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      done();
+    } catch (_e) { _toast('복사 실패 — 길게 눌러 복사해주세요'); }
+  }
+
+  async function _connect() {
+    const partner_id = (document.getElementById('ntPartnerId') || { value: '' }).value.trim();
+    const auth_token = (document.getElementById('ntAuthToken') || { value: '' }).value.trim();
+    if (!partner_id || !auth_token) { _toast('파트너 ID와 인증키를 입력해주세요'); return; }
+    try { localStorage.setItem('itdasy_nt_partner_id', partner_id); } catch (_e) { void _e; }
+    _toast('연결 요청 중...');
+    try {
+      const res = await fetch(_api() + '/integrations/naver_talk/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ..._auth() },
+        body: JSON.stringify({ partner_id, auth_token }),
+      });
+      if (res.ok) {
+        try { localStorage.setItem('itdasy_nt_linked', '1'); } catch (_e) { void _e; }
+        _setStatus(true);
+        _toast('연결 완료');
+      } else {
+        _toast('연결 실패 — 입력값 확인 후 다시 시도');
+      }
+    } catch (_) {
+      _toast('네트워크 오류 — 잠시 후 다시 시도해주세요');
+    }
+  }
+
+  function openNaverTalkLink() {
+    const el = _ensureMounted();
+    _hydrate();
+    requestAnimationFrame(() => el.classList.add('is-open'));
+    el.setAttribute('aria-hidden', 'false');
+    _haptic();
+  }
+  function closeNaverTalkLink() {
+    const el = document.getElementById(ID);
+    if (!el) return;
+    el.classList.remove('is-open');
+    el.setAttribute('aria-hidden', 'true');
+    _haptic();
+  }
+
+  window.openNaverTalkLink = openNaverTalkLink;
+  window.closeNaverTalkLink = closeNaverTalkLink;
+})();
