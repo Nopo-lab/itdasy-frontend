@@ -37,7 +37,7 @@
         name: '해시태그 매니저', meta: '업종별 추천 · 원터치 복사',
         type: 'plain' },
       { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'pink',
-        name: 'AI 페르소나', meta: 'SNS 캡션 · 말투 분석 · 리포트',
+        name: '내 말투', meta: 'SNS 캡션 · 말투 분석 · 리포트',
         type: 'tag', tagText: '학습됨' },
       { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',

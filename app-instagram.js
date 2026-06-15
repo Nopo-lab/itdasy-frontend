@@ -297,6 +297,18 @@ function renderDetailedPopup(data) {
       ${postCount > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px;"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>게시물 ${postCount}개 분석 완료</span>` : ''}
     </div>`;
 
+    // ── style_summary 한 줄 요약 (헤더 카드 바로 아래)
+    const styleSummary = String(
+        raw.style_summary || p.style_summary || raw.tone_summary || ''
+    ).trim();
+    if (styleSummary) {
+        html += `
+    <div style="background:#fff;border-radius:20px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+      <div style="font-size:11px;font-weight:700;color:#8B95A1;margin-bottom:6px;letter-spacing:0.3px;">원장님 말투</div>
+      <div style="font-size:14px;color:#191F28;line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
+    </div>`;
+    }
+
     // ── 내용 카드 (섹션 간 .5px 구분선, 박스 중첩 금지)
     const DIV = '<div style="height:.5px;background:#F0F1F3;"></div>';
     const secs = [];

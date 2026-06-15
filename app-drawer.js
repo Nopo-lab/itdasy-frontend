@@ -20,8 +20,9 @@
     customer:     () => _call(['openCustomerHub']),
     revenue:      () => _call(['openRevenue', 'openRevenueHub']),
     /* INVENTORY_HIDDEN */ // inventory: () => _call(['openInventoryHub']),
-    // 통합 허브 (AI 자동화 / 설정·연동)
+    // 통합 허브 (AI 자동화 / 연동관리 / 설정)
     ai_hub:       () => _call(['openAiHub']),
+    integrations: () => _call(['openIntegrationsHub']),
     settings_hub: () => _call(['openSettingsHub']),
     // 레거시 라우트 호환 (외부 링크가 직접 호출하는 경우)
     dm:        () => _call(['openDMAutoreplySettings']),

@@ -226,7 +226,7 @@
         ? `${totalC}명${atRiskN ? ` · 이탈 위험 ${atRiskN}명` : ''}`
         : (atRiskN ? `이탈 위험 ${atRiskN}명` : '고객 관리'),
       atRiskN,
-      revMeta: `${formatMoney(rev)}${mom != null ? ` · ${mom >= 0 ? '+' : ''}${Number(mom).toFixed(0)}%` : ''}`,
+      revMeta: formatMoney(rev),
       stockMeta: lowStock > 0 ? `${lowStock}개 부족` : '재고 정상',
       lowStock,
     };
@@ -236,8 +236,8 @@
     const items = [
       _menuItemHTML({ act: 'booking', iconClass: 'ms-menu__icon--teal', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg>', name: '예약관리', meta: m.bookMeta }),
       _menuItemHTML({ act: 'customer', iconClass: 'ms-menu__icon--blue', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-users"/></svg>', name: '고객관리', meta: m.custMeta, metaClass: m.atRiskN ? 'is-danger' : '' }),
-      _menuItemHTML({ act: 'customerDm', iconClass: 'ms-menu__icon--pink', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg>', name: '실시간 DM', meta: '답장 필요 · 잇비 초안' }),
       _menuItemHTML({ act: 'revenue', iconClass: 'ms-menu__icon--amber', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg>', name: '매출관리', meta: m.revMeta, metaClass: 'is-ok' }),
+      _menuItemHTML({ act: 'integrations', iconClass: 'ms-menu__icon--blue', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-link"/></svg>', name: '연동관리', meta: '인스타 · 네이버 · 카톡' }),
       /* INVENTORY_HIDDEN */ // _menuItemHTML({ act: 'inventory', iconClass: 'ms-menu__icon--coral', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-package"/></svg>', name: '재고관리', meta: m.stockMeta, metaClass: m.lowStock > 0 ? 'is-danger' : '', badge: m.lowStock > 0 ? m.lowStock : null }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">운영 관리</div><div class="ms-menu">${items}</div></div>`;
@@ -248,8 +248,8 @@
     const automationOn = _automationOnCount();
     const automationTotal = 7;
     const items = [
-      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', name: '잇비 · 자동화', meta: `${automationOn}개 켜짐 · ${automationTotal - automationOn}개 꺼짐`, badge: automationTotal }),
-      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', name: '연동관리', meta: '샵정보 · 직원 · 네이버 · 백업' }),
+      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg>', name: '잇비 · 자동화', meta: `${automationOn}개 켜짐 · ${automationTotal - automationOn}개 꺼짐`, badge: automationTotal }),
+      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', name: '설정', meta: '샵정보 · 데이터 · 백업' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">통합 허브</div><div class="ms-menu">${items}</div></div>`;
   }
@@ -259,7 +259,6 @@
     const planLabel = _planLabel();
     const items = [
       _menuItemHTML({ act: 'plan', iconClass: 'ms-menu__icon--pink', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg>', name: '플랜 · 구독', meta: planLabel }),
-      _menuItemHTML({ act: 'support', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg>', name: '도움말 · 문의', meta: '사용법 · 문의하기' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">계정</div><div class="ms-menu">${items}</div></div>`;
   }
@@ -556,8 +555,8 @@
     const map = {
       booking:        () => window.openCalendarView && window.openCalendarView(),
       customer:       () => window.openCustomerHub && window.openCustomerHub(),
-      customerDm:     () => (window.openDMConfirmQueue || window.openDMConversations)?.(),
       revenue:        () => (window.openRevenue || window.openRevenueHub)?.(),
+      integrations:   () => window.openIntegrationsHub && window.openIntegrationsHub(),
       /* INVENTORY_HIDDEN */ // inventory:      () => window.openInventoryHub && window.openInventoryHub(),
       aiHub:          () => window.openAiHub && window.openAiHub(),
       settings:       () => window.openSettingsHub && window.openSettingsHub(),
