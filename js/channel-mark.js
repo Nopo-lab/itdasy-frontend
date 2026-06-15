@@ -32,25 +32,26 @@
       + 'px;display:inline-flex;align-items:center;justify-content:center;flex:none;z-index:2;background:'
       + c.bg + ';' + ring;
 
+    // ⚠ 전역 css `svg { fill:none }`(tokens.css)이 fill 속성을 덮으므로, 채움은 inline style 로(우선순위 ↑).
     if (ch === 'kakao') {
       var k = Math.round(size * 0.66);
       return '<span aria-label="카카오톡" style="' + box + '">'
-        + '<svg width="' + k + '" height="' + k + '" viewBox="0 0 24 24" fill="' + c.fg + '" aria-hidden="true">'
-        + '<path d="M12 4.6C7 4.6 3 7.7 3 11.5c0 2.4 1.6 4.6 4.1 5.8-.18.65-.66 2.4-.76 2.78-.12.47.17.46.36.34.15-.1 2.36-1.6 3.32-2.25.65.09 1.31.13 1.98.13 5 0 9-3.1 9-6.9S17 4.6 12 4.6z"/></svg></span>';
+        + '<svg width="' + k + '" height="' + k + '" viewBox="0 0 24 24" aria-hidden="true">'
+        + '<path style="fill:' + c.fg + ';stroke:none" d="M12 4.6C7 4.6 3 7.7 3 11.5c0 2.4 1.6 4.6 4.1 5.8-.18.65-.66 2.4-.76 2.78-.12.47.17.46.36.34.15-.1 2.36-1.6 3.32-2.25.65.09 1.31.13 1.98.13 5 0 9-3.1 9-6.9S17 4.6 12 4.6z"/></svg></span>';
     }
     if (ch === 'naver') {
       // 네이버 공식 로고타입 N (path = Naver brand logogram).
       var n = Math.round(size * 0.56);
       return '<span aria-label="네이버 톡톡" style="' + box + '">'
-        + '<svg width="' + n + '" height="' + n + '" viewBox="0 0 24 24" fill="' + c.fg + '" aria-hidden="true">'
-        + '<path d="M16.273 12.845L7.376 0H0v24h7.726V11.155L16.624 24H24V0h-7.727z"/></svg></span>';
+        + '<svg width="' + n + '" height="' + n + '" viewBox="0 0 24 24" aria-hidden="true">'
+        + '<path style="fill:' + c.fg + ';stroke:none" d="M16.273 12.845L7.376 0H0v24h7.726V11.155L16.624 24H24V0h-7.727z"/></svg></span>';
     }
-    // instagram — 카메라(라운드 사각 + 렌즈 + 우상단 점)
+    // instagram — 카메라(라운드 사각 + 렌즈 + 우상단 점). stroke 기반 + 점만 fill(inline).
     var i = Math.round(size * 0.62);
     return '<span aria-label="인스타그램" style="' + box + '">'
       + '<svg width="' + i + '" height="' + i + '" viewBox="0 0 24 24" fill="none" stroke="' + c.fg + '" stroke-width="2" aria-hidden="true">'
       + '<rect x="3" y="3" width="18" height="18" rx="5.4"/><circle cx="12" cy="12" r="4"/>'
-      + '<circle cx="17.2" cy="6.8" r="1.15" fill="' + c.fg + '" stroke="none"/></svg></span>';
+      + '<circle cx="17.2" cy="6.8" r="1.15" style="fill:' + c.fg + ';stroke:none"/></svg></span>';
   }
 
   window.ChannelMark = { norm: norm, mark: mark };
