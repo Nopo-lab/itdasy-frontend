@@ -164,7 +164,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-backup.js',
   'app-kakao-hub.js',
   'app-naver-link.js',
-  'app-naver-talk-link.js?v=20260616-talktalk-link',
+  'app-naver-talk-link.js?v=20260616-brand-fix',
   'app-dm-settings-cache.js?v=20260521-v254-api-fetch',
   'app-dm-autoreply.js?v=20260612-dm-form-deposit',
   'app-dm-confirm-queue.js?v=20260609-msg-stack',

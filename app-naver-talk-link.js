@@ -8,8 +8,12 @@
   'use strict';
 
   const ID = 'naverTalkLinkScreen';
-  // 네이버 N 글리프 — 초록 사각형 + 흰색 굵은 이탤릭 N (channel-mark.js naver 마크와 동색). 이모지 금지.
-  const N_BADGE = '<span aria-hidden="true" style="width:20px;height:20px;border-radius:6px;background:#03C75A;color:#fff;font-size:12px;font-weight:800;font-style:italic;display:inline-flex;align-items:center;justify-content:center;flex:none;">N</span>';
+  // 네이버 N 글리프 — channel-mark.js 정품 로고타입 N 재사용(중복 정의 금지). 이모지/타이핑 글자 금지.
+  function _nBadge() {
+    return (window.ChannelMark && window.ChannelMark.mark)
+      ? window.ChannelMark.mark('naver', { size: 22, radius: 6, pos: 'position:relative;', ring: false })
+      : '';
+  }
 
   function _api() { return window.API || ''; }
   function _auth() { try { return (window.authHeader && window.authHeader()) || {}; } catch (_) { return {}; } }
@@ -29,7 +33,7 @@
         <button type="button" class="ss-back" data-nt-back aria-label="뒤로">
           <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
-        <div class="ss-title" style="display:flex;align-items:center;gap:7px;">${N_BADGE}네이버 톡톡 연동</div>
+        <div class="ss-title" style="display:flex;align-items:center;gap:7px;">${_nBadge()}네이버 톡톡 연동</div>
       </header>
       <div class="ss-body">
         <div class="ss-card">
