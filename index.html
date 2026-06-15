@@ -2069,7 +2069,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'service-templates': () => call('openServiceTemplates'),
       'ai-hub': () => call('openAiHub'),
       'integrations': () => call('openIntegrationsHub'),
-      'settings-hub': () => call('openIntegrationsHub'),
+      'settings-hub': () => call('openSettingsHub'),
       'plan': () => callFirst(['openPlan', 'openPlanPopup']),
       'support': () => setTimeout(() => callFirst(['openSupport', 'openSupportChat']), 0),
       'logout': () => call('logout'),

@@ -560,7 +560,7 @@
       revenue:        () => (window.openRevenue || window.openRevenueHub)?.(),
       /* INVENTORY_HIDDEN */ // inventory:      () => window.openInventoryHub && window.openInventoryHub(),
       aiHub:          () => window.openAiHub && window.openAiHub(),
-      settings:       () => window.openIntegrationsHub && window.openIntegrationsHub(),
+      settings:       () => window.openSettingsHub && window.openSettingsHub(),
       // 플랜·구독 — app-plan.js 에서 openPlanPopup 으로 노출. openPlan / openSupport 도 시도.
       plan:           () => (window.openPlan || window.openPlanPopup || (() => {}))(),
       support:        () => (window.openSupport || window.openSupportChat || (() => {}))(),
