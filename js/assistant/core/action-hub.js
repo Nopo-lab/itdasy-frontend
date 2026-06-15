@@ -178,8 +178,15 @@
         _nav(function () { window.openCalendarView && window.openCalendarView(); });
         return { navigated: true, message: '예약 화면을 열었어요.' };
       case 'open_customer':
-        _nav(function () { window.openCustomers && window.openCustomers(); });
-        return { navigated: true, message: '고객 화면을 열었어요.' };
+        // [Phase3-B #4] 잇비 채팅 아래 append 금지 — 잇비 닫고 해당 고객 상세 시트를 위로 연다.
+        //   닫을 때 잇비로 복귀하도록 source 표시(closeCustomerDashboard 가 처리).
+        _nav(function () {
+          try { window.__ITDASY_CUSTOMER_RETURN__ = 'itbi_chat'; } catch (_e0) { void 0; }
+          if (typeof window.closeAssistant === 'function') { try { window.closeAssistant(); } catch (_e1) { void 0; } }
+          if (p.customer_id != null && typeof window.openCustomerDashboard === 'function') window.openCustomerDashboard(p.customer_id);
+          else if (window.openCustomers) window.openCustomers();
+        });
+        return { navigated: true, message: '고객 기록을 열었어요.' };
       case 'open_revenue':
         _nav(function () { window.openRevenueHub && window.openRevenueHub(); });
         return { navigated: true, message: '매출 화면을 열었어요.' };

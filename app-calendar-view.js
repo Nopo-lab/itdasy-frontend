@@ -1299,7 +1299,16 @@
         </div>
       </div>`;
     if (window.ItdasyMountOverlay) window.ItdasyMountOverlay(ov); else document.body.appendChild(ov);
-    const close = () => { try { ov.remove(); } catch (_e) { void _e; } };
+    // [Phase3-B #10] 공통 시트-백 레지스트리 사용 — Android/브라우저 back 으로 상세만 닫히고
+    //   캘린더는 그대로 유지(내샵관리/홈으로 튀지 않게). close 는 멱등.
+    const closeDetail = () => { try { ov.remove(); } catch (_e) { void _e; } };
+    if (typeof window._registerSheet === 'function') window._registerSheet('cvBookingDetail', closeDetail);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('cvBookingDetail');
+    const close = () => {
+      closeDetail();
+      if (typeof window._markSheetClosed === 'function') window._markSheetClosed('cvBookingDetail');
+    };
+    let _cancelBusy = false;   // [Phase3-B #8] 중복 클릭 방지
     ov.addEventListener('click', (e) => {
       if (e.target === ov) return close();
       const t = e.target.closest('[data-bd]'); if (!t) return;
@@ -1308,18 +1317,31 @@
       if (act === 'edit') { close(); _openForm(new Date(raw.starts_at), raw); return; }
       if (act === 'done') { close(); if (window.CompleteFlow && window.CompleteFlow.startFromBooking) window.CompleteFlow.startFromBooking(raw); else _openForm(new Date(raw.starts_at), raw); return; }
       if (act === 'cancel') {
-        close();
-        window._inlineConfirm((raw.customer_name || '이') + '님 예약을 취소할까요?', async () => {
+        if (_cancelBusy) return;
+        // [Phase3-B #8] 즉시 취소 금지 — 확인 후에만. '아니요' 면 상세 유지(닫지 않음).
+        window._inlineConfirm('이 예약을 취소할까요?', async () => {
+          if (_cancelBusy) return;
+          _cancelBusy = true;
           try {
             await window.Booking.update(raw.id, { status: 'cancelled' });
+            // [Phase3-B #8] 잇비 "복구해/되돌리기" 로 복원 가능하게 최근 취소 context 저장.
+            try {
+              window.ItdasyBookingContext && window.ItdasyBookingContext.rememberAction && window.ItdasyBookingContext.rememberAction({
+                kind: 'cancel_booking',
+                payload: { booking_id: raw.id, customer_id: raw.customer_id || null, customer_name: raw.customer_name || '', service_name: raw.service_name || '', starts_at: raw.starts_at || '', ends_at: raw.ends_at || '' },
+                _context_booking: raw,
+              }, {});
+            } catch (_e) { void _e; }
             window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: raw.id } }));
             if (window.showToast) window.showToast('예약을 취소했어요');
+            close();   // [Phase3-B #8] 성공했을 때만 상세 닫기
             _mappedCache = await _loadMonth(_curYear, _curMonth);
             _renderViewBody();
           } catch (err) {
+            // [Phase3-B #8] 실패 시 상세 유지 + UI 를 취소 상태로 바꾸지 않음.
             if (window.showToast) window.showToast('취소 실패: ' + (window._humanError ? window._humanError(err) : '잠시 후 다시 시도해주세요'));
-          }
-        });
+          } finally { _cancelBusy = false; }
+        }, function () { /* 아니요 — 예약 상세 유지, 예약 그대로 */ }, { okText: '예약 취소', cancelText: '아니요' });
       }
     });
   }

@@ -1931,7 +1931,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260615-v475-itbi-phase3a';
+window.APP_BUILD = '20260615-v476-itbi-phase3b';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -2440,16 +2440,20 @@ window._humanError = function (e) {
 };
 
 // --- Inline dialog helpers (Capacitor 호환) ---
-function _inlineConfirm(msg, onYes, onNo) {
+function _inlineConfirm(msg, onYes, onNo, opts) {
   // [2026-06-10] onNo(취소 콜백) 추가 — Promise<boolean> 래핑(nativeConfirm 등)이 가능하도록. 기존 호출엔 영향 없음.
+  // [Phase3-B #8] opts.okText / opts.cancelText 로 버튼 라벨 커스터마이즈(예: '예약 취소' / '아니요'). 미지정 시 기존 '확인'/'취소'.
+  opts = opts || {};
+  const okText = opts.okText || '확인';
+  const cancelText = opts.cancelText || '취소';
   const el = document.createElement('div');
   el.className = 'bk-confirm-toast';
   el.innerHTML = `
     <div class="bk-confirm-toast__body">
       <p style="white-space:pre-line;">${msg}</p>
       <div class="bk-confirm-toast__btns">
-        <button class="bk-confirm-toast__cancel">취소</button>
-        <button class="bk-confirm-toast__ok">확인</button>
+        <button class="bk-confirm-toast__cancel">${cancelText}</button>
+        <button class="bk-confirm-toast__ok">${okText}</button>
       </div>
     </div>`;
   document.body.appendChild(el);

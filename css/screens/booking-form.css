@@ -345,6 +345,8 @@
   font-size:13px; color:#191F28; font-family:inherit;
   resize:none; min-height:64px; outline:none;
   transition: border-color .15s;
+  /* [Phase3-B #9] 포커스/키보드 시 sticky 버튼 위로 자연스럽게 스크롤되도록 */
+  scroll-margin-bottom:110px;
 }
 .bf-memo:focus { border-color:#191F28; }
 .bf-memo::placeholder { color:#C5CBD2; }
@@ -372,11 +374,13 @@
 .bf-cta {
   position:sticky; bottom:0;
   background:#fff;
-  padding:10px 14px;
+  /* [Phase3-B #9] safe-area 반영 + 하단 여백 음수(-96px) 제거 — 스크롤 영역(.bf-wrap padding-bottom:96px)을
+     상쇄해 메모칸 하단이 sticky 버튼에 가리던 문제 해결(setTimeout 땜빵 없이 레이아웃으로). */
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   border-top:0.5px solid #F0F1F4;
   display:grid; grid-template-columns:1fr 2fr; gap:6px;
   z-index:10;
-  margin: 12px -14px -96px;
+  margin: 12px -14px 0;
 }
 @media (width >= 1100px) {
   .bf-cta {
