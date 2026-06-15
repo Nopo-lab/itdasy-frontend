@@ -424,10 +424,7 @@
       S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
       S.workflow = 'ba';
       _assignBaRoles(_baOrderSwap(q));   // 첫=전/둘=후 기본, "첫 번째 후/두 번째 전"이면 swap
-      // [§3] 후사진 보정 화면 건너뛰고 전후 카드 합성에 쓸 after 이미지를 직접 지정.
-      var _afterP = S.photos.find(function (p) { return p.role === 'after'; });
-      S.result = Object.assign(S.result || {}, { afterUrl: (_afterP || S.photos[1] || {}).url });
-      return await _msgDone(false);
+      return await _composeBaCard();
     }
     return null;
   }
@@ -468,8 +465,9 @@
       }
 
       case 'ba_role':
-        if (/^네/.test(q)) { _assignBaRoles(false); return await _msgFix(); }
-        if (/반대/.test(q)) { _assignBaRoles(true); return await _msgFix(); }
+        // [§6] 카드 탭으로 들어온 전후도 후사진 단독 보정(_msgFix)이 아니라 전후 카드를 바로 합성.
+        if (/^네/.test(q)) { _assignBaRoles(false); return await _composeBaCard(); }
+        if (/반대/.test(q)) { _assignBaRoles(true); return await _composeBaCard(); }
         return null;
 
       case 'fix':
@@ -545,6 +543,12 @@
     if (S.photos.length < 2) return;
     S.photos[0].role = swap ? 'after' : 'before';
     S.photos[1].role = swap ? 'before' : 'after';
+  }
+  // [§6/§3] 전후 카드 바로 합성 — 두 사진 모두 사용. 후사진 단독 보정(_msgFix) 건너뜀.
+  async function _composeBaCard() {
+    var afterP = S.photos.find(function (p) { return p.role === 'after'; });
+    S.result = Object.assign(S.result || {}, { afterUrl: (afterP || S.photos[1] || {}).url });
+    return await _msgDone(false);
   }
   async function _pickCustomer() {
     try { if (window.Customer && typeof window.Customer.pick === 'function') { var c = await window.Customer.pick({}); return c && c.id != null ? { id: c.id, name: c.name || '고객' } : null; } }

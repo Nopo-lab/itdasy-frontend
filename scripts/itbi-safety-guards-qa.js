@@ -106,11 +106,13 @@ async function main() {
     return await page.evaluate(() => window.__capCalls || 0);
   }
 
+  // [§4 qa-D] 캡션은 1초캡션 팝업(openInstantCaption)으로 가면 안 되고 잇비 대화 안에서 처리 → capCalls 항상 0.
   const route = {};
-  route.cap_plain = await sendAndCount('캡션 만들어줘');            // → caption
-  route.cap_insta = await sendAndCount('인스타 캡션 만들어줘');      // → caption
-  route.cap_yudo  = await sendAndCount('예약 유도 문구 포함해서 캡션 만들어줘');  // → caption
-  route.cap_hash  = await sendAndCount('해시태그도 같이 만들어줘');  // → caption
+  route.cap_plain = await sendAndCount('캡션 만들어줘');            // → 대화형(팝업 0)
+  route.cap_insta = await sendAndCount('인스타 캡션 만들어줘');      // → 대화형(팝업 0)
+  route.cap_yudo  = await sendAndCount('예약 유도 문구 포함해서 캡션 만들어줘');  // → 대화형(팝업 0)
+  route.cap_hash  = await sendAndCount('해시태그도 같이 만들어줘');  // → 대화형(팝업 0)
+  route.cap_insta_again = await sendAndCount('더 인스타스럽게 다시');  // → 대화형 재생성(팝업 0)
   route.draft_msg = await sendAndCount('황민지 고객에게 예약 확인 문자 써줘');     // → draft(캡션 아님)=0
 
   await browser.close();
@@ -129,10 +131,11 @@ async function main() {
     ['B10 일부누락 가격행 유지', L.b10_partial.matched === true && L.b10_partial.priced >= 1],
     ['B10 전화번호 오인 금지', L.b10_phone.matched === false],
     ['B4 "유도" 고객명 추출금지', L.b4_yudo_notname.noYudo],
-    ['B4 캡션→caption(plain)', route.cap_plain === 1],
-    ['B4 캡션→caption(insta)', route.cap_insta === 1],
-    ['B4 유도문구캡션→caption', route.cap_yudo === 1],
-    ['B4 해시태그→caption', route.cap_hash === 1],
+    ['B4 캡션 1초팝업 금지(plain)', route.cap_plain === 0],
+    ['B4 캡션 1초팝업 금지(insta)', route.cap_insta === 0],
+    ['B4 유도문구캡션 1초팝업 금지', route.cap_yudo === 0],
+    ['B4 해시태그 1초팝업 금지', route.cap_hash === 0],
+    ['B4 "더 인스타스럽게 다시" 1초팝업 금지', route.cap_insta_again === 0],
     ['B4 문자초안 무회귀(caption=0)', route.draft_msg === 0],
   ];
   console.log('\n=== 잇비 안전 가드 QA (A4 / B10 / B4) ===');

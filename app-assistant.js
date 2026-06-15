@@ -2141,12 +2141,8 @@
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
       if (payload.purpose === 'event') {
-        // [§12] 이벤트 카드 실제 생성 — 준비 중 문구 제거, bp-event-spring-mixed 초안 오픈.
-        const opened = _openCreateTemplate('event');
-        _history.push({ role: 'assistant', text: opened
-          ? '이벤트 카드 초안을 만들었어요. 기간과 혜택만 수정해보세요. 저장하면 작업실에서 다시 편집할 수 있어요.'
-          : '이벤트 카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' });
-        _renderHistory();
+        // [§1] 일반 템플릿 메뉴가 아니라 이벤트 전용 카드 선택지를 채팅에 표시.
+        await _pushEventCardChoices(q);
         return true;
       }
       if (!payload.autoApplyEligible) {
@@ -3866,9 +3862,7 @@
   }
 
   function _tryUtilityShortcut(input, q) {
-    if (/(캡션|문구|글|insta.*글|인스타.*글).*(만들|생성|작성|뽑)|^(캡션|글)\\s*(생성|만들기)$/.test(q.trim())) {
-      if (typeof window.openInstantCaption === 'function') { _runSheetShortcut(input, () => window.openInstantCaption()); return true; }
-    }
+    // [§4] 캡션은 대화형 핸들러(_tryCaptionConversation)가 _send 앞단에서 소유 — 1초캡션 팝업으로 보내지 않는다.
     if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
       if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
     }
@@ -4006,17 +4000,116 @@
     return false;
   }
 
-  function _tryCaptionIntentShortcut(input, q) {
-    if (!_looksCaptionIntent(q)) return false;
-    if (typeof window.openInstantCaption !== 'function') return false;
-    _runSheetShortcut(input, () => window.openInstantCaption());
+  // ── [§2-5] 잇비 대화형 캡션 — 1초캡션 팝업/인스타 미리보기 없이 채팅 안에서 생성·재생성 ──
+  //   직전 시술내역·인스타 말투 분석·길이/말투/해시태그 context 를 유지하고 사진 재업로드를 요구하지 않는다.
+  let _capCtx = null;   // { service, len, tone, moreTags, last, awaiting }
+  function _looksCaptionNew(q) {
+    const t = String(q || '');
+    if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;
+    return _looksCaptionIntent(t)
+      || /(캡션|문구|글|insta.*글|인스타.*글).*(만들|생성|작성|뽑|써)/i.test(t)
+      || /^(캡션|글)\s*(생성|만들기)$/.test(t);
+  }
+  function _looksCaptionRewrite(q) {
+    return /(다시|또|새\s*버전|다른\s*버전|더\s*길게|짧게|길게|인스타\s*(말투|스럽|식|느낌)|이모지|해시\s*태그|해시태그|문구만)/.test(String(q || ''));
+  }
+  function _capInstaHint() {
+    try {
+      const a = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
+      const bits = [];
+      if (a.tone_summary || a.tone) bits.push('말투 ' + (a.tone_summary || a.tone));
+      if (a.style_summary) bits.push('스타일 ' + a.style_summary);
+      if (a.avg_caption_length) bits.push('평소 약 ' + a.avg_caption_length + '자');
+      return bits.length ? (' 우리 인스타 말투(' + bits.join(', ') + ')에 맞춰서.') : '';
+    } catch (_e) { return ''; }
+  }
+  function _capLenInstruction(len) {
+    if (len === 'long') return ' 캡션을 길고 풍부하게 2~3문단으로: 시술 포인트 설명, 전후 변화, 고객 고민 공감, 예약/문의 유도(CTA), 해시태그까지 포함해 충분히 길게 작성해주세요.';
+    if (len === 'short') return ' 캡션을 핵심만 담아 짧고 간결하게 작성해주세요.';
+    return '';
+  }
+  function _capCategory() {
+    try { return /네일/.test(localStorage.getItem('shop_type') || '') ? 'nail' : 'extension'; } catch (_e) { return 'extension'; }
+  }
+  function _capApplyAdjust(q, c) {
+    if (/(더\s*길게|길게|분량.*(늘|많)|자세히|상세히|풍부)/.test(q)) c.len = 'long';
+    if (/(짧게|간결|핵심만|줄여)/.test(q)) c.len = 'short';
+    if (/(인스타\s*(말투|스럽|식|느낌)|화려|발랄|트렌디|이모지\s*(더|많))/.test(q)) c.tone = 'ornate';
+    if (/(담백|차분|깔끔한\s*말투|점잖|격식|이모지\s*(빼|줄|없))/.test(q)) c.tone = 'plain';
+    if (/(해시\s*태그|해시태그).*(더|추가|많|넣)|지역\s*해시|인스타\s*해시.*추천/.test(q)) c.moreTags = true;
+  }
+  function _capExtractService(q) {
+    const m = String(q || '').match(/시술\s*(내역|명)?\s*[:：]\s*(.+)$/);
+    if (m && m[2]) return m[2].trim();
+    const stripped = String(q || '').replace(/(캡션|문구|해시\s*태그|hashtag|홍보\s*글|인스타|insta|sns|피드|스토리|글|만들어|만들|줘|주세요|생성|작성|써|뽑아|해줘|좀|다시)/gi, '').trim();
+    return stripped.length >= 2 ? stripped : '';
+  }
+  async function _capGenerate() {
+    const c = _capCtx;
+    const headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
+    headers['Content-Type'] = 'application/json';
+    const tags = c.moreTags ? ' 해시태그를 평소보다 더 다양하게 많이(시술·업종·지역 태그 포함) 넣어주세요.' : '';
+    const vary = c.last ? ' 이전과 다른 새로운 버전으로 작성해주세요.' : '';
+    const ctxStr = ((localStorage.getItem('shop_type') || '') + ' 시술. ' + (c.service || '') + _capInstaHint() + _capLenInstruction(c.len) + tags + vary + ' 인스타 업로드용 캡션.').slice(0, 500);
+    const body = { category: _capCategory(), photo_context: ctxStr, length_tier: c.len || 'medium', tone_override: c.tone || 'normal' };
+    let res;
+    try { res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers, body: JSON.stringify(body) }); }
+    catch (_e) { return null; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return null;
+    const cap = (data.caption || '').trim();
+    const hts = Array.isArray(data.hashtags) ? data.hashtags.map(t => '#' + String(t).replace(/^#+/, '')).join(' ') : '';
+    const full = hts ? (cap + '\n\n' + hts) : cap;
+    if (full) c.last = full;
+    return full || null;
+  }
+  async function _tryCaptionConversation(input, q) {
+    const t = String(q || '').trim();
+    if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;
+    // [qa-D] 직전 캡션 context 가 있으면 재생성(더 길게/다시/해시태그 더 등)을 '새 요청'보다 우선 처리 —
+    //   "해시태그 더 넣어줘"가 새 캡션으로 오인돼 시술내역이 덮어써지던 버그 방지.
+    const isRewrite = !!_capCtx && _looksCaptionRewrite(t);
+    const isNew = !isRewrite && _looksCaptionNew(t);
+    const isService = !isRewrite && !isNew && !!(_capCtx && _capCtx.awaiting) && t.length >= 2 && !/^(취소|그만|아니|싫|관둬)/.test(t);
+    if (!isNew && !isRewrite && !isService) return false;
+    if (!_capCtx) _capCtx = { service: '', len: 'medium', tone: 'normal', moreTags: false, last: '', awaiting: false };
+
+    if (isNew) {
+      const svc = _capExtractService(t);
+      if (svc) _capCtx.service = svc;
+      _capApplyAdjust(t, _capCtx);
+      if (!_capCtx.service) {   // 시술내역이 없으면 사진이 아니라 '시술 내역'을 대화로 물어본다.
+        _clearAssistantInput(input);
+        _capCtx.awaiting = true;
+        _history.push({ role: 'user', text: t });
+        _history.push({ role: 'assistant', text: '어떤 시술인가요? 시술 내역을 알려주시면 인스타 캡션을 바로 써드릴게요.\n예: "속눈썹펌, 처진 속눈썹, 자연스럽게, 유지력 강조"' });
+        _renderHistory();
+        return true;
+      }
+    } else if (isService) {
+      _capCtx.awaiting = false; _capCtx.service = t;
+    } else {   // rewrite — 직전 context 유지하고 길이/말투/해시태그만 조정
+      _capApplyAdjust(t, _capCtx);
+    }
+
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: t });
+    _history.push({ role: 'assistant', text: '캡션을 쓰고 있어요…', _capPending: true });
+    _renderHistory();
+    _sendInFlight = true;
+    let cap = null;
+    try { cap = await _capGenerate(); } catch (_e) { cap = null; } finally { _sendInFlight = false; }
+    for (let i = _history.length - 1; i >= 0; i--) { if (_history[i]._capPending) { _history.splice(i, 1); break; } }
+    if (!cap) { _history.push({ role: 'assistant', text: '캡션을 만들지 못했어요. 잠시 후 다시 시도해 주세요.' }); _renderHistory(); return true; }
+    _history.push({ role: 'assistant', text: cap, related: ['더 길게', '짧게', '캡션 다시', '해시태그 더 넣어줘', '더 인스타스럽게'] });
+    _renderHistory();
     return true;
   }
 
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
-    if (_tryCaptionIntentShortcut(input, q)) return true;        // [B4] 캡션/카피 의도 — 예약/문자초안보다 우선
+    if (await _tryCaptionConversation(input, q)) return true;     // [§2-5] 캡션 — 대화형 생성/재생성(1초캡션 팝업 금지)
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
@@ -4028,7 +4121,7 @@
 
   // [P0a] 사진 직후 후속 텍스트가 "그 사진"에 대한 명령인지(누끼/배경/보정/템플릿/홍보/인스타/업로드/손님 등).
   function _looksPhotoFollowup(q) {
-    // [§7] '캡션'은 제외 — 캡션 의도는 _tryCaptionIntentShortcut(캡션 도구)로 먼저 라우팅됨. 사진편집으로 새지 않게.
+    // [§7] '캡션'은 제외 — 캡션 의도는 _tryCaptionConversation(대화형)으로 먼저 라우팅됨. 사진편집으로 새지 않게.
     return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
   }
 
@@ -4183,6 +4276,18 @@
   //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
   const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid', event: 'bp-event-spring-mixed', generic: 'card-minimal' };
   const _CREATE_LABEL = { price: '가격표', review: '후기 카드', before_after: '전후 카드', event: '이벤트 카드', generic: '카드' };
+  // [§1] 이벤트 요청 → 일반 템플릿 메뉴가 아니라 '이벤트 전용 카드 선택지'를 채팅에 표시(기존 템플릿 카드 스타일 재사용).
+  const _EVENT_CARD_IDS = ['event-discount', 'event-newcomer', 'event-deadline', 'event-gift', 'event-member'];
+  async function _pushEventCardChoices(q) {
+    try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+    const lead = /네일/.test(q || '') ? '네일 ' : (/속눈썹|래쉬|lash/i.test(q || '') ? '속눈썹 ' : '');
+    _history.push({
+      role: 'assistant',
+      text: lead + '이벤트 카드를 골라보세요. 마음에 드는 디자인을 누르면 기간·혜택만 바꿔서 바로 만들 수 있어요.',
+      tpl_recos: _EVENT_CARD_IDS,
+    });
+    _renderHistory();
+  }
   function _openCreateTemplate(purpose) {
     const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
     if (!PE || typeof PE.open !== 'function') return false;
@@ -4208,12 +4313,8 @@
       try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_l) { void _l; }
       const p = c.purpose;
       if (p === 'event') {
-        // [§12] 이벤트 카드 실제 생성 — bp-event-spring-mixed(가격+혜택 믹스) 초안을 편집기로 연다.
-        const opened = _openCreateTemplate('event');
-        _history.push({ role: 'assistant', text: opened
-          ? '이벤트 카드 초안을 만들었어요. 기간과 혜택만 수정해보세요. 저장하면 작업실에서 다시 편집할 수 있어요.'
-          : '이벤트 카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' });
-        _renderHistory();
+        // [§1] 일반 템플릿 메뉴가 아니라 이벤트 전용 카드 선택지를 채팅에 표시.
+        await _pushEventCardChoices(q);
         return true;
       }
       if (p === 'before_after') {
@@ -4316,7 +4417,7 @@
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
     if (await _trySavedCardsShortcut(input, q)) return;
     // [§7] 캡션/문구 의도 — 사진이 있어도 사진편집(_looksPhotoFollowup)·템플릿으로 새지 않게 먼저 가로챈다.
-    if (_tryCaptionIntentShortcut(input, q)) return;
+    if (await _tryCaptionConversation(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
