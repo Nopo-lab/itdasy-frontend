@@ -465,10 +465,10 @@ async function runAutoAnalysisAfterConnect() {
     await new Promise(r => setTimeout(r, STEP_MS));
   }
 
-  clearInterval(_msgTimer);
-  // 즉시 성공/실패해도 오버레이가 최소 4.8초는 보이게 — "로딩 없음" 인상 방지.
+  // 즉시 성공/실패해도 오버레이가 최소 4.8초는 보이게 — 빠른 응답에도 _msgTimer 4개 문구 다 노출.
   const _elapsed = Date.now() - startedAt;
   if (_elapsed < MIN_OVERLAY_MS) await new Promise(r => setTimeout(r, MIN_OVERLAY_MS - _elapsed));
+  clearInterval(_msgTimer);
 
   // [2026-06-12] BG 분석이 명시적으로 실패 → 오버레이 닫고 사유별 안내 + 재분석 버튼.
   if (failCode) {
