@@ -57,6 +57,17 @@
     return { matched: true, kind: 'message', text: msg, related: ['응', '아니요'] };
   }
 
+  // 신규 고객 입력 폼(이름/연락처/메모) 열기 — 이름·연락처 자동 채움, 저장 전 확인.
+  function _openNewForm(name, phone) {
+    setTimeout(() => {
+      try {
+        if (typeof window._openCustomerEditSheet === 'function') window._openCustomerEditSheet({ name: name || '', phone: phone || '' });
+        else if (typeof window.openCustomers === 'function') window.openCustomers();
+      } catch (_e) { void _e; }
+    }, 80);
+    return { matched: true, kind: 'message', text: `${name}님(${phone}) 정보를 입력하는 창을 열었어요. 메모도 같이 넣고 저장해 주세요.` };
+  }
+
   async function _doCreate(name, phone) {
     if (!window.Customer || typeof window.Customer.create !== 'function') return { matched: true, kind: 'message', text: '고객 기능을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' };
     try {
@@ -125,7 +136,8 @@
       if (exist.length) {
         return { matched: true, kind: 'message', text: `${name}님은 이미 고객 명단에 있어요. 연락처를 ${phone}로 바꿀까요, 새 고객으로 따로 추가할까요?`, related: [`${name} 연락처 ${phone}로 바꿔줘`, `${name} 새 고객으로 추가`] };
       }
-      return _confirm('create', { name, phone }, `${name}님(${phone})을 새 고객으로 추가할까요?`);
+      // 자동 생성 대신 폼을 연다 — 이름·연락처 자동 채움 + 메모 등 입력 후 저장.
+      return _openNewForm(name, phone);
     }
 
     return null;

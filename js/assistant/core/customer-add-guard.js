@@ -35,6 +35,42 @@
     return _trim(c && c.name) === name;
   }
 
+  // 유사 이름(글자 수 같고 한 글자만 다른) 후보 — "윤하영" 입력 시 "문하영" 역제안용.
+  function _similar(name, list) {
+    const n = _trim(name);
+    if (n.length < 2) return [];
+    return (list || []).filter((c) => {
+      const cn = _trim(c && c.name);
+      if (!cn || cn === n || cn.length !== n.length) return false;
+      let diff = 0;
+      for (let i = 0; i < n.length; i++) { if (n[i] !== cn[i]) diff++; if (diff > 1) return false; }
+      return diff === 1;
+    }).slice(0, 3);
+  }
+
+  // 신규 고객 입력 폼(이름/연락처/메모 등) 열기 — 자동 저장 금지, 저장 전 확인.
+  function _openNewForm(name, phone) {
+    setTimeout(() => {
+      try {
+        if (typeof window._openCustomerEditSheet === 'function') window._openCustomerEditSheet({ name: name || '', phone: phone || '' });
+        else if (typeof window.openCustomers === 'function') window.openCustomers();
+      } catch (_e) { void _e; }
+    }, 80);
+    return { matched: true, kind: 'message', text: `${name || '새'}님 정보를 입력하는 창을 열었어요. 연락처·메모도 같이 넣고 저장해 주세요.` };
+  }
+
+  // 유사 고객 역제안 — 확정 금지, "아니요 새 고객" 버튼 필수.
+  function _suggestResult(name, sims) {
+    pending = { ts: Date.now(), name, mode: 'suggest', similar: sims };
+    const top = sims[0];
+    return {
+      matched: true,
+      kind: 'message',
+      text: `${name} 고객은 아직 없어요. 혹시 ${top.name}님을 말씀하신 걸까요?`,
+      related: [`네 ${top.name} 맞아요`, `아니요 ${name} 새 고객이에요`],
+    };
+  }
+
   function _infoLines(c) {
     const lines = [`이름: ${_trim(c.name) || '이름 없음'}`];
     if (c.phone) lines.push(`연락처: ${c.phone}`);
@@ -76,9 +112,29 @@
     if (!_fresh()) return null;
     const text = _trim(q);
     const p = pending;
+    // 역제안(유사 고객) 응답 처리
+    if (p.mode === 'suggest') {
+      const top = (p.similar && p.similar[0]) || null;
+      // "네 {유사이름} 맞아요" / "응" → 그 고객 기록 열기
+      if (top && (/^(응|네|어|그래|맞아|맞아요|열어|보여)/.test(text) || text.includes(top.name))
+          && !/(아니|아냐|새\s*고객|새로|따로)/.test(text)) {
+        pending = null;
+        _openExisting(top);
+        return { matched: true, kind: 'message', text: `${top.name}님 고객 기록을 열게요.` };
+      }
+      // "아니요, 새 고객" → 신규 입력 폼
+      if (/(아니|아냐|새\s*고객|새로|따로|맞아\s*추가|새)/.test(text)) {
+        const nm = p.name;
+        pending = null;
+        return _openNewForm(nm, '');
+      }
+      return null;
+    }
+    // 동일 이름 존재 확인 응답 처리
     if (/(새|따로|추가|등록|새로)/.test(text)) {
+      const nm = p.name;
       pending = null;
-      return { matched: true, kind: 'card', action: _createAction(p.name, q) };
+      return _openNewForm(nm, '');
     }
     if (/^(응|네|맞아|맞아요|그거|그\s*사람|열어|보여)/.test(text)) {
       pending = null;
@@ -101,7 +157,10 @@
     const list = await _customers();
     const exact = list.find((c) => _sameName(name, c));
     if (exact) return _existingResult(name, exact);
-    return null;
+    // 정확히 일치 없음 → 유사 고객 있으면 역제안, 없으면 바로 신규 입력 폼(자동 생성 금지).
+    const sims = _similar(name, list);
+    if (sims.length) return _suggestResult(name, sims);
+    return _openNewForm(name, '');
   }
 
   window.ItdasyCustomerAddGuard = { tryRun };

@@ -5,7 +5,7 @@
   'use strict';
 
   const TTL_MS = 10 * 60 * 1000;
-  const S = { lastList: null, lastCancelled: null, lastCreated: null };
+  const S = { lastList: null, lastCancelled: null, lastCreated: null, pendingReschedule: null };
 
   function _trim(s) { return String(s == null ? '' : s).trim(); }
   function _fresh(x) { return x && Date.now() - (x.ts || 0) < TTL_MS; }
@@ -60,6 +60,8 @@
     const min = m[2] ? parseInt(m[2], 10) : 0;
     if (/(오후|저녁|밤)/.test(t) && h < 12) h += 12;
     if (/(오전|아침)/.test(t) && h === 12) h = 0;
+    // [Phase3] 살롱 영업시간(09~24) 기준 — 오전/오후 표기 없이 1~8시면 오후로 본다("4시로"=16:00).
+    if (!/(오전|아침|오후|저녁|밤)/.test(t) && h >= 1 && h <= 8) h += 12;
     return { h, min };
   }
 
@@ -70,7 +72,7 @@
   }
 
   function _nameHint(q) {
-    let s = _trim(q).replace(/(오늘|내일|모레|예약|취소|삭제|지워|없애|캔슬|그거|그|응|네|하라고|해줘|해|님)/g, ' ');
+    let s = _trim(q).replace(/(오늘|내일|모레|예약|시간|취소|삭제|지워|없애|캔슬|복구|되돌려|되돌리|되살|바꿔|바꾸|변경|옮겨|미뤄|당겨|그거|그|응|네|하라고|해줘|해|님)/g, ' ');
     s = s.replace(/\d{1,2}:\d{2}|\d+\s*시\s*(\d+\s*분)?|\d+\s*월\s*\d+\s*일/g, ' ');
     const m = s.match(/[가-힣]{2,5}/);
     return m ? m[0] : '';
@@ -134,9 +136,36 @@
     };
   }
 
-  function _askMany(list) {
+  function _pad2(n) { return String(n).padStart(2, '0'); }
+
+  // 새 시간(time={h,min})으로 옮긴 예약 변경 액션. 기존 소요시간(ends-starts) 유지.
+  function _rescheduleAction(b, time, source) {
+    const d = new Date(b.starts_at);
+    const nd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), time.h, time.min, 0);
+    let ne = null;
+    if (b.ends_at) {
+      const dur = new Date(b.ends_at).getTime() - new Date(b.starts_at).getTime();
+      if (dur > 0) ne = new Date(nd.getTime() + dur);
+    }
+    return {
+      kind: 'reschedule_booking',
+      payload: {
+        booking_id: b.id,
+        customer_id: b.customer_id || null,
+        customer_name: _name(b),
+        starts_at: nd.toISOString(),
+        ends_at: ne ? ne.toISOString() : null,
+      },
+      confirmation_text: `${_name(b)}님 ${_fmt(b)} 예약을 ${_pad2(time.h)}:${_pad2(time.min)}로 변경할까요?`,
+      _source_question: source,
+      _context_booking: b,
+    };
+  }
+
+  function _askPick(list, verb) {
+    const v = verb || '취소';
     const lines = list.slice(0, 5).map((b) => `· ${_fmt(b)} ${_name(b)}${b.service_name ? ' ' + b.service_name : ''}`);
-    return `어느 예약을 취소할까요? 시간이나 고객 이름을 같이 알려주세요.\n${lines.join('\n')}`;
+    return `어느 예약을 ${v}할까요? 시간이나 고객 이름을 같이 알려주세요.\n${lines.join('\n')}`;
   }
 
   async function _pickCancelTarget(q) {
@@ -150,7 +179,22 @@
     list = list.filter((b) => _matchDate(b, hint) && _matchTime(b, time));
     if (name) list = list.filter((b) => _name(b).includes(name) || name.includes(_name(b)));
     if (list.length === 1) return { booking: list[0] };
-    if (list.length > 1) return { ask: _askMany(list) };
+    if (list.length > 1) return { ask: _askPick(list, '취소') };
+    return null;
+  }
+
+  // 변경 대상 예약 고르기 — 발화의 시간(=새 시간)은 필터에 쓰지 않는다(취소와 다른 점).
+  async function _pickRescheduleTarget(q) {
+    const hint = _dateHint(q);
+    const name = _nameHint(q);
+    let list = (_fresh(S.lastList) && S.lastList.items) ? S.lastList.items.slice() : [];
+    if (hint && hint.offset != null && (!list.length || !list.some((b) => _matchDate(b, hint)))) {
+      list = await _fetchByDateHint(hint);
+    }
+    if (hint) list = list.filter((b) => _matchDate(b, hint));
+    if (name) list = list.filter((b) => _name(b).includes(name) || name.includes(_name(b)));
+    if (list.length === 1) return { booking: list[0] };
+    if (list.length > 1) return { ask: _askPick(list, '변경') };
     return null;
   }
 
@@ -158,14 +202,55 @@
     return /(취소|삭제|지워|없애|캔슬)/.test(_trim(q));
   }
 
+  // 예약 복구(undo) — 계정/백업 맥락은 제외하고, '복구/되돌려/되살려' 면 예약 복구로 본다.
+  //   (보조 키워드 없어도 OK — context 없으면 _restoreResult 가 정직 안내. 백업창으로 새지 않게.)
   function _looksRestore(q) {
-    return /(복구|되돌리|되살|취소\s*취소|다시\s*살)/.test(_trim(q)) && /예약|그거|내일|오늘|방금|되돌/.test(_trim(q));
+    const t = _trim(q);
+    if (!/(복구|되돌려|되돌리|되살|취소\s*취소|다시\s*살|살려)/.test(t)) return false;
+    if (/(백업|데이터\s*복구|계정|로그아웃|export|내보내|받기)/.test(t)) return false;
+    return true;
+  }
+
+  // 예약 시간 변경 — "그거 4시로 바꿔", "4시로 변경", "예약 시간 바꿔".
+  //   직전에 '몇 시로?' 를 물어본 상태(pendingReschedule)면 시간만 말해도("4시로") 변경으로 본다.
+  function _looksReschedule(q) {
+    const t = _trim(q);
+    if (/(취소|삭제|지워|없애|캔슬|복구|되돌|백업)/.test(t)) return false;
+    const hasTime = /\d{1,2}:\d{2}|\d{1,2}\s*시/.test(t);
+    if (_fresh(S.pendingReschedule) && hasTime) return true;
+    const hasChange = /(바꿔|바꾸|변경|옮겨|미뤄|당겨|로\s*해|로\s*잡)/.test(t);
+    if (!hasChange) return false;
+    const refersBooking = /예약|그거|그\s|내일|오늘|모레|시간/.test(t);
+    return hasTime || (refersBooking && /시간/.test(t));
+  }
+
+  async function _rescheduleResult(q, raw) {
+    const time = _timeHint(q);
+    // 시간을 아직 못 받음 → 대상만 정하고 "몇 시로?" 묻기(pendingReschedule 보관).
+    if (!time) {
+      const picked = await _pickRescheduleTarget(q);
+      if (!picked) return { matched: true, kind: 'message', text: '어떤 예약을 바꿀지 못 찾았어요. "내일 3시 예약 4시로 바꿔"처럼 알려주세요.' };
+      if (picked.ask) return { matched: true, kind: 'message', text: picked.ask };
+      S.pendingReschedule = { ts: Date.now(), booking: picked.booking };
+      return { matched: true, kind: 'message', text: `${_name(picked.booking)}님 ${_fmt(picked.booking)} 예약을 몇 시로 바꿀까요? "4시로"처럼 알려주세요.` };
+    }
+    // 시간 있음 — 직전에 대상이 정해졌으면 그걸로, 아니면 발화에서 대상 찾기.
+    let target = (_fresh(S.pendingReschedule) && S.pendingReschedule.booking) ? S.pendingReschedule.booking : null;
+    if (!target) {
+      const picked = await _pickRescheduleTarget(q);
+      if (!picked) return { matched: true, kind: 'message', text: '어떤 예약을 바꿀지 못 찾았어요. "내일 3시 예약 4시로 바꿔"처럼 알려주세요.' };
+      if (picked.ask) return { matched: true, kind: 'message', text: picked.ask };
+      target = picked.booking;
+    }
+    S.pendingReschedule = null;
+    return { matched: true, kind: 'card', action: _rescheduleAction(target, time, raw) };
   }
 
   async function tryRun(text) {
     const q = _trim(text);
     if (!q) return null;
     if (_looksRestore(q)) return _restoreResult(q);
+    if (_looksReschedule(q)) return _rescheduleResult(q, text);
     if (!_looksCancel(q)) return null;
     const picked = await _pickCancelTarget(q);
     if (!picked) return null;
@@ -184,9 +269,15 @@
     const api = window.ItdasyAssistant;
     if (!api || typeof api.registerLocalHandler !== 'function') return;
     if (typeof api.registerKindMeta === 'function') {
-      api.registerKindMeta({ restore_booking: { icon: 'ic-refresh-cw', label: '예약 복구', color: 'var(--brand)' } });
+      api.registerKindMeta({
+        restore_booking: { icon: 'ic-refresh-cw', label: '예약 복구', color: 'var(--brand)' },
+        reschedule_booking: { icon: 'ic-clock', label: '시간 변경', color: 'var(--brand)' },
+      });
     }
-    if (api.RISKY_ACTION_KINDS && typeof api.RISKY_ACTION_KINDS.add === 'function') api.RISKY_ACTION_KINDS.add('restore_booking');
+    if (api.RISKY_ACTION_KINDS && typeof api.RISKY_ACTION_KINDS.add === 'function') {
+      api.RISKY_ACTION_KINDS.add('restore_booking');
+      api.RISKY_ACTION_KINDS.add('reschedule_booking');
+    }
     api.registerLocalHandler('restore_booking', async (action) => {
       const p = (action && action.payload) || {};
       if (!p.booking_id) return { message: '복구할 예약을 찾지 못했어요' };
@@ -194,6 +285,16 @@
       const updated = await window.Booking.update(p.booking_id, { status: 'confirmed' });
       const b = Object.assign({}, action._context_booking || {}, updated || {});
       return { message: `📅 ${_name(b)}님 ${_fmt(b)} 예약 복구했어요`, booking: b };
+    });
+    api.registerLocalHandler('reschedule_booking', async (action) => {
+      const p = (action && action.payload) || {};
+      if (!p.booking_id || !p.starts_at) return { message: '변경할 예약을 찾지 못했어요' };
+      if (!window.Booking || typeof window.Booking.update !== 'function') throw new Error('예약 기능을 불러오지 못했어요');
+      const patch = { starts_at: p.starts_at };
+      if (p.ends_at) patch.ends_at = p.ends_at;
+      const updated = await window.Booking.update(p.booking_id, patch);
+      const b = Object.assign({}, action._context_booking || {}, updated || {}, { starts_at: p.starts_at, ends_at: p.ends_at });
+      return { message: `📅 ${_name(b)}님 예약을 ${_fmt(b)}로 변경했어요`, booking: b };
     });
   }
 

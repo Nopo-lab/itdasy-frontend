@@ -528,6 +528,7 @@
         ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
+        ${_renderBookingCards(m, idx)}
         ${_renderPmTpls(m, idx)}
         ${retryHtml}
         ${reportHtml}
@@ -557,6 +558,38 @@
     if (!m.promo_result || !m.itbi_cards) return '';
     if (!(window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.renderHTML === 'function')) return '';
     return window.PhotoEditorItbiCards.renderHTML(m.itbi_cards, idx);
+  }
+
+  // [Phase3 #2] 예약 조회 결과를 카드로 — 고객/날짜/시간/시술/상태/예약금/연락처/메모 + 시간변경·취소 칩.
+  //   칩은 기존 data-suggest 핸들러 재사용(자연어 명령 재전송) → 시간변경/취소 인텐트로 연결.
+  function _renderBookingCards(m, idx) {
+    const items = Array.isArray(m.booking_cards) ? m.booking_cards : null;
+    if (!items || !items.length) return '';
+    const ST = { confirmed: '확정', confirm: '확정', pending: '대기', requested: '요청', completed: '완료', cancelled: '취소', no_show: '노쇼' };
+    return items.slice(0, 8).map((b) => {
+      const d = new Date(b.starts_at);
+      const date = `${d.getMonth() + 1}/${d.getDate()}`;
+      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const who = _esc(b.customer_name || '고객');
+      const svc = b.service_name ? _esc(b.service_name) : '';
+      const status = ST[b.status] || _esc(b.status || '예약');
+      const phone = b.customer_phone || b.phone || '';
+      const deposit = Number(b.deposit || 0);
+      const memo = b.memo ? _esc(String(b.memo).slice(0, 80)) : '';
+      const rows = [];
+      rows.push(`<div style="font-weight:700;font-size:15px;color:#191F28;">${who}${svc ? ` <span style="font-weight:500;color:#4E5968;">· ${svc}</span>` : ''}</div>`);
+      rows.push(`<div style="font-size:13px;color:#4E5968;margin-top:3px;">${date} ${time} · ${status}</div>`);
+      if (deposit > 0) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">예약금 ${deposit.toLocaleString()}원</div>`);
+      if (phone) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">${_esc(phone)}</div>`);
+      if (memo) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:4px;white-space:pre-wrap;">메모 ${memo}</div>`);
+      const cChange = `${b.customer_name || '고객'} ${date} ${d.getHours()}시 예약 시간 바꿔`;
+      const cCancel = `${b.customer_name || '고객'} ${date} ${time} 예약 취소`;
+      const chips = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">`
+        + `<button data-suggest="${_esc(cChange)}" style="padding:6px 11px;border:0.5px solid #E5E8EB;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#4E5968;font-weight:600;">시간 변경</button>`
+        + `<button data-suggest="${_esc(cCancel)}" style="padding:6px 11px;border:0.5px solid #F2C5CC;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#BC6675;font-weight:600;">예약 취소</button>`
+        + `</div>`;
+      return `<div style="border:1px solid #EEF1F4;border-radius:14px;padding:12px 14px;margin-top:8px;background:#fff;">${rows.join('')}${chips}</div>`;
+    }).join('');
   }
 
   // [J-2] 일반 메시지의 Action Hub 버튼(hub_actions). photo_result 안에서 이미 렌더되는 경우는 제외(중복 방지).
@@ -3863,7 +3896,18 @@
       const result = await window.AssistantIntent.execAsyncRule(rule);
       try { window.ItdasyBookingContext?.rememberList?.(result); } catch (_ctxErr) { void _ctxErr; }
       _history = _history.filter(m => m.role !== 'loading');
-      _history.push({ role: 'assistant', text: result.response });
+      // [Phase3 #2] 예약 조회면 카드로 표시(텍스트 한 줄만 X). 빈 결과면 새 예약 제안.
+      const isBooking = /^bookings_/.test(result.type || '');
+      const bItems = (isBooking && result.data && Array.isArray(result.data.items))
+        ? result.data.items.filter((b) => b && b.status !== 'cancelled') : [];
+      if (isBooking && bItems.length) {
+        const header = String(result.response || '').split('\n')[0];
+        _history.push({ role: 'assistant', text: header, booking_cards: bItems });
+      } else if (isBooking) {
+        _history.push({ role: 'assistant', text: (result.response || '예약이 없어요.') + ' 새 예약을 잡을까요?', related: ['예약 잡기'] });
+      } else {
+        _history.push({ role: 'assistant', text: result.response });
+      }
       _renderHistory();
     } catch (fetchErr) {
       _history = _history.filter(m => m.role !== 'loading');
@@ -3908,7 +3952,7 @@
       [/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)],
       [/(dm|디엠|자동\\s*응답|자동\\s*답장).*(설정|관리|편집|룰)|자동\\s*응답\\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
       [/(통계|분석|인사이트|insight|매출\\s*(요약|리포트|추이|분석))/, window.openInsights],
-      [/(백업|복구|backup|데이터.*(내보내|받|export))/, window.openBackupScreen],
+      [/(백업|backup|데이터.*(복구|내보내|받|export))/, window.openBackupScreen],
       [/(리뷰|후기)\\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
       [/(이탈|위험|복귀|재방문)\\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
     ];
@@ -4525,6 +4569,9 @@
         if (_wasActive) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
       }
     }
+    // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
+    //   phone-intent 는 PHONE_RE 가 있을 때만 매칭 → "그거 수정"(사진 카드) 등은 영향 없음.
+    if (await _tryCustomerPhoneIntent(input, q)) return;
     // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
     if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
