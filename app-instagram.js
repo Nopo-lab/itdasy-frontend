@@ -461,9 +461,9 @@ async function runAutoAnalysisAfterConnect() {
     if (stepTxt) {
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       if (elapsed < 15) stepTxt.textContent = '게시물 가져오는 중…';
-      else if (elapsed < 35) stepTxt.textContent = '문체 패턴 분석 중…';
-      else if (elapsed < 60) stepTxt.textContent = '해시태그·이모지 추출 중…';
-      else stepTxt.textContent = '분석 마무리 중…';
+      else if (elapsed < 35) stepTxt.textContent = '최근 게시물을 읽는 중…';
+      else if (elapsed < 60) stepTxt.textContent = '사장님 말투 익히는 중…';
+      else stepTxt.textContent = '해시태그·이모지 모으는 중…';
     }
     await new Promise(r => setTimeout(r, STEP_MS));
   }
