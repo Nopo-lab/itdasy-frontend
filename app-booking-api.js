@@ -7,7 +7,8 @@
 
   const OFFLINE_KEY    = 'itdasy_bookings_offline_v1';
   const SHOP_HOURS_KEY = 'itdasy_shop_hours_v1';
-  const DEFAULT_HOURS  = { start: 10, end: 22, slotMin: 30 };
+  // [§10] 기본 표시 09:00~24:00 — 야간 예약(23:40~익일) 가시성 확보. 자정 넘김은 _expandHoursForItems가 추가 확장.
+  const DEFAULT_HOURS  = { start: 9, end: 24, slotMin: 30 };
 
   let _items    = [];
   let _isOffline = false;

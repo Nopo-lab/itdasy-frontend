@@ -2115,8 +2115,17 @@
       }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
-      if (payload.purpose === 'event' || !payload.autoApplyEligible) {
-        _history.push({ role: 'assistant', text: '이벤트 템플릿은 준비 중이에요. 대신 가격표·후기·전후 카드로 먼저 만들 수 있어요.' });
+      if (payload.purpose === 'event') {
+        // [§12] 이벤트 카드 실제 생성 — 준비 중 문구 제거, bp-event-spring-mixed 초안 오픈.
+        const opened = _openCreateTemplate('event');
+        _history.push({ role: 'assistant', text: opened
+          ? '이벤트 카드 초안을 만들었어요. 기간과 혜택만 수정해보세요. 저장하면 작업실에서 다시 편집할 수 있어요.'
+          : '이벤트 카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' });
+        _renderHistory();
+        return true;
+      }
+      if (!payload.autoApplyEligible) {
+        _history.push({ role: 'assistant', text: '이 템플릿은 아직 자동 적용이 안 돼요. 가격표·후기·전후 카드로 먼저 만들 수 있어요.' });
         _renderHistory();
         return true;
       }
@@ -4145,7 +4154,7 @@
 
   // [QA퍼징] 업종 키워드 없는 bare 생성("가격표 만들어줘")을 백엔드로 안 새게 — 목적별 템플릿 편집기/피커로 연결.
   //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
-  const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid', generic: 'card-minimal' };
+  const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid', event: 'bp-event-spring-mixed', generic: 'card-minimal' };
   const _CREATE_LABEL = { price: '가격표', review: '후기 카드', before_after: '전후 카드', event: '이벤트 카드', generic: '카드' };
   function _openCreateTemplate(purpose) {
     const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
@@ -4172,9 +4181,11 @@
       try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_l) { void _l; }
       const p = c.purpose;
       if (p === 'event') {
-        // [activeCard] 이벤트는 아직 카드 생성 불가 → available:false 로 기억해 "그거 다시 보여줘"가 빈 작업실 대신 정직 안내로.
-        try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: '이벤트 카드', available: false, origin: 'create' }); } catch (_ac) { void _ac; }
-        _history.push({ role: 'assistant', text: '이벤트 템플릿은 준비 중이에요. 대신 가격표·후기 카드로 먼저 만들 수 있어요.' });
+        // [§12] 이벤트 카드 실제 생성 — bp-event-spring-mixed(가격+혜택 믹스) 초안을 편집기로 연다.
+        const opened = _openCreateTemplate('event');
+        _history.push({ role: 'assistant', text: opened
+          ? '이벤트 카드 초안을 만들었어요. 기간과 혜택만 수정해보세요. 저장하면 작업실에서 다시 편집할 수 있어요.'
+          : '이벤트 카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' });
         _renderHistory();
         return true;
       }

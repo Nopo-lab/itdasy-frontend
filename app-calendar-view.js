@@ -643,9 +643,9 @@
   // §11 영업시간 — 시간축 동적 확장 (영업외 라벨은 분홍)
   // ============================================================
   function _ttHours() {
-    const h = window.Booking?.shopHours ? window.Booking.shopHours() : { start: 10, end: 22, slotMin: 30 };
-    const start = Math.max(0, Math.min(23, h.start ?? 10));
-    const end   = Math.max(start + 1, Math.min(24, h.end ?? 22));
+    const h = window.Booking?.shopHours ? window.Booking.shopHours() : { start: 9, end: 24, slotMin: 30 };
+    const start = Math.max(0, Math.min(23, h.start ?? 9));
+    const end   = Math.max(start + 1, Math.min(24, h.end ?? 24));
     return { start, end };
   }
   // 운영시간(shopStart/shopEnd) 보존 + 예약으로 확장된 범위 둘 다 반환.

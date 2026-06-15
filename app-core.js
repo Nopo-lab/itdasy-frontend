@@ -2432,6 +2432,9 @@ window._humanError = function (e) {
     return '요청이 너무 많아요. 잠시 후 다시 시도해주세요';
   if (/HTTP\s*402|payment/i.test(raw))
     return '플랜 한도 초과예요. 업그레이드가 필요해요';
+  // [§11] DB/PostgREST 원문(예: "already has another value", "duplicate key", "unique constraint") 누출 차단
+  if (/already\s+has|already\s+exist|duplicate|unique\s+constraint|conflict|overlap/i.test(raw))
+    return '이미 등록된 값이 있어요. 다시 확인해주세요';
   if (raw.length > 80) return '일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요';
   return raw;
 };
