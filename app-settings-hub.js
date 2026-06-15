@@ -94,7 +94,7 @@
         ${_rowHTML('shopinfo', 'ic-store',      '샵 정보',     '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
         ${_rowHTML('instagram','ic-instagram', '인스타그램 연결 및 재연결', '콘텐츠 발행 · 말투 분석용', { boxColor: 'pink' })}
         ${_rowHTML('instagram_disconnect','ic-instagram','인스타그램 연결 해제', '토큰 즉시 폐기 · 잇데이 로그인은 유지', { boxColor: 'red', danger: true })}
-        ${_rowHTML('naver_talk', '', '네이버 톡톡 연동', '문의 통합 수신 · 잇비 초안', { iconHtml: (window.ChannelMark ? window.ChannelMark.mark('naver', { size: 24, radius: 6, pos: 'position:relative;', ring: false }) : '') })}
+        ${_rowHTML('naver_talk', '', '네이버 톡톡 연동', '문의 통합 수신 · 잇비 초안', { iconHtml: (window.ChannelMark ? window.ChannelMark.mark('naver', { size: 24, radius: 6, pos: 'position:relative;', ring: false, tint: { bg: '#E1F5EE', fg: '#03C75A' } }) : '') })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
       <div class="ms-sh">
