@@ -281,6 +281,10 @@ function renderDetailedPopup(data) {
     const tagArr    = String(p.hashtags || raw.hashtags || '')
         .split(/[,\s]+/).map(t => t.trim()).filter(Boolean)
         .map(t => '#' + t.replace(/^#+/, ''));
+    // [5] 말끝: 배열 JSON 또는 콤마·공백 분리 문자열 둘 다 처리 (값은 '~' 접두 포함)
+    const sigArr = Array.isArray(p.signature_phrases || raw.signature_phrases)
+        ? (p.signature_phrases || raw.signature_phrases)
+        : String(p.signature_phrases || raw.signature_phrases || '').split(/[,\s]+/).filter(Boolean);
 
     // 프사: localStorage 캐시 우선, 실패 시 실루엣 폴백
     const picUrl = (() => { try { return localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { return ''; } })();
@@ -289,11 +293,11 @@ function renderDetailedPopup(data) {
         ? `<img src="${_esc(picUrl)}" style="width:62px;height:62px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
         : SIL;
 
-    // ── 헤더 카드
+    // ── 헤더 카드 ([1] border hairline, shadow 제거, 토큰화)
     let html = `
-    <div style="background:#fff;border-radius:20px;padding:24px 20px 20px;text-align:center;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+    <div style="background:var(--surface);border-radius:var(--r-md);border:0.5px solid var(--border);padding:24px 20px 20px;text-align:center;margin-bottom:12px;">
       <div style="width:62px;height:62px;border-radius:50%;background:#F2F4F6;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;overflow:hidden;">${avatarInner}</div>
-      ${handle ? `<div style="font-size:17px;font-weight:700;color:#191F28;letter-spacing:-0.3px;">@${_esc(handle)}</div>` : ''}
+      ${handle ? `<div style="font-size:17px;font-weight:700;color:var(--text);letter-spacing:-0.3px;">@${_esc(handle)}</div>` : ''}
       ${postCount > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px;"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>게시물 ${postCount}개 분석 완료</span>` : ''}
     </div>`;
 
@@ -303,9 +307,9 @@ function renderDetailedPopup(data) {
     ).trim();
     if (styleSummary) {
         html += `
-    <div style="background:#fff;border-radius:20px;padding:16px 20px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);">
-      <div style="font-size:11px;font-weight:700;color:#8B95A1;margin-bottom:6px;letter-spacing:0.3px;">원장님 말투</div>
-      <div style="font-size:14px;color:#191F28;line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
+    <div style="background:var(--surface);border-radius:var(--r-md);border:0.5px solid var(--border);padding:16px 20px;margin-bottom:12px;">
+      <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:6px;">원장님 말투</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
     </div>`;
     }
 
@@ -313,21 +317,34 @@ function renderDetailedPopup(data) {
     const DIV = '<div style="height:.5px;background:#F0F1F3;"></div>';
     const secs = [];
 
-    if (capTmpl) {
+    // [5] 말끝 칩 (고정문구보다 위에 배치)
+    if (sigArr.length) {
+        const sigChips = sigArr.map(s =>
+            `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(s)}</span>`
+        ).join('');
         secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:700;color:#8B95A1;margin-bottom:10px;letter-spacing:0.3px;">원장님이 꼭 쓰는 고정문구</div>
-            <div style="font-size:13.5px;color:#191F28;line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(capTmpl)}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 자주 쓰는 말끝</div>
+            <div style="line-height:1;">${sigChips}</div>
         </div>`);
     }
 
+    // [6] 고정문구: 항상 렌더, 없으면 '없음'
+    secs.push(`<div style="padding:18px 20px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 꼭 쓰는 고정문구</div>
+        ${capTmpl
+            ? `<div style="font-size:13.5px;color:var(--text);line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(capTmpl)}</div>`
+            : `<div style="font-size:13.5px;color:var(--text-subtle);">없음</div>`
+        }
+    </div>`);
+
     if (tagArr.length) {
         const chips = tagArr.map(t =>
-            `<span style="display:inline-flex;background:#F2F4F6;color:#4E5968;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;margin:3px 3px 0 0;word-break:keep-all;">${_esc(t)}</span>`
+            `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(t)}</span>`
         ).join('');
         secs.push(`<div style="padding:18px 20px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:11px;font-weight:700;color:#8B95A1;letter-spacing:0.3px;">원장님이 자주 쓰는 해시태그 <span style="font-weight:500;color:#C9CDD4;">${tagArr.length}개</span></span>
-                <button data-ig-tag-toggle style="background:none;border:none;padding:0;font-size:12px;color:#8B95A1;cursor:pointer;font-weight:600;">전체 보기 ›</button>
+                <span style="font-size:11px;font-weight:600;color:var(--text-subtle);">원장님이 자주 쓰는 해시태그 <span style="font-weight:500;">${tagArr.length}개</span></span>
+                <button data-ig-tag-toggle style="background:none;border:none;padding:0;font-size:12px;color:var(--text-subtle);cursor:pointer;font-weight:600;">전체 보기 ›</button>
             </div>
             <div data-ig-tag-chips style="display:none;margin-top:10px;line-height:1;">${chips}</div>
         </div>`);
@@ -335,25 +352,25 @@ function renderDetailedPopup(data) {
 
     if (emojis) {
         secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:700;color:#8B95A1;margin-bottom:10px;letter-spacing:0.3px;">원장님이 자주 쓰는 이모지</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 자주 쓰는 이모지</div>
             <div style="font-size:21px;letter-spacing:4px;word-break:break-all;">${_esc(emojis)}</div>
         </div>`);
     }
 
     if (secs.length) {
-        html += `<div style="background:#fff;border-radius:20px;overflow:hidden;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);">${secs.join(DIV)}</div>`;
+        html += `<div style="background:var(--surface);border-radius:var(--r-md);border:0.5px solid var(--border);overflow:hidden;margin-bottom:20px;">${secs.join(DIV)}</div>`;
     }
 
-    // ── CTA
+    // ── CTA ([4] 버튼 배경 var(--text) 네이비, ROSE는 배지 전용)
     html += `
     <div style="text-align:center;margin-bottom:12px;">
-        <span style="font-size:12px;color:#8B95A1;">잇비가 말투분석한 걸로 테스트해보세요</span>
+        <span style="font-size:12px;color:var(--text-subtle);">잇비가 말투분석한 걸로 테스트해보세요</span>
     </div>
-    <button data-ig-write style="width:100%;height:52px;border-radius:14px;border:none;background:${ROSE};color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
+    <button data-ig-write style="width:100%;height:52px;border-radius:14px;border:none;background:var(--text);color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
         <svg width="20" height="20" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-bot"/></svg>내 말투로 글 써보기
     </button>
     <div style="text-align:center;">
-        <button data-static-action="analyze-result-close" style="background:none;border:none;padding:10px 20px;font-size:13px;color:#C9CDD4;cursor:pointer;">다음에 할게요</button>
+        <button data-static-action="analyze-result-close" style="background:none;border:none;padding:10px 20px;font-size:13px;color:var(--text-subtle);cursor:pointer;">다음에 할게요</button>
     </div>`;
 
     const body = document.getElementById('analyzeResultBody');
