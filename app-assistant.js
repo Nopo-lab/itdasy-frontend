@@ -1814,6 +1814,33 @@
     return [];
   }
 
+  // [§6] 전후 카드용 — 사진을 한 메시지에 2장 보내든, 따로 2번 보내든 최근 2장을 시간순([먼저, 나중])으로 모은다.
+  //   _lastUserPhotos 는 "마지막 단일 메시지"만 봐서 분리 업로드 시 1장으로 오인 → 전후가 자꾸 두 번째 사진을 재요청하던 버그 해소.
+  function _recentBaPhotos() {
+    var collected = [];   // 최신→오래된 순 누적
+    try {
+      for (var i = _history.length - 1, n = 0; i >= 0 && n < 8 && collected.length < 2; i--, n++) {
+        var m = _history[i];
+        if (m && m.role === 'user' && Array.isArray(m.photos) && m.photos.length) {
+          for (var j = m.photos.length - 1; j >= 0 && collected.length < 2; j--) {
+            if (m.photos[j]) collected.push(m.photos[j]);
+          }
+        }
+      }
+    } catch (_e) { void _e; }
+    return collected.reverse();   // [먼저 올린 사진, 나중 올린 사진]
+  }
+
+  // [§6] "첫 번째 후, 두 번째 전"처럼 전/후 순서를 반대로 지정했는지 판별. 기본은 첫=전, 둘=후.
+  function _baOrderReversed(text) {
+    var t = String(text || '').replace(/\s+/g, '');
+    var m1 = /(첫번째|첫장|첫|처음|1번째|1장)(사진)?[는은이가을를로=]*(전|후)/.exec(t);
+    if (m1 && m1[3] === '후') return true;
+    var m2 = /(두번째|둘째|둘|2번째|2장)(사진)?[는은이가을를로=]*(전|후)/.exec(t);
+    if (m2 && m2[3] === '전') return true;
+    return false;
+  }
+
   function _baResultActions(payload) {
     return [
       { id: 'review_ba_template_result', kind: 'review_price_template_result', label: '결과 확인', phase: 'safe', route: 'hub', payload: payload },
@@ -1892,18 +1919,16 @@
   //   2장+: 기존 handleBeforeAfterCard 그대로(정책 불변).
   function _openBeforeAfterCreate(q) {
     const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
-    const photos = _lastUserPhotos();
+    let photos = _recentBaPhotos();   // [§6] 분리 업로드(2번)도 2장으로 집계
     if (photos.length >= 2) {
-      try {
-        const TA = window.ItdasyTemplateAutoApply;
-        const result = (TA && typeof TA.handleBeforeAfterCard === 'function') ? TA.handleBeforeAfterCard(q, ctx, { photos: photos }) : null;
-        if (result && !result.needsPhoto) {
-          _pushBaResultCard(result);
-          try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'before_after', label: '전후 카드', available: true, origin: 'create' }); } catch (_ac) { void _ac; }
-          _focusEditorCloseAssistant();
-          return;
-        }
-      } catch (_e) { void _e; }
+      // [§6] "첫 번째 후, 두 번째 전" 등 역순 지정이면 순서 교체(기본: 첫=전, 둘=후).
+      if (_baOrderReversed(q)) photos = [photos[1], photos[0]];
+      const ok = _applyBaFromPhotos(q, [photos[0], photos[1]], ctx);
+      if (ok) {
+        try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'before_after', label: '전후 카드', available: true, origin: 'create' }); } catch (_ac) { void _ac; }
+      }
+      // [§6] 2장이 있으면 사진을 다시 요구하지 않는다 — 실패 시 _applyBaFromPhotos 가 명시적 오류를 안내(침묵 폴백 제거).
+      return;
     }
     if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return; }
     // 0장 — 시술 전/후 2장 흐름을 명확히 안내하고 업로드로 바로 이어지게.
@@ -1991,7 +2016,7 @@
       const tplId = _selectPriceTemplateId(draft, p.preferredTemplateId);
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
-      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실
+      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
       TV.apply(tplId);
       const helpers = PE._internal.helpers || {};
       const state = PE._internal.getState && PE._internal.getState();
@@ -2052,7 +2077,7 @@
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
       try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-      PE.open({ src: source, initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실
+      PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
       TV.apply(tplId);
       const helpers = PE._internal.helpers || {};
       const state = PE._internal.getState && PE._internal.getState();
@@ -3975,6 +4000,7 @@
     if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;   // 고객 메시지/초안은 캡션 아님
     if (/(캡션|해시\s*태그|hashtag)/i.test(t)) return true;
     if (/홍보\s*글/.test(t)) return true;
+    if (/문구\s*(만|좀)?\s*(다시\s*)?(줘|주세요|만들|뽑|써|작성)/.test(t)) return true;   // [§7] "문구만 줘"/"문구만 다시 줘"
     if (/(예약\s*)?유도\s*문구/.test(t)) return true;
     if (/(인스타|insta|sns|피드|스토리)\s*(글|문구|카피)/i.test(t)) return true;
     return false;
@@ -4002,7 +4028,8 @@
 
   // [P0a] 사진 직후 후속 텍스트가 "그 사진"에 대한 명령인지(누끼/배경/보정/템플릿/홍보/인스타/업로드/손님 등).
   function _looksPhotoFollowup(q) {
-    return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|캡션|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
+    // [§7] '캡션'은 제외 — 캡션 의도는 _tryCaptionIntentShortcut(캡션 도구)로 먼저 라우팅됨. 사진편집으로 새지 않게.
+    return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
   }
 
   // [QA#7] 메모리 인텐트(기억해/뭐 기억해?/기억하지 마) — 백엔드 전에 가로채 dedupe + 응답 제어.
@@ -4161,7 +4188,7 @@
     if (!PE || typeof PE.open !== 'function') return false;
     let source = '';
     try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-    PE.open({ src: source, initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });
+    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });   // [§13] 닫으면 잇비 복귀
     const tplId = _CREATE_DEFAULT_TPL[purpose];
     if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
     // [activeCard P0] 방금 만든(편집 중) 카드 기억 — 저장 전에도 "그거 저장/수정/다시 보여줘" 가 가리킬 수 있게.
@@ -4282,6 +4309,8 @@
     if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
     if (await _trySavedCardsShortcut(input, q)) return;
+    // [§7] 캡션/문구 의도 — 사진이 있어도 사진편집(_looksPhotoFollowup)·템플릿으로 새지 않게 먼저 가로챈다.
+    if (_tryCaptionIntentShortcut(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
     if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결

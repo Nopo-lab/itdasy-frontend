@@ -580,9 +580,12 @@
     try {
       const _as = document.getElementById('assistantSheet');
       const _chatOpen = !!(_as && _as.style.display && _as.style.display !== 'none');
-      if (!_state.inline && _chatOpen) {
+      // [§13] 잇비에서 연 편집기는 닫을 때(뒤로가기 포함) 잇비로 복귀. source 명시를 우선 — 호출 시점에
+      //   챗이 이미 닫혀 있어도(타이밍) 사진편집기로 튀지 않고 잇비로 정확히 돌아가게 보장.
+      const _fromChat = (opts.source === 'assistant' || opts.source === 'chat');
+      if (!_state.inline && (_chatOpen || _fromChat)) {
         _state._reopenChat = true;
-        if (typeof window.closeAssistant === 'function') window.closeAssistant();
+        if (_chatOpen && typeof window.closeAssistant === 'function') window.closeAssistant();
       }
     } catch (_e) { void _e; }
     sheet.style.setProperty('display', 'flex', 'important');

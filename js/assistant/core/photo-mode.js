@@ -398,7 +398,27 @@
       S = _fresh(); S.active = true; S.step = 'await_photo';
       return { text: '처음부터 할게요. 편집할 사진을 다시 보내주세요.' };
     }
+    // [§6] 사진 2장을 이미 받은 상태에서 "전후 카드 만들어줘"(+ "첫 번째 전, 두 번째 후" 순서) 명시 →
+    //   사진을 다시 요구하지 않고 바로 전/후 역할 배정 후 진행. (기존: 어느 step case에도 안 걸려 재요청되던 버그)
+    if (S.active && S.photos.length >= 2
+        && /(전후|비포\s*애프터|before\s*after)/i.test(q)
+        && /(만들|해줘|제작|뽑|꾸며|카드)/.test(q)) {
+      S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
+      S.workflow = 'ba';
+      _assignBaRoles(_baOrderSwap(q));   // 첫=전/둘=후 기본, "첫 번째 후/두 번째 전"이면 swap
+      return await _msgFix();
+    }
     return null;
+  }
+
+  // [§6] 전/후 순서 역지정 판별. "첫 번째 후" 또는 "두 번째 전" → swap(true). 기본(첫=전,둘=후) → false.
+  function _baOrderSwap(text) {
+    var t = String(text || '').replace(/\s+/g, '');
+    var m1 = /(첫번째|첫장|첫|처음|1번째|1장)(사진)?[는은이가을를로=]*(전|후)/.exec(t);
+    if (m1 && m1[3] === '후') return true;
+    var m2 = /(두번째|둘째|둘|2번째|2장)(사진)?[는은이가을를로=]*(전|후)/.exec(t);
+    if (m2 && m2[3] === '전') return true;
+    return false;
   }
 
   async function _handleStepText(q) {
