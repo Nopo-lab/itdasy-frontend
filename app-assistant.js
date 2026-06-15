@@ -645,7 +645,7 @@
       const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
       actsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:11px;font-weight:600;">${_esc(a.label)}</button>`).join('')}</div>`;
     }
-    const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
+    const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;white-space:pre-line;line-height:1.5;max-width:240px;">${_esc(m.photo_caption)}</div>` : '';
     // [잇비 결과 카드 v0] 결과 카드 3개 — 적용 누르면 원본+initialState 로 편집기 오픈(핸드오프).
     const cardsHtml = (m.itbi_cards && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.renderHTML === 'function')
       ? window.PhotoEditorItbiCards.renderHTML(m.itbi_cards, idx) : '';

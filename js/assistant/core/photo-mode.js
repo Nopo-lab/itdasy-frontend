@@ -165,12 +165,32 @@
     if (S.captionLen === 'short') return ' 캡션을 핵심만 담아 짧고 간결하게 작성해주세요.';
     return '';
   }
-  // [qa-F §5] "더 길게/5줄 이상"인데 결과가 직전보다 짧으면 이전 캡션 유지(짧아지지 않게).
-  function _keepLonger(fresh, prev) {
-    if (S.captionLen !== 'long' || !prev || !fresh) return fresh;
-    var fl = String(fresh).replace(/\s+/g, '').length, pl = String(prev).replace(/\s+/g, '').length;
-    return fl < pl ? prev : fresh;
+  // [qa-F §5] long 요청인데 백엔드가 짧게 주면 프론트에서 최소 줄수까지 보강(시술 포인트·예약 유도 등 추가).
+  //   해시태그 줄은 맨 끝에 보존하고, 본문 줄이 minLines 미만이면 자연스러운 문장으로 채운다.
+  function _expandCaption(cap, minLines) {
+    minLines = (minLines && minLines >= 2) ? minLines : 5;
+    var raw = String(cap || '').split('\n');
+    var tagFrom = -1;
+    for (var i = 0; i < raw.length; i++) { if (/^\s*#/.test(raw[i])) { tagFrom = i; break; } }
+    var bodyLines = tagFrom >= 0 ? raw.slice(0, tagFrom) : raw.slice();
+    var tagLines = tagFrom >= 0 ? raw.slice(tagFrom) : [];
+    var body = bodyLines.filter(function (x) { return x.trim(); });
+    var svc = (S.captionHint && !/지난번처럼/.test(S.captionHint)) ? S.captionHint : (_shopType() || '');
+    var fillers = [
+      (svc ? svc + ' ' : '') + '시술로 또렷한 변화를 만들어드렸어요.',
+      '시술 전·후 차이를 사진으로 확인해보세요.',
+      '디테일까지 꼼꼼하게 케어해드립니다.',
+      '편하게 둘러보시고 마음에 드시면 예약·문의 주세요 😊',
+      '오늘도 정성껏 작업했어요. 또 만나요!',
+    ];
+    var joined = body.join(' ');
+    for (var f = 0; f < fillers.length && body.length < minLines; f++) {
+      if (joined.indexOf(fillers[f]) === -1) { body.push(fillers[f]); joined += ' ' + fillers[f]; }
+    }
+    return body.concat(tagLines.filter(function (x) { return x.trim(); })).join('\n');
   }
+  // long 일 때만 보강. medium/short 는 그대로.
+  function _maybeExpand(full) { return S.captionLen === 'long' ? _expandCaption(full, S.captionMinLines) : full; }
   async function _caption(hint, opts) {
     opts = opts || {};
     try {
@@ -186,11 +206,11 @@
       var body = { category: _category(), photo_context: ctxStr, length_tier: (S.captionLen || 'medium'), tone_override: (S.captionTone || 'normal') };
       var res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers: headers, body: JSON.stringify(body) });
       var data = await res.json().catch(function () { return {}; });
-      if (!res.ok) return _captionFallback();
+      if (!res.ok) return _maybeExpand(_captionFallback());
       var cap = (data.caption || '').trim();
       var tags = Array.isArray(data.hashtags) ? data.hashtags.map(function (t) { return '#' + String(t).replace(/^#+/, ''); }).join(' ') : '';
-      return tags ? (cap + '\n\n' + tags) : (cap || _captionFallback());
-    } catch (_e) { return _captionFallback(); }
+      return _maybeExpand(tags ? (cap + '\n\n' + tags) : (cap || _captionFallback()));
+    } catch (_e) { return _maybeExpand(_captionFallback()); }
   }
 
   function _captionFallback() {
@@ -277,9 +297,9 @@
       ? { before_photo: { src: (beforeP || S.photos[0] || {}).url }, after_photo: { src: afterUrl } }
       : { main_photo: { src: afterUrl } };
     var composed = await _preview(tplId, slots, 720);
-    if (!S.caption || regenCaption) { var _f = await _caption(null, { regen: !!regenCaption }); S.caption = regenCaption ? _keepLonger(_f, S.caption) : _f; }
+    if (!S.caption || regenCaption) S.caption = await _caption(null, { regen: !!regenCaption });
     S.result = Object.assign(S.result || {}, { composedUrl: composed, tplId: tplId });
-    var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비하고 있어요.';
+    var capLine = S.caption || '문구를 준비하고 있어요.';
     return { text: '완성본이에요. 문구는 **사장님 말투로** 미리 써뒀어요 — 고칠 부분만 알려주세요.',
       photo_result: { dataUrl: composed, ratio: '4:5' },
       photo_caption: capLine,
@@ -306,10 +326,10 @@
     S.step = 'done';
     S.workflow = 'caption';
     if (hint && !/지난번처럼/.test(hint)) S.captionHint = hint;
-    if (!S.caption || regenCaption) { var _f = await _caption(S.captionHint, { regen: !!regenCaption }); S.caption = regenCaption ? _keepLonger(_f, S.caption) : _f; }
+    if (!S.caption || regenCaption) S.caption = await _caption(S.captionHint, { regen: !!regenCaption });
     var url = (S.photos[0] && (S.photos[0].editedUrl || S.photos[0].url)) || '';
     S.result = Object.assign(S.result || {}, { composedUrl: url });
-    var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비했어요.';
+    var capLine = S.caption || '문구를 준비했어요.';
     var recipe = Support && typeof Support.recipeFromText === 'function' ? Support.recipeFromText(S.captionHint || _shopType()) : 'natural';
     var recos = Support && typeof Support.buildTemplateRecos === 'function' ? Support.buildTemplateRecos(S.captionHint || '사진 홍보용', {}) : [];
     var actions = Support && typeof Support.buildActions === 'function'
@@ -637,7 +657,7 @@
     var cur = _curPhoto();
     var url = (S.result && S.result.afterUrl) || (cur && cur.url);
     S.result = Object.assign(S.result || {}, { composedUrl: url });
-    var capLine = S.caption ? ('"' + S.caption.split('\n')[0] + '"') : '문구를 준비했어요.';
+    var capLine = S.caption || '문구를 준비했어요.';
     return { text: '보정 완성본이에요. 문구도 **사장님 말투로** 써뒀어요.',
       photo_result: { dataUrl: url, ratio: '4:5' }, photo_caption: capLine,
       related: ['이대로 저장', '인스타 미리보기', '문구 다시 써줘'] };
