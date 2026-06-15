@@ -51,7 +51,6 @@
   function _buildSheet() {
     const sheet = document.createElement('div');
     sheet.id = 'integrationsHubSheet';
-    sheet.className = 'subscreen-overlay';
     sheet.style.cssText = 'position:fixed;inset:0;z-index:9985;display:none;';
     sheet.innerHTML = `
       <div class="ms-sheet__overlay" id="ihOverlay" style="position:fixed;inset:0;"></div>
