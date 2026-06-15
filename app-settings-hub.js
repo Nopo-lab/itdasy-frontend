@@ -38,8 +38,8 @@
       <div class="ms-sheet__handle"></div>
       <div class="ms-sheet__head">
         <div class="ms-sheet__head-left">
-          <div class="ms-sheet__title">연동관리</div>
-          <div class="ms-sheet__sub">샵 정보 · 외부 연동 · 백업</div>
+          <div class="ms-sheet__title">설정</div>
+          <div class="ms-sheet__sub">앱 설정 · 샵 정보 · 백업</div>
         </div>
         <button type="button" class="ms-sheet__close" id="shClose" aria-label="닫기">✕</button>
       </div>
@@ -89,21 +89,12 @@
   }
   function _listHTML() {
     return `
-      <div class="ms-section__title">샵 · 연동</div>
+      <div class="ms-section__title">샵</div>
       <div class="ms-sh" id="shList">
-        ${_rowHTML('shopinfo', 'ic-store',      '샵 정보',     '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
-        ${_rowHTML('instagram','ic-instagram', '인스타그램 연결 및 재연결', '콘텐츠 발행 · 말투 분석용', { boxColor: 'pink' })}
-        ${_rowHTML('instagram_disconnect','ic-instagram','인스타그램 연결 해제', '토큰 즉시 폐기 · 잇데이 로그인은 유지', { boxColor: 'red', danger: true })}
-        ${_rowHTML('naver_talk', '', '네이버 톡톡 연동', '문의 통합 수신 · 잇비 초안', { iconHtml: (window.ChannelMark ? window.ChannelMark.mark('naver', { size: 24, radius: 6, pos: 'position:relative;', ring: false, tint: { bg: '#E1F5EE', fg: '#03C75A' } }) : '') })}
-      </div>
-      <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
-      <div class="ms-sh">
-        ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'pink' })}
-        ${_rowHTML('analysis_report', 'ic-bar-chart-3', '분석 리포트 보기', '최근 분석 결과 다시 보기 (재분석 안 함)', { boxColor: 'purple' })}
-        ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
-        ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
-        ${/* [2026-05-25] 'AI 잇비 액션 되돌리기' 행 제거 — 잇비 채팅 ⋯ 메뉴로 단일 진입점화. */ ''}
-        ${_rowHTML('failures', 'ic-bell',       '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
+        ${_rowHTML('shopinfo', 'ic-store',    '샵 정보',          '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
+        ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침', '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
+        ${_rowHTML('backup',   'ic-download', '백업 · 내보내기',  '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
+        ${_rowHTML('failures', 'ic-bell',     '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">계정</div>
       <div class="ms-sh">
@@ -245,12 +236,6 @@
   // ─── 9개 라우팅 (변동 X) ────────────────────────────────
   function _route(act) {
     if (act === 'shopinfo')  { close(); setTimeout(() => window.openShopSettings && window.openShopSettings(), 200); return; }
-    if (act === 'instagram') { close(); setTimeout(() => window.connectInstagram && window.connectInstagram(), 200); return; }
-    if (act === 'instagram_disconnect') { close(); setTimeout(() => window.disconnectInstagram && window.disconnectInstagram(), 200); return; }
-    if (act === 'naver_talk') { close(); setTimeout(() => window.openNaverTalkLink && window.openNaverTalkLink(), 200); return; }
-    if (act === 'persona')   { close(); setTimeout(() => window.runPersonaAnalyze && window.runPersonaAnalyze(true), 200); return; }
-    // [2026-06-09] 분석 리포트 보기 — 캐시된 분석 결과 팝업 (재분석 X, persona 와 별개).
-    if (act === 'analysis_report') { close(); setTimeout(() => window.showDetailedAnalysis && window.showDetailedAnalysis(), 200); return; }
     // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
     if (act === 'sync')      { close(); setTimeout(() => window.forceSync && window.forceSync(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
