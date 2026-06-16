@@ -1206,10 +1206,17 @@
     </div>`);
   }
 
+  // [v499 4-3] 실행 버튼 라벨 — 신규 추가만 '추가하기', 변경/취소/복구는 동작에 맞게.
+  const _ACTION_RUN_LABEL = {
+    reschedule_booking: '변경 확정', update_booking: '변경 확정', update_customer: '변경 확정',
+    cancel_booking: '예약 취소', cancel_booking_bulk: '예약 취소',
+    restore_booking: '복구하기', delete_booking: '삭제하기',
+  };
   function _renderActionPendingBubble(action, historyIdx, kindBadge) {
     // [T-109] 마케팅/발송 액션은 실행 전 안전 라벨(실발송 가능/초안/게시준비) 표시.
     const _safety = (window.ItdasyMarketingSafety && typeof window.ItdasyMarketingSafety.renderSafetyHTML === 'function')
       ? window.ItdasyMarketingSafety.renderSafetyHTML(action, _esc) : '';
+    const _runLabel = (action && _ACTION_RUN_LABEL[action.kind]) || '추가하기';
     return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
@@ -1219,7 +1226,7 @@
       <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(action.confirmation_text || '')}</div>
       <div style="display:flex;gap:6px;">
         <button data-action-edit="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 14)} 수정</button>
-        <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">추가하기 ${_svg('ic-check', 14)}</button>
+        <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">${_runLabel} ${_svg('ic-check', 14)}</button>
         <button data-action-cancel="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#8B95A1;cursor:pointer;font-size:13px;font-weight:500;">취소</button>
       </div>
     </div>`;
@@ -4364,12 +4371,12 @@
     const svc = (c.service || '').trim();
     // [M1] 입력 시술을 본문에 반드시 반영하고, 입력 안 한 다른 시술은 언급하지 않도록 명시.
     const svcLead = svc
-      ? (svc + ' 시술. 반드시 이 시술 중심으로 본문을 쓰고, 입력하지 않은 다른 시술(붙임머리 등)은 언급하지 마세요. ')
+      ? (svc + ' 시술. 반드시 이 시술 중심으로 본문을 쓰고, 입력한 시술 외 다른 시술은 언급하지 마세요. ')
       : ((localStorage.getItem('shop_type') || '') + ' 시술. ');
     // [M2] 후기 말투 요청 시 1인칭 고객 후기체로.
     const review = c.reviewVoice ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
     const ctxStr = (svcLead + _capInstaHint() + _capLenInstruction(c.len) + tags + vary + review + ' 인스타 업로드용 캡션.').slice(0, 500);
-    const body = { category: _capCategory(), photo_context: ctxStr, length_tier: c.len || 'medium', tone_override: c.tone || 'normal' };
+    const body = { category: _capCategory(), photo_context: ctxStr, length_tier: c.len || 'medium', tone_override: c.tone || 'normal', service: svc || '' };
     let res;
     try { res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers, body: JSON.stringify(body) }); }
     catch (_e) { return null; }
@@ -4761,16 +4768,53 @@
   function _looksPromoCreateIntent(q) {
     const t = String(q || '');
     if (/(보여|목록|저장한|작업실|수정|삭제|지워|발송|문자|디엠)/.test(t)) return false;
-    return /(홍보\s*컷|홍보\s*물|홍보\s*사진|홍보\s*이미지|홍보\s*용\s*(사진|컷|이미지))/.test(t);
+    // [v499 4-2] '홍보용으로 예쁘게'처럼 사진 없는 홍보 요청도 포함(사진 있으면 사진모드가 먼저 처리).
+    return /(홍보\s*컷|홍보\s*물|홍보\s*사진|홍보\s*이미지|홍보\s*용)/.test(t);
   }
   async function _tryPromoIntent(input, q) {
     const t = String(q || '');
     if (!_looksPromoCreateIntent(t) && !_hasPriceNegation(t)) return false;
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: t });
-    _history.push({ role: 'assistant', text: '홍보물은 사진으로 만들어요. 홍보용 사진을 보내주시면 전후·시술자랑·고객후기·이벤트·인스타 홍보컷 중에 골라 만들어드릴게요. 어떤 시술 홍보물인지 알려주셔도 돼요.' });
+    _history.push({ role: 'assistant', text: '홍보물로 쓸 사진을 먼저 보내주세요. 사진을 받으면 시술 자랑, 전후, 고객 후기, 인스타 홍보컷 중에서 바로 만들어드릴게요. 어떤 시술인지 알려주셔도 돼요.' });
     _renderHistory();
     return true;
+  }
+
+  // [v499 4-1] "작업실에 저장" 명령 — 저장 성공/실패를 분명히 안내하고 [작업실에서 보기] 제공.
+  //   기존엔 캡션 텍스트가 다시 나오던 문제 해결. ("저장한 카드 보여줘"는 _trySavedCardsShortcut 소유)
+  async function _trySaveWorkshopCommand(input, q) {
+    const t = String(q || '');
+    if (!/작업실에?\s*저장|작업실\s*에?\s*담아|작업실\s*보관/.test(t)) return false;
+    if (/(보여|목록|열어|보기)/.test(t)) return false;   // "작업실에서 보기/목록"은 제외
+    _sendInFlight = true;
+    try {
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: t });
+      _renderHistory();
+      await _ensurePhotoGroup();
+      const AC = window.ItbiActiveCard;
+      const card = AC && AC.has() ? AC.get() : null;
+      const editorOpen = _isEditorOpen();
+      let reply;
+      if (card && card.slotId != null) {
+        reply = '이미 작업실에 저장돼 있어요. 작업실에서 바로 확인할 수 있어요.';
+      } else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
+        try { await window.PhotoEditor.save(); reply = '작업실에 저장했어요. 작업실에서 바로 확인할 수 있어요.'; }
+        catch (_s) { reply = '저장 중 문제가 있었어요 — 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
+      } else if (card) {
+        _reopenTemplateForActive(card);
+        reply = '저장할 카드를 편집기에 다시 열었어요. 마무리하고 "작업실에 저장"이라고 해주세요.';
+      } else {
+        reply = '아직 저장할 카드가 없어요. 먼저 "홍보컷 만들어줘"나 "캡션 만들어줘"로 만들어 주세요.';
+      }
+      _history.push({ role: 'assistant', text: reply, related: ['작업실에서 보기'] });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      try { _history.push({ role: 'assistant', text: '저장 중 문제가 있었어요. 작업실 탭에서 확인해 주세요.', related: ['작업실에서 보기'] }); _renderHistory(); } catch (_e2) { void _e2; }
+      return true;
+    } finally { _sendInFlight = false; }
   }
 
   async function _send() {
@@ -4827,6 +4871,8 @@
     if (await _tryCustomerPhoneIntent(input, q)) return;
     // [M3] 자연어 "인스타 미리보기" — 활성/저장카드보다 먼저 미리보기 팝업으로.
     if (await _tryInstaPreviewIntent(input, q)) return;
+    // [v499 4-1] "작업실에 저장" 명령 — 저장 확인 멘트(캡션 재노출 방지).
+    if (await _trySaveWorkshopCommand(input, q)) return;
     // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
     if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
