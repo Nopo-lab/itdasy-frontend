@@ -1269,28 +1269,36 @@
   }
   function _openBookingDetail(raw) {
     if (!raw) return;
-    const fmtT = (iso) => { try { const d = new Date(iso); return _pad(d.getHours()) + ':' + _pad(d.getMinutes()); } catch (_e) { return ''; } };
-    const dateStr = (() => { try { return _ds(new Date(raw.starts_at)); } catch (_e) { return ''; } })();
-    const timeStr = fmtT(raw.starts_at) + (raw.ends_at ? '~' + fmtT(raw.ends_at) : '');
     const esc = (s) => (window._esc ? window._esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
+    // [핫픽스D #8] 사람이 읽는 한글 일시 — "2026-06-19 13:00~16:00" 같은 ISO/숫자 표기 금지.
+    const whenStr = (typeof window.fmtKRange === 'function')
+      ? window.fmtKRange(raw.starts_at, raw.ends_at || null)
+      : (() => { try { const d = new Date(raw.starts_at); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + (d.getHours() < 12 ? '오전' : '오후') + ' ' + ((d.getHours() % 12) || 12) + ':' + _pad(d.getMinutes()); } catch (_e) { return ''; } })();
+    const statusLabel = _bookingStatusLabel(raw.status);
+    const statusColor = raw.status === 'cancelled' ? '#BC6675' : raw.status === 'no_show' ? '#8B95A1' : raw.status === 'done' ? '#16B55E' : '#3182F6';
     const old = document.getElementById('cv-booking-detail'); if (old) old.remove();
     const ov = document.createElement('div');
     ov.id = 'cv-booking-detail';
     ov.style.cssText = 'position:fixed;inset:0;z-index:10040;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;';
-    const rows = [['고객', raw.customer_name || '고객 미지정'], ['일시', (dateStr + ' ' + timeStr).trim()]];
-    if (raw.service_name) rows.push(['시술', raw.service_name]);
-    rows.push(['상태', _bookingStatusLabel(raw.status)]);
-    if (raw.deposit != null && +raw.deposit > 0) rows.push(['예약금', (+raw.deposit).toLocaleString() + '원']);
-    if (raw.amount != null && +raw.amount > 0) rows.push(['예상 시술비', (+raw.amount).toLocaleString() + '원']);
-    if (raw.memo) rows.push(['메모', raw.memo]);
-    const rowsHtml = rows.map(([k, v]) => `<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--line,#eee);"><span style="min-width:64px;color:var(--text-subtle,#888);font-size:13px;">${esc(k)}</span><span style="flex:1;font-size:14px;font-weight:600;color:var(--text,#222);white-space:pre-line;">${esc(v)}</span></div>`).join('');
+    // [핫픽스D #4·#7] 라벨:값 나열형(AI 티나는 텍스트 카드) 제거 → 흰 배경 카드(고객명 타이틀+상태 배지+정보 블록).
+    const info = [];
+    if (raw.service_name) info.push(`<div style="font-size:14px;color:var(--text,#222);font-weight:600;">${esc(raw.service_name)}</div>`);
+    info.push(`<div style="font-size:14px;color:var(--text-subtle,#4E5968);margin-top:4px;">${esc(whenStr)}</div>`);
+    const money = [];
+    if (raw.deposit != null && +raw.deposit > 0) money.push('예약금 ' + (+raw.deposit).toLocaleString() + '원');
+    if (raw.amount != null && +raw.amount > 0) money.push('예상 시술비 ' + (+raw.amount).toLocaleString() + '원');
+    if (money.length) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;">${esc(money.join('  ·  '))}</div>`);
+    if (raw.memo) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;white-space:pre-line;">메모 ${esc(raw.memo)}</div>`);
     ov.innerHTML = `
       <div style="background:var(--surface,#fff);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-          <strong style="font-size:16px;color:var(--text,#222);">예약 상세</strong>
-          <button type="button" data-bd="close" aria-label="닫기" style="border:none;background:transparent;font-size:22px;color:var(--text-subtle,#999);cursor:pointer;line-height:1;">×</button>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <strong style="font-size:18px;color:var(--text,#191F28);">${esc(raw.customer_name || '고객 미지정')}</strong>
+            <span style="flex-shrink:0;font-size:12px;font-weight:700;color:${statusColor};background:${statusColor}1A;border-radius:999px;padding:3px 9px;">${esc(statusLabel)}</span>
+          </div>
+          <button type="button" data-bd="close" aria-label="닫기" style="border:none;background:transparent;font-size:22px;color:var(--text-subtle,#999);cursor:pointer;line-height:1;flex-shrink:0;">×</button>
         </div>
-        <div style="margin-bottom:14px;">${rowsHtml}</div>
+        <div style="margin-bottom:16px;">${info.join('')}</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <button type="button" data-bd="edit" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--accent2,#e26a85);background:transparent;color:var(--accent2,#e26a85);font-weight:800;cursor:pointer;">수정</button>
           <button type="button" data-bd="done" data-haptic style="padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">시술 완료</button>
@@ -2209,15 +2217,33 @@
           }
           return;
         }
-        try {
-          await window.Booking.update(existing.id, { status: newStatus });
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: existing.customer_id || null } }));
-          if (window.hapticLight) window.hapticLight();
-          if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
-          if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
-          _mappedCache = await _loadMonth(_curYear, _curMonth);
-          _renderViewBody();
-        } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+        const _applyStatus = async () => {
+          try {
+            await window.Booking.update(existing.id, { status: newStatus });
+            // [핫픽스D #6] 취소면 잇비 "복구해"로 되살릴 수 있게 최근 취소 context 저장.
+            if (newStatus === 'cancelled') {
+              try {
+                window.ItdasyBookingContext && window.ItdasyBookingContext.rememberAction && window.ItdasyBookingContext.rememberAction({
+                  kind: 'cancel_booking',
+                  payload: { booking_id: existing.id, customer_id: existing.customer_id || null, customer_name: existing.customer_name || '', service_name: existing.service_name || '', starts_at: existing.starts_at || '', ends_at: existing.ends_at || '' },
+                  _context_booking: existing,
+                }, {});
+              } catch (_e) { void _e; }
+            }
+            window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: existing.customer_id || null } }));
+            if (window.hapticLight) window.hapticLight();
+            if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
+            if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+            _mappedCache = await _loadMonth(_curYear, _curMonth);
+            _renderViewBody();
+          } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+        };
+        // [핫픽스D #6] 모든 취소 경로 확인 통일 — 상태 '취소'는 확인 후에만 반영.
+        if (newStatus === 'cancelled') {
+          window._inlineConfirm('이 예약을 취소할까요?', _applyStatus, function () { /* 아니요 — 그대로 */ }, { okText: '예약 취소', cancelText: '아니요' });
+          return;
+        }
+        await _applyStatus();
       });
     });
   }

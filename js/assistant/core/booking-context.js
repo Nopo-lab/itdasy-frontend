@@ -12,14 +12,15 @@
   function _active(b) { return b && !['cancelled', 'completed', 'no_show'].includes(b.status); }
   function _name(b) { return _trim((b && (b.customer_name || b.name)) || '고객'); }
 
+  // [핫픽스D #8] 사람이 읽는 한글 일시 — ISO/"MM/DD HH:mm" 노출 금지. 공용 포맷터 우선.
   function _fmt(b) {
     try {
+      if (!b || !b.starts_at) return '';
+      if (typeof window.fmtKDateTime === 'function') return window.fmtKDateTime(b.starts_at);
       const d = new Date(b.starts_at);
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const hh = String(d.getHours()).padStart(2, '0');
-      const mi = String(d.getMinutes()).padStart(2, '0');
-      return `${mm}/${dd} ${hh}:${mi}`;
+      const ap = d.getHours() < 12 ? '오전' : '오후';
+      const h12 = (d.getHours() % 12) === 0 ? 12 : (d.getHours() % 12);
+      return `${d.getMonth() + 1}월 ${d.getDate()}일 ${ap} ${h12}:${String(d.getMinutes()).padStart(2, '0')}`;
     } catch (_e) { return ''; }
   }
 
@@ -72,7 +73,7 @@
   }
 
   function _nameHint(q) {
-    let s = _trim(q).replace(/(오늘|내일|모레|예약|시간|취소|삭제|지워|없애|캔슬|복구|되돌려|되돌리|되살|바꿔|바꾸|변경|옮겨|미뤄|당겨|그거|그|응|네|하라고|해줘|해|님)/g, ' ');
+    let s = _trim(q).replace(/(오늘|내일|모레|예약|시간|오전|오후|저녁|아침|새벽|점심|밤|취소|삭제|지워|없애|캔슬|복구|되돌려|되돌리|되살|바꿔|바꾸|변경|옮겨|미뤄|당겨|그거|그|응|네|하라고|해줘|해|님)/g, ' ');
     s = s.replace(/\d{1,2}:\d{2}|\d+\s*시\s*(\d+\s*분)?|\d+\s*월\s*\d+\s*일/g, ' ');
     const m = s.match(/[가-힣]{2,5}/);
     return m ? m[0] : '';
@@ -156,7 +157,7 @@
         starts_at: nd.toISOString(),
         ends_at: ne ? ne.toISOString() : null,
       },
-      confirmation_text: `${_name(b)}님 ${_fmt(b)} 예약을 ${_pad2(time.h)}:${_pad2(time.min)}로 변경할까요?`,
+      confirmation_text: `${_name(b)}님 예약을 ${_fmt({ starts_at: nd.toISOString() })}로 변경할까요?`,
       _source_question: source,
       _context_booking: b,
     };

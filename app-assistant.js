@@ -568,22 +568,29 @@
     const ST = { confirmed: '확정', confirm: '확정', pending: '대기', requested: '요청', completed: '완료', cancelled: '취소', no_show: '노쇼' };
     return items.slice(0, 8).map((b) => {
       const d = new Date(b.starts_at);
-      const date = `${d.getMonth() + 1}/${d.getDate()}`;
-      const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      // [핫픽스D #1·#8] 사람이 읽는 한글 일시(ISO/숫자날짜 노출 금지). 공용 포맷터 우선.
+      const human = (typeof window.fmtKRange === 'function')
+        ? window.fmtKRange(b.starts_at, b.ends_at || null)
+        : `${d.getMonth() + 1}월 ${d.getDate()}일 ${d.getHours() < 12 ? '오전' : '오후'} ${((d.getHours() % 12) || 12)}:${String(d.getMinutes()).padStart(2, '0')}`;
+      // 칩 명령 재전송용(파서 친화) — 숫자 날짜·시간은 화면에 보이지 않고 data-suggest 에만 쓰임.
+      const mdNum = `${d.getMonth() + 1}/${d.getDate()}`;
+      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       const who = _esc(b.customer_name || '고객');
       const svc = b.service_name ? _esc(b.service_name) : '';
       const status = ST[b.status] || _esc(b.status || '예약');
       const phone = b.customer_phone || b.phone || '';
       const deposit = Number(b.deposit || 0);
+      const amount = Number(b.amount || 0);
       const memo = b.memo ? _esc(String(b.memo).slice(0, 80)) : '';
       const rows = [];
       rows.push(`<div style="font-weight:700;font-size:15px;color:#191F28;">${who}${svc ? ` <span style="font-weight:500;color:#4E5968;">· ${svc}</span>` : ''}</div>`);
-      rows.push(`<div style="font-size:13px;color:#4E5968;margin-top:3px;">${date} ${time} · ${status}</div>`);
+      rows.push(`<div style="font-size:13px;color:#4E5968;margin-top:3px;">${_esc(human)} · ${status}</div>`);
       if (deposit > 0) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">예약금 ${deposit.toLocaleString()}원</div>`);
+      if (amount > 0) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">예상 시술비 ${amount.toLocaleString()}원</div>`);
       if (phone) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">${_esc(phone)}</div>`);
       if (memo) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:4px;white-space:pre-wrap;">메모 ${memo}</div>`);
-      const cChange = `${b.customer_name || '고객'} ${date} ${d.getHours()}시 예약 시간 바꿔`;
-      const cCancel = `${b.customer_name || '고객'} ${date} ${time} 예약 취소`;
+      const cChange = `${b.customer_name || '고객'} ${mdNum} ${d.getHours()}시 예약 시간 바꿔`;
+      const cCancel = `${b.customer_name || '고객'} ${mdNum} ${hhmm} 예약 취소`;
       const chips = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">`
         + `<button data-suggest="${_esc(cChange)}" style="padding:6px 11px;border:0.5px solid #E5E8EB;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#4E5968;font-weight:600;">시간 변경</button>`
         + `<button data-suggest="${_esc(cCancel)}" style="padding:6px 11px;border:0.5px solid #F2C5CC;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#BC6675;font-weight:600;">예약 취소</button>`
