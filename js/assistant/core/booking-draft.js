@@ -31,7 +31,7 @@
   // draft 무장/갱신. opts: { mode, customer, dateBase }
   function arm(opts) {
     opts = opts || {};
-    if (!_draftFresh()) D = { mode: 'add', customer: null, dateBase: null, time: null, service: '', ts: Date.now() };
+    if (!_draftFresh()) D = { mode: 'add', customer: null, candidates: null, dateBase: null, time: null, service: '', ts: Date.now() };
     D.ts = Date.now();
     if (opts.mode) D.mode = opts.mode;
     if (opts.customer && opts.customer.id != null) { D.customer = { id: opts.customer.id, name: opts.customer.name || '고객' }; rememberCustomer(D.customer); }
@@ -55,6 +55,21 @@
     try { var st = localStorage.getItem('shop_type') || ''; var cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null; return (cfg && cfg.treatments) || []; }
     catch (_e) { return []; }
   }
+  function _defaultService() {
+    try { var st = localStorage.getItem('shop_type') || ''; var cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null; return (cfg && cfg.defaultTag) || ''; }
+    catch (_e) { return ''; }
+  }
+  // "알아서/아무거나/그냥/상관없어" — 시술 입력 건너뛰기(기본 시술로 진행, 무한 재질문 방지).
+  function _looksSkipService(q) { return /(알아서|아무거나|아무거|아무|상관\s*없|그냥|되는\s*대로|몰라|패스|스킵|건너뛰)/.test(String(q || '')); }
+  // 자유 입력 시술명 — SHOP_CONFIG 에 없는 시술도 수용. 시간/날짜/고객명/예약어 제거 후 한글·영문 2자+ 남으면 시술명.
+  function _freeService(q) {
+    var s = String(q || '');
+    if (D && D.customer && D.customer.name) s = s.split(D.customer.name).join(' ');
+    s = s.replace(/\d{1,2}\s*:\s*\d{2}|\d+\s*시\s*(\d+\s*분)?|시\s*반|\d+\s*월\s*\d+\s*일|\d{1,2}\/\d{1,2}/g, ' ')
+      .replace(/(오전|오후|저녁|아침|새벽|점심|밤|내일|오늘|모레|예약|추가|등록|잡아줘|잡아|넣어|만들어|해줘|부탁|으로|로)/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    return /[가-힣A-Za-z]{2,}/.test(s) ? s.slice(0, 40) : '';
+  }
   function _askService() {
     var svcList = _shopTreatments();
     return {
@@ -71,6 +86,24 @@
     _shopTreatments().forEach(function (sv) { if (sv) s = s.split(sv).join(' '); });
     var m = s.match(/[가-힣]{2,5}/);
     return m ? m[0] : '';
+  }
+
+  // 동명이인 후보 중 전화 뒷자리/순번(1·2…)으로 1명 선택. 못 고르면 null(재질문).
+  function _pickFromCandidates(q, cands) {
+    var t = String(q || '');
+    var digits = (t.match(/\d/g) || []).join('');
+    if (digits.length >= 2) {
+      var byPhone = cands.filter(function (c) { var p = String(c.phone || '').replace(/\D/g, ''); return p && p.indexOf(digits) >= 0; });
+      if (byPhone.length === 1) return byPhone[0];
+    }
+    // 순번 — 시간(N시) 입력과 헷갈리지 않게 시/분 표기가 없을 때만.
+    if (cands.length <= 5 && !/\d\s*시|\d\s*:\s*\d/.test(t)) {
+      var mi = t.match(/(^|[^0-9])([1-5])\s*(번|번째|째)?($|[^0-9])/);
+      if (mi) { var idx = parseInt(mi[2], 10) - 1; if (cands[idx]) return cands[idx]; }
+      if (/(첫\s*번째|첫번째|처음)/.test(t) && cands[0]) return cands[0];
+      if (/(두\s*번째|두번째|둘째)/.test(t) && cands[1]) return cands[1];
+    }
+    return null;
   }
 
   // 진행 중 draft 에서 다른 도메인(취소/변경·매출·사진·문자)으로 명확히 벗어나면 양보(null) → 기존 라우팅이 처리.
@@ -103,19 +136,25 @@
       if (svc && q.indexOf(svc) >= 0) D.service = svc;   // 발화에 실제 시술명이 있을 때만(기본값 폴백 무시)
     } catch (_e) { void _e; }
 
-    // 고객 미정 → 이름 확정(직전 고객 폴백)
+    // 고객 미정 → (동명이인 후보가 떠 있으면 전화/순번으로 선택) → 이름 확정(직전 고객 폴백)
     if (!D.customer) {
-      var name = _extractName(q);
-      if (name && AI.resolveCustomer) {
-        var rc = await AI.resolveCustomer(name);
-        if (rc && rc.askText) return { text: rc.askText };
-        if (rc && rc.customer) { D.customer = rc.customer; rememberCustomer(D.customer); }
-        else if (rc && rc.none) return { text: name + '님을 못 찾았어요. 이름을 다시 확인해 주시거나, 새 고객이면 고객 추가 후 예약해 주세요.', related: ['취소'] };
+      if (D.candidates && D.candidates.length) {
+        var pk = _pickFromCandidates(q, D.candidates);
+        if (pk && pk.id != null) { D.customer = { id: pk.id, name: pk.name }; D.candidates = null; rememberCustomer(D.customer); }
       }
       if (!D.customer) {
-        var lc = lastCustomer();
-        if (lc) { D.customer = lc; }
-        else return { text: '어느 고객 예약을 잡을까요? 고객 이름을 알려주세요. (그만하려면 "취소")', related: ['취소'] };
+        var name = _extractName(q);
+        if (name && AI.resolveCustomer) {
+          var rc = await AI.resolveCustomer(name);
+          if (rc && rc.askText) { D.candidates = (rc.candidates && rc.candidates.length) ? rc.candidates : null; return { text: rc.askText }; }
+          if (rc && rc.customer) { D.customer = rc.customer; D.candidates = null; rememberCustomer(D.customer); }
+          else if (rc && rc.none) return { text: name + '님을 못 찾았어요. 이름을 다시 확인해 주시거나, 새 고객이면 고객 추가 후 예약해 주세요.', related: ['취소'] };
+        }
+        if (!D.customer) {
+          var lc = lastCustomer();
+          if (lc) { D.customer = lc; }
+          else return { text: '어느 고객 예약을 잡을까요? 고객 이름을 알려주세요. (그만하려면 "취소")', related: ['취소'] };
+        }
       }
     }
 
@@ -131,9 +170,10 @@
       return { text: D.customer.name + '님 ' + label + ' 몇 시에, 어떤 시술로 예약할까요? (예: "오후 2시 ' + ex + '")' };
     }
 
-    // 고객 + 시간 확정, 시술 미정 → 바로 기본값으로 확정하지 않고 한 번 더 묻는다.
+    // 고객 + 시간 확정, 시술 미정 → 한 번 묻되 "알아서/아무거나"면 기본 시술로 진행, 자유 입력 시술명도 수용(무한 재질문 방지).
     if (!D.service) {
-      return _askService();
+      if (_looksSkipService(q)) { D.service = _defaultService() || ''; }
+      else { var fs = _freeService(q); if (fs) D.service = fs; else return _askService(); }
     }
 
     // 고객 + 시간 + 시술 확정 → 카드(날짜 없으면 내일 기본)

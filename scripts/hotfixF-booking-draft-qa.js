@@ -71,6 +71,23 @@ async function main() {
     const d5 = await BD.tryDraft('오늘 매출 얼마야');
     out.draft_yield = { yielded: d5 === null };
 
+    // 보강#1a 시술 스킵 "그냥 알아서" → 기본 시술로 카드
+    BD.clear(); BD.arm({ mode: 'add', customer: { id: 7, name: '강연준' } });
+    await BD.tryDraft('오후 3시');
+    const sk = await BD.tryDraft('그냥 알아서');
+    out.svc_skip = { card: !!(sk && sk.__card), svc: sk && sk.__card && sk.__card.action.payload.service_name };
+
+    // 보강#1b 자유 입력 시술명(설정에 없는 시술) → 카드 + service 반영
+    BD.clear(); BD.arm({ mode: 'add', customer: { id: 7, name: '강연준' } });
+    await BD.tryDraft('오후 3시');
+    const fs = await BD.tryDraft('속눈썹 메가볼륨');
+    out.svc_free = { card: !!(fs && fs.__card), svc: fs && fs.__card && fs.__card.action.payload.service_name };
+
+    // 보강#1c period-only "오후에" → 카드 아님(시간 재질문)
+    BD.clear(); BD.arm({ mode: 'add', customer: { id: 7, name: '강연준' } });
+    const po = await BD.tryDraft('오후에');
+    out.period_only = { notCard: !(po && po.__card), asksTime: !!(po && /몇 시/.test(po.text || '')) };
+
     // #8 reschedule 결정성: 같은 문장 두 번 → 둘 다 "몇 시로?" (참조 14시를 새 시간으로 안 씀)
     const yr = new Date().getFullYear();
     const bk = { id: 99, customer_id: 7, customer_name: '강연준', service_name: '붙임머리',
@@ -85,6 +102,47 @@ async function main() {
     const rs3 = await BC.tryRun('4시로 바꿔');
     out.resched_apply = { card: !!(rs3 && rs3.kind === 'card'), hh: rs3 && rs3.action && new Date(rs3.action.payload.starts_at).getHours() };
 
+    // 보강#2 reschedule "4시반으로" → 16:30
+    BC.rememberList({ type: 'bookings_day', data: { items: [bk] } });
+    await BC.tryRun('강연준 6/17 예약 시간 바꿔');   // → 몇 시로?(pending)
+    const rsHalf = await BC.tryRun('4시반으로');
+    out.resched_half = { card: !!(rsHalf && rsHalf.kind === 'card'),
+      hh: rsHalf && rsHalf.action && new Date(rsHalf.action.payload.starts_at).getHours(),
+      mm: rsHalf && rsHalf.action && new Date(rsHalf.action.payload.starts_at).getMinutes() };
+
+    // 보강 동명이인 → 자동확정 금지(askText), draft 대기 유지
+    window.apiFetch = async function (path) {
+      if (/\/customers/.test(path)) return { ok: true, json: async () => ({ items: [{ id: 7, name: '강연준', phone: '010-1' }, { id: 8, name: '강연준', phone: '010-2' }] }) };
+      if (/\/bookings/.test(path)) return { ok: true, json: async () => ({ items: [] }) };
+      return { ok: true, json: async () => ({}) };
+    };
+    BD.clear(); BD.arm({ mode: 'add' });
+    const tie = await BD.tryDraft('강연준');
+    // 전화 뒷자리(010-2)로 2번 고객 구분 → 카드(customer_id=8)
+    await BD.tryDraft('010-2');
+    await BD.tryDraft('오후 2시');
+    const tieCard = await BD.tryDraft('붙임머리');
+    out.tie = { ask: !!(tie && /같은 이름|순번|전화/.test(tie.text || '')), stillActive: !(tie && tie.__card),
+      pickedId: tieCard && tieCard.__card && tieCard.__card.action.payload.customer_id };
+
+    // 동명이인 → 순번 "2번"으로 구분 → customer_id=8
+    BD.clear(); BD.arm({ mode: 'add' });
+    await BD.tryDraft('강연준');
+    await BD.tryDraft('2번');
+    await BD.tryDraft('오후 2시');
+    const tieIdxCard = await BD.tryDraft('붙임머리');
+    out.tie_idx = { pickedId: tieIdxCard && tieIdxCard.__card && tieIdxCard.__card.action.payload.customer_id };
+
+    // 자유 시술명 + 고객명 + 시간 한 문장 혼재(고객명 토큰 제거 확인) — 단일 고객 stub 복원
+    window.apiFetch = async function (path) {
+      if (/\/customers/.test(path)) return { ok: true, json: async () => ({ items: CUSTOMERS }) };
+      if (/\/bookings/.test(path)) return { ok: true, json: async () => ({ items: [] }) };
+      return { ok: true, json: async () => ({}) };
+    };
+    BD.clear(); BD.arm({ mode: 'add' });
+    const mixed = await BD.tryDraft('강연준 속눈썹메가볼륨 오후 2시');
+    out.mixed = { card: !!(mixed && mixed.__card), svc: mixed && mixed.__card && mixed.__card.action.payload.service_name };
+
     return out;
   });
 
@@ -98,8 +156,15 @@ async function main() {
     ['#6 직전 고객 재사용→시술 질문 후 카드', r.draft_reuse.asksService && r.draft_reuse.card && r.draft_reuse.who === '강연준'],
     ['#3 시술질의 이미지요구 안함', r.draft_service_q.notNull && r.draft_service_q.hasText && r.draft_service_q.notImageReq],
     ['양보: 매출질의 draft 미가로챔', r.draft_yield.yielded],
+    ['보강 시술 스킵 "그냥 알아서"→카드', r.svc_skip.card],
+    ['보강 자유 시술명(설정에 없음)→카드+반영', r.svc_free.card && /속눈썹/.test(r.svc_free.svc || '')],
+    ['보강 period-only "오후에"→시간 재질문', r.period_only.notCard && r.period_only.asksTime],
     ['#8 reschedule 결정성(반복 "몇 시로?")', r.resched.deterministic],
     ['#7 "4시로"→16시 변경 카드', r.resched_apply.card && r.resched_apply.hh === 16],
+    ['보강 "4시반으로"→16:30 변경 카드', r.resched_half.card && r.resched_half.hh === 16 && r.resched_half.mm === 30],
+    ['보강 동명이인→전화 뒷자리로 정확 선택', r.tie.ask && r.tie.pickedId === 8],
+    ['보강 동명이인→순번 "2번"으로 선택', r.tie_idx.pickedId === 8],
+    ['보강 시술+고객명+시간 혼재→카드(시술 반영)', r.mixed.card && /속눈썹/.test(r.mixed.svc || '')],
   ];
   let pass = 0;
   checks.forEach(([name, cond]) => { console.log(`[${ok(cond)}] ${name}`); if (cond) pass++; });

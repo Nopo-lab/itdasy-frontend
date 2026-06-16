@@ -58,7 +58,8 @@
     const m = t.match(/(\d{1,2}):(\d{2})/) || t.match(/(\d{1,2})\s*시\s*(\d{1,2})?\s*분?/);
     if (!m) return null;
     let h = parseInt(m[1], 10);
-    const min = m[2] ? parseInt(m[2], 10) : 0;
+    // [핫픽스F 보강] "4시 반" → 30분.
+    const min = m[2] ? parseInt(m[2], 10) : (/시\s*반/.test(t) ? 30 : 0);
     if (/(오후|저녁|밤)/.test(t) && h < 12) h += 12;
     if (/(오전|아침)/.test(t) && h === 12) h = 0;
     // [Phase3] 살롱 영업시간(09~24) 기준 — 오전/오후 표기 없이 1~8시면 오후로 본다("4시로"=16:00).
@@ -77,10 +78,11 @@
   //   "내일 3시 예약 4시로 바꿔" 는 3시(참조) 무시하고 4시 채택. 직전 '몇 시로?'(pending) 상태면 바레 시각 허용.
   function _newTimeHint(q, hasPending) {
     const t = _trim(q);
-    const m = t.match(/(\d{1,2})\s*:\s*(\d{2})\s*으?로/) || t.match(/(\d{1,2})\s*시\s*(\d{1,2})?\s*분?\s*으?로/);
+    const m = t.match(/(\d{1,2})\s*:\s*(\d{2})\s*으?로/) || t.match(/(\d{1,2})\s*시\s*(반|\d{1,2})?\s*분?\s*으?로/);
     if (m) {
       let h = parseInt(m[1], 10);
-      const min = m[2] ? parseInt(m[2], 10) : 0;
+      // [핫픽스F 보강] "4시반으로" → 30분.
+      const min = (m[2] === '반') ? 30 : (m[2] ? parseInt(m[2], 10) : 0);
       if (/(오후|저녁|밤)/.test(t) && h < 12) h += 12;
       if (/(오전|아침)/.test(t) && h === 12) h = 0;
       if (!/(오전|아침|오후|저녁|밤)/.test(t) && h >= 1 && h <= 8) h += 12;

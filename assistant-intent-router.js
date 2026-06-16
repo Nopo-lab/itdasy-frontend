@@ -416,19 +416,20 @@
   // [A4] 고객 확정 결정: 정확 일치(score 100·단독)만 자동 확정. 90/80/60 등 유사 매칭과
   //   동명이인(100·복수)은 조용히 선택하지 않고 확인/후보 안내로 멈춘다.
   //   scored: [{ c, score }] 내림차순 정렬 가정(비어있지 않음). 반환 { customer } | { askText }.
+  //   [핫픽스F 보강] askText 와 함께 candidates(후보 목록)도 반환 → 호출측(예약 draft)이 전화/순번으로 재선택.
   function _decideCustomer(scored) {
     const top = scored[0].score;
     const tied = scored.filter((x) => x.score === top);
     if (top === 100 && tied.length === 1) return { customer: tied[0].c };
     const fmt = (x) => `· ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`;
     if (top === 100) {  // 동명이인 — 전화번호로 구분 요청
-      return { askText: `🔍 같은 이름 ${tied.length}명 있어요. 전화번호나 정확한 이름으로 다시 알려주세요:\n${tied.slice(0, 5).map(fmt).join('\n')}` };
+      return { askText: `🔍 같은 이름 ${tied.length}명 있어요. 전화번호 뒷자리나 순번(1·2…)으로 알려주세요:\n${tied.slice(0, 5).map((x, i) => `${i + 1}) ${x.c.name}${x.c.phone ? ' (' + x.c.phone + ')' : ''}`).join('\n')}`, candidates: tied.slice(0, 5).map((x) => x.c) };
     }
     // top < 100 — 유사 후보뿐. 자동 확정 금지(다른 고객 오선택 방지).
     if (scored.length === 1) {
-      return { askText: `🔍 정확히 일치하는 고객은 없어요. 비슷한 이름으로 ${scored[0].c.name} 고객님이 있는데, 맞으면 정확한 이름으로 다시 말씀해 주세요.` };
+      return { askText: `🔍 정확히 일치하는 고객은 없어요. 비슷한 이름으로 ${scored[0].c.name} 고객님이 있는데, 맞으면 정확한 이름으로 다시 말씀해 주세요.`, candidates: [scored[0].c] };
     }
-    return { askText: `🔍 정확히 일치하는 고객이 없어요. 비슷한 이름 후보예요. 정확한 이름으로 다시 알려주세요:\n${scored.slice(0, 5).map(fmt).join('\n')}` };
+    return { askText: `🔍 정확히 일치하는 고객이 없어요. 비슷한 이름 후보예요. 정확한 이름으로 다시 알려주세요:\n${scored.slice(0, 5).map(fmt).join('\n')}`, candidates: scored.slice(0, 5).map((x) => x.c) };
   }
 
   function _formatBookingShort(b) {
@@ -891,7 +892,7 @@
       .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
     if (!scored.length) return { none: true };
     const picked = _decideCustomer(scored);
-    if (picked.askText) return { askText: picked.askText };
+    if (picked.askText) return { askText: picked.askText, candidates: picked.candidates || [] };
     return { customer: { id: picked.customer.id, name: picked.customer.name } };
   }
 
