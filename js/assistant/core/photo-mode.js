@@ -19,7 +19,7 @@
   function _fresh() {
     return { active: false, workflow: 'basic', step: null, photos: [], photoIdx: 0,
       customer: null, customerSuggest: null, choices: {}, lastTemplateId: null, result: null, caption: '',
-      captionHint: '', lastTemplateExpanded: false, past: [],
+      captionHint: '', lastTemplateExpanded: false, past: [], heroPending: null,
       // [§2] 캡션 재생성 context — "더 길게/짧게/인스타 말투로/해시태그 더"가 갱신, _caption 이 payload 로 사용.
       captionLen: 'medium', captionTone: 'normal', captionMoreTags: false, captionMinLines: 0 };
   }
@@ -403,6 +403,8 @@
     S.step = 'saved';
     var slot = S.customer ? (S.customer.name + ' 손님 슬롯') : '작업실 슬롯';
     var rel = ['작업실에서 보기', '인스타 미리보기', '다른 사진 편집', '끝낼래요'];
+    // [핫픽스F #3] 전후 카드 저장 후에도 3번째 홍보컷이 남아있으면 "홍보컷도 만들기" CTA 노출.
+    if (S.heroPending) rel.splice(1, 0, '홍보컷도 만들기');
     // [qa-G #4] 홍보 흐름에서 고객을 자동 연결하지 않았다면 — 완성 후 '선택적으로' 연결 제안.
     if (!S.customer && S.customerSuggest && S.customerSuggest.name) {
       rel.splice(1, 0, S.customerSuggest.name + ' 고객 기록에 연결');
@@ -515,6 +517,10 @@
     var hasAnyBA = assets.some(function (a) { return a.role === PS.ROLES.BEFORE || a.role === PS.ROLES.AFTER; });
     if (!v.ok && hasAnyBA)
       return _msgAssignRole((v.reason === 'no_after' ? '후 사진' : '전 사진') + '을 한 장 더 골라주세요. 전후 카드는 전·후 두 장이 필요해요.');
+    // [핫픽스F #3] 3장+ 에서 전후 카드로 갈 때 hero(홍보컷) 역할이 따로 있으면 — 무시하지 않고
+    //   전후 카드 후 "홍보컷도 만들기" CTA 로 살려둔다(전후엔 before/after만, hero 는 후보로 보존).
+    var _heroAsset = assets.filter(function (a) { return a.role === PS.ROLES.HERO; })[0] || null;
+    S.heroPending = (v.ok && _heroAsset) ? (_heroAsset.editedUrl || _heroAsset.url) : null;
     _syncPhotosFromSession();
     if (!S.customer && !S.customerSuggest) { try { var c = await _matchCustomer(); if (c) S.customerSuggest = c; } catch (_e) { void 0; } }
     if (v.ok) {
@@ -616,6 +622,8 @@
       S = _fresh(); S.active = true; S.step = 'await_photo';
       return { text: '처음부터 할게요. 편집할 사진을 다시 보내주세요.' };
     }
+    // [핫픽스F #3] 전후 카드 후 "홍보컷도 만들기" — 보존해둔 hero 사진으로 단독 홍보컷 흐름 시작.
+    if (S.heroPending && /홍보컷도?\s*만들|홍보\s*게시물|홍보컷\s*제작/.test(q)) return await _startHeroShowcase();
     // [Phase3-C #1] 사진 1장 + 전후 요청 → (단독 보정 X) 시술 전 사진 1장 더 요청. 0장은 await_photo 로 처리됨.
     if (S.active && S.photos.length === 1
         && /(전후|비포\s*애프터|before\s*after)/i.test(q)
@@ -840,10 +848,13 @@
     var composed = await _preview(tplId, slots, 720);
     S.result = Object.assign(S.result || {}, { composedUrl: composed, afterUrl: afterUrl, beforeUrl: beforeUrl, tplId: tplId, baEnhanced: true, presetLabel: '자연 보정 적용' });
     S.workflow = 'ba';
+    // [핫픽스F #3] 3번째 사진이 홍보컷으로 살아있으면 전후 카드 아래에 "홍보컷도 만들기" CTA 노출.
+    var _baRel = ['전 사진 편집', '후 사진 편집', '그냥 알아서 써줘'];
+    if (S.heroPending) _baRel.push('홍보컷도 만들기');
     return { text: headline,
       photo_result: { dataUrl: composed, ratio: '4:5' },
-      photo_caption: '전·후 각각 따로 편집할 수도 있어요',
-      related: ['전 사진 편집', '후 사진 편집', '그냥 알아서 써줘'] };
+      photo_caption: '전·후 각각 따로 편집할 수도 있어요' + (S.heroPending ? ' · 3번째 홍보컷은 따로 만들 수 있어요' : ''),
+      related: _baRel };
   }
 
   // [§6/§3] 전후 카드 바로 합성 — 두 사진 모두 보정·사용. 후사진 단독 보정(_msgFix) 건너뜀.
@@ -852,6 +863,28 @@
     // [qa-F §4] 카드만 만들고 시술내역 없이 캡션 자동 생성 금지 → svc_ask 게이트.
     S.step = 'svc_ask';
     return await _buildBaCardMsg('전후 카드를 만들었어요! 전·후 사진 모두 자연 보정했어요. **시술 내용**을 알려주시면 전후 변화에 맞는 캡션까지 써드릴게요.\n예: "레이어드컷, 무거운 머리 정리, 얼굴형 보완"');
+  }
+
+  // [핫픽스F #3] 보존해둔 hero(홍보컷) 사진으로 단독 홍보컷 흐름 시작.
+  //   진행 중 전후 카드가 아직 저장 전이면 먼저 저장(완성본·역할 보존) 후, 단일 사진 보정→템플릿→캡션 게이트→저장 재사용.
+  async function _startHeroShowcase() {
+    var heroUrl = S.heroPending;
+    if (!heroUrl) return { text: '홍보컷으로 쓸 사진이 없어요.', related: ['작업실에서 보기', '끝낼래요'] };
+    try {
+      if (S.step !== 'saved' && S.result && (S.result.composedUrl || S.result.afterUrl)) {
+        await _msgSaved();   // 전후 카드 먼저 저장(메시지는 버림 — 바로 홍보컷 흐름으로 전환)
+      }
+    } catch (_e) { void 0; }
+    S.heroPending = null;
+    S.session = null;            // 전후 세션 종료 → hero 단독 흐름
+    S.workflow = 'template';
+    S.photos = [{ url: heroUrl, role: null }];
+    S.photoIdx = 0;
+    S.result = null; S.caption = ''; S.captionHint = '';
+    S.lastTemplateId = _libDefault('showcase') || 'feed-showcase';
+    var msg = await _msgFix();   // 보정본 카드 → "이대로/더 자연스럽게…" → svc → done → saved (기존 흐름 재사용)
+    msg.text = '홍보컷을 만들어드릴게요! ' + msg.text;
+    return msg;
   }
 
   // [Phase3-C #3] 전/후 사진 각각 직접 편집 — 해당 슬롯 1장만 편집기로 열고, 저장 시 그 슬롯만 갱신 후 카드 재합성.

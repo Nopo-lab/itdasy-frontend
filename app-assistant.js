@@ -644,32 +644,44 @@
     return `<div data-asst-pm-tpls="${idx}" style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">${cards}</div>`;
   }
 
-  // [7] 다중 사진 역할칩 — 썸네일 + 역할(전/후/홍보컷/캡션용/제외) 칩 + "이대로 진행".
+  // [7] 다중 사진 역할칩 — 썸네일 + 번호 + 역할(전/후/홍보컷/제외) 칩 + "이대로 진행".
   //   클릭은 data-pm-role / data-pm-proceed → _handlePhotoRoleClick (화면이동 없는 인라인 갱신).
   // [핫픽스 #4] 캡션용 칩 제거 — 전/후/홍보컷/제외만(캡션은 hero/after 자동). [#1] 터치영역 ≥44px.
+  // [핫픽스F #1] 카드 외형을 기존 잇비 결과 카드(itbi-cards)·예약 카드와 같은 visual hierarchy 로 통일 —
+  //   썸네일(좌) + 라벨/역할 + 칩(우)의 가로형 카드, 부드러운 라운드·연한 보더·얕은 그림자. 회색 잡카드 금지.
   const _PM_ROLE_CHIPS = [['before', '전'], ['after', '후'], ['hero', '홍보컷'], ['exclude', '제외']];
-  // photo_roles 블록 내부(그리드+안내+진행) HTML — 칩 클릭 시 이 블록만 in-place 교체(전체 history 재렌더 X).
+  const _PM_ROLE_LABEL = { before: '전 사진', after: '후 사진', hero: '홍보컷', exclude: '제외', unset: '' };
+  // photo_roles 블록 내부(카드 리스트+안내+진행) HTML — 칩 클릭 시 이 블록만 in-place 교체(전체 history 재렌더 X).
   function _renderPhotoRolesInner(pr, idx) {
     const cards = pr.assets.map((a, i) => {
       const chips = _PM_ROLE_CHIPS.map(([rk, lbl]) => {
         const on = a.role === rk;
+        // 활성 = 브랜드 다크(#191F28, 잇비 '적용' 버튼과 동일), 비활성 = 흰 배경 + 연한 보더(예약 칩과 동일).
         const st = on ? 'background:#191F28;color:#fff;border:1px solid #191F28;' : 'background:#fff;color:#4E5968;border:1px solid #E5E8EB;';
-        // [#1] data-pm-asset / data-pm-role 분리, 터치영역 min 44px, 버블/free-text 비유출.
-        return `<button type="button" data-pm-asset="${_esc(a.assetId)}" data-pm-role="${rk}" style="min-height:38px;padding:9px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;${st}">${lbl}</button>`;
+        // [#1] data-pm-asset / data-pm-role 분리, 터치영역 ≥38px, 버블/free-text 비유출.
+        return `<button type="button" data-pm-asset="${_esc(a.assetId)}" data-pm-role="${rk}" style="min-height:38px;padding:8px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;${st}">${lbl}</button>`;
       }).join('');
-      return `<div style="border:1px solid #EEF1F4;border-radius:14px;padding:10px;background:#fff;">
-        <div style="position:relative;">
-          <img src="${_esc(a.url || '')}" alt="사진 ${i + 1}" style="width:100%;height:104px;object-fit:cover;border-radius:10px;display:block;background:#F4ECE4;${a.role === 'exclude' ? 'opacity:.4;' : ''}" />
-          <span style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;">${i + 1}</span>
+      const roleLabel = _PM_ROLE_LABEL[a.role] || '';
+      // 역할 배지(지정됐을 때만) — 잇비 카드 배지와 동일 토큰(연보라). 제외는 회색.
+      const roleBadge = roleLabel
+        ? `<span style="font-size:11px;font-weight:700;border-radius:8px;padding:2px 7px;margin-left:6px;${a.role === 'exclude' ? 'color:#8B95A1;background:#F2F4F6;' : 'color:#8B5CF6;background:#F3EEFF;'}">${roleLabel}</span>`
+        : '';
+      return `<div style="display:flex;gap:12px;align-items:center;border:0.5px solid #E5E8EB;border-radius:16px;padding:10px;background:#fff;box-shadow:0 1px 4px rgba(17,24,39,.045);">
+        <div style="position:relative;flex-shrink:0;">
+          <img src="${_esc(a.url || '')}" alt="사진 ${i + 1}" style="width:62px;height:78px;object-fit:cover;border-radius:12px;display:block;background:#F4ECE4;${a.role === 'exclude' ? 'opacity:.4;' : ''}" />
+          <span style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;">${i + 1}</span>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${chips}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:#191F28;margin-bottom:8px;">사진 ${i + 1}${roleBadge}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${chips}</div>
+        </div>
       </div>`;
     }).join('');
     const hint = pr.allExcluded
       ? '<div style="font-size:12.5px;color:#BC6675;margin-top:10px;font-weight:600;">쓸 사진이 없어요. 최소 한 장은 역할을 골라주세요.</div>'
       : (pr.baOk ? '<div style="font-size:12.5px;color:#16B55E;margin-top:10px;font-weight:600;">전·후 사진이 준비됐어요 — “이대로 진행”을 누르면 전후 카드를 만들어요.</div>' : '<div style="font-size:12px;color:#8B95A1;margin-top:10px;">전·후 두 장이면 전후 카드, 한 장은 홍보컷으로 만들어요.</div>');
     const proceed = `<button type="button" data-pm-proceed="${idx}" style="margin-top:12px;width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#191F28;color:#fff;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;">이대로 진행</button>`;
-    return `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;">${cards}</div>${hint}${proceed}`;
+    return `<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">${cards}</div>${hint}${proceed}`;
   }
   function _renderPhotoRoles(m, idx) {
     const pr = m.photo_roles;
@@ -3944,38 +3956,84 @@
     }
   }
 
+  // [핫픽스F #5] 예약 결과(카드/슬롯/메시지)를 채팅에 렌더 — create 와 draft 슬롯필러가 공유.
+  function _pushBookingResult(result) {
+    if (result.kind === 'card' && result.action) {
+      // [P0-C] 예약 확인 카드 — pending single-action 으로 푸시 → "응/예약해줘" 는 _tryAffirmAction 이 실행.
+      _history.push({
+        role: 'assistant',
+        text: result.action.confirmation_text || (result.customer && result.customer.name + '님 예약 잡을까요?'),
+        action: result.action,
+        action_status: 'pending',
+      });
+    } else {
+      _history.push(Object.assign({ role: 'assistant', text: result.text }, result.related ? { related: result.related } : {}));
+      if (result.kind === 'open_booking') {
+        window._pendingBookingCustomer = (result.customer && result.customer.id != null)
+          ? { id: result.customer.id, name: result.customer.name } : null;
+        setTimeout(() => {
+          if (typeof window.openCalendarView === 'function') window.openCalendarView();
+          else if (typeof window.openBooking === 'function') window.openBooking();
+        }, 80);
+      }
+    }
+  }
+
+  // [핫픽스F #5] 예약 결과로 draft 컨텍스트를 무장/갱신 — 다음 발화(고객명·시간만)도 이어지게.
+  function _armBookingDraftFromResult(result) {
+    const BD = window.ItbiBookingDraft; if (!BD) return;
+    try {
+      if (result.kind === 'card' && result.customer) { BD.rememberCustomer(result.customer); return; }
+      if (result.needTime && result.customer) { BD.arm({ mode: 'add', customer: result.customer, dateBase: result.dateBase || null }); return; }
+      if (result.needCustomer) { BD.arm({ mode: 'add' }); return; }
+    } catch (_e) { void _e; }
+  }
+
   async function _tryCreateBookingShortcut(input, q) {
     try {
       if (!window.AssistantIntent || typeof window.AssistantIntent.tryCreateBooking !== 'function') return false;
       const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
       const result = await window.AssistantIntent.tryCreateBooking(q, ctx);
       if (!result || !result.matched) return false;
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      if (result.kind === 'card' && result.action) {
-        // [P0-C] 예약 확인 카드 — pending single-action 으로 푸시 → "응/예약해줘" 는 _tryAffirmAction 이 실행.
-        _history.push({
-          role: 'assistant',
-          text: result.action.confirmation_text || (result.customer && result.customer.name + '님 예약 잡을까요?'),
-          action: result.action,
-          action_status: 'pending',
-        });
-      } else {
-        _history.push({ role: 'assistant', text: result.text });
-        if (result.kind === 'open_booking') {
-          window._pendingBookingCustomer = (result.customer && result.customer.id != null)
-            ? { id: result.customer.id, name: result.customer.name } : null;
-          setTimeout(() => {
-            if (typeof window.openCalendarView === 'function') window.openCalendarView();
-            else if (typeof window.openBooking === 'function') window.openBooking();
-          }, 80);
+      // [핫픽스F #5-6] 고객명이 빠졌는데 직전 예약 고객이 있으면 그 고객으로 이어서 draft 진행(재질문 없이).
+      const BD = window.ItbiBookingDraft;
+      if (result.needCustomer && BD && BD.lastCustomer && BD.lastCustomer()) {
+        BD.arm({ mode: 'add', customer: BD.lastCustomer() });
+        const dm = await BD.tryDraft(q);
+        if (dm) {
+          _clearAssistantInput(input);
+          _history.push({ role: 'user', text: q });
+          if (dm.__card) { _armBookingDraftFromResult(dm.__card); _pushBookingResult(dm.__card); }
+          else _history.push(Object.assign({ role: 'assistant' }, dm));
+          _renderHistory();
+          return true;
         }
       }
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _pushBookingResult(result);
+      _armBookingDraftFromResult(result);
       _renderHistory();
       return true;
     } catch (_e) {
       return false;
     }
+  }
+
+  // [핫픽스F #5] 진행 중 예약 draft 슬롯필링 — 고객명만/시간만 와도 이어서 채운다. 양보(null)면 false.
+  async function _tryBookingDraftShortcut(input, q) {
+    try {
+      const BD = window.ItbiBookingDraft;
+      if (!BD || typeof BD.isActive !== 'function' || !BD.isActive()) return false;
+      const r = await BD.tryDraft(q);
+      if (!r) return false;   // 양보 → 기존 라우팅이 처리
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      if (r.__card) { _armBookingDraftFromResult(r.__card); _pushBookingResult(r.__card); }
+      else _history.push(Object.assign({ role: 'assistant' }, r));
+      _renderHistory();
+      return true;
+    } catch (_e) { return false; }
   }
 
   async function _tryAsyncIntentRule(input, q) {
@@ -4625,6 +4683,11 @@
   // [모드 P1] 사진편집 모드 중 무관 질문이 통과했을 때, 백엔드 응답 뒤 붙일 재안내 라벨.
   let _photoModeReannounce = '';
 
+  // [핫픽스F #5-6] 예약/고객/매출 등 명시적 운영 인텐트 — 사진모드 활성 중이라도 "하던 거 이어가요" 재안내를 붙이지 않는다.
+  function _looksExplicitOpsIntent(q) {
+    return /예약|매출|정산|(얼마.*(벌|매출|썼))|고객\s*(기록|정보|관리|추가|상세)|재고|문자\s*(보내|발송)|시술\s*완료|노쇼/.test(String(q || ''));
+  }
+
   async function _send() {
     if (_sendInFlight) return;
     const input = document.getElementById('asstInput');
@@ -4668,7 +4731,8 @@
         }
         _sendInFlight = false;   // 미처리(null) → 기존 파이프라인 계속
         // 무관 질문 → 통과시키고, 백엔드 응답 뒤 "하던 거 이어가요" 재안내 예약.
-        if (_wasActive) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
+        // [핫픽스F #5-6] 단, 예약/고객/매출 같은 명시 운영 인텐트엔 재안내(사진 받기)를 붙이지 않는다(photo 흐름 양보).
+        if (_wasActive && !_looksExplicitOpsIntent(q)) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
       }
     }
     // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
@@ -4684,6 +4748,10 @@
     if (await _tryCaptionConversation(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
+    // [핫픽스F #5] 진행 중 예약 draft(고객/시간 슬롯필링) + 명시적 예약 생성("…예약해/예약 잡아")은
+    //   가격표/OCR/템플릿/사진 인텐트보다 우선 — 가격표가 "붙임머리 시술 예약"을 가로채던 오라우팅 차단.
+    if (await _tryBookingDraftShortcut(input, q)) return;
+    if (await _tryCreateBookingShortcut(input, q)) return;
     if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
     if (_tryPriceListDraft(input, q)) return;
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {

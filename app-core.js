@@ -951,12 +951,16 @@ function authHeader() {
             return res;
           }
         }
-        // 5xx 게이트웨이성 에러: retryable 이면 재시도. 첫 실패는 조용히, 2회째 실패부터 토스트.
-        if (retryable && RETRY_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
-          if (attempt >= 1) _showReconnectToast();
-          await _sleep(BACKOFF_MS[attempt] || 1500);
-          attempt++;
-          continue;
+        // 5xx 게이트웨이성 에러: retryable 이면 재시도.
+        // [핫픽스F #5-9] 토스트는 "재시도까지 모두 실패한 최종 실패"에서만. 재시도로 회복되면 무noise →
+        //   예약 추가/변경이 retry 로 성공한 뒤 "서버 불안정" 문구가 뜨던 버그 차단(성공/실패 상태 분리).
+        if (retryable && RETRY_STATUSES.has(res.status)) {
+          if (attempt < MAX_RETRIES) {
+            await _sleep(BACKOFF_MS[attempt] || 1500);
+            attempt++;
+            continue;
+          }
+          _showReconnectToast();   // 재시도 소진 후 최종 실패
         }
         return res;
       } catch (err) {
@@ -965,13 +969,14 @@ function authHeader() {
         if (err.name === 'AbortError' && init && init.signal && init.signal.aborted) {
           throw err;
         }
-        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도. 첫 실패는 조용히.
+        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도.
         if (retryable && attempt < MAX_RETRIES) {
-          if (attempt >= 1) _showReconnectToast();
           await _sleep(BACKOFF_MS[attempt] || 1500);
           attempt++;
           continue;
         }
+        // [핫픽스F #5-9] 재시도(≥1회)까지 모두 실패한 최종 네트워크 실패에서만 토스트.
+        if (retryable && attempt >= 1) _showReconnectToast();
         throw err;
       }
     }
@@ -1854,6 +1859,17 @@ function showTab(id, btn) {
   const target = document.getElementById('tab-' + id);
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');
+  // [핫픽스F #2] 작업실→캡션 복귀 마커: 캡션 탭에서 '작업실에서 옴'일 때만 "‹ 작업실로" 버튼 노출.
+  //   캡션 외 다른 탭으로 이동하면 마커·시트백 정리(시스템 back 오발동/홈·사진모드로 튐 방지).
+  try {
+    const _cback = document.getElementById('captionBackToWork');
+    const _fromWork = (window._captionReturnTab === 'workshop');
+    if (_cback) _cback.style.display = (id === 'caption' && _fromWork) ? 'inline-flex' : 'none';
+    if (id !== 'caption' && window._captionReturnTab) {
+      window._captionReturnTab = null;
+      if (typeof window._markSheetClosed === 'function') window._markSheetClosed('captionWork');
+    }
+  } catch (_cbe) { void _cbe; }
   // 탭 전환 시 스크롤 맨 위로 리셋
   window.scrollTo(0, 0);
   document.body.scrollTop = 0;
@@ -1931,7 +1947,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260616-v495-photogroup-qafix';
+window.APP_BUILD = '20260616-v496-hotfixF';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

@@ -5,7 +5,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   photo: [
   'app-gallery-utils.js',
   'app-gallery-db.js?v=20260611-b7b8',
-  'app-gallery-workshop.js?v=20260612-v451-activecard',
+  'app-gallery-workshop.js?v=20260616-v496-hotfixF',
   'app-gallery-assign.js?v=20260521-v254-api-fetch',
   'app-gallery-slot-editor.js?v=20260610-batch5',
   'app-photo-editor-bg-compose.js?v=20260610-final',
@@ -113,9 +113,10 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   assistant: [
   'app-assistant-facts.js?v=20260610-batch4',
   'app-assistant-undo.js?v=20260610-batch4',
-  'assistant-intent-router.js?v=20260615-v470-qag',
+  'assistant-intent-router.js?v=20260616-v496-hotfixF',
   'js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split',
-  'js/assistant/core/booking-context.js?v=20260616-v492-hotfixD-booking',
+  'js/assistant/core/booking-context.js?v=20260616-v496-hotfixF',
+  'js/assistant/core/booking-draft.js?v=20260616-v496-hotfixF',
   'js/assistant/core/customer-add-guard.js?v=20260615-v475-itbi-phase3a',
   'js/assistant/core/customer-phone-intent.js?v=20260615-v475-itbi-phase3a',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
@@ -138,8 +139,8 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/saved-cards-intent.js?v=20260616-v492-hotfixD-booking',
   'js/assistant/core/create-intent.js?v=20260613-v459-template-round',
   'js/assistant/core/photo-mode-support.js?v=20260614-v460-guided-photo-mode',
-  'js/assistant/core/photo-session.js?v=20260616-v495-photogroup-qafix',
-  'js/assistant/core/photo-mode.js?v=20260616-v495-photogroup-qafix',
+  'js/assistant/core/photo-session.js?v=20260616-v496-hotfixF',
+  'js/assistant/core/photo-mode.js?v=20260616-v496-hotfixF',
   'js/assistant/core/template-autoapply.js?v=20260611-b7b8',
   'js/assistant/core/promo-result-builder.js?v=20260602-first-wow',
   'js/assistant/promo-result-card.js?v=20260602-first-wow',
@@ -158,7 +159,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260612-v451-activecard',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260616-v492-hotfixD-booking',
+  'app-assistant.js?v=20260616-v496-hotfixF',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

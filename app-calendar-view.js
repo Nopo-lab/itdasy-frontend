@@ -1269,6 +1269,13 @@
   }
   function _openBookingDetail(raw) {
     if (!raw) return;
+    // [핫픽스F #4] 예약/고객 카드 탭 기본동작 = "시술 완료 시트" 직행(액션 선택 모달 아님).
+    //   시술완료 시트 안에 수정(⋯ 메뉴)·노쇼·예약취소(하단 보조)가 모두 들어있어 4버튼 모달 불필요.
+    //   이미 끝난 예약(완료/취소/노쇼)만 읽기용 상세(수정/복구) 모달로 폴백.
+    const _resolved = ['cancelled', 'no_show', 'done', 'completed'].includes(raw.status);
+    if (!_resolved && window.CompleteFlow && typeof window.CompleteFlow.startFromBooking === 'function') {
+      try { window.CompleteFlow.startFromBooking(raw); return; } catch (_cf) { void _cf; /* 실패 시 아래 상세 모달 폴백 */ }
+    }
     const esc = (s) => (window._esc ? window._esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
     // [핫픽스D #8] 사람이 읽는 한글 일시 — "2026-06-19 13:00~16:00" 같은 ISO/숫자 표기 금지.
     const whenStr = (typeof window.fmtKRange === 'function')

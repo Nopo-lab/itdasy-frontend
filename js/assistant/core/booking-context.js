@@ -86,8 +86,19 @@
       if (!/(오전|아침|오후|저녁|밤)/.test(t) && h >= 1 && h <= 8) h += 12;
       return { h, min };
     }
-    if (hasPending) return _timeHint(t);
+    // [핫픽스F #5-8] pending('몇 시로?') 상태여도 "바레 시각 답변"만 새 시간으로 인정한다.
+    //   "강연준 6/17 14시 예약 시간 바꿔" 처럼 예약/날짜/변경동사가 섞인 원문 재입력은 14시(기존 참조)를
+    //   새 시간으로 쓰지 않는다 → null → 항상 "몇 시로?"(같은 문장 반복해도 결정적).
+    if (hasPending && _isBareTimeReply(t)) return _timeHint(t);
     return null;
+  }
+
+  // "4시로" "오후 4시" "14시" 처럼 시각만 담은 답변인지(예약 식별 토큰이 섞이면 바레 답변 아님).
+  function _isBareTimeReply(t) {
+    if (!/\d{1,2}\s*시|\d{1,2}\s*:\s*\d{2}/.test(t)) return false;
+    if (/(예약|바꿔|바꾸|변경|옮겨|미뤄|당겨)/.test(t)) return false;
+    if (/(\d{1,2})\s*월\s*(\d{1,2})\s*일|\d{1,2}\/\d{1,2}|오늘|내일|모레/.test(t)) return false;
+    return true;
   }
 
   function _nameHint(q) {

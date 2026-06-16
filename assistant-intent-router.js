@@ -558,7 +558,9 @@
   // ─── [T-008] 예약 생성 자연어 ("{이름} 예약 잡아줘") ────────
   //   안전 설계: 자연어 시간 파싱은 오인 위험이 커서 하지 않고, 고객을 해석해
   //   예약 화면을 고객까지 채워서 연다(대시보드 "예약 잡기"와 동일 _pendingBookingCustomer 패턴).
-  const _CREATE_VERB = /예약\s*(을|를)?\s*(잡아\s*줘|잡아주|잡아|잡아라|잡|추가|등록|넣어\s*줘|넣어|만들어\s*줘|만들어)/;
+  // [핫픽스F #5-2] "…예약해/예약해줘/예약하자/예약 부탁" 도 생성 동사로 인정 — 한 문장 예약을 가격표/OCR로 오라우팅 방지.
+  //   "내일 예약"(목적어 뒤 동사 없음=조회)·"예약 확인"은 매칭 안 됨(생성 동사 필수).
+  const _CREATE_VERB = /예약\s*(을|를)?\s*(잡아\s*줘|잡아주|잡아|잡아라|잡|추가|등록|넣어\s*줘|넣어|만들어\s*줘|만들어|해\s*줘|해줘|해\s*주세요|해\s*주|하자|부탁해?|해)/;
   // [핫픽스E #1] "예약 잡기" CTA 가 free-text 재주입될 때 "잡기"가 고객명으로 오추출되던 버그 차단.
   //   예약 동사/명사형을 stopword 에 추가 → 후보 0 → tryCreateBooking 이 "어느 고객 예약을…" 으로 정상 안내.
   const _CREATE_STOPS = new Set(['잡아', '잡아줘', '잡기', '잡아라', '예약하기', '하기', '추가', '등록', '넣어', '넣기', '만들어', '만들기', '생성', '변경', '취소', '복구', '되돌려', '손님', '고객', '님', '이', '그', '저', '새']);
@@ -616,7 +618,8 @@
     if (!target.name) {
       const cur = ctx && ctx.currentCustomer;
       if (cur && cur.id != null) return _bookingForCustomer({ id: cur.id, name: cur.name || '고객' }, text);
-      return { matched: true, kind: 'message', text: '어느 고객 예약을 잡을까요? 고객 이름을 알려주시거나 고객 상세를 먼저 열어주세요.' };
+      // [핫픽스F #5-1] needCustomer → 호출측이 예약 draft 를 '고객 대기'로 무장. 다음에 고객명만 와도 방문주기로 안 샌다.
+      return { matched: true, kind: 'message', needCustomer: true, text: '어느 고객 예약을 잡을까요? 고객 이름을 알려주시거나 고객 상세를 먼저 열어주세요.' };
     }
 
     let customers;
@@ -762,9 +765,15 @@
 
   // 고객 확정 후 시간 해석 → 카드 또는 빈시간 추천. (tryCreateBooking 에서 호출)
   async function _bookingForCustomer(customer, text) {
-    const dateBase = _resolveDateBase(text);
-    const time = _resolveTime(text);
-    const service = _extractService(text);
+    return _composeBooking(customer, { dateBase: _resolveDateBase(text), time: _resolveTime(text), service: _extractService(text) }, text);
+  }
+
+  // [핫픽스F #5] 파싱된 슬롯(dateBase/time/service)으로 카드/빈시간 추천 빌드. booking-draft 의 누적 슬롯필링이 직접 호출.
+  //   slots/message 결과에 customer·dateBase·needTime 을 담아, 호출측이 예약 draft 를 이어가게 한다.
+  async function _composeBooking(customer, parts, source) {
+    const dateBase = (parts && parts.dateBase) || null;
+    const time = (parts && parts.time) || null;
+    const service = (parts && parts.service) || '';
     if (dateBase && time && time.concrete) {
       const start = new Date(dateBase); start.setHours(time.hour, time.min || 0, 0, 0);
       const end = new Date(start.getTime() + 60 * 60000);
@@ -777,22 +786,37 @@
         if (window.Booking.hasConflict(start.toISOString(), end.toISOString())) {
           const alts = await _suggestSlots(dateBase, null, 3);
           const lines = alts.map((d) => '· ' + _fmtSlot(d));
-          return { matched: true, kind: 'slots',
+          return { matched: true, kind: 'slots', customer, dateBase, needTime: true,
             text: `${_fmtSlot(start)} 에는 이미 예약이 있어요. 대신 비어 있는 시간이에요:\n${lines.join('\n') || '(이 날은 빈 시간이 없어요. 다른 날로 말씀해 주세요)'}` };
         }
       }
       _bumpStats('create_booking');
-      return _bookingCard(customer, start, service, text);
+      return _bookingCard(customer, start, service, source);
     }
     // 시간 없음/모호 → 빈시간 추천
     const slots = await _suggestSlots(dateBase, time && time.period, 3);
     if (!slots.length) {
-      return { matched: true, kind: 'message',
+      return { matched: true, kind: 'message', customer, dateBase, needTime: true,
         text: `${customer.name}님 예약을 잡을 시간을 알려주세요. (예: "내일 오후 3시", "다음 주 토요일 2시")` };
     }
     const lines = slots.map((d) => '· ' + _fmtSlot(d));
-    return { matched: true, kind: 'slots',
+    return { matched: true, kind: 'slots', customer, dateBase, needTime: true,
       text: `${customer.name}님 예약 가능 시간이에요. 원하시는 시간을 말씀해 주세요:\n${lines.join('\n')}` };
+  }
+
+  // [핫픽스F #5-1] 이름 한 개로 고객 1명 확정(정확 일치만). booking-draft 의 customer 슬롯 채우기에 사용.
+  //   결과: { customer } | { askText } | { none } | { error }.
+  async function resolveCustomer(name) {
+    if (!name) return { none: true };
+    let customers;
+    try { const r = await _fetchJson('/customers?limit=500'); customers = (r && r.items) || []; }
+    catch (_e) { void _e; return { error: true }; }
+    const scored = customers.map((c) => ({ c, score: _nameMatches(name, c.name || '') }))
+      .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+    if (!scored.length) return { none: true };
+    const picked = _decideCustomer(scored);
+    if (picked.askText) return { askText: picked.askText };
+    return { customer: { id: picked.customer.id, name: picked.customer.name } };
   }
 
   // ─── [T-110] 메시지 초안(draft_message) — 발송 아님, 초안만 ──────────────
@@ -957,6 +981,12 @@
     tryCreateBooking,
     tryDraftMessage,
     tryCancelBooking,
+    // [핫픽스F #5] 예약 draft 슬롯필링용 — 누적 슬롯(dateBase/time/service)으로 카드 빌드 + 고객/시간 파싱.
+    composeBooking: _composeBooking,
+    resolveCustomer,
+    resolveDateBase: _resolveDateBase,
+    resolveTime: _resolveTime,
+    extractService: _extractService,
     // 디버깅용 — 현재 통계 조회
     getStats: () => ({ ...window[STATS_KEY], byType: { ...window[STATS_KEY].byType } }),
     // 디버깅용 — 통계 리셋
