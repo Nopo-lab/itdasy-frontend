@@ -530,6 +530,7 @@
         ${looseTextHtml}
         ${_renderBookingCards(m, idx)}
         ${_renderPmTpls(m, idx)}
+        ${_renderPhotoRoles(m, idx)}
         ${retryHtml}
         ${reportHtml}
         ${dupHtml}
@@ -641,6 +642,33 @@
         <div style="font-size:11px;font-weight:700;padding:7px 4px;color:var(--text,#191F28);">${_esc(t.label || '')}</div>
       </button>`).join('');
     return `<div data-asst-pm-tpls="${idx}" style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">${cards}</div>`;
+  }
+
+  // [7] 다중 사진 역할칩 — 썸네일 + 역할(전/후/홍보컷/캡션용/제외) 칩 + "이대로 진행".
+  //   클릭은 data-pm-role / data-pm-proceed → _handlePhotoRoleClick (화면이동 없는 인라인 갱신).
+  const _PM_ROLE_CHIPS = [['before', '전'], ['after', '후'], ['hero', '홍보컷'], ['caption', '캡션용'], ['exclude', '제외']];
+  function _renderPhotoRoles(m, idx) {
+    const pr = m.photo_roles;
+    if (!pr || !Array.isArray(pr.assets) || !pr.assets.length) return '';
+    const cards = pr.assets.map((a, i) => {
+      const chips = _PM_ROLE_CHIPS.map(([rk, lbl]) => {
+        const on = a.role === rk;
+        const st = on ? 'background:#191F28;color:#fff;border:none;' : 'background:#fff;color:#4E5968;border:0.5px solid #E5E8EB;';
+        return `<button type="button" data-pm-role="${idx}:${_esc(a.assetId)}:${rk}" style="padding:5px 9px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;${st}">${lbl}</button>`;
+      }).join('');
+      return `<div style="border:1px solid #EEF1F4;border-radius:14px;padding:8px;background:#fff;">
+        <div style="position:relative;">
+          <img src="${_esc(a.url || '')}" alt="사진 ${i + 1}" style="width:100%;height:96px;object-fit:cover;border-radius:10px;display:block;background:#F4ECE4;${a.role === 'exclude' ? 'opacity:.4;' : ''}" />
+          <span style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;">${i + 1}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${chips}</div>
+      </div>`;
+    }).join('');
+    const hint = pr.allExcluded
+      ? '<div style="font-size:12px;color:#BC6675;margin-top:8px;font-weight:600;">쓸 사진이 없어요. 최소 한 장은 역할을 골라주세요.</div>'
+      : (pr.baOk ? '<div style="font-size:12px;color:#16B55E;margin-top:8px;font-weight:600;">전·후 사진이 준비됐어요 — 전후 카드로 만들 수 있어요.</div>' : '');
+    const proceed = `<button type="button" data-pm-proceed="${idx}" style="margin-top:10px;width:100%;padding:11px;border:none;border-radius:12px;background:#191F28;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">이대로 진행</button>`;
+    return `<div data-asst-photo-roles="${idx}" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;">${cards}</div>${hint}${proceed}`;
   }
 
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
@@ -1551,6 +1579,7 @@
   }
 
   function _handleAssistantClick(e) {
+    if (_handlePhotoRoleClick(e)) return;        // [7] 다중 사진 역할칩(전/후/홍보컷/캡션용/제외) + 진행
     if (_handleBriefingActionClick(e)) return;   // [T-115] 브리핑 추천 버튼
     if (_handleItbiCardClick(e)) return;         // [잇비 결과 카드 v0] 결과 카드 적용 → 편집기 핸드오프
     if (_handleActionHubClick(e)) return;        // [J-1] Action Hub 공통 버튼(data-asst-hub-act)
@@ -1558,6 +1587,37 @@
     if (_handleSingleActionClick(e)) return;
     if (_handleGroupActionClick(e)) return;
     _handleSuggestionClick(e);
+  }
+
+  // [7] 다중 사진 역할칩 클릭 — 역할 토글(인라인 갱신) / 진행(다음 단계 push).
+  function _handlePhotoRoleClick(e) {
+    const roleBtn = e.target && e.target.closest && e.target.closest('[data-pm-role]');
+    const proceedBtn = e.target && e.target.closest && e.target.closest('[data-pm-proceed]');
+    if (!roleBtn && !proceedBtn) return false;
+    const PM = window.ItdasyPhotoMode;
+    if (roleBtn) {
+      const parts = (roleBtn.getAttribute('data-pm-role') || '').split(':');
+      const idx = +parts[0], assetId = parts[1], role = parts[2];
+      if (PM && typeof PM.setAssetRole === 'function') {
+        Promise.resolve(PM.setAssetRole(assetId, role)).then((msg) => {
+          if (msg && _history[idx]) { _history[idx].photo_roles = msg.photo_roles; _history[idx].text = msg.text; _renderHistory(); }
+        }).catch(() => {});
+      }
+      return true;
+    }
+    const pidx = +(proceedBtn.getAttribute('data-pm-proceed') || 0);
+    if (PM && typeof PM.proceedFromRoles === 'function') {
+      Promise.resolve(PM.proceedFromRoles()).then((msg) => {
+        if (!msg) return;
+        if (msg.photo_roles) {   // 검증 실패/안내 → 같은 카드 인라인 갱신
+          if (_history[pidx]) { _history[pidx].photo_roles = msg.photo_roles; _history[pidx].text = msg.text; _renderHistory(); }
+          return;
+        }
+        _history.push(Object.assign({ role: 'assistant' }, msg, { local_only: true }));
+        _pmForceRender();
+      }).catch(() => {});
+    }
+    return true;
   }
 
   // [잇비 결과 카드 v0] 카드 [적용] 클릭 → 원본 src + initialState(params)로 편집기 오픈.

@@ -365,6 +365,22 @@
         ratio: '4:5',
       };
     }
+    // [7] 역할/그룹 메타 — 작업실 재진입 시 역할 유지. dataUrl 은 refs 에 1회만(중복 금지).
+    //   세션 없으면(1장·레거시 전후) S.photos 로부터 스냅샷 생성. templateId 없는 비-BA 는 restore 가 baked 폴백(안전).
+    try {
+      var _sess = S.session;
+      if (!_sess && window.PhotoSession && S.photos && S.photos.length) {
+        _sess = window.PhotoSession.create();
+        window.PhotoSession.addAssets(_sess, S.photos.map(function (p) { return p.editedUrl || p.url; }), 'legacy');
+        var _anyRole = false;
+        S.photos.forEach(function (p, i) { if ((p.role === 'before' || p.role === 'after') && _sess.assets[i]) { _sess.assets[i].role = p.role; _anyRole = true; } });
+        if (!_anyRole) window.PhotoSession.autoAssign(_sess);
+      }
+      if (_sess && window.PhotoSession) {
+        var _ser = window.PhotoSession.serialize(_sess);
+        if (_ser) { _meta = _meta || {}; _meta.photoSession = _ser.photoSession; }
+      }
+    } catch (_e) { void 0; }
     try {
       if (typeof window.saveAssistantTemplateResult === 'function')
         await window.saveAssistantTemplateResult(dataUrl, { purpose: S.workflow, label: label, source: 'itbi_guided', templateMeta: _meta });
@@ -441,6 +457,64 @@
 
   function exit() { S = _fresh(); }
 
+  // ── [7] 다중 사진 역할/그룹 (photo-session.js 연동, 흐름 연결만) ──
+  var SESSION_KEY = 'itdasy_photo_session';
+  function _persistSession() {
+    try { if (S.session && window.PhotoSession) localStorage.setItem(SESSION_KEY, JSON.stringify(window.PhotoSession.serialize(S.session))); } catch (_e) { void 0; }
+  }
+  // 세션 역할 → 레거시 S.photos 미러(_baPhoto/_curPhoto 호환 유지). 제외 빼고 before·after·hero·caption 순.
+  function _syncPhotosFromSession() {
+    var PS = window.PhotoSession; if (!PS || !S.session) return;
+    var R = PS.ROLES;
+    function rank(x) { return x.role === R.BEFORE ? 0 : x.role === R.AFTER ? 1 : x.role === R.HERO ? 2 : x.role === R.CAPTION ? 3 : 4; }
+    var usable = (S.session.assets || []).filter(function (a) { return a.role !== R.EXCLUDE; })
+      .slice().sort(function (a, b) { return rank(a) - rank(b) || a.order - b.order; });
+    S.photos = usable.map(function (a) {
+      var o = { url: a.url, role: (a.role === R.BEFORE || a.role === R.AFTER) ? a.role : null };
+      if (a.editedUrl) o.editedUrl = a.editedUrl;
+      return o;
+    });
+    S.photoIdx = 0;
+  }
+  // 역할칩 카드 메시지(app-assistant _renderPhotoRoles 가 렌더, data-pm-role 클릭으로 인라인 갱신)
+  function _msgAssignRole(headText) {
+    var PS = window.PhotoSession; var s = S.session; var assets = (s && s.assets) || [];
+    S.step = 'assign_role';
+    var allExcluded = assets.length > 0 && assets.every(function (a) { return a.role === PS.ROLES.EXCLUDE; });
+    var v = PS.validateBeforeAfter(s);
+    return {
+      text: headText || ('사진 ' + assets.length + '장 받았어요. 각 사진을 어디에 쓸지 골라주세요 🙂\n전·후 두 장이면 전후 카드, 아니면 홍보컷/캡션용으로 만들어요.'),
+      photo_roles: {
+        assets: assets.map(function (a) { return { assetId: a.assetId, url: a.url, role: a.role, order: a.order }; }),
+        baOk: v.ok, baReason: v.reason, allExcluded: allExcluded,
+      },
+    };
+  }
+  async function setAssetRole(assetId, role) {
+    var PS = window.PhotoSession; if (!PS || !S.session) return null;
+    PS.setRole(S.session, assetId, role); _persistSession();
+    return _msgAssignRole();
+  }
+  async function proceedFromRoles() {
+    var PS = window.PhotoSession; if (!PS || !S.session) return null;
+    var assets = S.session.assets || [];
+    if (assets.length && assets.every(function (a) { return a.role === PS.ROLES.EXCLUDE; }))
+      return _msgAssignRole('쓸 사진이 없어요. 최소 한 장은 전/후/홍보컷/캡션용으로 골라주세요.');
+    var v = PS.validateBeforeAfter(S.session);
+    var hasAnyBA = assets.some(function (a) { return a.role === PS.ROLES.BEFORE || a.role === PS.ROLES.AFTER; });
+    if (!v.ok && hasAnyBA)
+      return _msgAssignRole((v.reason === 'no_after' ? '후 사진' : '전 사진') + '을 한 장 더 골라주세요. 전후 카드는 전·후 두 장이 필요해요.');
+    _syncPhotosFromSession();
+    if (!S.customer && !S.customerSuggest) { try { var c = await _matchCustomer(); if (c) S.customerSuggest = c; } catch (_e) { void 0; } }
+    if (v.ok) {
+      S.workflow = 'ba';
+      if (!S.lastTemplateId) S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
+      return await _composeBaCard();
+    }
+    S.workflow = 'basic'; S.lastTemplateId = null;
+    return await _msgTemplate(false);
+  }
+
   // 사진 수신 → 접수(또는 BA 두 번째 사진 완성)
   async function handlePhotos(photoUrls, question, _ctx) {
     photoUrls = (photoUrls || []).filter(Boolean);
@@ -475,6 +549,15 @@
       S.workflow = 'ba';
       _assignBaRoles(_baOrderSwap(question));
       return await _composeBaCard();
+    }
+    // [7] 다중 사진(2장+) 일반 업로드 → 역할칩으로 사진별 용도 지정(전/후/홍보컷/캡션용/제외).
+    //   명시 "전후 만들어줘"(위)·캡션요청은 기존 흐름 유지. 1장은 기존 흐름.
+    if (S.photos.length >= 2 && S.workflow !== 'caption' && window.PhotoSession) {
+      S.session = window.PhotoSession.create();
+      window.PhotoSession.addAssets(S.session, photoUrls, 'batch');
+      window.PhotoSession.autoAssign(S.session);
+      _persistSession();
+      return _msgAssignRole();
     }
     S.customer = await _matchCustomer();
     // [qa-G #4] 홍보/보정 의도면 "○○ 손님 맞아요?" 고객확인을 최우선으로 띄우지 않는다(인터럽트 금지).
@@ -825,5 +908,8 @@
     exit: exit,
     stepLabel: stepLabel,
     START_RE: START_RE,
+    // [7] 역할칩 인라인 갱신/진행 — app-assistant 클릭 위임에서 호출.
+    setAssetRole: setAssetRole,
+    proceedFromRoles: proceedFromRoles,
   };
 })();
