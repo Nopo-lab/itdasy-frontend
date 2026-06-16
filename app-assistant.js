@@ -4312,7 +4312,8 @@
       || /^(캡션|글)\s*(생성|만들기)$/.test(t);
   }
   function _looksCaptionRewrite(q) {
-    return /(다시|또|새\s*버전|다른\s*버전|더\s*길게|짧게|길게|인스타\s*(말투|스럽|식|느낌)|이모지|해시\s*태그|해시태그|문구만)/.test(String(q || ''));
+    // [M2] 말투/톤/후기 말투 변경도 캡션 재작성으로 인식(사진모드·"준비 중"으로 새지 않게).
+    return /(다시|또|새\s*버전|다른\s*버전|더\s*길게|짧게|길게|인스타\s*(말투|스럽|식|느낌)|말투|톤|후기\s*(말투|체|식|느낌|톤)|이모지|해시\s*태그|해시태그|문구만)/.test(String(q || ''));
   }
   function _capInstaHint() {
     try {
@@ -4330,7 +4331,14 @@
     return '';
   }
   function _capCategory() {
-    try { return /네일/.test(localStorage.getItem('shop_type') || '') ? 'nail' : 'extension'; } catch (_e) { return 'extension'; }
+    // [M1] 백엔드 GenerateRequest 는 category Literal["extension","nail"] 만 받음.
+    //   shop_type 만 보지 말고, 사용자가 입력한 시술(네일/패디/젤)도 nail 로 인식.
+    try {
+      const svc = (_capCtx && _capCtx.service) || '';
+      if (/네일|패디|젤네일|패디큐어/.test(svc)) return 'nail';
+      if (/네일/.test(localStorage.getItem('shop_type') || '')) return 'nail';
+      return 'extension';
+    } catch (_e) { return 'extension'; }
   }
   function _capApplyAdjust(q, c) {
     if (/(더\s*길게|길게|분량.*(늘|많)|자세히|상세히|풍부)/.test(q)) c.len = 'long';
@@ -4338,6 +4346,8 @@
     if (/(인스타\s*(말투|스럽|식|느낌)|화려|발랄|트렌디|이모지\s*(더|많))/.test(q)) c.tone = 'ornate';
     if (/(담백|차분|깔끔한\s*말투|점잖|격식|이모지\s*(빼|줄|없))/.test(q)) c.tone = 'plain';
     if (/(해시\s*태그|해시태그).*(더|추가|많|넣)|지역\s*해시|인스타\s*해시.*추천/.test(q)) c.moreTags = true;
+    // [M2] 후기 말투/고객 후기체 요청 — 1인칭 후기 톤으로 재작성.
+    if (/후기\s*(말투|체|식|느낌|톤)|(고객|손님).*후기.*(말투|로|식|체)|후기\s*처럼/.test(q)) c.reviewVoice = true;
   }
   function _capExtractService(q) {
     const m = String(q || '').match(/시술\s*(내역|명)?\s*[:：]\s*(.+)$/);
@@ -4351,7 +4361,14 @@
     headers['Content-Type'] = 'application/json';
     const tags = c.moreTags ? ' 해시태그를 평소보다 더 다양하게 많이(시술·업종·지역 태그 포함) 넣어주세요.' : '';
     const vary = c.last ? ' 이전과 다른 새로운 버전으로 작성해주세요.' : '';
-    const ctxStr = ((localStorage.getItem('shop_type') || '') + ' 시술. ' + (c.service || '') + _capInstaHint() + _capLenInstruction(c.len) + tags + vary + ' 인스타 업로드용 캡션.').slice(0, 500);
+    const svc = (c.service || '').trim();
+    // [M1] 입력 시술을 본문에 반드시 반영하고, 입력 안 한 다른 시술은 언급하지 않도록 명시.
+    const svcLead = svc
+      ? (svc + ' 시술. 반드시 이 시술 중심으로 본문을 쓰고, 입력하지 않은 다른 시술(붙임머리 등)은 언급하지 마세요. ')
+      : ((localStorage.getItem('shop_type') || '') + ' 시술. ');
+    // [M2] 후기 말투 요청 시 1인칭 고객 후기체로.
+    const review = c.reviewVoice ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
+    const ctxStr = (svcLead + _capInstaHint() + _capLenInstruction(c.len) + tags + vary + review + ' 인스타 업로드용 캡션.').slice(0, 500);
     const body = { category: _capCategory(), photo_context: ctxStr, length_tier: c.len || 'medium', tone_override: c.tone || 'normal' };
     let res;
     try { res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers, body: JSON.stringify(body) }); }
@@ -4373,7 +4390,7 @@
     const isNew = !isRewrite && _looksCaptionNew(t);
     const isService = !isRewrite && !isNew && !!(_capCtx && _capCtx.awaiting) && t.length >= 2 && !/^(취소|그만|아니|싫|관둬)/.test(t);
     if (!isNew && !isRewrite && !isService) return false;
-    if (!_capCtx) _capCtx = { service: '', len: 'medium', tone: 'normal', moreTags: false, last: '', awaiting: false };
+    if (!_capCtx) _capCtx = { service: '', len: 'medium', tone: 'normal', moreTags: false, last: '', awaiting: false, reviewVoice: false };
 
     if (isNew) {
       const svc = _capExtractService(t);
@@ -4506,6 +4523,8 @@
   async function _tryActiveCardShortcut(input, q) {
     const AC = window.ItbiActiveCard;
     if (!AC || !AC.has()) return false;
+    // [M4] 예약 시간 변경 신호("…4시로 바꿔/변경/옮겨")가 있으면 저장카드보다 예약 문맥 우선 → false 로 양보.
+    if (/(예약|\d+\s*시|오전|오후|오늘|내일|모레)/.test(q) && /(바꿔|바꾸|변경|옮겨|미뤄|당겨|취소)/.test(q)) return false;
     const ref = AC.classifyRef(q);
     if (!ref) return false;
     const card = AC.get();
@@ -4520,7 +4539,7 @@
       let reply;
       if (card.available === false) {
         // 이벤트처럼 아직 못 만든 카드 — 거짓 안내 금지, 정직 안내.
-        reply = name + '는 아직 준비 중이라 ' + (ref.verb === 'save' ? '저장할' : '보여드릴') + ' 게 없어요. 가격표·후기·전후 카드는 바로 만들 수 있어요 — 만들어드릴까요?';
+        reply = name + '는 아직 안 만들어져서 ' + (ref.verb === 'save' ? '저장할' : '보여드릴') + ' 게 없어요. 가격표·후기·전후 카드는 바로 만들 수 있어요 — 만들어드릴까요?';
       } else if (ref.verb === 'save') {
         if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '"' + name + '"는 이미 작업실에 저장돼 있어요. 작업실에 띄워뒀어요.'; }
         else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
@@ -4567,8 +4586,8 @@
         : '세부 편집은 카드를 연 다음 편집기에서 직접 할 수 있어요. "저장된 카드 보여줘"라고 하면 카드를 열어드릴게요.';
     } else if (c.kind === 'retry_alt') {
       reply = hasActive
-        ? '아직 다른 디자인으로 자동 변경하는 건 준비 중이에요. 지금은 편집기에서 직접 고치거나, 새로 만들려면 "가격표 만들어줘"처럼 말씀해 주세요.'
-        : '아직 다른 디자인 자동 변경은 준비 중이에요. 새로 만들려면 "후기 카드 만들어줘"처럼, 저장한 걸 고치려면 "저장된 카드 보여줘"라고 해주세요.';
+        ? '디자인은 편집기에서 직접 고칠 수 있어요. 새로 만들려면 "가격표 만들어줘"처럼 말씀해 주세요. 캡션 말투를 바꾸려면 "더 인스타스럽게 다시"·"후기 말투로 바꿔줘"라고 하면 돼요.'
+        : '새로 만들려면 "후기 카드 만들어줘"처럼, 저장한 걸 고치려면 "저장된 카드 보여줘"라고 해주세요. 캡션은 "더 길게"·"후기 말투로 바꿔줘"로 다시 써드려요.';
     } else {
       reply = '어떤 카드를 말씀하시는지 못 찾았어요. "저장된 카드 보여줘"로 최근 작업을 먼저 열거나, "가격표 만들어줘"처럼 새로 만들어보세요.';
     }
@@ -4702,6 +4721,58 @@
     return /예약|매출|정산|(얼마.*(벌|매출|썼))|고객\s*(기록|정보|관리|추가|상세)|재고|문자\s*(보내|발송)|시술\s*완료|노쇼/.test(String(q || ''));
   }
 
+  // [M3] 자연어 "인스타 미리보기" — 카드 버튼과 동일하게 openInstagramPreview 팝업(업로드 아님)을 연다.
+  function _looksInstaPreviewIntent(q) {
+    const t = String(q || '');
+    if (!/미리\s*보기/.test(t)) return false;
+    return /(인스타|insta|ig|sns|피드|보여|열어|열|줘|해줘|보자|확인)/i.test(t) || /^미리\s*보기$/.test(t);
+  }
+  async function _tryInstaPreviewIntent(input, q) {
+    if (!_looksInstaPreviewIntent(q)) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    try { if (window.AppLoader && !window.AppLoader.loaded('instagram')) await window.AppLoader.ensure('instagram'); } catch (_e) { void _e; }
+    let src = '';
+    try { const s = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); src = (s && s.dataUrl) || ''; } catch (_e) { void _e; }
+    let caption = (_capCtx && _capCtx.last) || '';
+    if (!caption) { try { caption = (window.CaptionPrefill && window.CaptionPrefill.get && window.CaptionPrefill.get()) || ''; } catch (_e) { void _e; } }
+    if (!caption && !src) {
+      _history.push({ role: 'assistant', text: '먼저 사진과 캡션을 만들어 주세요. 그다음 "인스타 미리보기 보여줘"라고 하면 올리기 전 모습 그대로 보여드려요.' });
+      _renderHistory();
+      return true;
+    }
+    if (typeof window.openInstagramPreview === 'function') {
+      try { window.openInstagramPreview({ src: src, caption: caption, enableUpload: false }); } catch (_e) { void _e; }
+      _history.push({ role: 'assistant', text: '올리기 전 인스타 미리보기예요 — 실제로 올라간 건 아니에요. 확인 후 올리려면 작업실에서 "인스타에 올리기"를 눌러주세요.' });
+    } else {
+      _history.push({ role: 'assistant', text: '미리보기는 결과 카드의 "인스타 미리보기" 버튼으로 열 수 있어요.' });
+    }
+    _renderHistory();
+    return true;
+  }
+
+  // [C1/C2] 홍보컷·홍보물 요청과 "가격표 말고/없이" 부정형이 가격표 매처/폴백으로 새지 않게 가로챈다.
+  function _hasPriceNegation(q) {
+    const t = String(q || '');
+    if (/(가격표?|가격|메뉴판|단가)\s*(은|는|을|를|로|으로|만)?\s*(말고|빼고|빼|없이|없는|없어|없게|제외|않)/.test(t)) return true;
+    if (/(가격\s*없|노\s*프라이스|no\s*price)/i.test(t)) return true;
+    return false;
+  }
+  function _looksPromoCreateIntent(q) {
+    const t = String(q || '');
+    if (/(보여|목록|저장한|작업실|수정|삭제|지워|발송|문자|디엠)/.test(t)) return false;
+    return /(홍보\s*컷|홍보\s*물|홍보\s*사진|홍보\s*이미지|홍보\s*용\s*(사진|컷|이미지))/.test(t);
+  }
+  async function _tryPromoIntent(input, q) {
+    const t = String(q || '');
+    if (!_looksPromoCreateIntent(t) && !_hasPriceNegation(t)) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: t });
+    _history.push({ role: 'assistant', text: '홍보물은 사진으로 만들어요. 홍보용 사진을 보내주시면 전후·시술자랑·고객후기·이벤트·인스타 홍보컷 중에 골라 만들어드릴게요. 어떤 시술 홍보물인지 알려주셔도 돼요.' });
+    _renderHistory();
+    return true;
+  }
+
   async function _send() {
     if (_sendInFlight) return;
     const input = document.getElementById('asstInput');
@@ -4718,7 +4789,9 @@
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
       const _PM = window.ItdasyPhotoMode;
-      const _pmStart = _PM && (
+      // [M2] 활성 캡션 대화(생성된 캡션 last 또는 시술 service 보유)에서 말투/톤 변경 발화면 사진모드로 넘기지 않는다.
+      const _capRewriteActive = !!(_capCtx && (_capCtx.last || _capCtx.service) && _looksCaptionRewrite(q));
+      const _pmStart = !_capRewriteActive && _PM && (
         _PM.isActive() || (_PM.shouldStart ? _PM.shouldStart(q, { hasPhoto: false }) : (_PM.START_RE && _PM.START_RE.test(q)))
       );
       if (_pmStart) {
@@ -4752,6 +4825,8 @@
     // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
     //   phone-intent 는 PHONE_RE 가 있을 때만 매칭 → "그거 수정"(사진 카드) 등은 영향 없음.
     if (await _tryCustomerPhoneIntent(input, q)) return;
+    // [M3] 자연어 "인스타 미리보기" — 활성/저장카드보다 먼저 미리보기 팝업으로.
+    if (await _tryInstaPreviewIntent(input, q)) return;
     // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
     if (await _tryActiveCardShortcut(input, q)) return;
     // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
@@ -4767,6 +4842,8 @@
     if (await _tryBookingDraftShortcut(input, q)) return;
     if (await _tryLookupBookingShortcut(input, q)) return;
     if (await _tryCreateBookingShortcut(input, q)) return;
+    // [C1/C2] 홍보컷·홍보물·"가격표 말고/없이" — 가격표 매처/폴백 전에 가로채 홍보 흐름으로(가격표 오라우팅 차단).
+    if (await _tryPromoIntent(input, q)) return;
     if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
     if (_tryPriceListDraft(input, q)) return;
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
