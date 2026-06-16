@@ -2,7 +2,51 @@
 
 > 새 세션이 시작되면 **이 파일을 먼저 읽고** 현재 단계·대기 결정·마지막 체크포인트를 파악한다.
 
-**LAST UPDATED:** 2026-06-15 · 예약금 매출 반영 수정
+**LAST UPDATED:** 2026-06-16 · 잇비 채팅 전수조사/회귀 수정
+
+---
+
+## 🟣 2026-06-16 — 잇비 채팅 전수조사/회귀 수정
+
+배경: 원영님이 잇비 채팅의 예약/고객/사진모드/캡션/작업실/템플릿/이벤트/가격표/문맥기억 문제를 전체 흐름 기준으로 전수조사 요청.
+
+완료:
+- 예약 채팅에서 "내일 3시/2시"를 새벽이 아니라 오후 시간으로 해석.
+- "예약 잡기 → 고객명 → 시간 → 시술명" 순서가 끊기지 않게 예약 draft를 보강.
+- "황민지 예약은 언제야?"처럼 고객별 예약 조회를 채팅 안에서 처리하고, 바로 뒤 "4시로"가 방금 본 예약 변경으로 이어지게 함.
+- "윤하영 고객 찾아줘"처럼 정확히 없는 고객은 비슷한 후보를 제안하고 자동 확정하지 않게 함.
+- 가격표 검사기가 예약 문장/전화번호를 가격표로 잘못 읽지 않게 보강.
+- 사진/전후/캡션/이벤트/작업실 흐름을 46개 문장으로 자동 확인하는 새 스크립트 추가.
+- 빌드: `20260616-v497-itbi-full-audit`.
+
+수정 파일:
+- `app-assistant.js`
+- `assistant-intent-router.js`
+- `js/assistant/core/action-hub.js`
+- `js/assistant/core/booking-context.js`
+- `js/assistant/core/booking-draft.js`
+- `js/assistant/core/customer-add-guard.js`
+- `scripts/itbi-chat-full-audit-qa.js`
+- `scripts/hotfixF-booking-draft-qa.js`
+- `scripts/itbi-template-flow-qa.js`
+- `scripts/photo-mode-guided-qa.js`
+- `index.html`
+- `app-core.js`
+- `sw.js`
+- `js/load-groups.js`
+
+확인:
+- 새 잇비 전수조사 확인 통과: 46/46.
+- 예약 draft 확인 통과: 11/11.
+- 잇비 안전 가드 확인 통과: 17/17.
+- 사진모드/템플릿/작업실/시술완료 관련 확인 통과.
+- 전체 테스트 통과: 136개.
+- 기본 실행 확인 통과: 94 scripts, build `20260616-v497-itbi-full-audit`.
+- 자동 검사 확인: 빨간 오류 0개, 기존 노란 경고는 남아 있음.
+
+주의:
+- 작업 전부터 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md`, `workspace-mockup.html` 변경/추가는 이번 수정과 별개라 건드리거나 올리지 않음.
+- 커밋/푸시는 원영님 승인 전까지 하지 않음.
 
 ---
 

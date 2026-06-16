@@ -607,6 +607,51 @@
     return { name: candidates.length ? candidates[0] : '', dateHint: _extractDateHint(t) };
   }
 
+  const _LOOKUP_STOPS = new Set([
+    '예약', '언제', '언제야', '몇시', '몇', '시간', '확인', '조회', '알려', '알려줘',
+    '있어', '있나', '잡혀', '예정', '일정', '고객', '손님', '님', '은', '는', '이', '가',
+    '을', '를', '그', '거', '오늘', '내일', '모레',
+  ]);
+
+  function _looksBookingLookup(q) {
+    const t = _trim(q);
+    if (!/예약/.test(t)) return false;
+    if (_CANCEL_VERB.test(t) || _CREATE_VERB.test(t)) return false;
+    if (/(복구|되돌|바꿔|바꾸|변경|옮겨|미뤄|당겨)/.test(t)) return false;
+    return /(언제|몇\s*시|시간|확인|조회|알려|있어|있나|잡혀|예정|일정|예약은|예약\s*있)/.test(t);
+  }
+
+  function _extractLookupTarget(q) {
+    const t = _trim(q);
+    const honor = t.match(/([가-힣]{2,4})님/);
+    if (honor && !_NAME_STOP_WORDS.has(honor[1])) return { name: honor[1], dateHint: _extractDateHint(t) };
+    let stripped = _stripDateTokens(t).replace(_PERIOD_WORDS, ' ');
+    stripped = _stripServiceWords(stripped);
+    const words = stripped.match(/[가-힣]{2,5}/g) || [];
+    const name = words.find((w) => !_NAME_STOP_WORDS.has(w) && !_LOOKUP_STOPS.has(w));
+    return { name: name || '', dateHint: _extractDateHint(t) };
+  }
+
+  function _futureRangeISO() {
+    const from = new Date(); from.setHours(0, 0, 0, 0);
+    const to = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    return { from: from.toISOString(), to: to.toISOString() };
+  }
+
+  function _activeBookingsForCustomer(items, customer) {
+    return ((items || []).filter((b) =>
+      b && (b.customer_id === customer.id || b.customer_name === customer.name)
+    ).filter((b) => b.status !== 'cancelled' && b.status !== 'completed' && b.status !== 'no_show')
+      .sort((a, b) => new Date(a.starts_at || 0) - new Date(b.starts_at || 0)));
+  }
+
+  function _formatLookupBookings(customer, list) {
+    if (!list.length) return `📅 ${customer.name}님의 예정된 예약이 없어요.`;
+    const lines = list.slice(0, 5).map((b) => `· ${_formatBookingShort(b)}${b.service_name ? ' ' + b.service_name : ''}`);
+    if (list.length === 1) return `📅 ${customer.name}님 예약은 ${lines[0].replace(/^·\s*/, '')}예요.`;
+    return `📅 ${customer.name}님 예정 예약 ${list.length}건이에요.\n${lines.join('\n')}`;
+  }
+
   // 결과: { matched, kind:'card'|'slots'|'open_booking'|'message', ... }
   //   [P0-C] ctx.currentCustomer 로 "이 손님" 해석. 고객 확정되면 시간 파싱 → 카드/빈시간 추천.
   async function tryCreateBooking(text, ctx) {
@@ -648,6 +693,36 @@
     return _bookingForCustomer({ id: customer.id, name: customer.name }, text);
   }
 
+  async function tryLookupBooking(text) {
+    if (_disabled() || !_looksBookingLookup(text)) return null;
+    const target = _extractLookupTarget(text);
+    if (!target.name) return null;
+    let customers;
+    try { const r = await _fetchJson('/customers?limit=500'); customers = (r && r.items) || []; }
+    catch (_e) { void _e; return { matched: true, kind: 'message', text: '⚠️ 고객 정보 조회 실패. 잠시 후 다시.' }; }
+    const scored = customers.map((c) => ({ c, score: _nameMatches(target.name, c.name || '') }))
+      .filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+    if (!scored.length) {
+      return { matched: true, kind: 'message', text: `🔍 ${target.name}님을 못 찾았어요. 이름을 다시 확인해 주세요.` };
+    }
+    const picked = _decideCustomer(scored);
+    if (picked.askText) return { matched: true, kind: 'message', text: picked.askText };
+    const customer = { id: picked.customer.id, name: picked.customer.name };
+    let bookings;
+    try {
+      const r = _futureRangeISO();
+      const data = await _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
+      bookings = _activeBookingsForCustomer((data && data.items) || [], customer);
+    } catch (_e) {
+      void _e;
+      return { matched: true, kind: 'message', text: '⚠️ 예약 정보 조회 실패. 잠시 후 다시.' };
+    }
+    const filtered = target.dateHint ? bookings.filter((b) => _bookingMatchesDate(b, target.dateHint)) : bookings;
+    const textOut = _formatLookupBookings(customer, filtered);
+    _bumpStats('lookup_booking');
+    return { matched: true, kind: 'message', type: 'bookings_lookup', text: textOut, booking_cards: filtered.slice(0, 5), data: { items: filtered.slice(0, 5) } };
+  }
+
   // ─── [P0-C] 예약 생성 완성: 시간 해석 + 빈시간 추천 + create_booking 카드 ────────
   const _WEEKDAYS = { '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
 
@@ -686,6 +761,7 @@
       const min = hm[2] ? parseInt(hm[2], 10) : (/반/.test(text) ? 30 : 0);
       if (isPM && hour < 12) hour += 12;
       if (isAM && hour === 12) hour = 0;
+      if (!isAM && !isPM && hour >= 1 && hour <= 8) hour += 12;
       if (hour >= 0 && hour <= 23) return { hour, min, concrete: true };
     }
     if (isPM) return { period: 'pm' };
@@ -979,6 +1055,7 @@
     findAsyncRule,
     execAsyncRule,
     tryCreateBooking,
+    tryLookupBooking,
     tryDraftMessage,
     tryCancelBooking,
     // [핫픽스F #5] 예약 draft 슬롯필링용 — 누적 슬롯(dateBase/time/service)으로 카드 빌드 + 고객/시간 파싱.

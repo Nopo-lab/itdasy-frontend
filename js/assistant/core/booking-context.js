@@ -251,6 +251,7 @@
     if (/(취소|삭제|지워|없애|캔슬|복구|되돌|백업)/.test(t)) return false;
     const hasTime = /\d{1,2}:\d{2}|\d{1,2}\s*시/.test(t);
     if (_fresh(S.pendingReschedule) && hasTime) return true;
+    if (_fresh(S.lastList) && S.lastList.items && S.lastList.items.length === 1 && _isBareTimeReply(t)) return true;
     const hasChange = /(바꿔|바꾸|변경|옮겨|미뤄|당겨|로\s*해|로\s*잡)/.test(t);
     if (!hasChange) return false;
     const refersBooking = /예약|그거|그\s|내일|오늘|모레|시간/.test(t);

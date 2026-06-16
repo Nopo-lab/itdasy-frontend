@@ -50,15 +50,18 @@ async function checkBeforeAfter(page, imgs) {
     const PM = window.ItdasyPhotoMode;
     PM.exit();
     const start = await PM.handleText('전후 카드 만들어줘', {});
-    const upload = await PM.handlePhotos([a, b], '전후 카드 만들어줘', {});
-    const tplCmd = upload.pm_tpls && upload.pm_tpls[0] && upload.pm_tpls[0].cmd;
-    const role = await PM.handleText(tplCmd, {});
-    const fix = await PM.handleText('네 맞아요', {});
-    const back = await PM.handleText('← 이전', {});
+    await PM.handlePhotos([a], '홍보용으로 예쁘게 해줘', {});
+    const askSecond = await PM.handleText('전후 카드 만들어줘', {});
+    const second = await PM.handlePhotos([b], '', {});
     PM.exit();
-    return { startAsksPhoto: /사진/.test(start.text || ''), templateCards: (upload.pm_tpls || []).length,
-      roleQuestion: /전\s*\/\s*후|사진 1/.test(role.text || ''), fixHasResult: !!(fix.photo_result && fix.photo_result.dataUrl),
-      backToRole: /전\s*\/\s*후|사진 1/.test(back.text || '') };
+    const direct = await PM.handlePhotos([a, b], '전후 카드 만들어줘', {});
+    const ctas = (direct.related || []).join(',');
+    PM.exit();
+    return { startAsksPhoto: /사진/.test(start.text || ''),
+      asksSecond: /사진 2장|사진 1장 더/.test(askSecond.text || ''),
+      secondHasResult: !!(second && second.photo_result && second.photo_result.dataUrl),
+      directHasResult: !!(direct && direct.photo_result && direct.photo_result.dataUrl),
+      editCtas: /전 사진 편집/.test(ctas) && /후 사진 편집/.test(ctas) };
   }, imgs);
 }
 
@@ -86,8 +89,8 @@ async function main() {
   const caption = await checkCaption(page, { a: A, b: B });
   const out = { route, beforeAfter, caption, severeErrors: errors.filter(e => !/favicon|ResizeObserver|TensorFlow|XNNPACK/i.test(e)) };
   out.PASS = route.promoPhoto && route.captionPhoto && !route.price && !route.dm && route.oldGlobalsGone
-    && beforeAfter.startAsksPhoto && beforeAfter.templateCards >= 1 && beforeAfter.roleQuestion
-    && beforeAfter.fixHasResult && beforeAfter.backToRole
+    && beforeAfter.startAsksPhoto && beforeAfter.asksSecond && beforeAfter.secondHasResult
+    && beforeAfter.directHasResult && beforeAfter.editCtas
     && caption.asksTreatment && caption.hasResult && caption.hasCaption && caption.hasActions
     && out.severeErrors.length === 0;
   console.log(JSON.stringify(out, null, 2));

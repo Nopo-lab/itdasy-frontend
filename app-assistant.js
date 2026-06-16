@@ -3778,6 +3778,19 @@
     }
   }
 
+  async function _tryLookupBookingShortcut(input, q) {
+    try {
+      if (!window.AssistantIntent || typeof window.AssistantIntent.tryLookupBooking !== 'function') return false;
+      const result = await window.AssistantIntent.tryLookupBooking(q);
+      if (!result || !result.matched) return false;
+      try { window.ItdasyBookingContext?.rememberList?.({ type: result.type, data: result.data }); } catch (_ctxErr) { void _ctxErr; }
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   async function _tryCustomerAddGuard(input, q) {
     try {
       const G = window.ItdasyCustomerAddGuard;
@@ -4402,6 +4415,7 @@
     if (await _tryCaptionConversation(input, q)) return true;     // [§2-5] 캡션 — 대화형 생성/재생성(1초캡션 팝업 금지)
     if (await _tryCancelBookingShortcut(input, q)) return true;
     if (await _tryBookingContextShortcut(input, q)) return true;
+    if (await _tryLookupBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
     if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)
@@ -4751,6 +4765,7 @@
     // [핫픽스F #5] 진행 중 예약 draft(고객/시간 슬롯필링) + 명시적 예약 생성("…예약해/예약 잡아")은
     //   가격표/OCR/템플릿/사진 인텐트보다 우선 — 가격표가 "붙임머리 시술 예약"을 가로채던 오라우팅 차단.
     if (await _tryBookingDraftShortcut(input, q)) return;
+    if (await _tryLookupBookingShortcut(input, q)) return;
     if (await _tryCreateBookingShortcut(input, q)) return;
     if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
     if (_tryPriceListDraft(input, q)) return;

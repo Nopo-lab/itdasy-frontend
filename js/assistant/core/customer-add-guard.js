@@ -122,9 +122,16 @@
     return /(열어|열기|보여|봐줘|봐|확인|띄워|펼쳐|오픈|불러)/.test(t);
   }
 
+  function _looksFindCustomer(q) {
+    const t = _trim(q);
+    if (/(예약|매출|사진|가격표|템플릿|캡션|이벤트|문자|메시지|메세지|디엠|\bdm\b|연락처|전화|번호|추가|등록|새로|만들|저장)/i.test(t)) return false;
+    if (/(고객|손님).*(찾아|검색|조회|있어|있나|어딨)/.test(t)) return true;
+    return /^[가-힣]{2,5}\s*(고객\s*)?(찾아|찾아줘|찾아봐|검색|조회|있어|있나|어딨)/.test(t);
+  }
+
   function _extractOpenName(q) {
     let s = _trim(q).replace(/^잇비\s*/, ' ');
-    s = s.replace(/(고객님|고객|손님|기록부|기록|정보|상세|카드|열어줘|열어|열기|보여줘|보여|봐줘|봐|확인|띄워|펼쳐|오픈|불러|해줘|해|주세요|님)/g, ' ');
+    s = s.replace(/(고객님|고객|손님|기록부|기록|정보|상세|카드|열어줘|열어|열기|보여줘|보여|봐줘|봐|확인|띄워|펼쳐|오픈|불러|찾아줘|찾아봐|찾아|검색|조회|있어|있나|어딨어|어딨|해줘|해|주세요|님)/g, ' ');
     const words = s.match(/[가-힣]{2,5}/g) || [];
     const stops = new Set(['잇비', '고객', '손님']);
     return words.find((w) => !stops.has(w)) || '';
@@ -192,7 +199,7 @@
   async function tryRun(text) {
     const follow = _followup(text);
     if (follow) return follow;
-    if (_looksOpenRecord(text)) {
+    if (_looksOpenRecord(text) || _looksFindCustomer(text)) {
       const r = await _openRecordResult(text);
       if (r) return r;
     }

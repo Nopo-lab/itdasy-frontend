@@ -55,6 +55,13 @@
     try { var st = localStorage.getItem('shop_type') || ''; var cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null; return (cfg && cfg.treatments) || []; }
     catch (_e) { return []; }
   }
+  function _askService() {
+    var svcList = _shopTreatments();
+    return {
+      text: D.customer.name + '님 ' + _dateLabel(D.dateBase || _tomorrow()) + ' ' + (D.time.hour || 0) + '시에 어떤 시술로 예약할까요?',
+      related: svcList.slice(0, 4),
+    };
+  }
 
   // 고객명 후보 추출 — 예약/날짜/시간/동사·시술명 제거 후 한글 2~5자.
   function _extractName(q) {
@@ -124,7 +131,12 @@
       return { text: D.customer.name + '님 ' + label + ' 몇 시에, 어떤 시술로 예약할까요? (예: "오후 2시 ' + ex + '")' };
     }
 
-    // 고객 + 시간 확정 → 카드(날짜 없으면 내일 기본)
+    // 고객 + 시간 확정, 시술 미정 → 바로 기본값으로 확정하지 않고 한 번 더 묻는다.
+    if (!D.service) {
+      return _askService();
+    }
+
+    // 고객 + 시간 + 시술 확정 → 카드(날짜 없으면 내일 기본)
     var base = D.dateBase || _tomorrow();
     var res = await AI.composeBooking(D.customer, { dateBase: base, time: D.time, service: D.service }, 'booking_draft');
     if (res && res.kind === 'card') { var c = D.customer; clear(); rememberCustomer(c); res.__draftCustomer = c; return { __card: res }; }

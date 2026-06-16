@@ -17,7 +17,13 @@ async function main() {
     && window.ItdasyBookingContext, null, { timeout: 45000 });
 
   const r = await page.evaluate(async () => {
-    try { localStorage.removeItem('assistant_router_disabled'); localStorage.setItem('shop_type', '네일'); } catch (_e) { void 0; }
+    try {
+      localStorage.removeItem('assistant_router_disabled');
+      localStorage.setItem('shop_type', '붙임머리');
+      window.SHOP_CONFIG = Object.assign(window.SHOP_CONFIG || {}, {
+        '붙임머리': { defaultTag: '붙임머리', treatments: ['붙임머리', '레이어드 컷'] },
+      });
+    } catch (_e) { void 0; }
     if (typeof window.authHeader !== 'function') window.authHeader = function () { return {}; };
     const CUSTOMERS = [{ id: 7, name: '강연준', phone: '010-7777-7777' }];
     window.apiFetch = async function (path) {
@@ -38,19 +44,22 @@ async function main() {
     const pj = await I.tryCreateBooking('예약 잡기', {});
     out.yejak = { kind: pj && pj.kind, needCustomer: !!(pj && pj.needCustomer) };
 
-    // #1/#4 draft: 고객명만 → 시간 질문, 그다음 시간만 → 카드
+    // #1/#4 draft: 고객명만 → 시간 질문, 시간만 → 시술 질문, 시술명 → 카드
     BD.clear(); BD.arm({ mode: 'add' });
     const d1 = await BD.tryDraft('강연준');
     out.draft_name = { hasText: !!(d1 && d1.text), asksTime: !!(d1 && /몇 시/.test(d1.text || '')), notCard: !(d1 && d1.__card) };
     const d2 = await BD.tryDraft('오후 2시');
-    out.draft_time = { card: !!(d2 && d2.__card), who: d2 && d2.__card && d2.__card.customer && d2.__card.customer.name,
-      hh: d2 && d2.__card && d2.__card.action && new Date(d2.__card.action.payload.starts_at).getHours() };
+    out.draft_time = { asksService: !!(d2 && /어떤 시술/.test(d2.text || '')), notCard: !(d2 && d2.__card) };
+    const d2b = await BD.tryDraft('붙임머리');
+    out.draft_service_done = { card: !!(d2b && d2b.__card), who: d2b && d2b.__card && d2b.__card.customer && d2b.__card.customer.name,
+      hh: d2b && d2b.__card && d2b.__card.action && new Date(d2b.__card.action.payload.starts_at).getHours() };
 
     // #6 lastCustomer 기억 + 재사용
     out.last = { name: BD.lastCustomer() && BD.lastCustomer().name };
     BD.clear(); BD.arm({ mode: 'add', customer: BD.lastCustomer() });
     const d3 = await BD.tryDraft('내일 오후 2시 예약 추가');
-    out.draft_reuse = { card: !!(d3 && d3.__card), who: d3 && d3.__card && d3.__card.customer && d3.__card.customer.name };
+    const d3b = await BD.tryDraft('붙임머리');
+    out.draft_reuse = { asksService: !!(d3 && /어떤 시술/.test(d3.text || '')), card: !!(d3b && d3b.__card), who: d3b && d3b.__card && d3b.__card.customer && d3b.__card.customer.name };
 
     // #3 draft 안에서 "시술 뭐 있는데" → 가격표 양보(null) 아님, 시간/시술 안내
     BD.clear(); BD.arm({ mode: 'add', customer: { id: 7, name: '강연준' }, dateBase: (function () { const x = new Date(); x.setDate(x.getDate() + 1); x.setHours(0, 0, 0, 0); return x; })() });
@@ -83,9 +92,10 @@ async function main() {
     ['#2 한문장 예약→카드(가격표 아님)', r.oneshot.card && r.oneshot.who === '강연준'],
     ['#1 "예약 잡기"→고객 대기(needCustomer)', r.yejak.needCustomer],
     ['#1 draft 고객명만→시간 질문', r.draft_name.asksTime && r.draft_name.notCard],
-    ['#4 draft 시간만→카드(14시)', r.draft_time.card && r.draft_time.who === '강연준' && r.draft_time.hh === 14],
+    ['#4 draft 시간만→시술 질문', r.draft_time.asksService && r.draft_time.notCard],
+    ['#4 draft 시술 입력→카드(14시)', r.draft_service_done.card && r.draft_service_done.who === '강연준' && r.draft_service_done.hh === 14],
     ['#6 lastCustomer 기억', r.last.name === '강연준'],
-    ['#6 직전 고객 재사용→카드', r.draft_reuse.card && r.draft_reuse.who === '강연준'],
+    ['#6 직전 고객 재사용→시술 질문 후 카드', r.draft_reuse.asksService && r.draft_reuse.card && r.draft_reuse.who === '강연준'],
     ['#3 시술질의 이미지요구 안함', r.draft_service_q.notNull && r.draft_service_q.hasText && r.draft_service_q.notImageReq],
     ['양보: 매출질의 draft 미가로챔', r.draft_yield.yielded],
     ['#8 reschedule 결정성(반복 "몇 시로?")', r.resched.deterministic],

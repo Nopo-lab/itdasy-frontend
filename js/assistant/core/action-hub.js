@@ -274,6 +274,7 @@
 
   var PRICE_INTENT = /가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격.*(만들|올려|정리|안내|보여)/;
   var PRICE_TOKEN = /(\d+(?:\.\d+)?\s*만\s*원?|\d[\d,]*\s*원?)/;
+  var PHONE_TOKEN = /01[016789][-\s]?\d{3,4}[-\s]?\d{4}/;
   var INDUSTRIES = [
     { key: 'nail', label: '네일', re: /네일|손젤|젤네일|패디|손톱|젤\s*제거/ },
     { key: 'lash', label: '속눈썹', re: /속눈썹|래쉬|lash|연장|언더|펌/ },
@@ -293,6 +294,11 @@
   function _formatPrice(v) {
     var fn = _priceTools().formatPrice;
     return typeof fn === 'function' ? fn(v) : _fallbackFormatPrice(v);
+  }
+  function _hasPriceValue(v) {
+    var s = String(v == null ? '' : v);
+    if (PHONE_TOKEN.test(s)) return false;
+    return /(\d+(?:\.\d+)?\s*만\s*원?|\d[\d,]{3,}\s*원?|\d{1,3}\s*천\s*원?)/.test(s);
   }
   function _parseServicePrices(text) {
     var fn = _priceTools().parseServicePrices;
@@ -321,26 +327,33 @@
   function _cleanPriceSegment(raw) {
     var s = String(raw || '').trim();
     s = s.replace(/\s*(으로|로)?\s*(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가)\s*(만들어줘|올려줘|정리해줘|보여줘|작성해줘|해줘|만들|올려|정리|작성).*$/g, '');
-    if (PRICE_TOKEN.test(s)) {
+    if (_hasPriceValue(s)) {
       s = s.replace(/^(가격표|메뉴판)\s+/g, '');
       s = s.replace(/\s*(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격)\s*$/g, '');
     }
     s = s.replace(/^(네일|헤어|피부|속눈썹|왁싱|메이크업)\s+(손님|고객|샵)\s*(이야|이에요|이예요|입니다|야)?\s*/g, '');
     s = s.replace(/\s*(으로|로)\s*$/g, '').trim();
-    if (!PRICE_TOKEN.test(s) && /^(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격)\s*(만들어줘|올려줘|정리해줘|보여줘|작성해줘|해줘|만들|올려|정리|작성)?$/.test(s)) return '';
-    if (!PRICE_TOKEN.test(s) && /^(네일|헤어|피부|속눈썹|왁싱|메이크업)\s*(손님|고객|샵)?\s*(이야|이에요|이예요|입니다|야)?$/.test(s)) return '';
+    if (!_hasPriceValue(s) && /^(가격표|메뉴판|가격\s*안내|가격\s*정리|시술가|가격)\s*(만들어줘|올려줘|정리해줘|보여줘|작성해줘|해줘|만들|올려|정리|작성)?$/.test(s)) return '';
+    if (!_hasPriceValue(s) && /^(네일|헤어|피부|속눈썹|왁싱|메이크업)\s*(손님|고객|샵)?\s*(이야|이에요|이예요|입니다|야)?$/.test(s)) return '';
     return s;
   }
   function _normalizeRows(rows) {
     return (rows || []).map(function (row) {
       var name = String((row && (row.name || row.service_name)) || '').trim();
-      var price = row && row.price ? _formatPrice(row.price) : '';
-      if (!price && PRICE_TOKEN.test(name) && !name.replace(PRICE_TOKEN, '').trim()) name = '';
+      var rawPrice = row && row.price ? String(row.price) : '';
+      var price = _hasPriceValue(rawPrice) ? _formatPrice(rawPrice) : '';
+      if (!price && _hasPriceValue(name) && !name.replace(PRICE_TOKEN, '').trim()) name = '';
       return { name: name, price: price };
     }).filter(function (row) { return row.name; });
   }
   function parsePriceListRequest(text) {
     var raw = String(text || '').trim();
+    if (/예약/.test(raw) && !PRICE_INTENT.test(raw)) {
+      return { matched: false, priceMissing: false, priced: 0, industry: null, rows: [], raw: raw };
+    }
+    if (PHONE_TOKEN.test(raw) && !_hasPriceValue(raw.replace(PHONE_TOKEN, ' '))) {
+      return { matched: false, priceMissing: false, priced: 0, industry: null, rows: [], raw: raw };
+    }
     var cleaned = _splitPriceText(raw).map(_cleanPriceSegment).filter(Boolean).join('\n');
     var rows = _normalizeRows(_parseServicePrices(cleaned));
     var priced = rows.filter(function (row) { return !!row.price; }).length;

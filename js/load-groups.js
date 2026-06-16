@@ -113,11 +113,11 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   assistant: [
   'app-assistant-facts.js?v=20260610-batch4',
   'app-assistant-undo.js?v=20260610-batch4',
-  'assistant-intent-router.js?v=20260616-v496-hotfixF',
+  'assistant-intent-router.js?v=20260616-v497-itbi-full-audit',
   'js/assistant/kind-core.js?v=20260526-v273-assistant-flow-split',
-  'js/assistant/core/booking-context.js?v=20260616-v496-hotfixF',
-  'js/assistant/core/booking-draft.js?v=20260616-v496-hotfixF',
-  'js/assistant/core/customer-add-guard.js?v=20260615-v475-itbi-phase3a',
+  'js/assistant/core/booking-context.js?v=20260616-v497-itbi-full-audit',
+  'js/assistant/core/booking-draft.js?v=20260616-v497-itbi-full-audit',
+  'js/assistant/core/customer-add-guard.js?v=20260616-v497-itbi-full-audit',
   'js/assistant/core/customer-phone-intent.js?v=20260615-v475-itbi-phase3a',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
   'js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split',
@@ -132,7 +132,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/briefing-priority.js?v=20260602-v386-brief-rank',
   'js/assistant/core/daily-briefing.js?v=20260602-v386-brief-rank',
   'js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy',
-  'js/assistant/core/action-hub.js?v=20260615-v476-itbi-phase3b',
+  'js/assistant/core/action-hub.js?v=20260616-v497-itbi-full-audit',
   'js/assistant/core/memory-intent.js?v=20260612-v447c-itbi-fuzz',
   'js/assistant/core/active-card.js?v=20260612-v452-honest-fail',
   'js/assistant/core/unsupported-intent.js?v=20260612-v452-honest-fail',
@@ -159,7 +159,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260612-v451-activecard',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260616-v496-hotfixF',
+  'app-assistant.js?v=20260616-v497-itbi-full-audit',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
