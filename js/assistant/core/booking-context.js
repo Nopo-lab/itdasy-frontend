@@ -72,6 +72,24 @@
     return d.getHours() === hint.h && d.getMinutes() === hint.min;
   }
 
+  // [핫픽스E #3] "새 시간" 전용 추출 — 반드시 "…로/으로" 타깃 위치의 시각만.
+  //   "윤하영 6/17 14시 예약 시간 바꿔" 의 14시(기존 참조)는 새 시간이 아님 → null → "몇 시로?" 질문.
+  //   "내일 3시 예약 4시로 바꿔" 는 3시(참조) 무시하고 4시 채택. 직전 '몇 시로?'(pending) 상태면 바레 시각 허용.
+  function _newTimeHint(q, hasPending) {
+    const t = _trim(q);
+    const m = t.match(/(\d{1,2})\s*:\s*(\d{2})\s*으?로/) || t.match(/(\d{1,2})\s*시\s*(\d{1,2})?\s*분?\s*으?로/);
+    if (m) {
+      let h = parseInt(m[1], 10);
+      const min = m[2] ? parseInt(m[2], 10) : 0;
+      if (/(오후|저녁|밤)/.test(t) && h < 12) h += 12;
+      if (/(오전|아침)/.test(t) && h === 12) h = 0;
+      if (!/(오전|아침|오후|저녁|밤)/.test(t) && h >= 1 && h <= 8) h += 12;
+      return { h, min };
+    }
+    if (hasPending) return _timeHint(t);
+    return null;
+  }
+
   function _nameHint(q) {
     let s = _trim(q).replace(/(오늘|내일|모레|예약|시간|오전|오후|저녁|아침|새벽|점심|밤|취소|삭제|지워|없애|캔슬|복구|되돌려|되돌리|되살|바꿔|바꾸|변경|옮겨|미뤄|당겨|그거|그|응|네|하라고|해줘|해|님)/g, ' ');
     s = s.replace(/\d{1,2}:\d{2}|\d+\s*시\s*(\d+\s*분)?|\d+\s*월\s*\d+\s*일/g, ' ');
@@ -105,6 +123,9 @@
       service_name: p.service_name || b.service_name || '',
       starts_at: p.starts_at || b.starts_at || '',
       ends_at: p.ends_at || b.ends_at || '',
+      // [핫픽스E #4] 복구 재생성 폴백 대비 — 금액/예약금 보존.
+      amount: (p.amount != null ? p.amount : (b.amount != null ? b.amount : null)),
+      deposit: (p.deposit != null ? p.deposit : (b.deposit != null ? b.deposit : null)),
       status: b.status || '',
     };
   }
@@ -226,14 +247,16 @@
   }
 
   async function _rescheduleResult(q, raw) {
-    const time = _timeHint(q);
+    const hasPending = _fresh(S.pendingReschedule) && !!S.pendingReschedule.booking;
+    const time = _newTimeHint(q, hasPending);
     // 시간을 아직 못 받음 → 대상만 정하고 "몇 시로?" 묻기(pendingReschedule 보관).
     if (!time) {
       const picked = await _pickRescheduleTarget(q);
       if (!picked) return { matched: true, kind: 'message', text: '어떤 예약을 바꿀지 못 찾았어요. "내일 3시 예약 4시로 바꿔"처럼 알려주세요.' };
       if (picked.ask) return { matched: true, kind: 'message', text: picked.ask };
       S.pendingReschedule = { ts: Date.now(), booking: picked.booking };
-      return { matched: true, kind: 'message', text: `${_name(picked.booking)}님 ${_fmt(picked.booking)} 예약을 몇 시로 바꿀까요? "4시로"처럼 알려주세요.` };
+      // [핫픽스E #3] 새 시간 없을 때 기존시간 변경확인 금지 — "몇 시로?" 질문 + 예약 요약 카드(고객/시술/일시/예약금/상태) 표시.
+      return { matched: true, kind: 'message', text: `${_name(picked.booking)}님 ${_fmt(picked.booking)} 예약을 몇 시로 바꿀까요? "4시로"처럼 알려주세요.`, booking_cards: [picked.booking] };
     }
     // 시간 있음 — 직전에 대상이 정해졌으면 그걸로, 아니면 발화에서 대상 찾기.
     let target = (_fresh(S.pendingReschedule) && S.pendingReschedule.booking) ? S.pendingReschedule.booking : null;
@@ -281,10 +304,34 @@
     }
     api.registerLocalHandler('restore_booking', async (action) => {
       const p = (action && action.payload) || {};
-      if (!p.booking_id) return { message: '복구할 예약을 찾지 못했어요' };
+      const ctx = (action && action._context_booking) || {};
+      if (!p.booking_id) return { message: '방금 취소한 예약을 찾지 못했어요. 예약관리에서 직접 다시 잡아주세요.' };
       if (!window.Booking || typeof window.Booking.update !== 'function') throw new Error('예약 기능을 불러오지 못했어요');
-      const updated = await window.Booking.update(p.booking_id, { status: 'confirmed' });
-      const b = Object.assign({}, action._context_booking || {}, updated || {});
+      // [핫픽스E #4] restore 전용 endpoint 호출 안 함 — status 만 confirmed 로 되돌림.
+      //   백엔드가 취소를 하드삭제로 처리해 PATCH 가 404(endpoint-missing) 면, 보존한 컨텍스트로 재생성해 실제 복구.
+      let updated;
+      try {
+        updated = await window.Booking.update(p.booking_id, { status: 'confirmed' });
+      } catch (e) {
+        const missing = String((e && e.message) || '') === 'endpoint-missing';
+        if (missing && ctx.starts_at && typeof window.Booking.create === 'function') {
+          const startMs = new Date(ctx.starts_at).getTime();
+          const endsAt = ctx.ends_at || (Number.isFinite(startMs) ? new Date(startMs + 60 * 60 * 1000).toISOString() : null);
+          updated = await window.Booking.create({
+            customer_id: ctx.customer_id || null,
+            customer_name: ctx.customer_name || _name(ctx),
+            service_name: ctx.service_name || null,
+            starts_at: ctx.starts_at,
+            ends_at: endsAt,
+            amount: ctx.amount != null ? ctx.amount : null,
+            deposit: ctx.deposit != null ? ctx.deposit : null,
+          });
+        } else {
+          throw e;
+        }
+      }
+      const b = Object.assign({}, ctx, updated || {});
+      S.lastCancelled = null;
       return { message: `📅 ${_name(b)}님 ${_fmt(b)} 예약 복구했어요`, booking: b };
     });
     api.registerLocalHandler('reschedule_booking', async (action) => {

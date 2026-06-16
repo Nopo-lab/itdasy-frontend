@@ -211,12 +211,38 @@
     }
   }
 
+  // [핫픽스E #2] 예약금을 매출 캘린더/리스트에 "예약일 기준" 의사 매출항목으로 변환.
+  //   총매출 카드는 이미 mergeSummary 로 예약금 delta 를 더하므로, 캘린더 합계도 일치시키려 같은 active 예약 집합에서 생성.
+  //   active(취소/완료/노쇼 제외) + 해당월 + deposit>0 만. method='booking_deposit'.
+  function depositEntries(bookings, opts) {
+    const ym = _resolveYearMonth(opts);
+    const out = [];
+    (Array.isArray(bookings) ? bookings : []).forEach((b) => {
+      if (!_isActive(b) || !_inMonth(b, ym.year, ym.month)) return;
+      const deposit = _num(b && b.deposit);
+      if (deposit <= 0) return;
+      out.push({
+        id: 'bkdep_' + (b.id != null ? b.id : Math.random().toString(36).slice(2)),
+        amount: deposit,
+        method: 'booking_deposit',
+        recorded_at: b.starts_at,
+        created_at: b.starts_at,
+        customer_name: b.customer_name || b.name || '',
+        service_name: b.service_name || '',
+        _booking_deposit: true,
+        _booking_id: b.id != null ? b.id : null,
+      });
+    });
+    return out;
+  }
+
   window.BookingRevenueOverlay = {
     summarizeBookings,
     mergeSummary,
     mergeBrief,
     enrichSummary,
     enrichBrief,
+    depositEntries,
     _monthRange,
   };
 })();

@@ -9,6 +9,7 @@
   const TAG_LABEL = {
     card: '카드', cash: '현금', transfer: '계좌',
     bank_transfer: '계좌', membership: '회원권', etc: '기타',
+    booking_deposit: '예약금',   // [핫픽스E #2] 예약금 의사항목 — '기타' 대신 '예약금'으로 표시
   };
   const METHOD_ORDER = ['card', 'cash', 'transfer', 'membership', 'etc'];
   const DOW = ['일', '월', '화', '수', '목', '금', '토'];

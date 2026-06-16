@@ -1149,7 +1149,9 @@
     if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
     if ('service_name' in p) addField('service_name', '시술', p.service_name);
     if ('amount' in p) addField('amount', '금액', p.amount);
-    if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
+    // [핫픽스E #3] ISO(2026-06-17T05:00:00.000Z) 노출 금지 — datetime-local 피커로 한글 일시 표시.
+    //   저장 시 _coerceFieldValue 가 다시 ISO 로 환원. (input value=로컬, 표시 label=브라우저 로캘)
+    if ('starts_at' in p) addField('starts_at', '시작', _isoToLocalInput(p.starts_at), { type: 'datetime-local' });
     if ('memo' in p) addField('memo', '메모', p.memo);
     if (editFields.length) return;
     editFields.push(`<div style="display:flex;align-items:center;gap:8px;">
@@ -1398,7 +1400,21 @@
 
   // 숫자 필드 강제 변환
   const _NUM_FIELDS = new Set(['amount', 'unit_price', 'quantity', 'total']);
+  // [핫픽스E #3] 일시 필드 — datetime-local input("YYYY-MM-DDTHH:mm", 로컬) ↔ ISO 환원.
+  const _DATETIME_FIELDS = new Set(['starts_at', 'ends_at']);
+  function _isoToLocalInput(v) {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
   function _coerceFieldValue(field, raw) {
+    if (_DATETIME_FIELDS.has(field)) {
+      if (raw === '' || raw == null) return null;
+      const d = new Date(raw);  // 타임존 없는 로컬 문자열 → 로컬로 파싱
+      return isNaN(d.getTime()) ? raw : d.toISOString();
+    }
     if (_NUM_FIELDS.has(field)) {
       if (raw === '' || raw == null) return null;
       const n = parseInt(String(raw).replace(/[^\d]/g, ''), 10);
@@ -3637,6 +3653,8 @@
         text: result.text || '',
         related: Array.isArray(result.related) ? result.related : undefined,
         hub_actions: Array.isArray(result.hub_actions) ? result.hub_actions : undefined,
+        // [핫픽스E #3] 예약 변경 "몇 시로?" 등에서 예약 요약 카드 동반 렌더.
+        booking_cards: Array.isArray(result.booking_cards) ? result.booking_cards : undefined,
       });
     }
     _renderHistory();

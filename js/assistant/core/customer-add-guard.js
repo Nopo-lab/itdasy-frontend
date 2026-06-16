@@ -102,10 +102,51 @@
   function _openExisting(customer) {
     setTimeout(() => {
       try {
-        if (typeof window.openCustomerDashboard === 'function') window.openCustomerDashboard(customer.id);
+        // [핫픽스E #6] 고객 상세는 잇비 채팅 위로 — 잇비 닫고 시트 오픈, 닫을 때 잇비 복귀(action-hub open_customer 와 동일).
+        try { window.__ITDASY_CUSTOMER_RETURN__ = 'itbi_chat'; } catch (_e0) { void 0; }
+        if (typeof window.closeAssistant === 'function') { try { window.closeAssistant(); } catch (_e1) { void 0; } }
+        if (customer && customer.id != null && typeof window.openCustomerDashboard === 'function') window.openCustomerDashboard(customer.id);
         else if (typeof window.openCustomers === 'function') window.openCustomers();
       } catch (_e) { void _e; }
     }, 80);
+  }
+
+  // [핫픽스E #6] "{이름} 고객기록 열어" — 백엔드 LLM 액션(없는 endpoint → endpoint-missing)으로 새지 않게
+  //   로컬에서 기존 고객 상세(openCustomerDashboard)로 직결. 추가/저장 의도는 제외.
+  function _looksOpenRecord(q) {
+    const t = _trim(q);
+    if (/(추가|등록|새로|만들|저장)/.test(t)) return false;
+    const hasRecord = (/(고객|손님)/.test(t) && /기록/.test(t))
+      || /(고객\s*정보|고객\s*상세|고객\s*카드|고객\s*기록부|기록부)/.test(t);
+    if (!hasRecord) return false;
+    return /(열어|열기|보여|봐줘|봐|확인|띄워|펼쳐|오픈|불러)/.test(t);
+  }
+
+  function _extractOpenName(q) {
+    let s = _trim(q).replace(/^잇비\s*/, ' ');
+    s = s.replace(/(고객님|고객|손님|기록부|기록|정보|상세|카드|열어줘|열어|열기|보여줘|보여|봐줘|봐|확인|띄워|펼쳐|오픈|불러|해줘|해|주세요|님)/g, ' ');
+    const words = s.match(/[가-힣]{2,5}/g) || [];
+    const stops = new Set(['잇비', '고객', '손님']);
+    return words.find((w) => !stops.has(w)) || '';
+  }
+
+  async function _openRecordResult(q) {
+    const name = _extractOpenName(q);
+    if (!name) {
+      setTimeout(() => { try { if (typeof window.openCustomers === 'function') window.openCustomers(); } catch (_e) { void _e; } }, 80);
+      return { matched: true, kind: 'message', text: '고객 목록을 열었어요. 보실 고객님 이름을 말씀해 주시면 바로 기록을 띄울게요.' };
+    }
+    let list = [];
+    try { list = await _customers(); } catch (_e) { list = []; }
+    const exact = list.find((c) => _sameName(name, c))
+      || list.find((c) => _trim(c && c.name).includes(name) && name.length >= 2);
+    if (exact) {
+      _openExisting(exact);
+      return { matched: true, kind: 'message', text: `${exact.name || name}님 고객 기록을 열게요.` };
+    }
+    const sims = _similar(name, list);
+    if (sims.length) return _suggestResult(name, sims);
+    return { matched: true, kind: 'message', text: `${name}님을 고객 명단에서 못 찾았어요. 새 고객이면 "${name} 고객 추가"라고 말씀해 주세요.` };
   }
 
   function _followup(q) {
@@ -151,6 +192,10 @@
   async function tryRun(text) {
     const follow = _followup(text);
     if (follow) return follow;
+    if (_looksOpenRecord(text)) {
+      const r = await _openRecordResult(text);
+      if (r) return r;
+    }
     if (!_looksAddCustomer(text)) return null;
     const name = _extractName(text);
     if (!name) return null;

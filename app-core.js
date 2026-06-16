@@ -1931,7 +1931,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260616-v492-hotfixD-booking';
+window.APP_BUILD = '20260616-v493-hotfixE';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -2422,6 +2422,9 @@ window._humanError = function (e) {
     return '입력값을 확인해주세요';
   if (/HTTP\s*404|not.found/i.test(raw))
     return '요청한 데이터를 찾지 못했어요';
+  // [핫픽스E #4·#6] _api 가 404/501 을 'endpoint-missing' 으로 throw — raw 노출(사유: endpoint-missing) 차단.
+  if (/endpoint-missing/i.test(raw))
+    return '아직 준비 중인 기능이에요';
   if (/HTTP\s*409/i.test(raw))
     return '이미 다른 값이 있어요. 잠시 후 다시 시도해주세요';
   if (/HTTP\s*413|too large|exceeded/i.test(raw))

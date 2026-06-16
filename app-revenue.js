@@ -978,7 +978,16 @@
       // 과거 월은 RevenueMonth 가 자체 fetch 한 _viewItems 사용. 이번달은 SWR _items.
       const view = window.RevenueMonth.getView ? window.RevenueMonth.getView() : null;
       const viewItems = window.RevenueMonth.getViewItems ? window.RevenueMonth.getViewItems() : null;
-      const itemsToRender = (view && !view.isCurrent && Array.isArray(viewItems)) ? viewItems : _items;
+      let itemsToRender = (view && !view.isCurrent && Array.isArray(viewItems)) ? viewItems : _items;
+      // [핫픽스E #2] 이번달 한정 — 예약금을 매출 캘린더에 예약일 기준 주입(총매출 카드=예약금 포함과 날짜별 합계 일치).
+      //   concat 으로 새 배열 생성 → _items 원본 불변(재렌더 누적 방지). 과거월은 예약금 거의 완료/0 이라 미주입.
+      if ((!view || view.isCurrent) && window.BookingRevenueOverlay
+          && typeof window.BookingRevenueOverlay.depositEntries === 'function' && window.Booking) {
+        try {
+          const deps = window.BookingRevenueOverlay.depositEntries(window.Booking._items || [], {});
+          if (deps.length) itemsToRender = (itemsToRender || []).concat(deps);
+        } catch (_e) { void _e; }
+      }
       if (_cachedIsPC) window.RevenueMonth.renderPC(target, summary, itemsToRender);
       else window.RevenueMonth.renderMobile(target, summary, itemsToRender);
       return;
