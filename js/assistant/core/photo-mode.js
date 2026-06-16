@@ -270,7 +270,7 @@
   }
 
   function _msgBaRole() {
-    if (S.photos.length < 2) { S.step = 'ba_second'; return { text: '전후 카드엔 사진 2장이 필요해요. **시술 전** 사진 1장 더 보내주세요.' }; }
+    if (S.photos.length < 2) { S.step = 'ba_second'; return { text: '전후 카드엔 사진 2장이 필요해요. 방금 보내주신 게 **시술 전** 사진이면, **시술 후(결과)** 사진 1장 더 보내주세요.' }; }
     S.step = 'ba_role';
     return { text: '전후 카드엔 **전 / 후** 구분이 필요해요. 사진 1이 **시술 전** 맞아요?',
       related: ['네 맞아요', '반대예요 (바꿔줘)'] };
@@ -458,10 +458,8 @@
   function exit() { S = _fresh(); }
 
   // ── [7] 다중 사진 역할/그룹 (photo-session.js 연동, 흐름 연결만) ──
-  var SESSION_KEY = 'itdasy_photo_session';
-  function _persistSession() {
-    try { if (S.session && window.PhotoSession) localStorage.setItem(SESSION_KEY, JSON.stringify(window.PhotoSession.serialize(S.session))); } catch (_e) { void 0; }
-  }
+  //   [핫픽스 #5] active 세션은 메모리에만 유지(새로고침 미복원=MVP). 저장 슬롯은 baked dataUrl+photoSession 으로 영속.
+  //   (이전 _persistSession 은 base64 를 localStorage 에 적재 → 쿼터 초과 위험 + 미사용 → 제거)
   // 세션 역할 → 레거시 S.photos 미러(_baPhoto/_curPhoto 호환 유지). 제외 빼고 before·after·hero·caption 순.
   function _syncPhotosFromSession() {
     var PS = window.PhotoSession; if (!PS || !S.session) return;
@@ -490,9 +488,22 @@
       },
     };
   }
+  // [핫픽스 #2] active 사진 흐름 중 "그냥 알아서/진행/이대로/계속/완료/다 했어" 같은 모호어는 전역 fallback 으로 새지 않게.
+  function _looksVagueContinue(q) {
+    var t = String(q || '').replace(/\s+/g, '');
+    return /^(그냥)?알아서(써줘|해줘|해|써|줘)?$/.test(t)
+      || /^(그냥)?(진행|계속|완료)$/.test(t)
+      || /^(이대로|이걸로|이거로|끝|끝났어|다했어|다했어요|저장했어|저장했어요|만들어줘|만들어|시작)$/.test(t);
+  }
+  // 사용자가 "명확히" 타 도메인을 말하면 기존 라우팅 유지(통과). 모호어만 photo 흐름에 가둔다.
+  function _explicitOtherDomain(q) {
+    var t = String(q || '');
+    return /예약.*(잡|확인|조회|취소|변경|봐|보여|목록)|매출.*(봐|보여|확인|기록|조회|관리|얼마)|고객\s*기록|재고|문자\s*(보내|발송)/.test(t);
+  }
+
   async function setAssetRole(assetId, role) {
     var PS = window.PhotoSession; if (!PS || !S.session) return null;
-    PS.setRole(S.session, assetId, role); _persistSession();
+    PS.setRole(S.session, assetId, role);
     return _msgAssignRole();
   }
   async function proceedFromRoles() {
@@ -525,7 +536,8 @@
       S.photos.push({ url: photoUrls[0], role: null });
       S.workflow = 'ba';
       if (!S.lastTemplateId) S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
-      _assignBaRoles(true);   // 먼저 올린 사진 = 후, 방금 받은 '시술 전' = 전
+      // [핫픽스 #3] 첫 업로드=전, 방금 받은 결과=후 (사용자 기대 순서). swap 금지로 뒤집힘 방지.
+      _assignBaRoles(false);
       _log('ba_second→compose', { photos: S.photos.length });
       return await _composeBaCard();
     }
@@ -556,7 +568,6 @@
       S.session = window.PhotoSession.create();
       window.PhotoSession.addAssets(S.session, photoUrls, 'batch');
       window.PhotoSession.autoAssign(S.session);
-      _persistSession();
       return _msgAssignRole();
     }
     S.customer = await _matchCustomer();
@@ -578,7 +589,15 @@
     var globalMsg = await _handleGlobalText(q);
     if (globalMsg) return globalMsg;
     _remember();
-    return await _handleStepText(q);
+    var stepMsg = await _handleStepText(q);
+    if (stepMsg) return stepMsg;
+    // [핫픽스 #2] active 중 모호 진행어는 전역(예약/고객/매출) fallback 으로 유출 금지 — photo 흐름으로 이어감.
+    //   단, 명시 타 도메인은 통과(null)시켜 기존 라우팅 유지.
+    if (S.active && !_explicitOtherDomain(q) && _looksVagueContinue(q)) {
+      if (S.step === 'assign_role' || (S.session && window.PhotoSession)) return await proceedFromRoles();
+      try { return await _doneForWorkflow(); } catch (_e) { return { text: '사진 작업 계속할게요 🙂 시술 내용을 알려주시면 캡션까지 만들어드려요.' }; }
+    }
+    return null;
   }
 
   function _startFromText(q) {
@@ -604,7 +623,7 @@
       S.workflow = 'ba';
       S.lastTemplateId = _libDefault('before_after') || 'ba-cream';
       S.step = 'ba_second';
-      return { text: '전후 카드엔 사진 2장이 필요해요. **시술 전** 사진 1장 더 보내주세요.' };
+      return { text: '전후 카드엔 사진 2장이 필요해요. 방금 보내주신 게 **시술 전** 사진이면, **시술 후(결과)** 사진 1장 더 보내주세요.' };
     }
     // [Phase3-C #3] 전후 카드가 만들어진 뒤 "전 사진 편집 / 후 사진 편집" → 해당 슬롯만 편집기로.
     if (S.active && S.workflow === 'ba' && S.photos.length >= 2) {
@@ -636,6 +655,11 @@
 
   async function _handleStepText(q) {
     switch (S.step) {
+      case 'assign_role': {  // [핫픽스 #2] 역할칩 단계 — 텍스트가 와도 전역으로 새지 않게 photo 흐름 유지.
+        if (_explicitOtherDomain(q)) return null;   // 명시 예약/고객기록/매출/재고 → 기존 라우팅
+        if (_looksVagueContinue(q) || /(전후|만들|진행|시작)/.test(q)) return await proceedFromRoles();
+        return _msgAssignRole('위 사진들의 칩(전·후·홍보컷·제외)으로 쓸 곳을 고른 뒤 "이대로 진행"을 눌러주세요 🙂');
+      }
       case 'intake':
         if (/^맞아요$/.test(q)) return S.workflow === 'caption' ? _msgCaptionPrompt() : await _msgTemplate(false);
         if (/다른 손님/.test(q)) { S.customer = await _pickCustomer(); return S.workflow === 'caption' ? _msgCaptionPrompt() : await _msgTemplate(false); }

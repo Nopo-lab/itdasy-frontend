@@ -646,29 +646,35 @@
 
   // [7] 다중 사진 역할칩 — 썸네일 + 역할(전/후/홍보컷/캡션용/제외) 칩 + "이대로 진행".
   //   클릭은 data-pm-role / data-pm-proceed → _handlePhotoRoleClick (화면이동 없는 인라인 갱신).
-  const _PM_ROLE_CHIPS = [['before', '전'], ['after', '후'], ['hero', '홍보컷'], ['caption', '캡션용'], ['exclude', '제외']];
-  function _renderPhotoRoles(m, idx) {
-    const pr = m.photo_roles;
-    if (!pr || !Array.isArray(pr.assets) || !pr.assets.length) return '';
+  // [핫픽스 #4] 캡션용 칩 제거 — 전/후/홍보컷/제외만(캡션은 hero/after 자동). [#1] 터치영역 ≥44px.
+  const _PM_ROLE_CHIPS = [['before', '전'], ['after', '후'], ['hero', '홍보컷'], ['exclude', '제외']];
+  // photo_roles 블록 내부(그리드+안내+진행) HTML — 칩 클릭 시 이 블록만 in-place 교체(전체 history 재렌더 X).
+  function _renderPhotoRolesInner(pr, idx) {
     const cards = pr.assets.map((a, i) => {
       const chips = _PM_ROLE_CHIPS.map(([rk, lbl]) => {
         const on = a.role === rk;
-        const st = on ? 'background:#191F28;color:#fff;border:none;' : 'background:#fff;color:#4E5968;border:0.5px solid #E5E8EB;';
-        return `<button type="button" data-pm-role="${idx}:${_esc(a.assetId)}:${rk}" style="padding:5px 9px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;${st}">${lbl}</button>`;
+        const st = on ? 'background:#191F28;color:#fff;border:1px solid #191F28;' : 'background:#fff;color:#4E5968;border:1px solid #E5E8EB;';
+        // [#1] data-pm-asset / data-pm-role 분리, 터치영역 min 44px, 버블/free-text 비유출.
+        return `<button type="button" data-pm-asset="${_esc(a.assetId)}" data-pm-role="${rk}" style="min-height:38px;padding:9px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;${st}">${lbl}</button>`;
       }).join('');
-      return `<div style="border:1px solid #EEF1F4;border-radius:14px;padding:8px;background:#fff;">
+      return `<div style="border:1px solid #EEF1F4;border-radius:14px;padding:10px;background:#fff;">
         <div style="position:relative;">
-          <img src="${_esc(a.url || '')}" alt="사진 ${i + 1}" style="width:100%;height:96px;object-fit:cover;border-radius:10px;display:block;background:#F4ECE4;${a.role === 'exclude' ? 'opacity:.4;' : ''}" />
-          <span style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 7px;">${i + 1}</span>
+          <img src="${_esc(a.url || '')}" alt="사진 ${i + 1}" style="width:100%;height:104px;object-fit:cover;border-radius:10px;display:block;background:#F4ECE4;${a.role === 'exclude' ? 'opacity:.4;' : ''}" />
+          <span style="position:absolute;top:5px;left:5px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;">${i + 1}</span>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${chips}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${chips}</div>
       </div>`;
     }).join('');
     const hint = pr.allExcluded
-      ? '<div style="font-size:12px;color:#BC6675;margin-top:8px;font-weight:600;">쓸 사진이 없어요. 최소 한 장은 역할을 골라주세요.</div>'
-      : (pr.baOk ? '<div style="font-size:12px;color:#16B55E;margin-top:8px;font-weight:600;">전·후 사진이 준비됐어요 — 전후 카드로 만들 수 있어요.</div>' : '');
-    const proceed = `<button type="button" data-pm-proceed="${idx}" style="margin-top:10px;width:100%;padding:11px;border:none;border-radius:12px;background:#191F28;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">이대로 진행</button>`;
-    return `<div data-asst-photo-roles="${idx}" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;">${cards}</div>${hint}${proceed}`;
+      ? '<div style="font-size:12.5px;color:#BC6675;margin-top:10px;font-weight:600;">쓸 사진이 없어요. 최소 한 장은 역할을 골라주세요.</div>'
+      : (pr.baOk ? '<div style="font-size:12.5px;color:#16B55E;margin-top:10px;font-weight:600;">전·후 사진이 준비됐어요 — “이대로 진행”을 누르면 전후 카드를 만들어요.</div>' : '<div style="font-size:12px;color:#8B95A1;margin-top:10px;">전·후 두 장이면 전후 카드, 한 장은 홍보컷으로 만들어요.</div>');
+    const proceed = `<button type="button" data-pm-proceed="${idx}" style="margin-top:12px;width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#191F28;color:#fff;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;">이대로 진행</button>`;
+    return `<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;">${cards}</div>${hint}${proceed}`;
+  }
+  function _renderPhotoRoles(m, idx) {
+    const pr = m.photo_roles;
+    if (!pr || !Array.isArray(pr.assets) || !pr.assets.length) return '';
+    return `<div data-pm-roles-block="${idx}">${_renderPhotoRolesInner(pr, idx)}</div>`;
   }
 
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
@@ -1589,18 +1595,28 @@
     _handleSuggestionClick(e);
   }
 
-  // [7] 다중 사진 역할칩 클릭 — 역할 토글(인라인 갱신) / 진행(다음 단계 push).
+  // [7] 다중 사진 역할칩 클릭 — 역할 토글(블록 in-place 갱신) / 진행(다음 단계 push).
+  //   [핫픽스 #1] data-pm-asset+data-pm-role 분리, 블록만 교체(전체 재렌더 X), free-text 비유출.
+  function _pmReplaceRolesBlock(idx, pr) {
+    const blk = document.querySelector('[data-pm-roles-block="' + idx + '"]');
+    if (blk && pr) { blk.innerHTML = _renderPhotoRolesInner(pr, idx); return true; }
+    return false;
+  }
   function _handlePhotoRoleClick(e) {
-    const roleBtn = e.target && e.target.closest && e.target.closest('[data-pm-role]');
+    const roleBtn = e.target && e.target.closest && e.target.closest('[data-pm-role][data-pm-asset]');
     const proceedBtn = e.target && e.target.closest && e.target.closest('[data-pm-proceed]');
     if (!roleBtn && !proceedBtn) return false;
     const PM = window.ItdasyPhotoMode;
     if (roleBtn) {
-      const parts = (roleBtn.getAttribute('data-pm-role') || '').split(':');
-      const idx = +parts[0], assetId = parts[1], role = parts[2];
+      const block = roleBtn.closest('[data-pm-roles-block]');
+      const idx = block ? +block.getAttribute('data-pm-roles-block') : -1;
+      const assetId = roleBtn.getAttribute('data-pm-asset');
+      const role = roleBtn.getAttribute('data-pm-role');
       if (PM && typeof PM.setAssetRole === 'function') {
         Promise.resolve(PM.setAssetRole(assetId, role)).then((msg) => {
-          if (msg && _history[idx]) { _history[idx].photo_roles = msg.photo_roles; _history[idx].text = msg.text; _renderHistory(); }
+          if (!msg) return;
+          if (idx >= 0 && _history[idx]) { _history[idx].photo_roles = msg.photo_roles; _history[idx].text = msg.text; }
+          if (!_pmReplaceRolesBlock(idx, msg.photo_roles)) _renderHistory();
         }).catch(() => {});
       }
       return true;
@@ -1609,8 +1625,9 @@
     if (PM && typeof PM.proceedFromRoles === 'function') {
       Promise.resolve(PM.proceedFromRoles()).then((msg) => {
         if (!msg) return;
-        if (msg.photo_roles) {   // 검증 실패/안내 → 같은 카드 인라인 갱신
-          if (_history[pidx]) { _history[pidx].photo_roles = msg.photo_roles; _history[pidx].text = msg.text; _renderHistory(); }
+        if (msg.photo_roles) {   // 검증 실패/안내 → 같은 블록 인라인 갱신
+          if (_history[pidx]) { _history[pidx].photo_roles = msg.photo_roles; _history[pidx].text = msg.text; }
+          if (!_pmReplaceRolesBlock(pidx, msg.photo_roles)) _renderHistory();
           return;
         }
         _history.push(Object.assign({ role: 'assistant' }, msg, { local_only: true }));

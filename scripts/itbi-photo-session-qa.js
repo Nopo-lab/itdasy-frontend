@@ -35,11 +35,12 @@ ok('전후 정상 ok', PS.validateBeforeAfter(s).ok===true);
 const ba=PS.photosForBA(s);
 eq('photosForBA before/after url', [ba.before.url, ba.after.url], ['ub','ua']);
 
-// 7) showcase/caption 선택
+// 7) showcase/caption 선택 (캡션 칩 제거 — caption = hero→after→첫사용가능)
 s=PS.autoAssign(PS.addAssets(PS.create(),['u1','u2','u3'],'batch')); // b,a,hero(u3)
 eq('showcase=hero(u3)', PS.photosForShowcase(s).url, 'u3');
-PS.setRole(s,s.assets[2].assetId,'caption');
-eq('caption 지정 우선', PS.photosForCaption(s).url, 'u3');
+eq('caption=hero(u3)', PS.photosForCaption(s).url, 'u3');
+PS.setRole(s,s.assets[2].assetId,'exclude'); // hero 제외 → after(u2)
+eq('caption hero없으면 after(u2)', PS.photosForCaption(s).url, 'u2');
 
 // 8) serialize 중복 최소화 — 같은 dataUrl 1번만 refs
 s=PS.addAssets(PS.create(),['dup','dup','x'],'batch');

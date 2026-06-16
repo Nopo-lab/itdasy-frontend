@@ -81,8 +81,8 @@
   function photosForBA(session) { return { before: _first(session, ROLES.BEFORE), after: _first(session, ROLES.AFTER) }; }
   // 홍보: hero 우선 → 첫 non-exclude
   function photosForShowcase(session) { return _first(session, ROLES.HERO) || _firstUsable(session); }
-  // 캡션: caption → hero → 첫 non-exclude
-  function photosForCaption(session) { return _first(session, ROLES.CAPTION) || _first(session, ROLES.HERO) || _firstUsable(session); }
+  // 캡션: hero → after → 첫 non-exclude (caption 칩 UI 제거됨, enum 은 하위호환 유지).
+  function photosForCaption(session) { return _first(session, ROLES.HERO) || _first(session, ROLES.AFTER) || _firstUsable(session); }
 
   // ── 직렬화(중복 최소화): 같은 dataUrl 은 refs 에 한 번만, assets 는 photoRef 로 참조 ──
   function serialize(session) {
