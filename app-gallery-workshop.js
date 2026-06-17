@@ -120,6 +120,25 @@ async function initWorkshopTab() {
   const root = document.getElementById('workshopRoot');
   if (!root) return;
 
+  // [v501 Phase1] Workspace V2 — 작업실 첫 화면 교체.
+  //   휴면 폴백: window.ITDASY_WORKSPACE_V2 = false 또는 렌더 실패 시 아래 기존 렌더로 복귀.
+  if (window.ITDASY_WORKSPACE_V2 !== false &&
+      window.WorkspaceV2 && typeof window.WorkspaceV2.render === 'function') {
+    try {
+      let slots;
+      try { slots = await loadSlotsFromDB(); }
+      catch (_e) { console.warn('[workshop] V2 슬롯 로드 실패', _e); slots = []; }
+      _slots = slots || [];
+      window.WorkspaceV2.render(root, { slots: _slots });
+      return;
+    } catch (e) {
+      console.warn('[workshop] V2 렌더 실패 — 기존 작업실로 폴백', e);
+      _wsInited = false;                 // 기존 셸 강제 재구성
+      root.removeAttribute('data-ws-shell-bound');
+      root.innerHTML = '';
+    }
+  }
+
   if (!_wsInited) {
     _wsInited = true;
     root.innerHTML = _buildWorkshopHTML();
