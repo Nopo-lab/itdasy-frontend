@@ -81,7 +81,7 @@
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
       <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
-        <div class="hv5-cmsg-av is-unread">${_AVATAR_SVG}${avImg}${_channelMark(it.channel)}</div>
+        <div class="hv5-cmsg-av">${_AVATAR_SVG}${avImg}${_channelMark(it.channel)}</div>
         <div class="hv5-cmsg-id">
           <div class="hv5-cmsg-nm">${_esc(name)}</div>
           <div class="hv5-cmsg-tm">${_esc(_relTime(it.received_at))}</div>
