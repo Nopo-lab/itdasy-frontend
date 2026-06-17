@@ -181,3 +181,12 @@
     width:min(560px,90%); border-radius:24px; bottom:24px; }
   .wsv2-drawer.is-open .wsv2-drawer__card { transform:translate(-50%,0); }
 }
+
+/* [v505] 작업실 탭일 때만 글로벌 헤더/하단 네비를 프로토타입 따뜻한 톤으로 (다른 탭 영향 없음) */
+body.ws-tab .app-header { background:rgba(251,244,236,.97); border-bottom-color:#eadfd6; }
+body.ws-tab #appVersionBadge { color:#c9b8ad; }
+body.ws-tab #tab-workshop { background:#fbf4ec; }
+body.ws-tab .tab-bar { background:#fffaf7; border-color:#f1e6df; }
+body.ws-tab .tab-bar__btn { color:#9a8d86; }
+body.ws-tab .tab-bar__btn.active { color:var(--ws-pink,#de4f6f); }
+
