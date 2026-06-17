@@ -19,8 +19,9 @@
 .wsv2flow__title { text-align: center; font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
 .wsv2flow__step { justify-self: end; font-size: 13px; font-weight: 800; color: var(--text-subtle); }
 .wsv2flow__progress { flex: none; display: flex; gap: 6px; padding: 6px 18px 12px; }
-.wsv2flow__progress .seg { flex: 1; height: 4px; border-radius: var(--r-pill); background: var(--border); transition: .3s; }
-.wsv2flow__progress .seg.done { background: var(--brand-strong); }
+/* .pg-seg — 진행 막대 (progress용). .seg는 caption 세그탭용이라 별도 클래스로 분리 */
+.wsv2flow__progress .pg-seg { flex: 1; height: 4px; border-radius: var(--r-pill); background: var(--border); transition: .3s; }
+.wsv2flow__progress .pg-seg.done { background: var(--brand-strong); }
 
 /* 화면 전환 */
 .wsv2flow__screens { position: relative; flex: 1 1 auto; overflow: hidden; }

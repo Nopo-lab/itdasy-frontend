@@ -64,7 +64,7 @@
         '<div class="wsv2flow__title" data-fl-title>사진 업로드</div>' +
         '<span class="wsv2flow__step" data-fl-step></span>' +
       '</div>' +
-      '<div class="wsv2flow__progress">' + '<i class="seg"></i><i class="seg"></i><i class="seg"></i><i class="seg"></i><i class="seg"></i>' + '</div>' +
+      '<div class="wsv2flow__progress">' + '<i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i>' + '</div>' +
       '<div class="wsv2flow__screens">' +
         '<section class="wsv2flow__s" data-fs="upload"></section>' +
         '<section class="wsv2flow__s" data-fs="edit"></section>' +
@@ -300,7 +300,7 @@
     });
     el.querySelector('[data-fl-title]').textContent = TITLE[name];
     el.querySelector('[data-fl-step]').textContent = (to + 1) + ' / ' + SCREENS.length;
-    el.querySelectorAll('.wsv2flow__progress .seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= to); });
+    el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= to); });
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
