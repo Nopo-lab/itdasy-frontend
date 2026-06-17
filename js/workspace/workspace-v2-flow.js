@@ -19,6 +19,8 @@
   };
   // 카테고리/목적별 추천 크롭 비율
   var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', price: 'free' };
+  // tplPurpose → workspaceContext.type (시술자랑 feed → promo)
+  var TYPE_MAP = { before_after: 'before_after', feed: 'promo', review: 'review', event: 'event', price: 'price' };
   var d = null;       // draft state
   var el = null;      // flow root
   var cur = 'upload';
@@ -207,6 +209,7 @@
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'connect') loadRecent();
+    if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
 
   // 최근 고객 실데이터 lazy 로드 (Customer.list). 데모 데이터 없음.
@@ -227,6 +230,8 @@
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('캡션 모듈을 불러오지 못했어요'); return; }
     d.capLoading = true; setScreen('caption');
     var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, mode: d.captionMode || 'normal' }, extra || {});
+    d.capLen = opts.length_tier || d.capLen || 'medium';
+    d.capTone = opts.tone_override || d.capTone || 'normal';
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
       if (r.ok) { d.caption = r.caption; d.hashtags = (r.hashtags || []).slice(); d.logId = r.log_id || null; if (label) toast(label); }
@@ -252,8 +257,8 @@
       if (a === 'sharepreview') { toast('피드·스토리 비율과 캡션 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       if (a === 'publish') { return publish(); }
-      if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); return; }
-      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(photoUrl(curPhoto()), d.service || 'itdasy'); return; }
+      if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
+      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(photoUrl(curPhoto()), d.service || 'itdasy'); _markPrepared(); return; }
       if (a === 'igconnect') { window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram(); return; }
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
@@ -340,13 +345,28 @@
 
   function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
+    var now = Date.now();
     slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
-    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null }; });
+    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, updatedAt: now }; });
     slot.caption = d.caption || '';
     slot.hashtags = d.hashtags.join(' ');
     slot.customer_id = d.customerId || null;
     slot.customer_name = d.customerName || '';
     slot.status = 'done';
+    // [Phase 4A] additive — 기존 필드 보존하며 컨텍스트/캡션메타/게시상태 보강
+    slot.workspaceContext = Object.assign({}, slot.workspaceContext, {
+      type: TYPE_MAP[d.tplPurpose] || 'promo',
+      expectedPhotos: d.tplPurpose === 'before_after' ? 2 : 1,
+      defaultRatio: CROP_RATIO[d.tplPurpose] || '4:5',
+      templatePurpose: d.tplPurpose || 'feed',
+      captionMode: d.captionMode || 'normal',
+      createdFrom: 'workspace_v2',
+    });
+    slot.captionMeta = {
+      mode: d.captionMode || 'normal', length_tier: d.capLen || 'medium', tone_override: d.capTone || 'normal',
+      generatedAt: d.caption ? ((slot.captionMeta && slot.captionMeta.generatedAt) || now) : null, log_id: d.logId || null,
+    };
+    slot.publish = Object.assign({ status: 'draft', instagramPreparedAt: null, publishedAt: null }, slot.publish, d.publish || {});
     return slot;
   }
 
@@ -362,6 +382,12 @@
     } else { done(); }
   }
 
+  // 업로드 준비 상태 반영 (미연결: 복사/저장 시) — slot.publish.status = upload_ready
+  function _markPrepared() {
+    if (!d.publish) d.publish = { status: 'draft', instagramPreparedAt: null, publishedAt: null };
+    d.publish.status = 'upload_ready'; d.publish.instagramPreparedAt = Date.now();
+  }
+
   // 실제 인스타 업로드(연결+확인 시에만). 미연결이면 noop(버튼 자체가 준비/연결로 표시됨).
   function publish() {
     if (!window.WorkspaceAdapter) return;
@@ -369,7 +395,7 @@
     syncCaptionFromDom();
     if (typeof window.confirm === 'function' && !window.confirm('인스타그램에 지금 올릴까요?')) return;
     window.WorkspaceAdapter.publishInstagram(buildSlot()).then(function (r) {
-      if (r.ok) toast('인스타그램에 올렸어요');
+      if (r.ok) { if (!d.publish) d.publish = {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now(); toast('인스타그램에 올렸어요'); }
       else if (r.reason === 'not_connected') toast('인스타 연결이 필요해요');
       else toast('업로드에 실패했어요 — 잠시 후 다시');
     });
@@ -390,18 +416,26 @@
     opts = opts || {};
     ensureEl();
     var slot = opts.slot || null;
+    var wc = (slot && slot.workspaceContext) || null;       // [Phase 4] 복원 컨텍스트 우선
     var ctx = CAT_CTX[opts.cat] || {};
+    var purpose = (wc && wc.templatePurpose) || ctx.purpose || 'feed';
+    var capMode = (wc && wc.captionMode) || ctx.captionMode || 'normal';
+    var cm = (slot && slot.captionMeta) || {};
+    var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
     d = {
       slot: slot,
       photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null }; }) : [],
-      baMode: ctx.purpose ? ctx.purpose === 'before_after' : true,
-      filter: 60, template: null, tplCat: ctx.tplLabel || null,
-      tplPurpose: ctx.purpose || 'feed', captionMode: ctx.captionMode || 'normal', defaultRole: ctx.role || 'hero',
+      baMode: purpose === 'before_after',
+      filter: 60, template: null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
+      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [],
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
-      recent: [], recentLoaded: false, capLoading: false
+      capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
+      publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
+      recent: [], recentLoaded: false, capLoading: false,
     };
-    if (d.photos.length) reassignRoles();
+    // 신규 업로드/역할 없음일 때만 자동 역할 지정 — 복원 슬롯의 role 은 보존
+    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
     setScreen(opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload');
   }

@@ -1,75 +1,70 @@
 /* Workspace V2 — 콘텐츠 상태 모델 + 다음 추천 작업 (순수 함수)
-   의존: 없음 (slot 데이터 구조만 읽음).
-   slot 형태: { id, label, photos:[{dataUrl,editedDataUrl,...}], caption, hashtags,
-               customer_id, customer_name, status, wsStatus?, ... }
-   주의: 여기서 slot 을 변경하지 않는다(읽기 전용). 저장은 app-gallery-db 가 담당. */
+   의존: 없음 (slot 데이터 구조만 읽음, 변경하지 않음).
+   slot(보강): { id, label, photos:[{dataUrl,editedDataUrl,cropMeta,role,...}], caption, hashtags,
+     customer_id, customer_name, status, workspaceContext:{type,...}, publish:{status}, ... } */
 (function () {
   'use strict';
 
-  // 콘텐츠 상태 (Phase 1: 산출만, 전이 고도화는 Phase 4)
   var STATUS = {
-    UPLOAD_PENDING: 'upload_pending', // 사진만 없거나 비어 있음
-    NEEDS_EDIT:     'needs_edit',     // 사진 있음, 아직 보정/캡션 전
-    NEEDS_CAPTION:  'needs_caption',  // 보정됨, 캡션 없음
-    NEEDS_CUSTOMER: 'needs_customer', // 캡션 있음, 고객 미연결
-    READY:          'ready',          // 캡션+고객(또는 연결 스킵) → 게시 준비
-    PUBLISHED:      'published',       // 게시 완료
+    UPLOAD_PENDING: 'upload_pending',
+    NEEDS_CROP:     'needs_crop',     // 사진 있음, 아직 편집(크롭/보정) 전
+    NEEDS_EDIT:     'needs_edit',     // (호환용 — 현재 needs_crop 로 통합)
+    NEEDS_CAPTION:  'needs_caption',
+    NEEDS_CUSTOMER: 'needs_customer',
+    READY:          'ready',          // 게시 준비
+    PUBLISHED:      'published',
   };
 
-  // 상태별 표시 메타 (배지 텍스트 + 색 클래스 — workspace-v2.css 와 매핑)
   var META = {
-    upload_pending: { label: '업로드 대기', tone: 'gray',  group: 'progress' },
-    needs_edit:     { label: '보정 필요',   tone: 'pink',  group: 'progress' },
-    needs_caption:  { label: '캡션 필요',   tone: 'pink',  group: 'progress' },
-    needs_customer: { label: '고객 연결',   tone: 'blue',  group: 'progress' },
-    ready:          { label: '게시 준비',   tone: 'amber', group: 'ready'    },
-    published:      { label: '게시 완료',   tone: 'green', group: 'done'     },
-  };
-
-  // 다음 추천 작업 (상태 → {key, label}); key 는 Phase 2 어댑터 라우팅에 사용
-  var NEXT = {
-    upload_pending: { key: 'upload',   label: '사진 추가' },
-    needs_edit:     { key: 'edit',     label: '보정 / 템플릿' },
-    needs_caption:  { key: 'caption',  label: '캡션 생성' },
-    needs_customer: { key: 'customer', label: '고객 연결' },
-    ready:          { key: 'publish',  label: '게시 준비' },
-    published:      { key: 'done',     label: '완료' },
+    upload_pending: { label: '업로드 대기', tone: 'gray',  group: 'pending' },
+    needs_crop:     { label: '편집 필요',   tone: 'pink',  group: 'pending' },
+    needs_edit:     { label: '편집 필요',   tone: 'pink',  group: 'pending' },
+    needs_caption:  { label: '캡션 필요',   tone: 'pink',  group: 'edited'  },
+    needs_customer: { label: '고객 연결',   tone: 'blue',  group: 'edited'  },
+    ready:          { label: '게시 준비',   tone: 'amber', group: 'ready'   },
+    published:      { label: '게시 완료',   tone: 'green', group: 'done'    },
   };
 
   function _hasText(v) { return !!(v && String(v).trim()); }
+  function _isPublished(slot) { return slot.status === 'published' || slot.instagramPublished || (slot.publish && slot.publish.status === 'published'); }
+  function _type(slot) { return slot.workspaceContext && slot.workspaceContext.type; }
+  function _hasEdit(photos) { return photos.some(function (p) { return p && (_hasText(p.editedDataUrl) || p.cropMeta); }); }
 
   function deriveStatus(slot) {
     if (!slot) return STATUS.UPLOAD_PENDING;
-    // 명시적 게시 완료 우선 (기존 스키마: status==='published' / instagramPublished)
-    if (slot.status === 'published' || slot.instagramPublished) return STATUS.PUBLISHED;
-    // 수동 override 존중 (Phase 4 에서 사용)
+    if (_isPublished(slot)) return STATUS.PUBLISHED;
     if (slot.wsStatus && META[slot.wsStatus]) return slot.wsStatus;
-
     var photos = slot.photos || [];
     if (!photos.length) return STATUS.UPLOAD_PENDING;
-
-    var anyEdited  = photos.some(function (p) { return p && _hasText(p.editedDataUrl); });
-    var hasCaption = _hasText(slot.caption);
-    var hasCustomer = !!slot.customer_id;
-
-    if (!anyEdited && !hasCaption) return STATUS.NEEDS_EDIT;
-    if (!hasCaption)               return STATUS.NEEDS_CAPTION;
-    if (!hasCustomer)              return STATUS.NEEDS_CUSTOMER;
+    if (!_hasEdit(photos)) return STATUS.NEEDS_CROP;
+    if (!_hasText(slot.caption)) return STATUS.NEEDS_CAPTION;
+    if (!slot.customer_id && _type(slot) !== 'price') return STATUS.NEEDS_CUSTOMER;
     return STATUS.READY;
   }
 
-  function statusMeta(status) {
-    return META[status] || META.upload_pending;
-  }
+  function statusMeta(status) { return META[status] || META.upload_pending; }
 
+  // 다음 추천 작업 — 실제 상태 + 콘텐츠 타입 반영 (Phase 4B). key 는 flow 화면 라우팅.
   function nextAction(slot) {
-    return NEXT[deriveStatus(slot)] || NEXT.upload_pending;
+    var photos = (slot && slot.photos) || [];
+    if (!photos.length) return { key: 'upload', label: '사진 추가' };
+    if (_isPublished(slot)) return { key: 'done', label: '완료' };
+
+    if (_type(slot) === 'before_after') {
+      if (photos.length < 2) return { key: 'upload', label: '사진 2장 필요' };
+      var hasB = photos.some(function (p) { return p.role === 'before'; });
+      var hasA = photos.some(function (p) { return p.role === 'after'; });
+      if (!hasB || !hasA) return { key: 'edit', label: '전/후 역할 확인' };
+    }
+    if (!_hasEdit(photos)) return { key: 'crop', label: '비율 자르기' };
+    if (!_hasText(slot.caption)) return { key: 'caption', label: '캡션 생성' };
+    var pub = slot.publish && slot.publish.status;
+    if (pub !== 'preview_ready' && pub !== 'upload_ready') return { key: 'preview', label: '인스타 미리보기' };
+    if (!slot.customer_id && _type(slot) !== 'price') return { key: 'customer', label: '고객 연결' };
+    return { key: 'done', label: '완료' };
   }
 
-  // 코어스 필터 그룹 (V2 홈 상단 탭): all / progress / ready / done
-  function filterGroup(slot) {
-    return statusMeta(deriveStatus(slot)).group;
-  }
+  function filterGroup(slot) { return statusMeta(deriveStatus(slot)).group; }
 
   window.WorkspaceState = {
     STATUS: STATUS,

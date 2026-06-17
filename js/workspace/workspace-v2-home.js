@@ -12,8 +12,8 @@
   'use strict';
 
   var ST = function () { return window.WorkspaceState; };
-  var _filter = 'pending';    // pending | edited | ready | done (프로토타입 4버킷)
-  var TABS = [{ key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
+  var _filter = 'all';        // all | pending | edited | ready | done ([Phase 4] 전체 기본 — 저장 카드 항상 보이게)
+  var TABS = [{ key:'all', label:'전체' }, { key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
   var _lastRoot = null;
   var _slotsCache = [];
   var _drawerSlotId = null;
@@ -109,7 +109,7 @@
   }
 
   function _tabsHTML(slots) {
-    var g = { pending: 0, edited: 0, ready: 0, done: 0 };
+    var g = { all: slots.length, pending: 0, edited: 0, ready: 0, done: 0 };
     slots.forEach(function (s) { g[_bucket(s)]++; });
     return '<div class="wsv2-tabs" role="tablist">' + TABS.map(function (t) {
       return '<button type="button" class="wsv2-tab' + (_filter === t.key ? ' is-active' : '') +
@@ -119,7 +119,7 @@
   }
 
   function _shellHTML(slots) {
-    var visible = slots.filter(function (s) { return _bucket(s) === _filter; });
+    var visible = _filter === 'all' ? slots : slots.filter(function (s) { return _bucket(s) === _filter; });
     var list = visible.length
       ? '<div class="wsv2-list">' + visible.map(_cardHTML).join('') + '</div>'
       : '<div class="wsv2-empty-list"><i class="ph-duotone ph-folder-open" aria-hidden="true"></i>' +
