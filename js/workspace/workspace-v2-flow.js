@@ -61,7 +61,7 @@
   function shell() {
     return '' +
       '<div class="wsv2flow__bar">' +
-        '<button type="button" class="wsv2flow__back" data-fl="back" aria-label="뒤로"><i class="ph-duotone ph-caret-left"></i></button>' +
+        '<button type="button" class="wsv2flow__back" data-fl="back" aria-label="뒤로"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button>' +
         '<div class="wsv2flow__title" data-fl-title>사진 업로드</div>' +
         '<span class="wsv2flow__step" data-fl-step></span>' +
       '</div>' +
@@ -101,8 +101,21 @@
       '</div>';
   }
 
-  // 정밀 조정 탭 = 기본을 뺀 나머지(피부/머릿결/배경/고급). 기본 보정은 항상 노출.
-  function _precTabs() { return EDIT_TABS.filter(function (t) { return t.k !== 'basic'; }); }
+  // 정밀 조정 탭 = 기본·배경 뺀 나머지(피부/머릿결/고급). 기본 보정은 항상 노출, 배경은 자체 펼치기.
+  function _precTabs() { return EDIT_TABS.filter(function (t) { return t.k !== 'basic' && t.k !== 'background'; }); }
+  function _bgPanelHtml() {
+    var bgcur = d.bgAction || '';
+    var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
+    return '<div class="ed-bg">' +
+        '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
+        '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
+        '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
+        '<div class="ed-bg__colors">' + bgColors.map(function (c) {
+          return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
+        }).join('') + '</div>' +
+        '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
+      '</div>';
+  }
   function _ctrlSlider(ctrls, activeKey, toolAttr) {
     var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
     var actObj = ctrls.filter(function (c) { return c.k === active; })[0];
@@ -130,35 +143,29 @@
         '<div class="eb" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>초기화</div>' +
       '</div>';
 
-    // ── 정밀 조정(펼치기): 피부/머릿결/배경/고급 ──
+    // 펼치기 화살표 — 앱 표준 스프라이트(#ic-chevron-*)
+    function caret(open) { return '<svg class="ed-fold__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-' + (open ? 'up' : 'down') + '"/></svg>'; }
+
+    // ── 배경(펼치기): 누끼/배경색 — 헤드라인 기능이라 정밀과 분리, 위로 ──
+    var bgFold =
+      '<button type="button" class="ed-fold' + (d.bgOpen ? ' open' : '') + '" data-fl-fold="bg"><span>배경 <em>누끼·배경색</em></span>' + caret(d.bgOpen) + '</button>' +
+      (d.bgOpen ? '<div class="ed-panel">' + _bgPanelHtml() + '</div>' : '');
+
+    // ── 정밀 조정(펼치기): 피부/머릿결(준비중)/고급 — 기본 슬라이더 중복 없음 ──
     var prec = _precTabs();
     var ptab = d.editTab && prec.some(function (t) { return t.k === d.editTab; }) ? d.editTab : prec[0].k;
     var ptabObj = prec.filter(function (t) { return t.k === ptab; })[0];
     var precBody = '';
     if (d.advOpen) {
       var inner = '';
-      if (ptabObj.controls.length) {
-        inner = (ptabObj.note ? '<div class="ed-note"><i class="ph-duotone ph-info"></i>' + esc(ptabObj.note) + '</div>' : '') +
-          _ctrlSlider(ptabObj.controls, d.control, 'data-fl-edtool');
-      } else if (ptab === 'background') {
-        var bgcur = d.bgAction || '';
-        var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
-        inner =
-          '<div class="ed-bg">' +
-            '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
-            '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
-            '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
-            '<div class="ed-bg__colors">' + bgColors.map(function (c) {
-              return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
-            }).join('') + '</div>' +
-            '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
-          '</div>';
-      } else { // advanced
+      if (ptab === 'advanced') {
         inner =
           '<div class="ed-adv">' +
             '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1·4:5·9:16·자유)</button>' +
             '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
           '</div>';
+      } else { // 피부/머릿결: 기본 보정과 중복되는 슬라이더 빼고 준비중 안내만
+        inner = '<div class="ed-adv"><div class="ed-note"><i class="ph-duotone ph-info"></i>' + esc(ptabObj.note || '다음 업데이트에서 제공돼요.') + '</div></div>';
       }
       var precTabsHtml = '<div class="ed-tabs">' + prec.map(function (t) {
         return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
@@ -166,26 +173,28 @@
       precBody = '<div class="ed-panel">' + precTabsHtml + inner + '</div>';
     }
     var advFold =
-      '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·머릿결·배경·고급</em></span><i class="ph-duotone ph-caret-' + (d.advOpen ? 'up' : 'down') + '"></i></button>' + precBody;
+      '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·머릿결·고급</em></span>' + caret(d.advOpen) + '</button>' + precBody;
 
     // ── 템플릿(펼치기) ──
     var tplBody = '';
     if (d.tplOpen) {
       var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트'];
-      tplBody =
+      tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
         '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
         '<div class="tpl-grid2">' + ['Clean Beige', 'Lash Anew', 'Glow White', 'Event Soft', 'Salon Warm', 'Before After'].map(function (n, i) {
           return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '></div>';
         }).join('') + '</div>' +
-        (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '');
+        (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '') +
+      '</div></div>';
     }
     var tplFold =
-      '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>템플릿 <em>' + (d.template ? esc(d.template) : '꾸미기') + '</em></span><i class="ph-duotone ph-caret-' + (d.tplOpen ? 'up' : 'down') + '"></i></button>' + tplBody;
+      '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>템플릿 <em>' + (d.template ? esc(d.template) : '꾸미기') + '</em></span>' + caret(d.tplOpen) + '</button>' + tplBody;
 
     return '' +
       '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
       basicHtml +
       bottomHtml +
+      bgFold +
       advFold +
       tplFold;
   }
@@ -400,7 +409,7 @@
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
-      var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'adv') d.advOpen = !d.advOpen; else if (fk === 'tpl') d.tplOpen = !d.tplOpen; setScreen('edit'); return; }
+      var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') d.bgOpen = !d.bgOpen; else if (fk === 'adv') d.advOpen = !d.advOpen; else if (fk === 'tpl') d.tplOpen = !d.tplOpen; setScreen('edit'); return; }
       var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); setScreen('edit'); return; }
       var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
       var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
@@ -707,7 +716,7 @@
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
-      editTab: 'skin', control: null, basicTool: null, advOpen: false, tplOpen: false, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
+      editTab: 'skin', control: null, basicTool: null, bgOpen: false, advOpen: false, tplOpen: false, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
       captionAxes: null, captionTemplate: '',
     };
     if (d.photos.length && !hadRoles) reassignRoles();

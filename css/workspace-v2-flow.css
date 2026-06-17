@@ -82,10 +82,14 @@
 /* 펼치기 토글(정밀 조정 / 템플릿) */
 .wsv2flow .ed-fold { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 50px; padding: 0 16px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); font-size: 13.5px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-sm); }
 .wsv2flow .ed-fold em { font-style: normal; font-weight: 600; font-size: 11.5px; color: var(--text-subtle); margin-left: 6px; }
-.wsv2flow .ed-fold i { font-size: 18px; color: var(--text-muted); }
+.wsv2flow .ed-fold__caret { width: 18px; height: 18px; stroke: var(--text-muted); flex: none; }
 .wsv2flow .ed-fold.open { border-color: var(--brand); color: var(--brand-strong); border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
-.wsv2flow .ed-fold.open i { color: var(--brand-strong); }
+.wsv2flow .ed-fold.open .ed-fold__caret { stroke: var(--brand-strong); }
 .wsv2flow .ed-fold.open + .ed-panel { border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; }
+/* 펼친 본문 여백(템플릿 등 토글이 카드에 딱 붙지 않게) */
+.wsv2flow .ed-foldbody { padding: 14px; }
+.wsv2flow .ed-foldbody .tpl-chips { margin-bottom: 12px; }
+.wsv2flow .ed-foldbody .tpl-grid2 { margin-bottom: 0; }
 .wsv2flow .ed-tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border); }
 .wsv2flow .ed-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 66px; color: var(--text-muted); font-size: 11.5px; font-weight: 800; cursor: pointer; position: relative; }
 .wsv2flow .ed-tab i { font-size: 22px; }
