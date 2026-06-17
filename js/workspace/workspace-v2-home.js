@@ -18,7 +18,7 @@
   var _slotsCache = [];
   var _drawerSlotId = null;
   var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
-  var ACT2SCREEN = { '사진 편집':'edit', '템플릿':'edit', '캡션 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
+  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '템플릿':'edit', '캡션 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
   var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
 
   var CATS = [
@@ -157,7 +157,11 @@
   function _bind(root) {
     root.onclick = function (e) {
       var catBtn = e.target.closest('[data-wsv2-cat]');
-      if (catBtn) { _launchFlow(null, 'upload', catBtn.getAttribute('data-wsv2-cat')); return; }
+      if (catBtn) {
+        var ck = catBtn.getAttribute('data-wsv2-cat');
+        if (ck === 'price') { if (window.WorkspaceAdapter) window.WorkspaceAdapter.openPriceList(); else _toast('가격표 기능을 불러오지 못했어요'); return; }
+        _launchFlow(null, 'upload', ck); return;
+      }
       if (e.target.closest('[data-wsv2-upload]')) { _launchFlow(null, 'upload', null); return; }
       var tab = e.target.closest('[data-wsv2-filter]');
       if (tab) { _filter = tab.getAttribute('data-wsv2-filter'); render(_lastRoot, { slots: _slotsCache }); return; }
@@ -213,6 +217,7 @@
     var img = _thumb(slot);
     var acts = [
       { ic: 'ph-magic-wand',        label: '사진 편집' },
+      { ic: 'ph-scissors',          label: '누끼/배경' },
       { ic: 'ph-layout',            label: '템플릿' },
       { ic: 'ph-pencil-line',       label: '캡션 생성' },
       { ic: 'ph-instagram-logo',    label: '인스타 미리보기' },

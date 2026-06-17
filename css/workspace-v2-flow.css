@@ -183,6 +183,13 @@
 .wsv2flow .lk-btn { height:40px; border-radius:12px; border:1px solid #efe0db; background:#fff; font-size:12px; font-weight:800; color:#2a2221; cursor:pointer; }
 .wsv2flow .lk-btn.pink { background:#fff1f4; border-color:#f4ccd4; color:#df5270; }
 
+/* 인스타 업로드 준비(미연결 게이트) */
+.wsv2flow .wsflow-prep { margin-top:12px; }
+.wsv2flow .wsflow-prep__note { font-size:11.5px; color:#8c807a; margin-bottom:10px; text-align:center; line-height:1.5; }
+.wsv2flow .wsflow-prep__row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.wsv2flow .wsflow-prep__row button { height:46px; border:1px solid #efe0db; border-radius:12px; background:#fff; color:#5f534d; font-size:12px; font-weight:800; cursor:pointer; }
+.wsv2flow .wsflow-prep__row button.pink { background:#fff1f4; border-color:#f4ccd4; color:#df5270; }
+
 /* PC (≥768px): 고정 사이드바(232px) 가림 방지 — 풀스크린 오버레이 왼쪽 오프셋 필수 */
 @media (width >= 768px) {
   .wsv2flow { left:232px; }

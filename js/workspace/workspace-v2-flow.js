@@ -9,8 +9,14 @@
   var SCREENS = ['upload', 'edit', 'caption', 'preview', 'connect'];
   var TITLE = { upload:'사진 업로드', edit:'편집 및 템플릿', caption:'캡션 생성', preview:'인스타 미리보기', connect:'고객 연결' };
   var CTA = { upload:{l:'다음',to:'edit'}, edit:{l:'저장하고 캡션 생성',to:'caption'}, preview:{l:'고객 연결로 이동',to:'connect'}, connect:{l:'작업실에 저장',to:'__save'} };
-  var TONES = ['감성적','전문적','친근한'];
   var HASHES = ['#레이어드컷','#뷰티샵콘텐츠','#전후사진','#여신머리','#헤어스타그램','#오늘의헤어'];
+  // 카테고리 컨텍스트 (전후/시술자랑/후기/이벤트). 가격표는 홈에서 openPriceList 로 분리.
+  var CAT_CTX = {
+    ba:     { purpose: 'before_after', captionMode: 'normal', role: 'auto', tplLabel: '전후' },
+    flex:   { purpose: 'feed',         captionMode: 'normal', role: 'hero', tplLabel: '시술 자랑' },
+    review: { purpose: 'review',       captionMode: 'review', role: 'hero', tplLabel: '고객 후기' },
+    event:  { purpose: 'event',        captionMode: 'normal', role: 'hero', tplLabel: '이벤트' }
+  };
   // 최근 고객 데모(디자인 단계 플레이스홀더) — 실제 고객 데이터 연결은 기능 단계에서.
   var DEMO_RECENT = [
     { id:'demo1', n:'김연수', p:'010-1234-5678 · 레이어드컷 18회' },
@@ -104,22 +110,27 @@
 
   function renderCaption() {
     var url = photoUrl(curPhoto());
-    var hashHtml = HASHES.map(function (h) { return '<button class="hash-chip' + (d.hashtags.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>'; }).join('');
-    var toneHtml = TONES.map(function (t) { return '<button class="chip' + (d.tone === t ? ' active' : '') + '" data-fl-tone="' + esc(t) + '">' + esc(t) + '</button>'; }).join('');
+    var hashHtml = (d.hashtags.length ? d.hashtags : HASHES).map(function (h) { return '<button class="hash-chip' + (d.hashtags.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>'; }).join('');
+    var vars = [{ k: 'long', l: '더 길게' }, { k: 'review', l: '후기체' }, { k: 'instagram', l: '인스타스럽게' }];
+    var varHtml = vars.map(function (v) { return '<button class="chip" data-fl-var="' + v.k + '">' + esc(v.l) + '</button>'; }).join('');
+    var body = d.capLoading ? 'AI 가 캡션을 쓰는 중…' : (d.caption || '아직 캡션이 없어요. 시술 내역을 입력하고 “AI 캡션 생성”을 눌러주세요.');
+    var hasCap = !!d.caption;
     return '' +
       '<div class="seg"><button class="seg-btn on" data-fl-seg="rec">추천 캡션</button><button class="seg-btn" data-fl-seg="write">직접 작성</button></div>' +
       '<input class="service-input" data-fl-service value="' + esc(d.service) + '" placeholder="시술 내역 (예: 레이어드컷, 자연스러운 볼륨)">' +
       '<div class="cap-card">' +
         '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><i class="ph-duotone ph-tag"></i><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' +
-        '<div class="cap-text"><p data-fl-capbody>' + esc(d.caption || '') + '</p>' +
+        '<div class="cap-text"><p data-fl-capbody' + (hasCap && !d.capLoading ? '' : ' style="color:#9a8d86"') + '>' + esc(body) + '</p>' +
           '<div class="cap-hash" data-fl-caphash>' + esc(d.hashtags.join(' ')) + '</div>' +
           '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span></div>' +
       '</div>' +
-      '<div class="cust-row"><b>해시태그 제안</b><a>더보기 ›</a></div>' +
-      '<div class="hash-chips">' + hashHtml + '</div>' +
-      '<div class="cust-row"><b>말투</b></div>' +
-      '<div class="cap-tone">' + toneHtml + '</div>' +
-      '<div class="cap-actions"><button class="cap-redo" data-fl="regen">문구 다시</button><button class="cap-preview" data-fl="topreview">미리보기</button></div>';
+      (hasCap
+        ? '<div class="cust-row"><b>해시태그 제안</b><a data-fl="morehash">새로고침 ›</a></div>' +
+          '<div class="hash-chips">' + hashHtml + '</div>' +
+          '<div class="cust-row"><b>다시 쓰기</b></div>' +
+          '<div class="cap-tone">' + varHtml + '</div>' +
+          '<div class="cap-actions"><button class="cap-redo" data-fl="regen">문구 다시</button><button class="cap-preview" data-fl="topreview">미리보기</button></div>'
+        : '<button class="cap-preview" style="width:100%" data-fl="gen">' + (d.capLoading ? '생성 중…' : 'AI 캡션 생성') + '</button>');
   }
 
   function renderPreview() {
@@ -134,7 +145,23 @@
           '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
         '<div class="ig-copy2"><b>salondearly_official</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">1분 전</div></div>' +
       '</div>' +
-      '<button type="button" class="ig-preview-btn" data-fl="sharepreview">공유 전 미리보기</button>';
+      '<button type="button" class="ig-preview-btn" data-fl="sharepreview">공유 전 미리보기</button>' +
+      _publishBlock();
+  }
+
+  // 인스타 업로드 게이트 — 연결됐을 때만 실제 업로드, 아니면 준비/연결/복사/저장 (업로드 완료처럼 속이지 않음)
+  function _publishBlock() {
+    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
+    if (connected) {
+      return '<button type="button" class="cap-preview" style="width:100%;margin-top:10px" data-fl="publish">인스타그램에 올리기</button>';
+    }
+    return '<div class="wsflow-prep">' +
+      '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
+      '<div class="wsflow-prep__row">' +
+        '<button type="button" data-fl="copycap">캡션 복사</button>' +
+        '<button type="button" data-fl="saveimg">이미지 저장</button>' +
+        '<button type="button" class="pink" data-fl="igconnect">인스타 연결</button>' +
+      '</div></div>';
   }
 
   function renderConnect() {
@@ -180,15 +207,19 @@
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
   }
 
-  function genCaption() {
-    var svc = (d.service || '').split(',')[0].trim() || '레이어드컷';
-    var pool = {
-      '전문적': svc + ' 시술로 움직임과 볼륨감을 살렸어요. 얼굴형과 결을 함께 보며 손질이 쉬운 실루엣으로 정리했습니다.',
-      '감성적': svc + ', 오늘 분위기를 바꾸는 작은 차이 ✨ 가볍지만 선명한 라인으로 더 부드러운 인상을 완성했어요.',
-      '친근한': svc + ' 하고 나면 손질이 훨씬 쉬워져요 😊 아침에 드라이 오래 안 해도 자연스럽게 볼륨이 살아나요.'
-    };
-    d.caption = pool[d.tone] || pool['전문적'];
-    if (!d.hashtags.length) d.hashtags = HASHES.slice(0, 3);
+  // 실제 캡션 엔진(/persona/generate) 호출. 재업로드 없음(맥락은 photo_context 문자열).
+  function doGenerate(extra, label) {
+    var svc = String(d.service || '').trim();
+    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('캡션 모듈을 불러오지 못했어요'); return; }
+    d.capLoading = true; setScreen('caption');
+    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, mode: d.captionMode || 'normal' }, extra || {});
+    window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
+      d.capLoading = false;
+      if (r.ok) { d.caption = r.caption; d.hashtags = (r.hashtags || []).slice(); d.logId = r.log_id || null; if (label) toast(label); }
+      else { toast(r.toast || '캡션 생성에 실패했어요'); }
+      setScreen('caption');
+    });
   }
 
   /* ── 이벤트 ── */
@@ -199,23 +230,29 @@
       if (a === 'back') { return back(); }
       if (a === 'cta') { return onCta(); }
       if (a === 'batoggle') { d.baMode = !d.baMode; reassignRoles(); setScreen('upload'); return; }
-      if (a === 'precise') { return openPrecise(); }
-      if (a === 'regen') { d.tone = TONES[(TONES.indexOf(d.tone) + 1) % 3]; genCaption(); setScreen('caption'); toast('기존 사진 맥락으로 캡션을 다시 생성했어요.'); return; }
+      if (a === 'gen') { return doGenerate({}, null); }
+      if (a === 'regen') { return doGenerate({}, '문구를 다시 생성했어요'); }
+      if (a === 'morehash') { return doGenerate({}, '해시태그를 새로 가져왔어요'); }
       if (a === 'topreview') { syncCaptionFromDom(); setScreen('preview'); return; }
       if (a === 'pickcust') { return pickCustomer(); }
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; return save(); }
-      if (a === 'sharepreview') { toast('피드·스토리 비율과 캡션 줄바꿈을 확인했어요.'); return; }
+      if (a === 'sharepreview') { toast('피드·스토리 비율과 캡션 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
+      if (a === 'publish') { return publish(); }
+      if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); return; }
+      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(photoUrl(curPhoto()), d.service || 'itdasy'); return; }
+      if (a === 'igconnect') { window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram(); return; }
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
-      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { el.querySelectorAll('[data-fl-edtab]').forEach(function (x) { x.classList.remove('on'); }); edtab.classList.add('on'); return; }
-      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { el.querySelectorAll('[data-fl-edtool]').forEach(function (x) { x.classList.remove('on'); }); edtool.classList.add('on'); toast(edtool.textContent.trim() + ' 조정'); return; }
-      var eb = t.closest('[data-fl-eb]'); if (eb) { toast(eb.getAttribute('data-fl-eb')); return; }
+      if (t.closest('[data-fl-edphoto]')) { return openEditor('beauty'); }
+      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { return openEditor(edtab.textContent.trim() === '배경' ? 'bg' : 'beauty'); }
+      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { return openEditor('beauty'); }
+      var eb = t.closest('[data-fl-eb]'); if (eb) { var lbl = eb.getAttribute('data-fl-eb'); if (lbl === '원본보기' || lbl === '비교') openEditor('beauty'); else toast(lbl); return; }
       var cust = t.closest('[data-fl-cust]'); if (cust) { d.customerId = cust.getAttribute('data-fl-custid'); d.customerName = cust.getAttribute('data-fl-cust'); setScreen('connect'); return; }
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { el.querySelectorAll('[data-fl-tplchip]').forEach(function (x) { x.classList.remove('on'); }); tplchip.classList.add('on'); d.tplCat = tplchip.textContent.trim(); return; }
-      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); el.querySelectorAll('[data-fl-tpl]').forEach(function (x) { x.classList.remove('on'); }); tpl.classList.add('on'); toast("'" + d.template + "' 템플릿 적용"); return; }
+      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); openEditor('template'); return; }
       var hash = t.closest('[data-fl-hash]'); if (hash) { var h = hash.getAttribute('data-fl-hash'); var k = d.hashtags.indexOf(h); if (k >= 0) d.hashtags.splice(k, 1); else d.hashtags.push(h); hash.classList.toggle('on'); var ch = el.querySelector('[data-fl-caphash]'); if (ch) ch.textContent = d.hashtags.join(' '); return; }
-      var tone = t.closest('[data-fl-tone]'); if (tone) { d.tone = tone.getAttribute('data-fl-tone'); genCaption(); setScreen('caption'); return; }
+      var vv = t.closest('[data-fl-var]'); if (vv) { var vk = vv.getAttribute('data-fl-var'); return doGenerate(vk === 'long' ? { length_tier: 'long' } : { tone_override: vk }, '다시 생성했어요'); }
       var seg = t.closest('[data-fl-seg]'); if (seg) { el.querySelectorAll('[data-fl-seg]').forEach(function (x) { x.classList.remove('on'); }); seg.classList.add('on'); var body = el.querySelector('[data-fl-capbody]'); if (body) { var w = seg.getAttribute('data-fl-seg') === 'write'; body.contentEditable = w ? 'true' : 'false'; if (w) body.focus(); } return; }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
@@ -249,30 +286,31 @@
   function onCta() {
     var c = CTA[cur]; if (!c) return;
     if (cur === 'upload' && !d.photos.length) { toast('사진을 먼저 추가해 주세요.'); return; }
-    if (cur === 'edit' && !d.caption) genCaption();
     if (c.to === '__save') return save();
     if (cur === 'caption') syncCaptionFromDom();
     setScreen(c.to);
   }
 
-  function openPrecise() {
-    var p = curPhoto();
-    if (p && window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-      window.PhotoEditor.open({ src: photoUrl(p) });
-    } else { toast('정밀 편집기를 불러오지 못했어요'); }
+  // 보정/누끼/템플릿 → 모던 PhotoEditor (어댑터). 저장 시 editedDataUrl 갱신 후 재렌더.
+  function openEditor(tab) {
+    var photo = curPhoto();
+    if (!photo) { toast('편집할 사진이 없어요'); return; }
+    if (!window.WorkspaceAdapter) { toast('편집 모듈을 불러오지 못했어요'); return; }
+    var ctx = { customerName: d.customerName, onSaved: function (dataUrl) { if (dataUrl) { photo.editedDataUrl = dataUrl; if (cur === 'edit') setScreen('edit'); } } };
+    if (tab === 'bg') window.WorkspaceAdapter.openRemoveBg(photo, ctx);
+    else if (tab === 'template') window.WorkspaceAdapter.openTemplate(photo, ctx);
+    else window.WorkspaceAdapter.openRetouch(photo, ctx);
   }
 
   function pickCustomer() {
-    if (window.Customer && typeof window.Customer.pick === 'function') {
-      Promise.resolve(window.Customer.pick({ selectedId: d.customerId })).then(function (picked) {
-        if (!picked) return;
-        d.customerId = picked.id; d.customerName = picked.name; setScreen('connect');
-        toast(picked.name + ' 고객과 연결했어요.');
-      });
-    } else { toast('고객 모듈이 아직 로드되지 않았어요'); }
+    if (!window.WorkspaceAdapter) { toast('고객 모듈을 불러오지 못했어요'); return; }
+    window.WorkspaceAdapter.pickCustomer(d.customerId).then(function (r) {
+      if (r.ok) { d.customerId = r.id; d.customerName = r.name; setScreen('connect'); toast(r.name + ' 고객과 연결했어요.'); }
+      else if (r.toast) toast(r.toast);
+    });
   }
 
-  function save() {
+  function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
     slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role }; });
@@ -281,17 +319,32 @@
     slot.customer_id = d.customerId || null;
     slot.customer_name = d.customerName || '';
     slot.status = 'done';
+    return slot;
+  }
+
+  function save() {
+    var slot = buildSlot();
     var done = function () {
       toast(d.customerName ? (d.customerName + ' 고객 기록에 저장했어요.') : '작업실에 저장했어요.');
       close();
       if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
     };
-    if (typeof window.saveSlotToDB === 'function') {
-      Promise.resolve(window.saveSlotToDB(slot)).then(function () {
-        if (typeof window.saveToGallery === 'function') { try { window.saveToGallery(slot); } catch (_e) { /* 갤러리 보조 저장 실패 무시 */ } }
-        done();
-      }).catch(function (e) { console.warn('[wsflow] 저장 실패', e); toast('저장에 실패했어요'); });
+    if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) {
+      window.WorkspaceAdapter.saveItem(slot).then(function (r) { if (r.ok) done(); else toast('저장에 실패했어요'); });
     } else { done(); }
+  }
+
+  // 실제 인스타 업로드(연결+확인 시에만). 미연결이면 noop(버튼 자체가 준비/연결로 표시됨).
+  function publish() {
+    if (!window.WorkspaceAdapter) return;
+    if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
+    syncCaptionFromDom();
+    if (typeof window.confirm === 'function' && !window.confirm('인스타그램에 지금 올릴까요?')) return;
+    window.WorkspaceAdapter.publishInstagram(buildSlot()).then(function (r) {
+      if (r.ok) toast('인스타그램에 올렸어요');
+      else if (r.reason === 'not_connected') toast('인스타 연결이 필요해요');
+      else toast('업로드에 실패했어요 — 잠시 후 다시');
+    });
   }
 
   /* ── open/close ── */
@@ -309,16 +362,18 @@
     opts = opts || {};
     ensureEl();
     var slot = opts.slot || null;
+    var ctx = CAT_CTX[opts.cat] || {};
     d = {
       slot: slot,
       photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero' }; }) : [],
-      baMode: true, filter: 60, template: null, tplCat: opts.cat || null,
+      baMode: ctx.purpose ? ctx.purpose === 'before_after' : true,
+      filter: 60, template: null, tplCat: ctx.tplLabel || null,
+      tplPurpose: ctx.purpose || 'feed', captionMode: ctx.captionMode || 'normal', defaultRole: ctx.role || 'hero',
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [],
-      tone: '전문적', customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
-      recent: DEMO_RECENT
+      customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
+      recent: DEMO_RECENT, capLoading: false
     };
     if (d.photos.length) reassignRoles();
-    if (!d.caption && (opts.startScreen === 'caption' || opts.startScreen === 'preview')) genCaption();
     el.classList.add('is-open');
     setScreen(opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload');
   }

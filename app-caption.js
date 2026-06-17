@@ -1232,3 +1232,42 @@ Object.assign(window, {
   saveCaptionToGallery,
   _updateCaptionPreviewImage,
 });
+
+/* [v506 Phase2] CaptionEngine — DOM 비의존 순수 캡션 생성 (작업실 V2 drawer/flow 직접 렌더용).
+   기존 _doGenerateCaption 의 payload 빌드(_CAP_CAT_MAP/SHOP_CONFIG/photo_context)·
+   해시태그 정제(shuffleHashtags)·/persona/generate(_personaFetch)·log_id 흐름을 그대로 재사용.
+   기존 캡션 탭 동작은 미변경(순수 additive, backward-compatible). caption payload 구조 변경 없음. */
+window.CaptionEngine = {
+  async generate(opts) {
+    opts = opts || {};
+    const shopType = localStorage.getItem('shop_type') || '붙임머리';
+    const cfg = (typeof SHOP_CONFIG !== 'undefined') ? SHOP_CONFIG[shopType] : null;
+    let photo_context = opts.photo_context;
+    if (!photo_context) {
+      const svc = String(opts.service || '').trim();
+      const base = cfg
+        ? `${shopType} 시술.${svc ? ' 시술 내역: ' + svc + '.' : ''}`
+        : (svc ? `뷰티 시술. ${svc}.` : '뷰티 시술.');
+      let slotNote = '';
+      if (opts.slotId && typeof _slots !== 'undefined') {
+        const s = _slots.find(sl => sl.id === opts.slotId);
+        if (s) slotNote = ` 손님: ${s.label}. 사진 ${(s.photos || []).filter(p => !p.hidden).length}장.`;
+      }
+      const reviewNote = (opts.mode === 'review' || opts.tone_override === 'review')
+        ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
+      photo_context = `${base}${slotNote}${reviewNote}`.trim();
+    }
+    const payload = {
+      category: (_CAP_CAT_MAP[shopType] || 'extension'),
+      photo_context,
+      length_tier: opts.length_tier || 'medium',
+      tone_override: opts.tone_override || 'normal',
+    };
+    const data = await _personaFetch('POST', '/persona/generate', payload);
+    const caption = String(data.caption || '').trim();
+    if (!caption) throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');
+    const tags = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : [])
+      .map(t => String(t || '').trim().replace(/^#+/, '')).filter(Boolean).map(t => '#' + t);
+    return { caption, hashtags: tags, hashtagsText: tags.join(' '), log_id: data.log_id || null };
+  },
+};
