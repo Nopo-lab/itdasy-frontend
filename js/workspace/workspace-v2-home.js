@@ -18,7 +18,7 @@
   var _slotsCache = [];
   var _drawerSlotId = null;
   var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
-  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '템플릿':'edit', '캡션 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
+  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '캡션 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
   var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
 
   var CATS = [
@@ -218,6 +218,7 @@
     var acts = [
       { ic: 'ph-magic-wand',        label: '사진 편집' },
       { ic: 'ph-scissors',          label: '누끼/배경' },
+      { ic: 'ph-crop',              label: '비율 자르기' },
       { ic: 'ph-layout',            label: '템플릿' },
       { ic: 'ph-pencil-line',       label: '캡션 생성' },
       { ic: 'ph-instagram-logo',    label: '인스타 미리보기' },

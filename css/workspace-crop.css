@@ -1,0 +1,37 @@
+/* Workspace V2 크롭 모달 (Phase 3) — V2 톤. 전부 .wscrop / .ed-crop 스코프. */
+.wscrop { position:fixed; inset:0; z-index:9900; display:none; }
+.wscrop.is-open { display:block; }
+.wscrop__bd { position:absolute; inset:0; background:rgba(31,27,24,.55); }
+.wscrop__card {
+  position:absolute; left:50%; bottom:0; transform:translateX(-50%);
+  width:100%; max-width:440px; background:#fffaf7; border-radius:24px 24px 0 0;
+  padding:8px 16px calc(18px + env(safe-area-inset-bottom));
+  box-shadow:0 -18px 50px rgba(31,27,24,.28);
+}
+.wscrop__bar { display:grid; grid-template-columns:40px 1fr 56px; align-items:center; height:50px; }
+.wscrop__x { appearance:none; border:0; background:transparent; color:#2a2420; width:38px; height:38px; border-radius:12px; display:grid; place-items:center; cursor:pointer; }
+.wscrop__x i { font-size:20px; }
+.wscrop__title { text-align:center; font-size:16px; font-weight:800; color:#2c2520; }
+.wscrop__apply { justify-self:end; appearance:none; border:0; background:transparent; color:#de4f6f; font-size:15px; font-weight:900; cursor:pointer; }
+.wscrop__stage { display:grid; place-items:center; padding:6px 0 12px; }
+.wscrop__cv { border-radius:14px; touch-action:none; background:#1f1b18; max-width:100%; }
+.wscrop__strip { display:flex; gap:8px; overflow-x:auto; padding:0 2px 12px; }
+.wscrop__thumb { flex:0 0 auto; width:52px; height:52px; border-radius:10px; border:2px solid transparent; background:#eee center/cover; position:relative; cursor:pointer; }
+.wscrop__thumb.on { border-color:#de4f6f; }
+.wscrop__thumb span { position:absolute; left:3px; top:3px; background:rgba(31,27,24,.7); color:#fff; font-size:9px; font-weight:800; padding:1px 5px; border-radius:8px; }
+.wscrop__ratios { display:flex; gap:8px; justify-content:center; overflow-x:auto; padding:0 2px 14px; }
+.wscrop__chip { flex:0 0 auto; height:34px; padding:0 15px; border-radius:999px; border:1px solid #eaded9; background:#fff; color:#7d6f6b; font-size:12.5px; font-weight:800; cursor:pointer; }
+.wscrop__chip.on { background:linear-gradient(135deg,#e96382,#db4465); color:#fff; border-color:transparent; }
+.wscrop__zoom { display:flex; align-items:center; gap:10px; padding:0 4px; }
+.wscrop__zoom i { font-size:18px; color:#9a8d86; }
+.wscrop__zoom input[type="range"] { flex:1; accent-color:#de4f6f; }
+.wscrop__reset { appearance:none; border:1px solid #efe0db; background:#fff; color:#5f534d; height:32px; padding:0 12px; border-radius:10px; font-size:12px; font-weight:800; cursor:pointer; }
+
+/* 편집 화면의 "비율 자르기" 진입 버튼 */
+.wsv2flow .ed-crop { width:100%; height:46px; margin-bottom:20px; border:1px solid #efe0db; border-radius:13px; background:#fff; color:#5f534d; font-size:13px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
+.wsv2flow .ed-crop i { font-size:18px; color:#de4f6f; }
+
+@media (width >= 768px) {
+  .wscrop { left:232px; }
+  .wscrop__card { bottom:24px; border-radius:24px; }
+}

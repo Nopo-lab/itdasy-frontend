@@ -40,6 +40,13 @@
     openRemoveBg: function (photo, ctx) { return _openEditor(photo, 'bg', ctx); },
     openTemplate: function (photo, ctx) { return _openEditor(photo, 'template', ctx); },
 
+    // 크롭 — V2 전용 모달(WorkspaceCrop). PhotoEditor 코어 미수정.
+    openCrop: function (opts) {
+      if (!(window.WorkspaceCrop && has(window.WorkspaceCrop.open))) { toast('크롭 모듈을 불러오지 못했어요'); return { ok: false, reason: 'no_crop' }; }
+      window.WorkspaceCrop.open(opts || {});
+      return { ok: true };
+    },
+
     // 캡션 — DOM 비의존 엔진. 시술 내역/맥락 없으면 안내(무작정 생성 금지).
     generateCaption: function (opts) {
       opts = opts || {};

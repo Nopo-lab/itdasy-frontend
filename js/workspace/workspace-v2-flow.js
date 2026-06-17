@@ -17,6 +17,8 @@
     review: { purpose: 'review',       captionMode: 'review', role: 'hero', tplLabel: '고객 후기' },
     event:  { purpose: 'event',        captionMode: 'normal', role: 'hero', tplLabel: '이벤트' }
   };
+  // 카테고리/목적별 추천 크롭 비율
+  var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', price: 'free' };
   var d = null;       // draft state
   var el = null;      // flow root
   var cur = 'upload';
@@ -94,6 +96,7 @@
         '<div class="eb" data-fl-eb="원본보기"><i class="ph-duotone ph-eye"></i>원본보기</div>' +
         '<div class="eb" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>초기화</div>' +
       '</div>' +
+      '<button type="button" class="ed-crop" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1 · 4:5 · 9:16 · 자유)</button>' +
       '<div class="tpl-head">템플릿 선택</div>' +
       '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
       '<div class="tpl-grid2">' + ['Clean Beige','Lash Anew','Glow White','Event Soft','Salon Warm','Before After'].map(function (n, i) {
@@ -247,6 +250,7 @@
       if (a === 'pickcust') { return pickCustomer(); }
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; return save(); }
       if (a === 'sharepreview') { toast('피드·스토리 비율과 캡션 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
+      if (a === 'crop') { return openCropFlow(); }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); return; }
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(photoUrl(curPhoto()), d.service || 'itdasy'); return; }
@@ -312,6 +316,20 @@
     else window.WorkspaceAdapter.openRetouch(photo, ctx);
   }
 
+  // 비율 자르기 — V2 크롭 모달. 결과는 editedDataUrl + cropMeta (originalUrl 미변경, role 불변).
+  function openCropFlow() {
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.openCrop)) { toast('크롭 모듈을 불러오지 못했어요'); return; }
+    var idx = d.photos.indexOf(curPhoto()); if (idx < 0) idx = 0;
+    window.WorkspaceAdapter.openCrop({
+      photos: d.photos, index: idx, ratio: CROP_RATIO[d.tplPurpose] || '4:5',
+      onApply: function (photoId, dataUrl, meta) {
+        var p = d.photos.filter(function (x) { return x.id === photoId; })[0];
+        if (p) { p.editedDataUrl = dataUrl; p.cropMeta = meta; }
+        if (cur === 'edit') setScreen('edit');
+      },
+    });
+  }
+
   function pickCustomer() {
     if (!window.WorkspaceAdapter) { toast('고객 모듈을 불러오지 못했어요'); return; }
     window.WorkspaceAdapter.pickCustomer(d.customerId).then(function (r) {
@@ -323,7 +341,7 @@
   function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
-    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role }; });
+    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null }; });
     slot.caption = d.caption || '';
     slot.hashtags = d.hashtags.join(' ');
     slot.customer_id = d.customerId || null;
@@ -375,7 +393,7 @@
     var ctx = CAT_CTX[opts.cat] || {};
     d = {
       slot: slot,
-      photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero' }; }) : [],
+      photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null }; }) : [],
       baMode: ctx.purpose ? ctx.purpose === 'before_after' : true,
       filter: 60, template: null, tplCat: ctx.tplLabel || null,
       tplPurpose: ctx.purpose || 'feed', captionMode: ctx.captionMode || 'normal', defaultRole: ctx.role || 'hero',
