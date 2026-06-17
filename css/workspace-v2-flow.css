@@ -160,6 +160,9 @@
 .wsv2flow .cap-redo { height: 50px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
 
+/* D. 인스타 미리보기 (FC5: ig-notice·ig-pager 제거, confirmline 추가) */
+.wsv2flow .confirmline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 600; padding: 10px 2px 14px; }
+.wsv2flow .confirmline b { font-weight: 900; color: var(--text); }
 /* D. 인스타 미리보기 */
 .wsv2flow .ig-notice { min-height: 36px; border-radius: var(--r-lg); background: var(--brand-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 11.5px; font-weight: 700; margin-bottom: 14px; padding: 8px 12px; }
 .wsv2flow .ig-info { width: 15px; height: 15px; border: 1.4px solid var(--brand); border-radius: 50%; display: grid; place-items: center; color: var(--brand-strong); font-size: 10px; font-weight: 800; font-style: italic; flex: none; }

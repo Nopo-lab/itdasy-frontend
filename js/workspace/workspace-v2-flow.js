@@ -207,17 +207,17 @@
 
   function renderPreview() {
     var url = photoUrl(curPhoto());
+    var custLine = d.customerName ?
+      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
     return '' +
-      '<div class="ig-notice"><span class="ig-info">i</span>업로드 전, 실제 피드에서 보이는 모습을 확인해보세요.</div>' +
+      custLine +
       '<div class="ig-card2">' +
         '<div class="ig-head2"><span class="ig-logo">Salon<br>Dearly</span><span class="ig-name2">Salon Dearly</span><span class="ig-loc">청담점</span><span class="ig-dots2">···</span></div>' +
         '<div class="ig-photo" style="background-image:url(' + esc(url) + ')"></div>' +
         '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
-          '<div class="ig-pager"><span class="d on"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>' +
           '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
         '<div class="ig-copy2"><b>salondearly_official</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">1분 전</div></div>' +
       '</div>' +
-      '<button type="button" class="ig-preview-btn" data-fl="sharepreview">공유 전 미리보기</button>' +
       _publishBlock();
   }
 
