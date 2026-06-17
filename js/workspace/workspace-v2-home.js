@@ -1,37 +1,30 @@
-/* Workspace V2 — 작업실 첫 화면 렌더러 (Phase 1.5: 디자인 표면 완전 이식)
-   의존: WorkspaceState (workspace-state.js), 기존 전역: handleGalleryUpload / loadSlotsFromDB /
-        initWorkshopTab / showToast (app-gallery / app-core).
-   설계: 프로토타입(itdasy_prototype_latest.html)의 작업실 home 을 컴포넌트로 분해 이식.
-        - 메인 시작 CTA + 새 콘텐츠 만들기(카테고리) + 내 콘텐츠(필터탭 + 카드) + V2 카드 상세 drawer
-   [Phase 1.5 원칙 — 구 UI 누수 완전 차단]
-        - 카드 탭 → V2 drawer (구 openSlotEditor/slot 팝업 직접 호출 금지)
-        - drawer 액션 버튼 → V2 toast 만 (기존 기능 연결은 Phase 2)
-        - 메인 CTA / 카테고리 탭 → 기존 업로드(handleGalleryUpload)만 허용
-        - 새 기능/크롭/구조변경 없음. 폴백(ITDASY_WORKSPACE_V2=false) 유지. */
+/* Workspace V2 — 작업실 첫 화면 렌더러 (C3: 홈 상단 히어로/퀵/카테고리/라이브러리 재구성)
+   의존: WorkspaceState (workspace-state.js), 기존 전역: loadSlotsFromDB / initWorkshopTab / showToast. */
 (function () {
   'use strict';
 
   var ST = function () { return window.WorkspaceState; };
-  var _filter = 'all';        // all | pending | edited | ready | done ([Phase 4] 전체 기본 — 저장 카드 항상 보이게)
+  var _filter = 'all';
   var TABS = [{ key:'all', label:'전체' }, { key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
   var _lastRoot = null;
   var _slotsCache = [];
   var _drawerSlotId = null;
   var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
-  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '캡션 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
+  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '게시글 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
   var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
 
+  // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
   var CATS = [
-    { key: 'ba',     label: '전후 콘텐츠', ic: 'ph-arrows-left-right', tone: 'pink' },
-    { key: 'flex',   label: '시술 자랑',   ic: 'ph-sparkle',          tone: 'amber' },
-    { key: 'review', label: '고객 후기',   ic: 'ph-chat-circle-dots', tone: 'blue' },
-    { key: 'event',  label: '이벤트',      ic: 'ph-megaphone',        tone: 'green' },
-    { key: 'price',  label: '가격표',      ic: 'ph-receipt',          tone: 'purple' },
+    { key: 'ba',     label: '전후 비교',      disabled: false },
+    { key: 'flex',   label: '시술 완료 사진', disabled: false },
+    { key: 'review', label: '고객 후기 사진', disabled: false },
+    { key: 'event',  label: '이벤트 홍보',   disabled: false },
+    { key: 'price',  label: '가격표',         disabled: true  },
   ];
 
   function _esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (ch) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
     });
   }
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
@@ -55,57 +48,90 @@
   }
 
   /* ── 컴포넌트 ── */
-  function _uploadCardHTML() {
+
+  // 히어로 카드: 흰 카드 + 검정 CTA + "사진 올리면 게시까지 끝" + 인스타 라인 아이콘(로즈)
+  function _heroHTML() {
     return '' +
       '<button type="button" class="wsv2-upload" data-wsv2-upload data-haptic="medium">' +
-        '<div class="wsv2-upload__h">새 콘텐츠 시작하기</div>' +
-        '<div class="wsv2-upload__p">사진을 올리면 스마트하게<br>편집부터 캡션까지 도와드려요.</div>' +
-        '<span class="wsv2-upload__btn"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i>사진 올리기</span>' +
+        '<div class="wsv2-upload__headline">' +
+          '사진 올리면 게시까지 끝' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>' +
+        '</div>' +
+        '<div class="wsv2-upload__h">사진을 올리면 AI가 게시글까지 써드려요</div>' +
+        '<span class="wsv2-upload__btn">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#fff;fill:none"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
+          '사진 올리기' +
+        '</span>' +
       '</button>';
+  }
+
+  // 퀵 2칸: 잇비한테 맡기기 + 게시글만 쓰기
+  function _quickHTML() {
+    return '' +
+      '<div class="wsv2-quick">' +
+        '<button type="button" class="wsv2-quick__btn wsv2-quick__btn--rose" data-wsv2-quick="itbi" data-haptic="light">' +
+          '<span class="wsv2-quick__ic">' +
+            '<svg class="wsv2-quick__ic--float" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>' +
+          '</span>' +
+          '<span class="wsv2-quick__label">잇비한테 맡기기</span>' +
+          '<span class="wsv2-quick__sub">AI가 사진부터 글까지</span>' +
+        '</button>' +
+        '<button type="button" class="wsv2-quick__btn" data-wsv2-quick="textonly" data-haptic="light">' +
+          '<span class="wsv2-quick__ic">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+          '</span>' +
+          '<span class="wsv2-quick__label">게시글만 쓰기</span>' +
+          '<span class="wsv2-quick__sub">사진 없이 글만</span>' +
+        '</button>' +
+      '</div>';
   }
 
   function _categoryHTML() {
     var cards = CATS.map(function (c) {
-      return '<button type="button" class="wsv2-cat wsv2-cat--' + c.tone + '" data-wsv2-cat="' + c.key + '" data-haptic="light">' +
-        '<span class="wsv2-cat__ic"><i class="ph-duotone ' + c.ic + '" aria-hidden="true"></i></span>' +
+      var dis = c.disabled ? ' wsv2-cat--disabled' : '';
+      return '<button type="button" class="wsv2-cat' + dis + '" data-wsv2-cat="' + c.key + '" data-haptic="light"' + (c.disabled ? ' disabled' : '') + '>' +
+        '<span class="wsv2-cat__ic" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>' +
+        '</span>' +
         '<span class="wsv2-cat__t">' + _esc(c.label) + '</span>' +
+        (c.disabled ? '<span class="wsv2-cat__badge">준비중</span>' : '') +
       '</button>';
     }).join('');
     return '' +
-      '<div class="wsv2-sec-head"><h2>새 콘텐츠 만들기</h2><span class="wsv2-sec-sub">목적을 골라보세요</span></div>' +
+      '<div class="wsv2-sec-head"><h2>새 콘텐츠 만들기</h2><span class="wsv2-sec-sub">유형을 골라보세요</span></div>' +
       '<div class="wsv2-cats">' + cards + '</div>';
   }
 
   function _cardHTML(slot) {
     var st = ST();
     var meta = st.statusMeta(st.deriveStatus(slot));
+    var next = st.nextAction(slot);
     var img = _thumb(slot);
     var sub = _relTime(slot);
     return '' +
       '<article class="wsv2-card" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light">' +
         '<div class="wsv2-card__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
-          (img ? '' : '<i class="ph-duotone ph-image" aria-hidden="true"></i>') +
+          (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') +
         '</div>' +
         '<div class="wsv2-card__body">' +
           '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span>' +
           '<div class="wsv2-card__title">' + _esc(slot.label || '제목 없음') + '</div>' +
           (sub ? '<div class="wsv2-card__sub">수정 ' + _esc(sub) + '</div>' : '') +
-          '<div class="wsv2-card__meta">' +
-            '<span><i class="ph-duotone ph-images" aria-hidden="true"></i>' + (slot.photos || []).length + '장</span>' +
-            '<span><i class="ph-duotone ph-tag" aria-hidden="true"></i>' + _esc(_roleHint(slot)) + '</span>' +
-          '</div>' +
+          '<div class="wsv2-card__next">다음: ' + _esc(next.label) + '</div>' +
+          '<button type="button" class="wsv2-card__resume" data-wsv2-resume="' + _esc(slot.id) + '">이어서 ›</button>' +
         '</div>' +
-        '<span class="wsv2-card__dots"><i class="ph-duotone ph-dots-three-outline" aria-hidden="true"></i></span>' +
+        '<span class="wsv2-card__dots" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>' +
+        '</span>' +
       '</article>';
   }
 
-  // 프로토타입 4버킷 매핑
   function _bucket(slot) {
     var s = ST().deriveStatus(slot);
     if (s === 'published') return 'done';
     if (s === 'ready') return 'ready';
     if (s === 'needs_caption' || s === 'needs_customer') return 'edited';
-    return 'pending'; // upload_pending, needs_edit
+    return 'pending';
   }
 
   function _tabsHTML(slots) {
@@ -122,15 +148,17 @@
     var visible = _filter === 'all' ? slots : slots.filter(function (s) { return _bucket(s) === _filter; });
     var list = visible.length
       ? '<div class="wsv2-list">' + visible.map(_cardHTML).join('') + '</div>'
-      : '<div class="wsv2-empty-list"><i class="ph-duotone ph-folder-open" aria-hidden="true"></i>' +
+      : '<div class="wsv2-empty-list">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
         '<p>' + (slots.length ? '이 상태의 콘텐츠가 없어요' : '아직 콘텐츠가 없어요') + '</p></div>';
     return '' +
       '<section class="wsv2" data-wsv2-root>' +
         '<header class="wsv2-greet">' +
-          '<p class="wsv2-greet__sub">사진을 올리면 글까지 자동으로.</p>' +
+          '<p class="wsv2-greet__sub">오늘 작업, 한 번에.</p>' +
           '<h1 class="wsv2-greet__title">작업실</h1>' +
         '</header>' +
-        _uploadCardHTML() +
+        _heroHTML() +
+        _quickHTML() +
         _categoryHTML() +
         '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2></div>' +
         _tabsHTML(slots) +
@@ -147,7 +175,6 @@
     _bind(root);
   }
 
-  // 재렌더 — initWorkshopTab 경유로 작업실 모듈 _slots 동기화 (업로드 직후 최신 반영)
   function refresh() {
     if (typeof initWorkshopTab === 'function') { Promise.resolve(initWorkshopTab()).catch(function () {}); return; }
     if (!_lastRoot || typeof loadSlotsFromDB !== 'function') return;
@@ -156,27 +183,60 @@
 
   function _bind(root) {
     root.onclick = function (e) {
+      // 카테고리 클릭 — 타입 프리셋으로 플로우 진입
       var catBtn = e.target.closest('[data-wsv2-cat]');
       if (catBtn) {
         var ck = catBtn.getAttribute('data-wsv2-cat');
         if (ck === 'price') { if (window.WorkspaceAdapter) window.WorkspaceAdapter.openPriceList(); else _toast('가격표 기능을 불러오지 못했어요'); return; }
         _launchFlow(null, 'upload', ck); return;
       }
+      // 히어로 업로드 CTA
       if (e.target.closest('[data-wsv2-upload]')) { _launchFlow(null, 'upload', null); return; }
+      // 퀵 버튼
+      var quick = e.target.closest('[data-wsv2-quick]');
+      if (quick) {
+        var qk = quick.getAttribute('data-wsv2-quick');
+        if (qk === 'itbi') {
+          // 잇비 챗봇으로 위임
+          if (window.openAssistant) window.openAssistant();
+          else if (typeof openItbiTab === 'function') openItbiTab();
+          else _toast('잇비를 불러오지 못했어요');
+          return;
+        }
+        if (qk === 'textonly') {
+          // 사진 없이 게시글만 — 플로우 진입 시 사진종류 축 없이
+          _launchFlow(null, 'caption', null, { textOnly: true }); return;
+        }
+        return;
+      }
+      // 필터 탭
       var tab = e.target.closest('[data-wsv2-filter]');
       if (tab) { _filter = tab.getAttribute('data-wsv2-filter'); render(_lastRoot, { slots: _slotsCache }); return; }
+      // "이어서" 버튼 — 직접 해당 단계 진입
+      var resume = e.target.closest('[data-wsv2-resume]');
+      if (resume) { e.stopPropagation(); var sid = resume.getAttribute('data-wsv2-resume'); _resumeSlot(sid); return; }
+      // 카드 탭 — 드로어 오픈
       var card = e.target.closest('[data-wsv2-slot]');
       if (card) { _openDrawer(card.getAttribute('data-wsv2-slot')); return; }
     };
   }
 
-  // 홈/드로어 → V2 플로우 진입 (구 slot 팝업/nav-sheet 안 띄움)
-  function _launchFlow(slotId, screen, cat) {
+  function _launchFlow(slotId, screen, cat, extra) {
     var slot = slotId ? _slotsCache.filter(function (s) { return s.id === slotId; })[0] : null;
     if (window.WorkspaceFlow && typeof window.WorkspaceFlow.open === 'function') {
       _closeDrawer();
-      window.WorkspaceFlow.open({ slot: slot, startScreen: screen || 'upload', cat: cat || null });
+      window.WorkspaceFlow.open(Object.assign({ slot: slot, startScreen: screen || 'upload', cat: cat || null }, extra || {}));
     } else { _toast('작업실 플로우를 불러오지 못했어요'); }
+  }
+
+  // 상태머신 기반 이어서 진입
+  function _resumeSlot(slotId) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    var st = ST();
+    var next = st.nextAction(slot);
+    var screen = KEY2SCREEN[next.key] || 'edit';
+    _launchFlow(slotId, screen, null);
   }
 
   function _onDrawerAct(actKey) {
@@ -189,13 +249,13 @@
     _launchFlow(_drawerSlotId, screen, null);
   }
 
-  /* ── V2 카드 상세 drawer (구 slot 팝업 대신) ── */
+  /* ── V2 카드 상세 drawer ── */
   function _drawerEl() {
     var el = document.getElementById('wsv2Drawer');
     if (el) return el;
     el = document.createElement('div');
     el.id = 'wsv2Drawer';
-    el.className = 'wsv2 wsv2-drawer';   // .wsv2 토큰 상속용
+    el.className = 'wsv2 wsv2-drawer';
     el.innerHTML = '<div class="wsv2-drawer__bd" data-wsv2-drawer-close></div>' +
       '<div class="wsv2-drawer__card" id="wsv2DrawerCard"></div>';
     document.body.appendChild(el);
@@ -216,28 +276,29 @@
     var next = st.nextAction(slot);
     var img = _thumb(slot);
     var acts = [
-      { ic: 'ph-magic-wand',        label: '사진 편집' },
-      { ic: 'ph-scissors',          label: '누끼/배경' },
-      { ic: 'ph-crop',              label: '비율 자르기' },
-      { ic: 'ph-layout',            label: '템플릿' },
-      { ic: 'ph-pencil-line',       label: '캡션 생성' },
-      { ic: 'ph-instagram-logo',    label: '인스타 미리보기' },
-      { ic: 'ph-user-circle-plus',  label: '고객 연결' },
+      { ic: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', label: '사진 편집' },
+      { ic: 'M6 2v6m0 0L2 12m4-4 4-4m6 2v6m0 0 4 4m-4-4-4-4', label: '누끼/배경' },
+      { ic: 'M6 2H2v4M2 18v4h4M22 6V2h-4M18 22h4v-4M9 9h6v6H9z', label: '비율 자르기' },
+      { ic: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z', label: '템플릿' },
+      { ic: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z', label: '게시글 생성' },
+      { ic: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7', label: '인스타 미리보기' },
+      { ic: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', label: '고객 연결' },
     ];
     var html = '' +
       '<div class="wsv2-drawer__grip"></div>' +
       '<div class="wsv2-drawer__hero"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
-        (img ? '' : '<i class="ph-duotone ph-image" aria-hidden="true"></i>') + '</div>' +
+        (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') + '</div>' +
       '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span>' +
       '<div class="wsv2-drawer__title">' + _esc(slot.label || '제목 없음') + '</div>' +
       '<div class="wsv2-drawer__status">' + (slot.photos || []).length + '장 · ' + _esc(_roleHint(slot)) +
         (_relTime(slot) ? ' · 수정 ' + _esc(_relTime(slot)) : '') + '</div>' +
       '<button type="button" class="wsv2-drawer__primary" data-wsv2-act="next">' +
-        '<i class="ph-duotone ph-arrow-right" aria-hidden="true"></i>다음 작업: ' + _esc(next.label) + '</button>' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>' +
+        '다음 작업: ' + _esc(next.label) + '</button>' +
       '<div class="wsv2-drawer__hint">' + _esc(DRAWER_HINT) + '</div>' +
       '<div class="wsv2-drawer__grid">' + acts.map(function (a) {
         return '<button type="button" class="wsv2-drawer__act" data-wsv2-act="' + _esc(a.label) + '">' +
-          '<i class="ph-duotone ' + a.ic + '" aria-hidden="true"></i>' + _esc(a.label) + '</button>';
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + a.ic + '"/></svg>' + _esc(a.label) + '</button>';
       }).join('') + '</div>';
     var el = _drawerEl();
     document.getElementById('wsv2DrawerCard').innerHTML = html;
