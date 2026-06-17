@@ -15,7 +15,10 @@
   var _filter = 'all';        // all | progress | ready | done
   var _lastRoot = null;
   var _slotsCache = [];
-  var PHASE2_MSG = '기존 기능 연결은 Phase 2에서 진행돼요';
+  var _drawerSlotId = null;
+  var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
+  var ACT2SCREEN = { '사진 편집':'edit', '템플릿':'edit', '캡션 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
+  var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
 
   var CATS = [
     { key: 'ba',     label: '전후 콘텐츠', ic: 'ph-arrows-left-right', tone: 'pink' },
@@ -57,8 +60,7 @@
         '<div class="wsv2-upload__h">새 콘텐츠 시작하기</div>' +
         '<div class="wsv2-upload__p">사진을 올리면 편집부터 캡션까지 알아서 도와드려요.</div>' +
         '<span class="wsv2-upload__btn"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i>사진으로 시작하기</span>' +
-      '</button>' +
-      '<input type="file" accept="image/*" multiple data-wsv2-file hidden>';
+      '</button>';
   }
 
   function _categoryHTML() {
@@ -150,29 +152,33 @@
 
   function _bind(root) {
     root.onclick = function (e) {
-      if (e.target.closest('[data-wsv2-upload]') || e.target.closest('[data-wsv2-cat]')) { _openUpload(root); return; }
+      var catBtn = e.target.closest('[data-wsv2-cat]');
+      if (catBtn) { _launchFlow(null, 'upload', catBtn.getAttribute('data-wsv2-cat')); return; }
+      if (e.target.closest('[data-wsv2-upload]')) { _launchFlow(null, 'upload', null); return; }
       var tab = e.target.closest('[data-wsv2-filter]');
       if (tab) { _filter = tab.getAttribute('data-wsv2-filter'); render(_lastRoot, { slots: _slotsCache }); return; }
       var card = e.target.closest('[data-wsv2-slot]');
       if (card) { _openDrawer(card.getAttribute('data-wsv2-slot')); return; }
     };
-    var fi = root.querySelector('[data-wsv2-file]');
-    if (fi) fi.onchange = function (e) {
-      var files = Array.from((e.target && e.target.files) || []);
-      if (!files.length) return; e.target.value = '';
-      _ingest(files);
-    };
   }
 
-  function _openUpload(root) {
-    var fi = (root || _lastRoot) && (root || _lastRoot).querySelector('[data-wsv2-file]');
-    if (fi) fi.click();
+  // 홈/드로어 → V2 플로우 진입 (구 slot 팝업/nav-sheet 안 띄움)
+  function _launchFlow(slotId, screen, cat) {
+    var slot = slotId ? _slotsCache.filter(function (s) { return s.id === slotId; })[0] : null;
+    if (window.WorkspaceFlow && typeof window.WorkspaceFlow.open === 'function') {
+      _closeDrawer();
+      window.WorkspaceFlow.open({ slot: slot, startScreen: screen || 'upload', cat: cat || null });
+    } else { _toast('작업실 플로우를 불러오지 못했어요'); }
   }
 
-  function _ingest(files) {
-    if (typeof handleGalleryUpload !== 'function') { _toast('업로드 모듈이 아직 로드되지 않았어요'); return; }
-    Promise.resolve(handleGalleryUpload(files)).then(function () { refresh(); })
-      .catch(function (err) { console.warn('[wsv2] 업로드 실패', err); _toast('사진을 추가하지 못했어요'); });
+  function _onDrawerAct(actKey) {
+    var screen;
+    if (actKey === 'next') {
+      var slot = _slotsCache.filter(function (s) { return s.id === _drawerSlotId; })[0];
+      var k = slot ? ST().nextAction(slot).key : 'edit';
+      screen = KEY2SCREEN[k] || 'edit';
+    } else { screen = ACT2SCREEN[actKey] || 'edit'; }
+    _launchFlow(_drawerSlotId, screen, null);
   }
 
   /* ── V2 카드 상세 drawer (구 slot 팝업 대신) ── */
@@ -187,7 +193,8 @@
     document.body.appendChild(el);
     el.addEventListener('click', function (e) {
       if (e.target.closest('[data-wsv2-drawer-close]')) { _closeDrawer(); return; }
-      if (e.target.closest('[data-wsv2-act]')) { _toast(PHASE2_MSG); return; }
+      var act = e.target.closest('[data-wsv2-act]');
+      if (act) { _onDrawerAct(act.getAttribute('data-wsv2-act')); return; }
     });
     return el;
   }
@@ -195,6 +202,7 @@
   function _openDrawer(slotId) {
     var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
     if (!slot) return;
+    _drawerSlotId = slotId;
     var st = ST();
     var meta = st.statusMeta(st.deriveStatus(slot));
     var next = st.nextAction(slot);
@@ -216,7 +224,7 @@
         (_relTime(slot) ? ' · 수정 ' + _esc(_relTime(slot)) : '') + '</div>' +
       '<button type="button" class="wsv2-drawer__primary" data-wsv2-act="next">' +
         '<i class="ph-duotone ph-arrow-right" aria-hidden="true"></i>다음 작업: ' + _esc(next.label) + '</button>' +
-      '<div class="wsv2-drawer__hint">' + _esc(PHASE2_MSG) + '</div>' +
+      '<div class="wsv2-drawer__hint">' + _esc(DRAWER_HINT) + '</div>' +
       '<div class="wsv2-drawer__grid">' + acts.map(function (a) {
         return '<button type="button" class="wsv2-drawer__act" data-wsv2-act="' + _esc(a.label) + '">' +
           '<i class="ph-duotone ' + a.ic + '" aria-hidden="true"></i>' + _esc(a.label) + '</button>';
