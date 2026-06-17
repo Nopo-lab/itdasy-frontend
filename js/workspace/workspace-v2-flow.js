@@ -21,6 +21,21 @@
   var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', price: 'free' };
   // tplPurpose → workspaceContext.type (시술자랑 feed → promo)
   var TYPE_MAP = { before_after: 'before_after', feed: 'promo', review: 'review', event: 'event', price: 'price' };
+  // [Phase 5-1 P0] V2 편집 인플레이스 컨트롤 — 탭/컨트롤 정의 (PhotoEditor 라우팅 없음, 경량 보정)
+  var EDIT_TABS = [
+    { k: 'basic', label: '기본', ic: 'ph-sliders-horizontal', controls: [
+      { k: 'brightness', l: '밝기', ic: 'ph-sun' }, { k: 'sharpness', l: '선명도', ic: 'ph-lightning' }, { k: 'color', l: '색감', ic: 'ph-palette' },
+      { k: 'glow', l: '윤기', ic: 'ph-drop' }, { k: 'contrast', l: '대비', ic: 'ph-circle-half' }, { k: 'saturation', l: '채도', ic: 'ph-sparkle' } ] },
+    { k: 'skin', label: '피부', ic: 'ph-user', controls: [
+      { k: 'skinTone', l: '피부톤', ic: 'ph-eyedropper' }, { k: 'blemish', l: '잡티', ic: 'ph-drop-half' }, { k: 'smooth', l: '매끈함', ic: 'ph-wave-sine' },
+      { k: 'redness', l: '붉은기', ic: 'ph-thermometer-simple' }, { k: 'radiance', l: '광채', ic: 'ph-sun-dim' } ] },
+    { k: 'hair', label: '머릿결', ic: 'ph-wind', controls: [
+      { k: 'hairGloss', l: '윤기', ic: 'ph-drop' }, { k: 'hairCalm', l: '차분함', ic: 'ph-wave-sine' }, { k: 'hairVolume', l: '볼륨', ic: 'ph-arrows-out-line-vertical' },
+      { k: 'hairSharp', l: '선명도', ic: 'ph-lightning' }, { k: 'hairTidy', l: '결 정리', ic: 'ph-broom' } ] },
+    { k: 'background', label: '배경', ic: 'ph-image', controls: [] },
+    { k: 'advanced', label: '고급', ic: 'ph-faders', controls: [] },
+  ];
+  function newAdjust() { return { brightness:0, sharpness:0, color:0, glow:0, contrast:0, saturation:0, skinTone:0, blemish:0, smooth:0, redness:0, radiance:0, hairGloss:0, hairCalm:0, hairVolume:0, hairSharp:0, hairTidy:0 }; }
   var d = null;       // draft state
   var el = null;      // flow root
   var cur = 'upload';
@@ -81,29 +96,71 @@
 
   function renderEdit() {
     var url = photoUrl(curPhoto());
-    var tabs = [['기본','ph-sliders-horizontal',1],['피부','ph-user',0],['머릿결','ph-wind',0],['배경','ph-image',0],['고급','ph-faders',0]];
-    var tools = [['밝기','ph-sun',1],['선명도','ph-lightning',0],['색감','ph-palette',0],['윤기','ph-drop',0],['대비','ph-circle-half',0],['채도','ph-sparkle',0]];
-    var chips = ['전체','전후','시술 자랑','고객 후기','이벤트'];
+    var tab = d.editTab || 'basic';
+    var tabObj = EDIT_TABS.filter(function (t) { return t.k === tab; })[0] || EDIT_TABS[0];
+    var preview = d.originalPreview ? 'none' : filterCss(d.adjust);
+    var tabsHtml = EDIT_TABS.map(function (t) {
+      return '<div class="ed-tab' + (t.k === tab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
+    }).join('');
+
+    var panel = '';
+    if (tabObj.controls.length) {
+      var ctrls = tabObj.controls;
+      var active = d.control && ctrls.some(function (c) { return c.k === d.control; }) ? d.control : ctrls[0].k;
+      var actObj = ctrls.filter(function (c) { return c.k === active; })[0];
+      var val = (d.adjust && d.adjust[active]) || 0;
+      panel =
+        '<div class="ed-tools">' + ctrls.map(function (c) {
+          return '<div class="ed-tool' + (c.k === active ? ' on' : '') + '" data-fl-edtool="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
+        }).join('') + '</div>' +
+        '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
+    } else if (tab === 'background') {
+      var bgcur = d.bgAction || '';
+      panel =
+        '<div class="ed-bg">' +
+          '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
+          '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
+          '<div class="ed-bg__colors">' + ['#ffffff', '#fbeaef', '#eaf3fc', '#f3efe7', '#1f1b18'].map(function (c) {
+            return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '"></button>';
+          }).join('') + '</div>' +
+          '<div class="ed-bg__status" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요')) + '</div>' +
+        '</div>';
+    } else { // advanced
+      panel =
+        '<div class="ed-adv">' +
+          '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1·4:5·9:16·자유)</button>' +
+          '<button type="button" class="ed-adv__btn" data-fl-eb="비교"><i class="ph-duotone ph-columns"></i>원본/보정 비교</button>' +
+          '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
+          '<button type="button" class="ed-adv__btn" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>전체 초기화</button>' +
+        '</div>';
+    }
+
+    var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트'];
     return '' +
-      '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + filterCss(d.filter) + '"></div>' +
+      '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
       '<div class="ed-panel">' +
-        '<div class="ed-tabs">' + tabs.map(function (t) { return '<div class="ed-tab' + (t[2] ? ' on' : '') + '" data-fl-edtab><i class="ph-duotone ' + t[1] + '"></i>' + t[0] + '</div>'; }).join('') + '</div>' +
-        '<div class="ed-tools">' + tools.map(function (t) { return '<div class="ed-tool' + (t[2] ? ' on' : '') + '" data-fl-edtool><span class="ed-circle"><i class="ph-duotone ' + t[1] + '"></i></span>' + t[0] + '</div>'; }).join('') + '</div>' +
-        '<div class="ed-slider"><span>보정 강도</span><input type="range" min="0" max="100" value="' + d.filter + '" data-fl-range><span class="ed-val" data-fl-rangeval>+' + d.filter + '</span></div>' +
+        '<div class="ed-tabs">' + tabsHtml + '</div>' +
+        panel +
       '</div>' +
       '<div class="ed-bottom">' +
-        '<div class="eb" data-fl-eb="되돌리기"><i class="ph-duotone ph-arrow-counter-clockwise"></i>되돌리기</div>' +
-        '<div class="eb disabled"><i class="ph-duotone ph-arrow-clockwise"></i>다시실행</div>' +
-        '<div class="eb active" data-fl-eb="비교"><span class="activebox"><i class="ph-duotone ph-columns"></i></span>비교</div>' +
+        '<div class="eb' + (d.undo && d.undo.length ? '' : ' disabled') + '" data-fl-eb="되돌리기"><i class="ph-duotone ph-arrow-counter-clockwise"></i>되돌리기</div>' +
+        '<div class="eb' + (d.redo && d.redo.length ? '' : ' disabled') + '" data-fl-eb="다시실행"><i class="ph-duotone ph-arrow-clockwise"></i>다시실행</div>' +
+        '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="비교"><span class="activebox"><i class="ph-duotone ph-columns"></i></span>비교</div>' +
         '<div class="eb" data-fl-eb="원본보기"><i class="ph-duotone ph-eye"></i>원본보기</div>' +
         '<div class="eb" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>초기화</div>' +
       '</div>' +
-      '<button type="button" class="ed-crop" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1 · 4:5 · 9:16 · 자유)</button>' +
       '<div class="tpl-head">템플릿 선택</div>' +
       '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
-      '<div class="tpl-grid2">' + ['Clean Beige','Lash Anew','Glow White','Event Soft','Salon Warm','Before After'].map(function (n, i) {
+      '<div class="tpl-grid2">' + ['Clean Beige', 'Lash Anew', 'Glow White', 'Event Soft', 'Salon Warm', 'Before After'].map(function (n, i) {
         return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '></div>';
-      }).join('') + '</div>';
+      }).join('') + '</div>' +
+      (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '');
+  }
+
+  function _roleSummary() {
+    var r = {};
+    (d.photos || []).forEach(function (p) { r[p.role || 'hero'] = (r[p.role || 'hero'] || 0) + 1; });
+    return Object.keys(r).map(function (k) { return ({ before: '전', after: '후', hero: '홍보컷', exclude: '제외' }[k] || k) + ' ' + r[k]; }).join(' · ') || '없음';
   }
 
   function renderCaption() {
@@ -189,7 +246,17 @@
 
   var RENDER = { upload:renderUpload, edit:renderEdit, caption:renderCaption, preview:renderPreview, connect:renderConnect };
 
-  function filterCss(v) { var b = 1 + (v - 50) / 250, c = 1 + (v - 50) / 220, s = 1 + (v - 50) / 260; return 'brightness(' + b + ') contrast(' + c + ') saturate(' + s + ')'; }
+  // adjust 객체 → CSS filter (preview/bake 공용, 경량 근사)
+  function filterCss(a) {
+    a = a || {};
+    var bright = 1 + ((a.brightness || 0) + (a.radiance || 0) * 0.5 + (a.glow || 0) * 0.4) / 220;
+    var contr = 1 + ((a.contrast || 0) + (a.sharpness || 0) * 0.6 + (a.glow || 0) * 0.3 + (a.hairGloss || 0) * 0.4 + (a.hairSharp || 0) * 0.5 + (a.hairVolume || 0) * 0.3 + (a.hairTidy || 0) * 0.3) / 240;
+    var sat = 1 + ((a.saturation || 0) + (a.skinTone || 0) * 0.3 - (a.redness || 0) * 0.5 - (a.hairCalm || 0) * 0.3) / 240;
+    var hue = ((a.color || 0) * 0.5 - (a.redness || 0) * 0.3) / 1;
+    var blur = Math.max(0, (a.smooth || 0) + (a.blemish || 0) * 0.6) / 45;
+    var sep = Math.max(0, (a.skinTone || 0)) / 320;
+    return 'brightness(' + bright.toFixed(3) + ') contrast(' + contr.toFixed(3) + ') saturate(' + Math.max(0, sat).toFixed(3) + ') hue-rotate(' + hue.toFixed(1) + 'deg) blur(' + blur.toFixed(2) + 'px) sepia(' + sep.toFixed(3) + ')';
+  }
 
   /* ── 라우팅 ── */
   function setScreen(name) {
@@ -256,6 +323,7 @@
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; return save(); }
       if (a === 'sharepreview') { toast('피드·스토리 비율과 캡션 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
+      if (a === 'roles') { toast('역할 — ' + _roleSummary()); return; }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(photoUrl(curPhoto()), d.service || 'itdasy'); _markPrepared(); return; }
@@ -263,13 +331,15 @@
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
-      if (t.closest('[data-fl-edphoto]')) { return openEditor('beauty'); }
-      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { return openEditor(edtab.textContent.trim() === '배경' ? 'bg' : 'beauty'); }
-      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { return openEditor('beauty'); }
-      var eb = t.closest('[data-fl-eb]'); if (eb) { var lbl = eb.getAttribute('data-fl-eb'); if (lbl === '원본보기' || lbl === '비교') openEditor('beauty'); else toast(lbl); return; }
+      if (t.closest('[data-fl-edphoto]')) { return; } // 미리보기 전용 — 이동 없음
+      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
+      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
+      var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
+      var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
+      var eb = t.closest('[data-fl-eb]'); if (eb) { return _editBottom(eb.getAttribute('data-fl-eb')); }
       var cust = t.closest('[data-fl-cust]'); if (cust) { d.customerId = cust.getAttribute('data-fl-custid'); d.customerName = cust.getAttribute('data-fl-cust'); setScreen('connect'); return; }
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { el.querySelectorAll('[data-fl-tplchip]').forEach(function (x) { x.classList.remove('on'); }); tplchip.classList.add('on'); d.tplCat = tplchip.textContent.trim(); return; }
-      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); openEditor('template'); return; }
+      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); el.querySelectorAll('[data-fl-tpl]').forEach(function (x) { x.classList.remove('on'); }); tpl.classList.add('on'); toast("'" + d.template + "' 템플릿 선택"); setScreen('edit'); return; }
       var hash = t.closest('[data-fl-hash]'); if (hash) { var h = hash.getAttribute('data-fl-hash'); var k = d.hashtags.indexOf(h); if (k >= 0) d.hashtags.splice(k, 1); else d.hashtags.push(h); hash.classList.toggle('on'); var ch = el.querySelector('[data-fl-caphash]'); if (ch) ch.textContent = d.hashtags.join(' '); return; }
       var vv = t.closest('[data-fl-var]'); if (vv) { var vk = vv.getAttribute('data-fl-var'); return doGenerate(vk === 'long' ? { length_tier: 'long' } : { tone_override: vk }, '다시 생성했어요'); }
       var seg = t.closest('[data-fl-seg]'); if (seg) { el.querySelectorAll('[data-fl-seg]').forEach(function (x) { x.classList.remove('on'); }); seg.classList.add('on'); var body = el.querySelector('[data-fl-capbody]'); if (body) { var w = seg.getAttribute('data-fl-seg') === 'write'; body.contentEditable = w ? 'true' : 'false'; if (w) body.focus(); } return; }
@@ -283,9 +353,68 @@
       });
     });
     el.addEventListener('input', function (e) {
-      if (e.target.matches('[data-fl-range]')) { d.filter = +e.target.value; var p = el.querySelector('[data-fl-edphoto]'); if (p) p.style.filter = filterCss(d.filter); var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = '+' + d.filter; }
+      if (e.target.matches('[data-fl-range]')) {
+        var k = e.target.getAttribute('data-fl-range'); d.adjust[k] = +e.target.value;
+        var p = el.querySelector('[data-fl-edphoto]'); if (p && !d.originalPreview) p.style.filter = filterCss(d.adjust);
+        var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = (d.adjust[k] > 0 ? '+' : '') + d.adjust[k];
+      }
       if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
+    });
+    // 슬라이더 조작 전후로 undo 스냅샷
+    el.addEventListener('focusin', function (e) { if (e.target.matches('[data-fl-range]')) d._adjPrev = clone(d.adjust); });
+    el.addEventListener('change', function (e) {
+      if (e.target.matches('[data-fl-range]') && d._adjPrev) {
+        d.undo = d.undo || []; d.undo.push(d._adjPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._adjPrev = null;
+      }
+    });
+  }
+
+  function clone(o) { return JSON.parse(JSON.stringify(o || {})); }
+
+  // 하단 액션 (전부 인플레이스 — PhotoEditor 이동 없음)
+  function _editBottom(label) {
+    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; setScreen('edit'); return; }
+    if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(clone(d.adjust)); d.adjust = d.undo.pop(); setScreen('edit'); } return; }
+    if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = d.redo.pop(); setScreen('edit'); } return; }
+    if (label === '초기화') { if (typeof window.confirm === 'function' && !window.confirm('현재 보정을 초기화할까요?')) return; d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = newAdjust(); d.redo = []; setScreen('edit'); return; }
+  }
+
+  // 배경/누끼 — compose 엔진만 호출(어댑터), V2 화면 안에서 진행/결과 표시. PhotoEditor 안 띄움.
+  function applyBg(action) {
+    var photo = curPhoto();
+    if (!photo) { toast('사진이 없어요'); return; }
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
+    d.bgAction = action; d.bgBusy = true; setScreen('edit');
+    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: photo.editedDataUrl || photo.dataUrl, action: action, color: d.bgColor, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
+      .then(function (r) {
+        d.bgBusy = false;
+        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; toast('배경 적용 완료'); }
+        else { toast((r && r.toast) || '배경 처리에 실패했어요'); }
+        setScreen('edit');
+      });
+  }
+
+  // 저장 시 경량 보정(adjust)을 캔버스로 굽기 → editedDataUrl. PNG 소스 유지/그 외 JPEG.
+  function bakeEdit() {
+    var photo = curPhoto();
+    var nonzero = photo && d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
+    if (!photo || !nonzero) return Promise.resolve();
+    var src = photo.editedDataUrl || photo.dataUrl;
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+          var c = cv.getContext('2d'); c.filter = filterCss(d.adjust); c.drawImage(im, 0, 0);
+          var png = /^data:image\/png/i.test(src);
+          photo.editedDataUrl = png ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.92);
+          photo.adjustments = clone(d.adjust);
+        } catch (_e) { /* bake 실패 시 원본 유지 */ }
+        res();
+      };
+      im.onerror = function () { res(); };
+      im.src = src;
     });
   }
 
@@ -307,18 +436,9 @@
     if (cur === 'upload' && !d.photos.length) { toast('사진을 먼저 추가해 주세요.'); return; }
     if (c.to === '__save') return save();
     if (cur === 'caption') syncCaptionFromDom();
+    // 편집 → 캡션: 경량 보정(adjust) 결과를 editedDataUrl 로 굽고 이동 (재업로드 없음)
+    if (cur === 'edit') { return bakeEdit().then(function () { setScreen(c.to); }); }
     setScreen(c.to);
-  }
-
-  // 보정/누끼/템플릿 → 모던 PhotoEditor (어댑터). 저장 시 editedDataUrl 갱신 후 재렌더.
-  function openEditor(tab) {
-    var photo = curPhoto();
-    if (!photo) { toast('편집할 사진이 없어요'); return; }
-    if (!window.WorkspaceAdapter) { toast('편집 모듈을 불러오지 못했어요'); return; }
-    var ctx = { customerName: d.customerName, onSaved: function (dataUrl) { if (dataUrl) { photo.editedDataUrl = dataUrl; if (cur === 'edit') setScreen('edit'); } } };
-    if (tab === 'bg') window.WorkspaceAdapter.openRemoveBg(photo, ctx);
-    else if (tab === 'template') window.WorkspaceAdapter.openTemplate(photo, ctx);
-    else window.WorkspaceAdapter.openRetouch(photo, ctx);
   }
 
   // 비율 자르기 — V2 크롭 모달. 결과는 editedDataUrl + cropMeta (originalUrl 미변경, role 불변).
@@ -426,13 +546,15 @@
       slot: slot,
       photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null }; }) : [],
       baMode: purpose === 'before_after',
-      filter: 60, template: null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
+      template: null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
       tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [],
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false,
+      // [Phase 5-1] 인플레이스 편집 상태
+      editTab: 'basic', control: null, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, bgAction: null, bgColor: null, bgBusy: false,
     };
     // 신규 업로드/역할 없음일 때만 자동 역할 지정 — 복원 슬롯의 role 은 보존
     if (d.photos.length && !hadRoles) reassignRoles();

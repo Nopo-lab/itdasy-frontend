@@ -103,6 +103,19 @@
 .wsv2flow .ed-bottom .eb.active { color:#e0516e; }
 .wsv2flow .ed-bottom .eb.active .activebox { width:58px; height:54px; border-radius:16px; background:#fff0f1; display:grid; place-items:center; margin-bottom:-2px; }
 .wsv2flow .ed-bottom .eb.active i { color:#e0516e; }
+/* [Phase 5-1] 배경 탭 / 고급 탭 / 템플릿 선택 표시 (인플레이스) */
+.wsv2flow .ed-bg { padding:14px; display:flex; flex-direction:column; gap:10px; }
+.wsv2flow .ed-bg__btn { height:46px; border:1px solid #f1e3dd; border-radius:12px; background:#fff; color:#4c4140; font-size:13px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.wsv2flow .ed-bg__btn.on { border-color:#e0516e; background:#fff0f1; color:#e0516e; }
+.wsv2flow .ed-bg__btn i { font-size:18px; }
+.wsv2flow .ed-bg__colors { display:flex; gap:10px; padding:2px 0; }
+.wsv2flow .ed-bg__color { width:34px; height:34px; border-radius:50%; border:2px solid #eee2dc; cursor:pointer; }
+.wsv2flow .ed-bg__color.on { border-color:#e0516e; box-shadow:0 0 0 2px rgba(222,79,111,.2); }
+.wsv2flow .ed-bg__status { font-size:11.5px; color:#8c807a; text-align:center; }
+.wsv2flow .ed-adv { padding:14px; display:flex; flex-direction:column; gap:9px; }
+.wsv2flow .ed-adv__btn { height:46px; border:1px solid #efe0db; border-radius:12px; background:#fff; color:#4c4140; font-size:13px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.wsv2flow .ed-adv__btn i { font-size:18px; color:#e0516e; }
+.wsv2flow .tpl-picked { margin:10px 2px 0; font-size:12px; font-weight:800; color:#df5270; }
 .wsv2flow .tpl-head { font-size:15px; font-weight:900; color:#241d1c; margin:2px 2px 12px; letter-spacing:-.02em; }
 .wsv2flow .tpl-chips { display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px; }
 .wsv2flow .tpl-chips::-webkit-scrollbar { height:0; }

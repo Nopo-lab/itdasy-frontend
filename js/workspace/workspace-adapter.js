@@ -47,6 +47,22 @@
       return { ok: true };
     },
 
+    // 배경/누끼 — PhotoEditorBgCompose.compose 순수 함수만 호출(UI 無). 결과 dataUrl 반환.
+    applyWorkspaceBgAction: function (opts) {
+      opts = opts || {};
+      if (!(window.PhotoEditorBgCompose && has(window.PhotoEditorBgCompose.compose))) {
+        return Promise.resolve({ ok: false, reason: 'no_bg_engine', toast: '배경 엔진을 불러오지 못했어요' });
+      }
+      var bg = opts.action === 'color' ? { type: 'procedural', color: opts.color || '#ffffff' }
+        : opts.action === 'blur' ? { type: 'blur' } : { type: 'none' };
+      return Promise.resolve(window.PhotoEditorBgCompose.compose({ srcUrl: opts.src, bg: bg, targetRatio: opts.ratio || 'original' }))
+        .then(function (r) {
+          if (!r) return { ok: false, toast: '배경 처리에 실패했어요' };
+          var url = opts.action === 'removeBg' ? (r.removedBgDataUrl || r.composedDataUrl) : (r.composedDataUrl || r.removedBgDataUrl);
+          return url ? { ok: true, dataUrl: url } : { ok: false, toast: '배경 처리에 실패했어요' };
+        }).catch(function (e) { console.warn('[wsadapter] bg', e); return { ok: false, reason: 'api', toast: '배경 처리 실패 — 연결/권한 확인' }; });
+    },
+
     // 캡션 — DOM 비의존 엔진. 시술 내역/맥락 없으면 안내(무작정 생성 금지).
     generateCaption: function (opts) {
       opts = opts || {};
