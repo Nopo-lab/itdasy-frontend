@@ -126,6 +126,15 @@
 .wsv2flow .tpl-item.on { border-color: var(--brand-strong); box-shadow: var(--shadow-md); }
 .wsv2flow .tpl-item span { font-size: 10px; font-weight: 800; color: #fff; background: rgba(25,31,40,.5); width: 100%; padding: 5px 8px; border-radius: 0 0 11px 11px; }
 
+/* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
+.wsv2flow .cap-photo--sm { width: 100%; height: 140px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 12px; }
+.wsv2flow .cap-byline { font-size: 11px; font-weight: 700; color: var(--text-subtle); text-align: center; padding: 6px 0 10px; }
+.wsv2flow .cap-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 0; color: var(--text-subtle); font-size: 13px; }
+.wsv2flow .cap-loading-spin { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--brand-strong); border-radius: 50%; animation: wsv2spin .8s linear infinite; }
+@keyframes wsv2spin { to { transform: rotate(360deg); } }
+.wsv2flow .captail { border: 1px dashed var(--border-strong); border-radius: var(--r-md); padding: 10px 14px; margin: 10px 0 14px; background: var(--surface-2); }
+.wsv2flow .captail__label { font-size: 10.5px; font-weight: 800; color: var(--text-subtle); letter-spacing: .02em; margin-bottom: 4px; }
+.wsv2flow .captail__body { font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
 /* C. 게시글 */
 .wsv2flow .seg { height: 42px; background: var(--brand-bg); border-radius: var(--r-md); padding: 4px; display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
 .wsv2flow .seg-btn { border: 0; border-radius: var(--r-sm); background: transparent; color: var(--brand); font-weight: 900; font-size: 12.5px; cursor: pointer; }

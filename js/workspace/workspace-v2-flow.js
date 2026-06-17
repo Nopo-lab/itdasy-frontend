@@ -154,45 +154,55 @@
     return Object.keys(r).map(function (k) { return ({ before: '전', after: '후', hero: '홍보컷', exclude: '제외' }[k] || k) + ' ' + r[k]; }).join(' · ') || '없음';
   }
 
-  // [C4] 게시글 화면 — HASHES 제거, 백엔드 해시태그만 사용. [다시][더 짧게][더 길게] 버튼.
+  // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
   function renderCaption() {
     var url = photoUrl(curPhoto());
-    var seg = d.capSeg || 'rec';
-    var write = seg === 'write';
-    var hashHtml = (d.hashtags.length ? d.hashtags : []).map(function (h) {
+    if (d.capLoading) {
+      return '<div class="cap-loading"><div class="cap-loading-spin"></div><p>AI가 게시글을 쓰는 중…</p></div>';
+    }
+    if (!d.caption) {
+      var photoThumb = (!d.textOnly && url) ?
+        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '';
+      return photoThumb +
+        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
+        '<div data-fl-scenario></div>';
+    }
+    // 결과 화면
+    var hashHtml = d.hashtags.map(function (h) {
       return '<button class="hash-chip' + (d.selectedHashes && d.selectedHashes.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>';
     }).join('');
-    var hasCap = !!d.caption;
-    var placeholder = write ? '여기에 게시글을 직접 작성하세요.' : '위에 시술 내역을 입력하고 "AI 게시글 생성"을 눌러주세요.';
-    var body = d.capLoading ? 'AI 가 게시글을 쓰는 중…' : (d.caption || placeholder);
-    var bodyEmpty = !d.caption && !d.capLoading;
-    // 사진 없음(textOnly) 모드면 업로드 영역 숨김
     var photoHtml = (!d.textOnly && url) ?
-      '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><i class="ph-duotone ph-tag"></i><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' : '';
+      '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:13px;height:13px;stroke:var(--brand-strong)"><use href="#ic-tag"/></svg><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' : '';
     return '' +
-      '<div class="seg"><button class="seg-btn' + (write ? '' : ' on') + '" data-fl-seg="rec">AI 추천</button><button class="seg-btn' + (write ? ' on' : '') + '" data-fl-seg="write">직접 작성</button></div>' +
-      '<label class="cap-field-label">① 시술 내역 <span>— AI가 게시글을 쓸 때 참고해요 (본문 아님)</span></label>' +
-      '<input class="service-input" data-fl-service value="' + esc(d.service) + '" placeholder="예: 레이어드컷, 자연스러운 볼륨">' +
-      '<label class="cap-field-label">② 게시글 본문 <span>' + (write ? '— 직접 작성한 글이 그대로 올라가요' : '— AI가 만든 글이 여기 표시돼요') + '</span></label>' +
+      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
       '<div class="cap-card">' +
         photoHtml +
-        '<div class="cap-text"><p data-fl-capbody' + (write ? ' contenteditable="true"' : '') + (bodyEmpty ? ' data-empty="1" style="color:var(--text-subtle)"' : '') + '>' + esc(body) + '</p>' +
+        '<div class="cap-text">' +
+          '<p data-fl-capbody>' + esc(d.caption) + '</p>' +
           '<div class="cap-hash" data-fl-caphash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</div>' +
-          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span></div>' +
+          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
+        '</div>' +
       '</div>' +
-      (write
-        ? '<div class="cap-actions"><button class="cap-redo" data-fl="gen">AI로 생성</button><button class="cap-preview" data-fl="toconnect">다음으로</button></div>'
-        : hasCap
-          ? '<div class="cust-row"><b>해시태그 제안</b><a data-fl="morehash">새로고침 ›</a></div>' +
-            (hashHtml ? '<div class="hash-chips">' + hashHtml + '</div>' : '') +
-            '<div class="cust-row"><b>다시 쓰기</b></div>' +
-            '<div class="cap-regen-row">' +
-              '<button class="cap-regen-btn" data-fl-var="regen">다시</button>' +
-              '<button class="cap-regen-btn" data-fl-var="short">더 짧게</button>' +
-              '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
-            '</div>' +
-            '<div class="cap-actions"><button class="cap-redo" data-fl="regen">문구 다시</button><button class="cap-preview" data-fl="toconnect">다음으로</button></div>'
-          : '<button class="cap-preview" style="width:100%" data-fl="gen">' + (d.capLoading ? '생성 중…' : 'AI 게시글 생성') + '</button>');
+      '<div class="captail"><div class="captail__label">고정 꼬리말 자동 추가</div>' +
+        '<div class="captail__body">' + (d.captionTemplate ? esc(d.captionTemplate) : '매장 고정 문구(예약 DM·영업시간)가 자동으로 붙어요') + '</div>' +
+      '</div>' +
+      (hashHtml ? '<div class="cust-row"><b>해시태그</b><a data-fl="morehash">새로고침 ›</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
+      '<div class="cap-regen-row">' +
+        '<button class="cap-regen-btn" data-fl-var="regen">다시</button>' +
+        '<button class="cap-regen-btn" data-fl-var="short">더 짧게</button>' +
+        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
+      '</div>';
+  }
+
+  function _mountCaption() {
+    var container = el.querySelector('[data-fl-scenario]');
+    if (!container) return;
+    if (typeof renderScenarioSelector !== 'function') { toast('시나리오 선택기를 불러오지 못했어요'); return; }
+    renderScenarioSelector(container, function (result) {
+      d.captionAxes = result.axes;
+      d.service = result.special_context || [result.axes.situation, result.axes.customer, (d.textOnly ? null : result.axes.photo)].filter(Boolean).join('/');
+      doGenerate({ photo_context: result.axes, special_context: result.special_context || '' }, null);
+    });
   }
 
   function renderPreview() {
@@ -287,6 +297,7 @@
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
+    if (name === 'caption') _mountCaption();
     if (name === 'connect') loadRecent();
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
@@ -313,6 +324,7 @@
       d.capLoading = false;
       if (r.ok) {
         d.caption = r.caption; d.hashtags = (r.hashtags || []).slice(); d.selectedHashes = d.hashtags.slice();
+        d.captionTemplate = r.caption_template || '';
         d.logId = r.log_id || null; if (label) toast(label);
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
       setScreen('caption');
@@ -667,6 +679,7 @@
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
       simpleTool: null, editTab: 'basic', control: null, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
+      captionAxes: null, captionTemplate: '',
     };
     if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
