@@ -21,21 +21,21 @@
   var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', price: 'free' };
   // tplPurpose → workspaceContext.type (시술자랑 feed → promo)
   var TYPE_MAP = { before_after: 'before_after', feed: 'promo', review: 'review', event: 'event', price: 'price' };
-  // [Phase 5-1 P0] V2 편집 인플레이스 컨트롤 — 탭/컨트롤 정의 (PhotoEditor 라우팅 없음, 경량 보정)
+  // [Phase 5-2] V2 인플레이스 보정 — 실 픽셀 워커로 동작하는 5개 키만 사용(brightness/contrast/saturation/sharpness/color).
+  //  contrast=캔버스 필터, 나머지=PhotoEditorWorkerFilter(밝기/채도/색온도/언샵). 효과 없는 국소보정(볼륨·잡티·매끈함 등)은 제거.
+  //  피부/머릿결 탭=같은 5키의 "가벼운 톤 보정" 큐레이션 + 정밀(마스크) 보정은 후속 Phase 안내.
   var EDIT_TABS = [
     { k: 'basic', label: '기본', ic: 'ph-sliders-horizontal', controls: [
-      { k: 'brightness', l: '밝기', ic: 'ph-sun' }, { k: 'sharpness', l: '선명도', ic: 'ph-lightning' }, { k: 'color', l: '색감', ic: 'ph-palette' },
-      { k: 'glow', l: '윤기', ic: 'ph-drop' }, { k: 'contrast', l: '대비', ic: 'ph-circle-half' }, { k: 'saturation', l: '채도', ic: 'ph-sparkle' } ] },
-    { k: 'skin', label: '피부', ic: 'ph-user', controls: [
-      { k: 'skinTone', l: '피부톤', ic: 'ph-eyedropper' }, { k: 'blemish', l: '잡티', ic: 'ph-drop-half' }, { k: 'smooth', l: '매끈함', ic: 'ph-wave-sine' },
-      { k: 'redness', l: '붉은기', ic: 'ph-thermometer-simple' }, { k: 'radiance', l: '광채', ic: 'ph-sun-dim' } ] },
-    { k: 'hair', label: '머릿결', ic: 'ph-wind', controls: [
-      { k: 'hairGloss', l: '윤기', ic: 'ph-drop' }, { k: 'hairCalm', l: '차분함', ic: 'ph-wave-sine' }, { k: 'hairVolume', l: '볼륨', ic: 'ph-arrows-out-line-vertical' },
-      { k: 'hairSharp', l: '선명도', ic: 'ph-lightning' }, { k: 'hairTidy', l: '결 정리', ic: 'ph-broom' } ] },
+      { k: 'brightness', l: '밝기', ic: 'ph-sun' }, { k: 'contrast', l: '대비', ic: 'ph-circle-half' }, { k: 'saturation', l: '채도', ic: 'ph-sparkle' },
+      { k: 'sharpness', l: '선명도', ic: 'ph-lightning' }, { k: 'color', l: '색감', ic: 'ph-palette' } ] },
+    { k: 'skin', label: '피부', ic: 'ph-user', note: '정밀 피부 보정(잡티·매끈함)은 다음 업데이트에서 제공돼요. 지금은 가벼운 톤 보정만 돼요.', controls: [
+      { k: 'brightness', l: '화사', ic: 'ph-sun' }, { k: 'color', l: '따뜻함', ic: 'ph-palette' }, { k: 'saturation', l: '혈색', ic: 'ph-sparkle' } ] },
+    { k: 'hair', label: '머릿결', ic: 'ph-wind', note: '정밀 머릿결 보정(볼륨·결 정리)은 다음 업데이트에서 제공돼요. 지금은 가벼운 톤 보정만 돼요.', controls: [
+      { k: 'sharpness', l: '선명', ic: 'ph-lightning' }, { k: 'contrast', l: '또렷', ic: 'ph-circle-half' }, { k: 'color', l: '색감', ic: 'ph-palette' } ] },
     { k: 'background', label: '배경', ic: 'ph-image', controls: [] },
     { k: 'advanced', label: '고급', ic: 'ph-faders', controls: [] },
   ];
-  function newAdjust() { return { brightness:0, sharpness:0, color:0, glow:0, contrast:0, saturation:0, skinTone:0, blemish:0, smooth:0, redness:0, radiance:0, hairGloss:0, hairCalm:0, hairVolume:0, hairSharp:0, hairTidy:0 }; }
+  function newAdjust() { return { brightness:0, contrast:0, saturation:0, sharpness:0, color:0 }; }
   var d = null;       // draft state
   var el = null;      // flow root
   var cur = 'upload';
@@ -95,10 +95,13 @@
   }
 
   function renderEdit() {
-    var url = photoUrl(curPhoto());
+    var base = photoUrl(curPhoto());
+    // 표시 소스: 원본보기=base, 보정 적용분 있으면 실 워커 결과(previewUrl), 없으면 base
+    var url = d.originalPreview ? base : (d.previewUrl || base);
     var tab = d.editTab || 'basic';
     var tabObj = EDIT_TABS.filter(function (t) { return t.k === tab; })[0] || EDIT_TABS[0];
-    var preview = d.originalPreview ? 'none' : filterCss(d.adjust);
+    // previewUrl 이 이미 보정을 구워둔 경우 CSS filter 중복 적용 안 함(원본/baked 그대로)
+    var preview = (d.originalPreview || d.previewUrl) ? 'none' : filterCss(d.adjust);
     var tabsHtml = EDIT_TABS.map(function (t) {
       return '<div class="ed-tab' + (t.k === tab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
     }).join('');
@@ -110,20 +113,23 @@
       var actObj = ctrls.filter(function (c) { return c.k === active; })[0];
       var val = (d.adjust && d.adjust[active]) || 0;
       panel =
+        (tabObj.note ? '<div class="ed-note"><i class="ph-duotone ph-info"></i>' + esc(tabObj.note) + '</div>' : '') +
         '<div class="ed-tools">' + ctrls.map(function (c) {
           return '<div class="ed-tool' + (c.k === active ? ' on' : '') + '" data-fl-edtool="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
         }).join('') + '</div>' +
         '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
     } else if (tab === 'background') {
       var bgcur = d.bgAction || '';
+      var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
       panel =
         '<div class="ed-bg">' +
           '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
           '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
-          '<div class="ed-bg__colors">' + ['#ffffff', '#fbeaef', '#eaf3fc', '#f3efe7', '#1f1b18'].map(function (c) {
-            return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '"></button>';
+          '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
+          '<div class="ed-bg__colors">' + bgColors.map(function (c) {
+            return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
           }).join('') + '</div>' +
-          '<div class="ed-bg__status" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요')) + '</div>' +
+          '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
         '</div>';
     } else { // advanced
       panel =
@@ -165,27 +171,36 @@
 
   function renderCaption() {
     var url = photoUrl(curPhoto());
+    var seg = d.capSeg || 'rec';
+    var write = seg === 'write';
     var hashHtml = (d.hashtags.length ? d.hashtags : HASHES).map(function (h) { return '<button class="hash-chip' + (d.hashtags.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>'; }).join('');
     var vars = [{ k: 'long', l: '더 길게' }, { k: 'review', l: '후기체' }, { k: 'instagram', l: '인스타스럽게' }];
     var varHtml = vars.map(function (v) { return '<button class="chip" data-fl-var="' + v.k + '">' + esc(v.l) + '</button>'; }).join('');
-    var body = d.capLoading ? 'AI 가 캡션을 쓰는 중…' : (d.caption || '아직 캡션이 없어요. 시술 내역을 입력하고 “AI 캡션 생성”을 눌러주세요.');
     var hasCap = !!d.caption;
+    var placeholder = write ? '여기에 캡션을 직접 작성하세요.' : '아직 캡션이 없어요. 위에 시술 내역을 입력하고 “AI 캡션 생성”을 눌러주세요.';
+    var body = d.capLoading ? 'AI 가 캡션을 쓰는 중…' : (d.caption || placeholder);
+    var bodyEmpty = !d.caption && !d.capLoading;
     return '' +
-      '<div class="seg"><button class="seg-btn on" data-fl-seg="rec">추천 캡션</button><button class="seg-btn" data-fl-seg="write">직접 작성</button></div>' +
-      '<input class="service-input" data-fl-service value="' + esc(d.service) + '" placeholder="시술 내역 (예: 레이어드컷, 자연스러운 볼륨)">' +
+      '<div class="seg"><button class="seg-btn' + (write ? '' : ' on') + '" data-fl-seg="rec">추천 캡션</button><button class="seg-btn' + (write ? ' on' : '') + '" data-fl-seg="write">직접 작성</button></div>' +
+      '<label class="cap-field-label">① 시술 내역 <span>— AI가 캡션을 쓸 때 참고해요 (본문 아님)</span></label>' +
+      '<input class="service-input" data-fl-service value="' + esc(d.service) + '" placeholder="예: 레이어드컷, 자연스러운 볼륨">' +
+      '<label class="cap-field-label">② 캡션 본문 <span>' + (write ? '— 직접 작성한 글이 그대로 올라가요' : '— AI가 만든 글이 여기 표시돼요') + '</span></label>' +
       '<div class="cap-card">' +
         '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><i class="ph-duotone ph-tag"></i><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' +
-        '<div class="cap-text"><p data-fl-capbody' + (hasCap && !d.capLoading ? '' : ' style="color:#9a8d86"') + '>' + esc(body) + '</p>' +
+        '<div class="cap-text"><p data-fl-capbody' + (write ? ' contenteditable="true"' : '') + (bodyEmpty ? ' data-empty="1" style="color:#9a8d86"' : '') + '>' + esc(body) + '</p>' +
           '<div class="cap-hash" data-fl-caphash>' + esc(d.hashtags.join(' ')) + '</div>' +
           '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span></div>' +
       '</div>' +
-      (hasCap
-        ? '<div class="cust-row"><b>해시태그 제안</b><a data-fl="morehash">새로고침 ›</a></div>' +
-          '<div class="hash-chips">' + hashHtml + '</div>' +
-          '<div class="cust-row"><b>다시 쓰기</b></div>' +
-          '<div class="cap-tone">' + varHtml + '</div>' +
-          '<div class="cap-actions"><button class="cap-redo" data-fl="regen">문구 다시</button><button class="cap-preview" data-fl="topreview">미리보기</button></div>'
-        : '<button class="cap-preview" style="width:100%" data-fl="gen">' + (d.capLoading ? '생성 중…' : 'AI 캡션 생성') + '</button>');
+      (write
+        // 직접 작성 — AI 캡션 없어도 항상 미리보기로 진행 가능 (재업로드 없음)
+        ? '<div class="cap-actions"><button class="cap-redo" data-fl="gen">AI로 작성</button><button class="cap-preview" data-fl="topreview">미리보기로</button></div>'
+        : hasCap
+          ? '<div class="cust-row"><b>해시태그 제안</b><a data-fl="morehash">새로고침 ›</a></div>' +
+            '<div class="hash-chips">' + hashHtml + '</div>' +
+            '<div class="cust-row"><b>다시 쓰기</b></div>' +
+            '<div class="cap-tone">' + varHtml + '</div>' +
+            '<div class="cap-actions"><button class="cap-redo" data-fl="regen">문구 다시</button><button class="cap-preview" data-fl="topreview">미리보기</button></div>'
+          : '<button class="cap-preview" style="width:100%" data-fl="gen">' + (d.capLoading ? '생성 중…' : 'AI 캡션 생성') + '</button>');
   }
 
   function renderPreview() {
@@ -246,16 +261,15 @@
 
   var RENDER = { upload:renderUpload, edit:renderEdit, caption:renderCaption, preview:renderPreview, connect:renderConnect };
 
-  // adjust 객체 → CSS filter (preview/bake 공용, 경량 근사)
+  // adjust(5키) → CSS filter. 슬라이더 드래그 중 즉시 피드백용 근사. 릴리즈 시 실 워커 결과로 교체됨.
   function filterCss(a) {
     a = a || {};
-    var bright = 1 + ((a.brightness || 0) + (a.radiance || 0) * 0.5 + (a.glow || 0) * 0.4) / 220;
-    var contr = 1 + ((a.contrast || 0) + (a.sharpness || 0) * 0.6 + (a.glow || 0) * 0.3 + (a.hairGloss || 0) * 0.4 + (a.hairSharp || 0) * 0.5 + (a.hairVolume || 0) * 0.3 + (a.hairTidy || 0) * 0.3) / 240;
-    var sat = 1 + ((a.saturation || 0) + (a.skinTone || 0) * 0.3 - (a.redness || 0) * 0.5 - (a.hairCalm || 0) * 0.3) / 240;
-    var hue = ((a.color || 0) * 0.5 - (a.redness || 0) * 0.3) / 1;
-    var blur = Math.max(0, (a.smooth || 0) + (a.blemish || 0) * 0.6) / 45;
-    var sep = Math.max(0, (a.skinTone || 0)) / 320;
-    return 'brightness(' + bright.toFixed(3) + ') contrast(' + contr.toFixed(3) + ') saturate(' + Math.max(0, sat).toFixed(3) + ') hue-rotate(' + hue.toFixed(1) + 'deg) blur(' + blur.toFixed(2) + 'px) sepia(' + sep.toFixed(3) + ')';
+    var bright = Math.max(0, 1 + (a.brightness || 0) * 0.6 / 100);
+    var contr = Math.max(0, 1 + (a.contrast || 0) / 100);
+    var sat = Math.max(0, 1 + (a.saturation || 0) * 0.8 / 100);
+    var hue = (a.color || 0) * 0.4;                 // 색감(색온도) 근사
+    var contrSharp = a.sharpness > 0 ? (contr + a.sharpness * 0.2 / 100) : contr;  // 선명도 근사(실효는 언샵)
+    return 'brightness(' + bright.toFixed(3) + ') contrast(' + contrSharp.toFixed(3) + ') saturate(' + sat.toFixed(3) + ') hue-rotate(' + hue.toFixed(1) + 'deg)';
   }
 
   /* ── 라우팅 ── */
@@ -342,7 +356,7 @@
       var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); el.querySelectorAll('[data-fl-tpl]').forEach(function (x) { x.classList.remove('on'); }); tpl.classList.add('on'); toast("'" + d.template + "' 템플릿 선택"); setScreen('edit'); return; }
       var hash = t.closest('[data-fl-hash]'); if (hash) { var h = hash.getAttribute('data-fl-hash'); var k = d.hashtags.indexOf(h); if (k >= 0) d.hashtags.splice(k, 1); else d.hashtags.push(h); hash.classList.toggle('on'); var ch = el.querySelector('[data-fl-caphash]'); if (ch) ch.textContent = d.hashtags.join(' '); return; }
       var vv = t.closest('[data-fl-var]'); if (vv) { var vk = vv.getAttribute('data-fl-var'); return doGenerate(vk === 'long' ? { length_tier: 'long' } : { tone_override: vk }, '다시 생성했어요'); }
-      var seg = t.closest('[data-fl-seg]'); if (seg) { el.querySelectorAll('[data-fl-seg]').forEach(function (x) { x.classList.remove('on'); }); seg.classList.add('on'); var body = el.querySelector('[data-fl-capbody]'); if (body) { var w = seg.getAttribute('data-fl-seg') === 'write'; body.contentEditable = w ? 'true' : 'false'; if (w) body.focus(); } return; }
+      var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
       var files = Array.from(e.target.files || []); e.target.value = '';
@@ -355,17 +369,43 @@
     el.addEventListener('input', function (e) {
       if (e.target.matches('[data-fl-range]')) {
         var k = e.target.getAttribute('data-fl-range'); d.adjust[k] = +e.target.value;
-        var p = el.querySelector('[data-fl-edphoto]'); if (p && !d.originalPreview) p.style.filter = filterCss(d.adjust);
+        // 드래그 중: 직전 실워커 결과 위에 CSS 근사 미리보기. 보정 0이면 baked 제거.
+        var p = el.querySelector('[data-fl-edphoto]');
+        if (p && !d.originalPreview) { d.previewUrl = null; p.style.backgroundImage = 'url(' + esc(photoUrl(curPhoto())) + ')'; p.style.filter = filterCss(d.adjust); }
         var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = (d.adjust[k] > 0 ? '+' : '') + d.adjust[k];
       }
+      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.textContent; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
       if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
-    // 슬라이더 조작 전후로 undo 스냅샷
-    el.addEventListener('focusin', function (e) { if (e.target.matches('[data-fl-range]')) d._adjPrev = clone(d.adjust); });
+    // 슬라이더 조작 전후로 undo 스냅샷 / 직접 작성 빈 본문 포커스 시 안내문구 제거
+    el.addEventListener('focusin', function (e) {
+      if (e.target.matches('[data-fl-range]')) d._adjPrev = clone(d.adjust);
+      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.textContent = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
+    });
     el.addEventListener('change', function (e) {
-      if (e.target.matches('[data-fl-range]') && d._adjPrev) {
-        d.undo = d.undo || []; d.undo.push(d._adjPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._adjPrev = null;
+      if (e.target.matches('[data-fl-range]')) {
+        if (d._adjPrev) { d.undo = d.undo || []; d.undo.push(d._adjPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._adjPrev = null; }
+        _refreshPreview();   // 릴리즈 시 실 픽셀 워커로 진짜 보정 미리보기 (선명도 등 체감)
+      }
+    });
+  }
+
+  // 실 워커 보정 미리보기 — 편집 사진에 적용(어댑터). 보정 0이면 원본 표시. PhotoEditor 이동 없음.
+  function _refreshPreview() {
+    var photo = curPhoto(); if (!photo) return;
+    var base = photo.editedDataUrl || photo.dataUrl;
+    var p = el.querySelector('[data-fl-edphoto]');
+    var nonzero = d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
+    if (!nonzero) { d.previewUrl = null; if (p && !d.originalPreview) { p.style.backgroundImage = 'url(' + esc(base) + ')'; p.style.filter = 'none'; } return; }
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyPixelAdjust)) { if (p && !d.originalPreview) p.style.filter = filterCss(d.adjust); return; }
+    var token = (d._pvTok = (d._pvTok || 0) + 1);
+    window.WorkspaceAdapter.applyPixelAdjust({ src: base, adjust: d.adjust }).then(function (r) {
+      if (token !== d._pvTok) return;   // 더 최신 조작이 있으면 폐기
+      if (r && r.ok && r.dataUrl) {
+        d.previewUrl = r.dataUrl;
+        var p2 = el.querySelector('[data-fl-edphoto]');
+        if (p2 && !d.originalPreview) { p2.style.backgroundImage = 'url(' + r.dataUrl + ')'; p2.style.filter = 'none'; }
       }
     });
   }
@@ -374,10 +414,10 @@
 
   // 하단 액션 (전부 인플레이스 — PhotoEditor 이동 없음)
   function _editBottom(label) {
-    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; setScreen('edit'); return; }
-    if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(clone(d.adjust)); d.adjust = d.undo.pop(); setScreen('edit'); } return; }
-    if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = d.redo.pop(); setScreen('edit'); } return; }
-    if (label === '초기화') { if (typeof window.confirm === 'function' && !window.confirm('현재 보정을 초기화할까요?')) return; d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = newAdjust(); d.redo = []; setScreen('edit'); return; }
+    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; setScreen('edit'); if (!d.originalPreview) _refreshPreview(); return; }
+    if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(clone(d.adjust)); d.adjust = d.undo.pop(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
+    if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = d.redo.pop(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
+    if (label === '초기화') { if (typeof window.confirm === 'function' && !window.confirm('현재 보정을 초기화할까요?')) return; d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = newAdjust(); d.redo = []; d.previewUrl = null; setScreen('edit'); return; }
   }
 
   // 배경/누끼 — compose 엔진만 호출(어댑터), V2 화면 안에서 진행/결과 표시. PhotoEditor 안 띄움.
@@ -385,22 +425,33 @@
     var photo = curPhoto();
     if (!photo) { toast('사진이 없어요'); return; }
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
-    d.bgAction = action; d.bgBusy = true; setScreen('edit');
+    var prev = d.bgAction;
+    d.bgAction = action; d.bgBusy = true; d.bgFail = false; setScreen('edit');
     window.WorkspaceAdapter.applyWorkspaceBgAction({ src: photo.editedDataUrl || photo.dataUrl, action: action, color: d.bgColor, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
       .then(function (r) {
         d.bgBusy = false;
-        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; toast('배경 적용 완료'); }
-        else { toast((r && r.toast) || '배경 처리에 실패했어요'); }
-        setScreen('edit');
+        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
+        // 실패: 상태를 "적용됨"으로 거짓표시하지 않음 — 이전 상태로 되돌리고 실패 사유 표시. V2 화면 유지(PhotoEditor 이동 없음).
+        else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; toast(d.bgFailMsg); setScreen('edit'); }
       });
   }
 
-  // 저장 시 경량 보정(adjust)을 캔버스로 굽기 → editedDataUrl. PNG 소스 유지/그 외 JPEG.
+  // 저장 시 보정(adjust)을 실 픽셀 워커로 굽기 → editedDataUrl. 구운 뒤 adjust 초기화(재진입 시 중복 방지).
   function bakeEdit() {
     var photo = curPhoto();
     var nonzero = photo && d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
     if (!photo || !nonzero) return Promise.resolve();
     var src = photo.editedDataUrl || photo.dataUrl;
+    if (window.WorkspaceAdapter && window.WorkspaceAdapter.applyPixelAdjust) {
+      return window.WorkspaceAdapter.applyPixelAdjust({ src: src, adjust: d.adjust }).then(function (r) {
+        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; photo.adjustments = clone(d.adjust); d.adjust = newAdjust(); d.previewUrl = null; }
+        else { return _bakeCss(photo, src); }
+      });
+    }
+    return _bakeCss(photo, src);
+  }
+  // CSS 캔버스 폴백 (워커 미지원 환경)
+  function _bakeCss(photo, src) {
     return new Promise(function (res) {
       var im = new Image();
       im.onload = function () {
@@ -409,7 +460,7 @@
           var c = cv.getContext('2d'); c.filter = filterCss(d.adjust); c.drawImage(im, 0, 0);
           var png = /^data:image\/png/i.test(src);
           photo.editedDataUrl = png ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.92);
-          photo.adjustments = clone(d.adjust);
+          photo.adjustments = clone(d.adjust); d.adjust = newAdjust(); d.previewUrl = null;
         } catch (_e) { /* bake 실패 시 원본 유지 */ }
         res();
       };
@@ -425,7 +476,7 @@
       else p.role = 'hero';
     });
   }
-  function syncCaptionFromDom() { var b = el.querySelector('[data-fl-capbody]'); if (b) d.caption = b.textContent; var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = d.caption; }
+  function syncCaptionFromDom() { var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = b.textContent.trim(); var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = d.caption; }
 
   function back() {
     var i = SCREENS.indexOf(cur);
@@ -450,7 +501,8 @@
       onApply: function (photoId, dataUrl, meta) {
         var p = d.photos.filter(function (x) { return x.id === photoId; })[0];
         if (p) { p.editedDataUrl = dataUrl; p.cropMeta = meta; }
-        if (cur === 'edit') setScreen('edit');
+        d.previewUrl = null;
+        if (cur === 'edit') { setScreen('edit'); _refreshPreview(); }
       },
     });
   }
@@ -508,16 +560,31 @@
     d.publish.status = 'upload_ready'; d.publish.instagramPreparedAt = Date.now();
   }
 
-  // 실제 인스타 업로드(연결+확인 시에만). 미연결이면 noop(버튼 자체가 준비/연결로 표시됨).
+  // [Phase 5-2] 실 인스타 업로드 — ① 먼저 workspace slot 저장(저장된 slotId 기준) → ② V2 전용 publishInstagramV2.
+  //  레거시 baCanvas/previewFinalCaption/_captionSlotId 의존 없음. 성공 확실할 때만 published, 애매하면 게시 준비까지.
   function publish() {
     if (!window.WorkspaceAdapter) return;
     if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
+    if (d._publishing) return;
     syncCaptionFromDom();
-    if (typeof window.confirm === 'function' && !window.confirm('인스타그램에 지금 올릴까요?')) return;
-    window.WorkspaceAdapter.publishInstagram(buildSlot()).then(function (r) {
-      if (r.ok) { if (!d.publish) d.publish = {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now(); toast('인스타그램에 올렸어요'); }
-      else if (r.reason === 'not_connected') toast('인스타 연결이 필요해요');
-      else toast('업로드에 실패했어요 — 잠시 후 다시');
+    if (typeof window.confirm === 'function' && !window.confirm('작업실에 저장하고 인스타그램에 올릴까요?')) return;
+    d._publishing = true;
+    var slot = buildSlot();
+    Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
+      if (!sr || !sr.ok) { d._publishing = false; toast('저장에 실패해 게시를 중단했어요'); return; }
+      d.slot = slot;   // 저장된 slot 보존(id 기준 게시)
+      if (!window.WorkspaceAdapter.publishInstagramV2) { d._publishing = false; _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return; }
+      var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: photoUrl(curPhoto()), caption: cap }).then(function (r) {
+        d._publishing = false; r = r || {};
+        if (r.ok) { d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now(); toast('인스타그램에 올렸어요'); }
+        else if (r.reason === 'ambiguous') { _markPrepared(); toast('게시 준비 완료 — 업로드 결과 확인이 필요해요'); }
+        else {
+          var m = { not_connected: '인스타 연결이 필요해요', blob: '이미지 생성에 실패했어요', api: '업로드 API 호출에 실패했어요', server: '서버가 업로드를 거부했어요' }[r.reason] || '업로드에 실패했어요';
+          toast(m);
+        }
+        setScreen('preview');   // 결과와 무관하게 V2 미리보기 유지 (PhotoEditor 이동 없음)
+      });
     });
   }
 
@@ -552,9 +619,9 @@
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
-      recent: [], recentLoaded: false, capLoading: false,
-      // [Phase 5-1] 인플레이스 편집 상태
-      editTab: 'basic', control: null, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, bgAction: null, bgColor: null, bgBusy: false,
+      recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
+      // [Phase 5-1/5-2] 인플레이스 편집 상태 (adjust = 실워커 5키)
+      editTab: 'basic', control: null, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false,
     };
     // 신규 업로드/역할 없음일 때만 자동 역할 지정 — 복원 슬롯의 role 은 보존
     if (d.photos.length && !hadRoles) reassignRoles();

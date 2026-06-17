@@ -47,20 +47,73 @@
       return { ok: true };
     },
 
-    // 배경/누끼 — PhotoEditorBgCompose.compose 순수 함수만 호출(UI 無). 결과 dataUrl 반환.
+    // 경량 보정 — 실 픽셀 워커(PhotoEditorWorkerFilter) 재사용. UI/PhotoEditor 라우팅 없음.
+    //  지원: brightness/saturation/color(=temperature)/sharpness(=unsharp) = 워커, contrast = 캔버스 필터.
+    //  (워커 schema: workers/photo-filter-worker.js — adjust{brightness,saturate,temperature}, unsharp{strength})
+    applyPixelAdjust: function (opts) {
+      opts = opts || {};
+      var a = opts.adjust || {};
+      if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
+      return new Promise(function (resolve) {
+        var img = new Image();
+        img.onload = function () {
+          var cv, ctx, png;
+          try {
+            cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
+            ctx = cv.getContext('2d', { willReadFrequently: true });
+            var contrast = Math.max(0, 1 + (a.contrast || 0) / 100);   // 대비: 워커 미지원 → 캔버스 필터
+            ctx.filter = contrast !== 1 ? ('contrast(' + contrast.toFixed(3) + ')') : 'none';
+            ctx.drawImage(img, 0, 0); ctx.filter = 'none';
+            png = /^data:image\/png/i.test(opts.src);
+          } catch (_e) { resolve({ ok: false, reason: 'canvas' }); return; }
+          var finish = function () {
+            try { resolve({ ok: true, dataUrl: png ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.92) }); }
+            catch (_e2) { resolve({ ok: false, reason: 'encode' }); }
+          };
+          var wf = window.PhotoEditorWorkerFilter;
+          if (!wf || !has(wf.adjustCanvas)) { finish(); return; }   // 워커 없으면 대비만 적용한 결과 반환
+          var adj = { brightness: 100 + (a.brightness || 0) * 0.6, saturate: 100 + (a.saturation || 0) * 0.8, temperature: (a.color || 0) * 0.6 };
+          wf.adjustCanvas(cv, adj).then(function () {
+            var sh = Math.max(0, (a.sharpness || 0));
+            if (sh > 0 && has(wf.unsharpCanvas)) { wf.unsharpCanvas(cv, sh / 100).then(finish, finish); }
+            else finish();
+          }, function () { finish(); });
+        };
+        img.onerror = function () { resolve({ ok: false, reason: 'bad_image' }); };
+        img.src = opts.src;
+      });
+    },
+
+    // 배경/누끼 — PhotoEditorBgCompose.compose 순수 함수만 호출(UI 無). 실패 사유 분기.
     applyWorkspaceBgAction: function (opts) {
       opts = opts || {};
       if (!(window.PhotoEditorBgCompose && has(window.PhotoEditorBgCompose.compose))) {
         return Promise.resolve({ ok: false, reason: 'no_bg_engine', toast: '배경 엔진을 불러오지 못했어요' });
       }
+      if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image', toast: '배경을 적용할 사진이 없어요' });
       var bg = opts.action === 'color' ? { type: 'procedural', color: opts.color || '#ffffff' }
         : opts.action === 'blur' ? { type: 'blur' } : { type: 'none' };
       return Promise.resolve(window.PhotoEditorBgCompose.compose({ srcUrl: opts.src, bg: bg, targetRatio: opts.ratio || 'original' }))
         .then(function (r) {
-          if (!r) return { ok: false, toast: '배경 처리에 실패했어요' };
+          if (!r) return { ok: false, reason: 'compose_empty', toast: '배경 처리에 실패했어요' };
           var url = opts.action === 'removeBg' ? (r.removedBgDataUrl || r.composedDataUrl) : (r.composedDataUrl || r.removedBgDataUrl);
-          return url ? { ok: true, dataUrl: url } : { ok: false, toast: '배경 처리에 실패했어요' };
-        }).catch(function (e) { console.warn('[wsadapter] bg', e); return { ok: false, reason: 'api', toast: '배경 처리 실패 — 연결/권한 확인' }; });
+          return url ? { ok: true, dataUrl: url } : { ok: false, reason: 'no_output', toast: '배경 처리 결과가 없어요' };
+        }).catch(function (e) {
+          // 에러 메시지 추출 — Error 면 .message, Event(이미지/네트워크 onerror) 면 .type 으로.
+          var isEvent = (typeof Event !== 'undefined' && e instanceof Event) || (e && e.target && e.type && !e.message);
+          var msg = isEvent ? ('event:' + (e.type || 'error')) : String((e && e.message) || e || '');
+          var offline = (typeof navigator !== 'undefined' && navigator.onLine === false);
+          var reason, t;
+          if (/한도|429|quota/i.test(msg)) { reason = 'quota'; t = (e && e.message) || '오늘 배경 제거 한도를 다 썼어요'; }
+          else if (offline) { reason = 'network'; t = '네트워크 연결을 확인해 주세요'; }
+          else if (/imgly|removeBackground|_lazyImgly/i.test(msg)) { reason = 'imgly'; t = '누끼 모듈을 불러오지 못했어요 — 잠시 후 다시'; }
+          else if (/누끼|배경|remove-bg|서버|HTTP|status|40\d|50\d|fetch|network/i.test(msg)) { reason = 'server_removebg'; t = '서버 누끼 처리에 실패했어요 — 잠시 후 다시'; }
+          else if (/image|load|decode|invalid|unsupported|format|event:error/i.test(msg)) { reason = 'bad_image'; t = '이 사진은 배경 처리를 못 했어요 — 다른 사진으로 시도해 주세요'; }
+          // 사유 특정 불가 — 꾸며내지 않고 정직하게 재시도 안내
+          else { reason = 'bg_process'; t = '배경 처리에 실패했어요 — 잠시 후 다시 시도해 주세요'; }
+          console.warn('[wsadapter] bg fail', reason, msg);
+          return { ok: false, reason: reason, toast: t };
+        });
     },
 
     // 캡션 — DOM 비의존 엔진. 시술 내역/맥락 없으면 안내(무작정 생성 금지).
@@ -116,6 +169,33 @@
       if (has(window.doPublishFromCaption)) { return Promise.resolve(window.doPublishFromCaption()).then(function () { return { ok: true }; }).catch(function (e) { return { ok: false, reason: 'api', error: String(e) }; }); }
       if (has(window.doActualPublish)) { return Promise.resolve(window.doActualPublish()).then(function () { return { ok: true }; }).catch(function (e) { return { ok: false, reason: 'api', error: String(e) }; }); }
       return Promise.resolve({ ok: false, reason: 'no_publish_fn' });
+    },
+    // [Phase 5-2] V2 전용 실게시 — 레거시 baCanvas/previewFinalCaption/_captionSlotId 의존 제거.
+    //  저장된 slot 의 이미지(dataUrl)→blob→/instagram/publish-file. 서버 200 + body 성공마커 확인 시에만 ok.
+    //  성공 애매(200이나 마커 없음) → reason:'ambiguous' (호출부에서 게시 준비까지만 처리).
+    publishInstagramV2: function (opts) {
+      opts = opts || {};
+      if (!igConnected()) return Promise.resolve({ ok: false, reason: 'not_connected' });
+      if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
+      if (!has(window.apiFetch)) return Promise.resolve({ ok: false, reason: 'api' });
+      return Promise.resolve(fetch(opts.imageUrl).then(function (r) { return r.blob(); }).catch(function () { return null; }))
+        .then(function (blob) {
+          if (!blob) return { ok: false, reason: 'blob' };
+          var fd = new FormData();
+          fd.append('image', blob, 'itdasy_v2.png');
+          fd.append('caption', opts.caption || '');
+          return window.apiFetch('/instagram/publish-file', { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd })
+            .then(function (res) {
+              return Promise.resolve(res.json().catch(function () { return {}; })).then(function (data) {
+                data = data || {};
+                if (!res.ok) return { ok: false, reason: 'server', detail: data.detail || data.error || ('HTTP ' + res.status) };
+                if (data.error || data.detail) return { ok: false, reason: 'server', detail: data.error || data.detail };
+                var ok = data.ok === true || data.success === true || data.published === true ||
+                  data.id || data.media_id || data.permalink || data.status === 'published' || data.status === 'success';
+                return ok ? { ok: true, data: data } : { ok: false, reason: 'ambiguous' };
+              });
+            }).catch(function (e) { console.warn('[wsadapter] publishV2', e); return { ok: false, reason: 'api' }; });
+        });
     },
     connectInstagram: function () { if (has(window.connectInstagram)) { window.connectInstagram(); return { ok: true }; } return { ok: false, reason: 'no_fn' }; },
     copyText: function (text) {
