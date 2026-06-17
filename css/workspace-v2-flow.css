@@ -76,33 +76,43 @@
 .wsv2flow .grid-add { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; border: 1.5px dashed var(--border-strong); background: var(--surface); color: var(--brand-strong); font-size: 21px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; }
 .wsv2flow .grid-add span { font-size: 11px; }
 
-/* B. 편집 (FC3: 도구 한 줄 + 슬라이더 + 정밀편집 링크, 탭/하단바 제거) */
+/* B. 편집 — 연준 원본 5탭 구조 복원(토큰 톤). 아이콘=ph-duotone <i> */
 .wsv2flow .ed-photo { width: 100%; height: 300px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 13px; transition: filter .12s; box-shadow: var(--shadow-sm); }
-.wsv2flow .ed-tools-row { display: flex; gap: 6px; overflow-x: auto; padding: 4px 0 14px; }
-.wsv2flow .ed-tools-row::-webkit-scrollbar { display: none; }
-.wsv2flow .ed-tool-cir { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 7px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; min-width: 52px; border: 0; background: transparent; padding: 0; }
-.wsv2flow .ed-cir { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; box-shadow: var(--shadow-sm); }
-.wsv2flow .ed-cir svg { width: 22px; height: 22px; stroke: var(--text-muted); }
-.wsv2flow .ed-tool-cir.on .ed-cir { border-color: var(--brand-strong); background: var(--brand-bg); }
-.wsv2flow .ed-tool-cir.on .ed-cir svg { stroke: var(--brand-strong); }
-.wsv2flow .ed-tool-cir.on { color: var(--brand-strong); }
-.wsv2flow .ed-slider { display: grid; grid-template-columns: 64px 1fr 44px; align-items: center; gap: 14px; padding: 2px 2px 16px; font-size: 13px; font-weight: 800; color: var(--text); }
+.wsv2flow .ed-panel { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 16px; }
+/* 펼치기 토글(정밀 조정 / 템플릿) */
+.wsv2flow .ed-fold { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 50px; padding: 0 16px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); font-size: 13.5px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-sm); }
+.wsv2flow .ed-fold em { font-style: normal; font-weight: 600; font-size: 11.5px; color: var(--text-subtle); margin-left: 6px; }
+.wsv2flow .ed-fold i { font-size: 18px; color: var(--text-muted); }
+.wsv2flow .ed-fold.open { border-color: var(--brand); color: var(--brand-strong); border-bottom-left-radius: 0; border-bottom-right-radius: 0; margin-bottom: 0; }
+.wsv2flow .ed-fold.open i { color: var(--brand-strong); }
+.wsv2flow .ed-fold.open + .ed-panel { border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; }
+.wsv2flow .ed-tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border); }
+.wsv2flow .ed-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 66px; color: var(--text-muted); font-size: 11.5px; font-weight: 800; cursor: pointer; position: relative; }
+.wsv2flow .ed-tab i { font-size: 22px; }
+.wsv2flow .ed-tab.on { color: var(--brand-strong); }
+.wsv2flow .ed-tab.on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--brand-strong); }
+.wsv2flow .ed-tools { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 15px 6px 4px; }
+.wsv2flow .ed-tool { display: flex; flex-direction: column; align-items: center; gap: 7px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; }
+.wsv2flow .ed-circle { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; }
+.wsv2flow .ed-circle i { font-size: 21px; color: var(--text-muted); }
+.wsv2flow .ed-tool.on .ed-circle { border-color: var(--brand-strong); background: var(--brand-bg); }
+.wsv2flow .ed-tool.on .ed-circle i { color: var(--brand-strong); }
+.wsv2flow .ed-slider { display: grid; grid-template-columns: 74px 1fr 44px; align-items: center; gap: 14px; padding: 15px 18px 18px; font-size: 13.5px; font-weight: 800; color: var(--text); }
 .wsv2flow .ed-slider input[type="range"] { width: 100%; accent-color: var(--brand-strong); }
 .wsv2flow .ed-val { font-size: 18px; color: var(--text); text-align: right; }
-.wsv2flow .ed-linkrow { text-align: center; padding: 4px 0 8px; }
-.wsv2flow .ed-link-btn { border: 0; background: transparent; color: var(--brand-strong); font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.wsv2flow .ed-tpl-strip { margin-bottom: 8px; }
-.wsv2flow .tpl-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
-.wsv2flow .tpl-strip::-webkit-scrollbar { display: none; }
-.wsv2flow .tpl-strip-item { flex: 0 0 100px; height: 80px; border-radius: var(--r-md); background: var(--frame) center/cover; border: 2px solid transparent; cursor: pointer; display: grid; align-items: end; overflow: hidden; }
-.wsv2flow .tpl-strip-item.on { border-color: var(--brand-strong); }
-.wsv2flow .tpl-strip-item span { font-size: 9.5px; font-weight: 800; color: #fff; background: rgba(25,31,40,.5); width: 100%; padding: 4px 7px; }
+.wsv2flow .ed-bottom { display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; margin-bottom: 24px; }
+.wsv2flow .ed-bottom .eb { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; font-weight: 800; cursor: pointer; }
+.wsv2flow .ed-bottom .eb i { font-size: 23px; color: var(--text-muted); }
+.wsv2flow .ed-bottom .eb.disabled { color: var(--text-subtle); cursor: default; }
+.wsv2flow .ed-bottom .eb.disabled i { color: var(--text-subtle); }
+.wsv2flow .ed-bottom .eb.active { color: var(--brand-strong); }
+.wsv2flow .ed-bottom .eb.active .activebox { width: 58px; height: 54px; border-radius: var(--r-lg); background: var(--brand-bg); display: grid; place-items: center; margin-bottom: -2px; }
+.wsv2flow .ed-bottom .eb.active i { color: var(--brand-strong); }
 /* 배경 탭 / 고급 탭 */
 .wsv2flow .ed-bg { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .wsv2flow .ed-bg__btn { height: 46px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.wsv2flow .ed-bg__btn svg { width: 18px; height: 18px; stroke: var(--text-muted); }
+.wsv2flow .ed-bg__btn i { font-size: 18px; }
 .wsv2flow .ed-bg__btn.on { border-color: var(--brand-strong); background: var(--brand-bg); color: var(--brand-strong); }
-.wsv2flow .ed-bg__btn.on svg { stroke: var(--brand-strong); }
 .wsv2flow .ed-bg__colors { display: flex; flex-wrap: wrap; gap: 10px; padding: 2px 0; }
 .wsv2flow .ed-bg__color { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; }
 .wsv2flow .ed-bg__color.on { border-color: var(--brand-strong); box-shadow: 0 0 0 2px var(--brand-bg); }
@@ -116,7 +126,6 @@
 .wsv2flow .ed-adv__btn { height: 46px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wsv2flow .ed-adv__btn svg { width: 18px; height: 18px; stroke: var(--brand-strong); }
 .wsv2flow .tpl-picked { margin: 10px 2px 0; font-size: 12px; font-weight: 800; color: var(--brand-strong); }
-.wsv2flow .tpl-head { font-size: 15px; font-weight: 900; color: var(--text); margin: 2px 2px 12px; letter-spacing: -.02em; }
 .wsv2flow .tpl-chips { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
 .wsv2flow .tpl-chips::-webkit-scrollbar { height: 0; }
 .wsv2flow .tpl-chip { flex: none; height: 34px; border: 1px solid var(--border); border-radius: var(--r-pill); padding: 0 15px; background: var(--surface); color: var(--text-muted); display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 800; cursor: pointer; }

@@ -101,71 +101,93 @@
       '</div>';
   }
 
+  // 정밀 조정 탭 = 기본을 뺀 나머지(피부/머릿결/배경/고급). 기본 보정은 항상 노출.
+  function _precTabs() { return EDIT_TABS.filter(function (t) { return t.k !== 'basic'; }); }
+  function _ctrlSlider(ctrls, activeKey, toolAttr) {
+    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
+    var actObj = ctrls.filter(function (c) { return c.k === active; })[0];
+    var val = (d.adjust && d.adjust[active]) || 0;
+    return '<div class="ed-tools">' + ctrls.map(function (c) {
+      return '<div class="ed-tool' + (c.k === active ? ' on' : '') + '" ' + toolAttr + '="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
+    }).join('') + '</div>' +
+      '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
+  }
+
   function renderEdit() {
     var base = photoUrl(curPhoto());
     var url = d.originalPreview ? base : (d.previewUrl || base);
-    var tab = d.editTab || 'basic';
-    var tabObj = EDIT_TABS.filter(function (t) { return t.k === tab; })[0] || EDIT_TABS[0];
     var preview = (d.originalPreview || d.previewUrl) ? 'none' : filterCss(d.adjust);
-    var tabsHtml = EDIT_TABS.map(function (t) {
-      return '<div class="ed-tab' + (t.k === tab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
-    }).join('');
 
-    var panel = '';
-    if (tabObj.controls.length) {
-      var ctrls = tabObj.controls;
-      var active = d.control && ctrls.some(function (c) { return c.k === d.control; }) ? d.control : ctrls[0].k;
-      var actObj = ctrls.filter(function (c) { return c.k === active; })[0];
-      var val = (d.adjust && d.adjust[active]) || 0;
-      panel =
-        (tabObj.note ? '<div class="ed-note"><i class="ph-duotone ph-info"></i>' + esc(tabObj.note) + '</div>' : '') +
-        '<div class="ed-tools">' + ctrls.map(function (c) {
-          return '<div class="ed-tool' + (c.k === active ? ' on' : '') + '" data-fl-edtool="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
-        }).join('') + '</div>' +
-        '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
-    } else if (tab === 'background') {
-      var bgcur = d.bgAction || '';
-      var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
-      panel =
-        '<div class="ed-bg">' +
-          '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
-          '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
-          '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
-          '<div class="ed-bg__colors">' + bgColors.map(function (c) {
-            return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
-          }).join('') + '</div>' +
-          '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
-        '</div>';
-    } else { // advanced
-      panel =
-        '<div class="ed-adv">' +
-          '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1·4:5·9:16·자유)</button>' +
-          '<button type="button" class="ed-adv__btn" data-fl-eb="비교"><i class="ph-duotone ph-columns"></i>원본/보정 비교</button>' +
-          '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
-          '<button type="button" class="ed-adv__btn" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>전체 초기화</button>' +
-        '</div>';
-    }
-
-    var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트'];
-    return '' +
-      '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
-      '<div class="ed-panel">' +
-        '<div class="ed-tabs">' + tabsHtml + '</div>' +
-        panel +
-      '</div>' +
+    // ── 기본 보정(항상 노출): 밝기/대비/채도/선명도/색감 + 슬라이더 + 되돌리기 바 ──
+    var basicCtrls = (EDIT_TABS.filter(function (t) { return t.k === 'basic'; })[0] || EDIT_TABS[0]).controls;
+    var basicHtml = _ctrlSlider(basicCtrls, d.basicTool, 'data-fl-basictool');
+    var bottomHtml =
       '<div class="ed-bottom">' +
         '<div class="eb' + (d.undo && d.undo.length ? '' : ' disabled') + '" data-fl-eb="되돌리기"><i class="ph-duotone ph-arrow-counter-clockwise"></i>되돌리기</div>' +
         '<div class="eb' + (d.redo && d.redo.length ? '' : ' disabled') + '" data-fl-eb="다시실행"><i class="ph-duotone ph-arrow-clockwise"></i>다시실행</div>' +
         '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="비교"><span class="activebox"><i class="ph-duotone ph-columns"></i></span>비교</div>' +
         '<div class="eb" data-fl-eb="원본보기"><i class="ph-duotone ph-eye"></i>원본보기</div>' +
         '<div class="eb" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>초기화</div>' +
-      '</div>' +
-      '<div class="tpl-head">템플릿 선택</div>' +
-      '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
-      '<div class="tpl-grid2">' + ['Clean Beige', 'Lash Anew', 'Glow White', 'Event Soft', 'Salon Warm', 'Before After'].map(function (n, i) {
-        return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '></div>';
-      }).join('') + '</div>' +
-      (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '');
+      '</div>';
+
+    // ── 정밀 조정(펼치기): 피부/머릿결/배경/고급 ──
+    var prec = _precTabs();
+    var ptab = d.editTab && prec.some(function (t) { return t.k === d.editTab; }) ? d.editTab : prec[0].k;
+    var ptabObj = prec.filter(function (t) { return t.k === ptab; })[0];
+    var precBody = '';
+    if (d.advOpen) {
+      var inner = '';
+      if (ptabObj.controls.length) {
+        inner = (ptabObj.note ? '<div class="ed-note"><i class="ph-duotone ph-info"></i>' + esc(ptabObj.note) + '</div>' : '') +
+          _ctrlSlider(ptabObj.controls, d.control, 'data-fl-edtool');
+      } else if (ptab === 'background') {
+        var bgcur = d.bgAction || '';
+        var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
+        inner =
+          '<div class="ed-bg">' +
+            '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
+            '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
+            '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
+            '<div class="ed-bg__colors">' + bgColors.map(function (c) {
+              return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
+            }).join('') + '</div>' +
+            '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
+          '</div>';
+      } else { // advanced
+        inner =
+          '<div class="ed-adv">' +
+            '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1·4:5·9:16·자유)</button>' +
+            '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
+          '</div>';
+      }
+      var precTabsHtml = '<div class="ed-tabs">' + prec.map(function (t) {
+        return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
+      }).join('') + '</div>';
+      precBody = '<div class="ed-panel">' + precTabsHtml + inner + '</div>';
+    }
+    var advFold =
+      '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·머릿결·배경·고급</em></span><i class="ph-duotone ph-caret-' + (d.advOpen ? 'up' : 'down') + '"></i></button>' + precBody;
+
+    // ── 템플릿(펼치기) ──
+    var tplBody = '';
+    if (d.tplOpen) {
+      var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트'];
+      tplBody =
+        '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
+        '<div class="tpl-grid2">' + ['Clean Beige', 'Lash Anew', 'Glow White', 'Event Soft', 'Salon Warm', 'Before After'].map(function (n, i) {
+          return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '></div>';
+        }).join('') + '</div>' +
+        (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '');
+    }
+    var tplFold =
+      '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>템플릿 <em>' + (d.template ? esc(d.template) : '꾸미기') + '</em></span><i class="ph-duotone ph-caret-' + (d.tplOpen ? 'up' : 'down') + '"></i></button>' + tplBody;
+
+    return '' +
+      '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
+      basicHtml +
+      bottomHtml +
+      advFold +
+      tplFold;
   }
 
   function _roleSummary() {
@@ -378,6 +400,8 @@
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
+      var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'adv') d.advOpen = !d.advOpen; else if (fk === 'tpl') d.tplOpen = !d.tplOpen; setScreen('edit'); return; }
+      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); setScreen('edit'); return; }
       var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
       var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
@@ -683,7 +707,7 @@
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
-      editTab: 'basic', control: null, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
+      editTab: 'skin', control: null, basicTool: null, advOpen: false, tplOpen: false, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
       captionAxes: null, captionTemplate: '',
     };
     if (d.photos.length && !hadRoles) reassignRoles();
