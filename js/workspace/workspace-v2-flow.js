@@ -11,6 +11,12 @@
   var CTA = { upload:{l:'다음',to:'edit'}, edit:{l:'저장하고 캡션 생성',to:'caption'}, preview:{l:'고객 연결로 이동',to:'connect'}, connect:{l:'작업실에 저장',to:'__save'} };
   var TONES = ['감성적','전문적','친근한'];
   var HASHES = ['#레이어드컷','#뷰티샵콘텐츠','#전후사진','#여신머리','#헤어스타그램','#오늘의헤어'];
+  // 최근 고객 데모(디자인 단계 플레이스홀더) — 실제 고객 데이터 연결은 기능 단계에서.
+  var DEMO_RECENT = [
+    { id:'demo1', n:'김연수', p:'010-1234-5678 · 레이어드컷 18회' },
+    { id:'demo2', n:'이서연', p:'010-3456-7899 · 클리닉 6회' },
+    { id:'demo3', n:'박민지', p:'010-4567-8900 · 컬러 3회' }
+  ];
 
   var d = null;       // draft state
   var el = null;      // flow root
@@ -58,13 +64,13 @@
     return '' +
       '<div class="up-drop" data-fl-pick>' +
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
-        '<b>사진을 눌러 업로드</b><span class="up-note">JPG · PNG · 여러 장 선택 가능</span>' +
+        '<b>사진을 드래그하거나 여기를 눌러 업로드</b><span class="up-note">JPG · PNG 최대 20MB · 여러 장 선택 가능</span>' +
       '</div>' +
       '<div class="up-toggle-row">' +
-        '<div class="up-toggle-copy"><b>전/후 사진으로 만들기</b><span>사진 순서대로 전·후를 자동 표시해요.</span></div>' +
+        '<div class="up-toggle-copy"><b>전/후 사진으로 만들기</b><span>사진 순서대로 전·후를 자동으로 표시해요.</span></div>' +
         '<button class="ui-toggle' + (d.baMode ? ' on' : '') + '" data-fl="batoggle" role="switch" aria-checked="' + d.baMode + '"></button>' +
       '</div>' +
-      '<div class="up-section">선택한 사진 <b>' + d.photos.length + '</b>장</div>' +
+      '<div class="up-section">선택한 사진 <b>' + d.photos.length + '</b> / 10</div>' +
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>';
@@ -82,11 +88,17 @@
         '<div class="ed-tools">' + tools.map(function (t) { return '<div class="ed-tool' + (t[2] ? ' on' : '') + '" data-fl-edtool><span class="ed-circle"><i class="ph-duotone ' + t[1] + '"></i></span>' + t[0] + '</div>'; }).join('') + '</div>' +
         '<div class="ed-slider"><span>보정 강도</span><input type="range" min="0" max="100" value="' + d.filter + '" data-fl-range><span class="ed-val" data-fl-rangeval>+' + d.filter + '</span></div>' +
       '</div>' +
-      '<button type="button" class="ed-precise" data-fl="precise"><i class="ph-duotone ph-magic-wand"></i>정밀 편집 (누끼·보정·로고)</button>' +
+      '<div class="ed-bottom">' +
+        '<div class="eb" data-fl-eb="되돌리기"><i class="ph-duotone ph-arrow-counter-clockwise"></i>되돌리기</div>' +
+        '<div class="eb disabled"><i class="ph-duotone ph-arrow-clockwise"></i>다시실행</div>' +
+        '<div class="eb active" data-fl-eb="비교"><span class="activebox"><i class="ph-duotone ph-columns"></i></span>비교</div>' +
+        '<div class="eb" data-fl-eb="원본보기"><i class="ph-duotone ph-eye"></i>원본보기</div>' +
+        '<div class="eb" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>초기화</div>' +
+      '</div>' +
       '<div class="tpl-head">템플릿 선택</div>' +
       '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
       '<div class="tpl-grid2">' + ['Clean Beige','Lash Anew','Glow White','Event Soft','Salon Warm','Before After'].map(function (n, i) {
-        return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '><span>' + esc(n) + '</span></div>';
+        return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '></div>';
       }).join('') + '</div>';
   }
 
@@ -103,7 +115,7 @@
           '<div class="cap-hash" data-fl-caphash>' + esc(d.hashtags.join(' ')) + '</div>' +
           '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span></div>' +
       '</div>' +
-      '<div class="cust-row"><b>해시태그 제안</b></div>' +
+      '<div class="cust-row"><b>해시태그 제안</b><a>더보기 ›</a></div>' +
       '<div class="hash-chips">' + hashHtml + '</div>' +
       '<div class="cust-row"><b>말투</b></div>' +
       '<div class="cap-tone">' + toneHtml + '</div>' +
@@ -113,25 +125,36 @@
   function renderPreview() {
     var url = photoUrl(curPhoto());
     return '' +
-      '<div class="ig-notice"><span class="ig-info">i</span>업로드 전, 실제 피드에서 보이는 모습을 확인해보세요. (실제 업로드 아님)</div>' +
+      '<div class="ig-notice"><span class="ig-info">i</span>업로드 전, 실제 피드에서 보이는 모습을 확인해보세요.</div>' +
       '<div class="ig-card2">' +
-        '<div class="ig-head2"><span class="ig-logo">Salon<br>Dearly</span><span class="ig-name2">Salon Dearly</span><span class="ig-loc">우리샵</span></div>' +
+        '<div class="ig-head2"><span class="ig-logo">Salon<br>Dearly</span><span class="ig-name2">Salon Dearly</span><span class="ig-loc">청담점</span><span class="ig-dots2">···</span></div>' +
         '<div class="ig-photo" style="background-image:url(' + esc(url) + ')"></div>' +
-        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div><div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
-        '<div class="ig-copy2"><b>our_salon</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">방금 전 · 업로드 아님</div></div>' +
-      '</div>';
+        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
+          '<div class="ig-pager"><span class="d on"></span><span class="d"></span><span class="d"></span><span class="d"></span></div>' +
+          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
+        '<div class="ig-copy2"><b>salondearly_official</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">1분 전</div></div>' +
+      '</div>' +
+      '<button type="button" class="ig-preview-btn" data-fl="sharepreview">공유 전 미리보기</button>';
   }
 
   function renderConnect() {
-    var linked = d.customerName
-      ? '<div class="linked-main"><span class="cust-avatar"></span><div><b>' + esc(d.customerName) + '</b> 고객과 연결됨<span>오늘 사진·캡션을 이 고객 기록에 저장해요.</span></div></div>'
-      : '<div class="linked-main"><span class="cust-avatar"></span><div><b>아직 미연결</b><span>고객을 연결하면 시술 기록이 함께 남아요.</span></div></div>';
+    var recent = d.recent || [];
+    var listHtml = recent.map(function (c) {
+      var sel = d.customerName === c.n;
+      return '<div class="cust-card' + (sel ? ' selected' : '') + '" data-fl-cust="' + esc(c.n) + '" data-fl-custid="' + esc(c.id) + '">' +
+        '<span class="cust-avatar"></span>' +
+        '<div class="cust-info"><h3>' + esc(c.n) + '</h3><p>' + esc(c.p) + '</p></div>' +
+        '<span class="cust-pick"><i class="ph-bold ' + (sel ? 'ph-check' : 'ph-plus') + '"></i></span></div>';
+    }).join('');
+    var linkedName = d.customerName || (recent[0] ? recent[0].n : '');
     return '' +
-      '<div class="screen-head"><h2>고객을 연결해 주세요</h2><p>연결하면 작업실에 저장되고, 시술 기록이 함께 남아요.</p></div>' +
-      '<div class="cust-search"><i class="ph-duotone ph-magnifying-glass"></i><input data-fl-custsearch placeholder="이름, 전화번호 검색 후 선택"></div>' +
-      '<div class="cust-row"><b>고객</b><a data-fl="pickcust">고객 선택 ›</a></div>' +
-      '<div class="linked-card"><div class="linked-title"><i class="ph-duotone ph-heart"></i> 연결된 고객</div>' + linked +
-        '<div class="linked-actions"><button class="lk-btn pink" data-fl="pickcust">+ 고객 선택/등록</button><button class="lk-btn" data-fl="skipcust">연결 없이 진행</button></div></div>';
+      '<div class="screen-head"><h2>고객을 선택하거나<br>새로 연결해 주세요</h2><p>연결하면 작업실에 자동 저장되고, 시술 기록이 함께 남아요.</p></div>' +
+      '<div class="cust-search"><i class="ph-duotone ph-magnifying-glass"></i><input data-fl-custsearch placeholder="이름, 전화번호 검색"></div>' +
+      '<div class="cust-row"><b>최근 고객</b><a data-fl="pickcust">더보기 ›</a></div>' +
+      '<div data-fl-custlist>' + listHtml + '</div>' +
+      '<div class="linked-card"><div class="linked-title"><i class="ph-duotone ph-heart"></i> 연결된 고객</div>' +
+        '<div class="linked-main"><span class="cust-avatar"></span><div><b>' + esc(linkedName || '고객 미선택') + '</b>' + (linkedName ? ' 고객과 연결됨' : '') + '<span>오늘 촬영한 전/후 사진과 캡션을 이 고객 기록에 저장해요.</span></div></div>' +
+        '<div class="linked-actions"><button class="lk-btn pink" data-fl="pickcust">+ 새 고객 등록</button><button class="lk-btn" data-fl="skipcust">연결 없이 진행</button></div></div>';
   }
 
   var RENDER = { upload:renderUpload, edit:renderEdit, caption:renderCaption, preview:renderPreview, connect:renderConnect };
@@ -181,11 +204,14 @@
       if (a === 'topreview') { syncCaptionFromDom(); setScreen('preview'); return; }
       if (a === 'pickcust') { return pickCustomer(); }
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; return save(); }
+      if (a === 'sharepreview') { toast('피드·스토리 비율과 캡션 줄바꿈을 확인했어요.'); return; }
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       var edtab = t.closest('[data-fl-edtab]'); if (edtab) { el.querySelectorAll('[data-fl-edtab]').forEach(function (x) { x.classList.remove('on'); }); edtab.classList.add('on'); return; }
       var edtool = t.closest('[data-fl-edtool]'); if (edtool) { el.querySelectorAll('[data-fl-edtool]').forEach(function (x) { x.classList.remove('on'); }); edtool.classList.add('on'); toast(edtool.textContent.trim() + ' 조정'); return; }
+      var eb = t.closest('[data-fl-eb]'); if (eb) { toast(eb.getAttribute('data-fl-eb')); return; }
+      var cust = t.closest('[data-fl-cust]'); if (cust) { d.customerId = cust.getAttribute('data-fl-custid'); d.customerName = cust.getAttribute('data-fl-cust'); setScreen('connect'); return; }
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { el.querySelectorAll('[data-fl-tplchip]').forEach(function (x) { x.classList.remove('on'); }); tplchip.classList.add('on'); d.tplCat = tplchip.textContent.trim(); return; }
       var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); el.querySelectorAll('[data-fl-tpl]').forEach(function (x) { x.classList.remove('on'); }); tpl.classList.add('on'); toast("'" + d.template + "' 템플릿 적용"); return; }
       var hash = t.closest('[data-fl-hash]'); if (hash) { var h = hash.getAttribute('data-fl-hash'); var k = d.hashtags.indexOf(h); if (k >= 0) d.hashtags.splice(k, 1); else d.hashtags.push(h); hash.classList.toggle('on'); var ch = el.querySelector('[data-fl-caphash]'); if (ch) ch.textContent = d.hashtags.join(' '); return; }
@@ -288,7 +314,8 @@
       photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero' }; }) : [],
       baMode: true, filter: 60, template: null, tplCat: opts.cat || null,
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [],
-      tone: '전문적', customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: ''
+      tone: '전문적', customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
+      recent: DEMO_RECENT
     };
     if (d.photos.length) reassignRoles();
     if (!d.caption && (opts.startScreen === 'caption' || opts.startScreen === 'preview')) genCaption();

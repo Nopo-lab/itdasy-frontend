@@ -8,6 +8,7 @@
 
   position:fixed; inset:0; z-index:9800; display:none; flex-direction:column;
   background:linear-gradient(180deg,#fffdfb,#fff8f3); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Segoe UI",sans-serif;
   -webkit-font-smoothing:antialiased;
 }
 .wsv2flow.is-open { display:flex; }
@@ -94,8 +95,14 @@
 .wsv2flow .ed-slider { display:grid; grid-template-columns:74px 1fr 44px; align-items:center; gap:14px; padding:15px 18px 18px; font-size:13.5px; font-weight:800; color:#3a2d2a; }
 .wsv2flow .ed-slider input[type="range"] { width:100%; accent-color:#e0516e; }
 .wsv2flow .ed-val { font-size:18px; color:#342826; text-align:right; }
-.wsv2flow .ed-precise { width:100%; height:44px; border:1px solid #efe0db; border-radius:13px; background:#fff; color:#5f534d; font-size:13px; font-weight:800; cursor:pointer; margin-bottom:20px; display:inline-flex; align-items:center; justify-content:center; gap:7px; }
-.wsv2flow .ed-precise i { font-size:17px; color:#e0516e; }
+.wsv2flow .ed-bottom { display:grid; grid-template-columns:repeat(5,1fr); align-items:end; margin-bottom:24px; }
+.wsv2flow .ed-bottom .eb { display:flex; flex-direction:column; align-items:center; gap:8px; color:#7f706b; font-size:11px; font-weight:800; cursor:pointer; }
+.wsv2flow .ed-bottom .eb i { font-size:23px; color:#71615d; }
+.wsv2flow .ed-bottom .eb.disabled { color:#cfc5c1; cursor:default; }
+.wsv2flow .ed-bottom .eb.disabled i { color:#cfc5c1; }
+.wsv2flow .ed-bottom .eb.active { color:#e0516e; }
+.wsv2flow .ed-bottom .eb.active .activebox { width:58px; height:54px; border-radius:16px; background:#fff0f1; display:grid; place-items:center; margin-bottom:-2px; }
+.wsv2flow .ed-bottom .eb.active i { color:#e0516e; }
 .wsv2flow .tpl-head { font-size:15px; font-weight:900; color:#241d1c; margin:2px 2px 12px; letter-spacing:-.02em; }
 .wsv2flow .tpl-chips { display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px; }
 .wsv2flow .tpl-chips::-webkit-scrollbar { height:0; }
@@ -138,6 +145,10 @@
 .wsv2flow .ig-logo { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#f7a5af,#e7808e); display:grid; place-items:center; color:#fff; font-family:Georgia,serif; font-size:8px; line-height:1.05; text-align:center; font-style:italic; flex:none; }
 .wsv2flow .ig-name2 { font-size:13px; font-weight:900; color:#171212; }
 .wsv2flow .ig-loc { margin-left:auto; color:#9a8c87; font-size:12px; font-weight:600; }
+.wsv2flow .ig-dots2 { font-size:18px; font-weight:800; letter-spacing:2px; color:#222; margin-top:-6px; padding-left:8px; }
+.wsv2flow .ig-pager { position:absolute; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+.wsv2flow .ig-pager .d { width:7px; height:7px; border-radius:50%; background:#d9cfcc; }
+.wsv2flow .ig-pager .d.on { background:#e0516e; }
 .wsv2flow .ig-photo { width:100%; height:330px; background:#f3ece6 center/cover; display:block; }
 .wsv2flow .ig-act { height:46px; display:flex; align-items:center; padding:0 14px; color:#161212; position:relative; }
 .wsv2flow .ig-ic { display:flex; gap:16px; align-items:center; }
@@ -147,6 +158,7 @@
 .wsv2flow .ig-copy2 b { font-weight:900; }
 .wsv2flow .ig-hash { color:#397ba9; font-weight:600; }
 .wsv2flow .ig-ago { color:#9a8e89; font-size:11.5px; margin-top:6px; }
+.wsv2flow .ig-preview-btn { width:100%; height:52px; border:1px solid #e99aaa; background:#fff7f8; color:#df4f6d; border-radius:14px; font-weight:900; font-size:14px; cursor:pointer; }
 
 /* E. 고객 연결 */
 .wsv2flow .cust-search { display:flex; align-items:center; gap:9px; height:48px; border:1px solid #eee1dc; border-radius:14px; background:#fff; padding:0 14px; margin-bottom:16px; box-shadow:0 6px 16px rgba(88,58,52,.04); }

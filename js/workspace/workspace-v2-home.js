@@ -12,7 +12,8 @@
   'use strict';
 
   var ST = function () { return window.WorkspaceState; };
-  var _filter = 'all';        // all | progress | ready | done
+  var _filter = 'pending';    // pending | edited | ready | done (프로토타입 4버킷)
+  var TABS = [{ key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
   var _lastRoot = null;
   var _slotsCache = [];
   var _drawerSlotId = null;
@@ -58,8 +59,8 @@
     return '' +
       '<button type="button" class="wsv2-upload" data-wsv2-upload data-haptic="medium">' +
         '<div class="wsv2-upload__h">새 콘텐츠 시작하기</div>' +
-        '<div class="wsv2-upload__p">사진을 올리면 편집부터 캡션까지 알아서 도와드려요.</div>' +
-        '<span class="wsv2-upload__btn"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i>사진으로 시작하기</span>' +
+        '<div class="wsv2-upload__p">사진을 올리면 스마트하게<br>편집부터 캡션까지 도와드려요.</div>' +
+        '<span class="wsv2-upload__btn"><i class="ph-duotone ph-upload-simple" aria-hidden="true"></i>사진 올리기</span>' +
       '</button>';
   }
 
@@ -98,15 +99,19 @@
       '</article>';
   }
 
+  // 프로토타입 4버킷 매핑
+  function _bucket(slot) {
+    var s = ST().deriveStatus(slot);
+    if (s === 'published') return 'done';
+    if (s === 'ready') return 'ready';
+    if (s === 'needs_caption' || s === 'needs_customer') return 'edited';
+    return 'pending'; // upload_pending, needs_edit
+  }
+
   function _tabsHTML(slots) {
-    var st = ST();
-    var g = { all: slots.length, progress: 0, ready: 0, done: 0 };
-    slots.forEach(function (s) { g[st.filterGroup(s)]++; });
-    var tabs = [
-      { key: 'all', label: '전체' }, { key: 'progress', label: '진행 중' },
-      { key: 'ready', label: '게시 준비' }, { key: 'done', label: '완료' },
-    ];
-    return '<div class="wsv2-tabs" role="tablist">' + tabs.map(function (t) {
+    var g = { pending: 0, edited: 0, ready: 0, done: 0 };
+    slots.forEach(function (s) { g[_bucket(s)]++; });
+    return '<div class="wsv2-tabs" role="tablist">' + TABS.map(function (t) {
       return '<button type="button" class="wsv2-tab' + (_filter === t.key ? ' is-active' : '') +
         '" data-wsv2-filter="' + t.key + '" data-haptic="light">' + _esc(t.label) +
         '<b>' + (g[t.key] || 0) + '</b></button>';
@@ -114,8 +119,7 @@
   }
 
   function _shellHTML(slots) {
-    var st = ST();
-    var visible = _filter === 'all' ? slots : slots.filter(function (s) { return st.filterGroup(s) === _filter; });
+    var visible = slots.filter(function (s) { return _bucket(s) === _filter; });
     var list = visible.length
       ? '<div class="wsv2-list">' + visible.map(_cardHTML).join('') + '</div>'
       : '<div class="wsv2-empty-list"><i class="ph-duotone ph-folder-open" aria-hidden="true"></i>' +
