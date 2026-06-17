@@ -14,12 +14,12 @@
   var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
 
   // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
-  // TODO: assets/workshop-cats/cat-1.jpg, cat-2.jpg 파일을 원영님이 직접 넣어주세요
+  // TODO: assets/workshop-cats/cat-1.jpg ~ cat-5.jpg 파일을 원영님이 직접 넣어주세요 (1:1 매핑)
   var CATS = [
-    { key: 'ba',     label: '전후 비교',      disabled: false, split: true },
-    { key: 'flex',   label: '시술 완료 사진', disabled: false, img: 'cat-2' },
-    { key: 'review', label: '고객 후기 사진', disabled: false, img: 'cat-1' },
-    { key: 'event',  label: '이벤트 홍보',   disabled: false, img: 'cat-2' },
+    { key: 'ba',     label: '전후 비교',      disabled: false, split: true },          // cat-1(전)+cat-2(후)
+    { key: 'flex',   label: '시술 완료 사진', disabled: false, img: 'cat-3' },
+    { key: 'review', label: '고객 후기 사진', disabled: false, img: 'cat-4' },
+    { key: 'event',  label: '이벤트 홍보',   disabled: false, img: 'cat-5' },
     { key: 'price',  label: '가격표',         disabled: true  },
   ];
 
