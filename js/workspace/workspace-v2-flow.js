@@ -17,13 +17,6 @@
     review: { purpose: 'review',       captionMode: 'review', role: 'hero', tplLabel: '고객 후기' },
     event:  { purpose: 'event',        captionMode: 'normal', role: 'hero', tplLabel: '이벤트' }
   };
-  // 최근 고객 데모(디자인 단계 플레이스홀더) — 실제 고객 데이터 연결은 기능 단계에서.
-  var DEMO_RECENT = [
-    { id:'demo1', n:'김연수', p:'010-1234-5678 · 레이어드컷 18회' },
-    { id:'demo2', n:'이서연', p:'010-3456-7899 · 클리닉 6회' },
-    { id:'demo3', n:'박민지', p:'010-4567-8900 · 컬러 3회' }
-  ];
-
   var d = null;       // draft state
   var el = null;      // flow root
   var cur = 'upload';
@@ -166,14 +159,19 @@
 
   function renderConnect() {
     var recent = d.recent || [];
-    var listHtml = recent.map(function (c) {
-      var sel = d.customerName === c.n;
-      return '<div class="cust-card' + (sel ? ' selected' : '') + '" data-fl-cust="' + esc(c.n) + '" data-fl-custid="' + esc(c.id) + '">' +
-        '<span class="cust-avatar"></span>' +
-        '<div class="cust-info"><h3>' + esc(c.n) + '</h3><p>' + esc(c.p) + '</p></div>' +
-        '<span class="cust-pick"><i class="ph-bold ' + (sel ? 'ph-check' : 'ph-plus') + '"></i></span></div>';
-    }).join('');
-    var linkedName = d.customerName || (recent[0] ? recent[0].n : '');
+    var listHtml;
+    if (recent.length) {
+      listHtml = recent.map(function (c) {
+        var sel = String(d.customerId) === String(c.id);
+        return '<div class="cust-card' + (sel ? ' selected' : '') + '" data-fl-cust="' + esc(c.n) + '" data-fl-custid="' + esc(c.id) + '">' +
+          '<span class="cust-avatar"></span>' +
+          '<div class="cust-info"><h3>' + esc(c.n) + '</h3>' + (c.p ? '<p>' + esc(c.p) + '</p>' : '') + '</div>' +
+          '<span class="cust-pick"><i class="ph-bold ' + (sel ? 'ph-check' : 'ph-plus') + '"></i></span></div>';
+      }).join('');
+    } else {
+      listHtml = '<div class="cust-empty">' + (d.recentLoaded ? '최근 연결한 고객이 아직 없어요.<br>아래에서 고객을 선택/등록해 주세요.' : '불러오는 중…') + '</div>';
+    }
+    var linkedName = d.customerName || '';
     return '' +
       '<div class="screen-head"><h2>고객을 선택하거나<br>새로 연결해 주세요</h2><p>연결하면 작업실에 자동 저장되고, 시술 기록이 함께 남아요.</p></div>' +
       '<div class="cust-search"><i class="ph-duotone ph-magnifying-glass"></i><input data-fl-custsearch placeholder="이름, 전화번호 검색"></div>' +
@@ -205,6 +203,18 @@
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
+    if (name === 'connect') loadRecent();
+  }
+
+  // 최근 고객 실데이터 lazy 로드 (Customer.list). 데모 데이터 없음.
+  function loadRecent() {
+    if (d.recentLoaded || d._recentLoading) return;
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.recentCustomers)) { d.recentLoaded = true; return; }
+    d._recentLoading = true;
+    window.WorkspaceAdapter.recentCustomers(5).then(function (list) {
+      d.recent = list || []; d.recentLoaded = true; d._recentLoading = false;
+      if (cur === 'connect') setScreen('connect');
+    });
   }
 
   // 실제 캡션 엔진(/persona/generate) 호출. 재업로드 없음(맥락은 photo_context 문자열).
@@ -371,7 +381,7 @@
       tplPurpose: ctx.purpose || 'feed', captionMode: ctx.captionMode || 'normal', defaultRole: ctx.role || 'hero',
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [],
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', custQuery: '',
-      recent: DEMO_RECENT, capLoading: false
+      recent: [], recentLoaded: false, capLoading: false
     };
     if (d.photos.length) reassignRoles();
     el.classList.add('is-open');
