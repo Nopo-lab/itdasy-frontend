@@ -14,11 +14,12 @@
   var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
 
   // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
+  // TODO: assets/workshop-cats/cat-1.jpg, cat-2.jpg 파일을 원영님이 직접 넣어주세요
   var CATS = [
-    { key: 'ba',     label: '전후 비교',      disabled: false },
-    { key: 'flex',   label: '시술 완료 사진', disabled: false },
-    { key: 'review', label: '고객 후기 사진', disabled: false },
-    { key: 'event',  label: '이벤트 홍보',   disabled: false },
+    { key: 'ba',     label: '전후 비교',      disabled: false, split: true },
+    { key: 'flex',   label: '시술 완료 사진', disabled: false, img: 'cat-2' },
+    { key: 'review', label: '고객 후기 사진', disabled: false, img: 'cat-1' },
+    { key: 'event',  label: '이벤트 홍보',   disabled: false, img: 'cat-2' },
     { key: 'price',  label: '가격표',         disabled: true  },
   ];
 
@@ -70,11 +71,9 @@
     return '' +
       '<div class="wsv2-quick">' +
         '<button type="button" class="wsv2-quick__btn wsv2-quick__btn--rose" data-wsv2-quick="itbi" data-haptic="light">' +
-          '<span class="wsv2-quick__ic">' +
-            '<svg class="wsv2-quick__ic--float" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>' +
-          '</span>' +
+          '<svg class="wsv2-quick__ic--float" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bot"/></svg>' +
           '<span class="wsv2-quick__label">잇비한테 맡기기</span>' +
-          '<span class="wsv2-quick__sub">AI가 사진부터 글까지</span>' +
+          '<span class="wsv2-quick__sub">사진 주면 알아서</span>' +
         '</button>' +
         '<button type="button" class="wsv2-quick__btn" data-wsv2-quick="textonly" data-haptic="light">' +
           '<span class="wsv2-quick__ic">' +
@@ -89,10 +88,21 @@
   function _categoryHTML() {
     var cards = CATS.map(function (c) {
       var dis = c.disabled ? ' wsv2-cat--disabled' : '';
+      var thumb;
+      if (c.split) {
+        thumb = '<div class="wsv2-cat__thumb wsv2-cat__split" aria-hidden="true">' +
+          '<img class="wsv2-cat__img" src="assets/workshop-cats/cat-1.jpg" alt="전">' +
+          '<img class="wsv2-cat__img" src="assets/workshop-cats/cat-2.jpg" alt="후">' +
+          '</div>';
+      } else if (c.img) {
+        thumb = '<div class="wsv2-cat__thumb" aria-hidden="true">' +
+          '<img class="wsv2-cat__img" src="assets/workshop-cats/' + c.img + '.jpg" alt="' + _esc(c.label) + '">' +
+          '</div>';
+      } else {
+        thumb = '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
+      }
       return '<button type="button" class="wsv2-cat' + dis + '" data-wsv2-cat="' + c.key + '" data-haptic="light"' + (c.disabled ? ' disabled' : '') + '>' +
-        '<span class="wsv2-cat__ic" aria-hidden="true">' +
-          '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>' +
-        '</span>' +
+        thumb +
         '<span class="wsv2-cat__t">' + _esc(c.label) + '</span>' +
         (c.disabled ? '<span class="wsv2-cat__badge">준비중</span>' : '') +
       '</button>';
