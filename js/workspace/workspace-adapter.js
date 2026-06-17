@@ -151,8 +151,9 @@
         items = Array.isArray(items) ? items.slice() : [];
         items.sort(function (a, b) { return new Date((b && b.last_visit_at) || 0) - new Date((a && a.last_visit_at) || 0); });
         return items.slice(0, limit || 5).map(function (c) {
-          var sub = [c.phone || '', (c.visit_count ? c.visit_count + '회' : '')].filter(Boolean).join(' · ');
-          return { id: c.id, n: c.name, p: sub };
+          var vc = c.visit_count || 0;
+          var sub = [c.phone || '', (vc ? vc + '회' : '')].filter(Boolean).join(' · ');
+          return { id: c.id, n: c.name, p: sub, vc: vc };
         });
       }).catch(function () { return []; });
     },
