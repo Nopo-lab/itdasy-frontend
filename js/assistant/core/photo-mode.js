@@ -862,7 +862,16 @@
     await _autoEditBaPhotos();   // [#2] 전·후 둘 다 자연 보정
     // [qa-F §4] 카드만 만들고 시술내역 없이 캡션 자동 생성 금지 → svc_ask 게이트.
     S.step = 'svc_ask';
-    return await _buildBaCardMsg('전후 카드를 만들었어요! 전·후 사진 모두 자연 보정했어요. **시술 내용**을 알려주시면 전후 변화에 맞는 캡션까지 써드릴게요.\n예: "레이어드컷, 무거운 머리 정리, 얼굴형 보완"');
+    // [R3] 전/후 역할 판단 결과를 한 줄로 명시(어느 사진이 전/후인지 사용자 확인). 카드 생성 시 1회만.
+    var _bi = S.photos.findIndex(function (p) { return p.role === 'before'; });
+    var _ai = S.photos.findIndex(function (p) { return p.role === 'after'; });
+    var _ord = ['', '첫 번째', '두 번째', '세 번째', '네 번째'];
+    var _roleNote = '';
+    if (_bi >= 0 && _ai >= 0 && _bi !== _ai) {
+      _roleNote = (_ord[_bi + 1] || ((_bi + 1) + '번째')) + ' 사진은 전, '
+                + (_ord[_ai + 1] || ((_ai + 1) + '번째')) + ' 사진은 후로 잡았어요. ';
+    }
+    return await _buildBaCardMsg(_roleNote + '전후 카드를 만들었어요! 전·후 사진 모두 자연 보정했어요. **시술 내용**을 알려주시면 전후 변화에 맞는 캡션까지 써드릴게요.\n예: "레이어드컷, 무거운 머리 정리, 얼굴형 보완"');
   }
 
   // [핫픽스F #3] 보존해둔 hero(홍보컷) 사진으로 단독 홍보컷 흐름 시작.
