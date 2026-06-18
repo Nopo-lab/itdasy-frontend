@@ -315,6 +315,25 @@
     return Object.keys(r).map(function (k) { return ({ before: '전', after: '후', hero: '홍보컷', exclude: '제외' }[k] || k) + ' ' + r[k]; }).join(' · ') || '없음';
   }
 
+  // [시술고정] 시술내역 placeholder 를 온보딩 업종(shop_type) 예시로. 타업종(네일/레이어드컷) 하드코딩 노출 방지.
+  function _servicePlaceholder() {
+    var st = '';
+    try { st = localStorage.getItem('shop_type') || ''; } catch (_e) { st = ''; }
+    var cfg = (window.SHOP_CONFIG && window.SHOP_CONFIG[st]) || null;
+    var ts = cfg && cfg.treatments && cfg.treatments.length ? cfg.treatments : null;
+    if (!ts) return '예: 시술명, 강조 포인트';
+    var first = cfg.defaultTag || ts[0];
+    var firstInch = /인치/.test(first);
+    var second = '';
+    for (var i = 0; i < ts.length; i++) {
+      if (ts[i] === first) continue;
+      if (firstInch && /인치/.test(ts[i])) continue;
+      second = ts[i]; break;
+    }
+    if (!second) { for (var j = 0; j < ts.length; j++) { if (ts[j] !== first) { second = ts[j]; break; } } }
+    return '예: ' + first + (second ? ', ' + second : '');
+  }
+
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
   function renderCaption() {
     var url = photoUrl(curPhoto());
@@ -327,7 +346,7 @@
 	      return photoThumb +
 	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
 	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
-	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="예: 레이어드컷, 애쉬브라운 염색">' +
+	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="' + esc(_servicePlaceholder()) + '">' +
 	        '<button type="button" class="cap-preview cap-preview--inline" data-fl="gen">이 내용으로 생성</button>' +
 	        '<div data-fl-scenario></div>';
 	    }

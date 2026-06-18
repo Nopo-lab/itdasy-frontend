@@ -155,6 +155,7 @@
     // [2026-05-28] 그룹핑 (긴급/오늘/이전) + 미읽/읽음 시각 구분
     const groups = { urgent: [], today: [], past: [] };
     _items.forEach(n => groups[_groupKey(n)].push(n));
+    const _stripEmoji = (s) => String(s || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{FE00}-\u{FE0F}\u{1F1E6}-\u{1F1FF}]/gu, '').replace(/\s{2,}/g, ' ').trim();
     const renderCard = (n) => {
       const c = _iconBoxByKind(n.kind);
       const unread = _isUnread(n);
@@ -166,8 +167,8 @@
       return `<button type="button" data-notif-id="${n.id}" style="position:relative;display:flex;gap:12px;padding:12px;width:100%;background:transparent;border:0;border-radius:10px;text-align:left;cursor:pointer;opacity:${cardOpacity};font-family:inherit;">
         ${dot}${_iconBoxHtml(n.kind)}
         <span style="flex:1;min-width:0;">
-          <span style="display:block;font-size:13px;font-weight:500;color:${titleColor};">${_esc(n.title)}</span>
-          <span style="display:block;font-size:11px;color:#4E5968;margin-top:2px;line-height:1.4;">${_esc(n.body || '')}</span>
+          <span style="display:block;font-size:13px;font-weight:500;color:${titleColor};">${_esc(_stripEmoji(n.title))}</span>
+          <span style="display:block;font-size:11px;color:#4E5968;margin-top:2px;line-height:1.4;">${_esc(_stripEmoji(n.body || ''))}</span>
           <span style="display:block;font-size:11px;color:#B0B8C1;margin-top:4px;">${timeText}${linkLabel}</span>
         </span>
       </button>`;
