@@ -87,6 +87,60 @@
     ctx.fillStyle = accent ? c.accent : 'rgba(255,249,244,0.94)'; _rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.restore();
     _text(ctx, text, x + w / 2, y + h * 0.66, '500 24px ' + F_SANS, accent ? '#FFF9F4' : c.ink, 'center');
   }
+  // [전후 고도화] 사진 위 코너 라벨 pill (cx 중심, 작고 정제 + 부드러운 그림자).
+  function _cornerPill(ctx, cx, y, text, c, accent) {
+    if (!text) return;
+    ctx.save(); ctx.font = '600 22px ' + F_SANS;
+    var pad = 18, w = ctx.measureText(text).width + pad * 2, h = 46, x = cx - w / 2;
+    ctx.shadowColor = 'rgba(31,27,24,0.20)'; ctx.shadowBlur = 12; ctx.shadowOffsetY = 3;
+    ctx.fillStyle = accent ? c.accent : 'rgba(255,249,244,0.96)';
+    _rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.restore();
+    _text(ctx, text, cx, y + h * 0.66, '600 22px ' + F_SANS, accent ? '#FFF9F4' : c.ink, 'center');
+  }
+  // [전후 고도화] 변화 화살표 배지(원형 + 링 + 화살표). dir: 'right' | 'down'.
+  function _arrowBadge(ctx, cx, cy, r, c, dir) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(31,27,24,0.18)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = c.bg; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.strokeStyle = c.accent; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = c.ink; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    var a = r * 0.46; ctx.beginPath();
+    if (dir === 'down') {
+      ctx.moveTo(cx, cy - a); ctx.lineTo(cx, cy + a);
+      ctx.moveTo(cx - a * 0.55, cy + a * 0.35); ctx.lineTo(cx, cy + a); ctx.lineTo(cx + a * 0.55, cy + a * 0.35);
+    } else {
+      ctx.moveTo(cx - a, cy); ctx.lineTo(cx + a, cy);
+      ctx.moveTo(cx + a * 0.35, cy - a * 0.55); ctx.lineTo(cx + a, cy); ctx.lineTo(cx + a * 0.35, cy + a * 0.55);
+    }
+    ctx.stroke(); ctx.restore();
+  }
+  // [전후 고도화] 변화 포인트 칩 행(가운데 정렬, 외곽선 pill + 로즈 점). 빈 항목은 제외.
+  function _chipRow(ctx, cx, y, items, c) {
+    items = (items || []).filter(function (s) { return s && String(s).trim(); });
+    if (!items.length) return;
+    ctx.save(); ctx.font = '500 22px ' + F_SANS;
+    var h = 50, gap = 14, padX = 22, dot = 6, dotGap = 11;
+    var ws = items.map(function (s) { return ctx.measureText(s).width + padX * 2 + dot * 2 + dotGap; });
+    var total = ws.reduce(function (a, b) { return a + b; }, 0) + gap * (items.length - 1);
+    var x = cx - total / 2;
+    for (var i = 0; i < items.length; i++) {
+      var w = ws[i];
+      ctx.strokeStyle = c.line; ctx.lineWidth = 1.5; _rr(ctx, x, y, w, h, h / 2); ctx.stroke();
+      ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(x + padX + dot, y + h / 2, dot, 0, Math.PI * 2); ctx.fill();
+      _text(ctx, items[i], x + padX + dot * 2 + dotGap, y + h * 0.64, '500 22px ' + F_SANS, c.ink, 'left');
+      x += w + gap;
+    }
+    ctx.restore();
+  }
+  // [전후 고도화] 사진 위 캡션(그림자로 가독성 확보, 스크림 사각 아티팩트 없음).
+  function _photoCap(ctx, cx, y, text, c) {
+    if (!text) return;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 1;
+    _text(ctx, text, cx, y, '600 24px ' + F_SANS, '#FFFFFF', 'center');
+    ctx.restore();
+  }
+
   // 본문 줄바꿈(\n 존중 + 폭 래핑) → 그린 줄 수 반환.
   function _wrap(ctx, s, x, y, maxW, lh, font, color, align, maxLines) {
     s = String(s == null ? '' : s); ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'left';
@@ -104,40 +158,61 @@
     return out.length;
   }
 
-  // ════ ① 전후 비교 · 피드 4:5 ════
+  // ════ ① 전후 비교 · 피드 4:5 (플래그십 고도화) ════
+  //   코너 라벨 pill + 중앙 변화 화살표 + 변화 포인트 칩 + 시술명/CTA/핸들. 전부 editable.
   function _wmBaFeed(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
     _bg(ctx, dw, dh, c);
-    var m = dw * 0.07;
-    _spaced(ctx, data.kicker || 'BEFORE & AFTER', dw / 2, dh * 0.072, '400 22px ' + F_LATIN, c.accent, 'center', 4);
-    _fitLine(ctx, data.head || '시술 전후', dw / 2, dh * 0.125, dw * 0.86, 46, F_SERIF, c.ink);
-    _rule(ctx, dw / 2, dh * 0.155, dw * 0.10, c.line);
-    var gap = dw * 0.03, pw = (dw - 2 * m - gap) / 2, py = dh * 0.215, ph = dh * 0.49;
+    var m = dw * 0.065;
+    // 헤더
+    _spaced(ctx, data.kicker || 'BEFORE & AFTER', dw / 2, dh * 0.066, '400 22px ' + F_LATIN, c.accent, 'center', 5);
+    _fitLine(ctx, data.head || '시술 전후', dw / 2, dh * 0.116, dw * 0.86, 50, F_SERIF, c.ink);
+    if (data.sub) _text(ctx, data.sub, dw / 2, dh * 0.150, '400 23px ' + F_SANS, c.sub, 'center');
+    _rule(ctx, dw / 2, dh * 0.176, dw * 0.10, c.line);
+    // 사진 2장 + 코너 pill + 중앙 화살표
+    var gap = dw * 0.028, pw = (dw - 2 * m - gap) / 2, py = dh * 0.213, ph = dh * 0.50;
     var bx = m, ax = m + pw + gap;
-    _spaced(ctx, data.beforeLabel || 'BEFORE', bx + pw / 2, py - dh * 0.016, '400 19px ' + F_LATIN, c.sub, 'center', 3);
-    _spaced(ctx, data.afterLabel || 'AFTER', ax + pw / 2, py - dh * 0.016, '400 19px ' + F_LATIN, c.accent, 'center', 3);
-    _photo(ctx, _before(state, tpl), bx, py, pw, ph, 8, c, '＋ 시술 전');
-    _photo(ctx, _resolveAfter(state, tpl), ax, py, pw, ph, 8, c, '＋ 시술 후');
-    _frame(ctx, bx, py, pw, ph, 8, c.line, 1.5); _frame(ctx, ax, py, pw, ph, 8, c.line, 1.5);
-    _text(ctx, data.beforeCap || '시술 전', bx + pw / 2, py + ph + dh * 0.035, '400 24px ' + F_SANS, c.sub, 'center');
-    _text(ctx, data.afterCap || '시술 후', ax + pw / 2, py + ph + dh * 0.035, '600 24px ' + F_SANS, c.ink, 'center');
-    if (data.serviceName) _text(ctx, data.serviceName, dw / 2, dh * 0.815, '500 28px ' + F_SERIF, c.ink, 'center');
-    _ctaBar(ctx, dw * 0.30, dh * 0.86, dw * 0.40, dh * 0.058, data.cta, c);
+    _photo(ctx, _before(state, tpl), bx, py, pw, ph, 12, c, '＋ 시술 전');
+    _photo(ctx, _resolveAfter(state, tpl), ax, py, pw, ph, 12, c, '＋ 시술 후');
+    _frame(ctx, bx, py, pw, ph, 12, c.line, 1.5); _frame(ctx, ax, py, pw, ph, 12, c.line, 1.5);
+    _cornerPill(ctx, bx + pw / 2, py + ph - dh * 0.052, data.beforeLabel || 'BEFORE', c, false);
+    _cornerPill(ctx, ax + pw / 2, py + ph - dh * 0.052, data.afterLabel || 'AFTER', c, true);
+    _arrowBadge(ctx, dw / 2, py + ph - dh * 0.03, dw * 0.043, c, 'right');
+    // 캡션(크림 영역)
+    _text(ctx, data.beforeCap || '시술 전', bx + pw / 2, py + ph + dh * 0.04, '400 23px ' + F_SANS, c.sub, 'center');
+    _text(ctx, data.afterCap || '시술 후', ax + pw / 2, py + ph + dh * 0.04, '600 23px ' + F_SANS, c.ink, 'center');
+    // 변화 포인트 칩
+    _chipRow(ctx, dw / 2, dh * 0.778, [sv.highlight_1, sv.highlight_2, sv.highlight_3], c);
+    // 시술명 + CTA + 핸들
+    if (data.serviceName) _text(ctx, data.serviceName, dw / 2, dh * 0.862, '500 27px ' + F_SERIF, c.ink, 'center');
+    _ctaBar(ctx, dw * 0.30, dh * 0.885, dw * 0.40, dh * 0.052, data.cta, c);
+    if (sv.shop_handle) _text(ctx, sv.shop_handle, dw / 2, dh * 0.965, '500 21px ' + F_SANS, c.sub, 'center');
   }
 
-  // ════ ② 전후 비교 · 스토리 9:16 ════
+  // ════ ② 전후 비교 · 스토리 9:16 (플래그십 고도화) ════
   function _wmBaStory(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
     _bg(ctx, dw, dh, c);
     var m = dw * 0.08;
-    _spaced(ctx, data.kicker || 'BEFORE & AFTER', dw / 2, dh * 0.07, '400 22px ' + F_LATIN, c.accent, 'center', 5);
-    _fitLine(ctx, data.head || '오늘의 변화 기록', dw / 2, dh * 0.108, dw * 0.84, 52, F_SERIF, c.ink);
-    _rule(ctx, dw / 2, dh * 0.135, dw * 0.10, c.line);
-    var pw = dw - 2 * m, ph = dh * 0.305, gap = dh * 0.045, y1 = dh * 0.18, y2 = y1 + ph + gap;
-    _photo(ctx, _before(state, tpl), m, y1, pw, ph, 10, c, '＋ 시술 전'); _frame(ctx, m, y1, pw, ph, 10, c.line, 1.5);
-    _tag(ctx, m + dw * 0.03, y1 + dh * 0.018, data.beforeLabel || 'BEFORE', c, false);
-    _photo(ctx, _resolveAfter(state, tpl), m, y2, pw, ph, 10, c, '＋ 시술 후'); _frame(ctx, m, y2, pw, ph, 10, c.line, 1.5);
-    _tag(ctx, m + dw * 0.03, y2 + dh * 0.018, data.afterLabel || 'AFTER', c, true);
-    _text(ctx, data.sub || '시술 전과 후, 한 화면에', dw / 2, y2 + ph + dh * 0.05, '400 28px ' + F_SANS, c.sub, 'center');
-    _ctaBar(ctx, dw * 0.22, y2 + ph + dh * 0.075, dw * 0.56, dh * 0.05, data.cta, c);
+    _spaced(ctx, data.kicker || 'BEFORE & AFTER', dw / 2, dh * 0.064, '400 22px ' + F_LATIN, c.accent, 'center', 6);
+    _fitLine(ctx, data.head || '오늘의 변화 기록', dw / 2, dh * 0.102, dw * 0.84, 54, F_SERIF, c.ink);
+    if (data.sub) _text(ctx, data.sub, dw / 2, dh * 0.131, '400 26px ' + F_SANS, c.sub, 'center');
+    _rule(ctx, dw / 2, dh * 0.150, dw * 0.10, c.line);
+    var pw = dw - 2 * m, ph = dh * 0.30, gap = dh * 0.04, y1 = dh * 0.183, y2 = y1 + ph + gap;
+    // before
+    _photo(ctx, _before(state, tpl), m, y1, pw, ph, 12, c, '＋ 시술 전'); _frame(ctx, m, y1, pw, ph, 12, c.line, 1.5);
+    _tag(ctx, m + dw * 0.035, y1 + dh * 0.02, data.beforeLabel || 'BEFORE', c, false);
+    _photoCap(ctx, m + pw / 2, y1 + ph - dh * 0.022, data.beforeCap, c);
+    // after
+    _photo(ctx, _resolveAfter(state, tpl), m, y2, pw, ph, 12, c, '＋ 시술 후'); _frame(ctx, m, y2, pw, ph, 12, c.line, 1.5);
+    _tag(ctx, m + dw * 0.035, y2 + dh * 0.02, data.afterLabel || 'AFTER', c, true);
+    _photoCap(ctx, m + pw / 2, y2 + ph - dh * 0.022, data.afterCap, c);
+    // 중앙 변화 화살표(아래 방향)
+    _arrowBadge(ctx, dw / 2, y1 + ph + gap / 2, dw * 0.055, c, 'down');
+    // 변화 포인트 칩 + CTA + 핸들
+    _chipRow(ctx, dw / 2, y2 + ph + dh * 0.022, [sv.highlight_1, sv.highlight_2, sv.highlight_3], c);
+    _ctaBar(ctx, dw * 0.22, y2 + ph + dh * 0.072, dw * 0.56, dh * 0.046, data.cta, c);
+    if (sv.shop_handle) _text(ctx, sv.shop_handle, dw / 2, y2 + ph + dh * 0.122, '500 22px ' + F_SANS, c.sub, 'center');
   }
 
   // ════ ③ 시술 자랑 · 피드 4:5 (사진 주인공) ════

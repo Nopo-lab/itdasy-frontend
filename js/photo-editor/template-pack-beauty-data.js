@@ -34,6 +34,10 @@
   var SL_EV_PERIOD = { key: 'event_period', type: 'text', label: '이벤트 기간', max: 40 };
   var SL_EV_BENEFIT = { key: 'event_benefit', type: 'text', label: '이벤트 혜택', max: 40 };
   var SL_STATUS = { key: 'status_badge', type: 'text', label: '상태 뱃지', max: 16 };
+  // 전후 고도화 — 변화 포인트 칩(3개, 비우면 안 그려짐).
+  var SL_HL1 = { key: 'highlight_1', type: 'text', label: '변화 포인트 1', max: 14 };
+  var SL_HL2 = { key: 'highlight_2', type: 'text', label: '변화 포인트 2', max: 14 };
+  var SL_HL3 = { key: 'highlight_3', type: 'text', label: '변화 포인트 3', max: 14 };
 
   var TEMPLATES = [
     {
@@ -177,13 +181,15 @@
       id: 'wm-ba-feed', cat: 'ba', tier: 'free',
       label: '전후 비교 · 피드', kind: 'before_after', purpose: 'before_after', industry: 'common',
       accent: 'soft', prefillText: 'BEFORE & AFTER', ratio: '4:5', palette: _wm(WM_CREAM),
-      previewMeta: { decor: ['thin-rule', 'serif-label'], photoSlots: ['before', 'after'] },
-      extraSlots: [SL_SERVICE],
+      previewMeta: { decor: ['corner-pill', 'arrow-badge', 'change-chips', 'thin-rule'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE, SL_HANDLE, SL_HL1, SL_HL2, SL_HL3],
       defaultCopy: {
         headline: '레이어드컷 전후 변화', subtitle: '한 번의 시술로 달라지는 분위기',
         before_label: 'BEFORE', after_label: 'AFTER',
         before_caption: '시술 전', after_caption: '시술 후',
-        service_name: '레이어드컷', cta: '예약 문의',
+        service_name: '레이어드컷', shop_handle: '@your.salon',
+        highlight_1: '자연스러운 라인', highlight_2: '결까지 매끈', highlight_3: '오래가는 연출',
+        cta: '예약 문의',
       },
     },
 
@@ -192,12 +198,15 @@
       id: 'wm-ba-story', cat: 'story', tier: 'free',
       label: '전후 비교 · 스토리', kind: 'before_after', purpose: 'before_after', industry: 'common',
       accent: 'soft', prefillText: 'BEFORE & AFTER', ratio: '9:16', palette: _wm(WM_CREAM),
-      previewMeta: { decor: ['thin-rule', 'serif-label'], photoSlots: ['before', 'after'] },
+      previewMeta: { decor: ['corner-pill', 'arrow-badge', 'change-chips', 'thin-rule'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_HANDLE, SL_HL1, SL_HL2, SL_HL3],
       defaultCopy: {
         headline: '오늘의 변화 기록', subtitle: '시술 전과 후, 한 화면에',
         before_label: 'BEFORE', after_label: 'AFTER',
         before_caption: '시술 전', after_caption: '시술 후',
-        service_name: '', cta: '예약은 프로필 링크',
+        service_name: '', shop_handle: '@your.salon',
+        highlight_1: '자연스러운 라인', highlight_2: '결까지 매끈', highlight_3: '오래가는 연출',
+        cta: '예약은 프로필 링크',
       },
     },
 
