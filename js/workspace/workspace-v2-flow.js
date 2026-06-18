@@ -501,6 +501,8 @@
     el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= to); });
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
+    // [캡션 스킵 방지] 게시글 생성 전(결과 없음)엔 하단 '고객 연결로' CTA 숨김 → 인라인 '이 내용으로 생성'으로만 진행.
+    if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
     if (name === 'connect') loadRecent();
@@ -840,7 +842,15 @@
     var c = CTA[cur]; if (!c) return;
     if (cur === 'upload' && !d.photos.length && !d.textOnly) { toast('사진을 먼저 추가해 주세요.'); return; }
     if (c.to === '__save') return save();
-    if (cur === 'caption') syncCaptionFromDom();
+    if (cur === 'caption') {
+      syncCaptionFromDom();
+      // [캡션 스킵 방지] 게시글 안 만든 채로 고객연결/미리보기로 못 넘어가게 — 시술명 있으면 바로 생성, 없으면 안내.
+      if (!String(d.caption || '').trim()) {
+        if (String(d.service || '').trim()) { doGenerate({}, '게시글을 만들었어요'); }
+        else { toast('게시글을 먼저 만들어 주세요'); }
+        return;
+      }
+    }
     if (cur === 'edit') { return bakeEdit().then(function () { setScreen(c.to); }); }
     setScreen(c.to);
   }

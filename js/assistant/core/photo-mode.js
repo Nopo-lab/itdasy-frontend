@@ -383,7 +383,8 @@
     } catch (_e) { void 0; }
     try {
       if (typeof window.saveAssistantTemplateResult === 'function')
-        await window.saveAssistantTemplateResult(dataUrl, { purpose: S.workflow, label: label, source: 'itbi_guided', templateMeta: _meta });
+        // [유기적 연동] 잇비가 만든 캡션을 슬롯에 함께 저장 → 작업실이 '캡션 필요'로 되돌리지 않음.
+        await window.saveAssistantTemplateResult(dataUrl, { purpose: S.workflow, label: label, source: 'itbi_guided', templateMeta: _meta, caption: S.caption || '' });
     } catch (_e) { void 0; }
     var linked = '';
     if (S.customer && window.TreatmentLink && typeof window.TreatmentLink.attachPhotoToCustomer === 'function') {

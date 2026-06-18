@@ -43,14 +43,16 @@
 
   // baked dataUrl → 작업실 슬롯 스키마 미러(app-gallery-workshop.js 슬롯 모양). 재편집 메타 없음.
   //   status:'done' = 완성 결과물 → 그리드 노출(published 아님) + 미완 배너 미유발.
-  function _buildSlot(dataUrl, rid, label, templateMeta) {
+  function _buildSlot(dataUrl, rid, label, templateMeta, caption, hashtags) {
     var ts = Date.now();
     var slot = {
       id: 'asst_' + rid,
       label: label || '잇비 결과',
       order: ts,                 // loadSlotsFromDB order 오름차순 → 뒤쪽 배치
-      photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }],
-      caption: '', hashtags: '',
+      // [유기적 연동] 잇비 결과는 이미 "편집 완료"본 → editedDataUrl 에도 넣어 작업실이 '편집 필요'로 오인하지 않게.
+      photos: [{ id: 'p_' + rid, dataUrl: dataUrl, editedDataUrl: dataUrl, mode: 'after' }],
+      // [유기적 연동] 잇비가 만든 캡션/해시태그를 그대로 슬롯에 전달 → 작업실에서 '캡션 필요'로 되돌아가 재생성 강요 안 함.
+      caption: caption || '', hashtags: hashtags || '',
       status: 'done',
       instagramPublished: false, deferredAt: null,
       createdAt: ts,
@@ -66,6 +68,8 @@
     var rid = m.rid || _rid();
     var label = m.label || '잇비 결과';
     var purpose = m.purpose || '';
+    var caption = m.caption || '';        // [유기적 연동] 잇비 생성 캡션 전달
+    var hashtags = m.hashtags || '';
     var saved = { gallery: false, slot: false };
 
     // ① 마무리 갤러리 (P0-B 동작 유지)
@@ -74,8 +78,8 @@
         window.saveToGallery({
           id: 'asst_' + rid,
           label: label,
-          photos: [{ id: 'p_' + rid, dataUrl: dataUrl, mode: 'after' }],
-          caption: '', hashtags: '',
+          photos: [{ id: 'p_' + rid, dataUrl: dataUrl, editedDataUrl: dataUrl, mode: 'after' }],
+          caption: caption, hashtags: hashtags,
           source: 'assistant_template',
           dedupeKey: 'asst_tpl:' + purpose + ':' + rid,
         });
@@ -89,7 +93,7 @@
     var slotPromise = Promise.resolve(false);
     try {
       if (typeof window.saveSlotToDB === 'function') {
-        slotPromise = Promise.resolve(window.saveSlotToDB(_buildSlot(dataUrl, rid, label, m.templateMeta || null)))
+        slotPromise = Promise.resolve(window.saveSlotToDB(_buildSlot(dataUrl, rid, label, m.templateMeta || null, caption, hashtags)))
           .then(function () { return true; })
           .catch(function (e) {
             try { console.warn('[asst-save] slot 실패', e && e.message); } catch (_l) { void _l; }

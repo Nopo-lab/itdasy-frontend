@@ -58,9 +58,11 @@
     }
     if (!_hasEdit(photos)) return { key: 'crop', label: '비율 자르기' };
     if (!_hasText(slot.caption)) return { key: 'caption', label: '캡션 생성' };
+    // [순서 수정] deriveStatus·CTA 흐름(캡션→고객연결→미리보기)과 맞춤 — 고객 연결을 미리보기보다 먼저.
+    //   이전엔 preview 를 먼저 반환해 "이어서"가 고객연결 건너뛰고 미리보기로 직행했음.
+    if (!slot.customer_id && _type(slot) !== 'price') return { key: 'customer', label: '고객 연결' };
     var pub = slot.publish && slot.publish.status;
     if (pub !== 'preview_ready' && pub !== 'upload_ready') return { key: 'preview', label: '인스타 미리보기' };
-    if (!slot.customer_id && _type(slot) !== 'price') return { key: 'customer', label: '고객 연결' };
     return { key: 'done', label: '완료' };
   }
 

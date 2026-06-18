@@ -164,6 +164,44 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   const svcKept = await page.$eval('#wsv2Flow [data-fs="caption"] [data-fl-service]', el => el.value);
   check('E4 캡션 초기화 → 입력화면 복귀(서비스 유지)', backToInput && svcKept === '레이어드컷 샤기컷', 'input=' + backToInput + ' svc=' + svcKept);
 
+  // ── X. 캡션 스킵 방지: 게시글 생성 전엔 다음(고객연결) 못 감 ──
+  await page.evaluate((png) => {
+    window.WorkspaceFlow.open({ startScreen:'caption', slot:{ id:'sx', photos:[{ id:'p1', dataUrl: png, role:'hero' }] } });
+  }, PNG);
+  const barHiddenNoCap = await page.$eval('#wsv2Flow .wsv2flow__actionbar', el => el.classList.contains('hidden'));
+  check('X1 게시글 생성 전 하단 CTA 숨김(스킵 불가)', barHiddenNoCap === true, 'hidden=' + barHiddenNoCap);
+  // CTA 강제 클릭해도 미리보기/연결로 안 넘어감
+  await page.evaluate(() => { var c = document.querySelector('#wsv2Flow [data-fl="cta"]'); if (c) c.click(); });
+  const stillCap = await page.$eval('#wsv2Flow [data-fs="caption"]', el => el.classList.contains('active'));
+  const previewActive = await page.$eval('#wsv2Flow [data-fs="preview"]', el => el.classList.contains('active'));
+  check('X2 캡션 미생성 시 진행 차단(미리보기로 안 넘어감)', stillCap === true && previewActive === false, 'cap=' + stillCap + ' preview=' + previewActive);
+
+  // ── I. 작업실 ↔ 잇비 유기적 연동 ──
+  const STATE = fs.readFileSync(path.join(ROOT, 'js/workspace/workspace-state.js'), 'utf8');
+  const ASAVE = fs.readFileSync(path.join(ROOT, 'js/assistant/core/assistant-template-save.js'), 'utf8');
+  await page.addScriptTag({ content: STATE });
+  await page.evaluate(() => {
+    window.__slotSaved = null;
+    window.saveSlotToDB = function (s) { window.__slotSaved = s; return Promise.resolve(true); };
+    window.saveToGallery = function () {};
+  });
+  await page.addScriptTag({ content: ASAVE });
+  // I1: 잇비 저장 → 슬롯에 caption + editedDataUrl 반영
+  await page.evaluate(() => window.saveAssistantTemplateResult('data:image/png;base64,AAAA', { caption: '잇비가 만든 캡션 #네일', label: '잇비 결과' }));
+  await page.waitForFunction(() => window.__slotSaved !== null);
+  const saved = await page.evaluate(() => window.__slotSaved);
+  check('I1 잇비 저장 슬롯에 캡션 전달', saved && saved.caption === '잇비가 만든 캡션 #네일', JSON.stringify(saved && saved.caption));
+  check('I1b 잇비 결과가 editedDataUrl(편집완료)로 저장', saved && saved.photos && saved.photos[0] && !!saved.photos[0].editedDataUrl, JSON.stringify(saved && saved.photos && saved.photos[0]));
+  // I2: 잇비 슬롯(캡션·편집 있음, 고객 없음) → deriveStatus=고객연결, nextAction=customer(미리보기 아님)
+  const integ = await page.evaluate(() => {
+    var slot = { photos: [{ role: 'hero', dataUrl: 'x', editedDataUrl: 'x' }], caption: '잇비 캡션' };
+    return { status: window.WorkspaceState.deriveStatus(slot), next: window.WorkspaceState.nextAction(slot).key };
+  });
+  check('I2 캡션·편집 있는 슬롯 → 다음=고객연결(미리보기 직행 아님)', integ.next === 'customer' && integ.status === 'needs_customer', JSON.stringify(integ));
+  // I3: 캡션 없는 잇비 슬롯 → 다음=캡션 생성
+  const integ2 = await page.evaluate(() => window.WorkspaceState.nextAction({ photos: [{ role: 'hero', dataUrl: 'x', editedDataUrl: 'x' }], caption: '' }).key);
+  check('I3 캡션 없으면 다음=캡션 생성', integ2 === 'caption', 'next=' + integ2);
+
   check('F1 콘솔/페이지 런타임 에러 없음', errors.length === 0, errors.slice(0,3).join(' | '));
 
   await browser.close();
