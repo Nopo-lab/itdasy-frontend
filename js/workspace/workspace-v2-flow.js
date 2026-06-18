@@ -117,7 +117,8 @@
         '<section class="wsv2flow__s" data-fs="preview"></section>' +
       '</div>' +
       '<footer class="wsv2flow__actionbar"><button class="wsv2flow__cta" data-fl="cta">다음</button></footer>' +
-      '<input type="file" accept="image/*" multiple data-fl-file hidden>';
+      '<input type="file" accept="image/*" multiple data-fl-file hidden>' +
+      '<input type="file" accept="image/*" data-fl-bgfile hidden>';
   }
 
   function renderUpload() {
@@ -157,7 +158,9 @@
     return '<div class="ed-bg">' +
         '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
         '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
-        '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
+        '<button type="button" class="ed-bg__btn' + (bgcur === 'image' ? ' on' : '') + '" data-fl-bgpick><i class="ph-duotone ph-image-square"></i>내 배경 직접 올리기</button>' +
+        (d.customBgName ? '<div class="ed-bg__status">올린 배경: ' + esc(d.customBgName) + '</div>' : '') +
+        '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림·내 배경은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
         '<div class="ed-bg__colors">' + bgColors.map(function (c) {
           return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
         }).join('') + '</div>' +
@@ -534,6 +537,7 @@
 	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); setScreen('edit'); return; }
 	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
+      if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
       var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
       var eb = t.closest('[data-fl-eb]'); if (eb) { return _editBottom(eb.getAttribute('data-fl-eb')); }
@@ -570,6 +574,14 @@
       if (!files.length) return;
 	      addFiles(files, true);
 	    });
+    el.querySelector('[data-fl-bgfile]').addEventListener('change', function (e) {
+      var f = (e.target.files || [])[0]; e.target.value = '';
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () { d.customBg = r.result; d.customBgName = f.name || '내 배경'; applyBg('image'); };
+      r.onerror = function () { toast('배경 이미지를 불러오지 못했어요'); };
+      r.readAsDataURL(f);
+    });
 	    el.addEventListener('input', function (e) {
 	      if (e.target.matches('[data-fl-range]')) {
         // 기본 보정: 드래그 중에는 가벼운 CSS 필터로만 라이브 미리보기 → 부드럽게.
@@ -640,7 +652,7 @@
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
     var prev = d.bgAction;
     d.bgAction = action; d.bgBusy = true; d.bgFail = false; setScreen('edit');
-    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: photo.editedDataUrl || photo.dataUrl, action: action, color: d.bgColor, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
+    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: photo.editedDataUrl || photo.dataUrl, action: action, color: d.bgColor, bgImage: d.customBg, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
       .then(function (r) {
         d.bgBusy = false;
         if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }

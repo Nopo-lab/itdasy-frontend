@@ -221,7 +221,9 @@
         return Promise.resolve({ ok: false, reason: 'no_bg_engine', toast: '배경 엔진을 불러오지 못했어요' });
       }
       if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image', toast: '배경을 적용할 사진이 없어요' });
-      var bg = opts.action === 'color' ? { type: 'procedural', color: opts.color || '#ffffff' }
+      if (opts.action === 'image' && !opts.bgImage) return Promise.resolve({ ok: false, reason: 'no_bg_image', toast: '배경 이미지를 먼저 선택해 주세요' });
+      var bg = opts.action === 'image' ? { imageData: opts.bgImage }
+        : opts.action === 'color' ? { type: 'procedural', color: opts.color || '#ffffff' }
         : opts.action === 'blur' ? { type: 'blur' } : { type: 'none' };
       return Promise.resolve(window.PhotoEditorBgCompose.compose({ srcUrl: opts.src, bg: bg, targetRatio: opts.ratio || 'original' }))
         .then(function (r) {
