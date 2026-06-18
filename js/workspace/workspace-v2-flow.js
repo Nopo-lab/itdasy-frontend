@@ -1060,5 +1060,65 @@
 	  }
   function close() { if (el) el.classList.remove('is-open'); }
 
-  window.WorkspaceFlow = { open: open, close: close };
+  // ── [구조 통합] 프로그램/자연어 명령 API — 잇비가 작업실 전 기능을 호출하는 단일 진입점 ──
+  //   기존 내부 함수만 재사용(로직/저장 스키마 미변경). 화면 안 열렸을 때 'open' 외 명령은 무시.
+  function _flowReady() { return !!(el && el.classList.contains('is-open') && d); }
+  function _applyAdjustPatch(opts) {
+    if (!_flowReady()) return { ok: false, reason: 'not_open' };
+    d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = [];
+    var set = opts.set || null, delta = opts.delta || null;
+    if (set) Object.keys(set).forEach(function (k) { if (k in d.adjust) d.adjust[k] = Math.max(-100, Math.min(100, +set[k] || 0)); });
+    if (delta) Object.keys(delta).forEach(function (k) { if (k in d.adjust) d.adjust[k] = Math.max(-100, Math.min(100, (+d.adjust[k] || 0) + (+delta[k] || 0))); });
+    if (opts.beauty) Object.keys(opts.beauty).forEach(function (k) { if (k in d.beauty) d.beauty[k] = Math.max(0, Math.min(100, +opts.beauty[k] || 0)); });
+    if (cur === 'edit') { _paintEditPhoto(); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); _setEditSection('[data-ed-adv]', _advFoldHtml()); _setEditSection('[data-ed-bottom]', _editBottomHtml()); }
+    _refreshPreview();
+    return { ok: true };
+  }
+  function command(cmd) {
+    cmd = cmd || {};
+    switch (cmd.type) {
+      case 'open':
+        open({ cat: cmd.cat || null, startScreen: cmd.screen || 'upload', textOnly: !!cmd.textOnly, files: cmd.files || null });
+        return { ok: true };
+      case 'goto':
+        if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };
+        setScreen(cmd.screen); return { ok: true };
+      case 'adjust':
+        return _applyAdjustPatch(cmd);
+      case 'edit':   // 되돌리기/다시실행/비교/초기화
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        if (cur !== 'edit') setScreen('edit');
+        _editBottom(cmd.action); return { ok: true };
+      case 'bg':
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        if (cur !== 'edit') setScreen('edit');
+        if (cmd.color) d.bgColor = cmd.color;
+        applyBg(cmd.action || 'removeBg'); return { ok: true };
+      case 'template':
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        if (cur !== 'edit') setScreen('edit');
+        applyTemplate(cmd.key); return { ok: true };
+      case 'caption':
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        if (cmd.service != null) d.service = String(cmd.service);
+        if (cur !== 'caption') setScreen('caption');
+        doGenerate(cmd.extra || {}, cmd.label || null); return { ok: true };
+      case 'capvar':   // 다시/더길게/짧게/해시태그더/인스타스럽게/초기화
+        if (!_flowReady() || cur !== 'caption') return { ok: false, reason: 'not_caption' };
+        if (cmd.variant === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.logId = null; setScreen('caption'); return { ok: true }; }
+        { var ex = { regen: {}, long: { length_tier: 'long' }, short: { length_tier: 'short' }, hashtags: { hashtag_mode: 'more' }, insta: { tone_override: 'instagram' } }[cmd.variant] || {};
+          doGenerate(ex, cmd.label || null); return { ok: true }; }
+      case 'save':
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        save(); return { ok: true };
+      case 'publish':
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        setScreen('preview'); publish(); return { ok: true };
+      default:
+        return { ok: false, reason: 'unknown' };
+    }
+  }
+  function isOpen() { return _flowReady(); }
+
+  window.WorkspaceFlow = { open: open, close: close, command: command, isOpen: isOpen };
 })();

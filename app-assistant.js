@@ -4103,6 +4103,8 @@
   }
 
   function _tryKeywordShortcut(input, q) {
+    // [구조 통합] 작업실 플로우가 열려 있으면 자연어를 작업실 명령으로 우선 처리(닫혀 있으면 false → 기존 흐름).
+    if (window.ItdasyWorkspaceNL?.tryRun?.(input, q, { clearInput: _clearAssistantInput })) return true;
     if (_tryPhotoEditorShortcut(input, q)) return true;
     if (_trySimpleOpenShortcut(input, q)) return true;
     if (_tryTabShortcut(input, q)) return true;

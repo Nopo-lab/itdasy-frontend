@@ -6,6 +6,7 @@ const { chromium } = require('playwright');
 
 const ROOT = path.resolve(__dirname, '..');
 const FLOW = fs.readFileSync(path.join(ROOT, 'js/workspace/workspace-v2-flow.js'), 'utf8');
+const NL = fs.readFileSync(path.join(ROOT, 'js/assistant/workspace-nl-commands.js'), 'utf8');
 const CSS = fs.readFileSync(path.join(ROOT, 'css/workspace-v2-flow.css'), 'utf8');
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mP8z8BQz0AEYBxVSF8FAGW2BPHFsbpRAAAAAElFTkSuQmCC';
 
@@ -19,13 +20,17 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</st
   window.renderScenarioSelector = function(container, cb){ window.__scenarioCb = cb; container.innerHTML = '<div class="stub-scenario"></div>'; };
   window.WorkspaceAdapter = {
     applyWorkspaceCorrections: function(opts){ window.__lastCorr = opts; return Promise.resolve({ ok:true, dataUrl: opts.src }); },
+    applyWorkspaceBgAction: function(opts){ window.__lastBg = opts; return Promise.resolve({ ok:true, dataUrl: opts.src }); },
+    applyWorkspaceTemplate: function(opts){ window.__lastTpl = opts; return Promise.resolve({ ok:true, dataUrl: 'data:image/png;base64,AAAA', template: opts.template }); },
     generateCaption: function(opts){ window.__lastGen = opts; return Promise.resolve({ ok:true, caption:'생성된 본문 ' + (opts.service||''), hashtags:['#' + ((opts.service||'tag').split(/[ ,]/)[0])], caption_template:'' }); },
+    saveItem: function(slot){ window.__lastSave = slot; return Promise.resolve({ ok:true }); },
     instagram: function(){ return { connected:false }; },
     instagramProfile: function(){ return { connected:false }; },
     recentCustomers: function(){ return Promise.resolve([]); },
   };
 </script>
 <script>${FLOW}</script>
+<script>${NL}</script>
 </body></html>`;
 
 const results = [];
@@ -216,6 +221,48 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   // I3: 캡션 없는 잇비 슬롯 → 다음=캡션 생성
   const integ2 = await page.evaluate(() => window.WorkspaceState.nextAction({ photos: [{ role: 'hero', dataUrl: 'x', editedDataUrl: 'x' }], caption: '' }).key);
   check('I3 캡션 없으면 다음=캡션 생성', integ2 === 'caption', 'next=' + integ2);
+
+  // ── W. 잇비 자연어 → 작업실 명령 (구조 통합) ──
+  // W0: 작업실 닫힘 상태에선 가로채지 않음(채팅 보호)
+  await page.evaluate(() => { if (window.WorkspaceFlow) window.WorkspaceFlow.close(); });
+  const offHandled = await page.evaluate(() => window.ItdasyWorkspaceNL.run('밝게 해줘').handled);
+  check('W0 작업실 닫힘 시 자연어 가로채기 안 함', offHandled === false, 'handled=' + offHandled);
+  // 편집 화면 열고 자연어 보정
+  await page.evaluate((png) => { window.WorkspaceFlow.command({ type: 'open', screen: 'edit' });
+    window.WorkspaceFlow.command({ type: 'open', screen: 'edit' }); }, PNG);
+  await page.evaluate((png) => window.WorkspaceFlow.open({ startScreen: 'edit', slot: { id: 'snl', photos: [{ id: 'p1', dataUrl: png, role: 'hero' }] } }), PNG);
+  const w1 = await page.evaluate(() => window.ItdasyWorkspaceNL.run('밝게 해줘'));
+  const brAfterNl = await page.$eval('#wsv2Flow [data-fs="edit"] input[data-fl-range="brightness"]', el => +el.value);
+  check('W1 "밝게 해줘" → 밝기 +', w1.handled === true && brAfterNl > 0, 'handled=' + w1.handled + ' br=' + brAfterNl);
+  await page.evaluate(() => window.ItdasyWorkspaceNL.run('더 밝게'));
+  const brAfter2 = await page.$eval('#wsv2Flow [data-fs="edit"] input[data-fl-range="brightness"]', el => +el.value);
+  check('W2 "더 밝게" 누적 증가', brAfter2 > brAfterNl, 'br=' + brAfter2);
+  await page.evaluate(() => window.ItdasyWorkspaceNL.run('어둡게'));
+  const brAfter3 = await page.$eval('#wsv2Flow [data-fs="edit"] input[data-fl-range="brightness"]', el => +el.value);
+  check('W3 "어둡게" → 밝기 감소', brAfter3 < brAfter2, 'br=' + brAfter3);
+  // 누끼
+  await page.evaluate(() => { window.__lastBg = null; return window.ItdasyWorkspaceNL.run('누끼 따줘'); });
+  await page.waitForFunction(() => window.__lastBg !== null, { timeout: 2000 }).catch(() => {});
+  const bg = await page.evaluate(() => window.__lastBg && window.__lastBg.action);
+  check('W4 "누끼 따줘" → 배경 제거 호출', bg === 'removeBg', 'bg=' + bg);
+  // 템플릿
+  await page.evaluate(() => { window.__lastTpl = null; return window.ItdasyWorkspaceNL.run('후기 템플릿 적용'); });
+  await page.waitForFunction(() => window.__lastTpl !== null, { timeout: 2000 }).catch(() => {});
+  const tpl = await page.evaluate(() => window.__lastTpl && window.__lastTpl.template && window.__lastTpl.template.key);
+  check('W5 "후기 템플릿" → review 템플릿 호출', tpl === 'review', 'tpl=' + tpl);
+  // 캡션 결과 화면에서 변형
+  await page.evaluate((png) => window.WorkspaceFlow.open({ startScreen: 'caption', slot: { id: 'snc', service: '네일아트', caption: '기존 게시글', photos: [{ id: 'p1', dataUrl: png, role: 'hero' }] } }), PNG);
+  await page.evaluate(() => { window.__lastGen = null; return window.ItdasyWorkspaceNL.run('더 길게 써줘'); });
+  await page.waitForFunction(() => window.__lastGen !== null, { timeout: 2000 }).catch(() => {});
+  const longGen = await page.evaluate(() => window.__lastGen && window.__lastGen.length_tier);
+  check('W6 "더 길게 써줘" → length_tier long', longGen === 'long', 'len=' + longGen);
+  await page.evaluate(() => { window.__lastGen = null; return window.ItdasyWorkspaceNL.run('인스타스럽게'); });
+  await page.waitForFunction(() => window.__lastGen !== null, { timeout: 2000 }).catch(() => {});
+  const insGen = await page.evaluate(() => window.__lastGen && window.__lastGen.tone_override);
+  check('W7 "인스타스럽게" → tone instagram', insGen === 'instagram', 'tone=' + insGen);
+  // 미지정 문장은 가로채지 않음
+  const passThru = await page.evaluate(() => window.ItdasyWorkspaceNL.run('오늘 매출 얼마야').handled);
+  check('W8 작업실 무관 문장은 통과(가로채기 X)', passThru === false, 'handled=' + passThru);
 
   check('F1 콘솔/페이지 런타임 에러 없음', errors.length === 0, errors.slice(0,3).join(' | '));
 
