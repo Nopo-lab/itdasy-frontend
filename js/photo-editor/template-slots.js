@@ -68,7 +68,16 @@
 
   function getSlots(templateId, templateData) {
     const kind = inferTemplateKind(templateId, templateData);
-    return SLOTS[kind] || SLOTS.generic;
+    const base = SLOTS[kind] || SLOTS.generic;
+    // [WM] 템플릿별 추가 편집 슬롯(extraSlots) — 선언한 템플릿에만 append(중복 key 제외).
+    //   다른 템플릿은 extraSlots 없음 → base 그대로 반환(무회귀).
+    const extra = templateData && Array.isArray(templateData.extraSlots) ? templateData.extraSlots : null;
+    if (!extra || !extra.length) return base;
+    const have = {};
+    base.forEach((s) => { have[s.key] = 1; });
+    const merged = base.slice();
+    extra.forEach((s) => { if (s && s.key && !have[s.key]) { have[s.key] = 1; merged.push(s); } });
+    return merged;
   }
 
   // ── kind 별 기본값 ──────────────────────────────────────

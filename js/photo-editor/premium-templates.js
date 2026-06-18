@@ -75,6 +75,19 @@
     'bp-ba-hair-extension-polaroid': ['beautyPack', 'BEFORE / AFTER', '붙임머리 전후', '볼륨감이 달라지는 순간'],
     'bp-review-lash-blue': ['beautyPack', 'REAL REVIEW',    '속눈썹 후기',        '또렷하고 자연스러운 눈매 변화'],
     'bp-event-spring-mixed': ['beautyPack', 'SPRING EVENT', '봄 시즌 이벤트',      '설레는 봄, 예뻐질 시간'],
+    // [WM] Warm Minimal 팩 12종 — 렌더 경로 beautyPack 위임(template-renderer-wm-pack-draws.js 등록).
+    'wm-ba-feed':       ['beautyPack', 'BEFORE & AFTER', '전후 비교',      '레이어드컷 전후 변화'],
+    'wm-ba-story':      ['beautyPack', 'BEFORE & AFTER', '오늘의 변화 기록', '시술 전과 후, 한 화면에'],
+    'wm-show-feed':     ['beautyPack', 'TODAY',          '시술 자랑',      '손질이 쉬운 자연스러운 볼륨'],
+    'wm-show-square':   ['beautyPack', 'TODAY',          '시술 자랑',      '오늘의 시술'],
+    'wm-review-feed':   ['beautyPack', 'REVIEW',         '고객 후기',      '손질이 훨씬 편해졌어요'],
+    'wm-review-story':  ['beautyPack', 'REVIEW',         '고객 후기',      '손질이 훨씬 편해졌어요'],
+    'wm-event-feed':    ['beautyPack', 'EVENT',          '이벤트 안내',    '첫 방문 고객 20% OFF'],
+    'wm-event-story':   ['beautyPack', 'EVENT',          '이벤트 안내',    '첫 방문 고객 20% OFF'],
+    'wm-promo-feed':    ['beautyPack', 'PHOTO',          '홍보컷',         '보정 완료 사진을 가장 예쁘게'],
+    'wm-promo-story':   ['beautyPack', 'PHOTO',          '홍보컷',         '예약 문의는 DM'],
+    'wm-price-feed':    ['beautyPack', 'PRICE',          '가격/시술 안내', '컷·컬러·클리닉'],
+    'wm-thumb-card':    ['beautyPack', '',               '작업실 썸네일',  '사진 + 상태 + 시술명'],
   };
 
   const PAL = {

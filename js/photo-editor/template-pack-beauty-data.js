@@ -18,6 +18,23 @@
   'use strict';
   if (window.PhotoEditorBeautyPackData) return;
 
+  // ── [WM] Warm Minimal 팩 공통 브랜드 토큰 (2026-06-18) ──────────────────
+  //   연준님 스펙: 아이보리/크림/웜화이트 배경 · 블랙 텍스트 · 차분한 로즈 포인트.
+  //   너무 핑크핑크/AI스럽지 않게 — 얇은 라인, 넉넉한 여백, 에디토리얼 무드.
+  //   palette 키는 렌더러/슬롯과 100% 공유: {bg, ink, sub, accent, line, badge}
+  var WM_CREAM = { bg: '#FFF9F4', ink: '#1F1B18', sub: '#4A403B', accent: '#D86A7A', line: '#E8D8CF', badge: '#1F1B18' };
+  var WM_PAPER = { bg: '#F8EFE8', ink: '#1F1B18', sub: '#4A403B', accent: '#C99A8A', line: '#E3D2C7', badge: '#1F1B18' };
+  var WM_WHITE = { bg: '#FFFFFF', ink: '#1F1B18', sub: '#4A403B', accent: '#D86A7A', line: '#ECE2D9', badge: '#1F1B18' };
+  function _wm(p) { var o = {}; for (var k in p) o[k] = p[k]; return o; }
+
+  // [WM] 추가 편집 슬롯(extraSlots) — getSlots 가 base 슬롯 뒤에 붙여 "문구 편집" 시트에 노출.
+  //   defaultCopy 로 기본값이 들어가고, 사용자가 시트에서 직접 수정 가능해진다.
+  var SL_SERVICE = { key: 'service_name', type: 'text', label: '시술명', max: 24 };
+  var SL_HANDLE = { key: 'shop_handle', type: 'text', label: '계정 핸들(@)', max: 30 };
+  var SL_EV_PERIOD = { key: 'event_period', type: 'text', label: '이벤트 기간', max: 40 };
+  var SL_EV_BENEFIT = { key: 'event_benefit', type: 'text', label: '이벤트 혜택', max: 40 };
+  var SL_STATUS = { key: 'status_badge', type: 'text', label: '상태 뱃지', max: 16 };
+
   var TEMPLATES = [
     {
       id: 'bp-price-blackgold', cat: 'price', tier: 'free',
@@ -147,8 +164,181 @@
         cta: '예약은 프로필 링크 / DM',
       },
     },
+
+    // ════════════════════════════════════════════════════════════════════
+    // [WM] Warm Minimal 팩 — 12종 (2026-06-18)
+    //   작업실 흐름(업로드→보정→템플릿→캡션→미리보기→고객→게시)에 바로 붙는 editable 세트.
+    //   슬롯(편집 변수)은 kind 기반 자동 생성(template-slots.js). defaultCopy = 예시 카피 + draw 전용 고정 카피.
+    //   사진 placeholder: photoSlots 참고 (main / before+after).
+    // ════════════════════════════════════════════════════════════════════
+
+    // ① 전후 비교 · 피드 4:5
+    {
+      id: 'wm-ba-feed', cat: 'ba', tier: 'free',
+      label: '전후 비교 · 피드', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'soft', prefillText: 'BEFORE & AFTER', ratio: '4:5', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['thin-rule', 'serif-label'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE],
+      defaultCopy: {
+        headline: '레이어드컷 전후 변화', subtitle: '한 번의 시술로 달라지는 분위기',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '시술 전', after_caption: '시술 후',
+        service_name: '레이어드컷', cta: '예약 문의',
+      },
+    },
+
+    // ② 전후 비교 · 스토리 9:16
+    {
+      id: 'wm-ba-story', cat: 'story', tier: 'free',
+      label: '전후 비교 · 스토리', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'soft', prefillText: 'BEFORE & AFTER', ratio: '9:16', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['thin-rule', 'serif-label'], photoSlots: ['before', 'after'] },
+      defaultCopy: {
+        headline: '오늘의 변화 기록', subtitle: '시술 전과 후, 한 화면에',
+        before_label: 'BEFORE', after_label: 'AFTER',
+        before_caption: '시술 전', after_caption: '시술 후',
+        service_name: '', cta: '예약은 프로필 링크',
+      },
+    },
+
+    // ③ 시술 자랑 · 피드 4:5 (사진 주인공)
+    {
+      id: 'wm-show-feed', cat: 'feed', tier: 'free',
+      label: '시술 자랑 · 피드', kind: 'generic', purpose: 'feed', industry: 'common',
+      accent: 'soft', prefillText: 'TODAY', ratio: '4:5', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['bottom-card', 'handle'], photoSlots: ['main'] },
+      extraSlots: [SL_HANDLE],
+      defaultCopy: {
+        headline: '손질이 쉬운 자연스러운 볼륨', subtitle: '데일리로 편안하게 연출되는 결',
+        service_name: '', shop_handle: '@your.salon', cta: '예약 문의',
+      },
+    },
+
+    // ④ 시술 자랑 · 정사각 1:1
+    {
+      id: 'wm-show-square', cat: 'card', tier: 'free',
+      label: '시술 자랑 · 정사각', kind: 'generic', purpose: 'feed', industry: 'common',
+      accent: 'soft', prefillText: 'TODAY', ratio: '1:1', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['bottom-card', 'handle'], photoSlots: ['main'] },
+      extraSlots: [SL_HANDLE],
+      defaultCopy: {
+        headline: '오늘의 시술', subtitle: '',
+        service_name: '', shop_handle: '@your.salon', cta: '',
+      },
+    },
+
+    // ⑤ 고객 후기 · 피드 4:5
+    {
+      id: 'wm-review-feed', cat: 'feed', tier: 'free',
+      label: '고객 후기 · 피드', kind: 'review', purpose: 'review', industry: 'common',
+      accent: 'soft', prefillText: 'REVIEW', ratio: '4:5', palette: _wm(WM_PAPER),
+      previewMeta: { decor: ['quote-mark', 'thin-rule'], photoSlots: ['main'] },
+      defaultCopy: {
+        headline: '고객 후기', subtitle: '직접 받아본 솔직한 후기',
+        review_text: '손질이 훨씬 편해졌어요.', customer_label: '고객 후기',
+        service_name: '', cta: '예약 문의',
+      },
+    },
+
+    // ⑥ 고객 후기 · 스토리 9:16
+    {
+      id: 'wm-review-story', cat: 'story', tier: 'free',
+      label: '고객 후기 · 스토리', kind: 'review', purpose: 'review', industry: 'common',
+      accent: 'soft', prefillText: 'REVIEW', ratio: '9:16', palette: _wm(WM_PAPER),
+      previewMeta: { decor: ['quote-mark', 'thin-rule'], photoSlots: ['main'] },
+      defaultCopy: {
+        headline: '고객 후기', subtitle: '',
+        review_text: '손질이 훨씬 편해졌어요.', customer_label: '고객 후기',
+        service_name: '', cta: '예약은 프로필 링크',
+      },
+    },
+
+    // ⑦ 이벤트 안내 · 피드 4:5
+    {
+      id: 'wm-event-feed', cat: 'feed', tier: 'free',
+      label: '이벤트 안내 · 피드', kind: 'generic', purpose: 'event', industry: 'common',
+      accent: 'rose', prefillText: 'EVENT', ratio: '4:5', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['rule-box', 'event-meta'], photoSlots: ['main'] },
+      extraSlots: [SL_EV_PERIOD, SL_EV_BENEFIT],
+      defaultCopy: {
+        headline: '첫 방문 고객 20% OFF', subtitle: '새로 오시는 분께 드리는 첫 인사',
+        event_name: '첫 방문 고객 20% OFF', event_period: '6월 한 달 · 평일 예약 한정',
+        event_benefit: '전 시술 20% 할인', cta: '예약 문의는 DM',
+      },
+    },
+
+    // ⑧ 이벤트 안내 · 스토리 9:16
+    {
+      id: 'wm-event-story', cat: 'story', tier: 'free',
+      label: '이벤트 안내 · 스토리', kind: 'generic', purpose: 'event', industry: 'common',
+      accent: 'rose', prefillText: 'EVENT', ratio: '9:16', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['big-title', 'cta-bar'], photoSlots: ['main'] },
+      extraSlots: [SL_EV_PERIOD, SL_EV_BENEFIT],
+      defaultCopy: {
+        headline: '첫 방문 고객\n20% OFF', subtitle: '',
+        event_name: '첫 방문 고객 20% OFF', event_period: '6월 한 달 · 평일 예약 한정',
+        event_benefit: '전 시술 20% 할인', cta: '예약 문의는 DM',
+      },
+    },
+
+    // ⑨ 인스타 홍보컷 · 피드 4:5 (텍스트 최소)
+    {
+      id: 'wm-promo-feed', cat: 'feed', tier: 'free',
+      label: '홍보컷 · 피드', kind: 'generic', purpose: 'promo', industry: 'common',
+      accent: 'soft', prefillText: '', ratio: '4:5', palette: _wm(WM_WHITE),
+      previewMeta: { decor: ['corner-handle'], photoSlots: ['main'] },
+      extraSlots: [SL_HANDLE],
+      defaultCopy: {
+        headline: '', subtitle: '',
+        service_name: '', shop_handle: '@your.salon', cta: '',
+      },
+    },
+
+    // ⑩ 인스타 홍보컷 · 스토리 9:16
+    {
+      id: 'wm-promo-story', cat: 'story', tier: 'free',
+      label: '홍보컷 · 스토리', kind: 'generic', purpose: 'promo', industry: 'common',
+      accent: 'soft', prefillText: '', ratio: '9:16', palette: _wm(WM_WHITE),
+      previewMeta: { decor: ['cta-bar'], photoSlots: ['main'] },
+      extraSlots: [SL_HANDLE],
+      defaultCopy: {
+        headline: '', subtitle: '',
+        service_name: '', shop_handle: '@your.salon', cta: '예약 문의는 DM',
+      },
+    },
+
+    // ⑪ 가격/시술 안내 · 피드 4:5
+    {
+      id: 'wm-price-feed', cat: 'price', tier: 'free',
+      label: '가격/시술 안내 · 피드', kind: 'price', purpose: 'price', industry: 'common',
+      accent: 'soft', prefillText: 'PRICE', ratio: '4:5', palette: _wm(WM_CREAM),
+      previewMeta: { decor: ['menu-rows', 'thin-rule'], photoSlots: ['main'] },
+      defaultCopy: {
+        headline: '시술 안내', subtitle: '예약 전 참고해 주세요',
+        services: [
+          { name: '컷', desc: '', price: '45,000' },
+          { name: '컬러', desc: '', price: '90,000~' },
+          { name: '클리닉', desc: '', price: '120,000~' },
+        ],
+        cta: '예약 문의', phone: '',
+      },
+    },
+
+    // ⑫ 작업실 썸네일 카드 · 1:1 (사진 + 상태 뱃지 + 시술명)
+    {
+      id: 'wm-thumb-card', cat: 'card', tier: 'free',
+      label: '작업실 썸네일 카드', kind: 'generic', purpose: 'feed', industry: 'common',
+      accent: 'soft', prefillText: '', ratio: '1:1', palette: _wm(WM_WHITE),
+      previewMeta: { decor: ['status-badge', 'service-label'], photoSlots: ['main'] },
+      extraSlots: [SL_SERVICE, SL_STATUS],
+      // status_badge 는 작업실에서 실제 콘텐츠 상태로 바인딩(예시: 캡션 필요/게시 준비/고객 연결됨).
+      defaultCopy: {
+        headline: '', subtitle: '',
+        service_name: '레이어드컷', status_badge: '게시 준비', cta: '',
+      },
+    },
   ];
 
-  window.PhotoEditorBeautyPackData = { VERSION: 'bp-2026060902', TEMPLATES: TEMPLATES };
+  window.PhotoEditorBeautyPackData = { VERSION: 'wm-2026061801', TEMPLATES: TEMPLATES };
   if (typeof module !== 'undefined' && module.exports) module.exports = window.PhotoEditorBeautyPackData;
 })();
