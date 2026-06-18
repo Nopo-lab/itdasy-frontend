@@ -10,7 +10,7 @@
   var SCREENS = ['upload', 'edit', 'caption', 'connect', 'preview'];
   var TITLE = { upload:'사진 업로드', edit:'편집 및 템플릿', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
   var CTA = {
-    upload: { l:'다음', to:'edit' },
+    upload: { l:'편집·템플릿으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
     edit:   { l:'저장하고 게시글 쓰기', to:'caption' },
     caption:{ l:'고객 연결로', to:'connect' },
     connect:{ l:'미리보기', to:'preview' },
@@ -61,6 +61,9 @@
   var d = null;
   var el = null;
   var cur = 'upload';
+  // [nav] 방문 히스토리 스택 — 뒤로가기는 정적 SCREENS 인덱스가 아니라 '실제로 거쳐온 화면'으로 복귀.
+  //  textOnly(게시물만 쓰기)로 caption에 바로 진입하면 스택이 비어 있어 뒤로가기가 작업실 홈으로 닫힌다.
+  var navStack = [];
 
   function uid() { return (typeof window._uid === 'function') ? window._uid() : 'wf_' + Math.random().toString(36).slice(2); }
   function toast(m) { if (window.showToast) window.showToast(m); }
@@ -170,16 +173,20 @@
 	  function _bgPanelHtml() {
     var bgcur = d.bgAction || '';
     var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
+    // [배경 정리] 개발자식 '누끼/배경제거/배경흐림' 3버튼 → 사용자 표현으로 통일한 한 섹션.
+    //  버튼을 누르면 바로 인물 분리 후 적용(배경색은 색을 고르면 그 색으로, 흐림/내 배경도 한 번에). 첫 클릭 즉시 처리 상태 노출.
     return '<div class="ed-bg">' +
-        '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"><i class="ph-duotone ph-scissors"></i>누끼 / 배경 제거</button>' +
-        '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"><i class="ph-duotone ph-drop-half"></i>배경 흐림</button>' +
-        '<button type="button" class="ed-bg__btn' + (bgcur === 'image' ? ' on' : '') + '" data-fl-bgpick><i class="ph-duotone ph-image-square"></i>내 배경 직접 올리기</button>' +
+        '<div class="ed-bg__row">' +
+          '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"' + (d.bgBusy ? ' disabled' : '') + '><i class="ph-duotone ph-scissors"></i>인물·시술만 살리기</button>' +
+          '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"' + (d.bgBusy ? ' disabled' : '') + '><i class="ph-duotone ph-drop-half"></i>은은한 배경 흐림</button>' +
+          '<button type="button" class="ed-bg__btn' + (bgcur === 'image' ? ' on' : '') + '" data-fl-bgpick' + (d.bgBusy ? ' disabled' : '') + '><i class="ph-duotone ph-image-square"></i>내 배경 올리기</button>' +
+        '</div>' +
         (d.customBgName ? '<div class="ed-bg__status">올린 배경: ' + esc(d.customBgName) + '</div>' : '') +
-        '<div class="ed-note"><i class="ph-duotone ph-info"></i>배경 색·흐림·내 배경은 먼저 인물을 분리(누끼)한 뒤 적용돼요. 잠시 걸릴 수 있어요.</div>' +
+        '<div class="ed-bg__sublabel">배경 색으로 채우기</div>' +
         '<div class="ed-bg__colors">' + bgColors.map(function (c) {
-          return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"></button>';
+          return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"' + (d.bgBusy ? ' disabled' : '') + '></button>';
         }).join('') + '</div>' +
-        '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
+        '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : (d.bgBusy ? ' is-busy' : '')) + '" data-fl-bgstatus>' + (d.bgBusy ? '<i class="ph-duotone ph-spinner-gap ed-bg__spin"></i>배경 정리 중… (몇 초 걸려요)' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨 — 보정은 인물 사진에만 적용돼요' : '버튼을 누르면 바로 인물을 분리해요'))) + '</div>' +
       '</div>';
 	  }
 	  function _toolButtons(ctrls, activeKey, attr) {
@@ -347,7 +354,7 @@
 	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
 	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
 	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="' + esc(_servicePlaceholder()) + '">' +
-	        '<button type="button" class="cap-preview cap-preview--inline" data-fl="gen">이 내용으로 생성</button>' +
+	        '<p class="cap-field-hint">상황을 고르거나, 키워드만 적고 아래 <b>‘이 내용으로 게시글 만들기’</b> 버튼을 눌러 주세요.</p>' +
 	        '<div data-fl-scenario></div>';
 	    }
     // 결과 화면
@@ -510,7 +517,10 @@
   }
 
   /* ── 라우팅 ── */
-  function setScreen(name) {
+  function setScreen(name, opts) {
+    opts = opts || {};
+    // 같은 화면 재렌더(doGenerate/loadRecent 등)는 push 안 함. 뒤로가기(fromBack)도 push 안 함.
+    if (name !== cur && opts.push !== false && el && el.classList.contains('is-open')) navStack.push(cur);
     cur = name;
     var to = SCREENS.indexOf(name);
     el.querySelectorAll('.wsv2flow__s').forEach(function (s) {
@@ -525,8 +535,14 @@
     el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= to); });
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
-    // [캡션 스킵 방지] 게시글 생성 전(결과 없음)엔 하단 '고객 연결로' CTA 숨김 → 인라인 '이 내용으로 생성'으로만 진행.
-    if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
+    // [캡션] 위쪽 '이 내용으로 생성' 버튼 제거 → 하단 CTA 하나로 통일.
+    //  - 생성 전(결과 없음): '이 내용으로 게시글 만들기' (onCta가 입력값 flush 후 생성)
+    //  - 생성 후: '고객 연결로' (다음 단계)
+    //  - 생성 중(capLoading): 숨김
+    if (name === 'caption') {
+      if (d.capLoading) { bar.classList.add('hidden'); }
+      else { bar.classList.remove('hidden'); cta.textContent = String(d.caption || '').trim() ? CTA.caption.l : '이 내용으로 게시글 만들기'; }
+    }
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
     if (name === 'connect') loadRecent();
@@ -557,6 +573,9 @@
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
+    // [캡션 키워드 보장] 시술명(사용자 입력)을 photo_context 맨 앞에 명시 — 엔진은 photo_context 가 있으면
+    //  service 를 prompt 에 따로 안 붙이는 경로가 있어, 그대로 두면 '레이어드컷' 같은 키워드가 누락된다.
+    if (svc) opts.photo_context = '시술: ' + svc + (opts.photo_context ? ' · ' + opts.photo_context : '');
     d.capLen = opts.length_tier || d.capLen || 'medium';
     d.capTone = opts.tone_override || d.capTone || 'normal';
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
@@ -583,8 +602,8 @@
       if (a === 'morehash') { return doGenerate({}, '해시태그를 새로 가져왔어요'); }
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
-      if (a === 'toconnect') { syncCaptionFromDom(); setScreen('connect'); return; }
-      if (a === 'topreview') { syncCaptionFromDom(); setScreen('preview'); return; }
+      if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
+      if (a === 'topreview') { flushCaptionInputs(); setScreen('preview'); return; }
       if (a === 'pickcust') { return pickCustomer(); }
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; setScreen('preview'); return; }
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
@@ -869,20 +888,31 @@
 	    var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = d.caption;
 	  }
 
+  // 캡션 화면을 떠나거나 다음 단계로 갈 때 — 입력창 3종(시술명/본문/꼬리말)의 최신값을 한 번에 state 로 확정.
+  //  입력값을 버튼 클릭 시점에만 저장하던 회귀를 막아, 위쪽 '이대로 작성' 없이 하단 CTA 만으로도 반영되게 한다.
+  function flushCaptionInputs() {
+    syncServiceFromDom();
+    if (!el) return;
+    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
+    var f = el.querySelector('[data-fl-footer]'); if (f && typeof f.value === 'string') d.captionTemplate = f.value;
+  }
+
   function back() {
-    var i = SCREENS.indexOf(cur);
-    if (i > 0) setScreen(SCREENS[i - 1]); else close();
+    if (cur === 'caption') flushCaptionInputs();
+    // 정적 SCREENS 인덱스가 아니라 '실제로 거쳐온' navStack 으로 복귀. 비어 있으면(예: 게시물만 쓰기 직접 진입) 닫고 작업실 홈으로.
+    if (navStack.length) { setScreen(navStack.pop(), { push: false }); return; }
+    close();
   }
   function onCta() {
     var c = CTA[cur]; if (!c) return;
     if (cur === 'upload' && !d.photos.length && !d.textOnly) { toast('사진을 먼저 추가해 주세요.'); return; }
     if (c.to === '__save') return save();
     if (cur === 'caption') {
-      syncCaptionFromDom();
+      flushCaptionInputs();
       // [캡션 스킵 방지] 게시글 안 만든 채로 고객연결/미리보기로 못 넘어가게 — 시술명 있으면 바로 생성, 없으면 안내.
       if (!String(d.caption || '').trim()) {
         if (String(d.service || '').trim()) { doGenerate({}, '게시글을 만들었어요'); }
-        else { toast('게시글을 먼저 만들어 주세요'); }
+        else { toast('시술 내역/키워드를 입력하면 게시글을 만들어 드려요'); }
         return;
       }
     }
@@ -1071,13 +1101,32 @@
 	    };
 	    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
+    navStack = [];   // 새 세션 — 방문 히스토리 초기화
+    // 시스템 back(안드로이드 하드웨어/스와이프, popstate)을 전역 sheet-back 레지스트리에 편입.
+    //  미등록 시 안드로이드 back 이 오버레이를 안 닫고 홈 탭으로 점프해 오버레이가 떠버린 채 남는다.
+    if (window._registerSheet) window._registerSheet('wsv2flow', _systemBack);
+    if (window._markSheetOpen) window._markSheetOpen('wsv2flow');
     // textOnly → 바로 게시글 화면으로
     var startScreen = opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload';
 	    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
-	    setScreen(startScreen);
+	    setScreen(startScreen, { push: false });
 	    if (incomingFiles.length) addFiles(incomingFiles, true);
 	  }
-  function close() { if (el) el.classList.remove('is-open'); }
+  // 시스템 back 진입점 — 인앱 back 과 동일 규칙(한 화면 뒤로, 비면 닫기). 한 화면 물러날 땐 history 재무장.
+  function _systemBack() {
+    if (cur === 'caption') flushCaptionInputs();
+    if (navStack.length) {
+      setScreen(navStack.pop(), { push: false });
+      if (window._markSheetOpen) window._markSheetOpen('wsv2flow');   // 다음 시스템 back 대비 재무장
+      return;
+    }
+    close();
+  }
+  function close() {
+    if (el) el.classList.remove('is-open');
+    navStack = [];
+    if (window._markSheetClosed) window._markSheetClosed('wsv2flow');
+  }
 
   // ── [구조 통합] 프로그램/자연어 명령 API — 잇비가 작업실 전 기능을 호출하는 단일 진입점 ──
   //   기존 내부 함수만 재사용(로직/저장 스키마 미변경). 화면 안 열렸을 때 'open' 외 명령은 무시.

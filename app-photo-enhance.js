@@ -215,7 +215,10 @@ async function _enhanceOnePhoto(photo, opt) {
 window.PhotoEnhance = window.PhotoEnhance || {};
 // [v183 2026-05-18] 강도 ↑ — 기존 약함 컴플레인 해결.
 //   intensity: 'natural'(0.7×) | 'standard'(1.0×) | 'strong'(1.4×) — 사장님 토글 가능.
-//   강도 기준은 'standard'. 메이투 수준 체감 위해 redness/lashSharp/hairShine 상향.
+// [2026-06-19] 과보정 회귀 안정화 — v183이 메이투 체감 위해 끌어올린 수치 중 색 뭉개짐·피부 떡짐·과글로스를
+//   유발하던 값을 예전 안정 수준(v175)으로 환원: 네일 saturate 120→115/nailGloss 70→55, 헤어 hairShine 55→40·
+//   hairDetail 45→35, 속눈썹 sharpness 42→35·lashSharp 68→52, 피부 skin 45→38·redness 55→40·blemish 40→32,
+//   일반 saturate 112→108. 방향: 밝기 살짝·대비 과하지 않게·채도 뭉개짐 방지·선명도는 디테일만. strong(1.4×)는 유지.
 //   v180 신규 슬라이더 (yellowness/coolness/textureSmooth/hairColorPop/closeUpDetail) 도 프리셋에 반영.
 window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
   const t = (shopType || _enhanceShopType()).toLowerCase();
@@ -226,10 +229,10 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
   if (/(속눈썹|lash)/.test(t)) {
     return {
       label: '속눈썹',
-      adjust: { brightness: 105, saturate: 108, sharpness: 42, temperature: 0 },
+      adjust: { brightness: 105, saturate: 108, sharpness: 35, temperature: 0 },
       beauty: {
         eyeRedness: _s(52), irisClear: _s(50), catchLight: _s(32),
-        lashSharp: _s(68), closeUpDetail: _s(38), underEyeClean: _s(34),
+        lashSharp: _s(52), closeUpDetail: _s(38), underEyeClean: _s(34),
         eyeShadow: _s(18), redness: _s(18), skin: _s(14),
       },
     };
@@ -260,7 +263,7 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
       label: '헤어',
       adjust: { brightness: 105, saturate: 110, sharpness: 35, temperature: 5 },
       beauty: {
-        hairVolume: _s(46), hairEndsClean: _s(34), hairShine: _s(55), hairDetail: _s(45),
+        hairVolume: _s(46), hairEndsClean: _s(34), hairShine: _s(40), hairDetail: _s(35),
         hairColor: _sym(8), hairColorPop: _s(40),
         skin: _s(15), redness: _s(30), yellowness: _s(20),
       },
@@ -269,9 +272,9 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
   if (/(네일|nail|패디|풋케어|pedi|foot)/.test(t)) {
     return {
       label: t.includes('패디') || /(pedi|foot)/.test(t) ? '패디' : '네일',
-      adjust: { brightness: 110, saturate: 120, sharpness: 35, temperature: -3 },
+      adjust: { brightness: 110, saturate: 115, sharpness: 35, temperature: -3 },
       beauty: {
-        handSkin: _s(45), nailGloss: _s(70), coolness: _s(30), nailShape: _s(35),
+        handSkin: _s(45), nailGloss: _s(55), coolness: _s(30), nailShape: _s(35),
         redness: _s(30), yellowness: _s(25), skin: _s(15),
       },
     };
@@ -283,7 +286,7 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
       label: isBody ? '바디' : isSkin ? '피부·반영구' : '왁싱',
       adjust: { brightness: 105, saturate: 102, sharpness: 18, temperature: 2 },
       beauty: {
-        skin: _s(45), redness: _s(55), blemish: _s(40), textureSmooth: _s(35),
+        skin: _s(38), redness: _s(40), blemish: _s(32), textureSmooth: _s(35),
         eyeShadow: _s(15), hairyArm: isBody ? _s(40) : 0,
       },
     };
@@ -291,7 +294,7 @@ window.PhotoEnhance.getShopPreset = function(shopType, intensity) {
   // 기타 / 일반 폴백 — 전체 슬라이더 노출 보장
   return {
     label: '일반',
-    adjust: { brightness: 105, saturate: 112, sharpness: 32, temperature: 5 },
+    adjust: { brightness: 105, saturate: 108, sharpness: 32, temperature: 5 },
     beauty: { skin: _s(15), redness: _s(20), yellowness: _s(10) },
   };
 };

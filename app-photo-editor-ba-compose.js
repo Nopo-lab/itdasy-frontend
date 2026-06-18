@@ -405,7 +405,8 @@
     if (before && !_hasBefore) { _beforePlaceholder(ctx, x, y, w, h, false); return; }   // [UX-BA-2]
     ctx.save();
     ctx.globalAlpha = alpha || 1;
-    ctx.filter = before ? 'brightness(92%) grayscale(15%)' : 'saturate(108%) brightness(103%)';
+    // before 를 너무 칙칙하게(가짜로) 만들지 않음 — 전·후 둘 다 자연스럽게 보이도록 desaturate 완화.
+    ctx.filter = before ? 'brightness(96%) grayscale(6%)' : 'saturate(108%) brightness(103%)';
     _cover(ctx, img, x, y, w, h);
     ctx.filter = 'none';
     ctx.strokeStyle = 'rgba(255,255,255,0.86)';
@@ -419,7 +420,7 @@
     ctx.save();
     _rr(ctx, x, y, w, h, r);
     ctx.clip();
-    ctx.filter = before ? 'brightness(94%) saturate(90%)' : 'brightness(104%) saturate(108%) contrast(104%)';
+    ctx.filter = before ? 'brightness(97%) saturate(96%)' : 'brightness(104%) saturate(108%) contrast(104%)';
     _cover(ctx, img, x, y, w, h);
     ctx.restore();
     ctx.save();
