@@ -72,8 +72,9 @@
     return sheet;
   }
 
-  // [2026-05-02 Phase 1.2] 큐 자동 갱신 — 사장이 화면 보고 있는 동안 10초마다 새 카드 따라잡기
-  const QUEUE_POLL_MS = 10000;
+  // [2026-05-02 Phase 1.2] 큐 자동 갱신 — 사장이 화면 보고 있는 동안 새 카드 따라잡기
+  //   [2026-06-19] 10초→4초. 새 DM 체감 지연 완화. (숨김/닫힘 땐 아래 setInterval 가드로 no-op)
+  const QUEUE_POLL_MS = 4000;
   let _queuePollTimer = null;
   let _queueVisHandlerBound = false;
   function _isQueueOpen() {
