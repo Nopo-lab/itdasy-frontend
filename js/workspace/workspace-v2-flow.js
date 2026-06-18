@@ -22,21 +22,41 @@
     review: { purpose: 'review',       captionMode: 'review', role: 'hero', tplLabel: '고객 후기' },
     event:  { purpose: 'event',        captionMode: 'normal', role: 'hero', tplLabel: '이벤트' }
   };
-  var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', price: 'free' };
-  var TYPE_MAP = { before_after: 'before_after', feed: 'promo', review: 'review', event: 'event', price: 'price' };
-  // [복구] 연준 93fdb22 원본 5탭 구조
-  var EDIT_TABS = [
-    { k: 'basic', label: '기본', ic: 'ph-sliders-horizontal', controls: [
-      { k: 'brightness', l: '밝기', ic: 'ph-sun' }, { k: 'contrast', l: '대비', ic: 'ph-circle-half' }, { k: 'saturation', l: '채도', ic: 'ph-sparkle' },
-      { k: 'sharpness', l: '선명도', ic: 'ph-lightning' }, { k: 'color', l: '색감', ic: 'ph-palette' } ] },
-    { k: 'skin', label: '피부', ic: 'ph-user', note: '정밀 피부 보정(잡티·매끈함)은 다음 업데이트에서 제공돼요. 지금은 가벼운 톤 보정만 돼요.', controls: [
-      { k: 'brightness', l: '화사', ic: 'ph-sun' }, { k: 'color', l: '따뜻함', ic: 'ph-palette' }, { k: 'saturation', l: '혈색', ic: 'ph-sparkle' } ] },
-    { k: 'hair', label: '머릿결', ic: 'ph-wind', note: '정밀 머릿결 보정(볼륨·결 정리)은 다음 업데이트에서 제공돼요. 지금은 가벼운 톤 보정만 돼요.', controls: [
-      { k: 'sharpness', l: '선명', ic: 'ph-lightning' }, { k: 'contrast', l: '또렷', ic: 'ph-circle-half' }, { k: 'color', l: '색감', ic: 'ph-palette' } ] },
-    { k: 'background', label: '배경', ic: 'ph-image', controls: [] },
-    { k: 'advanced', label: '고급', ic: 'ph-faders', controls: [] },
-  ];
-  function newAdjust() { return { brightness:0, contrast:0, saturation:0, sharpness:0, color:0 }; }
+	  var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', story: '9:16', price: 'free' };
+	  var TYPE_MAP = { before_after: 'before_after', feed: 'promo', review: 'review', event: 'event', story: 'story', price: 'price' };
+	  var MAIN_TOOLS = [
+	    { k: 'brightness', l: '밝기', ic: 'ph-sun' },
+	    { k: 'contrast', l: '대비', ic: 'ph-circle-half' },
+	    { k: 'saturation', l: '채도', ic: 'ph-sparkle' },
+	    { k: 'sharpness', l: '선명도', ic: 'ph-lightning' },
+	    { k: 'color', l: '색감', ic: 'ph-palette' },
+	    { k: 'background', l: '배경', ic: 'ph-image' },
+	  ];
+	  var PRECISION_TABS = [
+	    { k: 'skin', label: '피부', ic: 'ph-user', controls: [
+	      { k: 'skin', l: '피부톤', ic: 'ph-sun' },
+	      { k: 'textureSmooth', l: '피부결', ic: 'ph-sparkle' },
+	      { k: 'blemish', l: '잡티 정리', ic: 'ph-bandage' } ] },
+	    { k: 'hair', label: '헤어', ic: 'ph-wind', controls: [
+	      { k: 'hairDetail', l: '헤어결', ic: 'ph-wind' },
+	      { k: 'hairVolume', l: '헤어 볼륨', ic: 'ph-waves' },
+	      { k: 'hairShine', l: '헤어 윤기', ic: 'ph-sparkle' } ] },
+	    { k: 'eyes', label: '눈썹·눈가', ic: 'ph-eye', controls: [
+	      { k: 'browSharp', l: '눈썹 선명도', ic: 'ph-pencil-simple' },
+	      { k: 'lashSharp', l: '눈가 선명도', ic: 'ph-eye' },
+	      { k: 'eyeRedness', l: '눈 맑게', ic: 'ph-drop' } ] },
+	    { k: 'tools', label: '고급', ic: 'ph-faders', controls: [] },
+	  ];
+	  var WORKSPACE_TEMPLATES = [
+	    { key: 'ba', label: '전후 비교', use: '전후 2장', chip: '전후', id: 'v3-ba-clean-rose', purpose: 'before_after', captionMode: 'normal' },
+	    { key: 'showcase', label: '시술 자랑', use: '완성컷 강조', chip: '시술 자랑', id: 'feed-showcase', purpose: 'feed', captionMode: 'normal' },
+	    { key: 'review', label: '고객 후기', use: '후기 카드', chip: '고객 후기', id: 'v3-review-card', purpose: 'review', captionMode: 'review' },
+	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'event-discount', purpose: 'event', captionMode: 'normal' },
+	    { key: 'feed', label: '인스타 피드', use: '피드용 안내', chip: '시술 자랑', id: 'feed-notice', purpose: 'feed', captionMode: 'normal' },
+	    { key: 'story', label: '스토리 홍보', use: '세로 홍보', chip: '스토리', id: 'story-open', purpose: 'story', captionMode: 'normal' },
+	  ];
+	  function newAdjust() { return { brightness:0, contrast:0, saturation:0, sharpness:0, color:0 }; }
+	  function newBeauty() { return { skin:0, textureSmooth:0, blemish:0, hairDetail:0, hairVolume:0, hairShine:0, browSharp:0, lashSharp:0, eyeRedness:0 }; }
   var d = null;
   var el = null;
   var cur = 'upload';
@@ -65,7 +85,7 @@
     if (idx < 0 || idx >= p.length || idx === (d.editIdx || 0)) return;
     bakeEdit().then(function () {
       d.editIdx = idx;
-      d.adjust = newAdjust(); d.undo = []; d.redo = []; d.previewUrl = null;
+	      d.adjust = newAdjust(); d.beauty = newBeauty(); d.undo = []; d.redo = []; d.previewUrl = null;
       d.originalPreview = false; d.basicTool = null;
       d.bgAction = null; d.bgColor = null; d.bgFail = false; d.bgBusy = false;
       setScreen('edit');
@@ -123,9 +143,13 @@
       '</div>';
   }
 
-  // 정밀 조정 탭 = 기본·배경 뺀 나머지(피부/머릿결/고급). 기본 보정은 항상 노출, 배경은 자체 펼치기.
-  function _precTabs() { return EDIT_TABS.filter(function (t) { return t.k !== 'basic' && t.k !== 'background'; }); }
-  function _bgPanelHtml() {
+	  function _toolByKey(list, key) {
+	    return (list || []).filter(function (c) { return c.k === key; })[0] || (list || [])[0];
+	  }
+	  function _hasValues(obj) {
+	    return !!(obj && Object.keys(obj).some(function (k) { return +obj[k] !== 0; }));
+	  }
+	  function _bgPanelHtml() {
     var bgcur = d.bgAction || '';
     var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
     return '<div class="ed-bg">' +
@@ -137,16 +161,34 @@
         }).join('') + '</div>' +
         '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : '') + '" data-fl-bgstatus>' + (d.bgBusy ? '배경 처리 중…' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨' : '배경 옵션을 선택하세요'))) + '</div>' +
       '</div>';
-  }
-  function _ctrlSlider(ctrls, activeKey, toolAttr) {
-    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
-    var actObj = ctrls.filter(function (c) { return c.k === active; })[0];
-    var val = (d.adjust && d.adjust[active]) || 0;
-    return '<div class="ed-tools">' + ctrls.map(function (c) {
-      return '<div class="ed-tool' + (c.k === active ? ' on' : '') + '" ' + toolAttr + '="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
-    }).join('') + '</div>' +
-      '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
-  }
+	  }
+	  function _toolButtons(ctrls, activeKey, attr) {
+	    return '<div class="ed-tools">' + ctrls.map(function (c) {
+	      return '<div class="ed-tool' + (c.k === activeKey ? ' on' : '') + '" ' + attr + '="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
+	    }).join('') + '</div>';
+	  }
+	  function _ctrlSlider(ctrls, activeKey, toolAttr) {
+	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
+	    var actObj = _toolByKey(ctrls, active);
+	    var val = (d.adjust && d.adjust[active]) || 0;
+	    return _toolButtons(ctrls, active, toolAttr) +
+	      '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
+	  }
+	  function _mainAdjustHtml() {
+	    var active = d.basicTool || 'brightness';
+	    var buttons = _toolButtons(MAIN_TOOLS, active, 'data-fl-basictool');
+	    if (active === 'background') return buttons + '<div class="ed-panel">' + _bgPanelHtml() + '</div>';
+	    var actObj = _toolByKey(MAIN_TOOLS, active);
+	    var val = (d.adjust && d.adjust[active]) || 0;
+	    return buttons + '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
+	  }
+	  function _beautySlider(ctrls, activeKey) {
+	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
+	    var actObj = _toolByKey(ctrls, active);
+	    var val = (d.beauty && d.beauty[active]) || 0;
+	    return _toolButtons(ctrls, active, 'data-fl-beautytool') +
+	      '<div class="ed-slider ed-slider--beauty"><span>' + esc(actObj.l) + '</span><input type="range" min="0" max="100" value="' + val + '" data-fl-beautyrange="' + active + '"><span class="ed-val" data-fl-beautyval>' + val + '</span></div>';
+	  }
 
   function renderEdit() {
     var base = photoUrl(curEditPhoto());
@@ -164,9 +206,8 @@
       }).join('') + '</div>';
     }
 
-    // ── 기본 보정(항상 노출): 밝기/대비/채도/선명도/색감 + 슬라이더 + 되돌리기 바 ──
-    var basicCtrls = (EDIT_TABS.filter(function (t) { return t.k === 'basic'; })[0] || EDIT_TABS[0]).controls;
-    var basicHtml = _ctrlSlider(basicCtrls, d.basicTool, 'data-fl-basictool');
+	    // ── 주요 조정(항상 노출): 밝기/대비/채도/선명도/색감/배경 ──
+	    var basicHtml = _mainAdjustHtml();
     var bottomHtml =
       '<div class="ed-bottom">' +
         '<div class="eb' + (d.undo && d.undo.length ? '' : ' disabled') + '" data-fl-eb="되돌리기"><i class="ph-duotone ph-arrow-counter-clockwise"></i>되돌리기</div>' +
@@ -179,58 +220,54 @@
     // 펼치기 화살표 — 앱 표준 스프라이트(#ic-chevron-*)
     function caret(open) { return '<svg class="ed-fold__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-' + (open ? 'up' : 'down') + '"/></svg>'; }
 
-    // ── 배경(펼치기): 누끼/배경색 — 헤드라인 기능이라 정밀과 분리, 위로 ──
-    var bgFold =
-      '<button type="button" class="ed-fold' + (d.bgOpen ? ' open' : '') + '" data-fl-fold="bg"><span>배경 <em>누끼·배경색</em></span>' + caret(d.bgOpen) + '</button>' +
-      (d.bgOpen ? '<div class="ed-panel">' + _bgPanelHtml() + '</div>' : '');
-
-    // ── 정밀 조정(펼치기): 피부/머릿결(준비중)/고급 — 기본 슬라이더 중복 없음 ──
-    var prec = _precTabs();
-    var ptab = d.editTab && prec.some(function (t) { return t.k === d.editTab; }) ? d.editTab : prec[0].k;
-    var ptabObj = prec.filter(function (t) { return t.k === ptab; })[0];
-    var precBody = '';
-    if (d.advOpen) {
-      var inner = '';
-      if (ptab === 'advanced') {
-        inner =
-          '<div class="ed-adv">' +
-            '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1·4:5·9:16·자유)</button>' +
-            '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
-          '</div>';
-      } else { // 피부/머릿결: 기본 보정과 중복되는 슬라이더 빼고 준비중 안내만
-        inner = '<div class="ed-adv"><div class="ed-note"><i class="ph-duotone ph-info"></i>' + esc(ptabObj.note || '다음 업데이트에서 제공돼요.') + '</div></div>';
-      }
-      var precTabsHtml = '<div class="ed-tabs">' + prec.map(function (t) {
-        return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
+	    // ── 정밀 조정(기본 펼침): 살아있는 보정 엔진 값만 노출 ──
+	    var prec = PRECISION_TABS;
+	    var ptab = d.editTab && prec.some(function (t) { return t.k === d.editTab; }) ? d.editTab : prec[0].k;
+	    var ptabObj = prec.filter(function (t) { return t.k === ptab; })[0];
+	    var precBody = '';
+	    if (d.advOpen) {
+	      var inner = '';
+	      if (ptab === 'tools') {
+	        inner =
+	          '<div class="ed-adv">' +
+	            '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>비율 자르기 (1:1·4:5·9:16·자유)</button>' +
+	            '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
+	          '</div>';
+	      } else {
+	        inner = '<div class="ed-adv">' + _beautySlider(ptabObj.controls || [], d.precTool) + '</div>';
+	      }
+	      var precTabsHtml = '<div class="ed-tabs">' + prec.map(function (t) {
+	        return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
       }).join('') + '</div>';
       precBody = '<div class="ed-panel">' + precTabsHtml + inner + '</div>';
     }
     var advFold =
       '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·머릿결·고급</em></span>' + caret(d.advOpen) + '</button>' + precBody;
 
-    // ── 템플릿(펼치기) ──
-    var tplBody = '';
-    if (d.tplOpen) {
-      var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트'];
-      tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
-        '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
-        '<div class="tpl-grid2">' + ['Clean Beige', 'Lash Anew', 'Glow White', 'Event Soft', 'Salon Warm', 'Before After'].map(function (n, i) {
-          return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curEditPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curEditPhoto())) + ')"' : '') + '></div>';
-        }).join('') + '</div>' +
-        (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '') +
-      '</div></div>';
-    }
+	    // ── 템플릿(기본 펼침): 실제 캔버스 적용 가능한 6개만 노출 ──
+	    var tplBody = '';
+	    if (d.tplOpen) {
+	      var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트', '스토리'];
+	      var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
+	      tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
+	        '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
+	        '<div class="tpl-grid2">' + shown.map(function (tpl) {
+	          return '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '>' +
+	            '<span><b>' + esc(tpl.label) + '</b><em>' + esc(tpl.use) + '</em></span></button>';
+	        }).join('') + '</div>' +
+	        (d.template ? '<div class="tpl-picked">적용됨: ' + esc(d.template) + '</div>' : '') +
+	      '</div></div>';
+	    }
     var tplFold =
       '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>템플릿 <em>' + (d.template ? esc(d.template) : '꾸미기') + '</em></span>' + caret(d.tplOpen) + '</button>' + tplBody;
 
     return '' +
       switcher +
-      '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
-      basicHtml +
-      bottomHtml +
-      bgFold +
-      advFold +
-      tplFold;
+	      '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
+	      basicHtml +
+	      bottomHtml +
+	      advFold +
+	      tplFold;
   }
 
   function _roleSummary() {
@@ -245,13 +282,16 @@
     if (d.capLoading) {
       return '<div class="cap-loading"><div class="cap-loading-spin"></div><p>AI가 게시글을 쓰는 중…</p></div>';
     }
-    if (!d.caption) {
-      var photoThumb = (!d.textOnly && url) ?
-        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '';
-      return photoThumb +
-        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
-        '<div data-fl-scenario></div>';
-    }
+	    if (!d.caption) {
+	      var photoThumb = (!d.textOnly && url) ?
+	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '';
+	      return photoThumb +
+	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
+	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
+	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="예: 레이어드컷, 애쉬브라운 염색">' +
+	        '<button type="button" class="cap-preview cap-preview--inline" data-fl="gen">이 내용으로 생성</button>' +
+	        '<div data-fl-scenario></div>';
+	    }
     // 결과 화면
     var hashHtml = d.hashtags.map(function (h) {
       return '<button class="hash-chip' + (d.selectedHashes && d.selectedHashes.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>';
@@ -259,25 +299,29 @@
     var photoHtml = (!d.textOnly && url) ?
       '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:13px;height:13px;stroke:var(--brand-strong)"><use href="#ic-tag"/></svg><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' : '';
     return '' +
-      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
-      '<div class="cap-card">' +
-        photoHtml +
-        '<div class="cap-text">' +
-          '<p data-fl-capbody>' + esc(d.caption) + '</p>' +
-          '<div class="cap-hash" data-fl-caphash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</div>' +
-          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
-        '</div>' +
+	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
+	      '<label class="cap-field-label">시술내역 / 키워드 <span>바꾸고 다시 생성해도 사진은 유지돼요</span></label>' +
+	      '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="예: 애쉬브라운 염색">' +
+	      '<div class="cap-card">' +
+	        photoHtml +
+	        '<div class="cap-text">' +
+	          '<textarea class="cap-body" data-fl-capbody rows="8">' + esc(d.caption) + '</textarea>' +
+	          '<div class="cap-hash" data-fl-caphash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</div>' +
+	          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
+	        '</div>' +
       '</div>' +
       '<div class="captail"><div class="captail__label">고정 꼬리말 자동 추가</div>' +
         '<div class="captail__body">' + (d.captionTemplate ? esc(d.captionTemplate) : '매장 고정 문구(예약 DM·영업시간)가 자동으로 붙어요') + '</div>' +
       '</div>' +
       (hashHtml ? '<div class="cust-row"><b>해시태그</b><a data-fl="morehash">새로고침 ›</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
       '<div class="cap-regen-row">' +
-        '<button class="cap-regen-btn" data-fl-var="regen">다시</button>' +
-        '<button class="cap-regen-btn" data-fl-var="short">더 짧게</button>' +
-        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
-      '</div>';
-  }
+	        '<button class="cap-regen-btn" data-fl-var="regen">다시</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="review">후기체</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="hashtags">해시태그 더</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="insta">인스타스럽게</button>' +
+	      '</div>';
+	  }
 
   function _mountCaption() {
     var container = el.querySelector('[data-fl-scenario]');
@@ -291,27 +335,33 @@
     });
   }
 
-  function renderPreview() {
-    var url = photoUrl(curPhoto());
-    var custLine = d.customerName ?
-      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
-    return '' +
-      custLine +
-      '<div class="ig-card2">' +
-        '<div class="ig-head2"><span class="ig-logo">Salon<br>Dearly</span><span class="ig-name2">Salon Dearly</span><span class="ig-loc">청담점</span><span class="ig-dots2">···</span></div>' +
-        '<div class="ig-photo" style="background-image:url(' + esc(url) + ')"></div>' +
-        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
-          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
-        '<div class="ig-copy2"><b>salondearly_official</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">1분 전</div></div>' +
-      '</div>' +
-      _publishBlock();
-  }
+	  function renderPreview() {
+	    var url = photoUrl(curPhoto());
+	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
+	    var handle = ig.connected && ig.handle ? ig.handle : '인스타 미연동';
+	    var name = ig.connected ? (ig.displayName || handle) : '인스타 미연동';
+	    var avatar = ig.connected && ig.profilePic
+	      ? '<span class="ig-logo ig-logo--photo" style="background-image:url(' + esc(ig.profilePic) + ')"></span>'
+	      : '<span class="ig-logo ig-logo--empty"><i class="ph-duotone ph-instagram-logo"></i></span>';
+	    var custLine = d.customerName ?
+	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
+	    return '' +
+	      custLine +
+	      '<div class="ig-card2">' +
+	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
+	        '<div class="ig-photo" style="background-image:url(' + esc(url) + ')"></div>' +
+	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
+	          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
+	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">미리보기</div></div>' +
+	      '</div>' +
+	      _publishBlock();
+	  }
 
   function _publishBlock() {
-    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
-    if (connected) {
-      return '<button type="button" class="cap-preview" style="width:100%;margin-top:10px" data-fl="publish">인스타그램에 올리기</button>';
-    }
+	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
+	    if (connected) {
+	      return '<button type="button" class="cap-preview" style="width:100%;margin-top:10px" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '올리는 중…' : '인스타그램에 올리기') + '</button>';
+	    }
     return '<div class="wsflow-prep">' +
       '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
       '<div class="wsflow-prep__row">' +
@@ -398,12 +448,13 @@
     });
   }
 
-  function doGenerate(extra, label) {
-    var svc = String(d.service || '').trim();
-    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
-    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
-    d.capLoading = true; setScreen('caption');
-    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, mode: d.captionMode || 'normal' }, extra || {});
+	  function doGenerate(extra, label) {
+	    var svc = String(d.service || '').trim();
+	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
+	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
+	    d.capLoading = true; setScreen('caption');
+	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
+	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
     d.capLen = opts.length_tier || d.capLen || 'medium';
     d.capTone = opts.tone_override || d.capTone || 'normal';
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
@@ -445,9 +496,10 @@
       if (t.closest('[data-fl-edphoto]')) { return; }
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') d.bgOpen = !d.bgOpen; else if (fk === 'adv') d.advOpen = !d.advOpen; else if (fk === 'tpl') d.tplOpen = !d.tplOpen; setScreen('edit'); return; }
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
-      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); setScreen('edit'); return; }
-      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
-      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
+	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); setScreen('edit'); return; }
+	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
+	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); setScreen('edit'); return; }
+	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
       var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
       var eb = t.closest('[data-fl-eb]'); if (eb) { return _editBottom(eb.getAttribute('data-fl-eb')); }
@@ -459,7 +511,7 @@
         setScreen('connect'); return;
       }
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { el.querySelectorAll('[data-fl-tplchip]').forEach(function (x) { x.classList.remove('on'); }); tplchip.classList.add('on'); d.tplCat = tplchip.textContent.trim(); return; }
-      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { d.template = tpl.getAttribute('data-fl-tpl'); el.querySelectorAll('[data-fl-tpl]').forEach(function (x) { x.classList.remove('on'); }); tpl.classList.add('on'); toast("'" + d.template + "' 템플릿 선택"); setScreen('edit'); return; }
+	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
       // [C4] 해시태그 선택 → selectedHashes 토글
       var hash = t.closest('[data-fl-hash]'); if (hash) {
         var h = hash.getAttribute('data-fl-hash');
@@ -470,53 +522,63 @@
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');
-        if (vk === 'short') { return doGenerate({ length_tier: 'short' }, '짧게 다시 생성했어요'); }
-        if (vk === 'long')  { return doGenerate({ length_tier: 'long' }, '길게 다시 생성했어요'); }
-        return doGenerate({}, '게시글을 다시 생성했어요');
-      }
+	        if (vk === 'short') { return doGenerate({ length_tier: 'short' }, '짧게 다시 생성했어요'); }
+	        if (vk === 'long')  { return doGenerate({ length_tier: 'long' }, '길게 다시 생성했어요'); }
+	        if (vk === 'review') { d.captionMode = 'review'; return doGenerate({ mode: 'review', tone_override: 'review' }, '후기체로 다시 생성했어요'); }
+	        if (vk === 'hashtags') { return doGenerate({ hashtag_mode: 'more' }, '해시태그를 더 가져왔어요'); }
+	        if (vk === 'insta') { return doGenerate({ tone_override: 'instagram' }, '인스타스럽게 다시 생성했어요'); }
+	        return doGenerate({}, '게시글을 다시 생성했어요');
+	      }
       var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
       var files = Array.from(e.target.files || []); e.target.value = '';
       if (!files.length) return;
-      Promise.all(files.slice(0, 10).map(fileToDataUrl)).then(function (urls) {
-        urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero' }); });
-        reassignRoles(); setScreen('upload'); toast(urls.length + '장 추가됨');
-      });
-    });
-    el.addEventListener('input', function (e) {
-      if (e.target.matches('[data-fl-range]')) {
+	      addFiles(files, true);
+	    });
+	    el.addEventListener('input', function (e) {
+	      if (e.target.matches('[data-fl-range]')) {
         var k = e.target.getAttribute('data-fl-range'); d.adjust[k] = +e.target.value;
         var p = el.querySelector('[data-fl-edphoto]');
         if (p && !d.originalPreview) { d.previewUrl = null; p.style.backgroundImage = 'url(' + esc(photoUrl(curEditPhoto())) + ')'; p.style.filter = filterCss(d.adjust); }
-        var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = (d.adjust[k] > 0 ? '+' : '') + d.adjust[k];
-      }
-      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.textContent; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
+	        var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = (d.adjust[k] > 0 ? '+' : '') + d.adjust[k];
+	      }
+	      if (e.target.matches('[data-fl-beautyrange]')) {
+	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
+	        var bv = el.querySelector('[data-fl-beautyval]'); if (bv) bv.textContent = d.beauty[bk];
+	        _refreshPreview();
+	      }
+	      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
       if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
     el.addEventListener('focusin', function (e) {
       if (e.target.matches('[data-fl-range]')) d._adjPrev = clone(d.adjust);
-      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.textContent = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
-    });
+	      if (e.target.matches('[data-fl-beautyrange]')) d._beautyPrev = clone(d.beauty);
+	      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.value = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
+	    });
     el.addEventListener('change', function (e) {
       if (e.target.matches('[data-fl-range]')) {
         if (d._adjPrev) { d.undo = d.undo || []; d.undo.push(d._adjPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._adjPrev = null; }
-        _refreshPreview();
-      }
-    });
+	        _refreshPreview();
+	      }
+	      if (e.target.matches('[data-fl-beautyrange]')) {
+	        if (d._beautyPrev) { d._beautyUndo = d._beautyUndo || []; d._beautyUndo.push(d._beautyPrev); d._beautyPrev = null; }
+	        _refreshPreview();
+	      }
+	    });
   }
 
-  function _refreshPreview() {
-    var photo = curEditPhoto(); if (!photo) return;
-    var base = photo.editedDataUrl || photo.dataUrl;
-    var p = el.querySelector('[data-fl-edphoto]');
-    var nonzero = d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
-    if (!nonzero) { d.previewUrl = null; if (p && !d.originalPreview) { p.style.backgroundImage = 'url(' + esc(base) + ')'; p.style.filter = 'none'; } return; }
-    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyPixelAdjust)) { if (p && !d.originalPreview) p.style.filter = filterCss(d.adjust); return; }
-    var token = (d._pvTok = (d._pvTok || 0) + 1);
-    window.WorkspaceAdapter.applyPixelAdjust({ src: base, adjust: d.adjust }).then(function (r) {
-      if (token !== d._pvTok) return;
+	  function _refreshPreview() {
+	    var photo = curEditPhoto(); if (!photo) return;
+	    var base = photo.editedDataUrl || photo.dataUrl;
+	    var p = el.querySelector('[data-fl-edphoto]');
+	    var nonzero = _hasValues(d.adjust) || _hasValues(d.beauty);
+	    if (!nonzero) { d.previewUrl = null; if (p && !d.originalPreview) { p.style.backgroundImage = 'url(' + esc(base) + ')'; p.style.filter = 'none'; } return; }
+	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceCorrections)) { if (p && !d.originalPreview) p.style.filter = filterCss(d.adjust); return; }
+	    var token = (d._pvTok = (d._pvTok || 0) + 1);
+	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty }).then(function (r) {
+	      if (token !== d._pvTok) return;
       if (r && r.ok && r.dataUrl) {
         d.previewUrl = r.dataUrl;
         var p2 = el.querySelector('[data-fl-edphoto]');
@@ -531,11 +593,11 @@
     if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; setScreen('edit'); if (!d.originalPreview) _refreshPreview(); return; }
     if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(clone(d.adjust)); d.adjust = d.undo.pop(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
     if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = d.redo.pop(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
-    if (label === '초기화') { if (typeof window.confirm === 'function' && !window.confirm('현재 보정을 초기화할까요?')) return; d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = newAdjust(); d.redo = []; d.previewUrl = null; setScreen('edit'); return; }
+	    if (label === '초기화') { if (typeof window.confirm === 'function' && !window.confirm('현재 보정을 초기화할까요?')) return; d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = newAdjust(); d.beauty = newBeauty(); d.redo = []; d.previewUrl = null; setScreen('edit'); return; }
   }
 
-  function applyBg(action) {
-    var photo = curEditPhoto();
+	  function applyBg(action) {
+	    var photo = curEditPhoto();
     if (!photo) { toast('사진이 없어요'); return; }
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
     var prev = d.bgAction;
@@ -545,19 +607,45 @@
         d.bgBusy = false;
         if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
         else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; toast(d.bgFailMsg); setScreen('edit'); }
-      });
-  }
+	      });
+	  }
 
-  function bakeEdit() {
-    var photo = curEditPhoto();
-    var nonzero = photo && d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
-    if (!photo || !nonzero) return Promise.resolve();
-    var src = photo.editedDataUrl || photo.dataUrl;
-    if (window.WorkspaceAdapter && window.WorkspaceAdapter.applyPixelAdjust) {
-      return window.WorkspaceAdapter.applyPixelAdjust({ src: src, adjust: d.adjust }).then(function (r) {
-        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; photo.adjustments = clone(d.adjust); d.adjust = newAdjust(); d.previewUrl = null; }
-        else { return _bakeCss(photo, src); }
-      });
+	  function _tplByKey(key) {
+	    return WORKSPACE_TEMPLATES.filter(function (t) { return t.key === key; })[0] || null;
+	  }
+	  function applyTemplate(key) {
+	    var tpl = _tplByKey(key);
+	    if (!tpl) { toast('템플릿을 찾지 못했어요'); return; }
+	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceTemplate)) { toast('템플릿 적용 모듈을 불러오지 못했어요'); return; }
+	    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요'); return; }
+	    if (tpl.purpose === 'before_after') { d.baMode = true; reassignRoles(); }
+	    d.templateBusy = tpl.key; setScreen('edit');
+	    window.WorkspaceAdapter.applyWorkspaceTemplate({
+	      template: tpl, photos: editablePhotos(), service: d.service,
+	      customerName: d.customerName, caption: d.caption,
+	    }).then(function (r) {
+	      d.templateBusy = null;
+	      if (r && r.ok && r.dataUrl) {
+	        var p = curPhoto();
+	        p.editedDataUrl = r.dataUrl; p.templateId = tpl.id;
+	        d.template = tpl.label; d.templateId = tpl.id;
+	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
+	        d.previewUrl = null; toast(tpl.label + ' 템플릿 적용 완료');
+	      } else { toast((r && r.toast) || '이 템플릿은 아직 적용하지 못했어요'); }
+	      setScreen('edit');
+	    });
+	  }
+
+	  function bakeEdit() {
+	    var photo = curEditPhoto();
+	    var nonzero = photo && (_hasValues(d.adjust) || _hasValues(d.beauty));
+	    if (!photo || !nonzero) return Promise.resolve();
+	    var src = photo.editedDataUrl || photo.dataUrl;
+	    if (window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceCorrections) {
+	      return window.WorkspaceAdapter.applyWorkspaceCorrections({ src: src, adjust: d.adjust, beauty: d.beauty }).then(function (r) {
+	        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; photo.adjustments = clone(d.adjust); photo.beautyAdjustments = clone(d.beauty); d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; }
+	        else { return _bakeCss(photo, src); }
+	      });
     }
     return _bakeCss(photo, src);
   }
@@ -579,17 +667,28 @@
     });
   }
 
-  function reassignRoles() {
-    d.photos.forEach(function (p, i) {
-      if (d.baMode && i === 0) p.role = 'before';
-      else if (d.baMode && i === 1) p.role = 'after';
-      else p.role = 'hero';
-    });
-  }
-  function syncCaptionFromDom() {
-    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = b.textContent.trim();
-    var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = d.caption;
-  }
+	  function reassignRoles() {
+	    d.photos.forEach(function (p, i) {
+	      if (d.baMode && i === 0) p.role = 'before';
+	      else if (d.baMode && i === 1) p.role = 'after';
+	      else p.role = 'hero';
+	    });
+	  }
+	  function addFiles(files, showToast) {
+	    files = Array.from(files || []).slice(0, 10);
+	    if (!files.length) return Promise.resolve([]);
+	    return Promise.all(files.map(fileToDataUrl)).then(function (urls) {
+	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero' }); });
+	      if (d.photos.length >= 2 && !d.slot && d.defaultRole === 'auto') d.baMode = true;
+	      reassignRoles(); setScreen('upload');
+	      if (showToast) toast(urls.length + '장 추가됨');
+	      return urls;
+	    });
+	  }
+	  function syncCaptionFromDom() {
+	    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
+	    var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = d.caption;
+	  }
 
   function back() {
     var i = SCREENS.indexOf(cur);
@@ -631,9 +730,10 @@
   function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     var now = Date.now();
-    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
-    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, updatedAt: now }; });
-    slot.caption = d.caption || '';
+	    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
+	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, updatedAt: now }; });
+	    slot.service = d.service || '';
+	    slot.caption = d.caption || '';
     slot.hashtags = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ');
     slot.customer_id = d.customerId || null;
     slot.customer_name = d.customerName || '';
@@ -642,8 +742,10 @@
       type: TYPE_MAP[d.tplPurpose] || 'promo',
       expectedPhotos: d.tplPurpose === 'before_after' ? 2 : 1,
       defaultRatio: CROP_RATIO[d.tplPurpose] || '4:5',
-      templatePurpose: d.tplPurpose || 'feed',
-      captionMode: d.captionMode || 'normal',
+	      templatePurpose: d.tplPurpose || 'feed',
+	      templateId: d.templateId || null,
+	      templateLabel: d.template || '',
+	      captionMode: d.captionMode || 'normal',
       createdFrom: 'workspace_v2',
     });
     slot.captionMeta = {
@@ -685,19 +787,19 @@
     pop.style.display = 'flex';
   }
 
-  function publish() {
-    if (!window.WorkspaceAdapter) return;
-    if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
-    if (d._publishing) return;
-    syncCaptionFromDom();
-    d._publishing = true;
+	  function publish() {
+	    if (!window.WorkspaceAdapter) return;
+	    if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
+	    if (d._publishing) return;
+	    syncCaptionFromDom();
+	    d._publishing = true; setScreen('preview');
     var slot = buildSlot();
     _showProgress(10, '저장 중…');
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
-      if (!sr || !sr.ok) { d._publishing = false; _hideProgress(); toast('저장에 실패해 게시를 중단했어요'); return; }
+	      if (!sr || !sr.ok) { d._publishing = false; _hideProgress(); toast('저장에 실패해 게시를 중단했어요'); setScreen('preview'); return; }
       d.slot = slot;
       if (!window.WorkspaceAdapter.publishInstagramV2) {
-        d._publishing = false; _hideProgress(); _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
+	        d._publishing = false; _hideProgress(); _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
       _showProgress(40, '인스타에 업로드 중…');
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
@@ -709,10 +811,11 @@
           _showDone(); toast('인스타그램에 올렸어요');
           if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
         } else if (r.reason === 'ambiguous') { _markPrepared(); toast('게시 준비 완료 — 업로드 결과 확인이 필요해요'); }
-        else {
-          var m = { not_connected: '인스타 연결이 필요해요', blob: '이미지 생성에 실패했어요', api: '업로드 API 호출에 실패했어요', server: '서버가 업로드를 거부했어요' }[r.reason] || '업로드에 실패했어요';
-          toast(m);
-        }
+	        else {
+	          var m = { not_connected: '인스타 연결이 필요해요', blob: '이미지 생성에 실패했어요', api: '업로드 API 호출에 실패했어요', server: '서버가 업로드를 거부했어요' }[r.reason] || '업로드에 실패했어요';
+	          console.warn('[wsv2flow] instagram publish failed', r);
+	          toast(r.detail ? (m + ' — ' + r.detail) : m);
+	        }
         setScreen('preview');
       });
     });
@@ -731,11 +834,13 @@
 
   function open(opts) {
     opts = opts || {};
-    ensureEl();
-    var slot = opts.slot || null;
-    var wc = (slot && slot.workspaceContext) || null;
-    var ctx = CAT_CTX[opts.cat] || {};
-    var purpose = (wc && wc.templatePurpose) || ctx.purpose || 'feed';
+	    ensureEl();
+	    var slot = opts.slot || null;
+	    var incomingFiles = Array.from(opts.files || []);
+	    var wc = (slot && slot.workspaceContext) || null;
+	    var ctx = CAT_CTX[opts.cat] || {};
+	    var autoBa = !slot && !opts.cat && incomingFiles.length >= 2;
+	    var purpose = (wc && wc.templatePurpose) || ctx.purpose || (autoBa ? 'before_after' : 'feed');
     var capMode = (wc && wc.captionMode) || ctx.captionMode || 'normal';
     var cm = (slot && slot.captionMeta) || {};
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
@@ -743,24 +848,26 @@
       slot: slot,
       photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null }; }) : [],
       baMode: purpose === 'before_after',
-      template: null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
-      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
+	      template: null, templateId: (wc && wc.templateId) || null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
+	      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       textOnly: !!(opts.textOnly),
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [], selectedHashes: [],
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', customerVc: 0, custQuery: '',
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
-      editTab: 'skin', control: null, basicTool: null, editIdx: null, bgOpen: false, advOpen: false, tplOpen: false, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
-      captionAxes: null, captionTemplate: '',
-    };
-    if (d.photos.length && !hadRoles) reassignRoles();
+	      editTab: 'skin', control: null, basicTool: 'brightness', precTool: null, editIdx: null, bgOpen: false, advOpen: true, tplOpen: true, adjust: newAdjust(), beauty: newBeauty(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
+	      captionAxes: null, captionTemplate: '',
+	    };
+	    if (autoBa) d.defaultRole = 'auto';
+	    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
     // textOnly → 바로 게시글 화면으로
     var startScreen = opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload';
-    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
-    setScreen(startScreen);
-  }
+	    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
+	    setScreen(startScreen);
+	    if (incomingFiles.length) addFiles(incomingFiles, true);
+	  }
   function close() { if (el) el.classList.remove('is-open'); }
 
   window.WorkspaceFlow = { open: open, close: close };

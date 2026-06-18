@@ -31,3 +31,25 @@
 - `slot.caption` + `slot.hashtags` + `slot.captionMeta` {mode, length_tier, tone_override, generatedAt, log_id}
 - `slot.customer_id` / `slot.customer_name`
 - `slot.publish` {status: draft|preview_ready|upload_ready|published, instagramPreparedAt, publishedAt}
+
+---
+
+## Phase 5-1 실기기 QA 기록 (2026-06-18, 라이브 `v510-workspace-inplace-edit`)
+
+> 실기기는 보스 직접 조작. 헤드리스 대체 PASS 보고 금지.
+
+### ✅ PASS (실기기 확인됨)
+- **P0 편집 라우팅 회귀**: 기본/피부/머릿결/배경/고급 탭 → 구 PhotoEditor 미라우팅, 같은 V2 편집 화면 내 전환 (B2)
+- **구 UI 누수**: 슬롯 팝업/하단 시트/nav-sheet 직접 노출 없음 (B8)
+
+### ⏳ 진행 중 — 미확인 항목 (Phase 5-1 미마감)
+- [ ] 캡션 생성 실제 호출 (스테이징 백엔드 응답)
+- [ ] "저장하고 캡션 생성" 후 재업로드 요구 없는지
+- [ ] 고객 연결 실데이터 로드 (없으면 empty-state)
+- [ ] 저장 후 새로고침 복원 (edited/crop/caption/customer/type/role/publish)
+- [ ] 전후 2장 역할(before/after) 보존
+- [ ] 인스타 미리보기 / 게시 준비 (미연결 시 업로드 숨김)
+- [ ] 핀치 줌 / 팬 (편집·크롭)
+- [ ] safe-area / 하단바 겹침 (노치·홈바)
+
+**상태**: P0 편집 라우팅 회귀 = **PASS** · Phase 5-1 전체 = **진행 중**

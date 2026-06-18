@@ -9,9 +9,122 @@
    각 함수는 {ok, reason?, toast?, ...} 또는 Promise 로 결과 반환. */
 (function () {
   'use strict';
-  function toast(m) { if (window.showToast) window.showToast(m); }
-  function has(fn) { return typeof fn === 'function'; }
-  function igConnected() { try { return localStorage.getItem('itdasy:ig_connected_cache') === '1'; } catch (_e) { return false; } }
+	  function toast(m) { if (window.showToast) window.showToast(m); }
+	  function has(fn) { return typeof fn === 'function'; }
+	  function igConnected() { try { return localStorage.getItem('itdasy:ig_connected_cache') === '1'; } catch (_e) { return false; } }
+	  function _hasValues(obj) { return !!(obj && Object.keys(obj).some(function (k) { return +obj[k] !== 0; })); }
+	  function _loadImage(src) {
+	    return new Promise(function (resolve, reject) {
+	      var img = new Image();
+	      img.onload = function () { resolve(img); };
+	      img.onerror = reject;
+	      img.src = src;
+	    });
+	  }
+	  function _encode(cv, src) {
+	    return /^data:image\/png/i.test(src || '') ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.92);
+	  }
+	  function _cover(ctx, img, x, y, w, h) {
+	    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+	    if (!iw || !ih) return;
+	    var scale = Math.max(w / iw, h / ih);
+	    var sw = w / scale, sh = h / scale;
+	    var sx = Math.max(0, (iw - sw) / 2), sy = Math.max(0, (ih - sh) / 2);
+	    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+	  }
+	  function _brand() {
+	    var b = {};
+	    try { if (window.BrandKit && has(window.BrandKit.get)) b = window.BrandKit.get() || {}; } catch (_e) { b = {}; }
+	    try { if (!b.shop_name && localStorage.getItem('shop_name')) b.shop_name = localStorage.getItem('shop_name'); } catch (_e2) { void _e2; }
+	    return { shopName: b.shop_name || b.shopName || '잇데이 스튜디오', primary: b.primary || '#BC6675', soft: b.soft || '#FBEFEF' };
+	  }
+	  function _igProfile() {
+	    var s = null;
+	    try { s = window.IGState && has(window.IGState.get) ? window.IGState.get() : null; } catch (_e) { s = null; }
+	    var connected = !!(s && s.connected) || igConnected();
+	    var handle = '';
+	    var pic = '';
+	    try {
+	      handle = (s && s.handle) || localStorage.getItem('itdasy:ig_handle') || window._instaHandle || '';
+	      pic = (s && (s.profile_picture_url || s.profilePic)) || localStorage.getItem('itdasy:ig_profile_pic') || '';
+	    } catch (_e2) { void _e2; }
+	    handle = String(handle || '').replace(/^@/, '');
+	    return { connected: connected, handle: handle ? ('@' + handle) : '', profilePic: pic, displayName: handle ? ('@' + handle) : '' };
+	  }
+	  function _beautyMasks(img, b) {
+	    var MA = window.MaskApplication;
+	    var masks = null;
+	    try {
+	      if (MA && has(MA.getMasksForBeautySync)) masks = MA.getMasksForBeautySync(img);
+	      if ((b.lashSharp || 0) > 10 && MA && has(MA.getLashMaskSync)) {
+	        var lash = MA.getLashMaskSync(img); if (lash) { masks = masks || { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }; masks.lashMask = lash.mask; masks.lashScale = lash.scale; }
+	      }
+	      if ((b.eyeRedness || 0) > 0 && MA && has(MA.getScleraMaskSync)) {
+	        var sclera = MA.getScleraMaskSync(img); if (sclera) { masks = masks || { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }; masks.useMasks.scleraMask = sclera.mask; masks._scale.scleraMask = sclera.scale; }
+	      }
+	      if ((b.browSharp || 0) > 10 && MA && has(MA.getBrowMaskSync)) {
+	        var brow = MA.getBrowMaskSync(img); if (brow) { masks = masks || { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }; masks.browMask = brow.mask; masks.browScale = brow.scale; }
+	      }
+	    } catch (_e3) { masks = null; }
+	    return masks;
+	  }
+	  function _applyBeautyAdjust(opts) {
+	    opts = opts || {};
+	    if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
+	    if (!(window.PhotoEditorBeautyEngine && has(window.PhotoEditorBeautyEngine.apply))) return Promise.resolve({ ok: false, reason: 'no_beauty_engine' });
+	    if (!_hasValues(opts.beauty)) return Promise.resolve({ ok: true, dataUrl: opts.src });
+	    return _loadImage(opts.src).then(function (img) {
+	      var cv = document.createElement('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
+	      var ctx = cv.getContext('2d', { willReadFrequently: true });
+	      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+	      window.PhotoEditorBeautyEngine.apply(ctx, cv.width, cv.height, opts.beauty || {}, false, _beautyMasks(img, opts.beauty || {}));
+	      return { ok: true, dataUrl: _encode(cv, opts.src) };
+	    }).catch(function (e) { console.warn('[wsadapter] beauty', e); return { ok: false, reason: 'beauty' }; });
+	  }
+	  function _templateById(id) {
+	    var MD = window.PhotoEditorTemplateMarketData;
+	    if (MD && has(MD.lookupById)) return MD.lookupById(id);
+	    var list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
+	    return Array.isArray(list) ? list.filter(function (t) { return t.id === id; })[0] : null;
+	  }
+	  function _templateSize(tpl) {
+	    var cats = (window.PhotoEditorTemplateMarketData && window.PhotoEditorTemplateMarketData.CATS) || (window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.CATS) || [];
+	    var cat = cats.filter(function (c) { return c.id === tpl.cat; })[0] || {};
+	    return cat.size ? { w: cat.size[0], h: cat.size[1] } : { w: 1080, h: 1350 };
+	  }
+	  function _pickPhoto(photos, role, fallbackIdx) {
+	    photos = photos || [];
+	    return photos.filter(function (p) { return p && p.role === role; })[0] || photos[fallbackIdx || 0] || photos[0] || null;
+	  }
+	  function _applyWorkspaceTemplate(opts) {
+	    opts = opts || {};
+	    var t = opts.template || {};
+	    var found = _templateById(t.id) || t;
+	    if (!found || !found.id) return Promise.resolve({ ok: false, reason: 'no_template', toast: '템플릿을 찾지 못했어요' });
+	    if (!(window.PhotoEditorPremiumTemplates && has(window.PhotoEditorPremiumTemplates.renderHook))) return Promise.resolve({ ok: false, reason: 'no_renderer', toast: '템플릿 모듈을 아직 불러오지 못했어요' });
+	    var photos = opts.photos || [];
+	    var roleAfter = photos.filter(function (p) { return p && p.role === 'after'; })[0];
+	    var roleHero = photos.filter(function (p) { return p && p.role === 'hero'; })[0];
+	    var after = t.purpose === 'before_after' ? (_pickPhoto(photos, 'after', 1) || roleHero) : (roleAfter || roleHero || photos[0]);
+	    var before = t.purpose === 'before_after' ? _pickPhoto(photos, 'before', 0) : null;
+	    var afterSrc = after && (after.editedDataUrl || after.dataUrl);
+	    var beforeSrc = before && (before.editedDataUrl || before.dataUrl);
+	    if (!afterSrc) return Promise.resolve({ ok: false, reason: 'no_image', toast: '템플릿에 넣을 사진이 없어요' });
+	    return Promise.all([_loadImage(afterSrc), beforeSrc ? _loadImage(beforeSrc).catch(function () { return null; }) : Promise.resolve(null)]).then(function (imgs) {
+	      var bk = _brand(), size = _templateSize(found), cv = document.createElement('canvas'), ctx = null;
+	      cv.width = size.w; cv.height = size.h; ctx = cv.getContext('2d');
+	      _cover(ctx, imgs[0], 0, 0, cv.width, cv.height);
+	      if (window.PhotoEditorPremiumTemplates.primeImage) window.PhotoEditorPremiumTemplates.primeImage(afterSrc, imgs[0]);
+	      if (window.PhotoEditorBACompose && window.PhotoEditorBACompose.primeImage) window.PhotoEditorBACompose.primeImage(afterSrc, imgs[0]);
+	      if (beforeSrc && imgs[1] && window.PhotoEditorBACompose && window.PhotoEditorBACompose.primeImage) window.PhotoEditorBACompose.primeImage(beforeSrc, imgs[1]);
+	      var state = { originalImg: imgs[0], editedImg: imgs[0], img: imgs[0], secondImg: imgs[1],
+	        tplV2: { id: found.id, label: found.label || t.label, bg: bk.primary, shopName: bk.shopName, cat: found.cat,
+	          imageSlots: { main_photo: { src: afterSrc, focal: { x: 0.5, y: 0.5 }, zoom: 1 }, after_photo: { src: afterSrc, focal: { x: 0.5, y: 0.5 }, zoom: 1 }, before_photo: { src: beforeSrc || '', focal: { x: 0.5, y: 0.5 }, zoom: 1 } },
+	          slotValues: { headline: found.prefillText || t.label, subtitle: t.use || found.label || '', shop_name: bk.shopName, service_name: opts.service || '', review_text: opts.caption || '', customer_label: opts.customerName || '' } } };
+	      var drew = window.PhotoEditorPremiumTemplates.renderHook(ctx, cv.width, cv.height, state);
+	      return drew ? { ok: true, dataUrl: _encode(cv, afterSrc), template: found } : { ok: false, reason: 'not_supported', toast: '이 템플릿은 작업실에서 아직 적용하지 못해요' };
+	    }).catch(function (e) { console.warn('[wsadapter] template', e); return { ok: false, reason: 'template', toast: '템플릿 적용에 실패했어요' }; });
+	  }
 
   // PhotoEditor 직접 호출(구 slot 팝업 우회). onSave(dataUrl) 로 editedDataUrl 회수.
   function _openEditor(photo, tab, ctx) {
@@ -50,7 +163,7 @@
     // 경량 보정 — 실 픽셀 워커(PhotoEditorWorkerFilter) 재사용. UI/PhotoEditor 라우팅 없음.
     //  지원: brightness/saturation/color(=temperature)/sharpness(=unsharp) = 워커, contrast = 캔버스 필터.
     //  (워커 schema: workers/photo-filter-worker.js — adjust{brightness,saturate,temperature}, unsharp{strength})
-    applyPixelAdjust: function (opts) {
+	    applyPixelAdjust: function (opts) {
       opts = opts || {};
       var a = opts.adjust || {};
       if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
@@ -82,7 +195,20 @@
         img.onerror = function () { resolve({ ok: false, reason: 'bad_image' }); };
         img.src = opts.src;
       });
-    },
+	    },
+
+	    applyBeautyAdjust: _applyBeautyAdjust,
+	    applyWorkspaceCorrections: function (opts) {
+	      opts = opts || {};
+	      if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
+	      var src = opts.src;
+	      var base = _hasValues(opts.adjust) ? WorkspaceAdapter.applyPixelAdjust({ src: src, adjust: opts.adjust }) : Promise.resolve({ ok: true, dataUrl: src });
+	      return base.then(function (r) {
+	        src = (r && r.ok && r.dataUrl) ? r.dataUrl : src;
+	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty }) : { ok: true, dataUrl: src };
+	      });
+	    },
+	    applyWorkspaceTemplate: _applyWorkspaceTemplate,
 
     // 배경/누끼 — PhotoEditorBgCompose.compose 순수 함수만 호출(UI 無). 실패 사유 분기.
     applyWorkspaceBgAction: function (opts) {
@@ -159,13 +285,14 @@
     },
 
     // 인스타 게이트 — 연결 안 됐으면 실제 업로드 노출 금지
-    instagram: function () {
-      var connected = igConnected();
-      return { connected: connected, next: connected ? 'publish' : 'prepare' };
-    },
+	    instagram: function () {
+	      var connected = _igProfile().connected;
+	      return { connected: connected, next: connected ? 'publish' : 'prepare' };
+	    },
+	    instagramProfile: _igProfile,
     // 실제 업로드(연결+확인 시에만 호출). 기존 doPublishFromCaption/doActualPublish 재사용.
-    publishInstagram: function (slot) {
-      if (!igConnected()) { return Promise.resolve({ ok: false, reason: 'not_connected' }); }
+	    publishInstagram: function (slot) {
+	      if (!_igProfile().connected) { return Promise.resolve({ ok: false, reason: 'not_connected' }); }
       try { if (slot && slot.id) window._captionSlotId = slot.id; } catch (_e) { /* ignore */ }
       if (has(window.doPublishFromCaption)) { return Promise.resolve(window.doPublishFromCaption()).then(function () { return { ok: true }; }).catch(function (e) { return { ok: false, reason: 'api', error: String(e) }; }); }
       if (has(window.doActualPublish)) { return Promise.resolve(window.doActualPublish()).then(function () { return { ok: true }; }).catch(function (e) { return { ok: false, reason: 'api', error: String(e) }; }); }
@@ -174,9 +301,9 @@
     // [Phase 5-2] V2 전용 실게시 — 레거시 baCanvas/previewFinalCaption/_captionSlotId 의존 제거.
     //  저장된 slot 의 이미지(dataUrl)→blob→/instagram/publish-file. 서버 200 + body 성공마커 확인 시에만 ok.
     //  성공 애매(200이나 마커 없음) → reason:'ambiguous' (호출부에서 게시 준비까지만 처리).
-    publishInstagramV2: function (opts) {
-      opts = opts || {};
-      if (!igConnected()) return Promise.resolve({ ok: false, reason: 'not_connected' });
+	    publishInstagramV2: function (opts) {
+	      opts = opts || {};
+	      if (!_igProfile().connected) return Promise.resolve({ ok: false, reason: 'not_connected' });
       if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
       if (!has(window.apiFetch)) return Promise.resolve({ ok: false, reason: 'api' });
       return Promise.resolve(fetch(opts.imageUrl).then(function (r) { return r.blob(); }).catch(function () { return null; }))

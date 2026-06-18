@@ -167,8 +167,9 @@
           '<p class="wsv2-greet__sub">오늘 작업, 한 번에.</p>' +
           '<h1 class="wsv2-greet__title">작업실</h1>' +
         '</header>' +
-        _heroHTML() +
-        _quickHTML() +
+	        _heroHTML() +
+	        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
+	        _quickHTML() +
         _categoryHTML() +
         '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2></div>' +
         _tabsHTML(slots) +
@@ -180,18 +181,37 @@
   function render(root, opts) {
     if (!root) return;
     _lastRoot = root;
-    _slotsCache = (opts && opts.slots) || [];
-    root.innerHTML = _shellHTML(_slotsCache);
-    _bind(root);
-  }
+	    _slotsCache = (opts && opts.slots) || [];
+	    root.innerHTML = _shellHTML(_slotsCache);
+	    _bind(root);
+	    _bindHeroFile(root);
+	  }
 
-  function refresh() {
-    if (typeof initWorkshopTab === 'function') { Promise.resolve(initWorkshopTab()).catch(function () {}); return; }
-    if (!_lastRoot || typeof loadSlotsFromDB !== 'function') return;
-    Promise.resolve(loadSlotsFromDB()).then(function (s) { render(_lastRoot, { slots: s || [] }); }).catch(function () {});
-  }
+	  function refresh() {
+	    if (typeof initWorkshopTab === 'function') { Promise.resolve(initWorkshopTab()).catch(function () {}); return; }
+	    if (!_lastRoot || typeof loadSlotsFromDB !== 'function') return;
+	    Promise.resolve(loadSlotsFromDB()).then(function (s) { render(_lastRoot, { slots: s || [] }); }).catch(function () {});
+	  }
 
-  function _bind(root) {
+	  function _pickHeroFiles(root) {
+	    var input = root && root.querySelector('[data-wsv2-file]');
+	    if (!input) { _launchFlow(null, 'upload', null); return; }
+	    input.click();
+	  }
+
+	  function _bindHeroFile(root) {
+	    var input = root && root.querySelector('[data-wsv2-file]');
+	    if (!input || input._wsv2Bound) return;
+	    input._wsv2Bound = true;
+	    input.addEventListener('change', function (e) {
+	      var files = Array.from(e.target.files || []);
+	      e.target.value = '';
+	      if (!files.length) return;
+	      _launchFlow(null, 'upload', null, { files: files });
+	    });
+	  }
+
+	  function _bind(root) {
     root.onclick = function (e) {
       // 카테고리 클릭 — 타입 프리셋으로 플로우 진입
       var catBtn = e.target.closest('[data-wsv2-cat]');
@@ -201,7 +221,7 @@
         _launchFlow(null, 'upload', ck); return;
       }
       // 히어로 업로드 CTA
-      if (e.target.closest('[data-wsv2-upload]')) { _launchFlow(null, 'upload', null); return; }
+	      if (e.target.closest('[data-wsv2-upload]')) { _pickHeroFiles(root); return; }
       // 퀵 버튼
       var quick = e.target.closest('[data-wsv2-quick]');
       if (quick) {
@@ -212,7 +232,7 @@
           else if (typeof openItbiTab === 'function') openItbiTab();
           else _toast('잇비를 불러오지 못했어요');
           return;
-        }
+	        }
         if (qk === 'textonly') {
           // 사진 없이 게시글만 — 플로우 진입 시 사진종류 축 없이
           _launchFlow(null, 'caption', null, { textOnly: true }); return;

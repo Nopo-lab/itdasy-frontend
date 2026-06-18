@@ -111,6 +111,8 @@
 .wsv2flow .ed-tool.on .ed-circle i { color: var(--brand-strong); }
 .wsv2flow .ed-slider { display: grid; grid-template-columns: 74px 1fr 44px; align-items: center; gap: 14px; padding: 15px 18px 18px; font-size: 13.5px; font-weight: 800; color: var(--text); }
 .wsv2flow .ed-slider input[type="range"] { width: 100%; accent-color: var(--brand-strong); }
+.wsv2flow .ed-adv .ed-tools { grid-template-columns: repeat(3, 1fr); padding-top: 2px; }
+.wsv2flow .ed-slider--beauty { padding-left: 4px; padding-right: 4px; }
 .wsv2flow .ed-val { font-size: 18px; color: var(--text); text-align: right; }
 .wsv2flow .ed-bottom { display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; margin-bottom: 24px; }
 .wsv2flow .ed-bottom .eb { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; font-weight: 800; cursor: pointer; }
@@ -143,9 +145,13 @@
 .wsv2flow .tpl-chip { flex: none; height: 34px; border: 1px solid var(--border); border-radius: var(--r-pill); padding: 0 15px; background: var(--surface); color: var(--text-muted); display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tpl-chip.on { background: var(--brand-strong); color: #fff; border-color: transparent; box-shadow: var(--shadow-brand); }
 .wsv2flow .tpl-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-.wsv2flow .tpl-item { height: 122px; border-radius: var(--r-md); background: var(--frame) center/cover; border: 2px solid transparent; cursor: pointer; box-shadow: var(--shadow-sm); display: grid; place-items: end; }
+.wsv2flow .tpl-item { height: 122px; border-radius: var(--r-md); background: var(--frame) center/cover; border: 2px solid transparent; cursor: pointer; box-shadow: var(--shadow-sm); display: grid; place-items: end; padding: 0; overflow: hidden; text-align: left; }
+.wsv2flow .tpl-item::before { content: ""; grid-area: 1 / 1; place-self: stretch stretch; background: linear-gradient(to top, rgba(0,0,0,.58), rgba(0,0,0,.08)); }
 .wsv2flow .tpl-item.on { border-color: var(--brand-strong); box-shadow: var(--shadow-md); }
-.wsv2flow .tpl-item span { font-size: 10px; font-weight: 800; color: #fff; background: rgba(25,31,40,.5); width: 100%; padding: 5px 8px; border-radius: 0 0 11px 11px; }
+.wsv2flow .tpl-item span { position: relative; grid-area: 1 / 1; font-size: 10px; font-weight: 800; color: #fff; background: rgba(25,31,40,.62); width: 100%; padding: 7px 9px; border-radius: 0 0 10px 10px; }
+.wsv2flow .tpl-item b, .wsv2flow .tpl-item em { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsv2flow .tpl-item b { font-size: 11.5px; }
+.wsv2flow .tpl-item em { margin-top: 2px; font-size: 9.5px; opacity: .86; }
 
 /* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
 .wsv2flow .cap-photo--sm { width: 100%; height: 140px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 12px; }
@@ -162,24 +168,26 @@
 .wsv2flow .seg-btn.on { background: var(--surface); color: var(--brand-strong); box-shadow: var(--shadow-sm); }
 .wsv2flow .service-input { width: 100%; height: 46px; font-size: 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); padding: 0 14px; margin-bottom: 14px; color: var(--text); outline: none; }
 .wsv2flow .service-input:focus { border-color: var(--brand); }
+.wsv2flow .cap-preview--inline { margin: -2px 0 16px; width: 100%; }
 .wsv2flow .cap-card { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); padding: 13px; margin-bottom: 16px; }
 .wsv2flow .cap-photo { height: 200px; border-radius: var(--r-md); background: var(--frame) center/cover; position: relative; margin-bottom: 13px; }
 .wsv2flow .cap-pill { position: absolute; left: 11px; top: 11px; height: 26px; padding: 0 11px; border-radius: var(--r-pill); background: rgba(255,255,255,.9); color: var(--text); font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; gap: 5px; }
 .wsv2flow .cap-pill svg { width: 13px; height: 13px; stroke: var(--brand-strong); }
 .wsv2flow .cap-text { position: relative; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); padding: 14px; }
-.wsv2flow .cap-text p { margin: 0 0 10px; font-size: 13px; line-height: 1.7; color: var(--text); font-weight: 500; letter-spacing: -.01em; }
-.wsv2flow .cap-text p[contenteditable="true"] { outline: 0; background: var(--surface); border-radius: var(--r-sm); box-shadow: 0 0 0 2px var(--brand); }
+.wsv2flow .cap-body { width: 100%; min-height: 154px; resize: vertical; border: 0; outline: 0; background: transparent; font-size: 13px; line-height: 1.7; color: var(--text); font-weight: 500; letter-spacing: 0; font-family: inherit; margin: 0 0 10px; }
+.wsv2flow .cap-body:focus { background: var(--surface); border-radius: var(--r-sm); box-shadow: 0 0 0 2px var(--brand); }
 .wsv2flow .cap-hash { font-size: 11px; line-height: 1.6; color: var(--info); font-weight: 700; padding-right: 42px; }
 .wsv2flow .cap-count { position: absolute; right: 13px; bottom: 11px; color: var(--text-subtle); font-size: 10px; font-weight: 700; }
 .wsv2flow .hash-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 18px; }
 .wsv2flow .hash-chip { height: 30px; border: 0; border-radius: var(--r-pill); background: var(--frame); color: var(--text-muted); font-size: 11px; font-weight: 800; padding: 0 12px; cursor: pointer; }
 .wsv2flow .hash-chip.on { background: var(--brand-bg); color: var(--brand-strong); box-shadow: inset 0 0 0 1px var(--brand); }
 /* 재생성 버튼 3종 */
-.wsv2flow .cap-regen-row { display: flex; gap: 8px; margin-bottom: 12px; }
-.wsv2flow .cap-regen-btn { flex: 1; height: 40px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 800; cursor: pointer; }
+.wsv2flow .cap-regen-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.wsv2flow .cap-regen-btn { flex: 1 1 calc(33.333% - 8px); min-width: 92px; height: 40px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
 .wsv2flow .cap-redo { height: 50px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
+.wsv2flow .cap-preview:disabled { background: var(--frame); color: var(--text-subtle); box-shadow: none; cursor: wait; }
 
 /* D. 인스타 미리보기 (FC5: ig-notice·ig-pager 제거, confirmline 추가) */
 .wsv2flow .confirmline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 600; padding: 10px 2px 14px; }
@@ -189,7 +197,9 @@
 .wsv2flow .ig-info { width: 15px; height: 15px; border: 1.4px solid var(--brand); border-radius: 50%; display: grid; place-items: center; color: var(--brand-strong); font-size: 10px; font-weight: 800; font-style: italic; flex: none; }
 .wsv2flow .ig-card2 { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; box-shadow: var(--shadow-sm); margin-bottom: 16px; }
 .wsv2flow .ig-head2 { height: 58px; display: flex; align-items: center; padding: 0 14px; gap: 10px; }
-.wsv2flow .ig-logo { width: 36px; height: 36px; border-radius: 50%; background: var(--brand); display: grid; place-items: center; color: #fff; font-family: Georgia,serif; font-size: 8px; line-height: 1.05; text-align: center; font-style: italic; flex: none; }
+.wsv2flow .ig-logo { width: 36px; height: 36px; border-radius: 50%; background: var(--brand); display: grid; place-items: center; color: #fff; font-size: 18px; line-height: 1.05; text-align: center; flex: none; }
+.wsv2flow .ig-logo--photo { background: var(--frame) center/cover; }
+.wsv2flow .ig-logo--empty { background: var(--frame); color: var(--text-subtle); }
 .wsv2flow .ig-name2 { font-size: 13px; font-weight: 900; color: var(--text); }
 .wsv2flow .ig-loc { margin-left: auto; color: var(--text-subtle); font-size: 12px; font-weight: 600; }
 .wsv2flow .ig-dots2 { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: var(--text); margin-top: -6px; padding-left: 8px; }
