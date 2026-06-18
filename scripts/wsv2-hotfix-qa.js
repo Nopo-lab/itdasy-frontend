@@ -77,6 +77,25 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
     lo: el.querySelector('.ed-slabel--lo')?.textContent.trim(), hi: el.querySelector('.ed-slabel--hi')?.textContent.trim() }));
   check('C5 선명도 라벨 부드러움/또렷함', shpLabels.lo === '부드러움' && shpLabels.hi === '또렷함', JSON.stringify(shpLabels));
 
+  // ── P. 성능: 도구 버튼 탭이 편집화면 전체를 재생성하지 않음(섹션만 교체) ──
+  await page.evaluate(() => {
+    const photo = document.querySelector('#wsv2Flow [data-fs="edit"] [data-fl-edphoto]');
+    if (photo) photo.setAttribute('data-qa-mark', '1');   // 전체 재렌더되면 이 마크가 사라짐
+  });
+  await page.click('#wsv2Flow [data-fs="edit"] [data-fl-basictool="contrast"]');
+  await page.click('#wsv2Flow [data-fs="edit"] [data-fl-basictool="saturation"]');
+  const photoKept = await page.$eval('#wsv2Flow [data-fs="edit"] [data-fl-edphoto]', el => el.getAttribute('data-qa-mark'));
+  check('P1 도구 버튼 탭=섹션만 교체(사진 DOM 유지, 전체 재렌더 X)', photoKept === '1', 'mark=' + photoKept);
+  const vpExists = await page.$$eval('#wsv2Flow [data-fs="edit"] [data-fl-edvp]', e => e.length);
+  check('P2 줌 뷰포트(.ed-photo-vp) 존재', vpExists === 1, 'vp=' + vpExists);
+  await page.evaluate(() => {
+    const vp = document.querySelector('#wsv2Flow [data-fs="edit"] [data-fl-edvp]');
+    vp.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    vp.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  const zoomT = await page.$eval('#wsv2Flow [data-fs="edit"] [data-fl-edphoto]', el => el.style.transform || '');
+  check('P3 더블탭 → 확대 transform 적용', /scale\(2\)/.test(zoomT), 'transform=' + zoomT);
+
   // ── B. 슬라이더 동작 + 되돌리기/다시실행/비교/초기화 ──
   await page.click('#wsv2Flow [data-fs="edit"] [data-fl-basictool="brightness"]');
   // 밝기 슬라이더를 +60 으로 드래그(input)→손뗌(change)
@@ -124,6 +143,10 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   await page.waitForFunction(() => !!window.__lastGen);
   const gen = await page.evaluate(() => window.__lastGen);
   check('E1 캡션 생성 payload에 키워드 반영', gen && gen.service === '레이어드컷 샤기컷', JSON.stringify(gen));
+  // 결과 화면: 입력칸 1개만(상단 키워드 입력 제거, 본문 textarea 가 메인)
+  const svcInputs = await page.$$eval('#wsv2Flow [data-fs="caption"] [data-fl-service]', e => e.length);
+  const capBodies = await page.$$eval('#wsv2Flow [data-fs="caption"] [data-fl-capbody]', e => e.length);
+  check('E1b 결과화면 입력칸 1개(상단 키워드 입력 제거, 본문 textarea 메인)', svcInputs === 0 && capBodies === 1, 'service=' + svcInputs + ' body=' + capBodies);
   // 결과 화면 버튼 존재 (다시/더 길게/초기화/해시태그 더/인스타스럽게)
   const capBtns = await page.$$eval('#wsv2Flow [data-fs="caption"] [data-fl-var]', els => els.map(e => e.textContent.trim()));
   check('E2 하단 버튼=다시/더 길게/초기화/해시태그 더/인스타스럽게',

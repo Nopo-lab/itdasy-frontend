@@ -87,7 +87,11 @@
 .wsv2flow .ed-baswitch__btn::before { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,.05)); }
 .wsv2flow .ed-baswitch__btn span { position: relative; font-size: 11.5px; font-weight: 800; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
 .wsv2flow .ed-baswitch__btn.on { border-color: var(--brand-strong); box-shadow: var(--shadow-brand); }
-.wsv2flow .ed-photo { width: 100%; height: 300px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 13px; transition: filter .12s; box-shadow: var(--shadow-sm); }
+/* 줌 뷰포트 — 사진 확대(핀치/더블탭) 시 둥근 모서리 안에서 클립 */
+.wsv2flow .ed-photo-vp { width: 100%; height: 300px; border-radius: var(--r-lg); overflow: hidden; margin-bottom: 13px; box-shadow: var(--shadow-sm); background: var(--frame); touch-action: none; }
+.wsv2flow .ed-photo { width: 100%; height: 100%; border-radius: 0; background: var(--frame) center/cover; margin: 0; box-shadow: none; transition: filter .12s; transform-origin: center center; will-change: transform; }
+/* 편집 섹션 래퍼 — 레이아웃 영향 없이(display:contents) 부분 갱신 컨테이너만 제공 */
+.wsv2flow .ed-sec { display: contents; }
 .wsv2flow .ed-panel { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 16px; }
 /* 펼치기 토글(정밀 조정 / 템플릿) */
 .wsv2flow .ed-fold { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 50px; padding: 0 16px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text); font-size: 13.5px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-sm); }
