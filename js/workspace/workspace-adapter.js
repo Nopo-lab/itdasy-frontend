@@ -175,7 +175,11 @@
             cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
             ctx = cv.getContext('2d', { willReadFrequently: true });
             var contrast = Math.max(0, 1 + (a.contrast || 0) / 100);   // 대비: 워커 미지원 → 캔버스 필터
-            ctx.filter = contrast !== 1 ? ('contrast(' + contrast.toFixed(3) + ')') : 'none';
+            var soft = (a.sharpness || 0) < 0 ? (Math.min(100, -(a.sharpness || 0)) * 0.02) : 0;  // 선명도 좌(-)=부드러움
+            var cf = [];
+            if (contrast !== 1) cf.push('contrast(' + contrast.toFixed(3) + ')');
+            if (soft > 0) cf.push('blur(' + soft.toFixed(2) + 'px)');
+            ctx.filter = cf.length ? cf.join(' ') : 'none';
             ctx.drawImage(img, 0, 0); ctx.filter = 'none';
             png = /^data:image\/png/i.test(opts.src);
           } catch (_e) { resolve({ ok: false, reason: 'canvas' }); return; }

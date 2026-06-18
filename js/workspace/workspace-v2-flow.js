@@ -24,12 +24,13 @@
   };
 	  var CROP_RATIO = { before_after: '4:5', feed: '4:5', review: '4:5', event: '1:1', story: '9:16', price: 'free' };
 	  var TYPE_MAP = { before_after: 'before_after', feed: 'promo', review: 'review', event: 'event', story: 'story', price: 'price' };
+	  // 슬라이더는 숫자/동적문구 없이 좌(lo)·우(hi) 고정 라벨만 노출 (뷰티앱 미니멀).
 	  var MAIN_TOOLS = [
-	    { k: 'brightness', l: '밝기', ic: 'ph-sun' },
-	    { k: 'contrast', l: '대비', ic: 'ph-circle-half' },
-	    { k: 'saturation', l: '채도', ic: 'ph-sparkle' },
-	    { k: 'sharpness', l: '선명도', ic: 'ph-lightning' },
-	    { k: 'color', l: '색감', ic: 'ph-palette' },
+	    { k: 'brightness', l: '밝기', ic: 'ph-sun', lo: '어두움', hi: '밝음' },
+	    { k: 'contrast', l: '대비', ic: 'ph-circle-half', lo: '은은함', hi: '뚜렷함' },
+	    { k: 'saturation', l: '채도', ic: 'ph-sparkle', lo: '차분함', hi: '선명함' },
+	    { k: 'sharpness', l: '선명도', ic: 'ph-lightning', lo: '부드러움', hi: '또렷함' },
+	    { k: 'color', l: '색감', ic: 'ph-palette', lo: '쿨톤', hi: '웜톤' },
 	    { k: 'background', l: '배경', ic: 'ph-image' },
 	  ];
 	  var PRECISION_TABS = [
@@ -121,7 +122,8 @@
 
   function renderUpload() {
     var tiles = d.photos.map(function (p, i) {
-      var tag = '홍보컷', cls = '';
+      // 자동 분류 금지: 전/후 토글 ON 일 때만 전·후 라벨, 그 외엔 중립 '사진 N'.
+      var tag = '사진 ' + (i + 1), cls = '';
       if (d.baMode && p.role === 'before') { tag = '전 Before'; cls = 'before'; }
       else if (d.baMode && p.role === 'after') { tag = '후 After'; cls = 'after'; }
       return '<div class="photo-tile selected" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
@@ -167,12 +169,19 @@
 	      return '<div class="ed-tool' + (c.k === activeKey ? ' on' : '') + '" ' + attr + '="' + c.k + '"><span class="ed-circle"><i class="ph-duotone ' + c.ic + '"></i></span>' + c.l + '</div>';
 	    }).join('') + '</div>';
 	  }
+	  // 좌·우 고정 라벨만 있는 슬라이더 row (가운데 숫자/동적문구 없음).
+	  function _labeledRange(lo, hi, min, max, val, attr, key, extraCls) {
+	    return '<div class="ed-slider ed-slider--labeled' + (extraCls ? ' ' + extraCls : '') + '">' +
+	      '<span class="ed-slabel ed-slabel--lo">' + esc(lo) + '</span>' +
+	      '<input type="range" min="' + min + '" max="' + max + '" value="' + val + '" ' + attr + '="' + key + '">' +
+	      '<span class="ed-slabel ed-slabel--hi">' + esc(hi) + '</span></div>';
+	  }
 	  function _ctrlSlider(ctrls, activeKey, toolAttr) {
 	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
 	    var actObj = _toolByKey(ctrls, active);
 	    var val = (d.adjust && d.adjust[active]) || 0;
 	    return _toolButtons(ctrls, active, toolAttr) +
-	      '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
+	      _labeledRange(actObj.lo || '약하게', actObj.hi || '강하게', -100, 100, val, 'data-fl-range', active);
 	  }
 	  function _mainAdjustHtml() {
 	    var active = d.basicTool || 'brightness';
@@ -180,19 +189,22 @@
 	    if (active === 'background') return buttons + '<div class="ed-panel">' + _bgPanelHtml() + '</div>';
 	    var actObj = _toolByKey(MAIN_TOOLS, active);
 	    var val = (d.adjust && d.adjust[active]) || 0;
-	    return buttons + '<div class="ed-slider"><span>' + esc(actObj.l) + '</span><input type="range" min="-100" max="100" value="' + val + '" data-fl-range="' + active + '"><span class="ed-val" data-fl-rangeval>' + (val > 0 ? '+' : '') + val + '</span></div>';
+	    return buttons + _labeledRange(actObj.lo || '약하게', actObj.hi || '강하게', -100, 100, val, 'data-fl-range', active);
 	  }
 	  function _beautySlider(ctrls, activeKey) {
 	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
 	    var actObj = _toolByKey(ctrls, active);
 	    var val = (d.beauty && d.beauty[active]) || 0;
 	    return _toolButtons(ctrls, active, 'data-fl-beautytool') +
-	      '<div class="ed-slider ed-slider--beauty"><span>' + esc(actObj.l) + '</span><input type="range" min="0" max="100" value="' + val + '" data-fl-beautyrange="' + active + '"><span class="ed-val" data-fl-beautyval>' + val + '</span></div>';
+	      _labeledRange('자연', '강하게', 0, 100, val, 'data-fl-beautyrange', active, 'ed-slider--beauty');
 	  }
 
   function renderEdit() {
-    var base = photoUrl(curEditPhoto());
-    var url = d.originalPreview ? base : (d.previewUrl || base);
+    var _ep = curEditPhoto();
+    var base = photoUrl(_ep);                          // 현재 작업본(편집 반영)
+    var orig = _ep ? (_ep.dataUrl || base) : base;     // 손대기 전 진짜 원본
+    // 원본보기/비교 → 원본 그대로(필터 없음). 아니면 작업본 + 라이브 보정.
+    var url = d.originalPreview ? orig : (d.previewUrl || base);
     var preview = (d.originalPreview || d.previewUrl) ? 'none' : filterCss(d.adjust);
 
     // ── 전/후(또는 다중) 사진 편집 전환 — 2장 이상일 때만. 각 사진을 각각 보정 가능 ──
@@ -317,7 +329,7 @@
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl-var="regen">다시</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="review">후기체</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="reset">초기화</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="hashtags">해시태그 더</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="insta">인스타스럽게</button>' +
 	      '</div>';
@@ -330,7 +342,10 @@
     renderScenarioSelector(container, function (result) {
       d.captionAxes = result.axes;
       var axesStr = [result.axes.situation, result.axes.customer, (d.textOnly ? null : result.axes.photo)].filter(Boolean).join(' / ');
-      d.service = result.special_context || axesStr;
+      // [QA hotfix] 사용자가 입력창에 친 시술명/키워드를 시나리오가 덮어쓰지 않게 — 입력값을 service로 유지.
+      syncServiceFromDom();
+      var typed = String(d.service || '').trim();
+      if (!typed) d.service = result.special_context || axesStr;   // 입력 없을 때만 시나리오로 대체
       doGenerate({ photo_context: axesStr || d.service, special_context: result.special_context || '' }, null);
     });
   }
@@ -406,14 +421,26 @@
 
   var RENDER = { upload:renderUpload, edit:renderEdit, caption:renderCaption, connect:renderConnect, preview:renderPreview };
 
+  // 드래그 중 라이브 미리보기(CSS). 손 떼면 applyWorkspaceCorrections(실픽셀)로 확정.
+  //  - 밝기/대비/채도: 좌=낮음, 우=높음
+  //  - 선명도: 우(+)=또렷(대비 미세 상승), 좌(-)=부드러움(블러)
+  //  - 색감: 우(+)=웜(sepia), 좌(-)=쿨(hue를 파랑 쪽으로) — 확정 픽셀은 실제 색온도로 적용
   function filterCss(a) {
     a = a || {};
     var bright = Math.max(0, 1 + (a.brightness || 0) * 0.6 / 100);
     var contr = Math.max(0, 1 + (a.contrast || 0) / 100);
     var sat = Math.max(0, 1 + (a.saturation || 0) * 0.8 / 100);
-    var hue = (a.color || 0) * 0.4;
-    var contrSharp = a.sharpness > 0 ? (contr + a.sharpness * 0.2 / 100) : contr;
-    return 'brightness(' + bright.toFixed(3) + ') contrast(' + contrSharp.toFixed(3) + ') saturate(' + sat.toFixed(3) + ') hue-rotate(' + hue.toFixed(1) + 'deg)';
+    var shp = a.sharpness || 0;
+    var contrSharp = shp > 0 ? (contr + shp * 0.2 / 100) : contr;
+    var soft = shp < 0 ? (Math.min(100, -shp) * 0.012) : 0;   // 0~1.2px
+    var color = a.color || 0;
+    var sepia = color > 0 ? Math.min(0.55, color * 0.5 / 100) : 0;   // 웜
+    var coolHue = color < 0 ? color * 0.35 : 0;                       // 쿨(파랑 쪽)
+    var f = 'brightness(' + bright.toFixed(3) + ') contrast(' + contrSharp.toFixed(3) + ') saturate(' + sat.toFixed(3) + ')';
+    if (sepia > 0) f += ' sepia(' + sepia.toFixed(3) + ')';
+    f += ' hue-rotate(' + coolHue.toFixed(1) + 'deg)';
+    if (soft > 0) f += ' blur(' + soft.toFixed(2) + 'px)';
+    return f;
   }
 
   /* ── 라우팅 ── */
@@ -448,7 +475,14 @@
     });
   }
 
+	  // 생성 직전 입력창의 최신 값을 직접 읽음 — input 이벤트 누락/IME 미확정으로 키워드 빠지는 것 방지.
+	  function syncServiceFromDom() {
+	    if (!el) return;
+	    var s = el.querySelector('[data-fl-service]');
+	    if (s && typeof s.value === 'string') d.service = s.value;
+	  }
 	  function doGenerate(extra, label) {
+	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
@@ -524,7 +558,7 @@
         var vk = vv.getAttribute('data-fl-var');
 	        if (vk === 'short') { return doGenerate({ length_tier: 'short' }, '짧게 다시 생성했어요'); }
 	        if (vk === 'long')  { return doGenerate({ length_tier: 'long' }, '길게 다시 생성했어요'); }
-	        if (vk === 'review') { d.captionMode = 'review'; return doGenerate({ mode: 'review', tone_override: 'review' }, '후기체로 다시 생성했어요'); }
+	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
 	        if (vk === 'hashtags') { return doGenerate({ hashtag_mode: 'more' }, '해시태그를 더 가져왔어요'); }
 	        if (vk === 'insta') { return doGenerate({ tone_override: 'instagram' }, '인스타스럽게 다시 생성했어요'); }
 	        return doGenerate({}, '게시글을 다시 생성했어요');
@@ -538,35 +572,39 @@
 	    });
 	    el.addEventListener('input', function (e) {
 	      if (e.target.matches('[data-fl-range]')) {
+        // 기본 보정: 드래그 중에는 가벼운 CSS 필터로만 라이브 미리보기 → 부드럽게.
         var k = e.target.getAttribute('data-fl-range'); d.adjust[k] = +e.target.value;
         var p = el.querySelector('[data-fl-edphoto]');
         if (p && !d.originalPreview) { d.previewUrl = null; p.style.backgroundImage = 'url(' + esc(photoUrl(curEditPhoto())) + ')'; p.style.filter = filterCss(d.adjust); }
-	        var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = (d.adjust[k] > 0 ? '+' : '') + d.adjust[k];
 	      }
 	      if (e.target.matches('[data-fl-beautyrange]')) {
+	        // 정밀(부위) 보정: 무거운 픽셀 연산은 손 뗄 때(change)만 — 드래그 중 점멸/끊김 방지.
 	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
-	        var bv = el.querySelector('[data-fl-beautyval]'); if (bv) bv.textContent = d.beauty[bk];
-	        _refreshPreview();
 	      }
 	      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
       if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
     el.addEventListener('focusin', function (e) {
-      if (e.target.matches('[data-fl-range]')) d._adjPrev = clone(d.adjust);
-	      if (e.target.matches('[data-fl-beautyrange]')) d._beautyPrev = clone(d.beauty);
+      // 보정·정밀 슬라이더 모두 한 스냅샷(adjust+beauty)으로 묶어 되돌리기/다시실행 일원화.
+      if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) { if (!d._editPrev) d._editPrev = _snapEdit(); }
 	      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.value = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
 	    });
     el.addEventListener('change', function (e) {
-      if (e.target.matches('[data-fl-range]')) {
-        if (d._adjPrev) { d.undo = d.undo || []; d.undo.push(d._adjPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._adjPrev = null; }
+      if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) {
+        if (d._editPrev) { d.undo = d.undo || []; d.undo.push(d._editPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._editPrev = null; }
+	        // 손 뗄 때 한 번만 실픽셀 확정 + 되돌리기/다시실행 버튼 상태 갱신(전체 재렌더 없이).
 	        _refreshPreview();
-	      }
-	      if (e.target.matches('[data-fl-beautyrange]')) {
-	        if (d._beautyPrev) { d._beautyUndo = d._beautyUndo || []; d._beautyUndo.push(d._beautyPrev); d._beautyPrev = null; }
-	        _refreshPreview();
+	        _syncEbState();
 	      }
 	    });
+  }
+
+  function _snapEdit() { return { adjust: clone(d.adjust), beauty: clone(d.beauty) }; }
+  function _syncEbState() {
+    if (!el) return;
+    var u = el.querySelector('[data-fl-eb="되돌리기"]'); if (u) u.classList.toggle('disabled', !(d.undo && d.undo.length));
+    var r = el.querySelector('[data-fl-eb="다시실행"]'); if (r) r.classList.toggle('disabled', !(d.redo && d.redo.length));
   }
 
 	  function _refreshPreview() {
@@ -591,9 +629,9 @@
 
   function _editBottom(label) {
     if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; setScreen('edit'); if (!d.originalPreview) _refreshPreview(); return; }
-    if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(clone(d.adjust)); d.adjust = d.undo.pop(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
-    if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = d.redo.pop(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
-	    if (label === '초기화') { if (typeof window.confirm === 'function' && !window.confirm('현재 보정을 초기화할까요?')) return; d.undo = d.undo || []; d.undo.push(clone(d.adjust)); d.adjust = newAdjust(); d.beauty = newBeauty(); d.redo = []; d.previewUrl = null; setScreen('edit'); return; }
+    if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(_snapEdit()); var s = d.undo.pop(); d.adjust = s.adjust || newAdjust(); d.beauty = s.beauty || newBeauty(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
+    if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(_snapEdit()); var r = d.redo.pop(); d.adjust = r.adjust || newAdjust(); d.beauty = r.beauty || newBeauty(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); } return; }
+	    if (label === '초기화') { d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; setScreen('edit'); _refreshPreview(); toast('보정을 초기화했어요'); return; }
   }
 
 	  function applyBg(action) {
@@ -679,7 +717,8 @@
 	    if (!files.length) return Promise.resolve([]);
 	    return Promise.all(files.map(fileToDataUrl)).then(function (urls) {
 	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero' }); });
-	      if (d.photos.length >= 2 && !d.slot && d.defaultRole === 'auto') d.baMode = true;
+	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
+	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
 	      reassignRoles(); setScreen('upload');
 	      if (showToast) toast(urls.length + '장 추가됨');
 	      return urls;
@@ -839,8 +878,8 @@
 	    var incomingFiles = Array.from(opts.files || []);
 	    var wc = (slot && slot.workspaceContext) || null;
 	    var ctx = CAT_CTX[opts.cat] || {};
-	    var autoBa = !slot && !opts.cat && incomingFiles.length >= 2;
-	    var purpose = (wc && wc.templatePurpose) || ctx.purpose || (autoBa ? 'before_after' : 'feed');
+	    // [QA hotfix] 사진 2장+ 라고 전후로 자동 확정하지 않음. 전후는 '전후' 카테고리 선택 또는 토글로만.
+	    var purpose = (wc && wc.templatePurpose) || ctx.purpose || 'feed';
     var capMode = (wc && wc.captionMode) || ctx.captionMode || 'normal';
     var cm = (slot && slot.captionMeta) || {};
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
@@ -859,7 +898,6 @@
 	      editTab: 'skin', control: null, basicTool: 'brightness', precTool: null, editIdx: null, bgOpen: false, advOpen: true, tplOpen: true, adjust: newAdjust(), beauty: newBeauty(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
 	      captionAxes: null, captionTemplate: '',
 	    };
-	    if (autoBa) d.defaultRole = 'auto';
 	    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
     // textOnly → 바로 게시글 화면으로
