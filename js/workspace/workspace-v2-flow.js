@@ -126,8 +126,8 @@
       var tag = '사진 ' + (i + 1), cls = '';
       if (d.baMode && p.role === 'before') { tag = '전 Before'; cls = 'before'; }
       else if (d.baMode && p.role === 'after') { tag = '후 After'; cls = 'after'; }
-      return '<div class="photo-tile selected" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
-        '<button class="thumb-x" data-fl-del="' + i + '" aria-label="삭제"><i class="ph-bold ph-x"></i></button>' +
+      return '<div class="photo-tile" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
+        '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
         '<span class="thumb-tag ' + cls + '">' + tag + '</span></div>';
     }).join('');
     return '' +

@@ -68,13 +68,15 @@
 .wsv2flow .photo-tile { height: 128px; border-radius: var(--r-md); position: relative; border: 2px solid transparent;
   box-shadow: var(--shadow-sm); background: var(--frame) center/cover; cursor: pointer; overflow: hidden; }
 .wsv2flow .photo-tile.selected { border-color: var(--brand-strong); box-shadow: var(--shadow-md); }
-.wsv2flow .thumb-x { position: absolute; right: 7px; top: 7px; width: 22px; height: 22px; border: 0; border-radius: 50%; background: rgba(255,255,255,.9); color: var(--text); display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-sm); }
-.wsv2flow .thumb-x svg { width: 13px; height: 13px; stroke: var(--text); }
+/* 삭제 버튼 — 선택 체크처럼 안 보이게 어두운 휴지통 */
+.wsv2flow .thumb-del { position: absolute; right: 7px; top: 7px; width: 26px; height: 26px; border: 0; border-radius: var(--r-md); background: rgba(20,16,16,.6); color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-sm); }
+.wsv2flow .thumb-del i { font-size: 14px; }
+.wsv2flow .thumb-del:active { background: var(--danger); }
 .wsv2flow .thumb-tag { position: absolute; left: 7px; bottom: 7px; height: 22px; padding: 0 9px; border-radius: var(--r-pill); background: rgba(31,26,26,.66); color: #fff; font-size: 9.5px; font-weight: 800; display: inline-flex; align-items: center; }
 .wsv2flow .thumb-tag.before { background: rgba(91,140,200,.88); }
 .wsv2flow .thumb-tag.after { background: var(--brand-strong); }
-.wsv2flow .grid-add { display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; border: 1.5px dashed var(--border-strong); background: var(--surface); color: var(--brand-strong); font-size: 21px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; }
-.wsv2flow .grid-add span { font-size: 11px; }
+.wsv2flow .grid-add { height: 128px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; border: 1.5px dashed var(--border-strong); background: var(--surface); color: var(--brand-strong); font-size: 26px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; }
+.wsv2flow .grid-add span { font-size: 12px; font-weight: 700; }
 
 /* B. 편집 — 연준 원본 5탭 구조 복원(토큰 톤). 아이콘=ph-duotone <i> */
 /* 전/후(다중) 사진 편집 전환 스위처 — 전후 콘텐츠에서 각 사진을 각각 보정 */
