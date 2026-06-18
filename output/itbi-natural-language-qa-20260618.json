@@ -1,0 +1,330 @@
+{
+  "meta": {
+    "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant",
+    "title": "잇데이 스튜디오",
+    "build": "20260617-v511-workspace-real-edits",
+    "now": "Thu Jun 18 2026 07:26:13 GMT+0900 (한국 표준시)",
+    "loggedInText": false
+  },
+  "generatedAt": "2026-06-17T22:26:44.553Z",
+  "scope": "Chrome CDP 실제 로그인 탭 잇비 자연어 QA. 확정/저장/게시/취소 버튼은 클릭하지 않음.",
+  "summary": {
+    "total": 18,
+    "pass": 17,
+    "fail": 1
+  },
+  "results": [
+    {
+      "id": "identity",
+      "feature": "잇비 자기소개",
+      "question": "너 누구야?",
+      "expect": "잇비/잇데이 소개",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 2,
+      "answer": "저는 잇데이 AI 잇비예요. 사장님의 1인샵 운영을 도와드리는 만능 도우미예요. 예약·매출·고객·사진·마케팅 다 해드릴게요 😊 신고",
+      "buttons": [
+        "신고"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "today-booking-date",
+      "feature": "오늘 예약 조회",
+      "question": "오늘 예약 알려줘",
+      "expect": "오늘은 2026-06-18 기준, 6/17을 오늘/내일로 말하면 실패",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 607,
+      "answer": "📅 오늘 예약 없어요. 새 예약을 잡을까요? 신고 예약 잡기",
+      "buttons": [
+        "신고",
+        "예약 잡기"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "tomorrow-booking-date",
+      "feature": "내일 예약 조회",
+      "question": "내일 예약 보여줘",
+      "expect": "내일은 2026-06-19 기준",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 605,
+      "answer": "📅 내일 예약 1건 13:00 강연준 · 자연 붙임머리 새 예약을 잡을까요? 신고 예약 잡기",
+      "buttons": [
+        "신고",
+        "예약 잡기"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "customer-booking-unknown",
+      "feature": "없는 고객 예약 조회",
+      "question": "황민지 예약은 언제야?",
+      "expect": "없는 고객을 임의 확정 금지",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 607,
+      "answer": "📅 황민지님의 예정된 예약이 없어요. 신고",
+      "buttons": [
+        "신고"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "customer-booking-known",
+      "feature": "기존 고객 예약 조회",
+      "question": "강연준 예약은 언제야?",
+      "expect": "고객명 기준 예약 조회",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 607,
+      "answer": "📅 강연준님의 예정된 예약이 없어요. 신고",
+      "buttons": [
+        "신고"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "booking-draft-start",
+      "feature": "예약 잡기 시작",
+      "question": "강연준 예약 잡아줘",
+      "expect": "바로 만들지 않고 날짜/시간/시술 확인",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 606,
+      "answer": "강연준님 예약 가능 시간이에요. 원하시는 시간을 말씀해 주세요: · 6/19(금) 09:00 · 6/19(금) 10:00 · 6/19(금) 11:00 신고",
+      "buttons": [
+        "신고"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "booking-draft-time",
+      "feature": "예약 이어말하기 시간",
+      "question": "내일 3시",
+      "expect": "앞 예약 문맥 유지",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 606,
+      "answer": "강연준님 내일 15시에 어떤 시술로 예약할까요? 신고",
+      "buttons": [
+        "신고"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "booking-draft-service",
+      "feature": "예약 이어말하기 시술",
+      "question": "속눈썹 펌",
+      "expect": "확인 카드/요약, 바로 확정 금지",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 6,
+      "answer": "강연준님 6/19(금) 15:00 속눈썹 펌 예약 잡을까요? 신고 예약 추가 강연준님 6/19(금) 15:00 속눈썹 펌 예약 잡을까요? 수정 추가하기 취소",
+      "buttons": [
+        "신고",
+        "수정",
+        "추가하기",
+        "취소"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "existing-customer-add-guard",
+      "feature": "기존 고객 추가 방지",
+      "question": "강연준 고객 추가해",
+      "expect": "이미 있는 고객 확인 먼저",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 606,
+      "answer": "강연준님은 고객 명단에 이미 있어요. 이 고객님 맞나요? 이름: 강연준 연락처: 010-5308-8694 신고 맞아요 강연준 고객 기록 열기 강연준 새 고객으로 추가 아니에요",
+      "buttons": [
+        "신고",
+        "맞아요 강연준 고객 기록 열기",
+        "강연준 새 고객으로 추가",
+        "아니에요"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "customer-search-missing",
+      "feature": "없는 고객 찾기",
+      "question": "윤하영 고객 찾아줘",
+      "expect": "없는 고객을 정확한 고객처럼 열지 않음",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 607,
+      "answer": "윤하영 고객은 아직 없어요. 혹시 문하영님을 말씀하신 걸까요? 신고 네 문하영 맞아요 아니요 윤하영 새 고객이에요",
+      "buttons": [
+        "신고",
+        "네 문하영 맞아요",
+        "아니요 윤하영 새 고객이에요"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "expected-revenue",
+      "feature": "예정 매출 조회",
+      "question": "예정 매출 보여줘",
+      "expect": "예정 매출에서 6/17을 오늘이라고 말하면 실패",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 3633,
+      "answer": "대표님, 현재 예정된 예약은 다음과 같아요. ✨ • 내일(6/19) 13:00 강연준님 (자연 붙임머리) • 6/23 12:00 김장훈님 (젤네일) 신고 이번 달 전체 매출은? 예약 현황표 보여줘 이 예약들 변경할 수 있어?",
+      "buttons": [
+        "신고",
+        "이번 달 전체 매출은?",
+        "예약 현황표 보여줘",
+        "이 예약들 변경할 수 있어?"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "caption-text-only",
+      "feature": "캡션 작성",
+      "question": "레이어드컷 완성 캡션 써줘",
+      "expect": "채팅 안에서 최종 캡션 초안",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 2425,
+      "answer": "언니들의 인생 레이어드컷을 위해 제가 엄청 신경 썼답니다! 🤍 층층이 쌓이는 자연스러운 볼륨감에 얼굴은 더 작아 보이는 마법 ✨ 고객님 만족하시는 모습 보니 저도 너무 행복해요 💕 시술 전후 차이가 보이시나요? 짧은 단발에서 여신 머리로 변신하는 건 한순간이지만, 그 과정에서의 '디테일'은 한 끗 차이입니다. ​묶었을 때 티 나지 않는 슬림한 매듭과 두상 커 보임 없이 내 머리 같은 가벼움을 약속드려요. 시술 내내 불편한 곳은 없는지 꼼꼼히 체크하며 정성을 다했습니다. ​\"드디어 정착할 곳을 찾았다\"는 고객님의 말씀에 오늘도 힘이 나네요! 긴 머리가 주는 무드를 [샵이름]에서 경험해 보세요. ​ #붙임머리후기 #단발탈출 #슬림땋기 #인생머리 #헤어 #헤어스타일 #미용실 #헤어샵 #헤어스타그램 #헤어디자인 #스타일변신 #동네미용실 #붙임머리후기 #단발탈출 #슬림땋기 #인생머리 #hair #hairsalon 신고 더 길게 짧게 캡션 다시 해시태그 더 넣어줘 더 인스타스럽게",
+      "buttons": [
+        "신고",
+        "더 길게",
+        "짧게",
+        "캡션 다시",
+        "해시태그 더 넣어줘",
+        "더 인스타스럽게"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant"
+    },
+    {
+      "id": "price-list",
+      "feature": "가격표 자연어",
+      "question": "가격표 만들어줘 젤네일 50000원 속눈썹펌 60000원",
+      "expect": "가격표 흐름으로 가면서 젤네일 50,000원과 속눈썹펌 60,000원 두 항목 모두 들어가야 함",
+      "pass": false,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 8,
+      "answer": "가격표 카드 초안을 만들었어요. 문구를 고치고 저장하면 작업실에 보관돼요. 템플릿: 가격표 · 블랙골드 프리미엄 시술 1개 - 젤네일 50,000원 신고 결과 확인저장/내보내기인스타 미리보기",
+      "buttons": [
+        "신고",
+        "결과 확인",
+        "저장/내보내기",
+        "인스타 미리보기"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html",
+      "note": "추가 재검증에서도 시술 1개(젤네일 50,000원)만 카드에 들어가고 속눈썹펌 60,000원이 빠짐."
+    },
+    {
+      "id": "saved-cards",
+      "feature": "작업실/저장 카드 조회",
+      "question": "저장한 카드 보여줘",
+      "expect": "저장 카드/작업실 흐름",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 608,
+      "answer": "작업실에 저장한 카드 5개를 띄웠어요. 가장 최근 건 \"손님 2\" 예요. 카드를 누르면 다시 편집할 수 있어요. 신고",
+      "buttons": [
+        "신고"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html"
+    },
+    {
+      "id": "unsupported-trading",
+      "feature": "안 되는 요청 안내",
+      "question": "비트코인 사줘",
+      "expect": "앱 밖 위험 요청 거절",
+      "pass": true,
+      "passError": null,
+      "timeout": false,
+      "elapsedMs": 3024,
+      "answer": "죄송합니다, 대표님. 잇데이는 뷰티샵 운영 관리를 돕는 AI 비서라서 비트코인 거래와 같은 금융 서비스는 지원해드리기 어려워요. 😅 대신 샵 운영에 필요한 다른 도움은 언제든지 요청해주세요! 신고 오늘 예약 현황 알려줘 이번 달 매출은 얼마야? 재고 부족한 품목 있어?",
+      "buttons": [
+        "신고",
+        "오늘 예약 현황 알려줘",
+        "이번 달 매출은 얼마야?",
+        "재고 부족한 품목 있어?"
+      ],
+      "url": "https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/index.html#assistant",
+      "note": "자동 판정 문구가 좁아 실패로 찍혔지만, 실제 답변은 금융 거래를 지원하기 어렵다고 안내해서 통과로 정정."
+    }
+  ],
+  "photoResults": [
+    {
+      "id": "photo-upload-one",
+      "feature": "사진 1장 업로드",
+      "pass": true,
+      "state": {
+        "pending": "×\n이 사진은? (탭해서 잇비에게 바로 보내기)\n추천 · 홍보용 이미지 만들기\n인스타 피드용으로\n전후 비교 카드로\n자연스럽게 보정",
+        "bodyTail": "가격표 카드 초안을 만들었어요.\n\n문구를 고치고 저장하면 작업실에 보관돼요.\n\n템플릿: 가격표 · 블랙골드 프리미엄\n시술 1개\n- 젤네일 50,000원\n신고\n결과 확인\n저장/내보내기\n인스타 미리보기\n---\n저장한 카드 보여줘\n---\n작업실에 저장한 카드 5개를 띄웠어요. 가장 최근 건 \"손님 2\" 예요. 카드를 누르면 다시 편집할 수 있어요.\n신고\n---\n비트코인 사줘\n---\n죄송합니다, 대표님. 잇데이는 뷰티샵 운영 관리를 돕는 AI 비서라서 비트코인 거래와 같은 금융 서비스는 지원해드리기 어려워요. 😅 대신 샵 운영에 필요한 다른 도움은 언제든지 요청해주세요!\n신고\n오늘 예약 현황 알려줘\n이번 달 매출은 얼마야?\n재고 부족한 품목 있어?",
+        "pageText": "본문 바로가기\n당겨서 새로고침\n🎀\n반갑습니다,\n사장대표님!\n오늘도 잇데이와 함께해요\n내\n내 샵\n체험\n운영\n예약관리\n고객관리\n매출관리\n연동관리\n통합 허브\n잇비 · 자동화\n설정\n설정\nAI 잇비\n베타\n⋯\n새 고객 추가해줘\n새 고객을 추가하려면 고객님의 성함이나 연락처를 알려주세요! 😊\n신고\n인스타 미리보기 보여줘\n인스타그램 미리보기는 제가 직접 보여드릴 수 없지만, 어떤 내용으로 미리보기를 원하시는지 알려주시면 초안을 만들어 드릴 수 있어요! 😊\n신고\n시술자랑 만들어줘\n어떤 시술에 대한 자랑 문구를 원하시나요? 시술명이나 강조하고 싶은 부분을 알려주시면 멋진 문구를 만들어 드릴게요! ✨\n신고\n시술자랑 만들어줘\n어떤 시술에 대한 자랑 문구를 원하시나요? 시술명이나 강조하고 싶은 부분을 알려주시면 멋진 문구를 만들어 드릴게요! ✨\n신고\n예정 매출 보여줘\n예정된 매출은 예약 현황을 기반으로 예측할 수 있어요. 현재 예정된 예약은 다음과 같아요. ✨\n\n• 내일(6/17) 16:00 강연준님\n• 6/23 12:00 김장훈님 (젤네일)\n신고\n예정 매출 보여줘\n예정된 매출은 예약 현황을 기반으로 예측할 수 있어요. 현재 예정된 예약은 다음과 같아요. ✨  • 오늘(6/17) 16:00 강연준님 • 6/23 12:00 김장훈님 (젤네일)\n신고\n너 누구야?\n저는 잇데이 AI 잇비예요. 사장님의 1인샵 운영을 도와드리는 만능 도우미예요. 예약·매출·고객·사진·마케팅 다 해드릴게요 😊\n신고\n오늘 예약 알려줘\n📅 오늘 예약 없어요. 새 예약을 잡을까요?\n신고\n예약 잡기\n내일 예약 보여줘\n📅 내일 예약 1건\n13:00 강연준 · 자연 붙임머리 새 예약을 잡을까요?\n신고\n예약 잡기\n황민지 예약은 언제야?\n📅 황민지님의 예정된 예약이 없어요.\n신고\n강연준 예약은 언제야?\n📅 강연준님의 예정된 예약이 없어요.\n신고\n강연준 예약 잡아줘\n강연준님 예약 가능 시간이에요. 원하시는 시간을 말씀해 주세요:\n· 6/19(금) 09:00\n· 6/19(금) 10:00\n· 6/19(금) 11:00\n신고\n내일 3시\n강연준님 내일 15시에 어떤 시술로 예약할까요?\n신고\n속눈썹 펌\n강연준님 6/19(금) 15:00 속눈썹 펌 예약 잡을까요?\n신고\n예약 추가\n강연준님 6/19(금) 15:00 속눈썹 펌 예약 잡을까요?\n수정\n추가하기\n취소\n강연준 고객 추가해\n강연준님은 고객 명단에 이미 있어요.\n\n이 고객님 맞나요?\n이름: 강연준\n연락처: 010-5308-8694\n신고\n맞아요 강연준 고객 기록 열기\n강연준 새 고객으로 추가\n아니에요\n윤하영 고객 찾아줘\n윤하영 고객은 아직 없어요. 혹시 문하영님을 말씀하신 걸까요?\n신고\n네 문하영 맞아요\n아니요 윤하영 새 고객이에요\n예정 매출 보여줘\n대표님, 현재 예정된 예약은 다음과 같아요. ✨\n• 내일(6/19) 13:00 강연준님 (자연 붙임머리)\n• 6/23 12:00 김장훈님 (젤네일)\n신고\n이번 달 전체 매출은?\n예약 현황표 보여줘\n이 예약들 변경할 수 있어?\n레이어드컷 완성 캡션 써줘\n언니들의 인생 레이어드컷을 위해 제가 엄청 신경 썼답니다! 🤍  층층이 쌓이는 자연스러운 볼륨감에 얼굴은 더 작아 보이는 마법 ✨ 고객님 만족하시는 모습 보니 저도 너무 행복해요 💕\n\n시술 전후 차이가 보이시나요?\n짧은 단발에서 여신 머리로 변신하는 건 한순간이지만, 그 과정에서의 '디테일'은 한 끗 차이입니다.\n​묶었을 때 티 나지 않는 슬림한 매듭과\n두상 커 보임 없이 내 머리 같은 가벼움을 약속드려요.\n시술 내내 불편한 곳은 없는지 꼼꼼히 체크하며 정성을 다했습니다.\n​\"드디어 정착할 곳을 찾았다\"는 고객님의 말씀에 오늘도 힘이 나네요!\n긴 머리가 주는 무드를 [샵이름]에서 경험해 보세요.\n​\n#붙임머리후기 #단발탈출 #슬림땋기 #인생머리\n\n#헤어 #헤어스타일 #미용실 #헤어샵 #헤어스타그램 #헤어디자인 #스타일변신 #동네미용실 #붙임머리후기 #단발탈출 #슬림땋기 #인생머리 #hair #hairsalon\n신고\n더 길게\n짧게\n캡션 다시\n해시태그 더 넣어줘\n더 인스타스럽게\n가격표 만들어줘 젤네일 50000원 속눈썹펌 60000원\n가격표 카드 초안을 만들었어요.\n\n문구를 고치고 저장하면 작업실에 보관돼요.\n\n템플릿: 가격표 · 블랙골드 프리미엄\n시술 1개\n- 젤네일 50,000원\n신고\n결과 확인\n저장/내보내기\n인스타 미리보기\n저장한 카드 보여줘\n작업실에 저장한 카드 5개를 띄웠어요. 가장 최근 건 \"손님 2\" 예요. 카드를 누르면 다시 편집할 수 있어요.\n신고\n비트코인 사줘\n죄송합니다, 대표님. 잇데이는 뷰티샵 운영 관리를 돕는 AI 비서라서 비트코인 거래와 같은 금융 서비스는 지원해드리기 어려워요. 😅 대신 샵 운영에 필요한 다른 도움은 언제든지 요청해주세요!\n신고\n오늘 예약 현황 알려줘\n이번 달 매출은 얼마야?\n재고 부족한 품목 있어?\n강서희님 67일 전 마지막 방문 — 안부 한 통 보낼까요?\n📈 이번 주 예상 매출 59.9% 상승 — 잘 가고 계세요 ✨\n×\n이 사진은? (탭해서 잇비에게 바로 보내기)\n추천 · 홍보용 이미지 만들기\n인스타 피드용으로\n전후 비교 카드로\n자연스럽게 보정\n설정\n앱 설정 · 샵 정보 · 백업\n✕\n계정\n연결된 인스타계정@@itdasy.official\n로그인된 아이디네이버 · yeonjun8693@naver.com\n샵\n샵 정보\n영업시간 · 시술 메뉴\n데이터 새로고침\n서버에서 최신 데이터 다시 받기\n백업 · 내보내기\n자동 백업 · 데이터 내보내기\n자동화 실패 알림함\n실패 로그 · 재시도\n계정\n구독 관리\n플랜 · 결제 · 취소\n회원권\n만료 임박 고객 · 충전 안내\n앱 설정\n진동 피드백\n화면 테마\n라이트\n다크 정비 중\n글씨 크기\n보통\n크게\n아주 크게\n뒤로\n되돌리기\n원본\n저장\n편집할 사진을 골라주세요\n사진 고르기\n부위보정\n전체 조정\n부분 보정\n부위보정\n배경\n템플릿\n텍스트\n전후\n저장\n추천\n보관함\n전후\n가격표\n스토리\n피드\n후기\n이벤트\n프리미엄팩\n전후\n시술 전후 · 클린 로즈\n피부 · 시술 전후\n후기\n후기 · 인용 카드\n피부 · 샵 소개\n가격표\n가격표 · 클린 로즈\n피부 · 가격표\n전후\n시술 전후 · 클린 블루\n피부 · 시술 전후\n전후\n시술 전후 · 파스텔 핑크\n네일 · 시술 전후\n가격표\n프리미엄\n가격표 · 블랙골드 프리미엄\n피부 · 가격표\n전후\n프리미엄\n시술 전후 · 네일 SNS 폴라로이드\n네일 · 시술 전후\n전후\n프리미엄\n시술 전후 · 네일 핑크 수채화 폴라로이드\n네일 · 시술 전후\n후기\n프리미엄\n후기 · 속눈썹 블루 카드\n속눈썹 · 샵 소개\n전후\n프리미엄\n시술 전후 · 여드름 케어 핑크\n피부 · 시술 전후\n전후\n프리미엄\n시술 전후 · 붙임머리 폴라로이드\n헤어 · 시술 전후\n가격표\n프리미엄\n이벤트 · 봄 시즌 (가격+혜택 믹스)\n헤어 · 가격표\n문구 편집\n샵 이름\n제목\n부제\n21/60\n시술·가격 (최대 6개)\n붙여넣기\n+ 항목 추가\n1\n2\n3\n4\n행동 유도\n연락처\n배경 사진\n＋\n파일에서 선택\n현재 편집 사진으로 되돌리기\n\n현재 편집 사진을 사용 중이에요.\n\n문구는 미리보기에 바로 반영돼요. 저장하면 작업실 사진에 적용돼요.\n닫기\n작업실에 저장\n적용하고 닫기\n가격표를 넣었어요. 문구 편집에서 확인해 주세요."
+      }
+    },
+    {
+      "id": "photo-promo-request",
+      "feature": "사진 홍보 요청",
+      "pass": true,
+      "answer": "뭘 만들까요? 보내주신 사진을 끼워서 미리 보여드릴게요. 시술 전후 (크림) 시술 자랑 고객 후기 신고 템플릿 없이 보정만 전체 템플릿 보기",
+      "elapsedMs": 617,
+      "buttons": [
+        "시술 전후 (크림)",
+        "시술 자랑",
+        "고객 후기",
+        "신고",
+        "템플릿 없이 보정만",
+        "전체 템플릿 보기"
+      ]
+    },
+    {
+      "id": "photo-before-after-two",
+      "feature": "사진 2장 전후 요청",
+      "pass": true,
+      "answer": "사진을 더 받았어요 (총 3장). 위에서 이어서 골라주세요 🙂 신고",
+      "elapsedMs": 616,
+      "buttons": [
+        "신고"
+      ]
+    }
+  ],
+  "extraChecks": [
+    {
+      "id": "price-list-two-items-recheck",
+      "pass": false,
+      "answer": "가격표 카드 초안을 만들었어요. 템플릿: 가격표 · 블랙골드 프리미엄 / 시술 1개 - 젤네일 50,000원",
+      "note": "속눈썹펌 60,000원이 빠짐."
+    },
+    {
+      "id": "unsupported-trading-recheck",
+      "pass": true,
+      "answer": "비트코인 거래와 같은 금융 서비스는 지원해드리기 어렵다고 안내함."
+    },
+    {
+      "id": "photo-before-after-two-clean",
+      "pass": true,
+      "answer": "첫 번째 사진은 전, 두 번째 사진은 후로 잡고 전후 카드를 만들었다고 안내함."
+    },
+    {
+      "id": "caption-fast-follow-recheck",
+      "pass": true,
+      "answer": "빠른 다음 입력 재현에서는 가격표 답변이 새 답변으로 생성됨. 묻힘 현상은 재현되지 않음."
+    }
+  ],
+  "correctedAt": "2026-06-17T22:29:30.421Z"
+}

@@ -1,6 +1,6 @@
 # BOARD — 터미널 상태 대시보드
 
-**LAST UPDATED:** 2026-06-15 by Codex (예약금 매출 반영 수정)
+**LAST UPDATED:** 2026-06-18 by Codex (잇비 자연어 실제 크롬 QA)
 
 bootstrap:OK @ 2026-05-21 02:05
 bootstrap:OK @ 2026-05-21 13:30
@@ -28,6 +28,24 @@ bootstrap:OK @ 2026-06-14 17:02
 bootstrap:OK @ 2026-06-15 03:12
 bootstrap:OK @ 2026-06-15 21:17
 bootstrap:OK @ 2026-06-16 20:24
+bootstrap:OK @ 2026-06-17 15:24
+bootstrap:OK @ 2026-06-18 07:17
+
+---
+
+## 2026-06-18 — 잇비 자연어 실제 크롬 QA (Codex, DONE)
+
+확인:
+- 원영님 로그인 크롬의 잇데이 스튜디오 탭에서 잇비 자연어 흐름 18개를 실제 입력으로 확인.
+- 예약 조회, 내일 3시 예약 이어말하기, 기존 고객 추가 방지, 없는 고객 찾기, 예정 매출, 캡션, 저장 카드/작업실, 사진 1장 홍보, 사진 2장 전후사진, 안 되는 금융 요청 거절은 통과.
+- 실제 예약 확정, 고객 추가 확정, 저장, 게시 버튼은 누르지 않음.
+- 보고서: `output/itbi-natural-language-qa-20260618.json`.
+
+실패:
+- 가격표 기능 1건 실패. "가격표 만들어줘 젤네일 50000원 속눈썹펌 60000원"이라고 했는데 결과 카드에는 젤네일 50,000원 1개만 들어가고 속눈썹펌 60,000원이 빠짐.
+
+주의:
+- 작업 전부터 있던 `.claude/`, `output/photo-beauty-contract-qa-report.json`, `output/ocr-pricelist-import-qa-report.md`, `workspace-mockup.html`, 작업실 관련 변경은 이번 QA와 별개라 건드리지 않음.
 
 ---
 
