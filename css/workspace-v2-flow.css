@@ -75,6 +75,11 @@
 .wsv2flow .thumb-tag { position: absolute; left: 7px; bottom: 7px; height: 22px; padding: 0 9px; border-radius: var(--r-pill); background: rgba(31,26,26,.66); color: #fff; font-size: 9.5px; font-weight: 800; display: inline-flex; align-items: center; }
 .wsv2flow .thumb-tag.before { background: rgba(91,140,200,.88); }
 .wsv2flow .thumb-tag.after { background: var(--brand-strong); }
+.wsv2flow .thumb-tag.exclude { background: rgba(80,80,80,.8); text-decoration: line-through; }
+/* 라벨을 탭하면 역할(전/후/홍보컷/제외) 직접 지정 — 버튼 기본 스타일 리셋 */
+.wsv2flow button.thumb-tag { appearance: none; -webkit-appearance: none; border: 0; cursor: pointer; font-family: inherit; line-height: 1; }
+.wsv2flow button.thumb-tag::after { content: ""; }
+.wsv2flow .up-rolehint { font-weight: 600; color: var(--text-subtle); font-size: 11px; }
 .wsv2flow .grid-add { height: 128px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; border: 1.5px dashed var(--border-strong); background: var(--surface); color: var(--brand-strong); font-size: 26px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; }
 .wsv2flow .grid-add span { font-size: 12px; font-weight: 700; }
 

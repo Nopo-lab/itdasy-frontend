@@ -50,6 +50,21 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   check('A1 5장 업로드 자동 전후 OFF', baToggleOn === false, 'toggle on=' + baToggleOn);
   check('A2 자동 홍보컷/전후 라벨 안 붙음(중립 라벨)', upTags.length === 5 && upTags.every(t => /^사진 \d/.test(t)), JSON.stringify(upTags));
 
+  // ── A3~A5. 5장 직접 묶기: 사진 라벨 탭으로 역할 직접 지정 ──
+  await page.click('#wsv2Flow [data-fs="upload"] [data-fl-role="0"]');   // 홍보컷→전
+  await page.click('#wsv2Flow [data-fs="upload"] [data-fl-role="1"]');   // 홍보컷→전
+  await page.click('#wsv2Flow [data-fs="upload"] [data-fl-role="1"]');   // 전→후
+  const tags3 = await page.$$eval('#wsv2Flow [data-fs="upload"] [data-fl-role]', els => els.map(e => e.textContent.trim()));
+  check('A3 라벨 탭 → 역할 직접 지정(1=전·2=후·나머지 중립)', tags3[0] === '전' && tags3[1] === '후' && tags3[2] === '사진 3', JSON.stringify(tags3));
+  await page.click('#wsv2Flow [data-fs="upload"] [data-fl-role="4"]');   // 전
+  await page.click('#wsv2Flow [data-fs="upload"] [data-fl-role="4"]');   // 후
+  await page.click('#wsv2Flow [data-fs="upload"] [data-fl-role="4"]');   // 제외
+  const tag4 = await page.$eval('#wsv2Flow [data-fs="upload"] [data-fl-role="4"]', el => el.textContent.trim());
+  check('A4 역할 순환에 제외 포함', tag4 === '제외', 'tag4=' + tag4);
+  await page.click('#wsv2Flow [data-fl="batoggle"]');                    // 전/후 토글 → 수동 리셋 + 자동
+  const tagsBa = await page.$$eval('#wsv2Flow [data-fs="upload"] [data-fl-role]', els => els.map(e => e.textContent.trim()));
+  check('A5 전/후 토글 → 1=전·2=후·나머지 홍보컷(수동 리셋)', tagsBa[0] === '전' && tagsBa[1] === '후' && tagsBa[2] === '홍보컷', JSON.stringify(tagsBa));
+
   // ── B/C. 편집 화면 렌더 ──
   await page.evaluate((png) => {
     window.WorkspaceFlow.open({ startScreen:'edit', slot:{ id:'s2', photos:[{ id:'p1', dataUrl: png, role:'hero' }] } });

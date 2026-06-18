@@ -133,13 +133,17 @@
 
   function renderUpload() {
     var tiles = d.photos.map(function (p, i) {
-      // 자동 분류 금지: 전/후 토글 ON 일 때만 전·후 라벨, 그 외엔 중립 '사진 N'.
+      // 자동 분류 금지: 사용자가 직접 지정(roleManual)했거나 전/후 토글 ON 일 때만 역할 라벨, 그 외엔 중립 '사진 N'.
+      var role = p.role || 'hero';
+      var showRole = p.roleManual || d.baMode;
       var tag = '사진 ' + (i + 1), cls = '';
-      if (d.baMode && p.role === 'before') { tag = '전 Before'; cls = 'before'; }
-      else if (d.baMode && p.role === 'after') { tag = '후 After'; cls = 'after'; }
+      if (showRole && role === 'before') { tag = '전'; cls = 'before'; }
+      else if (showRole && role === 'after') { tag = '후'; cls = 'after'; }
+      else if (showRole && role === 'exclude') { tag = '제외'; cls = 'exclude'; }
+      else if (showRole && role === 'hero') { tag = '홍보컷'; }
       return '<div class="photo-tile" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
         '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
-        '<span class="thumb-tag ' + cls + '">' + tag + '</span></div>';
+        '<button type="button" class="thumb-tag ' + cls + '" data-fl-role="' + i + '" aria-label="이 사진 용도 바꾸기(홍보컷·전·후·제외)">' + tag + '</button></div>';
     }).join('');
     return '' +
       '<div class="up-drop" data-fl-pick>' +
@@ -150,7 +154,8 @@
         '<div class="up-toggle-copy"><b>전/후 사진으로 만들기</b><span>사진 순서대로 전·후를 자동으로 표시해요.</span></div>' +
         '<button class="ui-toggle' + (d.baMode ? ' on' : '') + '" data-fl="batoggle" role="switch" aria-checked="' + d.baMode + '"></button>' +
       '</div>' +
-      '<div class="up-section">선택한 사진 <b>' + d.photos.length + '</b> / 10</div>' +
+      '<div class="up-section">선택한 사진 <b>' + d.photos.length + '</b> / 10' +
+        (d.photos.length >= 2 ? ' <span class="up-rolehint">· 사진 라벨을 눌러 전·후·홍보컷·제외 직접 지정</span>' : '') + '</div>' +
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>';
@@ -553,7 +558,7 @@
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
       if (a === 'cta') { return onCta(); }
-      if (a === 'batoggle') { d.baMode = !d.baMode; reassignRoles(); setScreen('upload'); return; }
+      if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); setScreen('upload'); return; }
       if (a === 'gen') { return doGenerate({}, null); }
       if (a === 'regen') { return doGenerate({}, '게시글을 다시 생성했어요'); }
       if (a === 'morehash') { return doGenerate({}, '해시태그를 새로 가져왔어요'); }
@@ -573,6 +578,7 @@
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
+      var roleBtn = t.closest('[data-fl-role]'); if (roleBtn) { e.stopPropagation(); _cycleRole(+roleBtn.getAttribute('data-fl-role')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _setEditSection('[data-ed-tpl]', _tplFoldHtml()); } return; }
@@ -812,10 +818,20 @@
 
 	  function reassignRoles() {
 	    d.photos.forEach(function (p, i) {
+	      if (p.roleManual) return;   // 사용자가 직접 지정(전/후/홍보컷/제외)한 사진은 자동배치에서 보존
 	      if (d.baMode && i === 0) p.role = 'before';
 	      else if (d.baMode && i === 1) p.role = 'after';
 	      else p.role = 'hero';
 	    });
+	  }
+	  // 업로드 화면에서 사진 라벨 탭 → 역할 직접 순환(홍보컷→전→후→제외). 5장 등 직접 묶기 지원.
+	  var _ROLE_CYCLE = ['hero', 'before', 'after', 'exclude'];
+	  function _cycleRole(i) {
+	    var p = d.photos[i]; if (!p) return;
+	    var idx = _ROLE_CYCLE.indexOf(p.role || 'hero'); if (idx < 0) idx = 0;
+	    p.role = _ROLE_CYCLE[(idx + 1) % _ROLE_CYCLE.length];
+	    p.roleManual = true;
+	    setScreen('upload');
 	  }
 	  function addFiles(files, showToast) {
 	    files = Array.from(files || []).slice(0, 10);
