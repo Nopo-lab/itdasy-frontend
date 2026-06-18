@@ -50,19 +50,17 @@
 
   /* ── 컴포넌트 ── */
 
-  // 히어로 카드: 흰 카드 + 검정 CTA + "사진 올리면 게시까지 끝" + 인스타 라인 아이콘(로즈)
+  // 히어로 — 시안 A(담백 카드): 흰 카드 가로 레이아웃, 작은 검정 pill, 카메라 라인아이콘(로즈 틴트 박스)
   function _heroHTML() {
     return '' +
-      '<button type="button" class="wsv2-upload" data-wsv2-upload data-haptic="medium">' +
-        '<div class="wsv2-upload__headline">' +
-          '사진 올리면 게시까지 끝' +
-          '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>' +
+      '<button type="button" class="wsv2-hero" data-wsv2-upload data-haptic="medium">' +
+        '<div class="wsv2-hero__tx">' +
+          '<div class="wsv2-hero__eye">오늘 작업</div>' +
+          '<div class="wsv2-hero__tt">사진 올려<br>게시물 만들기</div>' +
+          '<div class="wsv2-hero__sub">사진 올리면 보정·글까지 한 번에</div>' +
+          '<span class="wsv2-hero__go">시작하기 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>' +
         '</div>' +
-        '<div class="wsv2-upload__h">사진을 올리면 AI가 게시글까지 써드려요</div>' +
-        '<span class="wsv2-upload__btn">' +
-          '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px;stroke:#fff;fill:none"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>' +
-          '사진 올리기' +
-        '</span>' +
+        '<span class="wsv2-hero__ill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg></span>' +
       '</button>';
   }
 
