@@ -266,6 +266,16 @@
     },
 
     // 고객 연결 — Customer.pick (자체 오버레이 z-10800, 위에 정상 표시)
+    // 고정 꼬리말(caption_template) 영속화 — PUT /shop/persona. 빈 값이면 BE가 자동첨부 생략.
+    setCaptionTemplate: function (text) {
+      var headers = window.authHeader ? window.authHeader() : {};
+      headers['Content-Type'] = 'application/json';
+      var url = (typeof window.apiUrl === 'function') ? window.apiUrl('/shop/persona') : ((window.API || '') + '/shop/persona');
+      return fetch(url, { method: 'PUT', headers: headers, body: JSON.stringify({ caption_template: String(text == null ? '' : text) }) })
+        .then(function (res) { return res.ok ? { ok: true } : res.json().catch(function () { return {}; }).then(function (j) { return { ok: false, toast: j.detail || ('저장 실패 (' + res.status + ')') }; }); })
+        .catch(function () { return { ok: false, toast: '네트워크 오류로 저장하지 못했어요' }; });
+    },
+
     pickCustomer: function (selectedId) {
       if (!(window.Customer && has(window.Customer.pick))) {
         return Promise.resolve({ ok: false, reason: 'no_customer', toast: '고객 모듈을 불러오지 못했어요' });

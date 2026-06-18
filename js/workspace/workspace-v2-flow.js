@@ -325,8 +325,12 @@
 	          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
 	        '</div>' +
       '</div>' +
-      '<div class="captail"><div class="captail__label">고정 꼬리말 자동 추가</div>' +
-        '<div class="captail__body">' + (d.captionTemplate ? esc(d.captionTemplate) : '매장 고정 문구(예약 DM·영업시간)가 자동으로 붙어요') + '</div>' +
+      '<div class="captail">' +
+        '<div class="captail__head"><span class="captail__label">고정 꼬리말</span>' +
+          (d.captionTemplate ? '<button type="button" class="captail__clear" data-fl="footerclear">비우기</button>' : '') +
+        '</div>' +
+        '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
+        '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
       '</div>' +
       (hashHtml ? '<div class="cust-row"><b>해시태그</b><a data-fl="morehash">새로고침 ›</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
       '<div class="cap-regen-row">' +
@@ -337,6 +341,23 @@
 	        '<button class="cap-regen-btn" data-fl-var="insta">인스타스럽게</button>' +
 	      '</div>';
 	  }
+
+  // 고정 꼬리말 저장/비우기 — persona.caption_template 영속화(빈 값이면 다음 생성부터 미부착)
+  function saveFooter(text, isClear) {
+    text = String(text == null ? '' : text);
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.setCaptionTemplate)) { toast('설정 저장 모듈을 불러오지 못했어요'); return; }
+    // 비우기: 현재 미리보기 캡션에 이미 붙은 꼬리말도 best-effort 로 제거
+    if (isClear && d.captionTemplate && d.caption) {
+      var tail = d.captionTemplate.trim();
+      var idx = d.caption.lastIndexOf(tail);
+      if (idx >= 0) d.caption = d.caption.slice(0, idx).replace(/\s+$/, '');
+    }
+    d.captionTemplate = text;
+    window.WorkspaceAdapter.setCaptionTemplate(text).then(function (r) {
+      toast(r && r.ok ? (isClear ? '고정 꼬리말을 비웠어요' : '고정 꼬리말을 저장했어요') : ((r && r.toast) || '저장에 실패했어요'));
+      setScreen('caption');
+    });
+  }
 
   function _mountCaption() {
     var container = el.querySelector('[data-fl-scenario]');
@@ -516,6 +537,8 @@
       if (a === 'gen') { return doGenerate({}, null); }
       if (a === 'regen') { return doGenerate({}, '게시글을 다시 생성했어요'); }
       if (a === 'morehash') { return doGenerate({}, '해시태그를 새로 가져왔어요'); }
+      if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
+      if (a === 'footerclear') { return saveFooter('', true); }
       if (a === 'toconnect') { syncCaptionFromDom(); setScreen('connect'); return; }
       if (a === 'topreview') { syncCaptionFromDom(); setScreen('preview'); return; }
       if (a === 'pickcust') { return pickCustomer(); }
@@ -594,6 +617,7 @@
 	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
 	      }
 	      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
+      if (e.target.matches('[data-fl-footer]')) { d.captionTemplate = e.target.value; }
       if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
