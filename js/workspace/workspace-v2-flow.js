@@ -48,7 +48,29 @@
     if (typeof window._fileToDataUrl === 'function') return window._fileToDataUrl(f);
     return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
   }
-  function curPhoto() { var p = d.photos.filter(function (x) { return x.role !== 'exclude'; }); return (p[1] || p[0] || d.photos[0]); }
+  function editablePhotos() { return d.photos.filter(function (x) { return x.role !== 'exclude'; }); }
+  // 대표 사진 — 캡션/미리보기/저장 썸네일/게시 이미지(전후면 '후' 우선). 기존 동작 유지.
+  function curPhoto() { var p = editablePhotos(); return (p[1] || p[0] || d.photos[0]); }
+  // 편집 대상 사진 — 편집 화면에서 전/후 전환(editIdx)으로 선택. 전후면 '전(before)' 기본, 일반은 첫 사진.
+  function curEditPhoto() {
+    var p = editablePhotos();
+    if (!p.length) return d.photos[0];
+    if (d.editIdx == null) d.editIdx = 0;
+    if (d.editIdx < 0 || d.editIdx >= p.length) d.editIdx = 0;
+    return p[d.editIdx];
+  }
+  // 전/후(또는 다중) 편집 대상 전환 — 현재 보정을 먼저 굽고(다른 사진 오적용 방지) 편집 상태 초기화.
+  function switchEditPhoto(idx) {
+    var p = editablePhotos();
+    if (idx < 0 || idx >= p.length || idx === (d.editIdx || 0)) return;
+    bakeEdit().then(function () {
+      d.editIdx = idx;
+      d.adjust = newAdjust(); d.undo = []; d.redo = []; d.previewUrl = null;
+      d.originalPreview = false; d.basicTool = null;
+      d.bgAction = null; d.bgColor = null; d.bgFail = false; d.bgBusy = false;
+      setScreen('edit');
+    });
+  }
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
   // [C5] _barClass: vc(방문횟수) → b1/b2/b3 클래스
   function barClass(vc) {
@@ -127,9 +149,20 @@
   }
 
   function renderEdit() {
-    var base = photoUrl(curPhoto());
+    var base = photoUrl(curEditPhoto());
     var url = d.originalPreview ? base : (d.previewUrl || base);
     var preview = (d.originalPreview || d.previewUrl) ? 'none' : filterCss(d.adjust);
+
+    // ── 전/후(또는 다중) 사진 편집 전환 — 2장 이상일 때만. 각 사진을 각각 보정 가능 ──
+    var eps = editablePhotos();
+    var switcher = '';
+    if (eps.length >= 2) {
+      var curIdx = (d.editIdx == null) ? 0 : d.editIdx;
+      switcher = '<div class="ed-baswitch" role="tablist">' + eps.map(function (p, i) {
+        var lbl = p.role === 'before' ? '전 사진' : (p.role === 'after' ? '후 사진' : ('사진 ' + (i + 1)));
+        return '<button type="button" class="ed-baswitch__btn' + (i === curIdx ? ' on' : '') + '" data-fl-editsel="' + i + '" role="tab" aria-selected="' + (i === curIdx) + '" style="background-image:url(' + esc(photoUrl(p)) + ')"><span>' + esc(lbl) + '</span></button>';
+      }).join('') + '</div>';
+    }
 
     // ── 기본 보정(항상 노출): 밝기/대비/채도/선명도/색감 + 슬라이더 + 되돌리기 바 ──
     var basicCtrls = (EDIT_TABS.filter(function (t) { return t.k === 'basic'; })[0] || EDIT_TABS[0]).controls;
@@ -182,7 +215,7 @@
       tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
         '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
         '<div class="tpl-grid2">' + ['Clean Beige', 'Lash Anew', 'Glow White', 'Event Soft', 'Salon Warm', 'Before After'].map(function (n, i) {
-          return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curPhoto())) + ')"' : '') + '></div>';
+          return '<div class="tpl-item' + (d.template === n ? ' on' : (d.template == null && i === 0 ? ' on' : '')) + '" data-fl-tpl="' + esc(n) + '"' + (photoUrl(curEditPhoto()) ? ' style="background-image:url(' + esc(photoUrl(curEditPhoto())) + ')"' : '') + '></div>';
         }).join('') + '</div>' +
         (d.template ? '<div class="tpl-picked">선택: ' + esc(d.template) + '</div>' : '') +
       '</div></div>';
@@ -191,6 +224,7 @@
       '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>템플릿 <em>' + (d.template ? esc(d.template) : '꾸미기') + '</em></span>' + caret(d.tplOpen) + '</button>' + tplBody;
 
     return '' +
+      switcher +
       '<div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(url) + ');filter:' + preview + '"></div>' +
       basicHtml +
       bottomHtml +
@@ -410,6 +444,7 @@
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') d.bgOpen = !d.bgOpen; else if (fk === 'adv') d.advOpen = !d.advOpen; else if (fk === 'tpl') d.tplOpen = !d.tplOpen; setScreen('edit'); return; }
+      var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
       var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); setScreen('edit'); return; }
       var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; setScreen('edit'); return; }
       var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); setScreen('edit'); return; }
@@ -453,7 +488,7 @@
       if (e.target.matches('[data-fl-range]')) {
         var k = e.target.getAttribute('data-fl-range'); d.adjust[k] = +e.target.value;
         var p = el.querySelector('[data-fl-edphoto]');
-        if (p && !d.originalPreview) { d.previewUrl = null; p.style.backgroundImage = 'url(' + esc(photoUrl(curPhoto())) + ')'; p.style.filter = filterCss(d.adjust); }
+        if (p && !d.originalPreview) { d.previewUrl = null; p.style.backgroundImage = 'url(' + esc(photoUrl(curEditPhoto())) + ')'; p.style.filter = filterCss(d.adjust); }
         var v = el.querySelector('[data-fl-rangeval]'); if (v) v.textContent = (d.adjust[k] > 0 ? '+' : '') + d.adjust[k];
       }
       if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.textContent; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
@@ -473,7 +508,7 @@
   }
 
   function _refreshPreview() {
-    var photo = curPhoto(); if (!photo) return;
+    var photo = curEditPhoto(); if (!photo) return;
     var base = photo.editedDataUrl || photo.dataUrl;
     var p = el.querySelector('[data-fl-edphoto]');
     var nonzero = d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
@@ -500,7 +535,7 @@
   }
 
   function applyBg(action) {
-    var photo = curPhoto();
+    var photo = curEditPhoto();
     if (!photo) { toast('사진이 없어요'); return; }
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
     var prev = d.bgAction;
@@ -514,7 +549,7 @@
   }
 
   function bakeEdit() {
-    var photo = curPhoto();
+    var photo = curEditPhoto();
     var nonzero = photo && d.adjust && Object.keys(d.adjust).some(function (k) { return d.adjust[k]; });
     if (!photo || !nonzero) return Promise.resolve();
     var src = photo.editedDataUrl || photo.dataUrl;
@@ -571,7 +606,7 @@
 
   function openCropFlow() {
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.openCrop)) { toast('크롭 모듈을 불러오지 못했어요'); return; }
-    var idx = d.photos.indexOf(curPhoto()); if (idx < 0) idx = 0;
+    var idx = d.photos.indexOf(curEditPhoto()); if (idx < 0) idx = 0;
     window.WorkspaceAdapter.openCrop({
       photos: d.photos, index: idx, ratio: CROP_RATIO[d.tplPurpose] || '4:5',
       onApply: function (photoId, dataUrl, meta) {
@@ -716,7 +751,7 @@
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
-      editTab: 'skin', control: null, basicTool: null, bgOpen: false, advOpen: false, tplOpen: false, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
+      editTab: 'skin', control: null, basicTool: null, editIdx: null, bgOpen: false, advOpen: false, tplOpen: false, adjust: newAdjust(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
       captionAxes: null, captionTemplate: '',
     };
     if (d.photos.length && !hadRoles) reassignRoles();
