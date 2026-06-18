@@ -118,7 +118,17 @@
       '</div>' +
       '<footer class="wsv2flow__actionbar"><button class="wsv2flow__cta" data-fl="cta">다음</button></footer>' +
       '<input type="file" accept="image/*" multiple data-fl-file hidden>' +
-      '<input type="file" accept="image/*" data-fl-bgfile hidden>';
+      '<input type="file" accept="image/*" data-fl-bgfile hidden>' +
+      // 올리기 로딩 — 시안 B(잇비 봇 둥둥 + 점3개 + 단계 멘트/인디케이터)
+      '<div class="wsv2pub" data-fl-pub hidden aria-live="polite">' +
+        '<div class="wsv2pub__card">' +
+          '<div class="wsv2pub__bot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bot"/></svg></div>' +
+          '<div class="wsv2pub__dots"><span></span><span></span><span></span></div>' +
+          '<div class="wsv2pub__t" data-fl-pub-t>올리는 중…</div>' +
+          '<div class="wsv2pub__s" data-fl-pub-s>사진을 인스타로 보내고 있어요</div>' +
+          '<div class="wsv2pub__steps" data-fl-pub-steps><i class="on"></i><i></i><i></i></div>' +
+        '</div>' +
+      '</div>';
   }
 
   function renderUpload() {
@@ -225,11 +235,11 @@
 	    var basicHtml = _mainAdjustHtml();
     var bottomHtml =
       '<div class="ed-bottom">' +
-        '<div class="eb' + (d.undo && d.undo.length ? '' : ' disabled') + '" data-fl-eb="되돌리기"><i class="ph-duotone ph-arrow-counter-clockwise"></i>되돌리기</div>' +
-        '<div class="eb' + (d.redo && d.redo.length ? '' : ' disabled') + '" data-fl-eb="다시실행"><i class="ph-duotone ph-arrow-clockwise"></i>다시실행</div>' +
-        '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="비교"><span class="activebox"><i class="ph-duotone ph-columns"></i></span>비교</div>' +
-        '<div class="eb" data-fl-eb="원본보기"><i class="ph-duotone ph-eye"></i>원본보기</div>' +
-        '<div class="eb" data-fl-eb="초기화"><i class="ph-duotone ph-arrows-clockwise"></i>초기화</div>' +
+        '<div class="eb' + (d.undo && d.undo.length ? '' : ' disabled') + '" data-fl-eb="되돌리기"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a4 4 0 0 1 0 8h-1"/></svg>되돌리기</div>' +
+        '<div class="eb' + (d.redo && d.redo.length ? '' : ' disabled') + '" data-fl-eb="다시실행"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a4 4 0 0 0 0 8h1"/></svg>다시실행</div>' +
+        '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="비교"><span class="activebox"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><rect x="3" y="6" width="6" height="12" rx="1"/><rect x="15" y="8" width="6" height="8" rx="1"/></svg></span>비교</div>' +
+        '<div class="eb" data-fl-eb="원본보기"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>원본보기</div>' +
+        '<div class="eb" data-fl-eb="초기화"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>초기화</div>' +
       '</div>';
 
     // 펼치기 화살표 — 앱 표준 스프라이트(#ic-chevron-*)
@@ -257,7 +267,7 @@
       precBody = '<div class="ed-panel">' + precTabsHtml + inner + '</div>';
     }
     var advFold =
-      '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·머릿결·고급</em></span>' + caret(d.advOpen) + '</button>' + precBody;
+      '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·헤어·눈가·고급</em></span>' + caret(d.advOpen) + '</button>' + precBody;
 
 	    // ── 템플릿(기본 펼침): 실제 캔버스 적용 가능한 6개만 노출 ──
 	    var tplBody = '';
@@ -848,18 +858,36 @@
     d.publish.status = 'upload_ready'; d.publish.instagramPreparedAt = Date.now();
   }
 
-  // [C6] 게시 — uploadProgressPopup 모달 사용, confirm() 제거
-  function _showProgress(pct, msg) {
-    var pop = document.getElementById('uploadProgressPopup'); if (!pop) return;
-    pop.style.display = 'flex';
-    if (typeof setUploadProgress === 'function') setUploadProgress(pct, msg);
+  // [C6/#10] 게시 — 잇비 봇 로딩 모달(시안 B). 단계 멘트 + 최소 노출감
+  var PUB_MSG = [
+    ['올리는 중…', '사진을 인스타로 보내고 있어요'],
+    ['글 입히는 중…', '게시글·해시태그를 붙이는 중'],
+    ['게시 완료!', '인스타그램에 올라갔어요'],
+  ];
+  var _pubTimer = null;
+  function _pubQ(sel) { return el ? el.querySelector(sel) : null; }
+  function _pubStage(i) {
+    var t = _pubQ('[data-fl-pub-t]'), s = _pubQ('[data-fl-pub-s]');
+    if (t) t.textContent = PUB_MSG[i][0];
+    if (s) s.textContent = PUB_MSG[i][1];
+    var steps = el ? el.querySelectorAll('[data-fl-pub-steps] i') : null;
+    if (steps && steps.length) Array.prototype.forEach.call(steps, function (n, j) { n.className = j < i ? 'done' : (j === i ? 'on' : ''); });
+    var card = _pubQ('.wsv2pub__card'); if (card) card.classList.toggle('is-done', i >= 2);
   }
-  function _hideProgress() {
-    var pop = document.getElementById('uploadProgressPopup'); if (pop) pop.style.display = 'none';
+  function _pubShow() {
+    var p = _pubQ('[data-fl-pub]'); if (!p) return;
+    p.hidden = false; p.classList.add('is-open'); _pubStage(0);
+    if (_pubTimer) clearTimeout(_pubTimer);
+    _pubTimer = setTimeout(function () { _pubStage(1); }, 1100);
   }
-  function _showDone() {
-    var pop = document.getElementById('uploadDonePopup'); if (!pop) return;
-    pop.style.display = 'flex';
+  function _pubHide() {
+    if (_pubTimer) { clearTimeout(_pubTimer); _pubTimer = null; }
+    var p = _pubQ('[data-fl-pub]'); if (p) { p.hidden = true; p.classList.remove('is-open'); }
+  }
+  function _pubFinish(cb) {
+    if (_pubTimer) { clearTimeout(_pubTimer); _pubTimer = null; }
+    _pubStage(1);
+    setTimeout(function () { _pubStage(2); setTimeout(function () { _pubHide(); if (cb) cb(); }, 1200); }, 350);
   }
 
 	  function publish() {
@@ -869,23 +897,28 @@
 	    syncCaptionFromDom();
 	    d._publishing = true; setScreen('preview');
     var slot = buildSlot();
-    _showProgress(10, '저장 중…');
+    _pubShow();
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
-	      if (!sr || !sr.ok) { d._publishing = false; _hideProgress(); toast('저장에 실패해 게시를 중단했어요'); setScreen('preview'); return; }
+	      if (!sr || !sr.ok) { d._publishing = false; _pubHide(); toast('저장에 실패해 게시를 중단했어요'); setScreen('preview'); return; }
       d.slot = slot;
       if (!window.WorkspaceAdapter.publishInstagramV2) {
-	        d._publishing = false; _hideProgress(); _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
+	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
-      _showProgress(40, '인스타에 업로드 중…');
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
       window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: photoUrl(curPhoto()), caption: cap }).then(function (r) {
-        d._publishing = false; r = r || {};
-        _hideProgress();
+        r = r || {};
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
-          _showDone(); toast('인스타그램에 올렸어요');
-          if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
-        } else if (r.reason === 'ambiguous') { _markPrepared(); toast('게시 준비 완료 — 업로드 결과 확인이 필요해요'); }
+          _pubFinish(function () {
+            d._publishing = false;
+            toast('인스타그램에 올렸어요');
+            if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
+            setScreen('preview');
+          });
+          return;
+        }
+        d._publishing = false; _pubHide();
+        if (r.reason === 'ambiguous') { _markPrepared(); toast('게시 준비 완료 — 업로드 결과 확인이 필요해요'); }
 	        else {
 	          var m = { not_connected: '인스타 연결이 필요해요', blob: '이미지 생성에 실패했어요', api: '업로드 API 호출에 실패했어요', server: '서버가 업로드를 거부했어요' }[r.reason] || '업로드에 실패했어요';
 	          console.warn('[wsv2flow] instagram publish failed', r);
