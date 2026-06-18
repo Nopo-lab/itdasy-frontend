@@ -210,12 +210,14 @@
   // [F2] 전송 버튼 라벨·스타일
   function _mainBtnStyle(it) {
     const am = it.action_meta || {};
+    if (it.action_required === 'send_form') return 'background:#0F766E;';  // [A] 양식 보내기 → 틸
     if (am.deposit_sent) return 'background:#2B3A67;';  // 입금 대기 → 딥네이비
     if (am.awaiting_deposit) return 'background:#BC6675;';  // 예약금 안내 → 로즈
     return 'background:#191F28;';
   }
   function _mainBtnLabel(it) {
     const am = it.action_meta || {};
+    if (it.action_required === 'send_form') return '양식 보내기';  // [A]
     if (am.deposit_sent) return '입금 확인 + 예약 확정';
     if (am.awaiting_deposit) return '예약금 안내 전송';
     return '전송';
@@ -246,6 +248,7 @@
     const ex = it.extracted || null;
     const am = it.action_meta || {};
     const isFormAuto = !!it.form_auto_sent;
+    const isSendForm = it.action_required === 'send_form';  // [A] 발송 전 [양식 보내기] 카드
     const isPhotoOnly = !!am.photo_only;
     const name = it.display_name || (ex && ex.name) || ('손님 …' + tail);
     const _rawDraft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
@@ -263,6 +266,11 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
           잇비가 예약 양식 보냈어요
         </div>` : '';
+    // [A] 발송 전 — 원장이 [양식 보내기] 눌러야 나감
+    const sendFormBadge = isSendForm
+      ? `<div style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#0F766E;background:#ECFDF5;padding:3px 9px;border-radius:99px;margin-bottom:8px;">
+          📋 예약 문의 — 양식 보낼까요?
+        </div>` : '';
     // [Task 4] 사진 카드 배지 + 인스타 열기 안내
     const photoOnlyBlock = isPhotoOnly
       ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
@@ -276,6 +284,7 @@
       <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
         ${_channelMark(it.channel)}
         ${formAutoBadge}
+        ${sendFormBadge}
         <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px;">
           <div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;overflow:hidden;position:relative;">${_AVATAR_SVG}${avImg}</div>
           <div style="flex:1;min-width:0;">
@@ -295,15 +304,15 @@
         <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">잇비 추천 답장</div>
+            <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
             <div class="dcq-draft" style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(draft)}</div>
             <textarea class="dcq-edit" rows="3" style="display:none;width:100%;margin-top:6px;padding:10px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;line-height:1.5;background:#fff;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(draft)}</textarea>
           </div>
         </div>
         <div style="display:flex;gap:6px;margin-top:12px;">
-          ${(!isFormAuto || _rawDraft) ? `<button class="dcq-send" data-act="send" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          ${(!isFormAuto || _rawDraft) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>` : ''}
-          ${(am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
+          ${(isSendForm || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
         </div>
         ${_depositConfirmBtn(it)}
@@ -375,6 +384,8 @@
     list.querySelectorAll('.dcq-send').forEach(b => b.addEventListener('click', () => {
       const card = b.closest('[data-id]'); if (!card) return;
       const am = (() => { try { return JSON.parse(card.dataset.am || '{}'); } catch(_e){ return {}; } })();
+      // [A] 양식 보내기 카드 → /send-form (발송은 원장 탭에서)
+      if (b.dataset.act === 'send-form') { _doAction(b, 'send-form'); return; }
       // [F2] deposit_sent 단계 메인 버튼 → confirm-deposit 액션
       if (am.deposit_sent) { _doAction(b, 'confirm-deposit'); return; }
       const ta = card.querySelector('.dcq-edit');
@@ -399,6 +410,10 @@
       let r;
       if (action === 'send') {
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send`, { selected_index: 0 });
+      } else if (action === 'send-form') {
+        r = await _fetch('POST', `/dm-confirm-queue/${id}/send-form`);
+        if (window.showToast) window.showToast(r && r.ok ? '예약 양식을 보냈어요 ✓' : ((r && r.message) || '양식 발송 실패'));
+        if (!(r && r.ok)) { btn.disabled = false; btn.style.opacity = '1'; return; }
       } else if (action === 'send_edit') {
         if (!editedText) {
           if (window.showToast) window.showToast('수정 내용이 비어있어요');
