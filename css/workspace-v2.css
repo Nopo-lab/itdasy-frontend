@@ -95,16 +95,18 @@
 .wsv2-tabs::-webkit-scrollbar { display: none; }
 .wsv2-tab {
   flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; font-weight: 700; padding: 9px 13px; border-radius: var(--r-md); cursor: pointer;
-  background: var(--surface); border: 1px solid var(--border); color: var(--text-subtle);
-  transition: background .12s ease, color .12s ease, border-color .12s ease;
+  font-size: 12px; font-weight: 700; padding: 9px 13px; border-radius: var(--r-pill); cursor: pointer;
+  background: transparent; border: 1px solid var(--border); color: var(--text-subtle);
+  transition: background .12s ease, color .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 .wsv2-tab b {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 19px; height: 19px; border-radius: var(--r-pill);
-  background: var(--brand-bg); color: var(--brand-strong); font-size: 11px; font-weight: 800;
+  background: var(--frame); color: var(--text-subtle); font-size: 11px; font-weight: 800;
 }
-.wsv2-tab.is-active { color: var(--brand-strong); background: var(--brand-bg); border-color: var(--brand); }
+/* 활성 = 흰 pill + 그림자 + 진한 텍스트(색반전) */
+.wsv2-tab.is-active { color: var(--text); background: var(--surface); border-color: var(--surface); box-shadow: var(--shadow-sm); }
+.wsv2-tab.is-active b { background: var(--brand); color: #fff; }
 
 /* 콘텐츠 카드 */
 .wsv2-list { display: grid; gap: 13px; }
