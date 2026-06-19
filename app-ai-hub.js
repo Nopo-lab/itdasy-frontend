@@ -42,6 +42,9 @@
       { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
         type: 'toggle', toggleKey: KEY_DM },
+      { act: 'dmmenu', icon: 'ph-list-checks', boxColor: 'teal',
+        name: 'DM 자동 메뉴', meta: '손님 탭 버튼(예약·영업시간·가격…)',
+        type: 'plain' },
       { act: 'kakao', icon: 'ph-bell-ringing', boxColor: 'amber',
         name: '카카오 알림톡', meta: '예약확정 · 리마인드 · 생일',
         type: 'toggle', toggleKey: KEY_KAKAO },
@@ -222,6 +225,7 @@
   // ── 항목 라우터 ─────────────────────────────
   const _ROUTE_MAP = {
     dm:      'openDMAutoreplySettings',
+    dmmenu:  'openDMMenuSettings',
     kakao:   'openKakaoHub',
     persona: '__personaHubOpen',   // [2026-05-25] SNS 캡션 + 페르소나 통합 시트
     hashtag: '__snsHashtagOpen',
