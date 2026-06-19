@@ -338,5 +338,8 @@
     }
   }
 
-  window.PhotoEditorBeautyPack = { draw: draw, _kit: _KIT, _register: register };
+  // 등록된 id 인지(썸네일 생성기가 beautyPack 경로 판별에 사용).
+  function has(id) { return !!(id && ROUTES[id]); }
+
+  window.PhotoEditorBeautyPack = { draw: draw, _kit: _KIT, _register: register, has: has };
 })();
