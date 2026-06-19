@@ -96,6 +96,9 @@
 /* [sticky preview] 정밀 보정/템플릿 패널로 스크롤해도 사진 미리보기가 항상 화면에 보이게 — 상단 고정. */
 .wsv2flow .ed-photo-vp { position: sticky; top: 0; z-index: 3; width: 100%; height: clamp(200px, 38vh, 300px); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 13px; box-shadow: var(--shadow-sm); background: var(--frame); touch-action: none; }
 .wsv2flow .ed-photo { width: 100%; height: 100%; border-radius: 0; background: var(--frame) center/cover; margin: 0; box-shadow: none; transition: filter .12s; transform-origin: center center; will-change: transform; }
+/* 정밀(피부/헤어) 보정 처리 중 — 손 뗄 때 픽셀 연산 진행 표시(스피너) */
+.wsv2flow .ed-photo-vp.is-processing::after { content: ""; position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border: 3px solid rgba(255,255,255,.55); border-top-color: var(--brand-strong); border-radius: 50%; animation: wsv2spin .7s linear infinite; z-index: 4; pointer-events: none; }
+.wsv2flow .ed-photo-vp.is-processing::before { content: ""; position: absolute; inset: 0; background: rgba(20,16,12,.18); z-index: 3; pointer-events: none; }
 /* 편집 섹션 래퍼 — 레이아웃 영향 없이(display:contents) 부분 갱신 컨테이너만 제공 */
 .wsv2flow .ed-sec { display: contents; }
 .wsv2flow .ed-panel { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 16px; }
@@ -141,8 +144,16 @@
 .wsv2flow .ed-bottom .eb.active .eb-ic { stroke: var(--brand-strong); }
 /* 배경 탭 / 고급 탭 */
 .wsv2flow .ed-bg { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.wsv2flow .ed-bg__row { display: flex; flex-direction: column; gap: 8px; }
 .wsv2flow .ed-bg__sublabel { font-size: 11.5px; font-weight: 800; color: var(--text-subtle); margin: 4px 0 -2px; }
+/* 배경 정리 옵션 — 배경색 스와치처럼 아이콘 칩 한 줄(원본/인물만/흐림/내 배경) */
+.wsv2flow .ed-bg__opts { display: flex; flex-wrap: wrap; gap: 12px; padding: 2px 0; }
+.wsv2flow .ed-bg__opt { display: flex; flex-direction: column; align-items: center; gap: 5px; border: none; background: none; cursor: pointer; padding: 0; width: 60px; }
+.wsv2flow .ed-bg__opticon { width: 46px; height: 46px; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.wsv2flow .ed-bg__opticon i { font-size: 21px; }
+.wsv2flow .ed-bg__opt em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--text-subtle); white-space: nowrap; }
+.wsv2flow .ed-bg__opt.on .ed-bg__opticon { border-color: var(--brand-strong); background: var(--brand-bg); color: var(--brand-strong); box-shadow: 0 0 0 2px var(--brand-bg); }
+.wsv2flow .ed-bg__opt.on em { color: var(--brand-strong); }
+.wsv2flow .ed-bg__opt[disabled] { opacity: .5; pointer-events: none; }
 .wsv2flow .ed-bg__btn[disabled] { opacity: .5; pointer-events: none; }
 .wsv2flow .ed-bg__color[disabled] { opacity: .5; pointer-events: none; }
 .wsv2flow .ed-bg__status.is-busy { color: var(--brand-strong); font-weight: 800; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }

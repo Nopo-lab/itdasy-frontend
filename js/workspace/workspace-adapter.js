@@ -229,7 +229,8 @@
         .then(function (r) {
           if (!r) return { ok: false, reason: 'compose_empty', toast: '배경 처리에 실패했어요' };
           var url = opts.action === 'removeBg' ? (r.removedBgDataUrl || r.composedDataUrl) : (r.composedDataUrl || r.removedBgDataUrl);
-          return url ? { ok: true, dataUrl: url } : { ok: false, reason: 'no_output', toast: '배경 처리 결과가 없어요' };
+          // removedBg(투명 인물 누끼)를 함께 반환 → 작업실이 배경/인물을 분리 보관해, 이후 보정을 인물에만 적용하고 재합성.
+          return url ? { ok: true, dataUrl: url, removedBg: r.removedBgDataUrl || null } : { ok: false, reason: 'no_output', toast: '배경 처리 결과가 없어요' };
         }).catch(function (e) {
           // 에러 메시지 추출 — Error 면 .message, Event(이미지/네트워크 onerror) 면 .type 으로.
           var isEvent = (typeof Event !== 'undefined' && e instanceof Event) || (e && e.target && e.type && !e.message);

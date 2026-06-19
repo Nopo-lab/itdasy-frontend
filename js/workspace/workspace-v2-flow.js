@@ -173,20 +173,29 @@
 	  function _bgPanelHtml() {
     var bgcur = d.bgAction || '';
     var bgColors = ['#ffffff', '#f7f3ee', '#fbeaef', '#fce8d8', '#fdf6c9', '#eaf3fc', '#e7f4ec', '#efe9f7', '#3a322c', '#1f1b18'];
-    // [배경 정리] 개발자식 '누끼/배경제거/배경흐림' 3버튼 → 사용자 표현으로 통일한 한 섹션.
-    //  버튼을 누르면 바로 인물 분리 후 적용(배경색은 색을 고르면 그 색으로, 흐림/내 배경도 한 번에). 첫 클릭 즉시 처리 상태 노출.
+    // [배경 정리] 개발자식 '누끼/배경제거/배경흐림' → 배경색 아이콘처럼 직관적인 아이콘 칩 한 줄로 통일.
+    //  칩을 누르면 바로 인물 분리 후 적용. 보정은 인물에만 적용(배경은 그대로). 첫 클릭 즉시 처리 상태 노출.
+    var bgOpts = [
+      { act: 'reset',    ic: 'ph-arrow-counter-clockwise', lbl: '원본' },
+      { act: 'removeBg', ic: 'ph-scissors',                lbl: '인물만' },
+      { act: 'blur',     ic: 'ph-drop-half',               lbl: '배경 흐림' },
+      { act: 'image',    ic: 'ph-image-square',            lbl: '내 배경', pick: true }
+    ];
+    var optsHtml = bgOpts.map(function (o) {
+      var on = (o.act === 'reset') ? !d.bgAction : (bgcur === o.act);
+      var attr = o.pick ? 'data-fl-bgpick' : ('data-fl-bg="' + o.act + '"');
+      return '<button type="button" class="ed-bg__opt' + (on ? ' on' : '') + '" ' + attr + (d.bgBusy ? ' disabled' : '') +
+        ' aria-label="' + esc(o.lbl) + '"><span class="ed-bg__opticon"><i class="ph-duotone ' + o.ic + '"></i></span><em>' + esc(o.lbl) + '</em></button>';
+    }).join('');
     return '<div class="ed-bg">' +
-        '<div class="ed-bg__row">' +
-          '<button type="button" class="ed-bg__btn' + (bgcur === 'removeBg' ? ' on' : '') + '" data-fl-bg="removeBg"' + (d.bgBusy ? ' disabled' : '') + '><i class="ph-duotone ph-scissors"></i>인물·시술만 살리기</button>' +
-          '<button type="button" class="ed-bg__btn' + (bgcur === 'blur' ? ' on' : '') + '" data-fl-bg="blur"' + (d.bgBusy ? ' disabled' : '') + '><i class="ph-duotone ph-drop-half"></i>은은한 배경 흐림</button>' +
-          '<button type="button" class="ed-bg__btn' + (bgcur === 'image' ? ' on' : '') + '" data-fl-bgpick' + (d.bgBusy ? ' disabled' : '') + '><i class="ph-duotone ph-image-square"></i>내 배경 올리기</button>' +
-        '</div>' +
+        '<div class="ed-bg__sublabel">배경 정리</div>' +
+        '<div class="ed-bg__opts">' + optsHtml + '</div>' +
         (d.customBgName ? '<div class="ed-bg__status">올린 배경: ' + esc(d.customBgName) + '</div>' : '') +
         '<div class="ed-bg__sublabel">배경 색으로 채우기</div>' +
         '<div class="ed-bg__colors">' + bgColors.map(function (c) {
           return '<button type="button" class="ed-bg__color' + (d.bgColor === c ? ' on' : '') + '" data-fl-bgcolor="' + c + '" style="background:' + c + '" aria-label="배경색"' + (d.bgBusy ? ' disabled' : '') + '></button>';
         }).join('') + '</div>' +
-        '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : (d.bgBusy ? ' is-busy' : '')) + '" data-fl-bgstatus>' + (d.bgBusy ? '<i class="ph-duotone ph-spinner-gap ed-bg__spin"></i>배경 정리 중… (몇 초 걸려요)' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨 — 보정은 인물 사진에만 적용돼요' : '버튼을 누르면 바로 인물을 분리해요'))) + '</div>' +
+        '<div class="ed-bg__status' + (d.bgFail ? ' is-fail' : (d.bgBusy ? ' is-busy' : '')) + '" data-fl-bgstatus>' + (d.bgBusy ? '<i class="ph-duotone ph-spinner-gap ed-bg__spin"></i>배경 정리 중… (몇 초 걸려요)' : (d.bgFail ? esc(d.bgFailMsg || '배경 처리에 실패했어요') : (d.bgAction ? '적용됨 — 밝기·보정은 인물에만 적용돼요(배경 그대로)' : '아이콘을 누르면 바로 인물을 분리해요'))) + '</div>' +
       '</div>';
 	  }
 	  function _toolButtons(ctrls, activeKey, attr) {
@@ -354,7 +363,7 @@
 	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
 	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
 	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="' + esc(_servicePlaceholder()) + '">' +
-	        '<p class="cap-field-hint">상황을 고르거나, 키워드만 적고 아래 <b>‘이 내용으로 게시글 만들기’</b> 버튼을 눌러 주세요.</p>' +
+	        '<p class="cap-field-hint">키워드를 적고, 아래에서 <b>상황(시술 완성·신규 고객 등)</b>을 고르면 게시글이 만들어져요.</p>' +
 	        '<div data-fl-scenario></div>';
 	    }
     // 결과 화면
@@ -535,14 +544,9 @@
     el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= to); });
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
-    // [캡션] 위쪽 '이 내용으로 생성' 버튼 제거 → 하단 CTA 하나로 통일.
-    //  - 생성 전(결과 없음): '이 내용으로 게시글 만들기' (onCta가 입력값 flush 후 생성)
-    //  - 생성 후: '고객 연결로' (다음 단계)
-    //  - 생성 중(capLoading): 숨김
-    if (name === 'caption') {
-      if (d.capLoading) { bar.classList.add('hidden'); }
-      else { bar.classList.remove('hidden'); cta.textContent = String(d.caption || '').trim() ? CTA.caption.l : '이 내용으로 게시글 만들기'; }
-    }
+    // [캡션] 생성 트리거는 아래 '시나리오 칩(상황 선택)' 하나로 통일.
+    //  생성 전(결과 없음)엔 하단 CTA 숨김 → 칩을 눌러 생성. 생성 후 '고객 연결로' 노출.
+    if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
     if (name === 'connect') loadRecent();
@@ -750,21 +754,59 @@
 
 	  function _refreshPreview() {
 	    var photo = curEditPhoto(); if (!photo) return;
-	    var base = photo.editedDataUrl || photo.dataUrl;
+	    // [레이어 분리] 누끼+배경 적용본은 인물(fgCutout)/배경(bgSpec)을 분리 보관 →
+	    //  밝기/대비 등 보정은 인물에만 적용하고 배경 위에 재합성한다(배경은 보정 영향 안 받음).
+	    var hasBg = !!(photo.bgSpec && photo.fgCutout);
+	    var base = hasBg ? photo.fgCutout : (photo.editedDataUrl || photo.dataUrl);
 	    var p = el.querySelector('[data-fl-edphoto]');
 	    var nonzero = _hasValues(d.adjust) || _hasValues(d.beauty);
-	    if (!nonzero) { d.previewUrl = null; if (p && !d.originalPreview) { p.style.backgroundImage = 'url(' + esc(base) + ')'; p.style.filter = 'none'; } return; }
+	    if (!nonzero) {
+	      var show = hasBg ? (photo.editedDataUrl || base) : base;
+	      d.previewUrl = null; if (p && !d.originalPreview) { p.style.backgroundImage = 'url(' + esc(show) + ')'; p.style.filter = 'none'; } return;
+	    }
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceCorrections)) { if (p && !d.originalPreview) p.style.filter = filterCss(d.adjust); return; }
 	    var token = (d._pvTok = (d._pvTok || 0) + 1);
+	    // 정밀(피부/헤어) 보정은 손 뗄 때 픽셀 연산(수백 ms) — 처리 중 표시로 "안 먹는 듯한" 체감 제거.
+	    var vp = el.querySelector('[data-fl-edvp]'); if (vp && _hasValues(d.beauty)) vp.classList.add('is-processing');
+	    var done = function () { var v = el.querySelector('[data-fl-edvp]'); if (v) v.classList.remove('is-processing'); };
 	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty }).then(function (r) {
-	      if (token !== d._pvTok) return;
-      if (r && r.ok && r.dataUrl) {
-        d.previewUrl = r.dataUrl;
-        var p2 = el.querySelector('[data-fl-edphoto]');
-        if (p2 && !d.originalPreview) { p2.style.backgroundImage = 'url(' + r.dataUrl + ')'; p2.style.filter = 'none'; }
-      }
-    });
-  }
+	      if (token !== d._pvTok) { done(); return; }
+	      if (!(r && r.ok && r.dataUrl)) { done(); return; }
+	      var paint = function (url) {
+	        done();
+	        if (token !== d._pvTok) return;
+	        d.previewUrl = url;
+	        var p2 = el.querySelector('[data-fl-edphoto]');
+	        if (p2 && !d.originalPreview) { p2.style.backgroundImage = 'url(' + url + ')'; p2.style.filter = 'none'; }
+	      };
+	      if (hasBg) { _compositeBg(photo.bgSpec, r.dataUrl).then(paint); }
+	      else { paint(r.dataUrl); }
+	    }, done);
+	  }
+	  // 배경 spec + (보정된) 투명 인물 누끼 → 한 장으로 재합성. 배경은 보정값을 안 받는다.
+	  function _coverDraw(c, img, w, h) {
+	    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+	    var s = Math.max(w / iw, h / ih), dw = iw * s, dh = ih * s;
+	    c.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+	  }
+	  function _compositeBg(bgSpec, fgUrl) {
+	    return new Promise(function (resolve) {
+	      var fg = new Image();
+	      fg.onload = function () {
+	        var w = fg.naturalWidth || fg.width, h = fg.naturalHeight || fg.height;
+	        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+	        var c = cv.getContext('2d');
+	        var drawFg = function () { try { c.drawImage(fg, 0, 0, w, h); resolve(cv.toDataURL('image/png')); } catch (_e) { resolve(fgUrl); } };
+	        var act = bgSpec && bgSpec.action;
+	        if (act === 'color') { c.fillStyle = bgSpec.color || '#ffffff'; c.fillRect(0, 0, w, h); drawFg(); }
+	        else if (act === 'image' && bgSpec.bgImage) { var bi = new Image(); bi.onload = function () { _coverDraw(c, bi, w, h); drawFg(); }; bi.onerror = drawFg; bi.src = bgSpec.bgImage; }
+	        else if (act === 'blur' && bgSpec.origUrl) { var bo = new Image(); bo.onload = function () { c.save(); c.filter = 'blur(' + Math.max(6, Math.round(Math.min(w, h) * 0.03)) + 'px)'; _coverDraw(c, bo, w, h); c.filter = 'none'; c.restore(); drawFg(); }; bo.onerror = drawFg; bo.src = bgSpec.origUrl; }
+	        else { drawFg(); }   // removeBg/none → 투명 배경
+	      };
+	      fg.onerror = function () { resolve(fgUrl); };
+	      fg.src = fgUrl;
+	    });
+	  }
 
   function clone(o) { return JSON.parse(JSON.stringify(o || {})); }
 
@@ -786,13 +828,27 @@
 	  function applyBg(action) {
 	    var photo = curEditPhoto();
     if (!photo) { toast('사진이 없어요'); return; }
+    // 원본 되돌리기 — 배경 적용 전 사진(preBgUrl)으로 복귀, 레이어 상태 해제.
+    if (action === 'reset' || action === 'original') {
+      if (photo.preBgUrl) photo.editedDataUrl = photo.preBgUrl;
+      photo.bgSpec = null; photo.fgCutout = null; d.bgAction = null; d.bgColor = null; d.previewUrl = null;
+      setScreen('edit'); _refreshPreview(); toast('배경을 원래대로 되돌렸어요'); return;
+    }
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceBgAction)) { toast('배경 모듈을 불러오지 못했어요'); return; }
     var prev = d.bgAction;
+    // 항상 '배경 적용 전 원본'에서 재합성 — 색→흐림 등 옵션 전환 시 합성본을 또 누끼하지 않도록.
+    var composeSrc = photo.preBgUrl || photo.editedDataUrl || photo.dataUrl;
     d.bgAction = action; d.bgBusy = true; d.bgFail = false; setScreen('edit');
-    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: photo.editedDataUrl || photo.dataUrl, action: action, color: d.bgColor, bgImage: d.customBg, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
+    window.WorkspaceAdapter.applyWorkspaceBgAction({ src: composeSrc, action: action, color: d.bgColor, bgImage: d.customBg, ratio: CROP_RATIO[d.tplPurpose] || 'original' })
       .then(function (r) {
         d.bgBusy = false;
-        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview(); }
+        if (r && r.ok && r.dataUrl) {
+          if (!photo.preBgUrl) photo.preBgUrl = composeSrc;   // 최초 1회 원본 보관(되돌리기용)
+          photo.editedDataUrl = r.dataUrl;
+          photo.fgCutout = r.removedBg || null;   // 투명 인물 — 이후 보정은 여기에만
+          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl } : null;
+          d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview();
+        }
         else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; toast(d.bgFailMsg); setScreen('edit'); }
 	      });
 	  }
@@ -827,11 +883,14 @@
 	    var photo = curEditPhoto();
 	    var nonzero = photo && (_hasValues(d.adjust) || _hasValues(d.beauty));
 	    if (!photo || !nonzero) return Promise.resolve();
-	    var src = photo.editedDataUrl || photo.dataUrl;
+	    var hasBg = !!(photo.bgSpec && photo.fgCutout);
+	    var src = hasBg ? photo.fgCutout : (photo.editedDataUrl || photo.dataUrl);   // bg면 인물 누끼에만 보정
 	    if (window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceCorrections) {
 	      return window.WorkspaceAdapter.applyWorkspaceCorrections({ src: src, adjust: d.adjust, beauty: d.beauty }).then(function (r) {
-	        if (r && r.ok && r.dataUrl) { photo.editedDataUrl = r.dataUrl; photo.adjustments = clone(d.adjust); photo.beautyAdjustments = clone(d.beauty); d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; }
-	        else { return _bakeCss(photo, src); }
+	        if (!(r && r.ok && r.dataUrl)) return _bakeCss(photo, src);
+	        photo.adjustments = clone(d.adjust); photo.beautyAdjustments = clone(d.beauty); d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null;
+	        if (hasBg) { photo.fgCutout = r.dataUrl; return _compositeBg(photo.bgSpec, r.dataUrl).then(function (comp) { photo.editedDataUrl = comp; }); }
+	        photo.editedDataUrl = r.dataUrl;
 	      });
     }
     return _bakeCss(photo, src);
