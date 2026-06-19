@@ -78,6 +78,12 @@
 .wsv2flow .thumb-tag.exclude { background: rgba(80,80,80,.8); text-decoration: line-through; }
 /* 라벨을 탭하면 역할(전/후/홍보컷/제외) 직접 지정 — 버튼 기본 스타일 리셋 */
 .wsv2flow button.thumb-tag { appearance: none; -webkit-appearance: none; border: 0; cursor: pointer; font-family: inherit; line-height: 1; }
+
+/* [#5] 사진별 전/후 세그먼트 — 토글 순환 대신 직접 지정. 깔끔한 2-칩. */
+.wsv2flow .thumb-seg { position: absolute; left: 7px; bottom: 7px; display: inline-flex; gap: 2px; padding: 2px; border-radius: var(--r-pill); background: rgba(20,16,16,.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.wsv2flow button.thumb-seg-b { appearance: none; -webkit-appearance: none; border: 0; cursor: pointer; font-family: inherit; line-height: 1; min-width: 30px; height: 24px; padding: 0 8px; border-radius: var(--r-pill); background: transparent; color: rgba(255,255,255,.92); font-size: 11px; font-weight: 800; }
+.wsv2flow button.thumb-seg-b.on { background: var(--brand-strong); color: #fff; box-shadow: var(--shadow-sm); }
+.wsv2flow button.thumb-seg-b:first-child.on { background: rgba(91,140,200,.95); }
 .wsv2flow button.thumb-tag::after { content: ""; }
 .wsv2flow .up-rolehint { font-weight: 600; color: var(--text-subtle); font-size: 11px; }
 .wsv2flow .grid-add { height: 128px; display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; border: 1.5px dashed var(--border-strong); background: var(--surface); color: var(--brand-strong); font-size: 26px; font-weight: 800; border-radius: var(--r-md); cursor: pointer; }
@@ -226,6 +232,9 @@
 /* 재생성 버튼 3종 */
 .wsv2flow .cap-regen-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .wsv2flow .cap-regen-btn { flex: 1 1 calc(33.333% - 8px); min-width: 92px; height: 40px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 800; cursor: pointer; }
+.wsv2flow .cap-regen-btn:active { background: var(--surface-strong, var(--border)); }
+/* [#3] 초기화는 보조 동작 — 덜 강조(고스트). 한 줄에 3개 주력 + 초기화는 가늘게. */
+.wsv2flow .cap-regen-btn.ghost { flex: 0 0 auto; min-width: 0; padding: 0 14px; border-style: dashed; color: var(--text-subtle); font-weight: 700; background: transparent; }
 .wsv2flow .cap-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
 .wsv2flow .cap-redo { height: 50px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }

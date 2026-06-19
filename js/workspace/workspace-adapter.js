@@ -51,37 +51,48 @@
 	    handle = String(handle || '').replace(/^@/, '');
 	    return { connected: connected, handle: handle ? ('@' + handle) : '', profilePic: pic, displayName: handle ? ('@' + handle) : '' };
 	  }
-	  function _beautyMasks(img, b) {
-	    var MA = window.MaskApplication;
-	    var masks = null;
-	    try {
-	      if (MA && has(MA.getMasksForBeautySync)) masks = MA.getMasksForBeautySync(img);
-	      if ((b.lashSharp || 0) > 10 && MA && has(MA.getLashMaskSync)) {
-	        var lash = MA.getLashMaskSync(img); if (lash) { masks = masks || { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }; masks.lashMask = lash.mask; masks.lashScale = lash.scale; }
-	      }
-	      if ((b.eyeRedness || 0) > 0 && MA && has(MA.getScleraMaskSync)) {
-	        var sclera = MA.getScleraMaskSync(img); if (sclera) { masks = masks || { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }; masks.useMasks.scleraMask = sclera.mask; masks._scale.scleraMask = sclera.scale; }
-	      }
-	      if ((b.browSharp || 0) > 10 && MA && has(MA.getBrowMaskSync)) {
-	        var brow = MA.getBrowMaskSync(img); if (brow) { masks = masks || { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }; masks.browMask = brow.mask; masks.browScale = brow.scale; }
-	      }
-	    } catch (_e3) { masks = null; }
-	    return masks;
-	  }
-	  function _applyBeautyAdjust(opts) {
-	    opts = opts || {};
-	    if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
-	    if (!(window.PhotoEditorBeautyEngine && has(window.PhotoEditorBeautyEngine.apply))) return Promise.resolve({ ok: false, reason: 'no_beauty_engine' });
-	    if (!_hasValues(opts.beauty)) return Promise.resolve({ ok: true, dataUrl: opts.src });
-	    return _loadImage(opts.src).then(function (img) {
-	      var cv = document.createElement('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
-	      var ctx = cv.getContext('2d', { willReadFrequently: true });
-	      ctx.drawImage(img, 0, 0, cv.width, cv.height);
-	      window.PhotoEditorBeautyEngine.apply(ctx, cv.width, cv.height, opts.beauty || {}, false, _beautyMasks(img, opts.beauty || {}));
-	      return { ok: true, dataUrl: _encode(cv, opts.src) };
-	    }).catch(function (e) { console.warn('[wsadapter] beauty', e); return { ok: false, reason: 'beauty' }; });
-	  }
-	  function _templateById(id) {
+	  function _eyeMasks(masks, img, b) {
+    var MA = window.MaskApplication;
+    function ensure() { return masks || (masks = { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }); }
+    try {
+      if ((b.lashSharp || 0) > 10 && MA && has(MA.getLashMaskSync)) { var lash = MA.getLashMaskSync(img); if (lash) { ensure().lashMask = lash.mask; masks.lashScale = lash.scale; } }
+      if ((b.eyeRedness || 0) > 0 && MA && has(MA.getScleraMaskSync)) { var sc = MA.getScleraMaskSync(img); if (sc) { ensure().useMasks.scleraMask = sc.mask; masks._scale.scleraMask = sc.scale; } }
+      if ((b.browSharp || 0) > 10 && MA && has(MA.getBrowMaskSync)) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; masks.browScale = br.scale; } }
+    } catch (_e3) { /* eye 마스크 실패 무시 — 베이스 마스크 유지 */ }
+    return masks;
+  }
+  // [#1 FIX] 피부/헤어 마스크는 async getMasksForBeauty 로 실제 계산해서 받는다.
+  //   기존 getMasksForBeautySync 는 캐시 hit 일 때만 반환 → 작업실은 재호출 루프가 없어 항상 null → 피부/헤어 무반응.
+  //   maskKey(사진별)로 1회만 계산해 캐시 → 슬라이더 놓을 때마다 재계산하던 느림도 제거.
+  var _maskCache = {};
+  function _beautyMasksAsync(img, b, key) {
+    var MA = window.MaskApplication;
+    if (!MA) return Promise.resolve(_eyeMasks(null, img, b));
+    var basep;
+    if (key && Object.prototype.hasOwnProperty.call(_maskCache, key)) basep = Promise.resolve(_maskCache[key]);
+    else if (has(MA.getMasksForBeauty)) basep = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskCache[key] = m || null; return m; });
+    else basep = Promise.resolve(has(MA.getMasksForBeautySync) ? MA.getMasksForBeautySync(img) : null);
+    return basep.then(function (base) {
+      var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), meta: base.meta, maskW: base.maskW, maskH: base.maskH } : null;
+      return _eyeMasks(m, img, b);
+    });
+  }
+  function _applyBeautyAdjust(opts) {
+    opts = opts || {};
+    if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
+    if (!(window.PhotoEditorBeautyEngine && has(window.PhotoEditorBeautyEngine.apply))) return Promise.resolve({ ok: false, reason: 'no_beauty_engine' });
+    if (!_hasValues(opts.beauty)) return Promise.resolve({ ok: true, dataUrl: opts.src });
+    return _loadImage(opts.src).then(function (img) {
+      return _beautyMasksAsync(img, opts.beauty || {}, opts.maskKey).then(function (masks) {
+        var cv = document.createElement('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
+        var ctx = cv.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        window.PhotoEditorBeautyEngine.apply(ctx, cv.width, cv.height, opts.beauty || {}, false, masks);
+        return { ok: true, dataUrl: _encode(cv, opts.src) };
+      });
+    }).catch(function (e) { console.warn('[wsadapter] beauty', e); return { ok: false, reason: 'beauty' }; });
+  }
+  function _templateById(id) {
 	    var MD = window.PhotoEditorTemplateMarketData;
 	    if (MD && has(MD.lookupById)) return MD.lookupById(id);
 	    var list = window.PhotoEditorTemplatesV2 && window.PhotoEditorTemplatesV2.TEMPLATES;
@@ -209,7 +220,7 @@
 	      var base = _hasValues(opts.adjust) ? WorkspaceAdapter.applyPixelAdjust({ src: src, adjust: opts.adjust }) : Promise.resolve({ ok: true, dataUrl: src });
 	      return base.then(function (r) {
 	        src = (r && r.ok && r.dataUrl) ? r.dataUrl : src;
-	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty }) : { ok: true, dataUrl: src };
+	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty, maskKey: opts.maskKey }) : { ok: true, dataUrl: src };
 	      });
 	    },
 	    applyWorkspaceTemplate: _applyWorkspaceTemplate,

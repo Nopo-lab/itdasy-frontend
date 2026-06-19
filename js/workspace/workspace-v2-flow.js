@@ -135,30 +135,27 @@
   }
 
   function renderUpload() {
+    var multi = d.photos.length >= 2;
     var tiles = d.photos.map(function (p, i) {
-      // 자동 분류 금지: 사용자가 직접 지정(roleManual)했거나 전/후 토글 ON 일 때만 역할 라벨, 그 외엔 중립 '사진 N'.
-      var role = p.role || 'hero';
-      var showRole = p.roleManual || d.baMode;
-      var tag = '사진 ' + (i + 1), cls = '';
-      if (showRole && role === 'before') { tag = '전'; cls = 'before'; }
-      else if (showRole && role === 'after') { tag = '후'; cls = 'after'; }
-      else if (showRole && role === 'exclude') { tag = '제외'; cls = 'exclude'; }
-      else if (showRole && role === 'hero') { tag = '홍보컷'; }
+      // [#5] 토글 순환 제거 → 사진별 전/후 세그먼트(직관). 다시 누르면 해제(자동복귀). 제외는 삭제(휴지통)로.
+      var role = p.role || '';
+      var seg = multi
+        ? '<div class="thumb-seg" role="group" aria-label="이 사진 전/후 지정">' +
+            '<button type="button" class="thumb-seg-b' + (role === 'before' ? ' on' : '') + '" data-fl-setrole="' + i + ':before">전</button>' +
+            '<button type="button" class="thumb-seg-b' + (role === 'after' ? ' on' : '') + '" data-fl-setrole="' + i + ':after">후</button>' +
+          '</div>'
+        : '';
       return '<div class="photo-tile" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
         '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
-        '<button type="button" class="thumb-tag ' + cls + '" data-fl-role="' + i + '" aria-label="이 사진 용도 바꾸기(홍보컷·전·후·제외)">' + tag + '</button></div>';
+        seg + '</div>';
     }).join('');
     return '' +
       '<div class="up-drop" data-fl-pick>' +
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
         '<b>사진을 드래그하거나 여기를 눌러 업로드</b><span class="up-note">JPG · PNG 최대 20MB · 여러 장 선택 가능</span>' +
       '</div>' +
-      '<div class="up-toggle-row">' +
-        '<div class="up-toggle-copy"><b>전/후 사진으로 만들기</b><span>사진 순서대로 전·후를 자동으로 표시해요.</span></div>' +
-        '<button class="ui-toggle' + (d.baMode ? ' on' : '') + '" data-fl="batoggle" role="switch" aria-checked="' + d.baMode + '"></button>' +
-      '</div>' +
       '<div class="up-section">선택한 사진 <b>' + d.photos.length + '</b> / 10' +
-        (d.photos.length >= 2 ? ' <span class="up-rolehint">· 사진 라벨을 눌러 전·후·홍보컷·제외 직접 지정</span>' : '') + '</div>' +
+        (multi ? ' <span class="up-rolehint">· 전후로 올리려면 사진마다 <b>전·후</b>를 눌러주세요</span>' : '') + '</div>' +
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>';
@@ -390,13 +387,12 @@
         '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
         '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
       '</div>' +
-      (hashHtml ? '<div class="cust-row"><b>해시태그</b><a data-fl="morehash">새로고침 ›</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
+      (hashHtml ? '<div class="cust-row"><b>해시태그</b><a data-fl="morehash">+ 더 가져오기</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
       '<div class="cap-regen-row">' +
-	        '<button class="cap-regen-btn" data-fl-var="regen">다시</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="regen">다시 쓰기</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="reset">초기화</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="hashtags">해시태그 더</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="insta">인스타스럽게</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="insta">인스타 톤</button>' +
+	        '<button class="cap-regen-btn ghost" data-fl-var="reset">초기화</button>' +
 	      '</div>';
 	  }
 
@@ -585,9 +581,22 @@
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
       if (r.ok) {
-        d.caption = r.caption; d.hashtags = (r.hashtags || []).slice(); d.selectedHashes = d.hashtags.slice();
-        d.captionTemplate = r.caption_template || '';
-        d.logId = r.log_id || null; if (label) toast(label);
+        var fresh = (r.hashtags || []).slice();
+        if (opts.hashtag_mode === 'more' && d.caption) {
+          // [#3] '해시태그 더'/'더 가져오기' = 캡션 유지, 새 해시태그만 누적(중복 제거).
+          var merged = (d.hashtags || []).slice();
+          fresh.forEach(function (h) { if (merged.indexOf(h) < 0) merged.push(h); });
+          var added = merged.length - (d.hashtags || []).length;
+          d.hashtags = merged;
+          d.selectedHashes = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : []).slice();
+          fresh.forEach(function (h) { if (d.selectedHashes.indexOf(h) < 0) d.selectedHashes.push(h); });
+          if (label) toast(added > 0 ? label : '새 해시태그가 더 없어요');
+        } else {
+          d.caption = r.caption; d.hashtags = fresh; d.selectedHashes = fresh.slice();
+          d.captionTemplate = r.caption_template || '';
+          if (label) toast(label);
+        }
+        d.logId = r.log_id || d.logId || null;
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
       setScreen('caption');
     });
@@ -603,7 +612,7 @@
       if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); setScreen('upload'); return; }
       if (a === 'gen') { return doGenerate({}, null); }
       if (a === 'regen') { return doGenerate({}, '게시글을 다시 생성했어요'); }
-      if (a === 'morehash') { return doGenerate({}, '해시태그를 새로 가져왔어요'); }
+      if (a === 'morehash') { return doGenerate({ hashtag_mode: 'more' }, '해시태그를 더 가져왔어요'); }
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
       if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
@@ -620,7 +629,7 @@
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
-      var roleBtn = t.closest('[data-fl-role]'); if (roleBtn) { e.stopPropagation(); _cycleRole(+roleBtn.getAttribute('data-fl-role')); return; }
+      var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _setEditSection('[data-ed-tpl]', _tplFoldHtml()); } return; }
@@ -769,7 +778,7 @@
 	    // 정밀(피부/헤어) 보정은 손 뗄 때 픽셀 연산(수백 ms) — 처리 중 표시로 "안 먹는 듯한" 체감 제거.
 	    var vp = el.querySelector('[data-fl-edvp]'); if (vp && _hasValues(d.beauty)) vp.classList.add('is-processing');
 	    var done = function () { var v = el.querySelector('[data-fl-edvp]'); if (v) v.classList.remove('is-processing'); };
-	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty }).then(function (r) {
+	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
 	      if (token !== d._pvTok) { done(); return; }
 	      if (!(r && r.ok && r.dataUrl)) { done(); return; }
 	      var paint = function (url) {
@@ -886,7 +895,7 @@
 	    var hasBg = !!(photo.bgSpec && photo.fgCutout);
 	    var src = hasBg ? photo.fgCutout : (photo.editedDataUrl || photo.dataUrl);   // bg면 인물 누끼에만 보정
 	    if (window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceCorrections) {
-	      return window.WorkspaceAdapter.applyWorkspaceCorrections({ src: src, adjust: d.adjust, beauty: d.beauty }).then(function (r) {
+	      return window.WorkspaceAdapter.applyWorkspaceCorrections({ src: src, adjust: d.adjust, beauty: d.beauty, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
 	        if (!(r && r.ok && r.dataUrl)) return _bakeCss(photo, src);
 	        photo.adjustments = clone(d.adjust); photo.beautyAdjustments = clone(d.beauty); d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null;
 	        if (hasBg) { photo.fgCutout = r.dataUrl; return _compositeBg(photo.bgSpec, r.dataUrl).then(function (comp) { photo.editedDataUrl = comp; }); }
@@ -915,19 +924,17 @@
 
 	  function reassignRoles() {
 	    d.photos.forEach(function (p, i) {
-	      if (p.roleManual) return;   // 사용자가 직접 지정(전/후/홍보컷/제외)한 사진은 자동배치에서 보존
-	      if (d.baMode && i === 0) p.role = 'before';
-	      else if (d.baMode && i === 1) p.role = 'after';
+	      if (p.roleManual) return;   // 사용자가 직접 지정한 사진은 자동배치에서 보존
+	      if (i === 0 && d.photos.length >= 2) p.role = 'before';   // [#5] 2장 이상이면 첫=전/둘째=후 자동(나머지는 중립)
+	      else if (i === 1) p.role = 'after';
 	      else p.role = 'hero';
 	    });
 	  }
-	  // 업로드 화면에서 사진 라벨 탭 → 역할 직접 순환(홍보컷→전→후→제외). 5장 등 직접 묶기 지원.
-	  var _ROLE_CYCLE = ['hero', 'before', 'after', 'exclude'];
-	  function _cycleRole(i) {
+	  // [#5] 사진별 전/후 직접 지정. 같은 값 다시 누르면 해제(자동 배치로 복귀).
+	  function _setRole(i, role) {
 	    var p = d.photos[i]; if (!p) return;
-	    var idx = _ROLE_CYCLE.indexOf(p.role || 'hero'); if (idx < 0) idx = 0;
-	    p.role = _ROLE_CYCLE[(idx + 1) % _ROLE_CYCLE.length];
-	    p.roleManual = true;
+	    if (p.role === role && p.roleManual) { p.roleManual = false; reassignRoles(); }
+	    else { p.role = role; p.roleManual = true; }
 	    setScreen('upload');
 	  }
 	  function addFiles(files, showToast) {

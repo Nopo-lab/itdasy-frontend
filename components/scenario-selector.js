@@ -96,7 +96,7 @@ function renderScenarioSelector(container, onComplete) {
     // 진행 점 표시
     const progress = document.createElement('div');
     progress.className = 'ss-progress';
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {   // [#2] 중복되던 '상황 직접 입력' 단계 제거 → 3단계
       const dot = document.createElement('div');
       dot.className = 'ss-dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
       progress.appendChild(dot);
@@ -166,8 +166,8 @@ function renderScenarioSelector(container, onComplete) {
           customInput.focus();
         } else {
           state[cfg.key] = opt;
-          currentStep++;
-          render();
+          if (stepIdx >= 2) { _complete(); }   // [#2] 마지막 축 선택 시 바로 완료(중복 자유입력 단계 제거)
+          else { currentStep++; render(); }
         }
       };
       chips.appendChild(chip);
@@ -181,8 +181,8 @@ function renderScenarioSelector(container, onComplete) {
       const val = customInput.value.trim();
       if (!val) return;
       state[cfg.key] = val; // Store the custom text as the axis value
-      currentStep++;
-      render();
+      if (stepIdx >= 2) { _complete(); }   // [#2] 마지막 축 직접작성도 바로 완료
+      else { currentStep++; render(); }
     };
     customBtn.onclick = confirmCustom;
     customInput.addEventListener('keydown', e => {
@@ -190,6 +190,13 @@ function renderScenarioSelector(container, onComplete) {
     });
 
     wrap.appendChild(step);
+  }
+
+  // [#2] 3축 선택 완료 → 바로 결과 콜백(특수상황 자유입력 단계는 캡션 키워드 입력과 중복이라 제거).
+  function _complete(special_context) {
+    const card = _findCard(state);
+    const combo_id = card ? card.combo_id : `custom_${state.situation}_${state.customer}_${state.photo}`;
+    onComplete({ combo_id, axes: { ...state }, special_context: special_context || '' });
   }
 
   function _renderSpecialContext(wrap) {
