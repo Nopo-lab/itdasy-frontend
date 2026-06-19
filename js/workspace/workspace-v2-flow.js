@@ -1170,6 +1170,17 @@
 	    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
 	    setScreen(startScreen, { push: false });
 	    if (incomingFiles.length) addFiles(incomingFiles, true);
+	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
+	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);
+	  }
+	  // dataURL 배열을 사진으로 추가(잇비 채팅 사진 핸드오프). addFiles 와 동일 규약, File 변환만 생략.
+	  function addPhotoUrls(urls, showToast) {
+	    urls = (urls || []).filter(function (u) { return typeof u === 'string' && u; }).slice(0, 10);
+	    if (!urls.length || !d) return 0;
+	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero' }); });
+	    reassignRoles(); if (cur === 'upload') setScreen('upload');
+	    if (showToast) toast(urls.length + '장 추가됨');
+	    return urls.length;
 	  }
   // 시스템 back 진입점 — 인앱 back 과 동일 규칙(한 화면 뒤로, 비면 닫기). 한 화면 물러날 땐 history 재무장.
   function _systemBack() {
@@ -1201,11 +1212,27 @@
     _refreshPreview();
     return { ok: true };
   }
+  // 이름으로 고객 연결 — 전역 Customer.search 우선, 없으면 최근 고객 매칭. 못 찾으면 connect 화면 안내.
+  function _connectByName(name) {
+    name = String(name || '').trim();
+    if (!name) { setScreen('connect'); return { ok: true, matched: false }; }
+    d.custQuery = name;
+    var hit = null;
+    try {
+      if (window.Customer && typeof window.Customer.search === 'function') {
+        var m = window.Customer.search(name) || [];
+        if (m[0]) hit = { id: m[0].id, n: m[0].name, vc: m[0].visit_count || m[0].vc || 0 };
+      }
+    } catch (_e) { hit = null; }
+    if (!hit) hit = (d.recent || []).filter(function (c) { return c && c.n && (c.n === name || c.n.indexOf(name) >= 0 || name.indexOf(c.n) >= 0); })[0] || null;
+    if (hit) { d.customerId = hit.id; d.customerName = hit.n; d.customerVc = hit.vc || 0; setScreen('connect'); toast(hit.n + ' 고객과 연결했어요'); return { ok: true, matched: true }; }
+    setScreen('connect'); toast('"' + name + '" 고객을 못 찾았어요 — 목록에서 골라주세요'); return { ok: true, matched: false };
+  }
   function command(cmd) {
     cmd = cmd || {};
     switch (cmd.type) {
       case 'open':
-        open({ cat: cmd.cat || null, startScreen: cmd.screen || 'upload', textOnly: !!cmd.textOnly, files: cmd.files || null });
+        open({ cat: cmd.cat || null, startScreen: cmd.screen || 'upload', textOnly: !!cmd.textOnly, files: cmd.files || null, photoUrls: cmd.photoUrls || null });
         return { ok: true };
       case 'goto':
         if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };
@@ -1228,8 +1255,14 @@
       case 'caption':
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
         if (cmd.service != null) d.service = String(cmd.service);
-        if (cur !== 'caption') setScreen('caption');
+        if (cmd.axes) d.captionAxes = cmd.axes;   // [구조 통합] 상황(시술완성/신규 등)을 말로 받아 시나리오 칩 없이 생성
+        // 항상 재렌더 → 입력창이 최신 service 를 반영(doGenerate 가 DOM 에서 다시 읽으므로 필수).
+        setScreen('caption');
         doGenerate(cmd.extra || {}, cmd.label || null); return { ok: true };
+      case 'customer':   // [구조 통합] "OOO 손님이랑 연결" 자연어로 고객 연결
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        if (cur !== 'connect') setScreen('connect');
+        return _connectByName(cmd.name);
       case 'capvar':   // 다시/더길게/짧게/해시태그더/인스타스럽게/초기화
         if (!_flowReady() || cur !== 'caption') return { ok: false, reason: 'not_caption' };
         if (cmd.variant === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.logId = null; setScreen('caption'); return { ok: true }; }

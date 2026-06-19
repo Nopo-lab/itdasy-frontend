@@ -9,8 +9,13 @@
 
   // cmd 는 객체 또는 (text)=>객체. WorkspaceFlow.command(cmd) 스키마를 그대로 사용.
   var COMMANDS = [
-    // ── 화면 이동 ──
-    { test: /(고객).*(연결|붙여|연동)/, cmd: { type: 'goto', screen: 'connect' }, label: '고객 연결 화면으로 이동했어요' },
+    // ── 고객 연결(이름 추출) ──
+    { test: /(고객|손님|님).*(연결|연동|붙여)|(연결|붙여)\s*(해|줘)/, cmd: function (q) {
+      var m = q.match(/([가-힣A-Za-z]{2,12})\s*(손님|고객|님)?\s*(이?랑|와|과|에게|을|를|한테)?\s*(연결|연동|붙여)/);
+      var name = m && m[1] ? m[1].replace(/(손님|고객|님)$/, '').trim() : '';
+      if (/^(고객|손님|연결|연동)$/.test(name)) name = '';
+      return name ? { type: 'customer', name: name } : { type: 'goto', screen: 'connect' };
+    }, label: null },
     { test: /(미리보기|인스타.*미리|preview)/, cmd: { type: 'goto', screen: 'preview' }, label: '미리보기로 이동했어요' },
     { test: /(인스타).*(올려|게시|발행|업로드)|(올려|게시|발행)\s*(줘|해)/, cmd: { type: 'publish' }, label: '인스타에 올릴게요' },
     { test: /작업실.*(저장)|(저장)\s*(해|할래|해줘)$/, cmd: { type: 'save' }, label: '작업실에 저장했어요' },
@@ -58,7 +63,15 @@
     { test: /(해시태그|태그).*(더|많이|추가)/, cmd: { type: 'capvar', variant: 'hashtags' }, label: '해시태그를 더 가져왔어요' },
     { test: /(인스타스럽게|인스타\s*(말투|느낌|st|스타일))/, cmd: { type: 'capvar', variant: 'insta' }, label: '인스타 말투로 다시 썼어요' },
     { test: /(게시글|캡션|문구).*(다시|새로|재생성)|(다시)\s*(써|생성|만들)/, cmd: { type: 'capvar', variant: 'regen' }, label: '게시글을 다시 만들었어요' },
-    { test: /(게시글|캡션|문구).*(만들|써|생성|작성)/, cmd: { type: 'caption' }, label: '게시글을 만들고 있어요' },
+    { test: /(게시글|캡션|문구).*(만들|써|생성|작성)/, cmd: function (q) {
+      var out = { type: 'caption' };
+      var m = q.match(/(.+?)\s*(으로|로)?\s*(게시글|캡션|문구)\s*(써|쓰|작성|만들|생성)/);
+      var svc = m && m[1] ? m[1].replace(/(으로|로|을|를)$/, '').trim() : '';
+      if (svc && !/^(이|그|저|새|다시)$/.test(svc)) out.service = svc;   // 시술명/키워드를 말에서 추출
+      var sit = /신규|첫\s*방문|처음/.test(q) ? '신규 고객' : (/재방문|단골|또\s*오/.test(q) ? '재방문' : (/완성|시술\s*완료/.test(q) ? '시술 완성' : ''));
+      if (sit) out.axes = { situation: sit };
+      return out;
+    }, label: '게시글을 만들고 있어요' },
   ];
 
   // [구조 통합 P2] 작업실이 "닫혀 있을 때" 자연어로 여는 명령 — 명시 발화만(작업실/게시글만)이라
@@ -84,11 +97,21 @@
     var text = String(q || (input && input.value) || '').trim();
     if (!text || !window.WorkspaceFlow || typeof window.WorkspaceFlow.command !== 'function') return false;
     if (_flowOpen()) return false;   // 이미 열려 있으면 in-flow(tryRun)에 맡김
+    // 잇비 채팅에 올린 사진이 있으면 작업실로 함께 투입(게시글만 흐름 제외).
+    var photoUrls = null;
+    try {
+      if (window.ItdasySourceImage && typeof window.ItdasySourceImage.resolve === 'function') {
+        var src = window.ItdasySourceImage.resolve();
+        if (src && src.dataUrl) photoUrls = [src.dataUrl];
+      }
+    } catch (_e) { photoUrls = null; }
     for (var i = 0; i < OPEN_COMMANDS.length; i++) {
       var c = OPEN_COMMANDS[i];
       if (!c.test.test(text)) continue;
-      try { window.WorkspaceFlow.command(c.cmd); }
-      catch (_e) { return false; }
+      var ocmd = Object.assign({}, c.cmd);
+      if (photoUrls && !ocmd.textOnly) ocmd.photoUrls = photoUrls;
+      try { window.WorkspaceFlow.command(ocmd); }
+      catch (_e2) { return false; }
       if (deps && typeof deps.clearInput === 'function') deps.clearInput(input);
       else if (input) input.value = '';
       _toast(c.label);

@@ -28,6 +28,10 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</st
     instagramProfile: function(){ return { connected:false }; },
     recentCustomers: function(){ return Promise.resolve([]); },
   };
+  window.__custMatch = [];
+  window.Customer = { search: function(){ return window.__custMatch || []; }, list: function(){ return Promise.resolve([]); } };
+  window.__chatPhoto = null;
+  window.ItdasySourceImage = { resolve: function(){ return window.__chatPhoto ? { dataUrl: window.__chatPhoto } : null; } };
 </script>
 <script>${FLOW}</script>
 <script>${NL}</script>
@@ -283,6 +287,27 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   check('O4 "작업실에서 전후" → 전후 모드 ON', o4ba === true, 'baOn=' + o4ba);
   const o5 = await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '오늘 매출 얼마야', {}));
   check('O5 매출 문장은 통과(가로채기 X)', o5 === false, 'h=' + o5);
+
+  // ── G. 자연어 확장: 고객연결(이름)·시술명 게시글·채팅사진 투입 ──
+  // G1: "OOO 손님이랑 연결해줘" → Customer.search 매칭해 연결
+  await page.evaluate((png) => window.WorkspaceFlow.open({ startScreen: 'connect', slot: { id: 'sgc', service: '네일', caption: '캡션', photos: [{ id: 'p1', dataUrl: png, role: 'hero' }] } }), PNG);
+  await page.evaluate(() => { window.__custMatch = [{ id: 77, name: '김지영', visit_count: 4 }]; });
+  const g1 = await page.evaluate(() => window.ItdasyWorkspaceNL.run('김지영 손님이랑 연결해줘'));
+  const g1name = await page.$eval('#wsv2Flow [data-fs="connect"]', el => /김지영/.test(el.textContent));
+  check('G1 "김지영 손님이랑 연결" → 고객 연결됨', g1.handled === true && g1name === true, 'h=' + g1.handled + ' name=' + g1name);
+  // G2: "네일아트 게시글 써줘" → service 추출되어 생성
+  await page.evaluate((png) => window.WorkspaceFlow.open({ startScreen: 'caption', slot: { id: 'sgg', photos: [{ id: 'p1', dataUrl: png, role: 'hero' }] } }), PNG);
+  await page.evaluate(() => { window.__lastGen = null; return window.ItdasyWorkspaceNL.run('네일아트 게시글 써줘'); });
+  await page.waitForFunction(() => window.__lastGen !== null, { timeout: 2000 }).catch(() => {});
+  const g2 = await page.evaluate(() => window.__lastGen && window.__lastGen.service);
+  check('G2 "네일아트 게시글 써줘" → service=네일아트로 생성', g2 === '네일아트', 'svc=' + g2);
+  // G3: 채팅 사진 있으면 cold-open 시 작업실로 투입
+  await page.evaluate(() => window.WorkspaceFlow.close());
+  await page.evaluate((png) => { window.__chatPhoto = png; }, PNG);
+  await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '작업실 열어줘', {}));
+  const g3tiles = await page.$$eval('#wsv2Flow [data-fs="upload"] [data-fl-role]', els => els.length);
+  check('G3 채팅 사진 → 작업실 cold-open 시 자동 투입', g3tiles === 1, 'tiles=' + g3tiles);
+  await page.evaluate(() => { window.__chatPhoto = null; });
 
   check('F1 콘솔/페이지 런타임 에러 없음', errors.length === 0, errors.slice(0,3).join(' | '));
 
