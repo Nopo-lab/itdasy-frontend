@@ -157,9 +157,9 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   await page.evaluate((png) => {
     window.WorkspaceFlow.open({ startScreen:'caption', slot:{ id:'s3', photos:[{ id:'p1', dataUrl: png, role:'hero' }] } });
   }, PNG);
-  // 시술명 입력 후 '이 내용으로 생성'
+  // 시술명 입력 후 시나리오 선택으로 생성(상황 칩 선택 → 콜백)
   await page.fill('#wsv2Flow [data-fs="caption"] [data-fl-service]', '레이어드컷 샤기컷');
-  await page.click('#wsv2Flow [data-fs="caption"] [data-fl="gen"]');
+  await page.evaluate(() => window.__scenarioCb && window.__scenarioCb({ axes: { situation: '시술 완성', customer: '단골', photo: '클로즈업' }, special_context: '' }));
   await page.waitForFunction(() => !!window.__lastGen);
   const gen = await page.evaluate(() => window.__lastGen);
   check('E1 캡션 생성 payload에 키워드 반영', gen && gen.service === '레이어드컷 샤기컷', JSON.stringify(gen));
@@ -180,7 +180,7 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   check('E3 인스타스럽게 → tone=instagram, 캡션 화면 유지(팝업/라우팅 없음)', ins && ins.tone_override === 'instagram' && stillCaption, JSON.stringify(ins) + ' active=' + stillCaption);
   // 초기화 → 입력 화면 복귀(사진 유지)
   await page.click('#wsv2Flow [data-fs="caption"] [data-fl-var="reset"]');
-  const backToInput = await page.$eval('#wsv2Flow [data-fs="caption"]', el => !!el.querySelector('[data-fl="gen"]'));
+  const backToInput = await page.$eval('#wsv2Flow [data-fs="caption"]', el => !!el.querySelector('[data-fl-scenario]') && !el.querySelector('[data-fl-capbody]'));
   const svcKept = await page.$eval('#wsv2Flow [data-fs="caption"] [data-fl-service]', el => el.value);
   check('E4 캡션 초기화 → 입력화면 복귀(서비스 유지)', backToInput && svcKept === '레이어드컷 샤기컷', 'input=' + backToInput + ' svc=' + svcKept);
 
@@ -263,6 +263,26 @@ function check(name, cond, detail) { results.push({ name, pass: !!cond, detail: 
   // 미지정 문장은 가로채지 않음
   const passThru = await page.evaluate(() => window.ItdasyWorkspaceNL.run('오늘 매출 얼마야').handled);
   check('W8 작업실 무관 문장은 통과(가로채기 X)', passThru === false, 'handled=' + passThru);
+
+  // ── O. 잇비 자연어로 작업실 "열기" (구조 통합 Phase 2 cold-open) ──
+  await page.evaluate(() => window.WorkspaceFlow.close());
+  const o0 = await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '작업실 어떻게 써?', {}));
+  check('O0 비-열기 문장은 cold-open 안 함', o0 === false, 'handled=' + o0);
+  const o1 = await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '작업실 열어줘', {}));
+  const o1open = await page.$eval('#wsv2Flow', el => el.classList.contains('is-open'));
+  check('O1 "작업실 열어줘" → 작업실 열림', o1 === true && o1open === true, 'h=' + o1 + ' open=' + o1open);
+  const o2 = await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '작업실 열어줘', {}));
+  check('O2 이미 열렸으면 cold-open 미개입(중복방지)', o2 === false, 'h=' + o2);
+  await page.evaluate(() => window.WorkspaceFlow.close());
+  const o3 = await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '게시글만 써줘', {}));
+  const o3cap = await page.$eval('#wsv2Flow [data-fs="caption"]', el => el.classList.contains('active'));
+  check('O3 "게시글만 써줘" → 게시글(캡션) 화면', o3 === true && o3cap === true, 'h=' + o3 + ' cap=' + o3cap);
+  await page.evaluate(() => window.WorkspaceFlow.close());
+  await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '작업실에서 전후 만들어줘', {}));
+  const o4ba = await page.$eval('#wsv2Flow [data-fl="batoggle"]', el => el.classList.contains('on'));
+  check('O4 "작업실에서 전후" → 전후 모드 ON', o4ba === true, 'baOn=' + o4ba);
+  const o5 = await page.evaluate(() => window.ItdasyWorkspaceNL.tryOpen(null, '오늘 매출 얼마야', {}));
+  check('O5 매출 문장은 통과(가로채기 X)', o5 === false, 'h=' + o5);
 
   check('F1 콘솔/페이지 런타임 에러 없음', errors.length === 0, errors.slice(0,3).join(' | '));
 

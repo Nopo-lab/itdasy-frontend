@@ -61,10 +61,40 @@
     { test: /(게시글|캡션|문구).*(만들|써|생성|작성)/, cmd: { type: 'caption' }, label: '게시글을 만들고 있어요' },
   ];
 
+  // [구조 통합 P2] 작업실이 "닫혀 있을 때" 자연어로 여는 명령 — 명시 발화만(작업실/게시글만)이라
+  //   기존 잇비 사진모드(photo-mode, "사진 편집해줘"류)와 충돌 안 함.
+  var OPEN_COMMANDS = [
+    { test: /작업실.*(전후|비포\s*애프터)|전후.*작업실/, cmd: { type: 'open', cat: 'ba' }, label: '작업실에서 전후 만들기를 열었어요' },
+    { test: /작업실.*(후기|리뷰)|후기.*작업실/, cmd: { type: 'open', cat: 'review' }, label: '작업실에서 고객 후기 만들기를 열었어요' },
+    { test: /작업실.*(이벤트|할인|혜택)/, cmd: { type: 'open', cat: 'event' }, label: '작업실에서 이벤트 만들기를 열었어요' },
+    { test: /작업실.*(시술\s*자랑|자랑|완성컷|피드)/, cmd: { type: 'open', cat: 'flex' }, label: '작업실에서 시술 자랑 만들기를 열었어요' },
+    { test: /작업실.*(게시글|글|캡션|문구)/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '작업실에서 게시글 쓰기를 열었어요' },
+    { test: /작업실\s*(열어?\s*줘?|열기|시작|보여\s*줘?|들어가|가자|가\s*줘|이동|켜\s*줘?|만들|편집)/, cmd: { type: 'open' }, label: '작업실을 열었어요' },
+    { test: /^작업실(로|에|좀)?\s*$/, cmd: { type: 'open' }, label: '작업실을 열었어요' },
+    { test: /(게시글만|글만|문구만|캡션만)\s*(써|쓰|작성|만들|생성)/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '게시글 쓰기를 열었어요' },
+  ];
+
   function _toast(m) { if (m && window.showToast) window.showToast(m); }
   function _flowOpen() {
     try { return !!(window.WorkspaceFlow && window.WorkspaceFlow.isOpen && window.WorkspaceFlow.isOpen()); }
     catch (_e) { return false; }
+  }
+  // 닫힌 작업실을 자연어로 연다. 명시 발화만 처리, 아니면 false(기존 파이프라인으로 통과).
+  function tryOpen(input, q, deps) {
+    var text = String(q || (input && input.value) || '').trim();
+    if (!text || !window.WorkspaceFlow || typeof window.WorkspaceFlow.command !== 'function') return false;
+    if (_flowOpen()) return false;   // 이미 열려 있으면 in-flow(tryRun)에 맡김
+    for (var i = 0; i < OPEN_COMMANDS.length; i++) {
+      var c = OPEN_COMMANDS[i];
+      if (!c.test.test(text)) continue;
+      try { window.WorkspaceFlow.command(c.cmd); }
+      catch (_e) { return false; }
+      if (deps && typeof deps.clearInput === 'function') deps.clearInput(input);
+      else if (input) input.value = '';
+      _toast(c.label);
+      return true;
+    }
+    return false;
   }
 
   // 자연어 1건 처리. 작업실 열려 있고 명령 매칭 시 실행 → {handled, message}. 아니면 {handled:false}.
@@ -97,5 +127,5 @@
     return true;
   }
 
-  window.ItdasyWorkspaceNL = { run: run, tryRun: tryRun, COMMANDS: COMMANDS };
+  window.ItdasyWorkspaceNL = { run: run, tryRun: tryRun, tryOpen: tryOpen, COMMANDS: COMMANDS, OPEN_COMMANDS: OPEN_COMMANDS };
 })();

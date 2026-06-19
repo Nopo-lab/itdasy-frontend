@@ -4832,6 +4832,9 @@
     if (_pendingBaIntent) { _pendingBaIntent = null; }
     // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
     if (await _tryMemoryShortcut(input, q)) return;
+    // [구조 통합 P2] "작업실 열어"/"작업실에서 전후 만들어줘"/"게시글만 써줘" 등 명시 발화 → V2 작업실 cold-open.
+    //   명시 발화만 매칭 → 일반 "사진 편집" 류는 아래 photo-mode 가 그대로 처리(가로채기 없음).
+    if (window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput })) return;
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
       const _PM = window.ItdasyPhotoMode;
