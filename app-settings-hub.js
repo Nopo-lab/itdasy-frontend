@@ -92,7 +92,7 @@
       <div class="ms-section__title">샵</div>
       <div class="ms-sh" id="shList">
         ${_rowHTML('shopinfo', 'ic-store',    '샵 정보',          '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
-        ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침', '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
+        ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침', '최신 버전·데이터로 새로고침 (껐다 켠 효과)', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download', '백업 · 내보내기',  '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
         ${_rowHTML('failures', 'ic-bell',     '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
       </div>
@@ -237,7 +237,7 @@
   function _route(act) {
     if (act === 'shopinfo')  { close(); setTimeout(() => window.openShopSettings && window.openShopSettings(), 200); return; }
     // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
-    if (act === 'sync')      { close(); setTimeout(() => window.forceSync && window.forceSync(), 200); return; }
+    if (act === 'sync')      { close(); setTimeout(() => window.forceAppUpdate && window.forceAppUpdate(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
     // 'undo' 라우트는 잇비 채팅 ⋯ 메뉴로 일원화 (2026-05-25, 행 제거).
     if (act === 'failures')  { close(); setTimeout(() => window.openFailuresHub && window.openFailuresHub(), 200); return; }

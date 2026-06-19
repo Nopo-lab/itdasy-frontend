@@ -205,9 +205,8 @@
   // ─────────── 통합 허브 메뉴 2개 ───────────
   function _renderHubMenu() {
     const automationOn = _automationOnCount();
-    const automationTotal = 7;
     const items = [
-      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg>', name: '잇비 · 자동화', meta: 'DM 자동응답 · 해시태그 · 알림톡', badge: automationTotal }),
+      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg>', name: '잇비 · 자동화', meta: 'DM 자동응답 · 해시태그 · 알림톡' }),
       _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<i class="ph-duotone ph-gear-six" style="font-size:19px;"></i>', name: '설정', meta: '샵정보 · 데이터 · 백업' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">통합 허브</div><div class="ms-menu">${items}</div></div>`;

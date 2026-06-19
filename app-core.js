@@ -1238,6 +1238,16 @@ async function logout(opts) {
   location.replace('index.html?_logout=' + Date.now());
 }
 
+// [2026-06-20] 앱 강제 업데이트 — 코드 캐시·서비스워커 비우고 리로드(껐다 켠 효과). 로그인·데이터(localStorage)는 유지.
+window.forceAppUpdate = async function () {
+  try { if (window.showToast) window.showToast('최신 버전 받는 중…'); } catch (_e) { void _e; }
+  try { if ('caches' in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } } catch (_e) { void _e; }
+  try { if ('serviceWorker' in navigator) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r => r.unregister())); } } catch (_e) { void _e; }
+  try { sessionStorage.clear(); } catch (_e) { void _e; }
+  await new Promise(r => setTimeout(r, 150));
+  location.replace(location.pathname + '?_upd=' + Date.now());
+};
+
 
 // 로그인
 let _loginInFlight = false;
