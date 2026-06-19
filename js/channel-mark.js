@@ -9,7 +9,7 @@
 
   // 솔리드 배지(인박스) 기본색 — { 박스배경, 글리프색 }
   var SOLID = {
-    instagram: { bg: '#E1306C', fg: '#ffffff' },
+    instagram: { bg: '#FFFFFF', fg: '#4E5968' },
     kakao:     { bg: '#FEE500', fg: '#3C1E1E' },
     naver:     { bg: '#03C75A', fg: '#ffffff' },
   };
