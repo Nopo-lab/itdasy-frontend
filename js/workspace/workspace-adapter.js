@@ -65,17 +65,22 @@
   //   기존 getMasksForBeautySync 는 캐시 hit 일 때만 반환 → 작업실은 재호출 루프가 없어 항상 null → 피부/헤어 무반응.
   //   maskKey(사진별)로 1회만 계산해 캐시 → 슬라이더 놓을 때마다 재계산하던 느림도 제거.
   var _maskCache = {};
+  var MASK_TIMEOUT = 2500;   // 모델 첫 로딩 등으로 마스크가 늦으면 이번 패스는 전역 보정으로(행 방지). 다음 슬라이더에서 캐시 사용.
+  function _finishMasks(base, img, b) {
+    var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), meta: base.meta, maskW: base.maskW, maskH: base.maskH } : null;
+    return _eyeMasks(m, img, b);
+  }
   function _beautyMasksAsync(img, b, key) {
     var MA = window.MaskApplication;
     if (!MA) return Promise.resolve(_eyeMasks(null, img, b));
-    var basep;
-    if (key && Object.prototype.hasOwnProperty.call(_maskCache, key)) basep = Promise.resolve(_maskCache[key]);
-    else if (has(MA.getMasksForBeauty)) basep = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskCache[key] = m || null; return m; });
-    else basep = Promise.resolve(has(MA.getMasksForBeautySync) ? MA.getMasksForBeautySync(img) : null);
-    return basep.then(function (base) {
-      var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), meta: base.meta, maskW: base.maskW, maskH: base.maskH } : null;
-      return _eyeMasks(m, img, b);
-    });
+    // 캐시 hit → 즉시.
+    if (key && Object.prototype.hasOwnProperty.call(_maskCache, key)) return Promise.resolve(_finishMasks(_maskCache[key], img, b));
+    // 계산 시작 — 완료되면 캐시에 저장(타임아웃돼도 백그라운드로 채워져 다음 호출에서 사용).
+    var compute;
+    if (has(MA.getMasksForBeauty)) compute = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskCache[key] = m || null; return m; });
+    else compute = Promise.resolve(has(MA.getMasksForBeautySync) ? MA.getMasksForBeautySync(img) : null);
+    var timed = new Promise(function (res) { setTimeout(function () { res('__t__'); }, MASK_TIMEOUT); });
+    return Promise.race([compute, timed]).then(function (w) { return _finishMasks(w === '__t__' ? null : w, img, b); });
   }
   function _applyBeautyAdjust(opts) {
     opts = opts || {};
