@@ -210,7 +210,7 @@
   // [F2] 전송 버튼 라벨·스타일
   function _mainBtnStyle(it) {
     const am = it.action_meta || {};
-    if (it.action_required === 'send_form') return 'background:#0F766E;';  // [A] 양식 보내기 → 틸
+    if (it.action_required === 'send_form') return 'background:#191F28;';  // [A] 양식 보내기 → 검정(기본 CTA)
     if (am.deposit_sent) return 'background:#2B3A67;';  // 입금 대기 → 딥네이비
     if (am.awaiting_deposit) return 'background:#BC6675;';  // 예약금 안내 → 로즈
     return 'background:#191F28;';
