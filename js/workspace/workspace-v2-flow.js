@@ -49,12 +49,12 @@
 	    { k: 'tools', label: '고급', ic: 'ph-faders', controls: [] },
 	  ];
 	  var WORKSPACE_TEMPLATES = [
-	    { key: 'ba', label: '전후 비교', use: '전후 2장', chip: '전후', id: 'v3-ba-clean-rose', purpose: 'before_after', captionMode: 'normal' },
-	    { key: 'showcase', label: '시술 자랑', use: '완성컷 강조', chip: '시술 자랑', id: 'feed-showcase', purpose: 'feed', captionMode: 'normal' },
-	    { key: 'review', label: '고객 후기', use: '후기 카드', chip: '고객 후기', id: 'v3-review-card', purpose: 'review', captionMode: 'review' },
-	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'event-discount', purpose: 'event', captionMode: 'normal' },
-	    { key: 'feed', label: '인스타 피드', use: '피드용 안내', chip: '시술 자랑', id: 'feed-notice', purpose: 'feed', captionMode: 'normal' },
-	    { key: 'story', label: '스토리 홍보', use: '세로 홍보', chip: '스토리', id: 'story-open', purpose: 'story', captionMode: 'normal' },
+	    { key: 'ba', label: '전후 비교', use: '전후 2장', chip: '전후', id: 'wm-ba-feed', purpose: 'before_after', captionMode: 'normal' },
+	    { key: 'showcase', label: '시술 자랑', use: '완성컷 강조', chip: '시술 자랑', id: 'wm-show-feed', purpose: 'feed', captionMode: 'normal' },
+	    { key: 'review', label: '고객 후기', use: '후기 카드', chip: '고객 후기', id: 'wm-review-feed', purpose: 'review', captionMode: 'review' },
+	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'wm-event-feed', purpose: 'event', captionMode: 'normal' },
+	    { key: 'feed', label: '인스타 피드', use: '피드용 안내', chip: '시술 자랑', id: 'wm-promo-feed', purpose: 'feed', captionMode: 'normal' },
+	    { key: 'story', label: '스토리 홍보', use: '세로 홍보', chip: '스토리', id: 'wm-promo-story', purpose: 'story', captionMode: 'normal' },
 	  ];
 	  function newAdjust() { return { brightness:0, contrast:0, saturation:0, sharpness:0, color:0 }; }
 	  function newBeauty() { return { skin:0, textureSmooth:0, blemish:0, hairDetail:0, hairVolume:0, hairShine:0, browSharp:0, lashSharp:0, eyeRedness:0 }; }
