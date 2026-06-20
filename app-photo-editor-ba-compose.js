@@ -34,6 +34,7 @@
     'ba-price': ['BEFORE', 'AFTER'],
     'ba-event': ['BEFORE', 'AFTER'],
     'ba-review': ['BEFORE', 'AFTER'],
+    'ba-arch-salon': ['BEFORE', 'AFTER'],
   };
 
   function draw(ctx, w, h, state, tpl, data) {
@@ -114,6 +115,7 @@
   }
 
   function _layout(ctx, w, h, before, after, id, data) {
+    if (id === 'ba-arch-salon') return _archSalon(ctx, w, h, before, after, data);   // [ARCH-1]
     if (id === 'ba-flower-shadow') return _flowerShadow(ctx, w, h, before, after, data);
     if (id === 'ba-polaroid') return _polaroid(ctx, w, h, before, after, data);
     if (id === 'ba-editorial') return _editorial(ctx, w, h, before, after, data);
@@ -262,6 +264,188 @@
       ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `800 ${Math.round(h * 0.021)}px "Noto Sans KR", sans-serif`;
       ctx.fillText(_clipBA(ctx, data.cta, cw * 0.85), w / 2, cy + ch * 0.64);
       _glyph(ctx, '♥', cx + cw + w * 0.03, cy + ch / 2, h * 0.024, accent, 0.8);
+    }
+  }
+
+  // ── [ARCH-1] 아치형 전후 비교 — Canva 레퍼런스(베이지+다크그린 아치) slot 재구현 ──────────
+  //   palette(default/rose-ivory/mono-charcoal) 색으로 그림. 구도/프레임/화살표/pill 은 고정,
+  //   사진(before/after)·제목(head)·카테고리·라벨·핸들만 편집값으로 교체.
+  function _archPath(ctx, x, y, w, h) {
+    const r = w / 2;
+    ctx.beginPath();
+    ctx.moveTo(x, y + r);
+    ctx.arc(x + r, y + r, r, Math.PI, Math.PI * 2, false);   // 상단 반원(아치)
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x, y + h);
+    ctx.closePath();
+  }
+
+  // 자간 적용 폭/중앙 그리기(라벨·eyebrow 용 — 폰트는 호출측에서 set)
+  function _trackedWidth(ctx, text, tracking) {
+    let sum = 0;
+    for (const ch of String(text)) sum += ctx.measureText(ch).width + tracking;
+    return Math.max(0, sum - tracking);
+  }
+  function _drawTrackedCentered(ctx, text, cx, cy, tracking) {
+    const total = _trackedWidth(ctx, text, tracking);
+    const prevAlign = ctx.textAlign, prevBase = ctx.textBaseline;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let x = cx - total / 2;
+    for (const ch of String(text)) { ctx.fillText(ch, x, cy); x += ctx.measureText(ch).width + tracking; }
+    ctx.textAlign = prevAlign; ctx.textBaseline = prevBase;
+  }
+
+  // 제목 자동 줄바꿈(공백 우선) — maxLines 초과/폭 초과 시 폰트 축소. 굵은 한글 가독성 유지.
+  function _wrapWords(ctx, text, maxW) {
+    const words = String(text).trim().split(/\s+/);
+    const lines = []; let cur = '';
+    words.forEach((wd) => {
+      const t = cur ? cur + ' ' + wd : wd;
+      if (!cur || ctx.measureText(t).width <= maxW) cur = t;
+      else { lines.push(cur); cur = wd; }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function _fitTitle(ctx, text, maxW, basePx, maxLines) {
+    let px = basePx;
+    for (let i = 0; i < 9; i++) {
+      ctx.font = `800 ${px}px "Noto Serif KR", "Noto Sans KR", serif`;
+      if (ctx.measureText(text).width <= maxW) return { lines: [text], px };
+      const lines = _wrapWords(ctx, text, maxW);
+      if (lines.length <= maxLines && lines.every((l) => ctx.measureText(l).width <= maxW)) return { lines, px };
+      px = Math.round(px * 0.9);
+      if (px <= basePx * 0.55) { ctx.font = `800 ${px}px "Noto Serif KR", "Noto Sans KR", serif`; return { lines: _wrapWords(ctx, text, maxW).slice(0, maxLines), px }; }
+    }
+    return { lines: [text], px };
+  }
+
+  function _archPhoto(ctx, photo, x, y, w, h, frame, frameInner, isBefore) {
+    ctx.save();
+    _archPath(ctx, x, y, w, h);
+    ctx.clip();
+    if (isBefore && !_hasBefore) {
+      _beforePlaceholder(ctx, x, y, w, h, false);   // 가짜 before 금지 — '시술 전 사진 추가' 안내
+    } else {
+      ctx.filter = isBefore ? 'brightness(97%) saturate(96%)' : 'brightness(103%) saturate(106%)';
+      _cover(ctx, photo, x, y, w, h);
+      ctx.filter = 'none';
+    }
+    ctx.restore();
+    // 외곽 굵은 테두리(다크그린 등) + 안쪽 얇은 라인 = 정돈된 이중 테두리
+    ctx.save();
+    _archPath(ctx, x, y, w, h);
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(3, w * 0.05);
+    ctx.strokeStyle = frame;
+    ctx.stroke();
+    ctx.restore();
+    const inset = Math.max(2, w * 0.03);
+    ctx.save();
+    _archPath(ctx, x + inset, y + inset, w - inset * 2, h - inset);
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(1, w * 0.006);
+    ctx.strokeStyle = frameInner;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // 중앙 곡선 화살표(원본 손그림 곡선을 매끈하게 정돈) — 좌→상단 호→우하 + 화살촉
+  function _archArrow(ctx, cx, cy, hw, hh, color) {
+    const x0 = cx - hw, y0 = cy + hh * 0.18;
+    const x1 = cx + hw * 0.92, y1 = cy + hh * 0.78;
+    const cpx = cx - hw * 0.05, cpy = cy - hh * 0.55;
+    ctx.save();
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(2.5, hw * 0.07);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(cpx, cpy, x1, y1); ctx.stroke();
+    const ang = Math.atan2(y1 - cpy, x1 - cpx);
+    const ah = Math.max(7, hw * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 - ah * Math.cos(ang - 0.42), y1 - ah * Math.sin(ang - 0.42));
+    ctx.lineTo(x1 - ah * Math.cos(ang + 0.42), y1 - ah * Math.sin(ang + 0.42));
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function _archPill(ctx, cx, cy, text, bg, fg, h) {
+    const fs = Math.round(h * 0.026);
+    const tracking = fs * 0.14;
+    ctx.save();
+    ctx.font = `800 ${fs}px "Noto Sans KR", sans-serif`;
+    const label = String(text || '');
+    const tw = _trackedWidth(ctx, label, tracking);
+    const padX = h * 0.03, ph = h * 0.06;
+    const pw = Math.max(tw + padX * 2, h * 0.13);
+    const px = cx - pw / 2, py = cy - ph / 2;
+    ctx.shadowColor = 'rgba(0,0,0,0.18)'; ctx.shadowBlur = h * 0.012; ctx.shadowOffsetY = h * 0.004;
+    ctx.fillStyle = bg; _rr(ctx, px, py, pw, ph, ph / 2); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.fillStyle = fg;
+    _drawTrackedCentered(ctx, label, cx, cy, tracking);
+    ctx.restore();
+  }
+
+  function _archSalon(ctx, w, h, before, after, data) {
+    const P = (data && data.palette) || {};
+    const ink = P.ink || '#1A1A1A';
+    const eyebrow = P.eyebrow || ink;
+    const subc = P.sub || '#6B6258';
+    const frame = P.frame || '#23291E';
+    const frameInner = P.frameInner || 'rgba(0,0,0,0.5)';
+    const arrowC = P.arrow || '#281C18';
+    const pillC = P.pill || '#111111';
+    const pillFg = P.pillText || '#FFFFFF';
+    ctx.textBaseline = 'alphabetic';
+
+    // 1) 상단 카테고리(eyebrow) — 자간 넓은 산세리프
+    const cat = (data.categoryLabel != null && data.categoryLabel !== '') ? data.categoryLabel : (data.kicker || 'BEAUTY SALON');
+    const eyeFs = Math.round(h * 0.023);
+    ctx.fillStyle = eyebrow; ctx.font = `700 ${eyeFs}px "Noto Sans KR", sans-serif`;
+    _drawTrackedCentered(ctx, String(cat).toUpperCase(), w / 2, h * 0.05, eyeFs * 0.22);
+
+    // 2) 큰 제목 — 자동 줄바꿈/축소(굵은 한글). eyebrow 아래 고정 top 스택(1·2줄 모두 충돌 없음).
+    const fit = _fitTitle(ctx, data.head || '시술 전후', w * 0.86, Math.round(h * 0.078), 2);
+    ctx.fillStyle = ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = `800 ${fit.px}px "Noto Serif KR", "Noto Sans KR", serif`;
+    const lineH = fit.px * 1.08;
+    const firstBaseline = h * 0.155;   // 첫 줄 baseline 고정 → 위 eyebrow 와 항상 분리
+    fit.lines.forEach((ln, i) => ctx.fillText(ln, w / 2, firstBaseline + i * lineH));
+    const titleBottom = firstBaseline + (fit.lines.length - 1) * lineH;
+
+    // 3) optional 캡션 한 줄(subtitle) — 있을 때만
+    if (data.sub) {
+      ctx.fillStyle = subc; ctx.font = `500 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(_clipBA(ctx, data.sub, w * 0.8), w / 2, titleBottom + h * 0.045);
+    }
+
+    // 4) 좌우 아치(대칭) — 원본 좌표 비율 재현
+    const archW = w * 0.372, archH = h * 0.555, archY = h * 0.315;
+    const lx = w * 0.097, rx = w * 0.531;
+    _archPhoto(ctx, before, lx, archY, archW, archH, frame, frameInner, true);
+    _archPhoto(ctx, after, rx, archY, archW, archH, frame, frameInner, false);
+
+    // 5) 중앙 곡선 화살표(아치 상단 갭)
+    _archArrow(ctx, w * 0.5, archY - h * 0.01, w * 0.11, h * 0.085, arrowC);
+
+    // 6) BEFORE/AFTER pill — 사진 하단에 안정적으로 겹침
+    const labels = _baLabels('ba-arch-salon', data);
+    const pillY = archY + archH * 0.96;
+    _archPill(ctx, lx + archW / 2, pillY, labels[0] || 'BEFORE', pillC, pillFg, h);
+    _archPill(ctx, rx + archW / 2, pillY, labels[1] || 'AFTER', pillC, pillFg, h);
+
+    // 7) before/after 캡션(선택 입력 시에만 — 원본은 pill 만)
+    if (data.beforeCap) _baCaption(ctx, lx + archW / 2, archY + archH, data.beforeCap, data);
+    if (data.afterCap) _baCaption(ctx, rx + archW / 2, archY + archH, data.afterCap, data);
+
+    // 8) 샵 핸들(하단) — shop_handle 없으면 샵명 fallback
+    const handle = (data.shopHandle != null && data.shopHandle !== '') ? data.shopHandle : data.shop;
+    if (handle) {
+      ctx.fillStyle = subc; ctx.textAlign = 'center';
+      ctx.font = `600 ${Math.round(h * 0.02)}px "Noto Sans KR", sans-serif`;
+      ctx.fillText(_clipBA(ctx, String(handle), w * 0.7), w / 2, h * 0.965);
     }
   }
 

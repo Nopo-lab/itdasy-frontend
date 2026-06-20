@@ -221,6 +221,36 @@
       palette: { bg: '#EEF3F8', ink: '#28384A', sub: '#7E8C9A', accent: '#5B82B0', line: '#D6E0EC', badge: '#5B82B0' } },
     { id: 'v3-ba-sns-pink',      cat: 'ba',    tier: 'free', label: '시술 전후 · 파스텔 핑크', kind: 'before_after', industry: 'nail', accent: 'primary', prefillText: 'Before & After',
       palette: { bg: '#FCE9EE', ink: '#3F2C32', sub: '#A2868E', accent: '#F24E86', line: '#F6D3DD', badge: '#F24E86' } },
+    // [ARCH-1] 아치형 전후 비교 — Canva 레퍼런스(베이지+다크그린 아치 프레임) 재현. 1:1, baCompose 의 _archSalon 렌더.
+    //   palette = 기본(default) 팔레트(= _bg/_pal fallback). 3종 전환은 palettes[palette_key] (premium-templates 에서 해석).
+    //   원본 좌표: 슬라이드 1:1, 좌우 아치 대칭, 검정 pill, 중앙 곡선 화살표. PPTX 분석 → slot 재구현(원본 직접편집/flatten 아님).
+    { id: 'ba-arch-salon', cat: 'ba', tier: 'free', label: '아치형 전후 비교', kind: 'before_after', industry: 'hair', accent: 'soft', prefillText: '붙임머리 시술 예시',
+      source: { canvaDesignUrl: 'https://www.canva.com/design/DAHNCPQaqIU/xnjgA8fA4apx9AcnRw89sQ/edit', note: 'PPTX/PNG 레퍼런스 기반 slot 재구현(원본 미편집).' },
+      palette: { bg: '#F1EFE7', ink: '#1A1A1A', sub: '#6B6258', accent: '#23291E', frame: '#23291E', frameInner: 'rgba(0,0,0,0.5)', arrow: '#281C18', pill: '#111111', pillText: '#FFFFFF', eyebrow: '#1A1A1A', line: '#DCD7C9', badge: '#23291E' },
+      palettes: {
+        // 기본 — 원본 PNG 기준: 웜 아이보리 + 다크 올리브그린 테두리(검정 아님, PNG 진실값 유지)
+        'default':        { bg: '#F1EFE7', ink: '#1A1A1A', sub: '#6B6258', accent: '#23291E', frame: '#23291E', frameInner: 'rgba(0,0,0,0.5)', arrow: '#281C18', pill: '#111111', pillText: '#FFFFFF', eyebrow: '#1A1A1A', line: '#DCD7C9', badge: '#23291E' },
+        // 로즈 아이보리 — 우리 앱 브랜드 톤(차분한 더스티 로즈)
+        'rose-ivory':     { bg: '#F7F1EA', ink: '#4A3B38', sub: '#A2868E', accent: '#8C5E58', frame: '#C8A2A0', frameInner: 'rgba(140,94,88,0.45)', arrow: '#8C5E58', pill: '#3A302C', pillText: '#FFFFFF', eyebrow: '#8C5E58', line: '#EADFD6', badge: '#8C5E58' },
+        // 모노 차콜 — 아이보리 + 차콜(고급 무채색)
+        'mono-charcoal':  { bg: '#F2F0EC', ink: '#2A2A2A', sub: '#8A8A8A', accent: '#3A3A3A', frame: '#3A3A3A', frameInner: 'rgba(0,0,0,0.45)', arrow: '#3A3A3A', pill: '#2A2A2A', pillText: '#FFFFFF', eyebrow: '#2A2A2A', line: '#DEDBD5', badge: '#3A3A3A' },
+      },
+      // [ARCH-1] 편집 가능 추가 슬롯 — before_after 기본셋(headline/before_label/after_label/before_photo/after_photo) 위에 덧붙임.
+      extraSlots: [
+        { key: 'category_label', type: 'text', label: '상단 카테고리', max: 22 },
+        { key: 'shop_handle', type: 'text', label: '샵 핸들(@)', max: 24 },
+        { key: 'palette_key', type: 'choice', label: '색상 테마', options: [
+          { value: 'default', label: '아이보리 그린' },
+          { value: 'rose-ivory', label: '로즈 아이보리' },
+          { value: 'mono-charcoal', label: '모노 차콜' },
+        ] },
+      ],
+      // [ARCH-1] 기본 문구 — PNG 기준. 캡션/CTA 는 비워 깔끔(원본은 pill 만, 사용자가 원하면 채움).
+      defaultCopy: {
+        category_label: 'BEAUTY SALON', headline: '붙임머리 시술 예시', subtitle: '',
+        before_label: 'BEFORE', after_label: 'AFTER', before_caption: '', after_caption: '',
+        shop_handle: '@your_salon', cta: '', palette_key: 'default',
+      } },
   ];
   // [BP-2] 뷰티 팩 — 조회(lookupById/v3ById)에만 합류, visibleTemplates(갤러리)엔 미합류 = apply-only.
   //   롤백: window.PE_BEAUTY_PACK=false → 비활성(조회/렌더에서 제외). 데이터 미로드 시 [] 안전.

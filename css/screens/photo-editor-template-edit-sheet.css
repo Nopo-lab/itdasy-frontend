@@ -105,6 +105,15 @@
   background: #fff;
 }
 
+/* [ARCH-1] choice 칩(색상 테마 등) */
+.pe-tpl-edit-choices { display: flex; gap: 8px; flex-wrap: wrap; }
+.pe-tpl-edit-choice {
+  padding: 8px 14px; border: 1px solid #E5E8EB; border-radius: 999px;
+  background: #fff; color: #4E5968; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all .14s ease; -webkit-tap-highlight-color: transparent;
+}
+.pe-tpl-edit-choice.is-on { background: #2b2620; color: #fff; border-color: #2b2620; }
+
 /* services 행 */
 .pe-tpl-edit-services > label { margin-bottom: 2px; }
 .pe-tpl-edit-svc-actions { display: inline-flex; align-items: center; gap: 12px; }
