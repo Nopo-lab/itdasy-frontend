@@ -387,6 +387,7 @@
 .wsv2flow .cap-car__dots { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 11px; }
 .wsv2flow .cap-car__dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }
 .wsv2flow .cap-car__dot.on { width: 20px; border-radius: 4px; background: var(--brand-strong); }
+.wsv2flow .cap-scenario-head { margin: 6px 2px 8px; font-size: 14px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
 .wsv2flow .cap-car__hint { text-align: center; font-size: 12px; color: var(--text-subtle); margin: 9px 0 0; }
 .wsv2flow .cap-car__hint::first-line { font-weight: 600; }
 

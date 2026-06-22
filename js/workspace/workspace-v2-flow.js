@@ -570,12 +570,14 @@
 	      // [다중pair] 결과물 2개+ 면 상단 캐러셀, 아니면 기존 단일 썸네일.
 	      var photoThumb = _capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '');
+	      // [v531] 순서: 캐러셀/사진 → 상황 버튼 3개 → 시술내역·키워드 입력칸(안내문은 입력칸 쪽).
 	      return photoThumb +
 	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
+	        '<div class="cap-scenario-head">오늘 어떤 상황이에요?</div>' +
+	        '<div data-fl-scenario></div>' +
 	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
-	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="' + esc(_servicePlaceholder()) + '">' +
-	        '<p class="cap-field-hint">키워드를 적고, 아래에서 <b>상황(시술 완성·신규 고객 등)</b>을 고르면 게시글이 만들어져요.</p>' +
-	        '<div data-fl-scenario></div>';
+	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="' + esc(_servicePlaceholder()) + '" enterkeyhint="send">' +
+	        '<p class="cap-field-hint">키워드를 적고, 상황(시술 완성·신규 고객 등)을 고르면 게시글이 만들어져요.</p>';
 	    }
     // 결과 화면
     var hashHtml = d.hashtags.map(function (h) {
@@ -637,13 +639,25 @@
     if (typeof renderScenarioSelector !== 'function') { toast('시나리오 선택기를 불러오지 못했어요'); return; }
     renderScenarioSelector(container, function (result) {
       d.captionAxes = result.axes;
-      var axesStr = [result.axes.situation, result.axes.customer, (d.textOnly ? null : result.axes.photo)].filter(Boolean).join(' / ');
-      // [QA hotfix] 사용자가 입력창에 친 시술명/키워드를 시나리오가 덮어쓰지 않게 — 입력값을 service로 유지.
+      // [v531] 상황 버튼만 누르고 키워드가 비어 있으면 자동 생성하지 않고 입력을 유도.
+      //   키워드가 있으면(이미 입력) 바로 생성 → '상황 선택 후 키워드 입력' / '키워드 입력 후 상황 선택' 둘 다 자연 흐름.
       syncServiceFromDom();
-      var typed = String(d.service || '').trim();
-      if (!typed) d.service = result.special_context || axesStr;   // 입력 없을 때만 시나리오로 대체
-      doGenerate({ photo_context: axesStr || d.service, special_context: result.special_context || '' }, null);
+      if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력하면 바로 만들어드려요'); return; }
+      doGenerate({}, null);
     });
+    // [v531] 키워드 입력 후 Enter/완료 → 바로 생성(상황 미선택이면 기본 '시술 완성'). 불필요한 CTA 없이 '딱 생성'.
+    var svcInput = el.querySelector('[data-fl-service]');
+    if (svcInput && !svcInput._wsGenBound) {
+      svcInput._wsGenBound = true;
+      svcInput.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        syncServiceFromDom();
+        if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력해 주세요'); return; }
+        if (!d.captionAxes) d.captionAxes = { situation: '시술 완성' };
+        doGenerate({}, null);
+      });
+    }
   }
 
 	  function renderPreview() {
