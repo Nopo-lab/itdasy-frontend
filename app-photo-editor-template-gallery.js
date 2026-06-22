@@ -139,11 +139,7 @@
     return base.filter(t => _matchQuery(t, _query));
   }
 
-  // ── 현재 사진 기반 프리뷰 합성 ──
-  function _photoSig(state) {
-    const src = (state && state.originalSrc) || '';
-    return src.length + ':' + src.slice(0, 28) + ':' + (state && state.secondImg ? '2' : '1');
-  }
+  // ── 프리뷰 합성(카드 썸네일은 고정 예시 이미지 — _examplePhoto) ──
   function _ratioWH(ratio, base) {
     if (ratio === '9:16') return { w: Math.round(base * 9 / 16), h: base };
     if (ratio === '1:1') return { w: base, h: base };
@@ -187,15 +183,6 @@
       ctx.fillStyle = g; ctx.fillRect(0, 0, dim.w, dim.h);
       return cv.toDataURL('image/jpeg', 0.8);
     } catch (_e) { return ''; }
-  }
-
-  // [TH-fix] 전후(BA) 템플릿은 '시술 전' 사진이 없으면 before 칸을 빈 "＋사진" 박스로 그려 썸네일이
-  //   전부 똑같이 깨져 보임(중복 착시). 작은 썸네일(basePx≤480)에 한해 현재 사진을 대표 before 로 채워
-  //   실제 레이아웃이 보이게 한다. 큰 미리보기/실제 적용은 정직(placeholder) 유지.
-  function _thumbSecond(t, state, basePx, photo) {
-    const realSecond = state && state.secondImg;
-    const isBA = t.purpose === 'before_after' || t.kind === 'before_after' || /(^|-)ba-/.test(t.id);
-    return (basePx <= 480 && isBA && !realSecond && photo) ? photo : realSecond;
   }
 
   // ── [핵심2/버그6] 템플릿 카드는 '원본 미리보기'만 — 업로드 사진을 썸네일에 섞지 않는다. ──
