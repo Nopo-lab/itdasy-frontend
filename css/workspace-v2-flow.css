@@ -213,10 +213,17 @@
 .wsv2flow .tpl-item .tpl-badge { position: absolute; top: 7px; left: 7px; z-index: 1; width: auto; font-style: normal; font-size: 11px; line-height: 1.25; font-weight: 800; color: #fff; background: var(--brand-strong); padding: 3px 9px; border-radius: var(--r-pill); box-shadow: var(--shadow-sm); letter-spacing: 0; white-space: nowrap; }
 
 /* [이슈11] 템플릿 적용 상태 배너 + 해제 버튼 */
-.wsv2flow .tpl-applied { margin: 12px 2px 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); }
-.wsv2flow .tpl-applied__t { flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 800; color: var(--text-muted); }
+.wsv2flow .tpl-applied { margin: 12px 2px 0; display: flex; flex-direction: column; gap: 10px; padding: 11px 12px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--brand); }
+.wsv2flow .tpl-applied__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wsv2flow .tpl-applied__t { flex: 1 1 100%; min-width: 0; font-size: 12.5px; font-weight: 800; color: var(--text-muted); }
 .wsv2flow .tpl-applied__t b { color: var(--brand-strong); }
+.wsv2flow .tpl-applied__change { flex: none; height: 32px; padding: 0 12px; border-radius: var(--r-pill); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tpl-applied__release { flex: none; height: 32px; padding: 0 14px; border-radius: var(--r-pill); border: 1px solid var(--brand-strong); background: var(--surface); color: var(--brand-strong); font-size: 12px; font-weight: 800; cursor: pointer; }
+.wsv2flow .tpl-results { display: flex; gap: 9px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.wsv2flow .tpl-results::-webkit-scrollbar { display: none; }
+.wsv2flow .tpl-result { flex: 0 0 auto; width: 84px; }
+.wsv2flow .tpl-result__img { width: 84px; height: 105px; border-radius: 10px; background-size: cover; background-position: center; border: 1px solid var(--border); background-color: #000; }
+.wsv2flow .tpl-result__lbl { display: block; margin-top: 5px; font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-align: center; }
 
 /* [이슈1] 전후 페어링 미리보기 — 어떤 전 사진이 어떤 후 사진과 묶이는지 명확히 */
 .wsv2flow .up-pairs { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 7px; }

@@ -458,16 +458,26 @@
     _tplThumbCache[tpl.id] = url;
     return url;
   }
-  // [이슈11] 템플릿 적용 상태 배너 — 무엇이/어떤 짝이 적용됐는지 + 해제 버튼.
+  // [v531] 템플릿 적용 상태 — 명확한 배너(결과물 N장) + 결과물 스트립(Pair N 결과) + 해제/바꾸기.
   function _tplAppliedHtml() {
     if (!d.templateId) return '';
-    var info = '';
-    if (d.tplPurpose === 'before_after') {
-      var pp = _computePairs();
-      if (pp.pairs.length) info = ' · Pair ' + pp.pairs.length + ' (전 ' + pp.pairs.length + ' + 후 ' + pp.pairs.length + ')';
-    }
-    return '<div class="tpl-applied"><span class="tpl-applied__t">템플릿 적용됨 · <b>' + esc(d.template || '') + '</b>' + esc(info) + '</span>' +
-      '<button type="button" class="tpl-applied__release" data-fl="tplrelease">템플릿 해제</button></div>';
+    var outs = d.templateOutputs || [];
+    var isBA = d.tplPurpose === 'before_after';
+    var banner = isBA
+      ? ('전후 템플릿 적용됨 · 결과물 ' + (outs.length || 0) + '장')
+      : ('템플릿 적용됨 · ' + (d.template || ''));
+    var strip = outs.length
+      ? '<div class="tpl-results">' + outs.map(function (o, i) {
+          var lbl = isBA ? ('Pair ' + (i + 1) + ' 결과') : '결과물';
+          return '<div class="tpl-result"><div class="tpl-result__img" style="background-image:url(' + esc(o.outputUrl) + ')"></div>' +
+            '<span class="tpl-result__lbl">' + esc(lbl) + '</span></div>';
+        }).join('') + '</div>'
+      : '';
+    return '<div class="tpl-applied"><div class="tpl-applied__head">' +
+        '<span class="tpl-applied__t"><b>' + esc(banner) + '</b></span>' +
+        '<button type="button" class="tpl-applied__change" data-fl="tplchange">템플릿 바꾸기</button>' +
+        '<button type="button" class="tpl-applied__release" data-fl="tplrelease">템플릿 해제하기</button>' +
+      '</div>' + strip + '</div>';
   }
   function _tplFoldHtml() {
     var tplBody = '';
@@ -844,6 +854,13 @@
       if (a === 'crop') { return openCropFlow(); }
       if (a === 'roles') { toast('역할 — ' + _roleSummary()); return; }
       if (a === 'tplrelease') { return releaseTemplate(); }
+      if (a === 'tplchange') {
+        // [v531] 결과물에서 '템플릿 바꾸기' — 템플릿 카드 목록을 열고 위로 스크롤(다른 카드 선택 시 모든 페어 일괄 재적용).
+        d.tplOpen = true; _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        var grid = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: 'center' });
+        toast('위 템플릿 카드에서 다른 디자인을 고르면 모든 짝에 다시 적용돼요');
+        return;
+      }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); return; }
