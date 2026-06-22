@@ -147,7 +147,16 @@
   // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
   //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
   //   원본/후사진 슬롯이 합성본으로 오염되지 않는다(이슈2). 해제하면 d.templateOutput=null → 원본 복귀(이슈11).
-  function outputUrl() { return (d && d.templateOutput) || photoUrl(curPhoto()); }
+  function outputUrl() {
+    // [다중pair] 캐러셀에서 선택된 결과물/사진(activeDisplayId)이 있으면 그것을, 없으면 첫 결과물 → 대표 사진.
+    if (d && d.activeDisplayId) {
+      var outs = d.templateOutputs || [];
+      for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === d.activeDisplayId) return outs[i].outputUrl; }
+      var ph = (d.photos || []).filter(function (p) { return p.id === d.activeDisplayId; })[0];
+      if (ph) return photoUrl(ph);
+    }
+    return (d && d.templateOutput) || (d && d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl) || photoUrl(curPhoto());
+  }
   // [C5] _barClass: vc(방문횟수) → b1/b2/b3 클래스
   function barClass(vc) {
     if (vc >= 10) return 'b3';
@@ -1038,6 +1047,10 @@
 	        // [이슈2] 합성 결과물은 개별 사진(editedDataUrl)에 덮어쓰지 않고 전용 필드에만 보관.
 	        //   → 편집화면 상단 원본 스트립이 오염되지 않고, 후사진 슬롯도 그대로 유지된다.
 	        d.templateOutput = r.dataUrl; d.templateOutputId = tpl.id;
+	        // [다중pair] 단일 결과물도 templateOutputs 배열로 미러(Step3에서 페어별 N개로 확장). 첫 페어 사진 id 연결.
+	        var _pp0 = _computePairs(); var _fp = _pp0.pairs[0];
+	        d.templateOutputs = [{ pairId: 'pair-0', templateId: tpl.id, beforePhotoId: _fp && _fp.before ? _fp.before.id : null, afterPhotoId: _fp && _fp.after ? _fp.after.id : null, outputUrl: r.dataUrl, pairLabel: 'Pair 1' }];
+	        d.activeDisplayId = null;
 	        d.template = tpl.label; d.templateId = tpl.id;
 	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
 	        d.previewUrl = null; toast(tpl.label + ' 템플릿 적용 완료');
@@ -1050,6 +1063,7 @@
 	  function releaseTemplate() {
 	    if (!d.templateId && !d.templateOutput) { toast('적용된 템플릿이 없어요'); return; }
 	    d.templateOutput = null; d.templateOutputId = null;
+	    d.templateOutputs = []; d.activeDisplayId = null;   // [다중pair] 결과물 배열도 비움 → 원본 복구
 	    d.template = null; d.templateId = null;
 	    d.previewUrl = null;
 	    _setEditSection('[data-ed-tpl]', _tplFoldHtml());
@@ -1100,6 +1114,19 @@
 	    var n = Math.min(befores.length, afters.length), pairs = [];
 	    for (var i = 0; i < n; i++) pairs.push({ before: befores[i], after: afters[i] });
 	    return { pairs: pairs, leftBefore: befores.slice(n), leftAfter: afters.slice(n) };
+	  }
+
+	  // [다중pair] slot → templateOutputs 배열 hydrate. 구 슬롯(단일 templateOutput) 호환:
+	  //   templateOutputs 있으면 그대로(얕은 복제), 없고 templateOutput만 있으면 1개짜리로 변환.
+	  function _hydrateOutputs(slot, wc) {
+	    if (!slot) return [];
+	    if (slot.templateOutputs && slot.templateOutputs.length) {
+	      return slot.templateOutputs.map(function (o) { return Object.assign({}, o); });
+	    }
+	    if (slot.templateOutput) {
+	      return [{ pairId: 'pair-0', templateId: (wc && wc.templateId) || null, beforePhotoId: null, afterPhotoId: null, outputUrl: slot.templateOutput, pairLabel: 'Pair 1' }];
+	    }
+	    return [];
 	  }
 	  function _pairThumb(p, tag) {
 	    return '<span class="up-pair__thumb" style="background-image:url(' + esc(p.dataUrl) + ')"><em>' + tag + '</em></span>';
@@ -1225,7 +1252,9 @@
 	    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
 	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, updatedAt: now }; });
 	    // [이슈2] 전후 템플릿 합성 결과물은 사진 배열과 분리된 전용 필드로 저장(원본 슬롯 비오염).
-	    slot.templateOutput = d.templateOutput || null;
+	    // [다중pair] 페어별 결과물 배열 저장 + 단일 templateOutput 미러(구 코드/홈 썸네일 하위호환).
+	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length) ? d.templateOutputs.slice() : [];
+	    slot.templateOutput = d.templateOutput || (slot.templateOutputs[0] && slot.templateOutputs[0].outputUrl) || null;
 	    slot.service = d.service || '';
 	    slot.caption = d.caption || '';
     slot.hashtags = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ');
@@ -1369,6 +1398,7 @@
       baMode: purpose === 'before_after',
 	      template: (wc && wc.templateLabel) || null, templateId: (wc && wc.templateId) || null,
 	      templateOutput: (slot && slot.templateOutput) || null, templateOutputId: (wc && wc.templateId) || null,
+	      templateOutputs: _hydrateOutputs(slot, wc), activeDisplayId: null,
 	      tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
 	      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       textOnly: !!(opts.textOnly),

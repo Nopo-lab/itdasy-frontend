@@ -31,8 +31,10 @@
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
 
   function _thumb(slot) {
-    // [이슈2] 전후 템플릿 적용본(templateOutput)이 있으면 저장카드도 그 합성 결과를 보여준다.
+    // [이슈2] 전후 템플릿 적용본이 있으면 저장카드도 그 합성 결과를 보여준다.
     //   (원본 사진은 더 이상 합성본으로 덮어쓰지 않으므로 여기서 명시적으로 우선 참조)
+    // [다중pair] 페어별 결과물 배열(templateOutputs)이 있으면 첫 결과물, 없으면 단일 templateOutput 폴백.
+    if (slot.templateOutputs && slot.templateOutputs.length && slot.templateOutputs[0].outputUrl) return slot.templateOutputs[0].outputUrl;
     if (slot.templateOutput) return slot.templateOutput;
     var p = (slot.photos || [])[0];
     return p ? (p.editedDataUrl || p.dataUrl || '') : '';
