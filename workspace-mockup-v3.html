@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작업실 — 목업 v3 · 담백한 표면 + 드래그 변신 히어로</title>
+<style>
+  /* ===== 토큰 (라이브 tokens.css 기준 · 담백) ===== */
+  :root{
+    --brand:#D58A95; --brand-strong:#BC6675; --brand-deep:#A4505F;
+    --brand-bg:#F7EFF0;
+    --bg:#F2F4F6; --surface:#FFFFFF; --surface-2:#F7F8FA;
+    --text:#191F28; --text-muted:#4E5968; --text-subtle:#6B7280;
+    --line:#E5E7EB; --line-soft:#EEF1F4;
+    --r-sm:10px; --r-md:14px; --r-lg:18px; --r-xl:24px; --r-pill:999px;
+    --shadow-sm:0 1px 2px rgba(17,24,39,.04), 0 2px 8px rgba(17,24,39,.04);
+    --shadow-md:0 8px 24px rgba(17,24,39,.08);
+    --ink-pill:#111827;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    min-height:100vh; background:#ECEFF3;
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Segoe UI",sans-serif;
+    color:var(--text); -webkit-font-smoothing:antialiased; padding:48px 28px 72px;
+  }
+
+  /* ===== 페이지 헤더 ===== */
+  .page-head{max-width:1200px;margin:0 auto 40px;}
+  .page-eyebrow{
+    display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--brand-strong);
+  }
+  .page-eyebrow .hair{width:26px;height:1.5px;background:var(--brand);border-radius:2px;}
+  .page-title{font-size:30px;font-weight:800;letter-spacing:-.035em;margin:12px 0 6px;}
+  .page-title em{font-style:normal;color:var(--brand-strong);}
+  .page-sub{font-size:13.5px;color:var(--text-subtle);line-height:1.65;max-width:640px;}
+
+  /* ===== 프레임 ===== */
+  .deck{display:flex;flex-wrap:wrap;gap:34px 26px;max-width:1400px;margin:0 auto;align-items:flex-start;}
+  .frame{display:flex;flex-direction:column;gap:13px;}
+  .frame-tag{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;color:var(--text-muted);}
+  .frame-tag .n{
+    width:21px;height:21px;border-radius:7px;background:var(--text);color:#fff;
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  .frame-tag em{font-style:normal;color:var(--text-subtle);font-weight:600;}
+  .phone{
+    width:390px;height:844px;border-radius:42px;background:var(--bg);position:relative;overflow:hidden;
+    border:1px solid #DCE0E6;box-shadow:0 24px 60px rgba(40,50,70,.14);display:flex;flex-direction:column;
+  }
+  .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+  .scroll{flex:1;overflow-y:auto;}
+  .scroll::-webkit-scrollbar{width:0;}
+
+  /* ===== 상태바 ===== */
+  .sbar{height:44px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px 0 28px;font-size:14.5px;font-weight:700;flex-shrink:0;}
+  .sbar .sig{display:flex;align-items:center;gap:6px;}
+
+  /* ===== 아이콘 ===== */
+  .ic{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;
+      stroke-linecap:round;stroke-linejoin:round;display:block;flex-shrink:0;}
+
+  /* ===== 앱 헤더 (담백) ===== */
+  .ahead{padding:8px 22px 6px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .salon{display:flex;align-items:center;gap:10px;}
+  .salon .mark{
+    width:36px;height:36px;border-radius:11px;flex-shrink:0;background:var(--surface);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--brand-strong);
+  }
+  .salon .mark svg{width:19px;height:19px;}
+  .salon .nm{font-size:14.5px;font-weight:700;letter-spacing:-.02em;}
+  .salon .nm small{display:block;font-size:11px;color:var(--text-subtle);font-weight:500;margin-top:1px;}
+  .hbtn{width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;color:var(--text-muted);position:relative;}
+  .hbtn .dot{position:absolute;top:8px;right:9px;width:6px;height:6px;border-radius:50%;background:var(--brand-strong);border:1.5px solid #fff;}
+
+  /* ===== 타이틀 블록 ===== */
+  .titleblock{padding:8px 22px 4px;}
+  .titleblock h1{font-size:27px;font-weight:800;letter-spacing:-.04em;line-height:1.05;}
+  .titleblock p{font-size:13px;color:var(--text-subtle);margin-top:6px;}
+
+  /* ===== ★시그니처: 드래그 변신 히어로 ===== */
+  .ba-eyebrow{display:flex;align-items:center;gap:8px;padding:18px 22px 11px;}
+  .ba-eyebrow .k{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--brand-strong);text-transform:uppercase;}
+  .ba-eyebrow .hair{flex:1;height:1px;background:var(--line);}
+  .ba-eyebrow .when{font-size:11px;font-weight:600;color:var(--text-subtle);}
+
+  .hero{margin:0 22px;border-radius:var(--r-xl);overflow:hidden;background:var(--surface);
+    border:1px solid var(--line);box-shadow:var(--shadow-sm);}
+  .ba{position:relative;height:340px;overflow:hidden;touch-action:none;cursor:ew-resize;user-select:none;}
+  .ba .layer{position:absolute;inset:0;}
+  .ba .after{z-index:1;}
+  .ba .before{z-index:2;overflow:hidden;width:50%;border-right:0;}
+  /* 헤어 살롱 변신 색면 (CSS로만 — 외부이미지 0) */
+  .portrait{position:absolute;inset:0;}
+  .portrait::before{content:"";position:absolute;inset:0;}
+  .p-before::before{background:
+    radial-gradient(120% 80% at 50% 120%, rgba(20,12,8,.5), transparent 60%),
+    linear-gradient(168deg,#8a6b54,#5d4232 55%,#3f2c1f);}
+  .p-after::before{background:
+    radial-gradient(120% 80% at 50% 120%, rgba(60,40,24,.4), transparent 60%),
+    linear-gradient(168deg,#e7c9a8,#c89b73 52%,#9a6f4c);}
+  .portrait .hairmass{position:absolute;left:50%;bottom:-8%;transform:translateX(-50%);
+    width:62%;height:82%;border-radius:48% 48% 42% 42%/58% 58% 24% 24%;}
+  .p-before .hairmass{background:linear-gradient(180deg,rgba(25,15,10,0),rgba(12,7,4,.55));}
+  .p-after .hairmass{background:linear-gradient(180deg,rgba(120,82,48,0),rgba(80,52,28,.5));
+    box-shadow:inset 0 0 26px rgba(255,226,182,.22);}
+  .ba .tag{position:absolute;top:12px;font-size:10px;font-weight:800;letter-spacing:.08em;color:#fff;
+    background:rgba(17,24,39,.5);padding:4px 9px;border-radius:var(--r-pill);z-index:3;backdrop-filter:blur(3px);}
+  .ba .tag.b{left:12px;} .ba .tag.a{right:12px;}
+  /* 시그니처 split line + knob (얇은 로즈 헤어라인) */
+  .ba .split{position:absolute;top:0;bottom:0;left:50%;width:2px;background:var(--brand);
+    transform:translateX(-1px);z-index:4;box-shadow:0 0 0 .5px rgba(255,255,255,.6);}
+  .ba .knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:38px;height:38px;
+    border-radius:50%;background:#fff;border:2px solid var(--brand);z-index:5;
+    display:flex;align-items:center;justify-content:center;color:var(--brand-strong);
+    box-shadow:0 4px 14px rgba(164,80,95,.3);}
+  .ba .knob svg{width:18px;height:18px;}
+  .hero-foot{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;}
+  .hero-foot .who{font-size:13.5px;font-weight:700;}
+  .hero-foot .who small{display:block;font-size:11.5px;color:var(--text-subtle);font-weight:500;margin-top:2px;}
+  .hero-cta{display:inline-flex;align-items:center;gap:6px;background:var(--ink-pill);color:#fff;
+    font-size:13px;font-weight:700;padding:11px 15px;border-radius:var(--r-pill);border:none;cursor:pointer;font-family:inherit;}
+  .hero-cta svg{width:15px;height:15px;stroke:#fff;}
+
+  /* ===== 메인 CTA ===== */
+  .startbtn{margin:16px 22px 4px;width:calc(100% - 44px);display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--brand-strong);color:#fff;border:none;cursor:pointer;font-family:inherit;
+    padding:16px;border-radius:var(--r-lg);font-size:14.5px;font-weight:800;box-shadow:0 8px 20px rgba(188,102,117,.26);}
+  .startbtn svg{width:18px;height:18px;stroke:#fff;stroke-width:2;}
+
+  /* ===== 작품 shelf ===== */
+  .shelf-head{display:flex;align-items:baseline;justify-content:space-between;padding:22px 22px 12px;}
+  .shelf-head .t{font-size:15px;font-weight:800;letter-spacing:-.02em;}
+  .shelf-head .more{font-size:12px;font-weight:600;color:var(--text-subtle);}
+  .filters{display:flex;gap:7px;overflow-x:auto;padding:0 22px 14px;}
+  .filters::-webkit-scrollbar{display:none;}
+  .filt{flex-shrink:0;font-size:12.5px;font-weight:600;color:var(--text-muted);background:var(--surface);
+    border:1px solid var(--line);padding:7px 13px;border-radius:var(--r-pill);cursor:pointer;}
+  .filt.on{background:var(--text);color:#fff;border-color:var(--text);}
+
+  .works{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 22px 18px;}
+  .work{border-radius:var(--r-lg);overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow-sm);}
+  .work .pv{height:128px;position:relative;overflow:hidden;}
+  .work .meta{padding:9px 11px 11px;}
+  .work .lab{font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--brand-strong);text-transform:uppercase;}
+  .work .ttl{font-size:13px;font-weight:700;letter-spacing:-.02em;margin-top:3px;}
+  .work .sub{font-size:11px;color:var(--text-subtle);margin-top:2px;}
+  /* 작품 썸네일에 split hairline DNA */
+  .mini-ba{position:absolute;inset:0;display:flex;}
+  .mini-ba .h{flex:1;position:relative;}
+  .mini-ba .split{position:absolute;top:0;bottom:0;left:50%;width:1.5px;background:var(--brand);transform:translateX(-.75px);z-index:2;}
+  .mini-ba .knob{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;
+    background:#fff;border:1.5px solid var(--brand);z-index:3;}
+  .pv-review{background:linear-gradient(160deg,#fff,#FBF1F2);display:flex;flex-direction:column;justify-content:center;gap:6px;padding:12px;}
+  .pv-review .rs{display:flex;gap:1px;color:#C8A876;}
+  .pv-review .rs svg{width:12px;height:12px;fill:currentColor;stroke:none;}
+  .pv-review .rq{font-size:10.5px;font-weight:600;color:#5a4448;line-height:1.4;}
+  .pv-event{background:linear-gradient(155deg,#F3DCD6,#E2B2BC);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8a3d4c;}
+  .pv-event .e1{font-size:9px;font-weight:800;letter-spacing:.1em;}
+  .pv-event .e2{font-size:16px;font-weight:900;letter-spacing:-.02em;margin-top:2px;}
+  .pv-price{background:#FFFBF6;display:flex;flex-direction:column;justify-content:center;gap:5px;padding:12px 14px;}
+  .pv-price .pt{font-size:9px;font-weight:900;color:#9a7e44;text-align:center;border-bottom:1px solid rgba(200,168,118,.3);padding-bottom:4px;}
+  .pv-price .pr{display:flex;justify-content:space-between;font-size:9px;color:#6b5a3a;font-weight:700;}
+  .pv-price .pr b{color:#3a2f1d;}
+
+  /* ===== 하단 네비 ===== */
+  .bnav{height:66px;flex-shrink:0;background:rgba(255,255,255,.96);border-top:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-around;padding-bottom:4px;backdrop-filter:blur(8px);}
+  .nv{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:600;color:var(--text-subtle);}
+  .nv svg{width:22px;height:22px;}
+  .nv.on{color:var(--brand-strong);}
+
+  /* ===== 플로우 상단바 ===== */
+  .fbar{display:flex;align-items:center;gap:10px;padding:8px 18px 2px;flex-shrink:0;}
+  .fbar .back{width:36px;height:36px;border-radius:11px;border:1px solid var(--line);background:var(--surface);
+    display:flex;align-items:center;justify-content:center;color:var(--text);}
+  .fbar .ti{flex:1;font-size:16px;font-weight:800;letter-spacing:-.02em;}
+  .fbar .step{font-size:11.5px;font-weight:700;color:var(--text-subtle);}
+  .prog{display:flex;gap:5px;padding:12px 18px 4px;flex-shrink:0;}
+  .pseg{flex:1;height:4px;border-radius:var(--r-pill);background:var(--line);}
+  .pseg.done{background:var(--brand);} .pseg.now{background:var(--brand-strong);}
+  .lead{padding:10px 20px 2px;font-size:13px;color:var(--text-muted);line-height:1.5;}
+  .lead b{color:var(--text);font-weight:700;}
+
+  /* ===== 업로드 ===== */
+  .drop{margin:16px 20px;border:1.5px dashed #D7CBce;border-radius:var(--r-lg);background:var(--surface);
+    padding:30px 20px;text-align:center;}
+  .drop .ci{width:50px;height:50px;border-radius:15px;margin:0 auto 12px;background:var(--brand-bg);
+    display:flex;align-items:center;justify-content:center;color:var(--brand-strong);}
+  .drop .ci svg{width:24px;height:24px;}
+  .drop .ut{font-size:14.5px;font-weight:700;}
+  .drop .us{font-size:12px;color:var(--text-subtle);margin-top:5px;line-height:1.5;}
+  .drop .ub{margin-top:14px;display:inline-flex;align-items:center;gap:6px;background:var(--text);color:#fff;border:none;
+    padding:10px 18px;border-radius:var(--r-pill);font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .drop .ub svg{width:15px;height:15px;stroke:#fff;}
+
+  .uphead{display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0;}
+  .uphead .t{font-size:13px;font-weight:700;} .uphead .t b{color:var(--brand-strong);}
+  .uphead .h{font-size:11.5px;color:var(--text-subtle);}
+  .upgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 20px 0;}
+  .tile{aspect-ratio:1;border-radius:var(--r-md);overflow:hidden;position:relative;border:1px solid var(--line);}
+  .tile .seq{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;background:var(--brand-strong);
+    color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;z-index:2;box-shadow:0 2px 6px rgba(0,0,0,.2);}
+  .tile.add{border:1.5px dashed #D7CBce;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--brand-strong);}
+  .tile.add svg{width:22px;height:22px;}
+  /* 역할 세그 */
+  .roles{display:flex;gap:3px;padding:7px 20px 0;}
+  .roles.under{padding:5px 0 0;}
+  .roleseg{display:flex;gap:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:2px;}
+  .roleseg button{border:none;background:transparent;font-family:inherit;font-size:10.5px;font-weight:700;color:var(--text-subtle);
+    padding:5px 8px;border-radius:7px;cursor:pointer;}
+  .roleseg button.on{background:#fff;color:var(--brand-strong);box-shadow:var(--shadow-sm);}
+
+  /* 역할 카드 (화면3) */
+  .rolecards{display:flex;flex-direction:column;gap:10px;padding:14px 20px 0;}
+  .rolecard{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-md);padding:10px;}
+  .rolecard .th{width:56px;height:56px;border-radius:11px;overflow:hidden;flex-shrink:0;position:relative;}
+  .rolecard .info{flex:1;min-width:0;}
+  .rolecard .info .s{font-size:12.5px;font-weight:700;}
+  .rolecard .info .d{font-size:11px;color:var(--text-subtle);margin-top:2px;}
+
+  /* ===== Pair 안내 (화면4) ===== */
+  .pairs{padding:14px 20px 0;display:flex;flex-direction:column;gap:12px;}
+  .paircard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:13px;box-shadow:var(--shadow-sm);}
+  .paircard .ph{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+  .paircard .ph .pn{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--brand-strong);text-transform:uppercase;}
+  .paircard .ph .hair{flex:1;height:1px;background:var(--line);}
+  .paircard .ph .ok{font-size:10.5px;font-weight:700;color:#16a34a;display:flex;align-items:center;gap:3px;}
+  .paircard .ph .ok svg{width:13px;height:13px;stroke:#16a34a;}
+  .pairbody{display:flex;align-items:center;gap:10px;}
+  .pairbody .ps{flex:1;height:84px;border-radius:11px;overflow:hidden;position:relative;border:1px solid var(--line);}
+  .pairbody .ps .lab{position:absolute;left:6px;bottom:6px;font-size:9.5px;font-weight:800;color:#fff;
+    background:rgba(17,24,39,.55);padding:2px 7px;border-radius:6px;}
+  .pairbody .arrow{color:var(--brand);flex-shrink:0;}
+  .pairbody .arrow svg{width:18px;height:18px;}
+  .leftover{margin:4px 20px 0;display:flex;align-items:center;gap:9px;background:#FFF8EC;border:1px solid #F4E2BE;
+    border-radius:var(--r-md);padding:11px 13px;font-size:12px;color:#8a6b2a;font-weight:600;}
+  .leftover svg{width:16px;height:16px;stroke:#C8A876;flex-shrink:0;}
+
+  /* ===== 템플릿 선택 (화면5) ===== */
+  .tcats{display:flex;gap:7px;overflow-x:auto;padding:14px 20px 12px;}
+  .tcats::-webkit-scrollbar{display:none;}
+  .tcat{flex-shrink:0;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--surface);border:1px solid var(--line);
+    padding:7px 13px;border-radius:var(--r-pill);cursor:pointer;}
+  .tcat.on{background:var(--brand-bg);color:var(--brand-deep);border-color:var(--brand);}
+  .tgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px;}
+  .tpl{border-radius:var(--r-md);overflow:hidden;background:var(--surface);border:1px solid var(--line);cursor:pointer;}
+  .tpl.on{border:2px solid var(--brand-strong);box-shadow:0 6px 16px rgba(188,102,117,.2);}
+  .tpl .pv{height:120px;position:relative;overflow:hidden;background:var(--surface-2);}
+  .tpl .nm{padding:9px 11px;}
+  .tpl .nm b{font-size:12.5px;font-weight:700;}
+  .tpl .nm em{display:block;font-style:normal;font-size:10.5px;color:var(--text-subtle);margin-top:2px;}
+  .tpl .chk{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--brand-strong);
+    color:#fff;display:none;align-items:center;justify-content:center;z-index:2;}
+  .tpl.on .chk{display:flex;} .tpl .chk svg{width:13px;height:13px;stroke:#fff;stroke-width:2.4;}
+  /* 템플릿 자체 레이아웃 preview (사진 미주입 — 고정 데모) */
+  .tplpv-ba{position:absolute;inset:9px;border-radius:8px;overflow:hidden;display:flex;background:#fff;border:1px solid var(--line);}
+  .tplpv-ba .c{flex:1;position:relative;}
+  .tplpv-ba .c.l{background:linear-gradient(168deg,#7a5746,#3f2c1f);}
+  .tplpv-ba .c.r{background:linear-gradient(168deg,#e7c9a8,#9a6f4c);}
+  .tplpv-ba .split{position:absolute;top:0;bottom:0;left:50%;width:1.5px;background:#fff;transform:translateX(-.75px);z-index:2;}
+  .tplpv-ba .cap{position:absolute;left:0;right:0;bottom:0;height:22px;background:#fff;z-index:3;
+    display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:var(--text);letter-spacing:.05em;}
+  .tplpv-show{position:absolute;inset:9px;border-radius:8px;overflow:hidden;background:linear-gradient(168deg,#d8b3a0,#a9745c);}
+  .tplpv-show::after{content:"";position:absolute;left:50%;bottom:-10%;transform:translateX(-50%);width:70%;height:84%;
+    border-radius:50% 50% 44% 44%;background:linear-gradient(180deg,#e8c3ac,#c79372);}
+  .tplpv-show .bar{position:absolute;left:0;right:0;bottom:0;height:24px;background:rgba(17,24,39,.78);z-index:2;
+    display:flex;align-items:center;padding:0 8px;font-size:8px;font-weight:800;color:#fff;}
+  .tplpv-review{position:absolute;inset:9px;border-radius:8px;background:#fff;border:1px solid var(--line);padding:12px;
+    display:flex;flex-direction:column;gap:6px;justify-content:center;}
+  .tplpv-review .q{font-size:9px;font-weight:700;color:#5a4448;line-height:1.4;}
+  .tplpv-review .rs{display:flex;gap:1px;color:#C8A876;}
+  .tplpv-review .rs svg{width:10px;height:10px;fill:currentColor;stroke:none;}
+  .tplpv-event{position:absolute;inset:9px;border-radius:8px;background:linear-gradient(155deg,#F3DCD6,#E2B2BC);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;color:#8a3d4c;}
+  .tplpv-event b{font-size:13px;font-weight:900;}
+  .tplpv-event em{font-style:normal;font-size:8px;font-weight:800;letter-spacing:.12em;}
+  .tplpv-price{position:absolute;inset:9px;border-radius:8px;background:#FFFBF6;border:1px solid var(--line);padding:10px;
+    display:flex;flex-direction:column;gap:4px;justify-content:center;}
+  .tplpv-price .r{display:flex;justify-content:space-between;font-size:8px;font-weight:700;color:#6b5a3a;}
+  .tplnote{margin:14px 20px 0;font-size:11.5px;color:var(--text-subtle);line-height:1.5;display:flex;gap:7px;}
+  .tplnote svg{width:15px;height:15px;stroke:var(--text-subtle);flex-shrink:0;margin-top:1px;}
+
+  /* ===== 적용 결과 (화면6) ===== */
+  .applied-banner{margin:14px 20px 0;display:flex;align-items:center;gap:10px;background:var(--brand-bg);
+    border:1px solid var(--brand);border-radius:var(--r-md);padding:12px 14px;}
+  .applied-banner .ic{width:30px;height:30px;border-radius:9px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--brand-strong);flex-shrink:0;}
+  .applied-banner .ic svg{width:16px;height:16px;}
+  .applied-banner .tx{flex:1;}
+  .applied-banner .tx b{font-size:12.5px;font-weight:700;display:block;}
+  .applied-banner .tx span{font-size:11px;color:var(--text-muted);}
+  .applied-banner .rel{font-size:11.5px;font-weight:700;color:var(--brand-strong);background:none;border:none;cursor:pointer;font-family:inherit;}
+  .results{padding:14px 20px 0;display:flex;flex-direction:column;gap:12px;}
+  .resultcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm);}
+  .resultcard .rh{display:flex;align-items:center;gap:7px;padding:10px 13px 0;}
+  .resultcard .rh .pn{font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--brand-strong);text-transform:uppercase;}
+  .resultcard .rh .tid{font-size:10px;color:var(--text-subtle);margin-left:auto;}
+  .resultcard .rpv{margin:9px 13px 13px;height:150px;border-radius:11px;overflow:hidden;position:relative;border:1px solid var(--line);}
+  .origcard{display:flex;align-items:center;gap:11px;background:var(--surface-2);border:1px dashed var(--line);border-radius:var(--r-md);padding:10px 12px;}
+  .origcard .th{width:46px;height:46px;border-radius:10px;overflow:hidden;position:relative;flex-shrink:0;}
+  .origcard .tx{font-size:11.5px;color:var(--text-muted);} .origcard .tx b{color:var(--text);font-weight:700;}
+
+  /* ===== 캡션 (화면7) ===== */
+  .cap-eyebrow{padding:14px 20px 0;font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--brand-strong);text-transform:uppercase;}
+  .carousel{margin:10px 20px 0;}
+  .carousel .vp{height:200px;border-radius:var(--r-lg);overflow:hidden;position:relative;border:1px solid var(--line);background:#000;}
+  .carousel .slide{position:absolute;inset:0;display:none;}
+  .carousel .slide.on{display:block;}
+  .carousel .badge{position:absolute;top:10px;left:10px;z-index:3;font-size:10.5px;font-weight:800;color:#fff;
+    background:rgba(17,24,39,.55);padding:4px 10px;border-radius:var(--r-pill);backdrop-filter:blur(3px);}
+  .carousel .nav{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;
+    background:rgba(255,255,255,.92);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);z-index:4;box-shadow:var(--shadow-sm);}
+  .carousel .nav svg{width:16px;height:16px;}
+  .carousel .prev{left:10px;} .carousel .next{right:10px;}
+  .dots{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:11px;}
+  .dots .dot{width:7px;height:7px;border-radius:50%;background:var(--line);cursor:pointer;transition:width .2s;}
+  .dots .dot.on{width:20px;border-radius:4px;background:var(--brand-strong);}
+  .cap-hint{text-align:center;font-size:11.5px;color:var(--text-subtle);margin-top:9px;}
+  .cap-hint b{color:var(--brand-strong);font-weight:700;}
+
+  .svc{margin:18px 20px 0;}
+  .svc label{font-size:12px;font-weight:700;color:var(--text-muted);display:flex;justify-content:space-between;align-items:baseline;}
+  .svc label span{font-size:10.5px;color:var(--text-subtle);font-weight:500;}
+  .svc input{margin-top:8px;width:100%;height:46px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);
+    padding:0 14px;font-size:14px;font-family:inherit;color:var(--text);}
+  .svc input:focus{outline:none;border-color:var(--brand);}
+  .capresult{margin:16px 20px 0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:15px;box-shadow:var(--shadow-sm);}
+  .capresult .by{font-size:11px;font-weight:700;color:var(--brand-strong);margin-bottom:9px;display:flex;align-items:center;gap:5px;}
+  .capresult .by svg{width:13px;height:13px;}
+  .capresult .tx{font-size:13px;line-height:1.7;color:var(--text);white-space:pre-line;}
+  .capresult .hh{color:#3B82F6;font-weight:600;margin-top:8px;display:block;font-size:12.5px;}
+  .capresult .cnt{text-align:right;font-size:10.5px;color:var(--text-subtle);margin-top:8px;}
+  .regen{display:flex;gap:7px;padding:14px 20px 0;flex-wrap:wrap;}
+  .rg{font-size:12px;font-weight:600;color:var(--text-muted);background:var(--surface);border:1px solid var(--line);
+    padding:8px 13px;border-radius:var(--r-pill);cursor:pointer;font-family:inherit;}
+  .rg.primary{color:var(--brand-strong);background:var(--brand-bg);border-color:var(--brand);}
+  .hashsec{margin:16px 20px 0;}
+  .hashsec .lab{font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:9px;}
+  .hashrow{display:flex;flex-wrap:wrap;gap:7px;}
+  .htag{font-size:11.5px;font-weight:600;color:#3B82F6;background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.16);
+    padding:6px 11px;border-radius:var(--r-pill);}
+  .htag.on{background:#3B82F6;color:#fff;border-color:transparent;}
+
+  /* ===== 미리보기 (화면8) ===== */
+  .igcard{margin:16px 20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-sm);}
+  .ighead{display:flex;align-items:center;gap:10px;padding:12px 14px;}
+  .ighead .av{width:34px;height:34px;border-radius:50%;background:var(--brand-bg);display:flex;align-items:center;justify-content:center;color:var(--brand-strong);}
+  .ighead .av svg{width:17px;height:17px;}
+  .ighead .m .h{font-size:13px;font-weight:700;} .ighead .m .l{font-size:10.5px;color:var(--text-subtle);}
+  .ighead .more{margin-left:auto;color:var(--text-subtle);}
+  .igph{height:300px;position:relative;overflow:hidden;}
+  .igcar-badge{position:absolute;top:12px;right:12px;z-index:3;font-size:10.5px;font-weight:800;color:#fff;background:rgba(17,24,39,.5);padding:4px 9px;border-radius:var(--r-pill);}
+  .igph .dots{position:absolute;bottom:10px;left:0;right:0;margin:0;}
+  .igph .dots .dot{background:rgba(255,255,255,.5);}
+  .igph .dots .dot.on{background:#fff;width:7px;border-radius:50%;}
+  .igacts{display:flex;align-items:center;gap:15px;padding:11px 14px 5px;color:var(--text);}
+  .igacts svg{width:23px;height:23px;} .igacts .save{margin-left:auto;}
+  .igcopy{padding:2px 14px 14px;font-size:12.5px;line-height:1.6;}
+  .igcopy b{font-weight:700;} .igcopy .hh{color:#3B82F6;}
+  .prep{margin:0 20px 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .prep .pb{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:13px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:7px;font-size:11px;font-weight:700;color:var(--text-muted);}
+  .prep .pb svg{width:19px;height:19px;color:var(--brand-strong);}
+
+  /* ===== 하단 액션바 ===== */
+  .actionbar{padding:12px 20px;border-top:1px solid var(--line);background:rgba(255,255,255,.97);flex-shrink:0;backdrop-filter:blur(8px);}
+  .cta{width:100%;height:52px;border-radius:var(--r-lg);border:none;cursor:pointer;font-family:inherit;font-size:14.5px;font-weight:800;
+    color:#fff;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--brand-strong);box-shadow:0 8px 20px rgba(188,102,117,.24);}
+  .cta svg{width:18px;height:18px;stroke:#fff;stroke-width:2;}
+  .cta.ghost{background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:none;}
+  .cta.ghost svg{stroke:var(--text);}
+  .cta-row{display:flex;gap:10px;} .cta-row .cta{flex:1;}
+
+  @media (max-width:460px){
+    body{padding:20px 10px 50px;}
+    .phone{width:100%;max-width:390px;height:780px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Lucide 인라인 스프라이트 (이모지 0) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ic-store" viewBox="0 0 24 24"><path d="M2 7l1.6-4h16.8L22 7"/><path d="M4 7v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7"/><path d="M2 7a3 3 0 0 0 5 0 3 3 0 0 0 5 0 3 3 0 0 0 5 0 3 3 0 0 0 5 0"/></symbol>
+  <symbol id="ic-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="ic-handles" viewBox="0 0 24 24"><path d="m8 9-3 3 3 3"/><path d="m16 9 3 3-3 3"/></symbol>
+  <symbol id="ic-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="ic-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="ic-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="ic-chev-l" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="ic-chev-r" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="ic-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="ic-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></symbol>
+  <symbol id="ic-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+  <symbol id="ic-calendar" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="ic-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></symbol>
+  <symbol id="ic-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="ic-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
+  <symbol id="ic-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+  <symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="ic-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
+  <symbol id="ic-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="ic-copy" viewBox="0 0 24 24"><rect width="13" height="13" x="9" y="9" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="ic-download" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+  <symbol id="ic-instagram" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
+  <symbol id="ic-heart" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/></symbol>
+  <symbol id="ic-send" viewBox="0 0 24 24"><path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/></symbol>
+  <symbol id="ic-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="ic-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></symbol>
+  <symbol id="ic-tag" viewBox="0 0 24 24"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"/><circle cx="7.5" cy="7.5" r="1" fill="currentColor"/></symbol>
+</svg>
+
+<div class="page-head">
+  <span class="page-eyebrow"><span class="hair"></span> Workspace Redesign · v3</span>
+  <h1 class="page-title">잇데이 <em>작업실</em> — 담백한 표면, 드래그 변신 히어로</h1>
+  <p class="page-sub">숫자 요약 스트립 대신 원장님 세계에서 가장 특징적인 <b>변신(Before→After)</b>을 첫 화면 주인공으로. 얇은 로즈 헤어라인+노브가 히어로→작품→전후 결과물로 반복되는 시그니처. 토큰 #D58A95 로즈 · 라이트모드 · Lucide 라인 아이콘(이모지 0) · 390px 기준.</p>
+</div>
+
+<div class="deck">
+
+  <!-- ====== 1. 작업실 홈 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">1</span> 작업실 홈 <em>· 오늘의 변신 + 작품 선반</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="2.5" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="16" height="7" rx="1.4" fill="currentColor"/><rect x="22.5" y="3.5" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+      </span></div>
+
+      <div class="ahead">
+        <div class="salon">
+          <div class="mark"><svg class="ic"><use href="#ic-store"/></svg></div>
+          <div class="nm">라뷰 헤어 살롱<small>원장님, 오늘도 예쁘게</small></div>
+        </div>
+        <div class="hbtn"><svg class="ic"><use href="#ic-bell"/></svg><span class="dot"></span></div>
+      </div>
+
+      <div class="scroll">
+        <div class="titleblock">
+          <h1>작업실</h1>
+          <p>사진 올리고 게시글까지 한 번에</p>
+        </div>
+
+        <div class="ba-eyebrow"><span class="k">Today · 오늘의 변신</span><span class="hair"></span><span class="when">방금 저장</span></div>
+        <div class="hero">
+          <div class="ba" id="hero-ba">
+            <div class="layer after"><div class="portrait p-after"><div class="hairmass"></div></div></div>
+            <div class="layer before" id="hero-before"><div class="portrait p-before"><div class="hairmass"></div></div></div>
+            <span class="tag b">BEFORE</span><span class="tag a">AFTER</span>
+            <div class="split" id="hero-split"></div>
+            <div class="knob" id="hero-knob"><svg><use href="#ic-handles"/></svg></div>
+          </div>
+          <div class="hero-foot">
+            <div class="who">김민지 고객<small>레이어드컷 · 내추럴 다운펌</small></div>
+            <button class="hero-cta">이 변신 게시글 쓰기 <svg><use href="#ic-arrow-r"/></svg></button>
+          </div>
+        </div>
+
+        <button class="startbtn"><svg class="ic"><use href="#ic-plus"/></svg> 새 사진으로 시작</button>
+
+        <div class="shelf-head"><span class="t">내 작품</span><span class="more">전체 보기</span></div>
+        <div class="filters">
+          <span class="filt on">전체</span><span class="filt">전후</span><span class="filt">후기</span><span class="filt">이벤트</span><span class="filt">가격표</span>
+        </div>
+        <div class="works">
+          <div class="work">
+            <div class="pv"><div class="mini-ba">
+              <div class="h" style="background:linear-gradient(168deg,#7a5746,#3f2c1f)"></div>
+              <div class="h" style="background:linear-gradient(168deg,#e7c9a8,#9a6f4c)"></div>
+              <div class="split"></div><div class="knob"></div>
+            </div></div>
+            <div class="meta"><div class="lab">전후</div><div class="ttl">레이어드컷 전후</div><div class="sub">김민지 · 오늘</div></div>
+          </div>
+          <div class="work">
+            <div class="pv pv-review">
+              <div class="rs"><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg></div>
+              <div class="rq">"자연스럽고 너무<br>만족스러워요!"</div>
+            </div>
+            <div class="meta"><div class="lab">후기</div><div class="ttl">박수연 고객 후기</div><div class="sub">붙임머리 · 2일 전</div></div>
+          </div>
+          <div class="work">
+            <div class="pv pv-event"><div class="e1">SUMMER</div><div class="e2">여름맞이</div></div>
+            <div class="meta"><div class="lab">이벤트</div><div class="ttl">6월 여름 이벤트</div><div class="sub">20% 할인 · 3일 전</div></div>
+          </div>
+          <div class="work">
+            <div class="pv pv-price">
+              <div class="pt">시술 가격표</div>
+              <div class="pr"><span>컷</span><b>25,000</b></div>
+              <div class="pr"><span>컬러</span><b>80,000</b></div>
+              <div class="pr"><span>펌</span><b>120,000</b></div>
+            </div>
+            <div class="meta"><div class="lab">가격표</div><div class="ttl">전체 가격표</div><div class="sub">컷·컬러·펌</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bnav">
+        <div class="nv"><svg class="ic"><use href="#ic-home"/></svg>홈</div>
+        <div class="nv"><svg class="ic"><use href="#ic-calendar"/></svg>예약</div>
+        <div class="nv"><svg class="ic"><use href="#ic-users"/></svg>고객</div>
+        <div class="nv on"><svg class="ic"><use href="#ic-grid"/></svg>작업실</div>
+        <div class="nv"><svg class="ic"><use href="#ic-more"/></svg>더보기</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ====== 2. 사진 업로드 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">2</span> 사진 업로드 <em>· 선택순서 배지</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">사진 올리기</div><div class="step">1 / 4</div></div>
+      <div class="prog"><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div><div class="pseg"></div></div>
+      <div class="lead">시술 <b>전·후 사진</b>을 여러 장 올리면, 짝을 지어 전후 콘텐츠를 만들어요.</div>
+
+      <div class="scroll">
+        <div class="drop">
+          <div class="ci"><svg class="ic"><use href="#ic-image"/></svg></div>
+          <div class="ut">사진을 끌어다 놓거나 선택하세요</div>
+          <div class="us">전/후를 번갈아 올리면 짝이 자동으로 맞춰져요</div>
+          <button class="ub"><svg class="ic"><use href="#ic-camera"/></svg> 사진 선택</button>
+        </div>
+
+        <div class="uphead"><div class="t">올린 사진 <b>6장</b></div><div class="h">탭한 순서대로 번호가 매겨져요</div></div>
+        <div class="upgrid">
+          <div class="tile"><span class="seq">1</span><div style="position:absolute;inset:0;background:linear-gradient(168deg,#7a5746,#3f2c1f)"></div></div>
+          <div class="tile"><span class="seq">2</span><div style="position:absolute;inset:0;background:linear-gradient(168deg,#e7c9a8,#9a6f4c)"></div></div>
+          <div class="tile"><span class="seq">3</span><div style="position:absolute;inset:0;background:linear-gradient(168deg,#6f5040,#33231a)"></div></div>
+          <div class="tile"><span class="seq">4</span><div style="position:absolute;inset:0;background:linear-gradient(168deg,#dcbd9b,#8f6543)"></div></div>
+          <div class="tile"><span class="seq">5</span><div style="position:absolute;inset:0;background:linear-gradient(168deg,#7d5a47,#3a2820)"></div></div>
+          <div class="tile"><span class="seq">6</span><div style="position:absolute;inset:0;background:linear-gradient(168deg,#e3c4a2,#996d49)"></div></div>
+        </div>
+      </div>
+      <div class="actionbar"><button class="cta">템플릿 고르기 <svg class="ic"><use href="#ic-arrow-r"/></svg></button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== 3. 전/후/기본 역할 선택 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">3</span> 역할 선택 <em>· 전 / 후 / 기본</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">사진 역할</div><div class="step">1 / 4</div></div>
+      <div class="prog"><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div><div class="pseg"></div></div>
+      <div class="lead">각 사진이 <b>전·후·기본</b> 중 무엇인지 정해요. 안 누르면 순서대로 자동 배정돼요.</div>
+      <div class="scroll">
+        <div class="rolecards">
+          <div class="rolecard">
+            <div class="th"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#7a5746,#3f2c1f)"></div></div>
+            <div class="info"><div class="s">사진 1</div><div class="d">시술 전 모습</div></div>
+            <div class="roles under"><div class="roleseg"><button class="on">전</button><button>후</button><button>기본</button></div></div>
+          </div>
+          <div class="rolecard">
+            <div class="th"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#e7c9a8,#9a6f4c)"></div></div>
+            <div class="info"><div class="s">사진 2</div><div class="d">시술 후 완성</div></div>
+            <div class="roles under"><div class="roleseg"><button>전</button><button class="on">후</button><button>기본</button></div></div>
+          </div>
+          <div class="rolecard">
+            <div class="th"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#6f5040,#33231a)"></div></div>
+            <div class="info"><div class="s">사진 3</div><div class="d">시술 전 모습</div></div>
+            <div class="roles under"><div class="roleseg"><button class="on">전</button><button>후</button><button>기본</button></div></div>
+          </div>
+          <div class="rolecard">
+            <div class="th"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#dcbd9b,#8f6543)"></div></div>
+            <div class="info"><div class="s">사진 4</div><div class="d">시술 후 완성</div></div>
+            <div class="roles under"><div class="roleseg"><button>전</button><button class="on">후</button><button>기본</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="actionbar"><button class="cta">템플릿 고르기 <svg class="ic"><use href="#ic-arrow-r"/></svg></button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== 4. 다중 전후 pair 안내 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">4</span> 전후 짝 <em>· Pair 1·2·3</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">전후 짝 확인</div><div class="step">1 / 4</div></div>
+      <div class="prog"><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div><div class="pseg"></div></div>
+      <div class="lead">전 3장 · 후 3장 → <b>3개의 전후 짝</b>이 만들어졌어요. 짝마다 같은 템플릿이 각각 적용돼요.</div>
+      <div class="scroll">
+        <div class="pairs">
+          <div class="paircard">
+            <div class="ph"><span class="pn">Pair 1</span><span class="hair"></span><span class="ok"><svg class="ic"><use href="#ic-check"/></svg> 짝 완성</span></div>
+            <div class="pairbody">
+              <div class="ps"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#7a5746,#3f2c1f)"></div><span class="lab">전</span></div>
+              <div class="arrow"><svg class="ic"><use href="#ic-arrow-r"/></svg></div>
+              <div class="ps"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#e7c9a8,#9a6f4c)"></div><span class="lab">후</span></div>
+            </div>
+          </div>
+          <div class="paircard">
+            <div class="ph"><span class="pn">Pair 2</span><span class="hair"></span><span class="ok"><svg class="ic"><use href="#ic-check"/></svg> 짝 완성</span></div>
+            <div class="pairbody">
+              <div class="ps"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#6f5040,#33231a)"></div><span class="lab">전</span></div>
+              <div class="arrow"><svg class="ic"><use href="#ic-arrow-r"/></svg></div>
+              <div class="ps"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#dcbd9b,#8f6543)"></div><span class="lab">후</span></div>
+            </div>
+          </div>
+          <div class="paircard">
+            <div class="ph"><span class="pn">Pair 3</span><span class="hair"></span><span class="ok"><svg class="ic"><use href="#ic-check"/></svg> 짝 완성</span></div>
+            <div class="pairbody">
+              <div class="ps"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#7d5a47,#3a2820)"></div><span class="lab">전</span></div>
+              <div class="arrow"><svg class="ic"><use href="#ic-arrow-r"/></svg></div>
+              <div class="ps"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#e3c4a2,#996d49)"></div><span class="lab">후</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="leftover"><svg class="ic"><use href="#ic-info"/></svg> 남는 사진이 있으면 "후 사진이 더 필요해요"처럼 알려드려요.</div>
+      </div>
+      <div class="actionbar"><button class="cta">템플릿 고르기 <svg class="ic"><use href="#ic-arrow-r"/></svg></button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== 5. 템플릿 선택 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">5</span> 템플릿 선택 <em>· 카드=템플릿 원본</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">템플릿</div><div class="step">2 / 4</div></div>
+      <div class="prog"><div class="pseg done"></div><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div></div>
+      <div class="tcats"><span class="tcat on">전체</span><span class="tcat">전후사진</span><span class="tcat">시술자랑</span><span class="tcat">후기</span><span class="tcat">이벤트</span><span class="tcat">가격표</span></div>
+      <div class="scroll">
+        <div class="tgrid">
+          <div class="tpl on">
+            <div class="pv"><div class="tplpv-ba"><div class="c l"></div><div class="c r"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div><div class="chk"><svg class="ic"><use href="#ic-check"/></svg></div></div>
+            <div class="nm"><b>전후 비교</b><em>wm-ba-feed</em></div>
+          </div>
+          <div class="tpl">
+            <div class="pv"><div class="tplpv-show"><div class="bar">오늘의 시술</div></div></div>
+            <div class="nm"><b>시술 자랑</b><em>wm-show-feed</em></div>
+          </div>
+          <div class="tpl">
+            <div class="pv"><div class="tplpv-review"><div class="rs"><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg><svg><use href="#ic-star"/></svg></div><div class="q">"정말 만족스러운<br>시술이었어요"</div></div></div>
+            <div class="nm"><b>고객 후기</b><em>wm-review-feed</em></div>
+          </div>
+          <div class="tpl">
+            <div class="pv"><div class="tplpv-event"><em>SPECIAL</em><b>EVENT</b></div></div>
+            <div class="nm"><b>이벤트 안내</b><em>wm-event-feed</em></div>
+          </div>
+          <div class="tpl">
+            <div class="pv"><div class="tplpv-price"><div class="r"><span>컷</span><b>25,000</b></div><div class="r"><span>컬러</span><b>80,000</b></div><div class="r"><span>펌</span><b>120,000</b></div></div></div>
+            <div class="nm"><b>가격표</b><em>wm-price-feed</em></div>
+          </div>
+          <div class="tpl">
+            <div class="pv"><div class="tplpv-show" style="background:linear-gradient(168deg,#c9a18b,#8a5e44)"><div class="bar">STORY</div></div></div>
+            <div class="nm"><b>스토리 홍보</b><em>wm-promo-story</em></div>
+          </div>
+        </div>
+        <div class="tplnote"><svg class="ic"><use href="#ic-info"/></svg> 카드 미리보기는 템플릿 자체 예시예요. 내 사진은 "템플릿 적용"을 눌러야 합쳐져요.</div>
+      </div>
+      <div class="actionbar"><button class="cta"><svg class="ic"><use href="#ic-layers"/></svg> 전후 템플릿 적용 (Pair 3개)</button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== 6. 템플릿 적용 결과 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">6</span> 적용 결과 <em>· 결과물 3개</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">적용 결과</div><div class="step">2 / 4</div></div>
+      <div class="prog"><div class="pseg done"></div><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div></div>
+      <div class="applied-banner">
+        <div class="ic"><svg class="ic"><use href="#ic-layers"/></svg></div>
+        <div class="tx"><b>전후 템플릿 적용됨</b><span>전후 비교 · Pair 3개에 각각 적용</span></div>
+        <button class="rel">템플릿 해제</button>
+      </div>
+      <div class="scroll">
+        <div class="results">
+          <div class="resultcard">
+            <div class="rh"><span class="pn">Pair 1 결과물</span><span class="tid">wm-ba-feed</span></div>
+            <div class="rpv"><div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l"></div><div class="c r"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div></div>
+          </div>
+          <div class="resultcard">
+            <div class="rh"><span class="pn">Pair 2 결과물</span><span class="tid">wm-ba-feed</span></div>
+            <div class="rpv"><div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l" style="background:linear-gradient(168deg,#6f5040,#33231a)"></div><div class="c r" style="background:linear-gradient(168deg,#dcbd9b,#8f6543)"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div></div>
+          </div>
+          <div class="resultcard">
+            <div class="rh"><span class="pn">Pair 3 결과물</span><span class="tid">wm-ba-feed</span></div>
+            <div class="rpv"><div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l" style="background:linear-gradient(168deg,#7d5a47,#3a2820)"></div><div class="c r" style="background:linear-gradient(168deg,#e3c4a2,#996d49)"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div></div>
+          </div>
+          <div class="origcard">
+            <div class="th"><div style="position:absolute;inset:0;background:linear-gradient(168deg,#cdb4d8,#9d7bb0)"></div></div>
+            <div class="tx"><b>기본 사진 1장</b>은 합치지 않고 원본 그대로 보관돼요.</div>
+          </div>
+        </div>
+      </div>
+      <div class="actionbar"><button class="cta">게시글 만들기 <svg class="ic"><use href="#ic-arrow-r"/></svg></button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== 7. 캡션 생성 (캐러셀) ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">7</span> 게시글 <em>· 결과물 캐러셀 + AI 캡션</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">게시글 쓰기</div><div class="step">3 / 4</div></div>
+      <div class="prog"><div class="pseg done"></div><div class="pseg done"></div><div class="pseg now"></div><div class="pseg"></div></div>
+      <div class="scroll">
+        <div class="cap-eyebrow">결과물 3장</div>
+        <div class="carousel" id="capcar">
+          <div class="vp">
+            <div class="slide on"><span class="badge">1 / 3 · Pair 1</span><div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l"></div><div class="c r"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div></div>
+            <div class="slide"><span class="badge">2 / 3 · Pair 2</span><div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l" style="background:linear-gradient(168deg,#6f5040,#33231a)"></div><div class="c r" style="background:linear-gradient(168deg,#dcbd9b,#8f6543)"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div></div>
+            <div class="slide"><span class="badge">3 / 3 · Pair 3</span><div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l" style="background:linear-gradient(168deg,#7d5a47,#3a2820)"></div><div class="c r" style="background:linear-gradient(168deg,#e3c4a2,#996d49)"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div></div>
+            <button class="nav prev"><svg class="ic"><use href="#ic-chev-l"/></svg></button>
+            <button class="nav next"><svg class="ic"><use href="#ic-chev-r"/></svg></button>
+          </div>
+          <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="cap-hint"><b>3장의 전후 결과물</b>로 게시글 한 편을 만들어요</div>
+        </div>
+
+        <div class="svc">
+          <label>시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>
+          <input type="text" value="레이어드컷 27인치, 얼굴 라인 살아보이게" />
+        </div>
+
+        <div class="capresult">
+          <div class="by"><svg class="ic"><use href="#ic-sparkle"/></svg> 잇비가 작성</div>
+          <div class="tx">오늘은 김민지 고객님의 <b>레이어드컷 27인치</b> 작업이에요.
+긴 기장에 층을 자연스럽게 넣어 얼굴 라인이 한층 또렷하게 살아났어요. 세 장의 전후 컷으로 변화를 한눈에 담았습니다.
+<span class="hh">#레이어드컷 #27인치레이어드 #얼굴라인 #강남미용실</span></div>
+          <div class="cnt">148 / 200자</div>
+        </div>
+
+        <div class="regen">
+          <span class="rg primary">다시 쓰기</span><span class="rg">더 길게</span><span class="rg">인스타 톤</span><span class="rg">초기화</span>
+        </div>
+
+        <div class="hashsec">
+          <div class="lab">추천 해시태그</div>
+          <div class="hashrow"><span class="htag on">#레이어드컷</span><span class="htag on">#27인치레이어드</span><span class="htag on">#얼굴라인</span><span class="htag">#강남미용실</span><span class="htag">#오늘의시술</span><span class="htag">#헤어변신</span></div>
+        </div>
+      </div>
+      <div class="actionbar"><button class="cta">고객 연결하고 저장 <svg class="ic"><use href="#ic-arrow-r"/></svg></button></div>
+    </div></div>
+  </div>
+
+  <!-- ====== 8. 인스타 미리보기 ====== -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">8</span> 인스타 미리보기 <em>· 캐러셀 게시</em></div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig"><svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg></span></div>
+      <div class="fbar"><div class="back"><svg class="ic"><use href="#ic-chev-l"/></svg></div><div class="ti">미리보기</div><div class="step">4 / 4</div></div>
+      <div class="prog"><div class="pseg done"></div><div class="pseg done"></div><div class="pseg done"></div><div class="pseg now"></div></div>
+      <div class="scroll">
+        <div class="igcard">
+          <div class="ighead">
+            <div class="av"><svg class="ic"><use href="#ic-store"/></svg></div>
+            <div class="m"><div class="h">labeau_hair</div><div class="l">라뷰 헤어 살롱 · 강남</div></div>
+            <div class="more"><svg class="ic"><use href="#ic-more"/></svg></div>
+          </div>
+          <div class="igph">
+            <span class="igcar-badge">1 / 3</span>
+            <div class="tplpv-ba" style="inset:0;border-radius:0;border:0"><div class="c l"></div><div class="c r"></div><div class="split"></div><div class="cap">BEFORE · AFTER</div></div>
+            <div class="dots"><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+          </div>
+          <div class="igacts"><svg class="ic"><use href="#ic-heart"/></svg><svg class="ic"><use href="#ic-send"/></svg><svg class="ic save"><use href="#ic-bookmark"/></svg></div>
+          <div class="igcopy"><b>labeau_hair</b> 오늘은 김민지 고객님의 레이어드컷 27인치 작업이에요. 세 장의 전후 컷으로 변화를 한눈에! <span class="hh">#레이어드컷 #얼굴라인</span></div>
+        </div>
+        <div style="padding:0 20px 10px;font-size:12px;font-weight:700;color:var(--text-muted)">아직 인스타 연동 전이에요</div>
+        <div class="prep">
+          <div class="pb"><svg class="ic"><use href="#ic-copy"/></svg>문구 복사</div>
+          <div class="pb"><svg class="ic"><use href="#ic-download"/></svg>이미지 저장</div>
+          <div class="pb"><svg class="ic"><use href="#ic-link"/></svg>계정 연결</div>
+        </div>
+      </div>
+      <div class="actionbar"><div class="cta-row">
+        <button class="cta ghost"><svg class="ic"><use href="#ic-bookmark"/></svg> 작업실 저장</button>
+        <button class="cta"><svg class="ic"><use href="#ic-instagram"/></svg> 게시하기</button>
+      </div></div>
+    </div></div>
+  </div>
+
+</div>
+
+<script>
+  // ── 시그니처: 드래그 변신 히어로 (실제 동작 데모) ──
+  (function(){
+    var ba=document.getElementById('hero-ba'); if(!ba) return;
+    var before=document.getElementById('hero-before'), split=document.getElementById('hero-split'), knob=document.getElementById('hero-knob');
+    var dragging=false;
+    function setPct(p){p=Math.max(4,Math.min(96,p));before.style.width=p+'%';split.style.left=p+'%';knob.style.left=p+'%';}
+    function fromEvent(e){var r=ba.getBoundingClientRect();var x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;return x/r.width*100;}
+    ba.addEventListener('mousedown',function(e){dragging=true;setPct(fromEvent(e));e.preventDefault();});
+    window.addEventListener('mousemove',function(e){if(dragging)setPct(fromEvent(e));});
+    window.addEventListener('mouseup',function(){dragging=false;});
+    ba.addEventListener('touchstart',function(e){dragging=true;setPct(fromEvent(e));},{passive:true});
+    ba.addEventListener('touchmove',function(e){if(dragging)setPct(fromEvent(e));},{passive:true});
+    ba.addEventListener('touchend',function(){dragging=false;});
+  })();
+
+  // ── 캡션 결과물 캐러셀 (실제 동작 데모) ──
+  (function(){
+    var car=document.getElementById('capcar'); if(!car) return;
+    var slides=car.querySelectorAll('.slide'), dots=car.querySelectorAll('.dot'), cur=0;
+    function go(i){cur=(i+slides.length)%slides.length;slides.forEach(function(s,n){s.classList.toggle('on',n===cur);});dots.forEach(function(d,n){d.classList.toggle('on',n===cur);});}
+    car.querySelector('.prev').addEventListener('click',function(){go(cur-1);});
+    car.querySelector('.next').addEventListener('click',function(){go(cur+1);});
+    dots.forEach(function(d,n){d.addEventListener('click',function(){go(n);});});
+  })();
+</script>
+</body>
+</html>
