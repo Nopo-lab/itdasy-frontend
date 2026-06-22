@@ -80,13 +80,27 @@
     //  베이스(#wsv2flow 마지막 엔트리)가 빠질 땐 전역 sheet 레지스트리(_systemBack)가 닫고 작업실 홈으로.
     window.addEventListener('popstate', function () {
       if (_closingHist) return;
-      if (!el || !el.classList.contains('is-open')) return;
-      if (navStack.length) {
-        if (_histDepth > 0) _histDepth--;
-        if (cur === 'caption') flushCaptionInputs();
-        setScreen(navStack.pop(), { push: false });
-      }
+      _navBack();
     });
+  }
+  // [v531] 한 단계 뒤로 — 시스템/브라우저/인앱 back 공통. 캡션 결과 화면이면 먼저 캡션 입력으로(편집으로 안 튐).
+  function _navBack() {
+    if (!el || !el.classList.contains('is-open')) return false;
+    // 캡션 생성 완료(결과) + 그 위에 우리가 push한 'caption' 마커가 있으면 → 결과를 비우고 캡션 입력 화면으로.
+    if (cur === 'caption' && String(d.caption || '').trim() && navStack.length && navStack[navStack.length - 1] === 'caption') {
+      if (_histDepth > 0) _histDepth--;
+      navStack.pop();
+      d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.logId = null;
+      setScreen('caption', { push: false });
+      return true;
+    }
+    if (navStack.length) {
+      if (_histDepth > 0) _histDepth--;
+      if (cur === 'caption') flushCaptionInputs();
+      setScreen(navStack.pop(), { push: false });
+      return true;
+    }
+    return false;
   }
 
   function uid() { return (typeof window._uid === 'function') ? window._uid() : 'wf_' + Math.random().toString(36).slice(2); }
@@ -795,6 +809,7 @@
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
+	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
@@ -832,6 +847,8 @@
           if (label) toast(added > 0 ? label : '새 해시태그가 더 없어요');
         } else {
           d.caption = r.caption; d.hashtags = fresh; d.selectedHashes = fresh.slice();
+          // [v531] 캡션 입력→결과 최초 전환 시 history 마커 1개 push → 결과 화면에서 뒤로가기 = 캡션 입력 화면(편집 X).
+          if (_wasEmpty) { navStack.push('caption'); _pushHist(); }
           // [#6] 꼬리말(captionTemplate)은 어댑터가 돌려주지 않으므로 여기서 덮어쓰지 않는다.
           //  (기존 'r.caption_template || ""' 는 재생성 때마다 사용자가 입력한 고정 꼬리말을 빈값으로 지우는 회귀였음)
           if (r.caption_template != null) d.captionTemplate = r.caption_template;
@@ -1644,13 +1661,7 @@
   //  단계 복귀는 _bindPop 의 popstate 리스너가 담당하므로, 여기선 단계 남으면 복귀/없으면 닫기만.
   function _systemBack() {
     if (!el || !el.classList.contains('is-open')) return;
-    if (navStack.length) {
-      if (_histDepth > 0) _histDepth--;
-      if (cur === 'caption') flushCaptionInputs();
-      setScreen(navStack.pop(), { push: false });
-      return;
-    }
-    close();
+    if (!_navBack()) close();   // [v531] navStack 비면 close → 작업실 홈
   }
   function close() {
     if (el) el.classList.remove('is-open');
