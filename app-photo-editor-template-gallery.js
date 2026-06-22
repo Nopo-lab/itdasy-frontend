@@ -198,8 +198,50 @@
     return (basePx <= 480 && isBA && !realSecond && photo) ? photo : realSecond;
   }
 
+  // ── [핵심2/버그6] 템플릿 카드는 '원본 미리보기'만 — 업로드 사진을 썸네일에 섞지 않는다. ──
+  //   고정 예시 뷰티 이미지(assets/workshop-cats/cat-1..5.jpg, 이미 번들된 실제 사진) 사용.
+  //   사용자 사진은 적용(_applyTemplate→TemplatesV2.apply) 단계에서만 실제 캔버스에 렌더된다.
+  const _EX_SRC = { ba_before: 'assets/workshop-cats/cat-1.jpg', ba_after: 'assets/workshop-cats/cat-2.jpg', feed: 'assets/workshop-cats/cat-3.jpg', review: 'assets/workshop-cats/cat-4.jpg', event: 'assets/workshop-cats/cat-5.jpg' };
+  const _exImg = {};
+  let _exReady = false;
+  let _lastPaint = null;
+  let _exRepaintT = null;
+  function _loadEx(src) {
+    if (_exImg[src]) return _exImg[src];
+    const im = new Image(); _exImg[src] = im;
+    im.onload = function () { _exReady = true; _onExLoaded(); };
+    im.onerror = function () { /* 예시 로드 실패 시 그래디언트 폴백 유지 */ };
+    im.src = src;
+    return im;
+  }
+  function _readyImg(src) { const im = _exImg[src] || _loadEx(src); return (im && im.complete && im.naturalWidth) ? im : null; }
+  function _exPurpose(t) {
+    if (t.purpose === 'before_after' || /(^|-)ba-/.test(t.id)) return 'ba';
+    if (t.purpose === 'review') return 'review';
+    if (t.purpose === 'event') return 'event';
+    return 'feed';
+  }
+  function _examplePhoto(t) {
+    const p = _exPurpose(t);
+    return _readyImg(p === 'ba' ? _EX_SRC.ba_before : (_EX_SRC[p] || _EX_SRC.feed));
+  }
+  function _exampleSecond(t) { return _exPurpose(t) === 'ba' ? _readyImg(_EX_SRC.ba_after) : null; }
+  function _onExLoaded() {
+    if (_exRepaintT) return;
+    _exRepaintT = setTimeout(function () {
+      _exRepaintT = null;
+      Object.keys(_thumbCache).forEach(function (k) { delete _thumbCache[k]; });
+      const lp = _lastPaint;
+      if (lp && lp.panel && lp.panel.isConnected) {
+        lp.panel.querySelectorAll('[data-pe-tplg-thumb]').forEach(function (el) { delete el.dataset.painted; });
+        _paintThumbs(lp.panel, lp.state);
+        if (_selectedId) _renderPreview(lp.panel, lp.state);
+      }
+    }, 60);
+  }
+
   function _previewURL(t, state, basePx) {
-    const sig = _photoSig(state);
+    const sig = _exReady ? 'ex1' : 'ex0';  // [핵심2/버그6] 카드=고정 예시, 사용자 사진 서명 미사용
     // [S2] 현재 적용 템플릿이면 slotValues 서명을 키에 포함(편집 시 stale 방지).
     const cur = state && state.tplV2;
     const slotSig = (cur && cur.id === t.id && cur.slotValues) ? '|' + _hash(JSON.stringify(cur.slotValues)) : '';
@@ -216,7 +258,7 @@
       const cv = document.createElement('canvas');
       cv.width = dim.w; cv.height = dim.h;
       const ctx = cv.getContext('2d');
-      const photo = state && state.originalImg;
+      const photo = _examplePhoto(t);  // [핵심2/버그6] 업로드 사진 대신 고정 예시 이미지
       if (photo) {
         _coverDraw(ctx, photo, 0, 0, dim.w, dim.h);
       } else {
@@ -235,7 +277,7 @@
       }
       if (cur && cur.id === t.id && cur.imageSlots) tplV2.imageSlots = cur.imageSlots;
       const synth = {
-        tplV2, originalImg: photo, secondImg: _thumbSecond(t, state, basePx, photo),
+        tplV2, originalImg: photo, secondImg: _exampleSecond(t),  // [핵심2/버그6] BA '후' 예시(cat-2)
         shopName: state && state.shopName, serviceName: state && state.serviceName, price: state && state.price,
       };
       const PT = window.PhotoEditorPremiumTemplates;
@@ -356,6 +398,7 @@
 
   // ── 바인딩 ──
   function _paintThumbs(panel, state) {
+    _lastPaint = { panel: panel, state: state };  // [핵심2/버그6] 예시 로드 후 재칠용
     const nodes = panel.querySelectorAll('[data-pe-tplg-thumb]');
     // 성공(비어있지 않은 url) 시에만 painted 마킹/관측 해제 → 일시적 렌더 실패가 빈칸으로 고정되지 않음.
     const paint = (el) => {
