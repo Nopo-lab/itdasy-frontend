@@ -735,6 +735,16 @@
     //  시술명으로 박제되므로 '시술/키워드'로 표기 → 시술명·강조 표현 모두 반영 대상임을 분명히 한다.
     //  (verbatim 키워드는 payload.service 로도 별도 전달 — app-caption.js)
     if (svc) opts.photo_context = '시술/키워드: ' + svc + (opts.photo_context ? ' · ' + opts.photo_context : '');
+    // [다중pair·Step5] 결과물 여러 장이면 '캐러셀 게시글' 기준임을 photo_context 에 명시 → 단일 사진으로 뭉개지 않게.
+    var _outs = d.templateOutputs || [];
+    if (_outs.length >= 2) opts.photo_context += ' · 전후 결과물 ' + _outs.length + '장(인스타 캐러셀 한 편). 각 장은 같은 시술의 서로 다른 전/후 컷.';
+    else if (_outs.length === 1 && d.tplPurpose === 'before_after') opts.photo_context += ' · 전후 1장 게시글.';
+    // [Step5] 사용자 강조 표현을 extra_notes 로도 전달 — 백엔드가 '그대로 복붙 말고 자연스럽게 녹여라'로 정제(구어 박제 방지).
+    opts.extra_notes = ('강조 표현: "' + svc.slice(0, 180) + '" — 그대로 반복·직역하지 말고 뷰티샵 인스타 톤으로 자연스럽게 의미만 살려 반영해 주세요.').slice(0, 300);
+    // [Step5] 다중 결과물/템플릿 요약(트레이스용 — 백엔드 스키마엔 photo_context/extra_notes 텍스트로만 반영).
+    opts.selectedTemplateId = d.templateId || null;
+    opts.templateOutputs = _outs.map(function (o) { return { pairId: o.pairId, templateId: o.templateId, beforePhotoId: o.beforePhotoId, afterPhotoId: o.afterPhotoId, pairLabel: o.pairLabel }; });
+    opts.activeDisplayId = d.activeDisplayId || (_outs[0] && _outs[0].pairId) || null;
     d.capLen = opts.length_tier || d.capLen || 'medium';
     d.capTone = opts.tone_override || d.capTone || 'normal';
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {

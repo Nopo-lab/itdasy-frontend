@@ -1296,6 +1296,11 @@ window.CaptionEngine = {
     //  (photo_context 에도 이미 prepend 되지만, 백엔드가 photo_context 만 보고 service 를 흘리는 경로 대비)
     const _svc = String(opts.service || '').trim();
     if (_svc) payload.service = _svc;
+    // [다중pair·Step5] 사용자 강조 표현은 extra_notes 채널로 전달 — 백엔드 GenerateRequest.extra_notes 가
+    //  '특이사항은 그대로 복붙하지 말고 문맥에 맞게 자연스럽게 녹여달라'로 처리 → 구어/감정 표현(예: '개오바 얼굴')
+    //  박제 방지 + 의미 반영. 백엔드 제한(max 300자)에 맞춰 캡.
+    const _extra = String(opts.extra_notes || '').trim();
+    if (_extra) payload.extra_notes = _extra.slice(0, 300);
     const data = await _personaFetch('POST', '/persona/generate', payload);
     const caption = _dedupeCaptionText(data.caption);   // [#6] 문단 단위 dedupe
     if (!caption) throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');
