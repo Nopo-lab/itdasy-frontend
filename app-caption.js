@@ -1237,6 +1237,26 @@ Object.assign(window, {
    기존 _doGenerateCaption 의 payload 빌드(_CAP_CAT_MAP/SHOP_CONFIG/photo_context)·
    해시태그 정제(shuffleHashtags)·/persona/generate(_personaFetch)·log_id 흐름을 그대로 재사용.
    기존 캡션 탭 동작은 미변경(순수 additive, backward-compatible). caption payload 구조 변경 없음. */
+// [#6] 캡션 후처리 — 같은 문단/연속 같은 줄 중복 제거. 백엔드가 intro/body/CTA 를 중복으로 합쳐 보내거나
+//  같은 문단이 두 번 나오는 경우를 표시 직전에 한 번 더 걸러낸다(생성 후 post-process dedupe).
+function _dedupeCaptionText(text) {
+  text = String(text || '');
+  if (!text.trim()) return text.trim();
+  const seen = Object.create(null);
+  const paras = text.split(/\n{2,}/).map(p => p.replace(/\s+$/,'')).filter(p => p.trim());
+  const out = [];
+  paras.forEach(p => {
+    const key = p.trim().replace(/\s+/g, ' ').toLowerCase();
+    if (seen[key]) return;            // 같은 문단 2번 이상 → 첫 것만
+    seen[key] = 1; out.push(p.trim());
+  });
+  // 문단 내 연속 동일 라인 제거
+  const lines = out.join('\n\n').split('\n');
+  let prev = null; const lo = [];
+  lines.forEach(ln => { const k = ln.trim(); if (k && k === prev) return; lo.push(ln); prev = k; });
+  return lo.join('\n').trim();
+}
+
 window.CaptionEngine = {
   async generate(opts) {
     opts = opts || {};
@@ -1263,11 +1283,18 @@ window.CaptionEngine = {
       length_tier: opts.length_tier || 'medium',
       tone_override: opts.tone_override || 'normal',
     };
+    // [#5] 사용자 입력 시술명/키워드를 전용 필드로도 전달 — 백엔드가 키워드를 캡션에 명시 반영하도록.
+    //  (photo_context 에도 이미 prepend 되지만, 백엔드가 photo_context 만 보고 service 를 흘리는 경로 대비)
+    const _svc = String(opts.service || '').trim();
+    if (_svc) payload.service = _svc;
     const data = await _personaFetch('POST', '/persona/generate', payload);
-    const caption = String(data.caption || '').trim();
+    const caption = _dedupeCaptionText(data.caption);   // [#6] 문단 단위 dedupe
     if (!caption) throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');
+    const _seenTag = Object.create(null);
     const tags = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : [])
-      .map(t => String(t || '').trim().replace(/^#+/, '')).filter(Boolean).map(t => '#' + t);
+      .map(t => String(t || '').trim().replace(/^#+/, '')).filter(Boolean)
+      .filter(t => { const k = t.toLowerCase(); if (_seenTag[k]) return false; _seenTag[k] = 1; return true; })   // [#6] 해시태그 중복 제거
+      .map(t => '#' + t);
     return { caption, hashtags: tags, hashtagsText: tags.join(' '), log_id: data.log_id || null };
   },
 };

@@ -64,6 +64,30 @@
   // [nav] 방문 히스토리 스택 — 뒤로가기는 정적 SCREENS 인덱스가 아니라 '실제로 거쳐온 화면'으로 복귀.
   //  textOnly(게시물만 쓰기)로 caption에 바로 진입하면 스택이 비어 있어 뒤로가기가 작업실 홈으로 닫힌다.
   var navStack = [];
+  // [#1] 안드로이드/PWA 시스템 back 안정화 — 단계마다 실제 history 엔트리를 쌓는다(navStack 과 1:1).
+  //   기존엔 진입 시 1개만 push 하고 popstate 안에서 재push(재무장)했는데, 일부 안드로이드 WebView 가
+  //   popstate 도중의 pushState 를 무시해 두 번째 back 에서 history 가 비어 앱이 종료됐다.
+  //   이제 각 단계 진입에서 미리 엔트리를 쌓으므로 back 1회 = 한 화면 복귀, 재무장 불필요.
+  var _histDepth = 0;      // 우리가 push 한 단계 엔트리 수
+  var _popBound = false;   // popstate 리스너 1회 등록 가드
+  var _closingHist = false; // 프로그램적 close(저장/게시) 시 history 되감기 중 popstate 무시
+  function _pushHist() {
+    try { history.pushState({ wsv2: 'step' }, '', '#wsv2flow'); _histDepth++; } catch (_e) { void _e; }
+  }
+  function _bindPop() {
+    if (_popBound) return; _popBound = true;
+    // 단계가 남아있으면 한 화면 뒤로 — 시스템 back/브라우저 back/인앱 back 모두 동일 결과.
+    //  베이스(#wsv2flow 마지막 엔트리)가 빠질 땐 전역 sheet 레지스트리(_systemBack)가 닫고 작업실 홈으로.
+    window.addEventListener('popstate', function () {
+      if (_closingHist) return;
+      if (!el || !el.classList.contains('is-open')) return;
+      if (navStack.length) {
+        if (_histDepth > 0) _histDepth--;
+        if (cur === 'caption') flushCaptionInputs();
+        setScreen(navStack.pop(), { push: false });
+      }
+    });
+  }
 
   function uid() { return (typeof window._uid === 'function') ? window._uid() : 'wf_' + Math.random().toString(36).slice(2); }
   function toast(m) { if (window.showToast) window.showToast(m); }
@@ -72,7 +96,16 @@
     if (typeof window._fileToDataUrl === 'function') return window._fileToDataUrl(f);
     return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
   }
-  function editablePhotos() { return d.photos.filter(function (x) { return x.role !== 'exclude'; }); }
+  // [#2] 선택된 사진만(해제=selected:false 제외) · 선택순(selSeq)으로 정렬 → 순서배지/대표사진 일관.
+  function editablePhotos() {
+    return d.photos.filter(function (x) { return x.selected !== false && x.role !== 'exclude'; })
+      .sort(function (a, b) { return (a.selSeq || 0) - (b.selSeq || 0); });
+  }
+  // 선택 사진을 선택순으로 — 순서배지 계산용(표시는 업로드 배열순 유지, 배지 숫자만 선택순 랭크).
+  function _selectedOrdered() {
+    return d.photos.filter(function (x) { return x.selected !== false; })
+      .slice().sort(function (a, b) { return (a.selSeq || 0) - (b.selSeq || 0); });
+  }
   // 대표 사진 — 캡션/미리보기/저장 썸네일/게시 이미지(전후면 '후' 우선). 기존 동작 유지.
   function curPhoto() { var p = editablePhotos(); return (p[1] || p[0] || d.photos[0]); }
   // 편집 대상 사진 — 편집 화면에서 전/후 전환(editIdx)으로 선택. 전후면 '전(before)' 기본, 일반은 첫 사진.
@@ -137,18 +170,20 @@
   // [업로드 우선] 사진은 업로드가 먼저 — 클릭순 순서배지 + 사진별 전/후/기본 역할.
   //  탭 = 맨 앞으로(순서 조정), 휴지통 = 삭제. 전후 묶기 확장 위해 role(before/after/hero) 구조 유지.
   var _ROLE_SEG = [['before', '전'], ['after', '후'], ['hero', '기본']];
-  function _upTileHtml(p, i, multi) {
-    // [#5] 토글 순환 제거 → 사진별 전/후/기본 세그먼트(직관). 다시 누르면 해제(자동복귀). 제외는 삭제(휴지통)로.
+  // [#2] 인스타식 다중선택 — 탭하면 선택/해제 토글. 선택된 사진만 순서배지(선택순 랭크)·역할 세그먼트 노출.
+  //   해제하면 배지 사라지고 남은 선택 사진이 1부터 다시 매겨짐(건너뛴 번호 없음). 다시 누르면 맨 끝 순서로.
+  function _upTileHtml(p, i, multi, order) {
+    var selected = p.selected !== false;
     var role = p.role || 'hero';
-    var seg = multi
+    var seg = (multi && selected)
       ? '<div class="thumb-seg" role="group" aria-label="이 사진 역할 지정">' +
           _ROLE_SEG.map(function (rl) {
             return '<button type="button" class="thumb-seg-b' + (rl[0] === 'hero' ? ' basic' : '') + (role === rl[0] ? ' on' : '') + '" data-fl-setrole="' + i + ':' + rl[0] + '">' + rl[1] + '</button>';
           }).join('') +
         '</div>'
       : '';
-    return '<div class="photo-tile selected" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
-      '<span class="thumb-order">' + (i + 1) + '</span>' +
+    return '<div class="photo-tile' + (selected ? ' selected' : '') + '" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '" aria-pressed="' + selected + '">' +
+      (selected ? '<span class="thumb-order">' + order + '</span>' : '') +
       '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
       seg + '</div>';
   }
@@ -163,14 +198,19 @@
         : '') + '</div>';
   }
   function renderUpload() {
-    var n = d.photos.length, multi = n >= 2;
+    var n = d.photos.length;
+    // [#2] 선택순 랭크 맵 — 배지 숫자는 선택순(selSeq) 1..k. 표시 순서는 업로드 배열순 유지.
+    var selOrdered = _selectedOrdered();
+    var selCount = selOrdered.length, multi = selCount >= 2;
+    var rank = {};
+    selOrdered.forEach(function (p, idx) { rank[p.id] = idx + 1; });
     var cnt = { before: 0, after: 0, hero: 0 };
-    d.photos.forEach(function (p) { var r = p.role || 'hero'; if (cnt[r] != null) cnt[r]++; else cnt.hero++; });
+    selOrdered.forEach(function (p) { var r = p.role || 'hero'; if (cnt[r] != null) cnt[r]++; else cnt.hero++; });
     var pairs = Math.min(cnt.before, cnt.after);
-    var tiles = d.photos.map(function (p, i) { return _upTileHtml(p, i, multi); }).join('');
+    var tiles = d.photos.map(function (p, i) { return _upTileHtml(p, i, multi, rank[p.id]); }).join('');
     var guide = n
       ? '<div class="up-guide">' +
-          '<div class="up-guide-c"><b>1</b><small>사진을 탭해<br>순서 조정</small></div>' +
+          '<div class="up-guide-c"><b>1</b><small>사진을 탭해<br>선택·해제</small></div>' +
           '<div class="up-guide-c"><b>2</b><small>전·후·기본<br>역할 선택</small></div>' +
           '<div class="up-guide-c"><b>3</b><small>편집·템플릿<br>으로</small></div>' +
         '</div>'
@@ -184,11 +224,11 @@
         '<span class="up-note up-note--rose">최소 2장부터 전후 템플릿 적용 · 1장이면 자동완성하지 않아요</span>' +
       '</div>' + guide +
       '<div class="up-section">업로드한 사진 <b>' + n + '</b> / 10' +
-        (multi ? ' <span class="up-rolehint">· 전후는 사진마다 <b>전·후</b>를 눌러 지정</span>' : '') + '</div>' +
+        (n ? ' <span class="up-rolehint">· 탭해 <b>선택/해제</b>' + (multi ? ' · 전후는 사진마다 <b>전·후</b> 지정' : '') + '</span>' : '') + '</div>' +
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>' +
-      _upSummaryHtml(n, multi, cnt, pairs);
+      _upSummaryHtml(selCount, multi, cnt, pairs);
   }
 
 	  function _toolByKey(list, key) {
@@ -310,16 +350,26 @@
     }
     return '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·헤어·눈가·고급</em></span>' + _caret(d.advOpen) + '</button>' + precBody;
   }
+  // [#3] 템플릿 카드 썸네일 = 고정 예시 뷰티 이미지(번들 자산). 업로드 사진은 절대 카드에 주입하지 않는다.
+  //   사용자 사진은 applyTemplate(적용) 단계에서만 실제 캔버스에 렌더된다.
+  var _TPL_EX = {
+    before_after: 'assets/workshop-cats/cat-1.jpg',
+    feed:         'assets/workshop-cats/cat-3.jpg',
+    review:       'assets/workshop-cats/cat-4.jpg',
+    event:        'assets/workshop-cats/cat-5.jpg',
+    story:        'assets/workshop-cats/cat-3.jpg'
+  };
+  function _tplExample(tpl) { return _TPL_EX[tpl.purpose] || _TPL_EX.feed; }
   function _tplFoldHtml() {
     var tplBody = '';
     if (d.tplOpen) {
       var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트', '스토리'];
       var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
-      var thumb = photoUrl(curPhoto());
       tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
         '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
         '<div class="tpl-grid2">' + shown.map(function (tpl) {
-          return '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '"' + (thumb ? ' style="background-image:url(' + esc(thumb) + ')"' : '') + '>' +
+          return '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" style="background-image:url(' + esc(_tplExample(tpl)) + ')">' +
+            '<i class="tpl-badge">' + esc(tpl.chip) + '</i>' +
             '<span><b>' + esc(tpl.label) + '</b><em>' + esc(tpl.use) + '</em></span></button>';
         }).join('') + '</div>' +
         (d.template ? '<div class="tpl-picked">적용됨: ' + esc(d.template) + '</div>' : '') +
@@ -555,7 +605,7 @@
   function setScreen(name, opts) {
     opts = opts || {};
     // 같은 화면 재렌더(doGenerate/loadRecent 등)는 push 안 함. 뒤로가기(fromBack)도 push 안 함.
-    if (name !== cur && opts.push !== false && el && el.classList.contains('is-open')) navStack.push(cur);
+    if (name !== cur && opts.push !== false && el && el.classList.contains('is-open')) { navStack.push(cur); _pushHist(); }
     cur = name;
     var to = SCREENS.indexOf(name);
     el.querySelectorAll('.wsv2flow__s').forEach(function (s) {
@@ -623,7 +673,9 @@
           if (label) toast(added > 0 ? label : '새 해시태그가 더 없어요');
         } else {
           d.caption = r.caption; d.hashtags = fresh; d.selectedHashes = fresh.slice();
-          d.captionTemplate = r.caption_template || '';
+          // [#6] 꼬리말(captionTemplate)은 어댑터가 돌려주지 않으므로 여기서 덮어쓰지 않는다.
+          //  (기존 'r.caption_template || ""' 는 재생성 때마다 사용자가 입력한 고정 꼬리말을 빈값으로 지우는 회귀였음)
+          if (r.caption_template != null) d.captionTemplate = r.caption_template;
           if (label) toast(label);
         }
         d.logId = r.log_id || d.logId || null;
@@ -660,8 +712,8 @@
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); return; }
-      // [업로드 우선] 타일 탭 = 맨 앞으로(클릭순 순서 조정). 역할/삭제 버튼은 위에서 이미 처리됨.
-      var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _reorderToFront(+upTile.getAttribute('data-fl-tile')); return; }
+      // [#2] 타일 탭 = 선택/해제 토글. 역할/삭제 버튼은 위에서 이미 처리됨.
+      var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _toggleSelect(+upTile.getAttribute('data-fl-tile')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _setEditSection('[data-ed-tpl]', _tplFoldHtml()); } return; }
@@ -903,8 +955,9 @@
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceTemplate)) { toast('템플릿 적용 모듈을 불러오지 못했어요'); return; }
 	    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요'); return; }
 	    // [버그5] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지, 업로드 화면으로 보내 사진 추가 유도(편집기 점프 금지).
+	    // [#7] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지. 안내 후 업로드 화면으로(편집기 점프 금지).
 	    if (tpl.purpose === 'before_after' && editablePhotos().length < 2) {
-	      toast('전후 템플릿은 최소 2장이 필요해요 · 전·후 사진을 추가해 주세요');
+	      toast('전후 템플릿은 최소 2장의 사진이 필요해요 · 전 사진과 후 사진을 추가해 주세요');
 	      setScreen('upload'); return;
 	    }
 	    if (tpl.purpose === 'before_after') { d.baMode = true; reassignRoles(); }
@@ -959,10 +1012,12 @@
     });
   }
 
+	  // [#2/#5] 선택된 사진(선택순)만 대상으로 첫=전/둘째=후 자동 배치. 수동지정(roleManual)은 보존.
 	  function reassignRoles() {
-	    d.photos.forEach(function (p, i) {
+	    var sel = _selectedOrdered();
+	    sel.forEach(function (p, i) {
 	      if (p.roleManual) return;   // 사용자가 직접 지정한 사진은 자동배치에서 보존
-	      if (i === 0 && d.photos.length >= 2) p.role = 'before';   // [#5] 2장 이상이면 첫=전/둘째=후 자동(나머지는 중립)
+	      if (i === 0 && sel.length >= 2) p.role = 'before';   // 2장 이상이면 첫=전/둘째=후 자동(나머지는 중립)
 	      else if (i === 1) p.role = 'after';
 	      else p.role = 'hero';
 	    });
@@ -974,17 +1029,19 @@
 	    else { p.role = role; p.roleManual = true; }
 	    setScreen('upload');
 	  }
-	  // [업로드 우선] 타일 탭 → 맨 앞으로 이동(클릭순 순서 조정). 자동역할은 재배치, 수동지정(roleManual)은 보존.
-	  function _reorderToFront(i) {
-	    if (i == null || i <= 0 || i >= d.photos.length) return;
-	    var p = d.photos.splice(i, 1)[0]; d.photos.unshift(p);
+	  // [#2] 타일 탭 → 선택/해제 토글. 선택 시 맨 끝 순서(selSeq)로, 해제 시 배지 제거·수동역할 해제.
+	  //   남은 선택 사진은 reassignRoles+랭크 재계산으로 1부터 빈번호 없이 다시 매겨진다.
+	  function _toggleSelect(i) {
+	    var p = d.photos[i]; if (!p) return;
+	    if (p.selected === false) { p.selected = true; p.selSeq = ++d._selSeq; }
+	    else { p.selected = false; p.roleManual = false; }
 	    reassignRoles(); setScreen('upload');
 	  }
 	  function addFiles(files, showToast) {
 	    files = Array.from(files || []).slice(0, 10);
 	    if (!files.length) return Promise.resolve([]);
 	    return Promise.all(files.map(fileToDataUrl)).then(function (urls) {
-	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero' }); });
+	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
 	      reassignRoles(); setScreen('upload');
@@ -1007,14 +1064,17 @@
   }
 
   function back() {
+    // [#1] 인앱 back = 시스템 back 과 100% 동일하게 history.back() 으로 통일.
+    //  단계가 남았으면 popstate 리스너가 한 화면 복귀, 베이스면 _systemBack 이 닫는다.
     if (cur === 'caption') flushCaptionInputs();
-    // 정적 SCREENS 인덱스가 아니라 '실제로 거쳐온' navStack 으로 복귀. 비어 있으면(예: 게시물만 쓰기 직접 진입) 닫고 작업실 홈으로.
-    if (navStack.length) { setScreen(navStack.pop(), { push: false }); return; }
-    close();
+    history.back();
   }
   function onCta() {
     var c = CTA[cur]; if (!c) return;
-    if (cur === 'upload' && !d.photos.length && !d.textOnly) { toast('사진을 먼저 추가해 주세요.'); return; }
+    if (cur === 'upload' && !d.textOnly) {
+      if (!d.photos.length) { toast('사진을 먼저 추가해 주세요.'); return; }
+      if (!editablePhotos().length) { toast('사진을 1장 이상 선택해 주세요.'); return; }
+    }
     if (c.to === '__save') return save();
     if (cur === 'caption') {
       flushCaptionInputs();
@@ -1179,6 +1239,7 @@
     el.innerHTML = shell();
     document.body.appendChild(el);
     bind();
+    _bindPop();
   }
 
   function open(opts) {
@@ -1195,7 +1256,8 @@
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
     d = {
       slot: slot,
-      photos: slot && slot.photos ? slot.photos.map(function (p) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null }; }) : [],
+      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, selected: true, selSeq: i + 1 }; }) : [],
+      _selSeq: (slot && slot.photos ? slot.photos.length : 0),
       baMode: purpose === 'before_after',
 	      template: null, templateId: (wc && wc.templateId) || null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
 	      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
@@ -1210,7 +1272,7 @@
 	    };
 	    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
-    navStack = [];   // 새 세션 — 방문 히스토리 초기화
+    navStack = []; _histDepth = 0;   // 새 세션 — 방문 히스토리 초기화
     // 시스템 back(안드로이드 하드웨어/스와이프, popstate)을 전역 sheet-back 레지스트리에 편입.
     //  미등록 시 안드로이드 back 이 오버레이를 안 닫고 홈 탭으로 점프해 오버레이가 떠버린 채 남는다.
     if (window._registerSheet) window._registerSheet('wsv2flow', _systemBack);
@@ -1227,24 +1289,36 @@
 	  function addPhotoUrls(urls, showToast) {
 	    urls = (urls || []).filter(function (u) { return typeof u === 'string' && u; }).slice(0, 10);
 	    if (!urls.length || !d) return 0;
-	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero' }); });
+	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	    reassignRoles(); if (cur === 'upload') setScreen('upload');
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
 	  }
-  // 시스템 back 진입점 — 인앱 back 과 동일 규칙(한 화면 뒤로, 비면 닫기). 한 화면 물러날 땐 history 재무장.
+  // 전역 sheet 레지스트리 진입점 — 베이스(#wsv2flow) 가 history 에서 빠질 때 호출됨.
+  //  단계 복귀는 _bindPop 의 popstate 리스너가 담당하므로, 여기선 단계 남으면 복귀/없으면 닫기만.
   function _systemBack() {
-    if (cur === 'caption') flushCaptionInputs();
+    if (!el || !el.classList.contains('is-open')) return;
     if (navStack.length) {
+      if (_histDepth > 0) _histDepth--;
+      if (cur === 'caption') flushCaptionInputs();
       setScreen(navStack.pop(), { push: false });
-      if (window._markSheetOpen) window._markSheetOpen('wsv2flow');   // 다음 시스템 back 대비 재무장
       return;
     }
     close();
   }
   function close() {
     if (el) el.classList.remove('is-open');
+    var leftover = _histDepth;
     navStack = [];
+    _histDepth = 0;
+    // [#1] 저장/게시 등으로 흐름 도중 프로그램적으로 닫을 때 — 쌓아둔 단계 엔트리를 되감아 stale 방지.
+    //  되감기 중 발생하는 popstate 는 _closingHist 로 무시. 이후 _markSheetClosed 가 #wsv2flow hash 제거.
+    if (leftover > 0) {
+      _closingHist = true;
+      try { history.go(-leftover); } catch (_e) { void _e; }
+      setTimeout(function () { _closingHist = false; if (window._markSheetClosed) window._markSheetClosed('wsv2flow'); }, 60);
+      return;
+    }
     if (window._markSheetClosed) window._markSheetClosed('wsv2flow');
   }
 

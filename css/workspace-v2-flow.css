@@ -208,6 +208,8 @@
 .wsv2flow .tpl-item b, .wsv2flow .tpl-item em { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsv2flow .tpl-item b { font-size: 11.5px; }
 .wsv2flow .tpl-item em { margin-top: 2px; font-size: 9.5px; opacity: .86; }
+/* [#3] 타입 뱃지(전후/후기/이벤트 등) — 카드 좌상단. 업로드 사진이 아닌 템플릿 메타를 표시 */
+.wsv2flow .tpl-item .tpl-badge { position: absolute; top: 7px; left: 7px; z-index: 1; width: auto; font-style: normal; font-size: 9.5px; font-weight: 800; color: #fff; background: var(--brand-strong); padding: 3px 8px; border-radius: var(--r-pill); box-shadow: var(--shadow-sm); letter-spacing: -.2px; }
 
 /* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
 .wsv2flow .cap-photo--sm { width: 100%; height: 140px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 12px; }
