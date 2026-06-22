@@ -175,6 +175,39 @@
       '</section>';
   }
 
+  /* ── [버그2] 홈 스크롤 위치 보존 — render()가 innerHTML 통째 교체로 맨 위로 튕기던 문제 ── */
+  var _homeScrollY = 0;
+  var _scrollHostEl = null;
+  function _findScrollHost(root) {
+    var node = root;
+    while (node && node !== document.body && node !== document.documentElement) {
+      var oy = '';
+      try { oy = getComputedStyle(node).overflowY; } catch (_e) { /* noop */ }
+      if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && (node.scrollHeight - node.clientHeight) > 4) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+  function _isDocHost(h) { return h === document.documentElement || h === document.scrollingElement || h === document.body; }
+  function _hostTop(h) { return _isDocHost(h) ? (window.scrollY || (document.scrollingElement || document.documentElement).scrollTop || 0) : (h.scrollTop || 0); }
+  function _bindHomeScroll(root) {
+    var host = _findScrollHost(root);
+    if (!host || _scrollHostEl === host) { _scrollHostEl = host; return; }
+    _scrollHostEl = host;
+    var tgt = _isDocHost(host) ? window : host;
+    tgt.addEventListener('scroll', function () { _homeScrollY = _hostTop(host); }, { passive: true });
+  }
+  function _restoreHomeScroll() {
+    var host = _scrollHostEl; if (!host || !_homeScrollY) return;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var max = Math.max(0, host.scrollHeight - host.clientHeight);
+        var y = Math.min(_homeScrollY, max);
+        if (_isDocHost(host)) window.scrollTo(0, y); else host.scrollTop = y;
+      });
+    });
+  }
+
   /* ── 렌더 ── */
   function render(root, opts) {
     if (!root) return;
@@ -183,6 +216,8 @@
 	    root.innerHTML = _shellHTML(_slotsCache);
 	    _bind(root);
 	    _bindHeroFile(root);
+	    _bindHomeScroll(root);   // [버그2] 스크롤 호스트에 1회 캡처 리스너
+	    _restoreHomeScroll();    // [버그2] 재렌더 후 이전 스크롤 위치 복원
 	  }
 
 	  function refresh() {
