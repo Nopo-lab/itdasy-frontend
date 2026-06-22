@@ -902,6 +902,11 @@
 	    if (!tpl) { toast('템플릿을 찾지 못했어요'); return; }
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceTemplate)) { toast('템플릿 적용 모듈을 불러오지 못했어요'); return; }
 	    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요'); return; }
+	    // [버그5] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지, 업로드 화면으로 보내 사진 추가 유도(편집기 점프 금지).
+	    if (tpl.purpose === 'before_after' && editablePhotos().length < 2) {
+	      toast('전후 템플릿은 최소 2장이 필요해요 · 전·후 사진을 추가해 주세요');
+	      setScreen('upload'); return;
+	    }
 	    if (tpl.purpose === 'before_after') { d.baMode = true; reassignRoles(); }
 	    d.templateBusy = tpl.key; setScreen('edit');
 	    window.WorkspaceAdapter.applyWorkspaceTemplate({
