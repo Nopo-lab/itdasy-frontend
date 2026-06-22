@@ -134,31 +134,61 @@
       '</div>';
   }
 
+  // [업로드 우선] 사진은 업로드가 먼저 — 클릭순 순서배지 + 사진별 전/후/기본 역할.
+  //  탭 = 맨 앞으로(순서 조정), 휴지통 = 삭제. 전후 묶기 확장 위해 role(before/after/hero) 구조 유지.
+  var _ROLE_SEG = [['before', '전'], ['after', '후'], ['hero', '기본']];
+  function _upTileHtml(p, i, multi) {
+    // [#5] 토글 순환 제거 → 사진별 전/후/기본 세그먼트(직관). 다시 누르면 해제(자동복귀). 제외는 삭제(휴지통)로.
+    var role = p.role || 'hero';
+    var seg = multi
+      ? '<div class="thumb-seg" role="group" aria-label="이 사진 역할 지정">' +
+          _ROLE_SEG.map(function (rl) {
+            return '<button type="button" class="thumb-seg-b' + (rl[0] === 'hero' ? ' basic' : '') + (role === rl[0] ? ' on' : '') + '" data-fl-setrole="' + i + ':' + rl[0] + '">' + rl[1] + '</button>';
+          }).join('') +
+        '</div>'
+      : '';
+    return '<div class="photo-tile selected" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
+      '<span class="thumb-order">' + (i + 1) + '</span>' +
+      '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
+      seg + '</div>';
+  }
+  function _upSummaryHtml(n, multi, cnt, pairs) {
+    if (!n) return '';
+    return '<div class="up-summary"><span class="up-chip">선택 <b>' + n + '</b></span>' +
+      (multi
+        ? '<span class="up-chip">전 <b>' + cnt.before + '</b></span>' +
+          '<span class="up-chip">후 <b>' + cnt.after + '</b></span>' +
+          '<span class="up-chip">기본 <b>' + cnt.hero + '</b></span>' +
+          '<span class="up-chip">전후쌍 <b>' + pairs + '</b></span>'
+        : '') + '</div>';
+  }
   function renderUpload() {
-    var multi = d.photos.length >= 2;
-    var tiles = d.photos.map(function (p, i) {
-      // [#5] 토글 순환 제거 → 사진별 전/후 세그먼트(직관). 다시 누르면 해제(자동복귀). 제외는 삭제(휴지통)로.
-      var role = p.role || '';
-      var seg = multi
-        ? '<div class="thumb-seg" role="group" aria-label="이 사진 전/후 지정">' +
-            '<button type="button" class="thumb-seg-b' + (role === 'before' ? ' on' : '') + '" data-fl-setrole="' + i + ':before">전</button>' +
-            '<button type="button" class="thumb-seg-b' + (role === 'after' ? ' on' : '') + '" data-fl-setrole="' + i + ':after">후</button>' +
-          '</div>'
-        : '';
-      return '<div class="photo-tile" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '">' +
-        '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
-        seg + '</div>';
-    }).join('');
+    var n = d.photos.length, multi = n >= 2;
+    var cnt = { before: 0, after: 0, hero: 0 };
+    d.photos.forEach(function (p) { var r = p.role || 'hero'; if (cnt[r] != null) cnt[r]++; else cnt.hero++; });
+    var pairs = Math.min(cnt.before, cnt.after);
+    var tiles = d.photos.map(function (p, i) { return _upTileHtml(p, i, multi); }).join('');
+    var guide = n
+      ? '<div class="up-guide">' +
+          '<div class="up-guide-c"><b>1</b><small>사진을 탭해<br>순서 조정</small></div>' +
+          '<div class="up-guide-c"><b>2</b><small>전·후·기본<br>역할 선택</small></div>' +
+          '<div class="up-guide-c"><b>3</b><small>편집·템플릿<br>으로</small></div>' +
+        '</div>'
+      : '';
     return '' +
+      '<div class="up-kicker"><span class="up-kicker-dot"></span>전후 템플릿은 업로드가 먼저예요</div>' +
       '<div class="up-drop" data-fl-pick>' +
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
-        '<b>사진을 드래그하거나 여기를 눌러 업로드</b><span class="up-note">JPG · PNG 최대 20MB · 여러 장 선택 가능</span>' +
-      '</div>' +
-      '<div class="up-section">선택한 사진 <b>' + d.photos.length + '</b> / 10' +
-        (multi ? ' <span class="up-rolehint">· 전후로 올리려면 사진마다 <b>전·후</b>를 눌러주세요</span>' : '') + '</div>' +
+        '<b>사진을 드래그하거나 여기를 눌러 업로드</b>' +
+        '<span class="up-note">여러 장 한 번에 · JPG · PNG 최대 20MB</span>' +
+        '<span class="up-note up-note--rose">최소 2장부터 전후 템플릿 적용 · 1장이면 자동완성하지 않아요</span>' +
+      '</div>' + guide +
+      '<div class="up-section">업로드한 사진 <b>' + n + '</b> / 10' +
+        (multi ? ' <span class="up-rolehint">· 전후는 사진마다 <b>전·후</b>를 눌러 지정</span>' : '') + '</div>' +
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
-      '</div>';
+      '</div>' +
+      _upSummaryHtml(n, multi, cnt, pairs);
   }
 
 	  function _toolByKey(list, key) {
@@ -630,6 +660,8 @@
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
       var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); return; }
+      // [업로드 우선] 타일 탭 = 맨 앞으로(클릭순 순서 조정). 역할/삭제 버튼은 위에서 이미 처리됨.
+      var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _reorderToFront(+upTile.getAttribute('data-fl-tile')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _setEditSection('[data-ed-tpl]', _tplFoldHtml()); } return; }
@@ -936,6 +968,12 @@
 	    if (p.role === role && p.roleManual) { p.roleManual = false; reassignRoles(); }
 	    else { p.role = role; p.roleManual = true; }
 	    setScreen('upload');
+	  }
+	  // [업로드 우선] 타일 탭 → 맨 앞으로 이동(클릭순 순서 조정). 자동역할은 재배치, 수동지정(roleManual)은 보존.
+	  function _reorderToFront(i) {
+	    if (i == null || i <= 0 || i >= d.photos.length) return;
+	    var p = d.photos.splice(i, 1)[0]; d.photos.unshift(p);
+	    reassignRoles(); setScreen('upload');
 	  }
 	  function addFiles(files, showToast) {
 	    files = Array.from(files || []).slice(0, 10);
