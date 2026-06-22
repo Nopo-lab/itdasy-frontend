@@ -1036,7 +1036,44 @@
 	      toast('전후 템플릿은 최소 2장의 사진이 필요해요 · 전 사진과 후 사진을 추가해 주세요');
 	      setScreen('upload'); return;
 	    }
-	    if (tpl.purpose === 'before_after') { d.baMode = true; reassignRoles(); }
+	    // [다중pair] 전후 템플릿: 완성 가능한 모든 페어에 같은 템플릿을 각각 적용 → 결과물 N개.
+	    //   roles 가 이미 페어를 이루면(수동/복원) 보존하고, 못 이루면(2장 신규 드롭) 첫=전·둘째=후 자동.
+	    if (tpl.purpose === 'before_after') {
+	      d.baMode = true;
+	      if (_computePairs().pairs.length === 0) reassignRoles();
+	      var pairs = _computePairs().pairs;
+	      d.templateBusy = tpl.key; setScreen('edit');
+	      Promise.all(pairs.map(function (pr, i) {
+	        // 페어 1개씩 어댑터에 2장만 넘김(어댑터는 before/after 1쌍을 합성). 실패 페어는 null → 격리.
+	        return window.WorkspaceAdapter.applyWorkspaceTemplate({
+	          template: tpl, photos: [pr.before, pr.after], service: d.service,
+	          customerName: d.customerName, caption: d.caption,
+	        }).then(function (r) {
+	          return (r && r.ok && r.dataUrl)
+	            ? { pairId: 'pair-' + i, templateId: tpl.id, beforePhotoId: pr.before.id, afterPhotoId: pr.after.id, outputUrl: r.dataUrl, pairLabel: 'Pair ' + (i + 1) }
+	            : null;
+	        }).catch(function () { return null; });
+	      })).then(function (list) {
+	        d.templateBusy = null;
+	        var outs = list.filter(Boolean);
+	        if (outs.length) {
+	          // [이슈2] 합성 결과물은 전용 배열에만 보관 — 원본 photos(전/후/기본)는 비오염.
+	          d.templateOutputs = outs;
+	          d.templateOutput = outs[0].outputUrl; d.templateOutputId = tpl.id;
+	          d.activeDisplayId = null;
+	          d.template = tpl.label; d.templateId = tpl.id;
+	          d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
+	          d.previewUrl = null;
+	          var failed = pairs.length - outs.length;
+	          toast(failed > 0
+	            ? (tpl.label + ' · ' + outs.length + '개 적용 (' + failed + '개는 원본 유지)')
+	            : (tpl.label + ' 적용 완료 · 결과물 ' + outs.length + '개'));
+	        } else { toast('이 템플릿은 아직 적용하지 못했어요'); }
+	        setScreen('edit');
+	      });
+	      return;
+	    }
+	    // 비전후(시술자랑/후기/이벤트/스토리 등) — 단일 결과물.
 	    d.templateBusy = tpl.key; setScreen('edit');
 	    window.WorkspaceAdapter.applyWorkspaceTemplate({
 	      template: tpl, photos: editablePhotos(), service: d.service,
@@ -1044,12 +1081,9 @@
 	    }).then(function (r) {
 	      d.templateBusy = null;
 	      if (r && r.ok && r.dataUrl) {
-	        // [이슈2] 합성 결과물은 개별 사진(editedDataUrl)에 덮어쓰지 않고 전용 필드에만 보관.
-	        //   → 편집화면 상단 원본 스트립이 오염되지 않고, 후사진 슬롯도 그대로 유지된다.
+	        // [이슈2] 합성 결과물은 전용 필드에만 보관(원본 비오염).
 	        d.templateOutput = r.dataUrl; d.templateOutputId = tpl.id;
-	        // [다중pair] 단일 결과물도 templateOutputs 배열로 미러(Step3에서 페어별 N개로 확장). 첫 페어 사진 id 연결.
-	        var _pp0 = _computePairs(); var _fp = _pp0.pairs[0];
-	        d.templateOutputs = [{ pairId: 'pair-0', templateId: tpl.id, beforePhotoId: _fp && _fp.before ? _fp.before.id : null, afterPhotoId: _fp && _fp.after ? _fp.after.id : null, outputUrl: r.dataUrl, pairLabel: 'Pair 1' }];
+	        d.templateOutputs = [{ pairId: 'pair-0', templateId: tpl.id, beforePhotoId: null, afterPhotoId: null, outputUrl: r.dataUrl, pairLabel: '결과물' }];
 	        d.activeDisplayId = null;
 	        d.template = tpl.label; d.templateId = tpl.id;
 	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
