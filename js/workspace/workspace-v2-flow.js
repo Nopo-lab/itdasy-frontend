@@ -594,8 +594,7 @@
 	      '<div class="cap-card">' +
 	        photoHtml +
 	        '<div class="cap-text">' +
-	          '<textarea class="cap-body" data-fl-capbody rows="8">' + esc(d.caption) + '</textarea>' +
-	          '<div class="cap-hash" data-fl-caphash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</div>' +
+	          '<textarea class="cap-body" data-fl-capbody rows="7">' + esc(d.caption) + '</textarea>' +
 	          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
 	        '</div>' +
       '</div>' +
@@ -606,7 +605,9 @@
         '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
         '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
       '</div>' +
-      (hashHtml ? '<div class="cust-row"><b>해시태그</b><a data-fl="morehash">+ 더 가져오기</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
+      '<label class="cap-field-label">해시태그 <span>직접 고치거나 추가할 수 있어요</span></label>' +
+      '<textarea class="cap-hashedit" data-fl-caphashedit rows="2" placeholder="#해시태그 #예시">' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</textarea>' +
+      (hashHtml ? '<div class="cust-row"><b>추천 해시태그</b><a data-fl="morehash">+ 더 가져오기</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl-var="regen">다시 쓰기</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
@@ -768,6 +769,8 @@
   /* ── 라우팅 ── */
   function setScreen(name, opts) {
     opts = opts || {};
+    // [v531] 캡션 화면을 떠날 땐 항상 입력(본문·해시태그·꼬리말) 확정 → 저장/미리보기/복사에 편집분 반영(어떤 경로든).
+    if (cur === 'caption' && name !== 'caption' && el && el.classList.contains('is-open')) flushCaptionInputs();
     // 같은 화면 재렌더(doGenerate/loadRecent 등)는 push 안 함. 뒤로가기(fromBack)도 push 안 함.
     if (name !== cur && opts.push !== false && el && el.classList.contains('is-open')) { navStack.push(cur); _pushHist(); }
     cur = name;
@@ -937,10 +940,15 @@
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [C4] 해시태그 선택 → selectedHashes 토글
       var hash = t.closest('[data-fl-hash]'); if (hash) {
+        // [v531] 추천 칩 토글 → 분리된 해시태그 편집칸과 동기화(사용자 수동 편집분 보존).
         var h = hash.getAttribute('data-fl-hash');
-        d.selectedHashes = d.selectedHashes || [];
-        var k = d.selectedHashes.indexOf(h); if (k >= 0) d.selectedHashes.splice(k, 1); else d.selectedHashes.push(h);
-        hash.classList.toggle('on'); var ch = el.querySelector('[data-fl-caphash]'); if (ch) ch.textContent = d.selectedHashes.join(' '); return;
+        var ta = el.querySelector('[data-fl-caphashedit]');
+        var curHs = ta ? _parseHashes(ta.value) : (d.selectedHashes || []).slice();
+        var hn = h.replace(/^#+/, '').toLowerCase();
+        var idx = -1; for (var ci = 0; ci < curHs.length; ci++) { if (curHs[ci].replace(/^#+/, '').toLowerCase() === hn) { idx = ci; break; } }
+        if (idx >= 0) curHs.splice(idx, 1); else curHs.push(h.charAt(0) === '#' ? h : '#' + h);
+        d.selectedHashes = curHs.slice(); d.hashtags = curHs.slice();
+        hash.classList.toggle('on'); if (ta) ta.value = curHs.join(' '); return;
       }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
@@ -1426,11 +1434,22 @@
 
   // 캡션 화면을 떠나거나 다음 단계로 갈 때 — 입력창 3종(시술명/본문/꼬리말)의 최신값을 한 번에 state 로 확정.
   //  입력값을 버튼 클릭 시점에만 저장하던 회귀를 막아, 위쪽 '이대로 작성' 없이 하단 CTA 만으로도 반영되게 한다.
+  // [v531] 해시태그 문자열 → #태그 배열(중복 제거). 본문과 분리된 해시태그 편집칸 파싱.
+  function _parseHashes(text) {
+    var seen = Object.create(null), out = [];
+    String(text || '').split(/[\s,]+/).forEach(function (t) {
+      var tag = t.trim().replace(/^#+/, ''); if (!tag) return;
+      var k = tag.toLowerCase(); if (seen[k]) return; seen[k] = 1; out.push('#' + tag);
+    });
+    return out;
+  }
   function flushCaptionInputs() {
     syncServiceFromDom();
     if (!el) return;
     var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
     var f = el.querySelector('[data-fl-footer]'); if (f && typeof f.value === 'string') d.captionTemplate = f.value;
+    // [v531] 분리된 해시태그 편집칸 → d.hashtags/selectedHashes(저장·미리보기·복사에 반영).
+    var h = el.querySelector('[data-fl-caphashedit]'); if (h && typeof h.value === 'string') { var hs = _parseHashes(h.value); d.hashtags = hs; d.selectedHashes = hs.slice(); }
   }
 
   function back() {
