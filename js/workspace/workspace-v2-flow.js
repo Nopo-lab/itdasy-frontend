@@ -472,6 +472,9 @@
     _tplThumbCache[tpl.id] = url;
     return url;
   }
+  // [v531] purpose ↔ 콘텐츠 유형(cat) 매핑 + 유형별 기본 템플릿 조회(home.js 와 공유 저장소).
+  function _purposeCat(purpose) { return { before_after: 'ba', review: 'review', event: 'event', feed: 'flex', story: 'flex' }[purpose] || 'flex'; }
+  function _getDefaultTpl(cat) { return (window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.get(cat)) || ''; }
   // [v531] 템플릿 적용 상태 — 명확한 배너(결과물 N장) + 결과물 스트립(Pair N 결과) + 해제/바꾸기.
   function _tplAppliedHtml() {
     if (!d.templateId) return '';
@@ -499,11 +502,17 @@
       var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트', '스토리'];
       var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
       tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
+        (!d.templateId ? '<button type="button" class="tpl-applydefault" data-fl="applydefault">기본 템플릿 적용하기</button>' : '') +
         '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
         '<div class="tpl-grid2">' + shown.map(function (tpl) {
-          return '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')">' +
-            '<i class="tpl-badge">' + esc(tpl.chip) + '</i>' +
-            '<span><b>' + esc(tpl.label) + '</b><em>' + esc(tpl.use) + '</em></span></button>';
+          var isDef = _getDefaultTpl(_purposeCat(tpl.purpose)) === tpl.id;
+          return '<div class="tpl-itemwrap">' +
+            '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')">' +
+              '<i class="tpl-badge">' + esc(tpl.chip) + '</i>' +
+              (isDef ? '<i class="tpl-defbadge">기본</i>' : '') +
+              '<span><b>' + esc(tpl.label) + '</b><em>' + esc(tpl.use) + '</em></span></button>' +
+            '<button type="button" class="tpl-setdefault' + (isDef ? ' on' : '') + '" data-fl-setdefault="' + esc(tpl.key) + '">' + (isDef ? '기본 템플릿' : '기본으로 설정') + '</button>' +
+          '</div>';
         }).join('') + '</div>' +
         _tplAppliedHtml() +
         '</div></div>';
@@ -898,6 +907,23 @@
       if (a === 'crop') { return openCropFlow(); }
       if (a === 'roles') { toast('역할 — ' + _roleSummary()); return; }
       if (a === 'tplrelease') { return releaseTemplate(); }
+      if (a === 'applydefault') {
+        // [v531] '기본 템플릿 적용하기' — 현재 유형의 기본 템플릿 자동 적용. 없으면 안내 후 카드에서 고르도록.
+        var _cat = _purposeCat(d.tplPurpose);
+        var _defId = _getDefaultTpl(_cat);
+        if (!_defId) { toast('아직 기본 템플릿이 없어요. 먼저 사용할 템플릿을 골라 기본으로 설정해 주세요.'); return; }
+        var _dt = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === _defId; })[0];
+        if (!_dt) { toast('기본 템플릿을 찾지 못했어요'); return; }
+        return applyTemplate(_dt.key);
+      }
+      var setdef = t.closest('[data-fl-setdefault]'); if (setdef) {
+        // [v531] '기본으로 설정' — 이 템플릿을 해당 유형 기본으로 저장(localStorage, 홈 카드/적용에 반영).
+        var _sk = setdef.getAttribute('data-fl-setdefault'); var _st = _tplByKey(_sk); if (!_st) return;
+        var _ok = window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.set(_purposeCat(_st.purpose), _st.id);
+        toast(_ok ? (_st.label + '을(를) 기본 템플릿으로 설정했어요') : '기본 템플릿 저장에 실패했어요');
+        _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        return;
+      }
       if (a === 'tplchange') {
         // [v531] 결과물에서 '템플릿 바꾸기' — 템플릿 카드 목록을 열고 위로 스크롤(다른 카드 선택 시 모든 페어 일괄 재적용).
         d.tplOpen = true; _setEditSection('[data-ed-tpl]', _tplFoldHtml());

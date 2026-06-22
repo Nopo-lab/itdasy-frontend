@@ -88,22 +88,44 @@
       '</div>';
   }
 
+  // [v531] 유형별 실제 템플릿 + 기본 템플릿 저장(localStorage). flow.js 와 공유(window).
+  var CAT_TEMPLATES = {
+    ba:     { ratio: '4:5', tpls: [{ id: 'wm-ba-feed', label: '전후 비교' }] },
+    flex:   { ratio: '4:5', tpls: [{ id: 'wm-show-feed', label: '시술 자랑' }, { id: 'wm-promo-feed', label: '인스타 피드' }] },
+    review: { ratio: '4:5', tpls: [{ id: 'wm-review-feed', label: '고객 후기' }] },
+    event:  { ratio: '1:1', tpls: [{ id: 'wm-event-feed', label: '이벤트 안내' }] },
+    price:  { ratio: '4:5', tpls: [] },
+  };
+  if (!window.WorkspaceDefaultTpl) {
+    window.WorkspaceDefaultTpl = {
+      cats: CAT_TEMPLATES,
+      _k: function (cat) { return 'itdasy:wsv2_default_tpl_' + cat; },
+      get: function (cat) { try { return localStorage.getItem(this._k(cat)) || ''; } catch (_e) { return ''; } },
+      set: function (cat, id) { try { localStorage.setItem(this._k(cat), id); return true; } catch (_e) { return false; } },
+    };
+  }
+  function _catThumb(c) {
+    var info = CAT_TEMPLATES[c.key];
+    if (!info || !info.tpls.length) return '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
+    var def = window.WorkspaceDefaultTpl.get(c.key);
+    var tpl = info.tpls.filter(function (t) { return t.id === def; })[0] || info.tpls[0];
+    var url = '';
+    try {
+      if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
+        var shop = ''; try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
+        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: info.ratio, shopName: shop }) || '';
+      }
+    } catch (_e2) { url = ''; }
+    if (!url) return '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
+    var isDef = !!def && def === tpl.id;
+    return '<div class="wsv2-cat__thumb" aria-hidden="true" style="background-image:url(' + _esc(url) + ')">' +
+      (isDef ? '<span class="wsv2-cat__defbadge">기본</span>' : '') + '</div>';
+  }
   function _categoryHTML() {
     var cards = CATS.map(function (c) {
       var dis = c.disabled ? ' wsv2-cat--disabled' : '';
-      var thumb;
-      if (c.split) {
-        thumb = '<div class="wsv2-cat__thumb wsv2-cat__split" aria-hidden="true">' +
-          '<img class="wsv2-cat__img" src="assets/workshop-cats/cat-1.jpg" alt="전">' +
-          '<img class="wsv2-cat__img" src="assets/workshop-cats/cat-2.jpg" alt="후">' +
-          '</div>';
-      } else if (c.img) {
-        thumb = '<div class="wsv2-cat__thumb" aria-hidden="true">' +
-          '<img class="wsv2-cat__img" src="assets/workshop-cats/' + c.img + '.jpg" alt="' + _esc(c.label) + '">' +
-          '</div>';
-      } else {
-        thumb = '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
-      }
+      // [v531] 카드 썸네일 = 실제 템플릿 원본 미리보기(업로드 사진/예시사진 미주입). 준비중(price)은 빈 썸네일.
+      var thumb = c.disabled ? '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>' : _catThumb(c);
       return '<button type="button" class="wsv2-cat' + dis + '" data-wsv2-cat="' + c.key + '" data-haptic="light"' + (c.disabled ? ' disabled' : '') + '>' +
         thumb +
         '<span class="wsv2-cat__t">' + _esc(c.label) + '</span>' +
