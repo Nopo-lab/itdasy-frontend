@@ -375,24 +375,17 @@
 .wsv2pub__card.is-done .wsv2pub__dots { visibility: hidden; }
 .wsv2pub__card.is-done .wsv2pub__t { color: var(--ok); }
 
-/* [다중pair] 캡션 상단 결과물 캐러셀 — Pair 1·2·3 슬라이드 */
+/* [다중pair] 캡션 상단 결과물 캐러셀 — scroll-snap 손가락 스와이프 */
 .wsv2flow .cap-car { margin: 0 0 16px; }
-.wsv2flow .cap-car__vp { position: relative; height: 220px; border-radius: var(--r-lg); overflow: hidden;
-  border: 1px solid var(--border); background: #000; }
-.wsv2flow .cap-car__slide { position: absolute; inset: 0; display: none; }
-.wsv2flow .cap-car__slide.on { display: block; }
+.wsv2flow .cap-car__track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  border-radius: var(--r-lg); border: 1px solid var(--border); scrollbar-width: none; overscroll-behavior-x: contain; }
+.wsv2flow .cap-car__track::-webkit-scrollbar { display: none; }
+.wsv2flow .cap-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; height: 220px; background: #000; }
 .wsv2flow .cap-car__img { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .wsv2flow .cap-car__badge { position: absolute; top: 10px; left: 10px; z-index: 3; font-size: 11px; font-weight: 800;
   color: #fff; background: rgba(17, 24, 39, .55); padding: 4px 11px; border-radius: 999px; backdrop-filter: blur(3px); }
-.wsv2flow .cap-car__nav { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4;
-  width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .92); color: var(--text);
-  display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow-sm); }
-.wsv2flow .cap-car__nav:active { transform: translateY(-50%) scale(.94); }
-.wsv2flow .cap-car__nav svg { stroke: var(--text); }
-.wsv2flow .cap-car__prev { left: 10px; }
-.wsv2flow .cap-car__next { right: 10px; }
 .wsv2flow .cap-car__dots { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 11px; }
-.wsv2flow .cap-car__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }
+.wsv2flow .cap-car__dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }
 .wsv2flow .cap-car__dot.on { width: 20px; border-radius: 4px; background: var(--brand-strong); }
 .wsv2flow .cap-car__hint { text-align: center; font-size: 12px; color: var(--text-subtle); margin: 9px 0 0; }
 .wsv2flow .cap-car__hint::first-line { font-weight: 600; }

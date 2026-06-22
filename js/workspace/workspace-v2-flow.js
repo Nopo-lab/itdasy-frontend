@@ -617,6 +617,7 @@
   }
 
   function _mountCaption() {
+    _mountCarousel();   // [v531] 결과 캐러셀 스와이프 바인딩(결과 화면엔 scenario 없어 아래 early-return 전에 먼저)
     var container = el.querySelector('[data-fl-scenario]');
     if (!container) return;
     if (typeof renderScenarioSelector !== 'function') { toast('시나리오 선택기를 불러오지 못했어요'); return; }
@@ -893,7 +894,6 @@
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); _setEditSection('[data-ed-tpl]', _tplFoldHtml()); return; }
 	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
-      var carnav = t.closest('[data-fl-carnav]'); if (carnav) { return _carStep(carnav.getAttribute('data-fl-carnav')); }
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [C4] 해시태그 선택 → selectedHashes 토글
       var hash = t.closest('[data-fl-hash]'); if (hash) {
@@ -1268,34 +1268,57 @@
 	    if (items.length < 2) return '';   // 결과물/표시 아이템 1개 이하 → 캐러셀 없이 기존 단일 프리뷰
 	    var active = d.activeDisplayId || items[0].id;
 	    var n = items.length;
+	    // [v531] scroll-snap 가로 캐러셀 — 손가락 스와이프로 넘김(슬라이드를 한 줄로 깔고 overflow 스크롤).
 	    var slides = items.map(function (it, i) {
-	      return '<div class="cap-car__slide' + (it.id === active ? ' on' : '') + '" data-fl-carslide="' + esc(it.id) + '">' +
+	      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '">' +
 	        '<span class="cap-car__badge">' + (i + 1) + ' / ' + n + ' · ' + esc(it.label) + '</span>' +
 	        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
 	    }).join('');
-	    var dots = items.map(function (it) { return '<span class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '"></span>'; }).join('');
+	    var dots = items.map(function (it) { return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과물 보기"></button>'; }).join('');
 	    var outN = (d.templateOutputs || []).length;
 	    return '<div class="cap-car" data-fl-carousel>' +
-	      '<div class="cap-car__vp">' + slides +
-	        '<button type="button" class="cap-car__nav cap-car__prev" data-fl-carnav="prev" aria-label="이전"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-left"/></svg></button>' +
-	        '<button type="button" class="cap-car__nav cap-car__next" data-fl-carnav="next" aria-label="다음"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-right"/></svg></button>' +
-	      '</div>' +
+	      '<div class="cap-car__track" data-fl-cartrack>' + slides + '</div>' +
 	      '<div class="cap-car__dots">' + dots + '</div>' +
 	      (outN >= 2 ? '<p class="cap-car__hint">' + outN + '장의 전후 결과물로 게시글을 만들어요</p>' : '') +
 	    '</div>';
 	  }
-	  function _carSet(id) {
-	    d.activeDisplayId = id;
+	  function _carItems() { return _displayItems(); }
+	  function _carIndexOf(id) { var its = _carItems(); for (var i = 0; i < its.length; i++) { if (its[i].id === id) return i; } return 0; }
+	  function _carPaintDots(id) {
 	    var root = el && el.querySelector('[data-fl-carousel]'); if (!root) return;
-	    root.querySelectorAll('[data-fl-carslide]').forEach(function (s) { s.classList.toggle('on', s.getAttribute('data-fl-carslide') === id); });
 	    root.querySelectorAll('[data-fl-cardot]').forEach(function (dt) { dt.classList.toggle('on', dt.getAttribute('data-fl-cardot') === id); });
 	  }
-	  function _carStep(dir) {
-	    var items = _displayItems(); if (items.length < 2) return;
-	    var cur = d.activeDisplayId || items[0].id;
-	    var idx = 0; for (var i = 0; i < items.length; i++) { if (items[i].id === cur) { idx = i; break; } }
-	    idx = (idx + (dir === 'next' ? 1 : -1) + items.length) % items.length;
-	    _carSet(items[idx].id);
+	  // [v531] 스크롤 위치 → active 결과물/dot 동기화(passive 스크롤 + rAF 스로틀, 전체 재렌더 없음).
+	  function _carSyncActive() {
+	    var track = el && el.querySelector('[data-fl-cartrack]'); if (!track) return;
+	    if (track.__prog && Date.now() < track.__prog) return;   // dot 클릭 등 프로그램적 스크롤 중엔 sync 억제(dot 깜빡임 방지)
+	    var its = _carItems(); if (!its.length) return;
+	    var idx = Math.round(track.scrollLeft / Math.max(1, track.clientWidth));
+	    idx = Math.max(0, Math.min(its.length - 1, idx));
+	    var id = its[idx].id;
+	    if (id === d.activeDisplayId) return;
+	    d.activeDisplayId = id; _carPaintDots(id);
+	  }
+	  // dot 클릭 → 해당 슬라이드로 부드럽게 스크롤(스크롤 이벤트가 active 동기화).
+	  function _carSet(id) {
+	    d.activeDisplayId = id;
+	    var track = el && el.querySelector('[data-fl-cartrack]'); if (!track) { _carPaintDots(id); return; }
+	    track.__prog = Date.now() + 700;   // 스크롤 정착까지 scroll-sync 억제 → 선택한 dot 유지
+	    var left = _carIndexOf(id) * track.clientWidth;
+	    if (track.scrollTo) track.scrollTo({ left: left, behavior: 'smooth' }); else track.scrollLeft = left;
+	    _carPaintDots(id);
+	  }
+	  var _carRaf = 0;
+	  function _mountCarousel() {
+	    var track = el && el.querySelector('[data-fl-cartrack]'); if (!track || track._wsBound) return;
+	    track._wsBound = true;
+	    // 재렌더 시 현재 active 위치로 점프(스크롤 보존)
+	    track.scrollLeft = _carIndexOf(d.activeDisplayId || (_carItems()[0] && _carItems()[0].id)) * track.clientWidth;
+	    track.addEventListener('scroll', function () {
+	      if (_carRaf) return;
+	      var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 32); };
+	      _carRaf = raf(function () { _carRaf = 0; _carSyncActive(); });
+	    }, { passive: true });
 	  }
 	  function _pairThumb(p, tag) {
 	    return '<span class="up-pair__thumb" style="background-image:url(' + esc(p.dataUrl) + ')"><em>' + tag + '</em></span>';
