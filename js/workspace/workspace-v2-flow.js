@@ -200,16 +200,18 @@
   var _ROLE_SEG = [['before', '전'], ['after', '후'], ['hero', '기본']];
   // [#2] 인스타식 다중선택 — 탭하면 선택/해제 토글. 선택된 사진만 순서배지(선택순 랭크)·역할 세그먼트 노출.
   //   해제하면 배지 사라지고 남은 선택 사진이 1부터 다시 매겨짐(건너뛴 번호 없음). 다시 누르면 맨 끝 순서로.
+  // [v531 렉] 역할 세그 HTML — 부분 갱신(_repaintUpload)에서도 재사용.
+  function _segHtml(role, i) {
+    return '<div class="thumb-seg" role="group" aria-label="이 사진 역할 지정">' +
+      _ROLE_SEG.map(function (rl) {
+        return '<button type="button" class="thumb-seg-b' + (rl[0] === 'hero' ? ' basic' : '') + (role === rl[0] ? ' on' : '') + '" data-fl-setrole="' + i + ':' + rl[0] + '">' + rl[1] + '</button>';
+      }).join('') +
+    '</div>';
+  }
   function _upTileHtml(p, i, multi, order) {
     var selected = p.selected !== false;
     var role = p.role || 'hero';
-    var seg = (multi && selected)
-      ? '<div class="thumb-seg" role="group" aria-label="이 사진 역할 지정">' +
-          _ROLE_SEG.map(function (rl) {
-            return '<button type="button" class="thumb-seg-b' + (rl[0] === 'hero' ? ' basic' : '') + (role === rl[0] ? ' on' : '') + '" data-fl-setrole="' + i + ':' + rl[0] + '">' + rl[1] + '</button>';
-          }).join('') +
-        '</div>'
-      : '';
+    var seg = (multi && selected) ? _segHtml(role, i) : '';
     return '<div class="photo-tile' + (selected ? ' selected' : '') + '" style="background-image:url(' + esc(p.dataUrl) + ')" data-fl-tile="' + i + '" aria-pressed="' + selected + '">' +
       (selected ? '<span class="thumb-order">' + order + '</span>' : '') +
       '<button class="thumb-del" data-fl-del="' + i + '" aria-label="이 사진 삭제"><i class="ph-bold ph-trash"></i></button>' +
@@ -256,8 +258,56 @@
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>' +
-      _upSummaryHtml(selCount, multi, cnt, pairs) +
-      _pairPreviewHtml(cnt);
+      '<div class="up-foot" data-up-foot>' + _upSummaryHtml(selCount, multi, cnt, pairs) + _pairPreviewHtml(cnt) + '</div>';
+  }
+  // [v531 렉] 역할/선택 변경 시 전체 재렌더(이미지 6장 base64 재파싱) 대신 in-place 갱신.
+  //   타일 이미지 DOM 은 유지하고 selected 클래스·순서배지·역할 세그 on 상태만 바꾼다.
+  //   요약/페어 미리보기는 rAF 로 묶어 빠른 연타에도 1프레임 1회만 재계산.
+  function _repaintUpload() {
+    if (!el || cur !== 'upload') return;
+    var root = el.querySelector('[data-fs="upload"]'); if (!root) return;
+    var selOrdered = _selectedOrdered();
+    var multi = selOrdered.length >= 2;
+    var rank = {}; selOrdered.forEach(function (p, idx) { rank[p.id] = idx + 1; });
+    d.photos.forEach(function (p, i) {
+      var tile = root.querySelector('[data-fl-tile="' + i + '"]'); if (!tile) return;
+      var selected = p.selected !== false;
+      tile.classList.toggle('selected', selected);
+      tile.setAttribute('aria-pressed', selected);
+      var ord = tile.querySelector('.thumb-order');
+      if (selected) {
+        if (!ord) { ord = document.createElement('span'); ord.className = 'thumb-order'; tile.insertBefore(ord, tile.firstChild); }
+        ord.textContent = rank[p.id];
+      } else if (ord) { ord.parentNode.removeChild(ord); }
+      var seg = tile.querySelector('.thumb-seg');
+      var role = p.role || 'hero';
+      if (multi && selected) {
+        if (!seg) { tile.insertAdjacentHTML('beforeend', _segHtml(role, i)); }
+        else {
+          var btns = seg.querySelectorAll('.thumb-seg-b');
+          for (var k = 0; k < btns.length; k++) {
+            btns[k].classList.toggle('on', btns[k].getAttribute('data-fl-setrole') === (i + ':' + role));
+          }
+        }
+      } else if (seg) { seg.parentNode.removeChild(seg); }
+    });
+    _schedulePairPreview();
+  }
+  var _ppRaf = 0;
+  function _schedulePairPreview() {
+    if (_ppRaf) return;
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    _ppRaf = raf(function () {
+      _ppRaf = 0;
+      if (!el || cur !== 'upload') return;
+      var root = el.querySelector('[data-fs="upload"]'); if (!root) return;
+      var foot = root.querySelector('[data-up-foot]'); if (!foot) return;
+      var selOrdered = _selectedOrdered();
+      var multi = selOrdered.length >= 2;
+      var cnt = { before: 0, after: 0, hero: 0 };
+      selOrdered.forEach(function (p) { var r = p.role || 'hero'; if (cnt[r] != null) cnt[r]++; else cnt.hero++; });
+      foot.innerHTML = _upSummaryHtml(selOrdered.length, multi, cnt, Math.min(cnt.before, cnt.after)) + _pairPreviewHtml(cnt);
+    });
   }
 
 	  function _toolByKey(list, key) {
@@ -780,7 +830,7 @@
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
       if (a === 'cta') { return onCta(); }
-      if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); setScreen('upload'); return; }
+      if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); _repaintUpload(); return; }
       if (a === 'gen') { return doGenerate({}, null); }
       if (a === 'regen') { return doGenerate({}, '게시글을 다시 생성했어요'); }
       if (a === 'morehash') { return doGenerate({ hashtag_mode: 'more' }, '해시태그를 더 가져왔어요'); }
@@ -1262,7 +1312,12 @@
 	    var p = d.photos[i]; if (!p) return;
 	    if (p.role === role && p.roleManual) { p.roleManual = false; reassignRoles(); }
 	    else { p.role = role; p.roleManual = true; }
-	    setScreen('upload');
+	    // [v531] 역할이 바뀌면 이미 적용된 전후 결과물은 무효 — 다시 적용해야 함(합성 재실행은 적용 버튼에서만).
+	    if (d.templateOutputs && d.templateOutputs.length) {
+	      d.templateOutputs = []; d.templateOutput = null; d.templateOutputId = null; d.templateId = null; d.template = null; d.activeDisplayId = null;
+	      toast('역할이 바뀌어 템플릿을 다시 적용해야 해요');
+	    }
+	    _repaintUpload();   // [v531 렉] 전체 재렌더 금지 — in-place 갱신
 	  }
 	  // [#2] 타일 탭 → 선택/해제 토글. 선택 시 맨 끝 순서(selSeq)로, 해제 시 배지 제거·수동역할 해제.
 	  //   남은 선택 사진은 reassignRoles+랭크 재계산으로 1부터 빈번호 없이 다시 매겨진다.
@@ -1270,7 +1325,7 @@
 	    var p = d.photos[i]; if (!p) return;
 	    if (p.selected === false) { p.selected = true; p.selSeq = ++d._selSeq; }
 	    else { p.selected = false; p.roleManual = false; }
-	    reassignRoles(); setScreen('upload');
+	    reassignRoles(); _repaintUpload();   // [v531 렉] 선택 토글도 in-place 갱신
 	  }
 	  function addFiles(files, showToast) {
 	    files = Array.from(files || []).slice(0, 10);
