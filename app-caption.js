@@ -1242,6 +1242,14 @@ Object.assign(window, {
 function _dedupeCaptionText(text) {
   text = String(text || '');
   if (!text.trim()) return text.trim();
+  // [v531] placeholder 정제 — 실제 샵명이 있으면 치환, 없으면 자연스럽게 제거(빈 괄호/어색한 자리표시 방지).
+  let _shop = '';
+  try { _shop = localStorage.getItem('shop_name') || ''; } catch (_e) { _shop = ''; }
+  text = text
+    .replace(/\[\s*(샵\s*이름|샵\s*명|매장\s*이름|매장\s*명|shop\s*name|store\s*name)\s*\]/gi, _shop || '저희 샵')
+    .replace(/\[\s*(원장님?|디자이너님?|선생님)\s*\]/g, _shop || '저희 샵')
+    .replace(/\[[^\]\n]{1,24}\]/g, '')   // 남은 대괄호 placeholder 제거
+    .replace(/[ \t]{2,}/g, ' ');
   // [#6 강화] 정규화 키 — 이모지/문장부호/공백 차이를 무시해 "근사 중복"(예: "완성했어요!" vs "완성했어요 😊")도 같게 본다.
   const norm = s => String(s || '')
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️]/gu, '')
@@ -1255,11 +1263,20 @@ function _dedupeCaptionText(text) {
   const seenL = Object.create(null);
   const lo = [];
   out.join('\n\n').split('\n').forEach(ln => { const k = norm(ln); if (k && seenL[k]) return; if (k) seenL[k] = 1; lo.push(ln); });
-  // 3) 문장 단위 — 한/여러 줄에 같은 문장이 반복되면 첫 문장만 유지. 전부 중복돼 빈 줄만 제거(원래 빈 줄은 보존).
-  const seenS = Object.create(null);
+  // 3) 문장 단위 — 같은 문장 + [v531] 유사/부분 문장(한쪽이 다른쪽을 포함, 예: "저희 샵에서 …약속드려요" ⊃ "…약속드려요")까지 첫 문장만 유지.
+  const seenArr = [];
+  const _isDupSentence = k => {
+    if (!k) return false;
+    for (let i = 0; i < seenArr.length; i++) {
+      const s = seenArr[i];
+      if (s === k) return true;
+      if (Math.min(s.length, k.length) >= 10 && (s.indexOf(k) >= 0 || k.indexOf(s) >= 0)) return true;
+    }
+    return false;
+  };
   const lo2 = lo.map(ln => {
     if (!norm(ln)) return ln;
-    const kept = ln.split(/(?<=[.!?。！？…])\s+/).filter(s => { const k = norm(s); if (!k) return true; if (seenS[k]) return false; seenS[k] = 1; return true; });
+    const kept = ln.split(/(?<=[.!?。！？…])\s+/).filter(s => { const k = norm(s); if (!k) return true; if (_isDupSentence(k)) return false; seenArr.push(k); return true; });
     const joined = kept.join(' ').trim();
     return joined ? joined : null;
   }).filter(s => s !== null);

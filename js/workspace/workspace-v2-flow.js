@@ -782,6 +782,14 @@
 	    var s = el.querySelector('[data-fl-service]');
 	    if (s && typeof s.value === 'string') d.service = s.value;
 	  }
+	  // [v531] extra_notes 빌더 — 입력 키워드 최우선 + 다른 시술명 추가 금지 + 구어 의미 정제(원문 박제 금지).
+	  function _buildExtraNotes(svc) {
+	    var s = String(svc || '').trim().slice(0, 120);
+	    var note = '입력 키워드 "' + s + '"를 게시글 핵심으로 최우선 반영. ' +
+	      '입력하지 않은 다른 시술/상품명(붙임머리·단발탈출·슬림땋기 등)은 절대 추가하지 마세요. ' +
+	      '구어/감정 표현은 원문을 그대로 반복·직역하지 말고 의미만 뷰티샵 인스타 톤으로 정제하세요(예: "개오바 얼굴"→얼굴 라인이 살아난·인상이 또렷해진·분위기가 확 달라진 변화).';
+	    return note.slice(0, 300);
+	  }
 	  function doGenerate(extra, label) {
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
@@ -790,18 +798,19 @@
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
-    // [캡션 키워드 보장 · 이슈7/8] 사용자 입력(시술명/키워드/구어체 표현)을 photo_context 맨 앞에 명시.
-    //  엔진은 photo_context 가 있으면 service 를 prompt 에 따로 안 붙이는 경로가 있어, 그대로 두면
-    //  '레이어드컷 27인치' 같은 키워드가 누락된다. '시술'로만 라벨하면 '개오바 얼굴' 같은 구어체 표현이
-    //  시술명으로 박제되므로 '시술/키워드'로 표기 → 시술명·강조 표현 모두 반영 대상임을 분명히 한다.
-    //  (verbatim 키워드는 payload.service 로도 별도 전달 — app-caption.js)
-    if (svc) opts.photo_context = '시술/키워드: ' + svc + (opts.photo_context ? ' · ' + opts.photo_context : '');
-    // [다중pair·Step5] 결과물 여러 장이면 '캐러셀 게시글' 기준임을 photo_context 에 명시 → 단일 사진으로 뭉개지 않게.
+    // [v531] 사용자 입력을 캡션 최우선 context 로. '입력 안 한 다른 시술명(붙임머리·단발탈출·슬림땋기 등)
+    //   추가 금지'를 명시 — 백엔드 fewshot(샵 과거글)이 엉뚱한 시술명으로 새는 것을 프론트에서 차단.
+    if (svc) {
+      opts.photo_context = '시술/키워드(최우선 반영): ' + svc +
+        '. 이 키워드만 시술명으로 쓰고, 입력하지 않은 다른 시술/상품명은 새로 만들지 마세요' +
+        (opts.photo_context ? ' · ' + opts.photo_context : '');
+    }
+    // [다중pair] 결과물 여러 장이면 '캐러셀 게시글' 기준 — 중립적 전후 변화로(특정 시술명 가정 금지).
     var _outs = d.templateOutputs || [];
-    if (_outs.length >= 2) opts.photo_context += ' · 전후 결과물 ' + _outs.length + '장(인스타 캐러셀 한 편). 각 장은 같은 시술의 서로 다른 전/후 컷.';
-    else if (_outs.length === 1 && d.tplPurpose === 'before_after') opts.photo_context += ' · 전후 1장 게시글.';
-    // [Step5] 사용자 강조 표현을 extra_notes 로도 전달 — 백엔드가 '그대로 복붙 말고 자연스럽게 녹여라'로 정제(구어 박제 방지).
-    opts.extra_notes = ('강조 표현: "' + svc.slice(0, 180) + '" — 그대로 반복·직역하지 말고 뷰티샵 인스타 톤으로 자연스럽게 의미만 살려 반영해 주세요.').slice(0, 300);
+    if (_outs.length >= 2) opts.photo_context += ' · 전후 결과물 ' + _outs.length + '장(인스타 캐러셀 한 편). 각 장은 같은 고객의 시술 전/후 변화 컷.';
+    else if (_outs.length === 1 && d.tplPurpose === 'before_after') opts.photo_context += ' · 시술 전후 변화 1장.';
+    // [v531] extra_notes — 입력 키워드 최우선 + 다른 시술명 추가 금지 + 구어/감정 표현은 의미만 정제(원문 박제 금지).
+    opts.extra_notes = _buildExtraNotes(svc);
     // [Step5] 다중 결과물/템플릿 요약(트레이스용 — 백엔드 스키마엔 photo_context/extra_notes 텍스트로만 반영).
     opts.selectedTemplateId = d.templateId || null;
     opts.templateOutputs = _outs.map(function (o) { return { pairId: o.pairId, templateId: o.templateId, beforePhotoId: o.beforePhotoId, afterPhotoId: o.afterPhotoId, pairLabel: o.pairLabel }; });
