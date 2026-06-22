@@ -120,15 +120,34 @@
   function switchEditPhoto(idx) {
     var p = editablePhotos();
     if (idx < 0 || idx >= p.length || idx === (d.editIdx || 0)) return;
+    // [이슈3] 즉시 시각 피드백 — 선택 테두리/aria 를 동기로 토글(무거운 bake/렌더를 기다리지 않음).
+    if (el) {
+      el.querySelectorAll('[data-fs="edit"] [data-fl-editsel]').forEach(function (b) {
+        var on = +b.getAttribute('data-fl-editsel') === idx;
+        b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
+      });
+    }
+    // 현재 보정은 백그라운드로 굽고(다른 사진 오적용 방지), 끝나면 편집 상태만 부분 갱신.
     bakeEdit().then(function () {
       d.editIdx = idx;
 	      d.adjust = newAdjust(); d.beauty = newBeauty(); d.undo = []; d.redo = []; d.previewUrl = null;
       d.originalPreview = false; d.basicTool = null;
       d.bgAction = null; d.bgColor = null; d.bgFail = false; d.bgBusy = false;
-      setScreen('edit');
+      d.zoom = { s: 1, tx: 0, ty: 0 };
+      // [이슈3] setScreen('edit') 전체 재렌더(템플릿 6칸 대용량 dataURL 재디코딩) 대신 필요한 섹션만 교체 → 즉각 전환.
+      _paintEditPhoto();
+      _setEditSection('[data-ed-switcher]', _editSwitcherHtml());
+      _setEditSection('[data-ed-basic]', _mainAdjustHtml());
+      _setEditSection('[data-ed-bottom]', _editBottomHtml());
+      _setEditSection('[data-ed-adv]', _advFoldHtml());
+      _warmEditMasks();
     });
   }
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
+  // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
+  //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
+  //   원본/후사진 슬롯이 합성본으로 오염되지 않는다(이슈2). 해제하면 d.templateOutput=null → 원본 복귀(이슈11).
+  function outputUrl() { return (d && d.templateOutput) || photoUrl(curPhoto()); }
   // [C5] _barClass: vc(방문횟수) → b1/b2/b3 클래스
   function barClass(vc) {
     if (vc >= 10) return 'b3';
@@ -228,7 +247,8 @@
       '<div class="upload-grid">' + tiles +
         '<div class="grid-add" data-fl-pick><i class="ph-bold ph-plus"></i><span>추가</span></div>' +
       '</div>' +
-      _upSummaryHtml(selCount, multi, cnt, pairs);
+      _upSummaryHtml(selCount, multi, cnt, pairs) +
+      _pairPreviewHtml(cnt);
   }
 
 	  function _toolByKey(list, key) {
@@ -360,6 +380,36 @@
     story:        'assets/workshop-cats/cat-3.jpg'
   };
   function _tplExample(tpl) { return _TPL_EX[tpl.purpose] || _TPL_EX.feed; }
+  // [이슈4] 카드 썸네일 = "실제 적용되는 템플릿 자체"의 미리보기(사진 없이 레이아웃/배지/카피 렌더).
+  //   PhotoEditorTemplateThumb.make 가 templateId 로 진짜 템플릿을 그려 dataURL 반환 → id별 1회 캐시.
+  //   미로드/실패 시에만 고정 예시(_TPL_EX)로 폴백 — 업로드 사진은 어떤 경우에도 카드에 쓰지 않는다.
+  var _tplThumbCache = {};
+  function _tplThumb(tpl) {
+    if (_tplThumbCache[tpl.id]) return _tplThumbCache[tpl.id];
+    var url = null;
+    try {
+      if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
+        var ratio = tpl.purpose === 'story' ? '9:16' : (tpl.purpose === 'event' ? '1:1' : '4:5');
+        var shop = '';
+        try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
+        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: ratio, shopName: shop });
+      }
+    } catch (_e2) { url = null; }
+    url = url || _tplExample(tpl);
+    _tplThumbCache[tpl.id] = url;
+    return url;
+  }
+  // [이슈11] 템플릿 적용 상태 배너 — 무엇이/어떤 짝이 적용됐는지 + 해제 버튼.
+  function _tplAppliedHtml() {
+    if (!d.templateId) return '';
+    var info = '';
+    if (d.tplPurpose === 'before_after') {
+      var pp = _computePairs();
+      if (pp.pairs.length) info = ' · Pair ' + pp.pairs.length + ' (전 ' + pp.pairs.length + ' + 후 ' + pp.pairs.length + ')';
+    }
+    return '<div class="tpl-applied"><span class="tpl-applied__t">템플릿 적용됨 · <b>' + esc(d.template || '') + '</b>' + esc(info) + '</span>' +
+      '<button type="button" class="tpl-applied__release" data-fl="tplrelease">템플릿 해제</button></div>';
+  }
   function _tplFoldHtml() {
     var tplBody = '';
     if (d.tplOpen) {
@@ -368,11 +418,11 @@
       tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
         '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
         '<div class="tpl-grid2">' + shown.map(function (tpl) {
-          return '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" style="background-image:url(' + esc(_tplExample(tpl)) + ')">' +
+          return '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')">' +
             '<i class="tpl-badge">' + esc(tpl.chip) + '</i>' +
             '<span><b>' + esc(tpl.label) + '</b><em>' + esc(tpl.use) + '</em></span></button>';
         }).join('') + '</div>' +
-        (d.template ? '<div class="tpl-picked">적용됨: ' + esc(d.template) + '</div>' : '') +
+        _tplAppliedHtml() +
         '</div></div>';
     }
     return '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>템플릿 <em>' + (d.template ? esc(d.template) : '꾸미기') + '</em></span>' + _caret(d.tplOpen) + '</button>' + tplBody;
@@ -429,7 +479,7 @@
 
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
   function renderCaption() {
-    var url = photoUrl(curPhoto());
+    var url = outputUrl();
     if (d.capLoading) {
       return '<div class="cap-loading"><div class="cap-loading-spin"></div><p>AI가 게시글을 쓰는 중…</p></div>';
     }
@@ -509,7 +559,7 @@
   }
 
 	  function renderPreview() {
-	    var url = photoUrl(curPhoto());
+	    var url = outputUrl();
 	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
 	    var handle = ig.connected && ig.handle ? ig.handle : '인스타 미연동';
 	    var name = ig.connected ? (ig.displayName || handle) : '인스타 미연동';
@@ -601,6 +651,18 @@
     return f;
   }
 
+  // [이슈9] 편집 진입 시 현재 편집 사진의 부위 마스크/모델을 미리 워밍업(사진별 1회).
+  //   슬라이더를 만지기 전에 sclera/brow/eyelash 마스크가 캐시에 차도록 → 헤어볼륨/눈썹/눈가가 실제로 적용됨.
+  function _warmEditMasks() {
+    try {
+      var p = curEditPhoto(); if (!p) return;
+      var src = p.editedDataUrl || p.dataUrl; if (!src) return;
+      d._warmed = d._warmed || {};
+      if (d._warmed[p.id]) return; d._warmed[p.id] = true;
+      if (window.WorkspaceAdapter && window.WorkspaceAdapter.warmMasks) window.WorkspaceAdapter.warmMasks(src);
+    } catch (_e) { /* 워밍업 실패는 무해 — 휴리스틱 폴백 유지 */ }
+  }
+
   /* ── 라우팅 ── */
   function setScreen(name, opts) {
     opts = opts || {};
@@ -625,6 +687,7 @@
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
+    if (name === 'edit') _warmEditMasks();
     if (name === 'connect') loadRecent();
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
@@ -653,9 +716,12 @@
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
-    // [캡션 키워드 보장] 시술명(사용자 입력)을 photo_context 맨 앞에 명시 — 엔진은 photo_context 가 있으면
-    //  service 를 prompt 에 따로 안 붙이는 경로가 있어, 그대로 두면 '레이어드컷' 같은 키워드가 누락된다.
-    if (svc) opts.photo_context = '시술: ' + svc + (opts.photo_context ? ' · ' + opts.photo_context : '');
+    // [캡션 키워드 보장 · 이슈7/8] 사용자 입력(시술명/키워드/구어체 표현)을 photo_context 맨 앞에 명시.
+    //  엔진은 photo_context 가 있으면 service 를 prompt 에 따로 안 붙이는 경로가 있어, 그대로 두면
+    //  '레이어드컷 27인치' 같은 키워드가 누락된다. '시술'로만 라벨하면 '개오바 얼굴' 같은 구어체 표현이
+    //  시술명으로 박제되므로 '시술/키워드'로 표기 → 시술명·강조 표현 모두 반영 대상임을 분명히 한다.
+    //  (verbatim 키워드는 payload.service 로도 별도 전달 — app-caption.js)
+    if (svc) opts.photo_context = '시술/키워드: ' + svc + (opts.photo_context ? ' · ' + opts.photo_context : '');
     d.capLen = opts.length_tier || d.capLen || 'medium';
     d.capTone = opts.tone_override || d.capTone || 'normal';
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
@@ -704,9 +770,10 @@
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       if (a === 'roles') { toast('역할 — ' + _roleSummary()); return; }
+      if (a === 'tplrelease') { return releaseTemplate(); }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
-      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(photoUrl(curPhoto()), d.service || 'itdasy'); _markPrepared(); return; }
+      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); return; }
       if (a === 'igconnect') { window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram(); return; }
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
@@ -968,14 +1035,25 @@
 	    }).then(function (r) {
 	      d.templateBusy = null;
 	      if (r && r.ok && r.dataUrl) {
-	        var p = curPhoto();
-	        p.editedDataUrl = r.dataUrl; p.templateId = tpl.id;
+	        // [이슈2] 합성 결과물은 개별 사진(editedDataUrl)에 덮어쓰지 않고 전용 필드에만 보관.
+	        //   → 편집화면 상단 원본 스트립이 오염되지 않고, 후사진 슬롯도 그대로 유지된다.
+	        d.templateOutput = r.dataUrl; d.templateOutputId = tpl.id;
 	        d.template = tpl.label; d.templateId = tpl.id;
 	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
 	        d.previewUrl = null; toast(tpl.label + ' 템플릿 적용 완료');
 	      } else { toast((r && r.toast) || '이 템플릿은 아직 적용하지 못했어요'); }
 	      setScreen('edit');
 	    });
+	  }
+	  // [이슈11] 템플릿 해제 — 적용 결과물만 비우고 원본 사진 리스트는 그대로 복구.
+	  //   원본(d.photos)은 애초에 손대지 않았으므로(이슈2) 결과물 필드만 비우면 원본 상태로 돌아간다.
+	  function releaseTemplate() {
+	    if (!d.templateId && !d.templateOutput) { toast('적용된 템플릿이 없어요'); return; }
+	    d.templateOutput = null; d.templateOutputId = null;
+	    d.template = null; d.templateId = null;
+	    d.previewUrl = null;
+	    _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+	    toast('템플릿을 해제했어요 — 원본 사진으로 돌아갔어요');
 	  }
 
 	  function bakeEdit() {
@@ -1012,6 +1090,34 @@
     });
   }
 
+	  // [이슈1] 전후 페어링 산출 — 선택순(selSeq)으로 전(before)·후(after)를 1:1 zip.
+	  //   전 N + 후 M → min(N,M)쌍. 남는 전 = "후 사진 부족", 남는 후 = "전 사진 부족".
+	  //   어댑터 _pickPhoto(첫 전+첫 후) 와 동일 순서 → 화면에 보이는 짝과 실제 합성 짝이 일치.
+	  function _computePairs() {
+	    var sel = _selectedOrdered();
+	    var befores = sel.filter(function (p) { return p.role === 'before'; });
+	    var afters  = sel.filter(function (p) { return p.role === 'after'; });
+	    var n = Math.min(befores.length, afters.length), pairs = [];
+	    for (var i = 0; i < n; i++) pairs.push({ before: befores[i], after: afters[i] });
+	    return { pairs: pairs, leftBefore: befores.slice(n), leftAfter: afters.slice(n) };
+	  }
+	  function _pairThumb(p, tag) {
+	    return '<span class="up-pair__thumb" style="background-image:url(' + esc(p.dataUrl) + ')"><em>' + tag + '</em></span>';
+	  }
+	  // [이슈1] 전후가 어떻게 묶이는지 사용자에게 명확히: Pair 1(전+후) · 남은 사진은 부족 안내.
+	  function _pairPreviewHtml(cnt) {
+	    if (!cnt.before && !cnt.after) return '';
+	    var pp = _computePairs();
+	    var rows = pp.pairs.map(function (pr, i) {
+	      return '<div class="up-pair"><span class="up-pair__n">Pair ' + (i + 1) + '</span>' +
+	        _pairThumb(pr.before, '전') + '<i class="up-pair__plus">+</i>' + _pairThumb(pr.after, '후') + '</div>';
+	    }).join('');
+	    var leftover = '';
+	    pp.leftBefore.forEach(function (p) { leftover += '<div class="up-pair up-pair--left">' + _pairThumb(p, '전') + '<span class="up-pair__need">후 사진 1장이 더 필요해요</span></div>'; });
+	    pp.leftAfter.forEach(function (p) { leftover += '<div class="up-pair up-pair--left">' + _pairThumb(p, '후') + '<span class="up-pair__need">전 사진 1장이 더 필요해요</span></div>'; });
+	    var head = pp.pairs.length ? ('전후 ' + pp.pairs.length + '쌍 만들 수 있어요') : '전·후를 한 장씩 지정하면 짝이 만들어져요';
+	    return '<div class="up-pairs"><div class="up-pairs__head">' + esc(head) + '</div>' + rows + leftover + '</div>';
+	  }
 	  // [#2/#5] 선택된 사진(선택순)만 대상으로 첫=전/둘째=후 자동 배치. 수동지정(roleManual)은 보존.
 	  function reassignRoles() {
 	    var sel = _selectedOrdered();
@@ -1118,6 +1224,8 @@
     var now = Date.now();
 	    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
 	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, updatedAt: now }; });
+	    // [이슈2] 전후 템플릿 합성 결과물은 사진 배열과 분리된 전용 필드로 저장(원본 슬롯 비오염).
+	    slot.templateOutput = d.templateOutput || null;
 	    slot.service = d.service || '';
 	    slot.caption = d.caption || '';
     slot.hashtags = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ');
@@ -1206,7 +1314,7 @@
 	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
-      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: photoUrl(curPhoto()), caption: cap }).then(function (r) {
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), caption: cap }).then(function (r) {
         r = r || {};
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
@@ -1259,7 +1367,9 @@
       photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, selected: true, selSeq: i + 1 }; }) : [],
       _selSeq: (slot && slot.photos ? slot.photos.length : 0),
       baMode: purpose === 'before_after',
-	      template: null, templateId: (wc && wc.templateId) || null, tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
+	      template: (wc && wc.templateLabel) || null, templateId: (wc && wc.templateId) || null,
+	      templateOutput: (slot && slot.templateOutput) || null, templateOutputId: (wc && wc.templateId) || null,
+	      tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
 	      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       textOnly: !!(opts.textOnly),
       service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [], selectedHashes: [],

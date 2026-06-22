@@ -1242,19 +1242,28 @@ Object.assign(window, {
 function _dedupeCaptionText(text) {
   text = String(text || '');
   if (!text.trim()) return text.trim();
-  const seen = Object.create(null);
-  const paras = text.split(/\n{2,}/).map(p => p.replace(/\s+$/,'')).filter(p => p.trim());
+  // [#6 강화] 정규화 키 — 이모지/문장부호/공백 차이를 무시해 "근사 중복"(예: "완성했어요!" vs "완성했어요 😊")도 같게 본다.
+  const norm = s => String(s || '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️]/gu, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase();
+  // 1) 문단(빈 줄 기준) 단위 — 근사 중복까지 제거. 기호/해시태그-only 문단(키 빈값)은 보존.
+  const seenP = Object.create(null);
+  const paras = text.split(/\n{2,}/).map(p => p.replace(/\s+$/, '')).filter(p => p.trim());
   const out = [];
-  paras.forEach(p => {
-    const key = p.trim().replace(/\s+/g, ' ').toLowerCase();
-    if (seen[key]) return;            // 같은 문단 2번 이상 → 첫 것만
-    seen[key] = 1; out.push(p.trim());
-  });
-  // 문단 내 연속 동일 라인 제거
-  const lines = out.join('\n\n').split('\n');
-  let prev = null; const lo = [];
-  lines.forEach(ln => { const k = ln.trim(); if (k && k === prev) return; lo.push(ln); prev = k; });
-  return lo.join('\n').trim();
+  paras.forEach(p => { const k = norm(p); if (k && seenP[k]) return; if (k) seenP[k] = 1; out.push(p.trim()); });
+  // 2) 줄 단위 — 백엔드가 문단을 \n 하나로만 구분해 \n{2,} 분리에 안 걸리는 중복도 정규화 비교로 제거.
+  const seenL = Object.create(null);
+  const lo = [];
+  out.join('\n\n').split('\n').forEach(ln => { const k = norm(ln); if (k && seenL[k]) return; if (k) seenL[k] = 1; lo.push(ln); });
+  // 3) 문장 단위 — 한/여러 줄에 같은 문장이 반복되면 첫 문장만 유지. 전부 중복돼 빈 줄만 제거(원래 빈 줄은 보존).
+  const seenS = Object.create(null);
+  const lo2 = lo.map(ln => {
+    if (!norm(ln)) return ln;
+    const kept = ln.split(/(?<=[.!?。！？…])\s+/).filter(s => { const k = norm(s); if (!k) return true; if (seenS[k]) return false; seenS[k] = 1; return true; });
+    const joined = kept.join(' ').trim();
+    return joined ? joined : null;
+  }).filter(s => s !== null);
+  return lo2.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 window.CaptionEngine = {

@@ -21,6 +21,18 @@
 	      img.src = src;
 	    });
 	  }
+	  // [이슈10] 디코드 캐시(소형 LRU) — 같은 src 를 슬라이더 commit 마다 다시 디코드하던 비용 제거.
+	  //   Image 는 로드 후 불변이고 매번 새 캔버스에 draw 하므로 재사용 안전. 손 떼고 다시 조작 시 즉시 hit.
+	  var _imgCache = [];
+	  function _loadImageCached(src) {
+	    for (var i = 0; i < _imgCache.length; i++) {
+	      if (_imgCache[i].src === src) { var hit = _imgCache.splice(i, 1)[0]; _imgCache.push(hit); return Promise.resolve(hit.img); }
+	    }
+	    return _loadImage(src).then(function (img) {
+	      _imgCache.push({ src: src, img: img }); if (_imgCache.length > 4) _imgCache.shift();
+	      return img;
+	    });
+	  }
 	  function _encode(cv, src) {
 	    return /^data:image\/png/i.test(src || '') ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.92);
 	  }
@@ -87,7 +99,7 @@
     if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
     if (!(window.PhotoEditorBeautyEngine && has(window.PhotoEditorBeautyEngine.apply))) return Promise.resolve({ ok: false, reason: 'no_beauty_engine' });
     if (!_hasValues(opts.beauty)) return Promise.resolve({ ok: true, dataUrl: opts.src });
-    return _loadImage(opts.src).then(function (img) {
+    return _loadImageCached(opts.src).then(function (img) {
       return _beautyMasksAsync(img, opts.beauty || {}, opts.maskKey).then(function (masks) {
         var cv = document.createElement('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
         var ctx = cv.getContext('2d', { willReadFrequently: true });
@@ -183,22 +195,21 @@
       opts = opts || {};
       var a = opts.adjust || {};
       if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
-      return new Promise(function (resolve) {
-        var img = new Image();
-        img.onload = function () {
-          var cv, ctx, png;
-          try {
-            cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
-            ctx = cv.getContext('2d', { willReadFrequently: true });
-            var contrast = Math.max(0, 1 + (a.contrast || 0) / 100);   // 대비: 워커 미지원 → 캔버스 필터
-            var soft = (a.sharpness || 0) < 0 ? (Math.min(100, -(a.sharpness || 0)) * 0.02) : 0;  // 선명도 좌(-)=부드러움
-            var cf = [];
-            if (contrast !== 1) cf.push('contrast(' + contrast.toFixed(3) + ')');
-            if (soft > 0) cf.push('blur(' + soft.toFixed(2) + 'px)');
-            ctx.filter = cf.length ? cf.join(' ') : 'none';
-            ctx.drawImage(img, 0, 0); ctx.filter = 'none';
-            png = /^data:image\/png/i.test(opts.src);
-          } catch (_e) { resolve({ ok: false, reason: 'canvas' }); return; }
+      return _loadImageCached(opts.src).then(function (img) {   // [이슈10] 캐시 디코드 — 반복 commit 가속
+        var cv, ctx, png;
+        try {
+          cv = document.createElement('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
+          ctx = cv.getContext('2d', { willReadFrequently: true });
+          var contrast = Math.max(0, 1 + (a.contrast || 0) / 100);   // 대비: 워커 미지원 → 캔버스 필터
+          var soft = (a.sharpness || 0) < 0 ? (Math.min(100, -(a.sharpness || 0)) * 0.02) : 0;  // 선명도 좌(-)=부드러움
+          var cf = [];
+          if (contrast !== 1) cf.push('contrast(' + contrast.toFixed(3) + ')');
+          if (soft > 0) cf.push('blur(' + soft.toFixed(2) + 'px)');
+          ctx.filter = cf.length ? cf.join(' ') : 'none';
+          ctx.drawImage(img, 0, 0); ctx.filter = 'none';
+          png = /^data:image\/png/i.test(opts.src);
+        } catch (_e) { return { ok: false, reason: 'canvas' }; }
+        return new Promise(function (resolve) {
           var finish = function () {
             try { resolve({ ok: true, dataUrl: png ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', 0.92) }); }
             catch (_e2) { resolve({ ok: false, reason: 'encode' }); }
@@ -211,10 +222,34 @@
             if (sh > 0 && has(wf.unsharpCanvas)) { wf.unsharpCanvas(cv, sh / 100).then(finish, finish); }
             else finish();
           }, function () { finish(); });
-        };
-        img.onerror = function () { resolve({ ok: false, reason: 'bad_image' }); };
-        img.src = opts.src;
-      });
+        });
+      }).catch(function () { return { ok: false, reason: 'bad_image' }; });
+	    },
+
+	    // [이슈9] 편집 진입 시 부위 마스크/모델 사전 워밍업 — 슬라이더 조작 전에 마스크가 준비되게 함.
+	    //   근본 원인: 작업실은 sclera/brow/eyelash 를 sync 게터(getCachedSync)로만 조회하는데, MediaPipe(Tier2)
+	    //   모델이 로드돼 있지 않으면 캐시가 영영 비어 헤어볼륨/눈썹/눈가가 전역 fallback(거의 no-op)으로 떨어진다.
+	    //   여기서 모델 로드 + getMasksForBeauty(skin/hair/eye…) + 눈/눈썹/속눈썹 LAZY 마스크를 미리 트리거해
+	    //   RegionMaskProvider 캐시를 채워두면, 이후 commit 의 sync 게터가 실제 Tier2 마스크를 반환한다.
+	    //   전부 추가형(기존 경로 무변경)·실패 무해(휴리스틱 폴백 유지).
+	    warmMasks: function (src) {
+	      try {
+	        if (window.MediaPipeLoader && has(window.MediaPipeLoader.load) &&
+	            !(has(window.MediaPipeLoader.isReady) && window.MediaPipeLoader.isReady())) {
+	          Promise.resolve(window.MediaPipeLoader.load()).catch(function () {});
+	        }
+	      } catch (_e) { /* ignore */ }
+	      if (!src) return Promise.resolve(false);
+	      return _loadImageCached(src).then(function (img) {
+	        var MA = window.MaskApplication;
+	        if (!MA) return false;
+	        var jobs = [];
+	        if (has(MA.getMasksForBeauty)) jobs.push(Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }));
+	        try { if (has(MA.getLashMaskSync)) MA.getLashMaskSync(img); } catch (_e2) { /* ignore */ }
+	        try { if (has(MA.getScleraMaskSync)) MA.getScleraMaskSync(img); } catch (_e3) { /* ignore */ }
+	        try { if (has(MA.getBrowMaskSync)) MA.getBrowMaskSync(img); } catch (_e4) { /* ignore */ }
+	        return Promise.all(jobs).then(function () { return true; }).catch(function () { return false; });
+	      }).catch(function () { return false; });
 	    },
 
 	    applyBeautyAdjust: _applyBeautyAdjust,
