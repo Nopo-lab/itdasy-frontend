@@ -493,8 +493,9 @@
       return '<div class="cap-loading"><div class="cap-loading-spin"></div><p>AI가 게시글을 쓰는 중…</p></div>';
     }
 	    if (!d.caption) {
-	      var photoThumb = (!d.textOnly && url) ?
-	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '';
+	      // [다중pair] 결과물 2개+ 면 상단 캐러셀, 아니면 기존 단일 썸네일.
+	      var photoThumb = _capCarouselHtml() || ((!d.textOnly && url) ?
+	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '');
 	      return photoThumb +
 	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
 	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
@@ -506,9 +507,12 @@
     var hashHtml = d.hashtags.map(function (h) {
       return '<button class="hash-chip' + (d.selectedHashes && d.selectedHashes.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>';
     }).join('');
-    var photoHtml = (!d.textOnly && url) ?
+    // [다중pair] 결과물 2개+ 면 상단 캐러셀(카드 위 전폭), 1개면 기존 카드내 단일 프리뷰.
+    var carRes = _capCarouselHtml();
+    var photoHtml = (!d.textOnly && url && !carRes) ?
       '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:13px;height:13px;stroke:var(--brand-strong)"><use href="#ic-tag"/></svg><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' : '';
     return '' +
+	      carRes +
 	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
 	      '<label class="cap-field-label">게시글 <span>바로 고쳐 쓸 수 있어요 · 키워드 바꾸려면 아래 초기화</span></label>' +
 	      '<div class="cap-card">' +
@@ -811,6 +815,9 @@
       }
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); _setEditSection('[data-ed-tpl]', _tplFoldHtml()); return; }
 	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
+      // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
+      var carnav = t.closest('[data-fl-carnav]'); if (carnav) { return _carStep(carnav.getAttribute('data-fl-carnav')); }
+      var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [C4] 해시태그 선택 → selectedHashes 토글
       var hash = t.closest('[data-fl-hash]'); if (hash) {
         var h = hash.getAttribute('data-fl-hash');
@@ -1161,6 +1168,57 @@
 	      return [{ pairId: 'pair-0', templateId: (wc && wc.templateId) || null, beforePhotoId: null, afterPhotoId: null, outputUrl: slot.templateOutput, pairLabel: 'Pair 1' }];
 	    }
 	    return [];
+	  }
+
+	  // [다중pair] 캡션 상단 캐러셀 표시 아이템 — 템플릿 결과물(들) + (전후) 미적용 원본(남은 전/후·기본).
+	  function _unpairedPhotos() {
+	    var used = {};
+	    (d.templateOutputs || []).forEach(function (o) { if (o.beforePhotoId) used[o.beforePhotoId] = 1; if (o.afterPhotoId) used[o.afterPhotoId] = 1; });
+	    return _selectedOrdered().filter(function (p) { return !used[p.id]; });
+	  }
+	  function _displayItems() {
+	    var outs = (d.templateOutputs || []).map(function (o) { return { kind: 'output', id: o.pairId, url: o.outputUrl, label: o.pairLabel }; });
+	    if (!outs.length) return [];
+	    if (d.tplPurpose === 'before_after') {
+	      _unpairedPhotos().forEach(function (p) {
+	        outs.push({ kind: 'photo', id: p.id, url: photoUrl(p), label: p.role === 'before' ? '남은 전' : (p.role === 'after' ? '남은 후' : '기본 사진') });
+	      });
+	    }
+	    return outs;
+	  }
+	  function _capCarouselHtml() {
+	    var items = _displayItems();
+	    if (items.length < 2) return '';   // 결과물/표시 아이템 1개 이하 → 캐러셀 없이 기존 단일 프리뷰
+	    var active = d.activeDisplayId || items[0].id;
+	    var n = items.length;
+	    var slides = items.map(function (it, i) {
+	      return '<div class="cap-car__slide' + (it.id === active ? ' on' : '') + '" data-fl-carslide="' + esc(it.id) + '">' +
+	        '<span class="cap-car__badge">' + (i + 1) + ' / ' + n + ' · ' + esc(it.label) + '</span>' +
+	        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+	    }).join('');
+	    var dots = items.map(function (it) { return '<span class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '"></span>'; }).join('');
+	    var outN = (d.templateOutputs || []).length;
+	    return '<div class="cap-car" data-fl-carousel>' +
+	      '<div class="cap-car__vp">' + slides +
+	        '<button type="button" class="cap-car__nav cap-car__prev" data-fl-carnav="prev" aria-label="이전"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-left"/></svg></button>' +
+	        '<button type="button" class="cap-car__nav cap-car__next" data-fl-carnav="next" aria-label="다음"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#ic-chevron-right"/></svg></button>' +
+	      '</div>' +
+	      '<div class="cap-car__dots">' + dots + '</div>' +
+	      (outN >= 2 ? '<p class="cap-car__hint">' + outN + '장의 전후 결과물로 게시글을 만들어요</p>' : '') +
+	    '</div>';
+	  }
+	  function _carSet(id) {
+	    d.activeDisplayId = id;
+	    var root = el && el.querySelector('[data-fl-carousel]'); if (!root) return;
+	    root.querySelectorAll('[data-fl-carslide]').forEach(function (s) { s.classList.toggle('on', s.getAttribute('data-fl-carslide') === id); });
+	    root.querySelectorAll('[data-fl-cardot]').forEach(function (dt) { dt.classList.toggle('on', dt.getAttribute('data-fl-cardot') === id); });
+	  }
+	  function _carStep(dir) {
+	    var items = _displayItems(); if (items.length < 2) return;
+	    var cur = d.activeDisplayId || items[0].id;
+	    var idx = 0; for (var i = 0; i < items.length; i++) { if (items[i].id === cur) { idx = i; break; } }
+	    idx = (idx + (dir === 'next' ? 1 : -1) + items.length) % items.length;
+	    _carSet(items[idx].id);
 	  }
 	  function _pairThumb(p, tag) {
 	    return '<span class="up-pair__thumb" style="background-image:url(' + esc(p.dataUrl) + ')"><em>' + tag + '</em></span>';
