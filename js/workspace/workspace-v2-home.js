@@ -8,6 +8,9 @@
   var TABS = [{ key:'all', label:'전체' }, { key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
   var _lastRoot = null;
   var _slotsCache = [];
+  var _selectMode = false;          // [v547] 내 콘텐츠 일괄 작업 선택 모드
+  var _selected = {};               // id → true
+  var _enteredCardId = null;        // [v547] 카드→편집 진입 시 저장 → 복귀 후 그 카드로 스크롤 복원
   var _drawerSlotId = null;
   var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
   var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '게시글 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
@@ -143,8 +146,10 @@
     var next = st.nextAction(slot);
     var img = _thumb(slot);
     var sub = _relTime(slot);
+    var sel = !!_selected[slot.id];
     return '' +
-      '<article class="wsv2-card" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light">' +
+      '<article class="wsv2-card' + (_selectMode ? ' wsv2-card--select' : '') + (sel ? ' is-selected' : '') + '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light">' +
+        (_selectMode ? '<span class="wsv2-card__check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
         '<div class="wsv2-card__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
           (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') +
         '</div>' +
@@ -196,10 +201,25 @@
 	        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
 	        _quickHTML() +
         _categoryHTML() +
-        '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2></div>' +
+        '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2>' +
+          (slots.length ? '<button type="button" class="wsv2-selecttoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
+        '</div>' +
         _tabsHTML(slots) +
         list +
+        (_selectMode ? _bulkBarHTML() : '') +
       '</section>';
+  }
+  // [v547] 일괄 작업 하단 sticky action bar — 선택된 카드에만 적용.
+  function _bulkBarHTML() {
+    var n = Object.keys(_selected).length;
+    return '<div class="wsv2-bulkbar' + (n ? ' on' : '') + '">' +
+      '<span class="wsv2-bulkbar__n">' + n + '개 선택</span>' +
+      '<div class="wsv2-bulkbar__acts">' +
+        '<button type="button" data-wsv2-bulk="publish"' + (n ? '' : ' disabled') + '>게시 완료</button>' +
+        '<button type="button" data-wsv2-bulk="unpublish"' + (n ? '' : ' disabled') + '>해제</button>' +
+        '<button type="button" class="wsv2-bulkbar__del" data-wsv2-bulk="delete"' + (n ? '' : ' disabled') + '>삭제</button>' +
+      '</div>' +
+    '</div>';
   }
 
   /* ── [버그2] 홈 스크롤 위치 보존 — render()가 innerHTML 통째 교체로 맨 위로 튕기던 문제 ── */
@@ -224,6 +244,18 @@
     var tgt = _isDocHost(host) ? window : host;
     tgt.addEventListener('scroll', function () { _homeScrollY = _hostTop(host); }, { passive: true });
   }
+  // [v547] 카드→편집 진입 후 복귀 시 그 카드로 정밀 스크롤(삭제됐으면 _homeScrollY 근처 복원으로 폴백).
+  function _scrollToEnteredCard() {
+    var id = _enteredCardId; if (!id || !_lastRoot) return;
+    _enteredCardId = null;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var sel = '[data-wsv2-slot="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]';
+        var card = _lastRoot.querySelector(sel);
+        if (card && card.scrollIntoView) { try { card.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_e) { try { card.scrollIntoView(); } catch (_e2) { /* ignore */ } } }
+      });
+    });
+  }
   function _restoreHomeScroll() {
     var host = _scrollHostEl; if (!host || !_homeScrollY) return;
     requestAnimationFrame(function () {
@@ -245,6 +277,7 @@
 	    _bindHeroFile(root);
 	    _bindHomeScroll(root);   // [버그2] 스크롤 호스트에 1회 캡처 리스너
 	    _restoreHomeScroll();    // [버그2] 재렌더 후 이전 스크롤 위치 복원
+	    _scrollToEnteredCard();  // [v547] 카드에서 진입했었다면 복귀 후 그 카드로 정밀 복원
 	  }
 
 	  function refresh() {
@@ -273,6 +306,17 @@
 
 	  function _bind(root) {
     root.onclick = function (e) {
+      // [v547] 일괄 작업 — 선택 모드 토글 / 일괄 액션 / 선택 모드 카드 탭 = 선택
+      if (e.target.closest('[data-wsv2-selecttoggle]')) {
+        _selectMode = !_selectMode; if (!_selectMode) _selected = {};
+        render(_lastRoot, { slots: _slotsCache }); return;
+      }
+      var bulk = e.target.closest('[data-wsv2-bulk]');
+      if (bulk) { _onBulk(bulk.getAttribute('data-wsv2-bulk')); return; }
+      if (_selectMode) {
+        var selCard = e.target.closest('[data-wsv2-slot]');
+        if (selCard) { var sid0 = selCard.getAttribute('data-wsv2-slot'); if (_selected[sid0]) delete _selected[sid0]; else _selected[sid0] = true; render(_lastRoot, { slots: _slotsCache }); return; }
+      }
       // 카테고리 클릭 — 타입 프리셋으로 플로우 진입
       var catBtn = e.target.closest('[data-wsv2-cat]');
       if (catBtn) {
@@ -312,6 +356,7 @@
   }
 
   function _launchFlow(slotId, screen, cat, extra) {
+    if (slotId) _enteredCardId = slotId;   // [v547] 복귀 시 이 카드로 스크롤 복원
     var slot = slotId ? _slotsCache.filter(function (s) { return s.id === slotId; })[0] : null;
     if (window.WorkspaceFlow && typeof window.WorkspaceFlow.open === 'function') {
       _closeDrawer();
@@ -386,6 +431,53 @@
     _closeDrawer();
     if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
     _toast('콘텐츠를 삭제했어요');
+  }
+  // [v547] 게시 상태만 변경/저장(렌더 없음) — 단일/일괄 공용.
+  function _setPublished(slot, on) {
+    if (!slot) return;
+    if (on) { slot.publish = slot.publish || {}; slot.publish.status = 'published'; slot.publish.publishedAt = Date.now(); slot.status = 'published'; slot.instagramPublished = true; }
+    else { if (slot.publish) slot.publish.status = 'draft'; if (slot.status === 'published') slot.status = null; slot.instagramPublished = false; }
+    if (typeof window.saveSlotToDB === 'function') { Promise.resolve(window.saveSlotToDB(slot)).catch(function () {}); }
+  }
+  // [v547] 일괄 작업 — 선택된 카드에만 게시완료/해제/삭제 적용(IndexedDB 영속).
+  function _onBulk(action) {
+    var ids = Object.keys(_selected); if (!ids.length) return;
+    if (action === 'delete') { _confirmBulk(ids); return; }
+    var on = action === 'publish';
+    ids.forEach(function (id) { _setPublished(_slotsCache.filter(function (s) { return s.id === id; })[0], on); });
+    _selectMode = false; _selected = {};
+    if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
+    _toast(on ? ids.length + '개를 게시 완료로 표시했어요' : ids.length + '개의 게시 완료를 해제했어요');
+  }
+  function _confirmBulk(ids) {
+    _showConfirm(ids.length + '개 콘텐츠를 삭제할까요?', '삭제하면 작업실에서 다시 볼 수 없어요.', function () {
+      _slotsCache = _slotsCache.filter(function (s) { return ids.indexOf(s.id) < 0; });
+      if (typeof window.deleteSlotFromDB === 'function') { ids.forEach(function (id) { Promise.resolve(window.deleteSlotFromDB(id)).catch(function () {}); }); }
+      _selectMode = false; _selected = {};
+      if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
+      _toast(ids.length + '개를 삭제했어요');
+    });
+  }
+  // [v547] 범용 확인 시트(단일 삭제·일괄 삭제 공용).
+  function _showConfirm(title, desc, onOk) {
+    _closeConfirm();
+    var ov = document.createElement('div');
+    ov.className = 'wsv2-confirm'; ov.setAttribute('data-wsv2-confirm', '');
+    ov.innerHTML =
+      '<div class="wsv2-confirm__backdrop" data-wsv2-confirm-cancel></div>' +
+      '<div class="wsv2-confirm__sheet" role="dialog" aria-label="확인">' +
+        '<div class="wsv2-confirm__title">' + _esc(title) + '</div>' +
+        '<div class="wsv2-confirm__desc">' + _esc(desc) + '</div>' +
+        '<div class="wsv2-confirm__btns">' +
+          '<button type="button" class="wsv2-confirm__cancel" data-wsv2-confirm-cancel>취소</button>' +
+          '<button type="button" class="wsv2-confirm__ok" data-wsv2-confirm-go>삭제</button>' +
+        '</div></div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    ov.addEventListener('click', function (e) {
+      if (e.target.closest('[data-wsv2-confirm-cancel]')) { _closeConfirm(); return; }
+      if (e.target.closest('[data-wsv2-confirm-go]')) { _closeConfirm(); onOk(); }
+    });
   }
 
   /* ── V2 카드 상세 drawer ── */

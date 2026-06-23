@@ -112,6 +112,7 @@
 /* 콘텐츠 카드 */
 .wsv2-list { display: grid; gap: 13px; }
 .wsv2-card {
+  position: relative;   /* [v547] 선택 체크박스 절대배치 기준 */
   display: grid; grid-template-columns: 90px 1fr 20px; gap: 13px; align-items: center;
   padding: 9px 11px 9px 9px; border-radius: var(--r-md);
   background: var(--surface); border: 1px solid var(--border);
@@ -212,6 +213,21 @@
 .wsv2-confirm__btns button { flex: 1; height: 46px; border-radius: var(--r-md); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
 .wsv2-confirm__cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
 .wsv2-confirm__ok { border: 0; background: #C0392B; color: #fff; }
+/* [v547] 내 콘텐츠 일괄 작업 — 선택 모드 + 체크 + 하단 action bar (.wsv2-sec-head/.wsv2-card 는 위에서 정의) */
+.wsv2-selecttoggle { appearance: none; -webkit-appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-family: inherit; font-size: 12.5px; font-weight: 800; height: 30px; padding: 0 13px; border-radius: var(--r-pill); cursor: pointer; }
+.wsv2-selecttoggle.on { background: var(--brand-strong); color: #fff; border-color: transparent; }
+.wsv2-card--select { cursor: pointer; }
+.wsv2-card--select.is-selected { outline: 2px solid var(--brand-strong); outline-offset: -2px; }
+.wsv2-card__check { position: absolute; top: 8px; right: 8px; z-index: 4; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--border-strong); background: rgba(255,255,255,.9); display: grid; place-items: center; }
+.wsv2-card__check svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.wsv2-card--select.is-selected .wsv2-card__check { background: var(--brand-strong); border-color: var(--brand-strong); }
+.wsv2-card--select.is-selected .wsv2-card__check svg { opacity: 1; }
+.wsv2-bulkbar { position: sticky; bottom: 0; z-index: 6; display: flex; align-items: center; gap: 10px; margin: 12px -4px 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--border); box-shadow: 0 -6px 20px rgba(0,0,0,.08); }
+.wsv2-bulkbar__n { font-size: 13px; font-weight: 800; color: var(--text); }
+.wsv2-bulkbar__acts { display: flex; gap: 7px; margin-left: auto; }
+.wsv2-bulkbar__acts button { appearance: none; -webkit-appearance: none; height: 38px; padding: 0 13px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-family: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.wsv2-bulkbar__acts button:disabled { opacity: .45; cursor: default; }
+.wsv2-bulkbar__del { border-color: #F3C2C2 !important; color: #C0392B !important; }
 
 /* PC (≥768px): 고정 사이드바(232px)에 가리지 않게 */
 @media (width >= 768px) {

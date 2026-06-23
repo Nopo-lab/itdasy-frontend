@@ -1243,7 +1243,9 @@
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
-      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); return; }
+      if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); _askPublishedSheet(); return; }   // [v547] 저장 후 게시 확인 sheet
+      if (a === 'pubnot') { return _closePublishSheet(); }
+      if (a === 'pubdone') { return _markPublishedNow(); }
       if (a === 'igconnect') { window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram(); return; }
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
@@ -2053,6 +2055,35 @@
     if (!d.publish) d.publish = { status: 'draft', instagramPreparedAt: null, publishedAt: null };
     d.publish.status = 'upload_ready'; d.publish.instagramPreparedAt = Date.now();
   }
+  // [v547] 게시 완료 자동화/복귀 — 실 IG 업로드(publishInstagramV2)는 성공 시 이미 자동 published(아래 publish()).
+  //   하지만 '이미지 저장→수동 게시' 흐름은 콜백이 없어, 저장 직후 확인 sheet 로 게시 완료를 표시·영속.
+  function _askPublishedSheet() {
+    if (!el) return;
+    _closePublishSheet();
+    var wrap = document.createElement('div');
+    wrap.className = 'pub-ask'; wrap.setAttribute('data-fl-pubask', '');
+    wrap.innerHTML =
+      '<div class="pub-ask__bd" data-fl="pubnot"></div>' +
+      '<div class="pub-ask__sheet" role="dialog" aria-label="게시 확인">' +
+        '<div class="pub-ask__grip"></div>' +
+        '<div class="pub-ask__t">인스타에 게시했나요?</div>' +
+        '<div class="pub-ask__d">이미지를 저장했어요. 인스타에 올렸다면 게시 완료로 표시해 둘게요.</div>' +
+        '<div class="pub-ask__btns">' +
+          '<button type="button" class="pub-ask__not" data-fl="pubnot">아직이에요</button>' +
+          '<button type="button" class="pub-ask__done" data-fl="pubdone">게시 완료로 표시</button>' +
+        '</div></div>';
+    el.appendChild(wrap);
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { wrap.classList.add('open'); });
+  }
+  function _closePublishSheet() { var w = el && el.querySelector('[data-fl-pubask]'); if (w && w.parentNode) w.parentNode.removeChild(w); }
+  function _markPublishedNow() {
+    d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
+    if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
+    _closePublishSheet();
+    if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
+    toast('게시 완료로 표시했어요');
+  }
 
   // [C6/#10] 게시 — 잇비 봇 로딩 모달(시안 B). 단계 멘트 + 최소 노출감
   var PUB_MSG = [
@@ -2205,6 +2236,7 @@
   function _systemBack() {
     if (!el || !el.classList.contains('is-open')) return;
     if (el.querySelector('[data-fl-tplpreview]')) { _closeTplPreview(); return; }   // [v541] 미리보기 시트 먼저 닫기
+    if (el.querySelector('[data-fl-pubask]')) { _closePublishSheet(); return; }   // [v547] 게시 확인 sheet 먼저 닫기
     if (!_navBack()) close();   // [v531] navStack 비면 close → 작업실 홈
   }
   function close() {

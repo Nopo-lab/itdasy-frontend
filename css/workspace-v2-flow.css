@@ -468,6 +468,20 @@
 .tpl-preview__def { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
 .tpl-preview__def.on { border-color: var(--brand-strong); color: var(--brand-strong); }
 .tpl-preview__close { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); flex: .7 !important; }
+/* [v547] 게시 완료 확인 sheet (이미지 저장 후) */
+.pub-ask { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity .18s ease; }
+.pub-ask.open { opacity: 1; }
+.pub-ask__bd { position: absolute; inset: 0; background: rgba(20,16,16,.5); }
+.pub-ask__sheet { position: relative; z-index: 1; width: 100%; max-width: 440px; background: var(--surface, #fff); border-radius: 22px 22px 0 0; padding: 10px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 40px rgba(0,0,0,.25); transform: translateY(14px); transition: transform .2s ease; }
+.pub-ask.open .pub-ask__sheet { transform: translateY(0); }
+@media (width >= 768px) { .pub-ask { align-items: center; } .pub-ask__sheet { border-radius: 22px; max-width: 380px; padding-bottom: 20px; } }
+.pub-ask__grip { width: 38px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 4px auto 14px; }
+.pub-ask__t { font-size: 16px; font-weight: 800; color: var(--text); text-align: center; }
+.pub-ask__d { margin-top: 8px; font-size: 13px; color: var(--text-subtle); text-align: center; line-height: 1.5; }
+.pub-ask__btns { display: flex; gap: 9px; margin-top: 18px; }
+.pub-ask__btns button { flex: 1; height: 48px; border-radius: var(--r-md); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.pub-ask__not { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+.pub-ask__done { border: 0; background: #10B981; color: #fff; flex: 1.3 !important; }
 .wsv2flow .cap-scenario-head { margin: 6px 2px 8px; font-size: 14px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
 .wsv2flow .cap-hashedit { width: 100%; margin: 2px 0 4px; min-height: 52px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; font-size: 13px; line-height: 1.55; color: #3b82f6; font-weight: 600; font-family: inherit; resize: vertical; background: var(--surface); }
 .wsv2flow .cap-hashedit:focus { outline: none; border-color: var(--brand); }
