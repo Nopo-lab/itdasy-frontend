@@ -77,6 +77,12 @@
     'bp-ba-hair-extension-polaroid': ['beautyPack', 'BEFORE / AFTER', '붙임머리 전후', '볼륨감이 달라지는 순간'],
     'bp-review-lash-blue': ['beautyPack', 'REAL REVIEW',    '속눈썹 후기',        '또렷하고 자연스러운 눈매 변화'],
     'bp-event-spring-mixed': ['beautyPack', 'SPRING EVENT', '봄 시즌 이벤트',      '설레는 봄, 예뻐질 시간'],
+    // [BA-PACK v533] 전후 에디토리얼 5종 — beautyPack 위임(template-renderer-beauty-pack-draws.js 등록).
+    'bp-ba-premium-infographic': ['beautyPack', 'BEFORE & AFTER', '프리미엄 전후', '직접 경험한 변화를 사진으로 확인해보세요.'],
+    'bp-ba-luxury-review':       ['beautyPack', 'BEFORE & AFTER', '럭셔리 후기 전후', '직접 경험한 변화, 잇데이에서 확인하세요.'],
+    'bp-ba-story-signature':     ['beautyPack', '시술 전후',       '스토리 전후',     '자연스러운 변화, 눈에 보이는 결과'],
+    'bp-ba-classic-poster':      ['beautyPack', 'BEFORE & AFTER', '클래식 전후 포스터', '직접 경험한 변화, 잇데이에서 확인하세요.'],
+    'bp-ba-care-guide':          ['beautyPack', 'BEFORE & AFTER', '케어 가이드 전후', '자연스러운 변화, 눈에 보이는 결과'],
     // [WM] Warm Minimal 팩 12종 — 렌더 경로 beautyPack 위임(template-renderer-wm-pack-draws.js 등록).
     'wm-ba-feed':       ['beautyPack', 'BEFORE & AFTER', '전후 비교',      '레이어드컷 전후 변화'],
     'wm-ba-story':      ['beautyPack', 'BEFORE & AFTER', '오늘의 변화 기록', '시술 전과 후, 한 화면에'],

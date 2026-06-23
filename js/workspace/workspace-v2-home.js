@@ -90,7 +90,7 @@
 
   // [v531] 유형별 실제 템플릿 + 기본 템플릿 저장(localStorage). flow.js 와 공유(window).
   var CAT_TEMPLATES = {
-    ba:     { ratio: '4:5', tpls: [{ id: 'wm-ba-feed', label: '전후 비교' }] },
+    ba:     { ratio: '4:5', tpls: [{ id: 'wm-ba-feed', label: '전후 비교' }, { id: 'bp-ba-premium-infographic', label: '프리미엄 전후' }, { id: 'bp-ba-luxury-review', label: '럭셔리 후기 전후' }, { id: 'bp-ba-story-signature', label: '스토리 전후' }, { id: 'bp-ba-classic-poster', label: '클래식 포스터 전후' }, { id: 'bp-ba-care-guide', label: '케어 가이드 전후' }] },
     flex:   { ratio: '4:5', tpls: [{ id: 'wm-show-feed', label: '시술 자랑' }, { id: 'wm-promo-feed', label: '인스타 피드' }] },
     review: { ratio: '4:5', tpls: [{ id: 'wm-review-feed', label: '고객 후기' }] },
     event:  { ratio: '1:1', tpls: [{ id: 'wm-event-feed', label: '이벤트 안내' }] },

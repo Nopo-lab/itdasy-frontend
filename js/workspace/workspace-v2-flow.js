@@ -50,6 +50,12 @@
 	  ];
 	  var WORKSPACE_TEMPLATES = [
 	    { key: 'ba', label: '전후 비교', use: '전후 2장', chip: '전후', id: 'wm-ba-feed', purpose: 'before_after', captionMode: 'normal' },
+    // [BA-PACK v533] 전후 에디토리얼 5종 — 작업실 갤러리 노출(레이아웃 명확히 구분).
+    { key: 'ba-premium', label: '프리미엄 전후', use: '정보카드형', chip: '전후', id: 'bp-ba-premium-infographic', purpose: 'before_after', captionMode: 'normal' },
+    { key: 'ba-luxury', label: '럭셔리 후기 전후', use: '대형 타이포·별점', chip: '전후', id: 'bp-ba-luxury-review', purpose: 'before_after', captionMode: 'normal' },
+    { key: 'ba-story', label: '스토리 전후', use: '추천·정보·후기', chip: '전후', id: 'bp-ba-story-signature', purpose: 'before_after', captionMode: 'normal' },
+    { key: 'ba-classic', label: '클래식 포스터 전후', use: '대각 리본', chip: '전후', id: 'bp-ba-classic-poster', purpose: 'before_after', captionMode: 'normal' },
+    { key: 'ba-care', label: '케어 가이드 전후', use: '시술정보형', chip: '전후', id: 'bp-ba-care-guide', purpose: 'before_after', captionMode: 'normal' },
 	    { key: 'showcase', label: '시술 자랑', use: '완성컷 강조', chip: '시술 자랑', id: 'wm-show-feed', purpose: 'feed', captionMode: 'normal' },
 	    { key: 'review', label: '고객 후기', use: '후기 카드', chip: '고객 후기', id: 'wm-review-feed', purpose: 'review', captionMode: 'review' },
 	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'wm-event-feed', purpose: 'event', captionMode: 'normal' },

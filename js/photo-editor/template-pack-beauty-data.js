@@ -38,6 +38,13 @@
   var SL_HL1 = { key: 'highlight_1', type: 'text', label: '변화 포인트 1', max: 14 };
   var SL_HL2 = { key: 'highlight_2', type: 'text', label: '변화 포인트 2', max: 14 };
   var SL_HL3 = { key: 'highlight_3', type: 'text', label: '변화 포인트 3', max: 14 };
+  // [BA-PACK v533] 전후 에디토리얼 5종 공용 편집 슬롯 — 후기 본문 + 고객 정보(매장명/제목/라벨/CTA는 before_after base 슬롯).
+  var SL_REVIEW = { key: 'review_text', type: 'textarea', label: '후기 문구', max: 120, maxLines: 4 };
+  var SL_CUSTOMER = { key: 'customer_label', type: 'text', label: '고객 정보', max: 28 };
+
+  // [BA-PACK v533] 핸드오프 디자인 토큰(rose #BC6675 / bg #F7EFF0). 크림 변형은 스토리/케어용.
+  var BA_ROSE = { bg: '#F7EFF0', ink: '#191F28', sub: '#6B7280', accent: '#BC6675', line: '#E5E7EB', badge: '#BC6675' };
+  var BA_CREAM = { bg: '#FBF4F2', ink: '#191F28', sub: '#6B7280', accent: '#C77E8B', line: '#EFE3E2', badge: '#BC6675' };
 
   var TEMPLATES = [
     {
@@ -166,6 +173,91 @@
         benefit_title: 'EVENT 혜택',
         benefits: ['시술 시 홈케어 샘플 증정', '리뷰 작성 시 10% 할인', '신규 고객 10% 할인'],
         cta: '예약은 프로필 링크 / DM',
+      },
+    },
+
+    // ════════════════════════════════════════════════════════════════════
+    // [BA-PACK v533] 전후 에디토리얼 5종 (2026-06-23) — 핸드오프 itdasy_before_after_template_pack
+    //   각 템플릿은 레이아웃이 시각적으로 명확히 다름(정보카드 / 대형타이포·별점후기 / 스토리 추천리스트 / 대각리본 / 케어정보).
+    //   편집 슬롯: before/after 사진·제목·부제·시술명·매장명·후기·고객정보·CTA·전/후 라벨(before_after base + extraSlots).
+    // ════════════════════════════════════════════════════════════════════
+    {
+      id: 'bp-ba-premium-infographic', cat: 'ba', tier: 'free',
+      label: '전후 · 프리미엄 인포그래픽', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'rose', prefillText: 'BEFORE & AFTER', ratio: '4:5', palette: _wm(BA_ROSE),
+      previewMeta: { decor: ['logo', 'info-card', 'split-photo', 'review-box', 'cta-bar'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE, SL_REVIEW, SL_CUSTOMER],
+      defaultCopy: {
+        headline: 'BEFORE & AFTER', subtitle: '직접 경험한 변화를 사진으로 확인해보세요.',
+        before_label: '시술 전', after_label: '시술 후', before_caption: '', after_caption: '',
+        service_name: '슈링크 리프팅', shop_name: '잇데이 청담점',
+        eyebrow: '전후 후기', info_dur: '약 30분', info_target: '처진 라인, 탄력 저하',
+        review_text: '턱선이 정리되면서 얼굴이 더 작아 보이고, 피부도 매끈해져서 만족도가 정말 높았어요!',
+        customer_label: '잇데이 회원 · 29세 · 복합성', cta: '나의 변화 시작하기',
+      },
+    },
+    {
+      id: 'bp-ba-luxury-review', cat: 'ba', tier: 'free',
+      label: '전후 · 럭셔리 후기 포스터', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'rose', prefillText: 'BEFORE & AFTER', ratio: '4:5', palette: _wm(BA_ROSE),
+      previewMeta: { decor: ['big-typo', 'info-row', 'split-photo', 'star-review-card', 'cta-bar'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE, SL_REVIEW, SL_CUSTOMER],
+      defaultCopy: {
+        headline: 'BEFORE & AFTER', subtitle: '직접 경험한 변화, 잇데이에서 확인하세요.',
+        before_label: '시술 전', after_label: '시술 후', before_caption: '', after_caption: '',
+        service_name: '슈링크 유니버스 리프팅', shop_name: '잇데이 청담점',
+        eyebrow: '전후 비교', review_title: '고객 한마디',
+        review_text: '볼 라인이 확실히 정리되고 피부 톤이 달라졌어요! 자연스럽게 예뻐져서 너무 만족해요.',
+        customer_label: '잇데이 회원 · 28세 · 직장인', cta: '전후 인증하기',
+      },
+    },
+    {
+      id: 'bp-ba-story-signature', cat: 'ba', tier: 'free',
+      label: '전후 · 스토리 시그니처', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'rose', prefillText: '시술 전후', ratio: '4:5', palette: _wm(BA_CREAM),
+      previewMeta: { decor: ['kr-title', 'circle-badge', 'recommend-list', 'split-photo', 'info-chips', 'review', 'cta-bar'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE, SL_REVIEW, SL_CUSTOMER],
+      defaultCopy: {
+        headline: '시술 전후', subtitle: '자연스러운 변화, 눈에 보이는 결과',
+        before_label: '시술 전', after_label: '시술 후', before_caption: '', after_caption: '',
+        service_name: '슈링크 리프팅', shop_name: '잇데이 청담점',
+        eyebrow: '당신의 빛나는 변화를, 잇데이에서', circle_badge: '직접 경험한 변화',
+        recommend: ['칙칙한 피부톤이 고민인 분', '탄력 저하가 신경 쓰이는 분', '피부결이 거칠고 푸석한 분', '자연스러운 개선을 원하는 분'],
+        info_dur: '약 30분', info_recovery: '즉시 일상생활 가능',
+        review_text: '피부가 환해지고 탄력이 살아났어요! 처진 라인이 정리되고 화장도 잘 먹어요.',
+        customer_label: '잇데이 회원 · 29세 · 복합성', cta: '전후 인증하러 가기',
+      },
+    },
+    {
+      id: 'bp-ba-classic-poster', cat: 'ba', tier: 'free',
+      label: '전후 · 클래식 포스터(리본)', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'rose', prefillText: 'BEFORE & AFTER', ratio: '4:5', palette: _wm(BA_ROSE),
+      previewMeta: { decor: ['serif-typo', 'rule-line', 'ribbon-label', 'split-photo', 'quote-box', 'info-card', 'cta-bar'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE, SL_REVIEW, SL_CUSTOMER],
+      defaultCopy: {
+        headline: 'BEFORE & AFTER', subtitle: '직접 경험한 변화, 잇데이에서 확인하세요.',
+        before_label: 'BEFORE', after_label: 'AFTER', before_caption: '', after_caption: '',
+        service_name: '슈링크 유니버스 리프팅', shop_name: '잇데이 청담점',
+        eyebrow: '전후 비교',
+        review_text: '피부결이 매끈해지고 전체적으로 생기가 돌았어요. 자연스럽게 예뻐져서 주변에서도 알아봐요!',
+        customer_label: '잇데이 회원 · 김서연님 · 29세', cta: '전후 인증하기',
+      },
+    },
+    {
+      id: 'bp-ba-care-guide', cat: 'ba', tier: 'free',
+      label: '전후 · 케어 가이드(정보형)', kind: 'before_after', purpose: 'before_after', industry: 'common',
+      accent: 'rose', prefillText: 'BEFORE & AFTER', ratio: '4:5', palette: _wm(BA_CREAM),
+      previewMeta: { decor: ['logo', 'split-photo', 'care-info-row', 'recommend-chips', 'review', 'cta-bar'], photoSlots: ['before', 'after'] },
+      extraSlots: [SL_SERVICE, SL_REVIEW, SL_CUSTOMER],
+      defaultCopy: {
+        headline: 'BEFORE & AFTER', subtitle: '자연스러운 변화, 눈에 보이는 결과',
+        before_label: '시술 전', after_label: '시술 후', before_caption: '', after_caption: '',
+        service_name: '슈링크 리프팅', shop_name: '잇데이 청담점',
+        eyebrow: '직접 경험한 변화',
+        info_dur: '약 30분', info_recovery: '즉시 일상생활 가능',
+        recommend: ['칙칙한 피부톤', '탄력 저하', '거친 피부결', '자연스러운 개선'],
+        review_text: '처진 라인이 정리되고 피부가 한층 밝아졌어요. 화장도 잘 먹고, 주변에서 피부 좋아졌다는 말 많이 들어요!',
+        customer_label: '잇데이 회원 · 29세 · 복합성', cta: '전후 인증하러 가기',
       },
     },
 

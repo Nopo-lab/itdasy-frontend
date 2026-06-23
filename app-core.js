@@ -1959,7 +1959,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260622-v532-workspace-caption-template-fix';
+window.APP_BUILD = '20260623-v533-before-after-template-pack';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

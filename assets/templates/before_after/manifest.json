@@ -1,0 +1,37 @@
+{
+  "version": "20260623-v533-before-after-template-pack",
+  "app": "itdasy",
+  "packId": "before_after_editorial_pack_v533",
+  "description": "5 editable before/after beauty templates for the Itdasy workspace. NOTE: 런타임 source of truth 가 아니라 레이어 매핑/핸드오프 문서. 실제 렌더는 캔버스 JS draw 함수(template-renderer-beauty-pack-draws.js)가, 데이터는 template-pack-beauty-data.js 가, 매핑은 premium-templates META 가 담당한다. PPTX 는 이번 작업에서 제외(앱이 PPTX 를 런타임에 읽지 않음).",
+  "runtimeSourceOfTruth": false,
+  "renderer": "window.PhotoEditorBeautyPack.draw (canvas, 1080x1350)",
+  "appRegistry": {
+    "data": "js/photo-editor/template-pack-beauty-data.js",
+    "draws": "js/photo-editor/template-renderer-beauty-pack-draws.js",
+    "metaMap": "js/photo-editor/premium-templates.js (META)",
+    "workspaceGallery": "js/workspace/workspace-v2-flow.js (WORKSPACE_TEMPLATES)",
+    "defaultTemplatePicker": "js/workspace/workspace-v2-home.js (CAT_TEMPLATES.ba)"
+  },
+  "globalLayerNamingRules": {
+    "required": ["before_photo", "after_photo", "title", "service_name", "shop_name"],
+    "recommended": ["subtitle", "badge_before", "badge_after", "review_text", "customer_meta", "cta_text"],
+    "rule": "Layer IDs는 PPTX/JSON/렌더러/앱 슬롯에서 안정적으로 유지. 앱 슬롯 키 매핑은 각 template.json 의 appSlotMapping 참조."
+  },
+  "common": {
+    "category": "beforeAfter",
+    "ratio": "4:5",
+    "canvas": { "width": 1080, "height": 1350 },
+    "requiredPhotos": { "before": 1, "after": 1 },
+    "supportsMultiPair": true,
+    "defaultEligible": true,
+    "tier": "free",
+    "designTokens": { "brandRose": "#D58A95", "brandStrong": "#BC6675", "roseBg": "#F7EFF0", "appBg": "#F2F4F6", "cardSurface": "#FFFFFF", "text": "#191F28", "muted": "#6B7280", "line": "#E5E7EB" }
+  },
+  "templates": [
+    { "templateId": "bp-ba-premium-infographic", "handoffId": "ba_premium_infographic_01", "displayName": "전후 · 프리미엄 인포그래픽", "rendererFunctionName": "_skBaPremiumInfographic", "templateJson": "assets/templates/before_after/bp-ba-premium-infographic/template.json", "designFeature": "상단 로고, 대형 BEFORE&AFTER, 시술명/소요시간/매장 정보카드 3개, 좌우 전후 사진+중앙 화살표, 후기 박스, 하단 CTA 바" },
+    { "templateId": "bp-ba-luxury-review", "handoffId": "ba_luxury_review_02", "displayName": "전후 · 럭셔리 후기 포스터", "rendererFunctionName": "_skBaLuxuryReview", "templateJson": "assets/templates/before_after/bp-ba-luxury-review/template.json", "designFeature": "초대형 BEFORE&AFTER 타이포, 시술명/매장 정보행, 좌우 전후 사진, 큰 별점 후기 카드 중심, 하단 CTA(카메라)" },
+    { "templateId": "bp-ba-story-signature", "handoffId": "ba_story_signature_03", "displayName": "전후 · 스토리 시그니처", "rendererFunctionName": "_skBaStorySignature", "templateJson": "assets/templates/before_after/bp-ba-story-signature/template.json", "designFeature": "한글 대제목 '시술 전후', 원형 변화 배지, 좌측 '이런 분께 추천' 리스트 + 우측 전후 사진 + 시술명/시간/회복 칩, 후기, CTA" },
+    { "templateId": "bp-ba-classic-poster", "handoffId": "ba_classic_poster_04", "displayName": "전후 · 클래식 포스터(리본)", "rendererFunctionName": "_skBaClassicPoster", "templateJson": "assets/templates/before_after/bp-ba-classic-poster/template.json", "designFeature": "BEFORE&AFTER 세리프 + 룰 라인, 대각 리본 BEFORE/AFTER 라벨, 중앙 화살표, 인용 후기 박스, 시술명/지점 카드, 하단 CTA" },
+    { "templateId": "bp-ba-care-guide", "handoffId": "ba_care_guide_05", "displayName": "전후 · 케어 가이드(정보형)", "rendererFunctionName": "_skBaCareGuide", "templateJson": "assets/templates/before_after/bp-ba-care-guide/template.json", "designFeature": "전후 사진 + 시술명/시술시간/회복기간 케어 정보카드, '이런 분께 추천' 칩, 별점 후기, 하단 CTA" }
+  ]
+}
