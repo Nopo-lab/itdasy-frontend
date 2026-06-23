@@ -734,11 +734,17 @@
     img.src = url;
   }
   // ── [v539] 마스크 보기 overlay — 현재 정밀 부위가 어디에 인식됐는지 반투명으로 표시 ──
+  // [v548] 활성 기능별 마스크 + 스펙 색상(눈=파랑 / 눈썹=초록 / 손=주황 / 네일=핑크). QA 가 ROI 위치를 색으로 확인.
   function _maskInfoForTab() {
-    var tab = d.editTab || 'skin';
+    var k = _activePrecKey() || '', tab = d.editTab || 'skin';
+    if (k === 'browSharp') return { type: 'browMask', label: '눈썹', tint: [90, 200, 110] };       // 초록
+    if (k === 'lashSharp' || k === 'eyeRedness' || k === 'catchLight' || k === 'irisClear')
+      return { type: k === 'eyeRedness' ? 'scleraMask' : 'eyeMask', label: k === 'eyeRedness' ? '흰자' : '눈', tint: [70, 130, 240] };   // 파랑
+    if (k === 'handSkin') return { type: 'handSkinMask', label: '손 피부', tint: [240, 160, 70] };   // 주황
+    if (k === 'nailGloss' || k === 'nailShape') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };  // 핑크
     if (tab === 'hair') return { type: 'hairMask', label: '헤어', tint: [70, 200, 210] };
-    if (tab === 'eyes') return { type: 'eyeMask', label: '눈·눈썹', tint: [250, 205, 80] };
-    if (tab === 'nail') return { type: 'nailMask', label: '네일', tint: [130, 230, 165] };
+    if (tab === 'eyes') return { type: 'eyeMask', label: '눈', tint: [70, 130, 240] };
+    if (tab === 'nail') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };
     return { type: 'skinMask', label: '피부·얼굴', tint: [236, 120, 150] };   // skin/default
   }
   function _coverBlit(ctx, srcCanvas, dw, dh) {
@@ -815,8 +821,10 @@
       Promise.resolve(MA.getMasksForBeauty(img)).then(function (mm) {
         if (token !== d._maskTok || !d.maskView) return;
         var mask = null, mw = 0, mh = 0;
-        if (info.type === 'nailMask' && typeof MA.getNailMaskSync === 'function') {
-          var nl = MA.getNailMaskSync(img); if (nl && nl.mask) { mask = nl.mask; mw = img.naturalWidth || img.width; mh = img.naturalHeight || img.height; }
+        // [v548] 마스크 타입별 sync 게터(brow/sclera/nail/hand) → 활성 기능의 실제 ROI 를 색으로 표시.
+        var SYNC = { browMask: 'getBrowMaskSync', scleraMask: 'getScleraMaskSync', nailMask: 'getNailMaskSync', handSkinMask: 'getHandSkinMaskSync' };
+        if (SYNC[info.type] && typeof MA[SYNC[info.type]] === 'function') {
+          var rr = MA[SYNC[info.type]](img); if (rr && rr.mask) { mask = rr.mask; mw = img.naturalWidth || img.width; mh = img.naturalHeight || img.height; }
         }
         if (!mask && mm && mm.useMasks && mm.useMasks[info.type]) { mask = mm.useMasks[info.type]; mw = mm.maskW; mh = mm.maskH; }
         // [v548] 손/네일은 MediaPipe 실패가 잦음 → SmartMask 휴리스틱 ROI 로 폴백 표시(coverage·overlay 보임).
@@ -2108,8 +2116,10 @@
     d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
     if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
     _closePublishSheet();
+    toast('게시물이 저장되었습니다');
+    // [v548] 게시 완료 시 작업이 끝났음을 명확히 — 플로우 닫고 작업실 홈으로(카드 게시완료 badge 갱신).
     if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
-    toast('게시 완료로 표시했어요');
+    close();
   }
 
   // [C6/#10] 게시 — 잇비 봇 로딩 모달(시안 B). 단계 멘트 + 최소 노출감
@@ -2167,9 +2177,9 @@
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
           _pubFinish(function () {
             d._publishing = false;
-            toast('인스타그램에 올렸어요');
+            toast('게시물이 저장되었습니다 · 인스타그램에 올렸어요');
             if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
-            setScreen('preview');
+            close();   // [v548] 게시 완료 → 작업실 홈으로(끝났음을 명확히)
           });
           return;
         }

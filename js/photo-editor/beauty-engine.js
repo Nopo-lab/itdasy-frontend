@@ -234,9 +234,11 @@
     const whitish = hairSat0 < NAIL_SPEC_DESAT;                                  // 유리질 광택 = 무채색
     const specW = (lum0 > NAIL_SPEC_LUM && whitish) ? Math.min(1, (lum0 - NAIL_SPEC_LUM) / 45) : 0;
     const briW  = (lum0 > NAIL_BRIGHT_MIN && lum0 <= NAIL_SPEC_LUM) ? (lum0 - NAIL_BRIGHT_MIN) / (NAIL_SPEC_LUM - NAIL_BRIGHT_MIN) : 0;
-    const satW  = hairSat0 > NAIL_SAT_MIN ? Math.min(0.5, (hairSat0 - NAIL_SAT_MIN) / 110) : 0;
-    let base = Math.max(specW, briW * 0.6 + satW * 0.7);
-    if (isSkin && specW < 0.25) base *= NAIL_SKIN_SUPPRESS;                      // 비광택 맨살 강력 억제
+    // [v548] '전체 색감 변함' 수정 — 단순 밝기/약채도는 따뜻한 피부까지 잡음. 네일은 '강한 광택' 또는
+    //   '선명한 폴리시 채도(skin 보다 확연히 높음, >85)'만. 밝기(briW)는 거의 무시(채도 있는 곳에서만 소량).
+    const satW  = hairSat0 > 85 ? Math.min(0.85, (hairSat0 - 85) / 60) : 0;
+    let base = Math.max(specW, satW + briW * (satW > 0.15 ? 0.1 : 0.02));
+    if (isSkin && specW < 0.3 && satW < 0.3) base *= NAIL_SKIN_SUPPRESS;         // 비광택·저~중채도 맨살 강력 억제
     return Math.min(1, base);
   }
 
@@ -555,8 +557,8 @@
     // [PE-2] nailMask 있으면 기존(임계 0.12·풀강도), 없으면 안전 fallback(임계 0.35·강도 0.5)
     //   → 마스크/저신뢰 시 매끈·밝은 손/배경/소매에 광택 번지던 문제 차단. 확실한 네일 후보는 유지.
     if (c.nailK > 0) {
-      const nthr = p.hasNailMask ? 0.12 : 0.45;
-      const nconf = p.hasNailMask ? 1 : 0.4;
+      const nthr = p.hasNailMask ? 0.12 : 0.3;   // [v548] _nailScore 정밀화로 피부 오검출 제거 → 임계 0.45→0.3(진짜 폴리시 적용)
+      const nconf = p.hasNailMask ? 1 : 0.55;     // [v548] 0.4→0.55 무마스크 네일 체감↑
       if (p.nailW > nthr) {
         const gw = c.nailK * p.nailW * nconf;
         const spec = p.lum0 > 195 ? Math.min(1, (p.lum0 - 195) / 55) : 0;
@@ -714,7 +716,7 @@
         //   nailW 가 충분히 높은(손톱면 확실) 픽셀만 darken 하도록 _darkenRegionDarkLines 임계를 nailW 로 상향.
         // [2차 안전] unsharp 은 nailW>0.4(확실 손톱면)만 → 누드/글리터에서 손가락 살(nailW 낮음) 침범 차단.
         //   darken 도 nailW>0.55. 색 뚜렷한 네일은 손톱 nailW 높아 작동, 누드/글리터는 약효지만 침범 없음(nailGloss 가 반짝 담당).
-        _unsharpMaskRegion(ctx, w, h, b.nailShape / 30, nailMaskArr, 1, w, h, 1.8, 0.4);   // [v548] 35→30 경계 또렷(단조 유지)
+        _unsharpMaskRegion(ctx, w, h, b.nailShape / 30, nailMaskArr, 1, w, h, 1.8, 0.25);   // [v548] minW 0.4→0.25 — 옅은 폴리시도 경계 적용(_nailScore 정밀화로 피부 오검출은 없음)
         _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * 1.5 * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
       } else _unsharpMask(ctx, w, h, b.nailShape / 200);   // nailW 수집 안 됨 → 거의 no-op(전역 샤픈 회피)
     }

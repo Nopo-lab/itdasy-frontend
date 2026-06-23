@@ -324,7 +324,7 @@
               result.mask = _reconstructMissingEye(result.mask, sz2.w, sz2.h, lCov >= rCov);
               result.fallbackUsed = true; result.fallbackReason = 'symmetry-mirror(oneEye)';
             }
-            const dr = Math.max(1, Math.round(Math.min(sz2.w, sz2.h) * 0.012));
+            const dr = Math.max(1, Math.round(Math.min(sz2.w, sz2.h) * 0.006));   // [v548] 0.012→0.006 — 눈썹쪽 번짐 축소(coverage 확장은 유지하되 보수적)
             result.mask = RF.gaussianFeather(_dilateMask(result.mask, sz2.w, sz2.h, dr), sz2.w, sz2.h, Math.max(1, (dr / 2) | 0));
             result.coverage = RF.maskCoverage(result.mask);
             result.confidence = RF.maskConfidence(result.mask, 0.4);
@@ -450,7 +450,7 @@
           const SA = window.MaskScleraAdapter;
           if (SA && typeof SA.scleraMask === 'function') {
             const t = await SA.scleraMask(img, _imgSize(img));
-            if (t && t.mask) { result = _dilateRegion(t, img, 0.008); break; }   // [v546] 흰자 ROI 확장
+            if (t && t.mask) { result = t; break; }   // [v548] 흰자는 dilation 안 함 — 눈맑게가 눈꺼풀/눈썹쪽으로 번지던 문제 수정(흰자 타이트 유지)
           }
           result = _emptyResult('fallback', 'sclera adapter unavailable or no iris(478) landmarks');
           break;

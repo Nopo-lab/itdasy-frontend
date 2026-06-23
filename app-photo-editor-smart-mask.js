@@ -43,11 +43,14 @@
     return _clamp01(faceBand * Math.max(subject, 0.3) * (irisOrLash ? 0.92 : (whiteCatch ? 0.6 : 0)));
   }
 
+  // [v548] '전체 색감 변함' 수정 — 기존엔 lum>150(glossy)·sat>35(colored)·skin>0.18 로 밝은 따뜻한 피부를
+  //   네일로 오분류(~1)해 손 전체·이미지가 변함. 네일은 '강한 유리질 광택' 또는 '선명한 폴리시 채도(피부보다
+  //   확연히 높음)'만. 피부일수록 강력 억제(네일≠피부). nude(맨손톱)는 피부와 구분 불가 → 미검출(정밀 우선).
   function _nailScore(lum, sat, subject, skin) {
-    const glossy = lum > 150 && sat < 100;
-    const colored = sat > 35 && lum > 65 && lum < 245;
-    const nude = lum > 130 && lum < 210 && sat < 45;
-    const base = (glossy ? 0.5 : 0) + (colored ? 0.55 : 0) + (nude ? 0.35 : 0) + (skin > 0.18 ? 0.2 : 0);
+    const glossy = (lum > 205 && sat < 40) ? Math.min(1, (lum - 205) / 40) : 0;   // 강한 유리질 하이라이트
+    const colored = sat > 55 ? Math.min(1, (sat - 55) / 40) : 0;                   // 폴리시 채도(가파르게)
+    let base = Math.max(glossy, colored * 0.95);
+    base *= (1 - Math.min(0.9, skin * 1.05));   // [핵심] 피부면 강력 억제 — 따뜻한 피부의 채도/밝기 오검출 차단
     return _clamp01(base * Math.max(subject, 0.3));
   }
 
