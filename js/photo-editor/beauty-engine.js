@@ -351,10 +351,18 @@
       const skinPenalty = p.skinW > 0.70 ? 0.2 : (p.skinW > 0.35 ? 0.45 : 1);   // [PE-ER4] 흰자 skin 오분류(>0.70) no-op 방지 — 0→0.2 (warm/neutral 가중이 갈색 청록 재발은 계속 차단)
       const scleraW = brightW * neutralW * satW * skinPenalty * (warmBrown ? 0 : 1);
       if (scleraW > 0.08 && p.r > p.g + 3 && p.r > p.bl + 1) {
+        // [v548] neutral whitening — 흰자를 '파랗게'가 아니라 '자연스럽게 하얗게'.
+        //   각 채널을 약간 밝힌 중립(targetL)으로 끌어 붉은기·노란기를 같이 중화. B 는 targetL 초과 금지(파란 cast 차단).
         const k = c.eyeRedK * regionW * scleraW;
-        d[i] = _clamp(d[i] - 52 * k);
-        d[i + 1] = _clamp(d[i + 1] + 12 * k);
-        d[i + 2] = _clamp(d[i + 2] + 16 * k);
+        const lum = p.r * 0.299 + p.g * 0.587 + p.bl * 0.114;
+        const targetL = Math.min(255, lum + 16 * k);             // 약한 luma lift
+        const redExcess = Math.max(0, p.r - (p.g + p.bl) / 2);   // 충혈 붉은기 정도
+        const nr = p.r + (targetL - p.r) * k - redExcess * k * 0.7;  // 붉은기↓(중립 + 붉은 초과분 추가 완화)
+        const ng = p.g + (targetL - p.g) * k;
+        let nb = p.bl + (targetL - p.bl) * k;                    // 노란기 완화(B 를 중립까지만)
+        if (nb > targetL) nb = targetL;                          // [blue clamp] 파란 흰자 방지
+        if (nb > Math.max(nr, ng)) nb = Math.max(nr, ng);        // B 가 최댓값 못 되게(파란색 절대 방지)
+        d[i] = _clamp(nr); d[i + 1] = _clamp(ng); d[i + 2] = _clamp(nb);
       }
     }
     if (c.irisK > 0 && p.eyeW > 0.14 && p.lum0 > 16 && p.lum0 < 135 && p.skinW < 0.55) {
@@ -706,7 +714,7 @@
         //   nailW 가 충분히 높은(손톱면 확실) 픽셀만 darken 하도록 _darkenRegionDarkLines 임계를 nailW 로 상향.
         // [2차 안전] unsharp 은 nailW>0.4(확실 손톱면)만 → 누드/글리터에서 손가락 살(nailW 낮음) 침범 차단.
         //   darken 도 nailW>0.55. 색 뚜렷한 네일은 손톱 nailW 높아 작동, 누드/글리터는 약효지만 침범 없음(nailGloss 가 반짝 담당).
-        _unsharpMaskRegion(ctx, w, h, b.nailShape / 35, nailMaskArr, 1, w, h, 1.8, 0.4);   // [v545] 55→35 경계 또렷 체감↑
+        _unsharpMaskRegion(ctx, w, h, b.nailShape / 30, nailMaskArr, 1, w, h, 1.8, 0.4);   // [v548] 35→30 경계 또렷(단조 유지)
         _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * 1.5 * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
       } else _unsharpMask(ctx, w, h, b.nailShape / 200);   // nailW 수집 안 됨 → 거의 no-op(전역 샤픈 회피)
     }
