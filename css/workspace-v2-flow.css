@@ -231,6 +231,8 @@
 .wsv2flow .tpl-result { flex: 0 0 auto; width: 84px; }
 .wsv2flow .tpl-result__img { width: 84px; height: 105px; border-radius: 10px; background-size: cover; background-position: center; border: 1px solid var(--border); background-color: #000; }
 .wsv2flow .tpl-result__lbl { display: block; margin-top: 5px; font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-align: center; }
+/* [v532] 짝(Pair)별 '템플릿 바꾸기' — 결과 타일 아래 작은 버튼. 이 짝만 갤러리에서 골라 교체. */
+.wsv2flow .tpl-result__change { display: block; width: 100%; margin-top: 5px; height: 26px; padding: 0 4px; border: 1px solid var(--brand-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--brand-strong); font-size: 10.5px; font-weight: 800; cursor: pointer; }
 
 /* [이슈1] 전후 페어링 미리보기 — 어떤 전 사진이 어떤 후 사진과 묶이는지 명확히 */
 .wsv2flow .up-pairs { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 7px; }

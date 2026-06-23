@@ -480,19 +480,30 @@
     if (!d.templateId) return '';
     var outs = d.templateOutputs || [];
     var isBA = d.tplPurpose === 'before_after';
+    // [v532] 전후 결과물은 짝(Pair)별로 다른 템플릿을 가질 수 있음 → 'mixed' 면 배너에 '짝별 개별 적용' 명시.
+    var perPair = isBA && outs.length >= 1;
+    var mixed = isBA && outs.length > 1 && outs.some(function (o) { return o.templateId !== outs[0].templateId; });
     var banner = isBA
-      ? ('전후 템플릿 적용됨 · 결과물 ' + (outs.length || 0) + '장')
+      ? ('전후 템플릿 적용됨 · 결과물 ' + (outs.length || 0) + '장' + (mixed ? ' · 짝별 개별 적용' : ''))
       : ('템플릿 적용됨 · ' + (d.template || ''));
     var strip = outs.length
       ? '<div class="tpl-results">' + outs.map(function (o, i) {
           var lbl = isBA ? ('Pair ' + (i + 1) + ' 결과') : '결과물';
-          return '<div class="tpl-result"><div class="tpl-result__img" style="background-image:url(' + esc(o.outputUrl) + ')"></div>' +
-            '<span class="tpl-result__lbl">' + esc(lbl) + '</span></div>';
+          // [v532] 각 짝의 현재 템플릿 이름을 라벨에 함께 표기(개별 적용 결과를 한눈에).
+          var tname = '';
+          if (isBA && o.templateId) { var _t = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === o.templateId; })[0]; tname = _t ? _t.label : ''; }
+          return '<div class="tpl-result">' +
+            '<div class="tpl-result__img" style="background-image:url(' + esc(o.outputUrl) + ')"></div>' +
+            '<span class="tpl-result__lbl">' + esc(lbl) + (tname ? ' · ' + esc(tname) : '') + '</span>' +
+            // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 갤러리에서 골라 교체(다른 짝은 유지).
+            (perPair ? '<button type="button" class="tpl-result__change" data-fl-tplpair="' + esc(o.pairId) + '">템플릿 바꾸기</button>' : '') +
+            '</div>';
         }).join('') + '</div>'
       : '';
     return '<div class="tpl-applied"><div class="tpl-applied__head">' +
         '<span class="tpl-applied__t"><b>' + esc(banner) + '</b></span>' +
-        '<button type="button" class="tpl-applied__change" data-fl="tplchange">템플릿 바꾸기</button>' +
+        // [v532] 전후는 '전체 바꾸기'(일괄)와 짝별 바꾸기(위 타일 버튼)를 분리. 비전후는 단일 '템플릿 바꾸기'.
+        '<button type="button" class="tpl-applied__change" data-fl="tplchange">' + (isBA ? '전체 바꾸기' : '템플릿 바꾸기') + '</button>' +
         '<button type="button" class="tpl-applied__release" data-fl="tplrelease">템플릿 해제하기</button>' +
       '</div>' + strip + '</div>';
   }
@@ -589,9 +600,7 @@
 	        '<p class="cap-field-hint">키워드를 적고, 상황(시술 완성·신규 고객 등)을 고르면 게시글이 만들어져요.</p>';
 	    }
     // 결과 화면
-    var hashHtml = d.hashtags.map(function (h) {
-      return '<button class="hash-chip' + (d.selectedHashes && d.selectedHashes.indexOf(h) >= 0 ? ' on' : '') + '" data-fl-hash="' + esc(h) + '">' + esc(h) + '</button>';
-    }).join('');
+    // [v532] '추천 해시태그' 칩 목록 제거 — 해시태그는 아래 직접 편집 textarea 하나로 일원화(화면 정리).
     // [다중pair] 결과물 2개+ 면 상단 캐러셀(카드 위 전폭), 1개면 기존 카드내 단일 프리뷰.
     var carRes = _capCarouselHtml();
     var photoHtml = (!d.textOnly && url && !carRes) ?
@@ -616,7 +625,6 @@
       '</div>' +
       '<label class="cap-field-label">해시태그 <span>직접 고치거나 추가할 수 있어요</span></label>' +
       '<textarea class="cap-hashedit" data-fl-caphashedit rows="2" placeholder="#해시태그 #예시">' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</textarea>' +
-      (hashHtml ? '<div class="cust-row"><b>추천 해시태그</b><a data-fl="morehash">+ 더 가져오기</a></div><div class="hash-chips">' + hashHtml + '</div>' : '') +
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl-var="regen">다시 쓰기</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
@@ -648,26 +656,31 @@
     if (!container) return;
     if (typeof renderScenarioSelector !== 'function') { toast('시나리오 선택기를 불러오지 못했어요'); return; }
     renderScenarioSelector(container, function (result) {
-      d.captionAxes = result.axes;
-      // [v531] 상황 버튼만 누르고 키워드가 비어 있으면 자동 생성하지 않고 입력을 유도.
-      //   키워드가 있으면(이미 입력) 바로 생성 → '상황 선택 후 키워드 입력' / '키워드 입력 후 상황 선택' 둘 다 자연 흐름.
-      syncServiceFromDom();
-      if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력하면 바로 만들어드려요'); return; }
-      doGenerate({}, null);
+      // [v532] 상황 버튼 경로 — 키워드는 항상 DOM 에서 최신값을 직접 읽어 생성(버튼/Enter 동일 처리).
+      _triggerCaptionGenerate(result && result.axes);
     });
     // [v531] 키워드 입력 후 Enter/완료 → 바로 생성(상황 미선택이면 기본 '시술 완성'). 불필요한 CTA 없이 '딱 생성'.
     var svcInput = el.querySelector('[data-fl-service]');
     if (svcInput && !svcInput._wsGenBound) {
       svcInput._wsGenBound = true;
       svcInput.addEventListener('keydown', function (e) {
-        if (e.key !== 'Enter') return;
+        // [v532] 한글 IME 조합 중 Enter(조합 확정용)는 무시 — 이때 생성하면 마지막 음절이 빠진 채 들어가
+        //   '엔터 경로만 키워드 반영이 덜 되는' 증상이 났음. 조합이 끝난 뒤 Enter 에서만 생성.
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
         e.preventDefault();
-        syncServiceFromDom();
-        if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력해 주세요'); return; }
-        if (!d.captionAxes) d.captionAxes = { situation: '시술 완성' };
-        doGenerate({}, null);
+        _triggerCaptionGenerate(null);
       });
     }
+  }
+  // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
+  //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
+  //   두 경로가 같은 함수를 타도록 통합해 입력 반영 차이를 제거한다.
+  function _triggerCaptionGenerate(axes) {
+    syncServiceFromDom();
+    if (axes) d.captionAxes = axes;
+    if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력하면 바로 만들어드려요'); return; }
+    if (!d.captionAxes) d.captionAxes = { situation: '시술 완성' };
+    doGenerate({}, null);
   }
 
 	  function renderPreview() {
@@ -822,12 +835,16 @@
 	    var s = el.querySelector('[data-fl-service]');
 	    if (s && typeof s.value === 'string') d.service = s.value;
 	  }
-	  // [v531] extra_notes 빌더 — 입력 키워드 최우선 + 다른 시술명 추가 금지 + 구어 의미 정제(원문 박제 금지).
-	  function _buildExtraNotes(svc) {
-	    var s = String(svc || '').trim().slice(0, 120);
-	    var note = '입력 키워드 "' + s + '"를 게시글 핵심으로 최우선 반영. ' +
-	      '입력하지 않은 다른 시술/상품명(붙임머리·단발탈출·슬림땋기 등)은 절대 추가하지 마세요. ' +
-	      '구어/감정 표현은 원문을 그대로 반복·직역하지 말고 의미만 뷰티샵 인스타 톤으로 정제하세요(예: "개오바 얼굴"→얼굴 라인이 살아난·인상이 또렷해진·분위기가 확 달라진 변화).';
+	  // [v532] extra_notes 빌더 — 핵심: 백엔드 fewshot(샵 과거글)은 '말투'만 참고, '시술 내용'은 입력값만.
+	  //   기존엔 category=extension fewshot 이 붙임머리/단발탈출/슬림땋기 등 엉뚱한 시술명을 캡션에 흘렸음.
+	  //   → "과거 글은 말투·길이만, 시술명·인치·기법·재료는 입력값만" 으로 프론트에서 강제 차단.
+	  //   regenSeq 가 있으면 '앞 글과 다른 구성으로' 변형 지시 추가('다시 쓰기' 가 동일 캡션 반복하던 회귀 해소).
+	  function _buildExtraNotes(svc, regenSeq) {
+	    var s = String(svc || '').trim().slice(0, 60);
+	    var note = '이 게시글의 시술은 오직 "' + s + '". 과거 글·예시는 말투와 문장 길이만 참고하고, 시술명·인치·기법·재료는 입력값만 쓰세요. ' +
+	      '입력에 없는 다른 시술/상품명(붙임머리·단발·땋기·매듭·펌 등)은 사진이나 예시에 보여도 절대 언급하지 마세요. ' +
+	      '샵·디자이너 이름을 모르면 지어내지 말고 "저희 샵"으로. 구어/비속어는 그대로 쓰지 말고 의미만 뷰티 인스타 톤으로 정제.';
+	    if (regenSeq && regenSeq > 0) note += ' (재생성 ' + regenSeq + '회차: 앞 글과 도입부·문장 구성·표현을 다르게, 같은 내용 다른 말로.)';
 	    return note.slice(0, 300);
 	  }
 	  function doGenerate(extra, label) {
@@ -836,22 +853,27 @@
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
+    // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
+    if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
-    // [v531] 사용자 입력을 캡션 최우선 context 로. '입력 안 한 다른 시술명(붙임머리·단발탈출·슬림땋기 등)
-    //   추가 금지'를 명시 — 백엔드 fewshot(샵 과거글)이 엉뚱한 시술명으로 새는 것을 프론트에서 차단.
+    delete opts._regen;   // [v532] 내부 재생성 플래그 — 페이로드로 내보내지 않음
+    // [v532] 사용자 입력을 캡션 최우선 context 로. '입력 키워드만 시술명으로, 과거 글은 말투만 참고'를 명시 —
+    //   백엔드 fewshot(샵 과거글)이 엉뚱한 시술명(붙임머리·단발 등)으로 새는 것을 프론트에서 차단.
     if (svc) {
-      opts.photo_context = '시술/키워드(최우선 반영): ' + svc +
-        '. 이 키워드만 시술명으로 쓰고, 입력하지 않은 다른 시술/상품명은 새로 만들지 마세요' +
+      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + svc +
+        '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
     // [다중pair] 결과물 여러 장이면 '캐러셀 게시글' 기준 — 중립적 전후 변화로(특정 시술명 가정 금지).
     var _outs = d.templateOutputs || [];
     if (_outs.length >= 2) opts.photo_context += ' · 전후 결과물 ' + _outs.length + '장(인스타 캐러셀 한 편). 각 장은 같은 고객의 시술 전/후 변화 컷.';
     else if (_outs.length === 1 && d.tplPurpose === 'before_after') opts.photo_context += ' · 시술 전후 변화 1장.';
-    // [v531] extra_notes — 입력 키워드 최우선 + 다른 시술명 추가 금지 + 구어/감정 표현은 의미만 정제(원문 박제 금지).
-    opts.extra_notes = _buildExtraNotes(svc);
+    // [v532] photo_context 백엔드 상한 500자 — 다중 pair 노트까지 붙은 뒤 초과 시 422(생성 실패) 방지로 클램프.
+    if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
+    // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
+    opts.extra_notes = _buildExtraNotes(svc, d.regenSeq);
     // [Step5] 다중 결과물/템플릿 요약(트레이스용 — 백엔드 스키마엔 photo_context/extra_notes 텍스트로만 반영).
     opts.selectedTemplateId = d.templateId || null;
     opts.templateOutputs = _outs.map(function (o) { return { pairId: o.pairId, templateId: o.templateId, beforePhotoId: o.beforePhotoId, afterPhotoId: o.afterPhotoId, pairLabel: o.pairLabel }; });
@@ -895,8 +917,7 @@
       if (a === 'cta') { return onCta(); }
       if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); _repaintUpload(); return; }
       if (a === 'gen') { return doGenerate({}, null); }
-      if (a === 'regen') { return doGenerate({}, '게시글을 다시 생성했어요'); }
-      if (a === 'morehash') { return doGenerate({ hashtag_mode: 'more' }, '해시태그를 더 가져왔어요'); }
+      if (a === 'regen') { return doGenerate({ _regen: true }, '게시글을 다시 생성했어요'); }
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
       if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
@@ -925,10 +946,22 @@
         return;
       }
       if (a === 'tplchange') {
-        // [v531] 결과물에서 '템플릿 바꾸기' — 템플릿 카드 목록을 열고 위로 스크롤(다른 카드 선택 시 모든 페어 일괄 재적용).
+        // [v531] '전체 바꾸기'(일괄) — 템플릿 카드 목록을 열고 스크롤. 다른 카드 선택 시 모든 짝에 일괄 재적용.
+        // [v532] 짝별 타깃 해제 → 다음 카드 선택은 일괄 적용 경로를 탄다.
+        d.tplTargetPair = null;
         d.tplOpen = true; _setEditSection('[data-ed-tpl]', _tplFoldHtml());
         var grid = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: 'center' });
         toast('위 템플릿 카드에서 다른 디자인을 고르면 모든 짝에 다시 적용돼요');
+        return;
+      }
+      // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 타깃으로 잡고 갤러리 오픈. 다음 카드 선택은 이 짝만 교체.
+      var tplpair = t.closest('[data-fl-tplpair]'); if (tplpair) {
+        d.tplTargetPair = tplpair.getAttribute('data-fl-tplpair');
+        var _outs0 = d.templateOutputs || [];
+        var _idx0 = -1; for (var _pi = 0; _pi < _outs0.length; _pi++) { if (_outs0[_pi].pairId === d.tplTargetPair) { _idx0 = _pi; break; } }
+        d.tplOpen = true; _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        var grid2 = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid2 && grid2.scrollIntoView) grid2.scrollIntoView({ block: 'center' });
+        toast('이 디자인을 고르면 Pair ' + (_idx0 >= 0 ? _idx0 + 1 : '') + ' 결과만 바뀌어요 (다른 짝은 그대로)');
         return;
       }
       if (a === 'publish') { return publish(); }
@@ -964,27 +997,17 @@
 	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
-      // [C4] 해시태그 선택 → selectedHashes 토글
-      var hash = t.closest('[data-fl-hash]'); if (hash) {
-        // [v531] 추천 칩 토글 → 분리된 해시태그 편집칸과 동기화(사용자 수동 편집분 보존).
-        var h = hash.getAttribute('data-fl-hash');
-        var ta = el.querySelector('[data-fl-caphashedit]');
-        var curHs = ta ? _parseHashes(ta.value) : (d.selectedHashes || []).slice();
-        var hn = h.replace(/^#+/, '').toLowerCase();
-        var idx = -1; for (var ci = 0; ci < curHs.length; ci++) { if (curHs[ci].replace(/^#+/, '').toLowerCase() === hn) { idx = ci; break; } }
-        if (idx >= 0) curHs.splice(idx, 1); else curHs.push(h.charAt(0) === '#' ? h : '#' + h);
-        d.selectedHashes = curHs.slice(); d.hashtags = curHs.slice();
-        hash.classList.toggle('on'); if (ta) ta.value = curHs.join(' '); return;
-      }
+      // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');
-	        if (vk === 'short') { return doGenerate({ length_tier: 'short' }, '짧게 다시 생성했어요'); }
-	        if (vk === 'long')  { return doGenerate({ length_tier: 'long' }, '길게 다시 생성했어요'); }
-	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
-	        if (vk === 'hashtags') { return doGenerate({ hashtag_mode: 'more' }, '해시태그를 더 가져왔어요'); }
-	        if (vk === 'insta') { return doGenerate({ tone_override: 'instagram' }, '인스타스럽게 다시 생성했어요'); }
-	        return doGenerate({}, '게시글을 다시 생성했어요');
+	        if (vk === 'short') { return doGenerate({ length_tier: 'short', _regen: true }, '짧게 다시 생성했어요'); }
+	        if (vk === 'long')  { return doGenerate({ length_tier: 'long', _regen: true }, '길게 다시 생성했어요'); }
+	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
+	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
+	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
+		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
+	        return doGenerate({ _regen: true }, '게시글을 다시 생성했어요');
 	      }
       var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
@@ -1188,6 +1211,8 @@
 	    if (!tpl) { toast('템플릿을 찾지 못했어요'); return; }
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceTemplate)) { toast('템플릿 적용 모듈을 불러오지 못했어요'); return; }
 	    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요'); return; }
+	    // [v532] 짝별 타깃은 전후 템플릿에서만 의미 — 비전후 템플릿을 고르면 타깃을 비우고 일반(일괄) 전환으로.
+	    if (tpl.purpose !== 'before_after') d.tplTargetPair = null;
 	    // [버그5] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지, 업로드 화면으로 보내 사진 추가 유도(편집기 점프 금지).
 	    // [#7] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지. 안내 후 업로드 화면으로(편집기 점프 금지).
 	    if (tpl.purpose === 'before_after' && editablePhotos().length < 2) {
@@ -1200,6 +1225,36 @@
 	      d.baMode = true;
 	      if (_computePairs().pairs.length === 0) reassignRoles();
 	      var pairs = _computePairs().pairs;
+	      // [v532] 짝별 개별 적용 — 타깃 짝이 지정되어 있으면 그 짝만 새 템플릿으로 재합성하고 나머지는 그대로 둔다.
+	      if (d.tplTargetPair) {
+	        var _tgtId = d.tplTargetPair;
+	        var _outsP = (d.templateOutputs || []).slice();
+	        var _oidx = -1; for (var _ok = 0; _ok < _outsP.length; _ok++) { if (_outsP[_ok].pairId === _tgtId) { _oidx = _ok; break; } }
+	        if (_oidx < 0) { d.tplTargetPair = null; toast('바꿀 짝을 찾지 못했어요 — 전체 적용으로 진행해 주세요'); return; }
+	        var _exist = _outsP[_oidx];
+	        // 저장된 before/after 사진 id 로 현재 페어를 매칭(선택/역할 변동에도 정확히 그 짝을 재합성). 없으면 인덱스 폴백.
+	        var _pr = null;
+	        for (var _pj = 0; _pj < pairs.length; _pj++) { if (pairs[_pj].before.id === _exist.beforePhotoId && pairs[_pj].after.id === _exist.afterPhotoId) { _pr = pairs[_pj]; break; } }
+	        if (!_pr) _pr = pairs[_oidx];
+	        if (!_pr) { d.tplTargetPair = null; toast('이 짝의 사진을 찾지 못했어요'); return; }
+	        d.templateBusy = tpl.key; setScreen('edit');
+	        window.WorkspaceAdapter.applyWorkspaceTemplate({
+	          template: tpl, photos: [_pr.before, _pr.after], service: d.service,
+	          customerName: d.customerName, caption: d.caption,
+	        }).then(function (r) {
+	          d.templateBusy = null; d.tplTargetPair = null;
+	          if (r && r.ok && r.dataUrl) {
+	            _outsP[_oidx] = { pairId: _tgtId, templateId: tpl.id, beforePhotoId: _pr.before.id, afterPhotoId: _pr.after.id, outputUrl: r.dataUrl, pairLabel: _exist.pairLabel || ('Pair ' + (_oidx + 1)) };
+	            d.templateOutputs = _outsP;
+	            d.templateOutput = _outsP[0] && _outsP[0].outputUrl;   // 대표 미리보기 = 첫 짝
+	            d.templateId = d.templateId || tpl.id;                 // '적용됨' 마커 유지
+	            d.tplPurpose = tpl.purpose; d.previewUrl = null;
+	            toast('Pair ' + (_oidx + 1) + ' 결과를 ' + tpl.label + '(으)로 바꿨어요');
+	          } else { toast((r && r.toast) || '이 짝은 아직 적용하지 못했어요'); }
+	          setScreen('edit');
+	        }).catch(function () { d.templateBusy = null; d.tplTargetPair = null; toast('이 짝 적용 중 오류가 났어요'); setScreen('edit'); });
+	        return;
+	      }
 	      d.templateBusy = tpl.key; setScreen('edit');
 	      Promise.all(pairs.map(function (pr, i) {
 	        // 페어 1개씩 어댑터에 2장만 넘김(어댑터는 before/after 1쌍을 합성). 실패 페어는 null → 격리.
@@ -1257,6 +1312,7 @@
 	    d.templateOutput = null; d.templateOutputId = null;
 	    d.templateOutputs = []; d.activeDisplayId = null;   // [다중pair] 결과물 배열도 비움 → 원본 복구
 	    d.template = null; d.templateId = null;
+	    d.tplTargetPair = null;   // [v532] 짝별 타깃도 초기화
 	    d.previewUrl = null;
 	    _setEditSection('[data-ed-tpl]', _tplFoldHtml());
 	    toast('템플릿을 해제했어요 — 원본 사진으로 돌아갔어요');
@@ -1803,10 +1859,11 @@
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
         if (cur !== 'connect') setScreen('connect');
         return _connectByName(cmd.name);
-      case 'capvar':   // 다시/더길게/짧게/해시태그더/인스타스럽게/초기화
+      case 'capvar':   // 다시/더길게/짧게/인스타 톤/초기화
         if (!_flowReady() || cur !== 'caption') return { ok: false, reason: 'not_caption' };
-        if (cmd.variant === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.logId = null; setScreen('caption'); return { ok: true }; }
-        { var ex = { regen: {}, long: { length_tier: 'long' }, short: { length_tier: 'short' }, hashtags: { hashtag_mode: 'more' }, insta: { tone_override: 'instagram' } }[cmd.variant] || {};
+        if (cmd.variant === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.regenSeq = 0; d.logId = null; setScreen('caption'); return { ok: true }; }
+        // [v532] insta → 백엔드 enum 'ornate'(기존 'instagram' 은 422 → 생성 실패). 모든 변형에 _regen 부여(동일 캡션 반복 방지).
+        { var ex = { regen: { _regen: true }, long: { length_tier: 'long', _regen: true }, short: { length_tier: 'short', _regen: true }, insta: { tone_override: 'ornate', _regen: true } }[cmd.variant] || { _regen: true };
           doGenerate(ex, cmd.label || null); return { ok: true }; }
       case 'save':
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
