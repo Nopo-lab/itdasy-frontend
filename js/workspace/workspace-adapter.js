@@ -115,7 +115,9 @@
         ctx.drawImage(img, 0, 0, w, h);
         var _t0 = (window.performance && performance.now) ? performance.now() : 0;
         window.PhotoEditorBeautyEngine.apply(ctx, cv.width, cv.height, opts.beauty || {}, false, masks);
-        if (window.__ITDASY_PHOTO_DEBUG__ && _t0) { try { console.log('[photofx] apply ' + w + 'x' + h + ' (src ' + iw + 'x' + ih + ') path=' + (mx ? 'preview' : 'final') + ' time=' + Math.round(performance.now() - _t0) + 'ms'); } catch (_e) { void _e; } }
+        var _ms = _t0 ? Math.round(performance.now() - _t0) : 0;
+        try { window.__photofxLast = { w: w, h: h, srcW: iw, srcH: ih, path: mx ? 'preview' : 'final', time: _ms, cacheReuse: !!(opts.maskKey && _maskCache && Object.prototype.hasOwnProperty.call(_maskCache, opts.maskKey)) }; } catch (_e2) { void _e2; }
+        if (window.__ITDASY_PHOTO_DEBUG__ && _t0) { try { console.log('[photofx] apply ' + w + 'x' + h + ' (src ' + iw + 'x' + ih + ') path=' + (mx ? 'preview' : 'final') + ' time=' + _ms + 'ms'); } catch (_e) { void _e; } }
         return { ok: true, dataUrl: _encode(cv, opts.src) };
       });
     }).catch(function (e) { console.warn('[wsadapter] beauty', e); return { ok: false, reason: 'beauty' }; });

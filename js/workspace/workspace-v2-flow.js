@@ -6,6 +6,9 @@
 (function () {
   'use strict';
 
+  // [v542] ?photoDebug=1 → 보정 디버그 전역 플래그 활성([photofx] 로그·마스크 오버레이·디버그 패널).
+  try { if (/[?&]photoDebug=1/.test(location.search || '')) window.__ITDASY_PHOTO_DEBUG__ = true; } catch (_e) { void _e; }
+
   // [C6] 단계 순서 변경: connect가 preview 앞으로
   var SCREENS = ['upload', 'edit', 'caption', 'connect', 'preview'];
   var TITLE = { upload:'사진 업로드', edit:'편집 및 템플릿', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
@@ -43,7 +46,7 @@
 	      { k: 'hairVolume', l: '헤어 볼륨', ic: 'ph-waves' },
 	      { k: 'hairShine', l: '헤어 윤기', ic: 'ph-sparkle' },
 	      { k: 'hairFull', l: '헤어 풍성하게', ic: 'ph-plant' },
-	      { k: 'hairEndsClean', l: '결 정리', ic: 'ph-scissors' } ] },
+	      { k: 'hairEndsClean', l: '머리끝·잔머리 정돈', ic: 'ph-scissors' } ] },
 	    { k: 'eyes', label: '눈썹·눈가', ic: 'ph-eye', controls: [
 	      { k: 'browSharp', l: '눈썹 선명도', ic: 'ph-pencil-simple' },
 	      { k: 'lashSharp', l: '눈가 선명도', ic: 'ph-eye' },
@@ -475,7 +478,7 @@
       var maskPill = (ptab !== 'tools')
         ? '<div class="ed-maskpill-row"><button type="button" class="ed-maskpill' + (d.maskView ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기<span class="ed-maskpill__hint">지금 이 부위가 어디에 적용되는지</span></button><div class="ed-mask-helper" data-fl-maskhelper hidden></div></div>'
         : '';
-      precBody = '<div class="ed-panel">' + precTabsHtml + maskPill + inner + '</div>';
+      precBody = '<div class="ed-panel">' + precTabsHtml + maskPill + inner + (ptab !== 'tools' ? _photoDebugPanelHtml() : '') + '</div>';
     }
     return '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·헤어·눈가·고급</em></span>' + _caret(d.advOpen) + '</button>' + precBody;
   }
@@ -629,6 +632,86 @@
     if (ov) ov.style.transform = tf;
   }
 
+  // ── [v542] 보정 디버그 패널 — 개발자모드(__ITDASY_PHOTO_DEBUG__ 또는 ?photoDebug=1)에서만 ──
+  function _photoDebugOn() {
+    try { if (window.__ITDASY_PHOTO_DEBUG__) return true; return /[?&]photoDebug=1/.test(location.search || ''); } catch (_e) { return false; }
+  }
+  var _FX_MASK = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask(spot)', textureSmooth: 'skinMask', yellowness: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask+경계', hairShine: 'hairMask', hairFull: 'hairW 휴리스틱', hairEndsClean: 'hairMask 외곽띠', browSharp: 'browMask→eyeROI', lashSharp: 'lashMask→eyeROI', eyeRedness: 'scleraMask→eyeW', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask→ROI휴리스틱', nailShape: 'nailMask→ROI', handSkin: 'skinMask' };
+  var _FX_MULT = { textureSmooth: 0.72, blemish: 0.8, skin: 1, redness: 1, hairFull: 0.34, hairEndsClean: 0.42, hairDetail: '1/150~300', lashSharp: '1/65~120', browSharp: '1/90~400', nailShape: '1/55~200', catchLight: 0.38 };
+  function _activePrecKey() {
+    var tab = d.editTab || 'skin';
+    var to = PRECISION_TABS.filter(function (t) { return t.k === tab; })[0];
+    if (!to || !to.controls || !to.controls.length) return null;
+    if (d.precTool && to.controls.some(function (c) { return c.k === d.precTool; })) return d.precTool;
+    return to.controls[0].k;
+  }
+  function _activePrecLabel(key) {
+    var tab = d.editTab || 'skin';
+    var to = PRECISION_TABS.filter(function (t) { return t.k === tab; })[0];
+    var c = to && to.controls ? to.controls.filter(function (x) { return x.k === key; })[0] : null;
+    return c ? c.l : key;
+  }
+  function _photoDebugPanelHtml() {
+    if (!_photoDebugOn()) return '';
+    var key = _activePrecKey(); if (!key) return '';
+    var val = (d.beauty && d.beauty[key]) || 0;
+    var last = window.__photofxLast || {};
+    var cov = (typeof d._maskCovPct === 'number' && d._maskCovKey === key) ? (d._maskCovPct + '%') : '— (마스크 보기 ON 시)';
+    var rows = [
+      ['기능', _activePrecLabel(key)],
+      ['uiKey / engineKey', key],
+      ['mask', _FX_MASK[key] || '—'],
+      ['value / norm', val + ' / ' + (val / 100).toFixed(2)],
+      ['mask coverage', cov],
+      ['render', (last.time != null ? last.time + 'ms · ' + (last.path || '?') + ' · ' + last.w + 'x' + last.h + (last.cacheReuse ? ' · cache' : '') : '—')],
+      ['tuningMultiplier', String(_FX_MULT[key] != null ? _FX_MULT[key] : '—')],
+    ];
+    var grid = rows.map(function (r) { return '<div class="ed-fxdebug__r"><span>' + esc(r[0]) + '</span><b>' + esc(String(r[1])) + '</b></div>'; }).join('');
+    return '<div class="ed-fxdebug" data-fl-fxdebug>' +
+        '<div class="ed-fxdebug__hd">보정 디버그 <em>개발자모드</em></div>' + grid +
+        '<div class="ed-fxdebug__btns">' +
+          '<button type="button" data-fl-fxv="0">0 보기</button>' +
+          '<button type="button" data-fl-fxv="50">50 보기</button>' +
+          '<button type="button" data-fl-fxv="100">100 보기</button>' +
+          '<button type="button" data-fl="fxcopy" class="ed-fxdebug__copy">현재값 복사</button>' +
+        '</div>' +
+        '<div class="ed-fxdebug__note">마스크 잘 잡히는데 delta 낮으면 엔진/강도 문제 · coverage 0이면 fallback ROI</div>' +
+      '</div>';
+  }
+  // 현재 효과를 다운스케일 샘플에 적용해 마스크 안/밖 delta 실측(현재값 복사용).
+  function _measureFx(key, value, cb) {
+    var photo = curEditPhoto(); if (!photo) { cb(null); return; }
+    var url = photo.editedDataUrl || photo.dataUrl;
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var MX = 360, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        var s = Math.min(1, MX / Math.max(iw, ih)), w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        var cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
+        var before = cx.getImageData(0, 0, w, h).data.slice();
+        var MA = window.MaskApplication, masks = null, mtype = (_FX_MASK[key] || '').split(/[→(]/)[0].trim();
+        if (MA && typeof MA.getMasksForBeautySync === 'function') { try { masks = MA.getMasksForBeautySync(img); } catch (_e) { masks = null; } }
+        var t0 = performance.now();
+        var beauty = {}; beauty[key] = value;
+        if (window.PhotoEditorBeautyEngine) window.PhotoEditorBeautyEngine.apply(cx, w, h, beauty, false, masks);
+        var ms = Math.round(performance.now() - t0);
+        var after = cx.getImageData(0, 0, w, h).data;
+        var mask = masks && masks.useMasks && masks.useMasks[mtype] ? masks.useMasks[mtype] : null;
+        var mw = masks ? masks.maskW : 0, mh = masks ? masks.maskH : 0;
+        var inS = 0, inN = 0, outS = 0, outN = 0, cov = 0, tot = 0;
+        for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+          var i = (y * w + x) * 4, dd = Math.abs(after[i] - before[i]) + Math.abs(after[i + 1] - before[i + 1]) + Math.abs(after[i + 2] - before[i + 2]);
+          var inMask = 1;
+          if (mask) { var mx2 = Math.min(mw - 1, (x * mw / w) | 0), my2 = Math.min(mh - 1, (y * mh / h) | 0); var mv = mask[my2 * mw + mx2] || 0; inMask = mv > 0.3 ? 1 : 0; if (mv > 0.3) cov++; tot++; }
+          if (inMask) { inS += dd; inN += 3; } else { outS += dd; outN += 3; }
+        }
+        cb({ target: +(inS / Math.max(1, inN)).toFixed(2), outside: +(outS / Math.max(1, outN)).toFixed(2), coverage: tot ? +(cov / tot * 100).toFixed(1) : null, time: ms, hasMask: !!mask });
+      } catch (_e3) { cb(null); }
+    };
+    img.onerror = function () { cb(null); };
+    img.src = url;
+  }
   // ── [v539] 마스크 보기 overlay — 현재 정밀 부위가 어디에 인식됐는지 반투명으로 표시 ──
   function _maskInfoForTab() {
     var tab = d.editTab || 'skin';
@@ -671,6 +754,7 @@
     var octx = ov.getContext('2d'); octx.clearRect(0, 0, vw, vh);
     _coverBlit(octx, tmp, vw, vh);
     var cov = Math.round(hit / tot * 1000) / 10;
+    d._maskCovPct = cov; d._maskCovKey = _activePrecKey();   // [v542] 디버그 패널 coverage 표시용
     if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식됨 · ' + cov + '%'; }
     if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=' + cov + '% dims=' + mw + 'x' + mh); } catch (_e) { void _e; } }
   }
@@ -1166,6 +1250,32 @@
         setScreen('connect'); return;
       }
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); _renderTplSection(); return; }
+	      // [v542] 보정 디버그 — 0/50/100 즉시 적용(실제 프리뷰) + 현재값 복사
+	      var fxv = t.closest('[data-fl-fxv]'); if (fxv) {
+	        var _fk = _activePrecKey(); if (!_fk) return;
+	        var _fv = +fxv.getAttribute('data-fl-fxv'); d.beauty[_fk] = _fv;
+	        var _inp = el.querySelector('[data-ed-adv] [data-fl-beautyrange="' + _fk + '"]'); if (_inp) _inp.value = _fv;
+	        _setEditSection('[data-ed-adv]', _advFoldHtml()); _refreshPreview();
+	        if (d.maskView) _renderMaskOverlay();
+	        return;
+	      }
+	      if (a === 'fxcopy') {
+	        var _ck = _activePrecKey(); if (!_ck) return;
+	        var _cv = (d.beauty && d.beauty[_ck]) || 0;
+	        _measureFx(_ck, _cv || 50, function (m) {
+	          var log = 'effect=' + _ck + '\nuiKey=' + _ck + '\nengineKey=' + _ck + '\nmask=' + (_FX_MASK[_ck] || '-') +
+	            '\ncoverage=' + (m && m.coverage != null ? m.coverage : (d._maskCovKey === _ck ? d._maskCovPct : '-')) +
+	            '\nvalue=' + _cv + '\nnorm=' + (_cv / 100).toFixed(2) +
+	            '\ntargetDelta=' + (m ? m.target : '-') + '\noutsideDelta=' + (m ? m.outside : '-') +
+	            '\ntime=' + (m ? m.time : (window.__photofxLast || {}).time || '-') + 'ms' +
+	            '\ntuningMultiplier=' + (_FX_MULT[_ck] != null ? _FX_MULT[_ck] : '-') +
+	            '\nhasMask=' + (m ? m.hasMask : '-');
+	          try { console.log('[photofx:copy]\n' + log); } catch (_e) { void _e; }
+	          try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(log); } catch (_e2) { void _e2; }
+	          toast('현재값을 복사했어요 (콘솔에도 출력)');
+	        });
+	        return;
+	      }
 	      // [v541] 확대 미리보기 시트 액션
 	      if (t.closest('[data-fl-tppclose]')) { return _closeTplPreview(); }
 	      var tppApply = t.closest('[data-fl-tppapply]'); if (tppApply) { _closeTplPreview(); return applyTemplate(tppApply.getAttribute('data-fl-tppapply')); }
@@ -1972,6 +2082,8 @@
         r = r || {};
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
+          // [v542] 게시 완료 상태를 저장소에 반영(이전엔 게시 전 slot 만 저장 → 새로고침 시 badge 사라짐).
+          if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
           _pubFinish(function () {
             d._publishing = false;
             toast('인스타그램에 올렸어요');

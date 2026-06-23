@@ -330,6 +330,9 @@
   }
 
   function _onDrawerAct(actKey) {
+    // [v542] 콘텐츠 관리 액션 — 게시 완료 토글 / 삭제(확인).
+    if (actKey === '게시 완료' || actKey === '게시 완료 해제') { _togglePublished(_drawerSlotId, actKey === '게시 완료'); return; }
+    if (actKey === '삭제') { _confirmDelete(_drawerSlotId); return; }
     var screen;
     if (actKey === 'next') {
       var slot = _slotsCache.filter(function (s) { return s.id === _drawerSlotId; })[0];
@@ -340,6 +343,49 @@
     var FOCUS = { '사진 편집': 'photo-edit', '누끼/배경': 'background', '비율 자르기': 'crop', '템플릿': 'template' };
     var extra = FOCUS[actKey] ? { focus: FOCUS[actKey] } : null;
     _launchFlow(_drawerSlotId, screen, null, extra);
+  }
+
+  // [v542] 게시 완료 토글 — slot.publish 상태를 IndexedDB(saveSlotToDB)에 영구 저장 → 카드 green badge 유지.
+  function _togglePublished(slotId, on) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    if (on) { slot.publish = slot.publish || {}; slot.publish.status = 'published'; slot.publish.publishedAt = Date.now(); slot.status = 'published'; slot.instagramPublished = true; }
+    else { if (slot.publish) slot.publish.status = 'draft'; if (slot.status === 'published') slot.status = null; slot.instagramPublished = false; }
+    if (typeof window.saveSlotToDB === 'function') { Promise.resolve(window.saveSlotToDB(slot)).catch(function () {}); }
+    _closeDrawer();
+    if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
+    _toast(on ? '게시 완료로 표시했어요' : '게시 완료를 해제했어요');
+  }
+  // [v542] 삭제 — 확인 시트 후 IndexedDB(deleteSlotFromDB)에서 영구 제거(새로고침 후에도 유지).
+  function _confirmDelete(slotId) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    var ov = document.createElement('div');
+    ov.className = 'wsv2-confirm'; ov.setAttribute('data-wsv2-confirm', '');
+    ov.innerHTML =
+      '<div class="wsv2-confirm__backdrop" data-wsv2-confirm-cancel></div>' +
+      '<div class="wsv2-confirm__sheet" role="dialog" aria-label="콘텐츠 삭제 확인">' +
+        '<div class="wsv2-confirm__title">이 콘텐츠를 삭제할까요?</div>' +
+        '<div class="wsv2-confirm__desc">삭제하면 작업실에서 다시 볼 수 없어요.</div>' +
+        '<div class="wsv2-confirm__btns">' +
+          '<button type="button" class="wsv2-confirm__cancel" data-wsv2-confirm-cancel>취소</button>' +
+          '<button type="button" class="wsv2-confirm__ok" data-wsv2-confirm-ok="' + _esc(slotId) + '">삭제</button>' +
+        '</div></div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    ov.addEventListener('click', function (e) {
+      if (e.target.closest('[data-wsv2-confirm-cancel]')) { _closeConfirm(); return; }
+      var ok = e.target.closest('[data-wsv2-confirm-ok]');
+      if (ok) { _doDelete(ok.getAttribute('data-wsv2-confirm-ok')); _closeConfirm(); }
+    });
+  }
+  function _closeConfirm() { var c = document.querySelector('[data-wsv2-confirm]'); if (c && c.parentNode) c.parentNode.removeChild(c); }
+  function _doDelete(slotId) {
+    _slotsCache = _slotsCache.filter(function (s) { return s.id !== slotId; });   // 낙관적 즉시 제거
+    if (typeof window.deleteSlotFromDB === 'function') { Promise.resolve(window.deleteSlotFromDB(slotId)).catch(function () {}); }
+    _closeDrawer();
+    if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
+    _toast('콘텐츠를 삭제했어요');
   }
 
   /* ── V2 카드 상세 drawer ── */
@@ -392,7 +438,14 @@
       '<div class="wsv2-drawer__grid">' + acts.map(function (a) {
         return '<button type="button" class="wsv2-drawer__act" data-wsv2-act="' + _esc(a.label) + '">' +
           '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + a.ic + '"/></svg>' + _esc(a.label) + '</button>';
-      }).join('') + '</div>';
+      }).join('') + '</div>' +
+      // [v542] 콘텐츠 관리 — 게시 완료 토글 + 삭제(위험, 확인 후). 카드 본체엔 안 보이고 더보기(드로어)에만.
+      '<div class="wsv2-drawer__manage">' +
+        (st.deriveStatus(slot) === 'published'
+          ? '<button type="button" class="wsv2-drawer__mng" data-wsv2-act="게시 완료 해제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>게시 완료 해제</button>'
+          : '<button type="button" class="wsv2-drawer__mng wsv2-drawer__mng--ok" data-wsv2-act="게시 완료"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>게시 완료</button>') +
+        '<button type="button" class="wsv2-drawer__mng wsv2-drawer__mng--danger" data-wsv2-act="삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>삭제</button>' +
+      '</div>';
     var el = _drawerEl();
     document.getElementById('wsv2DrawerCard').innerHTML = html;
     requestAnimationFrame(function () { el.classList.add('is-open'); });

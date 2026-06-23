@@ -195,6 +195,23 @@
   font-size: 13px; font-weight: 700; color: var(--text-muted);
 }
 .wsv2-drawer__act svg { width: 18px; height: 18px; stroke: var(--brand-strong); }
+/* [v542] 콘텐츠 관리 — 게시 완료 토글 + 삭제(위험). 더보기(드로어) 하단에만 노출. */
+.wsv2-drawer__manage { display: flex; gap: 9px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.wsv2-drawer__mng { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; height: 44px; padding: 0 10px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-family: inherit; font-size: 13px; font-weight: 800; color: var(--text-muted); }
+.wsv2-drawer__mng svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wsv2-drawer__mng--ok { border-color: #10B981; color: #065F46; }
+.wsv2-drawer__mng--danger { border-color: #F3C2C2; color: #C0392B; }
+/* [v542] 삭제 확인 시트 — 중앙 모달(사이드바 위 z-index, 중앙배치라 미클립) */
+.wsv2-confirm { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .16s ease; }
+.wsv2-confirm.open { opacity: 1; }
+.wsv2-confirm__backdrop { position: absolute; inset: 0; background: rgba(20,16,16,.5); }
+.wsv2-confirm__sheet { position: relative; z-index: 1; width: calc(100% - 48px); max-width: 320px; background: var(--surface, #fff); border-radius: 20px; padding: 22px 20px 16px; box-shadow: 0 12px 48px rgba(0,0,0,.28); text-align: center; }
+.wsv2-confirm__title { font-size: 16px; font-weight: 800; color: var(--text); }
+.wsv2-confirm__desc { margin-top: 8px; font-size: 13px; color: var(--text-subtle); line-height: 1.5; }
+.wsv2-confirm__btns { display: flex; gap: 9px; margin-top: 20px; }
+.wsv2-confirm__btns button { flex: 1; height: 46px; border-radius: var(--r-md); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.wsv2-confirm__cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+.wsv2-confirm__ok { border: 0; background: #C0392B; color: #fff; }
 
 /* PC (≥768px): 고정 사이드바(232px)에 가리지 않게 */
 @media (width >= 768px) {

@@ -656,8 +656,8 @@
     if (b.hairDetail > 10) {
       const hm = regionMasks && regionMasks.useMasks && regionMasks.useMasks.hairMask;
       const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
-      if (hm) _unsharpMaskRegion(ctx, w, h, b.hairDetail / 150, hm, (regionMasks._scale && regionMasks._scale.hairMask) || 1, mw, mh);
-      else _unsharpMask(ctx, w, h, b.hairDetail / 300);   // 약화 전역(기존 150 → 300)
+      if (hm) _unsharpMaskRegion(ctx, w, h, b.hairDetail / 110, hm, (regionMasks._scale && regionMasks._scale.hairMask) || 1, mw, mh);   // [v542] 150→110 가닥감 체감↑(마스크 영역 한정이라 오염 위험 낮음)
+      else _unsharpMask(ctx, w, h, b.hairDetail / 240);   // [v542] 300→240 무마스크 폴백도 소폭 상향(전역이라 보수적 유지)
     }
     if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 260);
     // [T-143] lashSharp: lashMask(밴드) 우선 → 없으면 eyeMask 상단 ROI → 둘 다 없으면 약화된 전역.
