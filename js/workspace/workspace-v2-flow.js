@@ -66,12 +66,6 @@
     { key: 'ba-story', label: '스토리 전후', use: '추천·정보·후기', chip: '전후', id: 'bp-ba-story-signature', purpose: 'before_after', captionMode: 'normal' },
     { key: 'ba-classic', label: '클래식 포스터 전후', use: '대각 리본', chip: '전후', id: 'bp-ba-classic-poster', purpose: 'before_after', captionMode: 'normal' },
     { key: 'ba-care', label: '케어 가이드 전후', use: '시술정보형', chip: '전후', id: 'bp-ba-care-guide', purpose: 'before_after', captionMode: 'normal' },
-    // [v543] 데이터/렌더러는 있었으나 갤러리 미연결이던 전후 템플릿 5종 연결(부위별 폴라로이드 + 세로 스토리).
-    { key: 'ba-skin', label: '피부 전후', use: '여드름·잡티 케어', chip: '전후', id: 'bp-ba-skin-acne-pink', purpose: 'before_after', captionMode: 'normal' },
-    { key: 'ba-hairext', label: '붙임머리 전후', use: '폴라로이드', chip: '전후', id: 'bp-ba-hair-extension-polaroid', purpose: 'before_after', captionMode: 'normal' },
-    { key: 'ba-nail', label: '네일 전후', use: 'SNS 폴라로이드', chip: '전후', id: 'bp-ba-nail-polaroid', purpose: 'before_after', captionMode: 'normal' },
-    { key: 'ba-nailpink', label: '네일 핑크 전후', use: '수채화 폴라로이드', chip: '전후', id: 'bp-ba-nail-pink-polaroid', purpose: 'before_after', captionMode: 'normal' },
-    { key: 'ba-storyvert', label: '전후 스토리(세로)', use: '9:16 스토리', chip: '전후', id: 'wm-ba-story', purpose: 'before_after', captionMode: 'normal' },
 	    { key: 'showcase', label: '시술 자랑', use: '완성컷 강조', chip: '시술 자랑', id: 'wm-show-feed', purpose: 'feed', captionMode: 'normal' },
 	    { key: 'review', label: '고객 후기', use: '후기 카드', chip: '고객 후기', id: 'wm-review-feed', purpose: 'review', captionMode: 'review' },
 	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'wm-event-feed', purpose: 'event', captionMode: 'normal' },
