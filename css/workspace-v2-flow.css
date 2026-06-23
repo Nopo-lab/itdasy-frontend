@@ -114,7 +114,9 @@
 /* 줌 뷰포트 — 사진 확대(핀치/더블탭) 시 둥근 모서리 안에서 클립 */
 /* [sticky preview] 정밀 보정/템플릿 패널로 스크롤해도 사진 미리보기가 항상 화면에 보이게 — 상단 고정. */
 .wsv2flow .ed-photo-vp { position: sticky; top: 0; z-index: 3; width: 100%; height: clamp(200px, 38vh, 300px); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 13px; box-shadow: var(--shadow-sm); background: var(--frame); touch-action: none; }
-.wsv2flow .ed-photo { width: 100%; height: 100%; border-radius: 0; background: var(--frame) center/cover; margin: 0; box-shadow: none; transition: filter .12s; transform-origin: center center; will-change: transform; }
+/* [v545] cover→contain — 세로 사진 상단/하단이 잘려 보이던 문제 수정. 편집 프리뷰는 업로드 사진 '전체'가 보여야 함.
+   background-size 를 별도 longhand 로 분리(단축속성에 두면 var() 무효 시 통째로 드롭될 수 있어 견고하게). */
+.wsv2flow .ed-photo { width: 100%; height: 100%; border-radius: 0; background-color: var(--frame); background-position: center; background-size: contain; background-repeat: no-repeat; margin: 0; box-shadow: none; transition: filter .12s; transform-origin: center center; will-change: transform; }
 /* 정밀(피부/헤어) 보정 처리 중 — 손 뗄 때 픽셀 연산 진행 표시(스피너) */
 .wsv2flow .ed-photo-vp.is-processing::after { content: ""; position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border: 3px solid rgba(255,255,255,.55); border-top-color: var(--brand-strong); border-radius: 50%; animation: wsv2spin .7s linear infinite; z-index: 4; pointer-events: none; }
 .wsv2flow .ed-photo-vp.is-processing::before { content: ""; position: absolute; inset: 0; background: rgba(20,16,12,.18); z-index: 3; pointer-events: none; }

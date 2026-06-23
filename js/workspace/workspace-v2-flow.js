@@ -679,35 +679,55 @@
       '</div>';
   }
   // 현재 효과를 다운스케일 샘플에 적용해 마스크 안/밖 delta 실측(현재값 복사용).
+  // [v545] 효과별 coverage/delta 판정에 쓰는 '실제 사용 마스크' 키. native useMasks 또는 별도 게터(brow/lash 는 m.*).
+  var _FX_MASKKEY = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask', textureSmooth: 'skinMask', yellowness: 'skinMask', handSkin: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask', hairShine: 'hairMask', hairFull: 'hairMask', hairEndsClean: 'hairMask', browSharp: 'browMask', lashSharp: 'lashMask', eyeRedness: 'scleraMask', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask', nailShape: 'nailMask' };
+  // 실제 apply 경로(어댑터 _beautyMasksAsync)와 동일하게 마스크 페치 — getMasksForBeauty + brow/sclera/nail/lash 게터.
+  function _fxFetchMasks(img, beauty, done) {
+    var MA = window.MaskApplication;
+    if (!MA || typeof MA.getMasksForBeauty !== 'function') { done(null); return; }
+    Promise.resolve(MA.getMasksForBeauty(img)).then(function (base) {
+      var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), maskW: base.maskW, maskH: base.maskH } : null;
+      function ensure() { return m || (m = { useMasks: {}, _scale: {}, maskW: img.naturalWidth || img.width, maskH: img.naturalHeight || img.height }); }
+      try {
+        if ((beauty.lashSharp || 0) > 0 && MA.getLashMaskSync) { var l = MA.getLashMaskSync(img); if (l) { ensure().lashMask = l.mask; m.lashScale = l.scale; } }
+        if ((beauty.eyeRedness || 0) > 0 && MA.getScleraMaskSync) { var sc = MA.getScleraMaskSync(img); if (sc) { ensure().useMasks.scleraMask = sc.mask; m._scale.scleraMask = sc.scale; } }
+        if ((beauty.browSharp || 0) > 0 && MA.getBrowMaskSync) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; m.browScale = br.scale; } }
+        if (((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 0) && MA.getNailMaskSync) { var nl = MA.getNailMaskSync(img); if (nl) { ensure().useMasks.nailMask = nl.mask; m._scale.nailMask = nl.scale; } }
+      } catch (_e) { void _e; }
+      done(m);
+    }).catch(function () { done(null); });
+  }
   function _measureFx(key, value, cb) {
     var photo = curEditPhoto(); if (!photo) { cb(null); return; }
     var url = photo.editedDataUrl || photo.dataUrl;
     var img = new Image();
     img.onload = function () {
-      try {
-        var MX = 360, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-        var s = Math.min(1, MX / Math.max(iw, ih)), w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
-        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-        var cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
-        var before = cx.getImageData(0, 0, w, h).data.slice();
-        var MA = window.MaskApplication, masks = null, mtype = (_FX_MASK[key] || '').split(/[→(]/)[0].trim();
-        if (MA && typeof MA.getMasksForBeautySync === 'function') { try { masks = MA.getMasksForBeautySync(img); } catch (_e) { masks = null; } }
-        var t0 = performance.now();
-        var beauty = {}; beauty[key] = value;
-        if (window.PhotoEditorBeautyEngine) window.PhotoEditorBeautyEngine.apply(cx, w, h, beauty, false, masks);
-        var ms = Math.round(performance.now() - t0);
-        var after = cx.getImageData(0, 0, w, h).data;
-        var mask = masks && masks.useMasks && masks.useMasks[mtype] ? masks.useMasks[mtype] : null;
-        var mw = masks ? masks.maskW : 0, mh = masks ? masks.maskH : 0;
-        var inS = 0, inN = 0, outS = 0, outN = 0, cov = 0, tot = 0;
-        for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
-          var i = (y * w + x) * 4, dd = Math.abs(after[i] - before[i]) + Math.abs(after[i + 1] - before[i + 1]) + Math.abs(after[i + 2] - before[i + 2]);
-          var inMask = 1;
-          if (mask) { var mx2 = Math.min(mw - 1, (x * mw / w) | 0), my2 = Math.min(mh - 1, (y * mh / h) | 0); var mv = mask[my2 * mw + mx2] || 0; inMask = mv > 0.3 ? 1 : 0; if (mv > 0.3) cov++; tot++; }
-          if (inMask) { inS += dd; inN += 3; } else { outS += dd; outN += 3; }
-        }
-        cb({ target: +(inS / Math.max(1, inN)).toFixed(2), outside: +(outS / Math.max(1, outN)).toFixed(2), coverage: tot ? +(cov / tot * 100).toFixed(1) : null, time: ms, hasMask: !!mask });
-      } catch (_e3) { cb(null); }
+      var MX = 360, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+      var s = Math.min(1, MX / Math.max(iw, ih)), w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
+      var beauty = {}; beauty[key] = value;
+      _fxFetchMasks(img, beauty, function (masks) {
+        try {
+          var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          var cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
+          var before = cx.getImageData(0, 0, w, h).data.slice();
+          var t0 = performance.now();
+          // value=0 은 엔진 no-op(coeffs=0) — 측정도 그대로 0 확인.
+          if (window.PhotoEditorBeautyEngine && value !== 0) window.PhotoEditorBeautyEngine.apply(cx, w, h, beauty, false, masks);
+          var ms = Math.round(performance.now() - t0);
+          var after = cx.getImageData(0, 0, w, h).data;
+          var mtype = _FX_MASKKEY[key];
+          var mask = masks ? ((masks.useMasks && masks.useMasks[mtype]) || masks[mtype] || null) : null;   // useMasks 또는 m.browMask/lashMask
+          var mw = masks ? masks.maskW : 0, mh = masks ? masks.maskH : 0;
+          var inS = 0, inN = 0, outS = 0, outN = 0, cov = 0, tot = 0;
+          for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+            var i = (y * w + x) * 4, dd = Math.abs(after[i] - before[i]) + Math.abs(after[i + 1] - before[i + 1]) + Math.abs(after[i + 2] - before[i + 2]);
+            var inMask = 1;
+            if (mask) { var mx2 = Math.min(mw - 1, (x * mw / w) | 0), my2 = Math.min(mh - 1, (y * mh / h) | 0); var mv = mask[my2 * mw + mx2] || 0; inMask = mv > 0.3 ? 1 : 0; if (mv > 0.3) cov++; tot++; }
+            if (inMask) { inS += dd; inN += 3; } else { outS += dd; outN += 3; }
+          }
+          cb({ target: +(inS / Math.max(1, inN)).toFixed(2), outside: +(outS / Math.max(1, outN)).toFixed(2), coverage: tot ? +(cov / tot * 100).toFixed(1) : null, time: ms, hasMask: !!mask, fallbackUsed: !mask, noop: value === 0 });
+        } catch (_e3) { cb(null); }
+      });
     };
     img.onerror = function () { cb(null); };
     img.src = url;
@@ -1262,14 +1282,16 @@
 	      if (a === 'fxcopy') {
 	        var _ck = _activePrecKey(); if (!_ck) return;
 	        var _cv = (d.beauty && d.beauty[_ck]) || 0;
-	        _measureFx(_ck, _cv || 50, function (m) {
+	        // [v545] 실제 슬라이더 value 로 측정(0 포함) — 과거 _cv||50 버그로 0/50 동일 delta 찍히던 것 수정.
+	        _measureFx(_ck, _cv, function (m) {
 	          var log = 'effect=' + _ck + '\nuiKey=' + _ck + '\nengineKey=' + _ck + '\nmask=' + (_FX_MASK[_ck] || '-') +
-	            '\ncoverage=' + (m && m.coverage != null ? m.coverage : (d._maskCovKey === _ck ? d._maskCovPct : '-')) +
-	            '\nvalue=' + _cv + '\nnorm=' + (_cv / 100).toFixed(2) +
+	            '\nmaskType=' + (m ? (m.hasMask ? 'native' : 'fallback') : '-') + '\nfallbackUsed=' + (m ? m.fallbackUsed : '-') +
+	            '\ncoverage=' + (m && m.coverage != null ? m.coverage : '-') +
+	            '\nvalue=' + _cv + '\nnorm=' + (_cv / 100).toFixed(2) + '\nnoop=' + (m ? m.noop : (_cv === 0)) +
 	            '\ntargetDelta=' + (m ? m.target : '-') + '\noutsideDelta=' + (m ? m.outside : '-') +
 	            '\ntime=' + (m ? m.time : (window.__photofxLast || {}).time || '-') + 'ms' +
 	            '\ntuningMultiplier=' + (_FX_MULT[_ck] != null ? _FX_MULT[_ck] : '-') +
-	            '\nhasMask=' + (m ? m.hasMask : '-');
+	            '\nhasMask=' + (m ? m.hasMask : '-') + '\nbuild=' + (window.APP_BUILD || '-');
 	          try { console.log('[photofx:copy]\n' + log); } catch (_e) { void _e; }
 	          try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(log); } catch (_e2) { void _e2; }
 	          toast('현재값을 복사했어요 (콘솔에도 출력)');

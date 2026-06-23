@@ -225,6 +225,17 @@
   .wsv2-cats { flex-wrap: nowrap; }
 }
 
+/* [v545] 넓은 PC(≥1280px) — 작업실 홈 좌우 여백 과다 개선. 컨테이너 넓히고 내 콘텐츠 3열로.
+   (드로어 카드는 고정폭 centered 라 무영향) */
+@media (width >= 1280px) {
+  .wsv2 { max-width: 1120px; }
+  .wsv2-list { grid-template-columns: repeat(3, 1fr); }
+}
+@media (width >= 1680px) {
+  .wsv2 { max-width: 1320px; }
+  .wsv2-list { grid-template-columns: repeat(4, 1fr); }
+}
+
 /* [v505] 작업실 탭일 때만 하단 네비 포인트 컬러 */
 body.ws-tab #tab-workshop { background: var(--surface-2); }
 body.ws-tab .tab-bar__btn.active { color: var(--brand-strong); }

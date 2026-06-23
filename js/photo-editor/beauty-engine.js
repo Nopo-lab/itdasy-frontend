@@ -31,7 +31,7 @@
   const HAIR_VOL_RIM_LUM = 120;     // rim 명/암 분기 휘도
   const HAIR_VOL_WEAK_RIM = 0.5;    // [신규] boundaryMask WEAK/없을 때 hairW 기반 rim 보강 배율
   // T-141 — 외곽 부스스함만 soften. 본체(hairW 높음) 보존.
-  const HAIR_ENDS_MIX = 0.42;       // 외곽 띠 soften 강도
+  const HAIR_ENDS_MIX = 0.6;        // [v545] 0.42→0.6 — 머리끝·잔머리 정돈 체감↑
   const HAIR_ENDS_FALLBACK = 0.3;   // hairMask 없을 때 hairW fallback soften (과장 금지 — 약하게)
   // ── [v537 hairFull 헤어 풍성하게] 볼륨(rim/입체)과 구분되는 "숱·밀도" 착시 ──
   //   원리: ① 머리 영역 전반 mild contrast(가닥 분리감) ② 상단/뿌리 넓은 lift(정수리 숱)
@@ -44,8 +44,8 @@
   const HAIR_FULL_FILL_LUM = 135;   // 이 휘도 이상 = 빈틈/두피 비침 후보(머리 본체보다 밝음)
 
   // ── [T-142 catchLight / T-143 lashSharp] 눈 효과 상수 ──
-  const CATCH_OPACITY = 0.38;       // [2차조정] catchLight 중심 alpha (0.42→0.38, 고해상도 눈동자 뜸 추가 후퇴)
-  const CATCH_RAD_RATIO = 0.10;     // 한쪽 눈 폭 대비 반경 + 눈높이×0.20 상한(아래) — 작은 반짝 점
+  const CATCH_OPACITY = 0.7;        // [v545] 0.38→0.7 — 눈 밝게 체감↑(눈동자 캐치라이트 밝기, 점 하이라이트)
+  const CATCH_RAD_RATIO = 0.15;     // [v545] 0.10→0.15 반경 키워 체감↑(만화눈 안 되게 eyeH 상한으로 제한)
   const CATCH_COV_MIN = 0.0003;     // eyeMask bbox 면적 하한(이하=비정상 → 합성 스킵)
   const CATCH_COV_MAX = 0.15;       // 상한(이상=오검출 → 스킵)
   const LASH_ROI_BOT = 0.45;        // eyeMask bbox 상단 0~45% = 속눈썹/눈 위 라인 ROI
@@ -139,7 +139,7 @@
       // [1차조정] 반경을 눈동자 크기(눈 높이) 기준으로 제한 — 고해상도에서 눈 전체 밝힘 방지.
       //   min(한눈폭×0.10, 눈높이×0.30). 눈동자보다 작은 "생기 점".
       const eyeW = (x1 - x0 + 1) * sx, eyeH = bb.h * sy;
-      const rad = Math.max(2, Math.min(eyeW * CATCH_RAD_RATIO, eyeH * 0.20));  // [2차] 0.30→0.20 더 작은 점
+      const rad = Math.max(2, Math.min(eyeW * CATCH_RAD_RATIO, eyeH * 0.30));  // [v545] eyeH 상한 0.20→0.30 (체감↑, 여전히 눈동자 내)
       const grad = ctx.createRadialGradient(ecx, ecy, 0, ecx, ecy, rad);
       grad.addColorStop(0, 'rgba(255,255,255,' + opacity + ')');
       grad.addColorStop(0.45, 'rgba(255,255,255,' + (opacity * 0.4) + ')');
@@ -420,7 +420,7 @@
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
       const blum = blurD[i] * 0.299 + blurD[i + 1] * 0.587 + blurD[i + 2] * 0.114;
       const edge = Math.min(1, Math.abs(lum - blum) / TEXTURE_EDGE_TAU);   // 0(평탄)~1(edge)
-      const mix = 0.72 * c.txK * p.skinW * (1 - edge);                     // [v540] 0.55→0.72 — 50에서 체감↑(edge 보존 유지)
+      const mix = 0.92 * c.txK * p.skinW * (1 - edge);                     // [v545] 0.72→0.92 — 피부결 체감 추가 강화(edge 보존 유지)
       if (mix > 0.001) _mixBlur(d, i, blurD, mix, 0);
     }
     // [T-151] blemish — 작은 잡티(넓은블러=주변 피부톤보다 어두운 작은 점)만 주변톤으로 blend(inpaint-like).
@@ -704,8 +704,8 @@
         //   nailW 가 충분히 높은(손톱면 확실) 픽셀만 darken 하도록 _darkenRegionDarkLines 임계를 nailW 로 상향.
         // [2차 안전] unsharp 은 nailW>0.4(확실 손톱면)만 → 누드/글리터에서 손가락 살(nailW 낮음) 침범 차단.
         //   darken 도 nailW>0.55. 색 뚜렷한 네일은 손톱 nailW 높아 작동, 누드/글리터는 약효지만 침범 없음(nailGloss 가 반짝 담당).
-        _unsharpMaskRegion(ctx, w, h, b.nailShape / 55, nailMaskArr, 1, w, h, 1.6, 0.4);
-        _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
+        _unsharpMaskRegion(ctx, w, h, b.nailShape / 35, nailMaskArr, 1, w, h, 1.8, 0.4);   // [v545] 55→35 경계 또렷 체감↑
+        _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * 1.5 * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
       } else _unsharpMask(ctx, w, h, b.nailShape / 200);   // nailW 수집 안 됨 → 거의 no-op(전역 샤픈 회피)
     }
   }
