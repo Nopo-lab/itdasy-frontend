@@ -320,6 +320,8 @@
       hasScleraMask: !!(useM && useM.scleraMask),         // [PE-M1] scleraMask 연결 시 eyeRedness 영역 게이트로 사용
       scleraW: _rm('scleraMask', 0),                      // [PE-M1] 흰자 마스크 가중 (미연결 시 0 — _applyEye 가 eyeW 폴백)
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
+      // [v546] 손/네일 사진: handSkinMask 연결 시 손 ROI 가중. 미연결(얼굴 등)이면 -1 → handSkin 이 skinW 폴백.
+      handW: (useM && useM.handSkinMask) ? _rm('handSkinMask', 0) : -1,
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
       lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
@@ -402,7 +404,7 @@
     }
     if (p.skinW <= 0.10) return;
     if (c.skinK > 0) _add(d, i, 10 * c.skinK * p.skinW, 5 * c.skinK * p.skinW, 2.5 * c.skinK * p.skinW);
-    if (c.handK > 0) _add(d, i, 8 * c.handK * p.skinW, 4 * c.handK * p.skinW, -3 * c.handK * p.skinW);
+    if (c.handK > 0) { const hw = p.handW >= 0 ? p.handW : p.skinW; _add(d, i, 8 * c.handK * hw, 4 * c.handK * hw, -3 * c.handK * hw); }   // [v546] 손 ROI 우선, 미연결 시 skinW
     if (c.coolK > 0 && (p.bl > p.r - 10) && (p.bl - p.g) > 5) _add(d, i, 12 * c.coolK * p.skinW, 4 * c.coolK * p.skinW, -16 * c.coolK * p.skinW);
   }
 

@@ -72,6 +72,8 @@
       if ((b.browSharp || 0) > 10 && MA && has(MA.getBrowMaskSync)) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; masks.browScale = br.scale; } }
       // [v537] 네일 — 작업실 네일 탭 신설. nailMask 있으면 정밀, 없으면 엔진 휴리스틱 폴백.
       if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10) && MA && has(MA.getNailMaskSync)) { var nl = MA.getNailMaskSync(img); if (nl) { ensure().useMasks.nailMask = nl.mask; masks._scale.nailMask = nl.scale; } }
+      // [v546] 손 피부톤 — handSkinMask 있으면 손 ROI 사용(없으면 엔진이 face skinW 폴백).
+      if ((b.handSkin || 0) > 0 && MA && has(MA.getHandSkinMaskSync)) { var hs = MA.getHandSkinMaskSync(img); if (hs) { ensure().useMasks.handSkinMask = hs.mask; masks._scale.handSkinMask = hs.scale; } }
     } catch (_e3) { /* eye/nail 마스크 실패 무시 — 베이스 마스크 유지 */ }
     return masks;
   }

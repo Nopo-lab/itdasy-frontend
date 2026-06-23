@@ -94,6 +94,58 @@
     return { w: w | 0, h: h | 0 };
   }
 
+  // [v546] 눈·눈썹·흰자·속눈썹 ROI 가 너무 작아(coverage≈0.8%) 체감 저하 → 마스크 dilation 으로 확장.
+  //   separable max-pool(>0.3 영역을 r 만큼 키움). 마스크는 원본 해상도라 r 은 짧은 변 비율로.
+  function _dilateMask(mask, w, h, r) {
+    if (!mask || r < 1) return mask;
+    const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let m = 0; const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+      for (let xx = x0; xx <= x1; xx++) { const v = mask[y * w + xx]; if (v > m) m = v; }
+      tmp[y * w + x] = m;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let m = 0; const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
+      for (let yy = y0; yy <= y1; yy++) { const v = tmp[yy * w + x]; if (v > m) m = v; }
+      out[y * w + x] = m;
+    }
+    return out;
+  }
+  function _maskBBox(mask, w, h, thr) {
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if ((mask[y * w + x] || 0) > thr) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    if (maxX < 0) return null;
+    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+  }
+  // [v546] 한쪽 눈만 인식된 경우(oneEye) — 검출된 눈을 반대쪽으로 평행이동 복제해 양쪽 ROI 복원.
+  //   landmark 미러가 정확하진 않지만(각도 무시) ROI 가 아예 한쪽만 적용되던 것보다 체감 개선.
+  //   대상이 검출 눈 폭의 ~2배 떨어진 위치라 얼굴이 어느 정도 정면일 때 잘 맞음. 셀피(좌우반전)도 대칭이라 무관.
+  // [v546] result.mask 를 짧은 변 비율 r 만큼 dilation + feather 후 coverage/confidence 갱신.
+  function _dilateRegion(result, img, ratio) {
+    const RF = _getRefine();
+    if (!RF || !result || !result.mask) return result;
+    const sz = _imgSize(img); if (!sz.w || !sz.h) return result;
+    const dr = Math.max(1, Math.round(Math.min(sz.w, sz.h) * ratio));
+    result.mask = RF.gaussianFeather(_dilateMask(result.mask, sz.w, sz.h, dr), sz.w, sz.h, Math.max(1, (dr / 2) | 0));
+    result.coverage = RF.maskCoverage(result.mask);
+    result.confidence = RF.maskConfidence(result.mask, 0.4);
+    result.dilatedRadius = dr;
+    return result;
+  }
+  function _reconstructMissingEye(mask, w, h, detectedIsLeft) {
+    const bb = _maskBBox(mask, w, h, 0.2); if (!bb) return mask;
+    const shift = Math.round(bb.w * 2.0) * (detectedIsLeft ? 1 : -1);   // left 검출 → 오른쪽(+x)으로 복제
+    const out = new Float32Array(w * h);
+    for (let i = 0; i < mask.length; i++) out[i] = mask[i];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const sx = x - shift; if (sx < 0 || sx >= w) continue;
+      const v = mask[y * w + sx]; if (v > out[y * w + x]) out[y * w + x] = v;
+    }
+    return out;
+  }
+
   // ── Tier 1 hair 어댑터 (v336 — mask-hair-adapter.js 로 분리) ──
   function _getHairAdapter() { return window.MaskHairAdapter || null; }
 
@@ -265,9 +317,22 @@
           result.eyeLeftCoverage = +lCov.toFixed(4);
           result.eyeRightCoverage = +rCov.toFixed(4);
           const oneEye = (lCov > 0.0005 && rCov < 0.0001) || (rCov > 0.0005 && lCov < 0.0001);
+          // [v546] 한쪽 눈만 인식 → 대칭 복원, 그리고 항상 dilation 으로 coverage 확장(0.8% 너무 작음 대응).
+          if (RF && result.mask && result.status === 'ready') {
+            const sz2 = _imgSize(img);
+            if (oneEye) {
+              result.mask = _reconstructMissingEye(result.mask, sz2.w, sz2.h, lCov >= rCov);
+              result.fallbackUsed = true; result.fallbackReason = 'symmetry-mirror(oneEye)';
+            }
+            const dr = Math.max(1, Math.round(Math.min(sz2.w, sz2.h) * 0.012));
+            result.mask = RF.gaussianFeather(_dilateMask(result.mask, sz2.w, sz2.h, dr), sz2.w, sz2.h, Math.max(1, (dr / 2) | 0));
+            result.coverage = RF.maskCoverage(result.mask);
+            result.confidence = RF.maskConfidence(result.mask, 0.4);
+            result.dilatedRadius = dr;
+          }
           if (oneEye) {
             result.reason = (result.reason ? result.reason + '; ' : '') +
-              'ONE-EYE: leftEye=' + lCov.toFixed(4) + ' rightEye=' + rCov.toFixed(4) +
+              'ONE-EYE→대칭복원: leftEye=' + lCov.toFixed(4) + ' rightEye=' + rCov.toFixed(4) +
               ' (한쪽 polygon coverage≈0 — 얼굴 각도/landmark 불안정 추정)';
           }
           try {
@@ -329,11 +394,11 @@
           try {
             const t1 = await EA.eyelashBandMask(img);
             if (t1 && t1.mask) {
-              result = Object.assign({
+              result = _dilateRegion(Object.assign({   // [v546] 속눈썹 band ROI 확장
                 sourceTier: 2,
                 inferenceTimeMs: 0,
                 status: t1._lowConfidence ? 'fallback' : 'ready',
-              }, t1);
+              }, t1), img, 0.006);
             } else {
               result = _emptyResult('fallback', 'no face landmarks or band too thin');
             }
@@ -385,7 +450,7 @@
           const SA = window.MaskScleraAdapter;
           if (SA && typeof SA.scleraMask === 'function') {
             const t = await SA.scleraMask(img, _imgSize(img));
-            if (t && t.mask) { result = t; break; }
+            if (t && t.mask) { result = _dilateRegion(t, img, 0.008); break; }   // [v546] 흰자 ROI 확장
           }
           result = _emptyResult('fallback', 'sclera adapter unavailable or no iris(478) landmarks');
           break;
@@ -396,7 +461,7 @@
           const BA = window.MaskBrowAdapter;
           if (BA && typeof BA.browMask === 'function') {
             const t = await BA.browMask(img, _imgSize(img));
-            if (t && t.mask) { result = t; break; }
+            if (t && t.mask) { result = _dilateRegion(t, img, 0.01); break; }   // [v546] 눈썹 ROI 확장
           }
           result = _emptyResult('fallback', 'brow adapter unavailable or no eyebrow landmarks');
           break;

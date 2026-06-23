@@ -162,6 +162,18 @@
     return { mask: r.mask, scale: NAIL_MASK_SCALE, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
   }
 
+  // [v546] handSkin 전용 handSkinMask sync 조회 — 손/네일 사진에서 손 피부톤이 face skinMask 대신
+  //   hand ROI 를 쓰게. getNailMaskSync 미러. 미캐시/실패 → null → 엔진은 기존 skinW 폴백(얼굴 사진 무영향).
+  function getHandSkinMaskSync(img) {
+    if (!img) return null;
+    if (_disabled()) return null;
+    const RP = window.RegionMaskProvider;
+    if (!RP || typeof RP.getCachedSync !== 'function') return null;
+    const r = RP.getCachedSync(img, 'handSkinMask');
+    if (!r || r.status !== 'ready' || !r.mask || (r.coverage || 0) < 0.01) return null;
+    return { mask: r.mask, scale: 1, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
   // PE-M1 — scleraMask 전용 비상 off (PE_MASK_DISABLE 와 독립). disable 시 PE-ER 동결 버전과 pixel-identical.
   function _scleraDisabled() {
     try {
@@ -247,6 +259,7 @@
     getMasksForBeautySync,
     getLashMaskSync,
     getNailMaskSync,
+    getHandSkinMaskSync,
     getScleraMaskSync,
     getBrowMaskSync,
     explain,

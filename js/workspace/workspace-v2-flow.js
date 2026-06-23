@@ -636,7 +636,7 @@
   function _photoDebugOn() {
     try { if (window.__ITDASY_PHOTO_DEBUG__) return true; return /[?&]photoDebug=1/.test(location.search || ''); } catch (_e) { return false; }
   }
-  var _FX_MASK = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask(spot)', textureSmooth: 'skinMask', yellowness: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask+경계', hairShine: 'hairMask', hairFull: 'hairW 휴리스틱', hairEndsClean: 'hairMask 외곽띠', browSharp: 'browMask→eyeROI', lashSharp: 'lashMask→eyeROI', eyeRedness: 'scleraMask→eyeW', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask→ROI휴리스틱', nailShape: 'nailMask→ROI', handSkin: 'skinMask' };
+  var _FX_MASK = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask(spot)', textureSmooth: 'skinMask', yellowness: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask+경계', hairShine: 'hairMask', hairFull: 'hairW 휴리스틱', hairEndsClean: 'hairMask 외곽띠', browSharp: 'browMask→eyeROI', lashSharp: 'lashMask→eyeROI', eyeRedness: 'scleraMask→eyeW', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask→ROI휴리스틱', nailShape: 'nailMask→ROI', handSkin: 'handSkinMask→손ROI(없으면 skinMask)' };
   var _FX_MULT = { textureSmooth: 0.72, blemish: 0.8, skin: 1, redness: 1, hairFull: 0.34, hairEndsClean: 0.42, hairDetail: '1/150~300', lashSharp: '1/65~120', browSharp: '1/90~400', nailShape: '1/55~200', catchLight: 0.38 };
   function _activePrecKey() {
     var tab = d.editTab || 'skin';
@@ -680,7 +680,7 @@
   }
   // 현재 효과를 다운스케일 샘플에 적용해 마스크 안/밖 delta 실측(현재값 복사용).
   // [v545] 효과별 coverage/delta 판정에 쓰는 '실제 사용 마스크' 키. native useMasks 또는 별도 게터(brow/lash 는 m.*).
-  var _FX_MASKKEY = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask', textureSmooth: 'skinMask', yellowness: 'skinMask', handSkin: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask', hairShine: 'hairMask', hairFull: 'hairMask', hairEndsClean: 'hairMask', browSharp: 'browMask', lashSharp: 'lashMask', eyeRedness: 'scleraMask', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask', nailShape: 'nailMask' };
+  var _FX_MASKKEY = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask', textureSmooth: 'skinMask', yellowness: 'skinMask', handSkin: 'handSkinMask', hairDetail: 'hairMask', hairVolume: 'hairMask', hairShine: 'hairMask', hairFull: 'hairMask', hairEndsClean: 'hairMask', browSharp: 'browMask', lashSharp: 'lashMask', eyeRedness: 'scleraMask', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask', nailShape: 'nailMask' };
   // 실제 apply 경로(어댑터 _beautyMasksAsync)와 동일하게 마스크 페치 — getMasksForBeauty + brow/sclera/nail/lash 게터.
   function _fxFetchMasks(img, beauty, done) {
     var MA = window.MaskApplication;
@@ -693,6 +693,7 @@
         if ((beauty.eyeRedness || 0) > 0 && MA.getScleraMaskSync) { var sc = MA.getScleraMaskSync(img); if (sc) { ensure().useMasks.scleraMask = sc.mask; m._scale.scleraMask = sc.scale; } }
         if ((beauty.browSharp || 0) > 0 && MA.getBrowMaskSync) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; m.browScale = br.scale; } }
         if (((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 0) && MA.getNailMaskSync) { var nl = MA.getNailMaskSync(img); if (nl) { ensure().useMasks.nailMask = nl.mask; m._scale.nailMask = nl.scale; } }
+        if ((beauty.handSkin || 0) > 0 && MA.getHandSkinMaskSync) { var hs = MA.getHandSkinMaskSync(img); if (hs) { ensure().useMasks.handSkinMask = hs.mask; m._scale.handSkinMask = hs.scale; } }
       } catch (_e) { void _e; }
       done(m);
     }).catch(function () { done(null); });
