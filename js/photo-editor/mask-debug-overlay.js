@@ -49,6 +49,7 @@
   }
 
   function isEnabled() {
+    if (window.__ITDASY_PHOTO_DEBUG__) return true;   // [v537] 통합 사진편집 디버그 플래그
     try {
       if (window.localStorage && localStorage.getItem('PE_MASK_DEBUG') === '1') return true;
     } catch (_e) { /* ignore */ }

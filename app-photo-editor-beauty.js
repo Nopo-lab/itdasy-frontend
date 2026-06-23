@@ -23,7 +23,8 @@
     // 모발
     hairShine:     { label: '모발 윤기',       group: 'hair', min: 0,   max: 100, step: 1 },
     hairVolume:    { label: '모발 입체감',     group: 'hair', min: 0,   max: 100, step: 1 },
-    hairEndsClean: { label: '머리끝 정리',     group: 'hair', min: 0,   max: 100, step: 1 },
+    hairFull:      { label: '헤어 풍성하게',   group: 'hair', min: 0,   max: 100, step: 1 },
+    hairEndsClean: { label: '머리끝 정리 (결 정리)', group: 'hair', min: 0,   max: 100, step: 1 },
     hairColor:     { label: '모발 색감 (- 차가운 / + 따뜻)', group: 'hair', min: -50, max: 50, step: 1 },
     hairDetail:    { label: '머리결 선명도 (전체)', group: 'hair', min: 0,   max: 100, step: 1 },
     hairColorPop:  { label: '염색 컬러 강조',  group: 'hair', min: 0,   max: 100, step: 1 },
@@ -56,7 +57,7 @@
     { id: 'brow', label: '눈썹',    keys: ['browSharp'] },
     { id: 'lip',  label: '입',      keys: ['lipPop'] },
     { id: 'skin', label: '피부',    keys: ['skin', 'redness', 'blemish', 'textureSmooth', 'yellowness'] },
-    { id: 'hair', label: '헤어',    keys: ['hairShine', 'hairVolume', 'hairEndsClean', 'hairColor', 'hairDetail', 'hairColorPop', 'scalpBoost'] },
+    { id: 'hair', label: '헤어',    keys: ['hairDetail', 'hairVolume', 'hairShine', 'hairFull', 'hairEndsClean', 'hairColor', 'hairColorPop', 'scalpBoost'] },
     { id: 'hand', label: '손·네일', keys: ['handSkin', 'nailGloss', 'coolness', 'nailShape'] },
   ];
   const REGION_ETC_KEYS = ['hairyArm', 'closeUpDetail'];   // 기타/고급(부위 밖)
@@ -225,6 +226,9 @@
         state.beauty[key] = v;
         const out = panel.querySelector(`[data-pe-slider-val="${key}"]`);
         if (out) out.textContent = inp.value;
+        if (window.__ITDASY_PHOTO_DEBUG__) {   // [v537] per-slider trace (debug only)
+          try { console.log(`[photofx] ${key} value=${v} norm=${(v / (SLIDERS[key] ? SLIDERS[key].max : 100)).toFixed(2)} region=${state.beautyRegion || '-'}`); } catch (_e) { void _e; }
+        }
         scheduleRedraw(_fastPreviewOn());   // v343 — 드래그 중 저해상도 preview (플래그 OFF 면 full)
       });
       // v343 — 손 뗄 때 풀해상도 final 1회 (+히스토리). pointerup/touchend 는 final redraw 만(coalesced).
@@ -349,6 +353,28 @@
     if (helpers.toast) helpers.toast(look.label + ' 적용');
   }
 
+  // [v537] 마스크 워밍 — 표준 에디터는 getMasksForBeautySync(캐시 hit만) 경로라, 마스크가
+  //   아직 안 만들어졌으면 약한 휴리스틱 폴백이 화면에 남는다("효과 약함"의 핵심). 이미지당 1회
+  //   비동기 전체 마스크 계산을 트리거하고, 끝나면 1회 재렌더 → 강한 정밀 마스크 경로 자동 반영.
+  //   WeakSet 가드로 이미지당 1회만(재렌더 루프 없음). 작업실 경로는 어댑터가 이미 async 마스크 사용.
+  function _warmMasks(img) {
+    if (!img) return;
+    const MA = window.MaskApplication;
+    if (!MA || typeof MA.getMasksForBeauty !== 'function') return;
+    if (!_warmMasks._seen) { try { _warmMasks._seen = new WeakSet(); } catch (_e) { _warmMasks._seen = null; } }
+    if (!_warmMasks._seen || _warmMasks._seen.has(img)) return;
+    _warmMasks._seen.add(img);
+    try {
+      MA.getMasksForBeauty(img).then(() => {
+        const PE = window.PhotoEditor;
+        if (PE && PE._internal && typeof PE._internal.scheduleRedraw === 'function') {
+          if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] masks warmed → redraw'); } catch (_e) { void _e; } }
+          PE._internal.scheduleRedraw(false);
+        }
+      }).catch(() => {});
+    } catch (_e) { void _e; }
+  }
+
   // ── 뷰티 보정 (픽셀 처리는 beauty-engine.js 담당) ──
   function _applyBeauty(ctx, w, h, b) {
     const engine = window.PhotoEditorBeautyEngine;
@@ -373,6 +399,7 @@
       const PE = window.PhotoEditor;
       const st = PE && PE._internal && PE._internal.getState ? PE._internal.getState() : null;
       const img = st && st.originalImg;
+      _warmMasks(img);   // [v537] 마스크 미준비 시 비동기 계산 + 1회 재렌더(이미지당 1회)
       if (MA && typeof MA.getMasksForBeautySync === 'function' && img) {
         regionMasks = MA.getMasksForBeautySync(img);
       }

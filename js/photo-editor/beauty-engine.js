@@ -33,6 +33,15 @@
   // T-141 — 외곽 부스스함만 soften. 본체(hairW 높음) 보존.
   const HAIR_ENDS_MIX = 0.42;       // 외곽 띠 soften 강도
   const HAIR_ENDS_FALLBACK = 0.3;   // hairMask 없을 때 hairW fallback soften (과장 금지 — 약하게)
+  // ── [v537 hairFull 헤어 풍성하게] 볼륨(rim/입체)과 구분되는 "숱·밀도" 착시 ──
+  //   원리: ① 머리 영역 전반 mild contrast(가닥 분리감) ② 상단/뿌리 넓은 lift(정수리 숱)
+  //         ③ 머리 영역 안의 밝은 빈틈(두피 비침/성긴 부분, lum 높음)을 머리톤 쪽으로 살짝 채움(fill).
+  //   마스크 없이 hairW 휴리스틱만으로도 체감되게(폴백 강함). 색은 안 바꾸고 명암/밀도만.
+  const HAIR_FULL_CONTRAST = 0.34;  // 머리 가닥 분리 contrast
+  const HAIR_FULL_ROOT_LIFT = 16;   // 상단/뿌리 숱 lift
+  const HAIR_FULL_ROOT_TOP = 0.55;  // 뿌리 lift 적용 상단 비율(볼륨보다 넓게)
+  const HAIR_FULL_FILL = 16;        // 머리 속 밝은 빈틈 채우기(darken) 상한
+  const HAIR_FULL_FILL_LUM = 135;   // 이 휘도 이상 = 빈틈/두피 비침 후보(머리 본체보다 밝음)
 
   // ── [T-142 catchLight / T-143 lashSharp] 눈 효과 상수 ──
   const CATCH_OPACITY = 0.38;       // [2차조정] catchLight 중심 alpha (0.42→0.38, 고해상도 눈동자 뜸 추가 후퇴)
@@ -215,7 +224,7 @@
       || b.yellowness || b.coolness || b.textureSmooth || b.hairColorPop || b.closeUpDetail
       || b.lipPop || b.eyeColor || b.browSharp || b.nailShape || b.scalpBoost || b.hairyArm
       || b.eyeRedness || b.irisClear || b.catchLight || b.underEyeClean
-      || b.hairVolume || b.hairEndsClean);
+      || b.hairVolume || b.hairEndsClean || b.hairFull);
   }
 
   // v348 — 네일 후보 가중 (자연 강화). specular/글리터 하이라이트(>210 포함) + 폴리시 채도만 잡고,
@@ -255,6 +264,7 @@
       scalpK: (b.scalpBoost || 0) / 100, armK: (b.hairyArm || 0) / 100,
       eyeRedK: (b.eyeRedness || 0) / 100, irisK: (b.irisClear || 0) / 100,
       catchK: (b.catchLight || 0) / 100, underK: (b.underEyeClean || 0) / 100,
+      hairFullK: (b.hairFull || 0) / 100,   // [v537] 헤어 풍성하게 — 볼륨(입체)과 구분되는 밀도/숱 착시
     };
   }
 
@@ -482,6 +492,22 @@
           const rootW = c.hairVolK * p.hairW * (1 - p.ny / HAIR_VOL_ROOT_TOP);
           _add(d, i, HAIR_VOL_ROOT_LIFT * rootW, HAIR_VOL_ROOT_LIFT * rootW, HAIR_VOL_ROOT_LIFT * rootW * 0.9);
         }
+      }
+    }
+    // [v537] hairFull 헤어 풍성하게 — 마스크 없이도(hairW) 숱·밀도 착시. 볼륨(rim)과 독립.
+    if (c.hairFullK > 0) {
+      const fk = c.hairFullK * p.hairW;
+      // ① 가닥 분리 contrast(머리 본체)
+      _contrastFromLum(d, i, p.lum0, 1 + HAIR_FULL_CONTRAST * fk, 0);
+      // ② 상단/뿌리 넓은 lift — 정수리/가르마 숱(skin 영역 제외로 이마 침범 방지)
+      if (p.ny != null && p.ny < HAIR_FULL_ROOT_TOP && p.hairW > 0.3 && p.skinW < 0.3) {
+        const rootW = c.hairFullK * p.hairW * (1 - p.ny / HAIR_FULL_ROOT_TOP);
+        _add(d, i, HAIR_FULL_ROOT_LIFT * rootW, HAIR_FULL_ROOT_LIFT * rootW, HAIR_FULL_ROOT_LIFT * rootW * 0.92);
+      }
+      // ③ 머리 속 밝은 빈틈(두피 비침/성긴 부분)을 머리톤 쪽으로 채움(darken) — 숱 많아 보이게
+      if (p.lum0 > HAIR_FULL_FILL_LUM && p.lum0 < 235 && p.hairW > 0.35 && p.skinW < 0.25) {
+        const fillW = fk * Math.min(1, (p.lum0 - HAIR_FULL_FILL_LUM) / 70);
+        _add(d, i, -HAIR_FULL_FILL * fillW, -HAIR_FULL_FILL * fillW, -HAIR_FULL_FILL * fillW);
       }
     }
     // [T-141 재구현] 머리끝/잔머리 정리 — hairMask erosion 외곽 띠(hairOuterW)에서만 soften.

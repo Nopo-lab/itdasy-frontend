@@ -70,7 +70,9 @@
       if ((b.lashSharp || 0) > 10 && MA && has(MA.getLashMaskSync)) { var lash = MA.getLashMaskSync(img); if (lash) { ensure().lashMask = lash.mask; masks.lashScale = lash.scale; } }
       if ((b.eyeRedness || 0) > 0 && MA && has(MA.getScleraMaskSync)) { var sc = MA.getScleraMaskSync(img); if (sc) { ensure().useMasks.scleraMask = sc.mask; masks._scale.scleraMask = sc.scale; } }
       if ((b.browSharp || 0) > 10 && MA && has(MA.getBrowMaskSync)) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; masks.browScale = br.scale; } }
-    } catch (_e3) { /* eye 마스크 실패 무시 — 베이스 마스크 유지 */ }
+      // [v537] 네일 — 작업실 네일 탭 신설. nailMask 있으면 정밀, 없으면 엔진 휴리스틱 폴백.
+      if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10) && MA && has(MA.getNailMaskSync)) { var nl = MA.getNailMaskSync(img); if (nl) { ensure().useMasks.nailMask = nl.mask; masks._scale.nailMask = nl.scale; } }
+    } catch (_e3) { /* eye/nail 마스크 실패 무시 — 베이스 마스크 유지 */ }
     return masks;
   }
   // [#1 FIX] 피부/헤어 마스크는 async getMasksForBeauty 로 실제 계산해서 받는다.

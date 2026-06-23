@@ -163,6 +163,8 @@
   async function compose(opts) {
     const srcDataUrl = await _dataUrlFromAny(opts.srcUrl);
     let removedUrl = opts.preRemovedBgUrl || null;
+    // [v537] 누끼 캐시 가시화 — 배경색/이미지 변경은 캐시된 matte 재사용(API 0회), 첫 1회만 request.
+    try { console.log(removedUrl ? '[matting] reuse cached matte (배경만 재합성, API 호출 없음)' : '[matting] request matte (마스크 1회 생성)'); } catch (_e) { void _e; }
     if (!removedUrl) {
       const blob = await _removeBg(srcDataUrl);
       const tmpUrl = URL.createObjectURL(blob);

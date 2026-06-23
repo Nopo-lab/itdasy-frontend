@@ -41,11 +41,18 @@
 	    { k: 'hair', label: '헤어', ic: 'ph-wind', controls: [
 	      { k: 'hairDetail', l: '헤어결', ic: 'ph-wind' },
 	      { k: 'hairVolume', l: '헤어 볼륨', ic: 'ph-waves' },
-	      { k: 'hairShine', l: '헤어 윤기', ic: 'ph-sparkle' } ] },
+	      { k: 'hairShine', l: '헤어 윤기', ic: 'ph-sparkle' },
+	      { k: 'hairFull', l: '헤어 풍성하게', ic: 'ph-plant' },
+	      { k: 'hairEndsClean', l: '결 정리', ic: 'ph-scissors' } ] },
 	    { k: 'eyes', label: '눈썹·눈가', ic: 'ph-eye', controls: [
 	      { k: 'browSharp', l: '눈썹 선명도', ic: 'ph-pencil-simple' },
 	      { k: 'lashSharp', l: '눈가 선명도', ic: 'ph-eye' },
-	      { k: 'eyeRedness', l: '눈 맑게', ic: 'ph-drop' } ] },
+	      { k: 'eyeRedness', l: '눈 맑게', ic: 'ph-drop' },
+	      { k: 'catchLight', l: '눈 밝게', ic: 'ph-sun' } ] },
+	    { k: 'nail', label: '네일', ic: 'ph-hand-heart', controls: [
+	      { k: 'nailGloss', l: '네일 광택', ic: 'ph-sparkle' },
+	      { k: 'nailShape', l: '네일 경계', ic: 'ph-lightning' },
+	      { k: 'handSkin', l: '손 피부톤', ic: 'ph-sun' } ] },
 	    { k: 'tools', label: '고급', ic: 'ph-faders', controls: [] },
 	  ];
 	  var WORKSPACE_TEMPLATES = [
@@ -63,7 +70,7 @@
 	    { key: 'story', label: '스토리 홍보', use: '세로 홍보', chip: '스토리', id: 'wm-promo-story', purpose: 'story', captionMode: 'normal' },
 	  ];
 	  function newAdjust() { return { brightness:0, contrast:0, saturation:0, sharpness:0, color:0 }; }
-	  function newBeauty() { return { skin:0, textureSmooth:0, blemish:0, hairDetail:0, hairVolume:0, hairShine:0, browSharp:0, lashSharp:0, eyeRedness:0 }; }
+	  function newBeauty() { return { skin:0, textureSmooth:0, blemish:0, hairDetail:0, hairVolume:0, hairShine:0, hairFull:0, hairEndsClean:0, browSharp:0, lashSharp:0, eyeRedness:0, catchLight:0, nailGloss:0, nailShape:0, handSkin:0 }; }
   var d = null;
   var el = null;
   var cur = 'upload';
@@ -437,7 +444,7 @@
       if (ptab === 'tools') {
         inner = '<div class="ed-adv">' +
           '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>자르기</button>' +
-          '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>역할 확인 (' + esc(_roleSummary()) + ')</button>' +
+          '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>전·후 사진 확인 (' + esc(_roleSummary()) + ')</button>' +
           '</div>';
       } else {
         inner = '<div class="ed-adv">' + _beautySlider(ptabObj.controls || [], d.precTool) + '</div>';
