@@ -516,42 +516,63 @@
   function _purposeCat(purpose) { return { before_after: 'ba', review: 'review', event: 'event', feed: 'flex', story: 'flex' }[purpose] || 'flex'; }
   function _getDefaultTpl(cat) { return (window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.get(cat)) || ''; }
   // [v531] 템플릿 적용 상태 — 명확한 배너(결과물 N장) + 결과물 스트립(Pair N 결과) + 해제/바꾸기.
+  // [v541] 적용 결과 — 작은 스트립 → 인스타식 큰 4:5 캐러셀(Pair 스와이프). 액션은 active Pair 기준.
+  //   스크롤 동기 기계(_carSyncActive/_carItems)와 정합 위해 _displayItems() 동일 소스 사용.
+  function _carItemLabel(it, i) {
+    if (it.kind !== 'output') return it.label || '사진';
+    var base = it.label || ('Pair ' + (i + 1)), tn = '';
+    var o = (d.templateOutputs || []).filter(function (x) { return x.pairId === it.id; })[0];
+    if (o && o.templateId) { var _t = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === o.templateId; })[0]; tn = _t ? _t.label : ''; }
+    return base + (tn ? ' · ' + tn : '');   // [v541] active 라벨에 현재 Pair 템플릿명 표시(짝별 개별 적용 확인)
+  }
+  function _tplResultCarousel() {
+    var items = _displayItems(); if (!items.length) return '';
+    var n = items.length;
+    var active = (function () { for (var i = 0; i < items.length; i++) if (items[i].id === d.activeDisplayId) return d.activeDisplayId; return items[0].id; })();
+    var actIdx = 0; for (var k = 0; k < items.length; k++) if (items[k].id === active) actIdx = k;
+    var slides = items.map(function (it) {
+      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '">' +
+        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+    }).join('');
+    var dots = n > 1 ? '<div class="cap-car__dots">' + items.map(function (it) {
+      return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과 보기"></button>';
+    }).join('') + '</div>' : '';
+    var pills = n > 1 ? '<div class="tpl-car__pills">' + items.map(function (it, i) {
+      return '<button type="button" class="tpl-car__pill' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '">' + esc(_carItemLabel(it, i)) + '</button>';
+    }).join('') + '</div>' : '';
+    return '<div class="cap-car tpl-car" data-fl-carousel>' +
+        '<div class="cap-car__track" data-fl-cartrack>' + slides + '</div>' + dots + pills +
+        '<div class="tpl-car__actions"><span class="tpl-car__active" data-fl-tpl-activelabel>' + esc(_carItemLabel(items[actIdx], actIdx)) + '</span>' +
+          '<button type="button" class="tpl-car__change" data-fl="tplchange-active">템플릿 바꾸기</button>' +
+          '<button type="button" class="tpl-car__edit" data-fl="tpledit-active">템플릿 수정</button>' +
+        '</div></div>';
+  }
   function _tplAppliedHtml() {
     if (!d.templateId) return '';
     var outs = d.templateOutputs || [];
     var isBA = d.tplPurpose === 'before_after';
-    // [v532] 전후 결과물은 짝(Pair)별로 다른 템플릿을 가질 수 있음 → 'mixed' 면 배너에 '짝별 개별 적용' 명시.
-    var perPair = isBA && outs.length >= 1;
     var mixed = isBA && outs.length > 1 && outs.some(function (o) { return o.templateId !== outs[0].templateId; });
-    var banner = isBA
-      ? ('전후 템플릿 적용됨 · 결과물 ' + (outs.length || 0) + '장' + (mixed ? ' · 짝별 개별 적용' : ''))
-      : ('템플릿 적용됨 · ' + (d.template || ''));
-    var strip = outs.length
-      ? '<div class="tpl-results">' + outs.map(function (o, i) {
-          var lbl = isBA ? ('Pair ' + (i + 1) + ' 결과') : '결과물';
-          // [v532] 각 짝의 현재 템플릿 이름을 라벨에 함께 표기(개별 적용 결과를 한눈에).
-          var tname = '';
-          if (isBA && o.templateId) { var _t = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === o.templateId; })[0]; tname = _t ? _t.label : ''; }
-          return '<div class="tpl-result">' +
-            '<div class="tpl-result__img" style="background-image:url(' + esc(o.outputUrl) + ')"></div>' +
-            '<span class="tpl-result__lbl">' + esc(lbl) + (tname ? ' · ' + esc(tname) : '') + '</span>' +
-            // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 갤러리에서 골라 교체(다른 짝은 유지).
-            // [v534] 짝별 '템플릿 수정' — 이 짝의 텍스트 레이어(시술명/후기/CTA 등)를 편집 시트에서 수정.
-            (perPair ? '<div class="tpl-result__btns">' +
-              '<button type="button" class="tpl-result__change" data-fl-tplpair="' + esc(o.pairId) + '">템플릿 바꾸기</button>' +
-              '<button type="button" class="tpl-result__edit" data-fl-tpledit="' + esc(o.pairId) + '">템플릿 수정</button>' +
-            '</div>' : '') +
-            '</div>';
-        }).join('') + '</div>'
-      : '';
-    return '<div class="tpl-applied"><div class="tpl-applied__head">' +
-        '<span class="tpl-applied__t"><b>' + esc(banner) + '</b></span>' +
-        // [v532] 전후는 '전체 바꾸기'(일괄)와 짝별 바꾸기(위 타일 버튼)를 분리. 비전후는 단일 '템플릿 바꾸기'.
+    var head = '<div class="tpl-applied__head">' +
+        '<span class="tpl-applied__t"><b>적용된 ' + (isBA ? '전후 ' : '') + '템플릿</b><em>' + (isBA ? 'Pair별로 넘겨 보면서 바꾸거나 수정할 수 있어요' + (mixed ? ' · 짝별 개별 적용' : '') : esc(d.template || '')) + '</em></span>' +
         '<button type="button" class="tpl-applied__change" data-fl="tplchange">' + (isBA ? '전체 바꾸기' : '템플릿 바꾸기') + '</button>' +
-        // [v534] 비전후(단일 결과)는 헤더에서 바로 '문구 수정' 진입(전후는 타일별 '템플릿 수정' 사용).
         (!isBA && outs.length ? '<button type="button" class="tpl-applied__edit" data-fl="tpleditactive">문구 수정</button>' : '') +
-        '<button type="button" class="tpl-applied__release" data-fl="tplrelease">템플릿 해제하기</button>' +
-      '</div>' + strip + '</div>';
+        '<button type="button" class="tpl-applied__release" data-fl="tplrelease">' + (isBA ? '전체 해제' : '템플릿 해제하기') + '</button>' +
+      '</div>';
+    var body = '';
+    if (outs.length && isBA) body = _tplResultCarousel();
+    else if (outs.length) body = '<div class="tpl-car tpl-car--single"><div class="cap-car__slide"><div class="cap-car__img" style="background-image:url(' + esc(outs[0].outputUrl) + ')"></div></div></div>';
+    return '<div class="tpl-applied">' + head + body + '</div>';
+  }
+  function _activeOutputPair() {
+    var outs = d.templateOutputs || [];
+    if (d.activeDisplayId && outs.some(function (o) { return o.pairId === d.activeDisplayId; })) return d.activeDisplayId;
+    return outs[0] ? outs[0].pairId : null;
+  }
+  // [v541] 템플릿 섹션 재렌더 + 결과 캐러셀 스와이프 바인딩(전체 재렌더 없이).
+  function _renderTplSection() {
+    _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { _mountCarousel(); });
   }
   function _tplFoldHtml() {
     var tplBody = '';
@@ -563,11 +584,15 @@
         '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
         '<div class="tpl-grid2">' + shown.map(function (tpl) {
           var isDef = _getDefaultTpl(_purposeCat(tpl.purpose)) === tpl.id;
+          var on = d.templateId === tpl.id;
+          // [v541] 썸네일 위 검은 제목 오버레이 제거 — 디자인 자체가 보이게. 이름은 aria-label 로만(접근성).
+          //   선택 상태 = 로즈 테두리 + 체크 + '적용됨' pill. 길게 누르면 확대(아래 long-press 바인딩).
           return '<div class="tpl-itemwrap">' +
-            '<button type="button" class="tpl-item' + (d.templateId === tpl.id ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')">' +
+            '<button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')">' +
               '<i class="tpl-badge">' + esc(tpl.chip) + '</i>' +
               (isDef ? '<i class="tpl-defbadge">기본</i>' : '') +
-              '<span><b>' + esc(tpl.label) + '</b><em>' + esc(tpl.use) + '</em></span></button>' +
+              (on ? '<i class="tpl-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i><i class="tpl-onpill">적용됨</i>' : '') +
+            '</button>' +
             '<button type="button" class="tpl-setdefault' + (isDef ? ' on' : '') + '" data-fl-setdefault="' + esc(tpl.key) + '">' + (isDef ? '기본 템플릿' : '기본으로 설정') + '</button>' +
           '</div>';
         }).join('') + '</div>' +
@@ -937,7 +962,7 @@
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
-    if (name === 'edit') _warmEditMasks();
+    if (name === 'edit') { _warmEditMasks(); var _rc = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rc(function () { _mountCarousel(); }); }   // [v541] 결과 캐러셀 스와이프 바인딩
     if (name === 'connect') loadRecent();
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
@@ -1075,14 +1100,14 @@
         var _sk = setdef.getAttribute('data-fl-setdefault'); var _st = _tplByKey(_sk); if (!_st) return;
         var _ok = window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.set(_purposeCat(_st.purpose), _st.id);
         toast(_ok ? (_st.label + '을(를) 기본 템플릿으로 설정했어요') : '기본 템플릿 저장에 실패했어요');
-        _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        _renderTplSection();
         return;
       }
       if (a === 'tplchange') {
         // [v531] '전체 바꾸기'(일괄) — 템플릿 카드 목록을 열고 스크롤. 다른 카드 선택 시 모든 짝에 일괄 재적용.
         // [v532] 짝별 타깃 해제 → 다음 카드 선택은 일괄 적용 경로를 탄다.
         d.tplTargetPair = null;
-        d.tplOpen = true; _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        d.tplOpen = true; _renderTplSection();
         var grid = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: 'center' });
         toast('위 템플릿 카드에서 다른 디자인을 고르면 모든 짝에 다시 적용돼요');
         return;
@@ -1092,7 +1117,7 @@
         d.tplTargetPair = tplpair.getAttribute('data-fl-tplpair');
         var _outs0 = d.templateOutputs || [];
         var _idx0 = -1; for (var _pi = 0; _pi < _outs0.length; _pi++) { if (_outs0[_pi].pairId === d.tplTargetPair) { _idx0 = _pi; break; } }
-        d.tplOpen = true; _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        d.tplOpen = true; _renderTplSection();
         var grid2 = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid2 && grid2.scrollIntoView) grid2.scrollIntoView({ block: 'center' });
         toast('이 디자인을 고르면 Pair ' + (_idx0 >= 0 ? _idx0 + 1 : '') + ' 결과만 바뀌어요 (다른 짝은 그대로)');
         return;
@@ -1100,6 +1125,17 @@
       // [v534] 짝별 '템플릿 수정' — 텍스트 레이어 편집 시트 오픈(이 짝만 반영).
       var tpledit = t.closest('[data-fl-tpledit]'); if (tpledit) { return _openTplEdit(tpledit.getAttribute('data-fl-tpledit')); }
       if (a === 'tpleditactive') { return _openTplEdit(d.activeDisplayId || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].pairId)); }
+      // [v541] 결과 캐러셀 — 현재 보고 있는 Pair 기준 '템플릿 바꾸기'/'템플릿 수정'(기존 짝별 로직 재사용).
+      if (a === 'tplchange-active') {
+        var _apc = _activeOutputPair(); if (!_apc) { toast('바꿀 결과물을 찾지 못했어요'); return; }
+        d.tplTargetPair = _apc;
+        var _ocs = d.templateOutputs || []; var _ci = -1; for (var _cj = 0; _cj < _ocs.length; _cj++) { if (_ocs[_cj].pairId === _apc) { _ci = _cj; break; } }
+        d.tplOpen = true; _renderTplSection();
+        var _g = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (_g && _g.scrollIntoView) _g.scrollIntoView({ block: 'center' });
+        toast('이 디자인을 고르면 Pair ' + (_ci >= 0 ? _ci + 1 : '') + ' 결과만 바뀌어요 (다른 짝은 그대로)');
+        return;
+      }
+      if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); return; }
@@ -1112,7 +1148,7 @@
       var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _toggleSelect(+upTile.getAttribute('data-fl-tile')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
-      var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _setEditSection('[data-ed-tpl]', _tplFoldHtml()); } return; }
+      var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _renderTplSection(); } return; }
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
 	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); if (d.maskView) _renderMaskOverlay(); return; }
@@ -1129,8 +1165,17 @@
         d.customerVc = found ? (found.vc || 0) : 0;
         setScreen('connect'); return;
       }
-      var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); _setEditSection('[data-ed-tpl]', _tplFoldHtml()); return; }
-	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
+      var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); _renderTplSection(); return; }
+	      // [v541] 확대 미리보기 시트 액션
+	      if (t.closest('[data-fl-tppclose]')) { return _closeTplPreview(); }
+	      var tppApply = t.closest('[data-fl-tppapply]'); if (tppApply) { _closeTplPreview(); return applyTemplate(tppApply.getAttribute('data-fl-tppapply')); }
+	      var tppDef = t.closest('[data-fl-tppdef]'); if (tppDef) {
+	        var _dk = tppDef.getAttribute('data-fl-tppdef'); var _dt = _tplByKey(_dk); if (!_dt) return;
+	        var _dok = window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.set(_purposeCat(_dt.purpose), _dt.id);
+	        toast(_dok ? (_dt.label + '을(를) 기본 템플릿으로 설정했어요') : '기본 템플릿 저장에 실패했어요');
+	        _renderTplSection(); _closeTplPreview(); return;
+	      }
+	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { if (_lpAt && Date.now() - _lpAt < 700) return; return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
@@ -1190,8 +1235,58 @@
 	      }
 	    });
     _bindZoom();
+    _bindTplLongPress();   // [v541] 템플릿 썸네일 long press 확대 미리보기
   }
 
+  // [v541] 템플릿 썸네일 long press(500ms) → 확대 미리보기. short tap → 기존 선택/적용(아래 click 가드).
+  //   _lpAt = long press 발화 시각. 직후 click(적용)만 700ms 창으로 억제 → 자동 만료라 '다음 정상 탭'은 안 먹힘.
+  var _lpAt = 0;
+  function _bindTplLongPress() {
+    if (!el || el._tplLpBound) return; el._tplLpBound = true;
+    var timer = null, sx = 0, sy = 0, key = null;
+    var clear = function () { if (timer) { clearTimeout(timer); timer = null; } key = null; };
+    el.addEventListener('pointerdown', function (e) {
+      var it = e.target.closest && e.target.closest('[data-fl-tpl]');
+      if (!it || cur !== 'edit') return;
+      key = it.getAttribute('data-fl-tpl'); sx = e.clientX; sy = e.clientY;
+      timer = setTimeout(function () { timer = null; _lpAt = Date.now(); if (key) _openTplPreview(key); }, 500);
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) clear();   // 스크롤/드래그 → long press 취소
+    });
+    el.addEventListener('pointerup', clear);
+    el.addEventListener('pointercancel', clear);
+  }
+  function _tplPreviewSampleCard(tpl) {
+    // 업로드 사진이 아닌 '샘플' 템플릿 미리보기(_tplThumb = 사진 미주입 플레이스홀더 렌더).
+    return '<div class="tpl-preview__card" style="background-image:url(' + esc(_tplThumb(tpl)) + ')"></div>';
+  }
+  function _openTplPreview(key) {
+    var tpl = _tplByKey(key); if (!tpl) return;
+    _closeTplPreview();
+    var isDef = _getDefaultTpl(_purposeCat(tpl.purpose)) === tpl.id;
+    var wrap = document.createElement('div');
+    wrap.className = 'tpl-preview'; wrap.setAttribute('data-fl-tplpreview', '');
+    wrap.innerHTML =
+      '<div class="tpl-preview__backdrop" data-fl-tppclose></div>' +
+      '<div class="tpl-preview__sheet" role="dialog" aria-label="' + esc(tpl.label) + ' 미리보기">' +
+        '<div class="tpl-preview__grip"></div>' +
+        _tplPreviewSampleCard(tpl) +
+        '<div class="tpl-preview__name"><b>' + esc(tpl.label) + '</b><span>' + esc(tpl.use) + '</span></div>' +
+        '<div class="tpl-preview__btns">' +
+          '<button type="button" class="tpl-preview__apply" data-fl-tppapply="' + esc(key) + '">적용하기</button>' +
+          '<button type="button" class="tpl-preview__def' + (isDef ? ' on' : '') + '" data-fl-tppdef="' + esc(key) + '">' + (isDef ? '기본 템플릿' : '기본으로 설정') + '</button>' +
+          '<button type="button" class="tpl-preview__close" data-fl-tppclose>닫기</button>' +
+        '</div>' +
+      '</div>';
+    (el || document.body).appendChild(wrap);
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { wrap.classList.add('open'); });
+  }
+  function _closeTplPreview() {
+    var w = el && el.querySelector('[data-fl-tplpreview]');
+    if (w && w.parentNode) w.parentNode.removeChild(w);
+  }
   // 편집 사진 핀치 줌(2손가락) + 1손가락 팬(확대 시) + 더블탭 확대/축소. 뷰포트(.ed-photo-vp) 내부 클립.
   function _bindZoom() {
     if (!el || el._zoomBound) return; el._zoomBound = true;
@@ -1489,7 +1584,7 @@
         d.templateOutputs = outs;
         d.templateOutput = outs[0] && outs[0].outputUrl;
         d.previewUrl = null;
-        _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        _renderTplSection();
         toast('Pair ' + (idx + 1) + ' 템플릿을 수정했어요');
       },
     });
@@ -1503,7 +1598,7 @@
 	    d.template = null; d.templateId = null;
 	    d.tplTargetPair = null;   // [v532] 짝별 타깃도 초기화
 	    d.previewUrl = null;
-	    _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+	    _renderTplSection();
 	    toast('템플릿을 해제했어요 — 원본 사진으로 돌아갔어요');
 	  }
 
@@ -1606,6 +1701,9 @@
 	  function _carPaintDots(id) {
 	    var root = el && el.querySelector('[data-fl-carousel]'); if (!root) return;
 	    root.querySelectorAll('[data-fl-cardot]').forEach(function (dt) { dt.classList.toggle('on', dt.getAttribute('data-fl-cardot') === id); });
+	    // [v541] 결과 캐러셀 active Pair 라벨 동기화(스크롤/도트/필 전환 시). 전체 재렌더 없음.
+	    var lbl = el.querySelector('[data-fl-tpl-activelabel]');
+	    if (lbl) { var its = _carItems(); for (var i = 0; i < its.length; i++) { if (its[i].id === id) { lbl.textContent = _carItemLabel(its[i], i); break; } } }
 	  }
 	  // [v531] 스크롤 위치 → active 결과물/dot 동기화(passive 스크롤 + rAF 스로틀, 전체 재렌더 없음).
 	  function _carSyncActive() {
@@ -1971,6 +2069,7 @@
   //  단계 복귀는 _bindPop 의 popstate 리스너가 담당하므로, 여기선 단계 남으면 복귀/없으면 닫기만.
   function _systemBack() {
     if (!el || !el.classList.contains('is-open')) return;
+    if (el.querySelector('[data-fl-tplpreview]')) { _closeTplPreview(); return; }   // [v541] 미리보기 시트 먼저 닫기
     if (!_navBack()) close();   // [v531] navStack 비면 close → 작업실 홈
   }
   function close() {

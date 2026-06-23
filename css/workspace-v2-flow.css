@@ -226,13 +226,12 @@
 .wsv2flow .tpl-chip { flex: none; height: 34px; border: 1px solid var(--border); border-radius: var(--r-pill); padding: 0 15px; background: var(--surface); color: var(--text-muted); display: inline-flex; align-items: center; font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tpl-chip.on { background: var(--brand-strong); color: #fff; border-color: transparent; box-shadow: var(--shadow-brand); }
 .wsv2flow .tpl-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
-.wsv2flow .tpl-item { height: 122px; border-radius: var(--r-md); background: var(--frame) center/cover; border: 2px solid transparent; cursor: pointer; box-shadow: var(--shadow-sm); display: grid; place-items: end; padding: 0; overflow: hidden; text-align: left; }
-.wsv2flow .tpl-item::before { content: ""; grid-area: 1 / 1; place-self: stretch stretch; background: linear-gradient(to top, rgba(0,0,0,.58), rgba(0,0,0,.08)); }
-.wsv2flow .tpl-item.on { border-color: var(--brand-strong); box-shadow: var(--shadow-md); }
-.wsv2flow .tpl-item span { position: relative; grid-area: 1 / 1; font-size: 10px; font-weight: 800; color: #fff; background: rgba(25,31,40,.62); width: 100%; padding: 7px 9px; border-radius: 0 0 10px 10px; }
-.wsv2flow .tpl-item b, .wsv2flow .tpl-item em { display: block; font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wsv2flow .tpl-item b { font-size: 11.5px; }
-.wsv2flow .tpl-item em { margin-top: 2px; font-size: 9.5px; opacity: .86; }
+/* [v541] 썸네일 = 디자인 자체가 보이게. 검은 제목 오버레이/그라데이션 제거. 선택=로즈테두리+체크+적용됨 pill. */
+.wsv2flow .tpl-item { position: relative; height: 122px; border-radius: var(--r-md); background: var(--frame) center/cover; border: 2px solid transparent; cursor: pointer; box-shadow: var(--shadow-sm); padding: 0; overflow: hidden; -webkit-touch-callout: none; }
+.wsv2flow .tpl-item.on { border-color: var(--brand-strong); box-shadow: 0 0 0 2px var(--brand-strong), var(--shadow-md); }
+.wsv2flow .tpl-item .tpl-check { position: absolute; right: 7px; bottom: 7px; z-index: 2; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--brand-strong); color: #fff; box-shadow: var(--shadow-sm); }
+.wsv2flow .tpl-item .tpl-check svg { width: 15px; height: 15px; }
+.wsv2flow .tpl-item .tpl-onpill { position: absolute; left: 7px; bottom: 7px; z-index: 2; font-style: normal; font-size: 10.5px; font-weight: 800; color: #fff; background: var(--brand-strong); padding: 3px 9px; border-radius: var(--r-pill); box-shadow: var(--shadow-sm); }
 /* [#3] 타입 뱃지(전후/후기/이벤트 등) — 카드 좌상단. 업로드 사진이 아닌 템플릿 메타를 표시 */
 /* [이슈5] 배지 가독성 — 9.5px 굵은글씨+좁은 자간(-.2px)이라 '스토리'가 '스로티'처럼 보이던 문제. 글자 키우고 자간 정상화. */
 .wsv2flow .tpl-item .tpl-badge { position: absolute; top: 7px; left: 7px; z-index: 1; width: auto; font-style: normal; font-size: 11px; line-height: 1.25; font-weight: 800; color: #fff; background: var(--brand-strong); padding: 3px 9px; border-radius: var(--r-pill); box-shadow: var(--shadow-sm); letter-spacing: 0; white-space: nowrap; }
@@ -427,6 +426,36 @@
 .wsv2flow .cap-car__dots { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 11px; }
 .wsv2flow .cap-car__dot { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }
 .wsv2flow .cap-car__dot.on { width: 20px; border-radius: 4px; background: var(--brand-strong); }
+/* [v541] 적용 결과 큰 캐러셀 — 작은 스트립 대신 인스타식 4:5 큰 미리보기 + Pair pill/액션 */
+.wsv2flow .tpl-car { margin: 12px 0 2px; }
+.wsv2flow .tpl-car .cap-car__slide { aspect-ratio: 4 / 5; height: auto; border-radius: var(--r-md); overflow: hidden; background: var(--frame); }
+.wsv2flow .tpl-car .cap-car__img { border-radius: var(--r-md); }
+.wsv2flow .tpl-car__pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 9px; }
+.wsv2flow button.tpl-car__pill { appearance: none; -webkit-appearance: none; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); font-family: inherit; font-size: 12px; font-weight: 800; height: 30px; padding: 0 13px; border-radius: var(--r-pill); cursor: pointer; }
+.wsv2flow button.tpl-car__pill.on { background: var(--brand-strong); color: #fff; border-color: transparent; }
+.wsv2flow .tpl-car__actions { display: flex; align-items: center; gap: 8px; margin-top: 11px; }
+.wsv2flow .tpl-car__active { font-size: 12.5px; font-weight: 800; color: var(--brand-strong); margin-right: auto; }
+.wsv2flow button.tpl-car__change { appearance: none; -webkit-appearance: none; height: 38px; padding: 0 14px; border: 1px solid var(--brand-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--brand-strong); font-family: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.wsv2flow button.tpl-car__edit { appearance: none; -webkit-appearance: none; height: 38px; padding: 0 14px; border: 0; border-radius: var(--r-pill); background: var(--brand-strong); color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.wsv2flow .tpl-car--single .cap-car__slide { aspect-ratio: 4 / 5; height: auto; border-radius: var(--r-md); overflow: hidden; }
+/* [v541] 썸네일 long press 확대 미리보기 — 중앙 둥근 시트(사이드바 위 z-index, 중앙배치라 미클립) */
+.tpl-preview { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity .18s ease; }
+.tpl-preview.open { opacity: 1; }
+.tpl-preview__backdrop { position: absolute; inset: 0; background: rgba(20,16,16,.5); }
+.tpl-preview__sheet { position: relative; z-index: 1; width: 100%; max-width: 440px; background: var(--surface, #fff); border-radius: 22px 22px 0 0; padding: 10px 18px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 40px rgba(0,0,0,.25); transform: translateY(14px); transition: transform .2s ease; }
+.tpl-preview.open .tpl-preview__sheet { transform: translateY(0); }
+@media (width >= 768px) { .tpl-preview { align-items: center; } .tpl-preview__sheet { border-radius: 22px; max-width: 380px; padding-bottom: 20px; } }
+.tpl-preview__grip { width: 38px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 4px auto 12px; }
+.tpl-preview__card { width: 100%; aspect-ratio: 4 / 5; max-height: 56vh; border-radius: var(--r-md); background: var(--frame) center/cover; box-shadow: var(--shadow-sm); }
+.tpl-preview__name { text-align: center; margin: 13px 0 4px; }
+.tpl-preview__name b { display: block; font-size: 15px; font-weight: 800; color: var(--text); }
+.tpl-preview__name span { display: block; margin-top: 3px; font-size: 12px; color: var(--text-subtle); }
+.tpl-preview__btns { display: flex; gap: 8px; margin-top: 14px; }
+.tpl-preview__btns button { appearance: none; -webkit-appearance: none; flex: 1; height: 46px; border-radius: var(--r-md); font-family: inherit; font-size: 13.5px; font-weight: 800; cursor: pointer; }
+.tpl-preview__apply { border: 0; background: var(--brand-strong); color: #fff; flex: 1.4 !important; }
+.tpl-preview__def { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+.tpl-preview__def.on { border-color: var(--brand-strong); color: var(--brand-strong); }
+.tpl-preview__close { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); flex: .7 !important; }
 .wsv2flow .cap-scenario-head { margin: 6px 2px 8px; font-size: 14px; font-weight: 800; letter-spacing: -.02em; color: var(--text); }
 .wsv2flow .cap-hashedit { width: 100%; margin: 2px 0 4px; min-height: 52px; border: 1px solid var(--border); border-radius: var(--r-md); padding: 10px 12px; font-size: 13px; line-height: 1.55; color: #3b82f6; font-weight: 600; font-family: inherit; resize: vertical; background: var(--surface); }
 .wsv2flow .cap-hashedit:focus { outline: none; border-color: var(--brand); }
