@@ -420,7 +420,7 @@
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
       const blum = blurD[i] * 0.299 + blurD[i + 1] * 0.587 + blurD[i + 2] * 0.114;
       const edge = Math.min(1, Math.abs(lum - blum) / TEXTURE_EDGE_TAU);   // 0(평탄)~1(edge)
-      const mix = 0.55 * c.txK * p.skinW * (1 - edge);                     // edge 일수록 블러 0
+      const mix = 0.72 * c.txK * p.skinW * (1 - edge);                     // [v540] 0.55→0.72 — 50에서 체감↑(edge 보존 유지)
       if (mix > 0.001) _mixBlur(d, i, blurD, mix, 0);
     }
     // [T-151] blemish — 작은 잡티(넓은블러=주변 피부톤보다 어두운 작은 점)만 주변톤으로 blend(inpaint-like).

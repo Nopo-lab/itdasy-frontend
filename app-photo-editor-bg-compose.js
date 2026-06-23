@@ -115,11 +115,14 @@
     return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
   }
 
+  // [v540] breathing room 0.92→0.97 — 누끼 후 피사체가 원본보다 ~8% 작아 보이던 미세 축소 완화.
+  //   (원본 프리뷰는 cover 로 꽉 차고, 합성본은 0.92 margin 으로 작아 보였음) 그림자 클리핑 방지로 3% 여백만 유지.
+  const PERSON_FILL = 0.97;
   function _personPlacement(personImg, CW, CH) {
     const bbox = _alphaBBox(personImg);
     const pw0 = bbox ? bbox.w : (personImg.naturalWidth || personImg.width);
     const ph0 = bbox ? bbox.h : (personImg.naturalHeight || personImg.height);
-    const scale = Math.min((CW * 0.92) / pw0, (CH * 0.92) / ph0);
+    const scale = Math.min((CW * PERSON_FILL) / pw0, (CH * PERSON_FILL) / ph0);
     return { bbox, dx: (CW - pw0 * scale) / 2, dy: (CH - ph0 * scale) / 2, dw: pw0 * scale, dh: ph0 * scale };
   }
 

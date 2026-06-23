@@ -432,8 +432,6 @@
       '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="비교"><span class="activebox"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><rect x="3" y="6" width="6" height="12" rx="1"/><rect x="15" y="8" width="6" height="8" rx="1"/></svg></span>비교</div>' +
       '<div class="eb" data-fl-eb="원본보기"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>원본보기</div>' +
       '<div class="eb" data-fl-eb="초기화"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>초기화</div>' +
-      // [v539] 마스크 보기 — 현재 부위(피부/헤어/눈·네일)가 어디에 인식됐는지 반투명 overlay 로 확인.
-      '<div class="eb' + (d.maskView ? ' active' : '') + '" data-fl-eb="마스크"><span class="activebox"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></span>마스크 보기</div>' +
       '</div>';
   }
   function _caret(open) { return '<svg class="ed-fold__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-' + (open ? 'up' : 'down') + '"/></svg>'; }
@@ -473,7 +471,11 @@
       var precTabsHtml = '<div class="ed-tabs">' + prec.map(function (t) {
         return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
       }).join('') + '</div>';
-      precBody = '<div class="ed-panel">' + precTabsHtml + inner + '</div>';
+      // [v540] 마스크 보기 — 정밀 조정 안으로 이동. 효과 부위 탭(피부/헤어/눈·눈썹/네일)에서만 노출(고급 제외).
+      var maskPill = (ptab !== 'tools')
+        ? '<div class="ed-maskpill-row"><button type="button" class="ed-maskpill' + (d.maskView ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기<span class="ed-maskpill__hint">지금 이 부위가 어디에 적용되는지</span></button><div class="ed-mask-helper" data-fl-maskhelper hidden></div></div>'
+        : '';
+      precBody = '<div class="ed-panel">' + precTabsHtml + maskPill + inner + '</div>';
     }
     return '<button type="button" class="ed-fold' + (d.advOpen ? ' open' : '') + '" data-fl-fold="adv"><span>정밀 조정 <em>피부·헤어·눈가·고급</em></span>' + _caret(d.advOpen) + '</button>' + precBody;
   }
@@ -619,12 +621,16 @@
   function _paintMaskCanvas(vp, mask, mw, mh, info, badge) {
     var ov = vp.querySelector('[data-fl-maskov]');
     if (!ov) return;
+    var helper = el && el.querySelector('[data-fs="edit"] [data-fl-maskhelper]');
     if (!mask || !mw || !mh) {
+      // [v540] 못 찾음 경고를 사진 좌상단(가림)에서 → 정밀 조정 패널 inline helper(부드럽게)로 이동.
       ov.hidden = true;
-      if (badge) { badge.hidden = false; badge.textContent = info.label + ' 영역을 찾지 못했어요 (기본 영역으로 적용)'; }
-      if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=0% (none)'); } catch (_e) { void _e; } }
+      if (badge) badge.hidden = true;
+      if (helper) { helper.hidden = false; helper.textContent = info.label + ' 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요'; }
+      if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + '-fallback coverage=0% (ROI 휴리스틱으로 보정)'); } catch (_e) { void _e; } }
       return;
     }
+    if (helper) helper.hidden = true;
     // mask(0..1) → tinted ImageData(mw×mh)
     var tmp = document.createElement('canvas'); tmp.width = mw; tmp.height = mh;
     var tctx = tmp.getContext('2d'); var idata = tctx.createImageData(mw, mh); var dd = idata.data;
@@ -646,7 +652,8 @@
   function _renderMaskOverlay() {
     var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
     var ov = vp.querySelector('[data-fl-maskov]'), badge = vp.querySelector('[data-fl-maskbadge]');
-    if (!d.maskView || d.originalPreview) { if (ov) ov.hidden = true; if (badge) badge.hidden = true; return; }
+    var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]');
+    if (!d.maskView || d.originalPreview) { if (ov) ov.hidden = true; if (badge) badge.hidden = true; if (helper0) helper0.hidden = true; return; }
     var photo = curEditPhoto(); if (!photo) return;
     var MA = window.MaskApplication;
     var info = _maskInfoForTab();
@@ -1312,8 +1319,18 @@
     _setEditSection('[data-ed-bottom]', _editBottomHtml());
     _refreshPreview();
   }
+  // [v540] 내 콘텐츠 편집 딥링크 — 진입 직후 해당 섹션으로 스크롤(+crop 은 비율 시트 바로 오픈).
+  function _applyFocusScroll() {
+    if (!d || !d._focusIntent || cur !== 'edit' || !el) return;
+    var intent = d._focusIntent; d._focusIntent = null;
+    if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[workspace-route] intent=' + intent + ' editTab=' + d.editTab + ' bgOpen=' + d.bgOpen + ' tplOpen=' + d.tplOpen); } catch (_e) { void _e; } }
+    var sel = intent === 'template' ? '[data-ed-tpl]' : intent === 'crop' ? '[data-ed-adv]' : '[data-ed-basic]';
+    var node = el.querySelector('[data-fs="edit"] ' + sel);
+    if (node && node.scrollIntoView) { try { node.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (_e2) { try { node.scrollIntoView(); } catch (_e3) { void _e3; } } }
+    if (intent === 'crop' && typeof openCropFlow === 'function') { try { openCropFlow(); } catch (_e4) { void _e4; } }
+  }
   function _editBottom(label) {
-    if (label === '마스크') { d.maskView = !d.maskView; _setEditSection('[data-ed-bottom]', _editBottomHtml()); _renderMaskOverlay(); if (d.maskView) toast('현재 부위 마스크를 표시해요'); return; }
+    if (label === '마스크') { d.maskView = !d.maskView; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderMaskOverlay(); if (d.maskView) toast('현재 부위 마스크를 표시해요'); return; }
     if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; _paintEditPhoto(); _setEditSection('[data-ed-bottom]', _editBottomHtml()); if (!d.originalPreview) _refreshPreview(); _renderMaskOverlay(); return; }
     if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(_snapEdit()); var s = d.undo.pop(); d.adjust = s.adjust || newAdjust(); d.beauty = s.beauty || newBeauty(); d.previewUrl = null; _repaintEditAfterAdjust(); } return; }
     if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(_snapEdit()); var r = d.redo.pop(); d.adjust = r.adjust || newAdjust(); d.beauty = r.beauty || newBeauty(); d.previewUrl = null; _repaintEditAfterAdjust(); } return; }
@@ -1930,7 +1947,13 @@
     // textOnly → 바로 게시글 화면으로
     var startScreen = opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload';
 	    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
+	    // [v540] 내 콘텐츠 편집 딥링크 — 버튼 의도(focus)에 맞춰 진입 탭/섹션 상태 미리 세팅(기존 콘텐츠 유지).
+	    d._focusIntent = (startScreen === 'edit' && opts.focus) ? opts.focus : null;
+	    if (d._focusIntent === 'background') { d.bgOpen = true; d.basicTool = 'background'; }
+	    else if (d._focusIntent === 'crop') { d.editTab = 'tools'; d.advOpen = true; }
+	    else if (d._focusIntent === 'template') { d.tplOpen = true; }
 	    setScreen(startScreen, { push: false });
+	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
 	    if (incomingFiles.length) addFiles(incomingFiles, true);
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
 	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);

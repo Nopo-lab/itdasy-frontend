@@ -336,7 +336,10 @@
       var k = slot ? ST().nextAction(slot).key : 'edit';
       screen = KEY2SCREEN[k] || 'edit';
     } else { screen = ACT2SCREEN[actKey] || 'edit'; }
-    _launchFlow(_drawerSlotId, screen, null);
+    // [v540] 편집 버튼 의도별 딥링크 — 사진편집/누끼·배경/비율자르기/템플릿이 각자 위치로 진입(기존 콘텐츠 유지).
+    var FOCUS = { '사진 편집': 'photo-edit', '누끼/배경': 'background', '비율 자르기': 'crop', '템플릿': 'template' };
+    var extra = FOCUS[actKey] ? { focus: FOCUS[actKey] } : null;
+    _launchFlow(_drawerSlotId, screen, null, extra);
   }
 
   /* ── V2 카드 상세 drawer ── */
