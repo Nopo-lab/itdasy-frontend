@@ -167,6 +167,7 @@
       _setEditSection('[data-ed-basic]', _mainAdjustHtml());
       _setEditSection('[data-ed-bottom]', _editBottomHtml());
       _setEditSection('[data-ed-adv]', _advFoldHtml());
+      if (d.maskView) _renderMaskOverlay();   // [v539] 사진 전환 시 마스크 overlay 갱신
       _warmEditMasks();
     });
   }
@@ -431,6 +432,8 @@
       '<div class="eb' + (d.originalPreview ? ' active' : '') + '" data-fl-eb="비교"><span class="activebox"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"/><rect x="3" y="6" width="6" height="12" rx="1"/><rect x="15" y="8" width="6" height="8" rx="1"/></svg></span>비교</div>' +
       '<div class="eb" data-fl-eb="원본보기"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>원본보기</div>' +
       '<div class="eb" data-fl-eb="초기화"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>초기화</div>' +
+      // [v539] 마스크 보기 — 현재 부위(피부/헤어/눈·네일)가 어디에 인식됐는지 반투명 overlay 로 확인.
+      '<div class="eb' + (d.maskView ? ' active' : '') + '" data-fl-eb="마스크"><span class="activebox"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4Z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></span>마스크 보기</div>' +
       '</div>';
   }
   function _caret(open) { return '<svg class="ed-fold__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-' + (open ? 'up' : 'down') + '"/></svg>'; }
@@ -576,7 +579,7 @@
     var pu = _editPhotoUrls();
     return '' +
       '<div class="ed-sec" data-ed-switcher>' + _editSwitcherHtml() + '</div>' +
-      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div></div>' +
+      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div><canvas class="ed-mask-ov" data-fl-maskov hidden></canvas><span class="ed-mask-badge" data-fl-maskbadge hidden></span></div>' +
       '<div class="ed-sec" data-ed-basic>' + _mainAdjustHtml() + '</div>' +
       '<div class="ed-sec" data-ed-bottom>' + _editBottomHtml() + '</div>' +
       '<div class="ed-sec" data-ed-adv>' + _advFoldHtml() + '</div>' +
@@ -593,7 +596,79 @@
   function _applyZoomTransform() {
     var p = el && el.querySelector('[data-fs="edit"] [data-fl-edphoto]'); if (!p) return;
     var z = d.zoom || { s: 1, tx: 0, ty: 0 };
-    p.style.transform = 'translate(' + z.tx + 'px,' + z.ty + 'px) scale(' + z.s + ')';
+    var tf = 'translate(' + z.tx + 'px,' + z.ty + 'px) scale(' + z.s + ')';
+    p.style.transform = tf;
+    var ov = el.querySelector('[data-fs="edit"] [data-fl-maskov]');   // [v539] 마스크 overlay 도 동일 변환
+    if (ov) ov.style.transform = tf;
+  }
+
+  // ── [v539] 마스크 보기 overlay — 현재 정밀 부위가 어디에 인식됐는지 반투명으로 표시 ──
+  function _maskInfoForTab() {
+    var tab = d.editTab || 'skin';
+    if (tab === 'hair') return { type: 'hairMask', label: '헤어', tint: [70, 200, 210] };
+    if (tab === 'eyes') return { type: 'eyeMask', label: '눈·눈썹', tint: [250, 205, 80] };
+    if (tab === 'nail') return { type: 'nailMask', label: '네일', tint: [130, 230, 165] };
+    return { type: 'skinMask', label: '피부·얼굴', tint: [236, 120, 150] };   // skin/default
+  }
+  function _coverBlit(ctx, srcCanvas, dw, dh) {
+    var iw = srcCanvas.width, ih = srcCanvas.height; if (!iw || !ih) return;
+    var s = Math.max(dw / iw, dh / ih), sw = dw / s, sh = dh / s;
+    var sx = Math.max(0, (iw - sw) / 2), sy = Math.max(0, (ih - sh) / 2);
+    ctx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, dw, dh);
+  }
+  function _paintMaskCanvas(vp, mask, mw, mh, info, badge) {
+    var ov = vp.querySelector('[data-fl-maskov]');
+    if (!ov) return;
+    if (!mask || !mw || !mh) {
+      ov.hidden = true;
+      if (badge) { badge.hidden = false; badge.textContent = info.label + ' 영역을 찾지 못했어요 (기본 영역으로 적용)'; }
+      if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=0% (none)'); } catch (_e) { void _e; } }
+      return;
+    }
+    // mask(0..1) → tinted ImageData(mw×mh)
+    var tmp = document.createElement('canvas'); tmp.width = mw; tmp.height = mh;
+    var tctx = tmp.getContext('2d'); var idata = tctx.createImageData(mw, mh); var dd = idata.data;
+    var R = info.tint[0], G = info.tint[1], B = info.tint[2], hit = 0, tot = mw * mh;
+    for (var i = 0; i < tot; i++) {
+      var m = mask[i] || 0; if (m > 0.3) hit++;
+      var a = m > 0.04 ? Math.min(0.55, m * 0.6) : 0;
+      var j = i * 4; dd[j] = R; dd[j + 1] = G; dd[j + 2] = B; dd[j + 3] = (a * 255) | 0;
+    }
+    tctx.putImageData(idata, 0, 0);
+    var vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
+    ov.width = vw; ov.height = vh; ov.hidden = false;
+    var octx = ov.getContext('2d'); octx.clearRect(0, 0, vw, vh);
+    _coverBlit(octx, tmp, vw, vh);
+    var cov = Math.round(hit / tot * 1000) / 10;
+    if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식됨 · ' + cov + '%'; }
+    if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=' + cov + '% dims=' + mw + 'x' + mh); } catch (_e) { void _e; } }
+  }
+  function _renderMaskOverlay() {
+    var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
+    var ov = vp.querySelector('[data-fl-maskov]'), badge = vp.querySelector('[data-fl-maskbadge]');
+    if (!d.maskView || d.originalPreview) { if (ov) ov.hidden = true; if (badge) badge.hidden = true; return; }
+    var photo = curEditPhoto(); if (!photo) return;
+    var MA = window.MaskApplication;
+    var info = _maskInfoForTab();
+    if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식 중…'; }
+    if (!MA || typeof MA.getMasksForBeauty !== 'function') { if (badge) badge.textContent = '마스크 모듈을 불러오지 못했어요'; return; }
+    var token = (d._maskTok = (d._maskTok || 0) + 1);
+    var url = photo.editedDataUrl || photo.dataUrl;
+    var img = new Image();
+    img.onload = function () {
+      if (token !== d._maskTok || !d.maskView) return;
+      Promise.resolve(MA.getMasksForBeauty(img)).then(function (mm) {
+        if (token !== d._maskTok || !d.maskView) return;
+        var mask = null, mw = 0, mh = 0;
+        if (info.type === 'nailMask' && typeof MA.getNailMaskSync === 'function') {
+          var nl = MA.getNailMaskSync(img); if (nl && nl.mask) { mask = nl.mask; mw = img.naturalWidth || img.width; mh = img.naturalHeight || img.height; }
+        }
+        if (!mask && mm && mm.useMasks && mm.useMasks[info.type]) { mask = mm.useMasks[info.type]; mw = mm.maskW; mh = mm.maskH; }
+        _paintMaskCanvas(vp, mask, mw, mh, info, badge);
+      }).catch(function () { _paintMaskCanvas(vp, null, 0, 0, info, badge); });
+    };
+    img.onerror = function () { if (badge) badge.textContent = '사진을 불러오지 못했어요'; };
+    img.src = url;
   }
 
   function _roleSummary() {
@@ -1033,7 +1108,7 @@
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _setEditSection('[data-ed-tpl]', _tplFoldHtml()); } return; }
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
-	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); if (d.maskView) _renderMaskOverlay(); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
 	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
@@ -1173,7 +1248,9 @@
 	    // 정밀(피부/헤어) 보정은 손 뗄 때 픽셀 연산(수백 ms) — 처리 중 표시로 "안 먹는 듯한" 체감 제거.
 	    var vp = el.querySelector('[data-fl-edvp]'); if (vp && _hasValues(d.beauty)) vp.classList.add('is-processing');
 	    var done = function () { var v = el.querySelector('[data-fl-edvp]'); if (v) v.classList.remove('is-processing'); };
-	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
+	    // [v539] 화면 미리보기는 다운스케일(긴 변 1100px)로 처리 → release 체감 렉 대폭 완화.
+	    //   실제 저장/템플릿 적용(applyEditToPhoto)은 previewMaxPx 없이 풀해상도로 재적용하므로 품질 손실 없음.
+	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty, previewMaxPx: 1100, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
 	      if (token !== d._pvTok) { done(); return; }
 	      if (!(r && r.ok && r.dataUrl)) { done(); return; }
 	      var paint = function (url) {
@@ -1193,7 +1270,20 @@
 	    var s = Math.max(w / iw, h / ih), dw = iw * s, dh = ih * s;
 	    c.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
 	  }
+	  // [v539] 보정된 인물(fgUrl, 투명) + 배경 재합성. rect 점프 수정:
+	  //   배경 '적용' 때와 동일한 PhotoEditorBgCompose.compose 경로를 재사용해 같은 ratio/배치/출력크기로 뽑는다.
+	  //   (과거엔 fgCutout 원본 크기로 합성 → editedDataUrl(4:5 등)과 aspect 불일치 → cover 에서 크기/위치 점프)
+	  //   compose 는 preRemovedBgUrl 로 매팅 스킵(빠름). srcUrl=원본(블러 배경 소스용).
 	  function _compositeBg(bgSpec, fgUrl) {
+	    var BC = window.PhotoEditorBgCompose;
+	    if (BC && typeof BC.compose === 'function' && bgSpec) {
+	      var bgd = bgSpec.action === 'image' ? { imageData: bgSpec.bgImage }
+	        : bgSpec.action === 'color' ? { type: 'procedural', color: bgSpec.color || '#ffffff' }
+	        : bgSpec.action === 'blur' ? { type: 'blur' } : { type: 'none' };
+	      return Promise.resolve(BC.compose({ srcUrl: bgSpec.origUrl || fgUrl, preRemovedBgUrl: fgUrl, bg: bgd, targetRatio: bgSpec.ratio || 'original' }))
+	        .then(function (r) { return (r && r.composedDataUrl) || fgUrl; })
+	        .catch(function () { return fgUrl; });
+	    }
 	    return new Promise(function (resolve) {
 	      var fg = new Image();
 	      fg.onload = function () {
@@ -1223,7 +1313,8 @@
     _refreshPreview();
   }
   function _editBottom(label) {
-    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; _paintEditPhoto(); _setEditSection('[data-ed-bottom]', _editBottomHtml()); if (!d.originalPreview) _refreshPreview(); return; }
+    if (label === '마스크') { d.maskView = !d.maskView; _setEditSection('[data-ed-bottom]', _editBottomHtml()); _renderMaskOverlay(); if (d.maskView) toast('현재 부위 마스크를 표시해요'); return; }
+    if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; _paintEditPhoto(); _setEditSection('[data-ed-bottom]', _editBottomHtml()); if (!d.originalPreview) _refreshPreview(); _renderMaskOverlay(); return; }
     if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(_snapEdit()); var s = d.undo.pop(); d.adjust = s.adjust || newAdjust(); d.beauty = s.beauty || newBeauty(); d.previewUrl = null; _repaintEditAfterAdjust(); } return; }
     if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(_snapEdit()); var r = d.redo.pop(); d.adjust = r.adjust || newAdjust(); d.beauty = r.beauty || newBeauty(); d.previewUrl = null; _repaintEditAfterAdjust(); } return; }
 	    if (label === '초기화') { d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; _repaintEditAfterAdjust(); toast('보정을 초기화했어요'); return; }
@@ -1250,7 +1341,9 @@
           if (!photo.preBgUrl) photo.preBgUrl = composeSrc;   // 최초 1회 원본 보관(되돌리기용)
           photo.editedDataUrl = r.dataUrl;
           photo.fgCutout = r.removedBg || null;   // 투명 인물 — 이후 보정은 여기에만
-          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl } : null;
+          // [v539] ratio 저장 — 직후 슬라이더 재합성(_compositeBg)이 적용 때와 '동일 비율/배치'로 출력해야
+          //   크기 점프가 안 생긴다. (editedDataUrl 은 ratioToSize(ratio) 크기, fgCutout 은 원본 크기라 불일치했음)
+          photo.bgSpec = photo.fgCutout ? { action: action, color: d.bgColor, bgImage: d.customBg, origUrl: photo.preBgUrl, ratio: CROP_RATIO[d.tplPurpose] || 'original' } : null;
           d.previewUrl = null; d.bgFail = false; toast('배경 적용 완료'); setScreen('edit'); _refreshPreview();
         }
         else { d.bgAction = prev; d.bgFail = true; d.bgFailMsg = (r && r.toast) || '배경 처리에 실패했어요'; toast(d.bgFailMsg); setScreen('edit'); }

@@ -103,10 +103,19 @@
     if (!_hasValues(opts.beauty)) return Promise.resolve({ ok: true, dataUrl: opts.src });
     return _loadImageCached(opts.src).then(function (img) {
       return _beautyMasksAsync(img, opts.beauty || {}, opts.maskKey).then(function (masks) {
-        var cv = document.createElement('canvas'); cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
+        // [v539] 프리뷰 다운스케일 — 드래그/release 체감 렉의 핵심은 풀해상도(naturalW×H) 픽셀 walk.
+        //   previewMaxPx 주면 긴 변을 그 값으로 줄여 처리(화면 표시는 background cover 라 동일하게 보임).
+        //   마스크는 풀 dims(maskW/H) 유지 → 엔진 _maskAt 가 캔버스↔마스크 비례 매핑하므로 정합 유지.
+        //   최종 저장/적용(applyEditToPhoto)은 previewMaxPx 없이 호출 → 풀해상도 품질 보존.
+        var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        var mx = opts.previewMaxPx || 0, w = iw, h = ih;
+        if (mx && Math.max(iw, ih) > mx) { var s = mx / Math.max(iw, ih); w = Math.max(1, Math.round(iw * s)); h = Math.max(1, Math.round(ih * s)); }
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
         var ctx = cv.getContext('2d', { willReadFrequently: true });
-        ctx.drawImage(img, 0, 0, cv.width, cv.height);
+        ctx.drawImage(img, 0, 0, w, h);
+        var _t0 = (window.performance && performance.now) ? performance.now() : 0;
         window.PhotoEditorBeautyEngine.apply(ctx, cv.width, cv.height, opts.beauty || {}, false, masks);
+        if (window.__ITDASY_PHOTO_DEBUG__ && _t0) { try { console.log('[photofx] apply ' + w + 'x' + h + ' (src ' + iw + 'x' + ih + ') path=' + (mx ? 'preview' : 'final') + ' time=' + Math.round(performance.now() - _t0) + 'ms'); } catch (_e) { void _e; } }
         return { ok: true, dataUrl: _encode(cv, opts.src) };
       });
     }).catch(function (e) { console.warn('[wsadapter] beauty', e); return { ok: false, reason: 'beauty' }; });
@@ -262,7 +271,7 @@
 	      var base = _hasValues(opts.adjust) ? WorkspaceAdapter.applyPixelAdjust({ src: src, adjust: opts.adjust }) : Promise.resolve({ ok: true, dataUrl: src });
 	      return base.then(function (r) {
 	        src = (r && r.ok && r.dataUrl) ? r.dataUrl : src;
-	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty, maskKey: opts.maskKey }) : { ok: true, dataUrl: src };
+	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty, maskKey: opts.maskKey, previewMaxPx: opts.previewMaxPx }) : { ok: true, dataUrl: src };
 	      });
 	    },
 	    applyWorkspaceTemplate: _applyWorkspaceTemplate,
