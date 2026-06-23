@@ -463,43 +463,23 @@
   //   PhotoEditorTemplateThumb.make 가 templateId 로 진짜 템플릿을 그려 dataURL 반환 → id별 1회 캐시.
   //   미로드/실패 시에만 고정 예시(_TPL_EX)로 폴백 — 업로드 사진은 어떤 경우에도 카드에 쓰지 않는다.
   var _tplThumbCache = {};
-  // [v534] 전후 썸네일용 샘플 before/after 사진(번들 cat-1/cat-2) 프리로드. 업로드 사진은 절대 미사용.
-  //   로드 완료 시 BA 썸네일 캐시를 무효화하고 템플릿 섹션을 재렌더 → 플레이스홀더 대신 실제 사진이 보이게.
-  var _baSample = { before: null, after: null, ready: false, _loading: false };
-  function _ensureBaSample() {
-    if (_baSample.ready || _baSample._loading) return;
-    _baSample._loading = true;
-    var b = new Image(), a = new Image(), n = 0;
-    function done() {
-      if (++n < 2) return;
-      _baSample.before = b; _baSample.after = a; _baSample.ready = true;
-      Object.keys(_tplThumbCache).forEach(function (k) { if (/^bp-ba-|wm-ba-/.test(k)) delete _tplThumbCache[k]; });
-      if (cur === 'edit' && el && el.querySelector('[data-ed-tpl] .tpl-grid2')) _setEditSection('[data-ed-tpl]', _tplFoldHtml());
-    }
-    b.onload = done; a.onload = done; b.onerror = done; a.onerror = done;
-    b.src = _TPL_EX.before_after; a.src = 'assets/workshop-cats/cat-2.jpg';
-  }
+  // [v535] 템플릿 카드 썸네일 = 사진 없는 '템플릿 디자인 자체'만 렌더(레이아웃/배지/카피).
+  //   업로드 사진은 물론 샘플 사진(cat-*)도 주입하지 않는다 — 카드엔 '이상한 미리 적용 사진'이 보이면 안 됨.
+  //   (v534 에서 넣었던 cat-1/cat-2 샘플 주입 제거. 사진은 적용(applyTemplate) 단계에서만 실제로 들어간다.)
   function _tplThumb(tpl) {
     if (_tplThumbCache[tpl.id]) return _tplThumbCache[tpl.id];
     var url = null;
-    var _isBa = tpl.purpose === 'before_after';
     try {
       if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
         var ratio = tpl.purpose === 'story' ? '9:16' : (tpl.purpose === 'event' ? '1:1' : '4:5');
         var shop = '';
         try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
-        var _mo = { ratio: ratio, shopName: shop };
-        // [v534] 전후 템플릿은 샘플 전/후 사진을 주입해 실제 레이아웃을 보여준다(플레이스홀더 방지).
-        if (_isBa) {
-          _ensureBaSample();
-          if (_baSample.ready) { _mo.photo = _baSample.after; _mo.beforePhoto = _baSample.before; _mo.photoKey = 'ba-sample'; }
-        }
-        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, _mo);
+        // 사진 미주입 → beautyPack 렌더러가 사진 슬롯을 깔끔한 플레이스홀더로 그린다.
+        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: ratio, shopName: shop });
       }
     } catch (_e2) { url = null; }
     url = url || _tplExample(tpl);
-    // 샘플 로드 전(플레이스홀더)이면 캐시하지 않음 → 로드 후 실제 사진 버전으로 갱신되게.
-    if (!(_isBa && !_baSample.ready)) _tplThumbCache[tpl.id] = url;
+    _tplThumbCache[tpl.id] = url;
     return url;
   }
   // [v531] purpose ↔ 콘텐츠 유형(cat) 매핑 + 유형별 기본 템플릿 조회(home.js 와 공유 저장소).

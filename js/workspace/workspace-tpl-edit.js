@@ -191,10 +191,11 @@
     function repaint() { _renderCanvas(canvas, id, found, sv, beforeImg, afterImg); }
     repaint();
 
-    // 실제 전/후 사진(있으면) 로드 → preview 에 반영. 없으면 샘플(cat-1/cat-2).
+    // [v535] 실제 전/후 사진(해당 Pair)만 preview 에 반영. 샘플/임의 사진은 주입하지 않는다 —
+    //   사진이 없으면 렌더러가 깔끔한 플레이스홀더를 그린다('이상한 미리 적용 사진' 방지).
     function _load(url, set) { if (!url) return; var im = new Image(); im.onload = function () { set(im); repaint(); }; im.onerror = function () {}; im.src = url; }
-    _load(cfg.beforeUrl || 'assets/workshop-cats/cat-1.jpg', function (im) { beforeImg = im; });
-    _load(cfg.afterUrl || 'assets/workshop-cats/cat-2.jpg', function (im) { afterImg = im; });
+    _load(cfg.beforeUrl, function (im) { beforeImg = im; });
+    _load(cfg.afterUrl, function (im) { afterImg = im; });
 
     function close() { ov.style.opacity = '0'; ov.style.transition = 'opacity .14s'; setTimeout(function () { if (ov.parentNode) ov.parentNode.removeChild(ov); }, 150); }
     function _resetInputsFrom(values) {
