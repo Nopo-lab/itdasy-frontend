@@ -463,19 +463,43 @@
   //   PhotoEditorTemplateThumb.make 가 templateId 로 진짜 템플릿을 그려 dataURL 반환 → id별 1회 캐시.
   //   미로드/실패 시에만 고정 예시(_TPL_EX)로 폴백 — 업로드 사진은 어떤 경우에도 카드에 쓰지 않는다.
   var _tplThumbCache = {};
+  // [v534] 전후 썸네일용 샘플 before/after 사진(번들 cat-1/cat-2) 프리로드. 업로드 사진은 절대 미사용.
+  //   로드 완료 시 BA 썸네일 캐시를 무효화하고 템플릿 섹션을 재렌더 → 플레이스홀더 대신 실제 사진이 보이게.
+  var _baSample = { before: null, after: null, ready: false, _loading: false };
+  function _ensureBaSample() {
+    if (_baSample.ready || _baSample._loading) return;
+    _baSample._loading = true;
+    var b = new Image(), a = new Image(), n = 0;
+    function done() {
+      if (++n < 2) return;
+      _baSample.before = b; _baSample.after = a; _baSample.ready = true;
+      Object.keys(_tplThumbCache).forEach(function (k) { if (/^bp-ba-|wm-ba-/.test(k)) delete _tplThumbCache[k]; });
+      if (cur === 'edit' && el && el.querySelector('[data-ed-tpl] .tpl-grid2')) _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+    }
+    b.onload = done; a.onload = done; b.onerror = done; a.onerror = done;
+    b.src = _TPL_EX.before_after; a.src = 'assets/workshop-cats/cat-2.jpg';
+  }
   function _tplThumb(tpl) {
     if (_tplThumbCache[tpl.id]) return _tplThumbCache[tpl.id];
     var url = null;
+    var _isBa = tpl.purpose === 'before_after';
     try {
       if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
         var ratio = tpl.purpose === 'story' ? '9:16' : (tpl.purpose === 'event' ? '1:1' : '4:5');
         var shop = '';
         try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
-        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: ratio, shopName: shop });
+        var _mo = { ratio: ratio, shopName: shop };
+        // [v534] 전후 템플릿은 샘플 전/후 사진을 주입해 실제 레이아웃을 보여준다(플레이스홀더 방지).
+        if (_isBa) {
+          _ensureBaSample();
+          if (_baSample.ready) { _mo.photo = _baSample.after; _mo.beforePhoto = _baSample.before; _mo.photoKey = 'ba-sample'; }
+        }
+        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, _mo);
       }
     } catch (_e2) { url = null; }
     url = url || _tplExample(tpl);
-    _tplThumbCache[tpl.id] = url;
+    // 샘플 로드 전(플레이스홀더)이면 캐시하지 않음 → 로드 후 실제 사진 버전으로 갱신되게.
+    if (!(_isBa && !_baSample.ready)) _tplThumbCache[tpl.id] = url;
     return url;
   }
   // [v531] purpose ↔ 콘텐츠 유형(cat) 매핑 + 유형별 기본 템플릿 조회(home.js 와 공유 저장소).
@@ -502,7 +526,11 @@
             '<div class="tpl-result__img" style="background-image:url(' + esc(o.outputUrl) + ')"></div>' +
             '<span class="tpl-result__lbl">' + esc(lbl) + (tname ? ' · ' + esc(tname) : '') + '</span>' +
             // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 갤러리에서 골라 교체(다른 짝은 유지).
-            (perPair ? '<button type="button" class="tpl-result__change" data-fl-tplpair="' + esc(o.pairId) + '">템플릿 바꾸기</button>' : '') +
+            // [v534] 짝별 '템플릿 수정' — 이 짝의 텍스트 레이어(시술명/후기/CTA 등)를 편집 시트에서 수정.
+            (perPair ? '<div class="tpl-result__btns">' +
+              '<button type="button" class="tpl-result__change" data-fl-tplpair="' + esc(o.pairId) + '">템플릿 바꾸기</button>' +
+              '<button type="button" class="tpl-result__edit" data-fl-tpledit="' + esc(o.pairId) + '">템플릿 수정</button>' +
+            '</div>' : '') +
             '</div>';
         }).join('') + '</div>'
       : '';
@@ -510,6 +538,8 @@
         '<span class="tpl-applied__t"><b>' + esc(banner) + '</b></span>' +
         // [v532] 전후는 '전체 바꾸기'(일괄)와 짝별 바꾸기(위 타일 버튼)를 분리. 비전후는 단일 '템플릿 바꾸기'.
         '<button type="button" class="tpl-applied__change" data-fl="tplchange">' + (isBA ? '전체 바꾸기' : '템플릿 바꾸기') + '</button>' +
+        // [v534] 비전후(단일 결과)는 헤더에서 바로 '문구 수정' 진입(전후는 타일별 '템플릿 수정' 사용).
+        (!isBA && outs.length ? '<button type="button" class="tpl-applied__edit" data-fl="tpleditactive">문구 수정</button>' : '') +
         '<button type="button" class="tpl-applied__release" data-fl="tplrelease">템플릿 해제하기</button>' +
       '</div>' + strip + '</div>';
   }
@@ -880,6 +910,16 @@
     if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
     // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
     opts.extra_notes = _buildExtraNotes(svc, d.regenSeq);
+    // [v534] 백엔드 우선맥락/variation 필드 — 백엔드가 service/treatment_keyword 를 prompt 에 직접 주입하고
+    //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
+    opts.treatment_keyword = svc;
+    opts.content_type = d.tplPurpose || 'feed';
+    opts.caption_intent = opts.caption_intent || 'generate';
+    opts.strict_user_context = true;
+    if (opts.caption_intent !== 'generate' && String(d.caption || '').trim()) {
+      opts.previous_caption = String(d.caption).slice(0, 1200);   // 변형 시 직전 캡션 반복 방지
+    }
+    opts.variation_seed = opts.caption_intent + '-' + (d.regenSeq || 0) + '-' + Date.now();
     // [Step5] 다중 결과물/템플릿 요약(트레이스용 — 백엔드 스키마엔 photo_context/extra_notes 텍스트로만 반영).
     opts.selectedTemplateId = d.templateId || null;
     opts.templateOutputs = _outs.map(function (o) { return { pairId: o.pairId, templateId: o.templateId, beforePhotoId: o.beforePhotoId, afterPhotoId: o.afterPhotoId, pairLabel: o.pairLabel }; });
@@ -923,7 +963,7 @@
       if (a === 'cta') { return onCta(); }
       if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); _repaintUpload(); return; }
       if (a === 'gen') { return doGenerate({}, null); }
-      if (a === 'regen') { return doGenerate({ _regen: true }, '게시글을 다시 생성했어요'); }
+      if (a === 'regen') { return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요'); }
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
       if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
@@ -970,6 +1010,9 @@
         toast('이 디자인을 고르면 Pair ' + (_idx0 >= 0 ? _idx0 + 1 : '') + ' 결과만 바뀌어요 (다른 짝은 그대로)');
         return;
       }
+      // [v534] 짝별 '템플릿 수정' — 텍스트 레이어 편집 시트 오픈(이 짝만 반영).
+      var tpledit = t.closest('[data-fl-tpledit]'); if (tpledit) { return _openTplEdit(tpledit.getAttribute('data-fl-tpledit')); }
+      if (a === 'tpleditactive') { return _openTplEdit(d.activeDisplayId || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].pairId)); }
       if (a === 'publish') { return publish(); }
       if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); return; }
@@ -1007,13 +1050,13 @@
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');
-	        if (vk === 'short') { return doGenerate({ length_tier: 'short', _regen: true }, '짧게 다시 생성했어요'); }
-	        if (vk === 'long')  { return doGenerate({ length_tier: 'long', _regen: true }, '길게 다시 생성했어요'); }
+	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
+	        if (vk === 'long')  { return doGenerate({ length_tier: 'long', caption_intent: 'longer', _regen: true }, '길게 다시 생성했어요'); }
 	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
 	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
 	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
-		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
-	        return doGenerate({ _regen: true }, '게시글을 다시 생성했어요');
+		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
+	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요');
 	      }
       var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
@@ -1311,7 +1354,32 @@
 	      setScreen('edit');
 	    });
 	  }
-	  // [이슈11] 템플릿 해제 — 적용 결과물만 비우고 원본 사진 리스트는 그대로 복구.
+	  // [v534] 짝별 템플릿 텍스트 레이어 수정 — 편집 시트 오픈 → onApply 로 해당 Pair 결과/slotValues 만 갱신.
+  function _openTplEdit(pairId) {
+    if (!(window.WorkspaceTplEdit && window.WorkspaceTplEdit.open)) { toast('템플릿 수정 모듈을 불러오지 못했어요'); return; }
+    var outs = d.templateOutputs || [];
+    var idx = -1; for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === pairId) { idx = i; break; } }
+    if (idx < 0) { toast('수정할 결과물을 찾지 못했어요'); return; }
+    var o = outs[idx];
+    var _photoUrl = function (pid) { var p = (d.photos || []).filter(function (x) { return String(x.id) === String(pid); })[0]; return p ? (p.editedDataUrl || p.dataUrl) : null; };
+    window.WorkspaceTplEdit.open({
+      templateId: o.templateId,
+      pairLabel: 'Pair ' + (idx + 1),
+      slotValues: o.slotValues || null,
+      beforeUrl: _photoUrl(o.beforePhotoId),
+      afterUrl: _photoUrl(o.afterPhotoId),
+      onApply: function (res) {
+        outs[idx].slotValues = res.slotValues;          // [v534] Pair별 slotValues 저장(다른 짝 비영향)
+        if (res.outputUrl) outs[idx].outputUrl = res.outputUrl;
+        d.templateOutputs = outs;
+        d.templateOutput = outs[0] && outs[0].outputUrl;
+        d.previewUrl = null;
+        _setEditSection('[data-ed-tpl]', _tplFoldHtml());
+        toast('Pair ' + (idx + 1) + ' 템플릿을 수정했어요');
+      },
+    });
+  }
+  // [이슈11] 템플릿 해제 — 적용 결과물만 비우고 원본 사진 리스트는 그대로 복구.
 	  //   원본(d.photos)은 애초에 손대지 않았으므로(이슈2) 결과물 필드만 비우면 원본 상태로 돌아간다.
 	  function releaseTemplate() {
 	    if (!d.templateId && !d.templateOutput) { toast('적용된 템플릿이 없어요'); return; }

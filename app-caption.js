@@ -1239,6 +1239,22 @@ Object.assign(window, {
    기존 캡션 탭 동작은 미변경(순수 additive, backward-compatible). caption payload 구조 변경 없음. */
 // [#6] 캡션 후처리 — 같은 문단/연속 같은 줄 중복 제거. 백엔드가 intro/body/CTA 를 중복으로 합쳐 보내거나
 //  같은 문단이 두 번 나오는 경우를 표시 직전에 한 번 더 걸러낸다(생성 후 post-process dedupe).
+// [v534] 본문/해시태그 완전 분리 — 본문 안의 모든 #토큰을 제거하고 hashtags 로 모은다(순서보존·중복제거).
+//   백엔드가 본문에 해시태그를 섞어 보내도 본문 textarea 엔 #이 0개가 되도록 프론트에서도 한 번 더 차단.
+function _splitBodyHashtags(text) {
+  text = String(text || '');
+  var tags = [], seen = Object.create(null);
+  (text.match(/#[^\s#]+/g) || []).forEach(function (m) {
+    var k = m.toLowerCase();
+    if (!seen[k]) { seen[k] = 1; tags.push(m); }
+  });
+  var body = text.replace(/#[^\s#]+/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .split('\n').map(function (ln) { return ln.replace(/\s+$/, ''); }).join('\n')
+    .replace(/\n{3,}/g, '\n\n').trim();
+  return { body: body, tags: tags };
+}
+
 function _dedupeCaptionText(text) {
   text = String(text || '');
   if (!text.trim()) return text.trim();
@@ -1318,11 +1334,24 @@ window.CaptionEngine = {
     //  박제 방지 + 의미 반영. 백엔드 제한(max 300자)에 맞춰 캡.
     const _extra = String(opts.extra_notes || '').trim();
     if (_extra) payload.extra_notes = _extra.slice(0, 300);
+    // [v534] 백엔드 우선맥락/variation 필드 전달 — 백엔드가 service/treatment_keyword 를 prompt 에 직접
+    //   주입하고 caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과 차단.
+    if (_svc) payload.treatment_keyword = String(opts.treatment_keyword || _svc).slice(0, 80);
+    if (opts.content_type) payload.content_type = String(opts.content_type).slice(0, 32);
+    payload.caption_intent = (['generate', 'rewrite', 'longer', 'instagram'].indexOf(opts.caption_intent) >= 0) ? opts.caption_intent : 'generate';
+    if (opts.previous_caption) payload.previous_caption = String(opts.previous_caption).slice(0, 1500);
+    if (opts.variation_seed) payload.variation_seed = String(opts.variation_seed).slice(0, 64);
+    payload.strict_user_context = (opts.strict_user_context !== false);
     const data = await _personaFetch('POST', '/persona/generate', payload);
-    const caption = _dedupeCaptionText(data.caption);   // [#6] 문단 단위 dedupe
+    // [v534] 백엔드가 body(해시태그 제거 본문)를 주면 우선 사용. 없으면 caption. 어느 쪽이든 본문에서 # 추가 제거.
+    const _rawBody = (typeof data.body === 'string' && data.body.trim()) ? data.body : data.caption;
+    const _sep = _splitBodyHashtags(_rawBody);   // [v534] 본문/해시태그 완전 분리
+    const caption = _dedupeCaptionText(_sep.body);   // [#6] 문단 단위 dedupe (해시태그 제거 후)
     if (!caption) throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');
+    // 해시태그: 백엔드 hashtags 우선 + 본문에서 분리된 태그 보강(중복 제거).
     const _seenTag = Object.create(null);
-    const tags = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : [])
+    const _merged = (Array.isArray(data.hashtags) ? data.hashtags : []).concat(_sep.tags);
+    const tags = shuffleHashtags(_merged)
       .map(t => String(t || '').trim().replace(/^#+/, '')).filter(Boolean)
       .filter(t => { const k = t.toLowerCase(); if (_seenTag[k]) return false; _seenTag[k] = 1; return true; })   // [#6] 해시태그 중복 제거
       .map(t => '#' + t);

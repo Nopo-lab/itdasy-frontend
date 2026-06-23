@@ -233,6 +233,12 @@
 .wsv2flow .tpl-result__lbl { display: block; margin-top: 5px; font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-align: center; }
 /* [v532] 짝(Pair)별 '템플릿 바꾸기' — 결과 타일 아래 작은 버튼. 이 짝만 갤러리에서 골라 교체. */
 .wsv2flow .tpl-result__change { display: block; width: 100%; margin-top: 5px; height: 26px; padding: 0 4px; border: 1px solid var(--brand-strong); border-radius: var(--r-pill); background: var(--surface); color: var(--brand-strong); font-size: 10.5px; font-weight: 800; cursor: pointer; }
+/* [v534] 짝별 버튼 그룹(바꾸기 + 수정) + '템플릿 수정'(채운 로즈). */
+.wsv2flow .tpl-result__btns { display: flex; flex-direction: column; gap: 4px; margin-top: 5px; }
+.wsv2flow .tpl-result__btns .tpl-result__change { margin-top: 0; }
+.wsv2flow .tpl-result__edit { display: block; width: 100%; height: 26px; padding: 0 4px; border: 0; border-radius: var(--r-pill); background: var(--brand-strong); color: #fff; font-size: 10.5px; font-weight: 800; cursor: pointer; }
+/* [v534] 적용 헤더의 '문구 수정' 진입. */
+.wsv2flow .tpl-applied__edit { flex: none; height: 32px; padding: 0 12px; border-radius: var(--r-pill); border: 0; background: var(--brand-strong); color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
 
 /* [이슈1] 전후 페어링 미리보기 — 어떤 전 사진이 어떤 후 사진과 묶이는지 명확히 */
 .wsv2flow .up-pairs { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 7px; }
