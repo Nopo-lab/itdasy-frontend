@@ -161,12 +161,20 @@
     ).join('')}</div>`;
     const regionSliders = reg.keys.map(k => _slider(esc, k, b[k])).join('');
 
+    // [v536] 부위 보정 탭에도 '정밀 마스크 상태'를 노출(접힘 기본) — 정밀(AI)인지 일반 보정(휴리스틱)인지
+    //   사용자가 알 수 있게. 무작정 적용되는 인상 제거. 상세 카드는 기존 MaskStatusUI 재사용.
+    const maskStatus = (window.MaskStatusUI && typeof window.MaskStatusUI.html === 'function')
+      ? `<details class="pe-beauty-maskstatus" style="margin:2px 0 10px;border:1px solid #F1DFE3;border-radius:12px;padding:2px 10px;background:#FFFCFD;">
+           <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#BC6675;padding:8px 0;list-style:none;">정밀 인식 상태 보기 · 어떻게 적용되는지</summary>
+           ${window.MaskStatusUI.html(state)}
+         </details>` : '';
+
     // 세부 조정(고급) — 부위 밖 기타(전체 선명도/팔다리 톤). 기본 접힘.
     const advBody = REGION_ETC_KEYS.map(k => _slider(esc, k, b[k])).join('');
     const advHtml = `<button type="button" data-pe-beauty-adv="1" class="pe-beauty-adv-toggle" aria-expanded="false"
             style="margin:14px 0 4px;width:100%;padding:11px;background:rgba(0,0,0,0.04);color:#4E5968;border:1px solid #E5E8EB;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">세부 조정 (고급) ▾</button>
          <div id="peBeautyAdv" hidden>${advBody}</div>`;
-    return `${recoHtml}${regionChips}${regionSliders}${advHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+    return `${recoHtml}${maskStatus}${regionChips}${regionSliders}${advHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
   }
 
   function _beautyQuickHTML(esc, cat) {
@@ -200,6 +208,10 @@
   function _bindBeautyPanel(panel, state, helpers) {
     const scheduleRedraw = helpers.scheduleRedraw;
     const pushHistory = helpers.pushHistory;
+    // [v536] 정밀 마스크 상태 카드(접힘) 새로고침 버튼 바인드.
+    if (window.MaskStatusUI && typeof window.MaskStatusUI.bind === 'function') {
+      try { window.MaskStatusUI.bind(panel, state, helpers); } catch (_e) { try { console.warn('[PhotoEditor:Mask] status bind 실패:', _e && _e.message); } catch (_l) { void _l; } }
+    }
     _bindBeautyQuick(panel, state, helpers);
     // PE-AI-1A — 부위 기반 추천 카드 바인드 (적용은 아래 슬라이더 경로와 동일).
     if (window.PhotoEditorRecoCards && typeof window.PhotoEditorRecoCards.bind === 'function') {

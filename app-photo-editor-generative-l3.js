@@ -27,8 +27,8 @@
     var u = _ui(state || {});
     return '<div class="pe-l3-panel">' +
       '<div class="pe-l3-head"><div><div class="pe-field-label">홍보컷 만들기</div>' +
-      '<div class="pe-l3-sub">배경, 무드, 여백만 mock으로 미리 봐요.</div></div>' +
-      '<span class="pe-l3-badge">Pro 크레딧 1장 예정</span></div>' +
+      '<div class="pe-l3-sub">실험실 기능이에요. 진짜 생성이 아니라 배경·무드·여백만 미리 보여줘요.</div></div>' +
+      '<span class="pe-l3-badge">실험실 · 미리보기(mock)</span></div>' +
       (!hasImg ? _emptyHtml() : _modeHtml(u) + _statusHtml(u, state)) +
       '</div>';
   }
@@ -43,9 +43,9 @@
       return '<button type="button" class="pe-l3-mode' + on + '" data-l3-mode="' + m.id + '">' +
         '<span>' + _esc(m.label) + '</span><small>' + _esc(m.desc) + '</small></button>';
     }).join('') + '</div>' +
-    '<div class="pe-l3-cost">생성 전 비용 안내: mock 단계라 실제 차감은 없고, 서버 응답은 not_charged_mock이에요.</div>' +
+    '<div class="pe-l3-cost">실험실 미리보기예요. 실제 생성·차감은 없어요(연결 전 단계).</div>' +
     '<button type="button" class="pe-action-btn pe-l3-create" data-l3-create ' +
-      (u.status === 'loading' ? 'disabled' : '') + '>홍보컷 미리보기 만들기</button>';
+      (u.status === 'loading' ? 'disabled' : '') + '>미리보기 만들기(실험실)</button>';
   }
 
   function _statusHtml(u, state) {
@@ -179,14 +179,21 @@
     ctx.restore();
   }
 
+  // [v536] mock 생성형은 진짜 생성형 AI가 아니라 로컬 미리보기(mock)다. 일반 사용자에게 정식 AI처럼
+  //   보이지 않도록 'ai' 패널 등록을 개발자 플래그 뒤로 둔다(localStorage.PE_GENERATIVE_MOCK='1').
+  //   플래그가 없으면 등록하지 않으므로 'ai' 탭은 항상 Itbi NL 패널만 보인다(로드순서 무관 결정적).
+  function _mockEnabled() {
+    try { return localStorage.getItem('PE_GENERATIVE_MOCK') === '1'; } catch (_e) { return false; }
+  }
   function _register() {
     var PE = window.PhotoEditor;
     if (!PE || !PE._internal) return false;
+    if (!_mockEnabled()) return true;   // 일반 사용자: 등록 생략(정식 기능처럼 노출 금지)
     PE._internal.registerTabPanel('ai', { html: _html, bind: _bind });
     return true;
   }
 
-  if (!_register()) {
+  if (_mockEnabled() && !_register()) {
     var t = 0;
     var iv = setInterval(function () { if (_register() || ++t > 50) clearInterval(iv); }, 100);
   }
