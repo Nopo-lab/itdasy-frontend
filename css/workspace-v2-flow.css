@@ -195,6 +195,17 @@
 .wsv2flow .ed-adv { padding: 14px; display: flex; flex-direction: column; gap: 9px; }
 .wsv2flow .ed-adv__btn { height: 46px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wsv2flow .ed-adv__btn svg { width: 18px; height: 18px; stroke: var(--brand-strong); }
+.wsv2flow .ed-adv__btn.on { border-color: var(--brand-strong); color: var(--brand-strong); }
+/* [v538] 전·후 사진 확인 — 인라인 역할 재지정 패널 */
+.wsv2flow .ed-roles { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.wsv2flow .ed-roles__row { display: flex; align-items: center; gap: 10px; }
+.wsv2flow .ed-roles__thumb { width: 44px; height: 44px; border-radius: 10px; background-size: cover; background-position: center; flex: 0 0 auto; border: 1px solid var(--border); }
+.wsv2flow .ed-roles__seg { display: inline-flex; gap: 4px; margin-left: auto; }
+.wsv2flow button.ed-roles__b { appearance: none; -webkit-appearance: none; cursor: pointer; font-family: inherit; min-width: 42px; height: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; }
+.wsv2flow button.ed-roles__b.on { background: var(--brand-strong); color: #fff; border-color: transparent; }
+.wsv2flow button.ed-roles__b.before.on { background: rgba(91,140,200,.95); }
+.wsv2flow .ed-roles__hint { font-size: 12px; color: var(--text-subtle); margin-top: 2px; }
+.wsv2flow .ed-roles-empty { font-size: 13px; color: var(--text-subtle); padding: 8px 2px; }
 .wsv2flow .tpl-picked { margin: 10px 2px 0; font-size: 12px; font-weight: 800; color: var(--brand-strong); }
 .wsv2flow .tpl-chips { display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; }
 .wsv2flow .tpl-chips::-webkit-scrollbar { height: 0; }

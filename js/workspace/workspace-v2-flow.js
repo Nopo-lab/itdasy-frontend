@@ -434,6 +434,23 @@
       '</div>';
   }
   function _caret(open) { return '<svg class="ed-fold__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-' + (open ? 'up' : 'down') + '"/></svg>'; }
+  // [v538] '전·후 사진 확인' 인라인 패널 — 토스트 대신, 선택 사진마다 전/후/기본을 바로 재지정.
+  //   화면 이동 없이 고급 탭 안에서 완결(CLAUDE.md 인라인 편집 철학). 기존 _setRole/_ROLE_SEG 재사용.
+  function _roleSegInline(role, i) {
+    return '<div class="ed-roles__seg" role="group" aria-label="이 사진 역할 지정">' +
+      _ROLE_SEG.map(function (rl) {
+        return '<button type="button" class="ed-roles__b' + (rl[0] === 'before' ? ' before' : '') + (role === rl[0] ? ' on' : '') + '" data-fl-setrole="' + i + ':' + rl[0] + '">' + rl[1] + '</button>';
+      }).join('') + '</div>';
+  }
+  function _rolesPanelHtml() {
+    var eps = editablePhotos();
+    if (!eps.length) return '<div class="ed-roles-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>';
+    return '<div class="ed-roles">' + eps.map(function (p) {
+      var idx = d.photos.indexOf(p);
+      var role = p.role || 'hero';
+      return '<div class="ed-roles__row"><span class="ed-roles__thumb" style="background-image:url(' + esc(photoUrl(p)) + ')"></span>' + _roleSegInline(role, idx) + '</div>';
+    }).join('') + '<div class="ed-roles__hint">전후 비교 템플릿은 <b>전</b>·<b>후</b>를 각각 1장 이상 지정하세요.</div></div>';
+  }
   function _advFoldHtml() {
     var prec = PRECISION_TABS;
     var ptab = d.editTab && prec.some(function (t) { return t.k === d.editTab; }) ? d.editTab : prec[0].k;
@@ -444,7 +461,8 @@
       if (ptab === 'tools') {
         inner = '<div class="ed-adv">' +
           '<button type="button" class="ed-adv__btn" data-fl="crop"><i class="ph-duotone ph-crop"></i>자르기</button>' +
-          '<button type="button" class="ed-adv__btn" data-fl="roles"><i class="ph-duotone ph-images"></i>전·후 사진 확인 (' + esc(_roleSummary()) + ')</button>' +
+          '<button type="button" class="ed-adv__btn' + (d.rolesOpen ? ' on' : '') + '" data-fl="roles" aria-expanded="' + (d.rolesOpen ? 'true' : 'false') + '"><i class="ph-duotone ph-images"></i>전·후 사진 확인 (' + esc(_roleSummary()) + ')</button>' +
+          (d.rolesOpen ? _rolesPanelHtml() : '') +
           '</div>';
       } else {
         inner = '<div class="ed-adv">' + _beautySlider(ptabObj.controls || [], d.precTool) + '</div>';
@@ -959,7 +977,7 @@
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; setScreen('preview'); return; }
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
-      if (a === 'roles') { toast('역할 — ' + _roleSummary()); return; }
+      if (a === 'roles') { d.rolesOpen = !d.rolesOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       if (a === 'tplrelease') { return releaseTemplate(); }
       if (a === 'applydefault') {
         // [v531] '기본 템플릿 적용하기' — 현재 유형의 기본 템플릿 자동 적용. 없으면 안내 후 카드에서 고르도록.
@@ -1007,7 +1025,7 @@
 
       if (t.closest('[data-fl-pick]')) { el.querySelector('[data-fl-file]').click(); return; }
       var del = t.closest('[data-fl-del]'); if (del) { e.stopPropagation(); d.photos.splice(+del.getAttribute('data-fl-del'), 1); reassignRoles(); setScreen('upload'); return; }
-      var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); return; }
+      var roleBtn = t.closest('[data-fl-setrole]'); if (roleBtn) { e.stopPropagation(); var _pr = roleBtn.getAttribute('data-fl-setrole').split(':'); _setRole(+_pr[0], _pr[1]); if (d.rolesOpen) _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       // [#2] 타일 탭 = 선택/해제 토글. 역할/삭제 버튼은 위에서 이미 처리됨.
       var upTile = t.closest('[data-fl-tile]'); if (upTile && cur === 'upload') { e.stopPropagation(); _toggleSelect(+upTile.getAttribute('data-fl-tile')); return; }
       if (t.closest('[data-fl-edphoto]')) { return; }
