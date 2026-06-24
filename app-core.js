@@ -68,12 +68,40 @@ window._fireDataChanged = window._fireDataChanged || function (detail) {
   }, 50);
 };
 
-// [UX-LOAD] 로딩 오버레이 해제 — fade out 후 display:none
+// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(깜빡임 방지) + 쫀득 페이드아웃 공통값
+var _LOAD_MIN_MS = 1000;
+function _loaderFadeOut(lo) {
+  lo.style.opacity = '0';
+  lo.style.transform = 'scale(1.04)';
+  setTimeout(function () { lo.style.display = 'none'; lo.style.opacity = ''; lo.style.transform = ''; }, 440);
+}
+
+// [UX-LOAD] 로딩 오버레이 해제 — 최소 1초 보장 후 쫀득 페이드아웃 (인사 없는 경로용: 토큰 자동로그인/워치독)
 function _hideLoadingOverlay() {
   var lo = document.getElementById('appLoadingOverlay');
   if (!lo || lo.style.display === 'none') return;
-  lo.style.opacity = '0';
-  setTimeout(function() { lo.style.display = 'none'; lo.style.opacity = ''; }, 350);
+  var wait = Math.max(0, _LOAD_MIN_MS - (Date.now() - (window._loadShownAt || 0)));
+  setTimeout(function () { _loaderFadeOut(lo); }, wait);
+}
+
+// [UX-LOAD] 로그인 직후: preload → 최소시간 → 인사(1회) → 쫀득 해제 (로그인/로딩/인사 한 화면 통일)
+async function _finishLoginLoad(withGreeting) {
+  try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
+  var rest = _LOAD_MIN_MS - (Date.now() - (window._loadShownAt || Date.now()));
+  if (rest > 0) await new Promise(function (r) { setTimeout(r, rest); });
+  if (withGreeting) {
+    var shopName = '';
+    try { shopName = localStorage.getItem('shop_name') || ''; } catch (_) { /* ignore */ }
+    if (shopName) {
+      var g = document.getElementById('ldGreet'), w = document.getElementById('ldWave'), n = document.getElementById('ldGreetName');
+      if (n) n.textContent = shopName;
+      if (w) w.style.opacity = '0';
+      if (g) { g.style.opacity = '1'; g.style.transform = 'translateY(0)'; }
+      await new Promise(function (r) { setTimeout(r, 1300); });
+    }
+  }
+  var lo = document.getElementById('appLoadingOverlay');
+  if (lo && lo.style.display !== 'none') _loaderFadeOut(lo);
 }
 
 // ===== 백엔드 설정 =====
@@ -157,18 +185,6 @@ function _nextToast() {
   }, duration);
 }
 
-function showWelcome(shopName) {
-  const overlay = document.getElementById('welcomeOverlay');
-  const nameEl  = document.getElementById('welcomeShopName');
-  if (!overlay) return;
-  if (nameEl) nameEl.textContent = shopName || '사장';
-  overlay.classList.add('show');
-  setTimeout(() => {
-    overlay.classList.add('hide');
-    setTimeout(() => overlay.classList.remove('show', 'hide'), 400);
-  }, 1800);
-}
-
 function isKakaoTalk() {
   return /KAKAOTALK/i.test(navigator.userAgent);
 }
@@ -208,10 +224,8 @@ function updateHeaderProfile(handle, tone, picUrl) {
   if (publishLabel) publishLabel.textContent = `${shopName} 피드에 바로 올리기`;
 
   // 헤더 아바타: 이미지 있으면 img, 없으면 이니셜
-  // (가입 방법 배지 #headerProviderBadge 는 보존)
   const avatarEl = document.getElementById('headerAvatar');
   if (avatarEl) {
-    const badge = document.getElementById('headerProviderBadge');
     const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
     if (picUrl) {
       // referrerpolicy: 인스타 CDN 은 referrer 있으면 403 → no-referrer 필수
@@ -220,16 +234,9 @@ function updateHeaderProfile(handle, tone, picUrl) {
       const _img = avatarEl.querySelector('img');
       if (_img) _img.onerror = function () {
         avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
-        if (badge) avatarEl.appendChild(badge);
       };
     } else {
       avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
-    }
-    // 배지 다시 붙이기 (innerHTML 로 날아갔으므로)
-    if (badge) avatarEl.appendChild(badge);
-    // 현재 저장된 가입 방법 즉시 반영
-    if (typeof window.applyOAuthProviderBadge === 'function') {
-      window.applyOAuthProviderBadge();
     }
   }
 
@@ -714,37 +721,12 @@ async function applyNewSession(newToken, opts) {
             Promise.resolve(window.renderHomeResume()).catch(() => {});
           }
         } catch (_e) { void _e; }
-        if (typeof window.applyOAuthProviderBadge === 'function') {
-          window.applyOAuthProviderBadge();
-        }
       }
     }
   }).catch(() => { /* network error → 무시 */ });
   // sync 결과는 await 안 함 — UI 차단 회피
 }
 window.applyNewSession = applyNewSession;
-
-// 헤더 아바타에 가입방법 배지 색·툴팁 적용
-function applyOAuthProviderBadge() {
-  let prov = 'email';
-  try { prov = localStorage.getItem('user_oauth_provider') || 'email'; } catch (_) { void 0; }
-  const allow = new Set(['email', 'google', 'kakao', 'apple']);
-  if (!allow.has(prov)) prov = 'email';
-  const el = document.getElementById('headerProviderBadge');
-  if (!el) return;
-  el.dataset.provider = prov;
-  const labels = {
-    email: '잇데이 계정으로 가입',
-    google: '구글 계정으로 가입',
-    kakao: '카카오 계정으로 가입',
-    apple: 'Apple 계정으로 가입',
-  };
-  el.title = labels[prov];
-  el.setAttribute('aria-label', '가입 방법: ' + (
-    prov === 'email' ? '잇데이' : prov === 'google' ? '구글' : prov === 'kakao' ? '카카오' : 'Apple'
-  ));
-}
-window.applyOAuthProviderBadge = applyOAuthProviderBadge;
 
 function _setAuthGateLocked(locked) {
   if (document.body) document.body.classList.toggle('itdasy-locked', !!locked);
@@ -1283,15 +1265,14 @@ async function login() {
     checkCbt1Reset();
     checkOnboarding().catch(() => {});
     document.getElementById('lockOverlay').classList.add('hidden');
-    // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload 완료 후 해제
+    // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload + 최소시간 + 인사 후 쫀득 해제
     var _lo = document.getElementById('appLoadingOverlay');
-    if (_lo) _lo.style.display = 'flex';
+    if (_lo) { _lo.style.display = 'flex'; window._loadShownAt = Date.now(); }
     checkInstaStatus(true);
     // T-317 — 생체 인증 등록 제안 (한 번만)
     _offerBiometricEnroll(data.access_token);
-    // Wave 2+ — 로그인 직후 주요 데이터 preload (탭 열 때 즉시 표시)
-    try { await _preloadTabs(); } catch (_) { /* ignore */ }
-    _hideLoadingOverlay();
+    // Wave 2+ — preload + 최소노출 + 인사("반갑습니다 OO 대표님!") 한 화면에서 처리
+    await _finishLoginLoad(true);
     // [2026-04-26 0초딜레이] 홈 화면 AI 추천 카드 즉시 렌더 (500ms 딜레이 제거)
     // SWR 캐시 있으면 0ms, 없으면 fetch — 어차피 비동기라 메인 쓰레드 블로킹 X
     if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
@@ -1721,12 +1702,11 @@ window.addEventListener('load', function() {
       if (ok) {
         document.getElementById('lockOverlay').classList.add('hidden');
         var _lo2 = document.getElementById('appLoadingOverlay');
-        if (_lo2) _lo2.style.display = 'flex';
+        if (_lo2) { _lo2.style.display = 'flex'; window._loadShownAt = Date.now(); }
         _setAuthGateLocked(false);
         checkOnboarding().catch(() => {});
         checkInstaStatus(true);
-        try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
-        _hideLoadingOverlay();
+        await _finishLoginLoad(true);
       }
     }
   })();
@@ -1735,8 +1715,7 @@ window.addEventListener('load', function() {
   if(getToken()) {
     document.getElementById('lockOverlay').classList.add('hidden');
     _setAuthGateLocked(false);
-    // 가입방법 배지 + last_user_id 보정 (기존 캐시값으로 즉시 + /me 로 갱신)
-    try { applyOAuthProviderBadge(); } catch (_) { /* ignore */ }
+    // last_user_id 보정 (기존 캐시값으로 즉시 + /me 로 갱신)
     try { applyNewSession(getToken()); } catch (_) { /* ignore */ }
     checkCbt1Reset();
     checkOnboarding().catch(() => {});
@@ -2267,7 +2246,6 @@ window.apiUrl = apiUrl;
 window.apiFetch = apiFetch;
 window.authHeader = authHeader;
 Object.assign(window, {
-  showWelcome,
   isKakaoTalk,
   showInstallGuide,
   hideInstallGuide,

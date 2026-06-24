@@ -155,6 +155,10 @@ window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
   .login-wordmark{font-size:34px;font-weight:800;color:var(--text,#191F28);letter-spacing:-1.2px;line-height:1}
   .login-wordmark .login-wm-accent{color:var(--accent,var(--brand))}
   .login-wordmark-sub{font-size:11.5px;font-weight:600;color:var(--text3,#aab2bc);letter-spacing:1.6px;margin-top:9px}
+  .login-wordmark-sub span{display:inline-block;opacity:0;animation:loginFadeUp .5s ease-out both}
+  .login-wordmark-sub span:nth-child(1){animation-delay:.5s}
+  .login-wordmark-sub span:nth-child(2){animation-delay:.68s}
+  .login-wordmark-sub span:nth-child(3){animation-delay:.86s}
 
   .login-form{width:100%}
   .login-field{width:100%;height:54px;border-radius:14px;background:var(--bg2,#F4F6F8);border:1px solid transparent;padding:0 16px;font-size:14.5px;font-weight:500;color:var(--text,#191F28);font-family:inherit;letter-spacing:-.3px;margin-bottom:9px;box-sizing:border-box;outline:none;transition:border-color .15s,background .15s}
@@ -554,13 +558,23 @@ window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
 </div>
 
 <!-- [UX-LOAD] 앱 초기 로딩 오버레이 — 데이터 준비 완료 시 숨김 -->
-<div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--surface,#fff);flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.3s;">
-  <div style="font-size:22px;font-weight:800;color:var(--accent,var(--brand));letter-spacing:-0.5px;">잇데이</div>
-  <div style="font-size:11px;color:var(--text3,#999);margin-top:4px;">준비 중이에요...</div>
-  <div style="margin-top:20px;width:36px;height:36px;border:3px solid var(--border,#eee);border-top-color:var(--accent,var(--brand));border-radius:50%;animation:_ldSpin 0.7s linear infinite;"></div>
-  <div id="appLoadingDiag" style="margin-top:24px;max-width:300px;font-size:10px;color:#c33;text-align:center;white-space:pre-wrap;word-break:break-word;display:none;"></div>
+<div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--surface,#fff);transition:opacity .42s cubic-bezier(.4,0,.2,1),transform .42s cubic-bezier(.34,1.56,.64,1);">
+  <div style="position:absolute;top:38%;left:0;right:0;text-align:center;font-size:34px;font-weight:800;letter-spacing:-1.2px;color:var(--text,#191F28);">Itda<span style="color:var(--accent,var(--brand))">sy</span></div>
+  <div id="ldWave" style="position:absolute;top:50%;left:0;right:0;display:flex;justify-content:center;gap:7px;transition:opacity .35s ease;">
+    <span></span><span></span><span></span>
+  </div>
+  <div id="ldGreet" style="position:absolute;top:45%;left:0;right:0;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .45s ease,transform .45s cubic-bezier(.34,1.56,.64,1);pointer-events:none;">
+    <div style="font-size:24px;font-weight:800;color:var(--text,#191F28);letter-spacing:-.6px;line-height:1.35;">반갑습니다,<br><span id="ldGreetName" style="color:var(--accent,var(--brand))">사장</span> 대표님!</div>
+    <div style="font-size:12px;color:var(--text-subtle,#8B95A1);margin-top:8px;">오늘도 잇데이와 함께해요</div>
+  </div>
+  <div id="appLoadingDiag" style="position:absolute;bottom:40px;left:0;right:0;margin:0 auto;max-width:300px;font-size:10px;color:#c33;text-align:center;white-space:pre-wrap;word-break:break-word;display:none;"></div>
 </div>
-<style>@keyframes _ldSpin{to{transform:rotate(360deg)}}</style>
+<style>
+@keyframes _ldWave{0%,65%,100%{transform:translateY(0);opacity:.32}30%{transform:translateY(-9px);opacity:1}}
+#ldWave span{width:9px;height:9px;border-radius:50%;background:var(--accent,var(--brand));animation:_ldWave 1s ease-in-out infinite}
+#ldWave span:nth-child(2){animation-delay:.16s}
+#ldWave span:nth-child(3){animation-delay:.32s}
+</style>
 <script>
   // [2026-05-14 흰화면-fix] 로딩 오버레이 watchdog — 12초 후에도 안 사라지면 강제 hide.
   //   원인 후보: _preloadTabs() hang 또는 throw / JS init 단계 unhandled error.
@@ -630,7 +644,7 @@ window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
         _ov.style.display = '';
         // [UX-LOAD] 토큰 있으면 로딩 화면 표시 — 데이터 준비 후 app-core.js에서 숨김
         var _lo = document.getElementById('appLoadingOverlay');
-        if (_lo) _lo.style.display = 'flex';
+        if (_lo) { _lo.style.display = 'flex'; window._loadShownAt = Date.now(); }
       } else {
         // 토큰 없음 — 로그인 화면.
         if (document.body) { document.body.classList.add('itdasy-locked'); }
@@ -643,7 +657,7 @@ window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
   </script>
   <div class="login-brand-wrap login-fade-1">
     <div class="login-wordmark">Itda<span class="login-wm-accent">sy</span></div>
-    <div class="login-wordmark-sub">it's day. easy.</div>
+    <div class="login-wordmark-sub"><span>it's</span> <span>day.</span> <span>easy.</span></div>
   </div>
 
   <div class="login-form login-fade-3" style="width:100%;max-width:340px;">
@@ -825,16 +839,18 @@ window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
 </div>
 
 <div class="app-header">
-  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
-    <div class="logo" data-static-action="tab-home" style="cursor:pointer;">잇데이 <span>STUDIO</span></div>
-    <span id="appVersionBadge" data-static-action="recent-logs" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
+  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+    <div style="display:flex;align-items:baseline;gap:6px;">
+      <div class="logo" data-static-action="tab-home" style="cursor:pointer;">Itda<span>sy</span></div>
+      <span id="appVersionBadge" data-static-action="recent-logs" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
+    </div>
+    <div class="logo-slogan">하루를 잇다, 쉽게</div>
   </div>
   <div style="display:flex; align-items:center; gap:8px;">
     <span id="headerShopName" style="display:none;">사장님</span>
     <div class="header-persona" id="headerPersona">
       <div class="profile-avatar" id="headerAvatar">
         <span class="profile-avatar__initial">잇</span>
-        <span class="profile-avatar__provider" id="headerProviderBadge" data-provider="email" title="잇데이 계정으로 가입" aria-label="가입 방법: 잇데이"></span>
       </div>
     </div>
     <button id="planBadge" data-haptic="light" data-static-action="plan" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">체험</button>
@@ -1645,15 +1661,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   </div>
 </div>
 
-<!-- 로그인 환영 오버레이 -->
-<div id="welcomeOverlay">
-  <div class="welcome-ribbon">🎀</div>
-  <div class="welcome-name">반갑습니다,<br><span id="welcomeShopName">사장</span>대표님!</div>
-  <div class="welcome-sub">오늘도 잇데이와 함께해요</div>
-  <div class="welcome-dots">
-    <span></span><span></span><span></span>
-  </div>
-</div>
+<!-- [2026-06-25] 구 #welcomeOverlay(🎀 분홍) 제거 — 인사는 #appLoadingOverlay 의 #ldGreet 단계로 통합 -->
 
 <!-- 마무리 탭 -->
 <div class="tab" id="tab-finish">

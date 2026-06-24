@@ -168,16 +168,16 @@
     padding: 8px 24px !important;
     min-height: var(--app-header-h);
   }
-  /* 로고 영역 column → row 인라인. STUDIO 스팬은 hide. */
+  /* 로고 영역: 컴팩트 44px 헤더 — 워드마크만, 슬로건은 hide ('sy' 악센트는 유지) */
   .app-header > div:first-child {
     flex-direction: row !important;
     align-items: center;
     gap: 8px;
   }
   .logo {
-    font-size: 14px !important;
+    font-size: 16px !important;
   }
-  .logo span {
+  .logo-slogan {
     display: none !important;
   }
   /* 사이드바도 헤더 아래로 시작 */

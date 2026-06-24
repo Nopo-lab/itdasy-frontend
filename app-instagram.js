@@ -58,10 +58,8 @@ async function checkInstaStatus(fromLogin = false) {
     if (!res.ok) return;
     const data = await res.json();
 
-    // 서버에 shop_name 있으면 → 재로그인 환영 (로그인 직후 1회만)
-    if (fromLogin && data.shop_name) {
-      showWelcome(data.shop_name);
-    }
+    // [2026-06-25] 재로그인 환영(showWelcome) 제거 — 인사는 app-core 의 _finishLoginLoad 가
+    //   로딩 화면(#ldGreet)에서 localStorage shop_name 으로 직접 처리. (fromLogin 은 시그니처 호환용)
 
     // 3단계 인디케이터 상태 업데이트 (인스타 연동 / 말투 학습 / 첫 글 완성)
     const updateStep = (id, done) => {

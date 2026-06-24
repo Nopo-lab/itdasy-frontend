@@ -32,25 +32,32 @@
     } catch (_e) { return null; }
   }
   async function _fetchBrief() {
-    const headers = _authHeaders();
-    if (!window.API || !headers) {
-      // [2026-05-20] 디버그 — brief 가 null 로 새는 원인 추적용
-      if (!headers) console.warn('[brief] 인증 헤더 없음 - 로그인 상태 확인');
-      return null;
-    }
-    try {
-      const res = await apiFetch('/assistant/brief', { headers });
-      if (!res.ok) {
-        console.warn('[brief] API 응답 실패:', res.status);
-        return null;
+    // [2026-06-25] 콜드스타트/인증헤더 레이스 방어 — "연결이 불안정해요" 오발생 차단.
+    //   apiFetch 는 글로벌 재시도 래퍼를 안 거쳐서 1회 실패 시 그대로 null 이 됐고,
+    //   로그인 직후 인증헤더가 아직 안 붙었거나 BE 콜드스타트 5xx 면 새로고침해야만 떴음.
+    //   → 에러화면 띄우기 전 백오프로 최대 3회 재시도 (인증 대기 + 일시 5xx/네트워크 모두 흡수).
+    const BACKOFF = [0, 800, 2000];
+    for (let attempt = 0; attempt < BACKOFF.length; attempt++) {
+      if (BACKOFF[attempt]) await new Promise(r => setTimeout(r, BACKOFF[attempt]));
+      const headers = _authHeaders();
+      if (!window.API || !headers) {
+        if (!headers) console.warn('[brief] 인증 헤더 대기 중 (attempt ' + attempt + ')');
+        continue;
       }
-      const data = await _withBookingRevenue(await res.json());
-      _writeSWR(data);
-      return data;
-    } catch (_e) {
-      console.warn('[brief] fetch 예외:', _e);
-      return null;
+      try {
+        const res = await apiFetch('/assistant/brief', { headers });
+        if (!res.ok) {
+          console.warn('[brief] API 응답 실패:', res.status, '(attempt ' + attempt + ')');
+          continue;
+        }
+        const data = await _withBookingRevenue(await res.json());
+        _writeSWR(data);
+        return data;
+      } catch (_e) {
+        console.warn('[brief] fetch 예외 (attempt ' + attempt + '):', _e);
+      }
     }
+    return null;
   }
   async function _withBookingRevenue(data) {
     if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichBrief !== 'function') return data;
