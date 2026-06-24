@@ -462,7 +462,9 @@
           const BA = window.MaskBrowAdapter;
           if (BA && typeof BA.browMask === 'function') {
             const t = await BA.browMask(img, _imgSize(img));
-            if (t && t.mask) { result = _dilateRegion(t, img, 0.01); break; }   // [v546] 눈썹 ROI 확장
+            // [v551] dilation 0.01→0.004 — 0.01 은 실제 눈썹보다 위(이마/눈썹뼈)로 번지고 두꺼워
+            //   "눈썹 선명도"가 이마까지 건드림(실QA 확인). landmark hull 근처로 타이트하게 유지.
+            if (t && t.mask) { result = _dilateRegion(t, img, 0.004); break; }   // [v546→v551] 눈썹 ROI 보수적 확장
           }
           result = _emptyResult('fallback', 'brow adapter unavailable or no eyebrow landmarks');
           break;
