@@ -628,9 +628,12 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
   const category      = _CAP_CAT_MAP[shopType] || 'extension';
   const photo_context = `${baseContext} ${slotNote}${axesText} ${specialText}`.trim();
   const length_tier   = 'medium';
-  const tone_override = 'normal';
+  // [v555] 말투 카드 선택값(없으면 추천 기본값 natural_owner). regenerate 도 이 payload 를 상속.
+  const tone_override = (window._selectedTone || 'natural_owner');
 
   const payload = { category, photo_context, length_tier, tone_override };
+  // [v555] 선택한 시술 특징을 키워드 채널로도 전달 → 백엔드가 본문/해시태그에 명시 반영.
+  if (types && types.length) payload.treatment_keyword = types.join(', ').slice(0, 80);
   _lastGeneratePayload = payload;  // 재생성 버튼용
   if (typeof window._assertSpec === 'function') window._assertSpec('POST /persona/generate', payload);
 
@@ -1033,6 +1036,8 @@ async function regenerateCaption(overrides = {}) {
     return;
   }
   const payload = { ..._lastGeneratePayload, ...overrides };
+  // [v555] 다시쓰기/더 길게/인스타스럽게에도 현재 선택한 말투 유지(명시 override 우선).
+  if (!('tone_override' in overrides) && window._selectedTone) payload.tone_override = window._selectedTone;
   _lastGeneratePayload = payload;
   const ta = document.getElementById('captionText');
   if (ta) { ta.value = '새로 쓰는 중...'; _capAutoGrow(ta); }
@@ -1358,3 +1363,19 @@ window.CaptionEngine = {
     return { caption, hashtags: tags, hashtagsText: tags.join(' '), log_id: data.log_id || null };
   },
 };
+
+// [v555] 말투 카드 선택 — 위임 핸들러(정적 마크업이라 한 번만 바인딩). 선택값은 window._selectedTone.
+//   선택하지 않으면 기본 추천값 natural_owner(첫 카드 .on)로 동작.
+window._selectedTone = window._selectedTone || 'natural_owner';
+document.addEventListener('click', function (e) {
+  const card = e.target && e.target.closest ? e.target.closest('#toneCards .tone-card') : null;
+  if (!card) return;
+  const tone = card.getAttribute('data-tone');
+  if (!tone) return;
+  window._selectedTone = tone;
+  document.querySelectorAll('#toneCards .tone-card').forEach(function (c) {
+    const on = (c === card);
+    c.classList.toggle('on', on);
+    c.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+});
