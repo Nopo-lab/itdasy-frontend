@@ -9,7 +9,8 @@
 
   function _strictKey(beauty) {
     return ((beauty.handSkin || 0) > 0 ? 'hand' : '') +
-      (((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 10) ? 'nail' : '');
+      (((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 10) ? 'nail' : '') +
+      ((beauty.eyeRedness || 0) > 0 ? 'sclera' : '');   // [v552] 눈맑게 — 흰자 미검출 안내
   }
 
   function _claimStrict(img, key) {
@@ -27,7 +28,10 @@
     failures.forEach(kind => {
       if (now - (lastToast[kind] || 0) < 1500) return;
       lastToast[kind] = now;
-      window.showToast(kind === 'hand' ? '손을 인식하지 못했습니다' : '네일을 인식하지 못했습니다');
+      const msg = kind === 'hand' ? '손을 인식하지 못했습니다'
+        : kind === 'nail' ? '네일을 인식하지 못했습니다'
+        : '흰자 영역을 인식하지 못했습니다';   // [v552] sclera
+      window.showToast(msg);
     });
   }
 

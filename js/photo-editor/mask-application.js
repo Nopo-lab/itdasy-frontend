@@ -188,6 +188,10 @@
     if ((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 10) {
       jobs.push(RP.getMask(img, 'nailMask').then(r => _nailGatePass(r) ? null : 'nail'));
     }
+    // [v552] 눈맑게(eyeRedness) — 흰자 마스크 게이트 미통과면 'sclera' 실패로 보고(엄격: 보기=적용 일치).
+    if ((beauty.eyeRedness || 0) > 0) {
+      jobs.push(RP.getMask(img, 'scleraMask').then(r => _scleraGatePass(r) ? null : 'sclera'));
+    }
     const failures = await Promise.all(jobs.map(p => p.catch(() => null)));
     return failures.filter(Boolean);
   }

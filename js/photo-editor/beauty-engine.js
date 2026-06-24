@@ -304,7 +304,9 @@
     //   흰자/충혈엔 약하게라도 적용, 눈썹/갈색 눈가는 weight≈0. 계수/방향 유지.
     // [PE-M1] scleraMask 연결 시 영역 게이트를 eyeW→scleraW 로 정밀화. 아래 색 refine(bright/neutral/sat/
     //   skinPenalty/warmBrown)은 그대로 유지 — 마스크는 영역만 좁힘, 내부 강제 적용 아님(청록 재발 방지).
-    const regionW = p.hasScleraMask ? p.scleraW : p.eyeW;
+    // [v552] 엄격(보기=적용 일치): 흰자 마스크 미연결 시 눈영역 휴리스틱(eyeW)으로 폴백하지 않고 차단.
+    //   "마스크 보기(흰자)"와 "실제 눈맑게 적용 영역"을 동일하게 보장. 흰자 못 찾으면 no-op + 안내(MaskStrictPolicy).
+    const regionW = p.hasScleraMask ? p.scleraW : 0;
     if (c.eyeRedK > 0 && regionW > 0.10) {
       const chSpan = Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl);
       const warmBrown = (p.r - p.g > 18 && p.r - p.bl > 28);
