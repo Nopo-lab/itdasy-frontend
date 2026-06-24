@@ -46,7 +46,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 · Itdasy</title>
 <script>
-window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
+window.__LATEST_BUILD__ = '20260624-v555-caption-tone-cards-final';
   // [C2] 작업실 V2 플래그 — false 로 바꾸면 기존 작업실로 즉시 롤백 가능
   window.ITDASY_WORKSPACE_V2 = true;
   setTimeout(function(){
@@ -141,7 +141,7 @@ window.__LATEST_BUILD__ = '20260624-v554-precision-tabs-always-open';
 <link rel="stylesheet" href="style-hub.css?v=0501">
 <!-- [v501 Phase1] 작업실 V2 첫 화면 / [v503] 플로우 / [v508] 크롭 -->
 <link rel="stylesheet" href="css/workspace-v2.css?v=20260624-v550-strict-roi-overlay-align">
-<link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260624-v554-precision-tabs-always-open">
+<link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260624-v555-caption-tone-cards-final">
 <link rel="stylesheet" href="css/workspace-crop.css?v=20260617-v511-workspace-real-edits">
 <style id="login-v22">
   /* 모션 keyframes */
@@ -1447,6 +1447,54 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
         <div class="tag-row" id="typeTags" style="margin-top:6px;"></div>
       </div>
 
+      <!-- [말투 카드] v555 — 초보 원장님용 5종 말투 프리셋. 선택값 → /persona/generate tone_override -->
+      <style>
+        .tone-cards{display:flex;flex-direction:column;gap:8px;}
+        .tone-card{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;
+          padding:11px 13px;border-radius:14px;border:1.5px solid var(--border);
+          background:var(--bg2,#fafafa);cursor:pointer;transition:all .18s;-webkit-tap-highlight-color:transparent;}
+        .tone-card .tc-ic{flex:0 0 auto;color:var(--text3);margin-top:1px;}
+        .tone-card .tc-body{flex:1;min-width:0;}
+        .tone-card .tc-title{display:block;font-size:13.5px;font-weight:700;color:var(--text);}
+        .tone-card .tc-ex{display:block;font-size:11.5px;color:var(--text3);margin-top:3px;line-height:1.45;}
+        .tone-card .tc-check{flex:0 0 auto;opacity:0;color:var(--accent);transition:opacity .18s;}
+        .tone-card.on{border-color:var(--accent);background:rgba(213,138,149,0.10);}
+        .tone-card.on .tc-title{color:var(--accent2,var(--accent));}
+        .tone-card.on .tc-check{opacity:1;}
+      </style>
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">어떤 말투로 써볼까요?</label>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;">처음 홍보글을 써도 어색하지 않게, 원하는 분위기를 골라보세요.</div>
+        <div class="tone-cards" id="toneCards" role="radiogroup" aria-label="말투 선택" style="margin-top:10px;">
+          <button type="button" class="tone-card on" data-tone="natural_owner" data-haptic="light" role="radio" aria-checked="true">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-smile"/></svg>
+            <span class="tc-body"><span class="tc-title">자연스러운 원장님 말투</span><span class="tc-ex">오늘은 손상된 부분은 차분하게 정리하고, 레이어드 라인이 자연스럽게 보이도록 맞춰드렸어요.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="emotional_instagram" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-wand-sparkles"/></svg>
+            <span class="tc-body"><span class="tc-title">감성 인스타 말투</span><span class="tc-ex">가볍게 흐르는 레이어드 라인에 윤기감을 더해, 훨씬 부드러운 분위기로 완성했어요.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="treatment_explain" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-type"/></svg>
+            <span class="tc-body"><span class="tc-title">시술 설명형</span><span class="tc-ex">손상모 상태를 먼저 확인한 뒤, 필요한 부분만 보완해서 전체 라인이 무겁지 않게 정리했습니다.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="booking_cta" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-send"/></svg>
+            <span class="tc-body"><span class="tc-title">예약 유도형</span><span class="tc-ex">비슷한 손상이나 기장 고민이 있다면, 모발 상태에 맞춰 상담 후 진행해드릴게요.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="short_clean" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-sparkles"/></svg>
+            <span class="tc-body"><span class="tc-title">짧고 깔끔한 말투</span><span class="tc-ex">손상은 차분하게, 라인은 가볍게. 자연스러운 레이어드 무드로 완성했어요.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;">고른 말투로 캡션을 만들어드려요. 선택한 시술 특징도 자연스럽게 반영돼요.</div>
+      </div>
+
       <!-- [만들기 버튼 sticky] -->
       <div id="captionCtrlBar" style="position:sticky;top:0;z-index:10;background:#fff;border-bottom:1px solid var(--border);padding:10px 14px;display:flex;gap:8px;">
         <button id="captionBtn" data-haptic="medium" data-static-action="caption-generate" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:800;cursor:pointer;">만들기</button>
@@ -2126,7 +2174,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-core.js?v=20260624-v550-strict-roi-overlay-align"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
-<script src="js/load-groups.js?v=20260624-v554-precision-tabs-always-open" defer></script>
+<script src="js/load-groups.js?v=20260624-v555-caption-tone-cards-final" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>
