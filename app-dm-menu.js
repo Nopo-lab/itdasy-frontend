@@ -47,6 +47,71 @@
     return (FIXED_META[it.key] || {}).edit || 'none';
   }
 
+  // ── [2026-06-25] 영업시간/주소/가격표 — 토큰은 화면에 안 보이고, resp 맨끝에 1개만 숨겨 저장 ──
+  //   사용자는 '인사 멘트'만 편집. 실제 데이터는 BE 가 토큰 자리에 치환해 발송(기존 _subst 유지).
+  const _TOKEN = { HOURS: '{영업시간}', LOCATION: '{주소}', PRICE: '{가격표}' };
+  const _DATA_LABEL = { HOURS: '영업시간', LOCATION: '주소', PRICE: '가격표' };
+  const _JUMP = { HOURS: 'hours', LOCATION: 'address', PRICE: 'price' };
+  function _isFixedData(key) { return key === 'HOURS' || key === 'LOCATION' || key === 'PRICE'; }
+  // 처음 열 때 메뉴 = 켠 메뉴를 앞에서부터 최대 ICE_MAX 개 (인스타 제한)
+  function _computeIce() { return _items().filter(it => it.enabled).map(it => it.key).slice(0, ICE_MAX); }
+  // resp 끝의 숨은 토큰 1개만 제거 → 인사 멘트만 반환 (공백·줄바꿈 변형 흡수, 본문 중간 { 는 무시)
+  function _stripToken(resp, key) {
+    const tok = _TOKEN[key];
+    if (!tok || !resp) return resp || '';
+    const esc = tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return resp.replace(new RegExp('\\s*' + esc + '\\s*$'), '').replace(/\s+$/, '');
+  }
+  // 저장용: 인사 멘트 + 맨끝 토큰 1개 (항상 정확히 1개)
+  function _withToken(greet, key) {
+    const tok = _TOKEN[key];
+    const g = (greet || '').replace(/\s+$/, '');
+    if (!tok) return g;
+    return g ? (g + '\n' + tok) : tok;
+  }
+
+  // ── 미리보기용 실제 저장값 (영업시간/주소/가격표) — 설정 읽기라 사실상 공짜, 무조건 fetch ──
+  let _real = null; // { HOURS, LOCATION, PRICE }
+  function _won(p) { const n = Number(p); return (p === '' || p == null || isNaN(n)) ? String(p || '') : n.toLocaleString('ko-KR') + '원'; }
+  async function _fetchReal() {
+    const out = { HOURS: '', LOCATION: '', PRICE: '' };
+    const auth = window.authHeader ? window.authHeader() : {};
+    try {
+      const res = await apiFetch(apiUrl('/shop/settings'), { headers: auth });
+      if (res.ok) {
+        const d = await res.json().catch(() => null) || {};
+        out.HOURS = (d.hours || '').toString().trim();
+        out.LOCATION = (d.address || '').toString().trim();
+      }
+    } catch (_e) { void _e; }
+    try { if (!out.HOURS) out.HOURS = (localStorage.getItem('itdasy_shop_hours') || '').trim(); } catch (_e) { void _e; }
+    try { if (!out.LOCATION) out.LOCATION = (localStorage.getItem('itdasy_shop_addr') || '').trim(); } catch (_e) { void _e; }
+    try {
+      const list = (window.ServiceTemplates && window.ServiceTemplates.list) ? await window.ServiceTemplates.list() : null;
+      const arr = Array.isArray(list) ? list : (list && Array.isArray(list.items) ? list.items : []);
+      out.PRICE = arr.filter(s => s && s.name).slice(0, 12)
+        .map(s => `${s.name}${(s.default_price != null && s.default_price !== '') ? ' ' + _won(s.default_price) : ''}`)
+        .join('\n').trim();
+    } catch (_e) { void _e; }
+    _real = out;
+    _refreshPreviews();
+  }
+  // 미리보기 = 인사 멘트(라이브) + 실제 저장값. 값이 진짜 비면 회색 안내(아직 설정 안 한 신규 원장).
+  function _previewText(key, greet) {
+    const val = (_real && _real[key]) || '';
+    const g = (greet || '').replace(/\s+$/, '');
+    if (val) return (g ? g + '\n' : '') + val;
+    return (g ? g + '\n' : '') + `(아직 ${_DATA_LABEL[key]}을 설정 안 했어요 — 아래 '${_DATA_LABEL[key]} 수정'에서 추가하면 여기에 보여요)`;
+  }
+  function _refreshPreviews() {
+    document.querySelectorAll(`#${ID} [data-preview]`).forEach(node => {
+      const key = node.getAttribute('data-preview');
+      const it = _itemOf(key);
+      node.textContent = _previewText(key, it ? it.resp : '');
+      node.classList.toggle('dmm-pv-empty', !(_real && _real[key]));
+    });
+  }
+
   function _styleOnce() {
     if (document.getElementById('dmMenuStyle')) return;
     const s = document.createElement('style');
@@ -77,16 +142,16 @@
       #${ID} .dmm-lblin{width:100%;border:.5px solid rgba(0,0,0,.12);border-radius:10px;padding:9px 11px;font-size:13px;font-weight:700}
       #${ID} .dmm-cnt{font-size:10.5px;color:#B0B8C1;text-align:right}
       #${ID} .dmm-resp{width:100%;border:.5px solid rgba(0,0,0,.12);border-radius:10px;padding:9px 11px;font-size:13px;line-height:1.5;resize:none;min-height:62px}
-      #${ID} .dmm-tok{display:inline-block;font-size:10.5px;font-weight:700;color:var(--brand-strong,#BC6675);background:var(--brand-bg,#F7EFF0);border-radius:999px;padding:2px 8px;margin-right:5px}
+      #${ID} .dmm-onoff{font-size:12px;color:var(--text-subtle,#8B95A1);margin:0 4px 12px}
+      #${ID} .dmm-onoff b{color:var(--text-muted,#4E5968)}
+      #${ID} .dmm-pv{white-space:pre-wrap;font-size:12.5px;line-height:1.55;color:#191F28;background:#F7F8FA;border:.5px solid rgba(0,0,0,.08);border-radius:10px;padding:10px 12px}
+      #${ID} .dmm-pv.dmm-pv-empty{color:#B0B8C1}
+      #${ID} .dmm-jump{align-self:flex-start;font-size:12.5px;font-weight:700;color:var(--brand-strong,#BC6675);background:none;border:none;padding:4px 0;cursor:pointer;font-family:inherit}
       #${ID} .dmm-seg{display:flex;gap:6px}
       #${ID} .dmm-seg button{flex:1;font-size:12px;font-weight:700;padding:8px;border-radius:10px;border:.5px solid rgba(0,0,0,.12);background:#F7F8FA;color:#4E5968;cursor:pointer;font-family:inherit}
       #${ID} .dmm-seg button.on{background:#191F28;color:#fff;border-color:#191F28}
       #${ID} .dmm-del{align-self:flex-start;font-size:12px;font-weight:700;color:#D95F70;background:none;border:none;padding:4px 0;cursor:pointer}
       #${ID} .dmm-addbtn{width:100%;padding:13px;border:1px dashed rgba(0,0,0,.18);background:#fff;border-radius:14px;font-size:13px;font-weight:700;color:#4E5968;cursor:pointer;font-family:inherit;margin-top:10px}
-      #${ID} .dmm-ib{display:flex;flex-wrap:wrap;gap:7px;padding:13px 14px}
-      #${ID} .dmm-ib button{font-size:12.5px;font-weight:700;padding:8px 13px;border-radius:999px;border:.5px solid rgba(0,0,0,.08);background:#F7F8FA;color:#4E5968;cursor:pointer;font-family:inherit}
-      #${ID} .dmm-ib button.on{background:var(--brand-bg,#F7EFF0);color:var(--brand-strong,#BC6675);border-color:var(--brand,#D58A95)}
-      #${ID} .dmm-ibcap{font-size:11px;color:#8B95A1;padding:11px 14px 0}
       #${ID} .dmm-dim{opacity:.45;pointer-events:none}
       /* 쫀득 토글 — 노브 바운스 + 누를 때 살짝 늘었다 튕김 */
       #${ID} .dmm-tg{width:44px;height:26px;border-radius:99px;background:#E2E6EB;position:relative;flex:none;border:none;padding:0;cursor:pointer;transition:background .18s}
@@ -140,11 +205,18 @@
       <div class="dmm-cnt"><span data-cnt="${_esc(it.key)}">${lblCount}</span>/${LABEL_MAX}</div>`;
     if (meta.edit === 'none') {
       fields += `<div class="dmm-fld" style="color:#B0B8C1;">${_esc(meta.editNote || '')}</div>`;
+    } else if (kind === 'resp' && _isFixedData(it.key)) {
+      // 영업시간/주소/가격표 — 인사 멘트만 편집. 실제 데이터는 미리보기로 보이고 발송 시 자동으로 붙음.
+      const ph = { HOURS: '영업시간 안내드려요 🕐', LOCATION: '오시는 길 안내드려요 📍', PRICE: '가격 안내드려요 💰' }[it.key] || '';
+      const pvEmpty = (_real && _real[it.key]) ? '' : ' dmm-pv-empty';
+      fields += `<div class="dmm-fld">인사 멘트</div>
+        <textarea class="dmm-resp" data-resp="${_esc(it.key)}" maxlength="500" placeholder="예: ${_esc(ph)}">${_esc(it.resp || '')}</textarea>
+        <div class="dmm-fld">이렇게 답장돼요</div>
+        <div class="dmm-pv${pvEmpty}" data-preview="${_esc(it.key)}">${_esc(_previewText(it.key, it.resp))}</div>
+        <button type="button" class="dmm-jump" data-jump="${_esc(it.key)}">${_esc(_DATA_LABEL[it.key])} 수정 →</button>`;
     } else if (kind === 'resp') {
-      const tok = meta.token || (_isCustom(it) ? '' : '');
-      fields += `<div class="dmm-fld">응답 멘트</div>`;
-      if (tok) fields += `<div><span class="dmm-tok">${_esc(tok)}</span><span style="font-size:10.5px;color:#B0B8C1;">숫자·데이터는 설정에서 자동으로 채워져요</span></div>`;
-      fields += `<textarea class="dmm-resp" data-resp="${_esc(it.key)}" maxlength="600" placeholder="손님에게 보낼 답장">${_esc(it.resp || '')}</textarea>`;
+      fields += `<div class="dmm-fld">응답 멘트</div>
+        <textarea class="dmm-resp" data-resp="${_esc(it.key)}" maxlength="600" placeholder="손님에게 보낼 답장">${_esc(it.resp || '')}</textarea>`;
     } else if (kind === 'ack') {
       fields += `<div class="dmm-fld">확인 멘트 (보낸 뒤 사장님 큐로)</div>
         <textarea class="dmm-resp" data-ack="${_esc(it.key)}" maxlength="300" placeholder="예: 문의 확인했어요! 곧 답장드릴게요 🙏">${_esc(it.ack || '')}</textarea>`;
@@ -180,27 +252,21 @@
           ${open ? _itemEditor(it) : ''}
         </div>`;
     }).join('');
-    const ice = _items().map(it => {
-      const on = (_menu.ice_breakers || []).indexOf(it.key) >= 0;
-      return `<button type="button" class="${on ? 'on' : ''}" data-ice="${_esc(it.key)}">${_esc(it.label || it.key)}</button>`;
-    }).join('');
+    const iceOn = (_menu.ice_breakers || []).length > 0;
     body.innerHTML = `
       <div class="dmm-note">손님이 DM을 보내면 이 <b>버튼들이 자동으로</b> 떠요. 손님은 타이핑 없이 탭만 하면 돼요. 인스타에 직접은 못 만드는 기능이라 <b>잇데이가 대신 깔아줘요.</b></div>
-      <div class="dmm-card">
-        <div class="dmm-master">
-          <div class="t"><b>빠른 안내</b><span>손님 DM에 자동으로 버튼 메뉴를 띄워요</span></div>
-          ${_tgHtml(_menu.enabled, 'master', '')}
-        </div>
-      </div>
+      <div class="dmm-onoff">켜기·끄기는 <b>잇비·자동화</b>에서 해요.</div>
       <div class="dmm-sec">첫 인사 멘트</div>
       <div class="dmm-card dmm-greet${dim}"><textarea rows="2" data-greet maxlength="300">${_esc(_menu.greeting || '')}</textarea></div>
       <div class="dmm-sec">메뉴 버튼 (켠 것만 손님에게 보여요 · 탭해서 편집)</div>
       <div class="dmm-card${dim}">${rows}</div>
       <button type="button" class="dmm-addbtn${dim}" data-add>+ 메뉴 추가</button>
-      <div class="dmm-sec">대화 처음 열 때 메뉴 (최대 ${ICE_MAX}개)</div>
+      <div class="dmm-sec">대화 처음 열 때</div>
       <div class="dmm-card${dim}">
-        <div class="dmm-ibcap">손님이 DM 창을 처음 열면 미리 보이는 버튼이에요.</div>
-        <div class="dmm-ib">${ice}</div>
+        <div class="dmm-master">
+          <div class="t"><b>처음 열 때도 메뉴 보여주기</b><span>손님이 DM 창을 처음 열면 켠 메뉴를 미리 보여줘요 (최대 ${ICE_MAX}개)</span></div>
+          ${_tgHtml(iceOn, 'ice', '')}
+        </div>
       </div>`;
   }
 
@@ -209,8 +275,10 @@
     if (tg) {
       e.stopPropagation();
       const kind = tg.getAttribute('data-tg');
-      if (kind === 'master') _menu.enabled = !_menu.enabled;
-      else { const it = _itemOf(tg.getAttribute('data-key')); if (it) it.enabled = !it.enabled; }
+      if (kind === 'ice') {
+        // 처음 열 때 메뉴 — ON: 켠 메뉴 앞에서 최대 4개 자동 / OFF: 비움 (BE 필드 추가 X, 상태=비었나로 판정)
+        _menu.ice_breakers = (_menu.ice_breakers || []).length > 0 ? [] : _computeIce();
+      } else { const it = _itemOf(tg.getAttribute('data-key')); if (it) it.enabled = !it.enabled; }
       _haptic(); _render(); return;
     }
     const actSet = e.target.closest('[data-act-set]');
@@ -234,14 +302,19 @@
       _menu.items.push({ key, label: '새 메뉴', enabled: true, action: 'auto_text', resp: '', ack: '', custom: true });
       _open.add(key); _haptic(); _render(); return;
     }
-    const ice = e.target.closest('[data-ice]');
-    if (ice) {
-      const k = ice.getAttribute('data-ice');
-      const arr = _menu.ice_breakers || (_menu.ice_breakers = []);
-      const idx = arr.indexOf(k);
-      if (idx >= 0) arr.splice(idx, 1);
-      else { if (arr.length >= ICE_MAX) { _toast(`처음 열 때 메뉴는 최대 ${ICE_MAX}개예요`); return; } arr.push(k); }
-      _haptic(); _render(); return;
+    const jump = e.target.closest('[data-jump]');
+    if (jump) {
+      // 영업시간/주소/가격표 설정 화면으로 점프 (현재 편집 화면은 뒤에 유지)
+      const k = jump.getAttribute('data-jump');
+      if (k === 'PRICE') {
+        if (typeof window.openPricelistUpload === 'function') window.openPricelistUpload();
+        else _toast('가격표 설정 화면을 찾을 수 없어요');
+      } else {
+        // TODO: 영업시간/주소 전용 섹션 앵커가 생기면 연결. 현재는 샵 설정 화면 진입.
+        if (typeof window.openShopSettings === 'function') window.openShopSettings();
+        else _toast('설정 화면을 찾을 수 없어요');
+      }
+      _haptic(); return;
     }
     const exp = e.target.closest('[data-exp]');
     if (exp) {
@@ -261,7 +334,17 @@
       if (cnt) cnt.textContent = (t.value || '').length;
       return;
     }
-    if (t.matches('[data-resp]')) { const it = _itemOf(t.getAttribute('data-resp')); if (it) it.resp = t.value; return; }
+    if (t.matches('[data-resp]')) {
+      const it = _itemOf(t.getAttribute('data-resp'));
+      if (it) {
+        it.resp = t.value;
+        if (_isFixedData(it.key)) {
+          const pv = document.querySelector(`#${ID} [data-preview="${it.key}"]`);
+          if (pv) { pv.textContent = _previewText(it.key, it.resp); pv.classList.toggle('dmm-pv-empty', !(_real && _real[it.key])); }
+        }
+      }
+      return;
+    }
     if (t.matches('[data-ack]')) { const it = _itemOf(t.getAttribute('data-ack')); if (it) it.ack = t.value; }
   }
 
@@ -272,6 +355,8 @@
       _menu = (d && typeof d === 'object' && Array.isArray(d.items)) ? d : _defaultMenu();
     } catch (_e) { _menu = _defaultMenu(); }
     if (!Array.isArray(_menu.items) || !_menu.items.length) _menu.items = _defaultMenu().items;
+    // 영업시간/주소/가격표 — 저장된 resp 끝의 숨은 토큰 제거 → 편집칸엔 인사 멘트만
+    _items().forEach(it => { if (_isFixedData(it.key)) it.resp = _stripToken(it.resp, it.key); });
     _render();
   }
 
@@ -283,9 +368,12 @@
       items: _items().map(it => ({
         key: it.key, label: (it.label || '').slice(0, LABEL_MAX) || '메뉴',
         enabled: !!it.enabled, action: it.action,
-        resp: it.resp || '', ack: it.ack || '', custom: _isCustom(it),
+        // 영업시간/주소/가격표는 저장 시 인사 멘트 끝에 숨은 토큰 1개 재부착(BE 가 실데이터 치환)
+        resp: _isFixedData(it.key) ? _withToken(it.resp, it.key) : (it.resp || ''),
+        ack: it.ack || '', custom: _isCustom(it),
       })),
-      ice_breakers: (_menu.ice_breakers || []).slice(0, ICE_MAX),
+      // 처음 열 때 메뉴 ON 이면 켠 메뉴로 자동 계산(최신 enabled 반영), OFF 면 비움
+      ice_breakers: (_menu.ice_breakers || []).length > 0 ? _computeIce() : [],
     };
     const btn = document.querySelector('#' + ID + ' [data-dmm-save]');
     if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
@@ -310,8 +398,10 @@
     const el = _ensureMounted();
     _menu = _menu || _defaultMenu();
     _open.clear();
+    _real = null;
     _render();
     _hydrate().catch(() => {});
+    _fetchReal().catch(() => {}); // 미리보기용 실제 영업시간/주소/가격표 로드
     requestAnimationFrame(() => el.classList.add('is-open'));
     el.setAttribute('aria-hidden', 'false');
     _haptic();

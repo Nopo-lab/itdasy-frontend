@@ -13,6 +13,9 @@
   // ── 토글 상태 키 (UI 빠른 ON/OFF — 백엔드 동기화는 상세 시트에서) ─
   const KEY_DM = 'itdasy:aih:dm_enabled';
   const KEY_KAKAO = 'itdasy:aih:kakao_enabled';
+  // [2026-06-25] 빠른 안내(dmmenu) 마스터 토글 — localStorage 는 즉시 UI 표시용 캐시일 뿐.
+  //   실제 on/off 는 백엔드 /shop/dm-menu 의 enabled 가 정본. (열 때 GET 으로 캐시 교정)
+  const KEY_DMMENU = 'itdasy:aih:dmmenu_enabled';
 
   function _getToggle(key) {
     try {
@@ -44,7 +47,7 @@
         type: 'toggle', toggleKey: KEY_DM },
       { act: 'dmmenu', icon: 'ph-list-checks', boxColor: 'teal',
         name: '빠른 안내', meta: '손님 탭 버튼(예약·영업시간·가격…)',
-        type: 'plain' },
+        type: 'toggle', toggleKey: KEY_DMMENU },
       { act: 'kakao', icon: 'ph-bell-ringing', boxColor: 'amber',
         name: '카카오 알림톡', meta: '예약확정 · 리마인드 · 생일',
         type: 'toggle', toggleKey: KEY_KAKAO },
@@ -61,6 +64,7 @@
     let n = 0;
     if (_getToggle(KEY_DM)) n++;
     if (_getToggle(KEY_KAKAO)) n++;
+    if (_getToggle(KEY_DMMENU)) n++;
     n += 1; // 페르소나 학습됨
     return n;
   }
@@ -206,7 +210,8 @@
   // ── 토글 클릭 처리 ────────────────────────────────────────────
   function _onToggleClick(btn, sheet) {
     const act = btn.dataset.toggle;
-    const key = act === 'dm' ? KEY_DM : (act === 'kakao' ? KEY_KAKAO : null);
+    const key = act === 'dm' ? KEY_DM
+      : (act === 'kakao' ? KEY_KAKAO : (act === 'dmmenu' ? KEY_DMMENU : null));
     if (!key) return;
     const next = !_getToggle(key);
     _setToggle(key, next);
@@ -215,10 +220,59 @@
     const sub = sheet.querySelector('#aihSub');
     if (sub) sub.textContent = `${_rows().length}가지 · ${_onCount()}개 켜짐`;
     try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; }
+    // [2026-06-25] 빠른 안내만 백엔드 동기화 — 나머지(dm/kakao)는 기존대로 localStorage UI 토글.
+    if (act === 'dmmenu') _syncDmMenuEnabled(next, btn, sheet);
     try {
       window.dispatchEvent(new CustomEvent('itdasy:data-changed', {
         detail: { kind: 'aih_toggle', act, on: next },
       }));
+    } catch (_e) { void _e; }
+  }
+
+  // ── 빠른 안내 enabled 백엔드 반영 — 반드시 GET 먼저 → 그 객체에서 enabled 만 바꿔 PUT.
+  //   (캐시를 PUT 소스로 쓰면 메뉴·인사멘트가 통째로 날아감. 동봉 소스 = GET 결과로 고정.) ──
+  async function _syncDmMenuEnabled(on, btn, sheet) {
+    try {
+      const auth = window.authHeader ? window.authHeader() : {};
+      const res = await window.apiFetch(window.apiUrl('/shop/dm-menu'), { headers: auth });
+      const menu = await res.json().catch(() => null);
+      if (!menu || typeof menu !== 'object' || !Array.isArray(menu.items)) {
+        throw new Error('메뉴를 불러오지 못했어요');
+      }
+      menu.enabled = !!on; // enabled 만 변경, items/greeting/ice_breakers 는 GET 결과 그대로 동봉
+      const put = await window.apiFetch(window.apiUrl('/shop/dm-menu'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify(menu),
+      });
+      if (!put.ok) throw new Error('HTTP ' + put.status);
+    } catch (e) {
+      // 실패 → UI/캐시 롤백
+      _setToggle(KEY_DMMENU, !on);
+      if (btn) {
+        btn.classList.toggle('is-on', !on);
+        btn.setAttribute('aria-pressed', (!on) ? 'true' : 'false');
+      }
+      const sub = sheet && sheet.querySelector('#aihSub');
+      if (sub) sub.textContent = `${_rows().length}가지 · ${_onCount()}개 켜짐`;
+      if (window.showToast) window.showToast('빠른 안내 ' + (on ? '켜기' : '끄기') + ' 실패 — 다시 시도해주세요');
+    }
+  }
+
+  // ── 시트 열 때 백엔드 enabled 로 토글 캐시 교정 (localStorage 가 stale 일 수 있음) ──
+  async function _refreshDmMenuToggle(sheet) {
+    try {
+      const res = await window.apiFetch(window.apiUrl('/shop/dm-menu'), { headers: window.authHeader ? window.authHeader() : {} });
+      const menu = await res.json().catch(() => null);
+      if (!menu || typeof menu.enabled === 'undefined') return;
+      _setToggle(KEY_DMMENU, !!menu.enabled);
+      const btn = sheet.querySelector('[data-toggle="dmmenu"]');
+      if (btn) {
+        btn.classList.toggle('is-on', !!menu.enabled);
+        btn.setAttribute('aria-pressed', menu.enabled ? 'true' : 'false');
+      }
+      const sub = sheet.querySelector('#aihSub');
+      if (sub) sub.textContent = `${_rows().length}가지 · ${_onCount()}개 켜짐`;
     } catch (_e) { void _e; }
   }
 
@@ -294,6 +348,7 @@
     const card = sheet.querySelector('#aihCard');
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'block';
+    _refreshDmMenuToggle(sheet); // 백엔드 enabled 로 빠른 안내 토글 교정
   }
   function close() {
     const sheet = document.getElementById('aiHubSheet');
