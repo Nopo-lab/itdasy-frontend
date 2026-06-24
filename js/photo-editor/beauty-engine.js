@@ -4,20 +4,9 @@
 
   if (window.PhotoEditorBeautyEngine) return;
 
-  // ── 네일 광택 튜닝 상수 (v348 자연 강화 — 과하면 여기 숫자만 조정) ──
-  //   nailW 휴리스틱: 스페큘러/글리터 하이라이트 + 폴리시 채도만 잡고, 맨살·배경 배제
-  const NAIL_SPEC_LUM = 205;      // 이 휘도 이상 = 유리질 광택/글리터 하이라이트 (>210 제외 문제 해소)
-  const NAIL_SPEC_DESAT = 48;     // 하이라이트는 거의 무채색 — 붉은 피부 번들거림 제외용
-  const NAIL_BRIGHT_MIN = 150;    // 밝은 네일면 시작 휘도
-  const NAIL_SAT_MIN = 50;        // 폴리시 색 채도 시작 (색감 네일 가중)
-  const NAIL_SUBJECT_MIN = 0.45;  // 손/네일 주피사체 영역만 (배경 번짐 방지)
-  const NAIL_SKIN_SUPPRESS = 0.25; // 비광택 맨살 억제 배율 (손가락 전체 번짐 방지)
-  //   nailGloss 적용 강도 (현재 flat +18 → 광택 타겟 강화)
+  // ── 네일 광택 튜닝 상수 ──
   const NAIL_GLOSS_BASE = 14;     // 기본 밝힘 (번들거림 억제 위해 절제)
   const NAIL_GLOSS_SPEC = 30;     // 하이라이트 추가 광택 (체감 핵심 — 글리터/반짝임)
-  // v350 — nailMask(ready) 연결 시 휴리스틱 최소 union 배율.
-  //   mask 가 손톱면을 작게/일부만 잡아도 보정이 완전히 사라지지 않게 휴리스틱을 이 배율로 유지.
-  const NAIL_MASK_FALLBACK = 0.45;
 
   // ── [T-140 hairVolume 볼륨 착시 / T-141 hairEndsClean 머리끝] 튜닝 상수 ──
   //   과보정/배경 침범 시 여기 숫자만 조정. rollback: HAIR_VOL_*=0, HAIR_VOL_CONTRAST=0.65, HAIR_ENDS_*=기존값.
@@ -227,32 +216,6 @@
       || b.hairVolume || b.hairEndsClean || b.hairFull);
   }
 
-  // v348 — 네일 후보 가중 (자연 강화). specular/글리터 하이라이트(>210 포함) + 폴리시 채도만 잡고,
-  //   subjectW/skin/edge 조건으로 손가락 전체·배경 번짐 방지. nailMask 미연결 → 항상 휴리스틱.
-  function _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin) {
-    if (edgeBg || subjectW <= NAIL_SUBJECT_MIN) return 0;
-    const whitish = hairSat0 < NAIL_SPEC_DESAT;                                  // 유리질 광택 = 무채색
-    const specW = (lum0 > NAIL_SPEC_LUM && whitish) ? Math.min(1, (lum0 - NAIL_SPEC_LUM) / 45) : 0;
-    const briW  = (lum0 > NAIL_BRIGHT_MIN && lum0 <= NAIL_SPEC_LUM) ? (lum0 - NAIL_BRIGHT_MIN) / (NAIL_SPEC_LUM - NAIL_BRIGHT_MIN) : 0;
-    // [v548] '전체 색감 변함' 수정 — 단순 밝기/약채도는 따뜻한 피부까지 잡음. 네일은 '강한 광택' 또는
-    //   '선명한 폴리시 채도(skin 보다 확연히 높음, >85)'만. 밝기(briW)는 거의 무시(채도 있는 곳에서만 소량).
-    const satW  = hairSat0 > 85 ? Math.min(0.85, (hairSat0 - 85) / 60) : 0;
-    let base = Math.max(specW, satW + briW * (satW > 0.15 ? 0.1 : 0.02));
-    if (isSkin && specW < 0.3 && satW < 0.3) base *= NAIL_SKIN_SUPPRESS;         // 비광택·저~중채도 맨살 강력 억제
-    return Math.min(1, base);
-  }
-
-  // v350 — nailMask 안전 blend. useM.nailMask(게이트 통과)면 mask primary + 휴리스틱 최소 union,
-  //   미연결이면 휴리스틱 그대로 반환(noHand/저신뢰 → 절대 0 아님 → v348 픽셀단위 동일).
-  function _nailBlend(useM, sc, midx, heuristicW) {
-    if (useM && useM.nailMask) {
-      const mv = (useM.nailMask[midx] || 0) * ((sc && sc.nailMask) || 1);
-      const fb = heuristicW * NAIL_MASK_FALLBACK;
-      return mv > fb ? mv : fb;                                                  // max(mask, 휴리스틱×0.45)
-    }
-    return heuristicW;
-  }
-
   function _coeffs(b) {
     return {
       skinK: (b.skin || 0) / 100, redK: (b.redness || 0) / 100,
@@ -272,8 +235,7 @@
 
   // v316 — regionMasks 인자 추가 (있으면 픽셀 좌표 lookup, 없으면 기존 v312 휴리스틱).
   //   regionMasks = { useMasks: {skinMask, hairMask, lipMask, eyeMask, hairBoundaryMask}, _scale: {key→0.6|1.0} }
-  //   useMasks 에 없는 key 는 자동으로 v312 휴리스틱 fallback.
-  //   nailW 는 v350 부터 nailMask(ready 게이트 통과) 있으면 _nailBlend, 없으면 v348 휴리스틱.
+  //   손·네일은 예외: 실제 마스크가 없으면 가중치 0으로 보정하지 않는다.
   function _pixel(d, i, w, h, SmartMask, regionMasks) {
     const r = d[i], g = d[i + 1], bl = d[i + 2];
     const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
@@ -318,12 +280,11 @@
       hasBoundaryMask: !!(useM && useM.hairBoundaryMask), // [T-140/141] 경계 band 마스크 연결 여부
       hasEyeMask: !!(useM && useM.eyeMask),               // [T-142] eyeMask 연결 시 catchLight 는 합성으로 대체
       hasLipMask: !!(useM && useM.lipMask),               // [T-145] lipMask 연결 시 색게이트 완화 + 발색 강화
-      hasNailMask: !!(useM && useM.nailMask),             // [PE-2] nailMask 연결 시 nailGloss 풀강도, 없으면 안전 fallback
+      hasNailMask: !!(useM && useM.nailMask),
       hasScleraMask: !!(useM && useM.scleraMask),         // [PE-M1] scleraMask 연결 시 eyeRedness 영역 게이트로 사용
       scleraW: _rm('scleraMask', 0),                      // [PE-M1] 흰자 마스크 가중 (미연결 시 0 — _applyEye 가 eyeW 폴백)
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
-      // [v546] 손/네일 사진: handSkinMask 연결 시 손 ROI 가중. 미연결(얼굴 등)이면 -1 → handSkin 이 skinW 폴백.
-      handW: (useM && useM.handSkinMask) ? _rm('handSkinMask', 0) : -1,
+      handW: _rm('handSkinMask', 0),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
       lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
@@ -332,7 +293,7 @@
       eyeLidW: (regionMasks && regionMasks._eyeLidROI) ? (regionMasks._eyeLidROI[midx] || 0) : 0,  // [T-146] 눈꺼풀/언더 ROI
       eyeUnderW: (regionMasks && regionMasks._eyeUnderROI) ? (regionMasks._eyeUnderROI[midx] || 0) : 0,  // [T-153] 눈밑/눈가 ROI(falloff)
       satCh: hairSat0,                                   // [T-146] 채도(max-min) — 색 있는 곳만 eyeColor 적용
-      nailW: _nailBlend(useM, sc, midx, mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin)), // v350 nailMask 안전 조건부 (미연결 시 v348 휴리스틱 동일)
+      nailW: _rm('nailMask', 0),
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }
@@ -412,9 +373,9 @@
         d[i + 2] = Math.min(nb, d[i] - 4);                                                    // hue 안전: B ≤ R-4 (보라/분홍 차단)
       }
     }
+    if (c.handK > 0 && p.handW > 0.10) _add(d, i, 8 * c.handK * p.handW, 4 * c.handK * p.handW, -3 * c.handK * p.handW);
     if (p.skinW <= 0.10) return;
     if (c.skinK > 0) _add(d, i, 10 * c.skinK * p.skinW, 5 * c.skinK * p.skinW, 2.5 * c.skinK * p.skinW);
-    if (c.handK > 0) { const hw = p.handW >= 0 ? p.handW : p.skinW; _add(d, i, 8 * c.handK * hw, 4 * c.handK * hw, -3 * c.handK * hw); }   // [v546] 손 ROI 우선, 미연결 시 skinW
     if (c.coolK > 0 && (p.bl > p.r - 10) && (p.bl - p.g) > 5) _add(d, i, 12 * c.coolK * p.skinW, 4 * c.coolK * p.skinW, -16 * c.coolK * p.skinW);
   }
 
@@ -554,13 +515,10 @@
   function _applyDetail(d, i, p, c) {
     // nail gloss — v348 자연 강화. 기본 밝힘 + 하이라이트 추가 광택(글리터/반짝임), nailW(네일면)만.
     //   강도는 상단 NAIL_GLOSS_* 상수로 조정. 번들거림 나면 SPEC 먼저 낮춤.
-    // [PE-2] nailMask 있으면 기존(임계 0.12·풀강도), 없으면 안전 fallback(임계 0.35·강도 0.5)
-    //   → 마스크/저신뢰 시 매끈·밝은 손/배경/소매에 광택 번지던 문제 차단. 확실한 네일 후보는 유지.
-    if (c.nailK > 0) {
-      const nthr = p.hasNailMask ? 0.12 : 0.3;   // [v548] _nailScore 정밀화로 피부 오검출 제거 → 임계 0.45→0.3(진짜 폴리시 적용)
-      const nconf = p.hasNailMask ? 1 : 0.55;     // [v548] 0.4→0.55 무마스크 네일 체감↑
-      if (p.nailW > nthr) {
-        const gw = c.nailK * p.nailW * nconf;
+    // v550 — 실제 nailMask 안에서만 광택을 적용한다.
+    if (c.nailK > 0 && p.hasNailMask) {
+      if (p.nailW > 0.12) {
+        const gw = c.nailK * p.nailW;
         const spec = p.lum0 > 195 ? Math.min(1, (p.lum0 - 195) / 55) : 0;
         const add = (NAIL_GLOSS_BASE + NAIL_GLOSS_SPEC * spec) * gw;
         _add(d, i, add, add, add * 1.04);   // 하이라이트 살짝 차갑게(파랑 +4%) = 유리질 광택감
@@ -707,10 +665,8 @@
         else _unsharpMask(ctx, w, h, b.browSharp / 400);   // 거의 no-op(기존 90 → 400)
       }
     }
-    // [T-144] nailShape: nailW(휴리스틱/마스크) 영역만 강하게 경계 샤픈 → 젤 컬러·아트 라인·경계 또렷.
-    //   nailMaskArr 는 no-hand 여도 _nailWeight 휴리스틱(폴리시 색/광택/밝기)으로 채워짐 → 손/배경 제외.
-    //   maxS 2.0 으로 unsharp 상한 상향(기존 clamp 0.6 은 k=1.3 으로 약했음). 전역 fallback 은 매우 약화.
-    if (b.nailShape > 10) {
+    // v550 — 실제 nailMask가 있을 때만 네일 경계를 선명하게 한다.
+    if (b.nailShape > 10 && regionMasks && regionMasks.useMasks && regionMasks.useMasks.nailMask) {
       if (nailMaskArr) {
         // [2차→롤백+게이트] darken/과샤픈은 글리터 네일에서 손가락 살 침범(fingerSkin>nailEdge) → 제거.
         //   nailW 가 충분히 높은(손톱면 확실) 픽셀만 darken 하도록 _darkenRegionDarkLines 임계를 nailW 로 상향.
@@ -718,7 +674,7 @@
         //   darken 도 nailW>0.55. 색 뚜렷한 네일은 손톱 nailW 높아 작동, 누드/글리터는 약효지만 침범 없음(nailGloss 가 반짝 담당).
         _unsharpMaskRegion(ctx, w, h, b.nailShape / 30, nailMaskArr, 1, w, h, 1.8, 0.25);   // [v548] minW 0.4→0.25 — 옅은 폴리시도 경계 적용(_nailScore 정밀화로 피부 오검출은 없음)
         _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * 1.5 * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
-      } else _unsharpMask(ctx, w, h, b.nailShape / 200);   // nailW 수집 안 됨 → 거의 no-op(전역 샤픈 회피)
+      }
     }
   }
 
@@ -763,7 +719,9 @@
     } else if (regionMasks) { regionMasks._eyeUnderROI = null; }
     // v348 — nailShape 를 nailW 영역만 샤픈하기 위해 픽셀 walk 중 네일 가중치 수집
     let nailMaskArr = null;
-    if (b.nailShape > 10) { try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; } }
+    if (b.nailShape > 10 && regionMasks && regionMasks.useMasks && regionMasks.useMasks.nailMask) {
+      try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; }
+    }
     for (let i = 0; i < d.length; i += 4) {
       const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask, regionMasks);
       if (nailMaskArr) nailMaskArr[i >> 2] = p.nailW;

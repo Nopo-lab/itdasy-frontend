@@ -353,26 +353,15 @@
     if (helpers.toast) helpers.toast(look.label + ' 적용');
   }
 
-  // [v537] 마스크 워밍 — 표준 에디터는 getMasksForBeautySync(캐시 hit만) 경로라, 마스크가
-  //   아직 안 만들어졌으면 약한 휴리스틱 폴백이 화면에 남는다("효과 약함"의 핵심). 이미지당 1회
-  //   비동기 전체 마스크 계산을 트리거하고, 끝나면 1회 재렌더 → 강한 정밀 마스크 경로 자동 반영.
-  //   WeakSet 가드로 이미지당 1회만(재렌더 루프 없음). 작업실 경로는 어댑터가 이미 async 마스크 사용.
-  function _warmMasks(img) {
-    if (!img) return;
-    const MA = window.MaskApplication;
-    if (!MA || typeof MA.getMasksForBeauty !== 'function') return;
-    if (!_warmMasks._seen) { try { _warmMasks._seen = new WeakSet(); } catch (_e) { _warmMasks._seen = null; } }
-    if (!_warmMasks._seen || _warmMasks._seen.has(img)) return;
-    _warmMasks._seen.add(img);
-    try {
-      MA.getMasksForBeauty(img).then(() => {
-        const PE = window.PhotoEditor;
-        if (PE && PE._internal && typeof PE._internal.scheduleRedraw === 'function') {
-          if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] masks warmed → redraw'); } catch (_e) { void _e; } }
-          PE._internal.scheduleRedraw(false);
-        }
-      }).catch(() => {});
-    } catch (_e) { void _e; }
+  // 마스크 워밍 — 일반 마스크와 손·네일 필수 마스크를 비동기로 준비한 뒤 1회 다시 그린다.
+  // 손·네일 검출 실패는 MaskStrictPolicy가 안내하고 엔진은 보정을 실행하지 않는다.
+  function _warmMasks(img, beauty) {
+    const policy = window.MaskStrictPolicy;
+    if (!policy || typeof policy.warm !== 'function') return;
+    policy.warm(img, beauty, () => {
+      const PE = window.PhotoEditor;
+      if (PE && PE._internal && typeof PE._internal.scheduleRedraw === 'function') PE._internal.scheduleRedraw(false);
+    });
   }
 
   // ── 뷰티 보정 (픽셀 처리는 beauty-engine.js 담당) ──
@@ -399,7 +388,7 @@
       const PE = window.PhotoEditor;
       const st = PE && PE._internal && PE._internal.getState ? PE._internal.getState() : null;
       const img = st && st.originalImg;
-      _warmMasks(img);   // [v537] 마스크 미준비 시 비동기 계산 + 1회 재렌더(이미지당 1회)
+      _warmMasks(img, b);   // 마스크 미준비 시 비동기 계산 + 1회 재렌더(이미지당 1회)
       if (MA && typeof MA.getMasksForBeautySync === 'function' && img) {
         regionMasks = MA.getMasksForBeautySync(img);
       }
@@ -412,8 +401,7 @@
           regionMasks.lashScale = lash.scale;
         }
       }
-      // v350 — 네일: nailGloss/nailShape 사용 시에만 nailMask 페치. 안전 게이트 통과 시에만 useMasks 주입.
-      //   미통과(noHand/저신뢰) → null → beauty-engine 이 v348 휴리스틱 그대로 (보정 안 죽음).
+      // v550 — 네일: 실제 nailMask가 있을 때만 보정한다.
       if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10 || (window.PhotoEditorCuticle && window.PhotoEditorCuticle.active())) && MA && typeof MA.getNailMaskSync === 'function' && img) {
         const nail = MA.getNailMaskSync(img);
         if (nail) {
@@ -422,6 +410,17 @@
           if (!regionMasks._scale) regionMasks._scale = {};
           regionMasks.useMasks.nailMask = nail.mask;
           regionMasks._scale.nailMask = nail.scale;
+        }
+      }
+      // v550 — 손 피부: 실제 handSkinMask가 있을 때만 보정한다.
+      if ((b.handSkin || 0) > 0 && MA && typeof MA.getHandSkinMaskSync === 'function' && img) {
+        const hand = MA.getHandSkinMaskSync(img);
+        if (hand) {
+          if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
+          if (!regionMasks.useMasks) regionMasks.useMasks = {};
+          if (!regionMasks._scale) regionMasks._scale = {};
+          regionMasks.useMasks.handSkinMask = hand.mask;
+          regionMasks._scale.handSkinMask = hand.scale;
         }
       }
       // PE-M1 — 흰자: eyeRedness 사용 시에만 scleraMask 페치. 안전 게이트 통과 시에만 useMasks 주입.

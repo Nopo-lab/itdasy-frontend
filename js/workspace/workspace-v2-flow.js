@@ -636,7 +636,7 @@
   function _photoDebugOn() {
     try { if (window.__ITDASY_PHOTO_DEBUG__) return true; return /[?&]photoDebug=1/.test(location.search || ''); } catch (_e) { return false; }
   }
-  var _FX_MASK = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask(spot)', textureSmooth: 'skinMask', yellowness: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask+경계', hairShine: 'hairMask', hairFull: 'hairW 휴리스틱', hairEndsClean: 'hairMask 외곽띠', browSharp: 'browMask→eyeROI', lashSharp: 'lashMask→eyeROI', eyeRedness: 'scleraMask→eyeW', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask→ROI휴리스틱', nailShape: 'nailMask→ROI', handSkin: 'handSkinMask→손ROI(없으면 skinMask)' };
+  var _FX_MASK = { skin: 'skinMask', redness: 'skinMask', blemish: 'skinMask(spot)', textureSmooth: 'skinMask', yellowness: 'skinMask', hairDetail: 'hairMask', hairVolume: 'hairMask+경계', hairShine: 'hairMask', hairFull: 'hairW 휴리스틱', hairEndsClean: 'hairMask 외곽띠', browSharp: 'browMask→eyeROI', lashSharp: 'lashMask→eyeROI', eyeRedness: 'scleraMask→eyeW', catchLight: 'eyeMask', irisClear: 'eyeMask', nailGloss: 'nailMask 필수', nailShape: 'nailMask 필수', handSkin: 'handSkinMask 필수' };
   var _FX_MULT = { textureSmooth: 0.72, blemish: 0.8, skin: 1, redness: 1, hairFull: 0.34, hairEndsClean: 0.42, hairDetail: '1/150~300', lashSharp: '1/65~120', browSharp: '1/90~400', nailShape: '1/55~200', catchLight: 0.38 };
   function _activePrecKey() {
     var tab = d.editTab || 'skin';
@@ -742,16 +742,16 @@
       return { type: k === 'eyeRedness' ? 'scleraMask' : 'eyeMask', label: k === 'eyeRedness' ? '흰자' : '눈', tint: [70, 130, 240] };   // 파랑
     if (k === 'handSkin') return { type: 'handSkinMask', label: '손 피부', tint: [240, 160, 70] };   // 주황
     if (k === 'nailGloss' || k === 'nailShape') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };  // 핑크
-    if (tab === 'hair') return { type: 'hairMask', label: '헤어', tint: [70, 200, 210] };
+    if (tab === 'hair') return { type: 'hairMask', label: '헤어', tint: [145, 90, 220] };  // 보라
     if (tab === 'eyes') return { type: 'eyeMask', label: '눈', tint: [70, 130, 240] };
     if (tab === 'nail') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };
     return { type: 'skinMask', label: '피부·얼굴', tint: [236, 120, 150] };   // skin/default
   }
-  function _coverBlit(ctx, srcCanvas, dw, dh) {
+  function _containBlit(ctx, srcCanvas, dw, dh) {
     var iw = srcCanvas.width, ih = srcCanvas.height; if (!iw || !ih) return;
-    var s = Math.max(dw / iw, dh / ih), sw = dw / s, sh = dh / s;
-    var sx = Math.max(0, (iw - sw) / 2), sy = Math.max(0, (ih - sh) / 2);
-    ctx.drawImage(srcCanvas, sx, sy, sw, sh, 0, 0, dw, dh);
+    var s = Math.min(dw / iw, dh / ih), rw = iw * s, rh = ih * s;
+    var dx = (dw - rw) / 2, dy = (dh - rh) / 2;
+    ctx.drawImage(srcCanvas, 0, 0, iw, ih, dx, dy, rw, rh);
   }
   function _paintMaskCanvas(vp, mask, mw, mh, info, badge) {
     var ov = vp.querySelector('[data-fl-maskov]');
@@ -761,12 +761,11 @@
       // [v540] 못 찾음 경고를 사진 좌상단(가림)에서 → 정밀 조정 패널 inline helper(부드럽게)로 이동.
       ov.hidden = true;
       if (badge) badge.hidden = true;
-      if (helper) { helper.hidden = false; helper.textContent = info.label + ' 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요'; }
-      if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + '-fallback coverage=0% (ROI 휴리스틱으로 보정)'); } catch (_e) { void _e; } }
+      if (helper) { helper.hidden = false; helper.textContent = info.label + ' 영역을 인식하지 못했습니다'; }
+      if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' detector-miss coverage=0%'); } catch (_e) { void _e; } }
       return;
     }
-    // [v548] 휴리스틱(추정) ROI 면 overlay 는 보이되 inline helper 로 '추정' 안내(좌상단 경고 아님).
-    if (helper) { if (info.fallback) { helper.hidden = false; helper.textContent = (info.label || '') + '로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)'; } else { helper.hidden = true; } }
+    if (helper) helper.hidden = true;
     // mask(0..1) → tinted ImageData(mw×mh)
     var tmp = document.createElement('canvas'); tmp.width = mw; tmp.height = mh;
     var tctx = tmp.getContext('2d'); var idata = tctx.createImageData(mw, mh); var dd = idata.data;
@@ -780,28 +779,11 @@
     var vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
     ov.width = vw; ov.height = vh; ov.hidden = false;
     var octx = ov.getContext('2d'); octx.clearRect(0, 0, vw, vh);
-    _coverBlit(octx, tmp, vw, vh);
+    _containBlit(octx, tmp, vw, vh);
     var cov = Math.round(hit / tot * 1000) / 10;
     d._maskCovPct = cov; d._maskCovKey = _activePrecKey();   // [v542] 디버그 패널 coverage 표시용
     if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식됨 · ' + cov + '%'; }
     if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=' + cov + '% dims=' + mw + 'x' + mh); } catch (_e) { void _e; } }
-  }
-  // [v548] SmartMask 휴리스틱 ROI(MediaPipe 불필요) — 손/네일 폴백 overlay 용. kind: 'nail' | 'skin'.
-  function _heuristicRoi(img, kind) {
-    var SM = window.PhotoEditorSmartMask; if (!SM || typeof SM.classify !== 'function') return null;
-    var MX = 200, iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-    var s = Math.min(1, MX / Math.max(iw, ih)), w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
-    var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
-    var cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
-    var data; try { data = cx.getImageData(0, 0, w, h).data; } catch (_e) { return null; }
-    var m = new Float32Array(w * h), hit = 0;
-    for (var y = 0, idx = 0, pi = 0; y < h; y++) for (var x = 0; x < w; x++, idx++, pi += 4) {
-      var r = data[pi], g = data[pi + 1], b = data[pi + 2], lum = r * 0.299 + g * 0.587 + b * 0.114;
-      var c = SM.classify({ r: r, g: g, b: b, lum: lum, maxCh: Math.max(r, g, b), minCh: Math.min(r, g, b), x: x, y: y, w: w, h: h });
-      var v = kind === 'nail' ? (c.nail || 0) : (c.skin || 0);
-      m[idx] = v; if (v > 0.3) hit++;
-    }
-    return { mask: m, w: w, h: h, cov: hit / (w * h) };
   }
   function _renderMaskOverlay() {
     var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
@@ -812,30 +794,16 @@
     var MA = window.MaskApplication;
     var info = _maskInfoForTab();
     if (badge) { badge.hidden = false; badge.textContent = info.label + ' 인식 중…'; }
-    if (!MA || typeof MA.getMasksForBeauty !== 'function') { if (badge) badge.textContent = '마스크 모듈을 불러오지 못했어요'; return; }
+    if (!MA || typeof MA.getDetectorMask !== 'function') { if (badge) badge.textContent = '마스크 모듈을 불러오지 못했어요'; return; }
     var token = (d._maskTok = (d._maskTok || 0) + 1);
     var url = photo.editedDataUrl || photo.dataUrl;
     var img = new Image();
     img.onload = function () {
       if (token !== d._maskTok || !d.maskView) return;
-      Promise.resolve(MA.getMasksForBeauty(img)).then(function (mm) {
+      Promise.resolve(MA.getDetectorMask(img, info.type)).then(function (rr) {
         if (token !== d._maskTok || !d.maskView) return;
         var mask = null, mw = 0, mh = 0;
-        // [v548] 마스크 타입별 sync 게터(brow/sclera/nail/hand) → 활성 기능의 실제 ROI 를 색으로 표시.
-        var SYNC = { browMask: 'getBrowMaskSync', scleraMask: 'getScleraMaskSync', nailMask: 'getNailMaskSync', handSkinMask: 'getHandSkinMaskSync' };
-        if (SYNC[info.type] && typeof MA[SYNC[info.type]] === 'function') {
-          var rr = MA[SYNC[info.type]](img); if (rr && rr.mask) { mask = rr.mask; mw = img.naturalWidth || img.width; mh = img.naturalHeight || img.height; }
-        }
-        if (!mask && mm && mm.useMasks && mm.useMasks[info.type]) { mask = mm.useMasks[info.type]; mw = mm.maskW; mh = mm.maskH; }
-        // [v548] 손/네일은 MediaPipe 실패가 잦음 → SmartMask 휴리스틱 ROI 로 폴백 표시(coverage·overlay 보임).
-        if (!mask) {
-          var ak = _activePrecKey();
-          var kind = (ak === 'nailGloss' || ak === 'nailShape') ? 'nail' : (ak === 'handSkin' ? 'skin' : null);
-          if (kind) {
-            var hr = _heuristicRoi(img, kind);
-            if (hr && hr.cov > 0.005) { mask = hr.mask; mw = hr.w; mh = hr.h; info = Object.assign({}, info, { label: kind === 'nail' ? '네일(추정 ROI)' : '손 피부(추정 ROI)', tint: kind === 'nail' ? [130, 230, 165] : [236, 170, 150], fallback: true }); }
-          }
-        }
+        if (rr && rr.mask) { mask = rr.mask; mw = img.naturalWidth || img.width; mh = img.naturalHeight || img.height; }
         _paintMaskCanvas(vp, mask, mw, mh, info, badge);
       }).catch(function () { _paintMaskCanvas(vp, null, 0, 0, info, badge); });
     };
@@ -1525,6 +1493,7 @@
 	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty, previewMaxPx: 1100, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
 	      if (token !== d._pvTok) { done(); return; }
 	      if (!(r && r.ok && r.dataUrl)) { done(); return; }
+	      _handleRoiFailures(r.roiFailures || []);
 	      var paint = function (url) {
 	        done();
 	        if (token !== d._pvTok) return;
@@ -1535,6 +1504,14 @@
 	      if (hasBg) { _compositeBg(photo.bgSpec, r.dataUrl).then(paint); }
 	      else { paint(r.dataUrl); }
 	    }, done);
+	  }
+	  function _handleRoiFailures(failures) {
+	    if (!failures || !failures.length) return;
+	    if (failures.indexOf('hand') >= 0) { d.beauty.handSkin = 0; var h = el.querySelector('[data-fl-beautyrange="handSkin"]'); if (h) h.value = 0; toast('손을 인식하지 못했습니다'); }
+	    if (failures.indexOf('nail') >= 0) {
+	      ['nailGloss', 'nailShape'].forEach(function (k) { d.beauty[k] = 0; var n = el.querySelector('[data-fl-beautyrange="' + k + '"]'); if (n) n.value = 0; });
+	      toast('네일을 인식하지 못했습니다');
+	    }
 	  }
 	  // 배경 spec + (보정된) 투명 인물 누끼 → 한 장으로 재합성. 배경은 보정값을 안 받는다.
 	  function _coverDraw(c, img, w, h) {

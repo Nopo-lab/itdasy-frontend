@@ -5,12 +5,13 @@
 
    1차 연결: skinMask, hairMask, lipMask, eyeMask
    약하게:   hairBoundaryMask (cap 0.6)
-   보류:     eyelashBandMask, nailMask, handSkinMask, backgroundMask  (이번 PR 미연결)
+   별도 게이트: eyelashBandMask, nailMask, handSkinMask, scleraMask, browMask
 
    confidence 정책:
      - >= 0.7 → scale 1.0
      - 0.4 ~ 0.7 → scale 0.6
-     - < 0.4 또는 mask 없음 → useMasks 제외 → beauty-engine 이 v312 휴리스틱 fallback
+     - < 0.4 또는 mask 없음 → useMasks 제외
+     - 손·네일은 실제 Tier 1 마스크가 없으면 보정 없음
      - hairBoundary 는 scale 상한 0.6
 
    비상 off:
@@ -56,7 +57,7 @@
     return false;
   }
 
-  // v350 — nailMask 안전 게이트. 전부 통과해야 mask 사용, 하나라도 미달이면 false → 휴리스틱 유지.
+  // v350 — nailMask 안전 게이트. 전부 통과해야 mask 사용, 하나라도 미달이면 보정하지 않는다.
   //   noHand/failed/fallback/pendingImplementation 은 status!=='ready' 또는 mask 없음 → 자동 false.
   function _nailGatePass(r) {
     if (!r || r.status !== 'ready' || !r.mask) return false;
@@ -65,6 +66,12 @@
     const cov = r.coverage || 0;
     if (cov < NAIL_COV_MIN || cov > NAIL_COV_MAX) return false;
     return true;
+  }
+
+  function _handGatePass(r) {
+    if (!r || r.status !== 'ready' || !r.mask) return false;
+    if (r.sourceTier !== 1 || (r.confidence || 0) < 0.7) return false;
+    return (r.coverage || 0) >= 0.01;
   }
 
   function _scaleOf(maskType, confidence) {
@@ -150,7 +157,7 @@
   }
 
   // v350 — nailGloss/nailShape 전용 nailMask sync 조회. 게이트 통과 시에만 {mask, scale}.
-  //   getLashMaskSync 미러. noHand/저신뢰/미캐시/PE_NAIL_MASK_DISABLE → null → 호출자는 v348 휴리스틱 유지.
+  //   noHand/저신뢰/미캐시/PE_NAIL_MASK_DISABLE → null → 네일 보정 중단.
   //   nailMask 는 LAZY → 첫 호출 시 getCachedSync 가 백그라운드 계산 1회 트리거, 이후 캐시 read.
   function getNailMaskSync(img) {
     if (!img) return null;
@@ -162,16 +169,39 @@
     return { mask: r.mask, scale: NAIL_MASK_SCALE, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
   }
 
-  // [v546] handSkin 전용 handSkinMask sync 조회 — 손/네일 사진에서 손 피부톤이 face skinMask 대신
-  //   hand ROI 를 쓰게. getNailMaskSync 미러. 미캐시/실패 → null → 엔진은 기존 skinW 폴백(얼굴 사진 무영향).
+  // [v550] handSkin 전용 handSkinMask sync 조회. 미캐시/실패 시 피부색으로 대체하지 않는다.
   function getHandSkinMaskSync(img) {
     if (!img) return null;
     if (_disabled()) return null;
     const RP = window.RegionMaskProvider;
     if (!RP || typeof RP.getCachedSync !== 'function') return null;
     const r = RP.getCachedSync(img, 'handSkinMask');
-    if (!r || r.status !== 'ready' || !r.mask || (r.coverage || 0) < 0.01) return null;
+    if (!_handGatePass(r)) return null;
     return { mask: r.mask, scale: 1, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
+  async function prepareStrictMasks(img, beauty) {
+    const RP = window.RegionMaskProvider;
+    if (!img || !RP || typeof RP.getMask !== 'function') return [];
+    const jobs = [];
+    if ((beauty.handSkin || 0) > 0) jobs.push(RP.getMask(img, 'handSkinMask').then(r => _handGatePass(r) ? null : 'hand'));
+    if ((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 10) {
+      jobs.push(RP.getMask(img, 'nailMask').then(r => _nailGatePass(r) ? null : 'nail'));
+    }
+    const failures = await Promise.all(jobs.map(p => p.catch(() => null)));
+    return failures.filter(Boolean);
+  }
+
+  async function getDetectorMask(img, maskType) {
+    const RP = window.RegionMaskProvider;
+    if (!img || !RP || typeof RP.getMask !== 'function') return null;
+    const r = await RP.getMask(img, maskType);
+    if (maskType === 'nailMask' && !_nailGatePass(r)) return null;
+    if (maskType === 'handSkinMask' && !_handGatePass(r)) return null;
+    if (maskType === 'hairMask' && (!r || r.sourceTier !== 1 || r.status !== 'ready')) return null;
+    if (/^(eye|brow|sclera)Mask$/.test(maskType) && (!r || r.sourceTier !== 2 || r.status !== 'ready')) return null;
+    if (!r || !r.mask || r.status !== 'ready') return null;
+    return { mask: r.mask, coverage: r.coverage, confidence: r.confidence, tier: r.sourceTier };
   }
 
   // PE-M1 — scleraMask 전용 비상 off (PE_MASK_DISABLE 와 독립). disable 시 PE-ER 동결 버전과 pixel-identical.
@@ -260,12 +290,15 @@
     getLashMaskSync,
     getNailMaskSync,
     getHandSkinMaskSync,
+    prepareStrictMasks,
+    getDetectorMask,
     getScleraMaskSync,
     getBrowMaskSync,
     explain,
     V316_FIRST,
     _scaleOf,
     _nailGatePass,
+    _handGatePass,
     _scleraGatePass,
     _browGatePass,
   };

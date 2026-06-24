@@ -43,17 +43,6 @@
     return _clamp01(faceBand * Math.max(subject, 0.3) * (irisOrLash ? 0.92 : (whiteCatch ? 0.6 : 0)));
   }
 
-  // [v548] '전체 색감 변함' 수정 — 기존엔 lum>150(glossy)·sat>35(colored)·skin>0.18 로 밝은 따뜻한 피부를
-  //   네일로 오분류(~1)해 손 전체·이미지가 변함. 네일은 '강한 유리질 광택' 또는 '선명한 폴리시 채도(피부보다
-  //   확연히 높음)'만. 피부일수록 강력 억제(네일≠피부). nude(맨손톱)는 피부와 구분 불가 → 미검출(정밀 우선).
-  function _nailScore(lum, sat, subject, skin) {
-    const glossy = (lum > 205 && sat < 40) ? Math.min(1, (lum - 205) / 40) : 0;   // 강한 유리질 하이라이트
-    const colored = sat > 55 ? Math.min(1, (sat - 55) / 40) : 0;                   // 폴리시 채도(가파르게)
-    let base = Math.max(glossy, colored * 0.95);
-    base *= (1 - Math.min(0.9, skin * 1.05));   // [핵심] 피부면 강력 억제 — 따뜻한 피부의 채도/밝기 오검출 차단
-    return _clamp01(base * Math.max(subject, 0.3));
-  }
-
   function classify(p) {
     const r = p.r || 0, g = p.g || 0, b = p.b || 0;
     const lum = p.lum == null ? r * 0.299 + g * 0.587 + b * 0.114 : p.lum;
@@ -64,9 +53,8 @@
     const skin = Math.max(_skinScore(r, g, b, lum, subject), p.isSkinFallback ? 0.42 : 0);
     const hair = Math.max(_hairScore(r, g, b, lum, sat, subject, skin, p.x || 0, p.y || 0, p.w || 1, p.h || 1), p.hairFallback ? 0.35 : 0);
     const eye = _eyeScore(r, g, b, lum, sat, p.x || 0, p.y || 0, p.w || 1, p.h || 1, subject);
-    const nail = _nailScore(lum, sat, subject, skin);
     const red = r > g + 8 && r > b + 4 ? Math.max(skin, eye, subject * 0.42) : 0;
-    return { subject, skin: _clamp01(skin), hair: _clamp01(hair), eye, nail, redness: _clamp01(red) };
+    return { subject, skin: _clamp01(skin), hair: _clamp01(hair), eye, nail: 0, redness: _clamp01(red) };
   }
 
   window.PhotoEditorSmartMask = { classify };

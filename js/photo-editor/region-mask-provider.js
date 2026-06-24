@@ -1,7 +1,7 @@
 /* 사진 편집기 — RegionMaskProvider (v313 2026-05-28)
 
-   부위별 마스크 4-tier fallback dispatcher.
-     Tier 1: 온디바이스 AI segmentation  (v313 에선 미사용)
+   부위별 마스크 dispatcher.
+     Tier 1: 온디바이스 AI segmentation / Hand Landmarker
      Tier 2: MediaPipe Face Landmarker polygon
      Tier 3: 색상/위치 휴리스틱 (SmartMask)
      Tier 4: 사용자 브러시 (v315+ UI 연결)
@@ -9,7 +9,8 @@
    v313 정책:
      - 가벼운 5종 (skin/hair/lip/eye/background) 만 precompute
      - nail/handSkin/eyelashBand/hairBoundary 는 lazy (필요 시 getMask)
-     - nailMask 는 status: 'pendingImplementation' 반환 (Hand Landmarker 미사용)
+     - nailMask/handSkinMask 는 Hand Landmarker 결과만 허용
+     - 손·네일 검출 실패 시 색상/위치 추정 금지
      - 모든 진입점 try/catch — 실패해도 사진편집기에 영향 0
      - beauty-engine 에 연결 X (debug overlay + getStats 전용)
 
@@ -212,10 +213,10 @@
       const mask = new Float32Array(dw * dh);
       const keyMap = {
         skinMask: 'skin', hairMask: 'hair', lipMask: 'skin',
-        eyeMask: 'eye', nailMask: 'nail',
-        handSkinMask: 'skin', backgroundMask: 'background',
+        eyeMask: 'eye', backgroundMask: 'background',
       };
-      const useKey = keyMap[regionType] || 'subject';
+      const useKey = keyMap[regionType];
+      if (!useKey) return _emptyResult('failed', 'heuristic forbidden for ' + regionType);
       for (let y = 0, idx = 0, pi = 0; y < dh; y++) {
         for (let x = 0; x < dw; x++, idx++, pi += 4) {
           const r = data[pi], g = data[pi + 1], b = data[pi + 2];
@@ -348,8 +349,7 @@
           result = await _tier3_heuristic(img, 'backgroundMask');
           break;
         case 'nailMask': {
-          // v336 — Tier 1 Hand Landmarker. 어댑터가 status('ready'|'noHand'|'failed') 반환.
-          //   noHand 면 Tier 3 폴백 안 함 (얼굴 사진 등에서 false-positive 방지).
+          // v550 — 네일은 Hand Landmarker 결과만 허용. 실패 시 색/광택 추정으로 대체하지 않는다.
           const HA = _getHandAdapter();
           if (HA && typeof HA.nailMask === 'function') {
             const t1 = await HA.nailMask(img, _imgSize(img));
@@ -362,10 +362,11 @@
               break;
             }
           }
-          result = await _tier3_heuristic(img, 'nailMask');
+          result = _emptyResult('failed', 'nail detector unavailable or rejected');
           break;
         }
         case 'handSkinMask': {
+          // v550 — 손 피부는 Hand Landmarker 결과만 허용. 피부색 추정으로 대체하지 않는다.
           const HA = _getHandAdapter();
           if (HA && typeof HA.handSkinMask === 'function') {
             const t1 = await HA.handSkinMask(img, _imgSize(img));
@@ -378,7 +379,7 @@
               break;
             }
           }
-          result = await _tier3_heuristic(img, 'handSkinMask');
+          result = _emptyResult('failed', 'hand detector unavailable or rejected');
           break;
         }
         case 'eyelashBandMask': {

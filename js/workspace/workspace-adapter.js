@@ -70,9 +70,9 @@
       if ((b.lashSharp || 0) > 10 && MA && has(MA.getLashMaskSync)) { var lash = MA.getLashMaskSync(img); if (lash) { ensure().lashMask = lash.mask; masks.lashScale = lash.scale; } }
       if ((b.eyeRedness || 0) > 0 && MA && has(MA.getScleraMaskSync)) { var sc = MA.getScleraMaskSync(img); if (sc) { ensure().useMasks.scleraMask = sc.mask; masks._scale.scleraMask = sc.scale; } }
       if ((b.browSharp || 0) > 10 && MA && has(MA.getBrowMaskSync)) { var br = MA.getBrowMaskSync(img); if (br) { ensure().browMask = br.mask; masks.browScale = br.scale; } }
-      // [v537] 네일 — 작업실 네일 탭 신설. nailMask 있으면 정밀, 없으면 엔진 휴리스틱 폴백.
+      // v550 — 네일은 실제 nailMask가 있을 때만 연결.
       if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10) && MA && has(MA.getNailMaskSync)) { var nl = MA.getNailMaskSync(img); if (nl) { ensure().useMasks.nailMask = nl.mask; masks._scale.nailMask = nl.scale; } }
-      // [v546] 손 피부톤 — handSkinMask 있으면 손 ROI 사용(없으면 엔진이 face skinW 폴백).
+      // v550 — 손 피부톤은 실제 handSkinMask가 있을 때만 연결.
       if ((b.handSkin || 0) > 0 && MA && has(MA.getHandSkinMaskSync)) { var hs = MA.getHandSkinMaskSync(img); if (hs) { ensure().useMasks.handSkinMask = hs.mask; masks._scale.handSkinMask = hs.scale; } }
     } catch (_e3) { /* eye/nail 마스크 실패 무시 — 베이스 마스크 유지 */ }
     return masks;
@@ -86,17 +86,29 @@
     var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), meta: base.meta, maskW: base.maskW, maskH: base.maskH } : null;
     return _eyeMasks(m, img, b);
   }
+  function _strictFailures(masks, b) {
+    var use = masks && masks.useMasks;
+    var out = [];
+    if ((b.handSkin || 0) > 0 && !(use && use.handSkinMask)) out.push('hand');
+    if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10) && !(use && use.nailMask)) out.push('nail');
+    return out;
+  }
   function _beautyMasksAsync(img, b, key) {
     var MA = window.MaskApplication;
     if (!MA) return Promise.resolve(_eyeMasks(null, img, b));
-    // 캐시 hit → 즉시.
-    if (key && Object.prototype.hasOwnProperty.call(_maskCache, key)) return Promise.resolve(_finishMasks(_maskCache[key], img, b));
+    var strict = has(MA.prepareStrictMasks) ? Promise.resolve(MA.prepareStrictMasks(img, b)).catch(function () { return []; }) : Promise.resolve([]);
+    // 캐시 hit → 손·네일 검출 완료를 기다린 뒤 연결.
+    if (key && Object.prototype.hasOwnProperty.call(_maskCache, key)) {
+      return strict.then(function () { return _finishMasks(_maskCache[key], img, b); });
+    }
     // 계산 시작 — 완료되면 캐시에 저장(타임아웃돼도 백그라운드로 채워져 다음 호출에서 사용).
     var compute;
     if (has(MA.getMasksForBeauty)) compute = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskCache[key] = m || null; return m; });
     else compute = Promise.resolve(has(MA.getMasksForBeautySync) ? MA.getMasksForBeautySync(img) : null);
     var timed = new Promise(function (res) { setTimeout(function () { res('__t__'); }, MASK_TIMEOUT); });
-    return Promise.race([compute, timed]).then(function (w) { return _finishMasks(w === '__t__' ? null : w, img, b); });
+    return Promise.all([Promise.race([compute, timed]), strict]).then(function (all) {
+      return _finishMasks(all[0] === '__t__' ? null : all[0], img, b);
+    });
   }
   function _applyBeautyAdjust(opts) {
     opts = opts || {};
@@ -120,7 +132,7 @@
         var _ms = _t0 ? Math.round(performance.now() - _t0) : 0;
         try { window.__photofxLast = { w: w, h: h, srcW: iw, srcH: ih, path: mx ? 'preview' : 'final', time: _ms, cacheReuse: !!(opts.maskKey && _maskCache && Object.prototype.hasOwnProperty.call(_maskCache, opts.maskKey)) }; } catch (_e2) { void _e2; }
         if (window.__ITDASY_PHOTO_DEBUG__ && _t0) { try { console.log('[photofx] apply ' + w + 'x' + h + ' (src ' + iw + 'x' + ih + ') path=' + (mx ? 'preview' : 'final') + ' time=' + _ms + 'ms'); } catch (_e) { void _e; } }
-        return { ok: true, dataUrl: _encode(cv, opts.src) };
+        return { ok: true, dataUrl: _encode(cv, opts.src), roiFailures: _strictFailures(masks, opts.beauty || {}) };
       });
     }).catch(function (e) { console.warn('[wsadapter] beauty', e); return { ok: false, reason: 'beauty' }; });
   }

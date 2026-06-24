@@ -2,8 +2,8 @@
 /* PE-R5a-2 정밀 마스크 상태 카드 정합 QA (런타임 미수정, MaskStatusUI 모델 측정 전용)
 
    검증:
-     A. REGIONS 플래그 — handSkin unwired, nail/sclera conditional
-     B. handSkin 정직 표기 — stats 고신뢰여도 '정밀 적용됨' 아님(항상 fallback)
+     A. REGIONS 플래그 — hand/nail/sclera conditional
+     B. handSkin 정직 표기 — Tier1 고신뢰면 조건부 정밀 적용
      C. nail/sclera 조건부 라벨 — 고신뢰 시 '필요 시 정밀 적용'(generic '정밀 적용됨' 아님), skin 은 '정밀 적용됨'
      D. confidence 원장용 보조문구 노출
      E. disable flag 표기 — PE_MASK_DISABLE/PE_NAIL_MASK_DISABLE/PE_SCLERA_MASK_DISABLE
@@ -31,7 +31,7 @@ async function main() {
     const reg = (id) => UI.REGIONS.find(r => r.id === id);
 
     // A. REGIONS 플래그
-    ok('A1 handSkin unwired', reg('handSkinMask') && reg('handSkinMask').unwired === true);
+    ok('A1 handSkin conditional', reg('handSkinMask') && reg('handSkinMask').conditional === true);
     ok('A2 nail conditional', reg('nailMask') && reg('nailMask').conditional === true);
     ok('A3 sclera conditional', reg('scleraMask') && reg('scleraMask').conditional === true);
     ok('A4 brow 행 + conditional + 라벨', reg('browMask') && reg('browMask').conditional === true && reg('browMask').labels && reg('browMask').labels.strong === '눈썹 선명 보정에 정밀 사용');
@@ -48,8 +48,8 @@ async function main() {
     let model;
     try { model = UI.buildModel({ originalImg: {} }); } finally { RP.getStats = orig; }
     const row = (id) => model.rows.find(r => r.id === id);
-    ok('B1 handSkin 고신뢰여도 정밀 아님', row('handSkinMask').status === '기본 보정으로 처리 중' && row('handSkinMask').tone === 'fallback', row('handSkinMask').status);
-    ok('B2 handSkin 정직 detail', /기본 피부 보정/.test(row('handSkinMask').detail));
+    ok('B1 handSkin 고신뢰 → 필요 시 정밀 적용', row('handSkinMask').status === '필요 시 정밀 적용' && row('handSkinMask').tone === 'strong', row('handSkinMask').status);
+    ok('B2 handSkin 정직 detail', /Tier 1/.test(row('handSkinMask').detail));
     ok('C1 skin(비조건부) 정밀 적용됨', row('skinMask').status === '정밀 적용됨', row('skinMask').status);
     ok('C2 nail(조건부) 필요 시 정밀 적용', row('nailMask').status === '필요 시 정밀 적용', row('nailMask').status);
     ok('C3 sclera(조건부) 필요 시 약하게 적용', row('scleraMask').status === '필요 시 약하게 적용', row('scleraMask').status);
