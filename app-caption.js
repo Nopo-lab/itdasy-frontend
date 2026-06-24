@@ -623,17 +623,29 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
   const axesText = axes.customer
     ? `${axes.customer} 손님. ${axes.situation}. ${axes.photo}.`
     : '';
-  const specialText = (scenario && scenario.special_context) ? scenario.special_context : '';
+  const specialText = (scenario && scenario.special_context) ? String(scenario.special_context).trim() : '';
 
   const category      = _CAP_CAT_MAP[shopType] || 'extension';
-  const photo_context = `${baseContext} ${slotNote}${axesText} ${specialText}`.trim();
+  // [v557 근본수정] 사용자가 직접 입력한 시술 문구를 '현재 시술'의 유일 출처로 우선한다.
+  //   (기존 버그) shop 보일러플레이트("<업종> 시술. 인치: 24인치")가 photo_context 앞에 붙고
+  //   사용자 입력은 뒤에 special_context 로만 들어가, 업종 무관 캡션(예: '젤네일' 입력 → 붙임머리 캡션)이 나왔다.
+  //   원인: ① 사용자 입력이 authoritative 한 treatment_keyword 로 안 감 ② defaultTag(24인치 등) 가 본문을 끌고감.
+  //   수정: 사용자 입력(시술 문구 or 선택 태그) = treatment_keyword + photo_context 리드. 업종 defaultTag 미주입.
+  const userTx = specialText || (types && types.length ? types.join(', ') : '');
+  let photo_context;
+  if (userTx) {
+    photo_context = `${userTx}. ${slotNote}${axesText}`.replace(/\s+/g, ' ').trim();
+  } else {
+    // 사용자 입력이 전혀 없을 때만 업종 기본 맥락(샵 정체성은 백엔드 identity 블록에도 있음).
+    photo_context = `${baseContext} ${slotNote}${axesText}`.replace(/\s+/g, ' ').trim();
+  }
   const length_tier   = 'medium';
   // [v555] 말투 카드 선택값(없으면 추천 기본값 natural_owner). regenerate 도 이 payload 를 상속.
   const tone_override = (window._selectedTone || 'natural_owner');
 
   const payload = { category, photo_context, length_tier, tone_override };
-  // [v555] 선택한 시술 특징을 키워드 채널로도 전달 → 백엔드가 본문/해시태그에 명시 반영.
-  if (types && types.length) payload.treatment_keyword = types.join(', ').slice(0, 80);
+  // [v557] 사용자 시술 문구를 authoritative 키워드로 전달 → 백엔드가 본문/해시태그에 우선 반영(보일러플레이트 무시).
+  if (userTx) payload.treatment_keyword = userTx.slice(0, 80);
   _lastGeneratePayload = payload;  // 재생성 버튼용
   if (typeof window._assertSpec === 'function') window._assertSpec('POST /persona/generate', payload);
 
