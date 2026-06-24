@@ -217,8 +217,10 @@
     return r + '분';
   }
   function _durationStepper(it) {
-    if (it.action_required !== 'booking_action') return '';
     const am = it.action_meta || {};
+    // [2026-06-24] booking_action(빈시간 즉시확정) + deposit_sent(입금확인→확정) 둘 다 시술시간 스테퍼 노출.
+    //   입금흐름은 action_required 가 confirm 시점에만 'booking_action' 이라 카드 단계에선 안 떴던 버그 대응.
+    if (it.action_required !== 'booking_action' && !am.deposit_sent) return '';
     const init = Math.max(30, Math.round(((parseInt(am.default_duration_min, 10) || 60)) / 30) * 30);
     const _btn = (step, lbl, path) => `<button class="dcq-dur-btn" data-step="${step}" aria-label="${lbl}" style="width:28px;height:28px;border:1px solid #E5E8EB;background:#F2F4F6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#4E5968;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">${path}</svg></button>`;
     return `<div class="dcq-dur-wrap" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;">
@@ -492,7 +494,14 @@
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send_edit`, { edited_reply: editedText });
       } else if (action === 'confirm-deposit') {
-        r = await _fetch('POST', `/dm-confirm-queue/${id}/confirm-deposit`);
+        // [2026-06-24] 입금 확인 → 예약 확정 시 스테퍼 시술시간(분) 같이 전송(ends_at 보정).
+        const _cbody = {};
+        const _durEl2 = card.querySelector('.dcq-dur');
+        if (_durEl2 && _durEl2.dataset.dur) {
+          const _d2 = parseInt(_durEl2.dataset.dur, 10);
+          if (_d2 > 0) _cbody.duration_min = _d2;
+        }
+        r = await _fetch('POST', `/dm-confirm-queue/${id}/confirm-deposit`, _cbody);
         if (window.showToast) window.showToast(r.ok ? '입금 확인 + 예약 확정됐어요 ✓' : (r.message || '확정 실패'));
       } else if (action === 'reset') {
         const ok = await window.nativeConfirm('대화 초기화', '이 손님의 대화를 초기화할까요?\n성함·연락처·예약 정보가 모두 사라져요.').catch(() => false);
