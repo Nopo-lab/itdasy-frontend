@@ -13,7 +13,7 @@
   const LABEL_MAX = 20, MAX_ITEMS = 13, ICE_MAX = 4;
   // 고정 항목 설명 + 편집 필드(resp/ack/none) + 토큰 안내
   const FIXED_META = {
-    BOOK_FORM: { mt: '예약 양식 보내기', ms: '탭하면 → 손님에게 양식 바로 발송', edit: 'none', editNote: '양식 내용은 [예약 양식] 화면에서 편집해요.' },
+    BOOK_FORM: { mt: '예약 양식 보내기', ms: '탭하면 → 손님에게 양식 바로 발송', edit: 'booking' },
     HOURS:     { mt: '영업시간 자동 안내', ms: '영업시간을 바로 답장', edit: 'resp', token: '{영업시간}' },
     LOCATION:  { mt: '위치·주소 자동 안내', ms: '샵 주소를 바로 답장', edit: 'resp', token: '{주소}' },
     PRICE:     { mt: '가격표 자동 안내', ms: '등록한 가격표를 바로 답장', edit: 'resp', token: '{가격표}' },
@@ -203,7 +203,10 @@
       <div class="dmm-fld">버튼 글자 (손님에게 보임)</div>
       <input class="dmm-lblin" data-lbl="${_esc(it.key)}" maxlength="${LABEL_MAX}" value="${_esc(it.label || '')}" placeholder="예: 예약하기">
       <div class="dmm-cnt"><span data-cnt="${_esc(it.key)}">${lblCount}</span>/${LABEL_MAX}</div>`;
-    if (meta.edit === 'none') {
+    if (kind === 'booking') {
+      // 예약 양식 편집기 — 공용 모듈(DMBookingForm)이 마운트(데이터는 자동응답 설정 채널)
+      fields += `<div class="dmm-booking" data-booking-mount></div>`;
+    } else if (meta.edit === 'none') {
       fields += `<div class="dmm-fld" style="color:#B0B8C1;">${_esc(meta.editNote || '')}</div>`;
     } else if (kind === 'resp' && _isFixedData(it.key)) {
       // 영업시간/주소/가격표 — 인사 멘트만 편집. 실제 데이터는 미리보기로 보이고 발송 시 자동으로 붙음.
@@ -268,6 +271,11 @@
           ${_tgHtml(iceOn, 'ice', '')}
         </div>
       </div>`;
+    // 예약하기 펼쳐져 있으면 예약 양식 편집기 마운트(공용 모듈)
+    if (_open.has('BOOK_FORM') && window.DMBookingForm) {
+      const m = body.querySelector('[data-booking-mount]');
+      if (m) window.DMBookingForm.mount(m);
+    }
   }
 
   function _onClick(e) {
@@ -394,10 +402,11 @@
     }
   }
 
-  function openDMMenuSettings() {
+  function openDMMenuSettings(expandKey) {
     const el = _ensureMounted();
     _menu = _menu || _defaultMenu();
     _open.clear();
+    if (expandKey) _open.add(expandKey); // 외부 진입 시 특정 항목 펼침(예: 예약하기)
     _real = null;
     _render();
     _hydrate().catch(() => {});

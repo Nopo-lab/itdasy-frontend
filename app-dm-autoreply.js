@@ -41,23 +41,7 @@
     return `${d.getMonth() + 1}/${d.getDate()}`;
   }
 
-  // [2026-06-12] 예약금 금액 파싱 — "5만원"→50000, "5만5천"→55000, "50000"→50000.
-  //   기존 parseInt 는 비숫자 제거 후 파싱이라 "5만원"→5 로 깨졌다.
-  function _parseKRW(raw) {
-    let s = String(raw == null ? '' : raw).replace(/[,\s원]/g, '');
-    if (!s) return null;
-    if (/^\d+$/.test(s)) { const n = parseInt(s, 10); return n > 0 ? n : null; }
-    let total = 0, matched = false;
-    const eok = s.match(/(\d+)억/);   if (eok) { total += parseInt(eok[1], 10) * 1e8; matched = true; }
-    const man = s.match(/(\d+)만/);   if (man) { total += parseInt(man[1], 10) * 1e4; matched = true; }
-    const cheon = s.match(/(\d+)천/); if (cheon) { total += parseInt(cheon[1], 10) * 1e3; matched = true; }
-    // "5만5000" 처럼 만 뒤에 남은 숫자
-    const tail = s.match(/만(\d{3,4})$/); if (tail) { total += parseInt(tail[1], 10); }
-    if (matched) return total > 0 ? total : null;
-    const digits = s.replace(/[^0-9]/g, '');
-    const n = digits ? parseInt(digits, 10) : 0;
-    return n > 0 ? n : null;
-  }
+  // [2026-06-25] _parseKRW(예약금 금액 파싱)는 빠른 안내(app-dm-booking-form)로 이전됨.
 
   // 키워드 → 카테고리 추론 (백엔드 미존재) — TODO[v1.5]: 서버 분류
   function _categoryOf(text) {
@@ -132,13 +116,12 @@
   }
 
   // 2026-05-01 ── 백엔드 Pydantic 검증 통과 보장: invalid 값 sanitize.
-  // autonomy_mode 패턴 검증 + tone enum 검증 + bool 강제.
+  // tone enum 검증 + bool 강제. [2026-06-25] 응답 자율성 UI 제거 → autonomy_mode 전송 중단.
   function _sanitizeForSave(s) {
     const out = Object.assign({}, s || {});
     const TONES = ['friendly', 'professional', 'cute'];
-    const MODES = ['draft', 'confirm_high', 'auto'];
     if (!TONES.includes(out.tone)) out.tone = 'friendly';
-    if (!MODES.includes(out.autonomy_mode)) out.autonomy_mode = 'confirm_high';
+    delete out.autonomy_mode;
     out.enabled = Boolean(out.enabled);
     out.prefer_template_first = Boolean(out.prefer_template_first);
     if (!Array.isArray(out.blocked_keywords)) out.blocked_keywords = [];
@@ -181,7 +164,7 @@
         <button type="button" class="dm-header__back" data-act="close" aria-label="닫기">
           <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
-        <div class="dm-header__title">DM 예약 양식 자동 전송</div>
+        <div class="dm-header__title">DM 자동응답</div>
         <button type="button" class="dm-header__action" data-act="save">저장</button>
       </div>`;
   }
@@ -214,13 +197,13 @@
     const on = igConnected && _settings?.enabled !== false;
     const dotCls = on ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
     const txt = igConnected
-      ? (on ? '예약 양식 자동 전송 켜짐' : '예약 양식 자동 전송 꺼짐')
+      ? (on ? 'DM 자동응답 켜짐' : 'DM 자동응답 꺼짐')
       : '인스타그램 연결 필요';
-    // [2026-06-10] 설명: 자동으로 나가는 건 예약 양식뿐
+    // 설명: 자동응답 범위(톤·시간·금지어 기준 자동 답장, 예약·위험은 검토)
     const desc = igConnected
       ? (on
-        ? '예약 문의 오면 인사 멘트 + 양식을 자동으로 보내요. 나머지는 검토 후 전송.'
-        : '켜면 예약 문의에 양식을 자동 발송해요. 다른 자동 답장은 없어요.')
+        ? '손님 DM에 AI가 자동으로 답장해요. 톤·응답 시간·금지어를 아래에서 조절하세요.'
+        : '켜면 손님 DM에 AI가 자동 답장해요. 톤·시간·금지어를 설정할 수 있어요.')
       : '인스타 연동 후 사용할 수 있어요.';
     return `
       <div class="dm-activate" data-dm-activate>
@@ -231,28 +214,11 @@
             <div style="font-size:11px;color:var(--text-subtle,#8B95A1);margin-top:2px;word-break:keep-all;">${desc}</div>
           </div>
           <button type="button" class="dm-toggle ${on ? 'is-on' : ''}${igConnected ? '' : ' is-disabled'}" data-act="enable-toggle"
-                  aria-pressed="${on}" aria-disabled="${!igConnected}" aria-label="예약 양식 자동 전송 켜기/끄기" style="margin-left:8px;flex-shrink:0;">
+                  aria-pressed="${on}" aria-disabled="${!igConnected}" aria-label="DM 자동응답 켜기/끄기" style="margin-left:8px;flex-shrink:0;">
             <span class="dm-toggle__track"></span><span class="dm-toggle__knob"></span>
           </button>
         </div>
         ${_renderStats(conversations)}
-      </div>`;
-  }
-
-  // TODO[v1.5]: /persona/training-progress 엔드포인트로 교체
-  function _renderPersona() {
-    const pct = 92;
-    return `
-      <div class="dm-persona">
-        <div class="dm-persona__icon">
-          <i class="ph-duotone ph-user-circle" style="font-size:20px" aria-hidden="true"></i>
-        </div>
-        <div class="dm-persona__info">
-          <div class="dm-persona__title"><b>원장님 말투</b>로 학습된 AI</div>
-          <div class="dm-persona__meta">DM·캡션 패턴으로 학습 중</div>
-          <div class="dm-persona__progress"><div class="dm-persona__bar" style="width:${pct}%"></div></div>
-        </div>
-        <div class="dm-persona__pct">${pct}%</div>
       </div>`;
   }
 
@@ -372,116 +338,17 @@
       </div>`;
   }
 
-  // [2026-06-09] 예약 양식 + 예약금 계좌/금액 + [2026-06-10] 인사 멘트 + 이해 확정 카드
-  //   placeholder 는 회색 안내일 뿐 저장값에 안 섞임(.value 만 읽음). 빈 값으로 시작.
-  function _renderBooking(settings) {
-    const form = _esc(settings.booking_form || '');
-    const greeting = _esc(settings.booking_form_greeting || '');
-    const acct = _esc(settings.deposit_account || '');
-    const amt = (settings.deposit_amount != null && settings.deposit_amount > 0) ? settings.deposit_amount : '';
-    // 저장된 매핑이 있으면 이해 카드 미리 렌더
-    const mapJson = settings.booking_form_map || '';
-    const mapCard = form && mapJson ? _renderFormMapCard(mapJson, false) : '';
-    return `
-      <div class="dm-section">
-        <div class="dm-section__title">예약 양식 <span class="dm-section__help">예약 문의 시 손님에게 보낼 안내</span></div>
-        <div class="dm-field" style="margin-bottom:8px;">
-          <label class="dm-field__label">양식 앞 인사 멘트 <span class="dm-section__help">비우면 양식만 발송</span></label>
-          <input type="text" class="dm-field__input" data-field="booking-form-greeting"
-            value="${greeting}" placeholder="예: 안녕하세요! 예약 도와드릴게요 :) 아래 양식으로 보내주세요">
-        </div>
-        <textarea class="dm-ban" data-field="booking-form" rows="5"
-          placeholder="손님이 예약 문의하면 보낼 양식을 적어두세요.&#10;예)&#10;1. 성함 / 연락처&#10;2. 희망 시술&#10;3. 희망 날짜·시간 (1순위)&#10;4. 2순위 날짜·시간">${form}</textarea>
-        <div id="dm-form-map-area" style="margin-top:10px;">${mapCard}</div>
-        <div class="dm-field">
-          <label class="dm-field__label">예약금 계좌 (은행·예금주 포함)</label>
-          <input type="text" class="dm-field__input" data-field="deposit-account"
-            value="${acct}" placeholder="예: 카카오뱅크 3333-00-000000 박수민">
-        </div>
-        <div class="dm-field">
-          <label class="dm-field__label">예약금 금액</label>
-          <div class="dm-field__suffix">
-            <input type="text" inputmode="numeric" class="dm-field__input dm-field__input--unit" data-field="deposit-amount"
-              value="${amt}" placeholder="예: 20000 또는 2만원">
-            <span class="dm-field__unit">원</span>
-          </div>
-        </div>
-      </div>`;
-  }
-
-  // [2026-06-10] 매핑 JSON → "이렇게 이해했어요" 카드 HTML 빌더
-  // confirming=true 이면 [네 맞아요]/[수정할래요] 버튼 표시, false 면 숨김(기존 저장본 표시용)
-  function _renderFormMapCard(mapJson, confirming) {
-    let fmap = {};
-    try { fmap = JSON.parse(mapJson); if (typeof fmap !== 'object' || Array.isArray(fmap)) fmap = {}; } catch (_) { fmap = {}; }
-    const LABELS = {
-      name: '성함·연락처',
-      phone: '연락처',
-      primary_time: '1순위 날짜·시간',
-      secondary_time: '2순위 → 1순위 안 되면 여기로',
-      service: '시술',
-      options: '옵션 (인치·색상·제거 등)',
-      memo: '기타 메모',
-    };
-    const rows = Object.entries(fmap)
-      .filter(([k, v]) => v && k !== 'phone') // phone은 name과 묶임
-      .map(([k, v]) => {
-        const label = LABELS[k] || k;
-        return `<div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;">
-          <span style="flex-shrink:0;color:#8B95A1;min-width:140px;word-break:keep-all;">${_esc(label)}</span>
-          <span style="color:#191F28;font-weight:600;word-break:keep-all;">${_esc(String(v))}</span>
-        </div>`;
-      });
-    if (!rows.length) return '';
-    const btns = confirming ? `
-      <div style="display:flex;gap:8px;margin-top:14px;">
-        <button type="button" data-act="form-map-confirm"
-          style="flex:1;height:40px;border-radius:10px;border:none;background:#2B3A67;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">네 맞아요</button>
-        <button type="button" data-act="form-map-edit"
-          style="flex:1;height:40px;border-radius:10px;border:1px solid #E0E0E6;background:#fff;color:#4E5968;font-size:13px;font-weight:600;cursor:pointer;">수정할래요</button>
-      </div>` : '';
-    return `
-      <div id="dm-form-map-card" style="background:#F7F8FA;border:1px solid #E8ECF1;border-radius:14px;padding:14px 16px;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
-          <svg width="14" height="14" aria-hidden="true"><use href="#ic-bot"/></svg>
-          <span style="font-size:12px;font-weight:700;color:#4E5968;">잇비가 이렇게 이해했어요</span>
-        </div>
-        <div style="display:flex;flex-direction:column;">${rows.join('')}</div>
-        ${btns}
-      </div>`;
-  }
-
-  // [2026-05-01] 고급설정 — 토큰 절약 모드 토글
+  // [2026-06-25] 고급설정 — 기본 접힘 아코디언(표준응대·멘트관리·가격즉답). '응답 자율성'은 제거됨.
   function _renderAdvanced(settings) {
     const tplFirst = !!settings.prefer_template_first;
-    const autonomy = settings.autonomy_mode || 'confirm_high';
-    const MODES = [
-      { id: 'draft',         name: '조심', desc: '모든 답장 검토 후 발송' },
-      { id: 'confirm_high',  name: '균형', desc: '예약·가격만 검토, 인사·시간 자동' },
-      { id: 'auto',          name: '자율', desc: '위험·액션만 검토, 나머지 자동' },
-    ];
     return `
       <div class="dm-section">
-        <div class="dm-section__title">고급설정 <span class="dm-section__help">스마트 응대 매뉴얼</span></div>
-        <div class="dm-rows">
-          <div class="dm-rows__item" style="flex-direction:column;align-items:stretch;gap:8px;">
-            <div>
-              <div class="dm-rows__label" style="font-weight:700;color:#222;">응답 자율성</div>
-              <div style="font-size:11px;color:#888;margin-top:3px;line-height:1.45;">
-                AI 답장을 곧장 보낼지, 사장님이 본 뒤에 보낼지 정하세요.
-              </div>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              ${MODES.map(m => `
-                <button type="button" class="dm-autonomy-btn ${m.id === autonomy ? 'is-on' : ''}" data-act="autonomy-mode" data-mode="${m.id}"
-                  style="flex:1;min-width:90px;padding:10px 8px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;
-                  ${m.id === autonomy ? 'background:linear-gradient(135deg,var(--accent,#D58A95),#E96A7E);color:#fff;border:1px solid var(--accent,#D58A95);' : 'background:#fff;color:#444;border:1px solid #e5e7eb;'}">
-                  <div style="font-size:13px;font-weight:800;margin-bottom:3px;">${m.name}</div>
-                  <div style="font-size:11px;font-weight:500;opacity:${m.id === autonomy ? '0.95' : '0.7'};line-height:1.35;">${m.desc}</div>
-                </button>
-              `).join('')}
-            </div>
-          </div>
+        <button type="button" class="dm-adv-head" data-act="adv-toggle" aria-expanded="false"
+          style="width:100%;display:flex;align-items:center;gap:6px;background:none;border:none;padding:0 0 6px;cursor:pointer;font-family:inherit;text-align:left;">
+          <span class="dm-section__title" style="margin:0;flex:1;">고급설정 <span class="dm-section__help">스마트 응대 매뉴얼</span></span>
+          <svg class="dm-adv-caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9CDD4" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transition:transform .2s;"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="dm-rows dm-adv-body" hidden>
           <div class="dm-rows__item">
             <div style="flex:1;">
               <div class="dm-rows__label" style="font-weight:700;color:#222;">표준 응대 우선</div>
@@ -1089,13 +956,12 @@
     card.querySelector('[data-act="send"]')?.addEventListener('click', () => _handleSend(card));
     // [2026-06-12] 예약 양식 미설정 안내 → 같은 시트의 양식 섹션으로 스크롤 + 포커스 (팝업 없이 인라인 이동).
     card.querySelector('[data-act="goto-booking-form"]')?.addEventListener('click', () => {
+      // [2026-06-25] 예약 양식은 빠른 안내로 이전 → 빠른 안내 열고 '예약하기' 펼침
       _haptic();
-      const ta = document.querySelector('[data-field="booking-form"]');
-      if (ta) {
-        ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => ta.focus(), 350);
+      if (typeof window.openDMMenuSettings === 'function') {
+        window.openDMMenuSettings('BOOK_FORM');
       } else {
-        _toast('DM 설정에서 예약 양식을 만들어주세요');
+        _toast('빠른 안내에서 예약 양식을 만들어주세요');
       }
     });
     card.querySelector('[data-act="reject"]')?.addEventListener('click', () => _handleReject(card));
@@ -1201,31 +1067,17 @@
   // [2026-05-01] 고급설정 토글 + 멘트 관리 진입 핸들러
   // [Feature 5] 가격 문의 즉답 토글 초기화 + 저장
   function _bindAdvanced(sheet) {
-    // [2026-05-22] 자율성 모드 (조심/균형/자율) — 사장이 직접 변경. POST /dm-autoreply/settings.
-    sheet.querySelectorAll('[data-act="autonomy-mode"]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const mode = btn.dataset.mode;
-        if (!['draft', 'confirm_high', 'auto'].includes(mode)) return;
-        // UI 즉시 토글
-        sheet.querySelectorAll('[data-act="autonomy-mode"]').forEach(b => {
-          const on = b.dataset.mode === mode;
-          b.classList.toggle('is-on', on);
-          // 인라인 스타일도 같이 토글 (re-render 안 해도 즉시 보이게)
-          if (on) {
-            b.style.cssText = b.style.cssText.replace(/background:[^;]+;?/g, '').replace(/color:[^;]+;?/g, '').replace(/border:[^;]+;?/g, '') +
-              ';background:linear-gradient(135deg,var(--accent,#D58A95),#E96A7E);color:#fff;border:1px solid var(--accent,#D58A95);';
-          } else {
-            b.style.cssText = b.style.cssText.replace(/background:[^;]+;?/g, '').replace(/color:[^;]+;?/g, '').replace(/border:[^;]+;?/g, '') +
-              ';background:#fff;color:#444;border:1px solid #e5e7eb;';
-          }
-        });
-        _saveSettings({ autonomy_mode: mode });
-        const label = mode === 'draft' ? '조심 — 모든 답장 검토 큐로 들어와요' :
-                      mode === 'confirm_high' ? '균형 — 단순 문의만 자동, 예약·가격은 검토' :
-                                                '자율 — 위험만 검토, 나머지 자동 발송';
-        _toast(label);
-        _haptic();
-      });
+    // [2026-06-25] 고급설정 접이식 토글 (기본 접힘)
+    sheet.querySelector('[data-act="adv-toggle"]')?.addEventListener('click', (e) => {
+      const head = e.currentTarget;
+      const body = head.parentElement?.querySelector('.dm-adv-body');
+      const caret = head.querySelector('.dm-adv-caret');
+      if (!body) return;
+      const willOpen = body.hidden;
+      body.hidden = !willOpen;
+      head.setAttribute('aria-expanded', String(willOpen));
+      if (caret) caret.style.transform = willOpen ? 'rotate(180deg)' : '';
+      _haptic();
     });
 
     sheet.querySelector('[data-act="tplfirst-toggle"]')?.addEventListener('click', (e) => {
@@ -1279,71 +1131,7 @@
       const arr = String(e.target.value || '').split(',').map(s => s.trim()).filter(Boolean);
       _saveSettings({ blocked_keywords: arr });
     });
-    // [2026-06-10] 양식 앞 인사 멘트 저장
-    sheet.querySelector('[data-field="booking-form-greeting"]')?.addEventListener('blur', (e) => {
-      _saveSettings({ booking_form_greeting: String(e.target.value || '').trim() });
-    });
-    // [2026-06-10] 예약 양식 blur → 저장 + 매핑 조회 + "이렇게 이해했어요" 확정 카드
-    const formTA = sheet.querySelector('[data-field="booking-form"]');
-    if (formTA) {
-      formTA.addEventListener('blur', async (e) => {
-        const val = String(e.target.value || '').trim();
-        _saveSettings({ booking_form: val });
-        if (!val) { const a = sheet.querySelector('#dm-form-map-area'); if (a) a.innerHTML = ''; return; }
-        const area = sheet.querySelector('#dm-form-map-area');
-        if (!area) return;
-        area.innerHTML = `<div style="font-size:12px;color:#8B95A1;padding:8px 0;">잇비가 양식을 분석하는 중이에요…</div>`;
-        try {
-          const r = await _rawFetch(apiUrl('/instagram/dm-reply/settings/booking-form-map'), {
-            headers: window.authHeader(),
-          }, 15000);
-          if (!r || !r.ok) throw new Error('map fetch failed');
-          const d = await r.json();
-          const mapJson = d.map && Object.keys(d.map).length ? JSON.stringify(d.map) : '';
-          if (!mapJson) { area.innerHTML = ''; return; }
-          // 매핑을 settings 에 캐시 (재렌더 시 표시용)
-          if (_settings) _settings.booking_form_map = mapJson;
-          area.innerHTML = _renderFormMapCard(mapJson, true);
-          _bindFormMapButtons(sheet, mapJson);
-        } catch (_err) {
-          area.innerHTML = '';
-        }
-      });
-    }
-    // [2026-06-09] 예약금 계좌/금액
-    sheet.querySelector('[data-field="deposit-account"]')?.addEventListener('blur', (e) => {
-      _saveSettings({ deposit_account: String(e.target.value || '').trim() });
-    });
-    sheet.querySelector('[data-field="deposit-amount"]')?.addEventListener('blur', (e) => {
-      const raw = String(e.target.value || '').trim();
-      const n = _parseKRW(raw);  // "5만원"→50000 등 만/천 단위 해석
-      _saveSettings({ deposit_amount: n });
-      if (n != null) {
-        // 입력 정규화 + 확인 토스트 ("50,000원으로 저장했어요")
-        e.target.value = String(n);
-        _toast(`${n.toLocaleString('ko-KR')}원으로 저장했어요`);
-      } else if (raw) {
-        _toast('예약금 금액을 숫자로 입력해주세요 (예: 2만원)');
-      }
-    });
-  }
-
-  // [2026-06-10] 이해 확정 카드 버튼 바인딩
-  function _bindFormMapButtons(sheet, mapJson) {
-    sheet.querySelector('[data-act="form-map-confirm"]')?.addEventListener('click', () => {
-      _haptic();
-      // 매핑 확정 — 카드 닫고 "이해 완료" 표시로 교체
-      const area = sheet.querySelector('#dm-form-map-area');
-      if (area) area.innerHTML = _renderFormMapCard(mapJson, false);
-      _toast('양식 이해 완료!');
-    });
-    sheet.querySelector('[data-act="form-map-edit"]')?.addEventListener('click', () => {
-      // 재편집 — 양식 textarea 에 포커스, 카드 숨김
-      const area = sheet.querySelector('#dm-form-map-area');
-      if (area) area.innerHTML = '';
-      const ta = sheet.querySelector('[data-field="booking-form"]');
-      if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-    });
+    // [2026-06-25] 예약 양식·예약금 핸들러는 빠른 안내(app-dm-booking-form)로 이전됨.
   }
 
   function _bindHeader(sheet) {
@@ -1575,10 +1363,8 @@
       ${_renderHeader()}
       <div class="dm-body">
         ${_renderActivate(status, conversations)}
-        ${_renderPersona()}
         ${_renderTone(_settings)}
         ${_renderHours(_settings)}
-        ${_renderBooking(_settings)}
         ${_renderBan(_settings)}
         ${_renderAdvanced(_settings)}
         ${_renderRetention()}
