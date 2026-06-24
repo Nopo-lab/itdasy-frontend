@@ -207,6 +207,29 @@
       </div>
     </div>`;
   }
+  // [2026-06-24 2a] 예상 시술 시간 — 30분 단위 스테퍼. 초기값=카탈로그 default_duration_min(없으면 60).
+  //   원장이 ±30분 조정 → 전송 시 duration_min 으로 보냄(ends_at 보정). 미조정이면 기본값 그대로.
+  function _fmtDur(min) {
+    const m = Math.max(30, parseInt(min, 10) || 60);
+    const h = Math.floor(m / 60), r = m % 60;
+    if (h && r) return h + '시간 ' + r + '분';
+    if (h) return h + '시간';
+    return r + '분';
+  }
+  function _durationStepper(it) {
+    if (it.action_required !== 'booking_action') return '';
+    const am = it.action_meta || {};
+    const init = Math.max(30, Math.round(((parseInt(am.default_duration_min, 10) || 60)) / 30) * 30);
+    const _btn = (step, lbl, path) => `<button class="dcq-dur-btn" data-step="${step}" aria-label="${lbl}" style="width:28px;height:28px;border:1px solid #E5E8EB;background:#F2F4F6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#4E5968;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">${path}</svg></button>`;
+    return `<div class="dcq-dur-wrap" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;">
+      <span style="font-size:12px;color:#8B95A1;font-weight:700;">예상 시술 시간</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${_btn(-30, '30분 줄이기', '<path d="M5 12h14"/>')}
+        <span class="dcq-dur" data-dur="${init}" style="min-width:64px;text-align:center;font-size:13.5px;font-weight:700;color:#191F28;">${_fmtDur(init)}</span>
+        ${_btn(30, '30분 늘리기', '<path d="M12 5v14M5 12h14"/>')}
+      </div>
+    </div>`;
+  }
   // [F2] 전송 버튼 라벨·스타일
   function _mainBtnStyle(it) {
     const am = it.action_meta || {};
@@ -300,6 +323,7 @@
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
+        ${_durationStepper(it)}
         ${_depositLine(am)}
         <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
@@ -328,7 +352,8 @@
     const list = document.getElementById('dcqList');
     if (!list) return;
     // [2026-06-08] 수정(인라인 textarea) 중이면 폴링 재렌더 스킵 — 입력 내용/카드 안 닫히게.
-    const editing = Array.from(list.querySelectorAll('.dcq-edit')).some(t => t.style.display !== 'none');
+    const editing = Array.from(list.querySelectorAll('.dcq-edit')).some(t => t.style.display !== 'none')
+      || !!list.querySelector('.dcq-dur[data-touched="1"]');  // 스테퍼 조정 중이면 재렌더 스킵
     if (editing) return;
     // [Task 3] 빈 화면이면 로딩 표시
     if (!list.children.length) {
@@ -393,6 +418,16 @@
       if (edited) _doAction(b, 'send_edit', edited);
       else _doAction(b, 'send');
     }));
+    // [2026-06-24 2a] 시술 시간 스테퍼 ±30분. touched 마킹 → 폴링 재렌더가 값 안 덮게.
+    list.querySelectorAll('.dcq-dur-btn').forEach(b => b.addEventListener('click', () => {
+      const wrap = b.closest('.dcq-dur-wrap'); if (!wrap) return;
+      const span = wrap.querySelector('.dcq-dur'); if (!span) return;
+      const step = parseInt(b.dataset.step, 10) || 0;
+      let v = (parseInt(span.dataset.dur, 10) || 60) + step;
+      v = Math.max(30, Math.min(480, v));
+      span.dataset.dur = v; span.dataset.touched = '1';
+      span.textContent = _fmtDur(v);
+    }));
     list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
     list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
     list.querySelectorAll('.dcq-confirm-deposit').forEach(b => b.addEventListener('click', () => _doAction(b, 'confirm-deposit')));
@@ -409,7 +444,13 @@
     try {
       let r;
       if (action === 'send') {
-        r = await _fetch('POST', `/dm-confirm-queue/${id}/send`, { selected_index: 0 });
+        const _body = { selected_index: 0 };
+        const _durEl = card.querySelector('.dcq-dur');  // [2a] 원장 조정 시술시간(분)
+        if (_durEl && _durEl.dataset.dur) {
+          const _d = parseInt(_durEl.dataset.dur, 10);
+          if (_d > 0) _body.duration_min = _d;
+        }
+        r = await _fetch('POST', `/dm-confirm-queue/${id}/send`, _body);
       } else if (action === 'send-form') {
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send-form`);
         if (window.showToast) window.showToast(r && r.ok ? '예약 양식을 보냈어요 ✓' : ((r && r.message) || '양식 발송 실패'));
