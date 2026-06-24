@@ -241,12 +241,27 @@
   function _mainBtnLabel(it) {
     const am = it.action_meta || {};
     if (it.action_required === 'send_form') return '양식 보내기';  // [A]
+    if (am.set_address) return '주소 저장 + 보내기';  // [2026-06-24] 주소 미설정 카드
     if (am.deposit_sent) return '입금 확인 + 예약 확정';
     if (am.awaiting_deposit) return '예약금 안내 전송';
     return '전송';
   }
   // deposit_sent 단계: 메인 버튼이 [입금 확인+예약 확정]이므로 별도 버튼 불필요
   function _depositConfirmBtn(_it) { return ''; }
+  // [2026-06-24] 주소 미설정 카드 — 손님 위치문의 + 샵 주소 빈값. 주소 한 번 입력 →
+  //   손님 발송 + 설정 저장(자가치유). 잇비 추천답장 섹션 대신 이 입력칸이 들어감.
+  function _setAddressBlock() {
+    return `<div style="margin-top:12px;">
+      <div style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#0F766E;background:#ECFDF5;padding:3px 9px;border-radius:99px;margin-bottom:8px;">
+        📍 위치 문의 — 주소 한 번만 입력하면 다음부턴 자동
+      </div>
+      <input class="dcq-set-address" type="text" placeholder="예: 서울 강남구 테헤란로 12길 34, 5층" autocomplete="off" style="width:100%;padding:11px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;background:#fff;color:#191F28;box-sizing:border-box;font-family:inherit;" />
+      <div style="font-size:11px;color:#0F766E;margin-top:6px;display:flex;align-items:center;gap:4px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+        보내면 설정에도 저장돼요
+      </div>
+    </div>`;
+  }
   function _gotoCalendar(ymd) {
     try {
       if (typeof window.showTab === 'function') {
@@ -277,6 +292,7 @@
     const _rawDraft = (it.ai_draft_candidates && it.ai_draft_candidates[0]) || it.ai_draft_text || '';
     const draft = (!_rawDraft && isFormAuto) ? '손님 양식 답변 대기 중이에요…' : _rawDraft;
     const isBooking = it.action_required === 'booking_action';
+    const isSetAddress = !!am.set_address;  // [2026-06-24] 주소 미설정 카드
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
@@ -325,18 +341,18 @@
         ${_bookingLine(am)}
         ${_durationStepper(it)}
         ${_depositLine(am)}
-        <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+        ${isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
             <div class="dcq-draft" style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(draft)}</div>
             <textarea class="dcq-edit" rows="3" style="display:none;width:100%;margin-top:6px;padding:10px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;line-height:1.5;background:#fff;color:#191F28;resize:vertical;box-sizing:border-box;font-family:inherit;">${_esc(draft)}</textarea>
           </div>
-        </div>
+        </div>`}
         <div style="display:flex;gap:6px;margin-top:12px;">
           ${(!isFormAuto || _rawDraft) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>` : ''}
-          ${(isSendForm || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
+          ${(isSendForm || isSetAddress || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
         </div>
         ${_depositConfirmBtn(it)}
@@ -353,7 +369,8 @@
     if (!list) return;
     // [2026-06-08] 수정(인라인 textarea) 중이면 폴링 재렌더 스킵 — 입력 내용/카드 안 닫히게.
     const editing = Array.from(list.querySelectorAll('.dcq-edit')).some(t => t.style.display !== 'none')
-      || !!list.querySelector('.dcq-dur[data-touched="1"]');  // 스테퍼 조정 중이면 재렌더 스킵
+      || !!list.querySelector('.dcq-dur[data-touched="1"]')  // 스테퍼 조정 중이면 재렌더 스킵
+      || Array.from(list.querySelectorAll('.dcq-set-address')).some(i => (i.value || '').trim() || i === document.activeElement);  // 주소 입력 중이면 스킵
     if (editing) return;
     // [Task 3] 빈 화면이면 로딩 표시
     if (!list.children.length) {
@@ -449,6 +466,18 @@
         if (_durEl && _durEl.dataset.dur) {
           const _d = parseInt(_durEl.dataset.dur, 10);
           if (_d > 0) _body.duration_min = _d;
+        }
+        // [2026-06-24] 주소 미설정 카드 — 입력한 주소를 함께 보냄(설정 저장 + 손님 안내)
+        const _addrEl = card.querySelector('.dcq-set-address');
+        if (_addrEl) {
+          const _addr = (_addrEl.value || '').trim();
+          if (!_addr) {
+            if (window.showToast) window.showToast('샵 주소를 입력해 주세요');
+            _addrEl.focus();
+            btn.disabled = false; btn.style.opacity = '1';
+            return;
+          }
+          _body.address = _addr;
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/send`, _body);
       } else if (action === 'send-form') {
