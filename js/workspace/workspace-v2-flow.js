@@ -419,14 +419,27 @@
     var preview = (d.originalPreview || d.previewUrl) ? 'none' : filterCss(d.adjust);
     return { url: url, preview: preview };
   }
+  function _editPhotoLabel(p, i) {
+    return p && p.role === 'before' ? '전 사진' : (p && p.role === 'after' ? '후 사진' : ('사진 ' + (i + 1)));
+  }
+  // [v550] 큰 편집 사진을 좌우로 넘기는 carousel 네비 — 상단 큰 썸네일 rail 대신 컴팩트 dot+카운터+
+  //   "이 사진 편집 중" pill + PC 화살표. 실제 전환은 큰 프리뷰 스와이프(_bindSwipe)/화살표/키보드.
   function _editSwitcherHtml() {
     var eps = editablePhotos();
     if (eps.length < 2) return '';
     var curIdx = (d.editIdx == null) ? 0 : d.editIdx;
-    return '<div class="ed-baswitch" role="tablist">' + eps.map(function (p, i) {
-      var lbl = p.role === 'before' ? '전 사진' : (p.role === 'after' ? '후 사진' : ('사진 ' + (i + 1)));
-      return '<button type="button" class="ed-baswitch__btn' + (i === curIdx ? ' on' : '') + '" data-fl-editsel="' + i + '" role="tab" aria-selected="' + (i === curIdx) + '" style="background-image:url(' + esc(photoUrl(p)) + ')"><span>' + esc(lbl) + '</span></button>';
-    }).join('') + '</div>';
+    var dots = eps.map(function (p, i) {
+      return '<button type="button" class="ed-carnav__dot' + (i === curIdx ? ' on' : '') + '" data-fl-editsel="' + i + '" role="tab" aria-selected="' + (i === curIdx) + '" aria-label="' + esc(_editPhotoLabel(p, i)) + '"></button>';
+    }).join('');
+    return '<div class="ed-carnav" role="tablist" aria-label="편집할 사진 전환">' +
+      '<button type="button" class="ed-carnav__arw ed-carnav__arw--prev" data-fl-edswipe="prev" aria-label="이전 사진"' + (curIdx <= 0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
+      '<div class="ed-carnav__mid">' +
+        '<span class="ed-carnav__pill">이 사진 편집 중 · <b>' + esc(_editPhotoLabel(eps[curIdx], curIdx)) + '</b></span>' +
+        '<div class="ed-carnav__dots">' + dots + '</div>' +
+        '<span class="ed-carnav__count">' + (curIdx + 1) + ' / ' + eps.length + '</span>' +
+      '</div>' +
+      '<button type="button" class="ed-carnav__arw ed-carnav__arw--next" data-fl-edswipe="next" aria-label="다음 사진"' + (curIdx >= eps.length - 1 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
+    '</div>';
   }
   function _editBottomHtml() {
     return '<div class="ed-bottom">' +
@@ -1260,6 +1273,7 @@
       // [perf] 버튼 탭은 해당 섹션만 갱신 — 전체 편집화면(템플릿 6칸 대용량 dataURL) 재생성 안 함.
       var fold = t.closest('[data-fl-fold]'); if (fold) { var fk = fold.getAttribute('data-fl-fold'); if (fk === 'bg') { d.bgOpen = !d.bgOpen; _setEditSection('[data-ed-basic]', _mainAdjustHtml()); } else if (fk === 'adv') { d.advOpen = !d.advOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); } else if (fk === 'tpl') { d.tplOpen = !d.tplOpen; _renderTplSection(); } return; }
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
+      var edswipe = t.closest('[data-fl-edswipe]'); if (edswipe) { return _stepEditPhoto(edswipe.getAttribute('data-fl-edswipe') === 'next' ? 1 : -1); }   // [v550] PC 화살표
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
 	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); if (d.maskView) _renderMaskOverlay(); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
@@ -1426,18 +1440,27 @@
     if (w && w.parentNode) w.parentNode.removeChild(w);
   }
   // 편집 사진 핀치 줌(2손가락) + 1손가락 팬(확대 시) + 더블탭 확대/축소. 뷰포트(.ed-photo-vp) 내부 클립.
+  // [v550] 편집 사진 좌우 전환 — 스와이프/화살표/키보드 공용. 굽기(bakeEdit) 포함된 switchEditPhoto 재사용.
+  function _stepEditPhoto(dir) {
+    var n = editablePhotos().length; if (n < 2) return;
+    var cur0 = (d.editIdx == null) ? 0 : d.editIdx;
+    var nx = cur0 + dir; if (nx < 0 || nx >= n) return;   // 끝에서는 더 안 넘김(루프 없음)
+    switchEditPhoto(nx);
+  }
   function _bindZoom() {
     if (!el || el._zoomBound) return; el._zoomBound = true;
-    var g = null, lastTap = 0;
+    var g = null, lastTap = 0, sw = null;
     function inVp(t) { return t && t.closest && t.closest('[data-fl-edvp]'); }
     el.addEventListener('touchstart', function (e) {
       if (cur !== 'edit' || !inVp(e.target)) return;
       if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
       if (e.touches.length === 2) {
         var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
-        g = { mode: 'pinch', dist: Math.hypot(dx, dy) || 1, s0: d.zoom.s }; e.preventDefault();
+        g = { mode: 'pinch', dist: Math.hypot(dx, dy) || 1, s0: d.zoom.s }; sw = null; e.preventDefault();
       } else if (e.touches.length === 1 && d.zoom.s > 1) {
-        g = { mode: 'pan', x: e.touches[0].clientX, y: e.touches[0].clientY, tx0: d.zoom.tx, ty0: d.zoom.ty }; e.preventDefault();
+        g = { mode: 'pan', x: e.touches[0].clientX, y: e.touches[0].clientY, tx0: d.zoom.tx, ty0: d.zoom.ty }; sw = null; e.preventDefault();
+      } else if (e.touches.length === 1 && d.zoom.s <= 1 && editablePhotos().length > 1) {
+        sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };   // [v550] 줌 아닐 때만 좌우 스와이프 후보
       }
     }, { passive: false });
     el.addEventListener('touchmove', function (e) {
@@ -1450,17 +1473,39 @@
       } else if (g.mode === 'pan' && e.touches.length === 1) {
         d.zoom.tx = g.tx0 + (e.touches[0].clientX - g.x); d.zoom.ty = g.ty0 + (e.touches[0].clientY - g.y);
         _applyZoomTransform(); e.preventDefault();
+      } else if (sw && e.touches.length === 1) {
+        // [v550] 좌우 스와이프 추적 — 수평이 우세할 때만 큰 프리뷰를 손가락 따라 살짝 끌어 피드백.
+        var mx = e.touches[0].clientX - sw.x, my = e.touches[0].clientY - sw.y;
+        if (!sw.lock) { if (Math.abs(mx) > 10 || Math.abs(my) > 10) sw.lock = Math.abs(mx) > Math.abs(my) ? 'h' : 'v'; }
+        if (sw.lock === 'h') {
+          var ph = el.querySelector('[data-fl-edphoto]'); if (ph) ph.style.transform = 'translateX(' + (mx * 0.35) + 'px)';
+          e.preventDefault();
+        }
       }
     }, { passive: false });
     el.addEventListener('touchend', function () {
       if (g && d.zoom && d.zoom.s <= 1) { d.zoom.tx = 0; d.zoom.ty = 0; _applyZoomTransform(); }
-      g = null;
+      if (sw && sw.lock === 'h') {
+        var ph = el.querySelector('[data-fl-edphoto]');
+        var mx = sw.lastX != null ? sw.lastX - sw.x : 0;
+        if (Math.abs(mx) > 48) { if (ph) ph.style.transform = ''; _stepEditPhoto(mx < 0 ? 1 : -1); }   // 확정: 전환(switchEditPhoto가 재페인트)
+        else if (ph) { ph.classList.add('is-swipeback'); ph.style.transform = ''; setTimeout(function () { ph.classList.remove('is-swipeback'); }, 220); }   // 미확정: 부드럽게 원위치
+      }
+      g = null; sw = null;
     });
+    el.addEventListener('touchmove', function (e) { if (sw && e.touches.length === 1) sw.lastX = e.touches[0].clientX; }, { passive: true });
     el.addEventListener('click', function (e) {
       if (cur !== 'edit' || !inVp(e.target)) return;
       var now = Date.now();
       if (now - lastTap < 320) { d.zoom = (d.zoom && d.zoom.s > 1) ? { s: 1, tx: 0, ty: 0 } : { s: 2, tx: 0, ty: 0 }; _applyZoomTransform(); }
       lastTap = now;
+    });
+    // [v550] PC 키보드 좌우 화살표로 편집 사진 전환(입력란 포커스 중엔 무시).
+    document.addEventListener('keydown', function (e) {
+      if (cur !== 'edit' || !el || el.hidden) return;
+      var ae = document.activeElement, tag = ae && ae.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (ae && ae.isContentEditable)) return;
+      if (e.key === 'ArrowLeft') { _stepEditPhoto(-1); } else if (e.key === 'ArrowRight') { _stepEditPhoto(1); }
     });
   }
 

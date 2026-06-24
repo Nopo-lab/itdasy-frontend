@@ -104,6 +104,20 @@
 
 /* B. 편집 — 연준 원본 5탭 구조 복원(토큰 톤). 아이콘=ph-duotone <i> */
 /* 전/후(다중) 사진 편집 전환 스위처 — 전후 콘텐츠에서 각 사진을 각각 보정 */
+/* [v550] 편집 사진 carousel 네비 — 큰 프리뷰를 좌우로 넘기고, 여긴 컴팩트 dot+카운터+화살표 */
+.wsv2flow .ed-carnav { display: flex; align-items: center; gap: 8px; margin: 8px 2px 10px; }
+.wsv2flow .ed-carnav__arw { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); display: grid; place-items: center; cursor: pointer; }
+.wsv2flow .ed-carnav__arw svg { width: 18px; height: 18px; }
+.wsv2flow .ed-carnav__arw:disabled { opacity: .3; cursor: default; }
+.wsv2flow .ed-carnav__mid { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.wsv2flow .ed-carnav__pill { font-size: 12px; font-weight: 800; color: var(--text-muted); }
+.wsv2flow .ed-carnav__pill b { color: var(--brand-strong); }
+.wsv2flow .ed-carnav__dots { display: flex; gap: 6px; align-items: center; }
+.wsv2flow .ed-carnav__dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .15s, background .15s; }
+.wsv2flow .ed-carnav__dot.on { width: 20px; border-radius: 4px; background: var(--brand-strong); }
+.wsv2flow .ed-carnav__count { font-size: 11px; font-weight: 700; color: var(--text-subtle); }
+@media (pointer: coarse) { .wsv2flow .ed-carnav__arw { display: none; } }   /* 모바일: 스와이프 우선, 화살표 숨김 */
+.wsv2flow .ed-photo.is-swipeback { transition: filter .12s, transform .18s ease; }   /* 스와이프 미확정 복귀만 부드럽게 */
 .wsv2flow .ed-baswitch { display: flex; gap: 8px; margin-bottom: 10px; }
 .wsv2flow .ed-baswitch__btn { flex: 1 1 0; min-width: 0; display: flex; align-items: flex-end; justify-content: center;
   height: 52px; border-radius: var(--r-md); border: 1.5px solid var(--border); background: var(--frame) center/cover;
