@@ -172,11 +172,15 @@
 .wsv2flow .ed-foldbody { padding: 14px; }
 .wsv2flow .ed-foldbody .tpl-chips { margin-bottom: 12px; }
 .wsv2flow .ed-foldbody .tpl-grid2 { margin-bottom: 0; }
-.wsv2flow .ed-tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border); }
-.wsv2flow .ed-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 66px; color: var(--text-muted); font-size: 11.5px; font-weight: 800; cursor: pointer; position: relative; }
-.wsv2flow .ed-tab i { font-size: 22px; }
+/* [v554] 정밀조정 카테고리 5개(피부·헤어·눈썹눈가·네일·고급)를 모바일에서도 한 줄에. 4칸 grid → 5칸. */
+.wsv2flow .ed-tabs { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--border); }
+.wsv2flow .ed-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; height: 62px; padding: 0 2px; color: var(--text-muted); font-size: 11px; font-weight: 800; line-height: 1.1; white-space: nowrap; cursor: pointer; position: relative; }
+.wsv2flow .ed-tab i { font-size: 21px; }
 .wsv2flow .ed-tab.on { color: var(--brand-strong); }
-.wsv2flow .ed-tab.on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; background: var(--brand-strong); }
+.wsv2flow .ed-tab.on::after { content: ""; position: absolute; left: 5px; right: 5px; bottom: 0; height: 2px; background: var(--brand-strong); }
+/* [v554] 정밀 조정 항상 펼침 — 접기/펼치기 토글·caret 없는 정적 섹션 헤더(기능 숨김 오해 방지). */
+.wsv2flow .ed-prec-head { display: flex; align-items: center; gap: 7px; height: 40px; padding: 0 4px 0 2px; color: var(--text); font-size: 13.5px; font-weight: 800; }
+.wsv2flow .ed-prec-head i { font-size: 18px; color: var(--brand-strong); }
 .wsv2flow .ed-tools { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 15px 6px 4px; }
 .wsv2flow .ed-tool { display: flex; flex-direction: column; align-items: center; gap: 7px; color: var(--text-muted); font-size: 10.5px; font-weight: 700; cursor: pointer; }
 .wsv2flow .ed-circle { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; }
