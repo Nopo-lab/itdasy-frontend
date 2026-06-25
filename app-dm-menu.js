@@ -211,6 +211,7 @@
       <div class="dmm-fld">버튼 글자 (손님에게 보임)</div>
       <input class="dmm-lblin" data-lbl="${_esc(it.key)}" maxlength="${LABEL_MAX}" value="${_esc(it.label || '')}" placeholder="예: 예약하기">
       <div class="dmm-cnt"><span data-cnt="${_esc(it.key)}">${lblCount}</span>/${LABEL_MAX}</div>`;
+    let pvBlock = '';  // '이렇게 답장돼요' 미리보기 — 멘트·수정·첨부 다음 맨 마지막에 붙임
     if (kind === 'booking') {
       // 예약 양식 편집기 — 공용 모듈(DMBookingForm)이 마운트(데이터는 자동응답 설정 채널)
       fields += `<div class="dmm-booking" data-booking-mount></div>`;
@@ -222,9 +223,9 @@
       const pvEmpty = (_real && _real[it.key]) ? '' : ' dmm-pv-empty';
       fields += `<div class="dmm-fld">인사 멘트</div>
         <textarea class="dmm-resp" data-resp="${_esc(it.key)}" maxlength="500" placeholder="예: ${_esc(ph)}">${_esc(it.resp || '')}</textarea>
-        <div class="dmm-fld">이렇게 답장돼요</div>
-        <div class="dmm-pv${pvEmpty}" data-preview="${_esc(it.key)}">${_esc(_previewText(it.key, it.resp))}</div>
         <button type="button" class="dmm-jump" data-jump="${_esc(it.key)}">${_esc(_DATA_LABEL[it.key])} 수정 →</button>`;
+      pvBlock = `<div class="dmm-fld">이렇게 답장돼요</div>
+        <div class="dmm-pv${pvEmpty}" data-preview="${_esc(it.key)}">${_esc(_previewText(it.key, it.resp))}</div>`;
     } else if (kind === 'resp') {
       fields += `<div class="dmm-fld">응답 멘트</div>
         <textarea class="dmm-resp" data-resp="${_esc(it.key)}" maxlength="600" placeholder="손님에게 보낼 답장">${_esc(it.resp || '')}</textarea>`;
@@ -242,6 +243,7 @@
     fields += `
       <div class="dmm-fld">사진 첨부 <span style="color:#B0B8C1;font-weight:600;">(버튼 누르면 손님에게 같이 전송 · 최대 2장)</span></div>
       <div class="dmm-img">${_thumbs}${_addBtn}</div>`;
+    fields += pvBlock;  // '이렇게 답장돼요' 는 항상 맨 마지막(멘트·수정·첨부 본 뒤 결과 확인)
     if (_isCustom(it)) {
       const at = it.action === 'owner_direct' ? 'owner_direct' : 'auto_text';
       fields += `
