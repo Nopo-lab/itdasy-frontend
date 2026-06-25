@@ -559,7 +559,13 @@ window.__LATEST_BUILD__ = '20260625-v559-template-result-ui';
 
 <!-- [UX-LOAD] 앱 초기 로딩 오버레이 — 데이터 준비 완료 시 숨김 -->
 <div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--surface,#fff);transition:opacity .42s cubic-bezier(.4,0,.2,1),transform .42s cubic-bezier(.34,1.56,.64,1);">
-  <div style="position:absolute;top:38%;left:0;right:0;text-align:center;font-size:34px;font-weight:800;letter-spacing:-1.2px;color:var(--text,#191F28);">Itda<span style="color:var(--accent,var(--brand))">sy</span></div>
+  <div style="position:absolute;top:38%;left:0;right:0;text-align:center;">
+    <div style="font-size:34px;font-weight:800;letter-spacing:-1.2px;color:var(--text,#191F28);">Itda<span style="color:var(--accent,var(--brand))">sy</span></div>
+    <div id="ldTag" style="position:relative;height:16px;margin-top:6px;font-size:11.5px;font-weight:600;letter-spacing:1.6px;color:var(--text3,#aab2bc);transition:opacity .4s ease;">
+      <div id="ldTagEn"><span>it's</span> <span>day.</span> <span>easy.</span></div>
+      <div id="ldTagKo" style="position:absolute;left:0;right:0;top:0;letter-spacing:2px;clip-path:inset(0 100% 0 0);">하루를 잇다. 쉽게</div>
+    </div>
+  </div>
   <div id="ldWave" style="position:absolute;top:50%;left:0;right:0;display:flex;justify-content:center;gap:7px;transition:opacity .35s ease;">
     <span></span><span></span><span></span>
   </div>
@@ -574,6 +580,16 @@ window.__LATEST_BUILD__ = '20260625-v559-template-result-ui';
 #ldWave span{width:9px;height:9px;border-radius:50%;background:var(--accent,var(--brand));animation:_ldWave 1s ease-in-out infinite}
 #ldWave span:nth-child(2){animation-delay:.16s}
 #ldWave span:nth-child(3){animation-delay:.32s}
+/* [UX-LOAD] 태그라인 전환: 영어 단어별 등장 → 왼→오 닦임 스왑 → 한글 */
+#ldTagEn span{display:inline-block;opacity:0;animation:_ldWordUp .5s ease-out both}
+#ldTagEn span:nth-child(1){animation-delay:.15s}
+#ldTagEn span:nth-child(2){animation-delay:.33s}
+#ldTagEn span:nth-child(3){animation-delay:.51s}
+@keyframes _ldWordUp{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+#ldTagEn{animation:_ldEnWipe 1s cubic-bezier(.45,0,.55,1) 1.6s both}
+@keyframes _ldEnWipe{0%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 0 100%)}}
+#ldTagKo{animation:_ldKoWipe 1s cubic-bezier(.45,0,.55,1) 1.6s both}
+@keyframes _ldKoWipe{0%{clip-path:inset(0 100% 0 0)}100%{clip-path:inset(0 0 0 0)}}
 </style>
 <script>
   // [2026-05-14 흰화면-fix] 로딩 오버레이 watchdog — 12초 후에도 안 사라지면 강제 hide.

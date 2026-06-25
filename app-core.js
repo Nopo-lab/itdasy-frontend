@@ -68,8 +68,8 @@ window._fireDataChanged = window._fireDataChanged || function (detail) {
   }, 50);
 };
 
-// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(깜빡임 방지) + 쫀득 페이드아웃 공통값
-var _LOAD_MIN_MS = 1000;
+// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(태그라인 전환 2.6s 다 보이게) + 쫀득 페이드아웃 공통값
+var _LOAD_MIN_MS = 2600;
 function _loaderFadeOut(lo) {
   lo.style.opacity = '0';
   lo.style.transform = 'scale(1.04)';
@@ -94,8 +94,10 @@ async function _finishLoginLoad(withGreeting) {
     try { shopName = localStorage.getItem('shop_name') || ''; } catch (_) { /* ignore */ }
     if (shopName) {
       var g = document.getElementById('ldGreet'), w = document.getElementById('ldWave'), n = document.getElementById('ldGreetName');
+      var tag = document.getElementById('ldTag');
       if (n) n.textContent = shopName;
       if (w) w.style.opacity = '0';
+      if (tag) tag.style.opacity = '0';
       if (g) { g.style.opacity = '1'; g.style.transform = 'translateY(0)'; }
       await new Promise(function (r) { setTimeout(r, 1300); });
     }
