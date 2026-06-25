@@ -293,6 +293,19 @@
 .wsv2flow .tpl-result__edit { display: block; width: 100%; height: 26px; padding: 0 4px; border: 0; border-radius: var(--r-pill); background: var(--brand-strong); color: #fff; font-size: 10.5px; font-weight: 800; cursor: pointer; }
 /* [v534] 적용 헤더의 '문구 수정' 진입. */
 .wsv2flow .tpl-applied__edit { flex: none; height: 32px; padding: 0 12px; border-radius: var(--r-pill); border: 0; background: var(--brand-strong); color: #fff; font-size: 12px; font-weight: 800; cursor: pointer; }
+/* [v559] 템플릿 결과 인라인 — 큰 preview 아래로 쭉 내리면 보이는 '합쳐진 전후 결과'(별도 carousel 제거). */
+.wsv2flow .tplres { margin: 14px 0 4px; display: flex; flex-direction: column; gap: 10px; }
+.wsv2flow .tplres__badge { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--r-pill); background: var(--brand-bg, rgba(213,138,149,.12)); color: var(--brand-strong); font-size: 12px; font-weight: 800; }
+.wsv2flow .tplres__badge svg { width: 14px; height: 14px; }
+.wsv2flow .tplres__badge em { font-style: normal; font-weight: 700; color: var(--text-muted); }
+.wsv2flow .tplres__img { width: 100%; aspect-ratio: 4 / 5; border-radius: var(--r-lg, 16px); background: var(--frame) center/contain no-repeat; box-shadow: var(--shadow-md); }
+.wsv2flow .tplres__pairs { display: flex; flex-wrap: wrap; gap: 8px; }
+.wsv2flow .tplres__pairchip { min-height: 34px; padding: 7px 13px; border-radius: var(--r-pill); border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.wsv2flow .tplres__pairchip.on { border-color: var(--brand-strong); background: var(--brand-strong); color: #fff; }
+.wsv2flow .tplres__act { display: flex; flex-wrap: wrap; gap: 8px; }
+.wsv2flow .tplres__change { flex: 1 1 auto; height: 38px; border-radius: var(--r-md); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; }
+.wsv2flow .tplres__edit { flex: 1 1 auto; height: 38px; border-radius: var(--r-md); border: 0; background: var(--brand-strong); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
+.wsv2flow .tplres__release { flex: 0 0 auto; height: 38px; padding: 0 16px; border-radius: var(--r-md); border: 1px solid var(--brand-strong); background: var(--surface); color: var(--brand-strong); font-size: 13px; font-weight: 800; cursor: pointer; }
 
 /* [이슈1] 전후 페어링 미리보기 — 어떤 전 사진이 어떤 후 사진과 묶이는지 명확히 */
 .wsv2flow .up-pairs { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 7px; }

@@ -48,7 +48,8 @@
 @keyframes ipcAppear2 { 0%,20%{opacity:0;transform:translateY(8px)} 25%,94%{opacity:1;transform:none} 100%{opacity:0} }
 @keyframes ipcAppear3 { 0%,38%{opacity:0;transform:translateY(8px)} 43%,94%{opacity:1;transform:none} 100%{opacity:0} }
 .ipc-live-ava { width: 27px; height: 27px; border-radius: 9px; background: var(--brand-bg); display: flex; align-items: center; justify-content: center; color: var(--brand-strong); flex-shrink: 0; }
-.ipc-live-bubble { background: var(--surface); border-radius: 4px 13px 13px 13px; padding: 8px 12px; font-size: 12.5px; color: var(--text-muted); box-shadow: 0 1px 4px rgba(25,31,40,.05); display: flex; align-items: center; gap: 7px; flex: 1; }
+/* [v559] flex 자식 min-width:auto 로 인해 내부 nowrap typewriter 가 280px 에서 가로 오버플로 → min-width:0 으로 축소 허용. */
+.ipc-live-bubble { background: var(--surface); border-radius: 4px 13px 13px; padding: 8px 12px; font-size: 12.5px; color: var(--text-muted); box-shadow: 0 1px 4px rgba(25,31,40,.05); display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
 .ipc-live-bubble b { color: var(--text); font-weight: 700; }
 .ipc-ok { width: 15px; height: 15px; border-radius: 50%; background: #16B55E; color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: auto; }
 .ipc-typewriter { display: inline-block; border-right: 2px solid var(--brand); white-space: nowrap; overflow: hidden; max-width: 100%; vertical-align: bottom; animation: ipcTw 6.5s steps(24,end) infinite, ipcBlink .8s step-end infinite; }
@@ -96,12 +97,11 @@
 .ipc-stage, .ipc-perks, .ipc-flow--d { display: none; }
 
 /* ════ 데스크톱/태블릿 (≥768px): 2단 히어로 + 혜택 + 흐름 ════ */
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .ipc { padding: 24px 0; gap: 16px; max-width: 900px; margin: 0 auto; }
 
   /* 모바일 전용 블록 숨김 */
   .ipc-bot-top, .ipc-bot-shadow, .ipc-live, .ipc-flow--m { display: none; }
-  .ipc-sub { display: block; }
 
   /* 2단 히어로 카드 */
   .ipc-card {
@@ -113,14 +113,14 @@
       "sub   stage"
       "cta   stage";
     align-items: center;
-    column-gap: 32px; row-gap: 0;
+    gap: 0 32px;
     text-align: left;
     padding: 40px 44px;
     border-radius: 28px;
   }
   .ipc-label { grid-area: label; font-size: 13px; margin-bottom: 10px; align-self: end; }
   .ipc-title { grid-area: title; font-size: 28px; line-height: 1.34; white-space: normal; }
-  .ipc-sub   { grid-area: sub; margin-top: 12px; }
+  .ipc-sub   { display: block; grid-area: sub; margin-top: 12px; }
   .ipc-ctas  { grid-area: cta; align-self: start; margin-top: 22px; }
   .ipc-cta { width: auto; align-self: flex-start; padding: 0 30px; }
   .ipc-trust { text-align: left; font-size: 12px; margin-top: 12px; }
@@ -159,8 +159,8 @@
 }
 
 /* 태블릿 (768~1023): 2단 유지하되 좁으면 무대 축소 */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .ipc-card { grid-template-columns: 1fr 260px; column-gap: 24px; padding: 32px 32px; }
+@media (width >= 768px) and (width <= 1023px) {
+  .ipc-card { grid-template-columns: 1fr 260px; column-gap: 24px; padding: 32px; }
   .ipc-title { font-size: 25px; }
   .ipc-stage { width: 260px; height: 210px; }
 }
