@@ -640,8 +640,8 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
     photo_context = `${baseContext} ${slotNote}${axesText}`.replace(/\s+/g, ' ').trim();
   }
   const length_tier   = 'medium';
-  // [v555] 말투 카드 선택값(없으면 추천 기본값 natural_owner). regenerate 도 이 payload 를 상속.
-  const tone_override = (window._selectedTone || 'natural_owner');
+  // [v555/v558] 말투 카드 선택값(없으면 추천 기본값 natural). regenerate 도 이 payload 를 상속.
+  const tone_override = (window._selectedTone || 'natural');
 
   const payload = { category, photo_context, length_tier, tone_override };
   // [v557] 사용자 시술 문구를 authoritative 키워드로 전달 → 백엔드가 본문/해시태그에 우선 반영(보일러플레이트 무시).
@@ -1377,8 +1377,8 @@ window.CaptionEngine = {
 };
 
 // [v555] 말투 카드 선택 — 위임 핸들러(정적 마크업이라 한 번만 바인딩). 선택값은 window._selectedTone.
-//   선택하지 않으면 기본 추천값 natural_owner(첫 카드 .on)로 동작.
-window._selectedTone = window._selectedTone || 'natural_owner';
+//   선택하지 않으면 기본 추천값 natural(첫 카드 .on)로 동작.
+window._selectedTone = window._selectedTone || 'natural';
 document.addEventListener('click', function (e) {
   const card = e.target && e.target.closest ? e.target.closest('#toneCards .tone-card') : null;
   if (!card) return;

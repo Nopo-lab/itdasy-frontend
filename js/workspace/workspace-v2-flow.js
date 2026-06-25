@@ -858,17 +858,22 @@
       return '<div class="cap-loading"><div class="cap-loading-spin"></div><p>AI가 게시글을 쓰는 중…</p></div>';
     }
 	    if (!d.caption) {
-	      // [다중pair] 결과물 2개+ 면 상단 캐러셀, 아니면 기존 단일 썸네일.
+	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      var photoThumb = _capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '');
-	      // [v531] 순서: 캐러셀/사진 → 상황 버튼 3개 → 시술내역·키워드 입력칸(안내문은 입력칸 쪽).
+	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
+	      var _chip = function (group, val, label, cur) { return '<button type="button" class="cap-chip' + (cur === val ? ' on' : '') + '" data-fl-' + group + '="' + val + '">' + label + '</button>'; };
+	      var toneChips = [['natural', '자연스럽게'], ['emotional', '인스타 감성'], ['professional', '전문가 느낌'], ['friendly', '친근하게'], ['premium', '프리미엄'], ['mz', 'MZ 감성']].map(function (o) { return _chip('ctone', o[0], o[1], _tone); }).join('');
+	      var lenChips = [['short', '짧게'], ['medium', '보통'], ['long', '길게']].map(function (o) { return _chip('clen', o[0], o[1], _len); }).join('');
 	      return photoThumb +
-	        '<div class="screen-head"><h2>어떤 게시글을<br>써드릴까요?</h2></div>' +
-	        '<div class="cap-scenario-head">오늘 어떤 상황이에요?</div>' +
-	        '<div data-fl-scenario></div>' +
-	        '<label class="cap-field-label">시술내역 / 키워드 <span>다른 단어로 다시 만들 수 있어요</span></label>' +
-	        '<input class="service-input" data-fl-service value="' + esc(d.service || '') + '" placeholder="' + esc(_servicePlaceholder()) + '" enterkeyhint="send">' +
-	        '<p class="cap-field-hint">키워드를 적고, 상황(시술 완성·신규 고객 등)을 고르면 게시글이 만들어져요.</p>';
+	        '<div class="screen-head"><h2>오늘 시술,<br>한 줄로 적어주세요</h2></div>' +
+	        '<input class="service-input cap-svc-lg" data-fl-service value="' + esc(d.service || '') + '" placeholder="오늘 시술을 한 줄로 입력해 주세요" enterkeyhint="send">' +
+	        '<p class="cap-field-hint">예: 젤네일 핑크 글리터 · 레이어드컷 · 속눈썹펌 · 애쉬브라운 염색</p>' +
+	        '<label class="cap-field-label">말투</label><div class="cap-chips">' + toneChips + '</div>' +
+	        '<label class="cap-field-label">길이</label><div class="cap-chips cap-chips--seg">' + lenChips + '</div>' +
+	        '<div class="cap-hash-row"><span class="cap-field-label" style="margin:0">해시태그</span>' +
+	          '<button type="button" class="cap-switch' + (_hashOn ? ' on' : '') + '" data-fl-chash role="switch" aria-checked="' + _hashOn + '"><span class="cap-switch__dot"></span></button></div>' +
+	        '<button type="button" class="cap-gen-btn" data-fl-cgen>게시글 만들기</button>';
 	    }
     // 결과 화면
     // [v532] '추천 해시태그' 칩 목록 제거 — 해시태그는 아래 직접 편집 textarea 하나로 일원화(화면 정리).
@@ -923,14 +928,8 @@
 
   function _mountCaption() {
     _mountCarousel();   // [v531] 결과 캐러셀 스와이프 바인딩(결과 화면엔 scenario 없어 아래 early-return 전에 먼저)
-    var container = el.querySelector('[data-fl-scenario]');
-    if (!container) return;
-    if (typeof renderScenarioSelector !== 'function') { toast('시나리오 선택기를 불러오지 못했어요'); return; }
-    renderScenarioSelector(container, function (result) {
-      // [v532] 상황 버튼 경로 — 키워드는 항상 DOM 에서 최신값을 직접 읽어 생성(버튼/Enter 동일 처리).
-      _triggerCaptionGenerate(result && result.axes);
-    });
-    // [v531] 키워드 입력 후 Enter/완료 → 바로 생성(상황 미선택이면 기본 '시술 완성'). 불필요한 CTA 없이 '딱 생성'.
+    // [v558] 시나리오 선택기 제거 — 입력화면은 시술 문구 입력 + 말투/길이/해시태그 칩 + 단일 생성 버튼.
+    // [v531] 키워드 입력 후 Enter → 바로 생성(편의). 주 경로는 '게시글 만들기' 버튼(data-fl-cgen).
     var svcInput = el.querySelector('[data-fl-service]');
     if (svcInput && !svcInput._wsGenBound) {
       svcInput._wsGenBound = true;
@@ -1159,8 +1158,11 @@
     opts.selectedTemplateId = d.templateId || null;
     opts.templateOutputs = _outs.map(function (o) { return { pairId: o.pairId, templateId: o.templateId, beforePhotoId: o.beforePhotoId, afterPhotoId: o.afterPhotoId, pairLabel: o.pairLabel }; });
     opts.activeDisplayId = d.activeDisplayId || (_outs[0] && _outs[0].pairId) || null;
-    d.capLen = opts.length_tier || d.capLen || 'medium';
-    d.capTone = opts.tone_override || d.capTone || 'normal';
+    // [v558] 입력화면에서 고른 말투/길이를 생성에 주입(재생성 버튼이 명시 override 하면 그 값 우선).
+    opts.tone_override = opts.tone_override || d.capTone || 'natural';
+    opts.length_tier = opts.length_tier || d.capLen || 'medium';
+    d.capLen = opts.length_tier;
+    d.capTone = opts.tone_override;
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
       if (r.ok) {
@@ -1175,6 +1177,8 @@
           fresh.forEach(function (h) { if (d.selectedHashes.indexOf(h) < 0) d.selectedHashes.push(h); });
           if (label) toast(added > 0 ? label : '새 해시태그가 더 없어요');
         } else {
+          // [v558] 해시태그 토글 OFF → 게시글에 해시태그 비표시(백엔드는 그대로 생성, 프론트에서만 숨김).
+          if (d.capHashOn === false) fresh = [];
           d.caption = r.caption; d.hashtags = fresh; d.selectedHashes = fresh.slice();
           // [v531] 캡션 입력→결과 최초 전환 시 history 마커 1개 push → 결과 화면에서 뒤로가기 = 캡션 입력 화면(편집 X).
           if (_wasEmpty) { navStack.push('caption'); _pushHist(); }
@@ -1334,12 +1338,17 @@
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
+      // [v558] 캡션 입력화면 칩/토글/생성 — 말투/길이/해시태그 선택 + 단일 생성 버튼.
+      var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
+      var cl = t.closest('[data-fl-clen]'); if (cl) { d.capLen = cl.getAttribute('data-fl-clen'); setScreen('caption'); return; }
+      var ch = t.closest('[data-fl-chash]'); if (ch) { d.capHashOn = (d.capHashOn === false); setScreen('caption'); return; }
+      var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');
 	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
 	        if (vk === 'long')  { return doGenerate({ length_tier: 'long', caption_intent: 'longer', _regen: true }, '길게 다시 생성했어요'); }
-	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
+	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'natural'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
 	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
 	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
 		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
