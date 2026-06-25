@@ -34,6 +34,7 @@
         action: { BOOK_FORM: 'book_form', HOURS: 'hours', LOCATION: 'location', PRICE: 'price', OTHER: 'owner_queue' }[k],
         resp: { HOURS: '영업시간 안내드려요 🕐\n{영업시간}', LOCATION: '오시는 길 안내드려요 📍\n{주소}', PRICE: '가격 안내드려요 💰\n{가격표}' }[k] || '',
         ack: k === 'OTHER' ? '문의남겨주시면 상세히 답변드릴게요' : '',
+        image_urls: [],
         custom: false,
       })),
       ice_breakers: ['BOOK_FORM', 'HOURS', 'LOCATION'],
@@ -151,6 +152,12 @@
       #${ID} .dmm-seg button{flex:1;font-size:12px;font-weight:700;padding:8px;border-radius:10px;border:.5px solid rgba(0,0,0,.12);background:#F7F8FA;color:#4E5968;cursor:pointer;font-family:inherit}
       #${ID} .dmm-seg button.on{background:#191F28;color:#fff;border-color:#191F28}
       #${ID} .dmm-del{align-self:flex-start;font-size:12px;font-weight:700;color:#D95F70;background:none;border:none;padding:4px 0;cursor:pointer}
+      #${ID} .dmm-img{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+      #${ID} .dmm-img-thumb{position:relative;width:64px;height:64px;border-radius:12px;overflow:hidden;border:.5px solid rgba(0,0,0,.12);flex:none;background:#F7F8FA}
+      #${ID} .dmm-img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+      #${ID} .dmm-img-del{position:absolute;top:3px;right:3px;width:19px;height:19px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+      #${ID} .dmm-img-add{display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;color:var(--brand-strong,#BC6675);background:var(--brand-bg,#F7EFF0);border:.5px solid rgba(0,0,0,.08);border-radius:12px;padding:10px 14px;cursor:pointer}
+      #${ID} .dmm-img-full{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;color:#B0B8C1}
       #${ID} .dmm-addbtn{width:100%;padding:13px;border:1px dashed rgba(0,0,0,.18);background:#fff;border-radius:14px;font-size:13px;font-weight:700;color:#4E5968;cursor:pointer;font-family:inherit;margin-top:10px}
       #${ID} .dmm-dim{opacity:.45;pointer-events:none}
       /* 쫀득 토글 — 노브 바운스 + 누를 때 살짝 늘었다 튕김 */
@@ -185,6 +192,7 @@
     const body = el.querySelector('#dmmBody');
     body.addEventListener('click', _onClick);
     body.addEventListener('input', _onInput);
+    body.addEventListener('change', _onChange);
     return el;
   }
 
@@ -224,6 +232,16 @@
       fields += `<div class="dmm-fld">확인 멘트 (보낸 뒤 사장님 큐로)</div>
         <textarea class="dmm-resp" data-ack="${_esc(it.key)}" maxlength="300" placeholder="예: 문의 확인했어요! 곧 답장드릴게요 🙏">${_esc(it.ack || '')}</textarea>`;
     }
+    // 사진 첨부 — 모든 항목 공통, 최대 2장. 버튼 탭 시 손님에게 사진을 같이 보냄(가격표·시술설명 등).
+    const _imgs = Array.isArray(it.image_urls) ? it.image_urls.slice(0, 2) : [];
+    const _thumbs = _imgs.map((u, i) => `<div class="dmm-img-thumb"><img src="${_esc(u)}" alt="첨부 사진">
+          <button type="button" class="dmm-img-del" data-img-del="${_esc(it.key)}" data-img-idx="${i}" aria-label="사진 삭제"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>`).join('');
+    const _addBtn = _imgs.length >= 2
+      ? `<span class="dmm-img-full">2장 다 채웠어요</span>`
+      : `<label class="dmm-img-add"><input type="file" accept="image/*" data-img-file="${_esc(it.key)}" hidden><span>+ 사진 추가</span></label>`;
+    fields += `
+      <div class="dmm-fld">사진 첨부 <span style="color:#B0B8C1;font-weight:600;">(버튼 누르면 손님에게 같이 전송 · 최대 2장)</span></div>
+      <div class="dmm-img">${_thumbs}${_addBtn}</div>`;
     if (_isCustom(it)) {
       const at = it.action === 'owner_direct' ? 'owner_direct' : 'auto_text';
       fields += `
@@ -295,6 +313,13 @@
       if (it) { it.action = actSet.getAttribute('data-act-set'); _haptic(); _render(); }
       return;
     }
+    const imgDel = e.target.closest('[data-img-del]');
+    if (imgDel) {
+      const it = _itemOf(imgDel.getAttribute('data-img-del'));
+      const idx = parseInt(imgDel.getAttribute('data-img-idx'), 10);
+      if (it && Array.isArray(it.image_urls) && idx >= 0) { it.image_urls.splice(idx, 1); _haptic(); _render(); }
+      return;
+    }
     const del = e.target.closest('[data-del]');
     if (del) {
       const k = del.getAttribute('data-del');
@@ -307,7 +332,7 @@
       if (_items().length >= MAX_ITEMS) { _toast(`메뉴는 최대 ${MAX_ITEMS}개예요`); return; }
       let n = 1; while (_itemOf('CUSTOM_' + n)) n++;
       const key = 'CUSTOM_' + n;
-      _menu.items.push({ key, label: '새 메뉴', enabled: true, action: 'auto_text', resp: '', ack: '', custom: true });
+      _menu.items.push({ key, label: '새 메뉴', enabled: true, action: 'auto_text', resp: '', ack: '', image_urls: [], custom: true });
       _open.add(key); _haptic(); _render(); return;
     }
     const jump = e.target.closest('[data-jump]');
@@ -356,6 +381,40 @@
     if (t.matches('[data-ack]')) { const it = _itemOf(t.getAttribute('data-ack')); if (it) it.ack = t.value; }
   }
 
+  function _onChange(e) {
+    const f = e.target.closest('[data-img-file]');
+    if (f && f.files && f.files[0]) _uploadImage(f.files[0], f.getAttribute('data-img-file'));
+  }
+
+  // 사진 업로드 → Supabase 공개 URL → 항목 image_urls 에 추가(최대 2장). 발송은 손님이 버튼 탭 시.
+  async function _uploadImage(file, key) {
+    const it = _itemOf(key);
+    if (!it || !file) return;
+    if (!Array.isArray(it.image_urls)) it.image_urls = [];
+    if (it.image_urls.length >= 2) { _toast('사진은 최대 2장이에요'); return; }
+    if (!/^image\//.test(file.type || '')) { _toast('이미지 파일만 올릴 수 있어요'); return; }
+    if (file.size > 10 * 1024 * 1024) { _toast('10MB 이하 이미지만 가능해요'); return; }
+    _toast('사진 올리는 중…');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await apiFetch(apiUrl('/image/upload'), {
+        method: 'POST',
+        headers: { ...(window.authHeader ? window.authHeader() : {}) },  // Content-Type 은 브라우저가 multipart 로 설정
+        body: fd,
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d.url) throw new Error(d.detail || ('HTTP ' + res.status));
+      if (!Array.isArray(it.image_urls)) it.image_urls = [];
+      it.image_urls.push(d.url);
+      it.image_urls = it.image_urls.slice(0, 2);
+      _haptic(); _render();
+      _toast('사진 추가됐어요 ✓');
+    } catch (err) {
+      _toast('사진 업로드 실패: ' + (err && err.message ? err.message : '네트워크 오류'));
+    }
+  }
+
   async function _hydrate() {
     try {
       const res = await apiFetch(apiUrl('/shop/dm-menu'), { headers: window.authHeader ? window.authHeader() : {} });
@@ -378,7 +437,7 @@
         enabled: !!it.enabled, action: it.action,
         // 영업시간/주소/가격표는 저장 시 인사 멘트 끝에 숨은 토큰 1개 재부착(BE 가 실데이터 치환)
         resp: _isFixedData(it.key) ? _withToken(it.resp, it.key) : (it.resp || ''),
-        ack: it.ack || '', custom: _isCustom(it),
+        ack: it.ack || '', image_urls: (it.image_urls || []).slice(0, 2), custom: _isCustom(it),
       })),
       // 처음 열 때 메뉴 ON 이면 켠 메뉴로 자동 계산(최신 enabled 반영), OFF 면 비움
       ice_breakers: (_menu.ice_breakers || []).length > 0 ? _computeIce() : [],
