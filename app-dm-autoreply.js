@@ -520,12 +520,20 @@
     if (opts.remove)  chips.push({ key: 'remove', label: opts.remove, prefix: '제거', opts: true });
     if (opts.design)  chips.push({ key: 'design', label: opts.design, prefix: '디자인', opts: true });
     if (actMeta.memo) chips.push({ key: 'memo', label: actMeta.memo, prefix: '요청', opts: false });
-    const chipsHtml = chips.length ? `
+    // [2026-06-25 FE-1] 사진 받음 칩 — BE action_meta.photo_attached/photo_count 표시(편집 X, dm-chip 미사용).
+    //   사진 캡션 텍스트는 안 섞음(사진은 사진칩으로만). lucide image 아이콘.
+    const photoChip = actMeta.photo_attached ? `
+      <span class="dm-chip-photo" style="display:inline-flex;align-items:center;gap:4px;background:#EEF2FF;color:#3730A3;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:600;word-break:keep-all;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+        사진 ${Math.max(1, Number(actMeta.photo_count) || 1)}장 받음
+      </span>` : '';
+    const chipsHtml = (chips.length || photoChip) ? `
       <div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px;">
         ${chips.map(c => `<span class="dm-chip" data-chip-key="${_esc(c.key)}" data-chip-opts="${!!c.opts}" title="탭하면 수정"
           style="display:inline-flex;align-items:center;gap:3px;background:#F2F4F6;color:#4E5968;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;word-break:keep-all;">
           <span style="color:#8B95A1;font-size:10.5px;">${_esc(c.prefix)}</span> ${_esc(c.label)}
         </span>`).join('')}
+        ${photoChip}
       </div>` : '';
 
     // ── 단계 배지
