@@ -131,6 +131,9 @@
       length_tier: 'medium',
       tone_override: 'normal',
     };
+    // [v560] 음성 메모 = 원장님이 직접 말한 시술 맥락 → authoritative treatment_keyword 로 전달
+    //   (백엔드가 모호한 photo_context 대신 이 키워드를 본문 근거로 우선 사용 → 환각 차단 보강).
+    if (trimmed) payload.treatment_keyword = trimmed.slice(0, 80);
 
     const data = await _fetchJson('POST', '/persona/generate', payload);
     return data.caption || '';
