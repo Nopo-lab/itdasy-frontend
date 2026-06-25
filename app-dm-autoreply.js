@@ -16,6 +16,7 @@
   let _settings = null;         // settings 캐시
   let _saveTimer = null;        // 디바운스 타이머
   const _draftMap = new Map();  // logId -> contenteditable 텍스트 (폴링 시 내용 보존용)
+  let _inboxCarouselIdx = 0;    // 가로 카드 현재 위치(8초 새로고침 시 위치 유지용)
 
   /* ── 유틸 ─────────────────────────────────────────── */
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
@@ -698,12 +699,24 @@
           </div>
         </div>`;
     }
+    // 카드 2개 이상 → 가로 넘김(캐러셀) + 닷. 1개면 기존 그대로.
+    const multi = conversations.length > 1;
+    const cards = conversations.map(c => _renderCard(c, activeTone)).join('');
+    const dots = multi
+      ? `<div class="dm-inbox__dots">${
+          conversations.map((_, i) =>
+            `<button type="button" class="dm-inbox__dot${i === 0 ? ' is-active' : ''}" data-idx="${i}" aria-label="${i + 1}번째 카드"></button>`
+          ).join('')
+        }</div>`
+      : '';
+    const countBadge = multi ? ` <span class="dm-inbox__count">${conversations.length}건</span>` : '';
     return `
       <div class="dm-section">
-        <div class="dm-section__title">DM 검토 대기 <span class="dm-section__help">예약 승인 · 대안 시간 · 거절</span></div>
-        <div class="dm-inbox">
-          ${conversations.map(c => _renderCard(c, activeTone)).join('')}
+        <div class="dm-section__title">DM 검토 대기${countBadge} <span class="dm-section__help">예약 승인 · 대안 시간 · 거절</span></div>
+        <div class="dm-inbox${multi ? ' dm-inbox--carousel' : ''}">
+          ${cards}
         </div>
+        ${dots}
       </div>`;
   }
 
@@ -1338,6 +1351,43 @@
       _bindRetention(sheet);
     }
     sheet.querySelectorAll('.dm-card').forEach(card => _bindCard(card));
+    _bindInboxCarousel(sheet);
+  }
+
+  // 가로 캐러셀: 닷 동기화 + 8초 새로고침 시 보던 카드 위치 복원.
+  function _bindInboxCarousel(scope) {
+    const track = scope.querySelector('.dm-inbox--carousel');
+    if (!track) return;
+    const dots = Array.from(scope.querySelectorAll('.dm-inbox__dot'));
+    const slides = Array.from(track.querySelectorAll('.dm-card'));
+    if (!slides.length) return;
+
+    const slideW = () => track.clientWidth || 1;
+    const syncDots = (i) => dots.forEach((d, di) => d.classList.toggle('is-active', di === i));
+    const goTo = (i, smooth) => {
+      const idx = Math.max(0, Math.min(i, slides.length - 1));
+      _inboxCarouselIdx = idx;
+      track.scrollTo({ left: idx * slideW(), behavior: smooth ? 'smooth' : 'auto' });
+      syncDots(idx);
+    };
+
+    // 새로고침 직후: 보던 위치 복원(부드럽지 않게 — 깜빡임 방지)
+    goTo(Math.min(_inboxCarouselIdx, slides.length - 1), false);
+
+    // 손가락 스크롤 → 활성 닷 갱신 + 위치 기억
+    let raf = 0;
+    track.addEventListener('scroll', () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        // iOS 바운스로 scrollLeft 가 범위를 넘어도 닷이 꺼지지 않게 클램프
+        const i = Math.max(0, Math.min(Math.round(track.scrollLeft / slideW()), slides.length - 1));
+        if (i !== _inboxCarouselIdx) { _inboxCarouselIdx = i; syncDots(i); }
+      });
+    }, { passive: true });
+
+    // 닷 클릭 → 해당 카드로 이동
+    dots.forEach(d => d.addEventListener('click', () => goTo(parseInt(d.dataset.idx, 10) || 0, true)));
   }
 
   /* ── 시트 열기/닫기 ────────────────────────────── */

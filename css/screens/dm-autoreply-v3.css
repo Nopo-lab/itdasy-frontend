@@ -412,6 +412,57 @@
   flex-direction: column;
   gap: 6px;
 }
+
+/* ── 가로 넘김(캐러셀): 카드 2개 이상일 때 ── */
+.dm-inbox--carousel {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 0 -2px;          /* 카드 그림자 잘림 방지 */
+  padding: 0 2px 2px;
+}
+.dm-inbox--carousel::-webkit-scrollbar { display: none; }
+.dm-inbox--carousel > .dm-card {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: center;
+}
+.dm-inbox__count {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft, rgba(188, 102, 117, 0.12));
+  color: #BC6675;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.dm-inbox__dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.dm-inbox__dot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+.dm-inbox__dot.is-active {
+  width: 18px;
+  background: #BC6675;
+}
 .dm-card {
   background: var(--surface);
   border: 0.5px solid var(--border);
