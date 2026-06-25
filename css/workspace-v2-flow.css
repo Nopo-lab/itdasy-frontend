@@ -312,6 +312,14 @@
 .wsv2flow .tplres__pairs { display: flex; flex-wrap: wrap; gap: 8px; }
 .wsv2flow .tplres__pairchip { min-height: 34px; padding: 7px 13px; border-radius: var(--r-pill); border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tplres__pairchip.on { border-color: var(--brand-strong); background: var(--brand-strong); color: #fff; }
+/* [v561·항목4] 결과물 전환 = 좌우 스와이프 + dot + 화살표(텍스트 'N번 보기' 칩 대체) */
+.wsv2flow .tplres__nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 2px 0; }
+.wsv2flow .tplres__dots { display: flex; gap: 6px; align-items: center; }
+.wsv2flow .tplres__dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .15s, background .15s; }
+.wsv2flow .tplres__dot.on { width: 20px; border-radius: 4px; background: var(--brand-strong); }
+.wsv2flow .tplres__arw { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; }
+.wsv2flow .tplres__arw svg { width: 18px; height: 18px; }
+.wsv2flow .tplres__arw:disabled { opacity: .35; cursor: default; }
 .wsv2flow .tplres__act { display: flex; flex-wrap: wrap; gap: 8px; }
 .wsv2flow .tplres__change { flex: 1 1 auto; height: 38px; border-radius: var(--r-md); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tplres__edit { flex: 1 1 auto; height: 38px; border-radius: var(--r-md); border: 0; background: var(--brand-strong); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
