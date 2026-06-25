@@ -531,6 +531,20 @@ function showAddKeywordInput() {
 
 // shopType → schemas.json category enum 매핑
 const _CAP_CAT_MAP = {'붙임머리':'extension','네일아트':'nail','네일':'nail'};
+// [v561] 업종 미매핑 시 'extension'(붙임머리)으로 폴백하던 버그 — 타업종(헤어/네일/속눈썹) 입력에도
+//   붙임머리 few-shot/고정문구가 누출(백엔드는 category 로 과거글 버킷을 고름). 시술 입력 텍스트 +
+//   업종으로 카테고리를 추론하고, 모르면 'hair'(중립)로 폴백한다. 'extension' 자동 폴백 금지.
+function _inferCaptionCategory(shopType, userText) {
+  const t = (String(userText || '') + ' ' + String(shopType || '')).toLowerCase();
+  const has = (arr) => arr.some(w => t.indexOf(w) >= 0);
+  if (has(['네일', '젤네일', '페디', '큐티클', '손톱', '발톱', '매니큐어', '패디'])) return 'nail';
+  if (has(['붙임머리', '익스텐션', '헤어피스', '가발', '붙임 머리'])) return 'extension';
+  if (has(['속눈썹', '래쉬', '눈썹문신', '반영구', '메이크업', '왁싱', '입술문신'])) return 'makeup';
+  if (has(['피부', '스킨', '각질', '필링', '여드름', '모공', '클렌징'])) return 'skincare';
+  if (has(['컷', '펌', '염색', '컬러', '레이어', '단발', '머릿결', '드라이', '클리닉', '매직', '두피', '헤어'])) return 'hair';
+  if (_CAP_CAT_MAP[shopType]) return _CAP_CAT_MAP[shopType];
+  return 'hair';   // 중립 폴백 (붙임머리 폴백 금지)
+}
 
 function generateCaption() {
   openCaptionScenarioPopup();
@@ -625,13 +639,14 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
     : '';
   const specialText = (scenario && scenario.special_context) ? String(scenario.special_context).trim() : '';
 
-  const category      = _CAP_CAT_MAP[shopType] || 'extension';
   // [v557 근본수정] 사용자가 직접 입력한 시술 문구를 '현재 시술'의 유일 출처로 우선한다.
   //   (기존 버그) shop 보일러플레이트("<업종> 시술. 인치: 24인치")가 photo_context 앞에 붙고
   //   사용자 입력은 뒤에 special_context 로만 들어가, 업종 무관 캡션(예: '젤네일' 입력 → 붙임머리 캡션)이 나왔다.
   //   원인: ① 사용자 입력이 authoritative 한 treatment_keyword 로 안 감 ② defaultTag(24인치 등) 가 본문을 끌고감.
   //   수정: 사용자 입력(시술 문구 or 선택 태그) = treatment_keyword + photo_context 리드. 업종 defaultTag 미주입.
   const userTx = specialText || (types && types.length ? types.join(', ') : '');
+  // [v561] 카테고리 = 시술 입력 텍스트 + 업종 추론 (붙임머리 자동 폴백 제거).
+  const category = _inferCaptionCategory(shopType, userTx);
   let photo_context;
   if (userTx) {
     photo_context = `${userTx}. ${slotNote}${axesText}`.replace(/\s+/g, ' ').trim();
@@ -1336,8 +1351,10 @@ window.CaptionEngine = {
         ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
       photo_context = `${base}${slotNote}${reviewNote}`.trim();
     }
+    // [v561] 카테고리 = 시술 입력(service/treatment_keyword) + 업종 추론. 'extension' 자동 폴백 제거.
+    const _catText = [opts.service, opts.treatment_keyword, opts.photo_context].filter(Boolean).join(' ');
     const payload = {
-      category: (_CAP_CAT_MAP[shopType] || 'extension'),
+      category: _inferCaptionCategory(shopType, _catText),
       photo_context,
       length_tier: opts.length_tier || 'medium',
       tone_override: opts.tone_override || 'normal',

@@ -74,6 +74,9 @@
 	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'wm-event-feed', purpose: 'event', captionMode: 'normal' },
 	    { key: 'feed', label: '인스타 피드', use: '피드용 안내', chip: '시술 자랑', id: 'wm-promo-feed', purpose: 'feed', captionMode: 'normal' },
 	    { key: 'story', label: '스토리 홍보', use: '세로 홍보', chip: '스토리', id: 'wm-promo-story', purpose: 'story', captionMode: 'normal' },
+	    // [v561·항목5] 단순 사진 붙이기 — 꾸밈 없이 2장을 50:50 으로. before_after 처럼 2장 필요.
+	    { key: 'stitch-lr', label: '좌우 붙이기', use: '두 장 나란히', chip: '붙이기', id: 'wm-stitch-lr', purpose: 'collage', collage: 'lr', captionMode: 'normal' },
+	    { key: 'stitch-tb', label: '상하 붙이기', use: '두 장 위아래', chip: '붙이기', id: 'wm-stitch-tb', purpose: 'collage', collage: 'tb', captionMode: 'normal' },
 	  ];
 	  function newAdjust() { return { brightness:0, contrast:0, saturation:0, sharpness:0, color:0 }; }
 	  function newBeauty() { return { skin:0, textureSmooth:0, blemish:0, hairDetail:0, hairVolume:0, hairShine:0, hairFull:0, hairEndsClean:0, browSharp:0, lashSharp:0, eyeRedness:0, catchLight:0, nailGloss:0, nailShape:0, handSkin:0 }; }
@@ -522,11 +525,27 @@
   //   PhotoEditorTemplateThumb.make 가 templateId 로 진짜 템플릿을 그려 dataURL 반환 → id별 1회 캐시.
   //   미로드/실패 시에만 고정 예시(_TPL_EX)로 폴백 — 업로드 사진은 어떤 경우에도 카드에 쓰지 않는다.
   var _tplThumbCache = {};
+  // [v561·항목5] 붙이기 카드 썸네일 — 사진 없이 분할 레이아웃만(좌우/상하) 그려 의도를 명확히.
+  function _collageThumb(layout) {
+    try {
+      var W = 320, H = 400, gap = 6, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+      var ctx = cv.getContext('2d'); ctx.fillStyle = '#EFE7EA'; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#C9B3BC';
+      if (layout === 'tb') { var hh = (H - gap) / 2; ctx.fillRect(0, 0, W, hh); ctx.fillRect(0, hh + gap, W, hh); }
+      else { var hw = (W - gap) / 2; ctx.fillRect(0, 0, hw, H); ctx.fillRect(hw + gap, 0, hw, H); }
+      ctx.fillStyle = '#7A5C66'; ctx.font = '700 30px Pretendard, "Noto Sans KR", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(layout === 'tb' ? '상하' : '좌우', W / 2, H / 2);
+      return cv.toDataURL('image/png');
+    } catch (_e) { return _TPL_EX.feed; }
+  }
   // [v535] 템플릿 카드 썸네일 = 사진 없는 '템플릿 디자인 자체'만 렌더(레이아웃/배지/카피).
   //   업로드 사진은 물론 샘플 사진(cat-*)도 주입하지 않는다 — 카드엔 '이상한 미리 적용 사진'이 보이면 안 됨.
   //   (v534 에서 넣었던 cat-1/cat-2 샘플 주입 제거. 사진은 적용(applyTemplate) 단계에서만 실제로 들어간다.)
   function _tplThumb(tpl) {
     if (_tplThumbCache[tpl.id]) return _tplThumbCache[tpl.id];
+    // [v561·항목5] 붙이기 템플릿은 레이아웃 자체(좌우/상하 분할)를 그려 보여준다.
+    if (tpl.purpose === 'collage') { var cu = _collageThumb(tpl.collage || 'lr'); _tplThumbCache[tpl.id] = cu; return cu; }
     var url = null;
     try {
       if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
@@ -587,13 +606,18 @@
     var active = null; for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === activeId) { active = outs[i]; break; } }
     if (!active) active = outs[0];
     var actIdx = 0; for (var k = 0; k < outs.length; k++) { if (outs[k].pairId === active.pairId) { actIdx = k; break; } }
+    // [v561·항목4] 다중 결과물은 '1번 보기/2번 보기' 텍스트 버튼 대신 좌우 스와이프 + dot + n/N 카운터.
     var badge = '<div class="tplres__badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
         '<b>' + (isBA ? '전후 템플릿 적용됨' : '템플릿 적용됨') + '</b>' +
-        (outs.length > 1 ? '<em>' + esc((actIdx + 1) + '번 전후') + '</em>' : '') + '</div>';
+        (outs.length > 1 ? '<em>' + (actIdx + 1) + ' / ' + outs.length + '</em>' : '') + '</div>';
     var img = '<div class="tplres__img" data-fl-tplresult style="background-image:url(' + esc(active.outputUrl) + ')"></div>';
-    var pairs = outs.length > 1 ? '<div class="tplres__pairs">' + outs.map(function (o, i) {
-        return '<button type="button" class="tplres__pairchip' + (o.pairId === active.pairId ? ' on' : '') + '" data-fl-pairsel="' + esc(o.pairId) + '">' + esc((i + 1) + '번 전후') + '</button>';
-      }).join('') + '</div>' : '';
+    var pairs = outs.length > 1 ? '<div class="tplres__nav" role="tablist" aria-label="결과물 전환 — 좌우로 넘기기">' +
+        '<button type="button" class="tplres__arw" data-fl-pairstep="prev" aria-label="이전 결과물"' + (actIdx <= 0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
+        '<div class="tplres__dots">' + outs.map(function (o, i) {
+          return '<button type="button" class="tplres__dot' + (o.pairId === active.pairId ? ' on' : '') + '" data-fl-pairsel="' + esc(o.pairId) + '" role="tab" aria-selected="' + (o.pairId === active.pairId) + '" aria-label="' + (i + 1) + '번째 결과물"></button>';
+        }).join('') + '</div>' +
+        '<button type="button" class="tplres__arw" data-fl-pairstep="next" aria-label="다음 결과물"' + (actIdx >= outs.length - 1 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
+      '</div>' : '';
     var actions = '<div class="tplres__act">' +
         '<button type="button" class="tplres__change" data-fl="tplchange">템플릿 바꾸기</button>' +
         (!isBA ? '<button type="button" class="tplres__edit" data-fl="tpleditactive">문구 수정</button>' : '') +
@@ -605,6 +629,16 @@
     var outs = d.templateOutputs || [];
     if (d.activeDisplayId && outs.some(function (o) { return o.pairId === d.activeDisplayId; })) return d.activeDisplayId;
     return outs[0] ? outs[0].pairId : null;
+  }
+  // [v561·항목4] 결과물 전환 후 현재 화면만 부분 재렌더(템플릿 화면이면 그쪽, 아니면 인라인 결과 섹션).
+  function _rerenderTplResult() { if (cur === 'template') _rerenderTemplate(); else _renderTplSection(); }
+  function _stepPair(dir) {
+    var outs = d.templateOutputs || []; if (outs.length < 2) return;
+    var cap = _activeOutputPair();
+    var idx = 0; for (var i = 0; i < outs.length; i++) { if (outs[i].pairId === cap) { idx = i; break; } }
+    var ni = Math.max(0, Math.min(outs.length - 1, idx + dir));
+    if (ni === idx) return;
+    d.activeDisplayId = outs[ni].pairId; _rerenderTplResult();
   }
   // [v541] 템플릿 섹션 재렌더 + 결과 캐러셀 스와이프 바인딩(전체 재렌더 없이).
   function _renderTplSection() {
@@ -651,33 +685,9 @@
     });
   }
   function _tplFoldHtml() {
-    var tplBody = '';
-    if (d.tplOpen) {
-      var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트', '스토리'];
-      var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
-      tplBody = '<div class="ed-panel"><div class="ed-foldbody">' +
-        (!d.templateId ? '<button type="button" class="tpl-applydefault" data-fl="applydefault">기본 템플릿 적용하기</button>' : '') +
-        '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
-        '<div class="tpl-grid2">' + shown.map(function (tpl) {
-          var isDef = _getDefaultTpl(_purposeCat(tpl.purpose)) === tpl.id;
-          var on = d.templateId === tpl.id;
-          // [v541] 썸네일 위 검은 제목 오버레이 제거 — 디자인 자체가 보이게. 이름은 aria-label 로만(접근성).
-          //   선택 상태 = 로즈 테두리 + 체크 + '적용됨' pill. 길게 누르면 확대(아래 long-press 바인딩).
-          return '<div class="tpl-itemwrap">' +
-            '<button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')">' +
-              '<i class="tpl-badge">' + esc(tpl.chip) + '</i>' +
-              (isDef ? '<i class="tpl-defbadge">기본</i>' : '') +
-              (on ? '<i class="tpl-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i><i class="tpl-onpill">적용됨</i>' : '') +
-            '</button>' +
-            '<button type="button" class="tpl-setdefault' + (isDef ? ' on' : '') + '" data-fl-setdefault="' + esc(tpl.key) + '">' + (isDef ? '기본 템플릿' : '기본으로 설정') + '</button>' +
-          '</div>';
-        }).join('') + '</div>' +
-        '</div></div>';
-    }
-    // [v559] 적용된 결과는 항상 인라인으로(접이식 밖) → 큰 preview 아래로 쭉 내리면 결과가 바로 보인다.
-    //   그 아래 '템플릿 다시 고르기'(미적용 시 '템플릿 꾸미기') 토글 → 열면 선택 그리드.
-    return _tplAppliedHtml() +
-      '<button type="button" class="ed-fold' + (d.tplOpen ? ' open' : '') + '" data-fl-fold="tpl"><span>' + (d.templateId ? '템플릿 다시 고르기' : '템플릿 꾸미기') + (d.template ? ' <em>' + esc(d.template) + '</em>' : '') + '</span>' + _caret(d.tplOpen) + '</button>' + tplBody;
+    // [v561·항목1] 편집 화면의 '템플릿 꾸미기' 접이식 그리드 제거 — 템플릿 선택은 전용 '템플릿 선택하기'
+    //   화면(하단 CTA)으로 일원화. 편집 화면엔 이미 적용된 결과 미리보기만 인라인으로 둔다(없으면 빈 출력).
+    return _tplAppliedHtml();
   }
   function renderEdit() {
     d.zoom = { s: 1, tx: 0, ty: 0 };   // 편집화면 새로 그릴 때(진입/사진전환) 줌 초기화
@@ -959,6 +969,23 @@
     }
     if (helper0) helper0.hidden = true;
     if (badge) { badge.hidden = false; badge.textContent = info.label + ' 직접 칠하는 중'; }
+  }
+  // [v561·항목4] 다중 결과물 큰 이미지 좌우 스와이프 → pair 전환(48px 임계, 수평 우세 시).
+  function _bindTplResultSwipe() {
+    if (!el || el._tplSwBound) return; el._tplSwBound = true;
+    var s = null;
+    el.addEventListener('touchstart', function (e) {
+      var img = e.target.closest && e.target.closest('[data-fl-tplresult]');
+      if (!img || e.touches.length !== 1) { s = null; return; }
+      s = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }, { passive: true });
+    el.addEventListener('touchend', function (e) {
+      if (!s) return;
+      var t = (e.changedTouches && e.changedTouches[0]) || null; if (!t) { s = null; return; }
+      var dx = t.clientX - s.x, dy = t.clientY - s.y;
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) _stepPair(dx < 0 ? 1 : -1);
+      s = null;
+    });
   }
   function _bindPaint() {
     if (!el || el._paintBound) return; el._paintBound = true;
@@ -1538,7 +1565,8 @@
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [v559] 인라인 결과 pair chip — 활성 pair 전환 후 결과 섹션만 갱신(별도 carousel 스크롤 없음).
-      var psel = t.closest('[data-fl-pairsel]'); if (psel) { d.activeDisplayId = psel.getAttribute('data-fl-pairsel'); _renderTplSection(); return; }
+      var psel = t.closest('[data-fl-pairsel]'); if (psel) { d.activeDisplayId = psel.getAttribute('data-fl-pairsel'); _rerenderTplResult(); return; }
+      var pstep = t.closest('[data-fl-pairstep]'); if (pstep) { _stepPair(pstep.getAttribute('data-fl-pairstep') === 'next' ? 1 : -1); return; }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
       // [v558] 캡션 입력화면 칩/토글/생성 — 말투/길이/해시태그 선택 + 단일 생성 버튼.
       var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
@@ -1613,6 +1641,7 @@
 	    });
     _bindZoom();
     _bindPaint();   // [v561] 직접 칠하기(수동 마스크) 포인터 바인딩
+    _bindTplResultSwipe();   // [v561·항목4] 다중 결과물 좌우 스와이프
     _bindTplLongPress();   // [v541] 템플릿 썸네일 long press 확대 미리보기
   }
 
@@ -1905,7 +1934,7 @@
 	    var strip = eps.map(function (p, i) {
 	      return '<div class="tpls-slide" style="background-image:url(' + esc(photoUrl(p)) + ')"><span class="tpls-slide__tag">' + esc(_editPhotoLabel(p, i)) + '</span></div>';
 	    }).join('');
-	    var chips = ['전체', '전후', '시술 자랑', '고객 후기', '이벤트', '스토리'];
+	    var chips = ['전체', '전후', '붙이기', '시술 자랑', '고객 후기', '이벤트', '스토리'];
 	    var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
 	    var grid = shown.map(function (tpl) {
 	      var on = d.templateId === tpl.id;
@@ -1921,6 +1950,61 @@
 	      '</div>' +
 	    '</div>';
 	  }
+	  // [v561·항목5] 2장 50:50 합성(좌우/상하) — cover 크롭으로 비율 깨짐 최소화, 1px 흰 거터.
+	  function _composeCollage(urlA, urlB, layout) {
+	    return new Promise(function (resolve) {
+	      var imgs = [], done = 0, fail = false;
+	      [urlA, urlB].forEach(function (u, i) {
+	        var im = new Image();
+	        im.onload = function () { imgs[i] = im; if (++done === 2 && !fail) _draw(); };
+	        im.onerror = function () { fail = true; resolve(null); };
+	        im.src = u;
+	      });
+	      function _coverBlit(ctx, im, dx, dy, dw, dh) {
+	        var iw = im.naturalWidth || im.width, ih = im.naturalHeight || im.height;
+	        var s = Math.max(dw / iw, dh / ih), sw = dw / s, sh = dh / s;
+	        var sx = (iw - sw) / 2, sy = (ih - sh) / 2;
+	        ctx.drawImage(im, sx, sy, sw, sh, dx, dy, dw, dh);
+	      }
+	      function _draw() {
+	        var W = 1080, H = 1080, gap = 4;   // 정사각 캔버스 + 가는 흰 거터
+	        var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+	        var ctx = cv.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+	        if (layout === 'tb') {
+	          var hh = (H - gap) / 2;
+	          _coverBlit(ctx, imgs[0], 0, 0, W, hh);
+	          _coverBlit(ctx, imgs[1], 0, hh + gap, W, hh);
+	        } else {   // 'lr'
+	          var hw = (W - gap) / 2;
+	          _coverBlit(ctx, imgs[0], 0, 0, hw, H);
+	          _coverBlit(ctx, imgs[1], hw + gap, 0, hw, H);
+	        }
+	        resolve(cv.toDataURL('image/jpeg', 0.92));
+	      }
+	    });
+	  }
+	  function _applyCollage(tpl) {
+	    var eps = editablePhotos();
+	    if (eps.length < 2) { toast('붙이기 템플릿은 사진 2장이 필요해요 · 사진을 더 추가해 주세요'); setScreen('upload'); return; }
+	    // 전·후 역할이 지정돼 있으면 그 순서(전→후), 아니면 선택 순서 첫 2장.
+	    var pairs = _computePairs().pairs;
+	    var a, b;
+	    if (pairs.length) { a = pairs[0].before; b = pairs[0].after; }
+	    else { a = eps[0]; b = eps[1]; }
+	    d.templateBusy = tpl.key; setScreen(_tplReturnScreen());
+	    _composeCollage(photoUrl(a), photoUrl(b), tpl.collage || 'lr').then(function (url) {
+	      d.templateBusy = null;
+	      if (url) {
+	        d.templateOutput = url; d.templateOutputId = tpl.id;
+	        d.templateOutputs = [{ pairId: 'pair-0', templateId: tpl.id, beforePhotoId: a.id, afterPhotoId: b.id, outputUrl: url, pairLabel: '결과물' }];
+	        d.activeDisplayId = null;
+	        d.template = tpl.label; d.templateId = tpl.id;
+	        d.tplPurpose = tpl.purpose; d.captionMode = tpl.captionMode || d.captionMode;
+	        d.previewUrl = null; toast(tpl.label + ' 완료');
+	      } else { toast('사진을 붙이지 못했어요 · 다시 시도해 주세요'); }
+	      setScreen(_tplReturnScreen());
+	    });
+	  }
 	  function applyTemplate(key) {
 	    var tpl = _tplByKey(key);
 	    if (!tpl) { toast('템플릿을 찾지 못했어요'); return; }
@@ -1928,6 +2012,8 @@
 	    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요'); return; }
 	    // [v532] 짝별 타깃은 전후 템플릿에서만 의미 — 비전후 템플릿을 고르면 타깃을 비우고 일반(일괄) 전환으로.
 	    if (tpl.purpose !== 'before_after') d.tplTargetPair = null;
+	    // [v561·항목5] 단순 붙이기(collage) — 2장을 50:50 으로 캔버스 합성. 꾸밈/텍스트 없음.
+	    if (tpl.purpose === 'collage') { _applyCollage(tpl); return; }
 	    // [버그5] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지, 업로드 화면으로 보내 사진 추가 유도(편집기 점프 금지).
 	    // [#7] 전후 템플릿은 최소 2장 — 1장이면 자동완성/자동보정 금지. 안내 후 업로드 화면으로(편집기 점프 금지).
 	    if (tpl.purpose === 'before_after' && editablePhotos().length < 2) {
