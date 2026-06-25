@@ -174,6 +174,7 @@
       _setEditSection('[data-ed-bottom]', _editBottomHtml());
       _setEditSection('[data-ed-adv]', _advFoldHtml());
       if (d.maskView) _renderMaskOverlay();   // [v539] 사진 전환 시 마스크 overlay 갱신
+      if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); }   // [v561] 칠하기 모드 유지 시 새 사진 기준 재렌더
       _warmEditMasks();
     });
   }
@@ -493,8 +494,14 @@
         return '<div class="ed-tab' + (t.k === ptab ? ' on' : '') + '" data-fl-edtab="' + t.k + '"><i class="ph-duotone ' + t.ic + '"></i>' + t.label + '</div>';
       }).join('') + '</div>';
       // [v540] 마스크 보기 — 정밀 조정 안으로 이동. 효과 부위 탭(피부/헤어/눈·눈썹/네일)에서만 노출(고급 제외).
+      // [v561] '직접 칠하기'(수동 마스크) — 자동 인식이 틀리거나 못 잡을 때 원장님이 영역을 직접 칠해 교정.
       var maskPill = (ptab !== 'tools')
-        ? '<div class="ed-maskpill-row"><button type="button" class="ed-maskpill' + (d.maskView ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기<span class="ed-maskpill__hint">지금 이 부위가 어디에 적용되는지</span></button><div class="ed-mask-helper" data-fl-maskhelper hidden></div></div>'
+        ? '<div class="ed-maskpill-row">' +
+            '<button type="button" class="ed-maskpill' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView && !d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
+            '<button type="button" class="ed-maskpill' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint" aria-pressed="' + (d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
+            (d.maskPaint ? _maskPaintControlsHtml() : '') +
+            '<div class="ed-mask-helper" data-fl-maskhelper hidden></div>' +
+          '</div>'
         : '';
       precBody = '<div class="ed-panel">' + precTabsHtml + maskPill + inner + (ptab !== 'tools' ? _photoDebugPanelHtml() : '') + '</div>';
     }
@@ -854,6 +861,7 @@
     if (window.__ITDASY_PHOTO_DEBUG__) { try { console.log('[photofx] mask=' + info.type + ' coverage=' + cov + '% dims=' + mw + 'x' + mh); } catch (_e) { void _e; } }
   }
   function _renderMaskOverlay() {
+    if (d.maskPaint) { _renderPaintOverlay(); return; }   // [v561] 칠하기 모드면 칠한 영역을 표시
     var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
     var ov = vp.querySelector('[data-fl-maskov]'), badge = vp.querySelector('[data-fl-maskbadge]');
     var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]');
@@ -877,6 +885,119 @@
     };
     img.onerror = function () { if (badge) badge.textContent = '사진을 불러오지 못했어요'; };
     img.src = url;
+  }
+
+  // ── [v561] 직접 칠하기(수동 마스크) — 자동 검출이 틀리거나 못 잡을 때 원장님이 영역을 직접 칠해 교정 ──
+  //   칠한 영역은 사진 해상도 캔버스(흰색=마스크값)로 누적 → applyWorkspaceCorrections 에 manualMasks 로 전달 →
+  //   adapter 가 useMasks[type] 를 덮어써 그 부위에만 보정 적용. 검출 실패(네일 클로즈업 등)도 칠하면 먹힌다.
+  function _maskPaintControlsHtml() {
+    var info = _maskInfoForTab();
+    var br = d.maskBrush || 26;
+    return '<div class="ed-paintctl" data-fl-paintctl>' +
+        '<div class="ed-paintctl__lbl"><b>' + esc(info.label) + '</b> 영역을 칠하면 그 부위에만 보정돼요</div>' +
+        '<div class="ed-paintctl__row">' +
+          '<button type="button" class="ed-paintb' + (!d.maskErase ? ' on' : '') + '" data-fl="paintdraw"><i class="ph-duotone ph-pen"></i>칠하기</button>' +
+          '<button type="button" class="ed-paintb' + (d.maskErase ? ' on' : '') + '" data-fl="painterase"><i class="ph-duotone ph-eraser"></i>지우개</button>' +
+          '<button type="button" class="ed-paintb" data-fl="paintclear"><i class="ph-duotone ph-trash"></i>비우기</button>' +
+        '</div>' +
+        '<label class="ed-paintbrush">붓 <input type="range" min="10" max="64" step="2" value="' + br + '" data-fl-brush aria-label="붓 크기"></label>' +
+      '</div>';
+  }
+  function _maskTypeForPaint() { return _maskInfoForTab().type; }
+  function _photoUid(p) { return p && (p._uid || (p._uid = 'm' + Math.random().toString(36).slice(2, 9))); }
+  // 진입 시 현재 편집 사진의 자연 해상도 확보 — paint 캔버스 종횡비를 사진과 일치시켜 좌표 매핑 정합 유지.
+  function _ensurePaintDims(cb) {
+    var photo = curEditPhoto(); if (!photo) { if (cb) cb(); return; }
+    if (photo._natW && photo._natH) { if (cb) cb(); return; }
+    var im = new Image();
+    im.onload = function () { photo._natW = im.naturalWidth || im.width || 1024; photo._natH = im.naturalHeight || im.height || 1024; if (cb) cb(); };
+    im.onerror = function () { photo._natW = 1024; photo._natH = 1024; if (cb) cb(); };
+    im.src = photo.dataUrl || photoUrl(photo);
+  }
+  function _getPaintCanvas(photo, type, create) {
+    if (!photo || !type) return null;
+    var uid = _photoUid(photo);
+    if (!d._paintCv) d._paintCv = {};
+    if (!d._paintCv[uid]) d._paintCv[uid] = {};
+    var cv = d._paintCv[uid][type];
+    if (!cv && create) {
+      var iw = photo._natW || 1024, ih = photo._natH || 1024;
+      cv = document.createElement('canvas'); cv.width = iw; cv.height = ih; cv._inked = false;
+      d._paintCv[uid][type] = cv;
+    }
+    return cv || null;
+  }
+  // 현재 편집 사진에서 칠해진(잉크 있는) 모든 부위 캔버스를 { maskType: canvas } 로 반환 — 보정 적용 시 주입.
+  function _manualMasksForCurrent() {
+    var photo = curEditPhoto(); if (!photo || !photo._uid || !d._paintCv) return null;
+    var store = d._paintCv[photo._uid]; if (!store) return null;
+    var out = null;
+    Object.keys(store).forEach(function (type) {
+      var cv = store[type];
+      if (cv && cv._inked) { out = out || {}; out[type] = cv; }
+    });
+    return out;
+  }
+  // paint 캔버스(흰 알파)를 탭 색으로 tint 해 overlay 에 contain-blit — 칠하는 동안 실시간 피드백.
+  function _renderPaintOverlay() {
+    var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
+    var ov = vp.querySelector('[data-fl-maskov]'), badge = vp.querySelector('[data-fl-maskbadge]');
+    var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]'); if (!ov) return;
+    if (d.originalPreview) { ov.hidden = true; if (badge) badge.hidden = true; return; }
+    var info = _maskInfoForTab(), photo = curEditPhoto();
+    var cv = _getPaintCanvas(photo, info.type, false);
+    var vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
+    ov.width = vw; ov.height = vh; ov.hidden = false;
+    var octx = ov.getContext('2d'); octx.clearRect(0, 0, vw, vh);
+    if (cv && cv.width && cv.height) {
+      var tmp = document.createElement('canvas'); tmp.width = cv.width; tmp.height = cv.height;
+      var tctx = tmp.getContext('2d'); tctx.drawImage(cv, 0, 0);
+      tctx.globalCompositeOperation = 'source-in';
+      tctx.fillStyle = 'rgba(' + info.tint[0] + ',' + info.tint[1] + ',' + info.tint[2] + ',0.5)';
+      tctx.fillRect(0, 0, cv.width, cv.height);
+      _containBlit(octx, tmp, vw, vh);
+    }
+    if (helper0) helper0.hidden = true;
+    if (badge) { badge.hidden = false; badge.textContent = info.label + ' 직접 칠하는 중'; }
+  }
+  function _bindPaint() {
+    if (!el || el._paintBound) return; el._paintBound = true;
+    var drawing = false, last = null;
+    function vpEl() { return el.querySelector('[data-fs="edit"] [data-fl-edvp]'); }
+    function geom(vp) {
+      var cv = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), true); if (!cv) return null;
+      var iw = cv.width, ih = cv.height, vw = vp.clientWidth || 1, vh = vp.clientHeight || 1;
+      var s = Math.min(vw / iw, vh / ih);
+      return { cv: cv, s: s, dx: (vw - iw * s) / 2, dy: (vh - ih * s) / 2 };
+    }
+    function toImg(e, vp, gm) { var r = vp.getBoundingClientRect(); return { x: (e.clientX - r.left - gm.dx) / gm.s, y: (e.clientY - r.top - gm.dy) / gm.s }; }
+    function stroke(gm, a, b) {
+      var ctx = gm.cv.getContext('2d'), rad = Math.max(2, ((d.maskBrush || 26) / 2) / gm.s);
+      ctx.globalCompositeOperation = d.maskErase ? 'destination-out' : 'source-over';
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = rad * 2;
+      ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff';
+      if (a) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(b.x, b.y, rad, 0, 6.2832); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      if (!d.maskErase) gm.cv._inked = true;
+    }
+    el.addEventListener('pointerdown', function (e) {
+      if (cur !== 'edit' || !d.maskPaint) return;
+      var vp = vpEl(); if (!vp || !vp.contains(e.target)) return;
+      if (d.zoom && d.zoom.s > 1) { toast('확대를 해제하고 칠해 주세요'); return; }
+      var gm = geom(vp); if (!gm) return;
+      drawing = true; last = toImg(e, vp, gm); stroke(gm, null, last); _renderPaintOverlay();
+      try { if (vp.setPointerCapture) vp.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
+      e.preventDefault();
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!drawing || !d.maskPaint) return;
+      var vp = vpEl(); if (!vp) return; var gm = geom(vp); if (!gm) return;
+      var pt = toImg(e, vp, gm); stroke(gm, last, pt); last = pt; _renderPaintOverlay(); e.preventDefault();
+    });
+    function end() { if (!drawing) return; drawing = false; last = null; if (_hasValues(d.beauty)) _refreshPreview(); }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
   }
 
   function _roleSummary() {
@@ -1274,6 +1395,23 @@
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       if (a === 'roles') { d.rolesOpen = !d.rolesOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      // [v561] 직접 칠하기(수동 마스크) — 자동 인식이 틀릴 때 원장님이 부위를 직접 칠해 교정.
+      if (a === 'maskpaint') {
+        d.maskPaint = !d.maskPaint;
+        if (d.maskPaint) { d.maskView = false; d.maskErase = false; }
+        _setEditSection('[data-ed-adv]', _advFoldHtml());
+        if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); toast(_maskInfoForTab().label + ' 영역을 손가락으로 칠해 교정하세요'); }
+        else { _renderMaskOverlay(); }
+        return;
+      }
+      if (a === 'paintdraw') { d.maskErase = false; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      if (a === 'painterase') { d.maskErase = true; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      if (a === 'paintclear') {
+        var _pc = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), false);
+        if (_pc) { _pc.getContext('2d').clearRect(0, 0, _pc.width, _pc.height); _pc._inked = false; }
+        _renderPaintOverlay(); if (_hasValues(d.beauty)) _refreshPreview();
+        toast('칠한 영역을 비웠어요'); return;
+      }
       if (a === 'tplrelease') { return releaseTemplate(); }
       if (a === 'applydefault') {
         // [v531] '기본 템플릿 적용하기' — 현재 유형의 기본 템플릿 자동 적용. 없으면 안내 후 카드에서 고르도록.
@@ -1344,7 +1482,7 @@
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
       var edswipe = t.closest('[data-fl-edswipe]'); if (edswipe) { return _stepEditPhoto(edswipe.getAttribute('data-fl-edswipe') === 'next' ? 1 : -1); }   // [v550] PC 화살표
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
-	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); if (d.maskView) _renderMaskOverlay(); return; }
+	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
 	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
@@ -1452,7 +1590,8 @@
 	        // 정밀(부위) 보정: 무거운 픽셀 연산은 손 뗄 때(change)만 — 드래그 중 점멸/끊김 방지.
 	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
 	      }
-	      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
+	      if (e.target.matches('[data-fl-brush]')) { d.maskBrush = +e.target.value; return; }   // [v561] 붓 크기
+      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
       if (e.target.matches('[data-fl-footer]')) { d.captionTemplate = e.target.value; }
       if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
@@ -1473,6 +1612,7 @@
 	      }
 	    });
     _bindZoom();
+    _bindPaint();   // [v561] 직접 칠하기(수동 마스크) 포인터 바인딩
     _bindTplLongPress();   // [v541] 템플릿 썸네일 long press 확대 미리보기
   }
 
@@ -1539,6 +1679,7 @@
     function inVp(t) { return t && t.closest && t.closest('[data-fl-edvp]'); }
     el.addEventListener('touchstart', function (e) {
       if (cur !== 'edit' || !inVp(e.target)) return;
+      if (d.maskPaint) return;   // [v561] 칠하기 모드면 줌/스와이프 대신 paint 가 포인터를 차지
       if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
       if (e.touches.length === 2) {
         var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -1550,7 +1691,7 @@
       }
     }, { passive: false });
     el.addEventListener('touchmove', function (e) {
-      if (cur !== 'edit' || !g || !d.zoom) return;
+      if (cur !== 'edit' || d.maskPaint || !g || !d.zoom) return;
       if (g.mode === 'pinch' && e.touches.length === 2) {
         var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
         d.zoom.s = Math.max(1, Math.min(4, g.s0 * (Math.hypot(dx, dy) / g.dist)));
@@ -1621,7 +1762,7 @@
 	    var done = function () { var v = el.querySelector('[data-fl-edvp]'); if (v) v.classList.remove('is-processing'); };
 	    // [v539] 화면 미리보기는 다운스케일(긴 변 1100px)로 처리 → release 체감 렉 대폭 완화.
 	    //   실제 저장/템플릿 적용(applyEditToPhoto)은 previewMaxPx 없이 풀해상도로 재적용하므로 품질 손실 없음.
-	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty, previewMaxPx: 1100, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
+	    window.WorkspaceAdapter.applyWorkspaceCorrections({ src: base, adjust: d.adjust, beauty: d.beauty, previewMaxPx: 1100, manualMasks: _manualMasksForCurrent(), maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
 	      if (token !== d._pvTok) { done(); return; }
 	      if (!(r && r.ok && r.dataUrl)) { done(); return; }
 	      _handleRoiFailures(r.roiFailures || []);
@@ -1719,7 +1860,7 @@
     //   원본 프리뷰에 가려 '작업이 날아간 것처럼' 보임(_refreshPreview 가 originalPreview 시 미페인트).
     if (label === '되돌리기') { if (d.undo && d.undo.length) { d.redo = d.redo || []; d.redo.push(_snapEdit()); var s = d.undo.pop(); d.adjust = s.adjust || newAdjust(); d.beauty = s.beauty || newBeauty(); d.previewUrl = null; d.originalPreview = false; _repaintEditAfterAdjust(); } return; }
     if (label === '다시실행') { if (d.redo && d.redo.length) { d.undo = d.undo || []; d.undo.push(_snapEdit()); var r = d.redo.pop(); d.adjust = r.adjust || newAdjust(); d.beauty = r.beauty || newBeauty(); d.previewUrl = null; d.originalPreview = false; _repaintEditAfterAdjust(); } return; }
-	    if (label === '초기화') { d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; d.originalPreview = false; _repaintEditAfterAdjust(); toast('보정을 초기화했어요'); return; }
+	    if (label === '초기화') { d.undo = d.undo || []; d.undo.push(_snapEdit()); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null; d.originalPreview = false; var _ip = curEditPhoto(); if (_ip && _ip._uid && d._paintCv) delete d._paintCv[_ip._uid]; if (d.maskPaint) _renderPaintOverlay(); _repaintEditAfterAdjust(); toast('보정을 초기화했어요'); return; }
   }
 
 	  function applyBg(action) {
@@ -1924,9 +2065,11 @@
 	    var hasBg = !!(photo.bgSpec && photo.fgCutout);
 	    var src = hasBg ? photo.fgCutout : (photo.editedDataUrl || photo.dataUrl);   // bg면 인물 누끼에만 보정
 	    if (window.WorkspaceAdapter && window.WorkspaceAdapter.applyWorkspaceCorrections) {
-	      return window.WorkspaceAdapter.applyWorkspaceCorrections({ src: src, adjust: d.adjust, beauty: d.beauty, maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
+	      return window.WorkspaceAdapter.applyWorkspaceCorrections({ src: src, adjust: d.adjust, beauty: d.beauty, manualMasks: _manualMasksForCurrent(), maskKey: (photo && (photo._uid || (photo._uid = 'm' + Math.random().toString(36).slice(2, 9)))) }).then(function (r) {
 	        if (!(r && r.ok && r.dataUrl)) return _bakeCss(photo, src);
 	        photo.adjustments = clone(d.adjust); photo.beautyAdjustments = clone(d.beauty); d.adjust = newAdjust(); d.beauty = newBeauty(); d.previewUrl = null;
+	        // [v561] 굽고 나면 수동 마스크 효과는 픽셀에 반영됨 — 중복 적용 방지 위해 해당 사진의 칠한 영역 비움.
+	        if (photo._uid && d._paintCv) { delete d._paintCv[photo._uid]; } d.maskPaint = false;
 	        if (hasBg) { photo.fgCutout = r.dataUrl; return _compositeBg(photo.bgSpec, r.dataUrl).then(function (comp) { photo.editedDataUrl = comp; }); }
 	        photo.editedDataUrl = r.dataUrl;
 	      });
@@ -2381,6 +2524,7 @@
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
       recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
 	      editTab: 'skin', control: null, basicTool: 'brightness', precTool: null, editIdx: null, bgOpen: false, advOpen: true, tplOpen: true, adjust: newAdjust(), beauty: newBeauty(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
+      maskPaint: false, maskBrush: 26, maskErase: false, _paintCv: {},   // [v561] 직접 칠하기(수동 마스크)
 	      captionAxes: null, captionTemplate: '',
 	    };
 	    if (d.photos.length && !hadRoles) reassignRoles();
