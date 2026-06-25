@@ -454,6 +454,22 @@
   }
 
   // [2026-06-10] 예약 단계 배지 + 칩(옵션) + 캘린더 확인 줄 + 칩 수정 인라인
+  // [2026-06-25] 손님 인스타 1:1 스레드 점프 — ig.me/m/{username}, 없으면 인스타 inbox 폴백.
+  //   외톨이 사진 카드·예약 카드(참고 사진) 공용 1곳. (사진 바이트 표시 X — 만료 URL, 링크만)
+  function _igThreadLink(conv) {
+    const u = ((conv && conv.sender_username) || '').trim();
+    return u ? `https://ig.me/m/${encodeURIComponent(u)}` : 'https://www.instagram.com/direct/inbox/';
+  }
+  function _photoNoticeHtml(conv) {
+    return `
+      <a href="${_igThreadLink(conv)}" target="_blank" rel="noopener"
+        style="display:flex;align-items:center;gap:6px;padding:8px 10px;margin:6px 0 2px;background:#F2F4F6;border:1px solid #E5E8EB;border-radius:8px;color:#4E5968;text-decoration:none;font-size:11.5px;font-weight:600;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+        <span style="flex:1;">참고 사진 보냄 · 인스타에서 보기</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+      </a>`;
+  }
+
   function _renderCard(conv, activeTone) {
     const tail = (conv.sender_tail || '????').slice(-4);
     const name = conv.sender_username || `손님 …${tail}`;
@@ -542,6 +558,9 @@
       stageInfo = `<div style="margin:6px 0 2px;">${calLine}</div>`;
     }
 
+    // ── 참고 사진 줄 — 예약 카드(photo_attached) 또는 외톨이(photo_only) 공통. 인스타 점프만.
+    const photoLine = (actMeta.photo_attached || actMeta.photo_only) ? _photoNoticeHtml(conv) : '';
+
     // ── 버튼
     let sendLabel, sendStyle = '';
     if (isBookingAction)    { sendLabel = '예약 확정 (캘린더 등록 + 확정 DM 발송)'; sendStyle = 'background:#2B3A67;color:#fff;border-color:#2B3A67;'; }
@@ -563,6 +582,7 @@
         ${_renderThread(conv, tail, logId)}
         ${chipsHtml}
         ${stageInfo}
+        ${photoLine}
         ${_renderMiniTone((logId && _userToneByLog.get(logId)) || activeTone)}
         <div class="dm-actions" style="display:flex;flex-direction:column;gap:6px;">
           <button type="button" class="dm-action is-send" data-act="send"
