@@ -148,6 +148,16 @@
 .wsv2flow button.ed-maskpill.on .ed-maskpill__hint { color: rgba(255,255,255,.82); }
 .wsv2flow .ed-mask-helper { flex: 1 1 100%; font-size: 12px; font-weight: 700; color: #9A6B4E; background: #FBF1E8; border: 1px solid #F0DCC9; border-radius: 10px; padding: 8px 11px; }
 .wsv2flow .ed-mask-helper[hidden] { display: none; }
+/* [v561] 직접 칠하기(수동 마스크) 컨트롤 */
+.wsv2flow .ed-paintctl { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2, #FAF7F8); }
+.wsv2flow .ed-paintctl__lbl { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.wsv2flow .ed-paintctl__lbl b { color: var(--brand-strong); font-weight: 800; }
+.wsv2flow .ed-paintctl__row { display: flex; gap: 7px; flex-wrap: wrap; }
+.wsv2flow button.ed-paintb { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
+.wsv2flow button.ed-paintb i { font-size: 15px; }
+.wsv2flow button.ed-paintb.on { background: var(--brand-strong); color: #fff; border-color: transparent; }
+.wsv2flow .ed-paintbrush { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 800; color: var(--text-muted); }
+.wsv2flow .ed-paintbrush input { flex: 1; accent-color: var(--brand-strong); }
 /* [v542] 보정 디버그 패널 — 개발자모드에서만 노출 */
 .wsv2flow .ed-fxdebug { margin-top: 12px; padding: 11px 12px; border: 1px dashed #B9A7AE; border-radius: 12px; background: #FBF7F8; font-size: 12px; }
 .wsv2flow .ed-fxdebug__hd { font-size: 12.5px; font-weight: 800; color: #6A4A52; margin-bottom: 7px; }
