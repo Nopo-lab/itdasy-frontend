@@ -20,7 +20,7 @@
     OTHER:     { mt: '사장님이 직접 답장', ms: '확인 멘트 보낸 뒤 큐에 올림', edit: 'ack' },
   };
   const FIXED_ORDER = ['BOOK_FORM', 'HOURS', 'LOCATION', 'PRICE', 'OTHER'];
-  const DEFAULT_LABEL = { BOOK_FORM: '예약하기', HOURS: '영업시간', LOCATION: '오시는 길', PRICE: '가격 문의', OTHER: '기타 문의' };
+  const DEFAULT_LABEL = { BOOK_FORM: '예약하기', HOURS: '영업시간', LOCATION: '오시는 길', PRICE: '가격 문의', OTHER: '상세문의' };
 
   let _menu = null;
   const _open = new Set();   // 펼쳐진 항목 key
@@ -33,7 +33,7 @@
         key: k, label: DEFAULT_LABEL[k], enabled: k !== 'PRICE',
         action: { BOOK_FORM: 'book_form', HOURS: 'hours', LOCATION: 'location', PRICE: 'price', OTHER: 'owner_queue' }[k],
         resp: { HOURS: '영업시간 안내드려요 🕐\n{영업시간}', LOCATION: '오시는 길 안내드려요 📍\n{주소}', PRICE: '가격 안내드려요 💰\n{가격표}' }[k] || '',
-        ack: k === 'OTHER' ? '문의 확인했어요! 원장님이 확인 후 답장드릴게요 🙏' : '',
+        ack: k === 'OTHER' ? '문의남겨주시면 상세히 답변드릴게요' : '',
         custom: false,
       })),
       ice_breakers: ['BOOK_FORM', 'HOURS', 'LOCATION'],
