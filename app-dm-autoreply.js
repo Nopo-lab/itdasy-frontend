@@ -382,20 +382,46 @@
   }
 
   /* ── DM 카드 ───────────────────────────────────── */
+  // 말풍선 1개(읽기전용) — role: 'customer' | 'shop'
+  function _bubbleRow(role, text, at) {
+    const txt = _esc(text || '');
+    const t = at ? new Date(at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+    if (role === 'shop') {
+      return `
+        <div class="dm-thread__row dm-thread__row--sent">
+          <div class="dm-bubble dm-bubble--sent">${txt}</div>
+          <div class="dm-thread__avatar dm-thread__avatar--shop">원</div>
+        </div>
+        <div class="dm-thread__time-row dm-thread__time-row--sent">
+          <span class="dm-thread__time">${_esc(t)}</span>
+        </div>`;
+    }
+    return `
+      <div class="dm-thread__row dm-thread__row--received">
+        <div class="dm-thread__avatar">고</div>
+        <div class="dm-bubble dm-bubble--received">${txt}</div>
+      </div>
+      <div class="dm-thread__time-row dm-thread__time-row--received">
+        <span class="dm-thread__time">${_esc(t)}</span>
+      </div>`;
+  }
+
   function _renderThread(conv, tail, logId) {
-    const recv = _esc(conv.received_text || '');
     // 1순위: 방금 수정/생성한 로컬 메모리(_draftMap), 2순위: 서버의 답장(text), 3순위: 서버의 초안(ai_draft_text)
     const draft = _esc(_draftMap.get(logId) || conv.reply?.text || conv.ai_draft_text || '');
-    const recvTime = conv.ts ? new Date(conv.ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+    const msgs = Array.isArray(conv.messages) ? conv.messages : [];
+
+    // 진행 중 대화(최근 N턴) 읽기전용 말풍선. 없으면 기존 단일 손님 메시지로 폴백(하위호환).
+    let history;
+    if (msgs.length) {
+      history = msgs.map(m => _bubbleRow(m.role, m.text, m.at)).join('');
+    } else {
+      history = _bubbleRow('customer', conv.received_text || '', conv.ts || '');
+    }
+
     return `
       <div class="dm-thread">
-        <div class="dm-thread__row dm-thread__row--received">
-          <div class="dm-thread__avatar">고</div>
-          <div class="dm-bubble dm-bubble--received">${recv}</div>
-        </div>
-        <div class="dm-thread__time-row dm-thread__time-row--received">
-          <span class="dm-thread__time">${_esc(recvTime)}</span>
-        </div>
+        ${history}
         <div class="dm-thread__row dm-thread__row--sent">
           <div class="dm-bubble dm-bubble--sent is-draft" contenteditable="true" data-tail="${_esc(tail)}" data-placeholder="여기에 답장을 입력하세요">${draft}</div>
           <div class="dm-thread__avatar dm-thread__avatar--shop">원</div>
