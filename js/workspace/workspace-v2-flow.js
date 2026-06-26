@@ -699,12 +699,47 @@
     //   화면(하단 CTA)으로 일원화. 편집 화면엔 이미 적용된 결과 미리보기만 인라인으로 둔다(없으면 빈 출력).
     return _tplAppliedHtml();
   }
+  // [v568·B-1/B-2] 사진 위 floating 도구바 — 전체화면·확대배율(화면맞춤/±)·마스크 보기/직접 칠하기.
+  //   PC에서 사진을 보면서 위아래 스크롤 없이 마스크를 바로 켜고 칠한다. 마스크 도구는 효과 탭(피부/헤어/눈/네일)에서만 노출.
+  function _vpToolsHtml() {
+    var z = d.zoom || { s: 1 };
+    var pct = Math.round((z.s || 1) * 100);
+    var isMaskTab = (d.editTab || 'skin') !== 'tools';
+    var maskRow = isMaskTab ? '<div class="ed-vptools__mask">' +
+        '<button type="button" class="ed-vpbtn' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
+        '<button type="button" class="ed-vpbtn' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
+        (d.maskPaint ?
+          '<span class="ed-vptools__say">' + esc(_maskInfoForTab().label) + ' 영역 칠하는 중</span>' +
+          '<button type="button" class="ed-vpbtn ed-vpbtn--ic' + (!d.maskErase ? ' on' : '') + '" data-fl="paintdraw" aria-label="칠하기"><i class="ph-duotone ph-pen"></i></button>' +
+          '<button type="button" class="ed-vpbtn ed-vpbtn--ic' + (d.maskErase ? ' on' : '') + '" data-fl="painterase" aria-label="지우개"><i class="ph-duotone ph-eraser"></i></button>' +
+          '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="paintclear" aria-label="비우기"><i class="ph-duotone ph-trash"></i></button>'
+        : '') +
+      '</div>' : '';
+    return '<div class="ed-vptools" data-ed-vptools>' +
+      '<div class="ed-vptools__top">' +
+        '<button type="button" class="ed-vpbtn ed-vpbtn--fs" data-fl="edfull" aria-label="' + (d.edFull ? '전체화면 닫기' : '크게 편집') + '"><i class="ph-duotone ph-' + (d.edFull ? 'arrows-in' : 'arrows-out') + '"></i><span>' + (d.edFull ? '닫기' : '크게') + '</span></button>' +
+        '<div class="ed-vpzoom">' +
+          '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomout" aria-label="축소">−</button>' +
+          '<button type="button" class="ed-vpbtn ed-vpbtn--pct" data-fl="edzoomfit" aria-label="화면맞춤"><span data-ed-zoompct>' + pct + '%</span></button>' +
+          '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomin" aria-label="확대">+</button>' +
+        '</div>' +
+      '</div>' + maskRow +
+    '</div>';
+  }
+  function _renderVpTools() {
+    var c = el && el.querySelector('[data-fs="edit"] [data-ed-vptools]');
+    if (c) { var tmp = document.createElement('div'); tmp.innerHTML = _vpToolsHtml(); c.replaceWith(tmp.firstChild); }
+  }
+  function _updateZoomPct() {
+    var s = el && el.querySelector('[data-fs="edit"] [data-ed-zoompct]');
+    if (s) s.textContent = Math.round((((d.zoom && d.zoom.s) || 1)) * 100) + '%';
+  }
   function renderEdit() {
     d.zoom = { s: 1, tx: 0, ty: 0 };   // 편집화면 새로 그릴 때(진입/사진전환) 줌 초기화
     var pu = _editPhotoUrls();
     return '' +
       '<div class="ed-sec" data-ed-switcher>' + _editSwitcherHtml() + '</div>' +
-      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div><canvas class="ed-mask-ov" data-fl-maskov hidden></canvas><span class="ed-mask-badge" data-fl-maskbadge hidden></span></div>' +
+      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div><canvas class="ed-mask-ov" data-fl-maskov hidden></canvas><span class="ed-mask-badge" data-fl-maskbadge hidden></span>' + _vpToolsHtml() + '</div>' +
       '<div class="ed-sec" data-ed-basic>' + _mainAdjustHtml() + '</div>' +
       '<div class="ed-sec" data-ed-bottom>' + _editBottomHtml() + '</div>' +
       '<div class="ed-sec" data-ed-adv>' + _advFoldHtml() + '</div>' +
@@ -725,6 +760,7 @@
     p.style.transform = tf;
     var ov = el.querySelector('[data-fs="edit"] [data-fl-maskov]');   // [v539] 마스크 overlay 도 동일 변환
     if (ov) ov.style.transform = tf;
+    _updateZoomPct();   // [v568·B-1] floating 도구바의 배율 % 갱신
   }
 
   // ── [v542] 보정 디버그 패널 — 개발자모드(__ITDASY_PHOTO_DEBUG__ 또는 ?photoDebug=1)에서만 ──
@@ -1550,18 +1586,29 @@
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; setScreen('preview'); return; }
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
+      // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
+      if (a === 'edfull') {
+        d.edFull = !d.edFull;
+        try { document.body.classList.toggle('itd-edit-fs', !!d.edFull); } catch (_ef) { void _ef; }
+        _renderVpTools();
+        setTimeout(function () { if (d.maskPaint || d.maskView) _renderMaskOverlay(); _applyZoomTransform(); }, 60);
+        return;
+      }
+      if (a === 'edzoomfit') { d.zoom = { s: 1, tx: 0, ty: 0 }; _applyZoomTransform(); return; }
+      if (a === 'edzoomin') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.min(4, (d.zoom.s || 1) + 0.5); _applyZoomTransform(); return; }
+      if (a === 'edzoomout') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.max(1, (d.zoom.s || 1) - 0.5); if (d.zoom.s === 1) { d.zoom.tx = 0; d.zoom.ty = 0; } _applyZoomTransform(); return; }
       if (a === 'roles') { d.rolesOpen = !d.rolesOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       // [v561] 직접 칠하기(수동 마스크) — 자동 인식이 틀릴 때 원장님이 부위를 직접 칠해 교정.
       if (a === 'maskpaint') {
         d.maskPaint = !d.maskPaint;
         if (d.maskPaint) { d.maskView = false; d.maskErase = false; }
-        _setEditSection('[data-ed-adv]', _advFoldHtml());
-        if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); toast(_maskInfoForTab().label + ' 영역을 손가락으로 칠해 교정하세요'); }
+        _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools();
+        if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); toast(_maskInfoForTab().label + ' 영역을 칠해 교정하세요'); }
         else { _renderMaskOverlay(); }
         return;
       }
-      if (a === 'paintdraw') { d.maskErase = false; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
-      if (a === 'painterase') { d.maskErase = true; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      if (a === 'paintdraw') { d.maskErase = false; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); return; }
+      if (a === 'painterase') { d.maskErase = true; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); return; }
       if (a === 'paintclear') {
         var _pc = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), false);
         if (_pc) { _pc.getContext('2d').clearRect(0, 0, _pc.width, _pc.height); _pc._inked = false; }
@@ -1638,7 +1685,7 @@
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
       var edswipe = t.closest('[data-fl-edswipe]'); if (edswipe) { return _stepEditPhoto(edswipe.getAttribute('data-fl-edswipe') === 'next' ? 1 : -1); }   // [v550] PC 화살표
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
-	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
+	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
 	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
@@ -1652,6 +1699,9 @@
         d.customerVc = found ? (found.vc || 0) : 0;
         setScreen('connect'); return;
       }
+      // [v568·B-5] 사진 캐러셀 화살표 / 점 — 한 칸씩 또는 지정 사진으로 스크롤(스냅).
+      var tplnav = t.closest('[data-fl-tplnav]'); if (tplnav) { _tplScrollBy(+tplnav.getAttribute('data-fl-tplnav')); return; }
+      var tpldot = t.closest('[data-fl-tpldot]'); if (tpldot) { _tplScrollTo(+tpldot.getAttribute('data-fl-tpldot')); return; }
       var tplpick = t.closest('[data-fl-tplpick]'); if (tplpick) { _pickTplRole(tplpick.getAttribute('data-fl-tplpick')); return; }   // [v562·항목3] 클릭순 전/후
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); if (cur === 'template') _rerenderTemplate(); else _renderTplSection(); return; }
 	      // [v542] 보정 디버그 — 0/50/100 즉시 적용(실제 프리뷰) + 현재값 복사
@@ -1790,6 +1840,38 @@
     _bindEditResize();   // [v567] 리사이즈/전체화면 시 마스크 overlay 재투영(이미지좌표 보존)
     _bindTplResultSwipe();   // [v561·항목4] 다중 결과물 좌우 스와이프
     _bindTplLongPress();   // [v541] 템플릿 썸네일 long press 확대 미리보기
+    _bindTplCarousel();   // [v568·B-5] 사진 캐러셀 PC 드래그 + 점 활성 동기화
+  }
+
+  // [v568·B-5] 사진 캐러셀 — 한 칸(슬라이드 폭)씩 스크롤 / 지정 인덱스로 이동 / 점 활성 동기화.
+  function _tplStripEl() { return el && el.querySelector('[data-fs="template"] [data-fl-tplstrip], [data-fs="edit"] [data-fl-tplstrip]'); }
+  function _tplSlideStep(strip) { var sl = strip.querySelector('.tpls-slide'); return sl ? (sl.getBoundingClientRect().width + 10) : strip.clientWidth; }
+  function _tplScrollBy(dir) { var s = _tplStripEl(); if (!s) return; var left = s.scrollLeft + dir * _tplSlideStep(s); if (s.scrollTo) s.scrollTo({ left: left, behavior: 'smooth' }); else s.scrollLeft = left; }
+  function _tplScrollTo(i) { var s = _tplStripEl(); if (!s) return; var left = i * _tplSlideStep(s); if (s.scrollTo) s.scrollTo({ left: left, behavior: 'smooth' }); else s.scrollLeft = left; }
+  function _tplSyncDots() {
+    var s = _tplStripEl(); if (!s) return;
+    var dots = el.querySelectorAll('[data-fl-tpldots] .tpls-dot'); if (!dots.length) return;
+    var idx = Math.round(s.scrollLeft / Math.max(1, _tplSlideStep(s)));
+    for (var i = 0; i < dots.length; i++) dots[i].classList.toggle('on', i === idx);
+  }
+  function _bindTplCarousel() {
+    if (!el || el._tplCarBound) return; el._tplCarBound = true;
+    var down = null;
+    el.addEventListener('scroll', function (e) { if (e.target && e.target.closest && e.target.closest('[data-fl-tplstrip]')) _tplSyncDots(); }, true);
+    // PC 마우스 드래그로 가로 스크롤(클릭과 구분: 5px 이상 움직였을 때만 드래그로 간주).
+    el.addEventListener('mousedown', function (e) {
+      var s = e.target.closest && e.target.closest('[data-fl-tplstrip]'); if (!s) return;
+      down = { s: s, x: e.clientX, sl: s.scrollLeft, moved: false };
+    });
+    el.addEventListener('mousemove', function (e) {
+      if (!down) return; var dx = e.clientX - down.x;
+      if (Math.abs(dx) > 5) { down.moved = true; down.s.scrollLeft = down.sl - dx; e.preventDefault(); }
+    });
+    function _up() { if (down && down.moved) { var snap = down; setTimeout(function () { _tplSyncDots(); void snap; }, 30); } down = null; }
+    el.addEventListener('mouseup', _up); el.addEventListener('mouseleave', _up);
+    // 드래그 직후 click(전/후 지정) 억제 — 캡처 단계에서 가로채 우발적 역할지정 방지.
+    el.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-fl-tplstrip]') && el._tplDragSuppress) { e.stopPropagation(); e.preventDefault(); el._tplDragSuppress = false; } }, true);
+    el.addEventListener('mousemove', function () { if (down && down.moved) el._tplDragSuppress = true; });
   }
 
   // [v541] 템플릿 썸네일 long press(500ms) → 확대 미리보기. short tap → 기존 선택/적용(아래 click 가드).
@@ -1915,13 +1997,50 @@
       if (now - lastTap < 320) { d.zoom = (d.zoom && d.zoom.s > 1) ? { s: 1, tx: 0, ty: 0 } : { s: 2, tx: 0, ty: 0 }; _applyZoomTransform(); }
       lastTap = now;
     });
-    // [v550] PC 키보드 좌우 화살표로 편집 사진 전환(입력란 포커스 중엔 무시).
+    // [v550] PC 키보드 좌우 화살표로 편집 사진 전환(입력란 포커스 중엔 무시). [v568] ESC = 전체화면 닫기.
     document.addEventListener('keydown', function (e) {
       if (cur !== 'edit' || !el || el.hidden) return;
+      if (e.key === 'Escape' && d.edFull) { d.edFull = false; try { document.body.classList.remove('itd-edit-fs'); } catch (_x) { void _x; } _renderVpTools(); setTimeout(function () { if (d.maskPaint || d.maskView) _renderMaskOverlay(); _applyZoomTransform(); }, 60); return; }
       var ae = document.activeElement, tag = ae && ae.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (ae && ae.isContentEditable)) return;
       if (e.key === 'ArrowLeft') { _stepEditPhoto(-1); } else if (e.key === 'ArrowRight') { _stepEditPhoto(1); }
     });
+    _bindEditPC();
+  }
+  // [v568·B-3] PC 마우스 — 휠 확대/축소, 드래그(줌>1 팬 / 줌=1 좌우 사진 넘김). 칠하기 모드 단일 포인터는 paint 가 담당.
+  function _bindEditPC() {
+    if (!el || el._edPcBound) return; el._edPcBound = true;
+    var md = null;
+    function inVp(t) { return t && t.closest && t.closest('[data-fl-edvp]'); }
+    el.addEventListener('wheel', function (e) {
+      if (cur !== 'edit' || !inVp(e.target)) return;
+      if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
+      var ns = Math.max(1, Math.min(4, (d.zoom.s || 1) + (e.deltaY < 0 ? 0.25 : -0.25)));
+      d.zoom.s = ns; if (ns === 1) { d.zoom.tx = 0; d.zoom.ty = 0; }
+      _applyZoomTransform(); e.preventDefault();
+    }, { passive: false });
+    el.addEventListener('mousedown', function (e) {
+      if (cur !== 'edit' || !inVp(e.target) || d.maskPaint) return;
+      if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
+      md = { x: e.clientX, y: e.clientY, tx0: d.zoom.tx, ty0: d.zoom.ty, pan: d.zoom.s > 1, moved: 0 };
+    });
+    el.addEventListener('mousemove', function (e) {
+      if (!md) return;
+      md.moved = Math.max(md.moved, Math.abs(e.clientX - md.x));
+      if (md.pan) { d.zoom.tx = md.tx0 + (e.clientX - md.x); d.zoom.ty = md.ty0 + (e.clientY - md.y); _applyZoomTransform(); e.preventDefault(); }
+      else if (editablePhotos().length > 1) { var ph = el.querySelector('[data-fl-edphoto]'); if (ph) ph.style.transform = 'translate3d(' + ((e.clientX - md.x) * 0.42) + 'px,0,0)'; }
+    });
+    function _endDrag(e) {
+      if (!md) return;
+      if (!md.pan && editablePhotos().length > 1) {
+        var ph = el.querySelector('[data-fl-edphoto]'); var mx = (e && e.clientX != null) ? e.clientX - md.x : 0;
+        if (Math.abs(mx) > 60) { if (ph) ph.style.transform = ''; _stepEditPhoto(mx < 0 ? 1 : -1); }
+        else if (ph) { ph.classList.add('is-swipeback'); ph.style.transform = ''; setTimeout(function () { ph.classList.remove('is-swipeback'); }, 220); }
+      }
+      md = null;
+    }
+    el.addEventListener('mouseup', _endDrag);
+    el.addEventListener('mouseleave', _endDrag);
   }
 
   function _snapEdit() { return { adjust: clone(d.adjust), beauty: clone(d.beauty) }; }
@@ -2042,7 +2161,7 @@
     if (intent === 'crop' && typeof openCropFlow === 'function') { try { openCropFlow(); } catch (_e4) { void _e4; } }
   }
   function _editBottom(label) {
-    if (label === '마스크') { d.maskView = !d.maskView; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderMaskOverlay(); if (d.maskView) toast('현재 부위 마스크를 표시해요'); return; }
+    if (label === '마스크') { d.maskView = !d.maskView; if (d.maskView) d.maskPaint = false; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); _renderMaskOverlay(); if (d.maskView) toast('현재 부위 마스크를 표시해요'); return; }
     if (label === '비교' || label === '원본보기') { d.originalPreview = !d.originalPreview; _paintEditPhoto(); _setEditSection('[data-ed-bottom]', _editBottomHtml()); if (!d.originalPreview) _refreshPreview(); _renderMaskOverlay(); return; }
     // [v560] 되돌리기/다시실행/초기화는 비교(원본보기) 모드를 자동 해제 — 안 그러면 복원 결과가
     //   원본 프리뷰에 가려 '작업이 날아간 것처럼' 보임(_refreshPreview 가 originalPreview 시 미페인트).
@@ -2149,7 +2268,7 @@
 	      return '<div class="tpl-itemwrap"><button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')"><i class="tpl-badge">' + esc(tpl.chip) + '</i>' + (on ? '<i class="tpl-onpill">적용됨</i>' : '') + '</button></div>';
 	    }).join('');
 	    return '<div class="tpls">' +
-	      '<div class="tpls-strip" data-fl-tplstrip aria-label="편집한 사진 — 좌우로 넘겨 확인">' + (strip || '<div class="tpls-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>') + '</div>' +
+	      '<div class="tpls-carousel' + (eps.length > 1 ? ' is-multi' : '') + '" data-fl-tplcar>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--prev" data-fl-tplnav="-1" aria-label="이전 사진"><i class="ph-bold ph-caret-left"></i></button>' : '') + '<div class="tpls-strip" data-fl-tplstrip aria-label="편집한 사진 — 좌우로 넘겨 확인">' + (strip || '<div class="tpls-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>') + '</div>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--next" data-fl-tplnav="1" aria-label="다음 사진"><i class="ph-bold ph-caret-right"></i></button>' : '') + '</div>' + (eps.length > 1 ? '<div class="tpls-dots" data-fl-tpldots>' + eps.map(function (p, i) { return '<button type="button" class="tpls-dot' + (i === 0 ? ' on' : '') + '" data-fl-tpldot="' + i + '" aria-label="' + (i + 1) + '번째 사진으로"></button>'; }).join('') + '</div>' : '') +
 	      _tplAppliedHtml() +
 	      (eps.length >= 2 ? '<div class="tpls-sec"><div class="cap-field-label">전·후 지정 <span>위 사진을 순서대로 탭 — 첫 탭 <b>전</b>, 둘째 탭 <b>후</b> (다시 탭하면 해제)</span></div></div>' : '') +
 	      '<div class="tpls-sec"><div class="cap-field-label">템플릿 고르기 <span>탭하면 바로 적용돼요</span></div>' +

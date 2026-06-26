@@ -1331,6 +1331,45 @@ function _dedupeCaptionText(text) {
   return lo2.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
+// [v568·A-2] 자유텍스트에서 샵명/고객명 분리 — 백엔드가 정확한 값으로 작성/복구해 '잇데고객님의' 결합오류 방지.
+//   보수적으로 명확한 패턴만 추출하고, 못 찾으면 빈 값(백엔드는 온보딩 샵명 사용).
+//   한국어 copula(이야/야 등)는 받침 유무로 갈려서('잇데이+야' vs '뷰티핏+이야'), 받침 판정으로 정확히 분리.
+function _cleanShopName(raw) {
+  let s = String(raw || '').trim();
+  const tail = s.match(/(이에요|이예요|이고요|이야|이고|입니다|예요|에요|야|고)$/);
+  if (tail) {
+    const suf = tail[1];
+    const stem = s.slice(0, s.length - suf.length);
+    if (stem.length >= 2) {
+      const c = stem.charCodeAt(stem.length - 1);
+      const hasBatchim = (c >= 0xAC00 && c <= 0xD7A3) && ((c - 0xAC00) % 28 !== 0);
+      if (suf[0] === '이' && !hasBatchim) return stem + '이';   // '이'는 명사 일부(잇데이), 'X'만 copula
+      return stem;
+    }
+  }
+  return s;
+}
+function _parseShopCustomer(text) {
+  const t = String(text || '');
+  let shop = '', customer = '';
+  const cm = t.match(/([가-힣]{2,4})\s*고객님/);
+  if (cm) customer = cm[1];
+  // '우리샵은 X' / '저희샵은 X' / '샵은 X' / '샵이름은 X' / '샵: X' — 명사+copula 를 greedy 로 잡고 copula 분리.
+  const sm = t.match(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*([가-힣A-Za-z0-9]{1,14})/);
+  if (sm && sm[1]) shop = _cleanShopName(sm[1]);
+  if (!shop) {
+    const sm2 = t.match(/([가-힣A-Za-z0-9]{2,10})\s*샵(?:이야|입니다|이에요|예요)?(?:\.|,|$|\s)/);
+    if (sm2 && sm2[1] && sm2[1] !== '우리' && sm2[1] !== '저희') shop = sm2[1];
+  }
+  // cleaned: 고객/샵 구문 제거 → 순수 시술 키워드만 남김
+  const cleaned = t
+    .replace(/([가-힣]{2,4})\s*고객님(이고|이라고|이며|이고요|입니다|예요|이에요|,)?/g, ' ')
+    .replace(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*[가-힣A-Za-z0-9]{1,12}(?:이야|이에요|예요|입니다|이고|야|고)?/g, ' ')
+    .replace(/[가-힣A-Za-z0-9]{2,10}\s*샵(?:이야|입니다|이에요|예요)?/g, ' ')
+    .replace(/\s{2,}/g, ' ').replace(/^[\s,.]+|[\s,.]+$/g, '').trim();
+  return { shop, customer, cleaned };
+}
+
 window.CaptionEngine = {
   async generate(opts) {
     opts = opts || {};
@@ -1363,6 +1402,10 @@ window.CaptionEngine = {
     //  (photo_context 에도 이미 prepend 되지만, 백엔드가 photo_context 만 보고 service 를 흘리는 경로 대비)
     const _svc = String(opts.service || '').trim();
     if (_svc) payload.service = _svc;
+    // [v568·A-2] 입력에서 샵명/고객명 파싱 → 분리 전달(결합오류 방지). 시술 키워드는 cleaned 로 정리.
+    const _sc = _parseShopCustomer([opts.service, opts.treatment_keyword].filter(Boolean).join(' '));
+    if (_sc.shop) payload.shop_name = _sc.shop.slice(0, 40);
+    if (_sc.customer) payload.customer_name = _sc.customer.slice(0, 20);
     // [다중pair·Step5] 사용자 강조 표현은 extra_notes 채널로 전달 — 백엔드 GenerateRequest.extra_notes 가
     //  '특이사항은 그대로 복붙하지 말고 문맥에 맞게 자연스럽게 녹여달라'로 처리 → 구어/감정 표현(예: '개오바 얼굴')
     //  박제 방지 + 의미 반영. 백엔드 제한(max 300자)에 맞춰 캡.
@@ -1370,7 +1413,11 @@ window.CaptionEngine = {
     if (_extra) payload.extra_notes = _extra.slice(0, 300);
     // [v534] 백엔드 우선맥락/variation 필드 전달 — 백엔드가 service/treatment_keyword 를 prompt 에 직접
     //   주입하고 caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과 차단.
-    if (_svc) payload.treatment_keyword = String(opts.treatment_keyword || _svc).slice(0, 80);
+    // [v568·A-2] 샵/고객을 파싱했으면 시술 키워드는 그 둘을 뺀 cleaned 사용(샵명/고객명이 시술명으로 새는 것 방지).
+    if (_svc) {
+      const _tk = (_sc.shop || _sc.customer) ? (_sc.cleaned || _svc) : (opts.treatment_keyword || _svc);
+      payload.treatment_keyword = String(_tk).slice(0, 80);
+    }
     if (opts.content_type) payload.content_type = String(opts.content_type).slice(0, 32);
     payload.caption_intent = (['generate', 'rewrite', 'longer', 'instagram'].indexOf(opts.caption_intent) >= 0) ? opts.caption_intent : 'generate';
     if (opts.previous_caption) payload.previous_caption = String(opts.previous_caption).slice(0, 1500);
@@ -1379,8 +1426,9 @@ window.CaptionEngine = {
     // [v567] 원장님 말투 반영 토글 — 명시 ON 일 때만 페르소나/인스타 말투분석 반영(기본 OFF).
     payload.use_persona = (opts.use_persona === true);
     const data = await _personaFetch('POST', '/persona/generate', payload);
-    // [v534] 백엔드가 body(해시태그 제거 본문)를 주면 우선 사용. 없으면 caption. 어느 쪽이든 본문에서 # 추가 제거.
-    const _rawBody = (typeof data.body === 'string' && data.body.trim()) ? data.body : data.caption;
+    // [v568·A-5] data.caption 은 '저장 꼬리말 포함' 최종본 → 우선 표시(꼬리말이 안 붙던 버그 수정).
+    //   data.body 는 꼬리말 미포함이라 caption 이 비었을 때만 fallback.
+    const _rawBody = (typeof data.caption === 'string' && data.caption.trim()) ? data.caption : data.body;
     const _sep = _splitBodyHashtags(_rawBody);   // [v534] 본문/해시태그 완전 분리
     const caption = _dedupeCaptionText(_sep.body);   // [#6] 문단 단위 dedupe (해시태그 제거 후)
     if (!caption) throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');

@@ -50,15 +50,36 @@
     return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = src; });
   }
 
+  var HANDLE = 9;   // [v568·B-4] 자유 비율 핸들 크기/히트영역
   function _frame() {
     // 캔버스 내 크롭 프레임(여백 16). 비율별 최대 fit. original/free 는 사용가능영역 비율.
     var pad = 16, W = cv.width, H = cv.height, aw = W - pad * 2, ah = H - pad * 2;
+    // [v568·B-4] 자유 비율 + 사용자가 핸들로 조정한 박스가 있으면 그 박스를 그대로 사용.
+    if (S.ratioK === 'free' && S.freeRect) {
+      var fr = S.freeRect;
+      return { x: fr.x, y: fr.y, w: fr.w, h: fr.h, r: fr.w / fr.h };
+    }
     var r = S.ratioR;
     if (r === 0) r = S.img.width / S.img.height;        // 원본
     if (r === -1) r = aw / ah;                            // 자유 = 스테이지 비율
     var fw = aw, fh = aw / r;
     if (fh > ah) { fh = ah; fw = ah * r; }
     return { x: (W - fw) / 2, y: (H - fh) / 2, w: fw, h: fh, r: r };
+  }
+  // [v568·B-4] 이미지가 실제로 덮는 영역 ∩ 캔버스 여백 — 자유박스는 이 범위를 벗어나지 못함(cover 불변식 유지).
+  function _bounds() {
+    var pad = 16;
+    var ix0 = S.ox, iy0 = S.oy, ix1 = S.ox + S.img.width * S.scale, iy1 = S.oy + S.img.height * S.scale;
+    return { x0: Math.max(pad, ix0), y0: Math.max(pad, iy0), x1: Math.min(cv.width - pad, ix1), y1: Math.min(cv.height - pad, iy1) };
+  }
+  // 자유 박스 코너 핸들 히트 테스트 — px,py 는 캔버스 좌표.
+  function _hitHandle(px, py) {
+    if (S.ratioK !== 'free') return null;
+    var f = S.frame; if (!f) return null;
+    var t = HANDLE + 7;
+    var corners = { tl: [f.x, f.y], tr: [f.x + f.w, f.y], bl: [f.x, f.y + f.h], br: [f.x + f.w, f.y + f.h] };
+    for (var k in corners) { if (Math.abs(px - corners[k][0]) <= t && Math.abs(py - corners[k][1]) <= t) return k; }
+    return null;
   }
 
   function _clampOffset(f) {
@@ -85,6 +106,23 @@
     ctx.fillRect(f.x + f.w, f.y, cv.width - f.x - f.w, f.h);
     // 프레임 테두리
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.strokeRect(f.x + 1, f.y + 1, f.w - 2, f.h - 2);
+    // [v568·B-4] 자유 비율일 때만 코너 핸들 노출 — 드래그로 박스 크기 직접 조정.
+    if (S.ratioK === 'free') {
+      var hs = HANDLE;
+      var cs = [[f.x, f.y], [f.x + f.w, f.y], [f.x, f.y + f.h], [f.x + f.w, f.y + f.h]];
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
+      for (var ci = 0; ci < cs.length; ci++) { ctx.fillRect(cs[ci][0] - hs / 2, cs[ci][1] - hs / 2, hs, hs); ctx.strokeRect(cs[ci][0] - hs / 2, cs[ci][1] - hs / 2, hs, hs); }
+    }
+  }
+  // [v568·B-4] 코너 드래그 → 자유 박스 리사이즈. 반대 코너 고정, 최소 40px, 이미지 덮는 범위로 클램프.
+  function _resizeFree(corner, px, py) {
+    var f = S.frame, b = _bounds(), MIN = 40;
+    var left = f.x, top = f.y, right = f.x + f.w, bottom = f.y + f.h;
+    var nx = Math.max(b.x0, Math.min(b.x1, px)), ny = Math.max(b.y0, Math.min(b.y1, py));
+    if (corner === 'tl' || corner === 'bl') left = Math.min(nx, right - MIN); else right = Math.max(nx, left + MIN);
+    if (corner === 'tl' || corner === 'tr') top = Math.min(ny, bottom - MIN); else bottom = Math.max(ny, top + MIN);
+    S.freeRect = { x: left, y: top, w: right - left, h: bottom - top };
+    draw();
   }
 
   function renderChips() {
@@ -106,7 +144,7 @@
     S.index = i;
     var p = S.photos[i];
     var src = p.editedDataUrl || p.dataUrl;
-    S.ox = S.oy = null; S.zoom = 1;
+    S.ox = S.oy = null; S.zoom = 1; S.freeRect = null;
     var zr = el.querySelector('[data-wc-zoom]'); if (zr) zr.value = 100;
     return _loadImg(src).then(function (im) { S.img = im; draw(); renderChips(); });
   }
@@ -147,7 +185,7 @@
     el.addEventListener('click', function (e) {
       var a = e.target.closest('[data-wc]'); var k = a && a.getAttribute('data-wc');
       if (k === 'cancel') { close(); return; }
-      if (k === 'reset') { S.ox = S.oy = null; S.zoom = 1; el.querySelector('[data-wc-zoom]').value = 100; draw(); return; }
+      if (k === 'reset') { S.ox = S.oy = null; S.zoom = 1; S.freeRect = null; el.querySelector('[data-wc-zoom]').value = 100; draw(); return; }
       if (k === 'apply') {
         var r = _export();
         if (S.onApply) S.onApply(r.photoId, r.dataUrl, r.meta);
@@ -155,20 +193,29 @@
         close(); toast('적용했어요');
         return;
       }
-      var rc = e.target.closest('[data-wc-ratio]'); if (rc) { S.ratioK = rc.getAttribute('data-wc-ratio'); S.ratioR = (RATIOS.filter(function (x) { return x.k === S.ratioK; })[0] || {}).r; S.ox = S.oy = null; draw(); renderChips(); return; }
+      var rc = e.target.closest('[data-wc-ratio]'); if (rc) { S.ratioK = rc.getAttribute('data-wc-ratio'); S.ratioR = (RATIOS.filter(function (x) { return x.k === S.ratioK; })[0] || {}).r; S.ox = S.oy = null; S.freeRect = null; draw(); renderChips(); if (S.ratioK === 'free') toast('모서리를 끌어 자유롭게 잘라요'); return; }
       var ph = e.target.closest('[data-wc-photo]'); if (ph) { loadPhoto(+ph.getAttribute('data-wc-photo')); return; }
     });
     el.querySelector('[data-wc-zoom]').addEventListener('input', function (e) { S.zoom = (+e.target.value) / 100; draw(); });
     // 드래그 패닝 (포인터) + 핀치 줌
-    var dragging = false, lastX = 0, lastY = 0, pts = {}, pinchBase = 0, pinchZoom0 = 1;
-    cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); pts[e.pointerId] = { x: e.clientX, y: e.clientY }; if (Object.keys(pts).length === 1) { dragging = true; lastX = e.clientX; lastY = e.clientY; } else if (Object.keys(pts).length === 2) { var k = Object.keys(pts); pinchBase = _dist(pts[k[0]], pts[k[1]]); pinchZoom0 = S.zoom; dragging = false; } });
+    var dragging = false, lastX = 0, lastY = 0, pts = {}, pinchBase = 0, pinchZoom0 = 1, resizing = null;
+    function _cvXY(e) { var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    cv.addEventListener('pointerdown', function (e) {
+      cv.setPointerCapture(e.pointerId); pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (Object.keys(pts).length === 1) {
+        var lp = _cvXY(e); var hc = _hitHandle(lp.x, lp.y);   // [v568·B-4] 코너 핸들 먼저 검사 → 박스 리사이즈
+        if (hc) { resizing = hc; dragging = false; return; }
+        dragging = true; lastX = e.clientX; lastY = e.clientY;
+      } else if (Object.keys(pts).length === 2) { var k = Object.keys(pts); pinchBase = _dist(pts[k[0]], pts[k[1]]); pinchZoom0 = S.zoom; dragging = false; resizing = null; }
+    });
     cv.addEventListener('pointermove', function (e) {
       if (!pts[e.pointerId]) return; pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (resizing) { var lp = _cvXY(e); _resizeFree(resizing, lp.x, lp.y); return; }
       var ids = Object.keys(pts);
       if (ids.length === 2 && pinchBase) { var dz = _dist(pts[ids[0]], pts[ids[1]]) / pinchBase; S.zoom = Math.min(4, Math.max(1, pinchZoom0 * dz)); el.querySelector('[data-wc-zoom]').value = Math.round(S.zoom * 100); draw(); return; }
       if (dragging) { S.ox += (e.clientX - lastX); S.oy += (e.clientY - lastY); lastX = e.clientX; lastY = e.clientY; draw(); }
     });
-    function endPt(e) { delete pts[e.pointerId]; if (Object.keys(pts).length < 2) pinchBase = 0; if (Object.keys(pts).length === 0) dragging = false; }
+    function endPt(e) { delete pts[e.pointerId]; if (Object.keys(pts).length < 2) pinchBase = 0; if (Object.keys(pts).length === 0) { dragging = false; resizing = null; } }
     cv.addEventListener('pointerup', endPt); cv.addEventListener('pointercancel', endPt);
     cv.addEventListener('wheel', function (e) { e.preventDefault(); S.zoom = Math.min(4, Math.max(1, S.zoom * (e.deltaY < 0 ? 1.08 : 0.92))); el.querySelector('[data-wc-zoom]').value = Math.round(S.zoom * 100); draw(); }, { passive: false });
   }
@@ -181,7 +228,7 @@
     ensureEl();
     S = { photos: photos, index: opts.index || 0, onApply: opts.onApply,
       ratioK: opts.ratio || '4:5', ratioR: (RATIOS.filter(function (x) { return x.k === (opts.ratio || '4:5'); })[0] || RATIOS[2]).r,
-      zoom: 1, ox: null, oy: null, img: null };
+      zoom: 1, ox: null, oy: null, img: null, freeRect: null };
     el.classList.add('is-open');
     _sizeCanvas();
     loadPhoto(S.index);

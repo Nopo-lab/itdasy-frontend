@@ -139,6 +139,22 @@
 .wsv2flow .ed-mask-ov[hidden] { display: none; }
 .wsv2flow .ed-mask-badge { position: absolute; left: 8px; top: 8px; z-index: 5; background: rgba(20,16,16,.66); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: var(--r-pill); pointer-events: none; max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsv2flow .ed-mask-badge[hidden] { display: none; }
+/* [v568·B-1/B-2/B-3] 사진 위 floating 도구바 — 전체화면·확대배율·마스크 보기/직접 칠하기 */
+.wsv2flow .ed-vptools { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 6; display: flex; flex-direction: column; gap: 7px; pointer-events: none; }
+.wsv2flow .ed-vptools__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wsv2flow .ed-vptools__mask { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.wsv2flow .ed-vptools__say { font-size: 11px; font-weight: 700; color: #fff; background: rgba(20,16,16,.5); padding: 3px 8px; border-radius: var(--r-pill); pointer-events: none; }
+.wsv2flow .ed-vpzoom { display: flex; align-items: center; gap: 4px; }
+.wsv2flow .ed-vpbtn { pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 34px; min-width: 34px; padding: 0 11px; border: none; border-radius: var(--r-pill); background: rgba(28,22,20,.62); color: #fff; font-size: 12.5px; font-weight: 800; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 2px 8px rgba(0,0,0,.22); transition: background .14s, transform .1s; }
+.wsv2flow .ed-vpbtn:active { transform: scale(.94); }
+.wsv2flow .ed-vpbtn i { font-size: 16px; }
+.wsv2flow .ed-vpbtn.on { background: var(--brand-strong); color: #fff; }
+.wsv2flow .ed-vpbtn--ic { padding: 0; width: 34px; font-size: 17px; }
+.wsv2flow .ed-vpbtn--pct { min-width: 52px; font-variant-numeric: tabular-nums; }
+.wsv2flow .ed-vpbtn--fs span { font-size: 12.5px; }
+/* 전체화면 편집 — viewport 를 화면 가득 채워 PC/모바일 모두 크게 보정 */
+body.itd-edit-fs .wsv2flow .ed-photo-vp { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; border-radius: 0; margin: 0; z-index: 9000; background: #14100c; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; }
+body.itd-edit-fs .wsv2flow .ed-vptools { bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 9001; }
 /* [v540] 마스크 보기 — 정밀 조정 안 pill toggle + inline fallback helper */
 /* [v566·scope4] 마스크 도구 = 보정 슬라이더 아래 보조 영역. 위에 얇은 구분선 + 안내 부제. */
 .wsv2flow .ed-masktools { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
@@ -586,6 +602,15 @@
 .wsv2flow .tpls-slide.is-after .tpls-slide__role { background: var(--brand-strong); }
 .wsv2flow .tpls-slide__role em { font-style: normal; font-size: 11px; font-weight: 800; opacity: .9; }
 .wsv2flow .tpls-empty { padding: 28px 12px; text-align: center; color: var(--text-subtle); font-size: 13px; }
+/* [v568·B-5] 사진 캐러셀 — 화살표(PC)·점 내비게이션. 모바일은 화살표 숨기고 스와이프, PC는 드래그+화살표. */
+.wsv2flow .tpls-carousel { position: relative; }
+.wsv2flow .tpls-nav { display: none; position: absolute; top: 50%; transform: translateY(-50%); z-index: 4; width: 38px; height: 38px; border: none; border-radius: 50%; background: rgba(255,255,255,.92); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,.18); cursor: pointer; align-items: center; justify-content: center; font-size: 18px; }
+.wsv2flow .tpls-nav:active { transform: translateY(-50%) scale(.92); }
+.wsv2flow .tpls-nav--prev { left: 6px; }
+.wsv2flow .tpls-nav--next { right: 6px; }
+.wsv2flow .tpls-dots { display: flex; justify-content: center; gap: 7px; margin-top: 9px; }
+.wsv2flow .tpls-dot { width: 7px; height: 7px; padding: 0; border: none; border-radius: 50%; background: var(--border); cursor: pointer; transition: background .15s, transform .15s; }
+.wsv2flow .tpls-dot.on { background: var(--brand-strong); transform: scale(1.35); }
 
 /* PC (≥768px): 고정 사이드바(232px) 가림 방지 */
 @media (width >= 768px) {
@@ -594,4 +619,7 @@
   .wsv2flow .cap-card { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .wsv2flow .cap-photo { height: 100%; min-height: 200px; margin-bottom: 0; }
   .wsv2flow .tpls-slide { flex-basis: 60%; }
+  .wsv2flow .tpls-carousel.is-multi .tpls-nav { display: flex; }   /* [v568·B-5] PC 에서만 화살표 노출 */
+  .wsv2flow .tpls-strip { cursor: grab; }
+  .wsv2flow .tpls-strip:active { cursor: grabbing; }
 }
