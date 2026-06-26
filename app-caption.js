@@ -1376,6 +1376,8 @@ window.CaptionEngine = {
     if (opts.previous_caption) payload.previous_caption = String(opts.previous_caption).slice(0, 1500);
     if (opts.variation_seed) payload.variation_seed = String(opts.variation_seed).slice(0, 64);
     payload.strict_user_context = (opts.strict_user_context !== false);
+    // [v567] 원장님 말투 반영 토글 — 명시 ON 일 때만 페르소나/인스타 말투분석 반영(기본 OFF).
+    payload.use_persona = (opts.use_persona === true);
     const data = await _personaFetch('POST', '/persona/generate', payload);
     // [v534] 백엔드가 body(해시태그 제거 본문)를 주면 우선 사용. 없으면 caption. 어느 쪽이든 본문에서 # 추가 제거.
     const _rawBody = (typeof data.body === 'string' && data.body.trim()) ? data.body : data.caption;

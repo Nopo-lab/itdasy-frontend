@@ -1073,6 +1073,31 @@
     el.addEventListener('pointercancel', up);
   }
 
+  // [v567·필수3] 뷰포트 크기 변경(브라우저 리사이즈/전체화면/방향전환) 시 마스크 overlay 재투영.
+  //   마스크 stroke 는 사진 자연해상도(이미지좌표)로 저장되므로 데이터는 보존되지만, overlay 캔버스
+  //   비트맵은 칠한 시점의 vp 크기로 고정돼 있어 리사이즈하면 CSS 가 늘여 위치가 틀어진다(절반→풀스크린 드리프트).
+  //   여기서 새 vp 크기로 overlay 를 다시 그려(이미지좌표 → 현재 contain rect 재투영) 위치를 항상 정확히 유지.
+  function _bindEditResize() {
+    if (!el || el._edResizeBound) return; el._edResizeBound = true;
+    var _rt = null;
+    function reproject() {
+      _rt = null;
+      if (cur !== 'edit') return;
+      if (d.maskPaint || d.maskView) _renderMaskOverlay();   // maskPaint 면 내부에서 _renderPaintOverlay 로 분기
+    }
+    function onResize() {
+      if (cur !== 'edit') return;
+      if (_rt) clearTimeout(_rt);
+      _rt = setTimeout(reproject, 120);
+    }
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    if (window.visualViewport && window.visualViewport.addEventListener) {
+      window.visualViewport.addEventListener('resize', onResize);
+    }
+    document.addEventListener('fullscreenchange', onResize);
+  }
+
   function _roleSummary() {
     var r = {};
     (d.photos || []).forEach(function (p) { r[p.role || 'hero'] = (r[p.role || 'hero'] || 0) + 1; });
@@ -1111,13 +1136,20 @@
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
 	      var _chip = function (group, val, label, cur) { return '<button type="button" class="cap-chip' + (cur === val ? ' on' : '') + '" data-fl-' + group + '="' + val + '">' + label + '</button>'; };
 	      var toneChips = [['natural', '자연스럽게'], ['emotional', '인스타 감성'], ['professional', '전문가 느낌'], ['friendly', '친근하게'], ['premium', '프리미엄'], ['mz', 'MZ 감성']].map(function (o) { return _chip('ctone', o[0], o[1], _tone); }).join('');
-	      var lenChips = [['short', '짧게'], ['medium', '보통'], ['long', '길게']].map(function (o) { return _chip('clen', o[0], o[1], _len); }).join('');
+	      var lenChips = [['short', '짧게'], ['medium', '보통'], ['long', '길게'], ['max', '아주 길게']].map(function (o) { return _chip('clen', o[0], o[1], _len); }).join('');
+	      // [v567] 원장님 말투 반영 토글 — 인스타 연동(말투분석 소스) 있을 때만 활성. 기본 OFF(안전).
+	      var _igConnIn = (window.WorkspaceAdapter && window.WorkspaceAdapter.instagram) ? window.WorkspaceAdapter.instagram().connected : false;
+	      var _useP = (d.capUsePersona === true) && _igConnIn;
+	      var personaRow = '<div class="cap-hash-row">' +
+	          '<span class="cap-field-label" style="margin:0">원장님 말투 반영' + (_igConnIn ? '' : ' <em style="font-weight:400;color:#9aa3ad;font-style:normal">· 인스타 연동 후 사용</em>') + '</span>' +
+	          '<button type="button" class="cap-switch' + (_useP ? ' on' : '') + '"' + (_igConnIn ? '' : ' disabled aria-disabled="true"') + ' data-fl-cpersona role="switch" aria-checked="' + _useP + '"><span class="cap-switch__dot"></span></button></div>';
 	      return photoThumb +
 	        '<div class="screen-head"><h2>오늘 시술,<br>한 줄로 적어주세요</h2></div>' +
 	        '<input class="service-input cap-svc-lg" data-fl-service value="' + esc(d.service || '') + '" placeholder="오늘 시술을 한 줄로 입력해 주세요" enterkeyhint="send">' +
 	        '<p class="cap-field-hint">예: 젤네일 핑크 글리터 · 레이어드컷 · 속눈썹펌 · 애쉬브라운 염색</p>' +
 	        '<label class="cap-field-label">말투</label><div class="cap-chips">' + toneChips + '</div>' +
 	        '<label class="cap-field-label">길이</label><div class="cap-chips cap-chips--seg">' + lenChips + '</div>' +
+	        personaRow +
 	        '<div class="cap-hash-row"><span class="cap-field-label" style="margin:0">해시태그</span>' +
 	          '<button type="button" class="cap-switch' + (_hashOn ? ' on' : '') + '" data-fl-chash role="switch" aria-checked="' + _hashOn + '"><span class="cap-switch__dot"></span></button></div>' +
 	        '<button type="button" class="cap-gen-btn" data-fl-cgen>게시글 만들기</button>';
@@ -1465,6 +1497,9 @@
     opts.length_tier = opts.length_tier || d.capLen || 'medium';
     d.capLen = opts.length_tier;
     d.capTone = opts.tone_override;
+    // [v567] 원장님 말투 반영 — 토글 ON + 인스타 연동(말투분석 소스 존재) 시에만 페르소나 반영.
+    var _igConn = (window.WorkspaceAdapter && window.WorkspaceAdapter.instagram) ? window.WorkspaceAdapter.instagram().connected : false;
+    opts.use_persona = (d.capUsePersona === true) && _igConn;
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
       if (r.ok) {
@@ -1681,12 +1716,14 @@
       var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
       var cl = t.closest('[data-fl-clen]'); if (cl) { d.capLen = cl.getAttribute('data-fl-clen'); setScreen('caption'); return; }
       var ch = t.closest('[data-fl-chash]'); if (ch) { d.capHashOn = (d.capHashOn === false); setScreen('caption'); return; }
+      // [v567] 원장님 말투 반영 토글 — 인스타 미연동이면 안내 후 무시(데이터 없는 반영 금지).
+      var cpr = t.closest('[data-fl-cpersona]'); if (cpr) { if (cpr.hasAttribute('disabled')) { toast('인스타를 연동하고 말투를 분석하면 켤 수 있어요'); return; } d.capUsePersona = !(d.capUsePersona === true); setScreen('caption'); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');
 	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
-	        if (vk === 'long')  { return doGenerate({ length_tier: 'long', caption_intent: 'longer', _regen: true }, '길게 다시 생성했어요'); }
+	        if (vk === 'long')  { var _nl = (d.capLen === 'long' || d.capLen === 'max') ? 'max' : 'long'; return doGenerate({ length_tier: _nl, caption_intent: 'longer', _regen: true }, _nl === 'max' ? '아주 길게 다시 생성했어요' : '길게 다시 생성했어요'); }
 	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'natural'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
 	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
 	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
@@ -1750,6 +1787,7 @@
 	    });
     _bindZoom();
     _bindPaint();   // [v561] 직접 칠하기(수동 마스크) 포인터 바인딩
+    _bindEditResize();   // [v567] 리사이즈/전체화면 시 마스크 overlay 재투영(이미지좌표 보존)
     _bindTplResultSwipe();   // [v561·항목4] 다중 결과물 좌우 스와이프
     _bindTplLongPress();   // [v541] 템플릿 썸네일 long press 확대 미리보기
   }
