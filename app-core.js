@@ -1732,14 +1732,20 @@ window.addEventListener('load', function() {
     // runAutoAnalysisAfterConnect 가 즉시 toast + overlay + 90초 polling + timeout fallback.
     const _params0 = new URLSearchParams(window.location.search);
     const _justOAuthed = _params0.get('connected') === 'success';
+    // [v570] OAuth 복귀 의도를 reload 견디는 플래그로 보존 — SW controllerchange→reload 가
+    //   ?connected=success 를 날려도 이 플래그로 분석/보고서 흐름을 복원한다(보고서 미노출 hotfix).
+    let _pendingReport = false;
+    try { _pendingReport = sessionStorage.getItem('itdasy_pending_report') === '1'; } catch (_e) { void _e; }
     if (_justOAuthed) {
+      try { sessionStorage.setItem('itdasy_pending_report', '1'); } catch (_e) { void _e; }
+      _pendingReport = true;
       history.replaceState(null, '', window.location.pathname);
       try {
         const pd = document.getElementById('personaDash');
         if (pd) pd.style.display = 'none';
       } catch (_e) { void _e; }
-    } else {
-      // [2026-06-12] OAuth 복귀가 아닌 일반 부팅(연동 실패·취소 포함)이면 inflight 플래그 정리 —
+    } else if (!_pendingReport) {
+      // [2026-06-12] OAuth 복귀도 복원 대기도 아닌 일반 부팅이면 inflight 플래그 정리 —
       //   잔존 시 이후 SW 업데이트 controllerchange→reload 를 계속 막는다.
       try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
     }
@@ -1747,12 +1753,28 @@ window.addEventListener('load', function() {
     //   (재연동 캐시 정리 선행) 그 다음에 runAutoAnalysisAfterConnect 시작. 동시 출발 금지.
     (async () => {
       try { await checkInstaStatus(); } catch (_e) { void _e; }
-      if (_justOAuthed) {
+      if (_justOAuthed || _pendingReport) {
         try {
-          if (typeof window.runAutoAnalysisAfterConnect === 'function') {
-            window.runAutoAnalysisAfterConnect();
-          } else if (typeof runPersonaAnalyze === 'function') {
-            runPersonaAnalyze();
+          // [v570] reload 로 ?connected=success 가 사라졌어도 분석 결과가 이미 있으면 보고서 즉시 복원.
+          let _restored = false;
+          if (!_justOAuthed) {
+            try {
+              const _cached = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
+              const _hasResult = (String(_cached.style_summary || _cached.tone_summary || '')).trim();
+              if (_hasResult && typeof window._openReportPopupDirect === 'function') {
+                _restored = window._openReportPopupDirect(_cached);
+                if (_restored) {
+                  try { sessionStorage.removeItem('itdasy_pending_report'); sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e2) { void _e2; }
+                }
+              }
+            } catch (_e3) { void _e3; }
+          }
+          if (!_restored) {
+            if (typeof window.runAutoAnalysisAfterConnect === 'function') {
+              window.runAutoAnalysisAfterConnect();
+            } else if (typeof runPersonaAnalyze === 'function') {
+              runPersonaAnalyze();
+            }
           }
         } catch (_e) { void _e; }
       }
@@ -1940,7 +1962,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260626-v570-myshop-tone-viewonly';
+window.APP_BUILD = '20260626-v571-caption-hotfix';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

@@ -1496,8 +1496,18 @@
 	    '머리가 주는 무드',
 	    // 주의: 시술명(붙임머리/매듭/네일 등)은 넣지 않음 — 정당한 시술 캡션 보존(타업종 혼입은 백엔드 도메인 스크럽이 처리).
 	  ];
+	  // [v570·필수3] 프론트 최소 방어 오타/중복 정리(백엔드가 1차 처리, 표시 직전 백스톱).
+	  function _fixTypos(text) {
+	    if (!text) return text;
+	    return String(text)
+	      .replace(/레이아드컷/g, '레이어드컷').replace(/레이아드/g, '레이어드')
+	      .replace(/레이어드\s+컷/g, '레이어드컷')
+	      .replace(/고객고객님/g, '고객님').replace(/고\s*고객님/g, '고객님')
+	      .replace(/(고객님)(?:\s*고객님)+/g, '고객님');
+	  }
 	  function _scrubCaption(text) {
 	    if (!text) return text;
+	    text = _fixTypos(text);
 	    var nomd = String(text).replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1')
 	      .replace(/(^|\n)\s{0,3}#{1,6}\s*/g, '$1').replace(/`/g, '');
 	    var out = nomd.split('\n').map(function (line) {
@@ -1558,7 +1568,7 @@
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
       if (r.ok) {
-        var fresh = (r.hashtags || []).slice();
+        var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); });   // [v570·3] 태그 오타 백스톱
         if (opts.hashtag_mode === 'more' && d.caption) {
           // [#3] '해시태그 더'/'더 가져오기' = 캡션 유지, 새 해시태그만 누적(중복 제거).
           var merged = (d.hashtags || []).slice();

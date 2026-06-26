@@ -408,6 +408,7 @@ async function runAutoAnalysisAfterConnect() {
   const _endOverlay = () => {
     if (overlay) overlay.style.display = 'none';
     try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
+    try { sessionStorage.removeItem('itdasy_pending_report'); } catch (_e) { void _e; }   // [v570] 보고서 복원 의도 플래그 정리(터미널)
   };
   if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   if (overlay) overlay.style.display = 'flex';
@@ -552,6 +553,8 @@ function _openReportPopupDirect(p) {
   } catch (_e) { console.log('[IG-ANALYZE] popup-open-failed', _e && _e.message); }
   return false;
 }
+// [v570] reload 복원 경로(app-core 부팅)가 캐시 분석결과로 보고서를 직접 열 때 사용.
+try { if (typeof window !== 'undefined') window._openReportPopupDirect = _openReportPopupDirect; } catch (_e) { void _e; }
 
 // [2026-06-12] 말투 분석 실패 사유별 안내 배너 + 재분석 버튼 (showToast 는 액션 버튼 미지원).
 function _showAnalyzeError(code) {
@@ -564,6 +567,7 @@ function _showAnalyzeError(code) {
   const overlay = document.getElementById('analyzeOverlay');
   if (overlay) overlay.style.display = 'none';
   try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
+  try { sessionStorage.removeItem('itdasy_pending_report'); } catch (_e) { void _e; }   // [v570] 보고서 복원 의도 플래그 정리(실패 터미널)
   let barEl = document.getElementById('igAnalyzeErrorBar');
   if (!barEl) {
     barEl = document.createElement('div');
