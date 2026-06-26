@@ -991,7 +991,7 @@
     if (!el || el._paintBound) return; el._paintBound = true;
     // [v565·scope2] 단일 포인터 그리기와 두 손가락 핀치/팬을 명확히 분리.
     //   pointers/pcount = 현재 화면에 닿은 포인터 수. gestureLock = 핀치가 시작된 후 그리기 봉인 플래그.
-    var drawing = false, last = null, pointers = {}, pcount = 0, gestureLock = false, drawId = null;
+    var drawing = false, last = null, pointers = {}, pcount = 0, gestureLock = false, drawId = null, started = false;
     function vpEl() { return el.querySelector('[data-fs="edit"] [data-fl-edvp]'); }
     function geom(vp) {
       var cv = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), true); if (!cv) return null;
@@ -1021,32 +1021,42 @@
       ctx.globalCompositeOperation = 'source-over';
       if (!d.maskErase) gm.cv._inked = true;
     }
-    function stopDraw() { if (!drawing) return; drawing = false; last = null; drawId = null; if (_hasValues(d.beauty)) _refreshPreview(); }
+    function stopDraw() { if (!drawing) return; drawing = false; last = null; drawId = null; started = false; if (_hasValues(d.beauty)) _refreshPreview(); }
     el.addEventListener('pointerdown', function (e) {
       if (cur !== 'edit' || !d.maskPaint) return;
       var vp = vpEl(); if (!vp || !vp.contains(e.target)) return;
       if (!pointers[e.pointerId]) { pointers[e.pointerId] = 1; pcount++; }
       // [v565] 두 번째 손가락 감지 → 진행 중 stroke 즉시 중단 + 핀치/줌/팬 모드로 잠금(그리기는 _bindZoom 이 아닌 paint 가 봉인).
       if (pcount >= 2) {
-        if (drawing) stopDraw();
+        if (drawing) stopDraw();   // 아직 첫 잉크 전(started=false)이면 잔점 없이 깨끗이 취소.
         gestureLock = true;
         try { if (vp.releasePointerCapture && drawId != null) vp.releasePointerCapture(drawId); } catch (_e0) { void _e0; }
         return;
       }
       if (gestureLock) return;   // [v565] gesture 가 끝나기(모든 손가락 떨어짐) 전엔 단일 포인터라도 그리기 금지.
       var gm = geom(vp); if (!gm) return;
-      drawing = true; drawId = e.pointerId; last = toImg(e, vp, gm); stroke(gm, null, last); _renderPaintOverlay();
+      // [v565] 첫 잉크는 pointerdown 이 아니라 '첫 move(또는 단일 탭 시 pointerup)' 에서 — 핀치 시작 잔점 0.
+      drawing = true; drawId = e.pointerId; started = false; last = toImg(e, vp, gm);
       try { if (vp.setPointerCapture) vp.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
       e.preventDefault();
     });
     el.addEventListener('pointermove', function (e) {
       if (!drawing || !d.maskPaint || gestureLock || pcount >= 2 || e.pointerId !== drawId) return;
       var vp = vpEl(); if (!vp) return; var gm = geom(vp); if (!gm) return;
-      var pt = toImg(e, vp, gm); stroke(gm, last, pt); last = pt; _renderPaintOverlay(); e.preventDefault();
+      var pt = toImg(e, vp, gm);
+      if (!started) { stroke(gm, null, last); started = true; }   // 단일 포인터 확정 후 시작점부터 잉크.
+      stroke(gm, last, pt); last = pt; _renderPaintOverlay(); e.preventDefault();
     });
     function up(e) {
       if (pointers[e.pointerId]) { delete pointers[e.pointerId]; pcount--; if (pcount < 0) pcount = 0; }
-      if (e.pointerId === drawId) stopDraw();
+      if (e.pointerId === drawId) {
+        // [v565] 움직임 없이 뗀 '단일 탭'(핀치 아님) 은 점 하나 — 핀치(gestureLock)면 잉크 0.
+        if (drawing && !started && !gestureLock) {
+          var vp = vpEl(), gm = vp && geom(vp);
+          if (gm) { stroke(gm, null, last); _renderPaintOverlay(); }
+        }
+        stopDraw();
+      }
       if (pcount === 0) gestureLock = false;   // [v565] 모든 손가락이 떨어지면 잠금 해제 → 다음 새 pointerdown 부터 다시 그림.
     }
     el.addEventListener('pointerup', up);
