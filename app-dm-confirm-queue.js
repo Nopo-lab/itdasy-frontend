@@ -322,6 +322,20 @@
             <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">인스타그램 DM에서 확인 후 직접 답장해 주세요</div>
           </div>
         </div>` : '';
+    // [2026-06-26] 예약/문의 카드에 손님 사진 첨부 — photo_attached(외톨이 photo_only 와 별개).
+    //   BE _handle_photo_event(B-1)가 카드 메타에 기록. 인스타 열기 버튼 공유 util 재사용.
+    const photoAttachedBlock = (am.photo_attached && !isPhotoOnly)
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:10px 12px;margin-bottom:10px;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:700;color:#EA580C;">손님이 사진 ${Math.max(1, Number(am.photo_count) || 1)}장 보냈어요</div>
+            <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">인스타그램 DM에서 확인하세요</div>
+          </div>
+          <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:8px 11px;background:#EA580C;color:#fff;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            인스타 DM 열기
+          </a>
+        </div>` : '';
     // [2026-06-26] 위험(취소/환불/법적…) 카드 — 사진 배너 스타일 재사용(red 계열). 추천답장 대신 직접 답장 안내.
     const riskBlock = isRisk
       ? `<div style="display:flex;align-items:center;gap:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
@@ -353,6 +367,7 @@
           </div>
         </div>
         ${photoOnlyBlock}
+        ${photoAttachedBlock}
         ${riskBlock}
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
