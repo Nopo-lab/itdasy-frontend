@@ -46,9 +46,9 @@
 	    { k: 'hair', label: '헤어', ic: 'ph-wind', controls: [
 	      // [v560] 기능명 정직화 — 효과는 '보정/완화(enhancement)'이지 '생성'이 아니므로 '~감/완화'로 표기.
 	      { k: 'hairDetail', l: '머릿결 선명도', ic: 'ph-wind' },
-	      { k: 'hairVolume', l: '볼륨감 보정', ic: 'ph-waves' },
+	      { k: 'hairVolume', l: '입체감(윤곽)', ic: 'ph-waves' },
 	      { k: 'hairShine', l: '윤기감 보정', ic: 'ph-sparkle' },
-	      { k: 'hairFull', l: '풍성감 보정', ic: 'ph-plant' },
+	      { k: 'hairFull', l: '숱 풍성감', ic: 'ph-plant' },
 	      { k: 'hairEndsClean', l: '잔머리 완화', ic: 'ph-scissors' } ] },
 	    { k: 'eyes', label: '눈썹·눈가', ic: 'ph-eye', controls: [
 	      { k: 'browSharp', l: '눈썹 선명도', ic: 'ph-pencil-simple' },

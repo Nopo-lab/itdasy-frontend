@@ -34,10 +34,13 @@
     return _clamp01(score * Math.max(subject, 0.25));
   }
 
+  // [v572·P3-6] 눈 효과 누출 완화 — FaceMesh eyeMask 미검출 시 쓰이는 휴리스틱 폴백 밴드를 좁힌다.
+  //   기존 밴드(ny 0.25~0.59 / nx 0.22~0.78)는 코·볼·관자놀이까지 덮어 catchLight/irisClear 가
+  //   눈 밖으로 누출됐다. 실제 눈 영역(ny≈0.38~0.46, 양안 nx≈0.30~0.70)에 맞춰 falloff 강화.
   function _eyeScore(r, g, b, lum, sat, x, y, w, h, subject) {
     const nx = (x + 0.5) / Math.max(1, w);
     const ny = (y + 0.5) / Math.max(1, h);
-    const faceBand = _clamp01(1 - Math.abs(ny - 0.42) * 3.0) * _clamp01(1 - Math.abs(nx - 0.5) * 1.8);
+    const faceBand = _clamp01(1 - Math.abs(ny - 0.42) * 4.6) * _clamp01(1 - Math.abs(nx - 0.5) * 2.5);
     const irisOrLash = lum > 12 && lum < 150;
     const whiteCatch = lum > 140 && sat < 75 && Math.max(r, g, b) - Math.min(r, g, b) < 70;
     return _clamp01(faceBand * Math.max(subject, 0.3) * (irisOrLash ? 0.92 : (whiteCatch ? 0.6 : 0)));
