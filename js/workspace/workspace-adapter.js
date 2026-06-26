@@ -128,7 +128,15 @@
         var c = t.getContext('2d'); c.clearRect(0, 0, mw, mh); c.drawImage(cv, 0, 0, mw, mh);
         var id = c.getImageData(0, 0, mw, mh).data, arr = new Float32Array(mw * mh), any = false;
         for (var i = 0; i < mw * mh; i++) { var a = id[i * 4 + 3] / 255; arr[i] = a; if (a > 0.04) any = true; }
-        if (any) { masks.useMasks[type] = arr; masks._scale[type] = 1; }
+        if (any) {
+          // [v566·scope3] 자동 마스크와 UNION — 수동 칠은 자동 영역을 '지우지 않고 더한다'.
+          //   자동값엔 기존 강도(_scale)를 baked-in(곱해서 보존), 수동 칠 영역은 풀강도(1). 최종 _scale=1.
+          var autoArr = masks.useMasks[type], autoSc = (typeof masks._scale[type] === 'number') ? masks._scale[type] : 1;
+          if (autoArr && autoArr.length === arr.length) {
+            for (var j = 0; j < arr.length; j++) { var av = autoArr[j] * autoSc; if (av > arr[j]) arr[j] = av; }
+          }
+          masks.useMasks[type] = arr; masks._scale[type] = 1;
+        }
       } catch (_e) { /* 수동 마스크 1개 실패는 무시 — 나머지/자동 마스크 유지 */ }
     });
     return masks;

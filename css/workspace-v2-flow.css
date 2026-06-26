@@ -140,6 +140,11 @@
 .wsv2flow .ed-mask-badge { position: absolute; left: 8px; top: 8px; z-index: 5; background: rgba(20,16,16,.66); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: var(--r-pill); pointer-events: none; max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsv2flow .ed-mask-badge[hidden] { display: none; }
 /* [v540] 마스크 보기 — 정밀 조정 안 pill toggle + inline fallback helper */
+/* [v566·scope4] 마스크 도구 = 보정 슬라이더 아래 보조 영역. 위에 얇은 구분선 + 안내 부제. */
+.wsv2flow .ed-masktools { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.wsv2flow .ed-mask-subhead { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; }
+.wsv2flow .ed-mask-subhead i { font-size: 15px; color: var(--brand-strong); align-self: center; }
+.wsv2flow .ed-mask-subhead span { font-size: 11px; font-weight: 600; color: var(--text-subtle); }
 .wsv2flow .ed-maskpill-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 10px; }
 .wsv2flow button.ed-maskpill { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
 .wsv2flow button.ed-maskpill i { font-size: 16px; }

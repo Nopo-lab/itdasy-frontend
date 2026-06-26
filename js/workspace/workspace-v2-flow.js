@@ -498,15 +498,20 @@
       }).join('') + '</div>';
       // [v540] 마스크 보기 — 정밀 조정 안으로 이동. 효과 부위 탭(피부/헤어/눈·눈썹/네일)에서만 노출(고급 제외).
       // [v561] '직접 칠하기'(수동 마스크) — 자동 인식이 틀리거나 못 잡을 때 원장님이 영역을 직접 칠해 교정.
+      // [v566·scope4] 보정 슬라이더가 먼저, '영역 다듬기(마스크 도구)'는 그 아래 보조 영역으로.
       var maskPill = (ptab !== 'tools')
-        ? '<div class="ed-maskpill-row">' +
-            '<button type="button" class="ed-maskpill' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView && !d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
-            '<button type="button" class="ed-maskpill' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint" aria-pressed="' + (d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
-            (d.maskPaint ? _maskPaintControlsHtml() : '') +
-            '<div class="ed-mask-helper" data-fl-maskhelper hidden></div>' +
+        ? '<div class="ed-masktools">' +
+            '<div class="ed-mask-subhead"><i class="ph-duotone ph-selection-plus" aria-hidden="true"></i>' + esc(ptabObj.label) + ' 영역 다듬기 <span>자동 인식이 어긋날 때만 직접 칠해 교정</span></div>' +
+            '<div class="ed-maskpill-row">' +
+              '<button type="button" class="ed-maskpill' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView && !d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
+              '<button type="button" class="ed-maskpill' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint" aria-pressed="' + (d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
+              (d.maskPaint ? _maskPaintControlsHtml() : '') +
+              '<div class="ed-mask-helper" data-fl-maskhelper hidden></div>' +
+            '</div>' +
           '</div>'
         : '';
-      precBody = '<div class="ed-panel">' + precTabsHtml + maskPill + inner + (ptab !== 'tools' ? _photoDebugPanelHtml() : '') + '</div>';
+      // [v566·scope4] 순서: 탭 → 보정 슬라이더(inner) → 마스크 도구(maskPill).
+      precBody = '<div class="ed-panel">' + precTabsHtml + inner + maskPill + (ptab !== 'tools' ? _photoDebugPanelHtml() : '') + '</div>';
     }
     // [v554] 정밀 조정 항상 펼침 — 접기/펼치기 버튼·caret(chevron) 제거(기능 숨김 오해 방지). 정적 헤더만 노출.
     return '<div class="ed-prec-head"><i class="ph-duotone ph-faders" aria-hidden="true"></i><span>정밀 조정</span></div>' + precBody;
@@ -650,7 +655,12 @@
   function _rerenderTemplate() {
     var sec = el && el.querySelector('.wsv2flow__s[data-fs="template"]');
     if (!sec) return;
+    // [v566·scope5] 사진 스트립 가로 스크롤 위치 보존 — 재렌더로 '4번째 보던 사진'이 1번째로 튕기는 문제 차단.
+    var prevStrip = sec.querySelector('[data-fl-tplstrip]');
+    var prevLeft = prevStrip ? prevStrip.scrollLeft : 0;
     sec.innerHTML = renderTemplate();
+    var nstrip = sec.querySelector('[data-fl-tplstrip]');
+    if (nstrip && prevLeft) nstrip.scrollLeft = prevLeft;
     var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
     raf(function () { _mountCarousel(); });
   }
@@ -1328,7 +1338,13 @@
     el.querySelectorAll('.wsv2flow__s').forEach(function (s) {
       var i = SCREENS.indexOf(s.dataset.fs);
       var on = s.dataset.fs === name;
-      if (on) s.innerHTML = RENDER[name]();
+      if (on) {
+        // [v566·scope5] 템플릿 사진 스트립의 가로 스크롤 위치 보존(재렌더로 1번째로 튕김 방지).
+        var _ps = s.querySelector('[data-fl-tplstrip]');
+        var _pl = _ps ? _ps.scrollLeft : 0;
+        s.innerHTML = RENDER[name]();
+        if (_pl) { var _ns = s.querySelector('[data-fl-tplstrip]'); if (_ns) _ns.scrollLeft = _pl; }
+      }
       s.classList.toggle('active', on);
       s.classList.toggle('prev', !on && i < to);
     });
@@ -1382,6 +1398,25 @@
 	      '샵·디자이너 이름을 모르면 지어내지 말고 "저희 샵"으로. 구어/비속어는 그대로 쓰지 말고 의미만 뷰티 인스타 톤으로 정제.';
 	    if (regenSeq && regenSeq > 0) note += ' (재생성 ' + regenSeq + '회차: 앞 글과 도입부·문장 구성·표현을 다르게, 같은 내용 다른 말로.)';
 	    return note.slice(0, 300);
+	  }
+	  // [v566·scope7] 프론트 렌더 직전 최종 스크러버 — 백엔드 방어를 우회한(구버전 캐시/예외) 상투 누출
+	  //   문단을 화면에 그리기 전에 문장째 제거 + 마크다운 원문 제거(이중 안전망).
+	  var _CAP_FORBIDDEN = [
+	    '시술 전후 차이가 보이시나요', '전후 차이가 보이시나요', '여신 머리', '여신머리',
+	    '짧은 단발에서', '단발에서 여신', '변신하는 건 한순간', '변신하는건 한순간',
+	    '한 끗', '한끗', '디테일은 한 끗', '묶었을 때 티', '티 나지 않는', '슬림한 매듭',
+	    '두상 커', '내 머리 같은 가벼움', '드디어 정착', '정착할 곳', '긴 머리가 주는 무드',
+	    '머리가 주는 무드', '붙임머리', '매듭',
+	  ];
+	  function _scrubCaption(text) {
+	    if (!text) return text;
+	    var nomd = String(text).replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1')
+	      .replace(/(^|\n)\s{0,3}#{1,6}\s*/g, '$1').replace(/`/g, '');
+	    var out = nomd.split('\n').map(function (line) {
+	      var parts = line.split(/(?<=[.!?…])\s+/);
+	      return parts.filter(function (s) { return !_CAP_FORBIDDEN.some(function (b) { return s.indexOf(b) >= 0; }); }).join(' ').trim();
+	    }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+	    return out || nomd.trim();   // 전부 걸러지면(극단) 마크다운만 제거한 본문 유지
 	  }
 	  function doGenerate(extra, label) {
 	    syncServiceFromDom();
@@ -1445,7 +1480,7 @@
         } else {
           // [v558] 해시태그 토글 OFF → 게시글에 해시태그 비표시(백엔드는 그대로 생성, 프론트에서만 숨김).
           if (d.capHashOn === false) fresh = [];
-          d.caption = r.caption; d.hashtags = fresh; d.selectedHashes = fresh.slice();
+          d.caption = _scrubCaption(r.caption); d.hashtags = fresh; d.selectedHashes = fresh.slice();   // [v566·scope7] 렌더 직전 상투/마크다운 제거
           // [v531] 캡션 입력→결과 최초 전환 시 history 마커 1개 push → 결과 화면에서 뒤로가기 = 캡션 입력 화면(편집 X).
           if (_wasEmpty) { navStack.push('caption'); _pushHist(); }
           // [#6] 꼬리말(captionTemplate)은 어댑터가 돌려주지 않으므로 여기서 덮어쓰지 않는다.
@@ -1819,7 +1854,7 @@
         var mx = e.touches[0].clientX - sw.x, my = e.touches[0].clientY - sw.y;
         if (!sw.lock) { if (Math.abs(mx) > 10 || Math.abs(my) > 10) sw.lock = Math.abs(mx) > Math.abs(my) ? 'h' : 'v'; }
         if (sw.lock === 'h') {
-          var ph = el.querySelector('[data-fl-edphoto]'); if (ph) ph.style.transform = 'translateX(' + (mx * 0.35) + 'px)';
+          var ph = el.querySelector('[data-fl-edphoto]'); if (ph) ph.style.transform = 'translate3d(' + (mx * 0.42) + 'px,0,0)';   // [v566] GPU 가속(translate3d) + 추종비 상향으로 끈적임 완화
           e.preventDefault();
         }
       }
