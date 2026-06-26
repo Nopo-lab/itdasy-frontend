@@ -295,6 +295,7 @@
     const draft = (!_rawDraft && isFormAuto) ? '손님 양식 답변 대기 중이에요…' : _rawDraft;
     const isBooking = it.action_required === 'booking_action';
     const isSetAddress = !!am.set_address;  // [2026-06-24] 주소 미설정 카드
+    const isRisk = !!am.risk_manual;  // [2026-06-26] 위험 문의 — 원장 직접답장(초안 없음·자동발송 X)
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
@@ -321,6 +322,20 @@
             <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">인스타그램 DM에서 확인 후 직접 답장해 주세요</div>
           </div>
         </div>` : '';
+    // [2026-06-26] 위험(취소/환불/법적…) 카드 — 사진 배너 스타일 재사용(red 계열). 추천답장 대신 직접 답장 안내.
+    const riskBlock = isRisk
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:700;color:#DC2626;">⚠️ 위험 문의 — 직접 답장하세요</div>
+            <div style="font-size:11.5px;color:#991B1B;margin-top:1px;">잇비가 자동 답장하지 않아요. 인스타에서 확인 후 직접 답장해 주세요.</div>
+          </div>
+          <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:9px 12px;background:#DC2626;color:#fff;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            인스타 DM 열기
+          </a>
+        </div>` : '';
     return `
       <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
         ${_channelMark(it.channel)}
@@ -338,12 +353,13 @@
           </div>
         </div>
         ${photoOnlyBlock}
+        ${riskBlock}
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
         ${_durationStepper(it)}
         ${_depositLine(am)}
-        ${isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+        ${isRisk ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
@@ -352,9 +368,9 @@
           </div>
         </div>`}
         <div style="display:flex;gap:6px;margin-top:12px;">
-          ${(!isFormAuto || _rawDraft) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          ${(!isRisk && (!isFormAuto || _rawDraft)) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>` : ''}
-          ${(isSendForm || isSetAddress || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
+          ${(isRisk || isSendForm || isSetAddress || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
         </div>
         ${_depositConfirmBtn(it)}

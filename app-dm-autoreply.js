@@ -483,9 +483,11 @@
   // [2026-06-10] 예약 단계 배지 + 칩(옵션) + 캘린더 확인 줄 + 칩 수정 인라인
   // [2026-06-25] 손님 인스타 1:1 스레드 점프 — ig.me/m/{username}, 없으면 인스타 inbox 폴백.
   //   외톨이 사진 카드·예약 카드(참고 사진) 공용 1곳. (사진 바이트 표시 X — 만료 URL, 링크만)
+  // [2026-06-26] 공용 헬퍼(js/dm/ig-thread-link.js)에 위임 — 중복 제거. 미로드 시 inbox 폴백.
   function _igThreadLink(conv) {
-    const u = ((conv && conv.sender_username) || '').trim();
-    return u ? `https://ig.me/m/${encodeURIComponent(u)}` : 'https://www.instagram.com/direct/inbox/';
+    return window.itdasyIgThreadLink
+      ? window.itdasyIgThreadLink(conv)
+      : 'https://www.instagram.com/direct/inbox/';
   }
   function _photoNoticeHtml(conv) {
     return `
