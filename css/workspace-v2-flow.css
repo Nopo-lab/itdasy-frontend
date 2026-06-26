@@ -560,8 +560,15 @@
 .wsv2flow .tpls { display: flex; flex-direction: column; gap: 18px; }
 .wsv2flow .tpls-strip { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -2px; padding: 0 2px 4px; }
 .wsv2flow .tpls-strip::-webkit-scrollbar { height: 0; }
-.wsv2flow .tpls-slide { position: relative; flex: 0 0 86%; aspect-ratio: 4 / 5; border-radius: var(--r-lg, 16px); background-size: cover; background-position: center; background-color: var(--frame); scroll-snap-align: center; border: 1px solid var(--border); }
+.wsv2flow .tpls-slide { position: relative; flex: 0 0 86%; aspect-ratio: 4 / 5; border-radius: var(--r-lg, 16px); background-size: cover; background-position: center; background-color: var(--frame); scroll-snap-align: center; border: 1px solid var(--border); padding: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.wsv2flow button.tpls-slide.is-before { border: 2.5px solid var(--brand-strong); }
+.wsv2flow button.tpls-slide.is-after { border: 2.5px solid #6BA368; }
 .wsv2flow .tpls-slide__tag { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: var(--r-pill, 999px); background: rgba(0,0,0,.55); color: #fff; font-size: 12px; font-weight: 800; }
+/* [v562·항목3] 클릭순 전/후 — 사진 위 큰 역할 배지(전=로즈, 후=그린) + 짝 번호 */
+.wsv2flow .tpls-slide__role { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 3px; min-width: 30px; height: 30px; padding: 0 9px; justify-content: center; border-radius: var(--r-pill, 999px); color: #fff; font-size: 14px; font-weight: 900; box-shadow: 0 1px 5px rgba(0,0,0,.28); }
+.wsv2flow .tpls-slide.is-before .tpls-slide__role { background: var(--brand-strong); }
+.wsv2flow .tpls-slide.is-after .tpls-slide__role { background: #6BA368; }
+.wsv2flow .tpls-slide__role em { font-style: normal; font-size: 11px; font-weight: 800; opacity: .9; }
 .wsv2flow .tpls-empty { padding: 28px 12px; text-align: center; color: var(--text-subtle); font-size: 13px; }
 
 /* PC (≥768px): 고정 사이드바(232px) 가림 방지 */

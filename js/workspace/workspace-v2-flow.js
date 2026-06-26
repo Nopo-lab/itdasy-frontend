@@ -1523,6 +1523,7 @@
         d.customerVc = found ? (found.vc || 0) : 0;
         setScreen('connect'); return;
       }
+      var tplpick = t.closest('[data-fl-tplpick]'); if (tplpick) { _pickTplRole(tplpick.getAttribute('data-fl-tplpick')); return; }   // [v562·항목3] 클릭순 전/후
       var tplchip = t.closest('[data-fl-tplchip]'); if (tplchip) { d.tplCat = tplchip.textContent.trim(); if (cur === 'template') _rerenderTemplate(); else _renderTplSection(); return; }
 	      // [v542] 보정 디버그 — 0/50/100 즉시 적용(실제 프리뷰) + 현재값 복사
 	      var fxv = t.closest('[data-fl-fxv]'); if (fxv) {
@@ -1929,10 +1930,59 @@
 	  function _tplReturnScreen() { return cur === 'template' ? 'template' : 'edit'; }
 	  // [v560] '템플릿 선택' 전용 화면 — 상단 큰 사진(좌우 스와이프) + 전·후 클릭 지정 + 템플릿 목록.
 	  //   기존 렌더(_rolesPanelHtml/_tplAppliedHtml/_tplThumb)와 핸들러(data-fl-setrole/tpl/tplchip) 재사용.
-	  function renderTemplate() {
+	  // [v562·항목3] 클릭순 전/후 — d.tplPickSeq(사진 id 클릭 순서) 기준으로 role 부여(짝수=전/홀수=후).
+	  function _syncPickSeq() {
 	    var eps = editablePhotos();
+	    if (!d.tplPickSeq) d.tplPickSeq = [];
+	    // 삭제된 사진 id 제거
+	    d.tplPickSeq = d.tplPickSeq.filter(function (pid) { return eps.some(function (x) { return String(x.id) === String(pid); }); });
+	    // 시퀀스가 비어 있으면 현재 역할(자동 배치 결과)에서 순서 복원 → 첫 탭부터 자연스럽게 토글.
+	    if (!d.tplPickSeq.length) {
+	      var bef = eps.filter(function (p) { return p.role === 'before'; });
+	      var aft = eps.filter(function (p) { return p.role === 'after'; });
+	      var seq = [];
+	      for (var i = 0; i < Math.max(bef.length, aft.length); i++) { if (bef[i]) seq.push(String(bef[i].id)); if (aft[i]) seq.push(String(aft[i].id)); }
+	      d.tplPickSeq = seq;
+	    }
+	    return d.tplPickSeq;
+	  }
+	  function _pickSeqNo(id) {
+	    var seq = d.tplPickSeq || []; var k = seq.indexOf(String(id));
+	    if (k < 0 || seq.length <= 2) return '';   // 2장(1짝)이면 번호 생략
+	    return String(Math.floor(k / 2) + 1);      // 짝 번호(1,1,2,2,…)
+	  }
+	  function _applyPickRoles() {
+	    var eps = editablePhotos(); var seq = d.tplPickSeq || [];
+	    eps.forEach(function (p) {
+	      var k = seq.indexOf(String(p.id));
+	      if (k < 0) { p.role = 'hero'; p.roleManual = false; }
+	      else { p.role = (k % 2 === 0) ? 'before' : 'after'; p.roleManual = true; }
+	    });
+	  }
+	  function _pickTplRole(id) {
+	    var eps = editablePhotos();
+	    if (!eps.some(function (x) { return String(x.id) === String(id); })) return;
+	    _syncPickSeq();
+	    var sid = String(id), k = d.tplPickSeq.indexOf(sid);
+	    if (k >= 0) d.tplPickSeq.splice(k, 1);   // 다시 탭 → 해제
+	    else d.tplPickSeq.push(sid);             // 새 탭 → 다음 순서(전/후/전/후…)
+	    _applyPickRoles();
+	    d.templateId = null; d.templateOutputs = []; d.templateOutput = null;   // 역할 바뀌면 기존 결과 무효화
+	    _rerenderTemplate();
+	  }
+	  function renderTemplate() {
+	    _syncPickSeq();
+	    var eps = editablePhotos();
+	    // [v562·항목3] 상단 사진을 '순서대로 탭'하면 전/후 자동 지정(첫 탭=전, 둘째 탭=후, 다시 탭=해제).
+	    //   다중(4장)이면 전·후·전·후 순으로 짝이 만들어진다. 좌우 스와이프(스크롤)는 그대로.
 	    var strip = eps.map(function (p, i) {
-	      return '<div class="tpls-slide" style="background-image:url(' + esc(photoUrl(p)) + ')"><span class="tpls-slide__tag">' + esc(_editPhotoLabel(p, i)) + '</span></div>';
+	      var role = p.role || 'hero';
+	      var rl = role === 'before' ? '전' : (role === 'after' ? '후' : '');
+	      var seqNo = _pickSeqNo(p.id);   // 전/후 짝 번호(2짝 이상일 때만 표시)
+	      return '<button type="button" class="tpls-slide' + (rl ? ' is-' + role : '') + '" data-fl-tplpick="' + esc(p.id) + '" style="background-image:url(' + esc(photoUrl(p)) + ')" aria-label="' + esc(_editPhotoLabel(p, i)) + ' — 탭하면 전/후 지정">' +
+	        (rl ? '<span class="tpls-slide__role">' + rl + (seqNo ? '<em>' + seqNo + '</em>' : '') + '</span>'
+	            : '<span class="tpls-slide__tag">탭 → 전/후</span>') +
+	      '</button>';
 	    }).join('');
 	    var chips = ['전체', '전후', '붙이기', '시술 자랑', '고객 후기', '이벤트', '스토리'];
 	    var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
@@ -1943,7 +1993,7 @@
 	    return '<div class="tpls">' +
 	      '<div class="tpls-strip" data-fl-tplstrip aria-label="편집한 사진 — 좌우로 넘겨 확인">' + (strip || '<div class="tpls-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>') + '</div>' +
 	      _tplAppliedHtml() +
-	      '<div class="tpls-sec"><div class="cap-field-label">전·후 지정 <span>전후 비교 템플릿은 전·후를 각각 1장 이상</span></div>' + _rolesPanelHtml() + '</div>' +
+	      (eps.length >= 2 ? '<div class="tpls-sec"><div class="cap-field-label">전·후 지정 <span>위 사진을 순서대로 탭 — 첫 탭 <b>전</b>, 둘째 탭 <b>후</b> (다시 탭하면 해제)</span></div></div>' : '') +
 	      '<div class="tpls-sec"><div class="cap-field-label">템플릿 고르기 <span>탭하면 바로 적용돼요</span></div>' +
 	        '<div class="tpl-chips">' + chips.map(function (c, i) { return '<span class="tpl-chip' + ((d.tplCat ? d.tplCat === c : i === 0) ? ' on' : '') + '" data-fl-tplchip>' + esc(c) + '</span>'; }).join('') + '</div>' +
 	        '<div class="tpl-grid2">' + grid + '</div>' +
