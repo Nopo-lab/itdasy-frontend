@@ -201,7 +201,7 @@ window.IGState = {
   },
 };
 
-function renderPersonaDash(p, showTestBtn) {
+function renderPersonaDash(p, _showTestBtn) {
   // [2026-05-16] 홈 #personaDash 는 내샵관리로 이동했으므로 홈에서 자동 노출 안 함.
   // myshop-v3.js 가 자체적으로 동일 데이터를 렌더. 단, #personaContent DOM 은 그대로 두어
   // 다른 화면(showDetailedAnalysis 등)에서 호환 유지.
@@ -221,11 +221,10 @@ function renderPersonaDash(p, showTestBtn) {
       <div style="font-size:13px; color:var(--text); line-height:1.6; font-weight:500;">${_esc(summary)}</div>
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
-      ${showTestBtn ? `<button class="btn-primary" data-ig-test-caption style="width:100%; height:44px; font-size:13px; font-weight:700;">✍️ 내 말투로 테스트 글 만들기</button>` : ''}
       <button class="btn-copy" data-ig-detail style="width:100%; height:42px; font-size:13px; font-weight:600; border:1px solid var(--accent2); background:white; color:var(--accent2); border-radius:10px;">전체 분석 리포트 확인</button>
     </div>
   `;
-  content.querySelector('[data-ig-test-caption]')?.addEventListener('click', () => showOnboardingCaptionPopup());
+  // [2026-06-26] '내 말투로 테스트 글 만들기' 제거 — 내 말투 영역은 '확인만'(글쓰기 동선은 작업실로 일원화, 중복·혼동 방지).
   content.querySelector('[data-ig-detail]')?.addEventListener('click', () => showDetailedAnalysis());
 }
 
