@@ -619,7 +619,7 @@
         '<button type="button" class="tplres__arw" data-fl-pairstep="next" aria-label="다음 결과물"' + (actIdx >= outs.length - 1 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>' +
       '</div>' : '';
     var actions = '<div class="tplres__act">' +
-        '<button type="button" class="tplres__change" data-fl="tplchange">템플릿 바꾸기</button>' +
+        '<button type="button" class="tplres__change" data-fl="tplchange-active">템플릿 바꾸기</button>' +   // [v565·scope3] 현재 보고 있는 결과 1장만 교체(전역 일괄 금지)
         (!isBA ? '<button type="button" class="tplres__edit" data-fl="tpleditactive">문구 수정</button>' : '') +
         '<button type="button" class="tplres__release" data-fl="tplrelease">해제</button>' +
       '</div>';
@@ -989,7 +989,9 @@
   }
   function _bindPaint() {
     if (!el || el._paintBound) return; el._paintBound = true;
-    var drawing = false, last = null;
+    // [v565·scope2] 단일 포인터 그리기와 두 손가락 핀치/팬을 명확히 분리.
+    //   pointers/pcount = 현재 화면에 닿은 포인터 수. gestureLock = 핀치가 시작된 후 그리기 봉인 플래그.
+    var drawing = false, last = null, pointers = {}, pcount = 0, gestureLock = false, drawId = null;
     function vpEl() { return el.querySelector('[data-fs="edit"] [data-fl-edvp]'); }
     function geom(vp) {
       var cv = _getPaintCanvas(curEditPhoto(), _maskTypeForPaint(), true); if (!cv) return null;
@@ -997,7 +999,18 @@
       var s = Math.min(vw / iw, vh / ih);
       return { cv: cv, s: s, dx: (vw - iw * s) / 2, dy: (vh - ih * s) / 2 };
     }
-    function toImg(e, vp, gm) { var r = vp.getBoundingClientRect(); return { x: (e.clientX - r.left - gm.dx) / gm.s, y: (e.clientY - r.top - gm.dy) / gm.s }; }
+    // [v565] 확대(zoom transform) 상태에서도 정확히 칠하도록 — 화면좌표를 줌 역변환(translate+scale, origin=center) 후 캔버스로 매핑.
+    function toImg(e, vp, gm) {
+      var r = vp.getBoundingClientRect();
+      var rx = e.clientX - r.left, ry = e.clientY - r.top;
+      var z = d.zoom || { s: 1, tx: 0, ty: 0 };
+      if (z.s && z.s !== 1) {
+        var cx = (vp.clientWidth || r.width) / 2, cy = (vp.clientHeight || r.height) / 2;
+        rx = (rx - cx - (z.tx || 0)) / z.s + cx;
+        ry = (ry - cy - (z.ty || 0)) / z.s + cy;
+      }
+      return { x: (rx - gm.dx) / gm.s, y: (ry - gm.dy) / gm.s };
+    }
     function stroke(gm, a, b) {
       var ctx = gm.cv.getContext('2d'), rad = Math.max(2, ((d.maskBrush || 26) / 2) / gm.s);
       ctx.globalCompositeOperation = d.maskErase ? 'destination-out' : 'source-over';
@@ -1008,23 +1021,36 @@
       ctx.globalCompositeOperation = 'source-over';
       if (!d.maskErase) gm.cv._inked = true;
     }
+    function stopDraw() { if (!drawing) return; drawing = false; last = null; drawId = null; if (_hasValues(d.beauty)) _refreshPreview(); }
     el.addEventListener('pointerdown', function (e) {
       if (cur !== 'edit' || !d.maskPaint) return;
       var vp = vpEl(); if (!vp || !vp.contains(e.target)) return;
-      if (d.zoom && d.zoom.s > 1) { toast('확대를 해제하고 칠해 주세요'); return; }
+      if (!pointers[e.pointerId]) { pointers[e.pointerId] = 1; pcount++; }
+      // [v565] 두 번째 손가락 감지 → 진행 중 stroke 즉시 중단 + 핀치/줌/팬 모드로 잠금(그리기는 _bindZoom 이 아닌 paint 가 봉인).
+      if (pcount >= 2) {
+        if (drawing) stopDraw();
+        gestureLock = true;
+        try { if (vp.releasePointerCapture && drawId != null) vp.releasePointerCapture(drawId); } catch (_e0) { void _e0; }
+        return;
+      }
+      if (gestureLock) return;   // [v565] gesture 가 끝나기(모든 손가락 떨어짐) 전엔 단일 포인터라도 그리기 금지.
       var gm = geom(vp); if (!gm) return;
-      drawing = true; last = toImg(e, vp, gm); stroke(gm, null, last); _renderPaintOverlay();
+      drawing = true; drawId = e.pointerId; last = toImg(e, vp, gm); stroke(gm, null, last); _renderPaintOverlay();
       try { if (vp.setPointerCapture) vp.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
       e.preventDefault();
     });
     el.addEventListener('pointermove', function (e) {
-      if (!drawing || !d.maskPaint) return;
+      if (!drawing || !d.maskPaint || gestureLock || pcount >= 2 || e.pointerId !== drawId) return;
       var vp = vpEl(); if (!vp) return; var gm = geom(vp); if (!gm) return;
       var pt = toImg(e, vp, gm); stroke(gm, last, pt); last = pt; _renderPaintOverlay(); e.preventDefault();
     });
-    function end() { if (!drawing) return; drawing = false; last = null; if (_hasValues(d.beauty)) _refreshPreview(); }
-    el.addEventListener('pointerup', end);
-    el.addEventListener('pointercancel', end);
+    function up(e) {
+      if (pointers[e.pointerId]) { delete pointers[e.pointerId]; pcount--; if (pcount < 0) pcount = 0; }
+      if (e.pointerId === drawId) stopDraw();
+      if (pcount === 0) gestureLock = false;   // [v565] 모든 손가락이 떨어지면 잠금 해제 → 다음 새 pointerdown 부터 다시 그림.
+    }
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
   }
 
   function _roleSummary() {
@@ -1584,7 +1610,18 @@
 	        toast(_dok ? (_dt.label + '을(를) 기본 템플릿으로 설정했어요') : '기본 템플릿 저장에 실패했어요');
 	        _renderTplSection(); _closeTplPreview(); return;
 	      }
-	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { if (_lpAt && Date.now() - _lpAt < 700) return; return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
+	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) {
+	        if (_lpAt && Date.now() - _lpAt < 700) return;
+	        var _tk0 = tpl.getAttribute('data-fl-tpl');
+	        // [v565·scope3] 이미 결과물이 있는 상태에서 카드 재선택 = '현재 active 결과 1장만' 교체.
+	        //   타깃 미지정 + 전후 다중 결과면 active pair 로 한정(초기 적용은 결과물이 없어 전체에 적용됨).
+	        var _tko = _tplByKey(_tk0);
+	        if (!d.tplTargetPair && _tko && _tko.purpose === 'before_after'
+	            && d.tplPurpose === 'before_after' && d.templateOutputs && d.templateOutputs.length) {
+	          d.tplTargetPair = _activeOutputPair();
+	        }
+	        return applyTemplate(_tk0);
+	      }
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
       // [v564·필수3] 템플릿 결과 카드 ↔ 원본 전/후 2장 토글
       var tplexp = t.closest('[data-fl-tplexpand]'); if (tplexp) { _togglePairExpand(tplexp.getAttribute('data-fl-tplexpand'), true); return; }
@@ -1734,25 +1771,37 @@
     function inVp(t) { return t && t.closest && t.closest('[data-fl-edvp]'); }
     el.addEventListener('touchstart', function (e) {
       if (cur !== 'edit' || !inVp(e.target)) return;
-      if (d.maskPaint) return;   // [v561] 칠하기 모드면 줌/스와이프 대신 paint 가 포인터를 차지
       if (!d.zoom) d.zoom = { s: 1, tx: 0, ty: 0 };
-      if (e.touches.length === 2) {
+      // [v565] 두 손가락 = 확대/이동(pinch+pan). 칠하기 모드에서도 허용 → 확대해서 작은 부위 정밀 마스크.
+      if (e.touches.length >= 2) {
         var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
-        g = { mode: 'pinch', dist: Math.hypot(dx, dy) || 1, s0: d.zoom.s }; sw = null; e.preventDefault();
-      } else if (e.touches.length === 1 && d.zoom.s > 1) {
+        g = { mode: 'pinch', dist: Math.hypot(dx, dy) || 1, s0: d.zoom.s,
+              mx: (e.touches[0].clientX + e.touches[1].clientX) / 2, my: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+              tx0: d.zoom.tx, ty0: d.zoom.ty }; sw = null; e.preventDefault();
+        return;
+      }
+      // [v565] 칠하기 모드의 단일 포인터는 paint 핸들러가 담당 — 줌/스와이프/팬 금지(칠하기 우선).
+      if (d.maskPaint) return;
+      if (e.touches.length === 1 && d.zoom.s > 1) {
         g = { mode: 'pan', x: e.touches[0].clientX, y: e.touches[0].clientY, tx0: d.zoom.tx, ty0: d.zoom.ty }; sw = null; e.preventDefault();
       } else if (e.touches.length === 1 && d.zoom.s <= 1 && editablePhotos().length > 1) {
         sw = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };   // [v550] 줌 아닐 때만 좌우 스와이프 후보
       }
     }, { passive: false });
     el.addEventListener('touchmove', function (e) {
-      if (cur !== 'edit' || d.maskPaint || !g || !d.zoom) return;
-      if (g.mode === 'pinch' && e.touches.length === 2) {
+      // [v565·scope1] 스와이프는 sw 만 세팅(g 는 null) → '!g' 로 막지 않는다. 핀치는 칠하기 모드에서도 처리.
+      if (cur !== 'edit' || !d.zoom) return;
+      if (g && g.mode === 'pinch' && e.touches.length >= 2) {
         var dx = e.touches[0].clientX - e.touches[1].clientX, dy = e.touches[0].clientY - e.touches[1].clientY;
+        var nmx = (e.touches[0].clientX + e.touches[1].clientX) / 2, nmy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         d.zoom.s = Math.max(1, Math.min(4, g.s0 * (Math.hypot(dx, dy) / g.dist)));
         if (d.zoom.s === 1) { d.zoom.tx = 0; d.zoom.ty = 0; }
+        else { d.zoom.tx = g.tx0 + (nmx - g.mx); d.zoom.ty = g.ty0 + (nmy - g.my); }
         _applyZoomTransform(); e.preventDefault();
-      } else if (g.mode === 'pan' && e.touches.length === 1) {
+        return;
+      }
+      if (d.maskPaint) return;   // [v565] 칠하기 모드 단일 포인터는 무시(paint 담당)
+      if (g && g.mode === 'pan' && e.touches.length === 1) {
         d.zoom.tx = g.tx0 + (e.touches[0].clientX - g.x); d.zoom.ty = g.ty0 + (e.touches[0].clientY - g.y);
         _applyZoomTransform(); e.preventDefault();
       } else if (sw && e.touches.length === 1) {
