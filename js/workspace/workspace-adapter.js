@@ -110,6 +110,37 @@
       return _finishMasks(all[0] === '__t__' ? null : all[0], img, b);
     });
   }
+  // [v561] 수동 마스크(사용자가 직접 칠한 영역) 주입 — 자동 검출 마스크를 덮어쓴다.
+  //   manualMasks = { maskType: <canvas> }. canvas(불투명도=마스크값)를 maskW×maskH Float32Array 로
+  //   래스터화해 useMasks[type] 에 넣고 _scale=1(전강도). 검출 실패(네일 클로즈업 등)도 칠하면 적용됨.
+  function _applyManualMasks(masks, manualMasks, iw, ih) {
+    if (!manualMasks) return masks;
+    var keys = Object.keys(manualMasks).filter(function (k) { return manualMasks[k]; });
+    if (!keys.length) return masks;
+    masks = masks || { useMasks: {}, _scale: {}, maskW: iw, maskH: ih };
+    if (!masks.useMasks) masks.useMasks = {};
+    if (!masks._scale) masks._scale = {};
+    var mw = masks.maskW || iw, mh = masks.maskH || ih;
+    keys.forEach(function (type) {
+      try {
+        var cv = manualMasks[type];
+        var t = document.createElement('canvas'); t.width = mw; t.height = mh;
+        var c = t.getContext('2d'); c.clearRect(0, 0, mw, mh); c.drawImage(cv, 0, 0, mw, mh);
+        var id = c.getImageData(0, 0, mw, mh).data, arr = new Float32Array(mw * mh), any = false;
+        for (var i = 0; i < mw * mh; i++) { var a = id[i * 4 + 3] / 255; arr[i] = a; if (a > 0.04) any = true; }
+        if (any) {
+          // [v566·scope3] 자동 마스크와 UNION — 수동 칠은 자동 영역을 '지우지 않고 더한다'.
+          //   자동값엔 기존 강도(_scale)를 baked-in(곱해서 보존), 수동 칠 영역은 풀강도(1). 최종 _scale=1.
+          var autoArr = masks.useMasks[type], autoSc = (typeof masks._scale[type] === 'number') ? masks._scale[type] : 1;
+          if (autoArr && autoArr.length === arr.length) {
+            for (var j = 0; j < arr.length; j++) { var av = autoArr[j] * autoSc; if (av > arr[j]) arr[j] = av; }
+          }
+          masks.useMasks[type] = arr; masks._scale[type] = 1;
+        }
+      } catch (_e) { /* 수동 마스크 1개 실패는 무시 — 나머지/자동 마스크 유지 */ }
+    });
+    return masks;
+  }
   function _applyBeautyAdjust(opts) {
     opts = opts || {};
     if (!opts.src) return Promise.resolve({ ok: false, reason: 'no_image' });
@@ -117,6 +148,7 @@
     if (!_hasValues(opts.beauty)) return Promise.resolve({ ok: true, dataUrl: opts.src });
     return _loadImageCached(opts.src).then(function (img) {
       return _beautyMasksAsync(img, opts.beauty || {}, opts.maskKey).then(function (masks) {
+        masks = _applyManualMasks(masks, opts.manualMasks, img.naturalWidth || img.width, img.naturalHeight || img.height);
         // [v539] 프리뷰 다운스케일 — 드래그/release 체감 렉의 핵심은 풀해상도(naturalW×H) 픽셀 walk.
         //   previewMaxPx 주면 긴 변을 그 값으로 줄여 처리(화면 표시는 background cover 라 동일하게 보임).
         //   마스크는 풀 dims(maskW/H) 유지 → 엔진 _maskAt 가 캔버스↔마스크 비례 매핑하므로 정합 유지.
@@ -287,7 +319,7 @@
 	      var base = _hasValues(opts.adjust) ? WorkspaceAdapter.applyPixelAdjust({ src: src, adjust: opts.adjust }) : Promise.resolve({ ok: true, dataUrl: src });
 	      return base.then(function (r) {
 	        src = (r && r.ok && r.dataUrl) ? r.dataUrl : src;
-	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty, maskKey: opts.maskKey, previewMaxPx: opts.previewMaxPx }) : { ok: true, dataUrl: src };
+	        return _hasValues(opts.beauty) ? _applyBeautyAdjust({ src: src, beauty: opts.beauty, maskKey: opts.maskKey, previewMaxPx: opts.previewMaxPx, manualMasks: opts.manualMasks }) : { ok: true, dataUrl: src };
 	      });
 	    },
 	    applyWorkspaceTemplate: _applyWorkspaceTemplate,

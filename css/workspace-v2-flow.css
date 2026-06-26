@@ -33,7 +33,7 @@
 .wsv2flow__s::-webkit-scrollbar { width: 0; }
 
 /* 하단 CTA — 틴트 페이드 유지(배경 위 글 가림 방지) */
-.wsv2flow__actionbar { flex: none; padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
+.wsv2flow__actionbar { flex: none; display: flex; gap: 10px; padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(242,244,246,0), var(--bg) 28%); border-top: 1px solid var(--border); }
 .wsv2flow__actionbar.hidden { display: none; }
 .wsv2flow__cta { width: 100%; height: 54px; border: 0; border-radius: var(--r-lg); font-size: 16px; font-weight: 900; cursor: pointer;
@@ -140,6 +140,11 @@
 .wsv2flow .ed-mask-badge { position: absolute; left: 8px; top: 8px; z-index: 5; background: rgba(20,16,16,.66); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: var(--r-pill); pointer-events: none; max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsv2flow .ed-mask-badge[hidden] { display: none; }
 /* [v540] 마스크 보기 — 정밀 조정 안 pill toggle + inline fallback helper */
+/* [v566·scope4] 마스크 도구 = 보정 슬라이더 아래 보조 영역. 위에 얇은 구분선 + 안내 부제. */
+.wsv2flow .ed-masktools { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.wsv2flow .ed-mask-subhead { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; }
+.wsv2flow .ed-mask-subhead i { font-size: 15px; color: var(--brand-strong); align-self: center; }
+.wsv2flow .ed-mask-subhead span { font-size: 11px; font-weight: 600; color: var(--text-subtle); }
 .wsv2flow .ed-maskpill-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 10px; }
 .wsv2flow button.ed-maskpill { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
 .wsv2flow button.ed-maskpill i { font-size: 16px; }
@@ -148,6 +153,16 @@
 .wsv2flow button.ed-maskpill.on .ed-maskpill__hint { color: rgba(255,255,255,.82); }
 .wsv2flow .ed-mask-helper { flex: 1 1 100%; font-size: 12px; font-weight: 700; color: #9A6B4E; background: #FBF1E8; border: 1px solid #F0DCC9; border-radius: 10px; padding: 8px 11px; }
 .wsv2flow .ed-mask-helper[hidden] { display: none; }
+/* [v561] 직접 칠하기(수동 마스크) 컨트롤 */
+.wsv2flow .ed-paintctl { flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2, #FAF7F8); }
+.wsv2flow .ed-paintctl__lbl { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.wsv2flow .ed-paintctl__lbl b { color: var(--brand-strong); font-weight: 800; }
+.wsv2flow .ed-paintctl__row { display: flex; gap: 7px; flex-wrap: wrap; }
+.wsv2flow button.ed-paintb { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
+.wsv2flow button.ed-paintb i { font-size: 15px; }
+.wsv2flow button.ed-paintb.on { background: var(--brand-strong); color: #fff; border-color: transparent; }
+.wsv2flow .ed-paintbrush { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 800; color: var(--text-muted); }
+.wsv2flow .ed-paintbrush input { flex: 1; accent-color: var(--brand-strong); }
 /* [v542] 보정 디버그 패널 — 개발자모드에서만 노출 */
 .wsv2flow .ed-fxdebug { margin-top: 12px; padding: 11px 12px; border: 1px dashed #B9A7AE; border-radius: 12px; background: #FBF7F8; font-size: 12px; }
 .wsv2flow .ed-fxdebug__hd { font-size: 12.5px; font-weight: 800; color: #6A4A52; margin-bottom: 7px; }
@@ -302,6 +317,14 @@
 .wsv2flow .tplres__pairs { display: flex; flex-wrap: wrap; gap: 8px; }
 .wsv2flow .tplres__pairchip { min-height: 34px; padding: 7px 13px; border-radius: var(--r-pill); border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tplres__pairchip.on { border-color: var(--brand-strong); background: var(--brand-strong); color: #fff; }
+/* [v561·항목4] 결과물 전환 = 좌우 스와이프 + dot + 화살표(텍스트 'N번 보기' 칩 대체) */
+.wsv2flow .tplres__nav { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 2px 0; }
+.wsv2flow .tplres__dots { display: flex; gap: 6px; align-items: center; }
+.wsv2flow .tplres__dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .15s, background .15s; }
+.wsv2flow .tplres__dot.on { width: 20px; border-radius: 4px; background: var(--brand-strong); }
+.wsv2flow .tplres__arw { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; }
+.wsv2flow .tplres__arw svg { width: 18px; height: 18px; }
+.wsv2flow .tplres__arw:disabled { opacity: .35; cursor: default; }
 .wsv2flow .tplres__act { display: flex; flex-wrap: wrap; gap: 8px; }
 .wsv2flow .tplres__change { flex: 1 1 auto; height: 38px; border-radius: var(--r-md); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; }
 .wsv2flow .tplres__edit { flex: 1 1 auto; height: 38px; border-radius: var(--r-md); border: 0; background: var(--brand-strong); color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
@@ -396,6 +419,16 @@
 .wsv2flow .ig-pager .d { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .wsv2flow .ig-pager .d.on { background: var(--brand-strong); }
 .wsv2flow .ig-photo { width: 100%; height: 330px; background: var(--frame) center/cover; display: block; }
+/* [v564·필수6] 인스타 미리보기 carousel — 게시글 carousel 과 동일 스와이프, IG 비율 */
+.wsv2flow .ig-car { margin: 0; }
+.wsv2flow .ig-car__track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.wsv2flow .ig-car__track::-webkit-scrollbar { display: none; }
+.wsv2flow .ig-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; height: 330px; background: #000; cursor: pointer; }
+.wsv2flow .ig-car__img { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.wsv2flow .ig-car__dots { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 0 3px; }
+.wsv2flow .ig-car__dot { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }
+.wsv2flow .ig-car__dot.on { width: 16px; border-radius: 3px; background: var(--brand-strong); }
+.wsv2flow .cap-car__toggle { position: absolute; right: 8px; top: 8px; z-index: 2; padding: 4px 9px; border-radius: var(--r-pill, 999px); background: rgba(20,16,16,.62); color: #fff; font-size: 11px; font-weight: 800; }
 .wsv2flow .ig-act { height: 46px; display: flex; align-items: center; padding: 0 14px; color: var(--text); position: relative; }
 .wsv2flow .ig-ic { display: flex; gap: 16px; align-items: center; }
 .wsv2flow .ig-ic svg, .wsv2flow .ig-save svg { width: 24px; height: 24px; stroke: var(--text); }
@@ -533,10 +566,31 @@
 .wsv2flow .cap-car__hint { text-align: center; font-size: 12px; color: var(--text-subtle); margin: 9px 0 0; }
 .wsv2flow .cap-car__hint::first-line { font-weight: 600; }
 
+/* [v560] 편집 화면 CTA 2분할(저장하고 게시글 쓰기 / 템플릿 선택하기) — actionbar 는 위 규칙에서 flex */
+.wsv2flow__cta--half { flex: 1 1 0; width: auto; min-width: 0; }
+.wsv2flow__cta--alt { background: var(--surface); color: var(--brand-strong); border: 1.5px solid var(--brand-strong); box-shadow: none; }
+.wsv2flow__cta--alt.hidden { display: none; }
+
+/* [v560] '템플릿 선택' 화면 — 상단 큰 사진(좌우 스와이프) + 전·후 지정 + 템플릿 목록 */
+.wsv2flow .tpls { display: flex; flex-direction: column; gap: 18px; }
+.wsv2flow .tpls-strip { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; margin: 0 -2px; padding: 0 2px 4px; }
+.wsv2flow .tpls-strip::-webkit-scrollbar { height: 0; }
+.wsv2flow .tpls-slide { position: relative; flex: 0 0 86%; aspect-ratio: 4 / 5; border-radius: var(--r-lg, 16px); background-size: cover; background-position: center; background-color: var(--frame); scroll-snap-align: center; border: 1px solid var(--border); padding: 0; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.wsv2flow button.tpls-slide.is-before { border: 2.5px solid var(--brand-strong); }
+.wsv2flow button.tpls-slide.is-after { border: 2.5px solid #6BA368; }
+.wsv2flow .tpls-slide__tag { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: var(--r-pill, 999px); background: rgba(0,0,0,.55); color: #fff; font-size: 12px; font-weight: 800; }
+/* [v562·항목3] 클릭순 전/후 — 사진 위 큰 역할 배지(전=로즈, 후=그린) + 짝 번호 */
+.wsv2flow .tpls-slide__role { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 3px; min-width: 30px; height: 30px; padding: 0 9px; justify-content: center; border-radius: var(--r-pill, 999px); color: #fff; font-size: 14px; font-weight: 900; box-shadow: 0 1px 5px rgba(0,0,0,.28); }
+.wsv2flow .tpls-slide.is-before .tpls-slide__role { background: var(--brand-strong); }
+.wsv2flow .tpls-slide.is-after .tpls-slide__role { background: #6BA368; }
+.wsv2flow .tpls-slide__role em { font-style: normal; font-size: 11px; font-weight: 800; opacity: .9; }
+.wsv2flow .tpls-empty { padding: 28px 12px; text-align: center; color: var(--text-subtle); font-size: 13px; }
+
 /* PC (≥768px): 고정 사이드바(232px) 가림 방지 */
 @media (width >= 768px) {
   .wsv2flow { left: 232px; }
   .wsv2flow__s { padding: 6px 24px 24px; }
   .wsv2flow .cap-card { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .wsv2flow .cap-photo { height: 100%; min-height: 200px; margin-bottom: 0; }
+  .wsv2flow .tpls-slide { flex-basis: 60%; }
 }
