@@ -1171,7 +1171,22 @@
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '');
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
 	      var _chip = function (group, val, label, cur) { return '<button type="button" class="cap-chip' + (cur === val ? ' on' : '') + '" data-fl-' + group + '="' + val + '">' + label + '</button>'; };
-	      var toneChips = [['natural', '자연스럽게'], ['emotional', '인스타 감성'], ['professional', '전문가 느낌'], ['friendly', '친근하게'], ['premium', '프리미엄'], ['mz', 'MZ 감성']].map(function (o) { return _chip('ctone', o[0], o[1], _tone); }).join('');
+	      // [v569·B-1] 말투 선택 = 카드형 리스트('어떤 말투로 써볼까요?'). 값(natural/emotional/…)은 그대로 유지(생성 매핑 불변).
+      var toneCards = [
+        ['natural', '자연스럽게', '동네 원장님이 설명하듯 편안하고 담백하게.', 'ph-chat-circle-dots'],
+        ['emotional', '인스타 감성', '분위기와 무드를 살리는 잔잔한 감성 톤.', 'ph-sparkle'],
+        ['professional', '전문가 느낌', '시술 포인트를 또렷하게, 신뢰감 있게.', 'ph-seal-check'],
+        ['friendly', '친근하게', '단골에게 말하듯 다정하고 부담 없이.', 'ph-hand-heart'],
+        ['premium', '프리미엄', '고급스럽고 차분하게, 절제된 표현으로.', 'ph-crown-simple'],
+        ['mz', 'MZ 감성', '짧고 리듬감 있게, 요즘 트렌디한 말투로.', 'ph-lightning']
+      ].map(function (o) {
+        var on = _tone === o[0];
+        return '<button type="button" class="cap-tonecard' + (on ? ' on' : '') + '" data-fl-ctone="' + o[0] + '" aria-pressed="' + on + '">' +
+          '<span class="cap-tonecard__ic"><i class="ph-duotone ' + o[3] + '"></i></span>' +
+          '<span class="cap-tonecard__tx"><span class="cap-tonecard__t">' + o[1] + '</span><span class="cap-tonecard__d">' + o[2] + '</span></span>' +
+          '<span class="cap-tonecard__chk" aria-hidden="true"><i class="ph-bold ph-check"></i></span>' +
+        '</button>';
+      }).join('');
 	      var lenChips = [['short', '짧게'], ['medium', '보통'], ['long', '길게'], ['max', '아주 길게']].map(function (o) { return _chip('clen', o[0], o[1], _len); }).join('');
 	      // [v567] 원장님 말투 반영 토글 — 인스타 연동(말투분석 소스) 있을 때만 활성. 기본 OFF(안전).
 	      var _igConnIn = (window.WorkspaceAdapter && window.WorkspaceAdapter.instagram) ? window.WorkspaceAdapter.instagram().connected : false;
@@ -1180,15 +1195,18 @@
 	          '<span class="cap-field-label" style="margin:0">원장님 말투 반영' + (_igConnIn ? '' : ' <em style="font-weight:400;color:#9aa3ad;font-style:normal">· 인스타 연동 후 사용</em>') + '</span>' +
 	          '<button type="button" class="cap-switch' + (_useP ? ' on' : '') + '"' + (_igConnIn ? '' : ' disabled aria-disabled="true"') + ' data-fl-cpersona role="switch" aria-checked="' + _useP + '"><span class="cap-switch__dot"></span></button></div>';
 	      return photoThumb +
-	        '<div class="screen-head"><h2>오늘 시술,<br>한 줄로 적어주세요</h2></div>' +
-	        '<input class="service-input cap-svc-lg" data-fl-service value="' + esc(d.service || '') + '" placeholder="오늘 시술을 한 줄로 입력해 주세요" enterkeyhint="send">' +
-	        '<p class="cap-field-hint">예: 젤네일 핑크 글리터 · 레이어드컷 · 속눈썹펌 · 애쉬브라운 염색</p>' +
-	        '<label class="cap-field-label">말투</label><div class="cap-chips">' + toneChips + '</div>' +
+	        '<div class="screen-head"><h2>게시글 문구 만들기</h2><p class="screen-head__sub">사진과 시술 내용을 바탕으로 인스타 게시글 문구를 만들어드려요.</p></div>' +
+        '<label class="cap-field-label">시술 내용</label>' +
+	        '<input class="service-input cap-svc-lg" data-fl-service value="' + esc(d.service || '') + '" placeholder="예: 레이어드컷 28인치 붙임머리, 김수현 고객님, 자연스러운 볼륨감 중심" enterkeyhint="send">' +
+	        '<p class="cap-field-hint">시술명·고객님·포인트를 한 줄로 적으면 더 자연스러워요.</p>' +
+	        '<div class="cap-tonehead"><span class="cap-tonehead__t">어떤 말투로 써볼까요?</span><span class="cap-tonehead__d">처음 홍보글을 써도 어색하지 않게, 원하는 분위기를 골라보세요.</span></div>' +
+        '<div class="cap-tonecards">' + toneCards + '</div>' +
+        '<p class="cap-tonefoot">고른 말투로 캡션을 만들어드려요. 선택한 시술 특징도 자연스럽게 반영돼요.</p>' +
 	        '<label class="cap-field-label">길이</label><div class="cap-chips cap-chips--seg">' + lenChips + '</div>' +
 	        personaRow +
 	        '<div class="cap-hash-row"><span class="cap-field-label" style="margin:0">해시태그</span>' +
 	          '<button type="button" class="cap-switch' + (_hashOn ? ' on' : '') + '" data-fl-chash role="switch" aria-checked="' + _hashOn + '"><span class="cap-switch__dot"></span></button></div>' +
-	        '<button type="button" class="cap-gen-btn" data-fl-cgen>게시글 만들기</button>';
+	        '<button type="button" class="cap-gen-btn" data-fl-cgen>문구 생성하기</button>';
 	    }
     // 결과 화면
     // [v532] '추천 해시태그' 칩 목록 제거 — 해시태그는 아래 직접 편집 textarea 하나로 일원화(화면 정리).
@@ -1199,7 +1217,7 @@
     return '' +
 	      carRes +
 	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
-	      '<label class="cap-field-label">게시글 <span>바로 고쳐 쓸 수 있어요 · 키워드 바꾸려면 아래 초기화</span></label>' +
+	      '<label class="cap-field-label">게시글 <span>바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
 	      '<div class="cap-card">' +
 	        photoHtml +
 	        '<div class="cap-text">' +
@@ -1217,11 +1235,12 @@
       '<label class="cap-field-label">해시태그 <span>직접 고치거나 추가할 수 있어요</span></label>' +
       '<textarea class="cap-hashedit" data-fl-caphashedit rows="2" placeholder="#해시태그 #예시">' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</textarea>' +
       '<div class="cap-regen-row">' +
-	        '<button class="cap-regen-btn" data-fl-var="regen">다시 쓰기</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="long">더 길게</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="insta">인스타 톤</button>' +
-	        '<button class="cap-regen-btn ghost" data-fl-var="reset">초기화</button>' +
-	      '</div>';
+	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
+		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +
+	        '<button class="cap-regen-btn" data-fl-var="long"><i class="ph-duotone ph-text-aa"></i>더 길게</button>' +
+	        '<button class="cap-regen-btn" data-fl="topreview"><i class="ph-duotone ph-instagram-logo"></i>인스타 미리보기</button>' +
+	        '</div>' +
+		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
 	  }
 
   // 고정 꼬리말 저장/비우기 — persona.caption_template 영속화(빈 값이면 다음 생성부터 미부착)
@@ -1667,7 +1686,7 @@
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       if (a === 'publish') { return publish(); }
-      if (a === 'copycap') { window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }
+      if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); toast('게시글을 복사했어요'); return; }
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); _askPublishedSheet(); return; }   // [v547] 저장 후 게시 확인 sheet
       if (a === 'pubnot') { return _closePublishSheet(); }
       if (a === 'pubdone') { return _markPublishedNow(); }

@@ -392,7 +392,9 @@ body.itd-edit-fs .wsv2flow .ed-vptools { bottom: calc(8px + env(safe-area-inset-
 .wsv2flow .hash-chip.on { background: var(--brand-bg); color: var(--brand-strong); box-shadow: inset 0 0 0 1px var(--brand); }
 /* 재생성 버튼 3종 */
 .wsv2flow .cap-regen-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.wsv2flow .cap-regen-btn { flex: 1 1 calc(33.333% - 8px); min-width: 92px; height: 40px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 800; cursor: pointer; }
+.wsv2flow .cap-regen-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 calc(50% - 8px); min-width: 92px; height: 42px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.wsv2flow .cap-regen-btn i { font-size: 16px; }
+.wsv2flow .cap-regen-btn[data-fl="topreview"] { border-color: var(--brand-strong); color: var(--brand-strong); }
 .wsv2flow .cap-regen-btn:active { background: var(--surface-strong, var(--border)); }
 /* [#3] 초기화는 보조 동작 — 덜 강조(고스트). 한 줄에 3개 주력 + 초기화는 가늘게. */
 .wsv2flow .cap-regen-btn.ghost { flex: 0 0 auto; min-width: 0; padding: 0 14px; border-style: dashed; color: var(--text-subtle); font-weight: 700; background: transparent; }
@@ -410,6 +412,26 @@ body.itd-edit-fs .wsv2flow .ed-vptools { bottom: calc(8px + env(safe-area-inset-
 .wsv2flow .cap-switch.on .cap-switch__dot { transform: translateX(20px); }
 .wsv2flow .cap-gen-btn { width: 100%; height: 54px; border: none; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
 .wsv2flow .cap-gen-btn:active { transform: scale(.99); opacity: .92; }
+/* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
+.wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
+.wsv2flow .cap-tonehead { margin: 6px 2px 12px; }
+.wsv2flow .cap-tonehead__t { display: block; font-size: 16px; font-weight: 900; letter-spacing: -.02em; color: var(--text); margin-bottom: 5px; }
+.wsv2flow .cap-tonehead__d { display: block; font-size: 12px; line-height: 1.55; color: var(--text-muted); font-weight: 600; }
+.wsv2flow .cap-tonecards { display: flex; flex-direction: column; gap: 9px; margin: 0 0 10px; }
+.wsv2flow .cap-tonecard { display: flex; align-items: center; gap: 13px; width: 100%; text-align: left; padding: 14px 15px; border: 1.5px solid var(--border); border-radius: var(--r-lg, 16px); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; -webkit-tap-highlight-color: transparent; }
+.wsv2flow .cap-tonecard:active { transform: scale(.995); }
+.wsv2flow .cap-tonecard.on { border-color: var(--brand-strong); background: var(--brand-bg); box-shadow: var(--shadow-sm); }
+.wsv2flow .cap-tonecard__ic { flex: none; width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; background: var(--brand-bg); color: var(--brand-strong); }
+.wsv2flow .cap-tonecard__ic i { font-size: 22px; }
+.wsv2flow .cap-tonecard.on .cap-tonecard__ic { background: #fff; }
+.wsv2flow .cap-tonecard__tx { flex: 1 1 auto; min-width: 0; }
+.wsv2flow .cap-tonecard__t { display: block; font-size: 14.5px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+.wsv2flow .cap-tonecard__d { display: block; font-size: 12px; line-height: 1.5; color: var(--text-muted); font-weight: 500; word-break: keep-all; }
+.wsv2flow .cap-tonecard__chk { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: transparent; color: transparent; border: 1.5px solid var(--border); transition: all .15s; }
+.wsv2flow .cap-tonecard__chk i { font-size: 14px; }
+.wsv2flow .cap-tonecard.on .cap-tonecard__chk { background: var(--brand-strong); color: #fff; border-color: var(--brand-strong); }
+.wsv2flow .cap-tonefoot { font-size: 11.5px; line-height: 1.55; color: var(--text-subtle); margin: 0 2px 18px; word-break: keep-all; }
+.wsv2flow .cap-restart { display: block; width: 100%; margin: 10px 0 4px; padding: 10px; border: none; background: none; color: var(--text-subtle); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .wsv2flow .cap-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
 .wsv2flow .cap-redo { height: 50px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13.5px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
@@ -622,4 +644,6 @@ body.itd-edit-fs .wsv2flow .ed-vptools { bottom: calc(8px + env(safe-area-inset-
   .wsv2flow .tpls-carousel.is-multi .tpls-nav { display: flex; }   /* [v568·B-5] PC 에서만 화살표 노출 */
   .wsv2flow .tpls-strip { cursor: grab; }
   .wsv2flow .tpls-strip:active { cursor: grabbing; }
+  /* [v569·B-1] 캡션 화면 — PC 에서 폭 너무 넓지 않게 중앙 정렬/최대폭 */
+  .wsv2flow__s[data-fs="caption"] > * { max-width: 560px; margin-left: auto; margin-right: auto; }
 }

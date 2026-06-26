@@ -293,7 +293,10 @@ function renderDetailedPopup(data) {
 
     // ── 히어로 섹션
     let html = `
-    <div style="background:#FBEAF0;border-radius:26px 26px 0 0;padding:32px 20px 24px;text-align:center;">
+    <div style="background:#FBEAF0;border-radius:26px 26px 0 0;padding:32px 20px 24px;text-align:center;position:relative;">
+      <button data-static-action="analyze-result-close" aria-label="닫기" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;border-radius:50%;background:rgba(255,255,255,0.6);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <div style="margin-bottom:14px;display:flex;justify-content:center;">
         <svg width="46" height="46" class="itb-float" aria-hidden="true"><use href="#ic-bot"/></svg>
       </div>
@@ -368,29 +371,20 @@ function renderDetailedPopup(data) {
         html += `<div style="overflow:hidden;">${secs.join(DIV)}</div>`;
     }
 
-    // ── CTA
+    // ── 안내 문구(작업실/글쓰기 진입 CTA 제거 — 분석 결과 저장 위치만 안내) [2026-06-26]
     html += `
-    <div style="padding:20px;">
-        <div style="text-align:center;margin-bottom:12px;">
-            <span style="font-size:12px;color:var(--text-subtle);">잇비가 말투분석한 걸로 테스트해보세요</span>
-        </div>
-        <button data-ig-write style="width:100%;height:52px;border-radius:14px;border:none;background:var(--text);color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-            <svg width="20" height="20" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-bot"/></svg>내 말투로 글 써보기
-        </button>
-        <div style="text-align:center;">
-            <button data-static-action="analyze-result-close" style="background:none;border:none;padding:10px 20px;font-size:13px;color:var(--text-subtle);cursor:pointer;">다음에 할게요</button>
+    <div style="padding:18px 22px 24px;">
+        <div style="display:flex;gap:8px;align-items:flex-start;background:var(--surface-2,#F7F8FA);border-radius:14px;padding:14px 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px;color:var(--text-subtle);"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span style="font-size:12.5px;color:var(--text-muted);line-height:1.65;word-break:keep-all;">원장님 말투 분석 결과는 <b style="font-weight:700;color:var(--text);">내샵관리 › 잇비/자동화 › 내 말투</b>에서 언제든 확인할 수 있어요.</span>
         </div>
     </div>`;
 
     const body = document.getElementById('analyzeResultBody');
     if (!body) return;
     body.innerHTML = html;
-    body.querySelector('[data-ig-write]')?.addEventListener('click', () => {
-        try { document.getElementById('analyzeResultPopup').style.display = 'none'; } catch (_e) { void _e; }
-        // [FE2] 시나리오 팝업(어떤 상황?) 우선, 없으면 onboarding 팝업
-        if (typeof window.openCaptionScenarioPopup === 'function') window.openCaptionScenarioPopup();
-        else if (typeof showOnboardingCaptionPopup === 'function') showOnboardingCaptionPopup();
-    });
+    // [2026-06-26] '내 말투로 글 써보기' CTA 제거 — 말투분석 보고서에서 작업실/글쓰기 진입 차단(중복·혼동 방지).
+    //   분석 결과는 내샵관리 › 잇비/자동화 › 내 말투에서 확인. 닫기는 헤더 X(analyze-result-close).
     body.querySelector('[data-ig-tag-toggle]')?.addEventListener('click', function () {
         const chips = body.querySelector('[data-ig-tag-chips]');
         if (!chips) return;
