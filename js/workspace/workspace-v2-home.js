@@ -300,7 +300,8 @@
 	      var files = Array.from(e.target.files || []);
 	      e.target.value = '';
 	      if (!files.length) return;
-	      _launchFlow(null, 'upload', null, { files: files });
+	      // [v564·필수1] 시작하기→파일선택 후 중간 업로드 화면 없이 바로 편집 창으로.
+	      _launchFlow(null, 'edit', null, { files: files });
 	    });
 	  }
 

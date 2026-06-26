@@ -1154,6 +1154,27 @@
     doGenerate({}, null);
   }
 
+	  // [v564·필수6] 인스타 미리보기 사진 carousel — 게시글/캡션 화면과 동일한 _displayItems 사용.
+	  //   템플릿 적용 pair = 결과 1장, 미적용 = 원본 개별. 좌우 스와이프 + index 도트.
+	  function _igCarouselHtml(fallbackUrl) {
+	    var items = _displayItems();
+	    if (items.length <= 1) {
+	      var u = items.length ? items[0].url : fallbackUrl;
+	      return '<div class="ig-photo" style="background-image:url(' + esc(u) + ')"></div>';
+	    }
+	    var active = (d.activeDisplayId && items.some(function (it) { return it.id === d.activeDisplayId; })) ? d.activeDisplayId : items[0].id;
+	    var slides = items.map(function (it) {
+	      var toggleAttr = it.kind === 'output' && it.expandable ? ' data-fl-tplexpand="' + esc(it.id) + '"'
+	        : (it.ofPair ? ' data-fl-tplcollapse="' + esc(it.ofPair) + '"' : '');
+	      return '<div class="ig-car__slide" data-fl-carslide="' + esc(it.id) + '"' + toggleAttr + '>' +
+	        '<div class="ig-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+	    }).join('');
+	    var dots = items.map(function (it) { return '<button type="button" class="ig-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 사진 보기"></button>'; }).join('');
+	    return '<div class="ig-car cap-car" data-fl-carousel>' +
+	      '<div class="ig-car__track cap-car__track" data-fl-cartrack>' + slides + '</div>' +
+	      '<div class="ig-car__dots">' + dots + '</div>' +
+	    '</div>';
+	  }
 	  function renderPreview() {
 	    var url = outputUrl();
 	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
@@ -1168,7 +1189,7 @@
 	      custLine +
 	      '<div class="ig-card2">' +
 	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
-	        '<div class="ig-photo" style="background-image:url(' + esc(url) + ')"></div>' +
+	        _igCarouselHtml(url) +
 	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
 	          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
 	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">미리보기</div></div>' +
@@ -1293,6 +1314,7 @@
     if (name === 'caption') _mountCaption();
     if (name === 'edit') { _warmEditMasks(); var _rc = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rc(function () { _mountCarousel(); }); }   // [v541] 결과 캐러셀 스와이프 바인딩
     if (name === 'template') { var _rt = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rt(function () { _mountCarousel(); }); }   // [v560] 템플릿 화면 상단 큰 사진 스와이프
+    if (name === 'preview') { var _rp = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rp(function () { _mountCarousel(); }); }   // [v564·필수6] 인스타 미리보기 carousel 스와이프
     if (name === 'connect') loadRecent();
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
@@ -1564,6 +1586,9 @@
 	      }
 	      var tpl = t.closest('[data-fl-tpl]'); if (tpl) { if (_lpAt && Date.now() - _lpAt < 700) return; return applyTemplate(tpl.getAttribute('data-fl-tpl')); }
       // [다중pair] 캡션 결과물 캐러셀 — 좌우 화살표/dot 으로 active 결과물 전환(부분 갱신).
+      // [v564·필수3] 템플릿 결과 카드 ↔ 원본 전/후 2장 토글
+      var tplexp = t.closest('[data-fl-tplexpand]'); if (tplexp) { _togglePairExpand(tplexp.getAttribute('data-fl-tplexpand'), true); return; }
+      var tplcol = t.closest('[data-fl-tplcollapse]'); if (tplcol) { _togglePairExpand(tplcol.getAttribute('data-fl-tplcollapse'), false); return; }
       var cardot = t.closest('[data-fl-cardot]'); if (cardot) { return _carSet(cardot.getAttribute('data-fl-cardot')); }
       // [v559] 인라인 결과 pair chip — 활성 pair 전환 후 결과 섹션만 갱신(별도 carousel 스크롤 없음).
       var psel = t.closest('[data-fl-pairsel]'); if (psel) { d.activeDisplayId = psel.getAttribute('data-fl-pairsel'); _rerenderTplResult(); return; }
@@ -2261,15 +2286,46 @@
 	    (d.templateOutputs || []).forEach(function (o) { if (o.beforePhotoId) used[o.beforePhotoId] = 1; if (o.afterPhotoId) used[o.afterPhotoId] = 1; });
 	    return _selectedOrdered().filter(function (p) { return !used[p.id]; });
 	  }
+	  function _photoById(id) { return (d.photos || []).filter(function (p) { return String(p.id) === String(id); })[0] || null; }
+	  // [v564·공통 preview model] 모든 화면(편집 결과·게시글·미리보기·인스타)이 쓰는 단일 표시 목록.
+	  //   · 템플릿 적용 결과 = 1장으로 collapse (전후 pair → 결과 1장)
+	  //   · 펼침 토글(d.expandedOutputs)된 pair = 원본 전/후 2장으로 expand
+	  //   · 템플릿 미적용 = 편집 사진 개별 표시 → 어느 화면이든 동일 순서로 스와이프
+	  //   원본(d.photos)은 절대 변형하지 않고, 렌더용 리스트에서만 1장/2장 표현을 바꾼다.
 	  function _displayItems() {
-	    var outs = (d.templateOutputs || []).map(function (o) { return { kind: 'output', id: o.pairId, url: o.outputUrl, label: o.pairLabel }; });
-	    if (!outs.length) return [];
-	    if (d.tplPurpose === 'before_after') {
-	      _unpairedPhotos().forEach(function (p) {
-	        outs.push({ kind: 'photo', id: p.id, url: photoUrl(p), label: p.role === 'before' ? '남은 전' : (p.role === 'after' ? '남은 후' : '기본 사진') });
+	    var outs = d.templateOutputs || [];
+	    if (outs.length) {
+	      var items = [];
+	      outs.forEach(function (o) {
+	        if (d.expandedOutputs && d.expandedOutputs[o.pairId]) {
+	          // 펼침 — 원본 전/후 2장으로
+	          var bp = _photoById(o.beforePhotoId), ap = _photoById(o.afterPhotoId);
+	          if (bp) items.push({ kind: 'photo', id: 'exp:' + o.pairId + ':b', url: photoUrl(bp), label: '전', ofPair: o.pairId });
+	          if (ap) items.push({ kind: 'photo', id: 'exp:' + o.pairId + ':a', url: photoUrl(ap), label: '후', ofPair: o.pairId });
+	          if (!bp && !ap) items.push({ kind: 'output', id: o.pairId, url: o.outputUrl, label: o.pairLabel, expandable: false });
+	        } else {
+	          items.push({ kind: 'output', id: o.pairId, url: o.outputUrl, label: o.pairLabel, expandable: !!(o.beforePhotoId || o.afterPhotoId) });
+	        }
 	      });
+	      if (d.tplPurpose === 'before_after') {
+	        _unpairedPhotos().forEach(function (p) {
+	          items.push({ kind: 'photo', id: p.id, url: photoUrl(p), label: p.role === 'before' ? '남은 전' : (p.role === 'after' ? '남은 후' : '기본 사진') });
+	        });
+	      }
+	      return items;
 	    }
-	    return outs;
+	    // 템플릿 미적용 → 편집 사진 개별 표시(공통 carousel 소스)
+	    return editablePhotos().map(function (p, i) {
+	      return { kind: 'photo', id: p.id, url: photoUrl(p), label: _editPhotoLabel(p, i) };
+	    });
+	  }
+	  // [v564·필수3] 전후 pair 결과 ↔ 원본 전/후 2장 토글. 원본은 보존, 표시 리스트만 펼침/접힘.
+	  function _togglePairExpand(pairId, expand) {
+	    if (!d.expandedOutputs) d.expandedOutputs = {};
+	    if (expand) d.expandedOutputs[pairId] = true; else delete d.expandedOutputs[pairId];
+	    d.activeDisplayId = null;
+	    if (cur === 'caption' && typeof syncCaptionFromDom === 'function') { try { syncCaptionFromDom(); } catch (_e) { void _e; } }
+	    setScreen(cur, { push: false });
 	  }
 	  function _capCarouselHtml() {
 	    var items = _displayItems();
@@ -2278,8 +2334,13 @@
 	    var n = items.length;
 	    // [v531] scroll-snap 가로 캐러셀 — 손가락 스와이프로 넘김(슬라이드를 한 줄로 깔고 overflow 스크롤).
 	    var slides = items.map(function (it, i) {
-	      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '">' +
-	        '<span class="cap-car__badge">' + (i + 1) + ' / ' + n + ' · ' + esc(it.label) + '</span>' +
+	      // [v564·필수3] 템플릿 결과 카드는 탭하면 원본 전/후 2장으로 펼침, 펼친 사진은 탭하면 결과로 접힘.
+	      var toggleAttr = it.kind === 'output' && it.expandable ? ' data-fl-tplexpand="' + esc(it.id) + '"'
+	        : (it.ofPair ? ' data-fl-tplcollapse="' + esc(it.ofPair) + '"' : '');
+	      var toggleHint = it.kind === 'output' && it.expandable ? '<span class="cap-car__toggle">탭 → 전·후 펼치기</span>'
+	        : (it.ofPair ? '<span class="cap-car__toggle">탭 → 결과로 접기</span>' : '');
+	      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '"' + toggleAttr + '>' +
+	        '<span class="cap-car__badge">' + (i + 1) + ' / ' + n + ' · ' + esc(it.label) + '</span>' + toggleHint +
 	        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
 	    }).join('');
 	    var dots = items.map(function (it) { return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과물 보기"></button>'; }).join('');
@@ -2378,14 +2439,17 @@
 	    else { p.selected = false; p.roleManual = false; }
 	    reassignRoles(); _repaintUpload();   // [v531 렉] 선택 토글도 in-place 갱신
 	  }
-	  function addFiles(files, showToast) {
+	  function addFiles(files, showToast, toEdit) {
 	    files = Array.from(files || []).slice(0, 10);
 	    if (!files.length) return Promise.resolve([]);
 	    return Promise.all(files.map(fileToDataUrl)).then(function (urls) {
 	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
-	      reassignRoles(); setScreen('upload');
+	      reassignRoles();
+	      // [v564·필수1] 홈 '시작하기'→파일선택→바로 편집. 중간 업로드 화면을 건너뛴다.
+	      if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit'); }
+	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
 	      return urls;
 	    });
@@ -2678,9 +2742,12 @@
 	    if (d._focusIntent === 'background') { d.bgOpen = true; d.basicTool = 'background'; }
 	    else if (d._focusIntent === 'crop') { d.editTab = 'tools'; d.advOpen = true; }
 	    else if (d._focusIntent === 'template') { d.tplOpen = true; }
-	    setScreen(startScreen, { push: false });
+	    // [v564·필수1] 홈에서 파일과 함께 edit 로 바로 진입 시, 사진 로드 전 '빈 편집화면'이 깜빡이지
+	    //   않도록 setScreen 을 addFiles 완료까지 미룬다(업로드 화면을 거치지 않음).
+	    var _deferEdit = (startScreen === 'edit' && incomingFiles.length && !d.photos.length);
+	    if (!_deferEdit) setScreen(startScreen, { push: false });
 	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
-	    if (incomingFiles.length) addFiles(incomingFiles, true);
+	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit');
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
 	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);
 	  }
