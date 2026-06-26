@@ -203,6 +203,36 @@
     return out;
   }
 
+  // [v574] morphology — separable min(erode)/max(dilate). 마스크 경계 정리용(스펙클 제거/구멍 채움).
+  //   grayscale 안전(local min/max). radius r(px). 입력 보존(새 배열 반환).
+  function _morph(mask, w, h, r, isMax) {
+    const sz = _safeSize(w, h);
+    if (!mask || mask.length !== sz.n || r < 1) return mask ? mask.slice() : _emptyMask(sz.w, sz.h);
+    const rr = r | 0;
+    const tmp = new Float32Array(sz.n), out = new Float32Array(sz.n);
+    const pick = isMax ? (a, b) => (a > b ? a : b) : (a, b) => (a < b ? a : b);
+    for (let y = 0; y < sz.h; y++) {            // 수평
+      const row = y * sz.w;
+      for (let x = 0; x < sz.w; x++) {
+        let m = mask[row + Math.min(sz.w - 1, Math.max(0, x))];
+        for (let k = -rr; k <= rr; k++) { const xi = x + k < 0 ? 0 : x + k >= sz.w ? sz.w - 1 : x + k; m = pick(m, mask[row + xi]); }
+        tmp[row + x] = m;
+      }
+    }
+    for (let x = 0; x < sz.w; x++) {             // 수직
+      for (let y = 0; y < sz.h; y++) {
+        let m = tmp[y * sz.w + x];
+        for (let k = -rr; k <= rr; k++) { const yi = y + k < 0 ? 0 : y + k >= sz.h ? sz.h - 1 : y + k; m = pick(m, tmp[yi * sz.w + x]); }
+        out[y * sz.w + x] = m;
+      }
+    }
+    return out;
+  }
+  function erodeMask(mask, w, h, r) { return _morph(mask, w, h, r || 1, false); }
+  function dilateMask(mask, w, h, r) { return _morph(mask, w, h, r || 1, true); }
+  function openMask(mask, w, h, r) { return dilateMask(erodeMask(mask, w, h, r), w, h, r); }   // 스펙클(작은 false-positive) 제거
+  function closeMask(mask, w, h, r) { return erodeMask(dilateMask(mask, w, h, r), w, h, r); }   // 내부 구멍 채움
+
   // v332 — 점 집합의 convex hull (Andrew's monotone chain)
   function convexHull(points) {
     const pts = (points || []).filter(p => p && Number.isFinite(p.x) && Number.isFinite(p.y));

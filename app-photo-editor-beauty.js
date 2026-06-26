@@ -22,8 +22,7 @@
     nailShape:     { label: '네일 경계 선명',  group: 'hand', min: 0,   max: 100, step: 1 },
     // 모발
     hairShine:     { label: '모발 윤기',       group: 'hair', min: 0,   max: 100, step: 1 },
-    hairVolume:    { label: '모발 입체감(윤곽)', group: 'hair', min: 0,   max: 100, step: 1 },
-    hairFull:      { label: '모발 숱 풍성감',   group: 'hair', min: 0,   max: 100, step: 1 },
+    hairVolume:    { label: '모발 볼륨감 보정', group: 'hair', min: 0,   max: 100, step: 1 },   // [v574] 입체감+숱 풍성감 통합
     hairEndsClean: { label: '머리끝·잔머리 정돈',   group: 'hair', min: 0,   max: 100, step: 1 },
     hairColor:     { label: '모발 색감 (- 차가운 / + 따뜻)', group: 'hair', min: -50, max: 50, step: 1 },
     hairDetail:    { label: '머리결 선명도 (전체)', group: 'hair', min: 0,   max: 100, step: 1 },
@@ -57,7 +56,7 @@
     { id: 'brow', label: '눈썹',    keys: ['browSharp'] },
     { id: 'lip',  label: '입',      keys: ['lipPop'] },
     { id: 'skin', label: '피부',    keys: ['skin', 'redness', 'blemish', 'textureSmooth', 'yellowness'] },
-    { id: 'hair', label: '헤어',    keys: ['hairDetail', 'hairVolume', 'hairShine', 'hairFull', 'hairEndsClean', 'hairColor', 'hairColorPop', 'scalpBoost'] },
+    { id: 'hair', label: '헤어',    keys: ['hairDetail', 'hairVolume', 'hairShine', 'hairEndsClean', 'hairColor', 'hairColorPop', 'scalpBoost'] },
     { id: 'hand', label: '손·네일', keys: ['handSkin', 'nailGloss', 'coolness', 'nailShape'] },
   ];
   const REGION_ETC_KEYS = ['hairyArm', 'closeUpDetail'];   // 기타/고급(부위 밖)

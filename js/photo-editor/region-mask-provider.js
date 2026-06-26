@@ -318,12 +318,20 @@
           full[y * sz.w + x] = small[sy * dw + sx];
         }
       }
-      const featherR = Math.max(2, Math.round(Math.min(sz.w, sz.h) * 0.004));
-      const out = RF ? RF.gaussianFeather(full, sz.w, sz.h, featherR) : full;
+      // [v574] morphology — open(스펙클 false-positive 제거) → close(손톱 내부 구멍 채움) → 경계 feather 작게.
+      let refined = full;
+      if (RF && RF.openMask && RF.closeMask) {
+        const mr = Math.max(1, Math.round(Math.min(sz.w, sz.h) * 0.0045));
+        refined = RF.closeMask(RF.openMask(full, sz.w, sz.h, mr), sz.w, sz.h, mr);
+      }
+      const featherR = Math.max(2, Math.round(Math.min(sz.w, sz.h) * 0.003));   // 손피부 경계 번짐 최소화(작게)
+      const out = RF ? RF.gaussianFeather(refined, sz.w, sz.h, featherR) : refined;
+      const finalCov = RF ? RF.maskCoverage(out) : cov;
+      if (finalCov < 0.002) return null;                                         // morphology 후 너무 작아지면 폴백 포기
       return {
         mask: out,
         confidence: 0.35,
-        coverage: RF ? RF.maskCoverage(out) : cov,
+        coverage: finalCov,
         sourceTier: 3,
         inferenceTimeMs: 0,
         status: 'fallback',
