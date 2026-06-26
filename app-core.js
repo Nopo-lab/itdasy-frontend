@@ -68,8 +68,8 @@ window._fireDataChanged = window._fireDataChanged || function (detail) {
   }, 50);
 };
 
-// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(태그라인 전환 2.6s 다 보이게) + 쫀득 페이드아웃 공통값
-var _LOAD_MIN_MS = 2600;
+// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(태그라인 전환 3.8s 다 보이게) + 쫀득 페이드아웃 공통값
+var _LOAD_MIN_MS = 4000;
 function _loaderFadeOut(lo) {
   lo.style.opacity = '0';
   lo.style.transform = 'scale(1.04)';
