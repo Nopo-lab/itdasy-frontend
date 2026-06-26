@@ -120,6 +120,33 @@
     if (maxX < 0) return null;
     return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
   }
+  // [v573·P3-4] 이마 윗부분 연장 — MediaPipe faceOval 최상단(landmark 10)은 "이마 중앙"이라
+  //   윗이마(중앙~헤어라인)가 skinMask 밖이었음(="이마 절반"). 컬럼별 마스크 최상단을 위로 ext 픽셀
+  //   연장(위로 갈수록 약하게)해 윗이마를 덮는다. 머리카락 침범은 호출부에서 hairMask(Tier1) 빼서 차단.
+  function _extrudeForeheadUp(mask, w, h, bb, ext) {
+    if (!bb || ext < 1) return mask;
+    const out = new Float32Array(mask.length);
+    out.set(mask);
+    const x0 = Math.max(0, bb.x), x1 = Math.min(w - 1, bb.x + bb.w - 1);
+    const searchBot = Math.min(h - 1, bb.y + ((bb.h * 0.5) | 0));   // 얼굴 상단 절반에서만 최상단 탐색(턱 무시)
+    for (let x = x0; x <= x1; x++) {
+      let topY = -1, topV = 0;
+      for (let y = Math.max(0, bb.y); y <= searchBot; y++) {
+        const v = mask[y * w + x];
+        if (v > 0.3) { topY = y; topV = v; break; }
+      }
+      if (topY < 0) continue;
+      for (let k = 1; k <= ext; k++) {
+        const yy = topY - k;
+        if (yy < 0) break;
+        const wgt = topV * (1 - (k / ext) * 0.7);    // 헤어라인쪽(위)으로 갈수록 약화(최상단≈0.3×)
+        const idx = yy * w + x;
+        if (wgt > out[idx]) out[idx] = wgt;
+      }
+    }
+    return out;
+  }
+
   // [v546] 한쪽 눈만 인식된 경우(oneEye) — 검출된 눈을 반대쪽으로 평행이동 복제해 양쪽 ROI 복원.
   //   landmark 미러가 정확하진 않지만(각도 무시) ROI 가 아예 한쪽만 적용되던 것보다 체감 개선.
   //   대상이 검출 눈 폭의 ~2배 떨어진 위치라 얼굴이 어느 정도 정면일 때 잘 맞음. 셀피(좌우반전)도 대칭이라 무관.
@@ -246,6 +273,67 @@
     }
   }
 
+  // [v573·P3-1] 네일 색/광택 휴리스틱 폴백 — 손 전체가 안 보이는 "네일 클로즈업"에서 Hand Landmarker
+  //   가 noHand 가 되어 네일 보정이 통째로 NO-OP 되던 문제. 선명 폴리시(고채도)·글로시 팁(밝고 저채도)만,
+  //   살색 warm 톤은 제외하고 coverage 게이트(0.3~12%)로 옷/배경 오검출을 차단한다. (mask-application 이 2차 게이트)
+  async function _tier3_nailHeuristic(img) {
+    const sz = _imgSize(img);
+    if (!sz.w || !sz.h) return null;
+    const RF = _getRefine();
+    const target = 256;
+    const k = Math.min(1, target / Math.max(sz.w, sz.h));
+    const dw = Math.max(1, Math.round(sz.w * k)), dh = Math.max(1, Math.round(sz.h * k));
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = dw; cv.height = dh;
+      const ctx = cv.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, dw, dh);
+      const data = ctx.getImageData(0, 0, dw, dh).data;
+      const small = new Float32Array(dw * dh);
+      let cnt = 0;
+      for (let y = 0, idx = 0, pi = 0; y < dh; y++) {
+        const ny = (y + 0.5) / dh;
+        for (let x = 0; x < dw; x++, idx++, pi += 4) {
+          const r = data[pi], g = data[pi + 1], b = data[pi + 2];
+          const lum = r * 0.299 + g * 0.587 + b * 0.114;
+          const sat = Math.max(r, g, b) - Math.min(r, g, b);
+          const nx = (x + 0.5) / dw;
+          const subj = 1 - (Math.abs(nx - 0.5) * 1.2 + Math.abs(ny - 0.5) * 0.8);
+          if (subj < 0.15) continue;
+          const vivid = sat > 70 && lum > 40 && lum < 240;                 // 유채색 폴리시(빨강/핑크/누드강조)
+          const glossy = lum > 214 && sat < 24;                            // 투명/프렌치 팁 하이라이트
+          // 살색 gradient(r>g>b, 따뜻) 은 채도가 높아도 제외 — 손/얼굴 피부 오검출 차단(핵심 가드)
+          const warmSkin = r > g && g > b && (r - b) >= 8 && (r - b) <= 95 && lum > 60 && lum < 225;
+          if ((vivid || glossy) && !warmSkin) { small[idx] = vivid ? 0.95 : 0.7; cnt++; }
+        }
+      }
+      const cov = cnt / (dw * dh);
+      if (cov < 0.003 || cov > 0.12) return null;                          // 네일 아님(옷·배경·전면 오검출) → 폴백 포기
+      const full = new Float32Array(sz.w * sz.h);
+      for (let y = 0; y < sz.h; y++) {
+        const sy = Math.min(dh - 1, (y * dh / sz.h) | 0);
+        for (let x = 0; x < sz.w; x++) {
+          const sx = Math.min(dw - 1, (x * dw / sz.w) | 0);
+          full[y * sz.w + x] = small[sy * dw + sx];
+        }
+      }
+      const featherR = Math.max(2, Math.round(Math.min(sz.w, sz.h) * 0.004));
+      const out = RF ? RF.gaussianFeather(full, sz.w, sz.h, featherR) : full;
+      return {
+        mask: out,
+        confidence: 0.35,
+        coverage: RF ? RF.maskCoverage(out) : cov,
+        sourceTier: 3,
+        inferenceTimeMs: 0,
+        status: 'fallback',
+        _nailHeuristic: true,
+        featherRadius: featherR,
+        reason: 'nail heuristic (vivid polish / glossy tip, cov ' + (cov * 100).toFixed(1) + '%)',
+      };
+    } catch (e) { return _emptyResult('failed', 'nail heuristic: ' + (e && e.message)); }
+  }
+
   // ── Region → tier 라우팅 ─────────────────────────────────
   async function _computeRegion(img, regionType) {
     const t0 = (performance && performance.now) ? performance.now() : Date.now();
@@ -265,6 +353,22 @@
             if (RF && eye.mask)  { mask = RF.subtractMask(mask, eye.mask); subOk++; }
             if (RF && eye2.mask) { mask = RF.subtractMask(mask, eye2.mask); subOk++; }
             if (RF && lip.mask)  { mask = RF.subtractMask(mask, lip.mask); subOk++; }
+            // [v573·P3-4] 윗이마 연장(이마 절반 해소). 헤어라인 침범은 Tier1 hairMask(실세그) 가 있을 때만 차감
+            //   (Tier2 foreheadTop 폴리곤은 이마를 덮어버려 빼면 안 됨 → sourceTier===1 한정).
+            if (RF) {
+              const sz4 = _imgSize(img);
+              const bb = _maskBBox(mask, sz4.w, sz4.h, 0.3);
+              if (bb) {
+                const ext = Math.round(bb.h * 0.28);
+                let exm = _extrudeForeheadUp(mask, sz4.w, sz4.h, bb, ext);
+                try {
+                  const hair = await getMask(img, 'hairMask');
+                  if (hair && hair.mask && hair.sourceTier === 1) exm = RF.subtractMask(exm, hair.mask);
+                } catch (_e) { /* hair 미검출 시 연장만 적용 */ }
+                mask = RF.gaussianFeather(exm, sz4.w, sz4.h, Math.max(2, Math.round(Math.min(sz4.w, sz4.h) * 0.004)));
+                r._foreheadExtended = true;
+              }
+            }
             r.mask = mask;
             r.coverage = RF ? RF.maskCoverage(mask) : r.coverage;
             r._subtracted = subOk >= 2;
@@ -358,6 +462,9 @@
               break;
             }
             if (t1 && t1.status === 'noHand') {
+              // [v573·P3-1] 손 미검출(네일 클로즈업) → 색/광택 휴리스틱 폴백 시도(보수적 게이트)
+              const hr = await _tier3_nailHeuristic(img);
+              if (hr && hr.mask && hr._nailHeuristic) { result = hr; break; }
               result = _emptyResult('noHand', t1.reason || 'no hand detected');
               break;
             }

@@ -44,10 +44,10 @@
   const EYE_COLOR_SAT_MIN = 28;     // [T-146 조정] eyeColor — 채도 임계 14→28. 맨 눈꺼풀 살구빛 제외, 진짜 아이섀도(채도 높음)만 강화(과함 방지).
   const NAIL_SHAPE_DARKEN = 0.18;   // [T-144 2차] nailW ROI 어두운 아트 라인/젤 경계 darken(윤곽 또렷). lum<150 만 → 광택면 보존.
   const TEXTURE_EDGE_TAU = 22;      // [T-152] edge-preserving 임계 — lum 차 이상이면 edge(보존), 이하 평탄(블러)
-  const BLEMISH_DARK_TAU = 9;       // [T-151] 잡티 검출 하한 — 넓은블러(주변 피부톤)보다 이만큼 어두운 작은 점만
-  const BLEMISH_DARK_MAX = 45;      // [T-151] 상한 — 이보다 어두우면 잡티 아님(속눈썹/눈썹/머리=검정) → 제외
+  const BLEMISH_DARK_TAU = 7;       // [v573·P3-3] 9→7 — 옅은 잡티/색소도 검출(약함 보강). lum>MIN 가드로 눈매 보호 유지
+  const BLEMISH_DARK_MAX = 60;      // [v573·P3-3] 45→60 — 진한 여드름 자국/점도 포착. 매우 검은 곳은 LUM_MIN 가 거름
   const BLEMISH_LUM_MIN = 70;       // [T-151] 이보다 어두운 픽셀 제외(검은 눈매/눈썹). 잡티는 피부톤 영역.
-  const BLEMISH_BLEND = 0.8;        // [T-151] 잡티 → 주변 피부톤 blend 상한(흐림 아닌 채움)
+  const BLEMISH_BLEND = 0.92;       // [v573·P3-3] 0.8→0.92 — 잡티 → 주변 피부톤 채움 강화(약함 보강)
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
@@ -396,7 +396,9 @@
       const blum = blurD[i] * 0.299 + blurD[i + 1] * 0.587 + blurD[i + 2] * 0.114;
       const edge = Math.min(1, Math.abs(lum - blum) / TEXTURE_EDGE_TAU);   // 0(평탄)~1(edge)
       const mix = 0.92 * c.txK * p.skinW * (1 - edge);                     // [v545] 0.72→0.92 — 피부결 체감 추가 강화(edge 보존 유지)
-      if (mix > 0.001) _mixBlur(d, i, blurD, mix, 0);
+      // [v573·P3-2] 톤다운 방지 — box blur 가 모공/그늘을 끌어와 피부가 칙칙(어둡)해지던 문제.
+      //   smooth 강도에 비례한 미세 lift(화사) 추가. 평탄 피부만(edge=0 일수록 mix 큼) 밝아짐 → 결+화사.
+      if (mix > 0.001) _mixBlur(d, i, blurD, mix, 2.6 * mix);
     }
     // [T-151] blemish — 작은 잡티(넓은블러=주변 피부톤보다 어두운 작은 점)만 주변톤으로 blend(inpaint-like).
     //   흐림 아닌 "주변 피부색 채움". 밝은 점·큰 음영·윤곽은 제외(피부결 보존). 큰 점/흉터 완전제거는 목표 아님.
