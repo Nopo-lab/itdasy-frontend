@@ -162,7 +162,7 @@
       : [it.received_text || ''];
     const msgs = raw.map(m => String(m || '').trim()).filter(Boolean);
     if (msgs.length <= 1) {
-      return `<div style="font-size:14px;color:#191F28;line-height:1.5;word-break:break-word;">${_esc(msgs[0] || '')}</div>`;
+      return `<div style="font-size:14px;color:#191F28;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(msgs[0] || '')}</div>`;
     }
     const bubbles = msgs.map(m => `<div style="align-self:flex-start;max-width:88%;background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:9px 12px;font-size:14px;line-height:1.45;white-space:pre-wrap;word-break:break-word;">${_esc(m)}</div>`).join('');
     return `<div style="display:flex;flex-direction:column;gap:5px;">${bubbles}</div>`;
@@ -315,24 +315,28 @@
         </div>` : '';
     // [Task 4] 사진 카드 배지 + 인스타 열기 안내
     const photoOnlyBlock = isPhotoOnly
-      ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#F7F8FA;border:1px solid #EEF0F3;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12.5px;font-weight:700;color:#EA580C;">손님이 사진을 보냈어요</div>
-            <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">인스타그램 DM에서 확인 후 직접 답장해 주세요</div>
+            <div style="font-size:12.5px;font-weight:700;color:#344054;">손님이 사진을 보냈어요</div>
+            <div style="font-size:11.5px;color:#667085;margin-top:1px;">인스타그램 DM에서 확인 후 직접 답장해 주세요</div>
           </div>
+          <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:8px 11px;background:#FBEEF1;border:1px solid #E6B9C2;color:#BC6675;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            인스타 DM 열기
+          </a>
         </div>` : '';
     // [2026-06-26] 예약/문의 카드에 손님 사진 첨부 — photo_attached(외톨이 photo_only 와 별개).
     //   BE _handle_photo_event(B-1)가 카드 메타에 기록. 인스타 열기 버튼 공유 util 재사용.
     const photoAttachedBlock = (am.photo_attached && !isPhotoOnly)
-      ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:10px 12px;margin-bottom:10px;">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#F7F8FA;border:1px solid #EEF0F3;border-radius:12px;padding:10px 12px;margin-bottom:10px;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12.5px;font-weight:700;color:#EA580C;">손님이 사진 ${Math.max(1, Number(am.photo_count) || 1)}장 보냈어요</div>
-            <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">인스타그램 DM에서 확인하세요</div>
+            <div style="font-size:12.5px;font-weight:700;color:#344054;">손님이 사진 ${Math.max(1, Number(am.photo_count) || 1)}장 보냈어요</div>
+            <div style="font-size:11.5px;color:#667085;margin-top:1px;">인스타그램 DM에서 확인하세요</div>
           </div>
           <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
-            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:8px 11px;background:#EA580C;color:#fff;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:8px 11px;background:#FBEEF1;border:1px solid #E6B9C2;color:#BC6675;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
             인스타 DM 열기
           </a>
         </div>` : '';
@@ -363,7 +367,7 @@
               ${_gradeBadge(it.customer_grade)}
             </div>
             <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${(it.minutes_waiting <= 0 ? '방금' : it.minutes_waiting + '분 전')} · ${_esc(_intentKo(it.intent))}</div>
-            ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
+            ${'' /* [2026-06-26] customer_summary 가림 — BE가 이 칸에 "DM 자동 등록 (예약 시 NER…" 개발용 문자열을 넣어 화면 노출됨. 근본 수정은 BE 건, FE는 일단 렌더 제거. */}
           </div>
         </div>
         ${photoOnlyBlock}
