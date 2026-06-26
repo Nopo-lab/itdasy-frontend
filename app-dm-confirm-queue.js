@@ -367,7 +367,7 @@
               ${_gradeBadge(it.customer_grade)}
             </div>
             <div style="font-size:11px;color:#8B95A1;margin-top:1px;">${(it.minutes_waiting <= 0 ? '방금' : it.minutes_waiting + '분 전')} · ${_esc(_intentKo(it.intent))}</div>
-            ${'' /* [2026-06-26] customer_summary 가림 — BE가 이 칸에 "DM 자동 등록 (예약 시 NER…" 개발용 문자열을 넣어 화면 노출됨. 근본 수정은 BE 건, FE는 일단 렌더 제거. */}
+            ${summary ? `<div style="font-size:11px;color:#8B95A1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(summary)}</div>` : ''}
           </div>
         </div>
         ${photoOnlyBlock}
