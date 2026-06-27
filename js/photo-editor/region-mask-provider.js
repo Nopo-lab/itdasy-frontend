@@ -139,7 +139,9 @@
       for (let k = 1; k <= ext; k++) {
         const yy = topY - k;
         if (yy < 0) break;
-        const wgt = topV * (1 - (k / ext) * 0.7);    // 헤어라인쪽(위)으로 갈수록 약화(최상단≈0.3×)
+        // [v575·필수4] 상단 falloff 0.7→0.45 — 윗이마(중앙~헤어라인)도 충분한 가중(최상단≈0.55×)을 유지해
+        //   연장 영역이 실제 보정을 받게(기존 0.3× 는 사실상 무보정이라 '이마 절반'으로 보임).
+        const wgt = topV * (1 - (k / ext) * 0.45);
         const idx = yy * w + x;
         if (wgt > out[idx]) out[idx] = wgt;
       }
@@ -367,7 +369,7 @@
               const sz4 = _imgSize(img);
               const bb = _maskBBox(mask, sz4.w, sz4.h, 0.3);
               if (bb) {
-                const ext = Math.round(bb.h * 0.28);
+                const ext = Math.round(bb.h * 0.40);   // [v575·필수4] 0.28→0.40 — 윗이마(헤어라인까지) 더 덮음
                 let exm = _extrudeForeheadUp(mask, sz4.w, sz4.h, bb, ext);
                 try {
                   const hair = await getMask(img, 'hairMask');
@@ -579,7 +581,17 @@
             const t = await BA.browMask(img, _imgSize(img));
             // [v551] dilation 0.01→0.004 — 0.01 은 실제 눈썹보다 위(이마/눈썹뼈)로 번지고 두꺼워
             //   "눈썹 선명도"가 이마까지 건드림(실QA 확인). landmark hull 근처로 타이트하게 유지.
-            if (t && t.mask) { result = _dilateRegion(t, img, 0.004); break; }   // [v546→v551] 눈썹 ROI 보수적 확장
+            if (t && t.mask) {
+              // [v575·필수5] 한 눈썹 안에서 마스크가 '중간 끊김'으로 보이던 문제 — feather/다운스케일로 얇은 구간이
+              //   임계 아래로 떨어진 것. closeMask(dilate→erode)로 외형 확장 없이 내부 gap 만 메워 끊김 제거.
+              const RFb = _getRefine();
+              if (RFb && typeof RFb.closeMask === 'function') {
+                const szb = _imgSize(img);
+                const crb = Math.max(1, Math.round(Math.min(szb.w, szb.h) * 0.006));
+                t.mask = RFb.closeMask(t.mask, szb.w, szb.h, crb);
+              }
+              result = _dilateRegion(t, img, 0.004); break;   // [v546→v551] 눈썹 ROI 보수적 확장
+            }
           }
           result = _emptyResult('fallback', 'brow adapter unavailable or no eyebrow landmarks');
           break;

@@ -56,8 +56,7 @@
 	      { k: 'catchLight', l: '눈 밝게', ic: 'ph-sun' } ] },
 	    { k: 'nail', label: '네일', ic: 'ph-hand-heart', controls: [
 	      { k: 'nailGloss', l: '네일 광택', ic: 'ph-sparkle' },
-	      { k: 'nailShape', l: '네일 경계', ic: 'ph-lightning' },
-	      { k: 'handSkin', l: '손 피부톤', ic: 'ph-sun' } ] },
+	      { k: 'nailShape', l: '네일 경계', ic: 'ph-lightning' } ] },
 	    { k: 'tools', label: '고급', ic: 'ph-faders', controls: [] },
 	  ];
 	  var WORKSPACE_TEMPLATES = [
@@ -500,7 +499,7 @@
       // [v566·scope4] 보정 슬라이더가 먼저, '영역 다듬기(마스크 도구)'는 그 아래 보조 영역으로.
       var maskPill = (ptab !== 'tools')
         ? '<div class="ed-masktools">' +
-            '<div class="ed-mask-subhead"><i class="ph-duotone ph-selection-plus" aria-hidden="true"></i>' + esc(ptabObj.label) + ' 영역 다듬기 <span>자동 인식이 어긋날 때만 직접 칠해 교정</span></div>' +
+            '<div class="ed-mask-subhead"><i class="ph-duotone ph-selection-plus" aria-hidden="true"></i>' + esc(ptabObj.label) + ' 영역 다듬기 <span>자동 인식이 어긋날 때만 직접 칠해 교정</span><span class="ed-mask-stat" data-fl-maskbadge hidden></span></div>' +
             '<div class="ed-maskpill-row">' +
               '<button type="button" class="ed-maskpill' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크" aria-pressed="' + (d.maskView && !d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
               '<button type="button" class="ed-maskpill' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint" aria-pressed="' + (d.maskPaint ? 'true' : 'false') + '"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
@@ -698,31 +697,18 @@
     //   화면(하단 CTA)으로 일원화. 편집 화면엔 이미 적용된 결과 미리보기만 인라인으로 둔다(없으면 빈 출력).
     return _tplAppliedHtml();
   }
-  // [v568·B-1/B-2] 사진 위 floating 도구바 — 전체화면·확대배율(화면맞춤/±)·마스크 보기/직접 칠하기.
-  //   PC에서 사진을 보면서 위아래 스크롤 없이 마스크를 바로 켜고 칠한다. 마스크 도구는 효과 탭(피부/헤어/눈/네일)에서만 노출.
+  // [v575·필수8/11] 사진 '아래' slim 도구바 — 사진 위 overlay 전면 제거(사진 안 가림).
+  //   확대/축소·화면맞춤·전체화면만. 마스크 보기/직접 칠하기는 정밀 조정 메뉴(ed-maskpill) 1세트로 일원화(여기엔 없음).
   function _vpToolsHtml() {
     var z = d.zoom || { s: 1 };
     var pct = Math.round((z.s || 1) * 100);
-    var isMaskTab = (d.editTab || 'skin') !== 'tools';
-    var maskRow = isMaskTab ? '<div class="ed-vptools__mask">' +
-        '<button type="button" class="ed-vpbtn' + (d.maskView && !d.maskPaint ? ' on' : '') + '" data-fl-eb="마스크"><i class="ph-duotone ph-stack"></i>마스크 보기</button>' +
-        '<button type="button" class="ed-vpbtn' + (d.maskPaint ? ' on' : '') + '" data-fl="maskpaint"><i class="ph-duotone ph-pencil-simple"></i>직접 칠하기</button>' +
-        (d.maskPaint ?
-          '<span class="ed-vptools__say">' + esc(_maskInfoForTab().label) + ' 영역 칠하는 중</span>' +
-          '<button type="button" class="ed-vpbtn ed-vpbtn--ic' + (!d.maskErase ? ' on' : '') + '" data-fl="paintdraw" aria-label="칠하기"><i class="ph-duotone ph-pen"></i></button>' +
-          '<button type="button" class="ed-vpbtn ed-vpbtn--ic' + (d.maskErase ? ' on' : '') + '" data-fl="painterase" aria-label="지우개"><i class="ph-duotone ph-eraser"></i></button>' +
-          '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="paintclear" aria-label="비우기"><i class="ph-duotone ph-trash"></i></button>'
-        : '') +
-      '</div>' : '';
     return '<div class="ed-vptools" data-ed-vptools>' +
-      '<div class="ed-vptools__top">' +
-        '<button type="button" class="ed-vpbtn ed-vpbtn--fs" data-fl="edfull" aria-label="' + (d.edFull ? '전체화면 닫기' : '크게 편집') + '"><i class="ph-duotone ph-' + (d.edFull ? 'arrows-in' : 'arrows-out') + '"></i><span>' + (d.edFull ? '닫기' : '크게') + '</span></button>' +
-        '<div class="ed-vpzoom">' +
-          '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomout" aria-label="축소">−</button>' +
-          '<button type="button" class="ed-vpbtn ed-vpbtn--pct" data-fl="edzoomfit" aria-label="화면맞춤"><span data-ed-zoompct>' + pct + '%</span></button>' +
-          '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomin" aria-label="확대">+</button>' +
-        '</div>' +
-      '</div>' + maskRow +
+      '<button type="button" class="ed-vpbtn ed-vpbtn--fs" data-fl="edfull" aria-label="' + (d.edFull ? '전체화면 닫기' : '크게 보기') + '"><i class="ph-duotone ph-' + (d.edFull ? 'arrows-in' : 'arrows-out') + '"></i><span>' + (d.edFull ? '닫기' : '크게') + '</span></button>' +
+      '<div class="ed-vpzoom">' +
+        '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomout" aria-label="축소">−</button>' +
+        '<button type="button" class="ed-vpbtn ed-vpbtn--pct" data-fl="edzoomfit" aria-label="화면맞춤"><span data-ed-zoompct>' + pct + '%</span></button>' +
+        '<button type="button" class="ed-vpbtn ed-vpbtn--ic" data-fl="edzoomin" aria-label="확대">+</button>' +
+      '</div>' +
     '</div>';
   }
   function _renderVpTools() {
@@ -738,7 +724,7 @@
     var pu = _editPhotoUrls();
     return '' +
       '<div class="ed-sec" data-ed-switcher>' + _editSwitcherHtml() + '</div>' +
-      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div><canvas class="ed-mask-ov" data-fl-maskov hidden></canvas><span class="ed-mask-badge" data-fl-maskbadge hidden></span>' + _vpToolsHtml() + '</div>' +
+      '<div class="ed-photo-vp" data-fl-edvp><div class="ed-photo" data-fl-edphoto style="background-image:url(' + esc(pu.url) + ');filter:' + pu.preview + '"></div><canvas class="ed-mask-ov" data-fl-maskov hidden></canvas></div>' + _vpToolsHtml() +
       '<div class="ed-sec" data-ed-basic>' + _mainAdjustHtml() + '</div>' +
       '<div class="ed-sec" data-ed-bottom>' + _editBottomHtml() + '</div>' +
       '<div class="ed-sec" data-ed-adv>' + _advFoldHtml() + '</div>' +
@@ -918,7 +904,7 @@
   function _renderMaskOverlay() {
     if (d.maskPaint) { _renderPaintOverlay(); return; }   // [v561] 칠하기 모드면 칠한 영역을 표시
     var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
-    var ov = vp.querySelector('[data-fl-maskov]'), badge = vp.querySelector('[data-fl-maskbadge]');
+    var ov = vp.querySelector('[data-fl-maskov]'), badge = el.querySelector('[data-fs="edit"] [data-fl-maskbadge]');
     var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]');
     if (!d.maskView || d.originalPreview) { if (ov) ov.hidden = true; if (badge) badge.hidden = true; if (helper0) helper0.hidden = true; return; }
     var photo = curEditPhoto(); if (!photo) return;
@@ -996,7 +982,7 @@
   // paint 캔버스(흰 알파)를 탭 색으로 tint 해 overlay 에 contain-blit — 칠하는 동안 실시간 피드백.
   function _renderPaintOverlay() {
     var vp = el && el.querySelector('[data-fs="edit"] [data-fl-edvp]'); if (!vp) return;
-    var ov = vp.querySelector('[data-fl-maskov]'), badge = vp.querySelector('[data-fl-maskbadge]');
+    var ov = vp.querySelector('[data-fl-maskov]'), badge = el.querySelector('[data-fs="edit"] [data-fl-maskbadge]');
     var helper0 = el.querySelector('[data-fs="edit"] [data-fl-maskhelper]'); if (!ov) return;
     if (d.originalPreview) { ov.hidden = true; if (badge) badge.hidden = true; return; }
     var info = _maskInfoForTab(), photo = curEditPhoto();
@@ -2728,7 +2714,10 @@
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
 	      reassignRoles();
 	      // [v564·필수1] 홈 '시작하기'→파일선택→바로 편집. 중간 업로드 화면을 건너뛴다.
-	      if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit'); }
+	      // [v575·필수1] 직행 진입은 편집을 '베이스 화면'으로 — push:false 로 navStack 을 비워 둔다.
+	      //   기존엔 기본 push 로 cur('upload')가 navStack 에 쌓여, 뒤로가기 시 안 거쳐온 '업로드 화면'이 떴다.
+	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
+	      if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
 	      return urls;

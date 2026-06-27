@@ -48,6 +48,7 @@
   const BLEMISH_DARK_MAX = 60;      // [v573·P3-3] 45→60 — 진한 여드름 자국/점도 포착. 매우 검은 곳은 LUM_MIN 가 거름
   const BLEMISH_LUM_MIN = 70;       // [T-151] 이보다 어두운 픽셀 제외(검은 눈매/눈썹). 잡티는 피부톤 영역.
   const BLEMISH_BLEND = 0.92;       // [v573·P3-3] 0.8→0.92 — 잡티 → 주변 피부톤 채움 강화(약함 보강)
+  const BLEMISH_RED_TAU = 10;       // [v575·필수3] 주변보다 이만큼 더 붉으면 '붉은 잡티'(여드름/색소) → 검출. 낮을수록 민감.
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
 
@@ -405,16 +406,22 @@
       //   smooth 강도에 비례한 미세 lift(화사) 추가. 평탄 피부만(edge=0 일수록 mix 큼) 밝아짐 → 결+화사.
       if (mix > 0.001) _mixBlur(d, i, blurD, mix, 2.6 * mix);
     }
-    // [T-151] blemish — 작은 잡티(넓은블러=주변 피부톤보다 어두운 작은 점)만 주변톤으로 blend(inpaint-like).
-    //   흐림 아닌 "주변 피부색 채움". 밝은 점·큰 음영·윤곽은 제외(피부결 보존). 큰 점/흉터 완전제거는 목표 아님.
+    // [T-151] blemish — 작은 잡티(주변 피부톤과 다른 작은 점)만 주변톤으로 blend(inpaint-like).
+    //   흐림 아닌 "주변 피부색 채움". 큰 음영·윤곽은 제외(피부결 보존). 큰 점/흉터 완전제거는 목표 아님.
+    // [v575·필수3] 무반응 원인 = '어두운 점'만 검출 → 실제 잡티 대부분(붉은 여드름·색소·홍반)을 놓침.
+    //   주변보다 '더 붉은'(redBump) 작은 점도 검출 대상에 추가. 둘 중 강한 쪽(dark|redBump)으로 채움 강도 결정.
+    //   주변(r≈6 wide blur)과 비교하므로 볼터치·입술·큰 홍조 같은 넓은 영역은 redBump≈0 → 평탄화 안 됨(안전).
     if (c.blemishK > 0 && wideBlurD) {
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-      const wlum = wideBlurD[i] * 0.299 + wideBlurD[i + 1] * 0.587 + wideBlurD[i + 2] * 0.114;
+      const wr = wideBlurD[i], wg = wideBlurD[i + 1], wb = wideBlurD[i + 2];
+      const wlum = wr * 0.299 + wg * 0.587 + wb * 0.114;
       const dark = wlum - lum;                                   // 주변 피부톤보다 어두운 정도
-      // 잡티 = 주변보다 "약간" 어두운(TAU~MAX) 피부톤 점. 속눈썹/눈썹/머리(매우 어두움 or lum 낮음) 제외 → 눈 오염 방지.
-      if (dark > BLEMISH_DARK_TAU && dark < BLEMISH_DARK_MAX && lum > BLEMISH_LUM_MIN && p.eyeW < 0.12) {
-        const spotW = Math.min(1, (dark - BLEMISH_DARK_TAU) / 30);
-        _mixBlur(d, i, wideBlurD, BLEMISH_BLEND * c.blemishK * p.skinW * spotW, 0);  // 주변 피부톤으로 채움
+      const redBump = (d[i] - (d[i + 1] + d[i + 2]) / 2) - (wr - (wg + wb) / 2);   // 주변보다 더 붉은 정도(여드름/색소)
+      if (lum > BLEMISH_LUM_MIN && p.eyeW < 0.12) {              // 검은 눈매/눈썹(lum 낮음)·눈 영역 제외
+        let spotW = 0;
+        if (dark > BLEMISH_DARK_TAU && dark < BLEMISH_DARK_MAX) spotW = Math.min(1, (dark - BLEMISH_DARK_TAU) / 30);
+        if (redBump > BLEMISH_RED_TAU) spotW = Math.max(spotW, Math.min(1, (redBump - BLEMISH_RED_TAU) / 26));   // 붉은 잡티
+        if (spotW > 0) _mixBlur(d, i, wideBlurD, BLEMISH_BLEND * c.blemishK * p.skinW * spotW, 0);  // 주변 피부톤으로 채움
       }
     }
     // [T-153] eyeShadow/underEyeClean — eyeMask 언더 ROI(falloff)의 어두운 픽셀만 밝힘 → 눈밑/눈가만,

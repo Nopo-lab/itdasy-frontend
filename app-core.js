@@ -1962,7 +1962,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260627-v574-beauty-ease-containment-hairmerge';
+window.APP_BUILD = '20260627-v575-editor-ux-mask-blemish';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;

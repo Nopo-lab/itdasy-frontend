@@ -291,5 +291,11 @@
     invertMask,
     convexHull,
     ellipseToMask,
+    // [v575] morphology export 누락 보강 — v574 가 정의했으나 export 안 해 RF.openMask/closeMask 가
+    //   undefined → 네일 휴리스틱 morphology(스펙클 제거/구멍 채움)가 죽은 코드였음. 이제 실제로 동작.
+    erodeMask,
+    dilateMask,
+    openMask,
+    closeMask,
   };
 })();

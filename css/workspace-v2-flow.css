@@ -127,7 +127,9 @@
 .wsv2flow .ed-baswitch__btn.on { border-color: var(--brand-strong); box-shadow: var(--shadow-brand); }
 /* 줌 뷰포트 — 사진 확대(핀치/더블탭) 시 둥근 모서리 안에서 클립 */
 /* [sticky preview] 정밀 보정/템플릿 패널로 스크롤해도 사진 미리보기가 항상 화면에 보이게 — 상단 고정. */
-.wsv2flow .ed-photo-vp { position: sticky; top: 0; z-index: 3; width: 100%; height: clamp(200px, 38vh, 300px); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 13px; box-shadow: var(--shadow-sm); background: var(--frame); touch-action: none; }
+/* [v575·필수7] 편집 사진은 기본적으로 크게 — '크게' 버튼 의존 없이 진입 즉시 큰 작업창.
+   38vh·300px 캡 → 64vh·720px 로 상향(모바일/PC 모두 사진 중심). contain 유지로 사진 전체 가시. */
+.wsv2flow .ed-photo-vp { position: sticky; top: 0; z-index: 3; width: 100%; height: clamp(360px, 64vh, 720px); border-radius: var(--r-lg); overflow: hidden; margin-bottom: 10px; box-shadow: var(--shadow-sm); background: var(--frame); touch-action: none; }
 /* [v545] cover→contain — 세로 사진 상단/하단이 잘려 보이던 문제 수정. 편집 프리뷰는 업로드 사진 '전체'가 보여야 함.
    background-size 를 별도 longhand 로 분리(단축속성에 두면 var() 무효 시 통째로 드롭될 수 있어 견고하게). */
 .wsv2flow .ed-photo { width: 100%; height: 100%; border-radius: 0; background-color: var(--frame); background-position: center; background-size: contain; background-repeat: no-repeat; margin: 0; box-shadow: none; transition: filter .12s; transform-origin: center center; will-change: transform; }
@@ -139,27 +141,30 @@
 .wsv2flow .ed-mask-ov[hidden] { display: none; }
 .wsv2flow .ed-mask-badge { position: absolute; left: 8px; top: 8px; z-index: 5; background: rgba(20,16,16,.66); color: #fff; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: var(--r-pill); pointer-events: none; max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsv2flow .ed-mask-badge[hidden] { display: none; }
-/* [v568·B-1/B-2/B-3] 사진 위 floating 도구바 — 전체화면·확대배율·마스크 보기/직접 칠하기 */
-.wsv2flow .ed-vptools { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 6; display: flex; flex-direction: column; gap: 7px; pointer-events: none; }
-.wsv2flow .ed-vptools__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.wsv2flow .ed-vptools__mask { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.wsv2flow .ed-vptools__say { font-size: 11px; font-weight: 700; color: #fff; background: rgba(20,16,16,.5); padding: 3px 8px; border-radius: var(--r-pill); pointer-events: none; }
+/* [v575·필수8/11] 사진 '아래' slim 도구바 — 사진 위 overlay 제거. 확대/축소·전체화면만(사진 안 가림). */
+.wsv2flow .ed-vptools { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 12px; }
 .wsv2flow .ed-vpzoom { display: flex; align-items: center; gap: 4px; }
-.wsv2flow .ed-vpbtn { pointer-events: auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 34px; min-width: 34px; padding: 0 11px; border: none; border-radius: var(--r-pill); background: rgba(28,22,20,.62); color: #fff; font-size: 12.5px; font-weight: 800; cursor: pointer; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 2px 8px rgba(0,0,0,.22); transition: background .14s, transform .1s; }
+.wsv2flow .ed-vpbtn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 34px; min-width: 34px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface, #fff); color: var(--text); font-size: 12.5px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-sm); transition: background .14s, transform .1s; }
 .wsv2flow .ed-vpbtn:active { transform: scale(.94); }
-.wsv2flow .ed-vpbtn i { font-size: 16px; }
-.wsv2flow .ed-vpbtn.on { background: var(--brand-strong); color: #fff; }
+.wsv2flow .ed-vpbtn i { font-size: 16px; color: var(--brand-strong); }
+.wsv2flow .ed-vpbtn.on { background: var(--brand-strong); color: #fff; border-color: var(--brand-strong); }
+.wsv2flow .ed-vpbtn.on i { color: #fff; }
 .wsv2flow .ed-vpbtn--ic { padding: 0; width: 34px; font-size: 17px; }
 .wsv2flow .ed-vpbtn--pct { min-width: 52px; font-variant-numeric: tabular-nums; }
 .wsv2flow .ed-vpbtn--fs span { font-size: 12.5px; }
-/* 전체화면 편집 — viewport 를 화면 가득 채워 PC/모바일 모두 크게 보정 */
+/* 전체화면 편집 — viewport 를 화면 가득 채워 PC/모바일 모두 크게 보정. 도구바만 하단 floating 으로. */
 body.itd-edit-fs .wsv2flow .ed-photo-vp { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; border-radius: 0; margin: 0; z-index: 9000; background: #14100c; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; }
-body.itd-edit-fs .wsv2flow .ed-vptools { bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 9001; }
+body.itd-edit-fs .wsv2flow .ed-vptools { position: fixed; left: 8px; right: 8px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 9001; margin: 0; }
+body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn { background: rgba(28,22,20,.62); color: #fff; border-color: transparent; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [v540] 마스크 보기 — 정밀 조정 안 pill toggle + inline fallback helper */
 /* [v566·scope4] 마스크 도구 = 보정 슬라이더 아래 보조 영역. 위에 얇은 구분선 + 안내 부제. */
 .wsv2flow .ed-masktools { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border); }
 .wsv2flow .ed-mask-subhead { display: flex; align-items: baseline; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; }
 .wsv2flow .ed-mask-subhead i { font-size: 15px; color: var(--brand-strong); align-self: center; }
+/* [v575·필수8] 인식 %는 사진 위 배지 대신 메뉴 쪽 작은 상태칩으로 — 사진 안 가림 */
+.wsv2flow .ed-mask-stat { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--brand-strong); background: var(--brand-weak, rgba(200,90,130,.12)); padding: 2px 8px; border-radius: var(--r-pill); white-space: nowrap; }
+.wsv2flow .ed-mask-stat[hidden] { display: none; }
 .wsv2flow .ed-mask-subhead span { font-size: 11px; font-weight: 600; color: var(--text-subtle); }
 .wsv2flow .ed-maskpill-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 2px 0 10px; }
 .wsv2flow button.ed-maskpill { appearance: none; -webkit-appearance: none; display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; font-family: inherit; }
