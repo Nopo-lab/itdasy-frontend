@@ -175,6 +175,19 @@
       예약금 입금 대기 — 입금 확인되면 [전송 + 캘린더 등록]</div>`;
   }
 
+  // [2026-06-27 #1] 손님에게 갈 '확정 멘트' 미리보기 — 원장 지시문(잇비 추천 답장)과 분리해 노출.
+  //   확정 누르면 이 문구가 손님에게 그대로 발송됨(BE confirm_preview ≡ 실제 발송).
+  function _confirmPreview(am) {
+    const msg = am && am.confirm_preview;
+    if (!msg) return '';
+    return `<div style="margin-top:10px;padding:10px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#FAFBFC;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8B95A1;font-weight:700;margin-bottom:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
+        확정 시 손님에게 갈 멘트
+      </div>
+      <div style="font-size:13px;color:#191F28;line-height:1.5;white-space:pre-wrap;word-break:break-word;">${_esc(String(msg))}</div>
+    </div>`;
+  }
   // 무의미값 필터 — truthy 지만 표시 의미 없는 값
   const _MEANINGLESS = new Set(['모르겠음','모름','?','미정','무','없음','없어요','몰라요','나중에','상관없음','아무거나','기타','etc','n/a','na','null','undefined','-','—','...','..']);
   function _isMeaningless(v) { return !v || _MEANINGLESS.has(String(v).trim().toLowerCase()); }
@@ -184,7 +197,10 @@
     const name = (ex && ex.name) || (am && am.name);
     const phone = (ex && ex.phone) || (am && am.phone);
     const svc = (am && am.service_name) || (ex && ex.service_interest) || '';
-    const wish = (am && (am.time_kst || am.requested_time)) || '';
+    let wish = (am && (am.time_kst || am.requested_time)) || '';
+    // [2026-06-27 #4] 몇 순위로 잡혔는지 — 1순위 막혀 승격된 경우 원장이 확인하게 표시.
+    const rank = am && Number(am.booking_rank);
+    if (wish && rank && rank > 1) wish += ` (${rank}순위)`;
     const opts = (am && am.service_options) || {};
     const memo = (am && am.memo) || '';
     const chips = [];
@@ -236,7 +252,7 @@
   function _mainBtnStyle(it) {
     const am = it.action_meta || {};
     if (it.action_required === 'send_form') return 'background:#191F28;';  // [A] 양식 보내기 → 검정(기본 CTA)
-    if (am.deposit_sent) return 'background:#2B3A67;';  // 입금 대기 → 딥네이비
+    if (am.deposit_sent) return 'background:#191F28;';  // [2026-06-27 #3] 입금 확인+예약 확정 → 검정(기본 CTA 통일)
     if (am.awaiting_deposit) return 'background:#BC6675;';  // 예약금 안내 → 로즈
     return 'background:#191F28;';
   }
@@ -378,6 +394,7 @@
         ${_bookingLine(am)}
         ${_durationStepper(it)}
         ${_depositLine(am)}
+        ${_confirmPreview(am)}
         ${isRisk ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
