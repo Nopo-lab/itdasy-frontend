@@ -130,7 +130,8 @@
   // ── [2026-06-08] 잇비 챗봇 톤 카드 빌더 ─────────────────────────
   function _intentKo(i) {
     return { pricing: '가격 문의', booking: '예약 문의', hours: '영업시간', location: '위치 문의',
-      review: '후기', greeting: '인사', complaint: '문의', unknown: '문의' }[i] || '문의';
+      review: '후기', greeting: '인사', complaint: '문의', reschedule: '예약 변경',
+      no_show: '지각/불참', unknown: '문의' }[i] || '문의';
   }
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
   function _gradeBadge(grade) {
@@ -338,7 +339,8 @@
     const isSetAddress = !!am.set_address;  // [2026-06-24] 주소 미설정 카드
     const isRisk = !!am.risk_manual;  // [2026-06-26] 위험 문의 — 원장 직접답장(초안 없음·자동발송 X)
     const isReschedManual = !!am.reschedule_manual;  // [2026-06-28] 변경인데 대상 예약 0/2건+ → 원장 직접 확인
-    const noDraft = isRisk || isReschedManual;  // 초안·전송 버튼 숨기고 직접 처리 안내만
+    const isNoshow = !!am.noshow_manual;  // [2026-06-28] 지각·당일 불참 통보 — 자동답장 X, 원장 알림만
+    const noDraft = isRisk || isReschedManual || isNoshow;  // 초안·전송 버튼 숨기고 직접 처리 안내만
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
@@ -410,6 +412,32 @@
             인스타 DM 열기
           </a>
         </div>` : '';
+    // [2026-06-28] 지각·당일 불참 통보 — 자동답장 X, 원장 알림만. 지각(amber)/불참(red) 배지로 대응 구분.
+    //   예약을 자동으로 건드리지 않음(취소·변경 아님). 가장 가까운 예정 예약 시간·시술을 함께 표시.
+    const noshowBlock = isNoshow
+      ? (function () {
+          const late = am.noshow_kind === 'late';
+          const C = late
+            ? { bg: '#FFF7ED', bd: '#FED7AA', fg: '#C2410C', sub: '#9A3412', btn: '#C2410C' }
+            : { bg: '#FEF2F2', bd: '#FECACA', fg: '#DC2626', sub: '#991B1B', btn: '#DC2626' };
+          const head = late ? '지각 통보 — 손님이 늦어요' : '당일 취소/노쇼 — 손님이 못 와요';
+          const when = [am.time_disp, am.service_name].filter(Boolean).map(function (s) { return _esc(String(s)); }).join(' · ');
+          const icon = late
+            ? '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>'
+            : '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>';
+          return `<div style="display:flex;align-items:center;gap:8px;background:${C.bg};border:1px solid ${C.bd};border-radius:12px;padding:11px 13px;margin-bottom:10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${C.fg}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:700;color:${C.fg};">${head}</div>
+            <div style="font-size:11.5px;color:${C.sub};margin-top:1px;">${when ? when + ' 예약 · ' : ''}인스타에서 확인 후 직접 답장해 주세요</div>
+          </div>
+          <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:9px 12px;background:${C.btn};color:#fff;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            인스타 DM 열기
+          </a>
+        </div>`;
+        })()
+      : '';
     return `
       <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${(isBooking || it.action_required === 'reschedule_action') && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-reschedule="${it.action_required === 'reschedule_action' ? '1' : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
         ${_channelMark(it.channel)}
@@ -430,6 +458,7 @@
         ${photoAttachedBlock}
         ${riskBlock}
         ${reschedManualBlock}
+        ${noshowBlock}
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
