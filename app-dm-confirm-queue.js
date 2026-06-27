@@ -197,17 +197,24 @@
     const name = (ex && ex.name) || (am && am.name);
     const phone = (ex && ex.phone) || (am && am.phone);
     const svc = (am && am.service_name) || (ex && ex.service_interest) || '';
-    let wish = (am && (am.time_kst || am.requested_time)) || '';
-    // [2026-06-27 #4] 몇 순위로 잡혔는지 — 1순위 막혀 승격된 경우 원장이 확인하게 표시.
+    // [2026-06-27 (c)] 확정될 시간 + 손님이 1순위로 준 시간을 분리. 칩 표시는 날짜포함(_disp) 우선.
+    //   1순위가 막혀 n순위로 승격됐으면 1순위·n순위 칩 2개로 보여 원장이 확인하게.
+    const wish = (am && (am.time_disp || am.time_kst || am.requested_time)) || '';
     const rank = am && Number(am.booking_rank);
-    if (wish && rank && rank > 1) wish += ` (${rank}순위)`;
+    const primary = (am && (am.primary_disp || am.primary_time)) || '';
+    const promoted = !!(wish && rank && rank > 1 && primary && primary !== wish);
     const opts = (am && am.service_options) || {};
     const memo = (am && am.memo) || '';
     const chips = [];
     if (!_isMeaningless(name))  chips.push({ prefix: '성함', val: name });
     if (!_isMeaningless(phone)) chips.push({ prefix: '연락처', val: phone });
     if (!_isMeaningless(svc))   chips.push({ prefix: '시술', val: svc });
-    if (!_isMeaningless(wish))  chips.push({ prefix: '시간', val: wish });
+    if (promoted) {
+      if (!_isMeaningless(primary)) chips.push({ prefix: '1순위', val: primary });
+      if (!_isMeaningless(wish))    chips.push({ prefix: `${rank}순위`, val: wish });
+    } else if (!_isMeaningless(wish)) {
+      chips.push({ prefix: '시간', val: wish });
+    }
     if (!_isMeaningless(opts.length))  chips.push({ prefix: '인치', val: opts.length });
     if (!_isMeaningless(opts.color))   chips.push({ prefix: '색상', val: opts.color });
     if (!_isMeaningless(opts.remove))  chips.push({ prefix: '제거', val: opts.remove });
@@ -252,6 +259,7 @@
   function _mainBtnStyle(it) {
     const am = it.action_meta || {};
     if (it.action_required === 'send_form') return 'background:#191F28;';  // [A] 양식 보내기 → 검정(기본 CTA)
+    if (it.action_required === 'reschedule_action') return 'background:#191F28;';  // [2026-06-28] 옮기기 확정 → 검정
     if (am.deposit_sent) return 'background:#191F28;';  // [2026-06-27 #3] 입금 확인+예약 확정 → 검정(기본 CTA 통일)
     if (am.awaiting_deposit) return 'background:#BC6675;';  // 예약금 안내 → 로즈
     return 'background:#191F28;';
@@ -259,10 +267,27 @@
   function _mainBtnLabel(it) {
     const am = it.action_meta || {};
     if (it.action_required === 'send_form') return '양식 보내기';  // [A]
+    if (it.action_required === 'reschedule_action') return '변경 확정';  // [2026-06-28] 예약 변경
     if (am.set_address) return '주소 저장 + 보내기';  // [2026-06-24] 주소 미설정 카드
     if (am.deposit_sent) return '입금 확인 + 예약 확정';
     if (am.awaiting_deposit) return '예약금 안내 전송';
     return '전송';
+  }
+  // [2026-06-28] 예약 변경 확정 카드 — 기존 시각 → 옮길 시각을 한눈에.
+  function _rescheduleLine(am) {
+    if (!am || am.reschedule_manual || am.reschedule_ask) return '';
+    const to = am.time_disp || '';
+    if (!to) return '';
+    const from = am.old_time_disp || '';
+    const arrow = from
+      ? `<span style="color:#8B95A1;text-decoration:line-through;">${_esc(String(from))}</span>
+         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;"><path d="M5 12h14M13 6l6 6-6 6"/></svg> `
+      : '';
+    return `<div style="margin-top:8px;padding:9px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#BC6675;font-weight:700;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>예약 변경</span>
+      <span style="font-size:13px;color:#191F28;font-weight:600;">${arrow}${_esc(String(to))}</span>
+    </div>`;
   }
   // deposit_sent 단계: 메인 버튼이 [입금 확인+예약 확정]이므로 별도 버튼 불필요
   function _depositConfirmBtn(_it) { return ''; }
@@ -312,6 +337,8 @@
     const isBooking = it.action_required === 'booking_action';
     const isSetAddress = !!am.set_address;  // [2026-06-24] 주소 미설정 카드
     const isRisk = !!am.risk_manual;  // [2026-06-26] 위험 문의 — 원장 직접답장(초안 없음·자동발송 X)
+    const isReschedManual = !!am.reschedule_manual;  // [2026-06-28] 변경인데 대상 예약 0/2건+ → 원장 직접 확인
+    const noDraft = isRisk || isReschedManual;  // 초안·전송 버튼 숨기고 직접 처리 안내만
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
@@ -370,8 +397,21 @@
             인스타 DM 열기
           </a>
         </div>` : '';
+    // [2026-06-28] 변경 문의인데 옮길 예약을 특정 못함(0건/여러 건) — 원장이 직접 확인·처리.
+    const reschedManualBlock = isReschedManual
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:700;color:#C2410C;">예약 변경 — 직접 확인해 주세요</div>
+            <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">${am.reschedule_reason === 'multiple' ? '예정된 예약이 여러 건이라 어떤 걸 옮길지 확인이 필요해요.' : '옮길 예약을 못 찾았어요. 인스타에서 확인 후 직접 처리해 주세요.'}</div>
+          </div>
+          <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:9px 12px;background:#C2410C;color:#fff;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            인스타 DM 열기
+          </a>
+        </div>` : '';
     return `
-      <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${isBooking && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
+      <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${(isBooking || it.action_required === 'reschedule_action') && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-reschedule="${it.action_required === 'reschedule_action' ? '1' : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
         ${_channelMark(it.channel)}
         ${formAutoBadge}
         ${sendFormBadge}
@@ -389,13 +429,15 @@
         ${photoOnlyBlock}
         ${photoAttachedBlock}
         ${riskBlock}
+        ${reschedManualBlock}
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
+        ${_rescheduleLine(am)}
         ${_durationStepper(it)}
         ${_depositLine(am)}
         ${_confirmPreview(am)}
-        ${isRisk ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+        ${noDraft ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
@@ -404,9 +446,9 @@
           </div>
         </div>`}
         <div style="display:flex;gap:6px;margin-top:12px;">
-          ${(!isRisk && (!isFormAuto || _rawDraft)) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+          ${(!noDraft && (!isFormAuto || _rawDraft)) ? `<button class="dcq-send" data-act="${isSendForm ? 'send-form' : 'send'}" style="flex:1;padding:11px;border:none;${_mainBtnStyle(it)}color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>${_esc(_mainBtnLabel(it))}</button>` : ''}
-          ${(isRisk || isSendForm || isSetAddress || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
+          ${(noDraft || isSendForm || isSetAddress || am.deposit_sent || (isFormAuto && !_rawDraft)) ? '' : `<button class="dcq-edit-btn" data-act="edit" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>`}
           <button class="dcq-discard" data-act="discard" title="카드 무시 (정보 보존)" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>
         </div>
         ${_depositConfirmBtn(it)}
@@ -554,7 +596,7 @@
           if (_d2 > 0) _cbody.duration_min = _d2;
         }
         r = await _fetch('POST', `/dm-confirm-queue/${id}/confirm-deposit`, _cbody);
-        if (window.showToast) window.showToast(r.ok ? '입금 확인 + 예약 확정됐어요 ✓' : (r.message || '확정 실패'));
+        if (window.showToast) window.showToast(r.ok ? '캘린더 추가 + 고객 등록했어요 ✓' : (r.message || '확정 실패'));
       } else if (action === 'reset') {
         const ok = await window.nativeConfirm('대화 초기화', '이 손님의 대화를 초기화할까요?\n성함·연락처·예약 정보가 모두 사라져요.').catch(() => false);
         if (!ok) { btn.disabled = false; btn.style.opacity = '1'; return; }
@@ -574,8 +616,12 @@
       const undoLogId = r.log_id || r.action_log_id || null;
       // [F3] 전송 후 체크 토스트 — 밋밋한 "발송 완료" 대신 "전송했어요 ✓"
       const bookingYmd = card.dataset.bookingDate || '';
+      const isReschedule = card.dataset.reschedule === '1';  // [2026-06-28] 예약 변경 확정
       const isBookingCreated = isApproveSend && (r.booking_id || (action === 'send' && bookingYmd));
-      if (isBookingCreated && window.showToast) {
+      if (isReschedule && window.showToast) {
+        try { window.showToast('예약 옮겼어요 ✓ · 캘린더에서 보기 →', { onClick: () => _gotoCalendar(bookingYmd) }); }
+        catch (_t) { window.showToast('예약 옮겼어요 ✓'); }
+      } else if (isBookingCreated && window.showToast) {
         try { window.showToast('전송했어요 ✓ · 캘린더에서 보기 →', { onClick: () => _gotoCalendar(bookingYmd) }); }
         catch (_t) { if (window.showToast) window.showToast('전송했어요 ✓'); }
       } else if (isApproveSend && window.showToast) {
