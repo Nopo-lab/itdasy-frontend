@@ -131,7 +131,7 @@
   function _intentKo(i) {
     return { pricing: '가격 문의', booking: '예약 문의', hours: '영업시간', location: '위치 문의',
       review: '후기', greeting: '인사', complaint: '문의', reschedule: '예약 변경',
-      no_show: '지각/불참', unknown: '문의' }[i] || '문의';
+      no_show: '지각/불참', cancel_booking: '예약 취소', unknown: '문의' }[i] || '문의';
   }
   const _AVATAR_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
   function _gradeBadge(grade) {
@@ -269,6 +269,7 @@
     const am = it.action_meta || {};
     if (it.action_required === 'send_form') return '양식 보내기';  // [A]
     if (it.action_required === 'reschedule_action') return '변경 확정';  // [2026-06-28] 예약 변경
+    if (it.action_required === 'cancel_action') return '취소 확정';  // [2026-06-28] 예약 취소
     if (am.set_address) return '주소 저장 + 보내기';  // [2026-06-24] 주소 미설정 카드
     if (am.deposit_sent) return '입금 확인 + 예약 확정';
     if (am.awaiting_deposit) return '예약금 안내 전송';
@@ -288,6 +289,17 @@
       <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#BC6675;font-weight:700;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>예약 변경</span>
       <span style="font-size:13px;color:#191F28;font-weight:600;">${arrow}${_esc(String(to))}</span>
+    </div>`;
+  }
+  // [2026-06-28] 예약 취소 확정 카드 — 취소될 예약(시간·시술)을 취소선으로 한눈에.
+  function _cancelLine(am) {
+    if (!am) return '';
+    const when = [am.time_disp, am.service_name].filter(Boolean).map(function (s) { return _esc(String(s)); }).join(' · ');
+    if (!when) return '';
+    return `<div style="margin-top:8px;padding:9px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#BC6675;font-weight:700;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="m9 16 6-6M15 16l-6-6"/></svg>예약 취소</span>
+      <span style="font-size:13px;color:#8B95A1;font-weight:600;text-decoration:line-through;">${when}</span>
     </div>`;
   }
   // deposit_sent 단계: 메인 버튼이 [입금 확인+예약 확정]이므로 별도 버튼 불필요
@@ -340,7 +352,8 @@
     const isRisk = !!am.risk_manual;  // [2026-06-26] 위험 문의 — 원장 직접답장(초안 없음·자동발송 X)
     const isReschedManual = !!am.reschedule_manual;  // [2026-06-28] 변경인데 대상 예약 0/2건+ → 원장 직접 확인
     const isNoshow = !!am.noshow_manual;  // [2026-06-28] 지각·당일 불참 통보 — 자동답장 X, 원장 알림만
-    const noDraft = isRisk || isReschedManual || isNoshow;  // 초안·전송 버튼 숨기고 직접 처리 안내만
+    const isCancelManual = !!am.cancel_manual;  // [2026-06-28] 취소인데 대상 예약 0/2건+ → 원장 직접 확인
+    const noDraft = isRisk || isReschedManual || isNoshow || isCancelManual;  // 초안·전송 버튼 숨기고 직접 처리 안내만
     const pic = (it.profile_pic || '').trim();
     const avImg = pic
       ? `<img src="${_esc(pic)}" referrerpolicy="no-referrer" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:50%;">`
@@ -438,6 +451,19 @@
         </div>`;
         })()
       : '';
+    // [2026-06-28] 취소인데 대상 예약을 특정 못함(0건/여러 건) — 원장이 직접 확인·처리.
+    const cancelManualBlock = isCancelManual
+      ? `<div style="display:flex;align-items:center;gap:8px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:11px 13px;margin-bottom:10px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="m9 16 6-6M15 16l-6-6"/></svg>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12.5px;font-weight:700;color:#C2410C;">예약 취소 — 직접 확인해 주세요</div>
+            <div style="font-size:11.5px;color:#9A3412;margin-top:1px;">${am.cancel_reason === 'multiple' ? '예정된 예약이 여러 건이라 어떤 걸 취소할지 확인이 필요해요.' : '취소할 예약을 못 찾았어요. 인스타에서 확인 후 직접 처리해 주세요.'}</div>
+          </div>
+          <a href="${_esc(window.itdasyIgThreadLink ? window.itdasyIgThreadLink(it) : 'https://www.instagram.com/direct/inbox/')}" target="_blank" rel="noopener"
+            style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;padding:9px 12px;background:#C2410C;color:#fff;text-decoration:none;border-radius:11px;font-size:12px;font-weight:700;">
+            인스타 DM 열기
+          </a>
+        </div>` : '';
     return `
       <div class="dcq-item" data-id="${it.id}" data-channel="${_esc(_normChannel(it.channel))}" data-tail="${_esc(tail)}" data-sender="${_esc(it.sender_igsid || '')}" data-booking-date="${(isBooking || it.action_required === 'reschedule_action') && am.starts_at_iso ? _esc(String(am.starts_at_iso).split('T')[0]) : ''}" data-reschedule="${it.action_required === 'reschedule_action' ? '1' : ''}" data-am="${amJson}" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">
         ${_channelMark(it.channel)}
@@ -459,10 +485,12 @@
         ${riskBlock}
         ${reschedManualBlock}
         ${noshowBlock}
+        ${cancelManualBlock}
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
         ${_rescheduleLine(am)}
+        ${it.action_required === 'cancel_action' ? _cancelLine(am) : ''}
         ${_durationStepper(it)}
         ${_depositLine(am)}
         ${_confirmPreview(am)}
