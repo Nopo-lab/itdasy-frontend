@@ -11,7 +11,14 @@
 
 /* 스테이지 — 사진 + 레이어 + 드로잉 */
 .itded__stage{position:relative;flex:1 1 auto;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.itded__photowrap{position:absolute;inset:0;transform-origin:center center;will-change:transform}
 .itded__photo{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
+/* 콜라주(좌우2장/4장) */
+.itded__collage{position:absolute;inset:0;display:grid;gap:3px;background:#fff}
+.itded__collage[hidden]{display:none}
+.itded__collage.is-grid2{grid-template-columns:1fr 1fr}
+.itded__collage.is-grid4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.itded__cell{background-size:cover;background-position:center;background-repeat:no-repeat}
 .itded__frame{position:absolute;inset:0;pointer-events:none;z-index:2}
 .itded__draw{position:absolute;inset:0;z-index:3;touch-action:none}
 .itded__draw.is-armed{cursor:crosshair}
@@ -26,6 +33,9 @@
   color:#fff;display:none;place-items:center;z-index:5}
 .itl.is-active .itl__del{display:grid}
 .itl__del svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.4}
+.itl__rot{position:absolute;right:-12px;bottom:-12px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:grab;touch-action:none}
+.itl.is-active .itl__rot{display:grid}
+.itl__rot svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.2}
 .itl-text{color:#fff;font-weight:800;line-height:1.16;text-align:center;white-space:pre-wrap;outline:none;
   text-shadow:0 1px 12px rgba(0,0,0,.4);padding:6px 10px;min-width:30px}
 .itl-text[contenteditable="true"]{cursor:text}

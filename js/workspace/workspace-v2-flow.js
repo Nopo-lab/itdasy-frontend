@@ -346,6 +346,7 @@
     d._editorOpenRoles = layers.filter(function (l) { return l.type === 'text' && l.role; }).map(function (l) { return l.role; });
     Editor.open({
       photoUrl: photo,
+      photos: (editablePhotos() || []).map(function (p) { return _cleanBase(p) || photoUrl(p); }),   // [itd] 좌우2장/4장 콜라주용
       ratio: built.ratio,
       layers: layers,
       autoArranged: autoArranged,
@@ -1447,7 +1448,7 @@
       '</div>' +
       // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
       // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
-      ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 꾸미기</button>' : '') +
+      ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
 		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +

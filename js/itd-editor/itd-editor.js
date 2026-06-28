@@ -17,10 +17,10 @@
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
   var EMOJI = ['💄', '💅', '🔥', '😍', '🥰', '💎', '🌟', '🫶', '💖', '🌿', '☁️', '🎉'];
   var LAYOUTS = [
-    { key: 'none', label: '기본',     frame: '' },
-    { key: 'soft', label: '감성 무드', frame: 'fr-soft' },
-    { key: 'mini', label: '미니멀',   frame: 'fr-mini' },
-    { key: 'black', label: '블랙',    frame: 'fr-black' }
+    { key: 'single', label: '1장',     kind: 'single', frame: '' },
+    { key: 'soft',   label: '감성 무드', kind: 'single', frame: 'fr-soft' },
+    { key: 'duo',    label: '좌우 2장', kind: 'grid2' },
+    { key: 'quad',   label: '4장',     kind: 'grid4' }
   ];
   var BRUSHES = ['pen', 'marker', 'neon', 'eraser'];
 
@@ -54,7 +54,7 @@
     root = el('div', 'itded');
     root.innerHTML =
       '<div class="itded__stage" data-r="stage">' +
-        '<div class="itded__photo" data-r="photo"></div>' +
+        '<div class="itded__photowrap" data-r="photowrap"><div class="itded__photo" data-r="photo"></div><div class="itded__collage" data-r="collage" hidden></div></div>' +
         '<div class="itded__scrim"></div>' +
         '<div class="itded__frame" data-r="frame"></div>' +
         '<canvas class="itded__draw" data-r="draw"></canvas>' +
@@ -78,7 +78,8 @@
 
   function buildText() {
     var fonts = FONTS.map(function (f, i) {
-      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" style="font-family:' + f.family + (f.key === 'pen' ? ';font-size:20px' : '') + '">' + f.label + '</button>';
+      // 칩에는 폰트 이름 대신 그 폰트로 렌더된 샘플 글자(Aa가) — 인스타식
+      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + (f.key === 'pen' ? ';font-size:22px' : '') + '">Aa가</button>';
     }).join('');
     var colors = COLORS.map(function (c, i) {
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
@@ -137,7 +138,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photo', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'arc', 'layName', 'brushSize'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'arc', 'layName', 'brushSize'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -161,10 +162,12 @@
   /* ── 레이어 공통(드래그) ── */
   function makeLayer(type) {
     var box = el('div', 'itl');
-    box.innerHTML = '<button class="itl__del">' + svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.4) + '</button>';
-    var L = { type: type, el: box, x: 0, y: 0, scale: 1 };
+    box.innerHTML = '<button class="itl__del">' + svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.4) + '</button>' +
+      '<button class="itl__rot">' + svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', 2.2) + '</button>';
+    var L = { type: type, el: box, x: 0, y: 0, scale: 1, rot: 0 };
     box.addEventListener('pointerdown', function (e) { onLayerDown(e, L); });
     box.querySelector('.itl__del').addEventListener('click', function (e) { e.stopPropagation(); removeLayer(L); });
+    box.querySelector('.itl__rot').addEventListener('pointerdown', function (e) { onRotDown(e, L); });
     refs.layers.appendChild(box);
     S.layers.push(L);
     return L;
@@ -175,7 +178,14 @@
     L.y = r.height / 2 - (h || L.el.offsetHeight) / 2;
     applyXf(L);
   }
-  function applyXf(L) { L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) scale(' + L.scale + ')'; }
+  function applyXf(L) { L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')'; }
+  var rotd = null;
+  function onRotDown(e, L) {
+    e.preventDefault(); e.stopPropagation(); selectLayer(L);
+    var b = L.el.getBoundingClientRect();
+    rotd = { L: L, cx: b.left + b.width / 2, cy: b.top + b.height / 2, start: (L.rot || 0), a0: Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) };
+    try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
+  }
   function selectLayer(L) {
     S.active = L;
     S.layers.forEach(function (x) { x.el.classList.toggle('is-active', x === L); });
@@ -195,12 +205,40 @@
     L.el.style.cursor = 'grabbing';
   }
   document.addEventListener('pointermove', function (e) {
+    if (rotd) {
+      var a = Math.atan2(e.clientY - rotd.cy, e.clientX - rotd.cx);
+      rotd.L.rot = rotd.start + (a - rotd.a0) * 180 / Math.PI; applyXf(rotd.L); return;
+    }
     if (!drag) return;
     drag.L.x = drag.ox + (e.clientX - drag.sx);
     drag.L.y = drag.oy + (e.clientY - drag.sy);
     applyXf(drag.L);
   });
-  document.addEventListener('pointerup', function () { if (drag) { drag.L.el.style.cursor = 'grab'; drag = null; } });
+  document.addEventListener('pointerup', function () { if (drag) { drag.L.el.style.cursor = 'grab'; drag = null; } rotd = null; });
+
+  /* ── 사진 핀치 확대/이동 (두 손가락, 빈 배경에서) ── */
+  var pinchPts = {}, pinch0 = null;
+  function pdist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+  function applyPz() { refs.photowrap.style.transform = 'translate(' + S.pz.tx + 'px,' + S.pz.ty + 'px) scale(' + S.pz.scale + ')'; }
+  function stageDown(e) {
+    if (S.tool === 'draw' || (e.target.closest && (e.target.closest('.itl') || e.target.closest('.itrb') || e.target.closest('.itpanel')))) return;
+    pinchPts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pinchPts);
+    if (ids.length === 2) { var a = pinchPts[ids[0]], b = pinchPts[ids[1]]; pinch0 = { d: pdist(a, b), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, s: S.pz.scale, tx: S.pz.tx, ty: S.pz.ty }; }
+  }
+  function stageMove(e) {
+    if (!pinchPts[e.pointerId]) return;
+    pinchPts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(pinchPts);
+    if (ids.length === 2 && pinch0) {
+      var a = pinchPts[ids[0]], b = pinchPts[ids[1]], d = pdist(a, b);
+      S.pz.scale = Math.max(1, Math.min(4, pinch0.s * d / pinch0.d));
+      S.pz.tx = pinch0.tx + ((a.x + b.x) / 2 - pinch0.mx);
+      S.pz.ty = pinch0.ty + ((a.y + b.y) / 2 - pinch0.my);
+      applyPz();
+    }
+  }
+  function stageUp(e) { delete pinchPts[e.pointerId]; if (Object.keys(pinchPts).length < 2) pinch0 = null; }
 
   /* ── 텍스트 ── */
   function addText() {
@@ -261,7 +299,20 @@
     refs.frame.className = 'itded__frame ' + (S.layout.frame || '');
     refs.layName.textContent = S.layout.label;
     root.querySelectorAll('.itfan').forEach(function (f, idx) { f.classList.toggle('on', idx === i); });
-    layoutFanPositions();
+    renderCollage(); layoutFanPositions();
+  }
+  // 콜라주(좌우2장/4장) — 단일이면 collage 숨기고 단일 사진. grid면 N칸 사진.
+  function renderCollage() {
+    var kind = S.layout.kind || 'single';
+    if (kind === 'single') { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; return; }
+    var n = kind === 'grid4' ? 4 : 2;
+    refs.collage.className = 'itded__collage is-' + kind;
+    var cells = '';
+    for (var k = 0; k < n; k++) {
+      var url = S.photos[k] || S.photos[k % S.photos.length] || S.photoUrl;
+      cells += '<div class="itded__cell" style="background-image:url(\'' + url + '\')"></div>';
+    }
+    refs.collage.innerHTML = cells; refs.collage.hidden = false;
   }
 
   /* ── 그리기 ── */
@@ -293,39 +344,60 @@
   }
   function drawUp() { dpos = null; }
 
-  /* ── 합성 내보내기 ── */
+  /* ── 합성 내보내기 (사진 줌·콜라주·레이어 회전 반영) ── */
+  function loadImg(url) { return new Promise(function (res) { var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = url; }); }
+  function coverRect(im, w, h) { var sc = Math.max(w / im.width, h / im.height); return { dw: im.width * sc, dh: im.height * sc }; }
   function exportComposite(cb) {
     var r = refs.stage.getBoundingClientRect();
     var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
-    var W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
-    var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var cv = document.createElement('canvas'); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
     var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var img = new Image(); img.crossOrigin = 'anonymous';
-    img.onload = function () {
-      // cover
-      var iw = img.width, ih = img.height, sc = Math.max(r.width / iw, r.height / ih);
-      var dw = iw * sc, dh = ih * sc;
-      c.drawImage(img, (r.width - dw) / 2, (r.height - dh) / 2, dw, dh);
+    var kind = S.layout.kind || 'single';
+    var baseDone;
+    if (kind === 'single') {
+      baseDone = loadImg(S.photoUrl).then(function (img) {
+        if (!img) return; var cr = coverRect(img, r.width, r.height);
+        c.save();
+        c.translate(S.pz.tx, S.pz.ty); c.translate(r.width / 2, r.height / 2); c.scale(S.pz.scale, S.pz.scale); c.translate(-r.width / 2, -r.height / 2);
+        c.drawImage(img, (r.width - cr.dw) / 2, (r.height - cr.dh) / 2, cr.dw, cr.dh);
+        c.restore();
+      });
+    } else {
+      var n = kind === 'grid4' ? 4 : 2;
+      var urls = []; for (var k = 0; k < n; k++) urls.push(S.photos[k] || S.photos[k % S.photos.length] || S.photoUrl);
+      baseDone = Promise.all(urls.map(loadImg)).then(function (imgs) {
+        var cols = kind === 'grid4' ? 2 : 2, rows = kind === 'grid4' ? 2 : 1;
+        if (kind === 'grid2') { cols = 2; rows = 1; }
+        var cw = r.width / cols, ch = r.height / rows;
+        imgs.forEach(function (img, idx) {
+          if (!img) return; var cxp = (idx % cols) * cw, cyp = Math.floor(idx / cols) * ch;
+          var cr = coverRect(img, cw, ch);
+          c.save(); c.beginPath(); c.rect(cxp + 1, cyp + 1, cw - 2, ch - 2); c.clip();
+          c.drawImage(img, cxp + (cw - cr.dw) / 2, cyp + (ch - cr.dh) / 2, cr.dw, cr.dh); c.restore();
+        });
+      });
+    }
+    baseDone.then(function () {
       c.drawImage(refs.draw, 0, 0, r.width, r.height);   // 드로잉
       S.layers.forEach(function (L) {
         var b = L.el.getBoundingClientRect();
         var cx = b.left - r.left + b.width / 2, cy = b.top - r.top + b.height / 2;
+        c.save(); c.translate(cx, cy); if (L.rot) c.rotate(L.rot * Math.PI / 180);
         if (L.type === 'sticker') {
           c.font = (L.fontSize * L.scale) + 'px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-          c.fillText(L.emoji, cx, cy);
+          c.fillText(L.emoji, 0, 0);
         } else {
           var lines = (L.text || '').split('\n'); var fs = L.fontSize * L.scale;
           c.font = L.font.weight + ' ' + fs + 'px ' + L.font.family; c.fillStyle = L.color;
           c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowBlur = 8; c.shadowColor = 'rgba(0,0,0,.35)';
-          var total = lines.length * fs * 1.16, sy = cy - total / 2 + fs * 0.58;
-          lines.forEach(function (ln, i) { c.fillText(ln, cx, sy + i * fs * 1.16); });
+          var total = lines.length * fs * 1.16, sy = -total / 2 + fs * 0.58;
+          lines.forEach(function (ln, i) { c.fillText(ln, 0, sy + i * fs * 1.16); });
           c.shadowBlur = 0;
         }
+        c.restore();
       });
-      try { cb(cv.toDataURL('image/jpeg', 0.92)); } catch (e) { cb(null); }
-    };
-    img.onerror = function () { cb(null); };
-    img.src = S.photoUrl;
+      try { cb(cv.toDataURL('image/jpeg', 0.92)); } catch (e) { void e; cb(null); }
+    });
   }
 
   /* ── 배선 ── */
@@ -349,6 +421,11 @@
     refs.draw.addEventListener('pointerdown', drawDown);
     refs.draw.addEventListener('pointermove', drawMove);
     refs.draw.addEventListener('pointerup', drawUp);
+    // 사진 핀치 확대/이동
+    refs.stage.addEventListener('pointerdown', stageDown);
+    refs.stage.addEventListener('pointermove', stageMove);
+    refs.stage.addEventListener('pointerup', stageUp);
+    refs.stage.addEventListener('pointercancel', stageUp);
     // 닫기/완료
     refs.cancel.addEventListener('click', function () { close(); if (S && S.onCancel) S.onCancel(); });
     refs.done.addEventListener('click', function () {
@@ -371,12 +448,16 @@
     opts = opts || {};
     if (!root) build();
     var photo = opts.photo || opts.photoUrl || '';   // StoryEditor 계약(photoUrl) 호환
+    var photos = (opts.photos && opts.photos.length) ? opts.photos.slice() : [photo];
     S = { layers: [], active: null, tool: 'text', layout: LAYOUTS[0],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
-      photoUrl: photo, photoCss: 'url("' + photo + '")',
+      photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
+      pz: { scale: 1, tx: 0, ty: 0 },
       onDone: opts.onDone, onCancel: opts.onCancel };
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
     refs.photo.style.backgroundImage = S.photoCss;
+    refs.collage.hidden = true; refs.collage.innerHTML = '';
+    refs.photowrap.style.transform = '';
     root.classList.add('is-open');
     requestAnimationFrame(function () { initCanvas(); setTool('text'); });
   }
