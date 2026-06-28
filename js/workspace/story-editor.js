@@ -342,13 +342,27 @@
   }
 
   // ── AI 자동 배치 배너 ─────────────────────────────────────
+  // [v591·#5] 배치 변형안 미니 썸네일(베이크 없이 CSS 막대로 표현) — 순환 대신 4개를 한눈에 보고 탭해 고른다.
+  function _arrangeStripHtml() {
+    return '<div class="se-arrrow" role="group" aria-label="배치안 고르기">' + ARRANGE.map(function (v, i) {
+      var bars = ['title', 'sub', 'body'].map(function (role) {
+        var p = v[role]; if (!p) return '';
+        var left = p.align === 'left' ? '16%' : (p.align === 'right' ? '84%' : '50%');
+        var tx = p.align === 'center' ? 'translate(-50%,-50%)' : (p.align === 'right' ? 'translate(-100%,-50%)' : 'translate(0,-50%)');
+        var w = role === 'title' ? '62%' : (role === 'sub' ? '48%' : '38%');
+        var h = role === 'title' ? 3 : 2;
+        return '<i style="top:' + (p.y * 100) + '%;left:' + left + ';width:' + w + ';height:' + h + 'px;transform:' + tx + '"></i>';
+      }).join('');
+      return '<button class="se-arr' + (i === S.arrangeIdx ? ' on' : '') + '" data-se-arrange="' + i + '" aria-label="배치 ' + esc(v.name) + '" title="' + esc(v.name) + '"><span class="se-arr__box">' + bars + '</span></button>';
+    }).join('') + '</div>';
+  }
   function _renderBanner() {
     var b = S.root.querySelector('[data-se-banner]');
     if (!S.autoArranged) { b.hidden = true; b.innerHTML = ''; return; }
     b.hidden = false;
     b.innerHTML =
-      '<span class="se-banner__t"><i class="ph-duotone ph-sparkle"></i> AI 자동 배치 완료</span>' +
-      '<button class="se-banner__re" data-se="relayout"><i class="ph-duotone ph-arrows-clockwise"></i> AI 다시 배치</button>' +
+      '<span class="se-banner__t"><i class="ph-duotone ph-sparkle"></i> 배치</span>' +
+      _arrangeStripHtml() +
       '<button class="se-banner__x" data-se="banner-x" aria-label="닫기"><i class="ph-duotone ph-x"></i></button>';
   }
 
@@ -413,6 +427,7 @@
     });
     // 패널 컨트롤
     root.addEventListener('click', function (e) {
+      var ar = e.target.closest('[data-se-arrange]'); if (ar) { _relayout(+ar.getAttribute('data-se-arrange')); return; }   // [v591·#5] 배치안 탭 → 적용
       var pt = e.target.closest('[data-se-ptab]'); if (pt && pt.hasAttribute('data-se-ptab')) { S.panelTab = pt.getAttribute('data-se-ptab'); _renderPanel(); return; }
       var fc = e.target.closest('[data-se-font]'); if (fc) { _patch({ font: fc.getAttribute('data-se-font') }); return; }
       var cc = e.target.closest('[data-se-color]'); if (cc) { _patch({ color: cc.getAttribute('data-se-color') }); return; }

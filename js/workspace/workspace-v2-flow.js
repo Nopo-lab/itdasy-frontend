@@ -224,6 +224,48 @@
   }
   // [v587] 깨끗한 합성 기준 사진 — 편집기·자동합성 모두 '텍스트가 안 박힌 원본' 위에 올린다(이중 합성 방지).
   function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
+  // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
+  //   근사 흰/검 제외하고 5비트 버킷 빈도순 상위색 반환. 폰트/로고 자동추출은 부정확해 미지원(수동).
+  function _extractPalette(url, cb) {
+    try {
+      var img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var n = 28, c = document.createElement('canvas'); c.width = n; c.height = n;
+          var g = c.getContext('2d'); g.drawImage(img, 0, 0, n, n);
+          var data = g.getImageData(0, 0, n, n).data, buckets = {};
+          for (var i = 0; i < data.length; i += 4) {
+            var r = data[i], gg = data[i + 1], b = data[i + 2], a = data[i + 3];
+            if (a < 128) continue;
+            var mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+            if (mx > 240 && mn > 228) continue;   // 근사 흰색 제외
+            if (mx < 26) continue;                 // 근사 검정 제외
+            var key = (r >> 5) + ',' + (gg >> 5) + ',' + (b >> 5);
+            var k = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+            k.n++; k.r += r; k.g += gg; k.b += b;
+          }
+          var arr = Object.keys(buckets).map(function (key) { var k = buckets[key]; return { n: k.n, r: Math.round(k.r / k.n), g: Math.round(k.g / k.n), b: Math.round(k.b / k.n) }; });
+          arr.sort(function (x, y) { return y.n - x.n; });
+          cb(arr.slice(0, 6).map(function (k) { return '#' + [k.r, k.g, k.b].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }));
+        } catch (_e) { cb([]); }
+      };
+      img.onerror = function () { cb([]); };
+      img.src = url;
+    } catch (_e) { cb([]); }
+  }
+  // [v591·#6] 추천 색 탭 → 활성 우리샵 스타일의 모든 텍스트 역할 글자색에 적용(저장 + 미리보기 재합성).
+  function _applyBrandColor(hex) {
+    try {
+      var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
+      var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
+      var TEXT = { title: 1, sub: 1, body: 1, hashtag: 1 };
+      var layers = ss.layers.map(function (L) { return TEXT[L.role] ? Object.assign({}, L, { color: hex }) : L; });
+      SS.save(ss.id, { layers: layers });
+      (d.photos || []).forEach(function (p) { p._tplSig = null; });   // 미리보기 재합성 유도
+      toast('우리샵 글자색을 바꿨어요');
+      setScreen('caption');
+    } catch (_e) { void _e; }
+  }
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
   function _buildShopStyleLayers() {
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
@@ -1332,7 +1374,8 @@
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
 	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
 	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>') : '';
+	          '</div>' +
+          ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
 	          '<label class="cap-field-label">시술 내용</label>' +
@@ -1466,6 +1509,19 @@
     }
     // [v589·#3] 결과 화면이면 각 사진에 우리샵 스타일 적용 미리보기 합성(원본은 보존, 결과 표시 전용).
     if (String(d.caption || '').trim()) _autoComposeTemplate();
+    // [v591·#6] 입력 화면 + 스타일 ON + 사진 있으면 — 사진에서 추천 색 추출해 팔레트 채움(클라이언트, 무료).
+    var pal = el.querySelector('[data-fl-palette]');
+    if (pal && !String(d.caption || '').trim() && d.useShopStyle !== false && !d.textOnly) {
+      var cp = curPhoto();
+      if (cp && cp.dataUrl) {
+        _extractPalette(cp.dataUrl, function (cols) {
+          if (!cols.length || !pal.isConnected) return;
+          pal.innerHTML = '<span class="cap-palette__label">이 사진에서 뽑은 색 · 탭하면 글자색에 적용</span>' +
+            '<div class="cap-palette__row">' + cols.map(function (h) { return '<button type="button" class="cap-pal" data-fl-brandcolor="' + esc(h) + '" style="background:' + esc(h) + '" aria-label="' + esc(h) + '"></button>'; }).join('') + '</div>';
+          pal.hidden = false;
+        });
+      }
+    }
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -1996,6 +2052,7 @@
       var cpr = t.closest('[data-fl-cpersona]'); if (cpr) { if (cpr.hasAttribute('disabled')) { toast('인스타를 연동하고 말투를 분석하면 켤 수 있어요'); return; } d.capUsePersona = !(d.capUsePersona === true); setScreen('caption'); return; }
       // [Phase A-2] 우리샵 스타일 적용 토글 — 생성 직전 syncServiceFromDom 으로 입력 보존 후 재렌더.
       var css = t.closest('[data-fl-cshopstyle]'); if (css) { syncServiceFromDom(); d.useShopStyle = !(d.useShopStyle !== false); setScreen('caption'); return; }
+      var bc = t.closest('[data-fl-brandcolor]'); if (bc) { syncServiceFromDom(); _applyBrandColor(bc.getAttribute('data-fl-brandcolor')); return; }   // [v591·#6] 추천색 적용
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {

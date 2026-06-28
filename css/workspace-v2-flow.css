@@ -435,6 +435,12 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-stylecard__tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .wsv2flow .cap-stylecard__tx b { font-size: 13.5px; font-weight: 800; color: var(--text); }
 .wsv2flow .cap-stylecard__tx b em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--brand-strong); background: var(--brand-bg); padding: 1px 6px; border-radius: var(--r-pill); margin-left: 4px; vertical-align: 1px; }
+/* [v591·#6] 사진에서 뽑은 추천 색 — 탭하면 우리샵 글자색에 적용. */
+.wsv2flow .cap-palette { margin: -10px 0 18px; }
+.wsv2flow .cap-palette__label { display: block; font-size: 11.5px; color: var(--text-subtle); margin-bottom: 7px; }
+.wsv2flow .cap-palette__row { display: flex; gap: 9px; flex-wrap: wrap; }
+.wsv2flow .cap-pal { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); cursor: pointer; padding: 0; }
+.wsv2flow .cap-pal:active { transform: scale(.9); }
 .wsv2flow .cap-stylecard__tx small { font-size: 11px; color: var(--text-subtle); font-weight: 500; }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
