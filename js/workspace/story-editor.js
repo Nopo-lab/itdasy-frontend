@@ -168,11 +168,25 @@
     S.layers.forEach(function (l) { S.stage.appendChild(_layerEl(l)); });
   }
 
+  // [stability] 드래그·핀치·회전 중 DOM 재생성 없이 기존 노드만 갱신(제스처 대상 노드 보존 → 핀치 끊김 방지).
+  function _liveUpdate(l) {
+    var node = S.stage.querySelector('[data-se-layer="' + l.id + '"]'); if (!node) return;
+    node.style.left = (l.x * 100) + '%'; node.style.top = (l.y * 100) + '%'; node.style.width = (l.w * 100) + '%';
+    node.style.transform = 'translate(-50%,-50%) rotate(' + l.rot + 'deg)';
+    node.style.opacity = l.opacity;
+    var inner = node.firstChild;
+    if (inner && inner.style && l.type !== 'image') {
+      var rect = S.stage.getBoundingClientRect();
+      inner.style.fontSize = (l.size * Math.min(rect.width || 320, rect.height || 400)) + 'px';
+    }
+  }
+
   function _layerEl(l) {
     var rect = S.stage.getBoundingClientRect();
     var shortSide = Math.min(rect.width || 320, rect.height || 400);
     var el = document.createElement('div');
-    el.className = 'se-layer se-layer--' + l.type + (l.id === S.selId ? ' sel' : '');
+    el.className = 'se-layer se-layer--' + l.type + (l.id === S.selId ? ' sel' : '') + (l._justAdded ? ' se-layer--pop' : '');
+    if (l._justAdded) l._justAdded = false;   // 등장 애니메이션은 최초 1회만
     el.setAttribute('data-se-layer', l.id);
     el.style.left = (l.x * 100) + '%'; el.style.top = (l.y * 100) + '%'; el.style.width = (l.w * 100) + '%';
     el.style.transform = 'translate(-50%,-50%) rotate(' + l.rot + 'deg)';
@@ -212,20 +226,10 @@
   function _deselect() { if (S.selId !== null) { S.selId = null; _renderStage(); _renderPanel(); } }
 
   // ── 컨텍스트 패널(선택 시에만) ─────────────────────────────
+  // [stability] 패널은 사진을 밀지 않는 오버레이(CSS absolute). 사진 위치/크기는 절대 안 바뀜 → 재맞춤 호출 제거.
   function _renderPanel() {
     var panel = S.root.querySelector('[data-se-panel]');
     var l = _selLayer();
-    var nowHidden = !l;
-    if (S._panelHidden !== nowHidden) {
-      S._panelHidden = nowHidden;
-      var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
-      raf(function () {
-        if (!S || !S.stage) return;
-        _fitStage();
-        var ae = document.activeElement;
-        if (!(ae && ae.classList && ae.classList.contains('se-layer__txt'))) _renderStage();
-      });
-    }
     if (!l) { panel.hidden = true; panel.innerHTML = ''; return; }
     panel.hidden = false;
     panel.innerHTML = (l.type === 'text') ? _textPanel(l) : _objPanel(l);
@@ -301,10 +305,12 @@
   function _closeSheet() { var sheet = S.root.querySelector('[data-se-sheet]'); sheet.hidden = true; sheet.innerHTML = ''; }
   function _addSticker(asset) {
     var l = _normLayer({ type: asset.type, text: asset.text, bg: asset.bg, color: asset.color, role: 'sticker', x: 0.5, y: 0.42, size: 0.06, w: 0.4 });
+    l._justAdded = true;
     S.layers.push(l); _closeSheet(); _select(l.id); _renderStage(); _snapshot();
   }
   function _addEmoji(glyph) {
     var l = _normLayer({ type: 'emoji', text: glyph, role: 'sticker', x: 0.5, y: 0.42, size: 0.14, w: 0.22 });
+    l._justAdded = true;
     S.layers.push(l); _closeSheet(); _select(l.id); _renderStage(); _snapshot();
   }
 
@@ -360,6 +366,7 @@
     var fr = new FileReader();
     fr.onload = function () {
       var l = _normLayer({ type: 'image', src: fr.result, role: 'sticker', x: 0.5, y: 0.42, w: 0.4 });
+      l._justAdded = true;
       S.layers.push(l); _select(l.id); _renderStage(); _snapshot();
     };
     fr.readAsDataURL(file);
@@ -373,6 +380,7 @@
   }
   function _addText() {
     var l = _normLayer({ text: '새 텍스트', role: 'body', x: 0.5, y: 0.4, w: 0.8, size: 0.07, align: 'center' });
+    l._justAdded = true;
     S.layers.push(l); _select(l.id); _renderStage(); _snapshot();
     var node = S.stage.querySelector('[data-se-layer="' + l.id + '"] .se-layer__txt'); if (node) { node.focus(); if (document.execCommand) try { document.execCommand('selectAll', false, null); } catch (_e) { void _e; } }
   }
@@ -406,15 +414,14 @@
         var ang = Math.atan2(e.clientY - sp.cy, e.clientX - sp.cx) * 180 / Math.PI;
         var dist = Math.hypot(e.clientX - sp.cx, e.clientY - sp.cy);
         l.rot = Math.round(ang + 90);
-        l.size = clamp(dist / Math.min(sp.w, sp.h) * 0.5, 0.02, 0.32);
-        _renderStage(); return;
+        l.size = clamp(dist / Math.min(sp.w, sp.h) * 0.5, 0.02, 0.5);
+        _liveUpdate(l); return;
       }
       if (drag) {
         var ld = _selByIdHelper(drag.id);
         ld.x = clamp(drag.ox + (e.clientX - drag.startX) / drag.sp.w, 0.02, 0.98);
         ld.y = clamp(drag.oy + (e.clientY - drag.startY) / drag.sp.h, 0.02, 0.98);
-        var node = S.stage.querySelector('[data-se-layer="' + drag.id + '"]');
-        if (node) { node.style.left = (ld.x * 100) + '%'; node.style.top = (ld.y * 100) + '%'; }
+        _liveUpdate(ld);
       }
     });
     function end() { if (drag || rotsz) { drag = null; rotsz = null; _renderStage(); _renderPanel(); _snapshot(); } }
@@ -425,15 +432,18 @@
     var pinch = null;
     S.stage.addEventListener('touchmove', function (e) {
       if (e.touches.length !== 2) return;
-      var host = e.target.closest('[data-se-layer]'); if (!host) return;
-      var l = _selByIdHelper(host.getAttribute('data-se-layer')); if (!l) return; e.preventDefault();
+      // 두 손가락이 레이어를 정확히 안 짚어도 '선택된 레이어'를 대상으로 핀치(견고화).
+      var host = e.target.closest('[data-se-layer]');
+      var l = host ? _selByIdHelper(host.getAttribute('data-se-layer')) : _selLayer();
+      if (!l) return; e.preventDefault();
       var t1 = e.touches[0], t2 = e.touches[1];
       var dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
       var ang = Math.atan2(t2.clientY - t1.clientY, t2.clientX - t1.clientX) * 180 / Math.PI;
-      if (!pinch || pinch.id !== l.id) { pinch = { id: l.id, d0: dist, a0: ang, s0: l.size, r0: l.rot }; return; }
-      l.size = clamp(pinch.s0 * (dist / pinch.d0), 0.02, 0.32); l.rot = Math.round(pinch.r0 + (ang - pinch.a0)); _renderStage();
+      if (!pinch || pinch.id !== l.id) { pinch = { id: l.id, d0: dist, a0: ang, s0: l.size, r0: l.rot }; if (S.selId !== l.id) _select(l.id); return; }
+      l.size = clamp(pinch.s0 * (dist / pinch.d0), 0.02, 0.5); l.rot = Math.round(pinch.r0 + (ang - pinch.a0));
+      _liveUpdate(l);   // DOM 재생성 없이 갱신 → 제스처 노드 보존(핀치 안 끊김)
     }, { passive: false });
-    S.stage.addEventListener('touchend', function (e) { if (e.touches.length < 2 && pinch) { pinch = null; _renderStage(); _snapshot(); } });
+    S.stage.addEventListener('touchend', function (e) { if (e.touches.length < 2 && pinch) { pinch = null; _renderStage(); _renderPanel(); _snapshot(); } });
   }
 
   function _removeLayer(id) {
