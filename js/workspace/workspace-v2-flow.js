@@ -234,7 +234,7 @@
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
         d.previewUrl = null;
         if (cur === 'caption') setScreen('caption');
-        toast('사진에 글자를 넣었어요');
+        toast('사진을 꾸몄어요');
       }
     });
   }
@@ -1296,7 +1296,7 @@
       '<label class="cap-field-label">해시태그 <span>직접 고치거나 추가할 수 있어요</span></label>' +
       '<textarea class="cap-hashedit" data-fl-caphashedit rows="2" placeholder="#해시태그 #예시">' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</textarea>' +
       // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
-      ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진에 글자 넣기</button>' : '') +
+      ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 꾸미기</button>' : '') +
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
 		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +

@@ -29,13 +29,15 @@
   function toast(m) { if (window.showToast) window.showToast(m); }
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
+  // [v582] font-family 값은 홑따옴표 — 쌍따옴표는 인라인 style="font-family:..." 속성을 깨뜨림(폰트칩 미적용 버그).
   var FONTS = [
     { v: 'Pretendard', l: 'Pretendard' },
-    { v: '"Apple SD Gothic Neo", Pretendard, sans-serif', l: '애플산돌고딕' },
-    { v: '"Nanum Myeongjo", serif', l: '나눔명조' },
-    { v: '"Gowun Dodum", sans-serif', l: '고운돋움' }
+    { v: "'Apple SD Gothic Neo', Pretendard, sans-serif", l: '애플산돌고딕' },
+    { v: "'Nanum Myeongjo', serif", l: '나눔명조' },
+    { v: "'Gowun Dodum', sans-serif", l: '고운돋움' }
   ];
-  var COLORS = ['#ffffff', '#000000', '#D58A95', '#1f1f1f', '#f7d9df', '#3b6fb6', '#e8b04b', '#5a8a5a'];
+  // 흰·검 뒤로 빨강부터 스펙트럼 순(통일성). 빨→주→노→초→청록→파→보→핑.
+  var COLORS = ['#ffffff', '#000000', '#e7443b', '#f5862e', '#f7c948', '#5aa469', '#2bb6b6', '#3b8fd4', '#7a5cc4', '#e06b9b'];
 
   // 같은 우리샵 스타일(폰트·색·크기)을 유지한 채 '배치'만 바꾸는 변형안 — 'AI 다시 배치'가 순환.
   var ARRANGE = [
@@ -149,18 +151,25 @@
 
   function _applyRatio() {
     S.stage.style.backgroundImage = S.photoUrl ? 'url(' + S.photoUrl + ')' : 'none';
-    _fitStage();
+    _fitStageRetry(0);   // [v582] 진입 직후 레이아웃이 아직 0이면 다음 프레임에 재시도 → 검은화면(사진·텍스트 안 뜸) 해소
     if (!S._resizeBound) { S._resizeBound = function () { _fitStage(); _renderStage(); }; window.addEventListener('resize', S._resizeBound); }
   }
+  // 스테이지 wrap 의 레이아웃 크기가 잡힐 때까지 재시도. 잡히면 사진(배경)+레이어를 즉시 렌더.
+  function _fitStageRetry(n) {
+    if (!S || !S.stage) return;
+    if (_fitStage()) { _renderStage(); return; }
+    if (n < 30) { var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; raf(function () { _fitStageRetry(n + 1); }); }
+  }
   function _fitStage() {
-    var wrap = S.stage.parentElement; if (!wrap) return;
+    var wrap = S.stage.parentElement; if (!wrap) return false;
     var aw = wrap.clientWidth, ah = wrap.clientHeight;
-    if (!aw || !ah) return;
+    if (!aw || !ah) return false;
     var parts = String(S.ratio).split(':'); var rw = +parts[0] || 4, rh = +parts[1] || 5;
     var w = aw, h = w * rh / rw;
     if (h > ah) { h = ah; w = h * rw / rh; }
     S.stage.style.width = Math.floor(w) + 'px';
     S.stage.style.height = Math.floor(h) + 'px';
+    return true;
   }
 
   function _renderStage() {
@@ -239,7 +248,8 @@
     var bar = '<div class="se-panel__tabs">' + tabs.map(function (t) { return '<button class="se-ptab' + (S.panelTab === t[0] ? ' on' : '') + '" data-se-ptab="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
     var body = '';
     if (S.panelTab === 'font') {
-      body = '<div class="se-prow se-prow--fonts">' + FONTS.map(function (f) { return '<button class="se-fontchip' + (l.font === f.v ? ' on' : '') + '" data-se-font="' + esc(f.v) + '" style="font-family:' + f.v + '">' + esc(f.l) + '</button>'; }).join('') + '</div>' +
+      // [v582] 폰트명 나열 대신 각 폰트로 렌더한 'Aa'만(보고 고르게).
+      body = '<div class="se-prow se-prow--fonts">' + FONTS.map(function (f) { return '<button class="se-fontchip' + (l.font === f.v ? ' on' : '') + '" data-se-font="' + esc(f.v) + '" style="font-family:' + f.v + '" aria-label="' + esc(f.l) + '" title="' + esc(f.l) + '">Aa</button>'; }).join('') + '</div>' +
         '<div class="se-prow"><span class="se-plabel">크기</span><input type="range" min="2" max="18" step="0.5" value="' + (l.size * 100).toFixed(1) + '" data-se-size></div>';
     } else if (S.panelTab === 'style') {
       body = '<div class="se-prow">' +
