@@ -3022,8 +3022,10 @@
 	      // [v575·필수1] 직행 진입은 편집을 '베이스 화면'으로 — push:false 로 navStack 을 비워 둔다.
 	      //   기존엔 기본 push 로 cur('upload')가 navStack 에 쌓여, 뒤로가기 시 안 거쳐온 '업로드 화면'이 떴다.
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
-	      if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }
-      else if (SIMPLE_FLOW && !d.textOnly && cur === 'upload' && editablePhotos().length) { setScreen('caption', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
+	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
+      //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
+      if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('caption', { push: false }); }
+      else if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
 	      return urls;
