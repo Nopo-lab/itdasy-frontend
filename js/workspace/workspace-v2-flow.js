@@ -231,10 +231,12 @@
     var layers = [];
     var autoArranged = false;
     if (ss && d.useShopStyle !== false) {
-      // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 5개를 사진 위에 올림.
+      // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 4개만(사진 위 과밀 방지).
       var hs = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : (d.hashtags || []));
-      var hashText = hs.slice(0, 5).join(' ');
+      var hashText = hs.slice(0, 4).join(' ');
       ss.layers.forEach(function (L) {
+        // [v590] 사용자가 이전에 편집기에서 제거한 레이어(예: 해시태그)는 enabled:false → 다음부터 자동배치 제외.
+        if (L.enabled === false) return;
         var text = (L.role === 'hashtag') ? hashText : roleText[L.role];
         if (!text) return;
         // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
@@ -274,15 +276,19 @@
       var hsig = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [];
       var sigBase = JSON.stringify({ s: d.service, h: hsig, r: built.ratio, n: built.layers.length, v: (built.ss && built.ss.version) });
       var photos = editablePhotos(); if (!photos.length) return;
+      // [v590·#3] 성능 — 화면에 보이는(활성) 사진을 먼저 합성해 결과가 즉시 반영되게(나머지는 뒤따라).
+      var active = curPhoto();
+      var ordered = photos.slice().sort(function (a, b) { return (a === active ? -1 : 0) - (b === active ? -1 : 0); });
+      var refresh = function () { if (cur === 'caption' && String(d.caption || '').trim()) { d.previewUrl = null; setScreen('caption'); } };
       var jobs = [];
-      photos.forEach(function (p) {
+      ordered.forEach(function (p) {
         if (p.storyEdited) return;                 // 수동 편집 사진은 그대로
         if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
         p._tplSig = sigBase;
         jobs.push(window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: built.layers })
-          .then(function (url) { if (url) p.tplPreviewUrl = url; }));
+          .then(function (url) { if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); } }));   // 활성 사진 끝나면 즉시 갱신
       });
-      if (jobs.length) Promise.all(jobs).then(function () { if (cur === 'caption' && String(d.caption || '').trim()) { d.previewUrl = null; setScreen('caption'); } });
+      if (jobs.length) Promise.all(jobs).then(refresh);   // 나머지까지 완료되면 최종 갱신
     } catch (_e) { void _e; }
   }
   function _openStoryEditor() {
@@ -291,6 +297,8 @@
     var photo = _cleanBase(p0) || outputUrl();   // [v587] 편집기는 항상 깨끗한 원본 위에서 시작(이중 합성 방지)
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
+    // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
+    d._editorOpenRoles = layers.filter(function (l) { return l.type === 'text' && l.role; }).map(function (l) { return l.role; });
     window.StoryEditor.open({
       photoUrl: photo,
       ratio: built.ratio,
@@ -310,30 +318,39 @@
   //   되저장해 다음 사진부터 같은 스타일로 자동배치한다. (중앙x → 좌상단x 역변환)
   function _learnShopStyle(layers) {
     try {
-      if (!Array.isArray(layers) || !layers.length) return;
+      if (!Array.isArray(layers)) return;
       if (d.useShopStyle === false) return;
       var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
       var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
       var byRole = {};
       layers.forEach(function (l) { if (l && l.type === 'text' && l.role && !byRole[l.role]) byRole[l.role] = l; });
       var TEXT_ROLES = { title: 1, sub: 1, body: 1, hashtag: 1 };
+      var openedRoles = d._editorOpenRoles || [];   // 이번 편집에 '올라갔던' 역할들(빠지면 사용자가 지운 것)
       var changed = false;
       var newLayers = ss.layers.map(function (L) {
-        var e = byRole[L.role]; if (!e || !TEXT_ROLES[L.role]) return L;
-        changed = true;
-        var w = (e.w != null ? e.w : (L.w != null ? L.w : 0.84));
-        var leftX = Math.max(0, Math.min(1, (e.x != null ? e.x - w / 2 : L.x)));
-        return Object.assign({}, L, {
-          x: leftX, y: (e.y != null ? e.y : L.y), w: w,
-          font: e.font || L.font, color: e.color || L.color,
-          size: (e.size != null ? e.size : L.size), weight: (e.weight != null ? e.weight : L.weight),
-          align: e.align || L.align,
-          lineHeight: (e.lineHeight != null ? e.lineHeight : L.lineHeight),
-          letterSpacing: (e.letterSpacing != null ? e.letterSpacing : L.letterSpacing),
-          opacity: (e.opacity != null ? e.opacity : L.opacity),
-          outline: Object.assign({}, L.outline || {}, { on: !!e.stroke }),
-          shadow: Object.assign({}, L.shadow || {}, { on: !!e.shadow })
-        });
+        if (!TEXT_ROLES[L.role]) return L;
+        var e = byRole[L.role];
+        if (e) {
+          // 존재 → 폰트/색/위치/외곽선 학습 + 다시 활성화.
+          changed = true;
+          var w = (e.w != null ? e.w : (L.w != null ? L.w : 0.84));
+          var leftX = Math.max(0, Math.min(1, (e.x != null ? e.x - w / 2 : L.x)));
+          return Object.assign({}, L, {
+            x: leftX, y: (e.y != null ? e.y : L.y), w: w,
+            font: e.font || L.font, color: e.color || L.color,
+            size: (e.size != null ? e.size : L.size), weight: (e.weight != null ? e.weight : L.weight),
+            align: e.align || L.align,
+            lineHeight: (e.lineHeight != null ? e.lineHeight : L.lineHeight),
+            letterSpacing: (e.letterSpacing != null ? e.letterSpacing : L.letterSpacing),
+            opacity: (e.opacity != null ? e.opacity : L.opacity),
+            outline: Object.assign({}, L.outline || {}, { on: !!e.stroke }),
+            shadow: Object.assign({}, L.shadow || {}, { on: !!e.shadow }),
+            enabled: true
+          });
+        }
+        // [v590] 올렸는데 저장 결과에 없음 = 사용자가 편집기에서 제거 → 비활성화(다음부터 이 스타일은 해당 레이어 안 올림).
+        if (openedRoles.indexOf(L.role) >= 0 && L.enabled !== false) { changed = true; return Object.assign({}, L, { enabled: false }); }
+        return L;
       });
       if (!changed) return;
       SS.save(ss.id, { layers: newLayers });
