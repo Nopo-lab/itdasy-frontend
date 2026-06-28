@@ -417,6 +417,14 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-switch.on .cap-switch__dot { transform: translateX(20px); }
 .wsv2flow .cap-gen-btn { width: 100%; height: 54px; border: none; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
 .wsv2flow .cap-gen-btn:active { transform: scale(.99); opacity: .92; }
+.wsv2flow .cap-gen-btn i { font-size: 18px; vertical-align: -3px; margin-right: 2px; }
+/* [Phase A-2] 심플 캡션 — 멀티라인 시술 입력 + 우리샵 스타일 적용 토글 */
+.wsv2flow .cap-svc-wrap { position: relative; margin-bottom: 8px; }
+.wsv2flow .service-input.cap-svc-area { height: auto; min-height: 128px; padding: 14px 14px 26px; font-size: 15px; font-weight: 500; line-height: 1.6; resize: vertical; margin-bottom: 0; font-family: inherit; }
+.wsv2flow .cap-svc-count { position: absolute; right: 13px; bottom: 10px; color: var(--text-subtle); font-size: 10.5px; font-weight: 700; pointer-events: none; }
+.wsv2flow .cap-style-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.wsv2flow .cap-style-row__tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.wsv2flow .cap-style-row__d { font-size: 11.5px; line-height: 1.4; color: var(--text-subtle); font-weight: 500; }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonehead { margin: 6px 2px 12px; }

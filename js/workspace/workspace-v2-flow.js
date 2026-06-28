@@ -27,8 +27,10 @@
     caption:{ l:'고객 연결로', to:'connect' },
     connect:{ l:'미리보기', to:'preview' },
   };
-  // [Phase A-1] 심플 플로우: 업로드 다음 단계를 '편집'이 아닌 '게시글(caption)'로 직행.
-  if (SIMPLE_FLOW) CTA.upload = { l:'게시글 만들기 →', to:'caption' };
+  // [Phase A-1] 심플 플로우: 업로드 다음 단계를 '편집'이 아닌 '캡션 생성(caption)'으로 직행.
+  if (SIMPLE_FLOW) CTA.upload = { l:'캡션 생성 →', to:'caption' };
+  // [Phase A-2] 캡션 화면 명칭을 스펙(이미지 01)에 맞춰 '캡션 생성'으로(상단 타이틀).
+  if (SIMPLE_FLOW) TITLE.caption = '캡션 생성';
   // preview: CTA 없음(미리보기 화면에 게시 버튼 직접 존재)
   var CAT_CTX = {
     ba:     { purpose: 'before_after', captionMode: 'normal', role: 'auto', tplLabel: '전후' },
@@ -290,7 +292,7 @@
       ? '<div class="up-guide">' +
           '<div class="up-guide-c"><b>1</b><small>사진을 탭해<br>선택·해제</small></div>' +
           '<div class="up-guide-c"><b>2</b><small>전·후·기본<br>역할 선택</small></div>' +
-          '<div class="up-guide-c"><b>3</b><small>' + (SIMPLE_FLOW ? '게시글<br>만들기' : '편집·템플릿<br>으로') + '</small></div>' +
+          '<div class="up-guide-c"><b>3</b><small>' + (SIMPLE_FLOW ? '캡션<br>생성' : '편집·템플릿<br>으로') + '</small></div>' +
         '</div>'
       : '';
     return '' +
@@ -1165,6 +1167,25 @@
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      var photoThumb = _capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '');
+	      // [Phase A-2] 심플 캡션 — 말투/길이/해시태그 칩 제거. 시술 내용 입력 + 우리샵 스타일 적용 + 캡션 생성.
+	      //   레거시(말투 6카드·길이·페르소나·해시태그 토글)는 SIMPLE_FLOW=false 에서 그대로 복원.
+	      if (SIMPLE_FLOW) {
+	        var _useStyle = (d.useShopStyle !== false);   // 기본 ON
+	        var _svc = d.service || '';
+	        return photoThumb +
+	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
+	          '<label class="cap-field-label">시술 내용</label>' +
+	          '<div class="cap-svc-wrap">' +
+	            '<textarea class="service-input cap-svc-area" data-fl-service rows="5" maxlength="500" placeholder="자유롭게 입력해 주세요&#10;&#10;예)&#10;레이어드컷&#10;28인치&#10;재시술&#10;자연스러운 느낌으로 부탁해!">' + esc(_svc) + '</textarea>' +
+	            '<span class="cap-svc-count"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
+	          '</div>' +
+	          '<div class="cap-style-row">' +
+	            '<div class="cap-style-row__tx"><span class="cap-field-label" style="margin:0">우리샵 스타일 적용</span>' +
+	              '<span class="cap-style-row__d">' + (_useStyle ? '우리샵 디자인에 맞춰 자동으로 배치해요' : '사진은 그대로 두고 글만 만들어요') + '</span></div>' +
+	            '<button type="button" class="cap-switch' + (_useStyle ? ' on' : '') + '" data-fl-cshopstyle role="switch" aria-checked="' + _useStyle + '"><span class="cap-switch__dot"></span></button>' +
+	          '</div>' +
+	          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>';
+	      }
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
 	      var _chip = function (group, val, label, cur) { return '<button type="button" class="cap-chip' + (cur === val ? ' on' : '') + '" data-fl-' + group + '="' + val + '">' + label + '</button>'; };
 	      // [v569·B-1] 말투 선택 = 카드형 리스트('어떤 말투로 써볼까요?'). 값(natural/emotional/…)은 그대로 유지(생성 매핑 불변).
@@ -1263,13 +1284,20 @@
     var svcInput = el.querySelector('[data-fl-service]');
     if (svcInput && !svcInput._wsGenBound) {
       svcInput._wsGenBound = true;
-      svcInput.addEventListener('keydown', function (e) {
-        // [v532] 한글 IME 조합 중 Enter(조합 확정용)는 무시 — 이때 생성하면 마지막 음절이 빠진 채 들어가
-        //   '엔터 경로만 키워드 반영이 덜 되는' 증상이 났음. 조합이 끝난 뒤 Enter 에서만 생성.
-        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
-        e.preventDefault();
-        _triggerCaptionGenerate(null);
-      });
+      // [Phase A-2] 멀티라인 textarea(심플 캡션)에선 Enter=줄바꿈 → 생성은 '캡션 생성' 버튼으로만.
+      //   기존 한 줄 input(레거시)에서만 Enter→즉시 생성 유지.
+      if (svcInput.tagName === 'INPUT') {
+        svcInput.addEventListener('keydown', function (e) {
+          // [v532] 한글 IME 조합 중 Enter(조합 확정용)는 무시 — 이때 생성하면 마지막 음절이 빠진 채 들어가
+          //   '엔터 경로만 키워드 반영이 덜 되는' 증상이 났음. 조합이 끝난 뒤 Enter 에서만 생성.
+          if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+          e.preventDefault();
+          _triggerCaptionGenerate(null);
+        });
+      }
+      // [Phase A-2] textarea 글자수 카운터(0/500) 라이브 갱신.
+      var _cnt = el.querySelector('[data-fl-svccount]');
+      if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
     }
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
@@ -1796,6 +1824,8 @@
       var ch = t.closest('[data-fl-chash]'); if (ch) { d.capHashOn = (d.capHashOn === false); setScreen('caption'); return; }
       // [v567] 원장님 말투 반영 토글 — 인스타 미연동이면 안내 후 무시(데이터 없는 반영 금지).
       var cpr = t.closest('[data-fl-cpersona]'); if (cpr) { if (cpr.hasAttribute('disabled')) { toast('인스타를 연동하고 말투를 분석하면 켤 수 있어요'); return; } d.capUsePersona = !(d.capUsePersona === true); setScreen('caption'); return; }
+      // [Phase A-2] 우리샵 스타일 적용 토글 — 생성 직전 syncServiceFromDom 으로 입력 보존 후 재렌더.
+      var css = t.closest('[data-fl-cshopstyle]'); if (css) { syncServiceFromDom(); d.useShopStyle = !(d.useShopStyle !== false); setScreen('caption'); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
