@@ -21,6 +21,13 @@
   --danger: #EF4444;
   --info:   #3B82F6;
 
+  /* [skin-v3] 액센트 별칭 — 향후 브랜드 색 '단일 제어 지점'.
+     기본값은 기존 브랜드와 동일 → 시각 변화 0. 색 바꿀 땐 여기 한 곳만. */
+  --accent:        var(--brand);
+  --accent-strong: var(--brand-strong);
+  --accent-soft:   var(--brand-bg);
+  --accent-ink:    #FFF;
+
   /* PerfFix-CSS: backdrop-filter 제거용 RGB 변수 (rgba(var(--bg-rgb),0.97)) */
   --bg-rgb: 255,255,255;
 
@@ -54,12 +61,12 @@ html[data-theme="dark"] {
   --brand:         #FF8FA3;
   --brand-strong:  #FFA8B8;
   --brand-bg:      rgba(255,143,163,.20);
-  --bg:            #000000;
+  --bg:            #000;
   --frame:         #232325;
   --surface:       #18181A;
   --surface-2:     #232325;
   --text:          #FAFAFA;
-  --text-muted:    #DDDDDD;
+  --text-muted:    #DDD;
   --text-subtle:   #A8A8A8;
   --border:        rgba(255,255,255,.18);
   --border-strong: rgba(255,255,255,.28);

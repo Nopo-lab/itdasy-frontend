@@ -1,0 +1,54 @@
+/* ════════════════════════════════════════════════════════════════
+   workspace-skin-v3.css — 작업실(wsv2flow) 톤 리스킨 (Phase 1)
+   ────────────────────────────────────────────────────────────────
+   목적: 차가운 회색 톤 → 따뜻한 아이보리 + 로즈 그라데이션 CTA + 로즈빛 그림자
+        (프리미엄 뷰티 톤). 색·그림자만 바꾸고 레이아웃(여백·grid·position)은
+        절대 건드리지 않음 → PC 잘림/오버레이 회귀 위험 차단.
+
+   스코프: body.ws-skin-v3 .wsv2flow ... 로만 한정 → 작업실 오버레이 밖엔 영향 0.
+   토글:  window.ITDASY_WS_SKIN_V3 = false  →  스킨 off (즉시 롤백).
+          (index.html 에서 플래그 → body.ws-skin-v3 배선)
+   ──────────────────────────────────────────────────────────────── */
+
+/* 1) 배경 — 따뜻한 아이보리 */
+body.ws-skin-v3 .wsv2flow { background: #FBF7F5; }
+
+/* 하단 액션바 페이드도 같은 아이보리로(틴트 페이드 자연스럽게) */
+body.ws-skin-v3 .wsv2flow .wsv2flow__actionbar {
+  background: linear-gradient(180deg, rgba(251,247,245,0), #FBF7F5 28%);
+}
+
+/* 2) 주요 CTA — 로즈 그라데이션 + 로즈빛 그림자 (색/그림자만) */
+body.ws-skin-v3 .wsv2flow .wsv2flow__cta,
+body.ws-skin-v3 .wsv2flow .cap-gen-btn,
+body.ws-skin-v3 .wsv2flow .cap-preview,
+body.ws-skin-v3 .wsv2flow .tpl-applydefault {
+  background: linear-gradient(180deg,
+              color-mix(in srgb, var(--accent-strong) 88%, #fff),
+              var(--accent-strong));
+  box-shadow: 0 12px 24px rgba(140,72,90,.26);
+}
+/* 비활성 CTA 는 기존 회색 유지(가독성) */
+body.ws-skin-v3 .wsv2flow .wsv2flow__cta:disabled,
+body.ws-skin-v3 .wsv2flow .cap-preview:disabled {
+  background: var(--frame);
+  box-shadow: none;
+}
+
+/* 3) 카드/표면 — 로즈빛 소프트 그림자로 교체(형태 동일) */
+body.ws-skin-v3 .wsv2flow .cap-card,
+body.ws-skin-v3 .wsv2flow .cust-card,
+body.ws-skin-v3 .wsv2flow .linked-card,
+body.ws-skin-v3 .wsv2flow .up-toggle-row,
+body.ws-skin-v3 .wsv2flow .cust-search {
+  box-shadow: 0 6px 22px rgba(168,100,115,.08);
+}
+
+/* 4) 보조 표면 — 살짝 따뜻하게(아이보리 위에서 자연스럽게) */
+body.ws-skin-v3 .wsv2flow .ed-note,
+body.ws-skin-v3 .wsv2flow .captail,
+body.ws-skin-v3 .wsv2flow .cap-stylecard,
+body.ws-skin-v3 .wsv2flow .up-guide-c { background: #F7F1EF; }
+
+/* 5) 진행 막대·세그 등 액센트 요소는 토큰(--accent-strong) 그대로 사용 →
+      별칭이 브랜드와 동일하므로 변화 없음. 추후 --accent 한 줄로 일괄 변경 가능. */

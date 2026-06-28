@@ -49,6 +49,16 @@
 window.__LATEST_BUILD__ = '20260628-v591-variant-grid-brandcolor';
   // [C2] 작업실 V2 플래그 — false 로 바꾸면 기존 작업실로 즉시 롤백 가능
   window.ITDASY_WORKSPACE_V2 = true;
+  // [skin-v3] 작업실 톤 리스킨(따뜻한 아이보리+로즈 CTA). false 로 끄면 기존 톤.
+  // 색/그림자만 바꾸는 스코프 CSS(css/workspace-skin-v3.css), 작업실 오버레이에만 적용.
+  window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
+  try {
+    if (window.ITDASY_WS_SKIN_V3) {
+      var _addSkin = function(){ document.body && document.body.classList.add('ws-skin-v3'); };
+      if (document.body) _addSkin();
+      else document.addEventListener('DOMContentLoaded', _addSkin);
+    }
+  } catch (_sk) { void _sk; }
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -142,6 +152,7 @@ window.__LATEST_BUILD__ = '20260628-v591-variant-grid-brandcolor';
 <!-- [v501 Phase1] 작업실 V2 첫 화면 / [v503] 플로우 / [v508] 크롭 -->
 <link rel="stylesheet" href="css/workspace-v2.css?v=20260624-v550-strict-roi-overlay-align">
 <link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260628-v591-variant-grid-brandcolor">
+<link rel="stylesheet" href="css/workspace-skin-v3.css?v=20260628-skin-v3">
 <link rel="stylesheet" href="css/workspace-crop.css?v=20260617-v511-workspace-real-edits">
 <style id="login-v22">
   /* 모션 keyframes */
