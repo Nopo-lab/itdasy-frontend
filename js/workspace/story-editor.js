@@ -231,14 +231,27 @@
     node.style.opacity = l.opacity;
     var inner = node.firstChild;
     if (inner && inner.style && l.type !== 'image') {
-      var rect = S.stage.getBoundingClientRect();
-      inner.style.fontSize = (l.size * Math.min(rect.width || 320, rect.height || 400)) + 'px';
+      inner.style.fontSize = (l.size * _shortSide()) + 'px';
     }
   }
+  // [v588] 스테이지 크기 변경(패널 열림/닫힘 등) 시 노드 재생성 없이 폰트 크기만 갱신 → 편집 포커스/제스처 보존.
+  function _refreshSizes() {
+    var ss = _shortSide();
+    S.layers.forEach(function (l) {
+      if (l.type === 'image') return;
+      var node = S.stage.querySelector('[data-se-layer="' + l.id + '"]'); if (!node) return;
+      var inner = node.firstChild; if (inner && inner.style) inner.style.fontSize = (l.size * ss) + 'px';
+    });
+  }
 
-  function _layerEl(l) {
+  // [v588] 짧은 변(px) — 렌더 시점 getBoundingClientRect 가 0 일 수 있어(진입 직후·display 전) 텍스트가
+  //   "Aa 누르기 전까지 안 보이던" 문제. 확정된 _fitStage 크기(S._fitW/_fitH)를 우선 사용해 즉시 올바른 크기로 렌더.
+  function _shortSide() {
     var rect = S.stage.getBoundingClientRect();
-    var shortSide = Math.min(rect.width || 320, rect.height || 400);
+    return Math.min(S._fitW || rect.width || 320, S._fitH || rect.height || 400);
+  }
+  function _layerEl(l) {
+    var shortSide = _shortSide();
     var el = document.createElement('div');
     el.className = 'se-layer se-layer--' + l.type + (l.id === S.selId ? ' sel' : '') + (l._justAdded ? ' se-layer--pop' : '');
     if (l._justAdded) l._justAdded = false;   // 등장 애니메이션은 최초 1회만
@@ -285,13 +298,16 @@
   function _deselect() { if (S.selId !== null) { S.selId = null; _renderStage(); _renderPanel(); } }
 
   // ── 컨텍스트 패널(선택 시에만) ─────────────────────────────
-  // [stability] 패널은 사진을 밀지 않는 오버레이(CSS absolute). 사진 위치/크기는 절대 안 바뀜 → 재맞춤 호출 제거.
+  // [v588] 패널이 사진을 가리지 않게 — 패널 열리면 스테이지 영역을 패널 위로 줄여 사진을 그 위에 꽉 맞춘다(가림 해소).
+  //   선택 해제(패널 닫힘)면 스테이지가 다시 전체 영역으로 커진다(사진 최대). 폰트만 갱신해 편집 포커스/제스처 보존.
   function _renderPanel() {
     var panel = S.root.querySelector('[data-se-panel]');
     var l = _selLayer();
-    if (!l) { panel.hidden = true; panel.innerHTML = ''; return; }
-    panel.hidden = false;
-    panel.innerHTML = (l.type === 'text') ? _textPanel(l) : _objPanel(l);
+    if (!l) { panel.hidden = true; panel.innerHTML = ''; }
+    else { panel.hidden = false; panel.innerHTML = (l.type === 'text') ? _textPanel(l) : _objPanel(l); }
+    if (S.root) S.root.classList.toggle('se--panelopen', !!l);
+    // 클래스 변경으로 stagewrap 높이가 바뀜 → 즉시 재맞춤(노드 재생성 없이 크기만 갱신).
+    if (_fitStage()) _refreshSizes();
   }
   function _textPanel(l) {
     var tabs = [['font', '글꼴'], ['style', '스타일'], ['color', '색상'], ['align', '정렬']];

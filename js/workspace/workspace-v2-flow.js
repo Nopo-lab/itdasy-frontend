@@ -255,27 +255,8 @@
     if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
     return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
   }
-  // [v587·#3] 템플릿 ON 동기화 — 캡션 완료 화면 사진을 '에디터 결과와 100% 동일'하게 헤드리스 자동합성.
-  //   사용자가 직접 편집(storyEdited)했으면 그 결과를 유지하고 덮지 않는다. 입력 시그니처로 1회만 합성.
-  function _autoComposeTemplate() {
-    try {
-      if (d.useShopStyle === false) return;
-      if (!(window.StoryEditor && window.StoryEditor.compose)) return;
-      var p = curPhoto(); if (!p || !p.dataUrl) return;
-      if (p.storyEdited) return;   // 수동 편집 우선
-      var built = _buildShopStyleLayers();
-      if (!built.autoArranged) return;
-      if (!p.baseUrl) p.baseUrl = p.dataUrl;   // 합성 기준 = 깨끗한 원본 고정
-      var sig = JSON.stringify({ s: d.service, h: (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [], r: built.ratio, n: built.layers.length, v: (built.ss && built.ss.version) });
-      if (p._tplSig === sig && p.editedDataUrl) return;   // 동일 입력 → 재합성 생략(이중 합성·깜빡임 방지)
-      p._tplSig = sig;
-      window.StoryEditor.compose({ photoUrl: _cleanBase(p), ratio: built.ratio, layers: built.layers }).then(function (url) {
-        if (!url) return;
-        p.editedDataUrl = url; p.templateAutoApplied = true; d.previewUrl = null;
-        if (cur === 'caption') setScreen('caption');
-      });
-    } catch (_e) { void _e; }
-  }
+  // [v588·#3] 자동 합성 제거 — 캡션 결과/뒤로가기에서 사진은 항상 '원본' 유지.
+  //   템플릿·텍스트는 사용자가 '사진 꾸미기'로 직접 저장할 때만 사진에 적용된다(editedDataUrl·storyEdited).
   function _openStoryEditor() {
     if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = curPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;
@@ -1438,8 +1419,6 @@
         var hs = _parseHashes(igHash.textContent); d.hashtags = hs; d.selectedHashes = hs.slice();
       });
     }
-    // [v587·#3] 결과 화면이면 템플릿 ON 사진을 에디터 결과와 동일하게 자동합성(시그니처 가드로 1회).
-    if (d.caption) _autoComposeTemplate();
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -2908,6 +2887,7 @@
 	      //   기존엔 기본 push 로 cur('upload')가 navStack 에 쌓여, 뒤로가기 시 안 거쳐온 '업로드 화면'이 떴다.
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }
+      else if (SIMPLE_FLOW && !d.textOnly && cur === 'upload' && editablePhotos().length) { setScreen('caption', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
 	      return urls;
@@ -3221,7 +3201,9 @@
 	    urls = (urls || []).filter(function (u) { return typeof u === 'string' && u; }).slice(0, 10);
 	    if (!urls.length || !d) return 0;
 	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
-	    reassignRoles(); if (cur === 'upload') setScreen('upload');
+	    reassignRoles();
+    // [v588·#1] 심플 플로우 — 사진 들어오면 업로드 화면 건너뛰고 바로 캡션 생성.
+    if (cur === 'upload') { setScreen((SIMPLE_FLOW && !d.textOnly && editablePhotos().length) ? 'caption' : 'upload', { push: false }); }
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
 	  }
