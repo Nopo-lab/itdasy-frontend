@@ -1,0 +1,59 @@
+/* story-editor.css — 인스타 스토리식 텍스트 편집기 [Phase B-1]
+   #seOverlay 풀스크린. PC 사이드바 가림 방지는 style-responsive.css 의 hub-overlay 목록에 등록. */
+.se-overlay {
+  position: fixed; inset: 0; z-index: 10050;
+  display: flex; flex-direction: column;
+  background: #0e0e10; color: #fff;
+  padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  animation: se-in .18s ease;
+}
+@keyframes se-in { from { opacity: 0; } to { opacity: 1; } }
+
+.se-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; }
+.se-top__mid { display: flex; gap: 6px; }
+.se-icobtn { width: 40px; height: 40px; border: 0; border-radius: 12px; background: rgba(255,255,255,.08); color: #fff; font-size: 19px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.se-icobtn:active { background: rgba(255,255,255,.16); }
+.se-savebtn { height: 40px; padding: 0 22px; border: 0; border-radius: 999px; background: #D58A95; color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; }
+.se-savebtn:active { opacity: .9; }
+
+.se-body { flex: 1; display: flex; min-height: 0; gap: 8px; padding: 0 8px 8px; }
+.se-stagewrap { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+/* 크기는 _fitStage() 가 px 로 명시 지정(절대배치 레이어라 콘텐츠 기반 크기 불가). */
+.se-stage { position: relative; background: #222 center/cover no-repeat; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.5); touch-action: none; }
+
+/* 텍스트 레이어 */
+.se-layer { position: absolute; transform-origin: center; cursor: move; }
+.se-layer.sel { outline: 1.5px dashed rgba(255,255,255,.85); outline-offset: 6px; border-radius: 4px; }
+.se-layer__txt { outline: none; word-break: keep-all; white-space: pre-wrap; cursor: text; min-width: 24px; }
+.se-h { position: absolute; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #fff; color: #1f1f1f; display: none; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.se-layer.sel .se-h { display: inline-flex; }
+.se-h--del { top: -14px; left: -14px; }
+.se-h--rot { bottom: -14px; right: -14px; cursor: nwse-resize; }
+
+/* 우측 세로 툴바 */
+.se-tools { width: 64px; flex: 0 0 64px; display: flex; flex-direction: column; gap: 6px; align-self: center; }
+.se-tool { display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: transparent; color: rgba(255,255,255,.92); cursor: pointer; padding: 8px 2px; border-radius: 12px; }
+.se-tool:active { background: rgba(255,255,255,.08); }
+.se-tool__ic { width: 42px; height: 42px; border-radius: 12px; background: rgba(255,255,255,.1); display: inline-flex; align-items: center; justify-content: center; font-size: 21px; }
+.se-tool__aa { font-weight: 800; font-size: 18px; letter-spacing: -.5px; }
+.se-tool__l { font-size: 10.5px; font-weight: 600; }
+
+/* 하단 타이포 패널 */
+.se-panel { background: #18181b; border-top: 1px solid rgba(255,255,255,.08); padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); }
+.se-panel__tabs { display: flex; gap: 18px; padding: 4px 2px 10px; }
+.se-ptab { border: 0; background: transparent; color: rgba(255,255,255,.5); font-size: 13.5px; font-weight: 700; cursor: pointer; padding: 4px 0; position: relative; }
+.se-ptab.on { color: #fff; }
+.se-ptab.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; border-radius: 2px; background: #D58A95; }
+.se-panel__body { min-height: 52px; }
+.se-prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 0; }
+.se-prow--fonts, .se-prow--colors { gap: 8px; }
+.se-plabel { font-size: 12px; color: rgba(255,255,255,.6); font-weight: 600; min-width: 38px; }
+.se-prow input[type="range"] { flex: 1; accent-color: #D58A95; }
+.se-fontchip { height: 38px; padding: 0 14px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.16); background: transparent; color: #fff; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.se-fontchip.on { border-color: #D58A95; background: rgba(213,138,149,.18); }
+.se-color { width: 32px; height: 32px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); cursor: pointer; padding: 0; }
+.se-color.on { border-color: #fff; box-shadow: 0 0 0 2px #D58A95; }
+.se-sbtn { height: 40px; min-width: 56px; padding: 0 16px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,.16); background: transparent; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.se-sbtn.on { border-color: #D58A95; background: rgba(213,138,149,.18); }
+.se-sbtn i { font-size: 18px; }

@@ -204,6 +204,37 @@
     }
     return (d && d.templateOutput) || (d && d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl) || photoUrl(curPhoto());
   }
+
+  // [Phase B-1] 스토리 편집기 진입 — 사진 + 우리샵 스타일 좌표로 텍스트 자동배치 → StoryEditor.
+  //   시술 내용(여러 줄)을 제목/부제목/본문 레이어로 매핑. 저장 시 baked 결과를 대표 사진 editedDataUrl 로.
+  function _openStoryEditor() {
+    if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
+    var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
+    var photo = outputUrl();
+    var lines = String(d.service || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var roleText = { title: lines[0] || '', sub: lines[1] || '', body: lines.slice(2).join(' ') || '' };
+    var layers = [];
+    if (ss && d.useShopStyle !== false) {
+      ss.layers.forEach(function (L) {
+        if (L.role === 'hashtag') return;   // 해시태그 오버레이는 B-3 이후
+        var text = roleText[L.role]; if (!text) return;
+        layers.push(Object.assign({}, L, { text: text }));
+      });
+    }
+    if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
+    window.StoryEditor.open({
+      photoUrl: photo,
+      ratio: ss ? ss.frame.ratio : '4:5',
+      layers: layers,
+      onDone: function (dataUrl) {
+        var p = curPhoto();
+        if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
+        d.previewUrl = null;
+        if (cur === 'caption') setScreen('caption');
+        toast('사진에 글자를 넣었어요');
+      }
+    });
+  }
   // [C5] _barClass: vc(방문횟수) → b1/b2/b3 클래스
   function barClass(vc) {
     if (vc >= 10) return 'b3';
@@ -1261,6 +1292,8 @@
       '</div>' +
       '<label class="cap-field-label">해시태그 <span>직접 고치거나 추가할 수 있어요</span></label>' +
       '<textarea class="cap-hashedit" data-fl-caphashedit rows="2" placeholder="#해시태그 #예시">' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</textarea>' +
+      // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
+      ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진에 글자 넣기</button>' : '') +
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
 		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +
@@ -1648,6 +1681,7 @@
       if (a === 'footerclear') { return saveFooter('', true); }
       if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
       if (a === 'topreview') { flushCaptionInputs(); setScreen('preview'); return; }
+      if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
       if (a === 'pickcust') { return pickCustomer(); }
       if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; setScreen('preview'); return; }
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
