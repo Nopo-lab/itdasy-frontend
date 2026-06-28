@@ -214,18 +214,21 @@
     var lines = String(d.service || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
     var roleText = { title: lines[0] || '', sub: lines[1] || '', body: lines.slice(2).join(' ') || '' };
     var layers = [];
+    var autoArranged = false;
     if (ss && d.useShopStyle !== false) {
       ss.layers.forEach(function (L) {
         if (L.role === 'hashtag') return;   // 해시태그 오버레이는 B-3 이후
         var text = roleText[L.role]; if (!text) return;
         layers.push(Object.assign({}, L, { text: text }));
       });
+      autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
     if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
     window.StoryEditor.open({
       photoUrl: photo,
       ratio: ss ? ss.frame.ratio : '4:5',
       layers: layers,
+      autoArranged: autoArranged,
       onDone: function (dataUrl) {
         var p = curPhoto();
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
