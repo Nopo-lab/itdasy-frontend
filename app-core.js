@@ -1962,7 +1962,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260627-v575-editor-ux-mask-blemish';
+window.APP_BUILD = '20260628-v576-ws-simple-flow-a1';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
