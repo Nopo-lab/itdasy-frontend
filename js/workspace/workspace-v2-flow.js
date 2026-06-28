@@ -334,14 +334,17 @@
     } catch (_e) { void _e; }
   }
   function _openStoryEditor() {
-    if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
+    // [itd-editor] 플래그 ON 이면 새 인스타식 편집기(ItdEditor), 아니면 기존 StoryEditor.
+    //   동일 계약(open{photoUrl,onDone(dataUrl,meta)}) → 진입점/되먹임 그대로.
+    var Editor = (window.ITDASY_ITD_EDITOR && window.ItdEditor && window.ItdEditor.open) ? window.ItdEditor : window.StoryEditor;
+    if (!(Editor && Editor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = curPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;
     var photo = _cleanBase(p0) || outputUrl();   // [v587] 편집기는 항상 깨끗한 원본 위에서 시작(이중 합성 방지)
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     d._editorOpenRoles = layers.filter(function (l) { return l.type === 'text' && l.role; }).map(function (l) { return l.role; });
-    window.StoryEditor.open({
+    Editor.open({
       photoUrl: photo,
       ratio: built.ratio,
       layers: layers,

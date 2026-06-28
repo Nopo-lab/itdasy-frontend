@@ -52,6 +52,9 @@ window.__LATEST_BUILD__ = '20260628-v591-variant-grid-brandcolor';
   // [skin-v3] 작업실 톤 리스킨(따뜻한 아이보리+로즈 CTA). false 로 끄면 기존 톤.
   // 색/그림자만 바꾸는 스코프 CSS(css/workspace-skin-v3.css), 작업실 오버레이에만 적용.
   window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
+  // [itd-editor] 새 인스타식 사진 편집기(텍스트·스티커·레이아웃 반달·그리기).
+  // 기본 OFF(기존 StoryEditor 사용). true 로 켜면 '사진 꾸미기' 진입이 새 편집기로 스왑.
+  window.ITDASY_ITD_EDITOR = (window.ITDASY_ITD_EDITOR === true);
   try {
     if (window.ITDASY_WS_SKIN_V3) {
       var _addSkin = function(){ document.body && document.body.classList.add('ws-skin-v3'); };
@@ -153,6 +156,7 @@ window.__LATEST_BUILD__ = '20260628-v591-variant-grid-brandcolor';
 <link rel="stylesheet" href="css/workspace-v2.css?v=20260624-v550-strict-roi-overlay-align">
 <link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260628-v591-variant-grid-brandcolor">
 <link rel="stylesheet" href="css/workspace-skin-v3.css?v=20260628-skin-v3">
+<link rel="stylesheet" href="css/itd-editor.css?v=20260628-itded-v1">
 <link rel="stylesheet" href="css/workspace-crop.css?v=20260617-v511-workspace-real-edits">
 <style id="login-v22">
   /* 모션 keyframes */
