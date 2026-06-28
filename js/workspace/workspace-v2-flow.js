@@ -271,7 +271,8 @@
         ? '<span class="up-chip">전 <b>' + cnt.before + '</b></span>' +
           '<span class="up-chip">후 <b>' + cnt.after + '</b></span>' +
           '<span class="up-chip">기본 <b>' + cnt.hero + '</b></span>' +
-          '<span class="up-chip">전후쌍 <b>' + pairs + '</b></span>'
+          // [Phase A-1] '전후쌍'은 템플릿 합성 단계 전용 표기 → 심플 플로우에선 숨김(역할 칩만 노출).
+          (SIMPLE_FLOW ? '' : '<span class="up-chip">전후쌍 <b>' + pairs + '</b></span>')
         : '') + '</div>';
   }
   function renderUpload() {
@@ -298,7 +299,8 @@
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
         '<b>사진을 드래그하거나 여기를 눌러 업로드</b>' +
         '<span class="up-note">여러 장 한 번에 · JPG · PNG 최대 20MB</span>' +
-        '<span class="up-note up-note--rose">최소 2장부터 전후 템플릿 적용 · 1장이면 자동완성하지 않아요</span>' +
+        // [Phase A-1] 템플릿 단계가 숨겨진 심플 플로우에선 '전후 템플릿' 안내 문구 제거.
+        (SIMPLE_FLOW ? '' : '<span class="up-note up-note--rose">최소 2장부터 전후 템플릿 적용 · 1장이면 자동완성하지 않아요</span>') +
       '</div>' + guide +
       '<div class="up-section">업로드한 사진 <b>' + n + '</b> / 10' +
         (n ? ' <span class="up-rolehint">· 탭해 <b>선택/해제</b>' + (multi ? ' · 전후는 사진마다 <b>전·후</b> 지정' : '') + '</span>' : '') + '</div>' +
@@ -2675,6 +2677,8 @@
 	  }
 	  // [이슈1] 전후가 어떻게 묶이는지 사용자에게 명확히: Pair 1(전+후) · 남은 사진은 부족 안내.
 	  function _pairPreviewHtml(cnt) {
+	    // [Phase A-1] 'Pair N' 미리보기는 전후 템플릿 합성 단계 전용 → 심플 플로우에선 미노출(타일 역할칩으로 충분).
+	    if (SIMPLE_FLOW) return '';
 	    if (!cnt.before && !cnt.after) return '';
 	    var pp = _computePairs();
 	    var rows = pp.pairs.map(function (pr, i) {
