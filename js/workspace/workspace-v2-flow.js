@@ -12,6 +12,13 @@
   // [C6] 단계 순서 변경: connect가 preview 앞으로
   // [v560] 'template' step 신설 — 편집과 게시글 사이. 전/후 클릭 지정 + 템플릿 선택을 한 화면에서.
   var SCREENS = ['upload', 'edit', 'template', 'caption', 'connect', 'preview'];
+  // [Phase A-1] 심플 플로우 — 편집/템플릿 단계를 기본 경로에서 숨김(사진→게시글→고객→미리보기).
+  //   기능/코드는 삭제하지 않고 보존: edit/template 화면·핸들러 그대로 두고 '기본 다음 경로'에서만 제외.
+  //   (Phase A-2에서 캡션 화면의 '직접 편집' 진입점으로 edit/template 도달 경로를 다시 연결한다.)
+  //   롤백: window.ITDASY_WS_SIMPLE_FLOW = false → 기존 6단계 플로우 그대로 복원.
+  var SIMPLE_FLOW = (window.ITDASY_WS_SIMPLE_FLOW !== false);
+  // 진행 표시(단계 X/N·진행바)·다음 화면 계산에 쓰는 '실제로 보이는 단계' 목록.
+  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'connect', 'preview'] : SCREENS;
   var TITLE = { upload:'사진 업로드', edit:'편집', template:'템플릿 선택', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
   var CTA = {
     upload: { l:'편집으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
@@ -20,6 +27,8 @@
     caption:{ l:'고객 연결로', to:'connect' },
     connect:{ l:'미리보기', to:'preview' },
   };
+  // [Phase A-1] 심플 플로우: 업로드 다음 단계를 '편집'이 아닌 '게시글(caption)'로 직행.
+  if (SIMPLE_FLOW) CTA.upload = { l:'게시글 만들기 →', to:'caption' };
   // preview: CTA 없음(미리보기 화면에 게시 버튼 직접 존재)
   var CAT_CTX = {
     ba:     { purpose: 'before_after', captionMode: 'normal', role: 'auto', tplLabel: '전후' },
@@ -208,7 +217,7 @@
         '<div class="wsv2flow__title" data-fl-title>사진 업로드</div>' +
         '<span class="wsv2flow__step" data-fl-step></span>' +
       '</div>' +
-      '<div class="wsv2flow__progress">' + '<i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i><i class="pg-seg"></i>' + '</div>' +
+      '<div class="wsv2flow__progress">' + VISIBLE_SCREENS.map(function () { return '<i class="pg-seg"></i>'; }).join('') + '</div>' +
       '<div class="wsv2flow__screens">' +
         '<section class="wsv2flow__s" data-fs="upload"></section>' +
         '<section class="wsv2flow__s" data-fs="edit"></section>' +
@@ -280,11 +289,11 @@
       ? '<div class="up-guide">' +
           '<div class="up-guide-c"><b>1</b><small>사진을 탭해<br>선택·해제</small></div>' +
           '<div class="up-guide-c"><b>2</b><small>전·후·기본<br>역할 선택</small></div>' +
-          '<div class="up-guide-c"><b>3</b><small>편집·템플릿<br>으로</small></div>' +
+          '<div class="up-guide-c"><b>3</b><small>' + (SIMPLE_FLOW ? '게시글<br>만들기' : '편집·템플릿<br>으로') + '</small></div>' +
         '</div>'
       : '';
     return '' +
-      '<div class="up-kicker"><span class="up-kicker-dot"></span>전후 템플릿은 업로드가 먼저예요</div>' +
+      '<div class="up-kicker"><span class="up-kicker-dot"></span>' + (SIMPLE_FLOW ? '사진을 올리면 AI가 게시글을 만들어요' : '전후 템플릿은 업로드가 먼저예요') + '</div>' +
       '<div class="up-drop" data-fl-pick>' +
         '<span class="up-cloud"><i class="ph-duotone ph-cloud-arrow-up"></i></span>' +
         '<b>사진을 드래그하거나 여기를 눌러 업로드</b>' +
@@ -1421,8 +1430,11 @@
       s.classList.toggle('prev', !on && i < to);
     });
     el.querySelector('[data-fl-title]').textContent = TITLE[name];
-    el.querySelector('[data-fl-step]').textContent = (to + 1) + ' / ' + SCREENS.length;
-    el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= to); });
+    // [Phase A-1] 진행 표시는 '보이는 단계' 기준. 숨김 화면(edit/template)은 SCREENS 인덱스로 폴백(범위 보호).
+    var vis = VISIBLE_SCREENS.indexOf(name);
+    if (vis < 0) vis = Math.min(to, VISIBLE_SCREENS.length - 1);
+    el.querySelector('[data-fl-step]').textContent = (vis + 1) + ' / ' + VISIBLE_SCREENS.length;
+    el.querySelectorAll('.wsv2flow__progress .pg-seg').forEach(function (sg, i) { sg.classList.toggle('done', i <= vis); });
     var bar = el.querySelector('.wsv2flow__actionbar'), cta = el.querySelector('[data-fl="cta"]');
     if (CTA[name]) { bar.classList.remove('hidden'); cta.textContent = CTA[name].l; } else bar.classList.add('hidden');
     // [v560] 편집 화면에서만 CTA 2분할(좌:저장하고 게시글 쓰기 / 우:템플릿 선택하기). 그 외엔 단일.
