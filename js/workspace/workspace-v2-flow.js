@@ -1432,29 +1432,28 @@
 	        personaRow +
 	        '<div class="cap-hash-row"><span class="cap-field-label" style="margin:0">해시태그</span>' +
 	          '<button type="button" class="cap-switch' + (_hashOn ? ' on' : '') + '" data-fl-chash role="switch" aria-checked="' + _hashOn + '"><span class="cap-switch__dot"></span></button></div>' +
-	        '<button type="button" class="cap-gen-btn" data-fl-cgen>문구 생성하기</button>';
+	        // [v589] 고정 꼬리말 — 한 번 저장해두면 게시글마다 자동으로 붙음. 결과화면이 아닌 설정에서 관리.
+        '<div class="captail">' +
+          '<div class="captail__head"><span class="captail__label">고정 꼬리말 <em style="font-weight:400;color:#9aa3ad;font-style:normal">· 한 번 저장하면 매번 자동으로 붙어요</em></span>' +
+            (d.captionTemplate ? '<button type="button" class="captail__clear" data-fl="footerclear">비우기</button>' : '') +
+          '</div>' +
+          '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
+          '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
+        '</div>' +
+        '<button type="button" class="cap-gen-btn" data-fl-cgen>문구 생성하기</button>';
 	    }
     // 결과 화면 — [v583·C] 인스타 미리보기 디자인 카드 + 아래 편집 + 인스타 업로드(별도 미리보기 단계 폐지).
     return '' +
 	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
-      '<div class="captail">' +
-        '<div class="captail__head"><span class="captail__label">고정 꼬리말</span>' +
-          (d.captionTemplate ? '<button type="button" class="captail__clear" data-fl="footerclear">비우기</button>' : '') +
-        '</div>' +
-        '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
-        '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
-      '</div>' +
+      // [v589] 꼬리말 블록 폐지 → 설정폼으로 이동. 복사/다시생성/저장은 카드 액션줄로 이동.
       // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
       // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
       ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
-      '<div class="cap-regen-row">' +
-	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
-		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +
-	        	        '' +
-	        '</div>' +
+      
 		      _publishBlock() +
+		      _feedPreview(url) +   // [v589] 피드 미리보기 — 올리면 내 피드가 어떻게 보이는지
 		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
 	  }
 
@@ -1571,10 +1570,39 @@
 	    return '<div class="ig-card2">' +
 	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
 	        _igCarouselHtml(url) +
-	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
-	          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
+	        // [v589] 카드 액션줄 기능화 — 인스타 아이콘 자리에 복사·다시생성·저장(결과화면에서만)
+	        (editable
+	          ? '<div class="ig-act ig-act--fn">' +
+	              '<button type="button" class="ig-actbtn" data-fl="copycap" aria-label="게시글 복사"><i class="ph-duotone ph-copy"></i><b>복사</b></button>' +
+	              '<button type="button" class="ig-actbtn" data-fl-var="regen" aria-label="다시 생성"><i class="ph-duotone ph-arrows-clockwise"></i><b>다시 생성</b></button>' +
+	              '<button type="button" class="ig-actbtn" data-fl="saveimg" aria-label="이미지 저장"><i class="ph-duotone ph-download-simple"></i><b>저장</b></button>' +
+	            '</div>'
+	          : '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
+	            '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>') +
 	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash' + (editable ? ' ig-hash-edit" contenteditable="true" role="textbox" aria-label="해시태그 편집" spellcheck="false' : '') + '" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글·해시태그를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
+	  }
+	  // [v589] 피드 미리보기 — 이 사진을 올리면 내 프로필 피드가 어떻게 보일지 그리드로.
+	  function _feedPreview(url) {
+	    if (!url) return '';
+	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
+	    // 기존 피드 사진이 어댑터에 있으면 사용, 없으면 부드러운 자리표시(라이트 톤)
+	    var recent = (ig && ig.media && ig.media.length) ? ig.media.slice(0, 8) : [];
+	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(url) + ')"><span class="wsfeed__new">NEW</span></div>';
+	    for (var i = 0; i < 8; i++) {
+	      cells += recent[i]
+	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(recent[i]) + ')"></div>'
+	        : '<div class="wsfeed__cell wsfeed__cell--ph"></div>';
+	    }
+	    var stat = ig.connected
+	      ? '<div class="wsfeed__prof"><span class="wsfeed__av"' + (ig.profilePic ? ' style="background-image:url(' + esc(ig.profilePic) + ')"' : '') + '></span><b>' + esc(ig.handle || '내 계정') + '</b></div>'
+	      : '';
+	    return '<div class="wsfeed">' +
+	      '<label class="cap-field-label wsfeed__lbl">피드 미리보기 <span>올리면 내 피드가 이렇게 보여요</span></label>' +
+	      '<div class="wsfeed__card">' + stat +
+	        '<div class="wsfeed__grid">' + cells + '</div>' +
+	        '<p class="wsfeed__cap">왼쪽 위가 이번에 올릴 사진이에요' + (ig.connected ? '' : ' · 인스타 연결하면 실제 피드로 보여드려요') + '</p>' +
+	      '</div></div>';
 	  }
 	  function renderPreview() {
 	    var url = outputUrl();
