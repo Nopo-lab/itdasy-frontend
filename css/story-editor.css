@@ -24,9 +24,11 @@
 .se-stage { position: relative; background: #1a1a1c center/cover no-repeat; border-radius: 14px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,.5); touch-action: none; }
 
 /* 레이어 */
-.se-layer { position: absolute; transform-origin: center; cursor: move; }
+.se-layer { position: absolute; transform-origin: center; cursor: move; touch-action: none; }
 .se-layer.sel { outline: 1.5px dashed rgba(255,255,255,.9); outline-offset: 6px; border-radius: 4px; }
-.se-layer__txt { outline: none; word-break: keep-all; white-space: pre-wrap; cursor: text; min-width: 24px; }
+.se-layer--pop { animation: se-pop .22s cubic-bezier(.2,.9,.3,1.25); }
+@keyframes se-pop { from { opacity: 0; transform: translate(-50%,-50%) scale(.72); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+.se-layer__txt { outline: none; word-break: keep-all; white-space: pre-wrap; cursor: text; min-width: 24px; touch-action: none; }
 .se-layer__emoji { line-height: 1; user-select: none; }
 .se-layer__badge { display: inline-block; padding: .34em .7em; border-radius: 999px; font-weight: 800; white-space: nowrap; line-height: 1.1; }
 .se-layer__img { display: block; width: 100%; height: auto; user-select: none; pointer-events: none; }
@@ -50,8 +52,8 @@
 .se-banner__re:active { opacity: .9; }
 .se-banner__x { width: 26px; height: 26px; border: 0; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; flex: 0 0 auto; }
 
-/* 하단 컨텍스트 패널(선택 시에만) */
-.se-panel { background: #18181b; border-top: 1px solid rgba(255,255,255,.08); padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); animation: se-up .16s ease; }
+/* 하단 컨텍스트 패널(선택 시에만) — 사진을 밀지 않는 오버레이(사진 위치 고정) */
+.se-panel { position: absolute; left: 0; right: 0; bottom: 0; z-index: 12; max-height: 48%; overflow-y: auto; background: rgba(24,24,27,.96); backdrop-filter: blur(8px); border-top: 1px solid rgba(255,255,255,.08); border-top-left-radius: 16px; border-top-right-radius: 16px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); animation: se-up .16s ease; }
 @keyframes se-up { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .se-panel__tabs { display: flex; gap: 18px; padding: 4px 2px 10px; }
 .se-ptab { border: 0; background: transparent; color: rgba(255,255,255,.5); font-size: 13.5px; font-weight: 700; cursor: pointer; padding: 4px 0; position: relative; }
