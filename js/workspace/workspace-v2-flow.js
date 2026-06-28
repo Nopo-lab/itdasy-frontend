@@ -18,14 +18,15 @@
   //   롤백: window.ITDASY_WS_SIMPLE_FLOW = false → 기존 6단계 플로우 그대로 복원.
   var SIMPLE_FLOW = (window.ITDASY_WS_SIMPLE_FLOW !== false);
   // 진행 표시(단계 X/N·진행바)·다음 화면 계산에 쓰는 '실제로 보이는 단계' 목록.
-  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'connect', 'preview'] : SCREENS;
+  // [v583·C] 인스타 미리보기 단계 폐지 — 미리보기 디자인+업로드는 캡션 결과 화면에 통합. 고객연결이 마지막 단계.
+  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'connect'] : SCREENS;
   var TITLE = { upload:'사진 업로드', edit:'편집', template:'템플릿 선택', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
   var CTA = {
     upload: { l:'편집으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
     edit:   { l:'저장하고 게시글 쓰기', to:'caption' },   // [v560] 좌측 절반. 우측 'cta2'=템플릿 선택하기.
     template:{ l:'이대로 게시글 쓰기', to:'caption' },
     caption:{ l:'고객 연결로', to:'connect' },
-    connect:{ l:'미리보기', to:'preview' },
+    connect:{ l:'저장하고 완료', to:'__save' },   // [v583·C] 고객연결=마지막 단계 → 저장 후 작업실로
   };
   // [Phase A-1] 심플 플로우: 업로드 다음 단계를 '편집'이 아닌 '캡션 생성(caption)'으로 직행.
   if (SIMPLE_FLOW) CTA.upload = { l:'캡션 생성 →', to:'caption' };
@@ -207,19 +208,32 @@
 
   // [Phase B-1] 스토리 편집기 진입 — 사진 + 우리샵 스타일 좌표로 텍스트 자동배치 → StoryEditor.
   //   시술 내용(여러 줄)을 제목/부제목/본문 레이어로 매핑. 저장 시 baked 결과를 대표 사진 editedDataUrl 로.
+  // [v583] 시술내역을 시술명/시술내용으로 분리(편집기 레이어로 각각 뜨게). 말투 지시어는 본문 텍스트에서 제거.
+  //   줄바꿈/콤마/가운뎃점으로 우선 분리, 한 줄 입력이면 첫 토큰=시술명·나머지=시술내용.
+  function _splitServiceForLayers(svc) {
+    var s = String(svc || '')
+      .replace(/(?:인스타|sns|감성|내추럴|모던|빈티지|러블리|시크|트렌디|미니멀|청순|글램|깔끔|세련|화사)?\s*(?:톤앤무드|톤앤매너|톤|느낌|감성|무드|분위기|바이브)\s*(?:으로|로|하게|있게|스럽게)\s*(?:마무리|마감|연출|편집|보정|작성)?/gi, ' ');
+    var segs = s.split(/[\n,·、]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+    if (segs.length >= 2) return { title: segs[0], sub: segs[1], body: segs.slice(2).join(' ') };
+    var w = (segs[0] || '').split(/\s+/).filter(Boolean);
+    if (w.length >= 2) return { title: w[0], sub: w.slice(1).join(' '), body: '' };
+    return { title: w[0] || '', sub: '', body: '' };
+  }
   function _openStoryEditor() {
     if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
     var photo = outputUrl();
-    var lines = String(d.service || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-    var roleText = { title: lines[0] || '', sub: lines[1] || '', body: lines.slice(2).join(' ') || '' };
+    var roleText = _splitServiceForLayers(d.service);   // [v583·A] 시술명/시술내용 분리
     var layers = [];
     var autoArranged = false;
     if (ss && d.useShopStyle !== false) {
       ss.layers.forEach(function (L) {
         if (L.role === 'hashtag') return;   // 해시태그 오버레이는 B-3 이후
         var text = roleText[L.role]; if (!text) return;
-        layers.push(Object.assign({}, L, { text: text }));
+        // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
+        var cx = (L.x != null ? L.x + (L.w != null ? L.w : 0.84) / 2 : 0.5);
+        cx = Math.max(0.14, Math.min(0.86, cx));
+        layers.push(Object.assign({}, L, { text: text, x: cx }));
       });
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
@@ -1269,20 +1283,14 @@
 	          '<button type="button" class="cap-switch' + (_hashOn ? ' on' : '') + '" data-fl-chash role="switch" aria-checked="' + _hashOn + '"><span class="cap-switch__dot"></span></button></div>' +
 	        '<button type="button" class="cap-gen-btn" data-fl-cgen>문구 생성하기</button>';
 	    }
-    // 결과 화면
-    // [v532] '추천 해시태그' 칩 목록 제거 — 해시태그는 아래 직접 편집 textarea 하나로 일원화(화면 정리).
-    // [다중pair] 결과물 2개+ 면 상단 캐러셀(카드 위 전폭), 1개면 기존 카드내 단일 프리뷰.
-    var carRes = _capCarouselHtml();
-    var photoHtml = (!d.textOnly && url && !carRes) ?
-      '<div class="cap-photo" style="background-image:url(' + esc(url) + ')"><span class="cap-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:13px;height:13px;stroke:var(--brand-strong)"><use href="#ic-tag"/></svg><span data-fl-capsvc>' + esc((d.service || '시술').split(',')[0]) + '</span></span></div>' : '';
+    // 결과 화면 — [v583·C] 인스타 미리보기 디자인 카드 + 아래 편집 + 인스타 업로드(별도 미리보기 단계 폐지).
     return '' +
-	      carRes +
 	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
+	      _igPreviewCard(url) +
 	      '<label class="cap-field-label">게시글 <span>바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
-	      '<div class="cap-card">' +
-	        photoHtml +
+	      '<div class="cap-card cap-card--edit">' +
 	        '<div class="cap-text">' +
-	          '<textarea class="cap-body" data-fl-capbody rows="7">' + esc(d.caption) + '</textarea>' +
+	          '<textarea class="cap-body" data-fl-capbody rows="6">' + esc(d.caption) + '</textarea>' +
 	          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
 	        '</div>' +
       '</div>' +
@@ -1301,8 +1309,9 @@
 	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
 		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +
 	        '<button class="cap-regen-btn" data-fl-var="long"><i class="ph-duotone ph-text-aa"></i>더 길게</button>' +
-	        '<button class="cap-regen-btn" data-fl="topreview"><i class="ph-duotone ph-instagram-logo"></i>인스타 미리보기</button>' +
+	        '' +
 	        '</div>' +
+		      _publishBlock() +
 		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
 	  }
 
@@ -1345,6 +1354,22 @@
       var _cnt = el.querySelector('[data-fl-svccount]');
       if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
     }
+    // [v583·C] 결과 화면 — 게시글/해시태그를 고치면 위 인스타 미리보기 카드에 라이브 반영.
+    var capBody = el.querySelector('[data-fl-capbody]');
+    if (capBody && !capBody._wsLiveBound) {
+      capBody._wsLiveBound = true;
+      capBody.addEventListener('input', function () {
+        var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = capBody.value;
+        var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = String(capBody.value.length);
+      });
+    }
+    var hashEdit = el.querySelector('[data-fl-caphashedit]');
+    if (hashEdit && !hashEdit._wsLiveBound) {
+      hashEdit._wsLiveBound = true;
+      hashEdit.addEventListener('input', function () {
+        var ih = el.querySelector('[data-fl-ighash]'); if (ih) ih.textContent = _parseHashes(hashEdit.value).join(' ');
+      });
+    }
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -1378,26 +1403,27 @@
 	      '<div class="ig-car__dots">' + dots + '</div>' +
 	    '</div>';
 	  }
-	  function renderPreview() {
-	    var url = outputUrl();
+	  // [v583] 인스타 미리보기 카드(.ig-card2) — 캡션 결과 화면과 (구)preview 화면이 공유.
+	  function _igPreviewCard(url) {
 	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
 	    var handle = ig.connected && ig.handle ? ig.handle : '인스타 미연동';
 	    var name = ig.connected ? (ig.displayName || handle) : '인스타 미연동';
 	    var avatar = ig.connected && ig.profilePic
 	      ? '<span class="ig-logo ig-logo--photo" style="background-image:url(' + esc(ig.profilePic) + ')"></span>'
 	      : '<span class="ig-logo ig-logo--empty"><i class="ph-duotone ph-instagram-logo"></i></span>';
-	    var custLine = d.customerName ?
-	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
-	    return '' +
-	      custLine +
-	      '<div class="ig-card2">' +
+	    return '<div class="ig-card2">' +
 	        '<div class="ig-head2">' + avatar + '<span class="ig-name2">' + esc(name) + '</span><span class="ig-loc">' + esc(ig.connected ? '샵 인스타' : '연결 필요') + '</span><span class="ig-dots2">···</span></div>' +
 	        _igCarouselHtml(url) +
 	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
 	          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
-	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash">' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">미리보기</div></div>' +
-	      '</div>' +
-	      _publishBlock();
+	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">미리보기</div></div>' +
+	      '</div>';
+	  }
+	  function renderPreview() {
+	    var url = outputUrl();
+	    var custLine = d.customerName ?
+	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
+	    return '' + custLine + _igPreviewCard(url) + _publishBlock();
 	  }
 
   function _publishBlock() {
@@ -1683,10 +1709,10 @@
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
       if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
-      if (a === 'topreview') { flushCaptionInputs(); setScreen('preview'); return; }
+      if (a === 'topreview') { flushCaptionInputs(); setScreen('caption'); return; }
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
       if (a === 'pickcust') { return pickCustomer(); }
-      if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; setScreen('preview'); return; }
+      if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; save(); return; }   // [v583·C] 연결 없이 진행=저장 후 완료
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
@@ -3009,14 +3035,14 @@
 	    if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
 	    if (d._publishing) return;
 	    syncCaptionFromDom();
-	    d._publishing = true; setScreen('preview');
+	    d._publishing = true; setScreen('caption');
     var slot = buildSlot();
     _pubShow();
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
-	      if (!sr || !sr.ok) { d._publishing = false; _pubHide(); toast('저장에 실패해 게시를 중단했어요'); setScreen('preview'); return; }
+	      if (!sr || !sr.ok) { d._publishing = false; _pubHide(); toast('저장에 실패해 게시를 중단했어요'); setScreen('caption'); return; }
       d.slot = slot;
       if (!window.WorkspaceAdapter.publishInstagramV2) {
-	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('preview'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
+	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('caption'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
       window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), caption: cap }).then(function (r) {
@@ -3040,7 +3066,7 @@
 	          console.warn('[wsv2flow] instagram publish failed', r);
 	          toast(r.detail ? (m + ' — ' + r.detail) : m);
 	        }
-        setScreen('preview');
+        setScreen('caption');
       });
     });
   }
@@ -3222,7 +3248,7 @@
         save(); return { ok: true };
       case 'publish':
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
-        setScreen('preview'); publish(); return { ok: true };
+        setScreen('caption'); publish(); return { ok: true };
       default:
         return { ok: false, reason: 'unknown' };
     }
