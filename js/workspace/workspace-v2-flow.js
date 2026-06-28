@@ -1172,6 +1172,15 @@
 	      if (SIMPLE_FLOW) {
 	        var _useStyle = (d.useShopStyle !== false);   // 기본 ON
 	        var _svc = d.service || '';
+	        // [Phase A-3] 활성 우리샵 스타일 카드 — 토글 ON일 때 노출(데이터모델 첫 연결점).
+	        //   '변경'(다중 스타일 선택)·실제 자동배치는 Phase C. 여기선 활성 스타일 표시까지.
+	        var _ss = (window.ShopStyle && window.ShopStyle.ensureSeed) ? window.ShopStyle.ensureSeed() : null;
+	        var _ssCard = (_useStyle && _ss) ? (
+	          '<div class="cap-stylecard">' +
+	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
+	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
+	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
+	          '</div>') : '';
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
 	          '<label class="cap-field-label">시술 내용</label>' +
@@ -1184,6 +1193,7 @@
 	              '<span class="cap-style-row__d">' + (_useStyle ? '우리샵 디자인에 맞춰 자동으로 배치해요' : '사진은 그대로 두고 글만 만들어요') + '</span></div>' +
 	            '<button type="button" class="cap-switch' + (_useStyle ? ' on' : '') + '" data-fl-cshopstyle role="switch" aria-checked="' + _useStyle + '"><span class="cap-switch__dot"></span></button>' +
 	          '</div>' +
+	          _ssCard +
 	          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>';
 	      }
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);

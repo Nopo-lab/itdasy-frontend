@@ -425,6 +425,13 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-style-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
 .wsv2flow .cap-style-row__tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .wsv2flow .cap-style-row__d { font-size: 11.5px; line-height: 1.4; color: var(--text-subtle); font-weight: 500; }
+/* [Phase A-3] 활성 우리샵 스타일 카드 */
+.wsv2flow .cap-stylecard { display: flex; align-items: center; gap: 11px; margin: -6px 0 18px; padding: 11px 13px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.wsv2flow .cap-stylecard__ic { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: var(--r-sm); background: var(--brand-bg); color: var(--brand-strong); font-size: 20px; flex: 0 0 auto; }
+.wsv2flow .cap-stylecard__tx { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wsv2flow .cap-stylecard__tx b { font-size: 13.5px; font-weight: 800; color: var(--text); }
+.wsv2flow .cap-stylecard__tx b em { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--brand-strong); background: var(--brand-bg); padding: 1px 6px; border-radius: var(--r-pill); margin-left: 4px; vertical-align: 1px; }
+.wsv2flow .cap-stylecard__tx small { font-size: 11px; color: var(--text-subtle); font-weight: 500; }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonehead { margin: 6px 2px 12px; }
