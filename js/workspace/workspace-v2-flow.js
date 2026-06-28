@@ -1286,14 +1286,8 @@
     // 결과 화면 — [v583·C] 인스타 미리보기 디자인 카드 + 아래 편집 + 인스타 업로드(별도 미리보기 단계 폐지).
     return '' +
 	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
-	      _igPreviewCard(url) +
-	      '<label class="cap-field-label">게시글 <span>바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
-	      '<div class="cap-card cap-card--edit">' +
-	        '<div class="cap-text">' +
-	          '<textarea class="cap-body" data-fl-capbody rows="6">' + esc(d.caption) + '</textarea>' +
-	          '<span class="cap-count"><span data-fl-capcount>' + (d.caption || '').length + '</span>/200</span>' +
-	        '</div>' +
-      '</div>' +
+	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
+	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
       '<div class="captail">' +
         '<div class="captail__head"><span class="captail__label">고정 꼬리말</span>' +
           (d.captionTemplate ? '<button type="button" class="captail__clear" data-fl="footerclear">비우기</button>' : '') +
@@ -1308,8 +1302,7 @@
       '<div class="cap-regen-row">' +
 	        '<button class="cap-regen-btn" data-fl="copycap"><i class="ph-duotone ph-copy"></i>복사</button>' +
 		        '<button class="cap-regen-btn" data-fl-var="regen"><i class="ph-duotone ph-arrows-clockwise"></i>다시 생성</button>' +
-	        '<button class="cap-regen-btn" data-fl-var="long"><i class="ph-duotone ph-text-aa"></i>더 길게</button>' +
-	        '' +
+	        	        '' +
 	        '</div>' +
 		      _publishBlock() +
 		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
@@ -1354,15 +1347,13 @@
       var _cnt = el.querySelector('[data-fl-svccount]');
       if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
     }
-    // [v583·C] 결과 화면 — 게시글/해시태그를 고치면 위 인스타 미리보기 카드에 라이브 반영.
-    var capBody = el.querySelector('[data-fl-capbody]');
-    if (capBody && !capBody._wsLiveBound) {
-      capBody._wsLiveBound = true;
-      capBody.addEventListener('input', function () {
-        var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = capBody.value;
-        var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = String(capBody.value.length);
-      });
+    // [v584·C] 결과 화면 — 카드 안 캡션(contenteditable)을 고치면 d.caption 즉시 동기화(아래 별도 편집칸 폐지).
+    var igCap = el.querySelector('[data-fl-igcap]');
+    if (igCap && igCap.isContentEditable && !igCap._wsLiveBound) {
+      igCap._wsLiveBound = true;
+      igCap.addEventListener('input', function () { d.caption = igCap.textContent; });
     }
+    // 해시태그 편집 → 미리보기 카드 해시 라이브 반영.
     var hashEdit = el.querySelector('[data-fl-caphashedit]');
     if (hashEdit && !hashEdit._wsLiveBound) {
       hashEdit._wsLiveBound = true;
@@ -1404,7 +1395,8 @@
 	    '</div>';
 	  }
 	  // [v583] 인스타 미리보기 카드(.ig-card2) — 캡션 결과 화면과 (구)preview 화면이 공유.
-	  function _igPreviewCard(url) {
+	  // [v584] editable=true 면 카드 안 캡션을 그 자리에서 직접 편집(아래 별도 편집칸 폐지).
+	  function _igPreviewCard(url, editable) {
 	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
 	    var handle = ig.connected && ig.handle ? ig.handle : '인스타 미연동';
 	    var name = ig.connected ? (ig.displayName || handle) : '인스타 미연동';
@@ -1416,7 +1408,7 @@
 	        _igCarouselHtml(url) +
 	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
 	          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
-	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">미리보기</div></div>' +
+	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">' + (editable ? '여기를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
 	  function renderPreview() {
@@ -1911,7 +1903,7 @@
 		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
 	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요');
 	      }
-      var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-capbody]'); if (bd) bd.focus(); } return; }
+      var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-igcap],[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
       var files = Array.from(e.target.files || []); e.target.value = '';
@@ -2843,8 +2835,11 @@
 	    });
 	  }
 	  function syncCaptionFromDom() {
+	    // [v584] 캡션은 카드 안 contenteditable(igcap)이 원본. (레거시 capbody 도 호환)
+	    var ig = el.querySelector('[data-fl-igcap]');
+	    if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); return; }
 	    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
-	    var ig = el.querySelector('[data-fl-igcap]'); if (ig) ig.textContent = d.caption;
+	    if (ig) ig.textContent = d.caption;
 	  }
 
   // 캡션 화면을 떠나거나 다음 단계로 갈 때 — 입력창 3종(시술명/본문/꼬리말)의 최신값을 한 번에 state 로 확정.
@@ -2861,7 +2856,9 @@
   function flushCaptionInputs() {
     syncServiceFromDom();
     if (!el) return;
-    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
+    var ig = el.querySelector('[data-fl-igcap]');   // [v584] 카드 안 캡션 편집(원본)
+    if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); }
+    else { var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim(); }
     var f = el.querySelector('[data-fl-footer]'); if (f && typeof f.value === 'string') d.captionTemplate = f.value;
     // [v531] 분리된 해시태그 편집칸 → d.hashtags/selectedHashes(저장·미리보기·복사에 반영).
     var h = el.querySelector('[data-fl-caphashedit]'); if (h && typeof h.value === 'string') { var hs = _parseHashes(h.value); d.hashtags = hs; d.selectedHashes = hs.slice(); }

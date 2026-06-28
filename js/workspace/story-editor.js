@@ -151,8 +151,13 @@
 
   function _applyRatio() {
     S.stage.style.backgroundImage = S.photoUrl ? 'url(' + S.photoUrl + ')' : 'none';
-    _fitStageRetry(0);   // [v582] 진입 직후 레이아웃이 아직 0이면 다음 프레임에 재시도 → 검은화면(사진·텍스트 안 뜸) 해소
-    if (!S._resizeBound) { S._resizeBound = function () { _fitStage(); _renderStage(); }; window.addEventListener('resize', S._resizeBound); }
+    _fitStageRetry(0);   // [v582] 진입 직후 레이아웃이 아직 0이면 다음 프레임에 재시도
+    if (!S._resizeBound) { S._resizeBound = function () { if (_fitStage()) _renderStage(); }; window.addEventListener('resize', S._resizeBound); }
+    // [v584] wrap 레이아웃이 '작게 잡혔다가 나중에 커지는' 경우까지 재맞춤(진입 시 사진이 매우 작게 뜨던 문제 해소).
+    if (!S._ro && window.ResizeObserver) {
+      var wrap = S.stage.parentElement;
+      if (wrap) { S._ro = new ResizeObserver(function () { if (_fitStage()) _renderStage(); }); S._ro.observe(wrap); }
+    }
   }
   // 스테이지 wrap 의 레이아웃 크기가 잡힐 때까지 재시도. 잡히면 사진(배경)+레이어를 즉시 렌더.
   function _fitStageRetry(n) {
@@ -167,8 +172,11 @@
     var parts = String(S.ratio).split(':'); var rw = +parts[0] || 4, rh = +parts[1] || 5;
     var w = aw, h = w * rh / rw;
     if (h > ah) { h = ah; w = h * rw / rh; }
-    S.stage.style.width = Math.floor(w) + 'px';
-    S.stage.style.height = Math.floor(h) + 'px';
+    w = Math.floor(w); h = Math.floor(h);
+    if (S._fitW === w && S._fitH === h) return true;   // 변화 없으면 재렌더 생략(ResizeObserver churn 방지)
+    S._fitW = w; S._fitH = h;
+    S.stage.style.width = w + 'px';
+    S.stage.style.height = h + 'px';
     return true;
   }
 
@@ -527,6 +535,7 @@
     if (!S) return;
     try { if (window._unregisterSheet) window._unregisterSheet('seOverlay'); } catch (_e) { void _e; }
     if (S._resizeBound) { try { window.removeEventListener('resize', S._resizeBound); } catch (_e2) { void _e2; } }
+    if (S._ro) { try { S._ro.disconnect(); } catch (_e3) { void _e3; } }
     if (S.root) S.root.remove();
     S = null;
   }
