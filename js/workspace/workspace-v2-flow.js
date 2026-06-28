@@ -206,7 +206,7 @@
       var ph = (d.photos || []).filter(function (p) { return p.id === d.activeDisplayId; })[0];
       if (ph) return photoUrl(ph);
     }
-    return (d && d.templateOutput) || (d && d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl) || photoUrl(curPhoto());
+    return (d && d.templateOutput) || (d && d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl) || dispUrl(curPhoto());
   }
 
   // [Phase B-1] 스토리 편집기 진입 — 사진 + 우리샵 스타일 좌표로 텍스트 자동배치 → StoryEditor.
@@ -255,8 +255,36 @@
     if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
     return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
   }
-  // [v588·#3] 자동 합성 제거 — 캡션 결과/뒤로가기에서 사진은 항상 '원본' 유지.
-  //   템플릿·텍스트는 사용자가 '사진 꾸미기'로 직접 저장할 때만 사진에 적용된다(editedDataUrl·storyEdited).
+  // [v589·#3] 표시용 URL — 입력 화면/뒤로가기는 '원본', 캡션 '결과' 화면에서만 템플릿 적용 미리보기를 보여준다.
+  //   사진 자체(editedDataUrl)는 절대 건드리지 않으므로(수동 '사진 꾸미기' 저장 제외) 뒤로가기 시 원본 유지.
+  //   tplPreviewUrl = 결과 전용 합성본(헤드리스). storyEdited(수동 편집)면 그 결과가 우선.
+  function dispUrl(p) {
+    if (!p) return '';
+    if (!p.storyEdited && String(d.caption || '').trim() && p.tplPreviewUrl) return p.tplPreviewUrl;
+    return p.editedDataUrl || p.dataUrl;
+  }
+  // [v589·#3] 캡션 결과 화면에서 우리샵 스타일을 각 사진에 헤드리스 합성 → tplPreviewUrl(결과 전용).
+  //   사진 원본은 그대로. 입력 시그니처로 1회만(서비스/해시/스타일 동일하면 생략). 멀티포토 각각 합성.
+  function _autoComposeTemplate() {
+    try {
+      if (d.useShopStyle === false) return;
+      if (!(window.StoryEditor && window.StoryEditor.compose)) return;
+      var built = _buildShopStyleLayers();
+      if (!built.autoArranged) return;
+      var hsig = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [];
+      var sigBase = JSON.stringify({ s: d.service, h: hsig, r: built.ratio, n: built.layers.length, v: (built.ss && built.ss.version) });
+      var photos = editablePhotos(); if (!photos.length) return;
+      var jobs = [];
+      photos.forEach(function (p) {
+        if (p.storyEdited) return;                 // 수동 편집 사진은 그대로
+        if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
+        p._tplSig = sigBase;
+        jobs.push(window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: built.layers })
+          .then(function (url) { if (url) p.tplPreviewUrl = url; }));
+      });
+      if (jobs.length) Promise.all(jobs).then(function () { if (cur === 'caption' && String(d.caption || '').trim()) { d.previewUrl = null; setScreen('caption'); } });
+    } catch (_e) { void _e; }
+  }
   function _openStoryEditor() {
     if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = curPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;
@@ -1419,6 +1447,8 @@
         var hs = _parseHashes(igHash.textContent); d.hashtags = hs; d.selectedHashes = hs.slice();
       });
     }
+    // [v589·#3] 결과 화면이면 각 사진에 우리샵 스타일 적용 미리보기 합성(원본은 보존, 결과 표시 전용).
+    if (String(d.caption || '').trim()) _autoComposeTemplate();
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -2749,7 +2779,7 @@
 	    }
 	    // 템플릿 미적용 → 편집 사진 개별 표시(공통 carousel 소스)
 	    return editablePhotos().map(function (p, i) {
-	      return { kind: 'photo', id: p.id, url: photoUrl(p), label: _editPhotoLabel(p, i) };
+	      return { kind: 'photo', id: p.id, url: dispUrl(p), label: _editPhotoLabel(p, i) };   // [v589] 결과=적용 미리보기
 	    });
 	  }
 	  // [v564·필수3] 전후 pair 결과 ↔ 원본 전/후 2장 토글. 원본은 보존, 표시 리스트만 펼침/접힘.
