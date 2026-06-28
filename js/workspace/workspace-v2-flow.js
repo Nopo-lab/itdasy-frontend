@@ -118,6 +118,9 @@
   // [v531] 한 단계 뒤로 — 시스템/브라우저/인앱 back 공통. 캡션 결과 화면이면 먼저 캡션 입력으로(편집으로 안 튐).
   function _navBack() {
     if (!el || !el.classList.contains('is-open')) return false;
+    // [v587·#5] 편집기(seOverlay)가 열렸거나 방금 popstate 로 닫힌 back 이면 flow 가 같은 back 을 중복 처리하지 않는다.
+    //   (전역 시트 시스템이 편집기를 먼저 닫음 → 작업실 단계는 그대로 유지, 앱 종료 방지.)
+    if (window.__seOpen || window.__seSwallowPop) return false;
     // 캡션 생성 완료(결과) + 그 위에 우리가 push한 'caption' 마커가 있으면 → 결과를 비우고 캡션 입력 화면으로.
     if (cur === 'caption' && String(d.caption || '').trim() && navStack.length && navStack[navStack.length - 1] === 'caption') {
       if (_histDepth > 0) _histDepth--;
@@ -219,17 +222,21 @@
     if (w.length >= 2) return { title: w[0], sub: w.slice(1).join(' '), body: '' };
     return { title: w[0] || '', sub: '', body: '' };
   }
-  function _openStoryEditor() {
-    if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
+  // [v587] 깨끗한 합성 기준 사진 — 편집기·자동합성 모두 '텍스트가 안 박힌 원본' 위에 올린다(이중 합성 방지).
+  function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
+  // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
+  function _buildShopStyleLayers() {
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
-    var photo = outputUrl();
     var roleText = _splitServiceForLayers(d.service);   // [v583·A] 시술명/시술내용 분리
     var layers = [];
     var autoArranged = false;
     if (ss && d.useShopStyle !== false) {
+      // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 5개를 사진 위에 올림.
+      var hs = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : (d.hashtags || []));
+      var hashText = hs.slice(0, 5).join(' ');
       ss.layers.forEach(function (L) {
-        if (L.role === 'hashtag') return;   // 해시태그 오버레이는 B-3 이후
-        var text = roleText[L.role]; if (!text) return;
+        var text = (L.role === 'hashtag') ? hashText : roleText[L.role];
+        if (!text) return;
         // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
         var cx = (L.x != null ? L.x + (L.w != null ? L.w : 0.84) / 2 : 0.5);
         cx = Math.max(0.14, Math.min(0.86, cx));
@@ -246,19 +253,82 @@
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
     if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
+    return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
+  }
+  // [v587·#3] 템플릿 ON 동기화 — 캡션 완료 화면 사진을 '에디터 결과와 100% 동일'하게 헤드리스 자동합성.
+  //   사용자가 직접 편집(storyEdited)했으면 그 결과를 유지하고 덮지 않는다. 입력 시그니처로 1회만 합성.
+  function _autoComposeTemplate() {
+    try {
+      if (d.useShopStyle === false) return;
+      if (!(window.StoryEditor && window.StoryEditor.compose)) return;
+      var p = curPhoto(); if (!p || !p.dataUrl) return;
+      if (p.storyEdited) return;   // 수동 편집 우선
+      var built = _buildShopStyleLayers();
+      if (!built.autoArranged) return;
+      if (!p.baseUrl) p.baseUrl = p.dataUrl;   // 합성 기준 = 깨끗한 원본 고정
+      var sig = JSON.stringify({ s: d.service, h: (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [], r: built.ratio, n: built.layers.length, v: (built.ss && built.ss.version) });
+      if (p._tplSig === sig && p.editedDataUrl) return;   // 동일 입력 → 재합성 생략(이중 합성·깜빡임 방지)
+      p._tplSig = sig;
+      window.StoryEditor.compose({ photoUrl: _cleanBase(p), ratio: built.ratio, layers: built.layers }).then(function (url) {
+        if (!url) return;
+        p.editedDataUrl = url; p.templateAutoApplied = true; d.previewUrl = null;
+        if (cur === 'caption') setScreen('caption');
+      });
+    } catch (_e) { void _e; }
+  }
+  function _openStoryEditor() {
+    if (!(window.StoryEditor && window.StoryEditor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
+    var p0 = curPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;
+    var photo = _cleanBase(p0) || outputUrl();   // [v587] 편집기는 항상 깨끗한 원본 위에서 시작(이중 합성 방지)
+    var built = _buildShopStyleLayers();
+    var layers = built.layers, autoArranged = built.autoArranged;
     window.StoryEditor.open({
       photoUrl: photo,
-      ratio: ss ? ss.frame.ratio : '4:5',
+      ratio: built.ratio,
       layers: layers,
       autoArranged: autoArranged,
-      onDone: function (dataUrl) {
+      onDone: function (dataUrl, meta) {
         var p = curPhoto();
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
         d.previewUrl = null;
+        _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
         if (cur === 'caption') setScreen('caption');
         toast('사진을 꾸몄어요');
       }
     });
+  }
+  // [v587·C] ShopStyle 학습 피드백 루프 — 편집기에서 바꾼 폰트/색/위치/외곽선을 활성 스타일에
+  //   되저장해 다음 사진부터 같은 스타일로 자동배치한다. (중앙x → 좌상단x 역변환)
+  function _learnShopStyle(layers) {
+    try {
+      if (!Array.isArray(layers) || !layers.length) return;
+      if (d.useShopStyle === false) return;
+      var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
+      var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
+      var byRole = {};
+      layers.forEach(function (l) { if (l && l.type === 'text' && l.role && !byRole[l.role]) byRole[l.role] = l; });
+      var TEXT_ROLES = { title: 1, sub: 1, body: 1, hashtag: 1 };
+      var changed = false;
+      var newLayers = ss.layers.map(function (L) {
+        var e = byRole[L.role]; if (!e || !TEXT_ROLES[L.role]) return L;
+        changed = true;
+        var w = (e.w != null ? e.w : (L.w != null ? L.w : 0.84));
+        var leftX = Math.max(0, Math.min(1, (e.x != null ? e.x - w / 2 : L.x)));
+        return Object.assign({}, L, {
+          x: leftX, y: (e.y != null ? e.y : L.y), w: w,
+          font: e.font || L.font, color: e.color || L.color,
+          size: (e.size != null ? e.size : L.size), weight: (e.weight != null ? e.weight : L.weight),
+          align: e.align || L.align,
+          lineHeight: (e.lineHeight != null ? e.lineHeight : L.lineHeight),
+          letterSpacing: (e.letterSpacing != null ? e.letterSpacing : L.letterSpacing),
+          opacity: (e.opacity != null ? e.opacity : L.opacity),
+          outline: Object.assign({}, L.outline || {}, { on: !!e.stroke }),
+          shadow: Object.assign({}, L.shadow || {}, { on: !!e.shadow })
+        });
+      });
+      if (!changed) return;
+      SS.save(ss.id, { layers: newLayers });
+    } catch (_e) { void _e; }
   }
   // [C5] _barClass: vc(방문횟수) → b1/b2/b3 클래스
   function barClass(vc) {
@@ -1303,8 +1373,7 @@
         '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
         '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
       '</div>' +
-      '<label class="cap-field-label">해시태그 <span>직접 고치거나 추가할 수 있어요</span></label>' +
-      '<textarea class="cap-hashedit" data-fl-caphashedit rows="2" placeholder="#해시태그 #예시">' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</textarea>' +
+      // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
       // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
       ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 꾸미기</button>' : '') +
       '<div class="cap-regen-row">' +
@@ -1361,14 +1430,16 @@
       igCap._wsLiveBound = true;
       igCap.addEventListener('input', function () { d.caption = igCap.textContent; });
     }
-    // 해시태그 편집 → 미리보기 카드 해시 라이브 반영.
-    var hashEdit = el.querySelector('[data-fl-caphashedit]');
-    if (hashEdit && !hashEdit._wsLiveBound) {
-      hashEdit._wsLiveBound = true;
-      hashEdit.addEventListener('input', function () {
-        var ih = el.querySelector('[data-fl-ighash]'); if (ih) ih.textContent = _parseHashes(hashEdit.value).join(' ');
+    // [v587] 카드 안 해시태그(contenteditable)를 고치면 d.hashtags/selectedHashes 즉시 동기화(별도 편집칸 폐지).
+    var igHash = el.querySelector('[data-fl-ighash]');
+    if (igHash && igHash.isContentEditable && !igHash._wsLiveBound) {
+      igHash._wsLiveBound = true;
+      igHash.addEventListener('input', function () {
+        var hs = _parseHashes(igHash.textContent); d.hashtags = hs; d.selectedHashes = hs.slice();
       });
     }
+    // [v587·#3] 결과 화면이면 템플릿 ON 사진을 에디터 결과와 동일하게 자동합성(시그니처 가드로 1회).
+    if (d.caption) _autoComposeTemplate();
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -1416,7 +1487,7 @@
 	        _igCarouselHtml(url) +
 	        '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
 	          '<div class="ig-save"><i class="ph-duotone ph-bookmark-simple"></i></div></div>' +
-	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash" data-fl-ighash>' + esc(d.hashtags.join(' ')) + '</span><div class="ig-ago">' + (editable ? '여기를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
+	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash' + (editable ? ' ig-hash-edit" contenteditable="true" role="textbox" aria-label="해시태그 편집" spellcheck="false' : '') + '" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글·해시태그를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
 	  function renderPreview() {
@@ -2868,8 +2939,9 @@
     if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); }
     else { var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim(); }
     var f = el.querySelector('[data-fl-footer]'); if (f && typeof f.value === 'string') d.captionTemplate = f.value;
-    // [v531] 분리된 해시태그 편집칸 → d.hashtags/selectedHashes(저장·미리보기·복사에 반영).
-    var h = el.querySelector('[data-fl-caphashedit]'); if (h && typeof h.value === 'string') { var hs = _parseHashes(h.value); d.hashtags = hs; d.selectedHashes = hs.slice(); }
+    // [v587] 해시태그 = 카드 안 contenteditable(.ig-hash-edit) → d.hashtags/selectedHashes(저장·미리보기·복사 반영).
+    var h = el.querySelector('[data-fl-ighash]');
+    if (h && h.isContentEditable) { var hs = _parseHashes(h.textContent); d.hashtags = hs; d.selectedHashes = hs.slice(); }
   }
 
   function back() {

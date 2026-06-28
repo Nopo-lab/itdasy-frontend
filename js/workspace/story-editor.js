@@ -153,7 +153,38 @@
     _renderPanel();
     _renderBanner();
     _bind();
-    try { if (window._registerSheet) window._registerSheet('seOverlay', { close: cancel, isOpen: function () { return !!document.getElementById('seOverlay'); } }); } catch (_e) { void _e; }
+    // [v587·#5] 시스템 back 으로 편집기가 '먼저' 닫히게 — 열 때 history 엔트리 1개를 쌓고,
+    //   모든 닫기(시스템 back·X·저장)는 그 엔트리를 history.back() 으로 소비하는 단일 경로(_requestClose)로 통일한다.
+    //   기존엔 _registerSheet 에 객체를 넘겨 무시당해(함수만 허용) 편집기가 back 스택에 없었고,
+    //   back 시 flow 가 단계를 대신 pop 해 작업실이 종료됐다. flow 는 __seSwallowPop 으로 같은 back 을 건너뛴다.
+    try {
+      window.__seOpen = true;
+      S._popHandler = function () {
+        if (!S || !S.root) return;       // 이미 닫힘
+        S._histPushed = false;           // 우리 엔트리가 back 으로 소비됨
+        window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0);
+        _finishClose();                  // 시스템 back = 취소로 닫기
+      };
+      window.addEventListener('popstate', S._popHandler);
+      history.pushState({ seOverlay: 1 }, ''); S._histPushed = true;
+    } catch (_e) { void _e; }
+  }
+  // [v587·#5] 닫기 단일 경로 — pushed 엔트리가 있으면 history.back() 으로 소비(→ _popHandler → _finishClose),
+  //   없으면 즉시 종료. done 콜백(onCancel/onDone wrapper)은 _finishClose 에서 호출.
+  function _requestClose(done) {
+    if (!S) return;
+    S._pendingDone = done || null;
+    if (S._histPushed) {
+      S._histPushed = false;
+      window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0);
+      try { history.back(); } catch (_e) { void _e; _finishClose(); }
+    } else { _finishClose(); }
+  }
+  function _finishClose() {
+    if (!S) return;
+    var done = S._pendingDone || S.onCancel;
+    _teardown();
+    if (done) try { done(); } catch (_e) { void _e; }
   }
 
   function _applyRatio() {
@@ -421,7 +452,12 @@
   function _stagePx() { var r = S.stage.getBoundingClientRect(); return { w: r.width, h: r.height, left: r.left, top: r.top, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; }
   function _capture(id) { try { if (S.stage.setPointerCapture) S.stage.setPointerCapture(id); } catch (_e) { void _e; } }
   function _bindStagePointer() {
-    var drag = null, rotsz = null;
+    // pending = 아직 탭인지 드래그인지 미정(임계값 넘으면 drag 로 승격).
+    // [v587] 텍스트 탭→키보드 즉시 내려감 버그 수정: pointerdown 에서 곧장 캡처/드래그하면
+    //   contenteditable 포커스를 빼앗고 pointerup 의 _renderStage 가 노드를 재생성해 blur 됐다.
+    //   → 이동이 임계값을 넘을 때만 드래그로 승격하고, 순수 탭이면 재렌더 없이 포커스만 준다.
+    var drag = null, rotsz = null, pending = null;
+    var DRAG_THRESH = 6;
     S.stage.addEventListener('pointerdown', function (e) {
       var hb = e.target.closest('[data-se-h]'); var host = e.target.closest('[data-se-layer]');
       if (hb && host) {
@@ -433,10 +469,12 @@
       }
       if (host) {
         var lid = host.getAttribute('data-se-layer'); _select(lid);
-        if (e.target.closest('.se-layer__txt') && document.activeElement === e.target.closest('.se-layer__txt')) return;
+        var txt = e.target.closest('.se-layer__txt');
+        // 이미 편집 중인 텍스트 → 네이티브 캐럿/선택 허용(드래그·캡처·preventDefault 안 함).
+        if (txt && document.activeElement === txt) return;
         var ll = _selByIdHelper(lid);
-        drag = { id: lid, startX: e.clientX, startY: e.clientY, ox: ll.x, oy: ll.y, sp: _stagePx() };
-        _capture(e.pointerId);
+        // ⚠️ 캡처/preventDefault 하지 않는다 — 탭→텍스트 포커스(키보드)를 빼앗지 않기 위해.
+        pending = { id: lid, startX: e.clientX, startY: e.clientY, ox: ll.x, oy: ll.y, sp: _stagePx(), txt: txt || null, pid: e.pointerId };
       } else if (e.target === S.stage) {
         _deselect();   // [B-1r] 빈 캔버스 탭 → 선택 해제(패널 닫힘·캔버스 최대)
       }
@@ -450,6 +488,13 @@
         l.size = clamp(dist / Math.min(sp.w, sp.h) * 0.5, 0.02, 0.5);
         _liveUpdate(l); return;
       }
+      // 탭이 임계값을 넘으면 드래그로 승격(이때 캡처 + 편집 종료).
+      if (pending && !drag) {
+        if (Math.hypot(e.clientX - pending.startX, e.clientY - pending.startY) < DRAG_THRESH) return;
+        drag = pending; pending = null;
+        _capture(drag.pid);
+        if (drag.txt) { try { drag.txt.blur(); } catch (_e) { void _e; } }
+      }
       if (drag) {
         var ld = _selByIdHelper(drag.id);
         ld.x = clamp(drag.ox + (e.clientX - drag.startX) / drag.sp.w, 0.02, 0.98);
@@ -457,7 +502,14 @@
         _liveUpdate(ld);
       }
     });
-    function end() { if (drag || rotsz) { drag = null; rotsz = null; _renderStage(); _renderPanel(); _snapshot(); } }
+    function end() {
+      if (drag || rotsz) { drag = null; rotsz = null; _renderStage(); _renderPanel(); _snapshot(); pending = null; return; }
+      if (pending) {
+        var txt = pending.txt; pending = null;
+        // 이동 없는 탭: 텍스트면 편집 진입(포커스·키보드 유지, 재렌더 금지).
+        if (txt) { try { txt.focus({ preventScroll: true }); } catch (_e) { try { txt.focus(); } catch (_e2) { void _e2; } } }
+      }
+    }
     S.stage.addEventListener('pointerup', end); S.stage.addEventListener('pointercancel', end);
     _bindStageTouch();
   }
@@ -498,16 +550,18 @@
 
   // ── bake ──────────────────────────────────────────────────
   function _loadImg(src) { return new Promise(function (res) { if (!src) return res(null); var i = new Image(); i.crossOrigin = 'anonymous'; i.onload = function () { res(i); }; i.onerror = function () { res(null); }; i.src = src; }); }
-  function bake() {
-    var parts = String(S.ratio).split(':'); var rw = +parts[0] || 4, rh = +parts[1] || 5;
+  function bake() { return _bakeWith(S.photoUrl, S.ratio, S.layers); }
+  // [v587·C] UI 없이도 합성 가능한 순수 베이크 — compose() 헤드리스 미리보기/템플릿 동기화에 재사용.
+  function _bakeWith(photoUrl, ratioStr, layers) {
+    var parts = String(ratioStr || '4:5').split(':'); var rw = +parts[0] || 4, rh = +parts[1] || 5;
     var W = 1080, H = Math.round(W * rh / rw), shortSide = Math.min(W, H);
-    var imgSrcs = [S.photoUrl].concat(S.layers.filter(function (l) { return l.type === 'image'; }).map(function (l) { return l.src; }));
+    var imgSrcs = [photoUrl].concat(layers.filter(function (l) { return l.type === 'image'; }).map(function (l) { return l.src; }));
     return Promise.all(imgSrcs.map(_loadImg)).then(function (imgs) {
       var photo = imgs[0]; var imgMap = {}; var ii = 1;
-      S.layers.forEach(function (l) { if (l.type === 'image') imgMap[l.id] = imgs[ii++]; });
+      layers.forEach(function (l) { if (l.type === 'image') imgMap[l.id] = imgs[ii++]; });
       var cv = document.createElement('canvas'); cv.width = W; cv.height = H; var ctx = cv.getContext('2d');
       if (photo) _coverDraw(ctx, photo, W, H); else { ctx.fillStyle = '#222'; ctx.fillRect(0, 0, W, H); }
-      S.layers.forEach(function (l) {
+      layers.forEach(function (l) {
         ctx.save(); ctx.translate(l.x * W, l.y * H); ctx.rotate(l.rot * Math.PI / 180); ctx.globalAlpha = l.opacity;
         var fs = l.size * shortSide;
         if (l.type === 'image' && imgMap[l.id]) {
@@ -556,10 +610,19 @@
     return out;
   }
 
-  function save() { bake().then(function (dataUrl) { var cb = S.onDone, layers = S.layers.map(function (l) { return Object.assign({}, l); }); _teardown(); if (cb) cb(dataUrl, { layers: layers }); }); }
-  function cancel() { var cb = S.onCancel; _teardown(); if (cb) cb(); }
+  function save() {
+    if (!S) return;
+    bake().then(function (dataUrl) {
+      var cb = S.onDone, layers = S.layers.map(function (l) { return Object.assign({}, l); });
+      _requestClose(function () { if (cb) cb(dataUrl, { layers: layers }); });
+    });
+  }
+  function cancel() { _requestClose(null); }   // pending 없음 → _finishClose 가 onCancel 호출
   function _teardown() {
     if (!S) return;
+    // [v587·#5] 편집기 닫힘 — back 리스너 해제 + back 스택 플래그 정리.
+    window.__seOpen = false;
+    if (S._popHandler) { try { window.removeEventListener('popstate', S._popHandler); } catch (_e0) { void _e0; } }
     try { if (window._unregisterSheet) window._unregisterSheet('seOverlay'); } catch (_e) { void _e; }
     if (S._resizeBound) { try { window.removeEventListener('resize', S._resizeBound); } catch (_e2) { void _e2; } }
     if (S._ro) { try { S._ro.disconnect(); } catch (_e3) { void _e3; } }
@@ -567,5 +630,13 @@
     S = null;
   }
 
-  window.StoryEditor = { open: open, isOpen: function () { return !!(S && S.root); }, bake: function () { return S ? bake() : Promise.resolve(null); }, close: cancel };
+  // [v587·C] 헤드리스 합성 — 편집기를 띄우지 않고 photoUrl+layers 를 JPEG dataUrl 로.
+  //   템플릿 ON 시 캡션 완료 화면 미리보기를 '에디터 결과와 100% 동일'하게 자동 합성하는 데 사용.
+  function compose(opts) {
+    opts = opts || {};
+    if (!opts.photoUrl) return Promise.resolve(null);
+    var layers = (opts.layers || []).map(_normLayer);
+    return _bakeWith(opts.photoUrl, opts.ratio || '4:5', layers);
+  }
+  window.StoryEditor = { open: open, isOpen: function () { return !!(S && S.root); }, bake: function () { return S ? bake() : Promise.resolve(null); }, compose: compose, close: cancel };
 })();

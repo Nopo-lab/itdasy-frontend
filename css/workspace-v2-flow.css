@@ -502,6 +502,9 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [v584] 카드 안 캡션 직접 편집 — 점선 underline 어포던스 + 포커스 강조. */
 .wsv2flow .ig-cap-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; box-shadow: inset 0 -1px 0 rgba(213,138,149,.45); cursor: text; transition: box-shadow .15s, background .15s; }
 .wsv2flow .ig-cap-edit:focus { background: rgba(213,138,149,.08); box-shadow: 0 0 0 2px rgba(213,138,149,.5); }
+/* [v587] 해시태그도 카드 안에서 직접 편집(별도 편집칸 폐지) — 동일 어포던스. */
+.wsv2flow .ig-hash-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; box-shadow: inset 0 -1px 0 rgba(59,143,212,.4); cursor: text; transition: box-shadow .15s, background .15s; display: inline-block; min-width: 40px; }
+.wsv2flow .ig-hash-edit:focus { background: rgba(59,143,212,.08); box-shadow: 0 0 0 2px rgba(59,143,212,.45); }
 .wsv2flow .ig-preview-btn { width: 100%; height: 52px; border: 1px solid var(--brand); background: var(--brand-bg); color: var(--brand-strong); border-radius: var(--r-md); font-weight: 900; font-size: 14px; cursor: pointer; }
 
 /* E. 고객 연결 — _barClass 시각 통일 (아바타 없음, 컬러바+방문횟수) */
