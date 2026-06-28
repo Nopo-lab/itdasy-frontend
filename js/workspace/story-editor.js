@@ -111,8 +111,8 @@
       letterSpacing: l.letterSpacing != null ? l.letterSpacing : 0,
       opacity: l.opacity != null ? l.opacity : 1,
       font: l.font || 'Pretendard',
-      shadow: l.shadow !== false && type !== 'badge',
-      stroke: !!l.stroke,                          // [B-2] 외곽선
+      shadow: (l.shadow && typeof l.shadow === 'object') ? !!l.shadow.on : (l.shadow !== false && type !== 'badge'),
+      stroke: !!(l.stroke || (l.outline && l.outline.on)),   // [B-2] 외곽선(ShopStyle outline 매핑)
       box: (l.box != null ? l.box : null)          // [B-2] 글자 배경 박스(색|null)
     };
   }

@@ -235,6 +235,14 @@
         cx = Math.max(0.14, Math.min(0.86, cx));
         layers.push(Object.assign({}, L, { text: text, x: cx }));
       });
+      // [C] 우리샵 브랜드 자산 완전 자동배치 — 로고(이미지)·워터마크(텍스트)도 함께 올림.
+      var _cx = function (x, w) { return Math.max(0.1, Math.min(0.9, (x != null ? x + (w != null ? w : 0.2) / 2 : 0.82))); };
+      if (ss.logo && ss.logo.dataUrl) {
+        layers.push({ type: 'image', role: 'logo', src: ss.logo.dataUrl, x: _cx(ss.logo.x, ss.logo.w), y: (ss.logo.y != null ? ss.logo.y : 0.1), w: (ss.logo.w != null ? ss.logo.w : 0.24), opacity: (ss.logo.opacity != null ? ss.logo.opacity : 1) });
+      }
+      if (ss.watermark && (ss.watermark.text || '').trim()) {
+        layers.push({ type: 'badge', role: 'watermark', text: ss.watermark.text.trim(), x: _cx(ss.watermark.x, 0.3), y: (ss.watermark.y != null ? ss.watermark.y : 0.93), size: 0.032, bg: 'rgba(0,0,0,.32)', color: (ss.watermark.color || '#ffffff'), opacity: (ss.watermark.opacity != null ? ss.watermark.opacity : 0.9) });
+      }
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
     if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
