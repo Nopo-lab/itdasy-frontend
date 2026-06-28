@@ -1,0 +1,26 @@
+{
+  "build": "20260624-v550-strict-roi-overlay-align",
+  "viewport": "800x600",
+  "overlay": {
+    "vertical": "PASS",
+    "horizontal": "PASS",
+    "square": "PASS",
+    "outsidePhotoPixels": "none observed"
+  },
+  "strictRoi": {
+    "handBack": "no detector ROI; correction stopped; slider reset to 0",
+    "palm": "no detector ROI; correction stopped; slider reset to 0",
+    "nudeNail": "no detector ROI; correction stopped; slider reset to 0",
+    "clearGel": "no detector ROI; correction stopped; slider reset to 0",
+    "frenchNail": "no detector ROI; correction stopped; slider reset to 0",
+    "colorNail": "no detector ROI; correction stopped; slider reset to 0"
+  },
+  "toasts": [
+    "손을 인식하지 못했습니다",
+    "네일을 인식하지 못했습니다"
+  ],
+  "android": {
+    "status": "NOT_RUN",
+    "reason": "adb devices returned zero connected devices"
+  }
+}

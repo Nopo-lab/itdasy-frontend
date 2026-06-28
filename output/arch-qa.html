@@ -1,0 +1,90 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>arch-qa</title>
+<style>body{font-family:sans-serif;background:#ddd;margin:0;padding:16px}h3{margin:14px 0 6px}.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}canvas{background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3)}figure{margin:0;text-align:center}figcaption{font-size:12px;margin-top:4px;color:#333}</style>
+</head><body>
+<div id="status">loading…</div>
+<div id="out"></div>
+<!-- 실제 런타임 모듈 로드(앱과 동일 코드) -->
+<script>
+  // 최소 스텁 — 모듈이 참조하는 전역
+  window._esc = function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+  window.PhotoEditorShopData = { get: function(){ return { shopName:'잇데이 스튜디오', primaryColor:'#7b61ff' }; } };
+  window.BrandKit = { get: function(){ return { shopName:'잇데이 스튜디오', primary:'#7b61ff', accent:'#c89a52', soft:'#f3eee4' }; } };
+</script>
+<script>
+  // 캐시버스트 동적 로드 — 수정분 항상 반영
+  const _bust = '?t=' + Date.now();
+  const _mods = ['../js/photo-editor/template-market-data.js','../js/photo-editor/template-slots.js','../app-photo-editor-ba-compose.js','../js/photo-editor/premium-templates.js'];
+  (async()=>{ for(const m of _mods){ await new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=m+_bust; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); } window._modsReady=true; })();
+</script>
+<script>
+function _waitMods(){ return new Promise(r=>{ (function c(){ window._modsReady?r():setTimeout(c,30); })(); }); }
+function makeImg(hue, label){
+  const c=document.createElement('canvas'); c.width=600; c.height=800; const x=c.getContext('2d');
+  const g=x.createLinearGradient(0,0,0,800); g.addColorStop(0,`hsl(${hue},45%,78%)`); g.addColorStop(1,`hsl(${hue},40%,42%)`);
+  x.fillStyle=g; x.fillRect(0,0,600,800);
+  x.fillStyle='rgba(255,255,255,.35)'; x.beginPath(); x.arc(300,300,150,0,7); x.fill(); // head-ish
+  x.fillStyle='rgba(0,0,0,.18)'; x.font='bold 60px sans-serif'; x.textAlign='center'; x.fillText(label,300,720);
+  return c;
+}
+function dataURL(cv){ return cv.toDataURL('image/jpeg',0.9); }
+
+function render(title, w, h, opts){
+  // opts: { paletteKey, head, hasBefore }
+  const beforeImg=new Image(), afterImg=new Image();
+  const beforeC=makeImg(40,'BEFORE'), afterC=makeImg(265,'AFTER');
+  const beforeSrc=dataURL(beforeC), afterSrc=dataURL(afterC);
+  return new Promise(res=>{
+    let n=0; const done=()=>{ if(++n<2) return;
+      // prime BACompose slot cache for after_photo
+      window.PhotoEditorBACompose.primeImage(afterSrc, afterImg);
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const ctx=cv.getContext('2d');
+      const sv = window.PhotoEditorTemplateSlots.getDefaultValues('ba-arch-salon',
+        window.PhotoEditorTemplateMarketData.v3ById('ba-arch-salon'), { shopName:'잇데이 스튜디오' });
+      if(opts.paletteKey) sv.palette_key=opts.paletteKey;
+      if(opts.head!=null) sv.headline=opts.head;
+      if(opts.beforeLabel!=null) sv.before_label=opts.beforeLabel;
+      if(opts.afterLabel!=null) sv.after_label=opts.afterLabel;
+      const tplV2={ id:'ba-arch-salon', slotValues:sv,
+        imageSlots:{ after_photo:{ src:afterSrc, fit:'cover', focal:{x:.5,y:.45}, zoom:1 },
+                     before_photo:{ src:beforeSrc, fit:'cover', focal:{x:.5,y:.45}, zoom:1 } } };
+      const synth={ tplV2, originalImg:afterC, secondImg: opts.hasBefore===false?null:beforeImg,
+        shopName:'잇데이 스튜디오', serviceName: opts.head };
+      const ok=window.PhotoEditorPremiumTemplates.renderHook(ctx, w, h, synth);
+      const fig=document.createElement('figure'); fig.appendChild(cv);
+      const cap=document.createElement('figcaption'); cap.textContent=title+(ok?'':' [renderHook=false!]'); fig.appendChild(cap);
+      res(fig);
+    };
+    beforeImg.onload=done; afterImg.onload=done; beforeImg.src=beforeSrc; afterImg.src=afterSrc;
+  });
+}
+
+(async function(){
+  try{
+    await _waitMods();
+    const out=document.getElementById('out');
+    const mkRow=(t)=>{ const h=document.createElement('h3'); h.textContent=t; out.appendChild(h); const r=document.createElement('div'); r.className='row'; out.appendChild(r); return r; };
+    // 1) 3 팔레트 — full 540px
+    let r=mkRow('① 3 팔레트 (540px full)');
+    r.appendChild(await render('default', 540,540,{paletteKey:'default'}));
+    r.appendChild(await render('rose-ivory',540,540,{paletteKey:'rose-ivory'}));
+    r.appendChild(await render('mono-charcoal',540,540,{paletteKey:'mono-charcoal'}));
+    // 2) 갤러리 카드 크기 (제목 가독성) 300px
+    r=mkRow('② 갤러리 카드 (300px) — 제목 가독성');
+    r.appendChild(await render('카드 default',300,300,{paletteKey:'default'}));
+    // 3) 긴 시술명 자동 줄바꿈/축소
+    r=mkRow('③ 긴 시술명 (2줄/축소)');
+    r.appendChild(await render('짧음',540,540,{head:'속눈썹펌 전후'}));
+    r.appendChild(await render('김',540,540,{head:'애쉬브라운 풀컬러 염색 시술 전후 변화'}));
+    r.appendChild(await render('아주김',540,540,{head:'레이어드컷 볼륨매직 디지털펌 클리닉 종합시술 전후'}));
+    // 4) before 없음 → placeholder (가짜 before 금지)
+    r=mkRow('④ before 사진 없음 → 안내 placeholder');
+    r.appendChild(await render('no-before',540,540,{hasBefore:false}));
+    // 5) 한글 라벨
+    r=mkRow('⑤ 라벨 한글(전/후) — sv 직접');
+    r.appendChild(await render('전/후',540,540,{paletteKey:'rose-ivory', head:'네일 연장 시술 예시', beforeLabel:'전', afterLabel:'후'}));
+    r.appendChild(await render('시술 전/후',540,540,{paletteKey:'default', head:'속눈썹펌 전후', beforeLabel:'시술 전', afterLabel:'시술 후'}));
+    document.getElementById('status').textContent='DONE ✓';
+  }catch(e){ document.getElementById('status').textContent='ERROR: '+e.message+'\n'+e.stack; console.error(e); }
+})();
+</script>
+</body></html>

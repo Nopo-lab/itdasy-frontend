@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작업실 — 뷰티 부티크 목업 v2</title>
+<style>
+  /* ===== 실제 디자인 토큰 기반 (css/tokens.css) ===== */
+  :root{
+    --brand:        #D58A95;   /* 로즈 베이스 */
+    --brand-strong: #BC6675;   /* 로즈 강조 (CTA) */
+    --brand-deep:   #A4505F;   /* 텍스트용 진한 로즈 */
+    --brand-bg:     #F7EFF0;   /* 로즈 라이트 */
+    --gold:         #C8A876;   /* 샴페인 골드 (프리미엄 액센트, 절제 사용) */
+    --bg:           #F2F4F6;
+    --frame:        #E8ECF1;
+    --surface:      #FFFFFF;
+    --surface-2:    #F7F8FA;
+    --text:         #191F28;
+    --text-muted:   #4E5968;
+    --text-subtle:  #6B7684;
+    --border:       rgba(0,0,0,.07);
+    --border-strong:rgba(0,0,0,.12);
+    --ok:           #16B55E;
+    --warn:         #F59E0B;
+    --info:         #3B82F6;
+    --r-sm:8px; --r-md:14px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,.04);
+    --shadow-md: 0 8px 24px rgba(0,0,0,.08);
+    --shadow-brand: 0 10px 24px rgba(213,138,149,.30);
+    --rose-soft: 0 10px 30px rgba(164,80,95,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(120% 90% at 12% -8%, rgba(213,138,149,.16), transparent 55%),
+      radial-gradient(120% 90% at 95% 0%, rgba(200,168,118,.12), transparent 50%),
+      linear-gradient(160deg, #FBF5F3 0%, #F7EFF0 50%, #F1E6E6 100%);
+    background-attachment:fixed;
+    font-family:"Pretendard",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Segoe UI",sans-serif;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    padding:54px 40px 80px;
+  }
+
+  /* ===== 페이지 헤더 ===== */
+  .page-head{max-width:1280px;margin:0 auto 44px;text-align:center;}
+  .page-eyebrow{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12.5px;font-weight:800;letter-spacing:.04em;
+    color:var(--brand-strong);background:rgba(255,255,255,.7);
+    border:1px solid rgba(188,102,117,.18);
+    padding:7px 16px;border-radius:var(--r-pill);
+    box-shadow:var(--shadow-sm);
+  }
+  .page-eyebrow svg{width:15px;height:15px;}
+  .page-title{font-size:34px;font-weight:900;letter-spacing:-.03em;margin:18px 0 8px;}
+  .page-title em{font-style:normal;color:var(--brand-strong);}
+  .page-sub{font-size:15px;color:var(--text-muted);line-height:1.6;}
+
+  /* ===== 프레임 레이아웃 ===== */
+  .deck{
+    display:flex;justify-content:center;flex-wrap:wrap;
+    gap:30px 26px;max-width:1500px;margin:0 auto;align-items:flex-start;
+  }
+  .frame{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .frame-tag{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:800;color:var(--brand-deep);
+    background:#fff;border:1px solid rgba(188,102,117,.16);
+    padding:8px 16px;border-radius:var(--r-pill);
+    box-shadow:var(--rose-soft);
+  }
+  .frame-tag .n{
+    width:20px;height:20px;border-radius:50%;
+    background:linear-gradient(135deg,var(--brand),var(--brand-strong));
+    color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;
+  }
+  .phone{
+    width:392px;height:840px;border-radius:46px;
+    background:#FFFDFC;position:relative;overflow:hidden;
+    border:1px solid rgba(164,80,95,.10);
+    box-shadow:0 30px 70px rgba(120,55,65,.16), 0 6px 16px rgba(120,55,65,.08);
+    display:flex;flex-direction:column;
+  }
+  .screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+  .scroll{flex:1;overflow-y:auto;padding:0 20px 28px;}
+  .scroll::-webkit-scrollbar{width:0;}
+
+  /* ===== status bar ===== */
+  .sbar{
+    height:46px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 26px 0 30px;font-size:15px;font-weight:700;flex-shrink:0;color:var(--text);
+  }
+  .sbar .sig{display:flex;align-items:center;gap:7px;}
+  .sbar svg{display:block;}
+
+  /* ===== icons ===== */
+  .ico{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;
+       stroke-linecap:round;stroke-linejoin:round;display:block;flex-shrink:0;}
+  .ico.fill{fill:currentColor;stroke:none;}
+
+  /* ===== app header ===== */
+  .ahead{padding:6px 20px 12px;flex-shrink:0;}
+  .ahead-top{display:flex;align-items:center;justify-content:space-between;}
+  .salon{display:flex;align-items:center;gap:11px;}
+  .salon .ava{
+    width:42px;height:42px;border-radius:14px;flex-shrink:0;
+    background:linear-gradient(140deg,#E9C7CC,#D58A95 60%,#BC6675);
+    display:flex;align-items:center;justify-content:center;color:#fff;
+    box-shadow:0 6px 14px rgba(188,102,117,.35);
+  }
+  .salon .ava svg{width:21px;height:21px;}
+  .salon .who .hi{font-size:12px;color:var(--text-subtle);font-weight:600;}
+  .salon .who .nm{font-size:16px;font-weight:800;letter-spacing:-.02em;margin-top:1px;}
+  .salon .who .nm b{color:var(--brand-strong);}
+  .hicon{
+    width:40px;height:40px;border-radius:13px;border:1px solid var(--border);
+    background:#fff;display:flex;align-items:center;justify-content:center;
+    color:var(--text-muted);position:relative;cursor:pointer;box-shadow:var(--shadow-sm);
+  }
+  .hicon .dot{position:absolute;top:9px;right:10px;width:7px;height:7px;border-radius:50%;
+    background:var(--brand-strong);border:2px solid #fff;}
+
+  .hero{
+    margin-top:18px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
+  }
+  .hero h1{font-size:27px;font-weight:900;letter-spacing:-.035em;line-height:1.1;}
+  .hero .desc{font-size:13px;color:var(--text-subtle);margin-top:6px;line-height:1.4;}
+
+  /* ===== create button ===== */
+  .btn-create{
+    display:inline-flex;align-items:center;gap:7px;flex-shrink:0;
+    background:linear-gradient(135deg,#E09AA4,var(--brand-strong));
+    color:#fff;border:none;cursor:pointer;
+    padding:12px 16px;border-radius:16px;font-size:13.5px;font-weight:800;
+    font-family:inherit;white-space:nowrap;box-shadow:var(--shadow-brand);
+    transition:transform .12s ease;
+  }
+  .btn-create:active{transform:scale(.97);}
+  .btn-create svg{width:16px;height:16px;}
+
+  /* ===== weekly summary strip ===== */
+  .summary{
+    margin:18px 0 4px;background:linear-gradient(135deg,#fff,#FFF8F8);
+    border:1px solid rgba(188,102,117,.14);border-radius:var(--r-lg);
+    padding:15px 6px;display:grid;grid-template-columns:repeat(3,1fr);
+    box-shadow:var(--rose-soft);position:relative;overflow:hidden;
+  }
+  .summary::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(80% 120% at 100% 0%,rgba(200,168,118,.12),transparent 60%);}
+  .sum-cell{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;}
+  .sum-cell + .sum-cell{border-left:1px solid rgba(188,102,117,.12);}
+  .sum-cell .v{font-size:22px;font-weight:900;letter-spacing:-.03em;}
+  .sum-cell .v small{font-size:12px;font-weight:700;color:var(--text-subtle);}
+  .sum-cell .l{font-size:11px;color:var(--text-subtle);font-weight:600;}
+  .sum-cell .up{color:var(--brand-strong);}
+
+  /* ===== search ===== */
+  .searchrow{display:flex;gap:9px;margin:18px 0 14px;}
+  .searchbox{
+    flex:1;height:46px;border-radius:14px;background:#fff;
+    border:1px solid var(--border);display:flex;align-items:center;gap:9px;padding:0 14px;
+    box-shadow:var(--shadow-sm);
+  }
+  .searchbox svg{width:18px;height:18px;color:var(--text-subtle);}
+  .searchbox span{font-size:14px;color:var(--text-subtle);}
+  .fbtn{width:46px;height:46px;border-radius:14px;background:#fff;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--text-muted);box-shadow:var(--shadow-sm);cursor:pointer;}
+  .fbtn svg{width:19px;height:19px;}
+
+  /* ===== category chips ===== */
+  .chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;}
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex-shrink:0;font-size:13px;font-weight:700;color:var(--text-muted);
+    background:#fff;border:1px solid var(--border);padding:9px 15px;border-radius:var(--r-pill);
+    cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  }
+  .chip svg{width:14px;height:14px;}
+  .chip.on{
+    background:linear-gradient(135deg,var(--brand),var(--brand-strong));
+    color:#fff;border-color:transparent;box-shadow:0 5px 13px rgba(188,102,117,.28);
+  }
+
+  .sect-label{display:flex;align-items:center;justify-content:space-between;margin:4px 2px 12px;}
+  .sect-label .t{font-size:15px;font-weight:800;letter-spacing:-.02em;}
+  .sect-label .more{font-size:12.5px;color:var(--brand-strong);font-weight:700;display:flex;align-items:center;gap:2px;}
+  .sect-label .more svg{width:14px;height:14px;}
+
+  /* ===== content cards ===== */
+  .clist{display:flex;flex-direction:column;gap:13px;}
+  .ccard{
+    display:flex;gap:13px;background:#fff;border:1px solid var(--border);
+    border-radius:var(--r-lg);padding:11px;position:relative;
+    box-shadow:var(--rose-soft);cursor:pointer;
+  }
+  .ccard .kebab{position:absolute;top:12px;right:12px;color:var(--text-subtle);display:flex;}
+  .ccard .kebab svg{width:18px;height:18px;}
+  .thumb{width:98px;height:98px;border-radius:15px;overflow:hidden;flex-shrink:0;position:relative;}
+  .cbody{flex:1;min-width:0;padding-right:16px;display:flex;flex-direction:column;}
+  .badge{align-self:flex-start;font-size:11px;font-weight:800;
+    background:var(--brand-bg);color:var(--brand-deep);
+    padding:4px 10px;border-radius:var(--r-pill);display:inline-flex;align-items:center;gap:4px;}
+  .badge svg{width:12px;height:12px;}
+  .badge.gold{background:rgba(200,168,118,.16);color:#9a7e44;}
+  .ctitle{font-size:15.5px;font-weight:800;letter-spacing:-.02em;margin-top:7px;line-height:1.3;}
+  .cmeta{font-size:12.5px;color:var(--text-muted);margin-top:3px;}
+  .cdesc{font-size:12.5px;color:var(--text-muted);line-height:1.45;margin-top:3px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .ctime{font-size:11.5px;color:var(--text-subtle);margin-top:auto;padding-top:6px;display:flex;align-items:center;gap:5px;}
+  .stars{display:flex;gap:1px;color:var(--gold);margin-top:5px;}
+  .stars svg{width:13px;height:13px;}
+  .cactions{display:flex;gap:6px;margin-top:9px;align-items:center;}
+  .mini{font-size:12px;font-weight:700;color:var(--brand-strong);background:var(--brand-bg);
+    border:none;padding:7px 12px;border-radius:10px;cursor:pointer;font-family:inherit;
+    display:inline-flex;align-items:center;gap:5px;}
+  .mini svg{width:13px;height:13px;}
+  .miniic{width:32px;height:32px;border-radius:10px;background:var(--surface-2);
+    border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-muted);cursor:pointer;}
+  .miniic svg{width:15px;height:15px;}
+
+  /* ===== thumbnail art (CSS drawn, no images) ===== */
+  .th-ba{display:grid;grid-template-columns:1fr 1fr;height:100%;position:relative;}
+  .th-ba .h{position:relative;overflow:hidden;}
+  .th-ba .b1{background:linear-gradient(165deg,#7a5746,#4e3528 60%,#3a261c);}
+  .th-ba .b2{background:linear-gradient(165deg,#c79e7d,#a3795a 55%,#7d5740);}
+  .th-ba .h::after{content:"";position:absolute;left:50%;bottom:-6%;transform:translateX(-50%);
+    width:66%;height:80%;border-radius:48% 48% 42% 42%/58% 58% 22% 22%;}
+  .th-ba .b1::after{background:linear-gradient(180deg,rgba(30,18,12,0),rgba(15,9,6,.55));}
+  .th-ba .b2::after{background:linear-gradient(180deg,rgba(95,65,42,0),rgba(70,46,28,.5));
+    box-shadow:inset 0 0 18px rgba(255,222,180,.18);}
+  .th-ba .div{position:absolute;left:50%;top:0;bottom:0;width:2px;background:rgba(255,255,255,.92);transform:translateX(-50%);z-index:2;}
+  .th-ba .tag{position:absolute;top:7px;font-size:8.5px;font-weight:800;color:#fff;
+    background:rgba(0,0,0,.32);padding:2px 6px;border-radius:6px;z-index:3;}
+  .th-ba .tg-l{left:7px;} .th-ba .tg-r{right:7px;}
+
+  .th-event{background:linear-gradient(155deg,#F3DCD6,#EBC6C9 55%,#E2B2BC);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#8a3d4c;position:relative;}
+  .th-event .e1{font-size:9px;font-weight:800;letter-spacing:.04em;opacity:.85;}
+  .th-event .e2{font-size:15px;font-weight:900;letter-spacing:-.02em;line-height:1.15;margin-top:2px;}
+  .th-event .e3{margin-top:6px;font-size:8.5px;font-weight:800;color:#fff;
+    background:var(--brand-strong);padding:3px 8px;border-radius:var(--r-pill);}
+  .th-event .deco{position:absolute;color:rgba(255,255,255,.6);}
+  .th-event .deco svg{width:13px;height:13px;}
+
+  .th-price{background:#FFFBF6;padding:11px 10px;display:flex;flex-direction:column;justify-content:center;gap:5px;}
+  .th-price .pt{font-size:9px;font-weight:900;color:#9a7e44;text-align:center;
+    border-bottom:1px solid rgba(200,168,118,.3);padding-bottom:4px;letter-spacing:.02em;}
+  .th-price .pr{display:flex;justify-content:space-between;font-size:8.5px;color:#6b5a3a;font-weight:700;}
+  .th-price .pr b{color:#3a2f1d;}
+
+  .th-review{background:linear-gradient(160deg,#fff,#FBF1F2);padding:11px 10px;
+    display:flex;flex-direction:column;justify-content:center;gap:6px;}
+  .th-review .rs{display:flex;gap:1px;color:var(--gold);}
+  .th-review .rs svg{width:10px;height:10px;}
+  .th-review .rq{font-size:9.5px;font-weight:700;color:#5a4448;line-height:1.35;}
+  .th-review .rp{display:flex;align-items:center;gap:5px;margin-top:2px;}
+  .th-review .rp .av{width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg,#E9C7CC,#BC6675);}
+  .th-review .rp span{font-size:8px;color:var(--text-subtle);font-weight:700;}
+
+  .th-promo{position:relative;background:linear-gradient(160deg,#d8b3a0,#a9745c);overflow:hidden;}
+  .th-promo .face{position:absolute;left:50%;bottom:-12%;transform:translateX(-50%);
+    width:74%;height:88%;border-radius:50% 50% 44% 44%;background:linear-gradient(180deg,#e8c3ac,#c79372);}
+  .th-promo .tg{position:absolute;top:8px;left:8px;font-size:8px;font-weight:800;color:#fff;
+    background:rgba(188,102,117,.9);padding:3px 7px;border-radius:6px;z-index:2;}
+
+  /* ===== FAB ===== */
+  .fab{position:absolute;right:18px;bottom:84px;width:58px;height:58px;border-radius:20px;
+    background:linear-gradient(135deg,#E09AA4,var(--brand-strong));border:none;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;color:#fff;
+    box-shadow:0 14px 30px rgba(188,102,117,.42);}
+  .fab svg{width:26px;height:26px;stroke-width:2.4;}
+
+  /* ===== bottom nav ===== */
+  .bnav{height:72px;flex-shrink:0;background:rgba(255,255,255,.94);
+    border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;
+    padding-bottom:6px;}
+  .nav{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:var(--text-subtle);}
+  .nav svg{width:23px;height:23px;}
+  .nav.on{color:var(--brand-strong);}
+
+  /* ===== flow: top bar + progress ===== */
+  .fbar{display:flex;align-items:center;gap:10px;padding:6px 18px 4px;flex-shrink:0;}
+  .fbar .back{width:38px;height:38px;border-radius:12px;border:1px solid var(--border);
+    background:#fff;display:flex;align-items:center;justify-content:center;color:var(--text);}
+  .fbar .ti{flex:1;text-align:center;font-size:16px;font-weight:800;letter-spacing:-.02em;}
+  .fbar .step{font-size:12px;font-weight:800;color:var(--brand-strong);
+    background:var(--brand-bg);padding:5px 11px;border-radius:var(--r-pill);}
+  .pgwrap{display:flex;gap:5px;padding:10px 18px 6px;flex-shrink:0;}
+  .pseg{flex:1;height:5px;border-radius:var(--r-pill);background:var(--frame);}
+  .pseg.done{background:linear-gradient(90deg,var(--brand),var(--brand-strong));}
+  .pseg.now{background:var(--brand-strong);box-shadow:0 0 0 3px rgba(188,102,117,.16);}
+
+  .stepline{display:flex;align-items:center;gap:7px;padding:4px 20px 0;color:var(--text-subtle);font-size:12px;font-weight:600;}
+  .stepline b{color:var(--text);font-weight:800;}
+
+  /* ===== upload step ===== */
+  .updrop{margin:16px 20px;border:2px dashed rgba(188,102,117,.35);border-radius:var(--r-lg);
+    background:linear-gradient(160deg,#fff,var(--brand-bg));padding:34px 20px;text-align:center;}
+  .updrop .ci{width:58px;height:58px;border-radius:20px;margin:0 auto 13px;
+    background:#fff;display:flex;align-items:center;justify-content:center;color:var(--brand-strong);
+    box-shadow:var(--rose-soft);}
+  .updrop .ci svg{width:28px;height:28px;}
+  .updrop .ut{font-size:15.5px;font-weight:800;}
+  .updrop .us{font-size:12.5px;color:var(--text-subtle);margin-top:5px;line-height:1.5;}
+  .updrop .ub{margin-top:14px;display:inline-flex;align-items:center;gap:6px;
+    background:linear-gradient(135deg,#E09AA4,var(--brand-strong));color:#fff;border:none;
+    padding:11px 20px;border-radius:14px;font-size:13.5px;font-weight:800;font-family:inherit;box-shadow:var(--shadow-brand);}
+  .updrop .ub svg{width:16px;height:16px;}
+
+  .batoggle{margin:4px 20px 0;display:flex;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:14px;padding:4px;gap:4px;}
+  .batoggle button{flex:1;border:none;background:transparent;font-family:inherit;
+    font-size:13px;font-weight:800;color:var(--text-subtle);padding:10px;border-radius:11px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:6px;}
+  .batoggle button svg{width:15px;height:15px;}
+  .batoggle button.on{background:#fff;color:var(--brand-strong);box-shadow:var(--shadow-sm);}
+
+  .upgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:16px 20px 0;}
+  .ptile{aspect-ratio:1;border-radius:14px;overflow:hidden;position:relative;border:1px solid var(--border);}
+  .ptile .x{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;}
+  .ptile .x svg{width:12px;height:12px;}
+  .ptile .ttag{position:absolute;bottom:5px;left:5px;font-size:8.5px;font-weight:800;color:#fff;
+    background:var(--brand-strong);padding:2px 7px;border-radius:6px;}
+  .ptile.add{border:2px dashed rgba(188,102,117,.32);display:flex;align-items:center;justify-content:center;
+    color:var(--brand-strong);background:var(--brand-bg);}
+  .ptile.add svg{width:24px;height:24px;}
+
+  /* ===== edit step ===== */
+  .edswitch{display:flex;gap:8px;padding:14px 20px 0;}
+  .edswitch .et{flex:1;height:52px;border-radius:13px;overflow:hidden;position:relative;
+    border:2px solid transparent;cursor:pointer;}
+  .edswitch .et.on{border-color:var(--brand-strong);box-shadow:0 4px 12px rgba(188,102,117,.25);}
+  .edswitch .et .lab{position:absolute;left:7px;bottom:5px;font-size:9px;font-weight:800;color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,.4);}
+  .edphoto{margin:14px 20px;height:262px;border-radius:var(--r-lg);overflow:hidden;position:relative;
+    box-shadow:var(--shadow-md);}
+  .edphoto .grade{position:absolute;inset:0;background:linear-gradient(160deg,#c79e7d,#a3795a 55%,#7d5740);}
+  .edphoto .hairline{position:absolute;left:50%;bottom:-8%;transform:translateX(-50%);
+    width:60%;height:78%;border-radius:48% 48% 40% 40%/56% 56% 24% 24%;
+    background:linear-gradient(180deg,rgba(95,65,42,0),rgba(60,40,24,.45));box-shadow:inset 0 0 30px rgba(255,225,185,.2);}
+  .edphoto .pill{position:absolute;top:12px;right:12px;font-size:10.5px;font-weight:800;color:#fff;
+    background:rgba(0,0,0,.3);padding:5px 11px;border-radius:var(--r-pill);display:flex;align-items:center;gap:5px;}
+  .edphoto .pill svg{width:13px;height:13px;}
+
+  .edtools{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:0 16px;}
+  .etool{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;}
+  .etool .ic{width:46px;height:46px;border-radius:15px;background:#fff;border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;color:var(--text-muted);box-shadow:var(--shadow-sm);}
+  .etool .ic svg{width:20px;height:20px;}
+  .etool.on .ic{background:linear-gradient(135deg,var(--brand),var(--brand-strong));color:#fff;border-color:transparent;box-shadow:var(--shadow-brand);}
+  .etool .nm{font-size:10px;font-weight:700;color:var(--text-subtle);}
+  .etool.on .nm{color:var(--brand-strong);}
+
+  .slider-wrap{margin:18px 20px 0;}
+  .slider-wrap .sl-top{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;margin-bottom:9px;}
+  .slider-wrap .sl-top b{color:var(--brand-strong);}
+  .track{height:6px;border-radius:var(--r-pill);background:var(--frame);position:relative;}
+  .track .fillv{position:absolute;left:0;top:0;bottom:0;width:64%;border-radius:var(--r-pill);
+    background:linear-gradient(90deg,var(--brand),var(--brand-strong));}
+  .track .knob{position:absolute;left:64%;top:50%;transform:translate(-50%,-50%);
+    width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--brand-strong);box-shadow:var(--shadow-md);}
+
+  .fold{margin:18px 20px 0;background:#fff;border:1px solid var(--border);border-radius:var(--r-md);
+    padding:14px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-sm);}
+  .fold .l{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:800;}
+  .fold .l svg{width:18px;height:18px;color:var(--brand-strong);}
+  .fold > svg{width:18px;height:18px;color:var(--text-subtle);}
+
+  .tplchips{display:flex;gap:7px;overflow-x:auto;padding:16px 20px 12px;}
+  .tplchips::-webkit-scrollbar{display:none;}
+  .tplgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:0 20px;}
+  .tpl{border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border);background:#fff;box-shadow:var(--shadow-sm);}
+  .tpl.on{border:2px solid var(--brand-strong);box-shadow:var(--shadow-brand);}
+  .tpl .pv{height:96px;position:relative;}
+  .tpl .nm{padding:8px 10px;font-size:12px;font-weight:800;}
+  .tpl .nm small{display:block;font-size:10px;color:var(--text-subtle);font-weight:600;margin-top:1px;}
+
+  .edbottom{display:flex;justify-content:space-around;padding:14px 12px;border-top:1px solid var(--border);flex-shrink:0;background:#fff;}
+  .ebt{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--text-subtle);}
+  .ebt svg{width:20px;height:20px;}
+
+  /* ===== caption step ===== */
+  .svc-input{margin:16px 20px 0;}
+  .svc-input .lab{font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:7px;display:block;}
+  .svc-input .box{height:46px;border-radius:14px;background:#fff;border:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;padding:0 14px;box-shadow:var(--shadow-sm);}
+  .svc-input .box svg{width:17px;height:17px;color:var(--brand-strong);}
+  .svc-input .box span{font-size:13.5px;font-weight:700;}
+
+  .capcard{margin:16px 20px 0;background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);
+    overflow:hidden;box-shadow:var(--rose-soft);}
+  .capcard .cphoto{height:120px;background:linear-gradient(160deg,#c79e7d,#8a6044);position:relative;}
+  .capcard .cphoto .ai{position:absolute;top:10px;left:10px;font-size:10px;font-weight:800;color:#fff;
+    background:rgba(188,102,117,.92);padding:4px 10px;border-radius:var(--r-pill);display:flex;align-items:center;gap:5px;}
+  .capcard .cphoto .ai svg{width:12px;height:12px;}
+  .capcard .ctext{padding:14px 15px;font-size:13px;line-height:1.65;color:var(--text);}
+  .capcard .ctext .htag{color:var(--info);font-weight:700;}
+  .capcard .count{padding:0 15px 12px;font-size:11px;color:var(--text-subtle);text-align:right;}
+
+  .regen{display:flex;gap:7px;overflow-x:auto;padding:14px 20px 4px;}
+  .regen::-webkit-scrollbar{display:none;}
+  .rg{flex-shrink:0;font-size:12px;font-weight:700;color:var(--brand-strong);background:var(--brand-bg);
+    border:1px solid rgba(188,102,117,.18);padding:9px 13px;border-radius:var(--r-pill);
+    display:inline-flex;align-items:center;gap:5px;}
+  .rg svg{width:13px;height:13px;}
+
+  .hashbox{margin:14px 20px 0;}
+  .hashbox .lab{font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:9px;}
+  .hashrow{display:flex;flex-wrap:wrap;gap:7px;}
+  .htagchip{font-size:12px;font-weight:700;color:var(--info);background:rgba(59,130,246,.08);
+    border:1px solid rgba(59,130,246,.16);padding:7px 12px;border-radius:var(--r-pill);}
+  .htagchip.on{background:var(--info);color:#fff;border-color:transparent;}
+
+  /* ===== preview step (instagram) ===== */
+  .igcard{margin:16px 20px;background:#fff;border:1px solid var(--border);border-radius:var(--r-lg);
+    overflow:hidden;box-shadow:var(--shadow-md);}
+  .ighead{display:flex;align-items:center;gap:10px;padding:12px 14px;}
+  .ighead .av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#E9C7CC,#BC6675);
+    display:flex;align-items:center;justify-content:center;color:#fff;}
+  .ighead .av svg{width:18px;height:18px;}
+  .ighead .meta .h{font-size:13.5px;font-weight:800;}
+  .ighead .meta .loc{font-size:11px;color:var(--text-subtle);}
+  .ighead .more{margin-left:auto;color:var(--text-subtle);}
+  .igphoto{height:300px;background:linear-gradient(160deg,#c79e7d,#a3795a 55%,#7d5740);position:relative;}
+  .igphoto .hl{position:absolute;left:50%;bottom:-8%;transform:translateX(-50%);width:58%;height:80%;
+    border-radius:48% 48% 40% 40%/56% 56% 24% 24%;background:linear-gradient(180deg,rgba(95,65,42,0),rgba(60,40,24,.4));box-shadow:inset 0 0 30px rgba(255,225,185,.2);}
+  .igacts{display:flex;align-items:center;gap:16px;padding:11px 14px 6px;color:var(--text);}
+  .igacts svg{width:23px;height:23px;}
+  .igacts .save{margin-left:auto;}
+  .igcopy{padding:2px 14px 14px;font-size:12.5px;line-height:1.6;}
+  .igcopy b{font-weight:800;}
+  .igcopy .htag{color:var(--info);}
+
+  .prep{margin:0 20px 16px;display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .prep .pb{background:#fff;border:1px solid var(--border);border-radius:var(--r-md);
+    padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:7px;
+    font-size:11.5px;font-weight:800;color:var(--text-muted);box-shadow:var(--shadow-sm);}
+  .prep .pb svg{width:20px;height:20px;color:var(--brand-strong);}
+
+  /* ===== bottom action bar ===== */
+  .actionbar{padding:12px 20px;border-top:1px solid var(--border);background:rgba(255,255,255,.96);flex-shrink:0;}
+  .cta{width:100%;height:54px;border-radius:16px;border:none;cursor:pointer;font-family:inherit;
+    font-size:15px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;
+    background:linear-gradient(135deg,#E09AA4,var(--brand-strong));box-shadow:var(--shadow-brand);}
+  .cta svg{width:19px;height:19px;}
+  .cta.ghost{background:#fff;color:var(--brand-strong);border:1.5px solid rgba(188,102,117,.3);box-shadow:none;}
+  .cta-row{display:flex;gap:10px;}
+  .cta-row .cta{flex:1;}
+
+  @media (max-width:520px){
+    body{padding:24px 12px 60px;}
+    .phone{width:100%;max-width:392px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== icon sprite (Lucide line icons — no emoji) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.94 14.06A2 2 0 0 0 8.5 12.6L2.4 11A.5.5 0 0 1 2.4 10L8.5 8.5A2 2 0 0 0 9.94 7L11.5 1A.5.5 0 0 1 12.5 1L14.06 7A2 2 0 0 0 15.5 8.5L21.6 10A.5.5 0 0 1 21.6 11L15.5 12.6A2 2 0 0 0 14.06 14.06L12.5 20.1A.5.5 0 0 1 11.5 20.1Z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></symbol>
+  <symbol id="i-more-h" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/><circle cx="5" cy="12" r="1.4"/></symbol>
+  <symbol id="i-more-v" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-instagram" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></symbol>
+  <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-contrast" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 18a6 6 0 0 0 0-12z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-droplet" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+  <symbol id="i-palette" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 13v8M8 17l4-4 4 4"/><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.54 21.69a.5.5 0 0 0 .94-.02l6.5-19a.5.5 0 0 0-.64-.64l-19 6.5a.5.5 0 0 0-.02.94l7.93 3.18a2 2 0 0 1 1.11 1.11z"/><path d="m21.85 2.15-10.94 10.94"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></symbol>
+  <symbol id="i-columns" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M12 3v18"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M2 7l1.5-4h17L22 7"/><path d="M4 7v13h16V7"/><path d="M2 7a3 3 0 0 0 5 0 3 3 0 0 0 5 0 3 3 0 0 0 5 0 3 3 0 0 0 5 0"/></symbol>
+  <symbol id="i-sticker" viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10l6-6V5a2 2 0 0 0-2-2z"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/></symbol>
+  <symbol id="i-wand" viewBox="0 0 24 24"><path d="m3 21 18-18"/><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M15 9h0M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5"/></symbol>
+</svg>
+
+<div class="page-head">
+  <span class="page-eyebrow"><svg class="ico"><use href="#i-sparkles"/></svg> 작업실 리디자인 · 뷰티 부티크 컨셉</span>
+  <h1 class="page-title">잇데이 <em>작업실</em> 목업 v2</h1>
+  <p class="page-sub">실제 디자인 토큰(#D58A95 로즈 · radius 14/20/28 · Pretendard) 기반 · Lucide 라인 아이콘만 사용(이모지 0)<br>① 작업실 홈(라이브러리) + ② 5단계 제작 플로우(업로드→편집→캡션→미리보기)</p>
+</div>
+
+<div class="deck">
+
+  <!-- ============ 1. 작업실 홈 ============ -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">1</span> 작업실 홈 · 콘텐츠 라이브러리</div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.6" fill="currentColor"/><rect x="23.5" y="4" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+      </span></div>
+
+      <div class="ahead">
+        <div class="ahead-top">
+          <div class="salon">
+            <div class="ava"><svg class="ico fill"><use href="#i-store"/></svg></div>
+            <div class="who">
+              <div class="hi">오늘도 예쁘게, 원장님</div>
+              <div class="nm"><b>라뷰</b> 헤어 살롱</div>
+            </div>
+          </div>
+          <div class="hicon"><svg class="ico"><use href="#i-bell"/></svg><span class="dot"></span></div>
+        </div>
+
+        <div class="hero">
+          <div>
+            <h1>작업실</h1>
+            <div class="desc">잇비가 만든 콘텐츠를<br>다시 쓰고 관리해요</div>
+          </div>
+          <button class="btn-create"><svg><use href="#i-sparkles"/></svg> 새로 만들기</button>
+        </div>
+
+        <div class="summary">
+          <div class="sum-cell"><div class="v">8<small>개</small></div><div class="l">오늘 만든 콘텐츠</div></div>
+          <div class="sum-cell"><div class="v up">5<small>개</small></div><div class="l">인스타 올릴 준비</div></div>
+          <div class="sum-cell"><div class="v">26<small>개</small></div><div class="l">이번 주 저장</div></div>
+        </div>
+      </div>
+
+      <div class="scroll">
+        <div class="searchrow">
+          <div class="searchbox"><svg><use href="#i-search"/></svg><span>고객명 · 시술명 · 캡션 검색</span></div>
+          <div class="fbtn"><svg><use href="#i-sliders"/></svg></div>
+        </div>
+
+        <div class="chips">
+          <div class="chip on"><svg><use href="#i-grid"/></svg> 전체</div>
+          <div class="chip"><svg><use href="#i-swap"/></svg> 전후</div>
+          <div class="chip"><svg><use href="#i-megaphone"/></svg> 홍보</div>
+          <div class="chip"><svg><use href="#i-tag"/></svg> 가격표</div>
+          <div class="chip"><svg><use href="#i-star"/></svg> 후기</div>
+          <div class="chip"><svg><use href="#i-sticker"/></svg> 이벤트</div>
+        </div>
+
+        <div class="sect-label"><div class="t">최근 작업물</div><div class="more">전체보기 <svg class="ico"><use href="#i-chev-r"/></svg></div></div>
+
+        <div class="clist">
+          <!-- 전후 -->
+          <div class="ccard">
+            <div class="kebab"><svg class="ico"><use href="#i-more-v"/></svg></div>
+            <div class="thumb"><div class="th-ba">
+              <div class="h b1"><span class="tag tg-l">전</span></div>
+              <div class="h b2"><span class="tag tg-r">후</span></div>
+              <div class="div"></div>
+            </div></div>
+            <div class="cbody">
+              <span class="badge"><svg><use href="#i-swap"/></svg> 전후</span>
+              <div class="ctitle">레이어드컷 전후</div>
+              <div class="cmeta">김민지 고객 · 레이어드컷</div>
+              <div class="cactions">
+                <button class="mini"><svg><use href="#i-pencil"/></svg> 다시 편집</button>
+                <button class="miniic"><svg><use href="#i-instagram"/></svg></button>
+                <button class="miniic"><svg><use href="#i-bookmark"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 후기 -->
+          <div class="ccard">
+            <div class="kebab"><svg class="ico"><use href="#i-more-v"/></svg></div>
+            <div class="thumb"><div class="th-review">
+              <div class="rs"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></div>
+              <div class="rq">"자연스럽고 너무 만족스러워요!"</div>
+              <div class="rp"><span class="av"></span><span>박수연 · 붙임머리</span></div>
+            </div></div>
+            <div class="cbody">
+              <span class="badge"><svg><use href="#i-star"/></svg> 후기</span>
+              <div class="ctitle">박수연 고객 후기</div>
+              <div class="stars"><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg><svg><use href="#i-star"/></svg></div>
+              <div class="ctime"><svg class="ico" style="width:13px;height:13px"><use href="#i-calendar"/></svg> 2일 전 · 11:05</div>
+            </div>
+          </div>
+
+          <!-- 이벤트 -->
+          <div class="ccard">
+            <div class="kebab"><svg class="ico"><use href="#i-more-v"/></svg></div>
+            <div class="thumb"><div class="th-event">
+              <span class="deco" style="top:8px;left:9px"><svg><use href="#i-sparkles"/></svg></span>
+              <div class="e1">SUMMER</div><div class="e2">여름맞이<br>이벤트</div><div class="e3">20% OFF</div>
+            </div></div>
+            <div class="cbody">
+              <span class="badge"><svg><use href="#i-sticker"/></svg> 이벤트</span>
+              <div class="ctitle">6월 여름맞이 이벤트</div>
+              <div class="cdesc">시원한 여름, 특별한 혜택! 지금 예약하면 20% 할인 받으세요.</div>
+              <div class="cactions">
+                <button class="mini"><svg><use href="#i-copy"/></svg> 문구 복사</button>
+                <button class="miniic"><svg><use href="#i-instagram"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 가격표 -->
+          <div class="ccard">
+            <div class="kebab"><svg class="ico"><use href="#i-more-v"/></svg></div>
+            <div class="thumb"><div class="th-price">
+              <div class="pt">시술 가격표</div>
+              <div class="pr"><span>컷</span><b>25,000</b></div>
+              <div class="pr"><span>컬러</span><b>80,000</b></div>
+              <div class="pr"><span>펌</span><b>120,000</b></div>
+              <div class="pr"><span>클리닉</span><b>50,000</b></div>
+            </div></div>
+            <div class="cbody">
+              <span class="badge gold"><svg><use href="#i-tag"/></svg> 가격표</span>
+              <div class="ctitle">전체 시술 가격표</div>
+              <div class="cdesc">컷 / 컬러 / 펌 / 클리닉</div>
+              <div class="cactions">
+                <button class="mini"><svg><use href="#i-pencil"/></svg> 가격 수정</button>
+                <button class="miniic"><svg><use href="#i-bookmark"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="fab"><svg class="ico"><use href="#i-plus"/></svg></button>
+      <div class="bnav">
+        <div class="nav"><svg class="ico"><use href="#i-home"/></svg>홈</div>
+        <div class="nav"><svg class="ico"><use href="#i-calendar"/></svg>예약</div>
+        <div class="nav"><svg class="ico"><use href="#i-users"/></svg>고객</div>
+        <div class="nav on"><svg class="ico"><use href="#i-grid"/></svg>작업실</div>
+        <div class="nav"><svg class="ico"><use href="#i-more-h"/></svg>더보기</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ 2. 업로드 ============ -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">2</span> 새로 만들기 · 사진 업로드</div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.6" fill="currentColor"/><rect x="23.5" y="4" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+      </span></div>
+      <div class="fbar">
+        <div class="back"><svg class="ico"><use href="#i-chev-l"/></svg></div>
+        <div class="ti">사진 올리기</div>
+        <div class="step">1 / 5</div>
+      </div>
+      <div class="pgwrap"><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div><div class="pseg"></div><div class="pseg"></div></div>
+      <div class="stepline"><b>전후</b> 사진을 올리면 잇비가 자동으로 정리해요</div>
+
+      <div class="batoggle">
+        <button class="on"><svg class="ico"><use href="#i-swap"/></svg> 전후 모드</button>
+        <button><svg class="ico"><use href="#i-image"/></svg> 일반 사진</button>
+      </div>
+
+      <div class="updrop">
+        <div class="ci"><svg class="ico"><use href="#i-upload"/></svg></div>
+        <div class="ut">사진을 여기에 끌어다 놓으세요</div>
+        <div class="us">시술 전·후 사진을 함께 올리면<br>전후 콘텐츠가 자동으로 만들어져요</div>
+        <button class="ub"><svg class="ico"><use href="#i-camera"/></svg> 사진 선택</button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0">
+        <div style="font-size:13px;font-weight:800">올린 사진 <span style="color:var(--brand-strong)">2장</span></div>
+        <div style="font-size:11.5px;color:var(--text-subtle)">탭해서 전/후 지정</div>
+      </div>
+      <div class="upgrid">
+        <div class="ptile"><div style="position:absolute;inset:0;background:linear-gradient(165deg,#7a5746,#3a261c)"></div><div class="x"><svg class="ico"><use href="#i-x"/></svg></div><div class="ttag">전</div></div>
+        <div class="ptile"><div style="position:absolute;inset:0;background:linear-gradient(165deg,#c79e7d,#7d5740)"></div><div class="x"><svg class="ico"><use href="#i-x"/></svg></div><div class="ttag">후</div></div>
+        <div class="ptile add"><svg class="ico"><use href="#i-plus"/></svg></div>
+      </div>
+
+      <div style="flex:1"></div>
+      <div class="actionbar">
+        <button class="cta">다음 <svg class="ico"><use href="#i-chev-r"/></svg></button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ 3. 편집 + 템플릿 ============ -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">3</span> 사진 편집 · 템플릿</div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.6" fill="currentColor"/><rect x="23.5" y="4" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+      </span></div>
+      <div class="fbar">
+        <div class="back"><svg class="ico"><use href="#i-chev-l"/></svg></div>
+        <div class="ti">사진 편집</div>
+        <div class="step">2 / 5</div>
+      </div>
+      <div class="pgwrap"><div class="pseg done"></div><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div><div class="pseg"></div></div>
+
+      <div class="scroll" style="padding-left:0;padding-right:0">
+        <div class="edswitch">
+          <div class="et"><div style="position:absolute;inset:0;background:linear-gradient(165deg,#7a5746,#3a261c)"></div><span class="lab">전</span></div>
+          <div class="et on"><div style="position:absolute;inset:0;background:linear-gradient(165deg,#c79e7d,#7d5740)"></div><span class="lab">후</span></div>
+        </div>
+
+        <div class="edphoto">
+          <div class="grade"></div><div class="hairline"></div>
+          <div class="pill"><svg class="ico"><use href="#i-scissors"/></svg> 배경 정리됨</div>
+        </div>
+
+        <div class="edtools">
+          <div class="etool on"><div class="ic"><svg class="ico"><use href="#i-sun"/></svg></div><div class="nm">밝기</div></div>
+          <div class="etool"><div class="ic"><svg class="ico"><use href="#i-contrast"/></svg></div><div class="nm">대비</div></div>
+          <div class="etool"><div class="ic"><svg class="ico"><use href="#i-droplet"/></svg></div><div class="nm">채도</div></div>
+          <div class="etool"><div class="ic"><svg class="ico"><use href="#i-sparkles"/></svg></div><div class="nm">선명도</div></div>
+          <div class="etool"><div class="ic"><svg class="ico"><use href="#i-palette"/></svg></div><div class="nm">색감</div></div>
+          <div class="etool"><div class="ic"><svg class="ico"><use href="#i-scissors"/></svg></div><div class="nm">배경</div></div>
+        </div>
+
+        <div class="slider-wrap">
+          <div class="sl-top"><span>밝기</span><b>+28</b></div>
+          <div class="track"><div class="fillv"></div><div class="knob"></div></div>
+        </div>
+
+        <div class="fold">
+          <div class="l"><svg class="ico"><use href="#i-wand"/></svg> 정밀 보정 (피부·헤어·눈가)</div>
+          <svg class="ico"><use href="#i-chev-d"/></svg>
+        </div>
+
+        <div class="tplchips">
+          <div class="chip on">전체</div>
+          <div class="chip">전후 비교</div>
+          <div class="chip">시술 자랑</div>
+          <div class="chip">고객 후기</div>
+          <div class="chip">이벤트</div>
+        </div>
+        <div class="tplgrid">
+          <div class="tpl on"><div class="pv"><div class="th-ba"><div class="h b1"></div><div class="h b2"></div><div class="div"></div></div></div><div class="nm">전후 비교<small>BEFORE / AFTER</small></div></div>
+          <div class="tpl"><div class="pv th-promo"><div class="face"></div><div class="tg">시술자랑</div></div><div class="nm">시술 자랑<small>인스타 피드</small></div></div>
+        </div>
+      </div>
+
+      <div class="edbottom">
+        <div class="ebt"><svg class="ico"><use href="#i-undo"/></svg>되돌리기</div>
+        <div class="ebt"><svg class="ico"><use href="#i-redo"/></svg>다시실행</div>
+        <div class="ebt"><svg class="ico"><use href="#i-columns"/></svg>비교</div>
+        <div class="ebt"><svg class="ico"><use href="#i-eye"/></svg>원본</div>
+        <div class="ebt"><svg class="ico"><use href="#i-refresh"/></svg>초기화</div>
+      </div>
+      <div class="actionbar">
+        <button class="cta"><svg class="ico"><use href="#i-pencil"/></svg> 저장하고 게시글 쓰기</button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ 4. AI 캡션 ============ -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">4</span> AI 게시글 · 해시태그</div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.6" fill="currentColor"/><rect x="23.5" y="4" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+      </span></div>
+      <div class="fbar">
+        <div class="back"><svg class="ico"><use href="#i-chev-l"/></svg></div>
+        <div class="ti">게시글 쓰기</div>
+        <div class="step">3 / 5</div>
+      </div>
+      <div class="pgwrap"><div class="pseg done"></div><div class="pseg done"></div><div class="pseg now"></div><div class="pseg"></div><div class="pseg"></div></div>
+
+      <div class="scroll" style="padding-left:0;padding-right:0">
+        <div class="svc-input">
+          <span class="lab">시술 내역</span>
+          <div class="box"><svg class="ico"><use href="#i-tag"/></svg><span>레이어드컷 + 내추럴 다운펌</span></div>
+        </div>
+
+        <div class="capcard">
+          <div class="cphoto"><div class="ai"><svg class="ico"><use href="#i-sparkles"/></svg> 잇비가 작성</div></div>
+          <div class="ctext">
+            오늘은 김민지 고객님의 레이어드컷 ✂️<br>
+            얼굴형에 딱 맞게 라인을 살려서 한층 더 화사해지셨어요. 내추럴 다운펌으로 아침 손질도 간편하게!<br>
+            <span class="htag">#레이어드컷 #다운펌 #강남미용실</span>
+          </div>
+          <div class="count">142 / 200자</div>
+        </div>
+
+        <div class="regen">
+          <div class="rg"><svg class="ico"><use href="#i-refresh"/></svg> 다시</div>
+          <div class="rg">더 길게</div>
+          <div class="rg">후기체</div>
+          <div class="rg">해시태그 +</div>
+          <div class="rg"><svg class="ico"><use href="#i-instagram"/></svg> 인스타스럽게</div>
+        </div>
+
+        <div class="hashbox">
+          <div class="lab">추천 해시태그</div>
+          <div class="hashrow">
+            <span class="htagchip on">#레이어드컷</span>
+            <span class="htagchip on">#다운펌</span>
+            <span class="htagchip on">#강남미용실</span>
+            <span class="htagchip">#헤어스타일</span>
+            <span class="htagchip">#오늘의시술</span>
+            <span class="htagchip">#원장추천</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actionbar">
+        <button class="cta">고객 연결하고 저장 <svg class="ico"><use href="#i-chev-r"/></svg></button>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ============ 5. 인스타 미리보기 ============ -->
+  <div class="frame">
+    <div class="frame-tag"><span class="n">5</span> 인스타 미리보기 · 게시</div>
+    <div class="phone"><div class="screen">
+      <div class="sbar"><span>9:41</span><span class="sig">
+        <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="1" y="1" width="21" height="11" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.5" y="2.5" width="17" height="8" rx="1.6" fill="currentColor"/><rect x="23.5" y="4" width="2" height="5" rx="1" fill="currentColor" fill-opacity=".4"/></svg>
+      </span></div>
+      <div class="fbar">
+        <div class="back"><svg class="ico"><use href="#i-chev-l"/></svg></div>
+        <div class="ti">미리보기</div>
+        <div class="step">5 / 5</div>
+      </div>
+      <div class="pgwrap"><div class="pseg done"></div><div class="pseg done"></div><div class="pseg done"></div><div class="pseg done"></div><div class="pseg now"></div></div>
+
+      <div class="scroll" style="padding-left:0;padding-right:0">
+        <div class="igcard">
+          <div class="ighead">
+            <div class="av"><svg class="ico fill"><use href="#i-store"/></svg></div>
+            <div class="meta"><div class="h">labeau_hair</div><div class="loc">라뷰 헤어 살롱 · 강남</div></div>
+            <div class="more"><svg class="ico"><use href="#i-more-h"/></svg></div>
+          </div>
+          <div class="igphoto"><div class="hl"></div></div>
+          <div class="igacts">
+            <svg class="ico"><use href="#i-heart"/></svg>
+            <svg class="ico"><use href="#i-send"/></svg>
+            <svg class="ico save"><use href="#i-bookmark"/></svg>
+          </div>
+          <div class="igcopy">
+            <b>labeau_hair</b> 오늘은 김민지 고객님의 레이어드컷 ✂️ 얼굴형에 딱 맞게 라인을 살려 한층 화사해지셨어요.
+            <span class="htag">#레이어드컷 #다운펌 #강남미용실</span>
+          </div>
+        </div>
+
+        <div style="padding:0 20px 12px;font-size:12.5px;font-weight:800;color:var(--text-muted)">아직 인스타 연동 전이에요</div>
+        <div class="prep">
+          <div class="pb"><svg class="ico"><use href="#i-copy"/></svg>문구 복사</div>
+          <div class="pb"><svg class="ico"><use href="#i-bookmark"/></svg>이미지 저장</div>
+          <div class="pb"><svg class="ico"><use href="#i-instagram"/></svg>계정 연결</div>
+        </div>
+      </div>
+
+      <div class="actionbar">
+        <div class="cta-row">
+          <button class="cta ghost"><svg class="ico"><use href="#i-bookmark"/></svg> 작업실에 저장</button>
+          <button class="cta"><svg class="ico"><use href="#i-instagram"/></svg> 게시하기</button>
+        </div>
+      </div>
+    </div></div>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,914 @@
+<!doctype html><html><head><meta charset=utf-8><style>/* ── Itdasy Design System v1 · tokens.css ──────────────────────────
+   Source: 09_디자인시스템_v1.md §1 · §2 · §3
+   이 파일이 유일한 토큰 원천(SSOT). style-base.css :root 는 alias만 유지. */
+
+:root {
+  /* §1 컬러 — 라이트 [2026-05-24 차분한 로즈 A] */
+  --brand:         #D58A95;
+  --brand-strong:  #BC6675;
+  --brand-bg:      #F7EFF0;
+  --bg:            #F2F4F6;
+  --frame:         #E8ECF1;
+  --surface:       #FFF;
+  --surface-2:     #F7F8FA;
+  --text:          #191F28;
+  --text-muted:    #4E5968;
+  --text-subtle:   #6B7684; /* [2026-06-10] 4.2:1→5.9:1 대비 상향 (AA) */
+  --border:        rgba(0,0,0,.07);
+  --border-strong: rgba(0,0,0,.14);
+  --ok:     #16B55E;
+  --warn:   #F59E0B;
+  --danger: #EF4444;
+  --info:   #3B82F6;
+
+  /* PerfFix-CSS: backdrop-filter 제거용 RGB 변수 (rgba(var(--bg-rgb),0.97)) */
+  --bg-rgb: 255,255,255;
+
+  /* §3 반경 */
+  --r-sm:   8px;
+  --r-md:   14px;
+  --r-lg:   20px;
+  --r-xl:   28px;
+  --r-pill: 999px;
+
+  /* §3 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* §3 그림자 */
+  --shadow-sm:    0 2px 8px rgba(0,0,0,.04);
+  --shadow-md:    0 8px 24px rgba(0,0,0,.08);
+  --shadow-brand: 0 10px 24px rgba(213,138,149,.30);
+  --shadow-xl:    0 24px 60px rgba(0,0,0,.18);
+
+  /* §3 전역 */
+  --stroke: 2;
+}
+
+/* §1 컬러 — 다크 v6 톤 (#000 배경 + 흰 hairline) */
+html[data-theme="dark"] {
+  --brand:         #FF8FA3;
+  --brand-strong:  #FFA8B8;
+  --brand-bg:      rgba(255,143,163,.20);
+  --bg:            #000000;
+  --frame:         #232325;
+  --surface:       #18181A;
+  --surface-2:     #232325;
+  --text:          #FAFAFA;
+  --text-muted:    #DDDDDD;
+  --text-subtle:   #A8A8A8;
+  --border:        rgba(255,255,255,.18);
+  --border-strong: rgba(255,255,255,.28);
+  --info:   #60A5FA;
+  --bg-rgb: 26,26,26;
+  --shadow-md:    0 8px 24px rgba(0,0,0,.40);
+  --shadow-brand: 0 10px 24px rgba(255,143,163,.35);
+}
+
+/* §3.5 토스트 v2 다크모드 그림자 강화 */
+html[data-theme="dark"] #itdToast { box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+
+/* §4 SVG 전역 기본값 — Lucide 라인 스타일 */
+svg {
+  stroke-width: var(--stroke);
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── Phase 5: 글로벌 포커스링 시스템 ───────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline-offset: 3px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 0;
+  box-shadow: 0 0 0 3px var(--brand-bg);
+}
+
+/* [F1 2026-06-09] iOS 줌 방지: !important 제거 — viewport(user-scalable=no)로 줌 차단.
+   컴포넌트별 font-size(13px 등) 복원됨. style-polish.css의 max(16px,1em) 규칙이 실입력 칸 커버. */
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip navigation — 본문 바로가기 */
+.skip-nav {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 99999;
+  padding: 12px 20px;
+  background: var(--brand);
+  color: #fff;
+  border-radius: var(--r-md);
+  font-weight: 700;
+  text-decoration: none;
+  transition: top .2s;
+}
+.skip-nav:focus {
+  top: 16px;
+}
+
+/* Workspace V2 — 작업실 첫 화면 (tokens.css 변수 통일, 그라데이션 색면 제거)
+   라이트모드 기준. 전부 .wsv2 / .wsv2-* 스코프.
+   [C1] 자체 --ws-* 팔레트 제거 → tokens.css var() 매핑. */
+
+.wsv2 {
+  background: var(--bg);
+  min-height: 100%;
+  padding: 8px 16px 120px;
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 인사 / 타이틀 */
+.wsv2-greet { padding: 6px 2px 14px; }
+.wsv2-greet__sub { margin: 0; font-size: 12px; color: var(--text-subtle); }
+.wsv2-greet__title { margin: 4px 0 0; font-size: 24px; font-weight: 800; letter-spacing: -.4px; color: var(--text); }
+
+/* 히어로 — 시안 A(담백 카드): 흰 카드 가로, 작은 검정 pill, 카메라 라인아이콘(로즈 틴트) */
+.wsv2-hero {
+  width: 100%; cursor: pointer; text-align: left;
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px; margin-bottom: 20px; border: .5px solid var(--border); border-radius: var(--r-xl);
+  background: var(--surface); box-shadow: var(--shadow-sm);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.wsv2-hero:active { transform: scale(.99); }
+.wsv2-hero__tx { flex: 1; min-width: 0; }
+.wsv2-hero__eye { font-size: 11.5px; font-weight: 600; color: var(--text-subtle); margin-bottom: 5px; }
+.wsv2-hero__tt { font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -.03em; line-height: 1.32; }
+.wsv2-hero__sub { margin-top: 6px; font-size: 12.5px; color: var(--text-subtle); line-height: 1.5; }
+.wsv2-hero__go {
+  margin-top: 12px; display: inline-flex; align-items: center; gap: 5px;
+  background: var(--text); color: #fff; font-weight: 700; font-size: 13px;
+  padding: 9px 14px; border-radius: var(--r-pill);
+}
+.wsv2-hero__go svg { width: 14px; height: 14px; stroke: #fff; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wsv2-hero__ill {
+  flex: none; width: 64px; height: 64px; border-radius: var(--r-md);
+  background: var(--brand-bg); display: grid; place-items: center; color: var(--brand-strong);
+}
+.wsv2-hero__ill svg { width: 30px; height: 30px; stroke: var(--brand-strong); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 퀵 2칸 */
+.wsv2-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.wsv2-quick__btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 14px 12px; border: 1px solid var(--border); border-radius: var(--r-lg);
+  background: var(--surface); cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+  box-shadow: var(--shadow-sm);
+}
+.wsv2-quick__btn:active { transform: scale(.98); }
+.wsv2-quick__btn--rose { background: var(--brand-bg); border-color: var(--brand); }
+.wsv2-quick__ic {
+  width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--border-strong);
+}
+.wsv2-quick__btn--rose .wsv2-quick__ic { background: var(--brand-bg); border-color: var(--brand); }
+.wsv2-quick__ic svg { width: 20px; height: 20px; stroke: var(--text-muted); }
+.wsv2-quick__btn--rose .wsv2-quick__ic svg { stroke: var(--brand-strong); }
+.wsv2-quick__ic--float { animation: wsv2-float 2.4s ease-in-out infinite; }
+@keyframes wsv2-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+.wsv2-quick__label { font-size: 13px; font-weight: 800; color: var(--text); }
+.wsv2-quick__sub { font-size: 11px; color: var(--text-subtle); line-height: 1.35; }
+
+/* 새 콘텐츠 만들기 — 카테고리 (목적 선택, 카드형 가로 스크롤) */
+.wsv2-sec-head { margin: 2px 2px 11px; display: flex; align-items: baseline; justify-content: space-between; }
+.wsv2-sec-head h2 { margin: 0; font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -.3px; }
+.wsv2-sec-head .wsv2-sec-sub { font-size: 11px; color: var(--text-subtle); }
+
+.wsv2-cats { display: flex; gap: 10px; overflow-x: auto; padding: 0 2px 16px; scroll-snap-type: x proximity; }
+.wsv2-cats::-webkit-scrollbar { display: none; }
+.wsv2-cat {
+  flex: 0 0 auto; width: 100px; scroll-snap-align: start; cursor: pointer;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
+  padding: 13px 12px; border: 1px solid var(--border); border-radius: var(--r-lg);
+  background: var(--surface); box-shadow: var(--shadow-sm);
+  transition: transform .12s ease;
+}
+.wsv2-cat:active { transform: translateY(1px) scale(.99); }
+.wsv2-cat--disabled { opacity: .45; pointer-events: none; }
+.wsv2-cat__ic { width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--brand-bg); }
+.wsv2-cat__ic svg { width: 22px; height: 22px; stroke: var(--brand-strong); }
+/* 카테고리 썸네일 — TODO: assets/workshop-cats/cat-1.jpg·cat-2.jpg 원영님이 직접 채워주세요 */
+.wsv2-cat__thumb { position: relative; width: 100%; height: 62px; border-radius: var(--r-sm); overflow: hidden; background: var(--frame) center/cover no-repeat; margin-bottom: 4px; }
+.wsv2-cat__thumb--empty { background: var(--frame); }
+.wsv2-cat__defbadge { position: absolute; top: 4px; right: 4px; font-size: 9px; font-weight: 800; color: var(--brand-strong); background: #fff; padding: 2px 6px; border-radius: 999px; box-shadow: var(--shadow-sm); }
+.wsv2-cat__split { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.wsv2-cat__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wsv2-cat__t { font-size: 12px; font-weight: 800; color: var(--text); line-height: 1.25; }
+.wsv2-cat__badge { font-size: 10px; color: var(--text-subtle); font-weight: 600; }
+
+/* 필터 탭 */
+.wsv2-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 2px 13px; }
+.wsv2-tabs::-webkit-scrollbar { display: none; }
+.wsv2-tab {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; padding: 9px 13px; border-radius: var(--r-pill); cursor: pointer;
+  background: transparent; border: 1px solid var(--border); color: var(--text-subtle);
+  transition: background .12s ease, color .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+.wsv2-tab b {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 19px; height: 19px; border-radius: var(--r-pill);
+  background: var(--frame); color: var(--text-subtle); font-size: 11px; font-weight: 800;
+}
+/* 활성 = 흰 pill + 그림자 + 진한 텍스트(색반전) */
+.wsv2-tab.is-active { color: var(--text); background: var(--surface); border-color: var(--surface); box-shadow: var(--shadow-sm); }
+.wsv2-tab.is-active b { background: var(--brand); color: #fff; }
+
+/* 콘텐츠 카드 */
+.wsv2-list { display: grid; gap: 13px; }
+.wsv2-card {
+  display: grid; grid-template-columns: 90px 1fr 20px; gap: 13px; align-items: center;
+  padding: 9px 11px 9px 9px; border-radius: var(--r-md);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm); cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.wsv2-card:active { transform: scale(.995); box-shadow: none; }
+.wsv2-card__thumb {
+  width: 90px; height: 90px; border-radius: var(--r-md); overflow: hidden;
+  background: var(--frame) center/cover no-repeat; display: grid; place-items: center; color: var(--text-subtle);
+}
+.wsv2-card__thumb svg { width: 24px; height: 24px; stroke: var(--text-subtle); }
+.wsv2-card__body { min-width: 0; }
+.wsv2-card__title { margin: 7px 0; font-size: 14px; font-weight: 900; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsv2-card__sub { font-size: 11px; color: var(--text-subtle); }
+.wsv2-card__next { font-size: 11px; color: var(--brand-strong); font-weight: 700; margin-top: 4px; }
+.wsv2-card__meta { display: flex; gap: 12px; margin-top: 9px; font-size: 11px; color: var(--text-subtle); }
+.wsv2-card__meta span { display: inline-flex; align-items: center; gap: 4px; }
+.wsv2-card__meta svg { width: 13px; height: 13px; stroke: var(--text-subtle); }
+.wsv2-card__dots { align-self: start; margin-top: 11px; color: var(--text-subtle); }
+.wsv2-card__dots svg { width: 18px; height: 18px; stroke: var(--text-subtle); }
+.wsv2-card__resume {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 28px; padding: 0 12px; border-radius: var(--r-pill);
+  background: var(--brand-bg); color: var(--brand-strong); font-size: 11px; font-weight: 800;
+  border: 1px solid var(--brand); margin-top: 6px; cursor: pointer;
+}
+
+/* 상태 배지 */
+.wsv2-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 11px;
+  border-radius: var(--r-pill); font-size: 11px; font-weight: 800; letter-spacing: -.2px; }
+.wsv2-badge--gray  { background: var(--frame);    color: var(--text-subtle); }
+.wsv2-badge--pink  { background: var(--brand-bg); color: var(--brand-strong); }
+.wsv2-badge--amber { background: #FFF3CD;         color: #856404; }
+.wsv2-badge--blue  { background: #EEF6FF;         color: #1D6FA8; }
+.wsv2-badge--green { background: #ECFDF5;         color: #065F46; }
+
+/* 빈 / 스켈레톤 상태 */
+.wsv2-empty-list { text-align: center; padding: 44px 0 30px; color: var(--text-subtle); }
+.wsv2-empty-list svg { width: 40px; height: 40px; stroke: var(--text-subtle); opacity: .5; }
+.wsv2-empty-list p { margin: 12px 0 0; font-size: 13px; }
+.wsv2-skeleton { display: grid; gap: 13px; }
+.wsv2-skeleton .sk {
+  height: 108px; border-radius: var(--r-md); border: 1px solid var(--border);
+  background: linear-gradient(100deg, var(--frame) 30%, var(--surface-2) 50%, var(--frame) 70%);
+  background-size: 200% 100%; animation: wsv2sk 1.2s ease-in-out infinite;
+}
+@keyframes wsv2sk { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+
+/* ── V2 카드 상세 drawer (바텀시트) ── */
+.wsv2-drawer { position: fixed; inset: 0; z-index: 9700; display: none; }
+.wsv2-drawer.is-open { display: block; }
+.wsv2-drawer__bd { position: absolute; inset: 0; background: rgba(0,0,0,.38); opacity: 0; transition: opacity .2s ease; }
+.wsv2-drawer.is-open .wsv2-drawer__bd { opacity: 1; }
+.wsv2-drawer__card {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--surface); border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: 8px 18px calc(24px + env(safe-area-inset-bottom)); max-height: 88%; overflow: auto;
+  box-shadow: var(--shadow-xl); transform: translateY(100%);
+  transition: transform .26s cubic-bezier(.22,.61,.36,1);
+}
+.wsv2-drawer.is-open .wsv2-drawer__card { transform: translateY(0); }
+.wsv2-drawer__grip { width: 38px; height: 5px; border-radius: var(--r-pill); background: var(--border-strong); margin: 6px auto 14px; }
+.wsv2-drawer__hero { width: 100%; height: 168px; border-radius: var(--r-lg); overflow: hidden;
+  background: var(--frame) center/cover no-repeat; display: grid; place-items: center; color: var(--text-subtle); margin-bottom: 6px; }
+.wsv2-drawer__hero svg { width: 34px; height: 34px; stroke: var(--text-subtle); }
+.wsv2-drawer__title { margin: 12px 0 4px; font-size: 18px; font-weight: 800; color: var(--text); }
+.wsv2-drawer__status { font-size: 12px; color: var(--text-subtle); margin-bottom: 16px; }
+.wsv2-drawer__primary {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 15px; border: none; border-radius: var(--r-md); cursor: pointer;
+  background: var(--brand); color: #fff; font-size: 14px; font-weight: 800; margin-bottom: 8px;
+}
+.wsv2-drawer__primary svg { width: 17px; height: 17px; stroke: #fff; }
+.wsv2-drawer__hint { text-align: center; font-size: 11px; color: var(--text-subtle); margin: 2px 0 16px; }
+.wsv2-drawer__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.wsv2-drawer__act {
+  display: flex; align-items: center; gap: 9px; padding: 13px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface);
+  font-size: 13px; font-weight: 700; color: var(--text-muted);
+}
+.wsv2-drawer__act svg { width: 18px; height: 18px; stroke: var(--brand-strong); }
+/* [v542] 콘텐츠 관리 — 게시 완료 토글 + 삭제(위험). 더보기(드로어) 하단에만 노출. */
+.wsv2-drawer__manage { display: flex; gap: 9px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.wsv2-drawer__mng { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; height: 44px; padding: 0 10px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); font-family: inherit; font-size: 13px; font-weight: 800; color: var(--text-muted); }
+.wsv2-drawer__mng svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.wsv2-drawer__mng--ok { border-color: #10B981; color: #065F46; }
+.wsv2-drawer__mng--danger { border-color: #F3C2C2; color: #C0392B; }
+/* [v542] 삭제 확인 시트 — 중앙 모달(사이드바 위 z-index, 중앙배치라 미클립) */
+.wsv2-confirm { position: fixed; inset: 0; z-index: 11000; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .16s ease; }
+.wsv2-confirm.open { opacity: 1; }
+.wsv2-confirm__backdrop { position: absolute; inset: 0; background: rgba(20,16,16,.5); }
+.wsv2-confirm__sheet { position: relative; z-index: 1; width: calc(100% - 48px); max-width: 320px; background: var(--surface, #fff); border-radius: 20px; padding: 22px 20px 16px; box-shadow: 0 12px 48px rgba(0,0,0,.28); text-align: center; }
+.wsv2-confirm__title { font-size: 16px; font-weight: 800; color: var(--text); }
+.wsv2-confirm__desc { margin-top: 8px; font-size: 13px; color: var(--text-subtle); line-height: 1.5; }
+.wsv2-confirm__btns { display: flex; gap: 9px; margin-top: 20px; }
+.wsv2-confirm__btns button { flex: 1; height: 46px; border-radius: var(--r-md); font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; }
+.wsv2-confirm__cancel { border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); }
+.wsv2-confirm__ok { border: 0; background: #C0392B; color: #fff; }
+
+/* PC (≥768px): 고정 사이드바(232px)에 가리지 않게 */
+@media (width >= 768px) {
+  .wsv2 { max-width: 780px; }
+  .wsv2-list { grid-template-columns: 1fr 1fr; }
+  .wsv2-drawer { left: 232px; }
+  .wsv2-drawer__card { left: 50%; right: auto; transform: translate(-50%,100%);
+    width: min(560px,90%); border-radius: var(--r-xl); bottom: 24px; }
+  .wsv2-drawer.is-open .wsv2-drawer__card { transform: translate(-50%,0); }
+  .wsv2-quick { grid-template-columns: repeat(4, 1fr); }
+  .wsv2-cats { flex-wrap: nowrap; }
+}
+
+/* [v545] 넓은 PC(≥1280px) — 작업실 홈 좌우 여백 과다 개선. 컨테이너 넓히고 내 콘텐츠 3열로.
+   (드로어 카드는 고정폭 centered 라 무영향) */
+@media (width >= 1280px) {
+  .wsv2 { max-width: 1120px; }
+  .wsv2-list { grid-template-columns: repeat(3, 1fr); }
+}
+@media (width >= 1680px) {
+  .wsv2 { max-width: 1320px; }
+  .wsv2-list { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* [v505] 작업실 탭일 때만 하단 네비 포인트 컬러 */
+body.ws-tab #tab-workshop { background: var(--surface-2); }
+body.ws-tab .tab-bar__btn.active { color: var(--brand-strong); }
+ body{margin:0;background:#fff}</style></head><body>
+<div id="root" class="wsv2"></div>
+<script>window.showToast=()=>{};window.loadSlotsFromDB=()=>Promise.resolve([{"id":"s1","label":"콘텐츠 1","photos":[{"id":"a1","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b1","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c1"},{"id":"s2","label":"콘텐츠 2","photos":[{"id":"a2","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b2","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c2"},{"id":"s3","label":"콘텐츠 3","photos":[{"id":"a3","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b3","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c3"},{"id":"s4","label":"콘텐츠 4","photos":[{"id":"a4","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b4","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c4"},{"id":"s5","label":"콘텐츠 5","photos":[{"id":"a5","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b5","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c5"}]);window.saveSlotToDB=()=>Promise.resolve();window.deleteSlotFromDB=()=>Promise.resolve();window.WorkspaceDefaultTpl={get:()=>'',set:()=>true};</script>
+<script>/* Workspace V2 — 콘텐츠 상태 모델 + 다음 추천 작업 (순수 함수)
+   의존: 없음 (slot 데이터 구조만 읽음, 변경하지 않음).
+   slot(보강): { id, label, photos:[{dataUrl,editedDataUrl,cropMeta,role,...}], caption, hashtags,
+     customer_id, customer_name, status, workspaceContext:{type,...}, publish:{status}, ... } */
+(function () {
+  'use strict';
+
+  var STATUS = {
+    UPLOAD_PENDING: 'upload_pending',
+    NEEDS_CROP:     'needs_crop',     // 사진 있음, 아직 편집(크롭/보정) 전
+    NEEDS_EDIT:     'needs_edit',     // (호환용 — 현재 needs_crop 로 통합)
+    NEEDS_CAPTION:  'needs_caption',
+    NEEDS_CUSTOMER: 'needs_customer',
+    READY:          'ready',          // 게시 준비
+    PUBLISHED:      'published',
+  };
+
+  var META = {
+    upload_pending: { label: '업로드 대기', tone: 'gray',  group: 'pending' },
+    needs_crop:     { label: '편집 필요',   tone: 'pink',  group: 'pending' },
+    needs_edit:     { label: '편집 필요',   tone: 'pink',  group: 'pending' },
+    needs_caption:  { label: '캡션 필요',   tone: 'pink',  group: 'edited'  },
+    needs_customer: { label: '고객 연결',   tone: 'blue',  group: 'edited'  },
+    ready:          { label: '게시 준비',   tone: 'amber', group: 'ready'   },
+    published:      { label: '게시 완료',   tone: 'green', group: 'done'    },
+  };
+
+  function _hasText(v) { return !!(v && String(v).trim()); }
+  function _isPublished(slot) { return slot.status === 'published' || slot.instagramPublished || (slot.publish && slot.publish.status === 'published'); }
+  function _type(slot) { return slot.workspaceContext && slot.workspaceContext.type; }
+  function _hasEdit(photos) { return photos.some(function (p) { return p && (_hasText(p.editedDataUrl) || p.cropMeta); }); }
+
+  function deriveStatus(slot) {
+    if (!slot) return STATUS.UPLOAD_PENDING;
+    if (_isPublished(slot)) return STATUS.PUBLISHED;
+    if (slot.wsStatus && META[slot.wsStatus]) return slot.wsStatus;
+    var photos = slot.photos || [];
+    if (!photos.length) return STATUS.UPLOAD_PENDING;
+    if (!_hasEdit(photos)) return STATUS.NEEDS_CROP;
+    if (!_hasText(slot.caption)) return STATUS.NEEDS_CAPTION;
+    if (!slot.customer_id && _type(slot) !== 'price') return STATUS.NEEDS_CUSTOMER;
+    return STATUS.READY;
+  }
+
+  function statusMeta(status) { return META[status] || META.upload_pending; }
+
+  // 다음 추천 작업 — 실제 상태 + 콘텐츠 타입 반영 (Phase 4B). key 는 flow 화면 라우팅.
+  function nextAction(slot) {
+    var photos = (slot && slot.photos) || [];
+    if (!photos.length) return { key: 'upload', label: '사진 추가' };
+    if (_isPublished(slot)) return { key: 'done', label: '완료' };
+
+    if (_type(slot) === 'before_after') {
+      if (photos.length < 2) return { key: 'upload', label: '사진 2장 필요' };
+      var hasB = photos.some(function (p) { return p.role === 'before'; });
+      var hasA = photos.some(function (p) { return p.role === 'after'; });
+      if (!hasB || !hasA) return { key: 'edit', label: '전/후 역할 확인' };
+    }
+    if (!_hasEdit(photos)) return { key: 'crop', label: '비율 자르기' };
+    if (!_hasText(slot.caption)) return { key: 'caption', label: '캡션 생성' };
+    // [순서 수정] deriveStatus·CTA 흐름(캡션→고객연결→미리보기)과 맞춤 — 고객 연결을 미리보기보다 먼저.
+    //   이전엔 preview 를 먼저 반환해 "이어서"가 고객연결 건너뛰고 미리보기로 직행했음.
+    if (!slot.customer_id && _type(slot) !== 'price') return { key: 'customer', label: '고객 연결' };
+    var pub = slot.publish && slot.publish.status;
+    if (pub !== 'preview_ready' && pub !== 'upload_ready') return { key: 'preview', label: '인스타 미리보기' };
+    return { key: 'done', label: '완료' };
+  }
+
+  function filterGroup(slot) { return statusMeta(deriveStatus(slot)).group; }
+
+  window.WorkspaceState = {
+    STATUS: STATUS,
+    deriveStatus: deriveStatus,
+    statusMeta: statusMeta,
+    nextAction: nextAction,
+    filterGroup: filterGroup,
+  };
+})();
+
+;
+/* Workspace V2 — 작업실 첫 화면 렌더러 (C3: 홈 상단 히어로/퀵/카테고리/라이브러리 재구성)
+   의존: WorkspaceState (workspace-state.js), 기존 전역: loadSlotsFromDB / initWorkshopTab / showToast. */
+(function () {
+  'use strict';
+
+  var ST = function () { return window.WorkspaceState; };
+  var _filter = 'all';
+  var TABS = [{ key:'all', label:'전체' }, { key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
+  var _lastRoot = null;
+  var _slotsCache = [];
+  var _drawerSlotId = null;
+  var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
+  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '게시글 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
+  var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
+
+  // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
+  // TODO: assets/workshop-cats/cat-1.jpg ~ cat-5.jpg 파일을 원영님이 직접 넣어주세요 (1:1 매핑)
+  var CATS = [
+    { key: 'ba',     label: '전후 비교',      disabled: false, split: true },          // cat-1(전)+cat-2(후)
+    { key: 'flex',   label: '시술 완료 사진', disabled: false, img: 'cat-3' },
+    { key: 'review', label: '고객 후기 사진', disabled: false, img: 'cat-4' },
+    { key: 'event',  label: '이벤트 홍보',   disabled: false, img: 'cat-5' },
+    { key: 'price',  label: '가격표',         disabled: true  },
+  ];
+
+  function _esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (ch) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
+    });
+  }
+  function _toast(msg) { if (window.showToast) window.showToast(msg); }
+
+  function _thumb(slot) {
+    // [이슈2] 전후 템플릿 적용본이 있으면 저장카드도 그 합성 결과를 보여준다.
+    //   (원본 사진은 더 이상 합성본으로 덮어쓰지 않으므로 여기서 명시적으로 우선 참조)
+    // [다중pair] 페어별 결과물 배열(templateOutputs)이 있으면 첫 결과물, 없으면 단일 templateOutput 폴백.
+    if (slot.templateOutputs && slot.templateOutputs.length && slot.templateOutputs[0].outputUrl) return slot.templateOutputs[0].outputUrl;
+    if (slot.templateOutput) return slot.templateOutput;
+    var p = (slot.photos || [])[0];
+    return p ? (p.editedDataUrl || p.dataUrl || '') : '';
+  }
+  function _roleHint(slot) {
+    var n = (slot.photos || []).length;
+    return n >= 2 ? '전후' : (n === 1 ? '홍보컷' : '사진 없음');
+  }
+  function _relTime(slot) {
+    var t = slot.createdAt || slot.completedAt || 0;
+    if (!t) return '';
+    var d = Date.now() - t;
+    if (d < 60000) return '방금 전';
+    if (d < 3600000) return Math.floor(d / 60000) + '분 전';
+    if (d < 86400000) return Math.floor(d / 3600000) + '시간 전';
+    return Math.floor(d / 86400000) + '일 전';
+  }
+
+  /* ── 컴포넌트 ── */
+
+  // 히어로 — 시안 A(담백 카드): 흰 카드 가로 레이아웃, 작은 검정 pill, 카메라 라인아이콘(로즈 틴트 박스)
+  function _heroHTML() {
+    return '' +
+      '<button type="button" class="wsv2-hero" data-wsv2-upload data-haptic="medium">' +
+        '<div class="wsv2-hero__tx">' +
+          '<div class="wsv2-hero__eye">오늘 작업</div>' +
+          '<div class="wsv2-hero__tt">사진 올려<br>게시물 만들기</div>' +
+          '<div class="wsv2-hero__sub">사진 올리면 보정·글까지 한 번에</div>' +
+          '<span class="wsv2-hero__go">시작하기 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>' +
+        '</div>' +
+        '<span class="wsv2-hero__ill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg></span>' +
+      '</button>';
+  }
+
+  // 퀵 2칸: 잇비한테 맡기기 + 게시글만 쓰기
+  function _quickHTML() {
+    return '' +
+      '<div class="wsv2-quick">' +
+        '<button type="button" class="wsv2-quick__btn wsv2-quick__btn--rose" data-wsv2-quick="itbi" data-haptic="light">' +
+          '<svg class="wsv2-quick__ic--float" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bot"/></svg>' +
+          '<span class="wsv2-quick__label">잇비한테 맡기기</span>' +
+          '<span class="wsv2-quick__sub">사진 주면 알아서</span>' +
+        '</button>' +
+        '<button type="button" class="wsv2-quick__btn" data-wsv2-quick="textonly" data-haptic="light">' +
+          '<span class="wsv2-quick__ic">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
+          '</span>' +
+          '<span class="wsv2-quick__label">게시글만 쓰기</span>' +
+          '<span class="wsv2-quick__sub">사진 없이 글만</span>' +
+        '</button>' +
+      '</div>';
+  }
+
+  // [v531] 유형별 실제 템플릿 + 기본 템플릿 저장(localStorage). flow.js 와 공유(window).
+  var CAT_TEMPLATES = {
+    ba:     { ratio: '4:5', tpls: [{ id: 'wm-ba-feed', label: '전후 비교' }, { id: 'bp-ba-premium-infographic', label: '프리미엄 전후' }, { id: 'bp-ba-luxury-review', label: '럭셔리 후기 전후' }, { id: 'bp-ba-story-signature', label: '스토리 전후' }, { id: 'bp-ba-classic-poster', label: '클래식 포스터 전후' }, { id: 'bp-ba-care-guide', label: '케어 가이드 전후' }] },
+    flex:   { ratio: '4:5', tpls: [{ id: 'wm-show-feed', label: '시술 자랑' }, { id: 'wm-promo-feed', label: '인스타 피드' }] },
+    review: { ratio: '4:5', tpls: [{ id: 'wm-review-feed', label: '고객 후기' }] },
+    event:  { ratio: '1:1', tpls: [{ id: 'wm-event-feed', label: '이벤트 안내' }] },
+    price:  { ratio: '4:5', tpls: [] },
+  };
+  if (!window.WorkspaceDefaultTpl) {
+    window.WorkspaceDefaultTpl = {
+      cats: CAT_TEMPLATES,
+      _k: function (cat) { return 'itdasy:wsv2_default_tpl_' + cat; },
+      get: function (cat) { try { return localStorage.getItem(this._k(cat)) || ''; } catch (_e) { return ''; } },
+      set: function (cat, id) { try { localStorage.setItem(this._k(cat), id); return true; } catch (_e) { return false; } },
+    };
+  }
+  function _catThumb(c) {
+    var info = CAT_TEMPLATES[c.key];
+    if (!info || !info.tpls.length) return '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
+    var def = window.WorkspaceDefaultTpl.get(c.key);
+    var tpl = info.tpls.filter(function (t) { return t.id === def; })[0] || info.tpls[0];
+    var url = '';
+    try {
+      if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
+        var shop = ''; try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
+        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: info.ratio, shopName: shop }) || '';
+      }
+    } catch (_e2) { url = ''; }
+    if (!url) return '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
+    var isDef = !!def && def === tpl.id;
+    return '<div class="wsv2-cat__thumb" aria-hidden="true" style="background-image:url(' + _esc(url) + ')">' +
+      (isDef ? '<span class="wsv2-cat__defbadge">기본</span>' : '') + '</div>';
+  }
+  function _categoryHTML() {
+    var cards = CATS.map(function (c) {
+      var dis = c.disabled ? ' wsv2-cat--disabled' : '';
+      // [v531] 카드 썸네일 = 실제 템플릿 원본 미리보기(업로드 사진/예시사진 미주입). 준비중(price)은 빈 썸네일.
+      var thumb = c.disabled ? '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>' : _catThumb(c);
+      return '<button type="button" class="wsv2-cat' + dis + '" data-wsv2-cat="' + c.key + '" data-haptic="light"' + (c.disabled ? ' disabled' : '') + '>' +
+        thumb +
+        '<span class="wsv2-cat__t">' + _esc(c.label) + '</span>' +
+        (c.disabled ? '<span class="wsv2-cat__badge">준비중</span>' : '') +
+      '</button>';
+    }).join('');
+    return '' +
+      '<div class="wsv2-sec-head"><h2>새 콘텐츠 만들기</h2><span class="wsv2-sec-sub">유형을 골라보세요</span></div>' +
+      '<div class="wsv2-cats">' + cards + '</div>';
+  }
+
+  function _cardHTML(slot) {
+    var st = ST();
+    var meta = st.statusMeta(st.deriveStatus(slot));
+    var next = st.nextAction(slot);
+    var img = _thumb(slot);
+    var sub = _relTime(slot);
+    return '' +
+      '<article class="wsv2-card" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light">' +
+        '<div class="wsv2-card__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+          (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') +
+        '</div>' +
+        '<div class="wsv2-card__body">' +
+          '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span>' +
+          '<div class="wsv2-card__title">' + _esc(slot.label || '제목 없음') + '</div>' +
+          (sub ? '<div class="wsv2-card__sub">수정 ' + _esc(sub) + '</div>' : '') +
+          '<div class="wsv2-card__next">다음: ' + _esc(next.label) + '</div>' +
+          '<button type="button" class="wsv2-card__resume" data-wsv2-resume="' + _esc(slot.id) + '">이어서 ›</button>' +
+        '</div>' +
+        '<span class="wsv2-card__dots" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>' +
+        '</span>' +
+      '</article>';
+  }
+
+  function _bucket(slot) {
+    var s = ST().deriveStatus(slot);
+    if (s === 'published') return 'done';
+    if (s === 'ready') return 'ready';
+    if (s === 'needs_caption' || s === 'needs_customer') return 'edited';
+    return 'pending';
+  }
+
+  function _tabsHTML(slots) {
+    var g = { all: slots.length, pending: 0, edited: 0, ready: 0, done: 0 };
+    slots.forEach(function (s) { g[_bucket(s)]++; });
+    return '<div class="wsv2-tabs" role="tablist">' + TABS.map(function (t) {
+      return '<button type="button" class="wsv2-tab' + (_filter === t.key ? ' is-active' : '') +
+        '" data-wsv2-filter="' + t.key + '" data-haptic="light">' + _esc(t.label) +
+        '<b>' + (g[t.key] || 0) + '</b></button>';
+    }).join('') + '</div>';
+  }
+
+  function _shellHTML(slots) {
+    var visible = _filter === 'all' ? slots : slots.filter(function (s) { return _bucket(s) === _filter; });
+    var list = visible.length
+      ? '<div class="wsv2-list">' + visible.map(_cardHTML).join('') + '</div>'
+      : '<div class="wsv2-empty-list">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+        '<p>' + (slots.length ? '이 상태의 콘텐츠가 없어요' : '아직 콘텐츠가 없어요') + '</p></div>';
+    return '' +
+      '<section class="wsv2" data-wsv2-root>' +
+        '<header class="wsv2-greet">' +
+          '<p class="wsv2-greet__sub">오늘 작업, 한 번에.</p>' +
+          '<h1 class="wsv2-greet__title">작업실</h1>' +
+        '</header>' +
+	        _heroHTML() +
+	        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
+	        _quickHTML() +
+        _categoryHTML() +
+        '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2></div>' +
+        _tabsHTML(slots) +
+        list +
+      '</section>';
+  }
+
+  /* ── [버그2] 홈 스크롤 위치 보존 — render()가 innerHTML 통째 교체로 맨 위로 튕기던 문제 ── */
+  var _homeScrollY = 0;
+  var _scrollHostEl = null;
+  function _findScrollHost(root) {
+    var node = root;
+    while (node && node !== document.body && node !== document.documentElement) {
+      var oy = '';
+      try { oy = getComputedStyle(node).overflowY; } catch (_e) { /* noop */ }
+      if ((oy === 'auto' || oy === 'scroll' || oy === 'overlay') && (node.scrollHeight - node.clientHeight) > 4) return node;
+      node = node.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+  }
+  function _isDocHost(h) { return h === document.documentElement || h === document.scrollingElement || h === document.body; }
+  function _hostTop(h) { return _isDocHost(h) ? (window.scrollY || (document.scrollingElement || document.documentElement).scrollTop || 0) : (h.scrollTop || 0); }
+  function _bindHomeScroll(root) {
+    var host = _findScrollHost(root);
+    if (!host || _scrollHostEl === host) { _scrollHostEl = host; return; }
+    _scrollHostEl = host;
+    var tgt = _isDocHost(host) ? window : host;
+    tgt.addEventListener('scroll', function () { _homeScrollY = _hostTop(host); }, { passive: true });
+  }
+  function _restoreHomeScroll() {
+    var host = _scrollHostEl; if (!host || !_homeScrollY) return;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var max = Math.max(0, host.scrollHeight - host.clientHeight);
+        var y = Math.min(_homeScrollY, max);
+        if (_isDocHost(host)) window.scrollTo(0, y); else host.scrollTop = y;
+      });
+    });
+  }
+
+  /* ── 렌더 ── */
+  function render(root, opts) {
+    if (!root) return;
+    _lastRoot = root;
+	    _slotsCache = (opts && opts.slots) || [];
+	    root.innerHTML = _shellHTML(_slotsCache);
+	    _bind(root);
+	    _bindHeroFile(root);
+	    _bindHomeScroll(root);   // [버그2] 스크롤 호스트에 1회 캡처 리스너
+	    _restoreHomeScroll();    // [버그2] 재렌더 후 이전 스크롤 위치 복원
+	  }
+
+	  function refresh() {
+	    if (typeof initWorkshopTab === 'function') { Promise.resolve(initWorkshopTab()).catch(function () {}); return; }
+	    if (!_lastRoot || typeof loadSlotsFromDB !== 'function') return;
+	    Promise.resolve(loadSlotsFromDB()).then(function (s) { render(_lastRoot, { slots: s || [] }); }).catch(function () {});
+	  }
+
+	  function _pickHeroFiles(root) {
+	    var input = root && root.querySelector('[data-wsv2-file]');
+	    if (!input) { _launchFlow(null, 'upload', null); return; }
+	    input.click();
+	  }
+
+	  function _bindHeroFile(root) {
+	    var input = root && root.querySelector('[data-wsv2-file]');
+	    if (!input || input._wsv2Bound) return;
+	    input._wsv2Bound = true;
+	    input.addEventListener('change', function (e) {
+	      var files = Array.from(e.target.files || []);
+	      e.target.value = '';
+	      if (!files.length) return;
+	      _launchFlow(null, 'upload', null, { files: files });
+	    });
+	  }
+
+	  function _bind(root) {
+    root.onclick = function (e) {
+      // 카테고리 클릭 — 타입 프리셋으로 플로우 진입
+      var catBtn = e.target.closest('[data-wsv2-cat]');
+      if (catBtn) {
+        var ck = catBtn.getAttribute('data-wsv2-cat');
+        if (ck === 'price') { if (window.WorkspaceAdapter) window.WorkspaceAdapter.openPriceList(); else _toast('가격표 기능을 불러오지 못했어요'); return; }
+        _launchFlow(null, 'upload', ck); return;
+      }
+      // 히어로 업로드 CTA
+	      if (e.target.closest('[data-wsv2-upload]')) { _pickHeroFiles(root); return; }
+      // 퀵 버튼
+      var quick = e.target.closest('[data-wsv2-quick]');
+      if (quick) {
+        var qk = quick.getAttribute('data-wsv2-quick');
+        if (qk === 'itbi') {
+          // 잇비 챗봇으로 위임
+          if (window.openAssistant) window.openAssistant();
+          else if (typeof openItbiTab === 'function') openItbiTab();
+          else _toast('잇비를 불러오지 못했어요');
+          return;
+	        }
+        if (qk === 'textonly') {
+          // 사진 없이 게시글만 — 플로우 진입 시 사진종류 축 없이
+          _launchFlow(null, 'caption', null, { textOnly: true }); return;
+        }
+        return;
+      }
+      // 필터 탭
+      var tab = e.target.closest('[data-wsv2-filter]');
+      if (tab) { _filter = tab.getAttribute('data-wsv2-filter'); render(_lastRoot, { slots: _slotsCache }); return; }
+      // "이어서" 버튼 — 직접 해당 단계 진입
+      var resume = e.target.closest('[data-wsv2-resume]');
+      if (resume) { e.stopPropagation(); var sid = resume.getAttribute('data-wsv2-resume'); _resumeSlot(sid); return; }
+      // 카드 탭 — 드로어 오픈
+      var card = e.target.closest('[data-wsv2-slot]');
+      if (card) { _openDrawer(card.getAttribute('data-wsv2-slot')); return; }
+    };
+  }
+
+  function _launchFlow(slotId, screen, cat, extra) {
+    var slot = slotId ? _slotsCache.filter(function (s) { return s.id === slotId; })[0] : null;
+    if (window.WorkspaceFlow && typeof window.WorkspaceFlow.open === 'function') {
+      _closeDrawer();
+      window.WorkspaceFlow.open(Object.assign({ slot: slot, startScreen: screen || 'upload', cat: cat || null }, extra || {}));
+    } else { _toast('작업실 플로우를 불러오지 못했어요'); }
+  }
+
+  // 상태머신 기반 이어서 진입
+  function _resumeSlot(slotId) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    var st = ST();
+    var next = st.nextAction(slot);
+    var screen = KEY2SCREEN[next.key] || 'edit';
+    _launchFlow(slotId, screen, null);
+  }
+
+  function _onDrawerAct(actKey) {
+    // [v542] 콘텐츠 관리 액션 — 게시 완료 토글 / 삭제(확인).
+    if (actKey === '게시 완료' || actKey === '게시 완료 해제') { _togglePublished(_drawerSlotId, actKey === '게시 완료'); return; }
+    if (actKey === '삭제') { _confirmDelete(_drawerSlotId); return; }
+    var screen;
+    if (actKey === 'next') {
+      var slot = _slotsCache.filter(function (s) { return s.id === _drawerSlotId; })[0];
+      var k = slot ? ST().nextAction(slot).key : 'edit';
+      screen = KEY2SCREEN[k] || 'edit';
+    } else { screen = ACT2SCREEN[actKey] || 'edit'; }
+    // [v540] 편집 버튼 의도별 딥링크 — 사진편집/누끼·배경/비율자르기/템플릿이 각자 위치로 진입(기존 콘텐츠 유지).
+    var FOCUS = { '사진 편집': 'photo-edit', '누끼/배경': 'background', '비율 자르기': 'crop', '템플릿': 'template' };
+    var extra = FOCUS[actKey] ? { focus: FOCUS[actKey] } : null;
+    _launchFlow(_drawerSlotId, screen, null, extra);
+  }
+
+  // [v542] 게시 완료 토글 — slot.publish 상태를 IndexedDB(saveSlotToDB)에 영구 저장 → 카드 green badge 유지.
+  function _togglePublished(slotId, on) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    if (on) { slot.publish = slot.publish || {}; slot.publish.status = 'published'; slot.publish.publishedAt = Date.now(); slot.status = 'published'; slot.instagramPublished = true; }
+    else { if (slot.publish) slot.publish.status = 'draft'; if (slot.status === 'published') slot.status = null; slot.instagramPublished = false; }
+    if (typeof window.saveSlotToDB === 'function') { Promise.resolve(window.saveSlotToDB(slot)).catch(function () {}); }
+    _closeDrawer();
+    if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
+    _toast(on ? '게시 완료로 표시했어요' : '게시 완료를 해제했어요');
+  }
+  // [v542] 삭제 — 확인 시트 후 IndexedDB(deleteSlotFromDB)에서 영구 제거(새로고침 후에도 유지).
+  function _confirmDelete(slotId) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    var ov = document.createElement('div');
+    ov.className = 'wsv2-confirm'; ov.setAttribute('data-wsv2-confirm', '');
+    ov.innerHTML =
+      '<div class="wsv2-confirm__backdrop" data-wsv2-confirm-cancel></div>' +
+      '<div class="wsv2-confirm__sheet" role="dialog" aria-label="콘텐츠 삭제 확인">' +
+        '<div class="wsv2-confirm__title">이 콘텐츠를 삭제할까요?</div>' +
+        '<div class="wsv2-confirm__desc">삭제하면 작업실에서 다시 볼 수 없어요.</div>' +
+        '<div class="wsv2-confirm__btns">' +
+          '<button type="button" class="wsv2-confirm__cancel" data-wsv2-confirm-cancel>취소</button>' +
+          '<button type="button" class="wsv2-confirm__ok" data-wsv2-confirm-ok="' + _esc(slotId) + '">삭제</button>' +
+        '</div></div>';
+    document.body.appendChild(ov);
+    requestAnimationFrame(function () { ov.classList.add('open'); });
+    ov.addEventListener('click', function (e) {
+      if (e.target.closest('[data-wsv2-confirm-cancel]')) { _closeConfirm(); return; }
+      var ok = e.target.closest('[data-wsv2-confirm-ok]');
+      if (ok) { _doDelete(ok.getAttribute('data-wsv2-confirm-ok')); _closeConfirm(); }
+    });
+  }
+  function _closeConfirm() { var c = document.querySelector('[data-wsv2-confirm]'); if (c && c.parentNode) c.parentNode.removeChild(c); }
+  function _doDelete(slotId) {
+    _slotsCache = _slotsCache.filter(function (s) { return s.id !== slotId; });   // 낙관적 즉시 제거
+    if (typeof window.deleteSlotFromDB === 'function') { Promise.resolve(window.deleteSlotFromDB(slotId)).catch(function () {}); }
+    _closeDrawer();
+    if (_lastRoot) render(_lastRoot, { slots: _slotsCache });
+    _toast('콘텐츠를 삭제했어요');
+  }
+
+  /* ── V2 카드 상세 drawer ── */
+  function _drawerEl() {
+    var el = document.getElementById('wsv2Drawer');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'wsv2Drawer';
+    el.className = 'wsv2 wsv2-drawer';
+    el.innerHTML = '<div class="wsv2-drawer__bd" data-wsv2-drawer-close></div>' +
+      '<div class="wsv2-drawer__card" id="wsv2DrawerCard"></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-wsv2-drawer-close]')) { _closeDrawer(); return; }
+      var act = e.target.closest('[data-wsv2-act]');
+      if (act) { _onDrawerAct(act.getAttribute('data-wsv2-act')); return; }
+    });
+    return el;
+  }
+
+  function _openDrawer(slotId) {
+    var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0];
+    if (!slot) return;
+    _drawerSlotId = slotId;
+    var st = ST();
+    var meta = st.statusMeta(st.deriveStatus(slot));
+    var next = st.nextAction(slot);
+    var img = _thumb(slot);
+    var acts = [
+      { ic: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', label: '사진 편집' },
+      { ic: 'M6 2v6m0 0L2 12m4-4 4-4m6 2v6m0 0 4 4m-4-4-4-4', label: '누끼/배경' },
+      { ic: 'M6 2H2v4M2 18v4h4M22 6V2h-4M18 22h4v-4M9 9h6v6H9z', label: '비율 자르기' },
+      { ic: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z', label: '템플릿' },
+      { ic: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z', label: '게시글 생성' },
+      { ic: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7', label: '인스타 미리보기' },
+      { ic: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', label: '고객 연결' },
+    ];
+    var html = '' +
+      '<div class="wsv2-drawer__grip"></div>' +
+      '<div class="wsv2-drawer__hero"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+        (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') + '</div>' +
+      '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span>' +
+      '<div class="wsv2-drawer__title">' + _esc(slot.label || '제목 없음') + '</div>' +
+      '<div class="wsv2-drawer__status">' + (slot.photos || []).length + '장 · ' + _esc(_roleHint(slot)) +
+        (_relTime(slot) ? ' · 수정 ' + _esc(_relTime(slot)) : '') + '</div>' +
+      '<button type="button" class="wsv2-drawer__primary" data-wsv2-act="next">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>' +
+        '다음 작업: ' + _esc(next.label) + '</button>' +
+      '<div class="wsv2-drawer__hint">' + _esc(DRAWER_HINT) + '</div>' +
+      '<div class="wsv2-drawer__grid">' + acts.map(function (a) {
+        return '<button type="button" class="wsv2-drawer__act" data-wsv2-act="' + _esc(a.label) + '">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + a.ic + '"/></svg>' + _esc(a.label) + '</button>';
+      }).join('') + '</div>' +
+      // [v542] 콘텐츠 관리 — 게시 완료 토글 + 삭제(위험, 확인 후). 카드 본체엔 안 보이고 더보기(드로어)에만.
+      '<div class="wsv2-drawer__manage">' +
+        (st.deriveStatus(slot) === 'published'
+          ? '<button type="button" class="wsv2-drawer__mng" data-wsv2-act="게시 완료 해제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>게시 완료 해제</button>'
+          : '<button type="button" class="wsv2-drawer__mng wsv2-drawer__mng--ok" data-wsv2-act="게시 완료"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>게시 완료</button>') +
+        '<button type="button" class="wsv2-drawer__mng wsv2-drawer__mng--danger" data-wsv2-act="삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>삭제</button>' +
+      '</div>';
+    var el = _drawerEl();
+    document.getElementById('wsv2DrawerCard').innerHTML = html;
+    requestAnimationFrame(function () { el.classList.add('is-open'); });
+  }
+
+  function _closeDrawer() {
+    var el = document.getElementById('wsv2Drawer');
+    if (el) el.classList.remove('is-open');
+  }
+
+  window.WorkspaceV2 = { render: render, refresh: refresh, _closeDrawer: _closeDrawer };
+})();
+</script>
+<script>window.WorkspaceV2.render(document.getElementById('root'),{slots:[{"id":"s1","label":"콘텐츠 1","photos":[{"id":"a1","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b1","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c1"},{"id":"s2","label":"콘텐츠 2","photos":[{"id":"a2","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b2","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c2"},{"id":"s3","label":"콘텐츠 3","photos":[{"id":"a3","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b3","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c3"},{"id":"s4","label":"콘텐츠 4","photos":[{"id":"a4","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b4","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c4"},{"id":"s5","label":"콘텐츠 5","photos":[{"id":"a5","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"before"},{"id":"b5","dataUrl":"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI2U5YzRhOCIvPjwvc3ZnPg==","role":"after"}],"caption":"글","customer_id":"c5"}]});</script>
+</body></html>

@@ -1,0 +1,56 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v554 precision tabs QA</title>
+<!-- 실제 토큰 일부 + 실제 flow CSS 로드 -->
+<style>
+  :root{ --border:#E5E8EB; --text:#191F28; --text-muted:#8B95A1; --brand-strong:#E8638C; --surface:#fff; }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif; background:#f2f4f6; }
+  .frame{ background:#fff; margin:0 auto; box-shadow:0 0 0 1px #ddd; }
+  .lbl{ font:700 12px/1.4 sans-serif; color:#888; padding:8px 12px; }
+</style>
+<link rel="stylesheet" href="../css/workspace-v2-flow.css">
+<style>
+  /* 하니스 전용: .wsv2flow 의 fixed/none 을 무력화해 프레임을 실제 폭으로 렌더 */
+  .frame.wsv2flow{ position:static !important; inset:auto !important; display:block !important; min-height:0 !important; }
+</style>
+</head>
+<body>
+<div class="lbl">360px (가장 좁은 안드로이드)</div>
+<div class="frame wsv2flow" style="width:360px" id="f360"></div>
+<div class="lbl">375px (iPhone SE/mini)</div>
+<div class="frame wsv2flow" style="width:375px" id="f375"></div>
+<div class="lbl">414px (큰 폰)</div>
+<div class="frame wsv2flow" style="width:414px" id="f414"></div>
+<script>
+  // workspace-v2-flow.js 와 동일한 마크업 재현
+  var prec = [
+    {k:'skin',label:'피부',ic:'ph-user'},
+    {k:'hair',label:'헤어',ic:'ph-wind'},
+    {k:'eyes',label:'눈썹·눈가',ic:'ph-eye'},
+    {k:'nail',label:'네일',ic:'ph-hand-heart'},
+    {k:'tools',label:'고급',ic:'ph-faders'}
+  ];
+  var ptab='skin';
+  function tabsHtml(){
+    return '<div class="ed-prec-head"><i aria-hidden="true">⚙</i><span>정밀 조정</span></div>'+
+      '<div class="ed-panel"><div class="ed-tabs">'+prec.map(function(t){
+        return '<div class="ed-tab'+(t.k===ptab?' on':'')+'" data-fl-edtab="'+t.k+'"><i>◇</i>'+t.label+'</div>';
+      }).join('')+'</div></div>';
+  }
+  ['f360','f375','f414'].forEach(function(id){ document.getElementById(id).innerHTML = tabsHtml(); });
+
+  // 자동 줄바꿈 검출: 모든 ed-tab 의 offsetTop 이 동일한지(=한 줄)
+  window.__QA__ = ['f360','f375','f414'].map(function(id){
+    var tabs = document.querySelectorAll('#'+id+' .ed-tab');
+    // 실제 렌더 좌표 기반 — 모든 탭의 top 이 같으면 한 줄
+    var tops = Array.prototype.map.call(tabs,function(t){return Math.round(t.getBoundingClientRect().top);});
+    var oneRow = tops.every(function(v){return Math.abs(v-tops[0])<=1;});
+    var heights = Array.prototype.map.call(tabs,function(t){return Math.round(t.getBoundingClientRect().height);});
+    var anyZero = heights.some(function(h){return h<=0;});
+    // 텍스트 클리핑 검출: scrollWidth > clientWidth 면 글자 잘림
+    var clipped = Array.prototype.some.call(tabs,function(t){return t.scrollWidth > t.clientWidth+1;});
+    return {id:id, count:tabs.length, oneRow:oneRow, clipped:clipped, anyZero:anyZero, tops:tops, heights:heights};
+  });
+  document.title = 'QA '+JSON.stringify(window.__QA__);
+</script>
+</body></html>

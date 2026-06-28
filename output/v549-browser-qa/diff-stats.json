@@ -1,0 +1,107 @@
+[
+  {
+    "id": "A1-eye-close",
+    "mean_abs_diff": 1.428,
+    "changed_pct_gt2": 9.99
+  },
+  {
+    "id": "A2-face-front",
+    "mean_abs_diff": 1.473,
+    "changed_pct_gt2": 12.94
+  },
+  {
+    "id": "A3-complex-face-syn",
+    "mean_abs_diff": 1.971,
+    "changed_pct_gt2": 24.84
+  },
+  {
+    "id": "B1-hand-back",
+    "mean_abs_diff": 1.31,
+    "changed_pct_gt2": 9.77
+  },
+  {
+    "id": "B2-palm-syn",
+    "mean_abs_diff": 1.142,
+    "changed_pct_gt2": 19.43
+  },
+  {
+    "id": "B3-complex-hand-syn",
+    "mean_abs_diff": 2.167,
+    "changed_pct_gt2": 34.83
+  },
+  {
+    "id": "C1-nude-gloss",
+    "mean_abs_diff": 1.427,
+    "changed_pct_gt2": 11.84
+  },
+  {
+    "id": "C2-clear-gloss-syn",
+    "mean_abs_diff": 1.19,
+    "changed_pct_gt2": 8.53
+  },
+  {
+    "id": "C3-dark-gloss-syn",
+    "mean_abs_diff": 1.391,
+    "changed_pct_gt2": 10.73
+  },
+  {
+    "id": "C4-french-gloss-syn",
+    "mean_abs_diff": 1.187,
+    "changed_pct_gt2": 7.18
+  },
+  {
+    "id": "D1-dark-edge-syn",
+    "mean_abs_diff": 1.391,
+    "changed_pct_gt2": 10.35
+  },
+  {
+    "id": "D2-french-edge-syn",
+    "mean_abs_diff": 1.157,
+    "changed_pct_gt2": 6.81
+  },
+  {
+    "id": "E-hairColor",
+    "mean_abs_diff": 0.0,
+    "changed_pct_gt2": 0.0
+  },
+  {
+    "id": "E-hairColorPop",
+    "mean_abs_diff": 0.0,
+    "changed_pct_gt2": 0.0
+  },
+  {
+    "id": "E-hairDetail",
+    "mean_abs_diff": 1.502,
+    "changed_pct_gt2": 15.2
+  },
+  {
+    "id": "E-hairEndsClean",
+    "mean_abs_diff": 1.489,
+    "changed_pct_gt2": 14.97
+  },
+  {
+    "id": "E-hairFull",
+    "mean_abs_diff": 2.167,
+    "changed_pct_gt2": 25.62
+  },
+  {
+    "id": "E-hairShine",
+    "mean_abs_diff": 5.118,
+    "changed_pct_gt2": 53.07
+  },
+  {
+    "id": "E-hairVolume",
+    "mean_abs_diff": 1.952,
+    "changed_pct_gt2": 18.72
+  },
+  {
+    "id": "E-scalpBoost",
+    "mean_abs_diff": 0.0,
+    "changed_pct_gt2": 0.0
+  },
+  {
+    "id": "F-brow-front",
+    "mean_abs_diff": 1.473,
+    "changed_pct_gt2": 12.94
+  }
+]

@@ -1,0 +1,401 @@
+[
+  {
+    "id": "A1-eye-close",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/1-Photo-1.jpg",
+    "tab": "eyes",
+    "tool": "eyeRedness",
+    "load": {
+      "name": "1-Photo-1.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "흰자 인식 중…",
+      "helper": "흰자 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A1-eye-close-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A1-eye-close-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A1-eye-close-result.png"
+  },
+  {
+    "id": "A2-face-front",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/5-Photo-5.jpg",
+    "tab": "eyes",
+    "tool": "eyeRedness",
+    "load": {
+      "name": "5-Photo-5.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "흰자 인식 중…",
+      "helper": "흰자 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A2-face-front-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A2-face-front-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A2-face-front-result.png"
+  },
+  {
+    "id": "B1-hand-back",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/3-Photo-3.jpg",
+    "tab": "nail",
+    "tool": "handSkin",
+    "load": {
+      "name": "3-Photo-3.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "손 피부(추정 ROI) 인식됨 · 16%",
+      "helper": "손 피부(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B1-hand-back-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B1-hand-back-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B1-hand-back-result.png"
+  },
+  {
+    "id": "B2-palm-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/06-palm-synthetic.png",
+    "tab": "nail",
+    "tool": "handSkin",
+    "load": {
+      "name": "06-palm-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "손 피부(추정 ROI) 인식됨 · 32.7%",
+      "helper": "손 피부(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B2-palm-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B2-palm-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B2-palm-syn-result.png"
+  },
+  {
+    "id": "B3-complex-hand-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/10-complex-hand-synthetic.png",
+    "tab": "nail",
+    "tool": "handSkin",
+    "load": {
+      "name": "10-complex-hand-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "손 피부(추정 ROI) 인식됨 · 51.9%",
+      "helper": "손 피부(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B3-complex-hand-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B3-complex-hand-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/B3-complex-hand-syn-result.png"
+  },
+  {
+    "id": "C1-nude-gloss",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/4-Photo-4.jpg",
+    "tab": "nail",
+    "tool": "nailGloss",
+    "load": {
+      "name": "4-Photo-4.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "네일 인식 중…",
+      "helper": "네일 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C1-nude-gloss-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C1-nude-gloss-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C1-nude-gloss-result.png"
+  },
+  {
+    "id": "C2-clear-gloss-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/07-clear-gel-synthetic.png",
+    "tab": "nail",
+    "tool": "nailGloss",
+    "load": {
+      "name": "07-clear-gel-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "네일 인식 중…",
+      "helper": "네일 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C2-clear-gloss-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C2-clear-gloss-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C2-clear-gloss-syn-result.png"
+  },
+  {
+    "id": "C3-dark-gloss-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/08-dark-color-nail-synthetic.png",
+    "tab": "nail",
+    "tool": "nailGloss",
+    "load": {
+      "name": "08-dark-color-nail-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "네일(추정 ROI) 인식됨 · 3.1%",
+      "helper": "네일(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C3-dark-gloss-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C3-dark-gloss-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C3-dark-gloss-syn-result.png"
+  },
+  {
+    "id": "C4-french-gloss-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/09-french-nail-synthetic.png",
+    "tab": "nail",
+    "tool": "nailGloss",
+    "load": {
+      "name": "09-french-nail-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "네일(추정 ROI) 인식됨 · 0.7%",
+      "helper": "네일(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C4-french-gloss-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C4-french-gloss-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/C4-french-gloss-syn-result.png"
+  },
+  {
+    "id": "D1-dark-edge-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/08-dark-color-nail-synthetic.png",
+    "tab": "nail",
+    "tool": "nailShape",
+    "load": {
+      "name": "08-dark-color-nail-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "네일(추정 ROI) 인식됨 · 3.1%",
+      "helper": "네일(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/D1-dark-edge-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/D1-dark-edge-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/D1-dark-edge-syn-result.png"
+  },
+  {
+    "id": "D2-french-edge-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/09-french-nail-synthetic.png",
+    "tab": "nail",
+    "tool": "nailShape",
+    "load": {
+      "name": "09-french-nail-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "네일(추정 ROI) 인식됨 · 0.7%",
+      "helper": "네일(추정 ROI)로 보정 중이에요 (정밀 인식이 희미해 추정 영역 사용)",
+      "hidden": false,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/D2-french-edge-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/D2-french-edge-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/D2-french-edge-syn-result.png"
+  },
+  {
+    "id": "E-hairDetail",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairDetail",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairDetail-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairDetail-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairDetail-result.png"
+  },
+  {
+    "id": "E-hairVolume",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairVolume",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairVolume-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairVolume-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairVolume-result.png"
+  },
+  {
+    "id": "E-hairShine",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairShine",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairShine-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairShine-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairShine-result.png"
+  },
+  {
+    "id": "E-hairFull",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairFull",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairFull-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairFull-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairFull-result.png"
+  },
+  {
+    "id": "E-hairEndsClean",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairEndsClean",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairEndsClean-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairEndsClean-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairEndsClean-result.png"
+  },
+  {
+    "id": "E-hairColor",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairColor",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": ""
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairColor-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairColor-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairColor-result.png"
+  },
+  {
+    "id": "E-hairColorPop",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "hairColorPop",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": ""
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairColorPop-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairColorPop-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-hairColorPop-result.png"
+  },
+  {
+    "id": "E-scalpBoost",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/2-Photo-2.jpg",
+    "tab": "hair",
+    "tool": "scalpBoost",
+    "load": {
+      "name": "2-Photo-2.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "헤어 인식 중…",
+      "helper": "헤어 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": ""
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-scalpBoost-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-scalpBoost-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/E-scalpBoost-result.png"
+  },
+  {
+    "id": "A3-complex-face-syn",
+    "file": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-qa-images/11-complex-face-synthetic.png",
+    "tab": "eyes",
+    "tool": "eyeRedness",
+    "load": {
+      "name": "11-complex-face-synthetic.png"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "흰자 인식 중…",
+      "helper": "흰자 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A3-complex-face-syn-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A3-complex-face-syn-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/A3-complex-face-syn-result.png"
+  },
+  {
+    "id": "F-brow-front",
+    "file": "/tmp/codex-remote-attachments/019ef6af-f56a-7d91-b546-06e9b30c6efc/839231ec-57dc-47d3-8b86-9029d5deaca4/5-Photo-5.jpg",
+    "tab": "eyes",
+    "tool": "browSharp",
+    "load": {
+      "name": "5-Photo-5.jpg"
+    },
+    "status": {
+      "pressed": "true",
+      "badge": "눈썹 인식 중…",
+      "helper": "눈썹 영역 자동 인식이 어려워 기본 영역으로 보정 중이에요",
+      "hidden": true,
+      "range": "100"
+    },
+    "orig": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/F-brow-front-original.png",
+    "mask": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/F-brow-front-mask.png",
+    "result": "/Users/kang-yeonjun/프로젝트/깃허브with원영/itdasy_beauty_app_recent/itdasy-frontend-test-yeunjun/output/v549-browser-qa/F-brow-front-result.png"
+  }
+]

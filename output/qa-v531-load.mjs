@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+const b=await chromium.launch(); const pg=await b.newPage(); const errs=[];
+pg.on('pageerror',e=>errs.push('PAGEERR: '+e.message));
+pg.on('console',m=>{if(m.type()==='error'){const t=m.text(); if(/401|403|Failed to load resource|net::ERR|Unauthorized|fetch|supabase|persona|token|CORS|favicon|api/i.test(t))return; errs.push('CON: '+t);}});
+await pg.goto('http://localhost:8098/index.html',{waitUntil:'load',timeout:15000}).catch(e=>errs.push('GOTO '+e.message));
+await pg.waitForTimeout(2500);
+const ok=await pg.evaluate(()=>({flow:!!window.WorkspaceFlow,cap:!!window.CaptionEngine,deftpl:!!window.WorkspaceDefaultTpl,build:window.__LATEST_BUILD__,app:window.APP_BUILD}));
+console.log('globals:',JSON.stringify(ok));
+console.log('JS errors(auth/net 제외):',errs.length); errs.slice(0,8).forEach(e=>console.log('  '+e));
+await b.close();
