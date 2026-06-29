@@ -177,15 +177,21 @@
       '<div class="itshape__colors">' + colors + '</div>' +
     '</div>';
   }
+  // [레이아웃] 목업식 — 타입 칩(1장/좌우2장/4장) + 렌더된 사진을 순서대로 탭해 자리에 채움.
+  var LAY_TYPES = [{ i: 0, name: '1장' }, { i: 2, name: '좌우 2장' }, { i: 3, name: '4장' }];
   function buildLayout() {
-    var circ = LAYOUTS.map(function (l, i) {
-      return '<button class="itfan' + (i === 0 ? ' on' : '') + '" data-lay="' + i + '"></button>';
+    var chips = LAY_TYPES.map(function (t, idx) {
+      return '<button class="itlaytype' + (idx === 0 ? ' on' : '') + '" data-lay="' + t.i + '">' + t.name + '</button>';
     }).join('');
-    return '<div class="itpanel itlay" data-panel="layout">' +
-      '<div class="itlay__arc" data-r="arc"></div>' + circ +
-      '<div class="itlay__hd"><b data-r="layName">기본</b><span>돌려서 사진에 바로 적용</span></div>' +
+    return '<div class="itpanel itlay2" data-panel="layout">' +
+      '<div class="itlay2__hint" data-r="layHint"></div>' +
+      '<div class="itlay2__types">' + chips + '</div>' +
+      '<div class="itlay2__sub">렌더된 사진 — 순서대로 누르세요</div>' +
+      '<div class="itlay2__strip" data-r="layStrip"></div>' +
     '</div>';
   }
+  function _layPos(kind) { return kind === 'grid4' ? ['좌상', '우상', '좌하', '우하'] : ['왼쪽', '오른쪽']; }
+  function _layNeed(kind) { return kind === 'grid4' ? 4 : (kind === 'grid2' ? 2 : 1); }
   function buildDraw() {
     var brushes = BRUSHES.map(function (b, i) {
       return '<button class="itbrush' + (i === 0 ? ' on' : '') + '" data-brush="' + b + '">' + IC[b] + '</button>';
@@ -201,7 +207,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'arc', 'layName', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -219,7 +225,7 @@
     refs.draw.style.zIndex = drawing ? '5' : '3';
     refs.layers.style.pointerEvents = drawing ? 'none' : '';
     if (tool === 'text' && !S.layers.some(function (l) { return l.type === 'text'; })) addText();
-    if (tool === 'layout') layoutFanPositions();
+    if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
     if (tool === 'sticker') renderMyStickers();
   }
 
@@ -508,66 +514,55 @@
     elm.addEventListener('click', function (e) { if (moved > 6) { e.stopPropagation(); e.preventDefault(); moved = 0; } }, true);
   }
 
-  /* ── 레이아웃 반달 fan ── */
-  function layoutFanPositions() {
-    var btn = root.querySelector('.itrb[data-tool="layout"]').getBoundingClientRect();
-    var cx = btn.left + btn.width / 2, cy = btn.top + btn.height / 2, R = 116;
-    var ang = [135, 165, 195, 225];
-    var vw = window.innerWidth, vh = window.innerHeight;
-    var fans = root.querySelectorAll('.itfan');
-    fans.forEach(function (f, i) {
-      var s = f.classList.contains('on') ? 64 : 54;
-      f.style.width = f.style.height = s + 'px';
-      var rad = ang[i] * Math.PI / 180;
-      var x = cx + R * Math.cos(rad), y = cy - R * Math.sin(rad);
-      // 화면 밖으로 안 나가게 클램프(좁은 폭에서 우측/상단 잘림 방지)
-      x = Math.max(s / 2 + 8, Math.min(vw - s / 2 - 8, x));
-      y = Math.max(s / 2 + 56, Math.min(vh - s / 2 - 10, y));
-      f.style.left = (x - s / 2) + 'px'; f.style.top = (y - s / 2) + 'px';
-      f.style.backgroundImage = S.photoCss;
-    });
-    var d = 2 * R;
-    refs.arc.style.width = refs.arc.style.height = d + 'px';
-    refs.arc.style.left = (cx - R) + 'px'; refs.arc.style.top = (cy - R) + 'px';
-    // 라벨도 반달(레이아웃 버튼 옆) 아래에 fixed 배치
-    var hd = refs.layName && refs.layName.parentNode;
-    if (hd) { hd.style.left = Math.max(12, cx - R - 4) + 'px'; hd.style.top = (cy + R + 8) + 'px'; }
-  }
-  // [③] 반달 드래그 회전 — 레이아웃 버튼(피벗) 기준 각도 변화를 레이아웃 인덱스로 환산해 실시간 적용.
-  var fanDrag = null;
-  function fanPivot() { var b = root.querySelector('.itrb[data-tool="layout"]').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; }
-  function fanDown(e) {
-    if (S.tool !== 'layout') return;
-    var c = fanPivot();
-    fanDrag = { cx: c.x, cy: c.y, a0: Math.atan2(e.clientY - c.y, e.clientX - c.x), i0: LAYOUTS.indexOf(S.layout), moved: false };
-  }
-  function fanMove(e) {
-    if (!fanDrag) return;
-    var d = Math.atan2(e.clientY - fanDrag.cy, e.clientX - fanDrag.cx) - fanDrag.a0;
-    while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
-    var step = Math.round(d / (Math.PI / 7));   // 약 25.7°마다 한 칸
-    if (step !== 0) fanDrag.moved = true;
-    var n = LAYOUTS.length, idx = ((fanDrag.i0 + step) % n + n) % n;
-    if (idx !== LAYOUTS.indexOf(S.layout)) selectLayout(idx);
-  }
-  function fanUp() { if (fanDrag && fanDrag.moved) S._fanMoved = true; fanDrag = null; }
+  /* ── 레이아웃(타입 칩 + 사진 순서 선택) ── */
   function selectLayout(i) {
     S.layout = LAYOUTS[i];
+    S.layoutOrder = [];   // 타입 바꾸면 자리 선택 초기화
     refs.frame.className = 'itded__frame ' + (S.layout.frame || '');
-    refs.layName.textContent = S.layout.label;
-    root.querySelectorAll('.itfan').forEach(function (f, idx) { f.classList.toggle('on', idx === i); });
-    renderCollage(); layoutFanPositions();
+    root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
+    renderCollage(); renderLayoutStrip(); renderLayoutHint();
   }
-  // 콜라주(좌우2장/4장) — 단일이면 collage 숨기고 단일 사진. grid면 N칸 사진.
+  // 사진 순서 탭 — grid면 자리(좌우/4분할)에 순서대로 배정, 1장이면 그 사진을 단일 배경으로.
+  function onLayThumb(idx) {
+    var kind = S.layout.kind || 'single';
+    if (kind === 'single') {
+      S.photoUrl = S.photos[idx]; S.photoCss = 'url("' + S.photos[idx] + '")';
+      refs.photo.style.backgroundImage = S.photoCss;
+      renderLayoutStrip(); renderLayoutHint(); return;
+    }
+    var at = S.layoutOrder.indexOf(idx);
+    if (at >= 0) S.layoutOrder.splice(at, 1);              // 다시 누르면 해제(뒤 번호 당겨짐)
+    else if (S.layoutOrder.length < _layNeed(kind)) S.layoutOrder.push(idx);
+    renderCollage(); renderLayoutStrip(); renderLayoutHint();
+  }
+  function renderLayoutStrip() {
+    if (!refs.layStrip) return;
+    var kind = S.layout.kind || 'single';
+    refs.layStrip.innerHTML = (S.photos || []).map(function (u, i) {
+      var ord = (kind === 'single') ? (S.photoUrl === u ? 0 : -1) : S.layoutOrder.indexOf(i);
+      var badge = (kind !== 'single' && ord >= 0) ? '<span class="itlaybadge">' + (ord + 1) + '</span>' : '';
+      var sel = (kind === 'single' && S.photoUrl === u) ? ' on' : (ord >= 0 ? ' on' : '');
+      return '<button class="itlaythumb' + sel + '" data-laythumb="' + i + '" style="background-image:url(\'' + u + '\')">' + badge + '</button>';
+    }).join('');
+  }
+  function renderLayoutHint() {
+    if (!refs.layHint) return;
+    var kind = S.layout.kind || 'single';
+    if (kind === 'single') { refs.layHint.textContent = '1장 — 넣을 사진 하나를 누르세요.'; return; }
+    var pos = _layPos(kind), need = _layNeed(kind);
+    refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> · 사진을 순서대로 누르세요 — ' +
+      pos.map(function (p, i) { return (i + 1) + '=' + p; }).join(' · ') + ' (' + S.layoutOrder.length + '/' + need + ')';
+  }
+  // 콜라주(좌우2장/4장) — 단일이면 collage 숨김. grid면 선택 순서(layoutOrder)대로 칸 채움(미선택=자리표시).
   function renderCollage() {
     var kind = S.layout.kind || 'single';
-    if (kind === 'single') { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; return; }
-    var n = kind === 'grid4' ? 4 : 2;
-    refs.collage.className = 'itded__collage is-' + kind;
-    var cells = '';
+    if (kind === 'single') { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; refs.photo.style.backgroundImage = S.photoCss; return; }
+    refs.collage.className = 'itded__collage is-' + kind;   // is-grid2 / is-grid4 → 2열/2x2 그리드
+    var n = _layNeed(kind), pos = _layPos(kind), cells = '';
     for (var k = 0; k < n; k++) {
-      var url = S.photos[k] || S.photos[k % S.photos.length] || S.photoUrl;
-      cells += '<div class="itded__cell" style="background-image:url(\'' + url + '\')"></div>';
+      var idx = S.layoutOrder[k];
+      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" style="background-image:url(\'' + S.photos[idx] + '\')"></div>';
+      else cells += '<div class="itded__cell itded__cell--empty">' + (k + 1) + '번<br>' + pos[k] + '</div>';
     }
     refs.collage.innerHTML = cells; refs.collage.hidden = false;
   }
@@ -641,7 +636,7 @@
       });
     } else {
       var n = kind === 'grid4' ? 4 : 2;
-      var urls = []; for (var k = 0; k < n; k++) urls.push(S.photos[k] || S.photos[k % S.photos.length] || S.photoUrl);
+      var urls = []; for (var k = 0; k < n; k++) { var oi = S.layoutOrder[k]; urls.push((oi != null && S.photos[oi]) || S.photos[k] || S.photos[k % S.photos.length] || S.photoUrl); }
       baseDone = Promise.all(urls.map(loadImg)).then(function (imgs) {
         var cols = kind === 'grid4' ? 2 : 2, rows = kind === 'grid4' ? 2 : 1;
         if (kind === 'grid2') { cols = 2; rows = 1; }
@@ -725,11 +720,12 @@
     enableDragScroll(refs.stkSheet.querySelector('.itfstk'));
     enableDragScroll(refs.panels.shape.querySelector('.itshape__row'));
     enableDragScroll(refs.panels.shape.querySelector('.itshape__colors'));
-    // 레이아웃 — 탭으로 선택 + 반달을 '돌려서' 활성 레이아웃 실시간 변경
-    refs.panels.layout.addEventListener('click', function (e) { if (S._fanMoved) { S._fanMoved = false; return; } var b = e.target.closest('[data-lay]'); if (b) selectLayout(+b.getAttribute('data-lay')); });
-    refs.panels.layout.addEventListener('pointerdown', fanDown);
-    document.addEventListener('pointermove', fanMove);
-    document.addEventListener('pointerup', fanUp);
+    // 레이아웃 — 타입 칩 선택 + 렌더된 사진 순서 탭(자리에 순서대로 채움)
+    refs.panels.layout.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-lay]'); if (t) { selectLayout(+t.getAttribute('data-lay')); return; }
+      var th = e.target.closest('[data-laythumb]'); if (th) { onLayThumb(+th.getAttribute('data-laythumb')); return; }
+    });
+    enableDragScroll(refs.layStrip); enableDragScroll(refs.panels.layout.querySelector('.itlay2__types'));
     // 그리기
     root.querySelector('[data-panel="draw"] .itdraw__top').addEventListener('click', function (e) { var b = e.target.closest('[data-brush]'); if (!b) return; S.brush = b.getAttribute('data-brush'); root.querySelectorAll('[data-brush]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.brushSize.addEventListener('input', function () { S.brushSize = +refs.brushSize.value; });
@@ -779,7 +775,7 @@
     if (!root) build();
     var photo = opts.photo || opts.photoUrl || '';   // StoryEditor 계약(photoUrl) 호환
     var photos = (opts.photos && opts.photos.length) ? opts.photos.slice() : [photo];
-    S = { layers: [], active: null, tool: 'text', layout: LAYOUTS[0],
+    S = { layers: [], active: null, tool: 'text', layout: LAYOUTS[0], layoutOrder: [],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
