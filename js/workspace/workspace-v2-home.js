@@ -200,7 +200,7 @@
 	        _heroHTML() +
 	        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
 	        _quickHTML() +
-        _categoryHTML() +
+        // [v592] '새 콘텐츠 만들기'(유형 카드) 섹션 제거 — 진입은 상단 '시작하기' 하나로 단순화.
         '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2>' +
           (slots.length ? '<button type="button" class="wsv2-selecttoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
         '</div>' +
