@@ -329,18 +329,25 @@
     var btn = root.querySelector('.itrb[data-tool="layout"]').getBoundingClientRect();
     var cx = btn.left + btn.width / 2, cy = btn.top + btn.height / 2, R = 116;
     var ang = [135, 165, 195, 225];
+    var vw = window.innerWidth, vh = window.innerHeight;
     var fans = root.querySelectorAll('.itfan');
     fans.forEach(function (f, i) {
       var s = f.classList.contains('on') ? 64 : 54;
       f.style.width = f.style.height = s + 'px';
       var rad = ang[i] * Math.PI / 180;
       var x = cx + R * Math.cos(rad), y = cy - R * Math.sin(rad);
+      // 화면 밖으로 안 나가게 클램프(좁은 폭에서 우측/상단 잘림 방지)
+      x = Math.max(s / 2 + 8, Math.min(vw - s / 2 - 8, x));
+      y = Math.max(s / 2 + 56, Math.min(vh - s / 2 - 10, y));
       f.style.left = (x - s / 2) + 'px'; f.style.top = (y - s / 2) + 'px';
       f.style.backgroundImage = S.photoCss;
     });
     var d = 2 * R;
     refs.arc.style.width = refs.arc.style.height = d + 'px';
     refs.arc.style.left = (cx - R) + 'px'; refs.arc.style.top = (cy - R) + 'px';
+    // 라벨도 반달(레이아웃 버튼 옆) 아래에 fixed 배치
+    var hd = refs.layName && refs.layName.parentNode;
+    if (hd) { hd.style.left = Math.max(12, cx - R - 4) + 'px'; hd.style.top = (cy + R + 8) + 'px'; }
   }
   // [③] 반달 드래그 회전 — 레이아웃 버튼(피벗) 기준 각도 변화를 레이아웃 인덱스로 환산해 실시간 적용.
   var fanDrag = null;

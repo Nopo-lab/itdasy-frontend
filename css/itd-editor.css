@@ -105,12 +105,14 @@
 .itsgrid button:active{transform:scale(.94)}
 
 /* ── 레이아웃 반달 fan ── */
-.itlay{height:46vh;min-height:300px;position:relative}
-.itlay__hd{position:absolute;left:18px;bottom:42px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5);z-index:2}
-.itlay__hd b{font-size:18px;font-weight:800}
-.itlay__hd span{display:block;margin-top:3px;font-size:12px;font-weight:600;opacity:.92}
-.itlay__arc{position:absolute;border-radius:50%;border:1.5px dashed rgba(255,255,255,.38);pointer-events:none}
-.itfan{position:absolute;border-radius:50%;background-size:cover;background-position:center;border:2px solid rgba(255,255,255,.9);
+/* 레이아웃 패널: 하단 투명 드래그면(반달 원은 fixed 라 어디서 잡아도 회전됨) */
+.itlay{height:46vh;min-height:300px;position:relative;background:transparent}
+/* 라벨·반달·호 모두 fixed → JS 가 레이아웃 버튼(우측 레일) 기준 뷰포트 좌표로 배치(버튼 옆 반달) */
+.itlay__hd{position:fixed;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5);z-index:11;text-align:left;pointer-events:none}
+.itlay__hd b{font-size:16px;font-weight:800}
+.itlay__hd span{display:block;margin-top:2px;font-size:11.5px;font-weight:600;opacity:.92}
+.itlay__arc{position:fixed;border-radius:50%;border:1.5px dashed rgba(255,255,255,.38);pointer-events:none;z-index:10}
+.itfan{position:fixed;z-index:11;border-radius:50%;background-size:cover;background-position:center;border:2px solid rgba(255,255,255,.9);
   box-shadow:0 6px 18px rgba(0,0,0,.35);cursor:pointer;transition:transform .18s ease,width .18s,height .18s}
 .itfan.on{border:3px solid var(--accent,#D58A95);box-shadow:0 8px 22px rgba(0,0,0,.4),0 0 0 4px rgba(213,138,149,.35)}
 
