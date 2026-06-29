@@ -61,7 +61,8 @@
     rs: svg('<path d="M21 15v6h-6M3 9V3h6M21 21l-7-7M3 3l7 7"/>', 2.2),
     upload: svg('<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/>'),
     adjust: svg('<path d="M4 7h11M19 7h1M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="17" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="17" r="2"/>'),
-    addphoto: svg('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.6"/>')
+    addphoto: svg('<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="9" cy="9" r="1.6"/>'),
+    cut: svg('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 18M8.1 15.9 20 6"/>')
   };
   // [보정] 사진별 보정값 — CSS filter / canvas ctx.filter 동일 문법으로 라이브·내보내기 일치.
   function defAdj() { return { b: 100, c: 100, s: 100, w: 0, sh: 0, rot: 0 }; }
@@ -192,6 +193,8 @@
     return '<div class="itpanel itadj" data-panel="adjust">' +
       '<div class="itadj__sub">보정할 사진을 고르세요</div>' +
       '<div class="itadj__strip" data-r="adjStrip"></div>' +
+      '<div class="itadj__bgrow"><button class="itadj__bg" data-r="adjCut">' + IC.cut + ' 배경 지우기(누끼)</button>' +
+        '<button class="itadj__bg itadj__bg--undo" data-r="adjUncut">원본</button></div>' +
       '<div class="itadj__row itadj__rotrow"><span>수평</span>' +
         '<input type="range" min="-15" max="15" step="0.5" value="0" data-r="adjRot"><b data-r="adjRotOut">0°</b></div>' +
       sliders +
@@ -276,7 +279,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -758,6 +761,33 @@
     if ((S.layout.kind || 'single') === 'single') { S.photoUrl = S.photos[i]; S.photoCss = 'url("' + S.photos[i] + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     applyAdjToDisplay(); renderAdjust();
   }
+  // [누끼] 선택 사진 배경 제거 → 흰 배경 합성으로 교체(원본 보관). 서버/imgly 엔진(PhotoEditorBgCompose).
+  function doCutout() {
+    if (!(window.PhotoEditorBgCompose && window.PhotoEditorBgCompose.compose)) { toastIt('배경 제거 모듈을 불러오지 못했어요'); return; }
+    var i = S.adjSel, src = S.photos[i]; if (!src) return;
+    if (refs.adjCut) { refs.adjCut.disabled = true; refs.adjCut.classList.add('is-busy'); }
+    toastIt('배경 지우는 중…');
+    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: { color: '#FFFFFF' }, targetRatio: '4:5' }).then(function (r) {
+      if (refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
+      if (!r || !r.composedDataUrl) { toastIt('배경 제거에 실패했어요'); return; }
+      var wasShown = (S.photoUrl === S.photos[i]);
+      if (!S.origPhotos) S.origPhotos = [];
+      if (S.origPhotos[i] == null) S.origPhotos[i] = S.photos[i];
+      S.photos[i] = r.composedDataUrl;
+      if (wasShown) { S.photoUrl = r.composedDataUrl; S.photoCss = 'url("' + r.composedDataUrl + '")'; refs.photo.style.backgroundImage = S.photoCss; }
+      renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
+      toastIt('배경을 정리했어요');
+    }).catch(function () { if (refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); } toastIt('배경 제거 실패 — 네트워크를 확인해 주세요'); });
+  }
+  function undoCutout() {
+    var i = S.adjSel; if (!(S.origPhotos && S.origPhotos[i] != null)) { toastIt('되돌릴 원본이 없어요'); return; }
+    var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
+    S.photos[i] = orig; S.origPhotos[i] = null;
+    if (wasShown) { S.photoUrl = orig; S.photoCss = 'url("' + orig + '")'; refs.photo.style.backgroundImage = S.photoCss; }
+    renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
+    toastIt('원본으로 되돌렸어요');
+  }
+  function toastIt(m) { try { (window.toast || function () {})(m); } catch (_) { void _; } }
   function addPhotoFromFile(file) {
     if (!file || !/^image\//.test(file.type)) return;
     var rd = new FileReader();
@@ -957,6 +987,8 @@
       applyStraighten();
     });
     refs.adjReset.addEventListener('click', function () { S.adj[S.adjSel] = defAdj(); syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); });
+    if (refs.adjCut) refs.adjCut.addEventListener('click', doCutout);
+    if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     enableDragScroll(refs.adjStrip);
     // 그리기
     root.querySelector('[data-panel="draw"] .itdraw__top').addEventListener('click', function (e) { var b = e.target.closest('[data-brush]'); if (!b) return; S.brush = b.getAttribute('data-brush'); root.querySelectorAll('[data-brush]').forEach(function (x) { x.classList.toggle('on', x === b); }); });

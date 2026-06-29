@@ -290,21 +290,21 @@
   // [#14] 초보자 레이아웃 프리셋 A(좌하단 밑줄형) — 시술명(굵게)→짧은 선→시술내용. 흰 글씨.
   //   폰트는 ItdEditor 키('black'·'dodum') → 헤드리스는 _composeFonts 가 CSS 패밀리로 변환.
   function _presetLayers(key) {
-    if (key === 'B') return [   // 중앙 위아래선(명조)
-      { type: 'line', x: 0.44, y: 0.41, w: 0.12, size: 0.005, color: '#ffffff' },
-      { role: 'title', x: 0.10, y: 0.475, w: 0.80, size: 0.066, weight: 700, font: 'songmyung', color: '#ffffff', align: 'center', letterSpacing: 0.02, lineHeight: 1.15, shadow: { on: true } },
-      { role: 'body', x: 0.10, y: 0.54, w: 0.80, size: 0.032, weight: 500, font: 'dodum', color: '#ffffff', align: 'center', lineHeight: 1.4, shadow: { on: true } },
-      { type: 'line', x: 0.44, y: 0.595, w: 0.12, size: 0.005, color: '#ffffff' }
+    if (key === 'B') return [   // 중앙 위아래선(명조 · 에디토리얼)
+      { type: 'line', x: 0.43, y: 0.405, w: 0.14, size: 0.004, color: '#ffffff', opacity: 0.92 },
+      { role: 'title', x: 0.08, y: 0.475, w: 0.84, size: 0.062, weight: 700, font: 'songmyung', color: '#ffffff', align: 'center', letterSpacing: 0.06, lineHeight: 1.22, shadow: { on: true } },
+      { role: 'body', x: 0.10, y: 0.545, w: 0.80, size: 0.030, weight: 500, font: 'dodum', color: '#ffffff', align: 'center', letterSpacing: 0.02, lineHeight: 1.5, opacity: 0.95, shadow: { on: true } },
+      { type: 'line', x: 0.43, y: 0.60, w: 0.14, size: 0.004, color: '#ffffff', opacity: 0.92 }
     ];
-    if (key === 'C') return [   // 좌측 세로선(둥근)
-      { type: 'line', x: 0.08, y: 0.84, w: 0.12, size: 0.007, color: '#ffffff', rot: 90 },
-      { role: 'title', x: 0.16, y: 0.812, w: 0.74, size: 0.062, weight: 800, font: 'jua', color: '#ffffff', align: 'left', lineHeight: 1.1, shadow: { on: true } },
-      { role: 'body', x: 0.16, y: 0.878, w: 0.74, size: 0.032, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.4, shadow: { on: true } }
+    if (key === 'C') return [   // 좌측 세로선(둥근 · 부드러움)
+      { type: 'line', x: 0.075, y: 0.845, w: 0.13, size: 0.008, color: '#ffffff', rot: 90 },
+      { role: 'title', x: 0.155, y: 0.815, w: 0.74, size: 0.060, weight: 800, font: 'jua', color: '#ffffff', align: 'left', lineHeight: 1.12, shadow: { on: true } },
+      { role: 'body', x: 0.155, y: 0.882, w: 0.74, size: 0.031, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.45, opacity: 0.95, shadow: { on: true } }
     ];
-    return [   // A 좌하단 밑줄
-      { role: 'title', x: 0.07, y: 0.80, w: 0.80, size: 0.072, weight: 800, font: 'black', color: '#ffffff', align: 'left', lineHeight: 1.08, shadow: { on: true } },
-      { type: 'line', x: 0.07, y: 0.862, w: 0.12, size: 0.006, color: '#ffffff' },
-      { role: 'body', x: 0.07, y: 0.908, w: 0.80, size: 0.034, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.45, shadow: { on: true } }
+    return [   // A 좌하단 밑줄(임팩트)
+      { role: 'title', x: 0.07, y: 0.795, w: 0.82, size: 0.068, weight: 800, font: 'black', color: '#ffffff', align: 'left', letterSpacing: -0.01, lineHeight: 1.06, shadow: { on: true } },
+      { type: 'line', x: 0.072, y: 0.857, w: 0.15, size: 0.006, color: '#ffffff' },
+      { role: 'body', x: 0.072, y: 0.902, w: 0.82, size: 0.033, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', letterSpacing: 0.01, lineHeight: 1.45, opacity: 0.95, shadow: { on: true } }
     ];
   }
   function _applyPreset(key) {

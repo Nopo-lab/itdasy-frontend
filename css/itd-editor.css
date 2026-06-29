@@ -163,6 +163,11 @@
 .itadj__row b{width:34px;text-align:right;color:#fff;font-size:12px;font-weight:700}
 .itadj__reset{margin-top:6px;width:100%;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.5);background:rgba(20,12,16,.3);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .itadj__rotrow b{min-width:40px}
+.itadj__bgrow{display:flex;gap:8px;margin:2px 0 12px}
+.itadj__bg{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:10px;border:1.5px solid var(--accent,#D58A95);background:rgba(213,138,149,.16);color:#fff;font-size:12.5px;font-weight:700;cursor:pointer}
+.itadj__bg svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.itadj__bg--undo{flex:0 0 auto;width:62px;border-color:rgba(255,255,255,.4);background:rgba(20,12,16,.3)}
+.itadj__bg.is-busy{opacity:.6}
 /* [#3] 수평 가이드 그리드(삼분할) — 수평 조정 중에만 표시 */
 .itded__grid{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .2s ease;
   background-image:linear-gradient(rgba(255,255,255,.55) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.55) 1px,transparent 1px);
