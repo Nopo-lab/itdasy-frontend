@@ -119,7 +119,22 @@
     svgStk('<g fill="#C9A78F"><ellipse cx="60" cy="74" rx="18" ry="14"/><circle cx="38" cy="52" r="8"/><circle cx="52" cy="42" r="8"/><circle cx="68" cy="42" r="8"/><circle cx="82" cy="52" r="8"/></g>'),
     svgStk('<circle cx="60" cy="60" r="34" fill="#86B06E"/><path d="M44 62l11 11 22-24" stroke="#ffffff" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'),
     svgStk('<rect x="14" y="24" width="92" height="52" rx="14" fill="#BC6675"/><path d="M40 76 38 92 56 76z" fill="#BC6675"/><text x="60" y="58" font-family="Pretendard,sans-serif" font-size="24" font-weight="800" fill="#ffffff" text-anchor="middle">NEW</text>'),
-    svgStk('<path d="M60 16l10 10 14-2 2 14 10 10-10 10-2 14-14-2-10 10-10-10-14 2-2-14L18 60l10-10-2-14 14 2z" fill="#E24B4A"/><text x="60" y="68" font-family="Pretendard,sans-serif" font-size="19" font-weight="800" fill="#ffffff" text-anchor="middle">SALE</text>')
+    svgStk('<path d="M60 16l10 10 14-2 2 14 10 10-10 10-2 14-14-2-10 10-10-10-14 2-2-14L18 60l10-10-2-14 14 2z" fill="#E24B4A"/><text x="60" y="68" font-family="Pretendard,sans-serif" font-size="19" font-weight="800" fill="#ffffff" text-anchor="middle">SALE</text>'),
+    svgStk('<path d="M30 36 40 58 24 56z" fill="#E8A23C"/><path d="M90 36 80 58 96 56z" fill="#E8A23C"/><circle cx="60" cy="64" r="32" fill="#F2B454"/><path d="M44 50v10M52 46v12M68 46v12M76 50v10" stroke="#7a4a1a" stroke-width="3"/><circle cx="50" cy="62" r="3.5" fill="#3a2a22"/><circle cx="70" cy="62" r="3.5" fill="#3a2a22"/><path d="M54 74h12" stroke="#3a2a22" stroke-width="3" stroke-linecap="round"/>'),
+    svgStk('<circle cx="60" cy="62" r="32" fill="#F2B0C0"/><ellipse cx="60" cy="70" rx="14" ry="10" fill="#E68AA0"/><circle cx="52" cy="70" r="2.6" fill="#7a3a4a"/><circle cx="68" cy="70" r="2.6" fill="#7a3a4a"/><circle cx="50" cy="56" r="3" fill="#3a2a22"/><circle cx="70" cy="56" r="3" fill="#3a2a22"/><path d="M36 44 30 36M84 44 90 36" stroke="#E68AA0" stroke-width="8" stroke-linecap="round"/>'),
+    svgStk('<circle cx="60" cy="64" r="32" fill="#8DBE5A"/><circle cx="44" cy="44" r="12" fill="#8DBE5A"/><circle cx="76" cy="44" r="12" fill="#8DBE5A"/><circle cx="44" cy="44" r="7" fill="#fff"/><circle cx="76" cy="44" r="7" fill="#fff"/><circle cx="44" cy="44" r="3.5" fill="#222"/><circle cx="76" cy="44" r="3.5" fill="#222"/><path d="M48 70q12 8 24 0" stroke="#2c4a1a" stroke-width="3" fill="none" stroke-linecap="round"/>'),
+    svgStk('<ellipse cx="60" cy="60" rx="26" ry="32" fill="#2b3a4a"/><ellipse cx="60" cy="66" rx="18" ry="24" fill="#fff"/><path d="M60 50 52 60h16z" fill="#E8A23C"/><circle cx="51" cy="48" r="3" fill="#222"/><circle cx="69" cy="48" r="3" fill="#222"/><path d="M40 78 30 88M80 78 90 88" stroke="#E8A23C" stroke-width="6" stroke-linecap="round"/>'),
+    svgStk('<circle cx="60" cy="58" r="30" fill="#C9A06A"/><circle cx="44" cy="58" r="14" fill="#F0E0C0"/><circle cx="76" cy="58" r="14" fill="#F0E0C0"/><circle cx="48" cy="56" r="4" fill="#222"/><circle cx="72" cy="56" r="4" fill="#222"/><path d="M40 36 34 26M80 36 86 26" stroke="#C9A06A" stroke-width="7" stroke-linecap="round"/><path d="M54 70q6 6 12 0" stroke="#7a5638" stroke-width="3" fill="none" stroke-linecap="round"/>'),
+    svgStk('<ellipse cx="60" cy="72" rx="30" ry="20" fill="#7BBF6A"/><circle cx="60" cy="44" r="22" fill="#8DCB78"/><circle cx="52" cy="42" r="4" fill="#222"/><circle cx="68" cy="42" r="4" fill="#222"/><path d="M50 52q10 8 20 0" stroke="#3a5a2a" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M40 28 34 20M80 28 86 20" stroke="#8DCB78" stroke-width="6" stroke-linecap="round"/>'),
+    svgStk('<path d="M60 28c-3 0-6 8-6 18 0 6 4 9 6 9s6-3 6-9c0-10-3-18-6-18z" fill="#E6B45A"/><circle cx="60" cy="72" r="26" fill="#fff"/><path d="M60 46c-14 0-26 12-26 26 0 8 6 14 14 14h24c8 0 14-6 14-14 0-14-12-26-26-26z" fill="#F7F1EF"/><path d="M54 64q6-5 12 0" stroke="#C06A7A" stroke-width="2.5" fill="none"/><circle cx="50" cy="68" r="3" fill="#3a2a22"/><circle cx="70" cy="68" r="3" fill="#3a2a22"/><path d="M44 54l-8-6M76 54l8-6" stroke="#E6B45A" stroke-width="4" stroke-linecap="round"/>'),
+    svgStk('<path d="M44 96c-4-18-4-30 0-42 3-9 9-14 16-14s13 5 16 14c4 12 4 24 0 42z" fill="#7BBF6A"/><ellipse cx="60" cy="40" rx="18" ry="20" fill="#9ED98A"/><circle cx="60" cy="44" r="9" fill="#6B4A2A"/>'),
+    svgStk('<circle cx="60" cy="60" r="30" fill="#F4C98A"/><circle cx="60" cy="60" r="16" fill="#6B4A2A"/><g fill="#fff"><circle cx="50" cy="52" r="2"/><circle cx="70" cy="54" r="2"/><circle cx="60" cy="70" r="2"/><circle cx="48" cy="66" r="2"/><circle cx="72" cy="68" r="2"/></g><path d="M36 40q24-14 48 0" stroke="#E89B5E" stroke-width="6" fill="none"/>'),
+    svgStk('<path d="M40 56h40l-4 36a8 8 0 0 1-8 7H52a8 8 0 0 1-8-7z" fill="#F6D7A0"/><rect x="36" y="48" width="48" height="12" rx="6" fill="#E08A6E"/><circle cx="50" cy="42" r="5" fill="#E8536B"/><circle cx="62" cy="38" r="5" fill="#F4C443"/><circle cx="74" cy="42" r="5" fill="#86B06E"/>'),
+    svgStk('<path d="M60 96 38 72c-6-7-6-16 0-22 5-5 14-4 19 2l3 4 3-4c5-6 14-7 19-2 6 6 6 15 0 22z" fill="#E8536B"/><path d="M48 60h8M64 60h8" stroke="#fff" stroke-width="3" stroke-linecap="round"/>'),
+    svgStk('<circle cx="60" cy="66" r="22" fill="#E24B4A"/><path d="M58 44c0-8 8-12 8-12s2 8-6 12z" fill="#7BBF6A"/><circle cx="53" cy="62" r="2.4" fill="#fff"/><circle cx="64" cy="66" r="2.4" fill="#fff"/>'),
+    svgStk('<path d="M44 30c0 10 16 10 16 0M76 30c0 10-16 10-16 0" stroke="#6B4A2A" stroke-width="4" fill="none"/><circle cx="48" cy="62" r="18" fill="#E24B4A"/><circle cx="72" cy="62" r="18" fill="#C0392B"/><circle cx="44" cy="56" r="3" fill="#fff"/><circle cx="68" cy="56" r="3" fill="#fff"/>'),
+    svgStk('<path d="M40 46h40l-3 18H43z" fill="#F2A6B6"/><path d="M43 64h34l-3 28a6 6 0 0 1-6 5H52a6 6 0 0 1-6-5z" fill="#F6D7A0"/><circle cx="60" cy="40" r="6" fill="#E8536B"/>'),
+    svgStk('<rect x="46" y="40" width="22" height="40" rx="4" fill="#F0E0C0"/><path d="M46 56c-8 0-12 6-12 12s6 12 14 12h20V56z" fill="#F0E0C0"/><path d="M68 40h6a14 14 0 0 1 0 28h-6" fill="none" stroke="#C9A06A" stroke-width="4"/><circle cx="56" cy="58" r="4" fill="#fff"/>')
   ];
 
   var S = null;   // session state
@@ -164,8 +179,10 @@
 
   function buildText() {
     var fonts = FONTS.map(function (f, i) {
-      // 칩에는 폰트 이름 대신 그 폰트로 렌더된 샘플 글자(Aa가) — 인스타식
-      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + (f.key === 'pen' ? ';font-size:22px' : '') + '">Aa가</button>';
+      // [#8] 'Aa가'는 그 폰트로 렌더 + 작은 이름표(모던/손글씨…) 항상 표시 → 폰트 미로딩이어도 구분 가능.
+      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '">' +
+        '<span class="itfont__s" style="font-family:' + f.family + (f.key === 'pen' || f.key === 'gamja' || f.key === 'himelody' ? ';font-size:24px' : '') + '">Aa가</span>' +
+        '<span class="itfont__n">' + f.label + '</span></button>';
     }).join('');
     var colors = COLORS.map(function (c, i) {
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
@@ -327,6 +344,11 @@
     applyXf(L);
   }
   function applyXf(L) { L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')'; }
+  // [#2] 직각 자석 — 0·90·180·270 근처(±7°)면 딱 맞춤(수직/수평 느낌으로 중력이 잡아주듯).
+  function snapAngle(deg) {
+    var n = Math.round(deg / 90) * 90;
+    return Math.abs(deg - n) <= 7 ? n : deg;
+  }
   var rotd = null;
   function onRotDown(e, L) {
     e.preventDefault(); e.stopPropagation(); selectLayer(L);
@@ -374,7 +396,7 @@
       var p1 = L._pts[lpinch.ids[0]], p2 = L._pts[lpinch.ids[1]]; if (!p1 || !p2) return;
       var dd = Math.hypot(p1.x - p2.x, p1.y - p2.y), aa = Math.atan2(p2.y - p1.y, p2.x - p1.x);
       L.scale = Math.max(0.2, Math.min(8, lpinch.s0 * dd / lpinch.d0));
-      L.rot = lpinch.r0 + (aa - lpinch.a0) * 180 / Math.PI; applyXf(L);
+      L.rot = snapAngle(lpinch.r0 + (aa - lpinch.a0) * 180 / Math.PI); applyXf(L);
       if (L.type === 'text' && refs.size) refs.size.value = L.scale; return;
     }
     if (rsd) {
@@ -384,18 +406,22 @@
     }
     if (rotd) {
       var a = Math.atan2(e.clientY - rotd.cy, e.clientX - rotd.cx);
-      rotd.L.rot = rotd.start + (a - rotd.a0) * 180 / Math.PI; applyXf(rotd.L); return;
+      rotd.L.rot = snapAngle(rotd.start + (a - rotd.a0) * 180 / Math.PI); applyXf(rotd.L); return;
     }
     if (!drag) return;
     drag.L.x = drag.ox + (e.clientX - drag.sx);
     drag.L.y = drag.oy + (e.clientY - drag.sy);
     applyXf(drag.L);
   });
-  document.addEventListener('pointerup', function (e) {
-    if (lpinch) { var Lp = lpinch.L; if (Lp._pts) delete Lp._pts[e.pointerId]; if (!Lp._pts || Object.keys(Lp._pts).length < 2) lpinch = null; }
-    if (drag) { try { delete drag.L._pts[e.pointerId]; } catch (_) { void _; } drag.L.el.style.cursor = 'grab'; drag = null; }
+  document.addEventListener('pointerup', cleanupLayerPointer);
+  document.addEventListener('pointercancel', cleanupLayerPointer);
+  function cleanupLayerPointer(e) {
+    // [#1 드래그 회귀] 어느 경로로 끝나든 모든 레이어의 포인터 추적을 지운다(안 지우면 stale 포인터로 다음 드래그가 핀치로 오인됨).
+    (S && S.layers || []).forEach(function (L) { if (L._pts) delete L._pts[e.pointerId]; });
+    if (lpinch && (!lpinch.L._pts || Object.keys(lpinch.L._pts).length < 2)) lpinch = null;
+    if (drag) { drag.L.el.style.cursor = 'grab'; drag = null; }
     rotd = null; rsd = null;
-  });
+  }
 
   /* ── 사진 핀치 확대/이동 (두 손가락, 빈 배경에서) ── */
   var pinchPts = {}, pinch0 = null;
@@ -732,9 +758,11 @@
   /* ── 사진별 보정(밝기/대비/채도/온도/선명도) ── */
   function adjOf(i) { if (!S.adj[i]) S.adj[i] = defAdj(); return S.adj[i]; }
   function adjReadout(c, v) { return (c.k === 'w' || c.k === 'sh') ? ('' + v) : ((v - 100 >= 0 ? '+' : '') + (v - 100)); }
+  var _adjRaf = 0;
+  function applyAdjThrottled() { if (_adjRaf) return; var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _adjRaf = raf(function () { _adjRaf = 0; applyAdjToDisplay(); }); }
   function applyAdjToDisplay() {
     if ((S.layout.kind || 'single') === 'single') {
-      var idx = S.photos.indexOf(S.photoUrl); refs.photo.style.filter = filterStr(adjOf(idx < 0 ? 0 : idx)); applyStraighten();
+      var idx = S.photos.indexOf(S.photoUrl); refs.photo.style.filter = filterStr(adjOf(idx < 0 ? 0 : idx));   // straighten 은 회전/사진전환 때만(여기선 호출 안 함 → 매 틱 reflow 제거)
     } else {
       // [#1 끊김] 셀 innerHTML 재생성(배경이미지 재디코딩) 대신 필터만 in-place 갱신
       refs.collage.querySelectorAll('.itded__cell[data-ci]').forEach(function (cell) { cell.style.filter = filterStr(adjOf(+cell.getAttribute('data-ci'))); });
@@ -759,7 +787,7 @@
   function onAdjThumb(i) {
     S.adjSel = i;
     if ((S.layout.kind || 'single') === 'single') { S.photoUrl = S.photos[i]; S.photoCss = 'url("' + S.photos[i] + '")'; refs.photo.style.backgroundImage = S.photoCss; }
-    applyAdjToDisplay(); renderAdjust();
+    applyAdjToDisplay(); applyStraighten(); renderAdjust();
   }
   // [누끼] 선택 사진 배경 제거 → 흰 배경 합성으로 교체(원본 보관). 서버/imgly 엔진(PhotoEditorBgCompose).
   function doCutout() {
@@ -978,11 +1006,12 @@
     refs.panels.adjust.addEventListener('input', function (e) {
       var s = e.target.closest('[data-adj]'); if (!s) return; var k = s.getAttribute('data-adj'); adjOf(S.adjSel)[k] = +s.value;
       var c0 = ADJ_CTRLS.filter(function (x) { return x.k === k; })[0]; var out = root.querySelector('[data-adjout="' + k + '"]'); if (out) out.textContent = adjReadout(c0, +s.value);
-      applyAdjToDisplay(); var th = refs.adjStrip && refs.adjStrip.querySelector('[data-adjthumb="' + S.adjSel + '"]'); if (th) th.style.filter = filterStr(adjOf(S.adjSel));
+      applyAdjThrottled(); var th = refs.adjStrip && refs.adjStrip.querySelector('[data-adjthumb="' + S.adjSel + '"]'); if (th) th.style.filter = filterStr(adjOf(S.adjSel));
     });
     // [#3] 수평 슬라이더 — 가이드 그리드 표시 + 사진 회전
     if (refs.adjRot) refs.adjRot.addEventListener('input', function () {
-      adjOf(S.adjSel).rot = +refs.adjRot.value; if (refs.adjRotOut) refs.adjRotOut.textContent = (+refs.adjRot.value).toFixed(1).replace(/\.0$/, '') + '°';
+      var rv = +refs.adjRot.value; if (Math.abs(rv) < 1.5) { rv = 0; refs.adjRot.value = 0; }   // [#2] 0° 근처면 수평으로 잠금
+      adjOf(S.adjSel).rot = rv; if (refs.adjRotOut) refs.adjRotOut.textContent = rv.toFixed(1).replace(/\.0$/, '') + '°';
       root.classList.add('is-leveling'); clearTimeout(S._lvlT); S._lvlT = setTimeout(function () { root.classList.remove('is-leveling'); }, 900);
       applyStraighten();
     });
@@ -1053,10 +1082,28 @@
     refs.collage.hidden = true; refs.collage.innerHTML = '';
     refs.photowrap.style.transform = '';
     root.classList.add('is-open');
+    // [#9] 시스템 back 으로 편집기가 '먼저' 닫히게 — history 엔트리 1개 push + flow 가 단계 pop 안 하도록 __seOpen 플래그.
+    try {
+      window.__seOpen = true;
+      S._popHandler = function () {
+        if (!root || !root.classList.contains('is-open')) return;
+        S._histPushed = false;
+        window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0);
+        _teardownBack(true); root.classList.remove('is-open');
+        if (S && S.onCancel) S.onCancel();   // 시스템 back = 취소로 닫기
+      };
+      window.addEventListener('popstate', S._popHandler);
+      history.pushState({ itded: 1 }, ''); S._histPushed = true;
+    } catch (_e) { void _e; }
     // 우리샵 자동배치 텍스트/로고/워터마크를 먼저 올린 뒤 도구 표시(기본 빈 텍스트 자동생성 방지).
     requestAnimationFrame(function () { initCanvas(); renderIncoming(S.incoming); setTool('text'); });
   }
-  function close() { if (root) root.classList.remove('is-open'); }
+  function _teardownBack(fromPop) {
+    window.__seOpen = false;
+    if (S && S._popHandler) { try { window.removeEventListener('popstate', S._popHandler); } catch (_e) { void _e; } S._popHandler = null; }
+    if (!fromPop && S && S._histPushed) { S._histPushed = false; window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0); try { history.back(); } catch (_e2) { void _e2; } }
+  }
+  function close() { if (!root || !root.classList.contains('is-open')) return; _teardownBack(false); root.classList.remove('is-open'); }
 
   window.ItdEditor = { open: open, close: close, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
 })();

@@ -78,10 +78,13 @@
 .itsize input{width:108px;accent-color:#fff}
 .itfonts{display:flex;gap:9px;overflow-x:auto;padding:0 0 12px;scrollbar-width:none}
 .itfonts::-webkit-scrollbar{display:none}
-.itfont{flex:none;height:42px;padding:0 18px;border-radius:12px;border:1.5px solid rgba(255,255,255,.6);
-  background:rgba(20,12,16,.24);color:#fff;font-size:16px;font-weight:700;cursor:pointer;white-space:nowrap;
-  text-shadow:0 1px 5px rgba(0,0,0,.35)}
+.itfont{flex:none;min-width:56px;height:52px;padding:0 14px;border-radius:12px;border:1.5px solid rgba(255,255,255,.6);
+  background:rgba(20,12,16,.24);color:#fff;cursor:pointer;white-space:nowrap;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1px;text-shadow:0 1px 5px rgba(0,0,0,.35)}
+.itfont__s{font-size:18px;font-weight:700;line-height:1.1}
+.itfont__n{font-size:9.5px;font-weight:600;opacity:.78;font-family:-apple-system,"Pretendard",sans-serif}
 .itfont.on{background:#fff;color:#1c1316;border-color:#fff;text-shadow:none}
+.itfont.on .itfont__n{opacity:.6}
 .itcolors{display:flex;gap:13px;overflow-x:auto;padding:2px 0;scrollbar-width:none}
 .itcolors::-webkit-scrollbar{display:none}
 .itsw{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.5);cursor:pointer}
