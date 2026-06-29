@@ -289,10 +289,13 @@
     S.tool = tool;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tool') === tool); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.toggle('is-open', k === tool); });
-    var drawing = tool === 'draw';
+    var drawing = tool === 'draw', inLayout = tool === 'layout';
     refs.draw.classList.toggle('is-armed', drawing);
     refs.draw.style.zIndex = drawing ? '5' : '3';
-    refs.layers.style.pointerEvents = drawing ? 'none' : '';
+    // [셀 크롭] 레이아웃 도구에선 콜라주 칸이 포인터를 받게(레이어/캔버스 위로) → 칸 드래그/핀치 재구도
+    refs.draw.style.pointerEvents = inLayout ? 'none' : 'auto';
+    refs.layers.style.pointerEvents = (drawing || inLayout) ? 'none' : '';
+    refs.collage.classList.toggle('is-cropping', inLayout);
     if (tool === 'text' && !S.layers.some(function (l) { return l.type === 'text'; })) addText();
     if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
     if (tool === 'sticker') renderMyStickers();
@@ -638,7 +641,7 @@
   /* ── 레이아웃(타입 칩 + 사진 순서 선택) ── */
   function selectLayout(i) {
     S.layout = LAYOUTS[i];
-    S.layoutOrder = [];   // 타입 바꾸면 자리 선택 초기화
+    S.layoutOrder = []; S.cellCrop = [];   // 타입 바꾸면 자리 선택·셀 크롭 초기화
     refs.frame.className = 'itded__frame ' + (S.layout.frame || '');
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
@@ -672,7 +675,8 @@
     if (kind === 'single') { refs.layHint.textContent = '1장 — 넣을 사진 하나를 누르세요.'; return; }
     var pos = _layPos(kind), need = _layNeed(kind);
     refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> · 사진을 순서대로 누르세요 — ' +
-      pos.map(function (p, i) { return (i + 1) + '=' + p; }).join(' · ') + ' (' + S.layoutOrder.length + '/' + need + ')';
+      pos.map(function (p, i) { return (i + 1) + '=' + p; }).join(' · ') + ' (' + S.layoutOrder.length + '/' + need + ')' +
+      (S.layoutOrder.length ? '<span class="itlay2__tip">칸을 끌어 위치 조정 · 두 손가락으로 확대</span>' : '');
   }
   // 콜라주(좌우2장/4장) — 단일이면 collage 숨김. grid면 선택 순서(layoutOrder)대로 칸 채움(미선택=자리표시).
   function renderCollage() {
@@ -682,12 +686,44 @@
     var n = _layNeed(kind), pos = _layPos(kind), cells = '';
     for (var k = 0; k < n; k++) {
       var idx = S.layoutOrder[k];
-      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" style="background-image:url(\'' + S.photos[idx] + '\');filter:' + filterStr(adjOf(idx)) + '"></div>';
+      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="transform:' + cropXf(k) + '"></div>';
       else cells += '<div class="itded__cell itded__cell--empty">' + (k + 1) + '번<br>' + pos[k] + '</div>';
     }
     refs.collage.style.gap = (S.collageGap != null ? S.collageGap : 3) + 'px';
     refs.collage.style.background = S.collageBg || '#fff';
     refs.collage.innerHTML = cells; refs.collage.hidden = false;
+  }
+  /* ── 셀별 크롭(콜라주 칸마다 드래그/핀치 재구도) ── */
+  function cropOf(k) { if (!S.cellCrop[k]) S.cellCrop[k] = { s: 1, tx: 0, ty: 0 }; return S.cellCrop[k]; }
+  function cropXf(k) { var c = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 }; return 'translate(' + c.tx + 'px,' + c.ty + 'px) scale(' + c.s + ')'; }
+  function cellElByK(k) { return refs.collage.querySelector('[data-cell="' + k + '"]'); }
+  function clampCrop(k) { var c = cropOf(k), el2 = cellElByK(k); if (!el2) return; var r = el2.getBoundingClientRect(); var mx = (c.s - 1) * r.width / 2, my = (c.s - 1) * r.height / 2; c.tx = Math.max(-mx, Math.min(mx, c.tx)); c.ty = Math.max(-my, Math.min(my, c.ty)); }
+  function applyCrop(k) { clampCrop(k); var el2 = cellElByK(k); var im = el2 && el2.querySelector('.itcellimg'); if (im) im.style.transform = cropXf(k); }
+  function selectCell(k) { S.cellSel = k; refs.collage.querySelectorAll('[data-cell]').forEach(function (c) { c.classList.toggle('is-cellsel', +c.getAttribute('data-cell') === k); }); }
+  var cropDrag = null, cropPinch = null, cellPts = {};
+  function onCellDown(e) {
+    if (refs.collage.hidden) return;
+    var cell = e.target.closest && e.target.closest('[data-cell]'); if (!cell) return;
+    e.preventDefault();
+    var k = +cell.getAttribute('data-cell'); selectCell(k);
+    cellPts[k] = cellPts[k] || {}; cellPts[k][e.pointerId] = { x: e.clientX, y: e.clientY };
+    try { refs.collage.setPointerCapture(e.pointerId); } catch (_) { void _; }
+    var ids = Object.keys(cellPts[k]); var c = cropOf(k);
+    if (ids.length >= 2) { cropDrag = null; var p1 = cellPts[k][ids[0]], p2 = cellPts[k][ids[1]]; cropPinch = { k: k, ids: [ids[0], ids[1]], d0: Math.max(8, Math.hypot(p1.x - p2.x, p1.y - p2.y)), s0: c.s }; return; }
+    cropDrag = { k: k, sx: e.clientX, sy: e.clientY, tx0: c.tx, ty0: c.ty };
+  }
+  function onCellMove(e) {
+    if (cropPinch) {
+      var k = cropPinch.k; if (cellPts[k] && cellPts[k][e.pointerId]) cellPts[k][e.pointerId] = { x: e.clientX, y: e.clientY };
+      var p1 = cellPts[k] && cellPts[k][cropPinch.ids[0]], p2 = cellPts[k] && cellPts[k][cropPinch.ids[1]]; if (!p1 || !p2) return;
+      var c = cropOf(k); c.s = Math.max(1, Math.min(4, cropPinch.s0 * Math.hypot(p1.x - p2.x, p1.y - p2.y) / cropPinch.d0)); applyCrop(k); return;
+    }
+    if (cropDrag) { var c2 = cropOf(cropDrag.k); c2.tx = cropDrag.tx0 + (e.clientX - cropDrag.sx); c2.ty = cropDrag.ty0 + (e.clientY - cropDrag.sy); applyCrop(cropDrag.k); }
+  }
+  function onCellUp(e) {
+    var kk; for (kk in cellPts) { if (cellPts[kk] && cellPts[kk][e.pointerId]) delete cellPts[kk][e.pointerId]; }
+    if (cropPinch && (!cellPts[cropPinch.k] || Object.keys(cellPts[cropPinch.k]).length < 2)) cropPinch = null;
+    cropDrag = null;
   }
 
   /* ── 사진별 보정(밝기/대비/채도/온도/선명도) ── */
@@ -817,6 +853,8 @@
           var cr = coverRect(img, w, h);
           c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
           c.filter = filterStr(adjOf(idxs[k]));
+          var cp = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 };   // [셀 크롭] 재구도 반영(중심 기준 scale+translate)
+          if (cp.s !== 1 || cp.tx || cp.ty) { var ccx = x + w / 2, ccy = y + h / 2; c.translate(ccx + cp.tx, ccy + cp.ty); c.scale(cp.s, cp.s); c.translate(-ccx, -ccy); }
           c.drawImage(img, x + (w - cr.dw) / 2, y + (h - cr.dh) / 2, cr.dw, cr.dh); c.restore();
         });
       });
@@ -901,6 +939,10 @@
     enableDragScroll(refs.layStrip); enableDragScroll(refs.panels.layout.querySelector('.itlay2__types'));
     refs.layGap.addEventListener('input', function () { S.collageGap = +refs.layGap.value; renderCollage(); });
     refs.layAdd.addEventListener('change', function () { var fl = refs.layAdd.files && refs.layAdd.files[0]; if (fl) addPhotoFromFile(fl); refs.layAdd.value = ''; });
+    // [셀 크롭] 콜라주 칸 드래그/핀치 재구도(레이아웃 도구에서만 포인터 활성)
+    refs.collage.addEventListener('pointerdown', onCellDown);
+    document.addEventListener('pointermove', onCellMove);
+    document.addEventListener('pointerup', onCellUp);
     // 보정 — 사진 선택 + 슬라이더(선택 사진만) + 초기화
     refs.panels.adjust.addEventListener('click', function (e) { var t = e.target.closest('[data-adjthumb]'); if (t) onAdjThumb(+t.getAttribute('data-adjthumb')); });
     refs.panels.adjust.addEventListener('input', function (e) {
@@ -968,7 +1010,7 @@
     S = { layers: [], active: null, tool: 'text', layout: LAYOUTS[0], layoutOrder: [],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
-      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3, collageBg: '#FFFFFF',
+      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3, collageBg: '#FFFFFF', cellCrop: [], cellSel: -1,
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
