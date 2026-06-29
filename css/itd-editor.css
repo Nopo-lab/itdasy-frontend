@@ -135,6 +135,28 @@
 .itlaythumb.on{border-color:var(--accent,#D58A95);box-shadow:0 0 0 3px rgba(213,138,149,.4)}
 .itlaybadge{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .itded__cell--empty{display:flex;align-items:center;justify-content:center;text-align:center;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);font-size:12px;font-weight:700;line-height:1.4;border:1px dashed rgba(255,255,255,.5)}
+/* 레이아웃 추가 컨트롤(간격/배경/추가사진) */
+.itlay2__ctrls{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap}
+.itlay2__gap{display:inline-flex;align-items:center;gap:7px;color:#fff;font-size:11px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.itlay2__gap input{width:86px;accent-color:#fff}
+.itlay2__bg{display:inline-flex;gap:8px;align-items:center}
+.itlaybg{width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);cursor:pointer}
+.itlaybg.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
+.itlay2__add{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.itlay2__add svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── 사진별 보정 ── */
+.itadj{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(15,10,12,.66) 30%)}
+.itadj__sub{font-size:11px;font-weight:700;color:rgba(255,255,255,.82);margin-bottom:9px;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.itadj__strip{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px}
+.itadj__strip::-webkit-scrollbar{display:none}
+.itadjthumb{flex:none;width:54px;height:66px;border-radius:11px;border:2px solid rgba(255,255,255,.6);background-size:cover;background-position:center;cursor:pointer;padding:0}
+.itadjthumb.on{border-color:var(--accent,#D58A95);box-shadow:0 0 0 3px rgba(213,138,149,.4)}
+.itadj__row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.itadj__row span{width:42px;color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.itadj__row input{flex:1;accent-color:#fff}
+.itadj__row b{width:34px;text-align:right;color:#fff;font-size:12px;font-weight:700}
+.itadj__reset{margin-top:6px;width:100%;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.5);background:rgba(20,12,16,.3);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 
 /* ── 그리기 ── */
 .itdraw__top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;
