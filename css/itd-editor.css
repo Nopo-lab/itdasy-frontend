@@ -147,6 +147,9 @@
 .itlay2__ctrls{display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap}
 .itlay2__gap{display:inline-flex;align-items:center;gap:7px;color:#fff;font-size:11px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5)}
 .itlay2__gap input{width:86px;accent-color:#fff}
+.itlay2__fit{display:inline-flex;gap:2px;background:rgba(20,12,16,.3);border-radius:9px;padding:2px}
+.itlay2__fit button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;color:rgba(255,255,255,.85);font-size:11.5px;font-weight:700;cursor:pointer}
+.itlay2__fit button.on{background:#fff;color:#1c1316}
 .itlay2__bg{display:inline-flex;gap:8px;align-items:center}
 .itlaybg{width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);cursor:pointer}
 .itlaybg.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
