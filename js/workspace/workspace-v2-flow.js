@@ -213,13 +213,32 @@
   //   시술 내용(여러 줄)을 제목/부제목/본문 레이어로 매핑. 저장 시 baked 결과를 대표 사진 editedDataUrl 로.
   // [v583] 시술내역을 시술명/시술내용으로 분리(편집기 레이어로 각각 뜨게). 말투 지시어는 본문 텍스트에서 제거.
   //   줄바꿈/콤마/가운뎃점으로 우선 분리, 한 줄 입력이면 첫 토큰=시술명·나머지=시술내용.
+  // [v590·#A] 시술 입력에서 '고객명'을 분리 — AI가 고객을 시술/스타일로 오해(예: "김민지 스타일")하거나
+  //   오버레이에 고객명이 박히는 것 방지. "김민지 고객/고객님" 또는 이름+님(원장님·실장님 등 호칭 제외)을 떼어낸다.
+  function _extractCustomer(svc) {
+    var out = String(svc || ''), name = '';
+    var m = out.match(/([가-힣A-Za-z]{1,12}?)\s*고객님?/);
+    if (m) { name = m[1]; out = out.replace(m[0], ' '); }
+    else {
+      var BLOCK = /^(원장|선생|사장|대표|점장|실장|디자이너|고객|손님)$/;
+      var m2 = out.match(/([가-힣]{2,4})\s*님(?=\s|$|[,·、])/);
+      if (m2 && !BLOCK.test(m2[1])) { name = m2[1]; out = out.replace(m2[0], ' '); }
+    }
+    return { service: out.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim(), customer: name };
+  }
   function _splitServiceForLayers(svc) {
     var s = String(svc || '')
       .replace(/(?:인스타|sns|감성|내추럴|모던|빈티지|러블리|시크|트렌디|미니멀|청순|글램|깔끔|세련|화사)?\s*(?:톤앤무드|톤앤매너|톤|느낌|감성|무드|분위기|바이브)\s*(?:으로|로|하게|있게|스럽게)\s*(?:마무리|마감|연출|편집|보정|작성)?/gi, ' ');
+    s = _extractCustomer(s).service;   // [v590·#A] 오버레이에도 고객명은 박지 않는다
     var segs = s.split(/[\n,·、]+/).map(function (x) { return x.trim(); }).filter(Boolean);
     if (segs.length >= 2) return { title: segs[0], sub: segs[1], body: segs.slice(2).join(' ') };
-    var w = (segs[0] || '').split(/\s+/).filter(Boolean);
-    if (w.length >= 2) return { title: w[0], sub: w.slice(1).join(' '), body: '' };
+    // [v590·#A] 단일 구문: 길이/스펙(28인치 등)을 부제로 떼고 컷·스타일명은 제목으로 통째 유지(첫 단어만 떼던 회귀 수정).
+    var one = segs[0] || '';
+    var lm = one.match(/^(.*?\S)\s+(\d+\s*(?:인치|호|cm|mm|단|레벨|톤|등급)\b.*)$/);
+    if (lm && lm[1].trim()) return { title: lm[1].trim(), sub: lm[2].trim(), body: '' };
+    var w = one.split(/\s+/).filter(Boolean);
+    if (w.length >= 3) return { title: w.slice(0, 2).join(' '), sub: w.slice(2).join(' '), body: '' };
+    if (w.length === 2) return { title: w[0], sub: w[1], body: '' };
     return { title: w[0] || '', sub: '', body: '' };
   }
   // [v587] 깨끗한 합성 기준 사진 — 편집기·자동합성 모두 '텍스트가 안 박힌 원본' 위에 올린다(이중 합성 방지).
@@ -1804,21 +1823,25 @@
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
+	    var _cust = _extractCustomer(svc); var svcClean = _cust.service || svc;
+	    if (_cust.customer && !d.customerName) d.customerName = _cust.customer;
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
     // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
-	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
+	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svcClean, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
     delete opts._regen;   // [v532] 내부 재생성 플래그 — 페이로드로 내보내지 않음
     // [v532] 사용자 입력을 캡션 최우선 context 로. '입력 키워드만 시술명으로, 과거 글은 말투만 참고'를 명시 —
     //   백엔드 fewshot(샵 과거글)이 엉뚱한 시술명(붙임머리·단발 등)으로 새는 것을 프론트에서 차단.
     if (svc) {
-      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + svc +
+      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + svcClean +
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
+    opts.customer_name = d.customerName || _cust.customer || '';
+    if (opts.customer_name) opts.photo_context += ' · 고객명: ' + opts.customer_name + '(시술받는 고객 이름. 시술명·스타일명·브랜드명이 아님. 게시글엔 고객님으로 자연스럽게만 언급)';
     // [다중pair] 결과물 여러 장이면 '캐러셀 게시글' 기준 — 중립적 전후 변화로(특정 시술명 가정 금지).
     var _outs = d.templateOutputs || [];
     if (_outs.length >= 2) opts.photo_context += ' · 전후 결과물 ' + _outs.length + '장(인스타 캐러셀 한 편). 각 장은 같은 고객의 시술 전/후 변화 컷.';
@@ -1826,10 +1849,10 @@
     // [v532] photo_context 백엔드 상한 500자 — 다중 pair 노트까지 붙은 뒤 초과 시 422(생성 실패) 방지로 클램프.
     if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
     // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
-    opts.extra_notes = _buildExtraNotes(svc, d.regenSeq);
+    opts.extra_notes = _buildExtraNotes(svcClean, d.regenSeq);
     // [v534] 백엔드 우선맥락/variation 필드 — 백엔드가 service/treatment_keyword 를 prompt 에 직접 주입하고
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
-    opts.treatment_keyword = svc;
+    opts.treatment_keyword = svcClean;
     opts.content_type = d.tplPurpose || 'feed';
     opts.caption_intent = opts.caption_intent || 'generate';
     opts.strict_user_context = true;
@@ -3327,8 +3350,9 @@
 	    else if (d._focusIntent === 'template') { d.tplOpen = true; }
 	    // [v564·필수1] 홈에서 파일과 함께 edit 로 바로 진입 시, 사진 로드 전 '빈 편집화면'이 깜빡이지
 	    //   않도록 setScreen 을 addFiles 완료까지 미룬다(업로드 화면을 거치지 않음).
-	    var _deferEdit = (startScreen === 'edit' && incomingFiles.length && !d.photos.length);
-	    if (!_deferEdit) setScreen(startScreen, { push: false });
+	    // [v590·#1] 사진이 아직 없는데 edit/caption 으로 바로 그리면 빈 화면이 깜빡 → 사진 들어온 뒤(addFiles) 그린다.
+	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption') && incomingFiles.length && !d.photos.length);
+	    if (!_deferInit) setScreen(startScreen, { push: false });
 	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
 	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit');
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
