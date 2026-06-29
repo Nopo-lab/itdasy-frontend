@@ -139,3 +139,39 @@
 .itded__frame.fr-soft{box-shadow:inset 0 0 0 10px rgba(255,255,255,.9),inset 0 0 0 12px rgba(213,138,149,.5)}
 .itded__frame.fr-mini{box-shadow:inset 0 0 0 14px #fff}
 .itded__frame.fr-black{box-shadow:inset 0 0 0 14px #15181D}
+
+/* ── 크기조절 핸들(공통) ── */
+.itl__rs{position:absolute;left:-12px;bottom:-12px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:nwse-resize;touch-action:none}
+.itl.is-active .itl__rs{display:grid}
+.itl__rs svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.2}
+.itl-shape{display:block}
+
+/* ── 내 스티커(#7) · 데코(#6) ── */
+.itssub--row{display:flex;align-items:center;justify-content:space-between}
+.itstk__up{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.itstk__up svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.itstk__empty{grid-column:1/-1;font-size:12px;color:#9AA1AC;padding:4px 2px}
+.itdeco{aspect-ratio:1;border-radius:14px;background:#F7F1EF;border:1px solid #EFE6E2;display:grid;place-items:center;cursor:pointer;padding:7px;position:relative;-webkit-appearance:none;appearance:none}
+.itdeco:active{transform:scale(.94)}
+.itdeco img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
+.itmine__x{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#15181D;color:#fff;font-size:12px;line-height:18px;text-align:center}
+
+/* ── 도형 패널(#8) ── */
+.itshape{padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(15,10,12,.5) 38%)}
+.itshape__row{display:flex;gap:9px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
+.itshape__row::-webkit-scrollbar{display:none}
+.itshp{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:62px;height:62px;border-radius:14px;border:1.5px solid rgba(255,255,255,.5);background:rgba(20,12,16,.3);color:#fff;cursor:pointer;-webkit-appearance:none;appearance:none}
+.itshp em{font-size:10px;font-weight:700;font-style:normal}
+.itshp__ic--line{width:24px;height:0;border-top:3px solid #fff}
+.itshp__ic--rect{width:20px;height:16px;border:2px solid #fff}
+.itshp__ic--round{width:20px;height:16px;border:2px solid #fff;border-radius:5px}
+.itshp__ic--circle{width:18px;height:18px;border:2px solid #fff;border-radius:50%}
+.itshape__opts{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0 10px}
+.itshape__fill button{height:30px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.4);background:rgba(20,12,16,.3);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.itshape__fill button.on{background:#fff;color:#1c1316}
+.itshape__thick{display:inline-flex;align-items:center;gap:7px;color:#fff;font-size:11px;font-weight:700}
+.itshape__thick input{width:96px;accent-color:#fff}
+.itshape__colors{display:flex;gap:13px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.itshape__colors::-webkit-scrollbar{display:none}
+.itscw{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.55);cursor:pointer}
+.itscw.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
