@@ -385,6 +385,7 @@
   function fontByKey(k) { for (var i = 0; i < FONTS.length; i++) { if (FONTS[i].key === k) return FONTS[i]; } return null; }
   function addShopLayer(spec, R) {
     if (spec.type === 'image') return addShopImage(spec, R);
+    if (spec.type === 'line') return addShopLine(spec, R);
     var isBadge = spec.type === 'badge';
     var L = makeLayer(isBadge ? 'badge' : 'text');
     L.role = spec.role || '';
@@ -406,6 +407,18 @@
     var bw = L.el.offsetWidth, bh = L.el.offsetHeight;
     L.x = (spec.x != null ? spec.x : 0.5) * R.width - bw / 2;
     L.y = (spec.y != null ? spec.y : 0.5) * R.height - bh / 2;
+    applyXf(L);
+    return L;
+  }
+  // [#14] 우리샵 스타일에서 들어온 구분선 → 편집 가능한 line 도형 레이어로.
+  function addShopLine(spec, R) {
+    var L = makeLayer('shape'); L.shape = 'line'; L.color = spec.color || '#ffffff'; L.fill = true; L.role = 'rule';
+    L.strokeW = Math.max(2, Math.round((spec.size != null ? spec.size : 0.006) * R.height));
+    var w = Math.round((spec.w != null ? spec.w : 0.11) * R.width);
+    var d = el('div', 'itl-shape'); styleShape(d, L); d.style.width = w + 'px'; L.el.appendChild(d); L.tx = d;
+    var bh = Math.max(L.strokeW, 22);
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
+    L.y = (spec.y != null ? spec.y : 0.88) * R.height - bh / 2;
     applyXf(L);
     return L;
   }

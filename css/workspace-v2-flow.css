@@ -449,6 +449,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-stylechip { height: 30px; padding: 0 13px; border-radius: var(--r-pill, 999px); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; }
 .wsv2flow .cap-stylechip.on { border-color: var(--brand-strong); background: var(--brand-bg); color: var(--brand-strong); }
 .wsv2flow .cap-stylechip--new { border-style: dashed; color: var(--text-muted); }
+.wsv2flow .cap-presetbtn { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; height: 42px; margin: 0 0 18px; border: 1px solid var(--brand-strong); border-radius: var(--r-md); background: var(--brand-bg); color: var(--brand-strong); font-size: 13px; font-weight: 800; cursor: pointer; }
+.wsv2flow .cap-presetbtn i { font-size: 17px; }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonehead { margin: 6px 2px 12px; }

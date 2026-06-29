@@ -287,6 +287,25 @@
       setScreen('caption');
     } catch (_e) { void _e; }
   }
+  // [#14] 초보자 레이아웃 프리셋 A(좌하단 밑줄형) — 시술명(굵게)→짧은 선→시술내용. 흰 글씨.
+  //   폰트는 ItdEditor 키('black'·'dodum') → 헤드리스는 _composeFonts 가 CSS 패밀리로 변환.
+  function _presetALayers() {
+    return [
+      { role: 'title', x: 0.07, y: 0.80, w: 0.80, size: 0.072, weight: 800, font: 'black', color: '#ffffff', align: 'left', lineHeight: 1.08, shadow: { on: true } },
+      { type: 'line', x: 0.07, y: 0.862, w: 0.12, size: 0.006, color: '#ffffff' },
+      { role: 'body', x: 0.07, y: 0.908, w: 0.80, size: 0.034, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.45, shadow: { on: true } }
+    ];
+  }
+  function _applyPresetA() {
+    try {
+      var SS = window.ShopStyle; if (!(SS && SS.create)) return;
+      var ex = (SS.list ? SS.list() : []).filter(function (s) { return s.name === '기본 레이아웃 A'; })[0];
+      if (ex) SS.setActive(ex.id); else SS.create({ name: '기본 레이아웃 A', layers: _presetALayers() }, true);
+      (d.photos || []).forEach(function (p) { p._tplSig = null; });   // 미리보기 재합성
+      d.useShopStyle = true;
+      toast('초보자 레이아웃을 적용했어요'); setScreen('caption');
+    } catch (_e) { void _e; }
+  }
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
   function _buildShopStyleLayers() {
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
@@ -300,6 +319,8 @@
       ss.layers.forEach(function (L) {
         // [v590] 사용자가 이전에 편집기에서 제거한 레이어(예: 해시태그)는 enabled:false → 다음부터 자동배치 제외.
         if (L.enabled === false) return;
+        // [#14] 구분선 등 비-텍스트 데코는 텍스트 없이 그대로 통과(좌상단x→중앙x 변환, 클램프 없음).
+        if (L.type === 'line') { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.1) / 2 : 0.5) })); return; }
         var text = (L.role === 'hashtag') ? hashText : roleText[L.role];
         if (!text) return;
         // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
@@ -1416,12 +1437,14 @@
 	            _ssList.map(function (s) { return '<button type="button" class="cap-stylechip' + (s.id === _ss.id ? ' on' : '') + '" data-fl-stylepick="' + esc(s.id) + '">' + esc(s.name) + '</button>'; }).join('') +
 	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
 	          '</div>') : '';
+	        // [#14] 초보자 레이아웃 A 적용 버튼
+	        var _ssPreset = (_useStyle && !d.textOnly) ? '<button type="button" class="cap-presetbtn" data-fl-preseta><i class="ph-duotone ph-magic-wand"></i> 초보자 레이아웃 A · 시술명·내용 자동배치</button>' : '';
 	        var _ssCard = (_useStyle && _ss) ? (
 	          '<div class="cap-stylecard">' +
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
 	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
 	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>' + _ssPick +
+	          '</div>' + _ssPick + _ssPreset +
           ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
@@ -2142,6 +2165,7 @@
       // [#6] 우리샵 스타일 전환/생성
       var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
       var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
+      var pa = t.closest('[data-fl-preseta]'); if (pa) { _applyPresetA(); return; }   // [#14] 초보자 레이아웃 A
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {

@@ -600,6 +600,11 @@
           ctx.drawImage(im, -bw / 2, -bh / 2, bw, bh);
         } else if (l.type === 'emoji') {
           ctx.font = fs + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(l.text, 0, 0);
+        } else if (l.type === 'line') {
+          // [#14] 구분선 — size 를 두께(상대)로. 가운데(l.x,l.y) 기준 가로 막대.
+          var lw = l.w * W, lth = Math.max(1.5, fs);
+          ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = lth * 1.4; ctx.shadowOffsetY = lth * 0.3;
+          ctx.fillStyle = l.color || '#ffffff'; _roundRect(ctx, -lw / 2, -lth / 2, lw, lth, lth / 2); ctx.fill();
         } else if (l.type === 'badge') {
           ctx.font = '800 ' + fs + 'px ' + l.font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           var padX = fs * 0.6, padY = fs * 0.34, tw = ctx.measureText(l.text).width, bw2 = tw + padX * 2, bh2 = fs + padY * 2, r = bh2 / 2;
