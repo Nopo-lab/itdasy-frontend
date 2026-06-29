@@ -157,6 +157,12 @@
 .itadj__row input{flex:1;accent-color:#fff}
 .itadj__row b{width:34px;text-align:right;color:#fff;font-size:12px;font-weight:700}
 .itadj__reset{margin-top:6px;width:100%;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.5);background:rgba(20,12,16,.3);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.itadj__rotrow b{min-width:40px}
+/* [#3] 수평 가이드 그리드(삼분할) — 수평 조정 중에만 표시 */
+.itded__grid{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .2s ease;
+  background-image:linear-gradient(rgba(255,255,255,.55) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.55) 1px,transparent 1px);
+  background-size:100% 33.34%,33.34% 100%}
+.itded.is-leveling .itded__grid{opacity:1}
 
 /* ── 그리기 ── */
 .itdraw__top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;

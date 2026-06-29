@@ -289,21 +289,34 @@
   }
   // [#14] 초보자 레이아웃 프리셋 A(좌하단 밑줄형) — 시술명(굵게)→짧은 선→시술내용. 흰 글씨.
   //   폰트는 ItdEditor 키('black'·'dodum') → 헤드리스는 _composeFonts 가 CSS 패밀리로 변환.
-  function _presetALayers() {
-    return [
+  function _presetLayers(key) {
+    if (key === 'B') return [   // 중앙 위아래선(명조)
+      { type: 'line', x: 0.44, y: 0.41, w: 0.12, size: 0.005, color: '#ffffff' },
+      { role: 'title', x: 0.10, y: 0.475, w: 0.80, size: 0.066, weight: 700, font: 'songmyung', color: '#ffffff', align: 'center', letterSpacing: 0.02, lineHeight: 1.15, shadow: { on: true } },
+      { role: 'body', x: 0.10, y: 0.54, w: 0.80, size: 0.032, weight: 500, font: 'dodum', color: '#ffffff', align: 'center', lineHeight: 1.4, shadow: { on: true } },
+      { type: 'line', x: 0.44, y: 0.595, w: 0.12, size: 0.005, color: '#ffffff' }
+    ];
+    if (key === 'C') return [   // 좌측 세로선(둥근)
+      { type: 'line', x: 0.08, y: 0.84, w: 0.12, size: 0.007, color: '#ffffff', rot: 90 },
+      { role: 'title', x: 0.16, y: 0.812, w: 0.74, size: 0.062, weight: 800, font: 'jua', color: '#ffffff', align: 'left', lineHeight: 1.1, shadow: { on: true } },
+      { role: 'body', x: 0.16, y: 0.878, w: 0.74, size: 0.032, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.4, shadow: { on: true } }
+    ];
+    return [   // A 좌하단 밑줄
       { role: 'title', x: 0.07, y: 0.80, w: 0.80, size: 0.072, weight: 800, font: 'black', color: '#ffffff', align: 'left', lineHeight: 1.08, shadow: { on: true } },
       { type: 'line', x: 0.07, y: 0.862, w: 0.12, size: 0.006, color: '#ffffff' },
       { role: 'body', x: 0.07, y: 0.908, w: 0.80, size: 0.034, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.45, shadow: { on: true } }
     ];
   }
-  function _applyPresetA() {
+  function _applyPreset(key) {
     try {
       var SS = window.ShopStyle; if (!(SS && SS.create)) return;
-      var ex = (SS.list ? SS.list() : []).filter(function (s) { return s.name === '기본 레이아웃 A'; })[0];
-      if (ex) SS.setActive(ex.id); else SS.create({ name: '기본 레이아웃 A', layers: _presetALayers() }, true);
+      var nm = '기본 레이아웃 ' + key;
+      var ex = (SS.list ? SS.list() : []).filter(function (s) { return s.name === nm; })[0];
+      if (ex) { SS.save(ex.id, { layers: _presetLayers(key) }); SS.setActive(ex.id); }
+      else SS.create({ name: nm, layers: _presetLayers(key) }, true);
       (d.photos || []).forEach(function (p) { p._tplSig = null; });   // 미리보기 재합성
       d.useShopStyle = true;
-      toast('초보자 레이아웃을 적용했어요'); setScreen('caption');
+      toast('레이아웃 ' + key + ' 적용했어요'); setScreen('caption');
     } catch (_e) { void _e; }
   }
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
@@ -1438,7 +1451,11 @@
 	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
 	          '</div>') : '';
 	        // [#14] 초보자 레이아웃 A 적용 버튼
-	        var _ssPreset = (_useStyle && !d.textOnly) ? '<button type="button" class="cap-presetbtn" data-fl-preseta><i class="ph-duotone ph-magic-wand"></i> 초보자 레이아웃 A · 시술명·내용 자동배치</button>' : '';
+	        var _ssPreset = (_useStyle && !d.textOnly) ? (
+	          '<div class="cap-presetrow"><span class="cap-presetrow__l">레이아웃 디자인 · 누르면 캡션이 그 자리에 자동배치</span>' +
+	            '<div class="cap-presetrow__btns">' +
+	              ['A', 'B', 'C'].map(function (k) { return '<button type="button" class="cap-presetbtn" data-fl-preset="' + k + '">' + k + '</button>'; }).join('') +
+	            '</div></div>') : '';
 	        var _ssCard = (_useStyle && _ss) ? (
 	          '<div class="cap-stylecard">' +
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
@@ -1858,6 +1875,14 @@
 	      .replace(/고객고객님/g, '고객님').replace(/고\s*고객님/g, '고객님')
 	      .replace(/(고객님)(?:\s*고객님)+/g, '고객님');
 	  }
+	  // [#7] 시술 내용에서 지역명(OO동/구/읍/면/리/역) 추출 → 지역 해시태그(백엔드 누락 백스톱). 흔한 비지역어 제외.
+	  function _locationTags(svc) {
+	    var s = String(svc || ''), out = [], seen = {};
+	    var BAD = { '활동': 1, '운동': 1, '행동': 1, '이동': 1, '자동': 1, '감동': 1, '작동': 1, '변동': 1, '진동': 1, '충동': 1, '노동': 1, '아동': 1, '공동': 1, '도구': 1, '친구': 1, '연구': 1, '가구': 1, '야구': 1, '요구': 1, '지구': 1, '입구': 1, '출구': 1, '인구': 1, '축구': 1, '농구': 1 };
+	    var re = /([가-힣]{2,5}(?:동|읍|면|리|역|구))/g, m;
+	    while ((m = re.exec(s))) { var w = m[1]; if (BAD[w] || seen[w]) continue; seen[w] = 1; out.push('#' + w); if (out.length >= 2) break; }
+	    return out;
+	  }
 	  function _scrubCaption(text) {
 	    if (!text) return text;
 	    text = _fixTypos(text);
@@ -1930,6 +1955,8 @@
       d.capLoading = false;
       if (r.ok) {
         var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); });   // [v570·3] 태그 오타 백스톱
+        // [#7] 시술 내용에 지역(OO동/OO구/OO역)이 있으면 지역 해시태그를 앞에 보강(백엔드 누락 백스톱).
+        _locationTags(svcClean).forEach(function (t) { if (fresh.indexOf(t) < 0) fresh.unshift(t); });
         if (opts.hashtag_mode === 'more' && d.caption) {
           // [#3] '해시태그 더'/'더 가져오기' = 캡션 유지, 새 해시태그만 누적(중복 제거).
           var merged = (d.hashtags || []).slice();
@@ -2165,7 +2192,7 @@
       // [#6] 우리샵 스타일 전환/생성
       var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
       var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
-      var pa = t.closest('[data-fl-preseta]'); if (pa) { _applyPresetA(); return; }   // [#14] 초보자 레이아웃 A
+      var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
