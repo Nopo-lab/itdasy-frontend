@@ -454,6 +454,25 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-presetrow__btns { display: flex; gap: 6px; flex: 0 0 auto; }
 .wsv2flow .cap-presetbtn { width: 36px; height: 36px; border: 1px solid var(--brand-strong); border-radius: 10px; background: var(--brand-bg); color: var(--brand-strong); font-size: 14px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-presetbtn:active { transform: scale(0.95); }
+/* [#6] 브랜드킷 — 로고·색·폰트 한 번 등록 */
+.wsv2flow .cap-bk { margin: 0 0 18px; border: 0.5px solid var(--border); border-radius: 12px; background: var(--surface-2); overflow: hidden; }
+.wsv2flow .cap-bk > summary { list-style: none; cursor: pointer; padding: 11px 13px; font-size: 12.5px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.wsv2flow .cap-bk > summary::-webkit-details-marker { display: none; }
+.wsv2flow .cap-bk > summary i { font-size: 16px; color: var(--brand-strong); }
+.wsv2flow .cap-bk > summary em { font-style: normal; font-weight: 500; font-size: 11px; color: var(--text-muted); margin-left: auto; }
+.wsv2flow .cap-bk__body { padding: 4px 13px 13px; display: flex; flex-direction: column; gap: 11px; }
+.wsv2flow .cap-bk__row { display: flex; align-items: center; gap: 9px; }
+.wsv2flow .cap-bk__lbl { width: 30px; font-size: 12px; font-weight: 700; color: var(--text-secondary); flex: 0 0 auto; }
+.wsv2flow .cap-bk__logo { width: 34px; height: 34px; object-fit: contain; border: 0.5px solid var(--border); border-radius: 8px; background: var(--surface-1); }
+.wsv2flow .cap-bk__clear { height: 28px; padding: 0 10px; border: 0.5px solid var(--border); border-radius: var(--r-pill, 999px); background: var(--surface-2); color: var(--text-secondary); font-size: 11px; cursor: pointer; }
+.wsv2flow .cap-bk__add { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 13px; border-radius: var(--r-pill, 999px); background: var(--brand-bg); color: var(--brand-strong); font-size: 12px; font-weight: 700; cursor: pointer; margin-left: auto; }
+.wsv2flow .cap-bk__add i { font-size: 15px; }
+.wsv2flow .cap-bk__sw { display: flex; gap: 7px; flex-wrap: wrap; }
+.wsv2flow .cap-bk__c { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--surface-2); box-shadow: 0 0 0 1px var(--border); cursor: pointer; padding: 0; }
+.wsv2flow .cap-bk__c.on { box-shadow: 0 0 0 2px var(--surface-2), 0 0 0 4px var(--brand-strong); }
+.wsv2flow .cap-bk__fonts { display: flex; gap: 6px; flex-wrap: wrap; }
+.wsv2flow .cap-bk__f { height: 30px; padding: 0 12px; border-radius: var(--r-pill, 999px); border: 0.5px solid var(--border); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; }
+.wsv2flow .cap-bk__f.on { border-color: var(--brand-strong); background: var(--brand-bg); color: var(--brand-strong); }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonehead { margin: 6px 2px 12px; }

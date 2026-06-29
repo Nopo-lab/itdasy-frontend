@@ -287,6 +287,46 @@
       setScreen('caption');
     } catch (_e) { void _e; }
   }
+  // [#6 브랜드킷] 활성 우리샵 스타일의 모든 텍스트 폰트를 한 번에 — 한 번 정하면 모든 게시물 자동.
+  function _applyBrandFont(key) {
+    try {
+      var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
+      var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
+      var TEXT = { title: 1, sub: 1, body: 1, hashtag: 1 };
+      var layers = ss.layers.map(function (L) { return TEXT[L.role] ? Object.assign({}, L, { font: key }) : L; });
+      SS.save(ss.id, { layers: layers });
+      (d.photos || []).forEach(function (p) { p._tplSig = null; });
+      toast('우리샵 폰트를 바꿨어요'); setScreen('caption');
+    } catch (_e) { void _e; }
+  }
+  // [#6 브랜드킷] 로고 등록/제거 — 활성 스타일에 저장하면 _buildShopStyleLayers 가 모든 게시물에 자동 합성.
+  function _setBrandLogo(dataUrl) {
+    try {
+      var SS = window.ShopStyle; var ss = SS && SS.getActive && SS.getActive(); if (!ss) return;
+      SS.save(ss.id, { logo: Object.assign({ x: 0.72, y: 0.07, w: 0.22, opacity: 0.95 }, ss.logo || {}, { dataUrl: dataUrl }) });
+      (d.photos || []).forEach(function (p) { p._tplSig = null; });
+      toast('로고를 등록했어요'); setScreen('caption');
+    } catch (_e) { void _e; }
+  }
+  function _clearBrandLogo() {
+    try { var SS = window.ShopStyle; var ss = SS && SS.getActive(); if (!ss) return; SS.save(ss.id, { logo: null }); (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('로고를 뺐어요'); setScreen('caption'); } catch (_e) { void _e; }
+  }
+  function _brandLogoFromFile(file, cb) {
+    if (!file || !/^image\//.test(file.type)) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 400, sc = Math.min(1, max / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * sc)), h = Math.max(1, Math.round(img.height * sc));
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        var url; try { url = cv.toDataURL('image/png'); } catch (_) { url = rd.result; } cb(url);
+      };
+      img.onerror = function () { cb(rd.result); };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(file);
+  }
   // [#14] 초보자 레이아웃 프리셋 A(좌하단 밑줄형) — 시술명(굵게)→짧은 선→시술내용. 흰 글씨.
   //   폰트는 ItdEditor 키('black'·'dodum') → 헤드리스는 _composeFonts 가 CSS 패밀리로 변환.
   function _presetLayers(key) {
@@ -1456,12 +1496,27 @@
 	            '<div class="cap-presetrow__btns">' +
 	              ['A', 'B', 'C'].map(function (k) { return '<button type="button" class="cap-presetbtn" data-fl-preset="' + k + '">' + k + '</button>'; }).join('') +
 	            '</div></div>') : '';
+	        // [#6 브랜드킷] 로고·브랜드색·폰트 한 번 등록 → 모든 게시물 자동 적용(활성 스타일에 저장).
+	        var _bkLayer = (_ss && _ss.layers || []).filter(function (L) { return L.role === 'title'; })[0] || {};
+	        var _bkColors = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
+	        var _bkFonts = [{ k: 'black', l: '또렷' }, { k: 'jua', l: '동글' }, { k: 'gothica1', l: '깔끔' }, { k: 'songmyung', l: '단정' }, { k: 'dodum', l: '도톰' }, { k: 'gaegu', l: '손글씨' }];
+	        var _brandKit = (_useStyle && _ss && !d.textOnly) ? (
+	          '<details class="cap-bk"><summary><i class="ph-duotone ph-stamp"></i> 브랜드킷 <em>한 번 등록하면 모든 게시물에 자동</em></summary>' +
+	            '<div class="cap-bk__body">' +
+	              '<div class="cap-bk__row"><span class="cap-bk__lbl">로고</span>' +
+	                (_ss.logo && _ss.logo.dataUrl ? '<img class="cap-bk__logo" src="' + esc(_ss.logo.dataUrl) + '" alt=""><button type="button" class="cap-bk__clear" data-fl-logoclear>빼기</button>' : '') +
+	                '<label class="cap-bk__add"><i class="ph-duotone ph-upload-simple"></i>' + (_ss.logo && _ss.logo.dataUrl ? '바꾸기' : '등록') + '<input type="file" accept="image/*" data-fl-logoadd hidden></label></div>' +
+	              '<div class="cap-bk__row"><span class="cap-bk__lbl">색</span><div class="cap-bk__sw">' +
+	                _bkColors.map(function (c) { return '<button type="button" class="cap-bk__c' + (c.toLowerCase() === String(_bkLayer.color || '').toLowerCase() ? ' on' : '') + '" data-fl-brandcolor="' + c + '" style="background:' + c + '"></button>'; }).join('') + '</div></div>' +
+	              '<div class="cap-bk__row"><span class="cap-bk__lbl">폰트</span><div class="cap-bk__fonts">' +
+	                _bkFonts.map(function (f) { return '<button type="button" class="cap-bk__f' + (f.k === _bkLayer.font ? ' on' : '') + '" data-fl-brandfont="' + f.k + '">' + f.l + '</button>'; }).join('') + '</div></div>' +
+	            '</div></details>') : '';
 	        var _ssCard = (_useStyle && _ss) ? (
 	          '<div class="cap-stylecard">' +
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
 	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
 	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>' + _ssPick + _ssPreset +
+	          '</div>' + _ssPick + _ssPreset + _brandKit +
           ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
@@ -2193,6 +2248,8 @@
       var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
       var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
       var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
+      var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
+      var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
@@ -2251,6 +2308,9 @@
 	      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.value = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
 	    });
     el.addEventListener('change', function (e) {
+      // [#6 브랜드킷] 로고 파일 선택 → 활성 스타일에 등록
+      var lg = e.target.closest && e.target.closest('[data-fl-logoadd]');
+      if (lg && lg.files && lg.files[0]) { _brandLogoFromFile(lg.files[0], function (url) { _setBrandLogo(url); }); lg.value = ''; return; }
       if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) {
         if (d._editPrev) { d.undo = d.undo || []; d.undo.push(d._editPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._editPrev = null; }
 	        // 손 뗄 때 한 번만 실픽셀 확정 + 되돌리기/다시실행 버튼 상태 갱신(전체 재렌더 없이).
