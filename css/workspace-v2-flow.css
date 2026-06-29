@@ -396,7 +396,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .hash-chip { height: 30px; border: 0; border-radius: var(--r-pill); background: var(--frame); color: var(--text-muted); font-size: 11px; font-weight: 800; padding: 0 12px; cursor: pointer; }
 .wsv2flow .hash-chip.on { background: var(--brand-bg); color: var(--brand-strong); box-shadow: inset 0 0 0 1px var(--brand); }
 /* [Phase B-1] 스토리 편집 진입 버튼 */
-.wsv2flow .cap-edit-btn { width: 100%; height: 50px; margin: 2px 0 14px; border: 1.5px solid var(--brand-strong); border-radius: var(--r-md); background: var(--brand-bg); color: var(--brand-strong); font-size: 15px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+/* [#17] inline-flex 는 margin:auto 로 가운데 정렬이 안 돼 PC 에서 좌측으로 쏠렸다 → flex(블록) 로 변경해 max-width+auto margin 가운데 정렬 적용 */
+.wsv2flow .cap-edit-btn { width: 100%; height: 50px; margin: 2px 0 14px; border: 1.5px solid var(--brand-strong); border-radius: var(--r-md); background: var(--brand-bg); color: var(--brand-strong); font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; }
 .wsv2flow .cap-edit-btn i { font-size: 19px; }
 .wsv2flow .cap-edit-btn:active { transform: scale(.99); opacity: .92; }
 /* 재생성 버튼 3종 */

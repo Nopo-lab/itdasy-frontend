@@ -6,12 +6,20 @@
   'use strict';
   if (window.ItdEditor) return;
 
+  // 모두 OFL/오픈소스(Google Fonts) — 상업 사용 자유, 법적 문제 없음. index.html 의 fonts.googleapis 링크와 동기화.
   var FONTS = [
-    { key: 'pretendard', label: '모던',  family: 'Pretendard, sans-serif',    weight: 800 },
-    { key: 'serif',      label: '클래식', family: '"Noto Serif KR", serif',    weight: 700 },
+    { key: 'pretendard', label: '모던',  family: 'Pretendard, sans-serif',     weight: 800 },
     { key: 'black',      label: '또렷',  family: '"Black Han Sans", sans-serif', weight: 400 },
-    { key: 'dodum',      label: '도톰',  family: '"Gowun Dodum", sans-serif',  weight: 400 },
-    { key: 'pen',        label: '감성',  family: '"Nanum Pen Script", cursive', weight: 400 }
+    { key: 'jua',        label: '동글',  family: '"Jua", sans-serif',           weight: 400 },
+    { key: 'dohyeon',    label: '진한',  family: '"Do Hyeon", sans-serif',      weight: 400 },
+    { key: 'gothica1',   label: '깔끔',  family: '"Gothic A1", sans-serif',     weight: 800 },
+    { key: 'serif',      label: '클래식', family: '"Noto Serif KR", serif',     weight: 700 },
+    { key: 'songmyung',  label: '단정',  family: '"Song Myung", serif',         weight: 400 },
+    { key: 'dodum',      label: '도톰',  family: '"Gowun Dodum", sans-serif',   weight: 400 },
+    { key: 'gaegu',      label: '손글씨', family: '"Gaegu", cursive',           weight: 700 },
+    { key: 'pen',        label: '감성',  family: '"Nanum Pen Script", cursive', weight: 400 },
+    { key: 'gamja',      label: '귀염',  family: '"Gamja Flower", cursive',     weight: 400 },
+    { key: 'himelody',   label: '하늘',  family: '"Hi Melody", cursive',        weight: 400 }
   ];
   var COLORS = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
@@ -105,10 +113,10 @@
         '<div class="itgrip"></div>' +
         '<div class="itstk__search">' + IC.search + '스티커 검색</div>' +
         '<div class="itfstk">' +
-          '<span class="itfs loc">' + IC.loc + '강남 글로우라운지</span>' +
-          '<span class="itfs book">' + IC.book + '예약하기</span>' +
-          '<span class="itfs price">' + IC.price + '가격</span>' +
-          '<span class="itfs time">' + IC.time + '시간</span>' +
+          '<button type="button" class="itfs loc" data-feat="loc" data-r="featLoc">' + IC.loc + '<span data-r="featLocTx">우리샵</span></button>' +
+          '<button type="button" class="itfs book" data-feat="book">' + IC.book + '예약하기</button>' +
+          '<button type="button" class="itfs price" data-feat="price">' + IC.price + '가격</button>' +
+          '<button type="button" class="itfs time" data-feat="time">' + IC.time + '시간</button>' +
         '</div>' +
         '<div class="itssub">우리샵 에셋</div><div class="itsgrid">' + shop + '</div>' +
         '<div class="itssub" style="margin-top:14px">이모지</div><div class="itsgrid">' + emo + '</div>' +
@@ -138,7 +146,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'arc', 'layName', 'brushSize'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'arc', 'layName', 'brushSize', 'featLocTx'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -322,6 +330,51 @@
     var L = makeLayer('sticker'); L.emoji = emoji; L.fontSize = 64;
     var s = el('div', 'itl-sticker'); s.textContent = emoji; L.el.appendChild(s); L.tx = s;
     placeCenter(L, 64, 64); selectLayer(L);
+    closeStickerSheet();   // [②] 스티커 하나 고르면 하단 시트 내려가고 사진 위에서 바로 배치
+  }
+  // [③] 우리샵 피처 칩(위치/예약/가격/시간) — 탭하면 텍스트 레이어로 사진 위에 올림(클릭 동작).
+  function addFeatureLayer(kind) {
+    var map = {
+      loc:   { text: (S.shopName || '우리샵'),   color: '#FFFFFF', accent: false },
+      book:  { text: '예약하기',                 color: '#FFFFFF', accent: true  },
+      price: { text: '가격 문의',                color: '#FFFFFF', accent: false },
+      time:  { text: '영업시간 안내',            color: '#FFFFFF', accent: false }
+    };
+    var m = map[kind]; if (!m) return;
+    var L = makeLayer('text');
+    L.font = FONTS[0]; L.color = m.color; L.align = 'center'; L.fontSize = 26; L.text = m.text;
+    L.shadow = true; L.role = (kind === 'loc' ? 'shop' : kind);
+    var t = el('div', 'itl-text'); t.textContent = m.text;
+    var css = 'font-family:' + L.font.family + ';font-weight:800;color:' + m.color + ';text-align:center;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.4)';
+    if (m.accent) { css += ';background:linear-gradient(135deg,#D58A95,#BC6675);padding:8px 18px;border-radius:999px;text-shadow:none'; L.badge = true; }
+    t.style.cssText = css; L.el.appendChild(t); L.tx = t;
+    placeCenter(L, 150, 46); selectLayer(L);
+    closeStickerSheet();
+  }
+  // [②] 스티커 시트 닫기 — 도구 비활성(사진 위에서 바로 만지도록). 닫아도 우측 레일은 그대로.
+  function closeStickerSheet() {
+    S.tool = null;
+    root.querySelectorAll('.itrb').forEach(function (b) { b.classList.remove('on'); });
+    if (refs.panels.sticker) refs.panels.sticker.classList.remove('is-open');
+    if (refs.stkSheet) refs.stkSheet.classList.remove('is-tall');
+    refs.draw.classList.remove('is-armed'); refs.draw.style.zIndex = '3';
+    refs.layers.style.pointerEvents = '';
+  }
+  // [①] PC/모바일 공통 — 가로 스크롤 줄(폰트/색/칩)을 드래그로 넘김(인스타식 스와이프).
+  function enableDragScroll(elm) {
+    if (!elm || elm._dragScroll) return; elm._dragScroll = true;
+    var down = false, sx = 0, sl = 0, moved = 0;
+    elm.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch') return;   // 터치는 네이티브 관성 스크롤 그대로
+      down = true; sx = e.clientX; sl = elm.scrollLeft; moved = 0; elm.classList.add('is-dragging');
+    });
+    elm.addEventListener('pointermove', function (e) {
+      if (!down) return; var dx = e.clientX - sx; moved = Math.max(moved, Math.abs(dx)); elm.scrollLeft = sl - dx;
+    });
+    var up = function () { down = false; elm.classList.remove('is-dragging'); };
+    elm.addEventListener('pointerup', up); elm.addEventListener('pointerleave', up);
+    // 드래그였으면 버튼 클릭 무효화(드래그 끝의 의도치 않은 선택 방지)
+    elm.addEventListener('click', function (e) { if (moved > 6) { e.stopPropagation(); e.preventDefault(); moved = 0; } }, true);
   }
 
   /* ── 레이아웃 반달 fan ── */
@@ -402,16 +455,17 @@
     else if (S.brush === 'neon') { c.shadowBlur = 12; c.shadowColor = S.drawColor; }
     else if (S.brush === 'eraser') { c.globalCompositeOperation = 'destination-out'; c.lineWidth = S.brushSize * 1.6; }
   }
-  var dpos = null;
+  var dpos = null, _drawRect = null;
   function drawDown(e) {
     if (S.tool !== 'draw') return;
-    var r = refs.stage.getBoundingClientRect(); dpos = { x: e.clientX - r.left, y: e.clientY - r.top };
+    _drawRect = refs.stage.getBoundingClientRect();   // [⑤렉] 스트로크 시작 때 1회만 측정 → move 마다 reflow 제거
+    dpos = { x: e.clientX - _drawRect.left, y: e.clientY - _drawRect.top };
     strokeStyle(); refs.ctx.beginPath(); refs.ctx.moveTo(dpos.x, dpos.y); refs.ctx.lineTo(dpos.x + 0.1, dpos.y + 0.1); refs.ctx.stroke();
     try { refs.draw.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   function drawMove(e) {
     if (!dpos || S.tool !== 'draw') return;
-    var r = refs.stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    var r = _drawRect || refs.stage.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     refs.ctx.beginPath(); refs.ctx.moveTo(dpos.x, dpos.y); refs.ctx.lineTo(x, y); refs.ctx.stroke();
     dpos = { x: x, y: y };
   }
@@ -484,9 +538,25 @@
     refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; applyColor(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.aln.addEventListener('click', function (e) { var b = e.target.closest('[data-aln]'); if (!b) return; applyAlign(b.getAttribute('data-aln')); refs.aln.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.size.addEventListener('input', function () { applyScale(refs.size.value); });
-    // 스티커
-    refs.stkSheet.addEventListener('click', function (e) { var b = e.target.closest('[data-stk]'); if (b) addSticker(b.getAttribute('data-stk')); });
-    refs.stkSheet.querySelector('.itgrip').addEventListener('click', function () { refs.stkSheet.classList.toggle('is-tall'); });
+    // 스티커 — 이모지/우리샵 칩 탭 → 레이어로 추가
+    refs.stkSheet.addEventListener('click', function (e) {
+      var f = e.target.closest('[data-feat]'); if (f) { addFeatureLayer(f.getAttribute('data-feat')); return; }
+      var b = e.target.closest('[data-stk]'); if (b) addSticker(b.getAttribute('data-stk'));
+    });
+    // [②] grip — 클릭=더 펼치기 토글, 아래로 드래그=시트 닫기(PC 마우스 포함)
+    var grip = refs.stkSheet.querySelector('.itgrip');
+    var gd = null;
+    grip.addEventListener('pointerdown', function (e) { gd = { y: e.clientY, moved: false }; try { grip.setPointerCapture(e.pointerId); } catch (_) { void _; } });
+    grip.addEventListener('pointermove', function (e) { if (!gd) return; var dy = e.clientY - gd.y; if (Math.abs(dy) > 4) gd.moved = true; });
+    grip.addEventListener('pointerup', function (e) {
+      if (!gd) { return; } var dy = e.clientY - gd.y; var was = gd; gd = null;
+      if (dy > 56) { closeStickerSheet(); return; }              // 아래로 끌면 닫기
+      if (dy < -40) { refs.stkSheet.classList.add('is-tall'); return; }   // 위로 끌면 더 펼치기
+      if (!was.moved) refs.stkSheet.classList.toggle('is-tall');  // 그냥 탭이면 토글
+    });
+    // [①] 가로 스크롤 줄 드래그 스와이프(폰트/색/칩)
+    enableDragScroll(refs.fonts); enableDragScroll(refs.colors);
+    enableDragScroll(refs.stkSheet.querySelector('.itfstk'));
     // 레이아웃 — 탭으로 선택 + 반달을 '돌려서' 활성 레이아웃 실시간 변경
     refs.panels.layout.addEventListener('click', function (e) { if (S._fanMoved) { S._fanMoved = false; return; } var b = e.target.closest('[data-lay]'); if (b) selectLayout(+b.getAttribute('data-lay')); });
     refs.panels.layout.addEventListener('pointerdown', fanDown);
@@ -541,8 +611,10 @@
     S = { layers: [], active: null, tool: 'text', layout: LAYOUTS[0],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
+      shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
       onDone: opts.onDone, onCancel: opts.onCancel };
+    if (refs.featLocTx) refs.featLocTx.textContent = S.shopName || '우리샵';   // [③] 위치 칩에 실제 샵 이름
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
     refs.photo.style.backgroundImage = S.photoCss;
     refs.collage.hidden = true; refs.collage.innerHTML = '';

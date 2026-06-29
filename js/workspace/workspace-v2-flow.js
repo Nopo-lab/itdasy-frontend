@@ -328,6 +328,20 @@
     if (!p.storyEdited && String(d.caption || '').trim() && p.tplPreviewUrl) return p.tplPreviewUrl;
     return p.editedDataUrl || p.dataUrl;
   }
+  // [#13] ItdEditor 는 폰트를 '키'(jua/black/serif…)로 저장하는데, 헤드리스 합성(StoryEditor.compose)은
+  //   CSS 패밀리 문자열을 기대한다. 변환을 안 하면 편집기에서 고른 폰트가 캡션 미리보기에 반영 안 됨.
+  //   ItdEditor 의 FONTS 와 동기화. 이미 패밀리 문자열인 값(기본 'Pretendard' 등)은 그대로 통과.
+  var _ITD_FONT_FAMILY = {
+    pretendard: 'Pretendard, sans-serif', black: '"Black Han Sans", sans-serif', jua: '"Jua", sans-serif',
+    dohyeon: '"Do Hyeon", sans-serif', gothica1: '"Gothic A1", sans-serif', serif: '"Noto Serif KR", serif',
+    songmyung: '"Song Myung", serif', dodum: '"Gowun Dodum", sans-serif', gaegu: '"Gaegu", cursive',
+    pen: '"Nanum Pen Script", cursive', gamja: '"Gamja Flower", cursive', himelody: '"Hi Melody", cursive'
+  };
+  function _composeFonts(layers) {
+    return (layers || []).map(function (l) {
+      return (l && l.font && _ITD_FONT_FAMILY[l.font]) ? Object.assign({}, l, { font: _ITD_FONT_FAMILY[l.font] }) : l;
+    });
+  }
   // [v589·#3] 캡션 결과 화면에서 우리샵 스타일을 각 사진에 헤드리스 합성 → tplPreviewUrl(결과 전용).
   //   사진 원본은 그대로. 입력 시그니처로 1회만(서비스/해시/스타일 동일하면 생략). 멀티포토 각각 합성.
   function _autoComposeTemplate() {
@@ -348,8 +362,8 @@
         if (p.storyEdited) return;                 // 수동 편집 사진은 그대로
         if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
         p._tplSig = sigBase;
-        jobs.push(window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: built.layers })
-          .then(function (url) { if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); } }));   // 활성 사진 끝나면 즉시 갱신
+        jobs.push(window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: _composeFonts(built.layers) })
+          .then(function (url) { if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); } }));   // [#13] 폰트 키→패밀리 변환 후 합성
       });
       if (jobs.length) Promise.all(jobs).then(refresh);   // 나머지까지 완료되면 최종 갱신
     } catch (_e) { void _e; }
@@ -369,6 +383,7 @@
       photoUrl: photo,
       photos: (editablePhotos() || []).map(function (p) { return _cleanBase(p) || photoUrl(p); }),   // [itd] 좌우2장/4장 콜라주용
       ratio: built.ratio,
+      shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
       onDone: function (dataUrl, meta) {
@@ -1515,11 +1530,18 @@
       var _cnt = el.querySelector('[data-fl-svccount]');
       if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
     }
+    // [#12] PC에서 게시글/해시태그를 클릭하면 곧바로 편집되도록 클릭→포커스 보장(상위 클릭 위임에 먹히던 회귀 방지).
+    function _ensureEditFocus(node) {
+      if (!node || node._wsClickFocus) return; node._wsClickFocus = true;
+      node.addEventListener('pointerdown', function (e) { e.stopPropagation(); }, true);
+      node.addEventListener('click', function (e) { e.stopPropagation(); if (document.activeElement !== node) { try { node.focus(); } catch (_) { void _; } } });
+    }
     // [v584·C] 결과 화면 — 카드 안 캡션(contenteditable)을 고치면 d.caption 즉시 동기화(아래 별도 편집칸 폐지).
     var igCap = el.querySelector('[data-fl-igcap]');
     if (igCap && igCap.isContentEditable && !igCap._wsLiveBound) {
       igCap._wsLiveBound = true;
       igCap.addEventListener('input', function () { d.caption = igCap.textContent; });
+      _ensureEditFocus(igCap);
     }
     // [v587] 카드 안 해시태그(contenteditable)를 고치면 d.hashtags/selectedHashes 즉시 동기화(별도 편집칸 폐지).
     var igHash = el.querySelector('[data-fl-ighash]');
@@ -1528,21 +1550,18 @@
       igHash.addEventListener('input', function () {
         var hs = _parseHashes(igHash.textContent); d.hashtags = hs; d.selectedHashes = hs.slice();
       });
+      _ensureEditFocus(igHash);
     }
     // [v589·#3] 결과 화면이면 각 사진에 우리샵 스타일 적용 미리보기 합성(원본은 보존, 결과 표시 전용).
     if (String(d.caption || '').trim()) _autoComposeTemplate();
     // [v591·#6] 입력 화면 + 스타일 ON + 사진 있으면 — 사진에서 추천 색 추출해 팔레트 채움(클라이언트, 무료).
     var pal = el.querySelector('[data-fl-palette]');
     if (pal && !String(d.caption || '').trim() && d.useShopStyle !== false && !d.textOnly) {
-      var cp = curPhoto();
-      if (cp && cp.dataUrl) {
-        _extractPalette(cp.dataUrl, function (cols) {
-          if (!cols.length || !pal.isConnected) return;
-          pal.innerHTML = '<span class="cap-palette__label">이 사진에서 뽑은 색 · 탭하면 글자색에 적용</span>' +
-            '<div class="cap-palette__row">' + cols.map(function (h) { return '<button type="button" class="cap-pal" data-fl-brandcolor="' + esc(h) + '" style="background:' + esc(h) + '" aria-label="' + esc(h) + '"></button>'; }).join('') + '</div>';
-          pal.hidden = false;
-        });
-      }
+      // [#9] 사진에서 뽑은 색은 평균값이라 탁하게 나와 혼란 → 편집기(ItdEditor)와 '같은' 큐레이션 팔레트로 통일.
+      var cols = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
+      pal.innerHTML = '<span class="cap-palette__label">글자색 · 탭하면 우리샵 글자색에 적용</span>' +
+        '<div class="cap-palette__row">' + cols.map(function (h) { return '<button type="button" class="cap-pal" data-fl-brandcolor="' + esc(h) + '" style="background:' + esc(h) + '" aria-label="' + esc(h) + '"></button>'; }).join('') + '</div>';
+      pal.hidden = false;
     }
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
@@ -1818,7 +1837,11 @@
 	      var parts = line.split(/(?<=[.!?…])\s+/);
 	      return parts.filter(function (s) { return !_CAP_FORBIDDEN.some(function (b) { return s.indexOf(b) >= 0; }); }).join(' ').trim();
 	    }).join('\n').replace(/\n{3,}/g, '\n\n').trim();
-	    return out || nomd.trim();   // 전부 걸러지면(극단) 마크다운만 제거한 본문 유지
+	    // [#11] 본문 끝에 해시태그가 붙어 오는 경우(예: "…주세요 💕#헤어 #헤어스타일") — 해시태그는 별도(d.hashtags)로
+    //   관리하므로 본문 꼬리의 해시태그 블록을 떼어낸다(본문 마지막 글자에 딱 붙는 회귀 방지).
+    var stripped = out.replace(/(\s*#[^\s#]+)+\s*$/u, '').trim();
+    if (stripped) out = stripped;   // 본문이 전부 해시태그였던 극단 케이스는 원본 유지
+    return out || nomd.trim();   // 전부 걸러지면(극단) 마크다운만 제거한 본문 유지
 	  }
 	  function doGenerate(extra, label) {
 	    syncServiceFromDom();
@@ -2984,6 +3007,21 @@
 	      var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 32); };
 	      _carRaf = raf(function () { _carRaf = 0; _carSyncActive(); });
 	    }, { passive: true });
+	    // [#16] PC(마우스)에서도 사진을 좌우로 끌어 넘김 — 터치는 네이티브 스크롤 그대로.
+	    var dn = false, sx = 0, sl = 0, mv = 0;
+	    track.addEventListener('pointerdown', function (e) {
+	      if (e.pointerType === 'touch') return;
+	      dn = true; sx = e.clientX; sl = track.scrollLeft; mv = 0; track.style.scrollSnapType = 'none'; track.style.cursor = 'grabbing';
+	    });
+	    track.addEventListener('pointermove', function (e) {
+	      if (!dn) return; var dx = e.clientX - sx; mv = Math.max(mv, Math.abs(dx)); track.scrollLeft = sl - dx;
+	    });
+	    var _end = function () {
+	      if (!dn) return; dn = false; track.style.scrollSnapType = ''; track.style.cursor = '';
+	      var its = _carItems(); if (its.length) { var idx = Math.max(0, Math.min(its.length - 1, Math.round(track.scrollLeft / Math.max(1, track.clientWidth)))); _carSet(its[idx].id); }
+	    };
+	    track.addEventListener('pointerup', _end); track.addEventListener('pointerleave', _end);
+	    track.addEventListener('click', function (e) { if (mv > 6) { e.stopPropagation(); e.preventDefault(); mv = 0; } }, true);
 	  }
 	  function _pairThumb(p, tag) {
 	    return '<span class="up-pair__thumb" style="background-image:url(' + esc(p.dataUrl) + ')"><em>' + tag + '</em></span>';
