@@ -1409,12 +1409,19 @@
 	        // [Phase A-3] 활성 우리샵 스타일 카드 — 토글 ON일 때 노출(데이터모델 첫 연결점).
 	        //   '변경'(다중 스타일 선택)·실제 자동배치는 Phase C. 여기선 활성 스타일 표시까지.
 	        var _ss = (window.ShopStyle && window.ShopStyle.ensureSeed) ? window.ShopStyle.ensureSeed() : null;
+	        var _ssList = (window.ShopStyle && window.ShopStyle.list) ? window.ShopStyle.list() : [];
+	        // [#6] 우리샵 스타일 전환/생성 — 여러 개 저장 가능, 활성 1개만 캡션 반영. 칩으로 전환·추가.
+	        var _ssPick = (_useStyle && _ss) ? (
+	          '<div class="cap-stylepick">' +
+	            _ssList.map(function (s) { return '<button type="button" class="cap-stylechip' + (s.id === _ss.id ? ' on' : '') + '" data-fl-stylepick="' + esc(s.id) + '">' + esc(s.name) + '</button>'; }).join('') +
+	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
+	          '</div>') : '';
 	        var _ssCard = (_useStyle && _ss) ? (
 	          '<div class="cap-stylecard">' +
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
 	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
 	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>' +
+	          '</div>' + _ssPick +
           ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
@@ -2132,6 +2139,9 @@
       // [Phase A-2] 우리샵 스타일 적용 토글 — 생성 직전 syncServiceFromDom 으로 입력 보존 후 재렌더.
       var css = t.closest('[data-fl-cshopstyle]'); if (css) { syncServiceFromDom(); d.useShopStyle = !(d.useShopStyle !== false); setScreen('caption'); return; }
       var bc = t.closest('[data-fl-brandcolor]'); if (bc) { syncServiceFromDom(); _applyBrandColor(bc.getAttribute('data-fl-brandcolor')); return; }   // [v591·#6] 추천색 적용
+      // [#6] 우리샵 스타일 전환/생성
+      var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
+      var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {

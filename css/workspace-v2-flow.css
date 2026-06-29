@@ -443,6 +443,12 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-pal { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); cursor: pointer; padding: 0; }
 .wsv2flow .cap-pal:active { transform: scale(.9); }
 .wsv2flow .cap-stylecard__tx small { font-size: 11px; color: var(--text-subtle); font-weight: 500; }
+/* [#6] 우리샵 스타일 전환/생성 칩 */
+.wsv2flow .cap-stylecard:has(+ .cap-stylepick) { margin-bottom: 8px; }
+.wsv2flow .cap-stylepick { display: flex; gap: 7px; flex-wrap: wrap; margin: 0 0 18px; }
+.wsv2flow .cap-stylechip { height: 30px; padding: 0 13px; border-radius: var(--r-pill, 999px); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; }
+.wsv2flow .cap-stylechip.on { border-color: var(--brand-strong); background: var(--brand-bg); color: var(--brand-strong); }
+.wsv2flow .cap-stylechip--new { border-style: dashed; color: var(--text-muted); }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonehead { margin: 6px 2px 12px; }
