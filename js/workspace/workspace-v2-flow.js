@@ -18,21 +18,23 @@
   //   롤백: window.ITDASY_WS_SIMPLE_FLOW = false → 기존 6단계 플로우 그대로 복원.
   var SIMPLE_FLOW = (window.ITDASY_WS_SIMPLE_FLOW !== false);
   // 진행 표시(단계 X/N·진행바)·다음 화면 계산에 쓰는 '실제로 보이는 단계' 목록.
-  // [v583·C] 인스타 미리보기 단계 폐지 — 미리보기 디자인+업로드는 캡션 결과 화면에 통합. 고객연결이 마지막 단계.
-  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'connect'] : SCREENS;
+  // [v592] 워크플로 재배치 — 업로드 → 캡션 생성(편집) → 인스타 미리보기(게시) → 고객 연결(마지막).
+  //   인스타 미리보기를 다시 별도 단계로(미리보기+피드+게시), 고객연결은 게시 뒤 마지막.
+  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'preview', 'connect'] : SCREENS;
   var TITLE = { upload:'사진 업로드', edit:'편집', template:'템플릿 선택', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
   var CTA = {
     upload: { l:'편집으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
     edit:   { l:'저장하고 게시글 쓰기', to:'caption' },   // [v560] 좌측 절반. 우측 'cta2'=템플릿 선택하기.
     template:{ l:'이대로 게시글 쓰기', to:'caption' },
-    caption:{ l:'고객 연결로', to:'connect' },
-    connect:{ l:'저장하고 완료', to:'__save' },   // [v583·C] 고객연결=마지막 단계 → 저장 후 작업실로
+    caption:{ l:'인스타 미리보기로', to:'preview' },   // [v592] 캡션 결과 → 인스타 미리보기 단계
+    preview:{ l:'고객 연결로', to:'connect' },          // [v592] 미리보기(게시) → 고객 연결
+    connect:{ l:'저장하고 완료', to:'__save' },         // 고객연결=마지막 단계 → 저장 후 작업실로
   };
   // [Phase A-1] 심플 플로우: 업로드 다음 단계를 '편집'이 아닌 '캡션 생성(caption)'으로 직행.
   if (SIMPLE_FLOW) CTA.upload = { l:'캡션 생성 →', to:'caption' };
   // [Phase A-2] 캡션 화면 명칭을 스펙(이미지 01)에 맞춰 '캡션 생성'으로(상단 타이틀).
   if (SIMPLE_FLOW) TITLE.caption = '캡션 생성';
-  // preview: CTA 없음(미리보기 화면에 게시 버튼 직접 존재)
+  // [v592] preview: 화면 안에 '저장 및 게시' 버튼 + 하단 CTA '고객 연결로'(다음 단계). 게시는 선택, 연결로 진행.
   var CAT_CTX = {
     ba:     { purpose: 'before_after', captionMode: 'normal', role: 'auto', tplLabel: '전후' },
     flex:   { purpose: 'feed',         captionMode: 'normal', role: 'hero', tplLabel: '시술 자랑' },
@@ -1470,9 +1472,7 @@
       // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
       // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
       ((SIMPLE_FLOW && !d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
-      
-		      _publishBlock() +
-		      _feedPreview(url) +   // [v589] 피드 미리보기 — 올리면 내 피드가 어떻게 보이는지
+      // [v592] 게시·피드 미리보기는 다음 단계(인스타 미리보기)로 이동. 캡션 화면은 글 편집까지만.
 		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
 	  }
 
@@ -1627,7 +1627,8 @@
 	    var url = outputUrl();
 	    var custLine = d.customerName ?
 	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
-	    return '' + custLine + _igPreviewCard(url) + _publishBlock();
+	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시 + 피드 미리보기.
+	    return '' + '<div class="cap-byline">이렇게 올라가요</div>' + custLine + _igPreviewCard(url) + _publishBlock() + _feedPreview(url);
 	  }
 
   function _publishBlock() {
