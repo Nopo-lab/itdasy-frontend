@@ -19,40 +19,7 @@ async function _personaFetch(method, path, body) {
   return data;
 }
 
-// ═══════════════════════════════════════════════════════
-const SHOP_KEYWORDS = {
-  '붙임머리': ['14인치','18인치','22인치','24인치','26인치','28인치','30인치','특수인치','옴브레','재시술','볼륨업','자연스러운','롱헤어'],
-  '네일아트': ['젤네일','아트','프렌치','이달의아트','글리터','원톤','그라데이션','스톤','매트','자개'],
-  '네일': ['젤네일','아트','프렌치','이달의아트','글리터','원톤','그라데이션','스톤','매트','자개'],
-  '헤어': ['단발','투블럭','남성','여성','펌','염색','탈색','클리닉','셋팅','레이어드','히피펌','S컬'],
-  '속눈썹': ['볼륨','클래식','내추럴','C컬','D컬','J컬','CC컬','브라운','속눈썹펌','래쉬리프트','하속눈썹'],
-};
-
-// 사용자 커스텀 키워드 (localStorage)
-function _loadCustomKeywords() {
-  try { return JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); } catch(_) { return []; }
-}
-function _saveCustomKeywords(arr) {
-  localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr));
-}
-
-// 삭제된 기본 키워드 (localStorage)
-function _loadDeletedKeywords() {
-  try { return JSON.parse(localStorage.getItem('itdasy_deleted_keywords') || '[]'); } catch(_) { return []; }
-}
-function _saveDeletedKeywords(arr) {
-  localStorage.setItem('itdasy_deleted_keywords', JSON.stringify(arr));
-}
-
-// 현재 업종에 맞는 키워드 목록 반환 (기본 - 삭제 + 커스텀)
-function getShopKeywords() {
-  const shopType = localStorage.getItem('shop_type') || '붙임머리';
-  const base = SHOP_KEYWORDS[shopType] || SHOP_KEYWORDS['붙임머리'];
-  const deleted = _loadDeletedKeywords();
-  const custom = _loadCustomKeywords();
-  const filtered = base.filter(k => !deleted.includes(k));
-  return [...new Set([...filtered, ...custom])];
-}
+// ===== 시술 키워드 태그(SHOP_KEYWORDS+localStorage+UI) → js/caption/caption-keyword-tags.js 로 분리(B-분할) =====
 
 // ===== 해시태그 셔플 믹싱 =====
 // 이전에 사용한 태그 순서 기록 → 매번 다른 조합·순서로 노출
@@ -94,121 +61,7 @@ function shuffleHashtags(tags) {
 // ===== 캡션 로딩 팝업(슬롯머신) → js/caption/caption-loader-ui.js 로 분리(B-분할) =====
 // ===== 온보딩 캡션 테스트 팝업 → js/caption/caption-onboarding.js 로 분리(B-분할) =====
 
-// ===== 캡션 탭 사진 영역 (드래그 순서 변경) =====
-let _captionPhotosReordered = null; // 재정렬된 사진 배열 (null = 슬롯 기본 순서)
-
-function _captionOpenSlotPicker() {
-  const picker = document.getElementById('captionSlotPicker');
-  if (picker) {
-    picker.style.display = 'block';
-    if (typeof initCaptionSlotPicker === 'function') initCaptionSlotPicker();
-    picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
-
-function _renderCaptionPhotoRow() {
-  const strip = document.getElementById('captionPhotoThumbRow');
-  if (!strip) return;
-
-  const slot = (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined')
-    ? _slots.find(s => s.id === _captionSlotId) : null;
-
-  if (!slot) {
-    strip.innerHTML = `<div data-caption-open-picker style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;"><i class="ph-duotone ph-camera" style="font-size:22px;color:var(--text-subtle);"></i></div>`;
-    strip.querySelector('[data-caption-open-picker]')?.addEventListener('click', _captionOpenSlotPicker);
-    return;
-  }
-
-  const basePhotos = slot.photos.filter(p => !p.hidden);
-  if (!_captionPhotosReordered || _captionPhotosReordered._slotId !== _captionSlotId) {
-    _captionPhotosReordered = [...basePhotos];
-    _captionPhotosReordered._slotId = _captionSlotId;
-  }
-
-  strip.innerHTML = '';
-  _captionPhotosReordered.forEach((p, i) => {
-    const src = p.editedDataUrl || p.dataUrl || '';
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;flex-shrink:0;user-select:none;';
-    wrap.draggable = true;
-    wrap.dataset.capPhotoIdx = i;
-
-    wrap.innerHTML = `
-      <img src="${_capEsc(src)}" alt="" draggable="false" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;pointer-events:none;">
-      <button data-remove-cap-photo data-photo-index="${i}" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;line-height:1;cursor:pointer;">×</button>
-      <div style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.8);background:rgba(0,0,0,0.35);border-radius:3px;padding:0 3px;">${i+1}</div>
-    `;
-    wrap.querySelector('[data-remove-cap-photo]')?.addEventListener('click', e => {
-      _removeCapPhoto(Number(e.currentTarget.dataset.photoIndex), e);
-    });
-
-    // HTML5 drag (desktop + PWA)
-    wrap.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', String(i)); wrap.style.opacity = '0.4'; });
-    wrap.addEventListener('dragend', () => wrap.style.opacity = '1');
-    wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.style.outline = '2px solid var(--accent)'; });
-    wrap.addEventListener('dragleave', () => wrap.style.outline = '');
-    wrap.addEventListener('drop', e => {
-      e.preventDefault(); wrap.style.outline = '';
-      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const toIdx = parseInt(wrap.dataset.capPhotoIdx, 10);
-      if (isNaN(fromIdx) || fromIdx === toIdx) return;
-      const arr = [..._captionPhotosReordered];
-      const [removed] = arr.splice(fromIdx, 1);
-      arr.splice(toIdx, 0, removed);
-      _captionPhotosReordered = arr;
-      _captionPhotosReordered._slotId = _captionSlotId;
-      _renderCaptionPhotoRow();
-    });
-
-    // Long-press (300ms) → touch drag
-    let _lpTimer = null, _lpActive = false;
-    wrap.addEventListener('touchstart', () => {
-      _lpTimer = setTimeout(() => {
-        _lpActive = true;
-        wrap.style.opacity = '0.5';
-        if (navigator.vibrate) navigator.vibrate(20);
-      }, 300);
-    }, { passive: true });
-    wrap.addEventListener('touchend', () => {
-      clearTimeout(_lpTimer);
-      if (_lpActive) { wrap.style.opacity = '1'; _lpActive = false; }
-    }, { passive: true });
-    wrap.addEventListener('touchmove', e => {
-      if (!_lpActive) { clearTimeout(_lpTimer); return; }
-      e.preventDefault();
-      const touch = e.touches[0];
-      const el = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-cap-photo-idx]');
-      if (el && el !== wrap) {
-        const fromIdx = parseInt(wrap.dataset.capPhotoIdx, 10);
-        const toIdx   = parseInt(el.dataset.capPhotoIdx, 10);
-        const arr = [..._captionPhotosReordered];
-        const [removed] = arr.splice(fromIdx, 1);
-        arr.splice(toIdx, 0, removed);
-        _captionPhotosReordered = arr;
-        _captionPhotosReordered._slotId = _captionSlotId;
-        _renderCaptionPhotoRow();
-      }
-    }, { passive: false });
-
-    strip.appendChild(wrap);
-  });
-
-  const addBtn = document.createElement('div');
-  addBtn.style.cssText = 'width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;';
-  addBtn.textContent = '+';
-  addBtn.onclick = _captionOpenSlotPicker;
-  strip.appendChild(addBtn);
-}
-
-function _removeCapPhoto(idx, e) {
-  e?.stopPropagation();
-  if (!_captionPhotosReordered) return;
-  const slotId = _captionPhotosReordered._slotId;
-  _captionPhotosReordered = _captionPhotosReordered.filter((_, i) => i !== idx);
-  _captionPhotosReordered._slotId = slotId;
-  _renderCaptionPhotoRow();
-}
-
+// ===== 캡션 탭 사진 영역(드래그 순서) → js/caption/caption-photo-row.js 로 분리(B-분할) =====
 
 // ===== 편집 로그 PATCH (debounce 800ms) =====
 let _lastLogId = null;     // 최근 생성된 generation_log.id
@@ -262,74 +115,7 @@ async function _capPatchLog(text) {
   } catch(_e) { /* 조용히 실패 */ }
 }
 
-// ═══════════════════════════════════════════════════════
-// 캡션 입력 UI 렌더링 (동적 키워드 태그)
-// ═══════════════════════════════════════════════════════
-function renderCaptionKeywordTags() {
-  const container = document.getElementById('typeTags');
-  if (!container) return;
-
-  const keywords = getShopKeywords();
-
-  // [SEC-R2-1] XSS 방지 — 키워드를 이스케이프하여 삽입
-  container.innerHTML = keywords.map(k => {
-    const safe = _capEsc(k);
-    return `<span class="tag" data-v="${safe}" data-caption-tag>${safe}<button class="tag-delete" data-kw="${safe}" data-caption-delete-keyword>×</button></span>`;
-  }).join('') + `<span class="tag tag-add" data-caption-add-keyword>+ 추가</span>`;
-  container.querySelectorAll('[data-caption-tag]').forEach(tag => {
-    tag.addEventListener('click', () => toggleCaptionTag(tag));
-  });
-  container.querySelectorAll('[data-caption-delete-keyword]').forEach(btn => {
-    btn.addEventListener('click', event => deleteCaptionKeyword(btn.dataset.kw, event));
-  });
-  container.querySelector('[data-caption-add-keyword]')?.addEventListener('click', showAddKeywordInput);
-}
-
-
-function toggleCaptionTag(el) {
-  if (el.classList.contains('tag-add')) return;
-  el.classList.toggle('on');
-}
-
-function deleteCaptionKeyword(keyword, e) {
-  e.stopPropagation();
-  const base = SHOP_KEYWORDS[localStorage.getItem('shop_type') || '붙임머리'] || [];
-  if (base.includes(keyword)) {
-    // 기본 키워드는 삭제 목록에 추가
-    const deleted = _loadDeletedKeywords();
-    if (!deleted.includes(keyword)) {
-      deleted.push(keyword);
-      _saveDeletedKeywords(deleted);
-    }
-  } else {
-    // 커스텀 키워드는 직접 삭제
-    const custom = _loadCustomKeywords();
-    _saveCustomKeywords(custom.filter(k => k !== keyword));
-  }
-  renderCaptionKeywordTags();
-}
-
-function showAddKeywordInput() {
-  window._inlinePrompt('추가할 키워드를 입력하세요:', '', (keyword) => {
-    const trimmed = keyword.trim();
-    if (!trimmed) return;
-    const custom = _loadCustomKeywords();
-    if (!custom.includes(trimmed)) {
-      custom.push(trimmed);
-      _saveCustomKeywords(custom);
-    }
-    // 삭제 목록에서도 제거 (복원)
-    const deleted = _loadDeletedKeywords();
-    _saveDeletedKeywords(deleted.filter(k => k !== trimmed));
-    renderCaptionKeywordTags();
-    // 새로 추가된 태그 자동 선택
-    setTimeout(() => {
-      const tag = document.querySelector(`#typeTags .tag[data-v="${trimmed}"]`);
-      if (tag) tag.classList.add('on');
-    }, 50);
-  });
-  return;
-}
+// ===== 캡션 키워드 태그 UI → js/caption/caption-keyword-tags.js 로 분리(B-분할) =====
 
 // ===== 캡션 생성 — POST /persona/generate =====
 // TD-020: POST /persona/generate 해시태그 반환 필드 추가 필요
@@ -690,104 +476,7 @@ function closePublishPreview() {
   setTimeout(() => pop.style.display = 'none', 300);
 }
 
-// ===== 업로드 진행/완료 팝업 =====
-function setUploadProgress(pct, msg) {
-  document.getElementById('upPct').textContent = pct + '%';
-  document.getElementById('upMsg').textContent = msg;
-  document.getElementById('upFill').style.width = pct + '%';
-}
-
-function openInstagramProfile() {
-  const handle = (_instaHandle || '').replace('@', '');
-  window.location.href = handle ? `instagram://user?username=${handle}` : 'instagram://';
-}
-
-function closeUploadDone() {
-  document.getElementById('uploadDonePopup').style.display = 'none';
-}
-
-// ===== 마스터: 인스타 자동 발행 (2단계: 실제 API 호출) =====
-async function doActualPublish() {
-  const btn = document.getElementById('doPublishBtn');
-  const finalCaption = document.getElementById('previewFinalCaption').textContent;
-  btn.disabled = true;
-
-  const upPopup = document.getElementById('uploadProgressPopup');
-  upPopup.style.display = 'flex';
-  setUploadProgress(10, '이미지 준비 중...');
-
-  try {
-    const canvas = document.getElementById('baCanvas');
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    const formData = new FormData();
-    formData.append('image', blob, 'instagram_post.png');
-    formData.append('caption', finalCaption);
-
-    setUploadProgress(30, '서버에 전송 중...');
-
-    // 2026-05-01 ── 엔드포인트 미스매치 픽스: /publish 는 JSON image_url 받음.
-    // multipart FormData 는 /publish-file 에 보내야 함.
-    const res = await apiFetch('/instagram/publish-file', {
-      method: 'POST',
-      headers: authHeader(),
-      body: formData
-    });
-
-    setUploadProgress(60, '인스타에 업로드 중...');
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '업로드 실패');
-
-    setUploadProgress(95, '마무리 중...');
-    await new Promise(r => setTimeout(r, 400));
-    setUploadProgress(100, '완료!');
-
-    setTimeout(() => {
-      upPopup.style.display = 'none';
-      closePublishPreview();
-      document.getElementById('uploadDonePopup').style.display = 'flex';
-      document.getElementById('uploadDoneMsg').textContent = '인스타 피드에 올라갔어요!';
-      for(let i = 0; i < 20; i++) setTimeout(createConfetti, i * 100);
-    }, 1200);
-
-  } catch(e) {
-    upPopup.style.display = 'none';
-    showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message));
-    btn.textContent = '다시 시도하기 🚀';
-    btn.disabled = false;
-  }
-}
-
-function copyCaption() {
-  navigator.clipboard.writeText(document.getElementById('captionText').value)
-    .then(() => showToast('글 복사 완료! 📋'));
-}
-function copyAll() {
-  const c = document.getElementById('captionText').value;
-  const h = document.getElementById('captionHash').value;
-  navigator.clipboard.writeText(c + '\n\n' + h).then(() => showToast('전체 복사 완료! 📋'));
-}
-function flashBtn(btn, msg) {
-  const orig = btn.textContent;
-  btn.textContent = msg;
-  setTimeout(() => btn.textContent = orig, 1500);
-}
-
-
-
-
-
-
-function createConfetti() {
-  const c = document.createElement('div');
-  c.textContent = ['🎀','✨','💎','🩷'][Math.floor(Math.random()*4)];
-  c.className = 'confetti';
-  c.style.left = Math.random() * 100 + 'vw';
-  c.style.animationDuration = Math.random() * 2 + 3 + 's';
-  document.body.appendChild(c);
-  setTimeout(() => c.remove(), 5000);
-}
-
+// ===== 인스타 발행/업로드팝업/복사/컨페티 → js/caption/caption-publish.js 로 분리(B-분할) =====
 // ═══════════════════════════════════════════════════════
 // 캡션 완료 후 액션바 (갤러리 저장 + 다음 손님 유도)
 // ═══════════════════════════════════════════════════════
@@ -982,7 +671,7 @@ function goToNextSlotCaption(slotId) {
   const micro = document.getElementById('captionEditMicro');
   if (micro) micro.style.display = 'none';
   _lastLogId = null;
-  _captionPhotosReordered = null;
+  _resetCaptionPhotoOrder();   // [B-분할] 사진순서 상태는 caption-photo-row.js 소유
   _renderCaptionPhotoRow();
   // 태그 선택 해제
   document.querySelectorAll('#typeTags .tag.on').forEach(t => t.classList.remove('on'));
