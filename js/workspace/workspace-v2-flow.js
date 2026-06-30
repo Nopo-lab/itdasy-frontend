@@ -228,6 +228,18 @@
     }
     return { service: out.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim(), customer: name };
   }
+  // [#1] 등록된 샵 이름 — 시술 텍스트에서 빼고(AI가 시술/고객으로 오인 방지) 백엔드엔 별도 전달.
+  //   ShopStyle.name 은 이제 '레이아웃 A' 같은 레이아웃명이라 샵 이름으로 쓰지 않는다(BrandKit·localStorage만).
+  function _shopName() {
+    try { if (window.BrandKit && window.BrandKit.get) { var bk = window.BrandKit.get(); if (bk && bk.shop_name) return String(bk.shop_name).trim(); } } catch (_e) { void _e; }
+    try { var s = localStorage.getItem('shop_name'); if (s) return String(s).trim(); } catch (_e2) { void _e2; }
+    return '';
+  }
+  function _stripShopName(text) {
+    var sn = _shopName(); if (!sn || sn.length < 2) return text;
+    var esc1 = sn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return String(text || '').replace(new RegExp(esc1, 'g'), ' ').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim();
+  }
   function _splitServiceForLayers(svc) {
     var s = String(svc || '')
       .replace(/(?:인스타|sns|감성|내추럴|모던|빈티지|러블리|시크|트렌디|미니멀|청순|글램|깔끔|세련|화사)?\s*(?:톤앤무드|톤앤매너|톤|느낌|감성|무드|분위기|바이브)\s*(?:으로|로|하게|있게|스럽게)\s*(?:마무리|마감|연출|편집|보정|작성)?/gi, ' ');
@@ -2022,7 +2034,7 @@
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
-	    var _cust = _extractCustomer(svc); var svcClean = _cust.service || svc;
+	    var _cust = _extractCustomer(svc); var svcClean = _stripShopName(_cust.service || svc);   // [#1] 샵 이름 제거
 	    if (_cust.customer && !d.customerName) d.customerName = _cust.customer;
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
@@ -2052,6 +2064,7 @@
     // [v534] 백엔드 우선맥락/variation 필드 — 백엔드가 service/treatment_keyword 를 prompt 에 직접 주입하고
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
     opts.treatment_keyword = svcClean;
+    var _sn = _shopName(); if (_sn) opts.shop_name = _sn;   // [#1] 샵 이름은 시술 아님 — 별도 전달
     opts.content_type = d.tplPurpose || 'feed';
     opts.caption_intent = opts.caption_intent || 'generate';
     opts.strict_user_context = true;

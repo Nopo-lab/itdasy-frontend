@@ -802,29 +802,35 @@
   // [#4] 배경 선호(색/이미지) 기억 — 다음에도 같은 배경.
   function loadBgPref() { try { return JSON.parse(localStorage.getItem('itdasy:itd_bg') || '{}'); } catch (_) { return {}; } }
   function saveBgPref() { try { localStorage.setItem('itdasy:itd_bg', JSON.stringify({ color: S.collageBg, img: S.collageBgImg || null })); } catch (_) { void _; } }
-  // [누끼] 선택 사진 배경 제거 → '고른 배경'(색 또는 업로드 이미지)으로 합성 교체(원본 보관).
-  function doCutout() {
-    if (!(window.PhotoEditorBgCompose && window.PhotoEditorBgCompose.compose)) { toastIt('배경 제거 모듈을 불러오지 못했어요'); return; }
-    var i = S.adjSel, src = S.photos[i]; if (!src) return;
-    if (refs.adjCut) { refs.adjCut.disabled = true; refs.adjCut.classList.add('is-busy'); }
-    toastIt('배경 지우는 중…');
+  // [누끼] 사진 배경 제거 → '고른 배경'(색/이미지)으로 합성. 매트(removedBg)를 캐시해 다음 배경 변경은 0초(API 0).
+  function doCutout(idx, silent) {
+    if (!(window.PhotoEditorBgCompose && window.PhotoEditorBgCompose.compose)) { if (!silent) toastIt('배경 제거 모듈을 불러오지 못했어요'); return; }
+    var i = (idx != null ? idx : S.adjSel);
+    if (!S.origPhotos) S.origPhotos = []; if (S.origPhotos[i] == null) S.origPhotos[i] = S.photos[i];   // 원본 1회 보관
+    var src = S.origPhotos[i]; if (!src) return;
+    S.matte = S.matte || {}; S.cutSet = S.cutSet || {};
+    var cached = S.matte[i] || null;   // 매트 있으면 누끼 재요청 없이 배경만 다시 입힘(빠름)
+    if (!silent && refs.adjCut) { refs.adjCut.disabled = true; refs.adjCut.classList.add('is-busy'); }
+    if (!silent) toastIt(cached ? '배경 입히는 중…' : '배경 지우는 중…');
     var bg = S.collageBgImg ? { imageData: S.collageBgImg } : { color: S.collageBg || '#FFFFFF' };
-    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5' }).then(function (r) {
-      if (refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
-      if (!r || !r.composedDataUrl) { toastIt('배경 제거에 실패했어요'); return; }
+    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5', preRemovedBgUrl: cached }).then(function (r) {
+      if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
+      if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
+      if (r.removedBgDataUrl) S.matte[i] = r.removedBgDataUrl;   // 매트 캐시
+      S.cutSet[i] = true;
       var wasShown = (S.photoUrl === S.photos[i]);
-      if (!S.origPhotos) S.origPhotos = [];
-      if (S.origPhotos[i] == null) S.origPhotos[i] = S.photos[i];
       S.photos[i] = r.composedDataUrl;
       if (wasShown) { S.photoUrl = r.composedDataUrl; S.photoCss = 'url("' + r.composedDataUrl + '")'; refs.photo.style.backgroundImage = S.photoCss; }
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
-      toastIt('배경을 정리했어요');
-    }).catch(function () { if (refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); } toastIt('배경 제거 실패 — 네트워크를 확인해 주세요'); });
+      if (!silent) toastIt('배경을 정리했어요');
+    }).catch(function () { if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); } if (!silent) toastIt('배경 제거 실패 — 네트워크를 확인해 주세요'); });
   }
+  // 배경(색/이미지) 바뀌면 이미 누끼한 사진들을 캐시 매트로 즉시 재합성(0초).
+  function recutWithBg() { if (!S.cutSet) return; Object.keys(S.cutSet).forEach(function (k) { if (S.cutSet[k]) doCutout(+k, true); }); }
   function undoCutout() {
     var i = S.adjSel; if (!(S.origPhotos && S.origPhotos[i] != null)) { toastIt('되돌릴 원본이 없어요'); return; }
     var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
-    S.photos[i] = orig; S.origPhotos[i] = null;
+    S.photos[i] = orig; if (S.cutSet) S.cutSet[i] = false;
     if (wasShown) { S.photoUrl = orig; S.photoCss = 'url("' + orig + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
     toastIt('원본으로 되돌렸어요');
@@ -850,7 +856,7 @@
         var w = Math.max(1, Math.round(img.width * sc)), h = Math.max(1, Math.round(img.height * sc));
         var cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h);
         try { S.collageBgImg = cv.toDataURL('image/jpeg', 0.85); } catch (_) { S.collageBgImg = rd.result; }
-        saveBgPref(); renderCollage(); applyFit(); toastIt('배경 사진을 정했어요');
+        saveBgPref(); renderCollage(); applyFit(); recutWithBg(); toastIt('배경 사진을 정했어요');
       };
       img.onerror = function () { S.collageBgImg = rd.result; saveBgPref(); renderCollage(); applyFit(); };
       img.src = rd.result;
@@ -1027,7 +1033,7 @@
     refs.panels.layout.addEventListener('click', function (e) {
       var t = e.target.closest('[data-lay]'); if (t) { selectLayout(+t.getAttribute('data-lay')); return; }
       var th = e.target.closest('[data-laythumb]'); if (th) { onLayThumb(+th.getAttribute('data-laythumb')); return; }
-      var bg = e.target.closest('[data-bg]'); if (bg) { S.collageBg = bg.getAttribute('data-bg'); S.collageBgImg = null; saveBgPref(); refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.toggle('on', x === bg); }); renderCollage(); applyFit(); return; }
+      var bg = e.target.closest('[data-bg]'); if (bg) { S.collageBg = bg.getAttribute('data-bg'); S.collageBgImg = null; saveBgPref(); refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.toggle('on', x === bg); }); renderCollage(); applyFit(); recutWithBg(); return; }
       var ft = e.target.closest('[data-fit]'); if (ft) { S.fitMode = ft.getAttribute('data-fit'); refs.layFit.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === ft); }); applyFit(); return; }
     });
     enableDragScroll(refs.layStrip); enableDragScroll(refs.panels.layout.querySelector('.itlay2__types'));
@@ -1053,7 +1059,7 @@
       applyStraighten();
     });
     refs.adjReset.addEventListener('click', function () { S.adj[S.adjSel] = defAdj(); syncAdjSliders(); applyAdjToDisplay(); applyStraighten(); renderAdjust(); });
-    if (refs.adjCut) refs.adjCut.addEventListener('click', doCutout);
+    if (refs.adjCut) refs.adjCut.addEventListener('click', function () { doCutout(); });
     if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     enableDragScroll(refs.adjStrip);
     // 그리기
