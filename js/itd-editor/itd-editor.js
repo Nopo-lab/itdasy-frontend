@@ -536,7 +536,25 @@
     if (!Array.isArray(layers) || !layers.length) return;
     var R = refs.stage.getBoundingClientRect();
     layers.forEach(function (spec) { try { addShopLayer(spec, R); } catch (_) { void _; } });
+    _deOverlapIncoming();   // [#2] 텍스트 길이 무관 — 자동배치 글자/선이 서로 안 겹치게 세로로 벌림
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
+  }
+  // [#2] 자동배치 역할 레이어(시술명/내용/선)가 겹치면 세로로 벌리고, 화면 밖이면 그룹을 위로 당겨 유지.
+  function _deOverlapIncoming() {
+    var R = refs.stage.getBoundingClientRect(); if (!R.height) return;
+    var arr = S.layers.filter(function (L) { return ((L.type === 'text' || L.type === 'badge') && L.role) || (L.type === 'shape' && L.role === 'rule'); });
+    if (arr.length < 2) return;
+    arr.sort(function (a, b) { return a.el.getBoundingClientRect().top - b.el.getBoundingClientRect().top; });
+    var GAP = R.height * 0.010, moved = false;
+    for (var i = 1; i < arr.length; i++) {
+      var pb = arr[i - 1].el.getBoundingClientRect(), cb = arr[i].el.getBoundingClientRect();
+      if (cb.top < pb.bottom + GAP) { arr[i].y += (pb.bottom + GAP) - cb.top; applyXf(arr[i]); moved = true; }
+    }
+    if (moved) {
+      var last = arr[arr.length - 1].el.getBoundingClientRect();
+      var overflow = last.bottom - (R.bottom - R.height * 0.02);
+      if (overflow > 0) arr.forEach(function (L) { L.y -= overflow; applyXf(L); });
+    }
   }
   function syncTextControls(L) {
     root.querySelectorAll('[data-font]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-font') === L.font.key); });
@@ -1149,5 +1167,42 @@
   }
   function close() { if (!root || !root.classList.contains('is-open')) return; _teardownBack(false); root.classList.remove('is-open'); }
 
-  window.ItdEditor = { open: open, close: close, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
+  // [#2 단일화] 헤드리스 합성 — 캡션 미리보기를 '편집기와 동일한 렌더러'로 그린다(미리보기=편집기).
+  //   화면 밖 고정크기로 렌더 → 폰트/줄바꿈/겹침방지까지 편집기와 100% 동일. 편집 중이면 스킵(상태 충돌 방지).
+  // 공유 root/S 를 쓰므로 동시 호출(멀티포토)을 직렬화한다.
+  var _composeQ = Promise.resolve();
+  function compose(opts) { var run = function () { return _composeOne(opts); }; _composeQ = _composeQ.then(run, run); return _composeQ; }
+  function _composeOne(opts) {
+    opts = opts || {};
+    if (!root) build();
+    if (root.classList.contains('is-open')) return Promise.resolve(null);
+    var photo = opts.photoUrl || opts.photo || '';
+    var photos = (opts.photos && opts.photos.length) ? opts.photos.slice() : [photo];
+    var rp = String(opts.ratio || '4:5').split(':'); var rw = +rp[0] || 4, rh = +rp[1] || 5;
+    var Wpx = 432, Hpx = Math.round(Wpx * rh / rw);
+    S = { layers: [], active: null, tool: null, layout: LAYOUTS[0], layoutOrder: [],
+      brush: 'pen', brushSize: 10, drawColor: COLORS[2], shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
+      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3, collageBg: '#FFFFFF', collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'cover',
+      photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos, shopName: '', pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []) };
+    refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
+    refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.filter = ''; refs.photo.style.backgroundSize = 'cover'; refs.photo.style.backgroundColor = 'transparent';
+    refs.collage.hidden = true; refs.collage.innerHTML = ''; refs.photowrap.style.transform = '';
+    // display:flex !important + right/bottom:auto — 베이스 .itded{display:none}·inset:0 와의 충돌 방지(off-screen 0크기 방지).
+    root.style.cssText = 'display:flex !important;position:fixed;left:-99999px;top:0;right:auto;bottom:auto;width:' + Wpx + 'px;height:' + Hpx + 'px;opacity:0;pointer-events:none;z-index:-1';
+    return new Promise(function (res) {
+      var done = false;
+      var fin = function (url) { if (done) return; done = true; root.style.cssText = ''; res(url); };
+      // 폰트 로드를 기다리되 무한대기 방지(최대 500ms). off-screen rAF throttle 회피로 setTimeout 사용.
+      var fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+      Promise.race([fontsReady, new Promise(function (r) { setTimeout(r, 500); })]).then(function () {
+        setTimeout(function () {
+          try { initCanvas(); renderIncoming(S.incoming); } catch (_e) { void _e; }
+          setTimeout(function () { try { exportComposite(fin); } catch (_e2) { fin(null); } }, 40);
+        }, 0);
+      });
+      setTimeout(function () { fin(null); }, 6000);   // 안전망 — 어떤 경우에도 행 방지
+    });
+  }
+
+  window.ItdEditor = { open: open, close: close, compose: compose, isOpen: function () { return !!(root && root.classList.contains('is-open')); } };
 })();

@@ -491,7 +491,10 @@
   function _autoComposeTemplate() {
     try {
       if (d.useShopStyle === false) return;
-      if (!(window.StoryEditor && window.StoryEditor.compose)) return;
+      // [#2 단일화] 미리보기를 편집기와 같은 렌더러(ItdEditor.compose)로. 없으면 StoryEditor 폴백.
+      var _Comp = (window.ITDASY_ITD_EDITOR !== false && window.ItdEditor && window.ItdEditor.compose) ? window.ItdEditor : (window.StoryEditor && window.StoryEditor.compose ? window.StoryEditor : null);
+      if (!_Comp) return;
+      var _isItd = (_Comp === window.ItdEditor);
       var built = _buildShopStyleLayers();
       if (!built.autoArranged) return;
       var hsig = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [];
@@ -506,8 +509,14 @@
         if (p.storyEdited) return;                 // 수동 편집 사진은 그대로
         if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
         p._tplSig = sigBase;
-        jobs.push(window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: _composeFonts(built.layers) })
-          .then(function (url) { if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); } }));   // [#13] 폰트 키→패밀리 변환 후 합성
+        jobs.push(_Comp.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: (_isItd ? built.layers : _composeFonts(built.layers)) })
+          .then(function (url) {
+            if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); return; }
+            // [#2] ItdEditor 합성 실패 시 StoryEditor 폴백(미리보기 빈 화면 방지)
+            if (_isItd && window.StoryEditor && window.StoryEditor.compose) {
+              return window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: _composeFonts(built.layers) }).then(function (u2) { if (u2) { p.tplPreviewUrl = u2; if (p === active) refresh(); } });
+            }
+          }));
       });
       if (jobs.length) Promise.all(jobs).then(refresh);   // 나머지까지 완료되면 최종 갱신
     } catch (_e) { void _e; }
