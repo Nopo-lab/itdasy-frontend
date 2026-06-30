@@ -219,12 +219,13 @@
   //   오버레이에 고객명이 박히는 것 방지. "김민지 고객/고객님" 또는 이름+님(원장님·실장님 등 호칭 제외)을 떼어낸다.
   function _extractCustomer(svc) {
     var out = String(svc || ''), name = '';
+    // [#1] 이름 아닌 일반 수식어가 '고객/님' 앞에 오면 고객명으로 오인 금지(예: "남성 고객", "단골 손님").
+    var CUST_BLOCK = /^(원장|선생|사장|대표|점장|실장|디자이너|고객|손님|남성|여성|남자|여자|남|여|단골|신규|기존|첫|재방문|소개|단체|커플|모녀|자매|학생|직장인|주부|신부|예민|민감|약해진)$/;
     var m = out.match(/([가-힣A-Za-z]{1,12}?)\s*고객님?/);
-    if (m) { name = m[1]; out = out.replace(m[0], ' '); }
+    if (m && !CUST_BLOCK.test(m[1])) { name = m[1]; out = out.replace(m[0], ' '); }
     else {
-      var BLOCK = /^(원장|선생|사장|대표|점장|실장|디자이너|고객|손님)$/;
       var m2 = out.match(/([가-힣]{2,4})\s*님(?=\s|$|[,·、])/);
-      if (m2 && !BLOCK.test(m2[1])) { name = m2[1]; out = out.replace(m2[0], ' '); }
+      if (m2 && !CUST_BLOCK.test(m2[1])) { name = m2[1]; out = out.replace(m2[0], ' '); }
     }
     return { service: out.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim(), customer: name };
   }

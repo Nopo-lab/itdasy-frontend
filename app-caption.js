@@ -1352,20 +1352,22 @@ function _cleanShopName(raw) {
 function _parseShopCustomer(text) {
   const t = String(text || '');
   let shop = '', customer = '';
-  const cm = t.match(/([가-힣]{2,4})\s*고객님/);
-  if (cm) customer = cm[1];
+  const _CUST_BLOCK = /^(원장|선생|사장|대표|점장|실장|디자이너|고객|손님|남성|여성|남자|여자|남|여|단골|신규|기존|첫|재방문|소개|단체|커플|모녀|자매|학생|직장인|주부|신부|예민|민감|약해진)$/;
+  const cm = t.match(/([가-힣]{2,4})\s*고객님?/);   // [v611] '고객'만 써도(님 생략) 인식 + 일반 수식어 차단
+  if (cm && !_CUST_BLOCK.test(cm[1])) customer = cm[1];
   // '우리샵은 X' / '저희샵은 X' / '샵은 X' / '샵이름은 X' / '샵: X' — 명사+copula 를 greedy 로 잡고 copula 분리.
-  const sm = t.match(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*([가-힣A-Za-z0-9]{1,14})/);
+  const sm = t.match(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*([가-힣A-Za-z0-9]{1,14}(?:네일샵|헤어샵|뷰티샵|샵)?)/);
   if (sm && sm[1]) shop = _cleanShopName(sm[1]);
   if (!shop) {
-    const sm2 = t.match(/([가-힣A-Za-z0-9]{2,10})\s*샵(?:이야|입니다|이에요|예요)?(?:\.|,|$|\s)/);
-    if (sm2 && sm2[1] && sm2[1] !== '우리' && sm2[1] !== '저희') shop = sm2[1];
+    // [v611] 샵 접미사를 '캡처 그룹 안'에 포함 — "강연준네일샵"이 "강연준네일"로 잘리던 버그 수정.
+    const sm2 = t.match(/(?:^|[\s,·、])([가-힣A-Za-z0-9]{2,14}(?:네일샵|헤어샵|뷰티샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵))(?:이야|입니다|이에요|예요)?(?=[\s,.·、]|$)/);
+    if (sm2 && sm2[1] && !/^(우리|저희)샵$/.test(sm2[1])) shop = sm2[1];
   }
   // cleaned: 고객/샵 구문 제거 → 순수 시술 키워드만 남김
   const cleaned = t
-    .replace(/([가-힣]{2,4})\s*고객님(이고|이라고|이며|이고요|입니다|예요|이에요|,)?/g, ' ')
-    .replace(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*[가-힣A-Za-z0-9]{1,12}(?:이야|이에요|예요|입니다|이고|야|고)?/g, ' ')
-    .replace(/[가-힣A-Za-z0-9]{2,10}\s*샵(?:이야|입니다|이에요|예요)?/g, ' ')
+    .replace(/([가-힣]{2,4})\s*고객님?(이고|이라고|이며|이고요|입니다|예요|이에요|,)?/g, ' ')
+    .replace(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*[가-힣A-Za-z0-9]{1,14}(?:네일샵|헤어샵|뷰티샵|샵)?(?:이야|이에요|예요|입니다|이고|야|고)?/g, ' ')
+    .replace(/[가-힣A-Za-z0-9]{2,14}(?:네일샵|헤어샵|뷰티샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵)(?:이야|입니다|이에요|예요)?/g, ' ')
     .replace(/\s{2,}/g, ' ').replace(/^[\s,.]+|[\s,.]+$/g, '').trim();
   return { shop, customer, cleaned };
 }
@@ -1402,10 +1404,15 @@ window.CaptionEngine = {
     //  (photo_context 에도 이미 prepend 되지만, 백엔드가 photo_context 만 보고 service 를 흘리는 경로 대비)
     const _svc = String(opts.service || '').trim();
     if (_svc) payload.service = _svc;
-    // [v568·A-2] 입력에서 샵명/고객명 파싱 → 분리 전달(결합오류 방지). 시술 키워드는 cleaned 로 정리.
+    // [v611] 샵/고객은 flow(_cleanService, v610)가 이미 정확히 분리해 opts 로 넘긴다 → 그 값을 신뢰.
+    //   opts 에 없을 때만 자체 _parseShopCustomer 폴백(레거시 직접 호출 대비). 샵 접미사('샵') 보존.
     const _sc = _parseShopCustomer([opts.service, opts.treatment_keyword].filter(Boolean).join(' '));
-    if (_sc.shop) payload.shop_name = _sc.shop.slice(0, 40);
-    if (_sc.customer) payload.customer_name = _sc.customer.slice(0, 20);
+    const _shopFinal = (opts.shop_name && String(opts.shop_name).trim()) || _sc.shop;
+    const _custFinal = (opts.customer_name && String(opts.customer_name).trim()) || _sc.customer;
+    if (_shopFinal) payload.shop_name = String(_shopFinal).slice(0, 40);
+    if (_custFinal) payload.customer_name = String(_custFinal).slice(0, 20);
+    // [v611] 샵 이름을 LLM 이 줄이지 않게 — extra_notes 로 '정확히 이 상호로 표기' 명시("강연준네일"→"강연준네일샵").
+    if (_shopFinal) opts.extra_notes = ('샵 이름은 반드시 "' + _shopFinal + '" 전체로 정확히 표기(줄이거나 "샵" 빼지 말 것). ' + String(opts.extra_notes || '')).slice(0, 300);
     // [다중pair·Step5] 사용자 강조 표현은 extra_notes 채널로 전달 — 백엔드 GenerateRequest.extra_notes 가
     //  '특이사항은 그대로 복붙하지 말고 문맥에 맞게 자연스럽게 녹여달라'로 처리 → 구어/감정 표현(예: '개오바 얼굴')
     //  박제 방지 + 의미 반영. 백엔드 제한(max 300자)에 맞춰 캡.
@@ -1415,7 +1422,9 @@ window.CaptionEngine = {
     //   주입하고 caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과 차단.
     // [v568·A-2] 샵/고객을 파싱했으면 시술 키워드는 그 둘을 뺀 cleaned 사용(샵명/고객명이 시술명으로 새는 것 방지).
     if (_svc) {
-      const _tk = (_sc.shop || _sc.customer) ? (_sc.cleaned || _svc) : (opts.treatment_keyword || _svc);
+      // [v611] flow 가 넘긴 treatment_keyword(샵·고객 제거된 cleaned)를 최우선 신뢰.
+      const _tk = (opts.treatment_keyword && String(opts.treatment_keyword).trim())
+        || ((_sc.shop || _sc.customer) ? (_sc.cleaned || _svc) : _svc);
       payload.treatment_keyword = String(_tk).slice(0, 80);
     }
     if (opts.content_type) payload.content_type = String(opts.content_type).slice(0, 32);
