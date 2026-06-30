@@ -101,6 +101,10 @@
       '</div>' +
       '<div class="itded__top">' +
         '<button class="itded__ic" data-r="cancel" aria-label="닫기">' + IC.x + '</button>' +
+        '<div class="itded__hist">' +
+          '<button class="itded__ic" data-r="undo" aria-label="되돌리기" disabled>' + svg('<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-7.8L3 7"/>', 2.1) + '</button>' +
+          '<button class="itded__ic" data-r="redo" aria-label="다시 실행" disabled>' + svg('<path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-2.6-7.8L21 7"/>', 2.1) + '</button>' +
+        '</div>' +
         '<button class="itded__done" data-r="done">완료</button>' +
       '</div>' +
       '<div class="itded__rail" data-r="rail">' +
@@ -248,7 +252,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -278,11 +282,13 @@
   function makeLayer(type) {
     var box = el('div', 'itl');
     box.innerHTML = '<button class="itl__del">' + svg('<path d="M18 6L6 18M6 6l12 12"/>', 2.4) + '</button>' +
+      '<button class="itl__dup" aria-label="복제">' + svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>', 2.1) + '</button>' +
       '<button class="itl__rot">' + svg('<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>', 2.2) + '</button>' +
       '<button class="itl__rs">' + IC.rs + '</button>';
     var L = { type: type, el: box, x: 0, y: 0, scale: 1, rot: 0 };
     box.addEventListener('pointerdown', function (e) { onLayerDown(e, L); });
-    box.querySelector('.itl__del').addEventListener('click', function (e) { e.stopPropagation(); removeLayer(L); });
+    box.querySelector('.itl__del').addEventListener('click', function (e) { e.stopPropagation(); removeLayer(L, true); });
+    box.querySelector('.itl__dup').addEventListener('click', function (e) { e.stopPropagation(); duplicateLayer(L); });
     box.querySelector('.itl__rot').addEventListener('pointerdown', function (e) { onRotDown(e, L); });
     box.querySelector('.itl__rs').addEventListener('pointerdown', function (e) { onRsDown(e, L); });
     refs.layers.appendChild(box);
@@ -321,9 +327,34 @@
     S.layers.forEach(function (x) { x.el.classList.toggle('is-active', x === L); });
     if (L && L.type === 'text') syncTextControls(L);
   }
-  function removeLayer(L) {
+  function removeLayer(L, track) {
     var i = S.layers.indexOf(L); if (i >= 0) S.layers.splice(i, 1);
     L.el.remove(); if (S.active === L) S.active = null;
+    if (track) _pushOp({ op: 'del', L: L, idx: i });   // [P1-3] 실수 삭제 되돌리기
+  }
+  // [P1-3] 구조적 undo/redo — 추가/삭제/복제만 추적(실제 DOM 노드 보존, 재생성 안 함 → 안전).
+  //   이동·색변경 등 속성 변화는 드래그로 쉽게 재조정 가능하므로 제외. 가장 치명적인 '실수 삭제'를 확실히 커버.
+  function _pushOp(op) { if (!S.undo) S.undo = []; S.undo.push(op); S.redo = []; if (S.undo.length > 40) S.undo.shift(); _syncHist(); }
+  function _applyInverse(op, undo) {
+    var add = (op.op === 'add') === undo;   // undo: add→제거, del→복원 / redo: 반대
+    if (add) { if (refs.layers && op.L.el) refs.layers.appendChild(op.L.el); if (S.layers.indexOf(op.L) < 0) { var at = (op.idx != null && op.idx <= S.layers.length) ? op.idx : S.layers.length; S.layers.splice(at, 0, op.L); } selectLayer(op.L); }
+    else { var i = S.layers.indexOf(op.L); if (i >= 0) S.layers.splice(i, 1); op.L.el.remove(); if (S.active === op.L) S.active = null; }
+  }
+  function _undo() { if (!S.undo || !S.undo.length) return; var op = S.undo.pop(); _applyInverse(op, true); S.redo = S.redo || []; S.redo.push(op); _syncHist(); }
+  function _redo() { if (!S.redo || !S.redo.length) return; var op = S.redo.pop(); _applyInverse(op, false); S.undo = S.undo || []; S.undo.push(op); _syncHist(); }
+  function _syncHist() {
+    if (refs.undo) refs.undo.disabled = !(S.undo && S.undo.length);
+    if (refs.redo) refs.redo.disabled = !(S.redo && S.redo.length);
+  }
+  // [P1-3] 선택 레이어 복제 — 내용 DOM 노드를 그대로 복제(스타일 보존) + 데이터 복사, 18px 오프셋.
+  function duplicateLayer(L) {
+    if (!L) L = S.active; if (!L) return;
+    var c = makeLayer(L.type);
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'thick', 'fontSizePx'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
+    c.x = (L.x || 0) + 18; c.y = (L.y || 0) + 18; c.scale = L.scale || 1; c.rot = L.rot || 0;
+    applyXf(c); selectLayer(c);
+    _pushOp({ op: 'add', L: c });
   }
   var drag = null, lpinch = null;
   function onLayerDown(e, L) {
@@ -417,6 +448,7 @@
     var t = el('div', 'itl-text'); t.textContent = L.text; t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px';
     L.el.appendChild(t); L.tx = t;
     placeCenter(L, 180, 50); selectLayer(L);
+    _pushOp({ op: 'add', L: L });   // [P1-3] 추가 되돌리기
     setTimeout(function () { editText(L); }, 30);
     return L;
   }
@@ -522,7 +554,7 @@
   function addSticker(emoji) {
     var L = makeLayer('sticker'); L.emoji = emoji; L.fontSize = 64;
     var s = el('div', 'itl-sticker'); s.textContent = emoji; L.el.appendChild(s); L.tx = s;
-    placeCenter(L, 64, 64); selectLayer(L);
+    placeCenter(L, 64, 64); selectLayer(L); _pushOp({ op: 'add', L: L });
     closeStickerSheet();   // [②] 스티커 하나 고르면 하단 시트 내려가고 사진 위에서 바로 배치
   }
   // [③] 우리샵 피처 칩(위치/예약/가격/시간) — 탭하면 텍스트 레이어로 사진 위에 올림(클릭 동작).
@@ -541,7 +573,7 @@
     var css = 'font-family:' + L.font.family + ';font-weight:800;color:' + m.color + ';text-align:center;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.4)';
     if (m.accent) { css += ';background:linear-gradient(135deg,#D58A95,#BC6675);padding:8px 18px;border-radius:999px;text-shadow:none'; L.badge = true; }
     t.style.cssText = css; L.el.appendChild(t); L.tx = t;
-    placeCenter(L, 150, 46); selectLayer(L);
+    placeCenter(L, 150, 46); selectLayer(L); _pushOp({ op: 'add', L: L });
     closeStickerSheet();
   }
   // [②] 스티커 시트 닫기 — 도구 비활성(사진 위에서 바로 만지도록). 닫아도 우측 레일은 그대로.
@@ -561,7 +593,7 @@
     L.el.appendChild(im); L.tx = im;
     var place = function () { placeCenter(L, L.el.offsetWidth || 120, L.el.offsetHeight || 120); };
     if (im.complete && im.naturalWidth) place(); else im.onload = place;
-    place(); selectLayer(L); closeStickerSheet();
+    place(); selectLayer(L); _pushOp({ op: 'add', L: L }); closeStickerSheet();
   }
   function loadMyStk() { try { return JSON.parse(localStorage.getItem(STK_KEY) || '[]'); } catch (_) { return []; } }
   function saveMyStk(arr) { try { localStorage.setItem(STK_KEY, JSON.stringify(arr.slice(-30))); } catch (_) { void _; } }
@@ -1066,6 +1098,8 @@
     refs.stage.addEventListener('pointercancel', stageUp);
     // 닫기/완료
     refs.cancel.addEventListener('click', function () { close(); if (S && S.onCancel) S.onCancel(); });
+    if (refs.undo) refs.undo.addEventListener('click', function () { _undo(); });   // [P1-3]
+    if (refs.redo) refs.redo.addEventListener('click', function () { _redo(); });
     refs.done.addEventListener('click', function () {
       var cb = S.onDone; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
       exportComposite(function (url) {
@@ -1106,7 +1140,7 @@
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
       collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: (loadBgPref().img || null), cellCrop: [], cellSel: -1, fitMode: 'contain',
-      ratio: (opts.ratio || '4:5'),
+      ratio: (opts.ratio || '4:5'), undo: [], redo: [],
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
