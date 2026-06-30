@@ -213,33 +213,7 @@
 	    }).catch(function (e) { console.warn('[wsadapter] template', e); return { ok: false, reason: 'template', toast: '템플릿 적용에 실패했어요' }; });
 	  }
 
-  // PhotoEditor 직접 호출(구 slot 팝업 우회). onSave(dataUrl) 로 editedDataUrl 회수.
-  function _openEditor(photo, tab, ctx) {
-    ctx = ctx || {};
-    if (!(window.PhotoEditor && has(window.PhotoEditor.open))) { toast('편집기를 불러오지 못했어요'); return { ok: false, reason: 'no_editor' }; }
-    var src = photo && (photo.editedDataUrl || photo.dataUrl);
-    if (!src) { toast('편집할 사진이 없어요'); return { ok: false, reason: 'no_photo' }; }
-    var opening = {
-      src: src,
-      initial_tab: tab || 'beauty',
-      inline: false,
-      customer_name: ctx.customerName || '',
-      onSave: function (dataUrl) {
-        if (dataUrl && photo) { photo.editedDataUrl = dataUrl; photo.mode = 'enhanced'; }
-        if (has(ctx.onSaved)) ctx.onSaved(dataUrl);
-      },
-    };
-    if (ctx.initialState) opening.initialState = ctx.initialState;
-    window.PhotoEditor.open(opening);
-    return { ok: true };
-  }
-
   var WorkspaceAdapter = {
-    // 보정 / 누끼 / 템플릿 — 전부 모던 PhotoEditor 의 해당 탭으로
-    openRetouch: function (photo, ctx) { return _openEditor(photo, 'beauty', ctx); },
-    openRemoveBg: function (photo, ctx) { return _openEditor(photo, 'bg', ctx); },
-    openTemplate: function (photo, ctx) { return _openEditor(photo, 'template', ctx); },
-
     // 크롭 — V2 전용 모달(WorkspaceCrop). PhotoEditor 코어 미수정.
     openCrop: function (opts) {
       if (!(window.WorkspaceCrop && has(window.WorkspaceCrop.open))) { toast('크롭 모듈을 불러오지 못했어요'); return { ok: false, reason: 'no_crop' }; }
@@ -417,14 +391,6 @@
 	      return { connected: connected, next: connected ? 'publish' : 'prepare' };
 	    },
 	    instagramProfile: _igProfile,
-    // 실제 업로드(연결+확인 시에만 호출). 기존 doPublishFromCaption/doActualPublish 재사용.
-	    publishInstagram: function (slot) {
-	      if (!_igProfile().connected) { return Promise.resolve({ ok: false, reason: 'not_connected' }); }
-      try { if (slot && slot.id) window._captionSlotId = slot.id; } catch (_e) { /* ignore */ }
-      if (has(window.doPublishFromCaption)) { return Promise.resolve(window.doPublishFromCaption()).then(function () { return { ok: true }; }).catch(function (e) { return { ok: false, reason: 'api', error: String(e) }; }); }
-      if (has(window.doActualPublish)) { return Promise.resolve(window.doActualPublish()).then(function () { return { ok: true }; }).catch(function (e) { return { ok: false, reason: 'api', error: String(e) }; }); }
-      return Promise.resolve({ ok: false, reason: 'no_publish_fn' });
-    },
     // [Phase 5-2] V2 전용 실게시 — 레거시 baCanvas/previewFinalCaption/_captionSlotId 의존 제거.
     //  저장된 slot 의 이미지(dataUrl)→blob→/instagram/publish-file. 서버 200 + body 성공마커 확인 시에만 ok.
     //  성공 애매(200이나 마커 없음) → reason:'ambiguous' (호출부에서 게시 준비까지만 처리).
