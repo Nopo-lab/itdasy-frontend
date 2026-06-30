@@ -138,6 +138,7 @@
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
     }).join('');
     return '<div class="itpanel ittext is-open" data-panel="text">' +
+        '<button type="button" class="ittext__add" data-r="addText">' + svg('<path d="M12 5v14M5 12h14"/>', 2.3) + ' 글자 추가</button>' +
         '<div class="ittext__top">' +
           '<span class="italn" data-r="aln">' +
             '<button data-aln="left" class="on">' + IC.alnL + '</button>' +
@@ -253,7 +254,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -888,7 +889,15 @@
       if (wasShown) { S.photoUrl = r.composedDataUrl; S.photoCss = 'url("' + r.composedDataUrl + '")'; refs.photo.style.backgroundImage = S.photoCss; }
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
       if (!silent) toastIt('배경을 정리했어요');
-    }).catch(function () { if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); } if (!silent) toastIt('배경 제거 실패 — 네트워크를 확인해 주세요'); });
+    }).catch(function (e) {
+      if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
+      // [#2] 실패 사유를 사람말로 — 한도(429)·로그인·네트워크 구분(무엇이 막혔는지 보이게).
+      var msg = String((e && e.message) || e || '');
+      var human = /한도|429/.test(msg) ? msg
+        : /401|auth|로그인/.test(msg) ? '로그인이 필요해요(누끼는 서버 처리예요)'
+        : '배경 제거에 실패했어요 — 네트워크/한도를 확인해 주세요';
+      if (!silent) toastIt(human);
+    });
   }
   // 배경(색/이미지) 바뀌면 이미 누끼한 사진들을 캐시 매트로 즉시 재합성(0초).
   function recutWithBg() { if (!S.cutSet) return; Object.keys(S.cutSet).forEach(function (k) { if (S.cutSet[k]) doCutout(+k, true); }); }
@@ -1155,6 +1164,7 @@
     if (refs.undo) refs.undo.addEventListener('click', function () { _undo(); });   // [P1-3]
     if (refs.redo) refs.redo.addEventListener('click', function () { _redo(); });
     if (refs.peek) refs.peek.addEventListener('click', function () { togglePeek(); });   // [P2-2]
+    if (refs.addText) refs.addText.addEventListener('click', function () { addText(); });   // [#4] 글자 추가(항상 새 텍스트)
     refs.done.addEventListener('click', function () {
       var cb = S.onDone; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
       exportComposite(function (url) {

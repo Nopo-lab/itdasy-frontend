@@ -1552,7 +1552,8 @@
 	        var _bkLayer = (_ss && _ss.layers || []).filter(function (L) { return L.role === 'title'; })[0] || {};
 	        var _bkColors = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
 	        var _bkFonts = [{ k: 'black', l: '또렷' }, { k: 'jua', l: '동글' }, { k: 'gothica1', l: '깔끔' }, { k: 'songmyung', l: '단정' }, { k: 'dodum', l: '도톰' }, { k: 'gaegu', l: '손글씨' }];
-	        var _brandKit = (_useStyle && _ss && !d.textOnly) ? (
+	        var _brandKit = '';   // [#3] 캡션 생성 화면에서 '디자인·업종'(추천조합/업종) 패널 제거 — 디자인은 편집기에서.
+	        var _brandKitOld = (_useStyle && _ss && !d.textOnly) ? (
 	          '<details class="cap-bk"><summary><i class="ph-duotone ph-stamp"></i> 디자인·업종 <em>추천 조합 · 업종 설정</em></summary>' +
 	            '<div class="cap-bk__body">' +
 	            '<div class="cap-bk__row cap-bk__row--harmony"><span class="cap-bk__lbl">추천 조합</span><div class="cap-harm">' +
@@ -1565,7 +1566,7 @@
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
 	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
 	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>' + '<button type="button" class="cap-autopretty" data-fl-autopretty><i class="ph-duotone ph-magic-wand"></i> 알아서 예쁘게</button>' + _ssPick + _ssPreset + _brandKit +
+	          '</div>' + _ssPick + _ssPreset + _brandKit +   // [#3] '알아서 예쁘게'(디자인)도 캡션 생성 화면서 제거 — 편집기에서
           ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
@@ -2014,6 +2015,9 @@
 	    return { shop: shop, customer: customer, service: c.service || raw };
 	  }
 	  function _capConfirmHtml() {
+	    return '';   // [#3] 캡션 생성 화면에서 '검증(확인칩)' 제거 — 샵 파싱이 자동(#1)이라 불필요. 오버라이드 로직은 doGenerate 에 유지.
+	  }
+	  function _capConfirmHtmlOld() {
 	    if (!String(d.service || '').trim()) return '<div class="cap-confirm" data-fl-confirm hidden></div>';
 	    var p = _capParseService();
 	    var chip = function (kind, ic, lbl, val) {
