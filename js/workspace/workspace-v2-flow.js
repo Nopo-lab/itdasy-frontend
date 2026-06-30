@@ -510,11 +510,19 @@
       if (jobs.length) Promise.all(jobs).then(refresh);   // 나머지까지 완료되면 최종 갱신
     } catch (_e) { void _e; }
   }
+  // [#5] 텍스트/편집을 '지금 캐러셀에서 보고 있는 장'에 적용 — 보던 사진을 편집·저장(다중 사진서 장 선택).
+  function _activeEditPhoto() {
+    if (d && d.activeDisplayId) {
+      var ph = (d.photos || []).filter(function (p) { return p.id === d.activeDisplayId; })[0];
+      if (ph) return ph;
+    }
+    return curPhoto();
+  }
   function _openStoryEditor() {
     // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
     var Editor = window.ItdEditor;
     if (!(Editor && Editor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
-    var p0 = curPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;
+    var p0 = _activeEditPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;   // [#5] 보고 있는 장
     var photo = _cleanBase(p0) || outputUrl();   // [v587] 편집기는 항상 깨끗한 원본 위에서 시작(이중 합성 방지)
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
@@ -528,7 +536,7 @@
       layers: layers,
       autoArranged: autoArranged,
       onDone: function (dataUrl, meta) {
-        var p = curPhoto();
+        var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
         d.previewUrl = null;
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
