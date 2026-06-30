@@ -277,6 +277,22 @@
       toast('우리샵 폰트를 바꿨어요'); setScreen('caption');
     } catch (_e) { void _e; }
   }
+  // [P2-3] 색·폰트 어울림 조합 — 제목/본문 폰트 + 글자색을 역할별로 한 번에 적용(어울리게 큐레이션).
+  function _applyHarmony(key) {
+    try {
+      var h = (window.WSHarmony || []).filter(function (x) { return x.key === key; })[0]; if (!h) return;
+      var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
+      var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
+      var layers = ss.layers.map(function (L) {
+        if (L.role === 'title') return Object.assign({}, L, { font: h.titleFont, color: h.color });
+        if (L.role === 'sub' || L.role === 'body' || L.role === 'hashtag') return Object.assign({}, L, { font: h.bodyFont, color: h.sub || h.color });
+        return L;
+      });
+      SS.save(ss.id, { layers: layers });
+      (d.photos || []).forEach(function (p) { p._tplSig = null; });
+      toast('어울리는 조합을 적용했어요'); setScreen('caption');
+    } catch (_e) { void _e; }
+  }
   // [#6 브랜드킷] 로고 등록/제거 — 활성 스타일에 저장하면 _buildShopStyleLayers 가 모든 게시물에 자동 합성.
   function _setBrandLogo(dataUrl) {
     try {
@@ -1512,6 +1528,8 @@
 	        var _brandKit = (_useStyle && _ss && !d.textOnly) ? (
 	          '<details class="cap-bk"><summary><i class="ph-duotone ph-stamp"></i> 브랜드킷 <em>한 번 등록하면 모든 게시물에 자동</em></summary>' +
 	            '<div class="cap-bk__body">' +
+	            '<div class="cap-bk__row cap-bk__row--harmony"><span class="cap-bk__lbl">추천 조합</span><div class="cap-harm">' +
+	            (window.WSHarmony || []).map(function (h) { return '<button type="button" class="cap-harm__c" data-fl-harmony="' + h.key + '" title="' + esc(h.label) + '"><span class="cap-harm__sw">' + (h.sw || []).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span><span class="cap-harm__l">' + esc(h.label) + '</span></button>'; }).join('') + '</div></div>' +
 	              '<div class="cap-bk__row"><span class="cap-bk__lbl">로고</span>' +
 	                (_ss.logo && _ss.logo.dataUrl ? '<img class="cap-bk__logo" src="' + esc(_ss.logo.dataUrl) + '" alt=""><button type="button" class="cap-bk__clear" data-fl-logoclear>빼기</button>' : '') +
 	                '<label class="cap-bk__add"><i class="ph-duotone ph-upload-simple"></i>' + (_ss.logo && _ss.logo.dataUrl ? '바꾸기' : '등록') + '<input type="file" accept="image/*" data-fl-logoadd hidden></label></div>' +
@@ -2308,6 +2326,7 @@
       var pcp = t.closest('[data-fl-presetcopy]'); if (pcp) { _copyPreset(pcp.getAttribute('data-fl-presetcopy')); return; }   // [#7] 복사해서 수정
       var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
       var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
+      var hm = t.closest('[data-fl-harmony]'); if (hm) { syncServiceFromDom(); _applyHarmony(hm.getAttribute('data-fl-harmony')); return; }   // [P2-3] 색·폰트 어울림 조합
       var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
       var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
