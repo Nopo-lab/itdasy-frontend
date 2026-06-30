@@ -375,14 +375,16 @@
       { role: 'title', x: 0.10, y: 0.46, w: 0.80, size: 0.072, weight: 400, font: 'pen', color: '#ffffff', align: 'center', lineHeight: 1.18, shadow: { on: true } },
       { role: 'body', x: 0.12, y: 0.55, w: 0.76, size: 0.028, weight: 500, font: 'dodum', color: '#ffffff', align: 'center', opacity: 0.92, shadow: { on: true } }
     ];
-    if (key === 'G') return [   // 하단 + 예약칩(CTA)
-      { role: 'title', x: 0.07, y: 0.835, w: 0.82, size: 0.058, weight: 800, font: 'gothica1', color: '#ffffff', align: 'left', lineHeight: 1.1, shadow: { on: true } },
-      { role: 'body', x: 0.07, y: 0.888, w: 0.82, size: 0.030, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', opacity: 0.95, shadow: { on: true } },
-      { type: 'badge', text: '예약 DM', x: 0.07, y: 0.945, w: 0.22, size: 0.026, bg: '#BC6675', color: '#ffffff', font: 'dodum', align: 'left' }
+    if (key === 'G') return [   // 하단 반투명 패널 + 예약칩(CTA) — 면 위 텍스트로 또렷하게
+      { type: 'rect', x: 0.0, y: 0.80, w: 1.0, h: 0.20, color: 'rgba(18,14,16,.40)', radius: 0, role: 'panel' },
+      { role: 'title', x: 0.07, y: 0.825, w: 0.82, size: 0.058, weight: 800, font: 'gothica1', color: '#ffffff', align: 'left', lineHeight: 1.1 },
+      { role: 'body', x: 0.07, y: 0.880, w: 0.62, size: 0.030, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', opacity: 0.95 },
+      { type: 'badge', text: '예약 DM', x: 0.72, y: 0.875, w: 0.21, size: 0.026, bg: '#BC6675', color: '#ffffff', font: 'dodum', align: 'center' }
     ];
-    return [   // A 좌하단 밑줄(임팩트)
+    return [   // A 좌하단 밑줄(임팩트) + 로즈 악센트 면(선+면 조합)
+      { type: 'rect', x: 0.072, y: 0.745, w: 0.055, h: 0.028, color: '#BC6675', radius: 5, role: 'accent' },
       { role: 'title', x: 0.07, y: 0.795, w: 0.82, size: 0.068, weight: 800, font: 'black', color: '#ffffff', align: 'left', letterSpacing: -0.01, lineHeight: 1.06, shadow: { on: true } },
-      { type: 'line', x: 0.072, y: 0.857, w: 0.15, size: 0.006, color: '#ffffff' },
+      { type: 'line', x: 0.072, y: 0.857, w: 0.15, size: 0.006, color: '#BC6675' },
       { role: 'body', x: 0.072, y: 0.902, w: 0.82, size: 0.033, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', letterSpacing: 0.01, lineHeight: 1.45, opacity: 0.95, shadow: { on: true } }
     ];
   }
@@ -451,6 +453,7 @@
         if (L.enabled === false) return;
         // [#14] 구분선 등 비-텍스트 데코는 텍스트 없이 그대로 통과(좌상단x→중앙x 변환, 클램프 없음).
         if (L.type === 'line') { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.1) / 2 : 0.5) })); return; }
+        if (L.type === 'rect') { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.8) / 2 : 0.5) })); return; }   // [#1] 채움 면(패널/악센트)
         // 고정 텍스트 배지(예: '예약 DM') — 역할 텍스트가 아니라 자체 text 그대로.
         if (L.type === 'badge' && L.text) { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.2) / 2 : 0.5) })); return; }
         var text = (L.role === 'hashtag') ? hashText : roleText[L.role];

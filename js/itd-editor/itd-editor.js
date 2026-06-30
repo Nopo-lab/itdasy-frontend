@@ -478,6 +478,7 @@
   function addShopLayer(spec, R) {
     if (spec.type === 'image') return addShopImage(spec, R);
     if (spec.type === 'line') return addShopLine(spec, R);
+    if (spec.type === 'rect') return addShopRect(spec, R);
     var isBadge = spec.type === 'badge';
     var L = makeLayer(isBadge ? 'badge' : 'text');
     L.role = spec.role || '';
@@ -511,6 +512,20 @@
     var bh = Math.max(L.strokeW, 22);
     L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
     L.y = (spec.y != null ? spec.y : 0.88) * R.height - bh / 2;
+    applyXf(L);
+    return L;
+  }
+  // [#1] 채움 '면'(반투명 패널/악센트 블록) — 텍스트 뒤 가독성·디자인용. 색은 rgba 권장(반투명).
+  function addShopRect(spec, R) {
+    var L = makeLayer('shape'); L.shape = (spec.shape === 'rect' ? 'rect' : 'round'); L.fill = true;
+    L.color = spec.color || 'rgba(20,16,18,.30)'; L.role = spec.role || 'panel'; L.rot = spec.rot || 0;
+    var w = Math.round((spec.w != null ? spec.w : 0.8) * R.width);
+    var h = Math.round((spec.h != null ? spec.h : 0.12) * R.height);
+    var d = el('div', 'itl-shape');
+    d.style.cssText = 'box-sizing:border-box;width:' + w + 'px;height:' + h + 'px;background:' + L.color + ';border-radius:' + (spec.radius != null ? spec.radius : 16) + 'px';
+    L.el.appendChild(d); L.tx = d;
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
+    L.y = (spec.y != null ? spec.y : 0.85) * R.height - h / 2;
     applyXf(L);
     return L;
   }
