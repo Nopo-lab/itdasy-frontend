@@ -276,6 +276,7 @@
         '<span class="itlay2__fit" data-r="layFit"><button data-fit="cover" class="on">꽉 채움</button><button data-fit="contain">전체</button></span>' +
         '<span class="itlay2__gap">간격<input type="range" min="0" max="24" step="1" value="3" data-r="layGap"></span>' +
         '<span class="itlay2__bg">' + bg + '</span>' +
+        '<label class="itlay2__add itlay2__bgimg">' + IC.addphoto + '배경<input type="file" accept="image/*" data-r="layBgImg" hidden></label>' +
         '<label class="itlay2__add">' + IC.addphoto + '사진<input type="file" accept="image/*" data-r="layAdd" hidden></label>' +
       '</div>' +
     '</div>';
@@ -297,7 +298,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'layFit'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'layFit', 'layBgImg'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -721,7 +722,7 @@
       else cells += '<div class="itded__cell itded__cell--empty">' + (k + 1) + '번<br>' + pos[k] + '</div>';
     }
     refs.collage.style.gap = (S.collageGap != null ? S.collageGap : 3) + 'px';
-    refs.collage.style.background = S.collageBg || '#fff';
+    refs.collage.style.background = S.collageBgImg ? ('center/cover no-repeat url("' + S.collageBgImg + '")') : (S.collageBg || '#fff');
     refs.collage.innerHTML = cells; refs.collage.hidden = false;
   }
   // [#5] 꽉 채움(cover)/전체(contain) — 풀 사진이 잘리지 않게 '전체'면 여백에 배경색.
@@ -798,13 +799,17 @@
     if ((S.layout.kind || 'single') === 'single') { S.photoUrl = S.photos[i]; S.photoCss = 'url("' + S.photos[i] + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     applyAdjToDisplay(); applyStraighten(); renderAdjust();
   }
-  // [누끼] 선택 사진 배경 제거 → 흰 배경 합성으로 교체(원본 보관). 서버/imgly 엔진(PhotoEditorBgCompose).
+  // [#4] 배경 선호(색/이미지) 기억 — 다음에도 같은 배경.
+  function loadBgPref() { try { return JSON.parse(localStorage.getItem('itdasy:itd_bg') || '{}'); } catch (_) { return {}; } }
+  function saveBgPref() { try { localStorage.setItem('itdasy:itd_bg', JSON.stringify({ color: S.collageBg, img: S.collageBgImg || null })); } catch (_) { void _; } }
+  // [누끼] 선택 사진 배경 제거 → '고른 배경'(색 또는 업로드 이미지)으로 합성 교체(원본 보관).
   function doCutout() {
     if (!(window.PhotoEditorBgCompose && window.PhotoEditorBgCompose.compose)) { toastIt('배경 제거 모듈을 불러오지 못했어요'); return; }
     var i = S.adjSel, src = S.photos[i]; if (!src) return;
     if (refs.adjCut) { refs.adjCut.disabled = true; refs.adjCut.classList.add('is-busy'); }
     toastIt('배경 지우는 중…');
-    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: { color: '#FFFFFF' }, targetRatio: '4:5' }).then(function (r) {
+    var bg = S.collageBgImg ? { imageData: S.collageBgImg } : { color: S.collageBg || '#FFFFFF' };
+    window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5' }).then(function (r) {
       if (refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       if (!r || !r.composedDataUrl) { toastIt('배경 제거에 실패했어요'); return; }
       var wasShown = (S.photoUrl === S.photos[i]);
@@ -831,6 +836,24 @@
     rd.onload = function () {
       S.photos.push(rd.result); S.adj.push(defAdj());
       renderLayoutStrip(); renderAdjust();
+    };
+    rd.readAsDataURL(file);
+  }
+  // [#4] 배경 사진 업로드 — 축소 저장 → 콜라주/누끼 배경으로 + 기억(persist).
+  function addBgImageFromFile(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 900, sc = Math.min(1, max / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * sc)), h = Math.max(1, Math.round(img.height * sc));
+        var cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        try { S.collageBgImg = cv.toDataURL('image/jpeg', 0.85); } catch (_) { S.collageBgImg = rd.result; }
+        saveBgPref(); renderCollage(); applyFit(); toastIt('배경 사진을 정했어요');
+      };
+      img.onerror = function () { S.collageBgImg = rd.result; saveBgPref(); renderCollage(); applyFit(); };
+      img.src = rd.result;
     };
     rd.readAsDataURL(file);
   }
@@ -1004,12 +1027,13 @@
     refs.panels.layout.addEventListener('click', function (e) {
       var t = e.target.closest('[data-lay]'); if (t) { selectLayout(+t.getAttribute('data-lay')); return; }
       var th = e.target.closest('[data-laythumb]'); if (th) { onLayThumb(+th.getAttribute('data-laythumb')); return; }
-      var bg = e.target.closest('[data-bg]'); if (bg) { S.collageBg = bg.getAttribute('data-bg'); refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.toggle('on', x === bg); }); renderCollage(); applyFit(); return; }
+      var bg = e.target.closest('[data-bg]'); if (bg) { S.collageBg = bg.getAttribute('data-bg'); S.collageBgImg = null; saveBgPref(); refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.toggle('on', x === bg); }); renderCollage(); applyFit(); return; }
       var ft = e.target.closest('[data-fit]'); if (ft) { S.fitMode = ft.getAttribute('data-fit'); refs.layFit.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === ft); }); applyFit(); return; }
     });
     enableDragScroll(refs.layStrip); enableDragScroll(refs.panels.layout.querySelector('.itlay2__types'));
     refs.layGap.addEventListener('input', function () { S.collageGap = +refs.layGap.value; renderCollage(); });
     refs.layAdd.addEventListener('change', function () { var fl = refs.layAdd.files && refs.layAdd.files[0]; if (fl) addPhotoFromFile(fl); refs.layAdd.value = ''; });
+    if (refs.layBgImg) refs.layBgImg.addEventListener('change', function () { var fl = refs.layBgImg.files && refs.layBgImg.files[0]; if (fl) addBgImageFromFile(fl); refs.layBgImg.value = ''; });
     // [셀 크롭] 콜라주 칸 드래그/핀치 재구도(레이아웃 도구에서만 포인터 활성)
     refs.collage.addEventListener('pointerdown', onCellDown);
     document.addEventListener('pointermove', onCellMove);
@@ -1084,7 +1108,8 @@
     S = { layers: [], active: null, tool: 'text', layout: LAYOUTS[0], layoutOrder: [],
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
-      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3, collageBg: '#FFFFFF', cellCrop: [], cellSel: -1, fitMode: 'cover',
+      adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
+      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: (loadBgPref().img || null), cellCrop: [], cellSel: -1, fitMode: 'cover',
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),

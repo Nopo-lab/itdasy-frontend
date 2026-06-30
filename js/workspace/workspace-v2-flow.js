@@ -347,16 +347,41 @@
       { role: 'body', x: 0.072, y: 0.902, w: 0.82, size: 0.033, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', letterSpacing: 0.01, lineHeight: 1.45, opacity: 0.95, shadow: { on: true } }
     ];
   }
+  // [#7] 프리셋 이름(원장이 바꿀 수 있음) + 시각 미리보기 썸네일 + 적용.
+  function _presetName(key) { try { var m = JSON.parse(localStorage.getItem('itdasy:preset_names') || '{}'); return m[key] || ('레이아웃 ' + key); } catch (_e) { return '레이아웃 ' + key; } }
+  function _setPresetName(key, name) { try { var m = JSON.parse(localStorage.getItem('itdasy:preset_names') || '{}'); m[key] = name; localStorage.setItem('itdasy:preset_names', JSON.stringify(m)); } catch (_e) { void _e; } }
+  function _findPresetStyle(key) { return ((window.ShopStyle && window.ShopStyle.list) ? window.ShopStyle.list() : []).filter(function (s) { return s.presetKey === key || s.name === ('기본 레이아웃 ' + key) || s.name === _presetName(key); })[0]; }
+  // 프리셋의 레이어 위치/정렬/굵기로 작은 4:5 미리보기(텍스트1/2 막대 + 선) — 뭐가뭔지 한눈에.
+  function _presetThumb(key) {
+    var W = 46, H = 58, ls = _presetLayers(key);
+    var bars = ls.map(function (L) {
+      if (L.type === 'line') {
+        var lw = (L.w != null ? L.w : 0.1) * W, th = Math.max(1.4, (L.size || 0.005) * H * 4.2);
+        var cxv = (L.x + (L.w != null ? L.w : 0.1) / 2) * W, cyv = L.y * H;
+        if (L.rot === 90) return '<rect x="' + (cxv - th / 2).toFixed(1) + '" y="' + (cyv - lw / 2).toFixed(1) + '" width="' + th.toFixed(1) + '" height="' + lw.toFixed(1) + '" rx="1" fill="#fff"/>';
+        return '<rect x="' + (cxv - lw / 2).toFixed(1) + '" y="' + (cyv - th / 2).toFixed(1) + '" width="' + lw.toFixed(1) + '" height="' + th.toFixed(1) + '" rx="1" fill="#fff"/>';
+      }
+      var bw = (L.role === 'title' ? 0.46 : 0.6) * W, bh = Math.max(2.6, (L.size || 0.05) * H * 5);
+      var tx = (L.align === 'center') ? (W - bw) / 2 : (L.x != null ? L.x : 0.07) * W;
+      return '<rect x="' + tx.toFixed(1) + '" y="' + (L.y * H - bh / 2).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="1.5" fill="rgba(255,255,255,.93)"/>';
+    }).join('');
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="cap-preset__thumb" preserveAspectRatio="none"><rect width="' + W + '" height="' + H + '" rx="4" fill="#9a8478"/><rect width="' + W + '" height="' + H + '" rx="4" fill="url(#pgr)"/>' + bars + '<defs><linearGradient id="pgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs></svg>';
+  }
+  function _renamePreset(key) {
+    var nv = window.prompt('레이아웃 이름', _presetName(key)); if (nv == null) return; nv = String(nv).trim(); if (!nv) return;
+    _setPresetName(key, nv);
+    var st = _findPresetStyle(key); if (st && window.ShopStyle.save) window.ShopStyle.save(st.id, { name: nv, presetKey: key });
+    toast('이름을 바꿨어요'); setScreen('caption');
+  }
   function _applyPreset(key) {
     try {
       var SS = window.ShopStyle; if (!(SS && SS.create)) return;
-      var nm = '기본 레이아웃 ' + key;
-      var ex = (SS.list ? SS.list() : []).filter(function (s) { return s.name === nm; })[0];
-      if (ex) { SS.save(ex.id, { layers: _presetLayers(key) }); SS.setActive(ex.id); }
-      else SS.create({ name: nm, layers: _presetLayers(key) }, true);
+      var nm = _presetName(key); var ex = _findPresetStyle(key);
+      if (ex) { SS.save(ex.id, { layers: _presetLayers(key), name: nm, presetKey: key }); SS.setActive(ex.id); }
+      else SS.create({ name: nm, layers: _presetLayers(key), presetKey: key }, true);
       (d.photos || []).forEach(function (p) { p._tplSig = null; });   // 미리보기 재합성
       d.useShopStyle = true;
-      toast('레이아웃 ' + key + ' 적용했어요'); setScreen('caption');
+      toast(nm + ' 적용했어요'); setScreen('caption');
     } catch (_e) { void _e; }
   }
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
@@ -1492,9 +1517,15 @@
 	          '</div>') : '';
 	        // [#14] 초보자 레이아웃 A 적용 버튼
 	        var _ssPreset = (_useStyle && !d.textOnly) ? (
-	          '<div class="cap-presetrow"><span class="cap-presetrow__l">레이아웃 디자인 · 누르면 캡션이 그 자리에 자동배치</span>' +
-	            '<div class="cap-presetrow__btns">' +
-	              ['A', 'B', 'C'].map(function (k) { return '<button type="button" class="cap-presetbtn" data-fl-preset="' + k + '">' + k + '</button>'; }).join('') +
+	          '<div class="cap-presetrow2"><span class="cap-presetrow__l">레이아웃 디자인 · 눌러 적용 (캡션이 그 자리에 자동배치)</span>' +
+	            '<div class="cap-presetcards">' +
+	              ['A', 'B', 'C'].map(function (k) {
+	                return '<div class="cap-presetcard">' +
+	                  '<button type="button" class="cap-presetcard__btn" data-fl-preset="' + k + '" aria-label="' + esc(_presetName(k)) + ' 적용">' + _presetThumb(k) + '</button>' +
+	                  '<div class="cap-presetcard__nm"><span>' + esc(_presetName(k)) + '</span>' +
+	                    '<button type="button" class="cap-presetcard__edit" data-fl-presetrename="' + k + '" aria-label="이름 변경"><i class="ph ph-pencil-simple"></i></button></div>' +
+	                '</div>';
+	              }).join('') +
 	            '</div></div>') : '';
 	        // [#6 브랜드킷] 로고·브랜드색·폰트 한 번 등록 → 모든 게시물 자동 적용(활성 스타일에 저장).
 	        var _bkLayer = (_ss && _ss.layers || []).filter(function (L) { return L.role === 'title'; })[0] || {};
@@ -2247,6 +2278,7 @@
       // [#6] 우리샵 스타일 전환/생성
       var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
       var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
+      var prn = t.closest('[data-fl-presetrename]'); if (prn) { _renamePreset(prn.getAttribute('data-fl-presetrename')); return; }   // [#7] 프리셋 이름 변경
       var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
       var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
       var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
