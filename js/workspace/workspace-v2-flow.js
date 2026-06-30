@@ -293,6 +293,33 @@
       toast('어울리는 조합을 적용했어요'); setScreen('caption');
     } catch (_e) { void _e; }
   }
+  // [P3-1] 원탭 '알아서 예쁘게' — 브랜드킷(있으면) + 깔끔한 레이아웃(프리셋 A) + 어울리는 색·폰트(하모니)를
+  //   한 번에. 사진 내용 분석이 아니라 '검증된 조합 + 자동 얼굴회피(편집기 진입 시)'. 마음에 안 들면 드래그/칩으로 수정.
+  function _autoPretty() {
+    try {
+      if (window.ShopStyle && window.ShopStyle.ensureSeed) window.ShopStyle.ensureSeed();
+      d.useShopStyle = true;
+      var apply = function (harmonyKey) {
+        try { _applyPreset('A'); } catch (_e1) { void _e1; }   // 깔끔한 레이아웃(검증된 경로)
+        _applyHarmony(harmonyKey);   // 색·폰트 입힘(setScreen 포함) → 마지막 한 번만 렌더
+      };
+      // 사진 톤 매칭(내용분석 아님, 대표색만): 어두우면 화이트글씨(rose), 밝으면 진한글씨(cream). _extractPalette 재사용.
+      var p0 = curPhoto && curPhoto(); var url = p0 && _cleanBase(p0);
+      if (url && typeof _extractPalette === 'function') {
+        _extractPalette(url, function (cols) {
+          var dark = false;
+          if (cols && cols[0]) { var h = cols[0].replace('#', ''); var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16); dark = (0.299 * r + 0.587 * g + 0.114 * b) < 130; }
+          apply(dark ? 'rose' : 'cream');
+        });
+      } else { apply('cream'); }
+    } catch (_e) { void _e; }
+  }
+  // [P3-2] 업종(shop_type) 설정 — 캡션 카테고리·키워드 기준. 한 번 정하면 캡션 정확도↑.
+  function _setShopType(t) {
+    try { localStorage.setItem('shop_type', t); } catch (_e) { void _e; }
+    try { if (typeof renderCaptionKeywordTags === 'function') renderCaptionKeywordTags(); } catch (_e2) { void _e2; }
+    toast('업종을 ‘' + t + '’로 설정했어요'); setScreen('caption');
+  }
   // [#6 브랜드킷] 로고 등록/제거 — 활성 스타일에 저장하면 _buildShopStyleLayers 가 모든 게시물에 자동 합성.
   function _setBrandLogo(dataUrl) {
     try {
@@ -1530,6 +1557,8 @@
 	            '<div class="cap-bk__body">' +
 	            '<div class="cap-bk__row cap-bk__row--harmony"><span class="cap-bk__lbl">추천 조합</span><div class="cap-harm">' +
 	            (window.WSHarmony || []).map(function (h) { return '<button type="button" class="cap-harm__c" data-fl-harmony="' + h.key + '" title="' + esc(h.label) + '"><span class="cap-harm__sw">' + (h.sw || []).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span><span class="cap-harm__l">' + esc(h.label) + '</span></button>'; }).join('') + '</div></div>' +
+	              '<div class="cap-bk__row"><span class="cap-bk__lbl">업종</span><div class="cap-shoptype">' +
+	              ['붙임머리','네일','헤어','속눈썹','왁싱','반영구','피부'].map(function (st) { var _cur=(function(){try{return localStorage.getItem('shop_type')||'';}catch(e){return '';}})(); return '<button type="button" class="cap-st'+(st===_cur?' on':'')+'" data-fl-shoptype="'+st+'">'+st+'</button>'; }).join('') + '</div></div>' +
 	              '<div class="cap-bk__row"><span class="cap-bk__lbl">로고</span>' +
 	                (_ss.logo && _ss.logo.dataUrl ? '<img class="cap-bk__logo" src="' + esc(_ss.logo.dataUrl) + '" alt=""><button type="button" class="cap-bk__clear" data-fl-logoclear>빼기</button>' : '') +
 	                '<label class="cap-bk__add"><i class="ph-duotone ph-upload-simple"></i>' + (_ss.logo && _ss.logo.dataUrl ? '바꾸기' : '등록') + '<input type="file" accept="image/*" data-fl-logoadd hidden></label></div>' +
@@ -1543,7 +1572,7 @@
 	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
 	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
 	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>' + _ssPick + _ssPreset + _brandKit +
+	          '</div>' + '<button type="button" class="cap-autopretty" data-fl-autopretty><i class="ph-duotone ph-magic-wand"></i> 알아서 예쁘게</button>' + _ssPick + _ssPreset + _brandKit +
           ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
 	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
@@ -2327,6 +2356,8 @@
       var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
       var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
       var hm = t.closest('[data-fl-harmony]'); if (hm) { syncServiceFromDom(); _applyHarmony(hm.getAttribute('data-fl-harmony')); return; }   // [P2-3] 색·폰트 어울림 조합
+      var apb = t.closest('[data-fl-autopretty]'); if (apb) { syncServiceFromDom(); _autoPretty(); return; }   // [P3-1] 알아서 예쁘게
+      var stb = t.closest('[data-fl-shoptype]'); if (stb) { _setShopType(stb.getAttribute('data-fl-shoptype')); return; }   // [P3-2] 업종
       var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
       var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }

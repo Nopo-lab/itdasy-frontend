@@ -448,6 +448,14 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-harm__sw { display: inline-flex; }
 .wsv2flow .cap-harm__sw i { width: 13px; height: 13px; border-radius: 50%; margin-left: -5px; border: 1.5px solid #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.08); }
 .wsv2flow .cap-harm__sw i:first-child { margin-left: 0; }
+/* [P3-1] 알아서 예쁘게 버튼 */
+.wsv2flow .cap-autopretty { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin: 4px 0 12px; padding: 12px; border-radius: var(--r-md); border: 1px solid var(--brand-strong); background: color-mix(in srgb, var(--brand-strong) 8%, #fff); color: var(--brand-strong); font-size: 13.5px; font-weight: 800; cursor: pointer; }
+.wsv2flow .cap-autopretty:active { transform: scale(.99); }
+.wsv2flow .cap-autopretty i { font-size: 17px; }
+/* [P3-2] 업종 칩 */
+.wsv2flow .cap-shoptype { display: flex; flex-wrap: wrap; gap: 6px; }
+.wsv2flow .cap-st { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; font-weight: 700; color: var(--text); cursor: pointer; }
+.wsv2flow .cap-st.on { background: var(--brand-strong); color: #fff; border-color: var(--brand-strong); }
 .wsv2flow .cap-style-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
 .wsv2flow .cap-style-row__tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .wsv2flow .cap-style-row__d { font-size: 11.5px; line-height: 1.4; color: var(--text-subtle); font-weight: 500; }
