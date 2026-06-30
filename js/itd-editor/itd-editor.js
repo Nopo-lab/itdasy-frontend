@@ -403,6 +403,7 @@
       rotd.L.rot = snapAngle(rotd.start + (a - rotd.a0) * 180 / Math.PI); applyXf(rotd.L); return;
     }
     if (!drag) return;
+    if (S) S._userMoved = true;   // [P2-1] 사용자가 직접 옮기면 자동 회피 우선권 해제
     drag.L.x = drag.ox + (e.clientX - drag.sx);
     drag.L.y = drag.oy + (e.clientY - drag.sy);
     applyXf(drag.L);
@@ -531,6 +532,38 @@
     layers.forEach(function (spec) { try { addShopLayer(spec, R); } catch (_) { void _; } });
     _deOverlapIncoming();   // [#2] 텍스트 길이 무관 — 자동배치 글자/선이 서로 안 겹치게 세로로 벌림
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
+    _applySafeZone();   // [P2-1] 얼굴/피사체 위 자동 텍스트 비켜놓기(비동기, 폴백 안전)
+  }
+  // [P2-1] 자동배치 텍스트가 얼굴/피사체를 덮으면 비켜 배치. 비동기(마스크/휴리스틱) → 계산 후 한 번 이동.
+  //   보수적: 세로로 겹치는 자동 역할 레이어만, 빈 쪽(아래/위)으로 밀고 스테이지 안으로 클램프. 실패/저신뢰=폴백.
+  function _applySafeZone() {
+    if (!S || S._safeApplied || S._userMoved) return;
+    if (!(window.ItdSafeZone && window.ItdSafeZone.avoidBox)) return;
+    var url = S.photoUrl; if (!url) return;
+    S._safeApplied = true;   // 1회만
+    window.ItdSafeZone.avoidBox(url).then(function (box) {
+      if (!box || !S || S._userMoved || (S.layout && (S.layout.kind || 'single') !== 'single')) return;
+      var R = refs.stage.getBoundingClientRect(); if (!R.height) return;
+      var atop = box.y * R.height, abot = (box.y + box.h) * R.height;
+      var faceUpper = (atop + (abot - atop) / 2) < R.height * 0.55;
+      var auto = S.layers.filter(function (L) { return ((L.type === 'text' || L.type === 'badge') && L.role) || (L.type === 'shape' && L.role === 'rule'); });
+      if (!auto.length) return;
+      var moved = false, pad = R.height * 0.03;
+      auto.forEach(function (L) {
+        var b = L.el.getBoundingClientRect(); var top = b.top - R.top, bot = b.bottom - R.top;
+        if (bot > atop && top < abot) {   // 얼굴과 세로로 겹침
+          if (faceUpper) { var dn = (abot + pad) - top; if (dn > 0) { L.y += dn; moved = true; } }
+          else { var up = bot - (atop - pad); if (up > 0) { L.y -= up; moved = true; } }
+        }
+      });
+      if (!moved) return;
+      _deOverlapIncoming();
+      auto.forEach(function (L) {
+        var b = L.el.getBoundingClientRect();
+        if (b.top - R.top < 0) { L.y += (R.top - b.top) + 4; applyXf(L); }
+        if (b.bottom - R.top > R.height) { L.y -= (b.bottom - R.top - R.height) + 4; applyXf(L); }
+      });
+    });
   }
   // [#2] 자동배치 역할 레이어(시술명/내용/선)가 겹치면 세로로 벌리고, 화면 밖이면 그룹을 위로 당겨 유지.
   function _deOverlapIncoming() {
