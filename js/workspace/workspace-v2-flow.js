@@ -1534,6 +1534,7 @@
 	            '<textarea class="service-input cap-svc-area" data-fl-service rows="5" maxlength="500" placeholder="자유롭게 입력해 주세요&#10;&#10;예)&#10;레이어드컷&#10;28인치&#10;재시술&#10;자연스러운 느낌으로 부탁해!">' + esc(_svc) + '</textarea>' +
 	            '<span class="cap-svc-count"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
 	          '</div>' +
+	          _capConfirmHtml() +
 	          '<div class="cap-style-row">' +
 	            '<div class="cap-style-row__tx"><span class="cap-field-label" style="margin:0">우리샵 스타일 적용</span>' +
 	              '<span class="cap-style-row__d">' + (_useStyle ? '우리샵 디자인에 맞춰 자동으로 배치해요' : '사진은 그대로 두고 글만 만들어요') + '</span></div>' +
@@ -1571,7 +1572,8 @@
 	        '<div class="screen-head"><h2>게시글 문구 만들기</h2><p class="screen-head__sub">사진과 시술 내용을 바탕으로 인스타 게시글 문구를 만들어드려요.</p></div>' +
         '<label class="cap-field-label">시술 내용</label>' +
 	        '<input class="service-input cap-svc-lg" data-fl-service value="' + esc(d.service || '') + '" placeholder="예: 레이어드컷 28인치 붙임머리, 김수현 고객님, 자연스러운 볼륨감 중심" enterkeyhint="send">' +
-	        '<p class="cap-field-hint">시술명·고객님·포인트를 한 줄로 적으면 더 자연스러워요.</p>' +
+	        _capConfirmHtml() +
+		        '<p class="cap-field-hint">시술명·고객님·포인트를 한 줄로 적으면 더 자연스러워요.</p>' +
 	        '<div class="cap-tonehead"><span class="cap-tonehead__t">어떤 말투로 써볼까요?</span><span class="cap-tonehead__d">처음 홍보글을 써도 어색하지 않게, 원하는 분위기를 골라보세요.</span></div>' +
         '<div class="cap-tonecards">' + toneCards + '</div>' +
         '<p class="cap-tonefoot">고른 말투로 캡션을 만들어드려요. 선택한 시술 특징도 자연스럽게 반영돼요.</p>' +
@@ -1962,11 +1964,51 @@
     if (stripped) out = stripped;   // 본문이 전부 해시태그였던 극단 케이스는 원본 유지
     return out || nomd.trim();   // 전부 걸러지면(극단) 마크다운만 제거한 본문 유지
 	  }
+	  // [P1-1] 캡션 생성 전 '확인칩' — 입력에서 분리된 샵/고객/시술을 사용자가 보고 ✎로 직접 고친다.
+	  //   오버라이드(d.capShopOverride/d.capCustOverride)는 doGenerate 가 파싱보다 우선 사용 → 오분리 즉시 교정.
+	  function _capParseService() {
+	    var raw = String(d.service || '');
+	    var c = _cleanService(raw);
+	    var shop = (d.capShopOverride != null) ? d.capShopOverride : (_shopName() || c.shop || '');
+	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (d.customerName || c.customer || '');
+	    return { shop: shop, customer: customer, service: c.service || raw };
+	  }
+	  function _capConfirmHtml() {
+	    if (!String(d.service || '').trim()) return '<div class="cap-confirm" data-fl-confirm hidden></div>';
+	    var p = _capParseService();
+	    var chip = function (kind, ic, lbl, val) {
+	      return '<button type="button" class="cap-cfm" data-cfm="' + kind + '"><i class="ph-duotone ' + ic + '"></i><span>' + lbl + '</span><b>' + (val ? esc(val) : '<em>없음</em>') + '</b><i class="ph ph-pencil-simple-line cap-cfm__ed"></i></button>';
+	    };
+	    return '<div class="cap-confirm" data-fl-confirm>' +
+	      '<span class="cap-confirm__hint">AI에 이렇게 전달돼요 · 틀리면 탭해서 고치기</span>' +
+	      '<div class="cap-confirm__row">' +
+	        chip('shop', 'ph-storefront', '우리샵', p.shop) +
+	        chip('cust', 'ph-user', '고객', p.customer) +
+	        '<span class="cap-cfm cap-cfm--svc"><i class="ph-duotone ph-scissors"></i><span>시술</span><b>' + (p.service ? esc(p.service) : '<em>입력</em>') + '</b></span>' +
+	      '</div></div>';
+	  }
+	  function _refreshCapConfirm() {
+	    var box = el && el.querySelector('[data-fl-confirm]');
+	    if (!box) return;
+	    var tmp = document.createElement('div'); tmp.innerHTML = _capConfirmHtml();
+	    box.replaceWith(tmp.firstChild);
+	  }
+	  function _editCapOverride(kind) {
+	    var p = _capParseService();
+	    var cur = kind === 'shop' ? p.shop : p.customer;
+	    var title = kind === 'shop' ? '우리샵 이름 (게시글에 이대로 표기)' : '고객 이름 (없으면 비워두세요)';
+	    (window._inlinePrompt || window.prompt)(title, cur || '', function (v) {
+	      var nv = (v == null ? '' : String(v)).trim();
+	      if (kind === 'shop') d.capShopOverride = nv; else { d.capCustOverride = nv; d.customerName = nv; }
+	      _refreshCapConfirm();
+	    });
+	  }
 	  function doGenerate(extra, label) {
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
-	    var _cust = _cleanService(svc); var svcClean = _cust.service || svc;   // [#1] 고객명·샵이름(등록/인라인) 모두 제거
+	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
+	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
 	    if (_cust.customer && !d.customerName) d.customerName = _cust.customer;
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
@@ -1993,10 +2035,15 @@
     if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
     // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
     opts.extra_notes = _buildExtraNotes(svcClean, d.regenSeq);
+    // [P1-2] 빈값 가드 — 고객/샵을 입력 안 했으면 AI가 지어내지 않게 명시(차용 방지).
+    if (!_p.customer) opts.extra_notes = '고객 이름이 없으니 특정 고객명을 지어내지 말 것. ' + opts.extra_notes;
+    if (!_p.shop && !_shopName()) opts.extra_notes = '상호(샵 이름)가 없으니 가짜 상호를 만들지 말고 "저희 샵"으로만 칭할 것. ' + opts.extra_notes;
+    opts.extra_notes = opts.extra_notes.slice(0, 300);
     // [v534] 백엔드 우선맥락/variation 필드 — 백엔드가 service/treatment_keyword 를 prompt 에 직접 주입하고
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
     opts.treatment_keyword = svcClean;
-    var _sn = _shopName() || _cust.shop; if (_sn) opts.shop_name = _sn;   // [#1] 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
+    var _sn = _cust.shop || _shopName();   // [P1-1] 확인칩 오버라이드(_cust.shop)가 등록 샵보다 우선
+    if (_sn) opts.shop_name = _sn;   // [#1] 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
     opts.content_type = d.tplPurpose || 'feed';
     opts.caption_intent = opts.caption_intent || 'generate';
     opts.strict_user_context = true;
@@ -2262,6 +2309,7 @@
       var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
       var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
       var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
+      var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
@@ -2311,7 +2359,7 @@
 	      if (e.target.matches('[data-fl-brush]')) { d.maskBrush = +e.target.value; return; }   // [v561] 붓 크기
       if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
       if (e.target.matches('[data-fl-footer]')) { d.captionTemplate = e.target.value; }
-      if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
+      if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; d.capShopOverride = null; d.capCustOverride = null; _refreshCapConfirm(); }   // [P1-1] 입력 바뀌면 오버라이드 해제+확인칩 갱신
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
     el.addEventListener('focusin', function (e) {
