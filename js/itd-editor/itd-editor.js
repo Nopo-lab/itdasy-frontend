@@ -246,14 +246,14 @@
       return '<button class="itdsw' + (i === 2 ? ' on' : '') + '" data-dcolor="' + c + '" style="background:' + c + '"></button>';
     }).join('');
     return '<div class="itpanel" data-panel="draw">' +
-      '<div class="itdraw__top">' + brushes + '</div>' +
+      '<div class="itdraw__top">' + brushes + '<button class="itbrush itdraw__clear" data-r="drawClear" aria-label="그리기 전체 지우기">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + '</button></div>' +
       '<div class="itbsize"><input type="range" min="3" max="40" step="1" value="10" data-r="brushSize"></div>' +
       '<div class="itdraw__colors">' + colors + '</div>' +
     '</div>';
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -269,9 +269,10 @@
     var drawing = tool === 'draw', inLayout = tool === 'layout';
     refs.draw.classList.toggle('is-armed', drawing);
     refs.draw.style.zIndex = drawing ? '5' : '3';
-    // [셀 크롭] 레이아웃 도구에선 콜라주 칸이 포인터를 받게(레이어/캔버스 위로) → 칸 드래그/핀치 재구도
+    // [셀 크롭] 레이아웃 도구에선 콜라주 칸이 포인터를 받게(레이어/캔버스 아래로) → 칸 드래그/핀치 재구도
     refs.draw.style.pointerEvents = inLayout ? 'none' : 'auto';
-    refs.layers.style.pointerEvents = (drawing || inLayout) ? 'none' : '';
+    // [#3] 레이아웃 중에도 텍스트/스티커는 이동·선택 가능해야(레이어는 콜라주 위). 칸 크롭은 레이어 없는 빈 곳에서.
+    refs.layers.style.pointerEvents = drawing ? 'none' : '';
     refs.collage.classList.toggle('is-cropping', inLayout);
     if (tool === 'text' && !S.layers.some(function (l) { return l.type === 'text'; })) addText();
     if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
@@ -719,7 +720,13 @@
     S.layoutOrder = []; S.cellCrop = [];   // 타입 바꾸면 자리 선택·셀 크롭 초기화
     refs.frame.className = 'itded__frame ' + (S.layout.frame || '');
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
+    // [#4] 콜라주(2/4장)는 칸을 꽉 채우는 게 자연스럽고, 단일은 전체(여백)로. 사용자가 직접 토글했으면 존중.
+    if (!S._fitManual) { S.fitMode = ((S.layout.kind || 'single') !== 'single') ? 'cover' : 'contain'; _syncFitToggle(); }
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
+  }
+  function _syncFitToggle() {
+    if (!refs.layFit) return;
+    refs.layFit.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-fit') === (S.fitMode || 'cover')); });
   }
   // 사진 순서 탭 — grid면 자리(좌우/4분할)에 순서대로 배정, 1장이면 그 사진을 단일 배경으로.
   function onLayThumb(idx) {
@@ -788,9 +795,7 @@
     refs.stage.style.flex = '0 0 auto';
     refs.stage.style.width = Math.round(w) + 'px';
     refs.stage.style.height = Math.round(h) + 'px';
-    // [P2-2] 패널 열리면 스테이지를 위로(사진 안 가림). 크기는 그대로라 레이어 위치 보존 + 내보내기 영향 없음.
-    var panelOpen = !(S && S._peek) && !!(root.querySelector && root.querySelector('.itpanel.is-open'));
-    refs.stage.style.margin = panelOpen ? (Math.round(56 + (parseInt((root.style.paddingTop || '0'), 10) || 0)) + 'px auto 0') : 'auto';
+    refs.stage.style.margin = 'auto';   // 항상 가운데(자동 위로-이동은 하단 텍스트를 패널 밑으로 숨겨 제거 — #7). 사진 전체 확인은 peek 토글로.
   }
   /* ── 셀별 크롭(콜라주 칸마다 드래그/핀치 재구도) ── */
   function cropOf(k) { if (!S.cellCrop[k]) S.cellCrop[k] = { s: 1, tx: 0, ty: 0 }; return S.cellCrop[k]; }
@@ -1094,7 +1099,7 @@
       var t = e.target.closest('[data-lay]'); if (t) { selectLayout(+t.getAttribute('data-lay')); return; }
       var th = e.target.closest('[data-laythumb]'); if (th) { onLayThumb(+th.getAttribute('data-laythumb')); return; }
       var bg = e.target.closest('[data-bg]'); if (bg) { S.collageBg = bg.getAttribute('data-bg'); S.collageBgImg = null; saveBgPref(); refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.toggle('on', x === bg); }); renderCollage(); applyFit(); recutWithBg(); return; }
-      var ft = e.target.closest('[data-fit]'); if (ft) { S.fitMode = ft.getAttribute('data-fit'); refs.layFit.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === ft); }); applyFit(); return; }
+      var ft = e.target.closest('[data-fit]'); if (ft) { S.fitMode = ft.getAttribute('data-fit'); S._fitManual = true; refs.layFit.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === ft); }); applyFit(); return; }
     });
     enableDragScroll(refs.layStrip); enableDragScroll(refs.panels.layout.querySelector('.itlay2__types'));
     refs.layGap.addEventListener('input', function () { S.collageGap = +refs.layGap.value; renderCollage(); });
@@ -1131,7 +1136,10 @@
     if (refs.adjBgImg) refs.adjBgImg.addEventListener('change', function () { var fl = refs.adjBgImg.files && refs.adjBgImg.files[0]; if (fl) addBgImageFromFile(fl); refs.adjBgImg.value = ''; });
     enableDragScroll(refs.adjStrip);
     // 그리기
-    root.querySelector('[data-panel="draw"] .itdraw__top').addEventListener('click', function (e) { var b = e.target.closest('[data-brush]'); if (!b) return; S.brush = b.getAttribute('data-brush'); root.querySelectorAll('[data-brush]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    root.querySelector('[data-panel="draw"] .itdraw__top').addEventListener('click', function (e) {
+      if (e.target.closest('[data-r="drawClear"]')) { if (refs.ctx && refs.draw) { refs.ctx.clearRect(0, 0, refs.draw.width, refs.draw.height); toastIt('그림을 지웠어요'); } return; }   // [#6] 그리기 전체 지우기
+      var b = e.target.closest('[data-brush]'); if (!b) return; S.brush = b.getAttribute('data-brush'); root.querySelectorAll('[data-brush]').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
     refs.brushSize.addEventListener('input', function () { S.brushSize = +refs.brushSize.value; });
     root.querySelector('[data-panel="draw"] .itdraw__colors').addEventListener('click', function (e) { var b = e.target.closest('[data-dcolor]'); if (!b) return; S.drawColor = b.getAttribute('data-dcolor'); root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.draw.addEventListener('pointerdown', drawDown);
@@ -1186,7 +1194,7 @@
       brush: 'pen', brushSize: 10, drawColor: COLORS[2],
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
-      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: (loadBgPref().img || null), cellCrop: [], cellSel: -1, fitMode: 'contain',
+      collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
       ratio: (opts.ratio || '4:5'), undo: [], redo: [],
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),

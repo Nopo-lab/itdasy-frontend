@@ -203,6 +203,9 @@
   display:grid;place-items:center;border:0;cursor:pointer}
 .itbrush svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .itbrush.on{background:#fff;color:#1c1316}
+/* [#6] 그리기 전체 지우기 — 우측 분리 */
+.itdraw__clear{margin-left:auto}
+.itdraw__clear svg{stroke:#ff9b9b}
 .itbsize{position:absolute;left:18px;top:50%;transform:translateY(-50%);height:200px;width:30px;z-index:11;display:flex;align-items:center;justify-content:center}
 .itbsize::before{content:"";position:absolute;top:0;bottom:0;width:3px;border-radius:2px;background:rgba(255,255,255,.55)}
 .itbsize input{position:absolute;width:200px;transform:rotate(-90deg);accent-color:#fff}
