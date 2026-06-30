@@ -341,6 +341,24 @@
       { role: 'title', x: 0.155, y: 0.815, w: 0.74, size: 0.060, weight: 800, font: 'jua', color: '#ffffff', align: 'left', lineHeight: 1.12, shadow: { on: true } },
       { role: 'body', x: 0.155, y: 0.882, w: 0.74, size: 0.031, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', lineHeight: 1.45, opacity: 0.95, shadow: { on: true } }
     ];
+    if (key === 'D') return [   // 상단 띠(잡지 헤더)
+      { role: 'title', x: 0.10, y: 0.105, w: 0.80, size: 0.050, weight: 800, font: 'dohyeon', color: '#ffffff', align: 'center', lineHeight: 1.1, shadow: { on: true } },
+      { role: 'body', x: 0.12, y: 0.162, w: 0.76, size: 0.028, weight: 500, font: 'dodum', color: '#ffffff', align: 'center', opacity: 0.95, shadow: { on: true } }
+    ];
+    if (key === 'E') return [   // 우하단 세로선(오른쪽 정렬)
+      { type: 'line', x: 0.83, y: 0.845, w: 0.13, size: 0.008, color: '#ffffff', rot: 90 },
+      { role: 'title', x: 0.08, y: 0.815, w: 0.74, size: 0.060, weight: 800, font: 'black', color: '#ffffff', align: 'right', lineHeight: 1.1, shadow: { on: true } },
+      { role: 'body', x: 0.08, y: 0.882, w: 0.74, size: 0.031, weight: 500, font: 'dodum', color: '#ffffff', align: 'right', opacity: 0.95, shadow: { on: true } }
+    ];
+    if (key === 'F') return [   // 손글씨 인용(후기·감성)
+      { role: 'title', x: 0.10, y: 0.46, w: 0.80, size: 0.072, weight: 400, font: 'pen', color: '#ffffff', align: 'center', lineHeight: 1.18, shadow: { on: true } },
+      { role: 'body', x: 0.12, y: 0.55, w: 0.76, size: 0.028, weight: 500, font: 'dodum', color: '#ffffff', align: 'center', opacity: 0.92, shadow: { on: true } }
+    ];
+    if (key === 'G') return [   // 하단 + 예약칩(CTA)
+      { role: 'title', x: 0.07, y: 0.835, w: 0.82, size: 0.058, weight: 800, font: 'gothica1', color: '#ffffff', align: 'left', lineHeight: 1.1, shadow: { on: true } },
+      { role: 'body', x: 0.07, y: 0.888, w: 0.82, size: 0.030, weight: 500, font: 'dodum', color: '#ffffff', align: 'left', opacity: 0.95, shadow: { on: true } },
+      { type: 'badge', text: '예약 DM', x: 0.07, y: 0.945, w: 0.22, size: 0.026, bg: '#BC6675', color: '#ffffff', font: 'dodum', align: 'left' }
+    ];
     return [   // A 좌하단 밑줄(임팩트)
       { role: 'title', x: 0.07, y: 0.795, w: 0.82, size: 0.068, weight: 800, font: 'black', color: '#ffffff', align: 'left', letterSpacing: -0.01, lineHeight: 1.06, shadow: { on: true } },
       { type: 'line', x: 0.072, y: 0.857, w: 0.15, size: 0.006, color: '#ffffff' },
@@ -384,6 +402,19 @@
       toast(nm + ' 적용했어요'); setScreen('caption');
     } catch (_e) { void _e; }
   }
+  // [#7] 복사해서 수정 — 프리셋을 별도 스타일로 복제(원본 템플릿 보존). '사진 편집'에서 위치 옮기면 복사본에 저장.
+  function _copyPreset(key) {
+    try {
+      var SS = window.ShopStyle; if (!SS) return;
+      var st = _findPresetStyle(key); var nm = _presetName(key) + ' 복사'; var nid = null;
+      if (st && SS.duplicate) { var dup = SS.duplicate(st.id); nid = dup && dup.id; }
+      else if (SS.create) { var c = SS.create({ name: nm, layers: _presetLayers(key) }, true); nid = c.id; }
+      if (nid) { if (SS.save) SS.save(nid, { name: nm, presetKey: null }); if (SS.setActive) SS.setActive(nid); }
+      (d.photos || []).forEach(function (p) { p._tplSig = null; });
+      d.useShopStyle = true;
+      toast('복사본을 만들었어요 · 사진 편집에서 글자를 옮기면 저장돼요'); setScreen('caption');
+    } catch (_e) { void _e; }
+  }
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
   function _buildShopStyleLayers() {
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
@@ -399,6 +430,8 @@
         if (L.enabled === false) return;
         // [#14] 구분선 등 비-텍스트 데코는 텍스트 없이 그대로 통과(좌상단x→중앙x 변환, 클램프 없음).
         if (L.type === 'line') { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.1) / 2 : 0.5) })); return; }
+        // 고정 텍스트 배지(예: '예약 DM') — 역할 텍스트가 아니라 자체 text 그대로.
+        if (L.type === 'badge' && L.text) { layers.push(Object.assign({}, L, { x: (L.x != null ? L.x + (L.w != null ? L.w : 0.2) / 2 : 0.5) })); return; }
         var text = (L.role === 'hashtag') ? hashText : roleText[L.role];
         if (!text) return;
         // [v583·B] shop-style 좌표는 좌상단(좌측 끝) 기준 → story-editor 중앙 기준으로 변환(화면 밖 이탈 방지).
@@ -1517,13 +1550,14 @@
 	          '</div>') : '';
 	        // [#14] 초보자 레이아웃 A 적용 버튼
 	        var _ssPreset = (_useStyle && !d.textOnly) ? (
-	          '<div class="cap-presetrow2"><span class="cap-presetrow__l">레이아웃 디자인 · 눌러 적용 (캡션이 그 자리에 자동배치)</span>' +
+	          '<div class="cap-presetrow2"><span class="cap-presetrow__l">레이아웃 디자인 · 눌러 적용 → \'사진 편집\'에서 글자 옮기면 그 자리로 저장돼요</span>' +
 	            '<div class="cap-presetcards">' +
-	              ['A', 'B', 'C'].map(function (k) {
+	              ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(function (k) {
 	                return '<div class="cap-presetcard">' +
 	                  '<button type="button" class="cap-presetcard__btn" data-fl-preset="' + k + '" aria-label="' + esc(_presetName(k)) + ' 적용">' + _presetThumb(k) + '</button>' +
 	                  '<div class="cap-presetcard__nm"><span>' + esc(_presetName(k)) + '</span>' +
-	                    '<button type="button" class="cap-presetcard__edit" data-fl-presetrename="' + k + '" aria-label="이름 변경"><i class="ph ph-pencil-simple"></i></button></div>' +
+	                    '<button type="button" class="cap-presetcard__ic" data-fl-presetrename="' + k + '" aria-label="이름 변경"><i class="ph ph-pencil-simple"></i></button>' +
+	                    '<button type="button" class="cap-presetcard__ic" data-fl-presetcopy="' + k + '" aria-label="복사해서 수정"><i class="ph ph-copy"></i></button></div>' +
 	                '</div>';
 	              }).join('') +
 	            '</div></div>') : '';
@@ -2279,6 +2313,7 @@
       var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
       var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
       var prn = t.closest('[data-fl-presetrename]'); if (prn) { _renamePreset(prn.getAttribute('data-fl-presetrename')); return; }   // [#7] 프리셋 이름 변경
+      var pcp = t.closest('[data-fl-presetcopy]'); if (pcp) { _copyPreset(pcp.getAttribute('data-fl-presetcopy')); return; }   // [#7] 복사해서 수정
       var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
       var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
       var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
