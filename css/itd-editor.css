@@ -171,6 +171,11 @@
 .itadj__bg svg{width:16px;height:16px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .itadj__bg--undo{flex:0 0 auto;width:62px;border-color:rgba(255,255,255,.4);background:rgba(20,12,16,.3)}
 .itadj__bg.is-busy{opacity:.6}
+/* [#4] 누끼 배경 색/사진 — 누끼 버튼 바로 아래. 탭하면 0초 재합성(매트 캐시) */
+.itadj__cutbg{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-4px 0 12px}
+.itadj__cutbg .itlaybg{width:26px;height:26px}
+.itlaybg--up{display:inline-grid;place-items:center;background:rgba(255,255,255,.12);border-style:dashed}
+.itlaybg--up svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* [#3] 수평 가이드 그리드(삼분할) — 수평 조정 중에만 표시 */
 .itded__grid{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .2s ease;
   background-image:linear-gradient(rgba(255,255,255,.55) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.55) 1px,transparent 1px);

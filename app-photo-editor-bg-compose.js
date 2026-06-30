@@ -91,12 +91,29 @@
       return await res.blob();
     } catch (serverErr) {
       console.warn('[bg-compose] 서버 누끼 실패, 클라이언트 폴백:', serverErr);
-      if (typeof imglyRemoveBackground === 'undefined' && typeof window._lazyImgly === 'function') await window._lazyImgly();
-      if (typeof imglyRemoveBackground !== 'function') throw serverErr;
-      return await imglyRemoveBackground(_blobFromDataUrl(srcDataUrl), {
+      // [#4] 폴백 버그 수정 — _lazyImgly 는 '모듈 객체'를 반환한다. 옛 코드는 정의된 적 없는
+      //   전역 imglyRemoveBackground 를 봐서 항상 throw → 서버 실패 시 누끼 완전 실패였음.
+      var fn = _resolveImgly();
+      if (typeof fn !== 'function' && typeof window._lazyImgly === 'function') {
+        var mod = await window._lazyImgly();
+        fn = _resolveImgly(mod);
+      }
+      if (typeof fn !== 'function') throw serverErr;
+      return await fn(_blobFromDataUrl(srcDataUrl), {
         publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
       });
     }
+  }
+  // 로드된 imgly 모듈에서 removeBackground 함수를 안전하게 꺼낸다(전역/모듈/UMD 네임스페이스 모두 대응).
+  function _resolveImgly(mod) {
+    var cands = [
+      mod && mod.removeBackground, mod && mod.default && mod.default.removeBackground,
+      (typeof window !== 'undefined') && window.imgly_bgr && window.imgly_bgr.removeBackground,
+      (typeof window !== 'undefined') && window['@imgly/background-removal'] && window['@imgly/background-removal'].removeBackground,
+      (typeof imglyRemoveBackground !== 'undefined') ? imglyRemoveBackground : null
+    ];
+    for (var i = 0; i < cands.length; i++) { if (typeof cands[i] === 'function') return cands[i]; }
+    return null;
   }
 
   function _alphaBBox(img) {

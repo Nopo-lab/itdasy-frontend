@@ -240,10 +240,29 @@
     var esc1 = sn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return String(text || '').replace(new RegExp(esc1, 'g'), ' ').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim();
   }
+  // [#1] 시술칸에 직접 친 샵 이름 감지 — 등록 안 했어도 잡는다. 샵/미용실/살롱/스튜디오/에스테틱 등 명확한
+  //   상호 접미사로 끝나는 토큰만(예: "구월동붙임머리연준샵"). '헤어/네일' 단독은 시술 카테고리라 제외.
+  function _detectShopName(svc) {
+    var s = String(svc || '');
+    var m = s.match(/(?:^|[\s,·、\n])([가-힣A-Za-z0-9]{2,24}(?:뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵))(?=[\s,·、\n]|$)/);
+    return m ? m[1].trim() : '';
+  }
+  // [#1] 시술 텍스트에서 고객명·샵이름을 모두 떼고 깨끗한 시술만 남긴다(오버레이·백엔드 공통).
+  function _cleanService(svc) {
+    var c = _extractCustomer(svc);
+    var shop = _shopName() || _detectShopName(c.service);
+    var service = _stripShopName(c.service);
+    if (shop) {
+      var esc = shop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      service = service.replace(new RegExp(esc, 'g'), ' ');
+    }
+    service = service.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim();
+    return { service: service, customer: c.customer, shop: shop };
+  }
   function _splitServiceForLayers(svc) {
     var s = String(svc || '')
       .replace(/(?:인스타|sns|감성|내추럴|모던|빈티지|러블리|시크|트렌디|미니멀|청순|글램|깔끔|세련|화사)?\s*(?:톤앤무드|톤앤매너|톤|느낌|감성|무드|분위기|바이브)\s*(?:으로|로|하게|있게|스럽게)\s*(?:마무리|마감|연출|편집|보정|작성)?/gi, ' ');
-    s = _extractCustomer(s).service;   // [v590·#A] 오버레이에도 고객명은 박지 않는다
+    s = _cleanService(s).service;   // [v590·#A][#1] 오버레이에 고객명·샵이름 안 박힘
     var segs = s.split(/[\n,·、]+/).map(function (x) { return x.trim(); }).filter(Boolean);
     if (segs.length >= 2) return { title: segs[0], sub: segs[1], body: segs.slice(2).join(' ') };
     // [v590·#A] 단일 구문: 길이/스펙(28인치 등)을 부제로 떼고 컷·스타일명은 제목으로 통째 유지(첫 단어만 떼던 회귀 수정).
@@ -2019,7 +2038,7 @@
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
-	    var _cust = _extractCustomer(svc); var svcClean = _stripShopName(_cust.service || svc);   // [#1] 샵 이름 제거
+	    var _cust = _cleanService(svc); var svcClean = _cust.service || svc;   // [#1] 고객명·샵이름(등록/인라인) 모두 제거
 	    if (_cust.customer && !d.customerName) d.customerName = _cust.customer;
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
@@ -2049,7 +2068,7 @@
     // [v534] 백엔드 우선맥락/variation 필드 — 백엔드가 service/treatment_keyword 를 prompt 에 직접 주입하고
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
     opts.treatment_keyword = svcClean;
-    var _sn = _shopName(); if (_sn) opts.shop_name = _sn;   // [#1] 샵 이름은 시술 아님 — 별도 전달
+    var _sn = _shopName() || _cust.shop; if (_sn) opts.shop_name = _sn;   // [#1] 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
     opts.content_type = d.tplPurpose || 'feed';
     opts.caption_intent = opts.caption_intent || 'generate';
     opts.strict_user_context = true;
