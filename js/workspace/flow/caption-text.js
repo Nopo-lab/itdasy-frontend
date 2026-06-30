@@ -31,20 +31,21 @@
   //   상호 접미사로 끝나는 토큰만(예: "구월동붙임머리연준샵"). '헤어/네일' 단독은 시술 카테고리라 제외.
   function _detectShopName(svc) {
     var s = String(svc || '');
-    var m = s.match(/(?:^|[\s,·、\n])([가-힣A-Za-z0-9]{2,24}(?:뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵))(?=[\s,·、\n]|$)/);
+    // [#1] 상호 접미사로 끝나는 토큰. 앞에 지역어(구월동 등)+공백이 붙으면 함께 잡는다("구월동 뷰티풀샵").
+    var m = s.match(/(?:^|[\s,·、\n])((?:[가-힣]{2,4}(?:동|읍|면|리|역|구|시|군|점)\s)?[가-힣A-Za-z0-9]{2,24}(?:뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵))(?=[\s,·、\n]|$)/);
     return m ? m[1].trim() : '';
   }
   // [#1] 시술 텍스트에서 고객명·샵이름을 모두 떼고 깨끗한 시술만 남긴다(오버레이·백엔드 공통).
+  //   [수정] 등록샵·인라인샵 둘 다 제거. 반환 shop 은 '사용자가 친 인라인'을 우선(stale 등록값이 덮어쓰는 것 방지).
   function _cleanService(svc) {
     var c = _extractCustomer(svc);
-    var shop = _shopName() || _detectShopName(c.service);
-    var service = _stripShopName(c.service);
-    if (shop) {
-      var esc = shop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      service = service.replace(new RegExp(esc, 'g'), ' ');
-    }
+    var reg = _shopName(), inline = _detectShopName(c.service);
+    var service = _stripShopName(c.service);   // 등록샵 제거
+    [inline, reg].forEach(function (sh) {
+      if (sh && sh.length >= 2) { var esc = sh.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); service = service.replace(new RegExp(esc, 'g'), ' '); }
+    });
     service = service.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim();
-    return { service: service, customer: c.customer, shop: shop };
+    return { service: service, customer: c.customer, shop: inline || reg };
   }
   function _splitServiceForLayers(svc) {
     var s = String(svc || '')

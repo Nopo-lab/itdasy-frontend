@@ -1553,19 +1553,12 @@
 	        var _bkColors = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
 	        var _bkFonts = [{ k: 'black', l: '또렷' }, { k: 'jua', l: '동글' }, { k: 'gothica1', l: '깔끔' }, { k: 'songmyung', l: '단정' }, { k: 'dodum', l: '도톰' }, { k: 'gaegu', l: '손글씨' }];
 	        var _brandKit = (_useStyle && _ss && !d.textOnly) ? (
-	          '<details class="cap-bk"><summary><i class="ph-duotone ph-stamp"></i> 브랜드킷 <em>한 번 등록하면 모든 게시물에 자동</em></summary>' +
+	          '<details class="cap-bk"><summary><i class="ph-duotone ph-stamp"></i> 디자인·업종 <em>추천 조합 · 업종 설정</em></summary>' +
 	            '<div class="cap-bk__body">' +
 	            '<div class="cap-bk__row cap-bk__row--harmony"><span class="cap-bk__lbl">추천 조합</span><div class="cap-harm">' +
 	            (window.WSHarmony || []).map(function (h) { return '<button type="button" class="cap-harm__c" data-fl-harmony="' + h.key + '" title="' + esc(h.label) + '"><span class="cap-harm__sw">' + (h.sw || []).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span><span class="cap-harm__l">' + esc(h.label) + '</span></button>'; }).join('') + '</div></div>' +
 	              '<div class="cap-bk__row"><span class="cap-bk__lbl">업종</span><div class="cap-shoptype">' +
 	              ['붙임머리','네일','헤어','속눈썹','왁싱','반영구','피부'].map(function (st) { var _cur=(function(){try{return localStorage.getItem('shop_type')||'';}catch(e){return '';}})(); return '<button type="button" class="cap-st'+(st===_cur?' on':'')+'" data-fl-shoptype="'+st+'">'+st+'</button>'; }).join('') + '</div></div>' +
-	              '<div class="cap-bk__row"><span class="cap-bk__lbl">로고</span>' +
-	                (_ss.logo && _ss.logo.dataUrl ? '<img class="cap-bk__logo" src="' + esc(_ss.logo.dataUrl) + '" alt=""><button type="button" class="cap-bk__clear" data-fl-logoclear>빼기</button>' : '') +
-	                '<label class="cap-bk__add"><i class="ph-duotone ph-upload-simple"></i>' + (_ss.logo && _ss.logo.dataUrl ? '바꾸기' : '등록') + '<input type="file" accept="image/*" data-fl-logoadd hidden></label></div>' +
-	              '<div class="cap-bk__row"><span class="cap-bk__lbl">색</span><div class="cap-bk__sw">' +
-	                _bkColors.map(function (c) { return '<button type="button" class="cap-bk__c' + (c.toLowerCase() === String(_bkLayer.color || '').toLowerCase() ? ' on' : '') + '" data-fl-brandcolor="' + c + '" style="background:' + c + '"></button>'; }).join('') + '</div></div>' +
-	              '<div class="cap-bk__row"><span class="cap-bk__lbl">폰트</span><div class="cap-bk__fonts">' +
-	                _bkFonts.map(function (f) { return '<button type="button" class="cap-bk__f' + (f.k === _bkLayer.font ? ' on' : '') + '" data-fl-brandfont="' + f.k + '">' + f.l + '</button>'; }).join('') + '</div></div>' +
 	            '</div></details>') : '';
 	        var _ssCard = (_useStyle && _ss) ? (
 	          '<div class="cap-stylecard">' +
@@ -2016,8 +2009,8 @@
 	  function _capParseService() {
 	    var raw = String(d.service || '');
 	    var c = _cleanService(raw);
-	    var shop = (d.capShopOverride != null) ? d.capShopOverride : (_shopName() || c.shop || '');
-	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (d.customerName || c.customer || '');
+	    var shop = (d.capShopOverride != null) ? d.capShopOverride : (c.shop || _shopName() || '');   // [#1] 사용자가 친 인라인 샵 우선(stale 등록값 'Dd' 가 덮어쓰는 것 방지)
+	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (c.customer || d.customerName || '');
 	    return { shop: shop, customer: customer, service: c.service || raw };
 	  }
 	  function _capConfirmHtml() {
