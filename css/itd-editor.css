@@ -10,7 +10,7 @@
 @media (width >= 768px){ .itded{left:232px} }   /* PC 사이드바 가림 방지 */
 
 /* 스테이지 — 사진 + 레이어 + 드로잉 */
-.itded__stage{position:relative;flex:1 1 auto;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.itded__stage{position:relative;flex:1 1 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:margin .2s ease}
 .itded__photowrap{position:absolute;inset:0;transform-origin:center center;will-change:transform}
 .itded__photo{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
 /* 콜라주(좌우2장/4장) */
@@ -71,8 +71,13 @@
 .itrb.on{background:var(--accent-strong, #BC6675);box-shadow:0 6px 18px rgba(140,72,90,.5)}
 
 /* 공통 패널 베이스 */
-.itpanel{position:absolute;left:0;right:0;bottom:0;z-index:10;display:none}
+.itpanel{position:absolute;left:0;right:0;bottom:0;z-index:10;display:none;transition:transform .22s ease}
 .itpanel.is-open{display:block}
+/* [P2-2] 전체보기 — 패널을 잠깐 내려 사진 전체 확인 */
+.itded--peek .itpanel.is-open{transform:translateY(105%)}
+.itded--peek .itded__rail{opacity:.25;pointer-events:none}
+.itded__ic[data-r="peek"].on{background:#fff;color:#1c1316}
+.itded__ic[data-r="peek"].on svg{stroke:#1c1316}
 
 /* ── 텍스트 패널 (하단바) ── */
 .ittext{padding:0 16px calc(16px + env(safe-area-inset-bottom))}

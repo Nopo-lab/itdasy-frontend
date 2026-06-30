@@ -104,6 +104,7 @@
         '<div class="itded__hist">' +
           '<button class="itded__ic" data-r="undo" aria-label="되돌리기" disabled>' + svg('<path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 2.6-7.8L3 7"/>', 2.1) + '</button>' +
           '<button class="itded__ic" data-r="redo" aria-label="다시 실행" disabled>' + svg('<path d="M21 7v6h-6"/><path d="M21 13a9 9 0 1 1-2.6-7.8L21 7"/>', 2.1) + '</button>' +
+          '<button class="itded__ic" data-r="peek" aria-label="사진 전체 보기">' + svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>', 2) + '</button>' +
         '</div>' +
         '<button class="itded__done" data-r="done">완료</button>' +
       '</div>' +
@@ -252,7 +253,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -276,6 +277,16 @@
     if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
     if (tool === 'sticker') renderMyStickers();
     if (tool === 'adjust') renderAdjust();
+    if (S && S._peek) { S._peek = false; if (refs.peek) refs.peek.classList.remove('on'); }   // [P2-2] 도구 바꾸면 전체보기 해제
+    fitStageToRatio();   // [P2-2] 패널 열림/닫힘에 맞춰 스테이지 위로/가운데 재배치
+  }
+  // [P2-2] '사진 전체 보기' — 패널을 잠깐 내려 사진 전체 확인(편집 상태 유지).
+  function togglePeek() {
+    if (!S) return;
+    S._peek = !S._peek;
+    root.classList.toggle('itded--peek', S._peek);
+    if (refs.peek) refs.peek.classList.toggle('on', S._peek);
+    fitStageToRatio();
   }
 
   /* ── 레이어 공통(드래그) ── */
@@ -742,9 +753,11 @@
     var w = availW, h = w * rh / rw;
     if (h > availH) { h = availH; w = h * rw / rh; }
     refs.stage.style.flex = '0 0 auto';
-    refs.stage.style.margin = 'auto';
     refs.stage.style.width = Math.round(w) + 'px';
     refs.stage.style.height = Math.round(h) + 'px';
+    // [P2-2] 패널 열리면 스테이지를 위로(사진 안 가림). 크기는 그대로라 레이어 위치 보존 + 내보내기 영향 없음.
+    var panelOpen = !(S && S._peek) && !!(root.querySelector && root.querySelector('.itpanel.is-open'));
+    refs.stage.style.margin = panelOpen ? (Math.round(56 + (parseInt((root.style.paddingTop || '0'), 10) || 0)) + 'px auto 0') : 'auto';
   }
   /* ── 셀별 크롭(콜라주 칸마다 드래그/핀치 재구도) ── */
   function cropOf(k) { if (!S.cellCrop[k]) S.cellCrop[k] = { s: 1, tx: 0, ty: 0 }; return S.cellCrop[k]; }
@@ -1100,6 +1113,7 @@
     refs.cancel.addEventListener('click', function () { close(); if (S && S.onCancel) S.onCancel(); });
     if (refs.undo) refs.undo.addEventListener('click', function () { _undo(); });   // [P1-3]
     if (refs.redo) refs.redo.addEventListener('click', function () { _redo(); });
+    if (refs.peek) refs.peek.addEventListener('click', function () { togglePeek(); });   // [P2-2]
     refs.done.addEventListener('click', function () {
       var cb = S.onDone; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
       exportComposite(function (url) {
