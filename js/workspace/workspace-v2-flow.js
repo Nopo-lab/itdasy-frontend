@@ -472,29 +472,12 @@
     if (!p.storyEdited && String(d.caption || '').trim() && p.tplPreviewUrl) return p.tplPreviewUrl;
     return p.editedDataUrl || p.dataUrl;
   }
-  // [#13] ItdEditor 는 폰트를 '키'(jua/black/serif…)로 저장하는데, 헤드리스 합성(StoryEditor.compose)은
-  //   CSS 패밀리 문자열을 기대한다. 변환을 안 하면 편집기에서 고른 폰트가 캡션 미리보기에 반영 안 됨.
-  //   ItdEditor 의 FONTS 와 동기화. 이미 패밀리 문자열인 값(기본 'Pretendard' 등)은 그대로 통과.
-  var _ITD_FONT_FAMILY = {
-    pretendard: 'Pretendard, sans-serif', black: '"Black Han Sans", sans-serif', jua: '"Jua", sans-serif',
-    dohyeon: '"Do Hyeon", sans-serif', gothica1: '"Gothic A1", sans-serif', serif: '"Noto Serif KR", serif',
-    songmyung: '"Song Myung", serif', dodum: '"Gowun Dodum", sans-serif', gaegu: '"Gaegu", cursive',
-    pen: '"Nanum Pen Script", cursive', gamja: '"Gamja Flower", cursive', himelody: '"Hi Melody", cursive'
-  };
-  function _composeFonts(layers) {
-    return (layers || []).map(function (l) {
-      return (l && l.font && _ITD_FONT_FAMILY[l.font]) ? Object.assign({}, l, { font: _ITD_FONT_FAMILY[l.font] }) : l;
-    });
-  }
   // [v589·#3] 캡션 결과 화면에서 우리샵 스타일을 각 사진에 헤드리스 합성 → tplPreviewUrl(결과 전용).
-  //   사진 원본은 그대로. 입력 시그니처로 1회만(서비스/해시/스타일 동일하면 생략). 멀티포토 각각 합성.
+  //   [#2 단일화] 편집기와 동일 렌더러(ItdEditor.compose) 단독 사용 — 옛 StoryEditor 제거됨.
   function _autoComposeTemplate() {
     try {
       if (d.useShopStyle === false) return;
-      // [#2 단일화] 미리보기를 편집기와 같은 렌더러(ItdEditor.compose)로. 없으면 StoryEditor 폴백.
-      var _Comp = (window.ITDASY_ITD_EDITOR !== false && window.ItdEditor && window.ItdEditor.compose) ? window.ItdEditor : (window.StoryEditor && window.StoryEditor.compose ? window.StoryEditor : null);
-      if (!_Comp) return;
-      var _isItd = (_Comp === window.ItdEditor);
+      if (!(window.ItdEditor && window.ItdEditor.compose)) return;
       var built = _buildShopStyleLayers();
       if (!built.autoArranged) return;
       var hsig = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [];
@@ -509,22 +492,15 @@
         if (p.storyEdited) return;                 // 수동 편집 사진은 그대로
         if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
         p._tplSig = sigBase;
-        jobs.push(_Comp.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: (_isItd ? built.layers : _composeFonts(built.layers)) })
-          .then(function (url) {
-            if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); return; }
-            // [#2] ItdEditor 합성 실패 시 StoryEditor 폴백(미리보기 빈 화면 방지)
-            if (_isItd && window.StoryEditor && window.StoryEditor.compose) {
-              return window.StoryEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: _composeFonts(built.layers) }).then(function (u2) { if (u2) { p.tplPreviewUrl = u2; if (p === active) refresh(); } });
-            }
-          }));
+        jobs.push(window.ItdEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: built.layers })
+          .then(function (url) { if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); } }));
       });
       if (jobs.length) Promise.all(jobs).then(refresh);   // 나머지까지 완료되면 최종 갱신
     } catch (_e) { void _e; }
   }
   function _openStoryEditor() {
-    // [itd-editor] 플래그 ON 이면 새 인스타식 편집기(ItdEditor), 아니면 기존 StoryEditor.
-    //   동일 계약(open{photoUrl,onDone(dataUrl,meta)}) → 진입점/되먹임 그대로.
-    var Editor = (window.ITDASY_ITD_EDITOR && window.ItdEditor && window.ItdEditor.open) ? window.ItdEditor : window.StoryEditor;
+    // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
+    var Editor = window.ItdEditor;
     if (!(Editor && Editor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = curPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;
     var photo = _cleanBase(p0) || outputUrl();   // [v587] 편집기는 항상 깨끗한 원본 위에서 시작(이중 합성 방지)

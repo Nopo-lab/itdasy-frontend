@@ -7,19 +7,20 @@
   if (window.ItdEditor) return;
 
   // 모두 OFL/오픈소스(Google Fonts) — 상업 사용 자유, 법적 문제 없음. index.html 의 fonts.googleapis 링크와 동기화.
+  // family 는 작은따옴표 — HTML 속성(큰따옴표) 안 inline style 에 넣어도 안 깨지게(이전: 큰따옴표라 폰트 적용이 깨져 전부 같아 보였음).
   var FONTS = [
-    { key: 'pretendard', label: '모던',  family: 'Pretendard, sans-serif',     weight: 800 },
-    { key: 'black',      label: '또렷',  family: '"Black Han Sans", sans-serif', weight: 400 },
-    { key: 'jua',        label: '동글',  family: '"Jua", sans-serif',           weight: 400 },
-    { key: 'dohyeon',    label: '진한',  family: '"Do Hyeon", sans-serif',      weight: 400 },
-    { key: 'gothica1',   label: '깔끔',  family: '"Gothic A1", sans-serif',     weight: 800 },
-    { key: 'serif',      label: '클래식', family: '"Noto Serif KR", serif',     weight: 700 },
-    { key: 'songmyung',  label: '단정',  family: '"Song Myung", serif',         weight: 400 },
-    { key: 'dodum',      label: '도톰',  family: '"Gowun Dodum", sans-serif',   weight: 400 },
-    { key: 'gaegu',      label: '손글씨', family: '"Gaegu", cursive',           weight: 700 },
-    { key: 'pen',        label: '감성',  family: '"Nanum Pen Script", cursive', weight: 400 },
-    { key: 'gamja',      label: '귀염',  family: '"Gamja Flower", cursive',     weight: 400 },
-    { key: 'himelody',   label: '하늘',  family: '"Hi Melody", cursive',        weight: 400 }
+    { key: 'pretendard', label: '모던',  family: "Pretendard, sans-serif",      weight: 800 },
+    { key: 'black',      label: '또렷',  family: "'Black Han Sans', sans-serif", weight: 400 },
+    { key: 'jua',        label: '동글',  family: "'Jua', sans-serif",           weight: 400 },
+    { key: 'dohyeon',    label: '진한',  family: "'Do Hyeon', sans-serif",      weight: 400 },
+    { key: 'gothica1',   label: '깔끔',  family: "'Gothic A1', sans-serif",     weight: 800 },
+    { key: 'serif',      label: '클래식', family: "'Noto Serif KR', serif",     weight: 700 },
+    { key: 'songmyung',  label: '단정',  family: "'Song Myung', serif",         weight: 400 },
+    { key: 'dodum',      label: '도톰',  family: "'Gowun Dodum', sans-serif",   weight: 400 },
+    { key: 'gaegu',      label: '손글씨', family: "'Gaegu', cursive",           weight: 700 },
+    { key: 'pen',        label: '감성',  family: "'Nanum Pen Script', cursive", weight: 400 },
+    { key: 'gamja',      label: '귀염',  family: "'Gamja Flower', cursive",     weight: 400 },
+    { key: 'himelody',   label: '하늘',  family: "'Hi Melody', cursive",        weight: 400 }
   ];
   var COLORS = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
@@ -179,10 +180,9 @@
 
   function buildText() {
     var fonts = FONTS.map(function (f, i) {
-      // [#8] 'Aa가'는 그 폰트로 렌더 + 작은 이름표(모던/손글씨…) 항상 표시 → 폰트 미로딩이어도 구분 가능.
-      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '">' +
-        '<span class="itfont__s" style="font-family:' + f.family + (f.key === 'pen' || f.key === 'gamja' || f.key === 'himelody' ? ';font-size:24px' : '') + '">Aa가</span>' +
-        '<span class="itfont__n">' + f.label + '</span></button>';
+      // [#8] 'Aa가'를 그 폰트 그대로 렌더(이름표 없음). family 는 작은따옴표라 큰따옴표 속성 안에서도 안 깨짐.
+      var big = (f.key === 'pen' || f.key === 'gamja' || f.key === 'himelody' || f.key === 'gaegu') ? ';font-size:26px' : '';
+      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + big + '">Aa가</button>';
     }).join('');
     var colors = COLORS.map(function (c, i) {
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
