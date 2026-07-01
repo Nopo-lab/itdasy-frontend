@@ -843,6 +843,14 @@ function _cleanShopName(raw) {
   }
   return s;
 }
+// [#1] 캡션에 상호로 브랜딩할 '진짜 가게 이름'인지 — 'Dd'·'aa' 같은 짧은 라틴/계정 placeholder 제외.
+function _isRealShop(n) {
+  n = String(n || '').trim();
+  if (n.length < 2) return false;
+  if (/(뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵|점)$/.test(n)) return true;
+  if (/[가-힣]{2,}/.test(n)) return true;
+  return false;
+}
 function _parseShopCustomer(text) {
   const t = String(text || '');
   let shop = '', customer = '';
@@ -901,12 +909,16 @@ window.CaptionEngine = {
     // [v611] 샵/고객은 flow(_cleanService, v610)가 이미 정확히 분리해 opts 로 넘긴다 → 그 값을 신뢰.
     //   opts 에 없을 때만 자체 _parseShopCustomer 폴백(레거시 직접 호출 대비). 샵 접미사('샵') 보존.
     const _sc = _parseShopCustomer([opts.service, opts.treatment_keyword].filter(Boolean).join(' '));
-    const _shopFinal = (opts.shop_name && String(opts.shop_name).trim()) || _sc.shop;
+    let _shopFinal = (opts.shop_name && String(opts.shop_name).trim()) || _sc.shop;
     const _custFinal = (opts.customer_name && String(opts.customer_name).trim()) || _sc.customer;
+    // [#1] 'Dd'·'aa' 같은 계정 placeholder 는 상호로 캡션에 안 씀 — 진짜 상호(한글 2자↑ or 상호접미사)만.
+    if (_shopFinal && !_isRealShop(_shopFinal)) _shopFinal = '';
     if (_shopFinal) payload.shop_name = String(_shopFinal).slice(0, 40);
     if (_custFinal) payload.customer_name = String(_custFinal).slice(0, 20);
-    // [v611] 샵 이름을 LLM 이 줄이지 않게 — extra_notes 로 '정확히 이 상호로 표기' 명시("강연준네일"→"강연준네일샵").
-    if (_shopFinal) opts.extra_notes = ('샵 이름은 반드시 "' + _shopFinal + '" 전체로 정확히 표기(줄이거나 "샵" 빼지 말 것). ' + String(opts.extra_notes || '')).slice(0, 300);
+    // [v611] 샵 이름을 LLM 이 줄이지 않게 — 진짜 상호일 때만 '정확히 이 상호로 표기 + 억지 반복 금지'.
+    if (_shopFinal) opts.extra_notes = ('샵 이름은 반드시 "' + _shopFinal + '" 전체로 정확히 표기(줄이거나 "샵" 빼지 말 것). 단 상호는 게시글에 많아야 한 번만 자연스럽게, 매 문장 반복 금지. ' + String(opts.extra_notes || '')).slice(0, 300);
+    // [#1] 진짜 상호가 없으면 상호를 지어내거나 계정명(예: Dd)을 상호로 쓰지 말라고 명시.
+    else opts.extra_notes = ('특정 상호(가게 이름)를 지어내거나 계정 이름을 상호처럼 쓰지 말고, 필요하면 "저희 샵"으로만 칭할 것. ' + String(opts.extra_notes || '')).slice(0, 300);
     // [다중pair·Step5] 사용자 강조 표현은 extra_notes 채널로 전달 — 백엔드 GenerateRequest.extra_notes 가
     //  '특이사항은 그대로 복붙하지 말고 문맥에 맞게 자연스럽게 녹여달라'로 처리 → 구어/감정 표현(예: '개오바 얼굴')
     //  박제 방지 + 의미 반영. 백엔드 제한(max 300자)에 맞춰 캡.
