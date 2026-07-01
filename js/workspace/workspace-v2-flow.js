@@ -502,6 +502,8 @@
       var jobs = [];
       ordered.forEach(function (p) {
         if (p.storyEdited) return;                 // 수동 편집 사진은 그대로
+        // [#3] 자동 시술명 오버레이는 '대표 사진 1장'에만 — 나머지는 깨끗한 원본. 다른 장에 글 넣으려면 그 장을 편집.
+        if (p !== active) { p.tplPreviewUrl = null; p._tplSig = sigBase; return; }
         if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
         p._tplSig = sigBase;
         jobs.push(window.ItdEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: built.layers })

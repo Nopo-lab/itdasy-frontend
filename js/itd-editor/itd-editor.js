@@ -772,6 +772,7 @@
   function onLayThumb(idx) {
     var kind = S.layout.kind || 'single';
     if (kind === 'single') {
+      if (idx !== S.adjSel) { _switchPhotoDraw(S.adjSel, idx); S.adjSel = idx; }   // [#9] 사진 바꾸면 그리기도 사진별로
       S.photoUrl = S.photos[idx]; S.photoCss = 'url("' + S.photos[idx] + '")';
       refs.photo.style.backgroundImage = S.photoCss;
       renderLayoutStrip(); renderLayoutHint(); return;
@@ -900,9 +901,21 @@
     syncAdjSliders();
   }
   function onAdjThumb(i) {
+    if (i === S.adjSel) return;
+    _switchPhotoDraw(S.adjSel, i);   // [#9] 그리기는 사진별 — 전환 시 저장/복원(다른 사진에 안 넘어감)
     S.adjSel = i;
     if ((S.layout.kind || 'single') === 'single') { S.photoUrl = S.photos[i]; S.photoCss = 'url("' + S.photos[i] + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     applyAdjToDisplay(); applyStraighten(); renderAdjust();
+  }
+  // [#9] 편집기 안에서 사진을 바꿀 때 그리기(캔버스)를 사진별로 보관·복원 — 한 사진에 그린 게 다른 사진에 안 뜨게.
+  function _switchPhotoDraw(oldIdx, newIdx) {
+    if (oldIdx === newIdx || !refs.ctx || !refs.draw) return;
+    if (!S.photoDraw) S.photoDraw = {};
+    var c = refs.ctx;
+    try { S.photoDraw[oldIdx] = refs.draw.toDataURL(); } catch (_e) { void _e; }
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, refs.draw.width, refs.draw.height); c.restore();
+    var saved = S.photoDraw[newIdx];
+    if (saved) { var im = new Image(); im.onload = function () { try { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(im, 0, 0); c.restore(); } catch (_e2) { void _e2; } }; im.src = saved; }
   }
   // [#4] 배경 선호(색/이미지) 기억 — 다음에도 같은 배경.
   function loadBgPref() { try { return JSON.parse(localStorage.getItem('itdasy:itd_bg') || '{}'); } catch (_) { return {}; } }
@@ -917,7 +930,10 @@
     var cached = S.matte[i] || null;   // 매트 있으면 누끼 재요청 없이 배경만 다시 입힘(빠름)
     if (!silent && refs.adjCut) { refs.adjCut.disabled = true; refs.adjCut.classList.add('is-busy'); }
     if (!silent) toastIt(cached ? '배경 입히는 중…' : '배경 지우는 중…');
-    var bg = S.collageBgImg ? { imageData: S.collageBgImg } : { color: S.collageBg || '#FFFFFF' };
+    // [#8] 누끼 배경은 사진별 — S.photoBg[i] 우선(없으면 흰색). 한 사진 배경 바꿔도 다른 사진 안 바뀜.
+    S.photoBg = S.photoBg || {};
+    var _pb = S.photoBg[i];
+    var bg = _pb ? (_pb.img ? { imageData: _pb.img } : { color: _pb.color || '#FFFFFF' }) : { color: '#FFFFFF' };
     window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5', preRemovedBgUrl: cached }).then(function (r) {
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
@@ -939,7 +955,8 @@
     });
   }
   // 배경(색/이미지) 바뀌면 이미 누끼한 사진들을 캐시 매트로 즉시 재합성(0초).
-  function recutWithBg() { if (!S.cutSet) return; Object.keys(S.cutSet).forEach(function (k) { if (S.cutSet[k]) doCutout(+k, true); }); }
+  // [#8] 배경 바꾸면 '현재 사진'만 재합성(0초, 매트캐시). 예전엔 누끼한 모든 사진을 다 바꿔 '전체 배경 변경'이었음.
+  function recutWithBg() { if (S.cutSet && S.cutSet[S.adjSel]) doCutout(S.adjSel, true); }
   function undoCutout() {
     var i = S.adjSel; if (!(S.origPhotos && S.origPhotos[i] != null)) { toastIt('되돌릴 원본이 없어요'); return; }
     var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
@@ -968,8 +985,9 @@
         var max = 900, sc = Math.min(1, max / Math.max(img.width, img.height));
         var w = Math.max(1, Math.round(img.width * sc)), h = Math.max(1, Math.round(img.height * sc));
         var cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h);
-        try { S.collageBgImg = cv.toDataURL('image/jpeg', 0.85); } catch (_) { S.collageBgImg = rd.result; }
-        saveBgPref(); renderCollage(); applyFit(); recutWithBg(); toastIt('배경 사진을 정했어요');
+        var _u; try { _u = cv.toDataURL('image/jpeg', 0.85); } catch (_) { _u = rd.result; }
+        S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { img: _u };   // [#8] 현재 사진 배경만
+        renderCollage(); applyFit(); recutWithBg(); toastIt('배경 사진을 정했어요');
       };
       img.onerror = function () { S.collageBgImg = rd.result; saveBgPref(); renderCollage(); applyFit(); };
       img.src = rd.result;
@@ -1179,7 +1197,7 @@
     // [#4] 누끼 배경 색 — 탭하면 즉시 재합성(매트 캐시 있으면 0초). 누끼 전이면 배경만 기억.
     if (refs.adjCutBg) refs.adjCutBg.addEventListener('click', function (e) {
       var b = e.target.closest('[data-cutbg]'); if (!b) return;
-      S.collageBg = b.getAttribute('data-cutbg'); S.collageBgImg = null; saveBgPref();
+      S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { color: b.getAttribute('data-cutbg'), img: null };   // [#8] 현재 사진 배경만
       refs.adjCutBg.querySelectorAll('[data-cutbg]').forEach(function (x) { x.classList.toggle('on', x === b); });
       applyFit(); recutWithBg();
     });
@@ -1246,7 +1264,7 @@
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
       collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
-      ratio: (opts.ratio || '4:5'), undo: [], redo: [],
+      ratio: (opts.ratio || '4:5'), undo: [], redo: [], photoDraw: {}, photoBg: {},
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
