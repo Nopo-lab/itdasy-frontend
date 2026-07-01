@@ -183,6 +183,7 @@
   function _confirmPreview(am) {
     const msg = am && am.confirm_preview;
     if (!msg) return '';
+    if (am.awaiting_deposit) return '';  // [2026-07-02] 예약금 안내 단계에선 확정 미리보기 숨김 — 다음(입금확인) 단계에서 노출
     return `<div style="margin-top:10px;padding:10px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#FAFBFC;">
       <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8B95A1;font-weight:700;margin-bottom:5px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
@@ -260,6 +261,7 @@
     // [2026-07-02] 러너웨이 초과 시 겹침 소프트경고 — 원장 전용, 차단 없음
     const _rwMin = parseInt(am.runway_min, 10);
     const _over0 = Number.isFinite(_rwMin) && _rwMin > 0 && init > _rwMin;
+    const _ymd = am.starts_at_iso ? String(am.starts_at_iso).split('T')[0] : '';
     const _btn = (step, lbl, path) => `<button class="dcq-dur-btn" data-step="${step}" aria-label="${lbl}" style="width:28px;height:28px;border:1px solid #E5E8EB;background:#F2F4F6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#4E5968;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">${path}</svg></button>`;
     return `<div class="dcq-dur-wrap" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;">
       <span style="font-size:12px;color:#8B95A1;font-weight:700;">예상 시술 시간</span>
@@ -271,7 +273,8 @@
     </div>
     <div class="dcq-dur-warn" style="display:${_over0 ? 'flex' : 'none'};align-items:center;gap:5px;font-size:12px;color:#BC6675;font-weight:500;margin:8px 2px 2px;">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-      다른 손님과 시간이 겹칠 수 있어요
+      <span>다른 손님과 시간이 겹칠 수 있어요</span>
+      <button class="dcq-cal-jump" type="button" data-ymd="${_ymd}" style="margin-left:auto;display:inline-flex;align-items:center;gap:3px;background:none;border:none;padding:0;color:#BC6675;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;">캘린더 보기<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
     </div>`;
   }
   // [F2] 전송 버튼 라벨·스타일
@@ -507,7 +510,7 @@
         ${_receivedStack(it)}
         ${_extractedChips(ex, am)}
         ${_bookingLine(am)}
-        ${_rescheduleLine(am)}
+        ${it.action_required === 'reschedule_action' ? _rescheduleLine(am) : ''}
         ${it.action_required === 'cancel_action' ? _cancelLine(am) : ''}
         ${_durationStepper(it)}
         ${_depositLine(am)}
@@ -622,6 +625,8 @@
         _warn.style.display = (Number.isFinite(_rw) && _rw > 0 && v > _rw) ? 'flex' : 'none';
       }
     }));
+    // [2026-07-02] 겹침 경고의 '캘린더 보기' — 탭만 전환(DM 안 닫힘), 확인 후 돌아오면 카드 유지
+    list.querySelectorAll('.dcq-cal-jump').forEach(a => a.addEventListener('click', () => _gotoCalendar(a.dataset.ymd || '')));
     list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
     list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
     list.querySelectorAll('.dcq-confirm-deposit').forEach(b => b.addEventListener('click', () => _doAction(b, 'confirm-deposit')));
