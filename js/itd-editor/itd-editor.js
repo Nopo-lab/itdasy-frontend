@@ -138,7 +138,8 @@
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
     }).join('');
     return '<div class="itpanel ittext is-open" data-panel="text">' +
-        '<div class="ittext__top">' +
+        '<div class="itgrip itgrip--p" data-pgrip></div>' +
+                '<div class="ittext__top">' +
           '<span class="italn" data-r="aln">' +
             '<button data-aln="left" class="on">' + IC.alnL + '</button>' +
             '<button data-aln="center">' + IC.alnC + '</button>' +
@@ -158,7 +159,8 @@
         '<b data-adjout="' + c.k + '">0</b></div>';
     }).join('');
     return '<div class="itpanel itadj" data-panel="adjust">' +
-      '<div class="itadj__sub">보정할 사진을 고르세요</div>' +
+        '<div class="itgrip itgrip--p" data-pgrip></div>' +
+              '<div class="itadj__sub">보정할 사진을 고르세요</div>' +
       '<div class="itadj__strip" data-r="adjStrip"></div>' +
       '<div class="itadj__bgrow"><button class="itadj__bg" data-r="adjCut">' + IC.cut + ' 배경 지우기(누끼)</button>' +
         '<button class="itadj__bg itadj__bg--undo" data-r="adjUncut">원본</button></div>' +
@@ -206,7 +208,8 @@
       return '<button class="itscw' + (i === 2 ? ' on' : '') + '" data-scolor="' + c + '" style="background:' + c + '"></button>';
     }).join('');
     return '<div class="itpanel itshape" data-panel="shape">' +
-      '<div class="itshape__row">' + chips + '</div>' +
+        '<div class="itgrip itgrip--p" data-pgrip></div>' +
+              '<div class="itshape__row">' + chips + '</div>' +
       '<div class="itshape__opts">' +
         '<span class="itshape__fill" data-r="shapeFill"><button data-shapefill="0" class="on">선만</button><button data-shapefill="1">채움</button></span>' +
         '<span class="itshape__thick">굵기<input type="range" min="2" max="26" step="1" value="6" data-r="shapeThick"></span>' +
@@ -223,7 +226,8 @@
     }).join('');
     var bg = BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-bg="' + c + '" style="background:' + c + '"></button>'; }).join('');
     return '<div class="itpanel itlay2" data-panel="layout">' +
-      '<div class="itlay2__hint" data-r="layHint"></div>' +
+        '<div class="itgrip itgrip--p" data-pgrip></div>' +
+              '<div class="itlay2__hint" data-r="layHint"></div>' +
       '<div class="itlay2__types">' + chips + '</div>' +
       '<div class="itlay2__sub">렌더된 사진 — 순서대로 누르세요</div>' +
       '<div class="itlay2__strip" data-r="layStrip"></div>' +
@@ -645,6 +649,26 @@
     if (refs.stkSheet) refs.stkSheet.classList.remove('is-tall');
     refs.draw.classList.remove('is-armed'); refs.draw.style.zIndex = '3';
     refs.layers.style.pointerEvents = '';
+  }
+  // [#7] 하단 도구패널 전체 닫기 — 아무 도구도 선택 안 한 상태로(모든 패널 내림).
+  function _closeToolPanel() {
+    S.tool = null;
+    root.querySelectorAll('.itrb').forEach(function (b) { b.classList.remove('on'); });
+    Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.remove('is-open'); });
+    if (refs.stkSheet) refs.stkSheet.classList.remove('is-tall');
+    refs.draw.classList.remove('is-armed'); refs.draw.style.zIndex = '3'; refs.draw.style.pointerEvents = 'auto';
+    refs.layers.style.pointerEvents = '';
+    if (refs.collage) refs.collage.classList.remove('is-cropping');
+    fitStageToRatio();
+  }
+  // [#7] 패널 상단을 아래로 긁으면 닫히게 — grip 요소가 있는 모든 패널에 스와이프 부착.
+  function _attachSheetSwipe(gripEl) {
+    if (!gripEl) return;
+    var gd = null;
+    gripEl.addEventListener('pointerdown', function (e) { gd = { y: e.clientY }; try { gripEl.setPointerCapture(e.pointerId); } catch (_) { void _; } });
+    gripEl.addEventListener('pointermove', function (e) { if (!gd) return; var dy = e.clientY - gd.y; gripEl.style.transform = dy > 0 ? ('translateY(' + Math.min(dy, 40) + 'px)') : ''; });
+    gripEl.addEventListener('pointerup', function (e) { if (!gd) return; var dy = e.clientY - gd.y; gd = null; gripEl.style.transform = ''; if (dy > 44) _closeToolPanel(); });
+    gripEl.addEventListener('pointercancel', function () { gd = null; gripEl.style.transform = ''; });
   }
   /* ── 이미지 스티커(데코·내 스티커) #6/#7 ── */
   function addImageSticker(src) {
@@ -1113,6 +1137,8 @@
       if (dy < -40) { refs.stkSheet.classList.add('is-tall'); return; }   // 위로 끌면 더 펼치기
       if (!was.moved) refs.stkSheet.classList.toggle('is-tall');  // 그냥 탭이면 토글
     });
+    // [#7] 각 도구패널 상단 grip 아래로 긁으면 닫기
+    root.querySelectorAll('[data-pgrip]').forEach(function (g) { _attachSheetSwipe(g); });
     // [①] 가로 스크롤 줄 드래그 스와이프(폰트/색/칩)
     enableDragScroll(refs.fonts); enableDragScroll(refs.colors);
     enableDragScroll(refs.stkSheet.querySelector('.itfstk'));

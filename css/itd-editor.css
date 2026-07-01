@@ -109,6 +109,9 @@
   padding:0 18px calc(14px + env(safe-area-inset-bottom));max-height:64vh;overflow-y:auto;transition:max-height .2s ease}
 .itstk.is-tall{max-height:88vh}
 .itgrip{width:42px;height:4px;border-radius:2px;background:#E0D8D2;margin:11px auto 8px}
+/* [#7] 패널 상단 grip — 아래로 긁으면 닫힘(터치영역 넓게) */
+.itgrip--p{width:100%;height:20px;margin:0 0 6px;background:transparent;border-radius:0;position:relative;touch-action:none;cursor:grab}
+.itgrip--p::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);width:44px;height:4px;border-radius:2px;background:#E0D8D2}
 .itstk__search{display:flex;align-items:center;gap:9px;height:42px;border-radius:13px;background:#F4EEEB;
   border:1px solid #EFE6E2;padding:0 13px;color:#9AA1AC;font-size:13px;font-weight:500;margin-bottom:14px}
 .itstk__search svg{width:17px;height:17px;stroke:#9AA1AC;fill:none;stroke-width:1.8}
