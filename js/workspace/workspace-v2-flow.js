@@ -1580,7 +1580,8 @@
 	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
 	          '</div>') : '';
 	        // [#14] 초보자 레이아웃 A 적용 버튼
-	        var _ssPreset = (_useStyle && !d.textOnly) ? (
+	        var _ssPreset = '';   // [#4b] 옛 텍스트 프리셋(레이아웃 A/B) 픽커 제거 — 편집기 비주얼 레이아웃·글자도구와 중복. 로직(_applyPreset)은 '원탭 예쁘게'용으로 유지.
+		var _ssPresetOld = (_useStyle && !d.textOnly) ? (   // eslint-disable-line no-unused-vars
 	          '<div class="cap-presetrow2"><span class="cap-presetrow__l">레이아웃 디자인 · 눌러 적용 → \'사진 편집\'에서 글자 옮기면 그 자리로 저장돼요</span>' +
 	            '<div class="cap-presetcards">' +
 	              ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(function (k) {
