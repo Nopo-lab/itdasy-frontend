@@ -175,29 +175,86 @@
       '<button class="itadj__reset" data-r="adjReset">이 사진 보정 초기화</button>' +
     '</div>';
   }
+  // [#5] 스티커 시트 — 카테고리 탭 + 활성 탭 그리드 1개(탭 전환 = _renderStkTab).
+  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디'], ['text', '글자'], ['deco', '도형'], ['my', '내 스티커']];
   function buildSticker() {
-    var shop = SHOP_STK.map(function (s) { return '<button data-stk="' + s + '">' + s + '</button>'; }).join('');
-    var emo = EMOJI.map(function (s) { return '<button data-stk="' + s + '">' + s + '</button>'; }).join('');
-    var deco = DECO.map(function (u, i) { return '<button class="itdeco" data-deco="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>'; }).join('');
+    var tabs = STK_TABS.map(function (t, i) {
+      return '<button type="button" class="itstk__tab' + (i === 0 ? ' on' : '') + '" data-sttab="' + t[0] + '">' + t[1] + '</button>';
+    }).join('');
     return '<div class="itpanel" data-panel="sticker">' +
       '<div class="itstk" data-r="stkSheet">' +
         '<div class="itgrip"></div>' +
-        '<div class="itstk__search">' + IC.search + '스티커 검색</div>' +
-        '<div class="itfstk">' +
-          '<button type="button" class="itfs loc" data-feat="loc" data-r="featLoc">' + IC.loc + '<span data-r="featLocTx">우리샵</span></button>' +
-          '<button type="button" class="itfs book" data-feat="book">' + IC.book + '예약하기</button>' +
-          '<button type="button" class="itfs price" data-feat="price">' + IC.price + '가격</button>' +
-          '<button type="button" class="itfs time" data-feat="time">' + IC.time + '시간</button>' +
-        '</div>' +
-        // [#7] 내 스티커 — 업로드 버튼 + 저장된 내 스티커 그리드(동적 렌더)
-        '<div class="itssub itssub--row"><span>내 스티커</span>' +
-          '<label class="itstk__up">' + IC.upload + '추가<input type="file" accept="image/*" data-r="stkUpload" hidden></label></div>' +
-        '<div class="itsgrid itsgrid--my" data-r="myStk"></div>' +
-        // [#6] 캐릭터·데코(오리지널 SVG)
-        '<div class="itssub" style="margin-top:14px">캐릭터·데코</div><div class="itsgrid">' + deco + '</div>' +
-        '<div class="itssub" style="margin-top:14px">우리샵 에셋</div><div class="itsgrid">' + shop + '</div>' +
-        '<div class="itssub" style="margin-top:14px">이모지</div><div class="itsgrid">' + emo + '</div>' +
+        '<div class="itstk__tabs" data-r="stkTabs">' + tabs + '</div>' +
+        '<div class="itstk__body" data-r="stkBody"></div>' +
       '</div></div>';
+  }
+  function _emGrid(arr) {
+    return '<div class="itsgrid">' + (arr || []).map(function (s) { return '<button data-stk="' + s + '">' + s + '</button>'; }).join('') + '</div>';
+  }
+  function _svgGrid(cat, arr) {
+    return '<div class="itsgrid">' + (arr || []).map(function (u, i) {
+      return '<button class="itdeco" data-stkcat="' + cat + '" data-stkidx="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
+    }).join('') + '</div>';
+  }
+  function _txtGrid(arr) {
+    return '<div class="itsgrid itsgrid--txt">' + (arr || []).map(function (o, i) {
+      var f = fontByKey(o.f) || FONTS[0];
+      return '<button class="ittxtstk" data-txtstk="' + i + '" style="font-family:' + f.family + ';font-weight:' + f.weight + '">' + o.t + '</button>';
+    }).join('') + '</div>';
+  }
+  function _recoChips() {
+    return '<div class="itfstk">' +
+      '<button type="button" class="itfs loc" data-feat="loc" data-r="featLoc">' + IC.loc + '<span data-r="featLocTx">우리샵</span></button>' +
+      '<button type="button" class="itfs book" data-feat="book">' + IC.book + '예약하기</button>' +
+      '<button type="button" class="itfs price" data-feat="price">' + IC.price + '가격</button>' +
+      '<button type="button" class="itfs time" data-feat="time">' + IC.time + '시간</button>' +
+    '</div>';
+  }
+  // 활성 탭 그리드만 렌더 + 동적 refs 재캡처/바인딩(featLocTx·myStk·stkUpload).
+  function _renderStkTab(key) {
+    if (!refs.stkBody) return;
+    var ST = window.ItdStickers || {};
+    var html = '';
+    if (key === 'reco') {
+      var st = (localStorage.getItem('shop_type') || '').trim();
+      var em = ST.shopEmojiByType && ST.shopEmojiByType[st];
+      html = _recoChips() + _emGrid(em && em.length ? em.concat(ST.beautyEmoji || []) : (ST.beautyEmoji || EMOJI));
+    } else if (key === 'beauty') {
+      html = _emGrid(ST.beautyEmoji || EMOJI);
+    } else if (key === 'cute') {
+      html = _emGrid(ST.cuteEmoji || SHOP_STK);
+    } else if (key === 'mz') {
+      html = _emGrid(ST.mzEmoji || EMOJI) + _svgGrid('mood', ST.moodSvg);
+    } else if (key === 'text') {
+      html = _txtGrid(ST.textStk) + _svgGrid('badge', ST.badgeSvg);
+    } else if (key === 'deco') {
+      html = '<div class="itsgrid">' + DECO.map(function (u, i) { return '<button class="itdeco" data-deco="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>'; }).join('') + '</div>';
+    } else if (key === 'my') {
+      html = '<div class="itssub itssub--row"><span>내 스티커</span>' +
+        '<label class="itstk__up">' + IC.upload + '추가<input type="file" accept="image/*" data-r="stkUpload" hidden></label></div>' +
+        '<div class="itsgrid itsgrid--my" data-r="myStk"></div>';
+    }
+    refs.stkBody.innerHTML = html;
+    refs.stkBody.scrollTop = 0;
+    refs.featLocTx = refs.stkBody.querySelector('[data-r="featLocTx"]');
+    refs.myStk = refs.stkBody.querySelector('[data-r="myStk"]');
+    refs.stkUpload = refs.stkBody.querySelector('[data-r="stkUpload"]');
+    if (refs.featLocTx) refs.featLocTx.textContent = S.shopName || '우리샵';
+    if (refs.stkUpload) refs.stkUpload.addEventListener('change', function () { var fl = refs.stkUpload.files && refs.stkUpload.files[0]; if (fl) addMyStickerFromFile(fl); refs.stkUpload.value = ''; });
+    if (refs.myStk) renderMyStickers();
+    enableDragScroll(refs.stkBody.querySelector('.itfstk'));
+  }
+  // 캘리 글자 스티커 → 손글씨 폰트 텍스트 레이어(SVG-img는 웹폰트 불가 → 텍스트로).
+  function addTextSticker(text, fontKey) {
+    var L = makeLayer('text');
+    L.font = fontByKey(fontKey) || FONTS[0]; L.color = COLORS[0]; L.align = 'center'; L.fontSize = 40; L.text = text; L.shadow = true;
+    var t = el('div', 'itl-text'); t.textContent = text;
+    t.style.cssText = 'font-family:' + L.font.family + ';font-weight:' + L.font.weight + ';color:' + L.color + ';text-align:center;font-size:' + L.fontSize + 'px;white-space:pre-wrap;text-shadow:0 2px 8px rgba(0,0,0,.35)';
+    L.el.appendChild(t); L.tx = t;
+    placeCenter(L, 200, 60); selectLayer(L);
+    _pushOp({ op: 'add', L: L });
+    closeStickerSheet();
+    return L;
   }
   // [#8] 도형 패널(하단바) — 선/사각형/둥근사각/원 + 채움 토글 + 굵기 + 색.
   function buildShape() {
@@ -257,7 +314,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -281,7 +338,7 @@
     // [#4] Aa 탭 — 텍스트가 '선택된' 상태면 새로 안 만들고 패널만. 아무것도 선택 안 됐을 때만 새 텍스트.
     if (tool === 'text' && !(S.active && S.active.type === 'text')) addText();
     if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
-    if (tool === 'sticker') renderMyStickers();
+    if (tool === 'sticker' && refs.stkBody && !refs.stkBody.innerHTML) _renderStkTab('reco');   // [#5] 첫 진입 시 추천 탭
     if (tool === 'adjust') renderAdjust();
     if (S && S._peek) { S._peek = false; if (refs.peek) refs.peek.classList.remove('on'); }   // [P2-2] 도구 바꾸면 전체보기 해제
     fitStageToRatio();   // [P2-2] 패널 열림/닫힘에 맞춰 스테이지 위로/가운데 재배치
@@ -1127,16 +1184,18 @@
     refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; applyColor(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.aln.addEventListener('click', function (e) { var b = e.target.closest('[data-aln]'); if (!b) return; applyAlign(b.getAttribute('data-aln')); refs.aln.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.size.addEventListener('input', function () { applyScale(refs.size.value); });
-    // 스티커 — 이모지/우리샵 칩/데코/내 스티커 탭 → 레이어로 추가
+    // [#5] 스티커 — 카테고리 탭 전환 + 이모지/글자스티커/SVG/우리샵칩/데코/내 스티커 → 레이어로 추가
     refs.stkSheet.addEventListener('click', function (e) {
+      var tab = e.target.closest('[data-sttab]'); if (tab) { refs.stkTabs.querySelectorAll('[data-sttab]').forEach(function (x) { x.classList.toggle('on', x === tab); }); _renderStkTab(tab.getAttribute('data-sttab')); return; }
       var del = e.target.closest('[data-minedel]'); if (del) { e.stopPropagation(); delMyStk(+del.getAttribute('data-minedel')); return; }
       var mine = e.target.closest('[data-mine]'); if (mine) { var arr = loadMyStk(); var u = arr[+mine.getAttribute('data-mine')]; if (u) addImageSticker(u); return; }
+      var sc = e.target.closest('[data-stkcat]'); if (sc) { var cat = sc.getAttribute('data-stkcat'); var list = (window.ItdStickers || {})[cat + 'Svg'] || []; var su = list[+sc.getAttribute('data-stkidx')]; if (su) addImageSticker(su); return; }
       var dc = e.target.closest('[data-deco]'); if (dc) { addImageSticker(DECO[+dc.getAttribute('data-deco')]); return; }
+      var tx = e.target.closest('[data-txtstk]'); if (tx) { var o = ((window.ItdStickers || {}).textStk || [])[+tx.getAttribute('data-txtstk')]; if (o) addTextSticker(o.t, o.f); return; }
       var f = e.target.closest('[data-feat]'); if (f) { addFeatureLayer(f.getAttribute('data-feat')); return; }
       var b = e.target.closest('[data-stk]'); if (b) addSticker(b.getAttribute('data-stk'));
     });
-    // [#7] 내 스티커 업로드(사진 선택 → 축소 저장 → 그리드 갱신)
-    if (refs.stkUpload) refs.stkUpload.addEventListener('change', function () { var fl = refs.stkUpload.files && refs.stkUpload.files[0]; if (fl) addMyStickerFromFile(fl); refs.stkUpload.value = ''; });
+    enableDragScroll(refs.stkTabs);   // [#5] 탭 줄 가로 드래그
     // [#8] 도형 패널 — 도형 탭=삽입, 채움 토글, 굵기, 색
     refs.panels.shape.addEventListener('click', function (e) {
       var sh = e.target.closest('[data-shape]'); if (sh) { addShape(sh.getAttribute('data-shape')); return; }
@@ -1159,7 +1218,6 @@
     root.querySelectorAll('[data-pgrip]').forEach(function (g) { _attachSheetSwipe(g); });
     // [①] 가로 스크롤 줄 드래그 스와이프(폰트/색/칩)
     enableDragScroll(refs.fonts); enableDragScroll(refs.colors);
-    enableDragScroll(refs.stkSheet.querySelector('.itfstk'));
     enableDragScroll(refs.panels.shape.querySelector('.itshape__row'));
     enableDragScroll(refs.panels.shape.querySelector('.itshape__colors'));
     // 레이아웃 — 타입 칩 선택 + 렌더된 사진 순서 탭 + 배경색

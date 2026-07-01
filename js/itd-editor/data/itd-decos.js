@@ -59,4 +59,46 @@
     svgStk('<path d="M40 46h40l-3 18H43z" fill="#F2A6B6"/><path d="M43 64h34l-3 28a6 6 0 0 1-6 5H52a6 6 0 0 1-6-5z" fill="#F6D7A0"/><circle cx="60" cy="40" r="6" fill="#E8536B"/>'),
     svgStk('<rect x="46" y="40" width="22" height="40" rx="4" fill="#F0E0C0"/><path d="M46 56c-8 0-12 6-12 12s6 12 14 12h20V56z" fill="#F0E0C0"/><path d="M68 40h6a14 14 0 0 1 0 28h-6" fill="none" stroke="#C9A06A" stroke-width="4"/><circle cx="56" cy="58" r="4" fill="#fff"/>')
   ];
+
+  // [#5] 스티커 확장 — 카테고리별 이모지 + 캘리 글자스티커(텍스트레이어) + Y2K배지·무드 SVG.
+  //   손글씨 글자 스티커는 SVG-img가 웹폰트를 못 써서 텍스트 레이어로(앱 손글씨 폰트 사용). 배지/무드는 SVG.
+  var badgeSvg = [
+    svgStk('<rect x="16" y="44" width="88" height="34" rx="17" fill="#15181D"/><text x="60" y="67" font-family="Arial,sans-serif" font-size="21" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1.5">NEW</text>'),
+    svgStk('<rect x="16" y="44" width="88" height="34" rx="17" fill="#E24B4A"/><text x="60" y="67" font-family="Arial,sans-serif" font-size="21" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1.5">HOT</text>'),
+    svgStk('<rect x="12" y="44" width="96" height="34" rx="17" fill="#BC6675"/><text x="60" y="67" font-family="Arial,sans-serif" font-size="21" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1.5">SALE</text>'),
+    svgStk('<rect x="14" y="44" width="92" height="34" rx="17" fill="#E6B45A"/><text x="60" y="67" font-family="Arial,sans-serif" font-size="20" font-weight="900" fill="#15181D" text-anchor="middle" letter-spacing="1">BEST</text>'),
+    svgStk('<rect x="20" y="44" width="80" height="34" rx="17" fill="#6E9BC4"/><text x="60" y="67" font-family="Arial,sans-serif" font-size="22" font-weight="900" fill="#fff" text-anchor="middle">1+1</text>'),
+    svgStk('<rect x="18" y="44" width="84" height="34" rx="17" fill="#86B06E"/><text x="60" y="67" font-family="Arial,sans-serif" font-size="20" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1">OPEN</text>'),
+    svgStk('<rect x="18" y="44" width="84" height="34" rx="17" fill="#fff" stroke="#E6C9D2" stroke-width="2"/><text x="60" y="67" font-family="Pretendard,AppleSDGothicNeo,sans-serif" font-size="19" font-weight="900" fill="#BC6675" text-anchor="middle">신상</text>'),
+    svgStk('<path d="M60 16l10 10 14-2 2 14 10 10-10 10-2 14-14-2-10 10-10-10-14 2-2-14L18 60l10-10-2-14 14 2z" fill="#E24B4A"/><text x="60" y="67" font-family="Pretendard,AppleSDGothicNeo,sans-serif" font-size="15" font-weight="900" fill="#fff" text-anchor="middle">예약중</text>')
+  ];
+  var moodSvg = [
+    svgStk('<rect x="20" y="16" width="80" height="88" rx="6" fill="#fff" stroke="#E6DCD6" stroke-width="2"/><rect x="28" y="24" width="64" height="52" rx="3" fill="#EAD9CE"/><path d="M40 62l10-12 8 8 8-10 10 14v10a2 2 0 0 1-2 2H40z" fill="#C9B3A5"/><circle cx="72" cy="40" r="5" fill="#F0E0D2"/></rect>'),
+    svgStk('<rect x="14" y="30" width="92" height="60" rx="5" fill="#1B1B1F"/><rect x="14" y="30" width="92" height="8" fill="#2C2C31"/><rect x="14" y="82" width="92" height="8" fill="#2C2C31"/><g fill="#0B0B0D"><rect x="18" y="31" width="7" height="6"/><rect x="30" y="31" width="7" height="6"/><rect x="42" y="31" width="7" height="6"/><rect x="54" y="31" width="7" height="6"/><rect x="66" y="31" width="7" height="6"/><rect x="78" y="31" width="7" height="6"/><rect x="90" y="31" width="7" height="6"/><rect x="18" y="83" width="7" height="6"/><rect x="30" y="83" width="7" height="6"/><rect x="42" y="83" width="7" height="6"/><rect x="54" y="83" width="7" height="6"/><rect x="66" y="83" width="7" height="6"/><rect x="78" y="83" width="7" height="6"/><rect x="90" y="83" width="7" height="6"/></g><rect x="30" y="44" width="60" height="34" rx="2" fill="#E7D5C8"/>'),
+    svgStk('<path d="M60 20c3 20 8 25 28 28-20 3-25 8-28 28-3-20-8-25-28-28 20-3 25-8 28-28z" fill="#F6D365"/><path d="M96 30c1.5 7 3 9 10 10-7 1.5-9 3-10 10-1.5-7-3-9-10-10 7-1.5 9-3 10-10z" fill="#F2C84B"/><path d="M30 74c1.2 6 2.5 7.5 8.5 8.5-6 1.2-7.5 2.5-8.5 8.5-1.2-6-2.5-7.5-8.5-8.5 6-1.2 7.5-2.5 8.5-8.5z" fill="#F2C84B"/>'),
+    svgStk('<g fill="#F2A6B6"><path d="M40 40l4 8 8 4-8 4-4 8-4-8-8-4 8-4z"/><path d="M78 60l3 6 6 3-6 3-3 6-3-6-6-3 6-3z"/><path d="M56 76l2.5 5 5 2.5-5 2.5-2.5 5-2.5-5-5-2.5 5-2.5z"/></g>'),
+    svgStk('<path d="M60 58c-9-2-30-4-34 6-3 8 8 14 20 10 6-2 12-8 14-16z" fill="#E68AA0"/><path d="M60 58c9-2 30-4 34 6 3 8-8 14-20 10-6-2-12-8-14-16z" fill="#E68AA0"/><path d="M60 58l-8 30h16z" fill="#D4708A"/><circle cx="60" cy="58" r="8" fill="#BC6675"/></path>')
+  ];
+
+  window.ItdStickers = {
+    // 이모지 세트
+    beautyEmoji: ['💅', '💄', '💇‍♀️', '✨', '💎', '👑', '💋', '🧴', '🪞', '💐', '🦋', '🌟'],
+    cuteEmoji: ['🎀', '🐰', '🌷', '🍒', '🧸', '🫧', '🌸', '🍓', '🐻', '🩰', '🍰', '🧁', '🌈', '☁️', '🐣'],
+    mzEmoji: ['🫶', '🤍', '🖤', '✨', '🥹', '🔥', '💯', '🫰', '😙', '💫', '🥰', '😮‍💨'],
+    shopEmojiByType: {
+      '네일': ['💅', '💎', '✨', '🎀'], '네일아트': ['💅', '💎', '✨', '🎀'],
+      '헤어': ['💇‍♀️', '💈', '✨', '🪞'], '붙임머리': ['💇‍♀️', '✨', '🪞', '🌟'],
+      '속눈썹': ['👁️', '👀', '✨', '🦋'], '왁싱': ['✨', '🌿', '🧴'],
+      '반영구': ['✍️', '👁️', '✨'], '피부': ['🧴', '🪞', '💧', '✨']
+    },
+    // 캘리 글자 스티커 → 텍스트 레이어(손글씨 폰트). {t:문구, f:폰트키}
+    textStk: [
+      { t: '찐예쁨', f: 'gamja' }, { t: '인생샷', f: 'pen' }, { t: '오늘도 예쁨', f: 'gaegu' },
+      { t: '완성 ♡', f: 'pen' }, { t: '재방문각', f: 'gamja' }, { t: '믿고 맡겨요', f: 'gaegu' },
+      { t: '예약 찜', f: 'pen' }, { t: '갓생네일', f: 'gamja' }, { t: '느좋', f: 'himelody' },
+      { t: '머릿결 좋아', f: 'gaegu' }, { t: '컬링샷', f: 'pen' }, { t: '유리피부', f: 'gamja' }
+    ],
+    badgeSvg: badgeSvg,
+    moodSvg: moodSvg
+  };
 })();

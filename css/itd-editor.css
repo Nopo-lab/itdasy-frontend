@@ -125,7 +125,18 @@
 /* '예약하기'는 강조 텍스트/테두리만 — 채워진(선택된 것처럼 보이던) 스타일 제거 */
 .itfs.book{border:1px solid var(--accent,#D58A95);color:var(--accent-strong,#BC6675)}
 .itfs.book svg{stroke:var(--accent-strong,#BC6675)}.itfs.loc svg{stroke:#E8536B}.itfs.price svg{stroke:#E0934A}.itfs.time svg{stroke:#6E9BC4}
-.itfstk.is-dragging,.itfonts.is-dragging,.itcolors.is-dragging{cursor:grabbing;scroll-snap-type:none}
+.itfstk.is-dragging,.itfonts.is-dragging,.itcolors.is-dragging,.itstk__tabs.is-dragging{cursor:grabbing;scroll-snap-type:none}
+/* [#5] 스티커 카테고리 탭 — 상단 고정 가로 스크롤 */
+.itstk__tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:2;background:#fff;padding-bottom:12px;margin-bottom:2px}
+.itstk__tabs::-webkit-scrollbar{display:none}
+.itstk__tab{flex:none;height:34px;padding:0 15px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;
+  background:#F4EEEB;border:1px solid #EFE6E2;color:#7A6A70;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none}
+.itstk__tab:active{transform:scale(.96)}
+.itstk__tab.on{background:var(--accent-strong,#BC6675);border-color:var(--accent-strong,#BC6675);color:#fff}
+.itstk__body{min-height:180px}
+/* [#5] 글자 스티커 셀(넓게 3열, 손글씨 미리보기) */
+.itsgrid--txt{grid-template-columns:repeat(3,1fr);margin-bottom:14px}
+.itsgrid--txt button{aspect-ratio:auto;min-height:60px;font-size:16px;color:#2C2226;line-height:1.2;padding:8px 6px;word-break:keep-all;text-align:center;overflow:hidden}
 .itssub{font-size:11px;font-weight:700;color:#9AA1AC;margin:4px 0 10px;letter-spacing:.02em}
 .itsgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:6px}
 .itsgrid button{aspect-ratio:1;border-radius:14px;background:#F7F1EF;border:1px solid #EFE6E2;display:grid;place-items:center;
