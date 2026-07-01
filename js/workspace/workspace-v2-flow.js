@@ -823,7 +823,12 @@
     return { url: url, preview: preview };
   }
   function _editPhotoLabel(p, i) {
-    return p && p.role === 'before' ? '전 사진' : (p && p.role === 'after' ? '후 사진' : ('사진 ' + (i + 1)));
+    // [#1] 전/후 역할 라벨은 '전후 비교'일 때만 의미 있음 — 일반 게시물에선 그냥 '사진 N'(쓸데없는 전/후/기본 분류 제거).
+    if (d.tplPurpose === 'before_after' && p) {
+      if (p.role === 'before') return '전 사진';
+      if (p.role === 'after') return '후 사진';
+    }
+    return '사진 ' + (i + 1);
   }
   // [v550] 큰 편집 사진을 좌우로 넘기는 carousel 네비 — 상단 큰 썸네일 rail 대신 컴팩트 dot+카운터+
   //   "이 사진 편집 중" pill + PC 화살표. 실제 전환은 큰 프리뷰 스와이프(_bindSwipe)/화살표/키보드.
@@ -1990,6 +1995,7 @@
 	    return String(text)
 	      .replace(/레이아드컷/g, '레이어드컷').replace(/레이아드/g, '레이어드')
 	      .replace(/레이어드\s+컷/g, '레이어드컷')
+	      .replace(/칼라/g, '컬러')   // [#2] '칼라'(collar 오타) → '컬러'(color)
 	      .replace(/고객고객님/g, '고객님').replace(/고\s*고객님/g, '고객님')
 	      .replace(/(고객님)(?:\s*고객님)+/g, '고객님');
 	  }
@@ -2064,7 +2070,7 @@
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
 	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
 	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
-	    if (_cust.customer && !d.customerName) d.customerName = _cust.customer;
+	    if (_cust.customer) d.customerName = _cust.customer;   // [#2] 이번 입력의 고객을 우선(예전 stale 값이 안 남게)
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
     // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
@@ -2080,7 +2086,7 @@
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
-    opts.customer_name = d.customerName || _cust.customer || '';
+    opts.customer_name = _cust.customer || d.customerName || '';   // [#2] 이번 입력 고객 우선(stale 방지)
     if (opts.customer_name) opts.photo_context += ' · 고객명: ' + opts.customer_name + '(시술받는 고객 이름. 시술명·스타일명·브랜드명이 아님. 게시글엔 고객님으로 자연스럽게만 언급)';
     // [다중pair] 결과물 여러 장이면 '캐러셀 게시글' 기준 — 중립적 전후 변화로(특정 시술명 가정 금지).
     var _outs = d.templateOutputs || [];
@@ -2098,7 +2104,11 @@
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
     opts.treatment_keyword = svcClean;
     var _sn = _cust.shop || _shopName();   // [P1-1] 확인칩 오버라이드(_cust.shop)가 등록 샵보다 우선
-    if (_sn) opts.shop_name = _sn;   // [#1] 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
+    if (_sn) {
+      opts.shop_name = _sn;   // [#1] 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
+      // [#2] 'Dd' 같은 상호가 고객으로 둔갑하는 것 방지 — 샵=가게이름(고객·시술명 아님) 명시.
+      opts.photo_context += ' · 상호(가게이름): ' + _sn + '(우리 가게 이름. 고객 이름이나 시술명이 절대 아님. "' + _sn + ' 고객님" 처럼 쓰지 말 것)';
+    }
     opts.content_type = d.tplPurpose || 'feed';
     opts.caption_intent = opts.caption_intent || 'generate';
     opts.strict_user_context = true;
@@ -2252,7 +2262,7 @@
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       if (a === 'publish') { return publish(); }
-      if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); toast('게시글을 복사했어요'); return; }
+      if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); _askPublishedSheet(); return; }   // [v547] 저장 후 게시 확인 sheet
       if (a === 'pubnot') { return _closePublishSheet(); }
       if (a === 'pubdone') { return _markPublishedNow(); }

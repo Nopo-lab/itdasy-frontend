@@ -47,12 +47,18 @@
     service = service.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim();
     return { service: service, customer: c.customer, shop: inline || reg };
   }
+  // [#10] 사진 위 오버레이는 '시술명'만 — 말투/이모지 지시·글자수·사담(여친/재밌었음 등)은 절대 안 박히게.
+  var _OVL_DROP = /말투|이모지|해시태그|글자|자\s*이내|자로|부탁|써\s*줘|써줘|넣어|느낌으로|재밌|웃겼|웃음|여친|여자친구|남친|남자친구|오신듯|같이\s*옴|함께\s*옴|단골|기분|친절|후기|정도로|처럼|해\s*줘|해줘|골라|추천해/;
   function _splitServiceForLayers(svc) {
     var s = String(svc || '')
       .replace(/(?:인스타|sns|감성|내추럴|모던|빈티지|러블리|시크|트렌디|미니멀|청순|글램|깔끔|세련|화사)?\s*(?:톤앤무드|톤앤매너|톤|느낌|감성|무드|분위기|바이브)\s*(?:으로|로|하게|있게|스럽게)\s*(?:마무리|마감|연출|편집|보정|작성)?/gi, ' ');
     s = _cleanService(s).service;   // [v590·#A][#1] 오버레이에 고객명·샵이름 안 박힘
-    var segs = s.split(/[\n,·、]+/).map(function (x) { return x.trim(); }).filter(Boolean);
-    if (segs.length >= 2) return { title: segs[0], sub: segs[1], body: segs.slice(2).join(' ') };
+    s = s.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/gu, ' ');   // 이모지 제거
+    s = s.replace(/\d+\s*자(?:\s*(?:이내|로|정도))?/g, ' ');   // '300자' 같은 글자수 지시 제거
+    var segs = s.split(/[\n,·、.]+/).map(function (x) { return x.trim(); })
+      .filter(function (x) { return x && !_OVL_DROP.test(x); });   // [#10] 지시·사담 세그먼트 제거
+    if (!segs.length) return { title: '', sub: '', body: '' };
+    if (segs.length >= 2) return { title: segs[0], sub: segs[1], body: '' };   // [#10] body 덤프 금지(사적내용 방지)
     // [v590·#A] 단일 구문: 길이/스펙(28인치 등)을 부제로 떼고 컷·스타일명은 제목으로 통째 유지(첫 단어만 떼던 회귀 수정).
     var one = segs[0] || '';
     var lm = one.match(/^(.*?\S)\s+(\d+\s*(?:인치|호|cm|mm|단|레벨|톤|등급)\b.*)$/);

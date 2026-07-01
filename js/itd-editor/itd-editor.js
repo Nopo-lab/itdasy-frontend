@@ -138,7 +138,6 @@
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
     }).join('');
     return '<div class="itpanel ittext is-open" data-panel="text">' +
-        '<button type="button" class="ittext__add" data-r="addText">' + svg('<path d="M12 5v14M5 12h14"/>', 2.3) + ' 글자 추가</button>' +
         '<div class="ittext__top">' +
           '<span class="italn" data-r="aln">' +
             '<button data-aln="left" class="on">' + IC.alnL + '</button>' +
@@ -275,7 +274,8 @@
     // [#3] 레이아웃 중에도 텍스트/스티커는 이동·선택 가능해야(레이어는 콜라주 위). 칸 크롭은 레이어 없는 빈 곳에서.
     refs.layers.style.pointerEvents = drawing ? 'none' : '';
     refs.collage.classList.toggle('is-cropping', inLayout);
-    if (tool === 'text' && !S.layers.some(function (l) { return l.type === 'text'; })) addText();
+    // [#4] Aa 탭 — 텍스트가 '선택된' 상태면 새로 안 만들고 패널만. 아무것도 선택 안 됐을 때만 새 텍스트.
+    if (tool === 'text' && !(S.active && S.active.type === 'text')) addText();
     if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
     if (tool === 'sticker') renderMyStickers();
     if (tool === 'adjust') renderAdjust();
