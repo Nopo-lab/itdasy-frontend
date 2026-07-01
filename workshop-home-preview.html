@@ -70,6 +70,29 @@
   .gDot--ready{background:var(--warn);}
   .gDot--done{background:var(--ok);}
   .gGo{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--text);display:grid;place-items:center;z-index:1;}
+  .gTime{position:absolute;right:7px;bottom:7px;font-size:9.5px;font-weight:700;color:rgba(255,255,255,.92);z-index:1;text-shadow:0 1px 3px rgba(0,0,0,.5);}
+
+  /* 상세 시트 (항목 탭) */
+  .sheetWrap{position:absolute;inset:0;z-index:20;display:none;}
+  .sheetWrap.on{display:block;}
+  .sheet__dim{position:absolute;inset:0;background:rgba(15,20,30,.42);}
+  .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:24px 24px 0 0;padding:8px 20px calc(22px + env(safe-area-inset-bottom));box-shadow:0 -12px 40px rgba(0,0,0,.28);animation:sheetUp .22s ease;}
+  @keyframes sheetUp{from{transform:translateY(30px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .sheet__grip{width:40px;height:4px;border-radius:2px;background:#E0E4EA;margin:8px auto 14px;}
+  .sheet__head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .sheet__thumb{width:56px;height:56px;border-radius:14px;background:var(--surface-2) center/cover;flex-shrink:0;}
+  .sheet__ttl{font-size:17px;font-weight:800;color:var(--text);}
+  .sheet__badge{display:inline-flex;align-items:center;gap:5px;margin-top:5px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:var(--r-pill);}
+  .sb--done{background:#E6F7F0;color:#0C8A5F;}
+  .sb--ready{background:#FFF4E0;color:#B4770B;}
+  .sb--edit{background:var(--brand-bg);color:var(--brand-strong);}
+  .sb--wait{background:var(--surface-2);color:var(--text-muted);}
+  .sheet__rows{display:flex;flex-direction:column;gap:1px;background:var(--surface-2);border-radius:14px;overflow:hidden;}
+  .sRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;background:var(--surface);}
+  .sRow__k{font-size:13px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:7px;}
+  .sRow__v{font-size:13px;color:var(--text);font-weight:700;text-align:right;}
+  .sRow__v small{display:block;font-size:11px;color:var(--text-subtle);font-weight:600;margin-top:1px;}
+  .sheet__cta{width:100%;height:48px;margin-top:16px;border:none;border-radius:14px;background:var(--text);color:#fff;font-family:inherit;font-size:14.5px;font-weight:800;cursor:pointer;}
 
   /* 데이터 출처 배지 */
   .srcBadge{margin:2px 18px 0;font-size:11px;font-weight:700;padding:5px 11px;border-radius:var(--r-pill);display:inline-flex;align-items:center;gap:5px;}
@@ -122,6 +145,12 @@
     <div class="nav__c"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
     <div class="nav__it"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5M4 9v11h16V9"/></svg>내 샵 관리</div>
   </div>
+
+  <!-- 항목 상세 시트 -->
+  <div class="sheetWrap" id="sheetWrap">
+    <div class="sheet__dim" data-sheet-close></div>
+    <div class="sheet" id="sheetBody"></div>
+  </div>
 </div>
 
 <script>
@@ -171,6 +200,34 @@
   function isSameMonth(ts) {
     if (!ts) return false; var d = new Date(ts), n = new Date();
     return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
+  }
+  // 시간 필드 — 만든 시각/마지막 작업(멈춘) 시각(코드 경로마다 필드명 달라 폴백).
+  function createdTs(s) { return s.savedAt || s.createdAt || s.updatedAt || 0; }
+  function updatedTs(s) { return s.updatedAt || s.savedAt || s.createdAt || 0; }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtDateTime(ts) {
+    if (!ts) return '기록 없음';
+    var d = new Date(ts);
+    return d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function relTime(ts) {
+    if (!ts) return '';
+    var s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return '방금';
+    var m = Math.floor(s / 60); if (m < 60) return m + '분 전';
+    var h = Math.floor(m / 60); if (h < 24) return h + '시간 전';
+    var day = Math.floor(h / 24); if (day < 7) return day + '일 전';
+    var w = Math.floor(day / 7); if (day < 30) return w + '주 전';
+    var mo = Math.floor(day / 30); if (mo < 12) return mo + '개월 전';
+    return Math.floor(day / 365) + '년 전';
+  }
+  function stalledText(s) {
+    // 완료 안 된 작업이 얼마나 멈춰있는지
+    var st = statusOf(s);
+    if (!st.progress) return '';
+    var day = Math.floor((Date.now() - updatedTs(s)) / 86400000);
+    if (day >= 1) return day + '일째 멈춤';
+    return '진행 중';
   }
 
   var _state = { slots: [], filter: 'all' };
@@ -227,11 +284,41 @@
       var st = statusOf(s), th = thumbOf(s);
       var bgStyle = th ? ('background-image:url(' + th + ')') : ('background-image:' + DEMO_GRAD[i % DEMO_GRAD.length]);
       var go = st.k === 'done' ? '' : '<span class="gGo">' + GO + '</span>';
-      return '<div class="gCell" style="' + bgStyle + '">' +
+      var idx = _state.slots.indexOf(s);
+      return '<div class="gCell" data-idx="' + idx + '" style="' + bgStyle + '">' +
         '<span class="gDot gDot--' + st.k + '"></span>' + go +
-        '<span class="gTag">' + esc(st.tag) + '</span></div>';
+        '<span class="gTag">' + esc(st.tag) + '</span>' +
+        '<span class="gTime">' + esc(relTime(updatedTs(s))) + '</span></div>';
     }).join('');
   }
+
+  // 항목 탭 → 상세 시트(만든 시각·마지막 작업/멈춘 시각·사진·고객·상태)
+  function openSheet(s) {
+    if (!s) return;
+    var st = statusOf(s), th = thumbOf(s), cnt = photoCount(s);
+    var stalled = stalledText(s);
+    var rows =
+      row('만든 날짜', fmtDateTime(createdTs(s)), relTime(createdTs(s))) +
+      row(st.k === 'done' ? '완료/발행' : '마지막 작업', fmtDateTime(updatedTs(s)), st.k === 'done' ? relTime(updatedTs(s)) : (stalled || relTime(updatedTs(s)))) +
+      row('사진', cnt + '장', '') +
+      (s.customer_name ? row('고객', esc(s.customer_name), '') : '') +
+      (s.caption ? row('캡션', '작성됨', '') : row('캡션', '아직 없음', ''));
+    document.getElementById('sheetBody').innerHTML =
+      '<div class="sheet__grip"></div>' +
+      '<div class="sheet__head">' +
+        '<div class="sheet__thumb" style="' + (th ? 'background-image:url(' + th + ')' : '') + '"></div>' +
+        '<div><div class="sheet__ttl">' + esc(s.label || '무제 작업') + '</div>' +
+          '<span class="sheet__badge sb--' + st.k + '">' + esc(st.tag) + (stalled && st.progress ? ' · ' + esc(stalled) : '') + '</span></div>' +
+      '</div>' +
+      '<div class="sheet__rows">' + rows + '</div>' +
+      '<button class="sheet__cta">' + (st.k === 'done' ? '다시 열기' : '이어서 작업하기') + '</button>';
+    document.getElementById('sheetWrap').classList.add('on');
+  }
+  function row(k, v, sub) {
+    return '<div class="sRow"><span class="sRow__k">' + esc(k) + '</span>' +
+      '<span class="sRow__v">' + v + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span></div>';
+  }
+  function closeSheet() { document.getElementById('sheetWrap').classList.remove('on'); }
 
   function renderCount() {
     document.getElementById('cCount').textContent = '전체 ' + _state.slots.length + '개';
@@ -241,14 +328,14 @@
 
   // 데모 슬롯(폴백) — 실데이터 없을 때만
   function demoSlots() {
-    var now = Date.now();
+    var H = 3600000, D = 86400000, now = Date.now();
     return [
-      { label: '봄 이벤트 컷', status: 'open', photos: [{ dataUrl: '' }], caption: '봄 신상', updatedAt: now, order: 6 },
-      { label: '레이어드컷 후기', status: 'open', photos: [{ dataUrl: '' }], updatedAt: now, order: 5 },
-      { label: '네일 신상', status: 'open', photos: [], updatedAt: now, order: 4 },
-      { label: '왁싱 전후', status: 'done', photos: [{ dataUrl: '' }], updatedAt: now, order: 3 },
-      { label: '속눈썹 리터치', status: 'done', photos: [{ dataUrl: '' }], updatedAt: now, order: 2 },
-      { label: '펌 완성', status: 'published', photos: [{ dataUrl: '' }], updatedAt: now, order: 1 }
+      { label: '봄 이벤트 컷', status: 'open', photos: [{ dataUrl: '' }], caption: '봄 신상', savedAt: now - 2 * H, updatedAt: now - 40 * 60000, order: 6 },
+      { label: '레이어드컷 후기', status: 'open', photos: [{ dataUrl: '' }], savedAt: now - 3 * D, updatedAt: now - 2 * D, order: 5 },
+      { label: '네일 신상', status: 'open', photos: [], savedAt: now - 5 * D, updatedAt: now - 5 * D, order: 4 },
+      { label: '왁싱 전후', status: 'done', photos: [{ dataUrl: '' }], savedAt: now - 6 * D, updatedAt: now - 6 * D, order: 3 },
+      { label: '속눈썹 리터치', status: 'done', photos: [{ dataUrl: '' }], savedAt: now - 9 * D, updatedAt: now - 8 * D, order: 2 },
+      { label: '펌 완성', status: 'published', photos: [{ dataUrl: '' }], savedAt: now - 14 * D, updatedAt: now - 13 * D, order: 1 }
     ];
   }
 
@@ -257,6 +344,21 @@
     _state.filter = b.getAttribute('data-filter');
     [].forEach.call(this.querySelectorAll('button'), function (x) { x.classList.toggle('on', x === b); });
     renderGrid();
+  });
+  // 그리드 항목 탭 → 상세 시트
+  document.getElementById('cGrid').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-idx]'); if (!c) return;
+    openSheet(_state.slots[+c.getAttribute('data-idx')]);
+  });
+  // 이어서 타일 탭 → 그 슬롯 상세
+  document.getElementById('bento').addEventListener('click', function (e) {
+    var t = e.target.closest('.t-resume'); if (!t) return;
+    var resume = _state.slots.filter(function (s) { return statusOf(s).progress; })[0];
+    if (resume) openSheet(resume);
+  });
+  // 시트 닫기(딤/그립)
+  document.getElementById('sheetWrap').addEventListener('click', function (e) {
+    if (e.target.closest('[data-sheet-close]') || e.target.closest('.sheet__grip')) closeSheet();
   });
 
   // 아바타/상호 이니셜
