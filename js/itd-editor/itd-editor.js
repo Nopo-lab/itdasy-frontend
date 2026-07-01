@@ -186,6 +186,8 @@
       '<div class="itadj__cutbg" data-r="adjCutBg">' +
         BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-cutbg="' + c + '" style="background:' + c + '"></button>'; }).join('') +
         '<label class="itlaybg itlaybg--up" aria-label="배경 사진"><input type="file" accept="image/*" data-r="adjBgImg" hidden>' + IC.addphoto + '</label>' +
+        // [#2] 최근 업로드 배경 재사용 스와치(있을 때만 보임)
+        (function () { try { var rb = localStorage.getItem('itdasy:itd_bgimg'); return rb ? '<button class="itlaybg itlaybg--recent" data-cutbgimg="1" aria-label="최근 배경 재사용" style="background-image:url(\'' + rb + '\')"></button>' : ''; } catch (_e) { return ''; } })() +
       '</div>' +
       '<div class="itadj__row itadj__rotrow"><span>수평</span>' +
         '<input type="range" min="-15" max="15" step="0.5" value="0" data-r="adjRot"><b data-r="adjRotOut">0°</b></div>' +
@@ -306,7 +308,7 @@
       '<div class="itlay2__hint" data-r="layHint"></div>' +
       '<div class="itlay2__strip" data-r="layStrip"></div>' +
       '<div class="itlay2__ctrls">' +
-        '<span class="itlay2__fit" data-r="layFit"><button data-fit="cover" class="on">꽉 채움</button><button data-fit="contain">전체</button></span>' +
+        '<span class="itlay2__fit" data-r="layFit"><button data-fit="cover">꽉 채움</button><button data-fit="contain" class="on">전체</button></span>' +
         '<span class="itlay2__gap">간격<input type="range" min="0" max="24" step="1" value="3" data-r="layGap"></span>' +
         '<span class="itlay2__bg">' + bg + '</span>' +
         '<label class="itlay2__add itlay2__bgimg">' + IC.addphoto + '배경<input type="file" accept="image/*" data-r="layBgImg" hidden></label>' +
@@ -314,17 +316,21 @@
       '</div>' +
     '</div>';
   }
+  var BRUSH_LABEL = { pen: '펜', marker: '형광펜', neon: '네온', eraser: '지우개' };
+  // [#6] 그리기 패널 — 하단 시트로 명확화(세로 슬라이더/아이콘만 지우기 → 라벨 붙은 붓·굵기·색·전체지우기).
   function buildDraw() {
     var brushes = BRUSHES.map(function (b, i) {
-      return '<button class="itbrush' + (i === 0 ? ' on' : '') + '" data-brush="' + b + '">' + IC[b] + '</button>';
+      return '<button class="itbrush2' + (i === 0 ? ' on' : '') + '" data-brush="' + b + '" aria-label="' + (BRUSH_LABEL[b] || b) + '">' + IC[b] + '<em>' + (BRUSH_LABEL[b] || b) + '</em></button>';
     }).join('');
     var colors = COLORS.map(function (c, i) {
       return '<button class="itdsw' + (i === 2 ? ' on' : '') + '" data-dcolor="' + c + '" style="background:' + c + '"></button>';
     }).join('');
-    return '<div class="itpanel" data-panel="draw">' +
-      '<div class="itdraw__top">' + brushes + '<button class="itbrush itdraw__clear" data-r="drawClear" aria-label="그리기 전체 지우기">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + '</button></div>' +
-      '<div class="itbsize"><input type="range" min="3" max="40" step="1" value="10" data-r="brushSize"></div>' +
-      '<div class="itdraw__colors">' + colors + '</div>' +
+    return '<div class="itpanel itdrawp" data-panel="draw">' +
+      '<div class="itgrip itgrip--p" data-pgrip></div>' +
+      '<div class="itdrawp__tools">' + brushes +
+        '<button class="itdrawp__clear" data-r="drawClear">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + '전체 지우기</button></div>' +
+      '<div class="itdrawp__size"><span class="itdrawp__lbl">굵기</span><input type="range" min="3" max="40" step="1" value="10" data-r="brushSize"></div>' +
+      '<div class="itdrawp__colors">' + colors + '</div>' +
     '</div>';
   }
 
@@ -833,7 +839,7 @@
     refs.frame.className = 'itded__frame';
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
     // [#4] 콜라주는 칸을 꽉 채우는 게 자연스럽고, 단일은 전체(여백)로. 사용자가 직접 토글했으면 존중.
-    if (!S._fitManual) { S.fitMode = isSingleL(S.layout) ? 'contain' : 'cover'; _syncFitToggle(); }
+    if (!S._fitManual) { S.fitMode = 'contain'; _syncFitToggle(); }   // [#3] 기본 '전체' — 콜라주 칸에서도 사진이 안 잘리게(꽉채움 원하면 토글)
     _syncBaLabels();   // [전/후] 전/후 레이아웃이면 BEFORE·AFTER 라벨 자동, 아니면 제거
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
   }
@@ -1042,6 +1048,11 @@
   // 배경(색/이미지) 바뀌면 이미 누끼한 사진들을 캐시 매트로 즉시 재합성(0초).
   // [#8] 배경 바꾸면 '현재 사진'만 재합성(0초, 매트캐시). 예전엔 누끼한 모든 사진을 다 바꿔 '전체 배경 변경'이었음.
   function recutWithBg() { if (S.cutSet && S.cutSet[S.adjSel]) doCutout(S.adjSel, true); }
+  // [#2] 배경(색/사진) 바꾸면 적용 — 이미 누끼면 0초 교체, 아직 안 했으면 지금 누끼하며 배경 적용(눈에 보이게).
+  function applyBgChange() {
+    if (S.cutSet && S.cutSet[S.adjSel]) recutWithBg();
+    else doCutout(S.adjSel);   // 처음 배경 고르면 자동 누끼로 반영(예전엔 아무 일도 안 나 '적용 안 됨')
+  }
   function undoCutout() {
     var i = S.adjSel; if (!(S.origPhotos && S.origPhotos[i] != null)) { toastIt('되돌릴 원본이 없어요'); return; }
     var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
@@ -1072,7 +1083,9 @@
         var cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h);
         var _u; try { _u = cv.toDataURL('image/jpeg', 0.85); } catch (_) { _u = rd.result; }
         S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { img: _u };   // [#8] 현재 사진 배경만
-        renderCollage(); applyFit(); recutWithBg(); toastIt('배경 사진을 정했어요');
+        try { localStorage.setItem('itdasy:itd_bgimg', _u); } catch (_e3) { void _e3; }   // [#2] 다음에도 재사용
+        if (refs.adjCutBg) { var rb = refs.adjCutBg.querySelector('[data-cutbgimg]'); if (rb) rb.style.backgroundImage = 'url(\'' + _u + '\')'; }
+        renderCollage(); applyFit(); applyBgChange(); toastIt('배경 사진을 적용했어요');   // [#2] 처음이면 자동 누끼로 바로 반영
       };
       img.onerror = function () { S.collageBgImg = rd.result; saveBgPref(); renderCollage(); applyFit(); };
       img.src = rd.result;
@@ -1281,20 +1294,28 @@
     if (refs.adjUncut) refs.adjUncut.addEventListener('click', undoCutout);
     // [#4] 누끼 배경 색 — 탭하면 즉시 재합성(매트 캐시 있으면 0초). 누끼 전이면 배경만 기억.
     if (refs.adjCutBg) refs.adjCutBg.addEventListener('click', function (e) {
+      var rbtn = e.target.closest('[data-cutbgimg]');   // [#2] 최근 배경 사진 재사용(원탭)
+      if (rbtn) {
+        var rb = ''; try { rb = localStorage.getItem('itdasy:itd_bgimg') || ''; } catch (_e) { rb = ''; }
+        if (!rb) { toastIt('저장된 배경 사진이 없어요'); return; }
+        S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { img: rb };
+        refs.adjCutBg.querySelectorAll('[data-cutbg],[data-cutbgimg]').forEach(function (x) { x.classList.toggle('on', x === rbtn); });
+        applyFit(); applyBgChange(); toastIt('저장한 배경을 적용했어요'); return;
+      }
       var b = e.target.closest('[data-cutbg]'); if (!b) return;
       S.photoBg = S.photoBg || {}; S.photoBg[S.adjSel] = { color: b.getAttribute('data-cutbg'), img: null };   // [#8] 현재 사진 배경만
-      refs.adjCutBg.querySelectorAll('[data-cutbg]').forEach(function (x) { x.classList.toggle('on', x === b); });
-      applyFit(); recutWithBg();
+      refs.adjCutBg.querySelectorAll('[data-cutbg],[data-cutbgimg]').forEach(function (x) { x.classList.toggle('on', x === b); });
+      applyFit(); applyBgChange();   // [#2] 처음이면 자동 누끼로 반영
     });
     if (refs.adjBgImg) refs.adjBgImg.addEventListener('change', function () { var fl = refs.adjBgImg.files && refs.adjBgImg.files[0]; if (fl) addBgImageFromFile(fl); refs.adjBgImg.value = ''; });
     enableDragScroll(refs.adjStrip);
     // 그리기
-    root.querySelector('[data-panel="draw"] .itdraw__top').addEventListener('click', function (e) {
+    root.querySelector('[data-panel="draw"] .itdrawp__tools').addEventListener('click', function (e) {
       if (e.target.closest('[data-r="drawClear"]')) { if (refs.ctx && refs.draw) { refs.ctx.clearRect(0, 0, refs.draw.width, refs.draw.height); toastIt('그림을 지웠어요'); } return; }   // [#6] 그리기 전체 지우기
       var b = e.target.closest('[data-brush]'); if (!b) return; S.brush = b.getAttribute('data-brush'); root.querySelectorAll('[data-brush]').forEach(function (x) { x.classList.toggle('on', x === b); });
     });
     refs.brushSize.addEventListener('input', function () { S.brushSize = +refs.brushSize.value; });
-    root.querySelector('[data-panel="draw"] .itdraw__colors').addEventListener('click', function (e) { var b = e.target.closest('[data-dcolor]'); if (!b) return; S.drawColor = b.getAttribute('data-dcolor'); root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+    root.querySelector('[data-panel="draw"] .itdrawp__colors').addEventListener('click', function (e) { var b = e.target.closest('[data-dcolor]'); if (!b) return; S.drawColor = b.getAttribute('data-dcolor'); root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.draw.addEventListener('pointerdown', drawDown);
     refs.draw.addEventListener('pointermove', drawMove);
     refs.draw.addEventListener('pointerup', drawUp);
@@ -1376,7 +1397,13 @@
     // 우리샵 자동배치 텍스트/로고/워터마크를 먼저 올린 뒤 도구 표시(기본 빈 텍스트 자동생성 방지).
     fitStageToRatio();   // [#2] 스테이지를 게시물 비율로 고정(미리보기=편집기 일치)
     refs.photo.style.backgroundSize = S.fitMode; refs.photo.style.backgroundColor = (S.fitMode === 'contain' ? (S.collageBg || '#fff') : 'transparent');
-    requestAnimationFrame(function () { initCanvas(); renderIncoming(S.incoming); setTool('text'); });
+    requestAnimationFrame(function () {
+      initCanvas(); renderIncoming(S.incoming);
+      // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
+      var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
+      if (firstText) selectLayer(firstText);
+      setTool('text');
+    });
   }
   function _teardownBack(fromPop) {
     window.__seOpen = false;

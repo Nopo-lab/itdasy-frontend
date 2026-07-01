@@ -221,6 +221,15 @@
   var _extractCustomer = window.WSCaptionText.extractCustomer, _shopName = window.WSCaptionText.shopName,
       _stripShopName = window.WSCaptionText.stripShopName, _detectShopName = window.WSCaptionText.detectShopName,
       _cleanService = window.WSCaptionText.cleanService, _splitServiceForLayers = window.WSCaptionText.splitServiceForLayers;
+  // [#1] 상호로 캡션에 브랜딩할 만한 '진짜 가게 이름'인지 — 'Dd','aa' 같은 짧은 라틴/계정 placeholder 는 제외.
+  //   (등록만 되어 있고 실제 상호가 아니면 캡션에 억지로 안 박고 '저희 샵'으로만 칭하게 함)
+  function _isRealShopName(n) {
+    n = String(n || '').trim();
+    if (n.length < 2) return false;
+    if (/(뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵|점)$/.test(n)) return true;   // 명확한 상호 접미사
+    if (/[가-힣]{2,}/.test(n)) return true;   // 한글 2자 이상 = 상호로 간주
+    return false;   // 'Dd'·'aa' 등 라틴 짧은 placeholder → 상호 아님
+  }
   // [v587] 깨끗한 합성 기준 사진 — 편집기·자동합성 모두 '텍스트가 안 박힌 원본' 위에 올린다(이중 합성 방지).
   function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
   // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
@@ -392,21 +401,33 @@
   function _presetName(key) { try { var m = JSON.parse(localStorage.getItem('itdasy:preset_names') || '{}'); return m[key] || ('레이아웃 ' + key); } catch (_e) { return '레이아웃 ' + key; } }
   function _setPresetName(key, name) { try { var m = JSON.parse(localStorage.getItem('itdasy:preset_names') || '{}'); m[key] = name; localStorage.setItem('itdasy:preset_names', JSON.stringify(m)); } catch (_e) { void _e; } }
   function _findPresetStyle(key) { return ((window.ShopStyle && window.ShopStyle.list) ? window.ShopStyle.list() : []).filter(function (s) { return s.presetKey === key || s.name === ('기본 레이아웃 ' + key) || s.name === _presetName(key); })[0]; }
-  // 프리셋의 레이어 위치/정렬/굵기로 작은 4:5 미리보기(텍스트1/2 막대 + 선) — 뭐가뭔지 한눈에.
+  // [#4] 프리셋 위치대로 작은 4:5 미리보기 — 막대(구름)만 있던 걸 실제 시술내용 텍스트로. 입력하면 대충 어떻게 박히는지 보임.
+  function _thEsc(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
   function _presetThumb(key) {
     var W = 46, H = 58, ls = _presetLayers(key);
-    var bars = ls.map(function (L) {
+    var rt = _splitServiceForLayers(d.service || '');
+    var labelFor = function (role) {
+      if (role === 'title') return rt.title || '텍스트1';
+      if (role === 'sub') return rt.sub || '텍스트2';
+      if (role === 'body') return rt.body || (rt.sub ? '' : '내용');
+      if (role === 'hashtag') return '#태그';
+      return '';
+    };
+    var els = ls.map(function (L) {
       if (L.type === 'line') {
-        var lw = (L.w != null ? L.w : 0.1) * W, th = Math.max(1.4, (L.size || 0.005) * H * 4.2);
+        var lw = (L.w != null ? L.w : 0.1) * W, th = Math.max(1.2, (L.size || 0.005) * H * 4.2);
         var cxv = (L.x + (L.w != null ? L.w : 0.1) / 2) * W, cyv = L.y * H;
-        if (L.rot === 90) return '<rect x="' + (cxv - th / 2).toFixed(1) + '" y="' + (cyv - lw / 2).toFixed(1) + '" width="' + th.toFixed(1) + '" height="' + lw.toFixed(1) + '" rx="1" fill="#fff"/>';
         return '<rect x="' + (cxv - lw / 2).toFixed(1) + '" y="' + (cyv - th / 2).toFixed(1) + '" width="' + lw.toFixed(1) + '" height="' + th.toFixed(1) + '" rx="1" fill="#fff"/>';
       }
-      var bw = (L.role === 'title' ? 0.46 : 0.6) * W, bh = Math.max(2.6, (L.size || 0.05) * H * 5);
-      var tx = (L.align === 'center') ? (W - bw) / 2 : (L.x != null ? L.x : 0.07) * W;
-      return '<rect x="' + tx.toFixed(1) + '" y="' + (L.y * H - bh / 2).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="1.5" fill="rgba(255,255,255,.93)"/>';
+      var txt = labelFor(L.role); if (!txt) return '';
+      txt = txt.length > 9 ? txt.slice(0, 9) : txt;
+      var fs = Math.max(3.4, Math.min(6.2, (L.size || 0.05) * H * 1.15));
+      var anchor = (L.align === 'center') ? 'middle' : 'start';
+      var tx = (L.align === 'center') ? W / 2 : (L.x != null ? L.x : 0.07) * W;
+      var ty = L.y * H + fs * 0.35;
+      return '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" text-anchor="' + anchor + '" fill="#fff" font-weight="' + (L.role === 'title' ? 800 : 600) + '" font-family="sans-serif">' + _thEsc(txt) + '</text>';
     }).join('');
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="cap-preset__thumb" preserveAspectRatio="none"><rect width="' + W + '" height="' + H + '" rx="4" fill="#9a8478"/><rect width="' + W + '" height="' + H + '" rx="4" fill="url(#pgr)"/>' + bars + '<defs><linearGradient id="pgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs></svg>';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="cap-preset__thumb" preserveAspectRatio="none"><rect width="' + W + '" height="' + H + '" rx="4" fill="#9a8478"/><rect width="' + W + '" height="' + H + '" rx="4" fill="url(#pgr)"/>' + els + '<defs><linearGradient id="pgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs></svg>';
   }
   function _renamePreset(key) {
     var nv = window.prompt('레이아웃 이름', _presetName(key)); if (nv == null) return; nv = String(nv).trim(); if (!nv) return;
@@ -473,7 +494,12 @@
       }
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
-    if (!layers.length) layers = [{ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.5, w: 0.8, size: 0.08, align: 'center' }];
+    // [#5] ShopStyle 없거나 매핑 결과 없음 → 시술내용(제목+부제)을 기본 레이어로 올려 편집기/미리보기에 실제 텍스트가 보이게.
+    if (!layers.length) {
+      layers.push({ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.44, w: 0.8, size: 0.08, align: 'center' });
+      if (roleText.sub) layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
+      autoArranged = true;   // [#5] 미리보기(_autoComposeTemplate)도 이 텍스트를 합성하도록
+    }
     return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
   }
   // [v589·#3] 표시용 URL — 입력 화면/뒤로가기는 '원본', 캡션 '결과' 화면에서만 템플릿 적용 미리보기를 보여준다.
@@ -2030,7 +2056,7 @@
 	    var raw = String(d.service || '');
 	    var c = _cleanService(raw);
 	    var shop = (d.capShopOverride != null) ? d.capShopOverride : (c.shop || _shopName() || '');   // [#1] 사용자가 친 인라인 샵 우선(stale 등록값 'Dd' 가 덮어쓰는 것 방지)
-	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (c.customer || d.customerName || '');
+	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (c.customer || (d.customerId ? d.customerName : '') || '');   // [#1] 연결된 고객(customerId)만 재사용, stale 이름('방') 방지
 	    return { shop: shop, customer: customer, service: c.service || raw };
 	  }
 	  function _capConfirmHtml() {
@@ -2088,7 +2114,7 @@
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
-    opts.customer_name = _cust.customer || d.customerName || '';   // [#2] 이번 입력 고객 우선(stale 방지)
+    opts.customer_name = _cust.customer || (d.customerId ? d.customerName : '') || '';   // [#1] 이번 입력 고객 or 연결된 고객만(stale 이름 '방' 방지)
     if (opts.customer_name) opts.photo_context += ' · 고객명: ' + opts.customer_name + '(시술받는 고객 이름. 시술명·스타일명·브랜드명이 아님. 게시글엔 고객님으로 자연스럽게만 언급)';
     // [다중pair] 결과물 여러 장이면 '캐러셀 게시글' 기준 — 중립적 전후 변화로(특정 시술명 가정 금지).
     var _outs = d.templateOutputs || [];
@@ -2106,10 +2132,15 @@
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
     opts.treatment_keyword = svcClean;
     var _sn = _cust.shop || _shopName();   // [P1-1] 확인칩 오버라이드(_cust.shop)가 등록 샵보다 우선
-    if (_sn) {
-      opts.shop_name = _sn;   // [#1] 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
-      // [#2] 'Dd' 같은 상호가 고객으로 둔갑하는 것 방지 — 샵=가게이름(고객·시술명 아님) 명시.
-      opts.photo_context += ' · 상호(가게이름): ' + _sn + '(우리 가게 이름. 고객 이름이나 시술명이 절대 아님. "' + _sn + ' 고객님" 처럼 쓰지 말 것)';
+    // [#1] 'Dd' 같은 계정 placeholder 를 상호로 캡션에 도배하는 문제 차단 — 진짜 상호만 브랜딩, 아니면 '저희 샵'.
+    if (_sn && _isRealShopName(_sn)) {
+      opts.shop_name = _sn;   // 샵 이름(등록/인라인)은 시술 아님 — 별도 전달
+      // 샵=가게이름(고객·시술명 아님) + 억지 반복 금지(많아야 한 번, 자연스럽게).
+      opts.photo_context += ' · 상호(가게이름): ' + _sn + '(우리 가게 이름. 고객·시술명이 절대 아님. "' + _sn + ' 고객님"처럼 쓰지 말고, 게시글에 상호는 많아야 한 번만 자연스럽게, 매 문장 반복 금지)';
+    } else {
+      // 등록값이 placeholder(Dd 등)이거나 없음 → 상호 안 지어내고 '저희 샵'으로만.
+      opts.extra_notes = '특정 가게 이름(상호)을 지어내거나 넣지 말고 필요하면 "저희 샵"으로만 칭할 것. ' + opts.extra_notes;
+      opts.extra_notes = opts.extra_notes.slice(0, 300);
     }
     opts.content_type = d.tplPurpose || 'feed';
     opts.caption_intent = opts.caption_intent || 'generate';

@@ -216,28 +216,34 @@
 .itadj__cutbg .itlaybg{width:26px;height:26px}
 .itlaybg--up{display:inline-grid;place-items:center;background:rgba(255,255,255,.12);border-style:dashed}
 .itlaybg--up svg{width:15px;height:15px;stroke:#fff;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* [#2] 최근 업로드 배경 재사용 스와치 */
+.itlaybg--recent{background-size:cover;background-position:center;border-style:solid;border-color:var(--accent,#D58A95)}
+.itlaybg--recent.on{border-width:3px}
 /* [#3] 수평 가이드 그리드(삼분할) — 수평 조정 중에만 표시 */
 .itded__grid{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;transition:opacity .2s ease;
   background-image:linear-gradient(rgba(255,255,255,.55) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.55) 1px,transparent 1px);
   background-size:100% 33.34%,33.34% 100%}
 .itded.is-leveling .itded__grid{opacity:1}
 
-/* ── 그리기 ── */
-.itdraw__top{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;
-  justify-content:center;gap:9px;z-index:11}
-.itbrush{width:42px;height:42px;border-radius:50%;background:rgba(30,18,22,.42);backdrop-filter:blur(10px);color:#fff;
-  display:grid;place-items:center;border:0;cursor:pointer}
-.itbrush svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.itbrush.on{background:#fff;color:#1c1316}
-/* [#6] 그리기 전체 지우기 — 우측 분리 */
-.itdraw__clear{margin-left:auto}
-.itdraw__clear svg{stroke:#ff9b9b}
-.itbsize{position:absolute;left:18px;top:50%;transform:translateY(-50%);height:200px;width:30px;z-index:11;display:flex;align-items:center;justify-content:center}
-.itbsize::before{content:"";position:absolute;top:0;bottom:0;width:3px;border-radius:2px;background:rgba(255,255,255,.55)}
-.itbsize input{position:absolute;width:200px;transform:rotate(-90deg);accent-color:#fff}
-.itdraw__colors{position:absolute;left:0;right:0;bottom:calc(28px + env(safe-area-inset-bottom));display:flex;gap:13px;
-  justify-content:center;align-items:center;z-index:11;padding:0 16px;flex-wrap:wrap}
-.itdsw{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.85);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+/* ── 그리기 [#6] 하단 시트 — 붓(라벨)·굵기(가로 슬라이더)·색·전체지우기 ── */
+.itdrawp{background:linear-gradient(180deg,transparent,rgba(15,10,12,.72) 30%);padding:8px 16px calc(14px + env(safe-area-inset-bottom))}
+.itdrawp__tools{display:flex;align-items:flex-end;gap:9px;overflow-x:auto;scrollbar-width:none;padding-bottom:10px}
+.itdrawp__tools::-webkit-scrollbar{display:none}
+.itbrush2{flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;width:52px;padding:7px 0 5px;border-radius:13px;
+  border:1.5px solid rgba(255,255,255,.4);background:rgba(20,12,16,.34);color:rgba(255,255,255,.9);font-size:11px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none}
+.itbrush2 svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.itbrush2 em{font-style:normal;line-height:1}
+.itbrush2:active{transform:scale(.95)}
+.itbrush2.on{background:#fff;color:#1c1316;border-color:#fff}
+.itdrawp__clear{flex:none;margin-left:auto;align-self:center;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:999px;
+  border:1.5px solid rgba(255,155,155,.7);background:rgba(30,18,22,.4);color:#ff9b9b;font-size:12.5px;font-weight:700;cursor:pointer;-webkit-appearance:none;appearance:none}
+.itdrawp__clear svg{width:16px;height:16px;stroke:#ff9b9b;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.itdrawp__size{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+.itdrawp__lbl{color:#fff;font-size:12px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5);flex:none}
+.itdrawp__size input{flex:1;accent-color:#fff}
+.itdrawp__colors{display:flex;gap:13px;align-items:center;overflow-x:auto;scrollbar-width:none}
+.itdrawp__colors::-webkit-scrollbar{display:none}
+.itdsw{flex:none;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.85);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .itdsw.on{width:36px;height:36px;border:3px solid #fff}
 
 /* 레이아웃 프레임 프리셋(예시) */
