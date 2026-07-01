@@ -151,8 +151,10 @@
       if (!isNaN(d.getTime())) dateStr = `${d.getMonth() + 1}/${d.getDate()} `;
     }
     if (am.slot_available) {
-      // [F5] "앞뒤 N시간 여유" 헷갈리는 문구 제거
-      return `<div style="font-size:12px;color:#8B95A1;margin:10px 0 2px;">✓ 캘린더 확인 · ${_esc(dateStr + t)} 비어있음</div>`;
+      // [2026-07-02] 러너웨이 항상 표기 — 뒤로 남은 여유(원장이 겹침 판단하게)
+      const _rw = _fmtRunway(am.runway_min);
+      const _rwTxt = _rw ? ` · 뒤로 ${_rw}` : '';
+      return `<div style="font-size:12px;color:#8B95A1;margin:10px 0 2px;">✓ 캘린더 확인 · ${_esc(dateStr + t)}${_rwTxt} 비어있음</div>`;
     }
     return `<div style="font-size:12px;color:#BC6675;margin:10px 0 2px;">✕ 그 시간 예약 있음 — 대안 필요</div>`;
   }
@@ -240,20 +242,36 @@
     if (h) return h + '시간';
     return r + '분';
   }
+  // [2026-07-02] 러너웨이(뒤로 남은 여유) 포매터 — 클램프 없이 순수 표기, 0·음수·비정상은 빈문자.
+  function _fmtRunway(min) {
+    const m = parseInt(min, 10);
+    if (!Number.isFinite(m) || m <= 0) return '';
+    const h = Math.floor(m / 60), r = m % 60;
+    if (h && r) return h + '시간 ' + r + '분';
+    if (h) return h + '시간';
+    return r + '분';
+  }
   function _durationStepper(it) {
     const am = it.action_meta || {};
     // [2026-06-24] booking_action(빈시간 즉시확정) + deposit_sent(입금확인→확정) 둘 다 시술시간 스테퍼 노출.
     //   입금흐름은 action_required 가 confirm 시점에만 'booking_action' 이라 카드 단계에선 안 떴던 버그 대응.
     if (it.action_required !== 'booking_action' && !am.deposit_sent) return '';
     const init = Math.max(30, Math.round(((parseInt(am.default_duration_min, 10) || 60)) / 30) * 30);
+    // [2026-07-02] 러너웨이 초과 시 겹침 소프트경고 — 원장 전용, 차단 없음
+    const _rwMin = parseInt(am.runway_min, 10);
+    const _over0 = Number.isFinite(_rwMin) && _rwMin > 0 && init > _rwMin;
     const _btn = (step, lbl, path) => `<button class="dcq-dur-btn" data-step="${step}" aria-label="${lbl}" style="width:28px;height:28px;border:1px solid #E5E8EB;background:#F2F4F6;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#4E5968;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">${path}</svg></button>`;
     return `<div class="dcq-dur-wrap" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#fff;">
       <span style="font-size:12px;color:#8B95A1;font-weight:700;">예상 시술 시간</span>
       <div style="display:flex;align-items:center;gap:10px;">
         ${_btn(-30, '30분 줄이기', '<path d="M5 12h14"/>')}
-        <span class="dcq-dur" data-dur="${init}" style="min-width:64px;text-align:center;font-size:13.5px;font-weight:700;color:#191F28;">${_fmtDur(init)}</span>
+        <span class="dcq-dur" data-dur="${init}" data-runway="${Number.isFinite(_rwMin) ? _rwMin : ''}" style="min-width:64px;text-align:center;font-size:13.5px;font-weight:700;color:#191F28;">${_fmtDur(init)}</span>
         ${_btn(30, '30분 늘리기', '<path d="M12 5v14M5 12h14"/>')}
       </div>
+    </div>
+    <div class="dcq-dur-warn" style="display:${_over0 ? 'flex' : 'none'};align-items:center;gap:5px;font-size:12px;color:#BC6675;font-weight:500;margin:8px 2px 2px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      다른 손님과 시간이 겹칠 수 있어요
     </div>`;
   }
   // [F2] 전송 버튼 라벨·스타일
@@ -597,6 +615,12 @@
       v = Math.max(30, Math.min(480, v));
       span.dataset.dur = v; span.dataset.touched = '1';
       span.textContent = _fmtDur(v);
+      const _card = b.closest('.dcq-item');
+      const _warn = _card && _card.querySelector('.dcq-dur-warn');
+      if (_warn) {
+        const _rw = parseInt(span.dataset.runway, 10);
+        _warn.style.display = (Number.isFinite(_rw) && _rw > 0 && v > _rw) ? 'flex' : 'none';
+      }
     }));
     list.querySelectorAll('.dcq-discard').forEach(b => b.addEventListener('click', () => _doAction(b, 'discard')));
     list.querySelectorAll('.dcq-reset').forEach(b => b.addEventListener('click', () => _doAction(b, 'reset')));
