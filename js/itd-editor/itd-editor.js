@@ -25,12 +25,30 @@
   var COLORS = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
   var EMOJI = ['💄', '💅', '🔥', '😍', '🥰', '💎', '🌟', '🫶', '💖', '🌿', '☁️', '🎉'];
+  // [레이아웃 재설계] 셀 좌표 단일화(SSOT) — cells:[[x,y,w,h]…](0~1 비율).
+  //   화면 렌더(renderCollage)와 내보내기(exportComposite)가 같은 좌표를 써 WYSIWYG 100% 보장.
+  //   새 레이아웃은 cells 한 줄만 추가하면 됨. kind: single=단일 배경, grid=콜라주.
   var LAYOUTS = [
-    { key: 'single', label: '1장',     kind: 'single', frame: '' },
-    { key: 'soft',   label: '감성 무드', kind: 'single', frame: 'fr-soft' },
-    { key: 'duo',    label: '좌우 2장', kind: 'grid2' },
-    { key: 'quad',   label: '4장',     kind: 'grid4' }
+    { key: 'single', label: '1장',  kind: 'single', cells: [[0, 0, 1, 1]] },
+    { key: 'v2',   label: '좌우',   kind: 'grid', cells: [[0, 0, .5, 1], [.5, 0, .5, 1]], pos: ['왼쪽', '오른쪽'] },
+    { key: 'h2',   label: '상하',   kind: 'grid', cells: [[0, 0, 1, .5], [0, .5, 1, .5]], pos: ['위', '아래'] },
+    { key: 'v3',   label: '세로 3', kind: 'grid', cells: [[0, 0, 1 / 3, 1], [1 / 3, 0, 1 / 3, 1], [2 / 3, 0, 1 / 3, 1]], pos: ['왼쪽', '가운데', '오른쪽'] },
+    { key: 'grid4', label: '4분할', kind: 'grid', cells: [[0, 0, .5, .5], [.5, 0, .5, .5], [0, .5, .5, .5], [.5, .5, .5, .5]], pos: ['좌상', '우상', '좌하', '우하'] },
+    { key: 'l1r2', label: '1+2',   kind: 'grid', cells: [[0, 0, .5, 1], [.5, 0, .5, .5], [.5, .5, .5, .5]], pos: ['왼쪽 큰', '우상', '우하'] },
+    { key: 't1b2', label: '2+1',   kind: 'grid', cells: [[0, 0, 1, .5], [0, .5, .5, .5], [.5, .5, .5, .5]], pos: ['위 큰', '좌하', '우하'] },
+    { key: 'ba',   label: '전/후',  kind: 'grid', cells: [[0, 0, .5, 1], [.5, 0, .5, 1]], pos: ['BEFORE', 'AFTER'], ba: true }
   ];
+  function isSingleL(L) { return !L || (L.kind || 'single') === 'single' || (L.cells && L.cells.length === 1); }
+  function _layCells() { return (S.layout && S.layout.cells) || [[0, 0, 1, 1]]; }
+  function _layN() { return _layCells().length; }
+  function _layPosArr() { return (S.layout && S.layout.pos) || []; }
+  // 레이아웃 타입 선택 칩용 미니 도형 썸네일(셀 좌표 그대로 그림)
+  function _layThumbSvg(L) {
+    var rects = (L.cells || [[0, 0, 1, 1]]).map(function (c) {
+      return '<rect x="' + (c[0] * 22 + 1).toFixed(1) + '" y="' + (c[1] * 28 + 1).toFixed(1) + '" width="' + (c[2] * 22 - 2).toFixed(1) + '" height="' + (c[3] * 28 - 2).toFixed(1) + '" rx="1.4"/>';
+    }).join('');
+    return '<svg viewBox="0 0 24 30" width="24" height="30" aria-hidden="true">' + rects + '</svg>';
+  }
   var BRUSHES = ['pen', 'marker', 'neon', 'eraser'];
   // [#8] 도형 — 편집 가능한 레이어로 삽입(드래그/회전/크기). 그리기와 달리 '한번 세팅하면 그대로 재사용'.
   var SHAPES = [
@@ -274,19 +292,18 @@
       '<div class="itshape__colors">' + colors + '</div>' +
     '</div>';
   }
-  // [레이아웃] 목업식 — 타입 칩(1장/좌우2장/4장) + 렌더된 사진을 순서대로 탭해 자리에 채움.
-  var LAY_TYPES = [{ i: 0, name: '1장' }, { i: 2, name: '좌우 2장' }, { i: 3, name: '4장' }];
+  // [레이아웃 재설계] 도형 미니썸네일 피커(LAYOUTS 그대로) + 렌더된 사진을 순서대로 탭해 자리에 채움.
   var BG_COLORS = ['#FFFFFF', '#FBF7F5', '#F4E9E4', '#E8D3C2', '#F2D7DE', '#E6C9D2', '#D9B8C4', '#BC6675', '#E08A6E', '#E6B45A', '#BFD0C4', '#A7C4B5', '#9DB7C9', '#C9C2E0', '#7A6E78', '#2C2226', '#15181D'];
   function buildLayout() {
-    var chips = LAY_TYPES.map(function (t, idx) {
-      return '<button class="itlaytype' + (idx === 0 ? ' on' : '') + '" data-lay="' + t.i + '">' + t.name + '</button>';
+    var chips = LAYOUTS.map(function (L, idx) {
+      return '<button class="itlaytype' + (idx === 0 ? ' on' : '') + '" data-lay="' + idx + '" aria-label="' + L.label + '">' +
+        '<span class="itlaytype__d">' + _layThumbSvg(L) + '</span><em>' + L.label + '</em></button>';
     }).join('');
     var bg = BG_COLORS.map(function (c, i) { return '<button class="itlaybg' + (i === 0 ? ' on' : '') + '" data-bg="' + c + '" style="background:' + c + '"></button>'; }).join('');
     return '<div class="itpanel itlay2" data-panel="layout">' +
         '<div class="itgrip itgrip--p" data-pgrip></div>' +
-              '<div class="itlay2__hint" data-r="layHint"></div>' +
       '<div class="itlay2__types">' + chips + '</div>' +
-      '<div class="itlay2__sub">렌더된 사진 — 순서대로 누르세요</div>' +
+      '<div class="itlay2__hint" data-r="layHint"></div>' +
       '<div class="itlay2__strip" data-r="layStrip"></div>' +
       '<div class="itlay2__ctrls">' +
         '<span class="itlay2__fit" data-r="layFit"><button data-fit="cover" class="on">꽉 채움</button><button data-fit="contain">전체</button></span>' +
@@ -297,8 +314,6 @@
       '</div>' +
     '</div>';
   }
-  function _layPos(kind) { return kind === 'grid4' ? ['좌상', '우상', '좌하', '우하'] : ['왼쪽', '오른쪽']; }
-  function _layNeed(kind) { return kind === 'grid4' ? 4 : (kind === 'grid2' ? 2 : 1); }
   function buildDraw() {
     var brushes = BRUSHES.map(function (b, i) {
       return '<button class="itbrush' + (i === 0 ? ' on' : '') + '" data-brush="' + b + '">' + IC[b] + '</button>';
@@ -815,11 +830,22 @@
   function selectLayout(i) {
     S.layout = LAYOUTS[i];
     S.layoutOrder = []; S.cellCrop = [];   // 타입 바꾸면 자리 선택·셀 크롭 초기화
-    refs.frame.className = 'itded__frame ' + (S.layout.frame || '');
+    refs.frame.className = 'itded__frame';
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
-    // [#4] 콜라주(2/4장)는 칸을 꽉 채우는 게 자연스럽고, 단일은 전체(여백)로. 사용자가 직접 토글했으면 존중.
-    if (!S._fitManual) { S.fitMode = ((S.layout.kind || 'single') !== 'single') ? 'cover' : 'contain'; _syncFitToggle(); }
+    // [#4] 콜라주는 칸을 꽉 채우는 게 자연스럽고, 단일은 전체(여백)로. 사용자가 직접 토글했으면 존중.
+    if (!S._fitManual) { S.fitMode = isSingleL(S.layout) ? 'contain' : 'cover'; _syncFitToggle(); }
+    _syncBaLabels();   // [전/후] 전/후 레이아웃이면 BEFORE·AFTER 라벨 자동, 아니면 제거
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
+  }
+  // [전/후 비교] BEFORE/AFTER 코너 라벨(배지) — 전/후 레이아웃 선택 시 자동 삽입, 해제 시 제거.
+  function _syncBaLabels() {
+    S.layers.slice().forEach(function (L) { if (L.role === 'balabel') removeLayer(L, false); });
+    if (!(S.layout && S.layout.ba)) return;
+    var R = refs.stage.getBoundingClientRect();
+    [['BEFORE', 0.25], ['AFTER', 0.75]].forEach(function (p) {
+      var L = addShopLayer({ type: 'badge', text: p[0], x: p[1], y: 0.09, size: 0.03, align: 'center', color: '#fff', bg: 'rgba(21,24,29,.55)', weight: 800, role: 'balabel' }, R);
+      L.role = 'balabel'; _pushOp({ op: 'add', L: L });
+    });
   }
   function _syncFitToggle() {
     if (!refs.layFit) return;
@@ -827,8 +853,7 @@
   }
   // 사진 순서 탭 — grid면 자리(좌우/4분할)에 순서대로 배정, 1장이면 그 사진을 단일 배경으로.
   function onLayThumb(idx) {
-    var kind = S.layout.kind || 'single';
-    if (kind === 'single') {
+    if (isSingleL(S.layout)) {
       if (idx !== S.adjSel) { _switchPhotoDraw(S.adjSel, idx); S.adjSel = idx; }   // [#9] 사진 바꾸면 그리기도 사진별로
       S.photoUrl = S.photos[idx]; S.photoCss = 'url("' + S.photos[idx] + '")';
       refs.photo.style.backgroundImage = S.photoCss;
@@ -836,41 +861,44 @@
     }
     var at = S.layoutOrder.indexOf(idx);
     if (at >= 0) S.layoutOrder.splice(at, 1);              // 다시 누르면 해제(뒤 번호 당겨짐)
-    else if (S.layoutOrder.length < _layNeed(kind)) S.layoutOrder.push(idx);
+    else if (S.layoutOrder.length < _layN()) S.layoutOrder.push(idx);
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
   }
   function renderLayoutStrip() {
     if (!refs.layStrip) return;
-    var kind = S.layout.kind || 'single';
+    var single = isSingleL(S.layout);
     refs.layStrip.innerHTML = (S.photos || []).map(function (u, i) {
-      var ord = (kind === 'single') ? (S.photoUrl === u ? 0 : -1) : S.layoutOrder.indexOf(i);
-      var badge = (kind !== 'single' && ord >= 0) ? '<span class="itlaybadge">' + (ord + 1) + '</span>' : '';
-      var sel = (kind === 'single' && S.photoUrl === u) ? ' on' : (ord >= 0 ? ' on' : '');
+      var ord = single ? (S.photoUrl === u ? 0 : -1) : S.layoutOrder.indexOf(i);
+      var badge = (!single && ord >= 0) ? '<span class="itlaybadge">' + (ord + 1) + '</span>' : '';
+      var sel = (single && S.photoUrl === u) ? ' on' : (ord >= 0 ? ' on' : '');
       return '<button class="itlaythumb' + sel + '" data-laythumb="' + i + '" style="background-image:url(\'' + u + '\')">' + badge + '</button>';
     }).join('');
   }
   function renderLayoutHint() {
     if (!refs.layHint) return;
-    var kind = S.layout.kind || 'single';
-    if (kind === 'single') { refs.layHint.textContent = '1장 — 넣을 사진 하나를 누르세요.'; return; }
-    var pos = _layPos(kind), need = _layNeed(kind);
-    refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> · 사진을 순서대로 누르세요 — ' +
-      pos.map(function (p, i) { return (i + 1) + '=' + p; }).join(' · ') + ' (' + S.layoutOrder.length + '/' + need + ')' +
-      (S.layoutOrder.length ? '<span class="itlay2__tip">칸을 끌어 위치 조정 · 두 손가락으로 확대</span>' : '');
+    if (isSingleL(S.layout)) { refs.layHint.textContent = '넣을 사진 하나를 누르세요'; return; }
+    var pos = _layPosArr(), need = _layN();
+    var filled = S.layoutOrder.length;
+    refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> 순서대로 탭 · ' +
+      pos.map(function (p, i) { return (i + 1) + '=' + p; }).join(' ') + ' <b class="itlay2__cnt">' + filled + '/' + need + '</b>' +
+      (filled ? '<span class="itlay2__tip">칸 끌어 위치 · 두 손가락 확대</span>' : '');
   }
   // 콜라주(좌우2장/4장) — 단일이면 collage 숨김. grid면 선택 순서(layoutOrder)대로 칸 채움(미선택=자리표시).
   function renderCollage() {
-    var kind = S.layout.kind || 'single';
     var fit = S.fitMode || 'cover';
-    if (kind === 'single') { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.backgroundSize = fit; refs.photo.style.backgroundColor = (fit === 'contain' ? (S.collageBg || '#fff') : 'transparent'); return; }
-    refs.collage.className = 'itded__collage is-' + kind;   // is-grid2 / is-grid4 → 2열/2x2 그리드
-    var n = _layNeed(kind), pos = _layPos(kind), cells = '';
-    for (var k = 0; k < n; k++) {
+    if (isSingleL(S.layout)) { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.backgroundSize = fit; refs.photo.style.backgroundColor = (fit === 'contain' ? (S.collageBg || '#fff') : 'transparent'); return; }
+    // [SSOT] 셀 좌표 그대로 절대배치 — 비대칭(1+2·2+1) 포함 모든 모양 지원, export와 동일 좌표.
+    var cellsSpec = _layCells(), pos = _layPosArr(), gap = (S.collageGap != null ? S.collageGap : 3), cells = '';
+    for (var k = 0; k < cellsSpec.length; k++) {
+      var cc = cellsSpec[k];
+      var st = 'left:calc(' + (cc[0] * 100) + '% + ' + (gap / 2) + 'px);top:calc(' + (cc[1] * 100) + '% + ' + (gap / 2) + 'px);' +
+        'width:calc(' + (cc[2] * 100) + '% - ' + gap + 'px);height:calc(' + (cc[3] * 100) + '% - ' + gap + 'px)';
       var idx = S.layoutOrder[k];
-      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="object-fit:' + fit + ';transform:' + cropXf(k) + '"></div>';
-      else cells += '<div class="itded__cell itded__cell--empty">' + (k + 1) + '번<br>' + pos[k] + '</div>';
+      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="object-fit:' + fit + ';transform:' + cropXf(k) + '"></div>';
+      else cells += '<div class="itded__cell itded__cell--empty" data-cell="' + k + '" style="' + st + '">' + (k + 1) + '번<br>' + (pos[k] || '') + '</div>';
     }
-    refs.collage.style.gap = (S.collageGap != null ? S.collageGap : 3) + 'px';
+    refs.collage.className = 'itded__collage is-abs';
+    refs.collage.style.gap = '';
     refs.collage.style.background = S.collageBgImg ? ('center/cover no-repeat url("' + S.collageBgImg + '")') : (S.collageBg || '#fff');
     refs.collage.innerHTML = cells; refs.collage.hidden = false;
   }
@@ -1111,9 +1139,8 @@
     var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
     var cv = document.createElement('canvas'); cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
     var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var kind = S.layout.kind || 'single';
     var baseDone;
-    if (kind === 'single') {
+    if (isSingleL(S.layout)) {
       var sIdx = S.photos.indexOf(S.photoUrl);
       var sDeg = (adjOf(sIdx < 0 ? 0 : sIdx).rot) || 0, sCs = sDeg ? coverScaleForRot(sDeg) : 1;
       if (S.fitMode === 'contain') { c.fillStyle = S.collageBg || '#fff'; c.fillRect(0, 0, r.width, r.height); }   // [#5] 전체 모드 여백 배경
@@ -1127,16 +1154,16 @@
         c.restore();
       });
     } else {
-      var n = kind === 'grid4' ? 4 : 2, gap = S.collageGap != null ? S.collageGap : 3;
+      // [SSOT] 화면 renderCollage 와 동일한 셀 좌표로 내보내기 → WYSIWYG.
+      var cellsSpec = _layCells(), gap = S.collageGap != null ? S.collageGap : 3;
       c.fillStyle = S.collageBg || '#fff'; c.fillRect(0, 0, r.width, r.height);   // 간격 사이 배경색
-      var idxs = []; for (var k = 0; k < n; k++) { var oi = S.layoutOrder[k]; idxs.push((oi != null && S.photos[oi] != null) ? oi : (S.photos[k] != null ? k : 0)); }
+      var idxs = []; for (var k = 0; k < cellsSpec.length; k++) { var oi = S.layoutOrder[k]; idxs.push((oi != null && S.photos[oi] != null) ? oi : (S.photos[k] != null ? k : 0)); }
       var urls = idxs.map(function (i) { return S.photos[i] || S.photoUrl; });
       baseDone = Promise.all(urls.map(loadImg)).then(function (imgs) {
-        var cols = 2, rows = kind === 'grid4' ? 2 : 1;
-        var cw = r.width / cols, ch = r.height / rows;
         imgs.forEach(function (img, k) {
           if (!img) return;
-          var x = (k % cols) * cw + gap / 2, y = Math.floor(k / cols) * ch + gap / 2, w = cw - gap, h = ch - gap;
+          var cc = cellsSpec[k];
+          var x = cc[0] * r.width + gap / 2, y = cc[1] * r.height + gap / 2, w = cc[2] * r.width - gap, h = cc[3] * r.height - gap;
           var cr = fitRect(img, w, h);
           c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
           c.filter = filterStr(adjOf(idxs[k]));
