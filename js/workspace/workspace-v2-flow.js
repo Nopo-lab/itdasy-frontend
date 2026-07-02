@@ -558,7 +558,7 @@
     d._editorOpenRoles = layers.filter(function (l) { return l.type === 'text' && l.role; }).map(function (l) { return l.role; });
     Editor.open({
       photoUrl: photo,
-      photos: (editablePhotos() || []).map(function (p) { return _cleanBase(p) || photoUrl(p); }),   // [itd] 좌우2장/4장 콜라주용
+      photos: (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본(누끼+배경+스티커 합성) 우선 → 레이아웃해도 보정 유지
       ratio: built.ratio,
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
@@ -2099,19 +2099,21 @@
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
 	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
 	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
-	    if (_cust.customer) d.customerName = _cust.customer;   // [#2] 이번 입력의 고객을 우선(예전 stale 값이 안 남게)
+			// [#2] 사적 방문정황(남친이랑 옴)·가격(28만원짜리) 뺀 '공개 시술 키워드' — LLM 이 사담/가격을 캡션에 안 넣게.
+		var _pubParts = _splitServiceForLayers(svc); var _pubSvc = [_pubParts.title, _pubParts.sub].filter(Boolean).join(' ').trim() || svcClean;
+    if (_cust.customer) d.customerName = _cust.customer;   // [#2] 이번 입력의 고객을 우선(예전 stale 값이 안 남게)
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
     // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
-	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: svcClean, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
+	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: _pubSvc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
     delete opts._regen;   // [v532] 내부 재생성 플래그 — 페이로드로 내보내지 않음
     // [v532] 사용자 입력을 캡션 최우선 context 로. '입력 키워드만 시술명으로, 과거 글은 말투만 참고'를 명시 —
     //   백엔드 fewshot(샵 과거글)이 엉뚱한 시술명(붙임머리·단발 등)으로 새는 것을 프론트에서 차단.
     if (svc) {
-      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + svcClean +
+      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + _pubSvc +
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
@@ -2125,13 +2127,15 @@
     if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
     // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
     opts.extra_notes = _buildExtraNotes(svcClean, d.regenSeq);
+    // [#2] 고객의 사적 방문정황(남자친구·친구와 함께 왔다 등)과 금액/가격은 캡션 본문·해시태그에 절대 넣지 말 것.
+    opts.extra_notes = ('고객의 사적인 방문 정황(남자친구·친구·지인과 함께 왔다 등)과 시술 금액/가격은 게시글 본문과 해시태그에 넣지 말 것. ' + opts.extra_notes).slice(0, 300);
     // [P1-2] 빈값 가드 — 고객/샵을 입력 안 했으면 AI가 지어내지 않게 명시(차용 방지).
     if (!_p.customer) opts.extra_notes = '고객 이름이 없으니 특정 고객명을 지어내지 말 것. ' + opts.extra_notes;
     if (!_p.shop && !_shopName()) opts.extra_notes = '상호(샵 이름)가 없으니 가짜 상호를 만들지 말고 "저희 샵"으로만 칭할 것. ' + opts.extra_notes;
     opts.extra_notes = opts.extra_notes.slice(0, 300);
     // [v534] 백엔드 우선맥락/variation 필드 — 백엔드가 service/treatment_keyword 를 prompt 에 직접 주입하고
     //   caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과를 막는다.
-    opts.treatment_keyword = svcClean;
+    opts.treatment_keyword = _pubSvc;   // [#2] 공개 키워드(사담/가격 제외)
     var _sn = _cust.shop || _shopName();   // [P1-1] 확인칩 오버라이드(_cust.shop)가 등록 샵보다 우선
     // [#1] 'Dd' 같은 계정 placeholder 를 상호로 캡션에 도배하는 문제 차단 — 진짜 상호만 브랜딩, 아니면 '저희 샵'.
     if (_sn && _isRealShopName(_sn)) {
@@ -2165,9 +2169,10 @@
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
       if (r.ok) {
-        var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); });   // [v570·3] 태그 오타 백스톱
+        var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); })   // [v570·3] 태그 오타 백스톱
+          .filter(function (h) { return !/(만원|천원|원짜리|짜리|가격|얼마|남친|여친|남자친구|여자친구)/.test(String(h)); });   // [#2] 가격·사담 파생 가비지 해시태그(#만원짜리 등) 제거
         // [#7] 시술 내용에 지역(OO동/OO구/OO역)이 있으면 지역 해시태그를 앞에 보강(백엔드 누락 백스톱).
-        _locationTags(svcClean).forEach(function (t) { if (fresh.indexOf(t) < 0) fresh.unshift(t); });
+        _locationTags(_pubSvc).forEach(function (t) { if (fresh.indexOf(t) < 0) fresh.unshift(t); });
         if (opts.hashtag_mode === 'more' && d.caption) {
           // [#3] '해시태그 더'/'더 가져오기' = 캡션 유지, 새 해시태그만 누적(중복 제거).
           var merged = (d.hashtags || []).slice();

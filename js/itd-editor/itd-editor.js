@@ -203,7 +203,7 @@
     }).join('');
     return '<div class="itpanel" data-panel="sticker">' +
       '<div class="itstk" data-r="stkSheet">' +
-        '<div class="itgrip"></div>' +
+        '<div class="itgrip itgrip--p" data-pgrip></div>' +   // [#3] 다른 패널과 동일한 큰 그립 → 아래로 긁으면 닫힘
         '<div class="itstk__tabs" data-r="stkTabs">' + tabs + '</div>' +
         '<div class="itstk__body" data-r="stkBody"></div>' +
       '</div></div>';
@@ -1243,18 +1243,8 @@
       var sc = e.target.closest('[data-scolor]'); if (sc) { S.shapeColor = sc.getAttribute('data-scolor'); refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.toggle('on', x === sc); }); applyShapeStyle(); return; }
     });
     refs.shapeThick.addEventListener('input', function () { S.shapeThick = +refs.shapeThick.value; applyShapeStyle(); });
-    // [②] grip — 클릭=더 펼치기 토글, 아래로 드래그=시트 닫기(PC 마우스 포함)
-    var grip = refs.stkSheet.querySelector('.itgrip');
-    var gd = null;
-    grip.addEventListener('pointerdown', function (e) { gd = { y: e.clientY, moved: false }; try { grip.setPointerCapture(e.pointerId); } catch (_) { void _; } });
-    grip.addEventListener('pointermove', function (e) { if (!gd) return; var dy = e.clientY - gd.y; if (Math.abs(dy) > 4) gd.moved = true; });
-    grip.addEventListener('pointerup', function (e) {
-      if (!gd) { return; } var dy = e.clientY - gd.y; var was = gd; gd = null;
-      if (dy > 56) { closeStickerSheet(); return; }              // 아래로 끌면 닫기
-      if (dy < -40) { refs.stkSheet.classList.add('is-tall'); return; }   // 위로 끌면 더 펼치기
-      if (!was.moved) refs.stkSheet.classList.toggle('is-tall');  // 그냥 탭이면 토글
-    });
-    // [#7] 각 도구패널 상단 grip 아래로 긁으면 닫기
+    // [#3] 스티커 시트 그립은 이제 data-pgrip → 아래 _attachSheetSwipe 가 일괄 처리(다른 패널과 동일하게 스와이프-닫기).
+    // [#7] 각 도구패널 상단 grip 아래로 긁으면 닫기(스티커 포함)
     root.querySelectorAll('[data-pgrip]').forEach(function (g) { _attachSheetSwipe(g); });
     // [①] 가로 스크롤 줄 드래그 스와이프(폰트/색/칩)
     enableDragScroll(refs.fonts); enableDragScroll(refs.colors);
