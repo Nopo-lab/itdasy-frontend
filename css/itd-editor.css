@@ -109,18 +109,19 @@
 .itsw{width:28px;height:28px;border-radius:50%;flex:none;border:1.5px solid rgba(255,255,255,.5);cursor:pointer}
 .itsw.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
 
-/* ── 스티커 시트 [#3] 배경 메뉴처럼 반투명(블러) + 그립 스와이프-닫기 ── */
-.itstk{background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(140%) blur(22px);backdrop-filter:saturate(140%) blur(22px);
-  border-radius:24px 24px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.22);
-  padding:0 18px calc(14px + env(safe-area-inset-bottom));max-height:66vh;overflow-y:auto;transition:transform .2s ease}
+/* ── 스티커 시트 — 인스타식 어두운 반투명 + 스티커는 타일 없이 '떠 있게' ── */
+.itstk{background:rgba(22,17,20,.72);-webkit-backdrop-filter:saturate(150%) blur(26px);backdrop-filter:saturate(150%) blur(26px);
+  border-radius:24px 24px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.4);color:#fff;
+  padding:0 16px calc(14px + env(safe-area-inset-bottom));max-height:68vh;overflow-y:auto;transition:transform .2s ease}
 .itstk .itgrip--p{touch-action:none}
+.itstk .itgrip--p::before{background:rgba(255,255,255,.5)}
 .itgrip{width:42px;height:4px;border-radius:2px;background:#E0D8D2;margin:11px auto 8px}
 /* [#7] 패널 상단 grip — 아래로 긁으면 닫힘(터치영역 넓게) */
 .itgrip--p{width:100%;height:20px;margin:0 0 6px;background:transparent;border-radius:0;position:relative;touch-action:none;cursor:grab}
 .itgrip--p::before{content:"";position:absolute;left:50%;top:7px;transform:translateX(-50%);width:44px;height:4px;border-radius:2px;background:#E0D8D2}
-.itstk__search{display:flex;align-items:center;gap:9px;height:42px;border-radius:13px;background:#F4EEEB;
-  border:1px solid #EFE6E2;padding:0 13px;color:#9AA1AC;font-size:13px;font-weight:500;margin-bottom:14px}
-.itstk__search svg{width:17px;height:17px;stroke:#9AA1AC;fill:none;stroke-width:1.8}
+.itstk__search{display:flex;align-items:center;gap:9px;height:42px;border-radius:13px;background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.14);padding:0 13px;color:rgba(255,255,255,.6);font-size:13px;font-weight:500;margin-bottom:14px}
+.itstk__search svg{width:17px;height:17px;stroke:rgba(255,255,255,.6);fill:none;stroke-width:1.8}
 .itfstk{display:flex;gap:9px;overflow-x:auto;margin-bottom:16px;scrollbar-width:none}
 .itfstk::-webkit-scrollbar{display:none}
 .itfs{flex:none;height:38px;padding:0 14px;border-radius:999px;display:inline-flex;align-items:center;gap:7px;
@@ -133,21 +134,23 @@
 .itfs.book svg{stroke:var(--accent-strong,#BC6675)}.itfs.loc svg{stroke:#E8536B}.itfs.price svg{stroke:#E0934A}.itfs.time svg{stroke:#6E9BC4}
 .itfstk.is-dragging,.itfonts.is-dragging,.itcolors.is-dragging,.itstk__tabs.is-dragging{cursor:grabbing;scroll-snap-type:none}
 /* [#5] 스티커 카테고리 탭 — 상단 고정 가로 스크롤 */
-.itstk__tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:2;background:#fff;padding-bottom:12px;margin-bottom:2px}
+.itstk__tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:2;background:transparent;padding-bottom:12px;margin-bottom:2px}
 .itstk__tabs::-webkit-scrollbar{display:none}
-.itstk__tab{flex:none;height:34px;padding:0 15px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;
-  background:#F4EEEB;border:1px solid #EFE6E2;color:#7A6A70;cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none}
+/* 카테고리 탭 — 인스타식: 비활성=투명 텍스트, 활성=흰 알약 */
+.itstk__tab{flex:none;height:32px;padding:0 14px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;
+  background:transparent;border:0;color:rgba(255,255,255,.6);cursor:pointer;font-family:inherit;-webkit-appearance:none;appearance:none}
 .itstk__tab:active{transform:scale(.96)}
-.itstk__tab.on{background:var(--accent-strong,#BC6675);border-color:var(--accent-strong,#BC6675);color:#fff}
+.itstk__tab.on{background:#fff;color:#15181D}
 .itstk__body{min-height:180px}
-/* [#5] 글자 스티커 셀(넓게 3열, 손글씨 미리보기) */
-.itsgrid--txt{grid-template-columns:repeat(3,1fr);margin-bottom:14px}
-.itsgrid--txt button{aspect-ratio:auto;min-height:60px;font-size:16px;color:#2C2226;line-height:1.2;padding:8px 6px;word-break:keep-all;text-align:center;overflow:hidden}
-.itssub{font-size:11px;font-weight:700;color:#9AA1AC;margin:4px 0 10px;letter-spacing:.02em}
-.itsgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:6px}
-.itsgrid button{aspect-ratio:1;border-radius:14px;background:#F7F1EF;border:1px solid #EFE6E2;display:grid;place-items:center;
-  font-size:22px;cursor:pointer}
-.itsgrid button:active{transform:scale(.94)}
+/* [#5] 글자 스티커 — 박스 없이 텍스트만(그림자로 가독성). 인스타식. */
+.itsgrid--txt{grid-template-columns:repeat(2,1fr);gap:8px 6px;margin-bottom:14px}
+.itsgrid--txt button{aspect-ratio:auto;min-height:46px;font-size:16px;color:#fff;line-height:1.2;padding:6px 4px;word-break:keep-all;text-align:center;background:none;border:0;text-shadow:0 2px 10px rgba(0,0,0,.6)}
+.itssub{font-size:11px;font-weight:700;color:rgba(255,255,255,.55);margin:4px 0 10px;letter-spacing:.02em}
+/* 이모지·데코 — 타일 없이 크게 떠 있게(인스타식) */
+.itsgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:6px}
+.itsgrid button{aspect-ratio:1;border-radius:14px;background:none;border:0;display:grid;place-items:center;
+  font-size:34px;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.itsgrid button:active{transform:scale(.9)}
 
 /* ── 레이아웃 반달 fan ── */
 /* 레이아웃 패널: 하단 투명 드래그면(반달 원은 fixed 라 어디서 잡아도 회전됨) */
@@ -262,11 +265,12 @@
 
 /* ── 내 스티커(#7) · 데코(#6) ── */
 .itssub--row{display:flex;align-items:center;justify-content:space-between}
-.itstk__up{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.itstk__up{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:12px;font-weight:700;cursor:pointer}
 .itstk__up svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.itstk__empty{grid-column:1/-1;font-size:12px;color:#9AA1AC;padding:4px 2px}
-.itdeco{aspect-ratio:1;border-radius:14px;background:#F7F1EF;border:1px solid #EFE6E2;display:grid;place-items:center;cursor:pointer;padding:7px;position:relative;-webkit-appearance:none;appearance:none}
-.itdeco:active{transform:scale(.94)}
+.itstk__empty{grid-column:1/-1;font-size:12px;color:rgba(255,255,255,.55);padding:4px 2px}
+/* 데코 SVG 스티커도 타일 없이 떠 있게 */
+.itdeco{aspect-ratio:1;border-radius:14px;background:none;border:0;display:grid;place-items:center;cursor:pointer;padding:5px;position:relative;-webkit-appearance:none;appearance:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+.itdeco:active{transform:scale(.9)}
 .itdeco img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
 .itmine__x{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#15181D;color:#fff;font-size:12px;line-height:18px;text-align:center}
 
