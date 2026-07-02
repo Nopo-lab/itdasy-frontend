@@ -522,7 +522,7 @@
     refs.photowrap.style.transform = 'translate(' + S.pz.tx + 'px,' + S.pz.ty + 'px) scale(' + ((S.pz.scale || 1) * cs) + ') rotate(' + deg + 'deg)';
   }
   function applyPz() { applyPhotoTransform(); }
-  function applyStraighten() { applyPhotoTransform(); }
+  function applyStraighten() { applyPhotoTransform(); if (!isSingleL(S.layout)) renderCollage(); }   // [#2] 콜라주 모드에선 셀별 회전을 즉시 다시 그림(슬라이더 실시간 반영)
   function stageDown(e) {
     if (S.tool === 'draw' || (e.target.closest && (e.target.closest('.itl') || e.target.closest('.itrb') || e.target.closest('.itpanel')))) return;
     pinchPts[e.pointerId] = { x: e.clientX, y: e.clientY };
