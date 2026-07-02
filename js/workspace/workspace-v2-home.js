@@ -507,34 +507,48 @@
     var meta = st.statusMeta(st.deriveStatus(slot));
     var next = st.nextAction(slot);
     var img = _thumb(slot);
-    var acts = [
-      { ic: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', label: '사진 편집' },
-      { ic: 'M6 2v6m0 0L2 12m4-4 4-4m6 2v6m0 0 4 4m-4-4-4-4', label: '누끼/배경' },
-      { ic: 'M6 2H2v4M2 18v4h4M22 6V2h-4M18 22h4v-4M9 9h6v6H9z', label: '비율 자르기' },
-      { ic: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z', label: '템플릿' },
-      { ic: 'M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z', label: '게시글 생성' },
-      { ic: 'M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7', label: '인스타 미리보기' },
-      { ic: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z', label: '고객 연결' },
+    var pub = _isPub(slot);
+    // [#6] 실제 작업 흐름 4단계 — 편집도구(누끼/비율/템플릿)는 편집기 안에 있으니 '사진 편집' 하나로 통합.
+    var editDone = (slot.photos || []).some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
+    var capDone = !!(slot.caption && String(slot.caption).trim());
+    var STEPS = [
+      { act: '사진 편집', label: '사진 편집', done: editDone, hint: '다시 편집' },
+      { act: '게시글 생성', label: '게시글 생성', done: capDone, hint: '수정' },
+      { act: '인스타 미리보기', label: '미리보기·게시', done: pub, hint: '보기' },
+      { act: '고객 연결', label: '고객 연결', done: !!slot.customer_id, hint: '연결' }
     ];
+    var curIdx = -1; for (var _i = 0; _i < STEPS.length; _i++) { if (!STEPS[_i].done) { curIdx = _i; break; } }
+    var CHK = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var CHV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+    var steps = STEPS.map(function (s, i) {
+      var badge = s.done
+        ? '<span style="width:26px;height:26px;border-radius:50%;background:#E6F7F0;color:#0C8A5F;display:grid;place-items:center;flex:none">' + CHK + '</span>'
+        : '<span style="width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;' + (i === curIdx ? 'background:var(--brand-bg,#F7EAEE);color:var(--accent-strong,#BC6675);border:1.5px solid var(--accent-strong,#BC6675)' : 'background:var(--bg2,#F4F5F7);color:var(--text3,#8A939F)') + '">' + (i + 1) + '</span>';
+      var right = s.done ? '<span style="font-size:12px;color:var(--text3,#8A939F)">' + _esc(s.hint) + '</span>'
+        : '<span style="color:var(--text3,#98A1AC);display:flex">' + CHV + '</span>';
+      return '<button type="button" data-wsv2-act="' + _esc(s.act) + '" style="display:flex;align-items:center;gap:11px;padding:10px 2px;background:none;border:0;' + (i ? 'border-top:0.5px solid var(--border,rgba(0,0,0,.06));' : '') + 'width:100%;text-align:left;cursor:pointer">' +
+        badge +
+        '<span style="flex:1;font-size:14px;font-weight:' + (i === curIdx ? '700' : '500') + ';color:var(--text,#191F28)">' + _esc(s.label) + (i === curIdx ? ' <span style="font-size:11px;font-weight:700;color:var(--accent-strong,#BC6675)">· 남은 단계</span>' : '') + '</span>' +
+        right + '</button>';
+    }).join('');
     var html = '' +
       '<div class="wsv2-drawer__grip"></div>' +
       '<div class="wsv2-drawer__hero"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
         (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') + '</div>' +
-      '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span>' +
-      '<div class="wsv2-drawer__title">' + _esc(slot.label || '제목 없음') + '</div>' +
-      '<div class="wsv2-drawer__status">' + (slot.photos || []).length + '장 · ' + _esc(_roleHint(slot)) +
+      '<div style="display:flex;align-items:center;gap:8px;margin:2px 0 3px">' +
+        '<span style="font-size:16px;font-weight:800;color:var(--text,#191F28)">' + _esc(slot.label || '제목 없음') + '</span>' +
+        '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span></div>' +
+      '<div class="wsv2-drawer__status" style="margin-bottom:14px">' + (slot.photos || []).length + '장 · ' + _esc(_roleHint(slot)) +
         (_relTime(slot) ? ' · 수정 ' + _esc(_relTime(slot)) : '') + '</div>' +
-      '<button type="button" class="wsv2-drawer__primary" data-wsv2-act="next">' +
+      '<div style="font-size:11px;font-weight:700;color:var(--text3,#8A939F);margin-bottom:4px">작업 흐름</div>' +
+      '<div style="margin-bottom:14px">' + steps + '</div>' +
+      // [#6] 남은 단계가 있으면 그 단계로, 전부 끝났으면 '완료'. (published 여도 고객연결 남으면 그리로)
+      '<button type="button" class="wsv2-drawer__primary" data-wsv2-act="' + (curIdx >= 0 ? _esc(STEPS[curIdx].act) : 'next') + '">' +
         '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>' +
-        '다음 작업: ' + _esc(next.label) + '</button>' +
-      '<div class="wsv2-drawer__hint">' + _esc(DRAWER_HINT) + '</div>' +
-      '<div class="wsv2-drawer__grid">' + acts.map(function (a) {
-        return '<button type="button" class="wsv2-drawer__act" data-wsv2-act="' + _esc(a.label) + '">' +
-          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + a.ic + '"/></svg>' + _esc(a.label) + '</button>';
-      }).join('') + '</div>' +
-      // [v542] 콘텐츠 관리 — 게시 완료 토글 + 삭제(위험, 확인 후). 카드 본체엔 안 보이고 더보기(드로어)에만.
+        (curIdx >= 0 ? _esc(STEPS[curIdx].label) + ' 하기' : _esc(next.label)) + '</button>' +
+      // [v542] 콘텐츠 관리 — 게시 완료 토글 + 삭제(위험, 확인 후).
       '<div class="wsv2-drawer__manage">' +
-        (st.deriveStatus(slot) === 'published'
+        (pub
           ? '<button type="button" class="wsv2-drawer__mng" data-wsv2-act="게시 완료 해제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>게시 완료 해제</button>'
           : '<button type="button" class="wsv2-drawer__mng wsv2-drawer__mng--ok" data-wsv2-act="게시 완료"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>게시 완료</button>') +
         '<button type="button" class="wsv2-drawer__mng wsv2-drawer__mng--danger" data-wsv2-act="삭제"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>삭제</button>' +
@@ -543,6 +557,7 @@
     document.getElementById('wsv2DrawerCard').innerHTML = html;
     requestAnimationFrame(function () { el.classList.add('is-open'); });
   }
+  function _isPub(slot) { return !!(slot && (slot.status === 'published' || slot.instagramPublished || (slot.publish && slot.publish.status === 'published'))); }
 
   function _closeDrawer() {
     var el = document.getElementById('wsv2Drawer');
