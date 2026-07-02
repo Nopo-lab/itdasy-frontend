@@ -74,8 +74,10 @@
 .itrb.on{background:var(--accent-strong, #BC6675);box-shadow:0 6px 18px rgba(140,72,90,.5)}
 
 /* 공통 패널 베이스 */
-.itpanel{position:absolute;left:0;right:0;bottom:0;z-index:10;display:none;transition:transform .22s ease}
-.itpanel.is-open{display:block}
+/* [#3·#6] 패널 열고/닫힘 슬라이드 — display 토글 대신 translateY 애니메이션(부드럽게 내려감) */
+.itpanel{position:absolute;left:0;right:0;bottom:0;z-index:10;transform:translateY(112%);opacity:0;pointer-events:none;
+  transition:transform .28s cubic-bezier(.32,.72,0,1),opacity .2s ease;will-change:transform}
+.itpanel.is-open{transform:translateY(0);opacity:1;pointer-events:auto}
 /* [P2-2] 전체보기 — 패널을 잠깐 내려 사진 전체 확인 */
 .itded--peek .itpanel.is-open{transform:translateY(105%)}
 .itded--peek .itded__rail{opacity:.25;pointer-events:none}

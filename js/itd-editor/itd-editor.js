@@ -511,7 +511,8 @@
     return Math.max((W * Math.cos(r) + H * Math.sin(r)) / W, (W * Math.sin(r) + H * Math.cos(r)) / H, 1);
   }
   function applyPhotoTransform() {
-    var deg = 0; try { var idx = S.photos.indexOf(S.photoUrl); deg = (adjOf(idx < 0 ? 0 : idx).rot) || 0; } catch (_) { void _; }
+    // [#7] 슬라이더는 adjOf(S.adjSel).rot 에 쓰므로 여기서도 활성 사진(adjSel) 기준으로 읽는다(누끼 후 URL 매칭 실패로 회전 안 먹던 문제).
+    var deg = 0; try { var idx = (S.adjSel != null && S.photos[S.adjSel] != null) ? S.adjSel : S.photos.indexOf(S.photoUrl); deg = (adjOf(idx < 0 ? 0 : idx).rot) || 0; } catch (_) { void _; }
     var cs = deg ? coverScaleForRot(deg) : 1;
     refs.photowrap.style.transform = 'translate(' + S.pz.tx + 'px,' + S.pz.ty + 'px) scale(' + ((S.pz.scale || 1) * cs) + ') rotate(' + deg + 'deg)';
   }
@@ -740,13 +741,15 @@
     fitStageToRatio();
   }
   // [#7] 패널 상단을 아래로 긁으면 닫히게 — grip 요소가 있는 모든 패널에 스와이프 부착.
+  // [#3·#6] 그립 스와이프 — 시트(패널) 전체가 손가락 따라 내려가고, 놓으면 닫히거나(슬라이드-다운) 부드럽게 제자리로.
   function _attachSheetSwipe(gripEl) {
     if (!gripEl) return;
+    var panel = (gripEl.closest && gripEl.closest('.itpanel')) || gripEl.parentElement;
     var gd = null;
-    gripEl.addEventListener('pointerdown', function (e) { gd = { y: e.clientY }; try { gripEl.setPointerCapture(e.pointerId); } catch (_) { void _; } });
-    gripEl.addEventListener('pointermove', function (e) { if (!gd) return; var dy = e.clientY - gd.y; gripEl.style.transform = dy > 0 ? ('translateY(' + Math.min(dy, 40) + 'px)') : ''; });
-    gripEl.addEventListener('pointerup', function (e) { if (!gd) return; var dy = e.clientY - gd.y; gd = null; gripEl.style.transform = ''; if (dy > 44) _closeToolPanel(); });
-    gripEl.addEventListener('pointercancel', function () { gd = null; gripEl.style.transform = ''; });
+    gripEl.addEventListener('pointerdown', function (e) { gd = { y: e.clientY }; if (panel) panel.style.transition = 'none'; try { gripEl.setPointerCapture(e.pointerId); } catch (_) { void _; } });
+    gripEl.addEventListener('pointermove', function (e) { if (!gd || !panel) return; var dy = e.clientY - gd.y; if (dy > 0) panel.style.transform = 'translateY(' + dy + 'px)'; });
+    gripEl.addEventListener('pointerup', function (e) { if (!gd) return; var dy = e.clientY - gd.y; gd = null; if (panel) { panel.style.transition = ''; panel.style.transform = ''; } if (dy > 60) _closeToolPanel(); });
+    gripEl.addEventListener('pointercancel', function () { gd = null; if (panel) { panel.style.transition = ''; panel.style.transform = ''; } });
   }
   /* ── 이미지 스티커(데코·내 스티커) #6/#7 ── */
   function addImageSticker(src) {
@@ -839,7 +842,8 @@
     refs.frame.className = 'itded__frame';
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
     // [#4] 콜라주는 칸을 꽉 채우는 게 자연스럽고, 단일은 전체(여백)로. 사용자가 직접 토글했으면 존중.
-    if (!S._fitManual) { S.fitMode = 'contain'; _syncFitToggle(); }   // [#3] 기본 '전체' — 콜라주 칸에서도 사진이 안 잘리게(꽉채움 원하면 토글)
+    // [#4] 콜라주는 '꽉 채움(cover)'이 기본 — 칸을 꽉 채워 빈 공간이 안 생김(전체보기 원하면 토글). 단일은 전체.
+    if (!S._fitManual) { S.fitMode = isSingleL(S.layout) ? 'contain' : 'cover'; _syncFitToggle(); }
     _syncBaLabels();   // [전/후] 전/후 레이아웃이면 BEFORE·AFTER 라벨 자동, 아니면 제거
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
   }
@@ -1033,7 +1037,7 @@
       var wasShown = (S.photoUrl === S.photos[i]);
       S.photos[i] = r.composedDataUrl;
       if (wasShown) { S.photoUrl = r.composedDataUrl; S.photoCss = 'url("' + r.composedDataUrl + '")'; refs.photo.style.backgroundImage = S.photoCss; }
-      renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
+      renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay(); applyPhotoTransform();   // [#7] 누끼 후에도 수평(회전) 유지·반영
       if (!silent) toastIt('배경을 정리했어요');
     }).catch(function (e) {
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
@@ -1104,7 +1108,8 @@
     var c = refs.ctx; c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.shadowBlur = 0; c.shadowColor = 'transparent';
     c.lineWidth = S.brushSize; c.strokeStyle = S.drawColor;
     if (S.brush === 'marker') { c.globalAlpha = 0.4; c.lineWidth = S.brushSize * 1.8; }
-    else if (S.brush === 'neon') { c.shadowBlur = 12; c.shadowColor = S.drawColor; }
+    // [#5] 네온 — 진한 색 글로우(강한 shadowBlur)로 빛나는 느낌. 코어는 얇게 두고 글로우가 번지게.
+    else if (S.brush === 'neon') { c.shadowBlur = Math.max(16, S.brushSize * 1.6); c.shadowColor = S.drawColor; c.lineWidth = Math.max(3, S.brushSize * 0.7); c.lineCap = 'round'; c.lineJoin = 'round'; }
     else if (S.brush === 'eraser') { c.globalCompositeOperation = 'destination-out'; c.lineWidth = S.brushSize * 1.6; }
   }
   var dpos = null, _drawRect = null;

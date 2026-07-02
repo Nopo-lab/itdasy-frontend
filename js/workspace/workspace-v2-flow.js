@@ -568,6 +568,8 @@
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
         d.previewUrl = null;
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
+        // [#8] 편집(레이아웃 포함) 결과를 IndexedDB 에 저장 → 새로고침/재진입해도 미리보기·편집본 유지.
+        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; }
         if (cur === 'caption') setScreen('caption');
         toast('사진을 꾸몄어요');
       }
@@ -1580,8 +1582,7 @@
 	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
 	          '</div>') : '';
 	        // [#14] 초보자 레이아웃 A 적용 버튼
-	        var _ssPreset = '';   // [#4b] 옛 텍스트 프리셋(레이아웃 A/B) 픽커 제거 — 편집기 비주얼 레이아웃·글자도구와 중복. 로직(_applyPreset)은 '원탭 예쁘게'용으로 유지.
-		var _ssPresetOld = (_useStyle && !d.textOnly) ? (   // eslint-disable-line no-unused-vars
+	        var _ssPreset = (_useStyle && !d.textOnly) ? (   // [#1 복원] 레이아웃 프리셋(A~F) 미리보기 픽커 — 원장님 요청으로 재노출
 	          '<div class="cap-presetrow2"><span class="cap-presetrow__l">레이아웃 디자인 · 눌러 적용 → \'사진 편집\'에서 글자 옮기면 그 자리로 저장돼요</span>' +
 	            '<div class="cap-presetcards">' +
 	              ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(function (k) {
