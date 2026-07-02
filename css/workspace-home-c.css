@@ -1,0 +1,82 @@
+/* 작업실 홈 — conceptC 디자인 (입력바 + 벤토 타일 + 콘텐츠 그리드)
+   .wshc 스코프. 색은 앱 토큰 우선 + 목업 폴백. */
+.wshc{
+  --c-brand:var(--brand,#D58A95); --c-brand-strong:var(--accent-strong,#BC6675); --c-brand-bg:#F7EFF0;
+  --c-surface:#fff; --c-surface2:#F4F5F7;
+  --c-text:var(--text,#191F28); --c-text-muted:var(--text2,#4E5968); --c-text-subtle:var(--text3,#8A939F);
+  --c-border:rgba(0,0,0,.055); --c-ok:#12B886; --c-warn:#F59F00;
+
+  padding:2px 0 calc(96px + env(safe-area-inset-bottom));
+}
+.wshc *{box-sizing:border-box;}
+.wshc button{font-family:inherit;cursor:pointer;}
+
+.wshc-top{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 6px;}
+.wshc-wm{font-size:15px;font-weight:800;color:var(--c-text);letter-spacing:-.2px;}
+.wshc-wm b{color:var(--c-brand);}
+.wshc-ava{width:30px;height:30px;border-radius:50%;background:var(--c-surface2);color:var(--c-text-muted);display:grid;place-items:center;font-size:12px;font-weight:700;}
+
+/* 벤토 */
+.wshc .bento{padding:10px 16px 4px;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:104px;gap:11px;}
+.wshc .tile{border-radius:22px;padding:15px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--c-border);background:var(--c-surface);text-align:left;-webkit-appearance:none;appearance:none;}
+.wshc .tile:active{transform:scale(.985);}
+.wshc .tile__lbl{font-size:13px;font-weight:700;color:var(--c-text-muted);}
+.wshc .t-resume{grid-row:span 2;color:#fff;border-color:transparent;background-color:#8a6b72;background-size:cover;background-position:center;}
+.wshc .t-resume::after{content:'';position:absolute;inset:0;background:linear-gradient(160deg,rgba(0,0,0,.12),rgba(0,0,0,.64));}
+.wshc .t-resume>*{position:relative;z-index:1;}
+.wshc .t-resume--empty{background-image:linear-gradient(150deg,#D58A95,#7C4A54);}
+.wshc .tr__lbl{font-size:12px;font-weight:700;color:rgba(255,255,255,.9);}
+.wshc .tr__mid{display:block;}
+.wshc .tr__t{display:block;font-size:17px;font-weight:800;color:#fff;line-height:1.22;max-height:2.44em;overflow:hidden;}
+.wshc .tr__s{display:block;font-size:11.5px;color:rgba(255,255,255,.85);margin-top:3px;}
+.wshc .tr__go{position:absolute;right:0;bottom:0;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--c-text);display:grid;place-items:center;}
+.wshc .tr__go svg{width:16px;height:16px;}
+.wshc .t-stat .ts__n{font-size:26px;font-weight:800;color:var(--c-text);letter-spacing:-.5px;display:flex;align-items:baseline;}
+.wshc .t-stat .ts__n b{font-size:13px;color:var(--c-ok);font-weight:700;margin-left:4px;}
+.wshc .t-quick .tq__ic{width:34px;height:34px;border-radius:10px;background:var(--c-surface2);color:var(--c-text-muted);display:grid;place-items:center;}
+.wshc .t-quick .tq__ic svg{width:18px;height:18px;}
+.wshc .t-quick .tq__t{display:block;font-size:14px;font-weight:700;color:var(--c-text);}
+.wshc .t-quick .tq__s{display:block;font-size:11.5px;color:var(--c-text-subtle);margin-top:2px;}
+
+/* 입력바 */
+.wshc .cBar{width:calc(100% - 36px);margin:14px 18px 6px;background:var(--c-surface);border:1px solid var(--c-border);border-radius:26px;padding:16px;box-shadow:0 4px 18px rgba(0,0,0,.05);display:block;text-align:left;}
+.wshc .cBar__row{display:flex;align-items:center;gap:11px;}
+.wshc .cBar__bot{width:38px;height:38px;border-radius:12px;background:var(--c-brand-bg);color:var(--c-brand-strong);display:grid;place-items:center;flex-shrink:0;}
+.wshc .cBar__bot svg{width:20px;height:20px;}
+.wshc .cBar__ph{flex:1;font-size:14.5px;color:var(--c-text-subtle);}
+.wshc .cBar__cam{display:flex;align-items:center;justify-content:center;gap:7px;height:46px;margin-top:14px;border-radius:14px;background:var(--c-text);color:#fff;font-size:14px;font-weight:700;}
+.wshc .cBar__cam svg{width:18px;height:18px;}
+
+/* 내 콘텐츠 */
+.wshc .cSec{display:flex;align-items:baseline;justify-content:space-between;padding:20px 20px 0;}
+.wshc .cSec h2{font-size:17px;font-weight:800;color:var(--c-text);}
+.wshc .cSec small{font-size:12.5px;color:var(--c-text-subtle);font-weight:600;}
+.wshc-seltoggle{border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text-muted);font-size:12.5px;font-weight:700;padding:6px 13px;border-radius:999px;}
+.wshc-seltoggle.on{background:var(--c-text);color:#fff;border-color:var(--c-text);}
+.wshc .cFilter{display:flex;gap:7px;padding:14px 20px;}
+.wshc .cFilter button{border:none;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;background:var(--c-surface2);color:var(--c-text-muted);}
+.wshc .cFilter button.on{background:var(--c-text);color:#fff;}
+
+/* 그리드 */
+.wshc .cGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:0 16px;}
+.wshc .cGrid__empty{grid-column:1/-1;text-align:center;color:var(--c-text-subtle);font-size:13px;font-weight:600;padding:40px 0;}
+.wshc .gCell{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--c-surface2);background-size:cover;background-position:center;border:none;padding:0;}
+.wshc .gCell::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 56%,rgba(0,0,0,.36));}
+.wshc .gCell:active{transform:scale(.97);}
+.wshc .gCell__ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--c-text-subtle);z-index:1;}
+.wshc .gCell__ph svg{width:26px;height:26px;}
+.wshc .gTag{position:absolute;left:7px;bottom:7px;font-size:10.5px;font-weight:700;color:#fff;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.4);}
+.wshc .gTime{position:absolute;right:7px;bottom:7px;font-size:9.5px;font-weight:700;color:rgba(255,255,255,.92);z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.5);}
+.wshc .gDot{position:absolute;top:8px;left:8px;width:7px;height:7px;border-radius:50%;z-index:2;box-shadow:0 0 0 2px rgba(255,255,255,.55);}
+.wshc .gDot--wait{background:var(--c-text-subtle);}
+.wshc .gDot--edit{background:var(--c-brand);}
+.wshc .gDot--ready{background:var(--c-warn);}
+.wshc .gDot--done{background:var(--c-ok);}
+.wshc .gGo{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--c-text);display:grid;place-items:center;z-index:2;}
+.wshc .gGo svg{width:12px;height:12px;}
+/* 선택 모드 */
+.wshc .gCell--select::before{content:'';position:absolute;inset:0;z-index:3;border-radius:14px;box-shadow:inset 0 0 0 2px transparent;}
+.wshc .gCell.is-sel::before{box-shadow:inset 0 0 0 3px var(--c-brand-strong);}
+.wshc .gCheck{position:absolute;top:6px;right:6px;z-index:4;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.7);color:transparent;display:grid;place-items:center;}
+.wshc .gCheck svg{width:13px;height:13px;}
+.wshc .gCell.is-sel .gCheck{background:var(--c-brand-strong);color:#fff;}

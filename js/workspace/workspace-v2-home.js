@@ -4,8 +4,7 @@
   'use strict';
 
   var ST = function () { return window.WorkspaceState; };
-  var _filter = 'all';
-  var TABS = [{ key:'all', label:'전체' }, { key:'pending', label:'업로드 대기' }, { key:'edited', label:'편집 완료' }, { key:'ready', label:'업로드 준비' }, { key:'done', label:'완료' }];
+  var _filter = 'all';   // [conceptC] all | progress | done
   var _lastRoot = null;
   var _slotsCache = [];
   var _selectMode = false;          // [v547] 내 콘텐츠 일괄 작업 선택 모드
@@ -58,39 +57,6 @@
 
   /* ── 컴포넌트 ── */
 
-  // 히어로 — 시안 A(담백 카드): 흰 카드 가로 레이아웃, 작은 검정 pill, 카메라 라인아이콘(로즈 틴트 박스)
-  function _heroHTML() {
-    return '' +
-      '<button type="button" class="wsv2-hero" data-wsv2-upload data-haptic="medium">' +
-        '<div class="wsv2-hero__tx">' +
-          '<div class="wsv2-hero__eye">오늘 작업</div>' +
-          '<div class="wsv2-hero__tt">사진 올려<br>게시물 만들기</div>' +
-          '<div class="wsv2-hero__sub">사진 올리면 보정·글까지 한 번에</div>' +
-          '<span class="wsv2-hero__go">시작하기 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>' +
-        '</div>' +
-        '<span class="wsv2-hero__ill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg></span>' +
-      '</button>';
-  }
-
-  // 퀵 2칸: 잇비한테 맡기기 + 게시글만 쓰기
-  function _quickHTML() {
-    return '' +
-      '<div class="wsv2-quick">' +
-        '<button type="button" class="wsv2-quick__btn wsv2-quick__btn--rose" data-wsv2-quick="itbi" data-haptic="light">' +
-          '<svg class="wsv2-quick__ic--float" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand-strong)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-bot"/></svg>' +
-          '<span class="wsv2-quick__label">잇비한테 맡기기</span>' +
-          '<span class="wsv2-quick__sub">사진 주면 알아서</span>' +
-        '</button>' +
-        '<button type="button" class="wsv2-quick__btn" data-wsv2-quick="textonly" data-haptic="light">' +
-          '<span class="wsv2-quick__ic">' +
-            '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>' +
-          '</span>' +
-          '<span class="wsv2-quick__label">게시글만 쓰기</span>' +
-          '<span class="wsv2-quick__sub">사진 없이 글만</span>' +
-        '</button>' +
-      '</div>';
-  }
-
   // [v531] 유형별 실제 템플릿 + 기본 템플릿 저장(localStorage). flow.js 와 공유(window).
   var CAT_TEMPLATES = {
     ba:     { ratio: '4:5', tpls: [{ id: 'wm-ba-feed', label: '전후 비교' }, { id: 'bp-ba-premium-infographic', label: '프리미엄 전후' }, { id: 'bp-ba-luxury-review', label: '럭셔리 후기 전후' }, { id: 'bp-ba-story-signature', label: '스토리 전후' }, { id: 'bp-ba-classic-poster', label: '클래식 포스터 전후' }, { id: 'bp-ba-care-guide', label: '케어 가이드 전후' }] },
@@ -140,72 +106,105 @@
       '<div class="wsv2-cats">' + cards + '</div>';
   }
 
-  function _cardHTML(slot) {
-    var st = ST();
-    var meta = st.statusMeta(st.deriveStatus(slot));
-    var next = st.nextAction(slot);
-    var img = _thumb(slot);
-    var sub = _relTime(slot);
-    var sel = !!_selected[slot.id];
-    return '' +
-      '<article class="wsv2-card' + (_selectMode ? ' wsv2-card--select' : '') + (sel ? ' is-selected' : '') + '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light">' +
-        (_selectMode ? '<span class="wsv2-card__check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
-        '<div class="wsv2-card__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
-          (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') +
-        '</div>' +
-        '<div class="wsv2-card__body">' +
-          '<span class="wsv2-badge wsv2-badge--' + meta.tone + '">' + _esc(meta.label) + '</span>' +
-          '<div class="wsv2-card__title">' + _esc(slot.label || '제목 없음') + '</div>' +
-          (sub ? '<div class="wsv2-card__sub">수정 ' + _esc(sub) + '</div>' : '') +
-          '<div class="wsv2-card__next">다음: ' + _esc(next.label) + '</div>' +
-          '<button type="button" class="wsv2-card__resume" data-wsv2-resume="' + _esc(slot.id) + '">이어서 ›</button>' +
-        '</div>' +
-        '<span class="wsv2-card__dots" aria-hidden="true">' +
-          '<svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>' +
-        '</span>' +
-      '</article>';
-  }
-
-  function _bucket(slot) {
+  /* ── [conceptC] 작업실 홈 디자인 — 벤토 타일 + 입력바 + 콘텐츠 그리드 ── */
+  var _CGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+  // 슬롯 상태 → 그리드 점/태그(대기·편집·준비·완료)
+  function _cStatus(slot) {
     var s = ST().deriveStatus(slot);
-    if (s === 'published') return 'done';
-    if (s === 'ready') return 'ready';
-    if (s === 'needs_caption' || s === 'needs_customer') return 'edited';
-    return 'pending';
+    if (s === 'published') return { k: 'done', tag: '완료' };
+    if (s === 'ready') return { k: 'ready', tag: '업로드 준비' };
+    if (s === 'upload_pending') return { k: 'wait', tag: '사진 대기' };
+    return { k: 'edit', tag: '편집 중' };
+  }
+  function _sameMonth(slot) {
+    var t = (slot.publish && slot.publish.publishedAt) || slot.completedAt || slot.createdAt || 0;
+    if (!t) return false; var d = new Date(t), n = new Date();
+    return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
+  }
+  function _shopInitial() {
+    try { var s = localStorage.getItem('shop_name'); if (s && s.trim()) return _esc(s.trim().charAt(0).toUpperCase()); } catch (_e) { /* noop */ }
+    return 'N';
   }
 
-  function _tabsHTML(slots) {
-    var g = { all: slots.length, pending: 0, edited: 0, ready: 0, done: 0 };
-    slots.forEach(function (s) { g[_bucket(s)]++; });
-    return '<div class="wsv2-tabs" role="tablist">' + TABS.map(function (t) {
-      return '<button type="button" class="wsv2-tab' + (_filter === t.key ? ' is-active' : '') +
-        '" data-wsv2-filter="' + t.key + '" data-haptic="light">' + _esc(t.label) +
-        '<b>' + (g[t.key] || 0) + '</b></button>';
+  // 콘텐츠 셀(그리드) — 썸네일 + 상태점 + 태그 + 상대시간. 탭 = 상세 드로어(기존).
+  function _cardHTML(slot) {
+    var st = _cStatus(slot);
+    var img = _thumb(slot);
+    var t = _relTime(slot);
+    var sel = !!_selected[slot.id];
+    var go = (st.k === 'done' || _selectMode) ? '' : '<span class="gGo">' + _CGO + '</span>';
+    return '<button type="button" class="gCell' + (_selectMode ? ' gCell--select' : '') + (sel ? ' is-sel' : '') + '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' +
+      (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+      (_selectMode ? '<span class="gCheck" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
+      '<span class="gDot gDot--' + st.k + '"></span>' + go +
+      '<span class="gTag">' + _esc(st.tag) + '</span>' +
+      (t ? '<span class="gTime">' + _esc(t) + '</span>' : '') +
+      (img ? '' : '<span class="gCell__ph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>') +
+      '</button>';
+  }
+
+  // 벤토 타일 — 이어서 하기(최근 진행중) + 이번 달 발행 + 글만 쓰기
+  function _bentoHTML(slots) {
+    var resume = slots.filter(function (s) { return _cStatus(s).k !== 'done'; })[0];
+    var pub = slots.filter(function (s) { return _cStatus(s).k === 'done' && _sameMonth(s); }).length;
+    var rHtml;
+    if (resume) {
+      var img = _thumb(resume), st = _cStatus(resume), cnt = (resume.photos || []).length;
+      rHtml = '<button type="button" class="tile t-resume" data-wsv2-resume="' + _esc(resume.id) + '" data-haptic="medium"' +
+        (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+        '<span class="tr__lbl">이어서 하기</span>' +
+        '<span class="tr__mid"><span class="tr__t">' + _esc(resume.label || '무제 작업') + '</span>' +
+        '<span class="tr__s">' + _esc(st.tag) + (cnt ? ' · ' + cnt + '장' : '') + '</span></span>' +
+        '<span class="tr__go">' + _CGO + '</span></button>';
+    } else {
+      rHtml = '<button type="button" class="tile t-resume t-resume--empty" data-wsv2-upload data-haptic="medium">' +
+        '<span class="tr__lbl">시작하기</span>' +
+        '<span class="tr__mid"><span class="tr__t">첫 작업 만들기</span><span class="tr__s">사진을 올려보세요</span></span>' +
+        '<span class="tr__go">' + _CGO + '</span></button>';
+    }
+    return '<div class="bento">' + rHtml +
+      '<button type="button" class="tile t-stat" data-wsv2-filter="done" data-haptic="light"><span class="tile__lbl">이번 달 발행</span>' +
+        '<span class="ts__n">' + pub + (pub > 0 ? '<b>▲</b>' : '') + '</span></button>' +
+      '<button type="button" class="tile t-quick" data-wsv2-quick="textonly" data-haptic="light">' +
+        '<span class="tq__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>' +
+        '<span class="tq__mid"><span class="tq__t">글만 쓰기</span><span class="tq__s">사진 없이 캡션만</span></span></button>' +
+    '</div>';
+  }
+
+  // 필터 — 전체 / 진행 중 / 완료
+  function _cFiltersHTML(slots) {
+    var done = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
+    var F = [['all', '전체', slots.length], ['progress', '진행 중', slots.length - done], ['done', '완료', done]];
+    return '<div class="cFilter">' + F.map(function (f) {
+      return '<button type="button" data-wsv2-filter="' + f[0] + '"' + (_filter === f[0] ? ' class="on"' : '') + '>' + f[1] + '</button>';
     }).join('') + '</div>';
   }
 
+  function _cBarHTML() {
+    return '<button type="button" class="cBar" data-wsv2-upload data-haptic="medium">' +
+      '<span class="cBar__row"><span class="cBar__bot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v1H7a2 2 0 0 0-2 2v3a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-2V5a3 3 0 0 0-3-3z"/><path d="M9 20h6"/></svg></span>' +
+      '<span class="cBar__ph">사진 올리거나, 만들고 싶은 걸 말해요</span></span>' +
+      '<span class="cBar__cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>사진 올리기</span></button>';
+  }
+
   function _shellHTML(slots) {
-    var visible = _filter === 'all' ? slots : slots.filter(function (s) { return _bucket(s) === _filter; });
-    var list = visible.length
-      ? '<div class="wsv2-list">' + visible.map(_cardHTML).join('') + '</div>'
-      : '<div class="wsv2-empty-list">' +
-        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
-        '<p>' + (slots.length ? '이 상태의 콘텐츠가 없어요' : '아직 콘텐츠가 없어요') + '</p></div>';
+    var visible = _filter === 'all' ? slots : slots.filter(function (s) {
+      var d = _cStatus(s).k === 'done'; return _filter === 'done' ? d : !d;
+    });
+    var grid = visible.length
+      ? '<div class="cGrid">' + visible.map(_cardHTML).join('') + '</div>'
+      : '<div class="cGrid"><div class="cGrid__empty">' + (slots.length ? '이 상태의 콘텐츠가 없어요' : '아직 만든 콘텐츠가 없어요') + '</div></div>';
     return '' +
-      '<section class="wsv2" data-wsv2-root>' +
-        '<header class="wsv2-greet">' +
-          '<p class="wsv2-greet__sub">오늘 작업, 한 번에.</p>' +
-          '<h1 class="wsv2-greet__title">작업실</h1>' +
-        '</header>' +
-	        _heroHTML() +
-	        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
-	        _quickHTML() +
-        // [v592] '새 콘텐츠 만들기'(유형 카드) 섹션 제거 — 진입은 상단 '시작하기' 하나로 단순화.
-        '<div class="wsv2-sec-head"><h2>내 콘텐츠</h2>' +
-          (slots.length ? '<button type="button" class="wsv2-selecttoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
+      '<section class="wsv2 wshc" data-wsv2-root>' +
+        '<div class="wshc-top"><div class="wshc-wm">Itda<b>sy</b></div><div class="wshc-ava">' + _shopInitial() + '</div></div>' +
+        _bentoHTML(slots) +
+        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
+        _cBarHTML() +
+        '<div class="cSec"><h2>내 콘텐츠</h2>' +
+          (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '<small>전체 ' + slots.length + '개</small>') +
         '</div>' +
-        _tabsHTML(slots) +
-        list +
+        _cFiltersHTML(slots) +
+        grid +
         (_selectMode ? _bulkBarHTML() : '') +
       '</section>';
   }
