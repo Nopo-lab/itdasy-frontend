@@ -2138,6 +2138,7 @@
 	    });
 	  }
 	  function doGenerate(extra, label) {
+	    if (d.capLoading) return;   // [audit] 생성 중 재탭 무시 — 연타 시 API 이중 호출(비용) 방지
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
@@ -2240,6 +2241,12 @@
         }
         d.logId = r.log_id || d.logId || null;
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
+      setScreen('caption');
+    }).catch(function (e) {
+      // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
+      d.capLoading = false;
+      console.warn('[wsv2flow] generateCaption failed', e);
+      toast('게시글 생성에 실패했어요 — 네트워크를 확인하고 다시 시도해 주세요');
       setScreen('caption');
     });
   }
@@ -3678,6 +3685,12 @@
 	        }
         setScreen('caption');
       });
+    }).catch(function (e) {
+      // [audit] 발행 중 예외(저장 거부/콜백 오류) 시 갇히지 않게 복구 — _publishing 이 true 로 남으면 이후 발행이 영구 차단됨.
+      d._publishing = false; _pubHide();
+      console.warn('[wsv2flow] publish chain failed', e);
+      toast('업로드 중 문제가 생겼어요 — 다시 시도해 주세요');
+      setScreen('caption');
     });
   }
 

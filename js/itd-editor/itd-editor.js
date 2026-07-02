@@ -1079,7 +1079,9 @@
     S.photoBg = S.photoBg || {};
     var _pb = S.photoBg[i];
     var bg = _pb ? (_pb.img ? { imageData: _pb.img } : { color: _pb.color || '#FFFFFF' }) : { color: '#FFFFFF' };
+    var _sess = S;   // [audit] 세션 스냅샷 — 누끼 대기 중 back으로 닫고 재진입하면 옛 결과가 새 세션 사진을 덮던 버그 방지.
     window.PhotoEditorBgCompose.compose({ srcUrl: src, bg: bg, targetRatio: '4:5', preRemovedBgUrl: cached }).then(function (r) {
+      if (S !== _sess || !root.classList.contains('is-open')) return;   // 편집기 닫혔거나 다른 세션 → 무시(유령 반영 방지)
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
       if (r.removedBgDataUrl) S.matte[i] = r.removedBgDataUrl;   // 매트 캐시
@@ -1094,6 +1096,7 @@
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay(); applyPhotoTransform();   // [#7] 누끼 후에도 수평(회전) 유지·반영
       if (!silent) toastIt('배경을 정리했어요');
     }).catch(function (e) {
+      if (S !== _sess || !root.classList.contains('is-open')) return;   // 닫힌/다른 세션 → 무시
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       // [#2] 실패 사유를 사람말로 — 한도(429)·로그인·네트워크 구분(무엇이 막혔는지 보이게).
       var msg = String((e && e.message) || e || '');
@@ -1377,16 +1380,20 @@
     refs.stage.addEventListener('pointerup', stageUp);
     refs.stage.addEventListener('pointercancel', stageUp);
     // 닫기/완료
-    refs.cancel.addEventListener('click', function () { close(); if (S && S.onCancel) S.onCancel(); });
+    refs.cancel.addEventListener('click', function () { if (S) S._cancelled = true; close(); if (S && S.onCancel) S.onCancel(); });
     if (refs.undo) refs.undo.addEventListener('click', function () { _undo(); });   // [P1-3]
     if (refs.redo) refs.redo.addEventListener('click', function () { _redo(); });
     if (refs.peek) refs.peek.addEventListener('click', function () { togglePeek(); });   // [P2-2]
     if (refs.addText) refs.addText.addEventListener('click', function () { addText(); });   // [#4] 글자 추가(항상 새 텍스트)
     refs.done.addEventListener('click', function () {
-      var cb = S.onDone; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
+      if (S._saving) return;   // [audit] 완료 더블탭 방지(저장 중 재클릭 무시)
+      S._saving = true;
+      var cb = S.onDone, _sess = S; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
       exportComposite(function (url) {
+        if (S !== _sess || _sess._cancelled) { _sess._saving = false; return; }   // [audit] 저장 중 back/취소로 닫혔거나 재진입 → onDone 이중발화 안 함
         var meta = { layers: metaLayers(), editState: _exportState() };   // [학습] close() 전에 좌표 계산(닫으면 stage rect=0 → NaN). editState=재편집 이어가기(#4/#8/#11/#16)
         meta.perPhoto = _collectPerPhoto();   // [#5/#6] 사진별 레이어(단일모드) — 플로우가 각 장을 자기 레이어로 합성
+        S._saving = false;
         close(); refs.done.textContent = '완료'; refs.done.disabled = false;
         if (cb) cb(url, meta);   // StoryEditor 계약 호환(meta.layers)
       });
@@ -1517,7 +1524,7 @@
       window.__seOpen = true;
       S._popHandler = function () {
         if (!root || !root.classList.contains('is-open')) return;
-        S._histPushed = false;
+        S._histPushed = false; S._cancelled = true;   // [audit] 저장(export) 진행 중 back → onDone 이중발화 차단
         window.__seSwallowPop = true; setTimeout(function () { window.__seSwallowPop = false; }, 0);
         _teardownBack(true); root.classList.remove('is-open');
         if (S && S.onCancel) S.onCancel();   // 시스템 back = 취소로 닫기
