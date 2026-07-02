@@ -1122,7 +1122,7 @@
     renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
     toastIt('원본으로 되돌렸어요');
   }
-  function toastIt(m) { try { (window.toast || function () {})(m); } catch (_) { void _; } }
+  function toastIt(m) { try { (window.showToast || function () {})(m); } catch (_) { void _; } }
   function addPhotoFromFile(file) {
     if (!file || !/^image\//.test(file.type)) return;
     var rd = new FileReader();

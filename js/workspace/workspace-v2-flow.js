@@ -105,6 +105,9 @@
   var _histDepth = 0;      // 우리가 push 한 단계 엔트리 수
   var _popBound = false;   // popstate 리스너 1회 등록 가드
   var _closingHist = false; // 프로그램적 close(저장/게시) 시 history 되감기 중 popstate 무시
+  // [버그수정] 캡션 재생성 중 뒤로가기 등으로 이탈 후 옛 응답이 도착하면 d.caption/오버레이가 새 상태와 뒤섞여 깨지던 문제.
+  //   generateCaption() 호출마다 토큰을 발급하고, 응답 시 토큰이 최신이 아니면(그 사이 뒤로가기/재생성 발생) 결과를 버린다.
+  var _genToken = 0;
   function _pushHist() {
     try { history.pushState({ wsv2: 'step' }, '', '#wsv2flow'); _histDepth++; } catch (_e) { void _e; }
   }
@@ -127,13 +130,14 @@
     if (cur === 'caption' && String(d.caption || '').trim() && navStack.length && navStack[navStack.length - 1] === 'caption') {
       if (_histDepth > 0) _histDepth--;
       navStack.pop();
+      _genToken++;   // [버그수정] 진행 중인 재생성 응답이 있으면 여기서 무효화 — 나중에 도착해도 무시됨
       d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.logId = null;
       setScreen('caption', { push: false });
       return true;
     }
     if (navStack.length) {
       if (_histDepth > 0) _histDepth--;
-      if (cur === 'caption') flushCaptionInputs();
+      if (cur === 'caption') { flushCaptionInputs(); _genToken++; }   // [버그수정] 캡션 화면 이탈 시에도 재생성 응답 무효화
       setScreen(navStack.pop(), { push: false });
       return true;
     }
@@ -416,6 +420,7 @@
   function _thEsc(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
   function _presetThumb(key) {
     var W = 46, H = 58, ls = _presetLayers(key);
+    var photoSrc = dispUrl(curPhoto());   // [버그수정] 자리표시 배경색만 있고 실제 사진이 안 그려지던 문제
     var rt = _splitServiceForLayers(d.service || '');
     var labelFor = function (role) {
       if (role === 'title') return rt.title || '텍스트1';
@@ -438,7 +443,10 @@
       var ty = L.y * H + fs * 0.35;
       return '<text x="' + tx.toFixed(1) + '" y="' + ty.toFixed(1) + '" font-size="' + fs.toFixed(1) + '" text-anchor="' + anchor + '" fill="#fff" font-weight="' + (L.role === 'title' ? 800 : 600) + '" font-family="sans-serif">' + _thEsc(txt) + '</text>';
     }).join('');
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="cap-preset__thumb" preserveAspectRatio="none"><rect width="' + W + '" height="' + H + '" rx="4" fill="#9a8478"/><rect width="' + W + '" height="' + H + '" rx="4" fill="url(#pgr)"/>' + els + '<defs><linearGradient id="pgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs></svg>';
+    var photoEl = photoSrc
+      ? '<image href="' + photoSrc + '" x="0" y="0" width="' + W + '" height="' + H + '" preserveAspectRatio="xMidYMid slice" clip-path="url(#pclip)"/>'
+      : '<rect width="' + W + '" height="' + H + '" rx="4" fill="#9a8478"/>';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" class="cap-preset__thumb" preserveAspectRatio="none"><defs><clipPath id="pclip"><rect width="' + W + '" height="' + H + '" rx="4"/></clipPath><linearGradient id="pgr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".35"/></linearGradient></defs>' + photoEl + '<rect width="' + W + '" height="' + H + '" rx="4" fill="url(#pgr)"/>' + els + '</svg>';
   }
   function _renamePreset(key) {
     var nv = window.prompt('레이아웃 이름', _presetName(key)); if (nv == null) return; nv = String(nv).trim(); if (!nv) return;
@@ -544,8 +552,11 @@
         if (p !== active) { p.tplPreviewUrl = null; p._tplSig = sigBase; return; }
         if (p._tplSig === sigBase && p.tplPreviewUrl) return;   // 동일 입력 → 재합성 생략
         p._tplSig = sigBase;
+        var _mySig = sigBase;   // [버그수정] 이 compose 작업이 시작될 때의 서명 — 완료 시 더 최신 작업이 덮어썼는지 확인용
         jobs.push(window.ItdEditor.compose({ photoUrl: p.dataUrl, ratio: built.ratio, layers: built.layers })
-          .then(function (url) { if (url) { p.tplPreviewUrl = url; if (p === active) refresh(); } }));
+          .then(function (url) {
+            if (url && p._tplSig === _mySig) { p.tplPreviewUrl = url; if (p === active) refresh(); }   // 그 사이 더 새 재합성이 시작됐으면(서명 불일치) 낡은 결과는 버림
+          }));
       });
       if (jobs.length) Promise.all(jobs).then(refresh);   // 나머지까지 완료되면 최종 갱신
     } catch (_e) { void _e; }
@@ -2151,6 +2162,7 @@
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
     // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
+	    var _myToken = ++_genToken;   // [버그수정] 이 호출만의 토큰 — 응답 도착 시 아직 최신인지 확인용
 	    d.capLoading = true; setScreen('caption');
 	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: _pubSvc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
@@ -2213,6 +2225,7 @@
     opts.use_persona = (d.capUsePersona === true) && _igConn;
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
+      if (_myToken !== _genToken) return;   // [버그수정] 그 사이 뒤로가기/재생성이 있었던 낡은 응답 — 화면·오버레이 반영 안 함
       if (r.ok) {
         var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); })   // [v570·3] 태그 오타 백스톱
           .filter(function (h) { return !/(만원|천원|원짜리|짜리|가격|얼마|남친|여친|남자친구|여자친구)/.test(String(h)); });   // [#2] 가격·사담 파생 가비지 해시태그(#만원짜리 등) 제거
@@ -2246,6 +2259,7 @@
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
       d.capLoading = false;
       console.warn('[wsv2flow] generateCaption failed', e);
+      if (_myToken !== _genToken) return;   // [버그수정] 낡은 요청의 실패는 지금 화면에 영향 주지 않음
       toast('게시글 생성에 실패했어요 — 네트워크를 확인하고 다시 시도해 주세요');
       setScreen('caption');
     });

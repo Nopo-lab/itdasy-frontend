@@ -53,7 +53,11 @@
 	  function _igProfile() {
 	    var s = null;
 	    try { s = window.IGState && has(window.IGState.get) ? window.IGState.get() : null; } catch (_e) { s = null; }
-	    var connected = !!(s && s.connected) || igConnected();
+	    // [버그수정] 예전엔 live 상태(s.connected)와 로컬 캐시(itdasy:ig_connected_cache)를 OR 로 합쳐서,
+	    //   인스타 연동이 끊기거나 비활성화된 뒤에도 옛 캐시 '1'이 남아 있으면 영원히 connected=true 로 보였다
+	    //   (여러 장 올리기가 "올리는 중…" 애니메이션까지 보여주고 조용히 실패하던 원인). live 상태가 있으면 그것만 신뢰하고,
+	    //   아직 상태를 못 받아온 경우(s===null)에만 캐시를 임시로 사용한다.
+	    var connected = s ? !!s.connected : igConnected();
 	    var handle = '';
 	    var pic = '';
 	    try {
