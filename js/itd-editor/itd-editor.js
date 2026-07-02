@@ -863,9 +863,9 @@
     S.layoutOrder = []; S.cellCrop = [];   // 타입 바꾸면 자리 선택·셀 크롭 초기화
     refs.frame.className = 'itded__frame';
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
-    // [#4] 콜라주는 칸을 꽉 채우는 게 자연스럽고, 단일은 전체(여백)로. 사용자가 직접 토글했으면 존중.
-    // [#4] 콜라주는 '꽉 채움(cover)'이 기본 — 칸을 꽉 채워 빈 공간이 안 생김(전체보기 원하면 토글). 단일은 전체.
-    if (!S._fitManual) { S.fitMode = isSingleL(S.layout) ? 'contain' : 'cover'; _syncFitToggle(); }
+    // [#3] 콜라주 기본을 '전체보기(contain)'로 — 상하/좌우 분할에서 사진이 잘려보이던 문제 해소(뷰티 전후컷은 잘리면 안 됨).
+    //   꽉 채움(cover)을 원하면 fit 토글로 전환. 단일도 전체.
+    if (!S._fitManual) { S.fitMode = 'contain'; _syncFitToggle(); }
     _syncBaLabels();   // [전/후] 전/후 레이아웃이면 BEFORE·AFTER 라벨 자동, 아니면 제거
     applyPhotoTransform();   // [#2] 단일↔콜라주 전환 시 photowrap 회전 리셋(콜라주 전체 휘어짐 방지)
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
@@ -1430,8 +1430,15 @@
     if (st.photoBg) S.photoBg = Object.assign({}, st.photoBg);
     if (Array.isArray(st.photos) && st.photos.length) { S.photos = st.photos.slice(); S.photoUrl = S.photos[0]; S.photoCss = 'url("' + S.photos[0] + '")'; }
   }
+  // stage 크기 — 레이아웃 flush 전(rect=0)엔 fitStageToRatio 가 박아둔 explicit px 로 폴백.
+  function _stageWH() {
+    var r = refs.stage.getBoundingClientRect();
+    var w = r.width || parseFloat(refs.stage.style.width) || refs.stage.offsetWidth || 0;
+    var h = r.height || parseFloat(refs.stage.style.height) || refs.stage.offsetHeight || 0;
+    return { width: w, height: h, left: r.left, top: r.top };
+  }
   function _restoreLayers(specs) {
-    var R = refs.stage.getBoundingClientRect(); if (!R.width) return;
+    var R = _stageWH(); if (!R.width) return;
     (specs || []).forEach(function (spec) {
       try {
         if (spec.type === 'sticker') {
@@ -1488,23 +1495,25 @@
     // 우리샵 자동배치 텍스트/로고/워터마크를 먼저 올린 뒤 도구 표시(기본 빈 텍스트 자동생성 방지).
     fitStageToRatio();   // [#2] 스테이지를 게시물 비율로 고정(미리보기=편집기 일치)
     refs.photo.style.backgroundSize = S.fitMode; refs.photo.style.backgroundColor = (S.fitMode === 'contain' ? (S.collageBg || '#fff') : 'transparent');
+    // [#4/#8/#11/#16] 저장된 편집 이어가기 — 레이아웃/콜라주/레이어 즉시 복원(동기: fitStageToRatio 가 이미 stage 크기 확정).
+    if (_ed) { try { _applyRestore(_ed); } catch (_re2) { void _re2; } }
     requestAnimationFrame(function () {
       initCanvas();
-      if (_ed) {
-        // [#4/#8/#11/#16] 저장된 편집 이어가기 — 레이아웃/콜라주/레이어 그대로 복원(처음부터 다시 안 함).
-        root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === LAYOUTS.indexOf(S.layout)); });
-        S._fitManual = true; _syncFitToggle();
-        applyPhotoTransform(); if (!isSingleL(S.layout)) renderCollage();
-        renderLayoutStrip(); renderLayoutHint();
-        _restoreLayers(_ed.layers);
-      } else {
-        renderIncoming(S.incoming);
-      }
+      if (!_ed) renderIncoming(S.incoming);   // 복원 모드가 아니면 우리샵 자동배치 레이어
+      else if (!isSingleL(S.layout)) renderCollage();   // 콜라주는 캔버스 초기화 뒤 한 번 더 그려 셀 사진 확실히 반영
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);
       setTool('text');
     });
+  }
+  // [#4/#8/#11/#16] 복원 렌더 — 레이아웃 버튼/콜라주/레이어 반영(동기 호출 가능).
+  function _applyRestore(st) {
+    root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === LAYOUTS.indexOf(S.layout)); });
+    S._fitManual = true; _syncFitToggle();
+    applyPhotoTransform(); if (!isSingleL(S.layout)) renderCollage();
+    renderLayoutStrip(); renderLayoutHint();
+    _restoreLayers(st.layers);
   }
   function _teardownBack(fromPop) {
     window.__seOpen = false;
