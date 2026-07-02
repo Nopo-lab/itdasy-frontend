@@ -1357,7 +1357,7 @@
     refs.done.addEventListener('click', function () {
       var cb = S.onDone; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
       exportComposite(function (url) {
-        var meta = { layers: metaLayers() };   // [학습] close() 전에 좌표 계산(닫으면 stage rect=0 → NaN)
+        var meta = { layers: metaLayers(), editState: _exportState() };   // [학습] close() 전에 좌표 계산(닫으면 stage rect=0 → NaN). editState=재편집 이어가기(#4/#8/#11/#16)
         close(); refs.done.textContent = '완료'; refs.done.disabled = false;
         if (cb) cb(url, meta);   // StoryEditor 계약 호환(meta.layers)
       });
@@ -1384,6 +1384,71 @@
     }).filter(Boolean);
   }
 
+  // [#4/#8/#11/#16] 재편집 이어가기 — 편집기 '전체 상태'를 직렬화/복원.
+  //   metaLayers 는 '우리샵 학습'용이라 도형·스티커를 버린다. 재편집은 전부 보존해야 하므로 별도 직렬화.
+  function _serLayer(L) {
+    var R = refs.stage.getBoundingClientRect(); if (!R.width) return null;
+    var b = L.el.getBoundingClientRect();
+    var base = { x: (b.left - R.left + b.width / 2) / R.width, y: (b.top - R.top + b.height / 2) / R.height,
+      w: b.width / R.width, rot: L.rot || 0, scale: L.scale || 1, role: L.role || '' };
+    if (L.type === 'sticker') { base.type = 'sticker'; base.emoji = L.emoji; base.size = ((L.fontSize || 64) * (L.scale || 1)) / R.height; return base; }
+    if (L.type === 'image') { base.type = 'image'; base.src = L.src; return base; }
+    if (L.type === 'shape') {
+      base.color = L.color; base.h = b.height / R.height;
+      if (L.shape === 'line') { base.type = 'line'; base.size = (L.strokeW || 3) / R.height; }
+      else { base.type = 'rect'; base.shape = L.shape; }
+      return base;
+    }
+    var fs = ((L.fontSize || 30) * (L.scale || 1)) / R.height;
+    base.type = (L.type === 'badge') ? 'badge' : 'text';
+    base.text = L.text; base.font = L.font && L.font.key; base.color = L.color; base.align = L.align;
+    base.size = fs; base.weight = L.font && L.font.weight; base.stroke = !!L.stroke; base.shadow = !!L.shadow;
+    return base;
+  }
+  function _exportState() {
+    try {
+      return { v: 1, layoutIdx: LAYOUTS.indexOf(S.layout), layoutOrder: (S.layoutOrder || []).slice(),
+        cellCrop: (S.cellCrop || []).slice(), collageBg: S.collageBg, collageBgImg: S.collageBgImg || null,
+        collageGap: S.collageGap, fitMode: S.fitMode, ratio: S.ratio,
+        adj: (S.adj || []).map(function (a) { return Object.assign({}, a); }),
+        photoDraw: Object.assign({}, S.photoDraw), photoBg: Object.assign({}, S.photoBg),
+        photos: (S.photos || []).slice(), layers: (S.layers || []).map(_serLayer).filter(Boolean) };
+    } catch (_e) { return null; }
+  }
+  // editState 를 S 에 반영(open 안에서 S 생성 직후 호출) + 레이어 복원.
+  function _restoreState(st) {
+    if (!st) return;
+    if (st.layoutIdx != null && LAYOUTS[st.layoutIdx]) S.layout = LAYOUTS[st.layoutIdx];
+    if (Array.isArray(st.layoutOrder)) S.layoutOrder = st.layoutOrder.slice();
+    if (Array.isArray(st.cellCrop)) S.cellCrop = st.cellCrop.slice();
+    if (st.collageBg) S.collageBg = st.collageBg;
+    if (st.collageBgImg) S.collageBgImg = st.collageBgImg;
+    if (st.collageGap != null) S.collageGap = st.collageGap;
+    if (st.fitMode) S.fitMode = st.fitMode;
+    if (Array.isArray(st.adj) && st.adj.length) S.adj = st.adj.map(function (a) { return Object.assign(defAdj(), a); });
+    if (st.photoDraw) S.photoDraw = Object.assign({}, st.photoDraw);
+    if (st.photoBg) S.photoBg = Object.assign({}, st.photoBg);
+    if (Array.isArray(st.photos) && st.photos.length) { S.photos = st.photos.slice(); S.photoUrl = S.photos[0]; S.photoCss = 'url("' + S.photos[0] + '")'; }
+  }
+  function _restoreLayers(specs) {
+    var R = refs.stage.getBoundingClientRect(); if (!R.width) return;
+    (specs || []).forEach(function (spec) {
+      try {
+        if (spec.type === 'sticker') {
+          var L = makeLayer('sticker'); L.emoji = spec.emoji; L.fontSize = 64; L.rot = spec.rot || 0;
+          L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1);
+          var s = el('div', 'itl-sticker'); s.textContent = spec.emoji; L.el.appendChild(s); L.tx = s;
+          L.x = (spec.x != null ? spec.x : 0.5) * R.width - 32;
+          L.y = (spec.y != null ? spec.y : 0.5) * R.height - 32; applyXf(L);
+        } else {
+          var L2 = addShopLayer(spec, R);
+          if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); }
+        }
+      } catch (_e) { void _e; }
+    });
+    S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
+  }
+
   function open(opts) {
     opts = opts || {};
     if (!root) build();
@@ -1399,6 +1464,8 @@
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
       onDone: opts.onDone, onCancel: opts.onCancel };
+    var _ed = (opts.editState && opts.editState.v) ? opts.editState : null;   // [#4/#8/#11/#16] 재편집 이어가기
+    if (_ed) { try { _restoreState(_ed); } catch (_re) { _ed = null; } }   // 복원 실패 시 일반 열기로 폴백(앱 안전)
     if (refs.featLocTx) refs.featLocTx.textContent = S.shopName || '우리샵';   // [③] 위치 칩에 실제 샵 이름
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
     refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.filter = ''; refs.photo.style.backgroundSize = 'cover'; refs.photo.style.backgroundColor = 'transparent';
@@ -1422,7 +1489,17 @@
     fitStageToRatio();   // [#2] 스테이지를 게시물 비율로 고정(미리보기=편집기 일치)
     refs.photo.style.backgroundSize = S.fitMode; refs.photo.style.backgroundColor = (S.fitMode === 'contain' ? (S.collageBg || '#fff') : 'transparent');
     requestAnimationFrame(function () {
-      initCanvas(); renderIncoming(S.incoming);
+      initCanvas();
+      if (_ed) {
+        // [#4/#8/#11/#16] 저장된 편집 이어가기 — 레이아웃/콜라주/레이어 그대로 복원(처음부터 다시 안 함).
+        root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === LAYOUTS.indexOf(S.layout)); });
+        S._fitManual = true; _syncFitToggle();
+        applyPhotoTransform(); if (!isSingleL(S.layout)) renderCollage();
+        renderLayoutStrip(); renderLayoutHint();
+        _restoreLayers(_ed.layers);
+      } else {
+        renderIncoming(S.incoming);
+      }
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);

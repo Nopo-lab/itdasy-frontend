@@ -574,9 +574,10 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
+      editState: (p0 && p0.editState) || null,   // [#4/#8/#11/#16] 저장된 편집 이어가기(있으면 처음부터 안 함)
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
-        if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; }
+        if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
         d.previewUrl = null;
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
         // [#8] 편집(레이아웃 포함) 결과를 IndexedDB 에 저장 → 새로고침/재진입해도 미리보기·편집본 유지.
@@ -1593,18 +1594,10 @@
 	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
 	          '</div>') : '';
 	        // [#14] 초보자 레이아웃 A 적용 버튼
-	        var _ssPreset = (_useStyle && !d.textOnly) ? (   // [#1 복원] 레이아웃 프리셋(A~F) 미리보기 픽커 — 원장님 요청으로 재노출
-	          '<div class="cap-presetrow2"><span class="cap-presetrow__l">레이아웃 디자인 · 눌러 적용 → \'사진 편집\'에서 글자 옮기면 그 자리로 저장돼요</span>' +
-	            '<div class="cap-presetcards">' +
-	              ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(function (k) {
-	                return '<div class="cap-presetcard">' +
-	                  '<button type="button" class="cap-presetcard__btn" data-fl-preset="' + k + '" aria-label="' + esc(_presetName(k)) + ' 적용">' + _presetThumb(k) + '</button>' +
-	                  '<div class="cap-presetcard__nm"><span>' + esc(_presetName(k)) + '</span>' +
-	                    '<button type="button" class="cap-presetcard__ic" data-fl-presetrename="' + k + '" aria-label="이름 변경"><i class="ph ph-pencil-simple"></i></button>' +
-	                    '<button type="button" class="cap-presetcard__ic" data-fl-presetcopy="' + k + '" aria-label="복사해서 수정"><i class="ph ph-copy"></i></button></div>' +
-	                '</div>';
-	              }).join('') +
-	            '</div></div>') : '';
+	        var _ssPreset = (_useStyle && !d.textOnly) ? (
+		          '<div class="cap-presetrow2 cap-presetrow2--preview"><span class="cap-presetrow__l">레이아웃 미리보기 · 배치는 \'사진 편집\'에서</span>' +
+		            '<div class="cap-presetcards"><div class="cap-presetcard"><div class="cap-presetcard__btn" aria-hidden="true">' + _presetThumb((_ss && _ss.presetKey) || 'A') + '</div></div></div>' +
+		          '</div>') : '';
 	        // [#6 브랜드킷] 로고·브랜드색·폰트 한 번 등록 → 모든 게시물 자동 적용(활성 스타일에 저장).
 	        var _bkLayer = (_ss && _ss.layers || []).filter(function (L) { return L.role === 'title'; })[0] || {};
 	        var _bkColors = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
@@ -1863,6 +1856,17 @@
 
   function _publishBlock() {
 	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
+	    // [#13] 스토리 사진 고르기 — 여러 장 중 스토리로 올릴 한 장을 캐러셀식으로 선택.
+	    if (connected && d._storyPick) {
+	      var _sps = editablePhotos() || [];
+	      return '<div class="cap-storypick">' +
+	        '<div class="cap-storypick__hd"><b>스토리로 올릴 사진</b><span>한 장만 골라주세요 · 스토리는 1장이에요</span></div>' +
+	        '<div class="cap-storypick__row">' +
+	          _sps.map(function (p, i) { return '<button type="button" class="cap-storypick__cell" data-fl="storypick" data-idx="' + i + '" style="background-image:url(\'' + dispUrl(p) + '\')"><span class="cap-storypick__n">' + (i + 1) + '</span></button>'; }).join('') +
+	        '</div>' +
+	        '<button type="button" class="cap-storypick__cancel" data-fl="storypickcancel">취소</button>' +
+	      '</div>';
+	    }
 	    if (connected) {
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
 	      var _multi = (editablePhotos() || []).length >= 2;
@@ -2323,7 +2327,13 @@
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       if (a === 'publish') { return publish('feed'); }
-      if (a === 'publishstory') { return publish('story'); }
+      if (a === 'publishstory') {
+        // [#13] 여러 장이면 스토리로 올릴 '한 장'을 먼저 고르게(스토리는 1장). 1장이면 바로 발행.
+        if ((editablePhotos() || []).length >= 2 && !d._storyPick) { d._storyPick = true; setScreen('caption'); return; }
+        return publish('story');
+      }
+      if (a === 'storypick') { var _spi = +act.getAttribute('data-idx'); var _sps = (editablePhotos() || [])[_spi]; d._storyPickUrl = (_sps && dispUrl(_sps)) || outputUrl(); d._storyPick = false; return publish('story'); }
+      if (a === 'storypickcancel') { d._storyPick = false; setScreen('caption'); return; }
       if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); _askPublishedSheet(); return; }   // [v547] 저장 후 게시 확인 sheet
@@ -3494,7 +3504,7 @@
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     var now = Date.now();
 	    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
-	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, updatedAt: now }; });
+	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, editState: p.editState || null, baseUrl: p.baseUrl || null, updatedAt: now }; });   // [#11] editState=재편집 이어가기 보존
 	    // [이슈2] 전후 템플릿 합성 결과물은 사진 배열과 분리된 전용 필드로 저장(원본 슬롯 비오염).
 	    // [다중pair] 페어별 결과물 배열 저장 + 단일 templateOutput 미러(구 코드/홈 썸네일 하위호환).
 	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length) ? d.templateOutputs.slice() : [];
@@ -3624,7 +3634,9 @@
       // [계정 태그] 피드에서만 — 입력한 @아이디를 자동 위치(세로로 분산)로 태그.
       var _tagArr = d.igUserTags || [];
       var _utags = (kind === 'feed' && _tagArr.length) ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
-      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
+      // [#13] 스토리는 여러 장 중 '고른 한 장'을 올림(picker 에서 선택). 없으면 대표 이미지.
+      var _pubImg = (_story && d._storyPickUrl) ? d._storyPickUrl : outputUrl();
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
         r = r || {};
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
@@ -3632,9 +3644,9 @@
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
           _pubFinish(function () {
             d._publishing = false;
-            toast(kind === 'story' ? '스토리에 올렸어요' : kind === 'carousel' ? '여러 장 게시물을 올렸어요' : '게시물이 저장되었습니다 · 인스타그램에 올렸어요');
+            toast(kind === 'story' ? '스토리에 올렸어요' : kind === 'carousel' ? '여러 장 게시물을 올렸어요' : '인스타그램에 올렸어요');
             if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
-            close();   // [v548] 게시 완료 → 작업실 홈으로(끝났음을 명확히)
+            setScreen('connect');   // [#12] 게시 완료 → 바로 고객 연결 화면(닫지 않음)
           });
           return;
         }
@@ -3676,7 +3688,7 @@
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
     d = {
       slot: slot,
-      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, selected: true, selSeq: i + 1 }; }) : [],
+      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, editState: p.editState || null, baseUrl: p.baseUrl || null, selected: true, selSeq: i + 1 }; }) : [],   // [#11] editState 복원
       _selSeq: (slot && slot.photos ? slot.photos.length : 0),
       baMode: purpose === 'before_after',
 	      template: (wc && wc.templateLabel) || null, templateId: (wc && wc.templateId) || null,

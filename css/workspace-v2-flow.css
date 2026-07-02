@@ -536,7 +536,10 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-restart { display: block; width: 100%; margin: 10px 0 4px; padding: 10px; border: none; background: none; color: var(--text-subtle); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .wsv2flow .cap-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
 .wsv2flow .cap-redo { height: 50px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13.5px; font-weight: 800; cursor: pointer; }
-.wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
+.wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); white-space: nowrap; }
+/* [#10] 피드/스토리 2단 버튼 — 좁은 폭에서도 라벨 안 잘리게(줄바꿈 금지 + 폰트/간격 축소, 아이콘 살짝 작게) */
+.wsv2flow .cap-pubrow .cap-preview { font-size: 13.5px; gap: 6px; padding: 0 6px; }
+.wsv2flow .cap-pubrow .cap-preview i { font-size: 17px; flex: 0 0 auto; }
 .wsv2flow .cap-preview:disabled { background: var(--frame); color: var(--text-subtle); box-shadow: none; cursor: wait; }
 .wsv2flow .cap-preview--send { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wsv2flow .cap-preview--send i { font-size: 18px; }
@@ -545,6 +548,17 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-preview--story i { font-size: 18px; }
 .wsv2flow .cap-preview--story:disabled { background: var(--frame); color: var(--text-subtle); border-color: var(--border); }
 /* [캐러셀] 여러 장 버튼 */
+/* [#13] 스토리 사진 고르기 — 캐러셀식 선택 */
+.wsv2flow .cap-storypick { margin-top: 10px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.wsv2flow .cap-storypick__hd { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.wsv2flow .cap-storypick__hd b { font-size: 15px; font-weight: 900; color: var(--text); }
+.wsv2flow .cap-storypick__hd span { font-size: 12.5px; color: var(--text-subtle); }
+.wsv2flow .cap-storypick__row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.wsv2flow .cap-storypick__row::-webkit-scrollbar { display: none; }
+.wsv2flow .cap-storypick__cell { position: relative; flex: 0 0 auto; width: 88px; height: 110px; border: 0; border-radius: 14px; background-size: cover; background-position: center; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.10); transition: transform .12s ease; }
+.wsv2flow .cap-storypick__cell:active { transform: scale(.96); }
+.wsv2flow .cap-storypick__n { position: absolute; top: 6px; left: 6px; min-width: 20px; height: 20px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(21,24,29,.62); color: #fff; font-size: 12px; font-weight: 800; }
+.wsv2flow .cap-storypick__cancel { width: 100%; height: 44px; margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-subtle); font-size: 14px; font-weight: 800; cursor: pointer; }
 .wsv2flow .cap-preview--carousel { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--text); }
 .wsv2flow .cap-preview--carousel i { font-size: 18px; }
 .wsv2flow .cap-preview--carousel:disabled { background: var(--frame); color: var(--text-subtle); }
