@@ -511,8 +511,13 @@
     return Math.max((W * Math.cos(r) + H * Math.sin(r)) / W, (W * Math.sin(r) + H * Math.cos(r)) / H, 1);
   }
   function applyPhotoTransform() {
-    // [#7] 슬라이더는 adjOf(S.adjSel).rot 에 쓰므로 여기서도 활성 사진(adjSel) 기준으로 읽는다(누끼 후 URL 매칭 실패로 회전 안 먹던 문제).
-    var deg = 0; try { var idx = (S.adjSel != null && S.photos[S.adjSel] != null) ? S.adjSel : S.photos.indexOf(S.photoUrl); deg = (adjOf(idx < 0 ? 0 : idx).rot) || 0; } catch (_) { void _; }
+    // [#2] 콜라주(레이아웃)에선 photowrap 을 회전하면 '전체'가 휘어버린다 → 단일 모드에서만 회전 적용.
+    //   콜라주는 각 셀 이미지가 자기 사진의 수평보정을 개별로 반영(renderCollage).
+    var deg = 0;
+    if (isSingleL(S.layout)) {
+      // [#7] 슬라이더는 adjOf(S.adjSel).rot 에 쓰므로 활성 사진(adjSel) 기준으로 읽는다(누끼 후 URL 매칭 실패 방지).
+      try { var idx = (S.adjSel != null && S.photos[S.adjSel] != null) ? S.adjSel : S.photos.indexOf(S.photoUrl); deg = (adjOf(idx < 0 ? 0 : idx).rot) || 0; } catch (_) { void _; }
+    }
     var cs = deg ? coverScaleForRot(deg) : 1;
     refs.photowrap.style.transform = 'translate(' + S.pz.tx + 'px,' + S.pz.ty + 'px) scale(' + ((S.pz.scale || 1) * cs) + ') rotate(' + deg + 'deg)';
   }
@@ -845,6 +850,7 @@
     // [#4] 콜라주는 '꽉 채움(cover)'이 기본 — 칸을 꽉 채워 빈 공간이 안 생김(전체보기 원하면 토글). 단일은 전체.
     if (!S._fitManual) { S.fitMode = isSingleL(S.layout) ? 'contain' : 'cover'; _syncFitToggle(); }
     _syncBaLabels();   // [전/후] 전/후 레이아웃이면 BEFORE·AFTER 라벨 자동, 아니면 제거
+    applyPhotoTransform();   // [#2] 단일↔콜라주 전환 시 photowrap 회전 리셋(콜라주 전체 휘어짐 방지)
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
   }
   // [전/후 비교] BEFORE/AFTER 코너 라벨(배지) — 전/후 레이아웃 선택 시 자동 삽입, 해제 시 제거.
@@ -904,7 +910,10 @@
       var st = 'left:calc(' + (cc[0] * 100) + '% + ' + (gap / 2) + 'px);top:calc(' + (cc[1] * 100) + '% + ' + (gap / 2) + 'px);' +
         'width:calc(' + (cc[2] * 100) + '% - ' + gap + 'px);height:calc(' + (cc[3] * 100) + '% - ' + gap + 'px)';
       var idx = S.layoutOrder[k];
-      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="object-fit:' + fit + ';transform:' + cropXf(k) + '"></div>';
+      // [#2] 셀마다 그 사진의 수평보정(rot)을 개별 반영 — 콜라주 전체가 아니라 각 칸만 회전.
+      var _rdeg = (idx != null ? (adjOf(idx).rot || 0) : 0);
+      var _rot = _rdeg ? (' rotate(' + _rdeg + 'deg) scale(' + coverScaleForRot(_rdeg) + ')') : '';
+      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="object-fit:' + fit + ';transform:' + cropXf(k) + _rot + '"></div>';
       else cells += '<div class="itded__cell itded__cell--empty" data-cell="' + k + '" style="' + st + '">' + (k + 1) + '번<br>' + (pos[k] || '') + '</div>';
     }
     refs.collage.className = 'itded__collage is-abs';
@@ -1187,6 +1196,9 @@
           c.filter = filterStr(adjOf(idxs[k]));
           var cp = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 };   // [셀 크롭] 재구도 반영(중심 기준 scale+translate)
           if (cp.s !== 1 || cp.tx || cp.ty) { var ccx = x + w / 2, ccy = y + h / 2; c.translate(ccx + cp.tx, ccy + cp.ty); c.scale(cp.s, cp.s); c.translate(-ccx, -ccy); }
+          // [#2] 셀별 수평보정(rot) — 각 칸 중심 기준 회전 + cover 보정(모서리 빈틈 방지).
+          var rdeg = (adjOf(idxs[k]).rot) || 0;
+          if (rdeg) { var rcx = x + w / 2, rcy = y + h / 2, rsc = coverScaleForRot(rdeg); c.translate(rcx, rcy); c.rotate(rdeg * Math.PI / 180); c.scale(rsc, rsc); c.translate(-rcx, -rcy); }
           c.drawImage(img, x + (w - cr.dw) / 2, y + (h - cr.dh) / 2, cr.dw, cr.dh); c.restore();
         });
       });
