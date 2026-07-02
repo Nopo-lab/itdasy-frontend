@@ -399,13 +399,15 @@
 	      if (!_igProfile().connected) return Promise.resolve({ ok: false, reason: 'not_connected' });
       if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
       if (!has(window.apiFetch)) return Promise.resolve({ ok: false, reason: 'api' });
+      var _isStory = opts.kind === 'story';   // [스토리] kind='story' 면 스토리 엔드포인트로(캡션 없음, media_type=STORIES)
+      var _endpoint = _isStory ? '/instagram/publish-story-file' : '/instagram/publish-file';
       return Promise.resolve(fetch(opts.imageUrl).then(function (r) { return r.blob(); }).catch(function () { return null; }))
         .then(function (blob) {
           if (!blob) return { ok: false, reason: 'blob' };
           var fd = new FormData();
-          fd.append('image', blob, 'itdasy_v2.png');
-          fd.append('caption', opts.caption || '');
-          return window.apiFetch('/instagram/publish-file', { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd })
+          fd.append('image', blob, _isStory ? 'itdasy_story.png' : 'itdasy_v2.png');
+          if (!_isStory) fd.append('caption', opts.caption || '');   // 스토리는 캡션 파라미터 없음
+          return window.apiFetch(_endpoint, { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd })
             .then(function (res) {
               return Promise.resolve(res.json().catch(function () { return {}; })).then(function (data) {
                 data = data || {};
