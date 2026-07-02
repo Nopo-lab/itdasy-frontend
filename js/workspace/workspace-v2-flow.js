@@ -158,7 +158,7 @@
       .slice().sort(function (a, b) { return (a.selSeq || 0) - (b.selSeq || 0); });
   }
   // 대표 사진 — 캡션/미리보기/저장 썸네일/게시 이미지(전후면 '후' 우선). 기존 동작 유지.
-  function curPhoto() { var p = editablePhotos(); return (p[1] || p[0] || d.photos[0]); }
+  function curPhoto() { var p = editablePhotos(); return (p[0] || p[1] || d.photos[0]); }   // [#2] 대표=첫 장(커버). 예전 p[1] 우선이라 자동글·미리보기가 2번째 장에 뜨던 버그
   // 편집 대상 사진 — 편집 화면에서 전/후 전환(editIdx)으로 선택. 전후면 '전(before)' 기본, 일반은 첫 사진.
   function curEditPhoto() {
     var p = editablePhotos();
@@ -532,8 +532,9 @@
       var hsig = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags) || [];
       var sigBase = JSON.stringify({ s: d.service, h: hsig, r: built.ratio, n: built.layers.length, v: (built.ss && built.ss.version) });
       var photos = editablePhotos(); if (!photos.length) return;
-      // [v590·#3] 성능 — 화면에 보이는(활성) 사진을 먼저 합성해 결과가 즉시 반영되게(나머지는 뒤따라).
-      var active = curPhoto();
+      // [#2] 자동 시술명 오버레이는 '대표=첫 장(커버)'에 고정 — 예전엔 '보던 장'에 박혀 2번째 장에만 글 뜨는 것처럼 보였음.
+      //   (인스타 캐러셀 관례: 첫 장이 제목 있는 커버. 다른 장에 글 넣으려면 그 장을 직접 편집)
+      var active = photos[0];
       var ordered = photos.slice().sort(function (a, b) { return (a === active ? -1 : 0) - (b === active ? -1 : 0); });
       var refresh = function () { if (cur === 'caption' && String(d.caption || '').trim()) { d.previewUrl = null; setScreen('caption'); } };
       var jobs = [];
