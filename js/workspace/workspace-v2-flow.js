@@ -2225,7 +2225,9 @@
     opts.use_persona = (d.capUsePersona === true) && _igConn;
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
       d.capLoading = false;
-      if (_myToken !== _genToken) return;   // [버그수정] 그 사이 뒤로가기/재생성이 있었던 낡은 응답 — 화면·오버레이 반영 안 함
+      // [버그수정] 그 사이 뒤로가기/재생성이 있었던 낡은 응답이면 d.caption/오버레이는 안 건드리지만,
+      //   화면 갱신(setScreen)은 그대로 해서 로딩 스피너가 안 풀리고 멈춰버리는 회귀를 방지한다.
+      if (_myToken !== _genToken) { setScreen('caption'); return; }
       if (r.ok) {
         var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); })   // [v570·3] 태그 오타 백스톱
           .filter(function (h) { return !/(만원|천원|원짜리|짜리|가격|얼마|남친|여친|남자친구|여자친구)/.test(String(h)); });   // [#2] 가격·사담 파생 가비지 해시태그(#만원짜리 등) 제거
@@ -2259,7 +2261,8 @@
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
       d.capLoading = false;
       console.warn('[wsv2flow] generateCaption failed', e);
-      if (_myToken !== _genToken) return;   // [버그수정] 낡은 요청의 실패는 지금 화면에 영향 주지 않음
+      // [버그수정] 낡은 요청의 실패 토스트는 생략하되, 화면 갱신은 그대로(로딩 스피너 고착 방지).
+      if (_myToken !== _genToken) { setScreen('caption'); return; }
       toast('게시글 생성에 실패했어요 — 네트워크를 확인하고 다시 시도해 주세요');
       setScreen('caption');
     });
