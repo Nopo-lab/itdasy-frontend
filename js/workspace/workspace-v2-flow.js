@@ -1864,11 +1864,13 @@
   function _publishBlock() {
 	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
 	    if (connected) {
-	      // [스토리] 피드 + 스토리 두 버튼. 스토리는 캡션 없이 이미지만 발행.
+	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
+	      var _multi = (editablePhotos() || []).length >= 2;
 	      return '<div class="cap-pubrow" style="display:flex;gap:8px;margin-top:10px">' +
 	        '<button type="button" class="cap-preview cap-preview--send" style="flex:1" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'feed' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>피드에 올리기') + '</button>' +
 	        '<button type="button" class="cap-preview cap-preview--story" style="flex:1" data-fl="publishstory"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'story' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-plus-circle"></i>스토리에 올리기') + '</button>' +
-	      '</div>';
+	      '</div>' +
+	      (_multi ? '<button type="button" class="cap-preview cap-preview--carousel" style="width:100%;margin-top:8px" data-fl="publishcarousel"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'carousel' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-images"></i>여러 장으로 올리기 (' + (editablePhotos() || []).length + '장)') + '</button>' : '');
 	    }
     return '<div class="wsflow-prep">' +
       '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
@@ -2319,6 +2321,7 @@
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       if (a === 'publish') { return publish('feed'); }
       if (a === 'publishstory') { return publish('story'); }
+      if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
       if (a === 'saveimg') { window.WorkspaceAdapter && window.WorkspaceAdapter.saveImage(outputUrl(), d.service || 'itdasy'); _markPrepared(); _askPublishedSheet(); return; }   // [v547] 저장 후 게시 확인 sheet
       if (a === 'pubnot') { return _closePublishSheet(); }
@@ -3599,7 +3602,7 @@
 	    if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
 	    if (d._publishing) return;
 	    syncCaptionFromDom();
-	    d._publishing = _story ? 'story' : 'feed'; setScreen('caption');
+	    d._publishing = kind || 'feed'; setScreen('caption');
     var slot = buildSlot();
     _pubShow();
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
@@ -3609,7 +3612,9 @@
 	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('caption'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
-      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), caption: cap, kind: _story ? 'story' : 'feed' }).then(function (r) {
+      // [캐러셀] 여러 장이면 각 사진의 표시 이미지(편집 반영본)를 모아 보냄.
+      var _imgs = (kind === 'carousel') ? (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean) : null;
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), imageUrls: _imgs, caption: cap, kind: kind || 'feed' }).then(function (r) {
         r = r || {};
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
@@ -3617,7 +3622,7 @@
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
           _pubFinish(function () {
             d._publishing = false;
-            toast(_story ? '스토리에 올렸어요' : '게시물이 저장되었습니다 · 인스타그램에 올렸어요');
+            toast(kind === 'story' ? '스토리에 올렸어요' : kind === 'carousel' ? '여러 장 게시물을 올렸어요' : '게시물이 저장되었습니다 · 인스타그램에 올렸어요');
             if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
             close();   // [v548] 게시 완료 → 작업실 홈으로(끝났음을 명확히)
           });

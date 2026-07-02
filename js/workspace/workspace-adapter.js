@@ -397,27 +397,48 @@
 	    publishInstagramV2: function (opts) {
 	      opts = opts || {};
 	      if (!_igProfile().connected) return Promise.resolve({ ok: false, reason: 'not_connected' });
-      if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
       if (!has(window.apiFetch)) return Promise.resolve({ ok: false, reason: 'api' });
-      var _isStory = opts.kind === 'story';   // [스토리] kind='story' 면 스토리 엔드포인트로(캡션 없음, media_type=STORIES)
+      var kind = opts.kind || 'feed';
+      // 공통 응답 파서 + POST
+      var _parse = function (res) {
+        return Promise.resolve(res.json().catch(function () { return {}; })).then(function (data) {
+          data = data || {};
+          if (!res.ok) return { ok: false, reason: 'server', detail: data.detail || data.error || ('HTTP ' + res.status) };
+          if (data.error || data.detail) return { ok: false, reason: 'server', detail: data.error || data.detail };
+          var ok = data.ok === true || data.success === true || data.published === true ||
+            data.id || data.media_id || data.permalink || data.status === 'published' || data.status === 'success';
+          return ok ? { ok: true, data: data } : { ok: false, reason: 'ambiguous' };
+        });
+      };
+      var _post = function (endpoint, fd) {
+        return window.apiFetch(endpoint, { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd })
+          .then(_parse).catch(function (e) { console.warn('[wsadapter] publishV2', e); return { ok: false, reason: 'api' }; });
+      };
+      // [캐러셀] 여러 장 → publish-carousel-file (images 다중 + caption)
+      if (kind === 'carousel') {
+        var urls = (opts.imageUrls || []).filter(Boolean);
+        if (urls.length < 2) return Promise.resolve({ ok: false, reason: 'need_multi' });
+        return Promise.all(urls.map(function (u) { return fetch(u).then(function (r) { return r.blob(); }).catch(function () { return null; }); }))
+          .then(function (blobs) {
+            blobs = blobs.filter(Boolean);
+            if (blobs.length < 2) return { ok: false, reason: 'blob' };
+            var fd = new FormData();
+            blobs.forEach(function (b, i) { fd.append('images', b, 'itdasy_carousel_' + i + '.png'); });
+            fd.append('caption', opts.caption || '');
+            return _post('/instagram/publish-carousel-file', fd);
+          });
+      }
+      // [피드/스토리] 단일 이미지
+      if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
+      var _isStory = kind === 'story';   // 스토리=캡션 없음, media_type=STORIES
       var _endpoint = _isStory ? '/instagram/publish-story-file' : '/instagram/publish-file';
       return Promise.resolve(fetch(opts.imageUrl).then(function (r) { return r.blob(); }).catch(function () { return null; }))
         .then(function (blob) {
           if (!blob) return { ok: false, reason: 'blob' };
           var fd = new FormData();
           fd.append('image', blob, _isStory ? 'itdasy_story.png' : 'itdasy_v2.png');
-          if (!_isStory) fd.append('caption', opts.caption || '');   // 스토리는 캡션 파라미터 없음
-          return window.apiFetch(_endpoint, { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd })
-            .then(function (res) {
-              return Promise.resolve(res.json().catch(function () { return {}; })).then(function (data) {
-                data = data || {};
-                if (!res.ok) return { ok: false, reason: 'server', detail: data.detail || data.error || ('HTTP ' + res.status) };
-                if (data.error || data.detail) return { ok: false, reason: 'server', detail: data.error || data.detail };
-                var ok = data.ok === true || data.success === true || data.published === true ||
-                  data.id || data.media_id || data.permalink || data.status === 'published' || data.status === 'success';
-                return ok ? { ok: true, data: data } : { ok: false, reason: 'ambiguous' };
-              });
-            }).catch(function (e) { console.warn('[wsadapter] publishV2', e); return { ok: false, reason: 'api' }; });
+          if (!_isStory) fd.append('caption', opts.caption || '');
+          return _post(_endpoint, fd);
         });
     },
     connectInstagram: function () { if (has(window.connectInstagram)) { window.connectInstagram(); return { ok: true }; } return { ok: false, reason: 'no_fn' }; },

@@ -544,6 +544,10 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-preview--story { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--surface); color: var(--brand-strong); border: 1.5px solid var(--brand-strong); box-shadow: none; }
 .wsv2flow .cap-preview--story i { font-size: 18px; }
 .wsv2flow .cap-preview--story:disabled { background: var(--frame); color: var(--text-subtle); border-color: var(--border); }
+/* [캐러셀] 여러 장 버튼 */
+.wsv2flow .cap-preview--carousel { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--text); }
+.wsv2flow .cap-preview--carousel i { font-size: 18px; }
+.wsv2flow .cap-preview--carousel:disabled { background: var(--frame); color: var(--text-subtle); }
 
 /* D. 인스타 미리보기 (FC5: ig-notice·ig-pager 제거, confirmline 추가) */
 .wsv2flow .confirmline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 600; padding: 10px 2px 14px; }
