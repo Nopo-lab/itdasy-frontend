@@ -438,6 +438,8 @@
           var fd = new FormData();
           fd.append('image', blob, _isStory ? 'itdasy_story.png' : 'itdasy_v2.png');
           if (!_isStory) fd.append('caption', opts.caption || '');
+          // [계정 태그] 피드에서만 — user_tags: [{username,x,y}]
+          if (!_isStory && opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
           return _post(_endpoint, fd);
         });
     },

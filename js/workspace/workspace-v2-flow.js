@@ -1866,7 +1866,10 @@
 	    if (connected) {
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
 	      var _multi = (editablePhotos() || []).length >= 2;
-	      return '<div class="cap-pubrow" style="display:flex;gap:8px;margin-top:10px">' +
+	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
+	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
+	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)"></div>' +
+	      '<div class="cap-pubrow" style="display:flex;gap:8px;margin-top:10px">' +
 	        '<button type="button" class="cap-preview cap-preview--send" style="flex:1" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'feed' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>피드에 올리기') + '</button>' +
 	        '<button type="button" class="cap-preview cap-preview--story" style="flex:1" data-fl="publishstory"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'story' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-plus-circle"></i>스토리에 올리기') + '</button>' +
 	      '</div>' +
@@ -2466,6 +2469,10 @@
       r.readAsDataURL(f);
     });
 	    el.addEventListener('input', function (e) {
+	      if (e.target.matches('[data-fl-usertags]')) {   // [계정 태그] @아이디 파싱 → d.igUserTags
+	        d.igUserTags = String(e.target.value || '').split(/[,\s]+/).map(function (s) { return s.replace(/^@/, '').trim(); }).filter(Boolean).slice(0, 20);
+	        return;
+	      }
 	      if (e.target.matches('[data-fl-range]')) {
         var k = e.target.getAttribute('data-fl-range'); d.adjust[k] = +e.target.value;
         var p = el.querySelector('[data-fl-edphoto]');
@@ -3614,7 +3621,10 @@
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
       // [캐러셀] 여러 장이면 각 사진의 표시 이미지(편집 반영본)를 모아 보냄.
       var _imgs = (kind === 'carousel') ? (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean) : null;
-      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), imageUrls: _imgs, caption: cap, kind: kind || 'feed' }).then(function (r) {
+      // [계정 태그] 피드에서만 — 입력한 @아이디를 자동 위치(세로로 분산)로 태그.
+      var _tagArr = d.igUserTags || [];
+      var _utags = (kind === 'feed' && _tagArr.length) ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: outputUrl(), imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
         r = r || {};
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
