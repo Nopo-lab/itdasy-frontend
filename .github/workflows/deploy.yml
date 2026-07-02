@@ -44,6 +44,14 @@ jobs:
           rm -f index.html.bak
       - name: Smoke check
         run: npm run smoke
+      # [핫픽스] Pages 아티팩트에서 node_modules 제외 — 22k+ 파일이 Pages 파일 한도를 넘겨
+      #   tokens.css·app-core.js 등 정상 파일이 무작위 404 나던 문제 근본 해결(런타임 미참조라 안전).
+      #   .nojekyll 보장으로 Jekyll 처리에 의한 파일 누락도 방지.
+      - name: Trim Pages artifact (drop node_modules, ensure .nojekyll)
+        run: |
+          rm -rf node_modules
+          touch .nojekyll
+          echo "files to publish: $(find . -type f -not -path './.git/*' | wc -l)"
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
