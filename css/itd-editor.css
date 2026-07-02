@@ -131,7 +131,7 @@
 .itfs svg{width:15px;height:15px;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 /* '예약하기'는 강조 텍스트/테두리만 — 채워진(선택된 것처럼 보이던) 스타일 제거 */
 .itfs.book{border:1px solid var(--accent,#D58A95);color:var(--accent-strong,#BC6675)}
-.itfs.book svg{stroke:var(--accent-strong,#BC6675)}.itfs.loc svg{stroke:#E8536B}.itfs.price svg{stroke:#E0934A}.itfs.time svg{stroke:#6E9BC4}
+.itfs.book svg{stroke:var(--accent-strong,#BC6675)}.itfs.loc svg{stroke:#E8536B}.itfs.price svg{stroke:#E0934A}.itfs.time svg{stroke:#6E9BC4}.itfs.phone svg{stroke:#5BA97A}
 .itfstk.is-dragging,.itfonts.is-dragging,.itcolors.is-dragging,.itstk__tabs.is-dragging{cursor:grabbing;scroll-snap-type:none}
 /* [#5] 스티커 카테고리 탭 — 상단 고정 가로 스크롤 */
 .itstk__tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:2;background:transparent;padding-bottom:12px;margin-bottom:2px}

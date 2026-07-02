@@ -72,6 +72,7 @@
     book: svg('<rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/>'),
     price: svg('<path d="M20 12l-8 8-9-9V3h8l9 9z"/><circle cx="7.5" cy="7.5" r="1.3"/>'),
     time: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    phone: svg('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.1a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>'),
     pen: svg('<path d="M12 19l7-7-3-3-7 7-1 4 4-1z"/><path d="M16 8l3 3"/>'),
     marker: svg('<path d="M5 19h14"/><path d="M9 15l8-8 3 3-8 8H9v-3z"/>'),
     neon: svg('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>'),
@@ -224,8 +225,9 @@
   }
   function _recoChips() {
     return '<div class="itfstk">' +
-      '<button type="button" class="itfs loc" data-feat="loc" data-r="featLoc">' + IC.loc + '<span data-r="featLocTx">우리샵</span></button>' +
-      '<button type="button" class="itfs book" data-feat="book">' + IC.book + '예약하기</button>' +
+      '<button type="button" class="itfs loc" data-feat="loc" data-r="featLoc">' + IC.loc + '<span data-r="featLocTx">위치</span></button>' +
+      '<button type="button" class="itfs book" data-feat="book">' + IC.book + '예약 링크</button>' +
+      '<button type="button" class="itfs phone" data-feat="phone">' + IC.phone + '전화</button>' +
       '<button type="button" class="itfs price" data-feat="price">' + IC.price + '가격</button>' +
       '<button type="button" class="itfs time" data-feat="time">' + IC.time + '시간</button>' +
     '</div>';
@@ -707,20 +709,35 @@
     closeStickerSheet();   // [②] 스티커 하나 고르면 하단 시트 내려가고 사진 위에서 바로 배치
   }
   // [③] 우리샵 피처 칩(위치/예약/가격/시간) — 탭하면 텍스트 레이어로 사진 위에 올림(클릭 동작).
+  // [기능 스티커] 가게 정보 저장 — 한 번 입력하면 이후 자동으로 실제 값이 박히고, 게시 캡션에도 활용(피드용).
+  var SHOP_INFO_KEY = { loc: 'itdasy:shop_loc', book: 'itdasy:shop_book', phone: 'itdasy:shop_phone', price: 'itdasy:shop_price', time: 'itdasy:shop_hours', handle: 'itdasy:shop_handle' };
+  function shopInfoGet(k) { try { return String(localStorage.getItem(SHOP_INFO_KEY[k]) || '').trim(); } catch (_) { return ''; } }
+  function shopInfoSet(k, v) { try { localStorage.setItem(SHOP_INFO_KEY[k], v); } catch (_) { void _; } }
   function addFeatureLayer(kind) {
-    var map = {
-      loc:   { text: (S.shopName || '우리샵'),   color: '#FFFFFF', accent: false },
-      book:  { text: '예약하기',                 color: '#FFFFFF', accent: true  },
-      price: { text: '가격 문의',                color: '#FFFFFF', accent: false },
-      time:  { text: '영업시간 안내',            color: '#FFFFFF', accent: false }
+    // 실제 값을 불러오고, 없으면 '한 번만' 물어봐서 저장(다음부터 자동).
+    var conf = {
+      loc:   { ask: '가게 위치·동네를 입력하세요 (예: 인천 구월동)', val: function () { return shopInfoGet('loc'); }, fmt: function (v) { return '📍 ' + v; } },
+      phone: { ask: '가게 전화번호를 입력하세요',                  val: function () { return shopInfoGet('phone'); }, fmt: function (v) { return '☎ ' + v; } },
+      book:  { ask: '예약 링크(URL)를 입력하세요 (예: naver.me/xxxx)', val: function () { return shopInfoGet('book'); }, fmt: function () { return '예약하기 →'; }, accent: true },
+      price: { ask: '가격 안내를 입력하세요 (예: 컷 3만원~)',      val: function () { return shopInfoGet('price'); }, fmt: function (v) { return v; } },
+      time:  { ask: '영업시간을 입력하세요 (예: 매일 10-20시)',    val: function () { return shopInfoGet('time'); }, fmt: function (v) { return '🕐 ' + v; } },
+      handle:{ ask: '인스타 아이디를 입력하세요 (@ 없이)',        val: function () { return shopInfoGet('handle'); }, fmt: function (v) { return '@' + String(v).replace(/^@/, ''); } }
     };
-    var m = map[kind]; if (!m) return;
+    var c = conf[kind]; if (!c) return;
+    var v = c.val();
+    if (!v) {
+      var input = window.prompt(c.ask, '');   // [MVP] 첫 입력만 프롬프트 — 이후 저장돼서 자동(추후 인라인 입력으로 업글)
+      if (input == null) return;
+      v = String(input).trim(); if (!v) return;
+      if (SHOP_INFO_KEY[kind]) shopInfoSet(kind, v);   // 저장 → 다음부터 자동
+    }
+    var text = c.fmt(v);
     var L = makeLayer('text');
-    L.font = FONTS[0]; L.color = m.color; L.align = 'center'; L.fontSize = 26; L.text = m.text;
-    L.shadow = true; L.role = (kind === 'loc' ? 'shop' : kind);
-    var t = el('div', 'itl-text'); t.textContent = m.text;
-    var css = 'font-family:' + L.font.family + ';font-weight:800;color:' + m.color + ';text-align:center;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.4)';
-    if (m.accent) { css += ';background:linear-gradient(135deg,#D58A95,#BC6675);padding:8px 18px;border-radius:999px;text-shadow:none'; L.badge = true; }
+    L.font = FONTS[0]; L.color = '#FFFFFF'; L.align = 'center'; L.fontSize = 26; L.text = text;
+    L.shadow = true; L.role = (kind === 'loc' ? 'shop' : kind); L.featKind = kind; L.featValue = v;   // 캡션 연동용 메타
+    var t = el('div', 'itl-text'); t.textContent = text;
+    var css = 'font-family:' + L.font.family + ';font-weight:800;color:#FFFFFF;text-align:center;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.4)';
+    if (c.accent) { css += ';background:linear-gradient(135deg,#D58A95,#BC6675);padding:8px 18px;border-radius:999px;text-shadow:none'; L.badge = true; }
     t.style.cssText = css; L.el.appendChild(t); L.tx = t;
     placeCenter(L, 150, 46); selectLayer(L); _pushOp({ op: 'add', L: L });
     closeStickerSheet();

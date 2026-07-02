@@ -230,6 +230,17 @@
     if (/[가-힣]{2,}/.test(n)) return true;   // 한글 2자 이상 = 상호로 간주
     return false;   // 'Dd'·'aa' 등 라틴 짧은 placeholder → 상호 아님
   }
+  // [기능 스티커] 편집기에서 저장한 예약 링크·전화를 캡션 끝에 실제 CTA 로 붙인다(피드 게시물에서 팔로워가 바로 사용).
+  //   피드 이미지는 클릭이 안 되므로 링크는 '캡션 본문'으로 연결하는 게 표준. 저장값 없으면 아무것도 안 붙임.
+  function _shopCTA() {
+    try {
+      var book = String(localStorage.getItem('itdasy:shop_book') || '').trim();
+      var phone = String(localStorage.getItem('itdasy:shop_phone') || '').trim();
+      if (book) return '\n\n📅 예약 → ' + book + (phone ? '\n☎ ' + phone : '');
+      if (phone) return '\n\n☎ 예약·문의 ' + phone;
+    } catch (_e) { void _e; }
+    return '';
+  }
   // [v587] 깨끗한 합성 기준 사진 — 편집기·자동합성 모두 '텍스트가 안 박힌 원본' 위에 올린다(이중 합성 방지).
   function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
   // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
@@ -2186,7 +2197,8 @@
         } else {
           // [v558] 해시태그 토글 OFF → 게시글에 해시태그 비표시(백엔드는 그대로 생성, 프론트에서만 숨김).
           if (d.capHashOn === false) fresh = [];
-          d.caption = _scrubCaption(r.caption); d.hashtags = fresh; d.selectedHashes = fresh.slice();   // [v566·scope7] 렌더 직전 상투/마크다운 제거
+          d.caption = _scrubCaption(r.caption) + _shopCTA();   // [기능스티커] 저장된 예약링크·전화가 있으면 실제 CTA 로 캡션에 연결(피드 게시물에 그대로 노출)
+          d.hashtags = fresh; d.selectedHashes = fresh.slice();   // [v566·scope7] 렌더 직전 상투/마크다운 제거
           // [v531] 캡션 입력→결과 최초 전환 시 history 마커 1개 push → 결과 화면에서 뒤로가기 = 캡션 입력 화면(편집 X).
           if (_wasEmpty) { navStack.push('caption'); _pushHist(); }
           // [#6] 꼬리말(captionTemplate)은 어댑터가 돌려주지 않으므로 여기서 덮어쓰지 않는다.
