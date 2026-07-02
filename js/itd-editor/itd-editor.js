@@ -569,6 +569,19 @@
     if (spec.type === 'image') return addShopImage(spec, R);
     if (spec.type === 'line') return addShopLine(spec, R);
     if (spec.type === 'rect') return addShopRect(spec, R);
+    if (spec.type === 'sticker' || spec.type === 'emoji') return addShopSticker(spec, R);   // [#5/#6] 이모지 스티커도 복원/합성(compose)에서 렌더
+    return _addShopLayerText(spec, R);   // 기본: 텍스트/배지
+  }
+  // [#5/#6] 이모지 스티커 레이어 재생성 — 재편집 복원 + 헤드리스 compose 양쪽에서 사용.
+  function addShopSticker(spec, R) {
+    var L = makeLayer('sticker'); L.emoji = spec.emoji; L.fontSize = 64; L.rot = spec.rot || 0;
+    L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1);
+    var s = el('div', 'itl-sticker'); s.textContent = spec.emoji; L.el.appendChild(s); L.tx = s;
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - 32;
+    L.y = (spec.y != null ? spec.y : 0.5) * R.height - 32; applyXf(L);
+    return L;
+  }
+  function _addShopLayerText(spec, R) {
     var isBadge = spec.type === 'badge';
     var L = makeLayer(isBadge ? 'badge' : 'text');
     L.role = spec.role || '';
@@ -887,7 +900,7 @@
   // 사진 순서 탭 — grid면 자리(좌우/4분할)에 순서대로 배정, 1장이면 그 사진을 단일 배경으로.
   function onLayThumb(idx) {
     if (isSingleL(S.layout)) {
-      if (idx !== S.adjSel) { _switchPhotoDraw(S.adjSel, idx); S.adjSel = idx; }   // [#9] 사진 바꾸면 그리기도 사진별로
+      if (idx !== S.adjSel) { _switchPhotoDraw(S.adjSel, idx); _switchPhotoLayers(S.adjSel, idx); S.adjSel = idx; }   // [#9] 그리기 + [#5/#6] 텍스트·스티커도 사진별로
       S.photoUrl = S.photos[idx]; S.photoCss = 'url("' + S.photos[idx] + '")';
       refs.photo.style.backgroundImage = S.photoCss;
       renderLayoutStrip(); renderLayoutHint(); return;
@@ -1037,6 +1050,17 @@
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, refs.draw.width, refs.draw.height); c.restore();
     var saved = S.photoDraw[newIdx];
     if (saved) { var im = new Image(); im.onload = function () { try { c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(im, 0, 0); c.restore(); } catch (_e2) { void _e2; } }; im.src = saved; }
+  }
+  // [#5/#6] 사진별 텍스트/스티커 분리 — 단일모드에서 장 전환 시 현재 레이어를 그 장에 보관하고, 넘어간 장의 레이어를 복원.
+  //   좌우(사진 스트립)로 넘기며 각 사진에 다른 글/스티커/링크를 얹을 수 있다(인스타 캐러셀 장별 편집).
+  function _switchPhotoLayers(oldIdx, newIdx) {
+    if (oldIdx === newIdx) return;
+    if (!S.layersByPhoto) S.layersByPhoto = {};
+    S.layersByPhoto[oldIdx] = (S.layers || []).map(_serLayer).filter(Boolean);   // 현재 장 레이어 직렬화 보관
+    S.layers.slice().forEach(function (L) { try { if (L.el && L.el.remove) L.el.remove(); } catch (_e) { void _e; } });
+    S.layers = []; S.active = null; S.undo = []; S.redo = [];
+    var saved = S.layersByPhoto[newIdx];
+    if (saved && saved.length) _restoreLayers(saved);   // 넘어간 장 레이어 복원
   }
   // [#4] 배경 선호(색/이미지) 기억 — 다음에도 같은 배경.
   function loadBgPref() { try { return JSON.parse(localStorage.getItem('itdasy:itd_bg') || '{}'); } catch (_) { return {}; } }
@@ -1358,6 +1382,7 @@
       var cb = S.onDone; refs.done.textContent = '저장 중…'; refs.done.disabled = true;
       exportComposite(function (url) {
         var meta = { layers: metaLayers(), editState: _exportState() };   // [학습] close() 전에 좌표 계산(닫으면 stage rect=0 → NaN). editState=재편집 이어가기(#4/#8/#11/#16)
+        meta.perPhoto = _collectPerPhoto();   // [#5/#6] 사진별 레이어(단일모드) — 플로우가 각 장을 자기 레이어로 합성
         close(); refs.done.textContent = '완료'; refs.done.disabled = false;
         if (cb) cb(url, meta);   // StoryEditor 계약 호환(meta.layers)
       });
@@ -1405,6 +1430,21 @@
     base.size = fs; base.weight = L.font && L.font.weight; base.stroke = !!L.stroke; base.shadow = !!L.shadow;
     return base;
   }
+  // [#5/#6] 사진별 레이어 수집 — 단일모드에서 각 장(현재 장 포함)이 가진 텍스트/스티커 레이어를 { idx, photoUrl, layers } 로.
+  //   플로우가 이걸로 각 장을 자기 레이어와 합성해 캐러셀 장별로 다른 글/스티커가 실제 게시되게 한다.
+  function _collectPerPhoto() {
+    try {
+      if (!isSingleL(S.layout)) return null;   // 콜라주는 한 장 합성(장별 아님)
+      if (!S.layersByPhoto) S.layersByPhoto = {};
+      S.layersByPhoto[S.adjSel] = (S.layers || []).map(_serLayer).filter(Boolean);   // 현재 장도 포함
+      var out = [];
+      (S.photos || []).forEach(function (u, i) {
+        var ls = S.layersByPhoto[i];
+        if (ls && ls.length) out.push({ idx: i, photoUrl: u, layers: ls });
+      });
+      return out.length ? out : null;
+    } catch (_e) { return null; }
+  }
   function _exportState() {
     try {
       return { v: 1, layoutIdx: LAYOUTS.indexOf(S.layout), layoutOrder: (S.layoutOrder || []).slice(),
@@ -1440,18 +1480,7 @@
   function _restoreLayers(specs) {
     var R = _stageWH(); if (!R.width) return;
     (specs || []).forEach(function (spec) {
-      try {
-        if (spec.type === 'sticker') {
-          var L = makeLayer('sticker'); L.emoji = spec.emoji; L.fontSize = 64; L.rot = spec.rot || 0;
-          L.scale = spec.size != null ? (spec.size * R.height) / 64 : (spec.scale || 1);
-          var s = el('div', 'itl-sticker'); s.textContent = spec.emoji; L.el.appendChild(s); L.tx = s;
-          L.x = (spec.x != null ? spec.x : 0.5) * R.width - 32;
-          L.y = (spec.y != null ? spec.y : 0.5) * R.height - 32; applyXf(L);
-        } else {
-          var L2 = addShopLayer(spec, R);
-          if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); }
-        }
-      } catch (_e) { void _e; }
+      try { var L2 = addShopLayer(spec, R); if (L2 && spec.rot) { L2.rot = spec.rot; applyXf(L2); } } catch (_e) { void _e; }
     });
     S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); });
   }
@@ -1466,7 +1495,7 @@
       shapeColor: COLORS[2], shapeFill: false, shapeThick: 6,
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
       collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
-      ratio: (opts.ratio || '4:5'), undo: [], redo: [], photoDraw: {}, photoBg: {},
+      ratio: (opts.ratio || '4:5'), undo: [], redo: [], photoDraw: {}, photoBg: {}, layersByPhoto: {},   // [#5/#6] 사진별 레이어 보관
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),

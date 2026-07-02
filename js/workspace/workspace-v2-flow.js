@@ -579,6 +579,24 @@
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
+        // [#5/#6] 사진별 레이어 — 각 장을 자기 텍스트/스티커로 합성해 캐러셀 장별로 다르게 게시되게(현재 보던 장 제외).
+        try {
+          var _pp = meta && meta.perPhoto;
+          if (_pp && _pp.length && window.ItdEditor && window.ItdEditor.compose) {
+            var _eph = editablePhotos(), _rt = (meta.editState && meta.editState.ratio) || '4:5';
+            _pp.forEach(function (e) {
+              var tp = _eph[e.idx]; if (!tp || tp === p) return;   // 보던 장은 위에서 dataUrl 로 이미 저장
+              var _cb = _cleanBase(tp) || photoUrl(tp);
+              window.ItdEditor.compose({ photoUrl: _cb, ratio: _rt, layers: e.layers }).then(function (u) {
+                if (!u) return;
+                tp.editedDataUrl = u; tp.storyEdited = true;
+                tp.editState = { v: 1, layoutIdx: 0, layoutOrder: [], cellCrop: [], fitMode: 'contain', ratio: _rt, adj: [], photoDraw: {}, photoBg: {}, photos: [_cb], layers: e.layers };
+                d.previewUrl = null;
+                try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e2) { void _e2; }
+              });
+            });
+          }
+        } catch (_ppe) { void _ppe; }
         d.previewUrl = null;
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
         // [#8] 편집(레이아웃 포함) 결과를 IndexedDB 에 저장 → 새로고침/재진입해도 미리보기·편집본 유지.
