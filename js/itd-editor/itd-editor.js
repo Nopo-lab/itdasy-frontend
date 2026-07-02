@@ -1084,9 +1084,13 @@
       if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
       if (r.removedBgDataUrl) S.matte[i] = r.removedBgDataUrl;   // 매트 캐시
       S.cutSet[i] = true;
-      var wasShown = (S.photoUrl === S.photos[i]);
       S.photos[i] = r.composedDataUrl;
-      if (wasShown) { S.photoUrl = r.composedDataUrl; S.photoCss = 'url("' + r.composedDataUrl + '")'; refs.photo.style.backgroundImage = S.photoCss; }
+      // [#1] 누끼 대기 중 장을 바꿔도 어긋나지 않게 — 완료 시 '지금 보고 있는 장'을 항상 최신 S.photos 로 반영.
+      //   (예전엔 누끼 시작 시점의 장이 그대로 표시 중일 때만 갱신해서, 대기 중 전환하면 사진이 안 바뀌어 보였음)
+      if (isSingleL(S.layout)) {
+        var _curU = S.photos[S.adjSel];
+        if (_curU) { S.photoUrl = _curU; S.photoCss = 'url("' + _curU + '")'; refs.photo.style.backgroundImage = S.photoCss; }
+      }
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay(); applyPhotoTransform();   // [#7] 누끼 후에도 수평(회전) 유지·반영
       if (!silent) toastIt('배경을 정리했어요');
     }).catch(function (e) {
