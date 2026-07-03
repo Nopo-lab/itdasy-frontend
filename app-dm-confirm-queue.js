@@ -183,7 +183,9 @@
   function _confirmPreview(am) {
     const msg = am && am.confirm_preview;
     if (!msg) return '';
-    if (am.awaiting_deposit && !am.deposit_sent) return '';  // [2026-07-02] 예약금 '안내' 단계에서만 숨김 — 입금확인(deposit_sent) 단계에선 확정멘트 노출
+    // [2026-07-03] 입금확정 카드(추천답장 박스가 숨겨진 경우)에서만 노출.
+    //   변경·취소·예약 카드는 '잇비 추천 답장'이 곧 손님 멘트라 이 박스를 또 띄우면 완전 중복.
+    if (!am.deposit_sent) return '';
     return `<div style="margin-top:10px;padding:10px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#FAFBFC;">
       <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8B95A1;font-weight:700;margin-bottom:5px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
