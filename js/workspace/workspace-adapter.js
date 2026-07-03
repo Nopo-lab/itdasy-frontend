@@ -58,6 +58,10 @@
 	    //   (여러 장 올리기가 "올리는 중…" 애니메이션까지 보여주고 조용히 실패하던 원인). live 상태가 있으면 그것만 신뢰하고,
 	    //   아직 상태를 못 받아온 경우(s===null)에만 캐시를 임시로 사용한다.
 	    var connected = s ? !!s.connected : igConnected();
+	    // [버그수정] connected 는 "한 번이라도 연동했는가"만 뜻함 — 토큰이 나중에 죽어도(만료·계정 비활성화 등)
+	    //   계속 true. 실제로 게시가 될지는 tokenValid(백엔드가 Meta 실시간 검증한 값)로 따로 봐야 한다.
+	    //   상태를 아직 못 받아온 경우(s===null)는 낙관적으로 true(연동 안내 배너 등 다른 화면에 영향 안 주려고).
+	    var tokenValid = s ? (s.tokenValid !== false) : true;
 	    var handle = '';
 	    var pic = '';
 	    try {
@@ -65,7 +69,7 @@
 	      pic = (s && (s.profile_picture_url || s.profilePic)) || localStorage.getItem('itdasy:ig_profile_pic') || '';
 	    } catch (_e2) { void _e2; }
 	    handle = String(handle || '').replace(/^@/, '');
-	    return { connected: connected, handle: handle ? ('@' + handle) : '', profilePic: pic, displayName: handle ? ('@' + handle) : '' };
+	    return { connected: connected, tokenValid: tokenValid, handle: handle ? ('@' + handle) : '', profilePic: pic, displayName: handle ? ('@' + handle) : '' };
 	  }
 	  function _eyeMasks(masks, img, b) {
     var MA = window.MaskApplication;

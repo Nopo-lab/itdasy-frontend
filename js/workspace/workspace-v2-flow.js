@@ -3665,7 +3665,11 @@
 	  function publish(kind) {
 	    var _story = kind === 'story';   // [스토리] 피드/스토리 분기
 	    if (!window.WorkspaceAdapter) return;
-	    if (!window.WorkspaceAdapter.instagram().connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
+	    var _igp = window.WorkspaceAdapter.instagram();
+	    if (!_igp.connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
+	    // [버그수정] connected=true 여도 토큰이 죽어있으면(만료·계정 비활성화 등) 그대로 진행 시 "올리는 중…"
+	    //   애니메이션만 보여주고 조용히 실패하던 문제 — 시작 전에 명확한 안내로 막는다.
+	    if (!_igp.tokenValid) { toast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요'); return; }
 	    if (d._publishing) return;
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');

@@ -173,6 +173,10 @@ async function checkInstaStatus(fromLogin = false) {
       const prev = window._lastIgState || {};
       const next = {
         connected: !!data.connected,
+        // [버그수정] connected 는 "한 번이라도 연동했는가"만 뜻함(백엔드 그대로) — 실제 게시 가능 여부는
+        //   tokenValid(백엔드가 Meta 실시간 검증까지 마친 값)로 따로 봐야 함. 죽은 토큰인데 connected 만
+        //   보고 게시 시도하다 조용히 실패하던 버그의 프론트 쪽 반쪽.
+        tokenValid: data.token_valid !== false,
         handle: data.handle || '',
         profile_picture_url: data.profile_picture_url || '',
         persona: data.persona || null,
