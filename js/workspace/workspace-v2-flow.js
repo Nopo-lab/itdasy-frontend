@@ -3360,10 +3360,16 @@
 	  function _carSet(id) {
 	    d.activeDisplayId = id;
 	    var track = el && el.querySelector('[data-fl-cartrack]'); if (!track) { _carPaintDots(id); return; }
-	    track.__prog = Date.now() + 700;   // 스크롤 정착까지 scroll-sync 억제 → 선택한 dot 유지
-	    var left = _carIndexOf(id) * track.clientWidth;
-	    if (track.scrollTo) track.scrollTo({ left: left, behavior: 'smooth' }); else track.scrollLeft = left;
-	    _carPaintDots(id);
+	    _carPaintDots(id);   // dot/라벨은 즉시 반영(응답성) — 실제 스크롤은 아래에서 디바운스
+	    // [버그수정] dot 연타 시 매 클릭마다 새 smooth scroll 애니메이션이 서로를 끊어 화면이 잘린 채 잠깐 멈추던 문제.
+	    //   짧은 시간(90ms) 안에 또 클릭되면 이전 스크롤 예약을 취소하고 '마지막으로 클릭한 곳'으로만 한 번 스크롤한다.
+	    if (track.__setTimer) clearTimeout(track.__setTimer);
+	    track.__setTimer = setTimeout(function () {
+	      track.__setTimer = null;
+	      track.__prog = Date.now() + 700;   // 스크롤 정착까지 scroll-sync 억제 → 선택한 dot 유지
+	      var left = _carIndexOf(id) * track.clientWidth;
+	      if (track.scrollTo) track.scrollTo({ left: left, behavior: 'smooth' }); else track.scrollLeft = left;
+	    }, 90);
 	  }
 	  var _carRaf = 0;
 	  function _mountCarousel() {
