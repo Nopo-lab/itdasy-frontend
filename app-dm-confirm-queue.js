@@ -183,7 +183,7 @@
   function _confirmPreview(am) {
     const msg = am && am.confirm_preview;
     if (!msg) return '';
-    if (am.awaiting_deposit) return '';  // [2026-07-02] 예약금 안내 단계에선 확정 미리보기 숨김 — 다음(입금확인) 단계에서 노출
+    if (am.awaiting_deposit && !am.deposit_sent) return '';  // [2026-07-02] 예약금 '안내' 단계에서만 숨김 — 입금확인(deposit_sent) 단계에선 확정멘트 노출
     return `<div style="margin-top:10px;padding:10px 12px;border:1px solid #E5E8EB;border-radius:12px;background:#FAFBFC;">
       <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:#8B95A1;font-weight:700;margin-bottom:5px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2 15 22l-4-9-9-4 20-7Z"/></svg>
@@ -515,7 +515,7 @@
         ${_durationStepper(it)}
         ${_depositLine(am)}
         ${_confirmPreview(am)}
-        ${noDraft ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
+        ${(noDraft || am.deposit_sent) ? '' : isSetAddress ? _setAddressBlock() : `<div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;">
           <div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:4px;">${isSendForm ? '보낼 예약 양식 (탭하면 발송)' : '잇비 추천 답장'}</div>
