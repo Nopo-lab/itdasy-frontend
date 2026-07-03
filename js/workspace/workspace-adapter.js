@@ -395,8 +395,10 @@
 
     // 인스타 게이트 — 연결 안 됐으면 실제 업로드 노출 금지
 	    instagram: function () {
-	      var connected = _igProfile().connected;
-	      return { connected: connected, next: connected ? 'publish' : 'prepare' };
+	      var _p = _igProfile();
+	      // [버그수정] tokenValid 를 여기서 안 내려주면 publish() 게이트가 undefined(=falsy)를 보고
+	      //   정상 연결까지 전부 '연동 끊김'으로 막아버림 — _igProfile() 전체 결과를 그대로 전달.
+	      return { connected: _p.connected, tokenValid: _p.tokenValid, next: _p.connected ? 'publish' : 'prepare' };
 	    },
 	    instagramProfile: _igProfile,
     // [Phase 5-2] V2 전용 실게시 — 레거시 baCanvas/previewFinalCaption/_captionSlotId 의존 제거.
