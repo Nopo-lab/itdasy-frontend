@@ -527,6 +527,8 @@
   function applyStraighten() { applyPhotoTransform(); if (!isSingleL(S.layout)) renderCollage(); }   // [#2] 콜라주 모드에선 셀별 회전을 즉시 다시 그림(슬라이더 실시간 반영)
   function stageDown(e) {
     if (S.tool === 'draw' || (e.target.closest && (e.target.closest('.itl') || e.target.closest('.itrb') || e.target.closest('.itpanel')))) return;
+    // [보스#9] 레이어(텍스트/스티커) 밖 빈 곳을 탭하면 선택 해제 → 핸들(×·회전·크기) 숨김.
+    if (S.active) selectLayer(null);
     pinchPts[e.pointerId] = { x: e.clientX, y: e.clientY };
     var ids = Object.keys(pinchPts);
     if (ids.length === 2) { var a = pinchPts[ids[0]], b = pinchPts[ids[1]]; pinch0 = { d: pdist(a, b), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, s: S.pz.scale, tx: S.pz.tx, ty: S.pz.ty }; }
@@ -1282,7 +1284,14 @@
 
   /* ── 배선 ── */
   function wire() {
-    refs.rail.addEventListener('click', function (e) { var b = e.target.closest('[data-tool]'); if (b) setTool(b.getAttribute('data-tool')); });
+    refs.rail.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-tool]'); if (!b) return;
+      var tool = b.getAttribute('data-tool');
+      // [보스#8] Aa 버튼은 항상 새 텍스트 생성(인스타식). 이미 텍스트가 선택돼 있어도 새로 추가.
+      //   addText()가 새 텍스트를 active로 만들므로 뒤이은 setTool('text')의 자동생성(L362)은 건너뜀 → 정확히 1개.
+      if (tool === 'text') addText();
+      setTool(tool);
+    });
     refs.stage.addEventListener('pointerdown', function (e) { if (e.target === refs.stage || e.target === refs.photo || e.target.classList.contains('itded__scrim')) selectLayer(null); });
     // 텍스트 컨트롤
     refs.fonts.addEventListener('click', function (e) { var b = e.target.closest('[data-font]'); if (!b) return; applyFont(b.getAttribute('data-font')); root.querySelectorAll('[data-font]').forEach(function (x) { x.classList.toggle('on', x === b); }); });

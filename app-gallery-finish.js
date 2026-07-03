@@ -514,8 +514,9 @@ function _previewSlotOnInsta(slotId) {
         ${hashHtml ? '<div style="margin-top:6px;word-break:break-word;">' + hashHtml + '</div>' : ''}
       </div>
       <div style="padding:10px 12px;border-top:1px solid #efefef;display:flex;gap:8px;">
-        <button data-finish-preview-close style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
-        <button data-finish-preview-publish data-slot-id="${escapeHtml(slotId)}" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:var(--accent,#D58A95);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">이대로 올리기</button>
+        <button data-finish-preview-close style="flex:0.7;min-height:40px;padding:10px;border-radius:10px;border:1px solid #dbdbdb;background:#fff;font-size:12px;font-weight:700;cursor:pointer;">닫기</button>
+        <button data-finish-preview-publish data-slot-id="${escapeHtml(slotId)}" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:var(--accent,#D58A95);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">피드에 올리기</button>
+        <button data-finish-preview-story data-slot-id="${escapeHtml(slotId)}" style="flex:1;min-height:40px;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);color:#fff;font-size:12px;font-weight:800;cursor:pointer;">스토리 올리기</button>
       </div>
     </div>
   `;
@@ -524,58 +525,122 @@ function _previewSlotOnInsta(slotId) {
     publishSlotToInstagram(e.currentTarget.dataset.slotId);
     pop.style.display = 'none';
   });
+  pop.querySelector('[data-finish-preview-story]')?.addEventListener('click', e => {
+    publishSlotStory(e.currentTarget.dataset.slotId);
+    pop.style.display = 'none';
+  });
   pop.style.display = 'flex';
 }
 
-async function publishSlotToInstagram(slotId) {
-  const slot = _slots.find(s => s.id === slotId);
-  if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
-  await _maybeAutoMatchCustomer(slot);
-  const visPhotos = slot.photos.filter(p => !p.hidden);
-  const photos = visPhotos.length ? visPhotos : slot.photos.slice(0, 1);
-  const fullCaption = (slot.caption || '') + (slot.hashtags ? '\n\n' + slot.hashtags : '');
-  try {
-    // [2026-05-25] 슬롯의 모든 사진을 포트폴리오에 저장(이전: 첫 1장만).
-    //   첫 응답 image_url 은 인스타 대표 이미지로 사용.
-    let firstImgUrl = '';
-    for (let i = 0; i < photos.length; i++) {
-      const p = photos[i];
-      const blob = _dataUrlToBlob(p.editedDataUrl || p.dataUrl);
-      const fd = new FormData();
-      fd.append('image', blob, `slot_photo_${i + 1}.jpg`);
-      fd.append('photo_type', 'after');
-      fd.append('main_tag', slot.label || '');
-      fd.append('tags', '');
-      if (slot.customer_id) fd.append('customer_id', slot.customer_id);
+// 슬롯의 발행 대상 사진(숨김 제외, 없으면 첫 1장 폴백)
+function _slotVisiblePhotos(slot) {
+  const vis = (slot.photos || []).filter(p => !p.hidden);
+  return vis.length ? vis : (slot.photos || []).slice(0, 1);
+}
+
+// 포트폴리오 기록(발행과 독립) — 실패해도 발행은 막지 않음. 첫 image_url 반환.
+async function _uploadSlotToPortfolio(slot, photos) {
+  let firstImgUrl = '';
+  for (let i = 0; i < photos.length; i++) {
+    const p = photos[i];
+    const blob = _dataUrlToBlob(p.editedDataUrl || p.dataUrl);
+    const fd = new FormData();
+    fd.append('image', blob, `slot_photo_${i + 1}.jpg`);
+    fd.append('photo_type', 'after');
+    fd.append('main_tag', slot.label || '');
+    fd.append('tags', '');
+    if (slot.customer_id) fd.append('customer_id', slot.customer_id);
+    try {
       const upRes = await apiFetch('/portfolio', { method: 'POST', headers: authHeader(), body: fd });
-      if (!upRes.ok) {
-        if (i === 0) { showToast('업로드 실패'); return; }
-        continue; // 일부 사진 실패는 무시하고 진행
-      }
+      if (!upRes.ok) continue;
       const upData = await upRes.json();
       if (i === 0) {
         if (upData.auto_tagged && upData.tags) showToast('포트폴리오 태그도 자동으로 붙였어요');
         firstImgUrl = upData.image_url?.startsWith('http') ? upData.image_url : apiUrl(upData.image_url || '');
       }
+    } catch (_e) { /* 기록 실패는 발행을 막지 않음 */ }
+  }
+  try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'portfolio_created' } })); } catch (_) { /* ignore */ }
+  return firstImgUrl;
+}
+
+// 공통 발행 전송 — 진행 팝업 + 에러 표면화. 성공 시 true.
+async function _sendSlotPublish(path, formData, label) {
+  const pop = document.getElementById('uploadProgressPopup');
+  try {
+    if (pop) pop.style.display = 'flex';
+    if (window.setUploadProgress) window.setUploadProgress(20, label + ' 올리는 중…');
+    const res = await apiFetch(path, { method: 'POST', headers: authHeader(), body: formData });
+    if (window.setUploadProgress) window.setUploadProgress(90, '마무리 중…');
+    const data = await res.json().catch(() => ({}));
+    if (pop) pop.style.display = 'none';
+    if (!res.ok) {
+      showToast('발행 실패: ' + (data.detail || ('HTTP ' + res.status)));
+      return false;
     }
-    // [2026-05-25] 포트폴리오 화면 자동 갱신 트리거.
-    try { window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'portfolio_created' } })); } catch (_) { /* ignore */ }
-    if (typeof doInstagramPublish === 'function' && firstImgUrl) {
-      const success = await doInstagramPublish(firstImgUrl, fullCaption);
-      if (success) {
-        slot.instagramPublished = true;
-        slot.deferredAt = null;
-        await saveSlotToDB(slot);
-        // 갤러리 자동 저장
-        try { await saveToGallery(slot); } catch (_e) { /* ignore */ }
-        initFinishTab();
-      }
+    showToast(label + '에 올라갔어요 🎉');
+    if (typeof window.createConfetti === 'function') { for (let i = 0; i < 16; i++) setTimeout(window.createConfetti, i * 90); }
+    return true;
+  } catch (e) {
+    if (pop) pop.style.display = 'none';
+    showToast('발행 오류: ' + (window._humanError ? window._humanError(e) : (e.message || '알 수 없음')));
+    return false;
+  }
+}
+
+// #11: 2장 이상은 캐러셀(바이트 직접), 1장은 피드 단일. URL fetch("not found") 경로 제거.
+async function publishSlotToInstagram(slotId) {
+  const slot = _slots.find(s => s.id === slotId);
+  if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
+  await _maybeAutoMatchCustomer(slot);
+  const photos = _slotVisiblePhotos(slot);
+  const fullCaption = (slot.caption || '') + (slot.hashtags ? '\n\n' + slot.hashtags : '');
+  try {
+    await _uploadSlotToPortfolio(slot, photos);
+    let ok = false;
+    if (photos.length >= 2) {
+      const fd = new FormData();
+      photos.forEach((p, i) => fd.append('images', _dataUrlToBlob(p.editedDataUrl || p.dataUrl), `photo_${i + 1}.jpg`));
+      fd.append('caption', fullCaption);
+      ok = await _sendSlotPublish('/instagram/publish-carousel-file', fd, `${photos.length}장 캐러셀`);
     } else {
-      // 인스타 미연동이어도 포트폴리오엔 들어갔으니 안내.
-      showToast('포트폴리오에 저장됐어요');
+      const fd = new FormData();
+      fd.append('image', _dataUrlToBlob(photos[0].editedDataUrl || photos[0].dataUrl), 'photo.jpg');
+      fd.append('caption', fullCaption);
+      ok = await _sendSlotPublish('/instagram/publish-file', fd, '피드');
+    }
+    if (ok) {
+      slot.instagramPublished = true;
+      slot.deferredAt = null;
+      await saveSlotToDB(slot);
+      try { await saveToGallery(slot); } catch (_e) { /* ignore */ }
+      initFinishTab();
     }
   } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
 }
+
+// #1/#10: 스토리 발행 — 대표(첫 노출) 사진을 STORIES 로. 기존 백엔드 publish-story-file 사용.
+async function publishSlotStory(slotId) {
+  const slot = _slots.find(s => s.id === slotId);
+  if (!slot?.photos.length) { showToast('사진이 없어요'); return; }
+  await _maybeAutoMatchCustomer(slot);
+  const photos = _slotVisiblePhotos(slot);
+  const cover = photos[0];
+  try {
+    await _uploadSlotToPortfolio(slot, photos);
+    const fd = new FormData();
+    fd.append('image', _dataUrlToBlob(cover.editedDataUrl || cover.dataUrl), 'story.jpg');
+    const ok = await _sendSlotPublish('/instagram/publish-story-file', fd, '스토리');
+    if (ok) {
+      slot.instagramPublished = true;
+      slot.deferredAt = null;
+      await saveSlotToDB(slot);
+      try { await saveToGallery(slot); } catch (_e) { /* ignore */ }
+      initFinishTab();
+    }
+  } catch(e) { showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message)); }
+}
+window.publishSlotStory = publishSlotStory;
 
 async function _deferSlot(slotId) {
   const slot = _slots.find(s => s.id === slotId);
