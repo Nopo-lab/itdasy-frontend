@@ -1627,14 +1627,22 @@
     return '<div class="capwiz">' + head + '<div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div></div>';
   }
   // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
+  var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부'];
   function _svcTagsHtml() {
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
     var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
-    var chips = kws.slice(0, 12).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('');
-    return '<div class="cap-svctags">' + chips +
-      '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>' +
-      '<div class="cap-svctags__hint">자주 쓰는 시술' + (stype ? ' · ' + esc(stype) : '') + ' (눌러서 넣기)</div>';
+    // 업종 미설정이면 자동으로 시술 태그 안 쏟아지게(엉뚱한 붙임머리 인치 태그 방지) — 업종부터 고르게 유도.
+    var chips = stype ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
+    var typeOpen = !!d.svcTypeOpen || !stype;
+    var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
+      return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
+    }).join('') + '</div>') : '';
+    return '<div class="cap-svctags__hint">자주 쓰는 시술 · ' +
+        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(stype || '업종 고르기') + ' <i class="ph-bold ph-caret-down"></i></button></div>' +
+      typeChips +
+      (stype ? ('<div class="cap-svctags">' + chips +
+        '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
   }
   function _appendServiceTag(kw) {
     syncServiceFromDom();
@@ -2519,6 +2527,8 @@
       }
       var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); setScreen('caption'); return; }
       var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; setScreen('caption'); return; }
+      var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
+      var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }

@@ -827,3 +827,10 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-svctag:active { transform: scale(.97); }
 .wsv2flow .cap-svctag--add { background: var(--brand-bg); color: var(--brand-strong); border: 1px dashed var(--brand); }
 .wsv2flow .cap-svctags__hint { font-size: 11.5px; color: var(--text-subtle); margin: 0 0 18px 2px; }
+
+/* [캡션재설계] 업종 선택(자주쓰는 시술 태그 위) */
+.wsv2flow .cap-svctype__btn { border: none; background: var(--brand-bg); color: var(--brand-strong); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
+.wsv2flow .cap-svctype__btn i { font-size: 11px; }
+.wsv2flow .cap-svctype { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.wsv2flow .cap-svctype__c { font-size: 13px; padding: 7px 13px; border-radius: 999px; background: var(--surface); color: var(--text-muted); border: 1px solid rgba(0,0,0,.10); font-weight: 600; cursor: pointer; }
+.wsv2flow .cap-svctype__c.on { background: var(--brand); color: #fff; border-color: var(--brand); }
