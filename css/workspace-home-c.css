@@ -83,18 +83,18 @@
 
 /* ── [인스타 피드 홈] 3열 그리드 · 좌상단 + 업로드 · Astryx 스프링 마감 ── */
 .wshc--feed{ --spring:cubic-bezier(.24,1,.4,1); background:#F8F4ED; padding:0 0 calc(90px + env(safe-area-inset-top)); }
-.wshc-phead{ display:flex; align-items:center; gap:12px; padding:calc(14px + env(safe-area-inset-top)) 16px 12px; }
+.wshc-phead{ display:flex; align-items:center; gap:12px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; }
 .wshc-ava--lg{ width:46px; height:46px; font-size:17px; font-weight:600; color:#fff; background:linear-gradient(140deg,#D58A95,#BC6675); }
 .wshc-pinfo{ flex:1; min-width:0; }
 .wshc-phandle{ font-size:16px; font-weight:800; color:var(--c-text); letter-spacing:-.3px; }
 .wshc-pstat{ font-size:12px; color:var(--c-text-subtle); margin-top:1px; }
 .wshc--feed .wshc-seltoggle{ font-size:13px; font-weight:600; color:var(--c-text-muted); background:#fff; border:1px solid var(--c-border); border-radius:999px; padding:7px 14px; }
 .wshc--feed .wshc-seltoggle.on{ background:var(--c-brand-strong); color:#fff; border-color:transparent; }
-.wf-segs{ display:flex; gap:7px; padding:2px 16px 12px; }
+.wf-segs{ display:flex; gap:7px; padding:0 16px 10px; }
 .wf-seg{ font-size:13px; font-weight:600; padding:7px 15px; border-radius:999px; background:#fff; border:1px solid var(--c-border); color:var(--c-text-muted); transition:transform .175s var(--spring),background .175s var(--spring),color .175s var(--spring); }
 .wf-seg:active{ transform:scale(.95); }
 .wf-seg.on{ background:#231C1A; color:#fff; border-color:transparent; }
-.wf-feed{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; background:#EDE5DB; border-top:1px solid #EDE5DB; border-bottom:1px solid #EDE5DB; }
+.wf-feed{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:#EFE7DB; }
 .wf-add,.wf-tile{ position:relative; aspect-ratio:1; border:0; padding:0; overflow:hidden; background-size:cover; background-position:center; background-color:#e6cfc9; -webkit-tap-highlight-color:transparent; transition:transform .175s var(--spring),filter .175s var(--spring); animation:wfIn .41s var(--spring) both; }
 .wf-add:active,.wf-tile:active{ transform:scale(.94); filter:brightness(.94); }
 .wf-add{ background:linear-gradient(140deg,#D58A95,#BC6675); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; color:#fff; }
