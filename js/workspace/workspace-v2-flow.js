@@ -530,13 +530,15 @@
   //   tplPreviewUrl = 결과 전용 합성본(헤드리스). storyEdited(수동 편집)면 그 결과가 우선.
   function dispUrl(p) {
     if (!p) return '';
-    if (!p.storyEdited && String(d.caption || '').trim() && p.tplPreviewUrl) return p.tplPreviewUrl;
+    // [워크플로 재정렬] AUTO_EDITOR면 편집기 결과(editedDataUrl)가 유일한 소스 — 별도 자동합성본(tplPreviewUrl) 안 씀(미리보기=편집기 일치).
+    if (!AUTO_EDITOR && !p.storyEdited && String(d.caption || '').trim() && p.tplPreviewUrl) return p.tplPreviewUrl;
     return p.editedDataUrl || p.dataUrl;
   }
   // [v589·#3] 캡션 결과 화면에서 우리샵 스타일을 각 사진에 헤드리스 합성 → tplPreviewUrl(결과 전용).
   //   [#2 단일화] 편집기와 동일 렌더러(ItdEditor.compose) 단독 사용 — 옛 StoryEditor 제거됨.
   function _autoComposeTemplate() {
     try {
+      if (AUTO_EDITOR) return;   // [워크플로 재정렬] 편집기가 유일한 결과 소스 — 별도 자동합성(다른 크롭/위치로 미리보기 어긋남) 안 함.
       if (d.useShopStyle === false) return;
       if (!(window.ItdEditor && window.ItdEditor.compose)) return;
       var built = _buildShopStyleLayers();
