@@ -1983,9 +1983,8 @@
 	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
 	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
 	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)"></div>' +
-	      '<div class="cap-pubrow" style="display:flex;gap:8px;margin-top:10px">' +
-	        '<button type="button" class="cap-preview cap-preview--send" style="flex:1" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'feed' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>피드에 올리기') + '</button>' +
-	        '<button type="button" class="cap-preview cap-preview--story" style="flex:1" data-fl="publishstory"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'story' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-plus-circle"></i>스토리에 올리기') + '</button>' +
+	      '<div class="cap-pubrow" style="margin-top:10px">' +
+	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'feed' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>피드에 올리기') + '</button>' +
 	      '</div>' +
 	      (_multi ? '<button type="button" class="cap-preview cap-preview--carousel" style="width:100%;margin-top:8px" data-fl="publishcarousel"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'carousel' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-images"></i>여러 장으로 올리기 (' + (editablePhotos() || []).length + '장)') + '</button>' : '');
 	    }
@@ -2590,7 +2589,11 @@
         d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
         d._wizCustom = null;
         d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-        d._wizDir = 'fwd'; setScreen('caption'); return;
+        d._wizDir = 'fwd';
+        // [#3] 누른 버튼을 잠깐 '활성'으로 보여준 뒤 부드럽게 다음 단계로 슬라이드(즉시 넘어가 활성감 안 보이던 것).
+        wp.classList.add('capwiz__opt--picked');
+        setTimeout(function () { if (cur === 'caption') setScreen('caption'); }, 170);
+        return;
       }
       // [직접 입력] 인라인 확인 → 값 반영 후 다음 단계. 빈값이면 무시.
       var wco = t.closest('[data-fl-wizcustok]'); if (wco) { _wizCustomConfirm(); return; }

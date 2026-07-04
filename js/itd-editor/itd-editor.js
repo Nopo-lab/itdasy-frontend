@@ -346,7 +346,7 @@
   }
 
   /* ── 도구 전환 ── */
-  function setTool(tool) {
+  function setTool(tool, _noAuto) {
     S.tool = tool;
     root.querySelectorAll('.itrb').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tool') === tool); });
     Object.keys(refs.panels).forEach(function (k) { refs.panels[k].classList.toggle('is-open', k === tool); });
@@ -359,7 +359,7 @@
     refs.layers.style.pointerEvents = drawing ? 'none' : '';
     refs.collage.classList.toggle('is-cropping', inLayout);
     // [#4] Aa 탭 — 텍스트가 '선택된' 상태면 새로 안 만들고 패널만. 아무것도 선택 안 됐을 때만 새 텍스트.
-    if (tool === 'text' && !(S.active && S.active.type === 'text')) addText();
+    if (tool === 'text' && !_noAuto && !(S.active && S.active.type === 'text')) addText();   // [#1] open 초기엔 _noAuto — '내용을 입력하세요' 자동생성 안 함(Aa 탭에서만 생성)
     if (tool === 'layout') { renderLayoutStrip(); renderLayoutHint(); }
     if (tool === 'sticker' && refs.stkBody && !refs.stkBody.innerHTML) _renderStkTab('reco');   // [#5] 첫 진입 시 추천 탭
     if (tool === 'adjust') renderAdjust();
@@ -889,9 +889,9 @@
     refs.frame.className = 'itded__frame';
     refs.frame.className = 'itded__frame';
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
-    // [#3] 콜라주 기본을 '전체보기(contain)'로 — 상하/좌우 분할에서 사진이 잘려보이던 문제 해소(뷰티 전후컷은 잘리면 안 됨).
-    //   꽉 채움(cover)을 원하면 fit 토글로 전환. 단일도 전체.
-    if (!S._fitManual) { S.fitMode = 'contain'; _syncFitToggle(); }
+    // [#2] 콜라주는 칸에 '꽉 채움(cover)'이 기본 — 칸을 채우고, 잘리는 부분은 칸을 드래그해 보일 곳을 고른다(재구도).
+    //   전체보기(contain)를 원하면 fit 토글. 단일은 전체.
+    if (!S._fitManual) { S.fitMode = isSingleL(S.layout) ? 'contain' : 'cover'; _syncFitToggle(); }
     _syncBaLabels();   // [전/후] 전/후 레이아웃이면 BEFORE·AFTER 라벨 자동, 아니면 제거
     applyPhotoTransform();   // [#2] 단일↔콜라주 전환 시 photowrap 회전 리셋(콜라주 전체 휘어짐 방지)
     renderCollage(); renderLayoutStrip(); renderLayoutHint();
@@ -1569,7 +1569,7 @@
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);
-      setTool('text');
+      setTool('text', true);   // [#1] 초기엔 자동 텍스트 생성 금지 — 업로드 편집기에 '내용을 입력하세요'가 박히던 문제
     });
   }
   // [#4/#8/#11/#16] 복원 렌더 — 레이아웃 버튼/콜라주/레이어 반영(동기 호출 가능).

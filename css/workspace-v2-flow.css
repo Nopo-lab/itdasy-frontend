@@ -816,6 +816,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .capwiz__opt span { font-size: 12px; font-weight: 700; letter-spacing: -.3px; color: var(--text-muted); }
 .wsv2flow .capwiz__opt:active { transform: scale(.93); background: var(--brand-bg); box-shadow: inset 0 0 0 1.5px var(--brand); }   /* 탭 즉시 브랜드 하이라이트(재렌더 전 활성감) */
 .wsv2flow .capwiz__opt:active i, .wsv2flow .capwiz__opt:active span { color: var(--brand-strong); }
+.wsv2flow .capwiz__opt--picked { background: var(--brand) !important; box-shadow: inset 0 0 0 1.5px var(--brand), 0 4px 14px rgba(213,138,149,.4) !important; transform: scale(1.04); }
+.wsv2flow .capwiz__opt--picked i, .wsv2flow .capwiz__opt--picked span { color: #fff !important; }
 .wsv2flow .capwiz__opt.on { background: var(--brand-bg); box-shadow: inset 0 0 0 1.5px var(--brand); }
 .wsv2flow .capwiz__opt.on i, .wsv2flow .capwiz__opt.on span { color: var(--brand-strong); }
 .wsv2flow .capwiz__done { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
