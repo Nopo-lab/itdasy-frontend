@@ -17,10 +17,13 @@
   //   (Phase A-2에서 캡션 화면의 '직접 편집' 진입점으로 edit/template 도달 경로를 다시 연결한다.)
   //   롤백: window.ITDASY_WS_SIMPLE_FLOW = false → 기존 6단계 플로우 그대로 복원.
   var SIMPLE_FLOW = (window.ITDASY_WS_SIMPLE_FLOW !== false);
+  // [워크플로 재정렬] 캡션 생성 후 편집기 자동 오픈(레이아웃 반영). 문제 시 window.ITDASY_WS_AUTO_EDITOR=false 로 이것만 끔.
+  var AUTO_EDITOR = (window.ITDASY_WS_AUTO_EDITOR !== false);
   // 진행 표시(단계 X/N·진행바)·다음 화면 계산에 쓰는 '실제로 보이는 단계' 목록.
   // [v592] 워크플로 재배치 — 업로드 → 캡션 생성(편집) → 인스타 미리보기(게시) → 고객 연결(마지막).
   //   인스타 미리보기를 다시 별도 단계로(미리보기+피드+게시), 고객연결은 게시 뒤 마지막.
-  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'preview', 'connect'] : SCREENS;
+  // [워크플로 재정렬] 업로드→편집→캡션→미리보기(발행)→고객연결. '편집' 단계를 다시 노출.
+  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'edit', 'caption', 'preview', 'connect'] : SCREENS;
   var TITLE = { upload:'사진 업로드', edit:'편집', template:'템플릿 선택', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
   var CTA = {
     upload: { l:'편집으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
@@ -30,8 +33,9 @@
     preview:{ l:'고객 연결로', to:'connect' },          // [v592] 미리보기(게시) → 고객 연결
     connect:{ l:'저장하고 완료', to:'__save' },         // 고객연결=마지막 단계 → 저장 후 작업실로
   };
-  // [Phase A-1] 심플 플로우: 업로드 다음 단계를 '편집'이 아닌 '캡션 생성(caption)'으로 직행.
-  if (SIMPLE_FLOW) CTA.upload = { l:'캡션 생성 →', to:'caption' };
+  // [워크플로 재정렬] 업로드 다음 = 사진 편집 먼저(캡션 직행 아님). 편집 완료 → 캡션.
+  if (SIMPLE_FLOW) CTA.upload = { l:'사진 편집 →', to:'edit' };
+  if (SIMPLE_FLOW) CTA.edit = { l:'게시글 쓰기 →', to:'caption' };
   // [Phase A-2] 캡션 화면 명칭을 스펙(이미지 01)에 맞춰 '캡션 생성'으로(상단 타이틀).
   if (SIMPLE_FLOW) TITLE.caption = '캡션 생성';
   // [v592] preview: 화면 안에 '저장 및 게시' 버튼 + 하단 CTA '고객 연결로'(다음 단계). 게시는 선택, 연결로 진행.
@@ -612,9 +616,12 @@
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
         // [#8] 편집(레이아웃 포함) 결과를 IndexedDB 에 저장 → 새로고침/재진입해도 미리보기·편집본 유지.
         try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; }
-        if (cur === 'caption') setScreen('caption');
+        // [워크플로 재정렬] 편집기 완료 후 다음 목적지(예: 캡션→편집기→미리보기). 없으면 캡션 유지.
+        if (d._editorNext) { var _nx = d._editorNext; d._editorNext = null; setScreen(_nx); }
+        else if (cur === 'caption') setScreen('caption');
         toast('사진을 꾸몄어요');
-      }
+      },
+      onCancel: function () { d._editorNext = null; }   // 편집기 취소 시 라우팅 플래그 정리(다음 편집이 엉뚱히 미리보기로 안 가게)
     });
   }
   // [v587·C] ShopStyle 학습 피드백 루프 — 편집기에서 바꾼 폰트/색/위치/외곽선을 활성 스타일에
@@ -747,7 +754,7 @@
       ? '<div class="up-guide">' +
           '<div class="up-guide-c"><b>1</b><small>사진을 탭해<br>선택·해제</small></div>' +
           '<div class="up-guide-c"><b>2</b><small>전·후·기본<br>역할 선택</small></div>' +
-          '<div class="up-guide-c"><b>3</b><small>' + (SIMPLE_FLOW ? '캡션<br>생성' : '편집·템플릿<br>으로') + '</small></div>' +
+          '<div class="up-guide-c"><b>3</b><small>' + (SIMPLE_FLOW ? '사진<br>편집' : '편집·템플릿<br>으로') + '</small></div>' +
         '</div>'
       : '';
     return '' +
@@ -2317,6 +2324,12 @@
         d.logId = r.log_id || d.logId || null;
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
       setScreen('caption');
+      // [워크플로 재정렬] 첫 생성 성공 → 편집기 자동 오픈(캡션이 레이아웃으로 사진에 반영) → 완료 시 미리보기.
+      //   재생성(hashtag_mode/이미 캡션 있음)은 자동 오픈 안 함. 편집 모듈 없으면 조용히 캡션 유지.
+      if (AUTO_EDITOR && r.ok && _wasEmpty && !opts.hashtag_mode && window.ItdEditor && window.ItdEditor.open) {
+        d._editorNext = 'preview';
+        setTimeout(function () { if (cur === 'caption') _openStoryEditor(); }, 90);
+      }
     }).catch(function (e) {
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
       d.capLoading = false;
@@ -3540,7 +3553,7 @@
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
       //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
-      if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('caption', { push: false }); }
+      if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }   // [워크플로 재정렬] 업로드/홈 진입 → 사진 편집 먼저
       else if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
@@ -3876,8 +3889,8 @@
 	    if (!urls.length || !d) return 0;
 	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	    reassignRoles();
-    // [v588·#1] 심플 플로우 — 사진 들어오면 업로드 화면 건너뛰고 바로 캡션 생성.
-    if (cur === 'upload') { setScreen((SIMPLE_FLOW && !d.textOnly && editablePhotos().length) ? 'caption' : 'upload', { push: false }); }
+    // [워크플로 재정렬] 사진 들어오면 업로드 화면 건너뛰고 바로 사진 편집.
+    if (cur === 'upload') { if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); } else setScreen('upload', { push: false }); }
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
 	  }
