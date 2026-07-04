@@ -863,3 +863,15 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .capwiz__custok { flex: none; width: 46px; height: 46px; border: none; border-radius: 12px; background: var(--brand-strong); color: #fff; cursor: pointer; display: grid; place-items: center; }
 .wsv2flow .capwiz__custok i { font-size: 18px; }
 .wsv2flow .capwiz__custcancel { margin: 10px 0 0; border: none; background: transparent; color: var(--text-subtle); font-size: 12.5px; font-weight: 700; cursor: pointer; padding: 2px 0; }
+
+/* ── [ChatComposer 시술 입력창] 입력칸 안에 생성(↑) 버튼 내장 · Astryx 스프링/포커스링 ── */
+.wsv2flow .cap-composer { background: #FAFBFC; border: 1.5px solid var(--brand); border-radius: 18px; padding: 12px 12px 10px; margin-bottom: 8px; transition: border-color .18s cubic-bezier(.24,1,.4,1), box-shadow .18s cubic-bezier(.24,1,.4,1); }
+.wsv2flow .cap-composer:focus-within { border-color: var(--brand-strong); box-shadow: 0 0 0 3px var(--brand-bg); }
+.wsv2flow .cap-composer .cap-svc-area { min-height: 62px; border: none; background: transparent; padding: 2px 4px; box-shadow: none; resize: none; margin: 0; }
+.wsv2flow .cap-composer .cap-svc-area:focus { box-shadow: none; border: none; }
+.wsv2flow .cap-composer__bar { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.wsv2flow .cap-composer__cnt { font-size: 11px; font-weight: 700; color: var(--text-subtle); }
+.wsv2flow .cap-composer__send { width: 40px; height: 40px; border: none; border-radius: 999px; background: var(--brand-strong); color: #fff; display: grid; place-items: center; cursor: pointer; box-shadow: var(--shadow-brand); transition: transform .175s cubic-bezier(.24,1,.4,1), opacity .15s; }
+.wsv2flow .cap-composer__send:active { transform: scale(.9); }
+.wsv2flow .cap-composer__send:disabled { background: var(--frame); color: var(--text-subtle); box-shadow: none; }
+.wsv2flow .cap-composer__send i { font-size: 20px; }

@@ -1713,13 +1713,15 @@
           '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
           _capWizHtml() +
           '<label class="cap-field-label">시술만 적으면 끝</label>' +
-          '<div class="cap-svc-wrap">' +
+          '<div class="cap-composer">' +
             '<textarea class="service-input cap-svc-area" data-fl-service rows="3" maxlength="500" placeholder="예) 레이어드컷 손상모 일본인">' + esc(_svc) + '</textarea>' +
-            '<span class="cap-svc-count"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
+            '<div class="cap-composer__bar">' +
+              '<span class="cap-composer__cnt"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
+              '<button type="button" class="cap-composer__send" data-fl-cgen aria-label="캡션 생성"><i class="ph-duotone ph-arrow-up"></i></button>' +
+            '</div>' +
           '</div>' +
           _svcTagsHtml() +
           _capConfirmHtml() +
-          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>' +
           '</div>';
 	      }
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
