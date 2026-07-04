@@ -889,3 +889,9 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-skel-tags { display: flex; gap: 7px; margin-top: 18px; }
 .wsv2flow .cap-skel-tags span { height: 24px; width: 58px; border-radius: 999px; }
 @media (prefers-reduced-motion: reduce) { .wsv2flow .cap-skel-line, .wsv2flow .cap-skel-tags span, .wsv2flow .cap-skel-dot { animation: none; } }
+
+/* ── [버튼 마감 통일] 주요 인터랙션에 Astryx 스프링 프레스 일괄 적용 ── */
+.wsv2flow .cap-chip, .wsv2flow .cap-svctag, .wsv2flow .cap-svctype__c, .wsv2flow .cap-preview, .wsv2flow .cap-gen-btn { transition: transform .16s cubic-bezier(.24,1,.4,1), background .16s cubic-bezier(.24,1,.4,1), color .16s cubic-bezier(.24,1,.4,1), box-shadow .16s cubic-bezier(.24,1,.4,1), border-color .16s cubic-bezier(.24,1,.4,1); }
+.wsv2flow .cap-preview:active:not(:disabled) { transform: scale(.97); }
+.wsv2flow .cap-svctype__c:active { transform: scale(.95); }
+.wsv2flow .wsv2flow__cta:active:not(:disabled) { transform: scale(.985); }
