@@ -363,7 +363,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .up-pair--left { background: #fff4f1; border-color: #f3c8bd; }
 
 /* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
-.wsv2flow .cap-photo--sm { width: 100%; height: 140px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 12px; }
+.wsv2flow .cap-photo.cap-photo--sm { width: 100%; height: 140px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 12px; }   /* [fix] .cap-photo(200px)보다 뒤·높은 특이도로 — 캡션 썸네일은 작게 유지 */
 .wsv2flow .cap-byline { font-size: 11px; font-weight: 700; color: var(--text-subtle); text-align: center; padding: 6px 0 10px; }
 .wsv2flow .cap-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 0; color: var(--text-subtle); font-size: 13px; }
 .wsv2flow .cap-loading-spin { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--brand-strong); border-radius: 50%; animation: wsv2spin .8s linear infinite; }
@@ -789,7 +789,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
   .wsv2flow { left: 232px; }
   .wsv2flow__s { padding: 6px 24px 24px; }
   .wsv2flow .cap-card { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .wsv2flow .cap-photo { height: 100%; min-height: 200px; margin-bottom: 0; }
+  .wsv2flow .cap-card .cap-photo { height: 100%; min-height: 200px; margin-bottom: 0; }   /* [fix] 편집카드 전용 — 캡션 썸네일(.cap-photo--sm)에 새어들어 사진이 거대해지던 것 차단 */
   .wsv2flow .tpls-slide { flex-basis: 60%; }
   .wsv2flow .tpls-carousel.is-multi .tpls-nav { display: flex; }   /* [v568·B-5] PC 에서만 화살표 노출 */
   .wsv2flow .tpls-strip { cursor: grab; }
@@ -814,7 +814,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .capwiz__opt { border: none; border-radius: 14px; padding: 14px 4px 11px; background: var(--surface-2); box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all .13s; }
 .wsv2flow .capwiz__opt i { font-size: 21px; color: var(--text-subtle); }
 .wsv2flow .capwiz__opt span { font-size: 12px; font-weight: 700; letter-spacing: -.3px; color: var(--text-muted); }
-.wsv2flow .capwiz__opt:active { transform: scale(.97); }
+.wsv2flow .capwiz__opt:active { transform: scale(.93); background: var(--brand-bg); box-shadow: inset 0 0 0 1.5px var(--brand); }   /* 탭 즉시 브랜드 하이라이트(재렌더 전 활성감) */
+.wsv2flow .capwiz__opt:active i, .wsv2flow .capwiz__opt:active span { color: var(--brand-strong); }
 .wsv2flow .capwiz__opt.on { background: var(--brand-bg); box-shadow: inset 0 0 0 1.5px var(--brand); }
 .wsv2flow .capwiz__opt.on i, .wsv2flow .capwiz__opt.on span { color: var(--brand-strong); }
 .wsv2flow .capwiz__done { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
@@ -834,3 +835,22 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-svctype { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
 .wsv2flow .cap-svctype__c { font-size: 13px; padding: 7px 13px; border-radius: 999px; background: var(--surface); color: var(--text-muted); border: 1px solid rgba(0,0,0,.10); font-weight: 600; cursor: pointer; }
 .wsv2flow .cap-svctype__c.on { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+/* [캡션재설계] 위저드 화면 폴리시 — 앱 기본 스타일이 목업보다 싸보이던 것 스코프로 맞춤 */
+.wsv2flow .cap-wizscreen .screen-head h2 { font-size: 17px; font-weight: 800; letter-spacing: -.4px; }
+.wsv2flow .cap-wizscreen .screen-head__sub { font-size: 12.5px; color: var(--text-subtle); margin-top: 4px; }
+.wsv2flow .cap-wizscreen .cap-svc-wrap { position: relative; }
+.wsv2flow .cap-wizscreen .cap-svc-area { background: #FAFBFC; border: 1.5px solid var(--brand); border-radius: 14px; padding: 13px 14px; font-size: 15.5px; box-shadow: none; min-height: 78px; }
+.wsv2flow .cap-wizscreen .cap-svc-area:focus { border-color: var(--brand-strong); box-shadow: 0 0 0 3px var(--brand-bg); }
+.wsv2flow .cap-wizscreen .cap-svc-area::placeholder { color: #B3A9A2; }
+.wsv2flow .cap-wizscreen .capwiz__opt { background: #fff; }
+.wsv2flow .cap-wizscreen .capwiz__opt.on { background: var(--brand-bg); }
+.wsv2flow .cap-wizscreen .cap-gen-btn { font-weight: 700; border-radius: 15px; letter-spacing: -.2px; }
+.wsv2flow .cap-wizscreen .cap-field-label { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+
+/* [애니메이션] 위저드 단계 전환 — 다음=오른쪽에서 슬라이드-인, 이전=왼쪽에서. 왼쪽으로 부드럽게 넘어가는 느낌 */
+@keyframes capwizIn { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes capwizInBack { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: translateX(0); } }
+.wsv2flow .capwiz__body { animation: capwizIn .26s cubic-bezier(.22,.61,.36,1) both; }
+.wsv2flow .capwiz__body--back { animation-name: capwizInBack; }
+@media (prefers-reduced-motion: reduce) { .wsv2flow .capwiz__body { animation: none; } }

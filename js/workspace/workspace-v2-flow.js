@@ -1612,11 +1612,12 @@
     var head = '<div class="capwiz__head">' +
       (step > 0 ? '<button type="button" class="capwiz__back" data-fl-wizback aria-label="이전"><i class="ph-bold ph-caret-left"></i></button>' : '<span class="capwiz__backsp"></span>') +
       '<span class="capwiz__dots">' + dots + '</span></div>';
+    var _dir = (d._wizDir === 'back' ? ' capwiz__body--back' : '');   // [애니메이션] 이전=왼쪽에서, 다음=오른쪽에서 슬라이드
     if (step >= 3) {
       var chips = _WIZ_STEPS.map(function (s) { return '<span class="capwiz__pick">' + esc(ax[s.key] || '-') + '</span>'; }).join('');
       return '<div class="capwiz capwiz--done">' + head +
-        '<div class="capwiz__done"><i class="ph-fill ph-check-circle capwiz__donechk"></i><span class="capwiz__donet">다 골랐어요</span>' + chips +
-        '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div>';
+        '<div class="capwiz__body' + _dir + '"><div class="capwiz__done"><i class="ph-fill ph-check-circle capwiz__donechk"></i><span class="capwiz__donet">다 골랐어요</span>' + chips +
+        '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div></div>';
     }
     var s = _WIZ_STEPS[step];
     var btns = s.opts.map(function (o) {
@@ -1624,7 +1625,7 @@
       return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
         '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
     }).join('');
-    return '<div class="capwiz">' + head + '<div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div></div>';
+    return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '"><div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div></div></div>';
   }
   // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
   var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부'];
@@ -1675,7 +1676,8 @@
         //   레거시 함수(_presetThumb/_applyPreset/_applyHarmony/_autoPretty/_setShopType 등)는 삭제 안 함(보존).
         if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
-	          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
+	          '<div class="cap-wizscreen">' +
+          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
           _capWizHtml() +
           '<label class="cap-field-label">시술만 적으면 끝</label>' +
           '<div class="cap-svc-wrap">' +
@@ -1684,7 +1686,8 @@
           '</div>' +
           _svcTagsHtml() +
           _capConfirmHtml() +
-          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>';
+          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>' +
+          '</div>';
 	      }
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
 	      var _chip = function (group, val, label, cur) { return '<button type="button" class="cap-chip' + (cur === val ? ' on' : '') + '" data-fl-' + group + '="' + val + '">' + label + '</button>'; };
@@ -2523,10 +2526,10 @@
         if (_wv === '직접') { var _c = window.prompt('직접 입력', ''); if (_c == null || !String(_c).trim()) return; _wv = String(_c).trim(); }
         d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
         d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-        setScreen('caption'); return;
+        d._wizDir = 'fwd'; setScreen('caption'); return;
       }
-      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); setScreen('caption'); return; }
-      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; setScreen('caption'); return; }
+      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); d._wizDir = 'back'; setScreen('caption'); return; }
+      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizDir = 'back'; setScreen('caption'); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
