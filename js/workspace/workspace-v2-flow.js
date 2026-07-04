@@ -1620,12 +1620,24 @@
         '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div></div>';
     }
     var s = _WIZ_STEPS[step];
-    var btns = s.opts.map(function (o) {
-      var on = ax[s.key] === o[0];
-      return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
-        '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
-    }).join('');
-    return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '"><div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div></div></div>';
+    var bodyInner;
+    if (d._wizCustom === s.key) {
+      // [직접 입력] 팝업 대신 인라인 — '직접' 누르면 여기서 바로 타이핑(Enter/확인 → 다음).
+      bodyInner = '<div class="capwiz__q">' + esc(s.q) + '</div>' +
+        '<div class="capwiz__custom">' +
+          '<input type="text" class="capwiz__custin" data-fl-wizcustin maxlength="40" placeholder="직접 적어주세요" value="' + esc(ax[s.key] && s.opts.every(function (o) { return o[0] !== ax[s.key]; }) ? ax[s.key] : '') + '">' +
+          '<button type="button" class="capwiz__custok" data-fl-wizcustok aria-label="확인"><i class="ph-bold ph-check"></i></button>' +
+        '</div>' +
+        '<button type="button" class="capwiz__custcancel" data-fl-wizcustcancel>← 버튼으로</button>';
+    } else {
+      var btns = s.opts.map(function (o) {
+        var on = ax[s.key] === o[0];
+        return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
+          '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
+      }).join('');
+      bodyInner = '<div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div>';
+    }
+    return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '">' + bodyInner + '</div></div>';
   }
   // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
   var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부'];
@@ -1789,6 +1801,16 @@
       var _cnt = el.querySelector('[data-fl-svccount]');
       if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
     }
+    // [직접 입력] 위저드 인라인 입력 — Enter=확인 + 자동 포커스(팝업 없이 바로 타이핑).
+    var wcin = el.querySelector('[data-fl-wizcustin]');
+    if (wcin && !wcin._wsBound) {
+      wcin._wsBound = true;
+      wcin.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault(); _wizCustomConfirm();
+      });
+      try { wcin.focus(); var _vl = wcin.value.length; wcin.setSelectionRange(_vl, _vl); } catch (_e) { void _e; }
+    }
     // [#12] PC에서 게시글/해시태그를 클릭하면 곧바로 편집되도록 클릭→포커스 보장(상위 클릭 위임에 먹히던 회귀 방지).
     function _ensureEditFocus(node) {
       if (!node || node._wsClickFocus) return; node._wsClickFocus = true;
@@ -1830,8 +1852,20 @@
     syncServiceFromDom();
     if (axes) d.captionAxes = axes;
     if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력하면 바로 만들어드려요'); return; }
-    if (!d.captionAxes) d.captionAxes = { situation: '시술 완성' };
+    // [위저드 선택형] 위에서 아무것도 안 골랐으면 강제 기본값 안 넣고 '아래 시술 입력한 대로만' 생성.
+    if (!d.captionAxes) d.captionAxes = {};
     doGenerate({}, null);
+  }
+  // [직접 입력] 인라인 입력 확정 — 값 반영 후 다음 단계. 빈값이면 유지.
+  function _wizCustomConfirm() {
+    var key = d._wizCustom; if (!key) return;
+    var inp = el.querySelector('[data-fl-wizcustin]');
+    var val = inp ? String(inp.value || '').trim() : '';
+    if (!val) { toast('직접 적을 내용을 입력해 주세요'); if (inp) try { inp.focus(); } catch (_e) { void _e; } return; }
+    d.captionAxes = d.captionAxes || {}; d.captionAxes[key] = val;
+    d._wizCustom = null;
+    d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
+    d._wizDir = 'fwd'; setScreen('caption');
   }
 
 	  // [v564·필수6] 인스타 미리보기 사진 carousel — 게시글/캡션 화면과 동일한 _displayItems 사용.
@@ -2523,13 +2557,17 @@
       var wp = t.closest('[data-fl-wizpick]'); if (wp) {
         syncServiceFromDom();
         var _pv = wp.getAttribute('data-fl-wizpick').split('::'); var _wk = _pv[0], _wv = _pv[1];
-        if (_wv === '직접') { var _c = window.prompt('직접 입력', ''); if (_c == null || !String(_c).trim()) return; _wv = String(_c).trim(); }
+        if (_wv === '직접') { d._wizCustom = _wk; d._wizDir = 'fwd'; setScreen('caption'); return; }   // [직접 입력] 팝업 대신 인라인 입력 모드로
         d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
+        d._wizCustom = null;
         d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
         d._wizDir = 'fwd'; setScreen('caption'); return;
       }
-      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); d._wizDir = 'back'; setScreen('caption'); return; }
-      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizDir = 'back'; setScreen('caption'); return; }
+      // [직접 입력] 인라인 확인 → 값 반영 후 다음 단계. 빈값이면 무시.
+      var wco = t.closest('[data-fl-wizcustok]'); if (wco) { _wizCustomConfirm(); return; }
+      var wcc = t.closest('[data-fl-wizcustcancel]'); if (wcc) { d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
+      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d._wizCustom = null; d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); d._wizDir = 'back'; setScreen('caption'); return; }
+      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
