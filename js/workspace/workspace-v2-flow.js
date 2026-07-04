@@ -516,9 +516,10 @@
       }
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
-    // [#5] ShopStyle 없거나 매핑 결과 없음 → 시술내용(제목+부제)을 기본 레이어로 올려 편집기/미리보기에 실제 텍스트가 보이게.
-    if (!layers.length) {
-      layers.push({ text: roleText.title || '텍스트', role: 'title', x: 0.5, y: 0.44, w: 0.8, size: 0.08, align: 'center' });
+    // [#5] ShopStyle 없거나 매핑 결과 없음 → 시술내용(제목+부제)을 기본 레이어로. 단, 실제 시술 텍스트가 있을 때만
+    //   (업로드 직후 편집기는 시술이 아직 없음 → 빈 '텍스트' 폴백 안 올림. 깨끗한 사진으로 시작).
+    if (!layers.length && String(roleText.title || '').trim()) {
+      layers.push({ text: roleText.title, role: 'title', x: 0.5, y: 0.44, w: 0.8, size: 0.08, align: 'center' });
       if (roleText.sub) layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
       autoArranged = true;   // [#5] 미리보기(_autoComposeTemplate)도 이 텍스트를 합성하도록
     }
