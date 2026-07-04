@@ -187,24 +187,44 @@
       '<span class="cBar__cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>사진 올리기</span></button>';
   }
 
+  // [인스타 피드 홈] 좌상단 + = 바로 업로드, 나머지 칸 = 우리가 만든 콘텐츠(정사각 타일).
+  var _PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+  var _PHIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
+  function _feedTile(slot) {
+    var st = _cStatus(slot), img = _thumb(slot), sel = !!_selected[slot.id];
+    return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
+      '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+      (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
+      '<span class="wf-dot wf-dot--' + st.k + '"></span>' +
+      (img ? '' : '<span class="wf-ph" aria-hidden="true">' + _PHIC + '</span>') +
+      '</button>';
+  }
+  function _segsHTML(slots) {
+    var done = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
+    var F = [['all', '전체', slots.length], ['done', '발행됨', done], ['progress', '진행중', slots.length - done]];
+    return '<div class="wf-segs">' + F.map(function (f) {
+      return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' + f[1] + '</button>';
+    }).join('') + '</div>';
+  }
   function _shellHTML(slots) {
     var visible = _filter === 'all' ? slots : slots.filter(function (s) {
       var d = _cStatus(s).k === 'done'; return _filter === 'done' ? d : !d;
     });
-    var grid = visible.length
-      ? '<div class="cGrid">' + visible.map(_cardHTML).join('') + '</div>'
-      : '<div class="cGrid"><div class="cGrid__empty">' + (slots.length ? '이 상태의 콘텐츠가 없어요' : '아직 만든 콘텐츠가 없어요') + '</div></div>';
+    var doneN = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
+    var monthN = slots.filter(function (s) { return _cStatus(s).k === 'done' && _sameMonth(s); }).length;
+    var addCell = '<button type="button" class="wf-add" data-wsv2-upload data-haptic="medium" aria-label="새 게시물 업로드">' +
+      '<span class="wf-add__ic">' + _PLUS + '</span><span class="wf-add__t">새 게시물</span></button>';
+    var feed = '<div class="wf-feed">' + addCell + visible.map(_feedTile).join('') + '</div>';
     return '' +
-      '<section class="wsv2 wshc" data-wsv2-root>' +
-        '<div class="wshc-top"><div class="wshc-wm">Itda<b>sy</b></div><div class="wshc-ava">' + _shopInitial() + '</div></div>' +
-        _bentoHTML(slots) +
-        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
-        _cBarHTML() +
-        '<div class="cSec"><h2>내 콘텐츠</h2>' +
-          (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '<small>전체 ' + slots.length + '개</small>') +
+      '<section class="wsv2 wshc wshc--feed" data-wsv2-root>' +
+        '<div class="wshc-phead">' +
+          '<div class="wshc-ava wshc-ava--lg">' + _shopInitial() + '</div>' +
+          '<div class="wshc-pinfo"><div class="wshc-phandle">내 작업실</div><div class="wshc-pstat">게시 ' + doneN + ' · 이번 달 ' + monthN + '</div></div>' +
+          (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
         '</div>' +
-        _cFiltersHTML(slots) +
-        grid +
+        _segsHTML(slots) +
+        '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
+        feed +
         (_selectMode ? _bulkBarHTML() : '') +
       '</section>';
   }
