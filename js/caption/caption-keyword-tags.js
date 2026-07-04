@@ -31,21 +31,29 @@ function _saveDeletedKeywords(arr) {
   localStorage.setItem('itdasy_deleted_keywords', JSON.stringify(arr));
 }
 
-// 영문/제네릭 업종값 → 한글 키 정규화. 'beauty'처럼 특정 업종이 아닌 값은 '' → 키워드 없음(업종 고르게).
-const SHOP_TYPE_ALIAS = {
-  hair: '헤어', salon: '미용실', nail: '네일', nailart: '네일아트', lash: '속눈썹', eyelash: '속눈썹',
-  waxing: '왁싱', skin: '피부', skincare: '피부', extension: '붙임머리', hair_extension: '붙임머리', beauty: '',
+// 원시 shop_type(가입값: 헤어샵/hair/네일/beauty 등)을 app-core 정규화(8종 cat)로 매핑 → 그에 맞는 키워드 세트.
+//   app-core.itdasyNormalizeShopType 있으면 그걸(권장), 없으면 간이 별칭 폴백.
+const _CAT_KEYWORDS = {
+  hair: SHOP_KEYWORDS['미용실'], nail: SHOP_KEYWORDS['네일'], lash: SHOP_KEYWORDS['속눈썹'],
+  wax: SHOP_KEYWORDS['왁싱'], skin: SHOP_KEYWORDS['피부'],
 };
-function _resolveShopType() {
-  let t = localStorage.getItem('shop_type') || '';
-  if (Object.prototype.hasOwnProperty.call(SHOP_TYPE_ALIAS, t)) t = SHOP_TYPE_ALIAS[t];
-  return t;
+const _SHOP_TYPE_ALIAS = {
+  hair: '헤어', salon: '미용실', 미용실: '미용실', 헤어: '헤어', nail: '네일', 네일: '네일', nailart: '네일아트',
+  lash: '속눈썹', eyelash: '속눈썹', 속눈썹: '속눈썹', waxing: '왁싱', 왁싱: '왁싱', skin: '피부', skincare: '피부',
+  피부: '피부', extension: '붙임머리', 붙임머리: '붙임머리',
+};
+function _shopKeywordBase() {
+  const raw = (() => { try { return localStorage.getItem('shop_type') || ''; } catch (_) { return ''; } })();
+  if (window.itdasyNormalizeShopType) {
+    try { const c = window.itdasyNormalizeShopType(raw).cat; if (_CAT_KEYWORDS[c]) return _CAT_KEYWORDS[c]; } catch (_) { /* fall through */ }
+  }
+  const key = _SHOP_TYPE_ALIAS[raw] || raw;   // 폴백: 별칭/직접 한글 키
+  return SHOP_KEYWORDS[key] || null;
 }
 // 현재 업종에 맞는 키워드 목록 반환 (기본 - 삭제 + 커스텀)
-// [fix] 업종 미설정/미매핑(beauty 등)이면 '붙임머리'로 폴백하지 않는다 — 미용실인데 인치태그 쏟아지던 버그.
+// [fix] 업종 미설정/미매핑(beauty·general 등)이면 '붙임머리'로 폴백하지 않는다 — 미용실인데 인치태그 쏟아지던 버그.
 function getShopKeywords() {
-  const shopType = _resolveShopType();
-  const base = SHOP_KEYWORDS[shopType];
+  const base = _shopKeywordBase();
   const custom = _loadCustomKeywords();
   if (!base) return [...new Set(custom)];   // 업종 미확정 → 커스텀만(자동 인치태그 금지)
   const deleted = _loadDeletedKeywords();
@@ -84,7 +92,7 @@ function toggleCaptionTag(el) {
 
 function deleteCaptionKeyword(keyword, e) {
   e.stopPropagation();
-  const base = SHOP_KEYWORDS[localStorage.getItem('shop_type') || '붙임머리'] || [];
+  const base = _shopKeywordBase() || [];   // [fix] '붙임머리' 폴백 제거 — 정규화 기반
   if (base.includes(keyword)) {
     // 기본 키워드는 삭제 목록에 추가
     const deleted = _loadDeletedKeywords();
