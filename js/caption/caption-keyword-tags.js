@@ -31,12 +31,24 @@ function _saveDeletedKeywords(arr) {
   localStorage.setItem('itdasy_deleted_keywords', JSON.stringify(arr));
 }
 
+// 영문/제네릭 업종값 → 한글 키 정규화. 'beauty'처럼 특정 업종이 아닌 값은 '' → 키워드 없음(업종 고르게).
+const SHOP_TYPE_ALIAS = {
+  hair: '헤어', salon: '미용실', nail: '네일', nailart: '네일아트', lash: '속눈썹', eyelash: '속눈썹',
+  waxing: '왁싱', skin: '피부', skincare: '피부', extension: '붙임머리', hair_extension: '붙임머리', beauty: '',
+};
+function _resolveShopType() {
+  let t = localStorage.getItem('shop_type') || '';
+  if (Object.prototype.hasOwnProperty.call(SHOP_TYPE_ALIAS, t)) t = SHOP_TYPE_ALIAS[t];
+  return t;
+}
 // 현재 업종에 맞는 키워드 목록 반환 (기본 - 삭제 + 커스텀)
+// [fix] 업종 미설정/미매핑(beauty 등)이면 '붙임머리'로 폴백하지 않는다 — 미용실인데 인치태그 쏟아지던 버그.
 function getShopKeywords() {
-  const shopType = localStorage.getItem('shop_type') || '붙임머리';
-  const base = SHOP_KEYWORDS[shopType] || SHOP_KEYWORDS['붙임머리'];
-  const deleted = _loadDeletedKeywords();
+  const shopType = _resolveShopType();
+  const base = SHOP_KEYWORDS[shopType];
   const custom = _loadCustomKeywords();
+  if (!base) return [...new Set(custom)];   // 업종 미확정 → 커스텀만(자동 인치태그 금지)
+  const deleted = _loadDeletedKeywords();
   const filtered = base.filter(k => !deleted.includes(k));
   return [...new Set([...filtered, ...custom])];
 }

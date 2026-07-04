@@ -1645,16 +1645,17 @@
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
     var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
-    // 업종 미설정이면 자동으로 시술 태그 안 쏟아지게(엉뚱한 붙임머리 인치 태그 방지) — 업종부터 고르게 유도.
-    var chips = stype ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
-    var typeOpen = !!d.svcTypeOpen || !stype;
+    // [fix] 정식 한글 업종일 때만 태그 노출. 'beauty' 등 미매핑값은 미확정 취급 → 업종부터 고르게(붙임머리 인치태그 폴백 방지).
+    var valid = _SVC_TYPES.indexOf(stype) >= 0;
+    var chips = valid ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
+    var typeOpen = !!d.svcTypeOpen || !valid;
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
       return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
     }).join('') + '</div>') : '';
     return '<div class="cap-svctags__hint">자주 쓰는 시술 · ' +
-        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(stype || '업종 고르기') + ' <i class="ph-bold ph-caret-down"></i></button></div>' +
+        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(valid ? stype : '업종 고르기') + ' <i class="ph-bold ph-caret-down"></i></button></div>' +
       typeChips +
-      (stype ? ('<div class="cap-svctags">' + chips +
+      (valid ? ('<div class="cap-svctags">' + chips +
         '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
   }
   function _appendServiceTag(kw) {
