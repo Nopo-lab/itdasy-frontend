@@ -384,8 +384,14 @@
       '<button class="itl__rs">' + IC.rs + '</button>';
     var L = { type: type, el: box, x: 0, y: 0, scale: 1, rot: 0 };
     box.addEventListener('pointerdown', function (e) { onLayerDown(e, L); });
-    box.querySelector('.itl__del').addEventListener('click', function (e) { e.stopPropagation(); if (L._selTap) { L._selTap = false; return; } removeLayer(L, true); });   // [#8b] 방금 선택된 탭의 click 은 삭제로 안 침
-    box.querySelector('.itl__dup').addEventListener('click', function (e) { e.stopPropagation(); duplicateLayer(L); });
+    // [#8b] 삭제/복제 핸들은 몸통과 겹쳐 있어, 몸통을 탭하면 그 위의 ×가 눌려 레이어가 사라지곤 했다.
+    //   → 핸들에 '직접 pointerdown' 한 경우에만 동작(arm). 몸통 pointerdown(onLayerDown)은 disarm.
+    var _delB = box.querySelector('.itl__del');
+    _delB.addEventListener('pointerdown', function (e) { e.stopPropagation(); L._delArmed = true; });
+    _delB.addEventListener('click', function (e) { e.stopPropagation(); if (!L._delArmed) return; L._delArmed = false; removeLayer(L, true); });
+    var _dupB = box.querySelector('.itl__dup');
+    _dupB.addEventListener('pointerdown', function (e) { e.stopPropagation(); L._dupArmed = true; });
+    _dupB.addEventListener('click', function (e) { e.stopPropagation(); if (!L._dupArmed) return; L._dupArmed = false; duplicateLayer(L); });
     box.querySelector('.itl__rot').addEventListener('pointerdown', function (e) { onRotDown(e, L); });
     box.querySelector('.itl__rs').addEventListener('pointerdown', function (e) { onRsDown(e, L); });
     refs.layers.appendChild(box);
@@ -458,8 +464,8 @@
   }
   var drag = null, lpinch = null;
   function onLayerDown(e, L) {
-    // [#8b] 미선택 레이어를 탭하면 '선택'만 — 이 탭에서 나타난 ×(삭제)가 같은 click 으로 눌려 사라지던 것 방지.
-    L._selTap = (S.active !== L);
+    // [#8b] 몸통 탭이면 삭제/복제 핸들 disarm — 몸통 위에 겹친 ×가 눌려 레이어가 사라지던 것 방지(핸들 직접 탭에서만 동작).
+    L._delArmed = false; L._dupArmed = false;
     e.preventDefault(); selectLayer(L);
     L._pts = L._pts || {}; L._pts[e.pointerId] = { x: e.clientX, y: e.clientY };
     try { L.el.setPointerCapture(e.pointerId); } catch (_) { void _; }
