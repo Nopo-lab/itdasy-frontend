@@ -1696,7 +1696,16 @@
   function renderCaption() {
     var url = outputUrl();
     if (d.capLoading) {
-      return '<div class="cap-loading"><div class="cap-loading-spin"></div><p>AI가 게시글을 쓰는 중…</p></div>';
+      // [Skeleton] 스피너 대신 캡션 카드 형태 스켈레톤 — 결과가 어떻게 올지 미리 보이게(Astryx 로딩 패턴).
+      return '<div class="cap-skelwrap">' +
+        '<div class="cap-skel-note"><span class="cap-skel-dot"></span>AI가 우리샵 말투로 쓰는 중…</div>' +
+        '<div class="cap-skel-card">' +
+          '<div class="cap-skel-line" style="width:92%"></div>' +
+          '<div class="cap-skel-line" style="width:100%"></div>' +
+          '<div class="cap-skel-line" style="width:78%"></div>' +
+          '<div class="cap-skel-line cap-skel-line--gap" style="width:60%"></div>' +
+          '<div class="cap-skel-tags"><span></span><span></span><span></span><span></span></div>' +
+        '</div></div>';
     }
 	    if (!d.caption) {
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
