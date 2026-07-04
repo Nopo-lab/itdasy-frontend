@@ -587,7 +587,8 @@
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
-    d._editorOpenRoles = layers.filter(function (l) { return l.type === 'text' && l.role; }).map(function (l) { return l.role; });
+    // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
+    d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
     Editor.open({
       photoUrl: photo,
       photos: (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본(누끼+배경+스티커 합성) 우선 → 레이아웃해도 보정 유지
@@ -3330,6 +3331,9 @@
 	        if (photo._uid && d._paintCv) { delete d._paintCv[photo._uid]; } d.maskPaint = false;
 	        if (hasBg) { photo.fgCutout = r.dataUrl; return _compositeBg(photo.bgSpec, r.dataUrl).then(function (comp) { photo.editedDataUrl = comp; }); }
 	        photo.editedDataUrl = r.dataUrl;
+	      }).catch(function (e) {
+	        console.warn('[wsv2flow] bakeEdit correction failed → CSS fallback', e);
+	        try { return _bakeCss(photo, src); } catch (_e2) { void _e2; return Promise.resolve(); }
 	      });
     }
     return _bakeCss(photo, src);
@@ -3798,6 +3802,8 @@
       var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
       // [캐러셀] 여러 장이면 각 사진의 표시 이미지(편집 반영본)를 모아 보냄.
       var _imgs = (kind === 'carousel') ? (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean) : null;
+      // [audit#6] 발행 직전 태그칸 flush — input 이벤트 못 받은 값(IME/붙여넣기 직후 즉시 발행)도 반영.
+      try { var _utEl = el && el.querySelector('[data-fl-usertags]'); if (_utEl) d.igUserTags = String(_utEl.value || '').split(/[,\s]+/).map(function (s) { return s.replace(/^@/, '').trim(); }).filter(Boolean).slice(0, 20); } catch (_ue) { void _ue; }
       // [계정 태그] 피드에서만 — 입력한 @아이디를 자동 위치(세로로 분산)로 태그.
       var _tagArr = d.igUserTags || [];
       var _utags = (kind === 'feed' && _tagArr.length) ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
