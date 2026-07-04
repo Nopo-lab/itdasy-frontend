@@ -384,7 +384,7 @@
       '<button class="itl__rs">' + IC.rs + '</button>';
     var L = { type: type, el: box, x: 0, y: 0, scale: 1, rot: 0 };
     box.addEventListener('pointerdown', function (e) { onLayerDown(e, L); });
-    box.querySelector('.itl__del').addEventListener('click', function (e) { e.stopPropagation(); removeLayer(L, true); });
+    box.querySelector('.itl__del').addEventListener('click', function (e) { e.stopPropagation(); if (L._selTap) { L._selTap = false; return; } removeLayer(L, true); });   // [#8b] 방금 선택된 탭의 click 은 삭제로 안 침
     box.querySelector('.itl__dup').addEventListener('click', function (e) { e.stopPropagation(); duplicateLayer(L); });
     box.querySelector('.itl__rot').addEventListener('pointerdown', function (e) { onRotDown(e, L); });
     box.querySelector('.itl__rs').addEventListener('pointerdown', function (e) { onRsDown(e, L); });
@@ -420,8 +420,11 @@
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   function selectLayer(L) {
+    var wasActive = S.active === L;
     S.active = L;
     S.layers.forEach(function (x) { x.el.classList.toggle('is-active', x === L); });
+    // [#8b] 새로 선택된 순간엔 삭제/복제 핸들 클릭을 잠깐 막는다 — 선택시키는 그 탭이 방금 나타난 ×를 눌러 사라지던 것 방지(타이밍 무관 방어).
+    if (L && !wasActive && L.el) { L.el.classList.add('itl--guard'); clearTimeout(L._guardT); L._guardT = setTimeout(function () { try { L.el.classList.remove('itl--guard'); } catch (_e) { void _e; } }, 320); }
     if (L && L.type === 'text') syncTextControls(L);
   }
   function removeLayer(L, track) {
@@ -455,6 +458,8 @@
   }
   var drag = null, lpinch = null;
   function onLayerDown(e, L) {
+    // [#8b] 미선택 레이어를 탭하면 '선택'만 — 이 탭에서 나타난 ×(삭제)가 같은 click 으로 눌려 사라지던 것 방지.
+    L._selTap = (S.active !== L);
     e.preventDefault(); selectLayer(L);
     L._pts = L._pts || {}; L._pts[e.pointerId] = { x: e.clientX, y: e.clientY };
     try { L.el.setPointerCapture(e.pointerId); } catch (_) { void _; }
