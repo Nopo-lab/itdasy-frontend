@@ -22,8 +22,8 @@
   // 진행 표시(단계 X/N·진행바)·다음 화면 계산에 쓰는 '실제로 보이는 단계' 목록.
   // [v592] 워크플로 재배치 — 업로드 → 캡션 생성(편집) → 인스타 미리보기(게시) → 고객 연결(마지막).
   //   인스타 미리보기를 다시 별도 단계로(미리보기+피드+게시), 고객연결은 게시 뒤 마지막.
-  // [워크플로 재정렬] 업로드→편집→캡션→미리보기(발행)→고객연결. '편집' 단계를 다시 노출.
-  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'edit', 'caption', 'preview', 'connect'] : SCREENS;
+  // [통합 편집기] 업로드→(ItdEditor)→캡션→(ItdEditor)→미리보기→고객연결. 옛 crop 'edit' 화면은 플로우에서 제외(편집기 단독).
+  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'preview', 'connect'] : SCREENS;
   var TITLE = { upload:'사진 업로드', edit:'편집', template:'템플릿 선택', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
   var CTA = {
     upload: { l:'편집으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
@@ -33,9 +33,8 @@
     preview:{ l:'고객 연결로', to:'connect' },          // [v592] 미리보기(게시) → 고객 연결
     connect:{ l:'저장하고 완료', to:'__save' },         // 고객연결=마지막 단계 → 저장 후 작업실로
   };
-  // [워크플로 재정렬] 업로드 다음 = 사진 편집 먼저(캡션 직행 아님). 편집 완료 → 캡션.
-  if (SIMPLE_FLOW) CTA.upload = { l:'사진 편집 →', to:'edit' };
-  if (SIMPLE_FLOW) CTA.edit = { l:'게시글 쓰기 →', to:'caption' };
+  // [통합 편집기] 업로드 다음 = ItdEditor(사진 편집) — onCta 에서 _openEditFirst() 로 연다. to:'edit' 는 폴백 표식.
+  if (SIMPLE_FLOW) CTA.upload = { l:'사진 편집 →', to:'__edit' };
   // [Phase A-2] 캡션 화면 명칭을 스펙(이미지 01)에 맞춰 '캡션 생성'으로(상단 타이틀).
   if (SIMPLE_FLOW) TITLE.caption = '캡션 생성';
   // [v592] preview: 화면 안에 '저장 및 게시' 버튼 + 하단 CTA '고객 연결로'(다음 단계). 게시는 선택, 연결로 진행.
@@ -582,7 +581,9 @@
     var Editor = window.ItdEditor;
     if (!(Editor && Editor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = _activeEditPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;   // [#5] 보고 있는 장
-    var photo = _cleanBase(p0) || outputUrl();   // [v587] 편집기는 항상 깨끗한 원본 위에서 시작(이중 합성 방지)
+    // [통합 편집기] 캡션 후 fresh 오픈은 '업로드에서 편집(누끼·레이아웃)한 사진' 위에 캡션을 얹는다(그 편집 보존).
+    //   일반(재편집)은 깨끗한 원본 위에서(editState 로 편집 복원, 이중합성 방지).
+    var photo = (o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl());
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
@@ -626,6 +627,13 @@
       },
       onCancel: function () { d._editorNext = null; }   // 편집기 취소 시 라우팅 플래그 정리(다음 편집이 엉뚱히 미리보기로 안 가게)
     });
+  }
+  // [통합 편집기] 업로드 직후도 '옛 crop 화면'이 아니라 같은 ItdEditor 를 연다 → 완료하면 캡션 화면으로.
+  //   새 업로드 사진은 editState=null 이라 자동으로 깨끗하게 열림(옛 편집 안 꺼냄).
+  function _openEditFirst() {
+    if (!(window.ItdEditor && window.ItdEditor.open)) { setScreen('caption'); return; }
+    d._editorNext = 'caption';
+    _openStoryEditor();
   }
   // [v587·C] ShopStyle 학습 피드백 루프 — 편집기에서 바꾼 폰트/색/위치/외곽선을 활성 스타일에
   //   되저장해 다음 사진부터 같은 스타일로 자동배치한다. (중앙x → 좌상단x 역변환)
@@ -1658,7 +1666,7 @@
     // [#2] 업종이 키워드로 해석되면(가입값 hair/헤어샵/네일 등 정규화 성공) 태그 노출. 'beauty'·general 처럼 안 풀리면 업종 고르게.
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
     var valid = kws.length > 0 || _SVC_TYPES.indexOf(stype) >= 0;
-    var _typeLabel = valid ? (_norm || stype) : '업종 고르기';
+    var _typeLabel = (_SVC_TYPES.indexOf(stype) >= 0) ? stype : (valid ? (_norm || stype) : '업종 고르기');   // 고른 업종칩은 그대로 표시(정규화 '기타'로 안 바뀌게)
     var chips = valid ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
     var typeOpen = !!d.svcTypeOpen || !valid;
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
@@ -3560,7 +3568,7 @@
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
       //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
-      if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }   // [워크플로 재정렬] 업로드/홈 진입 → 사진 편집 먼저
+      if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('upload', { push: false }); _openEditFirst(); }   // [통합 편집기] 업로드/홈 진입 → 바로 ItdEditor
       else if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
@@ -3611,6 +3619,7 @@
       if (!editablePhotos().length) { toast('사진을 1장 이상 선택해 주세요.'); return; }
     }
     if (c.to === '__save') return save();
+    if (c.to === '__edit') return _openEditFirst();   // [통합 편집기] 업로드 다음 = ItdEditor
     if (cur === 'caption') {
       flushCaptionInputs();
       // [캡션 스킵 방지] 게시글 안 만든 채로 고객연결/미리보기로 못 넘어가게 — 시술명 있으면 바로 생성, 없으면 안내.
@@ -3897,7 +3906,7 @@
 	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	    reassignRoles();
     // [워크플로 재정렬] 사진 들어오면 업로드 화면 건너뛰고 바로 사진 편집.
-    if (cur === 'upload') { if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); } else setScreen('upload', { push: false }); }
+    if (cur === 'upload') { if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('upload', { push: false }); _openEditFirst(); } else setScreen('upload', { push: false }); }
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
 	  }
