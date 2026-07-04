@@ -875,7 +875,13 @@
   /* ── 레이아웃(타입 칩 + 사진 순서 선택) ── */
   function selectLayout(i) {
     S.layout = LAYOUTS[i];
-    S.layoutOrder = []; S.cellCrop = [];   // 타입 바꾸면 자리 선택·셀 크롭 초기화
+    S.cellCrop = [];
+    // [흰백지/복제 수정] 콜라주 고르면 '가진 사진'을 칸에 자동 배치(중복 없이). 사진이 칸보다 적으면 남는 칸은 빈 칸(사진 필요) 안내.
+    //   예전엔 layoutOrder 가 비어 흰 백지가 뜨거나(사진 미선택), 한 장이 여러 칸에 복제돼 보였음.
+    var _need = _layCells().length, _order = [];
+    for (var _pi = 0; _pi < (S.photos || []).length && _order.length < _need; _pi++) { if (S.photos[_pi] != null) _order.push(_pi); }
+    S.layoutOrder = isSingleL(S.layout) ? [] : _order;
+    refs.frame.className = 'itded__frame';
     refs.frame.className = 'itded__frame';
     root.querySelectorAll('.itlaytype').forEach(function (b) { b.classList.toggle('on', +b.getAttribute('data-lay') === i); });
     // [#3] 콜라주 기본을 '전체보기(contain)'로 — 상하/좌우 분할에서 사진이 잘려보이던 문제 해소(뷰티 전후컷은 잘리면 안 됨).
@@ -926,7 +932,12 @@
     if (!refs.layHint) return;
     if (isSingleL(S.layout)) { refs.layHint.textContent = '넣을 사진 하나를 누르세요'; return; }
     var pos = _layPosArr(), need = _layN();
-    var filled = S.layoutOrder.length;
+    var filled = S.layoutOrder.length, have = (S.photos || []).length;
+    // [사진 부족 안내] 이 레이아웃이 요구하는 장수보다 사진이 적으면 복제 대신 '몇 장 더 필요' 안내(빈 칸 유지).
+    if (have < need) {
+      refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> — 사진 <b class="itlay2__cnt">' + need + '장</b>이 필요해요 (지금 ' + have + '장) · 위에서 사진을 더 추가해 주세요';
+      return;
+    }
     refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> 순서대로 탭 · ' +
       pos.map(function (p, i) { return (i + 1) + '=' + p; }).join(' ') + ' <b class="itlay2__cnt">' + filled + '/' + need + '</b>' +
       (filled ? '<span class="itlay2__tip">칸 끌어 위치 · 두 손가락 확대</span>' : '');

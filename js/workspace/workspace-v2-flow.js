@@ -575,8 +575,10 @@
     }
     return curPhoto();
   }
-  function _openStoryEditor() {
+  function _openStoryEditor(o) {
+    o = o || {};
     // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
+    // o.fresh=true → 이전 편집상태(editState) 복원 안 함(캡션 직후 자동 오픈: 옛날 콜라주·빈 텍스트가 되살아나던 문제).
     var Editor = window.ItdEditor;
     if (!(Editor && Editor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = _activeEditPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;   // [#5] 보고 있는 장
@@ -592,7 +594,7 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
-      editState: (p0 && p0.editState) || null,   // [#4/#8/#11/#16] 저장된 편집 이어가기(있으면 처음부터 안 함)
+      editState: o.fresh ? null : ((p0 && p0.editState) || null),   // [#4/#8/#11/#16] 재편집은 이어가기, 캡션 자동 오픈(fresh)은 깨끗하게
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
@@ -2330,7 +2332,7 @@
       //   재생성(hashtag_mode/이미 캡션 있음)은 자동 오픈 안 함. 편집 모듈 없으면 조용히 캡션 유지.
       if (AUTO_EDITOR && r.ok && _wasEmpty && !opts.hashtag_mode && window.ItdEditor && window.ItdEditor.open) {
         d._editorNext = 'preview';
-        setTimeout(function () { if (cur === 'caption') _openStoryEditor(); }, 90);
+        setTimeout(function () { if (cur === 'caption') _openStoryEditor({ fresh: true }); }, 90);   // 캡션 직후 자동 오픈은 깨끗하게(옛 편집 복원 X)
       }
     }).catch(function (e) {
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
@@ -2483,7 +2485,9 @@
         // vc 찾기 — recent 캐시에서
         var found = (d.recent || []).filter(function (c) { return String(c.id) === String(d.customerId); })[0];
         d.customerVc = found ? (found.vc || 0) : 0;
-        setScreen('connect'); return;
+        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_ce) { void _ce; }
+        toast(d.customerName + ' 고객과 연결했어요');
+        setScreen('preview'); return;   // [보스] 고객 연결하면 인스타 업로드(미리보기)로 돌아오게
       }
       // [v568·B-5] 사진 캐러셀 화살표 / 점 — 한 칸씩 또는 지정 사진으로 스크롤(스냅).
       var tplnav = t.closest('[data-fl-tplnav]'); if (tplnav) { _tplScrollBy(+tplnav.getAttribute('data-fl-tplnav')); return; }
