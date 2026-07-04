@@ -610,16 +610,15 @@
                 if (!u) return;
                 tp.editedDataUrl = u; tp.storyEdited = true;
                 tp.editState = { v: 1, layoutIdx: 0, layoutOrder: [], cellCrop: [], fitMode: 'contain', ratio: _rt, adj: [], photoDraw: {}, photoBg: {}, photos: [_cb], layers: e.layers };
-                d.previewUrl = null;
-                try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e2) { void _e2; }
+                d.previewUrl = null;   // [#3] 편집 중간에는 내 콘텐츠 저장 안 함 — 최종(발행/연결/저장)에서만. 데이터는 메모리 유지.
               });
             });
           }
         } catch (_ppe) { void _ppe; }
         d.previewUrl = null;
         _learnShopStyle(meta && meta.layers);   // [v587·C] 편집 결과를 우리샵 스타일로 학습
-        // [#8] 편집(레이아웃 포함) 결과를 IndexedDB 에 저장 → 새로고침/재진입해도 미리보기·편집본 유지.
-        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; }
+        // [#3] 편집 완료 시점엔 내 콘텐츠에 저장하지 않음(중간본 쌓임 방지). 편집 결과는 d.photos 메모리에 유지되어
+        //   미리보기·발행에 그대로 쓰이고, 실제 저장은 워크플로 최종(발행/고객연결/저장)에서만.
         // [워크플로 재정렬] 편집기 완료 후 다음 목적지(예: 캡션→편집기→미리보기). 없으면 캡션 유지.
         if (d._editorNext) { var _nx = d._editorNext; d._editorNext = null; setScreen(_nx); }
         else if (cur === 'caption') setScreen('caption');
