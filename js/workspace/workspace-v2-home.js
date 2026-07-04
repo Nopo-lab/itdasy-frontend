@@ -370,10 +370,44 @@
       // "이어서" 버튼 — 직접 해당 단계 진입
       var resume = e.target.closest('[data-wsv2-resume]');
       if (resume) { e.stopPropagation(); var sid = resume.getAttribute('data-wsv2-resume'); _resumeSlot(sid); return; }
-      // 카드 탭 — 드로어 오픈
+      // 카드 탭 — Lightbox(풀스크린 보기) 오픈. 오류/이미지 없으면 드로어로 폴백.
       var card = e.target.closest('[data-wsv2-slot]');
-      if (card) { _openDrawer(card.getAttribute('data-wsv2-slot')); return; }
+      if (card) { _openLightbox(card.getAttribute('data-wsv2-slot')); return; }
     };
+  }
+
+  // [Lightbox] 콘텐츠 타일 탭 → 풀스크린 보기(사진 스와이프) + '이어서 편집'. 화면 잘림 방지로 사이드바 위(z 10005).
+  var _lbEl = null;
+  function _slotImages(slot) {
+    var out = [];
+    if (slot.templateOutputs && slot.templateOutputs.length) slot.templateOutputs.forEach(function (o) { if (o.outputUrl) out.push(o.outputUrl); });
+    else if (slot.templateOutput) out.push(slot.templateOutput);
+    (slot.photos || []).forEach(function (p) { var u = p && (p.editedDataUrl || p.dataUrl); if (u && out.indexOf(u) < 0) out.push(u); });
+    return out;
+  }
+  function _closeLightbox() { if (_lbEl && _lbEl.parentNode) _lbEl.parentNode.removeChild(_lbEl); _lbEl = null; }
+  function _openLightbox(slotId) {
+    try {
+      var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0]; if (!slot) return;
+      var imgs = _slotImages(slot); if (!imgs.length) { _openDrawer(slotId); return; }
+      _closeLightbox();
+      var idx = 0;
+      var ov = document.createElement('div'); ov.className = 'wshc-lb';
+      ov.innerHTML = '<button type="button" class="wshc-lb__x" data-lb-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
+        '<div class="wshc-lb__stage">' + imgs.map(function (u, i) { return '<div class="wshc-lb__slide' + (i === 0 ? ' on' : '') + '" style="background-image:url(' + _esc(u) + ')"></div>'; }).join('') + '</div>' +
+        (imgs.length > 1 ? '<div class="wshc-lb__dots">' + imgs.map(function (u, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '></span>'; }).join('') + '</div>' : '') +
+        '<div class="wshc-lb__bar"><button type="button" class="wshc-lb__edit" data-lb-edit>이어서 편집 →</button></div>';
+      document.body.appendChild(ov); _lbEl = ov;
+      (window.requestAnimationFrame || function (f) { return setTimeout(f, 16); })(function () { ov.classList.add('is-open'); });
+      var go = function (n) { idx = Math.max(0, Math.min(imgs.length - 1, n)); ov.querySelectorAll('.wshc-lb__slide').forEach(function (s, i) { s.classList.toggle('on', i === idx); }); ov.querySelectorAll('.wshc-lb__dots span').forEach(function (dd, i) { dd.classList.toggle('on', i === idx); }); };
+      ov.addEventListener('click', function (e) {
+        if (e.target.closest('[data-lb-edit]')) { _closeLightbox(); _openDrawer(slotId); return; }
+        if (e.target.closest('[data-lb-close]') || e.target === ov) { _closeLightbox(); return; }
+      });
+      var sx = 0; var stage = ov.querySelector('.wshc-lb__stage');
+      stage.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+      stage.addEventListener('touchend', function (e) { var dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(idx + (dx < 0 ? 1 : -1)); }, { passive: true });
+    } catch (_e) { _openDrawer(slotId); }
   }
 
   function _launchFlow(slotId, screen, cat, extra) {
