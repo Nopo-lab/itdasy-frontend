@@ -1598,6 +1598,57 @@
     return Object.keys(r).map(function (k) { return ({ before: '전', after: '후', hero: '홍보컷', exclude: '제외' }[k] || k) + ' ' + r[k]; }).join(' · ') || '없음';
   }
 
+  // [캡션재설계] 옛 3축(scenario-selector) 느낌을 살린 위저드 — 위 버튼 누르면 다음 질문, 아래 시술입력은 고정.
+  //   picks 는 기존 생성 배관(d.captionAxes → photo_context)에 그대로 흘러감(백엔드 변경 0).
+  var _WIZ_STEPS = [
+    { key: 'situation', q: '무슨 게시물인가요?', opts: [['시술 완성', 'ph-check-circle'], ['후기·감사', 'ph-heart'], ['직접', 'ph-pencil-simple']] },
+    { key: 'customer',  q: '손님은 어떤 분이에요?', opts: [['신규', 'ph-user-plus'], ['단골', 'ph-user-circle'], ['직접', 'ph-pencil-simple']] },
+    { key: 'photo',     q: '사진 종류는요?', opts: [['완성샷', 'ph-image'], ['전후 비교', 'ph-columns'], ['직접', 'ph-pencil-simple']] }
+  ];
+  function _capWizHtml() {
+    var step = d.capWizStep || 0, ax = d.captionAxes || {};
+    var dots = '';
+    for (var i = 0; i < 3; i++) { dots += '<span class="capwiz__dot' + (ax[_WIZ_STEPS[i].key] ? ' done' : (i === step ? ' on' : '')) + '"></span>'; }
+    var head = '<div class="capwiz__head">' +
+      (step > 0 ? '<button type="button" class="capwiz__back" data-fl-wizback aria-label="이전"><i class="ph-bold ph-caret-left"></i></button>' : '<span class="capwiz__backsp"></span>') +
+      '<span class="capwiz__dots">' + dots + '</span></div>';
+    if (step >= 3) {
+      var chips = _WIZ_STEPS.map(function (s) { return '<span class="capwiz__pick">' + esc(ax[s.key] || '-') + '</span>'; }).join('');
+      return '<div class="capwiz capwiz--done">' + head +
+        '<div class="capwiz__done"><i class="ph-fill ph-check-circle capwiz__donechk"></i><span class="capwiz__donet">다 골랐어요</span>' + chips +
+        '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div>';
+    }
+    var s = _WIZ_STEPS[step];
+    var btns = s.opts.map(function (o) {
+      var on = ax[s.key] === o[0];
+      return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
+        '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
+    }).join('');
+    return '<div class="capwiz">' + head + '<div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div></div>';
+  }
+  // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
+  function _svcTagsHtml() {
+    var kws = [];
+    try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
+    var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
+    var chips = kws.slice(0, 12).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('');
+    return '<div class="cap-svctags">' + chips +
+      '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>' +
+      '<div class="cap-svctags__hint">자주 쓰는 시술' + (stype ? ' · ' + esc(stype) : '') + ' (눌러서 넣기)</div>';
+  }
+  function _appendServiceTag(kw) {
+    syncServiceFromDom();
+    var curTx = String(d.service || '').trim();
+    if (curTx.split(/\s+/).indexOf(kw) >= 0) return;   // 중복 방지
+    d.service = (curTx ? curTx + ' ' : '') + kw;
+    setScreen('caption');
+  }
+  function _addSvcKeyword() {
+    var kw = window.prompt('자주 쓰는 시술 추가'); if (kw == null) return; kw = String(kw).trim(); if (!kw) return;
+    try { var arr = JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); if (arr.indexOf(kw) < 0) { arr.push(kw); localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr)); } } catch (_e) { void _e; }
+    _appendServiceTag(kw);
+  }
+
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
   function renderCaption() {
     var url = outputUrl();
@@ -1611,58 +1662,21 @@
 	      // [Phase A-2] 심플 캡션 — 말투/길이/해시태그 칩 제거. 시술 내용 입력 + 우리샵 스타일 적용 + 캡션 생성.
 	      //   레거시(말투 6카드·길이·페르소나·해시태그 토글)는 SIMPLE_FLOW=false 에서 그대로 복원.
 	      if (SIMPLE_FLOW) {
-	        var _useStyle = (d.useShopStyle !== false);   // 기본 ON
 	        var _svc = d.service || '';
-	        // [Phase A-3] 활성 우리샵 스타일 카드 — 토글 ON일 때 노출(데이터모델 첫 연결점).
-	        //   '변경'(다중 스타일 선택)·실제 자동배치는 Phase C. 여기선 활성 스타일 표시까지.
-	        var _ss = (window.ShopStyle && window.ShopStyle.ensureSeed) ? window.ShopStyle.ensureSeed() : null;
-	        var _ssList = (window.ShopStyle && window.ShopStyle.list) ? window.ShopStyle.list() : [];
-	        // [#6] 우리샵 스타일 전환/생성 — 여러 개 저장 가능, 활성 1개만 캡션 반영. 칩으로 전환·추가.
-	        var _ssPick = (_useStyle && _ss) ? (
-	          '<div class="cap-stylepick">' +
-	            _ssList.map(function (s) { return '<button type="button" class="cap-stylechip' + (s.id === _ss.id ? ' on' : '') + '" data-fl-stylepick="' + esc(s.id) + '">' + esc(s.name) + '</button>'; }).join('') +
-	            '<button type="button" class="cap-stylechip cap-stylechip--new" data-fl-stylenew>+ 새 스타일</button>' +
-	          '</div>') : '';
-	        // [#14] 초보자 레이아웃 A 적용 버튼
-	        var _ssPreset = (_useStyle && !d.textOnly) ? (
-		          '<div class="cap-presetrow2 cap-presetrow2--preview"><span class="cap-presetrow__l">레이아웃 미리보기 · 배치는 \'사진 편집\'에서</span>' +
-		            '<div class="cap-presetcards"><div class="cap-presetcard"><div class="cap-presetcard__btn" aria-hidden="true">' + _presetThumb((_ss && _ss.presetKey) || 'A') + '</div></div></div>' +
-		          '</div>') : '';
-	        // [#6 브랜드킷] 로고·브랜드색·폰트 한 번 등록 → 모든 게시물 자동 적용(활성 스타일에 저장).
-	        var _bkLayer = (_ss && _ss.layers || []).filter(function (L) { return L.role === 'title'; })[0] || {};
-	        var _bkColors = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
-	        var _bkFonts = [{ k: 'black', l: '또렷' }, { k: 'jua', l: '동글' }, { k: 'gothica1', l: '깔끔' }, { k: 'songmyung', l: '단정' }, { k: 'dodum', l: '도톰' }, { k: 'gaegu', l: '손글씨' }];
-	        var _brandKit = '';   // [#3] 캡션 생성 화면에서 '디자인·업종'(추천조합/업종) 패널 제거 — 디자인은 편집기에서.
-	        var _brandKitOld = (_useStyle && _ss && !d.textOnly) ? (
-	          '<details class="cap-bk"><summary><i class="ph-duotone ph-stamp"></i> 디자인·업종 <em>추천 조합 · 업종 설정</em></summary>' +
-	            '<div class="cap-bk__body">' +
-	            '<div class="cap-bk__row cap-bk__row--harmony"><span class="cap-bk__lbl">추천 조합</span><div class="cap-harm">' +
-	            (window.WSHarmony || []).map(function (h) { return '<button type="button" class="cap-harm__c" data-fl-harmony="' + h.key + '" title="' + esc(h.label) + '"><span class="cap-harm__sw">' + (h.sw || []).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</span><span class="cap-harm__l">' + esc(h.label) + '</span></button>'; }).join('') + '</div></div>' +
-	              '<div class="cap-bk__row"><span class="cap-bk__lbl">업종</span><div class="cap-shoptype">' +
-	              ['붙임머리','네일','헤어','속눈썹','왁싱','반영구','피부'].map(function (st) { var _cur=(function(){try{return localStorage.getItem('shop_type')||'';}catch(e){return '';}})(); return '<button type="button" class="cap-st'+(st===_cur?' on':'')+'" data-fl-shoptype="'+st+'">'+st+'</button>'; }).join('') + '</div></div>' +
-	            '</div></details>') : '';
-	        var _ssCard = (_useStyle && _ss) ? (
-	          '<div class="cap-stylecard">' +
-	            '<span class="cap-stylecard__ic"><i class="ph-duotone ph-paint-brush-broad"></i></span>' +
-	            '<span class="cap-stylecard__tx"><b>' + esc(_ss.name) + (_ss.isDefault ? ' <em>기본</em>' : '') + '</b>' +
-	              '<small>최근 수정 ' + esc(window.ShopStyle.formatUpdated(_ss)) + '</small></span>' +
-	          '</div>' + _ssPick + _ssPreset + _brandKit +   // [#3] '알아서 예쁘게'(디자인)도 캡션 생성 화면서 제거 — 편집기에서
-          ((!d.textOnly) ? '<div class="cap-palette" data-fl-palette hidden></div>' : '')) : '';   // [v591·#6] 사진 추천색(async)
+        // 우리샵 스타일 시드만 보장 — 스타일 카드·레이아웃 미리보기·디자인 패널은 편집기로 이동.
+        //   레거시 함수(_presetThumb/_applyPreset/_applyHarmony/_autoPretty/_setShopType 등)는 삭제 안 함(보존).
+        if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }   // [v591·#6] 사진 추천색(async)
 	        return photoThumb +
-	          '<div class="screen-head"><h2>캡션 생성</h2><p class="screen-head__sub">시술 내용을 입력하면 AI가 우리샵 스타일에 맞춰 게시글을 만들어드려요.</p></div>' +
-	          '<label class="cap-field-label">시술 내용</label>' +
-	          '<div class="cap-svc-wrap">' +
-	            '<textarea class="service-input cap-svc-area" data-fl-service rows="5" maxlength="500" placeholder="자유롭게 입력해 주세요&#10;&#10;예)&#10;레이어드컷&#10;28인치&#10;재시술&#10;자연스러운 느낌으로 부탁해!">' + esc(_svc) + '</textarea>' +
-	            '<span class="cap-svc-count"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
-	          '</div>' +
-	          _capConfirmHtml() +
-	          '<div class="cap-style-row">' +
-	            '<div class="cap-style-row__tx"><span class="cap-field-label" style="margin:0">우리샵 스타일 적용</span>' +
-	              '<span class="cap-style-row__d">' + (_useStyle ? '우리샵 디자인에 맞춰 자동으로 배치해요' : '사진은 그대로 두고 글만 만들어요') + '</span></div>' +
-	            '<button type="button" class="cap-switch' + (_useStyle ? ' on' : '') + '" data-fl-cshopstyle role="switch" aria-checked="' + _useStyle + '"><span class="cap-switch__dot"></span></button>' +
-	          '</div>' +
-	          _ssCard +
-	          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>';
+	          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
+          _capWizHtml() +
+          '<label class="cap-field-label">시술만 적으면 끝</label>' +
+          '<div class="cap-svc-wrap">' +
+            '<textarea class="service-input cap-svc-area" data-fl-service rows="3" maxlength="500" placeholder="예) 레이어드컷 손상모 일본인">' + esc(_svc) + '</textarea>' +
+            '<span class="cap-svc-count"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
+          '</div>' +
+          _svcTagsHtml() +
+          _capConfirmHtml() +
+          '<button type="button" class="cap-gen-btn" data-fl-cgen><i class="ph-duotone ph-sparkle"></i> 캡션 생성</button>';
 	      }
 	      var _tone = d.capTone || 'natural', _len = d.capLen || 'medium', _hashOn = (d.capHashOn !== false);
 	      var _chip = function (group, val, label, cur) { return '<button type="button" class="cap-chip' + (cur === val ? ' on' : '') + '" data-fl-' + group + '="' + val + '">' + label + '</button>'; };
@@ -2494,6 +2508,19 @@
       var stb = t.closest('[data-fl-shoptype]'); if (stb) { _setShopType(stb.getAttribute('data-fl-shoptype')); return; }   // [P3-2] 업종
       var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
       var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
+      // [캡션재설계] 3축 위저드 — 버튼 누르면 그 축 저장 + 다음 질문. 시술 입력은 유지(syncServiceFromDom).
+      var wp = t.closest('[data-fl-wizpick]'); if (wp) {
+        syncServiceFromDom();
+        var _pv = wp.getAttribute('data-fl-wizpick').split('::'); var _wk = _pv[0], _wv = _pv[1];
+        if (_wv === '직접') { var _c = window.prompt('직접 입력', ''); if (_c == null || !String(_c).trim()) return; _wv = String(_c).trim(); }
+        d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
+        d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
+        setScreen('caption'); return;
+      }
+      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); setScreen('caption'); return; }
+      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; setScreen('caption'); return; }
+      var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
+      var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {

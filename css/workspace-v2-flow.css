@@ -797,3 +797,33 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
   /* [v569·B-1] 캡션 화면 — PC 에서 폭 너무 넓지 않게 중앙 정렬/최대폭 */
   .wsv2flow__s[data-fs="caption"] > * { max-width: 560px; margin-left: auto; margin-right: auto; }
 }
+
+/* [캡션재설계] 3축 위저드 + 자주쓰는 시술 태그 — 앱 브랜드 토큰 사용(스킨 자동 일치) */
+.wsv2flow .capwiz { background: var(--surface); border-radius: 16px; padding: 14px 14px 16px; margin: 4px 0 18px; box-shadow: 0 4px 16px rgba(168,100,115,.08); }
+.wsv2flow .capwiz__head { display: flex; align-items: center; gap: 8px; min-height: 22px; margin-bottom: 10px; }
+.wsv2flow .capwiz__back { width: 26px; height: 26px; border: none; background: transparent; color: var(--text-subtle); border-radius: 8px; cursor: pointer; display: grid; place-items: center; }
+.wsv2flow .capwiz__back:active { background: var(--brand-bg); }
+.wsv2flow .capwiz__back i { font-size: 16px; }
+.wsv2flow .capwiz__backsp { width: 26px; }
+.wsv2flow .capwiz__dots { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+.wsv2flow .capwiz__dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(0,0,0,.10); transition: background .15s; }
+.wsv2flow .capwiz__dot.on { background: var(--brand); }
+.wsv2flow .capwiz__dot.done { background: var(--brand-strong); }
+.wsv2flow .capwiz__q { font-size: 14.5px; font-weight: 800; color: var(--text); letter-spacing: -.3px; margin: 2px 0 12px; }
+.wsv2flow .capwiz__opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.wsv2flow .capwiz__opt { border: none; border-radius: 14px; padding: 14px 4px 11px; background: var(--surface-2); box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all .13s; }
+.wsv2flow .capwiz__opt i { font-size: 21px; color: var(--text-subtle); }
+.wsv2flow .capwiz__opt span { font-size: 12px; font-weight: 700; letter-spacing: -.3px; color: var(--text-muted); }
+.wsv2flow .capwiz__opt:active { transform: scale(.97); }
+.wsv2flow .capwiz__opt.on { background: var(--brand-bg); box-shadow: inset 0 0 0 1.5px var(--brand); }
+.wsv2flow .capwiz__opt.on i, .wsv2flow .capwiz__opt.on span { color: var(--brand-strong); }
+.wsv2flow .capwiz__done { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
+.wsv2flow .capwiz__donechk { font-size: 18px; color: var(--brand-strong); }
+.wsv2flow .capwiz__donet { font-size: 12.5px; font-weight: 700; color: var(--text-muted); }
+.wsv2flow .capwiz__pick { font-size: 12px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--brand-bg); color: var(--brand-strong); }
+.wsv2flow .capwiz__redo { margin-left: auto; border: none; background: transparent; color: var(--text-subtle); font-size: 12px; text-decoration: underline; cursor: pointer; }
+.wsv2flow .cap-svctags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.wsv2flow .cap-svctag { font-size: 13px; padding: 7px 13px; border-radius: 999px; background: var(--surface); color: var(--text-muted); border: 1px solid rgba(0,0,0,.10); font-weight: 600; cursor: pointer; }
+.wsv2flow .cap-svctag:active { transform: scale(.97); }
+.wsv2flow .cap-svctag--add { background: var(--brand-bg); color: var(--brand-strong); border: 1px dashed var(--brand); }
+.wsv2flow .cap-svctags__hint { font-size: 11.5px; color: var(--text-subtle); margin: 0 0 18px 2px; }

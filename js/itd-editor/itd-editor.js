@@ -149,9 +149,9 @@
 
   function buildText() {
     var fonts = FONTS.map(function (f, i) {
-      // [#8] 'Aa가'를 그 폰트 그대로 렌더(이름표 없음). family 는 작은따옴표라 큰따옴표 속성 안에서도 안 깨짐.
+      // [보스#4] '가나다'를 그 폰트 그대로 렌더(이름표 없음). family 는 작은따옴표라 큰따옴표 속성 안에서도 안 깨짐.
       var big = (f.key === 'pen' || f.key === 'gamja' || f.key === 'himelody' || f.key === 'gaegu') ? ';font-size:26px' : '';
-      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + big + '">Aa가</button>';
+      return '<button class="itfont' + (i === 0 ? ' on' : '') + '" data-font="' + f.key + '" aria-label="' + f.label + '" style="font-family:' + f.family + big + '">가나다</button>';
     }).join('');
     var colors = COLORS.map(function (c, i) {
       return '<button class="itsw' + (i === 0 ? ' on' : '') + '" data-color="' + c + '" style="background:' + c + '"></button>';
