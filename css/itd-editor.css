@@ -36,16 +36,16 @@
 /* 레이어(텍스트/스티커) */
 .itl{position:absolute;left:0;top:0;transform-origin:center center;cursor:grab;touch-action:none;will-change:transform}
 .itl.is-active{outline:1.5px solid rgba(255,255,255,.92);outline-offset:4px;border-radius:4px}
-.itl__del{position:absolute;left:-12px;top:-12px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);
+.itl__del{position:absolute;left:-20px;top:-20px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);
   color:#fff;display:none;place-items:center;z-index:5}
 .itl.is-active .itl__del{display:grid}
 .itl.itl--guard .itl__del,.itl.itl--guard .itl__dup{pointer-events:none}
 .itl__del svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.4}
-.itl__rot{position:absolute;right:-12px;bottom:-12px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:grab;touch-action:none}
+.itl__rot{position:absolute;right:-20px;bottom:-20px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:grab;touch-action:none}
 .itl.is-active .itl__rot{display:grid}
 .itl__rot svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.2}
 /* [P1-3] 레이어 복제 핸들 — 우상단 */
-.itl__dup{position:absolute;right:-12px;top:-12px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:pointer;border:none;padding:0}
+.itl__dup{position:absolute;right:-20px;top:-20px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:pointer;border:none;padding:0}
 .itl.is-active .itl__dup{display:grid}
 .itl__dup svg{width:12px;height:12px;stroke:#fff;fill:none;stroke-width:2.1}
 .itl-text{color:#fff;font-weight:800;line-height:1.16;text-align:center;white-space:pre-wrap;outline:none;
@@ -259,7 +259,7 @@
 .itded__frame.fr-black{box-shadow:inset 0 0 0 14px #15181D}
 
 /* ── 크기조절 핸들(공통) ── */
-.itl__rs{position:absolute;left:-12px;bottom:-12px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:nwse-resize;touch-action:none}
+.itl__rs{position:absolute;left:-20px;bottom:-20px;width:24px;height:24px;border-radius:50%;background:rgba(20,12,16,.7);color:#fff;display:none;place-items:center;z-index:5;cursor:nwse-resize;touch-action:none}
 .itl.is-active .itl__rs{display:grid}
 .itl__rs svg{width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.2}
 .itl-shape{display:block}
