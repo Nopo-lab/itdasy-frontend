@@ -124,6 +124,9 @@
     // 순차 업로드 (draft 사진 수 적음, 서버·네트워크 배려).
     return urls.reduce(function (p, du) { return p.then(function (map) { return uploadImage(du).then(function (u) { if (u) map.set(du, u); return map; }); }); }, Promise.resolve(new Map()))
       .then(function (map) {
+        // [버그수정 2026-07-06] 업로드 실패분이 하나라도 있으면 payload 불완전 → 이 사실을 상위(pushSlot)에
+        //   알려 slot 을 synced 로 마킹하지 않게 한다(안 그러면 실패한 사진이 서버·로컬 양쪽에서 소실).
+        var _complete = (urls.length === map.size);
         var c = deepReplace(_clone(slot), map);
         var photos = (c.photos || []).map(function (p, i) {
           var img = p.editedDataUrl || p.dataUrl;
@@ -137,16 +140,19 @@
           };
         }).filter(function (p) { return !!p.image_url; });   // 이미지 없는 사진은 스킵
         return {
-          slot_id: String(slot.id),
-          label: slot.label || '',
-          caption: slot.caption || '',
-          hashtags: slot.hashtags || '',
-          publish: slot.publish || null,
-          customer_id: (slot.customer_id != null ? slot.customer_id : null),
-          sort_order: slot.order || 0,
-          meta: buildMeta(slot),
-          client_updated_at: isoOf(slot.updatedAt),
-          photos: photos,
+          _complete: _complete,
+          payload: {
+            slot_id: String(slot.id),
+            label: slot.label || '',
+            caption: slot.caption || '',
+            hashtags: slot.hashtags || '',
+            publish: slot.publish || null,
+            customer_id: (slot.customer_id != null ? slot.customer_id : null),
+            sort_order: slot.order || 0,
+            meta: buildMeta(slot),
+            client_updated_at: isoOf(slot.updatedAt),
+            photos: photos,
+          },
         };
       });
   }
@@ -247,13 +253,20 @@
       .then(function () { _pushing = false; });
   }
   function pushSlot(slot) {
-    return buildPayload(slot).then(function (payload) {
+    return buildPayload(slot).then(function (built) {
+      var payload = built.payload, complete = built._complete;
       return window.apiFetch('/workspace/slots/upsert', {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader()), body: JSON.stringify(payload),
       }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
         if (j && (j.ok || j.skipped)) {
-          slot.syncState = 'synced';
-          if (_origSaveSlot) return Promise.resolve(_origSaveSlot(slot)).catch(function () {});   // synced 상태만 영속(재-dirty 안 함)
+          // [버그수정 2026-07-06] 사진 업로드가 하나라도 실패했으면 synced 로 굳히지 않는다(dirty 유지 → 다음 push 재시도).
+          //   안 그러면 실패 사진이 서버에 없는 채 synced 로 마킹돼 pull 이 로컬을 덮어 영구 소실.
+          if (complete) {
+            slot.syncState = 'synced';
+            if (_origSaveSlot) return Promise.resolve(_origSaveSlot(slot)).catch(function () {});   // synced 상태만 영속(재-dirty 안 함)
+          } else {
+            log('pushSlot partial — keep dirty for retry', slot && slot.id);
+          }
         }
       });
     }).catch(function (e) { log('pushSlot err', slot && slot.id, e); });
@@ -293,8 +306,9 @@
               }
               return delTombstone(rs.slot_id);   // 서버가 삭제 확인 → 로컬 tombstone 정리
             }
-            // 로컬이 dirty 이고 더 최신이면 로컬 유지(다음 push 로 서버 갱신).
-            if (local && local.syncState === 'dirty' && (local.updatedAt || 0) > tsMs(rs.client_updated_at)) return;
+            // 로컬이 아직 안 올라간 변경(=synced 아님)이고 더 최신이면 로컬 유지(다음 push 로 서버 갱신).
+            //   [버그수정 2026-07-06] push 필터(!=='synced')와 술어 일치 — 'dirty' 외 값(undefined 등)도 방어.
+            if (local && local.syncState !== 'synced' && (local.updatedAt || 0) > tsMs(rs.client_updated_at)) return;
             changed = true;
             return Promise.resolve(_origSaveSlot(remoteToLocal(rs))).catch(function () {});
           });
@@ -373,11 +387,26 @@
     }
   }
 
+  // ── 로그아웃/계정전환 시 로컬 sync 메타 완전 삭제 ──────────────
+  //   [버그수정 2026-07-06] logout 은 itdasy-gallery(slots)만 지우고 itdasy-sync(migratedAt·lastPulledAt·
+  //   tombstones)는 안 지웠다 → 다음 계정에서 migrate skip·delta 누락으로 계정 격리 붕괴+slot 유실.
+  function clearLocal() {
+    return new Promise(function (resolve) {
+      try {
+        if (_sdb) { try { _sdb.close(); } catch (_e) { void 0; } _sdb = null; }
+        try { _uploadCache.clear(); } catch (_e2) { void 0; }
+        try { if (typeof _hydrateCache !== 'undefined' && _hydrateCache) _hydrateCache.clear(); } catch (_e3) { void 0; }
+        var req = indexedDB.deleteDatabase('itdasy-sync');
+        req.onsuccess = req.onerror = req.onblocked = function () { resolve(true); };
+      } catch (_e) { resolve(false); }
+    });
+  }
+
   // ── init ───────────────────────────────────────────────────
   function init() {
-    if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); }, hydratePhotos: function () { return Promise.resolve(false); }, beginEdit: function () {}, settleSlot: function () { return Promise.resolve(); } }; return; }
+    if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); }, hydratePhotos: function () { return Promise.resolve(false); }, beginEdit: function () {}, settleSlot: function () { return Promise.resolve(); }, clearLocal: clearLocal }; return; }
     wrapGlobals();
-    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos } };
+    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos } };
     // 최초 동기화 — 로그인 상태 갖춰지면. 아니면 이후 트리거에서 재시도.
     var tries = 0;
     (function boot() { if (ready()) { sync(); } else if (tries++ < 20) { setTimeout(boot, 800); } })();

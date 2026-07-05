@@ -1194,6 +1194,14 @@ async function logout(opts) {
     }
   } catch (e) { /* IDB clear best-effort */ }
 
+  // [2026-07-06] slot-sync 메타 DB(itdasy-sync: migratedAt·lastPulledAt·tombstones)도 삭제 —
+  //   안 지우면 다음 계정에서 migrate skip·delta 누락으로 계정 격리 붕괴 + slot 유실.
+  try {
+    if (window.WorkspaceSync && typeof window.WorkspaceSync.clearLocal === 'function') {
+      await window.WorkspaceSync.clearLocal();
+    }
+  } catch (e) { /* sync meta clear best-effort */ }
+
   // 2. 서비스 워커 캐시 강제 삭제
   if ('caches' in window) {
     try {
