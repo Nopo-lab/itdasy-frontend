@@ -64,7 +64,7 @@
             <input class="ss-input" id="ssShopPhone" placeholder="010-0000-0000" inputmode="tel"></div>
           <div class="ss-row"><span class="lbl">주소</span>
             <input class="ss-input" id="ssShopAddr" placeholder="도로명 주소"></div>
-          <div class="ss-row" style="flex-direction:column;align-items:stretch;min-width:0;"><span class="lbl" style="margin-bottom:8px;">영업시간 (요일별)</span>
+          <div class="ss-row" style="flex-direction:column;align-items:stretch;min-width:0;"><span class="lbl" style="flex:0 0 auto;margin-bottom:8px;">영업시간</span>
             <div id="ssShopHoursGrid" style="display:flex;flex-direction:column;gap:6px;min-width:0;width:100%;box-sizing:border-box;"></div>
           </div>
         </div>
@@ -124,11 +124,35 @@
     return out;
   }
 
-  // [2026-07-05 리디자인] 요일 행 = 요일 + 시간 텍스트(탭 → 인라인 확장) + 초록 토글(영업/휴무).
-  //   시간 편집은 행 아래 인라인 <select> 2개(30분 단위) + '모든 요일에 적용'. 팝업·화면이동 없음.
-  //   데이터 스키마(business_hours_json)·저장 로직은 기존 그대로 — UI/상태 보관 방식만 교체.
+  // [2026-07-05 리디자인 v2 · 네이버식 프리셋] "매일 같아요 / 평일·주말 달라요 / 요일별로 달라요" 3모드.
+  //   매일·평일주말 = 요일 칩(영업 on/off) + 시간 select 1~2줄. 요일별 = 기존 행+인라인 확장.
+  //   데이터 스키마(business_hours_json)·저장 로직은 기존 그대로 — 모드는 UI 상태일 뿐, 저장 시 요일별로 풀어서 저장.
   let _hours = null;        // 편집 중 영업시간 상태 (정본)
-  let _expandedDay = null;  // 인라인 확장이 열린 요일 (한 번에 하나만)
+  let _expandedDay = null;  // 인라인 확장이 열린 요일 (요일별 모드, 한 번에 하나만)
+  let _hoursMode = null;    // 'same' | 'wd' | 'day' — null이면 데이터에서 추론
+
+  const _MODES = [['same', '매일 같아요'], ['wd', '평일·주말 달라요'], ['day', '요일별로 달라요']];
+  const _WD = _DAY_KEYS.slice(0, 5);
+  const _WE = _DAY_KEYS.slice(5);
+
+  function _sig(k) { return `${_hours[k].open}~${_hours[k].close}`; }
+  function _inferMode() {
+    const on = _DAY_KEYS.filter(k => !_hours[k].off);
+    if (!on.length || on.every(k => _sig(k) === _sig(on[0]))) return 'same';
+    const wd = _WD.filter(k => !_hours[k].off);
+    const we = _WE.filter(k => !_hours[k].off);
+    if (wd.every(k => _sig(k) === _sig(wd[0])) && we.every(k => _sig(k) === _sig(we[0]))) return 'wd';
+    return 'day';
+  }
+  // 모드 전환 시 그룹 대표 시간(첫 영업일 기준)으로 데이터 정규화
+  function _normalizeToMode(mode) {
+    const spread = (days, refDays) => {
+      const ref = _hours[refDays.find(k => !_hours[k].off) || refDays[0]];
+      days.forEach(d => { _hours[d] = { ..._hours[d], open: ref.open, close: ref.close }; });
+    };
+    if (mode === 'same') spread(_DAY_KEYS, _DAY_KEYS);
+    if (mode === 'wd') { spread(_WD, _WD); spread(_WE, _WE); }
+  }
 
   function _timeOpts(selected, isClose) {
     const out = [];
@@ -163,16 +187,70 @@
     `;
   }
 
+  // 매일/평일·주말 모드용: 그룹 시간 select 한 줄
+  function _groupRowHTML(label, days, group) {
+    const h = _hours[days.find(k => !_hours[k].off) || days[0]];
+    return `
+      <div class="sv2-hm__timerow">
+        <span class="sv2-hm__grouplbl">${label}</span>
+        <select class="sv2-hr__select" data-hr-gsel="open" data-hr-group="${group}" aria-label="${label} 시작 시간">${_timeOpts(h.open, false)}</select>
+        <span class="sv2-hr__tilde">~</span>
+        <select class="sv2-hr__select" data-hr-gsel="close" data-hr-group="${group}" aria-label="${label} 종료 시간">${_timeOpts(h.close, true)}</select>
+      </div>`;
+  }
+
   function _renderHoursGrid(hours) {
-    if (hours) _hours = hours;
+    if (hours) { _hours = hours; _hoursMode = null; }
     if (!_hours) _hours = _defaultHours();
+    if (!_hoursMode) _hoursMode = _inferMode();
     const wrap = document.getElementById('ssShopHoursGrid');
     if (!wrap) return;
-    wrap.innerHTML = _DAY_KEYS.map(_hoursRowHTML).join('');
+    const seg = `<div class="sv2-hm__seg">${_MODES.map(([v, l]) =>
+      `<button type="button" class="sv2-hm__segbtn${_hoursMode === v ? ' is-on' : ''}" data-hr-mode="${v}">${l}</button>`).join('')}</div>`;
+    let body;
+    if (_hoursMode === 'day') {
+      body = _DAY_KEYS.map(_hoursRowHTML).join('');
+    } else {
+      const chips = `<div class="sv2-hm__chips">${_DAY_KEYS.map(k =>
+        `<button type="button" class="sv2-hm__chip${_hours[k].off ? '' : ' is-on'}" data-hr-chip="${k}" aria-pressed="${_hours[k].off ? 'false' : 'true'}">${_DAY_LABELS[k]}</button>`).join('')}</div>
+        <div class="sv2-hm__hint">영업하는 요일만 켜 두세요</div>`;
+      body = chips + (_hoursMode === 'same'
+        ? _groupRowHTML('매일', _DAY_KEYS, 'all')
+        : _groupRowHTML('평일', _WD, 'wd') + _groupRowHTML('주말', _WE, 'we'));
+    }
+    wrap.innerHTML = seg + body;
     _bindHoursEvents(wrap);
   }
 
   function _bindHoursEvents(wrap) {
+    // 모드 세그먼트
+    wrap.querySelectorAll('[data-hr-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.hrMode;
+        if (v === _hoursMode) return;
+        _normalizeToMode(v);
+        _hoursMode = v;
+        _expandedDay = null;
+        _renderHoursGrid();
+        _haptic();
+      });
+    });
+    // 요일 칩 (매일/평일·주말 모드) — 켜짐=영업
+    wrap.querySelectorAll('[data-hr-chip]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const k = chip.dataset.hrChip;
+        _hours[k].off = !_hours[k].off;
+        _renderHoursGrid();
+        _haptic();
+      });
+    });
+    // 그룹 시간 select — 그룹 소속 요일 전체에 반영
+    wrap.querySelectorAll('[data-hr-gsel]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const days = sel.dataset.hrGroup === 'wd' ? _WD : sel.dataset.hrGroup === 'we' ? _WE : _DAY_KEYS;
+        days.forEach(d => { _hours[d][sel.dataset.hrGsel] = sel.value; });
+      });
+    });
     // 시간 텍스트 탭 → 해당 행 아래 인라인 확장 (다른 행 확장은 자동으로 닫힘)
     wrap.querySelectorAll('[data-hr-time]').forEach(btn => {
       btn.addEventListener('click', () => {

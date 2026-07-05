@@ -75,10 +75,58 @@
   font-size: 11px; color: var(--text-muted); line-height: 1.5;
 }
 
-/* ── 샵정보: 영업시간 (요일 행 + 인라인 확장) ── */
+/* ── 샵정보: 영업시간 프리셋 (네이버식 3모드) ── */
+.sv2-hm__seg {
+  display: flex; gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.sv2-hm__segbtn {
+  appearance: none; -webkit-appearance: none;
+  flex: 1; min-width: 0;
+  height: 36px; border: 0; border-radius: 9px;
+  background: none;
+  font-family: inherit;
+  font-size: 12.5px; font-weight: 600; color: var(--text-subtle);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sv2-hm__segbtn:active { transform: scale(0.96); }
+.sv2-hm__segbtn.is-on {
+  background: #fff; color: var(--text); font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.sv2-hm__chips { display: flex; gap: 6px; }
+.sv2-hm__chip {
+  appearance: none; -webkit-appearance: none;
+  flex: 1; min-width: 0;
+  height: 38px;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px; font-weight: 600; color: var(--text-subtle);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sv2-hm__chip:active { transform: scale(0.94); }
+.sv2-hm__chip.is-on {
+  border-color: rgba(22, 181, 94, 0.45);
+  background: rgba(22, 181, 94, 0.08);
+  color: #0d8f49; font-weight: 700;
+}
+.sv2-hm__hint { margin: 6px 2px 10px; font-size: 11px; color: var(--text-subtle); }
+.sv2-hm__timerow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.sv2-hm__grouplbl {
+  flex: 0 0 34px;
+  font-size: 13px; font-weight: 700; color: var(--text);
+}
+
+/* ── 샵정보: 영업시간 (요일별 모드 — 요일 행 + 인라인 확장) ── */
 .sv2-hr__row {
   display: flex; align-items: center; gap: 10px;
-  padding: 12px 4px;
+  padding: 8px 4px;
   border-bottom: 0.5px solid var(--border);
 }
 .sv2-hr__row:last-of-type { border-bottom: 0; }

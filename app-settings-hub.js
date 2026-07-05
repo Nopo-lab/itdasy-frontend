@@ -59,7 +59,8 @@
   function _igInfo() {
     let handle = '';
     let pic = '';
-    try { handle = localStorage.getItem('itdasy:ig_handle') || ''; } catch (_e) { void _e; }
+    // 저장값에 @가 이미 붙어있는 경우가 있어 표시 전에 제거 (@@ 중복 방지)
+    try { handle = (localStorage.getItem('itdasy:ig_handle') || '').replace(/^@+/, ''); } catch (_e) { void _e; }
     try { pic = localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { void _e; }
     return { handle, pic };
   }
