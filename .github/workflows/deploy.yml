@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deploy_try3.outputs.page_url || steps.deploy_try2.outputs.page_url || steps.deploy_try1.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,12 +62,24 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-      # [배포 안정화] GitHub Pages 백엔드가 배포 상태확인에서 간헐적으로 "try again later"를 뱉는다.
-      #   아티팩트는 이미 1개 업로드됐으므로, 실패 시 같은 run 안에서 한 번 재배포(아티팩트 중복 없음).
-      #   ⚠️ 이 재시도는 'rerun'과 다르다 — rerun은 아티팩트를 하나 더 올려 "Multiple artifacts" 오류를 낸다.
-      - id: deployment
+      # [배포 안정화] GitHub Pages 백엔드가 syncing_files 단계에서 간헐적으로 "Deployment failed, try
+      #   again later"를 뱉는다(GitHub 측 일시 장애). 연속 푸시로 Pages 배포가 겹치면 더 잦다.
+      #   → 같은 run 안에서 백오프 두고 최대 3회 재배포로 자가치유. 아티팩트는 1개 그대로라 "Multiple
+      #     artifacts" 오류 없음('rerun'과 다름 — rerun은 아티팩트를 하나 더 올려 터진다).
+      #   attempt 1·2는 continue-on-error(삼키고 재시도), 마지막 attempt 3만 실패 시 job 실패(진짜 문제 노출).
+      - id: deploy_try1
         uses: actions/deploy-pages@v4
         continue-on-error: true
-      - name: Retry Pages deploy once (GitHub 간헐 실패 자가치유)
-        if: steps.deployment.outcome == 'failure'
+      - name: Backoff before retry 1 (30s)
+        if: steps.deploy_try1.outcome == 'failure'
+        run: sleep 30
+      - id: deploy_try2
+        if: steps.deploy_try1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Backoff before retry 2 (60s)
+        if: steps.deploy_try1.outcome == 'failure' && steps.deploy_try2.outcome == 'failure'
+        run: sleep 60
+      - id: deploy_try3
+        if: steps.deploy_try1.outcome == 'failure' && steps.deploy_try2.outcome == 'failure'
         uses: actions/deploy-pages@v4
