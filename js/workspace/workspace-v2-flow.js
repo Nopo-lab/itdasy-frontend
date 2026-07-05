@@ -239,7 +239,19 @@
   }
   // [기능 스티커] 편집기에서 저장한 예약 링크·전화를 캡션 끝에 실제 CTA 로 붙인다(피드 게시물에서 팔로워가 바로 사용).
   //   피드 이미지는 클릭이 안 되므로 링크는 '캡션 본문'으로 연결하는 게 표준. 저장값 없으면 아무것도 안 붙임.
+  // [#19] 샵정보(예약링크·전화)를 캡션 끝에 자동으로 붙일지는 사용자 선택(기본 OFF).
+  //   예전엔 저장값 있으면 무조건 붙였는데("계속 알아서 하단에 놓지 말고") → 설정 토글로 opt-in 전환.
+  function _shopInfoOn() { try { return localStorage.getItem('itdasy:caption_shopinfo') === '1'; } catch (_e) { return false; } }
+  function _shopInfoSaved() { try { return !!(String(localStorage.getItem('itdasy:shop_book') || '').trim() || String(localStorage.getItem('itdasy:shop_phone') || '').trim()); } catch (_e) { return false; } }
+  // [#19] 캡션 입력 화면의 '샵정보 반영' 토글 — 설정에 예약/전화가 저장돼 있을 때만 노출(없으면 켤 대상이 없음).
+  function _shopInfoToggleHtml() {
+    if (!_shopInfoSaved()) return '';
+    var on = _shopInfoOn();
+    return '<div class="cap-hash-row cap-shopinfo-row"><span class="cap-field-label" style="margin:0">샵정보 반영 <em style="font-weight:400;color:#9aa3ad;font-style:normal">· 예약·전화를 글 끝에</em></span>' +
+      '<button type="button" class="cap-switch' + (on ? ' on' : '') + '" data-fl-cshopinfo role="switch" aria-checked="' + on + '"><span class="cap-switch__dot"></span></button></div>';
+  }
   function _shopCTA() {
+    if (!_shopInfoOn()) return '';   // 반영 OFF → 아무것도 안 붙임
     try {
       var book = String(localStorage.getItem('itdasy:shop_book') || '').trim();
       var phone = String(localStorage.getItem('itdasy:shop_phone') || '').trim();
@@ -582,9 +594,13 @@
     var Editor = window.ItdEditor;
     if (!(Editor && Editor.open)) { toast('편집 모듈을 불러오지 못했어요'); return; }
     var p0 = _activeEditPhoto(); if (p0 && !p0.baseUrl) p0.baseUrl = p0.dataUrl;   // [#5] 보고 있는 장
-    // [통합 편집기] 캡션 후 fresh 오픈은 '업로드에서 편집(누끼·레이아웃)한 사진' 위에 캡션을 얹는다(그 편집 보존).
-    //   일반(재편집)은 깨끗한 원본 위에서(editState 로 편집 복원, 이중합성 방지).
-    var photo = (o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl());
+    // [#17] 캡션 직후 자동 오픈도 '이어서 편집' — 이전에 올린 텍스트/스티커를 '구워서 합치지' 않고 라이브 레이어로 복원한다.
+    //   (예전 fresh: editedDataUrl(텍스트 구워진 사진)을 베이스로 써서 "합쳐진 느낌" + 실기기서 사진이 안 뜨던 문제.)
+    //   누끼(배경제거) 적용본은 fgCutout/bgSpec 합성을 보존해야 하므로 기존 방식(구워진 editedDataUrl 베이스) 유지.
+    var _hasBg = !!(p0 && p0.bgSpec && p0.fgCutout);
+    var _restore = (!_hasBg && p0 && p0.editState) || null;
+    var photo = _restore ? (_cleanBase(p0) || outputUrl())
+      : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl()));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
@@ -597,7 +613,7 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
-      editState: o.fresh ? null : ((p0 && p0.editState) || null),   // [#4/#8/#11/#16] 재편집은 이어가기, 캡션 자동 오픈(fresh)은 깨끗하게
+      editState: _restore || (o.fresh ? null : ((p0 && p0.editState) || null)),   // [#17] 캡션 후에도 이어서 편집(누끼본 제외). 재편집은 이어가기.
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
@@ -1735,6 +1751,7 @@
             '</div>' +
           '</div>' +
           _svcTagsHtml() +
+          _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
           _capConfirmHtml() +
           '</div>';
 	      }
@@ -1784,6 +1801,7 @@
           '<textarea class="captail__edit" data-fl-footer rows="2" placeholder="매장 고정 문구(예약 DM·영업시간). 비우면 게시글에 안 붙어요.">' + esc(d.captionTemplate || '') + '</textarea>' +
           '<button type="button" class="captail__save" data-fl="footersave">이 꼬리말 저장</button>' +
         '</div>' +
+        _shopInfoToggleHtml() +   // [#19] 샵정보(예약·전화) 반영 여부 — 기본 OFF, 저장값 있을 때만 노출
         '<button type="button" class="cap-gen-btn" data-fl-cgen>문구 생성하기</button>';
 	    }
     // 결과 화면 — [v583·C] 인스타 미리보기 디자인 카드 + 아래 편집 + 인스타 업로드(별도 미리보기 단계 폐지).
@@ -2580,6 +2598,7 @@
       var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
       var cl = t.closest('[data-fl-clen]'); if (cl) { d.capLen = cl.getAttribute('data-fl-clen'); setScreen('caption'); return; }
       var ch = t.closest('[data-fl-chash]'); if (ch) { d.capHashOn = (d.capHashOn === false); setScreen('caption'); return; }
+      var csi = t.closest('[data-fl-cshopinfo]'); if (csi) { try { localStorage.setItem('itdasy:caption_shopinfo', _shopInfoOn() ? '0' : '1'); } catch (_e) { void _e; } toast(_shopInfoOn() ? '샵정보를 글 끝에 넣을게요' : '샵정보 반영을 껐어요'); setScreen('caption'); return; }   // [#19] 샵정보 opt-in 토글
       // [v567] 원장님 말투 반영 토글 — 인스타 미연동이면 안내 후 무시(데이터 없는 반영 금지).
       var cpr = t.closest('[data-fl-cpersona]'); if (cpr) { if (cpr.hasAttribute('disabled')) { toast('인스타를 연동하고 말투를 분석하면 켤 수 있어요'); return; } d.capUsePersona = !(d.capUsePersona === true); setScreen('caption'); return; }
       // [Phase A-2] 우리샵 스타일 적용 토글 — 생성 직전 syncServiceFromDom 으로 입력 보존 후 재렌더.
@@ -3740,11 +3759,12 @@
       '<div class="pub-ask__bd" data-fl="pubnot"></div>' +
       '<div class="pub-ask__sheet" role="dialog" aria-label="게시 확인">' +
         '<div class="pub-ask__grip"></div>' +
-        '<div class="pub-ask__t">인스타에 게시했나요?</div>' +
-        '<div class="pub-ask__d">이미지를 저장했어요. 인스타에 올렸다면 게시 완료로 표시해 둘게요.</div>' +
+        '<div class="pub-ask__ic"><i class="ph-duotone ph-instagram-logo"></i></div>' +
+        '<div class="pub-ask__t">인스타에 올리셨어요?</div>' +
+        '<div class="pub-ask__d">이미지를 기기에 저장했어요.<br>인스타에 올렸다면 게시 완료로 표시해 둘게요.</div>' +
         '<div class="pub-ask__btns">' +
           '<button type="button" class="pub-ask__not" data-fl="pubnot">아직이에요</button>' +
-          '<button type="button" class="pub-ask__done" data-fl="pubdone">게시 완료로 표시</button>' +
+          '<button type="button" class="pub-ask__done" data-fl="pubdone"><i class="ph-bold ph-check"></i>게시 완료</button>' +
         '</div></div>';
     el.appendChild(wrap);
     var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
