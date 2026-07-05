@@ -21,11 +21,10 @@
   const _assistantCardRenderers = window.ItdasyAssistantCardRenderers || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
-    '사진 보정해줘',
-    '캡션 만들어줘',
-    '인스타에 올려줘',
-    '단골 안부 메시지',
+    '내일 예약 뭐 있어?',
     '이번 달 매출',
+    '캡션 만들어줘',
+    '사진 보정해줘',
   ];
 
   function _categoryOptionsHtml(selected) {

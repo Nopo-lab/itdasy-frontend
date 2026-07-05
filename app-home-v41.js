@@ -194,9 +194,6 @@
       const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
       if (typeof open === 'function') open(opts || {});
     };
-    if (window.HomeV41ItbiPrompts && typeof window.HomeV41ItbiPrompts.bind === 'function') {
-      window.HomeV41ItbiPrompts.bind(container, { fileInput, openSheet });
-    }
     container.querySelectorAll('[data-itbi-act]').forEach(btn => {
       btn.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();

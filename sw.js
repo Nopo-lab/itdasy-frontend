@@ -50,7 +50,6 @@ const STATIC_ASSETS = [
   './app-home-v41-config.js',
   './js/home/v41-styles.js',
   './js/home/v41-actions.js',
-  './js/home/v41-itbi-prompts.js',
   './js/home/v41-renderers.js',
   './app-home-v41.js',
   './app-perf-recovery.js',

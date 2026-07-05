@@ -255,37 +255,123 @@
       fetch: () => _fetchJson('/revenue?period=last_month'),
       format: (d) => `📊 지난 달 매출 **${_krw(d.total || 0)}** (${d.count || 0}건)`,
     },
-    // 예약 — 오늘
+    // ── 예약 조회 [2026-07-05 확장] ─────────────────────────
+    // 어순 자유("예약 내일 뭐있어") + 붙여쓰기("내일예약뭐있어") + 모레/주말/요일/다음주/특정날짜.
+    // 생성·취소·변경 동사가 있으면 _bookingListQ 가 양보 → 앞단 숏컷(생성/취소 카드)이 처리.
+    // 예약 — 특정 날짜 ("7월 20일 예약 뭐 있어")
     {
-      type: 'bookings_today',
-      test: (q) => /^(오늘|금일)\s*(의)?\s*예약/.test(q) || /^오늘\s*예약\s*(몇|얼마)?/.test(q),
+      type: 'bookings_date',
+      test: (q) => _bookingListQ(q) && (/\d{1,2}\s*월\s*\d{1,2}\s*일/.test(q) || /\d{1,2}\/\d{1,2}/.test(q)),
       fetch: () => {
-        const r = _dayRangeISO(0);
+        const md = _lastAsyncQ.match(/(\d{1,2})\s*월\s*(\d{1,2})\s*일/) || _lastAsyncQ.match(/(\d{1,2})\/(\d{1,2})/);
+        const now = new Date();
+        const mo = parseInt(md[1], 10), dd = parseInt(md[2], 10);
+        const s = new Date(now.getFullYear(), mo - 1, dd, 0, 0, 0);
+        const e = new Date(now.getFullYear(), mo - 1, dd, 23, 59, 59);
+        _bookingLabel = `${mo}월 ${dd}일`;
+        return _fetchJson(`/bookings?from=${encodeURIComponent(s.toISOString())}&to=${encodeURIComponent(e.toISOString())}`);
+      },
+      format: (d) => _formatBookings(d.items, _bookingLabel || '해당 날짜'),
+    },
+    // 예약 — 모레 (내일보다 먼저: "내일모레"는 모레)
+    {
+      type: 'bookings_day_after',
+      test: (q) => _bookingListQ(q) && /모레/.test(q),
+      fetch: () => {
+        const r = _dayRangeISO(2);
         return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
       },
-      format: (d) => _formatBookings(d.items, '오늘'),
+      format: (d) => _formatBookings(d.items, '모레'),
     },
     // 예약 — 내일
     {
       type: 'bookings_tomorrow',
-      test: (q) => /^내일\s*예약/.test(q) || /내일\s*몇\s*건/.test(q),
+      test: (q) => (_bookingListQ(q) && /내일/.test(q)) || /내일\s*몇\s*건/.test(q),
       fetch: () => {
         const r = _dayRangeISO(1);
         return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
       },
       format: (d) => _formatBookings(d.items, '내일'),
     },
+    // 예약 — 주말 ("이번 주말 예약 있어?" — 이번주 규칙보다 먼저)
+    {
+      type: 'bookings_weekend',
+      test: (q) => _bookingListQ(q) && /주말/.test(q),
+      fetch: () => {
+        const t = new Date();
+        const day = t.getDay() || 7;   // 월=1 … 일=7
+        let satOffset = 6 - day;       // 이번 주 토요일까지 남은 일수 (일요일이면 -1 = 어제 토요일)
+        if (/다음\s*주/.test(_lastAsyncQ)) satOffset += 7;
+        const s = new Date(t.getFullYear(), t.getMonth(), t.getDate() + satOffset, 0, 0, 0);
+        const e = new Date(t.getFullYear(), t.getMonth(), t.getDate() + satOffset + 1, 23, 59, 59);
+        return _fetchJson(`/bookings?from=${encodeURIComponent(s.toISOString())}&to=${encodeURIComponent(e.toISOString())}`);
+      },
+      format: (d) => _formatBookings(d.items, '주말'),
+    },
+    // 예약 — 특정 요일 ("토요일 예약 뭐 있어", "다음주 화요일 예약")
+    {
+      type: 'bookings_weekday',
+      test: (q) => _bookingListQ(q) && /[월화수목금토일]요일/.test(q),
+      fetch: () => {
+        const m = _lastAsyncQ.match(/([월화수목금토일])요일/);
+        const dow = _WEEKDAYS[m ? m[1] : '월'];
+        const t = new Date();
+        let diff = (dow - t.getDay() + 7) % 7;   // 0=오늘 포함, 다가오는 해당 요일
+        if (/다음\s*주/.test(_lastAsyncQ)) {
+          const day = t.getDay() || 7;
+          diff = (8 - day) + ((dow || 7) - 1);   // 다음 주 월요일 + 요일 오프셋
+        }
+        const s = new Date(t.getFullYear(), t.getMonth(), t.getDate() + diff, 0, 0, 0);
+        const e = new Date(t.getFullYear(), t.getMonth(), t.getDate() + diff, 23, 59, 59);
+        _bookingLabel = `${m ? m[1] : ''}요일(${s.getMonth() + 1}/${s.getDate()})`;
+        return _fetchJson(`/bookings?from=${encodeURIComponent(s.toISOString())}&to=${encodeURIComponent(e.toISOString())}`);
+      },
+      format: (d) => _formatBookings(d.items, _bookingLabel || '해당 요일'),
+    },
+    // 예약 — 다음 주
+    {
+      type: 'bookings_next_week',
+      test: (q) => _bookingListQ(q) && /다음\s*주/.test(q),
+      fetch: () => {
+        const w = _weekRangeISO();
+        const MS7 = 7 * 24 * 60 * 60 * 1000;
+        const from = new Date(new Date(w.from).getTime() + MS7).toISOString();
+        const to = new Date(new Date(w.to).getTime() + MS7).toISOString();
+        return _fetchJson(`/bookings?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+      },
+      format: (d) => _formatBookings(d.items, '다음 주'),
+    },
     // 예약 — 이번 주
     {
       type: 'bookings_week',
-      test: (q) => /(이번|금)\s*주\s*예약/.test(q),
+      test: (q) => _bookingListQ(q) && /(이번|금)\s*주/.test(q),
       fetch: () => {
         const r = _weekRangeISO();
         return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
       },
       format: (d) => _formatBookings(d.items, '이번 주'),
     },
+    // 예약 — 오늘 (날짜 단어가 아예 없는 "예약 뭐 있어?"도 오늘로)
+    {
+      type: 'bookings_today',
+      test: (q) => _bookingListQ(q)
+        && (/오늘|금일/.test(q) || !/(내일|모레|어제|주말|요일|주|달|월|일)/.test(q)),
+      fetch: () => {
+        const r = _dayRangeISO(0);
+        return _fetchJson(`/bookings?from=${encodeURIComponent(r.from)}&to=${encodeURIComponent(r.to)}`);
+      },
+      format: (d) => _formatBookings(d.items, '오늘'),
+    },
   ];
+
+  // [2026-07-05] 예약 '조회' 질문 판별 — 생성/취소/변경 동사가 보이면 앞단 숏컷 몫이므로 양보.
+  let _lastAsyncQ = '';      // findAsyncRule 매칭 시점의 질문 (fetch/format 에서 날짜 재해석용)
+  let _bookingLabel = '';    // 특정 날짜/요일 규칙의 표시 라벨
+  function _bookingListQ(q) {
+    if (!/예약|몇\s*건/.test(q)) return false;
+    if (/(잡아|잡을|잡기|추가|등록|넣어|만들|취소|삭제|캔슬|변경|바꿔|옮겨|미뤄|당겨|복구|되돌)/.test(q)) return false;
+    return true;
+  }
 
   // 매칭만 — 동기. fetch 진입 전 사용자 메시지 표시 + loading 띄울 수 있도록 분리.
   function findAsyncRule(text) {
@@ -298,7 +384,7 @@
     // [2026-06-11 #3] 정책/지시 문장도 async 숫자 룰이 가로채면 안 됨 (위 RULES 의 policy_instruction 이 처리)
     if (/(하지\s*마|하지마|말\s*고\b|만들지\s*말|금지|먼저\s*(물어|확인)|꼭\s*(물어|확인))/.test(q)) return null;
     for (const rule of ASYNC_RULES) {
-      try { if (rule.test(q)) return rule; }
+      try { if (rule.test(q)) { _lastAsyncQ = q; return rule; } }
       catch (_e) { void _e; }
     }
     return null;
@@ -629,7 +715,15 @@
     let stripped = _stripDateTokens(t).replace(_PERIOD_WORDS, ' ');
     stripped = _stripServiceWords(stripped);
     const words = stripped.match(/[가-힣]{2,5}/g) || [];
-    const name = words.find((w) => !_NAME_STOP_WORDS.has(w) && !_LOOKUP_STOPS.has(w));
+    // [2026-07-05] "내일예약뭐있어" 붙여쓰기 → "예약뭐있어"가 고객명으로 오인되던 버그.
+    //   stop word(2자 이상)가 후보 단어 안에 '포함'만 돼도 이름 아님 → 날짜 조회 규칙으로 양보.
+    const name = words.find((w) => {
+      if (_NAME_STOP_WORDS.has(w) || _LOOKUP_STOPS.has(w)) return false;
+      let blocked = false;
+      _NAME_STOP_WORDS.forEach((s) => { if (s.length >= 2 && w.includes(s)) blocked = true; });
+      _LOOKUP_STOPS.forEach((s) => { if (s.length >= 2 && w.includes(s)) blocked = true; });
+      return !blocked;
+    });
     return { name: name || '', dateHint: _extractDateHint(t) };
   }
 

@@ -256,7 +256,6 @@
         </div>`
       : '';
     const timeHtml = lastTime ? `<div class="hv5-itbi-msg-time">${esc(lastTime)}</div>` : '';
-    const promptsHtml = window.HomeV41ItbiPrompts ? window.HomeV41ItbiPrompts.render(esc) : '';
     return `<section class="hv5-itbi-card">
       <div class="hv5-itbi-head">
         <div class="hv5-itbi-head-l">
