@@ -4101,5 +4101,17 @@
   }
   function isOpen() { return _flowReady(); }
 
-  window.WorkspaceFlow = { open: open, close: close, command: command, isOpen: isOpen };
+  // [잇비 연동] 채팅이 '현재 작업실'(진행 중 draft) 상태를 읽어 이어받기/제안에 쓸 수 있게 읽기전용 노출.
+  function getActiveSlot() {
+    if (!_flowReady()) return null;
+    var p0 = curPhoto();
+    return {
+      open: true, screen: cur, cat: d.cat || null, service: d.service || '',
+      photoCount: (d.photos || []).length,
+      coverUrl: (p0 && (p0.editedDataUrl || p0.dataUrl)) || null,
+      hasCaption: !!String(d.caption || '').trim()
+    };
+  }
+
+  window.WorkspaceFlow = { open: open, close: close, command: command, isOpen: isOpen, getActiveSlot: getActiveSlot };
 })();

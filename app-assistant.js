@@ -3446,6 +3446,7 @@
       text: '사진 1장 확인했어요. 시술 완료 사진으로 자연스럽게 보정할까요?',
       intent_chips: [
         { id: 'edit_done', label: '보정하기', question: '시술 완료사진으로 자연스럽게 보정해줘', primary: true },
+        { id: 'workspace', label: '작업실에서 게시글 만들기', question: '작업실 열어서 게시글 만들기' },
         { id: 'instagram', label: '보정하고 인스타 업로드까지', question: '시술 완료사진으로 자연스럽게 보정하고 인스타 업로드까지 준비해줘' },
         { id: 'template', label: '템플릿 먼저 보기', question: '이 사진 템플릿 골라줘' },
       ],
