@@ -2114,25 +2114,29 @@
     var WL = window.WorkspaceLayout;
     var starters = (WL && WL.getStarters()) || [];
     var mine = (WL && WL.getMyLayouts()) || [];
-    var sel = d.wsLayout, prev = d.templateOutput;
-    var previewHtml = prev
-      ? '<div class="wsl-preview"><img src="' + prev + '" alt="미리보기"></div>'
-      : '<div class="wsl-preview wsl-preview--empty"><span>레이아웃을 고르면<br>사진이 채워진 미리보기가 떠요</span></div>';
+    var sel = d.wsLayout;
+    var stageHtml = sel
+      ? '<div class="wsl-stage-host" data-fl-stage></div><div class="wsl-stage-hint">사진을 드래그해 위치, 두 손가락으로 확대</div>'
+      : '<div class="wsl-preview wsl-preview--empty"><span>레이아웃을 고르면<br>여기서 사진을 맞춰요</span></div>';
     function grid(list) { return '<div class="wsl-grid">' + list.map(function (L) { return _wsLayoutCard(L, sel && sel.id === L.id); }).join('') + '</div>'; }
-    return '<div class="wsl-wrap">' + previewHtml +
+    return '<div class="wsl-wrap">' + stageHtml +
       (mine.length ? '<div class="wsl-sec-t">내 레이아웃</div>' + grid(mine) : '') +
       '<div class="wsl-sec-t">추천 레이아웃 · 전후 비교부터</div>' + grid(starters) +
       '<button type="button" class="wsl-skip" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
+  }
+  function _wsMountStage() {   // 스크린 렌더 후 인터랙티브 스테이지 장착
+    if (!d.wsLayout || !window.WorkspaceSlotStage || !el) return;
+    var host = el.querySelector('[data-fl-stage]'); if (!host) return;
+    window.WorkspaceSlotStage.mount(host, { layout: d.wsLayout, photos: editablePhotos(), assign: d._wsAssign,
+      onChange: function () { d.previewUrl = null; } });   // 드래그 결과는 d.wsLayout.photoSlots 에 즉시 반영(제자리)
   }
   function _wsSelectLayout(id) {
     var WL = window.WorkspaceLayout; if (!WL) return;
     var L = WL.getById(id) || (WL.getMyLayouts() || []).filter(function (x) { return x.id === id; })[0];
     if (!L) return;
     d.wsLayout = L;
-    Promise.resolve(WL.composeLayout(L, editablePhotos())).then(function (url) {
-      if (url) { d.templateOutput = url; d.previewUrl = null; }
-      if (cur === 'layout') setScreen('layout', { push: false });
-    }).catch(function () {});
+    d._wsAssign = WL.autoAssign(editablePhotos(), L);
+    if (cur === 'layout') setScreen('layout', { push: false });   // setScreen 훅이 스테이지 장착
   }
 
   var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
@@ -2212,6 +2216,7 @@
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
+    if (name === 'layout') { var _rl = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rl(function () { _wsMountStage(); }); }   // [ws-hyper] 인터랙티브 슬롯 스테이지 장착
     if (name === 'edit') { _warmEditMasks(); var _rc = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rc(function () { _mountCarousel(); }); }   // [v541] 결과 캐러셀 스와이프 바인딩
     if (name === 'template') { var _rt = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rt(function () { _mountCarousel(); }); }   // [v560] 템플릿 화면 상단 큰 사진 스와이프
     if (name === 'preview') { var _rp = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rp(function () { _mountCarousel(); }); }   // [v564·필수6] 인스타 미리보기 carousel 스와이프
@@ -3757,6 +3762,13 @@
       }
     }
     if (cur === 'edit') { return bakeEdit().then(function () { setScreen(c.to); }); }
+    // [ws-hyper] 레이아웃 확정 — 조정된 focal/zoom 으로 최종 이미지 합성 후 다음 단계.
+    if (cur === 'layout' && d.wsLayout && window.WorkspaceLayout) {
+      return Promise.resolve(window.WorkspaceLayout.composeLayout(d.wsLayout, editablePhotos(), d._wsAssign)).then(function (u) {
+        if (u) { d.templateOutput = u; d.previewUrl = null; }
+        setScreen(c.to);
+      }).catch(function () { setScreen(c.to); });
+    }
     setScreen(c.to);
   }
 

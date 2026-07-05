@@ -43,3 +43,18 @@
   color: var(--text-subtle, #6B7684); font-size: 13px; font-weight: 700; padding: 10px; cursor: pointer;
   text-decoration: underline; text-underline-offset: 3px; touch-action: manipulation;
 }
+
+/* 인터랙티브 슬롯 스테이지 (드래그=위치, 핀치=확대) */
+.wsl-stage {
+  position: relative; width: 100%; max-width: 340px; margin: 4px auto 2px;
+  border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--frame, #E8ECF1);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08)); touch-action: none;
+}
+.wsl-slot { position: absolute; overflow: hidden; background: var(--surface-2, #F7F8FA); box-shadow: inset 0 0 0 1.5px #fff; touch-action: none; cursor: grab; }
+.wsl-slot:active { cursor: grabbing; }
+.wsl-slot__img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  user-select: none; -webkit-user-drag: none; will-change: transform, object-position; pointer-events: none;
+}
+.wsl-slot--empty { display: grid; place-items: center; color: var(--text-subtle, #6B7684); font-size: 12px; font-weight: 700; }
+.wsl-stage-hint { text-align: center; font-size: 12px; color: var(--text-subtle, #6B7684); font-weight: 600; margin: -2px 0 2px; }
