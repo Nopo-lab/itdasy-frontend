@@ -617,6 +617,16 @@
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
+        // [캐러셀] 편집기에서 (콜라주 아닌 단일 레이아웃으로) 새로 추가한 사진 → 플로우 사진목록에 별도 사진으로 반영.
+        //   원장님 요청: "편집기 추가 사진도 캐러셀로". 이러면 여러 장 게시(캐러셀) 후보가 된다.
+        try {
+          var _np = (meta && meta.newPhotos) || [];
+          _np.forEach(function (u) {
+            if (!u) return;
+            var dup = d.photos.some(function (q) { return q.dataUrl === u || q.editedDataUrl === u || q.baseUrl === u; });
+            if (!dup) d.photos.push({ id: uid(), dataUrl: u, baseUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq });
+          });
+        } catch (_npe) { void _npe; }
         // [#5/#6] 사진별 레이어 — 각 장을 자기 텍스트/스티커로 합성해 캐러셀 장별로 다르게 게시되게(현재 보던 장 제외).
         try {
           var _pp = meta && meta.perPhoto;
