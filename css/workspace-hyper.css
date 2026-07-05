@@ -72,3 +72,7 @@
   background: var(--brand-strong, #BC6675); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 800;
   display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.2);
 }
+
+/* 캡션/미리보기 — 레이아웃 합성본은 폭 꽉 차게(레터박스 여백 X) */
+.wsl-cap-preview { width: 100%; max-width: 400px; margin: 0 auto; border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--surface-2, #F7F8FA); }
+.wsl-cap-preview img { display: block; width: 100%; height: auto; }

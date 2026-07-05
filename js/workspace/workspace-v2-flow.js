@@ -1764,8 +1764,11 @@
     }
 	    if (!d.caption) {
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
-	      var photoThumb = _capCarouselHtml() || ((!d.textOnly && url) ?
-	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : '');
+	      // [ws-hyper] 레이아웃 합성본은 폭 꽉 차는 img로(레터박스 빈 여백 제거).
+	      var photoThumb = (HYPER && d.wsLayout && d.templateOutput)
+	        ? '<div class="wsl-cap-preview"><img src="' + esc(d.templateOutput) + '" alt="미리보기"></div>'
+	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
+	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : ''));
 	      // [Phase A-2] 심플 캡션 — 말투/길이/해시태그 칩 제거. 시술 내용 입력 + 우리샵 스타일 적용 + 캡션 생성.
 	      //   레거시(말투 6카드·길이·페르소나·해시태그 토글)는 SIMPLE_FLOW=false 에서 그대로 복원.
 	      if (SIMPLE_FLOW) {
