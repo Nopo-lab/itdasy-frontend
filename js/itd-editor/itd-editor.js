@@ -23,6 +23,10 @@
     { key: 'himelody',   label: '하늘',  family: "'Hi Melody', cursive",        weight: 400 }
   ];
   var COLORS = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
+  // [#13] 무지개 스와치 — 탭하면 네이티브 색상 팔레트가 열려 원하는 색을 자유롭게 고른다(텍스트·도형·그리기·레이아웃 배경 공용).
+  function _rbSw(target, cls) {
+    return '<label class="' + (cls || 'itsw') + ' itsw--rb" title="색 직접 고르기" aria-label="색 직접 고르기"><input type="color" data-colorpick="' + target + '"></label>';
+  }
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
   var EMOJI = ['💄', '💅', '🔥', '😍', '🥰', '💎', '🌟', '🫶', '💖', '🌿', '☁️', '🎉'];
   // [레이아웃 재설계] 셀 좌표 단일화(SSOT) — cells:[[x,y,w,h]…](0~1 비율).
@@ -167,7 +171,7 @@
           '<span class="itsize">크기<input type="range" min="0.5" max="2.6" step="0.02" value="1" data-r="size"></span>' +
         '</div>' +
         '<div class="itfonts" data-r="fonts">' + fonts + '</div>' +
-        '<div class="itcolors" data-r="colors">' + colors + '</div>' +
+        '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + '</div>' +
       '</div>';
   }
   // [보정] 사진별 보정 패널 — 위 사진 스트립에서 사진 고르고 아래 슬라이더로 그 사진만 보정.
@@ -197,7 +201,8 @@
     '</div>';
   }
   // [#5] 스티커 시트 — 카테고리 탭 + 활성 탭 그리드 1개(탭 전환 = _renderStkTab).
-  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디'], ['text', '글자'], ['deco', '도형'], ['my', '내 스티커']];
+  // [#10] '글자' 탭 제거 — 텍스트는 전용 Aa 도구로 넣음(스티커 글자와 중복). 배지는 '도형' 탭으로 이동.
+  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디'], ['deco', '도형'], ['my', '내 스티커']];
   function buildSticker() {
     var tabs = STK_TABS.map(function (t, i) {
       return '<button type="button" class="itstk__tab' + (i === 0 ? ' on' : '') + '" data-sttab="' + t[0] + '">' + t[1] + '</button>';
@@ -246,11 +251,11 @@
     } else if (key === 'cute') {
       html = _emGrid(ST.cuteEmoji || SHOP_STK);
     } else if (key === 'mz') {
-      html = _emGrid(ST.mzEmoji || EMOJI) + _svgGrid('mood', ST.moodSvg);
-    } else if (key === 'text') {
-      html = _txtGrid(ST.textStk) + _svgGrid('badge', ST.badgeSvg);
+      html = _emGrid(ST.mzEmoji || EMOJI);   // [#10] 깨진 moodSvg(폴라로이드·필름 등) 제거 — 에러박스/빈칸 원인
     } else if (key === 'deco') {
-      html = '<div class="itsgrid">' + DECO.map(function (u, i) { return '<button class="itdeco" data-deco="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>'; }).join('') + '</div>';
+      // [#10] 도형 데코 + 배지(NEW/HOT/SALE 등, 옛 '글자' 탭에서 이동)
+      html = '<div class="itsgrid">' + DECO.map(function (u, i) { return '<button class="itdeco" data-deco="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>'; }).join('') + '</div>' +
+        _svgGrid('badge', ST.badgeSvg);
     } else if (key === 'my') {
       html = '<div class="itssub itssub--row"><span>내 스티커</span>' +
         '<label class="itstk__up">' + IC.upload + '추가<input type="file" accept="image/*" data-r="stkUpload" hidden></label></div>' +
@@ -293,7 +298,7 @@
         '<span class="itshape__fill" data-r="shapeFill"><button data-shapefill="0" class="on">선만</button><button data-shapefill="1">채움</button></span>' +
         '<span class="itshape__thick">굵기<input type="range" min="2" max="26" step="1" value="6" data-r="shapeThick"></span>' +
       '</div>' +
-      '<div class="itshape__colors">' + colors + '</div>' +
+      '<div class="itshape__colors">' + colors + _rbSw('shape', 'itscw') + '</div>' +
     '</div>';
   }
   // [레이아웃 재설계] 도형 미니썸네일 피커(LAYOUTS 그대로) + 렌더된 사진을 순서대로 탭해 자리에 채움.
@@ -312,7 +317,7 @@
       '<div class="itlay2__ctrls">' +
         '<span class="itlay2__fit" data-r="layFit"><button data-fit="cover">꽉 채움</button><button data-fit="contain" class="on">전체</button></span>' +
         '<span class="itlay2__gap">간격<input type="range" min="0" max="24" step="1" value="3" data-r="layGap"></span>' +
-        '<span class="itlay2__bg">' + bg + '</span>' +
+        '<span class="itlay2__bg">' + bg + _rbSw('layout', 'itlaybg') + '</span>' +
         '<label class="itlay2__add itlay2__bgimg">' + IC.addphoto + '배경<input type="file" accept="image/*" data-r="layBgImg" hidden></label>' +
         '<label class="itlay2__add">' + IC.addphoto + '사진<input type="file" accept="image/*" data-r="layAdd" hidden></label>' +
       '</div>' +
@@ -332,7 +337,7 @@
       '<div class="itdrawp__tools">' + brushes +
         '<button class="itdrawp__clear" data-r="drawClear">' + svg('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>', 2) + '전체 지우기</button></div>' +
       '<div class="itdrawp__size"><span class="itdrawp__lbl">굵기</span><input type="range" min="3" max="40" step="1" value="10" data-r="brushSize"></div>' +
-      '<div class="itdrawp__colors">' + colors + '</div>' +
+      '<div class="itdrawp__colors">' + colors + _rbSw('draw', 'itdsw') + '</div>' +
     '</div>';
   }
 
@@ -1329,6 +1334,15 @@
     refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; applyColor(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.aln.addEventListener('click', function (e) { var b = e.target.closest('[data-aln]'); if (!b) return; applyAlign(b.getAttribute('data-aln')); refs.aln.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.size.addEventListener('input', function () { applyScale(refs.size.value); });
+    // [#13] 무지개 색상 피커(네이티브) — 텍스트/도형/그리기/레이아웃 배경에 자유 색상 적용.
+    root.addEventListener('input', function (e) {
+      var cp = e.target.closest ? e.target.closest('[data-colorpick]') : null; if (!cp) return;
+      var v = cp.value || '#000000', t = cp.getAttribute('data-colorpick');
+      if (t === 'text') { applyColor(v); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
+      else if (t === 'shape') { S.shapeColor = v; if (refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
+      else if (t === 'draw') { S.drawColor = v; root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
+      else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
+    });
     // [#5] 스티커 — 카테고리 탭 전환 + 이모지/글자스티커/SVG/우리샵칩/데코/내 스티커 → 레이어로 추가
     refs.stkSheet.addEventListener('click', function (e) {
       var tab = e.target.closest('[data-sttab]'); if (tab) { refs.stkTabs.querySelectorAll('[data-sttab]').forEach(function (x) { x.classList.toggle('on', x === tab); }); _renderStkTab(tab.getAttribute('data-sttab')); return; }

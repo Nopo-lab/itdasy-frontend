@@ -194,7 +194,14 @@
 .itlay2__fit{display:inline-flex;gap:2px;background:rgba(20,12,16,.3);border-radius:9px;padding:2px}
 .itlay2__fit button{height:28px;padding:0 11px;border:0;border-radius:7px;background:transparent;color:rgba(255,255,255,.85);font-size:11.5px;font-weight:700;cursor:pointer}
 .itlay2__fit button.on{background:#fff;color:#1c1316}
-.itlay2__bg{display:inline-flex;gap:8px;align-items:center}
+/* [#7] 레이아웃 배경색 줄 — 색이 많아 우측이 잘리던 것을 좌우 스크롤로. 자기 줄 전체 폭 사용. */
+.itlay2__bg{display:flex;gap:8px;align-items:center;flex:1 1 100%;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:2px 0;flex-wrap:nowrap}
+.itlay2__bg::-webkit-scrollbar{display:none}
+.itlay2__bg .itlaybg{flex:none}
+/* [#13] 무지개 스와치 — 탭하면 네이티브 색상 팔레트. 전 스펙트럼 자유 선택. */
+.itsw--rb{position:relative;overflow:hidden;padding:0;border:1.5px solid rgba(0,0,0,.12);
+  background:conic-gradient(from 0deg,#f00,#ffb000,#ffe600,#3ad13a,#00c2c2,#2b6bff,#8a4bff,#ff3fb0,#f00)}
+.itsw--rb input[type="color"]{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);opacity:0;border:none;padding:0;cursor:pointer;background:transparent}
 .itlaybg{width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);cursor:pointer}
 .itlaybg.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
 .itlay2__add{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:700;cursor:pointer}

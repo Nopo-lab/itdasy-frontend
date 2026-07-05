@@ -585,7 +585,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .ig-car { margin: 0; }
 .wsv2flow .ig-car__track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .wsv2flow .ig-car__track::-webkit-scrollbar { display: none; }
-.wsv2flow .ig-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; height: 330px; background: #000; cursor: pointer; }
+.wsv2flow .ig-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; height: 330px; background: #000; cursor: pointer; }   /* [#2] 빠르게 스와이프해도 한 장씩만 넘어가게 */
 .wsv2flow .ig-car__img { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .wsv2flow .ig-car__dots { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 0 3px; }
 .wsv2flow .ig-car__dot { width: 6px; height: 6px; padding: 0; border: 0; border-radius: 50%; background: var(--border-strong); cursor: pointer; transition: width .2s, background .2s; }
@@ -697,7 +697,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-car__track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
   border-radius: var(--r-lg); border: 1px solid var(--border); scrollbar-width: none; overscroll-behavior-x: contain; }
 .wsv2flow .cap-car__track::-webkit-scrollbar { display: none; }
-.wsv2flow .cap-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; height: 220px; background: #000; }
+.wsv2flow .cap-car__slide { position: relative; flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; height: 220px; background: #000; }   /* [#2] 한 장씩 스냅 */
 .wsv2flow .cap-car__img { position: absolute; inset: 0; background-size: cover; background-position: center; }
 .wsv2flow .cap-car__badge { position: absolute; top: 10px; left: 10px; z-index: 3; font-size: 11px; font-weight: 800;
   color: #fff; background: rgba(17, 24, 39, .55); padding: 4px 11px; border-radius: 999px; backdrop-filter: blur(3px); }
