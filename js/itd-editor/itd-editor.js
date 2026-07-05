@@ -960,7 +960,7 @@
     var filled = S.layoutOrder.length, have = (S.photos || []).length;
     // [사진 부족 안내] 이 레이아웃이 요구하는 장수보다 사진이 적으면 복제 대신 '몇 장 더 필요' 안내(빈 칸 유지).
     if (have < need) {
-      refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> — 사진 <b class="itlay2__cnt">' + need + '장</b>이 필요해요 (지금 ' + have + '장) · 위에서 사진을 더 추가해 주세요';
+      refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> — 사진 <b class="itlay2__cnt">' + need + '장</b>이 필요해요 (지금 ' + have + '장) · 아래 <b>사진</b> 버튼으로 더 추가하세요';
       return;
     }
     refs.layHint.innerHTML = '<b>' + S.layout.label + '</b> 순서대로 탭 · ' +
@@ -1166,6 +1166,14 @@
     var rd = new FileReader();
     rd.onload = function () {
       S.photos.push(rd.result); S.adj.push(defAdj());
+      // [#11] 콜라주면 새 사진을 즉시 빈 칸에 자동 배치하고 콜라주/힌트를 다시 그린다.
+      //   예전엔 layoutOrder·renderCollage 갱신을 안 해, 추가해도 사진이 '사라진 것처럼' 보이고
+      //   레이아웃을 바꿔야(=selectLayout 자동채움) 비로소 보였다.
+      if (!isSingleL(S.layout)) {
+        var newIdx = S.photos.length - 1;
+        if (S.layoutOrder.indexOf(newIdx) < 0 && S.layoutOrder.length < _layN()) S.layoutOrder.push(newIdx);
+        renderCollage(); renderLayoutHint();
+      }
       renderLayoutStrip(); renderAdjust();
     };
     rd.readAsDataURL(file);
