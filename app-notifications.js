@@ -47,6 +47,38 @@
     try { await apiFetch('/notifications/read-all', { method: 'PATCH', headers: window.authHeader() }); } catch (_) { void 0; }
   }
 
+  // [2026-07-05] 자동화 실패 재시도 — BE가 kind=automation_failure 알림의 meta/data에 failure_id를 내려줌.
+  function _failureId(n) {
+    for (const src of [n.data, n.meta, n.payload]) {
+      if (!src) continue;
+      try {
+        const p = typeof src === 'string' ? JSON.parse(src) : src;
+        if (p && p.failure_id != null) return p.failure_id;
+      } catch (_) { /* ignore */ }
+    }
+    return null;
+  }
+  async function _retryFailure(n, btn) {
+    const fid = _failureId(n);
+    if (fid == null) { if (window.showToast) window.showToast('재시도 대상을 찾지 못했어요'); return; }
+    if (btn) btn.disabled = true;
+    try {
+      const res = await apiFetch('/automation/failures/' + encodeURIComponent(fid) + '/retry', {
+        method: 'POST',
+        headers: window.authHeader ? window.authHeader() : {},
+      });
+      if (res.ok) {
+        if (window.showToast) window.showToast('다시 보냈어요');
+        return;
+      }
+      if (window.showToast) window.showToast('재시도 실패 — 잠시 후 다시 시도해주세요');
+      if (btn) btn.disabled = false;
+    } catch (_) {
+      if (window.showToast) window.showToast('재시도 실패 — 잠시 후 다시 시도해주세요');
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function _ensureSheet() {
     let sheet = document.getElementById('notifSheet');
     if (sheet) return sheet;
@@ -95,6 +127,8 @@
       booking_confirm_prev_day:  { bg: '#E1F5EE', color: '#1D9E75', icon: 'ic-calendar-check', link: '예약관리 보기 →' },
       dm_risk_alert:             { bg: '#FDECEC', color: '#E5484D', icon: 'ic-alert-triangle', link: 'DM 관리 보기 →' },
       announcement:              { bg: '#F7F8FA', color: '#4E5968', icon: 'ic-megaphone',      link: '공지 보기 →' },
+      // [2026-07-05] 자동화 실패 — 구 실패알림함(app-failures-hub) 흡수. 인라인 '재시도' 버튼 포함.
+      automation_failure:        { bg: '#FDEDEE', color: '#C0262C', icon: 'ic-alert-triangle', link: '' },
     };
     return ICON_MAP[kind] || { bg: '#F7F8FA', color: '#4E5968', icon: 'ic-bell', link: '' };
   }
@@ -145,9 +179,9 @@
     if (!body) return;
     if (!_items.length) {
       body.innerHTML = `
-        <div style="padding:40px 20px;text-align:center;color:var(--text-subtle);">
-          <div style="font-size:36px;margin-bottom:10px;">🌿</div>
-          <div style="font-size:13px;">새 알림 없음</div>
+        <div class="sv2-empty">
+          <svg width="36" height="36" aria-hidden="true"><use href="#ic-bell"/></svg>
+          <div class="t">새 알림이 없어요</div>
         </div>
       `;
       return;
@@ -164,14 +198,22 @@
       const dot = unread ? '<span style="position:absolute;left:4px;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:#BC6675;"></span>' : '';
       const timeText = (unread ? '' : '읽음 · ') + _esc(_relativeTime(n.scheduled_at));
       const linkLabel = c.link ? `<span style="font-size:11px;color:#8B95A1;margin-left:8px;">${c.link}</span>` : '';
-      return `<button type="button" data-notif-id="${n.id}" style="position:relative;display:flex;gap:12px;padding:12px;width:100%;background:transparent;border:0;border-radius:10px;text-align:left;cursor:pointer;opacity:${cardOpacity};font-family:inherit;">
+      // [2026-07-05] 자동화 실패 알림 — 인라인 '재시도' 필 버튼. 버튼 중첩 방지 위해 div 컨테이너 사용.
+      const isFail = n.kind === 'automation_failure';
+      const retryHtml = isFail
+        ? `<span style="display:block;margin-top:8px;"><button type="button" class="sv2-retry" data-fail-retry="${n.id}"><svg width="13" height="13" aria-hidden="true"><use href="#ic-refresh-cw"/></svg>재시도</button></span>`
+        : '';
+      const tag = isFail ? 'div' : 'button';
+      const attrs = isFail ? 'role="button" tabindex="0"' : 'type="button"';
+      return `<${tag} ${attrs} data-notif-id="${n.id}" style="position:relative;display:flex;gap:12px;padding:12px;width:100%;box-sizing:border-box;background:transparent;border:0;border-radius:10px;text-align:left;cursor:pointer;opacity:${cardOpacity};font-family:inherit;">
         ${dot}${_iconBoxHtml(n.kind)}
         <span style="flex:1;min-width:0;">
           <span style="display:block;font-size:13px;font-weight:500;color:${titleColor};">${_esc(_stripEmoji(n.title))}</span>
           <span style="display:block;font-size:11px;color:#4E5968;margin-top:2px;line-height:1.4;">${_esc(_stripEmoji(n.body || ''))}</span>
+          ${retryHtml}
           <span style="display:block;font-size:11px;color:#B0B8C1;margin-top:4px;">${timeText}${linkLabel}</span>
         </span>
-      </button>`;
+      </${tag}>`;
     };
     const groupHtml = (key) => {
       const list = groups[key];
@@ -193,6 +235,15 @@
         headerBadge.style.display = 'none';
       }
     }
+    // 재시도 버튼 — stopPropagation으로 카드(읽음 처리) 클릭과 분리
+    body.querySelectorAll('[data-fail-retry]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = parseInt(btn.dataset.failRetry, 10);
+        const n = _items.find(x => x.id === id);
+        if (n) _retryFailure(n, btn);
+      });
+    });
     body.querySelectorAll('[data-notif-id]').forEach(el => {
       el.addEventListener('click', async () => {
         const id = parseInt(el.dataset.notifId, 10);
@@ -249,7 +300,9 @@
     host.innerHTML = `
       <div role="status" style="background:linear-gradient(135deg,#F7EFF0 0%,#FCE7EC 100%);border:1px solid #F0DADF;border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
-          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:#D58A95;display:flex;align-items:center;justify-content:center;font-size:17px;color:#fff;">💳</div>
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:var(--brand,#D58A95);display:flex;align-items:center;justify-content:center;">
+            <svg style="width:18px;height:18px;stroke:#fff;stroke-width:2;fill:none;" aria-hidden="true"><use href="#ic-credit-card"/></svg>
+          </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;font-weight:600;color:#BC6675;letter-spacing:0.2px;margin-bottom:2px;">회원권 알림 ${total > 1 ? `(${total}건)` : ''}</div>
             <div style="font-size:14px;font-weight:700;color:#1f2330;line-height:1.35;">${_esc(a.title)}</div>
@@ -318,14 +371,14 @@
     const headerLbl = isRisk
       ? `위험 메시지 ${total > 1 ? `(${total}건)` : ''}`
       : `DM 사장 확인 대기 ${total > 1 ? `(${total}건)` : ''}`;
-    const iconClass = isRisk ? 'ph-warning' : 'ph-bell';
+    const iconId = isRisk ? 'ic-alert-triangle' : 'ic-bell';
 
     host.style.display = '';
     host.innerHTML = `
       <div role="status" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:14px;padding:14px 14px 14px 16px;position:relative;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="flex-shrink:0;width:36px;height:36px;border-radius:12px;background:${colors.icon};display:flex;align-items:center;justify-content:center;color:#fff;">
-            <i class="ph-duotone ${iconClass}" style="font-size:20px" aria-hidden="true"></i>
+            <svg width="20" height="20" aria-hidden="true"><use href="#${iconId}"/></svg>
           </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:11px;font-weight:700;color:${colors.label};letter-spacing:0.2px;margin-bottom:2px;">${headerLbl}</div>
@@ -427,6 +480,7 @@
 
   // [2026-05-28] 메인홈 잇비 카드/오늘 예약과 중복되거나 불필요한 알림은 알림함에서 제외.
   // 추후 백엔드 /notifications/pending 자체에서 제외하는 게 정석.
+  // ⚠️ automation_failure는 여기 넣지 말 것 — 실패알림함 통합(2026-07-05)으로 알림함이 유일한 노출처.
   const EXCLUDED_KINDS = [
     'proactive_morning_brief',  // 좋은 아침 — 메인홈 잇비 카드와 중복
     'dm_pending_confirm',       // DM 답장 대기 — 메인홈 잇비 챙겼어요

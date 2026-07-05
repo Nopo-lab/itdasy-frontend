@@ -24,6 +24,7 @@
     _selectedPlan = 'pro';
     pop.style.display = 'flex';
     _updatePlanCardHighlight();
+    _stylePopularCard();
     if (window.hapticLight) window.hapticLight();
 
     // 사용량/상태 로드 + 결제 가능여부(graceful)
@@ -65,11 +66,27 @@
     if (pop) pop.style.display = 'none';
   }
 
+  // 추천(pro) 카드 — index.html 수정 없이 JS에서 플랫 로즈 배지/보더로 통일
+  function _stylePopularCard() {
+    const proCard = document.getElementById('planCardPro');
+    if (!proCard) return;
+    proCard.style.border = '2px solid var(--brand)';
+    const badge = Array.from(proCard.children).find((el) => el.style && el.style.position === 'absolute');
+    if (badge) {
+      badge.textContent = '가장 인기';
+      badge.style.background = 'var(--brand)';
+      badge.style.borderRadius = 'var(--r-pill,999px)';
+      badge.style.fontSize = '11px';
+      badge.style.fontWeight = '700';
+      badge.style.padding = '3px 10px';
+    }
+  }
+
   function _updatePlanCardHighlight() {
     document.querySelectorAll('#planPopup .plan-card').forEach((card) => {
       const selected = card.dataset.plan === _selectedPlan;
       card.style.transform = selected ? 'scale(1.02)' : 'scale(1)';
-      card.style.boxShadow = selected ? '0 8px 24px rgba(213,138,149,0.25)' : 'none';
+      card.style.boxShadow = selected ? 'var(--shadow-brand)' : 'none';
     });
     _updateActionButton();
   }
@@ -89,13 +106,13 @@
     btn.style.cursor = 'pointer';
     if (_selectedPlan === 'free') {
       btn.textContent = '체험 상태로 유지';
-      btn.style.background = 'linear-gradient(135deg,#888,#aaa)';
+      btn.style.background = 'var(--text-subtle,#888)';
     } else if (_selectedPlan === 'pro') {
       btn.textContent = (_currentPlan === 'free') ? '월 6,900원 시작하기' : '잇데이 멤버십으로 전환';
-      btn.style.background = 'linear-gradient(135deg,var(--brand),#ff9aa8)';
+      btn.style.background = 'var(--brand)';
     } else if (_selectedPlan === 'premium') {
       btn.textContent = '잇데이 멤버십으로 전환';
-      btn.style.background = 'linear-gradient(135deg,var(--brand),#ff9aa8)';
+      btn.style.background = 'var(--brand)';
     }
   }
 
@@ -172,16 +189,16 @@
     if (!badge) return;
     if (plan === 'pro') {
       badge.textContent = _planDisplayName(plan);
-      badge.style.background = 'linear-gradient(135deg,var(--brand),#ff9aa8)';
+      badge.style.background = 'var(--brand)';
       badge.style.color = '#fff';
     } else if (plan === 'premium') {
       badge.textContent = _planDisplayName(plan);
-      badge.style.background = 'linear-gradient(135deg,var(--brand),#ff9aa8)';
+      badge.style.background = 'var(--brand)';
       badge.style.color = '#fff';
     } else {
       badge.textContent = _planDisplayName(plan);
       badge.style.background = '#e0e0e0';
-      badge.style.color = '#888';
+      badge.style.color = 'var(--text-subtle,#888)';
     }
     try {
       window.dispatchEvent(new CustomEvent('itdasy:plan-updated', { detail: { plan } }));

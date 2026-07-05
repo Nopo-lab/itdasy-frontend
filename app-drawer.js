@@ -33,7 +33,7 @@
     naver:     () => _call(['openNaverLink']),
     payment:   () => _call(['openRevenue', 'openRevenueHub', 'openRevenueInput']),
     shopinfo:  () => _call(['openShopSettings']),
-    failures:  () => _call(['openFailuresHub']),
+    // [2026-07-05] failures 라우트 제거 — 실패 알림은 알림함(app-notifications)으로 통합.
     backup:    () => _call(['openBackupScreen']),
   };
 

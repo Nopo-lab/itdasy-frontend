@@ -63,26 +63,29 @@
     try { pic = localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { void _e; }
     return { handle, pic };
   }
+  // [2026-07-05 리디자인] 원형 프로필 + @핸들 + 연동 상태 필 배지 — 카드 자체가 설명(라벨 텍스트 제거).
   function _accountHTML() {
     const { provLabel, email } = _accountInfo();
     const { handle, pic } = _igInfo();
-    const right = email ? `${_esc(provLabel)} · ${_esc(email)}` : _esc(provLabel);
-    // 인스타 연동 시: 프사 + @핸들 노출. 미연동 시: 기존 스토어 아이콘 + '현재 로그인'.
-    const avatar = pic
-      ? `<img src="${_esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;display:block;">`
-      : `<span class="ic-box ic-box--sm ic-box--blue">${_ic('ic-store', 14)}</span>`;
-    // [2026-06-14 QA] 두 정보가 라벨 없이 섞여 보이던 문제 — 명확히 분리.
-    const igVal = handle ? `@${_esc(handle)}` : '미연동';
-    const lbl = (t) => `<span style="color:#8B95A1;font-weight:500;font-size:11px;margin-right:5px;">${t}</span>`;
+    const emailText = email ? `${_esc(provLabel)} · ${_esc(email)}` : _esc(provLabel);
+    const isUrl = /^https?:\/\//i.test(pic || '');
+    const initial = (handle || 'I').trim().charAt(0).toUpperCase();
+    const avatar = isUrl
+      ? `<img class="sv2-acc__avatar" src="${_esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      : `<span class="sv2-acc__avatar sv2-acc__avatar--init">${_esc(initial)}</span>`;
+    const badge = handle
+      ? `<span class="sv2-pill sv2-pill--ok">인스타 연동됨</span>`
+      : `<button type="button" class="sv2-pill sv2-pill--brand" id="shIgConnect">연동하기</button>`;
     return `
       <div class="ms-section__title" style="margin-top:4px;">계정</div>
       <div class="ms-sh" id="shAccount">
-        <div class="ms-sh__row" style="cursor:default;">
-          <div class="ms-sh__icon">${avatar}</div>
-          <div class="ms-sh__info">
-            <div class="ms-sh__name">${lbl('연결된 인스타계정')}${igVal}</div>
-            <div class="ms-sh__meta">${lbl('로그인된 아이디')}${right}</div>
+        <div class="sv2-acc">
+          ${avatar}
+          <div class="sv2-acc__info">
+            <div class="sv2-acc__handle">${handle ? `@${_esc(handle)}` : '인스타 미연동'}</div>
+            <div class="sv2-acc__email">${emailText}</div>
           </div>
+          ${badge}
         </div>
       </div>
     `;
@@ -94,7 +97,6 @@
         ${_rowHTML('shopinfo', 'ic-store',    '샵 정보',          '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
         ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침', '최신 버전·데이터로 새로고침 (껐다 켠 효과)', { boxColor: 'blue' })}
         ${_rowHTML('backup',   'ic-download', '백업 · 내보내기',  '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
-        ${_rowHTML('failures', 'ic-bell',     '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">계정</div>
       <div class="ms-sh">
@@ -195,6 +197,13 @@
       });
     });
 
+    // 미연동 시 '연동하기' 필 → 연동관리 허브로
+    sheet.querySelector('#shIgConnect')?.addEventListener('click', () => {
+      try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; }
+      close();
+      setTimeout(() => window.openIntegrationsHub && window.openIntegrationsHub(), 200);
+    });
+
     // 진동 토글
     sheet.querySelector('#shHaptic')?.addEventListener('click', () => {
       try { window.toggleHapticSetting && window.toggleHapticSetting(); } catch (_e) { void _e; }
@@ -240,7 +249,7 @@
     if (act === 'sync')      { close(); setTimeout(() => window.forceAppUpdate && window.forceAppUpdate(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
     // 'undo' 라우트는 잇비 채팅 ⋯ 메뉴로 일원화 (2026-05-25, 행 제거).
-    if (act === 'failures')  { close(); setTimeout(() => window.openFailuresHub && window.openFailuresHub(), 200); return; }
+    // [2026-07-05] 'failures' 라우트 제거 — 자동화 실패는 알림함(app-notifications)으로 통합.
     if (act === 'subscription'){ close(); setTimeout(() => window.openPlanPopup && window.openPlanPopup(), 200); return; }
     if (act === 'membership'){ close(); setTimeout(() => window.MembershipUI && window.MembershipUI.openExpiringList && window.MembershipUI.openExpiringList(30), 200); return; }
     // [2026-06-09] 'support'/'logout' 라우트 제거 — 설정·연동에서 빠지고 사이드바/내샵관리 하단으로 이전.

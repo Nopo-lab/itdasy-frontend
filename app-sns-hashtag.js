@@ -68,31 +68,38 @@
 
   function _renderPopup(pop) {
     pop.innerHTML = `
-      <div style="background:var(--surface,#fff);width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;">
-        <div style="display:flex;justify-content:center;margin-bottom:12px;"><div style="width:36px;height:4px;border-radius:2px;background:#e0e0e0;"></div></div>
-        <div style="font-size:18px;font-weight:800;margin-bottom:4px;">🏷️ 해시태그 매니저</div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:16px;">${_sets.length}/${MAX_SETS} 세트 · 원터치로 캡션에 삽입</div>
+      <div style="background:var(--surface,#fff);width:100%;max-width:480px;border-radius:var(--r-xl,28px) var(--r-xl,28px) 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:center;margin-bottom:14px;"><div style="width:40px;height:4px;border-radius:2px;background:#D1D6DB;"></div></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="width:36px;height:36px;border-radius:12px;background:var(--brand-bg);color:var(--brand-strong);display:flex;align-items:center;justify-content:center;flex:0 0 36px;">
+            <svg width="18" height="18" aria-hidden="true"><use href="#ic-tag"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:17px;font-weight:800;">해시태그 매니저</div>
+            <div style="font-size:12.5px;color:var(--text-subtle);margin-top:2px;">${_sets.length}/${MAX_SETS} 세트 · 원터치로 캡션에 삽입</div>
+          </div>
+        </div>
 
         ${_sets.map((s, i) => `
-          <div style="background:rgba(213,138,149,0.04);border:1px solid rgba(213,138,149,0.1);border-radius:14px;padding:14px;margin-bottom:10px;">
+          <div style="background:var(--surface,#fff);border:1.5px solid var(--border,#e5e5e5);border-radius:var(--r-md,14px);padding:14px;margin-bottom:10px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <div style="font-size:14px;font-weight:700;">${_esc(s.name)}</div>
               <div style="display:flex;gap:6px;">
-                <button type="button" data-hashtag-act="copy" data-hashtag-idx="${i}" style="padding:4px 10px;border:1px solid #ddd;border-radius:8px;background:#fff;font-size:11px;font-weight:600;cursor:pointer;">📋 복사</button>
-                <button type="button" data-hashtag-act="insert" data-hashtag-idx="${i}" style="padding:4px 10px;border:none;border-radius:8px;background:var(--accent,#D58A95);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">삽입</button>
+                <button type="button" data-hashtag-act="copy" data-hashtag-idx="${i}" style="padding:4px 10px;border:1.5px solid var(--border,#ddd);border-radius:8px;background:transparent;font-size:11px;font-weight:600;cursor:pointer;">복사</button>
+                <button type="button" data-hashtag-act="insert" data-hashtag-idx="${i}" style="padding:4px 10px;border:none;border-radius:8px;background:var(--brand,#D58A95);color:#fff;font-size:11px;font-weight:700;cursor:pointer;">삽입</button>
               </div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:6px;">
-              ${s.tags.map(tag => `<span style="padding:4px 10px;border-radius:20px;background:rgba(213,138,149,0.08);color:var(--accent2);font-size:11px;font-weight:600;">${_esc(tag)}</span>`).join('')}
+              ${s.tags.map(tag => `<span style="padding:4px 10px;border-radius:var(--r-pill,999px);background:var(--brand-bg);color:var(--brand-strong);font-size:11px;font-weight:600;">${_esc(tag)}</span>`).join('')}
             </div>
             <div style="margin-top:8px;display:flex;gap:6px;">
-              <button type="button" data-hashtag-act="edit" data-hashtag-idx="${i}" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;text-decoration:underline;">편집</button>
-              ${s.id !== 'default' ? `<button type="button" data-hashtag-act="delete" data-hashtag-idx="${i}" style="font-size:11px;color:#ef4444;background:none;border:none;cursor:pointer;text-decoration:underline;">삭제</button>` : ''}
+              <button type="button" data-hashtag-act="edit" data-hashtag-idx="${i}" style="font-size:11px;color:var(--text-subtle);background:none;border:none;cursor:pointer;text-decoration:underline;">편집</button>
+              ${s.id !== 'default' ? `<button type="button" data-hashtag-act="delete" data-hashtag-idx="${i}" style="font-size:11px;color:var(--danger,#ef4444);background:none;border:none;cursor:pointer;text-decoration:underline;">삭제</button>` : ''}
             </div>
           </div>
         `).join('')}
 
-        ${_sets.length < MAX_SETS ? `<button type="button" data-hashtag-act="add" style="width:100%;height:44px;border:1.5px dashed #ddd;border-radius:14px;background:#fff;font-size:13px;font-weight:700;color:var(--accent);cursor:pointer;">＋ 새 해시태그 세트 추가</button>` : ''}
+        ${_sets.length < MAX_SETS ? `<button type="button" data-hashtag-act="add" style="width:100%;height:44px;border:1.5px dashed var(--border,#ddd);border-radius:var(--r-md,14px);background:transparent;font-size:13px;font-weight:700;color:var(--brand-strong);cursor:pointer;">＋ 새 해시태그 세트 추가</button>` : ''}
       </div>`;
     _bindPopupEvents(pop);
   }

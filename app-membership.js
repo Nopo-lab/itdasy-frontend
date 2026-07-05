@@ -35,10 +35,21 @@
     el.className = 'sheet-overlay';
     el.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9000;align-items:flex-end;justify-content:center;';
     el.innerHTML = `
-      <div class="sheet-body" style="background:var(--bg-1,#fff);width:100%;max-width:480px;border-radius:18px 18px 0 0;padding:18px 18px env(safe-area-inset-bottom,16px);max-height:85vh;overflow:auto;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <h3 id="msTitle" style="font-size:17px;font-weight:700;margin:0;">회원권</h3>
-          <button id="msClose" style="background:none;border:none;font-size:24px;cursor:pointer;line-height:1;">×</button>
+      <style>
+        #membershipSheet .ms-cta:active { transform: scale(.985); }
+        #membershipSheet .ms-quick-btn[data-on="1"] { border-color: var(--brand); background: var(--brand-bg); color: var(--brand-strong); }
+      </style>
+      <div class="sheet-body" style="background:var(--bg-1,#fff);width:100%;max-width:480px;border-radius:var(--r-xl,28px) var(--r-xl,28px) 0 0;padding:12px 18px env(safe-area-inset-bottom,16px);max-height:85vh;overflow:auto;">
+        <div style="display:flex;justify-content:center;margin-bottom:14px;"><div style="width:40px;height:4px;border-radius:2px;background:#D1D6DB;"></div></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+          <div style="width:36px;height:36px;border-radius:12px;background:var(--brand-bg);color:var(--brand-strong);display:flex;align-items:center;justify-content:center;flex:0 0 36px;">
+            <svg width="18" height="18" aria-hidden="true"><use href="#ic-credit-card"/></svg>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <h3 id="msTitle" style="font-size:17px;font-weight:800;margin:0;">회원권</h3>
+            <div id="msSub" style="font-size:12.5px;color:var(--text-subtle);margin-top:2px;"></div>
+          </div>
+          <button id="msClose" style="background:none;border:none;font-size:24px;cursor:pointer;line-height:1;color:var(--text-subtle);">×</button>
         </div>
         <div id="msBody"></div>
       </div>
@@ -75,17 +86,20 @@
         </div>`;
       }).join('');
       container.innerHTML = `
-        <div style="font-size:12px;color:#888;font-weight:600;margin-bottom:6px;">최근 내역</div>
-        <div style="background:#FAFAFA;border-radius:10px;padding:6px 10px;">${rows}</div>
+        <div style="font-size:12px;color:var(--text-subtle,#888);font-weight:600;margin-bottom:6px;">최근 내역</div>
+        <div style="background:var(--bg-2,#FAFAFA);border-radius:var(--r-md,14px);padding:6px 10px;">${rows}</div>
       `;
     } catch (_e) {
       container.innerHTML = '<div style="font-size:12px;color:#888;text-align:center;padding:10px;">내역을 불러올 수 없어요.</div>';
     }
   }
 
-  function _open(title, htmlBody) {
+  function _open(title, htmlBody, sub) {
     const sheet = _ensureSheet();
     sheet.querySelector('#msTitle').textContent = title;
+    const subEl = sheet.querySelector('#msSub');
+    subEl.textContent = sub || '';
+    subEl.style.display = sub ? 'block' : 'none';
     sheet.querySelector('#msBody').innerHTML = htmlBody;
     sheet.style.display = 'flex';
   }
@@ -93,31 +107,31 @@
   // ── 충전 시트 ───────────────────────────────────────────────
   function openTopupSheet(customerId, customerName) {
     const html = `
-      <div style="margin-bottom:14px;color:var(--text-2,#666);font-size:13px;">${customerName || '고객'}님 회원권 충전</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
         ${[30000, 50000, 100000, 200000, 300000, 500000].map(amt => `
-          <button class="ms-quick-btn" data-amt="${amt}" style="padding:14px 6px;border-radius:10px;border:1px solid var(--border,#e5e5e5);background:var(--bg-2,#fafafa);font-weight:700;font-size:13px;cursor:pointer;">${formatMoney(amt)}</button>
+          <button class="ms-quick-btn" data-amt="${amt}" style="padding:14px 6px;border-radius:var(--r-md,14px);border:1.5px solid var(--border,#e5e5e5);background:transparent;font-weight:700;font-size:13px;cursor:pointer;transition:background .12s,border-color .12s;">${formatMoney(amt)}</button>
         `).join('')}
       </div>
       <div style="margin-bottom:14px;">
-        <input id="msAmount" type="number" inputmode="numeric" placeholder="직접 입력 (원)" min="1000" step="1000" style="width:100%;padding:14px;border:1px solid var(--border,#e5e5e5);border-radius:10px;font-size:15px;">
+        <input id="msAmount" type="number" inputmode="numeric" placeholder="직접 입력 (원)" min="1000" step="1000" style="width:100%;padding:14px;border:1.5px solid var(--border,#e5e5e5);border-radius:var(--r-md,14px);font-size:15px;">
       </div>
       <div style="margin-bottom:14px;">
-        <select id="msMethod" style="width:100%;padding:12px;border:1px solid var(--border,#e5e5e5);border-radius:10px;font-size:14px;">
+        <select id="msMethod" style="width:100%;padding:12px;border:1.5px solid var(--border,#e5e5e5);border-radius:var(--r-md,14px);font-size:14px;">
           <option value="card">카드</option>
           <option value="cash">현금</option>
           <option value="transfer">계좌이체</option>
         </select>
       </div>
-      <button id="msConfirm" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--brand),#FFA8B6);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;">충전하기</button>
+      <button id="msConfirm" class="ms-cta" style="width:100%;height:54px;background:var(--brand);color:#fff;border:none;border-radius:var(--r-md,14px);font-weight:700;font-size:15px;cursor:pointer;transition:transform .12s;">충전하기</button>
       <!-- [2026-04-29 B4] 최근 사용 history -->
       <div id="msHistoryWrap" style="margin-top:18px;"></div>
     `;
-    _open('💳 회원권 충전', html);
+    _open('회원권 충전', html, `${customerName || '고객'}님 회원권 충전`);
     const sheet = document.getElementById('membershipSheet');
     sheet.querySelectorAll('.ms-quick-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         sheet.querySelector('#msAmount').value = btn.dataset.amt;
+        sheet.querySelectorAll('.ms-quick-btn').forEach(b => { b.dataset.on = (b === btn) ? '1' : ''; });
       });
     });
     _loadHistory(customerId, sheet.querySelector('#msHistoryWrap'));
@@ -137,8 +151,8 @@
         });
         // [2026-04-29] 충전 성공 — 큰 confetti
         if (window.Fun && window.Fun.celebrate) {
-          window.Fun.celebrate(`💳 ${customerName}님 +${formatMoney(amount)} (잔액 ${formatMoney(r.membership_balance)})`, {
-            emojis: ['💳', '✨', '💖', '🌷'], count: 16,
+          window.Fun.celebrate(`${customerName}님 +${formatMoney(amount)} (잔액 ${formatMoney(r.membership_balance)})`, {
+            emojis: ['✨', '💖', '🌷'], count: 16,
           });
         } else {
           _toast(`충전 완료! 잔액 ${formatMoney(r.membership_balance)}`);
@@ -155,18 +169,17 @@
   function openUseSheet(customerId, customerName, currentBalance) {
     const balanceTxt = currentBalance != null ? `현재 잔액 ${formatMoney(currentBalance)}` : '';
     const html = `
-      <div style="margin-bottom:14px;color:var(--text-2,#666);font-size:13px;">${customerName || '고객'}님 회원권 사용 · ${balanceTxt}</div>
       <div style="margin-bottom:14px;">
-        <input id="msUseAmount" type="number" inputmode="numeric" placeholder="차감 금액 (원)" min="1000" step="1000" style="width:100%;padding:14px;border:1px solid var(--border,#e5e5e5);border-radius:10px;font-size:15px;">
+        <input id="msUseAmount" type="number" inputmode="numeric" placeholder="차감 금액 (원)" min="1000" step="1000" style="width:100%;padding:14px;border:1.5px solid var(--border,#e5e5e5);border-radius:var(--r-md,14px);font-size:15px;">
       </div>
       <div style="margin-bottom:14px;">
-        <input id="msUseService" type="text" placeholder="시술명 (선택)" style="width:100%;padding:12px;border:1px solid var(--border,#e5e5e5);border-radius:10px;font-size:14px;">
+        <input id="msUseService" type="text" placeholder="시술명 (선택)" style="width:100%;padding:12px;border:1.5px solid var(--border,#e5e5e5);border-radius:var(--r-md,14px);font-size:14px;">
       </div>
-      <button id="msUseConfirm" style="width:100%;padding:16px;background:linear-gradient(135deg,#0288D1,#03A9F4);color:#fff;border:none;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer;">차감하기</button>
+      <button id="msUseConfirm" class="ms-cta" style="width:100%;height:54px;background:var(--brand);color:#fff;border:none;border-radius:var(--r-md,14px);font-weight:700;font-size:15px;cursor:pointer;transition:transform .12s;">차감하기</button>
       <!-- [2026-04-29 B4] 최근 사용 history -->
       <div id="msHistoryWrap" style="margin-top:18px;"></div>
     `;
-    _open('💳 회원권 사용', html);
+    _open('회원권 사용', html, `${customerName || '고객'}님${balanceTxt ? ' · ' + balanceTxt : ''}`);
     const sheet = document.getElementById('membershipSheet');
     _loadHistory(customerId, sheet.querySelector('#msHistoryWrap'));
     sheet.querySelector('#msUseConfirm').addEventListener('click', async () => {
@@ -198,22 +211,22 @@
   // ── 만료 임박 리스트 ────────────────────────────────────────
   async function openExpiringList(days) {
     days = days || 30;
-    _open('💳 회원권 만료 임박', `<div style="text-align:center;padding:40px 0;color:var(--text-2,#666);">불러오는 중…</div>`);
+    _open('회원권 만료 임박', `<div style="text-align:center;padding:40px 0;color:var(--text-2,#666);">불러오는 중…</div>`, `${days}일 이내 만료 예정 고객`);
     try {
       const r = await _fetch('GET', '/memberships/expiring?days=' + days);
       const items = r.items || [];
       const sheet = document.getElementById('membershipSheet');
       if (!items.length) {
-        sheet.querySelector('#msBody').innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-2,#666);">${days}일 이내 만료되는 회원권이 없어요 👍</div>`;
+        sheet.querySelector('#msBody').innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--text-2,#666);">${days}일 이내 만료되는 회원권이 없어요</div>`;
         return;
       }
       const list = items.map(it => `
-        <div style="padding:14px;border:1px solid var(--border,#e5e5e5);border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+        <div style="padding:14px;border:1.5px solid var(--border,#e5e5e5);border-radius:var(--r-md,14px);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-weight:700;font-size:15px;">${(it.name || '').replace(/[<>&"]/g,'')}</div>
             <div style="color:var(--text-2,#666);font-size:12px;margin-top:3px;">잔액 ${formatMoney(it.membership_balance)} · ${it.days_until_expire ?? '-'}일 후 만료</div>
           </div>
-          <button class="ms-row-topup" data-id="${it.customer_id}" data-name="${(it.name || '').replace(/[<>&"]/g,'')}" style="padding:8px 14px;background:var(--brand);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">충전 안내</button>
+          <button class="ms-row-topup" data-id="${it.customer_id}" data-name="${(it.name || '').replace(/[<>&"]/g,'')}" style="padding:8px 14px;background:var(--brand);color:#fff;border:none;border-radius:var(--r-pill,999px);font-size:12px;font-weight:700;cursor:pointer;">충전 안내</button>
         </div>
       `).join('');
       sheet.querySelector('#msBody').innerHTML = list;

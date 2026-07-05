@@ -15,6 +15,20 @@
   function _toast(m) { if (window.showToast) window.showToast(m); }
   function _haptic() { try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; } }
 
+  // [2026-07-05 리디자인] 허브(설정)와 동일한 카드+행 패턴 — .ms-sh / .ms-sh__row + 컬러 ic-box.
+  function _exportRowHTML(kind, icon, box, t1, t2) {
+    return `
+      <button type="button" class="ms-sh__row" data-bk-export="${kind}">
+        <div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--${box}"><svg width="14" height="14" aria-hidden="true"><use href="#${icon}"/></svg></span></div>
+        <div class="ms-sh__info">
+          <div class="ms-sh__name">${t1}</div>
+          <div class="ms-sh__meta">${t2}</div>
+        </div>
+        <div class="ms-sh__chev"><svg width="14" height="14" aria-hidden="true"><use href="#ic-download"/></svg></div>
+      </button>
+    `;
+  }
+
   function _ensureMounted() {
     let el = document.getElementById(ID);
     if (el) return el;
@@ -30,45 +44,17 @@
         <div class="ss-title">백업 · 로그아웃</div>
       </header>
       <div class="ss-body">
-        <div class="ss-card">
-          <div class="ss-card-tt">데이터 내보내기</div>
-          <div class="ss-card-sub">고객·예약·매출·재고·지출 전체를 한 번에 받으세요. PIPA·GDPR 준수 — 민감정보(토큰·비밀번호·결제)는 제외돼요.</div>
-          <div class="ss-list-it" data-bk-export="full-zip" style="cursor:pointer">
-            <div class="ic"><i class="ph-duotone ph-archive" aria-hidden="true"></i></div>
-            <div class="meta">
-              <div class="t1">전체 데이터 ZIP (CSV)</div>
-              <div class="t2">고객·예약·매출·재고 · UTF-8 BOM (Excel 한글)</div>
-            </div>
-            <i class="ph-duotone ph-download-simple" aria-hidden="true"></i>
-          </div>
-          <div class="ss-list-it" data-bk-export="full-json" style="cursor:pointer">
-            <div class="ic"><i class="ph-duotone ph-file-code" aria-hidden="true"></i></div>
-            <div class="meta">
-              <div class="t1">전체 데이터 JSON</div>
-              <div class="t2">전체 구조·메타데이터 포함 · 다른 시스템 이관용</div>
-            </div>
-            <i class="ph-duotone ph-download-simple" aria-hidden="true"></i>
-          </div>
-          <div class="ss-list-it" data-bk-export="revenue" style="cursor:pointer">
-            <div class="ic"><i class="ph-duotone ph-trend-up" aria-hidden="true"></i></div>
-            <div class="meta">
-              <div class="t1">매출 데이터만 CSV</div>
-              <div class="t2">최근 12개월 매출 내역</div>
-            </div>
-            <i class="ph-duotone ph-download-simple" aria-hidden="true"></i>
-          </div>
-          <div class="ss-list-it" data-bk-export="customers" style="cursor:pointer">
-            <div class="ic"><i class="ph-duotone ph-users" aria-hidden="true"></i></div>
-            <div class="meta">
-              <div class="t1">고객 데이터만 CSV</div>
-              <div class="t2">고객 목록·메모·시술 이력</div>
-            </div>
-            <i class="ph-duotone ph-download-simple" aria-hidden="true"></i>
-          </div>
+        <div class="ms-section__title">데이터 내보내기</div>
+        <div class="ss-card-sub" style="margin:0 4px 10px;">고객·예약·매출·재고·지출 전체를 한 번에 받으세요. PIPA·GDPR 준수 — 민감정보(토큰·비밀번호·결제)는 제외돼요.</div>
+        <div class="ms-sh" style="margin-bottom:16px;">
+          ${_exportRowHTML('full-zip', 'ic-archive', 'pink', '전체 데이터 ZIP (CSV)', '고객·예약·매출·재고 · UTF-8 BOM (Excel 한글)')}
+          ${_exportRowHTML('full-json', 'ic-file-code', 'blue', '전체 데이터 JSON', '전체 구조·메타데이터 포함 · 다른 시스템 이관용')}
+          ${_exportRowHTML('revenue', 'ic-trending-up', 'teal', '매출 데이터만 CSV', '최근 12개월 매출 내역')}
+          ${_exportRowHTML('customers', 'ic-users', 'amber', '고객 데이터만 CSV', '고객 목록·메모·시술 이력')}
         </div>
 
+        <div class="ms-section__title">계정 정보</div>
         <div class="ss-card">
-          <div class="ss-card-tt">계정 정보</div>
           <div class="ss-row"><span class="lbl">이메일</span>
             <span class="val" id="bkEmail">—</span></div>
           <div class="ss-row"><span class="lbl">가입일</span>
@@ -77,17 +63,15 @@
             <span class="val" id="bkVersion">—</span></div>
         </div>
 
-        <div class="ss-card">
-          <div class="ss-card-tt">계정 관리</div>
-          <button type="button" class="ss-cta-secondary" data-bk-logout
-            style="color:#d32f2f;border-color:rgba(211,47,47,0.3);">
-            로그아웃
-          </button>
-          <button type="button" class="ss-cta-secondary" data-bk-delete
-            style="color:var(--text-subtle);margin-top:8px;font-size:12px;">
-            계정 삭제 안내
-          </button>
-        </div>
+        <div class="ms-section__title" style="margin-top:16px;">계정 관리</div>
+        <button type="button" class="row-danger" data-bk-logout>
+          <svg width="16" height="16" aria-hidden="true"><use href="#ic-log-out"/></svg>
+          로그아웃
+        </button>
+        <button type="button" class="ss-cta-secondary" data-bk-delete
+          style="color:var(--text-subtle);margin-top:8px;font-size:12px;border:0;background:none;">
+          계정 삭제 안내
+        </button>
       </div>
     `;
     document.body.appendChild(el);
