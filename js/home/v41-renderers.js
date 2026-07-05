@@ -256,6 +256,18 @@
         </div>`
       : '';
     const timeHtml = lastTime ? `<div class="hv5-itbi-msg-time">${esc(lastTime)}</div>` : '';
+    // [2026-07-05] 저녁(19시~) 마감 리포트 유도 칩 — 하루 1번. seen 키는 closing-report.js run()이 기록.
+    let closingHtml = '';
+    try {
+      const now = new Date();
+      const ymd = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      if (now.getHours() >= 19 && !localStorage.getItem('itdasy:closing_report_seen::' + ymd)) {
+        closingHtml = `<button type="button" class="hv5-itbi-closing" data-hv-act="itbiClosingReport">
+          <svg width="15" height="15" aria-hidden="true"><use href="#ic-moon"/></svg>
+          오늘 하루 마감 리포트 나왔어요<span class="hv5-itbi-closing-go">보기 ›</span>
+        </button>`;
+      }
+    } catch (_e) { /* silent */ }
     return `<section class="hv5-itbi-card">
       <div class="hv5-itbi-head">
         <div class="hv5-itbi-head-l">
@@ -275,7 +287,7 @@
           ${timeHtml}
         </div>
       </div>
-      ${promptsHtml}
+      ${closingHtml}
       <div class="hv5-itbi-input">
         <button type="button" class="hv5-itbi-input-icon" data-itbi-act="photo" aria-label="사진 첨부"><svg width="18" height="18" aria-hidden="true"><use href="#ic-camera"/></svg></button>
         <input type="text" class="hv5-itbi-input-field" placeholder="잇비에게 무엇이든 물어보세요" data-itbi-input />

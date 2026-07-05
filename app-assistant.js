@@ -3824,21 +3824,21 @@
     }
   }
 
-  // [T-114] "오늘 브리핑/뭐 해야/샵 상태" → 오늘 운영 우선순위 요약(읽기 전용). 단순 조회는 미감지.
-  async function _tryDailyBriefingShortcut(input, q) {
+  // [T-114/2026-07-05] 리포트형 모듈 공통 실행기 — 브리핑·마감 리포트가 같은 흐름(detect→run→briefing_actions).
+  async function _runReportModule(input, q, mod, failMsg) {
     try {
-      if (!window.ItdasyDailyBriefing || !window.ItdasyDailyBriefing.detect(q)) return false;
+      if (!mod || typeof mod.detect !== 'function' || !mod.detect(q)) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
       _history.push({ role: 'loading', text: '' });
       _renderHistory();
       let res;
-      try { res = await window.ItdasyDailyBriefing.run(); }
+      try { res = await mod.run(); }
       catch (_e) { res = null; }
       _history = _history.filter((m) => m.role !== 'loading');
       _history.push({
         role: 'assistant',
-        text: (res && res.message) || '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+        text: (res && res.message) || failMsg,
         briefing_actions: (res && Array.isArray(res.actions)) ? res.actions : [],   // [T-115] 추천 버튼
       });
       _renderHistory();
@@ -3846,6 +3846,16 @@
     } catch (_e) {
       return false;
     }
+  }
+
+  // [T-114] "오늘 브리핑/뭐 해야/샵 상태" → 오늘 운영 우선순위 요약(읽기 전용). 단순 조회는 미감지.
+  function _tryDailyBriefingShortcut(input, q) {
+    return _runReportModule(input, q, window.ItdasyDailyBriefing, '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+
+  // [2026-07-05] "마감 리포트/오늘 마감/하루 결산" → 저녁 결산 + 내일 미리보기(읽기 전용, LLM 0).
+  function _tryClosingReportShortcut(input, q) {
+    return _runReportModule(input, q, window.ItdasyClosingReport, '마감 리포트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 
   // [T-110] "{고객} 안부/리터치/재방문 문자 초안 써줘" → draft_message 즉시 실행(발송 아님) + 초안 + 복사.
@@ -4443,6 +4453,7 @@
     if (await _tryLookupBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
+    if (await _tryClosingReportShortcut(input, q)) return true;  // [2026-07-05] 하루 마감 리포트(브리핑보다 먼저)
     if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)
     if (await _tryCustomerStatusCard(input, q)) return true;     // [J-3] 고객 상태 카드(읽기 전용 + 다음액션 버튼)
     if (await _tryAsyncIntentRule(input, q)) return true;

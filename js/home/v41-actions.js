@@ -93,6 +93,11 @@
       return undefined;
     },
     completePending: _completePending,
+    // [2026-07-05] 홈 저녁 칩 → 잇비 시트 열고 "마감 리포트" 바로 전송(룰 기반, LLM 0).
+    itbiClosingReport: () => {
+      const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
+      if (typeof open === 'function') open({ sendImmediate: '마감 리포트' });
+    },
   };
 
   function run(act) {

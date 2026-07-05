@@ -146,6 +146,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/source-image.js?v=20260606-p0a-source-image',
   'js/assistant/core/briefing-priority.js?v=20260602-v386-brief-rank',
   'js/assistant/core/daily-briefing.js?v=20260602-v386-brief-rank',
+  'js/assistant/core/closing-report.js?v=20260705-closing-report',
   'js/assistant/core/marketing-draft-policy.js?v=20260602-v376-marketing-policy',
   'js/assistant/core/action-hub.js?v=20260616-v497-itbi-full-audit',
   'js/assistant/core/memory-intent.js?v=20260612-v447c-itbi-fuzz',
