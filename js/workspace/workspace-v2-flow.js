@@ -2448,7 +2448,7 @@
       setScreen('caption');
       // [워크플로 재정렬] 첫 생성 성공 → 편집기 자동 오픈(캡션이 레이아웃으로 사진에 반영) → 완료 시 미리보기.
       //   재생성(hashtag_mode/이미 캡션 있음)은 자동 오픈 안 함. 편집 모듈 없으면 조용히 캡션 유지.
-      if (AUTO_EDITOR && r.ok && _wasEmpty && !opts.hashtag_mode && window.ItdEditor && window.ItdEditor.open) {
+      if (AUTO_EDITOR && !HYPER && r.ok && _wasEmpty && !opts.hashtag_mode && window.ItdEditor && window.ItdEditor.open) {   // [ws-hyper] 레이아웃 합성본 사용 — 옛 편집기 강제 오픈 안 함(긴 시술명 3줄 깨짐 방지)
         d._editorNext = 'preview';
         setTimeout(function () { if (cur === 'caption') _openStoryEditor({ fresh: true }); }, 90);   // 캡션 직후 자동 오픈은 깨끗하게(옛 편집 복원 X)
       }
@@ -3700,7 +3700,8 @@
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
       //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
-      if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('upload', { push: false }); _openEditFirst(); }   // [통합 편집기] 업로드/홈 진입 → 바로 ItdEditor
+      if (HYPER && !d.textOnly && editablePhotos().length) { setScreen('layout', { push: false }); }   // [ws-hyper] 사진 로드 후 '레이아웃 고르기'로 (편집기 직행 대신)
+      else if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('upload', { push: false }); _openEditFirst(); }   // [통합 편집기] 업로드/홈 진입 → 바로 ItdEditor
       else if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
