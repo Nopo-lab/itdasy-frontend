@@ -9,6 +9,12 @@ permissions:
   pages: write
   id-token: write
 
+# [배포 안정화] Pages 배포는 한 번에 하나만 — 겹치는 실행이 같은 Pages 배포를 두고 경쟁하다
+#   "Deployment failed, try again later" 나던 것 방지. 진행 중 배포는 취소하지 않고(중간 취소=깨짐) 큐잉.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
