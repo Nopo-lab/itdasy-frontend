@@ -185,3 +185,18 @@ pull(since)     → GET delta → LWW 병합(updatedAt 비교) → tombstone은 
 - 각 단계 승인 게이트 · 저위험분리 배포.
 
 ### 범위 제안: **Phase A(이번)** = 뷰·발행·재캡션·처음부터 재편집 가능한 완전 동기화 / **Phase B(후속)** = 레이어 단위 이어서 편집 CORS 라운드트립.
+
+---
+
+## 11. 배포 현황 · 후속 개선 (2026-07-05)
+
+- **Phase A** 배포·라이브(main v694). **Phase B** = hydration(다른 기기 https 이미지 → 픽셀 필요 직전 dataURL 재수화, 편집기/캐러셀 게이트) 배포(v695). Supabase Storage CORS `*` 실측 확인. 서버 계약 E2E 24/24 통과.
+- **비용 방어(v698)**:
+  - **Coalesce**(FE, flag `ITDASY_SLOT_SYNC_COALESCE`): 편집 중엔 매 저장마다 업로드하지 않고 정착(플로우 close/발행/20s idle/startup sweep) 때 1회만 full 업로드. `beginEdit`/`settleSlot`.
+  - **Orphan GC**(BE, `services/workspace_gc.py`, APScheduler 04:20 UTC, env `ITDASY_WS_GC_ENABLED` 미설정=dry-run): 어떤 live photo도 참조 안 하는 `WorkspaceAsset` 정리(24h grace, content_hash 공유 asset은 참조 0일 때만).
+
+## 12. 알려진 한계
+
+- **LWW가 slot 통짜**(필드 단위 병합 아님): 두 기기가 같은 slot을 동시에 다르게 편집하면 `client_updated_at` 늦은 쪽이 이기고 상대 편집은 통째 손실. 1인 다기기 시나리오라 충돌 확률 낮음. 필요 시 후속에서 필드/사진 단위 병합 검토.
+- **발행 이미지 URL 미재활용**: 인스타 발행은 `ig_media_id`만 저장하고 Supabase URL은 저장 안 함 → 동기화가 발행본을 재활용하지 못하고 별도 업로드. 후속 최적화 여지.
+- **썸네일 티어 없음**: 다른 기기 카드도 원본(또는 재수화본) 사용. 저장 절감 목적상 썸네일-우선은 의도적으로 제외(저장 증가·복잡도). 대역폭 최적화가 필요해지면 재검토.
