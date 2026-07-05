@@ -385,7 +385,7 @@
     (slot.photos || []).forEach(function (p) { var u = p && (p.editedDataUrl || p.dataUrl); if (u && out.indexOf(u) < 0) out.push(u); });
     return out;
   }
-  function _closeLightbox() { if (_lbEl && _lbEl.parentNode) _lbEl.parentNode.removeChild(_lbEl); _lbEl = null; }
+  function _closeLightbox() { if (_lbEl && _lbEl.parentNode) _lbEl.parentNode.removeChild(_lbEl); _lbEl = null; try { if (window._markSheetClosed) window._markSheetClosed('wshcLightbox'); } catch (_e) { void _e; } }
   function _openLightbox(slotId) {
     try {
       var slot = _slotsCache.filter(function (s) { return s.id === slotId; })[0]; if (!slot) return;
@@ -398,6 +398,8 @@
         (imgs.length > 1 ? '<div class="wshc-lb__dots">' + imgs.map(function (u, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '></span>'; }).join('') + '</div>' : '') +
         '<div class="wshc-lb__bar"><button type="button" class="wshc-lb__edit" data-lb-edit>이어서 편집 →</button></div>';
       document.body.appendChild(ov); _lbEl = ov;
+      // [#1] 시스템/하드웨어 back 으로 라이트박스가 먼저 닫히게 등록 → 뒤로가기 시 작업실 홈으로.
+      try { if (window._registerSheet) window._registerSheet('wshcLightbox', _closeLightbox); if (window._markSheetOpen) window._markSheetOpen('wshcLightbox'); } catch (_e) { void _e; }
       (window.requestAnimationFrame || function (f) { return setTimeout(f, 16); })(function () { ov.classList.add('is-open'); });
       var go = function (n) { idx = Math.max(0, Math.min(imgs.length - 1, n)); ov.querySelectorAll('.wshc-lb__slide').forEach(function (s, i) { s.classList.toggle('on', i === idx); }); ov.querySelectorAll('.wshc-lb__dots span').forEach(function (dd, i) { dd.classList.toggle('on', i === idx); }); };
       ov.addEventListener('click', function (e) {
@@ -609,6 +611,8 @@
       '</div>';
     var el = _drawerEl();
     document.getElementById('wsv2DrawerCard').innerHTML = html;
+    // [#1] 드로어도 back 시스템에 등록 → 뒤로가기 시 드로어 닫고 작업실 홈.
+    try { if (window._registerSheet) window._registerSheet('wsv2Drawer', _closeDrawer); if (window._markSheetOpen) window._markSheetOpen('wsv2Drawer'); } catch (_e) { void _e; }
     requestAnimationFrame(function () { el.classList.add('is-open'); });
   }
   function _isPub(slot) { return !!(slot && (slot.status === 'published' || slot.instagramPublished || (slot.publish && slot.publish.status === 'published'))); }
@@ -616,6 +620,7 @@
   function _closeDrawer() {
     var el = document.getElementById('wsv2Drawer');
     if (el) el.classList.remove('is-open');
+    try { if (window._markSheetClosed) window._markSheetClosed('wsv2Drawer'); } catch (_e) { void _e; }
   }
 
   window.WorkspaceV2 = { render: render, refresh: refresh, _closeDrawer: _closeDrawer };
