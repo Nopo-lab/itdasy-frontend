@@ -5,7 +5,7 @@
 
 /* 선택 레이아웃 미리보기 */
 .wsl-preview {
-  width: 100%; max-width: 400px; margin: 4px auto 2px; border-radius: var(--r-lg, 20px);
+  width: 100%; max-width: 520px; margin: 4px auto 2px; border-radius: var(--r-lg, 20px);
   overflow: hidden; background: var(--surface-2, #F7F8FA); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08));
 }
 .wsl-preview img { display: block; width: 100%; height: auto; }
@@ -46,7 +46,7 @@
 
 /* 인터랙티브 슬롯 스테이지 (드래그=위치, 핀치=확대) */
 .wsl-stage {
-  position: relative; width: 100%; max-width: 400px; margin: 4px auto 2px;
+  position: relative; width: 100%; max-width: 520px; margin: 4px auto 2px;
   border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--frame, #E8ECF1);
   box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08)); touch-action: none;
 }
@@ -74,5 +74,5 @@
 }
 
 /* 캡션/미리보기 — 레이아웃 합성본은 폭 꽉 차게(레터박스 여백 X) */
-.wsl-cap-preview { width: 100%; max-width: 400px; margin: 0 auto; border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--surface-2, #F7F8FA); }
+.wsl-cap-preview { width: 100%; max-width: 520px; margin: 0 auto; border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--surface-2, #F7F8FA); }
 .wsl-cap-preview img { display: block; width: 100%; height: auto; }
