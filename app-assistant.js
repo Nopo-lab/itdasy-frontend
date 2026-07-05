@@ -4234,7 +4234,11 @@
       signal: ctrl.signal,
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.json();
+    // [robust] Gemini 지연/타임아웃 시 서버가 200+빈 바디를 줄 수 있음 → res.json()이 터져 빈 화면/에러가 되던 것 방지.
+    const _txt = await res.text();
+    if (!_txt || !_txt.trim()) return { answer: '응답이 잠깐 지연됐어요. 다시 한 번 말씀해 주세요 🙏', actions: [] };
+    try { return JSON.parse(_txt); }
+    catch (_pe) { return { answer: '응답을 받는 데 문제가 있었어요. 잠시 후 다시 시도해 주세요.', actions: [] }; }
   }
 
   function _rawActionsFromResponse(data) {
