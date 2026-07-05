@@ -46,7 +46,7 @@
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 · Itdasy</title>
 <script>
-window.__LATEST_BUILD__ = '20260705-v700-hyper';
+window.__LATEST_BUILD__ = '20260705-v701-hyperprev';
   // [C2] 작업실 V2 플래그 — false 로 바꾸면 기존 작업실로 즉시 롤백 가능
   window.ITDASY_WORKSPACE_V2 = true;
   // [slot-sync] 작업실 콘텐츠 계정 기준 기기 간 동기화 (스테이징 검증용 ON). false 로 끄면 로컬 전용 동작 복귀.
@@ -58,7 +58,10 @@ window.__LATEST_BUILD__ = '20260705-v700-hyper';
   window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
   // [ws-hyper] 작업실 초고도화(레이아웃-퍼스트 딸깍 홍보). ★기본 OFF★ — true 로 켜야만 새 플로우.
   //   되돌리기: 이 값을 켜지 않으면(또는 false) 지금 작업실 100% 그대로. 새 로직은 전부 이 플래그 뒤에만 존재.
-  window.ITDASY_WS_HYPER = (window.ITDASY_WS_HYPER === true);
+  //   미리보기: 주소 끝에 ?wshyper=1 붙이거나 콘솔에서 localStorage.setItem('itdasy:ws_hyper','1') 후 새로고침.
+  window.ITDASY_WS_HYPER = (window.ITDASY_WS_HYPER === true)
+    || /[?&]wshyper=1/.test(location.search)
+    || (function(){ try { return localStorage.getItem('itdasy:ws_hyper') === '1'; } catch(_e){ return false; } })();
   // [skin-v4] 작업실 앱-정체성 리스킨(tokens.css 정렬). ws-hyper 켜질 때만 의미, 단독 롤백용 별도 플래그.
   window.ITDASY_WS_SKIN_V4 = (window.ITDASY_WS_SKIN_V4 === true);
   try {
@@ -2241,7 +2244,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-core.js?v=20260705-v699-itbi-qa"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
-<script src="js/load-groups.js?v=20260705-v700-hyper" defer></script>
+<script src="js/load-groups.js?v=20260705-v701-hyperprev" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>
