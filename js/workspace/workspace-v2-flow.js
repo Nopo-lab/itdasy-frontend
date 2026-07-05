@@ -3598,7 +3598,10 @@
 	  function addFiles(files, showToast, toEdit) {
 	    files = Array.from(files || []).slice(0, 10);
 	    if (!files.length) return Promise.resolve([]);
-	    return Promise.all(files.map(fileToDataUrl)).then(function (urls) {
+	    // [#6] 업로드 픽커가 느린 원인 = 폰 사진(3~8MB) 원본을 그대로 base64 로 읽어 담던 것.
+	    //   2MB 초과분은 먼저 1920px JPEG 로 축소(_resizeIfNeeded) 후 읽어 import·썸네일·편집기 로딩을 크게 단축.
+	    var _resize = (typeof window._resizeIfNeeded === 'function') ? window._resizeIfNeeded : function (f) { return Promise.resolve(f); };
+	    return Promise.all(files.map(function (f) { return Promise.resolve(_resize(f, 1920)).catch(function () { return f; }).then(fileToDataUrl); })).then(function (urls) {
 	      urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)

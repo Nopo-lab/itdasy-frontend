@@ -456,6 +456,14 @@
   //   이동·색변경 등 속성 변화는 드래그로 쉽게 재조정 가능하므로 제외. 가장 치명적인 '실수 삭제'를 확실히 커버.
   function _pushOp(op) { if (!S.undo) S.undo = []; S.undo.push(op); S.redo = []; if (S.undo.length > 40) S.undo.shift(); _syncHist(); }
   function _applyInverse(op, undo) {
+    // [#9] 누끼/원본(사진 교체)도 되돌리기(↩)로 되돌린다 — 예전엔 undo 스택 밖이라 ↩가 무반응이었음.
+    if (op.op === 'photo') {
+      var st = undo ? op.before : op.after, pi = op.idx;
+      S.photos[pi] = st.url; S.cutSet = S.cutSet || {}; S.cutSet[pi] = !!st.cut;
+      if (isSingleL(S.layout) && pi === S.adjSel) { S.photoUrl = st.url; S.photoCss = 'url("' + st.url + '")'; if (refs.photo) refs.photo.style.backgroundImage = S.photoCss; }
+      renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
+      return;
+    }
     var add = (op.op === 'add') === undo;   // undo: add→제거, del→복원 / redo: 반대
     if (add) { if (refs.layers && op.L.el) refs.layers.appendChild(op.L.el); if (S.layers.indexOf(op.L) < 0) { var at = (op.idx != null && op.idx <= S.layers.length) ? op.idx : S.layers.length; S.layers.splice(at, 0, op.L); } selectLayer(op.L); }
     else { var i = S.layers.indexOf(op.L); if (i >= 0) S.layers.splice(i, 1); op.L.el.remove(); if (S.active === op.L) S.active = null; }
@@ -1109,6 +1117,7 @@
     var i = (idx != null ? idx : S.adjSel);
     if (!S.origPhotos) S.origPhotos = []; if (S.origPhotos[i] == null) S.origPhotos[i] = S.photos[i];   // 원본 1회 보관
     var src = S.origPhotos[i]; if (!src) return;
+    var _preUrl = S.photos[i], _preCut = !!(S.cutSet && S.cutSet[i]);   // [#9] 되돌리기용 이전 상태 스냅샷
     S.matte = S.matte || {}; S.cutSet = S.cutSet || {};
     var cached = S.matte[i] || null;   // 매트 있으면 누끼 재요청 없이 배경만 다시 입힘(빠름)
     if (!silent && refs.adjCut) { refs.adjCut.disabled = true; refs.adjCut.classList.add('is-busy'); }
@@ -1132,6 +1141,8 @@
         if (_curU) { S.photoUrl = _curU; S.photoCss = 'url("' + _curU + '")'; refs.photo.style.backgroundImage = S.photoCss; }
       }
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay(); applyPhotoTransform();   // [#7] 누끼 후에도 수평(회전) 유지·반영
+      // [#9] 사용자가 직접 누른 누끼만 되돌리기 스택에 기록(배경변경 재합성=silent은 제외).
+      if (!silent && _preUrl !== r.composedDataUrl) _pushOp({ op: 'photo', idx: i, before: { url: _preUrl, cut: _preCut }, after: { url: r.composedDataUrl, cut: true } });
       if (!silent) toastIt('배경을 정리했어요');
     }).catch(function (e) {
       if (S !== _sess || !root.classList.contains('is-open')) return;   // 닫힌/다른 세션 → 무시
@@ -1155,9 +1166,12 @@
   function undoCutout() {
     var i = S.adjSel; if (!(S.origPhotos && S.origPhotos[i] != null)) { toastIt('되돌릴 원본이 없어요'); return; }
     var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
+    var _preUrl = S.photos[i], _preCut = !!(S.cutSet && S.cutSet[i]);   // [#9] 되돌리기용 스냅샷
     S.photos[i] = orig; if (S.cutSet) S.cutSet[i] = false;
     if (wasShown) { S.photoUrl = orig; S.photoCss = 'url("' + orig + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
+    // [#9] '원본으로' 도 ↩ 되돌리기 스택에 — ↩ 누르면 다시 누끼 상태로.
+    if (_preUrl !== orig) _pushOp({ op: 'photo', idx: i, before: { url: _preUrl, cut: _preCut }, after: { url: orig, cut: false } });
     toastIt('원본으로 되돌렸어요');
   }
   function toastIt(m) { try { (window.showToast || function () {})(m); } catch (_) { void _; } }
