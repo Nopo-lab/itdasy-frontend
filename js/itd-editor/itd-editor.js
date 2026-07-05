@@ -669,7 +669,11 @@
     L.tx.setAttribute('contenteditable', 'true'); L.tx.focus();
     document.execCommand && document.execCommand('selectAll', false, null);
     L.tx.addEventListener('blur', function () {
-      L.tx.removeAttribute('contenteditable'); L.text = L.tx.textContent || '';
+      L.tx.removeAttribute('contenteditable');
+      // [버그수정 2026-07-06] textContent 는 contenteditable 의 <br>/<div> 줄바꿈을 개행문자로 안 넣어
+      //   두 줄 입력이 한 줄로 뭉쳤다(미리보기·export·재편집 3곳 불일치). innerText 는 개행을 \n 으로 보존.
+      var _t = (L.tx.innerText != null ? L.tx.innerText : L.tx.textContent) || '';
+      L.text = _t.replace(/ /g, ' ').replace(/\r\n?/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
     }, { once: true });
   }
   /* ── 우리샵 스타일 입력 레이어 렌더(학습 round-trip용) ── */

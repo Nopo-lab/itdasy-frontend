@@ -3,15 +3,23 @@
    window.WSCaptionText 로 노출 → flow IIFE 가 동명 alias 로 받아 호출부 그대로. */
 (function () {
   'use strict';
+  // [버그수정 2026-07-06] 시술어 사전 — 이 뿌리를 포함한 토큰은 '시술명'이라 고객명·사담 필터에서 보호.
+  //   예전엔 "붙임머리 고객님"→고객명 '붙임머리'로 오인돼 시술 소실, "커플네일"→'커플' 부분일치로 통째 삭제.
+  var _SERVICE_ROOT = /(머리|펌|염색|염|탈색|컷|커트|네일|속눈썹|눈썹|왁싱|케어|클리닉|트리트먼트|매직|볼륨|붙임|연장|리터치|드라이|메이크업|메컵|피부|두피|스케일링|아트|페디|젤|매니큐어|룩|스타일|샴푸|마사지|관리|왁스|타투|반영구|앞머리|단발|레이어드|허쉬|볼륨펌|디자인)/;
+  // 시술어 뒤 동사/형용사 활용 어미(예: "염색하신", "단발컷한", "펌하신") — 이름 아님.
+  var _VERB_END = /(한|신|하신|했|되신|된|해주신|해드린|받으신|오신)$/;
   function _extractCustomer(svc) {
     var out = String(svc || ''), name = '';
     // [#1] 이름 아닌 일반 수식어가 '고객/님' 앞에 오면 고객명으로 오인 금지(예: "남성 고객", "단골 손님").
     var CUST_BLOCK = /^(원장|선생|사장|대표|점장|실장|디자이너|고객|손님|남성|여성|남자|여자|남|여|단골|신규|기존|첫|재방문|소개|단체|커플|모녀|자매|학생|직장인|주부|신부|예민|민감|약해진)$/;
+    // 후보가 시술어(붙임머리 등)·시술활용형(염색하신)이면 이름 아님 → '고객(님)' 존칭만 떼고 후보는 시술로 남긴다.
+    function _isNotName(t) { return CUST_BLOCK.test(t) || _SERVICE_ROOT.test(t) || _VERB_END.test(t); }
     var m = out.match(/([가-힣A-Za-z]{1,12}?)\s*고객님?/);
-    if (m && !CUST_BLOCK.test(m[1])) { name = m[1]; out = out.replace(m[0], ' '); }
+    if (m && !_isNotName(m[1])) { name = m[1]; out = out.replace(m[0], ' '); }
+    else if (m) { out = out.replace(/\s*고객님?/, ' '); }   // 시술어+고객님 → 존칭만 제거(시술 보존)
     else {
       var m2 = out.match(/([가-힣]{2,4})\s*님(?=\s|$|[,·、])/);
-      if (m2 && !CUST_BLOCK.test(m2[1])) { name = m2[1]; out = out.replace(m2[0], ' '); }
+      if (m2 && !_isNotName(m2[1])) { name = m2[1]; out = out.replace(m2[0], ' '); }
     }
     return { service: out.replace(/\s*,(?:\s*,)+/g, ',').replace(/\s{2,}/g, ' ').replace(/^[\s,]+|[\s,]+$/g, '').trim(), customer: name };
   }
@@ -61,7 +69,8 @@
     //   예: "붙임머리 비드 방식 26인치 옴브레 자연스러운 볼륨감 김수현 고객님 재방문 감사합니다 롱헤어 완성"
     //     → 제목 "붙임머리 비드 방식" / 부제 "26인치 옴브레" (뒤 사담·서술은 전부 제외).
     var words = s.split(/[\n,·、.\s]+/).map(function (x) { return x.trim(); })
-      .filter(function (w) { return w && !_WORD_DROP.test(w) && !_OVL_DROP.test(w); });
+      // [버그수정 2026-07-06] 시술어 포함 토큰(커플네일·모녀펌·자매룩 등)은 사담 필터에서 보호 — 부분일치 오삭제 방지.
+      .filter(function (w) { return w && (_SERVICE_ROOT.test(w) || (!_WORD_DROP.test(w) && !_OVL_DROP.test(w))); });
     if (!words.length) return { title: '', sub: '', body: '' };
     var specRe = /^\d+\s*(?:인치|호|cm|mm|단|레벨|톤|등급|번|주|주차)$/;
     var specIdx = -1;
