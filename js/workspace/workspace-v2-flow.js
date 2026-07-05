@@ -747,6 +747,7 @@
       '<div class="wsv2flow__progress">' + VISIBLE_SCREENS.map(function () { return '<i class="pg-seg"></i>'; }).join('') + '</div>' +
       '<div class="wsv2flow__screens">' +
         '<section class="wsv2flow__s" data-fs="upload"></section>' +
+        (HYPER ? '<section class="wsv2flow__s" data-fs="layout"></section>' : '') +   // [ws-hyper] 레이아웃 고르기 컨테이너
         '<section class="wsv2flow__s" data-fs="edit"></section>' +
         '<section class="wsv2flow__s" data-fs="template"></section>' +
         '<section class="wsv2flow__s" data-fs="caption"></section>' +
