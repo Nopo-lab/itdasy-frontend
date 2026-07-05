@@ -21,6 +21,31 @@
 	      img.src = src;
 	    });
 	  }
+	  // [#3] 캐러셀 업로드 payload 축소 — canvas PNG dataURL(장당 3~8MB)을 그대로 보내면
+	  //   여러 장 합계가 Cloud Run 32MB 요청 한도/네트워크를 넘겨 fetch 가 rejection('api')로 실패했다.
+	  //   백엔드가 어차피 JPEG 로 재인코딩하므로 클라이언트에서 미리 JPEG(최장축 1440, q0.86)로 줄여 보낸다.
+	  function _toJpegBlob(src, maxDim, quality) {
+	    maxDim = maxDim || 1440; quality = quality || 0.86;
+	    return _loadImage(src).then(function (img) {
+	      var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+	      var sc = Math.min(1, maxDim / Math.max(w, h || 1));
+	      var cw = Math.max(1, Math.round(w * sc)), ch = Math.max(1, Math.round(h * sc));
+	      var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+	      var cx = cv.getContext('2d');
+	      cx.fillStyle = '#fff'; cx.fillRect(0, 0, cw, ch);   // JPEG 무알파 → 흰 배경 합성
+	      cx.drawImage(img, 0, 0, cw, ch);
+	      return new Promise(function (res) {
+	        if (cv.toBlob) cv.toBlob(function (b) { res(b); }, 'image/jpeg', quality);
+	        else { try { res(_dataUrlToBlob(cv.toDataURL('image/jpeg', quality))); } catch (_e) { res(null); } }
+	      });
+	    }).catch(function () { return null; });
+	  }
+	  function _dataUrlToBlob(durl) {
+	    var parts = durl.split(','), mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+	    var bin = atob(parts[1]), n = bin.length, u8 = new Uint8Array(n);
+	    while (n--) u8[n] = bin.charCodeAt(n);
+	    return new Blob([u8], { type: mime });
+	  }
 	  // [이슈10] 디코드 캐시(소형 LRU) — 같은 src 를 슬라이더 commit 마다 다시 디코드하던 비용 제거.
 	  //   Image 는 로드 후 불변이고 매번 새 캔버스에 draw 하므로 재사용 안전. 손 떼고 다시 조작 시 즉시 hit.
 	  var _imgCache = [];
@@ -428,12 +453,13 @@
       if (kind === 'carousel') {
         var urls = (opts.imageUrls || []).filter(Boolean);
         if (urls.length < 2) return Promise.resolve({ ok: false, reason: 'need_multi' });
-        return Promise.all(urls.map(function (u) { return fetch(u).then(function (r) { return r.blob(); }).catch(function () { return null; }); }))
+        // [#3] 각 장을 클라이언트에서 JPEG(축소)로 변환해 보냄 — PNG 원본은 합계 용량이 커 업로드가 rejection 됐다.
+        return Promise.all(urls.map(function (u) { return _toJpegBlob(u); }))
           .then(function (blobs) {
             blobs = blobs.filter(Boolean);
             if (blobs.length < 2) return { ok: false, reason: 'blob' };
             var fd = new FormData();
-            blobs.forEach(function (b, i) { fd.append('images', b, 'itdasy_carousel_' + i + '.png'); });
+            blobs.forEach(function (b, i) { fd.append('images', b, 'itdasy_carousel_' + i + '.jpg'); });
             fd.append('caption', opts.caption || '');
             return _post('/instagram/publish-carousel-file', fd);
           });
