@@ -1962,11 +1962,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-<<<<<<< HEAD
-window.APP_BUILD = '20260705-v696-itbi-slotsync';
-=======
-window.APP_BUILD = '20260705-v696-itbi-slotsync';
->>>>>>> 0720218 (feat(assistant): 채팅↔작업실 연동 — getActiveSlot·사진→작업실 버튼·이어받기 (v694))
+window.APP_BUILD = '20260705-v697-conflictfix';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
