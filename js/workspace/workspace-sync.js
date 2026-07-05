@@ -330,10 +330,22 @@
   function sync() {
     if (!ready() || _syncing) return Promise.resolve();
     _syncing = true;
-    return migrateIfNeeded().then(pushAll).then(pull).catch(function (e) { log('sync err', e); }).then(function () { _syncing = false; });
+    // 편집 플로우 열려 있으면(coalesce) 자동 push 생략 — 정착(settleSlot)이나 idle 백스톱에서만 올림. pull 은 계속.
+    return migrateIfNeeded().then(function () { return (COALESCE() && _flowOpen) ? null : pushAll(); }).then(pull).catch(function (e) { log('sync err', e); }).then(function () { _syncing = false; });
   }
   var _pushTimer = null;
   function schedulePush() { if (!ready()) return; clearTimeout(_pushTimer); _pushTimer = setTimeout(function () { pushAll(); }, 1200); }
+
+  // ── coalesce(비용 방어) — 편집 중엔 매 저장마다 업로드하지 않고, '정착(settle)' 때 1회만 ──
+  //   sub-flag ITDASY_SLOT_SYNC_COALESCE. off면 기존 eager 동작 그대로.
+  //   신규 slot 은 open 시점에 안정적 id가 없으므로 slot별이 아니라 '플로우 열림' 단위로 억제한다.
+  var _flowOpen = false;
+  var _idleTimer = null;
+  function COALESCE() { return window.ITDASY_SLOT_SYNC_COALESCE === true; }
+  function _armIdle() { if (_idleTimer) clearTimeout(_idleTimer); _idleTimer = setTimeout(function () { settleSlot(); }, 20000); }  // 백스톱: 20s 무저장이면 정착
+  function _clearIdle() { if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; } }
+  function beginEdit() { if (!COALESCE()) return; _flowOpen = true; clearTimeout(_pushTimer); _clearIdle(); }   // 편집 시작 → auto-push 억제
+  function settleSlot() { _flowOpen = false; _clearIdle(); if (!ready()) return Promise.resolve(); return pushAll(); }   // 정착 → 최종본 1회 push
 
   // ── 전역 래핑 — 저장/삭제 시 dirty 표시 + 동기화 트리거 ──────
   function wrapGlobals() {
@@ -342,7 +354,8 @@
       var wrappedSave = function (slot) {
         try { if (slot && typeof slot === 'object') { slot.updatedAt = Date.now(); slot.syncState = 'dirty'; } } catch (_e) { void 0; }
         var out = _origSaveSlot.apply(this, arguments);
-        Promise.resolve(out).then(schedulePush).catch(function () {});
+        // 편집 플로우 열려 있으면(coalesce) 즉시 push 대신 idle 백스톱만 — 정착 때 1회 업로드.
+        Promise.resolve(out).then(function () { if (COALESCE() && _flowOpen) _armIdle(); else schedulePush(); }).catch(function () {});
         return out;
       };
       wrappedSave.__wsSyncWrapped = true;
@@ -362,9 +375,9 @@
 
   // ── init ───────────────────────────────────────────────────
   function init() {
-    if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); }, hydratePhotos: function () { return Promise.resolve(false); } }; return; }
+    if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); }, hydratePhotos: function () { return Promise.resolve(false); }, beginEdit: function () {}, settleSlot: function () { return Promise.resolve(); } }; return; }
     wrapGlobals();
-    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos } };
+    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos } };
     // 최초 동기화 — 로그인 상태 갖춰지면. 아니면 이후 트리거에서 재시도.
     var tries = 0;
     (function boot() { if (ready()) { sync(); } else if (tries++ < 20) { setTimeout(boot, 800); } })();

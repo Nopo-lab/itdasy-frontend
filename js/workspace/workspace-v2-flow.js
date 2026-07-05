@@ -3960,6 +3960,8 @@
 	    };
 	    if (d.photos.length && !hadRoles) reassignRoles();
     el.classList.add('is-open');
+    // [slot-sync coalesce] 편집 플로우 열림 — 정착(close/발행) 전까지 매 저장 업로드 억제.
+    try { if (window.WorkspaceSync && window.WorkspaceSync.beginEdit) window.WorkspaceSync.beginEdit(); } catch (_be) { void _be; }
     navStack = []; _histDepth = 0;   // 새 세션 — 방문 히스토리 초기화
     // 시스템 back(안드로이드 하드웨어/스와이프, popstate)을 전역 sheet-back 레지스트리에 편입.
     //  미등록 시 안드로이드 back 이 오버레이를 안 닫고 홈 탭으로 점프해 오버레이가 떠버린 채 남는다.
@@ -4004,6 +4006,8 @@
   }
   function close() {
     if (el) el.classList.remove('is-open');
+    // [slot-sync coalesce] 편집 종료 → 정착: 최종본 1회 업로드+동기화.
+    try { if (window.WorkspaceSync && window.WorkspaceSync.settleSlot) window.WorkspaceSync.settleSlot(); } catch (_se) { void _se; }
     var leftover = _histDepth;
     navStack = [];
     _histDepth = 0;
