@@ -37,6 +37,15 @@
   if (SIMPLE_FLOW) CTA.upload = { l:'사진 편집 →', to:'__edit' };
   // [Phase A-2] 캡션 화면 명칭을 스펙(이미지 01)에 맞춰 '캡션 생성'으로(상단 타이틀).
   if (SIMPLE_FLOW) TITLE.caption = '캡션 생성';
+  // [ws-hyper] 초고도화 — 업로드 다음 '레이아웃 고르기' 스텝 삽입. ★플래그 OFF면 이 블록 통째 스킵 = 현행 그대로★
+  var HYPER = (window.ITDASY_WS_HYPER === true);
+  if (HYPER) {
+    if (SCREENS.indexOf('layout') < 0) SCREENS.splice(1, 0, 'layout');   // upload 다음
+    VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'layout', 'caption', 'preview', 'connect'] : SCREENS;
+    TITLE.layout = '레이아웃 고르기';
+    CTA.upload = { l: '레이아웃 고르기 →', to: 'layout' };
+    CTA.layout = { l: '이대로 게시글 쓰기', to: 'caption' };
+  }
   // [v592] preview: 화면 안에 '저장 및 게시' 버튼 + 하단 CTA '고객 연결로'(다음 단계). 게시는 선택, 연결로 진행.
   var CAT_CTX = {
     ba:     { purpose: 'before_after', captionMode: 'normal', role: 'auto', tplLabel: '전후' },
@@ -2089,7 +2098,43 @@
         '<div class="linked-actions"><button class="lk-btn pink" data-fl="pickcust">+ 새 고객 등록</button><button class="lk-btn" data-fl="skipcust">연결 없이 진행</button></div></div>';
   }
 
-  var RENDER = { upload:renderUpload, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
+  // ── [ws-hyper] 레이아웃 고르기 화면 ─────────────────────────
+  function _wsRatioPad(ratio) { return 100 * ({ '1:1':1, '4:5':1.25, '9:16':1.778, '3:4':1.333 }[ratio] || 1.25); }
+  function _wsLayoutFrame(layout) {
+    var cells = (layout.photoSlots || []).map(function (s) { var r = s.rect;
+      return '<i style="left:' + (r.x*100) + '%;top:' + (r.y*100) + '%;width:' + (r.w*100) + '%;height:' + (r.h*100) + '%"></i>'; }).join('');
+    return '<div class="wsl-frame" style="padding-bottom:' + _wsRatioPad(layout.ratio || '4:5') + '%">' + cells + '</div>';
+  }
+  function _wsLayoutCard(layout, on) {
+    return '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +
+      _wsLayoutFrame(layout) + '<span class="wsl-card__name">' + esc(layout.name) + '</span></button>';
+  }
+  function renderLayout() {
+    var WL = window.WorkspaceLayout;
+    var starters = (WL && WL.getStarters()) || [];
+    var mine = (WL && WL.getMyLayouts()) || [];
+    var sel = d.wsLayout, prev = d.templateOutput;
+    var previewHtml = prev
+      ? '<div class="wsl-preview"><img src="' + prev + '" alt="미리보기"></div>'
+      : '<div class="wsl-preview wsl-preview--empty"><span>레이아웃을 고르면<br>사진이 채워진 미리보기가 떠요</span></div>';
+    function grid(list) { return '<div class="wsl-grid">' + list.map(function (L) { return _wsLayoutCard(L, sel && sel.id === L.id); }).join('') + '</div>'; }
+    return '<div class="wsl-wrap">' + previewHtml +
+      (mine.length ? '<div class="wsl-sec-t">내 레이아웃</div>' + grid(mine) : '') +
+      '<div class="wsl-sec-t">추천 레이아웃 · 전후 비교부터</div>' + grid(starters) +
+      '<button type="button" class="wsl-skip" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
+  }
+  function _wsSelectLayout(id) {
+    var WL = window.WorkspaceLayout; if (!WL) return;
+    var L = WL.getById(id) || (WL.getMyLayouts() || []).filter(function (x) { return x.id === id; })[0];
+    if (!L) return;
+    d.wsLayout = L;
+    Promise.resolve(WL.composeLayout(L, editablePhotos())).then(function (url) {
+      if (url) { d.templateOutput = url; d.previewUrl = null; }
+      if (cur === 'layout') setScreen('layout', { push: false });
+    }).catch(function () {});
+  }
+
+  var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
 
   // 드래그 중 라이브 미리보기(CSS). 손 떼면 applyWorkspaceCorrections(실픽셀)로 확정.
   //  - 밝기/대비/채도: 좌=낮음, 우=높음
@@ -2416,8 +2461,11 @@
   function bind() {
     el.addEventListener('click', function (e) {
       var t = e.target;
+      // [ws-hyper] 레이아웃 카드 선택 (data-fl-layoutpick)
+      var _lp = t.closest('[data-fl-layoutpick]'); if (_lp) { return _wsSelectLayout(_lp.getAttribute('data-fl-layoutpick')); }
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
+      if (a === 'skiplayout') { d.wsLayout = null; d.templateOutput = null; setScreen('caption'); return; }   // [ws-hyper] 레이아웃 없이 진행
       if (a === 'cta') { return onCta(); }
       // [v560] 편집 화면 우측 CTA — 현재 보정 굽고 '템플릿 선택' 화면으로.
       if (a === 'cta2') { return bakeEdit().then(function () { setScreen('template'); }); }
