@@ -62,5 +62,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+      # [배포 안정화] GitHub Pages 백엔드가 배포 상태확인에서 간헐적으로 "try again later"를 뱉는다.
+      #   아티팩트는 이미 1개 업로드됐으므로, 실패 시 같은 run 안에서 한 번 재배포(아티팩트 중복 없음).
+      #   ⚠️ 이 재시도는 'rerun'과 다르다 — rerun은 아티팩트를 하나 더 올려 "Multiple artifacts" 오류를 낸다.
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Retry Pages deploy once (GitHub 간헐 실패 자가치유)
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
