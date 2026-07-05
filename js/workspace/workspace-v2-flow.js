@@ -2124,10 +2124,9 @@
       '<div class="wsl-sec-t">추천 레이아웃 · 전후 비교부터</div>' + grid(starters) +
       '<button type="button" class="wsl-skip" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
   }
-  function _wsMountStage() {   // 스크린 렌더 후 인터랙티브 스테이지 장착
-    var host = el && el.querySelector('[data-fl-stage]');
-    try { window.__wsMS = { ran: (window.__wsMS && window.__wsMS.ran || 0) + 1, hasLayout: !!(d && d.wsLayout), hasStage: !!window.WorkspaceSlotStage, hasEl: !!el, hasHost: !!host, photos: (function(){ try { return editablePhotos().length; } catch(_e){ return 'err'; } })() }; } catch (_dbg) { void _dbg; }
-    if (!d.wsLayout || !window.WorkspaceSlotStage || !el || !host) return;
+  function _wsMountStage() {   // 스크린 렌더 직후 인터랙티브 스테이지 장착 (host 는 innerHTML 로 이미 존재)
+    if (!d.wsLayout || !window.WorkspaceSlotStage || !el) return;
+    var host = el.querySelector('[data-fl-stage]'); if (!host) return;
     window.WorkspaceSlotStage.mount(host, { layout: d.wsLayout, photos: editablePhotos(), assign: d._wsAssign,
       onChange: function () { d.previewUrl = null; } });   // 드래그 결과는 d.wsLayout.photoSlots 에 즉시 반영(제자리)
   }
@@ -2137,7 +2136,7 @@
     if (!L) return;
     d.wsLayout = L;
     d._wsAssign = WL.autoAssign(editablePhotos(), L);
-    if (cur === 'layout') setScreen('layout', { push: false });   // setScreen 훅이 스테이지 장착
+    if (cur === 'layout') { setScreen('layout', { push: false }); _wsMountStage(); }   // 재렌더 + 스테이지 장착(직접, 확실히)
   }
 
   var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
@@ -2217,7 +2216,7 @@
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
     if (name === 'caption') _mountCaption();
-    if (name === 'layout') { var _rl = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rl(function () { _wsMountStage(); }); }   // [ws-hyper] 인터랙티브 슬롯 스테이지 장착
+    if (name === 'layout') _wsMountStage();   // [ws-hyper] 인터랙티브 슬롯 스테이지 장착(동기 — host 이미 렌더됨)
     if (name === 'edit') { _warmEditMasks(); var _rc = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rc(function () { _mountCarousel(); }); }   // [v541] 결과 캐러셀 스와이프 바인딩
     if (name === 'template') { var _rt = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rt(function () { _mountCarousel(); }); }   // [v560] 템플릿 화면 상단 큰 사진 스와이프
     if (name === 'preview') { var _rp = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rp(function () { _mountCarousel(); }); }   // [v564·필수6] 인스타 미리보기 carousel 스와이프
