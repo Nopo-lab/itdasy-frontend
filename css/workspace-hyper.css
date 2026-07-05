@@ -5,7 +5,7 @@
 
 /* 선택 레이아웃 미리보기 */
 .wsl-preview {
-  width: 100%; max-width: 340px; margin: 4px auto 2px; border-radius: var(--r-lg, 20px);
+  width: 100%; max-width: 400px; margin: 4px auto 2px; border-radius: var(--r-lg, 20px);
   overflow: hidden; background: var(--surface-2, #F7F8FA); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08));
 }
 .wsl-preview img { display: block; width: 100%; height: auto; }
@@ -46,7 +46,7 @@
 
 /* 인터랙티브 슬롯 스테이지 (드래그=위치, 핀치=확대) */
 .wsl-stage {
-  position: relative; width: 100%; max-width: 340px; margin: 4px auto 2px;
+  position: relative; width: 100%; max-width: 400px; margin: 4px auto 2px;
   border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--frame, #E8ECF1);
   box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08)); touch-action: none;
 }
@@ -58,3 +58,17 @@
 }
 .wsl-slot--empty { display: grid; place-items: center; color: var(--text-subtle, #6B7684); font-size: 12px; font-weight: 700; }
 .wsl-stage-hint { text-align: center; font-size: 12px; color: var(--text-subtle, #6B7684); font-weight: 600; margin: -2px 0 2px; }
+
+/* 사진 트레이 (탭 순서로 슬롯 채움) */
+.wsl-tray { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; -webkit-overflow-scrolling: touch; }
+.wsl-tray__ph {
+  position: relative; flex: 0 0 auto; width: 56px; height: 56px; border-radius: var(--r-md, 14px);
+  background-size: cover; background-position: center; border: 2px solid var(--border, rgba(0,0,0,.08));
+  cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.wsl-tray__ph.on { border-color: var(--brand, #D58A95); box-shadow: var(--shadow-brand, 0 6px 16px rgba(213,138,149,.30)); }
+.wsl-tray__n {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+  background: var(--brand-strong, #BC6675); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 800;
+  display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}

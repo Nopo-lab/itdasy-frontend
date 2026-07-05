@@ -1777,6 +1777,7 @@
 	          '<div class="cap-wizscreen">' +
           '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
           _capWizHtml() +
+          (HYPER ? _svcTagsHtml() : '') +   // [ws-hyper] 시술 선택 칩을 입력창 '위'로
           '<label class="cap-field-label">시술만 적으면 끝</label>' +
           '<div class="cap-composer">' +
             '<textarea class="service-input cap-svc-area" data-fl-service rows="3" maxlength="500" placeholder="예) 레이어드컷 손상모 일본인">' + esc(_svc) + '</textarea>' +
@@ -1785,7 +1786,7 @@
               '<button type="button" class="cap-composer__send" data-fl-cgen aria-label="캡션 생성"><i class="ph-duotone ph-arrow-up"></i></button>' +
             '</div>' +
           '</div>' +
-          _svcTagsHtml() +
+          (HYPER ? '' : _svcTagsHtml()) +
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
           _capConfirmHtml() +
           '</div>';
@@ -2119,10 +2120,31 @@
       ? '<div class="wsl-stage-host" data-fl-stage></div><div class="wsl-stage-hint">사진을 드래그해 위치, 두 손가락으로 확대</div>'
       : '<div class="wsl-preview wsl-preview--empty"><span>레이아웃을 고르면<br>여기서 사진을 맞춰요</span></div>';
     function grid(list) { return '<div class="wsl-grid">' + list.map(function (L) { return _wsLayoutCard(L, sel && sel.id === L.id); }).join('') + '</div>'; }
-    return '<div class="wsl-wrap">' + stageHtml +
+    return '<div class="wsl-wrap">' + stageHtml + (sel ? _wsPhotoTray() : '') +
       (mine.length ? '<div class="wsl-sec-t">내 레이아웃</div>' + grid(mine) : '') +
       '<div class="wsl-sec-t">추천 레이아웃 · 전후 비교부터</div>' + grid(starters) +
       '<button type="button" class="wsl-skip" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
+  }
+  // [ws-hyper] 사진 트레이 — 탭한 순서대로 슬롯에 채움. 배정된 사진엔 순번 뱃지.
+  function _wsPhotoTray() {
+    var photos = editablePhotos(); if (!photos.length || !d.wsLayout) return '';
+    var slots = (d.wsLayout.photoSlots || []).map(function (s) { return s.id; });
+    var assign = d._wsAssign || {};
+    function orderOf(pid) { for (var i = 0; i < slots.length; i++) { var ap = assign[slots[i]]; if (ap && ap.id === pid) return i + 1; } return 0; }
+    return '<div class="wsl-sec-t">사진 순서 · 탭해서 슬롯에 넣기</div><div class="wsl-tray">' +
+      photos.map(function (p) { var n = orderOf(p.id);
+        return '<button type="button" class="wsl-tray__ph' + (n ? ' on' : '') + '" data-fl-trayph="' + esc(p.id) + '" style="background-image:url(' + esc(photoUrl(p)) + ')">' + (n ? '<span class="wsl-tray__n">' + n + '</span>' : '') + '</button>';
+      }).join('') + '</div>';
+  }
+  function _wsTrayPick(pid) {
+    if (!d.wsLayout) return;
+    var slots = (d.wsLayout.photoSlots || []).map(function (s) { return s.id; });
+    var assign = d._wsAssign || (d._wsAssign = {});
+    var p = editablePhotos().filter(function (x) { return x.id === pid; })[0]; if (!p) return;
+    var assignedSlot = slots.filter(function (sid) { return assign[sid] && assign[sid].id === pid; })[0];
+    if (assignedSlot) { delete assign[assignedSlot]; }                                  // 다시 탭 = 해제
+    else { var empty = slots.filter(function (sid) { return !assign[sid]; })[0]; if (empty) assign[empty] = p; }   // 다음 빈 슬롯
+    if (cur === 'layout') setScreen('layout', { push: false });                          // 스테이지+트레이 재렌더
   }
   function _wsMountStage() {   // 스크린 렌더 직후 인터랙티브 스테이지 장착 (host 는 innerHTML 로 이미 존재)
     if (!d.wsLayout || !window.WorkspaceSlotStage || !el) return;
@@ -2467,8 +2489,9 @@
   function bind() {
     el.addEventListener('click', function (e) {
       var t = e.target;
-      // [ws-hyper] 레이아웃 카드 선택 (data-fl-layoutpick)
+      // [ws-hyper] 레이아웃 카드 선택 (data-fl-layoutpick) · 사진 트레이 탭(data-fl-trayph)
       var _lp = t.closest('[data-fl-layoutpick]'); if (_lp) { return _wsSelectLayout(_lp.getAttribute('data-fl-layoutpick')); }
+      var _tp = t.closest('[data-fl-trayph]'); if (_tp) { return _wsTrayPick(_tp.getAttribute('data-fl-trayph')); }
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
       if (a === 'skiplayout') { d.wsLayout = null; d.templateOutput = null; setScreen('caption'); return; }   // [ws-hyper] 레이아웃 없이 진행
@@ -3514,6 +3537,8 @@
 	  //   · 템플릿 미적용 = 편집 사진 개별 표시 → 어느 화면이든 동일 순서로 스와이프
 	  //   원본(d.photos)은 절대 변형하지 않고, 렌더용 리스트에서만 1장/2장 표현을 바꾼다.
 	  function _displayItems() {
+	    // [ws-hyper] 레이아웃 적용 시 — 합성본 1장만 표시(원본 개별 사진은 숨김). 미리보기/캡션/발행 공통 소스.
+	    if (HYPER && d.wsLayout && d.templateOutput) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];
 	    var outs = d.templateOutputs || [];
 	    if (outs.length) {
 	      var items = [];
