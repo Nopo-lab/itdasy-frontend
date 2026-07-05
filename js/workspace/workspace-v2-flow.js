@@ -1627,10 +1627,14 @@
   ];
   function _capWizHtml() {
     var step = d.capWizStep || 0, ax = d.captionAxes || {};
+    var s = _WIZ_STEPS[step];   // step>=3(완료)이면 undefined
     var dots = '';
     for (var i = 0; i < 3; i++) { dots += '<span class="capwiz__dot' + (ax[_WIZ_STEPS[i].key] ? ' done' : (i === step ? ' on' : '')) + '"></span>'; }
+    // [#15] 질문을 헤더 줄에 인라인 배치 → 점 3개와 같은 수평선.
+    var qInline = s ? '<span class="capwiz__q capwiz__q--inline">' + esc(s.q) + '</span>' : '';
     var head = '<div class="capwiz__head">' +
       (step > 0 ? '<button type="button" class="capwiz__back" data-fl-wizback aria-label="이전"><i class="ph-bold ph-caret-left"></i></button>' : '<span class="capwiz__backsp"></span>') +
+      qInline +
       '<span class="capwiz__dots">' + dots + '</span></div>';
     var _dir = (d._wizDir === 'back' ? ' capwiz__body--back' : '');   // [애니메이션] 이전=왼쪽에서, 다음=오른쪽에서 슬라이드
     if (step >= 3) {
@@ -1639,11 +1643,10 @@
         '<div class="capwiz__body' + _dir + '"><div class="capwiz__done"><i class="ph-fill ph-check-circle capwiz__donechk"></i><span class="capwiz__donet">다 골랐어요</span>' + chips +
         '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div></div>';
     }
-    var s = _WIZ_STEPS[step];
     var bodyInner;
     if (d._wizCustom === s.key) {
-      // [직접 입력] 팝업 대신 인라인 — '직접' 누르면 여기서 바로 타이핑(Enter/확인 → 다음).
-      bodyInner = '<div class="capwiz__q">' + esc(s.q) + '</div>' +
+      // [직접 입력] 팝업 대신 인라인 — '직접' 누르면 여기서 바로 타이핑(Enter/확인 → 다음). [#15] q는 헤더로 이동.
+      bodyInner =
         '<div class="capwiz__custom">' +
           '<input type="text" class="capwiz__custin" data-fl-wizcustin maxlength="40" placeholder="직접 적어주세요" value="' + esc(ax[s.key] && s.opts.every(function (o) { return o[0] !== ax[s.key]; }) ? ax[s.key] : '') + '">' +
           '<button type="button" class="capwiz__custok" data-fl-wizcustok aria-label="확인"><i class="ph-bold ph-check"></i></button>' +
@@ -1655,7 +1658,7 @@
         return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
           '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
       }).join('');
-      bodyInner = '<div class="capwiz__q">' + esc(s.q) + '</div><div class="capwiz__opts">' + btns + '</div>';
+      bodyInner = '<div class="capwiz__opts">' + btns + '</div>';   // [#15] q는 헤더로 이동
     }
     return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '">' + bodyInner + '</div></div>';
   }

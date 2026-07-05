@@ -4,7 +4,7 @@
 
 .wsv2flow {
   position: fixed; inset: 0; z-index: 9800; display: none; flex-direction: column;
-  background: #F8F4ED; color: var(--text);   /* [디자인 통일] 홈과 같은 따뜻한 크림 — 앱 전체 프리미엄 톤 일치(뷰티 살롱 감성) */
+  background: #F9F8F7; color: var(--text);   /* [디자인 통일] 홈과 같은 따뜻한 크림 — 앱 전체 프리미엄 톤 일치(뷰티 살롱 감성) */
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -34,7 +34,7 @@
 
 /* 하단 CTA — 틴트 페이드 유지(배경 위 글 가림 방지) */
 .wsv2flow__actionbar { flex: none; display: flex; gap: 10px; padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(248,244,237,0), #F8F4ED 28%); border-top: 1px solid var(--border); }
+  background: linear-gradient(180deg, rgba(249,248,247,0), #F9F8F7 28%); border-top: 1px solid var(--border); }
 .wsv2flow__actionbar.hidden { display: none; }
 .wsv2flow__cta { width: 100%; height: 54px; border: 0; border-radius: var(--r-lg); font-size: 16px; font-weight: 900; cursor: pointer;
   background: var(--brand-strong); color: #fff; box-shadow: var(--shadow-brand); }
@@ -363,7 +363,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .up-pair--left { background: #fff4f1; border-color: #f3c8bd; }
 
 /* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
-.wsv2flow .cap-photo.cap-photo--sm { width: 100%; height: 140px; border-radius: var(--r-lg); background: var(--frame) center/cover; margin-bottom: 12px; }   /* [fix] .cap-photo(200px)보다 뒤·높은 특이도로 — 캡션 썸네일은 작게 유지 */
+.wsv2flow .cap-photo.cap-photo--sm { width: 100%; height: 200px; border-radius: var(--r-lg); background: var(--frame) center/contain no-repeat; margin-bottom: 12px; }   /* [#14] 잘림(cover)→전체(contain) — 캡션 상단에 사진 풀로 보이게 */
 .wsv2flow .cap-byline { font-size: 11px; font-weight: 700; color: var(--text-subtle); text-align: center; padding: 6px 0 10px; }
 .wsv2flow .cap-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 0; color: var(--text-subtle); font-size: 13px; }
 .wsv2flow .cap-loading-spin { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--brand-strong); border-radius: 50%; animation: wsv2spin .8s linear infinite; }
@@ -619,11 +619,11 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .ig-copy2 b { font-weight: 900; }
 .wsv2flow .ig-hash { color: var(--info); font-weight: 600; }
 .wsv2flow .ig-ago { color: var(--text-subtle); font-size: 11.5px; margin-top: 6px; }
-/* [v584] 카드 안 캡션 직접 편집 — 점선 underline 어포던스 + 포커스 강조. */
-.wsv2flow .ig-cap-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; box-shadow: inset 0 -1px 0 rgba(213,138,149,.45); cursor: text; transition: box-shadow .15s, background .15s; }
+/* [#4] 캡션 직접 편집 — 상시 밑줄 제거(진짜 인스타 글처럼). 포커스 때만 링 표시. */
+.wsv2flow .ig-cap-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; cursor: text; transition: box-shadow .15s, background .15s; }
 .wsv2flow .ig-cap-edit:focus { background: rgba(213,138,149,.08); box-shadow: 0 0 0 2px rgba(213,138,149,.5); }
-/* [v587] 해시태그도 카드 안에서 직접 편집(별도 편집칸 폐지) — 동일 어포던스. */
-.wsv2flow .ig-hash-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; box-shadow: inset 0 -1px 0 rgba(59,143,212,.4); cursor: text; transition: box-shadow .15s, background .15s; display: inline-block; min-width: 40px; }
+/* [#4] 해시태그도 상시 밑줄 제거 — 포커스 때만 링. */
+.wsv2flow .ig-hash-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; cursor: text; transition: box-shadow .15s, background .15s; display: inline-block; min-width: 40px; }
 .wsv2flow .ig-hash-edit:focus { background: rgba(59,143,212,.08); box-shadow: 0 0 0 2px rgba(59,143,212,.45); }
 .wsv2flow .ig-preview-btn { width: 100%; height: 52px; border: 1px solid var(--brand); background: var(--brand-bg); color: var(--brand-strong); border-radius: var(--r-md); font-weight: 900; font-size: 14px; cursor: pointer; }
 
@@ -810,6 +810,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .capwiz__dot.on { background: var(--brand); }
 .wsv2flow .capwiz__dot.done { background: var(--brand-strong); }
 .wsv2flow .capwiz__q { font-size: 14.5px; font-weight: 800; color: var(--text); letter-spacing: -.3px; margin: 2px 0 12px; }
+/* [#15] 질문을 헤더 줄에 인라인 — 점 3개와 같은 수평선. */
+.wsv2flow .capwiz__q--inline { flex: 1; min-width: 0; margin: 0; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wsv2flow .capwiz__opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .wsv2flow .capwiz__opt { border: none; border-radius: 14px; padding: 14px 4px 11px; background: var(--surface-2); box-shadow: inset 0 0 0 1px rgba(0,0,0,.06); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: all .13s; }
 .wsv2flow .capwiz__opt i { font-size: 21px; color: var(--text-subtle); }

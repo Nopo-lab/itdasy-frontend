@@ -82,7 +82,7 @@
 .wshc .gCell.is-sel .gCheck{background:var(--c-brand-strong);color:#fff;}
 
 /* ── [인스타 피드 홈] 3열 그리드 · 좌상단 + 업로드 · Astryx 스프링 마감 ── */
-.wshc--feed{ --spring:cubic-bezier(.24,1,.4,1); background:#F8F4ED; padding:0 0 calc(90px + env(safe-area-inset-top)); }
+.wshc--feed{ --spring:cubic-bezier(.24,1,.4,1); background:#F9F8F7; padding:0 0 calc(90px + env(safe-area-inset-top)); }
 .wshc-phead{ display:flex; align-items:center; gap:12px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; }
 .wshc-ava--lg{ width:46px; height:46px; font-size:17px; font-weight:600; color:#fff; background:linear-gradient(140deg,#D58A95,#BC6675); }
 .wshc-pinfo{ flex:1; min-width:0; }

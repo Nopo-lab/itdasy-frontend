@@ -392,8 +392,10 @@
     var _dupB = box.querySelector('.itl__dup');
     _dupB.addEventListener('pointerdown', function (e) { e.stopPropagation(); L._dupArmed = true; });
     _dupB.addEventListener('click', function (e) { e.stopPropagation(); if (!L._dupArmed) return; L._dupArmed = false; duplicateLayer(L); });
-    box.querySelector('.itl__rot').addEventListener('pointerdown', function (e) { onRotDown(e, L); });
-    box.querySelector('.itl__rs').addEventListener('pointerdown', function (e) { onRsDown(e, L); });
+    var _rotB = box.querySelector('.itl__rot'); _rotB.addEventListener('pointerdown', function (e) { onRotDown(e, L); });
+    var _rsB = box.querySelector('.itl__rs'); _rsB.addEventListener('pointerdown', function (e) { onRsDown(e, L); });
+    // [#8] 핸들(× 복사 회전 크기)은 레이어가 커져도 아이콘 크기가 커지면 안 됨 → applyXf에서 역스케일.
+    L._handles = [_delB, _dupB, _rotB, _rsB];
     refs.layers.appendChild(box);
     S.layers.push(L);
     return L;
@@ -404,7 +406,14 @@
     L.y = r.height / 2 - (h || L.el.offsetHeight) / 2;
     applyXf(L);
   }
-  function applyXf(L) { L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')'; }
+  function applyXf(L) {
+    L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')';
+    // [#8] 레이어가 커져도 조작 버튼(× 복사 회전 크기)은 화면상 같은 크기 유지 → 역스케일.
+    if (L._handles) {
+      var inv = 1 / (L.scale || 1);
+      for (var _i = 0; _i < L._handles.length; _i++) { L._handles[_i].style.transform = 'scale(' + inv + ')'; }
+    }
+  }
   // [#2] 직각 자석 — 0·90·180·270 근처(±7°)면 딱 맞춤(수직/수평 느낌으로 중력이 잡아주듯).
   function snapAngle(deg) {
     var n = Math.round(deg / 90) * 90;
