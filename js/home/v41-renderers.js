@@ -50,6 +50,60 @@
     }
   }
 
+  // ── [2026-07-05] 미니그래픽 헬퍼 — 카드 오른쪽 끝에 붙는 시각 요소 ──
+  function _sparkHtml(week) {
+    if (!Array.isArray(week) || week.length !== 7) return '';
+    const vals = week.map(v => Number(v) || 0);
+    const max = Math.max.apply(null, vals);
+    if (max <= 0) return '';
+    const bars = vals.map((v, i) => {
+      const h = Math.max(4, Math.round(v / max * 30));
+      return `<i style="height:${h}px"${i === 6 ? ' class="on"' : ''}></i>`;
+    }).join('');
+    return `<div class="hv5-ai-graph"><div class="hv5-ai-spark">${bars}</div><span class="hv5-ai-gcap">최근 7일</span></div>`;
+  }
+
+  function _dueBadge(md) {
+    if (!md) return '';
+    return `<div class="hv5-ai-graph"><div class="hv5-ai-badge"><span class="l">예정일</span><span class="v">${esc(md)}</span></div></div>`;
+  }
+
+  function _avatarStack(names) {
+    const PAL = [['#FBEAF0', '#993556'], ['#FAEEDA', '#854F0B'], ['#E6F1FB', '#185FA5']];
+    const spans = names.slice(0, 3).map((n, i) => {
+      const p = PAL[i % 3];
+      return `<span class="hv5-ai-av" style="background:${p[0]};color:${p[1]}">${esc(String(n || '').charAt(0))}</span>`;
+    }).join('');
+    return `<div class="hv5-ai-graph"><div class="hv5-ai-avs">${spans}</div></div>`;
+  }
+
+  // 빈시간 스트립 — 오늘~일요일, 요일당 막대 1개. full=종일 빔, am/pm=반 채움.
+  function _slotStrip(slots) {
+    try {
+      const byDate = {};
+      slots.forEach(s => {
+        if (!s || !s.date) return;
+        const cur = byDate[s.date];
+        if (s.type === 'fullday') { byDate[s.date] = 'full'; return; }
+        if (cur === 'full') return;
+        const h = parseInt(String(s.from || '').split(':')[0], 10);
+        const half = (Number.isFinite(h) && h < 12) ? 'am' : 'pm';
+        byDate[s.date] = (cur && cur !== half) ? 'full' : (cur || half);
+      });
+      const now = new Date();
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+        const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        days.push(ymd);
+        if (d.getDay() === 0) break;       // 일요일까지
+      }
+      if (days.length < 2) return '';
+      const bars = days.map(ymd => `<i class="${byDate[ymd] || ''}"></i>`).join('');
+      return `<div class="hv5-ai-graph"><div class="hv5-ai-strip">${bars}</div><span class="hv5-ai-gcap">오늘~일</span></div>`;
+    } catch (_e) { return ''; }
+  }
+
   function cardRevenue(brief) {
     const total = Number(brief.this_month_total) || 0;
     const base = { ok: 0, cat: '이번달 매출', btn: '매출 보기', act: 'openRevenue' };
@@ -64,37 +118,59 @@
     const desc = (goal > 0 && goal - total > 0)
       ? `목표까지 ${Math.round((goal - total) / 10000)}만원 남았어요`
       : (goal > 0 ? '이번달 목표 달성!' : '요일별 매출 패턴 보기');
-    const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc };
+    const card = { ...base, dot: (p != null && p < 0) ? 'var(--danger)' : '#3B82F6', hl, desc, graph: _sparkHtml(brief.week_revenue) };
     if (p != null && p < 0) card.alert = true;       // 마이너스일 때만 '확인 필요'에 포함
     return card;
   }
 
+  // [2026-07-05] 고객관리 — "안부" 프레임 폐기. 사실만: 올 차례였던 날이 지났다.
   function cardAtRisk(brief) {
-    const raw = brief.at_risk;
-    const count = Array.isArray(raw) ? raw.length : (Number(raw) || 0);
-    if (!count) return { ok: 1, cat: '단골 관리', dot: '#10B981', okMsg: '이탈 위험 손님 없어요' };
-    const name = (Array.isArray(raw) && raw[0] && raw[0].name) ? raw[0].name : '단골';
+    const raw = Array.isArray(brief.at_risk) ? brief.at_risk : [];
+    if (!raw.length) return { ok: 1, cat: '고객관리', dot: '#10B981', okMsg: '이탈 위험 손님 없어요' };
+    const base = { ok: 0, cat: '고객관리', dot: 'var(--danger)', alert: true, btn: '고객 보기', act: 'openCustomers' };
+    if (raw.length === 1) {
+      const a = raw[0] || {};
+      const name = a.name || '단골';
+      const iv = Number(a.avg_interval_days) || 0;
+      const cycle = iv >= 14 ? `${Math.round(iv / 7)}주` : (iv > 0 ? `${Math.round(iv)}일` : '');
+      const m = String(a.next_expected || '').match(/^\d{4}-(\d{2})-(\d{2})/);
+      const parts = [];
+      if (cycle) parts.push(`보통 ${cycle}마다 방문`);
+      if (m) parts.push(`${Number(m[1])}월 ${Number(m[2])}일쯤 올 차례였어요`);
+      const desc = parts.join(' · ') || `${Math.round(Number(a.days_since_last) || 0)}일째 방문 없음`;
+      return { ...base, hl: `${name}님, 다시 올 때가 지났어요`, desc, graph: m ? _dueBadge(`${Number(m[1])}/${Number(m[2])}`) : '' };
+    }
+    const names = raw.map(a => (a && a.name) || '단골');
+    const shown = names.slice(0, 3).join(' · ');
     return {
-      ok: 0, cat: '단골 챙기기', dot: 'var(--danger)', alert: true,
-      hl: count === 1 ? `${name}님, 안부 보낼 때` : `${name}님 외 ${count - 1}명, 안부 보낼 때`,
-      desc: '평소보다 오래 안 오셨어요',
-      btn: '고객 보기', act: 'openCustomers',
+      ...base,
+      hl: `다시 올 때가 지난 손님 ${raw.length}명`,
+      desc: names.length > 3 ? `${shown} 외 ${names.length - 3}명` : shown,
+      graph: _avatarStack(names),
     };
   }
 
+  // [2026-07-05] 빈시간 문구 3분기 — []는 "꽉 참"이 아니라 셋 중 하나:
+  //   ①진짜 빈 시간 없음 ②주간 창(오늘~일) 소진(일요일 저녁) ③계산 실패 → 단정 금지.
   function cardEmptySlots(brief) {
     const emptySlots = Array.isArray(brief.empty_slots) ? brief.empty_slots : [];
     if (!emptySlots.length) {
-      return { ok: 1, cat: '이번주 빈 시간', dot: '#10B981', okMsg: '이번주 일정이 꽉 찼어요' };
+      const now = new Date();
+      const weekClosing = now.getDay() === 0 && now.getHours() >= 17;
+      return {
+        ok: 1, cat: '이번주 빈 시간', dot: '#10B981',
+        okMsg: weekClosing ? '이번주 마감 — 다음주 예약 받아보세요' : '이번주 빈 시간이 없어요',
+      };
     }
     const fmt = s => s.type === 'fullday' ? `${s.day_label} 종일` : `${s.day_label} ${s.from}~${s.to}`;
     const hl = emptySlots.slice(0, 2).map(fmt).join(' · ') + ' 비어요';
     const n = emptySlots.length;
-    const desc = n > 2 ? `외 ${n - 2}곳 더 · 단골 안부나 프로모션 타이밍` : '단골 안부나 프로모션 타이밍';
+    const desc = n > 2 ? `외 ${n - 2}곳 더 · 예약 잡기 좋은 시간` : '예약 잡기 좋은 시간';
     return {
       ok: 0, cat: '이번주 빈 시간', dot: '#0891B2',
       hl, desc,
       btn: '예약 잡기', act: 'openCalendar',
+      graph: _slotStrip(emptySlots),
     };
   }
 
@@ -432,8 +508,15 @@
     if (!cards || !cards.length) return '</div>';
     const total = cards.length;
     const todoCnt = cards.filter(c => c.alert).length;
+    const okCnt = cards.filter(c => c.ok).length;
     const cardHtml = cards.map(renderAiCard).join('');
     const navHtml = renderAiNav(total);
+    // [2026-07-05] 모바일: 정상 카드는 접고 요약 한 줄 (PC는 CSS로 미노출, 카드 그대로)
+    const okRow = okCnt > 0
+      ? `<button type="button" class="hv5-ai-okrow" data-hv-ok-toggle>
+          <span class="hv5-ai-okrow-check">✓</span>${okCnt === total ? `${okCnt}개 모두 문제 없어요` : `나머지 ${okCnt}개는 문제 없어요`}<span class="hv5-ai-okrow-arr">›</span>
+        </button>`
+      : '';
     return `<div class="hv5-ai">
       <div class="hv5-ai-label">
         <span class="hv5-ai-pulse" aria-hidden="true"></span>
@@ -441,22 +524,25 @@
         <span class="hv5-ai-label-count">${todoCnt > 0 ? todoCnt + '건 확인 필요' : '모두 정상'}</span>
       </div>
       <div class="hv5-ai-track" id="hv5AiTrack">${cardHtml}</div>
+      ${okRow}
       ${navHtml}
     </div></div>`;
   }
 
   function renderAiCard(c) {
     if (c.ok) {
-      return `<div class="hv5-ai-card hv5-ai-card-page ok" data-ok="1">
+      return `<div class="hv5-ai-card hv5-ai-card-page ok hv5-ai-okhide" data-ok="1">
         <div class="hv5-ai-tag"><div class="hv5-ai-dot" style="background:${esc(c.dot || '#10B981')}"></div><div class="hv5-ai-tag-t">${esc(c.cat || '')}</div><span class="hv5-ai-check">✓</span></div>
         <div class="hv5-ai-ok-msg">${esc(c.okMsg || '')}</div>
       </div>`;
     }
-    return `<div class="hv5-ai-card hv5-ai-card-page" data-ok="0" data-hv-act="${esc(c.act || '')}" role="button" tabindex="0">
+    const g = c.graph || '';
+    return `<div class="hv5-ai-card hv5-ai-card-page${g ? ' has-graph' : ''}" data-ok="0" data-hv-act="${esc(c.act || '')}" role="button" tabindex="0">
       <div class="hv5-ai-tag"><div class="hv5-ai-dot" style="background:${esc(c.dot || '#BC6675')}"></div><div class="hv5-ai-tag-t">${esc(c.cat || '')}</div></div>
       <div class="hv5-ai-hl">${esc(c.hl || '')}</div>
       <div class="hv5-ai-desc">${esc(c.desc || '')}</div>
       <button type="button" class="hv5-ai-btn" data-hv-act="${esc(c.act || '')}">${esc(c.btn || '확인')} ›</button>
+      ${g}
     </div>`;
   }
 

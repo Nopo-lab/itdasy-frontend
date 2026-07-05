@@ -184,6 +184,15 @@
     _bindItbiCardInput(container);
     // AI 캐러셀 paging (3-per-page)
     _bindAiCarousel(container);
+    // [2026-07-05] 모바일 정상카드 접기 토글 — "나머지 N개는 문제 없어요"
+    const okToggle = container.querySelector('[data-hv-ok-toggle]');
+    if (okToggle) {
+      okToggle.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const ai = okToggle.closest('.hv5-ai');
+        if (ai) ai.classList.toggle('show-ok');
+      });
+    }
   }
 
   // [2026-05-28] 메인홈 잇비 카드 입력 — 카메라/음성/보내기 → 시트 진입
