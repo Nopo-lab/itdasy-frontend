@@ -50,32 +50,37 @@
     var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : S.collageBg) || '#BC6675';
     var hsv = _hexToHsv(cur);
     var box = el('div', 'itcp');
+    // [스크린샷 매칭] 사각형: X=색조(무지개) · Y=채도(위=진함, 아래=흰색). 오른쪽 세로바=밝기.
     box.innerHTML =
-      '<div class="itcp__sv" data-cp-sv><div class="itcp__svthumb" data-cp-svt></div></div>' +
-      '<div class="itcp__hue" data-cp-hue><div class="itcp__huethumb" data-cp-hut></div></div>' +
+      '<div class="itcp__row">' +
+        '<div class="itcp__sq" data-cp-sq><div class="itcp__dark" data-cp-dark></div><div class="itcp__sqt" data-cp-sqt></div></div>' +
+        '<div class="itcp__val" data-cp-val><div class="itcp__valt" data-cp-valt></div></div>' +
+      '</div>' +
       '<div class="itcp__foot"><span class="itcp__prev" data-cp-prev></span><span class="itcp__hex" data-cp-hex></span></div>';
     document.body.appendChild(box);   // body 고정 배치 — 패널/시트에 안 잘리게
     _cpState = { el: box, anchor: anchor, target: target, h: hsv.h, s: hsv.s, v: hsv.v };
     // 앵커 위(공간 없으면 아래)에 fixed 배치 — 화면 밖으로 안 나가게 클램프.
-    var ar = anchor.getBoundingClientRect(), PW = 196, PH = 214;
+    var ar = anchor.getBoundingClientRect(), PW = 200, PH = 208;
     var left = Math.max(8, Math.min(ar.left + ar.width / 2 - PW / 2, window.innerWidth - PW - 8));
     var top = ar.top - PH - 8;
     if (top < 8) top = Math.min(ar.bottom + 8, window.innerHeight - PH - 8);
     box.style.left = left + 'px'; box.style.top = top + 'px';
-    var sv = box.querySelector('[data-cp-sv]'), svT = box.querySelector('[data-cp-svt]');
-    var hue = box.querySelector('[data-cp-hue]'), huT = box.querySelector('[data-cp-hut]');
+    var sq = box.querySelector('[data-cp-sq]'), sqT = box.querySelector('[data-cp-sqt]'), dark = box.querySelector('[data-cp-dark]');
+    var val = box.querySelector('[data-cp-val]'), valT = box.querySelector('[data-cp-valt]');
     var prev = box.querySelector('[data-cp-prev]'), hexEl = box.querySelector('[data-cp-hex]');
+    sq.style.background = 'linear-gradient(to bottom,rgba(255,255,255,0),#fff),linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)';
     function paint() {
-      sv.style.background = 'linear-gradient(to top,#000,rgba(0,0,0,0)),linear-gradient(to right,#fff,hsl(' + _cpState.h + ',100%,50%))';
-      svT.style.left = (_cpState.s * 100) + '%'; svT.style.top = ((1 - _cpState.v) * 100) + '%';
-      huT.style.left = (_cpState.h / 360 * 100) + '%';
+      dark.style.opacity = (1 - _cpState.v);   // 밝기 낮추면 사각형이 어두워짐
+      sqT.style.left = (_cpState.h / 360 * 100) + '%'; sqT.style.top = ((1 - _cpState.s) * 100) + '%';
+      val.style.background = 'linear-gradient(to bottom,' + _hsvToHex(_cpState.h, _cpState.s, 1) + ',#000)';
+      valT.style.top = ((1 - _cpState.v) * 100) + '%';
       var hex = _hsvToHex(_cpState.h, _cpState.s, _cpState.v);
-      svT.style.background = hex; prev.style.background = hex; hexEl.textContent = hex;
+      sqT.style.background = hex; prev.style.background = hex; hexEl.textContent = hex;
       _colorPickApply(_cpState.target, hex);
     }
-    function svMove(e) { var r = sv.getBoundingClientRect(); _cpState.s = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); _cpState.v = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)); paint(); }
-    function hueMove(e) { var r = hue.getBoundingClientRect(); _cpState.h = Math.max(0, Math.min(359.9, (e.clientX - r.left) / r.width * 360)); paint(); }
-    _cpDrag(sv, svMove); _cpDrag(hue, hueMove);
+    function sqMove(e) { var r = sq.getBoundingClientRect(); _cpState.h = Math.max(0, Math.min(359.9, (e.clientX - r.left) / r.width * 360)); _cpState.s = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)); paint(); }
+    function valMove(e) { var r = val.getBoundingClientRect(); _cpState.v = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)); paint(); }
+    _cpDrag(sq, sqMove); _cpDrag(val, valMove);
     paint();
     setTimeout(function () { document.addEventListener('pointerdown', _cpOutside, true); }, 0);
   }
@@ -704,6 +709,8 @@
     if (isBadge) css += ';background:' + (spec.bg || 'rgba(0,0,0,.32)') + ';padding:4px 10px;border-radius:8px';
     if (spec.opacity != null) css += ';opacity:' + spec.opacity;
     t.style.cssText = css; L.el.appendChild(t); L.tx = t;
+    // [#2c] 긴 시술내용/두 줄 이상도 안 잘리게 — 텍스트 블록이 사진 높이의 ~1/3을 넘으면 폰트를 줄여 자동으로 맞춘다.
+    if (spec.w != null && R.height) { var _maxH = R.height * 0.34, _g = 0; while (L.el.offsetHeight > _maxH && L.fontSize > 13 && _g++ < 16) { L.fontSize -= 2; t.style.fontSize = L.fontSize + 'px'; } }
     var bw = L.el.offsetWidth, bh = L.el.offsetHeight;
     L.x = (spec.x != null ? spec.x : 0.5) * R.width - bw / 2;
     L.y = (spec.y != null ? spec.y : 0.5) * R.height - bh / 2;
@@ -749,6 +756,16 @@
     if (im.complete && im.naturalWidth) place(); else im.onload = place;
     place();
     return L;
+  }
+  // [#2a] 복원(editState) 후에도 아직 없는 역할의 시술 텍스트는 추가로 올린다 — '이어서 편집'과 '시술내용 반영'을 양립.
+  //   기존엔 복원 모드면 renderIncoming 을 통째 건너뛰어, 캡션에서 시술을 적어도 편집기에 안 뜨던 문제.
+  function _renderMissingIncoming(list) {
+    if (!Array.isArray(list) || !list.length) return;
+    var have = {}; S.layers.forEach(function (L) { if (L.role) have[L.role] = 1; });
+    var R = refs.stage.getBoundingClientRect();
+    var added = false;
+    list.forEach(function (spec) { if (spec.role && !have[spec.role]) { try { addShopLayer(spec, R); added = true; } catch (_e) { void _e; } } });
+    if (added) { S.active = null; S.layers.forEach(function (x) { x.el.classList.remove('is-active'); }); }
   }
   function renderIncoming(layers) {
     if (!Array.isArray(layers) || !layers.length) return;
@@ -1687,7 +1704,7 @@
     requestAnimationFrame(function () {
       initCanvas();
       if (!_ed) renderIncoming(S.incoming);   // 복원 모드가 아니면 우리샵 자동배치 레이어
-      else if (!isSingleL(S.layout)) renderCollage();   // 콜라주는 캔버스 초기화 뒤 한 번 더 그려 셀 사진 확실히 반영
+      else { if (!isSingleL(S.layout)) renderCollage(); _renderMissingIncoming(S.incoming); }   // [#2a] 복원했어도 없는 역할의 시술 텍스트는 추가
       // [#5] 시술내용 텍스트가 이미 올라왔으면 그걸 선택 → setTool('text')이 빈 '내용을 입력하세요'를 덧붙이지 않음.
       var firstText = S.layers.filter(function (L) { return L.type === 'text'; })[0];
       if (firstText) selectLayer(firstText);
