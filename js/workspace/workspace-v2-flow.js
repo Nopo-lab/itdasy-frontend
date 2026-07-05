@@ -166,6 +166,19 @@
   }
   // 대표 사진 — 캡션/미리보기/저장 썸네일/게시 이미지(전후면 '후' 우선). 기존 동작 유지.
   function curPhoto() { var p = editablePhotos(); return (p[0] || p[1] || d.photos[0]); }   // [#2] 대표=첫 장(커버). 예전 p[1] 우선이라 자동글·미리보기가 2번째 장에 뜨던 버그
+  // [slot-sync Phase B] 다른 기기서 온 slot 은 이미지가 https URL — 편집기/캐러셀은 캔버스 export 라 taint 로 막힌다.
+  //   픽셀 필요한 순간 직전에 http→dataURL 로 수화(hydration). 뷰·단일발행은 CORS(*)로 그냥 되므로 게이트 불필요.
+  function _needsHydrate() {
+    if (!(window.WorkspaceSync && window.WorkspaceSync.enabled && window.WorkspaceSync.hydratePhotos)) return false;
+    return (d.photos || []).some(function (p) { return /^https?:\/\//.test(p && p.dataUrl || '') || /^https?:\/\//.test(p && p.editedDataUrl || '') || /^https?:\/\//.test(p && p.baseUrl || ''); });
+  }
+  function _hydrateD() {
+    if (!(window.WorkspaceSync && window.WorkspaceSync.hydratePhotos)) return Promise.resolve(false);
+    return Promise.resolve(window.WorkspaceSync.hydratePhotos(d.photos)).then(function (ch) {
+      if (ch) { d.previewUrl = null; try { setScreen(cur, { push: false }); } catch (_e) { void _e; } }
+      return ch;
+    }).catch(function () { return false; });
+  }
   // 편집 대상 사진 — 편집 화면에서 전/후 전환(editIdx)으로 선택. 전후면 '전(before)' 기본, 일반은 첫 사진.
   function curEditPhoto() {
     var p = editablePhotos();
@@ -589,6 +602,8 @@
   }
   function _openStoryEditor(o) {
     o = o || {};
+    // [slot-sync Phase B] 다른 기기 slot(https 이미지) → 편집기 캔버스 오염 방지 위해 먼저 수화. 1회만 시도(실패해도 진행).
+    if (_needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function () { _openStoryEditor(o); }); return; }
     // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
     // o.fresh=true → 이전 편집상태(editState) 복원 안 함(캡션 직후 자동 오픈: 옛날 콜라주·빈 텍스트가 되살아나던 문제).
     var Editor = window.ItdEditor;
@@ -3843,6 +3858,9 @@
 	    // [버그수정] connected=true 여도 토큰이 죽어있으면(만료·계정 비활성화 등) 그대로 진행 시 "올리는 중…"
 	    //   애니메이션만 보여주고 조용히 실패하던 문제 — 시작 전에 명확한 안내로 막는다.
 	    if (!_igp.tokenValid) { toast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요'); return; }
+	    // [slot-sync Phase B] 캐러셀은 각 장을 캔버스로 JPEG 인코딩 → 다른 기기(https) 이미지는 taint 로 막힘. 먼저 수화.
+	    //   (피드/스토리 단일 발행은 fetch→blob 경로라 CORS(*)로 그냥 됨 — 게이트 불필요.)
+	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function () { publish(kind); }); return; }
 	    if (d._publishing) return;
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');

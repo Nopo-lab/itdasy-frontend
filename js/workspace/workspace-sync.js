@@ -175,6 +175,62 @@
   function loadAllLocal() { return has(window.loadSlotsFromDB) ? Promise.resolve(window.loadSlotsFromDB()).catch(function () { return []; }) : Promise.resolve([]); }
   function refreshHome() { try { if (window.WorkspaceV2 && has(window.WorkspaceV2.refresh)) window.WorkspaceV2.refresh(); } catch (_e) { void 0; } }
 
+  // ── Phase B: 다른 기기에서 온 http 이미지 → 로컬 dataURL 재수화(hydration) ──
+  //   다른 기기가 올린 slot 은 이미지가 Supabase https URL. 뷰·단일발행(fetch→blob)은 CORS(*)로 바로 되지만,
+  //   편집기/캐러셀은 캔버스에 다시 굽는데 크로스오리진 이미지는 캔버스를 오염(taint)시켜 export 가 막힌다.
+  //   → 픽셀이 필요한 순간(편집기 열기·캐러셀 발행) 직전에 http 이미지를 data:URL 로 되돌려, 로컬 생성 slot 과 동일하게 다룬다.
+  var _hydrateCache = new Map();
+  function _isHttp(u) { return typeof u === 'string' && /^https?:\/\//.test(u); }
+  function _isSyncedImg(u) { return _isHttp(u) && (/\/storage\/v1\/object\/public\//.test(u) || /\.(jpe?g|png|webp|gif)(\?|$)/i.test(u)); }
+  function hydrateUrl(url) {
+    if (_hydrateCache.has(url)) return Promise.resolve(_hydrateCache.get(url));
+    return fetch(url).then(function (r) { return r.ok ? r.blob() : null; }).then(function (b) {
+      if (!b) return null;
+      return new Promise(function (res) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = function () { res(null); }; fr.readAsDataURL(b); });
+    }).then(function (du) { if (du) _hydrateCache.set(url, du); return du; }).catch(function (e) { log('hydrate fail', e); return null; });
+  }
+  function collectSyncedImgs(obj, out, depth) {
+    out = out || new Set(); depth = depth || 0;
+    if (obj == null || depth > 8) return out;
+    if (_isSyncedImg(obj)) { out.add(obj); return out; }
+    if (typeof obj !== 'object') return out;
+    if (Array.isArray(obj)) { for (var i = 0; i < obj.length; i++) collectSyncedImgs(obj[i], out, depth + 1); return out; }
+    for (var k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) collectSyncedImgs(obj[k], out, depth + 1); }
+    return out;
+  }
+  function deepMapReplace(obj, map, depth) {
+    depth = depth || 0;
+    if (obj == null || depth > 8) return obj;
+    if (typeof obj === 'string') return map.has(obj) ? map.get(obj) : obj;
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(function (v) { return deepMapReplace(v, map, depth + 1); });
+    var out = {};
+    for (var k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) out[k] = deepMapReplace(obj[k], map, depth + 1); }
+    return out;
+  }
+  // photos 배열을 제자리(in place) 수화 — dataUrl/editedDataUrl/baseUrl + editState 중첩까지. 바뀐 게 있으면 true.
+  function hydratePhotos(photos) {
+    if (!enabled() || !Array.isArray(photos) || !photos.length) return Promise.resolve(false);
+    var urls = new Set();
+    photos.forEach(function (p) {
+      if (!p) return;
+      ['dataUrl', 'editedDataUrl', 'baseUrl'].forEach(function (k) { if (_isSyncedImg(p[k])) urls.add(p[k]); });
+      if (p.editState) collectSyncedImgs(p.editState, urls, 0);
+    });
+    if (!urls.size) return Promise.resolve(false);
+    var arr = Array.from(urls);
+    return arr.reduce(function (pr, u) { return pr.then(function (m) { return hydrateUrl(u).then(function (du) { if (du) m.set(u, du); return m; }); }); }, Promise.resolve(new Map()))
+      .then(function (map) {
+        if (!map.size) return false;
+        photos.forEach(function (p) {
+          if (!p) return;
+          ['dataUrl', 'editedDataUrl', 'baseUrl'].forEach(function (k) { if (map.has(p[k])) p[k] = map.get(p[k]); });
+          if (p.editState) p.editState = deepMapReplace(p.editState, map, 0);
+        });
+        return true;
+      });
+  }
+
   // ── PUSH — dirty slot 업서트 + tombstone 삭제 반영 ───────────
   var _pushing = false;
   function pushAll() {
@@ -306,9 +362,9 @@
 
   // ── init ───────────────────────────────────────────────────
   function init() {
-    if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); } }; return; }
+    if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); }, hydratePhotos: function () { return Promise.resolve(false); } }; return; }
     wrapGlobals();
-    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal } };
+    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos } };
     // 최초 동기화 — 로그인 상태 갖춰지면. 아니면 이후 트리거에서 재시도.
     var tries = 0;
     (function boot() { if (ready()) { sync(); } else if (tries++ < 20) { setTimeout(boot, 800); } })();
