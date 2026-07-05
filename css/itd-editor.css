@@ -202,6 +202,16 @@
 .itsw--rb{position:relative;overflow:hidden;padding:0;border:1.5px solid rgba(0,0,0,.12);
   background:conic-gradient(from 0deg,#f00,#ffb000,#ffe600,#3ad13a,#00c2c2,#2b6bff,#8a4bff,#ff3fb0,#f00)}
 .itsw--rb input[type="color"]{position:absolute;inset:-6px;width:calc(100% + 12px);height:calc(100% + 12px);opacity:0;border:none;padding:0;cursor:pointer;background:transparent}
+/* [#13-v2] 화면 안 색상 팔레트(SV 사각형 + 색조 바) */
+.itcp{position:fixed;z-index:100000;width:196px;padding:10px;border-radius:14px;background:#fff;box-shadow:0 10px 34px rgba(0,0,0,.28);touch-action:none;user-select:none}
+.itcp__sv{position:relative;width:176px;height:132px;border-radius:9px;cursor:crosshair;overflow:hidden}
+.itcp__svthumb{position:absolute;width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.4);transform:translate(-50%,-50%);pointer-events:none}
+.itcp__hue{position:relative;width:176px;height:16px;margin-top:11px;border-radius:8px;cursor:pointer;
+  background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
+.itcp__huethumb{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#fff;border:2.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.4);transform:translate(-50%,-50%);pointer-events:none}
+.itcp__foot{display:flex;align-items:center;gap:8px;margin-top:10px}
+.itcp__prev{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.12);flex:none}
+.itcp__hex{font-size:12.5px;font-weight:800;letter-spacing:.4px;color:#333;font-family:ui-monospace,Menlo,monospace}
 .itlaybg{width:24px;height:24px;border-radius:50%;border:1.5px solid rgba(255,255,255,.6);cursor:pointer}
 .itlaybg.on{box-shadow:0 0 0 2px #1c1316,0 0 0 4px #fff}
 .itlay2__add{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 13px;border-radius:999px;background:var(--accent-strong,#BC6675);color:#fff;font-size:12px;font-weight:700;cursor:pointer}

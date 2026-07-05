@@ -6,7 +6,7 @@
 
 // [#16] 업종별 '자주 쓰는 시술' — 실제 국내 뷰티샵 시술명 기준. 가입 업종이 이 중 하나면 그 리스트가 기본 노출.
 const SHOP_KEYWORDS = {
-  '붙임머리': ['비드붙임','링붙임','테이프붙임','클립인','옴브레','볼륨업','자연스러운','롱헤어','재시술','14인치','20인치','26인치'],
+  '붙임머리': ['붙임머리','비드붙임','링붙임','테이프붙임','클립인','옴브레','볼륨업','자연스러운','롱헤어','재시술','14인치','20인치','26인치'],
   '네일아트': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '네일': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '헤어': ['커트','레이어드','펌','볼륨매직','아이롱펌','염색','뿌리염색','탈색','클리닉','앞머리펌','베이비펌','히피펌'],
@@ -49,6 +49,9 @@ function _shopKeywordBase() {
   //   예전엔 normalize('붙임머리').cat='hair' → 미용실 리스트로 덮여, 가입값이 붙임머리여도 단발/레이어드가 떴다.
   const directKey = _SHOP_TYPE_ALIAS[raw] || _SHOP_TYPE_ALIAS[String(raw).toLowerCase()] || raw;
   if (SHOP_KEYWORDS[directKey]) return SHOP_KEYWORDS[directKey];
+  // [#1] 가입값이 '붙임머리샵'·'속눈썹 전문' 처럼 접미어가 붙어도 매칭 — SHOP_KEYWORDS 키가 raw에 포함되면 그걸로.
+  const rawStr = String(raw || '');
+  for (const key in SHOP_KEYWORDS) { if (rawStr.indexOf(key) >= 0) return SHOP_KEYWORDS[key]; }
   // 직접 매핑 실패 시에만 정규화 cat로 폴백.
   if (window.itdasyNormalizeShopType) {
     try { const c = window.itdasyNormalizeShopType(raw).cat; if (_CAT_KEYWORDS[c]) return _CAT_KEYWORDS[c]; } catch (_) { /* fall through */ }

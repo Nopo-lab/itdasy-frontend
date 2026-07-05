@@ -2630,7 +2630,16 @@
       var wp = t.closest('[data-fl-wizpick]'); if (wp) {
         syncServiceFromDom();
         var _pv = wp.getAttribute('data-fl-wizpick').split('::'); var _wk = _pv[0], _wv = _pv[1];
-        if (_wv === '직접') { d._wizCustom = _wk; d._wizDir = 'fwd'; setScreen('caption'); return; }   // [직접 입력] 팝업 대신 인라인 입력 모드로
+        // [직접] 인라인 입력창 대신 → 그냥 다음 단계로. 마지막 단계에서 '직접'이면 아래 시술 입력창으로 포커스(직접 작성).
+        if (_wv === '직접') {
+          d._wizCustom = null; d._wizDir = 'fwd';
+          var _isLast = (d.capWizStep || 0) >= (_WIZ_STEPS.length - 1);
+          if (d.captionAxes) delete d.captionAxes[_wk];   // 직접 작성할 축은 비워둠(자유 서술)
+          d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
+          setScreen('caption');
+          if (_isLast) { setTimeout(function () { var _svc = el && el.querySelector('[data-fl-service]'); if (_svc) { try { _svc.focus(); _svc.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_e) { void _e; } } }, 220); }
+          return;
+        }
         d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
         d._wizCustom = null;
         d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);

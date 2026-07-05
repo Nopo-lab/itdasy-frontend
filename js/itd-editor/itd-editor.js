@@ -25,7 +25,73 @@
   var COLORS = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
   // [#13] 무지개 스와치 — 탭하면 네이티브 색상 팔레트가 열려 원하는 색을 자유롭게 고른다(텍스트·도형·그리기·레이아웃 배경 공용).
   function _rbSw(target, cls) {
-    return '<label class="' + (cls || 'itsw') + ' itsw--rb" title="색 직접 고르기" aria-label="색 직접 고르기"><input type="color" data-colorpick="' + target + '"></label>';
+    return '<button type="button" class="' + (cls || 'itsw') + ' itsw--rb" data-colorpick="' + target + '" title="색 직접 고르기" aria-label="색 직접 고르기"></button>';
+  }
+  // [#13-v2] HSV 커스텀 색상 피커 — SV 사각형 + 색조 바(네이티브 대신 화면 안 팔레트).
+  function _hsvToRgb(h, s, v) {
+    var c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c, r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; } else if (h < 120) { r = x; g = c; } else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; } else if (h < 300) { r = x; b = c; } else { r = c; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+  function _hsvToHex(h, s, v) { var a = _hsvToRgb(h, s, v); return '#' + a.map(function (n) { return ('0' + n.toString(16)).slice(-2); }).join('').toUpperCase(); }
+  function _hexToHsv(hex) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return { h: 0, s: 1, v: 1 };
+    var n = parseInt(m[1], 16), r = (n >> 16) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn, h = 0;
+    if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; if (h < 0) h += 360; }
+    return { h: h, s: mx ? d / mx : 0, v: mx };
+  }
+  var _cpState = null;
+  function _closeColorPicker() { if (_cpState && _cpState.el && _cpState.el.parentNode) _cpState.el.parentNode.removeChild(_cpState.el); _cpState = null; document.removeEventListener('pointerdown', _cpOutside, true); }
+  function _cpOutside(e) { if (_cpState && _cpState.el && !_cpState.el.contains(e.target) && e.target !== _cpState.anchor) _closeColorPicker(); }
+  function _openColorPicker(anchor, target) {
+    _closeColorPicker();
+    var cur = (target === 'text' ? (activeText() && activeText().color) : target === 'shape' ? S.shapeColor : target === 'draw' ? S.drawColor : S.collageBg) || '#BC6675';
+    var hsv = _hexToHsv(cur);
+    var box = el('div', 'itcp');
+    box.innerHTML =
+      '<div class="itcp__sv" data-cp-sv><div class="itcp__svthumb" data-cp-svt></div></div>' +
+      '<div class="itcp__hue" data-cp-hue><div class="itcp__huethumb" data-cp-hut></div></div>' +
+      '<div class="itcp__foot"><span class="itcp__prev" data-cp-prev></span><span class="itcp__hex" data-cp-hex></span></div>';
+    document.body.appendChild(box);   // body 고정 배치 — 패널/시트에 안 잘리게
+    _cpState = { el: box, anchor: anchor, target: target, h: hsv.h, s: hsv.s, v: hsv.v };
+    // 앵커 위(공간 없으면 아래)에 fixed 배치 — 화면 밖으로 안 나가게 클램프.
+    var ar = anchor.getBoundingClientRect(), PW = 196, PH = 214;
+    var left = Math.max(8, Math.min(ar.left + ar.width / 2 - PW / 2, window.innerWidth - PW - 8));
+    var top = ar.top - PH - 8;
+    if (top < 8) top = Math.min(ar.bottom + 8, window.innerHeight - PH - 8);
+    box.style.left = left + 'px'; box.style.top = top + 'px';
+    var sv = box.querySelector('[data-cp-sv]'), svT = box.querySelector('[data-cp-svt]');
+    var hue = box.querySelector('[data-cp-hue]'), huT = box.querySelector('[data-cp-hut]');
+    var prev = box.querySelector('[data-cp-prev]'), hexEl = box.querySelector('[data-cp-hex]');
+    function paint() {
+      sv.style.background = 'linear-gradient(to top,#000,rgba(0,0,0,0)),linear-gradient(to right,#fff,hsl(' + _cpState.h + ',100%,50%))';
+      svT.style.left = (_cpState.s * 100) + '%'; svT.style.top = ((1 - _cpState.v) * 100) + '%';
+      huT.style.left = (_cpState.h / 360 * 100) + '%';
+      var hex = _hsvToHex(_cpState.h, _cpState.s, _cpState.v);
+      svT.style.background = hex; prev.style.background = hex; hexEl.textContent = hex;
+      _colorPickApply(_cpState.target, hex);
+    }
+    function svMove(e) { var r = sv.getBoundingClientRect(); _cpState.s = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); _cpState.v = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height)); paint(); }
+    function hueMove(e) { var r = hue.getBoundingClientRect(); _cpState.h = Math.max(0, Math.min(359.9, (e.clientX - r.left) / r.width * 360)); paint(); }
+    _cpDrag(sv, svMove); _cpDrag(hue, hueMove);
+    paint();
+    setTimeout(function () { document.addEventListener('pointerdown', _cpOutside, true); }, 0);
+  }
+  function _cpDrag(elm, onMove) {
+    elm.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation(); onMove(e);
+      function mv(ev) { onMove(ev); }
+      function up() { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); }
+      document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+    });
+  }
+  function _colorPickApply(t, v) {
+    if (t === 'text') { applyColor(v); if (root) root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
+    else if (t === 'shape') { S.shapeColor = v; if (refs.panels && refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
+    else if (t === 'draw') { S.drawColor = v; if (root) root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
+    else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels && refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
   }
   var SHOP_STK = ['🌸', '✨', '💗', '🎀', '👑'];
   var EMOJI = ['💄', '💅', '🔥', '😍', '🥰', '💎', '🌟', '🫶', '💖', '🌿', '☁️', '🎉'];
@@ -478,8 +544,11 @@
   function duplicateLayer(L) {
     if (!L) L = S.active; if (!L) return;
     var c = makeLayer(L.type);
-    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'thick', 'fontSizePx'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    // [#3] 도형 굵기(strokeW)는 예전에 빠져 있어(엉뚱한 'thick' 키만 복사) 복제본이 '얇게 하기 전' 굵기로 나왔다.
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
     if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
+    // [#3] 도형은 복제한 DOM을 현재 strokeW/색/채움으로 다시 칠해 원본과 100% 일치시킨다.
+    if (c.type === 'shape' && c.tx) { try { styleShape(c.tx, c); } catch (_e) { void _e; } }
     c.x = (L.x || 0) + 18; c.y = (L.y || 0) + 18; c.scale = L.scale || 1; c.rot = L.rot || 0;
     applyXf(c); selectLayer(c);
     _pushOp({ op: 'add', L: c });
@@ -1356,14 +1425,12 @@
     refs.colors.addEventListener('click', function (e) { var b = e.target.closest('[data-color]'); if (!b) return; applyColor(b.getAttribute('data-color')); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.aln.addEventListener('click', function (e) { var b = e.target.closest('[data-aln]'); if (!b) return; applyAlign(b.getAttribute('data-aln')); refs.aln.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
     refs.size.addEventListener('input', function () { applyScale(refs.size.value); });
-    // [#13] 무지개 색상 피커(네이티브) — 텍스트/도형/그리기/레이아웃 배경에 자유 색상 적용.
-    root.addEventListener('input', function (e) {
+    // [#13-v2] 무지개 버튼 탭 → 화면 안 색상 팔레트(SV 사각형 + 색조 바) 열기.
+    root.addEventListener('click', function (e) {
       var cp = e.target.closest ? e.target.closest('[data-colorpick]') : null; if (!cp) return;
-      var v = cp.value || '#000000', t = cp.getAttribute('data-colorpick');
-      if (t === 'text') { applyColor(v); root.querySelectorAll('[data-color]').forEach(function (x) { x.classList.remove('on'); }); }
-      else if (t === 'shape') { S.shapeColor = v; if (refs.panels.shape) refs.panels.shape.querySelectorAll('[data-scolor]').forEach(function (x) { x.classList.remove('on'); }); applyShapeStyle(); }
-      else if (t === 'draw') { S.drawColor = v; root.querySelectorAll('[data-dcolor]').forEach(function (x) { x.classList.remove('on'); }); }
-      else if (t === 'layout') { S.collageBg = v; S.collageBgImg = null; saveBgPref(); if (refs.panels.layout) refs.panels.layout.querySelectorAll('[data-bg]').forEach(function (x) { x.classList.remove('on'); }); renderCollage(); applyFit(); recutWithBg(); }
+      e.preventDefault(); e.stopPropagation();
+      if (_cpState && _cpState.anchor === cp) { _closeColorPicker(); return; }
+      _openColorPicker(cp, cp.getAttribute('data-colorpick'));
     });
     // [#5] 스티커 — 카테고리 탭 전환 + 이모지/글자스티커/SVG/우리샵칩/데코/내 스티커 → 레이어로 추가
     refs.stkSheet.addEventListener('click', function (e) {
