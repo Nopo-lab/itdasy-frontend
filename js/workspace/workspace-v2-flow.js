@@ -2125,8 +2125,9 @@
       '<button type="button" class="wsl-skip" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
   }
   function _wsMountStage() {   // 스크린 렌더 후 인터랙티브 스테이지 장착
-    if (!d.wsLayout || !window.WorkspaceSlotStage || !el) return;
-    var host = el.querySelector('[data-fl-stage]'); if (!host) return;
+    var host = el && el.querySelector('[data-fl-stage]');
+    try { window.__wsMS = { ran: (window.__wsMS && window.__wsMS.ran || 0) + 1, hasLayout: !!(d && d.wsLayout), hasStage: !!window.WorkspaceSlotStage, hasEl: !!el, hasHost: !!host, photos: (function(){ try { return editablePhotos().length; } catch(_e){ return 'err'; } })() }; } catch (_dbg) { void _dbg; }
+    if (!d.wsLayout || !window.WorkspaceSlotStage || !el || !host) return;
     window.WorkspaceSlotStage.mount(host, { layout: d.wsLayout, photos: editablePhotos(), assign: d._wsAssign,
       onChange: function () { d.previewUrl = null; } });   // 드래그 결과는 d.wsLayout.photoSlots 에 즉시 반영(제자리)
   }
