@@ -94,7 +94,8 @@
     { test: /작업실.*(후기|리뷰)|후기.*작업실/, cmd: { type: 'open', cat: 'review' }, label: '작업실에서 고객 후기 만들기를 열었어요' },
     { test: /작업실.*(이벤트|할인|혜택)/, cmd: { type: 'open', cat: 'event' }, label: '작업실에서 이벤트 만들기를 열었어요' },
     { test: /작업실.*(시술\s*자랑|자랑|완성컷|피드)/, cmd: { type: 'open', cat: 'flex' }, label: '작업실에서 시술 자랑 만들기를 열었어요' },
-    { test: /작업실.*(게시글|글|캡션|문구)/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '작업실에서 게시글 쓰기를 열었어요' },
+    // [버그수정 2026-07-06] "작업실 게시글 지워/삭제/보여줘"가 쓰기 화면으로 열리던 것 — 삭제·조회 동사면 미매칭.
+    { test: /^(?=[\s\S]*작업실)(?=[\s\S]*(?:게시글|글|캡션|문구))(?![\s\S]*(?:지워|지울|삭제|없애|취소|초기화|리셋|보여\s*줘|알려\s*줘))[\s\S]*/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '작업실에서 게시글 쓰기를 열었어요' },
     { test: /작업실\s*(열어?\s*줘?|열기|시작|보여\s*줘?|들어가|가자|가\s*줘|이동|켜\s*줘?|만들|편집)/, cmd: { type: 'open' }, label: '작업실을 열었어요' },
     { test: /^작업실(로|에|좀)?\s*$/, cmd: { type: 'open' }, label: '작업실을 열었어요' },
     { test: /(게시글만|글만|문구만|캡션만)\s*(써|쓰|작성|만들|생성)/, cmd: { type: 'open', textOnly: true, screen: 'caption' }, label: '게시글 쓰기를 열었어요' },

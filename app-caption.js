@@ -266,9 +266,11 @@ async function _doGenerateCaption(scenario, closePopup, inlineHost) {
     // 2026-05-01 ── 백엔드 GenerateResponse 에 hashtags 필드 추가 후 반영.
     // persona.hashtags (사용자 등록 top20) 또는 SHOP_DEFAULT_HASHTAGS 폴백.
     const hashtagsArr = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : []);
+    // [버그수정 2026-07-06] core(앞3)+pool 합류 시 중복 태그가 '#네일 #네일' 로 두 번 렌더되던 것 — 정규화 dedup.
+    const _seenHash = new Set();
     const hashes = hashtagsArr
       .map(t => String(t || '').trim().replace(/^#+/, ''))
-      .filter(Boolean)
+      .filter(t => { if (!t) return false; const k = t.toLowerCase(); if (_seenHash.has(k)) return false; _seenHash.add(k); return true; })
       .map(t => '#' + t)
       .join(' ');
 
@@ -568,11 +570,18 @@ async function regenerateCaption(overrides = {}) {
     _capAiDraft = data.caption || '';
     _lastLogId = data.log_id || null;
     if (ta) { ta.value = _capAiDraft; _capAutoGrow(ta); }
+    // [버그수정 2026-07-06] 재생성 응답의 해시태그를 무시하고 ''로 덮던 것 — 생성 경로와 동일하게 반영(dedup).
+    const _seenRH = new Set();
+    const _reHashes = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : [])
+      .map(t => String(t || '').trim().replace(/^#+/, ''))
+      .filter(t => { if (!t) return false; const k = t.toLowerCase(); if (_seenRH.has(k)) return false; _seenRH.add(k); return true; })
+      .map(t => '#' + t).join(' ');
     // 재생성 결과도 슬롯에 반영 + status 갱신
     if (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined') {
       const slot = _slots.find(s => s.id === _captionSlotId);
       if (slot) {
         slot.caption = _capAiDraft;
+        if (_reHashes) slot.hashtags = _reHashes;
         if (_capAiDraft && _capAiDraft.trim()) {
           slot.status = 'done';
           slot.completedAt = slot.completedAt || Date.now();
@@ -580,7 +589,7 @@ async function regenerateCaption(overrides = {}) {
         if (typeof saveSlotToDB === 'function') saveSlotToDB(slot).catch(() => {});
       }
     }
-    _renderCaptionActionBar(_capAiDraft, '');
+    _renderCaptionActionBar(_capAiDraft, _reHashes);
   } catch (e) {
     // [2026-04-26] 재생성 에러도 정확한 원인 노출. raw 는 console 로 디버깅 보조.
     console.error('[caption.regenerate] 실패 raw:', e);

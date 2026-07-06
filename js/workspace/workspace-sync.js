@@ -296,13 +296,14 @@
       return loadAllLocal().then(function (locals) {
         var byId = {}; (locals || []).forEach(function (s) { if (s && s.id != null) byId[String(s.id)] = s; });
         var changed = false;
+        var applyFailed = false;   // [버그수정 2026-07-06] 적용 실패분 있으면 lastPulledAt 전진 금지(그 slot 이 영영 누락되던 것)
         return resp.slots.reduce(function (p, rs) {
           return p.then(function () {
             var local = byId[String(rs.slot_id)];
             if (rs.deleted) {
               if (local && has(_origDeleteSlot)) {
                 var delMs = tsMs(rs.deleted_at);
-                if (!local.updatedAt || local.updatedAt <= delMs) { changed = true; return Promise.resolve(_origDeleteSlot(rs.slot_id)).catch(function () {}).then(function () { return delTombstone(rs.slot_id); }); }
+                if (!local.updatedAt || local.updatedAt <= delMs) { changed = true; return Promise.resolve(_origDeleteSlot(rs.slot_id)).catch(function () { applyFailed = true; }).then(function () { return delTombstone(rs.slot_id); }); }
               }
               return delTombstone(rs.slot_id);   // 서버가 삭제 확인 → 로컬 tombstone 정리
             }
@@ -310,10 +311,11 @@
             //   [버그수정 2026-07-06] push 필터(!=='synced')와 술어 일치 — 'dirty' 외 값(undefined 등)도 방어.
             if (local && local.syncState !== 'synced' && (local.updatedAt || 0) > tsMs(rs.client_updated_at)) return;
             changed = true;
-            return Promise.resolve(_origSaveSlot(remoteToLocal(rs))).catch(function () {});
+            return Promise.resolve(_origSaveSlot(remoteToLocal(rs))).catch(function () { applyFailed = true; });
           });
         }, Promise.resolve()).then(function () {
-          if (resp.server_time) setMeta('lastPulledAt', resp.server_time);
+          // 하나라도 적용 실패면 since 를 전진시키지 않는다 → 다음 pull 이 그 delta 를 다시 받아 재시도.
+          if (resp.server_time && !applyFailed) setMeta('lastPulledAt', resp.server_time);
           if (changed) refreshHome();
         });
       });

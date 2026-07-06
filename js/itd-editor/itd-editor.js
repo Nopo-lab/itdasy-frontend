@@ -239,7 +239,7 @@
             '<button data-aln="center">' + IC.alnC + '</button>' +
             '<button data-aln="right">' + IC.alnR + '</button>' +
           '</span>' +
-          '<span class="itsize">크기<input type="range" min="0.5" max="2.6" step="0.02" value="1" data-r="size"></span>' +
+          '<span class="itsize">크기<input type="range" min="0.5" max="8" step="0.02" value="1" data-r="size"></span>' +
         '</div>' +
         '<div class="itfonts" data-r="fonts">' + fonts + '</div>' +
         '<div class="itcolors" data-r="colors">' + colors + _rbSw('text', 'itsw') + '</div>' +
@@ -1630,6 +1630,7 @@
         collageGap: S.collageGap, fitMode: S.fitMode, ratio: S.ratio,
         adj: (S.adj || []).map(function (a) { return Object.assign({}, a); }),
         photoDraw: Object.assign({}, S.photoDraw), photoBg: Object.assign({}, S.photoBg),
+        pz: Object.assign({ scale: 1, tx: 0, ty: 0 }, S.pz),   // [버그수정 2026-07-06] 사진 핀치줌/이동 구도 재편집 시 유실 방지
         photos: (S.photos || []).slice(), layers: (S.layers || []).map(_serLayer).filter(Boolean) };
     } catch (_e) { return null; }
   }
@@ -1646,6 +1647,7 @@
     if (Array.isArray(st.adj) && st.adj.length) S.adj = st.adj.map(function (a) { return Object.assign(defAdj(), a); });
     if (st.photoDraw) S.photoDraw = Object.assign({}, st.photoDraw);
     if (st.photoBg) S.photoBg = Object.assign({}, st.photoBg);
+    if (st.pz) S.pz = Object.assign({ scale: 1, tx: 0, ty: 0 }, st.pz);   // [버그수정 2026-07-06] 재편집 시 사진 구도(핀치줌/이동) 복원
     if (Array.isArray(st.photos) && st.photos.length) { S.photos = st.photos.slice(); S.photoUrl = S.photos[0]; S.photoCss = 'url("' + S.photos[0] + '")'; }
   }
   // stage 크기 — 레이아웃 flush 전(rect=0)엔 fitStageToRatio 가 박아둔 explicit px 로 폴백.

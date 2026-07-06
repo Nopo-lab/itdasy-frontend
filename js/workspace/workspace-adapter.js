@@ -16,6 +16,9 @@
 	  function _loadImage(src) {
 	    return new Promise(function (resolve, reject) {
 	      var img = new Image();
+	      // [버그수정 2026-07-06] slot-sync 로 http(Supabase, CORS *) 이미지가 들어올 수 있어 — crossOrigin 없으면
+	      //   캔버스 taint 로 toDataURL 이 SecurityError. data:/blob: 는 무시되므로 무조건 설정 안전(편집기 loadImg 와 동일).
+	      if (/^https?:/i.test(String(src || ''))) img.crossOrigin = 'anonymous';
 	      img.onload = function () { resolve(img); };
 	      img.onerror = reject;
 	      img.src = src;

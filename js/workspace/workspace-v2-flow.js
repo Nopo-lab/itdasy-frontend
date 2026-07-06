@@ -612,7 +612,7 @@
   function _openStoryEditor(o) {
     o = o || {};
     // [slot-sync Phase B] 다른 기기 slot(https 이미지) → 편집기 캔버스 오염 방지 위해 먼저 수화. 1회만 시도(실패해도 진행).
-    if (_needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function () { _openStoryEditor(o); }); return; }
+    if (_needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function (ok) { if (!ok) d._hydrateTried = false; /* [버그수정 2026-07-06] 실패 시 재시도 가능하게 */ _openStoryEditor(o); }); return; }
     // [#2 단일화] 편집기는 ItdEditor 단독(옛 StoryEditor 제거됨). 계약 open{photoUrl,onDone(dataUrl,meta)} 동일.
     // o.fresh=true → 이전 편집상태(editState) 복원 안 함(캡션 직후 자동 오픈: 옛날 콜라주·빈 텍스트가 되살아나던 문제).
     var Editor = window.ItdEditor;
@@ -3950,7 +3950,7 @@
 	    if (!_igp.tokenValid) { toast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요'); return; }
 	    // [slot-sync Phase B] 캐러셀은 각 장을 캔버스로 JPEG 인코딩 → 다른 기기(https) 이미지는 taint 로 막힘. 먼저 수화.
 	    //   (피드/스토리 단일 발행은 fetch→blob 경로라 CORS(*)로 그냥 됨 — 게이트 불필요.)
-	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function () { publish(kind); }); return; }
+	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function (ok) { if (!ok) d._hydrateTried = false; /* [버그수정 2026-07-06] 실패 시 재시도 가능 */ publish(kind); }); return; }
 	    if (d._publishing) return;
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');

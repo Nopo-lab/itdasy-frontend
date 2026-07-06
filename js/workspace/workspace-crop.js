@@ -47,7 +47,7 @@
   }
 
   function _loadImg(src) {
-    return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = src; });
+    return new Promise(function (res, rej) { var im = new Image(); if (/^https?:/i.test(String(src || ''))) im.crossOrigin = 'anonymous'; /* [버그수정 2026-07-06] http(sync) 이미지 taint 방지 */ im.onload = function () { res(im); }; im.onerror = rej; im.src = src; });
   }
 
   var HANDLE = 9;   // [v568·B-4] 자유 비율 핸들 크기/히트영역
