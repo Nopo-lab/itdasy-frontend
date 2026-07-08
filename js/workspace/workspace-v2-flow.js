@@ -1765,7 +1765,7 @@
 	    if (!d.caption) {
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      // [ws-hyper] 레이아웃 합성본은 폭 꽉 차는 img로(레터박스 빈 여백 제거).
-	      var photoThumb = (HYPER && d.wsLayout && d.templateOutput)
+	      var photoThumb = (HYPER && d.templateOutput)   /* [버그수정 2026-07-06] 재오픈 초안도 합성본 썸네일 */
 	        ? '<div class="wsl-cap-preview"><img src="' + esc(d.templateOutput) + '" alt="미리보기"></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : ''));
@@ -2108,7 +2108,10 @@
   function _wsLayoutFrame(layout) {
     var cells = (layout.photoSlots || []).map(function (s) { var r = s.rect;
       return '<i style="left:' + (r.x*100) + '%;top:' + (r.y*100) + '%;width:' + (r.w*100) + '%;height:' + (r.h*100) + '%"></i>'; }).join('');
-    return '<div class="wsl-frame" style="padding-bottom:' + _wsRatioPad(layout.ratio || '4:5') + '%">' + cells + '</div>';
+    // [버그수정 2026-07-06] 카드마다 비율(1:1·4:5)이 달라 그리드 높이가 층지던 것 —
+    //   고정높이 박스(wsl-fbox) 안에 실제 비율 프레임을 가운데 정렬(모양 유지 + 카드 정렬 일치).
+    var ar = ({ '1:1':1, '4:5':0.8, '9:16':0.5625, '3:4':0.75 })[layout.ratio || '4:5'] || 0.8;
+    return '<span class="wsl-fbox"><span class="wsl-frame" style="aspect-ratio:' + ar + '">' + cells + '</span></span>';
   }
   function _wsLayoutCard(layout, on) {
     return '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +
@@ -2146,7 +2149,10 @@
     var p = editablePhotos().filter(function (x) { return x.id === pid; })[0]; if (!p) return;
     var assignedSlot = slots.filter(function (sid) { return assign[sid] && assign[sid].id === pid; })[0];
     if (assignedSlot) { delete assign[assignedSlot]; }                                  // 다시 탭 = 해제
-    else { var empty = slots.filter(function (sid) { return !assign[sid]; })[0]; if (empty) assign[empty] = p; }   // 다음 빈 슬롯
+    else { var empty = slots.filter(function (sid) { return !assign[sid]; })[0];
+      if (empty) assign[empty] = p;
+      else { toast('빈 슬롯이 없어요. 배정된 사진을 탭해 빼고 넣어주세요'); return; }   // [버그수정 2026-07-06] 슬롯>사진일 때 무반응→안내
+    }
     if (cur === 'layout') setScreen('layout', { push: false });                          // 스테이지+트레이 재렌더
   }
   function _wsMountStage() {   // 스크린 렌더 직후 인터랙티브 스테이지 장착 (host 는 innerHTML 로 이미 존재)
@@ -2161,7 +2167,8 @@
     if (!L) return;
     d.wsLayout = L;
     d._wsAssign = WL.autoAssign(editablePhotos(), L);
-    if (cur === 'layout') { setScreen('layout', { push: false }); _wsMountStage(); }   // 재렌더 + 스테이지 장착(직접, 확실히)
+    // [버그수정 2026-07-06] setScreen('layout')이 렌더 끝에 _wsMountStage()를 이미 호출(중복 mount 제거).
+    if (cur === 'layout') setScreen('layout', { push: false });
   }
 
   var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
@@ -3541,7 +3548,8 @@
 	  //   원본(d.photos)은 절대 변형하지 않고, 렌더용 리스트에서만 1장/2장 표현을 바꾼다.
 	  function _displayItems() {
 	    // [ws-hyper] 레이아웃 적용 시 — 합성본 1장만 표시(원본 개별 사진은 숨김). 미리보기/캡션/발행 공통 소스.
-	    if (HYPER && d.wsLayout && d.templateOutput) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];
+	    if (HYPER && d.templateOutput) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];   // [버그수정 2026-07-06] 재오픈 초안(wsLayout 미복원)도 합성본 표시 — 합성본이 진실
+
 	    var outs = d.templateOutputs || [];
 	    if (outs.length) {
 	      var items = [];
@@ -4081,8 +4089,14 @@
 	    if (!urls.length || !d) return 0;
 	    urls.forEach(function (u) { d.photos.push({ id: uid(), dataUrl: u, role: 'hero', selected: true, selSeq: ++d._selSeq }); });
 	    reassignRoles();
-    // [워크플로 재정렬] 사진 들어오면 업로드 화면 건너뛰고 바로 사진 편집.
-    if (cur === 'upload') { if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('upload', { push: false }); _openEditFirst(); } else setScreen('upload', { push: false }); }
+    // [워크플로 재정렬] 사진 들어오면 업로드 화면 건너뛰고 바로 다음 단계.
+    //   [ws-hyper 버그수정 2026-07-06] photoUrls(채팅/딥링크) 경로도 addFiles 와 동일하게 HYPER→레이아웃 분기.
+    //   빠지면 HYPER인데 채팅으로 사진 던지면 옛 편집기가 열려 레이아웃 스텝을 건너뛴다.
+    if (cur === 'upload') {
+      if (HYPER && !d.textOnly && editablePhotos().length) { setScreen('layout', { push: false }); }
+      else if (SIMPLE_FLOW && !d.textOnly && editablePhotos().length) { setScreen('upload', { push: false }); _openEditFirst(); }
+      else setScreen('upload', { push: false });
+    }
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
 	  }
