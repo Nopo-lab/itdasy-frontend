@@ -350,14 +350,19 @@
         _fetchSlots().catch(() => []),
         _fetchDMQueueCount().catch(() => 0),
       ]);
+      // [2026-07-08] brief 실패 구분 — 실패인데 {}로 그리면 분석 카드가 전부
+      //   "없어요/모두 정상" 가짜 초록불이 됨. 플래그 세워 재시도 카드로 렌더.
+      const briefFailed = !brief && !(swr && swr.d);
       const merged = brief || (swr && swr.d) || {};
       // [A12] 모든 API 실패 시 에러 안내
-      if (!brief && !(swr && swr.d) && (!slots || !slots.length)) {
+      if (briefFailed && (!slots || !slots.length)) {
         _showConnectionError(container);
         return;
       }
+      if (briefFailed) merged._briefFailed = true;
       merged._dmQueueCount = dmQueueCount;
-      try { _writeSWR(merged); } catch (_e) { void _e; }
+      // 실패한 빈 brief 는 SWR 캐시에 저장 금지 (캐시 오염 방지)
+      if (!briefFailed) { try { _writeSWR(merged); } catch (_e) { void _e; } }
       _hydrateHome(container, merged, dmQueueCount);
       requestAnimationFrame(() => { window.scrollTo(0, 0); });
     } finally {

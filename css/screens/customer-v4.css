@@ -55,9 +55,9 @@
 #customerSheet .c-bar {
   position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;
 }
-#customerSheet .c-bar.b1 { background:#DDD; }            /* 1~2회 */
-#customerSheet .c-bar.b2 { background:#16B55E; }         /* 3~9회 */
-#customerSheet .c-bar.b3 { background:#BC6675; }         /* 10회+ */
+#customerSheet .c-bar.b1 { background:#DDD; }            /* 0~1회 */
+#customerSheet .c-bar.b2 { background:#16B55E; }         /* 2~3회 */
+#customerSheet .c-bar.b3 { background:#BC6675; }         /* 4회+ */
 #customerSheet .c-info { flex:1;min-width:0; }
 #customerSheet .c-name {
   font-size:15px;color:var(--text,#111);font-weight:500;display:flex;align-items:center;gap:6px;

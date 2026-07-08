@@ -126,7 +126,7 @@
   // [2026-07-05] 고객관리 — "안부" 프레임 폐기. 사실만: 올 차례였던 날이 지났다.
   function cardAtRisk(brief) {
     const raw = Array.isArray(brief.at_risk) ? brief.at_risk : [];
-    if (!raw.length) return { ok: 1, cat: '고객관리', dot: '#10B981', okMsg: '이탈 위험 손님 없어요' };
+    if (!raw.length) return { ok: 1, cat: '고객관리', dot: '#10B981', okMsg: '다시 올 때 지난 손님 없어요' };
     const base = { ok: 0, cat: '고객관리', dot: 'var(--danger)', alert: true, btn: '고객 보기', act: 'openCustomers' };
     if (raw.length === 1) {
       const a = raw[0] || {};
@@ -201,6 +201,14 @@
 
   function buildCarouselCards(brief) {
     const data = brief || {};
+    // [2026-07-08] brief 요청 실패 — "없어요"로 단정하지 않고 재시도 카드 1장만.
+    if (data._briefFailed) {
+      return [{
+        ok: 0, retry: 1, cat: '실시간 분석', dot: 'var(--danger)',
+        hl: '분석을 불러오지 못했어요', desc: '연결이 잠시 불안정해요',
+        btn: '다시 시도', act: 'retryBrief',
+      }];
+    }
     const cards = [
       cardRevenue(data),
       cardAtRisk(data),
@@ -521,7 +529,7 @@
       <div class="hv5-ai-label">
         <span class="hv5-ai-pulse" aria-hidden="true"></span>
         <span class="hv5-ai-label-t"><b>AI 잇비</b> 실시간 분석</span>
-        <span class="hv5-ai-label-count">${todoCnt > 0 ? todoCnt + '건 확인 필요' : '모두 정상'}</span>
+        <span class="hv5-ai-label-count">${cards.some(c => c.retry) ? '연결 불안정' : (todoCnt > 0 ? todoCnt + '건 확인 필요' : '모두 정상')}</span>
       </div>
       <div class="hv5-ai-track" id="hv5AiTrack">${cardHtml}</div>
       ${okRow}

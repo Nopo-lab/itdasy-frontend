@@ -93,6 +93,10 @@
       return undefined;
     },
     completePending: _completePending,
+    // [2026-07-08] 분석 불러오기 실패 카드 → 홈 새로 그리기 (brief 재요청)
+    retryBrief: () => {
+      if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') window.HomeV41.refresh();
+    },
     // [2026-07-05] 홈 저녁 칩 → 잇비 시트 열고 "마감 리포트" 바로 전송(룰 기반, LLM 0).
     itbiClosingReport: () => {
       const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;

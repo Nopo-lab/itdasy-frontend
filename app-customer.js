@@ -314,9 +314,9 @@
     const chipsHTML = `
       <div id="customerSegments" class="cv4-chips">
         <button data-seg="all"          class="cv4-chip is-on">전체</button>
-        <button data-seg="first_visit"  class="cv4-chip off">첫방문</button>
-        <button data-seg="revisit"      class="cv4-chip green">재방문</button>
-        <button data-seg="regular"      class="cv4-chip brand">단골</button>
+        <button data-seg="v1"           class="cv4-chip off">1회</button>
+        <button data-seg="v23"          class="cv4-chip green">2~3회</button>
+        <button data-seg="v4p"          class="cv4-chip brand">4회+</button>
         <button data-seg="atrisk"       class="cv4-chip off">오래된 방문</button>
         <button data-seg="member"       class="cv4-chip off">회원권</button>
       </div>`;
@@ -402,9 +402,24 @@
 
   // [v208] 방문횟수 → 컬러바 클래스
   function _barClass(vc) {
-    if (vc >= 10) return 'b3';
-    if (vc >= 3)  return 'b2';
+    // [2026-07-08] 칩 계급제(1회/2~3회/4회+)와 색 기준 통일
+    if (vc >= 4) return 'b3';
+    if (vc >= 2) return 'b2';
     return 'b1';
+  }
+
+  // [2026-07-08] 마지막 방문 서브라인 — "3주 전" 등. 기록 없으면 빈 문자열.
+  function _lastVisitLabel(iso) {
+    if (!iso) return '';
+    const t = Date.parse(iso);
+    if (!isFinite(t)) return '';
+    const days = Math.floor((Date.now() - t) / 86400000);
+    if (days <= 0)   return '오늘 방문';
+    if (days === 1)  return '어제 방문';
+    if (days < 14)   return `${days}일 전 방문`;
+    if (days < 60)   return `${Math.round(days / 7)}주 전 방문`;
+    if (days < 365)  return `${Math.round(days / 30)}달 전 방문`;
+    return `${Math.floor(days / 365)}년 전 방문`;
   }
   // [v214] 디테일 표시 — _isPC() 가 아닌 시트 실제 상태(cv4-pc 클래스) 로 판단
   function _selectCustomer(id, rowEl) {
@@ -444,10 +459,14 @@
       const ATRISK_DAYS = 60;
       items = items.filter(c => {
         const vc = c.visit_count || 0;
-        // [2026-06-03] 첫방문/재방문/단골 3분류 (단골 = 3회+ 또는 수동 단골)
+        // [2026-07-08] 방문 횟수 계급제 — 1회 / 2~3회 / 4회+ (기준 명확화, is_regular 는 칩에서 제외)
+        if (seg === 'v1')            return vc === 1;
+        if (seg === 'v23')           return vc === 2 || vc === 3;
+        if (seg === 'v4p')           return vc >= 4;
+        // legacy 호환 — 옛 칩 저장값이 들어와도 안 깨지게 새 기준으로 매핑
         if (seg === 'first_visit')   return vc === 1;
-        if (seg === 'revisit')       return vc === 2;
-        if (seg === 'regular')       return vc >= 3 || !!c.is_regular;
+        if (seg === 'revisit')       return vc === 2 || vc === 3;
+        if (seg === 'regular')       return vc >= 4;
         if (seg === 'member')        return !!c.membership_active || (Number(c.membership_balance) > 0);
         // legacy 호환 — 옛 칩/저장값(localStorage)이 들어와도 안 깨지게 새 정의에 매핑
         if (seg === 'visits12')      return vc >= 1 && vc <= 2;
@@ -505,6 +524,7 @@
             <div class="c-bar ${barCls}"></div>
             <div class="c-info">
               <div class="c-name"><span class="c-name-txt">${_esc(c.name)}</span><span class="c-badge ${badgeCls}">${vc}회</span></div>
+              ${_lastVisitLabel(c.last_visit_at) ? `<div class="c-sub">${_lastVisitLabel(c.last_visit_at)}</div>` : ''}
             </div>
             <div class="c-arr">›</div>
           </div>`;
