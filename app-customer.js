@@ -311,6 +311,14 @@
       : 'position:fixed;inset:0;z-index:9998;display:none;flex-direction:column;background:var(--surface,#fff);';
     if (isPC) sheet.classList.add('cv4-pc');
 
+    // [2026-07-08 A안] 요약 스트립 — 전체 / 이번 달 새 손님 / 4회+ (탭=필터)
+    const statsHTML = `
+      <div id="customerStats" class="cv4-stats">
+        <button type="button" class="cv4-stat s-all is-on" data-seg="all"><b id="cvStatAll">0</b><span>전체</span></button>
+        <button type="button" class="cv4-stat s-new" data-seg="newmonth"><b id="cvStatNew">0</b><span>이번 달 새 손님</span></button>
+        <button type="button" class="cv4-stat s-vip" data-seg="v4p"><b id="cvStatVip">0</b><span>4회+ 손님</span></button>
+      </div>`;
+
     const chipsHTML = `
       <div id="customerSegments" class="cv4-chips">
         <button data-seg="all"          class="cv4-chip is-on">전체</button>
@@ -331,6 +339,7 @@
               <h1>고객관리</h1>
               <button class="cv4-hd-add" id="customerAddBtn" aria-label="고객 추가">+</button>
             </div>
+            ${statsHTML}
             <input id="customerSearch" type="search" placeholder="이름 · 전화번호 검색" style="${searchInputStyle}margin-bottom:10px;" />
             ${chipsHTML}
           </div>
@@ -355,6 +364,7 @@
             <h1 style="font-size:22px;font-weight:700;color:var(--text);letter-spacing:-0.5px;margin:0;">고객관리</h1>
             <button class="cv4-hd-add" id="customerAddBtn" aria-label="고객 추가">+</button>
           </div>
+          ${statsHTML}
           <input id="customerSearch" type="search" placeholder="이름 · 전화번호 검색" style="${searchInputStyle}margin-bottom:10px;" />
           ${chipsHTML}
           <div id="customerList"></div>
@@ -370,13 +380,13 @@
     sheet.querySelector('#customerSearch').addEventListener('input', _rerender);
     sheet.querySelector('#customerAddBtn').addEventListener('click', _openAddForm);
     sheet.querySelector('[data-customer-close]')?.addEventListener('click', () => window.closeCustomers());
-    // chip 클릭
+    // chip + 요약 스트립 클릭 (둘 다 data-seg 필터, is-on 동기화)
     let _activeSeg = 'all';
-    sheet.querySelectorAll('.cv4-chip').forEach(btn => {
+    sheet.querySelectorAll('.cv4-chip, .cv4-stat').forEach(btn => {
       btn.addEventListener('click', () => {
         _activeSeg = btn.dataset.seg;
         window._customerSeg = _activeSeg;
-        sheet.querySelectorAll('.cv4-chip').forEach(b => b.classList.toggle('is-on', b.dataset.seg === _activeSeg));
+        sheet.querySelectorAll('.cv4-chip, .cv4-stat').forEach(b => b.classList.toggle('is-on', b.dataset.seg === _activeSeg));
         _windowSize = 50;
         _rerender();
       });
@@ -421,6 +431,15 @@
     if (days < 365)  return `${Math.round(days / 30)}달 전 방문`;
     return `${Math.floor(days / 365)}년 전 방문`;
   }
+
+  // [2026-07-08 A안] 이번 달 등록 여부 — 요약 스트립 "새 손님" + NEW 배지 공용
+  function _isThisMonth(iso) {
+    if (!iso) return false;
+    const t = new Date(iso);
+    if (isNaN(t)) return false;
+    const n = new Date();
+    return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth();
+  }
   // [v214] 디테일 표시 — _isPC() 가 아닌 시트 실제 상태(cv4-pc 클래스) 로 판단
   function _selectCustomer(id, rowEl) {
     const sheet = document.getElementById('customerSheet');
@@ -463,6 +482,7 @@
         if (seg === 'v1')            return vc === 1;
         if (seg === 'v23')           return vc === 2 || vc === 3;
         if (seg === 'v4p')           return vc >= 4;
+        if (seg === 'newmonth')      return _isThisMonth(c.created_at);
         // legacy 호환 — 옛 칩 저장값이 들어와도 안 깨지게 새 기준으로 매핑
         if (seg === 'first_visit')   return vc === 1;
         if (seg === 'revisit')       return vc === 2 || vc === 3;
@@ -494,6 +514,15 @@
     count.textContent = (_cache ? _cache.length : 0) + '명' + (seg !== 'all' ? ` · ${items.length}명 표시` : '');
     offBadge.style.display = _isOffline ? 'inline-block' : 'none';
 
+    // [2026-07-08 A안] 요약 스트립 숫자 갱신 (필터와 무관하게 전체 기준)
+    const elAll = sheet.querySelector('#cvStatAll');
+    if (elAll) {
+      const all = _cache || [];
+      elAll.textContent = all.length;
+      sheet.querySelector('#cvStatNew').textContent = all.filter(c => _isThisMonth(c.created_at)).length;
+      sheet.querySelector('#cvStatVip').textContent = all.filter(c => (c.visit_count || 0) >= 4).length;
+    }
+
     if (!items.length) {
       box.innerHTML = `<div class="dt-empty">${_cache && _cache.length ? (seg !== 'all' ? '이 세그먼트에 해당하는 고객이 없어요.' : '검색 결과 없음') : '+ 버튼을 눌러 첫 고객을 등록해보세요'}</div>`;
       return;
@@ -520,13 +549,17 @@
           const vc = c.visit_count || 0;
           const barCls = _barClass(vc);
           const badgeCls = barCls;
+          // [2026-07-08 A안] 서브라인=태그(없으면 숨김), 우측=마지막 방문, NEW=이번 달 등록. 꺾쇠 삭제.
+          const tags = Array.isArray(c.tags) ? c.tags.filter(Boolean).slice(0, 3).map(_esc).join(' · ') : '';
+          const lastV = _lastVisitLabel(c.last_visit_at);
+          const newBadge = _isThisMonth(c.created_at) ? '<span class="c-badge nw">NEW</span>' : '';
           return `<div class="${rowCls}" data-id="${c.id}" data-chosung="${k}" role="button" tabindex="0">
             <div class="c-bar ${barCls}"></div>
             <div class="c-info">
-              <div class="c-name"><span class="c-name-txt">${_esc(c.name)}</span><span class="c-badge ${badgeCls}">${vc}회</span></div>
-              ${_lastVisitLabel(c.last_visit_at) ? `<div class="c-sub">${_lastVisitLabel(c.last_visit_at)}</div>` : ''}
+              <div class="c-name"><span class="c-name-txt">${_esc(c.name)}</span><span class="c-badge ${badgeCls}">${vc}회</span>${newBadge}</div>
+              ${tags ? `<div class="c-sub">${tags}</div>` : ''}
             </div>
-            <div class="c-arr">›</div>
+            ${lastV ? `<div class="c-last">${lastV.replace(' 방문', '')}<span>방문</span></div>` : ''}
           </div>`;
         }).join('');
         const secCls = isPC ? 'pi-sec' : 'sec-hd';
