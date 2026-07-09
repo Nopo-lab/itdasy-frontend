@@ -253,12 +253,16 @@
       .then(function () { _pushing = false; });
   }
   function pushSlot(slot) {
+    var startedAt = slot && slot.updatedAt;   // [버그수정 2026-07-09 TOCTOU] push 시작 스냅샷
     return buildPayload(slot).then(function (built) {
       var payload = built.payload, complete = built._complete;
       return window.apiFetch('/workspace/slots/upsert', {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader()), body: JSON.stringify(payload),
       }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
         if (j && (j.ok || j.skipped)) {
+          // [버그수정 2026-07-09 TOCTOU] push(업로드) 도중 사용자가 재편집(updatedAt 변경)했으면 그 편집분은
+          //   이번 payload(buildPayload 시점 스냅샷)에 없으므로 synced 로 굳히지 않는다(다음 push 로 반영).
+          if (slot && slot.updatedAt !== startedAt) { log('pushSlot re-edited during push — keep dirty', slot && slot.id); return; }
           // [버그수정 2026-07-06] 사진 업로드가 하나라도 실패했으면 synced 로 굳히지 않는다(dirty 유지 → 다음 push 재시도).
           //   안 그러면 실패 사진이 서버에 없는 채 synced 로 마킹돼 pull 이 로컬을 덮어 영구 소실.
           if (complete) {

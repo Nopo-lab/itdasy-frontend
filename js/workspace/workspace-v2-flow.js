@@ -4227,7 +4227,9 @@
         if (cur !== 'connect') setScreen('connect');
         return _connectByName(cmd.name);
       case 'capvar':   // 다시/더길게/짧게/인스타 톤/초기화
-        if (!_flowReady() || cur !== 'caption') return { ok: false, reason: 'not_caption' };
+        if (!_flowReady()) return { ok: false, reason: 'not_open' };
+        // [버그수정 2026-07-09] 캡션화면 아닐 때 '게시글 다시 써줘'가 삼켜지던 것 → 캡션화면으로 이동 후 처리.
+        if (cur !== 'caption') setScreen('caption', { push: false });
         if (cmd.variant === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'normal'; d.regenSeq = 0; d.logId = null; setScreen('caption'); return { ok: true }; }
         // [v532] insta → 백엔드 enum 'ornate'(기존 'instagram' 은 422 → 생성 실패). 모든 변형에 _regen 부여(동일 캡션 반복 방지).
         { var ex = { regen: { _regen: true }, long: { length_tier: 'long', _regen: true }, short: { length_tier: 'short', _regen: true }, insta: { tone_override: 'ornate', _regen: true } }[cmd.variant] || { _regen: true };

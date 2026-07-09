@@ -1021,7 +1021,8 @@
     var R = refs.stage.getBoundingClientRect();
     [['BEFORE', 0.25], ['AFTER', 0.75]].forEach(function (p) {
       var L = addShopLayer({ type: 'badge', text: p[0], x: p[1], y: 0.09, size: 0.03, align: 'center', color: '#fff', bg: 'rgba(21,24,29,.55)', weight: 800, role: 'balabel' }, R);
-      L.role = 'balabel'; _pushOp({ op: 'add', L: L });
+      // [버그수정 2026-07-09] BEFORE/AFTER 라벨은 레이아웃에 자동 동기(제거도 track=false) — undo 스택에 안 넣음(비대칭 유령op 방지).
+      L.role = 'balabel';
     });
   }
   function _syncFitToggle() {
@@ -1382,9 +1383,10 @@
       // [SSOT] 화면 renderCollage 와 동일한 셀 좌표로 내보내기 → WYSIWYG.
       var cellsSpec = _layCells(), gap = S.collageGap != null ? S.collageGap : 3;
       c.fillStyle = S.collageBg || '#fff'; c.fillRect(0, 0, r.width, r.height);   // 간격 사이 배경색
-      var idxs = []; for (var k = 0; k < cellsSpec.length; k++) { var oi = S.layoutOrder[k]; idxs.push((oi != null && S.photos[oi] != null) ? oi : (S.photos[k] != null ? k : 0)); }
-      var urls = idxs.map(function (i) { return S.photos[i] || S.photoUrl; });
-      baseDone = Promise.all(urls.map(loadImg)).then(function (imgs) {
+      // [버그수정 2026-07-09] 빈 셀을 photo0으로 강제채움하던 것 → null(빈칸 유지). 화면 renderCollage(빈 셀=플레이스홀더)와 일치, 사진 중복 방지.
+      var idxs = []; for (var k = 0; k < cellsSpec.length; k++) { var oi = S.layoutOrder[k]; idxs.push((oi != null && S.photos[oi] != null) ? oi : null); }
+      var urls = idxs.map(function (i) { return i != null ? S.photos[i] : null; });
+      baseDone = Promise.all(urls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })).then(function (imgs) {
         imgs.forEach(function (img, k) {
           if (!img) return;
           var cc = cellsSpec[k];
