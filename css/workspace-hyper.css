@@ -77,3 +77,11 @@
 /* 캡션/미리보기 — 레이아웃 합성본은 폭 꽉 차게(레터박스 여백 X) */
 .wsl-cap-preview { width: 100%; max-width: 520px; margin: 0 auto; border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--surface-2, #F7F8FA); }
 .wsl-cap-preview img { display: block; width: 100%; height: auto; }
+
+/* [2026-07-09 접근성] 키보드 포커스 가시화 + 모션 최소화 */
+.wsl-card:focus-visible, .wsl-skip:focus-visible, .wsl-tray__ph:focus-visible, .wsl-slot:focus-visible {
+  outline: 2px solid var(--brand, #D58A95); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsl-card, .wsl-tray__ph, .wsl-slot, .wsl-card:active { transition: none !important; }
+}

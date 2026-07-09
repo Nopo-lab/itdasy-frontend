@@ -32,6 +32,6 @@
 .wsv2flow .ed-crop i { font-size:18px; color:#de4f6f; }
 
 @media (width >= 768px) {
-  .wscrop { left:232px; }
+  .wscrop { left:260px; }
   .wscrop__card { bottom:24px; border-radius:24px; }
 }

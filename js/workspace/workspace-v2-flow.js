@@ -2114,7 +2114,7 @@
     return '<span class="wsl-fbox"><span class="wsl-frame" style="aspect-ratio:' + ar + '">' + cells + '</span></span>';
   }
   function _wsLayoutCard(layout, on) {
-    return '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +
+    return '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-haptic="light" aria-pressed="' + (on ? 'true' : 'false') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +
       _wsLayoutFrame(layout) + '<span class="wsl-card__name">' + esc(layout.name) + '</span></button>';
   }
   function renderLayout() {
@@ -2129,7 +2129,7 @@
     return '<div class="wsl-wrap">' + stageHtml + (sel ? _wsPhotoTray() : '') +
       (mine.length ? '<div class="wsl-sec-t">내 레이아웃</div>' + grid(mine) : '') +
       '<div class="wsl-sec-t">추천 레이아웃 · 전후 비교부터</div>' + grid(starters) +
-      '<button type="button" class="wsl-skip" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
+      '<button type="button" class="wsl-skip" data-haptic="light" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
   }
   // [ws-hyper] 사진 트레이 — 탭한 순서대로 슬롯에 채움. 배정된 사진엔 순번 뱃지.
   function _wsPhotoTray() {
@@ -2139,7 +2139,7 @@
     function orderOf(pid) { for (var i = 0; i < slots.length; i++) { var ap = assign[slots[i]]; if (ap && ap.id === pid) return i + 1; } return 0; }
     return '<div class="wsl-sec-t">사진 순서 · 탭해서 슬롯에 넣기</div><div class="wsl-tray">' +
       photos.map(function (p) { var n = orderOf(p.id);
-        return '<button type="button" class="wsl-tray__ph' + (n ? ' on' : '') + '" data-fl-trayph="' + esc(p.id) + '" style="background-image:url(' + esc(photoUrl(p)) + ')">' + (n ? '<span class="wsl-tray__n">' + n + '</span>' : '') + '</button>';
+        return '<button type="button" class="wsl-tray__ph' + (n ? ' on' : '') + '" data-haptic="light" aria-label="' + (n ? (n + '번 슬롯에 배정됨, 탭해서 빼기') : '탭해서 슬롯에 넣기') + '" data-fl-trayph="' + esc(p.id) + '" style="background-image:url(' + esc(photoUrl(p)) + ')">' + (n ? '<span class="wsl-tray__n">' + n + '</span>' : '') + '</button>';
       }).join('') + '</div>';
   }
   function _wsTrayPick(pid) {

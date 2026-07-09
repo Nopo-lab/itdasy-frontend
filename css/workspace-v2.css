@@ -229,11 +229,11 @@
 .wsv2-bulkbar__acts button:disabled { opacity: .45; cursor: default; }
 .wsv2-bulkbar__del { border-color: #F3C2C2 !important; color: #C0392B !important; }
 
-/* PC (≥768px): 고정 사이드바(232px)에 가리지 않게 */
+/* PC (≥768px): 고정 사이드바(260px)에 가리지 않게 */
 @media (width >= 768px) {
   .wsv2 { max-width: 780px; }
   .wsv2-list { grid-template-columns: 1fr 1fr; }
-  .wsv2-drawer { left: 232px; }
+  .wsv2-drawer { left: 260px; }
   .wsv2-drawer__card { left: 50%; right: auto; transform: translate(-50%,100%);
     width: min(560px,90%); border-radius: var(--r-xl); bottom: 24px; }
   .wsv2-drawer.is-open .wsv2-drawer__card { transform: translate(-50%,0); }
