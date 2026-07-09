@@ -11,10 +11,12 @@
 
 ## 🚨 PC 레이아웃 — 풀스크린 오버레이/하위화면은 사이드바에 안 잘리게 (필수)
 
-PC(`@media (width >= 768px)`)엔 고정 사이드바 `#sideNav`(`.side-nav.ms-side`, **폭 232px, z-index 10000**)가 있다. `position:fixed; inset:0` 오버레이는 그냥 두면 **사이드바가 왼쪽을 가려 콘텐츠가 잘린다**(반복 사고 — 9번+ 지적됨).
+PC(`@media (width >= 768px)`)엔 고정 사이드바 `#sideNav`(`.side-nav.ms-side`, **폭 `var(--side-nav-width)` = 232px, ≥1200px 260px, z-index 10000**)가 있다. `position:fixed; inset:0` 오버레이는 그냥 두면 **사이드바가 왼쪽을 가려 콘텐츠가 잘린다**(반복 사고 — 9번+ 지적됨).
 
-- 설정 하위화면은 **`.subscreen-overlay` 클래스 재사용** → `style-responsive.css`에서 PC 오프셋(`left:232px; top:var(--app-header-h)`)이 일괄 적용됨. ⚠️ 이 클래스는 `transform: translateX()` 슬라이드라 PC에서 `transform/inset`을 통째로 덮지 말 것(닫기 깨짐).
-- 허브류 풀스크린은 `style-responsive.css`의 hub-overlay 셀렉터 목록(`inset: var(--app-header-h) 0 0 232px`)에 **새 ID/클래스를 반드시 등록**.
+> **🔑 오프셋은 항상 `var(--side-nav-width)` 로 (하드코딩 232/260 금지).** SSOT = `style-components.css` `:root{--side-nav-width}`. 폭은 반응형(≥768px 232 · ≥1200px 260)이라 하드코딩하면 한쪽 breakpoint 에서 반드시 어긋난다. (v716, 2026-07-09)
+
+- 설정 하위화면은 **`.subscreen-overlay` 클래스 재사용** → `style-responsive.css`에서 PC 오프셋(`left:var(--side-nav-width); top:var(--app-header-h)`)이 일괄 적용됨. ⚠️ 이 클래스는 `transform: translateX()` 슬라이드라 PC에서 `transform/inset`을 통째로 덮지 말 것(닫기 깨짐).
+- 허브류 풀스크린은 `style-responsive.css`의 hub-overlay 셀렉터 목록(`inset: var(--app-header-h) 0 0 var(--side-nav-width)`)에 **새 ID/클래스를 반드시 등록**.
 - 새 풀스크린 오버레이를 만들면 **무조건 `style-responsive.css`의 `@media (width >= 768px)` 블록에 등록**하고, PC 폭에서 왼쪽 잘림 없는지 확인. 모바일만 보고 만들지 말 것.
 
 **언어**: 한국말, 쉬운말. 원영님은 코딩 초보.

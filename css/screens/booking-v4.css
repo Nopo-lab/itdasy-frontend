@@ -3,7 +3,7 @@
    mockup: ../../mockups/04-booking.html
    tokens: tokens.css */
 
-/* [2026-05-04] 예약관리 인라인 탭 통일 — 사이드바 232px 우측 영역. fade 0.08s. */
+/* [2026-05-04] 예약관리 인라인 탭 통일 — 사이드바 우측 영역(오프셋은 style-responsive.css 가 var(--side-nav-width)로 일괄). fade 0.08s. */
 @keyframes bk-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }

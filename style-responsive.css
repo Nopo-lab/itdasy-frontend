@@ -19,7 +19,7 @@
 
   /* 본문 좌측 사이드 nav 만큼 들여쓰기 + 콘텐츠 가운데 정렬 */
   body {
-    padding-left: 232px;          /* 사이드 nav 폭 */
+    padding-left: var(--side-nav-width);   /* 사이드 nav 폭 (SSOT: style-components.css) */
     padding-top: var(--app-header-h);
     font-size: 15px;
   }
@@ -48,7 +48,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 232px;
+    width: var(--side-nav-width);   /* SSOT: style-components.css (≥1200px 260px 자동) */
     padding: 80px 14px 24px;
     background: var(--surface);
     border-right: 1px solid var(--border);
@@ -186,7 +186,7 @@
     z-index: 10000 !important;
   }
 
-  /* 3) 모든 hub 통일 — PC: 사이드바(232px) 우측, 헤더 아래.
+  /* 3) 모든 hub 통일 — PC: 사이드바(var(--side-nav-width)) 우측, 헤더 아래.
      운영(예약/고객/매출/재고) + 통합허브(AI/설정) + 플랜/도움말 + 작업실 동일. */
   .hub-overlay,
   #revenueSheet,
@@ -200,7 +200,7 @@
   #navSheet,
   #customerSheet,
   #customerDashSheet {
-    inset: var(--app-header-h) 0 0 232px !important;
+    inset: var(--app-header-h) 0 0 var(--side-nav-width) !important;
     width: auto !important;
     height: auto !important;
     transform: none !important;
@@ -214,12 +214,12 @@
     z-index: 950 !important;            /* 사이드바(10000) 보다 아래 */
   }
   /* [2026-06-16] ⚠️ 모든 subscreen-overlay(설정 하위화면: 네이버톡톡/네이버예약/백업/카톡허브/DM설정 등)
-     PC 에서 사이드바(232px)에 왼쪽이 잘리던 문제 일괄 수정. inset:0 → 사이드바 우측·헤더 아래로 오프셋.
+     PC 에서 사이드바에 왼쪽이 잘리던 문제 일괄 수정. inset:0 → 사이드바 우측·헤더 아래로 오프셋.
      ⚠️ 이 클래스는 transform(translateX) 슬라이드로 열고닫으므로 transform/inset 통째로 덮지 말 것 —
      left/top 만 오프셋(애니메이션 보존). 새 하위화면도 .subscreen-overlay 쓰면 자동 적용됨. */
   .subscreen-overlay {
     top: var(--app-header-h) !important;
-    left: 232px !important;
+    left: var(--side-nav-width) !important;
   }
   /* v211 — 고객 시트 PC 한 화면 분할: overflow hidden 으로 좌/우 별도 스크롤. */
   #customerSheet.cv4-pc {
@@ -316,33 +316,15 @@
 }
 
 /* ===== ≥1200px : 와이드 PC — 사이드 nav 좀 더 넓게 ===== */
+/* [v716] 폭 260px 는 --side-nav-width(≥1200px)가 자동 반영 →
+   body padding / .side-nav width / hub inset 하드코딩 260 오프셋 제거(중복).
+   여기엔 와이드 전용(넓은 좌우 패딩·좁은 콘텐츠 max-width)만 남김. */
 @media (width >= 1200px) {
-  body {
-    padding-left: 260px;
-  }
   .side-nav {
-    width: 260px;
     padding-left: 18px;
     padding-right: 18px;
   }
   .tab {
     max-width: 1080px;
-  }
-  /* 사이드바 폭 변경에 맞춰 hub 영역도 260px 우측으로. 헤더 변수 사용. */
-  /* [v213] #customerSheet/#customerDashSheet 누락 픽스 — 28px 겹쳐 잘리던 문제 */
-  .hub-overlay,
-  #revenueSheet,
-  #revenue-hub-overlay,
-  #cal-overlay,
-  .hub-overlay.hub-overlay--prototype,
-  #aiHubSheet,
-  #settingsHubSheet,
-  #planPopup,
-  #supportChatModal,
-  #slotPopup.dt-overlay,
-  #navSheet,
-  #customerSheet,
-  #customerDashSheet {
-    inset: var(--app-header-h) 0 0 260px !important;
   }
 }

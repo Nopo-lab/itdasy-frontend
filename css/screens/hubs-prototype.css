@@ -17,9 +17,10 @@
 }
 
 @media (width >= 900px) {
-  /* [2026-05-04] 인라인 탭 패턴 — 사이드바(232px) 우측 영역만 차지. */
+  /* [2026-05-04] 인라인 탭 패턴 — 사이드바 우측 영역만 차지.
+     [v716] 232→var(--side-nav-width): ≥1200px 260px 자동 정합 (SSOT: style-components.css). */
   .hub-overlay.hub-overlay--prototype {
-    inset: 0 0 0 232px !important;
+    inset: 0 0 0 var(--side-nav-width) !important;
     width: auto !important;
     height: auto !important;
     max-width: none !important;
