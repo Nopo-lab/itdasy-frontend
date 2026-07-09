@@ -14,6 +14,7 @@
     "lint:css": "stylelint '*.css'",
     "test": "jest --passWithNoTests",
     "smoke": "node scripts/smoke-check.js",
+    "smoke:flow": "node scripts/ws-flow-smoke.js",
     "gc": "node scripts/gc-weekly.js",
     "prepare": "husky"
   },
