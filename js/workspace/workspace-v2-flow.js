@@ -2113,9 +2113,12 @@
     var ar = ({ '1:1':1, '4:5':0.8, '9:16':0.5625, '3:4':0.75 })[layout.ratio || '4:5'] || 0.8;
     return '<span class="wsl-fbox"><span class="wsl-frame" style="aspect-ratio:' + ar + '">' + cells + '</span></span>';
   }
-  function _wsLayoutCard(layout, on) {
-    return '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-haptic="light" aria-pressed="' + (on ? 'true' : 'false') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +
+  function _wsLayoutCard(layout, on, isMine) {
+    var card = '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-haptic="light" aria-pressed="' + (on ? 'true' : 'false') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +
       _wsLayoutFrame(layout) + '<span class="wsl-card__name">' + esc(layout.name) + '</span></button>';
+    if (!isMine) return card;
+    // [E2] 내 레이아웃은 삭제(×) 오버레이 포함
+    return '<span class="wsl-cardwrap">' + card + '<button type="button" class="wsl-card-del" data-haptic="light" aria-label="' + esc(layout.name) + ' 삭제" data-fl-dellayout="' + esc(layout.id) + '">×</button></span>';
   }
   function renderLayout() {
     var WL = window.WorkspaceLayout;
@@ -2125,11 +2128,32 @@
     var stageHtml = sel
       ? '<div class="wsl-stage-host" data-fl-stage></div><div class="wsl-stage-hint">사진을 드래그해 위치, 두 손가락으로 확대</div>'
       : '<div class="wsl-preview wsl-preview--empty"><span>레이아웃을 고르면<br>여기서 사진을 맞춰요</span></div>';
-    function grid(list) { return '<div class="wsl-grid">' + list.map(function (L) { return _wsLayoutCard(L, sel && sel.id === L.id); }).join('') + '</div>'; }
-    return '<div class="wsl-wrap">' + stageHtml + (sel ? _wsPhotoTray() : '') +
-      (mine.length ? '<div class="wsl-sec-t">내 레이아웃</div>' + grid(mine) : '') +
+    function grid(list, isMine) { return '<div class="wsl-grid">' + list.map(function (L) { return _wsLayoutCard(L, sel && sel.id === L.id, isMine); }).join('') + '</div>'; }
+    // [E2] 레이아웃 선택 상태면 '내 레이아웃으로 저장' 버튼
+    var saveBtn = sel ? '<button type="button" class="wsl-save" data-haptic="success" data-fl="savelayout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>이 레이아웃 저장</button>' : '';
+    return '<div class="wsl-wrap">' + stageHtml + saveBtn + (sel ? _wsPhotoTray() : '') +
+      (mine.length ? '<div class="wsl-sec-t">내 레이아웃</div>' + grid(mine, true) : '') +
       '<div class="wsl-sec-t">추천 레이아웃 · 전후 비교부터</div>' + grid(starters) +
       '<button type="button" class="wsl-skip" data-haptic="light" data-fl="skiplayout">레이아웃 없이 진행 (사진 그대로)</button></div>';
+  }
+  // [E2/E3] 현재 선택·조정한 레이아웃을 '내 레이아웃'으로 저장(ShopStyle, photoSlots geometry+focal+layers).
+  function _wsSaveMyLayout() {
+    if (!d.wsLayout || !(window.ShopStyle && window.ShopStyle.create)) { toast('저장할 레이아웃이 없어요'); return; }
+    var L = d.wsLayout;
+    var slots = (L.photoSlots || []).map(function (s) { return { id: s.id, role: s.role, rect: Object.assign({}, s.rect), focal: Object.assign({ x: 0.5, y: 0.5 }, s.focal), zoom: s.zoom || 1, fit: s.fit || 'cover' }; });
+    var layers = (L.layers || []).map(function (x) { return Object.assign({}, x); });
+    var n = (window.WorkspaceLayout && window.WorkspaceLayout.getMyLayouts) ? window.WorkspaceLayout.getMyLayouts().length : 0;
+    try {
+      window.ShopStyle.create({ name: '내 레이아웃 ' + (n + 1), kind: L.kind || 'custom', ratio: L.ratio || '4:5', photoSlots: slots, layers: layers, _wsMyLayout: true });
+      toast('내 레이아웃에 저장했어요');
+      if (cur === 'layout') setScreen('layout', { push: false });
+    } catch (_e) { toast('저장을 못했어요'); }
+  }
+  function _wsDeleteMyLayout(id) {
+    try { if (window.ShopStyle && window.ShopStyle.remove) window.ShopStyle.remove(id); } catch (_e) { void _e; }
+    if (d.wsLayout && d.wsLayout.id === id) { d.wsLayout = null; d.templateOutput = null; }
+    toast('삭제했어요');
+    if (cur === 'layout') setScreen('layout', { push: false });
   }
   // [ws-hyper] 사진 트레이 — 탭한 순서대로 슬롯에 채움. 배정된 사진엔 순번 뱃지.
   function _wsPhotoTray() {
@@ -2526,11 +2550,14 @@
   function bind() {
     el.addEventListener('click', function (e) {
       var t = e.target;
+      // [E3] 내 레이아웃 삭제(×) — 카드 선택보다 먼저 검사
+      var _dl = t.closest('[data-fl-dellayout]'); if (_dl) { return _wsDeleteMyLayout(_dl.getAttribute('data-fl-dellayout')); }
       // [ws-hyper] 레이아웃 카드 선택 (data-fl-layoutpick) · 사진 트레이 탭(data-fl-trayph)
       var _lp = t.closest('[data-fl-layoutpick]'); if (_lp) { return _wsSelectLayout(_lp.getAttribute('data-fl-layoutpick')); }
       var _tp = t.closest('[data-fl-trayph]'); if (_tp) { return _wsTrayPick(_tp.getAttribute('data-fl-trayph')); }
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
+      if (a === 'savelayout') { return _wsSaveMyLayout(); }   // [E2] 내 레이아웃 저장
       if (a === 'skiplayout') { d.wsLayout = null; d.templateOutput = null; setScreen('caption'); return; }   // [ws-hyper] 레이아웃 없이 진행
       if (a === 'cta') { return onCta(); }
       // [v560] 편집 화면 우측 CTA — 현재 보정 굽고 '템플릿 선택' 화면으로.

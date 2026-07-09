@@ -85,3 +85,20 @@
 @media (prefers-reduced-motion: reduce) {
   .wsl-card, .wsl-tray__ph, .wsl-slot, .wsl-card:active { transition: none !important; }
 }
+
+/* [E2/E3 2026-07-09] 내 레이아웃 저장 버튼 + 삭제(×) 오버레이 */
+.wsl-save {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px auto 2px;
+  padding: 9px 16px; border-radius: 999px; background: var(--surface-2, #F7F8FA);
+  border: 1px solid var(--border, rgba(0,0,0,.08)); color: var(--text, #191F28);
+  font-size: 13px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.wsl-save:active { transform: scale(.97); }
+.wsl-save svg { flex: none; }
+.wsl-cardwrap { position: relative; display: block; }
+.wsl-card-del {
+  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%;
+  background: #191F28; color: #fff; border: 2px solid #fff; font-size: 15px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2;
+}
+.wsl-save:focus-visible, .wsl-card-del:focus-visible { outline: 2px solid var(--brand, #D58A95); outline-offset: 2px; }
