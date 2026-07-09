@@ -106,6 +106,24 @@
     ctx.save(); ctx.beginPath(); ctx.rect(dx, dy, dw, dh); ctx.clip();
     ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh); ctx.restore();
   }
+  // [2026-07-10] 캔버스 자동 줄바꿈 — 폭(maxW) 기준으로 줄을 나눔. 공백에서 우선 끊고, 긴 토큰(한글 등)은 글자 단위로.
+  function _wrapCanvasText(ctx, text, maxW) {
+    var lines = [];
+    String(text).split('\n').forEach(function (para) {
+      var line = '';
+      for (var i = 0; i < para.length; i++) {
+        var ch = para[i];
+        var test = line + ch;
+        if (line && ctx.measureText(test).width > maxW) {
+          var sp = line.lastIndexOf(' ');
+          if (sp > 0 && ch !== ' ') { lines.push(line.slice(0, sp)); line = line.slice(sp + 1) + ch; }   // 마지막 공백에서 끊기(더 자연스럽게)
+          else { lines.push(line); line = (ch === ' ' ? '' : ch); }
+        } else { line = test; }
+      }
+      lines.push(line);
+    });
+    return lines;
+  }
   function _drawText(ctx, L, W, H) {
     var x = L.x * W, y = L.y * H, w = (L.w || 0.8) * W, size = (L.size || 0.04) * Math.min(W, H);
     if (L.bg) {   // 패널/뱃지 배경
@@ -116,11 +134,24 @@
       y += padY;
     }
     if (!L.text) return;
-    ctx.font = (L.weight || 700) + ' ' + Math.round(size) + 'px Pretendard, -apple-system, sans-serif';
+    var isBadge = L.role && L.role.indexOf('badge') === 0;
     ctx.fillStyle = L.color || '#fff'; ctx.textAlign = L.align || 'center'; ctx.textBaseline = 'top';
     if (L.shadow) { ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = size * 0.25; ctx.shadowOffsetY = size * 0.05; }
     var tx = L.align === 'left' ? x : (L.align === 'right' ? x + w : x + w / 2);
-    ctx.fillText(String(L.text), tx, y);
+    if (isBadge) {   // 배지(BEFORE/AFTER)는 배경이 1줄 기준 → 한 줄 유지
+      ctx.font = (L.weight || 700) + ' ' + Math.round(size) + 'px Pretendard, -apple-system, sans-serif';
+      ctx.fillText(String(L.text), tx, y);
+    } else {   // [2026-07-10] 긴 시술명/후기도 안 잘리게 — 자동 줄바꿈 + 세로 공간 넘치면 폰트 자동 축소
+      var fsize = size, lines, lineH, availH = Math.max(size, H - y - size * 0.3), guard = 0;
+      do {
+        ctx.font = (L.weight || 700) + ' ' + Math.round(fsize) + 'px Pretendard, -apple-system, sans-serif';
+        lines = _wrapCanvasText(ctx, String(L.text), w);
+        lineH = fsize * 1.28;
+        if (lines.length * lineH <= availH || fsize <= 15) break;
+        fsize -= Math.max(1, Math.round(size * 0.08));
+      } while (guard++ < 24);
+      for (var li = 0; li < lines.length; li++) { ctx.fillText(lines[li], tx, y + li * lineH); }
+    }
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   }
 

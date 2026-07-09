@@ -623,8 +623,13 @@
     //   누끼(배경제거) 적용본은 fgCutout/bgSpec 합성을 보존해야 하므로 기존 방식(구워진 editedDataUrl 베이스) 유지.
     var _hasBg = !!(p0 && p0.bgSpec && p0.fgCutout);
     var _restore = (!_hasBg && p0 && p0.editState) || null;
-    var photo = _restore ? (_cleanBase(p0) || outputUrl())
-      : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl()));
+    // [ws-hyper] 레이아웃 활성 시: 프리셋 매칭되면 편집기 콜라주(슬롯 재조정 가능), 아니면 합성본 단일 이미지로 레이아웃 보존.
+    //   (예전엔 항상 원본 단일 사진으로 열려 레이아웃이 통째 사라졌음 — 2026-07-10 버그수정)
+    var _wsEd = (HYPER && d.wsLayout && !_hasBg) ? _wsLayoutEditState() : null;
+    var photo = (_wsEd && _wsEd.mode === 'composite') ? _wsEd.photoUrl
+      : (_wsEd && _wsEd.mode === 'collage') ? (_wsEd.photos[0] || _cleanBase(p0) || outputUrl())
+      : (_restore ? (_cleanBase(p0) || outputUrl())
+        : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl())));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
@@ -632,15 +637,16 @@
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
     Editor.open({
       photoUrl: photo,
-      photos: (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본(누끼+배경+스티커 합성) 우선 → 레이아웃해도 보정 유지
+      photos: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.photos : (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본 우선 · [ws-hyper] 레이아웃 매칭 시 슬롯 순서대로
       ratio: built.ratio,
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
-      editState: _restore || (o.fresh ? null : ((p0 && p0.editState) || null)),   // [#17] 캡션 후에도 이어서 편집(누끼본 제외). 재편집은 이어가기.
+      editState: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.editState : (_restore || (o.fresh ? null : ((p0 && p0.editState) || null))),   // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정)
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
+        if (_wsEd) { d.templateOutput = dataUrl; d.previewUrl = null; }   // [ws-hyper] 편집한 레이아웃 합성본을 대표 이미지로 → 미리보기/발행/저장에 반영
         // [캐러셀] 편집기에서 (콜라주 아닌 단일 레이아웃으로) 새로 추가한 사진 → 플로우 사진목록에 별도 사진으로 반영.
         //   원장님 요청: "편집기 추가 사진도 캐러셀로". 이러면 여러 장 게시(캐러셀) 후보가 된다.
         try {
@@ -2194,6 +2200,61 @@
     // [버그수정 2026-07-06] setScreen('layout')이 렌더 끝에 _wsMountStage()를 이미 호출(중복 mount 제거).
     if (cur === 'layout') setScreen('layout', { push: false });
   }
+  // [ws-hyper→ItdEditor 2026-07-10] 활성 레이아웃을 편집기 콜라주로 변환. 슬롯 기하가 편집기 프리셋과 맞으면
+  //   슬롯 재조정 가능한 콜라주로, 아니면 합성본(d.templateOutput) 단일 이미지로 레이아웃 보존.
+  //   편집기 LAYOUTS(itd-editor.js) idx 순서: 0=single 1=v2(좌우) 2=h2(상하) 3=v3 4=grid4 5=l1r2 6=t1b2 7=ba(전후)
+  function _matchItdPreset(slots) {
+    var PRESETS = [
+      { idx: 0, cells: [[0, 0, 1, 1]] },
+      { idx: 1, cells: [[0, 0, 0.5, 1], [0.5, 0, 0.5, 1]] },
+      { idx: 2, cells: [[0, 0, 1, 0.5], [0, 0.5, 1, 0.5]] },
+      { idx: 3, cells: [[0, 0, 1 / 3, 1], [1 / 3, 0, 1 / 3, 1], [2 / 3, 0, 1 / 3, 1]] },
+      { idx: 4, cells: [[0, 0, 0.5, 0.5], [0.5, 0, 0.5, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]] },
+      { idx: 5, cells: [[0, 0, 0.5, 1], [0.5, 0, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]] },
+      { idx: 6, cells: [[0, 0, 1, 0.5], [0, 0.5, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5]] },
+      { idx: 7, cells: [[0, 0, 0.5, 1], [0.5, 0, 0.5, 1]] }
+    ];
+    var TOL = 0.02;
+    function eq(a, b) { return Math.abs(a - b) <= TOL; }
+    function rectEq(r, c) { return r && eq(r.x, c[0]) && eq(r.y, c[1]) && eq(r.w, c[2]) && eq(r.h, c[3]); }
+    for (var pi = 0; pi < PRESETS.length; pi++) {
+      var P = PRESETS[pi];
+      if (P.cells.length !== slots.length) continue;
+      var order = [], used = {}, ok = true;
+      for (var ci = 0; ci < P.cells.length; ci++) {
+        var found = -1;
+        for (var sj = 0; sj < slots.length; sj++) { if (!used[sj] && rectEq(slots[sj].rect, P.cells[ci])) { found = sj; break; } }
+        if (found < 0) { ok = false; break; }
+        used[found] = 1; order.push(found);
+      }
+      if (ok) return { idx: P.idx, order: order };
+    }
+    return null;
+  }
+  function _wsLayoutEditState() {
+    try {
+      var L = d.wsLayout; if (!L || !Array.isArray(L.photoSlots) || !L.photoSlots.length) return null;
+      var slots = L.photoSlots;
+      var photos = editablePhotos() || [];
+      var assign = d._wsAssign || (window.WorkspaceLayout && window.WorkspaceLayout.autoAssign(photos, L)) || {};
+      var m = _matchItdPreset(slots);
+      if (m && L.kind === 'before_after' && m.idx === 1) m.idx = 7;   // 전후면 좌우(v2) 대신 BEFORE/AFTER(ba) 우선
+      if (m) {
+        var urls = [], crop = [];
+        m.order.forEach(function (si) {
+          var sl = slots[si], ph = assign[sl.id];
+          urls.push((ph && (ph.editedDataUrl || _cleanBase(ph) || photoUrl(ph))) || '');
+          crop.push({ s: Math.max(1, Math.min(4, sl.zoom || 1)), tx: 0, ty: 0 });   // zoom만 이식(focal 픽셀변환은 stage크기 의존이라 편집기서 재조정)
+        });
+        if (urls.every(function (u) { return !u; })) return null;   // 배정된 사진이 하나도 없으면 무의미
+        return { mode: 'collage', photos: urls, editState: {
+          v: 1, layoutIdx: m.idx, layoutOrder: urls.map(function (_u, i) { return i; }),
+          cellCrop: crop, fitMode: 'cover', ratio: (L.ratio || '4:5') } };
+      }
+      if (d.templateOutput) return { mode: 'composite', photoUrl: d.templateOutput };
+      return null;
+    } catch (_e) { return null; }
+  }
   // [ws-hyper A1 2026-07-09] 후기/가격 레이아웃에 실제 텍스트 자동채움(모델은 안 건드리고 클론에 주입).
   //   후기 = 고객명/시술·캡션, 가격 = 샵 등록 가격표(ItdasyPriceMenu). compose 직전에만 호출.
   function _fillLayoutText(layout) {
@@ -2205,8 +2266,9 @@
       layers.forEach(function (L) {
         if (L.role === 'title') { L.text = d.customerName ? (d.customerName + '님 후기') : (L.text || '고객 후기'); }
         else if (L.role === 'body') {
+          // [2026-07-10] 42자 하드 자름 제거 — layout-model 이 자동 줄바꿈+폰트축소로 맞춤. 과도한 길이만 완만히 상한.
           var t = String(d.caption || d.service || '').replace(/\s+/g, ' ').trim();
-          if (t) L.text = t.length > 42 ? (t.slice(0, 42) + '…') : t;
+          if (t) L.text = t.length > 120 ? (t.slice(0, 120) + '…') : t;
         }
       });
     } else if (kind === 'price') {
