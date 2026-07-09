@@ -2159,7 +2159,7 @@
     if (!d.wsLayout || !window.WorkspaceSlotStage || !el) return;
     var host = el.querySelector('[data-fl-stage]'); if (!host) return;
     window.WorkspaceSlotStage.mount(host, { layout: d.wsLayout, photos: editablePhotos(), assign: d._wsAssign,
-      onChange: function () { d.previewUrl = null; } });   // 드래그 결과는 d.wsLayout.photoSlots 에 즉시 반영(제자리)
+      onChange: function () { d.previewUrl = null; d.templateOutput = null; } });   // [A2] 재조정 시 옛 합성본도 무효화(stale 노출 방지). 드래그 결과는 photoSlots 에 즉시 반영
   }
   function _wsSelectLayout(id) {
     var WL = window.WorkspaceLayout; if (!WL) return;
@@ -2169,6 +2169,33 @@
     d._wsAssign = WL.autoAssign(editablePhotos(), L);
     // [버그수정 2026-07-06] setScreen('layout')이 렌더 끝에 _wsMountStage()를 이미 호출(중복 mount 제거).
     if (cur === 'layout') setScreen('layout', { push: false });
+  }
+  // [ws-hyper A1 2026-07-09] 후기/가격 레이아웃에 실제 텍스트 자동채움(모델은 안 건드리고 클론에 주입).
+  //   후기 = 고객명/시술·캡션, 가격 = 샵 등록 가격표(ItdasyPriceMenu). compose 직전에만 호출.
+  function _fillLayoutText(layout) {
+    if (!layout || !Array.isArray(layout.layers)) return layout;
+    var kind = layout.kind;
+    if (kind !== 'review' && kind !== 'price') return layout;
+    var layers = layout.layers.map(function (L) { return Object.assign({}, L); });
+    if (kind === 'review') {
+      layers.forEach(function (L) {
+        if (L.role === 'title') { L.text = d.customerName ? (d.customerName + '님 후기') : (L.text || '고객 후기'); }
+        else if (L.role === 'body') {
+          var t = String(d.caption || d.service || '').replace(/\s+/g, ' ').trim();
+          if (t) L.text = t.length > 42 ? (t.slice(0, 42) + '…') : t;
+        }
+      });
+    } else if (kind === 'price') {
+      var rows = null;
+      try { rows = (window.ItdasyPriceMenu && window.ItdasyPriceMenu.shopMenu) ? window.ItdasyPriceMenu.shopMenu() : null; } catch (_e) { rows = null; }
+      if (rows && rows.length) {   // 샵 등록 서비스 있을 때만 가격행 주입(없으면 title만 = 빈표 방지)
+        rows.slice(0, 6).forEach(function (row, i) {
+          layers.push({ type: 'text', role: 'price_row', text: row, x: 0.08, y: 0.63 + i * 0.058, w: 0.84,
+            size: 0.03, weight: 600, color: '#4E5968', align: 'left', bg: null, shadow: false });
+        });
+      }
+    }
+    return Object.assign({}, layout, { layers: layers });
   }
 
   var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
@@ -3797,11 +3824,19 @@
         else { toast('시술 내역/키워드를 입력하면 게시글을 만들어 드려요'); }
         return;
       }
+      // [A1] 후기 레이아웃은 시술/캡션이 확정된 지금(캡션 다음 단계로 갈 때) 재합성해 본문에 반영.
+      //   (레이아웃 단계엔 시술/캡션이 아직 없어서 본문이 비어 있었음. 가격 레이아웃은 shopMenu 라 무관.)
+      if (HYPER && d.wsLayout && d.wsLayout.kind === 'review' && window.WorkspaceLayout) {
+        return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {
+          if (u) { d.templateOutput = u; d.previewUrl = null; }
+          setScreen(c.to);
+        }).catch(function () { setScreen(c.to); });
+      }
     }
     if (cur === 'edit') { return bakeEdit().then(function () { setScreen(c.to); }); }
     // [ws-hyper] 레이아웃 확정 — 조정된 focal/zoom 으로 최종 이미지 합성 후 다음 단계.
     if (cur === 'layout' && d.wsLayout && window.WorkspaceLayout) {
-      return Promise.resolve(window.WorkspaceLayout.composeLayout(d.wsLayout, editablePhotos(), d._wsAssign)).then(function (u) {
+      return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {   // [A1] 후기/가격 텍스트 주입
         if (u) { d.templateOutput = u; d.previewUrl = null; }
         setScreen(c.to);
       }).catch(function () { setScreen(c.to); });
