@@ -1974,7 +1974,10 @@
 	    }
 	    if (connected) {
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
-	      var _multi = (editablePhotos() || []).length >= 2;
+	      // [버그수정 2026-07-10] ws-hyper 레이아웃은 여러 장을 '1장 합성본'(d.templateOutput)으로 합침 →
+	      //   캐러셀(여러 장 슬라이드)은 부적절하고 원본 여러 장을 보내 실패했음. 레이아웃이면 단일 피드로만.
+	      var _hasLayoutComposite = !!(d.wsLayout && d.templateOutput);
+	      var _multi = !_hasLayoutComposite && (editablePhotos() || []).length >= 2;
 	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
 	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
 	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)"></div>' +
@@ -3774,6 +3777,8 @@
   var _pubShow = _WSPP._pubShow, _pubHide = _WSPP._pubHide, _pubFinish = _WSPP._pubFinish;
 
 	  function publish(kind) {
+	    // [버그수정 2026-07-10] 레이아웃 합성본(여러 장→1장)이 있으면 캐러셀 요청도 단일 피드로 — 원본 여러 장 전송/실패 방지.
+	    if (kind === 'carousel' && d.wsLayout && d.templateOutput) kind = 'feed';
 	    var _story = kind === 'story';   // [스토리] 피드/스토리 분기
 	    if (!window.WorkspaceAdapter) return;
 	    var _igp = window.WorkspaceAdapter.instagram();
