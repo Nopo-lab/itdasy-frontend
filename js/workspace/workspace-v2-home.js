@@ -220,6 +220,7 @@
         '<div class="wshc-phead">' +
           '<div class="wshc-ava wshc-ava--lg">' + _shopInitial() + '</div>' +
           '<div class="wshc-pinfo"><div class="wshc-phandle">내 작업실</div><div class="wshc-pstat">게시 ' + doneN + ' · 이번 달 ' + monthN + '</div></div>' +
+          '<button type="button" class="wshc-gear" data-wsv2-settings data-haptic="light" aria-label="작업실 설정"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>' +
           (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
         '</div>' +
         _segsHTML(slots) +
@@ -327,6 +328,12 @@
 
 	  function _bind(root) {
     root.onclick = function (e) {
+      // [작업실 설정] 톱니 → 설정 화면
+      if (e.target.closest('[data-wsv2-settings]')) {
+        if (window.WorkspaceSettings && window.WorkspaceSettings.open) window.WorkspaceSettings.open();
+        else _toast('설정을 불러오지 못했어요');
+        return;
+      }
       // [v547] 일괄 작업 — 선택 모드 토글 / 일괄 액션 / 선택 모드 카드 탭 = 선택
       if (e.target.closest('[data-wsv2-selecttoggle]')) {
         _selectMode = !_selectMode; if (!_selectMode) _selected = {};
