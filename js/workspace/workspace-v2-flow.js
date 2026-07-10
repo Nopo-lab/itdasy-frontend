@@ -1756,6 +1756,14 @@
 	        '<div class="ig-copy2"><b>' + esc(handle) + '</b> <span data-fl-igcap' + (editable ? ' class="ig-cap-edit" contenteditable="true" role="textbox" aria-label="게시글 편집" spellcheck="false"' : '') + '>' + esc(d.caption || '') + '</span><br><span class="ig-hash' + (editable ? ' ig-hash-edit" contenteditable="true" role="textbox" aria-label="해시태그 편집" spellcheck="false' : '') + '" data-fl-ighash>' + esc((d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ')) + '</span><div class="ig-ago">' + (editable ? '게시글·해시태그를 눌러 바로 고쳐 쓰기' : '미리보기') + '</div></div>' +
 	      '</div>';
 	  }
+	  // [작업물 미리보기] 슬롯 대표 썸네일 — home _thumb 과 동일 우선순위(합성결과→단일합성→첫사진).
+	  function _slotThumb(s) {
+	    if (!s) return '';
+	    if (s.templateOutputs && s.templateOutputs.length && s.templateOutputs[0].outputUrl) return s.templateOutputs[0].outputUrl;
+	    if (s.templateOutput) return s.templateOutput;
+	    var p = (s.photos || [])[0];
+	    return (p && (p.editedDataUrl || p.dataUrl)) || '';
+	  }
 	  // [v589] 피드 미리보기 — 이 사진을 올리면 내 프로필 피드가 어떻게 보일지 그리드로.
 	  function _feedPreview(url) {
 	    if (!url) return '';
@@ -1767,10 +1775,13 @@
 	      d._igMediaFetched = true;
 	      try { window.WorkspaceAdapter.recentMedia().then(function (m) { if (m && m.length && cur === 'preview') setScreen('preview', { push: false }); }); } catch (_e) { void _e; }
 	    }
+	    // [작업물 미리보기 2026-07-10] 채움 소스 분기 — 연동됨=실제 인스타 피드 / 미연동=내 작업물(로컬, 저장소 X).
+	    //   원장님 요청: 연동한 사람은 실제 피드에 어떻게 얹히는지, 미연동은 내가 만든 작업물이 자리를 채우게.
+	    var fill = ig.connected ? recent : (d._myWorkThumbs || []);
 	    var TILES = 11;   // 3×4 그리드 = 새 게시물 1 + 기존 11
 	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(url) + ')"><span class="wsfeed__new">NEW</span></div>';
 	    for (var i = 0; i < TILES; i++) {
-	      var _t = recent[i] && (recent[i].thumb || (typeof recent[i] === 'string' ? recent[i] : ''));   // 새형식(obj.thumb)·구형식(string) 호환
+	      var _t = fill[i] && (fill[i].thumb || (typeof fill[i] === 'string' ? fill[i] : ''));   // 새형식(obj.thumb)·구형식(string) 호환
 	      cells += _t
 	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(_t) + ')"></div>'
 	        : '<div class="wsfeed__cell wsfeed__cell--ph"></div>';
@@ -1778,11 +1789,14 @@
 	    var stat = ig.connected
 	      ? '<div class="wsfeed__prof"><span class="wsfeed__av"' + (ig.profilePic ? ' style="background-image:url(' + esc(ig.profilePic) + ')"' : '') + '></span><b>' + esc(ig.handle || '내 계정') + '</b></div>'
 	      : '';
+	    // 안내문구 — 연동: 실제 피드 / 미연동+작업물있음: 내 작업물 / 미연동+작업물없음: 연결 유도.
+	    var capMsg = ig.connected ? '왼쪽 위가 이번에 올릴 사진이에요'
+	      : (fill.length ? '왼쪽 위가 이번에 올릴 사진 · 나머지는 내 작업물이에요' : '왼쪽 위가 이번에 올릴 사진이에요 · 인스타 연결하면 실제 피드로 보여드려요');
 	    return '<div class="wsfeed">' +
-	      '<label class="cap-field-label wsfeed__lbl">피드 미리보기 <span>올리면 내 피드가 이렇게 보여요</span></label>' +
+	      '<label class="cap-field-label wsfeed__lbl">피드 미리보기 <span>' + (ig.connected ? '올리면 내 피드가 이렇게 보여요' : '내 작업물과 함께 보기') + '</span></label>' +
 	      '<div class="wsfeed__card">' + stat +
 	        '<div class="wsfeed__grid">' + cells + '</div>' +
-	        '<p class="wsfeed__cap">왼쪽 위가 이번에 올릴 사진이에요' + (ig.connected ? '' : ' · 인스타 연결하면 실제 피드로 보여드려요') + '</p>' +
+	        '<p class="wsfeed__cap">' + capMsg + '</p>' +
 	      '</div></div>';
 	  }
 	  function renderPreview() {
@@ -3697,6 +3711,23 @@
     try { if (window.WorkspaceSync && window.WorkspaceSync.beginEdit) window.WorkspaceSync.beginEdit(); } catch (_be) { void _be; }
     // [피드 미리보기] 발행 미리보기 그리드용 기존 피드 썸네일을 미리 당겨 메모리 캐시(도달 시 0.1초). 저장 X.
     try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMedia) window.WorkspaceAdapter.recentMedia(); } catch (_rm) { void _rm; }
+    // [작업물 미리보기 2026-07-10] 미연동 원장님용 — 내 작업물 썸네일을 미리 캐시(도달 시 즉시). 로컬 IndexedDB, 저장 X. 이번 슬롯은 제외(NEW 칸 중복 방지).
+    d._myWorkThumbs = [];
+    try {
+      if (window.loadSlotsFromDB) {
+        Promise.resolve(window.loadSlotsFromDB()).then(function (list) {
+          var out = [];
+          (list || []).forEach(function (s) {
+            if (!s || (d.slot && s.id === d.slot.id)) return;
+            var t = _slotThumb(s);
+            if (t) out.push(t);
+          });
+          d._myWorkThumbs = out;
+          var _conn = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram().connected : false;
+          if (out.length && !_conn && cur === 'preview') setScreen('preview', { push: false });
+        }).catch(function () {});
+      }
+    } catch (_mw) { void _mw; }
     navStack = []; _histDepth = 0;   // 새 세션 — 방문 히스토리 초기화
     // 시스템 back(안드로이드 하드웨어/스와이프, popstate)을 전역 sheet-back 레지스트리에 편입.
     //  미등록 시 안드로이드 back 이 오버레이를 안 닫고 홈 탭으로 점프해 오버레이가 떠버린 채 남는다.
