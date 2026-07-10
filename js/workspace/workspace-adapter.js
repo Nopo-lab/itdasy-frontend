@@ -412,6 +412,33 @@
         .catch(function () { return { ok: false }; });
     },
 
+    // [피드 미리보기 2026-07-10] 최근 인스타 게시물 썸네일 — 발행 전 '내 피드에 어떻게 들어가는지' 그리드용.
+    //   저장소 안 씀: 메모리(_igMediaCache)+sessionStorage 캐시라 켜자마자 즉시. GET /instagram/recent-media.
+    recentMedia: function (force) {
+      var self = this;
+      try {
+        if (!force && Array.isArray(self._igMediaCache)) return Promise.resolve(self._igMediaCache);
+        if (!force) { var s = sessionStorage.getItem('itdasy:ig_recent_media'); if (s) { self._igMediaCache = JSON.parse(s) || []; return Promise.resolve(self._igMediaCache); } }
+      } catch (_e) { void _e; }
+      var headers = window.authHeader ? window.authHeader() : {};
+      var path = '/instagram/recent-media?limit=12';
+      var url = (typeof window.apiUrl === 'function') ? window.apiUrl(path) : ((window.API || '') + path);
+      return fetch(url, { method: 'GET', headers: headers })
+        .then(function (r) { return r && r.ok ? r.json() : { media: [] }; })
+        .then(function (j) {
+          var m = (j && Array.isArray(j.media)) ? j.media : [];
+          self._igMediaCache = m;
+          try { sessionStorage.setItem('itdasy:ig_recent_media', JSON.stringify(m)); } catch (_e) { void _e; }
+          return m;
+        })
+        .catch(function () { return self._igMediaCache || []; });
+    },
+    recentMediaCached: function () {
+      if (Array.isArray(this._igMediaCache)) return this._igMediaCache;
+      try { var s = sessionStorage.getItem('itdasy:ig_recent_media'); if (s) { this._igMediaCache = JSON.parse(s) || []; return this._igMediaCache; } } catch (_e) { void _e; }
+      return [];
+    },
+
     pickCustomer: function (selectedId) {
       if (!(window.Customer && has(window.Customer.pick))) {
         return Promise.resolve({ ok: false, reason: 'no_customer', toast: '고객 모듈을 불러오지 못했어요' });

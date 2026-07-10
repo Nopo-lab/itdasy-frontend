@@ -1760,12 +1760,19 @@
 	  function _feedPreview(url) {
 	    if (!url) return '';
 	    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : { connected: false };
-	    // 기존 피드 사진이 어댑터에 있으면 사용, 없으면 부드러운 자리표시(라이트 톤)
-	    var recent = (ig && ig.media && ig.media.length) ? ig.media.slice(0, 8) : [];
+	    // [피드 미리보기] 기존 피드 썸네일 = 메모리/세션 캐시(저장소 X) → 켜자마자 즉시. new 사진은 로컬 합성본이라 항상 즉시.
+	    var recent = (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMediaCached) ? window.WorkspaceAdapter.recentMediaCached() : [];
+	    // 캐시 비었고 인스타 연결됨 → 1회만 당겨와 채운다(미리보기면 완료 시 재렌더). 실패해도 자리표시 유지.
+	    if (ig.connected && !recent.length && !d._igMediaFetched && window.WorkspaceAdapter.recentMedia) {
+	      d._igMediaFetched = true;
+	      try { window.WorkspaceAdapter.recentMedia().then(function (m) { if (m && m.length && cur === 'preview') setScreen('preview', { push: false }); }); } catch (_e) { void _e; }
+	    }
+	    var TILES = 11;   // 3×4 그리드 = 새 게시물 1 + 기존 11
 	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(url) + ')"><span class="wsfeed__new">NEW</span></div>';
-	    for (var i = 0; i < 8; i++) {
-	      cells += recent[i]
-	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(recent[i]) + ')"></div>'
+	    for (var i = 0; i < TILES; i++) {
+	      var _t = recent[i] && (recent[i].thumb || (typeof recent[i] === 'string' ? recent[i] : ''));   // 새형식(obj.thumb)·구형식(string) 호환
+	      cells += _t
+	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(_t) + ')"></div>'
 	        : '<div class="wsfeed__cell wsfeed__cell--ph"></div>';
 	    }
 	    var stat = ig.connected
@@ -3688,6 +3695,8 @@
     el.classList.add('is-open');
     // [slot-sync coalesce] 편집 플로우 열림 — 정착(close/발행) 전까지 매 저장 업로드 억제.
     try { if (window.WorkspaceSync && window.WorkspaceSync.beginEdit) window.WorkspaceSync.beginEdit(); } catch (_be) { void _be; }
+    // [피드 미리보기] 발행 미리보기 그리드용 기존 피드 썸네일을 미리 당겨 메모리 캐시(도달 시 0.1초). 저장 X.
+    try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMedia) window.WorkspaceAdapter.recentMedia(); } catch (_rm) { void _rm; }
     navStack = []; _histDepth = 0;   // 새 세션 — 방문 히스토리 초기화
     // 시스템 back(안드로이드 하드웨어/스와이프, popstate)을 전역 sheet-back 레지스트리에 편입.
     //  미등록 시 안드로이드 back 이 오버레이를 안 닫고 홈 탭으로 점프해 오버레이가 떠버린 채 남는다.
