@@ -40,6 +40,32 @@
     { k: 'booking', label: '예약' }, { k: 'location', label: '위치' }
   ];
 
+  var ITEMS = SEED.slice();   // 렌더 대상 — 실연동 성공 시 실댓글로 교체
+  var _realMode = false;      // true = 실제 인스타 댓글 로드됨
+  var _loading = false;
+
+  // 샵 설정값(작업실 설정과 공유하는 itdasy:shop_* 키) — DM 상세에 사용
+  function _shop(k, fb) { try { return localStorage.getItem('itdasy:shop_' + k) || fb || ''; } catch (_e) { return fb || ''; } }
+
+  // 의도별 답장 초안 (공개=짧게 DM유도 / DM=상세, 샵설정 반영)
+  function _drafts(intent) {
+    var book = _shop('book', ''), addr = _shop('addr', _shop('location', '')), hours = _shop('hours', ''), phone = _shop('phone', '');
+    var link = book ? ('\n예약은 여기서 → ' + book) : (phone ? ('\n예약 문의 → ' + phone) : '');
+    if (intent === 'price') return { publicDraft: '문의 감사해요! 자세한 가격 DM으로 보내드렸어요, 편하게 봐주세요', dmDraft: '가격 안내드릴게요' + link };
+    if (intent === 'booking') return { publicDraft: '예약 도와드릴게요, DM 확인해 주세요', dmDraft: '예약 도와드릴게요!' + link };
+    if (intent === 'location') return { publicDraft: '위치·오시는 길 DM으로 보냈어요', dmDraft: (addr || '위치 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
+    if (intent === 'hours') return { publicDraft: '영업시간 DM으로 보내드렸어요', dmDraft: (hours ? ('영업시간: ' + hours) : '영업시간 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
+    return { publicDraft: '문의 감사해요! DM으로 안내드렸어요', dmDraft: '문의 주셔서 감사해요' + (book ? ('\n예약 → ' + book) : '') };
+  }
+
+  // 실 API 아이템 → 렌더 형식
+  function _mapReal(it) {
+    var d = _drafts(it.intent);
+    return { id: it.comment_id, commentId: it.comment_id, name: it.username ? ('@' + it.username) : '손님',
+      av: (it.username || '?').slice(0, 1), intent: it.intent, media: '게시물 댓글', likes: it.like_count || 0,
+      waiting: 0, thumb: it.media_thumb || '', text: it.text || '', publicDraft: d.publicDraft, dmDraft: d.dmDraft, _real: true };
+  }
+
   // ── 인라인 아이콘 (스프라이트 밖은 svg, 봇은 #ic-bot) ──
   function _svg(inner, o) { o = o || {}; return '<svg width="' + (o.w || 14) + '" height="' + (o.h || o.w || 14) + '" viewBox="0 0 24 24" fill="' + (o.fill || 'none') + '" stroke="' + (o.stroke || 'currentColor') + '" stroke-width="' + (o.sw || 2) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>'; }
   var IC = {
@@ -74,7 +100,9 @@
       '</div>' +
       // 게시물 + 좋아요
       '<div style="display:flex;align-items:center;gap:8px;background:#F7F8FA;border-radius:12px;padding:7px 10px;margin-bottom:10px;">' +
-        '<div style="width:34px;height:34px;border-radius:8px;background:#E5E8EB;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</div>' +
+        (it.thumb
+          ? '<div style="width:34px;height:34px;border-radius:8px;flex-shrink:0;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></div>'
+          : '<div style="width:34px;height:34px;border-radius:8px;background:#E5E8EB;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</div>') +
         '<span style="font-size:11.5px;color:#8B95A1;flex:1;">' + _esc(it.media) + '</span>' +
         '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:#8B95A1;font-weight:600;">' + IC.heart + it.likes + '</span>' +
       '</div>' +
@@ -101,19 +129,24 @@
   function _tabsHtml() {
     return '<div style="display:flex;gap:16px;margin-bottom:14px;border-bottom:.5px solid #F2F4F6;">' +
       _FILTERS.map(function (f) {
-        var n = f.k === 'all' ? SEED.length : SEED.filter(function (x) { return x.intent === f.k; }).length;
+        var n = f.k === 'all' ? ITEMS.length : ITEMS.filter(function (x) { return x.intent === f.k; }).length;
         var on = _filter === f.k;
         return '<button class="crq-tab" data-filter="' + f.k + '" style="background:none;border:none;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:' + (on ? 700 : 500) + ';color:' + (on ? '#191F28' : '#8B95A1') + ';padding-bottom:8px;border-bottom:2px solid ' + (on ? '#191F28' : 'transparent') + ';">' + f.label + ' ' + n + '</button>';
       }).join('') + '</div>';
   }
 
+  function _banner(bg, brd, fg, msg) {
+    return '<div style="display:flex;align-items:flex-start;gap:8px;background:' + bg + ';border:.5px solid ' + brd + ';border-radius:12px;padding:10px 12px;margin-bottom:12px;">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="' + fg + '" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>' +
+      '<span style="font-size:11.5px;color:' + fg + ';line-height:1.5;">' + msg + '</span></div>';
+  }
   function _demoBanner() {
-    return '<div style="display:flex;align-items:flex-start;gap:8px;background:#FFF7ED;border:.5px solid #FED7AA;border-radius:12px;padding:10px 12px;margin-bottom:12px;">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>' +
-      '<span style="font-size:11.5px;color:#9A3412;line-height:1.5;">지금 보이는 댓글은 <b>예시</b>예요. 실제 인스타 댓글 연동은 <b>Meta 심사 통과 후</b> 켜져요. (연동하면 게시물 썸네일은 실제로 보여요)</span></div>';
+    if (_loading) return _banner('#F2F4F6', '#E5E8EB', '#4E5968', '실제 인스타 댓글을 불러오는 중…');
+    if (_realMode) return _banner('#E7F6EF', '#A9DFC6', '#0F766E', '<b>실제 인스타 댓글</b>이에요. 문의(가격·예약·위치)만 골라 보여드려요.');
+    return _banner('#FFF7ED', '#FED7AA', '#9A3412', '지금 보이는 댓글은 <b>예시</b>예요. 실제 댓글을 불러오려면 <b>인스타 연동 + 댓글 권한</b>이 필요해요. (연동돼도 문의 댓글이 없으면 예시가 보여요)');
   }
   function _queueBody() {
-    var items = SEED.filter(function (it) { return _filter === 'all' || it.intent === _filter; });
+    var items = ITEMS.filter(function (it) { return _filter === 'all' || it.intent === _filter; });
     var cards = items.length ? items.map(_cardHtml).join('') :
       '<div style="text-align:center;color:#C9CDD4;font-size:13px;padding:40px 0;">이 조건의 문의 댓글이 없어요</div>';
     return _demoBanner() + _tabsHtml() + cards +
@@ -192,21 +225,57 @@
   }
 
   function _removeItem(id) {
-    var i = SEED.findIndex(function (x) { return x.id === id; });
-    if (i >= 0) SEED.splice(i, 1);
+    var i = ITEMS.findIndex(function (x) { return x.id === id; });
+    if (i >= 0) ITEMS.splice(i, 1);
     _render();
   }
   function _sendReply(id) {
-    var it = SEED.find(function (x) { return x.id === id; });
+    var it = ITEMS.find(function (x) { return x.id === id; });
+    if (!it) return;
+    if (it._real && it.commentId && window.apiFetch) {
+      // 실제 인스타: 공개답글 + 비공개 DM 발송
+      _removeItem(id);
+      _toast('답글 보내는 중…');
+      var auth = window.authHeader ? window.authHeader() : {};
+      window.apiFetch(window.apiUrl('/instagram/comment-reply'), {
+        method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, auth),
+        body: JSON.stringify({ comment_id: it.commentId, public_text: it.publicDraft, dm_text: it.dmDraft })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) { _toast(j && j.ok ? ('공개답글 달림 · DM 전송됨 (' + it.name + ')') : ('일부 실패 — ' + JSON.stringify((j && (j.public || j.dm)) || j).slice(0, 80))); })
+        .catch(function () { _toast('발송 실패 — 다시 시도해 주세요'); });
+      return;
+    }
+    // 시드(예시): 목업 발송
     _removeItem(id);
-    _toast(it ? '공개답글 달림 · DM 전송됨 (' + it.name + ')' : '보냈어요');
+    _toast('공개답글 달림 · DM 전송됨 (' + it.name + ') · 예시');
+  }
+
+  // 실제 인스타 댓글 로드 — 연동+권한 있으면 문의 댓글로 큐 교체, 아니면 시드 유지.
+  function _loadReal() {
+    var ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
+    var connected = ig ? ig.connected : false;
+    if (!connected || !window.apiFetch) { _realMode = false; ITEMS = SEED.slice(); return; }
+    _loading = true; _render();
+    var auth = window.authHeader ? window.authHeader() : {};
+    window.apiFetch(window.apiUrl('/instagram/comment-queue'), { headers: auth })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) {
+        _loading = false;
+        var arr = (j && j.items) || [];
+        if (arr.length) { ITEMS = arr.map(_mapReal); _realMode = true; }
+        else { ITEMS = SEED.slice(); _realMode = false; }   // 권한 없음/문의 댓글 0 → 시드 폴백
+      })
+      .catch(function () { _loading = false; ITEMS = SEED.slice(); _realMode = false; })
+      .then(function () { if (_view === 'queue') _render(); });
   }
 
   function openCommentReplyQueue() {
     if (window.ITDASY_IG_COMMENT_REPLY === false) { _toast('댓글 응대는 준비 중이에요'); return; }
     var el = _ensureMounted();
     _view = 'queue'; _filter = 'all';
+    ITEMS = SEED.slice(); _realMode = false; _loading = false;
     _render();
+    _loadReal();   // 연동됐으면 실댓글로 교체(비동기)
     el.classList.add('is-open');
     el.setAttribute('aria-hidden', 'false');
     if (window._registerSheet) window._registerSheet('crq', closeCommentReplyQueue);
