@@ -3769,36 +3769,9 @@
   }
 
   // [C6/#10] 게시 — 잇비 봇 로딩 모달(시안 B). 단계 멘트 + 최소 노출감
-  var PUB_MSG = [
-    ['올리는 중…', '사진을 인스타로 보내고 있어요'],
-    ['글 입히는 중…', '게시글·해시태그를 붙이는 중'],
-    ['게시 완료!', '인스타그램에 올라갔어요'],
-  ];
-  var _pubTimer = null;
-  function _pubQ(sel) { return el ? el.querySelector(sel) : null; }
-  function _pubStage(i) {
-    var t = _pubQ('[data-fl-pub-t]'), s = _pubQ('[data-fl-pub-s]');
-    if (t) t.textContent = PUB_MSG[i][0];
-    if (s) s.textContent = PUB_MSG[i][1];
-    var steps = el ? el.querySelectorAll('[data-fl-pub-steps] i') : null;
-    if (steps && steps.length) Array.prototype.forEach.call(steps, function (n, j) { n.className = j < i ? 'done' : (j === i ? 'on' : ''); });
-    var card = _pubQ('.wsv2pub__card'); if (card) card.classList.toggle('is-done', i >= 2);
-  }
-  function _pubShow() {
-    var p = _pubQ('[data-fl-pub]'); if (!p) return;
-    p.hidden = false; p.classList.add('is-open'); _pubStage(0);
-    if (_pubTimer) clearTimeout(_pubTimer);
-    _pubTimer = setTimeout(function () { _pubStage(1); }, 1100);
-  }
-  function _pubHide() {
-    if (_pubTimer) { clearTimeout(_pubTimer); _pubTimer = null; }
-    var p = _pubQ('[data-fl-pub]'); if (p) { p.hidden = true; p.classList.remove('is-open'); }
-  }
-  function _pubFinish(cb) {
-    if (_pubTimer) { clearTimeout(_pubTimer); _pubTimer = null; }
-    _pubStage(1);
-    setTimeout(function () { _pubStage(2); setTimeout(function () { _pubHide(); if (cb) cb(); }, 1200); }, 350);
-  }
+  // [T-104 P3] 발행 진행 오버레이(_pubQ·_pubStage·_pubShow·_pubHide·_pubFinish + PUB_MSG) → flow/publish-progress.js (ctx={el})
+  var _WSPP = (window.WSFlowPubProgress && window.WSFlowPubProgress.create) ? window.WSFlowPubProgress.create({ el: function () { return el; } }) : {};
+  var _pubShow = _WSPP._pubShow, _pubHide = _WSPP._pubHide, _pubFinish = _WSPP._pubFinish;
 
 	  function publish(kind) {
 	    var _story = kind === 'story';   // [스토리] 피드/스토리 분기
