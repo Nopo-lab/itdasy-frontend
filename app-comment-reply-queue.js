@@ -89,9 +89,9 @@
   // 실 API 아이템 → 렌더 형식. 서버 페르소나 초안(public_draft/dm_draft) 우선, 없으면 템플릿 폴백.
   function _mapReal(it) {
     var d = _drafts(it.intent);
-    return { id: it.comment_id, commentId: it.comment_id, name: it.username ? ('@' + it.username) : '손님',
+    return { id: it.comment_id, commentId: it.comment_id, mediaId: it.media_id || '', name: it.username ? ('@' + it.username) : '손님',
       av: (it.username || '?').slice(0, 1), intent: it.intent, media: '게시물 댓글', likes: it.like_count || 0,
-      waiting: 0, thumb: it.media_thumb || '', text: it.text || '',
+      waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual,
       publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
   }
 
@@ -114,6 +114,13 @@
     return '<div style="font-size:10.5px;color:#8B95A1;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">' + icon + label + '</div>' +
       '<div style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + _esc(text) + '</div>';
   }
+  function _editArea(icon, label, cls, id, val) {
+    return '<div style="font-size:10.5px;color:#8B95A1;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">' + icon + label + ' · 수정</div>' +
+      '<textarea class="' + cls + '" data-id="' + _esc(id) + '" rows="3" style="width:100%;padding:9px 12px;border:1px solid #BC6675;border-radius:12px;font-size:13px;line-height:1.5;background:#fff;color:#191F28;box-sizing:border-box;font-family:inherit;resize:vertical;">' + _esc(val) + '</textarea>';
+  }
+  // 표시/발송용 최종 문구 — 편집(override)했으면 그 값, 아니면 설정 반영값
+  function _displayPublic(it) { return (it._override && it._override.pub != null) ? it._override.pub : _finalPublic(it); }
+  function _displayDm(it) { return (it._override && it._override.dm != null) ? it._override.dm : _finalDm(it); }
 
   function _cardHtml(it) {
     return '<div class="crq-item" data-id="' + _esc(it.id) + '" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">' +
@@ -137,19 +144,21 @@
       '</div>' +
       // 손님 댓글 원문
       '<div style="background:#fff;border:.5px solid #E5E8EB;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;margin-bottom:12px;">' + _esc(it.text) + '</div>' +
-      // 잇비 추천 답장 (공개 + 비공개)
+      // 잇비 추천 답장 (공개 + 비공개) — 편집 가능
       '<div style="display:flex;gap:8px;align-items:flex-start;">' + _botAvatar() +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:5px;">잇비 추천 답장</div>' +
-          _draftBlock(IC.comment, '공개 답글 · 댓글에 달림', _finalPublic(it)) +
-          '<div style="height:9px;"></div>' +
-          _draftBlock(IC.mail, '비공개 DM · 상세', _finalDm(it)) +
+          '<div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:5px;">잇비 추천 답장' +
+            (it.manual ? '<span style="font-size:9.5px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:7px;padding:1px 6px;">내 멘트</span>' : '') +
+            (it._override ? '<span style="font-size:9.5px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:7px;padding:1px 6px;">수정함</span>' : '') + '</div>' +
+          (it._editing
+            ? _editArea(IC.comment, '공개 답글', 'crq-edit-pub', it.id, _displayPublic(it)) + '<div style="height:9px;"></div>' + _editArea(IC.mail, '비공개 DM', 'crq-edit-dm', it.id, _displayDm(it))
+            : _draftBlock(IC.comment, '공개 답글 · 댓글에 달림', _displayPublic(it)) + '<div style="height:9px;"></div>' + _draftBlock(IC.mail, '비공개 DM · 상세', _displayDm(it))) +
         '</div>' +
       '</div>' +
       // 액션
       '<div style="display:flex;gap:8px;margin-top:13px;">' +
         '<button class="crq-send" data-id="' + _esc(it.id) + '" style="flex:1;padding:11px;border:none;background:#191F28;color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">' + IC.send + '답글 보내기</button>' +
-        '<button class="crq-edit" data-id="' + _esc(it.id) + '" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">수정</button>' +
+        '<button class="crq-edit" data-id="' + _esc(it.id) + '" style="padding:11px 14px;border:1px solid ' + (it._editing ? '#BC6675' : '#E5E8EB') + ';background:#fff;color:' + (it._editing ? '#BC6675' : '#191F28') + ';font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">' + (it._editing ? '완료' : '수정') + '</button>' +
         '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>' +
       '</div>' +
     '</div>';
@@ -278,7 +287,15 @@
       if (t.classList.contains('crq-tab')) { _filter = t.getAttribute('data-filter'); _render(); return; }
       var id = t.getAttribute('data-id');
       if (t.classList.contains('crq-send')) { _haptic(); _sendReply(id); return; }
-      if (t.classList.contains('crq-edit')) { _haptic(); _toast('초안 수정은 붙일 때 연결돼요 (스캐폴딩)'); return; }
+      if (t.classList.contains('crq-edit')) {
+        _haptic();
+        var ei = ITEMS.find(function (x) { return x.id === id; });
+        if (!ei) return;
+        if (ei._editing) { _captureEdit(el, ei); ei._editing = false; }   // 완료 → 편집값 저장
+        else { ei._editing = true; }
+        _render();
+        return;
+      }
       if (t.classList.contains('crq-discard')) { _haptic(); _removeItem(id); _toast('이 댓글은 응대하지 않아요'); return; }
     });
     return el;
@@ -289,9 +306,18 @@
     if (i >= 0) ITEMS.splice(i, 1);
     _render();
   }
+  // 편집 중인 텍스트영역 값을 아이템 override로 캡처
+  function _captureEdit(el, it) {
+    var pta = el.querySelector('.crq-edit-pub[data-id="' + it.id + '"]');
+    var dta = el.querySelector('.crq-edit-dm[data-id="' + it.id + '"]');
+    if (pta || dta) it._override = { pub: pta ? pta.value : _displayPublic(it), dm: dta ? dta.value : _displayDm(it) };
+  }
   function _sendReply(id) {
     var it = ITEMS.find(function (x) { return x.id === id; });
     if (!it) return;
+    var el = document.getElementById(ID);
+    if (it._editing && el) { _captureEdit(el, it); it._editing = false; }   // 편집 중 발송 → 편집값 반영
+    var pubText = _displayPublic(it), dmText = _displayDm(it);
     if (it._real && it.commentId && window.apiFetch) {
       // 실제 인스타: 공개답글 + 비공개 DM 발송
       _removeItem(id);
@@ -299,7 +325,7 @@
       var auth = window.authHeader ? window.authHeader() : {};
       window.apiFetch(window.apiUrl('/instagram/comment-reply'), {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, auth),
-        body: JSON.stringify({ comment_id: it.commentId, public_text: _finalPublic(it), dm_text: _finalDm(it) })
+        body: JSON.stringify({ comment_id: it.commentId, public_text: pubText, dm_text: dmText, media_id: it.mediaId, intent: it.intent })
       }).then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (j) { _toast(j && j.ok ? ('공개답글 달림 · DM 전송됨 (' + it.name + ')') : ('일부 실패 — ' + JSON.stringify((j && (j.public || j.dm)) || j).slice(0, 80))); })
         .catch(function () { _toast('발송 실패 — 다시 시도해 주세요'); });
