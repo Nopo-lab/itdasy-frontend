@@ -306,3 +306,9 @@
 .wss-lay__acts { display: flex; gap: 6px; padding: 0 10px 10px; }
 .wss-lay__btn { flex: 1; height: 32px; border: 1px solid var(--border, #E5E8EB); border-radius: 9px; background: var(--surface, #fff); font-size: 12.5px; font-weight: 600; color: var(--text-sub, #4E5968); cursor: pointer; }
 .wss-lay__btn--del { color: #D8555F; border-color: #F0D4D6; }
+
+/* [작업실 설정 2026-07-10] 샵 정보 연동 안내 배너 */
+.wss-fromshop { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: rgba(188,102,117,.07); border: 1px solid rgba(188,102,117,.18); border-radius: 12px; }
+.wss-fromshop__tx { flex: 1; font-size: 12.5px; line-height: 1.5; color: var(--text-sub, #4E5968); }
+.wss-fromshop__tx b { color: var(--text, #191F28); }
+.wss-fromshop__btn { flex: 0 0 auto; height: 34px; padding: 0 12px; border: 0; border-radius: 9px; background: #BC6675; color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }

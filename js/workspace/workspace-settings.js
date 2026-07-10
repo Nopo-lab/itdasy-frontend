@@ -7,16 +7,27 @@
   'use strict';
   var ID = 'wsSettingsOverlay';
   var SAMPLE = ['assets/workshop-cats/cat-1.jpg', 'assets/workshop-cats/cat-3.jpg', 'assets/workshop-cats/cat-4.jpg'];
-  // 필드: [키, 라벨, placeholder, inputmode]
+  // [2026-07-10] 상호·전화·주소·영업시간은 앱 '샵 정보'(서버)와 중복 → 작업실에선 제거하고 거기서 관리(sync로 반영).
+  //   여기 남기는 건 '샵 정보'에 없는 작업실 전용값. 필드: [키, 라벨, placeholder, inputmode]
   var FIELDS = [
-    ['shop_name', '상호', '예) 잇데이 네일 강남점', 'text'],
-    ['itdasy:shop_phone', '전화번호', '010-0000-0000', 'tel'],
     ['itdasy:shop_book', '예약 링크', '예) naver.me/xxxx', 'url'],
-    ['itdasy:shop_loc', '위치·동네', '예) 인천 구월동', 'text'],
     ['itdasy:shop_price', '가격 안내', '예) 컷 3만원~', 'text'],
-    ['itdasy:shop_hours', '영업시간', '예) 매일 10-20시', 'text'],
     ['itdasy:shop_handle', '인스타 아이디', '@ 없이', 'text']
   ];
+  // 앱 '샵 정보'(서버/SecureStorage) → 편집기·캡션이 읽는 키로 미러. 상호·전화만 게시글에서 실제 사용.
+  function syncFromShopInfo() {
+    try {
+      var name = get('itdasy_shop_name') || get('shop_name');
+      if (name && name.trim()) set('shop_name', name.trim());
+      if (window.SecureStorage && window.SecureStorage.get) {
+        Promise.resolve(window.SecureStorage.get('itdasy_shop_phone')).then(function (ph) {
+          if (ph && String(ph).trim()) set('itdasy:shop_phone', String(ph).trim());
+        }).catch(function () { void 0; });
+      } else {
+        var ph = get('itdasy_shop_phone'); if (ph && ph.trim()) set('itdasy:shop_phone', ph.trim());
+      }
+    } catch (_e) { void _e; }
+  }
   var K_FOOTER = 'itdasy:caption_footer_local';   // 고정멘트 로컬 미러(표시용) — 저장은 서버 setCaptionTemplate
   var K_SHOPINFO = 'itdasy:caption_shopinfo';
 
@@ -58,7 +69,10 @@
     el.innerHTML =
       '<header class="ss-topbar"><button type="button" class="ss-back" data-wss-back aria-label="뒤로"><svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg></button><div class="ss-title">작업실 설정</div></header>' +
       '<div class="ss-body">' +
-        '<div class="ss-card"><div class="ss-card-tt">매장 정보</div><div class="ss-card-sub" style="margin-bottom:10px">여기 입력하면 게시글·사진에 자동으로 쓰여요.</div><div data-wss-fields>' + _fieldsHtml() + '</div></div>' +
+        '<div class="ss-card"><div class="ss-card-tt">매장 정보</div>' +
+          '<div class="wss-fromshop"><div class="wss-fromshop__tx"><b>상호·전화·주소·영업시간</b>은 <b>샵 정보</b>에서 관리해요.<br>거기 입력하면 게시글에 자동으로 쓰여요.</div><button type="button" class="wss-fromshop__btn" data-wss-openshop>샵 정보 열기 ›</button></div>' +
+          '<div class="ss-card-sub" style="margin:14px 0 10px">아래는 작업실 전용 항목이에요.</div>' +
+          '<div data-wss-fields>' + _fieldsHtml() + '</div></div>' +
         '<div class="ss-card"><div class="ss-card-tt">캡션 고정 멘트</div><div data-wss-footwrap>' + _footerHtml() + '</div></div>' +
         '<div class="ss-card"><div class="ss-card-tt">내 레이아웃</div><div data-wss-layouts>' + _layoutsHtml() + '</div></div>' +
       '</div>';
@@ -75,6 +89,13 @@
 
   function _onClick(e) {
     if (e.target.closest('[data-wss-back]')) { close(); return; }
+    // 샵 정보(앱 전체 설정) 열기 — 작업실 설정은 닫고 그쪽으로
+    if (e.target.closest('[data-wss-openshop]')) {
+      close();
+      if (window.openShopSettings) window.openShopSettings();
+      else toast('샵 정보를 불러오지 못했어요');
+      return;
+    }
     // 샵정보 자동첨부 토글
     var sw = e.target.closest('[data-wss-shopinfo]');
     if (sw) {
@@ -131,6 +152,7 @@
   }
 
   function open() {
+    syncFromShopInfo();   // 열 때마다 앱 샵 정보 최신값을 캡션 키로 미러
     var el = _ensureMounted();
     // 열 때마다 최신값으로 새로 그림
     var fh = el.querySelector('[data-wss-fields]'); if (fh) fh.innerHTML = _fieldsHtml();
@@ -148,5 +170,6 @@
     el.classList.remove('is-open'); el.setAttribute('aria-hidden', 'true');
   }
 
-  window.WorkspaceSettings = { open: open, close: close };
+  window.WorkspaceSettings = { open: open, close: close, syncFromShopInfo: syncFromShopInfo };
+  try { syncFromShopInfo(); } catch (_e) { void _e; }   // 부팅 시 1회 미러(캡션이 샵 정보 전화·상호 쓰게)
 })();
