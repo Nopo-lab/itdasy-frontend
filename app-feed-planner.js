@@ -126,7 +126,7 @@
     host.style.setProperty('display', 'flex', 'important');
     host.style.setProperty('position', 'fixed', 'important');
     host.style.setProperty('inset', '0', 'important');
-    host.style.setProperty('z-index', '10050', 'important');
+    host.style.setProperty('z-index', '100200', 'important');
     host.innerHTML = build(state);
     document.body.appendChild(host);
     requestAnimationFrame(function () { host.classList.add('is-open'); });
