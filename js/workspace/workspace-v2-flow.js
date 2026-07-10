@@ -1797,6 +1797,7 @@
 	      '<div class="wsfeed__card">' + stat +
 	        '<div class="wsfeed__grid">' + cells + '</div>' +
 	        '<p class="wsfeed__cap">' + capMsg + '</p>' +
+	        (window.FeedPlanner ? '<button type="button" class="wsfeed__plan" data-fl="feedplan" data-haptic="light">피드 정렬해보기</button>' : '') +
 	      '</div></div>';
 	  }
 	  function renderPreview() {
@@ -2271,6 +2272,14 @@
         return;
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
+      if (a === 'feedplan') {
+        if (!window.FeedPlanner) { toast('피드 플래너를 불러오지 못했어요'); return; }
+        var _fps = (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean);
+        if (!_fps.length) { var _fo = outputUrl(); if (_fo) _fps = [_fo]; }
+        var _fig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : {};
+        window.FeedPlanner.open({ photos: _fps, newCount: _fps.length, handle: (_fig && _fig.handle) || '내 피드' });
+        return;
+      }
       if (a === 'publish') { return publish('feed'); }
       if (a === 'publishstory') {
         // [#13] 여러 장이면 스토리로 올릴 '한 장'을 먼저 고르게(스토리는 1장). 1장이면 바로 발행.
