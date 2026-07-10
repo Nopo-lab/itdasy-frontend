@@ -107,11 +107,16 @@
       }).join('') + '</div>';
   }
 
+  function _demoBanner() {
+    return '<div style="display:flex;align-items:flex-start;gap:8px;background:#FFF7ED;border:.5px solid #FED7AA;border-radius:12px;padding:10px 12px;margin-bottom:12px;">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>' +
+      '<span style="font-size:11.5px;color:#9A3412;line-height:1.5;">지금 보이는 댓글은 <b>예시</b>예요. 실제 인스타 댓글 연동은 <b>Meta 심사 통과 후</b> 켜져요. (연동하면 게시물 썸네일은 실제로 보여요)</span></div>';
+  }
   function _queueBody() {
     var items = SEED.filter(function (it) { return _filter === 'all' || it.intent === _filter; });
     var cards = items.length ? items.map(_cardHtml).join('') :
       '<div style="text-align:center;color:#C9CDD4;font-size:13px;padding:40px 0;">이 조건의 문의 댓글이 없어요</div>';
-    return _tabsHtml() + cards +
+    return _demoBanner() + _tabsHtml() + cards +
       '<div style="font-size:11px;color:#C9CDD4;text-align:center;margin-top:12px;">애매한 댓글은 큐에 안 올라와요 · 확실한 문의만</div>';
   }
 

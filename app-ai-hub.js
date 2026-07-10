@@ -45,6 +45,10 @@
       { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
         type: 'toggle', toggleKey: KEY_DM },
+      // [2026-07-10] 댓글 문의 응대 — DM 자동응답 바로 아래(나중에 DM 엔진에 통합 예정).
+      { act: 'comment', icon: 'ph-chat-teardrop-text', boxColor: 'coral',
+        name: '댓글 문의 응대', meta: '게시물 댓글 문의 → 답글 + DM 유도',
+        type: 'plain' },
       { act: 'dmmenu', icon: 'ph-list-checks', boxColor: 'teal',
         name: '빠른 안내', meta: '손님 탭 버튼(예약·영업시간·가격…)',
         type: 'toggle', toggleKey: KEY_DMMENU },
@@ -279,6 +283,7 @@
   // ── 항목 라우터 ─────────────────────────────
   const _ROUTE_MAP = {
     dm:      'openDMAutoreplySettings',
+    comment: 'openCommentReplyQueue',   // [2026-07-10] 댓글 문의 응대 (extras lazy — _route 에서 로드 보장)
     dmmenu:  'openDMMenuSettings',
     kakao:   'openKakaoHub',
     persona: '__personaHubOpen',   // [2026-05-25] SNS 캡션 + 페르소나 통합 시트
@@ -290,6 +295,7 @@
   };
 
   function _canRoute(act) {
+    if (act === 'comment') return true;   // extras lazy — _route 에서 로드 보장 후 진입
     if (act === 'posts') return typeof window.openFinishTab === 'function' || typeof window.showTab === 'function';
     if (act === 'photoEditor') return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
     if (act === 'hashtag') return !!(window.SNSHashtag && typeof window.SNSHashtag.open === 'function');
@@ -300,6 +306,18 @@
 
   function _route(act) {
     const map = _ROUTE_MAP;
+    if (act === 'comment') {
+      // extras 그룹(app-comment-reply-queue.js) 로드 보장 후 진입 — 첫 탭에도 열리게.
+      const _open = function () {
+        if (typeof window.openCommentReplyQueue === 'function') window.openCommentReplyQueue();
+        else if (window.showToast) window.showToast('댓글 응대를 여는 중 문제가 생겼어요');
+      };
+      if (typeof window.openCommentReplyQueue === 'function') { _open(); return; }
+      if (window.AppLoader && window.AppLoader.ensure) {
+        Promise.resolve(window.AppLoader.ensure('extras')).then(_open).catch(_open);
+      } else { _open(); }
+      return;
+    }
     if (act === 'persona') {
       if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
       return;
