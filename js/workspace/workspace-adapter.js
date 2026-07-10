@@ -397,6 +397,21 @@
         .catch(function () { return { ok: false, toast: '네트워크 오류로 저장하지 못했어요' }; });
     },
 
+    // [P1 학습 루프 2026-07-10] 발행한 최종 캡션을 학습에 반영 — PATCH /persona/generation_logs/{id}
+    //   published=true 면 백엔드가 final_text 를 PastPost 로 역반입해 few-shot/fingerprint 학습에 씀. 실패해도 조용히.
+    recordPublishedCaption: function (logId, finalText, igMediaId) {
+      if (!logId) return Promise.resolve({ ok: false });
+      var headers = window.authHeader ? window.authHeader() : {};
+      headers['Content-Type'] = 'application/json';
+      var path = '/persona/generation_logs/' + logId;
+      var url = (typeof window.apiUrl === 'function') ? window.apiUrl(path) : ((window.API || '') + path);
+      var body = { final_text: String(finalText == null ? '' : finalText).slice(0, 3000), published: true };
+      if (igMediaId) body.ig_media_id = String(igMediaId);
+      return fetch(url, { method: 'PATCH', headers: headers, body: JSON.stringify(body) })
+        .then(function (res) { return { ok: !!(res && res.ok) }; })
+        .catch(function () { return { ok: false }; });
+    },
+
     pickCustomer: function (selectedId) {
       if (!(window.Customer && has(window.Customer.pick))) {
         return Promise.resolve({ ok: false, reason: 'no_customer', toast: '고객 모듈을 불러오지 못했어요' });
