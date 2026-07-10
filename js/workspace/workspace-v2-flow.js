@@ -1476,6 +1476,24 @@
     try { var arr = JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); if (arr.indexOf(kw) < 0) { arr.push(kw); localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr)); } } catch (_e) { void _e; }
     _appendServiceTag(kw);
   }
+  // [P4 2026-07-10] 최근 시술 자동완성 — 생성한 시술 문구를 기억했다가 탭 한 번으로 다시 채운다(매번 재입력 제거).
+  function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  function _saveRecentService(svc) {
+    svc = String(svc || '').replace(/\s+/g, ' ').trim(); if (svc.length < 2) return;
+    try {
+      var a = _recentServices().filter(function (x) { return x !== svc; });
+      a.unshift(svc); a = a.slice(0, 6);
+      localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
+    } catch (_e) { void _e; }
+  }
+  function _recentSvcHtml() {
+    var a = _recentServices(); if (!a.length) return '';
+    // 기존 cap-svctags/cap-svctag 스타일 재사용(새 CSS 불필요). 최근 시술 전체를 탭 한 번으로 다시 채움.
+    return '<div class="cap-svctags" style="margin-bottom:8px">' +
+      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 불러오기</span>' +
+      a.map(function (s) { var lbl = s.length > 20 ? (s.slice(0, 20) + '…') : s;
+        return '<button type="button" class="cap-svctag" data-fl-svcrecent="' + esc(s) + '" title="' + esc(s) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
+  }
 
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
   function renderCaption() {
@@ -1511,6 +1529,7 @@
           '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
           _capWizHtml() +
           (HYPER ? _svcTagsHtml() : '') +   // [ws-hyper] 시술 선택 칩을 입력창 '위'로
+          _recentSvcHtml() +   // [P4] 최근 시술 — 탭하면 그대로 다시 채움
           '<label class="cap-field-label">시술만 적으면 끝</label>' +
           '<div class="cap-composer">' +
             '<textarea class="service-input cap-svc-area" data-fl-service rows="3" maxlength="500" placeholder="예) 레이어드컷 손상모 일본인">' + esc(_svc) + '</textarea>' +
@@ -2001,6 +2020,7 @@
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
 	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
+    _saveRecentService(svc);   // [P4] 최근 시술 기억 — 다음엔 탭 한 번으로 다시 채움
 	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
 	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
 			// [#2] 사적 방문정황(남친이랑 옴)·가격(28만원짜리) 뺀 '공개 시술 키워드' — LLM 이 사담/가격을 캡션에 안 넣게.
@@ -2388,6 +2408,7 @@
       var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
+      var svrec = t.closest('[data-fl-svcrecent]'); if (svrec) { var _rv = svrec.getAttribute('data-fl-svcrecent'); var _si = el && el.querySelector('[data-fl-service]'); if (_si) { _si.value = _rv; } d.service = _rv; syncServiceFromDom(); setScreen('caption'); return; }   // [P4] 최근 시술 → 입력창 채움
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
