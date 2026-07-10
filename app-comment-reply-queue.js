@@ -58,12 +58,13 @@
     return { publicDraft: '문의 감사해요! DM으로 안내드렸어요', dmDraft: '문의 주셔서 감사해요' + (book ? ('\n예약 → ' + book) : '') };
   }
 
-  // 실 API 아이템 → 렌더 형식
+  // 실 API 아이템 → 렌더 형식. 서버 페르소나 초안(public_draft/dm_draft) 우선, 없으면 템플릿 폴백.
   function _mapReal(it) {
     var d = _drafts(it.intent);
     return { id: it.comment_id, commentId: it.comment_id, name: it.username ? ('@' + it.username) : '손님',
       av: (it.username || '?').slice(0, 1), intent: it.intent, media: '게시물 댓글', likes: it.like_count || 0,
-      waiting: 0, thumb: it.media_thumb || '', text: it.text || '', publicDraft: d.publicDraft, dmDraft: d.dmDraft, _real: true };
+      waiting: 0, thumb: it.media_thumb || '', text: it.text || '',
+      publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
   }
 
   // ── 인라인 아이콘 (스프라이트 밖은 svg, 봇은 #ic-bot) ──
