@@ -6,6 +6,12 @@
 (function () {
   'use strict';
 
+  // [T-104 P0 2026-07-10] 순수 헬퍼는 js/workspace/flow/util.js 로 분리 → 로컬 별칭으로 재수입(호출부 무변경).
+  var WSU = window.WSFlowUtil || {};
+  var uid = WSU.uid, toast = WSU.toast, esc = WSU.esc, fileToDataUrl = WSU.fileToDataUrl,
+    _isRealShopName = WSU._isRealShopName, _thEsc = WSU._thEsc, barClass = WSU.barClass, _caret = WSU._caret,
+    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone, _parseHashes = WSU._parseHashes;
+
   // [v542] ?photoDebug=1 → 보정 디버그 전역 플래그 활성([photofx] 로그·마스크 오버레이·디버그 패널).
   try { if (/[?&]photoDebug=1/.test(location.search || '')) window.__ITDASY_PHOTO_DEBUG__ = true; } catch (_e) { void _e; }
 
@@ -156,13 +162,7 @@
     return false;
   }
 
-  function uid() { return (typeof window._uid === 'function') ? window._uid() : 'wf_' + Math.random().toString(36).slice(2); }
-  function toast(m) { if (window.showToast) window.showToast(m); }
-  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
-  function fileToDataUrl(f) {
-    if (typeof window._fileToDataUrl === 'function') return window._fileToDataUrl(f);
-    return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
-  }
+  // [T-104 P0] uid/toast/esc/fileToDataUrl → flow/util.js (상단 별칭)
   // [#2] 선택된 사진만(해제=selected:false 제외) · 선택순(selSeq)으로 정렬 → 순서배지/대표사진 일관.
   function editablePhotos() {
     return d.photos.filter(function (x) { return x.selected !== false && x.role !== 'exclude'; })
@@ -252,13 +252,7 @@
       _cleanService = window.WSCaptionText.cleanService, _splitServiceForLayers = window.WSCaptionText.splitServiceForLayers;
   // [#1] 상호로 캡션에 브랜딩할 만한 '진짜 가게 이름'인지 — 'Dd','aa' 같은 짧은 라틴/계정 placeholder 는 제외.
   //   (등록만 되어 있고 실제 상호가 아니면 캡션에 억지로 안 박고 '저희 샵'으로만 칭하게 함)
-  function _isRealShopName(n) {
-    n = String(n || '').trim();
-    if (n.length < 2) return false;
-    if (/(뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵|점)$/.test(n)) return true;   // 명확한 상호 접미사
-    if (/[가-힣]{2,}/.test(n)) return true;   // 한글 2자 이상 = 상호로 간주
-    return false;   // 'Dd'·'aa' 등 라틴 짧은 placeholder → 상호 아님
-  }
+  // [T-104 P0] _isRealShopName → flow/util.js
   // [기능 스티커] 편집기에서 저장한 예약 링크·전화를 캡션 끝에 실제 CTA 로 붙인다(피드 게시물에서 팔로워가 바로 사용).
   //   피드 이미지는 클릭이 안 되므로 링크는 '캡션 본문'으로 연결하는 게 표준. 저장값 없으면 아무것도 안 붙임.
   // [#19] 샵정보(예약링크·전화)를 캡션 끝에 자동으로 붙일지는 사용자 선택(기본 OFF).
@@ -454,7 +448,7 @@
   function _setPresetName(key, name) { try { var m = JSON.parse(localStorage.getItem('itdasy:preset_names') || '{}'); m[key] = name; localStorage.setItem('itdasy:preset_names', JSON.stringify(m)); } catch (_e) { void _e; } }
   function _findPresetStyle(key) { return ((window.ShopStyle && window.ShopStyle.list) ? window.ShopStyle.list() : []).filter(function (s) { return s.presetKey === key || s.name === ('기본 레이아웃 ' + key) || s.name === _presetName(key); })[0]; }
   // [#4] 프리셋 위치대로 작은 4:5 미리보기 — 막대(구름)만 있던 걸 실제 시술내용 텍스트로. 입력하면 대충 어떻게 박히는지 보임.
-  function _thEsc(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+  // [T-104 P0] _thEsc → flow/util.js
   function _presetThumb(key) {
     var W = 46, H = 58, ls = _presetLayers(key);
     var photoSrc = dispUrl(curPhoto());   // [버그수정] 자리표시 배경색만 있고 실제 사진이 안 그려지던 문제
@@ -736,11 +730,7 @@
     } catch (_e) { void _e; }
   }
   // [C5] _barClass: vc(방문횟수) → b1/b2/b3 클래스
-  function barClass(vc) {
-    if (vc >= 10) return 'b3';
-    if (vc >= 3)  return 'b2';
-    return 'b1';
-  }
+  // [T-104 P0] barClass → flow/util.js
 
   /* ── 화면 마크업 ── */
   function shell() {
@@ -1007,7 +997,7 @@
       '<div class="eb" data-fl-eb="초기화"><svg class="eb-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.4 2.6L3 8"/><path d="M3 3v5h5"/></svg>초기화</div>' +
       '</div>';
   }
-  function _caret(open) { return '<svg class="ed-fold__caret" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#ic-chevron-' + (open ? 'up' : 'down') + '"/></svg>'; }
+  // [T-104 P0] _caret → flow/util.js
   // [v538] '전·후 사진 확인' 인라인 패널 — 토스트 대신, 선택 사진마다 전/후/기본을 바로 재지정.
   //   화면 이동 없이 고급 탭 안에서 완결(CLAUDE.md 인라인 편집 철학). 기존 _setRole/_ROLE_SEG 재사용.
   function _roleSegInline(role, i) {
@@ -1114,7 +1104,7 @@
     return url;
   }
   // [v531] purpose ↔ 콘텐츠 유형(cat) 매핑 + 유형별 기본 템플릿 조회(home.js 와 공유 저장소).
-  function _purposeCat(purpose) { return { before_after: 'ba', review: 'review', event: 'event', feed: 'flex', story: 'flex' }[purpose] || 'flex'; }
+  // [T-104 P0] _purposeCat → flow/util.js
   function _getDefaultTpl(cat) { return (window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.get(cat)) || ''; }
   // [v531] 템플릿 적용 상태 — 명확한 배너(결과물 N장) + 결과물 스트립(Pair N 결과) + 해제/바꾸기.
   // [v541] 적용 결과 — 작은 스트립 → 인스타식 큰 4:5 캐러셀(Pair 스와이프). 액션은 active Pair 기준.
@@ -1413,12 +1403,7 @@
     if (tab === 'nail') return { type: 'nailMask', label: '네일', tint: [240, 110, 175] };
     return { type: 'skinMask', label: '피부·얼굴', tint: [236, 120, 150] };   // skin/default
   }
-  function _containBlit(ctx, srcCanvas, dw, dh) {
-    var iw = srcCanvas.width, ih = srcCanvas.height; if (!iw || !ih) return;
-    var s = Math.min(dw / iw, dh / ih), rw = iw * s, rh = ih * s;
-    var dx = (dw - rw) / 2, dy = (dh - rh) / 2;
-    ctx.drawImage(srcCanvas, 0, 0, iw, ih, dx, dy, rw, rh);
-  }
+  // [T-104 P0] _containBlit → flow/util.js
   function _paintMaskCanvas(vp, mask, mw, mh, info, badge) {
     var ov = vp.querySelector('[data-fl-maskov]');
     if (!ov) return;
@@ -3255,7 +3240,7 @@
 	    });
 	  }
 
-  function clone(o) { return JSON.parse(JSON.stringify(o || {})); }
+  // [T-104 P0] clone → flow/util.js
 
   // 보정 변경 후 화면 갱신 — 사진/슬라이더/정밀/하단버튼 섹션만 (전체 재렌더 회피)
   function _repaintEditAfterAdjust() {
@@ -3871,14 +3856,7 @@
   // 캡션 화면을 떠나거나 다음 단계로 갈 때 — 입력창 3종(시술명/본문/꼬리말)의 최신값을 한 번에 state 로 확정.
   //  입력값을 버튼 클릭 시점에만 저장하던 회귀를 막아, 위쪽 '이대로 작성' 없이 하단 CTA 만으로도 반영되게 한다.
   // [v531] 해시태그 문자열 → #태그 배열(중복 제거). 본문과 분리된 해시태그 편집칸 파싱.
-  function _parseHashes(text) {
-    var seen = Object.create(null), out = [];
-    String(text || '').split(/[\s,]+/).forEach(function (t) {
-      var tag = t.trim().replace(/^#+/, ''); if (!tag) return;
-      var k = tag.toLowerCase(); if (seen[k]) return; seen[k] = 1; out.push('#' + tag);
-    });
-    return out;
-  }
+  // [T-104 P0] _parseHashes → flow/util.js
   function flushCaptionInputs() {
     syncServiceFromDom();
     if (!el) return;
