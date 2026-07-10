@@ -1417,9 +1417,13 @@
         } else {
           var lines = (L.text || '').split('\n'); var fs = L.fontSize * L.scale;
           c.font = L.font.weight + ' ' + fs + 'px ' + L.font.family; c.fillStyle = L.color;
-          c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowBlur = 8; c.shadowColor = 'rgba(0,0,0,.35)';
+          // [fix] 편집기 정렬(L.align)을 export에도 반영 — 왼/오 정렬 텍스트(가격표·시술명)가 결과물서 중앙으로 어긋나던 버그.
+          var _al = L.align || 'center';
+          var _padX = 10 * (L.scale || 1), _innerHalf = Math.max(0, ow / 2 - _padX);
+          var _ax = _al === 'left' ? -_innerHalf : (_al === 'right' ? _innerHalf : 0);
+          c.textAlign = _al; c.textBaseline = 'middle'; c.shadowBlur = 8; c.shadowColor = 'rgba(0,0,0,.35)';
           var total = lines.length * fs * 1.16, sy = -total / 2 + fs * 0.58;
-          lines.forEach(function (ln, i) { c.fillText(ln, 0, sy + i * fs * 1.16); });
+          lines.forEach(function (ln, i) { c.fillText(ln, _ax, sy + i * fs * 1.16); });
           c.shadowBlur = 0;
         }
         c.restore();

@@ -1469,7 +1469,10 @@
     var curTx = String(d.service || '').trim();
     if (curTx.split(/\s+/).indexOf(kw) >= 0) return;   // 중복 방지
     d.service = (curTx ? curTx + ' ' : '') + kw;
-    setScreen('caption');
+    // [fix] 칩 누를 때 setScreen 전체 재렌더는 화면을 맨 위로 튕김 → 입력창만 제자리 갱신(스크롤 유지).
+    var inp = el.querySelector('[data-fl-service]');
+    if (inp) { inp.value = d.service; try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) { void _e; } }
+    else setScreen('caption');
   }
   function _addSvcKeyword() {
     var kw = window.prompt('자주 쓰는 시술 추가'); if (kw == null) return; kw = String(kw).trim(); if (!kw) return;
@@ -2146,10 +2149,11 @@
         }
         d.logId = r.log_id || d.logId || null;
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
+      // [fix #5] 첫 생성 성공 → 바로 인스타 미리보기로(원장이 '인스타 미리보기'를 또 안 눌러도 되게). 재생성/해시태그는 캡션 화면 유지. (HYPER 라이브만; 롤백 경로는 아래 유지)
+      if (HYPER && r.ok && _wasEmpty && !opts.hashtag_mode) { setScreen('preview'); return; }
       setScreen('caption');
-      // [워크플로 재정렬] 첫 생성 성공 → 편집기 자동 오픈(캡션이 레이아웃으로 사진에 반영) → 완료 시 미리보기.
-      //   재생성(hashtag_mode/이미 캡션 있음)은 자동 오픈 안 함. 편집 모듈 없으면 조용히 캡션 유지.
-      if (AUTO_EDITOR && !HYPER && r.ok && _wasEmpty && !opts.hashtag_mode && window.ItdEditor && window.ItdEditor.open) {   // [ws-hyper] 레이아웃 합성본 사용 — 옛 편집기 강제 오픈 안 함(긴 시술명 3줄 깨짐 방지)
+      // (레거시 롤백) AUTO_EDITOR && !HYPER: 첫 생성 성공 → 편집기 자동 오픈 → 완료 시 미리보기. HYPER 라이브에선 위에서 이미 preview로 감.
+      if (AUTO_EDITOR && !HYPER && r.ok && _wasEmpty && !opts.hashtag_mode && window.ItdEditor && window.ItdEditor.open) {
         d._editorNext = 'preview';
         setTimeout(function () { if (cur === 'caption') _openStoryEditor({ fresh: true }); }, 90);   // 캡션 직후 자동 오픈은 깨끗하게(옛 편집 복원 X)
       }

@@ -13,7 +13,8 @@
   var _drawerSlotId = null;
   var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
   var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '게시글 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
-  var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', publish:'preview', done:'preview' };
+  // [fix #6] preview 키 추가 — 상태머신이 'preview'를 내보내는데 키가 없어 이어하기가 폐기된 'edit' 화면으로 낙하하던 버그. 죽은 'publish' 키 제거(상태머신은 preview만 emit).
+  var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', preview:'preview', done:'preview' };
 
   // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
   // TODO: assets/workshop-cats/cat-1.jpg ~ cat-5.jpg 파일을 원영님이 직접 넣어주세요 (1:1 매핑)

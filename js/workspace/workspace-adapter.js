@@ -491,7 +491,8 @@
         });
       };
       var _post = function (endpoint, fd) {
-        return window.apiFetch(endpoint, { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd })
+        // [fix] 인스타 발행(특히 여러장 캐러셀)은 컨테이너 순차 폴링으로 오래 걸림 → 타임아웃 120초로 상향(기본 20초는 abort→조용히 실패).
+        return window.apiFetch(endpoint, { method: 'POST', headers: (has(window.authHeader) ? window.authHeader() : {}), body: fd, itdasyTimeoutMs: 120000 })
           .then(_parse).catch(function (e) { console.warn('[wsadapter] publishV2', e); return { ok: false, reason: 'api' }; });
       };
       // [캐러셀] 여러 장 → publish-carousel-file (images 다중 + caption)

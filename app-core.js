@@ -923,7 +923,9 @@ function authHeader() {
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const _tmo = attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS;
+      // [fix] 캐러셀(여러장) 인스타 발행은 컨테이너 순차 폴링으로 25~50초+ → 호출부가 itdasyTimeoutMs 로 타임아웃 상향 가능(기본 20초는 abort됨)
+      const _customTmo = init && init.itdasyTimeoutMs;
+      const _tmo = _customTmo || (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS);
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
         if (res.status === 401 && getToken()) {
