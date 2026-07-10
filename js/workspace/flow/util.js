@@ -41,9 +41,56 @@
     });
     return out;
   }
+  // 보정 슬라이더값 → CSS filter 문자열(라이브 미리보기). 밝기/대비/채도/선명도/색감.
+  function filterCss(a) {
+    a = a || {};
+    var bright = Math.max(0, 1 + (a.brightness || 0) * 0.6 / 100);
+    var contr = Math.max(0, 1 + (a.contrast || 0) / 100);
+    var sat = Math.max(0, 1 + (a.saturation || 0) * 0.8 / 100);
+    var shp = a.sharpness || 0;
+    var contrSharp = shp > 0 ? (contr + shp * 0.2 / 100) : contr;
+    var soft = shp < 0 ? (Math.min(100, -shp) * 0.012) : 0;   // 0~1.2px
+    var color = a.color || 0;
+    var sepia = color > 0 ? Math.min(0.55, color * 0.5 / 100) : 0;   // 웜
+    var coolHue = color < 0 ? color * 0.35 : 0;                       // 쿨(파랑 쪽)
+    var f = 'brightness(' + bright.toFixed(3) + ') contrast(' + contrSharp.toFixed(3) + ') saturate(' + sat.toFixed(3) + ')';
+    if (sepia > 0) f += ' sepia(' + sepia.toFixed(3) + ')';
+    f += ' hue-rotate(' + coolHue.toFixed(1) + 'deg)';
+    if (soft > 0) f += ' blur(' + soft.toFixed(2) + 'px)';
+    return f;
+  }
+  // 이미지 URL → 대표색 팔레트(상위 6색, 흰/검 근사 제외). cb(hexArray).
+  function _extractPalette(url, cb) {
+    try {
+      var img = new Image(); img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var n = 28, c = document.createElement('canvas'); c.width = n; c.height = n;
+          var g = c.getContext('2d'); g.drawImage(img, 0, 0, n, n);
+          var data = g.getImageData(0, 0, n, n).data, buckets = {};
+          for (var i = 0; i < data.length; i += 4) {
+            var r = data[i], gg = data[i + 1], b = data[i + 2], a = data[i + 3];
+            if (a < 128) continue;
+            var mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+            if (mx > 240 && mn > 228) continue;   // 근사 흰색 제외
+            if (mx < 26) continue;                 // 근사 검정 제외
+            var key = (r >> 5) + ',' + (gg >> 5) + ',' + (b >> 5);
+            var k = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+            k.n++; k.r += r; k.g += gg; k.b += b;
+          }
+          var arr = Object.keys(buckets).map(function (key) { var k = buckets[key]; return { n: k.n, r: Math.round(k.r / k.n), g: Math.round(k.g / k.n), b: Math.round(k.b / k.n) }; });
+          arr.sort(function (x, y) { return y.n - x.n; });
+          cb(arr.slice(0, 6).map(function (k) { return '#' + [k.r, k.g, k.b].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }));
+        } catch (_e) { cb([]); }
+      };
+      img.onerror = function () { cb([]); };
+      img.src = url;
+    } catch (_e) { cb([]); }
+  }
   window.WSFlowUtil = {
     uid: uid, toast: toast, esc: esc, fileToDataUrl: fileToDataUrl,
     _isRealShopName: _isRealShopName, _thEsc: _thEsc, barClass: barClass, _caret: _caret,
-    _purposeCat: _purposeCat, _containBlit: _containBlit, clone: clone, _parseHashes: _parseHashes
+    _purposeCat: _purposeCat, _containBlit: _containBlit, clone: clone, _parseHashes: _parseHashes,
+    filterCss: filterCss, _extractPalette: _extractPalette
   };
 })();

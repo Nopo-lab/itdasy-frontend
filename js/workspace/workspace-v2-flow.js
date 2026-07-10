@@ -10,7 +10,10 @@
   var WSU = window.WSFlowUtil || {};
   var uid = WSU.uid, toast = WSU.toast, esc = WSU.esc, fileToDataUrl = WSU.fileToDataUrl,
     _isRealShopName = WSU._isRealShopName, _thEsc = WSU._thEsc, barClass = WSU.barClass, _caret = WSU._caret,
-    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone, _parseHashes = WSU._parseHashes;
+    _purposeCat = WSU._purposeCat, _containBlit = WSU._containBlit, clone = WSU.clone, _parseHashes = WSU._parseHashes,
+    filterCss = WSU.filterCss, _extractPalette = WSU._extractPalette;
+  // [T-104 P1] 템플릿 썸네일 클러스터 → flow/thumbs.js
+  var _tplThumb = (window.WSFlowThumbs || {})._tplThumb;
 
   // [v542] ?photoDebug=1 → 보정 디버그 전역 플래그 활성([photofx] 로그·마스크 오버레이·디버그 패널).
   try { if (/[?&]photoDebug=1/.test(location.search || '')) window.__ITDASY_PHOTO_DEBUG__ = true; } catch (_e) { void _e; }
@@ -280,33 +283,7 @@
   function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
   // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
   //   근사 흰/검 제외하고 5비트 버킷 빈도순 상위색 반환. 폰트/로고 자동추출은 부정확해 미지원(수동).
-  function _extractPalette(url, cb) {
-    try {
-      var img = new Image(); img.crossOrigin = 'anonymous';
-      img.onload = function () {
-        try {
-          var n = 28, c = document.createElement('canvas'); c.width = n; c.height = n;
-          var g = c.getContext('2d'); g.drawImage(img, 0, 0, n, n);
-          var data = g.getImageData(0, 0, n, n).data, buckets = {};
-          for (var i = 0; i < data.length; i += 4) {
-            var r = data[i], gg = data[i + 1], b = data[i + 2], a = data[i + 3];
-            if (a < 128) continue;
-            var mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
-            if (mx > 240 && mn > 228) continue;   // 근사 흰색 제외
-            if (mx < 26) continue;                 // 근사 검정 제외
-            var key = (r >> 5) + ',' + (gg >> 5) + ',' + (b >> 5);
-            var k = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
-            k.n++; k.r += r; k.g += gg; k.b += b;
-          }
-          var arr = Object.keys(buckets).map(function (key) { var k = buckets[key]; return { n: k.n, r: Math.round(k.r / k.n), g: Math.round(k.g / k.n), b: Math.round(k.b / k.n) }; });
-          arr.sort(function (x, y) { return y.n - x.n; });
-          cb(arr.slice(0, 6).map(function (k) { return '#' + [k.r, k.g, k.b].map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join(''); }));
-        } catch (_e) { cb([]); }
-      };
-      img.onerror = function () { cb([]); };
-      img.src = url;
-    } catch (_e) { cb([]); }
-  }
+  // [T-104 P1] _extractPalette → flow/util.js
   // [v591·#6] 추천 색 탭 → 활성 우리샵 스타일의 모든 텍스트 역할 글자색에 적용(저장 + 미리보기 재합성).
   function _applyBrandColor(hex) {
     try {
@@ -1056,53 +1033,7 @@
   }
   // [#3] 템플릿 카드 썸네일 = 고정 예시 뷰티 이미지(번들 자산). 업로드 사진은 절대 카드에 주입하지 않는다.
   //   사용자 사진은 applyTemplate(적용) 단계에서만 실제 캔버스에 렌더된다.
-  var _TPL_EX = {
-    before_after: 'assets/workshop-cats/cat-1.jpg',
-    feed:         'assets/workshop-cats/cat-3.jpg',
-    review:       'assets/workshop-cats/cat-4.jpg',
-    event:        'assets/workshop-cats/cat-5.jpg',
-    story:        'assets/workshop-cats/cat-3.jpg'
-  };
-  function _tplExample(tpl) { return _TPL_EX[tpl.purpose] || _TPL_EX.feed; }
-  // [이슈4] 카드 썸네일 = "실제 적용되는 템플릿 자체"의 미리보기(사진 없이 레이아웃/배지/카피 렌더).
-  //   PhotoEditorTemplateThumb.make 가 templateId 로 진짜 템플릿을 그려 dataURL 반환 → id별 1회 캐시.
-  //   미로드/실패 시에만 고정 예시(_TPL_EX)로 폴백 — 업로드 사진은 어떤 경우에도 카드에 쓰지 않는다.
-  var _tplThumbCache = {};
-  // [v561·항목5] 붙이기 카드 썸네일 — 사진 없이 분할 레이아웃만(좌우/상하) 그려 의도를 명확히.
-  function _collageThumb(layout) {
-    try {
-      var W = 320, H = 400, gap = 6, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-      var ctx = cv.getContext('2d'); ctx.fillStyle = '#EFE7EA'; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = '#C9B3BC';
-      if (layout === 'tb') { var hh = (H - gap) / 2; ctx.fillRect(0, 0, W, hh); ctx.fillRect(0, hh + gap, W, hh); }
-      else { var hw = (W - gap) / 2; ctx.fillRect(0, 0, hw, H); ctx.fillRect(hw + gap, 0, hw, H); }
-      ctx.fillStyle = '#7A5C66'; ctx.font = '700 30px Pretendard, "Noto Sans KR", sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(layout === 'tb' ? '상하' : '좌우', W / 2, H / 2);
-      return cv.toDataURL('image/png');
-    } catch (_e) { return _TPL_EX.feed; }
-  }
-  // [v535] 템플릿 카드 썸네일 = 사진 없는 '템플릿 디자인 자체'만 렌더(레이아웃/배지/카피).
-  //   업로드 사진은 물론 샘플 사진(cat-*)도 주입하지 않는다 — 카드엔 '이상한 미리 적용 사진'이 보이면 안 됨.
-  //   (v534 에서 넣었던 cat-1/cat-2 샘플 주입 제거. 사진은 적용(applyTemplate) 단계에서만 실제로 들어간다.)
-  function _tplThumb(tpl) {
-    if (_tplThumbCache[tpl.id]) return _tplThumbCache[tpl.id];
-    // [v561·항목5] 붙이기 템플릿은 레이아웃 자체(좌우/상하 분할)를 그려 보여준다.
-    if (tpl.purpose === 'collage') { var cu = _collageThumb(tpl.collage || 'lr'); _tplThumbCache[tpl.id] = cu; return cu; }
-    var url = null;
-    try {
-      if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
-        var ratio = tpl.purpose === 'story' ? '9:16' : (tpl.purpose === 'event' ? '1:1' : '4:5');
-        var shop = '';
-        try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
-        // 사진 미주입 → beautyPack 렌더러가 사진 슬롯을 깔끔한 플레이스홀더로 그린다.
-        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: ratio, shopName: shop });
-      }
-    } catch (_e2) { url = null; }
-    url = url || _tplExample(tpl);
-    _tplThumbCache[tpl.id] = url;
-    return url;
-  }
+  // [T-104 P1] 템플릿 썸네일 클러스터(_TPL_EX·_tplExample·_collageThumb·_tplThumb·캐시) → flow/thumbs.js (상단 별칭)
   // [v531] purpose ↔ 콘텐츠 유형(cat) 매핑 + 유형별 기본 템플릿 조회(home.js 와 공유 저장소).
   // [T-104 P0] _purposeCat → flow/util.js
   function _getDefaultTpl(cat) { return (window.WorkspaceDefaultTpl && window.WorkspaceDefaultTpl.get(cat)) || ''; }
@@ -2275,23 +2206,7 @@
   //  - 밝기/대비/채도: 좌=낮음, 우=높음
   //  - 선명도: 우(+)=또렷(대비 미세 상승), 좌(-)=부드러움(블러)
   //  - 색감: 우(+)=웜(sepia), 좌(-)=쿨(hue를 파랑 쪽으로) — 확정 픽셀은 실제 색온도로 적용
-  function filterCss(a) {
-    a = a || {};
-    var bright = Math.max(0, 1 + (a.brightness || 0) * 0.6 / 100);
-    var contr = Math.max(0, 1 + (a.contrast || 0) / 100);
-    var sat = Math.max(0, 1 + (a.saturation || 0) * 0.8 / 100);
-    var shp = a.sharpness || 0;
-    var contrSharp = shp > 0 ? (contr + shp * 0.2 / 100) : contr;
-    var soft = shp < 0 ? (Math.min(100, -shp) * 0.012) : 0;   // 0~1.2px
-    var color = a.color || 0;
-    var sepia = color > 0 ? Math.min(0.55, color * 0.5 / 100) : 0;   // 웜
-    var coolHue = color < 0 ? color * 0.35 : 0;                       // 쿨(파랑 쪽)
-    var f = 'brightness(' + bright.toFixed(3) + ') contrast(' + contrSharp.toFixed(3) + ') saturate(' + sat.toFixed(3) + ')';
-    if (sepia > 0) f += ' sepia(' + sepia.toFixed(3) + ')';
-    f += ' hue-rotate(' + coolHue.toFixed(1) + 'deg)';
-    if (soft > 0) f += ' blur(' + soft.toFixed(2) + 'px)';
-    return f;
-  }
+  // [T-104 P1] filterCss → flow/util.js
 
   // [이슈9] 편집 진입 시 현재 편집 사진의 부위 마스크/모델을 미리 워밍업(사진별 1회).
   //   슬라이더를 만지기 전에 sclera/brow/eyelash 마스크가 캐시에 차도록 → 헤어볼륨/눈썹/눈가가 실제로 적용됨.
