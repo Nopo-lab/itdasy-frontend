@@ -300,13 +300,9 @@
     }).join('') + '</div>';
   }
   function _recoChips() {
-    return '<div class="itfstk">' +
-      '<button type="button" class="itfs loc" data-feat="loc" data-r="featLoc">' + IC.loc + '<span data-r="featLocTx">위치</span></button>' +
-      '<button type="button" class="itfs book" data-feat="book">' + IC.book + '예약 링크</button>' +
-      '<button type="button" class="itfs phone" data-feat="phone">' + IC.phone + '전화</button>' +
-      '<button type="button" class="itfs price" data-feat="price">' + IC.price + '가격</button>' +
-      '<button type="button" class="itfs time" data-feat="time">' + IC.time + '시간</button>' +
-    '</div>';
+    // [2026-07-10] 기능 스티커(위치·예약·전화·가격·시간)는 '작업실 설정'으로 이관 — 편집기에서 완전 제거.
+    //   입력은 작업실 홈 → 설정에서. 값은 캡션 샵정보 자동첨부로 반영. (addFeatureLayer/SHOP_INFO_KEY 는 롤백용 보존)
+    return '';
   }
   // 활성 탭 그리드만 렌더 + 동적 refs 재캡처/바인딩(featLocTx·myStk·stkUpload).
   function _renderStkTab(key) {
