@@ -110,8 +110,16 @@ async function _finishLoginLoad(withGreeting) {
 // 이 레포(itdasy-frontend-test-yeunjun)는 연준 스테이징 전용 → 스테이징 백엔드 바라봄
 // 운영 레포(itdasy-frontend)는 운영 백엔드(별도 Cloud Run 서비스/커스텀 도메인)를 사용해야 함
 const PROD_API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
+// [dev] 로컬에서 스테이징 백엔드로 붙어 테스트: ?api=staging (또는 localStorage itdasy_api=staging).
+//   localhost 전용 · 명시적 opt-in만 · 운영/배포엔 영향 없음. 로컬 백엔드 안 띄우고 스테이징으로 검증할 때.
+const _API_STAGING_OVERRIDE = (function () {
+  try {
+    if (/[?&]api=staging/.test(location.search)) { try { localStorage.setItem('itdasy_api', 'staging'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지되게 고정
+    return localStorage.getItem('itdasy_api') === 'staging';
+  } catch (_e) { return false; }
+})();
 const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:8000'
+  ? (_API_STAGING_OVERRIDE ? PROD_API : 'http://localhost:8000')
   : PROD_API;
 
 function apiUrl(path) {

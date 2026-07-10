@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8093"],
       "port": 8093
+    },
+    {
+      "name": "itdasy-5500",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5500"],
+      "port": 5500
     }
   ]
 }

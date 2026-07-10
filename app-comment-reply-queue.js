@@ -217,4 +217,27 @@
 
   window.openCommentReplyQueue = openCommentReplyQueue;
   window.closeCommentReplyQueue = closeCommentReplyQueue;
+
+  // [dev] ?crq=1 이면 우측하단 테스트 진입 버튼(로그인 후 탭). 실배포 진입점은 연동 허브에 별도 연결 예정.
+  try {
+    var _crqDev = false;
+    try {
+      if (/[?&]crq=1/.test(location.search)) { localStorage.setItem('itdasy_crq', '1'); _crqDev = true; }
+      else { _crqDev = localStorage.getItem('itdasy_crq') === '1'; }
+    } catch (_ls) { _crqDev = /[?&]crq=1/.test(location.search); }
+    if (_crqDev) {
+      var _mountBtn = function () {
+        if (document.getElementById('crqDevBtn')) return;
+        var b = document.createElement('button');
+        b.id = 'crqDevBtn';
+        b.type = 'button';
+        b.textContent = '댓글 응대(테스트)';
+        b.style.cssText = 'position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:9000;background:#191F28;color:#fff;border:none;border-radius:22px;padding:12px 18px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;';
+        b.addEventListener('click', openCommentReplyQueue);
+        document.body.appendChild(b);
+      };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _mountBtn);
+      else _mountBtn();
+    }
+  } catch (_e) { void _e; }
 })();
