@@ -1996,37 +1996,7 @@
   }
 
   // [C5] 고객 연결 — 컬러바+방문횟수 배지, 아바타 없음
-  function renderConnect() {
-    var recent = d.recent || [];
-    var listHtml;
-    if (recent.length) {
-      listHtml = recent.map(function (c) {
-        var sel = String(d.customerId) === String(c.id);
-        var bc = barClass(c.vc || 0);
-        var vcLabel = c.vc ? c.vc + '회' : '첫 방문';
-        return '<div class="cust-card' + (sel ? ' selected' : '') + '" data-fl-cust="' + esc(c.n) + '" data-fl-custid="' + esc(c.id) + '">' +
-          '<span class="cust-bar ' + bc + '"></span>' +
-          '<div class="cust-info"><h3>' + esc(c.n) + '<span class="cust-badge ' + bc + '">' + esc(vcLabel) + '</span></h3>' + (c.p ? '<p>' + esc(c.p) + '</p>' : '') + '</div>' +
-          '<span class="cust-pick"><i class="ph-bold ' + (sel ? 'ph-check' : 'ph-plus') + '"></i></span></div>';
-      }).join('');
-    } else {
-      listHtml = '<div class="cust-empty">' + (d.recentLoaded ? '최근 연결한 고객이 아직 없어요.<br>아래에서 고객을 선택/등록해 주세요.' : '불러오는 중…') + '</div>';
-    }
-    var linkedName = d.customerName || '';
-    var linkedVc = d.customerVc || 0;
-    var linkedBc = barClass(linkedVc);
-    return '' +
-      '<div class="screen-head"><h2>고객을 선택하거나<br>새로 연결해 주세요</h2><p>연결하면 작업실에 자동 저장되고, 시술 기록이 함께 남아요.</p></div>' +
-      '<div class="cust-search"><i class="ph-duotone ph-magnifying-glass"></i><input data-fl-custsearch placeholder="이름, 전화번호 검색"></div>' +
-      '<div class="cust-row"><b>최근 고객</b><a data-fl="pickcust">더보기 ›</a></div>' +
-      '<div data-fl-custlist>' + listHtml + '</div>' +
-      '<div class="linked-card"><div class="linked-title"><i class="ph-duotone ph-user-circle"></i> 연결된 고객</div>' +
-        '<div class="linked-main">' +
-          '<span class="cust-bar ' + (linkedName ? linkedBc : 'b1') + '"></span>' +
-          '<div><b>' + esc(linkedName || '고객 미선택') + '</b>' + (linkedName ? '<span class="cust-badge ' + linkedBc + '">' + (linkedVc ? linkedVc + '회' : '첫 방문') + '</span>' : '') + '<span>오늘 촬영한 사진과 게시글을 이 고객 기록에 저장해요.</span></div>' +
-        '</div>' +
-        '<div class="linked-actions"><button class="lk-btn pink" data-fl="pickcust">+ 새 고객 등록</button><button class="lk-btn" data-fl="skipcust">연결 없이 진행</button></div></div>';
-  }
+  // [T-104 P4] renderConnect → flow/connect.js (상단 별칭)
 
   // ── [ws-hyper] 레이아웃 고르기 화면 ─────────────────────────
   // [T-104 P2] 레이아웃 화면 클러스터(renderLayout·_ws*·_fillLayoutText) → flow/layout.js (context 주입)
@@ -2037,6 +2007,12 @@
   var renderLayout = _WSL.renderLayout, _wsSaveMyLayout = _WSL._wsSaveMyLayout, _wsDeleteMyLayout = _WSL._wsDeleteMyLayout,
     _wsTrayPick = _WSL._wsTrayPick, _wsMountStage = _WSL._wsMountStage, _wsSelectLayout = _WSL._wsSelectLayout,
     _wsLayoutEditState = _WSL._wsLayoutEditState, _fillLayoutText = _WSL._fillLayoutText;
+
+  // [T-104 P4] 고객 연결 화면 클러스터(renderConnect·loadRecent·pickCustomer·_connectByName) → flow/connect.js (context 주입)
+  var _WSC = (window.WSFlowConnect && window.WSFlowConnect.create) ? window.WSFlowConnect.create({
+    d: function () { return d; }, cur: function () { return cur; }, setScreen: setScreen
+  }) : {};
+  var renderConnect = _WSC.renderConnect, loadRecent = _WSC.loadRecent, pickCustomer = _WSC.pickCustomer, _connectByName = _WSC._connectByName;
 
   var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
 
@@ -2107,15 +2083,7 @@
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
 
-  function loadRecent() {
-    if (d.recentLoaded || d._recentLoading) return;
-    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.recentCustomers)) { d.recentLoaded = true; return; }
-    d._recentLoading = true;
-    window.WorkspaceAdapter.recentCustomers(5).then(function (list) {
-      d.recent = list || []; d.recentLoaded = true; d._recentLoading = false;
-      if (cur === 'connect') setScreen('connect');
-    });
-  }
+  // [T-104 P4] loadRecent → flow/connect.js
 
 	  // 생성 직전 입력창의 최신 값을 직접 읽음 — input 이벤트 누락/IME 미확정으로 키워드 빠지는 것 방지.
 	  function syncServiceFromDom() {
@@ -3678,15 +3646,7 @@
     });
   }
 
-  function pickCustomer() {
-    if (!window.WorkspaceAdapter) { toast('고객 모듈을 불러오지 못했어요'); return; }
-    window.WorkspaceAdapter.pickCustomer(d.customerId).then(function (r) {
-      if (r.ok) {
-        d.customerId = r.id; d.customerName = r.name; d.customerVc = r.vc || 0;
-        setScreen('connect'); toast(r.name + ' 고객과 연결했어요.');
-      } else if (r.toast) toast(r.toast);
-    });
-  }
+  // [T-104 P4] pickCustomer → flow/connect.js
 
   function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
@@ -3971,21 +3931,7 @@
     return { ok: true };
   }
   // 이름으로 고객 연결 — 전역 Customer.search 우선, 없으면 최근 고객 매칭. 못 찾으면 connect 화면 안내.
-  function _connectByName(name) {
-    name = String(name || '').trim();
-    if (!name) { setScreen('connect'); return { ok: true, matched: false }; }
-    d.custQuery = name;
-    var hit = null;
-    try {
-      if (window.Customer && typeof window.Customer.search === 'function') {
-        var m = window.Customer.search(name) || [];
-        if (m[0]) hit = { id: m[0].id, n: m[0].name, vc: m[0].visit_count || m[0].vc || 0 };
-      }
-    } catch (_e) { hit = null; }
-    if (!hit) hit = (d.recent || []).filter(function (c) { return c && c.n && (c.n === name || c.n.indexOf(name) >= 0 || name.indexOf(c.n) >= 0); })[0] || null;
-    if (hit) { d.customerId = hit.id; d.customerName = hit.n; d.customerVc = hit.vc || 0; setScreen('connect'); toast(hit.n + ' 고객과 연결했어요'); return { ok: true, matched: true }; }
-    setScreen('connect'); toast('"' + name + '" 고객을 못 찾았어요 — 목록에서 골라주세요'); return { ok: true, matched: false };
-  }
+  // [T-104 P4] _connectByName → flow/connect.js
   function command(cmd) {
     cmd = cmd || {};
     switch (cmd.type) {
