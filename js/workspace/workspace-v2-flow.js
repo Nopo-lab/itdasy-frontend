@@ -19,42 +19,17 @@
   try { if (/[?&]photoDebug=1/.test(location.search || '')) window.__ITDASY_PHOTO_DEBUG__ = true; } catch (_e) { void _e; }
 
   // [C6] 단계 순서 변경: connect가 preview 앞으로
-  // [v560] 'template' step 신설 — 편집과 게시글 사이. 전/후 클릭 지정 + 템플릿 선택을 한 화면에서.
-  var SCREENS = ['upload', 'edit', 'template', 'caption', 'connect', 'preview'];
-  // [Phase A-1] 심플 플로우 — 편집/템플릿 단계를 기본 경로에서 숨김(사진→게시글→고객→미리보기).
-  //   기능/코드는 삭제하지 않고 보존: edit/template 화면·핸들러 그대로 두고 '기본 다음 경로'에서만 제외.
-  //   (Phase A-2에서 캡션 화면의 '직접 편집' 진입점으로 edit/template 도달 경로를 다시 연결한다.)
-  //   롤백: window.ITDASY_WS_SIMPLE_FLOW = false → 기존 6단계 플로우 그대로 복원.
+  // [refactor S1] 스텝 정의(순서·제목·CTA)를 flow/steps.js 단일 레지스트리(WSFlowSteps)로 이관.
+  //   아래 SCREENS/VISIBLE_SCREENS/TITLE/CTA 는 기존 인라인 로직과 100% 동일 산출 = 무동작변경. 변경은 이제 steps.js 한 곳에서.
+  //   플래그는 유지(다른 로직서 참조): SIMPLE_FLOW=편집/템플릿 숨김, AUTO_EDITOR=캡션후 편집기 자동오픈(!HYPER), HYPER=레이아웃 스텝.
   var SIMPLE_FLOW = (window.ITDASY_WS_SIMPLE_FLOW !== false);
-  // [워크플로 재정렬] 캡션 생성 후 편집기 자동 오픈(레이아웃 반영). 문제 시 window.ITDASY_WS_AUTO_EDITOR=false 로 이것만 끔.
   var AUTO_EDITOR = (window.ITDASY_WS_AUTO_EDITOR !== false);
-  // 진행 표시(단계 X/N·진행바)·다음 화면 계산에 쓰는 '실제로 보이는 단계' 목록.
-  // [v592] 워크플로 재배치 — 업로드 → 캡션 생성(편집) → 인스타 미리보기(게시) → 고객 연결(마지막).
-  //   인스타 미리보기를 다시 별도 단계로(미리보기+피드+게시), 고객연결은 게시 뒤 마지막.
-  // [통합 편집기] 업로드→(ItdEditor)→캡션→(ItdEditor)→미리보기→고객연결. 옛 crop 'edit' 화면은 플로우에서 제외(편집기 단독).
-  var VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'caption', 'preview', 'connect'] : SCREENS;
-  var TITLE = { upload:'사진 업로드', edit:'편집', template:'템플릿 선택', caption:'게시글 만들기', connect:'고객 연결', preview:'인스타 미리보기' };
-  var CTA = {
-    upload: { l:'편집으로 →', to:'edit' },   // '추가'(머무름)와 구분 — 이 버튼만 편집 화면으로 이동
-    edit:   { l:'저장하고 게시글 쓰기', to:'caption' },   // [v560] 좌측 절반. 우측 'cta2'=템플릿 선택하기.
-    template:{ l:'이대로 게시글 쓰기', to:'caption' },
-    caption:{ l:'인스타 미리보기로', to:'preview' },   // [v592] 캡션 결과 → 인스타 미리보기 단계
-    preview:{ l:'고객 연결로', to:'connect' },          // [v592] 미리보기(게시) → 고객 연결
-    connect:{ l:'저장하고 완료', to:'__save' },         // 고객연결=마지막 단계 → 저장 후 작업실로
-  };
-  // [통합 편집기] 업로드 다음 = ItdEditor(사진 편집) — onCta 에서 _openEditFirst() 로 연다. to:'edit' 는 폴백 표식.
-  if (SIMPLE_FLOW) CTA.upload = { l:'사진 편집 →', to:'__edit' };
-  // [Phase A-2] 캡션 화면 명칭을 스펙(이미지 01)에 맞춰 '캡션 생성'으로(상단 타이틀).
-  if (SIMPLE_FLOW) TITLE.caption = '캡션 생성';
-  // [ws-hyper] 초고도화 — 업로드 다음 '레이아웃 고르기' 스텝 삽입. ★플래그 OFF면 이 블록 통째 스킵 = 현행 그대로★
   var HYPER = (window.ITDASY_WS_HYPER === true);
-  if (HYPER) {
-    if (SCREENS.indexOf('layout') < 0) SCREENS.splice(1, 0, 'layout');   // upload 다음
-    VISIBLE_SCREENS = SIMPLE_FLOW ? ['upload', 'layout', 'caption', 'preview', 'connect'] : SCREENS;
-    TITLE.layout = '레이아웃 고르기';
-    CTA.upload = { l: '레이아웃 고르기 →', to: 'layout' };
-    CTA.layout = { l: '이대로 게시글 쓰기', to: 'caption' };
-  }
+  var _wsSteps = window.WSFlowSteps.build({ hyper: HYPER, simple: SIMPLE_FLOW, autoEditor: AUTO_EDITOR });
+  var SCREENS = _wsSteps.SCREENS;                 // 슬라이드 방향 인덱스용(connect 가 preview 앞 — 기존 보존)
+  var VISIBLE_SCREENS = _wsSteps.VISIBLE_SCREENS; // 진행바/다음화면 UX 순서(preview 가 connect 앞)
+  var TITLE = _wsSteps.TITLE;
+  var CTA = _wsSteps.CTA;
   // [v592] preview: 화면 안에 '저장 및 게시' 버튼 + 하단 CTA '고객 연결로'(다음 단계). 게시는 선택, 연결로 진행.
   var CAT_CTX = {
     ba:     { purpose: 'before_after', captionMode: 'normal', role: 'auto', tplLabel: '전후' },
