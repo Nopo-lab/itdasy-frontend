@@ -138,3 +138,22 @@
 | 과장·의료 표현 | medical_ad_guard·draft-policy 통과 강제 |
 
 _결론: 신규 코드 작음(어댑터+필터+분기), 진짜 관문은 Meta 심사. 선택적 필터 = 위험↓·가치↑·심사명분↑._
+
+---
+
+## 11. 고도화 진행 (2026-07-11)
+
+**완료·배포:**
+- 분류 v2/v3: 스팸·칭찬·제품출처 제외 / 불만(complaint, 최우선)·시술(service)·단골(returning) 추가 / 코퍼스 60+건 0오분류.
+- 톤 분기: 불만=사과·비영업, 시술=안내, 단골=반갑게. 오해방지(공개답글 "DM보냈어요" 단정 금지).
+- idempotency: CommentReplyLog로 응대한 댓글 큐 영구 제외(실검증 완료).
+- 비용: CommentDraftCache로 댓글당 LLM 1회.
+- 말투 학습: DMOwnerReplySample few-shot 주입 + 편집발송 학습(DM과 통합).
+- 확신도: high/low(불만=high). FE '확실' 배지.
+- DM처럼: 매뉴얼 멘트 재사용('내 멘트'), 인라인 수정('수정함').
+
+**남은 것 — Phase 3 실시간 자동응답(웹훅) — 미구현·검증필요:**
+1. Meta 앱 대시보드에서 **`comments` 필드 웹훅 구독**(원장 설정, manage_comments처럼).
+2. 웹훅 핸들러: 댓글 수신 → 분류 → **confidence=high & intent≠complaint & 미응대 & 자동모드ON** 이면 자동 공개답글, 아니면 큐로.
+3. 안전장치: 불만·애매(low)는 절대 자동 X, rate limit, CommentReplyLog idempotency, 기본 OFF(opt-in).
+4. ⚠️ **공개 오발송 위험 + 실댓글 웹훅 없이는 E2E 검증 불가** → 켜기 전 반드시 실검증. 검증 없이 자동 공개발송 활성화 금지.
