@@ -328,7 +328,7 @@
       var auth = window.authHeader ? window.authHeader() : {};
       window.apiFetch(window.apiUrl('/instagram/comment-reply'), {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, auth),
-        body: JSON.stringify({ comment_id: it.commentId, public_text: pubText, dm_text: dmText, media_id: it.mediaId, intent: it.intent })
+        body: JSON.stringify({ comment_id: it.commentId, public_text: pubText, dm_text: dmText, media_id: it.mediaId, intent: it.intent, edited: !!it._override, question: it.text })
       }).then(function (r) { return r.json().catch(function () { return {}; }); })
         .then(function (j) { _toast(j && j.ok ? ('공개답글 달림 · DM 전송됨 (' + it.name + ')') : ('일부 실패 — ' + JSON.stringify((j && (j.public || j.dm)) || j).slice(0, 80))); })
         .catch(function () { _toast('발송 실패 — 다시 시도해 주세요'); });
