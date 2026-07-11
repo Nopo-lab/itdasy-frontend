@@ -1841,7 +1841,18 @@
   }) : {};
   var renderConnect = _WSC.renderConnect, loadRecent = _WSC.loadRecent, pickCustomer = _WSC.pickCustomer, _connectByName = _WSC._connectByName;
 
-  var RENDER = { upload:renderUpload, layout:renderLayout, edit:renderEdit, template:renderTemplate, caption:renderCaption, connect:renderConnect, preview:renderPreview };
+  // [refactor S2] 스텝별 동작(render + onEnter mount)을 한 맵에 co-locate — 기존 RENDER 맵 + setScreen 의 흩어진 if(name===) mount 사다리를 대체.
+  //   스텝 추가/변경 시 여기 한 줄만 손보면 됨(흩어진 mount 분기 제거 = 고아코드 방지).
+  var _rafFx = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+  var STEP_FX = {
+    upload:   { render: renderUpload },
+    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); } },
+    edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); } },
+    template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
+    caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); } },
+    connect:  { render: renderConnect,  onEnter: function () { loadRecent(); } },
+    preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
+  };
 
   // 드래그 중 라이브 미리보기(CSS). 손 떼면 applyWorkspaceCorrections(실픽셀)로 확정.
   //  - 밝기/대비/채도: 좌=낮음, 우=높음
@@ -1877,7 +1888,7 @@
         // [v566·scope5] 템플릿 사진 스트립의 가로 스크롤 위치 보존(재렌더로 1번째로 튕김 방지).
         var _ps = s.querySelector('[data-fl-tplstrip]');
         var _pl = _ps ? _ps.scrollLeft : 0;
-        s.innerHTML = RENDER[name]();
+        s.innerHTML = STEP_FX[name].render();
         if (_pl) { var _ns = s.querySelector('[data-fl-tplstrip]'); if (_ns) _ns.scrollLeft = _pl; }
       }
       s.classList.toggle('active', on);
@@ -1901,12 +1912,7 @@
     //  생성 전(결과 없음)엔 하단 CTA 숨김 → 칩을 눌러 생성. 생성 후 '고객 연결로' 노출.
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
     var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
-    if (name === 'caption') _mountCaption();
-    if (name === 'layout') _wsMountStage();   // [ws-hyper] 인터랙티브 슬롯 스테이지 장착(동기 — host 이미 렌더됨)
-    if (name === 'edit') { _warmEditMasks(); var _rc = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rc(function () { _mountCarousel(); }); }   // [v541] 결과 캐러셀 스와이프 바인딩
-    if (name === 'template') { var _rt = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rt(function () { _mountCarousel(); }); }   // [v560] 템플릿 화면 상단 큰 사진 스와이프
-    if (name === 'preview') { var _rp = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rp(function () { _mountCarousel(); }); }   // [v564·필수6] 인스타 미리보기 carousel 스와이프
-    if (name === 'connect') loadRecent();
+    var _fx = STEP_FX[name]; if (_fx && _fx.onEnter) _fx.onEnter();   // [refactor S2] 흩어진 mount 사다리 → 스텝 onEnter 일괄(순서·동작 동일)
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
 
