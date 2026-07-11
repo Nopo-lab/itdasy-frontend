@@ -34,7 +34,7 @@
       dmDraft: '서울 강남구 테헤란로 12길 34, 5층이에요. 건물 주차 2시간 무료!' }
   ];
 
-  var _INTENT_KO = { price: '가격 문의', booking: '예약 문의', location: '위치 문의', hours: '영업시간 문의' };
+  var _INTENT_KO = { price: '가격 문의', booking: '예약 문의', location: '위치 문의', hours: '영업시간 문의', service: '시술 문의', complaint: '불만·요청' };
   var _FILTERS = [
     { k: 'all', label: '전체' }, { k: 'price', label: '가격' },
     { k: 'booking', label: '예약' }, { k: 'location', label: '위치' }
@@ -91,7 +91,7 @@
     var d = _drafts(it.intent);
     return { id: it.comment_id, commentId: it.comment_id, mediaId: it.media_id || '', name: it.username ? ('@' + it.username) : '손님',
       av: (it.username || '?').slice(0, 1), intent: it.intent, media: '게시물 댓글', likes: it.like_count || 0,
-      waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual,
+      waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual, returning: !!it.returning,
       publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
   }
 
@@ -130,7 +130,10 @@
         '<div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;font-size:13px;font-weight:700;">' + _esc(it.av) + '</div>' +
         '<div style="flex:1;min-width:0;">' +
           '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;font-weight:700;color:#191F28;">' + _esc(it.name) + '</span>' +
-            '<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:8px;padding:2px 7px;">문의</span></div>' +
+            (it.intent === 'complaint'
+              ? '<span style="font-size:10px;font-weight:700;color:#DC2626;background:#FEF2F2;border-radius:8px;padding:2px 7px;">불만</span>'
+              : '<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:8px;padding:2px 7px;">문의</span>') +
+            (it.returning ? '<span style="font-size:10px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:8px;padding:2px 7px;">단골</span>' : '') + '</div>' +
           '<div style="font-size:11px;color:#8B95A1;margin-top:1px;">' + (it.waiting <= 0 ? '방금' : it.waiting + '분 전') + ' · ' + _esc(_INTENT_KO[it.intent] || '문의') + '</div>' +
         '</div>' +
       '</div>' +
