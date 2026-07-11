@@ -367,6 +367,28 @@
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'block';
     _refreshDmMenuToggle(sheet); // 백엔드 enabled 로 빠른 안내 토글 교정
+    _refreshCommentCount(sheet); // '댓글 문의 응대' 대기 건수 뱃지(원장이 놓치지 않게)
+  }
+
+  // 댓글 문의 대기 건수 → '댓글 문의 응대' 행에 뱃지(초안 생성 없이 count_only, 저비용)
+  async function _refreshCommentCount(sheet) {
+    try {
+      const ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
+      if (!ig || !ig.connected || !window.apiFetch) return;
+      const res = await window.apiFetch(window.apiUrl('/instagram/comment-queue?count_only=1'), { headers: window.authHeader ? window.authHeader() : {} });
+      const j = await res.json().catch(() => ({}));
+      const n = (j && j.count) || 0;
+      const right = sheet.querySelector('.ms-aih__row[data-act="comment"] .ms-aih__right');
+      if (!right) return;
+      const old = right.querySelector('.aih-crq-count'); if (old) old.remove();
+      if (n > 0) {
+        const b = document.createElement('span');
+        b.className = 'aih-crq-count';
+        b.textContent = n + '건 대기';
+        b.style.cssText = 'font-size:11px;font-weight:700;color:#fff;background:' + (j.complaint > 0 ? '#DC2626' : '#BC6675') + ';border-radius:10px;padding:2px 9px;margin-right:6px;white-space:nowrap;';
+        right.insertBefore(b, right.firstChild);
+      }
+    } catch (_e) { void _e; }
   }
   function close() {
     const sheet = document.getElementById('aiHubSheet');
