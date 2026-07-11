@@ -30,12 +30,15 @@
 
 /* 슬롯 스키마틱 미니 프레임 — [2026-07-06] 고정높이 박스 안에 실제 비율 프레임 중앙정렬(카드 높이 통일) */
 .wsl-fbox { height: 96px; display: flex; align-items: center; justify-content: center; }
-.wsl-frame { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 0.8; background: var(--frame, #E8ECF1); border-radius: 8px; overflow: hidden; }
+/* [design] 미리보기 썸네일 — 솔리드 스키매틱은 'AI 티'가 나서, 살짝 투명·유리(frosted) 느낌으로 부드럽게. */
+.wsl-frame { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 0.8; background: rgba(232, 236, 241, .42); border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,.45); }
 .wsl-frame > i {
-  position: absolute; background: linear-gradient(135deg, #fff, var(--surface-2, #F7F8FA));
-  border: 1px solid var(--border, rgba(0,0,0,.07)); box-sizing: border-box; border-radius: 3px;
+  position: absolute; background: linear-gradient(135deg, rgba(255,255,255,.72), rgba(247,248,250,.4));
+  border: 1px solid rgba(255,255,255,.5); box-sizing: border-box; border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 2px rgba(25,31,40,.05);
 }
-.wsl-card.on .wsl-frame > i { border-color: var(--brand-bg, #F7EFF0); background: linear-gradient(135deg, var(--brand-bg, #F7EFF0), #fff); }
+.wsl-card.on .wsl-frame { background: rgba(247, 239, 240, .5); }
+.wsl-card.on .wsl-frame > i { border-color: rgba(213,138,149,.35); background: linear-gradient(135deg, rgba(247,239,240,.78), rgba(255,255,255,.55)); }
 
 .wsl-card__name { font-size: 11.5px; font-weight: 700; color: var(--text, #191F28); text-align: center; letter-spacing: -0.02em; }
 
