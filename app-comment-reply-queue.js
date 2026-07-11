@@ -43,6 +43,7 @@
   var ITEMS = SEED.slice();   // 렌더 대상 — 실연동 성공 시 실댓글로 교체
   var _realMode = false;      // true = 실제 인스타 댓글 로드됨
   var _loading = false;
+  var _weekReplied = 0;       // 이번 주 응대 건수(영업왕 체감)
 
   // ── 자동응답 설정 (DM처럼 세팅) — localStorage 저장 ──
   var _EMOJI_OPTS = ['😊', '🤍', '✨', '💕', '🎀', '💝', ''];
@@ -192,7 +193,13 @@
       .filter(function (it) { return _filter === 'all' || it.intent === _filter; });
     var cards = items.length ? items.map(_cardHtml).join('') :
       '<div style="text-align:center;color:#C9CDD4;font-size:13px;padding:40px 0;">이 조건의 문의 댓글이 없어요</div>';
-    return _demoBanner() + _tabsHtml() + cards +
+    var stat = (_realMode && (_weekReplied > 0 || items.length > 0))
+      ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:11px 13px;background:#F7F8FA;border-radius:12px;">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 9l-5 5-3-3-4 4"/></svg>' +
+          '<span style="font-size:12.5px;color:#4E5968;">이번 주 <b style="color:#0F766E;">' + _weekReplied + '건</b> 응대' +
+          (items.length ? ' · 대기 <b style="color:#191F28;">' + items.length + '건</b>' : ' · 대기 없음') + '</span></div>'
+      : '';
+    return _demoBanner() + stat + _tabsHtml() + cards +
       '<div style="font-size:11px;color:#C9CDD4;text-align:center;margin-top:12px;">애매한 댓글은 큐에 안 올라와요 · 확실한 문의만</div>';
   }
 
@@ -351,6 +358,7 @@
       .then(function (r) { return r.json().catch(function () { return {}; }); })
       .then(function (j) {
         _loading = false;
+        _weekReplied = (j && j.week_replied) || 0;
         var arr = (j && j.items) || [];
         if (arr.length) { ITEMS = arr.map(_mapReal); _realMode = true; }
         else { ITEMS = SEED.slice(); _realMode = false; }   // 권한 없음/문의 댓글 0 → 시드 폴백
