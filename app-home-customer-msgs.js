@@ -56,6 +56,13 @@
     return it.display_name || ('손님 …' + (it.sender_tail || (it.sender_igsid || '').slice(-4)));
   }
 
+  // [2026-06-16] 채널 마크 — 아바타 좌상단 모서리(원형 아바타 코너 여백이라 프사 안 가림, X=우상단·언리드닷과 충돌 X). 공유 모듈 정본.
+  function _channelMark(channel) {
+    return (window.ChannelMark && window.ChannelMark.mark)
+      ? window.ChannelMark.mark(channel, { size: 16, pos: 'position:absolute;top:-2px;left:-2px;' })
+      : '';
+  }
+
   // ── 카드 HTML (모든 카드 = 답장 필요 → 로즈 점 ON) ─────────
   function _cardHtml(it) {
     const name = _name(it);
@@ -74,7 +81,7 @@
     return `<button type="button" class="hv5-cmsg-card" data-cmsg-sender="${sid}" data-cmsg-id="${id}">
       <span class="hv5-cmsg-x" data-cmsg-discard="${id}" data-cmsg-sender="${sid}" role="button" tabindex="0" aria-label="${_esc(name)} 지우기">✕</span>
       <div class="hv5-cmsg-ctop">
-        <div class="hv5-cmsg-av is-unread">${_AVATAR_SVG}${avImg}</div>
+        <div class="hv5-cmsg-av">${_AVATAR_SVG}${avImg}${_channelMark(it.channel)}</div>
         <div class="hv5-cmsg-id">
           <div class="hv5-cmsg-nm">${_esc(name)}</div>
           <div class="hv5-cmsg-tm">${_esc(_relTime(it.received_at))}</div>
@@ -111,6 +118,17 @@
     </button>`;
   }
 
+  // 토큰 정상 + 0건 → 빈 상태 카드 (상시 표시). 인라인 style: _ensureStyles 1회 주입이라 새 클래스 안 먹을 수 있음.
+  function _emptyStateHtml() {
+    return `<div style="width:100%;display:flex;align-items:center;gap:11px;background:var(--surface);border:.5px solid var(--border);border-radius:16px;padding:13px;box-shadow:var(--shadow-sm);">
+      <span style="width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <span style="min-width:0;">
+        <span style="display:block;font-size:13.5px;font-weight:700;color:var(--text-subtle);">새 메시지 없어요</span>
+        <span style="display:block;font-size:11px;color:var(--text-subtle);margin-top:2px;">메시지가 오면 여기에 미리보기가 떠요</span>
+      </span>
+    </div>`;
+  }
+
   // ── 렌더 (캐시 → DOM) ──────────────────────────────────────
   function _renderFromCache() {
     const sec = document.getElementById('hv5Cmsg');
@@ -130,13 +148,15 @@
       return;
     }
     if (!items.length) {
-      // 0건 — 토큰 끊겼으면 '재연결' 배너, 아니면 진짜 0건 → 숨김
+      // 0건 — 토큰 끊겼으면 '재연결' 배너, 아니면 빈 상태 카드 상시 표시
       if (_tokenValid === false) {
         sec.hidden = false;
         row.innerHTML = _reconnectBannerHtml();
         if (cnt) cnt.textContent = '';
       } else {
-        sec.hidden = true;
+        sec.hidden = false;
+        if (cnt) cnt.textContent = '';
+        row.innerHTML = _emptyStateHtml();
       }
       return;
     }

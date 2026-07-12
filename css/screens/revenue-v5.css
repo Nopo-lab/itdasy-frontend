@@ -696,7 +696,8 @@
 }
 
 /* [2026-05-04] 매출관리 인라인 탭 통일 — 사이드바 항상 보임, fade 0.08s.
-   PC 에서 사이드바(232px) 우측 영역만 차지. 자체 ms-side 는 숨김 (중복 방지). */
+   PC 에서 사이드바 우측 영역만 차지(오프셋은 style-responsive.css 가 var(--side-nav-width)로 일괄).
+   자체 ms-side 는 숨김 (중복 방지). */
 body.rv-mode { overflow: hidden; }
 @keyframes rv-fade-in {
   from { opacity: 0; }

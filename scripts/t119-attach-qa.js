@@ -139,11 +139,13 @@ async function main() {
   const ok2 = await page.evaluate(a => window.__attach({ customer: { id: 5, name: 'OK' }, dataUrl: a, source: 'photoeditor_attach' }), A);
   report.backend = { successRes: { ok: ok1.ok, remote: ok1.remote }, dupSecondWasDup: ok2.wasDuplicate, postCallsForTwoAttach: treatmentsPost - okBefore, note: '중복이어도 _createBackend 는 매번 POST(중복 시 backend 반복 — 관찰값)' };
 
-  // ── currentCustomer 없음: photo-flow confirmSave 안내 (직접 호출) ──
+  // ── 옛 photo-flow 제거 확인: 고객 저장 안내는 사진모드/ActionHub 쪽에서 처리 ──
   report.scenarios.no_customer = await page.evaluate(async () => {
-    if (!(window.ItdasyPhotoFlow && window.ItdasyPhotoFlow.confirmSave)) return { skip: 'no photo-flow' };
-    // pending 강제 주입 + currentCustomer 없음 → needCustomer 안내 기대. (canvas 없으면 그 전 단계 메시지)
-    return { hasConfirmSave: true, note: 'photo-flow.js:176-178 currentCustomer 없으면 needCustomer 안내(자동 추측 금지) — 정적 확인' };
+    return {
+      oldPhotoFlowGone: !window.ItdasyPhotoFlow,
+      photoModeReady: !!(window.ItdasyPhotoMode && window.ItdasyPhotoModeSupport),
+      note: '옛 photo-flow 저장 확인은 제거. 고객 저장 버튼은 사진모드 결과의 ActionHub 확인 경로 사용.',
+    };
   });
 
   // ── export 경로 토스트 분기 (T-119-A): 성공 / 중복 / 서버실패 ──

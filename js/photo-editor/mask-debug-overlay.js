@@ -31,12 +31,13 @@
   const OVERLAY_ID = 'peMaskDebugOverlay';
   const COLORS = {
     skinMask:         [255, 120, 170], // 핑크
-    hairMask:         [0,   210, 230], // 시안
+    hairMask:         [145, 90,  220], // 보라
     lipMask:          [255, 60,  90],  // 빨강
-    eyeMask:          [255, 220, 0],   // 노랑
+    eyeMask:          [70,  130, 240], // 파랑
     backgroundMask:   [140, 140, 140], // 회색
-    nailMask:         [120, 255, 140], // 그린
-    handSkinMask:     [255, 180, 100], // 오렌지
+    browMask:         [90,  200, 110], // 초록
+    nailMask:         [240, 110, 175], // 핑크
+    handSkinMask:     [240, 160, 70],  // 주황
     eyelashBandMask:  [180, 80,  255], // 보라
     hairBoundaryMask: [0,   180, 255], // 라이트블루
     scleraMask:       [80,  220, 255], // PE-M1 흰자(밝은 청록)
@@ -49,6 +50,7 @@
   }
 
   function isEnabled() {
+    if (window.__ITDASY_PHOTO_DEBUG__) return true;   // [v537] 통합 사진편집 디버그 플래그
     try {
       if (window.localStorage && localStorage.getItem('PE_MASK_DEBUG') === '1') return true;
     } catch (_e) { /* ignore */ }

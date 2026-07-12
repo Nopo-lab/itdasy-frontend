@@ -1,0 +1,107 @@
+/* 작업실 초고도화 — 레이아웃 고르기 화면 (ITDASY_WS_HYPER)
+   앱 전역 토큰(tokens.css) 기준. 클래스가 렌더될 때만 적용(플래그 OFF면 미사용=무해). */
+
+.wsl-wrap { padding: 4px 2px calc(24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+
+/* 선택 레이아웃 미리보기 */
+.wsl-preview {
+  width: 100%; max-width: 520px; margin: 4px auto 2px; border-radius: var(--r-lg, 20px);
+  overflow: hidden; background: var(--surface-2, #F7F8FA); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08));
+}
+.wsl-preview img { display: block; width: 100%; height: auto; }
+.wsl-preview--empty {
+  aspect-ratio: 4 / 5; display: grid; place-items: center; text-align: center;
+  color: var(--text-subtle, #6B7684); font-size: 14px; line-height: 1.6; font-weight: 600;
+  border: 1.5px dashed var(--border-strong, rgba(0,0,0,.14)); box-shadow: none;
+}
+
+.wsl-sec-t { font-size: 13px; font-weight: 800; color: var(--text-muted, #4E5968); letter-spacing: -0.02em; padding: 2px 4px; }
+
+.wsl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+.wsl-card {
+  appearance: none; -webkit-appearance: none; border: 1.5px solid var(--border, rgba(0,0,0,.07));
+  background: var(--surface, #fff); border-radius: var(--r-md, 14px); padding: 8px 8px 6px;
+  display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .08s;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.wsl-card:active { transform: scale(.97); }
+.wsl-card.on { border-color: var(--brand, #D58A95); box-shadow: var(--shadow-brand, 0 10px 24px rgba(213,138,149,.30)); }
+
+/* 슬롯 스키마틱 미니 프레임 — [2026-07-06] 고정높이 박스 안에 실제 비율 프레임 중앙정렬(카드 높이 통일) */
+.wsl-fbox { height: 96px; display: flex; align-items: center; justify-content: center; }
+/* [design] 미리보기 썸네일 — 솔리드 스키매틱은 'AI 티'가 나서, 살짝 투명·유리(frosted) 느낌으로 부드럽게. */
+.wsl-frame { position: relative; height: 100%; width: auto; max-width: 100%; aspect-ratio: 0.8; background: #EEF1F4; border-radius: 9px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(25,31,40,.14); }
+/* [보스 2026-07-12] 슬롯 경계 명확히 — 사진이 어디에 어떻게 들어가는지 보이게 진한 테두리. */
+.wsl-frame > i {
+  position: absolute; background: #FBFCFD;
+  border: 1.5px solid rgba(25,31,40,.78); box-sizing: border-box; border-radius: 3px;
+}
+.wsl-card.on .wsl-frame { background: #F7EFF0; }
+.wsl-card.on .wsl-frame > i { border-color: #191F28; background: #FFF; }
+
+.wsl-card__name { font-size: 11.5px; font-weight: 700; color: var(--text, #191F28); text-align: center; letter-spacing: -0.02em; }
+
+.wsl-skip {
+  appearance: none; -webkit-appearance: none; background: none; border: 0; margin: 4px auto 0;
+  color: var(--text-subtle, #6B7684); font-size: 13px; font-weight: 700; padding: 10px; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px; touch-action: manipulation;
+}
+
+/* 인터랙티브 슬롯 스테이지 (드래그=위치, 핀치=확대) */
+.wsl-stage {
+  position: relative; width: 100%; max-width: 520px; margin: 4px auto 2px;
+  border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--frame, #E8ECF1);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.08)); touch-action: none;
+}
+.wsl-slot { position: absolute; overflow: hidden; background: var(--surface-2, #F7F8FA); box-shadow: inset 0 0 0 1.5px #fff; touch-action: none; cursor: grab; }
+.wsl-slot:active { cursor: grabbing; }
+.wsl-slot__img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  user-select: none; -webkit-user-drag: none; will-change: transform, object-position; pointer-events: none;
+}
+.wsl-slot--empty { display: grid; place-items: center; color: var(--text-subtle, #6B7684); font-size: 12px; font-weight: 700; }
+.wsl-stage-hint { text-align: center; font-size: 12px; color: var(--text-subtle, #6B7684); font-weight: 600; margin: -2px 0 2px; }
+
+/* 사진 트레이 (탭 순서로 슬롯 채움) */
+.wsl-tray { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; -webkit-overflow-scrolling: touch; }
+.wsl-tray__ph {
+  position: relative; flex: 0 0 auto; width: 56px; height: 56px; border-radius: var(--r-md, 14px);
+  background-size: cover; background-position: center; border: 2px solid var(--border, rgba(0,0,0,.08));
+  cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.wsl-tray__ph.on { border-color: var(--brand, #D58A95); box-shadow: var(--shadow-brand, 0 6px 16px rgba(213,138,149,.30)); }
+.wsl-tray__n {
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+  background: var(--brand-strong, #BC6675); color: #fff; border-radius: 999px; font-size: 12px; font-weight: 800;
+  display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+/* 캡션/미리보기 — 레이아웃 합성본은 폭 꽉 차게(레터박스 여백 X) */
+.wsl-cap-preview { width: 100%; max-width: 520px; margin: 0 auto; border-radius: var(--r-lg, 20px); overflow: hidden; background: var(--surface-2, #F7F8FA); }
+.wsl-cap-preview img { display: block; width: 100%; height: auto; }
+
+/* [2026-07-09 접근성] 키보드 포커스 가시화 + 모션 최소화 */
+.wsl-card:focus-visible, .wsl-skip:focus-visible, .wsl-tray__ph:focus-visible, .wsl-slot:focus-visible {
+  outline: 2px solid var(--brand, #D58A95); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsl-card, .wsl-tray__ph, .wsl-slot, .wsl-card:active { transition: none !important; }
+}
+
+/* [E2/E3 2026-07-09] 내 레이아웃 저장 버튼 + 삭제(×) 오버레이 */
+.wsl-save {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px auto 2px;
+  padding: 9px 16px; border-radius: 999px; background: var(--surface-2, #F7F8FA);
+  border: 1px solid var(--border, rgba(0,0,0,.08)); color: var(--text, #191F28);
+  font-size: 13px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.wsl-save:active { transform: scale(.97); }
+.wsl-save svg { flex: none; }
+.wsl-cardwrap { position: relative; display: block; }
+.wsl-card-del {
+  position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%;
+  background: #191F28; color: #fff; border: 2px solid #fff; font-size: 15px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2;
+}
+.wsl-save:focus-visible, .wsl-card-del:focus-visible { outline: 2px solid var(--brand, #D58A95); outline-offset: 2px; }

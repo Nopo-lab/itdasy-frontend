@@ -43,6 +43,21 @@
     if (!lib || typeof lib.getDefault !== 'function' || DEFAULT_PURPOSES.indexOf(purpose) === -1) return '';
     return lib.getDefault(purpose) || '';
   }
+  // [기본] purpose 별 기본 템플릿 지정/해제 — 잇비 자동적용이 이 템플릿을 최우선 사용. 썸네일 배지 탭에서 호출.
+  function _toggleDefault(id, purpose, panel, state) {
+    const lib = _LIB();
+    if (!lib || typeof lib.setDefault !== 'function' || !id || !purpose) return;
+    const label = SHORT_PURPOSE[purpose] || '';
+    if (lib.getDefault(purpose) === id) {
+      lib.clearDefault(purpose);
+      _toast(`${label} 기본 지정을 해제했어요`);
+    } else {
+      lib.setDefault(purpose, id);
+      _toast(`잇비가 ${label}를 만들 때 이 템플릿을 써요`);
+    }
+    _renderGrid(panel, state);                              // 카드 "기본" 배지 갱신(같은 purpose 다른 카드도 해제됨)
+    if (_selectedId) _renderPreview(panel, state);          // 선택 미리보기도 일관 유지
+  }
 
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _MD() { return window.PhotoEditorTemplateMarketData || { CATS: [], TEMPLATES: [] }; }
@@ -124,11 +139,7 @@
     return base.filter(t => _matchQuery(t, _query));
   }
 
-  // ── 현재 사진 기반 프리뷰 합성 ──
-  function _photoSig(state) {
-    const src = (state && state.originalSrc) || '';
-    return src.length + ':' + src.slice(0, 28) + ':' + (state && state.secondImg ? '2' : '1');
-  }
+  // ── 프리뷰 합성(카드 썸네일은 고정 예시 이미지 — _examplePhoto) ──
   function _ratioWH(ratio, base) {
     if (ratio === '9:16') return { w: Math.round(base * 9 / 16), h: base };
     if (ratio === '1:1') return { w: base, h: base };
@@ -174,8 +185,50 @@
     } catch (_e) { return ''; }
   }
 
+  // ── [핵심2/버그6] 템플릿 카드는 '원본 미리보기'만 — 업로드 사진을 썸네일에 섞지 않는다. ──
+  //   고정 예시 뷰티 이미지(assets/workshop-cats/cat-1..5.jpg, 이미 번들된 실제 사진) 사용.
+  //   사용자 사진은 적용(_applyTemplate→TemplatesV2.apply) 단계에서만 실제 캔버스에 렌더된다.
+  const _EX_SRC = { ba_before: 'assets/workshop-cats/cat-1.jpg', ba_after: 'assets/workshop-cats/cat-2.jpg', feed: 'assets/workshop-cats/cat-3.jpg', review: 'assets/workshop-cats/cat-4.jpg', event: 'assets/workshop-cats/cat-5.jpg' };
+  const _exImg = {};
+  let _exReady = false;
+  let _lastPaint = null;
+  let _exRepaintT = null;
+  function _loadEx(src) {
+    if (_exImg[src]) return _exImg[src];
+    const im = new Image(); _exImg[src] = im;
+    im.onload = function () { _exReady = true; _onExLoaded(); };
+    im.onerror = function () { /* 예시 로드 실패 시 그래디언트 폴백 유지 */ };
+    im.src = src;
+    return im;
+  }
+  function _readyImg(src) { const im = _exImg[src] || _loadEx(src); return (im && im.complete && im.naturalWidth) ? im : null; }
+  function _exPurpose(t) {
+    if (t.purpose === 'before_after' || /(^|-)ba-/.test(t.id)) return 'ba';
+    if (t.purpose === 'review') return 'review';
+    if (t.purpose === 'event') return 'event';
+    return 'feed';
+  }
+  function _examplePhoto(t) {
+    const p = _exPurpose(t);
+    return _readyImg(p === 'ba' ? _EX_SRC.ba_before : (_EX_SRC[p] || _EX_SRC.feed));
+  }
+  function _exampleSecond(t) { return _exPurpose(t) === 'ba' ? _readyImg(_EX_SRC.ba_after) : null; }
+  function _onExLoaded() {
+    if (_exRepaintT) return;
+    _exRepaintT = setTimeout(function () {
+      _exRepaintT = null;
+      Object.keys(_thumbCache).forEach(function (k) { delete _thumbCache[k]; });
+      const lp = _lastPaint;
+      if (lp && lp.panel && lp.panel.isConnected) {
+        lp.panel.querySelectorAll('[data-pe-tplg-thumb]').forEach(function (el) { delete el.dataset.painted; });
+        _paintThumbs(lp.panel, lp.state);
+        if (_selectedId) _renderPreview(lp.panel, lp.state);
+      }
+    }, 60);
+  }
+
   function _previewURL(t, state, basePx) {
-    const sig = _photoSig(state);
+    const sig = _exReady ? 'ex1' : 'ex0';  // [핵심2/버그6] 카드=고정 예시, 사용자 사진 서명 미사용
     // [S2] 현재 적용 템플릿이면 slotValues 서명을 키에 포함(편집 시 stale 방지).
     const cur = state && state.tplV2;
     const slotSig = (cur && cur.id === t.id && cur.slotValues) ? '|' + _hash(JSON.stringify(cur.slotValues)) : '';
@@ -192,7 +245,7 @@
       const cv = document.createElement('canvas');
       cv.width = dim.w; cv.height = dim.h;
       const ctx = cv.getContext('2d');
-      const photo = state && state.originalImg;
+      const photo = _examplePhoto(t);  // [핵심2/버그6] 업로드 사진 대신 고정 예시 이미지
       if (photo) {
         _coverDraw(ctx, photo, 0, 0, dim.w, dim.h);
       } else {
@@ -211,7 +264,7 @@
       }
       if (cur && cur.id === t.id && cur.imageSlots) tplV2.imageSlots = cur.imageSlots;
       const synth = {
-        tplV2, originalImg: photo, secondImg: state && state.secondImg,
+        tplV2, originalImg: photo, secondImg: _exampleSecond(t),  // [핵심2/버그6] BA '후' 예시(cat-2)
         shopName: state && state.shopName, serviceName: state && state.serviceName, price: state && state.price,
       };
       const PT = window.PhotoEditorPremiumTemplates;
@@ -242,14 +295,24 @@
     const catL = (MD.CATS.find(c => c.id === t.cat) || {}).label || '';
     const sub = [(t.industry && t.industry !== 'common') ? ind : '', catL].filter(Boolean).join(' · ');
     const fav = _LIB() && _LIB().isFav(t.id);
-    const isDefault = _defaultIdFor(t.purpose) === t.id && !!t.id;
+    const canDefault = DEFAULT_PURPOSES.indexOf(t.purpose) !== -1 && !!t.id;
+    const isDefault = canDefault && _defaultIdFor(t.purpose) === t.id;
+    const purposeLabel = SHORT_PURPOSE[t.purpose] || '';
     const sel = (t.id === _selectedId) ? ' is-selected' : '';
+    // [기본] 썸네일 좌하단 탭=토글 배지 — 지정되면 노란 "기본", 아니면 별만 보이는 흐린 토글(탭 시 지정).
+    const defaultBadge = canDefault
+      ? `<span class="pe-tplg-default-badge${isDefault ? ' on' : ''}" data-pe-tplg-default="${_esc(t.id)}" data-pe-tplg-default-purpose="${_esc(t.purpose)}" role="button" aria-pressed="${isDefault ? 'true' : 'false'}" aria-label="${_esc(purposeLabel)} 기본 템플릿${isDefault ? ' (지정됨, 탭하면 해제)' : '으로 지정'}">${_STAR_SVG}${isDefault ? '<span class="pe-tplg-default-txt">기본</span>' : ''}</span>`
+      : '';
+    // [2026-06-12 배치C] 카드 비율 = 카테고리 데이터(ratio) 기준 — 1:1 하드코딩으로
+    //   4:5/9:16 템플릿 썸네일이 제멋대로 잘려 갤러리가 난장판이던 문제.
+    const _ratio = ((MD.CATS.find(c => c.id === t.cat) || {}).ratio) || '4:5';
+    const _arCss = _ratio === '9:16' ? '9 / 16' : (_ratio === '1:1' ? '1 / 1' : '4 / 5');
     return `<button type="button" class="pe-tplg-card${sel}" data-pe-tplg-id="${_esc(t.id)}">
-      <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}">
+      <div class="pe-tplg-thumb" data-pe-tplg-thumb="${_esc(t.id)}" style="aspect-ratio:${_arCss};">
         <span class="pe-tplg-badge">${_esc(badge)}</span>
         ${/^bp-/.test(t.id) ? '<span class="pe-tplg-premium" style="position:absolute;top:8px;left:8px;z-index:3;background:linear-gradient(135deg,#E7CE8C,#C9A24B);color:#1B140A;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;letter-spacing:.4px;box-shadow:0 1px 4px rgba(0,0,0,.18);">프리미엄</span>' : ''}
         ${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}
-        ${isDefault ? `<span class="pe-tplg-default-badge" aria-label="${_esc(SHORT_PURPOSE[t.purpose] || '')} 기본 템플릿">${_STAR_SVG}기본</span>` : ''}
+        ${defaultBadge}
         <span class="pe-tplg-bmk${fav ? ' on' : ''}" data-pe-tplg-bmk="${_esc(t.id)}" role="button" aria-label="보관함">${_BMK_SVG}</span>
       </div>
       <div class="pe-tplg-card-title">${_esc(t.label)}</div>
@@ -269,6 +332,19 @@
     return list.map(_cardHTML).join('');
   }
 
+  // [2026-06-12] BA(전후)류 템플릿 판별 — 캔버스 placeholder("시술 전 사진 추가")가
+  //   탭이 안 되는 문제의 짝: 패널에 실제 추가 버튼을 노출하기 위한 판별자.
+  function _isBAKind(t) {
+    if (!t) return false;
+    try {
+      const TS = window.PhotoEditorTemplateSlots;
+      if (TS && typeof TS.inferTemplateKind === 'function') {
+        return TS.inferTemplateKind(t.id, t) === 'before_after';
+      }
+    } catch (_e) { /* fallback below */ }
+    return /(^|-)ba-/.test(String(t.id || ''));
+  }
+
   function _previewHTML(t, state) {
     if (!t) return '';
     const isFree = t.tier !== 'pro';
@@ -277,17 +353,18 @@
     const cat = MD.CATS.find(c => c.id === t.cat) || { ratio: '4:5', label: '' };
     const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
     const applied = state && state.tplV2 && state.tplV2.id === t.id;
-    const canDefault = DEFAULT_PURPOSES.indexOf(t.purpose) !== -1;
-    const isDefault = canDefault && _defaultIdFor(t.purpose) === t.id;
-    const purposeLabel = SHORT_PURPOSE[t.purpose] || '';
+    // [2026-06-12] 전후 템플릿 적용됐는데 시술 전 사진이 없으면 — 추가 버튼을 패널에 직접 노출.
+    //   기존엔 "문구 편집" 시트 안에만 있어서 발견 불가능했음.
+    const needsBefore = applied && _isBAKind(t) && !(state && state.secondImg);
     return `<div class="pe-tplg-preview-inner">
       <div class="pe-tplg-preview-canvas" style="aspect-ratio:${ar};${url ? `background-image:url(${url});` : ''}"></div>
       <div class="pe-tplg-preview-meta"><strong>${_esc(t.label)}</strong>${isFree ? '' : '<span class="pe-tplg-pro">PRO</span>'}</div>
+      ${needsBefore ? `<button type="button" class="pe-tplg-primary" data-pe-tplg-before-pick style="margin-bottom:8px;">＋ 시술 전 사진 추가 (전후 완성)</button>
+      <input type="file" accept="image/*" data-pe-tplg-before-input style="display:none" />` : ''}
       <div class="pe-tplg-selected-actions">
         <button type="button" class="pe-tplg-primary" data-pe-tplg-apply="${_esc(t.id)}">${applied ? '적용됨 ✓' : (isFree ? '이 템플릿 적용' : 'Pro로 적용')}</button>
         <button type="button" class="pe-tplg-secondary" data-pe-tplg-all>전체 템플릿 보기</button>
       </div>
-      ${canDefault ? `<button type="button" class="pe-tplg-default-toggle${isDefault ? ' on' : ''}" data-pe-tplg-default="${_esc(t.id)}" data-pe-tplg-default-purpose="${_esc(t.purpose)}">${_STAR_SVG}${isDefault ? `${_esc(purposeLabel)} 기본 해제` : `${_esc(purposeLabel)} 기본으로 지정`}</button>` : ''}
       <button type="button" class="pe-tplg-edit" data-pe-tplg-text-edit="${_esc(t.id)}">문구 편집</button>
     </div>`;
   }
@@ -308,6 +385,7 @@
 
   // ── 바인딩 ──
   function _paintThumbs(panel, state) {
+    _lastPaint = { panel: panel, state: state };  // [핵심2/버그6] 예시 로드 후 재칠용
     const nodes = panel.querySelectorAll('[data-pe-tplg-thumb]');
     // 성공(비어있지 않은 url) 시에만 painted 마킹/관측 해제 → 일시적 렌더 실패가 빈칸으로 고정되지 않음.
     const paint = (el) => {
@@ -359,6 +437,13 @@
           }
           return;
         }
+        // [기본] 썸네일 기본 배지 탭 = 잇비 자동적용 기본 템플릿 지정/해제(카드 선택 막음).
+        const dflt = e.target.closest('[data-pe-tplg-default]');
+        if (dflt) {
+          e.preventDefault(); e.stopPropagation();
+          _toggleDefault(dflt.dataset.peTplgDefault, dflt.dataset.peTplgDefaultPurpose, panel, state);
+          return;
+        }
         const id = card.dataset.peTplgId;
         if (!id) return;
         _selectedId = id;
@@ -406,24 +491,29 @@
       const si = panel.querySelector('[data-pe-tplg-search]'); if (si) si.value = '';
       _renderGrid(panel, state);
     });
-    // [기본] purpose 별 기본 템플릿 지정/해제 — 잇비 자동적용이 이 템플릿을 최우선으로 사용.
-    panel.querySelector('[data-pe-tplg-default]')?.addEventListener('click', (e) => {
-      const btn = e.currentTarget;
-      const id = btn.dataset.peTplgDefault;
-      const purpose = btn.dataset.peTplgDefaultPurpose;
-      const lib = _LIB();
-      if (!lib || typeof lib.setDefault !== 'function' || !id || !purpose) return;
-      const label = SHORT_PURPOSE[purpose] || '';
-      if (lib.getDefault(purpose) === id) {
-        lib.clearDefault(purpose);
-        _toast(`${label} 기본 지정을 해제했어요`);
-      } else {
-        lib.setDefault(purpose, id);
-        _toast(`잇비가 ${label}를 만들 때 이 템플릿을 써요`);
-      }
-      _renderPreview(panel, state);   // 버튼 라벨 갱신
-      _renderGrid(panel, state);      // 카드 "기본" 배지 갱신
-    });
+    // [2026-06-12] 전후 템플릿 — "시술 전 사진 추가" (edit-sheet _setBefore 와 동일 동작)
+    const beforeBtn = panel.querySelector('[data-pe-tplg-before-pick]');
+    const beforeInput = panel.querySelector('[data-pe-tplg-before-input]');
+    if (beforeBtn && beforeInput) {
+      beforeBtn.addEventListener('click', () => beforeInput.click());
+      beforeInput.addEventListener('change', (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const img = new Image();
+        img.onload = () => {
+          if (state) state.secondImg = img;
+          try {
+            if (helpers && typeof helpers.pushHistory === 'function') helpers.pushHistory();
+            if (helpers && typeof helpers.scheduleRedraw === 'function') helpers.scheduleRedraw();
+          } catch (_e) { /* ignore */ }
+          _toast('시술 전 사진을 넣었어요 — 전후 완성!');
+          _renderPreview(panel, state);
+        };
+        img.onerror = () => _toast('사진을 불러오지 못했어요');
+        img.src = URL.createObjectURL(f);
+      });
+    }
+    // [기본] 지정/해제는 썸네일 카드 "기본" 배지 탭(_bindCards)에서 처리 — 미리보기 토글 버튼 제거됨.
     // [S2] 문구 편집 — apply-first(WYSIWYG): 먼저 적용(무료) 또는 게이트(PRO 미결제) → 시트 오픈.
     panel.querySelector('[data-pe-tplg-text-edit]')?.addEventListener('click', (e) => {
       const id = e.currentTarget.dataset.peTplgTextEdit;
@@ -459,5 +549,6 @@
     _paintThumbs(panel, state);
   }
 
-  window.PhotoEditorTemplateGallery = { panelHTML, bind };
+  // [2026-06-12 모드 P1] 잇비 사진편집 모드가 "사용자 사진 끼운 미리보기" 생성에 재사용 (로직 복제 금지).
+  window.PhotoEditorTemplateGallery = { panelHTML, bind, previewURL: _previewURL };
 })();

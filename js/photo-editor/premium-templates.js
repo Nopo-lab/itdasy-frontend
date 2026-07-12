@@ -67,6 +67,8 @@
     'v3-ba-clean-rose':   ['baCompose',  'BEFORE / AFTER', '시술 전후',        '한 눈에 비교해보세요. 달라진 아름다움의 차이'],
     'v3-ba-clean-blue':   ['baCompose',  'BEFORE / AFTER', '시술 전후',        '맑고 환한 피부 변화를 경험해보세요.'],
     'v3-ba-sns-pink':     ['baCompose',  'BEFORE / AFTER', '시술 전후',        '달라진 모습을 눈으로 확인해보세요!'],
+    // [ARCH-1] 아치형 전후 비교 — baCompose 의 _archSalon 으로 위임. kicker=상단 카테고리 기본값.
+    'ba-arch-salon':      ['baCompose',  'BEAUTY SALON',   '붙임머리 시술 예시', ''],
     // [BP-2] 뷰티 팩 TOP3 — 렌더 경로 'beautyPack'(window.PhotoEditorBeautyPack 로 위임). 갤러리 미노출(apply-only).
     'bp-price-blackgold':  ['beautyPack', 'PREMIUM CARE',   '프리미엄 케어 프로그램', '고객 맞춤 집중 관리'],
     'bp-ba-nail-polaroid': ['beautyPack', 'BEFORE / AFTER', '네일 전후 변화',     '손끝 분위기가 달라지는 순간'],
@@ -75,6 +77,25 @@
     'bp-ba-hair-extension-polaroid': ['beautyPack', 'BEFORE / AFTER', '붙임머리 전후', '볼륨감이 달라지는 순간'],
     'bp-review-lash-blue': ['beautyPack', 'REAL REVIEW',    '속눈썹 후기',        '또렷하고 자연스러운 눈매 변화'],
     'bp-event-spring-mixed': ['beautyPack', 'SPRING EVENT', '봄 시즌 이벤트',      '설레는 봄, 예뻐질 시간'],
+    // [BA-PACK v533] 전후 에디토리얼 5종 — beautyPack 위임(template-renderer-beauty-pack-draws.js 등록).
+    'bp-ba-premium-infographic': ['beautyPack', 'BEFORE & AFTER', '프리미엄 전후', '직접 경험한 변화를 사진으로 확인해보세요.'],
+    'bp-ba-luxury-review':       ['beautyPack', 'BEFORE & AFTER', '럭셔리 후기 전후', '직접 경험한 변화, 잇데이에서 확인하세요.'],
+    'bp-ba-story-signature':     ['beautyPack', '시술 전후',       '스토리 전후',     '자연스러운 변화, 눈에 보이는 결과'],
+    'bp-ba-classic-poster':      ['beautyPack', 'BEFORE & AFTER', '클래식 전후 포스터', '직접 경험한 변화, 잇데이에서 확인하세요.'],
+    'bp-ba-care-guide':          ['beautyPack', 'BEFORE & AFTER', '케어 가이드 전후', '자연스러운 변화, 눈에 보이는 결과'],
+    // [WM] Warm Minimal 팩 12종 — 렌더 경로 beautyPack 위임(template-renderer-wm-pack-draws.js 등록).
+    'wm-ba-feed':       ['beautyPack', 'BEFORE & AFTER', '전후 비교',      '레이어드컷 전후 변화'],
+    'wm-ba-story':      ['beautyPack', 'BEFORE & AFTER', '오늘의 변화 기록', '시술 전과 후, 한 화면에'],
+    'wm-show-feed':     ['beautyPack', 'TODAY',          '시술 자랑',      '손질이 쉬운 자연스러운 볼륨'],
+    'wm-show-square':   ['beautyPack', 'TODAY',          '시술 자랑',      '오늘의 시술'],
+    'wm-review-feed':   ['beautyPack', 'REVIEW',         '고객 후기',      '손질이 훨씬 편해졌어요'],
+    'wm-review-story':  ['beautyPack', 'REVIEW',         '고객 후기',      '손질이 훨씬 편해졌어요'],
+    'wm-event-feed':    ['beautyPack', 'EVENT',          '이벤트 안내',    '첫 방문 고객 20% OFF'],
+    'wm-event-story':   ['beautyPack', 'EVENT',          '이벤트 안내',    '첫 방문 고객 20% OFF'],
+    'wm-promo-feed':    ['beautyPack', 'PHOTO',          '홍보컷',         '보정 완료 사진을 가장 예쁘게'],
+    'wm-promo-story':   ['beautyPack', 'PHOTO',          '홍보컷',         '예약 문의는 DM'],
+    'wm-price-feed':    ['beautyPack', 'PRICE',          '가격/시술 안내', '컷·컬러·클리닉'],
+    'wm-thumb-card':    ['beautyPack', '',               '작업실 썸네일',  '사진 + 상태 + 시술명'],
   };
 
   const PAL = {
@@ -162,10 +183,15 @@
     const meta = META[tpl.id];
     if (!found || !meta) return false;
     const b = _brandData(tpl);
-    // [V3-1] palette — v3 템플릿이면 found.palette, 기존은 null(→ _pal 가 기존색 반환, 무회귀).
-    const palette = (found && found.palette) || null;
     // [S1] editable slot 얕은 연결 — slotValues 있으면 우선, 없으면 기존과 동일(무회귀).
     const sv = (tpl && tpl.slotValues) || {};
+    // [V3-1] palette — v3 템플릿이면 found.palette, 기존은 null(→ _pal 가 기존색 반환, 무회귀).
+    // [ARCH-1] palettes(테마 프리셋) + sv.palette_key 있으면 선택 팔레트로 교체. 없는 템플릿은 found.palette 그대로(무회귀).
+    let palette = (found && found.palette) || null;
+    if (found && found.palettes) {
+      const pk = sv.palette_key || found.defaultPaletteKey || 'default';
+      palette = found.palettes[pk] || found.palette || palette;
+    }
     const mainSlot = tpl && tpl.imageSlots && tpl.imageSlots.main_photo;
     const mainPhotoSrc = mainSlot && mainSlot.src;
     const mainPhoto = _slotImage(mainPhotoSrc);
@@ -178,6 +204,8 @@
       services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
       serviceName: sv.service_name, reviewDate: sv.date,   // [HF1] review optional 라벨
       beforeLabel: sv.before_label, afterLabel: sv.after_label,
+      // [ARCH-1] 아치형 전용 편집값(다른 템플릿은 undefined → 무회귀).
+      categoryLabel: sv.category_label, shopHandle: sv.shop_handle,
       beforeCap: sv.before_caption, afterCap: sv.after_caption, mainPhoto: mainPhoto,
       // [S4] main_photo 위치/확대
       mainFocal: mainSlot && mainSlot.focal, mainZoom: mainSlot && mainSlot.zoom };

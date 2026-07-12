@@ -7,7 +7,8 @@
 
   const OFFLINE_KEY    = 'itdasy_bookings_offline_v1';
   const SHOP_HOURS_KEY = 'itdasy_shop_hours_v1';
-  const DEFAULT_HOURS  = { start: 10, end: 22, slotMin: 30 };
+  // [§10] 기본 표시 09:00~24:00 — 야간 예약(23:40~익일) 가시성 확보. 자정 넘김은 _expandHoursForItems가 추가 확장.
+  const DEFAULT_HOURS  = { start: 9, end: 24, slotMin: 30 };
 
   let _items    = [];
   let _isOffline = false;
@@ -107,13 +108,24 @@
     return _fetchFreshBookings(fromISO, toISO, key);
   }
 
-  function hasConflict(startsAt, endsAt, excludeId) {
+  // [2026-06-14 QA] 충돌 예약 객체를 반환 → 안내문에 고객명 노출 가능. 없으면 null.
+  //   취소·노쇼는 슬롯을 비우므로 충돌 대상에서 제외. ends_at 없으면 기본 60분으로 폴백.
+  const _DEFAULT_DUR_MS = 60 * 60 * 1000;
+  function findConflict(startsAt, endsAt, excludeId) {
     const sv = new Date(startsAt).getTime(), ev = new Date(endsAt).getTime();
-    return _items.some(b => {
+    if (!Number.isFinite(sv) || !Number.isFinite(ev)) return null;
+    return _items.find(b => {
       if (excludeId && b.id === excludeId) return false;
-      const bs = new Date(b.starts_at).getTime(), be = new Date(b.ends_at).getTime();
+      if (b.status === 'cancelled' || b.status === 'no_show') return false;
+      const bs = new Date(b.starts_at).getTime();
+      if (!Number.isFinite(bs)) return false;
+      let be = new Date(b.ends_at).getTime();
+      if (!Number.isFinite(be)) be = bs + _DEFAULT_DUR_MS;
       return !(ev <= bs || sv >= be);
-    });
+    }) || null;
+  }
+  function hasConflict(startsAt, endsAt, excludeId) {
+    return findConflict(startsAt, endsAt, excludeId) != null;
   }
 
   async function create(payload) {
@@ -182,8 +194,24 @@
     // 홈의 오늘 예상매출 / 완료 카운트에 영향을 주므로 stale 방지.
     try { localStorage.removeItem('hv41_cache::brief');     } catch (_e) { void _e; }
     try { sessionStorage.removeItem('hv41_cache::brief');   } catch (_e) { void _e; }
+    try { localStorage.removeItem('mv3_cache::brief');      } catch (_e) { void _e; }
+    try { sessionStorage.removeItem('mv3_cache::brief');    } catch (_e) { void _e; }
     try { localStorage.removeItem('pv_cache::dashboard');   } catch (_e) { void _e; }
     try { sessionStorage.removeItem('pv_cache::dashboard'); } catch (_e) { void _e; }
+    _removeRevenueCache();
+  }
+
+  function _removeRevenueCache() {
+    const prefix = 'pv_cache::revenue::';
+    try { _removeStoragePrefix(localStorage, prefix); } catch (_e) { void _e; }
+    try { _removeStoragePrefix(sessionStorage, prefix); } catch (_e) { void _e; }
+  }
+
+  function _removeStoragePrefix(store, prefix) {
+    for (let i = store.length - 1; i >= 0; i--) {
+      const key = store.key(i);
+      if (key && key.indexOf(prefix) === 0) store.removeItem(key);
+    }
   }
 
   // [2026-05-29] 잇비 학습 — 고객별 시술명별 평균 시술비/예약금 (최근 5회, 취소 제외).
@@ -225,7 +253,7 @@
   }
 
   window.Booking = {
-    list, create, update, remove, hasConflict,
+    list, create, update, remove, hasConflict, findConflict,
     shopHours: _shopHours,
     getCustomerLearning,
     _invalidateCache,

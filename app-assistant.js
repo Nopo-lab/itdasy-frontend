@@ -21,11 +21,10 @@
   const _assistantCardRenderers = window.ItdasyAssistantCardRenderers || {};
   const SUGGESTIONS = _assistantCore.SUGGESTIONS || [
     '오늘 예약 알려줘',
-    '사진 보정해줘',
-    '캡션 만들어줘',
-    '인스타에 올려줘',
-    '단골 안부 메시지',
+    '내일 예약 뭐 있어?',
     '이번 달 매출',
+    '캡션 만들어줘',
+    '사진 보정해줘',
   ];
 
   function _categoryOptionsHtml(selected) {
@@ -294,6 +293,12 @@
           </div>
           <button data-assistant-menu aria-label="잇비 설정" title="잇비 설정" style="background:transparent;border:none;width:32px;height:32px;border-radius:50%;color:#191F28;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:20px;line-height:1;justify-self:end;">⋯</button>
         </div>
+        <div id="asstModebar" style="display:none;align-items:center;gap:8px;margin:-4px 4px 8px;padding:8px 10px;border-radius:12px;background:#F7EFF0;color:#BC6675;font-size:12px;font-weight:700;">
+          <span data-pm-step style="color:#4E5968;font-weight:600;">사진편집 모드</span>
+          <button type="button" data-pm-nav="back" style="margin-left:auto;border:none;background:transparent;color:#4E5968;font-size:11.5px;font-weight:700;cursor:pointer;padding:4px 6px;">이전</button>
+          <button type="button" data-pm-nav="restart" style="border:none;background:transparent;color:#4E5968;font-size:11.5px;font-weight:700;cursor:pointer;padding:4px 6px;">처음부터</button>
+          <button type="button" data-pm-nav="exit" style="border:none;background:transparent;color:#BC6675;font-size:11.5px;font-weight:800;cursor:pointer;padding:4px 6px;">종료</button>
+        </div>
         <div id="asstBody" style="flex:1;overflow-y:auto;padding:4px 4px 14px;"></div>
         <div id="asstQuickLabel" style="font-size:11px;color:#8B95A1;padding:8px 4px 4px;font-weight:600;">이런 것도 돼요</div>
         <div id="asstSuggest" style="display:flex;gap:6px;overflow-x:auto;margin-top:0;padding:4px 0;"></div>
@@ -386,6 +391,15 @@
       m.retry_q = null;
       _send();
     });
+    sheet.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pm-nav]');
+      if (!btn) return;
+      const cmd = btn.dataset.pmNav === 'back' ? '← 이전'
+        : (btn.dataset.pmNav === 'restart' ? '처음부터' : '끝낼래요');
+      const input = document.getElementById('asstInput');
+      if (input) input.value = cmd;
+      _send();
+    });
     // 사진 업로드 버튼 → 하단 action sheet
     sheet.querySelector('#asstPhoto').addEventListener('click', _openPhotoSheet);
     _bindSheetPhotoInputs(sheet);
@@ -399,12 +413,12 @@
     sheet.querySelector('#asstCamera').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
       e.target.value = '';  // 같은 파일 재선택 허용
-      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA) _send(); }   // [P1b] 전후 2번째 사진은 바로 완성
+      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA || _pendingBaIntent) _send(); }   // [P1b] 전후 2번째/0장 업로드는 바로 BA 흐름으로
     });
     sheet.querySelector('#asstGallery').addEventListener('change', (e) => {
       const fs = e.target.files ? Array.from(e.target.files) : [];
       e.target.value = '';
-      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA) _send(); }   // [P1b] 전후 2번째 사진은 바로 완성
+      if (fs.length) { _addPendingPhotos(fs); if (_pendingBA || _pendingBaIntent) _send(); }   // [P1b] 전후 2번째/0장 업로드는 바로 BA 흐름으로
     });
   }
 
@@ -449,6 +463,25 @@
 
   // 렉 박멸 — _renderHistory 호출 → 이번 frame 1회 실행 (RAF debounce)
   // sheet 닫혀있으면 skip. 50개 이상이면 자동 cap.
+  // [모드 P1] 훅 레벨 추적 로그 — push/render 도달 + sheet/body 상태(다음 QA 추적용, prod muzzle).
+  function _pmDbg(_tag, _obj) {}
+  // [모드 P1] 강제 렌더 — 멈춘/대기 RAF 가 _renderHistory 의 `if(_renderRafId)return` 에 막아
+  //   PM 메시지가 안 그려지던 블로커 방어. 대기 RAF 취소 + sig 초기화 후 렌더.
+  function _pmForceRender() {
+    try { if (_renderRafId) { (window.cancelAnimationFrame || window.clearTimeout).call(window, _renderRafId); _renderRafId = 0; } } catch (_e) { void _e; }
+    _lastRenderedSig = '';
+    _syncPhotoModeBar();
+    _renderHistory();
+    try { window.setTimeout(_syncPhotoModeBar, 0); } catch (_e) { void _e; }
+  }
+  function _pmSheetState() {
+    try {
+      const sh = document.getElementById('assistantSheet');
+      return { sheet: !!sh, display: sh ? (sh.style.display || 'def') : 'none',
+        body: !!document.getElementById('asstBody'), raf: _renderRafId };
+    } catch (_e) { return {}; }
+  }
+
   function _renderHistory() {
     _capHistory();
     if (_renderRafId) return; // 이미 예약됨
@@ -494,6 +527,9 @@
         ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
+        ${_renderBookingCards(m, idx)}
+        ${_renderPmTpls(m, idx)}
+        ${_renderPhotoRoles(m, idx)}
         ${retryHtml}
         ${reportHtml}
         ${dupHtml}
@@ -503,6 +539,7 @@
         ${relatedHtml}
         ${intentChipsHtml}
         ${promoResultHtml ? '' : _renderTplRecos(m, idx)}
+        ${_renderEventChoices(m, idx)}
         ${_renderBriefingActions(m, idx)}
         ${promoResultHtml ? '' : _renderHubActions(m, idx)}
       </div>
@@ -521,6 +558,45 @@
     if (!m.promo_result || !m.itbi_cards) return '';
     if (!(window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.renderHTML === 'function')) return '';
     return window.PhotoEditorItbiCards.renderHTML(m.itbi_cards, idx);
+  }
+
+  // [Phase3 #2] 예약 조회 결과를 카드로 — 고객/날짜/시간/시술/상태/예약금/연락처/메모 + 시간변경·취소 칩.
+  //   칩은 기존 data-suggest 핸들러 재사용(자연어 명령 재전송) → 시간변경/취소 인텐트로 연결.
+  function _renderBookingCards(m, idx) {
+    const items = Array.isArray(m.booking_cards) ? m.booking_cards : null;
+    if (!items || !items.length) return '';
+    const ST = { confirmed: '확정', confirm: '확정', pending: '대기', requested: '요청', completed: '완료', cancelled: '취소', no_show: '노쇼' };
+    return items.slice(0, 8).map((b) => {
+      const d = new Date(b.starts_at);
+      // [핫픽스D #1·#8] 사람이 읽는 한글 일시(ISO/숫자날짜 노출 금지). 공용 포맷터 우선.
+      const human = (typeof window.fmtKRange === 'function')
+        ? window.fmtKRange(b.starts_at, b.ends_at || null)
+        : `${d.getMonth() + 1}월 ${d.getDate()}일 ${d.getHours() < 12 ? '오전' : '오후'} ${((d.getHours() % 12) || 12)}:${String(d.getMinutes()).padStart(2, '0')}`;
+      // 칩 명령 재전송용(파서 친화) — 숫자 날짜·시간은 화면에 보이지 않고 data-suggest 에만 쓰임.
+      const mdNum = `${d.getMonth() + 1}/${d.getDate()}`;
+      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const who = _esc(b.customer_name || '고객');
+      const svc = b.service_name ? _esc(b.service_name) : '';
+      const status = ST[b.status] || _esc(b.status || '예약');
+      const phone = b.customer_phone || b.phone || '';
+      const deposit = Number(b.deposit || 0);
+      const amount = Number(b.amount || 0);
+      const memo = b.memo ? _esc(String(b.memo).slice(0, 80)) : '';
+      const rows = [];
+      rows.push(`<div style="font-weight:700;font-size:15px;color:#191F28;">${who}${svc ? ` <span style="font-weight:500;color:#4E5968;">· ${svc}</span>` : ''}</div>`);
+      rows.push(`<div style="font-size:13px;color:#4E5968;margin-top:3px;">${_esc(human)} · ${status}</div>`);
+      if (deposit > 0) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">예약금 ${deposit.toLocaleString()}원</div>`);
+      if (amount > 0) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">예상 시술비 ${amount.toLocaleString()}원</div>`);
+      if (phone) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:2px;">${_esc(phone)}</div>`);
+      if (memo) rows.push(`<div style="font-size:12px;color:#8B95A1;margin-top:4px;white-space:pre-wrap;">메모 ${memo}</div>`);
+      const cChange = `${b.customer_name || '고객'} ${mdNum} ${d.getHours()}시 예약 시간 바꿔`;
+      const cCancel = `${b.customer_name || '고객'} ${mdNum} ${hhmm} 예약 취소`;
+      const chips = `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">`
+        + `<button data-suggest="${_esc(cChange)}" style="padding:6px 11px;border:0.5px solid #E5E8EB;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#4E5968;font-weight:600;">시간 변경</button>`
+        + `<button data-suggest="${_esc(cCancel)}" style="padding:6px 11px;border:0.5px solid #F2C5CC;border-radius:999px;background:#fff;cursor:pointer;font-size:12px;color:#BC6675;font-weight:600;">예약 취소</button>`
+        + `</div>`;
+      return `<div style="border:1px solid #EEF1F4;border-radius:14px;padding:12px 14px;margin-top:8px;background:#fff;">${rows.join('')}${chips}</div>`;
+    }).join('');
   }
 
   // [J-2] 일반 메시지의 Action Hub 버튼(hub_actions). photo_result 안에서 이미 렌더되는 경우는 제외(중복 방지).
@@ -542,6 +618,74 @@
     const cards = m.tpl_recos.map(id => TV.recoCardHtml(id)).filter(Boolean).join('');
     if (!cards) return '';
     return `<div class="asst-tpl-recos" data-asst-tpl-recos="${idx}" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${cards}</div>`;
+  }
+
+  // [§1 qa-E] 이벤트 카드 선택지 — recoCardHtml 비주얼 재사용. 클릭 시 _openPreview 대신 편집기를 직접 연다(버튼 무반응 해결).
+  function _renderEventChoices(m, idx) {
+    if (!Array.isArray(m.event_choices) || !m.event_choices.length) return '';
+    const TV = window.PhotoEditorTemplatesV2;
+    if (!TV || typeof TV.recoCardHtml !== 'function') return '';
+    const cards = m.event_choices.map(c => TV.recoCardHtml(c.id)).filter(Boolean).join('');
+    if (!cards) return '';
+    return `<div class="asst-event-recos" data-asst-event-recos="${idx}" style="margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${cards}</div>`;
+  }
+
+  // [모드 P1] 사진편집 모드 — 사용자 사진을 끼운 템플릿 미리보기 행(가로 스크롤).
+  //   카드 = data-suggest 버튼(클릭 시 라벨 명령을 입력+_send → photo-mode handleText 라우팅, 기존 클릭 경로 재사용).
+  function _renderPmTpls(m, idx) {
+    if (!Array.isArray(m.pm_tpls) || !m.pm_tpls.length) return '';
+    const cards = m.pm_tpls.map(t => `
+      <button type="button" data-suggest="${_esc(t.cmd)}" style="flex:0 0 116px;border:1.5px solid var(--border,#eee);border-radius:14px;overflow:hidden;background:#fff;padding:0;cursor:pointer;text-align:center;">
+        ${t.badge ? `<div style="background:var(--brand-bg,#F7EFF0);color:var(--brand-strong,#BC6675);font-size:9.5px;font-weight:800;padding:4px 0;">${_esc(t.badge)}</div>` : ''}
+        <img src="${_esc(t.previewUrl || '')}" alt="${_esc(t.label || '')}" style="width:100%;height:138px;object-fit:cover;display:block;background:#F4ECE4;" />
+        <div style="font-size:11px;font-weight:700;padding:7px 4px;color:var(--text,#191F28);">${_esc(t.label || '')}</div>
+      </button>`).join('');
+    return `<div data-asst-pm-tpls="${idx}" style="display:flex;gap:8px;margin-top:10px;overflow-x:auto;padding-bottom:4px;">${cards}</div>`;
+  }
+
+  // [7] 다중 사진 역할칩 — 썸네일 + 번호 + 역할(전/후/홍보컷/제외) 칩 + "이대로 진행".
+  //   클릭은 data-pm-role / data-pm-proceed → _handlePhotoRoleClick (화면이동 없는 인라인 갱신).
+  // [핫픽스 #4] 캡션용 칩 제거 — 전/후/홍보컷/제외만(캡션은 hero/after 자동). [#1] 터치영역 ≥44px.
+  // [핫픽스F #1] 카드 외형을 기존 잇비 결과 카드(itbi-cards)·예약 카드와 같은 visual hierarchy 로 통일 —
+  //   썸네일(좌) + 라벨/역할 + 칩(우)의 가로형 카드, 부드러운 라운드·연한 보더·얕은 그림자. 회색 잡카드 금지.
+  const _PM_ROLE_CHIPS = [['before', '전'], ['after', '후'], ['hero', '홍보컷'], ['exclude', '제외']];
+  const _PM_ROLE_LABEL = { before: '전 사진', after: '후 사진', hero: '홍보컷', exclude: '제외', unset: '' };
+  // photo_roles 블록 내부(카드 리스트+안내+진행) HTML — 칩 클릭 시 이 블록만 in-place 교체(전체 history 재렌더 X).
+  function _renderPhotoRolesInner(pr, idx) {
+    const cards = pr.assets.map((a, i) => {
+      const chips = _PM_ROLE_CHIPS.map(([rk, lbl]) => {
+        const on = a.role === rk;
+        // 활성 = 브랜드 다크(#191F28, 잇비 '적용' 버튼과 동일), 비활성 = 흰 배경 + 연한 보더(예약 칩과 동일).
+        const st = on ? 'background:#191F28;color:#fff;border:1px solid #191F28;' : 'background:#fff;color:#4E5968;border:1px solid #E5E8EB;';
+        // [#1] data-pm-asset / data-pm-role 분리, 터치영역 ≥38px, 버블/free-text 비유출.
+        return `<button type="button" data-pm-asset="${_esc(a.assetId)}" data-pm-role="${rk}" style="min-height:38px;padding:8px 13px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;touch-action:manipulation;${st}">${lbl}</button>`;
+      }).join('');
+      const roleLabel = _PM_ROLE_LABEL[a.role] || '';
+      // 역할 배지(지정됐을 때만) — 잇비 카드 배지와 동일 토큰(연보라). 제외는 회색.
+      const roleBadge = roleLabel
+        ? `<span style="font-size:11px;font-weight:700;border-radius:8px;padding:2px 7px;margin-left:6px;${a.role === 'exclude' ? 'color:#8B95A1;background:#F2F4F6;' : 'color:#8B5CF6;background:#F3EEFF;'}">${roleLabel}</span>`
+        : '';
+      return `<div style="display:flex;gap:12px;align-items:center;border:0.5px solid #E5E8EB;border-radius:16px;padding:10px;background:#fff;box-shadow:0 1px 4px rgba(17,24,39,.045);">
+        <div style="position:relative;flex-shrink:0;">
+          <img src="${_esc(a.url || '')}" alt="사진 ${i + 1}" style="width:62px;height:78px;object-fit:cover;border-radius:12px;display:block;background:#F4ECE4;${a.role === 'exclude' ? 'opacity:.4;' : ''}" />
+          <span style="position:absolute;top:4px;left:4px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;">${i + 1}</span>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:#191F28;margin-bottom:8px;">사진 ${i + 1}${roleBadge}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">${chips}</div>
+        </div>
+      </div>`;
+    }).join('');
+    const hint = pr.allExcluded
+      ? '<div style="font-size:12.5px;color:#BC6675;margin-top:10px;font-weight:600;">쓸 사진이 없어요. 최소 한 장은 역할을 골라주세요.</div>'
+      : (pr.baOk ? '<div style="font-size:12.5px;color:#16B55E;margin-top:10px;font-weight:600;">전·후 사진이 준비됐어요 — “이대로 진행”을 누르면 전후 카드를 만들어요.</div>' : '<div style="font-size:12px;color:#8B95A1;margin-top:10px;">전·후 두 장이면 전후 카드, 한 장은 홍보컷으로 만들어요.</div>');
+    const proceed = `<button type="button" data-pm-proceed="${idx}" style="margin-top:12px;width:100%;min-height:48px;padding:13px;border:none;border-radius:12px;background:#191F28;color:#fff;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;">이대로 진행</button>`;
+    return `<div style="display:flex;flex-direction:column;gap:10px;margin-top:10px;">${cards}</div>${hint}${proceed}`;
+  }
+  function _renderPhotoRoles(m, idx) {
+    const pr = m.photo_roles;
+    if (!pr || !Array.isArray(pr.assets) || !pr.assets.length) return '';
+    return `<div data-pm-roles-block="${idx}">${_renderPhotoRolesInner(pr, idx)}</div>`;
   }
 
   // [T-115] Daily Briefing 추천 버튼 (안전 — 화면 이동/초안 경로만). intent-chip 패턴 미러링.
@@ -586,7 +730,7 @@
       const acts = Array.isArray(m.photo_actions) ? m.photo_actions : [];
       actsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${acts.map(a => `<button data-asst-photo-act="${idx}:${_esc(a.id)}" style="padding:7px 12px;border:0.5px solid #E5E8EB;border-radius:999px;background:#FFFFFF;color:#4E5968;cursor:pointer;font-size:11px;font-weight:600;">${_esc(a.label)}</button>`).join('')}</div>`;
     }
-    const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;">${_esc(m.photo_caption)}</div>` : '';
+    const capHtml = m.photo_caption ? `<div style="font-size:11px;color:#888;margin-top:4px;white-space:pre-line;line-height:1.5;max-width:240px;">${_esc(m.photo_caption)}</div>` : '';
     // [잇비 결과 카드 v0] 결과 카드 3개 — 적용 누르면 원본+initialState 로 편집기 오픈(핸드오프).
     const cardsHtml = (m.itbi_cards && window.PhotoEditorItbiCards && typeof window.PhotoEditorItbiCards.renderHTML === 'function')
       ? window.PhotoEditorItbiCards.renderHTML(m.itbi_cards, idx) : '';
@@ -601,6 +745,7 @@
   function _renderHistoryImpl() {
     const body = document.getElementById('asstBody');
     if (!body) return;
+    _syncPhotoModeBar();
     if (!_history.length) {
       body.innerHTML = _renderEmptyHistory();
       return;
@@ -614,7 +759,33 @@
       const TV = window.PhotoEditorTemplatesV2;
       if (TV && typeof TV.bindRecoCards === 'function') {
         body.querySelectorAll('[data-asst-tpl-recos]').forEach((el) => TV.bindRecoCards(el));
+        // [§1 qa-E] 이벤트 선택지: 썸네일은 주입하되, 클릭은 _openPreview(편집기 필요)가 아니라 편집기 직접 오픈으로.
+        body.querySelectorAll('[data-asst-event-recos]').forEach((el) => {
+          try { TV.bindRecoCards(el); } catch (_t) { void _t; }
+          el.addEventListener('click', (e) => {
+            const btn = e.target.closest && e.target.closest('[data-tpv2-tpl]');
+            if (!btn) return;
+            e.stopImmediatePropagation(); e.preventDefault();
+            const id = btn.dataset.tpv2Tpl;
+            const labelEl = btn.querySelector('div div') || btn.querySelector('div');
+            _openEventTemplate(id, (labelEl && labelEl.textContent && labelEl.textContent.trim()) || '이벤트 카드');
+          }, true);   // capture: bindRecoCards 의 버블 _openPreview 보다 먼저 실행 → 가로채기
+        });
       }
+    } catch (_e) { void 0; }
+  }
+
+  function _syncPhotoModeBar() {
+    try {
+      const bar = document.getElementById('asstModebar');
+      if (!bar) return;
+      const PM = window.ItdasyPhotoMode;
+      const active = !!(PM && PM.isActive && PM.isActive());
+      bar.style.display = active ? 'flex' : 'none';
+      if (!active) return;
+      const step = PM.stepLabel && PM.stepLabel();
+      const label = bar.querySelector('[data-pm-step]');
+      if (label) label.textContent = '사진편집 모드' + (step ? ' · ' + step : '');
     } catch (_e) { void 0; }
   }
 
@@ -1023,7 +1194,9 @@
     if ('customer_phone' in p || 'phone' in p) addField('customer_phone', '전화', p.customer_phone ?? p.phone);
     if ('service_name' in p) addField('service_name', '시술', p.service_name);
     if ('amount' in p) addField('amount', '금액', p.amount);
-    if ('starts_at' in p) addField('starts_at', '시작', p.starts_at);
+    // [핫픽스E #3] ISO(2026-06-17T05:00:00.000Z) 노출 금지 — datetime-local 피커로 한글 일시 표시.
+    //   저장 시 _coerceFieldValue 가 다시 ISO 로 환원. (input value=로컬, 표시 label=브라우저 로캘)
+    if ('starts_at' in p) addField('starts_at', '시작', _isoToLocalInput(p.starts_at), { type: 'datetime-local' });
     if ('memo' in p) addField('memo', '메모', p.memo);
     if (editFields.length) return;
     editFields.push(`<div style="display:flex;align-items:center;gap:8px;">
@@ -1032,10 +1205,17 @@
     </div>`);
   }
 
+  // [v499 4-3] 실행 버튼 라벨 — 신규 추가만 '추가하기', 변경/취소/복구는 동작에 맞게.
+  const _ACTION_RUN_LABEL = {
+    reschedule_booking: '변경 확정', update_booking: '변경 확정', update_customer: '변경 확정',
+    cancel_booking: '예약 취소', cancel_booking_bulk: '예약 취소',
+    restore_booking: '복구하기', delete_booking: '삭제하기',
+  };
   function _renderActionPendingBubble(action, historyIdx, kindBadge) {
     // [T-109] 마케팅/발송 액션은 실행 전 안전 라벨(실발송 가능/초안/게시준비) 표시.
     const _safety = (window.ItdasyMarketingSafety && typeof window.ItdasyMarketingSafety.renderSafetyHTML === 'function')
       ? window.ItdasyMarketingSafety.renderSafetyHTML(action, _esc) : '';
+    const _runLabel = (action && _ACTION_RUN_LABEL[action.kind]) || '추가하기';
     return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
@@ -1045,7 +1225,7 @@
       <div style="font-size:13.5px;color:#191F28;font-weight:500;margin-bottom:12px;line-height:1.5;padding:11px 12px;background:#F7F8FA;border-radius:10px;">${_esc(action.confirmation_text || '')}</div>
       <div style="display:flex;gap:6px;">
         <button data-action-edit="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#4E5968;font-weight:600;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;">${_svg('ic-edit-3', 14)} 수정</button>
-        <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">추가하기 ${_svg('ic-check', 14)}</button>
+        <button data-action-run="${historyIdx}" style="flex:2;padding:11px;border:none;border-radius:10px;background:#191F28;color:#FFFFFF;font-weight:700;cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;gap:5px;letter-spacing:-0.2px;">${_runLabel} ${_svg('ic-check', 14)}</button>
         <button data-action-cancel="${historyIdx}" style="flex:1;padding:11px;border:0.5px solid #E5E8EB;border-radius:10px;background:#FFFFFF;color:#8B95A1;cursor:pointer;font-size:13px;font-weight:500;">취소</button>
       </div>
     </div>`;
@@ -1272,7 +1452,21 @@
 
   // 숫자 필드 강제 변환
   const _NUM_FIELDS = new Set(['amount', 'unit_price', 'quantity', 'total']);
+  // [핫픽스E #3] 일시 필드 — datetime-local input("YYYY-MM-DDTHH:mm", 로컬) ↔ ISO 환원.
+  const _DATETIME_FIELDS = new Set(['starts_at', 'ends_at']);
+  function _isoToLocalInput(v) {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
   function _coerceFieldValue(field, raw) {
+    if (_DATETIME_FIELDS.has(field)) {
+      if (raw === '' || raw == null) return null;
+      const d = new Date(raw);  // 타임존 없는 로컬 문자열 → 로컬로 파싱
+      return isNaN(d.getTime()) ? raw : d.toISOString();
+    }
     if (_NUM_FIELDS.has(field)) {
       if (raw === '' || raw == null) return null;
       const n = parseInt(String(raw).replace(/[^\d]/g, ''), 10);
@@ -1409,6 +1603,7 @@
   }
 
   function _handleAssistantClick(e) {
+    if (_handlePhotoRoleClick(e)) return;        // [7] 다중 사진 역할칩(전/후/홍보컷/캡션용/제외) + 진행
     if (_handleBriefingActionClick(e)) return;   // [T-115] 브리핑 추천 버튼
     if (_handleItbiCardClick(e)) return;         // [잇비 결과 카드 v0] 결과 카드 적용 → 편집기 핸드오프
     if (_handleActionHubClick(e)) return;        // [J-1] Action Hub 공통 버튼(data-asst-hub-act)
@@ -1416,6 +1611,48 @@
     if (_handleSingleActionClick(e)) return;
     if (_handleGroupActionClick(e)) return;
     _handleSuggestionClick(e);
+  }
+
+  // [7] 다중 사진 역할칩 클릭 — 역할 토글(블록 in-place 갱신) / 진행(다음 단계 push).
+  //   [핫픽스 #1] data-pm-asset+data-pm-role 분리, 블록만 교체(전체 재렌더 X), free-text 비유출.
+  function _pmReplaceRolesBlock(idx, pr) {
+    const blk = document.querySelector('[data-pm-roles-block="' + idx + '"]');
+    if (blk && pr) { blk.innerHTML = _renderPhotoRolesInner(pr, idx); return true; }
+    return false;
+  }
+  function _handlePhotoRoleClick(e) {
+    const roleBtn = e.target && e.target.closest && e.target.closest('[data-pm-role][data-pm-asset]');
+    const proceedBtn = e.target && e.target.closest && e.target.closest('[data-pm-proceed]');
+    if (!roleBtn && !proceedBtn) return false;
+    const PM = window.ItdasyPhotoMode;
+    if (roleBtn) {
+      const block = roleBtn.closest('[data-pm-roles-block]');
+      const idx = block ? +block.getAttribute('data-pm-roles-block') : -1;
+      const assetId = roleBtn.getAttribute('data-pm-asset');
+      const role = roleBtn.getAttribute('data-pm-role');
+      if (PM && typeof PM.setAssetRole === 'function') {
+        Promise.resolve(PM.setAssetRole(assetId, role)).then((msg) => {
+          if (!msg) return;
+          if (idx >= 0 && _history[idx]) { _history[idx].photo_roles = msg.photo_roles; _history[idx].text = msg.text; }
+          if (!_pmReplaceRolesBlock(idx, msg.photo_roles)) _renderHistory();
+        }).catch(() => {});
+      }
+      return true;
+    }
+    const pidx = +(proceedBtn.getAttribute('data-pm-proceed') || 0);
+    if (PM && typeof PM.proceedFromRoles === 'function') {
+      Promise.resolve(PM.proceedFromRoles()).then((msg) => {
+        if (!msg) return;
+        if (msg.photo_roles) {   // 검증 실패/안내 → 같은 블록 인라인 갱신
+          if (_history[pidx]) { _history[pidx].photo_roles = msg.photo_roles; _history[pidx].text = msg.text; }
+          if (!_pmReplaceRolesBlock(pidx, msg.photo_roles)) _renderHistory();
+          return;
+        }
+        _history.push(Object.assign({ role: 'assistant' }, msg, { local_only: true }));
+        _pmForceRender();
+      }).catch(() => {});
+    }
+    return true;
   }
 
   // [잇비 결과 카드 v0] 카드 [적용] 클릭 → 원본 src + initialState(params)로 편집기 오픈.
@@ -1449,6 +1686,7 @@
       if (action.kind === 'open_template_panel' && _openAssistantTemplatePicker(action, msg)) return true;
       if (action.kind === 'apply_price_template' && _applyPriceTemplateDraft(action, msg)) return true;
       if (action.kind === 'ba_role_choice') { _handleBaRoleChoice(action.payload || {}); return true; }   // [P1] 전후 1장 전/후 선택
+      if (action.kind === 'ba_add_photo') { try { _openPhotoSheet(); } catch (_e) { void _e; } return true; }   // [BA 동선] "사진 올리기" → 갤러리/카메라 선택
       const r = window.ItdasyActionHub.handleActionClick(action, { history: _history }) || {};
       // [P0-A] "결과 확인" → 편집기 다시 열기 시, 채팅 닫아 편집시트를 최상단으로.
       if (r.navigated && action.kind === 'review_price_template_result') _focusEditorCloseAssistant();
@@ -1637,9 +1875,9 @@
     const rows = _priceResultPreviewRows(services);
     const lines = rows.map(row => `- ${row.name}${row.price ? ' ' + row.price : ''}`);
     return [
-      '가격표 템플릿에 넣었어요.',
+      '가격표 카드 초안을 만들었어요.',
       '',
-      '문구를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '문구를 고치고 저장하면 작업실에 보관돼요.',
       '',
       `템플릿: ${_priceTemplateLabel(tpl, tplId)}`,
       `시술 ${services.length}개`,
@@ -1686,14 +1924,14 @@
 
   function _reviewResultText(result) {
     var lines = [
-      '후기 카드에 넣었어요.',
+      '후기 카드 초안을 만들었어요.',
       '',
-      '문구를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '후기 문구를 고치고 저장하면 작업실에 보관돼요.',
       '',
       '템플릿: ' + (result.templateLabel || '후기 인용 카드'),
-      '고객: ' + (result.customerLabel || '고객님'),
     ];
-    if (result.reviewExcerpt) lines.push('후기: ' + result.reviewExcerpt + '…');
+    if (result.customerLabel) lines.push('고객명: ' + result.customerLabel);
+    if (result.reviewExcerpt) lines.push('미리보기: ' + result.reviewExcerpt + '…');
     return lines.join('\n');
   }
 
@@ -1731,6 +1969,7 @@
         return true;
       }
       _pushReviewResultCard(result);
+      try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'review', label: '후기 카드', templateId: (result && result.templateId) || null, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
       return true;
     } catch (e) {
       try { console.warn('[assistant-review-card] apply failed', e); } catch (_logErr) { void _logErr; }
@@ -1749,6 +1988,33 @@
     return [];
   }
 
+  // [§6] 전후 카드용 — 사진을 한 메시지에 2장 보내든, 따로 2번 보내든 최근 2장을 시간순([먼저, 나중])으로 모은다.
+  //   _lastUserPhotos 는 "마지막 단일 메시지"만 봐서 분리 업로드 시 1장으로 오인 → 전후가 자꾸 두 번째 사진을 재요청하던 버그 해소.
+  function _recentBaPhotos() {
+    var collected = [];   // 최신→오래된 순 누적
+    try {
+      for (var i = _history.length - 1, n = 0; i >= 0 && n < 8 && collected.length < 2; i--, n++) {
+        var m = _history[i];
+        if (m && m.role === 'user' && Array.isArray(m.photos) && m.photos.length) {
+          for (var j = m.photos.length - 1; j >= 0 && collected.length < 2; j--) {
+            if (m.photos[j]) collected.push(m.photos[j]);
+          }
+        }
+      }
+    } catch (_e) { void _e; }
+    return collected.reverse();   // [먼저 올린 사진, 나중 올린 사진]
+  }
+
+  // [§6] "첫 번째 후, 두 번째 전"처럼 전/후 순서를 반대로 지정했는지 판별. 기본은 첫=전, 둘=후.
+  function _baOrderReversed(text) {
+    var t = String(text || '').replace(/\s+/g, '');
+    var m1 = /(첫번째|첫장|첫|처음|1번째|1장)(사진)?[는은이가을를로=]*(전|후)/.exec(t);
+    if (m1 && m1[3] === '후') return true;
+    var m2 = /(두번째|둘째|둘|2번째|2장)(사진)?[는은이가을를로=]*(전|후)/.exec(t);
+    if (m2 && m2[3] === '전') return true;
+    return false;
+  }
+
   function _baResultActions(payload) {
     return [
       { id: 'review_ba_template_result', kind: 'review_price_template_result', label: '결과 확인', phase: 'safe', route: 'hub', payload: payload },
@@ -1759,9 +2025,9 @@
 
   function _baResultText(result) {
     return [
-      '전후 카드에 넣었어요.',
+      '전후 카드 초안을 만들었어요.',
       '',
-      '문구와 사진 위치를 확인한 뒤 저장하거나 인스타 미리보기로 이어갈 수 있어요.',
+      '시술 전·후 사진 위치를 확인하고 저장하면 작업실에 보관돼요.',
       '',
       '템플릿: ' + (result.templateLabel || '시술 전후 카드'),
       '전 사진: ' + (result.hasBefore ? '추가됨' : '아직 없음 (편집에서 추가)'),
@@ -1788,6 +2054,11 @@
     if (window.showToast) window.showToast('전후 카드를 넣었어요. 문구 편집에서 확인해 주세요.');
   }
 
+  // @deprecated [2026-06-14 이슈1] 레거시 전후(BA) 자동연결 흐름.
+  //   사진 업로드는 이제 ItdasyPhotoMode 로 일원화되어(_uploadPhotos), 아래 _openBeforeAfterCreate /
+  //   _pendingBA / _pendingBaIntent / _completePendingBA / _pushBaChoiceCard / _handleBaRoleChoice /
+  //   _tryBeforeAfterCardShortcut 는 정상 동선에서 도달하지 않는다(텍스트 "전후"는 photo-mode.shouldStart 가,
+  //   샘플 before_after 는 _startPhotoModeFromSample 가 가져감). 실제 삭제는 스테이징 QA 통과 후 후속 PR(delete:none-this-pr).
   // ── [P1] 전후 1장 전/후 선택 ──────────────────────────────
   //   사진 1장으로 전후 요청 시 즉시 적용하지 않고 "이 사진은 전/후?" 선택 카드를 띄운다.
   //   역할 선택 후 두 번째 사진을 받으면 기존 handleBeforeAfterCard(2장 경로)로 정확 매핑해 완성한다.
@@ -1795,7 +2066,7 @@
   var _BA_PENDING_TTL = 10 * 60 * 1000;   // 10분
   let _pendingBA = null;          // { firstUrl, firstRole:'before'|'after', requestText, ts }
   let _baChoicePhotoUrl = null;   // 선택 카드 표시~클릭 사이 1장 dataURL 임시(히스토리에 미저장)
-  let _pendingCaptionPhoto = null; // 사진+캡션 요청 시 시술내역 입력 대기 중인 photo dataUrl
+  let _pendingBaIntent = null;    // [BA 동선] "전후 하나"(0장) 직후 업로드 사진을 BA 흐름으로 잇는 대기상태 { requestText, ts }
 
   function _baCollectCtx() {
     try { return (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {}; }
@@ -1812,6 +2083,35 @@
         { id: 'ba_choice_after', kind: 'ba_role_choice', label: '시술 후 사진이에요', phase: 'safe', route: 'hub', payload: { role: 'after', requestText: requestText } },
         { id: 'ba_choice_asis', kind: 'ba_role_choice', label: '일단 이 사진으로 만들기', phase: 'safe', route: 'hub', payload: { role: 'asis', requestText: requestText } },
       ],
+    });
+    _renderHistory();
+  }
+
+  // [BA 동선] "전후/비포애프터" 생성 발화의 사진 0/1/2장 분기 단일 진입점.
+  //   0장: 빈 BA 템플릿을 덩그러니 열지 말고 → 2장 필요 안내 + "사진 올리기" 버튼(가짜 before 안 채움).
+  //   1장: 전/후 역할 선택 카드(_pushBaChoiceCard) → 나머지 1장 업로드로 완성.
+  //   2장+: 기존 handleBeforeAfterCard 그대로(정책 불변).
+  function _openBeforeAfterCreate(q) {
+    const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
+    let photos = _recentBaPhotos();   // [§6] 분리 업로드(2번)도 2장으로 집계
+    if (photos.length >= 2) {
+      // [§6] "첫 번째 후, 두 번째 전" 등 역순 지정이면 순서 교체(기본: 첫=전, 둘=후).
+      if (_baOrderReversed(q)) photos = [photos[1], photos[0]];
+      const ok = _applyBaFromPhotos(q, [photos[0], photos[1]], ctx);
+      if (ok) {
+        try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'before_after', label: '전후 카드', available: true, origin: 'create' }); } catch (_ac) { void _ac; }
+      }
+      // [§6] 2장이 있으면 사진을 다시 요구하지 않는다 — 실패 시 _applyBaFromPhotos 가 명시적 오류를 안내(침묵 폴백 제거).
+      return;
+    }
+    if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return; }
+    // 0장 — 시술 전/후 2장 흐름을 명확히 안내하고 업로드로 바로 이어지게.
+    //   [자동연결] 직후 업로드 사진을 BA 로 잇기 위해 대기상태 세팅(완료/취소/다른 텍스트/만료 시 clear).
+    _pendingBaIntent = { requestText: q || '전후 카드 만들어줘', ts: Date.now() };
+    _history.push({
+      role: 'assistant',
+      text: '전후 카드는 시술 전·후 사진 2장이 필요해요.\n사진 2장을 올려주시면 순서대로 전/후에 넣어 카드 초안을 만들게요. 1장만 올리면 어느 쪽 사진인지 먼저 물어볼게요.',
+      hub_actions: [{ id: 'ba_add_photo', kind: 'ba_add_photo', label: '사진 올리기', phase: 'safe', route: 'hub', payload: {} }],
     });
     _renderHistory();
   }
@@ -1869,19 +2169,9 @@
     try {
       var M = window.ItdasyTemplateAutoApply;
       if (!M || typeof M.detectBeforeAfterCard !== 'function' || !M.detectBeforeAfterCard(q)) return false;
-      var ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect && window.ItdasyAssistantContext.collect()) || {};
-      var photos = _lastUserPhotos();
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
-      // [P1] 사진 1장이면 즉시 적용하지 않고 전/후 선택 카드부터.
-      if (photos.length === 1) { _pushBaChoiceCard(photos[0], q); return true; }
-      var result = M.handleBeforeAfterCard(q, ctx, { photos: photos });
-      if (!result || result.needsPhoto) {
-        _history.push({ role: 'assistant', text: '전후 카드를 만들려면 사진이 필요해요. 시술 후 사진을 먼저 올려 주세요.' });
-        _renderHistory();
-        return true;
-      }
-      _pushBaResultCard(result);
+      _openBeforeAfterCreate(q);   // [BA 동선] 사진 0/1/2장 분기 통일(빈 템플릿 금지)
       return true;
     } catch (e) {
       try { console.warn('[assistant-ba-card] apply failed', e); } catch (_logErr) { void _logErr; }
@@ -1900,7 +2190,7 @@
       const tplId = _selectPriceTemplateId(draft, p.preferredTemplateId);
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
-      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실
+      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
       TV.apply(tplId);
       const helpers = PE._internal.helpers || {};
       const state = PE._internal.getState && PE._internal.getState();
@@ -1911,6 +2201,7 @@
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
+      try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) || '가격표', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
       _focusEditorCloseAssistant();   // [P0-A]
       return true;
     } catch (e) {
@@ -1960,7 +2251,7 @@
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
       try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-      PE.open({ src: source, initial_tab: 'template', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실
+      PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
       TV.apply(tplId);
       const helpers = PE._internal.helpers || {};
       const state = PE._internal.getState && PE._internal.getState();
@@ -1971,6 +2262,7 @@
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
+      try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) || '가격표', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
       _focusEditorCloseAssistant();   // [P0-A]
       return true;
     } catch (e) {
@@ -1979,10 +2271,28 @@
     }
   }
 
+  async function _startPhotoModeFromSample(input, q, photos) {
+    const PM = window.ItdasyPhotoMode;
+    if (!PM) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q, photos: photos || [], thumb: photos && photos[0], local_only: true });
+    let msg = null;
+    try {
+      // [이슈6] 이미 사진편집 모드 진행 중이면 사진을 재-push 하지 않는다(중복 누적 → 한 장만 처리 방지).
+      //   진행 중엔 텍스트(칩 라벨)로만 단계 진행, 비활성일 때만 사진으로 새 세션 시작.
+      msg = PM.isActive()
+        ? await PM.handleText(q, null)
+        : (photos && photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null));
+    } catch (_e) { msg = null; }
+    _history.push(Object.assign({ role: 'assistant' }, msg || { text: '사진편집 모드로 이어갈게요. 편집할 사진을 보내주세요.' }, { local_only: true }));
+    _pmForceRender();
+    return true;
+  }
+
   // [M2] 매처 샷컷 — 자연어 → 샘플 매칭 → 기존 I2/I3 자동 적용. 기존 price/review/ba 샷컷보다 앞.
   //   매칭 단계 실패/예외는 부수효과 0 으로 false → 기존 fallback(_tryPriceListDraft 등) 그대로.
   //   매칭 성공 후(=user 메시지 push 후) 예외는 true 로 흡수 → 이중 push 방지.
-  function _tryTemplateSampleShortcut(input, q) {
+  async function _tryTemplateSampleShortcut(input, q) {
     let payload = null, ctx = {}, photos = [];
     try {
       const MM = window.ItdasyTemplateSampleMatcher;
@@ -1999,10 +2309,18 @@
     }
     // ── 매칭 성공: 여기부터 소비. 이후 오류는 true 로 흡수(이중 push 방지). ──
     try {
+      if (payload.purpose === 'review' || payload.purpose === 'before_after') {
+        return await _startPhotoModeFromSample(input, q, photos);
+      }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
-      if (payload.purpose === 'event' || !payload.autoApplyEligible) {
-        _history.push({ role: 'assistant', text: '이벤트 템플릿은 준비 중이에요. 지금은 가격표·후기·전후 카드부터 만들 수 있어요.' });
+      if (payload.purpose === 'event') {
+        // [§1] 일반 템플릿 메뉴가 아니라 이벤트 전용 카드 선택지를 채팅에 표시.
+        await _pushEventCardChoices(q);
+        return true;
+      }
+      if (!payload.autoApplyEligible) {
+        _history.push({ role: 'assistant', text: '이 템플릿은 아직 자동 적용이 안 돼요. 가격표·후기·전후 카드로 먼저 만들 수 있어요.' });
         _renderHistory();
         return true;
       }
@@ -2281,6 +2599,14 @@
     } catch (_e) { void _e; }
   }
 
+  function _rememberExecutedAction(action, data) {
+    try {
+      if (window.ItdasyBookingContext && typeof window.ItdasyBookingContext.rememberAction === 'function') {
+        window.ItdasyBookingContext.rememberAction(action, data);
+      }
+    } catch (_e) { void _e; }
+  }
+
   // 순수 실행기 — action 객체만 받아 POST, 결과 반환. UI 갱신은 호출자가.
   // [QA-NEXT #4] action._ai_original (AI 추출 시점 payload 스냅샷) 있으면 original_payload 동봉 →
   // 백엔드에서 final vs original diff 를 UserCorrection 으로 학습.
@@ -2295,6 +2621,7 @@
     if (typeof localFn === 'function') {
       const d = await localFn(action) || {};
       _invalidateCachesFor(action.kind);
+      _rememberExecutedAction(action, { kind: action.kind, ...d });
       try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction(action.kind); } catch (_e) { void 0; }
       return { kind: action.kind, message: d.message || '✓ 완료', ...d };
     }
@@ -2321,6 +2648,7 @@
         if (navigator.clipboard) await navigator.clipboard.writeText(d.message_draft);
       } catch (_e) { void _e; }
     }
+    _rememberExecutedAction(action, d);
     try { window.ItdasyAssistantContext && window.ItdasyAssistantContext.markRecentAction(d.kind || action.kind); } catch (_e) { void 0; }
     return d;
   }
@@ -2734,7 +3062,8 @@
     const ql = (question || '').toLowerCase();
     return {
       edit: /(편집|보정|예쁘게|꾸미)/.test(ql),
-      instagram: /(인스타|올려|게시|업로드|포스트)/.test(ql),
+      // [qa-F §6] "인스타스럽게/말투로/느낌으로"는 문구 톤 수정이지 미리보기가 아니므로 instagram 라우팅에서 제외.
+      instagram: /(인스타|올려|게시|업로드|포스트)/.test(ql) && !/인스타\s*(말투|스럽|식|느낌)/.test(ql),
       ba: /(전후|before|애프터|b&a|비포)/i.test(ql),
       bg: /(누끼|배경)/.test(ql),
       videoCard: /(릴스|reels|shorts|숏폼|cover|커버)/i.test(ql),
@@ -2853,7 +3182,7 @@
       itbi_cards: itbiCards,
       promo_result: promo ? promo.promoResult : null,
       photo_actions: promo ? [] : _chatAutoEditActions(intent.instagram),
-      // [PR1] promo hubActions 의 open_photo_editor 도 원본+initialState 를 싣게 post-process(photo-chain.js 미수정 — 코덱스 충돌 회피).
+      // [PR1] promo hubActions 의 open_photo_editor 도 원본+initialState 를 싣게 보강.
       hub_actions: promo ? _injectHandoffIntoHubActions(promo.hubActions, handoff) : _photoHubActions(intent.instagram, result.dataUrl, '업종: ' + (result.preset_label || '자동'), handoff),
       photo_caption: promo ? promo.promoResult.caption : '업종: ' + (result.preset_label || '자동'),
     };
@@ -2874,7 +3203,7 @@
   }
 
   // [PR1] promo hubActions 의 open_photo_editor 액션에 원본 src + initialState(params) 주입.
-  //   photo-chain.js 의 promo 액션 빌더는 payload:{} 라 핸드오프 유실 → 여기서 비파괴 복제 후 보강.
+  //   promo 액션 payload 가 비어 있으면 핸드오프가 유실되므로 여기서 비파괴 복제 후 보강.
   //   기존 promo 흐름(인스타/템플릿/캡션/고객기록)은 그대로, editor 진입만 보정값 유지.
   function _injectHandoffIntoHubActions(actions, handoff) {
     if (!Array.isArray(actions) || !handoff || !handoff.originalSrc) return actions;
@@ -2961,14 +3290,11 @@
 
     let shopType = '';
     try { shopType = localStorage.getItem('shop_type') || '붙임머리'; } catch (_e) { shopType = '붙임머리'; }
-    const cfg = SC[shopType] || SC['붙임머리'];
+    // [2026-06-12] 미매핑 shop_type(예 'beauty')에 붙임머리 cfg/defaultTag('24인치') 강제 폴백하던 버그.
+    const cfg = SC[shopType];  // 미매핑이면 undefined → 아래에서 중립 문구
     const category = CAT_MAP[shopType] || 'extension';
 
-    // typeStr — 챗봇 메시지에서 인치/스타일 추출, 없으면 cfg.defaultTag (UI 태그 selector 대체)
     const q = (opts.question || '').trim();
-    let typeStr = cfg.defaultTag;
-    const lenMatch = q.match(/(\d{1,3}\s*인치)/);
-    if (lenMatch) typeStr = lenMatch[1].replace(/\s+/g, '');
 
     // axesText — 챗봇 메시지 + 고객. _doGenerateCaption 의 axes.customer/situation/photo 자리.
     let axesText = '';
@@ -2980,7 +3306,17 @@
       axesText = '오늘 시술 후 자연스럽게 마무리. 손님께서 좋아하셨음.';
     }
 
-    const photo_context = (`${shopType} 시술. ${cfg.tagLabel}: ${typeStr}. ${axesText}`).trim().slice(0, 500);
+    // 매핑 업종만 "업종 시술. 라벨: 태그." (인치는 메시지에서 추출, 없으면 defaultTag).
+    //   미매핑은 "뷰티 시술." 중립 — 사용자 원문은 axesText 에 이미 담겨 정보 손실 없음.
+    let baseCtx;
+    if (cfg) {
+      const lenMatch = q.match(/(\d{1,3}\s*인치)/);
+      const typeStr = lenMatch ? lenMatch[1].replace(/\s+/g, '') : cfg.defaultTag;
+      baseCtx = `${shopType} 시술. ${cfg.tagLabel}: ${typeStr}.`;
+    } else {
+      baseCtx = '뷰티 시술.';
+    }
+    const photo_context = (`${baseCtx} ${axesText}`).trim().slice(0, 500);
 
     try {
       const headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
@@ -3110,6 +3446,7 @@
       text: '사진 1장 확인했어요. 시술 완료 사진으로 자연스럽게 보정할까요?',
       intent_chips: [
         { id: 'edit_done', label: '보정하기', question: '시술 완료사진으로 자연스럽게 보정해줘', primary: true },
+        { id: 'workspace', label: '작업실에서 게시글 만들기', question: '작업실 열어서 게시글 만들기' },
         { id: 'instagram', label: '보정하고 인스타 업로드까지', question: '시술 완료사진으로 자연스럽게 보정하고 인스타 업로드까지 준비해줘' },
         { id: 'template', label: '템플릿 먼저 보기', question: '이 사진 템플릿 골라줘' },
       ],
@@ -3281,33 +3618,30 @@
     // [P0a] 채팅 업로드 사진을 잇비 SourceImage store 에 기록 — 이후 텍스트/버튼이 이 사진을 대상으로.
     //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
     try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
-    // [P1] 전후 1장 선택 후 두 번째 사진 대기 중이면, 이번 업로드로 전후 카드를 완성.
-    if (_pendingBA && photoUrls[0]) {
-      if (Date.now() - _pendingBA.ts > _BA_PENDING_TTL) {
-        _pendingBA = null;   // 만료 → 일반 업로드 흐름으로 진행
-      } else {
-        const _baSecond = photoUrls[0];
-        _history.push({ role: 'user', text: '', photos: [_baSecond], thumb: _baSecond });
-        _renderHistory();
-        _completePendingBA(_baSecond);
-        _sendInFlight = false; _inflightCtrl = null;
-        return;
-      }
-    }
     try {
-      if (question && _tryPriceListDraft(null, question, photoUrls)) return;
-      // [2026-06-11 #8 v3] 사진+캡션 요청 → 시술내역 입력 대기 후 캡션 생성 (보정 없음).
-      //   v2는 홍보 플로우로 라우팅해 "보정 완료! 인스타 미리보기" 바로 띄우는 오동작이 있었음.
-      const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
-      if (_isCaptionIntent && photoUrls.length) {
-        try { if (window.ItdasySourceImage && window.ItdasySourceImage.set) window.ItdasySourceImage.set({ origin: 'chat', dataUrl: photoUrls[0] }); } catch (_e) { void _e; }
-        _pendingCaptionPhoto = photoUrls[0];
-        _history.push({ role: 'user', text: question || '캡션 만들어줘', thumb: photoUrls[0], photos: photoUrls });
-        _history.push({ role: 'assistant', text: '사진 받았어요!\n어떤 시술인가요? 예: "레이어드 컷" · "붙임머리 S컬" 처럼 시술명을 입력하시면 캡션을 바로 만들어드릴게요.' });
+      // 사진편집 모드가 사진 업로드 흐름을 통합 처리한다. 가격표·DM 등은 shouldStart 에서 제외.
+      const PM = window.ItdasyPhotoMode;
+      // [이슈1] 가격표/메뉴판/DM/발송은 shouldStart 의 BLOCK_RE 가, OCR(영수증·매출)은 여기 가드가 제외.
+      //   그 외 사진 업로드는 사진편집 모드로 일원화 → 레거시 BA(_pendingBA*) 가로채기 제거.
+      const _pmBlocked = _isOcrPhotoIntent(question);
+      const pmWantsPhoto = PM && photoUrls.length && !_pmBlocked && (
+        PM.isActive() || !question || (PM.shouldStart && PM.shouldStart(question, { hasPhoto: true }))
+      );
+      if (pmWantsPhoto) {
+        // local_only: 서버 미저장 PM 사진 말풍선/응답 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
+        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
         _renderHistory();
+        let _pmMsg = null;
+        try { _pmMsg = await PM.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
+        _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }, { local_only: true }));
+        _pmDbg('upload.push', { len: _history.length, keys: Object.keys(_pmMsg || {}) });
+        _pmForceRender();
+        _pmDbg('upload.render', _pmSheetState());
         _sendInFlight = false; _inflightCtrl = null;
         return;
       }
+      if (question && _tryPriceListDraft(null, question, photoUrls)) return;
+      const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
         _pushPhotoSuggestion(question, photoUrls);
@@ -3363,7 +3697,7 @@
   }
 
   function _isAffirmReply(q) {
-    return /^(응|그래|맞아|예|네|좋아|확인|진행|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
+    return /^(응|그래|맞아|예|네|좋아|확인|진행|완료|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
   }
 
   function _markActionFailed(message, err) {
@@ -3399,20 +3733,31 @@
     return true;
   }
 
-  function _pushCancelBookingResult(input, q, result) {
+  function _pushShortcutResult(input, q, result) {
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q });
-    if (result.kind === 'card') {
+    if (result.kind === 'card' && result.action) {
       _history.push({
         role: 'assistant',
-        text: result.action.confirmation_text || (result.customer.name + '님 예약 취소할까요?'),
+        text: result.action.confirmation_text || result.text || '진행할까요?',
         action: result.action,
         action_status: 'pending',
       });
     } else if (result.kind === 'message') {
-      _history.push({ role: 'assistant', text: result.text });
+      _history.push({
+        role: 'assistant',
+        text: result.text || '',
+        related: Array.isArray(result.related) ? result.related : undefined,
+        hub_actions: Array.isArray(result.hub_actions) ? result.hub_actions : undefined,
+        // [핫픽스E #3] 예약 변경 "몇 시로?" 등에서 예약 요약 카드 동반 렌더.
+        booking_cards: Array.isArray(result.booking_cards) ? result.booking_cards : undefined,
+      });
     }
     _renderHistory();
+  }
+
+  function _pushCancelBookingResult(input, q, result) {
+    _pushShortcutResult(input, q, result);
   }
 
   async function _tryCancelBookingShortcut(input, q) {
@@ -3427,21 +3772,74 @@
     }
   }
 
-  // [T-114] "오늘 브리핑/뭐 해야/샵 상태" → 오늘 운영 우선순위 요약(읽기 전용). 단순 조회는 미감지.
-  async function _tryDailyBriefingShortcut(input, q) {
+  async function _tryBookingContextShortcut(input, q) {
     try {
-      if (!window.ItdasyDailyBriefing || !window.ItdasyDailyBriefing.detect(q)) return false;
+      const C = window.ItdasyBookingContext;
+      if (!C || typeof C.tryRun !== 'function') return false;
+      const result = await C.tryRun(q);
+      if (!result || !result.matched) return false;
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  async function _tryLookupBookingShortcut(input, q) {
+    try {
+      if (!window.AssistantIntent || typeof window.AssistantIntent.tryLookupBooking !== 'function') return false;
+      const result = await window.AssistantIntent.tryLookupBooking(q);
+      if (!result || !result.matched) return false;
+      try { window.ItdasyBookingContext?.rememberList?.({ type: result.type, data: result.data }); } catch (_ctxErr) { void _ctxErr; }
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  async function _tryCustomerAddGuard(input, q) {
+    try {
+      const G = window.ItdasyCustomerAddGuard;
+      if (!G || typeof G.tryRun !== 'function') return false;
+      const result = await G.tryRun(q);
+      if (!result || !result.matched) return false;
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  // [Phase3] 고객 연락처 자연어 추가/수정 — add-guard 보다 먼저(연락처 동반 발화 흡수).
+  async function _tryCustomerPhoneIntent(input, q) {
+    try {
+      const P = window.ItdasyCustomerPhoneIntent;
+      if (!P || typeof P.tryRun !== 'function') return false;
+      const result = await P.tryRun(q);
+      if (!result || !result.matched) return false;
+      _pushShortcutResult(input, q, result);
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  // [T-114/2026-07-05] 리포트형 모듈 공통 실행기 — 브리핑·마감 리포트가 같은 흐름(detect→run→briefing_actions).
+  async function _runReportModule(input, q, mod, failMsg) {
+    try {
+      if (!mod || typeof mod.detect !== 'function' || !mod.detect(q)) return false;
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
       _history.push({ role: 'loading', text: '' });
       _renderHistory();
       let res;
-      try { res = await window.ItdasyDailyBriefing.run(); }
+      try { res = await mod.run(); }
       catch (_e) { res = null; }
       _history = _history.filter((m) => m.role !== 'loading');
       _history.push({
         role: 'assistant',
-        text: (res && res.message) || '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+        text: (res && res.message) || failMsg,
         briefing_actions: (res && Array.isArray(res.actions)) ? res.actions : [],   // [T-115] 추천 버튼
       });
       _renderHistory();
@@ -3449,6 +3847,16 @@
     } catch (_e) {
       return false;
     }
+  }
+
+  // [T-114] "오늘 브리핑/뭐 해야/샵 상태" → 오늘 운영 우선순위 요약(읽기 전용). 단순 조회는 미감지.
+  function _tryDailyBriefingShortcut(input, q) {
+    return _runReportModule(input, q, window.ItdasyDailyBriefing, '브리핑을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+
+  // [2026-07-05] "마감 리포트/오늘 마감/하루 결산" → 저녁 결산 + 내일 미리보기(읽기 전용, LLM 0).
+  function _tryClosingReportShortcut(input, q) {
+    return _runReportModule(input, q, window.ItdasyClosingReport, '마감 리포트를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
   }
 
   // [T-110] "{고객} 안부/리터치/재방문 문자 초안 써줘" → draft_message 즉시 실행(발송 아님) + 초안 + 복사.
@@ -3546,7 +3954,11 @@
       if (!P || typeof P.parseRequest !== 'function') return false;
       const result = P.parseRequest(q);
       // [B10] 가격표 의도는 있으나 가격을 못 찾음 → 거짓 성공 대신 정직 안내(LLM 폴백으로 새지 않게 가로챔).
+      //   [QA퍼징] 단, 사진이 함께 온 경우(=이미지에서 가격 추출 실패)에만 안내. 사진 없는 bare "가격표 만들어줘"는
+      //   여기서 막다른 안내로 끝내지 말고 false 반환 → 뒤의 create 폴백이 가격표 템플릿 피커를 연다.
       if (result && result.priceMissing && !result.matched) {
+        const _ph = _priceDraftPhotoUrls(photoUrls);
+        if (!_ph.length) return false;
         _clearAssistantInput(input);
         _history.push({ role: 'user', text: q });
         _history.push({ role: 'assistant', text: '가격표로 만들 수 있는 시술명과 가격을 찾지 못했어요. 가격이 함께 보이는 이미지를 올려 주세요.' });
@@ -3574,38 +3986,84 @@
     }
   }
 
+  // [핫픽스F #5] 예약 결과(카드/슬롯/메시지)를 채팅에 렌더 — create 와 draft 슬롯필러가 공유.
+  function _pushBookingResult(result) {
+    if (result.kind === 'card' && result.action) {
+      // [P0-C] 예약 확인 카드 — pending single-action 으로 푸시 → "응/예약해줘" 는 _tryAffirmAction 이 실행.
+      _history.push({
+        role: 'assistant',
+        text: result.action.confirmation_text || (result.customer && result.customer.name + '님 예약 잡을까요?'),
+        action: result.action,
+        action_status: 'pending',
+      });
+    } else {
+      _history.push(Object.assign({ role: 'assistant', text: result.text }, result.related ? { related: result.related } : {}));
+      if (result.kind === 'open_booking') {
+        window._pendingBookingCustomer = (result.customer && result.customer.id != null)
+          ? { id: result.customer.id, name: result.customer.name } : null;
+        setTimeout(() => {
+          if (typeof window.openCalendarView === 'function') window.openCalendarView();
+          else if (typeof window.openBooking === 'function') window.openBooking();
+        }, 80);
+      }
+    }
+  }
+
+  // [핫픽스F #5] 예약 결과로 draft 컨텍스트를 무장/갱신 — 다음 발화(고객명·시간만)도 이어지게.
+  function _armBookingDraftFromResult(result) {
+    const BD = window.ItbiBookingDraft; if (!BD) return;
+    try {
+      if (result.kind === 'card' && result.customer) { BD.rememberCustomer(result.customer); return; }
+      if (result.needTime && result.customer) { BD.arm({ mode: 'add', customer: result.customer, dateBase: result.dateBase || null }); return; }
+      if (result.needCustomer) { BD.arm({ mode: 'add' }); return; }
+    } catch (_e) { void _e; }
+  }
+
   async function _tryCreateBookingShortcut(input, q) {
     try {
       if (!window.AssistantIntent || typeof window.AssistantIntent.tryCreateBooking !== 'function') return false;
       const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
       const result = await window.AssistantIntent.tryCreateBooking(q, ctx);
       if (!result || !result.matched) return false;
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      if (result.kind === 'card' && result.action) {
-        // [P0-C] 예약 확인 카드 — pending single-action 으로 푸시 → "응/예약해줘" 는 _tryAffirmAction 이 실행.
-        _history.push({
-          role: 'assistant',
-          text: result.action.confirmation_text || (result.customer && result.customer.name + '님 예약 잡을까요?'),
-          action: result.action,
-          action_status: 'pending',
-        });
-      } else {
-        _history.push({ role: 'assistant', text: result.text });
-        if (result.kind === 'open_booking') {
-          window._pendingBookingCustomer = (result.customer && result.customer.id != null)
-            ? { id: result.customer.id, name: result.customer.name } : null;
-          setTimeout(() => {
-            if (typeof window.openCalendarView === 'function') window.openCalendarView();
-            else if (typeof window.openBooking === 'function') window.openBooking();
-          }, 80);
+      // [핫픽스F #5-6] 고객명이 빠졌는데 직전 예약 고객이 있으면 그 고객으로 이어서 draft 진행(재질문 없이).
+      const BD = window.ItbiBookingDraft;
+      if (result.needCustomer && BD && BD.lastCustomer && BD.lastCustomer()) {
+        BD.arm({ mode: 'add', customer: BD.lastCustomer() });
+        const dm = await BD.tryDraft(q);
+        if (dm) {
+          _clearAssistantInput(input);
+          _history.push({ role: 'user', text: q });
+          if (dm.__card) { _armBookingDraftFromResult(dm.__card); _pushBookingResult(dm.__card); }
+          else _history.push(Object.assign({ role: 'assistant' }, dm));
+          _renderHistory();
+          return true;
         }
       }
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _pushBookingResult(result);
+      _armBookingDraftFromResult(result);
       _renderHistory();
       return true;
     } catch (_e) {
       return false;
     }
+  }
+
+  // [핫픽스F #5] 진행 중 예약 draft 슬롯필링 — 고객명만/시간만 와도 이어서 채운다. 양보(null)면 false.
+  async function _tryBookingDraftShortcut(input, q) {
+    try {
+      const BD = window.ItbiBookingDraft;
+      if (!BD || typeof BD.isActive !== 'function' || !BD.isActive()) return false;
+      const r = await BD.tryDraft(q);
+      if (!r) return false;   // 양보 → 기존 라우팅이 처리
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      if (r.__card) { _armBookingDraftFromResult(r.__card); _pushBookingResult(r.__card); }
+      else _history.push(Object.assign({ role: 'assistant' }, r));
+      _renderHistory();
+      return true;
+    } catch (_e) { return false; }
   }
 
   async function _tryAsyncIntentRule(input, q) {
@@ -3626,8 +4084,20 @@
   async function _runAsyncIntentRule(rule) {
     try {
       const result = await window.AssistantIntent.execAsyncRule(rule);
+      try { window.ItdasyBookingContext?.rememberList?.(result); } catch (_ctxErr) { void _ctxErr; }
       _history = _history.filter(m => m.role !== 'loading');
-      _history.push({ role: 'assistant', text: result.response });
+      // [Phase3 #2] 예약 조회면 카드로 표시(텍스트 한 줄만 X). 빈 결과면 새 예약 제안.
+      const isBooking = /^bookings_/.test(result.type || '');
+      const bItems = (isBooking && result.data && Array.isArray(result.data.items))
+        ? result.data.items.filter((b) => b && b.status !== 'cancelled') : [];
+      if (isBooking && bItems.length) {
+        const header = String(result.response || '').split('\n')[0];
+        _history.push({ role: 'assistant', text: header, booking_cards: bItems });
+      } else if (isBooking) {
+        _history.push({ role: 'assistant', text: (result.response || '예약이 없어요.') + ' 새 예약을 잡을까요?', related: ['예약 잡기'] });
+      } else {
+        _history.push({ role: 'assistant', text: result.response });
+      }
       _renderHistory();
     } catch (fetchErr) {
       _history = _history.filter(m => m.role !== 'loading');
@@ -3643,71 +4113,12 @@
   }
 
   function _tryKeywordShortcut(input, q) {
-    if (_tryPromoPhotoChain(input, q)) return true;     // [J-2] 홍보 사진 체인(보정+캡션+템플릿+버튼) — photo-flow 보다 먼저
-    if (_tryPhotoFlowShortcut(input, q)) return true;   // [T-104] 홍보 풀체인(폴백) — 단일 보정/편집기 오픈보다 먼저
+    // [구조 통합] 작업실 플로우가 열려 있으면 자연어를 작업실 명령으로 우선 처리(닫혀 있으면 false → 기존 흐름).
+    if (window.ItdasyWorkspaceNL?.tryRun?.(input, q, { clearInput: _clearAssistantInput })) return true;
     if (_tryPhotoEditorShortcut(input, q)) return true;
     if (_trySimpleOpenShortcut(input, q)) return true;
     if (_tryTabShortcut(input, q)) return true;
     return _tryUtilityShortcut(input, q);
-  }
-
-  // [T-104.5] photo-flow 가 "저장할까요?" 제안 후 사용자가 "응/저장해줘" → 실제 고객 기록 저장.
-  //   pending 없거나 저장의도 아니면 false(기존 파이프라인 계속). 기존 confirm 카드는 _tryAffirmAction 이 먼저.
-  async function _tryPhotoFlowSaveConfirm(input, q) {
-    try {
-      if (!window.ItdasyPhotoFlow || !window.ItdasyPhotoFlow.hasPendingSave || !window.ItdasyPhotoFlow.hasPendingSave()) return false;
-      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
-      const res = await window.ItdasyPhotoFlow.confirmSave(q, ctx);
-      if (!res) return false;   // 저장 의도 아님 → pending 유지, 다른 핸들러로
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      _history.push({ role: 'assistant', text: res.message });
-      _renderHistory();
-      return true;
-    } catch (_e) {
-      return false;
-    }
-  }
-
-  // [J-2] "이 사진 홍보용으로 예쁘게" → 보정 + 캡션 초안 + 템플릿 추천 + Action Hub 버튼. 미매칭/모듈없음 시 false.
-  function _tryPromoPhotoChain(input, q) {
-    try {
-      const C = window.ItdasyPromoPhotoChain;
-      if (!C || !C.detectPromoPhotoChain || !C.detectPromoPhotoChain(q)) return false;
-      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
-      const res = C.runPromoPhotoChain(q, ctx);
-      if (!res || !res.message) return false;
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      // [CF-2] 추천 템플릿 3개를 메시지에 직접 카드로 표시(잇비 응답만 보고 고르게).
-      _history.push({ role: 'assistant', text: res.message,
-        hub_actions: Array.isArray(res.hubActions) ? res.hubActions : [],
-        tpl_recos: Array.isArray(res.templateRecos) ? res.templateRecos : [],
-        promo_result: res.promoResult || null,
-        photo_result: res.promoResult && res.promoResult.afterDataUrl
-          ? { dataUrl: res.promoResult.afterDataUrl, ratio: '4:5' } : null });
-      _renderHistory();
-      return true;
-    } catch (_e) {
-      return false;
-    }
-  }
-
-  // [T-104] "이 사진 홍보용으로 예쁘게" → 업종 보정 적용 + 다음 단계 제안. 미매칭 시 false(기존 경로 유지).
-  function _tryPhotoFlowShortcut(input, q) {
-    try {
-      if (!window.ItdasyPhotoFlow || !window.ItdasyPhotoFlow.detectPhotoFlowIntent(q)) return false;
-      const ctx = (window.ItdasyAssistantContext && window.ItdasyAssistantContext.collect()) || {};
-      const res = window.ItdasyPhotoFlow.runPromoFlow(q, ctx);
-      if (!res || !res.message) return false;
-      _clearAssistantInput(input);
-      _history.push({ role: 'user', text: q });
-      _history.push({ role: 'assistant', text: res.message });
-      _renderHistory();
-      return true;
-    } catch (_e) {
-      return false;
-    }
   }
 
   function _tryPhotoEditorShortcut(input, q) {
@@ -3733,7 +4144,7 @@
       [/회원권.*(만료|임박)|만료.*회원권/, () => window.MembershipUI?.openExpiringList?.(30)],
       [/(dm|디엠|자동\\s*응답|자동\\s*답장).*(설정|관리|편집|룰)|자동\\s*응답\\s*(켜|꺼|on|off)/, window.openDMAutoreplySettings],
       [/(통계|분석|인사이트|insight|매출\\s*(요약|리포트|추이|분석))/, window.openInsights],
-      [/(백업|복구|backup|데이터.*(내보내|받|export))/, window.openBackupScreen],
+      [/(백업|backup|데이터.*(복구|내보내|받|export))/, window.openBackupScreen],
       [/(리뷰|후기)\\s*(요청|보내|부탁|발송)/, window.openReviewRequests],
       [/(이탈|위험|복귀|재방문)\\s*(고객|손님|관리)?|retention/i, window.openRetentionAI],
     ];
@@ -3771,9 +4182,7 @@
   }
 
   function _tryUtilityShortcut(input, q) {
-    if (/(캡션|문구|글|insta.*글|인스타.*글).*(만들|생성|작성|뽑)|^(캡션|글)\\s*(생성|만들기)$/.test(q.trim())) {
-      if (typeof window.openInstantCaption === 'function') { _runSheetShortcut(input, () => window.openInstantCaption()); return true; }
-    }
+    // [§4] 캡션은 대화형 핸들러(_tryCaptionConversation)가 _send 앞단에서 소유 — 1초캡션 팝업으로 보내지 않는다.
     if (/(음성|녹음|받아쓰|마이크|보이스|voice).*(캡션|글|입력|문구)?/.test(q)) {
       if (typeof window.openVoiceCaption === 'function') { _runSheetShortcut(input, () => window.openVoiceCaption()); return true; }
     }
@@ -3825,7 +4234,11 @@
       signal: ctrl.signal,
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.json();
+    // [robust] Gemini 지연/타임아웃 시 서버가 200+빈 바디를 줄 수 있음 → res.json()이 터져 빈 화면/에러가 되던 것 방지.
+    const _txt = await res.text();
+    if (!_txt || !_txt.trim()) return { answer: '응답이 잠깐 지연됐어요. 다시 한 번 말씀해 주세요 🙏', actions: [] };
+    try { return JSON.parse(_txt); }
+    catch (_pe) { return { answer: '응답을 받는 데 문제가 있었어요. 잠시 후 다시 시도해 주세요.', actions: [] }; }
   }
 
   function _rawActionsFromResponse(data) {
@@ -3879,7 +4292,9 @@
     if (/503|maintenance|점검/.test(msg)) return '🛠️ 서버 점검 중이에요. 5분 후 다시 시도해 주세요.';
     if (/quota|429|rate.?limit/i.test(msg)) return '⏰ 잠깐 요청이 몰려서 늦어져요. 1분 후 다시 보내주세요.';
     if (/403|permission|denied/i.test(msg)) return '🔒 권한 문제예요. 운영팀에 문의해 주세요.';
-    if (/network|failed to fetch|네트워크/i.test(msg) || !navigator.onLine) return '📡 인터넷 연결을 확인해 주세요.';
+    // [P1-5] 진짜 오프라인일 때만 '인터넷 연결' 문구. 온라인인데 fetch 실패면 거짓말 대신 정직하게.
+    if (!navigator.onLine) return '📡 지금 오프라인 상태예요. 인터넷 연결을 확인해 주세요.';
+    if (/network|failed to fetch|네트워크/i.test(msg)) return '⚠️ 잠깐 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.';
     return '에러: ' + (window._humanError ? window._humanError(e) : msg);
   }
 
@@ -3903,26 +4318,147 @@
     if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;   // 고객 메시지/초안은 캡션 아님
     if (/(캡션|해시\s*태그|hashtag)/i.test(t)) return true;
     if (/홍보\s*글/.test(t)) return true;
+    if (/문구\s*(만|좀)?\s*(다시\s*)?(줘|주세요|만들|뽑|써|작성)/.test(t)) return true;   // [§7] "문구만 줘"/"문구만 다시 줘"
     if (/(예약\s*)?유도\s*문구/.test(t)) return true;
     if (/(인스타|insta|sns|피드|스토리)\s*(글|문구|카피)/i.test(t)) return true;
     return false;
   }
 
-  function _tryCaptionIntentShortcut(input, q) {
-    if (!_looksCaptionIntent(q)) return false;
-    if (typeof window.openInstantCaption !== 'function') return false;
-    _runSheetShortcut(input, () => window.openInstantCaption());
+  // ── [§2-5] 잇비 대화형 캡션 — 1초캡션 팝업/인스타 미리보기 없이 채팅 안에서 생성·재생성 ──
+  //   직전 시술내역·인스타 말투 분석·길이/말투/해시태그 context 를 유지하고 사진 재업로드를 요구하지 않는다.
+  let _capCtx = null;   // { service, len, tone, moreTags, last, awaiting }
+  function _looksCaptionNew(q) {
+    const t = String(q || '');
+    if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;
+    return _looksCaptionIntent(t)
+      || /(캡션|문구|글|insta.*글|인스타.*글).*(만들|생성|작성|뽑|써)/i.test(t)
+      || /^(캡션|글)\s*(생성|만들기)$/.test(t);
+  }
+  function _looksCaptionRewrite(q) {
+    // [M2] 말투/톤/후기 말투 변경도 캡션 재작성으로 인식(사진모드·"준비 중"으로 새지 않게).
+    return /(다시|또|새\s*버전|다른\s*버전|더\s*길게|짧게|길게|인스타\s*(말투|스럽|식|느낌)|말투|톤|후기\s*(말투|체|식|느낌|톤)|이모지|해시\s*태그|해시태그|문구만)/.test(String(q || ''));
+  }
+  function _capInstaHint() {
+    try {
+      const a = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
+      const bits = [];
+      if (a.tone_summary || a.tone) bits.push('말투 ' + (a.tone_summary || a.tone));
+      if (a.style_summary) bits.push('스타일 ' + a.style_summary);
+      if (a.avg_caption_length) bits.push('평소 약 ' + a.avg_caption_length + '자');
+      return bits.length ? (' 우리 인스타 말투(' + bits.join(', ') + ')에 맞춰서.') : '';
+    } catch (_e) { return ''; }
+  }
+  function _capLenInstruction(len) {
+    if (len === 'long') return ' 캡션을 길고 풍부하게 2~3문단으로: 시술 포인트 설명, 전후 변화, 고객 고민 공감, 예약/문의 유도(CTA), 해시태그까지 포함해 충분히 길게 작성해주세요.';
+    if (len === 'short') return ' 캡션을 핵심만 담아 짧고 간결하게 작성해주세요.';
+    return '';
+  }
+  function _capCategory() {
+    // [M1] 백엔드 GenerateRequest 는 category Literal["extension","nail"] 만 받음.
+    //   shop_type 만 보지 말고, 사용자가 입력한 시술(네일/패디/젤)도 nail 로 인식.
+    try {
+      const svc = (_capCtx && _capCtx.service) || '';
+      if (/네일|패디|젤네일|패디큐어/.test(svc)) return 'nail';
+      if (/네일/.test(localStorage.getItem('shop_type') || '')) return 'nail';
+      return 'extension';
+    } catch (_e) { return 'extension'; }
+  }
+  function _capApplyAdjust(q, c) {
+    if (/(더\s*길게|길게|분량.*(늘|많)|자세히|상세히|풍부)/.test(q)) c.len = 'long';
+    if (/(짧게|간결|핵심만|줄여)/.test(q)) c.len = 'short';
+    if (/(인스타\s*(말투|스럽|식|느낌)|화려|발랄|트렌디|이모지\s*(더|많))/.test(q)) c.tone = 'ornate';
+    if (/(담백|차분|깔끔한\s*말투|점잖|격식|이모지\s*(빼|줄|없))/.test(q)) c.tone = 'plain';
+    if (/(해시\s*태그|해시태그).*(더|추가|많|넣)|지역\s*해시|인스타\s*해시.*추천/.test(q)) c.moreTags = true;
+    // [M2] 후기 말투/고객 후기체 요청 — 1인칭 후기 톤으로 재작성.
+    if (/후기\s*(말투|체|식|느낌|톤)|(고객|손님).*후기.*(말투|로|식|체)|후기\s*처럼/.test(q)) c.reviewVoice = true;
+  }
+  function _capExtractService(q) {
+    const m = String(q || '').match(/시술\s*(내역|명)?\s*[:：]\s*(.+)$/);
+    if (m && m[2]) return m[2].trim();
+    const stripped = String(q || '').replace(/(캡션|문구|해시\s*태그|hashtag|홍보\s*글|인스타|insta|sns|피드|스토리|글|만들어|만들|줘|주세요|생성|작성|써|뽑아|해줘|좀|다시)/gi, '').trim();
+    return stripped.length >= 2 ? stripped : '';
+  }
+  async function _capGenerate() {
+    const c = _capCtx;
+    const headers = window.authHeader ? Object.assign({}, window.authHeader()) : {};
+    headers['Content-Type'] = 'application/json';
+    const tags = c.moreTags ? ' 해시태그를 평소보다 더 다양하게 많이(시술·업종·지역 태그 포함) 넣어주세요.' : '';
+    const vary = c.last ? ' 이전과 다른 새로운 버전으로 작성해주세요.' : '';
+    const svc = (c.service || '').trim();
+    // [M1] 입력 시술을 본문에 반드시 반영하고, 입력 안 한 다른 시술은 언급하지 않도록 명시.
+    const svcLead = svc
+      ? (svc + ' 시술. 반드시 이 시술 중심으로 본문을 쓰고, 입력한 시술 외 다른 시술은 언급하지 마세요. ')
+      : ((localStorage.getItem('shop_type') || '') + ' 시술. ');
+    // [M2] 후기 말투 요청 시 1인칭 고객 후기체로.
+    const review = c.reviewVoice ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
+    const ctxStr = (svcLead + _capInstaHint() + _capLenInstruction(c.len) + tags + vary + review + ' 인스타 업로드용 캡션.').slice(0, 500);
+    const body = { category: _capCategory(), photo_context: ctxStr, length_tier: c.len || 'medium', tone_override: c.tone || 'normal', service: svc || '' };
+    let res;
+    try { res = await fetch((window.API || '') + '/persona/generate', { method: 'POST', headers, body: JSON.stringify(body) }); }
+    catch (_e) { return null; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return null;
+    const cap = (data.caption || '').trim();
+    const hts = Array.isArray(data.hashtags) ? data.hashtags.map(t => '#' + String(t).replace(/^#+/, '')).join(' ') : '';
+    const full = hts ? (cap + '\n\n' + hts) : cap;
+    if (full) c.last = full;
+    return full || null;
+  }
+  async function _tryCaptionConversation(input, q) {
+    const t = String(q || '').trim();
+    if (/(문자|디엠|\bdm\b|메시지|메세지|카톡)/i.test(t)) return false;
+    // [qa-D] 직전 캡션 context 가 있으면 재생성(더 길게/다시/해시태그 더 등)을 '새 요청'보다 우선 처리 —
+    //   "해시태그 더 넣어줘"가 새 캡션으로 오인돼 시술내역이 덮어써지던 버그 방지.
+    const isRewrite = !!_capCtx && _looksCaptionRewrite(t);
+    const isNew = !isRewrite && _looksCaptionNew(t);
+    const isService = !isRewrite && !isNew && !!(_capCtx && _capCtx.awaiting) && t.length >= 2 && !/^(취소|그만|아니|싫|관둬)/.test(t);
+    if (!isNew && !isRewrite && !isService) return false;
+    if (!_capCtx) _capCtx = { service: '', len: 'medium', tone: 'normal', moreTags: false, last: '', awaiting: false, reviewVoice: false };
+
+    if (isNew) {
+      const svc = _capExtractService(t);
+      if (svc) _capCtx.service = svc;
+      _capApplyAdjust(t, _capCtx);
+      if (!_capCtx.service) {   // 시술내역이 없으면 사진이 아니라 '시술 내역'을 대화로 물어본다.
+        _clearAssistantInput(input);
+        _capCtx.awaiting = true;
+        _history.push({ role: 'user', text: t });
+        _history.push({ role: 'assistant', text: '어떤 시술인가요? 시술 내역을 알려주시면 인스타 캡션을 바로 써드릴게요.\n예: "속눈썹펌, 처진 속눈썹, 자연스럽게, 유지력 강조"' });
+        _renderHistory();
+        return true;
+      }
+    } else if (isService) {
+      _capCtx.awaiting = false; _capCtx.service = t;
+    } else {   // rewrite — 직전 context 유지하고 길이/말투/해시태그만 조정
+      _capApplyAdjust(t, _capCtx);
+    }
+
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: t });
+    _history.push({ role: 'assistant', text: '캡션을 쓰고 있어요…', _capPending: true });
+    _renderHistory();
+    _sendInFlight = true;
+    let cap = null;
+    try { cap = await _capGenerate(); } catch (_e) { cap = null; } finally { _sendInFlight = false; }
+    for (let i = _history.length - 1; i >= 0; i--) { if (_history[i]._capPending) { _history.splice(i, 1); break; } }
+    if (!cap) { _history.push({ role: 'assistant', text: '캡션을 만들지 못했어요. 잠시 후 다시 시도해 주세요.' }); _renderHistory(); return true; }
+    _history.push({ role: 'assistant', text: cap, related: ['더 길게', '짧게', '캡션 다시', '해시태그 더 넣어줘', '더 인스타스럽게'] });
+    _renderHistory();
     return true;
   }
 
   async function _trySendShortcuts(input, q) {
     if (_tryObviousIntent(input, q)) return true;
     if (await _tryAffirmAction(input, q)) return true;
-    if (await _tryPhotoFlowSaveConfirm(input, q)) return true;   // [T-104.5] 기존 confirm 다음 — photo-flow 저장 확인
-    if (_tryCaptionIntentShortcut(input, q)) return true;        // [B4] 캡션/카피 의도 — 예약/문자초안보다 우선
+    if (await _tryCustomerPhoneIntent(input, q)) return true;   // [Phase3] 연락처 자연어(add-guard 보다 먼저)
+    if (await _tryCustomerAddGuard(input, q)) return true;
+    if (await _tryCaptionConversation(input, q)) return true;     // [§2-5] 캡션 — 대화형 생성/재생성(1초캡션 팝업 금지)
     if (await _tryCancelBookingShortcut(input, q)) return true;
+    if (await _tryBookingContextShortcut(input, q)) return true;
+    if (await _tryLookupBookingShortcut(input, q)) return true;
     if (await _tryCreateBookingShortcut(input, q)) return true;
     if (await _tryDraftMessageShortcut(input, q)) return true;   // [T-110] 메시지 초안(발송 아님)
+    if (await _tryClosingReportShortcut(input, q)) return true;  // [2026-07-05] 하루 마감 리포트(브리핑보다 먼저)
     if (await _tryDailyBriefingShortcut(input, q)) return true;  // [T-114] 오늘 운영 브리핑(읽기 전용)
     if (await _tryCustomerStatusCard(input, q)) return true;     // [J-3] 고객 상태 카드(읽기 전용 + 다음액션 버튼)
     if (await _tryAsyncIntentRule(input, q)) return true;
@@ -3931,7 +4467,371 @@
 
   // [P0a] 사진 직후 후속 텍스트가 "그 사진"에 대한 명령인지(누끼/배경/보정/템플릿/홍보/인스타/업로드/손님 등).
   function _looksPhotoFollowup(q) {
-    return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|캡션|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
+    // [§7] '캡션'은 제외 — 캡션 의도는 _tryCaptionConversation(대화형)으로 먼저 라우팅됨. 사진편집으로 새지 않게.
+    return /(누끼|배경|보정|예쁘게|템플|홍보|인스타|업로드|올려|게시|전후|손님|그대로|원본|네일|붙임머리|속눈썹|피부)/.test(q || '');
+  }
+
+  // [QA#7] 메모리 인텐트(기억해/뭐 기억해?/기억하지 마) — 백엔드 전에 가로채 dedupe + 응답 제어.
+  async function _tryMemoryShortcut(input, q) {
+    try {
+      if (!window.ItbiMemoryIntent || !window.ItbiMemoryIntent.classify(q)) return false;
+      _sendInFlight = true;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      let res = null;
+      try { res = await window.ItbiMemoryIntent.handle(q); }
+      catch (_h) { res = { reply: '메모를 처리하지 못했어요. 잠시 후 다시 시도해 주세요.' }; }
+      _history.push({ role: 'assistant', text: (res && res.reply) || '메모를 확인했어요.' });
+      _renderHistory();
+      if (res && res.openSheet && typeof window.openAssistantFactsSheet === 'function') {
+        try { window.openAssistantFactsSheet(); } catch (_s) { void _s; }
+      }
+      return true;
+    } catch (_e) { return false; }
+    finally { _sendInFlight = false; }
+  }
+
+  // [QA#6] "저장한 카드 보여줘" — 작업실 진입 + 저장 카드 조회(IndexedDB). 가격표 '생성' 경로보다 먼저 호출.
+  async function _trySavedCardsShortcut(input, q) {
+    try {
+      if (!window.ItbiSavedCardsIntent || !window.ItbiSavedCardsIntent.classify(q)) return false;
+      _sendInFlight = true;
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      let res = null;
+      try { res = await window.ItbiSavedCardsIntent.handle(q); }
+      catch (_h) { res = { reply: '작업실을 여는 데 문제가 있었어요. 작업실 탭을 직접 눌러봐 주세요.' }; }
+      _history.push({ role: 'assistant', text: (res && res.reply) || '작업실을 열었어요.' });
+      _renderHistory();
+      return true;
+    } catch (_e) { return false; }
+    finally { _sendInFlight = false; }
+  }
+
+  // [activeCard P0] 편집기 시트가 열려있나(닫혀도 display!=='none' 이면 채팅 뒤에 떠 있는 것).
+  function _isEditorOpen() {
+    try { const s = document.getElementById('photoEditorSheet'); return !!s && getComputedStyle(s).display !== 'none'; }
+    catch (_e) { return false; }
+  }
+  async function _ensurePhotoGroup() {
+    try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+  }
+  // 저장된 슬롯을 편집기에 복원(그거 수정 — 저장본). 성공 true.
+  async function _reopenSavedSlotInEditor(slotId, label, purpose) {
+    try {
+      if (typeof window.loadSlotsFromDB !== 'function') return false;
+      const slots = await window.loadSlotsFromDB();
+      const slot = (slots || []).find(s => s && s.id === slotId);
+      if (!slot) return false;
+      if (slot.templateMeta && typeof window.restoreAssistantTemplate === 'function') {
+        _focusEditorCloseAssistant();
+        const photo = (slot.photos || [])[0] || null;
+        const ok = window.restoreAssistantTemplate(slot, photo, _assistantTemplateOnSave({ purpose: purpose || (slot.templateMeta && slot.templateMeta.purpose) || 'price', label: label || slot.label }));
+        if (ok) return true;
+      }
+      // 메타 없으면 작업실에서 하이라이트(베이크 이미지만 있는 옛 슬롯).
+      _openWorkshopHighlightSlot(slotId);
+      return true;
+    } catch (_e) { return false; }
+  }
+  function _openWorkshopHighlightSlot(slotId) {
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    try { if (typeof window.showTab === 'function') window.showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]')); } catch (_e) { void _e; }
+    try { if (slotId != null && typeof window.highlightWorkshopSlot === 'function') window.highlightWorkshopSlot(slotId); else if (typeof window.initWorkshopTab === 'function') window.initWorkshopTab(); } catch (_e) { void _e; }
+  }
+
+  // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장 전이라도 '방금 만든/편집 중 카드'를 대상으로.
+  //   activeCard 없으면 false → 저장카드 조회 경로로 폴백. (저장카드보다 activeCard 우선)
+  async function _tryActiveCardShortcut(input, q) {
+    const AC = window.ItbiActiveCard;
+    if (!AC || !AC.has()) return false;
+    // [M4] 예약 시간 변경 신호("…4시로 바꿔/변경/옮겨")가 있으면 저장카드보다 예약 문맥 우선 → false 로 양보.
+    if (/(예약|\d+\s*시|오전|오후|오늘|내일|모레)/.test(q) && /(바꿔|바꾸|변경|옮겨|미뤄|당겨|취소)/.test(q)) return false;
+    const ref = AC.classifyRef(q);
+    if (!ref) return false;
+    const card = AC.get();
+    _sendInFlight = true;
+    try {
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      await _ensurePhotoGroup();
+      const editorOpen = _isEditorOpen();
+      const name = card.label || '카드';
+      let reply;
+      if (card.available === false) {
+        // 이벤트처럼 아직 못 만든 카드 — 거짓 안내 금지, 정직 안내.
+        reply = name + '는 아직 안 만들어져서 ' + (ref.verb === 'save' ? '저장할' : '보여드릴') + ' 게 없어요. 가격표·후기·전후 카드는 바로 만들 수 있어요 — 만들어드릴까요?';
+      } else if (ref.verb === 'save') {
+        if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '"' + name + '"는 이미 작업실에 저장돼 있어요. 작업실에 띄워뒀어요.'; }
+        else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
+          try { await window.PhotoEditor.save(); reply = '방금 만든 "' + name + '"를 작업실에 저장했어요. "그거 수정"이라고 하면 다시 열어드려요.'; }
+          catch (_s) { reply = '저장 중에 문제가 있었어요. 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
+        } else { _reopenTemplateForActive(card); reply = '"' + name + "\" 편집기를 다시 열었어요. 마무리하고 '그거 저장'이라고 해주세요."; }
+      } else if (ref.verb === 'edit') {
+        if (editorOpen) { _focusEditorCloseAssistant(); reply = '방금 만든 "' + name + '"를 편집기에서 열어뒀어요. 바로 고치면 돼요.'; }
+        else if (card.slotId != null) { const ok = await _reopenSavedSlotInEditor(card.slotId, name, card.purpose); reply = ok ? '저장한 "' + name + '"를 편집기에서 열었어요.' : '"' + name + '"를 작업실에 띄웠어요. 카드를 누르면 편집할 수 있어요.'; }
+        else { _reopenTemplateForActive(card); reply = '방금 만든 "' + name + '" 템플릿을 다시 열었어요. 고치고 저장하면 작업실에 모여요.'; }
+      } else { // show
+        if (editorOpen) { _focusEditorCloseAssistant(); reply = '방금 만든 "' + name + '"예요. 편집기에서 보고 계세요 — 고칠 게 있으면 말씀해 주세요.'; }
+        else if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '방금 만든 "' + name + '"를 작업실에 띄웠어요. 카드를 누르면 다시 편집할 수 있어요.'; }
+        else { _reopenTemplateForActive(card); reply = '방금 만든 "' + name + '"를 다시 열었어요. 저장 안 하면 새로고침 후엔 사라지니 "그거 저장"이라고 해주세요.'; }
+      }
+      _history.push({ role: 'assistant', text: reply });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      try { _history.push({ role: 'assistant', text: '방금 만든 카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' }); _renderHistory(); } catch (_e2) { void _e2; }
+      return true;
+    } finally { _sendInFlight = false; }
+  }
+  function _reopenTemplateForActive(card) {
+    try { if (card && card.purpose && card.purpose !== 'event') _openCreateTemplate(card.purpose); }
+    catch (_e) { void _e; }
+  }
+
+  // [P1-5] 미지원(세부편집)/평가·재시도/문맥부족 발화를 백엔드로 안 보내고 정직하게 안내(인터넷오류 거짓 수렴 차단).
+  function _tryUnsupportedGuide(input, q) {
+    const U = window.ItbiUnsupportedIntent;
+    if (!U || typeof U.classify !== 'function') return false;
+    const c = U.classify(q);
+    if (!c) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    const AC = window.ItbiActiveCard;
+    const hasActive = !!(AC && AC.has() && AC.get() && AC.get().available !== false);
+    const inEditor = _isEditorOpen();
+    let reply;
+    if (c.kind === 'edit_detail') {
+      reply = (inEditor || hasActive)
+        ? '아직 글자 크기·색·위치 같은 세부 편집은 말로 못 해요. 편집기에서 직접 고쳐주세요 — 저장하면 작업실에 모여요.'
+        : '세부 편집은 카드를 연 다음 편집기에서 직접 할 수 있어요. "저장된 카드 보여줘"라고 하면 카드를 열어드릴게요.';
+    } else if (c.kind === 'retry_alt') {
+      reply = hasActive
+        ? '디자인은 편집기에서 직접 고칠 수 있어요. 새로 만들려면 "가격표 만들어줘"처럼 말씀해 주세요. 캡션 말투를 바꾸려면 "더 인스타스럽게 다시"·"후기 말투로 바꿔줘"라고 하면 돼요.'
+        : '새로 만들려면 "후기 카드 만들어줘"처럼, 저장한 걸 고치려면 "저장된 카드 보여줘"라고 해주세요. 캡션은 "더 길게"·"후기 말투로 바꿔줘"로 다시 써드려요.';
+    } else {
+      reply = '어떤 카드를 말씀하시는지 못 찾았어요. "저장된 카드 보여줘"로 최근 작업을 먼저 열거나, "가격표 만들어줘"처럼 새로 만들어보세요.';
+    }
+    _history.push({ role: 'assistant', text: reply });
+    _renderHistory();
+    return true;
+  }
+
+  // [QA퍼징] 업종 키워드 없는 bare 생성("가격표 만들어줘")을 백엔드로 안 새게 — 목적별 템플릿 편집기/피커로 연결.
+  //   매처/가격표/후기/전후 샷컷이 모두 실패한 뒤(=업종 없음) 백엔드 전송 직전에만 호출. 목적은 결정론적 매핑.
+  const _CREATE_DEFAULT_TPL = { price: 'bp-price-blackgold', review: 'bp-review-lash-blue', before_after: 'bp-ba-nail-polaroid', event: 'bp-event-spring-mixed', generic: 'card-minimal' };
+  const _CREATE_LABEL = { price: '가격표', review: '후기 카드', before_after: '전후 카드', event: '이벤트 카드', generic: '카드' };
+  // [§1] 이벤트 요청 → 일반 템플릿 메뉴가 아니라 '이벤트 전용 카드 선택지'를 채팅에 표시. 적용 버튼은 편집기를 직접 연다.
+  const _EVENT_CHOICES = [
+    { id: 'event-discount', label: '할인 이벤트' },
+    { id: 'event-newcomer', label: '신규 고객 이벤트' },
+    { id: 'event-deadline', label: '마감임박 이벤트' },
+    { id: 'event-gift', label: '증정 이벤트' },
+    { id: 'event-member', label: '회원 이벤트' },
+  ];
+  async function _pushEventCardChoices(q) {
+    try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+    const lead = /네일/.test(q || '') ? '네일 ' : (/속눈썹|래쉬|lash/i.test(q || '') ? '속눈썹 ' : '');
+    _history.push({
+      role: 'assistant',
+      text: lead + '어떤 이벤트 카드로 만들까요? 아래에서 고르고 "이 템플릿 적용"을 누르면 기간·혜택만 바꿔서 바로 만들 수 있어요.',
+      event_choices: _EVENT_CHOICES,
+    });
+    _renderHistory();
+  }
+  // [§1 qa-E] 이벤트 카드 적용 — 편집기를 열면서 해당 이벤트 템플릿 적용(저장→작업실). _apply(편집기 필요)와 달리 무반응 없음.
+  let _eventApplyInFlight = false;
+  function _openEventTemplate(tplId, label) {
+    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
+    if (!PE || typeof PE.open !== 'function') { try { if (window.showToast) window.showToast('편집기를 열 수 없어요. 잠시 후 다시 시도해 주세요.'); } catch (_t) { void _t; } return; }
+    if (_eventApplyInFlight) return;   // 중복 클릭 방지
+    _eventApplyInFlight = true; setTimeout(() => { _eventApplyInFlight = false; }, 1200);
+    let source = '';
+    try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
+    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'event', label: label || '이벤트 카드' }) });
+    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: label || '이벤트 카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
+    _focusEditorCloseAssistant();
+  }
+  // [§1 qa-E] 이벤트 의도 — "이벤트/이벤트 카드/회원 이벤트/오픈 이벤트…" 전부 이벤트 선택지로(작업실/일반메뉴로 새지 않게).
+  function _looksEventIntent(q) {
+    const t = String(q || '');
+    if (/(보여|목록|저장한|작업실|수정|삭제|지워|올려|발송|문자|디엠)/.test(t)) return false;
+    return /이벤트/.test(t);
+  }
+  function _openCreateTemplate(purpose) {
+    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
+    if (!PE || typeof PE.open !== 'function') return false;
+    let source = '';
+    try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
+    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });   // [§13] 닫으면 잇비 복귀
+    const tplId = _CREATE_DEFAULT_TPL[purpose];
+    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    // [activeCard P0] 방금 만든(편집 중) 카드 기억 — 저장 전에도 "그거 저장/수정/다시 보여줘" 가 가리킬 수 있게.
+    try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
+    _focusEditorCloseAssistant();
+    return true;
+  }
+  async function _tryCreateIntentFallback(input, q) {
+    let c = null;
+    try { c = window.ItbiCreateIntent && window.ItbiCreateIntent.classify(q); } catch (_e) { c = null; }
+    if (!c || !c.purpose) return false;
+    _sendInFlight = true;
+    try {
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: q });
+      _renderHistory();
+      try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_l) { void _l; }
+      const p = c.purpose;
+      if (p === 'event') {
+        // [§1] 일반 템플릿 메뉴가 아니라 이벤트 전용 카드 선택지를 채팅에 표시.
+        await _pushEventCardChoices(q);
+        return true;
+      }
+      if (p === 'before_after') {
+        const PM = window.ItdasyPhotoMode;
+        if (PM) {
+          const photos = _lastUserPhotos();
+          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
+          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '전후 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
+          _pmForceRender();
+          return true;
+        }
+        _history.push({ role: 'assistant', text: '전후 카드는 사진 2장이 필요해요. 사진편집 모드에서 사진을 보내주세요.' });
+        _renderHistory();
+        return true;
+      }
+      if (p === 'review') {
+        const PM = window.ItdasyPhotoMode;
+        if (PM) {
+          const photos = _lastUserPhotos();
+          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
+          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '후기 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
+          _pmForceRender();
+          return true;
+        }
+        _history.push({ role: 'assistant', text: '후기 카드는 사진편집 모드에서 만들 수 있어요. 사진을 보내주세요.' });
+        _renderHistory();
+        return true;
+      }
+      const opened = _openCreateTemplate(p);
+      if (opened) {
+        const msg = (p === 'generic')
+          ? '무난하게 쓰기 좋은 카드 템플릿을 열었어요. 문구를 고치고 저장하면 작업실에 보관돼요.'
+          : (_CREATE_LABEL[p] || '카드') + ' 초안을 만들었어요. 문구를 고치고 저장하면 작업실에서 다시 편집할 수 있어요.';
+        _history.push({ role: 'assistant', text: msg });
+        _renderHistory();
+        return true;
+      }
+      // 편집기 미가용 — 작업실로라도 보내 정직 안내(백엔드로 안 샘).
+      try { if (typeof window.showTab === 'function') window.showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]')); } catch (_t) { void _t; }
+      _history.push({ role: 'assistant', text: '작업실을 열었어요. 여기서 ' + (_CREATE_LABEL[p] || '카드') + '를 만들 수 있어요.' });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      try { _history.push({ role: 'assistant', text: '카드를 여는 데 문제가 있었어요. 작업실 탭에서 다시 시도해 주세요.' }); _renderHistory(); } catch (_e2) { void _e2; }
+      return true;
+    } finally { _sendInFlight = false; }
+  }
+
+  // [모드 P1] 사진편집 모드 중 무관 질문이 통과했을 때, 백엔드 응답 뒤 붙일 재안내 라벨.
+  let _photoModeReannounce = '';
+
+  // [핫픽스F #5-6] 예약/고객/매출 등 명시적 운영 인텐트 — 사진모드 활성 중이라도 "하던 거 이어가요" 재안내를 붙이지 않는다.
+  function _looksExplicitOpsIntent(q) {
+    return /예약|매출|정산|(얼마.*(벌|매출|썼))|고객\s*(기록|정보|관리|추가|상세)|재고|문자\s*(보내|발송)|시술\s*완료|노쇼/.test(String(q || ''));
+  }
+
+  // [M3] 자연어 "인스타 미리보기" — 카드 버튼과 동일하게 openInstagramPreview 팝업(업로드 아님)을 연다.
+  function _looksInstaPreviewIntent(q) {
+    const t = String(q || '');
+    if (!/미리\s*보기/.test(t)) return false;
+    return /(인스타|insta|ig|sns|피드|보여|열어|열|줘|해줘|보자|확인)/i.test(t) || /^미리\s*보기$/.test(t);
+  }
+  async function _tryInstaPreviewIntent(input, q) {
+    if (!_looksInstaPreviewIntent(q)) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: q });
+    try { if (window.AppLoader && !window.AppLoader.loaded('instagram')) await window.AppLoader.ensure('instagram'); } catch (_e) { void _e; }
+    let src = '';
+    try { const s = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); src = (s && s.dataUrl) || ''; } catch (_e) { void _e; }
+    let caption = (_capCtx && _capCtx.last) || '';
+    if (!caption) { try { caption = (window.CaptionPrefill && window.CaptionPrefill.get && window.CaptionPrefill.get()) || ''; } catch (_e) { void _e; } }
+    if (!caption && !src) {
+      _history.push({ role: 'assistant', text: '먼저 사진과 캡션을 만들어 주세요. 그다음 "인스타 미리보기 보여줘"라고 하면 올리기 전 모습 그대로 보여드려요.' });
+      _renderHistory();
+      return true;
+    }
+    if (typeof window.openInstagramPreview === 'function') {
+      try { window.openInstagramPreview({ src: src, caption: caption, enableUpload: false }); } catch (_e) { void _e; }
+      _history.push({ role: 'assistant', text: '올리기 전 인스타 미리보기예요 — 실제로 올라간 건 아니에요. 확인 후 올리려면 작업실에서 "인스타에 올리기"를 눌러주세요.' });
+    } else {
+      _history.push({ role: 'assistant', text: '미리보기는 결과 카드의 "인스타 미리보기" 버튼으로 열 수 있어요.' });
+    }
+    _renderHistory();
+    return true;
+  }
+
+  // [C1/C2] 홍보컷·홍보물 요청과 "가격표 말고/없이" 부정형이 가격표 매처/폴백으로 새지 않게 가로챈다.
+  function _hasPriceNegation(q) {
+    const t = String(q || '');
+    if (/(가격표?|가격|메뉴판|단가)\s*(은|는|을|를|로|으로|만)?\s*(말고|빼고|빼|없이|없는|없어|없게|제외|않)/.test(t)) return true;
+    if (/(가격\s*없|노\s*프라이스|no\s*price)/i.test(t)) return true;
+    return false;
+  }
+  function _looksPromoCreateIntent(q) {
+    const t = String(q || '');
+    if (/(보여|목록|저장한|작업실|수정|삭제|지워|발송|문자|디엠)/.test(t)) return false;
+    // [v499 4-2] '홍보용으로 예쁘게'처럼 사진 없는 홍보 요청도 포함(사진 있으면 사진모드가 먼저 처리).
+    return /(홍보\s*컷|홍보\s*물|홍보\s*사진|홍보\s*이미지|홍보\s*용)/.test(t);
+  }
+  async function _tryPromoIntent(input, q) {
+    const t = String(q || '');
+    if (!_looksPromoCreateIntent(t) && !_hasPriceNegation(t)) return false;
+    _clearAssistantInput(input);
+    _history.push({ role: 'user', text: t });
+    _history.push({ role: 'assistant', text: '홍보물로 쓸 사진을 먼저 보내주세요. 사진을 받으면 시술 자랑, 전후, 고객 후기, 인스타 홍보컷 중에서 바로 만들어드릴게요. 어떤 시술인지 알려주셔도 돼요.' });
+    _renderHistory();
+    return true;
+  }
+
+  // [v499 4-1] "작업실에 저장" 명령 — 저장 성공/실패를 분명히 안내하고 [작업실에서 보기] 제공.
+  //   기존엔 캡션 텍스트가 다시 나오던 문제 해결. ("저장한 카드 보여줘"는 _trySavedCardsShortcut 소유)
+  async function _trySaveWorkshopCommand(input, q) {
+    const t = String(q || '');
+    if (!/작업실에?\s*저장|작업실\s*에?\s*담아|작업실\s*보관/.test(t)) return false;
+    if (/(보여|목록|열어|보기)/.test(t)) return false;   // "작업실에서 보기/목록"은 제외
+    _sendInFlight = true;
+    try {
+      _clearAssistantInput(input);
+      _history.push({ role: 'user', text: t });
+      _renderHistory();
+      await _ensurePhotoGroup();
+      const AC = window.ItbiActiveCard;
+      const card = AC && AC.has() ? AC.get() : null;
+      const editorOpen = _isEditorOpen();
+      let reply;
+      if (card && card.slotId != null) {
+        reply = '이미 작업실에 저장돼 있어요. 작업실에서 바로 확인할 수 있어요.';
+      } else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
+        try { await window.PhotoEditor.save(); reply = '작업실에 저장했어요. 작업실에서 바로 확인할 수 있어요.'; }
+        catch (_s) { reply = '저장 중 문제가 있었어요 — 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
+      } else if (card) {
+        _reopenTemplateForActive(card);
+        reply = '저장할 카드를 편집기에 다시 열었어요. 마무리하고 "작업실에 저장"이라고 해주세요.';
+      } else {
+        reply = '아직 저장할 카드가 없어요. 먼저 "홍보컷 만들어줘"나 "캡션 만들어줘"로 만들어 주세요.';
+      }
+      _history.push({ role: 'assistant', text: reply, related: ['작업실에서 보기'] });
+      _renderHistory();
+      return true;
+    } catch (_e) {
+      try { _history.push({ role: 'assistant', text: '저장 중 문제가 있었어요. 작업실 탭에서 확인해 주세요.', related: ['작업실에서 보기'] }); _renderHistory(); } catch (_e2) { void _e2; }
+      return true;
+    } finally { _sendInFlight = false; }
   }
 
   async function _send() {
@@ -3941,36 +4841,77 @@
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
     const q = input ? input.value.trim() : '';
     if (!q) return;
+    _photoModeReannounce = '';
     if (_pendingBA) { _pendingBA = null; }   // [P1] 전후 대기 중 다른 텍스트 요청 → pending 정리
-    // [사진+캡션 pending] 시술내역 입력 대기 → 캡션 생성 후 인스타 미리보기 버튼
-    if (_pendingCaptionPhoto) {
-      const _capPhotoUrl = _pendingCaptionPhoto;
-      _pendingCaptionPhoto = null;
-      _sendInFlight = true;
-      _beginTextAsk(input, q);
-      try {
-        const _capRes = await _generateChatCaption({ question: q + ' 시술 완료 인스타 캡션', customerCtx: null });
-        const _capText = (_capRes && _capRes.caption) || '오늘도 멋진 시술 완료! 예약·상담은 DM 또는 전화 주세요 😊';
-        _history[_history.length - 1] = {
-          role: 'assistant',
-          text: '캡션을 만들었어요 ✍️',
-          photo_result: { dataUrl: _capPhotoUrl, ratio: '4:5' },
-          photo_caption: _capText,
-          hub_actions: [
-            { id: 'ig_preview', kind: 'open_instagram', label: '인스타 미리보기', phase: 'safe', route: 'hub', payload: { dataUrl: _capPhotoUrl, caption: _capText, ratio: '4:5' } },
-          ],
-        };
-        _renderHistory();
-      } catch (_capErr) { _handleSendError(_capErr); }
-      finally { _sendInFlight = false; _inflightCtrl = null; }
-      return;
+    // [BA 동선] 다른 텍스트 요청이 오면 BA 자동연결 대기 해제(전후 재요청이면 _openBeforeAfterCreate 가 다시 세팅).
+    if (_pendingBaIntent) { _pendingBaIntent = null; }
+    // [QA#7] 메모리 의도("기억해"/"뭐 기억해?"/"기억하지 마") — 백엔드 전 가로채 dedupe.
+    if (await _tryMemoryShortcut(input, q)) return;
+    // [구조 통합 P2] "작업실 열어"/"작업실에서 전후 만들어줘"/"게시글만 써줘" 등 명시 발화 → V2 작업실 cold-open.
+    //   명시 발화만 매칭 → 일반 "사진 편집" 류는 아래 photo-mode 가 그대로 처리(가로채기 없음).
+    if (window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput })) return;
+    // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
+    {
+      const _PM = window.ItdasyPhotoMode;
+      // [M2] 활성 캡션 대화(생성된 캡션 last 또는 시술 service 보유)에서 말투/톤 변경 발화면 사진모드로 넘기지 않는다.
+      const _capRewriteActive = !!(_capCtx && (_capCtx.last || _capCtx.service) && _looksCaptionRewrite(q));
+      const _pmStart = !_capRewriteActive && _PM && (
+        _PM.isActive() || (_PM.shouldStart ? _PM.shouldStart(q, { hasPhoto: false }) : (_PM.START_RE && _PM.START_RE.test(q)))
+      );
+      if (_pmStart) {
+        const _wasActive = _PM.isActive();
+        _sendInFlight = true;   // await 동안 중복 전송 차단
+        let _pmMsg = null;
+        try { _pmMsg = await _PM.handleText(q, null); } catch (_e) { _pmMsg = null; }
+        // [§4] 작업실 등으로 네비게이션만 한 경우 — 채팅 push/재렌더 생략(닫히는 중 캡션 카드 깜빡임 방지).
+        if (_pmMsg && _pmMsg.pm_navigated) {
+          _clearAssistantInput(input);
+          _sendInFlight = false; _inflightCtrl = null;
+          return;
+        }
+        if (_pmMsg) {
+          _clearAssistantInput(input);
+          // local_only: 서버 미저장 → _mergeServerHistory 에서 보존(드롭 방지).
+          _history.push({ role: 'user', text: q, local_only: true });
+          _history.push(Object.assign({ role: 'assistant' }, _pmMsg, { local_only: true }));
+          _pmDbg('send.push', { len: _history.length, keys: Object.keys(_pmMsg), text: (_pmMsg.text || '').slice(0, 24) });
+          _pmForceRender();
+          _pmDbg('send.render', _pmSheetState());
+          _sendInFlight = false; _inflightCtrl = null;
+          return;
+        }
+        _sendInFlight = false;   // 미처리(null) → 기존 파이프라인 계속
+        // 무관 질문 → 통과시키고, 백엔드 응답 뒤 "하던 거 이어가요" 재안내 예약.
+        // [핫픽스F #5-6] 단, 예약/고객/매출 같은 명시 운영 인텐트엔 재안내(사진 받기)를 붙이지 않는다(photo 흐름 양보).
+        if (_wasActive && !_looksExplicitOpsIntent(q)) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
+      }
     }
+    // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
+    //   phone-intent 는 PHONE_RE 가 있을 때만 매칭 → "그거 수정"(사진 카드) 등은 영향 없음.
+    if (await _tryCustomerPhoneIntent(input, q)) return;
+    // [M3] 자연어 "인스타 미리보기" — 활성/저장카드보다 먼저 미리보기 팝업으로.
+    if (await _tryInstaPreviewIntent(input, q)) return;
+    // [v499 4-1] "작업실에 저장" 명령 — 저장 확인 멘트(캡션 재노출 방지).
+    if (await _trySaveWorkshopCommand(input, q)) return;
+    // [activeCard P0] "그거 저장/수정/다시 보여줘" — 저장카드보다 '방금 만든/편집 중 카드'(activeCard) 우선. 없으면 false→아래로.
+    if (await _tryActiveCardShortcut(input, q)) return;
+    // [QA#6] "저장한 카드 보여줘" — 가격표 '생성'(_tryPriceListDraft)보다 먼저: '보여줘'가 생성으로 새지 않게.
+    if (await _trySavedCardsShortcut(input, q)) return;
+    // [§1 qa-E] 이벤트 의도 — 작업실/일반 템플릿 메뉴로 새지 않게 가장 먼저 이벤트 카드 선택지로.
+    if (_looksEventIntent(q)) { _clearAssistantInput(input); _history.push({ role: 'user', text: q }); await _pushEventCardChoices(q); return; }
+    // [§7] 캡션/문구 의도 — 사진이 있어도 사진편집(_looksPhotoFollowup)·템플릿으로 새지 않게 먼저 가로챈다.
+    if (await _tryCaptionConversation(input, q)) return;
     // [P0a] pending 사진이 없어도, 직전에 채팅으로 올린 사진(≤5분)이 있고 텍스트가 사진 명령이면
     //   그 사진을 대상으로 기존 사진 shortcut 경로를 재사용("사진+네일 손님이야" 연결). 아니면 기존 흐름.
-    if (_tryTemplateSampleShortcut(input, q)) return;   // [M2] 매처 샘플 → I2/I3 자동 적용 — null 이면 false 로 아래 fallback
+    // [핫픽스F #5] 진행 중 예약 draft(고객/시간 슬롯필링) + 명시적 예약 생성("…예약해/예약 잡아")은
+    //   가격표/OCR/템플릿/사진 인텐트보다 우선 — 가격표가 "붙임머리 시술 예약"을 가로채던 오라우팅 차단.
+    if (await _tryBookingDraftShortcut(input, q)) return;
+    if (await _tryLookupBookingShortcut(input, q)) return;
+    if (await _tryCreateBookingShortcut(input, q)) return;
+    // [C1/C2] 홍보컷·홍보물·"가격표 말고/없이" — 가격표 매처/폴백 전에 가로채 홍보 흐름으로(가격표 오라우팅 차단).
+    if (await _tryPromoIntent(input, q)) return;
+    if (await _tryTemplateSampleShortcut(input, q)) return;   // 가격표 샘플은 기존 적용, 후기/전후 샘플은 사진모드로 연결
     if (_tryPriceListDraft(input, q)) return;
-    if (_tryReviewCardShortcut(input, q)) return;   // [I3a] 후기 카드 자동 적용 — promo chain/photo-followup 보다 먼저
-    if (_tryBeforeAfterCardShortcut(input, q)) return;   // [I3b] 전후(BA) 카드 자동 적용 — promo chain/photo-followup 보다 먼저
     if (window.ItdasySourceImage && _looksPhotoFollowup(q)) {
       try {
         const src = window.ItdasySourceImage.resolve();
@@ -3982,7 +4923,11 @@
         }
       } catch (_e) { void _e; }
     }
+    // [QA퍼징] 업종 없는 bare 생성("가격표 만들어줘")은 매처가 못 잡음 → 백엔드 전 마지막으로 가로채 목적별 템플릿으로.
+    if (await _tryCreateIntentFallback(input, q)) return;
     if (await _trySendShortcuts(input, q)) return;
+    // [P1-5] 세부편집/평가·재시도/문맥부족 발화는 백엔드로 보내지 말고(=인터넷오류 거짓 수렴 방지) 정직하게 안내.
+    if (_tryUnsupportedGuide(input, q)) return;
     _beginTextAsk(input, q);
     try {
       _finishAskResponse(q, await _postAssistantAsk(q));
@@ -3991,6 +4936,11 @@
     } finally {
       _sendInFlight = false;
       _inflightCtrl = null;
+    }
+    // [모드 P1] 사진편집 모드 중 무관 질문이었으면 응답 뒤 한 줄 재안내.
+    if (_photoModeReannounce) {
+      try { _history.push({ role: 'assistant', text: '하던 거 이어가요: ' + _photoModeReannounce }); _renderHistory(); } catch (_e) { void _e; }
+      _photoModeReannounce = '';
     }
   }
 
@@ -4031,6 +4981,12 @@
     const localByText = _localHistoryByText();
     const survivors = _pendingHistorySurvivors(messages);
     const merged = messages.map(m => _mergeServerMessage(m, localByText));
+    // [모드 P1] 머지가 PM 로컬 메시지를 떨구는지 추적 — localOnly 가 in/out 다르면 드롭 발생.
+    try {
+      const _in = _history.filter(m => m && m.local_only).length;
+      const _out = survivors.filter(m => m && m.local_only).length;
+      if (_in) _pmDbg('merge', { server: messages.length, localOnlyIn: _in, localOnlyOut: _out });
+    } catch (_e) { void _e; }
     return survivors.length ? merged.concat(survivors) : merged;
   }
 
@@ -4049,6 +5005,9 @@
     return _history.filter(m => {
       if (!m) return false;
       if (m.role === 'loading') return true;
+      // [모드 P1] 서버 미저장 로컬 전용 메시지(PM 응답·PM 사진 말풍선)는 서버 머지 때 드롭 금지.
+      //   (assistant 로컬 메시지는 기본 survivor 가 아니어서 사라지던 블로커 + text='' 사진 말풍선 보존)
+      if (m.local_only) return true;
       const key = (m.role || 'assistant') + '::' + (m.text || '');
       return m.role === 'user' && !serverTextSet.has(key);
     });
@@ -4092,6 +5051,19 @@
     const input = document.getElementById('asstInput');
     if (input) input.value = String(text || '');
     _send();
+  };
+
+  // [Phase3-C #3] 사진편집 모드(전후 카드)에서 비동기 콜백(예: 전/후 슬롯 편집 저장)으로
+  //   완성된 카드 메시지를 채팅에 다시 띄울 때 사용. photo-mode 가 호출.
+  window._pmPushCard = function (msg) {
+    try {
+      if (!msg) return;
+      const sh = document.getElementById('assistantSheet');
+      const closed = !sh || sh.style.display === 'none' || !sh.style.display;
+      if (closed && typeof window.openAssistant === 'function') window.openAssistant();
+      _history.push(Object.assign({ role: 'assistant', local_only: true }, msg));
+      _pmForceRender();
+    } catch (_e) { void _e; }
   };
 
   window.openAssistant = function () {

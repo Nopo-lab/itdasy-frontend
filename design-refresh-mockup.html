@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>디자인 리프레시 — Studio Noir + Gloss</title>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=Black+Han+Sans&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1618; --ink-soft:#4A4045; --paper:#FAF6F1; --card:#FFFFFF;
+    --gloss:#C42A54; --gloss-deep:#9A1E40; --mist:#F0E7E4; --mist-2:#F6EFEC;
+    --line:rgba(27,22,24,.10); --line-2:rgba(27,22,24,.06); --muted:#9A8D90;
+    --brass:#B08A4F;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{background:#E7E1DA;font-family:-apple-system,"Pretendard","Apple SD Gothic Neo",sans-serif;color:var(--ink);
+    display:flex;flex-wrap:wrap;gap:26px;justify-content:center;padding:34px 20px 60px;}
+  .disp{font-family:"Song Myung",serif;}
+  .col{width:360px;display:flex;flex-direction:column;gap:22px;}
+
+  .panel{background:var(--paper);border-radius:22px;padding:22px 20px;border:1px solid var(--line);}
+  .panel h3{font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:15px;}
+
+  /* 팔레트 */
+  .sw{display:flex;gap:10px;}
+  .sw div{flex:1;height:66px;border-radius:13px;display:flex;align-items:flex-end;padding:8px;font-size:10px;font-weight:600;}
+  .sw .l{color:#fff;} .sw .d{color:var(--ink);}
+
+  /* 버튼 시스템 */
+  .btns{display:flex;flex-direction:column;gap:11px;}
+  .b{height:52px;border:none;border-radius:15px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .b--ink{background:var(--ink);color:var(--paper);}
+  .b--gloss{background:var(--gloss);color:#fff;box-shadow:0 8px 20px rgba(196,42,84,.26);}
+  .b--ghost{background:transparent;border:1.5px solid var(--ink);color:var(--ink);}
+  .b--soft{background:var(--mist);color:var(--gloss-deep);}
+  .brow{display:flex;gap:10px;}
+  .brow .b{flex:1;height:46px;font-size:14px;}
+
+  /* 카테고리 칩 — 글로스 밑줄 방식 */
+  .cats{display:flex;gap:20px;border-bottom:1px solid var(--line);padding-bottom:0;}
+  .cat{font-size:15px;font-weight:600;color:var(--muted);padding-bottom:11px;position:relative;}
+  .cat.on{color:var(--ink);font-weight:700;}
+  .cat.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2.5px;border-radius:2px;background:var(--gloss);}
+
+  /* 스티커 시트 */
+  .phone{width:360px;height:520px;background:#231B1E;border-radius:32px;overflow:hidden;position:relative;display:flex;align-items:flex-end;}
+  .sheet{width:100%;background:var(--paper);border-radius:26px 26px 32px 32px;padding:9px 18px 20px;}
+  .grip{width:38px;height:4px;border-radius:2px;background:#D8CEC9;margin:0 auto 15px;}
+  .srch{display:flex;align-items:center;gap:9px;height:44px;border-radius:14px;background:var(--card);border:1px solid var(--line);padding:0 15px;color:var(--muted);font-size:13.5px;margin-bottom:16px;}
+  .srch svg{width:17px;height:17px;stroke:var(--muted);fill:none;stroke-width:1.8;}
+  .recent{display:flex;align-items:center;gap:9px;margin:14px 0 9px;}
+  .recent span{font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;}
+  .recent i{flex:1;height:1px;background:var(--line);}
+  .rrow{display:flex;gap:11px;font-size:27px;margin-bottom:16px;}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .cell{aspect-ratio:1;border-radius:15px;background:var(--card);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;font-size:27px;}
+  .cellt{aspect-ratio:auto;grid-column:span 2;min-height:52px;font-family:"Song Myung",serif;font-size:17px;color:var(--ink);border-radius:15px;background:var(--card);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;}
+
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--gloss);text-transform:uppercase;margin-bottom:6px;}
+  .big{font-family:"Song Myung",serif;font-size:27px;line-height:1.22;letter-spacing:-.01em;}
+  .big b{color:var(--gloss);font-weight:400;}
+</style>
+</head>
+<body>
+
+<div class="col">
+  <div class="panel" style="background:var(--card);">
+    <div class="eyebrow">Itdasy · 디자인 리프레시</div>
+    <div class="big">소심한 로즈 대신,<br><b>확신 있는 잉크와 글로스.</b></div>
+  </div>
+
+  <div class="panel">
+    <h3>Palette</h3>
+    <div class="sw">
+      <div class="l" style="background:#1B1618">잉크 #1B1618</div>
+      <div class="l" style="background:#C42A54">글로스 #C42A54</div>
+    </div>
+    <div class="sw" style="margin-top:10px;">
+      <div class="d" style="background:#FAF6F1;border:1px solid var(--line)">페이퍼</div>
+      <div class="d" style="background:#F0E7E4">미스트</div>
+      <div class="d" style="background:#B08A4F;color:#fff">브라스</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Buttons</h3>
+    <div class="btns">
+      <button class="b b--ink">사진 올리기</button>
+      <button class="b b--gloss">✨ 게시글 만들기</button>
+      <div class="brow">
+        <button class="b b--ghost">다시 쓰기</button>
+        <button class="b b--soft">인스타 미리보기</button>
+      </div>
+    </div>
+    <div class="cats" style="margin-top:22px;">
+      <div class="cat on">추천</div><div class="cat">뷰티</div><div class="cat">귀여움</div><div class="cat">글자</div>
+    </div>
+  </div>
+</div>
+
+<div class="col">
+  <div class="phone">
+    <div class="sheet">
+      <div class="grip"></div>
+      <div class="srch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>스티커·이모지 검색</div>
+      <div class="cats">
+        <div class="cat on">추천</div><div class="cat">뷰티</div><div class="cat">귀여움</div><div class="cat">글자</div>
+      </div>
+      <div class="recent"><span>Recent</span><i></i></div>
+      <div class="rrow"><span>💅</span><span>🤍</span><span>✨</span><span>🎀</span><span>🔥</span></div>
+      <div class="grid">
+        <div class="cell">💄</div><div class="cell">💇‍♀️</div><div class="cell">💎</div><div class="cell">👑</div><div class="cell">💋</div>
+        <div class="cellt">찐예쁨</div><div class="cellt">인생샷</div><div class="cell">🌸</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

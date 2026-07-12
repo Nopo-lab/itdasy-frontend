@@ -24,6 +24,23 @@
     localStorage.setItem(key, value || '');
   }
 
+  // [2026-07-05 리디자인] 심사 상태 행 — status: 'progress'(로즈 필) | 'ok'(초록 필)
+  function _reviewRowHTML(title, sub, status) {
+    const ok = status === 'ok';
+    const icon = ok ? 'ic-check' : 'ic-clock';
+    const badge = ok ? 'sv2-badge--ok' : 'sv2-badge--progress';
+    return `
+      <div class="sv2-review-row">
+        <span class="sv2-review-ic"><svg width="18" height="18" aria-hidden="true"><use href="#${icon}"/></svg></span>
+        <div style="flex:1;min-width:0;">
+          <div class="t1">${title}</div>
+          <div class="t2">${sub}</div>
+        </div>
+        <span class="sv2-badge ${badge}"><svg width="12" height="12" aria-hidden="true"><use href="#${icon}"/></svg>${ok ? '승인됨' : '심사 중'}</span>
+      </div>
+    `;
+  }
+
   function _ensureMounted() {
     let el = document.getElementById(ID);
     if (el) return el;
@@ -37,7 +54,6 @@
           <svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-left"/></svg>
         </button>
         <div class="ss-title">샵 정보</div>
-        <button type="button" class="ss-action" data-ss-save>저장</button>
       </header>
       <div class="ss-body">
         <div class="ss-card">
@@ -48,7 +64,7 @@
             <input class="ss-input" id="ssShopPhone" placeholder="010-0000-0000" inputmode="tel"></div>
           <div class="ss-row"><span class="lbl">주소</span>
             <input class="ss-input" id="ssShopAddr" placeholder="도로명 주소"></div>
-          <div class="ss-row" style="flex-direction:column;align-items:stretch;min-width:0;"><span class="lbl" style="margin-bottom:8px;">영업시간 (요일별)</span>
+          <div class="ss-row" style="flex-direction:column;align-items:stretch;min-width:0;"><span class="lbl" style="flex:0 0 auto;margin-bottom:8px;">영업시간</span>
             <div id="ssShopHoursGrid" style="display:flex;flex-direction:column;gap:6px;min-width:0;width:100%;box-sizing:border-box;"></div>
           </div>
         </div>
@@ -69,38 +85,15 @@
             <div class="ss-card-tt" style="margin:0;">외부 심사 진행 상태</div>
           </div>
           <div class="ss-card-sub" style="margin-bottom:10px;">제3자 플랫폼 검증 현황이에요. 통과 즉시 자동 활성화돼요.</div>
-
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bg2,#f0f0f0);">
-            <i class="ph-duotone ph-clock" aria-hidden="true"></i>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:700;color:var(--text,#222);">Meta 비즈니스 검증</div>
-              <div style="font-size:11px;color:var(--text3,#999);margin-top:2px;">DM 자동응답·인스타 게시 · 예상 1~2주</div>
-            </div>
-            <span style="font-size:11px;font-weight:800;color:#B45309;background:#FFF7E6;padding:4px 10px;border-radius:999px;">심사 중</span>
-          </div>
-
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bg2,#f0f0f0);">
-            <i class="ph-duotone ph-clock" aria-hidden="true"></i>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:700;color:var(--text,#222);">Apple App Store 심사</div>
-              <div style="font-size:11px;color:var(--text3,#999);margin-top:2px;">iOS 앱 출시 · 예상 1~2주</div>
-            </div>
-            <span style="font-size:11px;font-weight:800;color:#B45309;background:#FFF7E6;padding:4px 10px;border-radius:999px;">심사 중</span>
-          </div>
-
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 0;">
-            <i class="ph-duotone ph-clock" aria-hidden="true"></i>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:13px;font-weight:700;color:var(--text,#222);">Google Play 심사</div>
-              <div style="font-size:11px;color:var(--text3,#999);margin-top:2px;">Android 앱 출시 · 예상 3~7일</div>
-            </div>
-            <span style="font-size:11px;font-weight:800;color:#B45309;background:#FFF7E6;padding:4px 10px;border-radius:999px;">심사 중</span>
-          </div>
-
-          <div style="margin-top:10px;padding:10px;background:#F6F8FA;border-radius:10px;font-size:11px;color:var(--text2,#555);line-height:1.5;">
+          ${_reviewRowHTML('Meta 비즈니스 검증', 'DM 자동응답·인스타 게시 · 예상 1~2주', 'progress')}
+          ${_reviewRowHTML('Apple App Store 심사', 'iOS 앱 출시 · 예상 1~2주', 'progress')}
+          ${_reviewRowHTML('Google Play 심사', 'Android 앱 출시 · 예상 3~7일', 'progress')}
+          <div class="sv2-note">
             심사 진행 중에는 일부 외부 연동(DM 자동응답·카카오 알림톡)이 제한돼요. 통과되면 알림으로 알려 드릴게요.
           </div>
         </div>
+
+        <button type="button" class="sv2-cta" data-ss-save>저장</button>
       </div>
     `;
     document.body.appendChild(el);
@@ -131,92 +124,174 @@
     return out;
   }
 
-  // [2026-05-13 QA] 캘린더/예약앱 느낌 — 큰 토글 + native time picker + 일괄 적용 + 시각적 휴무
-  function _renderHoursGrid(hours) {
-    const wrap = document.getElementById('ssShopHoursGrid');
-    if (!wrap) return;
-    wrap.innerHTML = `
-      <div class="ss-hr-bulk" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
-        <button type="button" data-hr-bulk="weekday" style="flex:1;min-width:90px;padding:8px;border:1px solid #E5E5EA;border-radius:10px;background:#F8F9FB;font-size:12px;font-weight:700;color:#444;cursor:pointer;">평일 일괄 적용</button>
-        <button type="button" data-hr-bulk="weekend" style="flex:1;min-width:90px;padding:8px;border:1px solid #E5E5EA;border-radius:10px;background:#F8F9FB;font-size:12px;font-weight:700;color:#444;cursor:pointer;">주말 일괄 적용</button>
-        <button type="button" data-hr-bulk="all" style="flex:1;min-width:90px;padding:8px;border:1px solid #E5E5EA;border-radius:10px;background:#FCEEF1;font-size:12px;font-weight:700;color:#D95F70;cursor:pointer;">모든 요일 적용</button>
-      </div>
-      ${_DAY_KEYS.map(k => {
-        const h = hours[k] || { open: '10:00', close: '20:00', off: false };
-        const off = !!h.off;
-        return `
-          <div class="ss-hours-row" data-day="${k}" style="display:flex;align-items:center;gap:8px;padding:10px;background:${off ? '#FAFAFA' : '#fff'};border:1px solid ${off ? 'rgba(217,95,112,0.15)' : 'rgba(0,0,0,0.06)'};border-radius:14px;margin-bottom:8px;transition:background 0.15s;flex-wrap:wrap;box-sizing:border-box;width:100%;min-width:0;">
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:36px;flex-shrink:0;">
-              <span style="font-size:15px;font-weight:800;color:${off ? '#bbb' : 'var(--text,#222)'};line-height:1;">${_DAY_LABELS[k]}</span>
-              <span style="font-size:11px;color:${off ? '#bbb' : 'var(--text3,#999)'};margin-top:2px;">요일</span>
-            </div>
-            <div style="flex:1 1 160px;min-width:0;display:flex;align-items:center;gap:4px;${off ? 'opacity:0.35;pointer-events:none;' : ''}">
-              <input type="time" data-hr-field="open" value="${h.open || '10:00'}" ${off ? 'disabled' : ''}
-                style="flex:1 1 0;min-width:0;width:100%;height:40px;padding:0 6px;border:1.5px solid #E5E5EA;border-radius:10px;font-size:14px;font-weight:600;text-align:center;background:#fff;-webkit-appearance:none;box-sizing:border-box;">
-              <span style="font-size:12px;color:var(--text3,#999);font-weight:600;flex-shrink:0;">~</span>
-              <input type="time" data-hr-field="close" value="${h.close || '20:00'}" ${off ? 'disabled' : ''}
-                style="flex:1 1 0;min-width:0;width:100%;height:40px;padding:0 6px;border:1.5px solid #E5E5EA;border-radius:10px;font-size:14px;font-weight:600;text-align:center;background:#fff;-webkit-appearance:none;box-sizing:border-box;">
-            </div>
-            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;flex-shrink:0;padding:6px 10px;border-radius:999px;background:${off ? 'var(--accent2,#D95F70)' : 'transparent'};color:${off ? '#fff' : 'var(--text3,#888)'};font-size:11px;font-weight:700;border:1px solid ${off ? 'var(--accent2,#D95F70)' : 'rgba(0,0,0,0.08)'};">
-              <input type="checkbox" data-hr-field="off" ${off ? 'checked' : ''} style="display:none;">
-              <span>${off ? '✕ 휴무' : '휴무'}</span>
-            </label>
-          </div>
-        `;
-      }).join('')}
-      <div style="margin-top:6px;padding:10px 12px;background:rgba(213,138,149,0.05);border-radius:10px;font-size:11px;color:#888;line-height:1.5;">💡 시간 칸을 누르면 모바일에서 시간 휠이 떠요. 휴무 토글로 요일별 영업/휴무를 바꿀 수 있어요.</div>
-    `;
-    // off 토글 → 행 전체 dim + 휴무 배지 색
-    wrap.querySelectorAll('[data-hr-field="off"]').forEach(chk => {
-      chk.addEventListener('change', () => {
-        _renderHoursGrid(_collectHoursForceFresh());
-      });
-    });
-    // 클릭으로 토글 (label 전체 클릭 가능하게)
-    wrap.querySelectorAll('label').forEach(lbl => {
-      lbl.addEventListener('click', (e) => {
-        const chk = lbl.querySelector('[data-hr-field="off"]');
-        if (chk && e.target !== chk) {
-          e.preventDefault();
-          chk.checked = !chk.checked;
-          chk.dispatchEvent(new Event('change'));
-        }
-      });
-    });
-    // 일괄 적용 — 첫 번째 활성 요일의 open/close 시간을 weekday(월~금) / weekend(토일) / all 에 복사
-    wrap.querySelectorAll('[data-hr-bulk]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const target = btn.dataset.hrBulk;
-        const cur = _collectHoursForceFresh();
-        // 기준 요일: 평일=mon, 주말=sat, all=mon
-        const refDay = (target === 'weekend') ? 'sat' : 'mon';
-        const ref = cur[refDay] || { open: '10:00', close: '20:00', off: false };
-        const setKeys = target === 'weekday' ? ['mon','tue','wed','thu','fri']
-                       : target === 'weekend' ? ['sat','sun']
-                       : _DAY_KEYS;
-        setKeys.forEach(k => { cur[k] = { open: ref.open, close: ref.close, off: ref.off }; });
-        _renderHoursGrid(cur);
-        try { _haptic(); } catch (_e) { void _e; }
-      });
-    });
+  // [2026-07-05 리디자인 v2 · 네이버식 프리셋] "매일 같아요 / 평일·주말 달라요 / 요일별로 달라요" 3모드.
+  //   매일·평일주말 = 요일 칩(영업 on/off) + 시간 select 1~2줄. 요일별 = 기존 행+인라인 확장.
+  //   데이터 스키마(business_hours_json)·저장 로직은 기존 그대로 — 모드는 UI 상태일 뿐, 저장 시 요일별로 풀어서 저장.
+  let _hours = null;        // 편집 중 영업시간 상태 (정본)
+  let _expandedDay = null;  // 인라인 확장이 열린 요일 (요일별 모드, 한 번에 하나만)
+  let _hoursMode = null;    // 'same' | 'wd' | 'day' — null이면 데이터에서 추론
+
+  const _MODES = [['same', '매일 같아요'], ['wd', '평일·주말 달라요'], ['day', '요일별로 달라요']];
+  const _WD = _DAY_KEYS.slice(0, 5);
+  const _WE = _DAY_KEYS.slice(5);
+
+  function _sig(k) { return `${_hours[k].open}~${_hours[k].close}`; }
+  function _inferMode() {
+    const on = _DAY_KEYS.filter(k => !_hours[k].off);
+    if (!on.length || on.every(k => _sig(k) === _sig(on[0]))) return 'same';
+    const wd = _WD.filter(k => !_hours[k].off);
+    const we = _WE.filter(k => !_hours[k].off);
+    if (wd.every(k => _sig(k) === _sig(wd[0])) && we.every(k => _sig(k) === _sig(we[0]))) return 'wd';
+    return 'day';
+  }
+  // 모드 전환 시 그룹 대표 시간(첫 영업일 기준)으로 데이터 정규화
+  function _normalizeToMode(mode) {
+    const spread = (days, refDays) => {
+      const ref = _hours[refDays.find(k => !_hours[k].off) || refDays[0]];
+      days.forEach(d => { _hours[d] = { ..._hours[d], open: ref.open, close: ref.close }; });
+    };
+    if (mode === 'same') spread(_DAY_KEYS, _DAY_KEYS);
+    if (mode === 'wd') { spread(_WD, _WD); spread(_WE, _WE); }
   }
 
-  function _collectHoursForceFresh() {
-    return _collectHours() || _defaultHours();
+  function _timeOpts(selected, isClose) {
+    const out = [];
+    const from = isClose ? 1 : 0;
+    const to = isClose ? 48 : 47; // open 00:00~23:30 / close 00:30~24:00
+    for (let i = from; i <= to; i++) {
+      const v = `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`;
+      out.push(`<option value="${v}"${v === selected ? ' selected' : ''}>${v}</option>`);
+    }
+    return out.join('');
+  }
+
+  function _hoursRowHTML(k) {
+    const h = _hours[k] || { open: '10:00', close: '20:00', off: false };
+    const off = !!h.off;
+    const editing = _expandedDay === k && !off;
+    return `
+      <div class="sv2-hr__row${off ? ' is-off' : ''}" data-day="${k}">
+        <span class="sv2-hr__day">${_DAY_LABELS[k]}</span>
+        <button type="button" class="sv2-hr__time${editing ? ' is-editing' : ''}" data-hr-time="${k}" ${off ? 'disabled' : ''}>${off ? '휴무' : `${h.open} ~ ${h.close}`}</button>
+        <div class="ss-switch${off ? '' : ' is-on'}" data-hr-switch="${k}" role="switch" aria-checked="${off ? 'false' : 'true'}" aria-label="${_DAY_LABELS[k]}요일 영업 여부" tabindex="0"></div>
+      </div>
+      ${editing ? `
+      <div class="sv2-hr__expand" data-hr-expand="${k}">
+        <div class="sv2-hr__selects">
+          <select class="sv2-hr__select" data-hr-sel="open" aria-label="시작 시간">${_timeOpts(h.open, false)}</select>
+          <span class="sv2-hr__tilde">~</span>
+          <select class="sv2-hr__select" data-hr-sel="close" aria-label="종료 시간">${_timeOpts(h.close, true)}</select>
+        </div>
+        <button type="button" class="sv2-hr__applyall" data-hr-applyall>이 시간을 모든 요일에 적용</button>
+      </div>` : ''}
+    `;
+  }
+
+  // 매일/평일·주말 모드용: 그룹 시간 select 한 줄
+  function _groupRowHTML(label, days, group) {
+    const h = _hours[days.find(k => !_hours[k].off) || days[0]];
+    return `
+      <div class="sv2-hm__timerow">
+        <span class="sv2-hm__grouplbl">${label}</span>
+        <select class="sv2-hr__select" data-hr-gsel="open" data-hr-group="${group}" aria-label="${label} 시작 시간">${_timeOpts(h.open, false)}</select>
+        <span class="sv2-hr__tilde">~</span>
+        <select class="sv2-hr__select" data-hr-gsel="close" data-hr-group="${group}" aria-label="${label} 종료 시간">${_timeOpts(h.close, true)}</select>
+      </div>`;
+  }
+
+  function _renderHoursGrid(hours) {
+    if (hours) { _hours = hours; _hoursMode = null; }
+    if (!_hours) _hours = _defaultHours();
+    if (!_hoursMode) _hoursMode = _inferMode();
+    const wrap = document.getElementById('ssShopHoursGrid');
+    if (!wrap) return;
+    const seg = `<div class="sv2-hm__seg">${_MODES.map(([v, l]) =>
+      `<button type="button" class="sv2-hm__segbtn${_hoursMode === v ? ' is-on' : ''}" data-hr-mode="${v}">${l}</button>`).join('')}</div>`;
+    let body;
+    if (_hoursMode === 'day') {
+      body = _DAY_KEYS.map(_hoursRowHTML).join('');
+    } else {
+      const chips = `<div class="sv2-hm__chips">${_DAY_KEYS.map(k =>
+        `<button type="button" class="sv2-hm__chip${_hours[k].off ? '' : ' is-on'}" data-hr-chip="${k}" aria-pressed="${_hours[k].off ? 'false' : 'true'}">${_DAY_LABELS[k]}</button>`).join('')}</div>
+        <div class="sv2-hm__hint">영업하는 요일만 켜 두세요</div>`;
+      body = chips + (_hoursMode === 'same'
+        ? _groupRowHTML('매일', _DAY_KEYS, 'all')
+        : _groupRowHTML('평일', _WD, 'wd') + _groupRowHTML('주말', _WE, 'we'));
+    }
+    wrap.innerHTML = seg + body;
+    _bindHoursEvents(wrap);
+  }
+
+  function _bindHoursEvents(wrap) {
+    // 모드 세그먼트
+    wrap.querySelectorAll('[data-hr-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const v = btn.dataset.hrMode;
+        if (v === _hoursMode) return;
+        _normalizeToMode(v);
+        _hoursMode = v;
+        _expandedDay = null;
+        _renderHoursGrid();
+        _haptic();
+      });
+    });
+    // 요일 칩 (매일/평일·주말 모드) — 켜짐=영업
+    wrap.querySelectorAll('[data-hr-chip]').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const k = chip.dataset.hrChip;
+        _hours[k].off = !_hours[k].off;
+        _renderHoursGrid();
+        _haptic();
+      });
+    });
+    // 그룹 시간 select — 그룹 소속 요일 전체에 반영
+    wrap.querySelectorAll('[data-hr-gsel]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const days = sel.dataset.hrGroup === 'wd' ? _WD : sel.dataset.hrGroup === 'we' ? _WE : _DAY_KEYS;
+        days.forEach(d => { _hours[d][sel.dataset.hrGsel] = sel.value; });
+      });
+    });
+    // 시간 텍스트 탭 → 해당 행 아래 인라인 확장 (다른 행 확장은 자동으로 닫힘)
+    wrap.querySelectorAll('[data-hr-time]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const k = btn.dataset.hrTime;
+        _expandedDay = (_expandedDay === k) ? null : k;
+        _renderHoursGrid();
+        _haptic();
+      });
+    });
+    // 초록 토글 = 영업/휴무. stopPropagation — 오버레이 공통 .ss-switch 핸들러와 중복 토글 방지.
+    wrap.querySelectorAll('[data-hr-switch]').forEach(sw => {
+      sw.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const k = sw.dataset.hrSwitch;
+        _hours[k].off = !_hours[k].off;
+        if (_hours[k].off && _expandedDay === k) _expandedDay = null;
+        _renderHoursGrid();
+        _haptic();
+      });
+    });
+    const box = wrap.querySelector('[data-hr-expand]');
+    if (!box) return;
+    const k = box.dataset.hrExpand;
+    box.querySelectorAll('[data-hr-sel]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        _hours[k][sel.dataset.hrSel] = sel.value;
+        const t = wrap.querySelector(`[data-hr-time="${k}"]`);
+        if (t) t.textContent = `${_hours[k].open} ~ ${_hours[k].close}`;
+      });
+    });
+    box.querySelector('[data-hr-applyall]')?.addEventListener('click', () => {
+      const ref = _hours[k];
+      _DAY_KEYS.forEach(d => { _hours[d] = { ..._hours[d], open: ref.open, close: ref.close }; });
+      _renderHoursGrid();
+      _toast('모든 요일에 적용했어요');
+      _haptic();
+    });
   }
 
   function _collectHours() {
-    const wrap = document.getElementById('ssShopHoursGrid');
-    if (!wrap) return null;
-    const out = {};
-    wrap.querySelectorAll('.ss-hours-row').forEach(row => {
-      const d = row.dataset.day;
-      const open = row.querySelector('[data-hr-field="open"]')?.value || '10:00';
-      const close = row.querySelector('[data-hr-field="close"]')?.value || '20:00';
-      const off = !!row.querySelector('[data-hr-field="off"]')?.checked;
-      out[d] = { open, close, off };
-    });
-    return out;
+    return _hours ? JSON.parse(JSON.stringify(_hours)) : null;
   }
 
   async function _hydrate() {
@@ -253,6 +328,7 @@
         }
       }
     } catch (_e) { /* ignore */ }
+    _expandedDay = null; // 화면 재진입 시 인라인 확장 초기화
     _renderHoursGrid(hours);
   }
 

@@ -854,6 +854,21 @@ body:has(#tab-home.active) #headerPersona { display: none !important; }
   flex-shrink: 0;
 }
 
+/* [2026-07-05] 저녁 마감 리포트 유도 칩 — 하루 1번, 19시 이후만 렌더 (v41-renderers.js) */
+.hv5-itbi-closing {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%; margin: 2px 0 8px;
+  padding: 10px 13px;
+  background: #FFF5F6; color: #C0596B;
+  border: 0.5px solid #F5DDE1; border-radius: 14px;
+  font-size: 12.5px; font-weight: 600; font-family: inherit;
+  cursor: pointer; text-align: left;
+  transition: transform 0.12s ease;
+}
+.hv5-itbi-closing:active { transform: scale(0.98); }
+.hv5-itbi-closing svg { flex-shrink: 0; }
+.hv5-itbi-closing-go { margin-left: auto; font-weight: 500; color: #D58A95; flex-shrink: 0; }
+
 /* ============ [2026-05-29] 메인홈 컴팩트 — 양옆 12px·위 여백 축소 ============
    전역 상단바(.app-header)는 그대로 두고 콘텐츠만 위로/양옆으로 붙임.
    모바일·PC 공통, 렌더 상태와 무관하게 안정적용(게이트 없음). 다른 탭·온보딩 무영향. */

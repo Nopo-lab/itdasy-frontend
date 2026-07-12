@@ -44,24 +44,43 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="잇데이">
 <meta name="theme-color" content="#F2F4F6">
-<title>잇데이 스튜디오</title>
+<title>잇데이 · Itdasy</title>
 <meta name="description" content="시술 사진을 올리면 AI가 우리샵 말투로 인스타 게시글·해시태그까지 자동 완성. 예약·고객·매출 관리까지 한 번에, 1인샵 원장님을 위한 AI 살롱 OS.">
-<!-- 오픈그래프(페북·인스타·카톡 링크 미리보기). og:url·og:image 는 운영(itdasy-frontend) 절대경로. -->
+<!-- 오픈그래프(페북·인스타·카톡 링크 미리보기). og:url·og:image 는 절대경로 → 환경별로 값 분기(운영은 itdasy-frontend 경로). -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="잇데이 스튜디오">
 <meta property="og:title" content="잇데이 스튜디오 — 사진 한 장으로 인스타 홍보 끝">
 <meta property="og:description" content="시술 사진을 올리면 AI가 우리샵 말투로 인스타 게시글·해시태그까지 자동 완성. 예약·고객·매출 관리까지 한 번에.">
-<meta property="og:url" content="https://nopo-lab.github.io/itdasy-frontend/">
-<meta property="og:image" content="https://nopo-lab.github.io/itdasy-frontend/icons/icon-512.png">
+<meta property="og:url" content="https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/">
+<meta property="og:image" content="https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/icons/icon-512.png">
 <meta property="og:image:width" content="512">
 <meta property="og:image:height" content="512">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="잇데이 스튜디오 — 사진 한 장으로 인스타 홍보 끝">
 <meta name="twitter:description" content="시술 사진을 올리면 AI가 우리샵 말투로 인스타 게시글·해시태그까지 자동 완성.">
-<meta name="twitter:image" content="https://nopo-lab.github.io/itdasy-frontend/icons/icon-512.png">
+<meta name="twitter:image" content="https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/icons/icon-512.png">
 <script>
-window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
+window.__LATEST_BUILD__ = '20260705-v709-fillwide';
+  // [C2] 작업실 V2 플래그 — false 로 바꾸면 기존 작업실로 즉시 롤백 가능
+  window.ITDASY_WORKSPACE_V2 = true;
+  // [slot-sync] 작업실 콘텐츠 계정 기준 기기 간 동기화 (스테이징 검증용 ON). false 로 끄면 로컬 전용 동작 복귀.
+  window.ITDASY_SLOT_SYNC = (window.ITDASY_SLOT_SYNC !== false);
+  // [slot-sync coalesce] 편집마다 업로드 대신 '정착 때 1회'로 합쳐 비용 방어 (스테이징 검증용 ON). false=기존 eager.
+  window.ITDASY_SLOT_SYNC_COALESCE = (window.ITDASY_SLOT_SYNC_COALESCE !== false);
+  // [skin-v3] 작업실 톤 리스킨(따뜻한 아이보리+로즈 CTA). false 로 끄면 기존 톤.
+  // 색/그림자만 바꾸는 스코프 CSS(css/workspace-skin-v3.css), 작업실 오버레이에만 적용.
+  window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
+  // [cleanup 2026-07-12] ws-hyper(레이아웃-퍼스트 플로우)는 상시 기본으로 고정 — 롤백 플래그(window.ITDASY_WS_HYPER)·?wshyper=0 스위치 제거. flow.js 가 더는 읽지 않음.
+  // [skin-v4] 작업실 앱-정체성 리스킨(tokens.css 정렬). ws-hyper 켜질 때만 의미, 단독 롤백용 별도 플래그.
+  window.ITDASY_WS_SKIN_V4 = (window.ITDASY_WS_SKIN_V4 === true);
+  try {
+    if (window.ITDASY_WS_SKIN_V3) {
+      var _addSkin = function(){ document.body && document.body.classList.add('ws-skin-v3'); };
+      if (document.body) _addSkin();
+      else document.addEventListener('DOMContentLoaded', _addSkin);
+    }
+  } catch (_sk) { void _sk; }
   setTimeout(function(){
     // [v126] app-core.js 가 truncated 돼서 window.APP_BUILD 자체가 undefined 인 케이스도
     // stale 로 간주해 캐시·SW 일괄 청소 후 reload. 기존 mismatch 가드는 APP_BUILD 정의 시에만
@@ -98,43 +117,46 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
 <!-- [v206 2026-05-19] 사진편집 텍스트용 무료 폰트 (Google Fonts) — 모두 OFL/Apache 상업 사용 OK -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Serif+KR:wght@500;700&family=Black+Han+Sans&family=Gowun+Dodum&family=Gaegu:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Serif+KR:wght@500;700&family=Black+Han+Sans&family=Gowun+Dodum&family=Gaegu:wght@400;700&family=Nanum+Pen+Script&family=Jua&family=Do+Hyeon&family=Gamja+Flower&family=Hi+Melody&family=Song+Myung&family=Gothic+A1:wght@400;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css?v=20260610-qafix">
 <link rel="stylesheet" href="css/icons.css">
 <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css" integrity="sha384-UVFvhZP7fWAENUPOoq61rJg5ef6QZW0k5vpAn71041/QS4STvUcJQCGNhStZLGx9" crossorigin="anonymous">
+<!-- [fix #3] bold weight — 작업실 캡션 위저드/시술칩/고객선택 등 ph-bold 아이콘이 폰트 미로드로 빈네모(두부)로 뜨던 버그 (스프라이트 전면 이관은 후속 폴리싱) -->
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" crossorigin="anonymous">
 <link rel="stylesheet" href="css/components.css">
 <link rel="stylesheet" href="css/patterns.css">
 <link rel="stylesheet" href="css/screens/home.css">
-<link rel="stylesheet" href="css/screens/home-v41.css?v=20260607-top-gap-fix">
-<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260508-v109">
+<link rel="stylesheet" href="css/screens/home-v41.css?v=20260705-itbi-hotfix">
+<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260612-ipc-livedemo">
 <!-- [2026-05-24] PowerView CSS 제거 — 기능 폐지 -->
 <link rel="stylesheet" href="css/screens/hubs.css?v=20260505-v97">
-<link rel="stylesheet" href="css/screens/hubs-prototype.css?v=20260505-v97">
+<link rel="stylesheet" href="css/screens/hubs-prototype.css?v=20260709-v716-sidevar">
 <link rel="stylesheet" href="css/screens/dashboard.css">
 <link rel="stylesheet" href="css/screens/details.css?v=20260517-v161">
-<link rel="stylesheet" href="css/screens/customer-v4.css?v=20260519-v212">
+<link rel="stylesheet" href="css/screens/customer-v4.css?v=20260708-customer-a">
 <link rel="stylesheet" href="css/screens/workshop.css?v=20260606-design2-stage">
 <link rel="stylesheet" href="css/screens/gallery-panels.css">
 <link rel="stylesheet" href="css/screens/gallery-review.css">
 <link rel="stylesheet" href="css/screens/tab-bar.css">
 <link rel="stylesheet" href="css/screens/shop-drawer.css">
 <link rel="stylesheet" href="css/screens/sub-screens.css">
+<link rel="stylesheet" href="css/screens/settings-v2.css?v=20260705-settings-redesign">
 <link rel="stylesheet" href="css/screens/calendar.css">
 <link rel="stylesheet" href="css/screens/myshop-v3.css?v=20260604-pc-hide-redo">
 <link rel="stylesheet" href="css/screens/dm-autoreply-v3.css?v=20260609-field-unify">
 <!-- [2026-04-30] 예약관리 v4 — 모바일 + PC + 직원 필터 + now-line + 미니캘 + 통계 -->
-<link rel="stylesheet" href="css/screens/booking-v4.css?v=20260611-week-dot">
-<link rel="stylesheet" href="css/screens/booking-form.css?v=20260610-booking-consistency">
-<link rel="stylesheet" href="css/screens/revenue-v5.css?v=20260517-v161">
+<link rel="stylesheet" href="css/screens/booking-v4.css?v=20260709-v716-sidevar">
+<link rel="stylesheet" href="css/screens/booking-form.css?v=20260615-v476-itbi-phase3b">
+<link rel="stylesheet" href="css/screens/revenue-v5.css?v=20260709-v716-sidevar">
 <link rel="stylesheet" href="css/screens/phase9-ux.css?v=20260506-v101">
 <!-- [2026-05-17 v166] AI 추천/고객 chip 터치 정상화 (iOS Safari/PWA) -->
 <link rel="stylesheet" href="css/screens/ai-chip.css?v=20260517-v166">
-<link rel="stylesheet" href="css/screens/photo-editor.css?v=20260606-clite-design">
+<link rel="stylesheet" href="css/screens/photo-editor.css?v=20260612-v450-pc-grid">
 <!-- [v232 2026-05-19] 사진편집기 디자인 폴리쉬 (글래스모피즘 + 핑크-퍼플 그라데이션 + Lucide) -->
 <link rel="stylesheet" href="css/screens/photo-editor-pro.css?v=20260519-v232-design">
 <link rel="stylesheet" href="css/screens/photo-editor-studio.css?v=20260605-embed-soft-light">
 <!-- [T1+T2 2026-06-06] 캔바식 템플릿 갤러리 (라이트) -->
-<link rel="stylesheet" href="css/screens/photo-editor-template-gallery.css?v=20260609-v426-storage-default-template">
+<link rel="stylesheet" href="css/screens/photo-editor-template-gallery.css?v=20260612-v452-tplg-ratio">
 <!-- [PR-S2 2026-06-06] 템플릿 문구 편집 하단 시트 -->
 <link rel="stylesheet" href="css/screens/photo-editor-template-edit-sheet.css?v=20260607-s3b1-main-photo">
 <!-- [P1-B 2026-06-09] 외부 가격표·홍보물 OCR 가져오기 시트 -->
@@ -147,69 +169,64 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
 <!-- [v223 2026-05-19] 해시태그 매니저 CSS -->
 <link rel="stylesheet" href="css/screens/sns-modules.css?v=20260519-v207">
 <link rel="stylesheet" href="css/screens/brand-kit.css?v=20260518-v168">
-<link rel="stylesheet" href="style.css?v=20260520-v242">
+<link rel="stylesheet" href="style.css?v=20260709-v716-sidevar">
 <!-- [2026-04-29] Micro-interaction & Fun — 사용 재미 강화 -->
 <link rel="stylesheet" href="style-fun.css">
 <!-- [2026-04-30 v65] 허브 카드 + 시트 폴리싱 (lift/active/blur) -->
 <link rel="stylesheet" href="style-hub.css?v=0501">
+<!-- [v501 Phase1] 작업실 V2 첫 화면 / [v503] 플로우 / [v508] 크롭 -->
+<link rel="stylesheet" href="css/workspace-v2.css?v=20260709-v716-sidevar">
+<link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260712-v734-tonechips">
+<link rel="stylesheet" href="css/feed-planner.css?v=20260710-v732-feedplan">
+<link rel="stylesheet" href="css/workspace-skin-v3.css?v=20260628-skin-v3">
+<!-- [ws-hyper] 초고도화 레이아웃 고르기 화면 (플래그 OFF면 미사용) -->
+<link rel="stylesheet" href="css/workspace-hyper.css?v=20260712-v738-slotborder">
+
+<link rel="stylesheet" href="css/workspace-home-c.css?v=20260704-v677-lightbox">
+<link rel="stylesheet" href="css/itd-editor.css?v=20260709-v716-sidevar">
+<link rel="stylesheet" href="css/workspace-crop.css?v=20260709-v716-sidevar">
 <style id="login-v22">
   /* 모션 keyframes */
   @keyframes loginFadeUp { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:translateY(0);} }
-  @keyframes loginPulse { 0%,100% { transform:scale(1); opacity:.4;} 50% { transform:scale(1.4); opacity:1;} }
-  @keyframes loginShimmer { 0% { background-position:-200% center;} 100% { background-position:200% center;} }
-  @keyframes loginTypewriter { from { width:0;} to { width:100%;} }
-  @keyframes loginBlink { 50% { border-color:transparent;} }
 
   .login-fade-1{animation:loginFadeUp .6s ease-out 0s both}
-  .login-fade-2{animation:loginFadeUp .6s ease-out .15s both}
   .login-fade-3{animation:loginFadeUp .6s ease-out .3s both}
-  .login-fade-4{animation:loginFadeUp .6s ease-out .45s both}
-  .login-fade-5{animation:loginFadeUp .6s ease-out .6s both}
-  .login-fade-6{animation:loginFadeUp .6s ease-out .75s both}
-  .login-fade-7{animation:loginFadeUp .6s ease-out .9s both}
 
-  .login-brand-wrap{text-align:center;margin-top:20px}
-  .login-brand-title{font-size:23px;font-weight:800;color:var(--accent,var(--brand));letter-spacing:-.5px;position:relative;display:inline-block}
-  .login-brand-title::after{content:'';position:absolute;right:-10px;top:6px;width:6px;height:6px;border-radius:999px;background:var(--accent,var(--brand));animation:loginPulse 1.8s ease-in-out infinite}
-  .login-brand-sub{font-size:10px;color:var(--text3,#98A1AC);letter-spacing:1.5px;margin-top:4px;font-weight:600;text-align:center}
+  /* ───── 로그인 (2026-06-22 Itdasy 워드마크 리디자인) ───── */
+  .login-brand-wrap{text-align:center;margin-bottom:30px}
+  .login-wordmark{font-size:34px;font-weight:800;color:var(--text,#191F28);letter-spacing:-1.2px;line-height:1}
+  .login-wordmark .login-wm-accent{color:var(--accent,var(--brand))}
+  .login-wordmark-sub{font-size:11.5px;font-weight:600;color:var(--text3,#aab2bc);letter-spacing:1.6px;margin-top:9px}
+  .login-wordmark-sub span{display:inline-block;opacity:0;animation:loginFadeUp .5s ease-out both}
+  .login-wordmark-sub span:nth-child(1){animation-delay:.5s}
+  .login-wordmark-sub span:nth-child(2){animation-delay:.68s}
+  .login-wordmark-sub span:nth-child(3){animation-delay:.86s}
 
-  .login-hero{margin:auto 0;text-align:center;padding:18px 0}
-  .login-hero-tag{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:var(--brand-bg,rgba(241,128,145,.12));color:var(--accent,var(--brand));border-radius:999px;font-size:11.5px;font-weight:700;margin-bottom:16px;letter-spacing:-.2px}
-  .login-hero-tag .login-dot{width:5px;height:5px;border-radius:999px;background:var(--accent,var(--brand));animation:loginPulse 1.5s ease-in-out infinite}
-  .login-hero-main{font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.35;color:var(--text,#0F1419)}
-  .login-hero-main .login-accent{background:linear-gradient(90deg,var(--accent,var(--brand)) 0%,var(--accent2,#E25774) 50%,var(--accent,var(--brand)) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:loginShimmer 3s linear infinite;font-weight:800}
-  .login-hero-pink{font-size:14.5px;font-weight:700;color:var(--accent,var(--brand));letter-spacing:-.3px;margin-top:12px}
-  .login-hero-sub{font-size:12.5px;color:var(--text3,#98A1AC);font-weight:500;margin-top:12px;line-height:1.6}
-  .login-hero-sub .login-pip{display:inline-block;width:3px;height:3px;border-radius:999px;background:var(--text3,#98A1AC);margin:0 6px 3px;vertical-align:middle}
+  .login-form{width:100%}
+  .login-field{width:100%;height:54px;border-radius:14px;background:var(--bg2,#F4F6F8);border:1px solid transparent;padding:0 16px;font-size:14.5px;font-weight:500;color:var(--text,#191F28);font-family:inherit;letter-spacing:-.3px;margin-bottom:9px;box-sizing:border-box;outline:none;transition:border-color .15s,background .15s}
+  .login-field::placeholder{color:#aeb5bd;font-weight:500}
+  .login-field:focus{border-color:var(--accent,var(--brand));background:var(--surface,#fff)}
+  .login-pw-field{position:relative;margin-bottom:9px}
+  .login-pw-field .login-field{margin-bottom:0;padding-right:48px}
+  .login-pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:none;background:transparent;cursor:pointer;color:#9aa3ac;display:flex;align-items:center;justify-content:center}
 
-  .login-ai-card{background:var(--surface,#fff);border:1px solid var(--brand-bg,rgba(241,128,145,.18));border-radius:14px;padding:12px 14px;margin:0 0 14px;display:flex;align-items:center;gap:10px;position:relative;overflow:hidden;width:100%;max-width:340px;box-sizing:border-box}
-  .login-ai-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,var(--brand))}
-  .login-ai-card .login-ai-ava{width:32px;height:32px;border-radius:999px;background:linear-gradient(135deg,var(--accent,var(--brand)) 0%,var(--accent2,#E25774) 100%);display:grid;place-items:center;color:#fff;flex-shrink:0;position:relative}
-  .login-ai-card .login-ai-ava::after{content:'';position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:999px;background:#4ADE80;border:2px solid #fff;animation:loginPulse 1.6s ease-in-out infinite}
-  .login-ai-card .login-ai-body{flex:1;min-width:0}
-  .login-ai-card .login-ai-name{font-size:12px;font-weight:800;color:var(--text,#0F1419);letter-spacing:-.2px}
-  .login-ai-card .login-ai-msg{font-size:11.5px;color:var(--text2,#5A6573);margin-top:2px;line-height:1.4}
-  .login-ai-card .login-ai-typing{display:inline-block;border-right:2px solid var(--accent,var(--brand));white-space:nowrap;overflow:hidden;animation:loginTypewriter 2.5s steps(28,end) 1.5s both,loginBlink .8s step-end 1.5s 5}
+  .login-cta{width:100%;height:54px;border-radius:14px;background:var(--text,#191F28);color:#fff;font-size:15px;font-weight:800;border:none;cursor:pointer;letter-spacing:-.3px;margin-top:6px;transition:transform .12s ease-out}
+  .login-cta:active{transform:scale(.985)}
+  .login-cta:disabled{opacity:.6;cursor:default}
 
-  .login-btn-kakao{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:54px;padding:15px;border:none;border-radius:14px;background:#FEE500;color:#3A1D1D;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:-.3px;margin-bottom:8px;transition:transform .15s ease-out,box-shadow .15s ease-out}
-  .login-btn-kakao:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(254,229,0,.45)}
-  .login-btn-naver{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:13px;border:none;border-radius:14px;background:#03C75A;color:#fff;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:6px;transition:transform .15s ease-out,box-shadow .15s ease-out}
-  .login-btn-naver:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(3,199,90,.28)}
-  .login-btn-google{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:13px;border:1px solid var(--border-strong,rgba(15,20,25,.14));border-radius:14px;background:#fff;color:var(--text,#0F1419);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px;transition:border-color .15s,transform .15s ease-out}
-  .login-btn-google:hover{border-color:var(--text3,#98A1AC);transform:translateY(-1px)}
-  .login-fold-trigger{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:14px;background:none;border:none;color:var(--text2,#5A6573);font-size:13px;font-weight:600;cursor:pointer}
-  .login-foot{text-align:center;font-size:13px;color:var(--text3,#98A1AC);margin-top:18px}
+  .login-divider{display:flex;align-items:center;gap:12px;margin:24px 0 18px}
+  .login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border,rgba(15,20,25,.1))}
+  .login-divider span{font-size:11.5px;font-weight:700;color:#b0b8c1;white-space:nowrap}
+
+  .login-socials{display:flex;justify-content:center;gap:16px}
+  .login-social{width:52px;height:52px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;border:none;cursor:pointer;transition:transform .12s ease-out}
+  .login-social:active{transform:scale(.92)}
+  .login-social--kakao{background:#FEE500}
+  .login-social--naver{background:#03C75A}
+  .login-social--google{background:#fff;border:1px solid var(--border-strong,rgba(15,20,25,.12))}
+
+  .login-foot{text-align:center;font-size:13px;color:var(--text3,#98A1AC);margin-top:26px}
   .login-foot a{color:var(--accent,var(--brand));font-weight:700;text-decoration:none}
-
-  /* 25차 — fold 페이드 차단 (즉시 toggle) */
-  #emailFoldContent { animation: none !important; transition: none !important; }
-  #emailFoldContent * { animation: none !important; }
-
-  /* 25차 — 비번 wrapper focus 시 핑크 보더 */
-  .login-pw-wrap:focus-within { border-color: var(--accent, var(--brand)); }
-
-  /* 26차 — 이메일 wrapper도 동일 focus 효과 */
-  .login-email-wrap:focus-within { border-color: var(--accent, var(--brand)); }
 </style>
 </head>
 <body>
@@ -569,6 +586,26 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
   <symbol id="ic-headset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a9 9 0 0 1 18 0v6a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>
   </symbol>
+  <symbol id="ic-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </symbol>
+  <symbol id="ic-archive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="20" height="5" x="2" y="3" rx="1"/>
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+    <path d="M10 12h4"/>
+  </symbol>
+  <symbol id="ic-file-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+    <path d="m10 12.5-2 2 2 2"/>
+    <path d="m14 12.5 2 2-2 2"/>
+  </symbol>
+  <symbol id="ic-log-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+    <polyline points="16 17 21 12 16 7"/>
+    <line x1="21" x2="9" y1="12" y2="12"/>
+  </symbol>
 </svg>
 
 <!-- ───── 스플래시 스크린 ───── -->
@@ -583,13 +620,39 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
 </div>
 
 <!-- [UX-LOAD] 앱 초기 로딩 오버레이 — 데이터 준비 완료 시 숨김 -->
-<div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--surface,#fff);flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.3s;">
-  <div style="font-size:22px;font-weight:800;color:var(--accent,var(--brand));letter-spacing:-0.5px;">잇데이</div>
-  <div style="font-size:11px;color:var(--text3,#999);margin-top:4px;">준비 중이에요...</div>
-  <div style="margin-top:20px;width:36px;height:36px;border:3px solid var(--border,#eee);border-top-color:var(--accent,var(--brand));border-radius:50%;animation:_ldSpin 0.7s linear infinite;"></div>
-  <div id="appLoadingDiag" style="margin-top:24px;max-width:300px;font-size:10px;color:#c33;text-align:center;white-space:pre-wrap;word-break:break-word;display:none;"></div>
+<div id="appLoadingOverlay" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--surface,#fff);transition:opacity .42s cubic-bezier(.4,0,.2,1),transform .42s cubic-bezier(.34,1.56,.64,1);">
+  <div style="position:absolute;top:38%;left:0;right:0;text-align:center;">
+    <div style="font-size:34px;font-weight:800;letter-spacing:-1.2px;color:var(--text,#191F28);">Itda<span style="color:var(--accent,var(--brand))">sy</span></div>
+    <div id="ldTag" style="position:relative;height:16px;margin-top:6px;font-size:11.5px;font-weight:600;letter-spacing:1.6px;color:var(--text3,#aab2bc);transition:opacity .4s ease;">
+      <div id="ldTagEn"><span>it's</span> <span>day.</span> <span>easy.</span></div>
+      <div id="ldTagKo" style="position:absolute;left:0;right:0;top:0;letter-spacing:2px;clip-path:inset(0 100% 0 0);">하루를 잇다. 쉽게</div>
+    </div>
+  </div>
+  <div id="ldWave" style="position:absolute;top:50%;left:0;right:0;display:flex;justify-content:center;gap:7px;transition:opacity .35s ease;">
+    <span></span><span></span><span></span>
+  </div>
+  <div id="ldGreet" style="position:absolute;top:45%;left:0;right:0;text-align:center;opacity:0;transform:translateY(6px);transition:opacity .45s ease,transform .45s cubic-bezier(.34,1.56,.64,1);pointer-events:none;">
+    <div style="font-size:24px;font-weight:800;color:var(--text,#191F28);letter-spacing:-.6px;line-height:1.35;">반갑습니다,<br><span id="ldGreetName" style="color:var(--accent,var(--brand))">사장</span> 대표님!</div>
+    <div style="font-size:12px;color:var(--text-subtle,#8B95A1);margin-top:8px;">오늘도 잇데이와 함께해요</div>
+  </div>
+  <div id="appLoadingDiag" style="position:absolute;bottom:40px;left:0;right:0;margin:0 auto;max-width:300px;font-size:10px;color:#c33;text-align:center;white-space:pre-wrap;word-break:break-word;display:none;"></div>
 </div>
-<style>@keyframes _ldSpin{to{transform:rotate(360deg)}}</style>
+<style>
+@keyframes _ldWave{0%,65%,100%{transform:translateY(0);opacity:.32}30%{transform:translateY(-9px);opacity:1}}
+#ldWave span{width:9px;height:9px;border-radius:50%;background:var(--accent,var(--brand));animation:_ldWave 1s ease-in-out infinite}
+#ldWave span:nth-child(2){animation-delay:.16s}
+#ldWave span:nth-child(3){animation-delay:.32s}
+/* [UX-LOAD] 태그라인 전환: 영어 단어별 등장 → 왼→오 닦임 스왑 → 한글 */
+#ldTagEn span{display:inline-block;opacity:0;animation:_ldWordUp .5s ease-out both}
+#ldTagEn span:nth-child(1){animation-delay:.15s}
+#ldTagEn span:nth-child(2){animation-delay:.33s}
+#ldTagEn span:nth-child(3){animation-delay:.51s}
+@keyframes _ldWordUp{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+#ldTagEn{animation:_ldEnWipe 1.3s cubic-bezier(.45,0,.55,1) 2s both}
+@keyframes _ldEnWipe{0%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 0 100%)}}
+#ldTagKo{animation:_ldKoWipe 1.1s cubic-bezier(.45,0,.55,1) 2.7s both}
+@keyframes _ldKoWipe{0%{clip-path:inset(0 100% 0 0)}100%{clip-path:inset(0 0 0 0)}}
+</style>
 <script>
   // [2026-05-14 흰화면-fix] 로딩 오버레이 watchdog — 12초 후에도 안 사라지면 강제 hide.
   //   원인 후보: _preloadTabs() hang 또는 throw / JS init 단계 unhandled error.
@@ -659,7 +722,7 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
         _ov.style.display = '';
         // [UX-LOAD] 토큰 있으면 로딩 화면 표시 — 데이터 준비 후 app-core.js에서 숨김
         var _lo = document.getElementById('appLoadingOverlay');
-        if (_lo) _lo.style.display = 'flex';
+        if (_lo) { _lo.style.display = 'flex'; window._loadShownAt = Date.now(); }
       } else {
         // 토큰 없음 — 로그인 화면.
         if (document.body) { document.body.classList.add('itdasy-locked'); }
@@ -671,90 +734,42 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
     }
   </script>
   <div class="login-brand-wrap login-fade-1">
-    <div class="login-brand-title">잇데이 스튜디오</div>
-    <div class="login-brand-sub">IT'S DAY · 매일 매출 잇는 날</div>
+    <div class="login-wordmark">Itda<span class="login-wm-accent">sy</span></div>
+    <div class="login-wordmark-sub"><span>it's</span> <span>day.</span> <span>easy.</span></div>
   </div>
 
-  <div class="login-hero">
-    <div class="login-hero-tag login-fade-2">
-      <span class="login-dot"></span> 내 말투를 아는 AI 잇비
+  <div class="login-form login-fade-3" style="width:100%;max-width:340px;">
+    <div id="sessionExpiredMsg" style="display:none;margin-bottom:14px;font-size:13px;color:var(--accent);font-weight:600;text-align:center;">⚠️ 로그인 세션이 만료되었습니다. 다시 로그인해주세요.</div>
+
+    <input type="email" class="login-field" id="loginEmail" placeholder="이메일을 입력해 주세요." autocomplete="email" inputmode="email">
+
+    <div class="login-pw-field">
+      <input type="password" class="login-field" id="loginPassword" placeholder="비밀번호를 입력해 주세요." autocomplete="current-password">
+      <button type="button" id="loginPwToggle" aria-label="비밀번호 보기" class="login-pw-eye">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
     </div>
-    <div class="login-hero-main login-fade-3">
-      사장님 말투 그대로,<br>
-      <span class="login-accent">나만의 AI 비서, 잇비</span>
-    </div>
-    <div class="login-hero-pink login-fade-4">사진만 올려요. 글은 잇비가.</div>
-    <div class="login-hero-sub login-fade-5">
-      인스타 글 <span class="login-pip"></span>
-      예약 <span class="login-pip"></span>
-      매출 <span class="login-pip"></span>
-      손님 관리
-    </div>
-  </div>
 
-  <div class="login-ai-card login-fade-6">
-    <div class="login-ai-ava">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="11" width="18" height="10" rx="2" ry="2"/>
-        <circle cx="12" cy="5" r="2"/>
-        <path d="M12 7v4"/>
-        <line x1="8" y1="16" x2="8" y2="16"/>
-        <line x1="16" y1="16" x2="16" y2="16"/>
-      </svg>
-    </div>
-    <div class="login-ai-body">
-      <div class="login-ai-name">잇비 <span style="color:var(--text3);font-weight:500;">· 사장님만의 AI 비서</span></div>
-      <div class="login-ai-msg"><span class="login-ai-typing">박서연 손님 단골 시술 글 쓰는 중...</span></div>
-    </div>
-  </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-cta" id="loginBtn">로그인</button>
 
-  <div class="login-fade-7" style="width:100%;max-width:340px;">
-    <button id="loginKakaoBtn" data-static-action="login-kakao" class="login-btn-kakao">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.4C4.58 1.4 1 4.22 1 7.68c0 2.2 1.47 4.13 3.7 5.26L3.9 16.52l4.02-2.55c.36.05.73.08 1.08.08 4.42 0 8-2.82 8-6.28S13.42 1.4 9 1.4z" fill="#3A1D1D"/></svg>
-      카카오로 1분 시작
-    </button>
+    <div class="login-divider"><span>간편 로그인</span></div>
 
-    <button id="loginNaverBtn" type="button" class="login-btn-naver">
-      <span aria-hidden="true" style="font-weight:900;font-size:17px;line-height:1;">N</span>
-      네이버로 시작
-    </button>
-
-    <button id="loginGoogleBtn" data-static-action="login-google" class="login-btn-google">
-      <svg width="16" height="16" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.05-1.25-.16-1.84H9v3.48h4.84a4.13 4.13 0 0 1-1.8 2.71v2.26h2.92A8.8 8.8 0 0 0 17.64 9.2z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26a5.38 5.38 0 0 1-8.1-2.82H.95v2.33A9 9 0 0 0 9 18z" fill="#34A853"/><path d="M3.96 10.71A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.17.28-1.71V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .95 4.96l3 2.33A5.38 5.38 0 0 1 9 3.58z" fill="#EA4335"/></svg>
-      Google로 시작
-    </button>
-
-    <button type="button" id="emailFoldBtn" data-static-action="email-fold" class="login-fold-trigger">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-        <polyline points="22,6 12,13 2,6"/>
-      </svg>
-      이메일로 로그인
-      <svg id="emailFoldChevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.2s;">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
-    </button>
-
-    <div id="emailFoldContent" style="display:none;padding-top:8px;border-top:1px solid var(--border, rgba(15,20,25,0.06));">
-      <div style="margin-bottom:18px;font-size:13px;color:var(--accent);font-weight:600;display:none;text-align:center;" id="sessionExpiredMsg">⚠️ 로그인 세션이 만료되었습니다. 다시 로그인해주세요.</div>
-      <!-- [2026-05-07 26차] 이메일 wrapper 통합 — 비번 wrapper 와 동일 border 구조 -->
-      <div class="login-email-wrap" style="display:flex;align-items:center;width:100%;border:1px solid var(--border-strong,rgba(15,20,25,0.14));border-radius:12px;background:#fff;box-sizing:border-box;overflow:hidden;margin-bottom:8px;transition:border-color .15s;">
-        <input type="email" class="login-input" id="loginEmail" placeholder="이메일" autocomplete="email" inputmode="email" style="flex:1;min-width:0;padding:14px 16px;border:none;outline:none;background:transparent;font-size:14px;font-family:inherit;color:inherit;">
-      </div>
-      <div class="login-pw-wrap" style="display:flex;align-items:center;width:100%;border:1px solid var(--border-strong,rgba(15,20,25,0.14));border-radius:12px;background:#fff;box-sizing:border-box;overflow:hidden;transition:border-color .15s;">
-        <input type="password" class="login-input" id="loginPassword" placeholder="비밀번호" autocomplete="current-password" style="flex:1;min-width:0;padding:14px 0 14px 16px;border:none;outline:none;background:transparent;font-size:14px;font-family:inherit;color:inherit;">
-        <button type="button" id="loginPwToggle" aria-label="비밀번호 보기" style="flex-shrink:0;width:44px;height:44px;border:none;background:transparent;cursor:pointer;color:#888;display:flex;align-items:center;justify-content:center;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </button>
-      </div>
-      <div class="login-error" id="loginError"></div>
-      <button class="pin-btn" id="loginBtn" style="width:100%;margin-top:10px;">로그인</button>
+    <div class="login-socials">
+      <button id="loginKakaoBtn" data-static-action="login-kakao" class="login-social login-social--kakao" aria-label="카카오로 시작">
+        <svg width="22" height="22" viewBox="0 0 18 18" fill="none"><path d="M9 1.4C4.58 1.4 1 4.22 1 7.68c0 2.2 1.47 4.13 3.7 5.26L3.9 16.52l4.02-2.55c.36.05.73.08 1.08.08 4.42 0 8-2.82 8-6.28S13.42 1.4 9 1.4z" fill="#3A1D1D"/></svg>
+      </button>
+      <button id="loginNaverBtn" type="button" class="login-social login-social--naver" aria-label="네이버로 시작">
+        <span aria-hidden="true" style="font-weight:900;font-size:18px;line-height:1;color:#fff;">N</span>
+      </button>
+      <button id="loginGoogleBtn" data-static-action="login-google" class="login-social login-social--google" aria-label="Google로 시작">
+        <svg width="22" height="22" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.64-.05-1.25-.16-1.84H9v3.48h4.84a4.13 4.13 0 0 1-1.8 2.71v2.26h2.92A8.8 8.8 0 0 0 17.64 9.2z" fill="#4285F4"/><path d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26a5.38 5.38 0 0 1-8.1-2.82H.95v2.33A9 9 0 0 0 9 18z" fill="#34A853"/><path d="M3.96 10.71A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.17.28-1.71V4.96H.95A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z" fill="#FBBC05"/><path d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .95 4.96l3 2.33A5.38 5.38 0 0 1 9 3.58z" fill="#EA4335"/></svg>
+      </button>
     </div>
 
     <div class="login-foot">
-      처음이세요? <a href="#register" id="goSignup">잇데이 시작 →</a>
+      아직 회원이 아니신가요? <a href="#register" id="goSignup">회원가입</a>
     </div>
-    <a href="index.html" style="display:block;margin-top:14px;text-align:center;font-size:12px;color:var(--text3);text-decoration:none;">홈으로 돌아가기</a>
   </div>
 </div>
 
@@ -902,16 +917,18 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
 </div>
 
 <div class="app-header">
-  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
-    <div class="logo" data-static-action="tab-home" style="cursor:pointer;">잇데이 <span>STUDIO</span></div>
-    <span id="appVersionBadge" data-static-action="recent-logs" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
+  <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+    <div style="display:flex;align-items:baseline;gap:6px;">
+      <div class="logo" data-static-action="tab-home" style="cursor:pointer;">Itda<span>sy</span></div>
+      <span id="appVersionBadge" data-static-action="recent-logs" style="font-size:9px;color:#bbb;font-weight:600;line-height:1;cursor:pointer;user-select:none;white-space:nowrap;" title="탭하면 최근 로그">v21</span>
+    </div>
+    <div class="logo-slogan">하루를 잇다, 쉽게</div>
   </div>
   <div style="display:flex; align-items:center; gap:8px;">
     <span id="headerShopName" style="display:none;">사장님</span>
     <div class="header-persona" id="headerPersona">
       <div class="profile-avatar" id="headerAvatar">
         <span class="profile-avatar__initial">잇</span>
-        <span class="profile-avatar__provider" id="headerProviderBadge" data-provider="email" title="잇데이 계정으로 가입" aria-label="가입 방법: 잇데이"></span>
       </div>
     </div>
     <button id="planBadge" data-haptic="light" data-static-action="plan" style="padding:6px 12px;border-radius:8px;font-size:11px;font-weight:800;background:#e0e0e0;color:#888;cursor:pointer;min-height:32px;display:inline-flex;align-items:center;border:none;">체험</button>
@@ -939,13 +956,13 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
   <button type="button" class="ms-side__item" data-side-tab="home"
           data-static-action="tab-home"
           aria-label="홈">
-    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-home"/></svg></span></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><i class="ph-duotone ph-house" style="font-size:20px;"></i></span></span>
     <span class="ms-side__label">홈</span>
   </button>
   <button type="button" class="ms-side__item" data-side-tab="dashboard"
           data-static-action="tab-dashboard"
           aria-label="내 샵 관리">
-    <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-store"/></svg></span></span>
+    <span class="ms-side__icon"><span class="ic-box ic-box--blue"><i class="ph-duotone ph-storefront" style="font-size:20px;"></i></span></span>
     <span class="ms-side__label">내 샵 관리</span>
   </button>
 
@@ -958,13 +975,13 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
     <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-users"/></svg></span></span>
     <span class="ms-side__label">고객관리</span>
   </button>
-  <button type="button" class="ms-side__item" data-static-action="customer-dm" aria-label="실시간 DM">
-    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg></span></span>
-    <span class="ms-side__label">실시간 DM</span>
-  </button>
   <button type="button" class="ms-side__item" data-static-action="revenue" aria-label="매출관리">
     <span class="ms-side__icon"><span class="ic-box ic-box--amber"><svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg></span></span>
     <span class="ms-side__label">매출관리</span>
+  </button>
+  <button type="button" class="ms-side__item" data-static-action="integrations" aria-label="연동관리">
+    <span class="ms-side__icon"><span class="ic-box ic-box--blue"><svg width="20" height="20" aria-hidden="true"><use href="#ic-link"/></svg></span></span>
+    <span class="ms-side__label">연동관리</span>
   </button>
 <!-- INVENTORY_HIDDEN
   <button type="button" class="ms-side__item" data-static-action="inventory" aria-label="재고관리">
@@ -973,33 +990,31 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
   </button>
 -->
   <div class="ms-side__section">통합 허브</div>
-  <button type="button" class="ms-side__item" data-static-action="ai-hub" aria-label="AI · 자동화">
-    <span class="ms-side__icon"><span class="ic-box ic-box--purple"><svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg></span></span>
-    <span class="ms-side__label">AI · 자동화</span>
+  <button type="button" class="ms-side__item" data-static-action="ai-hub" aria-label="잇비 · 자동화">
+    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg></span></span>
+    <span class="ms-side__label">잇비 · 자동화</span>
   </button>
-  <button type="button" class="ms-side__item" data-static-action="settings-hub" aria-label="설정 · 연동">
-    <span class="ms-side__icon"><span class="ic-box ic-box--gray"><svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg></span></span>
-    <span class="ms-side__label">설정 · 연동</span>
+  <button type="button" class="ms-side__item" data-static-action="settings-hub" aria-label="설정">
+    <span class="ms-side__icon"><span class="ic-box ic-box--gray"><i class="ph-duotone ph-gear-six" style="font-size:19px;"></i></span></span>
+    <span class="ms-side__label">설정</span>
   </button>
 
   <div class="ms-side__section">계정</div>
-  <button type="button" class="ms-side__item" data-static-action="plan" aria-label="멤버십 · 체험">
-    <span class="ms-side__icon"><span class="ic-box ic-box--amber"><svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg></span></span>
-    <span class="ms-side__label">멤버십 · 체험</span>
-  </button>
-  <button type="button" class="ms-side__item" data-static-action="support" aria-label="문의하기">
-    <span class="ms-side__icon"><span class="ic-box ic-box--teal"><svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg></span></span>
-    <span class="ms-side__label">문의하기</span>
+  <button type="button" class="ms-side__item" data-static-action="plan" aria-label="플랜 · 구독">
+    <span class="ms-side__icon"><span class="ic-box ic-box--pink"><svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg></span></span>
+    <span class="ms-side__label">플랜 · 구독</span>
   </button>
 
-  <button type="button" class="ms-side__fab" data-static-action="nav-sheet" aria-label="만들기" data-haptic="light">
-    <i class="ph-duotone ph-sparkle" style="font-size:16px;"></i>
-    만들기
+  <button type="button" class="ms-side__fab" data-static-action="nav-workshop" aria-label="작업실" data-haptic="light">
+    <i class="ph-duotone ph-squares-four" style="font-size:16px;"></i>
+    작업실
   </button>
 
-  <!-- [2026-06-09] 푸터 로그아웃 — 사이드바 맨 아래, 회색 작은 링크로 은은하게 -->
+  <!-- [2026-06-09] 푸터: 고객센터 · 로그아웃 -->
+  <a href="#" data-static-action="support" role="button" aria-label="고객센터"
+     style="text-align:center;margin-top:10px;padding:8px 4px;font-size:12px;color:var(--text-subtle);text-decoration:none;cursor:pointer;display:block;">고객센터</a>
   <a href="#" class="ms-side__logout" data-static-action="logout" role="button" aria-label="로그아웃"
-     style="text-align:center;margin-top:10px;padding:8px 4px;font-size:12px;color:var(--text-subtle);text-decoration:none;cursor:pointer;">로그아웃</a>
+     style="text-align:center;margin-top:0;padding:4px 4px 8px;font-size:12px;color:var(--text-subtle);text-decoration:none;cursor:pointer;">로그아웃</a>
 </aside>
 
 <!-- ───── 설정 바텀시트 ───── -->
@@ -1032,8 +1047,6 @@ window.__LATEST_BUILD__ = '20260611-v446-hide-pe-aihub';
       <span data-last-sync style="margin-left:auto;font-size:10.5px;color:var(--text-subtle,#aaa);font-weight:500;"></span>
       <span class="hint" style="flex-basis:100%;margin-left:28px;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;">예약·매출·고객·재고를 서버에서 다시 받아와요. 다른 기기랑 다르게 보일 때 누르세요.</span>
     </button>
-    <button class="sheet-row" data-static-action="settings-persona-report">분석 리포트 보기</button>
-    <button class="sheet-row" data-static-action="settings-persona-analyze">말투 다시 분석하기</button>
     <button class="sheet-row" data-static-action="settings-reset-shop">샵 정보 다시 설정하기</button>
     <button class="sheet-row" data-haptic="light" data-static-action="settings-support">
       <span class="ic-box ic-box--sm ic-box--blue" style="margin-right:6px;"><i class="ph-duotone ph-headset"></i></span> 고객센터 (문의하기)
@@ -1236,8 +1249,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       <span class="tab-bar__label">홈</span>
     </button>
     <button type="button" class="tab-bar__fab" data-haptic="light"
-            data-static-action="nav-sheet" aria-label="만들기">
-      <i class="ph-duotone ph-sparkle" style="font-size:24px;"></i>
+            data-static-action="nav-workshop" aria-label="작업실">
+      <i class="ph-duotone ph-squares-four" style="font-size:24px;"></i>
     </button>
     <button type="button" class="tab-bar__btn" data-tab="dashboard" data-prefetch="dashboard,customer,revenue,inventory,bookings"
             data-static-action="tab-dashboard-current" aria-label="내 샵 관리 탭">
@@ -1285,6 +1298,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   <style>
     html.ig-connected-cache #homePreConnect { display: none; }
     html.ig-connected-cache #homePostConnect { display: flex; }
+    @keyframes itb-pulse { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.08); opacity:.8; } }
+    .itb-pulse { animation: itb-pulse 1.8s ease-in-out infinite; }
+    @keyframes itb-float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-7px); } }
+    .itb-float { animation: itb-float 2.4s ease-in-out infinite; }
   </style>
   <script>
     try {
@@ -1296,49 +1313,109 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     } catch (err) { console.warn('[home] cached instagram state failed', err); }
   </script>
 
-  <!-- ── 연동 전 상태 ── -->
-  <div id="homePreConnect" class="hc-section ipc-section">
-    <div class="ipc-hero">
-      <div class="ipc-char" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><use href="#ic-bot"/></svg>
-      </div>
+  <!-- ── 연동 전 상태 (목업 03 확정안 — 잇비 라이브 데모) ── -->
+  <div id="homePreConnect" class="hc-section ipc">
+    <div class="ipc-card">
+      <!-- 모바일 상단 잇비 봇 -->
+      <div class="ipc-bot-top" aria-hidden="true"><svg width="33" height="33" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+      <div class="ipc-bot-shadow" aria-hidden="true"></div>
+
       <div class="ipc-label">사장님의 AI 비서, 잇비</div>
-      <div class="ipc-hello">안녕하세요 사장님 😊</div>
-      <h2 class="ipc-headline">말 한마디로,<br>매장 운영 <b>다 챙겨드려요</b></h2>
+      <h2 class="ipc-title">인스타만 연결하면<br>잇비가 사장님 말투를 배워요</h2>
+      <p class="ipc-sub">사장님 게시물을 분석해서 말투·이모지·해시태그를 그대로 익혀요.<br>인스타 글쓰기부터 DM 예약 응대까지, 잇비가 대신합니다.</p>
 
-      <div class="ipc-bubble">
-        <div class="ipc-bubble-label">잇비가 하는 일</div>
+      <!-- PC 무대: 둥둥 + 말풍선 2개 + 타자기 -->
+      <div class="ipc-stage" aria-hidden="true">
+        <div class="ipc-bubble bb1">오늘 시술 사진 올릴까요?</div>
+        <div class="ipc-stage-bot"><svg width="50" height="50" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+        <div class="ipc-stage-shadow"></div>
+        <div class="ipc-bubble bb2"><span class="ipc-typewriter">사장님 말투로 글 쓰는 중</span></div>
+      </div>
 
-        <div class="ipc-item">
-          <div class="ipc-icon"><i class="ph-duotone ph-pen" aria-hidden="true"></i></div>
-          <div class="ipc-body">
-            <div class="ipc-title">인스타 피드 글 자동 작성</div>
-            <div class="ipc-sub">사장님 말투 그대로 — 해시태그까지</div>
-          </div>
+      <!-- 모바일 라이브 데모: 잇비가 일하는 채팅 3줄 -->
+      <div class="ipc-live" aria-hidden="true">
+        <div class="ipc-live-row m1">
+          <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-live-bubble"><span class="ipc-typewriter">오늘 시술 글, 사장님 말투로 써뒀어요</span></div>
         </div>
-
-        <div class="ipc-item">
-          <div class="ipc-icon"><i class="ph-duotone ph-calendar-dots" aria-hidden="true"></i></div>
-          <div class="ipc-body">
-            <div class="ipc-title">"김서연 2시 예약 추가"</div>
-            <div class="ipc-sub"><span class="ipc-arrow">→</span>캘린더에 자동 삽입</div>
-          </div>
+        <div class="ipc-live-row m2">
+          <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-live-bubble">박서연 손님 예약, <b>캘린더에 등록했어요</b><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
         </div>
+        <div class="ipc-live-row m3">
+          <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-live-bubble">사진 보정 끝, <b>탭 한 번이면 업로드</b><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        </div>
+        <div class="ipc-live-cap"><span class="ipc-live-dot"></span>연동되면 잇비가 바로 이렇게 일해요</div>
+      </div>
 
-        <div class="ipc-item">
-          <div class="ipc-icon"><i class="ph-duotone ph-chat-circle" aria-hidden="true"></i></div>
-          <div class="ipc-body">
-            <div class="ipc-title">손님 DM 답장 초안 자동 작성</div>
-            <div class="ipc-sub">사장님 말투 그대로 — <span class="ipc-arrow">→</span>승인 한 번이면 발송 끝</div>
-          </div>
+      <!-- 진행 흐름 (모바일, 카드 안) -->
+      <div class="ipc-flow ipc-flow--m" aria-hidden="true">
+        <div class="ipc-fl now">
+          <div class="ipc-fl-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div>
+          <div class="ipc-fl-t">인스타 연동</div>
+        </div>
+        <div class="ipc-fl-line"><i></i></div>
+        <div class="ipc-fl next">
+          <div class="ipc-fl-ic"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-fl-t">말투 학습</div>
+        </div>
+        <div class="ipc-fl-line"><i style="animation-delay:.8s"></i></div>
+        <div class="ipc-fl next">
+          <div class="ipc-fl-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+          <div class="ipc-fl-t">첫 글 완성</div>
         </div>
       </div>
 
-      <button class="ipc-cta" data-static-action="connect-instagram" data-haptic="light">Instagram 연동하기 (Connect Instagram)</button>
-      <button class="ipc-skip" data-static-action="dismiss-ipc">지금은 됐어요</button>
+      <!-- CTA + 신뢰 줄 + 나중에 할게요 -->
+      <div class="ipc-ctas">
+        <button class="ipc-cta" data-static-action="connect-instagram" data-haptic="light">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="20" x="2" y="2" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          인스타그램 연동하기
+        </button>
+        <div class="ipc-trust">1분이면 끝나요 · 게시물은 절대 수정하지 않아요</div>
+        <button class="ipc-skip" data-static-action="dismiss-ipc">나중에 할게요</button>
+      </div>
     </div>
 
-    <!-- 호환 — 기존 코드가 참조하는 ID 들 hidden 으로 보존 -->
+    <!-- 혜택 3칸 (PC/태블릿) -->
+    <div class="ipc-perks" aria-hidden="true">
+      <div class="ipc-perk">
+        <div class="ipc-perk-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+        <div class="ipc-perk-tt">인스타 글, 내 말투로</div>
+        <div class="ipc-perk-ds">사진만 주면 평소 쓰던 말투·이모지 그대로 글이 완성돼요.</div>
+      </div>
+      <div class="ipc-perk">
+        <div class="ipc-perk-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div>
+        <div class="ipc-perk-tt">DM 문의는 잇비가 알아서</div>
+        <div class="ipc-perk-ds">양식 안내부터 예약 확정, 캘린더 등록까지 자동으로 끝나요.</div>
+      </div>
+      <div class="ipc-perk">
+        <div class="ipc-perk-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+        <div class="ipc-perk-tt">시술 사진, 보정부터 업로드까지</div>
+        <div class="ipc-perk-ds">예쁘게 보정해서 인스타에 올리는 것까지 한 번에 돼요.</div>
+      </div>
+    </div>
+
+    <!-- 진행 흐름 (PC/태블릿, 별도 카드) -->
+    <div class="ipc-flow ipc-flow--d" aria-hidden="true">
+      <div class="ipc-fl now">
+        <div class="ipc-fl-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div>
+        <div class="ipc-fl-t">인스타 연동</div>
+      </div>
+      <div class="ipc-fl-line"><i></i></div>
+      <div class="ipc-fl next">
+        <div class="ipc-fl-ic"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+        <div class="ipc-fl-t">말투 학습</div>
+      </div>
+      <div class="ipc-fl-line"><i style="animation-delay:.8s"></i></div>
+      <div class="ipc-fl next">
+        <div class="ipc-fl-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+        <div class="ipc-fl-t">첫 글 완성</div>
+      </div>
+    </div>
+
+    <!-- 호환 — 기존 코드(connectInstagram 등)가 참조하는 ID 들 hidden 으로 보존 -->
     <div id="instaConnectRow" style="display:none;">
       <span id="instaStatusText"></span>
       <button id="instaBtn" data-static-action="connect-instagram">Instagram 연동</button>
@@ -1403,10 +1480,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 
   </div>
 
-  <div id="analyzeOverlay" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.7); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; padding:40px;">
+  <div id="analyzeOverlay" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.7); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); z-index:9999; flex-direction:column; align-items:center; justify-content:center; box-sizing:border-box; padding:calc(env(safe-area-inset-top,0px) + 40px) 40px calc(env(safe-area-inset-bottom,0px) + 40px);">
     <div style="background:var(--surface); border-radius:28px; box-shadow:var(--shadow-md); border:1px solid var(--border); padding:40px 36px; text-align:center; min-width:260px;">
       <div style="margin-bottom:16px; display:flex; justify-content:center;">
-        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--brand)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+        <svg width="56" height="56" class="itb-pulse" aria-hidden="true"><use href="#ic-bot"/></svg>
       </div>
       <div id="analyzeStepText" style="font-size:15px; font-weight:700; color:var(--text); margin-bottom:20px; text-align:center;">분석 준비 중...</div>
       <div style="width:100%; height:6px; background:var(--brand-bg); border-radius:3px; overflow:hidden;">
@@ -1416,10 +1493,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     </div>
   </div>
 
-  <!-- [2026-06-09 Phase2 v9] 말투 분석 리포트 — 회색 배경 + 카드 2장(헤더/내용) 구조.
+  <!-- [2026-06-16] 말투 분석 리포트 — blur 모달 + 단일 시트.
        z-index 10050: 내샵관리 화면 전환 후에도 위로 즉시 뜨게(가려지던 버그 수정). -->
-  <div id="analyzeResultPopup" style="display:none; position:fixed; inset:0; background:#F2F4F6; z-index:10050; overflow-y:auto; padding:20px 16px 40px;">
-    <div class="animate-popup-in" style="max-width:420px; margin:0 auto;">
+  <div id="analyzeResultPopup" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.7); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); z-index:10050; flex-direction:column; align-items:center; justify-content:center; box-sizing:border-box; padding:24px;">
+    <div class="animate-popup-in" style="max-width:360px; width:100%; max-height:88vh; border-radius:26px; overflow-y:auto; background:var(--surface);">
       <div id="analyzeResultBody"></div>
     </div>
   </div>
@@ -1446,6 +1523,59 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
         <label id="typeTagLabel" style="font-size:12px;font-weight:600;color:var(--text2);">시술 특징</label>
         <div class="tag-row" id="typeTags" style="margin-top:6px;"></div>
+      </div>
+
+      <!-- [말투 카드] v555 — 초보 원장님용 5종 말투 프리셋. 선택값 → /persona/generate tone_override -->
+      <style>
+        .tone-cards{display:flex;flex-direction:column;gap:8px;}
+        .tone-card{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;
+          padding:11px 13px;border-radius:14px;border:1.5px solid var(--border);
+          background:var(--bg2,#fafafa);cursor:pointer;transition:all .18s;-webkit-tap-highlight-color:transparent;}
+        .tone-card .tc-ic{flex:0 0 auto;color:var(--text3);margin-top:1px;}
+        .tone-card .tc-body{flex:1;min-width:0;}
+        .tone-card .tc-title{display:block;font-size:13.5px;font-weight:700;color:var(--text);}
+        .tone-card .tc-ex{display:block;font-size:11.5px;color:var(--text3);margin-top:3px;line-height:1.45;}
+        .tone-card .tc-check{flex:0 0 auto;opacity:0;color:var(--accent);transition:opacity .18s;}
+        .tone-card.on{border-color:var(--accent);background:rgba(213,138,149,0.10);}
+        .tone-card.on .tc-title{color:var(--accent2,var(--accent));}
+        .tone-card.on .tc-check{opacity:1;}
+      </style>
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);">어떤 말투로 써볼까요?</label>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;">처음 홍보글을 써도 어색하지 않게, 원하는 분위기를 골라보세요.</div>
+        <div class="tone-cards" id="toneCards" role="radiogroup" aria-label="말투 선택" style="margin-top:10px;">
+          <button type="button" class="tone-card on" data-tone="natural" data-haptic="light" role="radio" aria-checked="true">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-smile"/></svg>
+            <span class="tc-body"><span class="tc-title">자연스럽게</span><span class="tc-ex">동네 원장님이 설명하듯 편안하고 담백하게.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="emotional" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-wand-sparkles"/></svg>
+            <span class="tc-body"><span class="tc-title">인스타 감성</span><span class="tc-ex">분위기·결·무드를 살리는 잔잔한 감성 톤.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="professional" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-type"/></svg>
+            <span class="tc-body"><span class="tc-title">전문가 느낌</span><span class="tc-ex">시술 포인트를 또렷하게, 신뢰감 있게.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="friendly" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-message-circle"/></svg>
+            <span class="tc-body"><span class="tc-title">친근하게</span><span class="tc-ex">단골에게 말하듯 다정하고 부담 없이.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="premium" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-star"/></svg>
+            <span class="tc-body"><span class="tc-title">프리미엄</span><span class="tc-ex">고급스럽고 차분하게, 절제된 표현으로.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+          <button type="button" class="tone-card" data-tone="mz" data-haptic="light" role="radio" aria-checked="false">
+            <svg class="tc-ic" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-sparkles"/></svg>
+            <span class="tc-body"><span class="tc-title">MZ 감성</span><span class="tc-ex">짧고 리듬감 있게, 요즘 트렌디한 말투로.</span></span>
+            <svg class="tc-check" width="18" height="18" style="fill:none;stroke:currentColor" aria-hidden="true"><use href="#ic-check"/></svg>
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:8px;">고른 말투로 캡션을 만들어드려요. 선택한 시술 특징도 자연스럽게 반영돼요.</div>
       </div>
 
       <!-- [만들기 버튼 sticky] -->
@@ -1662,15 +1792,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   </div>
 </div>
 
-<!-- 로그인 환영 오버레이 -->
-<div id="welcomeOverlay">
-  <div class="welcome-ribbon">🎀</div>
-  <div class="welcome-name">반갑습니다,<br><span id="welcomeShopName">사장</span>대표님!</div>
-  <div class="welcome-sub">오늘도 잇데이와 함께해요</div>
-  <div class="welcome-dots">
-    <span></span><span></span><span></span>
-  </div>
-</div>
+<!-- [2026-06-25] 구 #welcomeOverlay(🎀 분홍) 제거 — 인사는 #appLoadingOverlay 의 #ldGreet 단계로 통합 -->
 
 <!-- 마무리 탭 -->
 <div class="tab" id="tab-finish">
@@ -1900,6 +2022,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     </div>
 
     <button id="planActionBtn" style="width:100%;padding:16px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--brand),#ff9aa8);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 15px rgba(241,128,145,0.3);min-height:52px;">월 6,900원 시작하기</button>
+    <div id="planSubMeta" style="display:none;text-align:center;margin-top:10px;font-size:12px;color:#666;"></div>
+    <button id="planCancelBtn" style="display:none;width:100%;margin-top:10px;padding:12px;border-radius:12px;border:1px solid #e5e5e5;background:#fff;color:#999;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;">구독 취소</button>
     <div style="text-align:center;margin-top:10px;font-size:11px;color:#bbb;">가격·횟수는 스토어 심사 전 최종 확정</div>
   </div>
 </div>
@@ -1945,36 +2069,29 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
 -->
+    <button type="button" class="drawer-item" data-drawer-route="integrations">
+      <svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg>
+      <span class="lbl">연동관리</span>
+      <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
+    </button>
 
-    <div class="drawer-group">AI · 자동화</div>
+    <div class="drawer-group">통합 허브</div>
     <button type="button" class="drawer-item" data-drawer-route="ai_hub">
       <svg class="ic" aria-hidden="true"><use href="#ic-bot"/></svg>
-      <span class="lbl">AI 자동화</span>
+      <span class="lbl">잇비 · 자동화</span>
       <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
 
     <div class="drawer-group">설정</div>
     <button type="button" class="drawer-item" data-drawer-route="settings_hub">
       <span class="ic-box ic-box--sm ic-box--gray" aria-hidden="true"><i class="ph-duotone ph-gear-six"></i></span>
-      <span class="lbl">설정 · 연동</span>
+      <span class="lbl">설정</span>
       <i class="ph-duotone ph-caret-right" style="font-size:14px;color:var(--text-subtle);margin-left:auto;" aria-hidden="true"></i>
     </button>
   </nav>
 </aside>
 <!-- /shop-drawer -->
 
-<script>
-  // [22차] 로그인 화면 이메일 폼 fold 토글
-  function toggleEmailFold() {
-    const content = document.getElementById('emailFoldContent');
-    const chev = document.getElementById('emailFoldChevron');
-    if (!content) return;
-    const isOpen = content.style.display !== 'none';
-    content.style.display = isOpen ? 'none' : 'block';
-    if (chev) chev.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
-  }
-  window.toggleEmailFold = toggleEmailFold;
-</script>
 <script>
   (function bindStaticUiActions() {
     function call(name, args) {
@@ -2008,7 +2125,6 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     const actions = {
       'login-kakao': () => call('startKakaoLogin'),
       'login-google': () => call('startGoogleLogin'),
-      'email-fold': () => call('toggleEmailFold'),
       'select-shop-type': (el) => call('selectShopType', [el]),
       'onboarding-next': () => call('obNext'),
       'onboarding-skip': () => call('obSkipShopType'),
@@ -2023,6 +2139,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'inventory': () => call('openInventoryHub'),
       'service-templates': () => call('openServiceTemplates'),
       'ai-hub': () => call('openAiHub'),
+      'integrations': () => call('openIntegrationsHub'),
       'settings-hub': () => call('openSettingsHub'),
       'plan': () => callFirst(['openPlan', 'openPlanPopup']),
       'support': () => setTimeout(() => callFirst(['openSupport', 'openSupportChat']), 0),
@@ -2031,8 +2148,6 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'settings-connect-instagram': () => closeThen(() => call('connectInstagram')),
       'settings-disconnect-instagram': () => closeThen(() => call('disconnectInstagram')),
       'settings-force-sync': () => closeThen(() => call('forceSync')),
-      'settings-persona-report': () => closeThen(() => { if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis(); }),
-      'settings-persona-analyze': () => closeThen(() => call('runPersonaAnalyze', [true])),
       'settings-reset-shop': () => closeThen(() => call('resetShopSetup')),
       'settings-support': () => closeThen(() => call('openSupportChat')),
       // [2026-05-24] settings-power-view 핸들러 제거 — 파워뷰 기능 폐지
@@ -2139,21 +2254,30 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     });
   })();
 </script>
-<script src="app-core.js?v=20260610-batch5"></script>
-<script src="js/load-groups.js?v=20260611-split3" defer></script>
+<script src="app-core.js?v=20260706-v710-syncfix"></script>
+<!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
+<script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
+<script src="js/load-groups.js?v=20260712-v739-screencast-flagcleanup" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
-<script src="format-money.js?v=20260519-v228"></script>
+<script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>
 <script src="js/heic-convert.js?v=20260610-heic" defer></script>
 <script src="app-drawer.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="app-secure-storage.js?v=20260506-v101" defer></script>
 <script src="app-shop-settings.js?v=20260519-v222-md-focus" defer></script>
-<script src="app-failures-hub.js" defer></script>
+<script src="app-dm-menu.js?v=20260620-quick-guide" defer></script>
 <script src="app-perf-recovery.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-spec-validator.js" defer></script>
-<script src="app-instagram.js?v=20260606-ig-connect-label" defer></script>
-<script src="components/scenario-selector.js" defer></script>
-<script src="app-caption.js?v=20260526-v289-caption-warning-cleanup" defer></script>
+<script src="app-instagram.js?v=20260703-v658-hotfix" defer></script>
+<script src="components/scenario-selector.js?v=20260619-v524-ws-qa" defer></script>
+<!-- [B-분할] 캡션 기능 모듈 — app-caption.js(코어 엔진) 보다 먼저 로드(전역 함수 정의) -->
+<script src="js/caption/caption-loader-ui.js?v=20260630-v615-caption-split3" defer></script>
+<script src="js/caption/caption-onboarding.js?v=20260630-v615-caption-split3" defer></script>
+<script src="js/data/service-vocab.js?v=20260712-v734-divpack" defer></script>
+<script src="js/caption/caption-keyword-tags.js?v=20260712-v734-svcvocab" defer></script>
+<script src="js/caption/caption-photo-row.js?v=20260630-v615-caption-split3" defer></script>
+<script src="js/caption/caption-publish.js?v=20260630-v615-caption-split3" defer></script>
+<script src="app-caption.js?v=20260706-v711-hashdedup" defer></script>
 <script src="app-portfolio.js?v=20260526-v291-portfolio-warning-cleanup" defer></script>
 <script src="app-portfolio-tags.js?v=20260610-batch5" defer></script>
 <script src="app-ai.js?v=20260610-batch4" defer></script>
@@ -2165,13 +2289,13 @@ window._lazyImgly = function _lazyImgly() {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/index.umd.js';
     s.onload = () => res(window.imgly_bgr || window['@imgly/background-removal']);
-    s.onerror = rej;
+    s.onerror = () => rej(new Error('배경제거 보조모듈(imgly) 로드 실패 — 네트워크를 확인해 주세요'));
     document.head.appendChild(s);
   });
   return window._imglyLoading;
 };
 </script>
-<script src="app-photo-enhance.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-photo-enhance.js?v=20260619-v519-workspace-flow-regression" defer></script>
 <script src="app-sample-captions.js" defer></script>
 <script src="app-push.js" defer></script>
 <script src="app-notifications.js?v=20260607-home-notif-bell-only" defer></script>
@@ -2182,10 +2306,11 @@ window._lazyImgly = function _lazyImgly() {
 <!-- 터치 제스처 통합 (시트 swipe-down · 캘린더 좌우 · 리스트 swipe · 길게누르기) -->
 <script src="app-gestures.js" defer></script>
 <script src="app-theme.js?v=20260520-v242" defer></script>
-<script src="app-plan.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-billing.js?v=20260615-v466-qae" defer></script>
+<script src="app-plan.js?v=20260615-v466-qae" defer></script>
 <script src="app-customer-cache.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-customer.js?v=20260611-galaxy-fix" defer></script>
-<script src="app-customer-dashboard.js?v=20260526-v290-customer-warning-cleanup" defer></script>
+<script src="app-customer.js?v=20260708-customer-a" defer></script>
+<script src="app-customer-dashboard.js?v=20260616-v492-hotfixD-booking" defer></script>
 <!-- [2026-04-29 W5] 회원권 / 정기권 UI -->
 <!-- [2026-04-30] 시트 진입/종료 애니메이션 헬퍼 (SheetAnim) -->
 <script src="app-sheet-anim.js" defer></script>
@@ -2195,19 +2320,22 @@ window._lazyImgly = function _lazyImgly() {
 <!-- [2026-04-30] 챗봇 영구 메모 + 사장님 프로필 (A1+A4) -->
 <!-- [2026-04-30] 스마트 캡처 — 카톡 자동 임포트 (E3) + 명함 OCR (E4) -->
 <!-- [2026-04-30] AI 자동화 허브 — 사진편집/캡션/해시태그 중심 -->
-<script src="app-ai-hub.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
+<script src="app-ai-hub.js?v=20260711-crq-count" defer></script>
 <!-- [2026-04-30] 설정 · 연동 허브 — 샵정보/네이버/백업/실패/앱설정 통합 -->
-<script src="app-settings-hub.js?v=20260518-v193" defer></script>
+<script src="app-settings-hub.js?v=20260616-brand-fix2" defer></script>
+<!-- [2026-06-16] 연동관리 허브 — 인스타/네이버 톡톡/카톡 연동 분리 -->
+<script src="app-integrations-hub.js?v=20260616-hub-split-v1" defer></script>
 <!-- [2026-04-30] 챗봇 액션 되돌리기 + Chain 모드 토글 -->
 <!-- [2026-05-23] 직원 기능 제거 — 1인샵 전용 -->
 <!-- E3 (2026-04-26) — 검색 가능 AI 고객 메모. 알러지 자동 경고 + 전체 검색. -->
 <script src="app-customer-memo.js?v=20260610-batch4" defer></script>
-<script src="app-revenue.js?v=20260610-qafix" defer></script>
+<script src="js/revenue/booking-revenue-overlay.js?v=20260615-v474-showcase-flow" defer></script>
+<script src="app-revenue.js?v=20260615-v474-showcase-flow" defer></script>
 <!-- Step 3A (2026-05-16) — 매출관리 뷰 분할 (today/week + month) -->
 <script src="app-revenue-today.js?v=20260519-v221" defer></script>
-<script src="app-revenue-month.js?v=20260605-rev-cal-split" defer></script>
+<script src="app-revenue-month.js?v=20260615-v474-showcase-flow" defer></script>
 <script src="app-revenue-calendar.js?v=20260605-rev-cal-split" defer></script>
-<script src="app-booking-api.js?v=20260521-v254-api-fetch" defer></script>
+<script src="app-booking-api.js?v=20260615-v474-showcase-flow" defer></script>
 <!-- INVENTORY_HIDDEN <script src="app-inventory.js" defer></script> -->
 <!-- md 정리: 영상 편집은 숨김. 파일은 보존하고 로드만 끔. -->
 <script src="app-insights.js?v=20260521-v254-api-fetch" defer></script>
@@ -2218,14 +2346,13 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-auto-ba.js?v=20260519-v223-md-strict" defer></script>
 <script src="app-today-brief.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-home-v41-config.js" defer></script>
-<script src="js/home/v41-styles.js?v=20260607-top-gap-fix" defer></script>
-<script src="js/home/v41-actions.js?v=20260526-v293-home-warning-cleanup" defer></script>
-<script src="js/home/v41-itbi-prompts.js?v=20260602-first-wow" defer></script>
-<script src="js/home/v41-renderers.js?v=20260610-booking-consistency" defer></script>
-<script src="app-home-v41.js?v=20260610-qafix" defer></script>
+<script src="js/home/v41-styles.js?v=20260705-ai-vertical" defer></script>
+<script src="js/home/v41-actions.js?v=20260708-analysis-trust" defer></script>
+<script src="js/home/v41-renderers.js?v=20260708-analysis-trust" defer></script>
+<script src="app-home-v41.js?v=20260708-analysis-trust" defer></script>
 <script src="app-home-customer-msgs.js?v=20260609-queue-source" defer></script>
 <!-- [2026-04-30] 내샵관리 v3 — 모바일 메인 + PC 사이드바·도넛·위젯·피드 -->
-<script src="app-myshop-v3.js?v=20260610-booking-consistency" defer></script>
+<script src="app-myshop-v3.js?v=20260615-v474-showcase-flow" defer></script>
 <!-- 렉 박멸 — 챗봇/DM/영수증 무거운 스크립트는 defer 로 비차단 로드 (FCP ~120~250ms 단축 체감) -->
 <!-- [v176 2026-05-18] 챗봇 자동 보정 헬퍼 (headless canvas) — assistant 가 결과 사진을 채팅 안에 표시 -->
 <script src="app-chat-auto-edit.js?v=20260518-v183" defer></script>
@@ -2246,7 +2373,7 @@ window._lazyImgly = function _lazyImgly() {
 <!-- 4 잇비 브리핑 매출 우선순위 랭킹 (daily-briefing 보다 먼저) -->
 <!-- J-5 잇비 마케팅 초안 공통 정책 — 톤/금지어/안전라벨 (소비 모듈보다 먼저) -->
 <!-- J-1 잇비 Action Hub — 결과→다음행동 버튼 공통층 (app-assistant.js 보다 먼저) -->
-<!-- J-2 잇비 홍보용 사진 체인 — 보정→캡션→템플릿→버튼 (photo-flow·action-hub 보다 뒤, app-assistant 보다 먼저) -->
+<!-- risk:integration — 사진편집 모드 도우미/단계머신은 action-hub 뒤, app-assistant 앞에 로드 -->
 <!-- I3a 잇비 템플릿 자동 적용(후기 카드) — PhotoEditor/TemplatesV2/SourceImage 호출, app-assistant 보다 먼저 -->
 <!-- J-3 잇비 고객 상태 카드 — 최근시술·방문·예약·사진+버튼 (Customer·Booking·gallery 재조합, app-assistant 보다 먼저) -->
 <!-- 5 잇비 고객 인사이트(선호 스타일/리터치 타이밍/추천행동) — customer-status-card 보다 먼저 -->
@@ -2318,7 +2445,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-customer-ai-brief.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-customer-hub.js?v=20260519-v212" defer></script>
 <script src="app-customer-sync.js" defer></script>
-<script src="app-calendar-view.js?v=20260611-galaxy-fix" defer></script>
+<script src="app-calendar-view.js?v=20260616-v496-hotfixF" defer></script>
 <script src="app-reminder.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-retention-ai.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-review.js?v=20260521-v254-api-fetch" defer></script>
@@ -2372,7 +2499,7 @@ window._lazyImgly = function _lazyImgly() {
 })();
 </script>
 <script src="app-debug-panel.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-side-nav-unifier.js?v=20260519-v215" defer></script>
+<script src="app-side-nav-unifier.js?v=20260613-sidenav-race2" defer></script>
 
 </body>
 </html>

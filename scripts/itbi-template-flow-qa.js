@@ -15,6 +15,8 @@ function crc32(b){let c=~0;for(let i=0;i<b.length;i++){c^=b[i];for(let k=0;k<8;k
 function chunk(t,d){const T=Buffer.from(t,'ascii');const L=Buffer.alloc(4);L.writeUInt32BE(d.length);const C=Buffer.alloc(4);C.writeUInt32BE(crc32(Buffer.concat([T,d])));return Buffer.concat([L,T,d,C]);}
 function png(s,r,g,b){const sig=Buffer.from([137,80,78,71,13,10,26,10]);const h=Buffer.alloc(13);h.writeUInt32BE(s,0);h.writeUInt32BE(s,4);h[8]=8;h[9]=2;const row=Buffer.concat([Buffer.from([0]),Buffer.concat(Array.from({length:s},()=>Buffer.from([r,g,b])))]);const raw=Buffer.concat(Array.from({length:s},()=>row));return Buffer.concat([sig,chunk('IHDR',h),chunk('IDAT',zlib.deflateSync(raw)),chunk('IEND',Buffer.alloc(0))]);}
 const A=png(3,200,40,40), B=png(7,40,40,200);
+const AD='data:image/png;base64,'+A.toString('base64');
+const BD='data:image/png;base64,'+B.toString('base64');
 
 const errs=[];
 async function fresh(br){const p=await(await br.newContext({viewport:{width:390,height:844}})).newPage();p.on('pageerror',e=>errs.push(String(e.message||e)));await p.goto(BASE,{waitUntil:'networkidle',timeout:60000});await p.waitForTimeout(3000);await p.evaluate(async()=>{try{const rs=await navigator.serviceWorker.getRegistrations();rs.forEach(r=>r.unregister());}catch(_){ /* noop */ }});await p.waitForFunction(()=>window.openAssistant&&window.PhotoEditor&&window.loadGalleryItems&&window.loadSlotsFromDB&&window.PhotoEditorTemplateMarketData,null,{timeout:30000});return p;}
@@ -40,34 +42,46 @@ const afterW=(p)=>p.evaluate(()=>{const s=window.PhotoEditor._internal.getState&
   await reopen(p); await send(p,'물광 8만원 가격표 만들어줘'); R.price_editor=await eOpen(p); await save(p); R.price=await counts(p);
   await p.context().close();
 
-  // 후기
-  p=await fresh(br); await reopen(p); await up(p,A,'a.png'); await reopen(p); await send(p,'민지님 네일 후기 카드 만들어줘'); R.review_editor=await eOpen(p); await save(p); R.review=await counts(p);
+  // 후기: 현재 흐름은 편집기 직행이 아니라 채팅 안에서 사진 역할/카드로 안내.
+  p=await fresh(br);
+  R.review=await p.evaluate(async({a,b})=>{
+    const PM=window.ItdasyPhotoMode; PM.exit();
+    const msg=await PM.handlePhotos([a,b],'고객후기 카드 만들어줘',{});
+    return { roleCard:!!(msg&&msg.photo_roles), assetN:msg&&msg.photo_roles&&msg.photo_roles.assets.length,
+      noEditor:!(document.getElementById('photoEditorSheet')&&getComputedStyle(document.getElementById('photoEditorSheet')).display!=='none') };
+  },{a:AD,b:BD});
   await p.context().close();
 
-  // 전후 1장 P1b (filechooser → 두번째 자동완성)
-  p=await fresh(br); await reopen(p); await up(p,A,'a.png'); await reopen(p); await send(p,'전후 카드 만들어줘');
-  R.ba1_choice=await choiceN(p); R.ba1_editorBefore=await eOpen(p);
-  const fcPromise=p.waitForEvent('filechooser',{timeout:5000}).catch(()=>null);
-  await p.evaluate(()=>{const b=[...document.querySelectorAll('[data-asst-hub-act]')].find(x=>x.textContent.indexOf('시술 전 사진')>=0);if(b)b.click();});
-  const fc=await fcPromise; R.ba1_pickerOpened=!!fc;
-  if(fc){ await fc.setFiles({name:'b.png',mimeType:'image/png',buffer:B}); await p.waitForTimeout(1500); }
-  R.ba1_editorAfter=await eOpen(p); R.ba1_afterW=await afterW(p);  // 7=B 기대(시술전: after=둘째)
-  await save(p); R.ba1=await counts(p);
+  // 전후 1장: 채팅에서 두 번째 사진을 요구하고, 두 번째 사진을 받으면 전후 카드 생성.
+  p=await fresh(br);
+  R.ba1=await p.evaluate(async({a,b})=>{
+    const PM=window.ItdasyPhotoMode; PM.exit();
+    await PM.handlePhotos([a],'홍보용으로 예쁘게 해줘',{});
+    const ask=await PM.handleText('전후 카드 만들어줘',{});
+    const done=await PM.handlePhotos([b],'',{});
+    return { asksSecond:/사진 2장|사진 1장 더/.test(ask&&ask.text||''), hasResult:!!(done&&done.photo_result),
+      hasEditCta:Array.isArray(done&&done.related)&&done.related.includes('전 사진 편집')&&done.related.includes('후 사진 편집') };
+  },{a:AD,b:BD});
   await p.context().close();
 
-  // 전후 2장
-  p=await fresh(br); await reopen(p); await upMulti(p); await reopen(p); await send(p,'전후 카드 만들어줘');
-  R.ba2_choice=await choiceN(p); R.ba2_editor=await eOpen(p); R.ba2_afterW=await afterW(p);  // 7=B 기대
+  // 전후 2장: 두 장 모두 사용해 바로 전후 카드 생성.
+  p=await fresh(br);
+  R.ba2=await p.evaluate(async({a,b})=>{
+    const PM=window.ItdasyPhotoMode; PM.exit();
+    const msg=await PM.handlePhotos([a,b],'전후 카드 만들어줘',{});
+    return { hasResult:!!(msg&&msg.photo_result), caption:/전·후/.test(msg&&msg.photo_caption||''),
+      hasEditCta:Array.isArray(msg&&msg.related)&&msg.related.includes('전 사진 편집')&&msg.related.includes('후 사진 편집') };
+  },{a:AD,b:BD});
   R.overflowX=await p.evaluate(()=>Math.max(0,document.documentElement.scrollWidth-document.documentElement.clientWidth));
   await p.context().close();
 
   R.jsPageErrors=errs;
   // 판정
-  const ok = R.visible.v3===5 && R.visible.bp===4   // v428: bp-ba-nail-pink-polaroid 추가로 BP 3→4
+  const ok = R.visible.v3===5 && R.visible.bp>=4   // 최신 BP 추가 허용: 기본 4개 이상이면 노출 무회귀
     && R.price.g>=1 && R.price.s>=1
-    && R.review.g>=1 && R.review.s>=1
-    && R.ba1_choice===3 && R.ba1_editorBefore===false && R.ba1_editorAfter===true && R.ba1_afterW===7 && R.ba1.g>=1 && R.ba1.s>=1
-    && R.ba2_choice===0 && R.ba2_editor===true && R.ba2_afterW===7
+    && R.review.roleCard && R.review.assetN===2 && R.review.noEditor
+    && R.ba1.asksSecond && R.ba1.hasResult && R.ba1.hasEditCta
+    && R.ba2.hasResult && R.ba2.caption && R.ba2.hasEditCta
     && R.overflowX===0 && errs.length===0;
   R.PASS=ok;
   console.log(JSON.stringify(R,null,2));

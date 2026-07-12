@@ -38,8 +38,8 @@
       <div class="ms-sheet__handle"></div>
       <div class="ms-sheet__head">
         <div class="ms-sheet__head-left">
-          <div class="ms-sheet__title">설정 · 연동</div>
-          <div class="ms-sheet__sub">샵 정보 · 외부 연동 · 백업</div>
+          <div class="ms-sheet__title">설정</div>
+          <div class="ms-sheet__sub">앱 설정 · 샵 정보 · 백업</div>
         </div>
         <button type="button" class="ms-sheet__close" id="shClose" aria-label="닫기">✕</button>
       </div>
@@ -59,52 +59,49 @@
   function _igInfo() {
     let handle = '';
     let pic = '';
-    try { handle = localStorage.getItem('itdasy:ig_handle') || ''; } catch (_e) { void _e; }
+    // 저장값에 @가 이미 붙어있는 경우가 있어 표시 전에 제거 (@@ 중복 방지)
+    try { handle = (localStorage.getItem('itdasy:ig_handle') || '').replace(/^@+/, ''); } catch (_e) { void _e; }
     try { pic = localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { void _e; }
     return { handle, pic };
   }
+  // [2026-07-05 리디자인] 원형 프로필 + @핸들 + 연동 상태 필 배지 — 카드 자체가 설명(라벨 텍스트 제거).
   function _accountHTML() {
     const { provLabel, email } = _accountInfo();
     const { handle, pic } = _igInfo();
-    const right = email ? `${_esc(provLabel)} · ${_esc(email)}` : _esc(provLabel);
-    // 인스타 연동 시: 프사 + @핸들 노출. 미연동 시: 기존 스토어 아이콘 + '현재 로그인'.
-    const avatar = pic
-      ? `<img src="${_esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="width:30px;height:30px;border-radius:50%;object-fit:cover;display:block;">`
-      : `<span class="ic-box ic-box--sm ic-box--blue">${_ic('ic-store', 14)}</span>`;
-    const name = handle ? `@${_esc(handle)}` : '현재 로그인';
+    const emailText = email ? `${_esc(provLabel)} · ${_esc(email)}` : _esc(provLabel);
+    const isUrl = /^https?:\/\//i.test(pic || '');
+    const initial = (handle || 'I').trim().charAt(0).toUpperCase();
+    const avatar = isUrl
+      ? `<img class="sv2-acc__avatar" src="${_esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.style.display='none'">`
+      : `<span class="sv2-acc__avatar sv2-acc__avatar--init">${_esc(initial)}</span>`;
+    const badge = handle
+      ? `<span class="sv2-pill sv2-pill--ok">인스타 연동됨</span>`
+      : `<button type="button" class="sv2-pill sv2-pill--brand" id="shIgConnect">연동하기</button>`;
     return `
       <div class="ms-section__title" style="margin-top:4px;">계정</div>
       <div class="ms-sh" id="shAccount">
-        <div class="ms-sh__row" style="cursor:default;">
-          <div class="ms-sh__icon">${avatar}</div>
-          <div class="ms-sh__info">
-            <div class="ms-sh__name">${name}</div>
-            <div class="ms-sh__meta">${right}</div>
+        <div class="sv2-acc">
+          ${avatar}
+          <div class="sv2-acc__info">
+            <div class="sv2-acc__handle">${handle ? `@${_esc(handle)}` : '인스타 미연동'}</div>
+            <div class="sv2-acc__email">${emailText}</div>
           </div>
+          ${badge}
         </div>
       </div>
     `;
   }
   function _listHTML() {
     return `
-      <div class="ms-section__title">샵 · 연동</div>
+      <div class="ms-section__title">샵</div>
       <div class="ms-sh" id="shList">
-        ${_rowHTML('shopinfo', 'ic-store',      '샵 정보',     '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
-        ${_rowHTML('instagram','ic-instagram', '인스타그램 연결 및 재연결', '콘텐츠 발행 · 말투 분석용', { boxColor: 'pink' })}
-        ${_rowHTML('instagram_disconnect','ic-instagram','인스타그램 연결 해제', '토큰 즉시 폐기 · 잇데이 로그인은 유지', { boxColor: 'red', danger: true })}
-        ${_rowHTML('naver',    'ic-link',       '네이버 예약 연동',   '연결 상태 확인', { metaClass: 'is-ok', boxColor: 'teal' })}
-      </div>
-      <div class="ms-section__title" style="margin-top:14px;">AI · 데이터</div>
-      <div class="ms-sh">
-        ${_rowHTML('persona',  'ic-message-circle','말투 분석',       '내 말투 새로 학습시키기', { boxColor: 'pink' })}
-        ${_rowHTML('analysis_report', 'ic-bar-chart-3', '분석 리포트 보기', '최근 분석 결과 다시 보기 (재분석 안 함)', { boxColor: 'purple' })}
-        ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침',    '서버에서 최신 데이터 다시 받기', { boxColor: 'blue' })}
-        ${_rowHTML('backup',   'ic-download',   '백업 · 내보내기',    '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
-        ${/* [2026-05-25] 'AI 잇비 액션 되돌리기' 행 제거 — 잇비 채팅 ⋯ 메뉴로 단일 진입점화. */ ''}
-        ${_rowHTML('failures', 'ic-bell',       '자동화 실패 알림함', '실패 로그 · 재시도', { boxColor: 'coral' })}
+        ${_rowHTML('shopinfo', 'ic-store',    '샵 정보',          '영업시간 · 시술 메뉴', { boxColor: 'blue' })}
+        ${_rowHTML('sync',     'ic-refresh-cw', '데이터 새로고침', '최신 버전·데이터로 새로고침 (껐다 켠 효과)', { boxColor: 'blue' })}
+        ${_rowHTML('backup',   'ic-download', '백업 · 내보내기',  '자동 백업 · 데이터 내보내기', { boxColor: 'pink' })}
       </div>
       <div class="ms-section__title" style="margin-top:14px;">계정</div>
       <div class="ms-sh">
+        ${_rowHTML('subscription','ic-credit-card', '구독 관리',          '플랜 · 결제 · 취소', { boxColor: 'pink' })}
         ${_rowHTML('membership','ic-ticket',    '회원권',             '만료 임박 고객 · 충전 안내', { boxColor: 'coral' })}
       </div>
     `;
@@ -162,9 +159,11 @@
     const o = opt || {};
     const metaCls = o.metaClass ? ` ${_esc(o.metaClass)}` : '';
     const nameStyle = o.danger ? ' style="color:var(--danger);"' : '';
-    const iconHtml = o.boxColor
-      ? `<div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--${_esc(o.boxColor)}">${_ic(icon, 14)}</span></div>`
-      : `<div class="ms-sh__icon">${_ic(icon, 16)}</div>`;
+    const iconHtml = o.iconHtml
+      ? `<div class="ms-sh__icon">${o.iconHtml}</div>`  // 커스텀 브랜드 글리프(예: 네이버 N) — 이모지 금지
+      : o.boxColor
+        ? `<div class="ms-sh__icon"><span class="ic-box ic-box--sm ic-box--${_esc(o.boxColor)}">${_ic(icon, 14)}</span></div>`
+        : `<div class="ms-sh__icon">${_ic(icon, 16)}</div>`;
     return `
       <button type="button" class="ms-sh__row" data-act="${_esc(act)}">
         ${iconHtml}
@@ -197,6 +196,13 @@
         try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; }
         _route(b.dataset.act);
       });
+    });
+
+    // 미연동 시 '연동하기' 필 → 연동관리 허브로
+    sheet.querySelector('#shIgConnect')?.addEventListener('click', () => {
+      try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; }
+      close();
+      setTimeout(() => window.openIntegrationsHub && window.openIntegrationsHub(), 200);
     });
 
     // 진동 토글
@@ -240,17 +246,12 @@
   // ─── 9개 라우팅 (변동 X) ────────────────────────────────
   function _route(act) {
     if (act === 'shopinfo')  { close(); setTimeout(() => window.openShopSettings && window.openShopSettings(), 200); return; }
-    if (act === 'instagram') { close(); setTimeout(() => window.connectInstagram && window.connectInstagram(), 200); return; }
-    if (act === 'instagram_disconnect') { close(); setTimeout(() => window.disconnectInstagram && window.disconnectInstagram(), 200); return; }
-    if (act === 'naver')     { close(); setTimeout(() => window.openNaverLink && window.openNaverLink(), 200); return; }
-    if (act === 'persona')   { close(); setTimeout(() => window.runPersonaAnalyze && window.runPersonaAnalyze(true), 200); return; }
-    // [2026-06-09] 분석 리포트 보기 — 캐시된 분석 결과 팝업 (재분석 X, persona 와 별개).
-    if (act === 'analysis_report') { close(); setTimeout(() => window.showDetailedAnalysis && window.showDetailedAnalysis(), 200); return; }
     // [2026-05-24] powerview 액션 제거 — 파워뷰 기능 폐지
-    if (act === 'sync')      { close(); setTimeout(() => window.forceSync && window.forceSync(), 200); return; }
+    if (act === 'sync')      { close(); setTimeout(() => window.forceAppUpdate && window.forceAppUpdate(), 200); return; }
     if (act === 'backup')    { close(); setTimeout(() => window.openBackupScreen && window.openBackupScreen(), 200); return; }
     // 'undo' 라우트는 잇비 채팅 ⋯ 메뉴로 일원화 (2026-05-25, 행 제거).
-    if (act === 'failures')  { close(); setTimeout(() => window.openFailuresHub && window.openFailuresHub(), 200); return; }
+    // [2026-07-05] 'failures' 라우트 제거 — 자동화 실패는 알림함(app-notifications)으로 통합.
+    if (act === 'subscription'){ close(); setTimeout(() => window.openPlanPopup && window.openPlanPopup(), 200); return; }
     if (act === 'membership'){ close(); setTimeout(() => window.MembershipUI && window.MembershipUI.openExpiringList && window.MembershipUI.openExpiringList(30), 200); return; }
     // [2026-06-09] 'support'/'logout' 라우트 제거 — 설정·연동에서 빠지고 사이드바/내샵관리 하단으로 이전.
     if (act === 'haptic') {

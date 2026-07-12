@@ -83,7 +83,7 @@
       if (!cached.fresh) {
         _refreshSummaryInBackground(auth, isCur).catch(() => {});
       }
-      return cachedSummary;
+      return await _withBookingOverlay(cachedSummary);
     }
     // 캐시 미스 — 정상 fetch
     return await _doFetchSummary(auth, isCur);
@@ -94,7 +94,7 @@
     if (!isCur) url += '&year=' + _viewYear + '&month=' + _viewMonth;
     const res = await apiFetch(url, { headers: { ...auth, 'Content-Type': 'application/json' } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const summary = await res.json();
+    const summary = await _withBookingOverlay(await res.json());
     const R = _R();
     if (R._swrWriteKey) R._swrWriteKey(_monthSwrKey(), summary);
     if (!isCur) {
@@ -113,6 +113,11 @@
       _viewItems = null;
     }
     return summary;
+  }
+
+  async function _withBookingOverlay(summary) {
+    if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichSummary !== 'function') return summary;
+    return await window.BookingRevenueOverlay.enrichSummary(summary, { year: _viewYear, month: _viewMonth });
   }
 
   async function _refreshSummaryInBackground(auth, isCur) {
@@ -164,7 +169,7 @@
     });
     const daily = Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
 
-    return {
+    const summary = {
       period: 'month', year: now.getFullYear(), month: now.getMonth() + 1, is_past: false,
       total, count, net_total,
       /* PROFIT_HIDDEN */ material_cost_total: 0,
@@ -180,6 +185,9 @@
       by_method,
       _fallback: true,
     };
+    if (!window.BookingRevenueOverlay || !window.Booking) return summary;
+    const agg = window.BookingRevenueOverlay.summarizeBookings(window.Booking._items || [], summary);
+    return window.BookingRevenueOverlay.mergeSummary(summary, agg);
   }
 
   // ── AI 일일 목표 ────────────────────────────────────────
@@ -422,6 +430,10 @@
     // [2026-05-20] 두 개념 분리:
     //   · 남은 예약 완료 시 = pending_bookings_total (future confirmed 예약 amount 합)
     //   · 이번달 예상 매출 = projected_total (현재 페이스로 월말 외삽)
+    // [2026-06-14 QA] 예약금 넣은 확정 예약 = 확정매출. 완료 매출과 별도로 보여줌.
+    const depositRow = (Number(summary.confirmed_deposit_total) > 0)
+      ? `<div class="rvm5-ai"><span class="badge">확정매출</span><span class="txt">예약금 <b>${formatMoney(summary.confirmed_deposit_total)}</b></span></div>`
+      : '';
     const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
       ? `<div class="rvm5-ai"><span class="badge">남은 예약</span><span class="txt">모두 완료 시 <b>+${formatEstimate(summary.pending_bookings_total)}</b></span></div>`
       : '';
@@ -453,6 +465,7 @@
             -->
           </div>
           <div class="rvm5-right">
+            ${depositRow}
             ${pendingRow}
             ${aiRow}
           </div>
@@ -476,6 +489,9 @@
     _ensureStyles();
     const isCur = _isCurrentMonth();
     const isPast = !!summary.is_past || !isCur;
+    const depositRow = (Number(summary.confirmed_deposit_total) > 0)
+      ? `<div class="rvm5-mai"><span class="badge">확정매출</span><span class="txt">예약금 <b>${formatMoney(summary.confirmed_deposit_total)}</b></span></div>`
+      : '';
     const pendingRow = (!isPast && Number(summary.pending_bookings_total) > 0)
       ? `<div class="rvm5-mai"><span class="badge">남은 예약</span><span class="txt">모두 완료 시 <b>+${formatEstimate(summary.pending_bookings_total)}</b></span></div>`
       : '';
@@ -504,6 +520,7 @@
           </div>
           -->
         </div>
+        ${depositRow}
         ${pendingRow}
         ${aiRow}
         <div class="rvm5-mc">

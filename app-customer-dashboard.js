@@ -56,7 +56,8 @@
     sheet = document.createElement('div');
     sheet.id = 'customerDashSheet';
     // [v208] 풀화면 시트 — PC 디테일과 동일한 v4 본문을 그대로 표시.
-    sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;background:var(--surface,#fff);overflow-y:auto;';
+    // [핫픽스D #3] z-index 10600 — 잇비 채팅(assistantSheet 10500) 위로 떠야 함(채팅에서 "고객 기록 열기" 시 뒤에 깔리던 버그).
+    sheet.style.cssText = 'position:fixed;inset:0;z-index:10600;display:none;background:var(--surface,#fff);overflow-y:auto;';
     sheet.innerHTML = `
       <div class="cust-detail" style="position:relative;width:100%;max-width:720px;margin:0 auto;min-height:100vh;background:var(--surface,#fff);">
         <div class="cv4-detail-mobile-head">
@@ -354,6 +355,12 @@
     const sheet = document.getElementById('customerDashSheet');
     sheet.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    // [핫픽스D #3] 공통 시트-백 레지스트리 등록 — Android/브라우저 back 으로 상세만 닫히고
+    //   소스(고객목록/잇비)로 복귀(내샵관리·홈으로 튀지 않게). 중복 등록·중복 push 는 멱등.
+    try {
+      if (typeof window._registerSheet === 'function') window._registerSheet('customerDash', window.closeCustomerDashboard);
+      if (typeof window._markSheetOpen === 'function' && (window._sheetBackStack || []).lastIndexOf('customerDash') < 0) window._markSheetOpen('customerDash');
+    } catch (_e) { void _e; }
     const body = sheet.querySelector('#cdBody');
 
     // id 형식 검증 — 비어있거나 숫자/문자열 아니면 안내. 백엔드는 정수 PK 사용.
@@ -376,8 +383,16 @@
     if (sheet) sheet.style.display = 'none';
     document.body.style.overflow = '';
     _currentCustomerId = null;
+    // [핫픽스D #3] 시트-백 스택에서 제거(멱등). back 으로 닫힐 때 popstate 와 중복 처리 안 되게.
+    try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('customerDash'); } catch (_e) { void _e; }
     // [T-101] "이 손님" 컨텍스트 해제.
     try { window.__ITDASY_CURRENT_CUSTOMER__ = null; } catch (_e) { void 0; }
+    // [Phase3-B #4] 잇비 대화에서 열었으면 닫을 때 잇비로 복귀(다른 경로는 밑의 화면 그대로 노출).
+    let _ret = null;
+    try { _ret = window.__ITDASY_CUSTOMER_RETURN__; window.__ITDASY_CUSTOMER_RETURN__ = null; } catch (_e) { void 0; }
+    if (_ret === 'itbi_chat' && typeof window.openAssistant === 'function') {
+      try { window.openAssistant(); } catch (_e) { void 0; }
+    }
   };
 
   function _customerEditHtml(c, isNew) {

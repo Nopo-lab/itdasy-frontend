@@ -32,24 +32,39 @@
     } catch (_e) { return null; }
   }
   async function _fetchBrief() {
-    const headers = _authHeaders();
-    if (!window.API || !headers) {
-      // [2026-05-20] 디버그 — brief 가 null 로 새는 원인 추적용
-      if (!headers) console.warn('[brief] 인증 헤더 없음 - 로그인 상태 확인');
-      return null;
-    }
-    try {
-      const res = await apiFetch('/assistant/brief', { headers });
-      if (!res.ok) {
-        console.warn('[brief] API 응답 실패:', res.status);
-        return null;
+    // [2026-06-25] 콜드스타트/인증헤더 레이스 방어 — "연결이 불안정해요" 오발생 차단.
+    //   apiFetch 는 글로벌 재시도 래퍼를 안 거쳐서 1회 실패 시 그대로 null 이 됐고,
+    //   로그인 직후 인증헤더가 아직 안 붙었거나 BE 콜드스타트 5xx 면 새로고침해야만 떴음.
+    //   → 에러화면 띄우기 전 백오프로 최대 3회 재시도 (인증 대기 + 일시 5xx/네트워크 모두 흡수).
+    const BACKOFF = [0, 800, 2000];
+    for (let attempt = 0; attempt < BACKOFF.length; attempt++) {
+      if (BACKOFF[attempt]) await new Promise(r => setTimeout(r, BACKOFF[attempt]));
+      const headers = _authHeaders();
+      if (!window.API || !headers) {
+        if (!headers) console.warn('[brief] 인증 헤더 대기 중 (attempt ' + attempt + ')');
+        continue;
       }
-      const data = await res.json();
-      _writeSWR(data);
+      try {
+        const res = await apiFetch('/assistant/brief', { headers });
+        if (!res.ok) {
+          console.warn('[brief] API 응답 실패:', res.status, '(attempt ' + attempt + ')');
+          continue;
+        }
+        const data = await _withBookingRevenue(await res.json());
+        _writeSWR(data);
+        return data;
+      } catch (_e) {
+        console.warn('[brief] fetch 예외 (attempt ' + attempt + '):', _e);
+      }
+    }
+    return null;
+  }
+  async function _withBookingRevenue(data) {
+    if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichBrief !== 'function') return data;
+    try { return await window.BookingRevenueOverlay.enrichBrief(data); }
+    catch (err) {
+      console.warn('[brief] 예약금 보강 실패:', err);
       return data;
-    } catch (_e) {
-      console.warn('[brief] fetch 예외:', _e);
-      return null;
     }
   }
   async function _fetchSlots() {
@@ -169,6 +184,15 @@
     _bindItbiCardInput(container);
     // AI 캐러셀 paging (3-per-page)
     _bindAiCarousel(container);
+    // [2026-07-05] 모바일 정상카드 접기 토글 — "나머지 N개는 문제 없어요"
+    const okToggle = container.querySelector('[data-hv-ok-toggle]');
+    if (okToggle) {
+      okToggle.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const ai = okToggle.closest('.hv5-ai');
+        if (ai) ai.classList.toggle('show-ok');
+      });
+    }
   }
 
   // [2026-05-28] 메인홈 잇비 카드 입력 — 카메라/음성/보내기 → 시트 진입
@@ -179,9 +203,6 @@
       const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
       if (typeof open === 'function') open(opts || {});
     };
-    if (window.HomeV41ItbiPrompts && typeof window.HomeV41ItbiPrompts.bind === 'function') {
-      window.HomeV41ItbiPrompts.bind(container, { fileInput, openSheet });
-    }
     container.querySelectorAll('[data-itbi-act]').forEach(btn => {
       btn.addEventListener('click', (ev) => {
         ev.preventDefault(); ev.stopPropagation();
@@ -329,14 +350,19 @@
         _fetchSlots().catch(() => []),
         _fetchDMQueueCount().catch(() => 0),
       ]);
+      // [2026-07-08] brief 실패 구분 — 실패인데 {}로 그리면 분석 카드가 전부
+      //   "없어요/모두 정상" 가짜 초록불이 됨. 플래그 세워 재시도 카드로 렌더.
+      const briefFailed = !brief && !(swr && swr.d);
       const merged = brief || (swr && swr.d) || {};
       // [A12] 모든 API 실패 시 에러 안내
-      if (!brief && !(swr && swr.d) && (!slots || !slots.length)) {
+      if (briefFailed && (!slots || !slots.length)) {
         _showConnectionError(container);
         return;
       }
+      if (briefFailed) merged._briefFailed = true;
       merged._dmQueueCount = dmQueueCount;
-      try { _writeSWR(merged); } catch (_e) { void _e; }
+      // 실패한 빈 brief 는 SWR 캐시에 저장 금지 (캐시 오염 방지)
+      if (!briefFailed) { try { _writeSWR(merged); } catch (_e) { void _e; } }
       _hydrateHome(container, merged, dmQueueCount);
       requestAnimationFrame(() => { window.scrollTo(0, 0); });
     } finally {
@@ -401,14 +427,17 @@
   // 데이터 변경 이벤트 — 홈 탭 활성 시 재렌더 + 아바타 즉시 동기화
   if (!window._homeV41DataListenerInit) {
     window._homeV41DataListenerInit = true;
+    let _retryTimers = [];
+    const _clearSWR = () => {
+      try { localStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
+      try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
+    };
     window.addEventListener('itdasy:data-changed', (ev) => {
       const kind = (ev && ev.detail && ev.detail.kind) || '';
+      const isBookingish = /booking|revenue|completion|customer/.test(kind);
       // [v201] 안전망 — booking/revenue/completion 관련이면 brief SWR 캐시 즉시 삭제.
       //   booking-api 측 무효화가 있긴 하지만 racy 케이스 방어.
-      if (/booking|revenue|completion|customer/.test(kind)) {
-        try { localStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
-        try { sessionStorage.removeItem(SWR_KEY); } catch (_e) { void _e; }
-      }
+      if (isBookingish) _clearSWR();
       const root = document.getElementById('homeV41Root');
       if (!root) return;
       // 홈 탭 비활성이어도 아바타는 최신화 (다음 진입 시 깜빡임 방지)
@@ -417,6 +446,19 @@
       //   옛 DOM 이 그대로 남아 "반영이 한참 걸리는" 문제 픽스. 데이터 변경 이벤트는
       //   드물어서 백그라운드 재렌더 비용 무시 가능.
       _doRender(root);
+      // [2026-06-14 QA] 예약 추가/완료 직후 /assistant/brief 가 옛 값을 반환(서버 반영
+      //   지연)해 즉시 재fetch 가 stale 를 받던 문제. 수동 새로고침은 수 초 뒤라 정상이었음.
+      //   → 지연 재fetch 안전망: 캐시 비우고 한두 번 더 갱신해 백엔드 지연을 따라잡음.
+      if (isBookingish) {
+        _retryTimers.forEach(clearTimeout); _retryTimers = [];
+        [1500, 4000].forEach((ms) => {
+          _retryTimers.push(setTimeout(() => {
+            _clearSWR();
+            const r = document.getElementById('homeV41Root');
+            if (r) _doRender(r);
+          }, ms));
+        });
+      }
     });
   }
 

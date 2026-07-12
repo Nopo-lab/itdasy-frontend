@@ -4,6 +4,29 @@
 
   if (window.PhotoEditorRenderer) return;
 
+  // [v536] 렌더 경고 로깅 — 같은 메시지 중복 억제(rate limit), base64/원본 이미지 데이터는 절대 찍지 않음.
+  const _warnSeen = Object.create(null);
+  function _warn(tag, e) {
+    try {
+      const msg = (e && e.message) ? String(e.message).slice(0, 160) : String(e || '').slice(0, 160);
+      const key = tag + '|' + msg;
+      if (_warnSeen[key]) return;
+      _warnSeen[key] = 1;
+      console.warn('[PhotoEditor:Render] ' + tag + ' — ' + msg);
+    } catch (_l) { /* noop */ }
+  }
+  // [v536] WebGL 미사용(컨텍스트 손실/미지원) 시 CPU 모드 1회 안내 — 조용한 무반응 대신 부드럽게 알림.
+  //   보정 자체는 renderer 의 canvas-2d 폴백으로 계속 동작한다(밝기/대비/채도/온도/선명도).
+  let _glNoticeShown = false;
+  function _glCpuNotice() {
+    if (_glNoticeShown) return;
+    try { if (sessionStorage.getItem('pe_gl_cpu_notice') === '1') { _glNoticeShown = true; return; } } catch (_s) { /* */ }
+    _glNoticeShown = true;
+    try { sessionStorage.setItem('pe_gl_cpu_notice', '1'); } catch (_s2) { /* */ }
+    try { if (typeof window.showToast === 'function') window.showToast('기기 상태 때문에 일반 모드로 처리하고 있어요. 조금 느릴 수 있어요'); } catch (_t) { /* */ }
+    _warn('webgl', { message: 'WebGL 미사용 — CPU(canvas-2d) 모드로 보정 적용' });
+  }
+
   const FONT_FAM = {
     sans: 'Pretendard, "Noto Sans KR", sans-serif',
     serif: 'Georgia, "Noto Serif KR", serif',
@@ -127,25 +150,30 @@
     if (!useGLTone) {
       const sepia = Math.max(0, temp) / 100, contrast = 100 + Math.max(0, -temp) * 0.3;
       ctx.filter = `brightness(${a.brightness}%) saturate(${a.saturate}%) contrast(${contrast}%) sepia(${sepia})`;
+      // [v536] WebGL 이 '실제로' 미지원일 때만 안내(init() 은 idempotent, 미지원 단말에서만 false 반환 →
+      //   미초기화 상태 오탐 방지) + 사용자가 실제 톤을 조절했을 때만 1회.
+      const Gl = window.PhotoEditorGLCtx;
+      const glDead = Gl && typeof Gl.init === 'function' && Gl.init() === false;
+      if (glDead && (a.brightness !== 100 || a.saturate !== 100 || a.contrast !== 100 || temp)) _glCpuNotice();
     } else ctx.filter = 'none';
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
     ctx.filter = 'none';
     if (useGLTone) {
-      try { hooks.gl_tone(cv, env.state.adjust, env.helpers); } catch (_e) { void _e; }
+      try { hooks.gl_tone(cv, env.state.adjust, env.helpers); } catch (_e) { _warn('gl_tone', _e); }
     }
   }
 
   function _applyDrawHooks(env, cv, ctx, dw, dh) {
     const hooks = env.drawHooks, state = env.state, helpers = env.helpers;
-    if (typeof hooks.bgBlur === 'function') try { hooks.bgBlur(cv, state, helpers); } catch (_e) { void _e; }
-    if (typeof hooks.relight === 'function') try { hooks.relight(cv, state, helpers); } catch (e) { console.warn('[renderer] relight hook 오류:', e.message); }
-    if (typeof hooks.beauty === 'function') try { hooks.beauty(ctx, dw, dh, state.beauty, helpers); } catch (e) { console.warn('[renderer] beauty hook 오류:', e.message); }
-    if (typeof hooks.gl_selective === 'function') try { hooks.gl_selective(cv, state, helpers); } catch (_e) { void _e; }
-    if (typeof hooks.gl_curve === 'function') try { hooks.gl_curve(cv, state, helpers); } catch (_e) { void _e; }
-    if (typeof hooks.gl_hsl === 'function') try { hooks.gl_hsl(cv, state, helpers); } catch (_e) { void _e; }
-    if (typeof hooks.gl_film === 'function') try { hooks.gl_film(cv, state, helpers); } catch (_e) { void _e; }
+    if (typeof hooks.bgBlur === 'function') try { hooks.bgBlur(cv, state, helpers); } catch (_e) { _warn('bgBlur', _e); }
+    if (typeof hooks.relight === 'function') try { hooks.relight(cv, state, helpers); } catch (e) { _warn('relight', e); }
+    if (typeof hooks.beauty === 'function') try { hooks.beauty(ctx, dw, dh, state.beauty, helpers); } catch (e) { _warn('beauty', e); }
+    if (typeof hooks.gl_selective === 'function') try { hooks.gl_selective(cv, state, helpers); } catch (_e) { _warn('gl_selective', _e); }
+    if (typeof hooks.gl_curve === 'function') try { hooks.gl_curve(cv, state, helpers); } catch (_e) { _warn('gl_curve', _e); }
+    if (typeof hooks.gl_hsl === 'function') try { hooks.gl_hsl(cv, state, helpers); } catch (_e) { _warn('gl_hsl', _e); }
+    if (typeof hooks.gl_film === 'function') try { hooks.gl_film(cv, state, helpers); } catch (_e) { _warn('gl_film', _e); }
   }
 
   function _drawTextLayers(ctx, w, h, state) {

@@ -13,31 +13,31 @@
   }
 
   function _caption(recipeId) {
-    const C = window.ItdasyPromoPhotoChain;
+    const C = window.ItdasyPhotoModeSupport;
     if (C && typeof C.buildPromoCaptionDraft === 'function') return C.buildPromoCaptionDraft(recipeId);
     return '시술 결과가 잘 보이도록 자연스럽게 정리한 사진이에요. 예약 문의 주세요.';
   }
 
   function _effect(recipeId) {
-    const C = window.ItdasyPromoPhotoChain;
+    const C = window.ItdasyPhotoModeSupport;
     if (C && typeof C.buildPromoEffectText === 'function') return C.buildPromoEffectText(recipeId);
     return '홍보용으로 자연스럽게 정리했어요.';
   }
 
   function _industry(recipeId) {
-    const C = window.ItdasyPromoPhotoChain;
+    const C = window.ItdasyPhotoModeSupport;
     if (C && typeof C.buildPromoIndustryLabel === 'function') return C.buildPromoIndustryLabel(recipeId);
     return '뷰티';
   }
 
   function _templateRecos(text, ctx) {
-    const C = window.ItdasyPromoPhotoChain;
+    const C = window.ItdasyPhotoModeSupport;
     if (C && typeof C.buildPromoTemplateRecos === 'function') return C.buildPromoTemplateRecos(text, ctx);
     return [];
   }
 
   function _actions(ctx, recipeId, caption, recos, dataUrl) {
-    const C = window.ItdasyPromoPhotoChain;
+    const C = window.ItdasyPhotoModeSupport;
     if (C && typeof C.buildPromoActions === 'function') return C.buildPromoActions(ctx, recipeId, caption, recos, dataUrl);
     return [];
   }

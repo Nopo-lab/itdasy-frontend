@@ -75,8 +75,8 @@
       ${item('inventory', 'ic-package', '재고관리', false)}
       */ '' }
       <div class="ms-side__section">통합 허브</div>
-      ${item('aiHub', 'ic-sparkles', 'AI · 자동화', false)}
-      ${item('settings', 'ic-settings', '설정 · 연동', false)}
+      ${item('aiHub', 'ic-sparkles', '잇비 · 자동화', false)}
+      ${item('settings', 'ic-settings', '연동관리', false)}
     </aside>`;
   }
 

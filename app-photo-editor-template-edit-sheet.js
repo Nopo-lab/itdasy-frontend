@@ -119,6 +119,14 @@
     if (slot.type === 'list') {
       return _servicesHTML(slot, Array.isArray(values[slot.key]) ? values[slot.key] : []);
     }
+    // [ARCH-1] choice — 칩 선택(예: 색상 테마). 옵션 중 현재값 활성 표시.
+    if (slot.type === 'choice') {
+      const opts = Array.isArray(slot.options) ? slot.options : [];
+      const cur = values[slot.key] != null ? values[slot.key] : (opts[0] && opts[0].value);
+      const chips = opts.map(o => `<button type="button" class="pe-tpl-edit-choice${o.value === cur ? ' is-on' : ''}" data-choice-key="${_esc(slot.key)}" data-choice-val="${_esc(o.value)}">${_esc(o.label)}</button>`).join('');
+      return `<div class="pe-tpl-edit-field"><label>${_esc(slot.label)}</label>
+        <div class="pe-tpl-edit-choices" style="display:flex;gap:8px;flex-wrap:wrap;">${chips}</div></div>`;
+    }
     const v = values[slot.key];
     if (slot.type === 'textarea') {
       const max = slot.max || 120;
@@ -269,6 +277,16 @@
         _ctx.values[inp.dataset.editKey] = inp.value;
         const c = _el.querySelector('[data-count-for="' + inp.dataset.editKey + '"]');
         if (c) c.textContent = inp.value.length + '/' + inp.maxLength;
+        _schedule();
+      });
+    });
+    // [ARCH-1] choice 칩 — 클릭 시 값 갱신 + 활성 토글 + 즉시 redraw.
+    _el.querySelectorAll('[data-choice-val]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.choiceKey, val = btn.dataset.choiceVal;
+        _ctx.values[key] = val;
+        _el.querySelectorAll(`[data-choice-key="${key}"]`).forEach(b => b.classList.toggle('is-on', b === btn));
+        try { if (_ctx.helpers && _ctx.helpers.pushHistory) _ctx.helpers.pushHistory(); } catch (_e) { /* ignore */ }
         _schedule();
       });
     });

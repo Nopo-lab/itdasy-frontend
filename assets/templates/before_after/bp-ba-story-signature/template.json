@@ -1,0 +1,130 @@
+{
+  "templateId": "bp-ba-story-signature",
+  "handoffId": null,
+  "displayName": "전후 · 스토리 시그니처",
+  "rendererFunctionName": "_skBaStorySignature",
+  "category": "beforeAfter",
+  "ratio": "4:5",
+  "canvas": {
+    "width": 1080,
+    "height": 1350
+  },
+  "tier": "free",
+  "requiredPhotos": {
+    "before": 1,
+    "after": 1
+  },
+  "supportsMultiPair": true,
+  "imageSlots": [
+    {
+      "id": "before_photo",
+      "role": "before",
+      "required": true,
+      "crop": "cover",
+      "appKey": "before_photo",
+      "appSource": "state.secondImg"
+    },
+    {
+      "id": "after_photo",
+      "role": "after",
+      "required": true,
+      "crop": "cover",
+      "appKey": "after_photo",
+      "appSource": "_resolveAfter(state,tpl)"
+    }
+  ],
+  "textLayers": [
+    "brand_logo",
+    "eyebrow",
+    "title",
+    "subtitle",
+    "circle_badge",
+    "recommend_list",
+    "badge_before",
+    "badge_after",
+    "info_chips",
+    "review_text",
+    "stars",
+    "customer_meta",
+    "cta_text"
+  ],
+  "editableSlots": [
+    "shop_name",
+    "headline",
+    "subtitle",
+    "before_label",
+    "after_label",
+    "before_caption",
+    "after_caption",
+    "cta",
+    "service_name",
+    "review_text",
+    "customer_label"
+  ],
+  "defaultCopy": {
+    "headline": "시술 전후",
+    "subtitle": "자연스러운 변화, 눈에 보이는 결과",
+    "service_name": "슈링크 리프팅",
+    "shop_name": "잇데이 청담점",
+    "eyebrow": "당신의 빛나는 변화를, 잇데이에서",
+    "circle_badge": "직접 경험한 변화",
+    "recommend": [
+      "칙칙한 피부톤이 고민인 분",
+      "탄력 저하가 신경 쓰이는 분",
+      "피부결이 거칠고 푸석한 분",
+      "자연스러운 개선을 원하는 분"
+    ],
+    "info_dur": "약 30분",
+    "info_recovery": "즉시 일상생활 가능",
+    "review_text": "피부가 환해지고 탄력이 살아났어요! 처진 라인이 정리되고 화장도 잘 먹어요.",
+    "customer_label": "잇데이 회원 · 29세 · 복합성",
+    "cta": "전후 인증하러 가기"
+  },
+  "appSlotMapping": {
+    "title": {
+      "appSlot": "headline",
+      "dataField": "data.head"
+    },
+    "subtitle": {
+      "appSlot": "subtitle",
+      "dataField": "data.sub"
+    },
+    "service_name": {
+      "appSlot": "service_name",
+      "dataField": "data.serviceName"
+    },
+    "shop_name": {
+      "appSlot": "shop_name",
+      "dataField": "data.shop"
+    },
+    "review_text": {
+      "appSlot": "review_text",
+      "dataField": "data.review"
+    },
+    "customer_meta": {
+      "appSlot": "customer_label",
+      "dataField": "data.customer"
+    },
+    "cta_text": {
+      "appSlot": "cta",
+      "dataField": "data.cta"
+    },
+    "badge_before": {
+      "appSlot": "before_label",
+      "dataField": "data.beforeLabel"
+    },
+    "badge_after": {
+      "appSlot": "after_label",
+      "dataField": "data.afterLabel"
+    },
+    "before_photo": {
+      "appSlot": "before_photo(image)",
+      "dataField": "state.secondImg"
+    },
+    "after_photo": {
+      "appSlot": "after_photo(image)",
+      "dataField": "state.editedImg"
+    }
+  },
+  "notes": "런타임 source of truth 아님. 실제 렌더는 template-renderer-beauty-pack-draws.js 의 rendererFunctionName 함수가 캔버스로 그린다. 편집 슬롯은 template-slots.js before_after base + template-pack-beauty-data.js extraSlots 에서 생성. PPTX 미포함."
+}

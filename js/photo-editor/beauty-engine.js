@@ -4,20 +4,9 @@
 
   if (window.PhotoEditorBeautyEngine) return;
 
-  // ── 네일 광택 튜닝 상수 (v348 자연 강화 — 과하면 여기 숫자만 조정) ──
-  //   nailW 휴리스틱: 스페큘러/글리터 하이라이트 + 폴리시 채도만 잡고, 맨살·배경 배제
-  const NAIL_SPEC_LUM = 205;      // 이 휘도 이상 = 유리질 광택/글리터 하이라이트 (>210 제외 문제 해소)
-  const NAIL_SPEC_DESAT = 48;     // 하이라이트는 거의 무채색 — 붉은 피부 번들거림 제외용
-  const NAIL_BRIGHT_MIN = 150;    // 밝은 네일면 시작 휘도
-  const NAIL_SAT_MIN = 50;        // 폴리시 색 채도 시작 (색감 네일 가중)
-  const NAIL_SUBJECT_MIN = 0.45;  // 손/네일 주피사체 영역만 (배경 번짐 방지)
-  const NAIL_SKIN_SUPPRESS = 0.25; // 비광택 맨살 억제 배율 (손가락 전체 번짐 방지)
-  //   nailGloss 적용 강도 (현재 flat +18 → 광택 타겟 강화)
+  // ── 네일 광택 튜닝 상수 ──
   const NAIL_GLOSS_BASE = 14;     // 기본 밝힘 (번들거림 억제 위해 절제)
   const NAIL_GLOSS_SPEC = 30;     // 하이라이트 추가 광택 (체감 핵심 — 글리터/반짝임)
-  // v350 — nailMask(ready) 연결 시 휴리스틱 최소 union 배율.
-  //   mask 가 손톱면을 작게/일부만 잡아도 보정이 완전히 사라지지 않게 휴리스틱을 이 배율로 유지.
-  const NAIL_MASK_FALLBACK = 0.45;
 
   // ── [T-140 hairVolume 볼륨 착시 / T-141 hairEndsClean 머리끝] 튜닝 상수 ──
   //   과보정/배경 침범 시 여기 숫자만 조정. rollback: HAIR_VOL_*=0, HAIR_VOL_CONTRAST=0.65, HAIR_ENDS_*=기존값.
@@ -31,12 +20,21 @@
   const HAIR_VOL_RIM_LUM = 120;     // rim 명/암 분기 휘도
   const HAIR_VOL_WEAK_RIM = 0.5;    // [신규] boundaryMask WEAK/없을 때 hairW 기반 rim 보강 배율
   // T-141 — 외곽 부스스함만 soften. 본체(hairW 높음) 보존.
-  const HAIR_ENDS_MIX = 0.42;       // 외곽 띠 soften 강도
+  const HAIR_ENDS_MIX = 0.6;        // [v545] 0.42→0.6 — 머리끝·잔머리 정돈 체감↑
   const HAIR_ENDS_FALLBACK = 0.3;   // hairMask 없을 때 hairW fallback soften (과장 금지 — 약하게)
+  // ── [v537 hairFull 헤어 풍성하게] 볼륨(rim/입체)과 구분되는 "숱·밀도" 착시 ──
+  //   원리: ① 머리 영역 전반 mild contrast(가닥 분리감) ② 상단/뿌리 넓은 lift(정수리 숱)
+  //         ③ 머리 영역 안의 밝은 빈틈(두피 비침/성긴 부분, lum 높음)을 머리톤 쪽으로 살짝 채움(fill).
+  //   마스크 없이 hairW 휴리스틱만으로도 체감되게(폴백 강함). 색은 안 바꾸고 명암/밀도만.
+  const HAIR_FULL_CONTRAST = 0.34;  // 머리 가닥 분리 contrast
+  const HAIR_FULL_ROOT_LIFT = 16;   // 상단/뿌리 숱 lift
+  const HAIR_FULL_ROOT_TOP = 0.55;  // 뿌리 lift 적용 상단 비율(볼륨보다 넓게)
+  const HAIR_FULL_FILL = 16;        // 머리 속 밝은 빈틈 채우기(darken) 상한
+  const HAIR_FULL_FILL_LUM = 135;   // 이 휘도 이상 = 빈틈/두피 비침 후보(머리 본체보다 밝음)
 
   // ── [T-142 catchLight / T-143 lashSharp] 눈 효과 상수 ──
-  const CATCH_OPACITY = 0.38;       // [2차조정] catchLight 중심 alpha (0.42→0.38, 고해상도 눈동자 뜸 추가 후퇴)
-  const CATCH_RAD_RATIO = 0.10;     // 한쪽 눈 폭 대비 반경 + 눈높이×0.20 상한(아래) — 작은 반짝 점
+  const CATCH_OPACITY = 0.7;        // [v545] 0.38→0.7 — 눈 밝게 체감↑(눈동자 캐치라이트 밝기, 점 하이라이트)
+  const CATCH_RAD_RATIO = 0.15;     // [v545] 0.10→0.15 반경 키워 체감↑(만화눈 안 되게 eyeH 상한으로 제한)
   const CATCH_COV_MIN = 0.0003;     // eyeMask bbox 면적 하한(이하=비정상 → 합성 스킵)
   const CATCH_COV_MAX = 0.15;       // 상한(이상=오검출 → 스킵)
   const LASH_ROI_BOT = 0.45;        // eyeMask bbox 상단 0~45% = 속눈썹/눈 위 라인 ROI
@@ -46,12 +44,17 @@
   const EYE_COLOR_SAT_MIN = 28;     // [T-146 조정] eyeColor — 채도 임계 14→28. 맨 눈꺼풀 살구빛 제외, 진짜 아이섀도(채도 높음)만 강화(과함 방지).
   const NAIL_SHAPE_DARKEN = 0.18;   // [T-144 2차] nailW ROI 어두운 아트 라인/젤 경계 darken(윤곽 또렷). lum<150 만 → 광택면 보존.
   const TEXTURE_EDGE_TAU = 22;      // [T-152] edge-preserving 임계 — lum 차 이상이면 edge(보존), 이하 평탄(블러)
-  const BLEMISH_DARK_TAU = 9;       // [T-151] 잡티 검출 하한 — 넓은블러(주변 피부톤)보다 이만큼 어두운 작은 점만
-  const BLEMISH_DARK_MAX = 45;      // [T-151] 상한 — 이보다 어두우면 잡티 아님(속눈썹/눈썹/머리=검정) → 제외
+  const BLEMISH_DARK_TAU = 7;       // [v573·P3-3] 9→7 — 옅은 잡티/색소도 검출(약함 보강). lum>MIN 가드로 눈매 보호 유지
+  const BLEMISH_DARK_MAX = 60;      // [v573·P3-3] 45→60 — 진한 여드름 자국/점도 포착. 매우 검은 곳은 LUM_MIN 가 거름
   const BLEMISH_LUM_MIN = 70;       // [T-151] 이보다 어두운 픽셀 제외(검은 눈매/눈썹). 잡티는 피부톤 영역.
-  const BLEMISH_BLEND = 0.8;        // [T-151] 잡티 → 주변 피부톤 blend 상한(흐림 아닌 채움)
+  const BLEMISH_BLEND = 0.92;       // [v573·P3-3] 0.8→0.92 — 잡티 → 주변 피부톤 채움 강화(약함 보강)
+  const BLEMISH_RED_TAU = 10;       // [v575·필수3] 주변보다 이만큼 더 붉으면 '붉은 잡티'(여드름/색소) → 검출. 낮을수록 민감.
 
   function _clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+  // [v574] ease curve — 슬라이더 0~100 을 pow(.,0.72) 로 매핑. 약~중간값에서 체감↑(저가시성 효과용),
+  //   100 은 그대로(과보정 방지). "효과 안 보임" → 곡선만 바꿔 보이게(엔진 로직/상한 불변).
+  function _ease(v) { v = v < 0 ? 0 : v > 100 ? 100 : v; return Math.pow(v / 100, 0.72) * 100; }
 
   function _boxBlur(img, w, h, r) {
     const d = img.data;
@@ -130,7 +133,7 @@
       // [1차조정] 반경을 눈동자 크기(눈 높이) 기준으로 제한 — 고해상도에서 눈 전체 밝힘 방지.
       //   min(한눈폭×0.10, 눈높이×0.30). 눈동자보다 작은 "생기 점".
       const eyeW = (x1 - x0 + 1) * sx, eyeH = bb.h * sy;
-      const rad = Math.max(2, Math.min(eyeW * CATCH_RAD_RATIO, eyeH * 0.20));  // [2차] 0.30→0.20 더 작은 점
+      const rad = Math.max(2, Math.min(eyeW * CATCH_RAD_RATIO, eyeH * 0.30));  // [v545] eyeH 상한 0.20→0.30 (체감↑, 여전히 눈동자 내)
       const grad = ctx.createRadialGradient(ecx, ecy, 0, ecx, ecy, rad);
       grad.addColorStop(0, 'rgba(255,255,255,' + opacity + ')');
       grad.addColorStop(0.45, 'rgba(255,255,255,' + (opacity * 0.4) + ')');
@@ -215,53 +218,33 @@
       || b.yellowness || b.coolness || b.textureSmooth || b.hairColorPop || b.closeUpDetail
       || b.lipPop || b.eyeColor || b.browSharp || b.nailShape || b.scalpBoost || b.hairyArm
       || b.eyeRedness || b.irisClear || b.catchLight || b.underEyeClean
-      || b.hairVolume || b.hairEndsClean);
-  }
-
-  // v348 — 네일 후보 가중 (자연 강화). specular/글리터 하이라이트(>210 포함) + 폴리시 채도만 잡고,
-  //   subjectW/skin/edge 조건으로 손가락 전체·배경 번짐 방지. nailMask 미연결 → 항상 휴리스틱.
-  function _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin) {
-    if (edgeBg || subjectW <= NAIL_SUBJECT_MIN) return 0;
-    const whitish = hairSat0 < NAIL_SPEC_DESAT;                                  // 유리질 광택 = 무채색
-    const specW = (lum0 > NAIL_SPEC_LUM && whitish) ? Math.min(1, (lum0 - NAIL_SPEC_LUM) / 45) : 0;
-    const briW  = (lum0 > NAIL_BRIGHT_MIN && lum0 <= NAIL_SPEC_LUM) ? (lum0 - NAIL_BRIGHT_MIN) / (NAIL_SPEC_LUM - NAIL_BRIGHT_MIN) : 0;
-    const satW  = hairSat0 > NAIL_SAT_MIN ? Math.min(0.5, (hairSat0 - NAIL_SAT_MIN) / 110) : 0;
-    let base = Math.max(specW, briW * 0.6 + satW * 0.7);
-    if (isSkin && specW < 0.25) base *= NAIL_SKIN_SUPPRESS;                      // 비광택 맨살 강력 억제
-    return Math.min(1, base);
-  }
-
-  // v350 — nailMask 안전 blend. useM.nailMask(게이트 통과)면 mask primary + 휴리스틱 최소 union,
-  //   미연결이면 휴리스틱 그대로 반환(noHand/저신뢰 → 절대 0 아님 → v348 픽셀단위 동일).
-  function _nailBlend(useM, sc, midx, heuristicW) {
-    if (useM && useM.nailMask) {
-      const mv = (useM.nailMask[midx] || 0) * ((sc && sc.nailMask) || 1);
-      const fb = heuristicW * NAIL_MASK_FALLBACK;
-      return mv > fb ? mv : fb;                                                  // max(mask, 휴리스틱×0.45)
-    }
-    return heuristicW;
+      || b.hairVolume || b.hairEndsClean || b.hairFull);
   }
 
   function _coeffs(b) {
+    // [v574] 헤어 볼륨/풍성 통합 — UI 는 'hairVolume(볼륨감 보정)' 하나만 노출. 레거시 hairFull 저장값도
+    //   호환되게 max 로 흡수해 같은 강도로 양쪽 로직(입체 rim + 숱 fill) 을 함께 구동한다.
+    const hairVolRaw = Math.max(b.hairVolume || 0, b.hairFull || 0);
+    // [v574] ease curve 적용(저가시성 효과만) — 약~중간값 체감↑. tone/redness/texture/blemish 등은 선형 유지.
     return {
       skinK: (b.skin || 0) / 100, redK: (b.redness || 0) / 100,
-      hairK: (b.hairShine || 0) / 100, hairVolK: (b.hairVolume || 0) / 100,
-      hairEndK: (b.hairEndsClean || 0) / 100, nailK: (b.nailGloss || 0) / 100,
+      hairK: _ease(b.hairShine || 0) / 100, hairVolK: _ease(hairVolRaw) / 100,
+      hairEndK: _ease(b.hairEndsClean || 0) / 100, nailK: _ease(b.nailGloss || 0) / 100,
       blemishK: (b.blemish || 0) / 100, handK: (b.handSkin || 0) / 100,
       eyeShK: (b.eyeShadow || 0) / 100, hairColK: (b.hairColor || 0) / 100,
       yelK: (b.yellowness || 0) / 100, coolK: (b.coolness || 0) / 100,
       txK: (b.textureSmooth || 0) / 100, hairPopK: (b.hairColorPop || 0) / 100,
-      lipK: (b.lipPop || 0) / 100, eyeK: (b.eyeColor || 0) / 100,
+      lipK: (b.lipPop || 0) / 100, eyeK: _ease(b.eyeColor || 0) / 100,
       scalpK: (b.scalpBoost || 0) / 100, armK: (b.hairyArm || 0) / 100,
-      eyeRedK: (b.eyeRedness || 0) / 100, irisK: (b.irisClear || 0) / 100,
-      catchK: (b.catchLight || 0) / 100, underK: (b.underEyeClean || 0) / 100,
+      eyeRedK: (b.eyeRedness || 0) / 100, irisK: _ease(b.irisClear || 0) / 100,
+      catchK: _ease(b.catchLight || 0) / 100, underK: (b.underEyeClean || 0) / 100,
+      hairFullK: _ease(hairVolRaw) / 100,   // [v574] hairVolume 와 동일 입력 — 볼륨감 보정 하나로 통합
     };
   }
 
   // v316 — regionMasks 인자 추가 (있으면 픽셀 좌표 lookup, 없으면 기존 v312 휴리스틱).
   //   regionMasks = { useMasks: {skinMask, hairMask, lipMask, eyeMask, hairBoundaryMask}, _scale: {key→0.6|1.0} }
-  //   useMasks 에 없는 key 는 자동으로 v312 휴리스틱 fallback.
-  //   nailW 는 v350 부터 nailMask(ready 게이트 통과) 있으면 _nailBlend, 없으면 v348 휴리스틱.
+  //   손·네일은 예외: 실제 마스크가 없으면 가중치 0으로 보정하지 않는다.
   function _pixel(d, i, w, h, SmartMask, regionMasks) {
     const r = d[i], g = d[i + 1], bl = d[i + 2];
     const lum0 = r * 0.299 + g * 0.587 + bl * 0.114;
@@ -306,10 +289,11 @@
       hasBoundaryMask: !!(useM && useM.hairBoundaryMask), // [T-140/141] 경계 band 마스크 연결 여부
       hasEyeMask: !!(useM && useM.eyeMask),               // [T-142] eyeMask 연결 시 catchLight 는 합성으로 대체
       hasLipMask: !!(useM && useM.lipMask),               // [T-145] lipMask 연결 시 색게이트 완화 + 발색 강화
-      hasNailMask: !!(useM && useM.nailMask),             // [PE-2] nailMask 연결 시 nailGloss 풀강도, 없으면 안전 fallback
+      hasNailMask: !!(useM && useM.nailMask),
       hasScleraMask: !!(useM && useM.scleraMask),         // [PE-M1] scleraMask 연결 시 eyeRedness 영역 게이트로 사용
       scleraW: _rm('scleraMask', 0),                      // [PE-M1] 흰자 마스크 가중 (미연결 시 0 — _applyEye 가 eyeW 폴백)
       skinW: _rm('skinMask', mask ? mask.skin : (isSkin ? 1 : 0)),
+      handW: _rm('handSkinMask', 0),
       hairW: _rm('hairMask', mask ? mask.hair : (hairLike ? 1 : 0)),
       eyeW:  _rm('eyeMask',  mask ? mask.eye : (ny > 0.30 && ny < 0.48 && lum0 < 140 ? 0.2 : 0)),
       lipW:  _rm('lipMask', 1),                          // lipMask 없으면 1 (기존 색 기반 검출 유지)
@@ -318,7 +302,7 @@
       eyeLidW: (regionMasks && regionMasks._eyeLidROI) ? (regionMasks._eyeLidROI[midx] || 0) : 0,  // [T-146] 눈꺼풀/언더 ROI
       eyeUnderW: (regionMasks && regionMasks._eyeUnderROI) ? (regionMasks._eyeUnderROI[midx] || 0) : 0,  // [T-153] 눈밑/눈가 ROI(falloff)
       satCh: hairSat0,                                   // [T-146] 채도(max-min) — 색 있는 곳만 eyeColor 적용
-      nailW: _nailBlend(useM, sc, midx, mask ? mask.nail : _nailWeight(lum0, hairSat0, subjectW, edgeBg, isSkin)), // v350 nailMask 안전 조건부 (미연결 시 v348 휴리스틱 동일)
+      nailW: _rm('nailMask', 0),
       redW: mask ? mask.redness : (isReddish ? 1 : 0),
     };
   }
@@ -329,7 +313,9 @@
     //   흰자/충혈엔 약하게라도 적용, 눈썹/갈색 눈가는 weight≈0. 계수/방향 유지.
     // [PE-M1] scleraMask 연결 시 영역 게이트를 eyeW→scleraW 로 정밀화. 아래 색 refine(bright/neutral/sat/
     //   skinPenalty/warmBrown)은 그대로 유지 — 마스크는 영역만 좁힘, 내부 강제 적용 아님(청록 재발 방지).
-    const regionW = p.hasScleraMask ? p.scleraW : p.eyeW;
+    // [v552] 엄격(보기=적용 일치): 흰자 마스크 미연결 시 눈영역 휴리스틱(eyeW)으로 폴백하지 않고 차단.
+    //   "마스크 보기(흰자)"와 "실제 눈맑게 적용 영역"을 동일하게 보장. 흰자 못 찾으면 no-op + 안내(MaskStrictPolicy).
+    const regionW = p.hasScleraMask ? p.scleraW : 0;
     if (c.eyeRedK > 0 && regionW > 0.10) {
       const chSpan = Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl);
       const warmBrown = (p.r - p.g > 18 && p.r - p.bl > 28);
@@ -339,22 +325,27 @@
       const skinPenalty = p.skinW > 0.70 ? 0.2 : (p.skinW > 0.35 ? 0.45 : 1);   // [PE-ER4] 흰자 skin 오분류(>0.70) no-op 방지 — 0→0.2 (warm/neutral 가중이 갈색 청록 재발은 계속 차단)
       const scleraW = brightW * neutralW * satW * skinPenalty * (warmBrown ? 0 : 1);
       if (scleraW > 0.08 && p.r > p.g + 3 && p.r > p.bl + 1) {
+        // [v548] neutral whitening — 흰자를 '파랗게'가 아니라 '자연스럽게 하얗게'.
+        //   각 채널을 약간 밝힌 중립(targetL)으로 끌어 붉은기·노란기를 같이 중화. B 는 targetL 초과 금지(파란 cast 차단).
         const k = c.eyeRedK * regionW * scleraW;
-        d[i] = _clamp(d[i] - 52 * k);
-        d[i + 1] = _clamp(d[i + 1] + 12 * k);
-        d[i + 2] = _clamp(d[i + 2] + 16 * k);
+        const lum = p.r * 0.299 + p.g * 0.587 + p.bl * 0.114;
+        const targetL = Math.min(255, lum + 16 * k);             // 약한 luma lift
+        const redExcess = Math.max(0, p.r - (p.g + p.bl) / 2);   // 충혈 붉은기 정도
+        const nr = p.r + (targetL - p.r) * k - redExcess * k * 0.7;  // 붉은기↓(중립 + 붉은 초과분 추가 완화)
+        const ng = p.g + (targetL - p.g) * k;
+        let nb = p.bl + (targetL - p.bl) * k;                    // 노란기 완화(B 를 중립까지만)
+        if (nb > targetL) nb = targetL;                          // [blue clamp] 파란 흰자 방지
+        if (nb > Math.max(nr, ng)) nb = Math.max(nr, ng);        // B 가 최댓값 못 되게(파란색 절대 방지)
+        d[i] = _clamp(nr); d[i + 1] = _clamp(ng); d[i + 2] = _clamp(nb);
       }
     }
-    if (c.irisK > 0 && p.eyeW > 0.14 && p.lum0 > 16 && p.lum0 < 135 && p.skinW < 0.55) {
+    // [v574] containment — irisClear(홍채 또렷)는 실제 eyeMask 안에서만. eyeMask 없을 때 휴리스틱 밴드(eyeW)로
+    //   적용하면 눈 밖(코/볼)이 어두워지는 누출 → 차단. 마스크 없으면 no-op.
+    if (c.irisK > 0 && p.hasEyeMask && p.eyeW > 0.14 && p.lum0 > 16 && p.lum0 < 135 && p.skinW < 0.55) {
       _contrastFromLum(d, i, p.lum0, 1 + 0.75 * c.irisK * p.eyeW, 0);
     }
-    // [T-142] eyeMask 있으면 catchLight 는 루프 후 _drawCatchlight 합성으로 대체(여기선 스킵).
-    //   eyeMask 없을 때만 기존 "밝은 픽셀 강조" fallback 유지(과장 금지 — 기존 강도 그대로).
-    if (c.catchK > 0 && !p.hasEyeMask && p.eyeW > 0.06 && p.lum0 > 155 && Math.max(p.r, p.g, p.bl) - Math.min(p.r, p.g, p.bl) < 65) {
-      d[i] = _clamp(d[i] + 26 * c.catchK * p.eyeW);
-      d[i + 1] = _clamp(d[i + 1] + 26 * c.catchK * p.eyeW);
-      d[i + 2] = _clamp(d[i + 2] + 30 * c.catchK * p.eyeW);
-    }
+    // [v574] catchLight(눈동자 캐치라이트)는 eyeMask 합성(_drawCatchlight)로만 적용.
+    //   기존 무마스크 "밝은 픽셀 강조" 폴백은 눈 밖 밝아짐 누출이라 제거(마스크 없으면 no-op).
   }
 
   function _contrastFromLum(d, i, lum, contrast, lift) {
@@ -390,9 +381,9 @@
         d[i + 2] = Math.min(nb, d[i] - 4);                                                    // hue 안전: B ≤ R-4 (보라/분홍 차단)
       }
     }
+    if (c.handK > 0 && p.handW > 0.10) _add(d, i, 8 * c.handK * p.handW, 4 * c.handK * p.handW, -3 * c.handK * p.handW);
     if (p.skinW <= 0.10) return;
     if (c.skinK > 0) _add(d, i, 10 * c.skinK * p.skinW, 5 * c.skinK * p.skinW, 2.5 * c.skinK * p.skinW);
-    if (c.handK > 0) _add(d, i, 8 * c.handK * p.skinW, 4 * c.handK * p.skinW, -3 * c.handK * p.skinW);
     if (c.coolK > 0 && (p.bl > p.r - 10) && (p.bl - p.g) > 5) _add(d, i, 12 * c.coolK * p.skinW, 4 * c.coolK * p.skinW, -16 * c.coolK * p.skinW);
   }
 
@@ -410,19 +401,27 @@
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
       const blum = blurD[i] * 0.299 + blurD[i + 1] * 0.587 + blurD[i + 2] * 0.114;
       const edge = Math.min(1, Math.abs(lum - blum) / TEXTURE_EDGE_TAU);   // 0(평탄)~1(edge)
-      const mix = 0.55 * c.txK * p.skinW * (1 - edge);                     // edge 일수록 블러 0
-      if (mix > 0.001) _mixBlur(d, i, blurD, mix, 0);
+      const mix = 0.92 * c.txK * p.skinW * (1 - edge);                     // [v545] 0.72→0.92 — 피부결 체감 추가 강화(edge 보존 유지)
+      // [v573·P3-2] 톤다운 방지 — box blur 가 모공/그늘을 끌어와 피부가 칙칙(어둡)해지던 문제.
+      //   smooth 강도에 비례한 미세 lift(화사) 추가. 평탄 피부만(edge=0 일수록 mix 큼) 밝아짐 → 결+화사.
+      if (mix > 0.001) _mixBlur(d, i, blurD, mix, 2.6 * mix);
     }
-    // [T-151] blemish — 작은 잡티(넓은블러=주변 피부톤보다 어두운 작은 점)만 주변톤으로 blend(inpaint-like).
-    //   흐림 아닌 "주변 피부색 채움". 밝은 점·큰 음영·윤곽은 제외(피부결 보존). 큰 점/흉터 완전제거는 목표 아님.
+    // [T-151] blemish — 작은 잡티(주변 피부톤과 다른 작은 점)만 주변톤으로 blend(inpaint-like).
+    //   흐림 아닌 "주변 피부색 채움". 큰 음영·윤곽은 제외(피부결 보존). 큰 점/흉터 완전제거는 목표 아님.
+    // [v575·필수3] 무반응 원인 = '어두운 점'만 검출 → 실제 잡티 대부분(붉은 여드름·색소·홍반)을 놓침.
+    //   주변보다 '더 붉은'(redBump) 작은 점도 검출 대상에 추가. 둘 중 강한 쪽(dark|redBump)으로 채움 강도 결정.
+    //   주변(r≈6 wide blur)과 비교하므로 볼터치·입술·큰 홍조 같은 넓은 영역은 redBump≈0 → 평탄화 안 됨(안전).
     if (c.blemishK > 0 && wideBlurD) {
       const lum = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
-      const wlum = wideBlurD[i] * 0.299 + wideBlurD[i + 1] * 0.587 + wideBlurD[i + 2] * 0.114;
+      const wr = wideBlurD[i], wg = wideBlurD[i + 1], wb = wideBlurD[i + 2];
+      const wlum = wr * 0.299 + wg * 0.587 + wb * 0.114;
       const dark = wlum - lum;                                   // 주변 피부톤보다 어두운 정도
-      // 잡티 = 주변보다 "약간" 어두운(TAU~MAX) 피부톤 점. 속눈썹/눈썹/머리(매우 어두움 or lum 낮음) 제외 → 눈 오염 방지.
-      if (dark > BLEMISH_DARK_TAU && dark < BLEMISH_DARK_MAX && lum > BLEMISH_LUM_MIN && p.eyeW < 0.12) {
-        const spotW = Math.min(1, (dark - BLEMISH_DARK_TAU) / 30);
-        _mixBlur(d, i, wideBlurD, BLEMISH_BLEND * c.blemishK * p.skinW * spotW, 0);  // 주변 피부톤으로 채움
+      const redBump = (d[i] - (d[i + 1] + d[i + 2]) / 2) - (wr - (wg + wb) / 2);   // 주변보다 더 붉은 정도(여드름/색소)
+      if (lum > BLEMISH_LUM_MIN && p.eyeW < 0.12) {              // 검은 눈매/눈썹(lum 낮음)·눈 영역 제외
+        let spotW = 0;
+        if (dark > BLEMISH_DARK_TAU && dark < BLEMISH_DARK_MAX) spotW = Math.min(1, (dark - BLEMISH_DARK_TAU) / 30);
+        if (redBump > BLEMISH_RED_TAU) spotW = Math.max(spotW, Math.min(1, (redBump - BLEMISH_RED_TAU) / 26));   // 붉은 잡티
+        if (spotW > 0) _mixBlur(d, i, wideBlurD, BLEMISH_BLEND * c.blemishK * p.skinW * spotW, 0);  // 주변 피부톤으로 채움
       }
     }
     // [T-153] eyeShadow/underEyeClean — eyeMask 언더 ROI(falloff)의 어두운 픽셀만 밝힘 → 눈밑/눈가만,
@@ -484,6 +483,22 @@
         }
       }
     }
+    // [v537] hairFull 헤어 풍성하게 — 마스크 없이도(hairW) 숱·밀도 착시. 볼륨(rim)과 독립.
+    if (c.hairFullK > 0) {
+      const fk = c.hairFullK * p.hairW;
+      // ① 가닥 분리 contrast(머리 본체)
+      _contrastFromLum(d, i, p.lum0, 1 + HAIR_FULL_CONTRAST * fk, 0);
+      // ② 상단/뿌리 넓은 lift — 정수리/가르마 숱(skin 영역 제외로 이마 침범 방지)
+      if (p.ny != null && p.ny < HAIR_FULL_ROOT_TOP && p.hairW > 0.3 && p.skinW < 0.3) {
+        const rootW = c.hairFullK * p.hairW * (1 - p.ny / HAIR_FULL_ROOT_TOP);
+        _add(d, i, HAIR_FULL_ROOT_LIFT * rootW, HAIR_FULL_ROOT_LIFT * rootW, HAIR_FULL_ROOT_LIFT * rootW * 0.92);
+      }
+      // ③ 머리 속 밝은 빈틈(두피 비침/성긴 부분)을 머리톤 쪽으로 채움(darken) — 숱 많아 보이게
+      if (p.lum0 > HAIR_FULL_FILL_LUM && p.lum0 < 235 && p.hairW > 0.35 && p.skinW < 0.25) {
+        const fillW = fk * Math.min(1, (p.lum0 - HAIR_FULL_FILL_LUM) / 70);
+        _add(d, i, -HAIR_FULL_FILL * fillW, -HAIR_FULL_FILL * fillW, -HAIR_FULL_FILL * fillW);
+      }
+    }
     // [T-141 재구현] 머리끝/잔머리 정리 — hairMask erosion 외곽 띠(hairOuterW)에서만 soften.
     //   eroded 내부 본체/가닥/웨이브는 hairOuterW=0 → 절대 미접촉(본체 디테일 보존).
     //   hairOuterW: 1=외곽 띠, 0=본체, -1=hairMask 없음(약한 fallback).
@@ -516,13 +531,10 @@
   function _applyDetail(d, i, p, c) {
     // nail gloss — v348 자연 강화. 기본 밝힘 + 하이라이트 추가 광택(글리터/반짝임), nailW(네일면)만.
     //   강도는 상단 NAIL_GLOSS_* 상수로 조정. 번들거림 나면 SPEC 먼저 낮춤.
-    // [PE-2] nailMask 있으면 기존(임계 0.12·풀강도), 없으면 안전 fallback(임계 0.35·강도 0.5)
-    //   → 마스크/저신뢰 시 매끈·밝은 손/배경/소매에 광택 번지던 문제 차단. 확실한 네일 후보는 유지.
-    if (c.nailK > 0) {
-      const nthr = p.hasNailMask ? 0.12 : 0.45;
-      const nconf = p.hasNailMask ? 1 : 0.4;
-      if (p.nailW > nthr) {
-        const gw = c.nailK * p.nailW * nconf;
+    // v550 — 실제 nailMask 안에서만 광택을 적용한다.
+    if (c.nailK > 0 && p.hasNailMask) {
+      if (p.nailW > 0.12) {
+        const gw = c.nailK * p.nailW;
         const spec = p.lum0 > 195 ? Math.min(1, (p.lum0 - 195) / 55) : 0;
         const add = (NAIL_GLOSS_BASE + NAIL_GLOSS_SPEC * spec) * gw;
         _add(d, i, add, add, add * 1.04);   // 하이라이트 살짝 차갑게(파랑 +4%) = 유리질 광택감
@@ -549,12 +561,8 @@
         d[i] = _clamp(p.r + (p.r - p.lum0) * 0.5 * ek);                         // [조정] 0.7→0.5
         d[i + 1] = _clamp(p.g + (p.g - p.lum0) * 0.5 * ek);
         d[i + 2] = _clamp(p.bl + (p.bl - p.lum0) * 0.5 * ek);
-      } else if (!p.hasEyeMask && p.eyeW > 0.10 && p.lum0 < 100) {
-        // eyeMask 없을 때만 기존 색기반 fallback(어두운 눈 영역)
-        d[i] = _clamp(d[i] + (p.r - p.lum0) * 0.9 * c.eyeK * p.eyeW);
-        d[i + 1] = _clamp(d[i + 1] + (p.g - p.lum0) * 0.9 * c.eyeK * p.eyeW);
-        d[i + 2] = _clamp(d[i + 2] + (p.bl - p.lum0) * 0.9 * c.eyeK * p.eyeW);
       }
+      // [v574] containment — eyeMask 없을 때의 색기반 폴백(어두운 눈영역 전역) 제거. ROI 없으면 no-op.
     }
     // [PE-3] hairyArm(팔/다리 톤 보정) — hard cutoff lum<140 이 밝은 팔/손 피부를 전부 제외해 no-op 이던 문제.
     //   falloff 가중으로 변경: 전 피부(lum<215)에 적용하되 어두운 부위 강·밝은 부위 약(최소 0.35) → 과미백 방지.
@@ -626,14 +634,23 @@
   }
 
   function _applySharpen(ctx, w, h, b, regionMasks, nailMaskArr) {
-    // [PE-5] hairDetail(머리결 선명) — hairMask 있으면 머리 영역만 샤픈, 없으면 배경/얼굴/옷 오염 줄이려 약화 전역.
+    // [PE-5] hairDetail(머리결 선명) — hairMask 있으면 머리 영역만 샤픈. [v574] ease + 마스크내 강도↑(110→90),
+    //   무마스크 전역폴백은 얼굴/배경 번짐 → 거의 no-op(/240→/400)로 약화(containment 우선).
     if (b.hairDetail > 10) {
       const hm = regionMasks && regionMasks.useMasks && regionMasks.useMasks.hairMask;
       const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
-      if (hm) _unsharpMaskRegion(ctx, w, h, b.hairDetail / 150, hm, (regionMasks._scale && regionMasks._scale.hairMask) || 1, mw, mh);
-      else _unsharpMask(ctx, w, h, b.hairDetail / 300);   // 약화 전역(기존 150 → 300)
+      if (hm) _unsharpMaskRegion(ctx, w, h, _ease(b.hairDetail) / 90, hm, (regionMasks._scale && regionMasks._scale.hairMask) || 1, mw, mh);
+      else _unsharpMask(ctx, w, h, b.hairDetail / 400);   // [v574] 번짐 방지 — 거의 no-op
     }
-    if (b.hairVolume > 10) _unsharpMask(ctx, w, h, b.hairVolume / 260);
+    // [v574] hairVolume 선명 보조 — hairMask 안에서만(전역 unsharp 누출 제거). hairFull 레거시값도 흡수.
+    {
+      const hv = Math.max(b.hairVolume || 0, b.hairFull || 0);
+      if (hv > 10) {
+        const hm = regionMasks && regionMasks.useMasks && regionMasks.useMasks.hairMask;
+        const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+        if (hm) _unsharpMaskRegion(ctx, w, h, _ease(hv) / 200, hm, (regionMasks._scale && regionMasks._scale.hairMask) || 1, mw, mh);
+      }
+    }
     // [T-143] lashSharp: lashMask(밴드) 우선 → 없으면 eyeMask 상단 ROI → 둘 다 없으면 약화된 전역.
     //   전역 샤픈(사진 전체)으로 빠지던 문제 해소: eyeMask 만 있어도 눈 위 라인만 샤픈.
     if (b.lashSharp > 10) {
@@ -641,46 +658,50 @@
       const em = regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask;
       const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
       const dk = LASH_DARKEN * Math.min(1, b.lashSharp / 100);      // 어두운 선 darken 강도
+      const es = _ease(b.lashSharp);                                // [v574] ease — 눈가 선명도 체감↑
       if (lm) {
-        _unsharpMaskRegion(ctx, w, h, b.lashSharp / 65, lm, regionMasks.lashScale || 1, mw, mh);
+        _unsharpMaskRegion(ctx, w, h, es / 65, lm, regionMasks.lashScale || 1, mw, mh);
         _darkenRegionDarkLines(ctx, w, h, dk, lm, mw, mh);
       } else if (em) {
         const roi = _eyeUpperROI(em, mw, mh);                       // eyeMask bbox 상단 ROI
-        if (roi) { _unsharpMaskRegion(ctx, w, h, b.lashSharp / 65, roi, 1, mw, mh); _darkenRegionDarkLines(ctx, w, h, dk, roi, mw, mh); }
-        else _unsharpMask(ctx, w, h, b.lashSharp / LASH_GLOBAL_FALLBACK);
-      } else {
-        _unsharpMask(ctx, w, h, b.lashSharp / LASH_GLOBAL_FALLBACK);  // 약화된 전역(기존 65→120)
+        if (roi) { _unsharpMaskRegion(ctx, w, h, es / 65, roi, 1, mw, mh); _darkenRegionDarkLines(ctx, w, h, dk, roi, mw, mh); }
+        // [v574] containment — ROI 없으면 no-op(전역 unsharp 제거). 눈가 효과가 얼굴 전체로 번지지 않게.
       }
+      // [v574] eyeMask/lashMask 둘 다 없으면 적용 안 함(전역 금지)
     }
     // [PE-5] closeUpDetail(전역 선명도) — divisor 80 은 strength≈48 부터 0.6 clamp 라 50/100 동일했음.
     //   167 로 조정 → 0~100 이 0~0.6 선형(50≈0.30 < 100≈0.60), @100 최대치는 기존(0.6)과 동일.
-    if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 167);
-    if (b.irisClear > 10) _unsharpMask(ctx, w, h, b.irisClear / 130);
+    if (b.closeUpDetail > 10) _unsharpMask(ctx, w, h, b.closeUpDetail / 167);   // 전역 선명도 — 의도된 전체 효과(유지)
+    // [v574] containment — irisClear(눈동자 또렷)는 eyeMask 안에서만 샤픈(기존 전역 unsharp 누출 제거).
+    if (b.irisClear > 10) {
+      const em = regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask;
+      const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
+      if (em) _unsharpMaskRegion(ctx, w, h, _ease(b.irisClear) / 110, em, (regionMasks._scale && regionMasks._scale.eyeMask) || 1, mw, mh);
+    }
     // [PE-5] browSharp(눈썹 포함 선명) — eyeMask 상단 ROI(눈/눈썹 라인) 있으면 그 영역만 샤픈.
     //   눈/눈썹 ROI 없으면(예: 헤어 뒷모습) 거의 no-op(매우 약한 전역) → hairDetail 처럼 전역 샤픈되지 않게.
     if (b.browSharp > 10) {
       const bm = regionMasks && regionMasks.browMask;                                                      // [PE-M2] 눈썹 마스크 있으면 우선
       const em = regionMasks && regionMasks.useMasks && regionMasks.useMasks.eyeMask;
       const mw = (regionMasks && regionMasks.maskW) || w, mh = (regionMasks && regionMasks.maskH) || h;
-      if (bm) _unsharpMaskRegion(ctx, w, h, b.browSharp / 90, bm, regionMasks.browScale || 1, mw, mh);      // [PE-M2] browMask ROI 만 샤픈(계수 동일)
-      else {                                                                                               // [PE-M2] browMask 없음 → 기존 eyeMask 상단 ROI → 약한 전역 fallback 그대로
+      const bs = _ease(b.browSharp);                                                                       // [v574] ease — 눈썹 선명도 체감↑
+      if (bm) _unsharpMaskRegion(ctx, w, h, bs / 90, bm, regionMasks.browScale || 1, mw, mh);             // [PE-M2] browMask ROI 만 샤픈
+      else {                                                                                               // browMask 없음 → eyeMask 상단 ROI
         const roi = em ? _eyeUpperROI(em, mw, mh) : null;
-        if (roi) _unsharpMaskRegion(ctx, w, h, b.browSharp / 90, roi, 1, mw, mh);
-        else _unsharpMask(ctx, w, h, b.browSharp / 400);   // 거의 no-op(기존 90 → 400)
+        if (roi) _unsharpMaskRegion(ctx, w, h, bs / 90, roi, 1, mw, mh);
+        // [v574] containment — ROI 없으면 no-op(전역 unsharp 제거). 눈썹 선명도가 얼굴 전체로 번지지 않게.
       }
     }
-    // [T-144] nailShape: nailW(휴리스틱/마스크) 영역만 강하게 경계 샤픈 → 젤 컬러·아트 라인·경계 또렷.
-    //   nailMaskArr 는 no-hand 여도 _nailWeight 휴리스틱(폴리시 색/광택/밝기)으로 채워짐 → 손/배경 제외.
-    //   maxS 2.0 으로 unsharp 상한 상향(기존 clamp 0.6 은 k=1.3 으로 약했음). 전역 fallback 은 매우 약화.
-    if (b.nailShape > 10) {
+    // v550 — 실제 nailMask가 있을 때만 네일 경계를 선명하게 한다.
+    if (b.nailShape > 10 && regionMasks && regionMasks.useMasks && regionMasks.useMasks.nailMask) {
       if (nailMaskArr) {
         // [2차→롤백+게이트] darken/과샤픈은 글리터 네일에서 손가락 살 침범(fingerSkin>nailEdge) → 제거.
         //   nailW 가 충분히 높은(손톱면 확실) 픽셀만 darken 하도록 _darkenRegionDarkLines 임계를 nailW 로 상향.
         // [2차 안전] unsharp 은 nailW>0.4(확실 손톱면)만 → 누드/글리터에서 손가락 살(nailW 낮음) 침범 차단.
         //   darken 도 nailW>0.55. 색 뚜렷한 네일은 손톱 nailW 높아 작동, 누드/글리터는 약효지만 침범 없음(nailGloss 가 반짝 담당).
-        _unsharpMaskRegion(ctx, w, h, b.nailShape / 55, nailMaskArr, 1, w, h, 1.6, 0.4);
-        _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
-      } else _unsharpMask(ctx, w, h, b.nailShape / 200);   // nailW 수집 안 됨 → 거의 no-op(전역 샤픈 회피)
+        _unsharpMaskRegion(ctx, w, h, _ease(b.nailShape) / 30, nailMaskArr, 1, w, h, 1.8, 0.25);   // [v574] ease — 네일 경계 체감↑(nailW 게이트 유지)
+        _darkenRegionDarkLines(ctx, w, h, NAIL_SHAPE_DARKEN * 1.5 * Math.min(1, b.nailShape / 100), nailMaskArr, w, h, 0.55);
+      }
     }
   }
 
@@ -725,7 +746,9 @@
     } else if (regionMasks) { regionMasks._eyeUnderROI = null; }
     // v348 — nailShape 를 nailW 영역만 샤픈하기 위해 픽셀 walk 중 네일 가중치 수집
     let nailMaskArr = null;
-    if (b.nailShape > 10) { try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; } }
+    if (b.nailShape > 10 && regionMasks && regionMasks.useMasks && regionMasks.useMasks.nailMask) {
+      try { nailMaskArr = new Float32Array(w * h); } catch (_e) { nailMaskArr = null; }
+    }
     for (let i = 0; i < d.length; i += 4) {
       const p = _pixel(d, i, w, h, window.PhotoEditorSmartMask, regionMasks);
       if (nailMaskArr) nailMaskArr[i >> 2] = p.nailW;

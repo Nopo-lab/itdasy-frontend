@@ -22,8 +22,8 @@
     nailShape:     { label: '네일 경계 선명',  group: 'hand', min: 0,   max: 100, step: 1 },
     // 모발
     hairShine:     { label: '모발 윤기',       group: 'hair', min: 0,   max: 100, step: 1 },
-    hairVolume:    { label: '모발 입체감',     group: 'hair', min: 0,   max: 100, step: 1 },
-    hairEndsClean: { label: '머리끝 정리',     group: 'hair', min: 0,   max: 100, step: 1 },
+    hairVolume:    { label: '모발 볼륨감 보정', group: 'hair', min: 0,   max: 100, step: 1 },   // [v574] 입체감+숱 풍성감 통합
+    hairEndsClean: { label: '머리끝·잔머리 정돈',   group: 'hair', min: 0,   max: 100, step: 1 },
     hairColor:     { label: '모발 색감 (- 차가운 / + 따뜻)', group: 'hair', min: -50, max: 50, step: 1 },
     hairDetail:    { label: '머리결 선명도 (전체)', group: 'hair', min: 0,   max: 100, step: 1 },
     hairColorPop:  { label: '염색 컬러 강조',  group: 'hair', min: 0,   max: 100, step: 1 },
@@ -56,7 +56,7 @@
     { id: 'brow', label: '눈썹',    keys: ['browSharp'] },
     { id: 'lip',  label: '입',      keys: ['lipPop'] },
     { id: 'skin', label: '피부',    keys: ['skin', 'redness', 'blemish', 'textureSmooth', 'yellowness'] },
-    { id: 'hair', label: '헤어',    keys: ['hairShine', 'hairVolume', 'hairEndsClean', 'hairColor', 'hairDetail', 'hairColorPop', 'scalpBoost'] },
+    { id: 'hair', label: '헤어',    keys: ['hairDetail', 'hairVolume', 'hairShine', 'hairEndsClean', 'hairColor', 'hairColorPop', 'scalpBoost'] },
     { id: 'hand', label: '손·네일', keys: ['handSkin', 'nailGloss', 'coolness', 'nailShape'] },
   ];
   const REGION_ETC_KEYS = ['hairyArm', 'closeUpDetail'];   // 기타/고급(부위 밖)
@@ -161,12 +161,20 @@
     ).join('')}</div>`;
     const regionSliders = reg.keys.map(k => _slider(esc, k, b[k])).join('');
 
+    // [v536] 부위 보정 탭에도 '정밀 마스크 상태'를 노출(접힘 기본) — 정밀(AI)인지 일반 보정(휴리스틱)인지
+    //   사용자가 알 수 있게. 무작정 적용되는 인상 제거. 상세 카드는 기존 MaskStatusUI 재사용.
+    const maskStatus = (window.MaskStatusUI && typeof window.MaskStatusUI.html === 'function')
+      ? `<details class="pe-beauty-maskstatus" style="margin:2px 0 10px;border:1px solid #F1DFE3;border-radius:12px;padding:2px 10px;background:#FFFCFD;">
+           <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#BC6675;padding:8px 0;list-style:none;">정밀 인식 상태 보기 · 어떻게 적용되는지</summary>
+           ${window.MaskStatusUI.html(state)}
+         </details>` : '';
+
     // 세부 조정(고급) — 부위 밖 기타(전체 선명도/팔다리 톤). 기본 접힘.
     const advBody = REGION_ETC_KEYS.map(k => _slider(esc, k, b[k])).join('');
     const advHtml = `<button type="button" data-pe-beauty-adv="1" class="pe-beauty-adv-toggle" aria-expanded="false"
             style="margin:14px 0 4px;width:100%;padding:11px;background:rgba(0,0,0,0.04);color:#4E5968;border:1px solid #E5E8EB;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">세부 조정 (고급) ▾</button>
          <div id="peBeautyAdv" hidden>${advBody}</div>`;
-    return `${recoHtml}${regionChips}${regionSliders}${advHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
+    return `${recoHtml}${maskStatus}${regionChips}${regionSliders}${advHtml}<div class="pe-hint">시술 왜곡 없이 자연 보정 위주로 동작해요. 슬라이더는 손 떼는 순간 반영됩니다.</div>`;
   }
 
   function _beautyQuickHTML(esc, cat) {
@@ -200,6 +208,10 @@
   function _bindBeautyPanel(panel, state, helpers) {
     const scheduleRedraw = helpers.scheduleRedraw;
     const pushHistory = helpers.pushHistory;
+    // [v536] 정밀 마스크 상태 카드(접힘) 새로고침 버튼 바인드.
+    if (window.MaskStatusUI && typeof window.MaskStatusUI.bind === 'function') {
+      try { window.MaskStatusUI.bind(panel, state, helpers); } catch (_e) { try { console.warn('[PhotoEditor:Mask] status bind 실패:', _e && _e.message); } catch (_l) { void _l; } }
+    }
     _bindBeautyQuick(panel, state, helpers);
     // PE-AI-1A — 부위 기반 추천 카드 바인드 (적용은 아래 슬라이더 경로와 동일).
     if (window.PhotoEditorRecoCards && typeof window.PhotoEditorRecoCards.bind === 'function') {
@@ -213,6 +225,9 @@
         state.beauty[key] = v;
         const out = panel.querySelector(`[data-pe-slider-val="${key}"]`);
         if (out) out.textContent = inp.value;
+        if (window.__ITDASY_PHOTO_DEBUG__) {   // [v537] per-slider trace (debug only)
+          try { console.log(`[photofx] ${key} value=${v} norm=${(v / (SLIDERS[key] ? SLIDERS[key].max : 100)).toFixed(2)} region=${state.beautyRegion || '-'}`); } catch (_e) { void _e; }
+        }
         scheduleRedraw(_fastPreviewOn());   // v343 — 드래그 중 저해상도 preview (플래그 OFF 면 full)
       });
       // v343 — 손 뗄 때 풀해상도 final 1회 (+히스토리). pointerup/touchend 는 final redraw 만(coalesced).
@@ -337,6 +352,17 @@
     if (helpers.toast) helpers.toast(look.label + ' 적용');
   }
 
+  // 마스크 워밍 — 일반 마스크와 손·네일 필수 마스크를 비동기로 준비한 뒤 1회 다시 그린다.
+  // 손·네일 검출 실패는 MaskStrictPolicy가 안내하고 엔진은 보정을 실행하지 않는다.
+  function _warmMasks(img, beauty) {
+    const policy = window.MaskStrictPolicy;
+    if (!policy || typeof policy.warm !== 'function') return;
+    policy.warm(img, beauty, () => {
+      const PE = window.PhotoEditor;
+      if (PE && PE._internal && typeof PE._internal.scheduleRedraw === 'function') PE._internal.scheduleRedraw(false);
+    });
+  }
+
   // ── 뷰티 보정 (픽셀 처리는 beauty-engine.js 담당) ──
   function _applyBeauty(ctx, w, h, b) {
     const engine = window.PhotoEditorBeautyEngine;
@@ -361,6 +387,7 @@
       const PE = window.PhotoEditor;
       const st = PE && PE._internal && PE._internal.getState ? PE._internal.getState() : null;
       const img = st && st.originalImg;
+      _warmMasks(img, b);   // 마스크 미준비 시 비동기 계산 + 1회 재렌더(이미지당 1회)
       if (MA && typeof MA.getMasksForBeautySync === 'function' && img) {
         regionMasks = MA.getMasksForBeautySync(img);
       }
@@ -373,8 +400,7 @@
           regionMasks.lashScale = lash.scale;
         }
       }
-      // v350 — 네일: nailGloss/nailShape 사용 시에만 nailMask 페치. 안전 게이트 통과 시에만 useMasks 주입.
-      //   미통과(noHand/저신뢰) → null → beauty-engine 이 v348 휴리스틱 그대로 (보정 안 죽음).
+      // v550 — 네일: 실제 nailMask가 있을 때만 보정한다.
       if (((b.nailGloss || 0) > 0 || (b.nailShape || 0) > 10 || (window.PhotoEditorCuticle && window.PhotoEditorCuticle.active())) && MA && typeof MA.getNailMaskSync === 'function' && img) {
         const nail = MA.getNailMaskSync(img);
         if (nail) {
@@ -383,6 +409,17 @@
           if (!regionMasks._scale) regionMasks._scale = {};
           regionMasks.useMasks.nailMask = nail.mask;
           regionMasks._scale.nailMask = nail.scale;
+        }
+      }
+      // v550 — 손 피부: 실제 handSkinMask가 있을 때만 보정한다.
+      if ((b.handSkin || 0) > 0 && MA && typeof MA.getHandSkinMaskSync === 'function' && img) {
+        const hand = MA.getHandSkinMaskSync(img);
+        if (hand) {
+          if (!regionMasks) regionMasks = { useMasks: {}, _scale: {}, maskW: (img.naturalWidth || img.width) | 0, maskH: (img.naturalHeight || img.height) | 0 };
+          if (!regionMasks.useMasks) regionMasks.useMasks = {};
+          if (!regionMasks._scale) regionMasks._scale = {};
+          regionMasks.useMasks.handSkinMask = hand.mask;
+          regionMasks._scale.handSkinMask = hand.scale;
         }
       }
       // PE-M1 — 흰자: eyeRedness 사용 시에만 scleraMask 페치. 안전 게이트 통과 시에만 useMasks 주입.

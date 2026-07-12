@@ -58,10 +58,8 @@ async function checkInstaStatus(fromLogin = false) {
     if (!res.ok) return;
     const data = await res.json();
 
-    // 서버에 shop_name 있으면 → 재로그인 환영 (로그인 직후 1회만)
-    if (fromLogin && data.shop_name) {
-      showWelcome(data.shop_name);
-    }
+    // [2026-06-25] 재로그인 환영(showWelcome) 제거 — 인사는 app-core 의 _finishLoginLoad 가
+    //   로딩 화면(#ldGreet)에서 localStorage shop_name 으로 직접 처리. (fromLogin 은 시그니처 호환용)
 
     // 3단계 인디케이터 상태 업데이트 (인스타 연동 / 말투 학습 / 첫 글 완성)
     const updateStep = (id, done) => {
@@ -72,6 +70,29 @@ async function checkInstaStatus(fromLogin = false) {
     };
 
     if (data.connected) {
+      // [2026-06-12 Bug] 다른 계정으로 재연동 시 옛 분석 리포트가 localStorage 에 잔존하는 문제.
+      //   캐시된 핸들과 새 data.handle 이 다르면(둘 다 truthy) 옛 분석 캐시부터 제거 →
+      //   아래 hydrate 가 새 persona 로 다시 채움.
+      try {
+        const _prevHandle = localStorage.getItem('itdasy:ig_handle');
+        if (_prevHandle && data.handle && _prevHandle !== data.handle) {
+          localStorage.removeItem('itdasy_latest_analysis');
+        }
+      } catch (_e) { void _e; }
+      // [2026-06-12 Bug] 같은 핸들 재연동·재분석 후 서버는 done 인데 캐시가 옛 분석본을 유지해
+      //   리포트가 안 갱신되는 문제. status=done 이고 서버 style_summary 가 캐시와 다르면 서버
+      //   persona 로 덮어쓰기(_hydrate 의 "기존 유효 캐시 보존" 우회). flat 포맷은 폴링 저장본과 동일.
+      try {
+        const _sp = data.persona || {};
+        if (data.style_analysis_status === 'done' && (_sp.style_summary || '').trim()) {
+          let _cur = {};
+          try { _cur = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {}; } catch (_e) { _cur = {}; }
+          if ((_cur.style_summary || '') !== _sp.style_summary) {
+            const _flat = { ..._sp, tone_summary: _sp.tone || '', style_summary: _sp.style_summary || '' };
+            localStorage.setItem('itdasy_latest_analysis', JSON.stringify(_flat));
+          }
+        }
+      } catch (_e) { void _e; }
       // [F1/F2] 아래 DOM 렌더(updateHeaderProfile·배너 등)보다 먼저 — 그쪽이 실패해도 분석 캐시
       //   재수화·상태 저장은 보장. 내샵관리/리포트는 itdasy_latest_analysis 만 읽으므로 이게 핵심.
       _hydrateAnalysisCacheFromStatus(data.persona || {});
@@ -152,6 +173,10 @@ async function checkInstaStatus(fromLogin = false) {
       const prev = window._lastIgState || {};
       const next = {
         connected: !!data.connected,
+        // [버그수정] connected 는 "한 번이라도 연동했는가"만 뜻함(백엔드 그대로) — 실제 게시 가능 여부는
+        //   tokenValid(백엔드가 Meta 실시간 검증까지 마친 값)로 따로 봐야 함. 죽은 토큰인데 connected 만
+        //   보고 게시 시도하다 조용히 실패하던 버그의 프론트 쪽 반쪽.
+        tokenValid: data.token_valid !== false,
         handle: data.handle || '',
         profile_picture_url: data.profile_picture_url || '',
         persona: data.persona || null,
@@ -180,7 +205,7 @@ window.IGState = {
   },
 };
 
-function renderPersonaDash(p, showTestBtn) {
+function renderPersonaDash(p, _showTestBtn) {
   // [2026-05-16] 홈 #personaDash 는 내샵관리로 이동했으므로 홈에서 자동 노출 안 함.
   // myshop-v3.js 가 자체적으로 동일 데이터를 렌더. 단, #personaContent DOM 은 그대로 두어
   // 다른 화면(showDetailedAnalysis 등)에서 호환 유지.
@@ -200,11 +225,10 @@ function renderPersonaDash(p, showTestBtn) {
       <div style="font-size:13px; color:var(--text); line-height:1.6; font-weight:500;">${_esc(summary)}</div>
     </div>
     <div style="display:flex; flex-direction:column; gap:8px;">
-      ${showTestBtn ? `<button class="btn-primary" data-ig-test-caption style="width:100%; height:44px; font-size:13px; font-weight:700;">✍️ 내 말투로 테스트 글 만들기</button>` : ''}
       <button class="btn-copy" data-ig-detail style="width:100%; height:42px; font-size:13px; font-weight:600; border:1px solid var(--accent2); background:white; color:var(--accent2); border-radius:10px;">전체 분석 리포트 확인</button>
     </div>
   `;
-  content.querySelector('[data-ig-test-caption]')?.addEventListener('click', () => showOnboardingCaptionPopup());
+  // [2026-06-26] '내 말투로 테스트 글 만들기' 제거 — 내 말투 영역은 '확인만'(글쓰기 동선은 작업실로 일원화, 중복·혼동 방지).
   content.querySelector('[data-ig-detail]')?.addEventListener('click', () => showDetailedAnalysis());
 }
 
@@ -236,7 +260,7 @@ function showDetailedAnalysis() {
   if (pop) {
     // [2026-06-10 #5] 팝업이 다른 시트 아래에 깔리는 버그 — body 최상위로 이동해서 stacking context 이슈 완전 해결
     if (pop.parentElement !== document.body) document.body.appendChild(pop);
-    pop.style.display = 'block';
+    pop.style.display = 'flex';
   } else if (window.showToast) window.showToast('리포트 영역을 찾을 수 없어요');
 }
 
@@ -258,41 +282,82 @@ function renderDetailedPopup(data) {
     const tagArr    = String(p.hashtags || raw.hashtags || '')
         .split(/[,\s]+/).map(t => t.trim()).filter(Boolean)
         .map(t => '#' + t.replace(/^#+/, ''));
+    // [5] 말끝: 배열 JSON 또는 콤마·공백 분리 문자열 둘 다 처리 (값은 '~' 접두 포함)
+    const sigArr = Array.isArray(p.signature_phrases || raw.signature_phrases)
+        ? (p.signature_phrases || raw.signature_phrases)
+        : String(p.signature_phrases || raw.signature_phrases || '').split(/[,\s]+/).filter(Boolean);
 
     // 프사: localStorage 캐시 우선, 실패 시 실루엣 폴백
     const picUrl = (() => { try { return localStorage.getItem('itdasy:ig_profile_pic') || ''; } catch (_e) { return ''; } })();
     const SIL = '<svg viewBox="0 0 24 24" width="36" height="36" fill="#C9CDD4" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2.2c-4.5 0-8 2.6-8 5.9V21h16v-.9c0-3.3-3.5-5.9-8-5.9Z"/></svg>';
     const avatarInner = picUrl
-        ? `<img src="${_esc(picUrl)}" style="width:62px;height:62px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
+        ? `<img src="${_esc(picUrl)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentNode.querySelector('svg').style.display='block';" alt="">${SIL.replace('<svg', '<svg style="display:none"')}`
         : SIL;
 
-    // ── 헤더 카드
+    // ── 히어로 섹션
     let html = `
-    <div style="background:#fff;border-radius:20px;padding:24px 20px 20px;text-align:center;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);">
-      <div style="width:62px;height:62px;border-radius:50%;background:#F2F4F6;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;overflow:hidden;">${avatarInner}</div>
-      ${handle ? `<div style="font-size:17px;font-weight:700;color:#191F28;letter-spacing:-0.3px;">@${_esc(handle)}</div>` : ''}
-      ${postCount > 0 ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;margin-top:8px;"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>게시물 ${postCount}개 분석 완료</span>` : ''}
+    <div style="background:#FBEAF0;border-radius:26px 26px 0 0;padding:32px 20px 24px;text-align:center;position:relative;">
+      <button data-static-action="analyze-result-close" aria-label="닫기" style="position:absolute;top:14px;right:14px;width:32px;height:32px;border:none;border-radius:50%;background:rgba(255,255,255,0.6);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div style="margin-bottom:14px;display:flex;justify-content:center;">
+        <svg width="46" height="46" class="itb-float" aria-hidden="true"><use href="#ic-bot"/></svg>
+      </div>
+      <div style="font-size:16px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:6px;">말투 분석이 완료됐어요!</div>
+      <div style="font-size:13px;color:${ROSE};font-weight:600;">${postCount > 0 ? `게시물 ${postCount}개 분석 완료` : '말투 분석 완료'}</div>
     </div>`;
 
-    // ── 내용 카드 (섹션 간 .5px 구분선, 박스 중첩 금지)
-    const DIV = '<div style="height:.5px;background:#F0F1F3;"></div>';
+    // ── 아바타/핸들/배지
+    html += `
+    <div style="padding:20px 20px 16px;display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:50%;background:#F2F4F6;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;">${avatarInner}</div>
+      <div>
+        ${handle ? `<div style="font-size:15px;font-weight:700;color:var(--text);">@${_esc(handle)}</div>` : ''}
+        ${postCount > 0 ? `<div style="display:inline-flex;align-items:center;gap:4px;background:${ROSE};color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;margin-top:4px;"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${postCount}개 분석</div>` : ''}
+      </div>
+    </div>`;
+
+    // ── 섹션 목록 (hairline 구분선)
+    const DIV = '<div style="height:.5px;background:var(--border);"></div>';
     const secs = [];
 
-    if (capTmpl) {
+    // 말투
+    const styleSummary = String(raw.style_summary || p.style_summary || raw.tone_summary || '').trim();
+    if (styleSummary) {
         secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:700;color:#8B95A1;margin-bottom:10px;letter-spacing:0.3px;">원장님이 꼭 쓰는 고정문구</div>
-            <div style="font-size:13.5px;color:#191F28;line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(capTmpl)}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:6px;">원장님 말투</div>
+            <div style="font-size:14px;color:var(--text);line-height:1.7;word-break:keep-all;">${_esc(styleSummary)}</div>
         </div>`);
     }
 
+    // 말끝 칩 (고정문구보다 위에 배치)
+    if (sigArr.length) {
+        const sigChips = sigArr.map(s =>
+            `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(s)}</span>`
+        ).join('');
+        secs.push(`<div style="padding:18px 20px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 자주 쓰는 말끝</div>
+            <div style="line-height:1;">${sigChips}</div>
+        </div>`);
+    }
+
+    // 고정문구: 항상 렌더, 없으면 '없음'
+    secs.push(`<div style="padding:18px 20px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 꼭 쓰는 고정문구</div>
+        ${capTmpl
+            ? `<div style="font-size:13.5px;color:var(--text);line-height:1.8;white-space:pre-wrap;word-break:keep-all;">${_esc(capTmpl)}</div>`
+            : `<div style="font-size:13.5px;color:var(--text-subtle);">없음</div>`
+        }
+    </div>`);
+
     if (tagArr.length) {
         const chips = tagArr.map(t =>
-            `<span style="display:inline-flex;background:#F2F4F6;color:#4E5968;padding:5px 11px;border-radius:999px;font-size:12px;font-weight:600;margin:3px 3px 0 0;word-break:keep-all;">${_esc(t)}</span>`
+            `<span style="display:inline-flex;background:var(--surface);color:var(--text-muted);border:0.5px solid var(--border-strong);padding:5px 11px;border-radius:var(--r-pill);font-size:12px;font-weight:500;margin:3px 3px 0 0;word-break:keep-all;">${_esc(t)}</span>`
         ).join('');
         secs.push(`<div style="padding:18px 20px;">
             <div style="display:flex;align-items:center;justify-content:space-between;">
-                <span style="font-size:11px;font-weight:700;color:#8B95A1;letter-spacing:0.3px;">원장님이 자주 쓰는 해시태그 <span style="font-weight:500;color:#C9CDD4;">${tagArr.length}개</span></span>
-                <button data-ig-tag-toggle style="background:none;border:none;padding:0;font-size:12px;color:#8B95A1;cursor:pointer;font-weight:600;">전체 보기 ›</button>
+                <span style="font-size:11px;font-weight:600;color:var(--text-subtle);">원장님이 자주 쓰는 해시태그 <span style="font-weight:500;">${tagArr.length}개</span></span>
+                <button data-ig-tag-toggle style="background:none;border:none;padding:0;font-size:12px;color:var(--text-subtle);cursor:pointer;font-weight:600;">전체 보기 ›</button>
             </div>
             <div data-ig-tag-chips style="display:none;margin-top:10px;line-height:1;">${chips}</div>
         </div>`);
@@ -300,36 +365,29 @@ function renderDetailedPopup(data) {
 
     if (emojis) {
         secs.push(`<div style="padding:18px 20px;">
-            <div style="font-size:11px;font-weight:700;color:#8B95A1;margin-bottom:10px;letter-spacing:0.3px;">원장님이 자주 쓰는 이모지</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text-subtle);margin-bottom:10px;">원장님이 자주 쓰는 이모지</div>
             <div style="font-size:21px;letter-spacing:4px;word-break:break-all;">${_esc(emojis)}</div>
         </div>`);
     }
 
     if (secs.length) {
-        html += `<div style="background:#fff;border-radius:20px;overflow:hidden;margin-bottom:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);">${secs.join(DIV)}</div>`;
+        html += `<div style="overflow:hidden;">${secs.join(DIV)}</div>`;
     }
 
-    // ── CTA
+    // ── 안내 문구(작업실/글쓰기 진입 CTA 제거 — 분석 결과 저장 위치만 안내) [2026-06-26]
     html += `
-    <div style="text-align:center;margin-bottom:12px;">
-        <span style="font-size:12px;color:#8B95A1;">잇비가 말투분석한 걸로 테스트해보세요</span>
-    </div>
-    <button data-ig-write style="width:100%;height:52px;border-radius:14px;border:none;background:${ROSE};color:#fff;font-size:15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-        <svg width="20" height="20" aria-hidden="true" style="flex-shrink:0;"><use href="#ic-bot"/></svg>내 말투로 글 써보기
-    </button>
-    <div style="text-align:center;">
-        <button data-static-action="analyze-result-close" style="background:none;border:none;padding:10px 20px;font-size:13px;color:#C9CDD4;cursor:pointer;">다음에 할게요</button>
+    <div style="padding:18px 22px 24px;">
+        <div style="display:flex;gap:8px;align-items:flex-start;background:var(--surface-2,#F7F8FA);border-radius:14px;padding:14px 16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px;color:var(--text-subtle);"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span style="font-size:12.5px;color:var(--text-muted);line-height:1.65;word-break:keep-all;">원장님 말투 분석 결과는 <b style="font-weight:700;color:var(--text);">내샵관리 › 잇비/자동화 › 내 말투</b>에서 언제든 확인할 수 있어요.</span>
+        </div>
     </div>`;
 
     const body = document.getElementById('analyzeResultBody');
     if (!body) return;
     body.innerHTML = html;
-    body.querySelector('[data-ig-write]')?.addEventListener('click', () => {
-        try { document.getElementById('analyzeResultPopup').style.display = 'none'; } catch (_e) { void _e; }
-        // [FE2] 시나리오 팝업(어떤 상황?) 우선, 없으면 onboarding 팝업
-        if (typeof window.openCaptionScenarioPopup === 'function') window.openCaptionScenarioPopup();
-        else if (typeof showOnboardingCaptionPopup === 'function') showOnboardingCaptionPopup();
-    });
+    // [2026-06-26] '내 말투로 글 써보기' CTA 제거 — 말투분석 보고서에서 작업실/글쓰기 진입 차단(중복·혼동 방지).
+    //   분석 결과는 내샵관리 › 잇비/자동화 › 내 말투에서 확인. 닫기는 헤더 X(analyze-result-close).
     body.querySelector('[data-ig-tag-toggle]')?.addEventListener('click', function () {
         const chips = body.querySelector('[data-ig-tag-chips]');
         if (!chips) return;
@@ -350,20 +408,36 @@ async function runAutoAnalysisAfterConnect() {
   const bar     = document.getElementById('analyzeProgressBar');
   const stepTxt = document.getElementById('analyzeStepText');
   const subTxt  = document.getElementById('analyzeSubText');
+  // [2026-06-12] 오버레이 종료 = 분석 흐름 끝 → OAuth inflight 플래그 해제(SW reload 가드 풀기).
+  const _endOverlay = () => {
+    if (overlay) overlay.style.display = 'none';
+    try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
+    try { sessionStorage.removeItem('itdasy_pending_report'); } catch (_e) { void _e; }   // [v570] 보고서 복원 의도 플래그 정리(터미널)
+  };
+  if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   if (overlay) overlay.style.display = 'flex';
-  if (bar) bar.style.width = '10%';
-  if (stepTxt) stepTxt.textContent = 'AI 말투 분석 시작했어요';
-  if (subTxt)  subTxt.textContent  = '게시물 가져오고 사장님 문체 학습 중이에요…';
+  const STEP_MSGS = ['게시물 가져오는 중…','최근 게시물을 읽는 중…','사장님 말투 익히는 중…','해시태그·이모지 모으는 중…'];
+  let _mi = 0;
+  if (stepTxt) stepTxt.textContent = STEP_MSGS[0];
+  if (bar) bar.style.width = '22%';
+  const _msgTimer = setInterval(() => {
+    _mi = Math.min(_mi + 1, STEP_MSGS.length - 1);
+    if (stepTxt) stepTxt.textContent = STEP_MSGS[_mi];
+    if (bar) bar.style.width = (22 + _mi * 18) + '%';
+  }, 1200);
+  if (subTxt)  subTxt.textContent  = '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요';
   try { if (typeof showToast === 'function') showToast('🪄 AI 말투 분석을 시작했어요. 결과 곧 보여드릴게요'); } catch (_e) { void _e; }
 
   const startedAt = Date.now();
   const MAX_MS = 90_000;
   const STEP_MS = 3_000;
-  let progressPct = 10;
+  const MIN_OVERLAY_MS = 4_800;
   let success = false;
+  let failCode = null;            // [2026-06-12] BG 분석 실패 사유 (media_fetch_failed/no_captioned_posts/ai_failed)
   let lastStatusData = null;
+  console.log('[IG-ANALYZE] start');
 
-  // 백그라운드 task 진행 시각화 — 시간 흐름에 따라 prograss bar 자연스럽게 증가
+  // 백그라운드 task 폴링 — 멘트·게이지는 _msgTimer 가 단독 소유
   while (Date.now() - startedAt < MAX_MS) {
     try {
       const res = await apiFetch('/instagram/status', { headers: authHeader() });
@@ -373,30 +447,36 @@ async function runAutoAnalysisAfterConnect() {
         const p = (d && d.persona) || null;
         if (p && (p.style_summary || '').trim()) {
           success = true;
+          console.log('[IG-ANALYZE] success', { handle: d.handle, post_count: p.post_count });
+          break;
+        }
+        // [2026-06-12] BG 분석이 사유 코드 남기고 실패 → 폴링 중단·사유별 안내.
+        if (d && d.style_analysis_status === 'failed' && d.analysis_error) {
+          failCode = d.analysis_error;
+          console.log('[IG-ANALYZE] failed', { analysis_error: failCode });
           break;
         }
       }
     } catch (_e) { /* network blip ok */ }
-    // bar progress 흐름 (10 → 88% 까지 점진적)
-    progressPct = Math.min(88, progressPct + 6);
-    if (bar) bar.style.width = progressPct + '%';
-    if (stepTxt) {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      if (elapsed < 15) stepTxt.textContent = '게시물 가져오는 중…';
-      else if (elapsed < 35) stepTxt.textContent = '문체 패턴 분석 중…';
-      else if (elapsed < 60) stepTxt.textContent = '해시태그·이모지 추출 중…';
-      else stepTxt.textContent = '분석 마무리 중…';
-    }
     await new Promise(r => setTimeout(r, STEP_MS));
+  }
+
+  // 즉시 성공/실패해도 오버레이가 최소 4.8초는 보이게 — 빠른 응답에도 _msgTimer 4개 문구 다 노출.
+  const _elapsed = Date.now() - startedAt;
+  if (_elapsed < MIN_OVERLAY_MS) await new Promise(r => setTimeout(r, MIN_OVERLAY_MS - _elapsed));
+  clearInterval(_msgTimer);
+
+  // [2026-06-12] BG 분석이 명시적으로 실패 → 오버레이 닫고 사유별 안내 + 재분석 버튼.
+  if (failCode) {
+    _showAnalyzeError(failCode);
+    return;
   }
 
   if (success && lastStatusData) {
     const p = lastStatusData.persona || {};
     if (bar) bar.style.width = '100%';
-    if (stepTxt) stepTxt.textContent = '분석 성공!';
-    if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
-    // [2026-05-21] /instagram/status 는 raw_analysis 안 줘서 persona 만 저장하면
-    // 나중 showDetailedAnalysis 가 raw.tone_summary 체크 실패 → "데이터 없음" 으로 끝나는 버그.
+    if (stepTxt) stepTxt.textContent = '완료! 잇비가 자료 정리 중…';
+    // [2026-05-21] localStorage 저장은 그대로 유지 (다른 화면·다음 방문이 읽음).
     // persona 필드를 raw_analysis 호환 형태로 평탄화해서 저장.
     try {
       const flat = { ...p, tone_summary: p.tone || '', style_summary: p.style_summary || '' };
@@ -407,20 +487,20 @@ async function runAutoAnalysisAfterConnect() {
       updateHeaderProfile(_instaHandle, p.tone, curPic);
       renderPersonaDash(p, true);
     } catch (_e) { void _e; }
-    // [FE4] 재분석 완료 → 리포트 팝업 자동 노출
-    try {
-      const flat = { ...p, tone_summary: p.tone || '', style_summary: p.style_summary || '' };
-      localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat));
-    } catch (_e) { void _e; }
+    // [2026-06-12] 리포트 팝업은 localStorage 경유(showDetailedAnalysis) 금지 — 재연동 캐시 정리와
+    //   경합하면 팝업 대신 토스트만 뜸. 폴링으로 받은 persona 를 renderDetailedPopup 에 직접 전달.
     setTimeout(() => {
-      if (overlay) overlay.style.display = 'none';
-      if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
-      else try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
+      _endOverlay();
+      console.log('[IG-ANALYZE] open-report');
+      if (!_openReportPopupDirect(p)) {
+        try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e2) { void _e2; }
+      }
     }, 1000);
     return;
   }
 
   // Timeout fallback — BG task 가 실패했거나 너무 느림. force 재분석 1회.
+  console.log('[IG-ANALYZE] timeout-fallback force-reanalyze');
   if (stepTxt) stepTxt.textContent = '한 번 더 시도하는 중…';
   try {
     const r2 = await apiFetch('/instagram/analyze?force=true', { method: 'POST', headers: authHeader() });
@@ -428,14 +508,17 @@ async function runAutoAnalysisAfterConnect() {
       const d2 = await r2.json();
       const p = d2.persona || {};
       if (p.style_summary) {
+        console.log('[IG-ANALYZE] fallback-success');
         try { localStorage.setItem('itdasy_latest_analysis', JSON.stringify({ ...(d2.raw_analysis || {}), ...p })); } catch (_e) { void _e; }
         try {
           const curPic = document.getElementById('headerAvatar')?.querySelector('img')?.src || '';
           updateHeaderProfile(_instaHandle, p.tone, curPic);
           renderPersonaDash(p, true);
         } catch (_e) { void _e; }
-        if (overlay) overlay.style.display = 'none';
-        try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e) { void _e; }
+        _endOverlay();
+        if (!_openReportPopupDirect(p)) {
+          try { if (typeof showToast === 'function') showToast('✅ 말투 분석 완료!'); } catch (_e) { void _e; }
+        }
         return;
       }
     } else {
@@ -445,16 +528,66 @@ async function runAutoAnalysisAfterConnect() {
         const detail = (j && j.detail) || '';
         if (typeof detail === 'string' && detail) friendly = detail;
       } catch (_e) { void _e; }
-      if (overlay) overlay.style.display = 'none';
+      console.log('[IG-ANALYZE] fallback-failed', { detail: friendly });
+      _endOverlay();
       try { if (typeof showToast === 'function') showToast(friendly); } catch (_e) { void _e; }
       return;
     }
   } catch (_e) { /* ignore */ }
 
-  if (overlay) overlay.style.display = 'none';
+  console.log('[IG-ANALYZE] timeout-give-up');
+  _endOverlay();
   try { if (typeof showToast === 'function') showToast('분석이 평소보다 오래 걸려요. 설정 > 말투 새로 분석 으로 다시 시도해주세요'); } catch (_e) { void _e; }
 }
 window.runAutoAnalysisAfterConnect = runAutoAnalysisAfterConnect;
+
+// [2026-06-12] 폴링으로 받은 persona 를 localStorage 경유 없이 리포트 팝업에 직접 전달·오픈.
+//   재연동 캐시 정리(checkInstaStatus)와 경합해도 팝업이 토스트로 새지 않게.
+function _openReportPopupDirect(p) {
+  try {
+    const flat = { ...p, tone_summary: p.tone || p.tone_summary || '', style_summary: p.style_summary || '' };
+    renderDetailedPopup({ raw_analysis: flat, persona: p });
+    const pop = document.getElementById('analyzeResultPopup');
+    if (pop) {
+      // stacking context 이슈 방지 — body 최상위로
+      if (pop.parentElement !== document.body) document.body.appendChild(pop);
+      pop.style.display = 'flex';
+      return true;
+    }
+  } catch (_e) { console.log('[IG-ANALYZE] popup-open-failed', _e && _e.message); }
+  return false;
+}
+// [v570] reload 복원 경로(app-core 부팅)가 캐시 분석결과로 보고서를 직접 열 때 사용.
+try { if (typeof window !== 'undefined') window._openReportPopupDirect = _openReportPopupDirect; } catch (_e) { void _e; }
+
+// [2026-06-12] 말투 분석 실패 사유별 안내 배너 + 재분석 버튼 (showToast 는 액션 버튼 미지원).
+function _showAnalyzeError(code) {
+  const MSG = {
+    media_fetch_failed: '게시물을 가져올 수 없어요. 인스타가 프로페셔널(비즈니스/크리에이터) 계정인지 확인해 주세요.',
+    no_captioned_posts: '분석하려면 캡션(글)이 있는 게시물이 필요해요.',
+    ai_failed:          '분석이 잠시 실패했어요. 잠시 후 다시 시도해 주세요.',
+  };
+  console.log('[IG-ANALYZE] show-error', { code });
+  const overlay = document.getElementById('analyzeOverlay');
+  if (overlay) overlay.style.display = 'none';
+  try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
+  try { sessionStorage.removeItem('itdasy_pending_report'); } catch (_e) { void _e; }   // [v570] 보고서 복원 의도 플래그 정리(실패 터미널)
+  let barEl = document.getElementById('igAnalyzeErrorBar');
+  if (!barEl) {
+    barEl = document.createElement('div');
+    barEl.id = 'igAnalyzeErrorBar';
+    barEl.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 16px);z-index:99999;max-width:calc(100vw - 32px);background:#FEE8E8;color:#A32D2D;padding:12px 16px;border-radius:14px;box-shadow:var(--shadow-md,0 4px 16px rgba(0,0,0,.12));font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;';
+    document.body.appendChild(barEl);
+  }
+  barEl.innerHTML = '<span style="flex:1;word-break:keep-all;line-height:1.4;"></span>' +
+    '<button data-ig-retry style="flex-shrink:0;background:#A32D2D;color:#fff;border:none;border-radius:10px;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;">다시 분석</button>';
+  barEl.querySelector('span').textContent = MSG[code] || '말투 분석에 실패했어요. 다시 시도해 주세요.';
+  barEl.style.display = 'flex';
+  barEl.querySelector('[data-ig-retry]').onclick = () => {
+    barEl.style.display = 'none';
+    if (typeof window.runPersonaAnalyze === 'function') window.runPersonaAnalyze(true);
+  };
+}
 
 
 async function reAnalyzePersona() {
@@ -471,14 +604,16 @@ async function runPersonaAnalyze(force) {
   const subTxt  = document.getElementById('analyzeSubText');
 
   const steps = [
-    { pct: 10, text: '게시물 수집 중...', sub: '최근 30개 게시물을 가져오고 있어요' },
-    { pct: 35, text: '말투 분석 중...', sub: '사장님만의 문체 패턴을 파악하는 중' },
-    { pct: 55, text: '해시태그 패턴 분석 중...', sub: '자주 쓰신 해시태그 top20 추출 중' },
-    { pct: 75, text: '인기 게시물 특징 분석 중...', sub: '좋아요·댓글 많은 게시물의 공통점 파악 중' },
-    { pct: 90, text: '말투 데이터 완성 중...', sub: 'AI가 분석 결과를 정리하고 있어요' },
+    { pct: 10, text: '게시물 가져오는 중…',       sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 35, text: '최근 게시물을 읽는 중…',     sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 55, text: '사장님 말투 익히는 중…',     sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 75, text: '해시태그·이모지 모으는 중…', sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
+    { pct: 90, text: '완료! 잇비가 자료 정리 중…', sub: '최근 사장님의 게시물들을 읽고 잇비가 학습 중이에요' },
   ];
 
+  if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
   overlay.style.display = 'flex';
+  const _reStart = Date.now();
   let stepIdx = 0;
 
   // 애니메이션: API 응답 전까지 단계 순서대로 진행
@@ -552,7 +687,14 @@ async function runPersonaAnalyze(force) {
               if (subTxt)  subTxt.textContent  = '말투 데이터가 업데이트됐어요';
               try { const flat = { ...sp, tone_summary: sp.tone || '', style_summary: sp.style_summary || '' }; localStorage.setItem('itdasy_latest_analysis', JSON.stringify(flat)); } catch(_e){ void _e; }
               try { const cp = document.getElementById('headerAvatar')?.querySelector('img')?.src || ''; updateHeaderProfile(_instaHandle, sp.tone, cp); renderPersonaDash(sp, true); } catch(_e){ void _e; }
-              setTimeout(() => { if (overlay) overlay.style.display = 'none'; try { if (typeof showToast === 'function') showToast('말투 분석 완료!'); } catch(_e){ void _e; } }, 800);
+              const _re = Date.now() - _reStart;
+              if (_re < 4800) await new Promise(r => setTimeout(r, 4800 - _re));
+              setTimeout(() => {
+                if (overlay) overlay.style.display = 'none';
+                if (!_openReportPopupDirect(sp)) {
+                  try { if (typeof showToast === 'function') showToast('말투 분석 완료!'); } catch(_e){ void _e; }
+                }
+              }, 800);
               return;
             }
           }
@@ -584,6 +726,8 @@ async function runPersonaAnalyze(force) {
     updateHeaderProfile(_instaHandle, p.tone, curPic);
     renderPersonaDash(p);
 
+    const _re = Date.now() - _reStart;
+    if (_re < 4800) await new Promise(r => setTimeout(r, 4800 - _re));
     setTimeout(() => {
       overlay.style.display = 'none';
       renderPersonaDash(p, true);
@@ -593,7 +737,7 @@ async function runPersonaAnalyze(force) {
       if (_apop) {
         // [F6] body 최상위 이동 → 설정 시트(z-index 9996) 위로 즉시 노출
         if (_apop.parentElement !== document.body) document.body.appendChild(_apop);
-        _apop.style.display = 'block';
+        _apop.style.display = 'flex';
       }
       // [2026-04-24] 말투 테스트 자동 트리거 제거 — 사용자가 설정 메뉴에서 명시적 호출
       // window.openPersonaSurveyModal() 함수 자체는 app-persona-survey.js 에 그대로 남아있음
@@ -725,13 +869,18 @@ async function connectInstagram() {
     if (baseOrigin === 'null' || baseOrigin === 'file://') {
       baseOrigin = window.location.href.split('/index.html')[0];
     } else {
-      baseOrigin += window.location.pathname.replace(/\/index\.html$/, '');
+      // [2026-06-12] pathname 의 // 누적 접기 — return_to 슬래시 증식(재연동마다 +1) 원인 제거.
+      baseOrigin += window.location.pathname.replace(/\/index\.html$/, '').replace(/\/{2,}/g, '/');
     }
     const origin = encodeURIComponent(baseOrigin);
     // Capacitor 네이티브 앱에선 OAuth 완료 후 딥링크(itdasy://oauth/callback)로 앱에 복귀
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    const returnTo = isNative ? 'itdasy://oauth/callback' : baseOrigin + '/';
+    // 끝의 슬래시를 하나로 정규화 후 단일 '/' 부여 — baseOrigin 이 '/' 로 끝나도 '//' 안 됨.
+    const returnTo = isNative ? 'itdasy://oauth/callback' : baseOrigin.replace(/\/+$/, '') + '/';
     const returnToEnc = encodeURIComponent(returnTo);
+    // [2026-06-12] OAuth 출발 표시 — 복귀 직후 SW controllerchange→reload 가 ?connected=success
+    //   를 날리지 못하게 app-core 의 reload 가드가 이 플래그를 본다. 분석 오버레이 종료 시 remove.
+    try { sessionStorage.setItem('itdasy_oauth_inflight', '1'); } catch (_e) { void _e; }
     window.location.href = `${API}/instagram/go?token=${encodeURIComponent(token)}&origin=${origin}&return_to=${returnToEnc}`;
 
   } catch(e) {

@@ -1,7 +1,7 @@
 /* 사진 편집기 — RegionMaskProvider (v313 2026-05-28)
 
-   부위별 마스크 4-tier fallback dispatcher.
-     Tier 1: 온디바이스 AI segmentation  (v313 에선 미사용)
+   부위별 마스크 dispatcher.
+     Tier 1: 온디바이스 AI segmentation / Hand Landmarker
      Tier 2: MediaPipe Face Landmarker polygon
      Tier 3: 색상/위치 휴리스틱 (SmartMask)
      Tier 4: 사용자 브러시 (v315+ UI 연결)
@@ -9,7 +9,8 @@
    v313 정책:
      - 가벼운 5종 (skin/hair/lip/eye/background) 만 precompute
      - nail/handSkin/eyelashBand/hairBoundary 는 lazy (필요 시 getMask)
-     - nailMask 는 status: 'pendingImplementation' 반환 (Hand Landmarker 미사용)
+     - nailMask/handSkinMask 는 Hand Landmarker 결과만 허용
+     - 손·네일 검출 실패 시 색상/위치 추정 금지
      - 모든 진입점 try/catch — 실패해도 사진편집기에 영향 0
      - beauty-engine 에 연결 X (debug overlay + getStats 전용)
 
@@ -94,6 +95,87 @@
     return { w: w | 0, h: h | 0 };
   }
 
+  // [v546] 눈·눈썹·흰자·속눈썹 ROI 가 너무 작아(coverage≈0.8%) 체감 저하 → 마스크 dilation 으로 확장.
+  //   separable max-pool(>0.3 영역을 r 만큼 키움). 마스크는 원본 해상도라 r 은 짧은 변 비율로.
+  function _dilateMask(mask, w, h, r) {
+    if (!mask || r < 1) return mask;
+    const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let m = 0; const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+      for (let xx = x0; xx <= x1; xx++) { const v = mask[y * w + xx]; if (v > m) m = v; }
+      tmp[y * w + x] = m;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      let m = 0; const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
+      for (let yy = y0; yy <= y1; yy++) { const v = tmp[yy * w + x]; if (v > m) m = v; }
+      out[y * w + x] = m;
+    }
+    return out;
+  }
+  function _maskBBox(mask, w, h, thr) {
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if ((mask[y * w + x] || 0) > thr) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+    if (maxX < 0) return null;
+    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+  }
+  // [v573·P3-4] 이마 윗부분 연장 — MediaPipe faceOval 최상단(landmark 10)은 "이마 중앙"이라
+  //   윗이마(중앙~헤어라인)가 skinMask 밖이었음(="이마 절반"). 컬럼별 마스크 최상단을 위로 ext 픽셀
+  //   연장(위로 갈수록 약하게)해 윗이마를 덮는다. 머리카락 침범은 호출부에서 hairMask(Tier1) 빼서 차단.
+  function _extrudeForeheadUp(mask, w, h, bb, ext) {
+    if (!bb || ext < 1) return mask;
+    const out = new Float32Array(mask.length);
+    out.set(mask);
+    const x0 = Math.max(0, bb.x), x1 = Math.min(w - 1, bb.x + bb.w - 1);
+    const searchBot = Math.min(h - 1, bb.y + ((bb.h * 0.5) | 0));   // 얼굴 상단 절반에서만 최상단 탐색(턱 무시)
+    for (let x = x0; x <= x1; x++) {
+      let topY = -1, topV = 0;
+      for (let y = Math.max(0, bb.y); y <= searchBot; y++) {
+        const v = mask[y * w + x];
+        if (v > 0.3) { topY = y; topV = v; break; }
+      }
+      if (topY < 0) continue;
+      for (let k = 1; k <= ext; k++) {
+        const yy = topY - k;
+        if (yy < 0) break;
+        // [v575·필수4] 상단 falloff 0.7→0.45 — 윗이마(중앙~헤어라인)도 충분한 가중(최상단≈0.55×)을 유지해
+        //   연장 영역이 실제 보정을 받게(기존 0.3× 는 사실상 무보정이라 '이마 절반'으로 보임).
+        const wgt = topV * (1 - (k / ext) * 0.45);
+        const idx = yy * w + x;
+        if (wgt > out[idx]) out[idx] = wgt;
+      }
+    }
+    return out;
+  }
+
+  // [v546] 한쪽 눈만 인식된 경우(oneEye) — 검출된 눈을 반대쪽으로 평행이동 복제해 양쪽 ROI 복원.
+  //   landmark 미러가 정확하진 않지만(각도 무시) ROI 가 아예 한쪽만 적용되던 것보다 체감 개선.
+  //   대상이 검출 눈 폭의 ~2배 떨어진 위치라 얼굴이 어느 정도 정면일 때 잘 맞음. 셀피(좌우반전)도 대칭이라 무관.
+  // [v546] result.mask 를 짧은 변 비율 r 만큼 dilation + feather 후 coverage/confidence 갱신.
+  function _dilateRegion(result, img, ratio) {
+    const RF = _getRefine();
+    if (!RF || !result || !result.mask) return result;
+    const sz = _imgSize(img); if (!sz.w || !sz.h) return result;
+    const dr = Math.max(1, Math.round(Math.min(sz.w, sz.h) * ratio));
+    result.mask = RF.gaussianFeather(_dilateMask(result.mask, sz.w, sz.h, dr), sz.w, sz.h, Math.max(1, (dr / 2) | 0));
+    result.coverage = RF.maskCoverage(result.mask);
+    result.confidence = RF.maskConfidence(result.mask, 0.4);
+    result.dilatedRadius = dr;
+    return result;
+  }
+  function _reconstructMissingEye(mask, w, h, detectedIsLeft) {
+    const bb = _maskBBox(mask, w, h, 0.2); if (!bb) return mask;
+    const shift = Math.round(bb.w * 2.0) * (detectedIsLeft ? 1 : -1);   // left 검출 → 오른쪽(+x)으로 복제
+    const out = new Float32Array(w * h);
+    for (let i = 0; i < mask.length; i++) out[i] = mask[i];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const sx = x - shift; if (sx < 0 || sx >= w) continue;
+      const v = mask[y * w + sx]; if (v > out[y * w + x]) out[y * w + x] = v;
+    }
+    return out;
+  }
+
   // ── Tier 1 hair 어댑터 (v336 — mask-hair-adapter.js 로 분리) ──
   function _getHairAdapter() { return window.MaskHairAdapter || null; }
 
@@ -160,10 +242,10 @@
       const mask = new Float32Array(dw * dh);
       const keyMap = {
         skinMask: 'skin', hairMask: 'hair', lipMask: 'skin',
-        eyeMask: 'eye', nailMask: 'nail',
-        handSkinMask: 'skin', backgroundMask: 'background',
+        eyeMask: 'eye', backgroundMask: 'background',
       };
-      const useKey = keyMap[regionType] || 'subject';
+      const useKey = keyMap[regionType];
+      if (!useKey) return _emptyResult('failed', 'heuristic forbidden for ' + regionType);
       for (let y = 0, idx = 0, pi = 0; y < dh; y++) {
         for (let x = 0; x < dw; x++, idx++, pi += 4) {
           const r = data[pi], g = data[pi + 1], b = data[pi + 2];
@@ -193,6 +275,75 @@
     }
   }
 
+  // [v573·P3-1] 네일 색/광택 휴리스틱 폴백 — 손 전체가 안 보이는 "네일 클로즈업"에서 Hand Landmarker
+  //   가 noHand 가 되어 네일 보정이 통째로 NO-OP 되던 문제. 선명 폴리시(고채도)·글로시 팁(밝고 저채도)만,
+  //   살색 warm 톤은 제외하고 coverage 게이트(0.3~12%)로 옷/배경 오검출을 차단한다. (mask-application 이 2차 게이트)
+  async function _tier3_nailHeuristic(img) {
+    const sz = _imgSize(img);
+    if (!sz.w || !sz.h) return null;
+    const RF = _getRefine();
+    const target = 256;
+    const k = Math.min(1, target / Math.max(sz.w, sz.h));
+    const dw = Math.max(1, Math.round(sz.w * k)), dh = Math.max(1, Math.round(sz.h * k));
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = dw; cv.height = dh;
+      const ctx = cv.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, dw, dh);
+      const data = ctx.getImageData(0, 0, dw, dh).data;
+      const small = new Float32Array(dw * dh);
+      let cnt = 0;
+      for (let y = 0, idx = 0, pi = 0; y < dh; y++) {
+        const ny = (y + 0.5) / dh;
+        for (let x = 0; x < dw; x++, idx++, pi += 4) {
+          const r = data[pi], g = data[pi + 1], b = data[pi + 2];
+          const lum = r * 0.299 + g * 0.587 + b * 0.114;
+          const sat = Math.max(r, g, b) - Math.min(r, g, b);
+          const nx = (x + 0.5) / dw;
+          const subj = 1 - (Math.abs(nx - 0.5) * 1.2 + Math.abs(ny - 0.5) * 0.8);
+          if (subj < 0.15) continue;
+          const vivid = sat > 70 && lum > 40 && lum < 240;                 // 유채색 폴리시(빨강/핑크/누드강조)
+          const glossy = lum > 214 && sat < 24;                            // 투명/프렌치 팁 하이라이트
+          // 살색 gradient(r>g>b, 따뜻) 은 채도가 높아도 제외 — 손/얼굴 피부 오검출 차단(핵심 가드)
+          const warmSkin = r > g && g > b && (r - b) >= 8 && (r - b) <= 95 && lum > 60 && lum < 225;
+          if ((vivid || glossy) && !warmSkin) { small[idx] = vivid ? 0.95 : 0.7; cnt++; }
+        }
+      }
+      const cov = cnt / (dw * dh);
+      if (cov < 0.003 || cov > 0.12) return null;                          // 네일 아님(옷·배경·전면 오검출) → 폴백 포기
+      const full = new Float32Array(sz.w * sz.h);
+      for (let y = 0; y < sz.h; y++) {
+        const sy = Math.min(dh - 1, (y * dh / sz.h) | 0);
+        for (let x = 0; x < sz.w; x++) {
+          const sx = Math.min(dw - 1, (x * dw / sz.w) | 0);
+          full[y * sz.w + x] = small[sy * dw + sx];
+        }
+      }
+      // [v574] morphology — open(스펙클 false-positive 제거) → close(손톱 내부 구멍 채움) → 경계 feather 작게.
+      let refined = full;
+      if (RF && RF.openMask && RF.closeMask) {
+        const mr = Math.max(1, Math.round(Math.min(sz.w, sz.h) * 0.0045));
+        refined = RF.closeMask(RF.openMask(full, sz.w, sz.h, mr), sz.w, sz.h, mr);
+      }
+      const featherR = Math.max(2, Math.round(Math.min(sz.w, sz.h) * 0.003));   // 손피부 경계 번짐 최소화(작게)
+      const out = RF ? RF.gaussianFeather(refined, sz.w, sz.h, featherR) : refined;
+      const finalCov = RF ? RF.maskCoverage(out) : cov;
+      if (finalCov < 0.002) return null;                                         // morphology 후 너무 작아지면 폴백 포기
+      return {
+        mask: out,
+        confidence: 0.35,
+        coverage: finalCov,
+        sourceTier: 3,
+        inferenceTimeMs: 0,
+        status: 'fallback',
+        _nailHeuristic: true,
+        featherRadius: featherR,
+        reason: 'nail heuristic (vivid polish / glossy tip, cov ' + (cov * 100).toFixed(1) + '%)',
+      };
+    } catch (e) { return _emptyResult('failed', 'nail heuristic: ' + (e && e.message)); }
+  }
+
   // ── Region → tier 라우팅 ─────────────────────────────────
   async function _computeRegion(img, regionType) {
     const t0 = (performance && performance.now) ? performance.now() : Date.now();
@@ -212,6 +363,22 @@
             if (RF && eye.mask)  { mask = RF.subtractMask(mask, eye.mask); subOk++; }
             if (RF && eye2.mask) { mask = RF.subtractMask(mask, eye2.mask); subOk++; }
             if (RF && lip.mask)  { mask = RF.subtractMask(mask, lip.mask); subOk++; }
+            // [v573·P3-4] 윗이마 연장(이마 절반 해소). 헤어라인 침범은 Tier1 hairMask(실세그) 가 있을 때만 차감
+            //   (Tier2 foreheadTop 폴리곤은 이마를 덮어버려 빼면 안 됨 → sourceTier===1 한정).
+            if (RF) {
+              const sz4 = _imgSize(img);
+              const bb = _maskBBox(mask, sz4.w, sz4.h, 0.3);
+              if (bb) {
+                const ext = Math.round(bb.h * 0.40);   // [v575·필수4] 0.28→0.40 — 윗이마(헤어라인까지) 더 덮음
+                let exm = _extrudeForeheadUp(mask, sz4.w, sz4.h, bb, ext);
+                try {
+                  const hair = await getMask(img, 'hairMask');
+                  if (hair && hair.mask && hair.sourceTier === 1) exm = RF.subtractMask(exm, hair.mask);
+                } catch (_e) { /* hair 미검출 시 연장만 적용 */ }
+                mask = RF.gaussianFeather(exm, sz4.w, sz4.h, Math.max(2, Math.round(Math.min(sz4.w, sz4.h) * 0.004)));
+                r._foreheadExtended = true;
+              }
+            }
             r.mask = mask;
             r.coverage = RF ? RF.maskCoverage(mask) : r.coverage;
             r._subtracted = subOk >= 2;
@@ -265,9 +432,22 @@
           result.eyeLeftCoverage = +lCov.toFixed(4);
           result.eyeRightCoverage = +rCov.toFixed(4);
           const oneEye = (lCov > 0.0005 && rCov < 0.0001) || (rCov > 0.0005 && lCov < 0.0001);
+          // [v546] 한쪽 눈만 인식 → 대칭 복원, 그리고 항상 dilation 으로 coverage 확장(0.8% 너무 작음 대응).
+          if (RF && result.mask && result.status === 'ready') {
+            const sz2 = _imgSize(img);
+            if (oneEye) {
+              result.mask = _reconstructMissingEye(result.mask, sz2.w, sz2.h, lCov >= rCov);
+              result.fallbackUsed = true; result.fallbackReason = 'symmetry-mirror(oneEye)';
+            }
+            const dr = Math.max(1, Math.round(Math.min(sz2.w, sz2.h) * 0.006));   // [v548] 0.012→0.006 — 눈썹쪽 번짐 축소(coverage 확장은 유지하되 보수적)
+            result.mask = RF.gaussianFeather(_dilateMask(result.mask, sz2.w, sz2.h, dr), sz2.w, sz2.h, Math.max(1, (dr / 2) | 0));
+            result.coverage = RF.maskCoverage(result.mask);
+            result.confidence = RF.maskConfidence(result.mask, 0.4);
+            result.dilatedRadius = dr;
+          }
           if (oneEye) {
             result.reason = (result.reason ? result.reason + '; ' : '') +
-              'ONE-EYE: leftEye=' + lCov.toFixed(4) + ' rightEye=' + rCov.toFixed(4) +
+              'ONE-EYE→대칭복원: leftEye=' + lCov.toFixed(4) + ' rightEye=' + rCov.toFixed(4) +
               ' (한쪽 polygon coverage≈0 — 얼굴 각도/landmark 불안정 추정)';
           }
           try {
@@ -283,8 +463,7 @@
           result = await _tier3_heuristic(img, 'backgroundMask');
           break;
         case 'nailMask': {
-          // v336 — Tier 1 Hand Landmarker. 어댑터가 status('ready'|'noHand'|'failed') 반환.
-          //   noHand 면 Tier 3 폴백 안 함 (얼굴 사진 등에서 false-positive 방지).
+          // v550 — 네일은 Hand Landmarker 결과만 허용. 실패 시 색/광택 추정으로 대체하지 않는다.
           const HA = _getHandAdapter();
           if (HA && typeof HA.nailMask === 'function') {
             const t1 = await HA.nailMask(img, _imgSize(img));
@@ -293,14 +472,18 @@
               break;
             }
             if (t1 && t1.status === 'noHand') {
+              // [v573·P3-1] 손 미검출(네일 클로즈업) → 색/광택 휴리스틱 폴백 시도(보수적 게이트)
+              const hr = await _tier3_nailHeuristic(img);
+              if (hr && hr.mask && hr._nailHeuristic) { result = hr; break; }
               result = _emptyResult('noHand', t1.reason || 'no hand detected');
               break;
             }
           }
-          result = await _tier3_heuristic(img, 'nailMask');
+          result = _emptyResult('failed', 'nail detector unavailable or rejected');
           break;
         }
         case 'handSkinMask': {
+          // v550 — 손 피부는 Hand Landmarker 결과만 허용. 피부색 추정으로 대체하지 않는다.
           const HA = _getHandAdapter();
           if (HA && typeof HA.handSkinMask === 'function') {
             const t1 = await HA.handSkinMask(img, _imgSize(img));
@@ -313,7 +496,7 @@
               break;
             }
           }
-          result = await _tier3_heuristic(img, 'handSkinMask');
+          result = _emptyResult('failed', 'hand detector unavailable or rejected');
           break;
         }
         case 'eyelashBandMask': {
@@ -329,11 +512,11 @@
           try {
             const t1 = await EA.eyelashBandMask(img);
             if (t1 && t1.mask) {
-              result = Object.assign({
+              result = _dilateRegion(Object.assign({   // [v546] 속눈썹 band ROI 확장
                 sourceTier: 2,
                 inferenceTimeMs: 0,
                 status: t1._lowConfidence ? 'fallback' : 'ready',
-              }, t1);
+              }, t1), img, 0.006);
             } else {
               result = _emptyResult('fallback', 'no face landmarks or band too thin');
             }
@@ -385,7 +568,7 @@
           const SA = window.MaskScleraAdapter;
           if (SA && typeof SA.scleraMask === 'function') {
             const t = await SA.scleraMask(img, _imgSize(img));
-            if (t && t.mask) { result = t; break; }
+            if (t && t.mask) { result = t; break; }   // [v548] 흰자는 dilation 안 함 — 눈맑게가 눈꺼풀/눈썹쪽으로 번지던 문제 수정(흰자 타이트 유지)
           }
           result = _emptyResult('fallback', 'sclera adapter unavailable or no iris(478) landmarks');
           break;
@@ -396,7 +579,19 @@
           const BA = window.MaskBrowAdapter;
           if (BA && typeof BA.browMask === 'function') {
             const t = await BA.browMask(img, _imgSize(img));
-            if (t && t.mask) { result = t; break; }
+            // [v551] dilation 0.01→0.004 — 0.01 은 실제 눈썹보다 위(이마/눈썹뼈)로 번지고 두꺼워
+            //   "눈썹 선명도"가 이마까지 건드림(실QA 확인). landmark hull 근처로 타이트하게 유지.
+            if (t && t.mask) {
+              // [v575·필수5] 한 눈썹 안에서 마스크가 '중간 끊김'으로 보이던 문제 — feather/다운스케일로 얇은 구간이
+              //   임계 아래로 떨어진 것. closeMask(dilate→erode)로 외형 확장 없이 내부 gap 만 메워 끊김 제거.
+              const RFb = _getRefine();
+              if (RFb && typeof RFb.closeMask === 'function') {
+                const szb = _imgSize(img);
+                const crb = Math.max(1, Math.round(Math.min(szb.w, szb.h) * 0.006));
+                t.mask = RFb.closeMask(t.mask, szb.w, szb.h, crb);
+              }
+              result = _dilateRegion(t, img, 0.004); break;   // [v546→v551] 눈썹 ROI 보수적 확장
+            }
           }
           result = _emptyResult('fallback', 'brow adapter unavailable or no eyebrow landmarks');
           break;

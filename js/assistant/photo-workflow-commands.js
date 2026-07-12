@@ -115,6 +115,9 @@
   function tryRun(input, q, deps) {
     const text = String(q || input?.value || '').trim();
     if (!_editorReady() || !text) return false;
+    // [QA퍼징 2026-06-12] "고객/예약/매출 카드 보여줘"는 사진 템플릿 명령이 아니다 —
+    //   template 커맨드의 /(…|카드).*(보여|열)/ 가 도메인 조회를 오매칭해 편집기를 열던 버그 차단.
+    if (/(고객|손님|예약|매출|회원|명단|연락처|통계|차트|일정)\s*(카드|명단|목록|정보|리스트|내역|보여)/.test(text)) return false;
     const cmd = COMMANDS.find(c => c.test.test(text));
     if (!cmd) return false;
     if (deps && typeof deps.clearInput === 'function') deps.clearInput(input);

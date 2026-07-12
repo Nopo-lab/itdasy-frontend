@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8"><title>scenario 3-step test</title>
+<div id="host"></div>
+<pre id="out">running…</pre>
+<script src="../components/scenario-selector.js?t=1"></script>
+<script>
+const out = document.getElementById('out');
+let result = null;
+renderScenarioSelector(document.getElementById('host'), function (r) { result = r; });
+function dots(){ return document.querySelectorAll('#host .ss-dot').length; }
+function chips(){ return [...document.querySelectorAll('#host .ss-chip')]; }
+function clickFirstReal(){ // 첫 옵션(직접 작성 아님) 클릭
+  const c = chips().find(b => b.textContent !== '직접 작성'); if(c){ c.click(); return c.textContent; } return null;
+}
+(async function(){
+  const steps=[];
+  steps.push('dots='+dots());                 // 진행점 개수(3 기대)
+  steps.push('step1='+clickFirstReal());      // situation
+  await new Promise(r=>setTimeout(r,30));
+  steps.push('step2='+clickFirstReal());      // customer
+  await new Promise(r=>setTimeout(r,30));
+  steps.push('step3='+clickFirstReal());      // photo → 완료 기대(4단계 없음)
+  await new Promise(r=>setTimeout(r,50));
+  steps.push('completed='+(result?JSON.stringify(result.axes)+' special="'+result.special_context+'"':'NO'));
+  out.textContent = steps.join('\n');
+  window.__done = true;
+})();
+</script>

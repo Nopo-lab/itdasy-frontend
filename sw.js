@@ -7,7 +7,7 @@
 //    - /api/, /auth/, /data-export/  → network-first (항상 최신)
 //    - app-*.js, *.css, *.html       → cache-first + 백그라운드 revalidate
 // ─────────────────────────────────────────────
-const CACHE_VERSION = '20260611-v446-hide-pe-aihub';
+const CACHE_VERSION = '20260705-v709-fillwide';
 const CACHE_NAME    = `itdasy-${CACHE_VERSION}`;
 const API_CACHE_NAME = `itdasy-api-${CACHE_VERSION}`;
 
@@ -50,7 +50,6 @@ const STATIC_ASSETS = [
   './app-home-v41-config.js',
   './js/home/v41-styles.js',
   './js/home/v41-actions.js',
-  './js/home/v41-itbi-prompts.js',
   './js/home/v41-renderers.js',
   './app-home-v41.js',
   './app-perf-recovery.js',
@@ -64,6 +63,8 @@ const STATIC_ASSETS = [
   './app-pricelist.js',
   './app-ai-hub.js',
   './app-settings-hub.js',
+  './app-integrations-hub.js',
+  './app-naver-talk-link.js',
   './app-sheet-anim.js',
   './app-emoji-storage.js',
   './manifest.json',

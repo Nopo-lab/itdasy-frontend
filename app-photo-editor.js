@@ -148,14 +148,14 @@
     sheet.style.display = 'none';
     sheet.innerHTML = `<div class="pe-root" role="dialog" aria-modal="true" aria-label="사진 편집기">
       <header class="pe-topbar">
-        <button type="button" class="pe-back-btn" data-pe-act="close" aria-label="뒤로"><svg style="width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-chevron-left"/></svg></button>
+        <button type="button" class="pe-back-btn" data-pe-act="close" aria-label="뒤로"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-chevron-left"/></svg><span class="pe-topbar-label">뒤로</span></button>
         <div class="pe-set-nav" id="peSetNav" hidden style="display:flex;align-items:center;gap:6px;margin-left:4px;">
           <button type="button" class="pe-iconbtn" data-pe-act="set-prev" aria-label="이전 사진" style="font-size:20px;line-height:1;">‹</button>
           <span id="peSetIdx" style="font-size:12px;font-weight:800;color:#4E5968;min-width:34px;text-align:center;">1/1</span>
           <button type="button" class="pe-iconbtn" data-pe-act="set-next" aria-label="다음 사진" style="font-size:20px;line-height:1;">›</button>
         </div>
         <div class="pe-topbar-spacer"></div>
-        <button type="button" class="pe-iconbtn" data-pe-act="undo" aria-label="되돌리기"><svg style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-rotate-ccw"/></svg></button>
+        <button type="button" class="pe-iconbtn" data-pe-act="undo" aria-label="되돌리기"><svg style="width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;"><use href="#ic-rotate-ccw"/></svg><span class="pe-topbar-label">되돌리기</span></button>
         <button type="button" class="pe-topbar-chip" data-pe-act="compare">원본</button>
         <button type="button" class="pe-btn-primary" data-pe-act="save">저장</button></header>
       <div class="pe-thumb-strip" id="peThumbStrip" hidden></div>
@@ -575,6 +575,19 @@
       sheet.classList.remove('pe-inline');
       if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
     }
+    // [2026-06-12 응급B] 챗봇 시트(z-index 10500)가 편집기(10000)보다 위라 편집기가
+    //   "뒤에서" 열리던 문제 — 챗봇이 열려 있으면 닫고, 편집기 닫을 때 복귀시킨다.
+    try {
+      const _as = document.getElementById('assistantSheet');
+      const _chatOpen = !!(_as && _as.style.display && _as.style.display !== 'none');
+      // [§13] 잇비에서 연 편집기는 닫을 때(뒤로가기 포함) 잇비로 복귀. source 명시를 우선 — 호출 시점에
+      //   챗이 이미 닫혀 있어도(타이밍) 사진편집기로 튀지 않고 잇비로 정확히 돌아가게 보장.
+      const _fromChat = (opts.source === 'assistant' || opts.source === 'chat');
+      if (!_state.inline && (_chatOpen || _fromChat)) {
+        _state._reopenChat = true;
+        if (_chatOpen && typeof window.closeAssistant === 'function') window.closeAssistant();
+      }
+    } catch (_e) { void _e; }
     sheet.style.setProperty('display', 'flex', 'important');
     // [작업실 자연스러운 전환] 작업실에서 열린 임베드 모드(onSave/photoSet)는 라이트 테마 + 페이드로
     //   '검은 전체화면 창'이 튀는 느낌을 없애 작업실 안에서 이어지는 편집처럼 보이게 한다.
@@ -626,8 +639,13 @@
     // [v203] 핀치 줌 cleanup — wrap transform 초기화 + 이벤트 해제
     try { if (window.PhotoEditor && typeof window.PhotoEditor._zoomCleanup === 'function') window.PhotoEditor._zoomCleanup(); }
     catch (_e) { void _e; }
+    // [2026-06-12 응급B] 챗봇에서 왔으면 닫을 때 챗봇으로 복귀 (state null 전에 플래그 회수)
+    const _reopenChat = !!(_state && _state._reopenChat);
     _state = null;
     if (!fromHistory && _historyPushed) { _historyPushed = false; try { history.back(); } catch (_e) { void _e; } }
+    if (_reopenChat) {
+      try { if (typeof window.openAssistant === 'function') setTimeout(() => window.openAssistant(), 80); } catch (_e) { void _e; }
+    }
   }
   function _openFromAction(p) {
     p = p || {};
@@ -692,7 +710,7 @@
     _toast('스티커 추가: ' + (preset.value || ''));
   }
 
-  window.PhotoEditor = { open: _open, close: _close, openFromAction: _openFromAction, addStickerLayer: _addStickerLayer };
+  window.PhotoEditor = { open: _open, close: _close, openFromAction: _openFromAction, addStickerLayer: _addStickerLayer, save: _save };
   // 외부 모듈 (beauty / templates) 등록 API.
   //   registerTabPanel(tabId, { html: (state)=>string, bind: (panel, state, helpers)=>void })
   //   registerDrawHook(name, fn)   • name: 'beauty' | 'template' (호출은 _redraw 안)

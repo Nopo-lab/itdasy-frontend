@@ -45,10 +45,18 @@
     try {
       const res = await apiFetch('/assistant/brief', { headers });
       if (!res.ok) return null;
-      const data = await res.json();
+      const data = await _withBookingRevenue(await res.json());
       _writeSWR(data);
       return data;
     } catch (_e) { return null; }
+  }
+  async function _withBookingRevenue(data) {
+    if (!window.BookingRevenueOverlay || typeof window.BookingRevenueOverlay.enrichBrief !== 'function') return data;
+    try { return await window.BookingRevenueOverlay.enrichBrief(data); }
+    catch (err) {
+      console.warn('[myshop] 예약금 보강 실패:', err);
+      return data;
+    }
   }
   // ─────────── 헬퍼 ───────────
   function _shopName() {
@@ -120,33 +128,6 @@
   }
 
   // ─────────── 샵 카드 ───────────
-  function _shopStats(brief) {
-    const rev = (brief && brief.this_month_total) || 0;
-    const mom = brief && (brief.mom_delta_pct != null ? brief.mom_delta_pct : null);
-    const newC = brief && (brief.new_customer_count != null ? brief.new_customer_count : null);
-    const totalC = brief && (brief.total_customers != null ? brief.total_customers : null);
-    const atRiskN = brief && Array.isArray(brief.at_risk) ? brief.at_risk.length :
-                    (brief && typeof brief.at_risk_count === 'number' ? brief.at_risk_count : 0);
-    const todayN = _todayBookingsList(brief).length;
-    const pendingN = brief && Array.isArray(brief.pending_bookings) ? brief.pending_bookings.length : 0;
-
-    const revTrend = mom != null
-      ? `${mom >= 0 ? '+' : ''}${Number(mom).toFixed(0)}% ${mom >= 0 ? '↑' : '↓'} 전월 대비`
-      : '';
-    const custVal = totalC != null ? `${totalC}명` : (atRiskN ? `이탈 ${atRiskN}` : '—');
-    // [2026-06-03] 신규 단일수치 → 방문 기준 3분해. BE 새 필드 없으면(미배포·구캐시) 기존 '신규 N' 폴백.
-    const fv = brief && brief.first_visit_count;
-    const rv = brief && brief.revisit_count;
-    const rg = brief && brief.regular_count;
-    const has3 = [fv, rv, rg].some(v => v != null);
-    const custTrend = has3
-      ? `첫방문 ${fv || 0} · 재방문 ${rv || 0} · 단골 ${rg || 0}`
-      : (newC != null ? `신규 ${newC}` : (atRiskN ? `이탈 위험 ${atRiskN}명` : ''));
-    const bookVal = `${todayN}건`;
-    const bookTrend = pendingN ? `대기 ${pendingN}건` : '오늘 예약';
-
-    return { rev, revTrend, custVal, custTrend, bookVal, bookTrend };
-  }
   function _renderShopCard(brief) {
     const shop = _shopName();
     const initial = _shopInitial(shop);
@@ -154,7 +135,6 @@
     const avatarHTML = avatarUrl
       ? `<img src="${_esc(avatarUrl)}" alt="" data-ms-avatar-fallback="${_esc(initial)}" referrerpolicy="no-referrer" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;">`
       : _esc(initial);
-    const s = _shopStats(brief);
     return `
       <div class="ms-shop">
         <div class="ms-shop__top">
@@ -166,23 +146,6 @@
           <button type="button" class="ms-shop__edit" data-mv-act="editShop" aria-label="샵 정보 편집">
             <i class="ph-duotone ph-pencil-simple" style="font-size:14px" aria-hidden="true"></i>
           </button>
-        </div>
-        <div class="ms-shop__stats">
-          <div class="ms-shop__stat">
-            <div class="ms-shop__stat-label">이번달 매출</div>
-            <div class="ms-shop__stat-value">${_esc(formatMoney(s.rev))}</div>
-            ${s.revTrend ? `<div class="ms-shop__stat-trend">${_esc(s.revTrend)}</div>` : ''}
-          </div>
-          <div class="ms-shop__stat">
-            <div class="ms-shop__stat-label">고객</div>
-            <div class="ms-shop__stat-value">${_esc(s.custVal)}</div>
-            ${s.custTrend ? `<div class="ms-shop__stat-trend">${_esc(s.custTrend)}</div>` : ''}
-          </div>
-          <div class="ms-shop__stat">
-            <div class="ms-shop__stat-label">예약</div>
-            <div class="ms-shop__stat-value">${_esc(s.bookVal)}</div>
-            <div class="ms-shop__stat-trend is-amber">${_esc(s.bookTrend)}</div>
-          </div>
         </div>
       </div>
     `;
@@ -222,7 +185,7 @@
         ? `${totalC}명${atRiskN ? ` · 이탈 위험 ${atRiskN}명` : ''}`
         : (atRiskN ? `이탈 위험 ${atRiskN}명` : '고객 관리'),
       atRiskN,
-      revMeta: `${formatMoney(rev)}${mom != null ? ` · ${mom >= 0 ? '+' : ''}${Number(mom).toFixed(0)}%` : ''}`,
+      revMeta: formatMoney(rev),
       stockMeta: lowStock > 0 ? `${lowStock}개 부족` : '재고 정상',
       lowStock,
     };
@@ -232,8 +195,8 @@
     const items = [
       _menuItemHTML({ act: 'booking', iconClass: 'ms-menu__icon--teal', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-calendar-check"/></svg>', name: '예약관리', meta: m.bookMeta }),
       _menuItemHTML({ act: 'customer', iconClass: 'ms-menu__icon--blue', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-users"/></svg>', name: '고객관리', meta: m.custMeta, metaClass: m.atRiskN ? 'is-danger' : '' }),
-      _menuItemHTML({ act: 'customerDm', iconClass: 'ms-menu__icon--pink', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg>', name: '실시간 DM', meta: '답장 필요 · 잇비 초안' }),
       _menuItemHTML({ act: 'revenue', iconClass: 'ms-menu__icon--amber', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-wallet"/></svg>', name: '매출관리', meta: m.revMeta, metaClass: 'is-ok' }),
+      _menuItemHTML({ act: 'integrations', iconClass: 'ms-menu__icon--blue', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-link"/></svg>', name: '연동관리', meta: '인스타 · 네이버 · 카톡' }),
       /* INVENTORY_HIDDEN */ // _menuItemHTML({ act: 'inventory', iconClass: 'ms-menu__icon--coral', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-package"/></svg>', name: '재고관리', meta: m.stockMeta, metaClass: m.lowStock > 0 ? 'is-danger' : '', badge: m.lowStock > 0 ? m.lowStock : null }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">운영 관리</div><div class="ms-menu">${items}</div></div>`;
@@ -242,10 +205,9 @@
   // ─────────── 통합 허브 메뉴 2개 ───────────
   function _renderHubMenu() {
     const automationOn = _automationOnCount();
-    const automationTotal = 7;
     const items = [
-      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', name: 'AI · 자동화', meta: `${automationOn}개 켜짐 · ${automationTotal - automationOn}개 꺼짐`, badge: automationTotal }),
-      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', name: '설정 · 연동', meta: '샵정보 · 직원 · 네이버 · 백업' }),
+      _menuItemHTML({ act: 'aiHub', iconClass: 'ms-menu__icon--purple', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-bot"/></svg>', name: '잇비 · 자동화', meta: 'DM 자동응답 · 해시태그 · 알림톡' }),
+      _menuItemHTML({ act: 'settings', iconClass: 'ms-menu__icon--gray', iconSVG: '<i class="ph-duotone ph-gear-six" style="font-size:19px;"></i>', name: '설정', meta: '샵정보 · 데이터 · 백업' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">통합 허브</div><div class="ms-menu">${items}</div></div>`;
   }
@@ -255,7 +217,6 @@
     const planLabel = _planLabel();
     const items = [
       _menuItemHTML({ act: 'plan', iconClass: 'ms-menu__icon--pink', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-id-card"/></svg>', name: '플랜 · 구독', meta: planLabel }),
-      _menuItemHTML({ act: 'support', iconClass: 'ms-menu__icon--gray', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-message-circle"/></svg>', name: '도움말 · 문의', meta: '사용법 · 문의하기' }),
     ].join('');
     return `<div class="ms-section"><div class="ms-section__title">계정</div><div class="ms-menu">${items}</div></div>`;
   }
@@ -303,8 +264,8 @@
     const automationOn = _automationOnCount();
     return [
       '<div class="ms-side__section">통합 허브</div>',
-      _sideItemHTML({ act: 'aiHub',    iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', label: 'AI · 자동화', badge: `${automationOn}/7`, badgeClass: 'is-ok' }),
-      _sideItemHTML({ act: 'settings', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', label: '설정 · 연동' }),
+      _sideItemHTML({ act: 'aiHub',    iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-sparkles"/></svg>', label: '잇비 · 자동화', badge: `${automationOn}/7`, badgeClass: 'is-ok' }),
+      _sideItemHTML({ act: 'settings', iconSVG: '<svg width="20" height="20" aria-hidden="true"><use href="#ic-settings"/></svg>', label: '연동관리' }),
     ].join('');
   }
   function _sideAccountHTML() {
@@ -347,7 +308,7 @@
         gradient: 'var(--border-strong)',
       };
     }
-    const LBL = { card: '카드', cash: '현금', transfer: '계좌', membership: '회원권', etc: '기타' };
+    const LBL = { card: '카드', cash: '현금', transfer: '계좌', booking_deposit: '예약금', membership: '회원권', etc: '기타' };
     const COLORS = [
       'var(--brand-strong)',
       'color-mix(in srgb, var(--brand-strong) 55%, var(--surface))',
@@ -485,58 +446,11 @@
   }
 
   // ─────────── PC 메인 컴포지션 ───────────
-  // [2026-05-16] 인스타 말투 분석 리포트 카드 — 홈에서 내샵관리로 이전 (사용자 요청).
-  // 데이터 소스: localStorage('itdasy_latest_analysis') — 인스타 분석 완료 시 저장됨.
-  // 접어두기: localStorage('ms_persona_collapsed') = '1' / '0'.
-  function _ensureMsPersonaStyles() {
-    if (document.getElementById('msPersonaStyles')) return;
-    const s = document.createElement('style');
-    s.id = 'msPersonaStyles';
-    s.textContent = `
-      .ms-persona { background:#fff; border:1px solid #E5E8EB; border-radius:16px; padding:16px 18px; margin:12px 0; box-shadow:0 2px 8px rgba(0,0,0,0.04); }
-      .ms-persona__head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-      .ms-persona__title { font-size:14px; font-weight:700; color:#191F28; letter-spacing:-0.2px; }
-      .ms-persona__toggle { padding:6px 12px; border:1px solid #E5E8EB; background:#fff; border-radius:999px; font-size:12px; font-weight:600; color:#4E5968; cursor:pointer; }
-      .ms-persona__toggle:hover { background:#F7F8FA; }
-      .ms-persona__body { margin-top:12px; padding:14px 16px; background:rgba(213,138,149,0.06); border-radius:12px; border:1px solid rgba(213,138,149,0.15); }
-      .ms-persona__label { font-size:11px; font-weight:700; color:#BC6675; letter-spacing:-0.2px; margin-bottom:6px; }
-      .ms-persona__summary { font-size:13px; color:#191F28; line-height:1.6; font-weight:500; }
-      .ms-persona__detail { margin-top:12px; padding:10px 14px; border:1px solid #BC6675; background:#fff; color:#BC6675; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer; }
-      .ms-persona__detail:hover { background:#F7EFF0; }
-    `;
-    document.head.appendChild(s);
-  }
-  function _renderPersonaCard() {
-    _ensureMsPersonaStyles();
-    let raw = null;
-    try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}'); } catch (_e) { raw = null; }
-    // [F3] showDetailedAnalysis 와 동일 기준 — style_summary/tone_summary/tone 중 하나라도 있으면 노출.
-    const summary = ((raw && (raw.style_summary || raw.tone_summary || raw.tone)) || '').toString().trim();
-    if (!summary) return '';
-    const collapsed = localStorage.getItem('ms_persona_collapsed') === '1';
-    const body = collapsed
-      ? ''
-      : `<div class="ms-persona__body">
-           <div class="ms-persona__label">사장님 말투</div>
-           <div class="ms-persona__summary">${_esc(summary)}</div>
-           <button type="button" class="ms-persona__detail" data-ms-persona-detail>전체 분석 리포트 보기</button>
-         </div>`;
-    const toggleLbl = collapsed ? '펼치기' : '접기';
-    return `
-      <section class="ms-persona" aria-label="말투 분석 리포트">
-        <header class="ms-persona__head">
-          <div class="ms-persona__title">말투 분석 리포트</div>
-          <button type="button" class="ms-persona__toggle" data-mv-act="persona-toggle" aria-expanded="${collapsed ? 'false' : 'true'}">${toggleLbl}</button>
-        </header>
-        ${body}
-      </section>`;
-  }
 
   function _renderPCDash(brief) {
     return `
       <main class="ms-pc" aria-label="내샵관리 PC 대시보드">
         ${_renderShopCard(brief)}
-        ${_renderPersonaCard()}
         <div class="ms-dash">
           ${_renderPCDonut(brief)}
           ${_renderPCWidgets(brief)}
@@ -552,8 +466,8 @@
     const map = {
       booking:        () => window.openCalendarView && window.openCalendarView(),
       customer:       () => window.openCustomerHub && window.openCustomerHub(),
-      customerDm:     () => (window.openDMConfirmQueue || window.openDMConversations)?.(),
       revenue:        () => (window.openRevenue || window.openRevenueHub)?.(),
+      integrations:   () => window.openIntegrationsHub && window.openIntegrationsHub(),
       /* INVENTORY_HIDDEN */ // inventory:      () => window.openInventoryHub && window.openInventoryHub(),
       aiHub:          () => window.openAiHub && window.openAiHub(),
       settings:       () => window.openSettingsHub && window.openSettingsHub(),
@@ -563,11 +477,6 @@
       logout:         () => (window.logout || (() => {}))(),
       bell:           () => window.openNotifications && window.openNotifications(),
       editShop:       () => window.openShopSettings && window.openShopSettings(),
-      'persona-toggle': () => {
-        const cur = localStorage.getItem('ms_persona_collapsed') === '1';
-        try { localStorage.setItem('ms_persona_collapsed', cur ? '0' : '1'); } catch (_e) { /* silent */ }
-        if (window.MyShopV3 && typeof window.MyShopV3.refresh === 'function') window.MyShopV3.refresh();
-      },
       createShortcut: () => window.openAiHub && window.openAiHub(),
       goHome: () => {
         if (typeof window.showTab === 'function') {
@@ -595,23 +504,6 @@
         img.replaceWith(span);
       }, { once: true });
     });
-    // [2026-05-22] _renderPersonaCard 가 모바일·PC 양쪽에 렌더 → 카드 2개. querySelector 는
-    // 첫 번째만 매칭 → 사용자가 두 번째 누르면 무반응. querySelectorAll 로 모두 바인딩.
-    // 추가: window.showDetailedAnalysis 가 timing/error 로 undefined 인 케이스 fallback 토스트.
-    container.querySelectorAll('[data-ms-persona-detail]').forEach(_btn => {
-      _btn.addEventListener('click', () => {
-        if (typeof window.showDetailedAnalysis === 'function') {
-          try { window.showDetailedAnalysis(); }
-          catch (e) {
-            console.error('[ms-persona-detail] showDetailedAnalysis 실행 실패:', e);
-            if (window.showToast) window.showToast('리포트 표시 실패. 잠시 후 다시 시도해주세요');
-          }
-        } else {
-          console.warn('[ms-persona-detail] window.showDetailedAnalysis undefined — app-instagram.js 미로드?');
-          if (window.showToast) window.showToast('분석 모듈 로드중. 1~2초 후 다시 눌러주세요');
-        }
-      });
-    });
   }
 
   // ─────────── 메인 컴포지션 ───────────
@@ -626,7 +518,6 @@
           ${_renderHeader()}
           <div class="ms-body">
             ${_renderShopCard(brief)}
-            ${_renderPersonaCard()}
             ${_renderOpsMenu(brief)}
             ${_renderHubMenu()}
             ${_renderAccountMenu()}

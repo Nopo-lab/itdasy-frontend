@@ -91,12 +91,29 @@
       return await res.blob();
     } catch (serverErr) {
       console.warn('[bg-compose] 서버 누끼 실패, 클라이언트 폴백:', serverErr);
-      if (typeof imglyRemoveBackground === 'undefined' && typeof window._lazyImgly === 'function') await window._lazyImgly();
-      if (typeof imglyRemoveBackground !== 'function') throw serverErr;
-      return await imglyRemoveBackground(_blobFromDataUrl(srcDataUrl), {
+      // [#4] 폴백 버그 수정 — _lazyImgly 는 '모듈 객체'를 반환한다. 옛 코드는 정의된 적 없는
+      //   전역 imglyRemoveBackground 를 봐서 항상 throw → 서버 실패 시 누끼 완전 실패였음.
+      var fn = _resolveImgly();
+      if (typeof fn !== 'function' && typeof window._lazyImgly === 'function') {
+        var mod = await window._lazyImgly();
+        fn = _resolveImgly(mod);
+      }
+      if (typeof fn !== 'function') throw serverErr;
+      return await fn(_blobFromDataUrl(srcDataUrl), {
         publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/dist/',
       });
     }
+  }
+  // 로드된 imgly 모듈에서 removeBackground 함수를 안전하게 꺼낸다(전역/모듈/UMD 네임스페이스 모두 대응).
+  function _resolveImgly(mod) {
+    var cands = [
+      mod && mod.removeBackground, mod && mod.default && mod.default.removeBackground,
+      (typeof window !== 'undefined') && window.imgly_bgr && window.imgly_bgr.removeBackground,
+      (typeof window !== 'undefined') && window['@imgly/background-removal'] && window['@imgly/background-removal'].removeBackground,
+      (typeof imglyRemoveBackground !== 'undefined') ? imglyRemoveBackground : null
+    ];
+    for (var i = 0; i < cands.length; i++) { if (typeof cands[i] === 'function') return cands[i]; }
+    return null;
   }
 
   function _alphaBBox(img) {
@@ -115,11 +132,14 @@
     return maxX < 0 ? null : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
   }
 
+  // [v540] breathing room 0.92→0.97 — 누끼 후 피사체가 원본보다 ~8% 작아 보이던 미세 축소 완화.
+  //   (원본 프리뷰는 cover 로 꽉 차고, 합성본은 0.92 margin 으로 작아 보였음) 그림자 클리핑 방지로 3% 여백만 유지.
+  const PERSON_FILL = 0.97;
   function _personPlacement(personImg, CW, CH) {
     const bbox = _alphaBBox(personImg);
     const pw0 = bbox ? bbox.w : (personImg.naturalWidth || personImg.width);
     const ph0 = bbox ? bbox.h : (personImg.naturalHeight || personImg.height);
-    const scale = Math.min((CW * 0.92) / pw0, (CH * 0.92) / ph0);
+    const scale = Math.min((CW * PERSON_FILL) / pw0, (CH * PERSON_FILL) / ph0);
     return { bbox, dx: (CW - pw0 * scale) / 2, dy: (CH - ph0 * scale) / 2, dw: pw0 * scale, dh: ph0 * scale };
   }
 
@@ -163,6 +183,8 @@
   async function compose(opts) {
     const srcDataUrl = await _dataUrlFromAny(opts.srcUrl);
     let removedUrl = opts.preRemovedBgUrl || null;
+    // [v537] 누끼 캐시 가시화 — 배경색/이미지 변경은 캐시된 matte 재사용(API 0회), 첫 1회만 request.
+    try { console.log(removedUrl ? '[matting] reuse cached matte (배경만 재합성, API 호출 없음)' : '[matting] request matte (마스크 1회 생성)'); } catch (_e) { void _e; }
     if (!removedUrl) {
       const blob = await _removeBg(srcDataUrl);
       const tmpUrl = URL.createObjectURL(blob);

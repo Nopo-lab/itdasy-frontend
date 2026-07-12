@@ -1,0 +1,236 @@
+/* ───────────────────────────────────────────────────────────
+   settings-v2.css — 설정 계열 리디자인 공통 (2026-07-05)
+   대상: 설정 허브 계정 카드 / 샵정보(심사 배지·영업시간) /
+         백업·로그아웃 / 알림함(실패 재시도)
+   tokens.css 변수만 사용. 토글 on = 초록(--ok 계열).
+   ─────────────────────────────────────────────────────────── */
+
+/* ── 설정 허브: 인스타 계정 카드 ── */
+.sv2-acc {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+}
+.sv2-acc__avatar {
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: var(--shadow-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  display: block;
+}
+.sv2-acc__avatar--init {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+  color: #fff; font-size: 18px; font-weight: 800;
+  user-select: none;
+}
+.sv2-acc__info { flex: 1; min-width: 0; }
+.sv2-acc__handle {
+  font-size: 15px; font-weight: 800; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sv2-acc__email {
+  font-size: 12.5px; font-weight: 500; color: var(--text-subtle);
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── 필 배지 (연동 상태 / 심사 상태 공용) ── */
+.sv2-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px;
+  border: 0; border-radius: var(--r-pill);
+  font-size: 11.5px; font-weight: 800;
+  font-family: inherit;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.sv2-pill--ok    { background: rgba(22, 181, 94, 0.10); color: #0d8f49; }
+.sv2-pill--brand { background: var(--brand-bg); color: var(--brand-strong); cursor: pointer; }
+.sv2-pill--brand:active { transform: scale(0.96); }
+
+/* ── 샵정보: 외부 심사 상태 행 ── */
+.sv2-review-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sv2-review-row:last-of-type { border-bottom: 0; }
+.sv2-review-row .sv2-review-ic { color: var(--text-subtle); flex-shrink: 0; display: flex; }
+.sv2-review-row .t1 { font-size: 13px; font-weight: 700; color: var(--text); }
+.sv2-review-row .t2 { font-size: 11px; color: var(--text-subtle); margin-top: 2px; }
+.sv2-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 800;
+  flex-shrink: 0;
+}
+.sv2-badge--progress { background: var(--brand-bg); color: var(--brand-strong); }
+.sv2-badge--ok       { background: rgba(22, 181, 94, 0.10); color: #0d8f49; }
+.sv2-note {
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  font-size: 11px; color: var(--text-muted); line-height: 1.5;
+}
+
+/* ── 샵정보: 영업시간 프리셋 (네이버식 3모드) ── */
+.sv2-hm__seg {
+  display: flex; gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.sv2-hm__segbtn {
+  appearance: none; -webkit-appearance: none;
+  flex: 1; min-width: 0;
+  height: 36px; border: 0; border-radius: 9px;
+  background: none;
+  font-family: inherit;
+  font-size: 12.5px; font-weight: 600; color: var(--text-subtle);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sv2-hm__segbtn:active { transform: scale(0.96); }
+.sv2-hm__segbtn.is-on {
+  background: #fff; color: var(--text); font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.sv2-hm__chips { display: flex; gap: 6px; }
+.sv2-hm__chip {
+  appearance: none; -webkit-appearance: none;
+  flex: 1; min-width: 0;
+  height: 38px;
+  border: 1px solid var(--border); border-radius: 11px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 13px; font-weight: 600; color: var(--text-subtle);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sv2-hm__chip:active { transform: scale(0.94); }
+.sv2-hm__chip.is-on {
+  border-color: rgba(22, 181, 94, 0.45);
+  background: rgba(22, 181, 94, 0.08);
+  color: #0d8f49; font-weight: 700;
+}
+.sv2-hm__hint { margin: 6px 2px 10px; font-size: 11px; color: var(--text-subtle); }
+.sv2-hm__timerow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.sv2-hm__grouplbl {
+  flex: 0 0 34px;
+  font-size: 13px; font-weight: 700; color: var(--text);
+}
+
+/* ── 샵정보: 영업시간 (요일별 모드 — 요일 행 + 인라인 확장) ── */
+.sv2-hr__row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 0.5px solid var(--border);
+}
+.sv2-hr__row:last-of-type { border-bottom: 0; }
+.sv2-hr__day {
+  width: 30px; flex-shrink: 0;
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+.sv2-hr__row.is-off .sv2-hr__day { color: var(--text-subtle); }
+.sv2-hr__time {
+  appearance: none; -webkit-appearance: none;
+  flex: 1; min-width: 0;
+  background: none; border: 0; outline: 0;
+  text-align: left; cursor: pointer;
+  font-family: inherit;
+  font-size: 14px; font-weight: 600; color: var(--text);
+  padding: 4px 0;
+}
+.sv2-hr__time.is-editing { color: var(--brand-strong); }
+.sv2-hr__row.is-off .sv2-hr__time {
+  color: var(--text-subtle); font-weight: 500; cursor: default;
+}
+.sv2-hr__expand { padding: 2px 4px 14px 44px; }
+.sv2-hr__selects { display: flex; align-items: center; gap: 8px; }
+.sv2-hr__select {
+  appearance: none; -webkit-appearance: none;
+  flex: 1; min-width: 0;
+  height: 44px; padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+  font-family: inherit;
+  font-size: 14px; font-weight: 700; color: var(--text);
+  text-align: center; text-align-last: center;
+  cursor: pointer; outline: 0;
+}
+.sv2-hr__select:focus { border-color: var(--brand); }
+.sv2-hr__tilde { font-size: 13px; font-weight: 600; color: var(--text-subtle); flex-shrink: 0; }
+.sv2-hr__applyall {
+  appearance: none; -webkit-appearance: none;
+  width: 100%; margin-top: 10px;
+  height: 40px; border: 0; border-radius: 12px;
+  background: var(--brand-bg); color: var(--brand-strong);
+  font-family: inherit;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sv2-hr__applyall:active { transform: scale(0.97); }
+
+/* ── 저장 CTA (검정, 54px, 쫀득) ── */
+.sv2-cta {
+  appearance: none; -webkit-appearance: none;
+  width: 100%; height: 54px;
+  border: 0; border-radius: var(--r-md);
+  background: var(--text); color: #fff;
+  font-family: inherit;
+  font-size: 16px; font-weight: 800;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: transform 0.12s ease;
+}
+.sv2-cta:active { transform: scale(0.985); }
+
+/* ── 위험 행 (로그아웃 등) ── */
+.row-danger {
+  appearance: none; -webkit-appearance: none;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 14px;
+  border: 0; border-radius: var(--r-md);
+  background: rgba(229, 72, 77, 0.08);
+  color: #C0262C;
+  font-family: inherit;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.row-danger:active { transform: scale(0.985); }
+
+/* ── 알림함: 실패 재시도 필 버튼 / 빈 상태 ── */
+.sv2-retry {
+  appearance: none; -webkit-appearance: none;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 30px; padding: 0 12px;
+  border: 0; border-radius: var(--r-pill);
+  background: var(--brand-bg); color: var(--brand-strong);
+  font-family: inherit;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.sv2-retry:active { transform: scale(0.96); }
+.sv2-empty {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--text-subtle);
+}
+.sv2-empty svg { opacity: 0.55; margin-bottom: 10px; }
+.sv2-empty .t { font-size: 13px; font-weight: 600; }
+
+/* ── PC: 설정 하위화면 콘텐츠 640px 중앙 ── */
+@media (width >= 768px) {
+  .subscreen-overlay .ss-body {
+    width: 100%;
+    max-width: 668px; /* 640 + 좌우 패딩 14*2 */
+    margin: 0 auto;
+  }
+}

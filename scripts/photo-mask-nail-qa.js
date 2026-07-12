@@ -4,10 +4,10 @@
    검증:
      A. 게이트 _nailGatePass — Tier1 + conf≥0.7 + coverage 0.0005~0.08 경계(작음/손전체 reject)
      B. PE_NAIL_MASK_DISABLE → getNailMaskSync null
-     C. 엔진 안전 — nailGloss 적용 시 배경(edge)·매트 피부 번짐 0, 글리터(광택) 효과 유지, 누드(매트) 과탐 없음
-     D. nailMask 있음 vs 없음 — 마스크 있으면 글리터에 더 강하게(신뢰), 없으면 휴리스틱 경로
+     C. 엔진 안전 — nailMask 없으면 모든 픽셀 변화 0
+     D. nailMask 있으면 네일 영역만 변화
      E. nailShape 적용 pageerror 0
-     F. handSkin 상태 — 고신뢰 stub여도 '정밀 적용됨' 표시 금지(항상 fallback/준비 중)
+     F. handSkin 상태 — Tier1 고신뢰면 정밀 적용
      G. pageerror 0
    ※ beauty-engine 무수정. 실네일 손/배경 비번짐 최종 확인은 실사진 overlay 수동.
    실행: python3 -m http.server 8099 후 node scripts/photo-mask-nail-qa.js */
@@ -62,8 +62,8 @@ async function main() {
     const dNull = deltas(null);
     ok('C1 배경(edge) 번짐 0', Math.abs(dNull.bgEdge) < 1.5, 'bgEdge Δ=' + dNull.bgEdge);
     ok('C2 매트 피부 번짐 거의 0', Math.abs(dNull.skin) < 4, 'skin Δ=' + dNull.skin);
-    ok('C3 글리터(광택) 효과 유지', dNull.glitter > 6, 'glitter Δ=' + dNull.glitter);
-    ok('C4 누드 < 글리터 (과탐 없음)', dNull.nude < dNull.glitter, 'nude Δ=' + dNull.nude + ' glitter Δ=' + dNull.glitter);
+    ok('C3 마스크 없음 → 글리터 보정 0', Math.abs(dNull.glitter) < 0.1, 'glitter Δ=' + dNull.glitter);
+    ok('C4 마스크 없음 → 누드 보정 0', Math.abs(dNull.nude) < 0.1, 'nude Δ=' + dNull.nude);
 
     // 현실적 마스크: 네일(글리터) 영역에만 1 (게이트가 cov<0.08 로 손전체/배경 마스크는 reject → 국한 마스크가 정상)
     const nailM = new Float32Array(W * H);
@@ -71,7 +71,7 @@ async function main() {
       for (let x = Math.floor(W * 0.40); x < Math.floor(W * 0.50); x++) nailM[y * W + x] = 1;
     }
     const dMask = deltas({ useMasks: { nailMask: nailM }, _scale: { nailMask: 1 }, maskW: W, maskH: H });
-    ok('D1 nailMask(네일 한정) → 글리터 효과 ≥ 휴리스틱', dMask.glitter >= dNull.glitter - 0.5, 'mask=' + dMask.glitter + ' null=' + dNull.glitter);
+    ok('D1 nailMask(네일 한정) → 글리터 효과 발생', dMask.glitter > 6, 'mask=' + dMask.glitter + ' null=' + dNull.glitter);
     ok('D2 nailMask 네일 한정 → 배경(edge) 번짐 0', Math.abs(dMask.bgEdge) < 1.5, 'bgEdge Δ=' + dMask.bgEdge);
 
     // E. nailShape 적용 pageerror 0 (크래시 없음)
@@ -79,14 +79,14 @@ async function main() {
     try { const c = mk(); ENG.apply(c, W, H, { nailShape: 100 }, null, { useMasks: { nailMask: nailM }, _scale: { nailMask: 1 }, maskW: W, maskH: H }); } catch (_e) { shapeOk = false; }
     ok('E1 nailShape 적용 크래시 없음', shapeOk);
 
-    // F. handSkin 상태 — 고신뢰 stub 주입해도 정밀 아님
+    // F. handSkin 상태 — 고신뢰 Tier1이면 정밀 적용
     const RP = window.RegionMaskProvider;
     const orig = RP.getStats;
     RP.getStats = () => ([{ maskType: 'handSkinMask', confidence: 0.95, status: 'ready', sourceTier: 1, coverage: 0.1 }]);
     let handRow;
     try { handRow = UI.buildModel({ originalImg: {} }).rows.find(r => r.id === 'handSkinMask'); } finally { RP.getStats = orig; }
-    ok('F1 handSkin 고신뢰여도 정밀 적용됨 아님', handRow.status === '기본 보정으로 처리 중' && handRow.tone === 'fallback', handRow.status);
-    ok('F2 handSkin 정직 안내(준비 중)', /준비 중/.test(handRow.detail));
+    ok('F1 handSkin 고신뢰 Tier1 → 필요 시 정밀 적용', handRow.status === '필요 시 정밀 적용' && handRow.tone === 'strong', handRow.status);
+    ok('F2 handSkin 안내', /ready/.test(handRow.detail));
 
     return checks;
   });

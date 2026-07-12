@@ -19,40 +19,7 @@ async function _personaFetch(method, path, body) {
   return data;
 }
 
-// ═══════════════════════════════════════════════════════
-const SHOP_KEYWORDS = {
-  '붙임머리': ['14인치','18인치','22인치','24인치','26인치','28인치','30인치','특수인치','옴브레','재시술','볼륨업','자연스러운','롱헤어'],
-  '네일아트': ['젤네일','아트','프렌치','이달의아트','글리터','원톤','그라데이션','스톤','매트','자개'],
-  '네일': ['젤네일','아트','프렌치','이달의아트','글리터','원톤','그라데이션','스톤','매트','자개'],
-  '헤어': ['단발','투블럭','남성','여성','펌','염색','탈색','클리닉','셋팅','레이어드','히피펌','S컬'],
-  '속눈썹': ['볼륨','클래식','내추럴','C컬','D컬','J컬','CC컬','브라운','속눈썹펌','래쉬리프트','하속눈썹'],
-};
-
-// 사용자 커스텀 키워드 (localStorage)
-function _loadCustomKeywords() {
-  try { return JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); } catch(_) { return []; }
-}
-function _saveCustomKeywords(arr) {
-  localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr));
-}
-
-// 삭제된 기본 키워드 (localStorage)
-function _loadDeletedKeywords() {
-  try { return JSON.parse(localStorage.getItem('itdasy_deleted_keywords') || '[]'); } catch(_) { return []; }
-}
-function _saveDeletedKeywords(arr) {
-  localStorage.setItem('itdasy_deleted_keywords', JSON.stringify(arr));
-}
-
-// 현재 업종에 맞는 키워드 목록 반환 (기본 - 삭제 + 커스텀)
-function getShopKeywords() {
-  const shopType = localStorage.getItem('shop_type') || '붙임머리';
-  const base = SHOP_KEYWORDS[shopType] || SHOP_KEYWORDS['붙임머리'];
-  const deleted = _loadDeletedKeywords();
-  const custom = _loadCustomKeywords();
-  const filtered = base.filter(k => !deleted.includes(k));
-  return [...new Set([...filtered, ...custom])];
-}
+// ===== 시술 키워드 태그(SHOP_KEYWORDS+localStorage+UI) → js/caption/caption-keyword-tags.js 로 분리(B-분할) =====
 
 // ===== 해시태그 셔플 믹싱 =====
 // 이전에 사용한 태그 순서 기록 → 매번 다른 조합·순서로 노출
@@ -91,319 +58,10 @@ function shuffleHashtags(tags) {
   return result;
 }
 
-// ===== 캡션 로딩 팝업 (슬롯머신) =====
-const SLOT_KEYWORDS = [
-  ['따뜻한','친근한','유머러스','전문적인','감성적인','활발한','차분한','트렌디한','포근한','자연스러운'],
-  ['짧게','보통','길게','핵심만','상세하게','간결하게','풍부하게','딱맞게','깔끔하게','진심으로'],
-  ['✨','🎀','💕','🌸','😊','💫','🔥','🌿','💗','🙏'],
-];
-let _slotTimers = [];
-let _slotLocked = [false, false, false];
-let _personaFinalWords = ['자연스러운', '보통', '✨'];
+// ===== 캡션 로딩 팝업(슬롯머신) → js/caption/caption-loader-ui.js 로 분리(B-분할) =====
+// ===== 온보딩 캡션 테스트 팝업 → js/caption/caption-onboarding.js 로 분리(B-분할) =====
 
-function _initSlotStrip(idx) {
-  const strip = document.getElementById('slotStrip' + idx);
-  if (!strip) return;
-  strip.innerHTML = '';
-  const words = [...SLOT_KEYWORDS[idx], ...SLOT_KEYWORDS[idx], ...SLOT_KEYWORDS[idx]];
-  words.forEach(w => {
-    const div = document.createElement('div');
-    div.className = 'slot-item';
-    div.textContent = w;
-    strip.appendChild(div);
-  });
-  strip.style.transition = 'none';
-  strip.style.transform = 'translateY(0px)';
-}
-
-function _spinReel(idx) {
-  const strip = document.getElementById('slotStrip' + idx);
-  if (!strip) return;
-  let offset = 0;
-  const itemH = 44;
-  const total = SLOT_KEYWORDS[idx].length * 3;
-  const speed = 100 + idx * 35;
-  const timer = setInterval(() => {
-    if (_slotLocked[idx]) { clearInterval(timer); return; }
-    offset -= itemH;
-    if (offset < -(total - SLOT_KEYWORDS[idx].length) * itemH) {
-      offset = -Math.floor(Math.random() * SLOT_KEYWORDS[idx].length) * itemH;
-      strip.style.transition = 'none';
-      strip.style.transform = `translateY(${offset}px)`;
-      return;
-    }
-    strip.style.transition = `transform ${speed * 0.9}ms linear`;
-    strip.style.transform = `translateY(${offset}px)`;
-  }, speed);
-  _slotTimers.push(timer);
-}
-
-function _lockReel(idx, keyword) {
-  _slotLocked[idx] = true;
-  const lockEl = document.getElementById('slotLock' + idx);
-  if (lockEl) {
-    lockEl.textContent = keyword;
-    lockEl.classList.add('active');
-  }
-  // 슬롯 윈도우 숨겨서 글자 겹침 방지
-  const stripEl = document.getElementById('slotStrip' + idx);
-  if (stripEl) {
-    const winEl = stripEl.closest('.slot-window');
-    if (winEl) winEl.style.visibility = 'hidden';
-  }
-}
-
-function showCaptionLoader() {
-  const popup = document.getElementById('captionLoadingPopup');
-  popup.style.display = 'flex';
-  _slotLocked = [false, false, false];
-  _slotTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
-  _slotTimers = [];
-
-  // 페르소나 데이터로 최종 잠금 키워드 설정
-  const raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}');
-  const avgLen = parseInt(raw.avg_caption_length) || 0;
-  const lenWord = avgLen > 0 ? (avgLen < 50 ? '짧게' : avgLen > 120 ? '길게' : '보통') : '보통';
-  const emojiMatch = (raw.emojis || '').match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u);
-  const emojiWord = emojiMatch ? emojiMatch[0] : '✨';
-  const toneWord = (raw.tone_summary || raw.tone || '').replace(/["']/g, '').trim().split(/[\s,·]+/)[0] || '자연스러운';
-  _personaFinalWords = [toneWord, lenWord, emojiWord];
-
-  [0,1,2].forEach(i => {
-    const lock = document.getElementById('slotLock' + i);
-    if (lock) lock.classList.remove('active');
-    // 슬롯 윈도우 다시 표시
-    const stripEl = document.getElementById('slotStrip' + i);
-    if (stripEl) {
-      const winEl = stripEl.closest('.slot-window');
-      if (winEl) winEl.style.visibility = '';
-    }
-    _initSlotStrip(i);
-    setTimeout(() => _spinReel(i), i * 120);
-  });
-  document.getElementById('clMsg').textContent = '원장님 말투로 조합 중...';
-  document.getElementById('clHint').textContent = '키워드 조합 중이에요...';
-
-  // 메시지 순환
-  const _clMsgs = ['원장님 말투 불러오는 중...', 'AI가 글 구상 중이에요...', '해시태그 고르는 중...', '거의 다 됐어요...'];
-  let _clMsgIdx = 0;
-  const _clMsgTimer = setInterval(() => {
-    _clMsgIdx = Math.min(_clMsgIdx + 1, _clMsgs.length - 1);
-    if (!_slotLocked[0]) document.getElementById('clMsg').textContent = _clMsgs[_clMsgIdx];
-  }, 1600);
-  _slotTimers.push(_clMsgTimer);
-
-}
-
-function hideCaptionLoader(success, onClose) {
-  // 아직 안 잠긴 릴만 순차 잠금 (150ms 간격) — API 응답 완료 시점에 맞춰 빠르게 종료
-  const finalWords = [
-    _personaFinalWords[0] || SLOT_KEYWORDS[0][Math.floor(Math.random() * SLOT_KEYWORDS[0].length)],
-    _personaFinalWords[1] || SLOT_KEYWORDS[1][Math.floor(Math.random() * SLOT_KEYWORDS[1].length)],
-    _personaFinalWords[2] || SLOT_KEYWORDS[2][Math.floor(Math.random() * SLOT_KEYWORDS[2].length)],
-  ];
-  let lastLockDelay = 0;
-  [0, 1, 2].forEach(i => {
-    if (!_slotLocked[i]) {
-      setTimeout(() => _lockReel(i, finalWords[i]), i * 150);
-      lastLockDelay = i * 150;
-    }
-  });
-  // 마지막 릴 잠금 후 350ms 뒤 닫기
-  setTimeout(() => {
-    _slotTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
-    _slotTimers = [];
-    document.getElementById('captionLoadingPopup').style.display = 'none';
-    _slotLocked = [false, false, false];
-    if (onClose) setTimeout(onClose, 80);
-  }, lastLockDelay + 350);
-}
-
-// ===== 온보딩 캡션 테스트 팝업 =====
-async function showOnboardingCaptionPopup() {
-  const popup = document.getElementById('onboardingCaptionPopup');
-  const ta = document.getElementById('ocpTextarea');
-
-  // 팝업을 먼저 열고, 생성 중 상태로 표시
-  const loadingMsgs = ['AI가 말투를 분석하고 있어요...✨', '게시물 스타일 학습 중...🎀', '피드 글 초안 작성 중...📝', '거의 다 됐어요!💫'];
-  let msgIdx = 0;
-  ta.value = loadingMsgs[0];
-  ta.readOnly = true;
-  ta.style.opacity = '0.5';
-  popup.style.display = 'flex';
-  const loadingTimer = setInterval(() => { msgIdx = (msgIdx + 1) % loadingMsgs.length; ta.value = loadingMsgs[msgIdx]; }, 2000);
-
-  // 저장 버튼도 비활성화
-  const saveBtn = popup.querySelector('.ocp-save');
-  if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.5'; }
-
-  try {
-    const shopType = localStorage.getItem('shop_type') || '붙임머리';
-    const res = await apiFetch('/caption/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ description: `${shopType} 시술. 오늘 새로운 손님. 결과 대만족.`, platform: 'instagram' }),
-    });
-    if (res.ok) {
-      const d = await res.json();
-      ta.value = d.caption.trim();
-    } else {
-      // [2026-04-26] 무음 실패 금지 — 사용자한테 명시적으로 알림 (Meta 심사 블로커)
-      const errMsg = (await res.text().catch(() => '')) || `HTTP ${res.status}`;
-      console.warn('[caption] 생성 실패:', errMsg);
-      if (typeof showToast === 'function') {
-        showToast('AI 글 만들기에 실패했어요 — 잠시 후 다시 시도해주세요', 'error');
-      }
-      ta.value = '직접 평소 쓰시는 말투로 한 문단 입력해주시면 학습할게요!';
-    }
-  } catch(e) {
-    ta.value = '직접 평소 쓰시는 말투로 한 문단 입력해주시면 학습할게요!';
-  } finally {
-    clearInterval(loadingTimer);
-    ta.readOnly = false;
-    ta.style.opacity = '1';
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
-  }
-}
-
-function closeOnboardingCaptionPopup() {
-  document.getElementById('onboardingCaptionPopup').style.display = 'none';
-}
-
-async function saveOnboardingCaption() {
-  const ta = document.getElementById('ocpTextarea');
-  const text = ta.value.trim();
-  if (!text || text.length < 10) { showToast('글을 조금 더 입력해주세요!'); return; }
-
-  try {
-    const res = await apiFetch('/shop/persona/onboarding', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader() },
-      body: JSON.stringify({ corrected_caption: text }),
-    });
-    if (!res.ok) throw new Error();
-    closeOnboardingCaptionPopup();
-    showToast('학습 완료! 앞으로 모든 글에 반영됩니다!');
-  } catch(e) {
-    showToast('저장에 실패했어요. 다시 시도해주세요.');
-  }
-}
-
-// ===== 캡션 탭 사진 영역 (드래그 순서 변경) =====
-let _captionPhotosReordered = null; // 재정렬된 사진 배열 (null = 슬롯 기본 순서)
-
-function _captionOpenSlotPicker() {
-  const picker = document.getElementById('captionSlotPicker');
-  if (picker) {
-    picker.style.display = 'block';
-    if (typeof initCaptionSlotPicker === 'function') initCaptionSlotPicker();
-    picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
-}
-
-function _renderCaptionPhotoRow() {
-  const strip = document.getElementById('captionPhotoThumbRow');
-  if (!strip) return;
-
-  const slot = (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined')
-    ? _slots.find(s => s.id === _captionSlotId) : null;
-
-  if (!slot) {
-    strip.innerHTML = `<div data-caption-open-picker style="width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;"><i class="ph-duotone ph-camera" style="font-size:22px;color:var(--text-subtle);"></i></div>`;
-    strip.querySelector('[data-caption-open-picker]')?.addEventListener('click', _captionOpenSlotPicker);
-    return;
-  }
-
-  const basePhotos = slot.photos.filter(p => !p.hidden);
-  if (!_captionPhotosReordered || _captionPhotosReordered._slotId !== _captionSlotId) {
-    _captionPhotosReordered = [...basePhotos];
-    _captionPhotosReordered._slotId = _captionSlotId;
-  }
-
-  strip.innerHTML = '';
-  _captionPhotosReordered.forEach((p, i) => {
-    const src = p.editedDataUrl || p.dataUrl || '';
-    const wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;flex-shrink:0;user-select:none;';
-    wrap.draggable = true;
-    wrap.dataset.capPhotoIdx = i;
-
-    wrap.innerHTML = `
-      <img src="${_capEsc(src)}" alt="" draggable="false" style="width:72px;height:72px;object-fit:cover;border-radius:10px;display:block;pointer-events:none;">
-      <button data-remove-cap-photo data-photo-index="${i}" style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;border:none;background:rgba(0,0,0,0.55);color:#fff;font-size:11px;line-height:1;cursor:pointer;">×</button>
-      <div style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-size:8px;color:rgba(255,255,255,0.8);background:rgba(0,0,0,0.35);border-radius:3px;padding:0 3px;">${i+1}</div>
-    `;
-    wrap.querySelector('[data-remove-cap-photo]')?.addEventListener('click', e => {
-      _removeCapPhoto(Number(e.currentTarget.dataset.photoIndex), e);
-    });
-
-    // HTML5 drag (desktop + PWA)
-    wrap.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', String(i)); wrap.style.opacity = '0.4'; });
-    wrap.addEventListener('dragend', () => wrap.style.opacity = '1');
-    wrap.addEventListener('dragover', e => { e.preventDefault(); wrap.style.outline = '2px solid var(--accent)'; });
-    wrap.addEventListener('dragleave', () => wrap.style.outline = '');
-    wrap.addEventListener('drop', e => {
-      e.preventDefault(); wrap.style.outline = '';
-      const fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const toIdx = parseInt(wrap.dataset.capPhotoIdx, 10);
-      if (isNaN(fromIdx) || fromIdx === toIdx) return;
-      const arr = [..._captionPhotosReordered];
-      const [removed] = arr.splice(fromIdx, 1);
-      arr.splice(toIdx, 0, removed);
-      _captionPhotosReordered = arr;
-      _captionPhotosReordered._slotId = _captionSlotId;
-      _renderCaptionPhotoRow();
-    });
-
-    // Long-press (300ms) → touch drag
-    let _lpTimer = null, _lpActive = false;
-    wrap.addEventListener('touchstart', () => {
-      _lpTimer = setTimeout(() => {
-        _lpActive = true;
-        wrap.style.opacity = '0.5';
-        if (navigator.vibrate) navigator.vibrate(20);
-      }, 300);
-    }, { passive: true });
-    wrap.addEventListener('touchend', () => {
-      clearTimeout(_lpTimer);
-      if (_lpActive) { wrap.style.opacity = '1'; _lpActive = false; }
-    }, { passive: true });
-    wrap.addEventListener('touchmove', e => {
-      if (!_lpActive) { clearTimeout(_lpTimer); return; }
-      e.preventDefault();
-      const touch = e.touches[0];
-      const el = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('[data-cap-photo-idx]');
-      if (el && el !== wrap) {
-        const fromIdx = parseInt(wrap.dataset.capPhotoIdx, 10);
-        const toIdx   = parseInt(el.dataset.capPhotoIdx, 10);
-        const arr = [..._captionPhotosReordered];
-        const [removed] = arr.splice(fromIdx, 1);
-        arr.splice(toIdx, 0, removed);
-        _captionPhotosReordered = arr;
-        _captionPhotosReordered._slotId = _captionSlotId;
-        _renderCaptionPhotoRow();
-      }
-    }, { passive: false });
-
-    strip.appendChild(wrap);
-  });
-
-  const addBtn = document.createElement('div');
-  addBtn.style.cssText = 'width:72px;height:72px;border-radius:10px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--text3);cursor:pointer;flex-shrink:0;';
-  addBtn.textContent = '+';
-  addBtn.onclick = _captionOpenSlotPicker;
-  strip.appendChild(addBtn);
-}
-
-function _removeCapPhoto(idx, e) {
-  e?.stopPropagation();
-  if (!_captionPhotosReordered) return;
-  const slotId = _captionPhotosReordered._slotId;
-  _captionPhotosReordered = _captionPhotosReordered.filter((_, i) => i !== idx);
-  _captionPhotosReordered._slotId = slotId;
-  _renderCaptionPhotoRow();
-}
-
+// ===== 캡션 탭 사진 영역(드래그 순서) → js/caption/caption-photo-row.js 로 분리(B-분할) =====
 
 // ===== 편집 로그 PATCH (debounce 800ms) =====
 let _lastLogId = null;     // 최근 생성된 generation_log.id
@@ -457,80 +115,27 @@ async function _capPatchLog(text) {
   } catch(_e) { /* 조용히 실패 */ }
 }
 
-// ═══════════════════════════════════════════════════════
-// 캡션 입력 UI 렌더링 (동적 키워드 태그)
-// ═══════════════════════════════════════════════════════
-function renderCaptionKeywordTags() {
-  const container = document.getElementById('typeTags');
-  if (!container) return;
-
-  const keywords = getShopKeywords();
-
-  // [SEC-R2-1] XSS 방지 — 키워드를 이스케이프하여 삽입
-  container.innerHTML = keywords.map(k => {
-    const safe = _capEsc(k);
-    return `<span class="tag" data-v="${safe}" data-caption-tag>${safe}<button class="tag-delete" data-kw="${safe}" data-caption-delete-keyword>×</button></span>`;
-  }).join('') + `<span class="tag tag-add" data-caption-add-keyword>+ 추가</span>`;
-  container.querySelectorAll('[data-caption-tag]').forEach(tag => {
-    tag.addEventListener('click', () => toggleCaptionTag(tag));
-  });
-  container.querySelectorAll('[data-caption-delete-keyword]').forEach(btn => {
-    btn.addEventListener('click', event => deleteCaptionKeyword(btn.dataset.kw, event));
-  });
-  container.querySelector('[data-caption-add-keyword]')?.addEventListener('click', showAddKeywordInput);
-}
-
-
-function toggleCaptionTag(el) {
-  if (el.classList.contains('tag-add')) return;
-  el.classList.toggle('on');
-}
-
-function deleteCaptionKeyword(keyword, e) {
-  e.stopPropagation();
-  const base = SHOP_KEYWORDS[localStorage.getItem('shop_type') || '붙임머리'] || [];
-  if (base.includes(keyword)) {
-    // 기본 키워드는 삭제 목록에 추가
-    const deleted = _loadDeletedKeywords();
-    if (!deleted.includes(keyword)) {
-      deleted.push(keyword);
-      _saveDeletedKeywords(deleted);
-    }
-  } else {
-    // 커스텀 키워드는 직접 삭제
-    const custom = _loadCustomKeywords();
-    _saveCustomKeywords(custom.filter(k => k !== keyword));
-  }
-  renderCaptionKeywordTags();
-}
-
-function showAddKeywordInput() {
-  window._inlinePrompt('추가할 키워드를 입력하세요:', '', (keyword) => {
-    const trimmed = keyword.trim();
-    if (!trimmed) return;
-    const custom = _loadCustomKeywords();
-    if (!custom.includes(trimmed)) {
-      custom.push(trimmed);
-      _saveCustomKeywords(custom);
-    }
-    // 삭제 목록에서도 제거 (복원)
-    const deleted = _loadDeletedKeywords();
-    _saveDeletedKeywords(deleted.filter(k => k !== trimmed));
-    renderCaptionKeywordTags();
-    // 새로 추가된 태그 자동 선택
-    setTimeout(() => {
-      const tag = document.querySelector(`#typeTags .tag[data-v="${trimmed}"]`);
-      if (tag) tag.classList.add('on');
-    }, 50);
-  });
-  return;
-}
+// ===== 캡션 키워드 태그 UI → js/caption/caption-keyword-tags.js 로 분리(B-분할) =====
 
 // ===== 캡션 생성 — POST /persona/generate =====
 // TD-020: POST /persona/generate 해시태그 반환 필드 추가 필요
 
 // shopType → schemas.json category enum 매핑
 const _CAP_CAT_MAP = {'붙임머리':'extension','네일아트':'nail','네일':'nail'};
+// [v561] 업종 미매핑 시 'extension'(붙임머리)으로 폴백하던 버그 — 타업종(헤어/네일/속눈썹) 입력에도
+//   붙임머리 few-shot/고정문구가 누출(백엔드는 category 로 과거글 버킷을 고름). 시술 입력 텍스트 +
+//   업종으로 카테고리를 추론하고, 모르면 'hair'(중립)로 폴백한다. 'extension' 자동 폴백 금지.
+function _inferCaptionCategory(shopType, userText) {
+  const t = (String(userText || '') + ' ' + String(shopType || '')).toLowerCase();
+  const has = (arr) => arr.some(w => t.indexOf(w) >= 0);
+  if (has(['네일', '젤네일', '페디', '큐티클', '손톱', '발톱', '매니큐어', '패디'])) return 'nail';
+  if (has(['붙임머리', '익스텐션', '헤어피스', '가발', '붙임 머리'])) return 'extension';
+  if (has(['속눈썹', '래쉬', '눈썹문신', '반영구', '메이크업', '왁싱', '입술문신'])) return 'makeup';
+  if (has(['피부', '스킨', '각질', '필링', '여드름', '모공', '클렌징'])) return 'skincare';
+  if (has(['컷', '펌', '염색', '컬러', '레이어', '단발', '머릿결', '드라이', '클리닉', '매직', '두피', '헤어'])) return 'hair';
+  if (_CAP_CAT_MAP[shopType]) return _CAP_CAT_MAP[shopType];
+  return 'hair';   // 중립 폴백 (붙임머리 폴백 금지)
+}
 
 function generateCaption() {
   openCaptionScenarioPopup();
@@ -554,6 +159,7 @@ function openCaptionScenarioPopup() {
   sheet.appendChild(handle);
 
   const title = document.createElement('div');
+  title.id = 'capScenarioTitle';
   title.style.cssText = 'font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:6px;';
   title.textContent = '어떤 상황이에요?';
   sheet.appendChild(title);
@@ -583,7 +189,8 @@ function openCaptionScenarioPopup() {
   window.renderScenarioSelector(selectorWrap, async (result) => {
     selectorWrap.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--text-subtle);font-size:14px;">캡션 만드는 중...</div>';
     title.textContent = '잠깐만요!';
-    await _doGenerateCaption(result, () => _closeCaptionScenarioPopup(overlay));
+    // selectorWrap = 인라인 결과 host (글쓰기 화면이 닫혀 있을 때 시트 안에서 결과 노출용)
+    await _doGenerateCaption(result, () => _closeCaptionScenarioPopup(overlay), selectorWrap);
   });
 }
 
@@ -595,16 +202,22 @@ function _closeCaptionScenarioPopup(overlay) {
   if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
 }
 
-async function _doGenerateCaption(scenario, closePopup) {
+async function _doGenerateCaption(scenario, closePopup, inlineHost) {
   const btn = document.getElementById('captionBtn');
   if (btn) btn.disabled = true;
 
   showCaptionLoader();
 
   const shopType = localStorage.getItem('shop_type') || '붙임머리';
-  const cfg = SHOP_CONFIG[shopType] || SHOP_CONFIG['붙임머리'];
+  // [2026-06-12] shop_type 이 SHOP_CONFIG 에 없으면(예: 'beauty') 붙임머리 cfg+defaultTag('24인치')
+  //   강제 폴백 → "인치 선택: 24인치" 가 들어가 업종 무관 붙임머리 캡션이 나오던 버그.
+  //   미매핑 업종은 중립 문구로, defaultTag·업종 라벨(인치 등) 주입 금지.
+  const cfg = SHOP_CONFIG[shopType];
   const types = getSel('typeTags');
-  const typeStr = types.length > 0 ? types.join(', ') : cfg.defaultTag;
+  // 매핑된 업종만 "업종 시술. 라벨: 태그." / 미매핑은 "뷰티 시술." + 사용자가 직접 고른 태그만.
+  const baseContext = cfg
+    ? `${shopType} 시술. ${cfg.tagLabel}: ${types.length > 0 ? types.join(', ') : cfg.defaultTag}.`
+    : (types.length > 0 ? `뷰티 시술. 선택: ${types.join(', ')}.` : '뷰티 시술.');
 
   // 작업실 슬롯 연결 정보
   const slotNote = (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined')
@@ -615,14 +228,30 @@ async function _doGenerateCaption(scenario, closePopup) {
   const axesText = axes.customer
     ? `${axes.customer} 손님. ${axes.situation}. ${axes.photo}.`
     : '';
-  const specialText = (scenario && scenario.special_context) ? scenario.special_context : '';
+  const specialText = (scenario && scenario.special_context) ? String(scenario.special_context).trim() : '';
 
-  const category      = _CAP_CAT_MAP[shopType] || 'extension';
-  const photo_context = `${shopType} 시술. ${cfg.tagLabel}: ${typeStr}. ${slotNote}${axesText} ${specialText}`.trim();
+  // [v557 근본수정] 사용자가 직접 입력한 시술 문구를 '현재 시술'의 유일 출처로 우선한다.
+  //   (기존 버그) shop 보일러플레이트("<업종> 시술. 인치: 24인치")가 photo_context 앞에 붙고
+  //   사용자 입력은 뒤에 special_context 로만 들어가, 업종 무관 캡션(예: '젤네일' 입력 → 붙임머리 캡션)이 나왔다.
+  //   원인: ① 사용자 입력이 authoritative 한 treatment_keyword 로 안 감 ② defaultTag(24인치 등) 가 본문을 끌고감.
+  //   수정: 사용자 입력(시술 문구 or 선택 태그) = treatment_keyword + photo_context 리드. 업종 defaultTag 미주입.
+  const userTx = specialText || (types && types.length ? types.join(', ') : '');
+  // [v561] 카테고리 = 시술 입력 텍스트 + 업종 추론 (붙임머리 자동 폴백 제거).
+  const category = _inferCaptionCategory(shopType, userTx);
+  let photo_context;
+  if (userTx) {
+    photo_context = `${userTx}. ${slotNote}${axesText}`.replace(/\s+/g, ' ').trim();
+  } else {
+    // 사용자 입력이 전혀 없을 때만 업종 기본 맥락(샵 정체성은 백엔드 identity 블록에도 있음).
+    photo_context = `${baseContext} ${slotNote}${axesText}`.replace(/\s+/g, ' ').trim();
+  }
   const length_tier   = 'medium';
-  const tone_override = 'normal';
+  // [v555/v558] 말투 카드 선택값(없으면 추천 기본값 natural). regenerate 도 이 payload 를 상속.
+  const tone_override = (window._selectedTone || 'natural');
 
   const payload = { category, photo_context, length_tier, tone_override };
+  // [v557] 사용자 시술 문구를 authoritative 키워드로 전달 → 백엔드가 본문/해시태그에 우선 반영(보일러플레이트 무시).
+  if (userTx) payload.treatment_keyword = userTx.slice(0, 80);
   _lastGeneratePayload = payload;  // 재생성 버튼용
   if (typeof window._assertSpec === 'function') window._assertSpec('POST /persona/generate', payload);
 
@@ -637,9 +266,11 @@ async function _doGenerateCaption(scenario, closePopup) {
     // 2026-05-01 ── 백엔드 GenerateResponse 에 hashtags 필드 추가 후 반영.
     // persona.hashtags (사용자 등록 top20) 또는 SHOP_DEFAULT_HASHTAGS 폴백.
     const hashtagsArr = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : []);
+    // [버그수정 2026-07-06] core(앞3)+pool 합류 시 중복 태그가 '#네일 #네일' 로 두 번 렌더되던 것 — 정규화 dedup.
+    const _seenHash = new Set();
     const hashes = hashtagsArr
       .map(t => String(t || '').trim().replace(/^#+/, ''))
-      .filter(Boolean)
+      .filter(t => { if (!t) return false; const k = t.toLowerCase(); if (_seenHash.has(k)) return false; _seenHash.add(k); return true; })
       .map(t => '#' + t)
       .join(' ');
 
@@ -662,19 +293,17 @@ async function _doGenerateCaption(scenario, closePopup) {
     // WIRING 디버그 로그 제거 (프로덕션 환경 민감 정보 노출 방지)
 
     hideCaptionLoader(true, () => {
-      closePopup();
       // 피드백 #1 3단계: 첫 캡션 완성 플래그 (인디케이터 3단계 표시용)
       if (!localStorage.getItem('_first_caption_done')) {
         localStorage.setItem('_first_caption_done', new Date().toISOString());
       }
+      // 글쓰기 화면 textarea 에 값 채움(숨겨져 있어도) — 복사/미리보기/더손보기 가 이 값을 재사용.
       const ta = document.getElementById('captionText');
-      ta.value = finalCaption;
-      _capAutoGrow(ta);
-      document.getElementById('captionHash').value = hashes;
+      if (ta) { ta.value = finalCaption; _capAutoGrow(ta); }
+      const hashEl = document.getElementById('captionHash');
+      if (hashEl) hashEl.value = hashes;
 
-      const micro = document.getElementById('captionEditMicro');
-      if (micro) micro.style.display = _lastLogId ? 'flex' : 'none';
-
+      // 작업실 슬롯 연결 저장 (기존)
       if (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined') {
         const slot = _slots.find(s => s.id === _captionSlotId);
         if (slot) {
@@ -689,6 +318,20 @@ async function _doGenerateCaption(scenario, closePopup) {
         }
       }
 
+      // [2026-06-12] 리포트→"내 말투로 글 써보기" 처럼 글쓰기 화면(tab-caption)이 닫혀 있으면
+      //   #captionText 에 써도 화면에 안 보여 결과가 유실되던 버그. 글쓰기 화면이 비활성이면
+      //   팝업을 닫지 말고 시트 안에서 결과를 바로 노출 (UX 원칙: 화면 이동 금지, 인라인 우선).
+      const writingActive = !!(ta && ta.offsetParent !== null);
+      if (!writingActive && inlineHost) {
+        _renderInlineCaptionResult(inlineHost, finalCaption, hashes, closePopup);
+        if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
+        return;
+      }
+
+      // ── 글쓰기 화면 활성 경로 (기존)
+      closePopup();
+      const micro = document.getElementById('captionEditMicro');
+      if (micro) micro.style.display = _lastLogId ? 'flex' : 'none';
       _renderCaptionActionBar(finalCaption, hashes);
       if (btn) { btn.innerHTML = '만들기'; btn.disabled = false; }
 
@@ -784,6 +427,49 @@ async function _doGenerateCaption(scenario, closePopup) {
   }
 }
 
+// [2026-06-12] 글쓰기 화면이 닫혀 있을 때(리포트→글써보기 등) 시나리오 시트 안에서 결과를 바로 노출.
+//   캡션+해시태그 텍스트 + [복사] [인스타 미리보기] [글쓰기 화면에서 더 손보기]. 화면 이동 없음.
+//   복사/미리보기는 이미 #captionText·#captionHash 에 채워둔 값을 쓰는 기존 함수를 재사용.
+function _renderInlineCaptionResult(host, caption, hashes, closePopup) {
+  if (!host) return;
+  const full = hashes ? `${caption}\n\n${hashes}` : caption;
+  const t = document.getElementById('capScenarioTitle');
+  if (t) t.textContent = '완성됐어요 ✨';
+  host.innerHTML = `
+    <div style="white-space:pre-wrap;word-break:break-word;font-size:14px;line-height:1.7;color:#222;background:#F7F8FA;border-radius:14px;padding:16px;max-height:42vh;overflow-y:auto;-webkit-overflow-scrolling:touch;">${_capEsc(caption)}${hashes ? `<div style="margin-top:12px;color:#1e7abf;">${_capEsc(hashes)}</div>` : ''}</div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button data-cap-inline-copy style="flex:1;padding:13px;border-radius:13px;border:1.5px solid var(--border,#E5E7EB);background:#fff;color:#1a1a1a;font-size:13px;font-weight:700;cursor:pointer;">복사</button>
+      <button data-cap-inline-preview style="flex:1;padding:13px;border-radius:13px;border:1.5px solid rgba(213,138,149,0.3);background:transparent;color:var(--accent,#BC6675);font-size:13px;font-weight:700;cursor:pointer;">인스타 미리보기</button>
+    </div>
+    <button data-cap-inline-edit style="width:100%;margin-top:8px;padding:13px;border-radius:13px;border:none;background:linear-gradient(135deg,var(--accent,#BC6675),var(--accent2,#D58A95));color:#fff;font-size:13px;font-weight:800;cursor:pointer;">글쓰기 화면에서 더 손보기</button>
+  `;
+  host.querySelector('[data-cap-inline-copy]')?.addEventListener('click', () => {
+    try {
+      navigator.clipboard.writeText(full).then(() => { if (window.showToast) showToast('글 복사 완료! 📋'); });
+    } catch (_e) { if (window.showToast) showToast('복사가 안 돼요. 길게 눌러 복사해주세요'); }
+  });
+  host.querySelector('[data-cap-inline-preview]')?.addEventListener('click', () => {
+    try { _previewCaptionOnInsta(); } catch (_e) { if (window.showToast) showToast('미리보기를 열 수 없어요'); }
+  });
+  host.querySelector('[data-cap-inline-edit]')?.addEventListener('click', () => {
+    if (typeof closePopup === 'function') closePopup();
+    try { showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]')); } catch (_e) { void _e; }
+    // 글쓰기 화면 진입 후 값/액션바/미리보기 동기화
+    setTimeout(() => {
+      const ta2 = document.getElementById('captionText');
+      if (ta2) { ta2.value = caption; _capAutoGrow(ta2); }
+      const h2 = document.getElementById('captionHash');
+      if (h2) h2.value = hashes || '';
+      try { _renderCaptionActionBar(caption, hashes); } catch (_e) { void _e; }
+      try { _updateCaptionPreviewImage(); } catch (_e) { void _e; }
+      const frame = document.getElementById('captionResult');
+      if (frame && typeof frame.scrollIntoView === 'function') {
+        setTimeout(() => frame.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+      }
+    }, 80);
+  });
+}
+
 
 function closePublishPreview() {
   const pop = document.getElementById('publishPreviewPopup');
@@ -792,104 +478,7 @@ function closePublishPreview() {
   setTimeout(() => pop.style.display = 'none', 300);
 }
 
-// ===== 업로드 진행/완료 팝업 =====
-function setUploadProgress(pct, msg) {
-  document.getElementById('upPct').textContent = pct + '%';
-  document.getElementById('upMsg').textContent = msg;
-  document.getElementById('upFill').style.width = pct + '%';
-}
-
-function openInstagramProfile() {
-  const handle = (_instaHandle || '').replace('@', '');
-  window.location.href = handle ? `instagram://user?username=${handle}` : 'instagram://';
-}
-
-function closeUploadDone() {
-  document.getElementById('uploadDonePopup').style.display = 'none';
-}
-
-// ===== 마스터: 인스타 자동 발행 (2단계: 실제 API 호출) =====
-async function doActualPublish() {
-  const btn = document.getElementById('doPublishBtn');
-  const finalCaption = document.getElementById('previewFinalCaption').textContent;
-  btn.disabled = true;
-
-  const upPopup = document.getElementById('uploadProgressPopup');
-  upPopup.style.display = 'flex';
-  setUploadProgress(10, '이미지 준비 중...');
-
-  try {
-    const canvas = document.getElementById('baCanvas');
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    const formData = new FormData();
-    formData.append('image', blob, 'instagram_post.png');
-    formData.append('caption', finalCaption);
-
-    setUploadProgress(30, '서버에 전송 중...');
-
-    // 2026-05-01 ── 엔드포인트 미스매치 픽스: /publish 는 JSON image_url 받음.
-    // multipart FormData 는 /publish-file 에 보내야 함.
-    const res = await apiFetch('/instagram/publish-file', {
-      method: 'POST',
-      headers: authHeader(),
-      body: formData
-    });
-
-    setUploadProgress(60, '인스타에 업로드 중...');
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '업로드 실패');
-
-    setUploadProgress(95, '마무리 중...');
-    await new Promise(r => setTimeout(r, 400));
-    setUploadProgress(100, '완료!');
-
-    setTimeout(() => {
-      upPopup.style.display = 'none';
-      closePublishPreview();
-      document.getElementById('uploadDonePopup').style.display = 'flex';
-      document.getElementById('uploadDoneMsg').textContent = '인스타 피드에 올라갔어요!';
-      for(let i = 0; i < 20; i++) setTimeout(createConfetti, i * 100);
-    }, 1200);
-
-  } catch(e) {
-    upPopup.style.display = 'none';
-    showToast('오류: ' + (window._humanError ? window._humanError(e) : e.message));
-    btn.textContent = '다시 시도하기 🚀';
-    btn.disabled = false;
-  }
-}
-
-function copyCaption() {
-  navigator.clipboard.writeText(document.getElementById('captionText').value)
-    .then(() => showToast('글 복사 완료! 📋'));
-}
-function copyAll() {
-  const c = document.getElementById('captionText').value;
-  const h = document.getElementById('captionHash').value;
-  navigator.clipboard.writeText(c + '\n\n' + h).then(() => showToast('전체 복사 완료! 📋'));
-}
-function flashBtn(btn, msg) {
-  const orig = btn.textContent;
-  btn.textContent = msg;
-  setTimeout(() => btn.textContent = orig, 1500);
-}
-
-
-
-
-
-
-function createConfetti() {
-  const c = document.createElement('div');
-  c.textContent = ['🎀','✨','💎','🩷'][Math.floor(Math.random()*4)];
-  c.className = 'confetti';
-  c.style.left = Math.random() * 100 + 'vw';
-  c.style.animationDuration = Math.random() * 2 + 3 + 's';
-  document.body.appendChild(c);
-  setTimeout(() => c.remove(), 5000);
-}
-
+// ===== 인스타 발행/업로드팝업/복사/컨페티 → js/caption/caption-publish.js 로 분리(B-분할) =====
 // ═══════════════════════════════════════════════════════
 // 캡션 완료 후 액션바 (갤러리 저장 + 다음 손님 유도)
 // ═══════════════════════════════════════════════════════
@@ -970,6 +559,8 @@ async function regenerateCaption(overrides = {}) {
     return;
   }
   const payload = { ..._lastGeneratePayload, ...overrides };
+  // [v555] 다시쓰기/더 길게/인스타스럽게에도 현재 선택한 말투 유지(명시 override 우선).
+  if (!('tone_override' in overrides) && window._selectedTone) payload.tone_override = window._selectedTone;
   _lastGeneratePayload = payload;
   const ta = document.getElementById('captionText');
   if (ta) { ta.value = '새로 쓰는 중...'; _capAutoGrow(ta); }
@@ -979,11 +570,18 @@ async function regenerateCaption(overrides = {}) {
     _capAiDraft = data.caption || '';
     _lastLogId = data.log_id || null;
     if (ta) { ta.value = _capAiDraft; _capAutoGrow(ta); }
+    // [버그수정 2026-07-06] 재생성 응답의 해시태그를 무시하고 ''로 덮던 것 — 생성 경로와 동일하게 반영(dedup).
+    const _seenRH = new Set();
+    const _reHashes = shuffleHashtags(Array.isArray(data.hashtags) ? data.hashtags : [])
+      .map(t => String(t || '').trim().replace(/^#+/, ''))
+      .filter(t => { if (!t) return false; const k = t.toLowerCase(); if (_seenRH.has(k)) return false; _seenRH.add(k); return true; })
+      .map(t => '#' + t).join(' ');
     // 재생성 결과도 슬롯에 반영 + status 갱신
     if (typeof _captionSlotId !== 'undefined' && _captionSlotId && typeof _slots !== 'undefined') {
       const slot = _slots.find(s => s.id === _captionSlotId);
       if (slot) {
         slot.caption = _capAiDraft;
+        if (_reHashes) slot.hashtags = _reHashes;
         if (_capAiDraft && _capAiDraft.trim()) {
           slot.status = 'done';
           slot.completedAt = slot.completedAt || Date.now();
@@ -991,7 +589,7 @@ async function regenerateCaption(overrides = {}) {
         if (typeof saveSlotToDB === 'function') saveSlotToDB(slot).catch(() => {});
       }
     }
-    _renderCaptionActionBar(_capAiDraft, '');
+    _renderCaptionActionBar(_capAiDraft, _reHashes);
   } catch (e) {
     // [2026-04-26] 재생성 에러도 정확한 원인 노출. raw 는 console 로 디버깅 보조.
     console.error('[caption.regenerate] 실패 raw:', e);
@@ -1082,7 +680,7 @@ function goToNextSlotCaption(slotId) {
   const micro = document.getElementById('captionEditMicro');
   if (micro) micro.style.display = 'none';
   _lastLogId = null;
-  _captionPhotosReordered = null;
+  _resetCaptionPhotoOrder();   // [B-분할] 사진순서 상태는 caption-photo-row.js 소유
   _renderCaptionPhotoRow();
   // 태그 선택 해제
   document.querySelectorAll('#typeTags .tag.on').forEach(t => t.classList.remove('on'));
@@ -1168,4 +766,219 @@ Object.assign(window, {
   regenerateCaption,
   saveCaptionToGallery,
   _updateCaptionPreviewImage,
+});
+
+/* [v506 Phase2] CaptionEngine — DOM 비의존 순수 캡션 생성 (작업실 V2 drawer/flow 직접 렌더용).
+   기존 _doGenerateCaption 의 payload 빌드(_CAP_CAT_MAP/SHOP_CONFIG/photo_context)·
+   해시태그 정제(shuffleHashtags)·/persona/generate(_personaFetch)·log_id 흐름을 그대로 재사용.
+   기존 캡션 탭 동작은 미변경(순수 additive, backward-compatible). caption payload 구조 변경 없음. */
+// [#6] 캡션 후처리 — 같은 문단/연속 같은 줄 중복 제거. 백엔드가 intro/body/CTA 를 중복으로 합쳐 보내거나
+//  같은 문단이 두 번 나오는 경우를 표시 직전에 한 번 더 걸러낸다(생성 후 post-process dedupe).
+// [v534] 본문/해시태그 완전 분리 — 본문 안의 모든 #토큰을 제거하고 hashtags 로 모은다(순서보존·중복제거).
+//   백엔드가 본문에 해시태그를 섞어 보내도 본문 textarea 엔 #이 0개가 되도록 프론트에서도 한 번 더 차단.
+function _splitBodyHashtags(text) {
+  text = String(text || '');
+  var tags = [], seen = Object.create(null);
+  (text.match(/#[^\s#]+/g) || []).forEach(function (m) {
+    var k = m.toLowerCase();
+    if (!seen[k]) { seen[k] = 1; tags.push(m); }
+  });
+  var body = text.replace(/#[^\s#]+/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .split('\n').map(function (ln) { return ln.replace(/\s+$/, ''); }).join('\n')
+    .replace(/\n{3,}/g, '\n\n').trim();
+  return { body: body, tags: tags };
+}
+
+function _dedupeCaptionText(text) {
+  text = String(text || '');
+  if (!text.trim()) return text.trim();
+  // [v531] placeholder 정제 — 실제 샵명이 있으면 치환, 없으면 자연스럽게 제거(빈 괄호/어색한 자리표시 방지).
+  let _shop = '';
+  try { _shop = localStorage.getItem('shop_name') || ''; } catch (_e) { _shop = ''; }
+  text = text
+    .replace(/\[\s*(샵\s*이름|샵\s*명|매장\s*이름|매장\s*명|shop\s*name|store\s*name)\s*\]/gi, _shop || '저희 샵')
+    .replace(/\[\s*(원장님?|디자이너님?|선생님)\s*\]/g, _shop || '저희 샵')
+    .replace(/\[[^\]\n]{1,24}\]/g, '')   // 남은 대괄호 placeholder 제거
+    .replace(/[ \t]{2,}/g, ' ');
+  // [#6 강화] 정규화 키 — 이모지/문장부호/공백 차이를 무시해 "근사 중복"(예: "완성했어요!" vs "완성했어요 😊")도 같게 본다.
+  const norm = s => String(s || '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️]/gu, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '').toLowerCase();
+  // 1) 문단(빈 줄 기준) 단위 — 근사 중복까지 제거. 기호/해시태그-only 문단(키 빈값)은 보존.
+  const seenP = Object.create(null);
+  const paras = text.split(/\n{2,}/).map(p => p.replace(/\s+$/, '')).filter(p => p.trim());
+  const out = [];
+  paras.forEach(p => { const k = norm(p); if (k && seenP[k]) return; if (k) seenP[k] = 1; out.push(p.trim()); });
+  // 2) 줄 단위 — 백엔드가 문단을 \n 하나로만 구분해 \n{2,} 분리에 안 걸리는 중복도 정규화 비교로 제거.
+  const seenL = Object.create(null);
+  const lo = [];
+  out.join('\n\n').split('\n').forEach(ln => { const k = norm(ln); if (k && seenL[k]) return; if (k) seenL[k] = 1; lo.push(ln); });
+  // 3) 문장 단위 — 같은 문장 + [v531] 유사/부분 문장(한쪽이 다른쪽을 포함, 예: "저희 샵에서 …약속드려요" ⊃ "…약속드려요")까지 첫 문장만 유지.
+  const seenArr = [];
+  const _isDupSentence = k => {
+    if (!k) return false;
+    for (let i = 0; i < seenArr.length; i++) {
+      const s = seenArr[i];
+      if (s === k) return true;
+      if (Math.min(s.length, k.length) >= 10 && (s.indexOf(k) >= 0 || k.indexOf(s) >= 0)) return true;
+    }
+    return false;
+  };
+  const lo2 = lo.map(ln => {
+    if (!norm(ln)) return ln;
+    const kept = ln.split(/(?<=[.!?。！？…])\s+/).filter(s => { const k = norm(s); if (!k) return true; if (_isDupSentence(k)) return false; seenArr.push(k); return true; });
+    const joined = kept.join(' ').trim();
+    return joined ? joined : null;
+  }).filter(s => s !== null);
+  return lo2.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+// [v568·A-2] 자유텍스트에서 샵명/고객명 분리 — 백엔드가 정확한 값으로 작성/복구해 '잇데고객님의' 결합오류 방지.
+//   보수적으로 명확한 패턴만 추출하고, 못 찾으면 빈 값(백엔드는 온보딩 샵명 사용).
+//   한국어 copula(이야/야 등)는 받침 유무로 갈려서('잇데이+야' vs '뷰티핏+이야'), 받침 판정으로 정확히 분리.
+function _cleanShopName(raw) {
+  let s = String(raw || '').trim();
+  const tail = s.match(/(이에요|이예요|이고요|이야|이고|입니다|예요|에요|야|고)$/);
+  if (tail) {
+    const suf = tail[1];
+    const stem = s.slice(0, s.length - suf.length);
+    if (stem.length >= 2) {
+      const c = stem.charCodeAt(stem.length - 1);
+      const hasBatchim = (c >= 0xAC00 && c <= 0xD7A3) && ((c - 0xAC00) % 28 !== 0);
+      if (suf[0] === '이' && !hasBatchim) return stem + '이';   // '이'는 명사 일부(잇데이), 'X'만 copula
+      return stem;
+    }
+  }
+  return s;
+}
+// [#1] 캡션에 상호로 브랜딩할 '진짜 가게 이름'인지 — 'Dd'·'aa' 같은 짧은 라틴/계정 placeholder 제외.
+function _isRealShop(n) {
+  n = String(n || '').trim();
+  if (n.length < 2) return false;
+  if (/(뷰티샵|헤어샵|네일샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵|점)$/.test(n)) return true;
+  if (/[가-힣]{2,}/.test(n)) return true;
+  return false;
+}
+function _parseShopCustomer(text) {
+  const t = String(text || '');
+  let shop = '', customer = '';
+  const _CUST_BLOCK = /^(원장|선생|사장|대표|점장|실장|디자이너|고객|손님|남성|여성|남자|여자|남|여|단골|신규|기존|첫|재방문|소개|단체|커플|모녀|자매|학생|직장인|주부|신부|예민|민감|약해진)$/;
+  const cm = t.match(/([가-힣]{2,4})\s*고객님?/);   // [v611] '고객'만 써도(님 생략) 인식 + 일반 수식어 차단
+  if (cm && !_CUST_BLOCK.test(cm[1])) customer = cm[1];
+  // '우리샵은 X' / '저희샵은 X' / '샵은 X' / '샵이름은 X' / '샵: X' — 명사+copula 를 greedy 로 잡고 copula 분리.
+  const sm = t.match(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*([가-힣A-Za-z0-9]{1,14}(?:네일샵|헤어샵|뷰티샵|샵)?)/);
+  if (sm && sm[1]) shop = _cleanShopName(sm[1]);
+  if (!shop) {
+    // [v611] 샵 접미사를 '캡처 그룹 안'에 포함 — "강연준네일샵"이 "강연준네일"로 잘리던 버그 수정.
+    const sm2 = t.match(/(?:^|[\s,·、])([가-힣A-Za-z0-9]{2,14}(?:네일샵|헤어샵|뷰티샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵))(?:이야|입니다|이에요|예요)?(?=[\s,.·、]|$)/);
+    if (sm2 && sm2[1] && !/^(우리|저희)샵$/.test(sm2[1])) shop = sm2[1];
+  }
+  // cleaned: 고객/샵 구문 제거 → 순수 시술 키워드만 남김
+  const cleaned = t
+    .replace(/([가-힣]{2,4})\s*고객님?(이고|이라고|이며|이고요|입니다|예요|이에요|,)?/g, ' ')
+    .replace(/(?:우리\s*샵|저희\s*샵|샵\s*이름|샵)\s*(?:은|는|이름은|:)\s*[가-힣A-Za-z0-9]{1,14}(?:네일샵|헤어샵|뷰티샵|샵)?(?:이야|이에요|예요|입니다|이고|야|고)?/g, ' ')
+    .replace(/[가-힣A-Za-z0-9]{2,14}(?:네일샵|헤어샵|뷰티샵|왁싱샵|미용실|살롱|스튜디오|에스테틱|샵)(?:이야|입니다|이에요|예요)?/g, ' ')
+    .replace(/\s{2,}/g, ' ').replace(/^[\s,.]+|[\s,.]+$/g, '').trim();
+  return { shop, customer, cleaned };
+}
+
+window.CaptionEngine = {
+  async generate(opts) {
+    opts = opts || {};
+    const shopType = localStorage.getItem('shop_type') || '붙임머리';
+    const cfg = (typeof SHOP_CONFIG !== 'undefined') ? SHOP_CONFIG[shopType] : null;
+    let photo_context = opts.photo_context;
+    if (!photo_context) {
+      const svc = String(opts.service || '').trim();
+      const base = cfg
+        ? `${shopType} 시술.${svc ? ' 시술 내역: ' + svc + '.' : ''}`
+        : (svc ? `뷰티 시술. ${svc}.` : '뷰티 시술.');
+      let slotNote = '';
+      if (opts.slotId && typeof _slots !== 'undefined') {
+        const s = _slots.find(sl => sl.id === opts.slotId);
+        if (s) slotNote = ` 손님: ${s.label}. 사진 ${(s.photos || []).filter(p => !p.hidden).length}장.`;
+      }
+      const reviewNote = (opts.mode === 'review' || opts.tone_override === 'review')
+        ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
+      photo_context = `${base}${slotNote}${reviewNote}`.trim();
+    }
+    // [v561] 카테고리 = 시술 입력(service/treatment_keyword) + 업종 추론. 'extension' 자동 폴백 제거.
+    const _catText = [opts.service, opts.treatment_keyword, opts.photo_context].filter(Boolean).join(' ');
+    const payload = {
+      category: _inferCaptionCategory(shopType, _catText),
+      photo_context,
+      length_tier: opts.length_tier || 'medium',
+      tone_override: opts.tone_override || 'normal',
+    };
+    // [#5] 사용자 입력 시술명/키워드를 전용 필드로도 전달 — 백엔드가 키워드를 캡션에 명시 반영하도록.
+    //  (photo_context 에도 이미 prepend 되지만, 백엔드가 photo_context 만 보고 service 를 흘리는 경로 대비)
+    const _svc = String(opts.service || '').trim();
+    if (_svc) payload.service = _svc;
+    // [v611] 샵/고객은 flow(_cleanService, v610)가 이미 정확히 분리해 opts 로 넘긴다 → 그 값을 신뢰.
+    //   opts 에 없을 때만 자체 _parseShopCustomer 폴백(레거시 직접 호출 대비). 샵 접미사('샵') 보존.
+    const _sc = _parseShopCustomer([opts.service, opts.treatment_keyword].filter(Boolean).join(' '));
+    let _shopFinal = (opts.shop_name && String(opts.shop_name).trim()) || _sc.shop;
+    const _custFinal = (opts.customer_name && String(opts.customer_name).trim()) || _sc.customer;
+    // [#1] 'Dd'·'aa' 같은 계정 placeholder 는 상호로 캡션에 안 씀 — 진짜 상호(한글 2자↑ or 상호접미사)만.
+    if (_shopFinal && !_isRealShop(_shopFinal)) _shopFinal = '';
+    if (_shopFinal) payload.shop_name = String(_shopFinal).slice(0, 40);
+    if (_custFinal) payload.customer_name = String(_custFinal).slice(0, 20);
+    // [v611] 샵 이름을 LLM 이 줄이지 않게 — 진짜 상호일 때만 '정확히 이 상호로 표기 + 억지 반복 금지'.
+    if (_shopFinal) opts.extra_notes = ('샵 이름은 반드시 "' + _shopFinal + '" 전체로 정확히 표기(줄이거나 "샵" 빼지 말 것). 단 상호는 게시글에 많아야 한 번만 자연스럽게, 매 문장 반복 금지. ' + String(opts.extra_notes || '')).slice(0, 300);
+    // [#1] 진짜 상호가 없으면 상호를 지어내거나 계정명(예: Dd)을 상호로 쓰지 말라고 명시.
+    else opts.extra_notes = ('특정 상호(가게 이름)를 지어내거나 계정 이름을 상호처럼 쓰지 말고, 필요하면 "저희 샵"으로만 칭할 것. ' + String(opts.extra_notes || '')).slice(0, 300);
+    // [다중pair·Step5] 사용자 강조 표현은 extra_notes 채널로 전달 — 백엔드 GenerateRequest.extra_notes 가
+    //  '특이사항은 그대로 복붙하지 말고 문맥에 맞게 자연스럽게 녹여달라'로 처리 → 구어/감정 표현(예: '개오바 얼굴')
+    //  박제 방지 + 의미 반영. 백엔드 제한(max 300자)에 맞춰 캡.
+    const _extra = String(opts.extra_notes || '').trim();
+    if (_extra) payload.extra_notes = _extra.slice(0, 300);
+    // [v534] 백엔드 우선맥락/variation 필드 전달 — 백엔드가 service/treatment_keyword 를 prompt 에 직접
+    //   주입하고 caption_intent 별 분기 + previous_caption 반복 방지 + variation_seed 로 동일 결과 차단.
+    // [v568·A-2] 샵/고객을 파싱했으면 시술 키워드는 그 둘을 뺀 cleaned 사용(샵명/고객명이 시술명으로 새는 것 방지).
+    if (_svc) {
+      // [v611] flow 가 넘긴 treatment_keyword(샵·고객 제거된 cleaned)를 최우선 신뢰.
+      const _tk = (opts.treatment_keyword && String(opts.treatment_keyword).trim())
+        || ((_sc.shop || _sc.customer) ? (_sc.cleaned || _svc) : _svc);
+      payload.treatment_keyword = String(_tk).slice(0, 80);
+    }
+    if (opts.content_type) payload.content_type = String(opts.content_type).slice(0, 32);
+    payload.caption_intent = (['generate', 'rewrite', 'longer', 'instagram'].indexOf(opts.caption_intent) >= 0) ? opts.caption_intent : 'generate';
+    if (opts.previous_caption) payload.previous_caption = String(opts.previous_caption).slice(0, 1500);
+    if (opts.variation_seed) payload.variation_seed = String(opts.variation_seed).slice(0, 64);
+    payload.strict_user_context = (opts.strict_user_context !== false);
+    // [v567] 원장님 말투 반영 토글 — 명시 ON 일 때만 페르소나/인스타 말투분석 반영(기본 OFF).
+    payload.use_persona = (opts.use_persona === true);
+    const data = await _personaFetch('POST', '/persona/generate', payload);
+    // [v568·A-5] data.caption 은 '저장 꼬리말 포함' 최종본 → 우선 표시(꼬리말이 안 붙던 버그 수정).
+    //   data.body 는 꼬리말 미포함이라 caption 이 비었을 때만 fallback.
+    const _rawBody = (typeof data.caption === 'string' && data.caption.trim()) ? data.caption : data.body;
+    const _sep = _splitBodyHashtags(_rawBody);   // [v534] 본문/해시태그 완전 분리
+    const caption = _dedupeCaptionText(_sep.body);   // [#6] 문단 단위 dedupe (해시태그 제거 후)
+    if (!caption) throw new Error('AI 가 캡션을 만들지 못했어요. 다시 시도해주세요.');
+    // 해시태그: 백엔드 hashtags 우선 + 본문에서 분리된 태그 보강(중복 제거).
+    const _seenTag = Object.create(null);
+    const _merged = (Array.isArray(data.hashtags) ? data.hashtags : []).concat(_sep.tags);
+    const tags = shuffleHashtags(_merged)
+      .map(t => String(t || '').trim().replace(/^#+/, '')).filter(Boolean)
+      .filter(t => { const k = t.toLowerCase(); if (_seenTag[k]) return false; _seenTag[k] = 1; return true; })   // [#6] 해시태그 중복 제거
+      .map(t => '#' + t);
+    return { caption, hashtags: tags, hashtagsText: tags.join(' '), log_id: data.log_id || null };
+  },
+};
+
+// [v555] 말투 카드 선택 — 위임 핸들러(정적 마크업이라 한 번만 바인딩). 선택값은 window._selectedTone.
+//   선택하지 않으면 기본 추천값 natural(첫 카드 .on)로 동작.
+window._selectedTone = window._selectedTone || 'natural';
+document.addEventListener('click', function (e) {
+  const card = e.target && e.target.closest ? e.target.closest('#toneCards .tone-card') : null;
+  if (!card) return;
+  const tone = card.getAttribute('data-tone');
+  if (!tone) return;
+  window._selectedTone = tone;
+  document.querySelectorAll('#toneCards .tone-card').forEach(function (c) {
+    const on = (c === card);
+    c.classList.toggle('on', on);
+    c.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
 });

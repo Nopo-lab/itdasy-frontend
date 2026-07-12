@@ -453,25 +453,7 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
   display: flex; align-items: center; justify-content: center;
 }
 
-/* ── 가입 방법 배지 (우상단 코너 점) ── */
-.profile-avatar__provider {
-  position: absolute;
-  right: -2px; top: -2px;
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: #FFB6C1;          /* 기본: email (잇데이 핑크) */
-  border: 2px solid var(--card, #fff);
-  box-sizing: content-box;
-  pointer-events: auto;
-  cursor: help;
-  display: block;
-  /* 살짝 그림자로 떠 있는 느낌 */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-}
-.profile-avatar__provider[data-provider="google"] { background: #4285F4; }
-.profile-avatar__provider[data-provider="kakao"]  { background: #FEE500; }
-.profile-avatar__provider[data-provider="apple"]  { background: #000; }
-.profile-avatar__provider[data-provider="email"]  { background: #FFB6C1; }
+/* [2026-06-25] 가입방법 배지(.profile-avatar__provider) 제거 — 의미없는 점, 헤더 리디자인 */
 
 .header-shop-name {
   font-size: 12px; font-weight: 800; color: var(--text);

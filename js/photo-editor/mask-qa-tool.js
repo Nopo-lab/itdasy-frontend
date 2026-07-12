@@ -25,7 +25,7 @@
 
   const REGION_TYPES = [
     'skinMask', 'hairMask', 'hairBoundaryMask',
-    'lipMask', 'eyeMask', 'eyelashBandMask',
+    'lipMask', 'eyeMask', 'scleraMask', 'browMask', 'eyelashBandMask',
     'nailMask', 'handSkinMask', 'backgroundMask',
   ];
 
@@ -175,11 +175,14 @@
       return { label: c >= 0.4 ? 'WEAK-0.4x' : 'BRUSH-only' };
     }
 
-    // eyelash/nail: 보수적 (실제 QA 통과 전까지 WEAK 한도)
-    if (regionType === 'eyelashBandMask' || regionType === 'nailMask') {
+    // eyelash: 보수적
+    if (regionType === 'eyelashBandMask') {
       if (c >= 0.7) return { label: 'WEAK-0.6x' };
       if (c >= 0.4) return { label: 'WEAK-0.4x' };
       return { label: 'BRUSH-only' };
+    }
+    if ((regionType === 'nailMask' || regionType === 'handSkinMask') && tier === 1 && s === 'ready') {
+      return { label: 'AUTO-1.0x' };
     }
 
     // lip/eye T2 ready: confidence 무관 AUTO (Face landmark 신뢰 가능)
@@ -216,7 +219,7 @@
       // precompute 후 overlay 자동 렌더 — 다시 trigger
       window.RegionMaskProvider.invalidate(img);
       window.RegionMaskProvider.precompute(img).catch(() => {});
-      console.log('[QA] 디버그 오버레이 ON. 캔버스 위에 마스크 색 표시 (피부 핑크 / 헤어 시안 / 입술 빨강 / 눈 노랑 / 배경 회색).');
+      console.log('[QA] 마스크 색: 눈 파랑 / 눈썹 초록 / 손 주황 / 네일 핑크 / 헤어 보라.');
       console.log('     OFF: localStorage.removeItem("PE_MASK_DEBUG"); location.reload()');
     }
     return true;

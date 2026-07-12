@@ -7,14 +7,14 @@
   padding: 14px 14px 96px;
   animation: bfFadeIn .22s ease-out both;
 }
-@media (min-width: 900px) {
+@media (width >= 900px) {
   .bf-wrap { max-width: 900px; padding: 18px 18px 24px; }
   .bf-grid { display: grid; grid-template-columns: 220px 1fr; gap: 18px; }
 }
 /* PC 3컬럼 (≥1100px): 좌사이드 200px + 가운데 1fr + 우 sticky 280px */
 .bf-root { display:block; }
 .bf-side-left, .bf-side-right { display:contents; }
-@media (min-width: 1100px) {
+@media (width >= 1100px) {
   .bf-wrap { max-width:1100px; padding:18px 18px 24px; }
   .bf-root {
     display:grid;
@@ -29,7 +29,7 @@
   .bf-side-left .bf-side-date { font-size:13px; font-weight:500; color:#191F28; letter-spacing:-0.3px; margin-top:2px; }
   .bf-side-left .bf-side-meta { font-size:11px; color:#8B95A1; margin-top:2px; }
 }
-@media (max-width: 1099px) {
+@media (width <= 1099px) {
   .bf-side-left { display:none; }
 }
 
@@ -98,7 +98,7 @@
 }
 .bf-tp-wheel {
   position:relative; z-index:2;
-  height:100%; overflow-y:auto; overflow-x:hidden;
+  height:100%; overflow:hidden auto;
   text-align:center;
   scroll-snap-type: y mandatory;
   -ms-overflow-style:none; scrollbar-width:none;
@@ -216,10 +216,10 @@
 .bf-service-card .bf-amount-rows { border-top:0.5px solid #F0F1F4; padding:11px 14px; }
 
 /* PC: 시술 카드 안 금액 숨김 (우측 패널로 이동) · 모바일: 우측 패널 금액 숨김 */
-@media (min-width: 1100px) {
+@media (width >= 1100px) {
   .bf-service-card .bf-amount-rows { display:none; }
 }
-@media (max-width: 1099px) {
+@media (width <= 1099px) {
   .bf-side-right .bf-money-card { display:none; }
 }
 
@@ -260,7 +260,7 @@
   display:flex; align-items:center; justify-content:space-between;
   padding:6px 0;
 }
-.bf-money-row.deposit { border-bottom:0.5px solid #F0F1F4; padding-bottom:10px; }
+.bf-money-row.deposit { border-bottom:0.5px solid #F0F1F4; padding-bottom:10px; align-items:center; }
 .bf-money-row.total { padding:12px 0 4px; }
 .bf-money-key { font-size:11px; color:#8B95A1; letter-spacing:-0.2px; }
 .bf-money-row.total .bf-money-key { font-size:13px; color:#191F28; font-weight:500; }
@@ -274,12 +274,28 @@
 }
 .bf-money-val:hover { background:#F7F8FA; }
 .bf-money-val .bf-num { font-size:13px; }
-.bf-money-row.deposit .bf-money-val .bf-num { color:#BC6675; }
+.bf-money-row.deposit .bf-money-val .bf-num { color:#BC6675; font-size:18px; letter-spacing:-0.3px; font-weight:600; }
+/* [2026-06-14 QA] 예상 시술비 — 직접 추가 폼에서 너무 작아 안 보이던 문제. 크게 노출. */
+.bf-money-row.amount { padding:8px 0; align-items:center; }
+.bf-money-row.amount .bf-money-key { font-size:13px; color:#191F28; font-weight:500; }
+.bf-money-row.amount .bf-money-val .bf-num { font-size:22px; letter-spacing:-0.4px; font-weight:600; }
+.bf-money-row.amount .bf-amount-link {
+  font-size:15px; font-weight:700; padding:6px 12px;
+  border:1.5px dashed #BC6675; border-radius:10px;
+}
+.bf-money-row.amount .bf-amount-link:hover { text-decoration:none; background:#FBF1F3; }
+/* [2026-06-14 QA] 예상 예약금도 동일하게 — 작아서 안 보이던 문제. (num 크기는 위 .deposit 규칙에 병합) */
+.bf-money-row.deposit .bf-money-key { font-size:13px; color:#191F28; font-weight:500; }
+.bf-money-row.deposit .bf-amount-link {
+  font-size:15px; font-weight:700; padding:6px 12px;
+  border:1.5px dashed #BC6675; border-radius:10px; color:#BC6675;
+}
+.bf-money-row.deposit .bf-amount-link:hover { text-decoration:none; background:#FBF1F3; }
 .bf-money-row.total .bf-money-val { padding:0; margin:0; }
 .bf-money-row.total .bf-money-val .bf-num {
   font-size:20px; letter-spacing:-0.4px;
 }
-@media (min-width: 1100px) {
+@media (width >= 1100px) {
   .bf-money-row.total .bf-money-val .bf-num { font-size:24px; letter-spacing:-0.5px; }
   .bf-money-row.total .bf-money-val .bf-money-unit { font-size:13px; }
 }
@@ -329,6 +345,8 @@
   font-size:13px; color:#191F28; font-family:inherit;
   resize:none; min-height:64px; outline:none;
   transition: border-color .15s;
+  /* [Phase3-B #9] 포커스/키보드 시 sticky 버튼 위로 자연스럽게 스크롤되도록 */
+  scroll-margin-bottom:110px;
 }
 .bf-memo:focus { border-color:#191F28; }
 .bf-memo::placeholder { color:#C5CBD2; }
@@ -356,13 +374,15 @@
 .bf-cta {
   position:sticky; bottom:0;
   background:#fff;
-  padding:10px 14px;
+  /* [Phase3-B #9] safe-area 반영 + 하단 여백 음수(-96px) 제거 — 스크롤 영역(.bf-wrap padding-bottom:96px)을
+     상쇄해 메모칸 하단이 sticky 버튼에 가리던 문제 해결(setTimeout 땜빵 없이 레이아웃으로). */
+  padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   border-top:0.5px solid #F0F1F4;
   display:grid; grid-template-columns:1fr 2fr; gap:6px;
   z-index:10;
-  margin: 12px -14px -96px;
+  margin: 12px -14px 0;
 }
-@media (min-width: 1100px) {
+@media (width >= 1100px) {
   .bf-cta {
     position:static; padding:0; border-top:none; margin:8px 0 0;
     background:transparent;
@@ -420,10 +440,10 @@
 .bf-itby-pc .bf-itby { margin: 0; padding: 0; background: transparent; gap: 6px; }
 .bf-itby-pc .bf-itby-icon { background: transparent; color: #BC6675; width: auto; height: auto; }
 .bf-itby-pc .bf-itby-text { font-size: 11px; font-weight: 500; color: #BC6675; }
-@media (min-width: 1100px) {
+@media (width >= 1100px) {
   .bf-service-card .bf-svc-itby { display: none !important; }
 }
-@media (max-width: 1099px) {
+@media (width <= 1099px) {
   .bf-side-right .bf-itby-pc { display: none !important; }
 }
 

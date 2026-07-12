@@ -30,6 +30,12 @@
 기존: `app-gallery-bg.js`(376), `app-gallery-element.js`, `app-gallery-finish.js`(327), `app-gallery-review.js`, `app-gallery-write.js`
 **남은 작업**: `app-gallery.js` 코어를 `js/gallery/core.js` + `js/gallery/slot.js`로 분할.
 
+### 4. `js/workspace/workspace-v2-flow.js` — 4105줄 (T-104, 최우선)
+작업실 V2 플로우(업로드→편집→캡션→레이아웃→미리보기→발행)의 거대 상태머신. **>1000 하드캡 4배 초과 → 새 기능 추가 금지 구간.**
+slot-sync(coalesce/hydration) 등 최근 작업은 flow.js엔 **최소 연결(훅 호출)만** 얹고 실제 로직은 `workspace-sync.js`로 분리해 옴 — 이 원칙 유지.
+**목표 구조(초안)**: `js/workspace/flow/state.js`(d 상태·화면 전이) · `flow/upload.js`(사진 투입/addFiles) · `flow/editor.js`(편집기 열기/저장 라운드) · `flow/caption.js`(캡션 화면) · `flow/publish.js`(발행/미리보기) · `flow/index.js`(open/close/command 공개 API).
+**착수 조건**: 실사용 회귀 위험 큰 파일이라 백업 브랜치 + 화면별 스모크 하니스 선확보 후.
+
 ---
 
 ## 🟡 주의 (700~1000줄)
@@ -119,3 +125,4 @@ T-119 저장/export/slot/attach/dedupe + T-119-A export 안내(v365) · T-118 �
 | 2026-04-20 | 최초 작성. 3대 모놀리스 분할 계획 + 백엔드 미결 과제 기록 |
 | 2026-05-31 | 사진편집기 출시 QA 종료 기록 + 남은 P2 고도화 5종 백로그 추가 |
 | 2026-06-08 | '실시간 DM' 카드 재구성 후 app-dm-autoreply.js 죽은 인박스 함수 정리 백로그 등록 |
+| 2026-07-05 | workspace-v2-flow.js(4105줄) T-104 분할 대상 등록. slot-sync 비용방어(coalesce+GC) 배포 |

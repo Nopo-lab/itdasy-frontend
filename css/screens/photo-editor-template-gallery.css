@@ -122,49 +122,39 @@
   font-weight: 800;
   cursor: pointer;
 }
-/* [기본] purpose 별 기본 템플릿 지정/해제 토글 (잇비 자동적용 우선) */
-.pe-tplg-default-toggle {
-  width: 100%;
-  min-height: 44px;
-  margin-top: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid #e3d3a6;
-  border-radius: 14px;
-  background: #fffdf6;
-  color: #7a5a16;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  cursor: pointer;
-}
-.pe-tplg-default-toggle svg { color: #c9a24b; }
-.pe-tplg-default-toggle.on {
-  border-color: transparent;
-  background: linear-gradient(135deg, #e7ce8c, #c9a24b);
-  color: #1b140a;
-}
-.pe-tplg-default-toggle.on svg { color: #1b140a; }
-/* [기본] 카드 썸네일 "기본" 배지 */
+/* [기본] 카드 썸네일 좌하단 "기본" 배지 = 탭하면 잇비 자동적용 기본 템플릿 지정/해제(토글).
+   - off(기본 아님): 별만 보이는 흐린 알약 → "탭하면 기본 지정" 어포던스
+   - on(기본 지정됨): 노란 "★ 기본" 알약 */
 .pe-tplg-default-badge {
   position: absolute;
   left: 8px;
   bottom: 8px;
-  z-index: 3;
+  z-index: 4;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 3px 8px;
+  min-height: 26px;
+  padding: 3px 7px;
+  border: 0;
   border-radius: 999px;
-  background: linear-gradient(135deg, #e7ce8c, #c9a24b);
-  color: #1b140a;
+  background: rgba(17, 24, 39, 0.5);
+  color: #fff;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
 }
+.pe-tplg-default-badge svg { width: 13px; height: 13px; opacity: 0.85; }
+.pe-tplg-default-badge.on {
+  background: linear-gradient(135deg, #ffd84d, #f5b916);
+  color: #3a2c05;
+  box-shadow: 0 2px 8px rgba(245, 185, 22, 0.45);
+}
+.pe-tplg-default-badge.on svg { opacity: 1; color: #3a2c05; fill: #3a2c05; }
+.pe-tplg-default-txt { line-height: 1; }
+/* 프리미엄/PRO 배지(좌상단)와 좌하단 기본 배지는 코너가 달라 겹치지 않음 */
 
 /* 그리드 */
 .pe-tplg-grid {
@@ -172,6 +162,7 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   padding-bottom: 12px;
+  align-items: start; /* [2026-06-12 배치C] 비율 다른 카드 혼재 시 행 높이 늘어남 방지 */
 }
 .pe-tplg-card {
   min-width: 0;
@@ -192,7 +183,9 @@
 }
 .pe-tplg-thumb {
   position: relative;
-  aspect-ratio: 1 / 1;
+  /* [2026-06-12 배치C] 1:1 하드코딩 제거 — 카드별 인라인 aspect-ratio(카테고리 ratio) 우선,
+     인라인 없을 때만 4/5 폴백. 4:5/9:16 썸네일이 1:1 로 잘려 난장판이던 원인. */
+  aspect-ratio: 4 / 5;
   background-color: #f3f4f6;
   background-size: cover;
   background-position: center;

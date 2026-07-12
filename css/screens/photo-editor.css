@@ -396,3 +396,51 @@
 #photoEditorSheet.pe-inline .pe-nav-v7 { background: rgba(255,255,255,0.97); border-top: 1px solid var(--pe-c-border); }
 #photoEditorSheet.pe-inline .pe-nav-v7-cat.on, #photoEditorSheet.pe-inline .pe-nav-v7-chip.on { color: var(--pe-c-accent); }
 #photoEditorSheet.pe-inline .pe-nav-v7-chip.on::after { background: linear-gradient(135deg, #5b7cfa, #6c63ff); }
+
+/* ═══ [2026-06-12 응급B] 헤더 버튼 라벨 — 의미불명 원형 버튼에 텍스트 부여 ═══ */
+.pe-back-btn, .pe-iconbtn {
+  width: auto; min-width: 36px;
+  border-radius: 999px;
+  padding: 0 12px; height: 36px;
+  gap: 5px;
+}
+.pe-topbar-label { font-size: 12px; font-weight: 700; letter-spacing: -0.2px; white-space: nowrap; }
+.pe-set-nav .pe-iconbtn { padding: 0; width: 32px; min-width: 32px; }
+
+/* ═══ [2026-06-12 응급B] PC(≥1024px) — 좌 캔버스 / 우 도구 패널. 모바일 시트가
+   그대로 가로로 늘어나 캔버스가 거대해지고 패널만 스크롤되던 문제 해소.
+   .pe-inline(작업실 임베드)은 제외 — 자체 컨테이너 유지. ═══ */
+@media (min-width: 1024px) {
+  #photoEditorSheet:not(.pe-inline) .pe-root {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "topbar topbar"
+      "thumbs thumbs"
+      "stage  panel"
+      "stage  tabs";
+  }
+  #photoEditorSheet:not(.pe-inline) .pe-topbar {
+    grid-area: topbar;
+    position: static;
+    background: #0c0c10;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  #photoEditorSheet:not(.pe-inline) .pe-thumb-strip { grid-area: thumbs; }
+  #photoEditorSheet:not(.pe-inline) .pe-stage { grid-area: stage; min-height: 0; }
+  #photoEditorSheet:not(.pe-inline) .pe-canvas { max-height: calc(100vh - 120px); }
+  #photoEditorSheet:not(.pe-inline) .pe-panel {
+    grid-area: panel;
+    max-height: none; min-height: 0;
+    overflow-y: auto;
+    border-top: none;
+    border-left: 1px solid rgba(255,255,255,0.06);
+  }
+  #photoEditorSheet:not(.pe-inline) .pe-tabs,
+  #photoEditorSheet:not(.pe-inline) .pe-nav-v7 {
+    grid-area: tabs;
+    border-left: 1px solid rgba(255,255,255,0.06);
+  }
+}

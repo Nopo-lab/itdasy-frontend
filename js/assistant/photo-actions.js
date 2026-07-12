@@ -86,6 +86,14 @@
     const photoUrl = userMsg.thumb || (Array.isArray(userMsg.photos) ? userMsg.photos[0] : '');
     const photos = Array.isArray(userMsg.photos) ? userMsg.photos : (photoUrl ? [photoUrl] : []);
     if (!photoUrl) return true;
+    // [잇비↔작업실] 채팅 사진으로 바로 작업실 게시글 흐름 열기(명시 버튼만 — 자동진입 아님).
+    if (chip.id === 'workspace' && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+      try { if (window.ItdasySourceImage) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrl, messageId: 'chat-ws' }); } catch (_e) { void _e; }
+      deps.history.splice(hi - 1, 2);
+      deps.renderHistory();
+      window.WorkspaceFlow.command({ type: 'open', photoUrls: photos, cat: null });
+      return true;
+    }
     deps.history.splice(hi - 1, 2);
     deps.renderHistory();
     if (chip.id === 'template' && typeof deps.openTemplatePicker === 'function') {

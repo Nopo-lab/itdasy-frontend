@@ -120,6 +120,25 @@ async function initWorkshopTab() {
   const root = document.getElementById('workshopRoot');
   if (!root) return;
 
+  // [v501 Phase1] Workspace V2 — 작업실 첫 화면 교체.
+  //   휴면 폴백: window.ITDASY_WORKSPACE_V2 = false 또는 렌더 실패 시 아래 기존 렌더로 복귀.
+  if (window.ITDASY_WORKSPACE_V2 !== false &&
+      window.WorkspaceV2 && typeof window.WorkspaceV2.render === 'function') {
+    try {
+      let slots;
+      try { slots = await loadSlotsFromDB(); }
+      catch (_e) { console.warn('[workshop] V2 슬롯 로드 실패', _e); slots = []; }
+      _slots = slots || [];
+      window.WorkspaceV2.render(root, { slots: _slots });
+      return;
+    } catch (e) {
+      console.warn('[workshop] V2 렌더 실패 — 기존 작업실로 폴백', e);
+      _wsInited = false;                 // 기존 셸 강제 재구성
+      root.removeAttribute('data-ws-shell-bound');
+      root.innerHTML = '';
+    }
+  }
+
   if (!_wsInited) {
     _wsInited = true;
     root.innerHTML = _buildWorkshopHTML();
@@ -448,6 +467,7 @@ function _renderSlotCards() {
     if (thumb) {
       card.style.cursor = 'pointer';
       card.addEventListener('click', () => {
+        _enterCaptionFromWorkshop();   // [핫픽스F #2] 복귀 경로(작업실) 보존 — 먼저 무장 후 탭 전환
         showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]'));
         if (typeof loadSlotForCaption === 'function') loadSlotForCaption(slot.id);
         if (typeof initCaptionSlotPicker === 'function') initCaptionSlotPicker();
@@ -479,6 +499,46 @@ function _renderSlotCards() {
 
   const resetBtn = document.getElementById('wsResetBtn');
   if (resetBtn) resetBtn.style.display = _slots.length > 0 ? 'block' : 'none';
+}
+
+// [핫픽스F #2] 작업실/사진슬롯 → 캡션 진입 시 복귀 경로(작업실) 보존.
+//   캡션 탭엔 back 버튼이 없어 시스템 back 이 홈/사진모드로 튀던 문제 → "‹ 작업실로" 버튼 + 시트백 등록으로 작업실 복귀.
+function _backToWorkshopFromCaption() {
+  try { window._captionReturnTab = null; } catch (_e) { void _e; }
+  try { if (typeof window._markSheetClosed === 'function') window._markSheetClosed('captionWork'); } catch (_e) { void _e; }
+  const wsBtn = document.querySelector('.tab-bar__fab[data-tab="workshop"]')
+    || document.querySelector('.tab-bar__btn[data-tab="workshop"]')
+    || document.querySelector('[data-tab="workshop"]');
+  showTab('workshop', wsBtn);
+  if (typeof initWorkshopTab === 'function') { try { initWorkshopTab(); } catch (_e) { void _e; } }
+}
+
+function _ensureCaptionBackBtn() {
+  const tab = document.getElementById('tab-caption');
+  if (!tab) return;
+  let btn = document.getElementById('captionBackToWork');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'captionBackToWork';
+    btn.type = 'button';
+    btn.setAttribute('data-haptic', 'light');
+    btn.textContent = '‹ 작업실로';
+    btn.style.cssText = 'align-items:center;gap:4px;margin:0 0 10px;padding:8px 14px;border:1px solid var(--border,#E5E8EB);border-radius:999px;background:#fff;color:var(--text,#191F28);font-size:13px;font-weight:700;cursor:pointer;';
+    btn.addEventListener('click', _backToWorkshopFromCaption);
+    const inner = tab.querySelector('div');
+    if (inner) inner.insertBefore(btn, inner.firstChild); else tab.insertBefore(btn, tab.firstChild);
+  }
+  btn.style.display = 'inline-flex';
+}
+
+function _enterCaptionFromWorkshop() {
+  try { window._captionReturnTab = 'workshop'; } catch (_e) { void _e; }
+  // 시스템(안드로이드/브라우저) back → 작업실 복귀(홈/사진모드로 안 튀게). 시트백 레지스트리 재사용.
+  try {
+    if (typeof window._registerSheet === 'function') window._registerSheet('captionWork', _backToWorkshopFromCaption);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('captionWork');
+  } catch (_e) { void _e; }
+  _ensureCaptionBackBtn();
 }
 
 async function deleteSlot(slotId, e) {
@@ -533,6 +593,7 @@ function _bindWsBanner(banner) {
     if (t.matches('[data-ws-banner-close]')) { banner.style.display = 'none'; return; }
     if (t.matches('[data-ws-next-slot]')) return openSlotPopup(t.dataset.slotId);
     if (t.matches('[data-ws-caption]')) {
+      _enterCaptionFromWorkshop();   // [핫픽스F #2] 복귀 경로(작업실) 보존
       showTab('caption', document.querySelector('.tab-bar__fab[data-tab="caption"]'));
       initCaptionSlotPicker();
       if (typeof renderCaptionKeywordTags === 'function') renderCaptionKeywordTags();
@@ -586,6 +647,13 @@ window._mergeAutoGroups = _mergeAutoGroups;
 // [2026-06-11 B8] 잇비 "저장한 카드 보여줘" — 작업실 리스트 갱신 후 해당 슬롯 스크롤+하이라이트
 window.highlightWorkshopSlot = async function (slotId) {
   try { await initWorkshopTab(); } catch (_e) { void _e; }
+  // [activeCard P0] 작업실에서 띄운 슬롯을 '활성 카드'로 기억 — 이후 "그거 수정/저장"이 이 슬롯을 가리킨다.
+  try {
+    const _s = (_slots || []).find(s => s && s.id === slotId);
+    if (_s && window.ItbiActiveCard) {
+      window.ItbiActiveCard.set({ purpose: (_s.templateMeta && _s.templateMeta.purpose) || 'generic', label: _s.label || '카드', templateId: (_s.templateMeta && _s.templateMeta.templateId) || null, slotId: _s.id, available: true, origin: 'workshop' });
+    }
+  } catch (_e) { void _e; }
   const card = document.querySelector('.ws-slot-card[data-slot-id="' + String(slotId).replace(/"/g, '') + '"]');
   if (!card) return false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });

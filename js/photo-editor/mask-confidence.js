@@ -23,7 +23,11 @@
     if (!status || status === 'failed' || status === 'noHand' || status === 'pendingImplementation') return 0;
     // v337 — mask null 또는 coverage 0 이면 confidence 0 (자동 적용 후보 제외)
     //   eyelash 처럼 'fallback' status 인데 실제 mask 가 없는 경우 WEAK 처리 방지.
-    if (!r.mask || (typeof r.coverage === 'number' && r.coverage < 0.001)) return 0;
+    // [v552] 흰자(sclera)는 홍채 양옆 흰 부분이라 해부학적으로 coverage 가 작음(≈0.0006).
+    //   전역 0.001 하한에 걸려 conf 가 무조건 0 → 게이트 영구 탈락 → 눈맑게가 흰자 마스크를
+    //   못 쓰고 눈영역 휴리스틱으로 폴백하던 근본 원인. 흰자만 하한을 게이트 최소(0.0002)에 맞춤.
+    const _covFloor = (regionType === 'scleraMask') ? 0.0002 : 0.001;
+    if (!r.mask || (typeof r.coverage === 'number' && r.coverage < _covFloor)) return 0;
     const tier = r.sourceTier || 0;
 
     if (tier === 3) {

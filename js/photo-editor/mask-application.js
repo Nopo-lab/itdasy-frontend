@@ -5,12 +5,13 @@
 
    1차 연결: skinMask, hairMask, lipMask, eyeMask
    약하게:   hairBoundaryMask (cap 0.6)
-   보류:     eyelashBandMask, nailMask, handSkinMask, backgroundMask  (이번 PR 미연결)
+   별도 게이트: eyelashBandMask, nailMask, handSkinMask, scleraMask, browMask
 
    confidence 정책:
      - >= 0.7 → scale 1.0
      - 0.4 ~ 0.7 → scale 0.6
-     - < 0.4 또는 mask 없음 → useMasks 제외 → beauty-engine 이 v312 휴리스틱 fallback
+     - < 0.4 또는 mask 없음 → useMasks 제외
+     - 손·네일은 실제 Tier 1 마스크가 없으면 보정 없음
      - hairBoundary 는 scale 상한 0.6
 
    비상 off:
@@ -30,6 +31,10 @@
   const NAIL_COV_MIN  = 0.0005;  // 너무 작게 잡힌 마스크 거부 (점 단위 false-positive)
   const NAIL_COV_MAX  = 0.08;    // 너무 크게 잡힌 마스크 거부 (손 전체로 번진 경우)
   const NAIL_MASK_SCALE = 1.0;   // ready 일 때 mask 가중 배율
+  // [v573·P3-1] 손 미검출(네일 클로즈업) 색/광택 휴리스틱 폴백 게이트 — Tier1 보다 보수적
+  const NAIL_HEUR_COV_MIN = 0.003;   // 점단위 false-positive 거부
+  const NAIL_HEUR_COV_MAX = 0.10;    // 옷/배경 등 넓은 유채색 오검출 거부
+  const NAIL_HEUR_SCALE   = 0.85;    // 휴리스틱은 가중 약간 낮춰(오검출 영향 완화)
 
   // PE-M1 — scleraMask 안전 게이트 상수. 흰자는 작으므로 coverage 범위 좁게.
   const SCLERA_COV_MIN = 0.0002;  // 점 단위 false-positive 거부
@@ -56,15 +61,24 @@
     return false;
   }
 
-  // v350 — nailMask 안전 게이트. 전부 통과해야 mask 사용, 하나라도 미달이면 false → 휴리스틱 유지.
+  // v350 — nailMask 안전 게이트. 전부 통과해야 mask 사용, 하나라도 미달이면 보정하지 않는다.
   //   noHand/failed/fallback/pendingImplementation 은 status!=='ready' 또는 mask 없음 → 자동 false.
   function _nailGatePass(r) {
-    if (!r || r.status !== 'ready' || !r.mask) return false;
-    if (r.sourceTier !== 1) return false;                  // Hand Landmarker(Tier1)만 신뢰 — Tier3 휴리스틱 마스크 거부
-    if ((r.confidence || 0) < NAIL_CONF_MIN) return false;
+    if (!r || !r.mask) return false;
     const cov = r.coverage || 0;
+    // [v573·P3-1] 네일 클로즈업 색/광택 휴리스틱 폴백 — 손 미검출 시에만. 더 엄격한 coverage 밴드.
+    if (r._nailHeuristic) return cov >= NAIL_HEUR_COV_MIN && cov <= NAIL_HEUR_COV_MAX;
+    if (r.status !== 'ready') return false;
+    if (r.sourceTier !== 1) return false;                  // Hand Landmarker(Tier1)만 신뢰 — 일반 Tier3 휴리스틱 거부
+    if ((r.confidence || 0) < NAIL_CONF_MIN) return false;
     if (cov < NAIL_COV_MIN || cov > NAIL_COV_MAX) return false;
     return true;
+  }
+
+  function _handGatePass(r) {
+    if (!r || r.status !== 'ready' || !r.mask) return false;
+    if (r.sourceTier !== 1 || (r.confidence || 0) < 0.7) return false;
+    return (r.coverage || 0) >= 0.01;
   }
 
   function _scaleOf(maskType, confidence) {
@@ -150,7 +164,7 @@
   }
 
   // v350 — nailGloss/nailShape 전용 nailMask sync 조회. 게이트 통과 시에만 {mask, scale}.
-  //   getLashMaskSync 미러. noHand/저신뢰/미캐시/PE_NAIL_MASK_DISABLE → null → 호출자는 v348 휴리스틱 유지.
+  //   noHand/저신뢰/미캐시/PE_NAIL_MASK_DISABLE → null → 네일 보정 중단.
   //   nailMask 는 LAZY → 첫 호출 시 getCachedSync 가 백그라운드 계산 1회 트리거, 이후 캐시 read.
   function getNailMaskSync(img) {
     if (!img) return null;
@@ -159,7 +173,47 @@
     if (!RP || typeof RP.getCachedSync !== 'function') return null;
     const r = RP.getCachedSync(img, 'nailMask');
     if (!_nailGatePass(r)) return null;
-    return { mask: r.mask, scale: NAIL_MASK_SCALE, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+    const scale = r._nailHeuristic ? NAIL_HEUR_SCALE : NAIL_MASK_SCALE;   // [v573·P3-1] 휴리스틱은 약간 보수적
+    return { mask: r.mask, scale: scale, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
+  // [v550] handSkin 전용 handSkinMask sync 조회. 미캐시/실패 시 피부색으로 대체하지 않는다.
+  function getHandSkinMaskSync(img) {
+    if (!img) return null;
+    if (_disabled()) return null;
+    const RP = window.RegionMaskProvider;
+    if (!RP || typeof RP.getCachedSync !== 'function') return null;
+    const r = RP.getCachedSync(img, 'handSkinMask');
+    if (!_handGatePass(r)) return null;
+    return { mask: r.mask, scale: 1, confidence: r.confidence, coverage: r.coverage, tier: r.sourceTier };
+  }
+
+  async function prepareStrictMasks(img, beauty) {
+    const RP = window.RegionMaskProvider;
+    if (!img || !RP || typeof RP.getMask !== 'function') return [];
+    const jobs = [];
+    if ((beauty.handSkin || 0) > 0) jobs.push(RP.getMask(img, 'handSkinMask').then(r => _handGatePass(r) ? null : 'hand'));
+    if ((beauty.nailGloss || 0) > 0 || (beauty.nailShape || 0) > 10) {
+      jobs.push(RP.getMask(img, 'nailMask').then(r => _nailGatePass(r) ? null : 'nail'));
+    }
+    // [v552] 눈맑게(eyeRedness) — 흰자 마스크 게이트 미통과면 'sclera' 실패로 보고(엄격: 보기=적용 일치).
+    if ((beauty.eyeRedness || 0) > 0) {
+      jobs.push(RP.getMask(img, 'scleraMask').then(r => _scleraGatePass(r) ? null : 'sclera'));
+    }
+    const failures = await Promise.all(jobs.map(p => p.catch(() => null)));
+    return failures.filter(Boolean);
+  }
+
+  async function getDetectorMask(img, maskType) {
+    const RP = window.RegionMaskProvider;
+    if (!img || !RP || typeof RP.getMask !== 'function') return null;
+    const r = await RP.getMask(img, maskType);
+    if (maskType === 'nailMask' && !_nailGatePass(r)) return null;
+    if (maskType === 'handSkinMask' && !_handGatePass(r)) return null;
+    if (maskType === 'hairMask' && (!r || r.sourceTier !== 1 || r.status !== 'ready')) return null;
+    if (/^(eye|brow|sclera)Mask$/.test(maskType) && (!r || r.sourceTier !== 2 || r.status !== 'ready')) return null;
+    if (!r || !r.mask || r.status !== 'ready') return null;
+    return { mask: r.mask, coverage: r.coverage, confidence: r.confidence, tier: r.sourceTier };
   }
 
   // PE-M1 — scleraMask 전용 비상 off (PE_MASK_DISABLE 와 독립). disable 시 PE-ER 동결 버전과 pixel-identical.
@@ -247,12 +301,16 @@
     getMasksForBeautySync,
     getLashMaskSync,
     getNailMaskSync,
+    getHandSkinMaskSync,
+    prepareStrictMasks,
+    getDetectorMask,
     getScleraMaskSync,
     getBrowMaskSync,
     explain,
     V316_FIRST,
     _scaleOf,
     _nailGatePass,
+    _handGatePass,
     _scleraGatePass,
     _browGatePass,
   };

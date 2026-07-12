@@ -19,6 +19,20 @@
   }
 })();
 
+// ===== [2026-06-12] pathname 슬래시 증식 정규화 =====
+// 재연동 시 return_to 가 `.../yeunjun//` 처럼 슬래시가 누적되면 매번 새 SW scope 가
+// 생겨 SW 가 9개씩 등록되고, controllerchange→reload 로 ?connected=success 가 날아감.
+// 부팅 최상단에서 pathname 의 // 를 / 로 접어 정규화. 쿼리스트링·해시는 그대로 보존.
+(function _normalizePathSlashes() {
+  try {
+    var p = location.pathname;
+    if (/\/{2,}/.test(p)) {
+      var fixed = p.replace(/\/{2,}/g, '/');
+      history.replaceState(null, '', fixed + location.search + location.hash);
+    }
+  } catch (_e) { /* ignore */ }
+})();
+
 // ===== XSS 방어 유틸 (글로벌) =====
 // 사용자 입력 / API 응답을 innerHTML에 넣기 전 _esc()로 감싸기.
 // textContent 대체 가능하면 그쪽이 우선.
@@ -54,20 +68,58 @@ window._fireDataChanged = window._fireDataChanged || function (detail) {
   }, 50);
 };
 
-// [UX-LOAD] 로딩 오버레이 해제 — fade out 후 display:none
+// [UX-LOAD] 로딩 오버레이 — 최소 노출시간(태그라인 전환 3.8s 다 보이게) + 쫀득 페이드아웃 공통값
+var _LOAD_MIN_MS = 4000;
+function _loaderFadeOut(lo) {
+  lo.style.opacity = '0';
+  lo.style.transform = 'scale(1.04)';
+  setTimeout(function () { lo.style.display = 'none'; lo.style.opacity = ''; lo.style.transform = ''; }, 440);
+}
+
+// [UX-LOAD] 로딩 오버레이 해제 — 최소 1초 보장 후 쫀득 페이드아웃 (인사 없는 경로용: 토큰 자동로그인/워치독)
 function _hideLoadingOverlay() {
   var lo = document.getElementById('appLoadingOverlay');
   if (!lo || lo.style.display === 'none') return;
-  lo.style.opacity = '0';
-  setTimeout(function() { lo.style.display = 'none'; lo.style.opacity = ''; }, 350);
+  var wait = Math.max(0, _LOAD_MIN_MS - (Date.now() - (window._loadShownAt || 0)));
+  setTimeout(function () { _loaderFadeOut(lo); }, wait);
+}
+
+// [UX-LOAD] 로그인 직후: preload → 최소시간 → 인사(1회) → 쫀득 해제 (로그인/로딩/인사 한 화면 통일)
+async function _finishLoginLoad(withGreeting) {
+  try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
+  var rest = _LOAD_MIN_MS - (Date.now() - (window._loadShownAt || Date.now()));
+  if (rest > 0) await new Promise(function (r) { setTimeout(r, rest); });
+  if (withGreeting) {
+    var shopName = '';
+    try { shopName = localStorage.getItem('shop_name') || ''; } catch (_) { /* ignore */ }
+    if (shopName) {
+      var g = document.getElementById('ldGreet'), w = document.getElementById('ldWave'), n = document.getElementById('ldGreetName');
+      var tag = document.getElementById('ldTag');
+      if (n) n.textContent = shopName;
+      if (w) w.style.opacity = '0';
+      if (tag) tag.style.opacity = '0';
+      if (g) { g.style.opacity = '1'; g.style.transform = 'translateY(0)'; }
+      await new Promise(function (r) { setTimeout(r, 1300); });
+    }
+  }
+  var lo = document.getElementById('appLoadingOverlay');
+  if (lo && lo.style.display !== 'none') _loaderFadeOut(lo);
 }
 
 // ===== 백엔드 설정 =====
 // 이 레포(itdasy-frontend-test-yeunjun)는 연준 스테이징 전용 → 스테이징 백엔드 바라봄
 // 운영 레포(itdasy-frontend)는 운영 백엔드(별도 Cloud Run 서비스/커스텀 도메인)를 사용해야 함
 const PROD_API = 'https://itdasy-backend-staging-644329093453.asia-northeast3.run.app';
+// [dev] 로컬에서 스테이징 백엔드로 붙어 테스트: ?api=staging (또는 localStorage itdasy_api=staging).
+//   localhost 전용 · 명시적 opt-in만 · 운영/배포엔 영향 없음. 로컬 백엔드 안 띄우고 스테이징으로 검증할 때.
+const _API_STAGING_OVERRIDE = (function () {
+  try {
+    if (/[?&]api=staging/.test(location.search)) { try { localStorage.setItem('itdasy_api', 'staging'); } catch (_p) { void _p; } return true; }  // 쿼리 1회 → 리로드에도 유지되게 고정
+    return localStorage.getItem('itdasy_api') === 'staging';
+  } catch (_e) { return false; }
+})();
 const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'http://localhost:8000'
+  ? (_API_STAGING_OVERRIDE ? PROD_API : 'http://localhost:8000')
   : PROD_API;
 
 function apiUrl(path) {
@@ -143,18 +195,6 @@ function _nextToast() {
   }, duration);
 }
 
-function showWelcome(shopName) {
-  const overlay = document.getElementById('welcomeOverlay');
-  const nameEl  = document.getElementById('welcomeShopName');
-  if (!overlay) return;
-  if (nameEl) nameEl.textContent = shopName || '사장';
-  overlay.classList.add('show');
-  setTimeout(() => {
-    overlay.classList.add('hide');
-    setTimeout(() => overlay.classList.remove('show', 'hide'), 400);
-  }, 1800);
-}
-
 function isKakaoTalk() {
   return /KAKAOTALK/i.test(navigator.userAgent);
 }
@@ -194,10 +234,8 @@ function updateHeaderProfile(handle, tone, picUrl) {
   if (publishLabel) publishLabel.textContent = `${shopName} 피드에 바로 올리기`;
 
   // 헤더 아바타: 이미지 있으면 img, 없으면 이니셜
-  // (가입 방법 배지 #headerProviderBadge 는 보존)
   const avatarEl = document.getElementById('headerAvatar');
   if (avatarEl) {
-    const badge = document.getElementById('headerProviderBadge');
     const letter = (shopName || '사장님')[0]?.toUpperCase() || '✨';
     if (picUrl) {
       // referrerpolicy: 인스타 CDN 은 referrer 있으면 403 → no-referrer 필수
@@ -206,16 +244,9 @@ function updateHeaderProfile(handle, tone, picUrl) {
       const _img = avatarEl.querySelector('img');
       if (_img) _img.onerror = function () {
         avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
-        if (badge) avatarEl.appendChild(badge);
       };
     } else {
       avatarEl.innerHTML = `<span class="profile-avatar__initial">${window._esc(letter)}</span>`;
-    }
-    // 배지 다시 붙이기 (innerHTML 로 날아갔으므로)
-    if (badge) avatarEl.appendChild(badge);
-    // 현재 저장된 가입 방법 즉시 반영
-    if (typeof window.applyOAuthProviderBadge === 'function') {
-      window.applyOAuthProviderBadge();
     }
   }
 
@@ -700,37 +731,12 @@ async function applyNewSession(newToken, opts) {
             Promise.resolve(window.renderHomeResume()).catch(() => {});
           }
         } catch (_e) { void _e; }
-        if (typeof window.applyOAuthProviderBadge === 'function') {
-          window.applyOAuthProviderBadge();
-        }
       }
     }
   }).catch(() => { /* network error → 무시 */ });
   // sync 결과는 await 안 함 — UI 차단 회피
 }
 window.applyNewSession = applyNewSession;
-
-// 헤더 아바타에 가입방법 배지 색·툴팁 적용
-function applyOAuthProviderBadge() {
-  let prov = 'email';
-  try { prov = localStorage.getItem('user_oauth_provider') || 'email'; } catch (_) { void 0; }
-  const allow = new Set(['email', 'google', 'kakao', 'apple']);
-  if (!allow.has(prov)) prov = 'email';
-  const el = document.getElementById('headerProviderBadge');
-  if (!el) return;
-  el.dataset.provider = prov;
-  const labels = {
-    email: '잇데이 계정으로 가입',
-    google: '구글 계정으로 가입',
-    kakao: '카카오 계정으로 가입',
-    apple: 'Apple 계정으로 가입',
-  };
-  el.title = labels[prov];
-  el.setAttribute('aria-label', '가입 방법: ' + (
-    prov === 'email' ? '잇데이' : prov === 'google' ? '구글' : prov === 'kakao' ? '카카오' : 'Apple'
-  ));
-}
-window.applyOAuthProviderBadge = applyOAuthProviderBadge;
 
 function _setAuthGateLocked(locked) {
   if (document.body) document.body.classList.toggle('itdasy-locked', !!locked);
@@ -917,7 +923,9 @@ function authHeader() {
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const _tmo = attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS;
+      // [fix] 캐러셀(여러장) 인스타 발행은 컨테이너 순차 폴링으로 25~50초+ → 호출부가 itdasyTimeoutMs 로 타임아웃 상향 가능(기본 20초는 abort됨)
+      const _customTmo = init && init.itdasyTimeoutMs;
+      const _tmo = _customTmo || (attempt === 0 ? FETCH_TIMEOUT_FIRST_MS : FETCH_TIMEOUT_RETRY_MS);
       try {
         const res = await _fetchWithTimeout(input, init, _tmo);
         if (res.status === 401 && getToken()) {
@@ -937,12 +945,16 @@ function authHeader() {
             return res;
           }
         }
-        // 5xx 게이트웨이성 에러: retryable 이면 재시도. 첫 실패는 조용히, 2회째 실패부터 토스트.
-        if (retryable && RETRY_STATUSES.has(res.status) && attempt < MAX_RETRIES) {
-          if (attempt >= 1) _showReconnectToast();
-          await _sleep(BACKOFF_MS[attempt] || 1500);
-          attempt++;
-          continue;
+        // 5xx 게이트웨이성 에러: retryable 이면 재시도.
+        // [핫픽스F #5-9] 토스트는 "재시도까지 모두 실패한 최종 실패"에서만. 재시도로 회복되면 무noise →
+        //   예약 추가/변경이 retry 로 성공한 뒤 "서버 불안정" 문구가 뜨던 버그 차단(성공/실패 상태 분리).
+        if (retryable && RETRY_STATUSES.has(res.status)) {
+          if (attempt < MAX_RETRIES) {
+            await _sleep(BACKOFF_MS[attempt] || 1500);
+            attempt++;
+            continue;
+          }
+          _showReconnectToast();   // 재시도 소진 후 최종 실패
         }
         return res;
       } catch (err) {
@@ -951,13 +963,14 @@ function authHeader() {
         if (err.name === 'AbortError' && init && init.signal && init.signal.aborted) {
           throw err;
         }
-        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도. 첫 실패는 조용히.
+        // 네트워크 에러 (DNS·오프라인·CORS·abort) — retryable 한정으로 재시도.
         if (retryable && attempt < MAX_RETRIES) {
-          if (attempt >= 1) _showReconnectToast();
           await _sleep(BACKOFF_MS[attempt] || 1500);
           attempt++;
           continue;
         }
+        // [핫픽스F #5-9] 재시도(≥1회)까지 모두 실패한 최종 네트워크 실패에서만 토스트.
+        if (retryable && attempt >= 1) _showReconnectToast();
         throw err;
       }
     }
@@ -1191,6 +1204,14 @@ async function logout(opts) {
     }
   } catch (e) { /* IDB clear best-effort */ }
 
+  // [2026-07-06] slot-sync 메타 DB(itdasy-sync: migratedAt·lastPulledAt·tombstones)도 삭제 —
+  //   안 지우면 다음 계정에서 migrate skip·delta 누락으로 계정 격리 붕괴 + slot 유실.
+  try {
+    if (window.WorkspaceSync && typeof window.WorkspaceSync.clearLocal === 'function') {
+      await window.WorkspaceSync.clearLocal();
+    }
+  } catch (e) { /* sync meta clear best-effort */ }
+
   // 2. 서비스 워커 캐시 강제 삭제
   if ('caches' in window) {
     try {
@@ -1218,6 +1239,16 @@ async function logout(opts) {
   // 3. 페이지 새로고침 — cache bust 쿼리로 SW/브라우저 캐시 우회
   location.replace('index.html?_logout=' + Date.now());
 }
+
+// [2026-06-20] 앱 강제 업데이트 — 코드 캐시·서비스워커 비우고 리로드(껐다 켠 효과). 로그인·데이터(localStorage)는 유지.
+window.forceAppUpdate = async function () {
+  try { if (window.showToast) window.showToast('최신 버전 받는 중…'); } catch (_e) { void _e; }
+  try { if ('caches' in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } } catch (_e) { void _e; }
+  try { if ('serviceWorker' in navigator) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r => r.unregister())); } } catch (_e) { void _e; }
+  try { sessionStorage.clear(); } catch (_e) { void _e; }
+  await new Promise(r => setTimeout(r, 150));
+  location.replace(location.pathname + '?_upd=' + Date.now());
+};
 
 
 // 로그인
@@ -1254,15 +1285,14 @@ async function login() {
     checkCbt1Reset();
     checkOnboarding().catch(() => {});
     document.getElementById('lockOverlay').classList.add('hidden');
-    // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload 완료 후 해제
+    // [UX-LOAD] 로그인 후 로딩 화면 표시 → preload + 최소시간 + 인사 후 쫀득 해제
     var _lo = document.getElementById('appLoadingOverlay');
-    if (_lo) _lo.style.display = 'flex';
+    if (_lo) { _lo.style.display = 'flex'; window._loadShownAt = Date.now(); }
     checkInstaStatus(true);
     // T-317 — 생체 인증 등록 제안 (한 번만)
     _offerBiometricEnroll(data.access_token);
-    // Wave 2+ — 로그인 직후 주요 데이터 preload (탭 열 때 즉시 표시)
-    try { await _preloadTabs(); } catch (_) { /* ignore */ }
-    _hideLoadingOverlay();
+    // Wave 2+ — preload + 최소노출 + 인사("반갑습니다 OO 대표님!") 한 화면에서 처리
+    await _finishLoginLoad(true);
     // [2026-04-26 0초딜레이] 홈 화면 AI 추천 카드 즉시 렌더 (500ms 딜레이 제거)
     // SWR 캐시 있으면 0ms, 없으면 fetch — 어차피 비동기라 메인 쓰레드 블로킹 X
     if (window.TodayBrief && typeof window.TodayBrief.render === 'function') {
@@ -1692,12 +1722,11 @@ window.addEventListener('load', function() {
       if (ok) {
         document.getElementById('lockOverlay').classList.add('hidden');
         var _lo2 = document.getElementById('appLoadingOverlay');
-        if (_lo2) _lo2.style.display = 'flex';
+        if (_lo2) { _lo2.style.display = 'flex'; window._loadShownAt = Date.now(); }
         _setAuthGateLocked(false);
         checkOnboarding().catch(() => {});
         checkInstaStatus(true);
-        try { if (window._preloadTabs) await window._preloadTabs(); } catch (_) { /* ignore */ }
-        _hideLoadingOverlay();
+        await _finishLoginLoad(true);
       }
     }
   })();
@@ -1706,8 +1735,7 @@ window.addEventListener('load', function() {
   if(getToken()) {
     document.getElementById('lockOverlay').classList.add('hidden');
     _setAuthGateLocked(false);
-    // 가입방법 배지 + last_user_id 보정 (기존 캐시값으로 즉시 + /me 로 갱신)
-    try { applyOAuthProviderBadge(); } catch (_) { /* ignore */ }
+    // last_user_id 보정 (기존 캐시값으로 즉시 + /me 로 갱신)
     try { applyNewSession(getToken()); } catch (_) { /* ignore */ }
     checkCbt1Reset();
     checkOnboarding().catch(() => {});
@@ -1722,29 +1750,59 @@ window.addEventListener('load', function() {
     // runAutoAnalysisAfterConnect 가 즉시 toast + overlay + 90초 polling + timeout fallback.
     const _params0 = new URLSearchParams(window.location.search);
     const _justOAuthed = _params0.get('connected') === 'success';
+    // [v570] OAuth 복귀 의도를 reload 견디는 플래그로 보존 — SW controllerchange→reload 가
+    //   ?connected=success 를 날려도 이 플래그로 분석/보고서 흐름을 복원한다(보고서 미노출 hotfix).
+    let _pendingReport = false;
+    try { _pendingReport = sessionStorage.getItem('itdasy_pending_report') === '1'; } catch (_e) { void _e; }
     if (_justOAuthed) {
+      try { sessionStorage.setItem('itdasy_pending_report', '1'); } catch (_e) { void _e; }
+      _pendingReport = true;
       history.replaceState(null, '', window.location.pathname);
       try {
         const pd = document.getElementById('personaDash');
         if (pd) pd.style.display = 'none';
       } catch (_e) { void _e; }
-      try {
-        if (typeof window.runAutoAnalysisAfterConnect === 'function') {
-          window.runAutoAnalysisAfterConnect();
-        } else if (typeof runPersonaAnalyze === 'function') {
-          runPersonaAnalyze();
-        }
-      } catch (_e) { void _e; }
+    } else if (!_pendingReport) {
+      // [2026-06-12] OAuth 복귀도 복원 대기도 아닌 일반 부팅이면 inflight 플래그 정리 —
+      //   잔존 시 이후 SW 업데이트 controllerchange→reload 를 계속 막는다.
+      try { sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e) { void _e; }
     }
-    checkInstaStatus().then(() => {
-      // (connected=success 는 위에서 이미 처리됨 — runPersonaAnalyze 즉시 호출)
-      const params = new URLSearchParams(window.location.search);
+    // [2026-06-12] connected=success 직후 경합 제거 — checkInstaStatus 를 먼저 await 로 끝내
+    //   (재연동 캐시 정리 선행) 그 다음에 runAutoAnalysisAfterConnect 시작. 동시 출발 금지.
+    (async () => {
+      try { await checkInstaStatus(); } catch (_e) { void _e; }
+      if (_justOAuthed || _pendingReport) {
+        try {
+          // [v570] reload 로 ?connected=success 가 사라졌어도 분석 결과가 이미 있으면 보고서 즉시 복원.
+          let _restored = false;
+          if (!_justOAuthed) {
+            try {
+              const _cached = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
+              const _hasResult = (String(_cached.style_summary || _cached.tone_summary || '')).trim();
+              if (_hasResult && typeof window._openReportPopupDirect === 'function') {
+                _restored = window._openReportPopupDirect(_cached);
+                if (_restored) {
+                  try { sessionStorage.removeItem('itdasy_pending_report'); sessionStorage.removeItem('itdasy_oauth_inflight'); } catch (_e2) { void _e2; }
+                }
+              }
+            } catch (_e3) { void _e3; }
+          }
+          if (!_restored) {
+            if (typeof window.runAutoAnalysisAfterConnect === 'function') {
+              window.runAutoAnalysisAfterConnect();
+            } else if (typeof runPersonaAnalyze === 'function') {
+              runPersonaAnalyze();
+            }
+          }
+        } catch (_e) { void _e; }
+      }
       // Chrome 이동 후 자동 연동 시작
+      const params = new URLSearchParams(window.location.search);
       if (params.get('auto_connect') === '1') {
         history.replaceState(null, '', window.location.pathname);
         setTimeout(connectInstagram, 500);
       }
-    });
+    })();
 
     // 기존 동의 완료 시각 복원
     const consentedAt = localStorage.getItem('itdasy_consented_at');
@@ -1818,6 +1876,8 @@ function closeNavSheet() {
 function showTab(id, btn) {
   // [T-101] 잇비 컨텍스트용 현재 탭 노출 (context-resolver 가 읽음).
   try { window.__ITDASY_CURRENT_TAB__ = id; } catch (_e) { void 0; }
+  // [v505] 작업실 탭에서만 헤더/네비를 프로토타입 따뜻한 톤으로 (body.ws-tab 스코프, 다른 탭 회귀 없음)
+  try { document.body.classList.toggle('ws-tab', id === 'workshop'); } catch (_e) { void 0; }
   // P3.1 #2: .tab 바깥 요소 잔존 방지
   if (typeof closeSlotPopup === 'function') closeSlotPopup();
   const sg = document.getElementById('_nextSlotGuide');
@@ -1832,6 +1892,17 @@ function showTab(id, btn) {
   const target = document.getElementById('tab-' + id);
   if (target) target.classList.add('active');
   if (btn) btn.classList.add('active');
+  // [핫픽스F #2] 작업실→캡션 복귀 마커: 캡션 탭에서 '작업실에서 옴'일 때만 "‹ 작업실로" 버튼 노출.
+  //   캡션 외 다른 탭으로 이동하면 마커·시트백 정리(시스템 back 오발동/홈·사진모드로 튐 방지).
+  try {
+    const _cback = document.getElementById('captionBackToWork');
+    const _fromWork = (window._captionReturnTab === 'workshop');
+    if (_cback) _cback.style.display = (id === 'caption' && _fromWork) ? 'inline-flex' : 'none';
+    if (id !== 'caption' && window._captionReturnTab) {
+      window._captionReturnTab = null;
+      if (typeof window._markSheetClosed === 'function') window._markSheetClosed('captionWork');
+    }
+  } catch (_cbe) { void _cbe; }
   // 탭 전환 시 스크롤 맨 위로 리셋
   window.scrollTo(0, 0);
   document.body.scrollTop = 0;
@@ -1909,7 +1980,7 @@ function getSel(id) {
 // ─────────────────────────────────────────────
 //  Service Worker 등록 — 새 버전 배포 시 캐시 자동 갱신
 // ─────────────────────────────────────────────
-window.APP_BUILD = '20260611-v446-hide-pe-aihub';
+window.APP_BUILD = '20260705-v709-fillwide';
 function _updateVersionBadge(swVer) {
   const el = document.getElementById('appVersionBadge');
   if (!el) return;
@@ -1968,11 +2039,17 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     }
   };
 
+  // [2026-06-12] 정규 scope = 슬래시 정규화된 현재 디렉터리(슬래시 1개). 비정규 scope SW 정리용.
+  const _canonScope = location.pathname.replace(/\/{2,}/g, '/').replace(/[^/]*$/, '');
+
   navigator.serviceWorker.getRegistrations().then(regs => {
     regs.forEach(reg => {
       const u = reg.active?.scriptURL || reg.installing?.scriptURL || reg.waiting?.scriptURL || '';
-      if (u && !u.endsWith('/sw.js')) {
-        console.warn('[SW] 구 SW 언레지스터:', u);
+      // 스크립트가 sw.js 가 아니거나(구 SW), scope path 에 // 누적된 비정규 scope → 언레지스터.
+      const scopePath = (reg.scope || '').replace(/^https?:\/\//, '');
+      const badScope = /\/{2,}/.test(scopePath);
+      if ((u && !u.endsWith('/sw.js')) || badScope) {
+        console.warn('[SW] 비정규 SW 언레지스터:', reg.scope || u);
         reg.unregister().catch(() => {});
       }
     });
@@ -1980,7 +2057,8 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
 
   // [2026-04-28] updateViaCache: 'none' — sw.js 자체를 HTTP 캐시 안 함 → 매번 새 sw.js fetch
   // 이전엔 기본값 'imports' 라 옛 sw.js 가 영구 서빙되던 버그.
-  navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' })
+  // [2026-06-12] scope 명시 — './' 는 누적 슬래시 경로에 매번 새 scope SW 를 만든다. 정규 scope 고정.
+  navigator.serviceWorker.register('sw.js', { scope: _canonScope, updateViaCache: 'none' })
     .then(reg => {
       // 페이지 진입 시마다 강제 update 시도 (sw.js fresh fetch + 새 SW 발견 시 install)
       _safeSwUpdate(reg);
@@ -2010,6 +2088,9 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
     });
 
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // [2026-06-12] OAuth 복귀 직후 새 SW 활성화로 reload 되면 ?connected=success 가 날아가
+    //   분석 오버레이가 못 뜬다. 연동 진행 중(itdasy_oauth_inflight)이면 reload 건너뜀.
+    try { if (sessionStorage.getItem('itdasy_oauth_inflight')) return; } catch (_e) { void _e; }
     window.location.reload();
   });
 } else if (_isCapacitor) {
@@ -2207,7 +2288,6 @@ window.apiUrl = apiUrl;
 window.apiFetch = apiFetch;
 window.authHeader = authHeader;
 Object.assign(window, {
-  showWelcome,
   isKakaoTalk,
   showInstallGuide,
   hideInstallGuide,
@@ -2390,6 +2470,9 @@ window._humanError = function (e) {
     return '입력값을 확인해주세요';
   if (/HTTP\s*404|not.found/i.test(raw))
     return '요청한 데이터를 찾지 못했어요';
+  // [핫픽스E #4·#6] _api 가 404/501 을 'endpoint-missing' 으로 throw — raw 노출(사유: endpoint-missing) 차단.
+  if (/endpoint-missing/i.test(raw))
+    return '아직 준비 중인 기능이에요';
   if (/HTTP\s*409/i.test(raw))
     return '이미 다른 값이 있어요. 잠시 후 다시 시도해주세요';
   if (/HTTP\s*413|too large|exceeded/i.test(raw))
@@ -2400,21 +2483,28 @@ window._humanError = function (e) {
     return '요청이 너무 많아요. 잠시 후 다시 시도해주세요';
   if (/HTTP\s*402|payment/i.test(raw))
     return '플랜 한도 초과예요. 업그레이드가 필요해요';
+  // [§11] DB/PostgREST 원문(예: "already has another value", "duplicate key", "unique constraint") 누출 차단
+  if (/already\s+has|already\s+exist|duplicate|unique\s+constraint|conflict|overlap/i.test(raw))
+    return '이미 등록된 값이 있어요. 다시 확인해주세요';
   if (raw.length > 80) return '일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요';
   return raw;
 };
 
 // --- Inline dialog helpers (Capacitor 호환) ---
-function _inlineConfirm(msg, onYes, onNo) {
+function _inlineConfirm(msg, onYes, onNo, opts) {
   // [2026-06-10] onNo(취소 콜백) 추가 — Promise<boolean> 래핑(nativeConfirm 등)이 가능하도록. 기존 호출엔 영향 없음.
+  // [Phase3-B #8] opts.okText / opts.cancelText 로 버튼 라벨 커스터마이즈(예: '예약 취소' / '아니요'). 미지정 시 기존 '확인'/'취소'.
+  opts = opts || {};
+  const okText = opts.okText || '확인';
+  const cancelText = opts.cancelText || '취소';
   const el = document.createElement('div');
   el.className = 'bk-confirm-toast';
   el.innerHTML = `
     <div class="bk-confirm-toast__body">
       <p style="white-space:pre-line;">${msg}</p>
       <div class="bk-confirm-toast__btns">
-        <button class="bk-confirm-toast__cancel">취소</button>
-        <button class="bk-confirm-toast__ok">확인</button>
+        <button class="bk-confirm-toast__cancel">${cancelText}</button>
+        <button class="bk-confirm-toast__ok">${okText}</button>
       </div>
     </div>`;
   document.body.appendChild(el);

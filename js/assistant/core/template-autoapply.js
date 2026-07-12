@@ -114,7 +114,7 @@
     var TV = window.PhotoEditorTemplatesV2;
     if (!PE || !PE.open || !PE._internal || !TV || typeof TV.apply !== 'function') return null;
 
-    PE.open({ src: afterUrl, initial_tab: 'template', onSave: (typeof onSave === 'function' ? onSave : undefined) });   // [P0-B] 저장→작업실
+    PE.open({ src: afterUrl, initial_tab: 'template', source: 'assistant', onSave: (typeof onSave === 'function' ? onSave : undefined) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
     TV.apply(tplId);
 
     var state = (PE._internal.getState && PE._internal.getState()) || null;

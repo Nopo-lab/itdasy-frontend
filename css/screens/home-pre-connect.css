@@ -1,210 +1,192 @@
-/* 인스타 미연결 화면 — 잇비 카드 (28차 2단계)
-   진입: index.html #homePreConnect (인스타 미연결 + 토큰 보유 사장님)
-   톤: 토스/애플 단정. 처음 사장님 + 연동 해제 후 기존 사장님 둘 다 범용. */
+/* 인스타 미연동 홈 — 잇비 라이브 데모 (목업 03 확정안 이식, 2026-06-12)
+   진입: index.html #homePreConnect (인스타 미연결 사장님)
+   토큰: css/tokens.css (--brand / --brand-strong / --brand-bg / --surface / --text …)
+   모바일: 한 화면(잇비 봇 + 라이브 채팅 데모 + 진행 흐름 + CTA)
+   PC/태블릿: 2단 히어로(좌 텍스트+CTA / 우 잇비 무대) + 혜택 3칸 + 진행 흐름 */
 
-.ipc-section { padding: 16px 14px; }
+.ipc { padding: 6px 14px 16px; display: flex; flex-direction: column; }
 
-.ipc-hero {
+/* ── 공통 카드 ── */
+.ipc-card {
   background: var(--surface);
   border: 0.5px solid var(--border);
-  border-radius: 22px;
-  padding: 28px 20px 22px;
+  border-radius: 24px;
+  padding: 22px 20px 20px;
   text-align: center;
-  position: relative;
-  overflow: hidden;
-  max-width: 460px;
-  margin: 0 auto;
-}
-.ipc-hero::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at 50% 0%, rgba(213,138,149,0.08) 0%, transparent 60%);
-  pointer-events: none;
+  box-shadow: 0 2px 12px rgba(25,31,40,.04);
 }
 
-/* 잇비 캐릭터 — 둥실 모션 */
-.ipc-char {
-  width: 72px; height: 72px;
-  margin: 0 auto 14px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--brand-bg, #FEF3F5), rgba(213,138,149,0.18));
+/* ── 잇비 봇 (모바일 상단, 둥둥 + 그림자) ── */
+.ipc-bot-top {
+  width: 62px; height: 62px; margin: 0 auto 8px;
+  border-radius: 50%; background: var(--brand-bg);
   display: flex; align-items: center; justify-content: center;
-  position: relative;
-  animation: ipcFloat 3.2s ease-in-out infinite;
-  box-shadow: 0 8px 24px rgba(229,88,110,0.12);
+  color: var(--brand-strong);
+  animation: ipcBob 3s ease-in-out infinite;
 }
-.ipc-char svg { width: 38px; height: 38px; stroke: var(--brand); fill: none; }
-.ipc-char::after {
-  content: '';
-  position: absolute;
-  bottom: -10px; left: 50%; transform: translateX(-50%);
-  width: 50px; height: 6px;
-  background: rgba(229,88,110,0.08);
-  border-radius: 50%;
-  filter: blur(4px);
-  animation: ipcShadow 3.2s ease-in-out infinite;
+.ipc-bot-top svg { width: 33px; height: 33px; }
+.ipc-bot-shadow {
+  width: 36px; height: 7px; margin: -4px auto 10px;
+  border-radius: 50%; background: rgba(25,31,40,.08);
+  animation: ipcShdw 3s ease-in-out infinite;
 }
-@keyframes ipcFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-@keyframes ipcShadow {
-  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.4; }
-  50% { transform: translateX(-50%) scale(0.7); opacity: 0.2; }
-}
+@keyframes ipcBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+@keyframes ipcShdw { 0%,100%{transform:scaleX(1);opacity:.8} 50%{transform:scaleX(.7);opacity:.4} }
 
-.ipc-label {
-  display: inline-block;
-  font-size: 11px; font-weight: 700; color: var(--brand);
-  background: var(--brand-bg, #FEF3F5);
-  padding: 4px 12px;
-  border-radius: 999px;
-  margin-bottom: 10px;
-  letter-spacing: 0.2px;
-}
-.ipc-hello {
-  font-size: 14px; color: var(--text-muted, #5A6573);
-  margin-bottom: 6px;
-  font-weight: 500;
-  letter-spacing: -0.2px;
-}
-.ipc-headline {
-  font-size: 20px; font-weight: 800; color: var(--text);
-  line-height: 1.4; letter-spacing: -0.4px;
-  margin: 0 0 14px;
-}
-.ipc-headline b { color: var(--brand); }
+.ipc-label { font-size: 11px; font-weight: 700; color: var(--brand-strong); margin-bottom: 6px; }
+.ipc-title { font-size: 19px; font-weight: 800; color: var(--text); line-height: 1.38; letter-spacing: -0.4px; word-break: keep-all; }
+.ipc-sub { display: none; font-size: 15px; color: var(--text-subtle); margin-top: 14px; line-height: 1.6; word-break: keep-all; }
 
-/* 잇비가 하는 일 박스 */
-.ipc-bubble {
-  position: relative;
-  background: var(--brand-bg, #FEF3F5);
-  border: 0.5px solid rgba(229,88,110,0.18);
-  border-radius: 12px;
-  padding: 12px 14px 10px;
-  margin-bottom: 16px;
-  text-align: left;
-}
-.ipc-bubble::before {
-  content: '';
-  position: absolute;
-  top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg);
-  width: 10px; height: 10px;
-  background: var(--brand-bg, #FEF3F5);
-  border-left: 0.5px solid rgba(229,88,110,0.18);
-  border-top: 0.5px solid rgba(229,88,110,0.18);
-}
-.ipc-bubble-label {
-  font-size: 11px; font-weight: 800; color: var(--brand);
-  letter-spacing: 0.3px;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  text-align: center;
-}
-.ipc-item {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 9px 0;
-  border-bottom: 0.5px solid rgba(229,88,110,0.12);
-}
-.ipc-item:last-child { border-bottom: none; padding-bottom: 0; }
-.ipc-icon {
-  flex-shrink: 0;
-  width: 28px; height: 28px;
-  border-radius: 8px;
-  background: rgba(229,88,110,0.14);
-  display: flex; align-items: center; justify-content: center;
-}
-.ipc-icon svg { width: 14px; height: 14px; stroke: var(--brand); fill: none; }
-.ipc-body { flex: 1; min-width: 0; }
-.ipc-title { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.4; letter-spacing: -0.2px; }
-.ipc-sub { font-size: 11.5px; color: var(--text-muted, #5A6573); margin-top: 2px; font-weight: 500; line-height: 1.4; }
-.ipc-arrow { color: var(--brand); font-weight: 700; margin-right: 3px; }
+/* ── 라이브 데모 (모바일): 잇비가 일하는 채팅 3줄 6.5s 루프 ── */
+.ipc-live { margin: 16px 0; background: var(--surface-2); border-radius: 16px; padding: 14px; text-align: left; }
+.ipc-live-row { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; opacity: 0; }
+.ipc-live-row:last-of-type { margin-bottom: 0; }
+.ipc-live-row.m1 { animation: ipcAppear1 6.5s ease infinite; }
+.ipc-live-row.m2 { animation: ipcAppear2 6.5s ease infinite; }
+.ipc-live-row.m3 { animation: ipcAppear3 6.5s ease infinite; }
+@keyframes ipcAppear1 { 0%,2%{opacity:0;transform:translateY(8px)} 7%,94%{opacity:1;transform:none} 100%{opacity:0} }
+@keyframes ipcAppear2 { 0%,20%{opacity:0;transform:translateY(8px)} 25%,94%{opacity:1;transform:none} 100%{opacity:0} }
+@keyframes ipcAppear3 { 0%,38%{opacity:0;transform:translateY(8px)} 43%,94%{opacity:1;transform:none} 100%{opacity:0} }
+.ipc-live-ava { width: 27px; height: 27px; border-radius: 9px; background: var(--brand-bg); display: flex; align-items: center; justify-content: center; color: var(--brand-strong); flex-shrink: 0; }
+/* [v559] flex 자식 min-width:auto 로 인해 내부 nowrap typewriter 가 280px 에서 가로 오버플로 → min-width:0 으로 축소 허용. */
+.ipc-live-bubble { background: var(--surface); border-radius: 4px 13px 13px; padding: 8px 12px; font-size: 12.5px; color: var(--text-muted); box-shadow: 0 1px 4px rgba(25,31,40,.05); display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+.ipc-live-bubble b { color: var(--text); font-weight: 700; }
+.ipc-ok { width: 15px; height: 15px; border-radius: 50%; background: #16B55E; color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: auto; }
+.ipc-typewriter { display: inline-block; border-right: 2px solid var(--brand); white-space: nowrap; overflow: hidden; max-width: 100%; vertical-align: bottom; animation: ipcTw 6.5s steps(24,end) infinite, ipcBlink .8s step-end infinite; }
+@keyframes ipcTw { 0%,3%{width:0} 18%,100%{width:100%} }
+@keyframes ipcBlink { 50%{border-color:transparent} }
+.ipc-live-cap { font-size: 10.5px; color: var(--text-subtle); margin-top: 10px; display: flex; align-items: center; gap: 5px; }
+.ipc-live-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand-strong); animation: ipcPulse 1.6s ease-in-out infinite; }
+@keyframes ipcPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-/* CTA */
+/* ── 진행 흐름 (숫자 없음, 아이콘 3개, 현재 단계 펄스 링 + 연결선 빛 흐름) ── */
+.ipc-flow { display: flex; align-items: center; justify-content: center; }
+.ipc-flow--m { margin-bottom: 14px; }
+.ipc-fl { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 78px; }
+.ipc-fl-ic { width: 31px; height: 31px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.ipc-fl.now .ipc-fl-ic { background: var(--brand-bg); color: var(--brand-strong); animation: ipcRing 1.8s ease-out infinite; }
+@keyframes ipcRing { 0%{box-shadow:0 0 0 0 rgba(213,138,149,.45)} 70%{box-shadow:0 0 0 9px rgba(213,138,149,0)} 100%{box-shadow:0 0 0 0 rgba(213,138,149,0)} }
+.ipc-fl.next .ipc-fl-ic { background: #F0F2F5; color: #A8B0BA; }
+.ipc-fl-t { font-size: 10.5px; font-weight: 700; color: var(--text-subtle); }
+.ipc-fl.now .ipc-fl-t { color: var(--brand-strong); }
+.ipc-fl-line { width: 28px; height: 2px; background: #E8ECF1; margin-bottom: 15px; position: relative; overflow: hidden; }
+.ipc-fl-line i { position: absolute; inset: 0; background: linear-gradient(90deg,transparent,var(--brand),transparent); animation: ipcFlow 1.6s linear infinite; }
+@keyframes ipcFlow { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+
+/* ── CTA + 신뢰 줄 + 나중에 할게요 ── */
+.ipc-ctas { display: flex; flex-direction: column; }
 .ipc-cta {
-  display: block; width: 100%;
-  height: 50px;
-  background: var(--text);
-  color: var(--surface, #fff);
-  border: none;
-  border-radius: 12px;
-  font-size: 15px; font-weight: 700;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  width: 100%; height: 52px; border: none; border-radius: 16px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+  color: #fff; font-size: 15px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 6px 16px rgba(188,102,117,.30);
+  cursor: pointer; transition: transform .12s ease; font-family: inherit;
 }
-.ipc-cta:hover { transform: translateY(-2px); }
-.ipc-cta::after {
-  content: '';
-  position: absolute; inset: 0;
-  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.18) 50%, transparent 70%);
-  background-size: 200% 100%;
-  animation: ipcShimmer 2.6s ease-in-out infinite;
-  pointer-events: none;
-}
-@keyframes ipcShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* PC 살짝 키움 */
-@media (min-width: 900px) {
-  .ipc-hero { padding: 40px 32px 32px; margin: 60px auto 0; }
-  .ipc-char { width: 88px; height: 88px; margin-bottom: 18px; }
-  .ipc-char svg { width: 44px; height: 44px; }
-  .ipc-headline { font-size: 24px; margin-bottom: 16px; }
-  .ipc-cta { height: 54px; font-size: 16px; }
-}
-
-/* 다크모드 */
-[data-theme="dark"] .ipc-hero {
-  background: var(--surface-2, #1c1f24);
-  border-color: rgba(255,255,255,0.08);
-}
-[data-theme="dark"] .ipc-bubble {
-  background: rgba(213,138,149,0.08);
-}
-
-/* 지금은 됐어요 — 카드 닫기 (영구 미표시 / 인스타 연결 시 자동 해제) */
+.ipc-cta:hover { transform: translateY(-1px); }
+.ipc-cta:active { transform: scale(.97); }
+.ipc-trust { text-align: center; font-size: 10.5px; color: var(--text-subtle); margin-top: 8px; }
 .ipc-skip {
-  display: block;
-  text-align: center;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-subtle, #98A1AC);
-  padding: 12px 0 2px;
-  margin-top: 8px;
-  cursor: pointer;
-  background: transparent;
-  border: none;
-  width: 100%;
-  font-family: inherit;
-  letter-spacing: -0.1px;
-  transition: color 0.15s;
+  display: block; width: 100%; text-align: center; font-size: 12px;
+  color: #A8B0BA; margin-top: 4px; padding: 6px 0; font-weight: 500;
+  background: transparent; border: none; cursor: pointer; font-family: inherit;
 }
-.ipc-skip:hover { color: var(--text-muted, #5A6573); }
+.ipc-skip:hover { color: var(--text-muted); }
 
-/* 카드 닫음 후 메인홈 상단 작은 띠 — 재진입 경로 (28차 hotfix) */
+/* ── PC 무대(2단 우측)·혜택·sub — 데스크톱에서만 노출 ── */
+.ipc-stage, .ipc-perks, .ipc-flow--d { display: none; }
+
+/* ════ 데스크톱/태블릿 (≥768px): 2단 히어로 + 혜택 + 흐름 ════ */
+@media (width >= 768px) {
+  .ipc { padding: 24px 0; gap: 16px; max-width: 900px; margin: 0 auto; }
+
+  /* 모바일 전용 블록 숨김 */
+  .ipc-bot-top, .ipc-bot-shadow, .ipc-live, .ipc-flow--m { display: none; }
+
+  /* 2단 히어로 카드 */
+  .ipc-card {
+    display: grid;
+    grid-template-columns: 1.15fr 300px;
+    grid-template-areas:
+      "label stage"
+      "title stage"
+      "sub   stage"
+      "cta   stage";
+    align-items: center;
+    gap: 0 32px;
+    text-align: left;
+    padding: 40px 44px;
+    border-radius: 28px;
+  }
+  .ipc-label { grid-area: label; font-size: 13px; margin-bottom: 10px; align-self: end; }
+  .ipc-title { grid-area: title; font-size: 28px; line-height: 1.34; white-space: normal; }
+  .ipc-sub   { display: block; grid-area: sub; margin-top: 12px; }
+  .ipc-ctas  { grid-area: cta; align-self: start; margin-top: 22px; }
+  .ipc-cta { width: auto; align-self: flex-start; padding: 0 30px; }
+  .ipc-trust { text-align: left; font-size: 12px; margin-top: 12px; }
+  .ipc-skip { width: auto; text-align: left; margin-top: 10px; font-size: 13px; }
+
+  /* 잇비 무대 — 둥둥 + 말풍선 2개 + 타자기 */
+  .ipc-stage {
+    grid-area: stage; display: flex; align-items: center; justify-content: center;
+    width: 300px; height: 240px; border-radius: 24px; background: var(--brand-bg);
+    position: relative; overflow: hidden;
+  }
+  .ipc-stage-bot { width: 100px; height: 100px; border-radius: 50%; background: var(--surface); display: flex; align-items: center; justify-content: center; color: var(--brand-strong); box-shadow: 0 8px 24px rgba(188,102,117,.18); animation: ipcBob 3s ease-in-out infinite; }
+  .ipc-stage-bot svg { width: 50px; height: 50px; }
+  .ipc-stage-shadow { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); width: 60px; height: 10px; border-radius: 50%; background: rgba(188,102,117,.16); animation: ipcShdwS 3s ease-in-out infinite; }
+  @keyframes ipcShdwS { 0%,100%{transform:translateX(-50%) scaleX(1);opacity:.9} 50%{transform:translateX(-50%) scaleX(.7);opacity:.45} }
+  .ipc-bubble { position: absolute; background: var(--surface); border-radius: 14px; padding: 9px 13px; font-size: 12px; font-weight: 600; color: var(--text-muted); box-shadow: 0 4px 14px rgba(25,31,40,.08); animation: ipcBub 3s ease-in-out infinite; }
+  .ipc-bubble.bb1 { top: 20px; left: 16px; animation-delay: .4s; }
+  .ipc-bubble.bb2 { bottom: 22px; right: 12px; color: var(--brand-strong); max-width: 190px; }
+  @keyframes ipcBub { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+  .ipc-stage .ipc-typewriter { animation: ipcTwPc 3.4s steps(26,end) .6s both infinite, ipcBlink .8s step-end infinite; }
+  @keyframes ipcTwPc { 0%{width:0} 55%{width:100%} 85%{width:100%} 100%{width:0} }
+
+  /* 혜택 3칸 */
+  .ipc-perks { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  .ipc-perk { background: var(--surface); border: 0.5px solid var(--border); border-radius: 20px; padding: 22px; }
+  .ipc-perk-ic { width: 42px; height: 42px; border-radius: 13px; background: var(--brand-bg); display: flex; align-items: center; justify-content: center; color: var(--brand-strong); margin-bottom: 14px; }
+  .ipc-perk-tt { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
+  .ipc-perk-ds { font-size: 13px; color: var(--text-subtle); margin-top: 6px; line-height: 1.5; word-break: keep-all; }
+
+  /* 진행 흐름 — 데스크톱 카드 (가로 배치) */
+  .ipc-flow--d { display: flex; background: var(--surface); border: 0.5px solid var(--border); border-radius: 20px; padding: 22px; gap: 8px; }
+  .ipc-flow--d .ipc-fl { flex-direction: row; min-width: 0; padding: 0 12px; gap: 10px; }
+  .ipc-flow--d .ipc-fl-ic { width: 34px; height: 34px; }
+  .ipc-flow--d .ipc-fl-t { font-size: 13px; font-weight: 600; }
+  .ipc-flow--d .ipc-fl-line { width: 46px; margin-bottom: 0; }
+}
+
+/* 태블릿 (768~1023): 2단 유지하되 좁으면 무대 축소 */
+@media (width >= 768px) and (width <= 1023px) {
+  .ipc-card { grid-template-columns: 1fr 260px; column-gap: 24px; padding: 32px; }
+  .ipc-title { font-size: 25px; }
+  .ipc-stage { width: 260px; height: 210px; }
+}
+
+/* ════ 카드 닫음 후 메인홈 상단 작은 띠 — 재진입 경로 (#ipcMiniBar 사용) ════ */
 .ipc-mini-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 12px 14px;
-  padding: 11px 14px;
-  background: var(--brand-bg, #FEF3F5);
-  border: 0.5px solid rgba(229,88,110,0.18);
-  border-radius: 10px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: opacity 0.15s;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 12px 14px; padding: 11px 14px;
+  background: var(--brand-bg); border: 0.5px solid rgba(229,88,110,0.18);
+  border-radius: 10px; font-family: inherit; cursor: pointer; transition: opacity 0.15s;
 }
 .ipc-mini-bar:hover { opacity: 0.8; }
-.ipc-mini-bar-text {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--brand);
-  letter-spacing: -0.2px;
+.ipc-mini-bar-text { font-size: 12.5px; font-weight: 700; color: var(--brand-strong); letter-spacing: -0.2px; }
+.ipc-mini-bar svg { stroke: var(--brand-strong); flex-shrink: 0; }
+
+/* 다크모드(라이트 기준 운영, 최소 매핑) */
+[data-theme="dark"] .ipc-card,
+[data-theme="dark"] .ipc-perk,
+[data-theme="dark"] .ipc-flow--d { background: var(--surface-2); border-color: rgba(255,255,255,0.08); }
+[data-theme="dark"] .ipc-live { background: rgba(255,255,255,0.04); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ipc-bot-top, .ipc-bot-shadow, .ipc-stage-bot, .ipc-stage-shadow, .ipc-bubble,
+  .ipc-live-row, .ipc-typewriter, .ipc-fl.now .ipc-fl-ic, .ipc-fl-line i, .ipc-live-dot {
+    animation: none !important;
+  }
+  .ipc-live-row { opacity: 1 !important; }
+  .ipc-typewriter { border-right: none; }
 }
-.ipc-mini-bar svg { stroke: var(--brand); flex-shrink: 0; }

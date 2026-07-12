@@ -8,7 +8,7 @@
      template-sample-catalog-price.js   (가격표 12)
      template-sample-catalog-review.js  (후기 10)
      template-sample-catalog-ba.js      (전후 10)
-     template-sample-catalog-event.js   (이벤트 4)
+     template-sample-catalog-event.js   (이벤트 5)
 
    금지(이 파일 범위): matcher 구현 / app-assistant·template-autoapply 연결 / 렌더러·편집기·S4·onSave 수정.
 */

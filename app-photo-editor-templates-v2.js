@@ -10,6 +10,19 @@
   function _vis() { return MARKET_DATA.visibleTemplates ? MARKET_DATA.visibleTemplates() : TEMPLATES.slice(); }
   function _look(id) { return MARKET_DATA.lookupById ? MARKET_DATA.lookupById(id) : (TEMPLATES.find(function (t) { return t.id === id; }) || null); }
 
+  // [TPL-thumb] 편집 중 업로드 사진 → 썸네일/미리보기에 실제 적용. 없으면 null(placeholder).
+  function _editorState() {
+    try { const PE = window.PhotoEditor; return (PE && PE._internal && PE._internal.getState) ? PE._internal.getState() : null; } catch (_e) { return null; }
+  }
+  function _editorPhoto() {
+    const st = _editorState();
+    if (!st) return null;
+    const photo = st.editedImg || st.originalImg || st.img || null;
+    if (!photo) return null;
+    const pk = st.originalSrc ? String(st.originalSrc).slice(-48) : 'cur';
+    return { photo: photo, beforePhoto: st.secondImg || null, photoKey: pk };
+  }
+
   let _sheetEl = null;
   let _selectedCat = 'ba';   // v320-B — 전후사진 먼저 노출
   let _searchTerm = '';
@@ -217,11 +230,13 @@
   function _renderThumbs(grid, bk) {
     const TH = window.PhotoEditorTemplateThumb;
     if (!TH || !TH.make) return;   // 모듈 없으면 fallback(gradient) 그대로
+    const ep = _editorPhoto();   // 업로드 사진 있으면 썸네일에 실제 적용
     const paint = (el) => {
       if (!el || el.dataset.tpv2Done) return;
-      const t = TEMPLATES.find(x => x.id === el.dataset.tpv2Thumb);
+      const t = _look(el.dataset.tpv2Thumb) || TEMPLATES.find(x => x.id === el.dataset.tpv2Thumb);
       if (!t) return;
-      const url = TH.make(t, { ratio: el.dataset.tpv2Ratio, accent: el.dataset.tpv2Accent, shopName: bk.shopName, logo: bk.logo });
+      const url = TH.make(t, { ratio: el.dataset.tpv2Ratio, accent: el.dataset.tpv2Accent, shopName: bk.shopName, logo: bk.logo,
+        photo: ep && ep.photo, beforePhoto: ep && ep.beforePhoto, photoKey: ep && ep.photoKey });
       if (url) {
         el.style.backgroundImage = `url(${url})`;
         el.style.backgroundSize = 'cover';
@@ -251,8 +266,10 @@
     const TH = window.PhotoEditorTemplateThumb;
     const isFree = tpl.tier !== 'pro';
     const ar = cat.ratio === '9:16' ? '9 / 16' : (cat.ratio === '4:5' ? '4 / 5' : '1 / 1');
-    // 편집 중 사진 있으면 "내 사진으로 미리보기", 없으면 placeholder 썸네일(크게)
-    const big = (TH && TH.make) ? TH.make(tpl, { ratio: cat.ratio, accent: color, shopName: bk.shopName, logo: bk.logo, base: 640 }) : null;
+    // 편집 중 사진 있으면 "내 사진으로 미리보기", 없으면 placeholder 썸네일(크게). noCache=항상 최신 사진/보정 반영.
+    const ep = _editorPhoto();
+    const big = (TH && TH.make) ? TH.make(tpl, { ratio: cat.ratio, accent: color, shopName: bk.shopName, logo: bk.logo, base: 640,
+      photo: ep && ep.photo, beforePhoto: ep && ep.beforePhoto, photoKey: ep && ep.photoKey, noCache: true }) : null;
     let pv = document.getElementById('tpv2PreviewSheet');
     if (!pv) {
       pv = document.createElement('div'); pv.id = 'tpv2PreviewSheet';

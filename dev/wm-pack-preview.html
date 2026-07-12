@@ -1,0 +1,75 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>WM Pack Preview</title>
+<style>
+  body { margin: 0; background: #6b6258; font-family: system-ui, sans-serif; padding: 24px; }
+  h1 { color: #fff; font-size: 16px; font-weight: 600; }
+  .grid { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+  figure { margin: 0; background: #fff; border-radius: 8px; padding: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  figcaption { font-size: 11px; color: #333; margin-top: 6px; text-align: center; max-width: 300px; }
+  canvas { display: block; border-radius: 4px; }
+  #status { color: #ffd; font-size: 12px; white-space: pre-wrap; }
+</style>
+<h1>Warm Minimal 팩 — 12종 렌더 미리보기</h1>
+<div id="status">loading…</div>
+<div class="grid" id="grid"></div>
+
+<script src="../js/photo-editor/template-pack-beauty-data.js?b=4"></script>
+<script src="../js/photo-editor/template-slots.js?b=4"></script>
+<script src="../js/photo-editor/template-fit-text.js?b=4"></script>
+<script src="../js/photo-editor/template-renderer-beauty-pack.js?b=4"></script>
+<script src="../js/photo-editor/template-renderer-wm-pack-draws.js?b=4"></script>
+<script>
+const CAT_SIZE = { ba:[1080,1350], feed:[1080,1350], price:[1080,1350], story:[1080,1920], card:[1080,1080], event:[1080,1080] };
+const status = document.getElementById('status');
+
+function loadImg(src){ return new Promise(res=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>res(null); i.src=src; }); }
+
+(async function(){
+  const after = await loadImg('../output/qa-person.jpg');
+  const before = await loadImg('../output/qa-person2.jpg');
+  const BP = window.PhotoEditorBeautyPack;
+  const TS = window.PhotoEditorTemplateSlots;
+  const data0 = window.PhotoEditorBeautyPackData;
+  if(!BP){ status.textContent='ERROR: BeautyPack core not loaded'; return; }
+  if(!data0){ status.textContent='ERROR: beauty data not loaded'; return; }
+  const tpls = data0.TEMPLATES.filter(t=>t.id.indexOf('wm-')===0);
+  status.textContent = 'WM templates: ' + tpls.length + ' · registered routes drawn below';
+  const grid = document.getElementById('grid');
+  const errs = [];
+
+  tpls.forEach(found => {
+    const [W,H] = CAT_SIZE[found.cat] || [1080,1350];
+    const sv = TS.getDefaultValues(found.id, found, { shopName:'라보떼 살롱', serviceName:'레이어드컷', customerName:'김' });
+    const data = {
+      type:'beautyPack', kicker:(found.prefillText||''), palette:found.palette,
+      head: sv.headline || found.prefillText || found.label,
+      sub: sv.subtitle, shop: sv.shop_name, accent:(found.palette&&found.palette.accent),
+      services: sv.services, cta: sv.cta, phone: sv.phone, customer: sv.customer_label,
+      serviceName: sv.service_name, review: sv.review_text,
+      beforeLabel: sv.before_label, afterLabel: sv.after_label,
+      beforeCap: sv.before_caption, afterCap: sv.after_caption,
+    };
+    const tpl = { id: found.id, slotValues: sv, imageSlots:{} };
+    const state = { editedImg: after, originalImg: after, secondImg: before };
+
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    cv.style.width = (W===1080 && H===1080 ? 300 : H>W ? 240 : 300) + 'px';
+    cv.style.height = 'auto';
+    const ctx = cv.getContext('2d');
+    try { BP.draw(ctx, W, H, state, tpl, data); }
+    catch(e){ errs.push(found.id+': '+e.message); }
+
+    const fig = document.createElement('figure');
+    fig.appendChild(cv);
+    const cap = document.createElement('figcaption');
+    cap.textContent = found.id + ' · ' + found.label + ' (' + found.cat + ' ' + W + '×' + H + ')';
+    fig.appendChild(cap);
+    grid.appendChild(fig);
+  });
+  if(errs.length) status.textContent += '\nERRORS:\n' + errs.join('\n');
+  else status.textContent += '\nall drawn OK';
+  window.__done = true;
+})();
+</script>

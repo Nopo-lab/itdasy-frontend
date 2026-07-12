@@ -201,7 +201,7 @@
       if (s.photoCount > 0) acts.push({ id: 'open_photos', kind: 'open_workshop', label: '사진 기록 확인', phase: 'safe', payload: {} });
       if (s.noNext) acts.push({ id: 'empty_slots', kind: 'open_calendar', label: '빈시간 보기', phase: 'safe', payload: {} });
     }
-    acts.push({ id: 'open_cust', kind: 'open_customer', label: '고객 기록 열기', phase: 'safe', payload: {} });
+    acts.push({ id: 'open_cust', kind: 'open_customer', label: '고객 기록 열기', phase: 'safe', payload: { customer_id: s.id, name: s.name } });
     // 중복 id 제거 + 최대 4(+고객 기록 열기는 마지막 유지). 총 5 상한.
     var seen = {}, list = [];
     acts.forEach(function (a) { if (!seen[a.id]) { seen[a.id] = 1; list.push(a); } });

@@ -544,8 +544,8 @@
         ${item('inventory', 'ic-package', '재고관리', false)}
         */ '' }
         <div class="ms-side__section">통합 허브</div>
-        ${item('aiHub', 'ic-sparkles', 'AI · 자동화', false)}
-        ${item('settings', 'ic-settings', '설정 · 연동', false)}
+        ${item('aiHub', 'ic-sparkles', '잇비 · 자동화', false)}
+        ${item('settings', 'ic-settings', '연동관리', false)}
       </aside>`;
   }
   function _pcLayoutHTML() {
@@ -978,7 +978,16 @@
       // 과거 월은 RevenueMonth 가 자체 fetch 한 _viewItems 사용. 이번달은 SWR _items.
       const view = window.RevenueMonth.getView ? window.RevenueMonth.getView() : null;
       const viewItems = window.RevenueMonth.getViewItems ? window.RevenueMonth.getViewItems() : null;
-      const itemsToRender = (view && !view.isCurrent && Array.isArray(viewItems)) ? viewItems : _items;
+      let itemsToRender = (view && !view.isCurrent && Array.isArray(viewItems)) ? viewItems : _items;
+      // [핫픽스E #2] 이번달 한정 — 예약금을 매출 캘린더에 예약일 기준 주입(총매출 카드=예약금 포함과 날짜별 합계 일치).
+      //   concat 으로 새 배열 생성 → _items 원본 불변(재렌더 누적 방지). 과거월은 예약금 거의 완료/0 이라 미주입.
+      if ((!view || view.isCurrent) && window.BookingRevenueOverlay
+          && typeof window.BookingRevenueOverlay.depositEntries === 'function' && window.Booking) {
+        try {
+          const deps = window.BookingRevenueOverlay.depositEntries(window.Booking._items || [], {});
+          if (deps.length) itemsToRender = (itemsToRender || []).concat(deps);
+        } catch (_e) { void _e; }
+      }
       if (_cachedIsPC) window.RevenueMonth.renderPC(target, summary, itemsToRender);
       else window.RevenueMonth.renderMobile(target, summary, itemsToRender);
       return;
@@ -1159,7 +1168,10 @@
       const k = (e && e.detail && e.detail.kind) || '';
       if (!k) return;
       if (k === 'create_revenue' || k === 'update_revenue' || k === 'delete_revenue' || k === 'create_expense' ||
-          k.indexOf('revenue') !== -1 || k.indexOf('expense') !== -1) {
+          k.indexOf('revenue') !== -1 || k.indexOf('expense') !== -1 ||
+          // [qa-G #1] 예약금(deposit)·예약 상태 변경도 확정매출(예약금)·예정매출 요약에 영향 → 캐시 무효화 후 재조회.
+          //   예약 상세에서 예약금 저장 시 update_booking/create_booking 이 발생하므로 매출 요약을 갱신해야 반영됨.
+          k.indexOf('booking') !== -1) {
         _clearSWRRevenue();
         const sheet = document.getElementById('revenueSheet');
         if (sheet && sheet.style.display !== 'none') {

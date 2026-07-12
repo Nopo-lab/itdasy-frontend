@@ -85,6 +85,14 @@
   // ============================================================
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
   function _pad(n)  { return String(n).padStart(2, '0'); }
+  // [2026-06-14 QA] 시간 겹침 안내문 — 충돌 예약의 고객명 + 시술시간대 노출.
+  function _conflictMsg(b) {
+    if (!b) return '이 시간에 이미 예약이 있어요';
+    const _hm = (iso) => { try { const d = new Date(iso); return `${_pad(d.getHours())}:${_pad(d.getMinutes())}`; } catch (_e) { return ''; } };
+    const name = (b.customer_name || '').trim();
+    const span = b.starts_at && b.ends_at ? ` (${_hm(b.starts_at)}~${_hm(b.ends_at)})` : '';
+    return name ? `${name} 고객님 시술시간과 겹쳐요${span}` : `이 시간에 이미 예약이 있어요${span}`;
+  }
   function _nextDay(dateStr) {
     // [2026-06-11 QA] toISOString()은 UTC 라 KST 자정이 "전날 15시"로 계산 → +1일 해도
     //   같은 날짜 반환 → 자정 넘는 예약(밤 11시+60분)이 ends<starts 로 BE 400 나던 버그 픽스.
@@ -635,9 +643,9 @@
   // §11 영업시간 — 시간축 동적 확장 (영업외 라벨은 분홍)
   // ============================================================
   function _ttHours() {
-    const h = window.Booking?.shopHours ? window.Booking.shopHours() : { start: 10, end: 22, slotMin: 30 };
-    const start = Math.max(0, Math.min(23, h.start ?? 10));
-    const end   = Math.max(start + 1, Math.min(24, h.end ?? 22));
+    const h = window.Booking?.shopHours ? window.Booking.shopHours() : { start: 9, end: 24, slotMin: 30 };
+    const start = Math.max(0, Math.min(23, h.start ?? 9));
+    const end   = Math.max(start + 1, Math.min(24, h.end ?? 24));
     return { start, end };
   }
   // 운영시간(shopStart/shopEnd) 보존 + 예약으로 확장된 범위 둘 다 반환.
@@ -1183,6 +1191,20 @@
         const min = parseInt(slot.getAttribute('data-min') || '0', 10);
         const startD = new Date(ymd + 'T00:00:00');
         startD.setHours(hr, min, 0, 0);
+        // [2026-06-14 QA] 주간뷰에서 기존 예약 위를 클릭해도 블록 핸들러가 안 잡혀
+        //   "신규 예약 추가"가 뜨던 문제. 클릭 시간대에 예약이 있으면 그 예약을 연다(폴백).
+        const _covering = (_visibleCache() || []).find(it => {
+          const raw = it._raw || it;
+          if (!raw || !raw.starts_at) return false;
+          const s = new Date(raw.starts_at), e = new Date(raw.ends_at || raw.starts_at);
+          return _ds(s) === ymd && s <= startD && startD < e;
+        });
+        if (_covering) {
+          const raw = _covering._raw || _covering;
+          if (window.CompleteFlow?.startFromBooking) window.CompleteFlow.startFromBooking(raw);
+          else _openForm(new Date(raw.starts_at), raw);
+          return;
+        }
         window._pendingBookingSlot = {
           starts_at: `${ymd}T${_pad(hr)}:${_pad(min)}:00+09:00`,
           ends_at:   `${ymd}T${_pad(hr + 1)}:${_pad(min)}:00+09:00`,
@@ -1217,7 +1239,7 @@
     const oS = new Date(bookingItem._raw.starts_at), oE = new Date(bookingItem._raw.ends_at);
     const durMin = Math.round((oE - oS) / 60000);
     const newEnd = new Date(newStart.getTime() + durMin * 60000);
-    const conflict = window.Booking?.hasConflict?.(newStart.toISOString(), newEnd.toISOString(), bookingItem.id);
+    const conflict = window.Booking?.findConflict?.(newStart.toISOString(), newEnd.toISOString(), bookingItem.id) || null;
     slotEl.classList.add(conflict ? 'cv-drop-conflict' : 'cv-drop-target');
     return { ymd, hr, conflict, newStart, newEnd };
   }
@@ -1225,7 +1247,7 @@
   // drag-drop helper — drop 후 PATCH 저장
   async function _commitDragDrop(dropped, bookingItem) {
     if (!dropped || dropped.conflict || !bookingItem) {
-      if (dropped?.conflict && window.showToast) window.showToast('이 시간엔 다른 예약이 있어요');
+      if (dropped?.conflict && window.showToast) window.showToast(_conflictMsg(dropped.conflict));
       return;
     }
     try {
@@ -1239,6 +1261,104 @@
     } catch (err) {
       if (window.showToast) window.showToast('이동 실패: ' + (err?.message || ''));
     }
+  }
+
+  // [Phase4] 예약 카드 탭 → 읽기전용 상세 시트(완료/매출 UI 가 바로 열리지 않음). 버튼으로 수정/완료/취소/닫기.
+  function _bookingStatusLabel(s) {
+    return s === 'cancelled' ? '취소됨' : s === 'no_show' ? '노쇼' : s === 'done' ? '완료' : '예약 확정';
+  }
+  function _openBookingDetail(raw) {
+    if (!raw) return;
+    // [핫픽스F #4] 예약/고객 카드 탭 기본동작 = "시술 완료 시트" 직행(액션 선택 모달 아님).
+    //   시술완료 시트 안에 수정(⋯ 메뉴)·노쇼·예약취소(하단 보조)가 모두 들어있어 4버튼 모달 불필요.
+    //   이미 끝난 예약(완료/취소/노쇼)만 읽기용 상세(수정/복구) 모달로 폴백.
+    const _resolved = ['cancelled', 'no_show', 'done', 'completed'].includes(raw.status);
+    if (!_resolved && window.CompleteFlow && typeof window.CompleteFlow.startFromBooking === 'function') {
+      try { window.CompleteFlow.startFromBooking(raw); return; } catch (_cf) { void _cf; /* 실패 시 아래 상세 모달 폴백 */ }
+    }
+    const esc = (s) => (window._esc ? window._esc(String(s == null ? '' : s)) : String(s == null ? '' : s));
+    // [핫픽스D #8] 사람이 읽는 한글 일시 — "2026-06-19 13:00~16:00" 같은 ISO/숫자 표기 금지.
+    const whenStr = (typeof window.fmtKRange === 'function')
+      ? window.fmtKRange(raw.starts_at, raw.ends_at || null)
+      : (() => { try { const d = new Date(raw.starts_at); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 ' + (d.getHours() < 12 ? '오전' : '오후') + ' ' + ((d.getHours() % 12) || 12) + ':' + _pad(d.getMinutes()); } catch (_e) { return ''; } })();
+    const statusLabel = _bookingStatusLabel(raw.status);
+    const statusColor = raw.status === 'cancelled' ? '#BC6675' : raw.status === 'no_show' ? '#8B95A1' : raw.status === 'done' ? '#16B55E' : '#3182F6';
+    const old = document.getElementById('cv-booking-detail'); if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'cv-booking-detail';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10040;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;';
+    // [핫픽스D #4·#7] 라벨:값 나열형(AI 티나는 텍스트 카드) 제거 → 흰 배경 카드(고객명 타이틀+상태 배지+정보 블록).
+    const info = [];
+    if (raw.service_name) info.push(`<div style="font-size:14px;color:var(--text,#222);font-weight:600;">${esc(raw.service_name)}</div>`);
+    info.push(`<div style="font-size:14px;color:var(--text-subtle,#4E5968);margin-top:4px;">${esc(whenStr)}</div>`);
+    const money = [];
+    if (raw.deposit != null && +raw.deposit > 0) money.push('예약금 ' + (+raw.deposit).toLocaleString() + '원');
+    if (raw.amount != null && +raw.amount > 0) money.push('예상 시술비 ' + (+raw.amount).toLocaleString() + '원');
+    if (money.length) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;">${esc(money.join('  ·  '))}</div>`);
+    if (raw.memo) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;white-space:pre-line;">메모 ${esc(raw.memo)}</div>`);
+    ov.innerHTML = `
+      <div style="background:var(--surface,#fff);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <strong style="font-size:18px;color:var(--text,#191F28);">${esc(raw.customer_name || '고객 미지정')}</strong>
+            <span style="flex-shrink:0;font-size:12px;font-weight:700;color:${statusColor};background:${statusColor}1A;border-radius:999px;padding:3px 9px;">${esc(statusLabel)}</span>
+          </div>
+          <button type="button" data-bd="close" aria-label="닫기" style="border:none;background:transparent;font-size:22px;color:var(--text-subtle,#999);cursor:pointer;line-height:1;flex-shrink:0;">×</button>
+        </div>
+        <div style="margin-bottom:16px;">${info.join('')}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button type="button" data-bd="edit" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--accent2,#e26a85);background:transparent;color:var(--accent2,#e26a85);font-weight:800;cursor:pointer;">수정</button>
+          <button type="button" data-bd="done" data-haptic style="padding:12px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent,#D58A95),var(--accent2,#e26a85));color:#fff;font-weight:800;cursor:pointer;">시술 완료</button>
+          <button type="button" data-bd="cancel" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--line,#ddd);background:transparent;color:var(--text-subtle,#888);font-weight:700;cursor:pointer;">예약 취소</button>
+          <button type="button" data-bd="close2" data-haptic style="padding:12px;border-radius:14px;border:1px solid var(--line,#ddd);background:transparent;color:var(--text,#444);font-weight:700;cursor:pointer;">닫기</button>
+        </div>
+      </div>`;
+    if (window.ItdasyMountOverlay) window.ItdasyMountOverlay(ov); else document.body.appendChild(ov);
+    // [Phase3-B #10] 공통 시트-백 레지스트리 사용 — Android/브라우저 back 으로 상세만 닫히고
+    //   캘린더는 그대로 유지(내샵관리/홈으로 튀지 않게). close 는 멱등.
+    const closeDetail = () => { try { ov.remove(); } catch (_e) { void _e; } };
+    if (typeof window._registerSheet === 'function') window._registerSheet('cvBookingDetail', closeDetail);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('cvBookingDetail');
+    const close = () => {
+      closeDetail();
+      if (typeof window._markSheetClosed === 'function') window._markSheetClosed('cvBookingDetail');
+    };
+    let _cancelBusy = false;   // [Phase3-B #8] 중복 클릭 방지
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) return close();
+      const t = e.target.closest('[data-bd]'); if (!t) return;
+      const act = t.dataset.bd;
+      if (act === 'close' || act === 'close2') return close();
+      if (act === 'edit') { close(); _openForm(new Date(raw.starts_at), raw); return; }
+      if (act === 'done') { close(); if (window.CompleteFlow && window.CompleteFlow.startFromBooking) window.CompleteFlow.startFromBooking(raw); else _openForm(new Date(raw.starts_at), raw); return; }
+      if (act === 'cancel') {
+        if (_cancelBusy) return;
+        // [Phase3-B #8] 즉시 취소 금지 — 확인 후에만. '아니요' 면 상세 유지(닫지 않음).
+        window._inlineConfirm('이 예약을 취소할까요?', async () => {
+          if (_cancelBusy) return;
+          _cancelBusy = true;
+          try {
+            await window.Booking.update(raw.id, { status: 'cancelled' });
+            // [Phase3-B #8] 잇비 "복구해/되돌리기" 로 복원 가능하게 최근 취소 context 저장.
+            try {
+              window.ItdasyBookingContext && window.ItdasyBookingContext.rememberAction && window.ItdasyBookingContext.rememberAction({
+                kind: 'cancel_booking',
+                payload: { booking_id: raw.id, customer_id: raw.customer_id || null, customer_name: raw.customer_name || '', service_name: raw.service_name || '', starts_at: raw.starts_at || '', ends_at: raw.ends_at || '' },
+                _context_booking: raw,
+              }, {});
+            } catch (_e) { void _e; }
+            window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: raw.id } }));
+            if (window.showToast) window.showToast('예약을 취소했어요');
+            close();   // [Phase3-B #8] 성공했을 때만 상세 닫기
+            _mappedCache = await _loadMonth(_curYear, _curMonth);
+            _renderViewBody();
+          } catch (err) {
+            // [Phase3-B #8] 실패 시 상세 유지 + UI 를 취소 상태로 바꾸지 않음.
+            if (window.showToast) window.showToast('취소 실패: ' + (window._humanError ? window._humanError(err) : '잠시 후 다시 시도해주세요'));
+          } finally { _cancelBusy = false; }
+        }, function () { /* 아니요 — 예약 상세 유지, 예약 그대로 */ }, { okText: '예약 취소', cancelText: '아니요' });
+      }
+    });
   }
 
   function _bindBlockDragDrop(btn, body, _HOUR_PX, LONG_PRESS_MS) {
@@ -1283,11 +1403,7 @@
           // CompleteFlow 안에 "예약 시간·고객 수정" 링크로 편집폼 진입은 그대로.
           const raw = ctx.item._raw;
           btn._cfOpenedAt = Date.now();   // [2026-06-11 QA] click 폴백 이중 오픈 방지 마킹
-          if (window.CompleteFlow?.startFromBooking) {
-            window.CompleteFlow.startFromBooking(raw);
-          } else {
-            _openForm(new Date(raw.starts_at), raw);
-          }
+          _openBookingDetail(raw);   // [Phase4] 완료 UI 바로 X — 읽기전용 상세 먼저
         } else {
           console.warn('[BK] 블록 클릭 매칭 실패:', btn.dataset.bookingId, _mappedCache.map(m => m.id));
         }
@@ -1310,8 +1426,7 @@
       if (!item) return;
       btn._cfOpenedAt = Date.now();
       const raw = item._raw;
-      if (window.CompleteFlow?.startFromBooking) window.CompleteFlow.startFromBooking(raw);
-      else _openForm(new Date(raw.starts_at), raw);
+      _openBookingDetail(raw);   // [Phase4] 완료 UI 바로 X — 읽기전용 상세 먼저
     });
     btn.style.touchAction = 'none';
   }
@@ -1504,10 +1619,12 @@
       <div class="bf-money">
         <div class="bf-money-row amount">
           <span class="bf-money-key">예상 시술비</span>
-          <span class="bf-money-val" data-money-edit="amount">
-            <span class="bf-num" data-hv-count="${_initAmt}">${_initAmt ? _initAmt.toLocaleString('ko-KR') : '0'}</span>
-            <span class="bf-money-unit">원</span>
-          </span>
+          ${_initAmt > 0
+            ? `<span class="bf-money-val" data-money-edit="amount">
+                <span class="bf-num" data-hv-count="${_initAmt}">${_initAmt.toLocaleString('ko-KR')}</span>
+                <span class="bf-money-unit">원</span>
+              </span>`
+            : `<span class="bf-money-val empty" data-money-edit="amount"><button type="button" class="bf-amount-link">탭해서 입력 ›</button></span>`}
         </div>
         <div class="bf-money-row deposit">
           <span class="bf-money-key">예상 예약금</span>
@@ -1921,9 +2038,12 @@
       const eh = Math.floor(endMin / 60) % 24, em = endMin % 60;
       const starts = `${d}T${_pad(_startH)}:${_pad(_startM)}:00+09:00`;
       const ends = `${d}T${_pad(eh)}:${_pad(em)}:00+09:00`;
-      const conflict = window.Booking.hasConflict(starts, ends, existing?.id);
+      const conflict = window.Booking.findConflict(starts, ends, existing?.id);
       const el = body.querySelector('#bfConflict');
-      if (el) el.style.display = conflict ? 'block' : 'none';
+      if (el) {
+        el.style.display = conflict ? 'block' : 'none';
+        if (conflict) el.textContent = _conflictMsg(conflict);
+      }
     }
     _checkConflict();
 
@@ -2004,8 +2124,9 @@
       {
         const starts = `${d}T${sTime}:00+09:00`;
         const ends = `${endDate}T${eTime}:00+09:00`;
-        if (window.Booking?.hasConflict?.(starts, ends, existing?.id)) {
-          if (window.showToast) window.showToast('이 시간에 이미 예약이 있어요');
+        const conflict = window.Booking?.findConflict?.(starts, ends, existing?.id);
+        if (conflict) {
+          if (window.showToast) window.showToast(_conflictMsg(conflict));
           return;
         }
       }
@@ -2039,13 +2160,21 @@
         deposit:       depVal > 0 ? depVal : null,
       };
       try {
+        const changeDetail = {
+          customer_id: payload.customer_id,
+          customer_name: payload.customer_name,
+          service_name: payload.service_name,
+          starts_at: payload.starts_at,
+          amount: payload.amount,
+          deposit: payload.deposit,
+        };
         if (existing) {
           await window.Booking.update(existing.id, payload);
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: payload.customer_id } }));
+          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { ...changeDetail, kind: 'update_booking', booking_id: existing.id } }));
         } else {
           const created = await window.Booking.create(payload);
           window.dispatchEvent(new CustomEvent('booking:created', { detail: { customer_name: payload.customer_name, customer_id: payload.customer_id || null } }));
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'create_booking', booking_id: created?.id || null, customer_id: payload.customer_id } }));
+          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { ...changeDetail, kind: 'create_booking', booking_id: created?.id || null } }));
         }
         if (window.hapticLight) window.hapticLight();
         const _name = payload.customer_name || '';
@@ -2095,15 +2224,33 @@
           }
           return;
         }
-        try {
-          await window.Booking.update(existing.id, { status: newStatus });
-          window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: existing.customer_id || null } }));
-          if (window.hapticLight) window.hapticLight();
-          if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
-          if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
-          _mappedCache = await _loadMonth(_curYear, _curMonth);
-          _renderViewBody();
-        } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+        const _applyStatus = async () => {
+          try {
+            await window.Booking.update(existing.id, { status: newStatus });
+            // [핫픽스D #6] 취소면 잇비 "복구해"로 되살릴 수 있게 최근 취소 context 저장.
+            if (newStatus === 'cancelled') {
+              try {
+                window.ItdasyBookingContext && window.ItdasyBookingContext.rememberAction && window.ItdasyBookingContext.rememberAction({
+                  kind: 'cancel_booking',
+                  payload: { booking_id: existing.id, customer_id: existing.customer_id || null, customer_name: existing.customer_name || '', service_name: existing.service_name || '', starts_at: existing.starts_at || '', ends_at: existing.ends_at || '' },
+                  _context_booking: existing,
+                }, {});
+              } catch (_e) { void _e; }
+            }
+            window.dispatchEvent(new CustomEvent('itdasy:data-changed', { detail: { kind: 'update_booking', booking_id: existing.id, customer_id: existing.customer_id || null } }));
+            if (window.hapticLight) window.hapticLight();
+            if (window.showToast) window.showToast(`상태를 '${STATUS_LABEL[newStatus]}'로 변경했어요`);
+            if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
+            _mappedCache = await _loadMonth(_curYear, _curMonth);
+            _renderViewBody();
+          } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+        };
+        // [핫픽스D #6] 모든 취소 경로 확인 통일 — 상태 '취소'는 확인 후에만 반영.
+        if (newStatus === 'cancelled') {
+          window._inlineConfirm('이 예약을 취소할까요?', _applyStatus, function () { /* 아니요 — 그대로 */ }, { okText: '예약 취소', cancelText: '아니요' });
+          return;
+        }
+        await _applyStatus();
       });
     });
   }

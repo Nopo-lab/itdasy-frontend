@@ -83,7 +83,25 @@
     },
     openCustomers: _openCustomers,
     openRevenue: _openRevenue,
+    // [2026-06-15] 회원권 카드 → 만료 임박 리스트(실존 핸들러) → 폴백 고객 허브.
+    //   window.openMembership 은 현재 없음 → openMembershipExpiring/MembershipUI 로 라우팅.
+    openMembership: () => {
+      if (typeof window.openMembership === 'function') return window.openMembership();
+      if (typeof window.openMembershipExpiring === 'function') return window.openMembershipExpiring(30);
+      if (window.MembershipUI && typeof window.MembershipUI.openExpiringList === 'function') return window.MembershipUI.openExpiringList();
+      if (typeof window.openCustomerHub === 'function') return window.openCustomerHub();
+      return undefined;
+    },
     completePending: _completePending,
+    // [2026-07-08] 분석 불러오기 실패 카드 → 홈 새로 그리기 (brief 재요청)
+    retryBrief: () => {
+      if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') window.HomeV41.refresh();
+    },
+    // [2026-07-05] 홈 저녁 칩 → 잇비 시트 열고 "마감 리포트" 바로 전송(룰 기반, LLM 0).
+    itbiClosingReport: () => {
+      const open = (window.AssistantSheet && window.AssistantSheet.open) || window.openAssistant;
+      if (typeof open === 'function') open({ sendImmediate: '마감 리포트' });
+    },
   };
 
   function run(act) {

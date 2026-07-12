@@ -13,6 +13,9 @@
   // ── 토글 상태 키 (UI 빠른 ON/OFF — 백엔드 동기화는 상세 시트에서) ─
   const KEY_DM = 'itdasy:aih:dm_enabled';
   const KEY_KAKAO = 'itdasy:aih:kakao_enabled';
+  // [2026-06-25] 빠른 안내(dmmenu) 마스터 토글 — localStorage 는 즉시 UI 표시용 캐시일 뿐.
+  //   실제 on/off 는 백엔드 /shop/dm-menu 의 enabled 가 정본. (열 때 GET 으로 캐시 교정)
+  const KEY_DMMENU = 'itdasy:aih:dmmenu_enabled';
 
   function _getToggle(key) {
     try {
@@ -37,11 +40,18 @@
         name: '해시태그 매니저', meta: '업종별 추천 · 원터치 복사',
         type: 'plain' },
       { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'pink',
-        name: 'AI 페르소나', meta: 'SNS 캡션 · 말투 분석 · 리포트',
+        name: '내 말투', meta: 'SNS 캡션 · 말투 분석 · 리포트',
         type: 'tag', tagText: '학습됨' },
       { act: 'dm', icon: 'ph-chat-circle-dots', boxColor: 'blue',
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
         type: 'toggle', toggleKey: KEY_DM },
+      // [2026-07-10] 댓글 문의 응대 — DM 자동응답 바로 아래(나중에 DM 엔진에 통합 예정).
+      { act: 'comment', icon: 'ph-chat-teardrop-text', boxColor: 'coral',
+        name: '댓글 문의 응대', meta: '게시물 댓글 문의 → 답글 + DM 유도',
+        type: 'plain' },
+      { act: 'dmmenu', icon: 'ph-list-checks', boxColor: 'teal',
+        name: '빠른 안내', meta: '손님 탭 버튼(예약·영업시간·가격…)',
+        type: 'toggle', toggleKey: KEY_DMMENU },
       { act: 'kakao', icon: 'ph-bell-ringing', boxColor: 'amber',
         name: '카카오 알림톡', meta: '예약확정 · 리마인드 · 생일',
         type: 'toggle', toggleKey: KEY_KAKAO },
@@ -58,6 +68,7 @@
     let n = 0;
     if (_getToggle(KEY_DM)) n++;
     if (_getToggle(KEY_KAKAO)) n++;
+    if (_getToggle(KEY_DMMENU)) n++;
     n += 1; // 페르소나 학습됨
     return n;
   }
@@ -121,7 +132,7 @@
         <div class="ms-sheet__handle"></div>
         <div class="ms-sheet__head">
           <div class="ms-sheet__head-left">
-            <div id="aihTitle" class="ms-sheet__title">AI · 자동화</div>
+            <div id="aihTitle" class="ms-sheet__title">잇비 · 자동화</div>
             <div class="ms-sheet__sub" id="aihSub">${_esc(sub)}</div>
           </div>
           <button type="button" class="ms-sheet__close" data-close="1" aria-label="닫기">✕</button>
@@ -203,7 +214,8 @@
   // ── 토글 클릭 처리 ────────────────────────────────────────────
   function _onToggleClick(btn, sheet) {
     const act = btn.dataset.toggle;
-    const key = act === 'dm' ? KEY_DM : (act === 'kakao' ? KEY_KAKAO : null);
+    const key = act === 'dm' ? KEY_DM
+      : (act === 'kakao' ? KEY_KAKAO : (act === 'dmmenu' ? KEY_DMMENU : null));
     if (!key) return;
     const next = !_getToggle(key);
     _setToggle(key, next);
@@ -212,6 +224,8 @@
     const sub = sheet.querySelector('#aihSub');
     if (sub) sub.textContent = `${_rows().length}가지 · ${_onCount()}개 켜짐`;
     try { window.hapticLight && window.hapticLight(); } catch (_e) { void _e; }
+    // [2026-06-25] 빠른 안내만 백엔드 동기화 — 나머지(dm/kakao)는 기존대로 localStorage UI 토글.
+    if (act === 'dmmenu') _syncDmMenuEnabled(next, btn, sheet);
     try {
       window.dispatchEvent(new CustomEvent('itdasy:data-changed', {
         detail: { kind: 'aih_toggle', act, on: next },
@@ -219,9 +233,58 @@
     } catch (_e) { void _e; }
   }
 
+  // ── 빠른 안내 enabled 백엔드 반영 — 반드시 GET 먼저 → 그 객체에서 enabled 만 바꿔 PUT.
+  //   (캐시를 PUT 소스로 쓰면 메뉴·인사멘트가 통째로 날아감. 동봉 소스 = GET 결과로 고정.) ──
+  async function _syncDmMenuEnabled(on, btn, sheet) {
+    try {
+      const auth = window.authHeader ? window.authHeader() : {};
+      const res = await window.apiFetch(window.apiUrl('/shop/dm-menu'), { headers: auth });
+      const menu = await res.json().catch(() => null);
+      if (!menu || typeof menu !== 'object' || !Array.isArray(menu.items)) {
+        throw new Error('메뉴를 불러오지 못했어요');
+      }
+      menu.enabled = !!on; // enabled 만 변경, items/greeting/ice_breakers 는 GET 결과 그대로 동봉
+      const put = await window.apiFetch(window.apiUrl('/shop/dm-menu'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify(menu),
+      });
+      if (!put.ok) throw new Error('HTTP ' + put.status);
+    } catch (e) {
+      // 실패 → UI/캐시 롤백
+      _setToggle(KEY_DMMENU, !on);
+      if (btn) {
+        btn.classList.toggle('is-on', !on);
+        btn.setAttribute('aria-pressed', (!on) ? 'true' : 'false');
+      }
+      const sub = sheet && sheet.querySelector('#aihSub');
+      if (sub) sub.textContent = `${_rows().length}가지 · ${_onCount()}개 켜짐`;
+      if (window.showToast) window.showToast('빠른 안내 ' + (on ? '켜기' : '끄기') + ' 실패 — 다시 시도해주세요');
+    }
+  }
+
+  // ── 시트 열 때 백엔드 enabled 로 토글 캐시 교정 (localStorage 가 stale 일 수 있음) ──
+  async function _refreshDmMenuToggle(sheet) {
+    try {
+      const res = await window.apiFetch(window.apiUrl('/shop/dm-menu'), { headers: window.authHeader ? window.authHeader() : {} });
+      const menu = await res.json().catch(() => null);
+      if (!menu || typeof menu.enabled === 'undefined') return;
+      _setToggle(KEY_DMMENU, !!menu.enabled);
+      const btn = sheet.querySelector('[data-toggle="dmmenu"]');
+      if (btn) {
+        btn.classList.toggle('is-on', !!menu.enabled);
+        btn.setAttribute('aria-pressed', menu.enabled ? 'true' : 'false');
+      }
+      const sub = sheet.querySelector('#aihSub');
+      if (sub) sub.textContent = `${_rows().length}가지 · ${_onCount()}개 켜짐`;
+    } catch (_e) { void _e; }
+  }
+
   // ── 항목 라우터 ─────────────────────────────
   const _ROUTE_MAP = {
     dm:      'openDMAutoreplySettings',
+    comment: 'openCommentReplyQueue',   // [2026-07-10] 댓글 문의 응대 (extras lazy — _route 에서 로드 보장)
+    dmmenu:  'openDMMenuSettings',
     kakao:   'openKakaoHub',
     persona: '__personaHubOpen',   // [2026-05-25] SNS 캡션 + 페르소나 통합 시트
     hashtag: '__snsHashtagOpen',
@@ -232,6 +295,7 @@
   };
 
   function _canRoute(act) {
+    if (act === 'comment') return true;   // extras lazy — _route 에서 로드 보장 후 진입
     if (act === 'posts') return typeof window.openFinishTab === 'function' || typeof window.showTab === 'function';
     if (act === 'photoEditor') return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
     if (act === 'hashtag') return !!(window.SNSHashtag && typeof window.SNSHashtag.open === 'function');
@@ -240,90 +304,24 @@
     return !!(fn && typeof window[fn] === 'function');
   }
 
-  function _personaOption(k, t, sub, color) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.personaOpt = k;
-    b.style.cssText = `text-align:left;padding:16px 18px;border:1px solid rgba(213,138,149,0.2);border-radius:16px;background:linear-gradient(135deg,#fffcfd,${color || '#fff5f7'});cursor:pointer;display:flex;flex-direction:column;gap:4px;`;
-    b.innerHTML = `<div style="font-size:14px;font-weight:800;color:#191F28;letter-spacing:-0.2px;">${t}</div><div style="font-size:11.5px;color:#6B7684;">${sub}</div>`;
-    return b;
-  }
-
-  function _hasPersonaReportData() {
-    try {
-      const raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}') || {};
-      return !!(raw && (raw.tone_summary || raw.style_summary || raw.tone));
-    } catch (_e) {
-      return false;
-    }
-  }
-
-  function _runPersonaRelearn() {
-    if (typeof window.runPersonaAnalyze === 'function') return window.runPersonaAnalyze(true);
-    if (typeof window.runAutoAnalysisAfterConnect === 'function') return window.runAutoAnalysisAfterConnect();
-    if (window.showToast) window.showToast('분석 모듈 로드 중 — 1~2초 후 다시 눌러주세요');
-    return null;
-  }
-
-  function _openPersonaReport() {
-    if (_hasPersonaReportData() && typeof window.showDetailedAnalysis === 'function') {
-      return window.showDetailedAnalysis();
-    }
-    if (typeof window.runPersonaAnalyze === 'function') {
-      if (window.showToast) window.showToast('아직 분석 데이터가 없어요. 지금 분석을 시작할게요.');
-      return window.runPersonaAnalyze(true);
-    }
-    if (window.showToast) window.showToast('인스타 연동 후 말투 분석을 진행해주세요');
-    return null;
-  }
-
-  function _handlePersonaOption(opt) {
-    if (opt === 'caption' && typeof window.openCaptionScenarioPopup === 'function') {
-      return window.openCaptionScenarioPopup();
-    }
-    if (opt === 'relearn') return _runPersonaRelearn();
-    if (opt === 'report') return _openPersonaReport();
-    if (window.showToast) window.showToast('해당 기능을 찾을 수 없어요. 잠시 후 다시 시도해주세요');
-    return null;
-  }
-
-  function _personaOptionsBox(close) {
-    const optBox = document.createElement('div');
-    optBox.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
-    optBox.appendChild(_personaOption('caption', '캡션 만들기', '사진 → 글·해시태그까지 한 번에', '#fff5f7'));
-    optBox.appendChild(_personaOption('relearn', '말투 새로 분석', '최근 게시물로 다시 학습 (인스타 필요)', '#F7EFF0'));
-    optBox.appendChild(_personaOption('report',  '분석 리포트 보기', '말투 패턴 · TOP5 · 이모지 · 해시태그', '#F0F9FF'));
-    optBox.addEventListener('click', e => {
-      const btn = e.target.closest('[data-persona-opt]');
-      if (!btn) return;
-      close();
-      try { _handlePersonaOption(btn.dataset.personaOpt); }
-      catch (_e) { if (window.showToast) window.showToast('화면을 여는 중 문제가 생겼어요'); }
-    });
-    return optBox;
-  }
-
-  // [2026-05-25] AI 페르소나 통합 시트 — 3개 옵션 (SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
-  function _openPersonaHub() {
-    const id = 'aihPersonaSheet';
-    let overlay = document.getElementById(id);
-    if (overlay) { try { overlay.remove(); } catch (_e) { /* ignore */ } }
-    overlay = document.createElement('div');
-    overlay.id = id;
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;display:flex;align-items:flex-end;justify-content:center;';
-    const sheet = document.createElement('div');
-    sheet.style.cssText = 'width:100%;max-width:480px;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px 36px;box-sizing:border-box;max-height:88vh;overflow-y:auto;';
-    sheet.innerHTML = '<div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 20px;"></div><div style="font-size:17px;font-weight:800;color:#1a1a1a;margin-bottom:6px;">AI 페르소나</div><div style="font-size:12px;color:#888;margin-bottom:18px;line-height:1.5;">원장님 말투 학습으로 SNS·DM 톤을 일관되게 유지해요.</div>';
-    const close = () => { try { overlay.remove(); } catch (_e) { /* ignore */ } };
-    sheet.appendChild(_personaOptionsBox(close));
-    overlay.appendChild(sheet);
-    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-    document.body.appendChild(overlay);
-  }
-
   function _route(act) {
     const map = _ROUTE_MAP;
-    if (act === 'persona') { _openPersonaHub(); return; }
+    if (act === 'comment') {
+      // extras 그룹(app-comment-reply-queue.js) 로드 보장 후 진입 — 첫 탭에도 열리게.
+      const _open = function () {
+        if (typeof window.openCommentReplyQueue === 'function') window.openCommentReplyQueue();
+        else if (window.showToast) window.showToast('댓글 응대를 여는 중 문제가 생겼어요');
+      };
+      if (typeof window.openCommentReplyQueue === 'function') { _open(); return; }
+      if (window.AppLoader && window.AppLoader.ensure) {
+        Promise.resolve(window.AppLoader.ensure('extras')).then(_open).catch(_open);
+      } else { _open(); }
+      return;
+    }
+    if (act === 'persona') {
+      if (typeof window.showDetailedAnalysis === 'function') window.showDetailedAnalysis();
+      return;
+    }
     if (act === 'photoEditor') {
       if (typeof window.openPhotoEditorFromAction === 'function') {
         window.openPhotoEditorFromAction({ initial_tab: 'auto' });
@@ -368,6 +366,29 @@
     const card = sheet.querySelector('#aihCard');
     if (window.SheetAnim) window.SheetAnim.open(sheet, card);
     else sheet.style.display = 'block';
+    _refreshDmMenuToggle(sheet); // 백엔드 enabled 로 빠른 안내 토글 교정
+    _refreshCommentCount(sheet); // '댓글 문의 응대' 대기 건수 뱃지(원장이 놓치지 않게)
+  }
+
+  // 댓글 문의 대기 건수 → '댓글 문의 응대' 행에 뱃지(초안 생성 없이 count_only, 저비용)
+  async function _refreshCommentCount(sheet) {
+    try {
+      const ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
+      if (!ig || !ig.connected || !window.apiFetch) return;
+      const res = await window.apiFetch(window.apiUrl('/instagram/comment-queue?count_only=1'), { headers: window.authHeader ? window.authHeader() : {} });
+      const j = await res.json().catch(() => ({}));
+      const n = (j && j.count) || 0;
+      const right = sheet.querySelector('.ms-aih__row[data-act="comment"] .ms-aih__right');
+      if (!right) return;
+      const old = right.querySelector('.aih-crq-count'); if (old) old.remove();
+      if (n > 0) {
+        const b = document.createElement('span');
+        b.className = 'aih-crq-count';
+        b.textContent = n + '건 대기';
+        b.style.cssText = 'font-size:11px;font-weight:700;color:#fff;background:' + (j.complaint > 0 ? '#DC2626' : '#BC6675') + ';border-radius:10px;padding:2px 9px;margin-right:6px;white-space:nowrap;';
+        right.insertBefore(b, right.firstChild);
+      }
+    } catch (_e) { void _e; }
   }
   function close() {
     const sheet = document.getElementById('aiHubSheet');

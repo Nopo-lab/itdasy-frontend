@@ -476,7 +476,238 @@
     ctx.beginPath(); ctx.arc(smx, smy + dw * 0.004, dw * 0.015, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); ctx.restore();
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  // [BA-PACK v533] 전후 에디토리얼 5종 — 공용 헬퍼 + id별 draw. 레이아웃이 서로 명확히 다름.
+  // ════════════════════════════════════════════════════════════════════
+  function _baBefore(state, tpl) { var i = state && state.secondImg ? state.secondImg : null; var s = tpl && tpl.imageSlots && tpl.imageSlots.before_photo; if (i && s) { i._focal = s.focal; i._zoom = s.zoom; } return i; }
+  function _baPhoto(ctx, img, x, y, w, h, r, c) {
+    ctx.save(); _rr(ctx, x, y, w, h, r); ctx.clip();
+    if (!(img && _coverDraw(ctx, img, x, y, w, h, img._focal, img._zoom))) {
+      var g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, '#EADFE0'); g.addColorStop(1, '#DACBCD');
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+      _text(ctx, '사진', x + w / 2, y + h / 2 + 8, '600 24px "Noto Sans KR", sans-serif', c.sub, 'center');
+    }
+    ctx.restore();
+  }
+  function _baCard(ctx, x, y, w, h, r) { ctx.save(); ctx.shadowColor = 'rgba(150,110,120,0.13)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5; ctx.fillStyle = '#FFFFFF'; _rr(ctx, x, y, w, h, r); ctx.fill(); ctx.restore(); }
+  function _baLogo(ctx, cx, cy, c) {
+    _text(ctx, '잇 데이', cx, cy, '800 30px "Noto Serif KR", serif', c.accent, 'center');
+    _text(ctx, 'Y O U R   B E A U T Y   D A Y', cx, cy + 20, '700 10px "Noto Sans KR", sans-serif', c.accent, 'center');
+  }
+  function _baChevron(ctx, cx, cy, r, c) {
+    ctx.save(); ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(cx, cy, r * 1.18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#FFF'; ctx.lineWidth = Math.max(3, r * 0.18); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(cx - r * 0.22, cy - r * 0.34); ctx.lineTo(cx + r * 0.26, cy); ctx.lineTo(cx - r * 0.22, cy + r * 0.34); ctx.stroke(); ctx.restore();
+  }
+  function _baCamera(ctx, cx, cy, s, color) {
+    ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 2.2; _rr(ctx, cx - s, cy - s * 0.62, s * 2, s * 1.24, s * 0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy + s * 0.05, s * 0.42, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = color; ctx.fillRect(cx - s * 0.4, cy - s * 0.78, s * 0.5, s * 0.22); ctx.restore();
+  }
+  function _baCtaBar(ctx, x, y, w, h, text, c, cam) {
+    ctx.save(); ctx.fillStyle = c.accent; _rr(ctx, x, y, w, h, h / 2); ctx.fill(); ctx.restore();
+    ctx.font = '800 26px "Noto Sans KR", sans-serif'; var tw = ctx.measureText(text).width;
+    var cx = cam ? x + w / 2 - 18 : x + w / 2;
+    _text(ctx, text, cx, y + h * 0.63, '800 26px "Noto Sans KR", sans-serif', '#FFFFFF', 'center');
+    if (cam) _baCamera(ctx, cx + tw / 2 + 28, y + h / 2, 12, '#FFFFFF');
+  }
+  function _baInfoCard(ctx, x, y, w, h, label, value, c, icon) {
+    _baCard(ctx, x, y, w, h, 16);
+    var ir = h * 0.27, icx = x + h * 0.5, icy = y + h * 0.42;
+    ctx.save(); ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(icx, icy, ir, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    if (icon === 'star') _star(ctx, icx, icy, ir * 0.52, '#FFF');
+    else if (icon === 'heart') _heart(ctx, icx, icy - ir * 0.06, ir * 0.34, '#FFF', null);
+    else if (icon === 'clock') { ctx.save(); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(icx, icy, ir * 0.5, 0, Math.PI * 2); ctx.moveTo(icx, icy); ctx.lineTo(icx, icy - ir * 0.34); ctx.moveTo(icx, icy); ctx.lineTo(icx + ir * 0.28, icy + ir * 0.1); ctx.stroke(); ctx.restore(); }
+    else if (icon === 'pin') { ctx.save(); ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(icx, icy - ir * 0.12, ir * 0.4, Math.PI, 0); ctx.lineTo(icx, icy + ir * 0.5); ctx.closePath(); ctx.fill(); ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(icx, icy - ir * 0.12, ir * 0.16, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    else _lineIcon(ctx, 'person', icx, icy, ir, '#FFF');
+    var tx = icx + ir + w * 0.04;
+    _text(ctx, label, tx, y + h * 0.36, '700 15px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _fitL(ctx, value, tx, y + h * 0.68, x + w - tx - w * 0.04, 20, c.ink);
+  }
+  function _fitL(ctx, s, x, y, maxW, size, color) { s = String(s == null ? '' : s); var fs = size; do { ctx.font = '800 ' + fs + 'px "Noto Sans KR", sans-serif'; if (ctx.measureText(s).width <= maxW || fs <= 13) break; fs -= 1; } while (fs > 13); ctx.fillStyle = color; ctx.textAlign = 'left'; ctx.fillText(s, x, y); }
+  function _baBody(ctx, text, x, y, w, h, size, color, align, lines) {
+    if (window.PhotoEditorTemplateFitText && window.PhotoEditorTemplateFitText.drawFitText) {
+      window.PhotoEditorTemplateFitText.drawFitText(ctx, text, { x: x, y: y, w: w, h: h }, { maxFontSize: size, minFontSize: Math.max(13, size - 5), maxLines: lines || 3, lineHeight: 1.5, color: color, align: align || 'center', valign: 'top', weight: '500', fontFamily: '"Noto Sans KR", sans-serif' });
+    } else { _text(ctx, String(text || '').slice(0, 36), align === 'left' ? x : x + w / 2, y + size, '500 ' + size + 'px "Noto Sans KR", sans-serif', color, align || 'center'); }
+  }
+  function _baTwoTone(ctx, cx, y, font, a, b, ca, cb, sep) {
+    ctx.font = font; var wa = ctx.measureText(a).width, ws = sep ? ctx.measureText(sep).width : 0, wb = ctx.measureText(b).width;
+    var tot = wa + ws + wb, sx = cx - tot / 2;
+    _text(ctx, a, sx, y, font, ca, 'left');
+    if (sep) _text(ctx, sep, sx + wa, y, font, cb, 'left');
+    _text(ctx, b, sx + wa + ws, y, font, cb, 'left');
+  }
+
+  // ── 1 · 프리미엄 인포그래픽: 시술명/소요시간/매장 정보카드 + 후기박스 ──
+  function _skBaPremiumInfographic(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, dw, dh);
+    _baLogo(ctx, dw / 2, dh * 0.058, c);
+    var eb = sv.eyebrow || '전후 후기'; ctx.font = '700 17px "Noto Sans KR", sans-serif'; var ebw = ctx.measureText(eb).width + 44;
+    ctx.save(); ctx.fillStyle = c.accent; _rr(ctx, dw / 2 - ebw / 2, dh * 0.105, ebw, dh * 0.032, dh * 0.016); ctx.fill(); ctx.restore();
+    _text(ctx, eb, dw / 2, dh * 0.105 + dh * 0.022, '700 17px "Noto Sans KR", sans-serif', '#FFF', 'center');
+    _baTwoTone(ctx, dw / 2, dh * 0.185, '800 56px "Playfair Display", "Noto Serif KR", serif', (data.head || 'BEFORE & AFTER').replace(/\s*&.*/, ''), (/&/.test(data.head || 'x') ? (data.head || '').replace(/^.*&\s*/, '') : ''), c.ink, c.accent, /&/.test(data.head || 'BEFORE & AFTER') ? ' & ' : '');
+    _text(ctx, data.sub || '직접 경험한 변화를 사진으로 확인해보세요.', dw / 2, dh * 0.225, '500 20px "Noto Sans KR", sans-serif', c.sub, 'center');
+    var pad = dw * 0.06, gap = dw * 0.03, pw = (dw - pad * 2 - gap) / 2, py = dh * 0.26, ph = dh * 0.30, r = dw * 0.04;
+    _baPhoto(ctx, _baBefore(state, tpl), pad, py, pw, ph, r, c);
+    _baPhoto(ctx, _resolveAfter(state, tpl), pad + pw + gap, py, pw, ph, r, c);
+    _labelPill(ctx, pad + pw * 0.06, py + ph * 0.05, pw * 0.4, ph * 0.1, data.beforeLabel || '시술 전', 'rgba(60,50,52,0.82)', '#FFF');
+    _labelPill(ctx, pad + pw + gap + pw * 0.54, py + ph * 0.05, pw * 0.4, ph * 0.1, data.afterLabel || '시술 후', c.accent, '#FFF');
+    _baChevron(ctx, pad + pw + gap / 2, py + ph / 2, dw * 0.035, c);
+    var iy = py + ph + dh * 0.025, ih = dh * 0.085, iw = (dw - pad * 2 - gap * 2) / 3;
+    _baInfoCard(ctx, pad, iy, iw, ih, '시술명', data.serviceName || sv.service_name || '슈링크 리프팅', c, 'star');
+    _baInfoCard(ctx, pad + iw + gap, iy, iw, ih, '소요 시간', sv.info_dur || '약 30분', c, 'clock');
+    _baInfoCard(ctx, pad + (iw + gap) * 2, iy, iw, ih, '매장', data.shop || '잇데이', c, 'pin');
+    var ry = iy + ih + dh * 0.025, rh = dh * 0.125;
+    _baCard(ctx, pad, ry, dw - pad * 2, rh, 18);
+    _text(ctx, '“', pad + dw * 0.04, ry + rh * 0.6, '800 60px "Noto Serif KR", serif', c.accent, 'left');
+    _baBody(ctx, data.review || sv.review_text || '만족도가 정말 높았어요!', pad + dw * 0.11, ry + rh * 0.2, dw - pad * 2 - dw * 0.16, rh * 0.5, 20, c.ink, 'left', 2);
+    _text(ctx, data.customer || sv.customer_label || '잇데이 회원', pad + dw * 0.11, ry + rh * 0.86, '600 15px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _baCtaBar(ctx, pad, dh * 0.905, dw - pad * 2, dh * 0.06, data.cta || '나의 변화 시작하기', c, false);
+  }
+
+  // ── 2 · 럭셔리 후기: 초대형 타이포 + 별점 후기 카드 중심 ──
+  function _skBaLuxuryReview(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, dw, dh);
+    _baLogo(ctx, dw / 2, dh * 0.05, c);
+    _baTwoTone(ctx, dw / 2, dh * 0.135, '800 88px "Playfair Display", "Noto Serif KR", serif', (data.head || 'BEFORE & AFTER').replace(/\s*&.*/, ''), (/&/.test(data.head || 'x') ? (data.head || '').replace(/^.*&\s*/, '') : ''), c.ink, c.accent, /&/.test(data.head || 'BEFORE & AFTER') ? ' & ' : '');
+    ctx.save(); ctx.strokeStyle = c.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(dw * 0.28, dh * 0.165); ctx.lineTo(dw * 0.42, dh * 0.165); ctx.moveTo(dw * 0.58, dh * 0.165); ctx.lineTo(dw * 0.72, dh * 0.165); ctx.stroke(); ctx.restore();
+    _text(ctx, sv.eyebrow || '전후 비교', dw / 2, dh * 0.172, '700 18px "Noto Sans KR", sans-serif', c.accent, 'center');
+    var pad = dw * 0.06;
+    _baCard(ctx, pad, dh * 0.20, dw - pad * 2, dh * 0.055, 14);
+    _text(ctx, '시술명', pad + dw * 0.06, dh * 0.222, '700 15px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _text(ctx, data.serviceName || sv.service_name || '슈링크 유니버스 리프팅', pad + dw * 0.06, dh * 0.243, '800 18px "Noto Sans KR", sans-serif', c.ink, 'left');
+    ctx.save(); ctx.strokeStyle = c.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(dw * 0.54, dh * 0.21); ctx.lineTo(dw * 0.54, dh * 0.245); ctx.stroke(); ctx.restore();
+    _text(ctx, '매장명', dw * 0.58, dh * 0.222, '700 15px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _text(ctx, data.shop || '잇데이 청담점', dw * 0.58, dh * 0.243, '800 18px "Noto Sans KR", sans-serif', c.ink, 'left');
+    var gap = dw * 0.03, pw = (dw - pad * 2 - gap) / 2, py = dh * 0.275, ph = dh * 0.31, r = dw * 0.04;
+    _baPhoto(ctx, _baBefore(state, tpl), pad, py, pw, ph, r, c);
+    _baPhoto(ctx, _resolveAfter(state, tpl), pad + pw + gap, py, pw, ph, r, c);
+    _labelPill(ctx, pad + pw * 0.06, py + ph * 0.04, pw * 0.38, ph * 0.092, data.beforeLabel || '시술 전', 'rgba(60,50,52,0.82)', '#FFF');
+    _labelPill(ctx, pad + pw + gap + pw * 0.56, py + ph * 0.04, pw * 0.38, ph * 0.092, data.afterLabel || '시술 후', c.accent, '#FFF');
+    _baChevron(ctx, pad + pw + gap / 2, py + ph / 2, dw * 0.034, c);
+    var ry = py + ph + dh * 0.028, rh = dh * 0.17;
+    _baCard(ctx, pad, ry, dw - pad * 2, rh, 20);
+    _text(ctx, sv.review_title || '고객 한마디', pad + dw * 0.05, ry + dh * 0.04, '800 22px "Noto Sans KR", sans-serif', c.accent, 'left');
+    _stars(ctx, dw - pad - dw * 0.12, ry + dh * 0.032, 5, 10, dw * 0.045, c.accent);
+    _baBody(ctx, data.review || sv.review_text || '자연스럽게 예뻐져서 너무 만족해요.', pad + dw * 0.05, ry + dh * 0.058, dw - pad * 2 - dw * 0.1, rh * 0.5, 20, c.ink, 'left', 2);
+    _text(ctx, data.customer || sv.customer_label || '잇데이 회원', dw - pad - dw * 0.05, ry + rh - dh * 0.025, '600 15px "Noto Sans KR", sans-serif', c.sub, 'right');
+    _baCtaBar(ctx, pad, dh * 0.90, dw - pad * 2, dh * 0.062, data.cta || '전후 인증하기', c, true);
+  }
+
+  // ── 3 · 스토리 시그니처: 한글 대제목 + 추천대상 리스트 + 정보칩 ──
+  function _skBaStorySignature(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, dw, dh);
+    _text(ctx, '잇 데이', dw * 0.08, dh * 0.06, '800 26px "Noto Serif KR", serif', c.accent, 'left');
+    _text(ctx, sv.eyebrow || '당신의 빛나는 변화를, 잇데이에서', dw * 0.92, dh * 0.055, '600 14px "Noto Sans KR", sans-serif', c.sub, 'right');
+    _baTwoTone(ctx, dw * 0.30, dh * 0.155, '800 78px "Noto Serif KR", serif', (data.head || '시술 전후').slice(0, 2), (data.head || '시술 전후').slice(2) || '전후', c.ink, c.accent, ' ');
+    _text(ctx, data.sub || '자연스러운 변화, 눈에 보이는 결과', dw * 0.08, dh * 0.195, '500 19px "Noto Sans KR", sans-serif', c.sub, 'left');
+    ctx.save(); ctx.fillStyle = '#FFF'; ctx.shadowColor = 'rgba(150,110,120,0.18)'; ctx.shadowBlur = 14; ctx.beginPath(); ctx.arc(dw * 0.84, dh * 0.15, dw * 0.10, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    _text(ctx, '직접 경험한', dw * 0.84, dh * 0.135, '600 14px "Noto Sans KR", sans-serif', c.sub, 'center');
+    _text(ctx, (sv.circle_badge || '직접 경험한 변화').replace('직접 경험한 ', '') || '변화', dw * 0.84, dh * 0.165, '800 24px "Noto Serif KR", serif', c.accent, 'center');
+    var bx = dw * 0.055, by = dh * 0.245, bw = dw - bx * 2, bh = dh * 0.42;
+    _baCard(ctx, bx, by, bw, bh, 22);
+    var lpw = bw * 0.34;
+    ctx.save(); ctx.fillStyle = c.accent; _rr(ctx, bx, by, lpw, bh, 22); ctx.fill(); ctx.restore();
+    _text(ctx, '이런 분께 추천드려요', bx + lpw / 2, by + dh * 0.045, '800 18px "Noto Sans KR", sans-serif', '#FFF', 'center');
+    var rec = (sv.recommend && sv.recommend.length ? sv.recommend : ['칙칙한 피부톤이 고민인 분', '탄력 저하가 신경 쓰이는 분', '피부결이 거칠고 푸석한 분', '자연스러운 개선을 원하는 분']);
+    rec.slice(0, 4).forEach(function (t, i) {
+      var ly = by + dh * 0.10 + i * dh * 0.072;
+      ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(bx + lpw * 0.16, ly, 11, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      _sparkle(ctx, bx + lpw * 0.16, ly, 6, '#FFF');
+      _baBody(ctx, t, bx + lpw * 0.28, ly - 14, lpw * 0.66, dh * 0.06, 14, '#FFF', 'left', 2);
+    });
+    var rx = bx + lpw, rcw = bw - lpw, gap = dw * 0.02, pw = (rcw - gap) / 2 - dw * 0.02, py = by + dh * 0.03, ph = dh * 0.27, r = dw * 0.03;
+    _baPhoto(ctx, _baBefore(state, tpl), rx + dw * 0.02, py, pw, ph, r, c);
+    _baPhoto(ctx, _resolveAfter(state, tpl), rx + dw * 0.02 + pw + gap, py, pw, ph, r, c);
+    _baChevron(ctx, rx + dw * 0.02 + pw + gap / 2, py + ph / 2, dw * 0.026, c);
+    var cy2 = py + ph + dh * 0.03, chips = [['시술명', data.serviceName || sv.service_name || '슈링크 리프팅'], ['시술시간', sv.info_dur || '약 30분'], ['회복기간', sv.info_recovery || '즉시 가능']];
+    chips.forEach(function (ch, i) { var cw2 = rcw / 3, cxx = rx + i * cw2; _text(ctx, ch[0], cxx + cw2 / 2, cy2, '600 12px "Noto Sans KR", sans-serif', c.sub, 'center'); _text(ctx, ch[1], cxx + cw2 / 2, cy2 + dh * 0.024, '800 14px "Noto Sans KR", sans-serif', c.ink, 'center'); });
+    var qy = by + bh + dh * 0.03;
+    _text(ctx, '“ ' + (data.review || sv.review_text || '탄력이 살아났어요!') + ' ”', dw / 2, qy + dh * 0.02, '700 19px "Noto Sans KR", sans-serif', c.accent, 'center');
+    _stars(ctx, dw / 2, qy + dh * 0.05, 5, 9, dw * 0.04, c.accent);
+    _text(ctx, data.customer || sv.customer_label || '잇데이 회원', dw / 2, qy + dh * 0.078, '600 14px "Noto Sans KR", sans-serif', c.sub, 'center');
+    _baCtaBar(ctx, dw * 0.055, dh * 0.915, dw * 0.89, dh * 0.058, data.cta || '전후 인증하러 가기', c, true);
+  }
+
+  // ── 4 · 클래식 포스터: 대각 리본 BEFORE/AFTER + 인용 박스 ──
+  function _baDiagRibbon(ctx, px, py, pw, ph, r, text, bg, right) {
+    ctx.save(); _rr(ctx, px, py, pw, ph, r); ctx.clip();
+    var d = pw * 0.30;
+    if (!right) { ctx.translate(px, py); ctx.rotate(-Math.PI / 4); }
+    else { ctx.translate(px + pw, py); ctx.rotate(Math.PI / 4); }
+    ctx.fillStyle = bg; ctx.fillRect(-pw, d - ph * 0.05, pw * 2, ph * 0.085);
+    _text(ctx, text, 0, d + ph * 0.018, '700 17px "Noto Sans KR", sans-serif', '#FFF', 'center');
+    ctx.restore();
+  }
+  function _skBaClassicPoster(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, dw, dh);
+    _baLogo(ctx, dw / 2, dh * 0.06, c);
+    var eb = sv.eyebrow || '전후 비교'; ctx.font = '700 16px "Noto Sans KR", sans-serif'; var ebw = ctx.measureText(eb).width + 40;
+    ctx.save(); ctx.fillStyle = c.accent; _rr(ctx, dw / 2 - ebw / 2, dh * 0.105, ebw, dh * 0.030, dh * 0.015); ctx.fill(); ctx.restore();
+    _text(ctx, eb, dw / 2, dh * 0.105 + dh * 0.021, '700 16px "Noto Sans KR", sans-serif', '#FFF', 'center');
+    _baTwoTone(ctx, dw / 2, dh * 0.185, '800 70px "Playfair Display", "Noto Serif KR", serif', (data.head || 'BEFORE & AFTER').replace(/\s*&.*/, ''), (/&/.test(data.head || 'x') ? (data.head || '').replace(/^.*&\s*/, '') : ''), c.ink, c.accent, /&/.test(data.head || 'BEFORE & AFTER') ? ' & ' : '');
+    ctx.save(); ctx.strokeStyle = c.accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(dw * 0.30, dh * 0.215); ctx.lineTo(dw * 0.70, dh * 0.215); ctx.stroke(); ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(dw / 2, dh * 0.215, 4, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    var pad = dw * 0.06, gap = dw * 0.03, pw = (dw - pad * 2 - gap) / 2, py = dh * 0.25, ph = dh * 0.32, r = dw * 0.045;
+    _baPhoto(ctx, _baBefore(state, tpl), pad, py, pw, ph, r, c);
+    _baPhoto(ctx, _resolveAfter(state, tpl), pad + pw + gap, py, pw, ph, r, c);
+    _baDiagRibbon(ctx, pad, py, pw, ph, r, data.beforeLabel || 'BEFORE', 'rgba(60,50,52,0.82)', false);
+    _baDiagRibbon(ctx, pad + pw + gap, py, pw, ph, r, data.afterLabel || 'AFTER', c.accent, true);
+    _baChevron(ctx, pad + pw + gap / 2, py + ph / 2, dw * 0.035, c);
+    var ry = py + ph + dh * 0.03, rh = dh * 0.125;
+    _baCard(ctx, pad, ry, dw - pad * 2, rh, 18);
+    _text(ctx, '“', dw / 2, ry + dh * 0.05, '800 50px "Noto Serif KR", serif', c.accent, 'center');
+    _baBody(ctx, data.review || sv.review_text || '자연스럽게 예뻐져서 주변에서도 알아봐요!', pad + dw * 0.06, ry + dh * 0.06, dw - pad * 2 - dw * 0.12, rh * 0.4, 18, c.ink, 'center', 2);
+    _text(ctx, data.customer || sv.customer_label || '잇데이 회원', dw / 2, ry + rh - dh * 0.022, '600 14px "Noto Sans KR", sans-serif', c.sub, 'center');
+    var fy = ry + rh + dh * 0.025, fh = dh * 0.05;
+    _baCard(ctx, pad, fy, dw - pad * 2, fh, 14);
+    _text(ctx, '시술명', pad + dw * 0.06, fy + fh * 0.4, '700 13px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _text(ctx, data.serviceName || sv.service_name || '슈링크 유니버스 리프팅', pad + dw * 0.06, fy + fh * 0.78, '800 16px "Noto Sans KR", sans-serif', c.ink, 'left');
+    _text(ctx, '지점', dw * 0.62, fy + fh * 0.4, '700 13px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _text(ctx, data.shop || '잇데이 청담점', dw * 0.62, fy + fh * 0.78, '800 16px "Noto Sans KR", sans-serif', c.ink, 'left');
+    _baCtaBar(ctx, pad, dh * 0.91, dw - pad * 2, dh * 0.058, data.cta || '전후 인증하기', c, true);
+  }
+
+  // ── 5 · 케어 가이드: 시술명/시술시간/회복기간 정보형 ──
+  function _skBaCareGuide(ctx, dw, dh, state, tpl, data, c) {
+    var sv = (tpl && tpl.slotValues) || {};
+    ctx.fillStyle = c.bg; ctx.fillRect(0, 0, dw, dh);
+    _baLogo(ctx, dw / 2, dh * 0.058, c);
+    _baTwoTone(ctx, dw / 2, dh * 0.135, '800 58px "Playfair Display", "Noto Serif KR", serif', (data.head || 'BEFORE & AFTER').replace(/\s*&.*/, ''), (/&/.test(data.head || 'x') ? (data.head || '').replace(/^.*&\s*/, '') : ''), c.ink, c.accent, /&/.test(data.head || 'BEFORE & AFTER') ? ' & ' : '');
+    _text(ctx, data.sub || '자연스러운 변화, 눈에 보이는 결과', dw / 2, dh * 0.175, '500 19px "Noto Sans KR", sans-serif', c.sub, 'center');
+    var pad = dw * 0.06, gap = dw * 0.03, pw = (dw - pad * 2 - gap) / 2, py = dh * 0.21, ph = dh * 0.30, r = dw * 0.045;
+    _baPhoto(ctx, _baBefore(state, tpl), pad, py, pw, ph, r, c);
+    _baPhoto(ctx, _resolveAfter(state, tpl), pad + pw + gap, py, pw, ph, r, c);
+    _labelPill(ctx, pad + pw * 0.06, py + ph * 0.05, pw * 0.4, ph * 0.1, data.beforeLabel || '시술 전', 'rgba(60,50,52,0.82)', '#FFF');
+    _labelPill(ctx, pad + pw + gap + pw * 0.54, py + ph * 0.05, pw * 0.4, ph * 0.1, data.afterLabel || '시술 후', c.accent, '#FFF');
+    _baChevron(ctx, pad + pw + gap / 2, py + ph / 2, dw * 0.035, c);
+    var iy = py + ph + dh * 0.028, ih = dh * 0.085, iw = (dw - pad * 2 - gap * 2) / 3;
+    _baInfoCard(ctx, pad, iy, iw, ih, '시술명', data.serviceName || sv.service_name || '슈링크 리프팅', c, 'star');
+    _baInfoCard(ctx, pad + iw + gap, iy, iw, ih, '시술시간', sv.info_dur || '약 30분', c, 'clock');
+    _baInfoCard(ctx, pad + (iw + gap) * 2, iy, iw, ih, '회복기간', sv.info_recovery || '즉시 가능', c, 'heart');
+    var cy2 = iy + ih + dh * 0.022; _text(ctx, '이런 분께 추천드려요', pad, cy2, '800 16px "Noto Sans KR", sans-serif', c.accent, 'left');
+    var rec = (sv.recommend && sv.recommend.length ? sv.recommend : ['칙칙한 피부톤', '탄력 저하', '거친 피부결', '자연스러운 개선']);
+    var chx = pad; ctx.font = '700 14px "Noto Sans KR", sans-serif';
+    rec.slice(0, 4).forEach(function (t) { var w2 = ctx.measureText(t).width + 28; if (chx + w2 > dw - pad) return; ctx.save(); ctx.fillStyle = '#FFF'; ctx.strokeStyle = c.line; ctx.lineWidth = 1.5; _rr(ctx, chx, cy2 + dh * 0.012, w2, dh * 0.034, dh * 0.017); ctx.fill(); ctx.stroke(); ctx.restore(); _text(ctx, t, chx + w2 / 2, cy2 + dh * 0.034, '700 14px "Noto Sans KR", sans-serif', c.ink, 'center'); chx += w2 + dw * 0.02; });
+    var ry = cy2 + dh * 0.075, rh = dh * 0.115;
+    _baCard(ctx, pad, ry, dw - pad * 2, rh, 18);
+    _text(ctx, '“', pad + dw * 0.04, ry + rh * 0.55, '800 50px "Noto Serif KR", serif', c.accent, 'left');
+    _stars(ctx, dw - pad - dw * 0.11, ry + dh * 0.03, 5, 9, dw * 0.042, c.accent);
+    _baBody(ctx, data.review || sv.review_text || '피부가 한층 밝아졌어요!', pad + dw * 0.11, ry + dh * 0.022, dw - pad * 2 - dw * 0.16, rh * 0.5, 18, c.ink, 'left', 2);
+    _text(ctx, data.customer || sv.customer_label || '잇데이 회원', pad + dw * 0.11, ry + rh - dh * 0.02, '600 14px "Noto Sans KR", sans-serif', c.sub, 'left');
+    _baCtaBar(ctx, pad, dh * 0.91, dw - pad * 2, dh * 0.058, data.cta || '전후 인증하러 가기', c, true);
+  }
+
   // ── 등록(6종 + BP-6 봄 이벤트 = 7종, 모두 좌표 완료 → done=true) ──
+  BP._register('bp-ba-premium-infographic', _skBaPremiumInfographic, true);
+  BP._register('bp-ba-luxury-review', _skBaLuxuryReview, true);
+  BP._register('bp-ba-story-signature', _skBaStorySignature, true);
+  BP._register('bp-ba-classic-poster', _skBaClassicPoster, true);
+  BP._register('bp-ba-care-guide', _skBaCareGuide, true);
   BP._register('bp-price-blackgold', _skBlackGold, true);
   BP._register('bp-ba-nail-polaroid', _skNailPolaroid, true);
   BP._register('bp-ba-nail-pink-polaroid', _skNailPinkPolaroid, true);

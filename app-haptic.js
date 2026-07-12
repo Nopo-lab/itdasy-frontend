@@ -142,6 +142,13 @@
   const AppPlugin = window.Capacitor?.Plugins?.App;
   if (isNative && AppPlugin) {
     AppPlugin.addListener('backButton', () => {
+      // 0) [핫픽스E #5] 시트-백 레지스트리에 열린 시트가 있으면 top 하나만 닫는다.
+      //   예약상세→예약관리 같은 child/parent 시트가 한 번에 닫혀 홈으로 튀던 버그 차단(브라우저 back 과 동작 통일).
+      const sbStack = window._sheetBackStack;
+      if (Array.isArray(sbStack) && sbStack.length) {
+        try { history.back(); } catch (_e) { void _e; }
+        return;
+      }
       // 1) 열려있는 팝업/모달 먼저 닫기
       const openPopup = document.querySelector(
         '.popup[style*="display: flex"], .modal-overlay[style*="display: flex"], ' +

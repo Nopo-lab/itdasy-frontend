@@ -31,6 +31,22 @@
 /* "전체" 칩 좁게 — 검색창 너비와 균형 */
 #customerSheet .cv4-chip[data-seg="all"] { padding:6px 14px; }
 
+/* ── [2026-07-08 A안] 요약 스트립 (전체/새손님/4회+) ── */
+#customerSheet .cv4-stats { display:flex;gap:6px;margin-bottom:10px; }
+#customerSheet .cv4-stat {
+  flex:1;border:none;border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;
+  font-family:inherit;transition:box-shadow .15s;
+}
+#customerSheet .cv4-stat b { display:block;font-size:17px;font-weight:700;letter-spacing:-0.3px;line-height:1.2; }
+#customerSheet .cv4-stat span { display:block;font-size:11px;margin-top:2px;font-weight:500; }
+#customerSheet .cv4-stat.s-all { background:var(--surface-2,#F7F8FA);color:var(--text,#111); }
+#customerSheet .cv4-stat.s-all span { color:#999; }
+#customerSheet .cv4-stat.s-new { background:#EEFBF3;color:#16B55E; }
+#customerSheet .cv4-stat.s-vip { background:#F7EFF0;color:#BC6675; }
+#customerSheet .cv4-stat.is-on { box-shadow:inset 0 0 0 1.5px currentColor; }
+#customerSheet.cv4-pc .cv4-stat { padding:8px 4px; }
+#customerSheet.cv4-pc .cv4-stat b { font-size:15px; }
+
 /* ── 가나다 섹션 헤더 + 인덱스바 ────────────────── */
 #customerSheet .sec-hd {
   font-size:12px;color:#BBB;font-weight:600;padding:8px 0 4px;letter-spacing:1px;margin-top:4px;
@@ -49,15 +65,16 @@
 #customerSheet .c-row {
   display:flex;align-items:center;padding:13px 0;border-bottom:1px solid var(--border,#F5F5F7);
   cursor:pointer;transition:background .12s;position:relative;padding-left:16px;
+  padding-right:18px; /* [2026-07-08] 우측 마지막방문 텍스트가 인덱스바에 안 겹치게 */
 }
 #customerSheet .c-row:active { background:var(--surface-2,#FAFAFA); }
 #customerSheet .c-row:last-child { border-bottom:none; }
 #customerSheet .c-bar {
   position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;
 }
-#customerSheet .c-bar.b1 { background:#DDD; }            /* 1~2회 */
-#customerSheet .c-bar.b2 { background:#16B55E; }         /* 3~9회 */
-#customerSheet .c-bar.b3 { background:#BC6675; }         /* 10회+ */
+#customerSheet .c-bar.b1 { background:#DDD; }            /* 0~1회 */
+#customerSheet .c-bar.b2 { background:#16B55E; }         /* 2~3회 */
+#customerSheet .c-bar.b3 { background:#BC6675; }         /* 4회+ */
 #customerSheet .c-info { flex:1;min-width:0; }
 #customerSheet .c-name {
   font-size:15px;color:var(--text,#111);font-weight:500;display:flex;align-items:center;gap:6px;
@@ -70,7 +87,12 @@
 #customerSheet .c-badge.b2 { background:#EEFBF3;color:#16B55E; }
 #customerSheet .c-badge.b3 { background:#F7EFF0;color:#BC6675; }
 #customerSheet .c-sub { font-size:12px;color:#C4C4C4;margin-top:2px; }
-#customerSheet .c-arr { font-size:16px;color:#DDD;flex-shrink:0;margin-left:8px; }
+/* [2026-07-08 A안] 꺾쇠(.c-arr) 삭제 → 우측 마지막 방문 + NEW 배지 */
+#customerSheet .c-badge.nw { background:#EEFBF3;color:#16B55E; }
+#customerSheet .c-last {
+  font-size:11.5px;color:#C4C4C4;text-align:right;flex-shrink:0;margin-left:8px;line-height:1.35;
+}
+#customerSheet .c-last span { display:block; }
 
 /* ── PC 한 화면 분할 ──────────────────────────── */
 #customerSheet.cv4-pc { display:flex;flex-direction:row !important;height:100vh;overflow:hidden;padding:0; }
