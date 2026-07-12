@@ -322,8 +322,8 @@
 	      e.target.value = '';
 	      if (!files.length) return;
 	      // [v564·필수1] 시작하기→파일선택 후 중간 업로드 화면 없이 바로 편집 창으로.
-	      var _simple = (window.ITDASY_WS_SIMPLE_FLOW !== false);   // [v590·#1] 심플 플로우면 바로 캡션 생성으로
-      _launchFlow(null, _simple ? 'caption' : 'edit', null, { files: files });
+	      // [cleanup] 심플 플로우 상시 — 시작하기→파일선택 후 바로 캡션 생성으로.
+      _launchFlow(null, 'caption', null, { files: files });
 	    });
 	  }
 

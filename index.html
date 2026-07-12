@@ -56,12 +56,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   // [skin-v3] 작업실 톤 리스킨(따뜻한 아이보리+로즈 CTA). false 로 끄면 기존 톤.
   // 색/그림자만 바꾸는 스코프 CSS(css/workspace-skin-v3.css), 작업실 오버레이에만 적용.
   window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
-  // [ws-hyper] 작업실 초고도화(레이아웃-퍼스트 딸깍 홍보). ★기본 ON (2026-07-09)★ — 새 플로우가 기본.
-  //   롤백(옛 편집기 플로우로): 주소 끝 ?wshyper=0 또는 콘솔에서 localStorage.setItem('itdasy:ws_hyper','0') 후 새로고침,
-  //   또는 window.ITDASY_WS_HYPER=false. (옛 플로우 코드는 롤백용으로 당분간 유지.)
-  window.ITDASY_WS_HYPER = !(window.ITDASY_WS_HYPER === false
-    || /[?&]wshyper=0/.test(location.search)
-    || (function(){ try { return localStorage.getItem('itdasy:ws_hyper') === '0'; } catch(_e){ return false; } })());
+  // [cleanup 2026-07-12] ws-hyper(레이아웃-퍼스트 플로우)는 상시 기본으로 고정 — 롤백 플래그(window.ITDASY_WS_HYPER)·?wshyper=0 스위치 제거. flow.js 가 더는 읽지 않음.
   // [skin-v4] 작업실 앱-정체성 리스킨(tokens.css 정렬). ws-hyper 켜질 때만 의미, 단독 롤백용 별도 플래그.
   window.ITDASY_WS_SKIN_V4 = (window.ITDASY_WS_SKIN_V4 === true);
   try {
