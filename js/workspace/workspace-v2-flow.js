@@ -82,6 +82,12 @@
 	    { key: 'event', label: '이벤트 안내', use: '혜택 안내', chip: '이벤트', id: 'wm-event-feed', purpose: 'event', captionMode: 'normal' },
 	    { key: 'feed', label: '인스타 피드', use: '피드용 안내', chip: '시술 자랑', id: 'wm-promo-feed', purpose: 'feed', captionMode: 'normal' },
 	    { key: 'story', label: '스토리 홍보', use: '세로 홍보', chip: '스토리', id: 'wm-promo-story', purpose: 'story', captionMode: 'normal' },
+    // [다양성 팩 2026-07-12] 실용 공지·이벤트 템플릿 — 전후 편중(6/13) 완화. 렌더러 지원 id 재사용(실 렌더 검증됨).
+    { key: 'booking-open', label: '예약 오픈', use: '예약 오픈 안내', chip: '이벤트', id: 'wm-event-story', purpose: 'event', captionMode: 'normal' },
+    { key: 'last-call', label: '마감 임박', use: '마감 임박 강조', chip: '이벤트', id: 'wm-thumb-card', purpose: 'event', captionMode: 'normal' },
+    { key: 'new-menu', label: '신메뉴 안내', use: '새 시술·메뉴', chip: '이벤트', id: 'wm-price-feed', purpose: 'feed', captionMode: 'normal' },
+    { key: 'notice', label: '휴무 공지', use: '휴무·운영 안내', chip: '공지', id: 'wm-show-square', purpose: 'feed', captionMode: 'normal' },
+    { key: 'homecare', label: '홈케어 팁', use: '홈케어·꿀팁', chip: '정보', id: 'wm-review-story', purpose: 'feed', captionMode: 'normal' },
 	    // [v561·항목5] 단순 사진 붙이기 — 꾸밈 없이 2장을 50:50 으로. before_after 처럼 2장 필요.
 	    { key: 'stitch-lr', label: '좌우 붙이기', use: '두 장 나란히', chip: '붙이기', id: 'wm-stitch-lr', purpose: 'collage', collage: 'lr', captionMode: 'normal' },
 	    { key: 'stitch-tb', label: '상하 붙이기', use: '두 장 위아래', chip: '붙이기', id: 'wm-stitch-tb', purpose: 'collage', collage: 'tb', captionMode: 'normal' },
@@ -3010,7 +3016,7 @@
 	            : '<span class="tpls-slide__tag">탭 → 전/후</span>') +
 	      '</button>';
 	    }).join('');
-	    var chips = ['전체', '전후', '붙이기', '시술 자랑', '고객 후기', '이벤트', '스토리'];
+	    var chips = ['전체', '전후', '붙이기', '시술 자랑', '고객 후기', '이벤트', '공지', '정보', '스토리'];
 	    var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
 	    var grid = shown.map(function (tpl) {
 	      var on = d.templateId === tpl.id;
