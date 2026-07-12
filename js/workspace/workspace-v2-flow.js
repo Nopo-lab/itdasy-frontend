@@ -122,15 +122,9 @@
     // [v587·#5] 편집기(seOverlay)가 열렸거나 방금 popstate 로 닫힌 back 이면 flow 가 같은 back 을 중복 처리하지 않는다.
     //   (전역 시트 시스템이 편집기를 먼저 닫음 → 작업실 단계는 그대로 유지, 앱 종료 방지.)
     if (window.__seOpen || window.__seSwallowPop) return false;
-    // 캡션 생성 완료(결과) + 그 위에 우리가 push한 'caption' 마커가 있으면 → 결과를 비우고 캡션 입력 화면으로.
-    if (cur === 'caption' && String(d.caption || '').trim() && navStack.length && navStack[navStack.length - 1] === 'caption') {
-      if (_histDepth > 0) _histDepth--;
-      navStack.pop();
-      _genToken++;   // [버그수정] 진행 중인 재생성 응답이 있으면 여기서 무효화 — 나중에 도착해도 무시됨
-      d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.logId = null;
-      setScreen('caption', { push: false });
-      return true;
-    }
+    // [refactor S3] 스텝별 뒤로가기 특수처리(캡션 결과 되돌리기 등)는 STEP_FX[cur].onBack 에 위임 — 처리했으면 true.
+    var fx = STEP_FX[cur];
+    if (fx && fx.onBack && fx.onBack() === true) return true;
     if (navStack.length) {
       if (_histDepth > 0) _histDepth--;
       if (cur === 'caption') { flushCaptionInputs(); _genToken++; }   // [버그수정] 캡션 화면 이탈 시에도 재생성 응답 무효화
@@ -1882,13 +1876,59 @@
 
   // [refactor S2] 스텝별 동작(render + onEnter mount)을 한 맵에 co-locate — 기존 RENDER 맵 + setScreen 의 흩어진 if(name===) mount 사다리를 대체.
   //   스텝 추가/변경 시 여기 한 줄만 손보면 됨(흩어진 mount 분기 제거 = 고아코드 방지).
+  // [refactor S3] onCta/_navBack 의 스텝별 전환·뒤로가기 로직도 여기 onExit/onBack 으로 co-locate.
+  //   onExit(to): false=전환 취소 · Promise=완료 후 onCta 가 setScreen(to) · 그 외(undefined)=즉시 진행. **무동작변경** — 기존 인라인 사다리와 동일.
+  //   onBack(): true=스텝이 자체 처리(setScreen 직접 호출) · 그 외=_navBack 기본 pop.
   var _rafFx = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+  // 업로드 전환 전: 사진 유무/선택 검증(실패=전환 취소). textOnly 는 사진 없이도 통과.
+  function _exitUpload() {
+    if (d.textOnly) return;
+    if (!d.photos.length) { toast('사진을 먼저 추가해 주세요.'); return false; }
+    if (!editablePhotos().length) { toast('사진을 1장 이상 선택해 주세요.'); return false; }
+  }
+  // 캡션 전환 전: 입력 확정 → 게시글 없으면 생성/안내 후 취소, 후기 레이아웃이면 캡션 반영해 재합성.
+  function _exitCaption() {
+    flushCaptionInputs();
+    // [캡션 스킵 방지] 게시글 안 만든 채로 다음 단계로 못 넘어가게 — 시술명 있으면 생성, 없으면 안내(전환 취소).
+    if (!String(d.caption || '').trim()) {
+      if (String(d.service || '').trim()) { doGenerate({}, '게시글을 만들었어요'); }
+      else { toast('시술 내역/키워드를 입력하면 게시글을 만들어 드려요'); }
+      return false;
+    }
+    // [A1] 후기 레이아웃은 시술/캡션이 확정된 지금 재합성해 본문에 반영(레이아웃 단계엔 아직 캡션이 없었음).
+    if (HYPER && d.wsLayout && d.wsLayout.kind === 'review' && window.WorkspaceLayout) {
+      return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {
+        if (u) { d.templateOutput = u; d.previewUrl = null; }
+      });
+    }
+  }
+  // 편집 전환 전: 현재 보정을 굽고(bake) 다음 단계.
+  function _exitEdit() { return bakeEdit(); }
+  // [ws-hyper] 레이아웃 전환 전: 조정된 focal/zoom 으로 최종 이미지 합성 후 다음 단계.
+  function _exitLayout() {
+    if (d.wsLayout && window.WorkspaceLayout) {
+      return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {   // [A1] 후기/가격 텍스트 주입
+        if (u) { d.templateOutput = u; d.previewUrl = null; }
+      });
+    }
+  }
+  // [v531] 캡션 결과 화면에서 뒤로 = 결과만 비우고 캡션 입력으로(편집으로 안 튐). 결과 없으면 기본 pop.
+  function _backCaption() {
+    if (String(d.caption || '').trim() && navStack.length && navStack[navStack.length - 1] === 'caption') {
+      if (_histDepth > 0) _histDepth--;
+      navStack.pop();
+      _genToken++;   // [버그수정] 진행 중인 재생성 응답 무효화 — 나중에 도착해도 무시
+      d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.logId = null;
+      setScreen('caption', { push: false });
+      return true;
+    }
+  }
   var STEP_FX = {
-    upload:   { render: renderUpload },
-    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); } },
-    edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); } },
+    upload:   { render: renderUpload,   onExit: _exitUpload },
+    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); }, onExit: _exitLayout },
+    edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); }, onExit: _exitEdit },
     template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
-    caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); } },
+    caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); }, onExit: _exitCaption, onBack: _backCaption },
     connect:  { render: renderConnect,  onEnter: function () { loadRecent(); } },
     preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
   };
@@ -3484,40 +3524,24 @@
     if (cur === 'caption') flushCaptionInputs();
     history.back();
   }
+  // [refactor S3] 전환 전 스텝별 로직은 STEP_FX[cur].onExit 에 위임(무동작변경). 흩어진 if(cur===) 사다리 제거 → 스텝 변경 시 레지스트리 한 줄.
   function onCta() {
     var c = CTA[cur]; if (!c) return;
-    if (cur === 'upload' && !d.textOnly) {
-      if (!d.photos.length) { toast('사진을 먼저 추가해 주세요.'); return; }
-      if (!editablePhotos().length) { toast('사진을 1장 이상 선택해 주세요.'); return; }
-    }
-    if (c.to === '__save') return save();
-    if (c.to === '__edit') return _openEditFirst();   // [통합 편집기] 업로드 다음 = ItdEditor
-    if (cur === 'caption') {
-      flushCaptionInputs();
-      // [캡션 스킵 방지] 게시글 안 만든 채로 고객연결/미리보기로 못 넘어가게 — 시술명 있으면 바로 생성, 없으면 안내.
-      if (!String(d.caption || '').trim()) {
-        if (String(d.service || '').trim()) { doGenerate({}, '게시글을 만들었어요'); }
-        else { toast('시술 내역/키워드를 입력하면 게시글을 만들어 드려요'); }
-        return;
-      }
-      // [A1] 후기 레이아웃은 시술/캡션이 확정된 지금(캡션 다음 단계로 갈 때) 재합성해 본문에 반영.
-      //   (레이아웃 단계엔 시술/캡션이 아직 없어서 본문이 비어 있었음. 가격 레이아웃은 shopMenu 라 무관.)
-      if (HYPER && d.wsLayout && d.wsLayout.kind === 'review' && window.WorkspaceLayout) {
-        return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {
-          if (u) { d.templateOutput = u; d.previewUrl = null; }
-          setScreen(c.to);
-        }).catch(function () { setScreen(c.to); });
+    var fx = STEP_FX[cur];
+    if (fx && fx.onExit) {
+      var r = fx.onExit(c.to);
+      if (r === false) return;                                       // 검증 실패/캡션 생성 등 — 전환 취소
+      if (r && typeof r.then === 'function') {                       // bake/compose 등 비동기 — 완료 후 전환(성공·실패 모두 진행)
+        return r.then(function () { _ctaGo(c.to); }).catch(function () { _ctaGo(c.to); });
       }
     }
-    if (cur === 'edit') { return bakeEdit().then(function () { setScreen(c.to); }); }
-    // [ws-hyper] 레이아웃 확정 — 조정된 focal/zoom 으로 최종 이미지 합성 후 다음 단계.
-    if (cur === 'layout' && d.wsLayout && window.WorkspaceLayout) {
-      return Promise.resolve(window.WorkspaceLayout.composeLayout(_fillLayoutText(d.wsLayout), editablePhotos(), d._wsAssign)).then(function (u) {   // [A1] 후기/가격 텍스트 주입
-        if (u) { d.templateOutput = u; d.previewUrl = null; }
-        setScreen(c.to);
-      }).catch(function () { setScreen(c.to); });
-    }
-    setScreen(c.to);
+    _ctaGo(c.to);
+  }
+  // 실제 전환 — 특수 대상(__save=저장 완료, __edit=통합 편집기) 처리 후 setScreen.
+  function _ctaGo(to) {
+    if (to === '__save') return save();
+    if (to === '__edit') return _openEditFirst();   // [통합 편집기] 업로드 다음 = ItdEditor
+    setScreen(to);
   }
 
   function openCropFlow() {
