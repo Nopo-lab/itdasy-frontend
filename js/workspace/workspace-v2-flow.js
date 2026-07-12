@@ -3454,6 +3454,23 @@
 	      else if (i === 1) p.role = 'after';
 	      else p.role = 'hero';
 	    });
+	    // [다양성 팩 2026-07-12] 자동배치된 첫 2장(둘 다 non-manual)에 한해 EXIF 촬영시각/밝기로 전·후 순서 재추정.
+	    if (sel.length >= 2 && window.WSBAAutoRole && !sel[0].roleManual && !sel[1].roleManual
+	        && sel[0].role === 'before' && sel[1].role === 'after') {
+	      try { if (window.WSBAAutoRole.decide(sel[0], sel[1]).swap) { sel[0].role = 'after'; sel[1].role = 'before'; } } catch (_e) { void _e; }
+	    }
+	  }
+	  // 새 사진들의 EXIF 촬영시각 + 밝기를 비동기로 캐시한 뒤 전·후 순서를 한 번 더 재추정(+화면 갱신).
+	  //   files[i] ↔ 방금 push 된 photo[i] (같은 순서). 실패해도 기존 순서배치 그대로(회귀 0).
+	  function _precomputeBAHints(files, count) {
+	    if (!window.WSBAAutoRole) return;
+	    var news = (d.photos || []).slice(-count), jobs = [];
+	    news.forEach(function (p, i) {
+	      if (p._captureTime === undefined && files && files[i]) jobs.push(window.WSBAAutoRole.readExifTime(files[i]).then(function (t) { p._captureTime = t; }));
+	      if (p._lum == null && (p.editedDataUrl || p.dataUrl)) jobs.push(window.WSBAAutoRole.imgLuma(p.editedDataUrl || p.dataUrl).then(function (l) { p._lum = l; }));
+	    });
+	    if (!jobs.length) return;
+	    Promise.all(jobs).then(function () { reassignRoles(); if (cur === 'upload' || cur === 'template') _repaintUpload(); }).catch(function () { /* 실패해도 순서배치 그대로 */ });
 	  }
 	  // [#5] 사진별 전/후 직접 지정. 같은 값 다시 누르면 해제(자동 배치로 복귀).
 	  function _setRole(i, role) {
@@ -3486,6 +3503,7 @@
 	      // [QA hotfix] 다중 업로드 시 전후/홍보컷 자동 확정 금지 — 사용자가 '전/후 토글' 또는
 	      //   카테고리/템플릿으로 직접 용도를 고르게 한다. (전/후 카테고리로 진입한 경우만 baMode 유지)
 	      reassignRoles();
+	      _precomputeBAHints(files, urls.length);   // [다양성 팩] EXIF/밝기로 전·후 순서 자동추정(비동기, 준비되면 재배치)
 	      // [v564·필수1] 홈 '시작하기'→파일선택→바로 편집. 중간 업로드 화면을 건너뛴다.
 	      // [v575·필수1] 직행 진입은 편집을 '베이스 화면'으로 — push:false 로 navStack 을 비워 둔다.
 	      //   기존엔 기본 push 로 cur('upload')가 navStack 에 쌓여, 뒤로가기 시 안 거쳐온 '업로드 화면'이 떴다.
