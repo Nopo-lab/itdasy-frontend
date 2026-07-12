@@ -50,7 +50,16 @@
         toast('어울리는 조합을 적용했어요'); setScreen('caption');
       } catch (_e) { void _e; }
     }
-    // 원탭 '알아서 예쁘게' — 프리셋 A + 어울리는 색·폰트(하모니). 대표색으로 어두우면 rose, 밝으면 cream.
+    // [다양성 팩 2026-07-12] 업종(shop_type) → 어울리는 하모니 매핑. 피부과·Y2K네일 등이 같은 크림/로즈
+    //   쓰던 문제 해소 — 버티컬별로 서로 다른 색·폰트 조합을 기본 적용. 웜 계열(헤어·속눈썹 등)은 사진 밝기로.
+    function _harmonyForShop() {
+      var raw = ''; try { raw = localStorage.getItem('shop_type') || ''; } catch (_e) { raw = ''; }
+      var ALIAS = (window.ItdasyServiceVocab && window.ItdasyServiceVocab.ALIAS) || {};
+      var vert = ALIAS[raw] || ALIAS[String(raw).toLowerCase()] || raw;
+      var MAP = { '피부': 'clinic', '에스테틱': 'clinic', '두피': 'clinic', '네일': 'y2k', '네일아트': 'y2k', '반영구': 'noir', '메이크업': 'noir', '태닝': 'bold', '왁싱': 'botanical' };
+      return MAP[vert] || null;   // null → 웜(밝기 기반 rose/cream)
+    }
+    // 원탭 '알아서 예쁘게' — 프리셋 A + 어울리는 색·폰트(하모니). 업종 매핑 우선, 없으면 대표색으로 rose/cream.
     function _autoPretty() {
       try {
         if (window.ShopStyle && window.ShopStyle.ensureSeed) window.ShopStyle.ensureSeed();
@@ -59,6 +68,8 @@
           try { _applyPreset('A'); } catch (_e1) { void _e1; }   // 깔끔한 레이아웃(검증된 경로)
           _applyHarmony(harmonyKey);   // 색·폰트 입힘(setScreen 포함) → 마지막 한 번만 렌더
         };
+        var vKey = _harmonyForShop();
+        if (vKey) { apply(vKey); return; }   // 업종 전용 조합(clinic/y2k/noir/bold/botanical)
         var p0 = curPhoto && curPhoto(); var url = p0 && _cleanBase(p0);
         if (url && typeof _extractPalette === 'function') {
           _extractPalette(url, function (cols) {
