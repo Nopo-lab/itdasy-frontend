@@ -1864,8 +1864,8 @@
     d: function () { return d; }, cur: function () { return cur; }, el: function () { return el; },
     setScreen: setScreen, editablePhotos: editablePhotos, photoUrl: photoUrl, cleanBase: _cleanBase
   }) : {};
-  var renderLayout = _WSL.renderLayout, _wsSaveMyLayout = _WSL._wsSaveMyLayout, _wsDeleteMyLayout = _WSL._wsDeleteMyLayout,
-    _wsTrayPick = _WSL._wsTrayPick, _wsMountStage = _WSL._wsMountStage, _wsSelectLayout = _WSL._wsSelectLayout,
+  // [S4] dellayout·layoutpick·trayph·savelayout·skiplayout 는 layout.handleClick 로 이관 → 여기선 render/mount/편집상태/텍스트주입만 별칭.
+  var renderLayout = _WSL.renderLayout, _wsMountStage = _WSL._wsMountStage,
     _wsLayoutEditState = _WSL._wsLayoutEditState, _fillLayoutText = _WSL._fillLayoutText;
 
   // [T-104 P4] 고객 연결 화면 클러스터(renderConnect·loadRecent·pickCustomer·_connectByName) → flow/connect.js (context 주입)
@@ -1926,7 +1926,7 @@
   }
   var STEP_FX = {
     upload:   { render: renderUpload,   onExit: _exitUpload },
-    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); }, onExit: _exitLayout },
+    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); }, onExit: _exitLayout, handle: _WSL.handleClick },
     edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); }, onExit: _exitEdit },
     template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
     caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); }, onExit: _exitCaption, onBack: _backCaption },
@@ -2238,16 +2238,10 @@
   function bind() {
     el.addEventListener('click', function (e) {
       var t = e.target;
-      // [E3] 내 레이아웃 삭제(×) — 카드 선택보다 먼저 검사
-      var _dl = t.closest('[data-fl-dellayout]'); if (_dl) { return _wsDeleteMyLayout(_dl.getAttribute('data-fl-dellayout')); }
-      // [ws-hyper] 레이아웃 카드 선택 (data-fl-layoutpick) · 사진 트레이 탭(data-fl-trayph)
-      var _lp = t.closest('[data-fl-layoutpick]'); if (_lp) { return _wsSelectLayout(_lp.getAttribute('data-fl-layoutpick')); }
-      var _tp = t.closest('[data-fl-trayph]'); if (_tp) { return _wsTrayPick(_tp.getAttribute('data-fl-trayph')); }
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
-      if (a === 'savelayout') { return _wsSaveMyLayout(); }   // [E2] 내 레이아웃 저장
-      if (a === 'skiplayout') { d.wsLayout = null; d.templateOutput = null; setScreen('caption'); return; }   // [ws-hyper] 레이아웃 없이 진행
       if (a === 'cta') { return onCta(); }
+      // [S4] 레이아웃 화면 전용(dellayout·layoutpick·trayph·savelayout·skiplayout)은 layout.handleClick 로 이관 — 아래 스텝 위임에서 처리됨.
       // [v560] 편집 화면 우측 CTA — 현재 보정 굽고 '템플릿 선택' 화면으로.
       if (a === 'cta2') { return bakeEdit().then(function () { setScreen('template'); }); }
       // [refactor S4] 스텝 전용 클릭 핸들러 위임 — 현재 스텝(STEP_FX[cur])이 처리하면 종료. 스텝 제거 시 핸들러도 함께 제거(고아 방지).
