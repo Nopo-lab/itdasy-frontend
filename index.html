@@ -45,6 +45,21 @@
 <meta name="apple-mobile-web-app-title" content="잇데이">
 <meta name="theme-color" content="#F2F4F6">
 <title>잇데이 · Itdasy</title>
+<meta name="description" content="시술 사진을 올리면 AI가 우리샵 말투로 인스타 게시글·해시태그까지 자동 완성. 예약·고객·매출 관리까지 한 번에, 1인샵 원장님을 위한 AI 살롱 OS.">
+<!-- 오픈그래프(페북·인스타·카톡 링크 미리보기). og:url·og:image 는 절대경로 → 환경별로 값 분기(운영은 itdasy-frontend 경로). -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="잇데이 스튜디오">
+<meta property="og:title" content="잇데이 스튜디오 — 사진 한 장으로 인스타 홍보 끝">
+<meta property="og:description" content="시술 사진을 올리면 AI가 우리샵 말투로 인스타 게시글·해시태그까지 자동 완성. 예약·고객·매출 관리까지 한 번에.">
+<meta property="og:url" content="https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/">
+<meta property="og:image" content="https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/icons/icon-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="잇데이 스튜디오 — 사진 한 장으로 인스타 홍보 끝">
+<meta name="twitter:description" content="시술 사진을 올리면 AI가 우리샵 말투로 인스타 게시글·해시태그까지 자동 완성.">
+<meta name="twitter:image" content="https://nopo-lab.github.io/itdasy-frontend-test-yeunjun/icons/icon-512.png">
 <script>
 window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   // [C2] 작업실 V2 플래그 — false 로 바꾸면 기존 작업실로 즉시 롤백 가능
@@ -56,12 +71,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   // [skin-v3] 작업실 톤 리스킨(따뜻한 아이보리+로즈 CTA). false 로 끄면 기존 톤.
   // 색/그림자만 바꾸는 스코프 CSS(css/workspace-skin-v3.css), 작업실 오버레이에만 적용.
   window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
-  // [ws-hyper] 작업실 초고도화(레이아웃-퍼스트 딸깍 홍보). ★기본 ON (2026-07-09)★ — 새 플로우가 기본.
-  //   롤백(옛 편집기 플로우로): 주소 끝 ?wshyper=0 또는 콘솔에서 localStorage.setItem('itdasy:ws_hyper','0') 후 새로고침,
-  //   또는 window.ITDASY_WS_HYPER=false. (옛 플로우 코드는 롤백용으로 당분간 유지.)
-  window.ITDASY_WS_HYPER = !(window.ITDASY_WS_HYPER === false
-    || /[?&]wshyper=0/.test(location.search)
-    || (function(){ try { return localStorage.getItem('itdasy:ws_hyper') === '0'; } catch(_e){ return false; } })());
+  // [cleanup 2026-07-12] ws-hyper(레이아웃-퍼스트 플로우)는 상시 기본으로 고정 — 롤백 플래그(window.ITDASY_WS_HYPER)·?wshyper=0 스위치 제거. flow.js 가 더는 읽지 않음.
   // [skin-v4] 작업실 앱-정체성 리스킨(tokens.css 정렬). ws-hyper 켜질 때만 의미, 단독 롤백용 별도 플래그.
   window.ITDASY_WS_SKIN_V4 = (window.ITDASY_WS_SKIN_V4 === true);
   try {
@@ -2247,7 +2257,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-core.js?v=20260706-v710-syncfix"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
-<script src="js/load-groups.js?v=20260712-v738-screencast" defer></script>
+<script src="js/load-groups.js?v=20260712-v739-screencast-flagcleanup" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>
