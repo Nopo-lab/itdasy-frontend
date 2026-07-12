@@ -1720,7 +1720,7 @@
 	    var custLine = d.customerName ?
 	      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
 	    // [v592] 인스타 미리보기 단계 = 최종 카드 + 게시 + 피드 미리보기.
-	    return '' + '<div class="cap-byline">이렇게 올라가요</div>' + custLine + _igPreviewCard(url) + _publishBlock() + _feedPreview(url);
+	    return '' + '<div class="cap-byline">이렇게 올라가요</div>' + custLine + _igPreviewCard(url, true) + _publishBlock() + _feedPreview(url);
 	  }
 
   function _publishBlock() {
@@ -1825,7 +1825,7 @@
     template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
     caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); }, onExit: _exitCaption, onBack: _backCaption },
     connect:  { render: renderConnect,  onEnter: function () { loadRecent(); }, handle: _WSC.handleClick },
-    preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
+    preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCaption(); }); } },
   };
 
   // 드래그 중 라이브 미리보기(CSS). 손 떼면 applyWorkspaceCorrections(실픽셀)로 확정.
@@ -1849,6 +1849,10 @@
   /* ── 라우팅 ── */
   function setScreen(name, opts) {
     opts = opts || {};
+    // [fix 2026-07-12] 같은 화면 재렌더(샵 선택·다시 생성 등)면 스크롤 위치 보존용 — 전환일 때만 맨 위로.
+    var _prevCur = cur;
+    var _prevActive = el && el.querySelector('.wsv2flow__s.active');
+    var _prevScrollTop = _prevActive ? _prevActive.scrollTop : 0;
     // [v531] 캡션 화면을 떠날 땐 항상 입력(본문·해시태그·꼬리말) 확정 → 저장/미리보기/복사에 편집분 반영(어떤 경로든).
     if (cur === 'caption' && name !== 'caption' && el && el.classList.contains('is-open')) flushCaptionInputs();
     // 같은 화면 재렌더(doGenerate/loadRecent 등)는 push 안 함. 뒤로가기(fromBack)도 push 안 함.
@@ -1885,7 +1889,9 @@
     // [캡션] 생성 트리거는 아래 '시나리오 칩(상황 선택)' 하나로 통일.
     //  생성 전(결과 없음)엔 하단 CTA 숨김 → 칩을 눌러 생성. 생성 후 '고객 연결로' 노출.
     if (name === 'caption' && !String(d.caption || '').trim()) bar.classList.add('hidden');
-    var act = el.querySelector('.wsv2flow__s.active'); if (act) act.scrollTop = 0;
+    // [fix 2026-07-12] 같은 화면 재렌더(샵 선택·다시 생성 등)면 스크롤 유지 — 화면 전환일 때만 맨 위로.
+    var act = el.querySelector('.wsv2flow__s.active');
+    if (act) act.scrollTop = ((name === _prevCur) || opts.keepScroll) ? _prevScrollTop : 0;
     var _fx = STEP_FX[name]; if (_fx && _fx.onEnter) _fx.onEnter();   // [refactor S2] 흩어진 mount 사다리 → 스텝 onEnter 일괄(순서·동작 동일)
     if (name === 'preview' && d.publish && (d.publish.status === 'draft' || !d.publish.status)) d.publish.status = 'preview_ready';
   }
@@ -2109,8 +2115,8 @@
         }
         d.logId = r.log_id || d.logId || null;
       } else { toast(r.toast || '게시글 생성에 실패했어요'); }
-      // [fix #5] 첫 생성 성공 → 바로 인스타 미리보기로(원장이 '인스타 미리보기'를 또 안 눌러도 되게). 재생성/해시태그는 캡션 화면 유지.
-      if (r.ok && _wasEmpty && !opts.hashtag_mode) { setScreen('preview'); return; }
+      // [보스요청 2026-07-12] 생성 후 인스타 미리보기 자동 점프 제거 — 캡션 결과 화면(사진 편집·캡션 직접 수정)에
+      //   머물고, 원장이 하단 '인스타 미리보기로' CTA 를 눌러야 preview 로 이동.
       setScreen('caption');
     }).catch(function (e) {
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
