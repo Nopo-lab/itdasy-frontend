@@ -1555,7 +1555,7 @@
             '</div>' +
           '</div>' +
           (HYPER ? '' : _svcTagsHtml()) +
-          _toneChipsHtml() +   // [다양성 팩] 게시물별 말투·성격 선택(친근/전문/감성/이벤트/후기)
+          // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤). _toneChipsHtml/_resolveTone 은 보존.
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
           _capConfirmHtml() +
           '</div>';
@@ -2482,7 +2482,7 @@
       var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
-      var svrec = t.closest('[data-fl-svcrecent]'); if (svrec) { var _rv = svrec.getAttribute('data-fl-svcrecent'); var _si = el && el.querySelector('[data-fl-service]'); if (_si) { _si.value = _rv; } d.service = _rv; syncServiceFromDom(); setScreen('caption'); return; }   // [P4] 최근 시술 → 입력창 채움
+      var svrec = t.closest('[data-fl-svcrecent]'); if (svrec) { var _rv = svrec.getAttribute('data-fl-svcrecent'); var _si = el && el.querySelector('[data-fl-service]'); d.service = _rv; if (_si) { _si.value = _rv; try { _si.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) { void _e; } } return; }   // [P4·보스] 최근 시술 → 입력창만 제자리 채움(setScreen 재렌더 제거 → 스크롤 안 튐)
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }

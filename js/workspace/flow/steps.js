@@ -25,7 +25,9 @@
       template: { title: '템플릿 선택',     cta: { l: '이대로 게시글 쓰기', to: 'caption' } },
       caption:  { title: '게시글 만들기',   cta: { l: '인스타 미리보기로', to: 'preview' } },
       connect:  { title: '고객 연결',       cta: { l: '저장하고 완료', to: '__save' } },
-      preview:  { title: '인스타 미리보기', cta: { l: '고객 연결로', to: 'connect' } },
+      // [보스 2026-07-12] 고객연결은 인스타 업로드 '후'에만 — 미리보기의 발행 전 '고객 연결로' 지름길 제거.
+      //   미리보기 화면 안 '피드에 올리기' 버튼 → 발행 성공 시 connect 화면으로(workspace-v2-flow.js publish 성공부).
+      preview:  { title: '인스타 미리보기', cta: { l: '저장하고 완료', to: '__save' } },
     };
 
     // master 순서(슬라이드 방향 — 기존 SCREENS 그대로: connect 가 preview 앞)
