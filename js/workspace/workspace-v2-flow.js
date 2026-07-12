@@ -2247,15 +2247,12 @@
       // [refactor S4] 스텝 전용 클릭 핸들러 위임 — 현재 스텝(STEP_FX[cur])이 처리하면 종료. 스텝 제거 시 핸들러도 함께 제거(고아 방지).
       //   버튼이 해당 스텝 화면(render)에서만 렌더되는 '스텝 전용'만 이관(공유 핸들러는 아래 인라인 유지).
       var _fx4 = STEP_FX[cur]; if (_fx4 && _fx4.handle && _fx4.handle(t, a, e) === true) return;
-      if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); _repaintUpload(); return; }
-      if (a === 'gen') { return doGenerate({}, null); }
-      if (a === 'regen') { return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요'); }
+      // [refactor S5] 고아 핸들러 제거 — 렌더러(data-fl="…")가 없어 어떤 클릭으로도 도달 불가(전 코드베이스 기계 확인).
+      //   batoggle·gen·regen(=cgen/data-fl-var 로 대체됨)·toconnect·topreview(오배선)·sharepreview·roles·applydefault·tplchange(=tplchange-active). HYPER 재설계로 버튼 소멸, 핸들러만 잔존했던 쓰레기코드.
+      //   (publishstory 는 렌더되는 storypick/storypickcancel 과 커플된 휴면 서브기능이라 보존.)
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
-      if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
-      if (a === 'topreview') { flushCaptionInputs(); setScreen('caption'); return; }
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
-      if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
       if (a === 'edfull') {
@@ -2268,7 +2265,7 @@
       if (a === 'edzoomfit') { d.zoom = { s: 1, tx: 0, ty: 0 }; _applyZoomTransform(); return; }
       if (a === 'edzoomin') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.min(4, (d.zoom.s || 1) + 0.5); _applyZoomTransform(); return; }
       if (a === 'edzoomout') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.max(1, (d.zoom.s || 1) - 0.5); if (d.zoom.s === 1) { d.zoom.tx = 0; d.zoom.ty = 0; } _applyZoomTransform(); return; }
-      if (a === 'roles') { d.rolesOpen = !d.rolesOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      // [refactor S5] 'roles' 핸들러 제거 — data-fl="roles" 렌더러 없음(전·후 확인은 템플릿 화면으로 이동, data-fl-setrole 사용). 도달 불가.
       // [v561] 직접 칠하기(수동 마스크) — 자동 인식이 틀릴 때 원장님이 부위를 직접 칠해 교정.
       if (a === 'maskpaint') {
         d.maskPaint = !d.maskPaint;
@@ -2287,15 +2284,7 @@
         toast('칠한 영역을 비웠어요'); return;
       }
       if (a === 'tplrelease') { return releaseTemplate(); }
-      if (a === 'applydefault') {
-        // [v531] '기본 템플릿 적용하기' — 현재 유형의 기본 템플릿 자동 적용. 없으면 안내 후 카드에서 고르도록.
-        var _cat = _purposeCat(d.tplPurpose);
-        var _defId = _getDefaultTpl(_cat);
-        if (!_defId) { toast('아직 기본 템플릿이 없어요. 먼저 사용할 템플릿을 골라 기본으로 설정해 주세요.'); return; }
-        var _dt = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === _defId; })[0];
-        if (!_dt) { toast('기본 템플릿을 찾지 못했어요'); return; }
-        return applyTemplate(_dt.key);
-      }
+      // [refactor S5] 'applydefault'('기본 템플릿 적용하기') 핸들러 제거 — data-fl="applydefault" 렌더러 없음. 도달 불가한 고아.
       var setdef = t.closest('[data-fl-setdefault]'); if (setdef) {
         // [v531] '기본으로 설정' — 이 템플릿을 해당 유형 기본으로 저장(localStorage, 홈 카드/적용에 반영).
         var _sk = setdef.getAttribute('data-fl-setdefault'); var _st = _tplByKey(_sk); if (!_st) return;
@@ -2304,15 +2293,7 @@
         _renderTplSection();
         return;
       }
-      if (a === 'tplchange') {
-        // [v531] '전체 바꾸기'(일괄) — 템플릿 카드 목록을 열고 스크롤. 다른 카드 선택 시 모든 짝에 일괄 재적용.
-        // [v532] 짝별 타깃 해제 → 다음 카드 선택은 일괄 적용 경로를 탄다.
-        d.tplTargetPair = null;
-        d.tplOpen = true; _renderTplSection();
-        var grid = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: 'center' });
-        toast('위 템플릿 카드에서 다른 디자인을 고르면 모든 짝에 다시 적용돼요');
-        return;
-      }
+      // [refactor S5] 'tplchange'('전체 바꾸기') 핸들러 제거 — data-fl="tplchange" 렌더러 없음(현행 UI는 data-fl="tplchange-active"). 도달 불가.
       // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 타깃으로 잡고 갤러리 오픈. 다음 카드 선택은 이 짝만 교체.
       var tplpair = t.closest('[data-fl-tplpair]'); if (tplpair) {
         d.tplTargetPair = tplpair.getAttribute('data-fl-tplpair');
