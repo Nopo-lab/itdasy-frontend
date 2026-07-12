@@ -1473,6 +1473,44 @@
         return '<button type="button" class="cap-svctag" data-fl-svcrecent="' + esc(s) + '" title="' + esc(s) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
   }
 
+  // [다양성 팩 2026-07-12] 게시물별 '말투·성격' 칩 — 친근/전문/감성/이벤트/후기. 원장이 게시물마다 톤을 고른다
+  //   (기존엔 SIMPLE_FLOW 에서 톤 선택이 사라져 페르소나 1개로 수렴). 클릭은 기존 data-fl-ctone 위임 핸들러가 d.capTone 세팅.
+  var _TONE_CHIPS = [
+    ['friendly', '친근', 'ph-hand-heart'],
+    ['professional', '전문', 'ph-seal-check'],
+    ['emotional', '감성', 'ph-sparkle'],
+    ['event', '이벤트', 'ph-megaphone-simple'],
+    ['review', '후기', 'ph-chat-circle-text']
+  ];
+  function _toneHint(t) {
+    return { friendly: '단골에게 말하듯 다정하고 부담 없이.', professional: '시술 포인트를 또렷하게, 신뢰감 있게.',
+      emotional: '분위기·무드를 살리는 잔잔한 감성 톤.', event: '혜택·예약을 강조하는 이벤트 홍보 톤.',
+      review: '고객이 남긴 듯한 1인칭 만족 후기체.' }[t] || '';
+  }
+  function _toneChipsHtml() {
+    var set = _TONE_CHIPS.map(function (o) { return o[0]; });
+    var cur = set.indexOf(d.capTone) >= 0 ? d.capTone : 'friendly';
+    return '<label class="cap-field-label" style="margin-top:14px">말투 · 게시물 성격</label>' +
+      '<div class="cap-chips cap-tonechips">' + _TONE_CHIPS.map(function (o) {
+        var on = cur === o[0];
+        return '<button type="button" class="cap-chip cap-tonechip' + (on ? ' on' : '') + '" data-fl-ctone="' + o[0] + '" aria-pressed="' + on + '"><i class="ph-duotone ' + o[2] + '"></i>' + o[1] + '</button>';
+      }).join('') + '</div>' +
+      '<p class="cap-field-hint" data-fl-tonehint>' + _toneHint(cur) + '</p>';
+  }
+  // 말투 칩 → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
+  //   안전 enum(ornate/plain) + extra_notes 로 성격 주입(caption_intent enum·tone_override enum 위반 0).
+  function _resolveTone(t) {
+    switch (t) {
+      case 'professional': return { tone: 'professional' };
+      case 'emotional': return { tone: 'emotional' };
+      case 'premium': return { tone: 'premium' };
+      case 'mz': return { tone: 'mz' };
+      case 'natural': return { tone: 'natural' };
+      case 'event': return { tone: 'ornate', note: '이벤트·프로모션 홍보 톤으로 작성하고, 마지막에 예약을 유도하는 활기찬 마무리 한 줄을 넣어주세요.' };
+      case 'review': return { tone: 'plain', note: '고객이 직접 남긴 후기 말투로, 1인칭 고객 시점의 만족스러운 후기체로 작성해주세요.' };
+      case 'friendly': default: return { tone: 'friendly' };
+    }
+  }
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
   function renderCaption() {
     var url = outputUrl();
@@ -1517,6 +1555,7 @@
             '</div>' +
           '</div>' +
           (HYPER ? '' : _svcTagsHtml()) +
+          _toneChipsHtml() +   // [다양성 팩] 게시물별 말투·성격 선택(친근/전문/감성/이벤트/후기)
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
           _capConfirmHtml() +
           '</div>';
@@ -2089,11 +2128,16 @@
     opts.selectedTemplateId = d.templateId || null;
     opts.templateOutputs = _outs.map(function (o) { return { pairId: o.pairId, templateId: o.templateId, beforePhotoId: o.beforePhotoId, afterPhotoId: o.afterPhotoId, pairLabel: o.pairLabel }; });
     opts.activeDisplayId = d.activeDisplayId || (_outs[0] && _outs[0].pairId) || null;
-    // [v558] 입력화면에서 고른 말투/길이를 생성에 주입(재생성 버튼이 명시 override 하면 그 값 우선).
-    opts.tone_override = opts.tone_override || d.capTone || 'natural';
+    // [v558/다양성 팩] 입력화면 말투 칩 → 생성 주입. 재생성 변형이 tone_override 를 명시하면 그 값 우선,
+    //   아니면 d.capTone(친근/전문/감성/이벤트/후기)을 _resolveTone 로 안전 enum + extra_notes 로 변환.
     opts.length_tier = opts.length_tier || d.capLen || 'medium';
     d.capLen = opts.length_tier;
-    d.capTone = opts.tone_override;
+    if (!d.capTone) d.capTone = 'friendly';   // 칩 기본값(enum 으로 덮어쓰지 않고 칩 선택값 유지)
+    if (!opts.tone_override) {
+      var _tr = _resolveTone(d.capTone);
+      opts.tone_override = _tr.tone;
+      if (_tr.note) opts.extra_notes = (_tr.note + ' ' + String(opts.extra_notes || '')).slice(0, 300);
+    }
     // [v567] 원장님 말투 반영 — 토글 ON + 인스타 연동(말투분석 소스 존재) 시에만 페르소나 반영.
     var _igConn = (window.WorkspaceAdapter && window.WorkspaceAdapter.instagram) ? window.WorkspaceAdapter.instagram().connected : false;
     opts.use_persona = (d.capUsePersona === true) && _igConn;
@@ -2432,7 +2476,7 @@
         var vk = vv.getAttribute('data-fl-var');
 	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
 	        if (vk === 'long')  { var _nl = (d.capLen === 'long' || d.capLen === 'max') ? 'max' : 'long'; return doGenerate({ length_tier: _nl, caption_intent: 'longer', _regen: true }, _nl === 'max' ? '아주 길게 다시 생성했어요' : '길게 다시 생성했어요'); }
-	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'natural'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
+	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'friendly'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
 	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
 	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
 		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
