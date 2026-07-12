@@ -1870,9 +1870,10 @@
 
   // [T-104 P4] 고객 연결 화면 클러스터(renderConnect·loadRecent·pickCustomer·_connectByName) → flow/connect.js (context 주입)
   var _WSC = (window.WSFlowConnect && window.WSFlowConnect.create) ? window.WSFlowConnect.create({
-    d: function () { return d; }, cur: function () { return cur; }, setScreen: setScreen
+    d: function () { return d; }, cur: function () { return cur; }, setScreen: setScreen,
+    save: function () { return save(); }, buildSlot: function () { return buildSlot(); }   // [S4] 핸들러가 저장·슬롯빌드를 쓰므로 주입(함수 선언은 호이스팅되어 create 시점에 존재)
   }) : {};
-  var renderConnect = _WSC.renderConnect, loadRecent = _WSC.loadRecent, pickCustomer = _WSC.pickCustomer, _connectByName = _WSC._connectByName;
+  var renderConnect = _WSC.renderConnect, loadRecent = _WSC.loadRecent, _connectByName = _WSC._connectByName;   // [S4] pickcust 는 connect.handleClick 로 이관 → 여기서 pickCustomer 별칭 불필요
 
   // [refactor S2] 스텝별 동작(render + onEnter mount)을 한 맵에 co-locate — 기존 RENDER 맵 + setScreen 의 흩어진 if(name===) mount 사다리를 대체.
   //   스텝 추가/변경 시 여기 한 줄만 손보면 됨(흩어진 mount 분기 제거 = 고아코드 방지).
@@ -1929,7 +1930,7 @@
     edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); }, onExit: _exitEdit },
     template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
     caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); }, onExit: _exitCaption, onBack: _backCaption },
-    connect:  { render: renderConnect,  onEnter: function () { loadRecent(); } },
+    connect:  { render: renderConnect,  onEnter: function () { loadRecent(); }, handle: _WSC.handleClick },
     preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
   };
 
@@ -2249,6 +2250,9 @@
       if (a === 'cta') { return onCta(); }
       // [v560] 편집 화면 우측 CTA — 현재 보정 굽고 '템플릿 선택' 화면으로.
       if (a === 'cta2') { return bakeEdit().then(function () { setScreen('template'); }); }
+      // [refactor S4] 스텝 전용 클릭 핸들러 위임 — 현재 스텝(STEP_FX[cur])이 처리하면 종료. 스텝 제거 시 핸들러도 함께 제거(고아 방지).
+      //   버튼이 해당 스텝 화면(render)에서만 렌더되는 '스텝 전용'만 이관(공유 핸들러는 아래 인라인 유지).
+      var _fx4 = STEP_FX[cur]; if (_fx4 && _fx4.handle && _fx4.handle(t, a, e) === true) return;
       if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); _repaintUpload(); return; }
       if (a === 'gen') { return doGenerate({}, null); }
       if (a === 'regen') { return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요'); }
@@ -2257,8 +2261,6 @@
       if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
       if (a === 'topreview') { flushCaptionInputs(); setScreen('caption'); return; }
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
-      if (a === 'pickcust') { return pickCustomer(); }
-      if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; save(); return; }   // [v583·C] 연결 없이 진행=저장 후 완료
       if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
@@ -2383,15 +2385,7 @@
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
       var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
       var eb = t.closest('[data-fl-eb]'); if (eb) { return _editBottom(eb.getAttribute('data-fl-eb')); }
-      var cust = t.closest('[data-fl-cust]'); if (cust) {
-        d.customerId = cust.getAttribute('data-fl-custid'); d.customerName = cust.getAttribute('data-fl-cust');
-        // vc 찾기 — recent 캐시에서
-        var found = (d.recent || []).filter(function (c) { return String(c.id) === String(d.customerId); })[0];
-        d.customerVc = found ? (found.vc || 0) : 0;
-        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_ce) { void _ce; }
-        toast(d.customerName + ' 고객과 연결했어요');
-        setScreen('preview'); return;   // [보스] 고객 연결하면 인스타 업로드(미리보기)로 돌아오게
-      }
+      // [refactor S4] 고객 선택(data-fl-cust) 핸들러는 connect.handleClick 로 이관 — 위 스텝 전용 위임에서 처리됨.
       // [v568·B-5] 사진 캐러셀 화살표 / 점 — 한 칸씩 또는 지정 사진으로 스크롤(스냅).
       var tplnav = t.closest('[data-fl-tplnav]'); if (tplnav) { _tplScrollBy(+tplnav.getAttribute('data-fl-tplnav')); return; }
       var tpldot = t.closest('[data-fl-tpldot]'); if (tpldot) { _tplScrollTo(+tpldot.getAttribute('data-fl-tpldot')); return; }
