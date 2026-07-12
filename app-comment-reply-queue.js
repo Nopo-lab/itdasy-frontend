@@ -93,7 +93,9 @@
   function _mapReal(it) {
     var d = _drafts(it.intent);
     return { id: it.comment_id, commentId: it.comment_id, mediaId: it.media_id || '', name: it.username ? ('@' + it.username) : '손님',
-      av: (it.username || '?').slice(0, 1), intent: it.intent, media: '게시물 댓글', likes: it.like_count || 0,
+      av: (it.username || '?').slice(0, 1), intent: it.intent,
+      media: it.media_caption ? ('“' + it.media_caption + '…”') : '게시물 댓글',
+      permalink: it.permalink || '', likes: it.like_count || 0,
       waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual, returning: !!it.returning, confidence: it.confidence || '',
       publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
   }
@@ -141,13 +143,17 @@
           '<div style="font-size:11px;color:#8B95A1;margin-top:1px;">' + (it.waiting <= 0 ? '방금' : it.waiting + '분 전') + ' · ' + _esc(_INTENT_KO[it.intent] || '문의') + '</div>' +
         '</div>' +
       '</div>' +
-      // 게시물 + 좋아요
-      '<div style="display:flex;align-items:center;gap:8px;background:#F7F8FA;border-radius:12px;padding:7px 10px;margin-bottom:10px;">' +
+      // 어떤 게시물인지 한눈에 — 큰 썸네일 + 캡션 + (탭하면 인스타 게시물로)
+      '<div class="crq-post"' + (it.permalink ? ' data-permalink="' + _esc(it.permalink) + '" style="cursor:pointer;' : ' style="') + 'display:flex;align-items:center;gap:9px;background:#F7F8FA;border-radius:12px;padding:8px 10px;margin-bottom:10px;">' +
         (it.thumb
-          ? '<div style="width:34px;height:34px;border-radius:8px;flex-shrink:0;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></div>'
-          : '<div style="width:34px;height:34px;border-radius:8px;background:#E5E8EB;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</div>') +
-        '<span style="font-size:11.5px;color:#8B95A1;flex:1;">' + _esc(it.media) + '</span>' +
-        '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:#8B95A1;font-weight:600;">' + IC.heart + it.likes + '</span>' +
+          ? '<div style="width:46px;height:46px;border-radius:9px;flex-shrink:0;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></div>'
+          : '<div style="width:46px;height:46px;border-radius:9px;background:#E5E8EB;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</div>') +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-size:10px;color:#B0B8C1;font-weight:600;margin-bottom:1px;">이 게시물에 달린 댓글</div>' +
+          '<div style="font-size:12px;color:#4E5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(it.media) + '</div>' +
+        '</div>' +
+        '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:#8B95A1;font-weight:600;flex-shrink:0;">' + IC.heart + it.likes + '</span>' +
+        (it.permalink ? '<span style="flex-shrink:0;color:#B0B8C1;">' + _svg('<path d="M7 17L17 7M17 7H8M17 7v9"/>', { w: 15 }) + '</span>' : '') +
       '</div>' +
       // 손님 댓글 원문
       '<div style="background:#fff;border:.5px solid #E5E8EB;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;margin-bottom:12px;">' + _esc(it.text) + '</div>' +
@@ -273,6 +279,14 @@
 
     // 이벤트 위임
     el.addEventListener('click', function (e) {
+      // 게시물 줄 탭 → 그 인스타 게시물 열기(어떤 글인지 바로 확인)
+      var post = e.target.closest ? e.target.closest('.crq-post[data-permalink]') : null;
+      if (post) {
+        _haptic();
+        var url = post.getAttribute('data-permalink');
+        try { if (window.openLink) window.openLink(url); else window.open(url, '_blank', 'noopener'); } catch (_o) { void _o; }
+        return;
+      }
       // 설정 컨트롤(span/div — 버튼 아님) 먼저 처리
       var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-mode') : null;
       if (sc) {
