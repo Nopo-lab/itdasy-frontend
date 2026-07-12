@@ -155,8 +155,15 @@
     function _fillLayoutText(layout) {
       if (!layout || !Array.isArray(layout.layers)) return layout;
       var kind = layout.kind;
-      if (kind !== 'review' && kind !== 'price') return layout;
       var layers = layout.layers.map(function (L) { return Object.assign({}, L); });
+      // [다양성 팩] 시술명 분해 → 헤드라인/자막바/부제 자동 채움(review/price 외 kind 도 텍스트 살아있게).
+      var parts = {};
+      try { parts = (window.WSCaptionText && window.WSCaptionText.splitServiceForLayers) ? window.WSCaptionText.splitServiceForLayers(D().service || '') : {}; } catch (_e0) { parts = {}; }
+      var svcTitle = (parts && parts.title) || String(D().service || '').split(/[\n,·]/)[0].trim();
+      layers.forEach(function (L) {
+        if (L.role === 'headline' || L.role === 'caption_bar') { if (svcTitle) L.text = svcTitle; }
+        else if (L.role === 'sub2') { if (parts && parts.sub) L.text = parts.sub; }
+      });
       if (kind === 'review') {
         layers.forEach(function (L) {
           if (L.role === 'title') { L.text = D().customerName ? (D().customerName + '님 후기') : (L.text || '고객 후기'); }
@@ -169,8 +176,12 @@
         var rows = null;
         try { rows = (window.ItdasyPriceMenu && window.ItdasyPriceMenu.shopMenu) ? window.ItdasyPriceMenu.shopMenu() : null; } catch (_e) { rows = null; }
         if (rows && rows.length) {
-          rows.slice(0, 6).forEach(function (row, i) {
-            layers.push({ type: 'text', role: 'price_row', text: row, x: 0.08, y: 0.63 + i * 0.058, w: 0.84,
+          // [좌우 메뉴 지원] panel 위치를 읽어 가격줄 배치 — 사진 절반+우측 메뉴/상단 사진+하단 표 둘 다 대응.
+          var panel = layers.filter(function (L) { return L.role === 'panel'; })[0];
+          var px = panel && panel.x ? panel.x : 0, pw = panel && panel.w ? panel.w : 1, py = panel && panel.y != null ? panel.y : 0.5;
+          var rx = px + 0.04, rw = pw - 0.08, ry0 = py + 0.14;
+          rows.slice(0, 7).forEach(function (row, i) {
+            layers.push({ type: 'text', role: 'price_row', text: row, x: rx, y: ry0 + i * 0.058, w: rw,
               size: 0.03, weight: 600, color: '#4E5968', align: 'left', bg: null, shadow: false });
           });
         }
