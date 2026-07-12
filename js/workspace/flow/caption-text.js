@@ -5,7 +5,16 @@
   'use strict';
   // [버그수정 2026-07-06] 시술어 사전 — 이 뿌리를 포함한 토큰은 '시술명'이라 고객명·사담 필터에서 보호.
   //   예전엔 "붙임머리 고객님"→고객명 '붙임머리'로 오인돼 시술 소실, "커플네일"→'커플' 부분일치로 통째 삭제.
-  var _SERVICE_ROOT = /(머리|펌|염색|염|탈색|컷|커트|네일|속눈썹|눈썹|왁싱|케어|클리닉|트리트먼트|매직|볼륨|붙임|연장|리터치|드라이|메이크업|메컵|피부|두피|스케일링|아트|페디|젤|매니큐어|룩|스타일|샴푸|마사지|관리|왁스|타투|반영구|앞머리|단발|레이어드|허쉬|볼륨펌|디자인)/;
+  // [다양성 팩 2026-07-12] 시술어 SSOT = window.ItdasyServiceVocab(js/data/service-vocab.js). 8버티컬로 확장.
+  //   모듈이 없으면(로드 순서·구버전) 아래 인라인 폴백을 그대로 사용 → 회귀 없음. 첫 사용 시 한 번만 빌드·캐시.
+  var _SERVICE_ROOT_FALLBACK = /(머리|펌|염색|염|탈색|컷|커트|네일|속눈썹|눈썹|왁싱|케어|클리닉|트리트먼트|매직|볼륨|붙임|연장|리터치|드라이|메이크업|메컵|피부|두피|스케일링|아트|페디|젤|매니큐어|룩|스타일|샴푸|마사지|관리|왁스|타투|반영구|앞머리|단발|레이어드|허쉬|볼륨펌|디자인)/;
+  var _svcRootCache = null;
+  function _svcRootRe() {
+    if (_svcRootCache) return _svcRootCache;
+    try { if (window.ItdasyServiceVocab && window.ItdasyServiceVocab.rootRegex) { _svcRootCache = window.ItdasyServiceVocab.rootRegex(); return _svcRootCache; } } catch (_e) { void _e; }
+    return _SERVICE_ROOT_FALLBACK;   // 캐시 안 함 — 모듈이 나중에 로드되면 다음 호출서 채택
+  }
+  var _SERVICE_ROOT = { test: function (t) { return _svcRootRe().test(t); } };   // 호출부 _SERVICE_ROOT.test(x) 그대로
   // 시술어 뒤 동사/형용사 활용 어미(예: "염색하신", "단발컷한", "펌하신") — 이름 아님.
   var _VERB_END = /(한|신|하신|했|되신|된|해주신|해드린|받으신|오신)$/;
   function _extractCustomer(svc) {

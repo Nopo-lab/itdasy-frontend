@@ -5,7 +5,9 @@
    공개: renderCaptionKeywordTags() / toggleCaptionTag() / deleteCaptionKeyword() / showAddKeywordInput() / getShopKeywords() */
 
 // [#16] 업종별 '자주 쓰는 시술' — 실제 국내 뷰티샵 시술명 기준. 가입 업종이 이 중 하나면 그 리스트가 기본 노출.
-const SHOP_KEYWORDS = {
+// [다양성 팩 2026-07-12] SSOT = window.ItdasyServiceVocab(js/data/service-vocab.js) 로 이관. 8버티컬(반영구·메이크업·태닝·두피·에스테틱 추가).
+//   아래는 모듈 미로드 대비 인라인 폴백(회귀 방지). _shopKeywordsMap() 이 모듈 KEYWORDS 를 위에 병합해 실사용.
+const _BASE_SHOP_KEYWORDS = {
   '붙임머리': ['붙임머리','비드붙임','링붙임','테이프붙임','클립인','옴브레','볼륨업','자연스러운','롱헤어','재시술','14인치','20인치','26인치'],
   '네일아트': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
   '네일': ['젤네일','손케어','이달의아트','프렌치','원톤','그라데이션','글리터','스톤','자개','시럽네일','연장','매트'],
@@ -15,6 +17,13 @@ const SHOP_KEYWORDS = {
   '왁싱': ['브라질리언','바디왁싱','페이스왁싱','겨드랑이','팔다리','인모왁싱','슈가링','수염왁싱','재방문'],
   '피부': ['수분관리','여드름관리','모공관리','미백','탄력','스케일링','아쿠아필','리프팅','진정관리','LED관리'],
 };
+// 실사용 맵 — 공유 모듈 KEYWORDS 를 인라인 위에 병합(호출 시점 lazy → 로드 순서 무관).
+function _shopKeywordsMap() {
+  try {
+    const v = (window.ItdasyServiceVocab && window.ItdasyServiceVocab.KEYWORDS) || null;
+    return v ? Object.assign({}, _BASE_SHOP_KEYWORDS, v) : _BASE_SHOP_KEYWORDS;
+  } catch (_e) { return _BASE_SHOP_KEYWORDS; }
+}
 
 // 사용자 커스텀 키워드 (localStorage)
 function _loadCustomKeywords() {
@@ -34,27 +43,28 @@ function _saveDeletedKeywords(arr) {
 
 // 원시 shop_type(가입값: 헤어샵/hair/네일/beauty 등)을 app-core 정규화(8종 cat)로 매핑 → 그에 맞는 키워드 세트.
 //   app-core.itdasyNormalizeShopType 있으면 그걸(권장), 없으면 간이 별칭 폴백.
-const _CAT_KEYWORDS = {
-  hair: SHOP_KEYWORDS['미용실'], nail: SHOP_KEYWORDS['네일'], lash: SHOP_KEYWORDS['속눈썹'],
-  wax: SHOP_KEYWORDS['왁싱'], skin: SHOP_KEYWORDS['피부'],
-};
-const _SHOP_TYPE_ALIAS = {
+const _CAT_TO_VERTICAL = { hair: '미용실', nail: '네일', lash: '속눈썹', wax: '왁싱', skin: '피부' };
+const _SHOP_TYPE_ALIAS_FALLBACK = {
   hair: '헤어', salon: '미용실', 미용실: '미용실', 헤어: '헤어', nail: '네일', 네일: '네일', nailart: '네일아트',
   lash: '속눈썹', eyelash: '속눈썹', 속눈썹: '속눈썹', waxing: '왁싱', 왁싱: '왁싱', skin: '피부', skincare: '피부',
   피부: '피부', extension: '붙임머리', 붙임머리: '붙임머리',
 };
+function _shopTypeAlias() {
+  try { return (window.ItdasyServiceVocab && window.ItdasyServiceVocab.ALIAS) || _SHOP_TYPE_ALIAS_FALLBACK; } catch (_) { return _SHOP_TYPE_ALIAS_FALLBACK; }
+}
 function _shopKeywordBase() {
   const raw = (() => { try { return localStorage.getItem('shop_type') || ''; } catch (_) { return ''; } })();
+  const MAP = _shopKeywordsMap(), ALIAS = _shopTypeAlias();
   // [#16] 특정 업종(붙임머리·네일아트 등)은 정규화가 상위 cat(hair/nail)으로 뭉개기 전에 '직접 매핑' 우선.
   //   예전엔 normalize('붙임머리').cat='hair' → 미용실 리스트로 덮여, 가입값이 붙임머리여도 단발/레이어드가 떴다.
-  const directKey = _SHOP_TYPE_ALIAS[raw] || _SHOP_TYPE_ALIAS[String(raw).toLowerCase()] || raw;
-  if (SHOP_KEYWORDS[directKey]) return SHOP_KEYWORDS[directKey];
-  // [#1] 가입값이 '붙임머리샵'·'속눈썹 전문' 처럼 접미어가 붙어도 매칭 — SHOP_KEYWORDS 키가 raw에 포함되면 그걸로.
+  const directKey = ALIAS[raw] || ALIAS[String(raw).toLowerCase()] || raw;
+  if (MAP[directKey]) return MAP[directKey];
+  // [#1] 가입값이 '붙임머리샵'·'속눈썹 전문' 처럼 접미어가 붙어도 매칭 — 키가 raw에 포함되면 그걸로.
   const rawStr = String(raw || '');
-  for (const key in SHOP_KEYWORDS) { if (rawStr.indexOf(key) >= 0) return SHOP_KEYWORDS[key]; }
+  for (const key in MAP) { if (rawStr.indexOf(key) >= 0) return MAP[key]; }
   // 직접 매핑 실패 시에만 정규화 cat로 폴백.
   if (window.itdasyNormalizeShopType) {
-    try { const c = window.itdasyNormalizeShopType(raw).cat; if (_CAT_KEYWORDS[c]) return _CAT_KEYWORDS[c]; } catch (_) { /* fall through */ }
+    try { const c = window.itdasyNormalizeShopType(raw).cat; const vert = _CAT_TO_VERTICAL[c]; if (vert && MAP[vert]) return MAP[vert]; } catch (_) { /* fall through */ }
   }
   return null;
 }
