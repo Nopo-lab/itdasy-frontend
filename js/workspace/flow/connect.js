@@ -58,6 +58,24 @@
         } else if (r.toast) toast(r.toast);
       });
     }
+    // [refactor S4] 고객 연결 화면 전용 클릭 핸들러 — flow.js 익명 리스너에서 이관(무동작변경).
+    //   처리하면 true 반환. 이 버튼들은 connect 화면(renderConnect)에서만 렌더되므로 스텝 전용이 안전.
+    //   save/buildSlot 은 flow.js 소유 → ctx 로 주입.
+    function handleClick(t, a) {
+      if (a === 'pickcust') { pickCustomer(); return true; }
+      if (a === 'skipcust') { D().customerId = null; D().customerName = ''; D().customerVc = 0; ctx.save(); return true; }   // [v583·C] 연결 없이 진행=저장 후 완료
+      var cust = t.closest('[data-fl-cust]');
+      if (cust) {
+        D().customerId = cust.getAttribute('data-fl-custid'); D().customerName = cust.getAttribute('data-fl-cust');
+        // vc 찾기 — recent 캐시에서
+        var found = (D().recent || []).filter(function (c) { return String(c.id) === String(D().customerId); })[0];
+        D().customerVc = found ? (found.vc || 0) : 0;
+        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(ctx.buildSlot()); } catch (_ce) { void _ce; }
+        toast(D().customerName + ' 고객과 연결했어요');
+        setScreen('preview'); return true;   // [보스] 고객 연결하면 인스타 업로드(미리보기)로 돌아오게
+      }
+      return false;
+    }
     function _connectByName(name) {
       name = String(name || '').trim();
       if (!name) { setScreen('connect'); return { ok: true, matched: false }; }
@@ -74,7 +92,7 @@
       setScreen('connect'); toast('"' + name + '" 고객을 못 찾았어요 — 목록에서 골라주세요'); return { ok: true, matched: false };
     }
 
-    return { renderConnect: renderConnect, loadRecent: loadRecent, pickCustomer: pickCustomer, _connectByName: _connectByName };
+    return { renderConnect: renderConnect, loadRecent: loadRecent, pickCustomer: pickCustomer, _connectByName: _connectByName, handleClick: handleClick };
   }
   window.WSFlowConnect = { create: create };
 })();

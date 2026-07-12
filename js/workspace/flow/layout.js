@@ -189,10 +189,22 @@
       return Object.assign({}, layout, { layers: layers });
     }
 
+    // [refactor S4] 레이아웃 화면 전용 클릭 핸들러 — flow.js 익명 리스너에서 이관(무동작변경).
+    //   이 버튼들(dellayout·layoutpick·trayph·savelayout·skiplayout)은 renderLayout 에서만 렌더되는 스텝 전용.
+    //   처리하면 true. 서로 겹치지 않는(비중첩) 요소라 검사 순서 무관.
+    function handleClick(t, a) {
+      var dl = t.closest('[data-fl-dellayout]'); if (dl) { _wsDeleteMyLayout(dl.getAttribute('data-fl-dellayout')); return true; }   // [E3] 내 레이아웃 삭제(×)
+      var lp = t.closest('[data-fl-layoutpick]'); if (lp) { _wsSelectLayout(lp.getAttribute('data-fl-layoutpick')); return true; }   // [ws-hyper] 레이아웃 카드 선택
+      var tp = t.closest('[data-fl-trayph]'); if (tp) { _wsTrayPick(tp.getAttribute('data-fl-trayph')); return true; }   // 사진 트레이 탭
+      if (a === 'savelayout') { _wsSaveMyLayout(); return true; }   // [E2] 내 레이아웃 저장
+      if (a === 'skiplayout') { D().wsLayout = null; D().templateOutput = null; setScreen('caption'); return true; }   // 레이아웃 없이 진행
+      return false;
+    }
+
     return {
       renderLayout: renderLayout, _wsSaveMyLayout: _wsSaveMyLayout, _wsDeleteMyLayout: _wsDeleteMyLayout,
       _wsTrayPick: _wsTrayPick, _wsMountStage: _wsMountStage, _wsSelectLayout: _wsSelectLayout,
-      _wsLayoutEditState: _wsLayoutEditState, _fillLayoutText: _fillLayoutText
+      _wsLayoutEditState: _wsLayoutEditState, _fillLayoutText: _fillLayoutText, handleClick: handleClick
     };
   }
   window.WSFlowLayout = { create: create };

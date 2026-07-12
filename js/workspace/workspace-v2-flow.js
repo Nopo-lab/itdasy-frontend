@@ -1870,15 +1870,16 @@
     d: function () { return d; }, cur: function () { return cur; }, el: function () { return el; },
     setScreen: setScreen, editablePhotos: editablePhotos, photoUrl: photoUrl, cleanBase: _cleanBase
   }) : {};
-  var renderLayout = _WSL.renderLayout, _wsSaveMyLayout = _WSL._wsSaveMyLayout, _wsDeleteMyLayout = _WSL._wsDeleteMyLayout,
-    _wsTrayPick = _WSL._wsTrayPick, _wsMountStage = _WSL._wsMountStage, _wsSelectLayout = _WSL._wsSelectLayout,
+  // [S4] dellayout·layoutpick·trayph·savelayout·skiplayout 는 layout.handleClick 로 이관 → 여기선 render/mount/편집상태/텍스트주입만 별칭.
+  var renderLayout = _WSL.renderLayout, _wsMountStage = _WSL._wsMountStage,
     _wsLayoutEditState = _WSL._wsLayoutEditState, _fillLayoutText = _WSL._fillLayoutText;
 
   // [T-104 P4] 고객 연결 화면 클러스터(renderConnect·loadRecent·pickCustomer·_connectByName) → flow/connect.js (context 주입)
   var _WSC = (window.WSFlowConnect && window.WSFlowConnect.create) ? window.WSFlowConnect.create({
-    d: function () { return d; }, cur: function () { return cur; }, setScreen: setScreen
+    d: function () { return d; }, cur: function () { return cur; }, setScreen: setScreen,
+    save: function () { return save(); }, buildSlot: function () { return buildSlot(); }   // [S4] 핸들러가 저장·슬롯빌드를 쓰므로 주입(함수 선언은 호이스팅되어 create 시점에 존재)
   }) : {};
-  var renderConnect = _WSC.renderConnect, loadRecent = _WSC.loadRecent, pickCustomer = _WSC.pickCustomer, _connectByName = _WSC._connectByName;
+  var renderConnect = _WSC.renderConnect, loadRecent = _WSC.loadRecent, _connectByName = _WSC._connectByName;   // [S4] pickcust 는 connect.handleClick 로 이관 → 여기서 pickCustomer 별칭 불필요
 
   // [refactor S2] 스텝별 동작(render + onEnter mount)을 한 맵에 co-locate — 기존 RENDER 맵 + setScreen 의 흩어진 if(name===) mount 사다리를 대체.
   //   스텝 추가/변경 시 여기 한 줄만 손보면 됨(흩어진 mount 분기 제거 = 고아코드 방지).
@@ -1931,11 +1932,11 @@
   }
   var STEP_FX = {
     upload:   { render: renderUpload,   onExit: _exitUpload },
-    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); }, onExit: _exitLayout },
+    layout:   { render: renderLayout,   onEnter: function () { _wsMountStage(); }, onExit: _exitLayout, handle: _WSL.handleClick },
     edit:     { render: renderEdit,     onEnter: function () { _warmEditMasks(); _rafFx(function () { _mountCarousel(); }); }, onExit: _exitEdit },
     template: { render: renderTemplate, onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
     caption:  { render: renderCaption,  onEnter: function () { _mountCaption(); }, onExit: _exitCaption, onBack: _backCaption },
-    connect:  { render: renderConnect,  onEnter: function () { loadRecent(); } },
+    connect:  { render: renderConnect,  onEnter: function () { loadRecent(); }, handle: _WSC.handleClick },
     preview:  { render: renderPreview,  onEnter: function () { _rafFx(function () { _mountCarousel(); }); } },
   };
 
@@ -2243,29 +2244,21 @@
   function bind() {
     el.addEventListener('click', function (e) {
       var t = e.target;
-      // [E3] 내 레이아웃 삭제(×) — 카드 선택보다 먼저 검사
-      var _dl = t.closest('[data-fl-dellayout]'); if (_dl) { return _wsDeleteMyLayout(_dl.getAttribute('data-fl-dellayout')); }
-      // [ws-hyper] 레이아웃 카드 선택 (data-fl-layoutpick) · 사진 트레이 탭(data-fl-trayph)
-      var _lp = t.closest('[data-fl-layoutpick]'); if (_lp) { return _wsSelectLayout(_lp.getAttribute('data-fl-layoutpick')); }
-      var _tp = t.closest('[data-fl-trayph]'); if (_tp) { return _wsTrayPick(_tp.getAttribute('data-fl-trayph')); }
       var act = t.closest('[data-fl]'); var a = act && act.getAttribute('data-fl');
       if (a === 'back') { return back(); }
-      if (a === 'savelayout') { return _wsSaveMyLayout(); }   // [E2] 내 레이아웃 저장
-      if (a === 'skiplayout') { d.wsLayout = null; d.templateOutput = null; setScreen('caption'); return; }   // [ws-hyper] 레이아웃 없이 진행
       if (a === 'cta') { return onCta(); }
+      // [S4] 레이아웃 화면 전용(dellayout·layoutpick·trayph·savelayout·skiplayout)은 layout.handleClick 로 이관 — 아래 스텝 위임에서 처리됨.
       // [v560] 편집 화면 우측 CTA — 현재 보정 굽고 '템플릿 선택' 화면으로.
       if (a === 'cta2') { return bakeEdit().then(function () { setScreen('template'); }); }
-      if (a === 'batoggle') { d.baMode = !d.baMode; d.photos.forEach(function (p) { p.roleManual = false; }); reassignRoles(); _repaintUpload(); return; }
-      if (a === 'gen') { return doGenerate({}, null); }
-      if (a === 'regen') { return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요'); }
+      // [refactor S4] 스텝 전용 클릭 핸들러 위임 — 현재 스텝(STEP_FX[cur])이 처리하면 종료. 스텝 제거 시 핸들러도 함께 제거(고아 방지).
+      //   버튼이 해당 스텝 화면(render)에서만 렌더되는 '스텝 전용'만 이관(공유 핸들러는 아래 인라인 유지).
+      var _fx4 = STEP_FX[cur]; if (_fx4 && _fx4.handle && _fx4.handle(t, a, e) === true) return;
+      // [refactor S5] 고아 핸들러 제거 — 렌더러(data-fl="…")가 없어 어떤 클릭으로도 도달 불가(전 코드베이스 기계 확인).
+      //   batoggle·gen·regen(=cgen/data-fl-var 로 대체됨)·toconnect·topreview(오배선)·sharepreview·roles·applydefault·tplchange(=tplchange-active). HYPER 재설계로 버튼 소멸, 핸들러만 잔존했던 쓰레기코드.
+      //   (publishstory 는 렌더되는 storypick/storypickcancel 과 커플된 휴면 서브기능이라 보존.)
       if (a === 'footersave') { return saveFooter(d.captionTemplate || ''); }
       if (a === 'footerclear') { return saveFooter('', true); }
-      if (a === 'toconnect') { flushCaptionInputs(); setScreen('connect'); return; }
-      if (a === 'topreview') { flushCaptionInputs(); setScreen('caption'); return; }
       if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
-      if (a === 'pickcust') { return pickCustomer(); }
-      if (a === 'skipcust') { d.customerId = null; d.customerName = ''; d.customerVc = 0; save(); return; }   // [v583·C] 연결 없이 진행=저장 후 완료
-      if (a === 'sharepreview') { toast('피드·스토리 비율과 게시글 줄바꿈을 확인했어요. (실제 업로드 아님)'); return; }
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
       if (a === 'edfull') {
@@ -2278,7 +2271,7 @@
       if (a === 'edzoomfit') { d.zoom = { s: 1, tx: 0, ty: 0 }; _applyZoomTransform(); return; }
       if (a === 'edzoomin') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.min(4, (d.zoom.s || 1) + 0.5); _applyZoomTransform(); return; }
       if (a === 'edzoomout') { d.zoom = d.zoom || { s: 1, tx: 0, ty: 0 }; d.zoom.s = Math.max(1, (d.zoom.s || 1) - 0.5); if (d.zoom.s === 1) { d.zoom.tx = 0; d.zoom.ty = 0; } _applyZoomTransform(); return; }
-      if (a === 'roles') { d.rolesOpen = !d.rolesOpen; _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
+      // [refactor S5] 'roles' 핸들러 제거 — data-fl="roles" 렌더러 없음(전·후 확인은 템플릿 화면으로 이동, data-fl-setrole 사용). 도달 불가.
       // [v561] 직접 칠하기(수동 마스크) — 자동 인식이 틀릴 때 원장님이 부위를 직접 칠해 교정.
       if (a === 'maskpaint') {
         d.maskPaint = !d.maskPaint;
@@ -2297,15 +2290,7 @@
         toast('칠한 영역을 비웠어요'); return;
       }
       if (a === 'tplrelease') { return releaseTemplate(); }
-      if (a === 'applydefault') {
-        // [v531] '기본 템플릿 적용하기' — 현재 유형의 기본 템플릿 자동 적용. 없으면 안내 후 카드에서 고르도록.
-        var _cat = _purposeCat(d.tplPurpose);
-        var _defId = _getDefaultTpl(_cat);
-        if (!_defId) { toast('아직 기본 템플릿이 없어요. 먼저 사용할 템플릿을 골라 기본으로 설정해 주세요.'); return; }
-        var _dt = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === _defId; })[0];
-        if (!_dt) { toast('기본 템플릿을 찾지 못했어요'); return; }
-        return applyTemplate(_dt.key);
-      }
+      // [refactor S5] 'applydefault'('기본 템플릿 적용하기') 핸들러 제거 — data-fl="applydefault" 렌더러 없음. 도달 불가한 고아.
       var setdef = t.closest('[data-fl-setdefault]'); if (setdef) {
         // [v531] '기본으로 설정' — 이 템플릿을 해당 유형 기본으로 저장(localStorage, 홈 카드/적용에 반영).
         var _sk = setdef.getAttribute('data-fl-setdefault'); var _st = _tplByKey(_sk); if (!_st) return;
@@ -2314,15 +2299,7 @@
         _renderTplSection();
         return;
       }
-      if (a === 'tplchange') {
-        // [v531] '전체 바꾸기'(일괄) — 템플릿 카드 목록을 열고 스크롤. 다른 카드 선택 시 모든 짝에 일괄 재적용.
-        // [v532] 짝별 타깃 해제 → 다음 카드 선택은 일괄 적용 경로를 탄다.
-        d.tplTargetPair = null;
-        d.tplOpen = true; _renderTplSection();
-        var grid = el.querySelector('[data-ed-tpl] .tpl-grid2'); if (grid && grid.scrollIntoView) grid.scrollIntoView({ block: 'center' });
-        toast('위 템플릿 카드에서 다른 디자인을 고르면 모든 짝에 다시 적용돼요');
-        return;
-      }
+      // [refactor S5] 'tplchange'('전체 바꾸기') 핸들러 제거 — data-fl="tplchange" 렌더러 없음(현행 UI는 data-fl="tplchange-active"). 도달 불가.
       // [v532] 짝별 '템플릿 바꾸기' — 이 짝만 타깃으로 잡고 갤러리 오픈. 다음 카드 선택은 이 짝만 교체.
       var tplpair = t.closest('[data-fl-tplpair]'); if (tplpair) {
         d.tplTargetPair = tplpair.getAttribute('data-fl-tplpair');
@@ -2389,15 +2366,7 @@
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
       var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
       var eb = t.closest('[data-fl-eb]'); if (eb) { return _editBottom(eb.getAttribute('data-fl-eb')); }
-      var cust = t.closest('[data-fl-cust]'); if (cust) {
-        d.customerId = cust.getAttribute('data-fl-custid'); d.customerName = cust.getAttribute('data-fl-cust');
-        // vc 찾기 — recent 캐시에서
-        var found = (d.recent || []).filter(function (c) { return String(c.id) === String(d.customerId); })[0];
-        d.customerVc = found ? (found.vc || 0) : 0;
-        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_ce) { void _ce; }
-        toast(d.customerName + ' 고객과 연결했어요');
-        setScreen('preview'); return;   // [보스] 고객 연결하면 인스타 업로드(미리보기)로 돌아오게
-      }
+      // [refactor S4] 고객 선택(data-fl-cust) 핸들러는 connect.handleClick 로 이관 — 위 스텝 전용 위임에서 처리됨.
       // [v568·B-5] 사진 캐러셀 화살표 / 점 — 한 칸씩 또는 지정 사진으로 스크롤(스냅).
       var tplnav = t.closest('[data-fl-tplnav]'); if (tplnav) { _tplScrollBy(+tplnav.getAttribute('data-fl-tplnav')); return; }
       var tpldot = t.closest('[data-fl-tpldot]'); if (tpldot) { _tplScrollTo(+tpldot.getAttribute('data-fl-tpldot')); return; }
