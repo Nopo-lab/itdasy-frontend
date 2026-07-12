@@ -68,7 +68,9 @@
   }
   function _finalDm(it) {
     var d = it.dmDraft || '';
-    var l = _settings.link;
+    // 댓글 설정 링크가 없으면 샵 설정에 이미 저장된 예약 링크(itdasy:shop_book) 자동 재사용
+    //  → 원장이 댓글 설정 안 건드려도 DM에 실제 예약 링크가 박혀 바로 예약 가능(가만히 있어도 예약).
+    var l = _settings.link || _shop('book', '');
     if (l && d.indexOf('http') < 0 && d.indexOf(l) < 0) d = d + '\n예약 → ' + l;
     return d;
   }
