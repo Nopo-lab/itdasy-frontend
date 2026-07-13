@@ -124,8 +124,8 @@
 - **app-photo-editor*.js** (60) — 편집기 엔진 서브모듈: entry/nav/pro-tab, WebGL(gl-bridge·pipeline·shaders), 마스킹·힐링(face-mask·smart-mask·heal-v2·beauty-ai·relight·cuticle), 배경(bg-compose·bg-blur·bg-cache), 자연어편집(intent-parser·nl-apply·nl-modify·edit-plan), 템플릿·프리셋·B&A슬라이더·콜라주·스티커·내보내기·워커필터. `loader.js` photo 그룹 지연로드.
 
 ### 작업실 (js/workspace/**)
-- **js/workspace/workspace-v2-flow.js** (3881) — **작업실 전체 오케스트레이터.** 업로드→편집→템플릿→게시글→고객연결→미리보기→게시. 화면전환/CTA/상태(d)/네비스택, flow/*·ItdEditor·PhotoEditor·adapter 조립 허브.
-- **workspace-v2-home.js**(634) 홈 렌더러. **workspace-adapter.js**(554) 기존기능 연결 어댑터(보정/누끼/캡션/고객/저장/인스타업로드/`recentMedia`). **workspace-sync.js**(425) 기기간 draft slot 동기화. **workspace-crop.js**(239)·**workspace-tpl-edit.js**(239)·**workspace-settings.js**(175)·**shop-style.js**(188, 브랜드자산)·**workspace-state.js**(78).
+- **js/workspace/workspace-v2-flow.js** (3881) — **작업실 전체 오케스트레이터.** 업로드→레이아웃→편집→게시글(캡션+미리보기 통합)→고객연결. 화면전환/CTA/상태(d)/네비스택, flow/*·ItdEditor·PhotoEditor·adapter 조립 허브. **[2026-07-13] 캡션 결과 화면에 발행+피드 미리보기 흡수(구 preview 스텝은 플러밍만 보존, 진입 없음). 진행바 4단계(upload·layout·caption·connect).**
+- **workspace-v2-home.js**(634) 홈 렌더러. **[2026-07-13] '피드 정렬' 진입(저장된 콘텐츠 전체를 FeedPlanner 3열 그리드로, 순서 `itdasy:feed_order` 영구저장/복원). 이어서편집 딥링크 preview→caption 재배선.** **workspace-adapter.js**(554) 기존기능 연결 어댑터(보정/누끼/캡션/고객/저장/인스타업로드/`recentMedia`). **workspace-sync.js**(425) 기기간 draft slot 동기화. **workspace-crop.js**(239)·**workspace-tpl-edit.js**(239)·**workspace-settings.js**(175)·**shop-style.js**(188, 브랜드자산)·**workspace-state.js**(78).
 - flow 클러스터: **util.js**(96, `WSFlowUtil`)·**caption-text.js**(94)·**connect.js**(80)·**brand.js**(217)·**harmony-presets.js**(16)·**layout.js**(188)·**publish-progress.js**(42)·**thumbs.js**(47).
 - layout: **layout-model.js**(183, `WorkspaceLayout` 합성기 스타터A~H)·**slot-stage.js**(92, 드래그focal·핀치zoom).
 
