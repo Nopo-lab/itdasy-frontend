@@ -206,7 +206,8 @@
         '<button class="itrb on" data-tool="text">Aa</button>' +
         '<button class="itrb" data-tool="adjust">' + IC.adjust + '</button>' +
         '<button class="itrb" data-tool="sticker">' + IC.sticker + '</button>' +
-        '<button class="itrb" data-tool="layout">' + IC.layout + '</button>' +
+        // [요청4 2026-07-13] 레이아웃(상하좌우 등) 재선택 도구 제거 — 레이아웃은 업로드 직후 작업실 갤러리에서 이미 고름.
+        //   브리지(_matchItdPreset)로 넘어온 콜라주는 renderCollage 가 그대로 그리므로 도구 버튼만 숨김(panel/selectLayout/renderCollage 로직은 보존).
         '<button class="itrb" data-tool="shape">' + IC.shape + '</button>' +
         '<button class="itrb" data-tool="draw">' + IC.draw + '</button>' +
       '</div>' +
