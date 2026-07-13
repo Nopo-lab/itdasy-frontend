@@ -118,7 +118,9 @@
   function open(opts) {
     opts = opts || {};
     var photos = (opts.photos || []).filter(Boolean);
-    var state = { order: photos.slice(), newSet: photos.slice(0, opts.newCount || photos.length), handle: opts.handle || '' };
+    // [요청7 2026-07-13] newCount 는 명시적 0(=NEW 없음, 기존 피드 정렬) 을 존중 — 예전 `|| length` 는 0을 전체로 폴백시켜 모든 칸에 NEW 가 붙었음.
+    var _newN = (opts.newCount != null) ? opts.newCount : photos.length;
+    var state = { order: photos.slice(), newSet: photos.slice(0, _newN), handle: opts.handle || '' };
 
     var host = document.createElement('div');
     host.className = 'fplan-overlay';

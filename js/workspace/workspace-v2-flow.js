@@ -1729,7 +1729,7 @@
 	      '<div class="wsfeed__card">' + stat +
 	        '<div class="wsfeed__grid">' + cells + '</div>' +
 	        '<p class="wsfeed__cap">' + capMsg + '</p>' +
-	        (window.FeedPlanner ? '<button type="button" class="wsfeed__plan" data-fl="feedplan" data-haptic="light">피드 정렬해보기</button>' : '') +
+	        // [요청7 2026-07-13] '피드 정렬해보기' 제거 — 현재 작업 사진만 정렬·저장X 였음. 피드 정렬은 작업실 홈 '피드 정렬'(저장 콘텐츠 전체+순서저장)으로 이관.
 	      '</div></div>';
 	  }
 	  function renderPreview() {
@@ -2228,14 +2228,7 @@
         return;
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
-      if (a === 'feedplan') {
-        if (!window.FeedPlanner) { toast('피드 플래너를 불러오지 못했어요'); return; }
-        var _fps = (editablePhotos() || []).map(function (p) { return dispUrl(p); }).filter(Boolean);
-        if (!_fps.length) { var _fo = outputUrl(); if (_fo) _fps = [_fo]; }
-        var _fig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagramProfile ? window.WorkspaceAdapter.instagramProfile() : {};
-        window.FeedPlanner.open({ photos: _fps, newCount: _fps.length, handle: (_fig && _fig.handle) || '내 피드' });
-        return;
-      }
+      // [요청7 2026-07-13] feedplan 액션 제거 — 인플로우 '피드 정렬해보기'(현작업만) 폐지. 피드 정렬은 작업실 홈 진입으로 이관.
       if (a === 'publish') { return publish('feed'); }
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
       if (a === 'publishcarousel') { return publish('carousel'); }

@@ -205,9 +205,13 @@
   function _segsHTML(slots) {
     var done = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
     var F = [['all', '전체', slots.length], ['done', '발행됨', done], ['progress', '진행중', slots.length - done]];
+    // [요청7 2026-07-13] 피드 정렬 진입 — 콘텐츠 2개 이상일 때. 저장된 내 콘텐츠 전체를 인스타 3열 그리드에 올려 순서 정렬·저장.
+    var feedSort = (slots.length >= 2 && window.FeedPlanner)
+      ? '<button type="button" class="wf-feedsort" data-wsv2-feedsort data-haptic="light" aria-label="피드 정렬"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>피드 정렬</button>'
+      : '';
     return '<div class="wf-segs">' + F.map(function (f) {
       return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' + f[1] + '</button>';
-    }).join('') + '</div>';
+    }).join('') + feedSort + '</div>';
   }
   function _shellHTML(slots) {
     var visible = _filter === 'all' ? slots : slots.filter(function (s) {
@@ -337,6 +341,8 @@
         else _toast('설정을 불러오지 못했어요');
         return;
       }
+      // [요청7] 피드 정렬 — 저장된 내 콘텐츠 전체를 3열 그리드에 올려 정렬·저장.
+      if (e.target.closest('[data-wsv2-feedsort]')) { _openFeedPlanner(); return; }
       // [v547] 일괄 작업 — 선택 모드 토글 / 일괄 액션 / 선택 모드 카드 탭 = 선택
       if (e.target.closest('[data-wsv2-selecttoggle]')) {
         _selectMode = !_selectMode; if (!_selectMode) _selected = {};
@@ -439,6 +445,34 @@
     var next = st.nextAction(slot);
     var screen = KEY2SCREEN[next.key] || 'edit';
     _launchFlow(slotId, screen, null);
+  }
+
+  // [요청7 2026-07-13] 피드 정렬 — 저장된 내 콘텐츠 전체를 인스타 3열 그리드에 올려 드래그로 순서 정렬·저장(홈 진입).
+  //   기존엔 '현재 작업 사진'만 정렬하고 저장도 안 됐음 → 저장된 슬롯 커버 전체 + 순서 영구저장(itdasy:feed_order).
+  function _feedOrderIds() { try { var a = JSON.parse(localStorage.getItem('itdasy:feed_order') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  function _orderedSlotsForFeed() {
+    var slots = (_slotsCache || []).slice();
+    var order = _feedOrderIds(); if (!order.length) return slots;
+    var byId = {}; slots.forEach(function (s) { byId[s.id] = s; });
+    var out = [];
+    order.forEach(function (id) { if (byId[id]) { out.push(byId[id]); delete byId[id]; } });   // 저장된 순서 먼저
+    slots.forEach(function (s) { if (byId[s.id]) out.push(s); });                               // 이후 생긴 콘텐츠는 뒤에
+    return out;
+  }
+  function _openFeedPlanner() {
+    if (!window.FeedPlanner || typeof window.FeedPlanner.open !== 'function') { _toast('피드 플래너를 불러오지 못했어요'); return; }
+    var ordered = _orderedSlotsForFeed();
+    var covers = [], urlToId = {};
+    ordered.forEach(function (s) { var t = _thumb(s); if (t && !urlToId[t]) { covers.push(t); urlToId[t] = s.id; } });   // 커버 중복 슬롯은 첫 것만(URL 역매핑 유일성)
+    if (covers.length < 2) { _toast('정렬하려면 콘텐츠가 2개 이상 필요해요'); return; }
+    window.FeedPlanner.open({
+      photos: covers, newCount: 0, handle: '내 작업물',
+      onSave: function (order) {
+        var ids = (order || []).map(function (u) { return urlToId[u]; }).filter(Boolean);
+        try { localStorage.setItem('itdasy:feed_order', JSON.stringify(ids)); } catch (_e) { void _e; }
+        _toast('피드 순서를 저장했어요');
+      }
+    });
   }
 
   function _onDrawerAct(actKey) {

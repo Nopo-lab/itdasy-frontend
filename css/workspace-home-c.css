@@ -94,6 +94,10 @@
 .wf-seg{ font-size:13px; font-weight:600; padding:7px 15px; border-radius:999px; background:#fff; border:1px solid var(--c-border); color:var(--c-text-muted); transition:transform .175s var(--spring),background .175s var(--spring),color .175s var(--spring); }
 .wf-seg:active{ transform:scale(.95); }
 .wf-seg.on{ background:#231C1A; color:#fff; border-color:transparent; }
+/* [요청7 2026-07-13] 피드 정렬 진입 — 필터줄 우측 정렬 pill */
+.wf-feedsort{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; background:var(--brand-bg,#FCEEF1); border:1px solid transparent; color:var(--accent-strong,#BC6675); transition:transform .175s var(--spring); }
+.wf-feedsort:active{ transform:scale(.95); }
+.wf-feedsort svg{ flex:none; }
 .wf-feed{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:#EFE7DB; }
 .wf-add,.wf-tile{ position:relative; aspect-ratio:1; border:0; padding:0; overflow:hidden; background-size:cover; background-position:center; background-color:#e6cfc9; -webkit-tap-highlight-color:transparent; transition:transform .175s var(--spring),filter .175s var(--spring); animation:wfIn .41s var(--spring) both; }
 .wf-add:active,.wf-tile:active{ transform:scale(.94); filter:brightness(.94); }
