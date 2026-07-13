@@ -365,6 +365,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
 .wsv2flow .cap-photo.cap-photo--sm { width: 100%; height: 200px; border-radius: var(--r-lg); background: var(--frame) center/contain no-repeat; margin-bottom: 12px; }   /* [#14] 잘림(cover)→전체(contain) — 캡션 상단에 사진 풀로 보이게 */
 .wsv2flow .cap-byline { font-size: 11px; font-weight: 700; color: var(--text-subtle); text-align: center; padding: 6px 0 10px; }
+/* [통합 2026-07-13·요청6] 캡션 편집 ↔ 발행/피드 미리보기 스크롤 경계 구분선 */
+.wsv2flow .cap-byline--pub { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .wsv2flow .cap-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 0; color: var(--text-subtle); font-size: 13px; }
 .wsv2flow .cap-loading-spin { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--brand-strong); border-radius: 50%; animation: wsv2spin .8s linear infinite; }
 @keyframes wsv2spin { to { transform: rotate(360deg); } }

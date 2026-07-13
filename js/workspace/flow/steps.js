@@ -20,17 +20,19 @@
       layout:   { title: '레이아웃 고르기', cta: { l: '이대로 게시글 쓰기', to: 'caption' } },
       edit:     { title: '편집',            cta: { l: '저장하고 게시글 쓰기', to: 'caption' } },
       template: { title: '템플릿 선택',     cta: { l: '이대로 게시글 쓰기', to: 'caption' } },
-      caption:  { title: '캡션 생성',       cta: { l: '인스타 미리보기로', to: 'preview' } },
+      // [통합 2026-07-13] 캡션 결과 = 인스타 미리보기 통합(요청6). 캡션 화면 아래로 스크롤하면 발행+피드 미리보기가 같이 뜸.
+      //   → 별도 preview 스텝으로 넘어가지 않고 캡션 화면에서 바로 '저장하고 완료'. (preview 스텝은 플러밍 보존용으로만 정의 유지, 진입 없음)
+      caption:  { title: '캡션 생성',       cta: { l: '저장하고 완료', to: '__save' } },
       connect:  { title: '고객 연결',       cta: { l: '저장하고 완료', to: '__save' } },
       // [보스 2026-07-12] 고객연결은 인스타 업로드 '후'에만 — 미리보기의 발행 전 '고객 연결로' 지름길 제거.
-      //   미리보기 화면 안 '피드에 올리기' 버튼 → 발행 성공 시 connect 화면으로(workspace-v2-flow.js publish 성공부).
+      //   미리보기(=이제 캡션 화면 하단) '피드에 올리기' 버튼 → 발행 성공 시 connect 화면으로(workspace-v2-flow.js publish 성공부).
       preview:  { title: '인스타 미리보기', cta: { l: '저장하고 완료', to: '__save' } },
     };
 
     // master 순서(슬라이드 방향 인덱스: connect 가 preview 앞 — 기존 SCREENS 보존, layout 은 upload 다음)
     var master = ['upload', 'layout', 'edit', 'template', 'caption', 'connect', 'preview'];
-    // visible 순서(진행바/다음화면: preview 가 connect 앞)
-    var visible = ['upload', 'layout', 'caption', 'preview', 'connect'];
+    // visible 순서(진행바/다음화면) — [통합 2026-07-13] preview 제거(캡션 화면에 흡수). upload→layout→caption→connect.
+    var visible = ['upload', 'layout', 'caption', 'connect'];
 
     var TITLE = {}, CTA = {};
     master.forEach(function (id) { TITLE[id] = STEP[id].title; CTA[id] = STEP[id].cta; });

@@ -1475,6 +1475,14 @@
     }
   }
   // [FC4] 게시글 화면 — 3x3 시나리오칩(scenario-selector 재사용) + 고정멘트 꼬리
+  // [통합 2026-07-13·요청6] 피드 미리보기 async 페치가 캡션 화면을 재렌더할 때, 카드 안 캡션/해시태그를
+  //   편집 중이면 재렌더를 건너뛴다(커서·포커스 유실 방지). 편집 중 아니면 그리드만 갱신.
+  function _isEditingCaptionCard() {
+    try {
+      var a = document.activeElement;
+      return !!(a && a.isContentEditable && el && el.contains(a) && (a.hasAttribute('data-fl-igcap') || a.hasAttribute('data-fl-ighash')));
+    } catch (_e) { return false; }
+  }
   function renderCaption() {
     var url = outputUrl();
     if (d.capLoading) {
@@ -1525,6 +1533,9 @@
 
 	    }
     // 결과 화면 — [v583·C] 인스타 미리보기 디자인 카드 + 아래 편집 + 인스타 업로드(별도 미리보기 단계 폐지).
+    // [통합 2026-07-13·요청6] 캡션 결과 + 인스타 미리보기 = 한 화면. 아래로 스크롤하면 발행 버튼 + 피드 미리보기.
+    var custLine = d.customerName ?
+      '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
     return '' +
 	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
@@ -1533,7 +1544,10 @@
       // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
       // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
       ((!d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
-      // [v592] 게시·피드 미리보기는 다음 단계(인스타 미리보기)로 이동. 캡션 화면은 글 편집까지만.
+      // [통합 2026-07-13·요청6] 발행 + 피드 미리보기를 같은 화면 하단에 흡수(구 preview 스텝). 스크롤로 캡션↔게시 한 흐름.
+      '<div class="cap-byline cap-byline--pub">이렇게 올라가요</div>' + custLine +
+      _publishBlock() +
+      _feedPreview(url) +
 		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
 	  }
 
@@ -1688,7 +1702,7 @@
 	    // 캐시 비었고 인스타 연결됨 → 1회만 당겨와 채운다(미리보기면 완료 시 재렌더). 실패해도 자리표시 유지.
 	    if (ig.connected && !recent.length && !d._igMediaFetched && window.WorkspaceAdapter.recentMedia) {
 	      d._igMediaFetched = true;
-	      try { window.WorkspaceAdapter.recentMedia().then(function (m) { if (m && m.length && cur === 'preview') setScreen('preview', { push: false }); }); } catch (_e) { void _e; }
+	      try { window.WorkspaceAdapter.recentMedia().then(function (m) { if (m && m.length && (cur === 'caption' || cur === 'preview') && !_isEditingCaptionCard()) setScreen(cur, { push: false }); }); } catch (_e) { void _e; }
 	    }
 	    // [작업물 미리보기 2026-07-10] 채움 소스 분기 — 연동됨=실제 인스타 피드 / 미연동=내 작업물(로컬, 저장소 X).
 	    //   원장님 요청: 연동한 사람은 실제 피드에 어떻게 얹히는지, 미연동은 내가 만든 작업물이 자리를 채우게.
@@ -3654,7 +3668,7 @@
           });
           d._myWorkThumbs = out;
           var _conn = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram().connected : false;
-          if (out.length && !_conn && cur === 'preview') setScreen('preview', { push: false });
+          if (out.length && !_conn && (cur === 'caption' || cur === 'preview') && !_isEditingCaptionCard()) setScreen(cur, { push: false });
         }).catch(function () {});
       }
     } catch (_mw) { void _mw; }
