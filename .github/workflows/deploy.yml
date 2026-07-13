@@ -50,6 +50,13 @@ jobs:
           rm -f index.html.bak
       - name: Smoke check
         run: npm run smoke
+      # [기능별 연결 그래프] 코드 변경이 공유용 graph.html 에 자동 반영되게 매 배포마다 재생성.
+      #   AST 만 쓰므로 API 키 불필요. 비치명적(continue-on-error) — 실패해도 커밋된 graph.html 이 서빙됨.
+      - name: Rebuild feature graph (non-fatal)
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet graphifyy || pip install --quiet graphifyy || true
+          python3 scripts/build_feature_graph.py || echo "graph build skipped (non-fatal)"
       # [핫픽스] Pages 아티팩트에서 node_modules 제외 — 22k+ 파일이 Pages 파일 한도를 넘겨
       #   tokens.css·app-core.js 등 정상 파일이 무작위 404 나던 문제 근본 해결(런타임 미참조라 안전).
       #   .nojekyll 보장으로 Jekyll 처리에 의한 파일 누락도 방지.
