@@ -714,18 +714,6 @@ function _initDragEvents() {
   document.addEventListener('mouseup',    _onDragEnd);
 }
 
-function _showDragIndicator(dataUrl) {
-  let ind = document.getElementById('_gDragInd');
-  if (!ind) {
-    ind = document.createElement('div');
-    ind.id = '_gDragInd';
-    ind.style.cssText = 'position:fixed;width:60px;height:60px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.25);pointer-events:none;z-index:9999;opacity:0.85;display:none;transition:none;';
-    ind.innerHTML = '<img style="width:100%;height:100%;object-fit:cover;">';
-    document.body.appendChild(ind);
-  }
-  ind.querySelector('img').src = dataUrl;
-  ind.style.display = 'block';
-}
 
 function _moveDragInd(e) {
   if (!_dragPhotoId) return;

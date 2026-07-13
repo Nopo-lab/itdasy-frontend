@@ -289,26 +289,7 @@
     return bk;
   }
 
-  function _monthCount(brief, completedCount) {
-    let count = Number(brief.this_month_count) || 0;
-    if (!count && window.Revenue && Array.isArray(window.Revenue._items)) {
-      try {
-        const now = new Date();
-        const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-        count = window.Revenue._items.filter(r => String(r.recorded_at || r.created_at || '').slice(0, 7) === ym).length;
-      } catch (_e) { /* silent */ }
-    }
-    return count || Number(brief.completed_count) || completedCount;
-  }
 
-  function _todayExpected(bookings) {
-    return bookings
-      .filter(b => b && b.status === 'confirmed')
-      .reduce((sum, b) => {
-        const amount = Number(b.amount) || 0;
-        return sum + (amount > 0 ? amount : servicePrice(b.service_name));
-      }, 0);
-  }
 
   function _emptyStateMessage(brief) {
     const h = new Date().getHours();

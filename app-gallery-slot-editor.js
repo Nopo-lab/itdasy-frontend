@@ -304,20 +304,6 @@ function togglePopupPhotoSel(id) {
 }
 
 // ── 배정 취소 (미배정 풀로 복귀) ──────────────────────────────
-async function unassignPopupPhoto(photoId, e) {
-  e?.stopPropagation();
-  const slot = _slots.find(s => s.id === _popupSlotId);
-  if (!slot) return;
-  const sp = slot.photos.find(p => p.id === photoId);
-  if (sp && !_photos.find(p => p.id === photoId)) {
-    _pushToPhotos({ id: sp.id, file: null, dataUrl: sp.dataUrl });
-  }
-  _filterSlotPhotos(_popupSlotId, p => p.id !== photoId);
-  _removePopupSelId(photoId);
-  try { await saveSlotToDB(slot); } catch (_e) { /* ignore */ }
-  _renderPopupPhotoGrid(slot);
-  showToast('배정 취소됨 — 미배정 사진으로 돌아갔어요');
-}
 
 async function addPhotosToPopup(input) {
   const slot = _slots.find(s => s.id === _popupSlotId);
@@ -492,33 +478,6 @@ function _renderBASelect() {
 if (typeof window !== 'undefined') { window.openBASelect = openBASelect; window.closeBASelect = closeBASelect; }
 
 // ── 인스타 미리보기 ────────────────────────────────────────────
-function showPhotoInstaPreview(dataUrl) {
-  let pop = document.getElementById('_wsInstaPreviewPop');
-  if (!pop) {
-    pop = document.createElement('div');
-    pop.id = '_wsInstaPreviewPop';
-    pop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:10000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px;box-sizing:border-box;';
-    pop.innerHTML = `
-      <div style="width:100%;max-width:380px;">
-        <div style="background:#fff;border-radius:14px;overflow:hidden;">
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #f0f0f0;">
-            <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:800;">잇</div>
-            <div style="font-size:13px;font-weight:700;">@itdasy</div>
-          </div>
-          <img id="_wsPreviewImg" style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block;">
-          <div style="padding:8px 12px;font-size:11px;color:#888;">인스타 피드 1:1 비율 미리보기</div>
-        </div>
-      </div>
-      <button data-preview-close style="margin-top:16px;color:#fff;background:transparent;border:1px solid rgba(255,255,255,0.3);border-radius:20px;padding:8px 20px;font-size:13px;cursor:pointer;">닫기</button>
-    `;
-    pop.querySelector('[data-preview-close]')?.addEventListener('click', () => {
-      pop.style.display = 'none';
-    });
-    document.body.appendChild(pop);
-  }
-  document.getElementById('_wsPreviewImg').src = dataUrl;
-  pop.style.display = 'flex';
-}
 
 // ── 선택 일괄 삭제 ─────────────────────────────────────────────
 function _bulkDeletePopup() {

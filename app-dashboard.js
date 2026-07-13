@@ -212,60 +212,6 @@
   }
 
   // ── 주요 지표 (재고 제외 1×3) ───────────────────────
-  function _metricsGrid(stats, deltaPct, inventory, period) {
-    /* INVENTORY_HIDDEN
-    const lowStock = inventory && inventory.items
-      ? (inventory.items || []).filter(i => i.quantity != null && i.threshold != null && i.quantity <= i.threshold).length
-      : null;
-    const invVal = lowStock != null ? (lowStock > 0 ? lowStock + '종 부족' : '재고 정상') : '재고 현황';
-    const invSubCls = lowStock != null && lowStock > 0 ? 'db-wid__sub--down' : '';
-    */
-
-    const periodTag = ({ today: '전일 대비', week: '전주 대비', month: '전월 대비' })[period] || '전월 대비';
-    const deltaStr = deltaPct != null ? (deltaPct >= 0 ? '+' : '') + deltaPct + '% ' + periodTag : periodTag + ' —';
-    const deltaCls = deltaPct == null ? '' : deltaPct >= 0 ? 'db-wid__sub--up' : 'db-wid__sub--down';
-    const deltaIcon = deltaPct == null || deltaPct >= 0 ? IC.trendUp : IC.trendDown;
-    const periodAmount = stats.period_amount != null ? stats.period_amount : stats.month_amount;
-
-    return `
-      <div class="db-grid2">
-        <button class="db-wid" data-metric="revenue">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${_ic(IC.chart)}</div>
-            <span class="db-wid__ttl">매출관리</span>
-          </div>
-          <p class="db-wid__val">${formatMan(periodAmount)}</p>
-          <span class="db-wid__sub ${deltaCls}">${_ic(deltaIcon, 12)} ${_esc(deltaStr)}</span>
-        </button>
-        <button class="db-wid" data-metric="customer">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${_ic(IC.users)}</div>
-            <span class="db-wid__ttl">고객관리</span>
-          </div>
-          <p class="db-wid__val">${stats.customer_count}명</p>
-          <span class="db-wid__sub">등록 고객</span>
-        </button>
-        <button class="db-wid" data-metric="booking">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${_ic(IC.calendar)}</div>
-            <span class="db-wid__ttl">예약관리</span>
-          </div>
-          <p class="db-wid__val">${stats.upcoming_bookings}건</p>
-          <span class="db-wid__sub">예정 예약</span>
-        </button>
-        <!-- INVENTORY_HIDDEN
-        <button class="db-wid" data-metric="inventory">
-          <div class="db-wid__top">
-            <div class="db-wid__ic">${"$"}{_ic(IC.box)}</div>
-            <span class="db-wid__ttl">재고관리</span>
-          </div>
-          <p class="db-wid__val">${"$"}{_esc(invVal)}</p>
-          <span class="db-wid__sub ${"$"}{invSubCls}">${"$"}{lowStock != null && lowStock > 0 ? '재주문 필요' : '재고 관리'}</span>
-        </button>
-        -->
-      </div>
-    `;
-  }
 
   // ── 데이터 & 인사이트 리스트 ─────────────────────────────
   function _insightItems() {

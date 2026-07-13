@@ -237,15 +237,6 @@
     };
   }
 
-  function _monthSummary(items) {
-    let cnt = 0, rev = 0;
-    items.forEach(it => {
-      if (it.status === 'cancelled' || it.status === 'no_show') return;
-      cnt++;
-      if (it.status === 'completed' && it.amount) rev += it.amount;
-    });
-    return { cnt, rev };
-  }
 
   // ============================================================
   // §5 모바일 — 월 그리드

@@ -294,12 +294,6 @@
       return '<button class="itdeco" data-stkcat="' + cat + '" data-stkidx="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
     }).join('') + '</div>';
   }
-  function _txtGrid(arr) {
-    return '<div class="itsgrid itsgrid--txt">' + (arr || []).map(function (o, i) {
-      var f = fontByKey(o.f) || FONTS[0];
-      return '<button class="ittxtstk" data-txtstk="' + i + '" style="font-family:' + f.family + ';font-weight:' + f.weight + '">' + o.t + '</button>';
-    }).join('') + '</div>';
-  }
   function _recoChips() {
     // [2026-07-10] 기능 스티커(위치·예약·전화·가격·시간)는 '작업실 설정'으로 이관 — 편집기에서 완전 제거.
     //   입력은 작업실 홈 → 설정에서. 값은 캡션 샵정보 자동첨부로 반영. (addFeatureLayer/SHOP_INFO_KEY 는 롤백용 보존)

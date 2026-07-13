@@ -90,14 +90,6 @@
     };
   }
 
-  function _createAction(name, source) {
-    return {
-      kind: 'create_customer',
-      payload: { customer_name: name },
-      confirmation_text: `${name}님을 새 고객으로 따로 추가할까요?`,
-      _source_question: source,
-    };
-  }
 
   function _openExisting(customer) {
     setTimeout(() => {

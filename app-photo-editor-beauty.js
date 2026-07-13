@@ -128,17 +128,6 @@
     `;
   }
 
-  function _groupedHTML(esc, keys, b) {
-    const GROUPS = { face: '얼굴 · 피부', hand: '손 · 네일', hair: '모발', lash: '속눈썹' };
-    let html = '';
-    Object.keys(GROUPS).forEach(g => {
-      const gk = keys.filter(k => SLIDERS[k] && SLIDERS[k].group === g);
-      if (!gk.length) return;
-      html += `<div class="pe-group-label">${GROUPS[g]}</div>`;
-      html += gk.map(k => _slider(esc, k, b[k])).join('');
-    });
-    return html;
-  }
 
   function _panelBeautyHTML(state) {
     const DEF = Object.keys(SLIDERS).reduce((a, k) => { a[k] = 0; return a; }, {});

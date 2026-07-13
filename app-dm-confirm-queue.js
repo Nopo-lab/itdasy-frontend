@@ -137,9 +137,6 @@
   function _gradeBadge(grade) {
     return `<span style="font-size:11px;font-weight:700;color:#BC6675;background:#F7EFF0;padding:2px 8px;border-radius:99px;flex-shrink:0;">${_esc(grade || '신규')}</span>`;
   }
-  function _depositSignal(text) {
-    return /입금|송금|이체|보냈|결제했|입금했/.test(text || '');
-  }
   // [2026-06-08] 캘린더 확인 한 줄 — calendar_checked 인 카드만. 그레이/로즈 톤만(초록·노랑 X).
   function _bookingLine(am) {
     if (!am || !am.calendar_checked) return '';

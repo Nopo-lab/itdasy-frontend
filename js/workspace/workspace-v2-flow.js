@@ -652,13 +652,6 @@
 	      '<input type="range" min="' + min + '" max="' + max + '" value="' + val + '" ' + attr + '="' + key + '">' +
 	      '<span class="ed-slabel ed-slabel--hi">' + esc(hi) + '</span></div>';
 	  }
-	  function _ctrlSlider(ctrls, activeKey, toolAttr) {
-	    var active = activeKey && ctrls.some(function (c) { return c.k === activeKey; }) ? activeKey : ctrls[0].k;
-	    var actObj = _toolByKey(ctrls, active);
-	    var val = (d.adjust && d.adjust[active]) || 0;
-	    return _toolButtons(ctrls, active, toolAttr) +
-	      _labeledRange(actObj.lo || '약하게', actObj.hi || '강하게', -100, 100, val, 'data-fl-range', active);
-	  }
 	  function _mainAdjustHtml() {
 	    var active = d.basicTool || 'brightness';
 	    var buttons = _toolButtons(MAIN_TOOLS, active, 'data-fl-basictool');
@@ -792,28 +785,6 @@
     var o = (d.templateOutputs || []).filter(function (x) { return x.pairId === it.id; })[0];
     if (o && o.templateId) { var _t = WORKSPACE_TEMPLATES.filter(function (x) { return x.id === o.templateId; })[0]; tn = _t ? _t.label : ''; }
     return base + (tn ? ' · ' + tn : '');   // [v541] active 라벨에 현재 Pair 템플릿명 표시(짝별 개별 적용 확인)
-  }
-  function _tplResultCarousel() {
-    var items = _displayItems(); if (!items.length) return '';
-    var n = items.length;
-    var active = (function () { for (var i = 0; i < items.length; i++) if (items[i].id === d.activeDisplayId) return d.activeDisplayId; return items[0].id; })();
-    var actIdx = 0; for (var k = 0; k < items.length; k++) if (items[k].id === active) actIdx = k;
-    var slides = items.map(function (it) {
-      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '">' +
-        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
-    }).join('');
-    var dots = n > 1 ? '<div class="cap-car__dots">' + items.map(function (it) {
-      return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과 보기"></button>';
-    }).join('') + '</div>' : '';
-    var pills = n > 1 ? '<div class="tpl-car__pills">' + items.map(function (it, i) {
-      return '<button type="button" class="tpl-car__pill' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '">' + esc(_carItemLabel(it, i)) + '</button>';
-    }).join('') + '</div>' : '';
-    return '<div class="cap-car tpl-car" data-fl-carousel>' +
-        '<div class="cap-car__track" data-fl-cartrack>' + slides + '</div>' + dots + pills +
-        '<div class="tpl-car__actions"><span class="tpl-car__active" data-fl-tpl-activelabel>' + esc(_carItemLabel(items[actIdx], actIdx)) + '</span>' +
-          '<button type="button" class="tpl-car__change" data-fl="tplchange-active">템플릿 바꾸기</button>' +
-          '<button type="button" class="tpl-car__edit" data-fl="tpledit-active">템플릿 수정</button>' +
-        '</div></div>';
   }
   // [v559] 템플릿 결과를 '큰 preview 와 한 흐름'으로 — 별도 fold 카루셀 대신, 적용 시 항상 보이는 인라인 결과.
   //   활성 pair 의 합성 결과(전+후 한 장)를 크게 + '적용됨' badge + (다중)pair chip + 바꾸기/해제.
@@ -1987,20 +1958,6 @@
 	  }
 	  function _capConfirmHtml() {
 	    return '';   // [#3] 캡션 생성 화면에서 '검증(확인칩)' 제거 — 샵 파싱이 자동(#1)이라 불필요. 오버라이드 로직은 doGenerate 에 유지.
-	  }
-	  function _capConfirmHtmlOld() {
-	    if (!String(d.service || '').trim()) return '<div class="cap-confirm" data-fl-confirm hidden></div>';
-	    var p = _capParseService();
-	    var chip = function (kind, ic, lbl, val) {
-	      return '<button type="button" class="cap-cfm" data-cfm="' + kind + '"><i class="ph-duotone ' + ic + '"></i><span>' + lbl + '</span><b>' + (val ? esc(val) : '<em>없음</em>') + '</b><i class="ph ph-pencil-simple-line cap-cfm__ed"></i></button>';
-	    };
-	    return '<div class="cap-confirm" data-fl-confirm>' +
-	      '<span class="cap-confirm__hint">AI에 이렇게 전달돼요 · 틀리면 탭해서 고치기</span>' +
-	      '<div class="cap-confirm__row">' +
-	        chip('shop', 'ph-storefront', '우리샵', p.shop) +
-	        chip('cust', 'ph-user', '고객', p.customer) +
-	        '<span class="cap-cfm cap-cfm--svc"><i class="ph-duotone ph-scissors"></i><span>시술</span><b>' + (p.service ? esc(p.service) : '<em>입력</em>') + '</b></span>' +
-	      '</div></div>';
 	  }
 	  function _refreshCapConfirm() {
 	    var box = el && el.querySelector('[data-fl-confirm]');
