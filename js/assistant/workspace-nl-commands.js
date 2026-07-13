@@ -16,7 +16,7 @@
       if (/^(고객|손님|연결|연동)$/.test(name)) name = '';
       return name ? { type: 'customer', name: name } : { type: 'goto', screen: 'connect' };
     }, label: null },
-    { test: /(미리보기|인스타.*미리|preview)/, cmd: { type: 'goto', screen: 'preview' }, label: '미리보기로 이동했어요' },
+    { test: /(미리보기|인스타.*미리|preview)/, cmd: { type: 'goto', screen: 'caption' }, label: '미리보기로 이동했어요' },   // [요청6] 미리보기=캡션 화면에 통합 → caption 으로
     // [버그수정 2026-07-06] "사진 올려줘"·"블로그에 올려줘"가 인스타 발행으로 오발동하던 것 —
     //   발행 대상(인스타/sns/피드/스토리) 또는 명확한 '발행해'만 매칭.
     { test: /(인스타|sns|피드|스토리).*(올려|게시|발행|업로드)|(발행)\s*(해|줘|할래|해줘)/, cmd: { type: 'publish' }, label: '인스타에 올릴게요' },

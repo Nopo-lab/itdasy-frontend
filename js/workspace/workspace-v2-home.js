@@ -12,9 +12,11 @@
   var _enteredCardId = null;        // [v547] 카드→편집 진입 시 저장 → 복귀 후 그 카드로 스크롤 복원
   var _drawerSlotId = null;
   var DRAWER_HINT = '추천 작업부터 이어서 진행해요';
-  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '게시글 생성':'caption', '인스타 미리보기':'preview', '고객 연결':'connect' };
-  // [fix #6] preview 키 추가 — 상태머신이 'preview'를 내보내는데 키가 없어 이어하기가 폐기된 'edit' 화면으로 낙하하던 버그. 죽은 'publish' 키 제거(상태머신은 preview만 emit).
-  var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', preview:'preview', done:'preview' };
+  // [요청1 2026-07-13] '인스타 미리보기'는 요청6에서 캡션 화면에 흡수됨 → preview 대신 caption 으로 딥링크.
+  //   (안 그러면 캡션 완성 슬롯 '이어서 편집' 시 폐지된 단독 preview 화면으로 새어 '예전 화면' 처럼 보였음)
+  var ACT2SCREEN = { '사진 편집':'edit', '누끼/배경':'edit', '비율 자르기':'edit', '템플릿':'edit', '게시글 생성':'caption', '인스타 미리보기':'caption', '고객 연결':'connect' };
+  // [요청1 2026-07-13] 상태머신 preview/done 도 caption 으로(통합 화면 = 결과+발행+피드). 캡션 있는 슬롯은 open() 이 d.caption 복원 → 결과 화면 표시.
+  var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', preview:'caption', done:'caption' };
 
   // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
   // TODO: assets/workshop-cats/cat-1.jpg ~ cat-5.jpg 파일을 원영님이 직접 넣어주세요 (1:1 매핑)

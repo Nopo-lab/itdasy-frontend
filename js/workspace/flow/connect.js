@@ -72,7 +72,7 @@
         D().customerVc = found ? (found.vc || 0) : 0;
         try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(ctx.buildSlot()); } catch (_ce) { void _ce; }
         toast(D().customerName + ' 고객과 연결했어요');
-        setScreen('preview'); return true;   // [보스] 고객 연결하면 인스타 업로드(미리보기)로 돌아오게
+        setScreen('caption'); return true;   // [보스] 고객 연결하면 인스타 업로드로 돌아오게 (요청6: 미리보기=캡션 화면에 통합)
       }
       return false;
     }
