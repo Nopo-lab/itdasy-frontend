@@ -22,12 +22,16 @@ EXCLUDE_TOP = {"output", "scripts", ".husky", "android", "ios", ".claude",
                "node_modules", "test", "docs", "assets", ".git", "graphify-out"}
 
 
+# 런타임 아닌 설정/도구 파일 (그래프에서 제외)
+EXCLUDE_NAMES = {".eslintrc.js", "commitlint.config.js", "capacitor.config.js"}
+
+
 def runtime_js():
     files = []
     for pat in ("*.js", "*.mjs"):
         for f in ROOT.rglob(pat):
             rel = f.relative_to(ROOT)
-            if rel.parts[0] in EXCLUDE_TOP:
+            if rel.parts[0] in EXCLUDE_TOP or f.name in EXCLUDE_NAMES:
                 continue
             files.append(rel.as_posix())
     return sorted(set(files))
@@ -41,18 +45,24 @@ def domain(f: str) -> str:
     if has("dm-", "dm_", "/dm/", "autoreply", "comment-reply"):   return "DM·댓글 자동응답"
     if has("workspace", "/flow/", "feed-planner", "itd-editor"):  return "작업실(콘텐츠 제작)"
     if has("photo-editor", "gallery", "mask", "template", "beauty",
-           "photo-enhance", "photo-match", "auto-ba", "ba-auto", "smart-capture"): return "사진편집·갤러리"
+           "photo-enhance", "photo-match", "auto-ba", "ba-auto", "smart-capture",
+           "heic", "photo-filter"):                               return "사진편집·갤러리"
     if has("caption"):                                            return "캡션 생성"
     if has("revenue", "dashboard", "insight", "report", "growth-story", "killer-widget"): return "매출·대시보드·인사이트"
     if has("calendar", "booking", "reserv"):                      return "캘린더·예약"
     if has("customer", "retention", "review", "birthday", "crm", "reminder", "waitlist"): return "고객관리·리텐션"
-    if has("instagram", "sns", "hashtag", "naver", "kakao", "integrations-hub"): return "SNS·채널연동"
-    if has("inventory", "service-template", "consumption", "membership", "pricelist", "receipt", "portfolio"): return "재고·시술·포트폴리오"
-    if has("oauth", "login", "biometric", "auth", "push", "iap", "billing", "secure-storage", "cookie-consent"): return "인증·결제·푸시"
+    if has("instagram", "sns", "hashtag", "naver", "kakao", "integrations-hub", "channel"): return "SNS·채널연동"
+    if has("inventory", "service-template", "service-vocab", "vocab", "consumption",
+           "membership", "pricelist", "receipt", "portfolio"):    return "재고·시술·포트폴리오"
+    if has("oauth", "login", "biometric", "auth", "push", "iap", "billing", "plan",
+           "secure-storage", "cookie-consent"):                   return "인증·결제·푸시"
     if has("myshop", "shop-settings", "settings-hub", "brand-kit", "persona", "onboard", "import-wizard", "import"): return "내샵 설정·온보딩"
-    if has("home", "empty-state", "nav", "sheet", "gesture", "haptic", "drawer", "today-brief", "notifications"): return "홈·네비·UX"
+    if has("home", "empty-state", "nav", "sheet", "gesture", "haptic", "drawer",
+           "today", "notifications", "phase9", "support", "scenario", "prototype-render"): return "홈·네비·UX"
     if has("ai-hub", "ai-suggestion", "app-ai", "chat-auto-edit", "autocomplete", "auto-trigger", "complete-flow"): return "AI 어시스트·자동화"
-    if b.endswith("app-core.js") or has("core", "app-api", "perf", "spec-validator", "theme", "backup", "data-export", "debug-panel"): return "코어·API·성능"
+    if b.endswith("app-core.js") or has("core", "app-api", "perf", "spec-validator", "theme",
+           "backup", "data-export", "debug-panel", "loader", "load-groups", "format-money",
+           "emoji-storage", "sw.js"):                             return "코어·API·성능"
     return "기타 유틸"
 
 
