@@ -844,6 +844,8 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-svctag:active { transform: scale(.97); }
 .wsv2flow .cap-svctag--add { background: var(--brand-bg); color: var(--brand-strong); border: 1px dashed var(--brand); }
 .wsv2flow .cap-svctags__hint { font-size: 11.5px; color: var(--text-subtle); margin: 0 0 18px 2px; }
+/* [요청3 2026-07-13] 업종 사전선택 안내 — 탭하면 바꿀 수 있다는 힌트 */
+.wsv2flow .cap-svctags__chg { margin-left: 7px; font-size: 10.5px; color: var(--text-faint, var(--text-subtle)); opacity: .8; }
 
 /* [캡션재설계] 업종 선택(자주쓰는 시술 태그 위) */
 .wsv2flow .cap-svctype__btn { border: none; background: var(--brand-bg); color: var(--brand-strong); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; cursor: pointer; }

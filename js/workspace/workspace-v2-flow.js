@@ -1382,7 +1382,9 @@
     return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '">' + bodyInner + '</div></div>';
   }
   // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
-  var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부'];
+  // [요청3 2026-07-13] 재선택 목록을 시술 사전(service-vocab) 전 업종으로 확장 — 반영구/메이크업/태닝/두피/에스테틱
+  //   샵으로 가입한 원장님도 자기 업종이 목록에 뜨고 라벨이 '업종 고르기'로 안 떨어지게. (네일아트는 '네일'로 통합)
+  var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부', '반영구', '메이크업', '태닝', '두피', '에스테틱'];
   function _svcTagsHtml() {
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
@@ -1396,8 +1398,9 @@
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
       return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
     }).join('') + '</div>') : '';
-    return '<div class="cap-svctags__hint">자주 쓰는 시술 · ' +
-        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button></div>' +
+    return '<div class="cap-svctags__hint">우리샵 · ' +
+        '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button>' +
+        (valid && !typeOpen ? '<span class="cap-svctags__chg">탭해서 업종 바꾸기</span>' : '') + '</div>' +
       typeChips +
       (valid ? ('<div class="cap-svctags">' + chips +
         '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
