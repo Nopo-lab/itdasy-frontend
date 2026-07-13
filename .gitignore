@@ -29,3 +29,4 @@ output/playwright/
 # graphify 연결 그래프 — 공유용 graph.html 만 커밋, 나머지(대용량 graph.json·내부 임시)는 로컬 전용
 graphify-out/*
 !graphify-out/graph.html
+__pycache__/
