@@ -27,6 +27,15 @@
     try { localStorage.setItem(key, on ? 'true' : 'false'); } catch (_e) { void _e; }
   }
 
+  // [2026-07-13] 댓글 문의 응대 ON/OFF = 단일 진실원(app-comment-reply-queue.js 의 itdasy:crq_settings.enabled).
+  //   목록 토글과 설정창 상태 스트립이 이 값 하나를 공유 — 별도 boolean 키 만들지 않음.
+  function _getCommentOn() {
+    try { var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null'); return !s || s.enabled !== false; } catch (_e) { return true; }
+  }
+  function _setCommentOn(on) {
+    try { var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null') || {}; s.enabled = !!on; localStorage.setItem('itdasy:crq_settings', JSON.stringify(s)); } catch (_e) { void _e; }
+  }
+
   function _esc(s) { return window._esc(s); } /* [2026-06-11] 중복 제거 — app-core 정본 위임 */
 
   // ── 행 정의 ──────────────────────────────────────────────
@@ -46,9 +55,10 @@
         name: 'DM 자동응답', meta: '인스타 DM → AI 자동 답장',
         type: 'toggle', toggleKey: KEY_DM },
       // [2026-07-10] 댓글 문의 응대 — DM 자동응답 바로 아래(나중에 DM 엔진에 통합 예정).
+      // [2026-07-13] DM 처럼 목록 토글로 승격 — ON/OFF 는 여기서만(설정창엔 토글 없음).
       { act: 'comment', icon: 'ph-chat-teardrop-text', boxColor: 'coral',
         name: '댓글 문의 응대', meta: '게시물 댓글 문의 → 답글 + DM 유도',
-        type: 'plain' },
+        type: 'toggle' },
       { act: 'dmmenu', icon: 'ph-list-checks', boxColor: 'teal',
         name: '빠른 안내', meta: '손님 탭 버튼(예약·영업시간·가격…)',
         type: 'toggle', toggleKey: KEY_DMMENU },
@@ -67,6 +77,7 @@
   function _onCount() {
     let n = 0;
     if (_getToggle(KEY_DM)) n++;
+    if (_getCommentOn()) n++;
     if (_getToggle(KEY_KAKAO)) n++;
     if (_getToggle(KEY_DMMENU)) n++;
     n += 1; // 페르소나 학습됨
@@ -77,7 +88,7 @@
   function _rightHtml(row) {
     const chev = `<svg width="14" height="14" aria-hidden="true"><use href="#ic-chevron-right"/></svg>`;
     if (row.type === 'toggle') {
-      const on = _getToggle(row.toggleKey);
+      const on = row.act === 'comment' ? _getCommentOn() : _getToggle(row.toggleKey);
       return `
         <div class="ms-aih__right">
           <button type="button" class="ms-toggle ${on ? 'is-on' : ''}" data-toggle="${_esc(row.act)}" aria-label="${_esc(row.name)} ${on ? '끄기' : '켜기'}" aria-pressed="${on ? 'true' : 'false'}">
@@ -214,11 +225,17 @@
   // ── 토글 클릭 처리 ────────────────────────────────────────────
   function _onToggleClick(btn, sheet) {
     const act = btn.dataset.toggle;
-    const key = act === 'dm' ? KEY_DM
-      : (act === 'kakao' ? KEY_KAKAO : (act === 'dmmenu' ? KEY_DMMENU : null));
-    if (!key) return;
-    const next = !_getToggle(key);
-    _setToggle(key, next);
+    let next;
+    if (act === 'comment') {
+      next = !_getCommentOn();
+      _setCommentOn(next);
+    } else {
+      const key = act === 'dm' ? KEY_DM
+        : (act === 'kakao' ? KEY_KAKAO : (act === 'dmmenu' ? KEY_DMMENU : null));
+      if (!key) return;
+      next = !_getToggle(key);
+      _setToggle(key, next);
+    }
     btn.classList.toggle('is-on', next);
     btn.setAttribute('aria-pressed', next ? 'true' : 'false');
     const sub = sheet.querySelector('#aihSub');

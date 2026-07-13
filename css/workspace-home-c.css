@@ -4,7 +4,7 @@
   --c-brand:var(--brand,#D58A95); --c-brand-strong:var(--accent-strong,#BC6675); --c-brand-bg:#F7EFF0;
   --c-surface:#fff; --c-surface2:#F4F5F7;
   --c-text:var(--text,#191F28); --c-text-muted:var(--text2,#4E5968); --c-text-subtle:var(--text3,#8A939F);
-  --c-border:rgba(0,0,0,.055); --c-ok:#12B886; --c-warn:#F59F00;
+  --c-border:rgba(0,0,0,.055); --c-ok:var(--ok,#16B55E); --c-warn:var(--warn,#F59E0B);
 
   padding:2px 0 calc(96px + env(safe-area-inset-bottom));
 }
@@ -107,7 +107,7 @@
 .wf-add:active .wf-add__ic{ transform:rotate(90deg) scale(1.08); }
 .wf-add__t{ font-size:11.5px; font-weight:600; letter-spacing:-.2px; }
 .wf-dot{ position:absolute; top:7px; right:7px; width:8px; height:8px; border-radius:50%; box-shadow:0 0 0 2px rgba(255,255,255,.55); z-index:1; }
-.wf-dot--done{ background:#12B886; } .wf-dot--progress,.wf-dot--ready,.wf-dot--draft{ background:#F59F00; }
+.wf-dot--done{ background:var(--ok,#16B55E); } .wf-dot--progress,.wf-dot--ready,.wf-dot--draft{ background:var(--warn,#F59E0B); }
 .wf-ph{ position:absolute; inset:0; display:grid; place-items:center; color:rgba(255,255,255,.7); }
 .wf-ph svg{ width:26px; height:26px; }
 .wf-tile.is-sel{ outline:3px solid var(--c-brand-strong); outline-offset:-3px; }

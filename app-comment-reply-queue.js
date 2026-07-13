@@ -212,41 +212,47 @@
   }
 
   function _settingsBody() {
+    // [2026-07-13] 목록 토글이 ON/OFF 정본 — 열 때 최신 enabled 반영(단일 진실원, app-ai-hub 와 공유).
+    try { var _f = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null'); if (_f) _settings.enabled = _f.enabled !== false; } catch (_e) { void _e; }
     var S = _settings;
+    var CARD = 'background:#fff;border-radius:16px;padding:15px;margin-bottom:11px;box-shadow:0 1px 5px rgba(0,0,0,.04);';
+    var LBL = 'font-size:12.5px;color:#4E5968;font-weight:600;';
     function _chip(key, label) {
       var on = S.intents[key] !== false;
-      return '<span class="crq-intent" data-intent="' + key + '" style="cursor:pointer;font-size:13px;font-weight:' + (on ? 600 : 500) + ';padding:7px 14px;border-radius:14px;' +
-        (on ? 'background:#F7EFF0;color:#BC6675;' : 'background:#F7F8FA;color:#C9CDD4;border:.5px solid #F2F4F6;') + '">' + label + '</span>';
-    }
-    function _toggle(on, cls) {
-      return '<div class="' + cls + '" style="cursor:pointer;width:46px;height:27px;border-radius:14px;background:' + (on ? '#191F28' : '#E5E8EB') + ';position:relative;flex-shrink:0;"><span style="position:absolute;top:3px;' + (on ? 'right:3px' : 'left:3px') + ';width:21px;height:21px;border-radius:50%;background:#fff;"></span></div>';
+      return '<span class="crq-intent" data-intent="' + key + '" style="cursor:pointer;font-size:13px;font-weight:' + (on ? 600 : 500) + ';padding:9px 16px;border-radius:14px;' +
+        (on ? 'background:#F7EFF0;color:#BC6675;box-shadow:inset 0 0 0 1px rgba(188,102,117,.16);' : 'background:#F7F8FA;color:#B0B8C1;') + '">' + label + '</span>';
     }
     function _emojiOpt(e) {
       var on = S.emoji === e;
       var label = e || '없음';
-      return '<span class="crq-emoji" data-emoji="' + e + '" style="cursor:pointer;min-width:34px;text-align:center;font-size:15px;padding:5px 9px;border-radius:12px;' +
-        (on ? 'background:#191F28;color:#fff;' : 'background:#F7F8FA;border:.5px solid #E5E8EB;') + '">' + label + '</span>';
+      return '<span class="crq-emoji" data-emoji="' + e + '" style="cursor:pointer;min-width:34px;text-align:center;font-size:15px;padding:6px 9px;border-radius:12px;' +
+        (on ? 'background:#191F28;color:#fff;' : 'background:#F7F8FA;box-shadow:inset 0 0 0 1px #E5E8EB;') + '">' + label + '</span>';
     }
-    return '<div style="background:#fff;border-radius:16px;padding:4px 2px;">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 2px;border-bottom:.5px solid #F2F4F6;">' +
-        '<div><div style="font-size:14px;font-weight:600;">댓글 문의 자동 응대</div><div style="font-size:11.5px;color:#8B95A1;margin-top:1px;">문의성 댓글만 골라 대댓글</div></div>' + _toggle(S.enabled, 'crq-master') + '</div>' +
-      '<div style="padding:13px 2px 11px;border-bottom:.5px solid #F2F4F6;">' +
-        '<div style="font-size:12px;color:#4E5968;font-weight:600;margin-bottom:9px;">어떤 문의에 답할까</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:7px;">' + _chip('price', '가격') + _chip('booking', '예약') + _chip('location', '위치') + _chip('hours', '영업시간') + '</div></div>' +
-      '<div style="padding:13px 2px 11px;border-bottom:.5px solid #F2F4F6;">' +
-        '<div style="font-size:12px;color:#4E5968;font-weight:600;margin-bottom:7px;">핵심 링크 (예약)</div>' +
+    var sOn = S.enabled;
+    return '<div style="background:#FAF6F4;border-radius:20px;padding:12px;box-shadow:0 2px 12px rgba(0,0,0,.05);">' +
+      // 상태 스트립 (마스터 토글 대체) — ON/OFF 는 잇비 자동화 목록에서
+      '<div style="display:flex;align-items:center;gap:9px;border-radius:13px;padding:11px 13px;margin-bottom:11px;' + (sOn ? 'background:#F0FBF4;box-shadow:inset 0 0 0 1px rgba(22,181,94,.18);' : 'background:#F7F8FA;box-shadow:inset 0 0 0 1px #E5E8EB;') + '">' +
+        '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + (sOn ? '#16B55E' : '#C9CDD4') + ';' + (sOn ? 'box-shadow:0 0 0 3px rgba(22,181,94,.16);' : '') + '"></span>' +
+        '<div style="flex:1;font-size:12.5px;font-weight:600;color:' + (sOn ? '#0F6E56' : '#8B95A1') + ';">자동 응대 ' + (sOn ? '켜짐' : '꺼짐') + '</div>' +
+        '<div style="font-size:11px;color:#8B95A1;">' + (sOn ? '끄기' : '켜기') + '는 목록에서</div></div>' +
+      // 문의 종류
+      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:11px;">어떤 문의에 답할까</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + _chip('price', '가격') + _chip('booking', '예약') + _chip('location', '위치') + _chip('hours', '영업시간') + '</div></div>' +
+      // 핵심 링크
+      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:10px;">핵심 링크 <span style="color:#C1C7CF;font-weight:500;">· 예약</span></div>' +
         '<input class="crq-link" type="text" value="' + _esc(S.link) + '" placeholder="예) naver.me/xxxx — DM 답장에 자동으로 붙어요" ' +
-          'style="width:100%;padding:11px 13px;border:1px solid #E5E8EB;border-radius:13px;font-size:13.5px;background:#fff;color:#191F28;box-sizing:border-box;font-family:inherit;" /></div>' +
-      '<div style="padding:13px 2px 11px;border-bottom:.5px solid #F2F4F6;">' +
-        '<div style="font-size:12px;color:#4E5968;font-weight:600;margin-bottom:9px;">공개답글 끝 이모지</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + _EMOJI_OPTS.map(_emojiOpt).join('') + '</div></div>' +
-      '<div style="padding:13px 2px 11px;border-bottom:.5px solid #F2F4F6;">' +
-        '<div style="font-size:12px;color:#4E5968;font-weight:600;margin-bottom:9px;">응대 방식</div>' +
-        '<div style="display:flex;background:#F2F4F6;border-radius:12px;padding:3px;">' +
-          '<span class="crq-mode" data-mode="review" style="cursor:pointer;flex:1;text-align:center;font-size:13px;font-weight:' + (S.mode === 'review' ? 700 : 500) + ';padding:8px;border-radius:9px;' + (S.mode === 'review' ? 'background:#fff;color:#191F28;' : 'color:#8B95A1;') + '">검토 후 발송</span>' +
-          '<span class="crq-mode" data-mode="auto" style="cursor:pointer;flex:1;text-align:center;font-size:13px;font-weight:' + (S.mode === 'auto' ? 700 : 500) + ';padding:8px;border-radius:9px;' + (S.mode === 'auto' ? 'background:#fff;color:#191F28;' : 'color:#8B95A1;') + '">바로 발송</span></div>' +
-        '<div style="font-size:11px;color:#C9CDD4;margin-top:6px;">공개 노출이라 기본은 검토 모드 권장</div></div>' +
-      '<button class="crq-save" style="width:100%;margin-top:16px;background:#191F28;color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">저장</button>' +
+          'style="width:100%;padding:12px 14px;border:none;border-radius:14px;font-size:13.5px;background:#FAFAFB;color:#191F28;box-sizing:border-box;font-family:inherit;box-shadow:inset 0 0 0 1px #EAECEF;" />' +
+        '<div style="font-size:10.5px;color:#C1C7CF;margin-top:7px;">DM 답장 끝에 자동으로 붙어요.</div></div>' +
+      // 공개답글 끝 이모지 (AI 응답 텍스트용 — 이모지 허용 예외)
+      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:10px;">공개답글 끝 이모지</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:7px;">' + _EMOJI_OPTS.map(_emojiOpt).join('') + '</div></div>' +
+      // 응대 방식
+      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:10px;">응대 방식</div>' +
+        '<div style="display:flex;background:#F2F4F6;border-radius:13px;padding:3px;">' +
+          '<span class="crq-mode" data-mode="review" style="cursor:pointer;flex:1;text-align:center;font-size:13px;font-weight:' + (S.mode === 'review' ? 700 : 500) + ';padding:10px;border-radius:10px;' + (S.mode === 'review' ? 'background:#fff;color:#191F28;box-shadow:0 1px 3px rgba(0,0,0,.08);' : 'color:#8B95A1;') + '">검토 후 발송</span>' +
+          '<span class="crq-mode" data-mode="auto" style="cursor:pointer;flex:1;text-align:center;font-size:13px;font-weight:' + (S.mode === 'auto' ? 700 : 500) + ';padding:10px;border-radius:10px;' + (S.mode === 'auto' ? 'background:#fff;color:#191F28;box-shadow:0 1px 3px rgba(0,0,0,.08);' : 'color:#8B95A1;') + '">바로 발송</span></div>' +
+        '<div style="font-size:10.5px;color:#C1C7CF;margin-top:8px;">공개 노출이라 기본은 검토 모드 권장.</div></div>' +
+      '<button class="crq-save" style="width:100%;background:#191F28;color:#fff;border:none;border-radius:15px;padding:15px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(25,31,40,.18);">저장</button>' +
     '</div>';
   }
 

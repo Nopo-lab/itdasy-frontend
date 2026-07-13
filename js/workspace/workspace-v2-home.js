@@ -93,21 +93,6 @@
     return '<div class="wsv2-cat__thumb" aria-hidden="true" style="background-image:url(' + _esc(url) + ')">' +
       (isDef ? '<span class="wsv2-cat__defbadge">기본</span>' : '') + '</div>';
   }
-  function _categoryHTML() {
-    var cards = CATS.map(function (c) {
-      var dis = c.disabled ? ' wsv2-cat--disabled' : '';
-      // [v531] 카드 썸네일 = 실제 템플릿 원본 미리보기(업로드 사진/예시사진 미주입). 준비중(price)은 빈 썸네일.
-      var thumb = c.disabled ? '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>' : _catThumb(c);
-      return '<button type="button" class="wsv2-cat' + dis + '" data-wsv2-cat="' + c.key + '" data-haptic="light"' + (c.disabled ? ' disabled' : '') + '>' +
-        thumb +
-        '<span class="wsv2-cat__t">' + _esc(c.label) + '</span>' +
-        (c.disabled ? '<span class="wsv2-cat__badge">준비중</span>' : '') +
-      '</button>';
-    }).join('');
-    return '' +
-      '<div class="wsv2-sec-head"><h2>새 콘텐츠 만들기</h2><span class="wsv2-sec-sub">유형을 골라보세요</span></div>' +
-      '<div class="wsv2-cats">' + cards + '</div>';
-  }
 
   /* ── [conceptC] 작업실 홈 디자인 — 벤토 타일 + 입력바 + 콘텐츠 그리드 ── */
   var _CGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
@@ -147,48 +132,9 @@
   }
 
   // 벤토 타일 — 이어서 하기(최근 진행중) + 이번 달 발행 + 글만 쓰기
-  function _bentoHTML(slots) {
-    var resume = slots.filter(function (s) { return _cStatus(s).k !== 'done'; })[0];
-    var pub = slots.filter(function (s) { return _cStatus(s).k === 'done' && _sameMonth(s); }).length;
-    var rHtml;
-    if (resume) {
-      var img = _thumb(resume), st = _cStatus(resume), cnt = (resume.photos || []).length;
-      rHtml = '<button type="button" class="tile t-resume" data-wsv2-resume="' + _esc(resume.id) + '" data-haptic="medium"' +
-        (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
-        '<span class="tr__lbl">이어서 하기</span>' +
-        '<span class="tr__mid"><span class="tr__t">' + _esc(resume.label || '무제 작업') + '</span>' +
-        '<span class="tr__s">' + _esc(st.tag) + (cnt ? ' · ' + cnt + '장' : '') + '</span></span>' +
-        '<span class="tr__go">' + _CGO + '</span></button>';
-    } else {
-      rHtml = '<button type="button" class="tile t-resume t-resume--empty" data-wsv2-upload data-haptic="medium">' +
-        '<span class="tr__lbl">시작하기</span>' +
-        '<span class="tr__mid"><span class="tr__t">첫 작업 만들기</span><span class="tr__s">사진을 올려보세요</span></span>' +
-        '<span class="tr__go">' + _CGO + '</span></button>';
-    }
-    return '<div class="bento">' + rHtml +
-      '<button type="button" class="tile t-stat" data-wsv2-filter="done" data-haptic="light"><span class="tile__lbl">이번 달 발행</span>' +
-        '<span class="ts__n">' + pub + (pub > 0 ? '<b>▲</b>' : '') + '</span></button>' +
-      '<button type="button" class="tile t-quick" data-wsv2-quick="textonly" data-haptic="light">' +
-        '<span class="tq__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>' +
-        '<span class="tq__mid"><span class="tq__t">글만 쓰기</span><span class="tq__s">사진 없이 캡션만</span></span></button>' +
-    '</div>';
-  }
 
   // 필터 — 전체 / 진행 중 / 완료
-  function _cFiltersHTML(slots) {
-    var done = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
-    var F = [['all', '전체', slots.length], ['progress', '진행 중', slots.length - done], ['done', '완료', done]];
-    return '<div class="cFilter">' + F.map(function (f) {
-      return '<button type="button" data-wsv2-filter="' + f[0] + '"' + (_filter === f[0] ? ' class="on"' : '') + '>' + f[1] + '</button>';
-    }).join('') + '</div>';
-  }
 
-  function _cBarHTML() {
-    return '<button type="button" class="cBar" data-wsv2-upload data-haptic="medium">' +
-      '<span class="cBar__row"><span class="cBar__bot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v1H7a2 2 0 0 0-2 2v3a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V8a2 2 0 0 0-2-2h-2V5a3 3 0 0 0-3-3z"/><path d="M9 20h6"/></svg></span>' +
-      '<span class="cBar__ph">사진 올리거나, 만들고 싶은 걸 말해요</span></span>' +
-      '<span class="cBar__cam"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z"/><circle cx="12" cy="13" r="4"/></svg>사진 올리기</span></button>';
-  }
 
   // [인스타 피드 홈] 좌상단 + = 바로 업로드, 나머지 칸 = 우리가 만든 콘텐츠(정사각 타일).
   var _PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
@@ -622,8 +568,8 @@
     var CHV = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
     var steps = STEPS.map(function (s, i) {
       var badge = s.done
-        ? '<span style="width:26px;height:26px;border-radius:50%;background:#E6F7F0;color:#0C8A5F;display:grid;place-items:center;flex:none">' + CHK + '</span>'
-        : '<span style="width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;' + (i === curIdx ? 'background:var(--brand-bg,#F7EAEE);color:var(--accent-strong,#BC6675);border:1.5px solid var(--accent-strong,#BC6675)' : 'background:var(--bg2,#F4F5F7);color:var(--text3,#8A939F)') + '">' + (i + 1) + '</span>';
+        ? '<span style="width:26px;height:26px;border-radius:50%;background:#F0FBF4;color:#0F6E56;display:grid;place-items:center;flex:none">' + CHK + '</span>'
+        : '<span style="width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;' + (i === curIdx ? 'background:var(--brand-bg,#F7EFF0);color:var(--brand-strong,#BC6675);border:1.5px solid var(--brand-strong,#BC6675)' : 'background:var(--surface-2,#F4F5F7);color:var(--text-subtle,#8A939F)') + '">' + (i + 1) + '</span>';
       var right = s.done ? '<span style="font-size:12px;color:var(--text3,#8A939F)">' + _esc(s.hint) + '</span>'
         : '<span style="color:var(--text3,#98A1AC);display:flex">' + CHV + '</span>';
       return '<button type="button" data-wsv2-act="' + _esc(s.act) + '" style="display:flex;align-items:center;gap:11px;padding:10px 2px;background:none;border:0;' + (i ? 'border-top:0.5px solid var(--border,rgba(0,0,0,.06));' : '') + 'width:100%;text-align:left;cursor:pointer">' +
