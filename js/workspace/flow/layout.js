@@ -13,11 +13,18 @@
     function EL() { return ctx.el(); }     // 플로우 루트 엘리먼트
 
     function _wsRatioPad(ratio) { return 100 * ({ '1:1': 1, '4:5': 1.25, '9:16': 1.778, '3:4': 1.333 }[ratio] || 1.25); }
+    // [요청5 2026-07-13] 썸네일을 사진편집기(ITD) 레이아웃 칩과 같은 SVG rect 와이어프레임 느낌으로 통일.
+    //   기존 HTML <i> 절대배치 → viewBox 안의 <rect>(inset·rx). viewBox 는 각 레이아웃 비율로 맞춰 왜곡 없음.
     function _wsLayoutFrame(layout) {
-      var cells = (layout.photoSlots || []).map(function (s) { var r = s.rect;
-        return '<i style="left:' + (r.x * 100) + '%;top:' + (r.y * 100) + '%;width:' + (r.w * 100) + '%;height:' + (r.h * 100) + '%"></i>'; }).join('');
       var ar = ({ '1:1': 1, '4:5': 0.8, '9:16': 0.5625, '3:4': 0.75 })[layout.ratio || '4:5'] || 0.8;
-      return '<span class="wsl-fbox"><span class="wsl-frame" style="aspect-ratio:' + ar + '">' + cells + '</span></span>';
+      var VH = 30, VW = 30 * ar, PAD = 1, RX = 1.4;   // ITD _layThumbSvg 와 동일 비례(30 스케일, 1 inset, 1.4 라운드)
+      var rects = (layout.photoSlots || []).map(function (s) { var r = s.rect;
+        return '<rect x="' + (r.x * VW + PAD).toFixed(2) + '" y="' + (r.y * VH + PAD).toFixed(2) +
+          '" width="' + Math.max(0, r.w * VW - PAD * 2).toFixed(2) + '" height="' + Math.max(0, r.h * VH - PAD * 2).toFixed(2) +
+          '" rx="' + RX + '"/>'; }).join('');
+      return '<span class="wsl-fbox"><span class="wsl-frame wsl-frame--svg" style="aspect-ratio:' + ar + '">' +
+        '<svg class="wsl-lay-svg" viewBox="0 0 ' + VW.toFixed(2) + ' ' + VH + '" aria-hidden="true">' + rects + '</svg>' +
+        '</span></span>';
     }
     function _wsLayoutCard(layout, on, isMine) {
       var card = '<button type="button" class="wsl-card' + (on ? ' on' : '') + '" data-haptic="light" aria-pressed="' + (on ? 'true' : 'false') + '" data-fl-layoutpick="' + esc(layout.id) + '">' +

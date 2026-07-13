@@ -39,6 +39,11 @@
 }
 .wsl-card.on .wsl-frame { background: #F7EFF0; }
 .wsl-card.on .wsl-frame > i { border-color: #191F28; background: #FFF; }
+/* [요청5 2026-07-13] SVG 와이어프레임 썸네일 — 사진편집기(ITD) 레이아웃 칩과 같은 느낌(rect+stroke+rx) */
+.wsl-frame--svg { padding: 5px; }
+.wsl-lay-svg { display: block; width: 100%; height: 100%; }
+.wsl-lay-svg rect { fill: #FFF; stroke: rgba(25,31,40,.60); stroke-width: .8; vector-effect: non-scaling-stroke; }
+.wsl-card.on .wsl-lay-svg rect { fill: #FFF; stroke: var(--brand-strong, #BC6675); stroke-width: 1; }
 
 .wsl-card__name { font-size: 11.5px; font-weight: 700; color: var(--text, #191F28); text-align: center; letter-spacing: -0.02em; }
 
