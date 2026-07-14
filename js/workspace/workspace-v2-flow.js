@@ -1751,7 +1751,10 @@
 	      var _multi = _publishKind() === 'carousel';
 	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
 	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
-	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)"></div>' +
+	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)">' +
+        // [계정 태그 2026-07-14] 여러 장은 인스타 구조상 커버(첫 장)에만 태그가 붙는다 — 기대와 다르면 "안 됐다"로 읽히므로 명시.
+        (_multi ? '<div style="font-size:11px;color:var(--text-subtle);margin-top:5px">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') +
+        '</div>' +
 	      '<div class="cap-pubrow" style="margin-top:10px">' +
 	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>인스타에 올리기' + (_n > 1 ? ' (' + _n + '장)' : '')) + '</button>' +
 	      '</div>' +
@@ -3549,7 +3552,9 @@
       try { var _utEl = el && el.querySelector('[data-fl-usertags]'); if (_utEl) d.igUserTags = String(_utEl.value || '').split(/[,\s]+/).map(function (s) { return s.replace(/^@/, '').trim(); }).filter(Boolean).slice(0, 20); } catch (_ue) { void _ue; }
       // [계정 태그] 피드에서만 — 입력한 @아이디를 자동 위치(세로로 분산)로 태그.
       var _tagArr = d.igUserTags || [];
-      var _utags = (kind === 'feed' && _tagArr.length) ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
+      // [계정 태그 2026-07-14] 캐러셀(여러 장)도 태그 전송 — 기존 조건이 kind==='feed' 라 5장 발행 시
+      //   태그가 '실패'가 아니라 '처음부터 안 나감'이었다(에러도 안 뜸). 백엔드가 커버(첫 장) child 에 적용.
+      var _utags = _tagArr.length ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
       var _pubImg = outputUrl();   // 대표 이미지(레이아웃 합성본 또는 대표 사진)
       window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
         r = r || {};

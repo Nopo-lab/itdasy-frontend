@@ -507,6 +507,9 @@
             var fd = new FormData();
             blobs.forEach(function (b, i) { fd.append('images', b, 'itdasy_carousel_' + i + '.jpg'); });
             fd.append('caption', opts.caption || '');
+            // [계정 태그 2026-07-14] 캐러셀도 태그 전송 — 기존엔 여기서 안 보내서(그리고 flow 도 feed 일 때만 만들어서)
+            //   여러 장 발행 시 계정 태그가 에러 없이 조용히 사라졌다. 백엔드가 커버(첫 장) child 에 적용.
+            if (opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
             return _post('/instagram/publish-carousel-file', fd);
           });
       }
