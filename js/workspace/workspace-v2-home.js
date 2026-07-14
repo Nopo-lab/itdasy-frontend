@@ -141,10 +141,13 @@
   var _PHIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   function _feedTile(slot) {
     var st = _cStatus(slot), img = _thumb(slot), sel = !!_selected[slot.id];
+    // [manage 2026-07-14] 칩 = 상태 서술('편집 중')이 아니라 '다음 할 일'('캡션 생성'). 훑는 피드 → 처리하는 목록.
+    //   WorkspaceState.nextAction 재사용(드로어·이어서와 같은 정본) — 새 매핑 만들지 않음.
+    var na = (st.k === 'done') ? null : ST().nextAction(slot);
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
       '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
-      (st.k === 'done' ? '' : '<span class="wf-chip wf-chip--' + st.k + '"><span class="wf-chip__dot"></span>' + _esc(st.tag) + '</span>') +
+      (na ? '<span class="wf-chip wf-chip--' + st.k + '"><span class="wf-chip__dot"></span>' + _esc(na.label) + '</span>' : '') +
       (img ? '' : '<span class="wf-ph" aria-hidden="true">' + _PHIC + '</span>') +
       '</button>';
   }
@@ -153,11 +156,18 @@
     var F = [['all', '전체', slots.length], ['done', '발행됨', done], ['progress', '진행중', slots.length - done]];
     // [요청7 2026-07-13] 피드 정렬 진입 — 콘텐츠 2개 이상일 때. 저장된 내 콘텐츠 전체를 인스타 3열 그리드에 올려 순서 정렬·저장.
     var feedSort = (slots.length >= 2 && window.FeedPlanner)
-      ? '<button type="button" class="wf-feedsort" data-wsv2-feedsort data-haptic="light" aria-label="피드 정렬"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>피드 정렬</button>'
+      // [manage 2026-07-14] 아이콘 전용 — 세그 카운트가 붙어 행이 좁아짐(라벨 유지 시 375px 에서 2줄로 깨졌음). 성과 버튼과 동일 규격.
+      ? '<button type="button" class="wf-feedsort" data-wsv2-feedsort data-haptic="light" aria-label="피드 정렬" title="피드 정렬"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>'
       : '';
+    // [manage 2026-07-14] 성과 진입 — 볼 사람만. 전면에 지표를 깔지 않고 버튼 하나로.
+    var perf = (typeof window.openInsights === 'function')
+      ? '<button type="button" class="wf-perf" data-wsv2-insights data-haptic="light" aria-label="성과"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></button>'
+      : '';
+    // [manage 2026-07-14] 세그에 카운트 — 업무량이 한눈에(카운트는 F 에 이미 계산돼 있었음).
     return '<div class="wf-segs">' + F.map(function (f) {
-      return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' + f[1] + '</button>';
-    }).join('') + feedSort + '</div>';
+      return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' +
+        f[1] + '<span class="wf-seg__n">' + f[2] + '</span></button>';
+    }).join('') + perf + feedSort + '</div>';
   }
   // [plum 2026-07-14] 이어서 작업 카드 — 진행 중 슬롯의 사진·편집·캡션·발행 4단계 파이프라인(홈 시그니처).
   function _pipe(slot) {
@@ -196,6 +206,8 @@
     });
     var doneN = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
     var monthN = slots.filter(function (s) { return _cStatus(s).k === 'done' && _sameMonth(s); }).length;
+    // [manage 2026-07-14] 할 일 = 아직 발행 안 된 콘텐츠 수. 열자마자 "뭘 해야 하는지"가 숫자로 보이게.
+    var todoN = slots.length - doneN;
     var addCell = '<button type="button" class="wf-add" data-wsv2-upload data-haptic="medium" aria-label="새 게시물 업로드">' +
       '<span class="wf-add__ic">' + _PLUS + '</span><span class="wf-add__t">새 게시물</span></button>';
     var feed = '<div class="wf-feed">' + addCell + visible.map(_feedTile).join('') + '</div>';
@@ -203,7 +215,8 @@
       '<section class="wsv2 wshc wshc--feed" data-wsv2-root>' +
         '<div class="wshc-phead">' +
           '<div class="wshc-ava wshc-ava--lg">' + _shopInitial() + '</div>' +
-          '<div class="wshc-pinfo"><div class="wshc-phandle">내 작업실</div><div class="wshc-pstat">게시 ' + doneN + ' · 이번 달 ' + monthN + '</div></div>' +
+          '<div class="wshc-pinfo"><div class="wshc-phandle">내 작업실</div><div class="wshc-pstat">' +
+            (todoN ? '<b class="wshc-todo">할 일 ' + todoN + '</b> · ' : '') + '이번 달 발행 ' + monthN + '</div></div>' +
           '<button type="button" class="wshc-gear" data-wsv2-settings data-haptic="light" aria-label="작업실 설정"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>' +
           (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
         '</div>' +
@@ -341,6 +354,11 @@
       }
       // 히어로 업로드 CTA
 	      if (e.target.closest('[data-wsv2-upload]')) { _pickHeroFiles(root); return; }
+      // [manage 2026-07-14] 성과 진입 — 기존 openInsights(app-insights.js) 재사용.
+      if (e.target.closest('[data-wsv2-insights]')) {
+        try { if (typeof window.openInsights === 'function') window.openInsights(); } catch (_e) { void _e; }
+        return;
+      }
       // 퀵 버튼
       var quick = e.target.closest('[data-wsv2-quick]');
       if (quick) {

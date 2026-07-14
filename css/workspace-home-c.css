@@ -91,11 +91,13 @@
 .wshc--feed .wshc-seltoggle{ font-size:13px; font-weight:600; color:var(--c-text-muted); background:#fff; border:1px solid var(--c-border); border-radius:999px; padding:7px 14px; }
 .wshc--feed .wshc-seltoggle.on{ background:var(--c-brand-strong); color:#fff; border-color:transparent; }
 .wf-segs{ display:flex; gap:7px; padding:0 16px 10px; }
-.wf-seg{ font-size:13px; font-weight:600; padding:7px 15px; border-radius:999px; background:#fff; border:1px solid var(--c-border); color:var(--c-text-muted); transition:transform .175s var(--spring),background .175s var(--spring),color .175s var(--spring); }
+/* [manage 2026-07-14] white-space:nowrap — 세그 카운트 추가로 행이 좁아져 375px 에서 2줄로 깨지던 회귀 방지 */
+.wf-seg{ font-size:13px; font-weight:600; padding:7px 15px; border-radius:999px; background:#fff; border:1px solid var(--c-border); color:var(--c-text-muted); white-space:nowrap; transition:transform .175s var(--spring),background .175s var(--spring),color .175s var(--spring); }
 .wf-seg:active{ transform:scale(.95); }
 .wf-seg.on{ background:#231C1A; color:#fff; border-color:transparent; }
-/* [요청7 2026-07-13] 피드 정렬 진입 — 필터줄 우측 정렬 pill */
-.wf-feedsort{ margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:999px; background:var(--brand-bg,#FCEEF1); border:1px solid transparent; color:var(--accent-strong,#BC6675); transition:transform .175s var(--spring); }
+/* [요청7 2026-07-13] 피드 정렬 진입 — 필터줄 우측
+   [manage 2026-07-14] 아이콘 전용(34px, 성과 버튼과 동일 규격). 라벨 유지 시 세그 카운트와 겹쳐 375px 에서 줄바꿈. */
+.wf-feedsort{ margin-left:auto; display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; flex:none; padding:0; font-size:0; border-radius:11px; background:var(--brand-bg,#FCEEF1); border:1px solid transparent; color:var(--accent-strong,#BC6675); transition:transform .175s var(--spring); }
 .wf-feedsort:active{ transform:scale(.95); }
 .wf-feedsort svg{ flex:none; }
 .wf-feed{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:#EFE7DB; }
@@ -146,6 +148,19 @@
 .wf-resume__seg.is-cur{ background:var(--accent-strong,#8E5A7A); }
 .wf-resume__step{ font-size:10.5px; color:var(--text-subtle,#6B7684); margin-left:5px; white-space:nowrap; }
 .wf-resume__go{ align-self:stretch; display:flex; align-items:center; padding:0 16px; border-radius:12px; background:var(--accent-strong,#8E5A7A); color:#fff; font-weight:600; font-size:13px; flex:none; }
+
+/* [manage 2026-07-14] 헤더 '할 일 N' — 열자마자 해야 할 일이 숫자로 */
+.wshc-todo{ color:var(--accent-strong,#BC6675); font-weight:700; }
+
+/* [manage] 세그 카운트 — 업무량 한눈에 (nowrap 은 위 .wf-seg 원본 규칙에 병합) */
+.wf-seg__n{ margin-left:5px; font-weight:700; opacity:.72; font-variant-numeric:tabular-nums; }
+
+/* [manage] 성과 진입 버튼 — 지표를 전면에 깔지 않고 버튼 하나로 */
+.wf-perf{ margin-left:auto; width:34px; height:34px; flex:none; display:inline-grid; place-items:center; border:0; border-radius:11px;
+  background:var(--accent-soft,#F7EFF0); color:var(--accent-strong,#BC6675); cursor:pointer; transition:transform .175s var(--spring); }
+.wf-perf:active{ transform:scale(.92); }
+/* 성과 버튼이 margin-left:auto 를 가지므로 피드정렬은 자동 오른쪽 정렬 해제 */
+.wf-perf ~ .wf-feedsort{ margin-left:0; }
 
 /* [plum] 타일 상태 칩 — 진행 중인 것만(발행 완료는 사진만 깔끔) */
 .wf-chip{ position:absolute; top:7px; left:7px; z-index:1; display:inline-flex; align-items:center; gap:4px; background:rgba(36,28,40,.72); color:#fff; font-size:9.5px; font-weight:600; padding:3px 7px; border-radius:7px; letter-spacing:-.01em; }

@@ -1711,6 +1711,12 @@
 	    return '' + '<div class="cap-byline">이렇게 올라가요</div>' + custLine + _igPreviewCard(url, true) + _publishBlock() + _feedPreview(url);
 	  }
 
+  // [통합 2026-07-14] 발행 종류 자동 판단 — 원장이 '1장/여러장'을 고르지 않게. 버튼은 하나.
+  //   레이아웃 합성본이면 단일 피드, 선택된 사진 2장 이상이면 캐러셀. 선택/해제는 업로드 화면에서(editablePhotos).
+  function _publishKind() {
+    var hasComposite = !!(d.wsLayout && d.templateOutput);
+    return (!hasComposite && (editablePhotos() || []).length >= 2) ? 'carousel' : 'feed';
+  }
   function _publishBlock() {
 	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
 	    // [cleanup] 스토리 발행 픽커 제거(2026-07-12) — 진입 버튼(publishstory)이 재설계로 사라져 도달 불가였음. 발행은 피드/여러 장만.
@@ -1718,15 +1724,16 @@
 	      // [스토리/캐러셀] 피드 + 스토리, 사진 2장 이상이면 캐러셀(여러 장) 버튼도.
 	      // [버그수정 2026-07-10] ws-hyper 레이아웃은 여러 장을 '1장 합성본'(d.templateOutput)으로 합침 →
 	      //   캐러셀(여러 장 슬라이드)은 부적절하고 원본 여러 장을 보내 실패했음. 레이아웃이면 단일 피드로만.
-	      var _hasLayoutComposite = !!(d.wsLayout && d.templateOutput);
-	      var _multi = !_hasLayoutComposite && (editablePhotos() || []).length >= 2;
+	      var _n = (editablePhotos() || []).length;
+	      var _multi = _publishKind() === 'carousel';
 	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
 	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
 	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)"></div>' +
 	      '<div class="cap-pubrow" style="margin-top:10px">' +
-	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'feed' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>피드에 올리기') + '</button>' +
+	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>인스타에 올리기' + (_n > 1 ? ' (' + _n + '장)' : '')) + '</button>' +
 	      '</div>' +
-	      (_multi ? '<button type="button" class="cap-preview cap-preview--carousel" style="width:100%;margin-top:8px" data-fl="publishcarousel"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing === 'carousel' ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-images"></i>여러 장으로 올리기 (' + (editablePhotos() || []).length + '장)') + '</button>' : '');
+	      // [통합 2026-07-14] '여러 장으로 올리기' 별도 버튼 제거 — 위 버튼 하나가 _publishKind() 로 알아서 캐러셀 발행.
+      (_multi ? '<div class="cap-pubnote" style="margin-top:7px;font-size:11.5px;color:var(--text-subtle);text-align:center">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '');
 	    }
     return '<div class="wsflow-prep">' +
       '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
@@ -2186,7 +2193,8 @@
       }
       if (a === 'tpledit-active') { var _ape = _activeOutputPair(); if (!_ape) { toast('수정할 결과물을 찾지 못했어요'); return; } return _openTplEdit(_ape); }
       // [요청7 2026-07-13] feedplan 액션 제거 — 인플로우 '피드 정렬해보기'(현작업만) 폐지. 피드 정렬은 작업실 홈 진입으로 이관.
-      if (a === 'publish') { return publish('feed'); }
+      // [통합 2026-07-14] 버튼 하나 → 장수에 따라 feed/carousel 자동. (publishcarousel 은 레거시 경로로 유지)
+      if (a === 'publish') { return publish(_publishKind()); }
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
       if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)
