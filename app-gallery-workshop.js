@@ -630,7 +630,12 @@ window.highlightWorkshopSlot = async function (slotId) {
       window.ItbiActiveCard.set({ purpose: (_s.templateMeta && _s.templateMeta.purpose) || 'generic', label: _s.label || '카드', templateId: (_s.templateMeta && _s.templateMeta.templateId) || null, slotId: _s.id, available: true, origin: 'workshop' });
     }
   } catch (_e) { void _e; }
-  const card = document.querySelector('.ws-slot-card[data-slot-id="' + String(slotId).replace(/"/g, '') + '"]');
+  // [2026-07-14] 작업실 타일은 V2(`[data-wsv2-slot]`)가 그린다. 예전엔 레거시 셸이 그리던
+  //   `.ws-slot-card[data-slot-id]` 를 찾고 있어서 V2 전환 이후 늘 못 찾고 false 만 반환했다
+  //   (= 잇비 "그거 보여줘" 가 조용히 아무 일도 안 함). 셀렉터만 V2 타일로 교체.
+  //   위 initWorkshopTab 이 렌더까지 await 했고 V2.render 는 동기라 여기서 바로 조회된다.
+  const sel = '[data-wsv2-slot="' + (window.CSS && CSS.escape ? CSS.escape(String(slotId)) : String(slotId).replace(/"/g, '')) + '"]';
+  const card = document.querySelector(sel);
   if (!card) return false;
   card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   card.style.transition = 'box-shadow 0.3s';
