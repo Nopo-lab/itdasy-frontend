@@ -887,22 +887,8 @@ window.CaptionEngine = {
   async generate(opts) {
     opts = opts || {};
     const shopType = localStorage.getItem('shop_type') || '붙임머리';
-    const cfg = (typeof SHOP_CONFIG !== 'undefined') ? SHOP_CONFIG[shopType] : null;
-    let photo_context = opts.photo_context;
-    if (!photo_context) {
-      const svc = String(opts.service || '').trim();
-      const base = cfg
-        ? `${shopType} 시술.${svc ? ' 시술 내역: ' + svc + '.' : ''}`
-        : (svc ? `뷰티 시술. ${svc}.` : '뷰티 시술.');
-      let slotNote = '';
-      if (opts.slotId && typeof _slots !== 'undefined') {
-        const s = _slots.find(sl => sl.id === opts.slotId);
-        if (s) slotNote = ` 손님: ${s.label}. 사진 ${(s.photos || []).filter(p => !p.hidden).length}장.`;
-      }
-      const reviewNote = (opts.mode === 'review' || opts.tone_override === 'review')
-        ? ' 고객이 직접 남긴 후기 말투(1인칭 고객 시점, 만족 후기체)로 작성해주세요.' : '';
-      photo_context = `${base}${slotNote}${reviewNote}`.trim();
-    }
+    // photo_context 는 호출부(flow.js)가 항상 채워서 넘긴다 — 유일 호출자이며 빈 시술명은 그쪽에서 막힌다.
+    const photo_context = opts.photo_context;
     // [v561] 카테고리 = 시술 입력(service/treatment_keyword) + 업종 추론. 'extension' 자동 폴백 제거.
     const _catText = [opts.service, opts.treatment_keyword, opts.photo_context].filter(Boolean).join(' ');
     const payload = {

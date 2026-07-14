@@ -68,21 +68,11 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   window.ITDASY_SLOT_SYNC = (window.ITDASY_SLOT_SYNC !== false);
   // [slot-sync coalesce] 편집마다 업로드 대신 '정착 때 1회'로 합쳐 비용 방어 (스테이징 검증용 ON). false=기존 eager.
   window.ITDASY_SLOT_SYNC_COALESCE = (window.ITDASY_SLOT_SYNC_COALESCE !== false);
-  // [skin-v3] 작업실 톤 리스킨(따뜻한 아이보리+로즈 CTA). false 로 끄면 기존 톤.
-  // 색/그림자만 바꾸는 스코프 CSS(css/workspace-skin-v3.css), 작업실 오버레이에만 적용.
-  window.ITDASY_WS_SKIN_V3 = (window.ITDASY_WS_SKIN_V3 !== false);
   // [cleanup 2026-07-12] ws-hyper(레이아웃-퍼스트 플로우)는 상시 기본으로 고정 — 롤백 플래그(window.ITDASY_WS_HYPER)·?wshyper=0 스위치 제거. flow.js 가 더는 읽지 않음.
-  // [skin-v4] 작업실 앱-정체성 리스킨(tokens.css 정렬). ws-hyper 켜질 때만 의미, 단독 롤백용 별도 플래그.
-  window.ITDASY_WS_SKIN_V4 = (window.ITDASY_WS_SKIN_V4 === true);
-  // [signature 2026-07-14] 작업실 "잇데이 시그니처(로즈)" 스킨(쿨 로즈-뉴트럴 + 시그니처 로즈). skin-v3 위에 색만 재지정.
-  //   false 로 끄면 skin-v3 아이보리로 즉시 롤백. 스코프 CSS = css/workspace-signature.css.
+  // [signature 2026-07-14] 작업실 "잇데이 시그니처(로즈)" 스킨(쿨 로즈-뉴트럴 + 시그니처 로즈).
+  //   false 로 끄면 작업실이 기본 토큰 톤으로. 스코프 CSS = css/workspace-signature.css.
   window.ITDASY_WS_SIGNATURE = (window.ITDASY_WS_SIGNATURE !== false);
   try {
-    if (window.ITDASY_WS_SKIN_V3) {
-      var _addSkin = function(){ document.body && document.body.classList.add('ws-skin-v3'); };
-      if (document.body) _addSkin();
-      else document.addEventListener('DOMContentLoaded', _addSkin);
-    }
     if (window.ITDASY_WS_SIGNATURE) {
       var _addSig = function(){ document.body && document.body.classList.add('ws-sig'); };
       if (document.body) _addSig();
@@ -147,7 +137,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <link rel="stylesheet" href="css/screens/gallery-review.css">
 <link rel="stylesheet" href="css/screens/tab-bar.css">
 <link rel="stylesheet" href="css/screens/shop-drawer.css">
-<link rel="stylesheet" href="css/screens/sub-screens.css">
+<link rel="stylesheet" href="css/screens/sub-screens.css?v=20260714-v743-workmemory">
 <link rel="stylesheet" href="css/screens/settings-v2.css?v=20260705-settings-redesign">
 <link rel="stylesheet" href="css/screens/calendar.css">
 <link rel="stylesheet" href="css/screens/myshop-v3.css?v=20260604-pc-hide-redo">
@@ -186,8 +176,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <link rel="stylesheet" href="css/workspace-v2.css?v=20260709-v716-sidevar">
 <link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260713-v743-shoptypes">
 <link rel="stylesheet" href="css/feed-planner.css?v=20260713-v747-reskin">
-<link rel="stylesheet" href="css/workspace-skin-v3.css?v=20260628-skin-v3">
-<link rel="stylesheet" href="css/workspace-signature.css?v=20260714-sig-v1">
+<link rel="stylesheet" href="css/workspace-signature.css?v=20260714-sig-v2-absorb-skinv3">
 <!-- [ws-hyper] 초고도화 레이아웃 고르기 화면 (플래그 OFF면 미사용) -->
 <link rel="stylesheet" href="css/workspace-hyper.css?v=20260713-v744-svgthumb">
 
@@ -2268,10 +2257,10 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     });
   })();
 </script>
-<script src="app-core.js?v=20260714-t320-apple"></script>
+<script src="app-core.js?v=20260714-deadcode-purge"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
-<script src="js/load-groups.js?v=20260714-tag-carousel" defer></script>
+<script src="js/load-groups.js?v=20260714-v743-workmemory" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>
@@ -2291,7 +2280,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="js/caption/caption-keyword-tags.js?v=20260713-v735-svcclean" defer></script>
 <script src="js/caption/caption-photo-row.js?v=20260630-v615-caption-split3" defer></script>
 <script src="js/caption/caption-publish.js?v=20260630-v615-caption-split3" defer></script>
-<script src="app-caption.js?v=20260706-v711-hashdedup" defer></script>
+<script src="app-caption.js?v=20260714-deadcode-purge" defer></script>
 <script src="app-portfolio.js?v=20260526-v291-portfolio-warning-cleanup" defer></script>
 <script src="app-portfolio-tags.js?v=20260610-batch5" defer></script>
 <script src="app-ai.js?v=20260610-batch4" defer></script>

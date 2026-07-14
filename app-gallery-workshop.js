@@ -1,5 +1,5 @@
-/* exported goWorkshopUpload, togglePhotoSelect */
-// Itdasy Studio — 작업실 탭 핵심 (상태·업로드·슬롯카드·드래그)
+/* exported togglePhotoSelect */
+// Itdasy Studio — 작업실 탭 핵심 (상태·업로드·슬롯카드)
 // 의존: app-gallery-utils.js, app-gallery-db.js (먼저 로드)
 // slot-editor / assign 이 읽는 setter 함수도 여기에 정의.
 
@@ -9,8 +9,6 @@ let _slots          = [];
 let _selectedIds    = new Set();
 let _popupSelIds    = new Set();
 let _wsInited       = false;
-let _dragPhotoId    = null;
-let _dragSrcEl      = null;
 let _popupSlotId    = null;
 let _popupUsage     = null;
 let _captionSlotId  = null;
@@ -100,21 +98,6 @@ async function renderHomeResume() {
 
 window.renderHomeResume = renderHomeResume;
 
-// ── 홈 탭 퀵액션 ───────────────────────────────────────────────
-function goWorkshopUpload() {
-  showTab('workshop', document.querySelector('.tab-bar__btn[data-tab="workshop"]'));
-  initWorkshopTab();
-  setTimeout(() => {
-    const zone = document.getElementById('wsDropZone');
-    if (zone) {
-      zone.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      zone.style.borderColor = 'var(--accent)';
-      zone.style.background = 'rgba(213,138,149,0.06)';
-      setTimeout(() => { zone.style.borderColor = ''; zone.style.background = ''; }, 1500);
-    }
-  }, 300);
-}
-
 // ── 작업실 탭 초기화 ───────────────────────────────────────────
 async function initWorkshopTab() {
   const root = document.getElementById('workshopRoot');
@@ -143,7 +126,6 @@ async function initWorkshopTab() {
     _wsInited = true;
     root.innerHTML = _buildWorkshopHTML();
     _bindWorkshopShell(root);
-    _initDragEvents();
   }
 
   try { _slots = await loadSlotsFromDB(); }
@@ -333,7 +315,7 @@ async function _doResetWorkshop() {
   _selectedIds.clear(); _popupSelIds.clear();
   _wsInited = false;
   const root = document.getElementById('workshopRoot');
-  if (root) { root.innerHTML = _buildWorkshopHTML(); _bindWorkshopShell(root); _initDragEvents(); }
+  if (root) { root.innerHTML = _buildWorkshopHTML(); _bindWorkshopShell(root); }
   showToast('초기화 완료 ✅');
 }
 
@@ -702,44 +684,4 @@ function _assignToSlot(photoId, slotId) {
   saveSlotToDB(slot).catch(() => { /* ignore */ });
 }
 
-// ── 드래그 (Touch + Mouse) ─────────────────────────────────────
-let _dragEventsInited = false;
-function _initDragEvents() {
-  // 중복 부착 방지 — 워크숍 탭 재진입마다 document 리스너가 쌓이면 렉 발생
-  if (_dragEventsInited) return;
-  _dragEventsInited = true;
-  document.addEventListener('touchmove',  _moveDragInd,       { passive: true });
-  document.addEventListener('mousemove',  _moveDragIndMouse);
-  document.addEventListener('touchend',   _onDragEnd,         { passive: false });
-  document.addEventListener('mouseup',    _onDragEnd);
-}
-
-
-function _moveDragInd(e) {
-  if (!_dragPhotoId) return;
-  const ind = document.getElementById('_gDragInd');
-  if (!ind) return;
-  const t = e.touches[0];
-  ind.style.left = (t.clientX - 30) + 'px';
-  ind.style.top  = (t.clientY - 30) + 'px';
-}
-
-function _moveDragIndMouse(e) {
-  if (!_dragPhotoId) return;
-  const ind = document.getElementById('_gDragInd');
-  if (!ind) return;
-  ind.style.left = (e.clientX - 30) + 'px';
-  ind.style.top  = (e.clientY - 30) + 'px';
-}
-
-function _hideDragIndicator() {
-  const ind = document.getElementById('_gDragInd');
-  if (ind) ind.style.display = 'none';
-}
-
-function _onDragEnd() {
-  if (_dragPhotoId) { _hideDragIndicator(); _dragPhotoId = null; _dragSrcEl = null; }
-}
-
-window.goWorkshopUpload = goWorkshopUpload;
 window.togglePhotoSelect = togglePhotoSelect;
