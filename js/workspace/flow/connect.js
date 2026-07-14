@@ -70,9 +70,15 @@
         // vc 찾기 — recent 캐시에서
         var found = (D().recent || []).filter(function (c) { return String(c.id) === String(D().customerId); })[0];
         D().customerVc = found ? (found.vc || 0) : 0;
-        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(ctx.buildSlot()); } catch (_ce) { void _ce; }
         toast(D().customerName + ' 고객과 연결했어요');
-        setScreen('caption'); return true;   // [보스] 고객 연결하면 인스타 업로드로 돌아오게 (요청6: 미리보기=캡션 화면에 통합)
+        // [버그8 2026-07-14] 발행 후 고객연결이면 저장하고 작업실 홈으로 — 이미 올렸는데 캡션(미리보기) 화면으로
+        //   되돌아가던 문제. 아래 setScreen('caption')은 '고객연결이 발행 前' 이던 시절 동선([보스] 요청6)이라,
+        //   발행이 끝난 지금 경로에선 "다시 올리라는 건가?" 로 읽힌다.
+        //   ctx.save() 가 saveItem + close + WorkspaceV2.refresh 까지 하므로 여기서 별도 saveItem 은 중복.
+        var _pub = D().publish && D().publish.status === 'published';
+        if (_pub) { ctx.save(); return true; }
+        try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(ctx.buildSlot()); } catch (_ce) { void _ce; }
+        setScreen('caption'); return true;   // 발행 전(미리보기에서 고객 먼저 연결) — 기존 동선 유지
       }
       return false;
     }

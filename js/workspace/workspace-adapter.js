@@ -514,11 +514,15 @@
       if (!opts.imageUrl) return Promise.resolve({ ok: false, reason: 'blob' });
       var _isStory = kind === 'story';   // 스토리=캡션 없음, media_type=STORIES
       var _endpoint = _isStory ? '/instagram/publish-story-file' : '/instagram/publish-file';
-      return Promise.resolve(fetch(opts.imageUrl).then(function (r) { return r.blob(); }).catch(function () { return null; }))
+      // [속도 2026-07-14] 캐러셀과 동일하게 JPEG 변환 후 전송.
+      //   기존 단일 경로만 원본 blob 을 그대로 올려, 편집/합성본이 PNG 로 나오는 경로(flow:2734·3106)에선
+      //   1080x1350 PNG = 수 MB 를 업로드해 30초~1분씩 걸렸다. (캐러셀은 [#3] 에서 이미 _toJpegBlob 적용)
+      //   인스타는 어차피 투명도를 버리고 JPEG 로 재인코딩하므로 화질 손실 없이 용량만 줄어든다.
+      return Promise.resolve(_toJpegBlob(opts.imageUrl))
         .then(function (blob) {
           if (!blob) return { ok: false, reason: 'blob' };
           var fd = new FormData();
-          fd.append('image', blob, _isStory ? 'itdasy_story.png' : 'itdasy_v2.png');
+          fd.append('image', blob, _isStory ? 'itdasy_story.jpg' : 'itdasy_v2.jpg');
           if (!_isStory) fd.append('caption', opts.caption || '');
           // [계정 태그] 피드에서만 — user_tags: [{username,x,y}]
           if (!_isStory && opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
