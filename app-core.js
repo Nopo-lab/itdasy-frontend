@@ -754,11 +754,16 @@ function _isIOSAppSurface() {
 }
 
 function applyStoreReviewLoginGuard() {
-  const hideSocial = _isIOSAppSurface();
+  // T-320: iOS 에서 Apple 로그인 플러그인이 있으면 소셜 로그인 노출 가능
+  // (Apple 심사 규정 — 타사 로그인 제공 시 Apple 로그인 필수. 플러그인 없으면 기존처럼 전부 숨김)
+  const hasApple = !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple);
+  const hideSocial = _isIOSAppSurface() && !hasApple;
   const divider = document.getElementById('loginSocialDivider');
   const wrap = document.getElementById('socialLoginWrap');
   if (divider) divider.style.display = hideSocial ? 'none' : '';
   if (wrap) wrap.style.display = hideSocial ? 'none' : '';
+  const appleBtn = document.getElementById('loginAppleBtn');
+  if (appleBtn) appleBtn.style.display = hasApple ? '' : 'none';
 }
 window.applyStoreReviewLoginGuard = applyStoreReviewLoginGuard;
 
@@ -777,6 +782,11 @@ function _bindLoginSocialButtons() {
   if (naver && !naver._itdasyBound) {
     naver._itdasyBound = true;
     naver.addEventListener('click', () => window.startNaverLogin && window.startNaverLogin());
+  }
+  const apple = document.getElementById('loginAppleBtn');
+  if (apple && !apple._itdasyBound) {
+    apple._itdasyBound = true;
+    apple.addEventListener('click', () => window.startAppleLogin && window.startAppleLogin());
   }
 }
 
@@ -1543,6 +1553,43 @@ window.startNaverLogin = async function () {
   } catch (e) {
     const msg = window._humanError ? window._humanError(e) : (e.message || '네이버 로그인 오류');
     showToast(msg || '네이버 로그인을 시작할 수 없어요', 'error');
+  }
+};
+
+// ───── T-320 Sign in with Apple (iOS 네이티브 전용) ─────
+// Capacitor 플러그인(@capacitor-community/apple-sign-in)이 identity_token 을 받아오면
+// BE POST /auth/apple 로 검증 → JWT 발급. 웹에는 버튼 자체가 숨겨져 있음.
+let _appleLoginBusy = false;
+window.startAppleLogin = async function () {
+  if (_appleLoginBusy) return;
+  const plug = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SignInWithApple;
+  if (!plug) {
+    if (window.showToast) window.showToast('Apple 로그인은 아이폰 앱에서 쓸 수 있어요');
+    return;
+  }
+  _appleLoginBusy = true;
+  try {
+    const r = await plug.authorize({ scopes: 'email name' });
+    const resp = (r && r.response) || {};
+    const idToken = resp.identityToken;
+    if (!idToken) throw new Error('Apple 인증이 취소됐어요');
+    // 이름은 최초 로그인 1회만 옴 — 없으면 null (BE가 "Apple 사용자"로 처리)
+    const fullName = [resp.familyName, resp.givenName].filter(Boolean).join('').trim() || null;
+    const res = await fetch(`${window.API}/auth/apple`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identity_token: idToken, name: fullName }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || 'Apple 로그인 실패');
+    setToken(data.access_token);
+    try { await applyNewSession(data.access_token, { forcePurge: true }); } catch (_) { void 0; }
+    window.location.reload(); // oauth-return 과 동일하게 재부팅 경로로 세션 반영
+  } catch (e) {
+    const msg = window._humanError ? window._humanError(e) : (e.message || 'Apple 로그인 오류');
+    showToast(msg, 'error');
+  } finally {
+    _appleLoginBusy = false;
   }
 };
 

@@ -2090,7 +2090,10 @@
   }
 
   function _bindFormSave(body, existing, _date) {
-    body.querySelector('#bfSave').addEventListener('click', async () => {
+    let _saving = false; // [2026-07-14 QA] 연타 시 예약 이중 생성 방지
+    body.querySelector('#bfSave').addEventListener('click', async (ev) => {
+      if (_saving) return;
+      const _saveBtn = ev.currentTarget;
       const d = body.querySelector('#bfDate').value;
       if (!d) { if (window.showToast) window.showToast('날짜를 입력해 주세요'); return; }
       const sh = body._getStartH(), sm = body._getStartM(), dur = body._getDurMin();
@@ -2150,6 +2153,8 @@
         amount:        amtVal > 0 ? amtVal : null,
         deposit:       depVal > 0 ? depVal : null,
       };
+      _saving = true;
+      if (_saveBtn) _saveBtn.disabled = true;
       try {
         const changeDetail = {
           customer_id: payload.customer_id,
@@ -2180,6 +2185,9 @@
         // [2026-06-10 QA] 실제 사유 노출 — "저장 실패"만 떠서 원인(시간 충돌 등)을 알 수 없던 문제
         console.warn('[cal] save 실패:', err);
         if (window.showToast) window.showToast('저장 실패: ' + (window._humanError ? window._humanError(err) : (err?.message || '잠시 후 다시 시도해주세요')));
+      } finally {
+        _saving = false;
+        if (_saveBtn) _saveBtn.disabled = false;
       }
     });
   }

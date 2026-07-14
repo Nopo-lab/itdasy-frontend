@@ -607,7 +607,9 @@
     const focusEl = c.querySelector('[data-rv-field="amount"]');
     if (focusEl) focusEl.focus();
   }
+  let _qaBusy = false; // [2026-07-14 QA] 빠른추가 연타 중복 저장 방지
   async function _submitQuickAdd() {
+    if (_qaBusy) return;
     const v = _readQA();
     if (!v) return;
     const amount = parseInt(v.amount, 10);
@@ -618,6 +620,7 @@
       if (window.showToast) window.showToast('금액을 입력해 주세요');
       return;
     }
+    _qaBusy = true;
     try {
       await create({
         amount, method: v.method || 'card',
@@ -631,6 +634,8 @@
     } catch (e) {
       console.warn('[revenue] qa-add 실패:', e);
       if (window.showToast) window.showToast('저장 실패 — 다시 시도해 주세요');
+    } finally {
+      _qaBusy = false;
     }
   }
 
