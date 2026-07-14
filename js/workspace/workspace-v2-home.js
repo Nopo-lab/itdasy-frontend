@@ -204,6 +204,11 @@
     var visible = _filter === 'all' ? slots : slots.filter(function (s) {
       var d = _cStatus(s).k === 'done'; return _filter === 'done' ? d : !d;
     });
+    // [버그9 2026-07-14] 인스타 피드처럼 최신이 위로 — 기존엔 slots 순서를 그대로 써서 '+ 새 게시물' 옆에 가장 오래된 게 붙었음.
+    //   (이어서카드는 이미 최신순 정렬하는데 그리드만 안 해서 순서가 반대로 보였다.) 원본 배열 오염 방지로 slice() 후 정렬.
+    visible = visible.slice().sort(function (a, b) {
+      return (b.createdAt || b.completedAt || 0) - (a.createdAt || a.completedAt || 0);
+    });
     var doneN = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
     var monthN = slots.filter(function (s) { return _cStatus(s).k === 'done' && _sameMonth(s); }).length;
     // [manage 2026-07-14] 할 일 = 아직 발행 안 된 콘텐츠 수. 열자마자 "뭘 해야 하는지"가 숫자로 보이게.

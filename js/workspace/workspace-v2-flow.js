@@ -120,6 +120,20 @@
       _navBack();
     });
   }
+  // [버그11 2026-07-14] '이어서하기'로 중간 단계(캡션 등)에 직행하면 navStack 이 비어 있어
+  //   뒤로가기 → _navBack() false → 전역 시트가 플로우를 닫아 곧장 작업실 홈으로 튀었다.
+  //   절충: 진행바 단계(VISIBLE_SCREENS) 중 '앞 단계'만 시드한다.
+  //   - edit/template 은 VISIBLE 이 아니라 indexOf=-1 → 시드 안 함 = v575('직행 진입은 편집이 베이스') 취지 유지.
+  //   - 사진이 없으면(글만 쓰기) 되돌아갈 단계가 없으므로 시드 안 함.
+  //   결과: 캡션 직행 → back → 레이아웃 → back → 업로드 → back → 홈.
+  function _seedNavStack(startScreen) {
+    var idx = VISIBLE_SCREENS.indexOf(startScreen);
+    if (idx <= 0) return;
+    if (!editablePhotos().length) return;
+    var seeded = VISIBLE_SCREENS.slice(0, idx);
+    navStack = seeded.slice();
+    seeded.forEach(function () { _pushHist(); });
+  }
   // [v531] 한 단계 뒤로 — 시스템/브라우저/인앱 back 공통. 캡션 결과 화면이면 먼저 캡션 입력으로(편집으로 안 튐).
   function _navBack() {
     if (!el || !el.classList.contains('is-open')) return false;
@@ -225,7 +239,8 @@
   // [B-분할] 시술 텍스트 파싱 → js/workspace/flow/caption-text.js (window.WSCaptionText). 호출부 유지용 alias.
   var _extractCustomer = window.WSCaptionText.extractCustomer, _shopName = window.WSCaptionText.shopName,
       _stripShopName = window.WSCaptionText.stripShopName, _detectShopName = window.WSCaptionText.detectShopName,
-      _cleanService = window.WSCaptionText.cleanService, _splitServiceForLayers = window.WSCaptionText.splitServiceForLayers;
+      _cleanService = window.WSCaptionText.cleanService, _splitServiceForLayers = window.WSCaptionText.splitServiceForLayers,
+      _publicServiceKeywords = window.WSCaptionText.publicServiceKeywords;
   // [#1] 상호로 캡션에 브랜딩할 만한 '진짜 가게 이름'인지 — 'Dd','aa' 같은 짧은 라틴/계정 placeholder 는 제외.
   //   (등록만 되어 있고 실제 상호가 아니면 캡션에 억지로 안 박고 '저희 샵'으로만 칭하게 함)
   // [T-104 P0] _isRealShopName → flow/util.js
@@ -1462,7 +1477,7 @@
     if (d.capLoading) {
       // [Skeleton] 스피너 대신 캡션 카드 형태 스켈레톤 — 결과가 어떻게 올지 미리 보이게(Astryx 로딩 패턴).
       return '<div class="cap-skelwrap">' +
-        '<div class="cap-skel-note"><span class="cap-skel-dot"></span>AI가 우리샵 말투로 쓰는 중…</div>' +
+        '<div class="cap-skel-note"><span class="cap-skel-dot"></span>AI가 ' + (_personaOn() ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
         '<div class="cap-skel-card">' +
           '<div class="cap-skel-line" style="width:92%"></div>' +
           '<div class="cap-skel-line" style="width:100%"></div>' +
@@ -1511,7 +1526,9 @@
     var custLine = d.customerName ?
       '<div class="confirmline">연결 손님: <b>' + esc(d.customerName) + '</b>' + (d.customerVc ? ' · ' + d.customerVc + '회 방문' : ' · 첫 방문') + '</div>' : '';
     return '' +
-	      '<div class="cap-byline">원장님 인스타 글 학습 완료</div>' +
+	      // [버그5 2026-07-14] 미연동이면 '학습 완료'라고 거짓말하지 않고, 연동하면 된다고 안내.
+	      (_personaOn() ? '<div class="cap-byline">원장님 인스타 글 학습 완료</div>'
+	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
 	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
       // [v589] 꼬리말 블록 폐지 → 설정폼으로 이동. 복사/다시생성/저장은 카드 액션줄로 이동.
@@ -1713,6 +1730,12 @@
 
   // [통합 2026-07-14] 발행 종류 자동 판단 — 원장이 '1장/여러장'을 고르지 않게. 버튼은 하나.
   //   레이아웃 합성본이면 단일 피드, 선택된 사진 2장 이상이면 캐러셀. 선택/해제는 업로드 화면에서(editablePhotos).
+  // [버그5 2026-07-14] '내 말투(페르소나)'가 실제로 적용되는 조건 = 인스타 연동 여부.
+  //   payload 의 use_persona 와 동일 기준(doGenerate 의 _igConn). 미연동인데 화면만 '학습 완료'라고 말해
+  //   원장이 "말투 반영되는 거 맞나?" 의심하게 만들던 거짓 표시를 차단한다.
+  function _personaOn() {
+    try { return !!(window.WorkspaceAdapter && window.WorkspaceAdapter.instagram && window.WorkspaceAdapter.instagram().connected); } catch (_e) { return false; }
+  }
   function _publishKind() {
     var hasComposite = !!(d.wsLayout && d.templateOutput);
     return (!hasComposite && (editablePhotos() || []).length >= 2) ? 'carousel' : 'feed';
@@ -1991,7 +2014,10 @@
 	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
 	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
 			// [#2] 사적 방문정황(남친이랑 옴)·가격(28만원짜리) 뺀 '공개 시술 키워드' — LLM 이 사담/가격을 캡션에 안 넣게.
-		var _pubParts = _splitServiceForLayers(svc); var _pubSvc = [_pubParts.title, _pubParts.sub].filter(Boolean).join(' ').trim() || svcClean;
+		// [버그6 2026-07-14] 캡션 API 에는 '절단 없는' 공개 시술 키워드 전체를 보낸다.
+		//   기존: _splitServiceForLayers(오버레이용 title+sub = 앞 4단어)를 재사용 → 시술명 5개 이상이면 뒤가 소실됐음.
+		//   사담·가격·지시·이모지 제거는 그대로 유지(_publicServiceKeywords 가 같은 정제 파이프라인을 씀).
+		var _pubSvc = _publicServiceKeywords(svc) || svcClean;
     if (_cust.customer) d.customerName = _cust.customer;   // [#2] 이번 입력의 고객을 우선(예전 stale 값이 안 남게)
 	    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.generateCaption)) { toast('게시글 생성 모듈을 불러오지 못했어요'); return; }
 	    var _wasEmpty = !String(d.caption || '').trim();   // [v531] 입력→결과 최초 전환이면 뒤로가기용 history 마커 push
@@ -3650,7 +3676,7 @@
 	    //   않도록 setScreen 을 addFiles 완료까지 미룬다(업로드 화면을 거치지 않음).
 	    // [v590·#1] 사진이 아직 없는데 edit/caption 으로 바로 그리면 빈 화면이 깜빡 → 사진 들어온 뒤(addFiles) 그린다.
 	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption') && incomingFiles.length && !d.photos.length);
-	    if (!_deferInit) setScreen(startScreen, { push: false });
+	    if (!_deferInit) { setScreen(startScreen, { push: false }); _seedNavStack(startScreen); }   // [버그11] 직행 진입도 뒤로가기로 이전 단계 복귀
 	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
 	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit');
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
