@@ -1,0 +1,62 @@
+/* ════════════════════════════════════════════════════════════════
+   workspace-signature.css — 작업실 "잇데이 시그니처(로즈)" 스킨
+   ────────────────────────────────────────────────────────────────
+   방향(2026-07-14 확정): 잇데이 브랜드 시그니처 로즈(#BC6675) 액센트 +
+     쿨 로즈-뉴트럴 베이스. AI 기본값(웜 크림/아이보리) 회피.
+   (플럼 실험 → 브랜드 시그니처 로즈로 확정 전환.)
+
+   구조: 색·그림자만. 레이아웃(여백/grid/position) 안 건드림 → 회귀 위험 차단.
+   스코프: body.ws-sig + 작업실 표면 컨테이너로만 한정 → 앱 밖 영향 0.
+   로드: skin-v3.css '뒤'에 로드 → 동일 특이도에서 소스순서로 이김(아이보리 베이스 대체).
+   토글: window.ITDASY_WS_SIGNATURE = false → 스킨 off(즉시 skin-v3 아이보리로 롤백).
+   ──────────────────────────────────────────────────────────────── */
+
+/* 1) 액센트 = 잇데이 시그니처 로즈 (토큰 기본값과 동일 — 작업실 스코프에 명시적 고정) */
+body.ws-sig .wsv2flow,
+body.ws-sig .wshc,
+body.ws-sig [data-wsv2-root],
+body.ws-sig .wsv2-drawer,
+body.ws-sig .wsv2-confirm,
+body.ws-sig .fplan-overlay,
+body.ws-sig .fplan {
+  --brand:         #D58A95;
+  --brand-strong:  #BC6675;
+  --brand-bg:      #F7EFF0;
+  --accent:        #D58A95;
+  --accent-strong: #BC6675;
+  --accent-soft:   #F7EFF0;
+  --shadow-brand:  0 10px 24px rgba(188, 102, 117, .26);
+}
+
+/* 2) 베이스 — 쿨 로즈-뉴트럴 (skin-v3 아이보리 #FBF7F5 대체, 크림 회피) */
+body.ws-sig .wsv2flow { background: #F5F1F3; }
+body.ws-sig .wsv2flow .wsv2flow__actionbar {
+  background: linear-gradient(180deg, rgba(245, 241, 243, 0), #F5F1F3 28%);
+}
+body.ws-sig .wshc,
+body.ws-sig [data-wsv2-root] { background: #F5F1F3; }
+body.ws-sig .fplan { background: #F5F1F3; }
+
+/* 3) 보조 표면 — skin-v3 아이보리 틴트 → 로즈-뉴트럴 틴트 */
+body.ws-sig .wsv2flow .ed-note,
+body.ws-sig .wsv2flow .captail,
+body.ws-sig .wsv2flow .cap-stylecard,
+body.ws-sig .wsv2flow .up-guide-c { background: #F1ECEF; }
+
+/* 4) CTA·카드 그림자 — 로즈빛 */
+body.ws-sig .wsv2flow .wsv2flow__cta,
+body.ws-sig .wsv2flow .cap-gen-btn,
+body.ws-sig .wsv2flow .cap-preview,
+body.ws-sig .wsv2flow .tpl-applydefault {
+  box-shadow: 0 12px 24px rgba(188, 102, 117, .26);
+}
+body.ws-sig .wsv2flow .cap-card,
+body.ws-sig .wsv2flow .cust-card,
+body.ws-sig .wsv2flow .linked-card,
+body.ws-sig .wsv2flow .up-toggle-row,
+body.ws-sig .wsv2flow .cust-search {
+  box-shadow: 0 6px 22px rgba(188, 102, 117, .09);
+}
+
+/* 5) 빈 타일 placeholder — 로즈-뉴트럴 */
+body.ws-sig .wf-tile { background-color: #EBDDE2; }
