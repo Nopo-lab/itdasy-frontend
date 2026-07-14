@@ -144,7 +144,7 @@
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
       '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
-      '<span class="wf-dot wf-dot--' + st.k + '"></span>' +
+      (st.k === 'done' ? '' : '<span class="wf-chip wf-chip--' + st.k + '"><span class="wf-chip__dot"></span>' + _esc(st.tag) + '</span>') +
       (img ? '' : '<span class="wf-ph" aria-hidden="true">' + _PHIC + '</span>') +
       '</button>';
   }
@@ -158,6 +158,37 @@
     return '<div class="wf-segs">' + F.map(function (f) {
       return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' + f[1] + '</button>';
     }).join('') + feedSort + '</div>';
+  }
+  // [plum 2026-07-14] 이어서 작업 카드 — 진행 중 슬롯의 사진·편집·캡션·발행 4단계 파이프라인(홈 시그니처).
+  function _pipe(slot) {
+    var photos = (slot.photos || []);
+    var steps = [
+      photos.length > 0,
+      photos.some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); }),
+      !!(slot.caption && String(slot.caption).trim()),
+      _isPub(slot)
+    ];
+    var labels = ['사진 올리는 중', '편집하는 중', '캡션 쓰는 중', '발행 대기'];
+    var cur = steps.indexOf(false); if (cur < 0) cur = 3;
+    return { steps: steps, cur: cur, label: labels[cur] };
+  }
+  function _resumeCardHTML(slots) {
+    var cand = slots.filter(function (s) { return !_isPub(s) && (s.photos || []).length; });
+    if (!cand.length) return '';
+    cand.sort(function (a, b) { return (b.createdAt || b.completedAt || 0) - (a.createdAt || a.completedAt || 0); });
+    var slot = cand[0], pipe = _pipe(slot), img = _thumb(slot);
+    var bar = pipe.steps.map(function (done, i) {
+      return '<span class="wf-resume__seg' + (done ? ' is-done' : (i === pipe.cur ? ' is-cur' : '')) + '"></span>';
+    }).join('');
+    return '<button type="button" class="wf-resume" data-wsv2-resume="' + _esc(slot.id) + '" data-haptic="light">' +
+      '<span class="wf-resume__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '></span>' +
+      '<span class="wf-resume__body">' +
+        '<span class="wf-resume__eyebrow">이어서 작업</span>' +
+        '<span class="wf-resume__title">' + _esc(slot.label || '제목 없음') + '</span>' +
+        '<span class="wf-resume__bar">' + bar + '<span class="wf-resume__step">' + _esc(pipe.label) + '</span></span>' +
+      '</span>' +
+      '<span class="wf-resume__go">이어서</span>' +
+    '</button>';
   }
   function _shellHTML(slots) {
     var visible = _filter === 'all' ? slots : slots.filter(function (s) {
@@ -176,6 +207,7 @@
           '<button type="button" class="wshc-gear" data-wsv2-settings data-haptic="light" aria-label="작업실 설정"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>' +
           (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
         '</div>' +
+        _resumeCardHTML(slots) +
         _segsHTML(slots) +
         '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
         feed +

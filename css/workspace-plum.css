@@ -1,0 +1,69 @@
+/* ════════════════════════════════════════════════════════════════
+   workspace-plum.css — 작업실 "플럼 시그니처" 스킨
+   ────────────────────────────────────────────────────────────────
+   방향(2026-07-14 확정): 쿨모브 베이스 + 딥플럼 액센트(어른 K뷰티).
+   AI 기본값(웜 크림/핑크워시) 회피. 로즈 정체성을 '성숙한 플럼'으로 승격.
+
+   구조: 색·그림자만. 레이아웃(여백/grid/position) 안 건드림 → 회귀 위험 차단.
+   스코프: body.ws-plum + 작업실 표면 컨테이너로만 한정 → 앱 밖 영향 0.
+   로드: skin-v3.css '뒤'에 로드 → 동일 특이도에서 소스순서로 플럼이 이김.
+   토글: window.ITDASY_WS_PLUM = false → 스킨 off(즉시 skin-v3 아이보리로 롤백).
+   ──────────────────────────────────────────────────────────────── */
+
+/* 1) 액센트 토큰 재지정 — 작업실 표면 스코프.
+      flow.css / home-c / feed-planner 의 var(--accent* / --brand*) 가 일괄 플럼으로. */
+body.ws-plum .wsv2flow,
+body.ws-plum .wshc,
+body.ws-plum [data-wsv2-root],
+body.ws-plum .wsv2-drawer,
+body.ws-plum .wsv2-confirm,
+body.ws-plum .fplan-overlay,
+body.ws-plum .fplan {
+  --brand:         #A06B8C;
+  --brand-strong:  #8E5A7A;
+  --brand-bg:      #EDE7EF;
+  --accent:        #A06B8C;
+  --accent-strong: #8E5A7A;
+  --accent-soft:   #EDE7EF;
+  --shadow-brand:  0 10px 24px rgba(142, 90, 122, .28);
+}
+
+/* 2) 베이스 — 쿨모브 캔버스 (skin-v3 아이보리 #FBF7F5 · 쿨그레이 대체) */
+body.ws-plum .wsv2flow { background: #F2F1F5; }
+body.ws-plum .wsv2flow .wsv2flow__actionbar {
+  background: linear-gradient(180deg, rgba(242, 241, 245, 0), #F2F1F5 28%);
+}
+body.ws-plum .wshc,
+body.ws-plum [data-wsv2-root] { background: #F2F1F5; }
+body.ws-plum .fplan { background: #F2F1F5; }
+
+/* 3) home-c 하드코딩 그라데이션(로즈) → 플럼 */
+body.ws-plum .wshc-ava--lg { background: linear-gradient(140deg, #A06B8C, #8E5A7A); }
+body.ws-plum .wf-add       { background: linear-gradient(140deg, #A06B8C, #8E5A7A); }
+body.ws-plum .t-resume--empty { background-image: linear-gradient(150deg, #8E5A7A, #4A2E44); }
+
+/* 4) 보조 표면 — skin-v3 아이보리 틴트(#F7F1EF) → 쿨모브 틴트 */
+body.ws-plum .wsv2flow .ed-note,
+body.ws-plum .wsv2flow .captail,
+body.ws-plum .wsv2flow .cap-stylecard,
+body.ws-plum .wsv2flow .up-guide-c { background: #ECEAF0; }
+
+/* 5) CTA 로즈빛 그림자(skin-v3) → 플럼빛 */
+body.ws-plum .wsv2flow .wsv2flow__cta,
+body.ws-plum .wsv2flow .cap-gen-btn,
+body.ws-plum .wsv2flow .cap-preview,
+body.ws-plum .wsv2flow .tpl-applydefault {
+  box-shadow: 0 12px 24px rgba(142, 90, 122, .26);
+}
+
+/* 6) 카드 소프트 그림자 로즈빛 → 플럼빛 */
+body.ws-plum .wsv2flow .cap-card,
+body.ws-plum .wsv2flow .cust-card,
+body.ws-plum .wsv2flow .linked-card,
+body.ws-plum .wsv2flow .up-toggle-row,
+body.ws-plum .wsv2flow .cust-search {
+  box-shadow: 0 6px 22px rgba(142, 90, 122, .09);
+}
+
+/* 7) 빈 타일 placeholder — 웜로즈(#e6cfc9) → 쿨모브 */
+body.ws-plum .wf-tile { background-color: #E6DDE6; }

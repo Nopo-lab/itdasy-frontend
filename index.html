@@ -74,11 +74,19 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
   // [cleanup 2026-07-12] ws-hyper(레이아웃-퍼스트 플로우)는 상시 기본으로 고정 — 롤백 플래그(window.ITDASY_WS_HYPER)·?wshyper=0 스위치 제거. flow.js 가 더는 읽지 않음.
   // [skin-v4] 작업실 앱-정체성 리스킨(tokens.css 정렬). ws-hyper 켜질 때만 의미, 단독 롤백용 별도 플래그.
   window.ITDASY_WS_SKIN_V4 = (window.ITDASY_WS_SKIN_V4 === true);
+  // [plum 2026-07-14] 작업실 "플럼 시그니처" 스킨(쿨모브+딥플럼). skin-v3 위에 색만 재지정.
+  //   false 로 끄면 skin-v3 아이보리+로즈로 즉시 롤백. 스코프 CSS = css/workspace-plum.css.
+  window.ITDASY_WS_PLUM = (window.ITDASY_WS_PLUM !== false);
   try {
     if (window.ITDASY_WS_SKIN_V3) {
       var _addSkin = function(){ document.body && document.body.classList.add('ws-skin-v3'); };
       if (document.body) _addSkin();
       else document.addEventListener('DOMContentLoaded', _addSkin);
+    }
+    if (window.ITDASY_WS_PLUM) {
+      var _addPlum = function(){ document.body && document.body.classList.add('ws-plum'); };
+      if (document.body) _addPlum();
+      else document.addEventListener('DOMContentLoaded', _addPlum);
     }
   } catch (_sk) { void _sk; }
   setTimeout(function(){
@@ -179,10 +187,11 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <link rel="stylesheet" href="css/workspace-v2-flow.css?v=20260713-v743-shoptypes">
 <link rel="stylesheet" href="css/feed-planner.css?v=20260713-v747-reskin">
 <link rel="stylesheet" href="css/workspace-skin-v3.css?v=20260628-skin-v3">
+<link rel="stylesheet" href="css/workspace-plum.css?v=20260714-plum-v2">
 <!-- [ws-hyper] 초고도화 레이아웃 고르기 화면 (플래그 OFF면 미사용) -->
 <link rel="stylesheet" href="css/workspace-hyper.css?v=20260713-v744-svgthumb">
 
-<link rel="stylesheet" href="css/workspace-home-c.css?v=20260713-v747-reskin">
+<link rel="stylesheet" href="css/workspace-home-c.css?v=20260714-plum-resume">
 <link rel="stylesheet" href="css/itd-editor.css?v=20260709-v716-sidevar">
 <link rel="stylesheet" href="css/workspace-crop.css?v=20260709-v716-sidevar">
 <style id="login-v22">
@@ -2257,7 +2266,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-core.js?v=20260706-v710-syncfix"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
-<script src="js/load-groups.js?v=20260712-v739-screencast-flagcleanup" defer></script>
+<script src="js/load-groups.js?v=20260714-plum-resume" defer></script>
 <script src="js/loader.js?v=20260611-split3" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>

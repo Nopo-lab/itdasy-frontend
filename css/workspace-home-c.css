@@ -132,3 +132,23 @@
 .wshc-lb__bar { padding: 8px 18px calc(16px + env(safe-area-inset-bottom)); }
 .wshc-lb__edit { width: 100%; height: 52px; border: none; border-radius: 16px; background: var(--c-brand-strong, #BC6675); color: #fff; font-size: 15.5px; font-weight: 600; cursor: pointer; transition: transform .175s cubic-bezier(.24,1,.4,1); }
 .wshc-lb__edit:active { transform: scale(.97); }
+
+/* [plum 2026-07-14] 이어서 작업 카드 — 홈 파이프라인 시그니처 (토큰 기반 → 플럼 스킨 자동 적용) */
+.wf-resume{ display:flex; align-items:center; gap:13px; width:100%; text-align:left; background:var(--surface,#fff); border:1px solid var(--border,rgba(0,0,0,.06)); border-radius:17px; padding:13px; margin:0 0 14px; cursor:pointer; box-shadow:var(--shadow-sm,0 2px 8px rgba(0,0,0,.04)); animation:wfIn .41s var(--spring) both; }
+.wf-resume:active{ transform:scale(.99); }
+.wf-resume__thumb{ width:56px; height:56px; border-radius:12px; background:var(--frame,#E8ECF1); background-size:cover; background-position:center; flex:none; }
+.wf-resume__body{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.wf-resume__eyebrow{ font-size:10.5px; font-weight:700; color:var(--accent-strong,#8E5A7A); letter-spacing:.01em; margin-bottom:3px; }
+.wf-resume__title{ font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--text,#191F28); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wf-resume__bar{ display:flex; align-items:center; gap:5px; margin-top:8px; }
+.wf-resume__seg{ width:17px; height:4px; border-radius:2px; background:var(--frame,#E4DEE6); flex:none; }
+.wf-resume__seg.is-done{ background:var(--ok,#16B55E); }
+.wf-resume__seg.is-cur{ background:var(--accent-strong,#8E5A7A); }
+.wf-resume__step{ font-size:10.5px; color:var(--text-subtle,#6B7684); margin-left:5px; white-space:nowrap; }
+.wf-resume__go{ align-self:stretch; display:flex; align-items:center; padding:0 16px; border-radius:12px; background:var(--accent-strong,#8E5A7A); color:#fff; font-weight:600; font-size:13px; flex:none; }
+
+/* [plum] 타일 상태 칩 — 진행 중인 것만(발행 완료는 사진만 깔끔) */
+.wf-chip{ position:absolute; top:7px; left:7px; z-index:1; display:inline-flex; align-items:center; gap:4px; background:rgba(36,28,40,.72); color:#fff; font-size:9.5px; font-weight:600; padding:3px 7px; border-radius:7px; letter-spacing:-.01em; }
+.wf-chip__dot{ width:5px; height:5px; border-radius:50%; background:#fff; flex:none; }
+.wf-chip--edit .wf-chip__dot{ background:var(--accent-strong,#8E5A7A); }
+.wf-chip--ready .wf-chip__dot,.wf-chip--wait .wf-chip__dot{ background:var(--warn,#F59E0B); }
