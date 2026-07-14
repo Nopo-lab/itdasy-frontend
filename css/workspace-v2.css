@@ -40,56 +40,12 @@
   background: var(--brand-bg); display: grid; place-items: center; color: var(--brand-strong);
 }
 .wsv2-hero__ill svg { width: 30px; height: 30px; stroke: var(--brand-strong); fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-/* 퀵 2칸 */
-.wsv2-quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-.wsv2-quick__btn {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-  padding: 14px 12px; border: 1px solid var(--border); border-radius: var(--r-lg);
-  background: var(--surface); cursor: pointer;
-  transition: transform .12s ease, box-shadow .12s ease;
-  box-shadow: var(--shadow-sm);
-}
-.wsv2-quick__btn:active { transform: scale(.98); }
-.wsv2-quick__btn--rose { background: var(--brand-bg); border-color: var(--brand); }
-.wsv2-quick__ic {
-  width: 36px; height: 36px; border-radius: var(--r-md); display: grid; place-items: center;
-  background: var(--surface); border: 1px solid var(--border-strong);
-}
-.wsv2-quick__btn--rose .wsv2-quick__ic { background: var(--brand-bg); border-color: var(--brand); }
-.wsv2-quick__ic svg { width: 20px; height: 20px; stroke: var(--text-muted); }
-.wsv2-quick__btn--rose .wsv2-quick__ic svg { stroke: var(--brand-strong); }
-.wsv2-quick__ic--float { animation: wsv2-float 2.4s ease-in-out infinite; }
 @keyframes wsv2-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-.wsv2-quick__label { font-size: 13px; font-weight: 800; color: var(--text); }
-.wsv2-quick__sub { font-size: 11px; color: var(--text-subtle); line-height: 1.35; }
 
 /* 새 콘텐츠 만들기 — 카테고리 (목적 선택, 카드형 가로 스크롤) */
 .wsv2-sec-head { margin: 2px 2px 11px; display: flex; align-items: baseline; justify-content: space-between; }
 .wsv2-sec-head h2 { margin: 0; font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -.3px; }
 .wsv2-sec-head .wsv2-sec-sub { font-size: 11px; color: var(--text-subtle); }
-
-.wsv2-cats { display: flex; gap: 10px; overflow-x: auto; padding: 0 2px 16px; scroll-snap-type: x proximity; }
-.wsv2-cats::-webkit-scrollbar { display: none; }
-.wsv2-cat {
-  flex: 0 0 auto; width: 100px; scroll-snap-align: start; cursor: pointer;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
-  padding: 13px 12px; border: 1px solid var(--border); border-radius: var(--r-lg);
-  background: var(--surface); box-shadow: var(--shadow-sm);
-  transition: transform .12s ease;
-}
-.wsv2-cat:active { transform: translateY(1px) scale(.99); }
-.wsv2-cat--disabled { opacity: .45; pointer-events: none; }
-.wsv2-cat__ic { width: 40px; height: 40px; border-radius: var(--r-md); display: grid; place-items: center; background: var(--brand-bg); }
-.wsv2-cat__ic svg { width: 22px; height: 22px; stroke: var(--brand-strong); }
-/* 카테고리 썸네일 — TODO: assets/workshop-cats/cat-1.jpg·cat-2.jpg 원영님이 직접 채워주세요 */
-.wsv2-cat__thumb { position: relative; width: 100%; height: 62px; border-radius: var(--r-sm); overflow: hidden; background: var(--frame) center/cover no-repeat; margin-bottom: 4px; }
-.wsv2-cat__thumb--empty { background: var(--frame); }
-.wsv2-cat__defbadge { position: absolute; top: 4px; right: 4px; font-size: 9px; font-weight: 800; color: var(--brand-strong); background: #fff; padding: 2px 6px; border-radius: 999px; box-shadow: var(--shadow-sm); }
-.wsv2-cat__split { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-.wsv2-cat__img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.wsv2-cat__t { font-size: 12px; font-weight: 800; color: var(--text); line-height: 1.25; }
-.wsv2-cat__badge { font-size: 10px; color: var(--text-subtle); font-weight: 600; }
 
 /* 필터 탭 */
 .wsv2-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 2px 13px; }
@@ -237,8 +193,6 @@
   .wsv2-drawer__card { left: 50%; right: auto; transform: translate(-50%,100%);
     width: min(560px,90%); border-radius: var(--r-xl); bottom: 24px; }
   .wsv2-drawer.is-open .wsv2-drawer__card { transform: translate(-50%,0); }
-  .wsv2-quick { grid-template-columns: repeat(4, 1fr); }
-  .wsv2-cats { flex-wrap: nowrap; }
 }
 
 /* [v545] 넓은 PC(≥1280px) — 작업실 홈 좌우 여백 과다 개선. 컨테이너 넓히고 내 콘텐츠 3열로.

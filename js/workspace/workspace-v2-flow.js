@@ -271,24 +271,13 @@
   function _cleanBase(p) { return p ? (p.baseUrl || p.dataUrl) : ''; }
   // [v591·#6] 사진에서 대표 색 추출 — 클라이언트 canvas(서버/AI 비용 0). 28px 다운샘플 후
   //   근사 흰/검 제외하고 5비트 버킷 빈도순 상위색 반환. 폰트/로고 자동추출은 부정확해 미지원(수동).
-  // [T-104 P1] _extractPalette → flow/util.js
-  // [v591·#6] 추천 색 탭 → 활성 우리샵 스타일의 모든 텍스트 역할 글자색에 적용(저장 + 미리보기 재합성).
-  // [T-104 P5] 우리샵 스타일(브랜드킷·프리셋 A~G) 클러스터 → flow/brand.js (context 주입)
-  var _WSB = (window.WSFlowBrand && window.WSFlowBrand.create) ? window.WSFlowBrand.create({
-    d: function () { return d; }, setScreen: setScreen, curPhoto: curPhoto, cleanBase: _cleanBase, dispUrl: dispUrl
-  }) : {};
-  var _applyBrandColor = _WSB._applyBrandColor, _applyBrandFont = _WSB._applyBrandFont, _applyHarmony = _WSB._applyHarmony,
-    _autoPretty = _WSB._autoPretty, _setShopType = _WSB._setShopType, _setBrandLogo = _WSB._setBrandLogo,
-    _clearBrandLogo = _WSB._clearBrandLogo, _brandLogoFromFile = _WSB._brandLogoFromFile,
-    _renamePreset = _WSB._renamePreset, _applyPreset = _WSB._applyPreset, _copyPreset = _WSB._copyPreset;
-
   // [v587·C] 우리샵 스타일 레이어 빌더 — 편집기 진입과 헤드리스 자동합성이 공유.
   function _buildShopStyleLayers() {
     var ss = (window.ShopStyle && window.ShopStyle.getActive) ? window.ShopStyle.getActive() : null;
     var roleText = _splitServiceForLayers(d.service);   // [v583·A] 시술명/시술내용 분리
     var layers = [];
     var autoArranged = false;
-    if (ss && d.useShopStyle !== false) {
+    if (ss) {
       // [v587·B-3] 해시태그도 오버레이 레이어로 — 생성된 해시태그 상위 4개만(사진 위 과밀 방지).
       var hs = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : (d.hashtags || []));
       var hashText = hs.slice(0, 4).join(' ');
@@ -437,7 +426,6 @@
   function _learnShopStyle(layers) {
     try {
       if (!Array.isArray(layers)) return;
-      if (d.useShopStyle === false) return;
       var SS = window.ShopStyle; if (!(SS && SS.getActive && SS.save)) return;
       var ss = SS.getActive(); if (!ss || !Array.isArray(ss.layers)) return;
       var byRole = {};
@@ -1500,8 +1488,7 @@
 	      if (SIMPLE_FLOW) {
 	        var _svc = d.service || '';
         // 우리샵 스타일 시드만 보장 — 스타일 카드·레이아웃 미리보기·디자인 패널은 편집기로 이동.
-        //   레거시 함수(_presetThumb/_applyPreset/_applyHarmony/_autoPretty/_setShopType 등)는 삭제 안 함(보존).
-        if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }   // [v591·#6] 사진 추천색(async)
+        if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }
 	        return photoThumb +
 	          '<div class="cap-wizscreen">' +
           '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
@@ -1600,15 +1587,6 @@
     }
     // [v589·#3] 결과 화면이면 각 사진에 우리샵 스타일 적용 미리보기 합성(원본은 보존, 결과 표시 전용).
     if (String(d.caption || '').trim()) _autoComposeTemplate();
-    // [v591·#6] 입력 화면 + 스타일 ON + 사진 있으면 — 사진에서 추천 색 추출해 팔레트 채움(클라이언트, 무료).
-    var pal = el.querySelector('[data-fl-palette]');
-    if (pal && !String(d.caption || '').trim() && d.useShopStyle !== false && !d.textOnly) {
-      // [#9] 사진에서 뽑은 색은 평균값이라 탁하게 나와 혼란 → 편집기(ItdEditor)와 '같은' 큐레이션 팔레트로 통일.
-      var cols = ['#FFFFFF', '#15181D', '#BC6675', '#E08A6E', '#E6B45A', '#86B06E', '#6E9BC4', '#A98AC4'];
-      pal.innerHTML = '<span class="cap-palette__label">글자색 · 탭하면 우리샵 글자색에 적용</span>' +
-        '<div class="cap-palette__row">' + cols.map(function (h) { return '<button type="button" class="cap-pal" data-fl-brandcolor="' + esc(h) + '" style="background:' + esc(h) + '" aria-label="' + esc(h) + '"></button>'; }).join('') + '</div>';
-      pal.hidden = false;
-    }
   }
   // [v532] 캡션 생성 단일 진입점 — Enter/상황버튼 어느 경로든 동일하게:
   //   ① DOM 에서 키워드 최신값 동기화 ② 상황축 반영(없으면 기본 '시술 완성') ③ doGenerate.
@@ -2321,20 +2299,6 @@
       var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
       var csi = t.closest('[data-fl-cshopinfo]'); if (csi) { try { localStorage.setItem('itdasy:caption_shopinfo', _shopInfoOn() ? '0' : '1'); } catch (_e) { void _e; } toast(_shopInfoOn() ? '샵정보를 글 끝에 넣을게요' : '샵정보 반영을 껐어요'); setScreen('caption'); return; }   // [#19] 샵정보 opt-in 토글
       // [v567] 원장님 말투 반영 토글 — 인스타 미연동이면 안내 후 무시(데이터 없는 반영 금지).
-      // [Phase A-2] 우리샵 스타일 적용 토글 — 생성 직전 syncServiceFromDom 으로 입력 보존 후 재렌더.
-      var css = t.closest('[data-fl-cshopstyle]'); if (css) { syncServiceFromDom(); d.useShopStyle = !(d.useShopStyle !== false); setScreen('caption'); return; }
-      var bc = t.closest('[data-fl-brandcolor]'); if (bc) { syncServiceFromDom(); _applyBrandColor(bc.getAttribute('data-fl-brandcolor')); return; }   // [v591·#6] 추천색 적용
-      // [#6] 우리샵 스타일 전환/생성
-      var sp = t.closest('[data-fl-stylepick]'); if (sp) { syncServiceFromDom(); try { window.ShopStyle.setActive(sp.getAttribute('data-fl-stylepick')); } catch (_sp) { void _sp; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('우리샵 스타일을 바꿨어요'); setScreen('caption'); return; }
-      var sn = t.closest('[data-fl-stylenew]'); if (sn) { syncServiceFromDom(); try { var _ns = window.ShopStyle.list().length + 1; var _abc = '우리샵 스타일 ' + String.fromCharCode(64 + _ns); window.ShopStyle.create({ name: _abc }, true); } catch (_sn) { void _sn; } (d.photos || []).forEach(function (p) { p._tplSig = null; }); toast('새 스타일을 만들었어요'); setScreen('caption'); return; }
-      var prn = t.closest('[data-fl-presetrename]'); if (prn) { _renamePreset(prn.getAttribute('data-fl-presetrename')); return; }   // [#7] 프리셋 이름 변경
-      var pcp = t.closest('[data-fl-presetcopy]'); if (pcp) { _copyPreset(pcp.getAttribute('data-fl-presetcopy')); return; }   // [#7] 복사해서 수정
-      var pa = t.closest('[data-fl-preset]'); if (pa) { _applyPreset(pa.getAttribute('data-fl-preset')); return; }   // [#14] 레이아웃 프리셋 A/B/C
-      var bf = t.closest('[data-fl-brandfont]'); if (bf) { syncServiceFromDom(); _applyBrandFont(bf.getAttribute('data-fl-brandfont')); return; }   // [#6] 브랜드 폰트
-      var hm = t.closest('[data-fl-harmony]'); if (hm) { syncServiceFromDom(); _applyHarmony(hm.getAttribute('data-fl-harmony')); return; }   // [P2-3] 색·폰트 어울림 조합
-      var apb = t.closest('[data-fl-autopretty]'); if (apb) { syncServiceFromDom(); _autoPretty(); return; }   // [P3-1] 알아서 예쁘게
-      var stb = t.closest('[data-fl-shoptype]'); if (stb) { _setShopType(stb.getAttribute('data-fl-shoptype')); return; }   // [P3-2] 업종
-      var lc = t.closest('[data-fl-logoclear]'); if (lc) { _clearBrandLogo(); return; }   // [#6] 로고 빼기
       var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
       // [캡션재설계] 3축 위저드 — 버튼 누르면 그 축 저장 + 다음 질문. 시술 입력은 유지(syncServiceFromDom).
       var wp = t.closest('[data-fl-wizpick]'); if (wp) {
@@ -2431,9 +2395,6 @@
 	      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.value = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
 	    });
     el.addEventListener('change', function (e) {
-      // [#6 브랜드킷] 로고 파일 선택 → 활성 스타일에 등록
-      var lg = e.target.closest && e.target.closest('[data-fl-logoadd]');
-      if (lg && lg.files && lg.files[0]) { _brandLogoFromFile(lg.files[0], function (url) { _setBrandLogo(url); }); lg.value = ''; return; }
       if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) {
         if (d._editPrev) { d.undo = d.undo || []; d.undo.push(d._editPrev); if (d.undo.length > 30) d.undo.shift(); d.redo = []; d._editPrev = null; }
 	        // 손 뗄 때 한 번만 실픽셀 확정 + 되돌리기/다시실행 버튼 상태 갱신(전체 재렌더 없이).

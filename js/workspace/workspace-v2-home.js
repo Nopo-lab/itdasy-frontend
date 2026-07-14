@@ -18,16 +18,6 @@
   // [요청1 2026-07-13] 상태머신 preview/done 도 caption 으로(통합 화면 = 결과+발행+피드). 캡션 있는 슬롯은 open() 이 d.caption 복원 → 결과 화면 표시.
   var KEY2SCREEN = { upload:'upload', edit:'edit', caption:'caption', customer:'connect', preview:'caption', done:'caption' };
 
-  // 카테고리 — 스펙에 맞춘 레이블 + 가격표는 준비중
-  // TODO: assets/workshop-cats/cat-1.jpg ~ cat-5.jpg 파일을 원영님이 직접 넣어주세요 (1:1 매핑)
-  var CATS = [
-    { key: 'ba',     label: '전후 비교',      disabled: false, split: true },          // cat-1(전)+cat-2(후)
-    { key: 'flex',   label: '시술 완료 사진', disabled: false, img: 'cat-3' },
-    { key: 'review', label: '고객 후기 사진', disabled: false, img: 'cat-4' },
-    { key: 'event',  label: '이벤트 홍보',   disabled: false, img: 'cat-5' },
-    { key: 'price',  label: '가격표',         disabled: true  },
-  ];
-
   function _esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (ch) {
       return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
@@ -60,42 +50,16 @@
 
   /* ── 컴포넌트 ── */
 
-  // [v531] 유형별 실제 템플릿 + 기본 템플릿 저장(localStorage). flow.js 와 공유(window).
-  var CAT_TEMPLATES = {
-    ba:     { ratio: '4:5', tpls: [{ id: 'wm-ba-feed', label: '전후 비교' }, { id: 'bp-ba-premium-infographic', label: '프리미엄 전후' }, { id: 'bp-ba-luxury-review', label: '럭셔리 후기 전후' }, { id: 'bp-ba-story-signature', label: '스토리 전후' }, { id: 'bp-ba-classic-poster', label: '클래식 포스터 전후' }, { id: 'bp-ba-care-guide', label: '케어 가이드 전후' }] },
-    flex:   { ratio: '4:5', tpls: [{ id: 'wm-show-feed', label: '시술 자랑' }, { id: 'wm-promo-feed', label: '인스타 피드' }] },
-    review: { ratio: '4:5', tpls: [{ id: 'wm-review-feed', label: '고객 후기' }] },
-    event:  { ratio: '1:1', tpls: [{ id: 'wm-event-feed', label: '이벤트 안내' }] },
-    price:  { ratio: '4:5', tpls: [] },
-  };
+  // [v531] 유형별 기본 템플릿 저장(localStorage). flow.js 가 get/set 으로 공유(window).
   if (!window.WorkspaceDefaultTpl) {
     window.WorkspaceDefaultTpl = {
-      cats: CAT_TEMPLATES,
       _k: function (cat) { return 'itdasy:wsv2_default_tpl_' + cat; },
       get: function (cat) { try { return localStorage.getItem(this._k(cat)) || ''; } catch (_e) { return ''; } },
       set: function (cat, id) { try { localStorage.setItem(this._k(cat), id); return true; } catch (_e) { return false; } },
     };
   }
-  function _catThumb(c) {
-    var info = CAT_TEMPLATES[c.key];
-    if (!info || !info.tpls.length) return '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
-    var def = window.WorkspaceDefaultTpl.get(c.key);
-    var tpl = info.tpls.filter(function (t) { return t.id === def; })[0] || info.tpls[0];
-    var url = '';
-    try {
-      if (window.PhotoEditorTemplateThumb && window.PhotoEditorTemplateThumb.make) {
-        var shop = ''; try { shop = localStorage.getItem('shop_name') || ''; } catch (_e) { shop = ''; }
-        url = window.PhotoEditorTemplateThumb.make({ id: tpl.id, label: tpl.label }, { ratio: info.ratio, shopName: shop }) || '';
-      }
-    } catch (_e2) { url = ''; }
-    if (!url) return '<div class="wsv2-cat__thumb wsv2-cat__thumb--empty" aria-hidden="true"></div>';
-    var isDef = !!def && def === tpl.id;
-    return '<div class="wsv2-cat__thumb" aria-hidden="true" style="background-image:url(' + _esc(url) + ')">' +
-      (isDef ? '<span class="wsv2-cat__defbadge">기본</span>' : '') + '</div>';
-  }
 
   /* ── [conceptC] 작업실 홈 디자인 — 벤토 타일 + 입력바 + 콘텐츠 그리드 ── */
-  var _CGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
   // 슬롯 상태 → 그리드 점/태그(대기·편집·준비·완료)
   function _cStatus(slot) {
     var s = ST().deriveStatus(slot);
@@ -112,23 +76,6 @@
   function _shopInitial() {
     try { var s = localStorage.getItem('shop_name'); if (s && s.trim()) return _esc(s.trim().charAt(0).toUpperCase()); } catch (_e) { /* noop */ }
     return 'N';
-  }
-
-  // 콘텐츠 셀(그리드) — 썸네일 + 상태점 + 태그 + 상대시간. 탭 = 상세 드로어(기존).
-  function _cardHTML(slot) {
-    var st = _cStatus(slot);
-    var img = _thumb(slot);
-    var t = _relTime(slot);
-    var sel = !!_selected[slot.id];
-    var go = (st.k === 'done' || _selectMode) ? '' : '<span class="gGo">' + _CGO + '</span>';
-    return '<button type="button" class="gCell' + (_selectMode ? ' gCell--select' : '') + (sel ? ' is-sel' : '') + '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' +
-      (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
-      (_selectMode ? '<span class="gCheck" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
-      '<span class="gDot gDot--' + st.k + '"></span>' + go +
-      '<span class="gTag">' + _esc(st.tag) + '</span>' +
-      (t ? '<span class="gTime">' + _esc(t) + '</span>' : '') +
-      (img ? '' : '<span class="gCell__ph" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>') +
-      '</button>';
   }
 
   // 벤토 타일 — 이어서 하기(최근 진행중) + 이번 달 발행 + 글만 쓰기
@@ -311,7 +258,7 @@
 
 	  function _pickHeroFiles(root) {
 	    var input = root && root.querySelector('[data-wsv2-file]');
-	    if (!input) { _launchFlow(null, 'upload', null); return; }
+	    if (!input) { _launchFlow(null, 'upload'); return; }
 	    input.click();
 	  }
 
@@ -325,7 +272,7 @@
 	      if (!files.length) return;
 	      // [v564·필수1] 시작하기→파일선택 후 중간 업로드 화면 없이 바로 편집 창으로.
 	      // [cleanup] 심플 플로우 상시 — 시작하기→파일선택 후 바로 캡션 생성으로.
-      _launchFlow(null, 'caption', null, { files: files });
+      _launchFlow(null, 'caption', { files: files });
 	    });
 	  }
 
@@ -350,13 +297,6 @@
         var selCard = e.target.closest('[data-wsv2-slot]');
         if (selCard) { var sid0 = selCard.getAttribute('data-wsv2-slot'); if (_selected[sid0]) delete _selected[sid0]; else _selected[sid0] = true; render(_lastRoot, { slots: _slotsCache }); return; }
       }
-      // 카테고리 클릭 — 타입 프리셋으로 플로우 진입
-      var catBtn = e.target.closest('[data-wsv2-cat]');
-      if (catBtn) {
-        var ck = catBtn.getAttribute('data-wsv2-cat');
-        if (ck === 'price') { if (window.WorkspaceAdapter) window.WorkspaceAdapter.openPriceList(); else _toast('가격표 기능을 불러오지 못했어요'); return; }
-        _launchFlow(null, 'upload', ck); return;
-      }
       // 히어로 업로드 CTA
 	      if (e.target.closest('[data-wsv2-upload]')) { _pickHeroFiles(root); return; }
       // [성과 2026-07-14] 게시물별 성과 화면(workspace-perf.js). 예전엔 openInsights(고객·매출 인사이트)로
@@ -367,23 +307,6 @@
           if (window.WorkspacePerf && window.WorkspacePerf.open) window.WorkspacePerf.open();
           else if (typeof window.openInsights === 'function') window.openInsights();
         } catch (_e) { void _e; }
-        return;
-      }
-      // 퀵 버튼
-      var quick = e.target.closest('[data-wsv2-quick]');
-      if (quick) {
-        var qk = quick.getAttribute('data-wsv2-quick');
-        if (qk === 'itbi') {
-          // 잇비 챗봇으로 위임
-          if (window.openAssistant) window.openAssistant();
-          else if (typeof openItbiTab === 'function') openItbiTab();
-          else _toast('잇비를 불러오지 못했어요');
-          return;
-	        }
-        if (qk === 'textonly') {
-          // 사진 없이 게시글만 — 플로우 진입 시 사진종류 축 없이
-          _launchFlow(null, 'caption', null, { textOnly: true }); return;
-        }
         return;
       }
       // 필터 탭
@@ -434,12 +357,13 @@
     } catch (_e) { _openDrawer(slotId); }
   }
 
-  function _launchFlow(slotId, screen, cat, extra) {
+  // cat(유형 프리셋)은 잇비 NL 경로(WorkspaceFlow.command)에서만 들어온다 — 홈에서는 안 넘긴다.
+  function _launchFlow(slotId, screen, extra) {
     if (slotId) _enteredCardId = slotId;   // [v547] 복귀 시 이 카드로 스크롤 복원
     var slot = slotId ? _slotsCache.filter(function (s) { return s.id === slotId; })[0] : null;
     if (window.WorkspaceFlow && typeof window.WorkspaceFlow.open === 'function') {
       _closeDrawer();
-      window.WorkspaceFlow.open(Object.assign({ slot: slot, startScreen: screen || 'upload', cat: cat || null }, extra || {}));
+      window.WorkspaceFlow.open(Object.assign({ slot: slot, startScreen: screen || 'upload' }, extra || {}));
     } else { _toast('작업실 플로우를 불러오지 못했어요'); }
   }
 
@@ -450,7 +374,7 @@
     var st = ST();
     var next = st.nextAction(slot);
     var screen = KEY2SCREEN[next.key] || 'edit';
-    _launchFlow(slotId, screen, null);
+    _launchFlow(slotId, screen);
   }
 
   // [요청7 2026-07-13] 피드 정렬 — 저장된 내 콘텐츠 전체를 인스타 3열 그리드에 올려 드래그로 순서 정렬·저장(홈 진입).
@@ -494,7 +418,7 @@
     // [v540] 편집 버튼 의도별 딥링크 — 사진편집/누끼·배경/비율자르기/템플릿이 각자 위치로 진입(기존 콘텐츠 유지).
     var FOCUS = { '사진 편집': 'photo-edit', '누끼/배경': 'background', '비율 자르기': 'crop', '템플릿': 'template' };
     var extra = FOCUS[actKey] ? { focus: FOCUS[actKey] } : null;
-    _launchFlow(_drawerSlotId, screen, null, extra);
+    _launchFlow(_drawerSlotId, screen, extra);
   }
 
   // [v542] 게시 완료 토글 — slot.publish 상태를 IndexedDB(saveSlotToDB)에 영구 저장 → 카드 green badge 유지.

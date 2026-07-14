@@ -57,30 +57,6 @@
 .wshc .cFilter button{border:none;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;background:var(--c-surface2);color:var(--c-text-muted);}
 .wshc .cFilter button.on{background:var(--c-text);color:#fff;}
 
-/* 그리드 */
-.wshc .cGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:0 16px;}
-.wshc .cGrid__empty{grid-column:1/-1;text-align:center;color:var(--c-text-subtle);font-size:13px;font-weight:600;padding:40px 0;}
-.wshc .gCell{position:relative;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--c-surface2);background-size:cover;background-position:center;border:none;padding:0;}
-.wshc .gCell::after{content:'';position:absolute;inset:0;background:linear-gradient(transparent 56%,rgba(0,0,0,.36));}
-.wshc .gCell:active{transform:scale(.97);}
-.wshc .gCell__ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--c-text-subtle);z-index:1;}
-.wshc .gCell__ph svg{width:26px;height:26px;}
-.wshc .gTag{position:absolute;left:7px;bottom:7px;font-size:10.5px;font-weight:700;color:#fff;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.4);}
-.wshc .gTime{position:absolute;right:7px;bottom:7px;font-size:9.5px;font-weight:700;color:rgba(255,255,255,.92);z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.5);}
-.wshc .gDot{position:absolute;top:8px;left:8px;width:7px;height:7px;border-radius:50%;z-index:2;box-shadow:0 0 0 2px rgba(255,255,255,.55);}
-.wshc .gDot--wait{background:var(--c-text-subtle);}
-.wshc .gDot--edit{background:var(--c-brand);}
-.wshc .gDot--ready{background:var(--c-warn);}
-.wshc .gDot--done{background:var(--c-ok);}
-.wshc .gGo{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.92);color:var(--c-text);display:grid;place-items:center;z-index:2;}
-.wshc .gGo svg{width:12px;height:12px;}
-/* 선택 모드 */
-.wshc .gCell--select::before{content:'';position:absolute;inset:0;z-index:3;border-radius:14px;box-shadow:inset 0 0 0 2px transparent;}
-.wshc .gCell.is-sel::before{box-shadow:inset 0 0 0 3px var(--c-brand-strong);}
-.wshc .gCheck{position:absolute;top:6px;right:6px;z-index:4;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.7);color:transparent;display:grid;place-items:center;}
-.wshc .gCheck svg{width:13px;height:13px;}
-.wshc .gCell.is-sel .gCheck{background:var(--c-brand-strong);color:#fff;}
-
 /* ── [인스타 피드 홈] 3열 그리드 · 좌상단 + 업로드 · Astryx 스프링 마감 ── */
 .wshc--feed{ --spring:cubic-bezier(.24,1,.4,1); background:#F9F8F7; padding:0 0 calc(90px + env(safe-area-inset-top)); }
 .wshc-phead{ display:flex; align-items:center; gap:12px; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; }
