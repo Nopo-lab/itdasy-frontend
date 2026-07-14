@@ -1427,31 +1427,7 @@
         return '<button type="button" class="cap-svctag" data-fl-svcrecent="' + esc(s) + '" title="' + esc(s) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
   }
 
-  // [다양성 팩 2026-07-12] 게시물별 '말투·성격' 칩 — 친근/전문/감성/이벤트/후기. 원장이 게시물마다 톤을 고른다
-  //   (기존엔 SIMPLE_FLOW 에서 톤 선택이 사라져 페르소나 1개로 수렴). 클릭은 기존 data-fl-ctone 위임 핸들러가 d.capTone 세팅.
-  var _TONE_CHIPS = [
-    ['friendly', '친근', 'ph-hand-heart'],
-    ['professional', '전문', 'ph-seal-check'],
-    ['emotional', '감성', 'ph-sparkle'],
-    ['event', '이벤트', 'ph-megaphone-simple'],
-    ['review', '후기', 'ph-chat-circle-text']
-  ];
-  function _toneHint(t) {
-    return { friendly: '단골에게 말하듯 다정하고 부담 없이.', professional: '시술 포인트를 또렷하게, 신뢰감 있게.',
-      emotional: '분위기·무드를 살리는 잔잔한 감성 톤.', event: '혜택·예약을 강조하는 이벤트 홍보 톤.',
-      review: '고객이 남긴 듯한 1인칭 만족 후기체.' }[t] || '';
-  }
-  function _toneChipsHtml() {
-    var set = _TONE_CHIPS.map(function (o) { return o[0]; });
-    var cur = set.indexOf(d.capTone) >= 0 ? d.capTone : 'friendly';
-    return '<label class="cap-field-label" style="margin-top:14px">말투 · 게시물 성격</label>' +
-      '<div class="cap-chips cap-tonechips">' + _TONE_CHIPS.map(function (o) {
-        var on = cur === o[0];
-        return '<button type="button" class="cap-chip cap-tonechip' + (on ? ' on' : '') + '" data-fl-ctone="' + o[0] + '" aria-pressed="' + on + '"><i class="ph-duotone ' + o[2] + '"></i>' + o[1] + '</button>';
-      }).join('') + '</div>' +
-      '<p class="cap-field-hint" data-fl-tonehint>' + _toneHint(cur) + '</p>';
-  }
-  // 말투 칩 → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
+  // d.capTone(친근/전문/감성/이벤트/후기) → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
   //   안전 enum(ornate/plain) + extra_notes 로 성격 주입(caption_intent enum·tone_override enum 위반 0).
   function _resolveTone(t) {
     switch (t) {
@@ -1515,9 +1491,8 @@
               '<button type="button" class="cap-composer__send" data-fl-cgen aria-label="캡션 생성"><i class="ph-duotone ph-arrow-up"></i></button>' +
             '</div>' +
           '</div>' +
-          // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤). _toneChipsHtml/_resolveTone 은 보존. (HYPER 상시 → 하단 svctags 분기 제거)
+          // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤 d.capTone='friendly', _resolveTone 이 매핑).
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
-          _capConfirmHtml() +
           '</div>';
 	      }
 
@@ -1972,33 +1947,13 @@
     if (stripped) out = stripped;   // 본문이 전부 해시태그였던 극단 케이스는 원본 유지
     return out || nomd.trim();   // 전부 걸러지면(극단) 마크다운만 제거한 본문 유지
 	  }
-	  // [P1-1] 캡션 생성 전 '확인칩' — 입력에서 분리된 샵/고객/시술을 사용자가 보고 ✎로 직접 고친다.
-	  //   오버라이드(d.capShopOverride/d.capCustOverride)는 doGenerate 가 파싱보다 우선 사용 → 오분리 즉시 교정.
+	  // 입력에서 샵/고객/시술을 분리 — 샵 파싱이 자동(#1)이라 확인칩(P1-1)은 제거됨.
 	  function _capParseService() {
 	    var raw = String(d.service || '');
 	    var c = _cleanService(raw);
-	    var shop = (d.capShopOverride != null) ? d.capShopOverride : (c.shop || _shopName() || '');   // [#1] 사용자가 친 인라인 샵 우선(stale 등록값 'Dd' 가 덮어쓰는 것 방지)
-	    var customer = (d.capCustOverride != null) ? d.capCustOverride : (c.customer || (d.customerId ? d.customerName : '') || '');   // [#1] 연결된 고객(customerId)만 재사용, stale 이름('방') 방지
+	    var shop = c.shop || _shopName() || '';   // [#1] 사용자가 친 인라인 샵 우선(stale 등록값 'Dd' 가 덮어쓰는 것 방지)
+	    var customer = c.customer || (d.customerId ? d.customerName : '') || '';   // [#1] 연결된 고객(customerId)만 재사용, stale 이름('방') 방지
 	    return { shop: shop, customer: customer, service: c.service || raw };
-	  }
-	  function _capConfirmHtml() {
-	    return '';   // [#3] 캡션 생성 화면에서 '검증(확인칩)' 제거 — 샵 파싱이 자동(#1)이라 불필요. 오버라이드 로직은 doGenerate 에 유지.
-	  }
-	  function _refreshCapConfirm() {
-	    var box = el && el.querySelector('[data-fl-confirm]');
-	    if (!box) return;
-	    var tmp = document.createElement('div'); tmp.innerHTML = _capConfirmHtml();
-	    box.replaceWith(tmp.firstChild);
-	  }
-	  function _editCapOverride(kind) {
-	    var p = _capParseService();
-	    var cur = kind === 'shop' ? p.shop : p.customer;
-	    var title = kind === 'shop' ? '우리샵 이름 (게시글에 이대로 표기)' : '고객 이름 (없으면 비워두세요)';
-	    (window._inlinePrompt || window.prompt)(title, cur || '', function (v) {
-	      var nv = (v == null ? '' : String(v)).trim();
-	      if (kind === 'shop') d.capShopOverride = nv; else { d.capCustOverride = nv; d.customerName = nv; }
-	      _refreshCapConfirm();
-	    });
 	  }
 	  function doGenerate(extra, label) {
 	    if (d.capLoading) return;   // [audit] 생성 중 재탭 무시 — 연타 시 API 이중 호출(비용) 방지
@@ -2236,9 +2191,8 @@
       var edsel = t.closest('[data-fl-editsel]'); if (edsel) { return switchEditPhoto(+edsel.getAttribute('data-fl-editsel')); }
       var edswipe = t.closest('[data-fl-edswipe]'); if (edswipe) { return _stepEditPhoto(edswipe.getAttribute('data-fl-edswipe') === 'next' ? 1 : -1); }   // [v550] PC 화살표
 	      var basictool = t.closest('[data-fl-basictool]'); if (basictool) { d.basicTool = basictool.getAttribute('data-fl-basictool'); _setEditSection('[data-ed-basic]', _mainAdjustHtml()); return; }
-	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); d.control = null; _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
+	      var edtab = t.closest('[data-fl-edtab]'); if (edtab) { d.editTab = edtab.getAttribute('data-fl-edtab'); _setEditSection('[data-ed-adv]', _advFoldHtml()); _renderVpTools(); if (d.maskView || d.maskPaint) _renderMaskOverlay(); return; }
 	      var beautytool = t.closest('[data-fl-beautytool]'); if (beautytool) { d.precTool = beautytool.getAttribute('data-fl-beautytool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
-	      var edtool = t.closest('[data-fl-edtool]'); if (edtool) { d.control = edtool.getAttribute('data-fl-edtool'); _setEditSection('[data-ed-adv]', _advFoldHtml()); return; }
       if (t.closest('[data-fl-bgpick]')) { el.querySelector('[data-fl-bgfile]').click(); return; }
       var bgb = t.closest('[data-fl-bg]'); if (bgb) { return applyBg(bgb.getAttribute('data-fl-bg')); }
       var bgc = t.closest('[data-fl-bgcolor]'); if (bgc) { d.bgColor = bgc.getAttribute('data-fl-bgcolor'); return applyBg('color'); }
@@ -2307,11 +2261,7 @@
       var psel = t.closest('[data-fl-pairsel]'); if (psel) { d.activeDisplayId = psel.getAttribute('data-fl-pairsel'); _rerenderTplResult(); return; }
       var pstep = t.closest('[data-fl-pairstep]'); if (pstep) { _stepPair(pstep.getAttribute('data-fl-pairstep') === 'next' ? 1 : -1); return; }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
-      // [v558] 캡션 입력화면 칩/토글/생성 — 말투/길이/해시태그 선택 + 단일 생성 버튼.
-      var ct = t.closest('[data-fl-ctone]'); if (ct) { d.capTone = ct.getAttribute('data-fl-ctone'); setScreen('caption'); return; }
       var csi = t.closest('[data-fl-cshopinfo]'); if (csi) { try { localStorage.setItem('itdasy:caption_shopinfo', _shopInfoOn() ? '0' : '1'); } catch (_e) { void _e; } toast(_shopInfoOn() ? '샵정보를 글 끝에 넣을게요' : '샵정보 반영을 껐어요'); setScreen('caption'); return; }   // [#19] 샵정보 opt-in 토글
-      // [v567] 원장님 말투 반영 토글 — 인스타 미연동이면 안내 후 무시(데이터 없는 반영 금지).
-      var cfm = t.closest('[data-cfm]'); if (cfm) { syncServiceFromDom(); _editCapOverride(cfm.getAttribute('data-cfm')); return; }   // [P1-1] 확인칩 ✎
       // [캡션재설계] 3축 위저드 — 버튼 누르면 그 축 저장 + 다음 질문. 시술 입력은 유지(syncServiceFromDom).
       var wp = t.closest('[data-fl-wizpick]'); if (wp) {
         syncServiceFromDom();
@@ -2357,7 +2307,6 @@
 		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
 	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요');
 	      }
-      var seg = t.closest('[data-fl-seg]'); if (seg) { d.capSeg = seg.getAttribute('data-fl-seg'); setScreen('caption'); if (d.capSeg === 'write') { var bd = el.querySelector('[data-fl-igcap],[data-fl-capbody]'); if (bd) bd.focus(); } return; }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
       var files = Array.from(e.target.files || []); e.target.value = '';
@@ -2396,15 +2345,12 @@
 	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
 	      }
 	      if (e.target.matches('[data-fl-brush]')) { d.maskBrush = +e.target.value; return; }   // [v561] 붓 크기
-      if (e.target.matches('[data-fl-capbody]')) { d.caption = e.target.value; var cc = el.querySelector('[data-fl-capcount]'); if (cc) cc.textContent = (d.caption || '').length; }
-      if (e.target.matches('[data-fl-footer]')) { d.captionTemplate = e.target.value; }
-      if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; d.capShopOverride = null; d.capCustOverride = null; _refreshCapConfirm(); }   // [P1-1] 입력 바뀌면 오버라이드 해제+확인칩 갱신
+      if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
     el.addEventListener('focusin', function (e) {
       // 보정·정밀 슬라이더 모두 한 스냅샷(adjust+beauty)으로 묶어 되돌리기/다시실행 일원화.
       if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) { if (!d._editPrev) d._editPrev = _snapEdit(); }
-	      if (e.target.matches('[data-fl-capbody]') && e.target.getAttribute('data-empty') === '1') { e.target.value = ''; e.target.removeAttribute('data-empty'); e.target.style.color = ''; }
 	    });
     el.addEventListener('change', function (e) {
       if (e.target.matches('[data-fl-range],[data-fl-beautyrange]')) {
@@ -3344,10 +3290,9 @@
 	    });
 	  }
 	  function syncCaptionFromDom() {
-	    // [v584] 캡션은 카드 안 contenteditable(igcap)이 원본. (레거시 capbody 도 호환)
+	    // [v584] 캡션은 카드 안 contenteditable(igcap)이 원본.
 	    var ig = el.querySelector('[data-fl-igcap]');
 	    if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); return; }
-	    var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim();
 	    if (ig) ig.textContent = d.caption;
 	  }
 
@@ -3360,8 +3305,6 @@
     if (!el) return;
     var ig = el.querySelector('[data-fl-igcap]');   // [v584] 카드 안 캡션 편집(원본)
     if (ig && ig.isContentEditable) { d.caption = (ig.textContent || '').trim(); }
-    else { var b = el.querySelector('[data-fl-capbody]'); if (b && b.getAttribute('data-empty') !== '1') d.caption = (b.value != null ? b.value : b.textContent).trim(); }
-    var f = el.querySelector('[data-fl-footer]'); if (f && typeof f.value === 'string') d.captionTemplate = f.value;
     // [v587] 해시태그 = 카드 안 contenteditable(.ig-hash-edit) → d.hashtags/selectedHashes(저장·미리보기·복사 반영).
     var h = el.querySelector('[data-fl-ighash]');
     if (h && h.isContentEditable) { var hs = _parseHashes(h.textContent); d.hashtags = hs; d.selectedHashes = hs.slice(); }
@@ -3619,7 +3562,7 @@
       capUsePersona: (cm.use_persona !== false),   // [P2 2026-07-10] 원장님 말투 반영 기본 ON(전송 시 IG연동 게이트 유지) — 저장본이 명시적 false면 존중
 
       publish: (slot && slot.publish) ? Object.assign({}, slot.publish) : { status: 'draft', instagramPreparedAt: null, publishedAt: null },
-      recent: [], recentLoaded: false, capLoading: false, capSeg: 'rec',
+      recent: [], recentLoaded: false, capLoading: false,
 	      editTab: 'skin', control: null, basicTool: 'brightness', precTool: null, editIdx: null, bgOpen: false, advOpen: true, tplOpen: true, adjust: newAdjust(), beauty: newBeauty(), undo: [], redo: [], originalPreview: false, previewUrl: null, bgAction: null, bgColor: null, bgBusy: false, bgFail: false,
       maskPaint: false, maskBrush: 26, maskErase: false, _paintCv: {},   // [v561] 직접 칠하기(수동 마스크)
 	      captionAxes: null, captionTemplate: '',
