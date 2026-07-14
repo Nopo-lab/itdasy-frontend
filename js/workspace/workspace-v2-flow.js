@@ -369,6 +369,8 @@
         : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl())));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
+    // [T-115 P2] 이어서편집·레이아웃이 아닌 '깨끗한 열기'일 때만 ★기본 작업 기억을 올린다. 플래그 OFF면 null(=기존 동작 그대로).
+    var _wmEd = (!_restore && !_wsEd && window.WorkMemory) ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length }) : null;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
@@ -379,7 +381,7 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
-      editState: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.editState : (_restore || (o.fresh ? null : ((p0 && p0.editState) || null))),   // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정)
+      editState: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.editState : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd))),   // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
@@ -3472,6 +3474,7 @@
     var slot = buildSlot();
     var done = function () {
       toast(d.customerName ? (d.customerName + ' 고객 기록에 저장했어요.') : '작업실에 저장했어요.');
+      try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(slot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
       close();
       if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
     };
@@ -3510,6 +3513,7 @@
   function _markPublishedNow() {
     d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
     if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
+    try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(buildSlot(), d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
     _closePublishSheet();
     toast('게시물이 저장되었습니다');
     // [v548] 게시 완료 시 작업이 끝났음을 명확히 — 플로우 닫고 작업실 홈으로(카드 게시완료 badge 갱신).
@@ -3574,6 +3578,7 @@
           } catch (_le) { void _le; }
           // [v542] 게시 완료 상태를 저장소에 반영(이전엔 게시 전 slot 만 저장 → 새로고침 시 badge 사라짐).
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
+          try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(buildSlot(), d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
           _pubFinish(function () {
             d._publishing = false;
             toast(kind === 'carousel' ? '여러 장 게시물을 올렸어요' : '인스타그램에 올렸어요');
