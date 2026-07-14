@@ -142,7 +142,10 @@
     - ① **배치 학습**(위치·크기·폰트·외곽선 → 활성 ShopStyle 덮어쓰기) → **기억이 소유**. `WorkMemory.flagOn()` 이면 여기선 안 배움(같은 걸 두 곳에 저장하면 '왜 내 스타일이 저절로 바뀌지?' 가 됨). **기억 OFF(기본)면 예전 그대로 배움** — 안 그러면 대체재 없이 기능만 잃는다.
     - ② **지운 역할 기억**(`enabled:false`, v590) → **flow 가 계속 소유. 절대 지우면 안 됨.** 기억엔 대응물이 없고, 이게 빠지면 `_buildShopStyleLayers`(`L.enabled === false` 체크)가 지운 레이어를 다시 올리고 편집기 `_renderMissingIncoming` 도 '빠진 역할'로 보고 되살린다. **기억 ON 에서도 필요.**
     - `window.WorkMemory` 자체가 없으면(모듈 로드 실패) 예전 동작으로 폴백.
-- flow 클러스터: **util.js**(96, `WSFlowUtil`)·**caption-text.js**(94)·**connect.js**(80)·**brand.js**(217)·**harmony-presets.js**(16)·**layout.js**(188)·**publish-progress.js**(42)·**thumbs.js**(47).
+- flow 클러스터: **util.js**(96, `WSFlowUtil`)·**caption-text.js**(94)·**connect.js**(80)·**brand.js**(217)·**harmony-presets.js**(16)·**layout.js**(392)·**publish-progress.js**(42)·**thumbs.js**(47).
+  - **[2026-07-15 T-116] layout.js = 결과물 여러 장(`d.wsCards`).** 카드 1개 = 올라갈 사진 1장 = `templateOutputs` 1개. 진입하면 사진 순서대로 **2장씩 자동 묶음**(첫=전·둘째=후, `reassignRoles` 와 같은 규칙) → 5장이면 2+2+낱장 = 결과물 3장. 화면=카드 좌우 캐러셀 + **하단 도크**(메뉴 전체/전후/자랑/붙이기/후기/팁/가격 = `kind` 매핑, 썸네일 좌우 슬라이드). **레이아웃을 고르고(=든다) 카드를 누르면 적용** — 사진 수가 맞는 카드만 눌림(빈 칸/사진증발 차단). 합치기(옆 카드와, 최대 4장)·나누기(낱장으로). 안 들고 있을 땐 미리보기가 곧 `slot-stage`(드래그=위치·핀치=확대).
+  - `d.wsLayout`/`d._wsAssign` 은 **첫 카드 별칭**으로 유지 — 편집기 브리지(`_wsLayoutEditState`)·발행 kind 등 기존 소비처 무변경. 카드 목록/사진이 바뀌면 `_reconcile()` 이 **슬롯 수=사진 수** 불변식을 맞춘다.
+  - 발행: 결과물 2장 이상이면 `_publishKind()`=carousel 이고 **캐러셀에 합성본(`templateOutputs[].outputUrl`)을 보낸다** — 원본 사진을 보내면 레이아웃이 조용히 사라짐.
 - layout: **layout-model.js**(183, `WorkspaceLayout` 합성기 스타터A~H)·**slot-stage.js**(92, 드래그focal·핀치zoom).
 
 ### 편집기 (js/itd-editor/**)
