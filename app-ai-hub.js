@@ -45,9 +45,7 @@
       // [2026-06-11] 사진편집기 AI허브 노출 제거 — 작업실 내부 진입으로 통일
       // [2026-05-25] SNS 캡션 + AI 페르소나 통합 — 'AI 페르소나' 단일 진입점.
       //   클릭 시 바텀시트로 3개 옵션(SNS 캡션 / 말투 새로 분석 / 분석 리포트 보기).
-      { act: 'hashtag', icon: 'ph-hash', boxColor: 'teal',
-        name: '해시태그 매니저', meta: '업종별 추천 · 원터치 복사',
-        type: 'plain' },
+      // [2026-07-08] 해시태그 매니저 행 제거 — 캡션 생성(작업실)이 해시태그를 이미 포함, 역할 중복
       { act: 'persona', icon: 'ph-user-circle-gear', boxColor: 'pink',
         name: '내 말투', meta: 'SNS 캡션 · 말투 분석 · 리포트',
         type: 'tag', tagText: '학습됨' },
@@ -65,9 +63,7 @@
       { act: 'kakao', icon: 'ph-bell-ringing', boxColor: 'amber',
         name: '카카오 알림톡', meta: '예약확정 · 리마인드 · 생일',
         type: 'toggle', toggleKey: KEY_KAKAO },
-      { act: 'posts', icon: 'ph-squares-four', boxColor: 'teal',
-        name: '게시물 관리', meta: '완료 슬롯 · 마무리 탭',
-        type: 'plain' },
+      // [2026-07-08] 게시물 관리 행 제거 — 작업실(마무리 탭)과 중복. 홈 카드·드로어 진입은 유지.
       // [2026-05-25] AI 잇비 메모 / 스마트 캡처 행 제거 — 잇비 대화창 안에서 직접 호출.
       //   메모 = 잇비 채팅 헤더 메뉴, 카톡·명함·가격표 OCR = 잇비 채팅 + 버튼.
     ];
@@ -304,8 +300,7 @@
     dmmenu:  'openDMMenuSettings',
     kakao:   'openKakaoHub',
     persona: '__personaHubOpen',   // [2026-05-25] SNS 캡션 + 페르소나 통합 시트
-    hashtag: '__snsHashtagOpen',
-    posts:   null,
+    // hashtag / posts 라우트 제거 (2026-07-08) — 작업실과 중복, 행 삭제됨
     // caption 단독 라우트는 persona 시트의 'SNS 캡션 만들기' 옵션으로 흡수 (2026-05-25)
     // memo / capture 라우트는 잇비 채팅에서 직접 호출 (행 자체 제거됨, 2026-05-25)
     photoEditor: '__photoEditorOpen',   // 함수 매핑 — 아래 _route에서 공통 편집기 진입점으로 분기
@@ -313,9 +308,7 @@
 
   function _canRoute(act) {
     if (act === 'comment') return true;   // extras lazy — _route 에서 로드 보장 후 진입
-    if (act === 'posts') return typeof window.openFinishTab === 'function' || typeof window.showTab === 'function';
     if (act === 'photoEditor') return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
-    if (act === 'hashtag') return !!(window.SNSHashtag && typeof window.SNSHashtag.open === 'function');
     if (act === 'persona') return true;   // 항상 진입 가능 (옵션 가용성은 시트 안에서 분기)
     const fn = _ROUTE_MAP[act];
     return !!(fn && typeof window[fn] === 'function');
@@ -346,26 +339,6 @@
       }
       try { window.PhotoEditor.open({}); }
       catch (_e) { if (window.showToast) window.showToast('편집기를 여는 중 문제가 생겼어요'); }
-      return;
-    }
-    if (act === 'hashtag') {
-      try { window.SNSHashtag.open(); }
-      catch (err) {
-        console.warn('[AIHub] 해시태그 매니저 열기 실패', err);
-        if (window.showToast) window.showToast('해시태그 매니저를 여는 중 문제가 생겼어요');
-      }
-      return;
-    }
-    if (act === 'posts') {
-      try {
-        if (typeof window.openFinishTab === 'function') {
-          window.openFinishTab();
-        } else if (window.showToast) {
-          window.showToast('게시물 관리 화면을 찾을 수 없어요');
-        }
-      } catch (e) {
-        if (window.showToast) window.showToast('게시물 관리 진입 실패 — ' + (e && e.message || ''));
-      }
       return;
     }
     const fnName = map[act];
