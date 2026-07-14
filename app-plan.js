@@ -125,14 +125,30 @@
       const res = await apiFetch('/subscription/usage', { headers });
       if (!res.ok) throw new Error('usage ' + res.status);
       const u = await res.json();
+      // [버그6] BE 실제 응답 shape는 중첩 객체 — { plan, caption:{used,limit,period}, removebg:{…}, publish:{…}, analyze:{…}, portfolio_tag:{…} }
+      // 기존 코드는 평면 필드(u.caption_today)를 읽어 항상 rows=0 → "불러올 수 없어요"로 빠지던 버그.
+      const _fmtLimit = (l) => (l == null || l < 0) ? '∞' : l;
+      const _defs = [
+        ['caption', 'AI 캡션/해시태그', ''],
+        ['removebg', '누끼·배경', ''],
+        ['analyze', '말투 분석', ' (이번 달)'],
+        ['publish', '인스타 발행', ' (이번 달)'],
+        ['portfolio_tag', '포트폴리오 자동태그', ''],
+      ];
       const rows = [];
-      if (u.caption_today !== undefined) rows.push(`• AI 캡션/해시태그: ${u.caption_today}/${u.caption_limit || '∞'}`);
-      if (u.removebg_today !== undefined) rows.push(`• 누끼·배경: ${u.removebg_today}/${u.removebg_limit || '∞'}`);
-      if (u.analyze_month !== undefined) rows.push(`• 말투 분석: ${u.analyze_month}/${u.analyze_limit || '∞'} (이번 달)`);
-      if (u.publish_month !== undefined) rows.push(`• 인스타 발행: ${u.publish_month}/${u.publish_limit || '∞'} (이번 달)`);
-      box.innerHTML = rows.length ? rows.join('<br>') : '사용량 정보를 불러올 수 없어요';
+      let recognized = false; // 예상 shape의 키를 하나라도 이해했는지 (파싱 성공 판정)
+      for (const [key, label, suffix] of _defs) {
+        const it = u && u[key];
+        if (it && typeof it === 'object' && it.used !== undefined) {
+          recognized = true;
+          rows.push(`• ${label}: ${it.used}/${_fmtLimit(it.limit)}${suffix}`);
+        }
+      }
+      if (rows.length) box.innerHTML = rows.join('<br>');
+      else if (recognized) box.textContent = '아직 사용 내역이 없어요'; // 200이지만 집계 전/빈 경우
+      else box.textContent = '사용량 정보를 표시할 수 없어요'; // 응답 shape 예상 밖 (파싱 실패)
     } catch (_) {
-      box.textContent = '사용량을 불러오지 못했어요';
+      box.textContent = '사용량을 불러오지 못했어요'; // 네트워크/HTTP 실패
     }
   }
 

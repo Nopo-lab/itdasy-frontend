@@ -377,7 +377,6 @@
       `;
     }
     document.body.appendChild(sheet);
-    sheet.querySelector('#customerSearch').addEventListener('input', _rerender);
     sheet.querySelector('#customerAddBtn').addEventListener('click', _openAddForm);
     sheet.querySelector('[data-customer-close]')?.addEventListener('click', () => window.closeCustomers());
     // chip + 요약 스트립 클릭 (둘 다 data-seg 필터, is-on 동기화)
@@ -390,6 +389,15 @@
         _windowSize = 50;
         _rerender();
       });
+    });
+    // [버그7] 검색어 입력 시작 시 활성 필터칩 자동 해제 — 검색과 칩이 AND로 걸려 "4회+ 켠 채 이름 검색 → 0명" 나오던 문제
+    sheet.querySelector('#customerSearch').addEventListener('input', (e) => {
+      if (String(e.target.value || '').trim() && (window._customerSeg || 'all') !== 'all') {
+        _activeSeg = 'all';
+        window._customerSeg = 'all';
+        sheet.querySelectorAll('.cv4-chip, .cv4-stat').forEach(b => b.classList.toggle('is-on', b.dataset.seg === 'all'));
+      }
+      _rerender();
     });
     return sheet;
   }
@@ -465,6 +473,17 @@
   // _windowSize 초기값 50, "더 보기" 클릭마다 +50.
   let _windowSize = 50;
   const WINDOW_STEP = 50;
+
+  // [버그3] 내부 태그(snake_case) 표시용 매핑 — BE가 DB에 저장한 내부 태그(dm_auto_registered 등)가
+  // 목록 서브라인에 raw로 노출되던 문제. 기존 고객 데이터라 FE 매핑 필수(BE만 고치면 기존 고객 깨짐).
+  const _TAG_LABELS = { dm_auto_registered: 'DM 자동 등록' };
+  window.itdDisplayTag = function (t) {
+    const raw = String(t || '').trim();
+    if (_TAG_LABELS[raw]) return _TAG_LABELS[raw];
+    // 매핑 없는 미지의 snake_case 내부태그(영문 소문자/숫자 + 언더스코어)는 숨김
+    if (/^[a-z0-9]+(_[a-z0-9]+)+$/.test(raw)) return null;
+    return raw;
+  };
 
   function _rerender() {
     const sheet = document.getElementById('customerSheet');
@@ -550,7 +569,7 @@
           const barCls = _barClass(vc);
           const badgeCls = barCls;
           // [2026-07-08 A안] 서브라인=태그(없으면 숨김), 우측=마지막 방문, NEW=이번 달 등록. 꺾쇠 삭제.
-          const tags = Array.isArray(c.tags) ? c.tags.filter(Boolean).slice(0, 3).map(_esc).join(' · ') : '';
+          const tags = Array.isArray(c.tags) ? c.tags.map(window.itdDisplayTag).filter(Boolean).slice(0, 3).map(_esc).join(' · ') : '';
           const lastV = _lastVisitLabel(c.last_visit_at);
           const newBadge = _isThisMonth(c.created_at) ? '<span class="c-badge nw">NEW</span>' : '';
           return `<div class="${rowCls}" data-id="${c.id}" data-chosung="${k}" role="button" tabindex="0">

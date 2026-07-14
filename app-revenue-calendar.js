@@ -113,7 +113,10 @@
       const t = _itemTitle(r);
       const nm = _esc(t.main) + (t.sub ? `<span class="sub">${_esc(t.sub)}</span>` : '');
       const pm = TAG_LABEL[_normMethod(r.method)];
-      return `<div class="rvcal-li"><span class="nm">${nm}</span><span class="pm">${pm}</span><span class="am">${_money(r.amount)}</span></div>`;
+      // [버그2] 실제 매출 행만 인라인 편집 가능 — 예약금 합성 엔트리(_booking_deposit)는 예약에서 관리하므로 제외
+      const editable = !r._booking_deposit && r.id != null;
+      const attrs = editable ? ` data-rev-id="${_esc(String(r.id))}" style="cursor:pointer"` : '';
+      return `<div class="rvcal-li${editable ? ' is-editable' : ''}"${attrs}><span class="nm">${nm}</span><span class="pm">${pm}</span><span class="am">${_money(r.amount)}</span></div>`;
     }).join('');
     detailEl.className = 'rvcal-detail';
     detailEl.innerHTML = `
@@ -176,6 +179,14 @@
       detailEl._rvcalBound = true;
       detailEl.addEventListener('click', (e) => {
         if (e.target.closest('[data-rvcal-close]')) { deselect(); return; }
+        // [버그2] 매출 행 탭 → 그 행 아래로 인라인 편집(금액·결제수단 수정 + 삭제) 펼침
+        const li = e.target.closest('.rvcal-li[data-rev-id]');
+        if (li && window.RevenueEdit) {
+          const id = li.getAttribute('data-rev-id');
+          const rec = (byDay[selected] || []).find(r => String(r.id) === String(id));
+          if (rec) window.RevenueEdit.toggle(li, rec);
+          return;
+        }
         const btn = e.target.closest('[data-rvcal-add]');
         if (!btn) return;
         try { window._revenueHubPrefillDate = btn.getAttribute('data-rvcal-add') || ''; } catch (_e) { void _e; }

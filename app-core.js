@@ -151,49 +151,81 @@ Object.defineProperty(window, '_instaHandle', {
 const _toastQueue = [];
 let _toastActive = false;
 
+// 숨김·다음큐 타이머 핸들 전역 보관 — 재진입/타이머 중첩 시에도 토스트가 절대 잔류하지 않도록 (버그1 방어)
+let _toastHideTimer = null;
+let _toastNextTimer = null;
+const TOAST_MAX_DURATION = 5000; // duration 상한 캡
+
 function showToast(msg, opts) {
   const o = typeof opts === 'object' ? opts : { type: opts || 'info' };
-  _toastQueue.push({ msg, type: o.type || 'info', duration: o.duration || 2400 });
+  const d = Math.min(Number(o.duration) || 2400, TOAST_MAX_DURATION);
+  _toastQueue.push({ msg, type: o.type || 'info', duration: d });
   if (!_toastActive) _nextToast();
 }
 
+function _hideToastEl(el) {
+  if (!el) return;
+  el.style.opacity = '0';
+  el.style.transform = 'translateX(-50%) translateY(-120%)';
+  el.style.pointerEvents = 'none';
+}
+
 function _nextToast() {
+  // 진입 시 이전 타이머 전부 정리 — 스케줄이 중첩돼 숨김이 씹히는 상황 차단
+  if (_toastHideTimer) { clearTimeout(_toastHideTimer); _toastHideTimer = null; }
+  if (_toastNextTimer) { clearTimeout(_toastNextTimer); _toastNextTimer = null; }
+
   if (!_toastQueue.length) { _toastActive = false; return; }
   _toastActive = true;
   const { msg, type, duration } = _toastQueue.shift();
 
-  let el = document.getElementById('itdToast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'itdToast';
-    el.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%) translateY(-120%);z-index:99999;padding:12px 20px;border-radius:var(--r-md,14px);font-size:14px;font-weight:600;box-shadow:var(--shadow-md);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;pointer-events:none;max-width:calc(100vw - 32px);text-align:center;';
-    document.body.appendChild(el);
+  let el;
+  try {
+    el = document.getElementById('itdToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'itdToast';
+      el.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);left:50%;transform:translateX(-50%) translateY(-120%);z-index:99999;padding:12px 20px;border-radius:var(--r-md,14px);font-size:14px;font-weight:600;box-shadow:var(--shadow-md);transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .3s;opacity:0;pointer-events:none;max-width:calc(100vw - 32px);text-align:center;';
+      document.body.appendChild(el);
+    }
+
+    const colors = {
+      info:    { bg: 'var(--surface)', color: 'var(--text)' },
+      success: { bg: '#E8F8EF', color: '#0F6E56' },
+      warning: { bg: '#FEF3E2', color: '#854F0B' },
+      error:   { bg: '#FEE8E8', color: '#A32D2D' },
+    };
+    const c = colors[type] || colors.info;
+    el.style.background = c.bg;
+    el.style.color = c.color;
+    el.textContent = msg;
+
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateX(-50%) translateY(0)';
+      el.style.pointerEvents = 'auto';
+    });
+  } catch (_e) {
+    // 렌더 중 예외가 나도 상태를 절대 물고 있지 않게 — 다음 큐로 넘김
+    _toastActive = false;
+    _toastNextTimer = setTimeout(_nextToast, 0);
+    return;
   }
 
-  const colors = {
-    info:    { bg: 'var(--surface)', color: 'var(--text)' },
-    success: { bg: '#E8F8EF', color: '#0F6E56' },
-    warning: { bg: '#FEF3E2', color: '#854F0B' },
-    error:   { bg: '#FEE8E8', color: '#A32D2D' },
-  };
-  const c = colors[type] || colors.info;
-  el.style.background = c.bg;
-  el.style.color = c.color;
-  el.textContent = msg;
-
-  requestAnimationFrame(() => {
-    el.style.opacity = '1';
-    el.style.transform = 'translateX(-50%) translateY(0)';
-    el.style.pointerEvents = 'auto';
-  });
-
-  setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(-50%) translateY(-120%)';
-    el.style.pointerEvents = 'none';
-    setTimeout(_nextToast, 320);
+  _toastHideTimer = setTimeout(() => {
+    _toastHideTimer = null;
+    _hideToastEl(el);
+    _toastNextTimer = setTimeout(_nextToast, 320);
   }, duration);
 }
+
+// [버그5] 예약 메모 표시용 정리 — DB 원본은 운영 추적용으로 보존, 화면 표시만 정규식으로 정돈
+window.itdCleanMemo = function (s) {
+  let m = String(s == null ? '' : s);
+  m = m.replace(/\s*\(?sender=\w+\)?/g, '');                // "sender=7480" / "(sender=7480)" 제거
+  m = m.replace(/DM 자동 등록\s*\([^)]*\)/g, 'DM 자동 등록');   // "DM 자동 등록 (예약 시 NER, …)" → "DM 자동 등록"
+  return m.trim();
+};
 
 function isKakaoTalk() {
   return /KAKAOTALK/i.test(navigator.userAgent);

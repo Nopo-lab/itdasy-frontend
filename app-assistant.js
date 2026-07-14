@@ -581,7 +581,8 @@
       const phone = b.customer_phone || b.phone || '';
       const deposit = Number(b.deposit || 0);
       const amount = Number(b.amount || 0);
-      const memo = b.memo ? _esc(String(b.memo).slice(0, 80)) : '';
+      const memoClean = b.memo ? (window.itdCleanMemo ? window.itdCleanMemo(String(b.memo)) : String(b.memo)) : '';
+      const memo = memoClean ? _esc(memoClean.slice(0, 80)) : '';
       const rows = [];
       rows.push(`<div style="font-weight:700;font-size:15px;color:#191F28;">${who}${svc ? ` <span style="font-weight:500;color:#4E5968;">· ${svc}</span>` : ''}</div>`);
       rows.push(`<div style="font-size:13px;color:#4E5968;margin-top:3px;">${_esc(human)} · ${status}</div>`);

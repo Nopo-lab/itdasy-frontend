@@ -1286,7 +1286,8 @@
     if (raw.deposit != null && +raw.deposit > 0) money.push('예약금 ' + (+raw.deposit).toLocaleString() + '원');
     if (raw.amount != null && +raw.amount > 0) money.push('예상 시술비 ' + (+raw.amount).toLocaleString() + '원');
     if (money.length) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;">${esc(money.join('  ·  '))}</div>`);
-    if (raw.memo) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;white-space:pre-line;">메모 ${esc(raw.memo)}</div>`);
+    const _memoDisp = raw.memo ? (window.itdCleanMemo ? window.itdCleanMemo(String(raw.memo)) : String(raw.memo)) : '';
+    if (_memoDisp) info.push(`<div style="font-size:13px;color:var(--text-subtle,#8B95A1);margin-top:6px;white-space:pre-line;">메모 ${esc(_memoDisp)}</div>`);
     ov.innerHTML = `
       <div style="background:var(--surface,#fff);width:100%;max-width:460px;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
@@ -2403,18 +2404,13 @@
     if (typeof window._perfMark === 'function') window._perfMark('calendar:open:start');
     const existing = _overlay(); if (existing) existing.remove();
 
-    // 상태 복원 — [2026-05-28] view는 항상 'month' 로 진입 (saveState에서도 제외)
-    const saved = _loadState();
+    // [버그8] 예약관리 재진입 시 선택일은 항상 오늘로 초기화 — 이전 세션/선택 잔존으로
+    // 미니캘린더가 옛 날짜(예: 6일)로 열리던 문제. 저장된 dateISO는 더 이상 선택일로 복원하지 않는다.
+    // [2026-05-28] view는 항상 'month' 로 진입.
     const now = new Date();
-    if (saved && saved.dateISO) {
-      _curDate = new Date(saved.dateISO + 'T00:00:00');
-      _curYear = saved.y || now.getFullYear();
-      _curMonth = saved.m || (now.getMonth() + 1);
-    } else {
-      _curYear = now.getFullYear();
-      _curMonth = now.getMonth() + 1;
-      _curDate = now;
-    }
+    _curYear = now.getFullYear();
+    _curMonth = now.getMonth() + 1;
+    _curDate = now;
     _curView = 'month';
     _miniMonth = { y: _curYear, m: _curMonth };
     _cachedIsPC = _isPC();
