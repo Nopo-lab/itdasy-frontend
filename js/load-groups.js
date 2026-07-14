@@ -5,7 +5,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   photo: [
   'app-gallery-utils.js',
   'app-gallery-db.js?v=20260611-b7b8',
-  'app-gallery-workshop.js?v=20260617-v502-workspace-design-p15',
+  'app-gallery-workshop.js?v=20260714-v746-v2only',
   'js/workspace/workspace-state.js?v=20260619-v522-workspace-nl-p3',
   'js/workspace/shop-style.js?v=20260628-v591-variant-grid-brandcolor',
   'js/workspace/work-memory.js?v=20260714-v744-workmemory-p2',

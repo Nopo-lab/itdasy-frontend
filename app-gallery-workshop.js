@@ -99,43 +99,37 @@ async function renderHomeResume() {
 window.renderHomeResume = renderHomeResume;
 
 // ── 작업실 탭 초기화 ───────────────────────────────────────────
+//   [2026-07-14] Workspace V2 가 작업실의 유일한 셸이다. 기존 셸로 되돌아가는 폴백 + ITDASY_WORKSPACE_V2
+//   플래그 제거 — 플래그는 true 하드코딩이라 분기가 죽어 있었고, 폴백은 V2 렌더가 throw 할 때만 도달하는데
+//   console.warn 뿐이라 발화해도 아무도 몰랐다. 게다가 그 안에서 이미 죽은 드래그 초기화를 부르고 있었다
+//   = 테스트되지 않아 썩은 안전망. 실패는 조용히 감추는 대신 소리나게 알린다.
+//   (아래 레거시 셸 함수들은 이제 호출자가 없다 — highlightWorkshopSlot 의 .ws-slot-card 셀렉터를
+//    V2 타일로 고치는 작업과 함께 별도 정리 예정.)
 async function initWorkshopTab() {
   const root = document.getElementById('workshopRoot');
   if (!root) return;
 
-  // [v501 Phase1] Workspace V2 — 작업실 첫 화면 교체.
-  //   휴면 폴백: window.ITDASY_WORKSPACE_V2 = false 또는 렌더 실패 시 아래 기존 렌더로 복귀.
-  if (window.ITDASY_WORKSPACE_V2 !== false &&
-      window.WorkspaceV2 && typeof window.WorkspaceV2.render === 'function') {
-    try {
-      let slots;
-      try { slots = await loadSlotsFromDB(); }
-      catch (_e) { console.warn('[workshop] V2 슬롯 로드 실패', _e); slots = []; }
-      _slots = slots || [];
-      window.WorkspaceV2.render(root, { slots: _slots });
-      return;
-    } catch (e) {
-      console.warn('[workshop] V2 렌더 실패 — 기존 작업실로 폴백', e);
-      _wsInited = false;                 // 기존 셸 강제 재구성
-      root.removeAttribute('data-ws-shell-bound');
-      root.innerHTML = '';
-    }
-  }
-
-  if (!_wsInited) {
-    _wsInited = true;
-    root.innerHTML = _buildWorkshopHTML();
-    _bindWorkshopShell(root);
-  }
-
-  try { _slots = await loadSlotsFromDB(); }
+  let slots;
+  try { slots = await loadSlotsFromDB(); }
   catch (e) {
     // [2026-06-10] 침묵 실패 픽스 — 슬롯이 있는데 빈 화면으로 보이던 문제
     console.warn('[workshop] 슬롯 불러오기 실패', e);
-    _slots = [];
+    slots = [];
     if (window.showToast) window.showToast('작업 내역을 불러오지 못했어요 — 새로고침해 주세요');
   }
-  _scheduleBatchRender({ photoGrid: true, slotCards: true, banner: true });
+  _slots = slots || [];
+
+  if (!(window.WorkspaceV2 && typeof window.WorkspaceV2.render === 'function')) {
+    console.error('[workshop] WorkspaceV2 미로드');
+    if (window.showToast) window.showToast('작업실을 불러오지 못했어요 — 새로고침해 주세요');
+    return;
+  }
+  try {
+    window.WorkspaceV2.render(root, { slots: _slots });
+  } catch (e) {
+    console.error('[workshop] V2 렌더 실패', e);
+    if (window.showToast) window.showToast('작업실을 여는 중 문제가 생겼어요 — 새로고침해 주세요');
+  }
 }
 
 function _buildWorkshopHTML() {
