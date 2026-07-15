@@ -157,10 +157,16 @@ describe('_hasSignal — 0 위에 추천을 얹으면 안 된다', () => {
     expect(_hasSignal({ likes: 0, comments: 0, saved: 0, shares: 0 })).toBe(false);
   });
 
-  test('하나라도 있으면 신호 있음', () => {
+  test('🔴 우리 답글만 잔뜩 달린 글은 "반응 없음" 이다', () => {
+    const { _hasSignal } = loadPerf(STARTERS);
+    expect(_hasSignal({ likes: 0, comments: 18, saved: 0, shares: 0 })).toBe(false);
+  });
+
+  test('손님이 남긴 것(좋아요·저장·공유)이 하나라도 있으면 신호 있음', () => {
     const { _hasSignal } = loadPerf(STARTERS);
     expect(_hasSignal({ likes: 0, comments: 0, saved: 1, shares: 0 })).toBe(true);
     expect(_hasSignal({ likes: 0, comments: 0, saved: 0, shares: 1 })).toBe(true);
+    expect(_hasSignal({ likes: 1, comments: 0, saved: 0, shares: 0 })).toBe(true);
   });
 });
 
@@ -185,15 +191,23 @@ describe('_agg — 표본 가드가 핵심', () => {
     expect(out[0].enough).toBe(true);
   });
 
-  test('반응 점수 = 좋아요 + 댓글×2 + 저장×3 + 공유×4', () => {
+  test('반응 점수 = 좋아요 + 저장×3 + 공유×4', () => {
     const { _score } = loadPerf(STARTERS);
-    expect(_score({ likes: 10, comments: 5, saved: 2, shares: 1 })).toBe(10 + 10 + 6 + 4);
+    expect(_score({ likes: 10, saved: 2, shares: 1 })).toBe(10 + 6 + 4);
   });
 
   test('공유 1건이 좋아요 1건보다 무겁다 — 예약에 더 가까운 행동이라', () => {
     const { _score } = loadPerf(STARTERS);
     expect(_score({ shares: 1 })).toBeGreaterThan(_score({ likes: 1 }));
     expect(_score({ saved: 1 })).toBeGreaterThan(_score({ likes: 1 }));
+  });
+
+  test('🔴 댓글은 점수에 안 들어간다 — 우리 답글이 comments_count 에 섞이기 때문', () => {
+    // cbt4 라이브에서 실제로 터진 케이스: 좋아요·저장·공유 전부 0인데 우리 자동응답 답글
+    //   18개만으로 "사진 3장이 제일 반응 좋았어요" 라는 허구 추천이 나갔다.
+    //   답글을 많이 달수록 점수가 오르는 순환 구조 → 댓글은 표시만 하고 판단엔 안 쓴다.
+    const { _score } = loadPerf(STARTERS);
+    expect(_score({ likes: 0, comments: 100, saved: 0, shares: 0 })).toBe(0);
   });
 
   test('반응 점수 평균이 높은 축이 1등 — 예약 0건이라도 순위가 나온다', () => {
