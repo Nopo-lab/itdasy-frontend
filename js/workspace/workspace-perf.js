@@ -27,6 +27,7 @@
   var WINDOW_DAYS = 7;              // 발행 후 며칠까지 그 게시물 덕으로 볼지
   var DAY = 86400000;
   var MIN_POSTS = 3;                // 이 건수 미만이면 "먹혔다"고 말하지 않는다
+  var ANALYZE_DAYS = 14;            // "무엇이 먹혔나" 분석 창 — 반년 전 글과 섞으면 요즘 감이 안 나온다
   var CQ_MEDIA_LIMIT = 12;          // /instagram/comment-queue 서버 상한(instagram.py: min(x,12))
 
   // 말투 키 → 라벨. workspace-v2-flow.js _TONE_CHIPS 와 같은 집합.
@@ -148,10 +149,37 @@
     return wc.templateLabel || PURPOSE_LABEL[wc.templatePurpose] || PURPOSE_LABEL[wc.type] || '';
   }
 
-  /** 사진 장수 — "몇 장 올린 게 반응 좋나"는 원장님이 바로 따라할 수 있는 축이라 따로 뽑는다. */
-  function _photoCountOf(slot) {
-    var n = (slot && slot.photos && slot.photos.length) || 0;
+  /**
+   * 사진 장수 — "몇 장 올린 게 반응 좋나"는 원장님이 바로 따라할 수 있는 축.
+   * [2026-07-15] 인스타 응답(children_count) 우선, 없으면 슬롯. 작업실 밖에서 올린 글이나
+   *   templateOutputs 가 없는 옛 글도 장수는 IG 가 직접 알려주므로 표본이 훨씬 넓어진다.
+   */
+  function _photoCountOf(slot, post) {
+    var n = (post && post.children_count) || 0;
+    if (!n && post && post.media_type && post.media_type !== 'CAROUSEL_ALBUM') n = 1;
+    if (!n) n = (slot && slot.photos && slot.photos.length) || 0;
     return n ? (n >= 4 ? '4장 이상' : n + '장') : '';
+  }
+
+  /** 캡션 길이 — 원장님이 바로 조절할 수 있는 축. 인스타 캡션 그대로에서 뽑는다. */
+  function _capLenOf(post) {
+    var t = (post && post.caption) || '';
+    if (!t) return '캡션 없음';
+    var n = t.replace(/#\S+/g, '').trim().length;   // 해시태그 뺀 본문 길이
+    if (n < 60) return '짧게';
+    if (n < 180) return '보통';
+    return '길게';
+  }
+
+  /** 해시태그 개수 — 뷰티 계정에서 유입에 크게 작용하는 축. */
+  function _tagCountOf(post) {
+    var t = (post && post.caption) || '';
+    var m = t.match(/#\S+/g);
+    var n = m ? m.length : 0;
+    if (!n) return '없음';
+    if (n <= 5) return '1~5개';
+    if (n <= 15) return '6~15개';
+    return '16개 이상';
   }
 
   /**
@@ -189,9 +217,13 @@
       return {
         id: p.id, thumb: p.thumb_url || '', caption: p.caption || '', permalink: p.permalink || '',
         likes: p.like_count || 0, comments: p.comments_count || 0, saved: p.saved || 0, reach: p.reach || 0,
+        shares: p.shares || 0,
         publishedAt: ts || (slot && slot.publish && slot.publish.publishedAt) || 0,
         slot: slot, tone: slot ? _toneOf(slot) : null, layout: slot ? _layoutOf(slot) : '',
-        photoCount: slot ? _photoCountOf(slot) : '',
+        // 아래 3축은 슬롯이 없어도 인스타 응답만으로 뽑힌다 → 작업실 밖에서 올린 글도 분석에 들어간다
+        photoCount: _photoCountOf(slot, p),
+        capLen: _capLenOf(p),
+        tagCount: _tagCountOf(p),
         title: (slot && (slot.service || slot.label)) || '', bookings: [], sureCount: 0,
         inquiries: 0, intents: []
       };
@@ -219,12 +251,18 @@
   }
 
   /**
-   * 축(레이아웃/말투/사진장수)별 집계.
-   * 반응 점수 = 좋아요 + 댓글×2 + 저장×3 — 백엔드 top_posts 가 쓰는 가중치와 같게 맞췄다
-   *   (instagram_insights.py:200). 도달(reach)은 비즈니스 계정 아니면 0이라 %는 안 쓴다.
-   * 예약은 표본이 얇아 0이 많으므로 반응 점수를 1순위로, 예약을 2순위로 정렬한다.
+   * 반응 점수 — 가중치는 "원장님한테 얼마나 값진 행동인가" 순.
+   *   좋아요(1) < 댓글(2) < 저장(3) < 공유(4). 저장·공유는 "나중에 여기 가야지"에 가까워서
+   *   좋아요보다 예약에 훨씬 가깝다. 백엔드 top_posts(instagram_insights.py) 가중치를
+   *   이어받되 shares 를 얹었다 — 팔로워 적은 1인샵은 좋아요가 통째로 0 이라 신호가 안 된다.
+   * 도달(reach)은 프로 계정 아니면 0이라 분모로 안 쓴다(%는 만들지 않는다).
    */
-  function _score(r) { return (r.likes || 0) + (r.comments || 0) * 2 + (r.saved || 0) * 3; }
+  function _score(r) {
+    return (r.likes || 0) + (r.comments || 0) * 2 + (r.saved || 0) * 3 + (r.shares || 0) * 4;
+  }
+
+  /** 이 게시물에 반응이라 할 만한 게 하나라도 있나 — 전부 0이면 추천의 근거가 될 수 없다. */
+  function _hasSignal(r) { return _score(r) > 0; }
 
   function _agg(rows, keyFn) {
     var m = {};
@@ -302,23 +340,44 @@
    * 원장님이 다음 게시물을 만들 때 따라할 수 있는 축만 놓는다: 레이아웃·말투·사진 장수.
    */
   function _compareHtml(rows) {
-    var scored = rows.filter(function (r) { return r.slot; });
-    if (!scored.length) {
-      return '<div class="wsp-sect">무엇이 먹혔나</div>' +
-        '<div class="wsp-empty">이 게시물들을 작업실에서 올린 기록이 없어서 아직 못 따져요. ' +
-        '작업실에서 올린 글이 쌓이면 여기서 알려드릴게요.</div>';
+    /* [2026-07-15] 분석 창 = 최근 2주. 반년 전 글이랑 섞으면 '요즘 뭐가 먹히나'를 못 본다
+       (인스타 알고리즘·계절·시술 유행이 다 바뀐다). 게시물 목록은 그대로 다 보여준다. */
+    var cut = Date.now() - ANALYZE_DAYS * DAY;
+    var win = rows.filter(function (r) { return r.publishedAt && r.publishedAt >= cut; });
+
+    var head = '<div class="wsp-sect">무엇이 먹혔나 <span class="wsp-sect__s">최근 ' + ANALYZE_DAYS + '일</span></div>';
+    if (!win.length) {
+      return head + '<div class="wsp-empty">최근 ' + ANALYZE_DAYS + '일 안에 올린 글이 없어요.</div>';
     }
+
+    /* 반응이 하나도 없으면 순위를 만들지 않는다.
+       [중요] 여기서 억지로 1등을 뽑으면 '0점 vs 0점' 중 아무거나 고르는 꼴이라
+         원장님이 그걸 믿고 작업 방식을 바꾼다. 없는 근거를 지어내느니 없다고 말한다.
+         (cbt4 실측: 2주 13건에 좋아요 0·저장 0·공유 0 — 이 분기가 실제로 필요하다) */
+    var signal = win.filter(_hasSignal);
+    if (!signal.length) {
+      return head + '<div class="wsp-empty">최근 ' + ANALYZE_DAYS + '일 글 ' + win.length + '건에 ' +
+        '좋아요·저장·공유가 아직 없어서 뭐가 먹히는지 못 따져요.<br>' +
+        '<b>반응이 쌓이면 여기서 알려드릴게요.</b></div>';
+    }
+
     /* 축 정의. lead 는 축마다 따로 쓴다 — "2장 사진 장수으로" 같은 조사 깨짐을 막고,
-       원장님이 그대로 따라할 수 있는 문장으로 만든다. */
+       원장님이 그대로 따라할 수 있는 문장으로 만든다.
+       사진장수·캡션길이·해시태그는 슬롯이 없어도 인스타 응답만으로 뽑히므로 표본이 넓다.
+       레이아웃·말투는 작업실에서 올린 글에만 있다 → 없으면 그 축은 자동으로 빠진다. */
     var AXES = [
       { label: '레이아웃', icon: 'ph-layout', keyFn: function (r) { return r.layout || null; },
         lead: function (k) { return '<b>' + esc(k) + '</b> 레이아웃으로 올린 글'; } },
-      { label: '말투', icon: 'ph-chat-circle-text', keyFn: function (r) { return r.tone ? (TONE_LABEL[r.tone] || r.tone) : null; },
-        lead: function (k) { return '<b>' + esc(k) + '</b> 말투로 쓴 글'; } },
       { label: '사진 장수', icon: 'ph-images', keyFn: function (r) { return r.photoCount || null; },
         lead: function (k) { return '사진 <b>' + esc(k) + '</b> 올린 글'; } },
+      { label: '캡션 길이', icon: 'ph-text-align-left', keyFn: function (r) { return r.capLen || null; },
+        lead: function (k) { return '캡션을 <b>' + esc(k) + '</b> 쓴 글'; } },
+      { label: '말투', icon: 'ph-chat-circle-text', keyFn: function (r) { return r.tone ? (TONE_LABEL[r.tone] || r.tone) : null; },
+        lead: function (k) { return '<b>' + esc(k) + '</b> 말투로 쓴 글'; } },
+      { label: '해시태그', icon: 'ph-hash', keyFn: function (r) { return r.tagCount || null; },
+        lead: function (k) { return '해시태그를 <b>' + esc(k) + '</b> 단 글'; } },
     ];
-    AXES.forEach(function (x) { x.list = _agg(scored, x.keyFn); });
+    AXES.forEach(function (x) { x.list = _agg(win, x.keyFn); });
 
     /* 맨 위 한 줄 결론.
        [주의] 축끼리 점수를 비교하면 안 된다 — 세 축은 같은 게시물을 다르게 자를 뿐이라, 대박 글 하나를
@@ -330,14 +389,37 @@
       if (e && AXES[i].list.filter(function (o) { return o.enough; }).length >= 2) top = { ax: AXES[i], o: e };
     }
     var lead = top
-      ? '<div class="wsp-lead">지금까지는 ' + top.ax.lead(top.o.key) + '이 제일 반응 좋았어요 ' +
+      ? '<div class="wsp-lead">최근 ' + ANALYZE_DAYS + '일은 ' + top.ax.lead(top.o.key) + '이 제일 반응 좋았어요 ' +
         '<span>(' + top.o.posts + '건 기준)</span></div>'
       : '<div class="wsp-lead wsp-lead--thin">아직 뭐가 먹히는지 말하기엔 일러요. ' +
         '같은 방식으로 ' + MIN_POSTS + '건쯤 올려서 서로 비교되면 여기서 알려드릴게요.</div>';
 
-    return '<div class="wsp-sect">무엇이 먹혔나</div>' + lead +
+    return head + lead + _recoHtml(AXES) +
       AXES.map(function (x) { return _axisHtml(x.label, x.list, x.icon); }).join('') +
-      '<div class="wsp-legend">반응 = 좋아요 + 댓글×2 + 저장×3 (인스타 성과 계산과 같은 기준)</div>';
+      '<div class="wsp-legend">반응 = 좋아요 + 댓글×2 + 저장×3 + 공유×4. ' +
+      '저장·공유를 크게 보는 건 "나중에 여기 가야지"에 더 가까워서예요.</div>';
+  }
+
+  /**
+   * 다음 글 추천 — 이 화면의 존재 이유. 분석만 보여주면 원장님이 뭘 해야 할지 모른다.
+   * 표본(MIN_POSTS)과 비교군(2가지 이상)을 채운 축의 1등만 모아서 "이렇게 해보세요"로 낸다.
+   *   → 근거 없는 축은 아예 문장에 안 넣는다. 채운 축이 하나도 없으면 카드 자체를 안 그린다.
+   */
+  function _recoHtml(axes) {
+    var picks = axes.map(function (x) {
+      var e = x.list.filter(function (o) { return o.enough; });
+      return (e.length >= 2) ? { label: x.label, key: e[0].key, posts: e[0].posts } : null;
+    }).filter(Boolean);
+    if (!picks.length) return '';
+    var items = picks.map(function (p) {
+      return '<li><span class="wsp-reco__k">' + esc(p.label) + '</span>' +
+        '<b>' + esc(p.key) + '</b><span class="wsp-reco__s">' + p.posts + '건 기준</span></li>';
+    }).join('');
+    return '<div class="wsp-reco">' +
+      '<div class="wsp-reco__h"><i class="ph-duotone ph-lightbulb-filament"></i>다음 글은 이렇게 해보세요</div>' +
+      '<ul class="wsp-reco__l">' + items + '</ul>' +
+      '<div class="wsp-reco__d">최근 ' + ANALYZE_DAYS + '일 반응이 좋았던 방식이에요. ' +
+      '똑같이 하라는 건 아니고, 애매할 때 참고하시라는 뜻이에요.</div></div>';
   }
 
   function _rowHtml(r) {
@@ -513,7 +595,8 @@
     _internals: {
       _attribute: _attribute, _buildRows: _buildRows, _matchSlot: _matchSlot, _agg: _agg,
       _layoutOf: _layoutOf, _photoCountOf: _photoCountOf, _attachInquiries: _attachInquiries, _score: _score,
-      _ro: _ro, MIN_POSTS: MIN_POSTS,
+      _capLenOf: _capLenOf, _tagCountOf: _tagCountOf, _hasSignal: _hasSignal,
+      _ro: _ro, MIN_POSTS: MIN_POSTS, ANALYZE_DAYS: ANALYZE_DAYS,
     },
   };
 })();

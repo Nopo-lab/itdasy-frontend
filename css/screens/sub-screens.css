@@ -344,9 +344,20 @@
 .wsp-bar__v { font-size: 12px; font-weight: 700; color: var(--text-sub, #4E5968); font-variant-numeric: tabular-nums; }
 .wsp-bar__s { grid-column: 2 / -1; font-size: 10.5px; color: var(--text-sub, #8B95A1); margin-top: 3px; }
 
-.wsp-legend { font-size: 10.5px; color: var(--text-sub, #8B95A1); margin: -2px 0 20px; }
+.wsp-legend { font-size: 10.5px; color: var(--text-sub, #8B95A1); margin: -2px 0 20px; line-height: 1.5; }
+
+/* 다음 글 추천 — 이 화면의 결론. 분석 막대보다 위, 눈에 먼저 들어와야 한다. */
+.wsp-reco { padding: 14px; border-radius: 14px; background: rgba(42,140,99,.07); border: 1px solid rgba(42,140,99,.2); margin-bottom: 14px; }
+.wsp-reco__h { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: #2A8C63; margin-bottom: 10px; }
+.wsp-reco__l { list-style: none; margin: 0; padding: 0; }
+.wsp-reco__l li { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; font-size: 13px; color: var(--text, #191F28); }
+.wsp-reco__l li b { font-weight: 800; color: #1F7350; }
+.wsp-reco__k { flex: 0 0 62px; font-size: 11.5px; color: var(--text-sub, #8B95A1); }
+.wsp-reco__s { margin-left: auto; font-size: 10.5px; color: var(--text-sub, #8B95A1); }
+.wsp-reco__d { font-size: 11px; color: var(--text-sub, #8B95A1); line-height: 1.6; margin-top: 8px; }
 
 .wsp-sect { font-size: 12.5px; color: var(--text-sub, #8B95A1); margin: 0 0 8px; }
+.wsp-sect__s { font-size: 11px; opacity: .8; }
 .wsp-card { border: 1px solid var(--border, #E5E8EB); border-radius: 14px; padding: 12px; margin-bottom: 10px; background: var(--surface, #fff); }
 .wsp-card__top { display: flex; gap: 12px; }
 .wsp-card__im { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; flex: 0 0 auto; background: #EDEFF2; }

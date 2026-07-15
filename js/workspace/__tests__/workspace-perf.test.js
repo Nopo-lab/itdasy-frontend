@@ -21,9 +21,11 @@ function loadPerf(layoutPresets) {
   return global.window.WorkspacePerf._internals;
 }
 
+// layout-model.js STARTERS 의 실제 id 를 쓴다 — v748-wsredesign 이 17종을 5종으로 줄였다.
+//   죽은 id(wsl-single, wsl-ba-tb …)로 테스트하면 통과해도 허구를 검증하는 셈이다.
 const STARTERS = [
   { id: 'wsl-ba-lr', name: '전후 · 좌우' },
-  { id: 'wsl-ba-tb', name: '전후 · 상하' },
+  { id: 'wsl-grid-4', name: '4컷 · 그리드' },
 ];
 
 describe('_layoutOf — 실제 프리셋을 봐야 한다', () => {
@@ -39,7 +41,7 @@ describe('_layoutOf — 실제 프리셋을 봐야 한다', () => {
   test('좌우와 상하가 서로 다른 값으로 갈린다 (예전엔 둘 다 "전후" 로 뭉갰음)', () => {
     const { _layoutOf } = loadPerf(STARTERS);
     const lr = { templateOutputs: [{ templateId: 'wsl-ba-lr' }], workspaceContext: { templatePurpose: 'before_after' } };
-    const tb = { templateOutputs: [{ templateId: 'wsl-ba-tb' }], workspaceContext: { templatePurpose: 'before_after' } };
+    const tb = { templateOutputs: [{ templateId: 'wsl-grid-4' }], workspaceContext: { templatePurpose: 'before_after' } };
     expect(_layoutOf(lr)).not.toBe(_layoutOf(tb));
   });
 
@@ -53,6 +55,19 @@ describe('_layoutOf — 실제 프리셋을 봐야 한다', () => {
     const { _layoutOf } = loadPerf(STARTERS);
     const slot = { templateOutputs: [{ templateId: 'wsl-알수없음' }], workspaceContext: { templateLabel: '내가 만든 틀' } };
     expect(_layoutOf(slot)).toBe('내가 만든 틀');
+  });
+
+  test('삭제된 프리셋으로 올린 옛 글도 뭉뚱그린 분류로는 살아남는다', () => {
+    // v748-wsredesign 이 프리셋을 17종 → 5종으로 줄였다. 그 전에 wsl-single 로 올린 글이
+    //   getById=null 이 되면서 레이아웃 축에서 통째로 사라지면 학습 이력이 날아간다.
+    const { _layoutOf } = loadPerf(STARTERS);
+    const old = { templateOutputs: [{ templateId: 'wsl-single' }], workspaceContext: { templatePurpose: 'feed' } };
+    expect(_layoutOf(old)).toBe('피드');
+  });
+
+  test('삭제된 프리셋 + 폴백도 없으면 빈값 — 모르면 지어내지 않는다', () => {
+    const { _layoutOf } = loadPerf(STARTERS);
+    expect(_layoutOf({ templateOutputs: [{ templateId: 'wsl-single' }], workspaceContext: {} })).toBe('');
   });
 
   test('슬롯이 없으면 빈 문자열', () => {
@@ -96,6 +111,57 @@ describe('_photoCountOf', () => {
     expect(_photoCountOf({ photos: [1, 2, 3, 4, 5] })).toBe('4장 이상');
     expect(_photoCountOf({ photos: [] })).toBe('');
   });
+
+  test('인스타 children_count 가 슬롯보다 우선 — 작업실 밖 글도 장수를 안다', () => {
+    const { _photoCountOf } = loadPerf(STARTERS);
+    expect(_photoCountOf(null, { children_count: 3, media_type: 'CAROUSEL_ALBUM' })).toBe('3장');
+    // 슬롯이 있어도 IG 가 진실 — 슬롯 기록은 편집 중 상태라 실제 발행 장수와 다를 수 있다
+    expect(_photoCountOf({ photos: [1, 2] }, { children_count: 5, media_type: 'CAROUSEL_ALBUM' })).toBe('4장 이상');
+  });
+
+  test('캐러셀이 아니면 1장', () => {
+    const { _photoCountOf } = loadPerf(STARTERS);
+    expect(_photoCountOf(null, { media_type: 'IMAGE', children_count: 0 })).toBe('1장');
+  });
+});
+
+describe('_capLenOf — 해시태그 뺀 본문 길이', () => {
+  test('짧게/보통/길게', () => {
+    const { _capLenOf } = loadPerf(STARTERS);
+    expect(_capLenOf({ caption: '가'.repeat(30) })).toBe('짧게');
+    expect(_capLenOf({ caption: '가'.repeat(100) })).toBe('보통');
+    expect(_capLenOf({ caption: '가'.repeat(300) })).toBe('길게');
+    expect(_capLenOf({ caption: '' })).toBe('캡션 없음');
+  });
+
+  test('해시태그 도배는 본문 길이로 안 친다', () => {
+    const { _capLenOf } = loadPerf(STARTERS);
+    // 본문 10자 + 해시태그 200자 → '길게'가 아니라 '짧게'
+    expect(_capLenOf({ caption: '오늘 시술이에요 ' + '#헤어 '.repeat(50) })).toBe('짧게');
+  });
+});
+
+describe('_tagCountOf', () => {
+  test('해시태그 개수 구간', () => {
+    const { _tagCountOf } = loadPerf(STARTERS);
+    expect(_tagCountOf({ caption: '글만 있음' })).toBe('없음');
+    expect(_tagCountOf({ caption: '#a #b #c' })).toBe('1~5개');
+    expect(_tagCountOf({ caption: '#a '.repeat(10) })).toBe('6~15개');
+    expect(_tagCountOf({ caption: '#a '.repeat(20) })).toBe('16개 이상');
+  });
+});
+
+describe('_hasSignal — 0 위에 추천을 얹으면 안 된다', () => {
+  test('전부 0이면 신호 없음 (cbt4 실측: 2주 13건 전부 이 상태)', () => {
+    const { _hasSignal } = loadPerf(STARTERS);
+    expect(_hasSignal({ likes: 0, comments: 0, saved: 0, shares: 0 })).toBe(false);
+  });
+
+  test('하나라도 있으면 신호 있음', () => {
+    const { _hasSignal } = loadPerf(STARTERS);
+    expect(_hasSignal({ likes: 0, comments: 0, saved: 1, shares: 0 })).toBe(true);
+    expect(_hasSignal({ likes: 0, comments: 0, saved: 0, shares: 1 })).toBe(true);
+  });
 });
 
 describe('_agg — 표본 가드가 핵심', () => {
@@ -119,9 +185,15 @@ describe('_agg — 표본 가드가 핵심', () => {
     expect(out[0].enough).toBe(true);
   });
 
-  test('반응 점수 = 좋아요 + 댓글×2 + 저장×3 (백엔드 top_posts 와 같은 가중치)', () => {
+  test('반응 점수 = 좋아요 + 댓글×2 + 저장×3 + 공유×4', () => {
     const { _score } = loadPerf(STARTERS);
-    expect(_score({ likes: 10, comments: 5, saved: 2 })).toBe(10 + 10 + 6);
+    expect(_score({ likes: 10, comments: 5, saved: 2, shares: 1 })).toBe(10 + 10 + 6 + 4);
+  });
+
+  test('공유 1건이 좋아요 1건보다 무겁다 — 예약에 더 가까운 행동이라', () => {
+    const { _score } = loadPerf(STARTERS);
+    expect(_score({ shares: 1 })).toBeGreaterThan(_score({ likes: 1 }));
+    expect(_score({ saved: 1 })).toBeGreaterThan(_score({ likes: 1 }));
   });
 
   test('반응 점수 평균이 높은 축이 1등 — 예약 0건이라도 순위가 나온다', () => {
