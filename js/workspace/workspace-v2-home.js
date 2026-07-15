@@ -1,4 +1,4 @@
-/* Workspace V2 — 작업실 첫 화면 렌더러 (C3: 홈 상단 히어로/퀵/카테고리/라이브러리 재구성)
+/* Workspace V2 — 작업실 첫 화면 렌더러 (개편 2026-07-15: 프로필 헤더 + 이어서 카드 + 세그 + 3열 피드)
    의존: WorkspaceState (workspace-state.js), 기존 전역: loadSlotsFromDB / initWorkshopTab / showToast. */
 (function () {
   'use strict';
@@ -7,6 +7,7 @@
   var _filter = 'all';   // [conceptC] all | progress | done
   var _lastRoot = null;
   var _slotsCache = [];
+  var _menuOpen = false;            // [개편 2026-07-15] 헤더 ⋯ 드롭다운(선택/설정) 열림 상태
   var _selectMode = false;          // [v547] 내 콘텐츠 일괄 작업 선택 모드
   var _selected = {};               // id → true
   var _enteredCardId = null;        // [v547] 카드→편집 진입 시 저장 → 복귀 후 그 카드로 스크롤 복원
@@ -59,119 +60,99 @@
     };
   }
 
-  /* ── [conceptC] 작업실 홈 디자인 — 벤토 타일 + 입력바 + 콘텐츠 그리드 ── */
-  // 슬롯 상태 → 그리드 점/태그(대기·편집·준비·완료)
-  function _cStatus(slot) {
-    var s = ST().deriveStatus(slot);
-    if (s === 'published') return { k: 'done', tag: '완료' };
-    if (s === 'ready') return { k: 'ready', tag: '업로드 준비' };
-    if (s === 'upload_pending') return { k: 'wait', tag: '사진 대기' };
-    return { k: 'edit', tag: '편집 중' };
+  /* ── [conceptC] 작업실 홈 디자인 — 프로필 헤더 + 이어서 카드 + 세그 + 콘텐츠 그리드 ── */
+  function _shopName() {
+    try { var s = localStorage.getItem('shop_name'); if (s && s.trim()) return s.trim(); } catch (_e) { /* noop */ }
+    return '내 샵';
   }
-  function _sameMonth(slot) {
-    var t = (slot.publish && slot.publish.publishedAt) || slot.completedAt || slot.createdAt || 0;
-    if (!t) return false; var d = new Date(t), n = new Date();
-    return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth();
+  function _igProfile() {
+    try {
+      if (window.WorkspaceAdapter && typeof window.WorkspaceAdapter.instagramProfile === 'function') return window.WorkspaceAdapter.instagramProfile() || {};
+    } catch (_e) { /* noop */ }
+    return {};
   }
-  function _shopInitial() {
-    try { var s = localStorage.getItem('shop_name'); if (s && s.trim()) return _esc(s.trim().charAt(0).toUpperCase()); } catch (_e) { /* noop */ }
-    return 'N';
-  }
-
-  // 벤토 타일 — 이어서 하기(최근 진행중) + 이번 달 발행 + 글만 쓰기
-
-  // 필터 — 전체 / 진행 중 / 완료
 
 
   // [인스타 피드 홈] 좌상단 + = 바로 업로드, 나머지 칸 = 우리가 만든 콘텐츠(정사각 타일).
   var _PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
   var _PHIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
   function _feedTile(slot) {
-    var st = _cStatus(slot), img = _thumb(slot), sel = !!_selected[slot.id];
-    // [manage 2026-07-14] 칩 = 상태 서술('편집 중')이 아니라 '다음 할 일'('캡션 생성'). 훑는 피드 → 처리하는 목록.
-    //   WorkspaceState.nextAction 재사용(드로어·이어서와 같은 정본) — 새 매핑 만들지 않음.
-    var na = (st.k === 'done') ? null : ST().nextAction(slot);
+    var img = _thumb(slot), sel = !!_selected[slot.id];
+    // [개편 2026-07-15] 타일 뱃지 소음 제거 — 발행된 타일은 사진만. 진행 중만 좌하단 흰 칩 하나('작성 중', 예약 발행은 '예약').
+    var chip = _isPub(slot) ? ''
+      : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약' : '작성 중') + '</span>';
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
       '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
-      (na ? '<span class="wf-chip wf-chip--' + st.k + '"><span class="wf-chip__dot"></span>' + _esc(na.label) + '</span>' : '') +
+      chip +
       (img ? '' : '<span class="wf-ph" aria-hidden="true">' + _PHIC + '</span>') +
       '</button>';
   }
   function _segsHTML(slots) {
-    var done = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
-    var F = [['all', '전체', slots.length], ['done', '발행됨', done], ['progress', '진행중', slots.length - done]];
-    // [요청7 2026-07-13] 피드 정렬 진입 — 콘텐츠 2개 이상일 때. 저장된 내 콘텐츠 전체를 인스타 3열 그리드에 올려 순서 정렬·저장.
-    var feedSort = (slots.length >= 2 && window.FeedPlanner)
-      // [manage 2026-07-14] 아이콘 전용 — 세그 카운트가 붙어 행이 좁아짐(라벨 유지 시 375px 에서 2줄로 깨졌음). 성과 버튼과 동일 규격.
-      ? '<button type="button" class="wf-feedsort" data-wsv2-feedsort data-haptic="light" aria-label="피드 정렬" title="피드 정렬"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>'
-      : '';
-    // [manage 2026-07-14] 성과 진입 — 볼 사람만. 전면에 지표를 깔지 않고 버튼 하나로.
-    var perf = (typeof window.openInsights === 'function')
-      ? '<button type="button" class="wf-perf" data-wsv2-insights data-haptic="light" aria-label="성과"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></button>'
-      : '';
-    // [manage 2026-07-14] 세그에 카운트 — 업무량이 한눈에(카운트는 F 에 이미 계산돼 있었음).
+    var done = slots.filter(_isPub).length;
+    var F = [['all', '전체', slots.length], ['progress', '진행중', slots.length - done], ['done', '발행됨', done]];
     return '<div class="wf-segs">' + F.map(function (f) {
       return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' +
         f[1] + '<span class="wf-seg__n">' + f[2] + '</span></button>';
-    }).join('') + perf + feedSort + '</div>';
+    }).join('') + '</div>';
   }
-  // [plum 2026-07-14] 이어서 작업 카드 — 진행 중 슬롯의 사진·편집·캡션·발행 4단계 파이프라인(홈 시그니처).
-  function _pipe(slot) {
-    var photos = (slot.photos || []);
-    var steps = [
-      photos.length > 0,
-      photos.some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); }),
-      !!(slot.caption && String(slot.caption).trim()),
-      _isPub(slot)
-    ];
-    var labels = ['사진 올리는 중', '편집하는 중', '캡션 쓰는 중', '발행 대기'];
-    var cur = steps.indexOf(false); if (cur < 0) cur = 3;
-    return { steps: steps, cur: cur, label: labels[cur] };
+  // [개편 2026-07-15] 이어서 카드 — 썸네일 + 제목 + 상태 한 줄 + 검정 '이어서' 버튼(목업 ① 톤).
+  function _resumeMsg(slot) {
+    var photos = slot.photos || [];
+    var edited = photos.some(function (p) { return p && (p.editedDataUrl || p.storyEdited || p.cropMeta); });
+    if (!edited) return '사진 완료 · 편집이 남았어요';
+    if (!(slot.caption && String(slot.caption).trim())) return '편집까지 완료 · 캡션이 남았어요';
+    return '캡션까지 완료 · 발행만 남았어요';
   }
   function _resumeCardHTML(slots) {
     var cand = slots.filter(function (s) { return !_isPub(s) && (s.photos || []).length; });
     if (!cand.length) return '';
     cand.sort(function (a, b) { return (b.createdAt || b.completedAt || 0) - (a.createdAt || a.completedAt || 0); });
-    var slot = cand[0], pipe = _pipe(slot), img = _thumb(slot);
-    var bar = pipe.steps.map(function (done, i) {
-      return '<span class="wf-resume__seg' + (done ? ' is-done' : (i === pipe.cur ? ' is-cur' : '')) + '"></span>';
-    }).join('');
+    var slot = cand[0], img = _thumb(slot);
     return '<button type="button" class="wf-resume" data-wsv2-resume="' + _esc(slot.id) + '" data-haptic="light">' +
       '<span class="wf-resume__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '></span>' +
       '<span class="wf-resume__body">' +
-        '<span class="wf-resume__eyebrow">이어서 작업</span>' +
         '<span class="wf-resume__title">' + _esc(slot.label || '제목 없음') + '</span>' +
-        '<span class="wf-resume__bar">' + bar + '<span class="wf-resume__step">' + _esc(pipe.label) + '</span></span>' +
+        '<span class="wf-resume__sub">' + _esc(_resumeMsg(slot)) + '</span>' +
       '</span>' +
       '<span class="wf-resume__go">이어서</span>' +
     '</button>';
   }
+  // [개편 2026-07-15] 헤더 — @인스타핸들 + 샵이름(미연결이면 샵이름 크게 + '인스타 연결').
+  //   설정 톱니·선택 버튼은 ⋯ 드롭다운(선택/설정) 하나로 통합, '할 일·이번 달 발행' 줄은 세그 카운트와 중복이라 삭제.
+  function _pheadHTML() {
+    var ig = _igProfile(), shop = _shopName();
+    var connected = !!(ig.connected && ig.handle);
+    var initial = _esc((((connected ? ig.handle.replace(/^@/, '') : shop).charAt(0)) || 'N').toUpperCase());
+    var ava = '<span class="wshc-ava"' + (ig.profilePic ? ' style="background-image:url(' + _esc(ig.profilePic) + ')"' : '') + ' aria-hidden="true">' + (ig.profilePic ? '' : initial) + '</span>';
+    var who = connected
+      ? '<div class="wshc-who"><b>' + _esc(ig.handle) + '</b><span>' + _esc(shop) + '</span></div>'
+      : '<button type="button" class="wshc-who wshc-who--connect" data-wsv2-igconnect data-haptic="light"><b>' + _esc(shop) + '</b><span class="wshc-who__link">인스타 연결</span></button>';
+    var DOTS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="19" cy="12" r=".8"/></svg>';
+    var menu = !_menuOpen ? '' : '<div class="wshc-menu" data-wsv2-menu>' +
+      '<button type="button" data-wsv2-menu-act="select" data-haptic="light">' + (_selectMode ? '선택 취소' : '선택') + '</button>' +
+      '<button type="button" data-wsv2-menu-act="settings" data-haptic="light">설정</button>' +
+    '</div>';
+    return '<div class="wshc-phead">' + ava + who +
+      '<button type="button" class="wshc-more' + (_menuOpen ? ' on' : '') + '" data-wsv2-more data-haptic="light" aria-label="더보기" aria-expanded="' + (_menuOpen ? 'true' : 'false') + '">' + DOTS + '</button>' +
+      menu +
+    '</div>';
+  }
   function _shellHTML(slots) {
     var visible = _filter === 'all' ? slots : slots.filter(function (s) {
-      var d = _cStatus(s).k === 'done'; return _filter === 'done' ? d : !d;
+      return _filter === 'done' ? _isPub(s) : !_isPub(s);
     });
     // [버그9 2026-07-14] 인스타 피드처럼 최신이 위로 — 기존엔 slots 순서를 그대로 써서 '+ 새 게시물' 옆에 가장 오래된 게 붙었음.
     //   (이어서카드는 이미 최신순 정렬하는데 그리드만 안 해서 순서가 반대로 보였다.) 원본 배열 오염 방지로 slice() 후 정렬.
     visible = visible.slice().sort(function (a, b) {
       return (b.createdAt || b.completedAt || 0) - (a.createdAt || a.completedAt || 0);
     });
-    var doneN = slots.filter(function (s) { return _cStatus(s).k === 'done'; }).length;
-    var monthN = slots.filter(function (s) { return _cStatus(s).k === 'done' && _sameMonth(s); }).length;
-    // [manage 2026-07-14] 할 일 = 아직 발행 안 된 콘텐츠 수. 열자마자 "뭘 해야 하는지"가 숫자로 보이게.
-    var todoN = slots.length - doneN;
     var addCell = '<button type="button" class="wf-add" data-wsv2-upload data-haptic="medium" aria-label="새 게시물 업로드">' +
       '<span class="wf-add__ic">' + _PLUS + '</span><span class="wf-add__t">새 게시물</span></button>';
     var feed = '<div class="wf-feed">' + addCell + visible.map(_feedTile).join('') + '</div>';
     return '' +
       '<section class="wsv2 wshc wshc--feed" data-wsv2-root>' +
-        '<div class="wshc-phead">' +
-          '<div class="wshc-ava wshc-ava--lg">' + _shopInitial() + '</div>' +
-          '<div class="wshc-pinfo"><div class="wshc-phandle">내 작업실</div><div class="wshc-pstat">' +
-            (todoN ? '<b class="wshc-todo">할 일 ' + todoN + '</b> · ' : '') + '이번 달 발행 ' + monthN + '</div></div>' +
-          '<button type="button" class="wshc-gear" data-wsv2-settings data-haptic="light" aria-label="작업실 설정"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>' +
-          (slots.length ? '<button type="button" class="wshc-seltoggle' + (_selectMode ? ' on' : '') + '" data-wsv2-selecttoggle>' + (_selectMode ? '취소' : '선택') + '</button>' : '') +
-        '</div>' +
+        _pheadHTML() +
         _resumeCardHTML(slots) +
         _segsHTML(slots) +
         '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
@@ -278,19 +259,37 @@
 
 	  function _bind(root) {
     root.onclick = function (e) {
-      // [작업실 설정] 톱니 → 설정 화면
-      if (e.target.closest('[data-wsv2-settings]')) {
-        if (window.WorkspaceSettings && window.WorkspaceSettings.open) window.WorkspaceSettings.open();
-        else _toast('설정을 불러오지 못했어요');
+      // [개편 2026-07-15] 헤더 ⋯ 드롭다운 — 열린 상태에서 바깥 탭 = 닫기(탭 소비, 표준 드롭다운 UX).
+      if (_menuOpen && !e.target.closest('[data-wsv2-menu]') && !e.target.closest('[data-wsv2-more]')) {
+        _menuOpen = false; render(_lastRoot, { slots: _slotsCache }); return;
+      }
+      if (e.target.closest('[data-wsv2-more]')) {
+        _menuOpen = !_menuOpen; render(_lastRoot, { slots: _slotsCache }); return;
+      }
+      var mact = e.target.closest('[data-wsv2-menu-act]');
+      if (mact) {
+        var mk = mact.getAttribute('data-wsv2-menu-act');
+        _menuOpen = false;
+        if (mk === 'settings') {
+          render(_lastRoot, { slots: _slotsCache });
+          if (window.WorkspaceSettings && window.WorkspaceSettings.open) window.WorkspaceSettings.open();
+          else _toast('설정을 불러오지 못했어요');
+        } else {   // 선택 모드 토글(기존 seltoggle 로직 그대로)
+          _selectMode = !_selectMode; if (!_selectMode) _selected = {};
+          render(_lastRoot, { slots: _slotsCache });
+        }
         return;
       }
-      // [요청7] 피드 정렬 — 저장된 내 콘텐츠 전체를 3열 그리드에 올려 정렬·저장.
-      if (e.target.closest('[data-wsv2-feedsort]')) { _openFeedPlanner(); return; }
-      // [v547] 일괄 작업 — 선택 모드 토글 / 일괄 액션 / 선택 모드 카드 탭 = 선택
-      if (e.target.closest('[data-wsv2-selecttoggle]')) {
-        _selectMode = !_selectMode; if (!_selectMode) _selected = {};
-        render(_lastRoot, { slots: _slotsCache }); return;
+      // [개편 2026-07-15] 미연결 헤더 '인스타 연결' — 기존 연결 플로우(WorkspaceAdapter.connectInstagram) 재사용, 없으면 설정으로.
+      if (e.target.closest('[data-wsv2-igconnect]')) {
+        var cr = (window.WorkspaceAdapter && window.WorkspaceAdapter.connectInstagram) ? window.WorkspaceAdapter.connectInstagram() : null;
+        if (!cr || !cr.ok) {
+          if (window.WorkspaceSettings && window.WorkspaceSettings.open) window.WorkspaceSettings.open();
+          else _toast('인스타 연결 화면을 불러오지 못했어요');
+        }
+        return;
       }
+      // [v547] 일괄 작업 — 일괄 액션 / 선택 모드 카드 탭 = 선택
       var bulk = e.target.closest('[data-wsv2-bulk]');
       if (bulk) { _onBulk(bulk.getAttribute('data-wsv2-bulk')); return; }
       if (_selectMode) {
@@ -299,16 +298,6 @@
       }
       // 히어로 업로드 CTA
 	      if (e.target.closest('[data-wsv2-upload]')) { _pickHeroFiles(root); return; }
-      // [성과 2026-07-14] 게시물별 성과 화면(workspace-perf.js). 예전엔 openInsights(고객·매출 인사이트)로
-      //   바로 갔는데, 원장님이 성과에서 보고 싶은 건 '내가 올린 글이 예약으로 이어졌나'였다.
-      //   기존 AI 인사이트는 그 화면 맨 아래 '고객·매출 인사이트 보기' 로 살려둠(진입 소실 방지).
-      if (e.target.closest('[data-wsv2-insights]')) {
-        try {
-          if (window.WorkspacePerf && window.WorkspacePerf.open) window.WorkspacePerf.open();
-          else if (typeof window.openInsights === 'function') window.openInsights();
-        } catch (_e) { void _e; }
-        return;
-      }
       // 필터 탭
       var tab = e.target.closest('[data-wsv2-filter]');
       if (tab) { _filter = tab.getAttribute('data-wsv2-filter'); render(_lastRoot, { slots: _slotsCache }); return; }
@@ -375,34 +364,6 @@
     var next = st.nextAction(slot);
     var screen = KEY2SCREEN[next.key] || 'edit';
     _launchFlow(slotId, screen);
-  }
-
-  // [요청7 2026-07-13] 피드 정렬 — 저장된 내 콘텐츠 전체를 인스타 3열 그리드에 올려 드래그로 순서 정렬·저장(홈 진입).
-  //   기존엔 '현재 작업 사진'만 정렬하고 저장도 안 됐음 → 저장된 슬롯 커버 전체 + 순서 영구저장(itdasy:feed_order).
-  function _feedOrderIds() { try { var a = JSON.parse(localStorage.getItem('itdasy:feed_order') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
-  function _orderedSlotsForFeed() {
-    var slots = (_slotsCache || []).slice();
-    var order = _feedOrderIds(); if (!order.length) return slots;
-    var byId = {}; slots.forEach(function (s) { byId[s.id] = s; });
-    var out = [];
-    order.forEach(function (id) { if (byId[id]) { out.push(byId[id]); delete byId[id]; } });   // 저장된 순서 먼저
-    slots.forEach(function (s) { if (byId[s.id]) out.push(s); });                               // 이후 생긴 콘텐츠는 뒤에
-    return out;
-  }
-  function _openFeedPlanner() {
-    if (!window.FeedPlanner || typeof window.FeedPlanner.open !== 'function') { _toast('피드 플래너를 불러오지 못했어요'); return; }
-    var ordered = _orderedSlotsForFeed();
-    var covers = [], urlToId = {};
-    ordered.forEach(function (s) { var t = _thumb(s); if (t && !urlToId[t]) { covers.push(t); urlToId[t] = s.id; } });   // 커버 중복 슬롯은 첫 것만(URL 역매핑 유일성)
-    if (covers.length < 2) { _toast('정렬하려면 콘텐츠가 2개 이상 필요해요'); return; }
-    window.FeedPlanner.open({
-      photos: covers, newCount: 0, handle: '내 작업물',
-      onSave: function (order) {
-        var ids = (order || []).map(function (u) { return urlToId[u]; }).filter(Boolean);
-        try { localStorage.setItem('itdasy:feed_order', JSON.stringify(ids)); } catch (_e) { void _e; }
-        _toast('피드 순서를 저장했어요');
-      }
-    });
   }
 
   function _onDrawerAct(actKey) {

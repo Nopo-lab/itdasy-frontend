@@ -1325,49 +1325,53 @@
     return Object.keys(r).map(function (k) { return ({ before: '전', after: '후', hero: '홍보컷', exclude: '제외' }[k] || k) + ' ' + r[k]; }).join(' · ') || '없음';
   }
 
-  // [캡션재설계] 옛 3축(scenario-selector) 느낌을 살린 위저드 — 위 버튼 누르면 다음 질문, 아래 시술입력은 고정.
-  //   picks 는 기존 생성 배관(d.captionAxes → photo_context)에 그대로 흘러감(백엔드 변경 0).
+  // [캡션재설계 v2 2026-07-15] 3질문을 스텝 없이 한 화면 세로 배치(목업 33_작업실_개편 ②).
+  //   답은 기존 생성 배관(d.captionAxes → photo_context) 그대로. '직접' = 점선 칩, 누르면 그 자리 입력창 토글.
+  //   (구 capWizStep 스텝 넘김·점 인디케이터·done 화면·뒤로/다시 버튼은 전부 삭제·병합)
   var _WIZ_STEPS = [
-    { key: 'situation', q: '무슨 게시물인가요?', opts: [['시술 완성', 'ph-check-circle'], ['후기·감사', 'ph-heart'], ['직접', 'ph-pencil-simple']] },
-    { key: 'customer',  q: '손님은 어떤 분이에요?', opts: [['신규', 'ph-user-plus'], ['단골', 'ph-user-circle'], ['직접', 'ph-pencil-simple']] },
-    { key: 'photo',     q: '사진 종류는요?', opts: [['완성샷', 'ph-image'], ['전후 비교', 'ph-columns'], ['직접', 'ph-pencil-simple']] }
+    { key: 'situation', q: '무슨 게시물인가요?', opts: ['시술 완성', '후기·감사', '이벤트·공지'] },
+    { key: 'customer',  q: '손님은 어떤 분이에요?', opts: ['처음 온 손님', '단골 손님'] },
+    { key: 'photo',     q: '사진은 어떤 사진이에요?', opts: ['완성샷', '전·후 비교'] }
   ];
+  function _wizStep(key) { for (var i = 0; i < _WIZ_STEPS.length; i++) { if (_WIZ_STEPS[i].key === key) return _WIZ_STEPS[i]; } return null; }
+  // 이 축의 저장값이 선택지 밖(=직접 입력값)인지
+  function _wizIsCustom(key) {
+    var v = (d.captionAxes || {})[key]; if (!v) return false;
+    var st = _wizStep(key);
+    return !!st && st.opts.indexOf(v) < 0;
+  }
   function _capWizHtml() {
-    var step = d.capWizStep || 0, ax = d.captionAxes || {};
-    var s = _WIZ_STEPS[step];   // step>=3(완료)이면 undefined
-    var dots = '';
-    for (var i = 0; i < 3; i++) { dots += '<span class="capwiz__dot' + (ax[_WIZ_STEPS[i].key] ? ' done' : (i === step ? ' on' : '')) + '"></span>'; }
-    // [#15] 질문을 헤더 줄에 인라인 배치 → 점 3개와 같은 수평선.
-    var qInline = s ? '<span class="capwiz__q capwiz__q--inline">' + esc(s.q) + '</span>' : '';
-    var head = '<div class="capwiz__head">' +
-      (step > 0 ? '<button type="button" class="capwiz__back" data-fl-wizback aria-label="이전"><i class="ph-bold ph-caret-left"></i></button>' : '<span class="capwiz__backsp"></span>') +
-      qInline +
-      '<span class="capwiz__dots">' + dots + '</span></div>';
-    var _dir = (d._wizDir === 'back' ? ' capwiz__body--back' : '');   // [애니메이션] 이전=왼쪽에서, 다음=오른쪽에서 슬라이드
-    if (step >= 3) {
-      var chips = _WIZ_STEPS.map(function (s) { return '<span class="capwiz__pick">' + esc(ax[s.key] || '-') + '</span>'; }).join('');
-      return '<div class="capwiz capwiz--done">' + head +
-        '<div class="capwiz__body' + _dir + '"><div class="capwiz__done"><i class="ph-fill ph-check-circle capwiz__donechk"></i><span class="capwiz__donet">다 골랐어요</span>' + chips +
-        '<button type="button" class="capwiz__redo" data-fl-wizredo>다시</button></div></div></div>';
-    }
-    var bodyInner;
-    if (d._wizCustom === s.key) {
-      // [직접 입력] 팝업 대신 인라인 — '직접' 누르면 여기서 바로 타이핑(Enter/확인 → 다음). [#15] q는 헤더로 이동.
-      bodyInner =
-        '<div class="capwiz__custom">' +
-          '<input type="text" class="capwiz__custin" data-fl-wizcustin maxlength="40" placeholder="직접 적어주세요" value="' + esc(ax[s.key] && s.opts.every(function (o) { return o[0] !== ax[s.key]; }) ? ax[s.key] : '') + '">' +
-          '<button type="button" class="capwiz__custok" data-fl-wizcustok aria-label="확인"><i class="ph-bold ph-check"></i></button>' +
-        '</div>' +
-        '<button type="button" class="capwiz__custcancel" data-fl-wizcustcancel>← 버튼으로</button>';
-    } else {
-      var btns = s.opts.map(function (o) {
-        var on = ax[s.key] === o[0];
-        return '<button type="button" class="capwiz__opt' + (on ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o[0]) + '">' +
-          '<i class="ph-duotone ' + o[1] + '"></i><span>' + esc(o[0]) + '</span></button>';
+    var ax = d.captionAxes || {};
+    return _WIZ_STEPS.map(function (s, i) {
+      var val = ax[s.key] || '';
+      var isCustom = _wizIsCustom(s.key);
+      var open = d._wizCustom === s.key;
+      var chips = s.opts.map(function (o) {
+        return '<button type="button" class="capwiz__opt' + (val === o ? ' on' : '') + '" data-fl-wizpick="' + s.key + '::' + esc(o) + '">' + esc(o) + '</button>';
       }).join('');
-      bodyInner = '<div class="capwiz__opts">' + btns + '</div>';   // [#15] q는 헤더로 이동
-    }
-    return '<div class="capwiz">' + head + '<div class="capwiz__body' + _dir + '">' + bodyInner + '</div></div>';
+      // '직접' 점선 칩 — 저장된 직접 값이 있으면 칩에 값 미리보기, 누르면 입력창 토글(재탭=값 해제).
+      var etcLbl = (isCustom && !open) ? ('직접 · ' + esc(val.length > 10 ? val.slice(0, 10) + '…' : val)) : '직접';
+      chips += '<button type="button" class="capwiz__opt capwiz__opt--etc' + ((isCustom || open) ? ' on' : '') + '" data-fl-wizcustom="' + esc(s.key) + '">' + etcLbl + '</button>';
+      var custin = open
+        ? '<div class="capwiz__custom">' +
+            '<input type="text" class="capwiz__custin" data-fl-wizcustin maxlength="40" placeholder="직접 적어주세요" value="' + esc(isCustom ? val : '') + '">' +
+            '<button type="button" class="capwiz__custok" data-fl-wizcustok>확인</button>' +
+          '</div>'
+        : '';
+      return '<div class="capwiz__card"><label class="capwiz__q"><em>' + (i + 1) + '</em>' + esc(s.q) + '</label>' +
+        '<div class="capwiz__opts">' + chips + '</div>' + custin + '</div>';
+    }).join('');
+  }
+  // [캡션재설계 v2] 3축 → photo_context 문자열. '직접' 입력값도 caption-text 드롭 규칙(_publicServiceKeywords)으로
+  //   정제 후 포함 — 사담·욕설·지시어가 생성 컨텍스트에 원문으로 흘러가지 않게.
+  function _wizAxisContext() {
+    var ax = d.captionAxes || {}, parts = [];
+    _WIZ_STEPS.forEach(function (s) {
+      var v = String(ax[s.key] || '').trim(); if (!v) return;
+      if (s.opts.indexOf(v) < 0) { var cl = ''; try { cl = _publicServiceKeywords(v) || ''; } catch (_e) { void _e; } v = String(cl || v).slice(0, 40); }
+      parts.push(v);
+    });
+    return parts.join(' / ');
   }
   // 자주 쓰는 시술 태그(업종별 기본 + 커스텀) — 탭하면 시술 입력칸에 추가. getShopKeywords()는 caption-keyword-tags.js.
   // [요청3 2026-07-13] 재선택 목록을 시술 사전(service-vocab) 전 업종으로 확장 — 반영구/메이크업/태닝/두피/에스테틱
@@ -1381,7 +1385,13 @@
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
     var valid = kws.length > 0 || _SVC_TYPES.indexOf(stype) >= 0;
     var _typeLabel = (_SVC_TYPES.indexOf(stype) >= 0) ? stype : (valid ? (_norm || stype) : '업종 고르기');   // 고른 업종칩은 그대로 표시(정규화 '기타'로 안 바뀌게)
-    var chips = valid ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
+    // [캡션재설계 v2] 단일선택 토글 — 선택 칩 = d.service(검정 채움), 재탭 = 해제.
+    var _sel = String(d.service || '').trim();
+    var chips = valid ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag' + (k === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
+    // 선택값이 목록 밖(직접 추가·최근 시술·이어서 복원)이어도 선택 상태가 보이게 맨 앞에 활성 칩으로.
+    if (valid && _sel && kws.slice(0, 8).indexOf(_sel) < 0) {
+      chips = '<button type="button" class="cap-svctag on" data-fl-svctag="' + esc(_sel) + '" title="' + esc(_sel) + '">' + esc(_sel.length > 20 ? _sel.slice(0, 20) + '…' : _sel) + '</button>' + chips;
+    }
     var typeOpen = !!d.svcTypeOpen || !valid;
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
       return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
@@ -1393,20 +1403,17 @@
       (valid ? ('<div class="cap-svctags">' + chips +
         '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
   }
-  function _appendServiceTag(kw) {
+  // [캡션재설계 v2] 시술 칩 단일선택 토글 — 텍스트영역에 이어붙이던 _appendServiceTag 대체(삭제).
+  //   d.service = 선택한 칩 하나. 재탭이면 해제. 같은 화면 재렌더는 스크롤 유지(setScreen 1876행).
+  function _pickServiceTag(kw) {
     syncServiceFromDom();
-    var curTx = String(d.service || '').trim();
-    if (curTx.split(/\s+/).indexOf(kw) >= 0) return;   // 중복 방지
-    d.service = (curTx ? curTx + ' ' : '') + kw;
-    // [fix] 칩 누를 때 setScreen 전체 재렌더는 화면을 맨 위로 튕김 → 입력창만 제자리 갱신(스크롤 유지).
-    var inp = el.querySelector('[data-fl-service]');
-    if (inp) { inp.value = d.service; try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) { void _e; } }
-    else setScreen('caption');
+    d.service = (String(d.service || '').trim() === kw) ? '' : kw;
+    setScreen('caption');
   }
   function _addSvcKeyword() {
     var kw = window.prompt('자주 쓰는 시술 추가'); if (kw == null) return; kw = String(kw).trim(); if (!kw) return;
     try { var arr = JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); if (arr.indexOf(kw) < 0) { arr.push(kw); localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr)); } } catch (_e) { void _e; }
-    _appendServiceTag(kw);
+    _pickServiceTag(kw);
   }
   // [P4 2026-07-10] 최근 시술 자동완성 — 생성한 시술 문구를 기억했다가 탭 한 번으로 다시 채운다(매번 재입력 제거).
   function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
@@ -1420,11 +1427,20 @@
   }
   function _recentSvcHtml() {
     var a = _recentServices(); if (!a.length) return '';
-    // 기존 cap-svctags/cap-svctag 스타일 재사용(새 CSS 불필요). 최근 시술 전체를 탭 한 번으로 다시 채움.
+    // [캡션재설계 v2] 시술명만 — 옛 버전이 문장 통째로 저장한 값은 드롭 규칙으로 정제하고, 그래도 길면(40자+) 제외.
+    //   탭 = 시술 칩과 같은 단일선택(data-fl-svctag 재사용 → 핸들러 하나).
+    var _sel = String(d.service || '').trim(), names = [], seen = {};
+    a.forEach(function (s) {
+      var n = ''; try { n = _publicServiceKeywords(s) || ''; } catch (_e) { void _e; }
+      n = String(n || s).replace(/\s+/g, ' ').trim();
+      if (!n || n.length > 40 || seen[n]) return;
+      seen[n] = 1; names.push(n);
+    });
+    if (!names.length) return '';
     return '<div class="cap-svctags" style="margin-bottom:8px">' +
-      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 불러오기</span>' +
-      a.map(function (s) { var lbl = s.length > 20 ? (s.slice(0, 20) + '…') : s;
-        return '<button type="button" class="cap-svctag" data-fl-svcrecent="' + esc(s) + '" title="' + esc(s) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
+      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 선택</span>' +
+      names.map(function (n) { var lbl = n.length > 20 ? (n.slice(0, 20) + '…') : n;
+        return '<button type="button" class="cap-svctag' + (n === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
   }
 
   // d.capTone(친근/전문/감성/이벤트/후기) → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
@@ -1471,28 +1487,28 @@
 	        ? '<div class="wsl-cap-preview"><img src="' + esc(d.templateOutput) + '" alt="미리보기"></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
 	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : ''));
-	      // [Phase A-2] 심플 캡션 — 말투/길이/해시태그 칩 제거. 시술 내용 입력 + 우리샵 스타일 적용 + 캡션 생성.
-	      //   레거시(말투 6카드·길이·페르소나·해시태그 토글)는 SIMPLE_FLOW=false 에서 그대로 복원.
+	      // [캡션재설계 v2 2026-07-15] 자유 서술 텍스트영역(500자) 제거 — 질문 3카드 + 시술 칩(단일선택) + 특이사항 한 줄.
+      //   자유 텍스트가 시술명으로 못박혀 욕설·사담이 캡션에 그대로 실리던 verbatim 버그의 입구를 막는다.
 	      if (SIMPLE_FLOW) {
-	        var _svc = d.service || '';
         // 우리샵 스타일 시드만 보장 — 스타일 카드·레이아웃 미리보기·디자인 패널은 편집기로 이동.
         if (window.ShopStyle && window.ShopStyle.ensureSeed) { try { window.ShopStyle.ensureSeed(); } catch (_e0) { void _e0; } }
+        var _note = String(d.specialNote || '');
 	        return photoThumb +
 	          '<div class="cap-wizscreen">' +
-          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">상황만 고르고 시술을 적으면 우리샵 말투로 알아서 써드려요.</p></div>' +
+          '<div class="screen-head"><h2>게시글 만들기</h2><p class="screen-head__sub">질문에 답하고 시술만 고르면 우리샵 말투로 알아서 써드려요.</p></div>' +
           _capWizHtml() +
-          _svcTagsHtml() +   // [ws-hyper] 시술 선택 칩을 입력창 '위'로
-          _recentSvcHtml() +   // [P4] 최근 시술 — 탭하면 그대로 다시 채움
-          '<label class="cap-field-label">시술만 적으면 끝</label>' +
-          '<div class="cap-composer">' +
-            '<textarea class="service-input cap-svc-area" data-fl-service rows="3" maxlength="500" placeholder="예) 레이어드컷 손상모 일본인">' + esc(_svc) + '</textarea>' +
-            '<div class="cap-composer__bar">' +
-              '<span class="cap-composer__cnt"><span data-fl-svccount>' + _svc.length + '</span>/500</span>' +
-              '<button type="button" class="cap-composer__send" data-fl-cgen aria-label="캡션 생성"><i class="ph-duotone ph-arrow-up"></i></button>' +
-            '</div>' +
+          '<label class="cap-field-label capwiz__seclbl">시술</label>' +
+          _svcTagsHtml() +
+          _recentSvcHtml() +
+          '<label class="cap-field-label capwiz__seclbl">특이사항 <span>선택 · 그대로 안 실려요, 뜻만 반영돼요</span></label>' +
+          '<div class="capwiz__noterow">' +
+            '<input type="text" class="capwiz__notein" data-fl-specialnote maxlength="120" placeholder="예: 22인치로 길게 · 손님이 직접 고른 색" value="' + esc(_note) + '">' +
+            '<span class="capwiz__notecnt" data-fl-notecount>' + (120 - _note.length) + '</span>' +
           '</div>' +
+          '<p class="capwiz__guard">직접·특이사항에 적은 글은 재료로만 써요. 욕설·감정 표현은 빼고, 시술 얘기만 골라 원장님 말투로 새로 씁니다.</p>' +
           // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤 d.capTone='friendly', _resolveTone 이 매핑).
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
+          '<button type="button" class="capwiz__cta" data-fl-cgen>캡션 만들기</button>' +
           '</div>';
 	      }
 
@@ -1520,26 +1536,7 @@
 
   function _mountCaption() {
     _mountCarousel();   // [v531] 결과 캐러셀 스와이프 바인딩(결과 화면엔 scenario 없어 아래 early-return 전에 먼저)
-    // [v558] 시나리오 선택기 제거 — 입력화면은 시술 문구 입력 + 말투/길이/해시태그 칩 + 단일 생성 버튼.
-    // [v531] 키워드 입력 후 Enter → 바로 생성(편의). 주 경로는 '게시글 만들기' 버튼(data-fl-cgen).
-    var svcInput = el.querySelector('[data-fl-service]');
-    if (svcInput && !svcInput._wsGenBound) {
-      svcInput._wsGenBound = true;
-      // [Phase A-2] 멀티라인 textarea(심플 캡션)에선 Enter=줄바꿈 → 생성은 '캡션 생성' 버튼으로만.
-      //   기존 한 줄 input(레거시)에서만 Enter→즉시 생성 유지.
-      if (svcInput.tagName === 'INPUT') {
-        svcInput.addEventListener('keydown', function (e) {
-          // [v532] 한글 IME 조합 중 Enter(조합 확정용)는 무시 — 이때 생성하면 마지막 음절이 빠진 채 들어가
-          //   '엔터 경로만 키워드 반영이 덜 되는' 증상이 났음. 조합이 끝난 뒤 Enter 에서만 생성.
-          if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
-          e.preventDefault();
-          _triggerCaptionGenerate(null);
-        });
-      }
-      // [Phase A-2] textarea 글자수 카운터(0/500) 라이브 갱신.
-      var _cnt = el.querySelector('[data-fl-svccount]');
-      if (_cnt) svcInput.addEventListener('input', function () { _cnt.textContent = String(svcInput.value.length); });
-    }
+    // [캡션재설계 v2] 시술 자유서술 textarea 제거 — Enter 생성/글자수(500) 바인딩도 함께 삭제. 생성은 '캡션 만들기' 버튼만.
     // [직접 입력] 위저드 인라인 입력 — Enter=확인 + 자동 포커스(팝업 없이 바로 타이핑).
     var wcin = el.querySelector('[data-fl-wizcustin]');
     if (wcin && !wcin._wsBound) {
@@ -1581,21 +1578,21 @@
   function _triggerCaptionGenerate(axes) {
     syncServiceFromDom();
     if (axes) d.captionAxes = axes;
-    if (!String(d.service || '').trim()) { toast('시술내역/키워드를 입력하면 바로 만들어드려요'); return; }
-    // [위저드 선택형] 위에서 아무것도 안 골랐으면 강제 기본값 안 넣고 '아래 시술 입력한 대로만' 생성.
+    if (!String(d.service || '').trim()) { toast('시술 칩을 하나 골라주세요 — 없으면 + 추가로 만들 수 있어요'); return; }
+    // [위저드 선택형] 위에서 아무것도 안 골랐으면 강제 기본값 안 넣고 '고른 시술 그대로만' 생성.
     if (!d.captionAxes) d.captionAxes = {};
     doGenerate({}, null);
   }
-  // [직접 입력] 인라인 입력 확정 — 값 반영 후 다음 단계. 빈값이면 유지.
+  // [직접 입력] 인라인 확인 — 값을 그 축에 저장하고 입력창 닫기(칩 active 유지). 빈값이면 유지.
   function _wizCustomConfirm() {
     var key = d._wizCustom; if (!key) return;
     var inp = el.querySelector('[data-fl-wizcustin]');
     var val = inp ? String(inp.value || '').trim() : '';
     if (!val) { toast('직접 적을 내용을 입력해 주세요'); if (inp) try { inp.focus(); } catch (_e) { void _e; } return; }
+    syncServiceFromDom();
     d.captionAxes = d.captionAxes || {}; d.captionAxes[key] = val;
     d._wizCustom = null;
-    d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-    d._wizDir = 'fwd'; setScreen('caption');
+    setScreen('caption');
   }
 
 	  // [v564·필수6] 인스타 미리보기 사진 carousel — 게시글/캡션 화면과 동일한 _displayItems 사용.
@@ -1882,20 +1879,23 @@
 
   // [T-104 P4] loadRecent → flow/connect.js
 
-	  // 생성 직전 입력창의 최신 값을 직접 읽음 — input 이벤트 누락/IME 미확정으로 키워드 빠지는 것 방지.
+	  // 생성/재렌더 직전 입력창의 최신 값을 직접 읽음 — input 이벤트 누락/IME 미확정으로 글자가 빠지는 것 방지.
+	  // [캡션재설계 v2] 시술은 칩 단일선택(d.service 직저장)이라 DOM 동기화 대상은 특이사항 입력칸뿐.
 	  function syncServiceFromDom() {
 	    if (!el) return;
-	    var s = el.querySelector('[data-fl-service]');
-	    if (s && typeof s.value === 'string') d.service = s.value;
+	    var n = el.querySelector('[data-fl-specialnote]');
+	    if (n && typeof n.value === 'string') d.specialNote = n.value;
 	  }
-	  // [v532] extra_notes 빌더 — 핵심: 백엔드 fewshot(샵 과거글)은 '말투'만 참고, '시술 내용'은 입력값만.
-	  //   기존엔 category=extension fewshot 이 붙임머리/단발탈출/슬림땋기 등 엉뚱한 시술명을 캡션에 흘렸음.
-	  //   → "과거 글은 말투·길이만, 시술명·인치·기법·재료는 입력값만" 으로 프론트에서 강제 차단.
+	  // [캡션재설계 v2 2026-07-15] extra_notes 빌더 — verbatim 버그 수정의 핵심.
+	  //   기존: '이 게시글의 시술은 오직 "<자유서술 원문>"' 으로 원문 전체를 시술명으로 못박음 → 욕설·불만 문장이
+	  //   캡션에 그대로 실렸다. 이제 시술명 = 시술 칩 선택값(_publicServiceKeywords 정제)만 넣고,
+	  //   특이사항 메모는 '재료' 규칙(그대로 복사 금지·시술 사실만 발췌·욕설/감정/환불 금지)으로 분리 지시.
 	  //   regenSeq 가 있으면 '앞 글과 다른 구성으로' 변형 지시 추가('다시 쓰기' 가 동일 캡션 반복하던 회귀 해소).
-	  function _buildExtraNotes(svc, regenSeq) {
-	    var s = String(svc || '').trim().slice(0, 60);
-	    var note = '이 게시글의 시술은 오직 "' + s + '". 과거 글·예시는 말투와 문장 길이만 참고하고, 시술명·인치·기법·재료는 입력값만 쓰세요. ' +
-	      '입력에 없는 다른 시술/상품명(붙임머리·단발·땋기·매듭·펌 등)은 사진이나 예시에 보여도 절대 언급하지 마세요. ' +
+	  function _buildExtraNotes(svc, regenSeq, hasNote) {
+	    var s = String(svc || '').trim().slice(0, 40);
+	    var note = (hasNote
+	        ? '특이사항 메모는 재료일 뿐 — 문장 그대로 복사 금지. 시술 관련 사실(길이·색·기법·방문 차수 등)만 뽑아 자연스럽게 반영하고, 욕설·비속어·감정 표현·환불/불만 얘기는 캡션에 절대 넣지 말 것. ' : '') +
+	      '이 게시글의 시술명은 "' + s + '" 하나뿐. 과거 글·예시는 말투와 문장 길이만 참고하고, 입력에 없는 다른 시술/상품명은 사진·예시에 보여도 절대 언급하지 말 것. ' +
 	      '샵·디자이너 이름을 모르면 지어내지 말고 "저희 샵"으로. 구어/비속어는 그대로 쓰지 말고 의미만 뷰티 인스타 톤으로 정제.';
 	    if (regenSeq && regenSeq > 0) note += ' (재생성 ' + regenSeq + '회차: 앞 글과 도입부·문장 구성·표현을 다르게, 같은 내용 다른 말로.)';
 	    return note.slice(0, 300);
@@ -1955,7 +1955,7 @@
 	    if (d.capLoading) return;   // [audit] 생성 중 재탭 무시 — 연타 시 API 이중 호출(비용) 방지
 	    syncServiceFromDom();
 	    var svc = String(d.service || '').trim();
-	    if (!svc) { toast('시술 내역을 먼저 입력해 주세요'); return; }
+	    if (!svc) { toast('시술 칩을 먼저 골라주세요'); return; }
     _saveRecentService(svc);   // [P4] 최근 시술 기억 — 다음엔 탭 한 번으로 다시 채움
 	    var _p = _capParseService();   // [P1-1] 확인칩 오버라이드 우선 반영
 	    var _cust = { service: _p.service, customer: _p.customer, shop: _p.shop }; var svcClean = _p.service || svc;
@@ -1971,7 +1971,8 @@
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    var _myToken = ++_genToken;   // [버그수정] 이 호출만의 토큰 — 응답 도착 시 아직 최신인지 확인용
 	    d.capLoading = true; setScreen('caption');
-	    var photoCtx = d.captionAxes ? [d.captionAxes.situation, d.captionAxes.customer, d.captionAxes.photo].filter(Boolean).join(' / ') : _roleSummary();
+	    // [캡션재설계 v2] 3축 전부(직접 입력 텍스트 포함, 드롭 규칙 정제 후) → photo_context.
+	    var photoCtx = _wizAxisContext() || _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: _pubSvc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
     delete opts._regen;   // [v532] 내부 재생성 플래그 — 페이로드로 내보내지 않음
     // [v532] 사용자 입력을 캡션 최우선 context 로. '입력 키워드만 시술명으로, 과거 글은 말투만 참고'를 명시 —
@@ -1981,6 +1982,12 @@
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
+    // [캡션재설계 v2] 특이사항 = 참고 맥락(재료) 블록 — 원문 복사 금지·시술 사실만 발췌(verbatim 방지).
+    var _spNote = String(d.specialNote || '').replace(/\s+/g, ' ').trim();
+    if (_spNote) {
+      opts.photo_context += ' · 특이사항 메모(참고 재료, 문장 그대로 복사 금지): "' + _spNote.slice(0, 120) +
+        '" — 이 메모에서 시술 관련 사실(길이·색·기법·방문 차수 등)만 뽑아 자연스럽게 반영. 욕설·비속어·감정 표현·환불/불만 얘기는 캡션에 절대 넣지 말 것';
+    }
     opts.customer_name = _cust.customer || (d.customerId ? d.customerName : '') || '';   // [#1] 이번 입력 고객 or 연결된 고객만(stale 이름 '방' 방지)
     if (opts.customer_name) opts.photo_context += ' · 고객명: ' + opts.customer_name + '(시술받는 고객 이름. 시술명·스타일명·브랜드명이 아님. 게시글엔 고객님으로 자연스럽게만 언급)';
     // [다중pair] 결과물 여러 장이면 '캐러셀 게시글' 기준 — 중립적 전후 변화로(특정 시술명 가정 금지).
@@ -1989,8 +1996,8 @@
     else if (_outs.length === 1 && d.tplPurpose === 'before_after') opts.photo_context += ' · 시술 전후 변화 1장.';
     // [v532] photo_context 백엔드 상한 500자 — 다중 pair 노트까지 붙은 뒤 초과 시 422(생성 실패) 방지로 클램프.
     if (opts.photo_context && opts.photo_context.length > 480) opts.photo_context = opts.photo_context.slice(0, 480);
-    // [v532] extra_notes — 시술 내용은 입력값만(과거 글은 말투만) + 재생성 변형 지시. 백엔드 상한 300자 내 보장.
-    opts.extra_notes = _buildExtraNotes(svcClean, d.regenSeq);
+    // [캡션재설계 v2] extra_notes — 시술명 = 정제된 칩 값(_pubSvc)만 + 특이사항 재료 규칙 + 재생성 변형 지시. 300자 내 보장.
+    opts.extra_notes = _buildExtraNotes(_pubSvc, d.regenSeq, !!_spNote);
     // [#2] 고객의 사적 방문정황(남자친구·친구와 함께 왔다 등)과 금액/가격은 캡션 본문·해시태그에 절대 넣지 말 것.
     opts.extra_notes = ('고객의 사적인 방문 정황(남자친구·친구·지인과 함께 왔다 등)과 시술 금액/가격은 게시글 본문과 해시태그에 넣지 말 것. ' + opts.extra_notes).slice(0, 300);
     // [P1-2] 빈값 가드 — 고객/샵을 입력 안 했으면 AI가 지어내지 않게 명시(차용 방지).
@@ -2258,38 +2265,35 @@
       var pstep = t.closest('[data-fl-pairstep]'); if (pstep) { _stepPair(pstep.getAttribute('data-fl-pairstep') === 'next' ? 1 : -1); return; }
       // [v532] 추천 해시태그 칩 제거 — 해시태그 토글 핸들러도 함께 삭제(편집은 textarea 직접 입력으로 일원화).
       var csi = t.closest('[data-fl-cshopinfo]'); if (csi) { try { localStorage.setItem('itdasy:caption_shopinfo', _shopInfoOn() ? '0' : '1'); } catch (_e) { void _e; } toast(_shopInfoOn() ? '샵정보를 글 끝에 넣을게요' : '샵정보 반영을 껐어요'); setScreen('caption'); return; }   // [#19] 샵정보 opt-in 토글
-      // [캡션재설계] 3축 위저드 — 버튼 누르면 그 축 저장 + 다음 질문. 시술 입력은 유지(syncServiceFromDom).
+      // [캡션재설계 v2] 3질문 한 화면 — 칩 탭 = 그 축 저장/재탭 해제(스텝 넘김 없음). 특이사항 입력은 유지(syncServiceFromDom).
       var wp = t.closest('[data-fl-wizpick]'); if (wp) {
         syncServiceFromDom();
         var _pv = wp.getAttribute('data-fl-wizpick').split('::'); var _wk = _pv[0], _wv = _pv[1];
-        // [직접] 인라인 입력창 대신 → 그냥 다음 단계로. 마지막 단계에서 '직접'이면 아래 시술 입력창으로 포커스(직접 작성).
-        if (_wv === '직접') {
-          d._wizCustom = null; d._wizDir = 'fwd';
-          var _isLast = (d.capWizStep || 0) >= (_WIZ_STEPS.length - 1);
-          if (d.captionAxes) delete d.captionAxes[_wk];   // 직접 작성할 축은 비워둠(자유 서술)
-          d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-          setScreen('caption');
-          if (_isLast) { setTimeout(function () { var _svc = el && el.querySelector('[data-fl-service]'); if (_svc) { try { _svc.focus(); _svc.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_e) { void _e; } } }, 220); }
-          return;
-        }
-        d.captionAxes = d.captionAxes || {}; d.captionAxes[_wk] = _wv;
-        d._wizCustom = null;
-        d.capWizStep = Math.min(3, (d.capWizStep || 0) + 1);
-        d._wizDir = 'fwd';
-        // [#3] 누른 버튼을 잠깐 '활성'으로 보여준 뒤 부드럽게 다음 단계로 슬라이드(즉시 넘어가 활성감 안 보이던 것).
-        wp.classList.add('capwiz__opt--picked');
-        setTimeout(function () { if (cur === 'caption') setScreen('caption'); }, 170);
+        d.captionAxes = d.captionAxes || {};
+        if (d.captionAxes[_wk] === _wv) delete d.captionAxes[_wk]; else d.captionAxes[_wk] = _wv;
+        if (d._wizCustom === _wk) d._wizCustom = null;   // 직접 입력창 열려 있었으면 닫기
+        setScreen('caption');
         return;
       }
-      // [직접 입력] 인라인 확인 → 값 반영 후 다음 단계. 빈값이면 무시.
+      // [직접] 점선 칩 토글 — 닫혀 있으면 그 자리 입력창, 열려 있거나 직접 값이 있으면 닫기+값 해제.
+      var wcu = t.closest('[data-fl-wizcustom]'); if (wcu) {
+        syncServiceFromDom();
+        var _ck = wcu.getAttribute('data-fl-wizcustom');
+        if (d._wizCustom === _ck || _wizIsCustom(_ck)) {
+          if (d.captionAxes && _wizIsCustom(_ck)) delete d.captionAxes[_ck];
+          d._wizCustom = null;
+        } else {
+          d._wizCustom = _ck;
+        }
+        setScreen('caption');
+        return;
+      }
+      // [직접 입력] 인라인 확인 → 값 저장 + 입력창 닫기. 빈값이면 무시.
       var wco = t.closest('[data-fl-wizcustok]'); if (wco) { _wizCustomConfirm(); return; }
-      var wcc = t.closest('[data-fl-wizcustcancel]'); if (wcc) { d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
-      var wbk = t.closest('[data-fl-wizback]'); if (wbk) { syncServiceFromDom(); d._wizCustom = null; d.capWizStep = Math.max(0, (d.capWizStep || 0) - 1); d._wizDir = 'back'; setScreen('caption'); return; }
-      var wrd = t.closest('[data-fl-wizredo]'); if (wrd) { syncServiceFromDom(); d.capWizStep = 0; d.captionAxes = {}; d._wizCustom = null; d._wizDir = 'back'; setScreen('caption'); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
-      var svrec = t.closest('[data-fl-svcrecent]'); if (svrec) { var _rv = svrec.getAttribute('data-fl-svcrecent'); var _si = el && el.querySelector('[data-fl-service]'); d.service = _rv; if (_si) { _si.value = _rv; try { _si.dispatchEvent(new Event('input', { bubbles: true })); } catch (_e) { void _e; } } return; }   // [P4·보스] 최근 시술 → 입력창만 제자리 채움(setScreen 재렌더 제거 → 스크롤 안 튐)
-      var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _appendServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
+      // [캡션재설계 v2] 시술 칩·최근 시술 = 같은 단일선택 토글(data-fl-svctag 하나로 통합).
+      var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _pickServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
@@ -2341,7 +2345,10 @@
 	        var bk = e.target.getAttribute('data-fl-beautyrange'); d.beauty[bk] = +e.target.value;
 	      }
 	      if (e.target.matches('[data-fl-brush]')) { d.maskBrush = +e.target.value; return; }   // [v561] 붓 크기
-      if (e.target.matches('[data-fl-service]')) { d.service = e.target.value; }
+      if (e.target.matches('[data-fl-specialnote]')) {   // [캡션재설계 v2] 특이사항 — 값 + 남은 글자수(120) 라이브 갱신
+        d.specialNote = e.target.value;
+        var _nc = el.querySelector('[data-fl-notecount]'); if (_nc) _nc.textContent = String(Math.max(0, 120 - e.target.value.length));
+      }
       if (e.target.matches('[data-fl-custsearch]')) { d.custQuery = e.target.value; }
     });
     el.addEventListener('focusin', function (e) {
@@ -3348,16 +3355,25 @@
 
   // [T-104 P4] pickCustomer → flow/connect.js
 
+  // [키메라 수정 2026-07-15] 이어서 카드 제목 — 쉼표 없는 문장이 통째로 제목이 되던 것 차단.
+  //   시술 여러 개면 '첫시술 외 N개', 하나면 그대로, 40자 초과 시 말줄임.
+  function _svcTitle(svc) {
+    var parts = String(svc || '').split(/[,·]+/).map(function (x) { return x.trim(); }).filter(Boolean);   // 쉼표·가운뎃점만 — 공백 분리하면 '속눈썹 연장'이 '속눈썹 외 1개'가 됨
+    if (!parts.length) return '';
+    var t = parts[0] + (parts.length > 1 ? ' 외 ' + (parts.length - 1) + '개' : '');
+    return t.length > 40 ? (t.slice(0, 39) + '…') : t;
+  }
   function buildSlot() {
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     var now = Date.now();
-	    slot.label = d.customerName || slot.label || (d.service ? d.service.split(',')[0].trim() : '새 콘텐츠');
+	    slot.label = d.customerName || slot.label || _svcTitle(d.service) || '새 콘텐츠';
 	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, editState: p.editState || null, baseUrl: p.baseUrl || null, updatedAt: now }; });   // [#11] editState=재편집 이어가기 보존
 	    // [이슈2] 전후 템플릿 합성 결과물은 사진 배열과 분리된 전용 필드로 저장(원본 슬롯 비오염).
 	    // [다중pair] 페어별 결과물 배열 저장 + 단일 templateOutput 미러(구 코드/홈 썸네일 하위호환).
 	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length) ? d.templateOutputs.slice() : [];
 	    slot.templateOutput = d.templateOutput || (slot.templateOutputs[0] && slot.templateOutputs[0].outputUrl) || null;
 	    slot.service = d.service || '';
+	    slot.specialNote = d.specialNote || '';   // [캡션재설계 v2] 특이사항 — 이어서 복원용
 	    slot.caption = d.caption || '';
     slot.hashtags = (d.selectedHashes && d.selectedHashes.length ? d.selectedHashes : d.hashtags).join(' ');
     slot.customer_id = d.customerId || null;
@@ -3558,7 +3574,7 @@
 	      tplCat: ctx.tplLabel || (wc && wc.type === 'before_after' ? '전후' : null),
 	      tplPurpose: purpose, captionMode: capMode, defaultRole: ctx.role || 'hero',
       textOnly: !!(opts.textOnly),
-      service: slot && slot.service ? slot.service : '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [], selectedHashes: [],
+      service: slot && slot.service ? slot.service : '', specialNote: (slot && slot.specialNote) || '', caption: slot ? (slot.caption || '') : '', hashtags: slot && slot.hashtags ? String(slot.hashtags).split(/\s+/).filter(Boolean) : [], selectedHashes: [],
       customerId: slot ? (slot.customer_id || null) : null, customerName: slot ? (slot.customer_name || '') : '', customerVc: 0, custQuery: '',
       capLen: cm.length_tier || 'medium', capTone: cm.tone_override || 'normal', logId: cm.log_id || null,
       capUsePersona: (cm.use_persona !== false),   // [P2 2026-07-10] 원장님 말투 반영 기본 ON(전송 시 IG연동 게이트 유지) — 저장본이 명시적 false면 존중

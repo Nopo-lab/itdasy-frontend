@@ -97,7 +97,7 @@
   }
   function _layoutsHtml() {
     var mine = (window.WorkspaceLayout && window.WorkspaceLayout.getMyLayouts) ? window.WorkspaceLayout.getMyLayouts() : [];
-    if (!mine.length) return '<div class="ss-card-sub">저장한 레이아웃이 아직 없어요. 작업실에서 레이아웃을 고르고 <b>‘이 레이아웃 저장’</b>을 누르면 여기에 모여요.</div>';
+    if (!mine.length) return '<div class="ss-card-sub">저장한 레이아웃이 아직 없어요.</div>';
     return '<div class="wss-lay-grid">' + mine.map(function (L) {
       return '<div class="wss-lay" data-wss-layid="' + esc(L.id) + '">' +
         '<div class="wss-lay__thumb" data-wss-thumb><div class="wss-lay__ph"></div></div>' +
