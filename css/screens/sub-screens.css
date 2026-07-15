@@ -321,13 +321,30 @@
 .wsp-sum__row b { font-size: 22px; font-weight: 700; color: #8E4257; }
 .wsp-sum__row i { font-size: 13px; opacity: .5; }
 
-.wsp-bests { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
-.wsp-best { padding: 12px; border-radius: 12px; background: var(--surface-alt, #F7F8FA); }
-.wsp-best__k { font-size: 11.5px; color: var(--text-sub, #8B95A1); margin-bottom: 6px; }
-.wsp-best__v { display: flex; align-items: center; gap: 5px; font-size: 15px; font-weight: 700; color: var(--text, #191F28); margin-bottom: 8px; }
-.wsp-best__m { font-size: 12px; color: #2A8C63; }
-.wsp-best__m b { font-weight: 700; }
-.wsp-best__s { font-size: 11px; color: var(--text-sub, #8B95A1); margin-top: 3px; }
+/* [2026-07-15] 베스트 카드 2장(.wsp-bests/.wsp-best) → 축별 순위 비교로 교체.
+   1건짜리 표본으로 "이게 최고" 라고 단언하던 화면이라 원장님이 잘못 배울 여지가 있었다. */
+.wsp-lead { font-size: 14px; line-height: 1.6; color: var(--text, #191F28); margin-bottom: 14px; }
+.wsp-lead b { font-weight: 800; color: #8E4257; }
+.wsp-lead span { font-size: 12px; color: var(--text-sub, #8B95A1); }
+.wsp-lead--thin { color: var(--text-sub, #8B95A1); font-size: 13px; }
+
+.wsp-axis { padding: 12px; border-radius: 12px; background: var(--surface-alt, #F7F8FA); margin-bottom: 10px; }
+.wsp-axis__k { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--text-sub, #4E5968); margin-bottom: 10px; }
+.wsp-axis__none { font-size: 12px; line-height: 1.6; color: var(--text-sub, #8B95A1); }
+.wsp-axis__thin { font-size: 11px; color: var(--text-sub, #8B95A1); margin-top: 8px; }
+
+/* 막대 한 줄 = 이름 / 막대 / 점수 / 표본. 모바일 폭에서도 이름이 안 뭉개지게 grid 로 고정. */
+.wsp-bar { display: grid; grid-template-columns: minmax(64px, 84px) 1fr auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; margin-bottom: 9px; }
+.wsp-bar:last-child { margin-bottom: 0; }
+.wsp-bar__k { font-size: 12px; color: var(--text, #191F28); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsp-bar.is-top .wsp-bar__k { font-weight: 800; color: #8E4257; }
+.wsp-bar__t { height: 8px; border-radius: 999px; background: #E9ECEF; overflow: hidden; }
+.wsp-bar__t span { display: block; height: 100%; border-radius: 999px; background: rgba(188,102,117,.45); }
+.wsp-bar.is-top .wsp-bar__t span { background: #BC6675; }
+.wsp-bar__v { font-size: 12px; font-weight: 700; color: var(--text-sub, #4E5968); font-variant-numeric: tabular-nums; }
+.wsp-bar__s { grid-column: 2 / -1; font-size: 10.5px; color: var(--text-sub, #8B95A1); margin-top: 3px; }
+
+.wsp-legend { font-size: 10.5px; color: var(--text-sub, #8B95A1); margin: -2px 0 20px; }
 
 .wsp-sect { font-size: 12.5px; color: var(--text-sub, #8B95A1); margin: 0 0 8px; }
 .wsp-card { border: 1px solid var(--border, #E5E8EB); border-radius: 14px; padding: 12px; margin-bottom: 10px; background: var(--surface, #fff); }
@@ -342,6 +359,12 @@
 .wsp-chip--dim { color: var(--text-sub, #8B95A1); background: #F1F3F5; }
 .wsp-stats { display: flex; gap: 14px; margin: 12px 0 10px; font-size: 12px; color: var(--text-sub, #4E5968); }
 .wsp-stats span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 답 안 한 문의 — 탭하면 댓글 응대 화면으로. 지금 당장 할 일이라 예약 블록보다 눈에 띄게. */
+.wsp-inq { display: flex; align-items: center; gap: 8px; border-radius: 10px; padding: 10px; margin-bottom: 8px; background: rgba(214,158,46,.10); border: 1px solid rgba(214,158,46,.22); font-size: 12.5px; color: #96631F; cursor: pointer; }
+.wsp-inq span { flex: 1; min-width: 0; }
+.wsp-inq b { font-weight: 800; }
+.wsp-inq > i:last-child { opacity: .6; font-size: 12px; }
 
 .wsp-conv { border-radius: 10px; padding: 10px; background: var(--surface-alt, #F7F8FA); }
 .wsp-conv.is-hit { background: rgba(42,140,99,.08); }

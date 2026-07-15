@@ -1,11 +1,12 @@
-/* workspace-perf.js — 게시물별 성과 화면 (2026-07-14)
-   작업실 홈 성과 버튼 → 여기. "좋아요가 실제 예약으로 이어졌나"를 게시물 단위로 본다.
+/* workspace-perf.js — 게시물별 성과 화면 (2026-07-14, 2026-07-15 학습화면으로 개편)
+   작업실 홈 성과 버튼 → 여기. "어떻게 만든 게시물이 반응 좋았나"를 원장님이 알 수 있게 한다.
+   숫자 나열이 목적이 아니다 — 다음 게시물을 어떻게 만들지 정하는 게 목적이다.
 
-   데이터 3갈래:
-   ① GET /instagram/insights   → 게시물별 좋아요·댓글·저장·도달 + 썸네일 (posts = 최근 25건)
-   ② loadSlotsFromDB()         → 그 게시물을 만들 때 쓴 말투(captionMeta.tone_override)·레이아웃
-                                 (workspaceContext.templateLabel) — 발행 슬롯에 이미 저장돼 있음
-   ③ GET /bookings             → 예약. created_at(예약을 '잡은' 시각)으로 귀속. starts_at 아님.
+   데이터 4갈래:
+   ① GET /instagram/insights      → 게시물별 좋아요·댓글·저장·도달 + 썸네일 (posts = 최근 25건)
+   ② loadSlotsFromDB()            → 그 게시물을 만들 때 쓴 레이아웃·말투·사진 장수 — 발행 슬롯에 이미 있음
+   ③ GET /bookings                → 예약. created_at(예약을 '잡은' 시각)으로 귀속. starts_at 아님.
+   ④ GET /instagram/comment-queue → 게시물별 '아직 답 안 한' 문의 댓글 (가격·예약·위치 등)
 
    ①↔② 연결 열쇠 = slot.publish.igMediaId (발행 시 저장 — workspace-v2-flow.js).
    옛 슬롯엔 없어서 캡션 앞글자 + 발행시각 근접으로 폴백.
@@ -14,7 +15,10 @@
      → 한 예약이 여러 게시물에 중복으로 안 잡힌다. 인스타는 유입 경로를 안 알려주므로 어디까지나 추정.
      단, 발행 시 고객연결(slot.customer_id)한 예약은 추정이 아니라 '확정'으로 표시.
 
-   DM·댓글 문의 분류는 잠금 — 아래 LOCK 주석 참고.
+   [2026-07-15] 표본 가드(MIN_POSTS): 1~2건으로 "이 레이아웃이 최고" 라고 단언하면 원장님이 그걸 믿고
+     작업 방식을 바꾼다. 근거 없는 확신이 없느니만 못하므로 3건 미만은 순위를 안 매기고 그대로 말한다.
+
+   DM 유입 귀속은 여전히 잠금 — 아래 LOCK 주석 참고.
    .subscreen-overlay + ss-* 재사용 → PC 사이드바 자동 안전. window.WorkspacePerf.open(). */
 (function () {
   'use strict';
@@ -22,13 +26,27 @@
   var ID = 'wsPerfOverlay';
   var WINDOW_DAYS = 7;              // 발행 후 며칠까지 그 게시물 덕으로 볼지
   var DAY = 86400000;
+  var MIN_POSTS = 3;                // 이 건수 미만이면 "먹혔다"고 말하지 않는다
+  var CQ_MEDIA_LIMIT = 12;          // /instagram/comment-queue 서버 상한(instagram.py: min(x,12))
 
   // 말투 키 → 라벨. workspace-v2-flow.js _TONE_CHIPS 와 같은 집합.
   var TONE_LABEL = { friendly: '친근', professional: '전문', emotional: '감성', event: '이벤트', review: '후기', normal: '기본' };
   var PURPOSE_LABEL = { before_after: '전후', feed: '피드', review: '후기', event: '이벤트', story: '스토리', price: '가격표' };
+  // 문의 댓글 intent → 라벨. instagram.py _classify_comment 와 같은 집합.
+  var INTENT_LABEL = { price: '가격', booking: '예약', location: '위치', hours: '영업시간', service: '시술', complaint: '불만' };
 
   function esc(v) { return window._esc ? window._esc(v) : String(v == null ? '' : v); }
   function toast(m) { if (window.showToast) window.showToast(m); }
+
+  /** 조사 '으로/로' — 축 이름이 '레이아웃'(받침 ㅅ)·'말투'(받침 없음)로 섞여 있어 하드코딩하면 반드시 틀린다.
+      한글 음절 종성이 없거나 ㄹ이면 '로', 그 외엔 '으로'. 한글이 아니면 안전하게 '으로'. */
+  function _ro(word) {
+    var s = String(word == null ? '' : word);
+    var c = s.charCodeAt(s.length - 1) - 0xAC00;
+    if (isNaN(c) || c < 0 || c > 11171) return '으로';
+    var jong = c % 28;
+    return (jong === 0 || jong === 8) ? '로' : '으로';
+  }
 
   function _authGet(path) {
     var headers = window.authHeader ? window.authHeader() : {};
@@ -61,6 +79,14 @@
       .catch(function () { return []; });
   }
 
+  /** 문의 댓글 — 게시물별로 '아직 답 안 한' 것만 온다(서버가 CommentReplyLog 로 응대분을 뺌).
+      스테이징은 INSTAGRAM_FULL_SCOPE=1 이라 켜져 있지만, 스코프 없는 토큰이면 permission_error 로 돈다.
+      그 경우 조용히 없는 셈 치고(화면엔 안내만) 나머지는 그대로 그린다 — 성과 화면 전체가 죽으면 안 된다. */
+  function _loadCommentQueue() {
+    return _authGet('/instagram/comment-queue?media_limit=' + CQ_MEDIA_LIMIT)
+      .catch(function () { return { items: [], _failed: true }; });
+  }
+
   // ── 연결(조인) ────────────────────────────────────────────
   function _norm(s) { return String(s == null ? '' : s).replace(/\s+/g, '').slice(0, 40); }
 
@@ -88,10 +114,44 @@
     var t = slot && slot.captionMeta && slot.captionMeta.tone_override;
     return TONE_LABEL[t] ? t : (t ? t : 'normal');
   }
+
+  /** wsl-* 프리셋 id → 사람이 읽는 이름. 스타터에 없으면 '내 레이아웃'(ShopStyle 확장)도 뒤진다. */
+  function _presetName(id) {
+    var WL = window.WorkspaceLayout;
+    if (!id || !WL) return '';
+    try {
+      var p = WL.getById ? WL.getById(id) : null;
+      if (p && p.name) return p.name;
+      var mine = WL.getMyLayouts ? (WL.getMyLayouts() || []) : [];
+      for (var i = 0; i < mine.length; i++) if (mine[i] && mine[i].id === id) return mine[i].name || '내 레이아웃';
+    } catch (_e) { void _e; }
+    return '';
+  }
+
+  /**
+   * 게시물을 만들 때 쓴 레이아웃.
+   * [2026-07-15 수정] 예전엔 workspaceContext.templateLabel 만 봐서 '전후'·'피드' 같은 뭉뚱그린 분류로
+   *   뭉갰다 — 그러면 '전후·좌우'와 '전후·상하'가 같은 걸로 집계돼서 원장님한테 알려줄 게 없어진다.
+   *   실제 프리셋 id 는 slot.templateOutputs[].templateId 에 그대로 있으므로 그걸 먼저 본다.
+   *   (레이아웃 없이 사진만 올린 슬롯은 templateId=null — flow/layout.js:108. 그때만 옛 폴백.)
+   */
   function _layoutOf(slot) {
     if (!slot) return '';
+    var outs = slot.templateOutputs || [];
+    for (var i = 0; i < outs.length; i++) {
+      var id = outs[i] && outs[i].templateId;
+      if (!id) continue;
+      var nm = _presetName(id);
+      if (nm) return nm;
+    }
     var wc = slot.workspaceContext || {};
     return wc.templateLabel || PURPOSE_LABEL[wc.templatePurpose] || PURPOSE_LABEL[wc.type] || '';
+  }
+
+  /** 사진 장수 — "몇 장 올린 게 반응 좋나"는 원장님이 바로 따라할 수 있는 축이라 따로 뽑는다. */
+  function _photoCountOf(slot) {
+    var n = (slot && slot.photos && slot.photos.length) || 0;
+    return n ? (n >= 4 ? '4장 이상' : n + '장') : '';
   }
 
   /**
@@ -131,28 +191,57 @@
         likes: p.like_count || 0, comments: p.comments_count || 0, saved: p.saved || 0, reach: p.reach || 0,
         publishedAt: ts || (slot && slot.publish && slot.publish.publishedAt) || 0,
         slot: slot, tone: slot ? _toneOf(slot) : null, layout: slot ? _layoutOf(slot) : '',
-        title: (slot && (slot.service || slot.label)) || '', bookings: [], sureCount: 0
+        photoCount: slot ? _photoCountOf(slot) : '',
+        title: (slot && (slot.service || slot.label)) || '', bookings: [], sureCount: 0,
+        inquiries: 0, intents: []
       };
     });
     rows.sort(function (a, b) { return b.publishedAt - a.publishedAt; });
     return rows;
   }
 
-  /** 말투·레이아웃별 집계 — 게시물당 평균 예약. 도달(reach)은 비즈니스 계정 아니면 0이라 %는 안 쓴다. */
+  /** 문의 댓글 큐를 media_id 로 묶어 게시물에 붙인다. 큐엔 '미응대'만 들어있다(서버가 응대분 제외). */
+  function _attachInquiries(rows, cq) {
+    var items = (cq && cq.items) || [];
+    if (!items.length) return;
+    var byMedia = {};
+    items.forEach(function (it) {
+      var mid = it && it.media_id; if (!mid) return;
+      if (!byMedia[mid]) byMedia[mid] = [];
+      byMedia[mid].push(it.intent || null);
+    });
+    rows.forEach(function (r) {
+      var list = byMedia[r.id]; if (!list) return;
+      r.inquiries = list.length;
+      var seen = {};
+      r.intents = list.filter(function (x) { if (!x || seen[x]) return false; seen[x] = 1; return true; });
+    });
+  }
+
+  /**
+   * 축(레이아웃/말투/사진장수)별 집계.
+   * 반응 점수 = 좋아요 + 댓글×2 + 저장×3 — 백엔드 top_posts 가 쓰는 가중치와 같게 맞췄다
+   *   (instagram_insights.py:200). 도달(reach)은 비즈니스 계정 아니면 0이라 %는 안 쓴다.
+   * 예약은 표본이 얇아 0이 많으므로 반응 점수를 1순위로, 예약을 2순위로 정렬한다.
+   */
+  function _score(r) { return (r.likes || 0) + (r.comments || 0) * 2 + (r.saved || 0) * 3; }
+
   function _agg(rows, keyFn) {
     var m = {};
     rows.forEach(function (r) {
       var k = keyFn(r);
       if (!k) return;
-      if (!m[k]) m[k] = { key: k, posts: 0, bookings: 0, likes: 0 };
-      m[k].posts++; m[k].bookings += r.bookings.length; m[k].likes += r.likes;
+      if (!m[k]) m[k] = { key: k, posts: 0, bookings: 0, likes: 0, score: 0 };
+      m[k].posts++; m[k].bookings += r.bookings.length; m[k].likes += r.likes; m[k].score += _score(r);
     });
     return Object.keys(m).map(function (k) {
       var o = m[k];
       o.perPost = o.posts ? o.bookings / o.posts : 0;
       o.likesPerPost = o.posts ? o.likes / o.posts : 0;
+      o.scorePerPost = o.posts ? o.score / o.posts : 0;
+      o.enough = o.posts >= MIN_POSTS;
       return o;
-    }).sort(function (a, b) { return b.perPost - a.perPost || b.likesPerPost - a.likesPerPost; });
+    }).sort(function (a, b) { return b.scorePerPost - a.scorePerPost || b.perPost - a.perPost; });
   }
 
   // ── 그리기 ────────────────────────────────────────────────
@@ -176,25 +265,79 @@
       '</div></div>';
   }
 
-  function _bestHtml(rows) {
+  /** 한 축(레이아웃/말투/사진장수)의 순위 막대. 표본 부족분은 순위를 안 매기고 그대로 말한다. */
+  function _axisHtml(label, list, icon) {
+    var enough = list.filter(function (o) { return o.enough; });
+    var head = '<div class="wsp-axis__k"><i class="ph-duotone ' + icon + '"></i>' + esc(label) + '</div>';
+    if (!enough.length) {
+      return '<div class="wsp-axis">' + head +
+        '<div class="wsp-axis__none">같은 ' + esc(label) + _ro(label) + ' ' + MIN_POSTS + '건은 올려야 비교해드릴 수 있어요. ' +
+        '지금은 ' + list.length + '가지를 조금씩만 써보셨어요.</div></div>';
+    }
+    // 비교 대상이 하나뿐이면 1등을 강조하지 않는다 — 막대 100% + 굵은 글씨는 "이게 최고" 로 읽히는데,
+    //   견줄 게 없으면 그건 그냥 유일한 값이지 최고가 아니다.
+    var comparable = enough.length >= 2;
+    var max = enough[0].scorePerPost || 1;
+    var bars = enough.map(function (o, i) {
+      var pct = Math.max(4, Math.round((o.scorePerPost / max) * 100));
+      return '<div class="wsp-bar' + (comparable && i === 0 ? ' is-top' : '') + '">' +
+        '<div class="wsp-bar__k">' + esc(o.key) + '</div>' +
+        '<div class="wsp-bar__t"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="wsp-bar__v">' + Math.round(o.scorePerPost) + '</div>' +
+        '<div class="wsp-bar__s">' + o.posts + '건' + (o.bookings ? ' · 예약 ' + o.bookings + '건' : '') + '</div>' +
+        '</div>';
+    }).join('');
+    var thin = list.length - enough.length;
+    var note = '';
+    if (!comparable) {
+      note = '<div class="wsp-axis__thin">견줄 게 아직 없어요 — 다른 ' + esc(label) + _ro(label) + '도 올려보시면 비교해드릴게요</div>';
+    } else if (thin) {
+      note = '<div class="wsp-axis__thin">' + thin + '가지는 아직 ' + MIN_POSTS + '건이 안 돼서 뺐어요</div>';
+    }
+    return '<div class="wsp-axis">' + head + bars + note + '</div>';
+  }
+
+  /**
+   * "무엇이 먹혔나" — 이 화면의 본론.
+   * 원장님이 다음 게시물을 만들 때 따라할 수 있는 축만 놓는다: 레이아웃·말투·사진 장수.
+   */
+  function _compareHtml(rows) {
     var scored = rows.filter(function (r) { return r.slot; });
     if (!scored.length) {
-      return '<div class="wsp-empty">이 게시물들을 작업실에서 올린 기록이 없어서 말투·레이아웃은 아직 못 따져요. ' +
-        '작업실에서 올린 글이 쌓이면 여기에 보여드릴게요.</div>';
+      return '<div class="wsp-sect">무엇이 먹혔나</div>' +
+        '<div class="wsp-empty">이 게시물들을 작업실에서 올린 기록이 없어서 아직 못 따져요. ' +
+        '작업실에서 올린 글이 쌓이면 여기서 알려드릴게요.</div>';
     }
-    var tones = _agg(scored, function (r) { return r.tone ? (TONE_LABEL[r.tone] || r.tone) : null; });
-    var lays = _agg(scored, function (r) { return r.layout || null; });
-    function card(label, top, icon) {
-      if (!top) return '';
-      return '<div class="wsp-best">' +
-        '<div class="wsp-best__k">' + esc(label) + '</div>' +
-        '<div class="wsp-best__v"><i class="ph-duotone ' + icon + '"></i>' + esc(top.key) + '</div>' +
-        '<div class="wsp-best__m">게시물당 예약 <b>' + top.perPost.toFixed(1) + '건</b></div>' +
-        '<div class="wsp-best__s">' + top.posts + '건 기준</div></div>';
+    /* 축 정의. lead 는 축마다 따로 쓴다 — "2장 사진 장수으로" 같은 조사 깨짐을 막고,
+       원장님이 그대로 따라할 수 있는 문장으로 만든다. */
+    var AXES = [
+      { label: '레이아웃', icon: 'ph-layout', keyFn: function (r) { return r.layout || null; },
+        lead: function (k) { return '<b>' + esc(k) + '</b> 레이아웃으로 올린 글'; } },
+      { label: '말투', icon: 'ph-chat-circle-text', keyFn: function (r) { return r.tone ? (TONE_LABEL[r.tone] || r.tone) : null; },
+        lead: function (k) { return '<b>' + esc(k) + '</b> 말투로 쓴 글'; } },
+      { label: '사진 장수', icon: 'ph-images', keyFn: function (r) { return r.photoCount || null; },
+        lead: function (k) { return '사진 <b>' + esc(k) + '</b> 올린 글'; } },
+    ];
+    AXES.forEach(function (x) { x.list = _agg(scored, x.keyFn); });
+
+    /* 맨 위 한 줄 결론.
+       [주의] 축끼리 점수를 비교하면 안 된다 — 세 축은 같은 게시물을 다르게 자를 뿐이라, 대박 글 하나를
+         우연히 잘 격리한 축이 늘 이긴다(의미 없는 1등). 대신 원장님이 따라하기 쉬운 순서로 고른다:
+         레이아웃(다음 글에 그대로 적용 가능) > 말투 > 사진 장수. 표본 채운 첫 축을 쓴다. */
+    var top = null;
+    for (var i = 0; i < AXES.length && !top; i++) {
+      var e = AXES[i].list.filter(function (o) { return o.enough; })[0];
+      if (e && AXES[i].list.filter(function (o) { return o.enough; }).length >= 2) top = { ax: AXES[i], o: e };
     }
-    var h = card('말투', tones[0], 'ph-chat-circle-text') + card('레이아웃', lays[0], 'ph-layout');
-    if (!h) return '';
-    return '<div class="wsp-bests">' + h + '</div>';
+    var lead = top
+      ? '<div class="wsp-lead">지금까지는 ' + top.ax.lead(top.o.key) + '이 제일 반응 좋았어요 ' +
+        '<span>(' + top.o.posts + '건 기준)</span></div>'
+      : '<div class="wsp-lead wsp-lead--thin">아직 뭐가 먹히는지 말하기엔 일러요. ' +
+        '같은 방식으로 ' + MIN_POSTS + '건쯤 올려서 서로 비교되면 여기서 알려드릴게요.</div>';
+
+    return '<div class="wsp-sect">무엇이 먹혔나</div>' + lead +
+      AXES.map(function (x) { return _axisHtml(x.label, x.list, x.icon); }).join('') +
+      '<div class="wsp-legend">반응 = 좋아요 + 댓글×2 + 저장×3 (인스타 성과 계산과 같은 기준)</div>';
   }
 
   function _rowHtml(r) {
@@ -202,8 +345,9 @@
       ? '<img class="wsp-card__im" src="' + esc(r.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
       : '<div class="wsp-card__im wsp-card__im--none"><i class="ph-duotone ph-image"></i></div>';
     var chips = '';
-    if (r.tone) chips += '<span class="wsp-chip">' + esc(TONE_LABEL[r.tone] || r.tone) + ' 말투</span>';
     if (r.layout) chips += '<span class="wsp-chip">' + esc(r.layout) + '</span>';
+    if (r.tone) chips += '<span class="wsp-chip">' + esc(TONE_LABEL[r.tone] || r.tone) + ' 말투</span>';
+    if (r.photoCount) chips += '<span class="wsp-chip">' + esc(r.photoCount) + '</span>';
     if (!r.slot) chips += '<span class="wsp-chip wsp-chip--dim">작업실 밖에서 올린 글</span>';
 
     var n = r.bookings.length;
@@ -223,6 +367,16 @@
         '</div>';
     }
 
+    // 답 안 한 문의 댓글 — 원장님이 지금 당장 할 일이라 예약 블록보다 위에 둔다.
+    var inq = '';
+    if (r.inquiries) {
+      var kinds = r.intents.map(function (x) { return INTENT_LABEL[x] || x; }).join(' · ');
+      inq = '<div class="wsp-inq" data-wsp-comments>' +
+        '<i class="ph-duotone ph-chats-circle"></i>' +
+        '<span>답 안 한 문의 <b>' + r.inquiries + '건</b>' + (kinds ? ' — ' + esc(kinds) : '') + '</span>' +
+        '<i class="ph-duotone ph-caret-right"></i></div>';
+    }
+
     return '<div class="wsp-card">' +
       '<div class="wsp-card__top">' + thumb +
         '<div class="wsp-card__meta">' +
@@ -235,19 +389,34 @@
         '<span><i class="ph-duotone ph-chat-circle"></i>' + r.comments + '</span>' +
         (r.saved ? '<span><i class="ph-duotone ph-bookmark-simple"></i>' + r.saved + '</span>' : '') +
         (r.reach ? '<span><i class="ph-duotone ph-eye"></i>' + r.reach + '</span>' : '') +
-      '</div>' + conv + '</div>';
+      '</div>' + inq + conv + '</div>';
   }
 
-  // [LOCK] DM·댓글 문의 분류 — 지금 켤 수 없는 이유를 원장님 말로 적어둔다.
-  //   · 댓글 문의 분류: manage_comments 스코프 심사 대기(코드는 app-comment-reply-queue.js 에 이미 있음).
-  //   · DM 유입: /dm/conversations 는 '마지막 대화 시각'만 줘서 '이 게시물 보고 처음 연락했는지'를 알 수 없다.
-  //     게다가 DM 봇 자체가 Meta Advanced 심사 후 켜짐. 그래서 추정치도 안 만든다(가짜 숫자 금지).
+  /* [LOCK] DM 유입 귀속만 남았다. (댓글 문의 분류는 2026-07-15 열림 — 스테이징 INSTAGRAM_FULL_SCOPE=1,
+       개발모드/테스터는 App Review 전에도 manage_comments 를 받을 수 있다. instagram.py:710 주석 참고.)
+     DM 이 막힌 진짜 이유는 심사가 아니라 데이터가 없어서다:
+       · /dm/conversations 는 '마지막 대화 시각'만 줘서 '이 게시물 보고 처음 연락했는지'를 알 수 없다.
+       · messaging_referral 웹훅(게시물/광고 출처를 실어옴)은 구독은 돼 있는데 dm_autoreply.py:3100 에서
+         파싱 없이 버려진다. 그걸 저장해도 오가닉 DM 엔 ref 가 안 붙을 공산이 커서, 커버리지를 실측하기
+         전까지는 비율을 안 만든다. 추정치도 안 만든다(가짜 숫자 금지). */
   function _lockHtml() {
     return '<div class="wsp-lock">' +
-      '<div class="wsp-lock__h"><i class="ph-duotone ph-lock-simple"></i>댓글·DM 문의 분류' +
-        '<span class="wsp-lock__b">심사 대기</span></div>' +
-      '<div class="wsp-lock__d">댓글 중에 가격·예약·위치를 묻는 문의만 골라내고, DM이 어느 게시물 보고 왔는지까지 ' +
-        '이어주는 기능이에요. 인스타(Meta) 승인이 나면 자동으로 켜져요. 지금은 댓글 수만 보여요.</div></div>';
+      '<div class="wsp-lock__h"><i class="ph-duotone ph-lock-simple"></i>DM이 어느 글 보고 왔는지' +
+        '<span class="wsp-lock__b">준비 중</span></div>' +
+      '<div class="wsp-lock__d">인스타가 "이 DM은 어느 게시물 보고 온 건지"를 알려주지 않아서, 지금은 ' +
+        '정확히 이어드릴 수가 없어요. 억지로 추측한 숫자를 보여드리면 오히려 판단을 그르치게 해서 ' +
+        '비워뒀어요. 방법이 생기면 바로 채울게요.</div></div>';
+  }
+
+  /** 댓글 문의를 못 읽은 경우에만 뜬다 — 대개 인스타를 다시 연결하면 풀린다(스코프가 토큰에 박혀서). */
+  function _cqNoticeHtml(cq) {
+    if (!cq || !(cq.permission_error || cq._failed)) return '';
+    if (cq.connected === false) return '';   // 인스타 미연결은 이미 다른 데서 안내함
+    return '<div class="wsp-lock">' +
+      '<div class="wsp-lock__h"><i class="ph-duotone ph-warning-circle"></i>문의 댓글을 못 읽었어요' +
+        '<span class="wsp-lock__b">재연결 필요</span></div>' +
+      '<div class="wsp-lock__d">인스타를 연결할 때 댓글 권한을 안 받아서예요. 설정에서 인스타를 ' +
+        '다시 연결하면 게시물마다 답 안 한 문의를 모아서 보여드릴 수 있어요.</div></div>';
   }
 
   function _emptyHtml(insights) {
@@ -267,15 +436,16 @@
     return '<button type="button" class="wsp-more" data-wsp-ai>고객·매출 인사이트 보기 ›</button>';
   }
 
-  function _render(el, insights, rows) {
+  function _render(el, insights, rows, cq) {
     var body = el.querySelector('[data-wsp-body]');
     if (!body) return;
     if (!rows.length) { body.innerHTML = _emptyHtml(insights) + _lockHtml() + _moreHtml(); return; }
     body.innerHTML =
       _summaryHtml(rows) +
-      _bestHtml(rows) +
+      _compareHtml(rows) +
       '<div class="wsp-sect">게시물별</div>' +
       rows.map(_rowHtml).join('') +
+      _cqNoticeHtml(cq) +
       _lockHtml() +
       _moreHtml();
   }
@@ -301,6 +471,12 @@
         else toast('인사이트를 불러오지 못했어요');
         return;
       }
+      // 답 안 한 문의 → 댓글 응대 화면. 여기서 바로 답을 달게 해야 성과 화면이 '보고서'로 안 끝난다.
+      if (e.target.closest('[data-wsp-comments]')) {
+        if (typeof window.openCommentReplyQueue === 'function') { close(); window.openCommentReplyQueue(); }
+        else toast('댓글 응대 화면을 불러오지 못했어요');
+        return;
+      }
     });
     el.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     return el;
@@ -313,12 +489,13 @@
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });
 
-    Promise.all([_loadInsights(), _loadSlots(), _loadBookings()]).then(function (res) {
-      var insights = res[0], slots = res[1], bookings = res[2];
+    Promise.all([_loadInsights(), _loadSlots(), _loadBookings(), _loadCommentQueue()]).then(function (res) {
+      var insights = res[0], slots = res[1], bookings = res[2], cq = res[3];
       var rows = _buildRows(insights, slots);
       _attribute(rows, bookings);
+      _attachInquiries(rows, cq);
       if (!document.getElementById(ID)) return;   // 로딩 중 닫힘
-      _render(el, insights, rows);
+      _render(el, insights, rows, cq);
     }).catch(function (err) {
       console.warn('[wsperf] load fail', err);
       var b = el.querySelector('[data-wsp-body]');
@@ -331,5 +508,12 @@
     el.classList.remove('is-open'); el.setAttribute('aria-hidden', 'true');
   }
 
-  window.WorkspacePerf = { open: open, close: close, _internals: { _attribute: _attribute, _buildRows: _buildRows, _matchSlot: _matchSlot, _agg: _agg } };
+  window.WorkspacePerf = {
+    open: open, close: close,
+    _internals: {
+      _attribute: _attribute, _buildRows: _buildRows, _matchSlot: _matchSlot, _agg: _agg,
+      _layoutOf: _layoutOf, _photoCountOf: _photoCountOf, _attachInquiries: _attachInquiries, _score: _score,
+      _ro: _ro, MIN_POSTS: MIN_POSTS,
+    },
+  };
 })();

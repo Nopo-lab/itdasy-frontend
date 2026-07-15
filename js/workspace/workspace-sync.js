@@ -149,7 +149,12 @@
             publish: slot.publish || null,
             customer_id: (slot.customer_id != null ? slot.customer_id : null),
             sort_order: slot.order || 0,
-            meta: buildMeta(slot),
+            // [버그수정 2026-07-15] 원본 slot 이 아니라 URL 치환된 c 를 넘긴다.
+            //   원본엔 templateOutputs[].outputUrl 이 구운 JPEG dataURL(수백 KB) 로 남아있어서
+            //   buildMeta 의 100KB 컷에 걸려 templateOutputs 가 통째로 조용히 버려졌다.
+            //   → 레이아웃 프리셋 id(어떤 틀로 만든 글인지)가 서버에 안 올라가고 이 기기에만 남아,
+            //     폰 바꾸면 성과 화면의 레이아웃 학습이 리셋됐다. c 는 이미 https URL 이라 컷을 안 넘는다.
+            meta: buildMeta(c),
             client_updated_at: isoOf(slot.updatedAt),
             photos: photos,
           },
