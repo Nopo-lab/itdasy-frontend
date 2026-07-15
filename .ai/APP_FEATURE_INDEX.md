@@ -47,10 +47,12 @@
 | **카카오 알림톡** (예약확정·리마인드·노쇼·빈슬롯·생일) | 🟡 **BE 발송서비스 실구현(Aligo API)** / FE 관리화면 `app-kakao-hub.js`는 스텁 | `services/kakao_alimtalk.py`(httpx) |
 | **네이버 예약(스마트플레이스) 양방향 동기화** | 🟡 스텁 — 사업장ID 저장만, Phase1 예정 | `integrations.py /naver/link`, `app-naver-link.js` |
 | **인스타 발행**(피드·스토리·캐러셀) | 🟡 코드완성, `content_publish` **Meta 심사대기** | `instagram.py /publish-file` |
-| 인스타 **게시물 댓글 답글 자동화** | ❌ **불가** — `manage_comments` 스코프 일부러 제거(권한 미신청) | `instagram.py:74` |
+| 인스타 **게시물 댓글 답글 자동화** | 🟡 **스테이징 ON** — `INSTAGRAM_FULL_SCOPE=1`(Cloud Run env, 코드 아님)이라 개발모드/테스터는 App Review 전에도 `manage_comments` 획득 가능. **운영은 env 없음 → basic scope**. 스코프는 동의 시점에 토큰에 박히므로 **기존 연동자는 인스타 재연결 필요**(refresh-token 으론 안 바뀜) | `instagram.py:74,710`, `/instagram/comment-queue`(:799) |
 | 네이버 플레이스 **리뷰 답글 자동화** | ❌ **불가** — 공식 답글 API 없음 | — |
 | **리뷰 요청** 관리(손님에게 리뷰 요청·상태추적) | ✅ | `customer_reviews.py`, `app-review.js` |
 | 인스타 **인사이트**(도달·저장·최적시간) | ✅ | `instagram_insights.py` |
+| **게시물별 성과 + "무엇이 먹혔나" 학습** | ✅ **[2026-07-15]** 발행 게시물을 레이아웃 프리셋(`wsl-*`)·말투·사진장수 축으로 묶어 반응 비교. 표본 3건 미만은 순위 안 매김. 게시물별 미응대 문의 댓글도 표시 | `js/workspace/workspace-perf.js`, `__tests__/workspace-perf.test.js` |
+| 성과 화면 **DM 유입 귀속** | ❌ **데이터 없음**(심사 문제 아님) — `/dm/conversations`는 '마지막 대화 시각'만, `DMMessageLog`에 게시물 참조 컬럼 없음. `messaging_referral` 웹훅은 구독만 하고 파싱 없이 버려짐 | `dm_autoreply.py:3100`(버리는 곳), `:5200`(구독) |
 
 > **DM 응대 구조 핵심:** DM/문의 답장은 별도 "인박스 파일" 하나가 아니라 — 수신 채널(인스타/톡톡) → `services/channels/*` 어댑터 → 코어 DM 엔진(`services/dm_intent`·`dm_context_builder`·`dm_free_reply`) → `dm_confirm_queue`(원장 검토) 로 흐른다. 잇비 챗봇 쪽 발화는 `reply_dm`/`draft_message` kind로 백엔드 LLM이 초안, FE `js/assistant/marketing-safety-labels.js`·`marketing-draft-policy.js`가 톤·안전 라벨만 입힘.
 
@@ -125,7 +127,7 @@
 
 ### 작업실 (js/workspace/**)
 - **js/workspace/workspace-v2-flow.js** (3881) — **작업실 전체 오케스트레이터.** 업로드→레이아웃→편집→게시글(캡션+미리보기 통합)→고객연결. 화면전환/CTA/상태(d)/네비스택, flow/*·ItdEditor·PhotoEditor·adapter 조립 허브. **[2026-07-13] 캡션 결과 화면에 발행+피드 미리보기 흡수(구 preview 스텝은 플러밍만 보존, 진입 없음). 진행바 4단계(upload·layout·caption·connect).** **[2026-07-15] 캡션 = 질문 3개 한 화면(스크롤 없이). '직접' 선택 시 인라인 입력 토글 복구, 시술 칩 단일선택 + 특이사항 분리. 원문 verbatim 강제 로직 삭제(욕설·하소연 원문 복붙 버그 → 사용자 텍스트는 재료로만).**
-- **workspace-v2-home.js**(634) 홈 렌더러. **[2026-07-15] 헤더 = @인스타핸들 + 샵이름(구 '내 작업실' 대체). 할일/이번달 발행/성과/피드 정렬 카드 제거, 설정·선택은 ⋯ 메뉴로 이동. 발행 타일 무배지(진행 중만 '작성 중' 칩). 이어서 카드 제목 키메라 수정('첫시술 외 N개').** **workspace-adapter.js**(554) 기존기능 연결 어댑터(보정/누끼/캡션/고객/저장/인스타업로드/`recentMedia`). **workspace-sync.js**(425) 기기간 draft slot 동기화. **workspace-crop.js**(239)·**workspace-tpl-edit.js**(239)·**workspace-settings.js**(240)·**shop-style.js**(188, 브랜드자산)·**workspace-state.js**(78).
+- **workspace-v2-home.js**(634) 홈 렌더러. **[2026-07-15] 헤더 = @인스타핸들 + 샵이름(구 '내 작업실' 대체). 할일/이번달 발행/성과/피드 정렬 카드 제거, 설정·선택은 ⋯ 메뉴로 이동. 발행 타일 무배지(진행 중만 '작성 중' 칩). 이어서 카드 제목 키메라 수정('첫시술 외 N개').** **workspace-adapter.js**(554) 기존기능 연결 어댑터(보정/누끼/캡션/고객/저장/인스타업로드/`recentMedia`). **workspace-sync.js**(425) 기기간 draft slot 동기화. **[2026-07-15 버그수정]** `buildMeta(slot)`→`buildMeta(c)`: 원본 slot 의 `templateOutputs[].outputUrl` 이 구운 dataURL 이라 100KB 컷에 걸려 레이아웃 프리셋 id 가 서버에 안 올라가고 기기 바꾸면 성과 학습이 리셋됐음. **workspace-perf.js**(성과·학습 화면 — 레이아웃/말투/사진장수 축 비교, 미응대 문의). **workspace-crop.js**(239)·**workspace-tpl-edit.js**(239)·**workspace-settings.js**(240)·**shop-style.js**(188, 브랜드자산)·**workspace-state.js**(78).
 - **js/workspace/work-memory.js**(263, `window.WorkMemory`) — **[2026-07-14 T-115 P1] 원장 작업 기억.** 원장이 편집기에서 만든 꾸밈(글씨·스티커·선/도형)을 **작업실 저장·인스타 발행 성공 시점**에 붙잡아 최대 **10개** 보관 + 로컬 규칙으로 이름 자동생성("속눈썹 전후비교, 글씨 아래 왼쪽정렬") + ★기본 지정. 저장 `itdasy:work_memory:list`/`:default`(localStorage).
   - 담는 값 = `ItdEditor._exportState()`(editState)에서 **그 사진 전용값 제거**(`photos`·`photoDraw`·`adj`·`pz`·`cellCrop`) 후 재사용분(`layers`·`ratio`·`layoutIdx`·`collage*`)만. ⚠️ **붓 그림은 기억 못 함** — `photoDraw`는 벡터가 아니라 그 사진에 구워진 PNG.
   - ShopStyle 재사용 안 함(=`list()`가 이미 '내 레이아웃'·'우리샵 스타일' 두 용도로 혼재 + `makeLayer`가 텍스트 4 role 전용이라 스티커/도형 불가).
