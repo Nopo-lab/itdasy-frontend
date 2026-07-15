@@ -2536,6 +2536,20 @@
       if (e.key === 'ArrowLeft') { _stepEditPhoto(-1); } else if (e.key === 'ArrowRight') { _stepEditPhoto(1); }
     });
     _bindEditPC();
+    _bindWheelHScroll();
+  }
+  // [v748] PC 마우스 휠 — 가로 스크롤 영역(레이아웃 미리보기·사진 캐러셀·칩 줄)이 옆으로 안 넘어가던 문제.
+  //   스크롤바를 숨겨놔서(height:0) 마우스로는 넘길 방법이 없었음 → 세로 휠을 가로 스크롤로 변환.
+  function _bindWheelHScroll() {
+    if (!el || el._hsBound) return; el._hsBound = true;
+    el.addEventListener('wheel', function (e) {
+      if (cur === 'edit') return;   // 편집 화면 휠 = 확대/축소(_bindEditPC 담당)
+      var sc = e.target && e.target.closest && e.target.closest('.wsc-frames, .wsc-strip, .ig-car__track, .tpl-results, .tpl-chips, .cap-storypick__row');
+      if (!sc || sc.scrollWidth <= sc.clientWidth + 1) return;
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;   // 트랙패드 가로 제스처는 브라우저 기본 동작 유지
+      sc.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }, { passive: false });
   }
   // [v568·B-3] PC 마우스 — 휠 확대/축소, 드래그(줌>1 팬 / 줌=1 좌우 사진 넘김). 칠하기 모드 단일 포인터는 paint 가 담당.
   function _bindEditPC() {
