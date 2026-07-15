@@ -1329,10 +1329,19 @@
   //   답은 기존 생성 배관(d.captionAxes → photo_context) 그대로. '직접' = 점선 칩, 누르면 그 자리 입력창 토글.
   //   (구 capWizStep 스텝 넘김·점 인디케이터·done 화면·뒤로/다시 버튼은 전부 삭제·병합)
   var _WIZ_STEPS = [
-    { key: 'situation', q: '무슨 게시물인가요?', opts: ['시술 완성', '후기·감사', '이벤트·공지'] },
-    { key: 'customer',  q: '손님은 어떤 분이에요?', opts: ['처음 온 손님', '단골 손님'] },
-    { key: 'photo',     q: '사진은 어떤 사진이에요?', opts: ['완성샷', '전·후 비교'] }
+    { key: 'situation', q: '무슨 게시물인가요?', l: '무슨 게시물', opts: ['시술 완성', '후기·감사', '이벤트·공지'] },
+    { key: 'customer',  q: '손님은 어떤 분이에요?', l: '손님', opts: ['처음 온 손님', '단골 손님'] },
+    { key: 'photo',     q: '사진은 어떤 사진이에요?', l: '사진', opts: ['완성샷', '전·후 비교'] }
   ];
+  // [아코디언 2026-07-15] 답한 질문은 한 줄로 접히고 다음 질문이 저절로 열린다(목업 34).
+  function _wizAnswered(key) { var v = (d.captionAxes || {})[key]; return !!(v && String(v).trim()); }
+  function _wizUnanswered() { return _WIZ_STEPS.filter(function (s) { return !_wizAnswered(s.key); }).length; }
+  // 지금 펼칠 질문: '바꾸기'로 강제로 연 것 > 첫 미답변. 전부 답했으면 없음('').
+  function _wizOpenKey() {
+    if (d._wizOpen && _wizStep(d._wizOpen)) return d._wizOpen;
+    for (var i = 0; i < _WIZ_STEPS.length; i++) { if (!_wizAnswered(_WIZ_STEPS[i].key)) return _WIZ_STEPS[i].key; }
+    return '';
+  }
   function _wizStep(key) { for (var i = 0; i < _WIZ_STEPS.length; i++) { if (_WIZ_STEPS[i].key === key) return _WIZ_STEPS[i]; } return null; }
   // 이 축의 저장값이 선택지 밖(=직접 입력값)인지
   function _wizIsCustom(key) {
@@ -1342,8 +1351,24 @@
   }
   function _capWizHtml() {
     var ax = d.captionAxes || {};
+    var openKey = _wizOpenKey();
+    var just = d._wizJust; d._wizJust = null;   // 방금 답한 질문 — 이번 렌더에서만 접힘·체크 팝 애니메이션
     return _WIZ_STEPS.map(function (s, i) {
       var val = ax[s.key] || '';
+      var answered = _wizAnswered(s.key);
+      // ① 접힌 줄 — 답 완료: 체크 + 한 줄 요약, 탭하면 다시 펼침
+      if (answered && s.key !== openKey) {
+        var lbl = val.length > 16 ? val.slice(0, 16) + '…' : val;
+        return '<button type="button" class="capwiz__row' + (just === s.key ? ' capwiz__row--pop' : '') + '" data-fl-wizreopen="' + esc(s.key) + '">' +
+          '<em><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></em>' +
+          '<span class="capwiz__rowl">' + esc(s.l) + '</span><b>' + esc(lbl) + '</b>' +
+          '<span class="capwiz__chg">바꾸기</span></button>';
+      }
+      // ② 잠긴 줄 — 아직 차례 아님
+      if (s.key !== openKey) {
+        return '<div class="capwiz__row capwiz__row--lock"><em>' + (i + 1) + '</em><span class="capwiz__rowq">' + esc(s.q) + '</span></div>';
+      }
+      // ③ 펼친 카드 — 지금 답할 질문
       var isCustom = _wizIsCustom(s.key);
       var open = d._wizCustom === s.key;
       var chips = s.opts.map(function (o) {
@@ -1358,9 +1383,21 @@
             '<button type="button" class="capwiz__custok" data-fl-wizcustok>확인</button>' +
           '</div>'
         : '';
-      return '<div class="capwiz__card"><label class="capwiz__q"><em>' + (i + 1) + '</em>' + esc(s.q) + '</label>' +
+      return '<div class="capwiz__card' + (just ? ' capwiz__card--in' : '') + '"><label class="capwiz__q"><em>' + (i + 1) + '</em>' + esc(s.q) + '</label>' +
         '<div class="capwiz__opts">' + chips + '</div>' + custin + '</div>';
     }).join('');
+  }
+  // [아코디언] CTA 차오름 — 질문에 먼저 답해주세요 → 질문 N개 남았어요 → 게시글 만들기(로즈).
+  //   시술·특이사항까지 채우면 버튼 위에 정확도 힌트 한 줄. 잠긴 버튼 탭 = 첫 미답변 질문 펼침(핸들러).
+  function _capWizCtaHtml() {
+    var left = _wizUnanswered();
+    if (left > 0) {
+      var txt = left >= _WIZ_STEPS.length ? '질문에 먼저 답해주세요' : (left === 1 ? '질문 하나 남았어요' : '질문 ' + left + '개 남았어요');
+      return '<button type="button" class="capwiz__cta capwiz__cta--dis" data-fl-cgenlock>' + txt + '</button>';
+    }
+    var hint = (String(d.service || '').trim() || String(d.specialNote || '').trim())
+      ? '<p class="capwiz__ready">우리샵 말투로 더 정확하게 써드려요</p>' : '';
+    return hint + '<button type="button" class="capwiz__cta" data-fl-cgen>게시글 만들기</button>';
   }
   // [캡션재설계 v2] 3축 → photo_context 문자열. '직접' 입력값도 caption-text 드롭 규칙(_publicServiceKeywords)으로
   //   정제 후 포함 — 사담·욕설·지시어가 생성 컨텍스트에 원문으로 흘러가지 않게.
@@ -1387,18 +1424,24 @@
     var _typeLabel = (_SVC_TYPES.indexOf(stype) >= 0) ? stype : (valid ? (_norm || stype) : '업종 고르기');   // 고른 업종칩은 그대로 표시(정규화 '기타'로 안 바뀌게)
     // [캡션재설계 v2] 단일선택 토글 — 선택 칩 = d.service(검정 채움), 재탭 = 해제.
     var _sel = String(d.service || '').trim();
-    var chips = valid ? kws.slice(0, 8).map(function (k) { return '<button type="button" class="cap-svctag' + (k === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(k) + '">' + esc(k) + '</button>'; }).join('') : '';
+    // [칩삭제 2026-07-15] 모든 시술 칩에 × — 기본 칩은 삭제 목록으로(+추가로 복원), 커스텀은 바로 삭제(caption-keyword-tags 재사용).
+    var chips = valid ? kws.slice(0, 8).map(function (k) {
+      return '<button type="button" class="cap-svctag' + (k === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(k) + '">' + esc(k) +
+        '<span class="cap-svctag__x" data-fl-svcdel="' + esc(k) + '" aria-label="삭제">×</span></button>';
+    }).join('') : '';
     // 선택값이 목록 밖(직접 추가·최근 시술·이어서 복원)이어도 선택 상태가 보이게 맨 앞에 활성 칩으로.
     if (valid && _sel && kws.slice(0, 8).indexOf(_sel) < 0) {
       chips = '<button type="button" class="cap-svctag on" data-fl-svctag="' + esc(_sel) + '" title="' + esc(_sel) + '">' + esc(_sel.length > 20 ? _sel.slice(0, 20) + '…' : _sel) + '</button>' + chips;
     }
-    var typeOpen = !!d.svcTypeOpen || !valid;
+    // [업종정리 2026-07-15] 인식 실패해도 업종 12칩을 자동으로 쫙 펼치지 않는다 — 버튼 탭했을 때만.
+    //   (가입 업종은 앱 로드 때마다 /me 로 동기화됨(app-core) — 값이 없거나 못 알아듣는 값일 때만 이 버튼을 쓴다.)
+    var typeOpen = !!d.svcTypeOpen;
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
       return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
     }).join('') + '</div>') : '';
     return '<div class="cap-svctags__hint">우리샵 · ' +
         '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button>' +
-        (valid && !typeOpen ? '<span class="cap-svctags__chg">탭해서 업종 바꾸기</span>' : '') + '</div>' +
+        (!typeOpen ? '<span class="cap-svctags__chg">' + (valid ? '탭해서 업종 바꾸기' : '업종을 고르면 시술이 나와요') + '</span>' : '') + '</div>' +
       typeChips +
       (valid ? ('<div class="cap-svctags">' + chips +
         '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
@@ -1419,11 +1462,30 @@
   function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
   function _saveRecentService(svc) {
     svc = String(svc || '').replace(/\s+/g, ' ').trim(); if (svc.length < 2) return;
+    // [칩삭제 2026-07-15] 저장 시점부터 정제 — 욕설·하소연 문장이 칩으로 박제되던 문제("엄뒤새끼 22인치…").
+    //   드롭 규칙 통과 못 하거나 시술명치곤 너무 길면(40자+) 아예 안 남긴다.
+    var n = ''; try { n = _publicServiceKeywords(svc) || ''; } catch (_e0) { void _e0; }
+    svc = String(n || '').replace(/\s+/g, ' ').trim();
+    if (svc.length < 2 || svc.length > 40) return;
     try {
       var a = _recentServices().filter(function (x) { return x !== svc; });
       a.unshift(svc); a = a.slice(0, 6);
       localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
     } catch (_e) { void _e; }
+  }
+  // [칩삭제] 최근 시술 칩 × — 렌더는 정제된 이름으로 나가므로, 원문이 그 이름으로 정제되는 항목까지 같이 지운다.
+  function _deleteRecentService(name) {
+    name = String(name || '').trim(); if (!name) return;
+    try {
+      var a = _recentServices().filter(function (s) {
+        var n = ''; try { n = _publicServiceKeywords(s) || ''; } catch (_e) { void _e; }
+        n = String(n || s).replace(/\s+/g, ' ').trim();
+        return n !== name && s !== name;
+      });
+      localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
+    } catch (_e2) { void _e2; }
+    if (String(d.service || '').trim() === name) d.service = '';
+    setScreen('caption');
   }
   function _recentSvcHtml() {
     var a = _recentServices(); if (!a.length) return '';
@@ -1438,9 +1500,10 @@
     });
     if (!names.length) return '';
     return '<div class="cap-svctags" style="margin-bottom:8px">' +
-      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 선택</span>' +
+      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 선택 · ×로 삭제</span>' +
       names.map(function (n) { var lbl = n.length > 20 ? (n.slice(0, 20) + '…') : n;
-        return '<button type="button" class="cap-svctag' + (n === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) + '</button>'; }).join('') + '</div>';
+        return '<button type="button" class="cap-svctag' + (n === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) +
+          '<span class="cap-svctag__x" data-fl-recentdel="' + esc(n) + '" aria-label="삭제">×</span></button>'; }).join('') + '</div>';
   }
 
   // d.capTone(친근/전문/감성/이벤트/후기) → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
@@ -1508,7 +1571,7 @@
           '<p class="capwiz__guard">직접·특이사항에 적은 글은 재료로만 써요. 욕설·감정 표현은 빼고, 시술 얘기만 골라 원장님 말투로 새로 씁니다.</p>' +
           // [보스 2026-07-12] 말투·성격 칩 제거 — 화면 간소화(생성은 기본 톤 d.capTone='friendly', _resolveTone 이 매핑).
           _shopInfoToggleHtml() +   // [#19] 저장된 예약/전화 반영 여부(기본 OFF)
-          '<button type="button" class="capwiz__cta" data-fl-cgen>캡션 만들기</button>' +
+          _capWizCtaHtml() +
           '</div>';
 	      }
 
@@ -1592,6 +1655,7 @@
     syncServiceFromDom();
     d.captionAxes = d.captionAxes || {}; d.captionAxes[key] = val;
     d._wizCustom = null;
+    d._wizJust = key; d._wizOpen = null;   // [아코디언] 직접 입력 확정도 접힘 + 다음 질문 열림
     setScreen('caption');
   }
 
@@ -2270,11 +2334,16 @@
         syncServiceFromDom();
         var _pv = wp.getAttribute('data-fl-wizpick').split('::'); var _wk = _pv[0], _wv = _pv[1];
         d.captionAxes = d.captionAxes || {};
-        if (d.captionAxes[_wk] === _wv) delete d.captionAxes[_wk]; else d.captionAxes[_wk] = _wv;
+        // [아코디언] 답 고르면 접힘 + 다음 질문 자동 열림(_wizJust = 접힘·체크 팝 1회 애니메이션 트리거)
+        if (d.captionAxes[_wk] === _wv) { delete d.captionAxes[_wk]; }
+        else { d.captionAxes[_wk] = _wv; d._wizJust = _wk; }
+        d._wizOpen = null;
         if (d._wizCustom === _wk) d._wizCustom = null;   // 직접 입력창 열려 있었으면 닫기
         setScreen('caption');
         return;
       }
+      // [아코디언] 접힌 질문 줄 탭 = 그 질문 다시 펼치기
+      var wro = t.closest('[data-fl-wizreopen]'); if (wro) { syncServiceFromDom(); d._wizOpen = wro.getAttribute('data-fl-wizreopen'); setScreen('caption'); return; }
       // [직접] 점선 칩 토글 — 닫혀 있으면 그 자리 입력창, 열려 있거나 직접 값이 있으면 닫기+값 해제.
       var wcu = t.closest('[data-fl-wizcustom]'); if (wcu) {
         syncServiceFromDom();
@@ -2292,10 +2361,20 @@
       var wco = t.closest('[data-fl-wizcustok]'); if (wco) { _wizCustomConfirm(); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
+      // [칩삭제] × 가 칩(button) 안에 있어서 svctag 보다 먼저 잡아야 한다.
+      var sdel = t.closest('[data-fl-svcdel]'); if (sdel) {
+        syncServiceFromDom(); var _dk = sdel.getAttribute('data-fl-svcdel');
+        try { if (typeof deleteCaptionKeyword === 'function') deleteCaptionKeyword(_dk, e); } catch (_ed) { void _ed; }
+        if (String(d.service || '').trim() === _dk) d.service = '';
+        setScreen('caption'); return;
+      }
+      var rdel = t.closest('[data-fl-recentdel]'); if (rdel) { syncServiceFromDom(); _deleteRecentService(rdel.getAttribute('data-fl-recentdel')); return; }
       // [캡션재설계 v2] 시술 칩·최근 시술 = 같은 단일선택 토글(data-fl-svctag 하나로 통합).
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _pickServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
       var cg = t.closest('[data-fl-cgen]'); if (cg) { return _triggerCaptionGenerate(null); }
+      // [아코디언] 잠긴 생성 버튼 탭 = 안내 + 첫 미답변 질문 펼치기
+      var cgl = t.closest('[data-fl-cgenlock]'); if (cgl) { syncServiceFromDom(); d._wizOpen = null; toast('질문에 먼저 답해주세요'); setScreen('caption'); return; }
       // [C4] 재생성 버튼: data-fl-var="regen|short|long"
       var vv = t.closest('[data-fl-var]'); if (vv) {
         var vk = vv.getAttribute('data-fl-var');

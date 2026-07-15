@@ -816,13 +816,43 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* 안내 문구 — 직접·특이사항은 재료로만 */
 .wsv2flow .capwiz__guard { font-size: 11.5px; color: #8B95A1; line-height: 1.55; margin: 12px 2px 0; }
 /* 최종 CTA — 화면에서 로즈는 이 버튼 하나 */
-.wsv2flow .capwiz__cta { width: 100%; height: 54px; margin: 16px 0 8px; border: none; border-radius: 16px; background: #BC6675; color: #fff; font-size: 16px; font-weight: 800; letter-spacing: -.2px; cursor: pointer; transition: transform .16s cubic-bezier(.24,1,.4,1), opacity .15s; }
+.wsv2flow .capwiz__cta { width: 100%; height: 54px; margin: 16px 0 8px; border: none; border-radius: 16px; background: #BC6675; color: #fff; font-size: 16px; font-weight: 800; letter-spacing: -.2px; cursor: pointer; transition: transform .16s cubic-bezier(.24,1,.4,1), opacity .15s, background .2s, color .2s; }
 .wsv2flow .capwiz__cta:active { transform: scale(.98); }
+/* [아코디언 2026-07-15] CTA 차오름 — 질문 남았을 땐 잠김(회색), 다 답하면 로즈 */
+.wsv2flow .capwiz__cta--dis { background: #E9EBEE; color: #8B95A1; }
+.wsv2flow .capwiz__ready { font-size: 11.5px; font-weight: 600; color: #BC6675; text-align: center; margin: 12px 0 -6px; }
+
+/* [아코디언] 접힌 질문 줄 — 답 완료(체크)·잠김(점선) 공용 */
+.wsv2flow .capwiz__row { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: #F7F8FA; border: none; border-radius: 14px; padding: 13px 14px; margin: 0 0 10px; font-family: inherit; cursor: pointer; transition: transform .13s; }
+.wsv2flow .capwiz__row:active { transform: scale(.985); }
+.wsv2flow .capwiz__row em { font-style: normal; flex: none; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: #17191C; font-size: 12px; font-weight: 700; }
+.wsv2flow .capwiz__row em svg { width: 14px; height: 14px; }
+.wsv2flow .capwiz__rowl { flex: none; font-size: 12.5px; color: #8B95A1; }
+.wsv2flow .capwiz__row b { flex: 1; min-width: 0; font-size: 14px; font-weight: 800; letter-spacing: -.2px; color: #17191C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsv2flow .capwiz__chg { flex: none; font-size: 11px; font-weight: 600; color: #8B95A1; }
+.wsv2flow .capwiz__row--lock { background: #fff; border: 1px dashed #E9EBEE; cursor: default; }
+.wsv2flow .capwiz__row--lock:active { transform: none; }
+.wsv2flow .capwiz__row--lock em { color: #C9CED4; }
+.wsv2flow .capwiz__rowq { font-size: 13.5px; font-weight: 700; color: #8B95A1; }
+
+/* [아코디언] 쫀득 모션 — 방금 답한 줄은 스프링으로 접히고 체크가 퐁, 다음 카드는 스르륵 */
+.wsv2flow .capwiz__row--pop { animation: capwizRowPop .42s cubic-bezier(.34,1.56,.64,1); }
+@keyframes capwizRowPop { 0% { transform: scale(.95); opacity: .4; } 62% { transform: scale(1.015); } 100% { transform: scale(1); opacity: 1; } }
+.wsv2flow .capwiz__row--pop em svg { animation: capwizCheckPop .5s cubic-bezier(.34,1.56,.64,1) .1s backwards; }
+@keyframes capwizCheckPop { 0% { transform: scale(0) rotate(-18deg); } 68% { transform: scale(1.35); } 100% { transform: scale(1) rotate(0); } }
+.wsv2flow .capwiz__card--in { animation: capwizCardIn .38s cubic-bezier(.24,1,.4,1) .08s backwards; }
+@keyframes capwizCardIn { 0% { transform: translateY(-7px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .wsv2flow .capwiz__row--pop, .wsv2flow .capwiz__row--pop em svg, .wsv2flow .capwiz__card--in { animation: none; }
+}
 .wsv2flow .cap-svctags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
 .wsv2flow .cap-svctag { font-size: 13px; padding: 7px 13px; border-radius: 999px; background: #fff; color: #454B54; border: 1px solid #E9EBEE; font-weight: 600; cursor: pointer; }
 .wsv2flow .cap-svctag:active { transform: scale(.97); }
 .wsv2flow .cap-svctag.on { background: #17191C; border-color: #17191C; color: #fff; font-weight: 700; }   /* [캡션재설계 v2] 단일선택 = 검정 채움 */
 .wsv2flow .cap-svctag--add { background: #fff; color: #8B95A1; border: 1px dashed #C9CED4; }
+/* [칩삭제 2026-07-15] 칩 안 × — 시술·최근 시술 그 자리에서 삭제 */
+.wsv2flow .cap-svctag .cap-svctag__x { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin: 0 -4px 0 6px; border-radius: 50%; background: rgba(139,149,161,.16); color: #8B95A1; font-size: 11px; font-weight: 800; line-height: 1; }
+.wsv2flow .cap-svctag.on .cap-svctag__x { background: rgba(255,255,255,.24); color: #fff; }
 .wsv2flow .cap-svctags__hint { font-size: 11.5px; color: #8B95A1; margin: 0 0 8px 2px; }
 /* [요청3 2026-07-13] 업종 사전선택 안내 — 탭하면 바꿀 수 있다는 힌트 */
 .wsv2flow .cap-svctags__chg { margin-left: 7px; font-size: 10.5px; color: var(--text-faint, var(--text-subtle)); opacity: .8; }
