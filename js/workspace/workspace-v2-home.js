@@ -129,7 +129,11 @@
       ? '<div class="wshc-who"><b>' + _esc(ig.handle) + '</b><span>' + _esc(shop) + '</span></div>'
       : '<button type="button" class="wshc-who wshc-who--connect" data-wsv2-igconnect data-haptic="light"><b>' + _esc(shop) + '</b><span class="wshc-who__link">인스타 연결</span></button>';
     var DOTS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="19" cy="12" r=".8"/></svg>';
+    // [2026-07-15] 성과 재연결. v748 리디자인이 홈 카드를 정리하면서 성과 진입점(data-wsv2-insights)을
+    //   같이 지웠고, 그 뒤로 WorkspacePerf 를 부르는 곳이 코드 전체에 하나도 없었다 =
+    //   화면은 살아있는데 열 방법이 없는 상태. 설정이 간 ⋯ 메뉴에 같이 둔다.
     var menu = !_menuOpen ? '' : '<div class="wshc-menu" data-wsv2-menu>' +
+      '<button type="button" data-wsv2-menu-act="perf" data-haptic="light">성과</button>' +
       '<button type="button" data-wsv2-menu-act="select" data-haptic="light">' + (_selectMode ? '선택 취소' : '선택') + '</button>' +
       '<button type="button" data-wsv2-menu-act="settings" data-haptic="light">설정</button>' +
     '</div>';
@@ -270,7 +274,12 @@
       if (mact) {
         var mk = mact.getAttribute('data-wsv2-menu-act');
         _menuOpen = false;
-        if (mk === 'settings') {
+        if (mk === 'perf') {
+          render(_lastRoot, { slots: _slotsCache });
+          if (window.WorkspacePerf && window.WorkspacePerf.open) window.WorkspacePerf.open();
+          else if (typeof window.openInsights === 'function') window.openInsights();
+          else _toast('성과를 불러오지 못했어요');
+        } else if (mk === 'settings') {
           render(_lastRoot, { slots: _slotsCache });
           if (window.WorkspaceSettings && window.WorkspaceSettings.open) window.WorkspaceSettings.open();
           else _toast('설정을 불러오지 못했어요');
