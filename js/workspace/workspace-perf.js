@@ -28,6 +28,7 @@
   var DAY = 86400000;
   var MIN_POSTS = 3;                // 이 건수 미만이면 "먹혔다"고 말하지 않는다
   var ANALYZE_DAYS = 14;            // "무엇이 먹혔나" 분석 창 — 반년 전 글과 섞으면 요즘 감이 안 나온다
+  var _lastReco = '';              // 마지막 추천 요약 — 새 글 만들 때 토스트로 들고 간다
 
   // 말투 키 → 라벨. workspace-v2-flow.js _TONE_CHIPS 와 같은 집합.
   var TONE_LABEL = { friendly: '친근', professional: '전문', emotional: '감성', event: '이벤트', review: '후기', normal: '기본' };
@@ -467,11 +468,23 @@
       : '<div class="wsp-lead wsp-lead--thin">아직 뭐가 먹히는지 말하기엔 일러요. ' +
         '같은 방식으로 ' + MIN_POSTS + '건쯤 올려서 서로 비교되면 여기서 알려드릴게요.</div>';
 
+    // [힌트 슬라이스] 추천을 새 글 플로우로 들고 가서 토스트로 알려준다(레이아웃 컴포저는 안 건드림 —
+    //   사진 수·구성에 얽힌 취약 파일이라 블라인드 자동선택은 위험. 원장이 뭘 고를지 기억만 돕는다).
+    _lastReco = _recoPicks(AXES).map(function (p) { return p.label + ' ' + p.key; }).join(' · ');
+
     return head + lead + _recoHtml(AXES) +
       AXES.map(function (x) { return _axisHtml(x.label, x.list, x.icon); }).join('') +
       '<div class="wsp-legend">반응 = 좋아요 + 저장×3 + 공유×4. ' +
       '저장·공유를 크게 보는 건 "나중에 여기 가야지"에 더 가까워서예요. ' +
       '댓글은 우리가 단 답글이 섞여 있어서 뺐어요.</div>';
+  }
+
+  /** 표본·비교군 채운 축의 1등만. _recoHtml 과 같은 규칙(중복 로직 한 곳으로). */
+  function _recoPicks(axes) {
+    return axes.map(function (x) {
+      var e = x.list.filter(function (o) { return o.enough; });
+      return (e.length >= 2 && e[0].scorePerPost > 0) ? { label: x.label, key: e[0].key, posts: e[0].posts } : null;
+    }).filter(Boolean);
   }
 
   /**
@@ -480,10 +493,7 @@
    *   → 근거 없는 축은 아예 문장에 안 넣는다. 채운 축이 하나도 없으면 카드 자체를 안 그린다.
    */
   function _recoHtml(axes) {
-    var picks = axes.map(function (x) {
-      var e = x.list.filter(function (o) { return o.enough; });
-      return (e.length >= 2 && e[0].scorePerPost > 0) ? { label: x.label, key: e[0].key, posts: e[0].posts } : null;
-    }).filter(Boolean);
+    var picks = _recoPicks(axes);
     if (!picks.length) return '';
     var items = picks.map(function (p) {
       return '<li><span class="wsp-reco__k">' + esc(p.label) + '</span>' +
@@ -682,11 +692,13 @@
   /** 작업실 새 글 플로우 진입. 홈의 업로드 버튼(data-wsv2-upload)을 눌러 사진 선택을 띄운다.
       성과 오버레이가 홈 위에 떠 있었으므로 홈 DOM 은 뒤에 그대로 있다. 없으면 토스트로 안내. */
   function _startNewPost() {
+    // 추천을 토스트로 들고 간다 — 레이아웃 단계에서 뭘 고를지 기억나게(컴포저 자동선택은 안 함).
+    if (_lastReco) toast('반응 좋았던 방식: ' + _lastReco);
     var btn = document.querySelector('[data-wsv2-upload]');
     if (btn) { btn.click(); return; }
     var file = document.querySelector('[data-wsv2-file]');
     if (file) { file.click(); return; }
-    toast('작업실에서 새 글을 시작해 주세요');
+    if (!_lastReco) toast('작업실에서 새 글을 시작해 주세요');
   }
 
   // ── 화면 ──────────────────────────────────────────────────
