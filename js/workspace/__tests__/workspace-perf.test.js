@@ -231,6 +231,24 @@ describe('_agg — 표본 가드가 핵심', () => {
   });
 });
 
+describe('_attachDmLinks — 댓글↔DM 동일인 유입', () => {
+  test('by_media 를 행에 붙인다', () => {
+    const { _attachDmLinks } = loadPerf(STARTERS);
+    const rows = [{ id: 'm1' }, { id: 'm2' }];
+    _attachDmLinks(rows, { by_media: { m1: { commenters: 2, dm_from_commenters: 1 } } });
+    expect(rows[0].dmFromCommenters).toBe(1);
+    expect(rows[0].commenters).toBe(2);
+    expect(rows[1].dmFromCommenters).toBe(0);
+  });
+
+  test('데이터 없어도 안 터지고 0', () => {
+    const { _attachDmLinks } = loadPerf(STARTERS);
+    const rows = [{ id: 'm1' }];
+    _attachDmLinks(rows, null);
+    expect(rows[0].dmFromCommenters).toBe(0);
+  });
+});
+
 describe('_attachInquiries — 게시물별 미응대 문의', () => {
   test('media_id 로 묶고 intent 는 중복 제거', () => {
     const { _attachInquiries } = loadPerf(STARTERS);

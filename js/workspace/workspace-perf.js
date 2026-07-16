@@ -89,6 +89,11 @@
       .catch(function () { return { items: [], _failed: true }; });
   }
 
+  /** 게시물별 '댓글 단 사람 중 DM 도 보낸 수'. 댓글 from.id == DM sender.id 동일인 조인(백엔드). */
+  function _loadDmLinks() {
+    return _authGet('/instagram/comment-dm-links').catch(function () { return { by_media: {} }; });
+  }
+
   // ── 연결(조인) ────────────────────────────────────────────
   function _norm(s) { return String(s == null ? '' : s).replace(/\s+/g, '').slice(0, 40); }
 
@@ -226,11 +231,21 @@
         capLen: _capLenOf(p),
         tagCount: _tagCountOf(p),
         title: (slot && (slot.service || slot.label)) || '', bookings: [], sureCount: 0,
-        inquiries: 0, intents: [], askers: []
+        inquiries: 0, intents: [], askers: [], dmFromCommenters: 0, commenters: 0
       };
     });
     rows.sort(function (a, b) { return b.publishedAt - a.publishedAt; });
     return rows;
+  }
+
+  /** 게시물별 DM 유입(댓글 단 사람 중 DM 도 보낸 수)을 행에 붙인다. */
+  function _attachDmLinks(rows, dmLinks) {
+    var bm = (dmLinks && dmLinks.by_media) || {};
+    rows.forEach(function (r) {
+      var v = bm[r.id];
+      r.dmFromCommenters = (v && v.dm_from_commenters) || 0;
+      r.commenters = (v && v.commenters) || 0;
+    });
   }
 
   /**
@@ -501,7 +516,15 @@
           '<div class="wsp-chips">' + chips + '</div>' +
           '<div class="wsp-card__dt">' + _fmtDate(r.publishedAt) + ' 발행</div>' +
         '</div></div>' +
-      _statsHtml(r) + inq + conv + '</div>';
+      _statsHtml(r) + inq + _dmLinkHtml(r) + conv + '</div>';
+  }
+
+  /** 이 게시물에 댓글 단 사람 중 DM 도 보낸 수 — '이 글 보고 연락 왔다'의 실제 신호(IGSID 동일인). */
+  function _dmLinkHtml(r) {
+    if (!r.dmFromCommenters) return '';
+    return '<div class="wsp-dmlink">' +
+      '<i class="ph-duotone ph-paper-plane-tilt"></i>' +
+      '<span>이 글 보고 <b>' + r.dmFromCommenters + '명</b>이 DM까지 보냈어요</span></div>';
   }
 
   /**
@@ -539,20 +562,24 @@
       '주는 지표라서 그럴 수 있어요. 인스타 설정에서 프로 계정으로 바꾸면 보여요.</div>';
   }
 
-  /* [LOCK] DM 유입 귀속만 남았다. (댓글 문의 분류는 2026-07-15 열림 — 스테이징 INSTAGRAM_FULL_SCOPE=1,
-       개발모드/테스터는 App Review 전에도 manage_comments 를 받을 수 있다. instagram.py:710 주석 참고.)
-     DM 이 막힌 진짜 이유는 심사가 아니라 데이터가 없어서다:
-       · /dm/conversations 는 '마지막 대화 시각'만 줘서 '이 게시물 보고 처음 연락했는지'를 알 수 없다.
-       · messaging_referral 웹훅(게시물/광고 출처를 실어옴)은 구독은 돼 있는데 dm_autoreply.py:3100 에서
-         파싱 없이 버려진다. 그걸 저장해도 오가닉 DM 엔 ref 가 안 붙을 공산이 커서, 커버리지를 실측하기
-         전까지는 비율을 안 만든다. 추정치도 안 만든다(가짜 숫자 금지). */
-  function _lockHtml() {
-    return '<div class="wsp-lock">' +
-      '<div class="wsp-lock__h"><i class="ph-duotone ph-lock-simple"></i>DM이 어느 글 보고 왔는지' +
-        '<span class="wsp-lock__b">준비 중</span></div>' +
-      '<div class="wsp-lock__d">인스타가 "이 DM은 어느 게시물 보고 온 건지"를 알려주지 않아서, 지금은 ' +
-        '정확히 이어드릴 수가 없어요. 억지로 추측한 숫자를 보여드리면 오히려 판단을 그르치게 해서 ' +
-        '비워뒀어요. 방법이 생기면 바로 채울게요.</div></div>';
+  /* [2026-07-16] DM 유입 — 이제 실제로 잇는다.
+     댓글 from.id == DM sender.id(동일 IGSID)로 '이 게시물에 댓글 단 사람이 DM 도 보냈다'를 잡는다.
+     한계는 정직하게: 댓글 없이 그냥 DM만 보낸 오가닉 유입은 여전히 어느 글에서 왔는지 모른다
+       (messaging_referral 은 주로 광고·링크에만 붙어서). 그래서 '전체 DM 중 %' 는 안 만들고,
+       '댓글→DM 으로 이어진 사람 수' 만 확정값으로 보여준다(가짜 숫자 금지 원칙 유지). */
+  function _dmSummaryHtml(dmLinks) {
+    var n = (dmLinks && dmLinks.total_dm_from_commenters) || 0;
+    if (!n) {
+      return '<div class="wsp-lock">' +
+        '<div class="wsp-lock__h"><i class="ph-duotone ph-paper-plane-tilt"></i>댓글 달고 DM까지 온 손님</div>' +
+        '<div class="wsp-lock__d">아직 없어요. 댓글 단 사람이 DM도 보내면, 어느 글 보고 연락했는지 ' +
+          '여기서 이어서 보여드릴게요.</div></div>';
+    }
+    return '<div class="wsp-lock wsp-lock--hit">' +
+      '<div class="wsp-lock__h"><i class="ph-duotone ph-paper-plane-tilt"></i>댓글 달고 DM까지 온 손님' +
+        '<span class="wsp-lock__b wsp-lock__b--on">' + n + '명</span></div>' +
+      '<div class="wsp-lock__d">이 사람들은 게시물에 댓글을 남기고 DM까지 보냈어요 — 어느 글 보고 ' +
+        '연락했는지 위 게시물 카드에 표시했어요. (댓글 없이 DM만 온 유입은 인스타가 출처를 안 줘서 못 이어요.)</div></div>';
   }
 
   /** 댓글 문의를 못 읽은 경우에만 뜬다 — 대개 인스타를 다시 연결하면 풀린다(스코프가 토큰에 박혀서). */
@@ -583,10 +610,10 @@
     return '<button type="button" class="wsp-more" data-wsp-ai>고객·매출 인사이트 보기 ›</button>';
   }
 
-  function _render(el, insights, rows, cq) {
+  function _render(el, insights, rows, cq, dmLinks) {
     var body = el.querySelector('[data-wsp-body]');
     if (!body) return;
-    if (!rows.length) { body.innerHTML = _emptyHtml(insights) + _lockHtml() + _moreHtml(); return; }
+    if (!rows.length) { body.innerHTML = _emptyHtml(insights) + _dmSummaryHtml(dmLinks) + _moreHtml(); return; }
     body.innerHTML =
       _summaryHtml(rows) +
       _compareHtml(rows) +
@@ -594,7 +621,7 @@
       rows.map(_rowHtml).join('') +
       _statsNoteHtml(rows) +
       _cqNoticeHtml(cq) +
-      _lockHtml() +
+      _dmSummaryHtml(dmLinks) +
       _moreHtml();
   }
 
@@ -637,13 +664,14 @@
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });
 
-    Promise.all([_loadInsights(), _loadSlots(), _loadBookings(), _loadCommentQueue()]).then(function (res) {
-      var insights = res[0], slots = res[1], bookings = res[2], cq = res[3];
+    Promise.all([_loadInsights(), _loadSlots(), _loadBookings(), _loadCommentQueue(), _loadDmLinks()]).then(function (res) {
+      var insights = res[0], slots = res[1], bookings = res[2], cq = res[3], dmLinks = res[4];
       var rows = _buildRows(insights, slots);
       _attribute(rows, bookings);
       _attachInquiries(rows, cq);
+      _attachDmLinks(rows, dmLinks);
       if (!document.getElementById(ID)) return;   // 로딩 중 닫힘
-      _render(el, insights, rows, cq);
+      _render(el, insights, rows, cq, dmLinks);
     }).catch(function (err) {
       console.warn('[wsperf] load fail', err);
       var b = el.querySelector('[data-wsp-body]');
@@ -662,6 +690,7 @@
       _attribute: _attribute, _buildRows: _buildRows, _matchSlot: _matchSlot, _agg: _agg,
       _layoutOf: _layoutOf, _photoCountOf: _photoCountOf, _attachInquiries: _attachInquiries, _score: _score,
       _capLenOf: _capLenOf, _tagCountOf: _tagCountOf, _hasSignal: _hasSignal,
+      _attachDmLinks: _attachDmLinks,
       _ro: _ro, MIN_POSTS: MIN_POSTS, ANALYZE_DAYS: ANALYZE_DAYS,
     },
   };

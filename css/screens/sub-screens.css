@@ -387,6 +387,12 @@
 .wsp-inq em { display: block; font-style: normal; font-size: 11px; opacity: .75; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wsp-inq > i:last-child { opacity: .6; font-size: 12px; }
 
+/* 이 글 보고 DM까지 온 사람 — 댓글↔DM 동일인(IGSID). 예약 다음으로 값진 신호라 초록. */
+.wsp-dmlink { display: flex; align-items: center; gap: 7px; border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; background: rgba(42,140,99,.09); border: 1px solid rgba(42,140,99,.2); font-size: 12.5px; color: #2A8C63; }
+.wsp-dmlink b { font-weight: 800; }
+.wsp-lock__b--on { color: #1F7350; background: rgba(42,140,99,.14); }
+.wsp-lock--hit { border-color: rgba(42,140,99,.28); background: rgba(42,140,99,.05); }
+
 .wsp-conv { border-radius: 10px; padding: 10px; background: var(--surface-alt, #F7F8FA); }
 .wsp-conv.is-hit { background: rgba(42,140,99,.08); }
 .wsp-conv__t { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-sub, #4E5968); }
