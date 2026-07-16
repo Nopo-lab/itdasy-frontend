@@ -35,8 +35,16 @@
   // 문의 댓글 intent → 라벨. instagram.py _classify_comment 와 같은 집합.
   var INTENT_LABEL = { price: '가격', booking: '예약', location: '위치', hours: '영업시간', service: '시술', complaint: '불만' };
 
-  function esc(v) { return window._esc ? window._esc(v) : String(v == null ? '' : v); }
+  /* [2026-07-16 신뢰성 M9] window._esc 가 아직 로드 안 됐어도 반드시 이스케이프한다.
+     캡션·유저네임·커스텀 레이아웃명이 innerHTML 로 들어가므로 폴백이 raw 면 XSS. 속성값용 따옴표도 포함. */
+  function esc(v) {
+    if (window._esc) return window._esc(v);
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
   function toast(m) { if (window.showToast) window.showToast(m); }
+  function _num(v) { var n = Number(v); return isFinite(n) && n > 0 ? n : 0; }   // 지표 안전 강제: 문자열·NaN·음수 방어
 
   /** 조사 '으로/로' — 축 이름이 '레이아웃'(받침 ㅅ)·'말투'(받침 없음)로 섞여 있어 하드코딩하면 반드시 틀린다.
       한글 음절 종성이 없거나 ㄹ이면 '로', 그 외엔 '으로'. 한글이 아니면 안전하게 '으로'. */
@@ -103,18 +111,23 @@
     });
   }
 
-  /** 인스타 게시물 ↔ 우리 슬롯 매칭. id 우선, 없으면 캡션 앞글자, 그 다음 발행시각 근접(10분). */
-  function _matchSlot(post, slots) {
-    var byId = null, byCap = null, byTime = null;
+  /** 인스타 게시물 ↔ 우리 슬롯 매칭. id 우선, 없으면 캡션 앞글자, 그 다음 발행시각 근접(10분).
+      [H2] used = 이미 다른 게시물이 차지한 슬롯 Set. 퍼지 매칭(캡션·시각)이 한 슬롯을 여러 글에
+        재사용하면 레이아웃/말투 표본이 허구로 부풀어 추천이 오염된다 → 쓰인 슬롯은 건너뛴다.
+        fuzzyOnly=true 면 id 매칭은 이미 1패스에서 끝났으므로 퍼지만 시도한다. */
+  function _matchSlot(post, slots, used, fuzzyOnly) {
+    used = used || null;
+    var byCap = null, byTime = null;
     var pts = post.timestamp ? Date.parse(post.timestamp) : 0;
     var pcap = _norm(post.caption);
     for (var i = 0; i < slots.length; i++) {
       var s = slots[i], pub = s.publish || {};
-      if (pub.igMediaId && String(pub.igMediaId) === String(post.id)) { byId = s; break; }
+      if (used && used.has(s)) continue;
+      if (!fuzzyOnly && pub.igMediaId && String(pub.igMediaId) === String(post.id)) return s;
       if (!byCap && pcap && _norm(s.caption) && _norm(s.caption) === pcap) byCap = s;
       if (!byTime && pts && pub.publishedAt && Math.abs(pub.publishedAt - pts) < 10 * 60000) byTime = s;
     }
-    return byId || byCap || byTime || null;
+    return byCap || byTime || null;
   }
 
   function _toneOf(slot) {
@@ -180,7 +193,8 @@
   /** 해시태그 개수 — 뷰티 계정에서 유입에 크게 작용하는 축. */
   function _tagCountOf(post) {
     var t = (post && post.caption) || '';
-    var m = t.match(/#\S+/g);
+    // [M3] #네일#젤네일 처럼 공백 없이 붙여 쓰면 #\S+ 는 한 덩어리로 세서 undercount → # 도 경계로.
+    var m = t.match(/#[^#\s]+/g);
     var n = m ? m.length : 0;
     if (!n) return '없음';
     if (n <= 5) return '1~5개';
@@ -195,7 +209,10 @@
   function _attribute(rows, bookings) {
     rows.forEach(function (r) { r.bookings = []; });
     (bookings || []).forEach(function (b) {
-      if (!b || b.status === 'cancelled') return;
+      // [M7] 취소를 'cancelled' 정확 일치로만 봐서 canceled/CANCELLED/no_show 는 예약으로 셌다 → 정규화.
+      if (!b) return;
+      var st = String(b.status || '').toLowerCase();
+      if (st.indexOf('cancel') >= 0 || st.indexOf('no_show') >= 0 || st.indexOf('noshow') >= 0) return;
       var made = b.created_at ? Date.parse(b.created_at) : 0;
       if (!made) return;
       var hit = null;
@@ -217,13 +234,23 @@
   function _buildRows(insights, slots) {
     var pub = _publishedSlots(slots);
     var posts = (insights && (insights.posts && insights.posts.length ? insights.posts : insights.top_posts)) || [];
-    var rows = posts.map(function (p) {
-      var slot = _matchSlot(p, pub);
+    // [H2] 2패스 매칭: 먼저 igMediaId 정확 매칭을 전부 확정하고 그 슬롯을 used 로 잠근다.
+    //   그래야 앞 게시물의 퍼지 매칭이 뒤 게시물의 정확 매칭용 슬롯을 가로채지 않는다.
+    var used = (typeof Set === 'function') ? new Set() : { has: function () { return false; }, add: function () {} };
+    var matched = posts.map(function (p) {
+      var s = _matchSlot(p, pub, used, false);
+      if (s && s.publish && s.publish.igMediaId && String(s.publish.igMediaId) === String(p.id)) { used.add(s); return s; }
+      return null;   // 정확 매칭 아니면 2패스로 미룬다
+    });
+    var rows = posts.map(function (p, idx) {
+      var slot = matched[idx] || _matchSlot(p, pub, used, true);
+      if (slot) used.add(slot);
       var ts = p.timestamp ? Date.parse(p.timestamp) : 0;
       return {
         id: p.id, thumb: p.thumb_url || '', caption: p.caption || '', permalink: p.permalink || '',
-        likes: p.like_count || 0, comments: p.comments_count || 0, saved: p.saved || 0, reach: p.reach || 0,
-        shares: p.shares || 0,
+        // 지표는 _num 으로 강제 — API 가 문자열("123")·NaN·음수를 주면 점수 계산이 문자열 연결/NaN 로 깨진다(M4)
+        likes: _num(p.like_count), comments: _num(p.comments_count), saved: _num(p.saved), reach: _num(p.reach),
+        shares: _num(p.shares),
         publishedAt: ts || (slot && slot.publish && slot.publish.publishedAt) || 0,
         slot: slot, tone: slot ? _toneOf(slot) : null, layout: slot ? _layoutOf(slot) : '',
         // 아래 3축은 슬롯이 없어도 인스타 응답만으로 뽑힌다 → 작업실 밖에서 올린 글도 분석에 들어간다
@@ -417,16 +444,22 @@
       { label: '해시태그', icon: 'ph-hash', keyFn: function (r) { return r.tagCount || null; },
         lead: function (k) { return '해시태그를 <b>' + esc(k) + '</b> 단 글'; } },
     ];
-    AXES.forEach(function (x) { x.list = _agg(win, x.keyFn); });
+    /* [2026-07-16 신뢰성 수정 H1] 집계는 반응 있는 글(signal)로만 한다 — win(전체)로 하면
+       반응 0인 레이아웃도 posts>=MIN_POSTS 만 채우면 'enough' 가 돼서, 0점끼리 tie 로 1등이 뽑히고
+       "제일 반응 좋았어요"·추천으로 나갔다(주석은 막는다는데 코드가 안 막던 실제 버그).
+       signal 로 집계하면 반응 못 받은 축은 애초에 목록에 안 들어온다. */
+    AXES.forEach(function (x) { x.list = _agg(signal, x.keyFn); });
 
     /* 맨 위 한 줄 결론.
        [주의] 축끼리 점수를 비교하면 안 된다 — 세 축은 같은 게시물을 다르게 자를 뿐이라, 대박 글 하나를
          우연히 잘 격리한 축이 늘 이긴다(의미 없는 1등). 대신 원장님이 따라하기 쉬운 순서로 고른다:
-         레이아웃(다음 글에 그대로 적용 가능) > 말투 > 사진 장수. 표본 채운 첫 축을 쓴다. */
+         레이아웃(다음 글에 그대로 적용 가능) > 말투 > 사진 장수. 표본 채운 첫 축을 쓴다.
+       그리고 1등이라도 반응 점수가 0이면 크라운하지 않는다(0점을 '최고'라 부르지 않는다). */
     var top = null;
     for (var i = 0; i < AXES.length && !top; i++) {
-      var e = AXES[i].list.filter(function (o) { return o.enough; })[0];
-      if (e && AXES[i].list.filter(function (o) { return o.enough; }).length >= 2) top = { ax: AXES[i], o: e };
+      var enoughList = AXES[i].list.filter(function (o) { return o.enough; });
+      var e = enoughList[0];
+      if (e && enoughList.length >= 2 && e.scorePerPost > 0) top = { ax: AXES[i], o: e };
     }
     var lead = top
       ? '<div class="wsp-lead">최근 ' + ANALYZE_DAYS + '일은 ' + top.ax.lead(top.o.key) + '이 제일 반응 좋았어요 ' +
@@ -449,7 +482,7 @@
   function _recoHtml(axes) {
     var picks = axes.map(function (x) {
       var e = x.list.filter(function (o) { return o.enough; });
-      return (e.length >= 2) ? { label: x.label, key: e[0].key, posts: e[0].posts } : null;
+      return (e.length >= 2 && e[0].scorePerPost > 0) ? { label: x.label, key: e[0].key, posts: e[0].posts } : null;
     }).filter(Boolean);
     if (!picks.length) return '';
     var items = picks.map(function (p) {

@@ -326,6 +326,93 @@ describe('_attribute — 예약 귀속 (기존 동작 회귀 방지)', () => {
   });
 });
 
+describe('신뢰성 감사 회귀 (2026-07-16)', () => {
+  const now = Date.now(), DAY = 86400000;
+  const mkPost = (id, layout, likes, dayAgo) => ({
+    post: { id, caption: 'c' + id, like_count: likes, comments_count: 0, saved: 0, shares: 0, reach: 0,
+      timestamp: new Date(now - dayAgo * DAY).toISOString(), media_type: 'IMAGE', children_count: 1 },
+    slot: { id: 's' + id, publish: { status: 'published', igMediaId: id, publishedAt: now - dayAgo * DAY },
+      templateOutputs: [{ templateId: layout }], workspaceContext: {}, captionMeta: { tone_override: 'friendly' }, photos: [{ id: 'p' }] },
+  });
+
+  test('H1: 반응 0인 레이아웃은 크라운/추천되지 않는다', () => {
+    // 전후·좌우 3건(전부 반응 0) + 반응 있는 글은 슬롯 없음(레이아웃 없음)
+    const P = loadPerf(STARTERS);
+    // _compareHtml 은 미노출이라 _agg + hasSignal 로 로직만 검증
+    const rows = [
+      { layout: '전후 · 좌우', likes: 0, comments: 0, saved: 0, shares: 0, bookings: [] },
+      { layout: '전후 · 좌우', likes: 0, comments: 0, saved: 0, shares: 0, bookings: [] },
+      { layout: '전후 · 좌우', likes: 0, comments: 0, saved: 0, shares: 0, bookings: [] },
+    ];
+    const signal = rows.filter(P._hasSignal);
+    expect(signal.length).toBe(0);   // 반응 0이면 signal 비어서 애초에 순위 안 만들어짐
+    const agg = P._agg(signal, r => r.layout);
+    expect(agg.length).toBe(0);      // signal 로 집계하면 0점 레이아웃은 목록에 아예 없음
+  });
+
+  test('H2: 캡션 앞40자 충돌해도 한 슬롯을 여러 글이 재사용하지 않는다', () => {
+    const P = loadPerf(STARTERS);
+    const shared = '안녕하세요 잇다뷰티입니다 오늘은 정말 특별한 시술을 소개해요 지금부터';
+    const slots = [
+      { id: 'sX', caption: shared, publish: { status: 'published', publishedAt: now } },  // igMediaId 없음(옛 슬롯)
+    ];
+    const insights = { posts: [
+      { id: '1', caption: shared, like_count: 1, timestamp: new Date(now).toISOString() },
+      { id: '2', caption: shared, like_count: 1, timestamp: new Date(now).toISOString() },
+    ] };
+    const rows = P._buildRows(insights, slots.map(s => Object.assign({ instagramPublished: true }, s)));
+    const withSlot = rows.filter(r => r.slot);
+    expect(withSlot.length).toBe(1);   // 슬롯 1개 → 최대 1글만 매칭(예전엔 2글 다 붙어 표본 부풀림)
+  });
+
+  test('H2: 정확 id 매칭이 퍼지 매칭보다 우선 — 슬롯 뺏기지 않는다', () => {
+    const P = loadPerf(STARTERS);
+    const cap = '같은캡션프리픽스공유하는두게시물의앞부분내용을길게';
+    const slots = [
+      { instagramPublished: true, id: 'sFuzzy', caption: cap, publish: { status: 'published', publishedAt: now } },
+      { instagramPublished: true, id: 'sExact', caption: cap, publish: { status: 'published', igMediaId: '2', publishedAt: now } },
+    ];
+    const insights = { posts: [
+      { id: '1', caption: cap, like_count: 1, timestamp: new Date(now).toISOString() },
+      { id: '2', caption: cap, like_count: 1, timestamp: new Date(now).toISOString() },
+    ] };
+    const rows = P._buildRows(insights, slots);
+    const p2 = rows.find(r => r.id === '2');
+    expect(p2.slot.id).toBe('sExact');   // 2번은 정확 매칭 슬롯을 가져야 함(1번 퍼지가 뺏으면 안 됨)
+  });
+
+  test('M4: 문자열/NaN/음수 지표를 안전하게 숫자로 강제', () => {
+    const P = loadPerf(STARTERS);
+    const insights = { posts: [
+      { id: '1', caption: 'c', like_count: '120', comments_count: NaN, saved: -5, shares: '3', reach: null,
+        timestamp: new Date(now).toISOString() },
+    ] };
+    const r = P._buildRows(insights, [])[0];
+    expect(r.likes).toBe(120);     // "120" → 120
+    expect(r.comments).toBe(0);    // NaN → 0
+    expect(r.saved).toBe(0);       // 음수 → 0
+    expect(r.shares).toBe(3);      // "3" → 3
+    expect(P._score(r)).toBe(120 + 0 + 3 * 4);   // 문자열 연결 아님
+  });
+
+  test('M3: 공백 없이 붙인 해시태그를 각각 센다', () => {
+    const { _tagCountOf } = loadPerf(STARTERS);
+    expect(_tagCountOf({ caption: '오늘 시술 #네일#젤네일#여름네일' })).toBe('1~5개');   // 3개(예전엔 1개로 셌음)
+    expect(_tagCountOf({ caption: '#a#b#c#d#e#f' })).toBe('6~15개');                    // 6개
+  });
+
+  test('M7: cancelled 변형(canceled/no_show)도 예약에서 뺀다', () => {
+    const P = loadPerf(STARTERS);
+    const rows = [{ publishedAt: now - DAY, slot: null, bookings: [] }];
+    P._attribute(rows, [
+      { created_at: new Date(now).toISOString(), status: 'canceled', customer_name: 'A' },
+      { created_at: new Date(now).toISOString(), status: 'CANCELLED', customer_name: 'B' },
+      { created_at: new Date(now).toISOString(), status: 'no_show', customer_name: 'C' },
+    ]);
+    expect(rows[0].bookings.length).toBe(0);
+  });
+});
+
 describe('_matchSlot — 인스타 게시물 ↔ 슬롯 연결', () => {
   test('igMediaId 가 최우선', () => {
     const { _matchSlot } = loadPerf(STARTERS);
