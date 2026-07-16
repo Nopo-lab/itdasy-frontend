@@ -360,6 +360,22 @@
 
 .wsp-sect { font-size: 12.5px; color: var(--text-sub, #8B95A1); margin: 0 0 8px; }
 .wsp-sect__s { font-size: 11px; opacity: .8; }
+
+/* [방향2] 추천 → 바로 행동 CTA */
+.wsp-reco__cta { width: 100%; height: 42px; margin-top: 12px; border: none; border-radius: 10px; background: #2A8C63; color: #fff; font-size: 13px; font-weight: 800; cursor: pointer; }
+.wsp-reco__cta:active { transform: scale(.98); }
+
+/* [방향3] 카드 상태 배지 — 훑을 때 챙길 글 색으로 구분 */
+.wsp-card__hd { display: flex; align-items: center; gap: 6px; }
+.wsp-card__hd .wsp-card__tt { flex: 1; min-width: 0; margin-bottom: 0; }
+.wsp-badge { flex: 0 0 auto; font-size: 10.5px; font-weight: 800; border-radius: 999px; padding: 2px 8px; }
+.wsp-badge--ok { color: #1F7350; background: rgba(42,140,99,.14); }
+.wsp-badge--wait { color: #96631F; background: rgba(214,158,46,.16); }
+.wsp-badge--good { color: #8E4257; background: rgba(188,102,117,.13); }
+.wsp-badge--dim { color: var(--text-sub, #8B95A1); background: #F1F3F5; }
+.wsp-card--dim { opacity: .72; }
+.wsp-again { width: 100%; height: 40px; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--border, #E5E8EB); border-radius: 10px; background: var(--surface, #fff); font-size: 12.5px; font-weight: 700; color: #8E4257; cursor: pointer; }
+.wsp-again:active { transform: scale(.98); }
 .wsp-card { border: 1px solid var(--border, #E5E8EB); border-radius: 14px; padding: 12px; margin-bottom: 10px; background: var(--surface, #fff); }
 .wsp-card__top { display: flex; gap: 12px; }
 .wsp-card__im { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; flex: 0 0 auto; background: #EDEFF2; }

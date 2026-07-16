@@ -493,7 +493,10 @@
       '<div class="wsp-reco__h"><i class="ph-duotone ph-lightbulb-filament"></i>다음 글은 이렇게 해보세요</div>' +
       '<ul class="wsp-reco__l">' + items + '</ul>' +
       '<div class="wsp-reco__d">최근 ' + ANALYZE_DAYS + '일 반응이 좋았던 방식이에요. ' +
-      '똑같이 하라는 건 아니고, 애매할 때 참고하시라는 뜻이에요.</div></div>';
+      '똑같이 하라는 건 아니고, 애매할 때 참고하시라는 뜻이에요.</div>' +
+      // [디자인 방향2] 분석을 읽고 끝이 아니라 바로 행동으로. 이 버튼이 작업실 새 글 플로우를 연다.
+      '<button type="button" class="wsp-reco__cta" data-wsp-newpost>이 방식으로 새 글 만들기</button>' +
+      '</div>';
   }
 
   /** "@a" · "@a 외 1명" — 핸들을 다 나열하면 카드가 터진다. 2명까지만 이름, 나머지는 숫자. */
@@ -504,7 +507,16 @@
     return '@' + list[0] + ' 외 ' + (list.length - 1) + '명';
   }
 
+  /** 한눈 상태 배지 — 훑을 때 어떤 글을 지금 챙겨야 하는지 색으로 구분. 우선순위: 예약>문의>반응>조용. */
+  function _statusOf(r) {
+    if (r.bookings.length) return { t: '예약 나옴', c: 'ok' };
+    if (r.inquiries) return { t: '문의 대기', c: 'wait' };
+    if (_hasSignal(r)) return { t: '반응 좋음', c: 'good' };
+    return { t: '조용', c: 'dim' };
+  }
+
   function _rowHtml(r) {
+    var st = _statusOf(r);
     var thumb = r.thumb
       ? '<img class="wsp-card__im" src="' + esc(r.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
       : '<div class="wsp-card__im wsp-card__im--none"><i class="ph-duotone ph-image"></i></div>';
@@ -542,14 +554,23 @@
         '</span><i class="ph-duotone ph-caret-right"></i></div>';
     }
 
-    return '<div class="wsp-card">' +
+    // [디자인 방향3] 작업실에서 만든 글만 '이 스타일로 또' — 슬롯 없는 글은 재현할 세팅이 없다.
+    var again = r.slot
+      ? '<button type="button" class="wsp-again" data-wsp-newpost>' +
+          '<i class="ph-duotone ph-copy"></i>이 스타일로 또 만들기</button>'
+      : '';
+
+    return '<div class="wsp-card wsp-card--' + st.c + '">' +
       '<div class="wsp-card__top">' + thumb +
         '<div class="wsp-card__meta">' +
-          '<div class="wsp-card__tt">' + esc(r.title || (r.caption || '제목 없음').slice(0, 20)) + '</div>' +
+          '<div class="wsp-card__hd">' +
+            '<div class="wsp-card__tt">' + esc(r.title || (r.caption || '제목 없음').slice(0, 20)) + '</div>' +
+            '<span class="wsp-badge wsp-badge--' + st.c + '">' + st.t + '</span>' +
+          '</div>' +
           '<div class="wsp-chips">' + chips + '</div>' +
           '<div class="wsp-card__dt">' + _fmtDate(r.publishedAt) + ' 발행</div>' +
         '</div></div>' +
-      _statsHtml(r) + inq + _dmLinkHtml(r) + conv + '</div>';
+      _statsHtml(r) + inq + _dmLinkHtml(r) + conv + again + '</div>';
   }
 
   /** 이 게시물에 댓글 단 사람 중 DM 도 보낸 수 — '이 글 보고 연락 왔다'의 실제 신호(IGSID 동일인). */
@@ -658,6 +679,16 @@
       _moreHtml();
   }
 
+  /** 작업실 새 글 플로우 진입. 홈의 업로드 버튼(data-wsv2-upload)을 눌러 사진 선택을 띄운다.
+      성과 오버레이가 홈 위에 떠 있었으므로 홈 DOM 은 뒤에 그대로 있다. 없으면 토스트로 안내. */
+  function _startNewPost() {
+    var btn = document.querySelector('[data-wsv2-upload]');
+    if (btn) { btn.click(); return; }
+    var file = document.querySelector('[data-wsv2-file]');
+    if (file) { file.click(); return; }
+    toast('작업실에서 새 글을 시작해 주세요');
+  }
+
   // ── 화면 ──────────────────────────────────────────────────
   function _ensureMounted() {
     var el = document.getElementById(ID);
@@ -685,6 +716,8 @@
         else toast('댓글 응대 화면을 불러오지 못했어요');
         return;
       }
+      // [디자인 방향2/3] 성과를 닫고 작업실 새 글 플로우를 연다. 분석→행동이 한 번에 이어지게.
+      if (e.target.closest('[data-wsp-newpost]')) { close(); _startNewPost(); return; }
     });
     el.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     return el;
