@@ -317,9 +317,11 @@
    라이트모드 기준(다크 정비 보류 정책). .subscreen-overlay 재사용이라 PC 오프셋은 자동. */
 .wsp-sum { padding: 14px; border-radius: 14px; background: rgba(188,102,117,.07); border: 1px solid rgba(188,102,117,.18); margin-bottom: 16px; }
 .wsp-sum__tt { font-size: 12.5px; color: #A2566A; margin-bottom: 8px; }
-.wsp-sum__row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 13px; color: #A2566A; }
-.wsp-sum__row b { font-size: 22px; font-weight: 700; color: #8E4257; }
-.wsp-sum__row i { font-size: 13px; opacity: .5; }
+/* 5칸 합계(좋아요·댓글·저장·공유·예약). 375px 에서도 안 뭉개지게 grid 로 균등 분할. */
+.wsp-sum__row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.wsp-sum__c { text-align: center; min-width: 0; }
+.wsp-sum__c b { display: block; font-size: 19px; font-weight: 700; color: #8E4257; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.wsp-sum__c span { display: block; font-size: 11px; color: #A2566A; margin-top: 2px; }
 
 /* [2026-07-15] 베스트 카드 2장(.wsp-bests/.wsp-best) → 축별 순위 비교로 교체.
    1건짜리 표본으로 "이게 최고" 라고 단언하던 화면이라 원장님이 잘못 배울 여지가 있었다. */
@@ -368,8 +370,15 @@
 .wsp-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px; }
 .wsp-chip { font-size: 11px; color: #A2566A; background: rgba(188,102,117,.09); border-radius: 999px; padding: 2px 8px; }
 .wsp-chip--dim { color: var(--text-sub, #8B95A1); background: #F1F3F5; }
-.wsp-stats { display: flex; gap: 14px; margin: 12px 0 10px; font-size: 12px; color: var(--text-sub, #4E5968); }
-.wsp-stats span { display: inline-flex; align-items: center; gap: 4px; }
+/* 게시물별 지표 5칸 — 0이어도 항상 보인다(숨기면 '0'과 '못 읽음'이 구분 안 됨).
+   값이 0인 칸은 흐리게 죽여서, 훑을 때 실제로 반응 있는 칸만 눈에 들어오게. */
+.wsp-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 12px 0 10px; }
+.wsp-stat { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; color: #B0B8C1; }
+.wsp-stat.is-on { color: var(--text-sub, #4E5968); }
+.wsp-stat i { font-size: 15px; }
+.wsp-stat b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wsp-stat.is-on b { color: var(--text, #191F28); }
+.wsp-stat span { font-size: 10px; opacity: .9; }
 
 /* 답 안 한 문의 — 탭하면 댓글 응대 화면으로. 지금 당장 할 일이라 예약 블록보다 눈에 띄게. */
 .wsp-inq { display: flex; align-items: center; gap: 8px; border-radius: 10px; padding: 10px; margin-bottom: 8px; background: rgba(214,158,46,.10); border: 1px solid rgba(214,158,46,.22); font-size: 12.5px; color: #96631F; cursor: pointer; }

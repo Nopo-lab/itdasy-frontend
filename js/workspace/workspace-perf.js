@@ -297,17 +297,23 @@
     return (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
   }
 
+  /* 맨 위 합계 띠. 화살표로 좋아요→댓글→예약 깔때기를 보여주던 걸, 저장·공유까지 포함한
+     전체 지표 합계로 바꿨다(2026-07-15). 깔때기 비유는 사실이 아니었다 — 좋아요 누른 사람이
+     댓글을 달고 그게 예약이 되는 게 아니라 서로 다른 사람이다. 화살표가 인과를 암시해서 뺐다. */
   function _summaryHtml(rows) {
-    var likes = 0, comments = 0, books = 0;
-    rows.forEach(function (r) { likes += r.likes; comments += r.comments; books += r.bookings.length; });
+    var t = { likes: 0, comments: 0, saved: 0, shares: 0, books: 0 };
+    rows.forEach(function (r) {
+      t.likes += r.likes || 0; t.comments += r.comments || 0;
+      t.saved += r.saved || 0; t.shares += r.shares || 0; t.books += r.bookings.length;
+    });
+    var cells = [
+      { n: t.likes, l: '좋아요' }, { n: t.comments, l: '댓글' },
+      { n: t.saved, l: '저장' }, { n: t.shares, l: '공유' }, { n: t.books, l: '예약' },
+    ];
     return '<div class="wsp-sum">' +
       '<div class="wsp-sum__tt">발행 ' + rows.length + '건이 이만큼 움직였어요</div>' +
       '<div class="wsp-sum__row">' +
-        '<b>' + likes + '</b><span>좋아요</span>' +
-        '<i class="ph-duotone ph-arrow-right"></i>' +
-        '<b>' + comments + '</b><span>댓글</span>' +
-        '<i class="ph-duotone ph-arrow-right"></i>' +
-        '<b>' + books + '</b><span>예약</span>' +
+      cells.map(function (c) { return '<div class="wsp-sum__c"><b>' + c.n + '</b><span>' + c.l + '</span></div>'; }).join('') +
       '</div></div>';
   }
 
@@ -476,12 +482,42 @@
           '<div class="wsp-chips">' + chips + '</div>' +
           '<div class="wsp-card__dt">' + _fmtDate(r.publishedAt) + ' 발행</div>' +
         '</div></div>' +
-      '<div class="wsp-stats">' +
-        '<span><i class="ph-duotone ph-heart"></i>' + r.likes + '</span>' +
-        '<span><i class="ph-duotone ph-chat-circle"></i>' + r.comments + '</span>' +
-        (r.saved ? '<span><i class="ph-duotone ph-bookmark-simple"></i>' + r.saved + '</span>' : '') +
-        (r.reach ? '<span><i class="ph-duotone ph-eye"></i>' + r.reach + '</span>' : '') +
-      '</div>' + inq + conv + '</div>';
+      _statsHtml(r) + inq + conv + '</div>';
+  }
+
+  /**
+   * 게시물별 성과 지표 — 좋아요·댓글·저장·공유·도달을 **항상 전부** 보여준다.
+   * [2026-07-15] 예전엔 저장·도달을 0이면 숨기고 공유는 아예 없었다. 그러면 원장님이
+   *   "저장이 0이다" 와 "저장을 못 읽었다" 를 구분할 방법이 없다 — 숨기는 게 더 나쁘다.
+   *   0 이면 0 이라고 보여주고, 계정 문제로 아예 안 나오는 경우는 아래 _statsNoteHtml 로 따로 말한다.
+   * 순서는 값진 순(공유 > 저장 > 댓글 > 좋아요)이 아니라 원장님이 익숙한 순(인스타 표시 순)으로 둔다.
+   */
+  function _statsHtml(r) {
+    var cells = [
+      { ic: 'ph-heart', n: r.likes || 0, l: '좋아요' },
+      { ic: 'ph-chat-circle', n: r.comments || 0, l: '댓글' },
+      { ic: 'ph-bookmark-simple', n: r.saved || 0, l: '저장' },
+      { ic: 'ph-paper-plane-tilt', n: r.shares || 0, l: '공유' },
+      { ic: 'ph-eye', n: r.reach || 0, l: '도달' },
+    ];
+    return '<div class="wsp-stats">' + cells.map(function (c) {
+      return '<div class="wsp-stat' + (c.n ? ' is-on' : '') + '">' +
+        '<i class="ph-duotone ' + c.ic + '"></i>' +
+        '<b>' + c.n + '</b><span>' + c.l + '</span></div>';
+    }).join('') + '</div>';
+  }
+
+  /**
+   * 저장·공유·도달이 전 게시물에서 통째로 0이면 계정 종류 문제일 수 있다.
+   * 인스타는 프로(비즈니스/크리에이터) 계정에만 이 지표를 준다 — 개인 계정이면 영영 0이다.
+   * 그걸 모르면 원장님은 "우리 글이 저장이 하나도 안 됐네" 라고 잘못 배운다.
+   */
+  function _statsNoteHtml(rows) {
+    if (!rows.length) return '';
+    var anyInsight = rows.some(function (r) { return (r.saved || 0) + (r.shares || 0) + (r.reach || 0) > 0; });
+    if (anyInsight) return '';
+    return '<div class="wsp-legend">저장·공유·도달이 계속 0으로 나오면 인스타가 <b>프로 계정</b>(비즈니스·크리에이터)에만 ' +
+      '주는 지표라서 그럴 수 있어요. 인스타 설정에서 프로 계정으로 바꾸면 보여요.</div>';
   }
 
   /* [LOCK] DM 유입 귀속만 남았다. (댓글 문의 분류는 2026-07-15 열림 — 스테이징 INSTAGRAM_FULL_SCOPE=1,
@@ -537,6 +573,7 @@
       _compareHtml(rows) +
       '<div class="wsp-sect">게시물별</div>' +
       rows.map(_rowHtml).join('') +
+      _statsNoteHtml(rows) +
       _cqNoticeHtml(cq) +
       _lockHtml() +
       _moreHtml();
