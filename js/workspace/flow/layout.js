@@ -305,7 +305,12 @@
       // 시술명 분해 → 헤드라인/자막바/부제 자동 채움(review/price 외 kind 도 텍스트 살아있게).
       var parts = {};
       try { parts = (window.WSCaptionText && window.WSCaptionText.splitServiceForLayers) ? window.WSCaptionText.splitServiceForLayers(D().service || '') : {}; } catch (_e0) { parts = {}; }
-      var svcTitle = (parts && parts.title) || String(D().service || '').split(/[\n,·]/)[0].trim();
+      // [P3 프라이버시 2026-07-16] parts.title 이 비면(모든 토큰이 사담/이모지로 걸러진 경우) 예전엔
+      //   raw d.service 첫 줄을 그대로 넣어, '남친이랑 왔어요 김수현 고객님' 같은 사담·고객명이 공개
+      //   이미지에 구워졌다. 폴백도 정제 파이프라인(publicServiceKeywords)을 태우고, 그마저 비면 빈값.
+      var svcClean = '';
+      try { svcClean = (window.WSCaptionText && window.WSCaptionText.publicServiceKeywords) ? window.WSCaptionText.publicServiceKeywords(D().service || '') : ''; } catch (_e1) { svcClean = ''; }
+      var svcTitle = (parts && parts.title) || svcClean.split(/\s+/).slice(0, 4).join(' ').trim();
       layers.forEach(function (L) {
         if (L.role === 'headline' || L.role === 'caption_bar') { if (svcTitle) L.text = svcTitle; }
         else if (L.role === 'sub2') { if (parts && parts.sub) L.text = parts.sub; }

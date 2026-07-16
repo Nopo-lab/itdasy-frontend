@@ -3559,7 +3559,17 @@
 	    if (!_igp.tokenValid) { toast('인스타 연동이 끊겼어요 — 설정에서 다시 연결해 주세요'); return; }
 	    // [slot-sync Phase B] 캐러셀은 각 장을 캔버스로 JPEG 인코딩 → 다른 기기(https) 이미지는 taint 로 막힘. 먼저 수화.
 	    //   (피드/스토리 단일 발행은 fetch→blob 경로라 CORS(*)로 그냥 됨 — 게이트 불필요.)
-	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) { d._hydrateTried = true; toast('사진 불러오는 중…'); _hydrateD().then(function (ok) { if (!ok) d._hydrateTried = false; /* [버그수정 2026-07-06] 실패 시 재시도 가능 */ publish(kind); }); return; }
+	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) {
+	      d._hydrateTried = true; toast('사진 불러오는 중…');
+	      _hydrateD().then(function (ok) {
+	        // [P2 무한루프 수정 2026-07-16] 예전엔 실패해도 publish 를 다시 불러서 → 재진입 → 영원히
+	        //   "사진 불러오는 중…" 반복(네트워크 안 좋은 다기기 케이스). 실패 시엔 멈추고 안내만 —
+	        //   재시도는 원장이 다시 누르면 된다(_hydrateTried=false 로 열어둠).
+	        if (!ok) { d._hydrateTried = false; toast('사진을 불러오지 못했어요 — 잠시 뒤 다시 눌러 주세요'); return; }
+	        publish(kind);
+	      });
+	      return;
+	    }
 	    if (d._publishing) return;
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');
@@ -3750,6 +3760,10 @@
   }
   function close() {
     if (el) el.classList.remove('is-open');
+    // [P1 캡션 누출 수정 2026-07-16] 진행 중인 캡션 재생성 응답을 무효화한다. 예전엔 close 가
+    //   _genToken 을 안 올려서, 닫고 다른 슬롯을 연 뒤 옛 응답이 도착하면 _myToken===_genToken 이
+    //   통과해 새 슬롯의 캡션을 덮어썼다(다른 사진에 엉뚱한 캡션). 닫을 때 토큰을 올려 차단.
+    _genToken++;
     // [slot-sync coalesce] 편집 종료 → 정착: 최종본 1회 업로드+동기화.
     try { if (window.WorkspaceSync && window.WorkspaceSync.settleSlot) window.WorkspaceSync.settleSlot(); } catch (_se) { void _se; }
     var leftover = _histDepth;
