@@ -28,7 +28,6 @@
   var DAY = 86400000;
   var MIN_POSTS = 3;                // 이 건수 미만이면 "먹혔다"고 말하지 않는다
   var ANALYZE_DAYS = 14;            // "무엇이 먹혔나" 분석 창 — 반년 전 글과 섞으면 요즘 감이 안 나온다
-  var CQ_MEDIA_LIMIT = 12;          // /instagram/comment-queue 서버 상한(instagram.py: min(x,12))
 
   // 말투 키 → 라벨. workspace-v2-flow.js _TONE_CHIPS 와 같은 집합.
   var TONE_LABEL = { friendly: '친근', professional: '전문', emotional: '감성', event: '이벤트', review: '후기', normal: '기본' };
@@ -84,7 +83,9 @@
       스테이징은 INSTAGRAM_FULL_SCOPE=1 이라 켜져 있지만, 스코프 없는 토큰이면 permission_error 로 돈다.
       그 경우 조용히 없는 셈 치고(화면엔 안내만) 나머지는 그대로 그린다 — 성과 화면 전체가 죽으면 안 된다. */
   function _loadCommentQueue() {
-    return _authGet('/instagram/comment-queue?media_limit=' + CQ_MEDIA_LIMIT)
+    // [2026-07-15] media_limit(개수) → since_days(날짜). 예전엔 '최근 12개 게시물' 이라
+    //   오늘 달린 댓글이라도 13번째 글이면 안 보였다. 분석 창과 같은 14일로 맞춘다.
+    return _authGet('/instagram/comment-queue?since_days=' + ANALYZE_DAYS)
       .catch(function () { return { items: [], _failed: true }; });
   }
 
@@ -225,14 +226,19 @@
         capLen: _capLenOf(p),
         tagCount: _tagCountOf(p),
         title: (slot && (slot.service || slot.label)) || '', bookings: [], sureCount: 0,
-        inquiries: 0, intents: []
+        inquiries: 0, intents: [], askers: []
       };
     });
     rows.sort(function (a, b) { return b.publishedAt - a.publishedAt; });
     return rows;
   }
 
-  /** 문의 댓글 큐를 media_id 로 묶어 게시물에 붙인다. 큐엔 '미응대'만 들어있다(서버가 응대분 제외). */
+  /**
+   * 문의 댓글 큐를 media_id 로 묶어 게시물에 붙인다. 큐엔 '미응대'만 들어있다(서버가 응대분 제외).
+   * [2026-07-15] 작성자(username)도 같이 묶는다. 인스타는 from{} 으로 작성자를 주는데
+   *   우리가 username 필드만 요청해서 여태 빈 값이었다(백엔드 _commenter 로 수정).
+   *   같은 사람이 여러 번 물었으면 그게 제일 뜨거운 리드다 — 흩어 놓으면 안 보인다.
+   */
   function _attachInquiries(rows, cq) {
     var items = (cq && cq.items) || [];
     if (!items.length) return;
@@ -240,13 +246,17 @@
     items.forEach(function (it) {
       var mid = it && it.media_id; if (!mid) return;
       if (!byMedia[mid]) byMedia[mid] = [];
-      byMedia[mid].push(it.intent || null);
+      byMedia[mid].push(it);
     });
     rows.forEach(function (r) {
       var list = byMedia[r.id]; if (!list) return;
       r.inquiries = list.length;
-      var seen = {};
-      r.intents = list.filter(function (x) { if (!x || seen[x]) return false; seen[x] = 1; return true; });
+      var seenI = {}, seenU = {};
+      r.intents = list.map(function (x) { return x.intent; })
+        .filter(function (x) { if (!x || seenI[x]) return false; seenI[x] = 1; return true; });
+      // 사람 단위로 접기 — "yeunjun_kang 외 1명" 이 "4건" 보다 원장님한테 쓸모 있다
+      r.askers = list.map(function (x) { return (x.username || '').trim(); })
+        .filter(function (u) { if (!u || seenU[u]) return false; seenU[u] = 1; return true; });
     });
   }
 
@@ -438,6 +448,14 @@
       '똑같이 하라는 건 아니고, 애매할 때 참고하시라는 뜻이에요.</div></div>';
   }
 
+  /** "@a" · "@a 외 1명" — 핸들을 다 나열하면 카드가 터진다. 2명까지만 이름, 나머지는 숫자. */
+  function _askerText(list) {
+    if (!list.length) return '';
+    if (list.length === 1) return '@' + list[0];
+    if (list.length === 2) return '@' + list[0] + ' · @' + list[1];
+    return '@' + list[0] + ' 외 ' + (list.length - 1) + '명';
+  }
+
   function _rowHtml(r) {
     var thumb = r.thumb
       ? '<img class="wsp-card__im" src="' + esc(r.thumb) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
@@ -471,8 +489,9 @@
       var kinds = r.intents.map(function (x) { return INTENT_LABEL[x] || x; }).join(' · ');
       inq = '<div class="wsp-inq" data-wsp-comments>' +
         '<i class="ph-duotone ph-chats-circle"></i>' +
-        '<span>답 안 한 문의 <b>' + r.inquiries + '건</b>' + (kinds ? ' — ' + esc(kinds) : '') + '</span>' +
-        '<i class="ph-duotone ph-caret-right"></i></div>';
+        '<span>답 안 한 문의 <b>' + r.inquiries + '건</b>' + (kinds ? ' — ' + esc(kinds) : '') +
+        (r.askers && r.askers.length ? '<em>' + esc(_askerText(r.askers)) + '</em>' : '') +
+        '</span><i class="ph-duotone ph-caret-right"></i></div>';
     }
 
     return '<div class="wsp-card">' +
