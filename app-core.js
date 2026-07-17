@@ -688,6 +688,25 @@ function _purgeUserScopedStorage() {
 }
 window._purgeUserScopedStorage = _purgeUserScopedStorage;
 
+// [H1 2026-07-16] 계정 전환 시 IndexedDB 까지 비운다.
+//   _purgeUserScopedStorage 는 localStorage/sessionStorage 만 지운다. 그래서 로그아웃 없이
+//   다른 계정으로 로그인하면 이전 원장의 작업실 초안(itdasy-gallery/slots)과 sync 메타
+//   (migratedAt·lastPulledAt·tombstones)가 그대로 남아 있었다:
+//     · 새 원장이 남의 초안을 봄(프라이버시 유출)
+//     · 그 슬롯이 dirty 로 마킹되면 새 계정 서버로 업로드됨(계정 오염)
+//     · 남의 lastPulledAt 을 커서로 써서 내 슬롯이 delta 에서 누락됨
+//   [주의] 전환 시엔 이전 계정의 미동기화분을 push 하지 않는다 — 새 토큰으로 올리면 그게 바로
+//     계정 오염이다. 버리는 게 맞다(로그아웃 경로는 토큰 살아있을 때 push 하고 지운다).
+async function _purgeUserScopedDB() {
+  try { if (typeof clearGalleryDB === 'function') await clearGalleryDB(); } catch (_e) { void _e; }
+  try {
+    if (window.WorkspaceSync && typeof window.WorkspaceSync.clearLocal === 'function') {
+      await window.WorkspaceSync.clearLocal();
+    }
+  } catch (_e) { void _e; }
+}
+window._purgeUserScopedDB = _purgeUserScopedDB;
+
 // 토큰에서 user_id 추출 (JWT payload.sub)
 function _userIdFromToken(t) {
   try {
@@ -706,10 +725,14 @@ async function applyNewSession(newToken, opts) {
   const newUserId = _userIdFromToken(newToken);
 
   // user 가 바뀌면 사용자 범위 데이터 전부 정리
+  // [H1 2026-07-16] IndexedDB(작업실 슬롯 + sync 메타)도 반드시 같이 — storage 만 지우면
+  //   이전 원장 초안이 남아 새 계정에 노출·오염된다. await 로 다음 진입 전에 확실히 비운다.
   if (newUserId && prevUserId && newUserId !== prevUserId) {
     _purgeUserScopedStorage();
+    await _purgeUserScopedDB();
   } else if (opts.forcePurge) {
     _purgeUserScopedStorage();
+    await _purgeUserScopedDB();
   }
 
   if (newUserId) {
@@ -1204,6 +1227,22 @@ async function logout(opts) {
   opts = opts || {};
   // [2026-05-08 28차 [J]] skipConfirm — disconnectInstagram 등 다른 흐름에서 이중 컨펌 방지
   if (!opts.skipConfirm && !(await nativeConfirm("확인", "로그아웃 하시겠습니까? 세션과 캐시가 모두 초기화됩니다."))) return;
+
+  // [H2 2026-07-16] 토큰을 지우기 전에 미동기화분을 서버로 올린다.
+  //   기존 순서는 setToken(null) → ... → clearGalleryDB/clearLocal 이라, 아직 push 안 된 편집과
+  //   아직 못 보낸 삭제(tombstone)가 그대로 삭제됐다:
+  //     · 편집 직후(1.2s debounce 안에) 로그아웃 → 그 편집은 서버에도 없고 로컬에서도 사라짐(영구 손실)
+  //     · 오프라인 삭제 후 로그아웃 → tombstone 소멸 → 서버 DELETE 가 영영 안 나가 다음 로그인에 부활
+  //   settleSlot() = pushAll(dirty 업로드) + flushTombstones(삭제 전송). 토큰이 살아있는 지금만 가능.
+  //   [주의] 네트워크가 죽었으면 로그아웃이 막히면 안 되므로 타임아웃으로 끊고 진행한다.
+  try {
+    if (window.WorkspaceSync && typeof window.WorkspaceSync.settleSlot === 'function') {
+      await Promise.race([
+        Promise.resolve(window.WorkspaceSync.settleSlot()).catch(() => {}),
+        new Promise((res) => setTimeout(res, 4000)),
+      ]);
+    }
+  } catch (_e) { void _e; }
 
   // 1. 토큰 및 사용자 범위 스토리지 광범위 삭제
   setToken(null);
