@@ -186,7 +186,7 @@
     root = el('div', 'itded');
     root.innerHTML =
       '<div class="itded__stage" data-r="stage">' +
-        '<div class="itded__photowrap" data-r="photowrap"><div class="itded__photo" data-r="photo"></div><div class="itded__collage" data-r="collage" hidden></div></div>' +
+        '<div class="itded__photowrap" data-r="photowrap"><div class="itded__photo" data-r="photo"></div><div class="itded__photofx" data-r="photofx" hidden></div><div class="itded__collage" data-r="collage" hidden></div></div>' +
         '<div class="itded__scrim"></div>' +
         '<div class="itded__frame" data-r="frame"></div>' +
         '<canvas class="itded__draw" data-r="draw"></canvas>' +
@@ -404,7 +404,7 @@
   }
 
   function cacheRefs() {
-    ['stage', 'photowrap', 'photo', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
+    ['stage', 'photowrap', 'photo', 'photofx', 'collage', 'frame', 'draw', 'layers', 'rail', 'cancel', 'done', 'aln', 'size', 'fonts', 'colors', 'stkSheet', 'layHint', 'layStrip', 'layGap', 'layAdd', 'brushSize', 'featLocTx', 'myStk', 'stkUpload', 'stkTabs', 'stkBody', 'shapeThick', 'adjStrip', 'adjReset', 'adjRot', 'adjRotOut', 'grid', 'adjCut', 'adjUncut', 'adjCutBg', 'adjBgImg', 'layFit', 'layBgImg', 'undo', 'redo', 'peek', 'drawClear', 'addText'].forEach(function (k) {
       refs[k] = root.querySelector('[data-r="' + k + '"]');
     });
     refs.panels = {};
@@ -1041,6 +1041,7 @@
       if (idx !== S.adjSel) { _switchPhotoDraw(S.adjSel, idx); _switchPhotoLayers(S.adjSel, idx); S.adjSel = idx; }   // [#9] 그리기 + [#5/#6] 텍스트·스티커도 사진별로
       S.photoUrl = S.photos[idx]; S.photoCss = 'url("' + S.photos[idx] + '")';
       refs.photo.style.backgroundImage = S.photoCss;
+      applyAdjToDisplay();   // [#11] 사진 바꾸면 배경-제외 오버레이(photofx)도 이 사진 기준으로 다시
       renderLayoutStrip(); renderLayoutHint(); return;
     }
     var at = S.layoutOrder.indexOf(idx);
@@ -1076,6 +1077,7 @@
   function renderCollage() {
     var fit = S.fitMode || 'cover';
     if (isSingleL(S.layout)) { refs.collage.hidden = true; refs.collage.className = 'itded__collage'; refs.collage.innerHTML = ''; refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.backgroundSize = fit; refs.photo.style.backgroundColor = (fit === 'contain' ? (S.collageBg || '#fff') : 'transparent'); return; }
+    if (refs.photofx) { refs.photofx.hidden = true; }   // [#11] 콜라주 모드 — 단일용 오버레이는 끈다(셀별 fx 는 셀 안에서 처리)
     // [SSOT] 셀 좌표 그대로 절대배치 — 비대칭(1+2·2+1) 포함 모든 모양 지원, export와 동일 좌표.
     var cellsSpec = _layCells(), pos = _layPosArr(), gap = (S.collageGap != null ? S.collageGap : 3), cells = '';
     for (var k = 0; k < cellsSpec.length; k++) {
@@ -1086,8 +1088,27 @@
       // [#2] 셀마다 그 사진의 수평보정(rot)을 개별 반영 — 콜라주 전체가 아니라 각 칸만 회전.
       var _rdeg = (idx != null ? (adjOf(idx).rot || 0) : 0);
       var _rot = _rdeg ? (' rotate(' + _rdeg + 'deg) scale(' + coverScaleForRot(_rdeg) + ')') : '';
-      if (idx != null && S.photos[idx]) cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + filterStr(adjOf(idx)) + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="object-fit:' + fit + ';transform:' + cropXf(k) + _rot + '"></div>';
-      else cells += '<div class="itded__cell itded__cell--empty" data-cell="' + k + '" style="' + st + '">' + (k + 1) + '번<br>' + (pos[k] || '') + '</div>';
+      if (idx != null && S.photos[idx]) {
+        var _flt = filterStr(adjOf(idx));
+        var _imgSt = 'object-fit:' + fit + ';transform:' + cropXf(k) + _rot;
+        // [#11 2026-07-18] 누끼 셀은 셀 전체에 보정하지 않는다 — 베이스 img(보정X) + fx 오버레이(보정+사람 마스크).
+        //   배경(마스크 밖)은 fx 가 투명 → 아래 베이스가 보여 배경 원래색 유지. fgMask 없으면 예전대로 셀 필터.
+        //   fx 는 <img> 가 아니라 background-image div — background-size 가 object-fit 과 같은 방식(cover/contain)으로
+        //   잘려서 베이스 img 와 픽셀 정렬된다(img+mask 는 object-fit 크롭과 mask-size 가 어긋남). transform 은 동일 적용.
+        if (_fgOn(idx)) {
+          var _m = 'url(&quot;' + S.fgMask[idx] + '&quot;)';
+          var _fxSt = 'position:absolute;inset:0;background-image:url(&quot;' + S.photos[idx] + '&quot;);background-size:' + fit +
+            ';background-position:center;background-repeat:no-repeat;transform:' + cropXf(k) + _rot + ';filter:' + _flt +
+            ';-webkit-mask-image:' + _m + ';mask-image:' + _m + ';-webkit-mask-size:' + fit + ';mask-size:' + fit +
+            ';-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none';
+          cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:none">' +
+            '<img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="' + _imgSt + '">' +
+            '<div class="itcellfx" aria-hidden="true" style="' + _fxSt + '"></div>' +
+            '</div>';
+        } else {
+          cells += '<div class="itded__cell" data-ci="' + idx + '" data-cell="' + k + '" style="' + st + ';filter:' + _flt + '"><img class="itcellimg" src="' + S.photos[idx] + '" draggable="false" style="' + _imgSt + '"></div>';
+        }
+      } else cells += '<div class="itded__cell itded__cell--empty" data-cell="' + k + '" style="' + st + '">' + (k + 1) + '번<br>' + (pos[k] || '') + '</div>';
     }
     refs.collage.className = 'itded__collage is-abs';
     refs.collage.style.gap = '';
@@ -1120,7 +1141,10 @@
   function cropXf(k) { var c = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 }; return 'translate(' + c.tx + 'px,' + c.ty + 'px) scale(' + c.s + ')'; }
   function cellElByK(k) { return refs.collage.querySelector('[data-cell="' + k + '"]'); }
   function clampCrop(k) { var c = cropOf(k), el2 = cellElByK(k); if (!el2) return; var r = el2.getBoundingClientRect(); var mx = (c.s - 1) * r.width / 2, my = (c.s - 1) * r.height / 2; c.tx = Math.max(-mx, Math.min(mx, c.tx)); c.ty = Math.max(-my, Math.min(my, c.ty)); }
-  function applyCrop(k) { clampCrop(k); var el2 = cellElByK(k); var im = el2 && el2.querySelector('.itcellimg'); if (im) im.style.transform = cropXf(k); }
+  function applyCrop(k) { clampCrop(k); var el2 = cellElByK(k); if (!el2) return; var xf = cropXf(k);
+    var im = el2.querySelector('.itcellimg'); if (im) im.style.transform = xf;
+    var fx = el2.querySelector('.itcellfx'); if (fx) fx.style.transform = xf;   // [#11] 누끼 셀 크롭 시 fx 오버레이도 같이 (안 그러면 마스크가 어긋남)
+  }
   function selectCell(k) { S.cellSel = k; refs.collage.querySelectorAll('[data-cell]').forEach(function (c) { c.classList.toggle('is-cellsel', +c.getAttribute('data-cell') === k); }); }
   var cropDrag = null, cropPinch = null, cellPts = {};
   function onCellDown(e) {
@@ -1153,12 +1177,47 @@
   function adjReadout(c, v) { return (c.k === 'w' || c.k === 'sh') ? ('' + v) : ((v - 100 >= 0 ? '+' : '') + (v - 100)); }
   var _adjRaf = 0;
   function applyAdjThrottled() { if (_adjRaf) return; var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _adjRaf = raf(function () { _adjRaf = 0; applyAdjToDisplay(); }); }
+  /* [#11 2026-07-18] 누끼(배경 교체)한 사진은 기본 보정을 '사람'에만 건다.
+     배경은 원장이 고른 깨끗한 배경이라 밝기·대비·채도·온도·선명도가 먹으면 고른 색이 틀어진다.
+     방식(미리보기): refs.photo 는 보정 없이(=배경 원래색) + 위에 photofx 오버레이에 같은 사진 + 보정 +
+       사람 마스크(-webkit-mask). 마스크 밖(배경)은 오버레이가 투명 → 아래 원본이 그대로 보인다.
+       photofx 는 photowrap 안이라 pz 변형을 자동 상속, 같은 background-size 로 base 와 픽셀 정렬.
+     내보내기(exportComposite)는 canvas 에서 같은 마스크로 배경을 되돌린다(아래).
+     fgMask 없으면(누끼 안 함·구 매트) 이 경로를 안 타고 예전 그대로. */
+  // 보정 안 건 상태(항등) — filterStr 은 기본값도 'brightness(1.00)…' 라 'none' 이 아니다. 여기서 판정.
+  function _adjIsId(a) { return !a || ((a.b || 100) === 100 && (a.c || 100) === 100 && (a.s || 100) === 100 && !(a.w > 0) && !(a.sh > 0)); }
+  function _fgOn(i) { return !!(S.fgMask && S.fgMask[i]); }
+  function _fgActive(i) { return _fgOn(i) && !_adjIsId(adjOf(i)); }   // 누끼 + 실제 보정 있을 때만 2겹
+  function _syncSingleFx(idx) {
+    var fx = refs.photofx; if (!fx) { refs.photo.style.filter = filterStr(adjOf(idx < 0 ? 0 : idx)); return; }
+    var i = idx < 0 ? 0 : idx, flt = filterStr(adjOf(i)), fit = S.fitMode || 'cover';
+    if (_fgActive(i)) {
+      refs.photo.style.filter = 'none';                 // base = 보정 없음(배경 원래색)
+      fx.hidden = false;
+      fx.style.backgroundImage = S.photoCss;
+      fx.style.backgroundSize = fit; fx.style.backgroundPosition = 'center'; fx.style.backgroundRepeat = 'no-repeat';
+      fx.style.filter = flt;
+      var m = 'url("' + S.fgMask[i] + '")';
+      fx.style.webkitMaskImage = m; fx.style.maskImage = m;
+      fx.style.webkitMaskSize = fit; fx.style.maskSize = fit;
+      fx.style.webkitMaskPosition = 'center'; fx.style.maskPosition = 'center';
+      fx.style.webkitMaskRepeat = 'no-repeat'; fx.style.maskRepeat = 'no-repeat';
+    } else {
+      refs.photo.style.filter = flt;                    // 기존 동작(전체 보정)
+      fx.hidden = true; fx.style.webkitMaskImage = ''; fx.style.maskImage = '';
+    }
+  }
   function applyAdjToDisplay() {
     if ((S.layout.kind || 'single') === 'single') {
-      var idx = S.photos.indexOf(S.photoUrl); refs.photo.style.filter = filterStr(adjOf(idx < 0 ? 0 : idx));   // straighten 은 회전/사진전환 때만(여기선 호출 안 함 → 매 틱 reflow 제거)
+      _syncSingleFx(S.photos.indexOf(S.photoUrl));
     } else {
-      // [#1 끊김] 셀 innerHTML 재생성(배경이미지 재디코딩) 대신 필터만 in-place 갱신
-      refs.collage.querySelectorAll('.itded__cell[data-ci]').forEach(function (cell) { cell.style.filter = filterStr(adjOf(+cell.getAttribute('data-ci'))); });
+      // [#1 끊김] 셀 innerHTML 재생성(배경이미지 재디코딩) 대신 필터만 in-place 갱신.
+      //   [#11] 누끼 셀(fgMask 있음)은 fx 오버레이 img 의 필터를, 아니면 셀 자체 필터를 갱신.
+      refs.collage.querySelectorAll('.itded__cell[data-ci]').forEach(function (cell) {
+        var ci = +cell.getAttribute('data-ci'), flt = filterStr(adjOf(ci)), fxi = cell.querySelector('.itcellfx');
+        if (fxi) { cell.style.filter = 'none'; fxi.style.filter = _adjIsId(adjOf(ci)) ? 'none' : flt; }
+        else cell.style.filter = flt;
+      });
     }
   }
   function syncAdjSliders() {
@@ -1229,6 +1288,9 @@
       if (!silent && refs.adjCut) { refs.adjCut.disabled = false; refs.adjCut.classList.remove('is-busy'); }
       if (!r || !r.composedDataUrl) { if (!silent) toastIt('배경 제거에 실패했어요'); return; }
       if (r.removedBgDataUrl) S.matte[i] = r.removedBgDataUrl;   // 매트 캐시
+      // [#11 2026-07-18] 합성본 정렬 사람 마스크 — 기본 보정(밝기·대비·채도·온도·선명도)을 사람에만 걸 때 쓴다.
+      //   removedBgDataUrl(누끼 PNG)은 자기 좌표계라 place 로 배치·크롭된 합성본과 안 맞음 → compose 가 정렬해 준 것만 씀.
+      if (r.personMaskDataUrl) S.fgMask[i] = r.personMaskDataUrl; else delete S.fgMask[i];
       S.cutSet[i] = true;
       S.photos[i] = r.composedDataUrl;
       // [#1] 누끼 대기 중 장을 바꿔도 어긋나지 않게 — 완료 시 '지금 보고 있는 장'을 항상 최신 S.photos 로 반영.
@@ -1265,6 +1327,7 @@
     var wasShown = (S.photoUrl === S.photos[i]); var orig = S.origPhotos[i];
     var _preUrl = S.photos[i], _preCut = !!(S.cutSet && S.cutSet[i]);   // [#9] 되돌리기용 스냅샷
     S.photos[i] = orig; if (S.cutSet) S.cutSet[i] = false;
+    if (S.fgMask) delete S.fgMask[i];   // [#11] 원본 복원 = 배경 교체 해제 → 보정을 다시 사진 전체에
     if (wasShown) { S.photoUrl = orig; S.photoCss = 'url("' + orig + '")'; refs.photo.style.backgroundImage = S.photoCss; }
     renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
     // [#9] '원본으로' 도 ↩ 되돌리기 스택에 — ↩ 누르면 다시 누끼 상태로.
@@ -1376,14 +1439,26 @@
       var sIdx = S.photos.indexOf(S.photoUrl);
       var sDeg = (adjOf(sIdx < 0 ? 0 : sIdx).rot) || 0, sCs = sDeg ? coverScaleForRot(sDeg) : 1;
       if (S.fitMode === 'contain') { c.fillStyle = S.collageBg || '#fff'; c.fillRect(0, 0, r.width, r.height); }   // [#5] 전체 모드 여백 배경
-      baseDone = loadImg(S.photoUrl).then(function (img) {
-        if (!img) return; var cr = fitRect(img, r.width, r.height);
-        c.save();
-        c.translate(S.pz.tx, S.pz.ty); c.translate(r.width / 2, r.height / 2);
-        c.scale(S.pz.scale * sCs, S.pz.scale * sCs); c.rotate(sDeg * Math.PI / 180); c.translate(-r.width / 2, -r.height / 2);
-        c.filter = filterStr(adjOf(sIdx < 0 ? 0 : sIdx));
-        c.drawImage(img, (r.width - cr.dw) / 2, (r.height - cr.dh) / 2, cr.dw, cr.dh);
-        c.restore();
+      var _sFlt = filterStr(adjOf(sIdx < 0 ? 0 : sIdx));
+      var _sFg = _fgActive(sIdx) ? S.fgMask[sIdx] : null;
+      var _xf = function (cx) { cx.translate(S.pz.tx, S.pz.ty); cx.translate(r.width / 2, r.height / 2);
+        cx.scale(S.pz.scale * sCs, S.pz.scale * sCs); cx.rotate(sDeg * Math.PI / 180); cx.translate(-r.width / 2, -r.height / 2); };
+      baseDone = Promise.all([loadImg(S.photoUrl), _sFg ? loadImg(_sFg) : Promise.resolve(null)]).then(function (res) {
+        var img = res[0], mk = res[1]; if (!img) return; var cr = fitRect(img, r.width, r.height);
+        var dx = (r.width - cr.dw) / 2, dy = (r.height - cr.dh) / 2;
+        if (mk) {
+          /* [#11 2026-07-18] 누끼 사진 = 배경 원래색 유지. ① 오프스크린에 '보정한 사진'을 같은 변형으로 그리고
+             사람 마스크로 destination-in(=보정된 사람만 남김) ② 본 캔버스엔 '보정 안 한 사진'(=배경 원래색)을
+             깐 뒤 그 위에 보정된 사람을 얹는다. 마스크는 합성본 정렬이라 사진과 같은 drawImage 로 정확히 겹친다. */
+          var fgc = document.createElement('canvas'); fgc.width = cv.width; fgc.height = cv.height;
+          var fc = fgc.getContext('2d'); fc.setTransform(dpr, 0, 0, dpr, 0, 0);
+          fc.save(); _xf(fc); fc.filter = _sFlt; fc.drawImage(img, dx, dy, cr.dw, cr.dh); fc.filter = 'none';
+          fc.globalCompositeOperation = 'destination-in'; fc.drawImage(mk, dx, dy, cr.dw, cr.dh); fc.restore();
+          c.save(); _xf(c); c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();   // 배경 = 보정 전 원본
+          c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(fgc, 0, 0); c.restore();   // 보정된 사람만 위에
+        } else {
+          c.save(); _xf(c); c.filter = _sFlt; c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();
+        }
       });
     } else {
       // [SSOT] 화면 renderCollage 와 동일한 셀 좌표로 내보내기 → WYSIWYG.
@@ -1392,20 +1467,38 @@
       // [버그수정 2026-07-09] 빈 셀을 photo0으로 강제채움하던 것 → null(빈칸 유지). 화면 renderCollage(빈 셀=플레이스홀더)와 일치, 사진 중복 방지.
       var idxs = []; for (var k = 0; k < cellsSpec.length; k++) { var oi = S.layoutOrder[k]; idxs.push((oi != null && S.photos[oi] != null) ? oi : null); }
       var urls = idxs.map(function (i) { return i != null ? S.photos[i] : null; });
-      baseDone = Promise.all(urls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })).then(function (imgs) {
+      var mkUrls = idxs.map(function (i) { return (i != null && _fgActive(i)) ? S.fgMask[i] : null; });
+      baseDone = Promise.all([
+        Promise.all(urls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })),
+        Promise.all(mkUrls.map(function (u) { return u ? loadImg(u) : Promise.resolve(null); })),
+      ]).then(function (both) {
+        var imgs = both[0], mks = both[1];
         imgs.forEach(function (img, k) {
           if (!img) return;
           var cc = cellsSpec[k];
           var x = cc[0] * r.width + gap / 2, y = cc[1] * r.height + gap / 2, w = cc[2] * r.width - gap, h = cc[3] * r.height - gap;
           var cr = fitRect(img, w, h);
-          c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip();
-          c.filter = filterStr(adjOf(idxs[k]));
+          var flt = filterStr(adjOf(idxs[k]));
           var cp = (S.cellCrop && S.cellCrop[k]) || { s: 1, tx: 0, ty: 0 };   // [셀 크롭] 재구도 반영(중심 기준 scale+translate)
-          if (cp.s !== 1 || cp.tx || cp.ty) { var ccx = x + w / 2, ccy = y + h / 2; c.translate(ccx + cp.tx, ccy + cp.ty); c.scale(cp.s, cp.s); c.translate(-ccx, -ccy); }
-          // [#2] 셀별 수평보정(rot) — 각 칸 중심 기준 회전 + cover 보정(모서리 빈틈 방지).
           var rdeg = (adjOf(idxs[k]).rot) || 0;
-          if (rdeg) { var rcx = x + w / 2, rcy = y + h / 2, rsc = coverScaleForRot(rdeg); c.translate(rcx, rcy); c.rotate(rdeg * Math.PI / 180); c.scale(rsc, rsc); c.translate(-rcx, -rcy); }
-          c.drawImage(img, x + (w - cr.dw) / 2, y + (h - cr.dh) / 2, cr.dw, cr.dh); c.restore();
+          var dx = x + (w - cr.dw) / 2, dy = y + (h - cr.dh) / 2;
+          // 셀의 clip+크롭+회전 변형을 그대로 재현하는 함수(본 캔버스·오프스크린 공용)
+          var setup = function (cx) {
+            cx.beginPath(); cx.rect(x, y, w, h); cx.clip();
+            if (cp.s !== 1 || cp.tx || cp.ty) { var ccx = x + w / 2, ccy = y + h / 2; cx.translate(ccx + cp.tx, ccy + cp.ty); cx.scale(cp.s, cp.s); cx.translate(-ccx, -ccy); }
+            if (rdeg) { var rcx = x + w / 2, rcy = y + h / 2, rsc = coverScaleForRot(rdeg); cx.translate(rcx, rcy); cx.rotate(rdeg * Math.PI / 180); cx.scale(rsc, rsc); cx.translate(-rcx, -rcy); }
+          };
+          if (mks[k]) {
+            // [#11] 누끼 셀 — 단일 사진과 같은 방식으로 배경만 원래색 유지(오프스크린에 보정된 사람만 남겨 위에 얹음).
+            var fgc = document.createElement('canvas'); fgc.width = cv.width; fgc.height = cv.height;
+            var fc = fgc.getContext('2d'); fc.setTransform(dpr, 0, 0, dpr, 0, 0);
+            fc.save(); setup(fc); fc.filter = flt; fc.drawImage(img, dx, dy, cr.dw, cr.dh); fc.filter = 'none';
+            fc.globalCompositeOperation = 'destination-in'; fc.drawImage(mks[k], dx, dy, cr.dw, cr.dh); fc.restore();
+            c.save(); setup(c); c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();   // 배경 = 보정 전
+            c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(fgc, 0, 0); c.restore();   // 보정된 사람
+          } else {
+            c.save(); setup(c); c.filter = flt; c.drawImage(img, dx, dy, cr.dw, cr.dh); c.restore();
+          }
         });
       });
     }
@@ -1694,6 +1787,7 @@
       adj: photos.map(function () { return defAdj(); }), adjSel: 0, collageGap: 3,
       collageBg: (loadBgPref().color || '#FFFFFF'), collageBgImg: null, cellCrop: [], cellSel: -1, fitMode: 'contain',   // [#5] 배경색만 기억, 배경'이미지'는 매번 초기화(예전 stale 배경이 누끼에 자동적용되던 문제)
       ratio: (opts.ratio || '4:5'), undo: [], redo: [], photoDraw: {}, photoBg: {}, layersByPhoto: {},   // [#5/#6] 사진별 레이어 보관
+      matte: {}, fgMask: {},   // [#11 2026-07-18] matte=누끼 PNG(재합성 캐시) · fgMask[i]=합성본 정렬 사람 마스크(배경 보정 제외용). 매트처럼 세션 전용.
       photoUrl: photo, photoCss: 'url("' + photo + '")', photos: photos,
       shopName: (opts.shopName || '').trim(),
       pz: { scale: 1, tx: 0, ty: 0 }, incoming: (opts.layers || []),
@@ -1704,6 +1798,7 @@
     if (refs.featLocTx) refs.featLocTx.textContent = S.shopName || '우리샵';   // [③] 위치 칩에 실제 샵 이름
     refs.layers.innerHTML = ''; refs.frame.className = 'itded__frame';
     refs.photo.style.backgroundImage = S.photoCss; refs.photo.style.filter = ''; refs.photo.style.backgroundSize = 'cover'; refs.photo.style.backgroundColor = 'transparent';
+    if (refs.photofx) { refs.photofx.hidden = true; refs.photofx.style.webkitMaskImage = ''; refs.photofx.style.maskImage = ''; }   // [#11] 새 세션 — 오버레이 초기화
     refs.collage.hidden = true; refs.collage.innerHTML = '';
     refs.photowrap.style.transform = '';
     root.classList.add('is-open');

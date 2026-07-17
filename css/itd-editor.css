@@ -13,6 +13,8 @@
 .itded__stage{position:relative;flex:1 1 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:margin .2s ease}
 .itded__photowrap{position:absolute;inset:0;transform-origin:center center;will-change:transform}
 .itded__photo{position:absolute;inset:0;background-size:cover;background-position:center;background-repeat:no-repeat}
+/* [#11] 누끼 배경 보정 제외 — 보정+사람마스크 오버레이(단일). photowrap 안이라 pz 변형 상속. 포인터는 통과. */
+.itded__photofx{position:absolute;inset:0;background-position:center;background-repeat:no-repeat;pointer-events:none}
 /* 콜라주(좌우2장/4장) */
 .itded__collage{position:absolute;inset:0;display:grid;gap:3px;background:#fff}
 .itded__collage[hidden]{display:none}
