@@ -1566,7 +1566,7 @@
      발행 메타·slot.service·work-memory 이름짓기·잇비 명령…) 대부분 이미 쉼표를 다룰 줄 안다
      (_svcTitle 은 쉼표로 쪼개 '첫시술 외 N개', _makeName 은 첫 조각). 배열로 바꾸면 그 20곳을 전부
      고쳐야 하고 저장된 옛 slot(문자열)과도 어긋난다 → 표현은 그대로, 편집만 다중으로. */
-  var SVC_MAX = 5;   // 한 게시글에 시술 5개면 충분 — 넘으면 캡션이 나열식이 되고 40자 저장 한도도 넘긴다
+  var SVC_MAX = 3;   // [원영 요청] 시술 칩 최대 3개 — 20인치+26인치, 옴브레+팁붙임처럼 2~3개 믹스가 실제 흔한 상한
   function _svcList() {
     return String(d.service || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
   }
@@ -3610,7 +3610,10 @@
   function _svcTitle(svc) {
     var parts = String(svc || '').split(/[,·]+/).map(function (x) { return x.trim(); }).filter(Boolean);   // 쉼표·가운뎃점만 — 공백 분리하면 '속눈썹 연장'이 '속눈썹 외 1개'가 됨
     if (!parts.length) return '';
-    var t = parts[0] + (parts.length > 1 ? ' 외 ' + (parts.length - 1) + '개' : '');
+    // [원영 요청] 여러 시술은 'A + B'로 합쳐 보여준다(저장 d.service 는 연준 엔진 그대로 쉼표 조인 — 표시만 변환).
+    var joined = parts.join(' + ');
+    if (joined.length <= 40) return joined;
+    var t = parts[0] + (parts.length > 1 ? ' 외 ' + (parts.length - 1) + '개' : '');   // 너무 길면 축약 폴백
     return t.length > 40 ? (t.slice(0, 39) + '…') : t;
   }
   function buildSlot() {

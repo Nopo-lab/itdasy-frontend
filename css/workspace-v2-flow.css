@@ -36,12 +36,12 @@
 .wsv2flow__actionbar { flex: none; display: flex; gap: 10px; padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, rgba(249,248,247,0), #F9F8F7 28%); border-top: 1px solid var(--border); }
 .wsv2flow__actionbar.hidden { display: none; }
-.wsv2flow__cta { width: 100%; height: 54px; border: 0; border-radius: var(--r-lg); font-size: 16px; font-weight: 900; cursor: pointer;
+.wsv2flow__cta { width: 100%; height: 54px; border: 0; border-radius: var(--r-lg); font-size: 16px; font-weight: 800; cursor: pointer;
   background: var(--brand-strong); color: #fff; box-shadow: var(--shadow-brand); }
 .wsv2flow__cta:disabled { background: var(--frame); color: var(--text-subtle); box-shadow: none; cursor: not-allowed; }
 
 .wsv2flow .screen-head { margin: 4px 2px 18px; }
-.wsv2flow .screen-head h2 { font-size: 21px; line-height: 1.35; letter-spacing: -.03em; margin: 0 0 9px; font-weight: 900; color: var(--text); }
+.wsv2flow .screen-head h2 { font-size: 21px; line-height: 1.35; letter-spacing: -.03em; margin: 0 0 9px; font-weight: 800; color: var(--text); }
 .wsv2flow .screen-head p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cust-row { display: flex; align-items: center; justify-content: space-between; margin: 2px 2px 12px; }
 .wsv2flow .cust-row b { font-size: 13px; color: var(--text); }
@@ -270,8 +270,9 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .ed-bg__status.is-fail { color: var(--danger); font-weight: 700; }
 .wsv2flow .ed-note { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 10px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); font-size: 11px; line-height: 1.45; color: var(--text-subtle); }
 .wsv2flow .ed-note svg { width: 14px; height: 14px; stroke: var(--warn); flex: 0 0 auto; margin-top: 1px; }
-.wsv2flow .cap-field-label { display: block; font-size: 12px; font-weight: 900; color: var(--text-muted); margin: 0 0 6px; }
-.wsv2flow .cap-field-label span { font-weight: 500; color: var(--text-subtle); font-size: 11px; }
+/* [v751 타이포 통일] 3단계 스케일 — 큰것 15/800(CTA·제목) · 본문 13.5/600 · 보조 12/500. 이 밖의 크기·굵기 금지 */
+.wsv2flow .cap-field-label { display: block; font-size: 13.5px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
+.wsv2flow .cap-field-label span { font-weight: 500; color: var(--text-subtle); font-size: 12px; }
 .wsv2flow .ed-adv { padding: 14px; display: flex; flex-direction: column; gap: 9px; }
 .wsv2flow .ed-adv__btn { height: 46px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wsv2flow .ed-adv__btn svg { width: 18px; height: 18px; stroke: var(--brand-strong); }
@@ -364,7 +365,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 
 /* C. 게시글 (FC4: 3x3 시나리오칩 + 고정멘트 꼬리) */
 .wsv2flow .cap-photo.cap-photo--sm { width: 100%; height: 200px; border-radius: var(--r-lg); background: var(--frame) center/contain no-repeat; margin-bottom: 12px; }   /* [#14] 잘림(cover)→전체(contain) — 캡션 상단에 사진 풀로 보이게 */
-.wsv2flow .cap-byline { font-size: 11px; font-weight: 700; color: var(--text-subtle); text-align: center; padding: 6px 0 10px; }
+.wsv2flow .cap-byline { font-size: 12px; font-weight: 500; color: var(--text-subtle); text-align: center; padding: 6px 0 10px; }
 /* [통합 2026-07-13·요청6] 캡션 편집 ↔ 발행/피드 미리보기 스크롤 경계 구분선 */
 .wsv2flow .cap-byline--pub { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .wsv2flow .cap-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 0; color: var(--text-subtle); font-size: 13px; }
@@ -380,7 +381,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .captail__save:active { background: var(--brand-bg); color: var(--brand-strong); }
 /* C. 게시글 */
 .wsv2flow .seg { height: 42px; background: var(--brand-bg); border-radius: var(--r-md); padding: 4px; display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
-.wsv2flow .seg-btn { border: 0; border-radius: var(--r-sm); background: transparent; color: var(--brand); font-weight: 900; font-size: 12.5px; cursor: pointer; }
+.wsv2flow .seg-btn { border: 0; border-radius: var(--r-sm); background: transparent; color: var(--brand); font-weight: 800; font-size: 12.5px; cursor: pointer; }
 .wsv2flow .seg-btn.on { background: var(--surface); color: var(--brand-strong); box-shadow: var(--shadow-sm); }
 .wsv2flow .service-input { width: 100%; height: 46px; font-size: 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface); padding: 0 14px; margin-bottom: 14px; color: var(--text); outline: none; }
 .wsv2flow .service-input:focus { border-color: var(--brand); }
@@ -399,9 +400,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .hash-chip.on { background: var(--brand-bg); color: var(--brand-strong); box-shadow: inset 0 0 0 1px var(--brand); }
 /* [Phase B-1] 스토리 편집 진입 버튼 */
 /* [#17] inline-flex 는 margin:auto 로 가운데 정렬이 안 돼 PC 에서 좌측으로 쏠렸다 → flex(블록) 로 변경해 max-width+auto margin 가운데 정렬 적용 */
-.wsv2flow .cap-edit-btn { width: 100%; height: 50px; margin: 2px 0 14px; border: 1.5px solid var(--brand-strong); border-radius: var(--r-md); background: var(--brand-bg); color: var(--brand-strong); font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; }
-.wsv2flow .cap-edit-btn i { font-size: 19px; }
-.wsv2flow .cap-edit-btn:active { transform: scale(.99); opacity: .92; }
+/* [v751 로즈 다이어트] .cap-edit-btn(사진 편집) 제거 — 편집은 업로드 다음 편집 단계에서. 캡션 결과에 로즈 버튼 중복이었음 */
 /* 재생성 버튼 3종 */
 .wsv2flow .cap-regen-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .wsv2flow .cap-regen-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 calc(50% - 8px); min-width: 92px; height: 42px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }
@@ -427,7 +426,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-switch.on { background: var(--brand-strong); }
 .wsv2flow .cap-switch__dot { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-sm); transition: transform .18s; }
 .wsv2flow .cap-switch.on .cap-switch__dot { transform: translateX(20px); }
-.wsv2flow .cap-gen-btn { width: 100%; height: 54px; border: none; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 16px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); }
+.wsv2flow .cap-gen-btn { width: 100%; height: 54px; border: none; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-brand); }
 .wsv2flow .cap-gen-btn:active { transform: scale(.99); opacity: .92; }
 .wsv2flow .cap-gen-btn i { font-size: 18px; vertical-align: -3px; margin-right: 2px; }
 /* [캡션재설계 v2 2026-07-15] 시술 자유서술 textarea(cap-svc-wrap/cap-svc-area/cap-svc-count) 제거 — 마크업 삭제됨 */
@@ -499,7 +498,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [v569·B-1] 작업실 캡션 — 카드형 말투 선택 ("어떤 말투로 써볼까요?") */
 .wsv2flow .screen-head__sub { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonehead { margin: 6px 2px 12px; }
-.wsv2flow .cap-tonehead__t { display: block; font-size: 16px; font-weight: 900; letter-spacing: -.02em; color: var(--text); margin-bottom: 5px; }
+.wsv2flow .cap-tonehead__t { display: block; font-size: 16px; font-weight: 800; letter-spacing: -.02em; color: var(--text); margin-bottom: 5px; }
 .wsv2flow .cap-tonehead__d { display: block; font-size: 12px; line-height: 1.55; color: var(--text-muted); font-weight: 600; }
 .wsv2flow .cap-tonecards { display: flex; flex-direction: column; gap: 9px; margin: 0 0 10px; }
 .wsv2flow .cap-tonecard { display: flex; align-items: center; gap: 13px; width: 100%; text-align: left; padding: 14px 15px; border: 1.5px solid var(--border); border-radius: var(--r-lg, 16px); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; -webkit-tap-highlight-color: transparent; }
@@ -518,9 +517,16 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-restart { display: block; width: 100%; margin: 10px 0 4px; padding: 10px; border: none; background: none; color: var(--text-subtle); font-size: 12.5px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .wsv2flow .cap-actions { display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
 .wsv2flow .cap-redo { height: 50px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 13.5px; font-weight: 800; cursor: pointer; }
-.wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 14.5px; font-weight: 900; cursor: pointer; box-shadow: var(--shadow-brand); white-space: nowrap; }
+.wsv2flow .cap-preview { height: 50px; border: 0; border-radius: var(--r-md); background: var(--brand-strong); color: #fff; font-size: 15px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow-brand); white-space: nowrap; }
 /* [#10] 피드/스토리 2단 버튼 — 좁은 폭에서도 라벨 안 잘리게(줄바꿈 금지 + 폰트/간격 축소, 아이콘 살짝 작게) */
-.wsv2flow .cap-pubrow .cap-preview { font-size: 13.5px; gap: 6px; padding: 0 6px; }
+.wsv2flow .cap-pubrow .cap-preview { gap: 6px; padding: 0 6px; }   /* [v751] 크기 축소 오버라이드 제거 — CTA는 15/800 하나 */
+/* [v751 발행 블록] 인라인 스타일 → 클래스. 계정 태그는 기본 접힘(쓸 일 드묾) */
+.wsv2flow .cap-usertags { margin-top: 10px; }
+.wsv2flow .cap-usertags input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 12px; padding: 0 13px; font-size: 13.5px; font-weight: 500; font-family: inherit; background: var(--surface); color: var(--text); }
+.wsv2flow .cap-usertags input::placeholder { color: var(--text-subtle); }
+.wsv2flow .cap-tagnote { font-size: 12px; font-weight: 500; color: var(--text-subtle); margin-top: 5px; }
+.wsv2flow .cap-pubnote { font-size: 12px; font-weight: 500; color: var(--text-subtle); text-align: center; margin-top: 7px; }
+.wsv2flow .cap-tagtoggle { display: block; margin: 10px auto 0; border: none; background: none; color: var(--text-subtle); font-size: 12px; font-weight: 500; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .wsv2flow .cap-pubrow .cap-preview i { font-size: 17px; flex: 0 0 auto; }
 .wsv2flow .cap-preview:disabled { background: var(--frame); color: var(--text-subtle); box-shadow: none; cursor: wait; }
 .wsv2flow .cap-preview--send { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -533,7 +539,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [#13] 스토리 사진 고르기 — 캐러셀식 선택 */
 .wsv2flow .cap-storypick { margin-top: 10px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
 .wsv2flow .cap-storypick__hd { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
-.wsv2flow .cap-storypick__hd b { font-size: 15px; font-weight: 900; color: var(--text); }
+.wsv2flow .cap-storypick__hd b { font-size: 15px; font-weight: 800; color: var(--text); }
 .wsv2flow .cap-storypick__hd span { font-size: 12.5px; color: var(--text-subtle); }
 .wsv2flow .cap-storypick__row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .wsv2flow .cap-storypick__row::-webkit-scrollbar { display: none; }
@@ -547,7 +553,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 
 /* D. 인스타 미리보기 (FC5: ig-notice·ig-pager 제거, confirmline 추가) */
 .wsv2flow .confirmline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 600; padding: 10px 2px 14px; }
-.wsv2flow .confirmline b { font-weight: 900; color: var(--text); }
+.wsv2flow .confirmline b { font-weight: 800; color: var(--text); }
 /* D. 인스타 미리보기 */
 .wsv2flow .ig-notice { min-height: 36px; border-radius: var(--r-lg); background: var(--brand-bg); color: var(--text-muted); display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 11.5px; font-weight: 700; margin-bottom: 14px; padding: 8px 12px; }
 .wsv2flow .ig-info { width: 15px; height: 15px; border: 1.4px solid var(--brand); border-radius: 50%; display: grid; place-items: center; color: var(--brand-strong); font-size: 10px; font-weight: 800; font-style: italic; flex: none; }
@@ -556,7 +562,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .ig-logo { width: 36px; height: 36px; border-radius: 50%; background: var(--brand); display: grid; place-items: center; color: #fff; font-size: 18px; line-height: 1.05; text-align: center; flex: none; }
 .wsv2flow .ig-logo--photo { background: var(--frame) center/cover; }
 .wsv2flow .ig-logo--empty { background: var(--frame); color: var(--text-subtle); }
-.wsv2flow .ig-name2 { font-size: 13px; font-weight: 900; color: var(--text); }
+.wsv2flow .ig-name2 { font-size: 13px; font-weight: 800; color: var(--text); }
 .wsv2flow .ig-loc { margin-left: auto; color: var(--text-subtle); font-size: 12px; font-weight: 600; }
 .wsv2flow .ig-dots2 { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: var(--text); margin-top: -6px; padding-left: 8px; }
 .wsv2flow .ig-pager { position: absolute; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
@@ -598,7 +604,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .wsfeed__new { position: absolute; top: 5px; left: 5px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 6px; letter-spacing: .4px; }
 .wsv2flow .wsfeed__cap { font-size: 11.5px; color: var(--text-subtle); text-align: center; margin: 10px 0 0; }
 .wsv2flow .ig-copy2 { padding: 4px 14px 15px; font-size: 12.5px; line-height: 1.6; color: var(--text); white-space: pre-wrap; word-break: break-word; }
-.wsv2flow .ig-copy2 b { font-weight: 900; }
+.wsv2flow .ig-copy2 b { font-weight: 800; }
 .wsv2flow .ig-hash { color: var(--info); font-weight: 600; }
 .wsv2flow .ig-ago { color: var(--text-subtle); font-size: 11.5px; margin-top: 6px; }
 /* [#4] 캡션 직접 편집 — 상시 밑줄 제거(진짜 인스타 글처럼). 포커스 때만 링 표시. */
@@ -607,7 +613,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [#4] 해시태그도 상시 밑줄 제거 — 포커스 때만 링. */
 .wsv2flow .ig-hash-edit { outline: none; border-radius: 6px; padding: 1px 3px; margin: -1px -3px; cursor: text; transition: box-shadow .15s, background .15s; display: inline-block; min-width: 40px; }
 .wsv2flow .ig-hash-edit:focus { background: rgba(59,143,212,.08); box-shadow: 0 0 0 2px rgba(59,143,212,.45); }
-.wsv2flow .ig-preview-btn { width: 100%; height: 52px; border: 1px solid var(--brand); background: var(--brand-bg); color: var(--brand-strong); border-radius: var(--r-md); font-weight: 900; font-size: 14px; cursor: pointer; }
+.wsv2flow .ig-preview-btn { width: 100%; height: 52px; border: 1px solid var(--brand); background: var(--brand-bg); color: var(--brand-strong); border-radius: var(--r-md); font-weight: 800; font-size: 14px; cursor: pointer; }
 
 /* E. 고객 연결 — _barClass 시각 통일 (아바타 없음, 컬러바+방문횟수) */
 .wsv2flow .cust-search { display: flex; align-items: center; gap: 9px; height: 48px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); padding: 0 14px; margin-bottom: 16px; box-shadow: var(--shadow-sm); }
@@ -619,7 +625,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cust-bar.b1 { background: #DDD; }
 .wsv2flow .cust-bar.b2 { background: #16B55E; }
 .wsv2flow .cust-bar.b3 { background: #BC6675; }
-.wsv2flow .cust-info h3 { margin: 0 0 3px; font-size: 13.5px; font-weight: 900; color: var(--text); }
+.wsv2flow .cust-info h3 { margin: 0 0 3px; font-size: 13.5px; font-weight: 800; color: var(--text); }
 .wsv2flow .cust-info p { margin: 0; font-size: 11px; color: var(--text-subtle); font-weight: 600; }
 .wsv2flow .cust-badge { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; border-radius: var(--r-pill); font-size: 10px; font-weight: 800; margin-left: 6px; }
 .wsv2flow .cust-badge.b1 { background: var(--frame); color: var(--text-subtle); }
@@ -630,7 +636,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cust-card.selected .cust-pick { border: 0; background: var(--brand-strong); color: #fff; box-shadow: var(--shadow-brand); }
 .wsv2flow .cust-card.selected .cust-pick svg { stroke: #fff; }
 .wsv2flow .linked-card { margin-top: 16px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-lg); padding: 15px; box-shadow: var(--shadow-sm); }
-.wsv2flow .linked-title { display: flex; align-items: center; gap: 7px; color: var(--brand-strong); font-size: 10.5px; font-weight: 900; letter-spacing: .02em; margin-bottom: 12px; }
+.wsv2flow .linked-title { display: flex; align-items: center; gap: 7px; color: var(--brand-strong); font-size: 10.5px; font-weight: 800; letter-spacing: .02em; margin-bottom: 12px; }
 .wsv2flow .linked-title svg { width: 15px; height: 15px; stroke: var(--brand-strong); }
 .wsv2flow .linked-main { display: grid; grid-template-columns: 36px 1fr; gap: 13px; align-items: center; }
 .wsv2flow .linked-main .cust-bar { width: 4px; align-self: stretch; min-height: 52px; border-radius: var(--r-sm); }
@@ -727,7 +733,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [#18] 상단 아이콘 뱃지 — 인스타 로즈 그라데이션 원 */
 .pub-ask__ic { width: 60px; height: 60px; margin: 2px auto 14px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, #FBE7EC, #F6D9E0); box-shadow: 0 6px 18px rgba(213,138,149,.28); }
 .pub-ask__ic i { font-size: 30px; color: var(--brand-strong); }
-.pub-ask__t { font-size: 17.5px; font-weight: 900; color: var(--text); text-align: center; letter-spacing: -.02em; }
+.pub-ask__t { font-size: 17.5px; font-weight: 800; color: var(--text); text-align: center; letter-spacing: -.02em; }
 .pub-ask__d { margin-top: 9px; font-size: 13px; color: var(--text-subtle); text-align: center; line-height: 1.55; }
 .pub-ask__btns { display: flex; gap: 10px; margin-top: 22px; }
 .pub-ask__btns button { flex: 1; height: 52px; border-radius: var(--r-md); font-family: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: transform .13s cubic-bezier(.24,1,.4,1), filter .13s; }
@@ -756,7 +762,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow button.tpls-slide.is-after { border: 2.5px solid var(--brand-strong); }
 .wsv2flow .tpls-slide__tag { position: absolute; left: 10px; top: 10px; padding: 4px 10px; border-radius: var(--r-pill, 999px); background: rgba(0,0,0,.55); color: #fff; font-size: 12px; font-weight: 800; }
 /* [v567·항목3] 클릭순 전/후 — 사진 위 큰 역할 배지(전=초록, 후=분홍) + 짝 번호 */
-.wsv2flow .tpls-slide__role { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 3px; min-width: 30px; height: 30px; padding: 0 9px; justify-content: center; border-radius: var(--r-pill, 999px); color: #fff; font-size: 14px; font-weight: 900; box-shadow: 0 1px 5px rgba(0,0,0,.28); }
+.wsv2flow .tpls-slide__role { position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; gap: 3px; min-width: 30px; height: 30px; padding: 0 9px; justify-content: center; border-radius: var(--r-pill, 999px); color: #fff; font-size: 14px; font-weight: 800; box-shadow: 0 1px 5px rgba(0,0,0,.28); }
 .wsv2flow .tpls-slide.is-before .tpls-slide__role { background: #2EA36B; }
 .wsv2flow .tpls-slide.is-after .tpls-slide__role { background: var(--brand-strong); }
 .wsv2flow .tpls-slide__role em { font-style: normal; font-size: 11px; font-weight: 800; opacity: .9; }
@@ -792,7 +798,7 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .capwiz__q { display: block; font-size: 13.5px; font-weight: 800; letter-spacing: -.3px; color: #17191C; margin: 0 0 10px; }
 .wsv2flow .capwiz__q em { font-style: normal; color: #8B95A1; font-weight: 700; margin-right: 6px; }
 .wsv2flow .capwiz__opts { display: flex; flex-wrap: wrap; gap: 8px; }
-.wsv2flow .capwiz__opt { display: inline-flex; align-items: center; height: 38px; padding: 0 14px; border-radius: 12px; background: #fff; border: 1px solid #E9EBEE; font-size: 13px; font-weight: 600; letter-spacing: -.2px; color: #454B54; cursor: pointer; transition: transform .13s, background .13s, color .13s, border-color .13s; }
+.wsv2flow .capwiz__opt { display: inline-flex; align-items: center; height: 38px; padding: 0 14px; border-radius: 12px; background: #fff; border: 1px solid #E9EBEE; font-size: 13.5px; font-weight: 600; letter-spacing: -.2px; color: #454B54; cursor: pointer; transition: transform .13s, background .13s, color .13s, border-color .13s; }
 .wsv2flow .capwiz__opt:active { transform: scale(.96); }
 .wsv2flow .capwiz__opt.on { background: #17191C; border-color: #17191C; color: #fff; font-weight: 700; }
 /* '직접' = 점선 칩(회색). 활성(직접 값 저장/입력창 열림)이면 검정 채움 */
@@ -805,35 +811,35 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .capwiz__custok { flex: none; height: 40px; padding: 0 16px; border: none; border-radius: 12px; background: #17191C; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .wsv2flow .capwiz__custok:active { transform: scale(.96); }
 /* 섹션 라벨(시술/특이사항) + 힌트 */
-.wsv2flow .cap-wizscreen .capwiz__seclbl { font-size: 13px; font-weight: 800; letter-spacing: -.3px; color: #17191C; margin: 16px 0 8px; }
-.wsv2flow .cap-wizscreen .capwiz__seclbl span { font-size: 11px; font-weight: 500; color: #8B95A1; }
+.wsv2flow .cap-wizscreen .capwiz__seclbl { font-size: 13.5px; font-weight: 600; letter-spacing: -.3px; color: #17191C; margin: 16px 0 8px; }
+.wsv2flow .cap-wizscreen .capwiz__seclbl span { font-size: 12px; font-weight: 500; color: #8B95A1; }
 /* 특이사항 한 줄 입력 + 남은 글자수 */
 .wsv2flow .capwiz__noterow { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px; border: 1px solid #E9EBEE; border-radius: 14px; background: #fff; }
 .wsv2flow .capwiz__noterow:focus-within { border-color: #17191C; }
-.wsv2flow .capwiz__notein { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-size: 14px; font-weight: 500; font-family: inherit; color: #17191C; }
+.wsv2flow .capwiz__notein { flex: 1; min-width: 0; border: none; outline: none; background: transparent; font-size: 13.5px; font-weight: 500; font-family: inherit; color: #17191C; }
 .wsv2flow .capwiz__notein::placeholder { color: #8B95A1; }
-.wsv2flow .capwiz__notecnt { flex: none; font-size: 11px; color: #8B95A1; }
+.wsv2flow .capwiz__notecnt { flex: none; font-size: 12px; font-weight: 500; color: #8B95A1; }
 /* 안내 문구 — 직접·특이사항은 재료로만 */
-.wsv2flow .capwiz__guard { font-size: 11.5px; color: #8B95A1; line-height: 1.55; margin: 12px 2px 0; }
+.wsv2flow .capwiz__guard { font-size: 12px; font-weight: 500; color: #8B95A1; line-height: 1.55; margin: 12px 2px 0; }
 /* 최종 CTA — 화면에서 로즈는 이 버튼 하나 */
 .wsv2flow .capwiz__cta { width: 100%; height: 54px; margin: 16px 0 8px; border: none; border-radius: 16px; background: #BC6675; color: #fff; font-size: 16px; font-weight: 800; letter-spacing: -.2px; cursor: pointer; transition: transform .16s cubic-bezier(.24,1,.4,1), opacity .15s, background .2s, color .2s; }
 .wsv2flow .capwiz__cta:active { transform: scale(.98); }
 /* [아코디언 2026-07-15] CTA 차오름 — 질문 남았을 땐 잠김(회색), 다 답하면 로즈 */
 .wsv2flow .capwiz__cta--dis { background: #E9EBEE; color: #8B95A1; }
-.wsv2flow .capwiz__ready { font-size: 11.5px; font-weight: 600; color: #BC6675; text-align: center; margin: 12px 0 -6px; }
+.wsv2flow .capwiz__ready { font-size: 12px; font-weight: 500; color: #8B95A1; text-align: center; margin: 12px 0 -6px; }   /* [v751 로즈 다이어트] 로즈는 CTA 하나만 */
 
 /* [아코디언] 접힌 질문 줄 — 답 완료(체크)·잠김(점선) 공용 */
 .wsv2flow .capwiz__row { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: #F7F8FA; border: none; border-radius: 14px; padding: 13px 14px; margin: 0 0 10px; font-family: inherit; cursor: pointer; transition: transform .13s; }
 .wsv2flow .capwiz__row:active { transform: scale(.985); }
-.wsv2flow .capwiz__row em { font-style: normal; flex: none; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: #17191C; font-size: 12px; font-weight: 700; }
+.wsv2flow .capwiz__row em { font-style: normal; flex: none; width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; color: var(--ok, #16B55E); font-size: 12px; font-weight: 700; }   /* [v751] 완료 체크 = 초록(스위치 on 과 같은 의미색) */
 .wsv2flow .capwiz__row em svg { width: 14px; height: 14px; }
-.wsv2flow .capwiz__rowl { flex: none; font-size: 12.5px; color: #8B95A1; }
-.wsv2flow .capwiz__row b { flex: 1; min-width: 0; font-size: 14px; font-weight: 800; letter-spacing: -.2px; color: #17191C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wsv2flow .capwiz__chg { flex: none; font-size: 11px; font-weight: 600; color: #8B95A1; }
+.wsv2flow .capwiz__rowl { flex: none; font-size: 12px; font-weight: 500; color: #8B95A1; }
+.wsv2flow .capwiz__row b { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; letter-spacing: -.2px; color: #17191C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wsv2flow .capwiz__chg { flex: none; font-size: 12px; font-weight: 500; color: #8B95A1; }
 .wsv2flow .capwiz__row--lock { background: #fff; border: 1px dashed #E9EBEE; cursor: default; }
 .wsv2flow .capwiz__row--lock:active { transform: none; }
 .wsv2flow .capwiz__row--lock em { color: #C9CED4; }
-.wsv2flow .capwiz__rowq { font-size: 13.5px; font-weight: 700; color: #8B95A1; }
+.wsv2flow .capwiz__rowq { font-size: 13.5px; font-weight: 600; color: #8B95A1; }
 
 /* [아코디언] 쫀득 모션 — 방금 답한 줄은 스프링으로 접히고 체크가 퐁, 다음 카드는 스르륵 */
 .wsv2flow .capwiz__row--pop { animation: capwizRowPop .42s cubic-bezier(.34,1.56,.64,1); }
@@ -846,28 +852,28 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
   .wsv2flow .capwiz__row--pop, .wsv2flow .capwiz__row--pop em svg, .wsv2flow .capwiz__card--in { animation: none; }
 }
 .wsv2flow .cap-svctags { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
-.wsv2flow .cap-svctag { font-size: 13px; padding: 7px 13px; border-radius: 999px; background: #fff; color: #454B54; border: 1px solid #E9EBEE; font-weight: 600; cursor: pointer; }
+.wsv2flow .cap-svctag { font-size: 13.5px; padding: 7px 13px; border-radius: 999px; background: #fff; color: #454B54; border: 1px solid #E9EBEE; font-weight: 600; cursor: pointer; }
 .wsv2flow .cap-svctag:active { transform: scale(.97); }
 .wsv2flow .cap-svctag.on { background: #17191C; border-color: #17191C; color: #fff; font-weight: 700; }   /* [캡션재설계 v2] 단일선택 = 검정 채움 */
 .wsv2flow .cap-svctag--add { background: #fff; color: #8B95A1; border: 1px dashed #C9CED4; }
 /* [칩삭제 2026-07-15] 칩 안 × — 시술·최근 시술 그 자리에서 삭제 */
 .wsv2flow .cap-svctag .cap-svctag__x { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin: 0 -4px 0 6px; border-radius: 50%; background: rgba(139,149,161,.16); color: #8B95A1; font-size: 11px; font-weight: 800; line-height: 1; }
 .wsv2flow .cap-svctag.on .cap-svctag__x { background: rgba(255,255,255,.24); color: #fff; }
-.wsv2flow .cap-svctags__hint { font-size: 11.5px; color: #8B95A1; margin: 0 0 8px 2px; }
+.wsv2flow .cap-svctags__hint { font-size: 12px; font-weight: 500; color: #8B95A1; margin: 0 0 8px 2px; }
 /* [요청3 2026-07-13] 업종 사전선택 안내 — 탭하면 바꿀 수 있다는 힌트 */
-.wsv2flow .cap-svctags__chg { margin-left: 7px; font-size: 10.5px; color: var(--text-faint, var(--text-subtle)); opacity: .8; }
+.wsv2flow .cap-svctags__chg { margin-left: 7px; font-size: 12px; font-weight: 500; color: var(--text-faint, var(--text-subtle)); opacity: .8; }
 
 /* [캡션재설계] 업종 선택(자주쓰는 시술 태그 위) — 흑백 톤 통일 */
 .wsv2flow .cap-svctype__btn { border: none; background: #F7F8FA; color: #454B54; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; cursor: pointer; }
 .wsv2flow .cap-svctype__btn i { font-size: 11px; }
 .wsv2flow .cap-svctype { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
-.wsv2flow .cap-svctype__c { font-size: 13px; padding: 7px 13px; border-radius: 999px; background: #fff; color: #454B54; border: 1px solid #E9EBEE; font-weight: 600; cursor: pointer; }
+.wsv2flow .cap-svctype__c { font-size: 13.5px; padding: 7px 13px; border-radius: 999px; background: #fff; color: #454B54; border: 1px solid #E9EBEE; font-weight: 600; cursor: pointer; }
 .wsv2flow .cap-svctype__c.on { background: #17191C; color: #fff; border-color: #17191C; }
 
 /* 위저드 화면 헤더/라벨 폴리시 */
 .wsv2flow .cap-wizscreen .screen-head h2 { font-size: 17px; font-weight: 800; letter-spacing: -.4px; }
 .wsv2flow .cap-wizscreen .screen-head__sub { font-size: 12.5px; color: #8B95A1; margin-top: 4px; }
-.wsv2flow .cap-wizscreen .cap-field-label { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -.3px; }
+.wsv2flow .cap-wizscreen .cap-field-label { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: -.3px; }
 
 /* ── [Skeleton] 캡션 생성중 — 스피너 대신 결과 카드 형태 shimmer (Astryx 로딩) ── */
 @keyframes capSkelShimmer { 0% { background-position: -320px 0; } 100% { background-position: 320px 0; } }
