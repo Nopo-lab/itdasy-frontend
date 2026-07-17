@@ -474,6 +474,12 @@
     applyXf(L);
   }
   function applyXf(L) {
+    // [#10 2026-07-18] 도형(선/사각/원)은 box 크기(w/h)를 직접 가져 '늘리기'(비균등)를 지원한다.
+    //   텍스트·스티커·이미지는 예전대로 균등 scale. w/h 가 있는 도형은 box 를 그 크기로 고정하고
+    //   scale 은 1 로 둔다(둘을 곱하면 이중 확대라 예측 불가).
+    if (L.type === 'shape' && L.w != null && L.h != null) {
+      L.el.style.width = L.w + 'px'; L.el.style.height = L.h + 'px';
+    }
     L.el.style.transform = 'translate(' + L.x + 'px,' + L.y + 'px) rotate(' + (L.rot || 0) + 'deg) scale(' + L.scale + ')';
     // [#8] 레이어가 커져도 조작 버튼(× 복사 회전 크기)은 화면상 같은 크기 유지 → 역스케일.
     if (L._handles) {
@@ -498,7 +504,10 @@
   function onRsDown(e, L) {
     e.preventDefault(); e.stopPropagation(); selectLayer(L);
     var b = L.el.getBoundingClientRect(); var cx = b.left + b.width / 2, cy = b.top + b.height / 2;
-    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1) };
+    // [#10] 도형은 '늘리기'(비균등 box 크기), 그 외는 예전대로 균등 scale.
+    var isShape = L.type === 'shape' && L.w != null && L.h != null;
+    rsd = { L: L, cx: cx, cy: cy, d0: Math.max(8, Math.hypot(e.clientX - cx, e.clientY - cy)), s0: (L.scale || 1),
+      shape: isShape, sx: e.clientX, sy: e.clientY, w0: L.w, h0: L.h, x0: L.x, y0: L.y, before: isShape ? { w: L.w, h: L.h, x: L.x, y: L.y } : null };
     try { e.target.setPointerCapture(e.pointerId); } catch (_) { void _; }
   }
   function selectLayer(L) {
@@ -526,6 +535,26 @@
       renderAdjust(); renderLayoutStrip(); renderCollage(); applyAdjToDisplay();
       return;
     }
+    // [#9] 레이어 이동 되돌리기 — DOM 재생성 없이 x/y 만 원위치로(안전).
+    if (op.op === 'move') {
+      var mv = undo ? op.before : op.after;
+      if (op.L) { op.L.x = mv.x; op.L.y = mv.y; applyXf(op.L); selectLayer(op.L); }
+      return;
+    }
+    // [#10] 도형 늘리기 되돌리기 — w/h/x/y 복원.
+    if (op.op === 'resize') {
+      var rz = undo ? op.before : op.after;
+      if (op.L) { op.L.w = rz.w; op.L.h = rz.h; if (rz.x != null) op.L.x = rz.x; if (rz.y != null) op.L.y = rz.y; applyXf(op.L); selectLayer(op.L); }
+      return;
+    }
+    // [#9] 셀 크롭(콜라주 칸 안 사진 위치) 되돌리기.
+    if (op.op === 'cellcrop') {
+      var cc = undo ? op.before : op.after;
+      S.cellCrop = S.cellCrop || [];
+      S.cellCrop[op.k] = { s: cc.s, tx: cc.tx, ty: cc.ty };
+      applyCrop(op.k);
+      return;
+    }
     var add = (op.op === 'add') === undo;   // undo: add→제거, del→복원 / redo: 반대
     if (add) { if (refs.layers && op.L.el) refs.layers.appendChild(op.L.el); if (S.layers.indexOf(op.L) < 0) { var at = (op.idx != null && op.idx <= S.layers.length) ? op.idx : S.layers.length; S.layers.splice(at, 0, op.L); } selectLayer(op.L); }
     else { var i = S.layers.indexOf(op.L); if (i >= 0) S.layers.splice(i, 1); op.L.el.remove(); if (S.active === op.L) S.active = null; }
@@ -541,7 +570,7 @@
     if (!L) L = S.active; if (!L) return;
     var c = makeLayer(L.type);
     // [#3] 도형 굵기(strokeW)는 예전에 빠져 있어(엉뚱한 'thick' 키만 복사) 복제본이 '얇게 하기 전' 굵기로 나왔다.
-    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
+    ['font', 'color', 'align', 'fontSize', 'text', 'role', 'stroke', 'shadow', 'badge', 'emoji', 'src', 'shape', 'fill', 'strokeW', 'thick', 'fontSizePx', 'w', 'h', 'radius'].forEach(function (k) { if (L[k] !== undefined) c[k] = L[k]; });
     if (L.tx) { var node = L.tx.cloneNode(true); node.removeAttribute('contenteditable'); c.el.appendChild(node); c.tx = node; }
     // [#3] 도형은 복제한 DOM을 현재 strokeW/색/채움으로 다시 칠해 원본과 100% 일치시킨다.
     if (c.type === 'shape' && c.tx) { try { styleShape(c.tx, c); } catch (_e) { void _e; } }
@@ -565,7 +594,7 @@
     }
     if (L.type === 'text' && L._tapEdit && Date.now() - L._tapEdit < 350) { editText(L); return; }
     L._tapEdit = Date.now();
-    drag = { L: L, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: L.x, oy: L.y };
+    drag = { L: L, pid: e.pointerId, sx: e.clientX, sy: e.clientY, ox: L.x, oy: L.y, moved: false };   // [#9] ox/oy=이동 전 위치(되돌리기용)
     L.el.style.cursor = 'grabbing';
   }
   document.addEventListener('pointermove', function (e) {
@@ -578,6 +607,17 @@
       if (L.type === 'text' && refs.size) refs.size.value = L.scale; return;
     }
     if (rsd) {
+      if (rsd.shape) {
+        // [#10] 늘리기 — 포인터 이동량을 도형의 '회전 안 된 축'으로 되돌려(dx=가로, dy=세로) box 크기에 반영.
+        //   중심 고정(양쪽으로 늘어남) → x/y 도 절반만큼 보정. 선은 세로(두께)는 굵기슬라이더 담당이라 가로만.
+        var mdx = e.clientX - rsd.sx, mdy = e.clientY - rsd.sy;
+        var rad = -(rsd.L.rot || 0) * Math.PI / 180, cs = Math.cos(rad), sn = Math.sin(rad);
+        var ldx = mdx * cs - mdy * sn, ldy = mdx * sn + mdy * cs;   // 로컬 축 이동량
+        var nw = Math.max(12, rsd.w0 + ldx * 2);
+        var nh = rsd.L.shape === 'line' ? rsd.h0 : Math.max(12, rsd.h0 + ldy * 2);
+        rsd.L.x = rsd.x0 - (nw - rsd.w0) / 2; rsd.L.y = rsd.y0 - (nh - rsd.h0) / 2;   // 중심 유지
+        rsd.L.w = nw; rsd.L.h = nh; applyXf(rsd.L); return;
+      }
       var d = Math.hypot(e.clientX - rsd.cx, e.clientY - rsd.cy);
       rsd.L.scale = Math.max(0.2, Math.min(6, rsd.s0 * d / rsd.d0)); applyXf(rsd.L);
       if (rsd.L.type === 'text' && refs.size) refs.size.value = rsd.L.scale; return;
@@ -590,6 +630,7 @@
     if (S) S._userMoved = true;   // [P2-1] 사용자가 직접 옮기면 자동 회피 우선권 해제
     drag.L.x = drag.ox + (e.clientX - drag.sx);
     drag.L.y = drag.oy + (e.clientY - drag.sy);
+    drag.moved = true;   // [#9] 실제로 움직였을 때만 되돌리기 스택에 남긴다(탭만 하면 안 남김)
     applyXf(drag.L);
   });
   document.addEventListener('pointerup', cleanupLayerPointer);
@@ -598,7 +639,17 @@
     // [#1 드래그 회귀] 어느 경로로 끝나든 모든 레이어의 포인터 추적을 지운다(안 지우면 stale 포인터로 다음 드래그가 핀치로 오인됨).
     (S && S.layers || []).forEach(function (L) { if (L._pts) delete L._pts[e.pointerId]; });
     if (lpinch && (!lpinch.L._pts || Object.keys(lpinch.L._pts).length < 2)) lpinch = null;
-    if (drag) { drag.L.el.style.cursor = 'grab'; drag = null; }
+    if (drag) {
+      // [#9] 레이어를 실제로 옮겼으면 되돌리기(↩) 스택에 — 실수로 옮긴 글씨/스티커/도형을 원위치로.
+      if (drag.moved && (drag.L.x !== drag.ox || drag.L.y !== drag.oy)) {
+        _pushOp({ op: 'move', L: drag.L, before: { x: drag.ox, y: drag.oy }, after: { x: drag.L.x, y: drag.L.y } });
+      }
+      drag.L.el.style.cursor = 'grab'; drag = null;
+    }
+    // [#10] 도형 늘리기(크기 변경)도 되돌리기(↩) 스택에.
+    if (rsd && rsd.shape && rsd.before && (rsd.L.w !== rsd.before.w || rsd.L.h !== rsd.before.h)) {
+      _pushOp({ op: 'resize', L: rsd.L, before: rsd.before, after: { w: rsd.L.w, h: rsd.L.h, x: rsd.L.x, y: rsd.L.y } });
+    }
     rotd = null; rsd = null;
   }
 
@@ -719,11 +770,12 @@
     //   '우리샵 구분선'으로 취급돼 얼굴 회피·겹침 해소 로직이 제멋대로 옮겼다(기억한 자리가 안 지켜짐).
     L.role = (spec.role != null) ? spec.role : 'rule';
     L.strokeW = Math.max(2, Math.round((spec.size != null ? spec.size : 0.006) * R.height));
-    var w = Math.round((spec.w != null ? spec.w : 0.11) * R.width);
-    var d = el('div', 'itl-shape'); styleShape(d, L); d.style.width = w + 'px'; L.el.appendChild(d); L.tx = d;
-    var bh = Math.max(L.strokeW, 22);
-    L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
-    L.y = (spec.y != null ? spec.y : 0.88) * R.height - bh / 2;
+    // [#10] box 크기로 저장(늘리기 지원). 선 길이=w, 세로=두께 기준 hit 영역.
+    L.w = Math.round((spec.w != null ? spec.w : 0.11) * R.width);
+    L.h = (spec.h != null ? Math.round(spec.h * R.height) : Math.max(L.strokeW, 22));
+    var d = el('div', 'itl-shape'); styleShape(d, L); L.el.appendChild(d); L.tx = d;
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - L.w / 2;
+    L.y = (spec.y != null ? spec.y : 0.88) * R.height - L.h / 2;
     applyXf(L);
     return L;
   }
@@ -737,19 +789,13 @@
     L.fill = (spec.fill != null) ? !!spec.fill : true;
     L.color = spec.color || 'rgba(20,16,18,.30)'; L.role = spec.role || 'panel'; L.rot = spec.rot || 0;
     L.strokeW = (spec.strokeW != null) ? Math.max(1, Math.round(spec.strokeW * R.height)) : 6;
-    var w = Math.round((spec.w != null ? spec.w : 0.8) * R.width);
-    var h = Math.round((spec.h != null ? spec.h : 0.12) * R.height);
-    var d = el('div', 'itl-shape');
-    var _css = 'box-sizing:border-box;width:' + w + 'px;height:' + h + 'px;';
-    _css += L.fill ? ('background:' + L.color + ';border:0;')
-      : ('background:transparent;border:' + L.strokeW + 'px solid ' + L.color + ';');
-    _css += (L.shape === 'circle') ? 'border-radius:50%'
-      : (L.shape === 'rect') ? 'border-radius:0'
-        : 'border-radius:' + (spec.radius != null ? spec.radius : 16) + 'px';
-    d.style.cssText = _css;
-    L.el.appendChild(d); L.tx = d;
-    L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
-    L.y = (spec.y != null ? spec.y : 0.85) * R.height - h / 2;
+    // [#10] box 크기로 저장(늘리기 지원). 안쪽 면/테두리는 box 를 100% 채운다(styleShape).
+    L.w = Math.round((spec.w != null ? spec.w : 0.8) * R.width);
+    L.h = Math.round((spec.h != null ? spec.h : 0.12) * R.height);
+    L.radius = (spec.radius != null ? spec.radius : 16);
+    var d = el('div', 'itl-shape'); styleShape(d, L); L.el.appendChild(d); L.tx = d;
+    L.x = (spec.x != null ? spec.x : 0.5) * R.width - L.w / 2;
+    L.y = (spec.y != null ? spec.y : 0.85) * R.height - L.h / 2;
     applyXf(L);
     return L;
   }
@@ -961,12 +1007,14 @@
   function styleShape(d, L) {
     var c = L.color, sw = L.strokeW || 6;
     if (L.shape === 'line') {
-      // 박스는 잡기 쉽게(>=22px), 보이는 막대는 굵기(sw)만큼 가운데 — 내보내기도 sw 두께로 그림.
-      d.style.cssText = 'width:180px;height:' + Math.max(sw, 22) + 'px;border-radius:' + (sw / 2) + 'px;background:linear-gradient(' + c + ',' + c + ') center/100% ' + sw + 'px no-repeat';
+      // [#10] 안쪽 막대는 box 를 꽉 채운다(width/height:100%) — box 를 늘리면 선 길이가 늘어난다.
+      //   막대 두께는 굵기(sw)만큼 세로 가운데. 내보내기도 sw 두께로 그림.
+      d.style.cssText = 'width:100%;height:100%;border-radius:' + (sw / 2) + 'px;background:linear-gradient(' + c + ',' + c + ') center/100% ' + sw + 'px no-repeat';
     } else {
-      var base = 'box-sizing:border-box;width:120px;height:120px;';
+      // [#10] 사각/원도 box 를 꽉 채운다 → box 의 w/h 를 따로 늘리면 가로·세로 독립으로 늘어난다.
+      var base = 'box-sizing:border-box;width:100%;height:100%;';
       base += L.fill ? ('background:' + c + ';border:0;') : ('background:transparent;border:' + sw + 'px solid ' + c + ';');
-      base += L.shape === 'circle' ? 'border-radius:50%' : (L.shape === 'round' ? 'border-radius:18px' : 'border-radius:0');
+      base += L.shape === 'circle' ? 'border-radius:50%' : (L.shape === 'round' ? ('border-radius:' + (L.radius != null ? L.radius : 18) + 'px') : 'border-radius:0');
       d.style.cssText = base;
     }
   }
@@ -974,15 +1022,18 @@
     var L = makeLayer('shape');
     L.shape = kind; L.color = S.shapeColor; L.fill = !!S.shapeFill; L.strokeW = S.shapeThick;
     var d = el('div', 'itl-shape'); styleShape(d, L); L.el.appendChild(d); L.tx = d;
-    var w = kind === 'line' ? 180 : 120, h = kind === 'line' ? Math.max(L.strokeW || 6, 22) : 120;
-    placeCenter(L, w, h); selectLayer(L);
+    // [#10] box 크기를 명시적으로 — 이후 크기 핸들이 이 w/h 를 늘린다(비균등).
+    L.w = kind === 'line' ? 180 : 120; L.h = kind === 'line' ? Math.max(L.strokeW || 6, 22) : 120;
+    var r = refs.stage.getBoundingClientRect();
+    L.x = r.width / 2 - L.w / 2; L.y = r.height / 2 - L.h / 2; applyXf(L); selectLayer(L);
+    _pushOp({ op: 'add', L: L });   // [#10] 도형 추가도 되돌리기(↩) — 예전엔 addShape 만 _pushOp 가 빠져 있었음
   }
   // [#5] 활성 도형에 색/채움/굵기 즉시 반영(새로 만드는 것뿐 아니라 선택된 것에도).
   function applyShapeStyle() {
     var L = S.active; if (!L || L.type !== 'shape') return;
     L.color = S.shapeColor; L.fill = !!S.shapeFill; L.strokeW = S.shapeThick;
-    if (L.shape === 'line') { var cw = parseFloat(L.tx.style.width) || L.tx.offsetWidth || 180; styleShape(L.tx, L); L.tx.style.width = cw + 'px'; }
-    else styleShape(L.tx, L);
+    // [#10] 안쪽 막대/면은 box 를 꽉 채우므로(styleShape width/height:100%) 크기는 box(w/h)가 소유 → 여기선 스타일만 다시.
+    styleShape(L.tx, L);
   }
   // [①] PC/모바일 공통 — 가로 스크롤 줄(폰트/색/칩)을 드래그로 넘김(인스타식 스와이프).
   function enableDragScroll(elm) {
@@ -1146,12 +1197,14 @@
     var fx = el2.querySelector('.itcellfx'); if (fx) fx.style.transform = xf;   // [#11] 누끼 셀 크롭 시 fx 오버레이도 같이 (안 그러면 마스크가 어긋남)
   }
   function selectCell(k) { S.cellSel = k; refs.collage.querySelectorAll('[data-cell]').forEach(function (c) { c.classList.toggle('is-cellsel', +c.getAttribute('data-cell') === k); }); }
-  var cropDrag = null, cropPinch = null, cellPts = {};
+  var cropDrag = null, cropPinch = null, cellPts = {}, _cellBefore = null;
   function onCellDown(e) {
     if (refs.collage.hidden) return;
     var cell = e.target.closest && e.target.closest('[data-cell]'); if (!cell) return;
     e.preventDefault();
     var k = +cell.getAttribute('data-cell'); selectCell(k);
+    // [#9] 이 칸을 만지기 시작한 순간의 크롭(위치·확대) 스냅샷 — 손 떼면 바뀐 만큼 되돌리기 스택에.
+    if (!_cellBefore || _cellBefore.k !== k) { var _c0 = cropOf(k); _cellBefore = { k: k, s: _c0.s, tx: _c0.tx, ty: _c0.ty }; }
     cellPts[k] = cellPts[k] || {}; cellPts[k][e.pointerId] = { x: e.clientX, y: e.clientY };
     try { refs.collage.setPointerCapture(e.pointerId); } catch (_) { void _; }
     var ids = Object.keys(cellPts[k]); var c = cropOf(k);
@@ -1170,6 +1223,17 @@
     var kk; for (kk in cellPts) { if (cellPts[kk] && cellPts[kk][e.pointerId]) delete cellPts[kk][e.pointerId]; }
     if (cropPinch && (!cellPts[cropPinch.k] || Object.keys(cellPts[cropPinch.k]).length < 2)) cropPinch = null;
     cropDrag = null;
+    // [#9] 이 칸에 남은 손가락이 없으면(제스처 종료) 바뀐 만큼 되돌리기 스택에 — 실수로 옮긴 칸 사진 원위치.
+    if (_cellBefore) {
+      var bk = _cellBefore.k, still = cellPts[bk] && Object.keys(cellPts[bk]).length;
+      if (!still) {
+        var now = cropOf(bk), b = _cellBefore;
+        if (now.s !== b.s || now.tx !== b.tx || now.ty !== b.ty) {
+          _pushOp({ op: 'cellcrop', k: bk, before: { s: b.s, tx: b.tx, ty: b.ty }, after: { s: now.s, tx: now.tx, ty: now.ty } });
+        }
+        _cellBefore = null;
+      }
+    }
   }
 
   /* ── 사진별 보정(밝기/대비/채도/온도/선명도) ── */
@@ -1702,13 +1766,15 @@
     if (L.type === 'sticker') { base.type = 'sticker'; base.emoji = L.emoji; base.size = ((L.fontSize || 64) * (L.scale || 1)) / R.height; return base; }
     if (L.type === 'image') { base.type = 'image'; base.src = L.src; return base; }
     if (L.type === 'shape') {
-      base.color = L.color; base.h = b.height / R.height;
-      /* [버그수정 2026-07-17] 채움 여부·테두리 굵기를 같이 내보낸다. 예전엔 이 둘이 빠져서 되살릴 때
-         addShopRect 가 무조건 '채운 도형'으로 만들었다 → 원장이 그린 '테두리만 있는 원'이
-         '꽉 채운 둥근 사각형'으로 되살아남(작업 기억·재편집 양쪽). 굽기(drawShape)는 셋 다
-         이미 존중하므로 결과물은 맞았고, 왕복(직렬화→복원)만 틀렸다. */
+      base.color = L.color;
+      /* [#10 2026-07-18] box 크기(w/h)를 상대값으로 저장 — 늘리기(비균등) 보존. 회전 도형은 bounding rect(AABB)가
+         실제 box 보다 커서 틀리므로 L.w/L.h 를 직접 쓴다(예전엔 b.width/b.height 라 회전 시 어긋났음).
+         [버그수정 2026-07-17] 채움·테두리 굵기도 함께 — 안 그러면 '테두리 원'이 '채운 사각형'으로 되살아남. */
+      base.w = (L.w != null ? L.w : b.width) / R.width;
+      base.h = (L.h != null ? L.h : b.height) / R.height;
       base.fill = !!L.fill;
-      base.strokeW = (L.strokeW || 6) / R.height;   // 상대값 — line 의 size 와 같은 기준(R.height)
+      base.strokeW = (L.strokeW || 6) / R.height;
+      if (L.radius != null) base.radius = L.radius;
       if (L.shape === 'line') { base.type = 'line'; base.size = (L.strokeW || 3) / R.height; }
       else { base.type = 'rect'; base.shape = L.shape; }
       return base;

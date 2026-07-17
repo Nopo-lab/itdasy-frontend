@@ -158,6 +158,7 @@
 
 ### 편집기 (js/itd-editor/**)
 - **itd-editor.js** (1773) — 인스타식 편집기 `ItdEditor`(텍스트·스티커·반달레이아웃·그리기, 12폰트, HSV 색상). **safe-zone.js**(81, 얼굴위 텍스트 회피). **data/itd-decos.js**(104, 스티커 51종).
+  - **[#9·#10 2026-07-18 v776]** **선·도형 비균등 늘리기** — 도형 레이어에 `L.w`/`L.h`(box px) 추가. `.itl__rs` 핸들이 **도형이면** 포인터 이동량을 회전 역보정해 box w/h 조절(중심 고정, 선은 가로=길이만·두께는 굵기슬라이더), 텍스트·스티커·이미지는 **예전대로 균등 `scale`**(`_fgActive`처럼 `L.type==='shape' && L.w!=null`일 때만 분기 → 회귀 0). `styleShape` inner=`width/height:100%`, `drawShape`/export 는 `offsetWidth`(=box)라 자동 반영, `_serLayer`는 회전 도형 AABB 오류 피하려 **`L.w/L.h` 직접 저장**(bounding rect 아님). **되돌리기(↩) 확장**: `move`(레이어 이동)·`cellcrop`(콜라주 칸 사진 위치)·`resize`(도형 늘리기) op 추가 — 실수로 옮긴 것 ↩로 원위치(예전엔 add/del/photo만). `addShape` 에 빠져 있던 `_pushOp` 도 복구. 검증: 선 180→420(두께 유지)·사각형 가로만 늘리기·↩ 복원·왕복(340×120 상대값 저장/복원)·스티커 균등 scale 회귀X.
   - **[2026-07-17 도형 왕복 버그수정]** `_serLayer` 가 shape 의 **`fill`·`strokeW` 를 안 내보내고** `addShopRect` 가 **`circle`→`round` 로 뭉개고 `fill=true` 를 강제**해서, 원장이 만든 '테두리 원'이 재편집·작업기억 복원 시 **'꽉 채운 둥근 사각형'**이 됐다. 굽기(`drawShape`)는 셋 다 이미 존중했으므로 **결과물은 맞고 왕복만 틀렸던 것**. `addShopLine` 도 `role` 을 무조건 `'rule'` 로 박아 원장이 직접 그린 선까지 자동 재배치(`:800`·`:822` 가 `role==='rule'` shape 를 옮김) 대상이 됐음 → `spec.role` 존중. ⚠️ `addShopRect` 의 `role` 기본값 `'panel'` 은 자동 재배치 대상이 아니라 그대로 둠.
 
 ### 임포트·OCR·성장
