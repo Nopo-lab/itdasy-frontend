@@ -102,7 +102,9 @@
   }
   function _clone(o) { try { return (typeof structuredClone === 'function') ? structuredClone(o) : JSON.parse(JSON.stringify(o)); } catch (_e) { try { return JSON.parse(JSON.stringify(o)); } catch (_e2) { return o; } } }
 
-  var META_SKIP = { id: 1, label: 1, caption: 1, hashtags: 1, publish: 1, customer_id: 1, order: 1, photos: 1, updatedAt: 1, syncState: 1 };
+  // [M2·M3] _rev/_base 는 순수 로컬 동기화 상태다 — meta 로 서버에 올라가면 안 된다(서버 오염 +
+  //   다른 기기가 남의 base 를 물려받아 병합 판정이 틀어진다).
+  var META_SKIP = { id: 1, label: 1, caption: 1, hashtags: 1, publish: 1, customer_id: 1, order: 1, photos: 1, updatedAt: 1, syncState: 1, _rev: 1, _base: 1 };
   function buildMeta(slot) {
     var m = {};
     for (var k in slot) {
@@ -113,6 +115,62 @@
       m[k] = v;
     }
     return m;
+  }
+
+  /* ── [M2·M3 2026-07-17] 서버 리비전(rev) + 3-way 병합 ───────────────────────
+     문제였던 것:
+       M2 — 충돌 판정을 기기 벽시계(updatedAt)로 했다. 태블릿 시계가 10분 느리면 나중에 한
+            편집이 '옛것'으로 버려졌다.
+       M3 — 폰은 캡션만, 태블릿은 사진만 고쳐도 늦게 올라간 쪽이 슬롯을 통째로 덮어써
+            상대 수정이 사라졌다. 서로 다른 필드인데도.
+     푸는 방식:
+       slot._rev  = 마지막으로 본 서버 리비전(server_updated_at). push 때 base 로 보낸다.
+       slot._base = 그 리비전 시점의 값 스냅샷(= 양쪽이 마지막으로 합의한 버전).
+       409(충돌)면 base/local/remote 3-way 로 필드별 판정:
+         local==base  → 내가 안 건드림 → remote 채택
+         remote==base → 상대가 안 건드림 → local 채택
+         셋 다 다름   → 진짜 충돌(둘 다 같은 필드를 다르게 고침) → 자동으로 못 고른다
+     base 는 사진 blob 을 안 담는다 — 텍스트 메타 + 사진 '서명'만(수백 바이트). */
+  var MERGE_FIELDS = ['label', 'caption', 'hashtags', 'customer_id', 'order'];
+
+  /** 사진 집합의 서명 — id 순서 + 편집상태만. blob 없이 '바뀌었나'만 본다. */
+  function photoSig(slot) {
+    try {
+      return (slot && slot.photos || []).map(function (p) {
+        return String(p && p.id) + ':' + String(p && p.role || '') + ':' + (p && p.editState ? JSON.stringify(p.editState).length : 0);
+      }).join('|');
+    } catch (_e) { return ''; }
+  }
+  /** 합의 스냅샷 — 이 값 위에서 다음 편집이 일어난다. */
+  function makeBase(slot) {
+    var b = { _sig: photoSig(slot) };
+    MERGE_FIELDS.forEach(function (k) { b[k] = slot ? slot[k] : undefined; });
+    return b;
+  }
+  function sameVal(a, b) { return (a == null ? '' : String(a)) === (b == null ? '' : String(b)); }
+
+  /**
+   * 3-way 병합. 반환 { slot, conflicts:[필드명] }.
+   * conflicts 가 비어 있으면 완전 자동 병합 성공(원장 개입 불필요).
+   */
+  function merge3(base, local, remote) {
+    var out = Object.assign({}, remote);   // 서버본을 바탕으로 시작(rev·서버 필드 보존)
+    var conflicts = [];
+    MERGE_FIELDS.forEach(function (k) {
+      var b = base ? base[k] : undefined, l = local ? local[k] : undefined, r = remote ? remote[k] : undefined;
+      if (sameVal(l, r)) { out[k] = r; return; }          // 결과가 같으면 다툼 없음
+      if (sameVal(l, b)) { out[k] = r; return; }          // 내가 안 건드림 → 상대 것
+      if (sameVal(r, b)) { out[k] = l; return; }          // 상대가 안 건드림 → 내 것
+      conflicts.push(k); out[k] = l;                       // 진짜 충돌 — 일단 내 것 두고 아래서 분리
+    });
+    // 사진은 필드로 못 쪼갠다(순서·추가·삭제가 얽힘) → 서명으로 '한쪽만 바꿨나'만 본다.
+    var bs = base ? base._sig : '', ls = photoSig(local), rs = photoSig(remote);
+    if (ls !== rs) {
+      if (ls === bs) out.photos = remote.photos;           // 내가 사진 안 건드림 → 상대 것
+      else if (rs === bs) out.photos = local.photos;       // 상대가 안 건드림 → 내 것
+      else { conflicts.push('photos'); out.photos = local.photos; }
+    }
+    return { slot: out, conflicts: conflicts };
   }
 
   function tsMs(iso) { if (!iso) return 0; var t = new Date(iso).getTime(); return isNaN(t) ? 0 : t; }
@@ -149,6 +207,8 @@
             publish: slot.publish || null,
             customer_id: (slot.customer_id != null ? slot.customer_id : null),
             sort_order: slot.order || 0,
+            // [M2] 이 편집이 올라탄 서버 리비전 — 서버가 이걸로 충돌을 판정한다(벽시계 대신).
+            base_server_updated_at: slot._rev || null,
             // [버그수정 2026-07-15] 원본 slot 이 아니라 URL 치환된 c 를 넘긴다.
             //   원본엔 templateOutputs[].outputUrl 이 구운 JPEG dataURL(수백 KB) 로 남아있어서
             //   buildMeta 의 100KB 컷에 걸려 templateOutputs 가 통째로 조용히 버려졌다.
@@ -179,7 +239,11 @@
       customer_id: (rs.customer_id != null ? rs.customer_id : null),
       order: rs.sort_order || 0, photos: photos,
       updatedAt: tsMs(rs.client_updated_at), syncState: 'synced',
+      // [M2·M3] 서버본을 받아들인 = 합의 지점. 이 rev 위에서 다음 편집이 일어나고,
+      //   충돌 시 이 base 가 '뭐가 바뀌었나'를 가르는 기준이 된다.
+      _rev: rs.server_updated_at || null,
     });
+    slot._base = makeBase(slot);
     return slot;
   }
 
@@ -270,7 +334,15 @@
       var payload = built.payload, complete = built._complete;
       return window.apiFetch('/workspace/slots/upsert', {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, authHeader()), body: JSON.stringify(payload),
-      }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      }).then(function (r) {
+        // [M2·M3] 409 = 내가 본 리비전 이후 다른 기기가 바꿈 → 덮어쓰지 말고 3-way 병합.
+        if (r.status === 409) return r.json().catch(function () { return null; }).then(function (b) {
+          var remote = b && b.detail && b.detail.slot;
+          return remote ? resolveConflict(slot, remote).then(function () { return { _conflict: true }; }) : null;
+        });
+        return r.ok ? r.json() : null;
+      }).then(function (j) {
+        if (j && j._conflict) return;   // 병합이 처리 — 이번 push 는 여기서 끝(병합본이 dirty 로 남아 다음 push)
         if (j && (j.ok || j.skipped)) {
           // [버그수정 2026-07-09 TOCTOU] push(업로드) 도중 사용자가 재편집(updatedAt 변경)했으면 그 편집분은
           //   이번 payload(buildPayload 시점 스냅샷)에 없으므로 synced 로 굳히지 않는다(다음 push 로 반영).
@@ -284,6 +356,11 @@
             return loadOneLocal(slot.id).then(function (still) {
               if (!still) { log('pushSlot deleted during push — skip write-back', slot && slot.id); return; }
               slot.syncState = 'synced';
+              // [M2·M3] push 성공 = 서버와 합의한 지점 → 새 rev 와 base 스냅샷을 심는다.
+              //   다음 편집은 이 base 위에서 일어나고, 충돌 시 3-way 병합의 기준이 된다.
+              var _srv = j && j.slot;
+              if (_srv && _srv.server_updated_at) slot._rev = _srv.server_updated_at;
+              slot._base = makeBase(slot);
               if (_origSaveSlot) return Promise.resolve(_origSaveSlot(slot)).catch(function () {});   // synced 상태만 영속(재-dirty 안 함)
             });
           }
@@ -292,6 +369,46 @@
       });
     }).catch(function (e) { log('pushSlot err', slot && slot.id, e); });
   }
+  /**
+   * [M3] 충돌 해소 — 서버가 409 로 준 remote 와 내 local 을 base 기준 3-way 병합.
+   *   자동 병합되면 병합본을 dirty 로 저장(다음 push 가 새 rev 위에서 올린다).
+   *   진짜 충돌(둘 다 같은 필드를 다르게 고침)이면 자동으로 고를 근거가 원리적으로 없다 →
+   *   서버본을 원본 자리에 두고 내 것을 '다른 기기 수정본' 으로 분리해 아무것도 안 잃는다.
+   */
+  function resolveConflict(local, remoteRaw) {
+    var remote = remoteToLocal(remoteRaw);
+    var base = local && local._base;
+    var res = merge3(base, local, remote);
+    var merged = res.slot;
+    merged.id = local.id;
+    merged._rev = remoteRaw.server_updated_at || null;   // 새 리비전 위에 올라탄다
+    merged.updatedAt = Date.now();
+    merged.syncState = 'dirty';                           // 병합 결과를 다시 올려야 서버도 최신이 된다
+    merged._base = makeBase(merged);
+
+    if (!res.conflicts.length) {
+      log('conflict auto-merged', local.id);
+      return Promise.resolve(_origSaveSlot(merged)).catch(function () {});
+    }
+    // 진짜 충돌 — 서버본을 원본 자리에, 내 것은 사본으로 남긴다(둘 다 보존).
+    log('conflict needs human', local.id, res.conflicts);
+    var mine = Object.assign({}, local, {
+      id: String(local.id) + '_conflict_' + Date.now(),
+      label: (local.label || '작업') + ' (다른 기기 수정본)',
+      _rev: null, _base: null, updatedAt: Date.now(), syncState: 'dirty',
+    });
+    var srv = Object.assign({}, remote, {
+      id: local.id, _rev: remoteRaw.server_updated_at || null, syncState: 'synced',
+    });
+    srv._base = makeBase(srv);
+    return Promise.resolve(_origSaveSlot(srv)).catch(function () {})
+      .then(function () { return Promise.resolve(_origSaveSlot(mine)).catch(function () {}); })
+      .then(function () {
+        try { if (window.showToast) window.showToast('다른 기기에서도 같은 글을 고쳤어요 — 수정본을 따로 남겼어요'); } catch (_e) { void _e; }
+        refreshHome();
+      });
+  }
+
   function flushTombstones() {
     return listTombstones().then(function (tombs) {
       return (tombs || []).reduce(function (p, t) {
@@ -449,7 +566,7 @@
   function init() {
     if (!enabled()) { window.WorkspaceSync = { enabled: false, sync: function () { return Promise.resolve(); }, hydratePhotos: function () { return Promise.resolve(false); }, beginEdit: function () {}, settleSlot: function () { return Promise.resolve(); }, clearLocal: clearLocal }; return; }
     wrapGlobals();
-    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos } };
+    window.WorkspaceSync = { enabled: true, sync: sync, pull: pull, push: pushAll, hydratePhotos: hydratePhotos, beginEdit: beginEdit, settleSlot: settleSlot, clearLocal: clearLocal, _debug: { buildPayload: buildPayload, remoteToLocal: remoteToLocal, hydratePhotos: hydratePhotos, merge3: merge3, makeBase: makeBase, photoSig: photoSig } };
     // 최초 동기화 — 로그인 상태 갖춰지면. 아니면 이후 트리거에서 재시도.
     var tries = 0;
     (function boot() { if (ready()) { sync(); } else if (tries++ < 20) { setTimeout(boot, 800); } })();
