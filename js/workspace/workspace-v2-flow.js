@@ -325,8 +325,67 @@
   }
   // [v589·#3] 캡션 결과 화면에서 우리샵 스타일을 각 사진에 헤드리스 합성 → tplPreviewUrl(결과 전용).
   //   [#2 단일화] 편집기와 동일 렌더러(ItdEditor.compose) 단독 사용 — 옛 StoryEditor 제거됨.
-  // [cleanup 2026-07-12] 편집기가 유일한 결과 소스(구 AUTO_EDITOR 상시 ON) — 별도 자동합성(다른 크롭/위치로 미리보기 어긋남) 안 함. no-op 유지(호출부 무변경).
-  function _autoComposeTemplate() { /* no-op */ }
+  /* [cleanup 2026-07-12] 편집기가 유일한 결과 소스 → no-op 이었음(별도 자동합성이 다른 크롭/위치로 미리보기가 어긋나서).
+     [부활 2026-07-17] 그 결과 "사진편집을 눌러야 텍스트가 보인다"가 됐다 — 시술명/해시태그/로고는
+       _buildShopStyleLayers() 가 만들지만 그 레이어는 편집기 안에서만 살아서, 캡션·결과 화면 상단 합성본과
+       실제 발행 이미지엔 꾸밈이 하나도 없었다(:314 주석도 여기서 합성될 걸 전제하고 있었음).
+     예전 자동합성이 어긋난 원인은 '다른 경로로 그렸기 때문' → 이번엔 편집기와 **같은 렌더러**(ItdEditor.compose)에
+       같은 레이어·같은 비율로 굽는다 = 편집기를 열었을 때의 첫 그림과 일치.
+     겹쳐 굽기(텍스트 두 번) 방어 3중:
+       ① 원장이 직접 꾸민 카드(storyEdited)는 건드리지 않는다 — 편집기 결과가 늘 우선.
+       ② 같은 재료(autoSig)로 이미 구웠으면 skip → setScreen 재렌더로 무한루프도 안 됨.
+       ③ 재오픈해서 구운 것만 있고 원판(_autoBase)이 없으면 다시 굽지 않는다(그 위에 또 얹게 되므로).
+     _autoBase(텍스트 없는 원판)는 메모리에만 둔다 — buildSlot 이 떼어낸다(dataURL 2벌 = 저장 폭탄·sync 100KB 컷). */
+  function _cardWasEdited(o) {
+    var ids = (o && o.photoIds) || [];
+    if (!ids.length) return false;
+    return (d.photos || []).some(function (p) { return p && p.storyEdited && ids.indexOf(p.id) >= 0; });
+  }
+  function _autoComposeTemplate() {
+    if (!(window.ItdEditor && window.ItdEditor.compose)) return;
+    var outs = (d && d.templateOutputs) || [];
+    if (!outs.length) return;
+    var built = _buildShopStyleLayers();
+    var layers = (built && built.layers) || [];
+    if (!layers.length) return;
+    // 텍스트·자리·크기만으로 지문 — 로고 dataUrl 은 넣지 않는다(길이만 커지고 판별력은 role/좌표로 충분).
+    var sig = layers.map(function (L) {
+      return (L.role || L.type || '') + ':' + (L.text || '') + ':' + (L.x || 0) + ',' + (L.y || 0) + ':' + (L.size || 0);
+    }).join('|') + '#' + built.ratio;
+    var myD = d;
+    var jobs = outs.map(function (o) {
+      if (!o || !o.outputUrl || o.autoSig === sig || _cardWasEdited(o)) return null;
+      if (o.autoSig && !o._autoBase) return null;   // ③ 원판 없음 → 겹쳐 굽지 않는다
+      var base = o._autoBase || o.outputUrl;
+      return window.ItdEditor.compose({ photoUrl: base, ratio: built.ratio, layers: layers })
+        .then(function (url) {
+          if (!url || myD !== d || d._dead) return false;
+          o._autoBase = base; o.outputUrl = url; o.autoSig = sig;
+          return true;
+        })
+        .catch(function () { return false; });
+    }).filter(Boolean);
+    if (!jobs.length) return;
+    Promise.all(jobs).then(function (res) {
+      if (myD !== d || d._dead || !res.some(Boolean)) return;
+      d.templateOutput = outs[0].outputUrl;   // 첫 카드 미러 유지(기존 소비처 계약)
+      d.previewUrl = null;
+      if (cur === 'caption') setScreen('caption', { push: false });   // 한 번만 다시 그림(sig 가 같아져 재진입 안 함)
+    });
+  }
+  /* [버그수정 2026-07-17] 편집기 결과를 templateOutputs(결과물 배열)에도 돌려준다.
+     예전엔 onDone 이 d.templateOutput(첫 카드 미러)만 갱신하고 배열은 편집 전 합성본 그대로 뒀다. 그래서
+       · 상단 렌더가 다중 카드일 때 '텍스트 없는 옛 합성본'을 보여주고
+       · 발행(publish 의 _outs)이 그 옛 합성본을 그대로 인스타에 올렸다(꾸밈이 조용히 사라짐).
+     레이아웃 카드(isWs)는 보고 있던 카드에, 레이아웃 없는 카드는 그 사진을 담은 카드에 반영한다. */
+  function _syncOutputForEdit(p, dataUrl, isWs) {
+    var outs = (d && d.templateOutputs) || [];
+    if (!outs.length || !dataUrl) return;
+    var tgt = null;
+    if (isWs) tgt = (d.activeDisplayId && outs.filter(function (o) { return o && o.pairId === d.activeDisplayId; })[0]) || outs[0];
+    else if (p) tgt = outs.filter(function (o) { return o && !o.templateId && (o.photoIds || []).indexOf(p.id) >= 0; })[0];
+    if (tgt) tgt.outputUrl = dataUrl;
+  }
   // [#5] 텍스트/편집을 '지금 캐러셀에서 보고 있는 장'에 적용 — 보던 사진을 편집·저장(다중 사진서 장 선택).
   function _activeEditPhoto() {
     if (d && d.activeDisplayId) {
@@ -375,6 +434,7 @@
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
         if (_wsEd) { d.templateOutput = dataUrl; d.previewUrl = null; }   // [ws-hyper] 편집한 레이아웃 합성본을 대표 이미지로 → 미리보기/발행/저장에 반영
+        _syncOutputForEdit(p, dataUrl, !!_wsEd);   // [버그수정 2026-07-17] 결과물 배열에도 반영(안 하면 발행이 편집 전 합성본을 올림)
         // [캐러셀] 편집기에서 (콜라주 아닌 단일 레이아웃으로) 새로 추가한 사진 → 플로우 사진목록에 별도 사진으로 반영.
         //   원장님 요청: "편집기 추가 사진도 캐러셀로". 이러면 여러 장 게시(캐러셀) 후보가 된다.
         try {
@@ -396,6 +456,7 @@
               window.ItdEditor.compose({ photoUrl: _cb, ratio: _rt, layers: e.layers }).then(function (u) {
                 if (!u) return;
                 tp.editedDataUrl = u; tp.storyEdited = true;
+                _syncOutputForEdit(tp, u, false);   // [버그수정 2026-07-17] 사진별 레이어 합성도 결과물 배열에 반영
                 tp.editState = { v: 1, layoutIdx: 0, layoutOrder: [], cellCrop: [], fitMode: 'contain', ratio: _rt, adj: [], photoDraw: {}, photoBg: {}, photos: [_cb], layers: e.layers };
                 d.previewUrl = null;   // [#3] 편집 중간에는 내 콘텐츠 저장 안 함 — 최종(발행/연결/저장)에서만. 데이터는 메모리 유지.
               });
@@ -1766,9 +1827,15 @@
   }
   function _publishKind() {
     // [T-116] 결과물이 2장 이상이면(카드 여러 개) 캐러셀 — 레이아웃을 썼다고 무조건 단일 피드가 아니다.
-    if ((d.templateOutputs || []).length >= 2) return 'carousel';
-    var hasComposite = !!(d.wsLayout && d.templateOutput);
-    return (!hasComposite && (editablePhotos() || []).length >= 2) ? 'carousel' : 'feed';
+    var nOut = (d.templateOutputs || []).length;
+    if (nOut >= 2) return 'carousel';
+    /* [버그수정 2026-07-17] 합성본 1장 = 단일 피드. 예전 기준은 `d.wsLayout && d.templateOutput` 이었는데
+       d.wsLayout 은 레이아웃 화면이 세션 중에만 채우는 별칭이고 open() 이 복원하지 않는다(d 리터럴에 키 없음).
+       → 초안을 닫았다 다시 열어 발행하면 hasComposite=false 로 떨어져 '원본 사진 전부'가 캐러셀로 나갔다:
+         레이아웃이 조용히 사라지고, 서버가 child 마다 2초씩 순차 폴링해 발행이 30초+ 로 늘어짐.
+       판단 근거를 세션 상태가 아니라 저장되는 결과물(templateOutputs/templateOutput)로 바꾼다. */
+    if (nOut === 1 || d.templateOutput) return 'feed';
+    return ((editablePhotos() || []).length >= 2) ? 'carousel' : 'feed';
   }
   function _publishBlock() {
 	    var connected = window.WorkspaceAdapter ? window.WorkspaceAdapter.instagram().connected : false;
@@ -3172,7 +3239,11 @@
 	  //   원본(d.photos)은 절대 변형하지 않고, 렌더용 리스트에서만 1장/2장 표현을 바꾼다.
 	  function _displayItems() {
 	    // [ws-hyper] 레이아웃 적용 시 — 합성본 1장만 표시(원본 개별 사진은 숨김). 미리보기/캡션/발행 공통 소스.
-	    if (d.templateOutput) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];   // [버그수정 2026-07-06] 재오픈 초안(wsLayout 미복원)도 합성본 표시 — 합성본이 진실
+	    // [버그수정 2026-07-06] 재오픈 초안(wsLayout 미복원)도 합성본 표시 — 합성본이 진실.
+	    // [버그수정 2026-07-17] 단, 결과물이 2장 이상이면 여기서 끊지 않는다. composeCards 는 templateOutput 에
+	    //   '첫 카드'를 늘 미러하므로(flow/layout.js:133) 이 줄이 T-116 다중 카드를 통째로 가렸다 →
+	    //   캡션·결과 화면이 항상 1장만 보여줌(아래 캐러셀은 items.length<2 로 막혀 도달 불가였음).
+	    if (d.templateOutput && (d.templateOutputs || []).length < 2) return [{ kind: 'output', id: 'wslayout', url: d.templateOutput, label: '', expandable: false }];
 
 	    var outs = d.templateOutputs || [];
 	    if (outs.length) {
@@ -3460,10 +3531,17 @@
     var slot = d.slot || { id: uid(), order: 0, createdAt: Date.now() };
     var now = Date.now();
 	    slot.label = d.customerName || slot.label || _svcTitle(d.service) || '새 콘텐츠';
-	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, editState: p.editState || null, baseUrl: p.baseUrl || null, updatedAt: now }; });   // [#11] editState=재편집 이어가기 보존
+	    // [#11] editState=재편집 이어가기 보존 · [2026-07-17] storyEdited=원장이 직접 꾸민 사진 표시.
+	    //   storyEdited 가 메모리에만 있어서 초안을 다시 열면 '자동합성 금지' 표시가 사라졌다 → 직접 꾸민 사진 위에
+	    //   시술명이 한 번 더 구워질 수 있었다(글씨 두 겹). 저장·복원 양쪽에 실어 세션 밖에서도 유지한다.
+	    slot.photos = d.photos.map(function (p) { return { id: p.id, dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl || null, role: p.role, cropMeta: p.cropMeta || null, templateId: p.templateId || null, editState: p.editState || null, baseUrl: p.baseUrl || null, storyEdited: !!p.storyEdited, updatedAt: now }; });
 	    // [이슈2] 전후 템플릿 합성 결과물은 사진 배열과 분리된 전용 필드로 저장(원본 슬롯 비오염).
 	    // [다중pair] 페어별 결과물 배열 저장 + 단일 templateOutput 미러(구 코드/홈 썸네일 하위호환).
-	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length) ? d.templateOutputs.slice() : [];
+	    // [2026-07-17] _autoBase(자동합성 전 원판 dataURL)는 메모리 전용 — 저장하면 같은 이미지가 2벌이 되고
+	    //   workspace-sync 의 100KB 컷에 걸려 templateOutputs 자체가 통째로 버려진다(sync 주석 213-215 참고).
+	    slot.templateOutputs = (d.templateOutputs && d.templateOutputs.length)
+	      ? d.templateOutputs.map(function (o) { var c = Object.assign({}, o); delete c._autoBase; return c; })
+	      : [];
 	    slot.templateOutput = d.templateOutput || (slot.templateOutputs[0] && slot.templateOutputs[0].outputUrl) || null;
 	    slot.service = d.service || '';
 	    slot.specialNote = d.specialNote || '';   // [캡션재설계 v2] 특이사항 — 이어서 복원용
@@ -3550,7 +3628,9 @@
 	  function publish(kind) {
 	    // [버그수정 2026-07-10] 레이아웃 합성본(여러 장→1장)이 있으면 캐러셀 요청도 단일 피드로 — 원본 여러 장 전송/실패 방지.
 	    // [T-116] 단, 결과물이 2장 이상이면 그 합성본들을 캐러셀로 올리는 게 맞다 — 이때만 예외.
-	    if (kind === 'carousel' && (d.templateOutputs || []).length < 2 && d.wsLayout && d.templateOutput) kind = 'feed';
+	    // [버그수정 2026-07-17] 가드 기준도 세션 별칭(d.wsLayout) → 저장되는 합성본으로. 재오픈 초안에서 이 가드가
+	    //   통째로 안 걸려 원본 여러 장이 나가던 게 '발행 30초'의 정체였다(_publishKind 주석 참고).
+	    if (kind === 'carousel' && (d.templateOutputs || []).length < 2 && d.templateOutput) kind = 'feed';
 	    if (!window.WorkspaceAdapter) return;
 	    var _igp = window.WorkspaceAdapter.instagram();
 	    if (!_igp.connected) { toast('인스타 연결 후 올릴 수 있어요'); return; }
@@ -3618,7 +3698,31 @@
         r = r || {};
         // [P1#1] 인스타 응답이 늦게 와도 그 사이 바뀐 세션엔 절대 쓰지 않는다.
         //   여기가 실제 피해 지점이었다 — 엉뚱한 글이 published 로 저장되고 igMediaId 까지 박혔다.
-        if (_stale()) { console.warn('[wsv2flow] publish resolved for a closed/replaced session — 무시'); return; }
+        /* [버그수정 2026-07-17] 세션이 바뀌었어도 '발행됐다'는 사실은 원래 슬롯에 남긴다.
+           P1#1 가드가 새 세션 오염을 막으려고 콜백을 통째로 버렸는데, 그 바람에 업로드 중(수 초) 원장이
+           닫기/뒤로가기만 눌러도 인스타엔 실제로 올라간 글이 로컬에선 영원히 draft 로 남았다
+           ("발행했는데 발행됨으로 안 바뀜"). 화면(setScreen/toast)과 전역 d 는 그대로 안 건드리고,
+           이 발행이 시작될 때 붙잡아 둔 myD/slot 에만 써서 저장한다 → 새 세션은 오염되지 않는다. */
+        if (_stale()) {
+          console.warn('[wsv2flow] publish resolved for a closed/replaced session — 화면은 두고 원래 슬롯에만 기록');
+          if (r.ok) {
+            try {
+              myD._idemKey = null;
+              myD.publish = myD.publish || {};
+              myD.publish.status = 'published'; myD.publish.publishedAt = Date.now();
+              var _sid = (r.data && (r.data.media_id || r.data.id)) || null;
+              var _slk = (r.data && r.data.permalink) || null;
+              if (_sid) myD.publish.igMediaId = String(_sid);
+              if (_slk) myD.publish.igPermalink = String(_slk);
+              // slot 은 이 발행을 누른 시점의 buildSlot() 결과 — 전역 d 를 다시 읽지 않는다.
+              slot.publish = Object.assign({}, slot.publish, myD.publish);
+              slot.status = 'published'; slot.instagramPublished = true;   // 홈 _isPub 이 보는 3필드를 함께(workspace-v2-home.js:562)
+              if (window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(slot);
+              if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
+            } catch (_se) { void _se; }
+          }
+          return;
+        }
         if (r.ok) {
           d._idemKey = null;   // [P2-H1] 이 발행은 끝 — 다음 발행은 새 키(같은 사진 재발행도 정상 허용)
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
@@ -3692,7 +3796,7 @@
     var hadRoles = !!(slot && slot.photos && slot.photos.some(function (p) { return p && p.role; }));
     d = {
       slot: slot,
-      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, editState: p.editState || null, baseUrl: p.baseUrl || null, selected: true, selSeq: i + 1 }; }) : [],   // [#11] editState 복원
+      photos: slot && slot.photos ? slot.photos.map(function (p, i) { return { id: p.id || uid(), dataUrl: p.dataUrl, editedDataUrl: p.editedDataUrl, role: p.role || 'hero', cropMeta: p.cropMeta || null, editState: p.editState || null, baseUrl: p.baseUrl || null, storyEdited: !!p.storyEdited, selected: true, selSeq: i + 1 }; }) : [],   // [#11] editState 복원 · [2026-07-17] storyEdited 복원(자동합성이 직접 꾸민 사진을 덮지 않게)
       _selSeq: (slot && slot.photos ? slot.photos.length : 0),
       baMode: purpose === 'before_after',
 	      template: (wc && wc.templateLabel) || null, templateId: (wc && wc.templateId) || null,
