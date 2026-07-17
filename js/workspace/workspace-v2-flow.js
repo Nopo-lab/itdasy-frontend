@@ -1725,17 +1725,16 @@
 	      // [버그5 2026-07-14] 미연동이면 '학습 완료'라고 거짓말하지 않고, 연동하면 된다고 안내.
 	      (_personaOn() ? '<div class="cap-byline">원장님 인스타 글 학습 완료</div>'
 	                    : '<div class="cap-byline">인스타를 연동하면 원장님 말투로 써드려요</div>') +
-	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 처음부터 다시 쓰기</span></label>' +
+	      '<label class="cap-field-label">게시글 <span>미리보기에서 바로 고쳐 쓸 수 있어요 · 시술을 바꾸려면 아래 재료부터 다시 고르기</span></label>' +
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
       // [v589] 꼬리말 블록 폐지 → 설정폼으로 이동. 복사/다시생성/저장은 카드 액션줄로 이동.
       // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
-      // [Phase B-1] 스토리 편집 진입 — 사진 위에 우리샵 스타일 텍스트를 올려 편집.
-      ((!d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
+      // [v776 로즈 다이어트] '사진 편집'(storyedit) 버튼 제거 — 편집은 업로드 다음 편집 단계에 이미 있어 캡션 결과에선 중복 + v775에서 CSS(.cap-edit-btn)가 먼저 지워져 깨진 버튼으로 노출되던 것. (_openStoryEditor 자체는 다른 진입점이 사용)
       // [통합 2026-07-13·요청6] 발행 + 피드 미리보기를 같은 화면 하단에 흡수(구 preview 스텝). 스크롤로 캡션↔게시 한 흐름.
       '<div class="cap-byline cap-byline--pub">이렇게 올라가요</div>' + custLine +
       _publishBlock() +
       _feedPreview(url) +
-		      '<button type="button" class="cap-restart" data-fl-var="reset">처음부터 다시 쓰기</button>';
+		      '<button type="button" class="cap-restart" data-fl-var="reset">재료부터 다시 고르기</button>';
 	  }
 
   function _mountCaption() {
@@ -1837,7 +1836,7 @@
 	        (editable
 	          ? '<div class="ig-act ig-act--fn">' +
 	              '<button type="button" class="ig-actbtn" data-fl="copycap" aria-label="게시글 복사"><i class="ph-duotone ph-copy"></i><b>복사</b></button>' +
-	              '<button type="button" class="ig-actbtn" data-fl-var="regen" aria-label="다시 생성"><i class="ph-duotone ph-arrows-clockwise"></i><b>다시 생성</b></button>' +
+	              '<button type="button" class="ig-actbtn" data-fl-var="regen" aria-label="문장만 다시 쓰기"><i class="ph-duotone ph-arrows-clockwise"></i><b>문장만 다시</b></button>' +
 	              '<button type="button" class="ig-actbtn" data-fl="saveimg" aria-label="이미지 저장"><i class="ph-duotone ph-download-simple"></i><b>저장</b></button>' +
 	            '</div>'
 	          : '<div class="ig-act"><div class="ig-ic"><i class="ph-duotone ph-heart"></i><i class="ph-duotone ph-chat-circle"></i><i class="ph-duotone ph-paper-plane-tilt"></i></div>' +
@@ -1927,16 +1926,19 @@
 	      var _n = (editablePhotos() || []).length;
 	      var _multi = _publishKind() === 'carousel';
 	      // [계정 태그] 피드 사진에 계정 태그(선택) — @아이디 쉼표로.
+	      // [v776] 기본 접힘 — 쓸 일 드문 기능이 발행 흐름 한복판에 있어 혼란. 값 있으면 자동 펼침. 스타일은 CSS 클래스(v775 선반영)로 이동.
 	      var _tagVal = (d.igUserTags || []).map(function (u) { return '@' + u; }).join(', ');
-	      return '<div class="cap-usertags" style="margin-top:10px"><input type="text" data-fl-usertags placeholder="사진에 계정 태그 — @아이디 (쉼표, 선택)" value="' + esc(_tagVal) + '" style="width:100%;height:42px;border:1px solid var(--border);border-radius:12px;padding:0 13px;font-size:13.5px;font-family:inherit;background:var(--surface);color:var(--text)">' +
-        // [계정 태그 2026-07-14] 여러 장은 인스타 구조상 커버(첫 장)에만 태그가 붙는다 — 기대와 다르면 "안 됐다"로 읽히므로 명시.
-        (_multi ? '<div style="font-size:11px;color:var(--text-subtle);margin-top:5px">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') +
-        '</div>' +
-	      '<div class="cap-pubrow" style="margin-top:10px">' +
+	      var _tagsHtml = (d._tagsOpen || _tagVal)
+	        ? '<div class="cap-usertags"><input type="text" data-fl-usertags placeholder="@아이디 (쉼표로 여러 명)" value="' + esc(_tagVal) + '">' +
+          // [계정 태그 2026-07-14] 여러 장은 인스타 구조상 커버(첫 장)에만 태그가 붙는다 — 기대와 다르면 "안 됐다"로 읽히므로 명시.
+          (_multi ? '<div class="cap-tagnote">여러 장은 첫 번째 사진(커버)에만 태그가 붙어요</div>' : '') + '</div>'
+	        : '<button type="button" class="cap-tagtoggle" data-fl="tagsopen">사진에 다른 계정 태그 달기 (선택)</button>';
+	      return '<div class="cap-pubrow" style="margin-top:10px">' +
 	        '<button type="button" class="cap-preview cap-preview--send" style="width:100%" data-fl="publish"' + (d._publishing ? ' disabled' : '') + '>' + (d._publishing ? '<i class="ph-duotone ph-spinner"></i>올리는 중…' : '<i class="ph-duotone ph-paper-plane-tilt"></i>인스타에 올리기' + (_n > 1 ? ' (' + _n + '장)' : '')) + '</button>' +
 	      '</div>' +
 	      // [통합 2026-07-14] '여러 장으로 올리기' 별도 버튼 제거 — 위 버튼 하나가 _publishKind() 로 알아서 캐러셀 발행.
-      (_multi ? '<div class="cap-pubnote" style="margin-top:7px;font-size:11.5px;color:var(--text-subtle);text-align:center">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '');
+      (_multi ? '<div class="cap-pubnote">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '') +
+      _tagsHtml;
 	    }
     return '<div class="wsflow-prep">' +
       '<div class="wsflow-prep__note">인스타 계정이 연결되지 않아 바로 업로드할 수 없어요. 준비만 해둘게요.</div>' +
@@ -2322,7 +2324,8 @@
       // [refactor S5] 고아 핸들러 제거 — 렌더러(data-fl="…")가 없어 어떤 클릭으로도 도달 불가(전 코드베이스 기계 확인).
       //   batoggle·gen·regen(=cgen/data-fl-var 로 대체됨)·toconnect·topreview(오배선)·sharepreview·roles·applydefault·tplchange(=tplchange-active)·publishstory/storypick(스토리 발행 세트). HYPER 재설계로 버튼 소멸, 핸들러만 잔존했던 쓰레기코드.
       // [cleanup] footersave/footerclear·clen·chash·cpersona 핸들러 제거 — 레거시 캡션 UI(SIMPLE_FLOW=false) 삭제로 렌더러 사라져 도달 불가.
-      if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
+      // [v776] storyedit 핸들러 제거 — 캡션 결과의 '사진 편집' 버튼 삭제로 도달 불가. (_openStoryEditor 는 다른 진입점이 사용)
+      if (a === 'tagsopen') { d._tagsOpen = true; return setScreen(cur, { push: false }); }   // [v776] 계정 태그 펼치기
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
       if (a === 'edfull') {
@@ -2533,11 +2536,11 @@
         var vk = vv.getAttribute('data-fl-var');
 	        if (vk === 'short') { return doGenerate({ length_tier: 'short', caption_intent: 'rewrite', _regen: true }, '짧게 다시 생성했어요'); }
 	        if (vk === 'long')  { var _nl = (d.capLen === 'long' || d.capLen === 'max') ? 'max' : 'long'; return doGenerate({ length_tier: _nl, caption_intent: 'longer', _regen: true }, _nl === 'max' ? '아주 길게 다시 생성했어요' : '길게 다시 생성했어요'); }
-	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'friendly'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('게시글을 초기화했어요 (사진은 그대로예요)'); return; }
+	        if (vk === 'reset') { d.caption = ''; d.hashtags = []; d.selectedHashes = []; d.capLen = 'medium'; d.capTone = 'friendly'; d.regenSeq = 0; d.captionMode = (d.tplPurpose === 'review') ? 'review' : 'normal'; d.logId = null; setScreen('caption'); toast('재료부터 다시 고를 수 있어요 (사진은 그대로예요)'); return; }
 	        /* [v532] 'hashtags'(더 가져오기) 케이스 제거 — 추천 칩/더가져오기 UI 삭제로 더 이상 트리거 없음. */
 	        // [v532] '인스타 톤' = 백엔드 tone_override enum 의 'ornate'(풍부·SNS 감성)로 매핑. 기존 'instagram' 은 enum(plain/normal/ornate)에 없어 422 → '캡션 생성 실패' 의 직접 원인.
 		        if (vk === 'insta') { return doGenerate({ tone_override: 'ornate', caption_intent: 'instagram', _regen: true }, '인스타 톤으로 다시 생성했어요'); }
-	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '게시글을 다시 생성했어요');
+	        return doGenerate({ caption_intent: 'rewrite', _regen: true }, '문장만 새로 썼어요');
 	      }
     });
     el.querySelector('[data-fl-file]').addEventListener('change', function (e) {
