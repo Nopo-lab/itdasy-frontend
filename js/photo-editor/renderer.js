@@ -165,6 +165,43 @@
     }
   }
 
+  /* [#11 2026-07-17] 누끼 + 배경 교체한 사진은 기본 보정을 '사람'에만 건다.
+     배경은 원장이 고른 깨끗한 배경이라 밝기·대비·채도·온도·선명도가 먹으면 고른 색이 틀어진다.
+     방식: 보정 체인이 끝난 결과에서 사람만 오려내고(destination-in) 그 뒤에 '보정 안 한' 원본을
+       깔아(destination-over) 배경을 되돌린다. CPU 필터든 WebGL 톤이든 워커 샤픈이든 **결과만**
+       손대므로 보정 파이프라인 자체는 안 건드린다(경로별 분기 불필요).
+     마스크는 반드시 '합성본 정렬'(bgFgMaskDataUrl) — removedBgDataUrl 은 누끼 PNG 자기 좌표계라
+       합성본과 안 맞는다(bg-compose 가 place.dx/dy 로 배치·크롭함). 마스크가 없으면(구 슬롯·구 모듈)
+       아무것도 안 하고 예전 동작 그대로 둔다. */
+  let _fgMaskCache = null;   // { src, img, ready }
+  function _fgMask(env) {
+    const src = env.state.bgFgMaskDataUrl;
+    if (!src) return null;
+    if (_fgMaskCache && _fgMaskCache.src === src) return _fgMaskCache.ready ? _fgMaskCache.img : null;
+    const img = new Image();
+    const rec = { src, img, ready: false };
+    _fgMaskCache = rec;
+    // 로드는 비동기 → 처음 한 번은 그냥 지나가고, 다 받으면 다시 그린다(같은 src 면 재로드 안 하므로 루프 없음).
+    //   ⚠️ _fxCache 를 반드시 버린다 — 마스크 없이 그린(=배경까지 보정된) 그림이 그대로 캐시돼 있고
+    //      hash 는 그대로라 안 버리면 캐시 히트로 그 틀린 그림이 계속 나온다.
+    img.onload = function () { rec.ready = true; _fxCache = null; try { redraw(env); } catch (_e) { void _e; } };
+    img.onerror = function () { rec.ready = false; };
+    img.src = src;
+    return null;
+  }
+  function _keepBgUnadjusted(env, ctx, crop) {
+    const fg = _fgMask(env);
+    if (!fg) return;
+    const { sx, sy, sw, sh, dw, dh } = crop;
+    ctx.save();
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'destination-in';    // 보정된 그림에서 사람만 남김
+    ctx.drawImage(fg, sx, sy, sw, sh, 0, 0, dw, dh);
+    ctx.globalCompositeOperation = 'destination-over';  // 그 뒤에 보정 전 원본 → 배경 원래 색
+    ctx.drawImage(env.state.originalImg, sx, sy, sw, sh, 0, 0, dw, dh);
+    ctx.restore();
+  }
+
   function _applyDrawHooks(env, cv, ctx, dw, dh) {
     const hooks = env.drawHooks, state = env.state, helpers = env.helpers;
     if (typeof hooks.bgBlur === 'function') try { hooks.bgBlur(cv, state, helpers); } catch (_e) { _warn('bgBlur', _e); }
@@ -340,6 +377,9 @@
       ctx.clearRect(0, 0, crop.dw, crop.dh);
       _drawBase(env, cv, ctx, state.originalImg, crop);
       if (await _applySharpness(env, cv, ctx, crop.dw, crop.dh) === false) return;
+      // [#11] 여기까지가 '기본 보정'(밝기·대비·채도·온도·선명도) → 누끼 배경은 원래 색으로 되돌린다.
+      //   훅(bgBlur·beauty·relight)보다 앞 — 배경 블러는 배경에 걸리는 게 맞고, beauty 는 자기 ROI 마스크가 따로 있다.
+      _keepBgUnadjusted(env, ctx, crop);
       _applyDrawHooks(env, cv, ctx, crop.dw, crop.dh);
       if (useCache) {
         const cc = document.createElement('canvas');

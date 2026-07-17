@@ -207,7 +207,21 @@
     const b = place.bbox;
     if (b) ctx.drawImage(personImg, b.x, b.y, b.w, b.h, place.dx, place.dy, place.dw, place.dh);
     else ctx.drawImage(personImg, place.dx, place.dy, place.dw, place.dh);
-    return { composedDataUrl: finalCanvas.toDataURL('image/jpeg', 0.9), removedBgDataUrl: removedUrl };
+    /* [#11 2026-07-17] 합성본과 '같은 좌표계'의 사람 마스크도 같이 낸다.
+       removedBgDataUrl(누끼 PNG)은 personImg 자기 좌표계라 여기서 place.dx/dy/dw/dh 로 배치·크롭된
+       합성본과 안 맞는다 → 그걸로 마스킹하면 엉뚱한 데가 오려진다. 그래서 배치를 똑같이 재현한
+       마스크를 만들어 둔다. 편집기가 '배경엔 보정 안 걸기'에 쓴다(renderer._keepBgUnadjusted).
+       그림자는 일부러 뺀다 — 그림자는 배경 쪽이라 보정에서 제외되는 게 맞다. */
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = size.w; maskCanvas.height = size.h;
+    const mctx = maskCanvas.getContext('2d');
+    if (b) mctx.drawImage(personImg, b.x, b.y, b.w, b.h, place.dx, place.dy, place.dw, place.dh);
+    else mctx.drawImage(personImg, place.dx, place.dy, place.dw, place.dh);
+    return {
+      composedDataUrl: finalCanvas.toDataURL('image/jpeg', 0.9),
+      removedBgDataUrl: removedUrl,
+      personMaskDataUrl: maskCanvas.toDataURL('image/png'),   // 합성본 정렬 알파(사람=불투명)
+    };
   }
 
   window.PhotoEditorBgCompose = { compose, ratioToSize, shadows: SHADOWS };

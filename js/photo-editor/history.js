@@ -5,7 +5,9 @@
   if (window.PhotoEditorHistory) return;
 
   const SNAP_KEYS = [
-    'originalSrc', 'removedBgDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio',
+    // [#11 2026-07-17] bgFgMaskDataUrl = 합성본 정렬 사람 마스크. 여기 안 넣으면 undo/redo 뒤
+    //   '배경엔 보정 제외'가 조용히 풀린다(removedBgDataUrl 과 늘 짝).
+    'originalSrc', 'removedBgDataUrl', 'bgFgMaskDataUrl', 'preBgOriginalSrc', 'adjust', 'ratio',
     'text', 'watermark', 'beauty', 'relight', 'template', 'autoIntensity',
     'layers', 'activeLayerId', 'selective', 'film', 'curve', 'hsl', 'shadow', 'bg', 'bgBlur', 'tplV2',
   ];

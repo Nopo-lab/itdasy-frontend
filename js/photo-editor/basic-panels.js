@@ -302,6 +302,7 @@
     if (!state.preBgOriginalSrc) return _toast(h, '원본이 이미 보이고 있어요');
     h.loadImage(state.preBgOriginalSrc);
     state.removedBgDataUrl = null;
+    state.bgFgMaskDataUrl = null;   // [#11] 원본 복원 = 배경 교체 해제 → 보정을 다시 사진 전체에
     state.preBgOriginalSrc = null;
     _toast(h, '원본 사진으로 복원');
   }
@@ -325,6 +326,9 @@
     const ratio = state.ratio && state.ratio !== 'original' ? state.ratio : '1:1';
     const result = await window.composeBgForEditor(state.preBgOriginalSrc, bgId, ratio, state.removedBgDataUrl);
     state.removedBgDataUrl = result.removedBgDataUrl;
+    // [#11 2026-07-17] 합성본 정렬 사람 마스크 — 기본 보정(밝기·대비·채도·온도·선명도)을 사람에만 걸 때 쓴다.
+    //   구 슬롯/구 모듈이면 undefined → renderer 가 그냥 예전처럼 전체 보정(안전한 폴백).
+    state.bgFgMaskDataUrl = result.personMaskDataUrl || null;
     h.replaceImage(result.composedDataUrl, '배경 적용 완료');
   }
 
