@@ -1,15 +1,18 @@
 /* workspace-settings.js — 작업실 설정 화면 (2026-07-10)
    작업실 홈 톱니 → 여기. 편집기 기능스티커·캡션이 읽는 localStorage 키(itdasy:shop_*)를 한 곳에서 입력.
-   섹션: ① 원장 작업 기억(T-115) ② 매장 정보 ③ 캡션 고정 멘트(+샵정보 자동첨부)
-        ④ 내 레이아웃(실제 합성 썸네일 · 이름변경 · 삭제).
+   섹션: ① 원장 작업 기억(T-115) ② 매장 정보(+샵 정보 반영하기 토글) ③ 캡션 고정 멘트.
    [2026-07-14 T-115] 섹션마다 Lucide 아이콘 + 한 줄 설명(리뉴얼). 맨 위에 '원장 작업 기억' 신설 —
      발행/저장 때 붙잡은 꾸밈을 보고 ★기본을 고른다. 데이터·이름은 work-memory.js 소유(여긴 표시만).
-     ※ '내 레이아웃'(사진 틀, ShopStyle)과 '작업 기억'(그 위 글씨·꾸밈, WorkMemory)은 다른 것 — 설명으로 구분.
+   [#15 2026-07-17] '내 레이아웃' 섹션 삭제 — **이미 죽어 있었다.** getMyLayouts() 는 photoSlots 를 가진
+     ShopStyle 만 거르는데 그런 레코드를 만드는 코드가 main 에 없다(flow/layout.js 의 create 는
+     worktree 에만 있음) → 항상 "저장한 레이아웃이 아직 없어요". 원장 눈엔 '작업 기억'과 겹쳐 보이기만 했다.
+     ⚠️ ShopStyle **저장소 자체는 지우면 안 된다** — _buildShopStyleLayers(로고·워터마크·role 텍스트)와
+     _learnShopStyle 의 '지운 역할 기억(enabled:false)' 이 같은 키를 쓴다. 여긴 UI 섹션만 제거.
+   [#15] '샵 정보 반영하기' 토글을 '캡션 고정 멘트' → '매장 정보' 로 이동(키·동작 동일, 위치만).
    .subscreen-overlay + ss-* 디자인 재사용 → PC 사이드바 자동 안전. window.WorkspaceSettings.open(). */
 (function () {
   'use strict';
   var ID = 'wsSettingsOverlay';
-  var SAMPLE = ['assets/workshop-cats/cat-1.jpg', 'assets/workshop-cats/cat-3.jpg', 'assets/workshop-cats/cat-4.jpg'];
   // [2026-07-10] 상호·전화·주소·영업시간은 앱 '샵 정보'(서버)와 중복 → 작업실에선 제거하고 거기서 관리(sync로 반영).
   //   여기 남기는 건 '샵 정보'에 없는 작업실 전용값. 필드: [키, 라벨, placeholder, inputmode]
   var FIELDS = [
@@ -56,7 +59,12 @@
     if (!mine.length) {
       return head + '<div class="wm-empty"><svg width="15" height="15" aria-hidden="true"><use href="#ic-plus"/></svg><span>아직 기억이 없어요 — 사진을 꾸며서 발행하면 여기 쌓여요</span></div>';
     }
-    var rows = mine.slice().sort(function (a, b) { return (b.lastUsedAt || 0) - (a.lastUsedAt || 0); }).map(function (r) {
+    // [#16 2026-07-17] '가장 최신이 위로' = 만든 순(createdAt) 내림차순.
+    //   예전엔 lastUsedAt(최근 쓴 순)이라 오래 전에 만든 기억을 오늘 한 번 쓰면 맨 위로 올라와
+    //   "방금 만든 게 왜 위에 없지?" 가 됐다. createdAt 이 없는 옛 레코드는 lastUsedAt 으로 폴백.
+    var rows = mine.slice().sort(function (a, b) {
+      return ((b.createdAt || b.lastUsedAt || 0) - (a.createdAt || a.lastUsedAt || 0));
+    }).map(function (r) {
       var on = r.id === defId, sel = r.id === _selMem;
       return '<div class="wm' + (on ? ' is-default' : '') + (sel ? ' is-sel' : '') + '" data-wm-id="' + esc(r.id) + '">' +
         '<div class="wm__th">' + (r.thumb ? '<img src="' + esc(r.thumb) + '" alt="">' : '') + '</div>' +
@@ -90,21 +98,18 @@
   }
   function _footerHtml() {
     var footer = get(K_FOOTER);
-    var on = get(K_SHOPINFO) === '1';
-    return '<textarea class="ss-input" data-wss-footer rows="2" style="width:100%;resize:vertical;min-height:56px" placeholder="게시글 끝에 항상 붙일 문구 (예약 DM·영업시간 등). 비우면 안 붙어요.">' + esc(footer) + '</textarea>' +
-      '<div class="ss-toggle" style="margin-top:10px"><div><div class="ss-toggle-lbl">샵 정보 자동 첨부</div><div class="ss-toggle-sub">전화·예약 링크를 게시글 끝에 자동으로</div></div>' +
-      '<div class="ss-switch' + (on ? ' is-on' : '') + '" data-wss-shopinfo role="switch" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="0"></div></div>';
+    return '<textarea class="ss-input" data-wss-footer rows="2" style="width:100%;resize:vertical;min-height:56px" placeholder="게시글 끝에 항상 붙일 문구 (예약 DM·영업시간 등). 비우면 안 붙어요.">' + esc(footer) + '</textarea>';
   }
-  function _layoutsHtml() {
-    var mine = (window.WorkspaceLayout && window.WorkspaceLayout.getMyLayouts) ? window.WorkspaceLayout.getMyLayouts() : [];
-    if (!mine.length) return '<div class="ss-card-sub">저장한 레이아웃이 아직 없어요.</div>';
-    return '<div class="wss-lay-grid">' + mine.map(function (L) {
-      return '<div class="wss-lay" data-wss-layid="' + esc(L.id) + '">' +
-        '<div class="wss-lay__thumb" data-wss-thumb><div class="wss-lay__ph"></div></div>' +
-        '<div class="wss-lay__name">' + esc(L.name || '내 레이아웃') + '</div>' +
-        '<div class="wss-lay__acts"><button type="button" class="wss-lay__btn" data-wss-layrename="' + esc(L.id) + '">이름</button>' +
-        '<button type="button" class="wss-lay__btn wss-lay__btn--del" data-wss-laydel="' + esc(L.id) + '">삭제</button></div></div>';
-    }).join('') + '</div>';
+  /* [#15 2026-07-17] '샵 정보 반영하기' 토글 — 매장 정보 섹션으로 옮김.
+     원장 지적: "매장 정보에 게시물에 자동으로 쓰게 하지 말고 토글 있게 해."
+     토글 자체는 원래 있었는데(같은 키 itdasy:caption_shopinfo) '캡션 고정 멘트' 섹션에 숨어 있어서
+     매장 정보를 입력하는 사람 눈엔 '입력하면 무조건 자동으로 박힌다'로 보였다. 값을 읽는 곳은
+     workspace-v2-flow 의 _shopCTA() 한 곳뿐 → 여기선 UI 위치만 옮긴다(동작·키 그대로). */
+  function _shopInfoToggleHtml() {
+    var on = get(K_SHOPINFO) === '1';
+    return '<div class="ss-toggle" style="margin-top:12px"><div><div class="ss-toggle-lbl">샵 정보 반영하기</div>' +
+      '<div class="ss-toggle-sub">켜면 게시글 <b>끝</b>에 <b>전화·예약 링크</b>가 자동으로 붙어요. 끄면 아무것도 안 붙어요.</div></div>' +
+      '<div class="ss-switch' + (on ? ' is-on' : '') + '" data-wss-shopinfo role="switch" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="0"></div></div>';
   }
 
   function _ensureMounted() {
@@ -117,16 +122,14 @@
       '<div class="ss-body">' +
         '<div class="ss-card">' + _hd('layers', '원장 작업 기억') + '<div data-wss-mem>' + _memHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('store', '매장 정보') +
-          '<div class="ss-card-sub">게시글에 자동으로 들어가는 우리 샵 정보예요.</div>' +
-          '<div class="wss-fromshop"><div class="wss-fromshop__tx"><b>상호·전화·주소·영업시간</b>은 <b>샵 정보</b>에서 관리해요.<br>거기 입력하면 게시글에 자동으로 쓰여요.</div><button type="button" class="wss-fromshop__btn" data-wss-openshop>샵 정보 열기 ›</button></div>' +
+          '<div class="ss-card-sub">여기 적어둔 정보는 <b>아래 토글을 켰을 때만</b> 게시글에 붙어요.</div>' +
+          '<div class="wss-fromshop"><div class="wss-fromshop__tx"><b>상호·전화·주소·영업시간</b>은 <b>샵 정보</b>에서 관리해요.</div><button type="button" class="wss-fromshop__btn" data-wss-openshop>샵 정보 열기 ›</button></div>' +
           '<div class="ss-card-sub" style="margin:14px 0 10px">아래는 작업실 전용 항목이에요.</div>' +
-          '<div data-wss-fields>' + _fieldsHtml() + '</div></div>' +
+          '<div data-wss-fields>' + _fieldsHtml() + '</div>' +
+          '<div data-wss-shopinfowrap>' + _shopInfoToggleHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('message-square', '캡션 고정 멘트') +
           '<div class="ss-card-sub">게시글 끝에 항상 붙는 문구예요.</div>' +
           '<div data-wss-footwrap>' + _footerHtml() + '</div></div>' +
-        '<div class="ss-card">' + _hd('layout-grid', '내 레이아웃') +
-          '<div class="ss-card-sub">사진이 들어갈 <b>틀</b>이에요. 위 <b>작업 기억</b>은 그 틀 위에 올라가는 <b>글씨·꾸밈</b>이고요.</div>' +
-          '<div data-wss-layouts>' + _layoutsHtml() + '</div></div>' +
       '</div>';
     document.body.appendChild(el);
     el.addEventListener('click', _onClick);
@@ -188,23 +191,6 @@
       sw.classList.toggle('is-on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
       set(K_SHOPINFO, on ? '1' : '0'); return;
     }
-    // 레이아웃 이름 변경
-    var rn = e.target.closest('[data-wss-layrename]');
-    if (rn) {
-      var rid = rn.getAttribute('data-wss-layrename');
-      var cur = (window.ShopStyle && window.ShopStyle.get) ? (window.ShopStyle.get(rid) || {}) : {};
-      var nv = window.prompt('레이아웃 이름', cur.name || '내 레이아웃'); if (nv == null) return;
-      nv = String(nv).trim(); if (!nv) return;
-      try { window.ShopStyle.save(rid, { name: nv }); } catch (_e) { void _e; }
-      toast('이름을 바꿨어요'); _refreshLayouts(); return;
-    }
-    // 레이아웃 삭제
-    var dl = e.target.closest('[data-wss-laydel]');
-    if (dl) {
-      var did = dl.getAttribute('data-wss-laydel');
-      try { if (window.ShopStyle && window.ShopStyle.remove) window.ShopStyle.remove(did); } catch (_e2) { void _e2; }
-      toast('삭제했어요'); _refreshLayouts(); return;
-    }
   }
 
   function _saveFooter(el) {
@@ -219,39 +205,16 @@
     var host = el.querySelector('[data-wss-mem]'); if (host) host.innerHTML = _memHtml();
   }
 
-  function _refreshLayouts() {
-    var el = document.getElementById(ID); if (!el) return;
-    var host = el.querySelector('[data-wss-layouts]'); if (host) host.innerHTML = _layoutsHtml();
-    _paintThumbs();
-  }
-  // 실제 합성 썸네일 — 샘플 사진을 슬롯에 넣어 composeLayout(비동기)로 굽는다.
-  function _paintThumbs() {
-    var el = document.getElementById(ID); if (!el || !(window.WorkspaceLayout && window.WorkspaceLayout.composeLayout)) return;
-    var mine = window.WorkspaceLayout.getMyLayouts ? window.WorkspaceLayout.getMyLayouts() : [];
-    mine.forEach(function (L) {
-      var card = el.querySelector('.wss-lay[data-wss-layid="' + (window.CSS && CSS.escape ? CSS.escape(L.id) : L.id) + '"]');
-      var host = card && card.querySelector('[data-wss-thumb]'); if (!host) return;
-      var n = (L.photoSlots || []).length || 1;
-      var photos = SAMPLE.slice(0, n).map(function (u) { return { dataUrl: u }; });
-      try {
-        Promise.resolve(window.WorkspaceLayout.composeLayout(L, photos)).then(function (url) {
-          if (url) host.innerHTML = '<img src="' + url + '" alt="">';
-        }).catch(function () { void 0; });
-      } catch (_e) { void _e; }
-    });
-  }
-
   function open() {
     syncFromShopInfo();   // 열 때마다 앱 샵 정보 최신값을 캡션 키로 미러
     var el = _ensureMounted();
     // 열 때마다 최신값으로 새로 그림
     var fh = el.querySelector('[data-wss-fields]'); if (fh) fh.innerHTML = _fieldsHtml();
     var fw = el.querySelector('[data-wss-footwrap]'); if (fw) fw.innerHTML = _footerHtml();
+    var sw = el.querySelector('[data-wss-shopinfowrap]'); if (sw) sw.innerHTML = _shopInfoToggleHtml();
     _selMem = null; _refreshMem();
-    _refreshLayouts();
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });
-    _paintThumbs();
   }
   function close() {
     var el = document.getElementById(ID); if (!el) return;

@@ -699,16 +699,18 @@
     return '<div class="wsp-empty">아직 올린 게시물이 없어요. 작업실에서 첫 글을 올려보세요.</div>';
   }
 
-  // 기존 AI 인사이트(이탈 고객·매출 예측) 진입. 성과 버튼을 이 화면이 가져갔으므로 어느 상태에서든
-  //   반드시 같이 그린다 — 게시물 0건일 때 이것마저 빠지면 AI 인사이트로 갈 길이 아예 없어진다.
-  function _moreHtml() {
-    return '<button type="button" class="wsp-more" data-wsp-ai>고객·매출 인사이트 보기 ›</button>';
-  }
-
+  /* [#1 2026-07-17] '고객·매출 인사이트 보기' 버튼 삭제 — 원장 요청("작업실 성과에 매출 인사이트 없애").
+     이 화면은 '무엇이 먹혔나'(다음 글을 어떻게 만들지)를 보는 곳이고, 이탈고객·매출예측(app-insights.js)은
+     성격이 다른 화면이라 섞여 있었다.
+     ⚠️ 지우기 전 확인함 — AI 인사이트는 고아가 안 된다. 진입점이 5곳 더 있다:
+       app-dashboard.js:221(내샵관리 'AI 인사이트') · app-assistant.js:4147(잇비 자연어) ·
+       app-today-brief.js:215(오늘 브리핑) · js/home/v41-actions.js:79(홈) ·
+       workspace-v2-home.js(성과 버튼 폴백).
+     (v748 이 성과 진입점을 지워 화면이 고아가 됐던 전례 때문에 매번 확인한다.) */
   function _render(el, insights, rows, cq, dmLinks) {
     var body = el.querySelector('[data-wsp-body]');
     if (!body) return;
-    if (!rows.length) { body.innerHTML = _emptyHtml(insights) + _dmSummaryHtml(dmLinks) + _moreHtml(); return; }
+    if (!rows.length) { body.innerHTML = _emptyHtml(insights) + _dmSummaryHtml(dmLinks); return; }
     body.innerHTML =
       _summaryHtml(rows) +
       _compareHtml(rows) +
@@ -717,8 +719,7 @@
       _statsNoteHtml(rows) +
       _cqNoticeHtml(cq) +
       _lurkerHtml(rows) +
-      _dmSummaryHtml(dmLinks) +
-      _moreHtml();
+      _dmSummaryHtml(dmLinks);
   }
 
   /** 작업실 새 글 플로우 진입. 홈의 업로드 버튼(data-wsv2-upload)을 눌러 사진 선택을 띄운다.
@@ -748,12 +749,6 @@
     document.body.appendChild(el);
     el.addEventListener('click', function (e) {
       if (e.target.closest('[data-wsp-back]')) { close(); return; }
-      // 기존 AI 인사이트(이탈 고객·매출 예측) 진입 — 성과 버튼을 이 화면이 가져가면서 갈 곳이 없어졌다.
-      if (e.target.closest('[data-wsp-ai]')) {
-        if (typeof window.openInsights === 'function') { close(); window.openInsights(); }
-        else toast('인사이트를 불러오지 못했어요');
-        return;
-      }
       // 답 안 한 문의 → 댓글 응대 화면. 여기서 바로 답을 달게 해야 성과 화면이 '보고서'로 안 끝난다.
       if (e.target.closest('[data-wsp-comments]')) {
         if (typeof window.openCommentReplyQueue === 'function') { close(); window.openCommentReplyQueue(); }

@@ -22,14 +22,23 @@ describe('성과 진입점', () => {
     expect(src).toMatch(/WorkspacePerf\.open\(\)/);
   });
 
-  test('⋯ 메뉴에 성과 버튼이 있다', () => {
-    expect(src).toMatch(/data-wsv2-menu-act="perf"/);
-    expect(src).toContain('>성과</button>');
+  /* [#14 2026-07-17] 진입점이 ⋯ 메뉴 → 홈 본문(필터 줄)으로 옮겨졌다.
+     원장 요청("성과 버튼 작업실 홈으로 꺼내. 설정에 넣지 말고").
+     이 테스트가 지키려는 건 '어느 메뉴에 있냐'가 아니라 **열 방법이 존재하냐** 이므로
+     위치는 새 것으로 갱신하되 버튼+핸들러 쌍은 계속 잠근다. */
+  test('홈 본문에 성과 버튼이 있다', () => {
+    expect(src).toMatch(/data-wsv2-perf/);
+    expect(src).toContain('성과</button>');
   });
 
-  test('메뉴 클릭 핸들러가 perf 를 처리한다', () => {
-    // 버튼만 있고 핸들러가 없으면 눌러도 아무 일도 안 난다
-    expect(src).toMatch(/mk === 'perf'/);
+  test('성과 버튼 클릭 핸들러가 있다', () => {
+    // 버튼만 있고 핸들러가 없으면 눌러도 아무 일도 안 난다(v748 이 딱 그 상태였음)
+    expect(src).toMatch(/closest\('\[data-wsv2-perf\]'\)/);
+  });
+
+  test('성과가 ⋯ 메뉴에 중복으로 남아있지 않다', () => {
+    // 같은 걸 두 곳에 두면 어디가 진짜인지 모른다 — 옮겼으면 옛 자리는 지운다
+    expect(src).not.toMatch(/data-wsv2-menu-act="perf"/);
   });
 
   test('성과를 못 불러와도 앱이 죽지 않고 안내한다', () => {

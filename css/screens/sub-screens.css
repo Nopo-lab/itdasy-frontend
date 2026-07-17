@@ -458,8 +458,6 @@
 .wsp-empty { padding: 40px 20px; text-align: center; font-size: 13.5px; line-height: 1.65; color: var(--wsp-sub); }
 .wsp-empty b { color: var(--wsp-ink); font-weight: 600; }
 .wsp-empty__s { display: inline-block; margin-top: 10px; font-size: 11.5px; }
-.wsp-more { width: 100%; height: 46px; margin-top: 14px; border: 1px solid var(--wsp-line); border-radius: 13px; background: var(--surface, #fff); font-size: 13.5px; font-weight: 600; color: var(--wsp-mut); cursor: pointer; transition: background .18s ease; }
-.wsp-more:active { background: var(--surface-2, #F7F8FA); }
 @media (prefers-reduced-motion: reduce) { .wsp-bar__t span { transition: none; } }
 
 /* ───────────────────────────────────────────────────────────

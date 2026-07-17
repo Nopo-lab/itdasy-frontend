@@ -3,6 +3,7 @@
 .wshc{
   --c-ink:#17191C; --c-ink2:#454B54; --c-sub:#8B95A1; --c-line:#E9EBEE; --c-soft:#F7F8FA;
   --c-rose:var(--brand,#D58A95); --c-rose-strong:var(--accent-strong,#BC6675);
+
   padding:2px 0 calc(96px + env(safe-area-inset-bottom));
 }
 .wshc *{box-sizing:border-box;}
@@ -40,6 +41,10 @@
 .wf-seg:active{ transform:scale(.95); }
 .wf-seg.on{ background:var(--c-ink); border-color:var(--c-ink); color:#fff; font-weight:700; }
 .wf-seg__n{ margin-left:5px; font-weight:700; opacity:.72; font-variant-numeric:tabular-nums; }
+/* [#14] 성과 — 필터 줄 오른쪽 끝. 필터(pill)와 같은 높이·모양이되 '고르는 것'이 아니라 '가는 곳'이라 on 상태 없음 */
+.wf-perf{ margin-left:auto; height:34px; padding:0 13px; border-radius:17px; background:#fff; border:1px solid var(--c-line); font-size:13px; font-weight:600; color:var(--c-ink2); white-space:nowrap; display:inline-flex; align-items:center; gap:5px; transition:transform .175s var(--spring),background .175s var(--spring); }
+.wf-perf:active{ transform:scale(.95); background:var(--c-bg, #f5f5f5); }
+.wf-perf svg{ opacity:.66; }
 
 /* 그리드 — 좌상단 로즈 '+ 새 게시물' 타일 + 정사각 콘텐츠 타일 */
 .wf-feed{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; background:#fff; }

@@ -91,10 +91,14 @@
   function _segsHTML(slots) {
     var done = slots.filter(_isPub).length;
     var F = [['all', '전체', slots.length], ['progress', '진행중', slots.length - done], ['done', '발행됨', done]];
+    // [#14 2026-07-17] 성과를 ⋯ 메뉴에서 홈 본문으로 꺼냄 — 원장 요청("설정에 넣지 말고").
+    //   필터 줄 오른쪽 끝에 같은 pill 로: 새 줄을 만들면 피드가 밀려 내려가고, ⋯ 안에 두면 '설정 옆에 숨은 것'이 된다.
+    var perf = '<button type="button" class="wf-perf" data-wsv2-perf data-haptic="light" aria-label="성과 보기">' +
+      '<svg width="14" height="14" aria-hidden="true"><use href="#ic-trending-up"/></svg>성과</button>';
     return '<div class="wf-segs">' + F.map(function (f) {
       return '<button type="button" class="wf-seg' + (_filter === f[0] ? ' on' : '') + '" data-wsv2-filter="' + f[0] + '">' +
         f[1] + '<span class="wf-seg__n">' + f[2] + '</span></button>';
-    }).join('') + '</div>';
+    }).join('') + perf + '</div>';
   }
   // [개편 2026-07-15] 이어서 카드 — 썸네일 + 제목 + 상태 한 줄 + 검정 '이어서' 버튼(목업 ① 톤).
   function _resumeMsg(slot) {
@@ -131,9 +135,9 @@
     var DOTS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="5" cy="12" r=".8"/><circle cx="12" cy="12" r=".8"/><circle cx="19" cy="12" r=".8"/></svg>';
     // [2026-07-15] 성과 재연결. v748 리디자인이 홈 카드를 정리하면서 성과 진입점(data-wsv2-insights)을
     //   같이 지웠고, 그 뒤로 WorkspacePerf 를 부르는 곳이 코드 전체에 하나도 없었다 =
-    //   화면은 살아있는데 열 방법이 없는 상태. 설정이 간 ⋯ 메뉴에 같이 둔다.
+    //   화면은 살아있는데 열 방법이 없는 상태. → ⋯ 메뉴에 임시로 붙였다가
+    // [#14 2026-07-17] 홈 본문(필터 줄)으로 승격 — ⋯ 에선 뺀다(같은 걸 두 곳에 두면 어디가 진짜인지 모름).
     var menu = !_menuOpen ? '' : '<div class="wshc-menu" data-wsv2-menu>' +
-      '<button type="button" data-wsv2-menu-act="perf" data-haptic="light">성과</button>' +
       '<button type="button" data-wsv2-menu-act="select" data-haptic="light">' + (_selectMode ? '선택 취소' : '선택') + '</button>' +
       '<button type="button" data-wsv2-menu-act="settings" data-haptic="light">설정</button>' +
     '</div>';
@@ -270,16 +274,18 @@
       if (e.target.closest('[data-wsv2-more]')) {
         _menuOpen = !_menuOpen; render(_lastRoot, { slots: _slotsCache }); return;
       }
+      // [#14] 성과 — 홈 본문 필터 줄의 버튼. (⋯ 메뉴에선 제거됨)
+      if (e.target.closest('[data-wsv2-perf]')) {
+        if (window.WorkspacePerf && window.WorkspacePerf.open) window.WorkspacePerf.open();
+        else if (typeof window.openInsights === 'function') window.openInsights();
+        else _toast('성과를 불러오지 못했어요');
+        return;
+      }
       var mact = e.target.closest('[data-wsv2-menu-act]');
       if (mact) {
         var mk = mact.getAttribute('data-wsv2-menu-act');
         _menuOpen = false;
-        if (mk === 'perf') {
-          render(_lastRoot, { slots: _slotsCache });
-          if (window.WorkspacePerf && window.WorkspacePerf.open) window.WorkspacePerf.open();
-          else if (typeof window.openInsights === 'function') window.openInsights();
-          else _toast('성과를 불러오지 못했어요');
-        } else if (mk === 'settings') {
+        if (mk === 'settings') {
           render(_lastRoot, { slots: _slotsCache });
           if (window.WorkspaceSettings && window.WorkspaceSettings.open) window.WorkspaceSettings.open();
           else _toast('설정을 불러오지 못했어요');

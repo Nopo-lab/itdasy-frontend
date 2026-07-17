@@ -1495,6 +1495,36 @@
   // [요청3 2026-07-13] 재선택 목록을 시술 사전(service-vocab) 전 업종으로 확장 — 반영구/메이크업/태닝/두피/에스테틱
   //   샵으로 가입한 원장님도 자기 업종이 목록에 뜨고 라벨이 '업종 고르기'로 안 떨어지게. (네일아트는 '네일'로 통합)
   var _SVC_TYPES = ['미용실', '헤어', '네일', '붙임머리', '속눈썹', '왁싱', '피부', '반영구', '메이크업', '태닝', '두피', '에스테틱'];
+  /* [#6 2026-07-17] 특이사항 예시를 업종별로 — 원장 요청.
+     예전엔 "예: 22인치로 길게 · 손님이 직접 고른 색" 하나를 모든 샵에 보여줬는데, 22인치는 붙임머리 전용이라
+     네일·속눈썹 원장 눈엔 남 얘기였다(뭘 적으라는 건지 안 와닿음).
+     키는 _SVC_TYPES 라벨 그대로 — 새 스토리지·새 enum 안 만든다. 못 찾으면 업종 무관 문구로 폴백. */
+  var _NOTE_EG = {
+    '미용실': '예: 뿌리만 톤다운 · 손상모라 저damage 약',
+    '헤어': '예: 뿌리만 톤다운 · 손상모라 저damage 약',
+    '네일': '예: 손톱이 짧아 길이 연장 · 손님이 직접 고른 색',
+    '붙임머리': '예: 22인치로 길게 · 손님이 직접 고른 색',
+    '속눈썹': '예: 눈매 처져서 J컬 · 자연스럽게 100가닥',
+    '왁싱': '예: 첫 왁싱이라 아프지 않게 · 민감성 피부',
+    '피부': '예: turnover 느려서 각질 위주 · 홍조 조심',
+    '반영구': '예: 기존 문신 흐려진 위 리터치 · 연한 갈색 원함',
+    '메이크업': '예: 야외 촬영이라 지속력 위주 · 톤 밝게',
+    '태닝': '예: 첫 태닝이라 연하게 · 자국 안 남게',
+    '두피': '예: 지성 두피라 딥클렌징 · 각질 많음',
+    '에스테틱': '예: 어깨 뭉침 위주 · 강도 약하게',
+  };
+  function _noteEg() {
+    var st = ''; try { st = localStorage.getItem('shop_type') || ''; } catch (_e) { void _e; }
+    st = String(st).trim();
+    if (_NOTE_EG[st]) return _NOTE_EG[st];
+    // 가입값이 'hair'·'헤어샵' 처럼 라벨과 달라도 정규화 라벨로 한 번 더 시도(caption-keyword-tags 와 같은 관용구).
+    try {
+      var lb = window.itdasyNormalizeShopType ? (window.itdasyNormalizeShopType(st).label || '') : '';
+      if (_NOTE_EG[lb]) return _NOTE_EG[lb];
+      for (var k in _NOTE_EG) { if (Object.prototype.hasOwnProperty.call(_NOTE_EG, k) && lb.indexOf(k) >= 0) return _NOTE_EG[k]; }
+    } catch (_e2) { void _e2; }
+    return '예: 손님이 직접 고른 색 · 지난번보다 짧게';   // 업종 모를 때 — 어느 샵에나 말이 되는 문구
+  }
   function _svcTagsHtml() {
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
@@ -1503,16 +1533,20 @@
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
     var valid = kws.length > 0 || _SVC_TYPES.indexOf(stype) >= 0;
     var _typeLabel = (_SVC_TYPES.indexOf(stype) >= 0) ? stype : (valid ? (_norm || stype) : '업종 고르기');   // 고른 업종칩은 그대로 표시(정규화 '기타'로 안 바뀌게)
-    // [캡션재설계 v2] 단일선택 토글 — 선택 칩 = d.service(검정 채움), 재탭 = 해제.
-    var _sel = String(d.service || '').trim();
+    // [#5 2026-07-17] 중복선택 — 고른 칩 전부 검정 채움, 재탭 = 해제.
+    var _selArr = _svcList(), _base = kws.slice(0, 8);
     // [칩삭제 2026-07-15] 모든 시술 칩에 × — 기본 칩은 삭제 목록으로(+추가로 복원), 커스텀은 바로 삭제(caption-keyword-tags 재사용).
-    var chips = valid ? kws.slice(0, 8).map(function (k) {
-      return '<button type="button" class="cap-svctag' + (k === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(k) + '">' + esc(k) +
+    var chips = valid ? _base.map(function (k) {
+      return '<button type="button" class="cap-svctag' + (_selArr.indexOf(k) >= 0 ? ' on' : '') + '" data-fl-svctag="' + esc(k) + '">' + esc(k) +
         '<span class="cap-svctag__x" data-fl-svcdel="' + esc(k) + '" aria-label="삭제">×</span></button>';
     }).join('') : '';
     // 선택값이 목록 밖(직접 추가·최근 시술·이어서 복원)이어도 선택 상태가 보이게 맨 앞에 활성 칩으로.
-    if (valid && _sel && kws.slice(0, 8).indexOf(_sel) < 0) {
-      chips = '<button type="button" class="cap-svctag on" data-fl-svctag="' + esc(_sel) + '" title="' + esc(_sel) + '">' + esc(_sel.length > 20 ? _sel.slice(0, 20) + '…' : _sel) + '</button>' + chips;
+    if (valid) {
+      var outside = _selArr.filter(function (s) { return _base.indexOf(s) < 0; });
+      chips = outside.map(function (s) {
+        return '<button type="button" class="cap-svctag on" data-fl-svctag="' + esc(s) + '" title="' + esc(s) + '">' +
+          esc(s.length > 20 ? s.slice(0, 20) + '…' : s) + '</button>';
+      }).join('') + chips;
     }
     // [업종정리 2026-07-15] 인식 실패해도 업종 12칩을 자동으로 쫙 펼치지 않는다 — 버튼 탭했을 때만.
     //   (가입 업종은 앱 로드 때마다 /me 로 동기화됨(app-core) — 값이 없거나 못 알아듣는 값일 때만 이 버튼을 쓴다.)
@@ -1527,11 +1561,27 @@
       (valid ? ('<div class="cap-svctags">' + chips +
         '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
   }
-  // [캡션재설계 v2] 시술 칩 단일선택 토글 — 텍스트영역에 이어붙이던 _appendServiceTag 대체(삭제).
-  //   d.service = 선택한 칩 하나. 재탭이면 해제. 같은 화면 재렌더는 스크롤 유지(setScreen 1876행).
+  /* [#5 2026-07-17] 시술 칩 **중복선택** — 원장 요청("시술명 선택하는데 중복선택 가능하게").
+     d.service 는 계속 '쉼표로 이어붙인 문자열'로 둔다. 이 값을 읽는 곳이 20군데 넘고(캡션 payload·
+     발행 메타·slot.service·work-memory 이름짓기·잇비 명령…) 대부분 이미 쉼표를 다룰 줄 안다
+     (_svcTitle 은 쉼표로 쪼개 '첫시술 외 N개', _makeName 은 첫 조각). 배열로 바꾸면 그 20곳을 전부
+     고쳐야 하고 저장된 옛 slot(문자열)과도 어긋난다 → 표현은 그대로, 편집만 다중으로. */
+  var SVC_MAX = 5;   // 한 게시글에 시술 5개면 충분 — 넘으면 캡션이 나열식이 되고 40자 저장 한도도 넘긴다
+  function _svcList() {
+    return String(d.service || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+  function _svcSet(arr) {
+    var seen = {}, out = [];
+    (arr || []).forEach(function (s) { s = String(s).trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
+    d.service = out.join(', ');
+  }
   function _pickServiceTag(kw) {
     syncServiceFromDom();
-    d.service = (String(d.service || '').trim() === kw) ? '' : kw;
+    kw = String(kw).trim();
+    var cur = _svcList();
+    if (cur.indexOf(kw) >= 0) _svcSet(cur.filter(function (s) { return s !== kw; }));   // 재탭 = 해제
+    else if (cur.length >= SVC_MAX) { toast('시술은 ' + SVC_MAX + '개까지 고를 수 있어요'); return; }
+    else _svcSet(cur.concat([kw]));
     setScreen('caption');
   }
   function _addSvcKeyword() {
@@ -1541,7 +1591,13 @@
   }
   // [P4 2026-07-10] 최근 시술 자동완성 — 생성한 시술 문구를 기억했다가 탭 한 번으로 다시 채운다(매번 재입력 제거).
   function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  /* [#5 2026-07-17] 중복선택이 되면서 svc 가 "속눈썹, 네일" 같은 조인 문자열로 들어온다.
+     통째로 저장하면 '속눈썹, 네일' 이라는 없는 시술이 칩으로 박제되고(그 조합을 또 쓸 일도 없다)
+     40자 한도에도 금방 걸린다 → **쉼표로 쪼개 하나씩** 저장한다. 상한 6 → 5(원장 요청). */
   function _saveRecentService(svc) {
+    String(svc || '').split(',').forEach(_saveRecentServiceOne);
+  }
+  function _saveRecentServiceOne(svc) {
     svc = String(svc || '').replace(/\s+/g, ' ').trim(); if (svc.length < 2) return;
     // [칩삭제 2026-07-15] 저장 시점부터 정제 — 욕설·하소연 문장이 칩으로 박제되던 문제("엄뒤새끼 22인치…").
     //   드롭 규칙 통과 못 하거나 시술명치곤 너무 길면(40자+) 아예 안 남긴다.
@@ -1550,7 +1606,7 @@
     if (svc.length < 2 || svc.length > 40) return;
     try {
       var a = _recentServices().filter(function (x) { return x !== svc; });
-      a.unshift(svc); a = a.slice(0, 6);
+      a.unshift(svc); a = a.slice(0, 5);
       localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
     } catch (_e) { void _e; }
   }
@@ -1565,25 +1621,29 @@
       });
       localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
     } catch (_e2) { void _e2; }
-    if (String(d.service || '').trim() === name) d.service = '';
+    // [#5] 다중선택 — 지운 칩만 선택에서 뺀다(예전엔 '통째로 같으면 전체 해제'라 다중에선 안 먹었다)
+    _svcSet(_svcList().filter(function (s) { return s !== name; }));
     setScreen('caption');
   }
   function _recentSvcHtml() {
     var a = _recentServices(); if (!a.length) return '';
     // [캡션재설계 v2] 시술명만 — 옛 버전이 문장 통째로 저장한 값은 드롭 규칙으로 정제하고, 그래도 길면(40자+) 제외.
     //   탭 = 시술 칩과 같은 단일선택(data-fl-svctag 재사용 → 핸들러 하나).
-    var _sel = String(d.service || '').trim(), names = [], seen = {};
+    var _selArr = _svcList(), names = [], seen = {};
     a.forEach(function (s) {
       var n = ''; try { n = _publicServiceKeywords(s) || ''; } catch (_e) { void _e; }
       n = String(n || s).replace(/\s+/g, ' ').trim();
       if (!n || n.length > 40 || seen[n]) return;
       seen[n] = 1; names.push(n);
     });
+    // [#5 2026-07-17] 최근 시술은 5개까지만 — 저장(_saveRecentService)에서도 5로 자르지만, 옛 6개짜리
+    //   목록이 이미 저장돼 있을 수 있어 렌더에서도 자른다(정제·중복제거 후라 여기가 실제 보이는 개수).
+    names = names.slice(0, 5);
     if (!names.length) return '';
     return '<div class="cap-svctags" style="margin-bottom:8px">' +
-      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 선택 · ×로 삭제</span>' +
+      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 선택(여러 개 가능) · ×로 삭제</span>' +
       names.map(function (n) { var lbl = n.length > 20 ? (n.slice(0, 20) + '…') : n;
-        return '<button type="button" class="cap-svctag' + (n === _sel ? ' on' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) +
+        return '<button type="button" class="cap-svctag' + (_selArr.indexOf(n) >= 0 ? ' on' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) +
           '<span class="cap-svctag__x" data-fl-recentdel="' + esc(n) + '" aria-label="삭제">×</span></button>'; }).join('') + '</div>';
   }
 
@@ -1646,7 +1706,7 @@
           _recentSvcHtml() +
           '<label class="cap-field-label capwiz__seclbl">특이사항 <span>선택 · 그대로 안 실려요, 뜻만 반영돼요</span></label>' +
           '<div class="capwiz__noterow">' +
-            '<input type="text" class="capwiz__notein" data-fl-specialnote maxlength="120" placeholder="예: 22인치로 길게 · 손님이 직접 고른 색" value="' + esc(_note) + '">' +
+            '<input type="text" class="capwiz__notein" data-fl-specialnote maxlength="120" placeholder="' + esc(_noteEg()) + '" value="' + esc(_note) + '">' +   // [#6] 업종별 예시
             '<span class="capwiz__notecnt" data-fl-notecount>' + (120 - _note.length) + '</span>' +
           '</div>' +
           '<p class="capwiz__guard">직접·특이사항에 적은 글은 재료로만 써요. 욕설·감정 표현은 빼고, 시술 얘기만 골라 원장님 말투로 새로 씁니다.</p>' +
@@ -2129,7 +2189,13 @@
     // [v532] 사용자 입력을 캡션 최우선 context 로. '입력 키워드만 시술명으로, 과거 글은 말투만 참고'를 명시 —
     //   백엔드 fewshot(샵 과거글)이 엉뚱한 시술명(붙임머리·단발 등)으로 새는 것을 프론트에서 차단.
     if (svc) {
-      opts.photo_context = '시술/키워드(이 게시글의 유일한 시술): ' + _pubSvc +
+      // [#5 2026-07-17] 시술 다중선택 → '유일한 시술'은 이제 거짓. 고른 게 여러 개면 그렇게 말한다.
+      //   (문구가 사실과 어긋나면 LLM 이 나머지를 버리거나 하나로 뭉갠다.) 여러 개일 때도
+      //   '이 목록 밖은 만들지 마라'는 제약은 그대로 — fewshot 이 엉뚱한 시술명을 흘리는 걸 막는 핵심.
+      var _svcN = _svcList().length;
+      opts.photo_context = (_svcN > 1
+        ? '시술/키워드(이 게시글의 시술 ' + _svcN + '가지 — 전부 반영): ' + _pubSvc
+        : '시술/키워드(이 게시글의 유일한 시술): ' + _pubSvc) +
         '. 이 키워드만 시술명으로 쓰고, 입력에 없는 다른 시술/상품명은 절대 만들지 마세요. 과거 글은 말투만 참고' +
         (opts.photo_context ? ' · ' + opts.photo_context : '');
     }
@@ -2452,7 +2518,7 @@
       var sdel = t.closest('[data-fl-svcdel]'); if (sdel) {
         syncServiceFromDom(); var _dk = sdel.getAttribute('data-fl-svcdel');
         try { if (typeof deleteCaptionKeyword === 'function') deleteCaptionKeyword(_dk, e); } catch (_ed) { void _ed; }
-        if (String(d.service || '').trim() === _dk) d.service = '';
+        _svcSet(_svcList().filter(function (s) { return s !== _dk; }));   // [#5] 다중선택 — 지운 칩만 해제
         setScreen('caption'); return;
       }
       var rdel = t.closest('[data-fl-recentdel]'); if (rdel) { syncServiceFromDom(); _deleteRecentService(rdel.getAttribute('data-fl-recentdel')); return; }
