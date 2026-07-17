@@ -3574,8 +3574,17 @@
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');
     var slot = buildSlot();
+    /* [P1#1 세션 가드 2026-07-16] 이 발행이 '어느 세션 것인지' 붙잡아 둔다.
+       d(플로우 상태)는 모듈 전역이고 open() 이 통째로 재할당한다. 그래서 발행이 도는 동안
+       원장이 닫고 다른 글을 열면, 옛 발행의 콜백이 resolve 시점의 d(=새 글)에 써버렸다:
+         · 새 글이 published 로 저장되고(saveItem) · 새 글에 igMediaId 가 박히고 · 화면이 강제로 넘어감.
+       실측 재현: A 발행 중 close→B open → "SLOT-B:published" 로 저장됨(A 는 draft 그대로).
+       카운터 대신 객체 아이덴티티로 본다 — 세션이 바뀌면 d !== myD, 닫히기만 했으면 _dead. */
+    var myD = d;
+    function _stale() { return !myD || myD._dead || myD !== d; }
     _pubShow();
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
+	      if (_stale()) return;   // 세션이 바뀜/닫힘 — 새 세션 건드리지 않는다(UI 정리는 close 가 함)
 	      if (!sr || !sr.ok) { d._publishing = false; _pubHide(); toast('저장에 실패해 게시를 중단했어요'); setScreen('caption'); return; }
       d.slot = slot;
       if (!window.WorkspaceAdapter.publishInstagramV2) {
@@ -3599,6 +3608,9 @@
       var _pubImg = outputUrl();   // 대표 이미지(레이아웃 합성본 또는 대표 사진)
       window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
         r = r || {};
+        // [P1#1] 인스타 응답이 늦게 와도 그 사이 바뀐 세션엔 절대 쓰지 않는다.
+        //   여기가 실제 피해 지점이었다 — 엉뚱한 글이 published 로 저장되고 igMediaId 까지 박혔다.
+        if (_stale()) { console.warn('[wsv2flow] publish resolved for a closed/replaced session — 무시'); return; }
         if (r.ok) {
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
           // [성과 2026-07-14] 인스타 media id 를 슬롯에 남긴다 — 성과 화면이 '이 게시물'과 인스타 지표를
@@ -3617,6 +3629,9 @@
           if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
           try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(buildSlot(), d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
           _pubFinish(function () {
+            // [P1#1] 완료 애니메이션(~1.5s) 도중에도 세션이 바뀔 수 있다 — 그때 setScreen 하면
+            //   원장이 보고 있던 새 글 화면을 강제로 낚아챈다.
+            if (_stale()) return;
             d._publishing = false;
             toast(kind === 'carousel' ? '여러 장 게시물을 올렸어요' : '인스타그램에 올렸어요');
             if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
@@ -3764,6 +3779,10 @@
     //   _genToken 을 안 올려서, 닫고 다른 슬롯을 연 뒤 옛 응답이 도착하면 _myToken===_genToken 이
     //   통과해 새 슬롯의 캡션을 덮어썼다(다른 사진에 엉뚱한 캡션). 닫을 때 토큰을 올려 차단.
     _genToken++;
+    // [P1#1 세션 가드] 이 세션은 죽었다고 표시 — 진행 중인 발행 콜백이 돌아와도 아무것도 안 쓴다.
+    //   d 를 null 로 만들지 않는 이유: d 를 읽는 코드가 파일 곳곳에 있어 즉시 크래시가 난다.
+    //   대신 죽음 표식만 남기고, 진행 중이던 발행 진행바는 여기서 정리한다(콜백은 UI 안 건드림).
+    try { if (d) { var _wasPublishing = d._publishing; d._dead = true; if (_wasPublishing) _pubHide(); } } catch (_de) { void _de; }
     // [slot-sync coalesce] 편집 종료 → 정착: 최종본 1회 업로드+동기화.
     try { if (window.WorkspaceSync && window.WorkspaceSync.settleSlot) window.WorkspaceSync.settleSlot(); } catch (_se) { void _se; }
     var leftover = _histDepth;
