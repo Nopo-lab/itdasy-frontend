@@ -3582,6 +3582,14 @@
        카운터 대신 객체 아이덴티티로 본다 — 세션이 바뀌면 d !== myD, 닫히기만 했으면 _dead. */
     var myD = d;
     function _stale() { return !myD || myD._dead || myD !== d; }
+    /* [P2-H1 2026-07-17] 발행 idempotency 키 — '누를 때' 한 번 만들고 재시도해도 같은 키를 보낸다.
+       타임아웃(120s)으로 끊겼는데 서버는 이미 올린 상태에서 원장이 다시 누르면 공개 게시물이 2개
+       생기던 걸 막는다. 성공 시에만 폐기 → 나중에 같은 사진을 진짜로 또 올리면 새 키라 안 막힌다.
+       실패(진짜 에러)면 서버가 마커를 즉시 만료시키므로 같은 키로 재시도해도 정상 진행된다. */
+    if (!d._idemKey) {
+      d._idemKey = 'p_' + (slot.id || 's') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    }
+    var myIdem = d._idemKey;
     _pubShow();
     Promise.resolve(window.WorkspaceAdapter.saveItem ? window.WorkspaceAdapter.saveItem(slot) : { ok: true }).then(function (sr) {
 	      if (_stale()) return;   // 세션이 바뀜/닫힘 — 새 세션 건드리지 않는다(UI 정리는 close 가 함)
@@ -3606,12 +3614,13 @@
       //   태그가 '실패'가 아니라 '처음부터 안 나감'이었다(에러도 안 뜸). 백엔드가 커버(첫 장) child 에 적용.
       var _utags = _tagArr.length ? _tagArr.map(function (u, i) { return { username: u, x: 0.5, y: Math.min(0.85, 0.32 + i * (0.46 / Math.max(1, _tagArr.length))) }; }) : null;
       var _pubImg = outputUrl();   // 대표 이미지(레이아웃 합성본 또는 대표 사진)
-      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed' }).then(function (r) {
+      window.WorkspaceAdapter.publishInstagramV2({ slotId: slot.id, imageUrl: _pubImg, imageUrls: _imgs, caption: cap, userTags: _utags, kind: kind || 'feed', idempotencyKey: myIdem }).then(function (r) {
         r = r || {};
         // [P1#1] 인스타 응답이 늦게 와도 그 사이 바뀐 세션엔 절대 쓰지 않는다.
         //   여기가 실제 피해 지점이었다 — 엉뚱한 글이 published 로 저장되고 igMediaId 까지 박혔다.
         if (_stale()) { console.warn('[wsv2flow] publish resolved for a closed/replaced session — 무시'); return; }
         if (r.ok) {
+          d._idemKey = null;   // [P2-H1] 이 발행은 끝 — 다음 발행은 새 키(같은 사진 재발행도 정상 허용)
           d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
           // [성과 2026-07-14] 인스타 media id 를 슬롯에 남긴다 — 성과 화면이 '이 게시물'과 인스타 지표를
           //   이어붙이는 유일한 열쇠. 예전엔 학습 로그로만 흘려보내고 슬롯엔 안 남아서 캡션 앞글자 매칭에 의존했음.

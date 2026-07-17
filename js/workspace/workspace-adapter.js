@@ -510,6 +510,8 @@
             // [계정 태그 2026-07-14] 캐러셀도 태그 전송 — 기존엔 여기서 안 보내서(그리고 flow 도 feed 일 때만 만들어서)
             //   여러 장 발행 시 계정 태그가 에러 없이 조용히 사라졌다. 백엔드가 커버(첫 장) child 에 적용.
             if (opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
+            // [P2-H1] 재시도해도 같은 키 → 서버가 재발행 안 하고 이전 결과를 준다(공개 중복 게시 방지).
+            if (opts.idempotencyKey) fd.append('idempotency_key', opts.idempotencyKey);
             return _post('/instagram/publish-carousel-file', fd);
           });
       }
@@ -529,6 +531,8 @@
           if (!_isStory) fd.append('caption', opts.caption || '');
           // [계정 태그] 피드에서만 — user_tags: [{username,x,y}]
           if (!_isStory && opts.userTags && opts.userTags.length) { try { fd.append('user_tags', JSON.stringify(opts.userTags)); } catch (_e) { void _e; } }
+          // [P2-H1] 피드만 — 스토리는 24h 휘발이라 백엔드에 키를 안 받는다.
+          if (!_isStory && opts.idempotencyKey) fd.append('idempotency_key', opts.idempotencyKey);
           return _post(_endpoint, fd);
         });
     },
