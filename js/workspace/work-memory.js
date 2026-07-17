@@ -5,7 +5,7 @@
  *   작업실 저장/인스타 발행 시점에 붙잡아 두고 다음 사진에 다시 쓰는 것.
  *
  * P1 = 붙잡기 + 이름짓기 + 설정에서 보기.
- * P2 = 다시 쓰기(★기본을 편집기에 주입) — 플래그 기본 OFF 라 켜기 전엔 기존 동작 그대로.
+ * P2 = 다시 쓰기(★기본을 편집기에 주입) — **플래그 기본 ON**(index.html:76). 롤백은 ?wsmem=0.
  *
  * ── 왜 ShopStyle 을 안 쓰나 (2026-07-14)
  *   ShopStyle.list() 는 이미 '내 레이아웃'(_wsMyLayout)과 '우리샵 스타일'(presetKey) 두 용도가 섞여 있어
@@ -315,7 +315,8 @@
   }
 
   // ── [P2] 다시 쓰기 — ★기본 기억을 편집기에 올리기 ──────────────
-  // 플래그: 기본 OFF. ?wsmem=1 로 미리보기 · ?wsmem=0 로 강제 해제 · window.ITDASY_WORK_MEMORY=true 로 전역 ON.
+  // 플래그: **기본 ON** (index.html:76 이 `!== false` 로 켬). ?wsmem=0 로 강제 해제 · ?wsmem=1 로 강제 ON.
+  //   (주석이 'OFF' 라고 하던 걸 실제와 맞춤 — 2026-07-17. 코드는 그대로였고 문서만 틀렸음.)
   function _flagOn() {
     try {
       if (/[?&]wsmem=1/.test(location.search)) return true;
@@ -358,12 +359,17 @@
     if (!layers.length) return null;
 
     var st = { v: 1, layers: layers, layoutOrder: (rec.layoutOrder || []).slice(), cellCrop: [] };
-    if (rec.fitMode) st.fitMode = rec.fitMode;
-    if (rec.collageBg) st.collageBg = rec.collageBg;
-    if (rec.collageGap != null) st.collageGap = rec.collageGap;
-    // 사진 수가 맞을 때만 레이아웃 복원. 안 맞으면 레이어(글씨·꾸밈)만 얹는다.
-    var n = opts.photoCount;
-    if (rec.layoutIdx != null && (n == null || (LAY_N[rec.layoutIdx] || 1) === n)) st.layoutIdx = rec.layoutIdx;
+    /* [2026-07-17] opts.layersOnly = 작업실 레이아웃이 이미 칸 배치를 정한 상태.
+       이때 기억의 layoutIdx·collageBg·fitMode 까지 씌우면 원장이 방금 고른 레이아웃을 덮어쓴다.
+       → 꾸밈(layers)만 넘기고 칸 배치는 레이아웃이 소유한다. */
+    if (!opts.layersOnly) {
+      if (rec.fitMode) st.fitMode = rec.fitMode;
+      if (rec.collageBg) st.collageBg = rec.collageBg;
+      if (rec.collageGap != null) st.collageGap = rec.collageGap;
+      // 사진 수가 맞을 때만 레이아웃 복원. 안 맞으면 레이어(글씨·꾸밈)만 얹는다.
+      var n = opts.photoCount;
+      if (rec.layoutIdx != null && (n == null || (LAY_N[rec.layoutIdx] || 1) === n)) st.layoutIdx = rec.layoutIdx;
+    }
     // photos·photoDraw·adj·pz 는 일부러 안 넣음 — 넣으면 지금 사진을 지난 사진으로 덮어쓴다(itd-editor _restoreState:1648).
     return st;
   }

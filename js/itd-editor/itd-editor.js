@@ -714,7 +714,10 @@
   }
   // [#14] 우리샵 스타일에서 들어온 구분선 → 편집 가능한 line 도형 레이어로.
   function addShopLine(spec, R) {
-    var L = makeLayer('shape'); L.shape = 'line'; L.color = spec.color || '#ffffff'; L.fill = true; L.role = 'rule'; L.rot = spec.rot || 0;
+    var L = makeLayer('shape'); L.shape = 'line'; L.color = spec.color || '#ffffff'; L.fill = true; L.rot = spec.rot || 0;
+    // [버그수정 2026-07-17] role 을 spec 대로. 예전엔 무조건 'rule' 이라 원장이 직접 그린 선(role='')까지
+    //   '우리샵 구분선'으로 취급돼 얼굴 회피·겹침 해소 로직이 제멋대로 옮겼다(기억한 자리가 안 지켜짐).
+    L.role = (spec.role != null) ? spec.role : 'rule';
     L.strokeW = Math.max(2, Math.round((spec.size != null ? spec.size : 0.006) * R.height));
     var w = Math.round((spec.w != null ? spec.w : 0.11) * R.width);
     var d = el('div', 'itl-shape'); styleShape(d, L); d.style.width = w + 'px'; L.el.appendChild(d); L.tx = d;
@@ -726,12 +729,24 @@
   }
   // [#1] 채움 '면'(반투명 패널/악센트 블록) — 텍스트 뒤 가독성·디자인용. 색은 rgba 권장(반투명).
   function addShopRect(spec, R) {
-    var L = makeLayer('shape'); L.shape = (spec.shape === 'rect' ? 'rect' : 'round'); L.fill = true;
+    var L = makeLayer('shape');
+    /* [버그수정 2026-07-17] spec 의 모양·채움·굵기를 존중한다. 예전엔 circle 을 round 로 뭉개고
+       fill 을 true 로 강제해, 원장이 만든 '테두리 원'이 복원 시 '채운 둥근 사각형'이 됐다.
+       ⚠️ 우리샵 스타일 패널 spec 은 fill 을 안 실어 보낸다 → null 이면 기존대로 채움(하위호환). */
+    L.shape = (spec.shape === 'rect' || spec.shape === 'circle') ? spec.shape : 'round';
+    L.fill = (spec.fill != null) ? !!spec.fill : true;
     L.color = spec.color || 'rgba(20,16,18,.30)'; L.role = spec.role || 'panel'; L.rot = spec.rot || 0;
+    L.strokeW = (spec.strokeW != null) ? Math.max(1, Math.round(spec.strokeW * R.height)) : 6;
     var w = Math.round((spec.w != null ? spec.w : 0.8) * R.width);
     var h = Math.round((spec.h != null ? spec.h : 0.12) * R.height);
     var d = el('div', 'itl-shape');
-    d.style.cssText = 'box-sizing:border-box;width:' + w + 'px;height:' + h + 'px;background:' + L.color + ';border-radius:' + (spec.radius != null ? spec.radius : 16) + 'px';
+    var _css = 'box-sizing:border-box;width:' + w + 'px;height:' + h + 'px;';
+    _css += L.fill ? ('background:' + L.color + ';border:0;')
+      : ('background:transparent;border:' + L.strokeW + 'px solid ' + L.color + ';');
+    _css += (L.shape === 'circle') ? 'border-radius:50%'
+      : (L.shape === 'rect') ? 'border-radius:0'
+        : 'border-radius:' + (spec.radius != null ? spec.radius : 16) + 'px';
+    d.style.cssText = _css;
     L.el.appendChild(d); L.tx = d;
     L.x = (spec.x != null ? spec.x : 0.5) * R.width - w / 2;
     L.y = (spec.y != null ? spec.y : 0.85) * R.height - h / 2;
@@ -1595,6 +1610,12 @@
     if (L.type === 'image') { base.type = 'image'; base.src = L.src; return base; }
     if (L.type === 'shape') {
       base.color = L.color; base.h = b.height / R.height;
+      /* [버그수정 2026-07-17] 채움 여부·테두리 굵기를 같이 내보낸다. 예전엔 이 둘이 빠져서 되살릴 때
+         addShopRect 가 무조건 '채운 도형'으로 만들었다 → 원장이 그린 '테두리만 있는 원'이
+         '꽉 채운 둥근 사각형'으로 되살아남(작업 기억·재편집 양쪽). 굽기(drawShape)는 셋 다
+         이미 존중하므로 결과물은 맞았고, 왕복(직렬화→복원)만 틀렸다. */
+      base.fill = !!L.fill;
+      base.strokeW = (L.strokeW || 6) / R.height;   // 상대값 — line 의 size 와 같은 기준(R.height)
       if (L.shape === 'line') { base.type = 'line'; base.size = (L.strokeW || 3) / R.height; }
       else { base.type = 'rect'; base.shape = L.shape; }
       return base;

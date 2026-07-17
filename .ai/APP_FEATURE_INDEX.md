@@ -135,8 +135,9 @@
   - ShopStyle 재사용 안 함(=`list()`가 이미 '내 레이아웃'·'우리샵 스타일' 두 용도로 혼재 + `makeLayer`가 텍스트 4 role 전용이라 스티커/도형 불가).
   - 같은 작업은 지문(`_sig`)으로 dedup → useCount만 증가. 10개 초과 시 `lastUsedAt` 오래된 것부터 제거(**★기본은 보호**). quota 실패 시 밀어내고 재시도.
   - 훅 4곳(호출 1줄씩, 로직 없음): `workspace-v2-flow.js` `save()`·`publish()` 성공·`_markPublishedNow()`(붙잡기) + `_openStoryEditor()`(다시 쓰기). UI = `workspace-settings.js` '원장 작업 기억' 섹션 + 발행 직후 `.wm-cap` 카드(3.5초). CSS `css/screens/sub-screens.css` `wm-*`.
-  - **[P2] 다시 쓰기 — `defaultEditState()` → ★기본 기억을 `ItdEditor.open({editState})` 로 주입.** 🚩 **플래그 기본 OFF**: `?wsmem=1` 미리보기 · `?wsmem=0` 강제해제 · `window.ITDASY_WORK_MEMORY=true` 전역ON. OFF면 `null` 반환 = 기존 동작 100% 동일.
-    - '깨끗한 열기'에서만 적용(이어서편집 `p0.editState`·ws-hyper 레이아웃 `_wsEd` 가 우선).
+  - **[P2] 다시 쓰기 — `defaultEditState()` → ★기본 기억을 `ItdEditor.open({editState})` 로 주입.** 🚩 **플래그 기본 ON**(`index.html:76` 이 `!== false` 로 켬). 롤백 `?wsmem=0` · 강제 `?wsmem=1`.
+    - **[2026-07-17 v772 버그수정]** 주입 조건이 `!_restore && !_wsEd` 였다 — `_wsEd` 는 **작업실 레이아웃이 켜지면 늘 채워지는데 기본 흐름이 업로드→레이아웃→캡션이라 사실상 항상 꺼져 있었다**(★기본을 지정해도 새 글에 아무것도 안 올라옴). 이제 레이아웃이 있어도 `defaultEditState({layersOnly:true})` 로 **꾸밈(layers)만** 가져오고 **칸 배치(`layoutIdx`·`collageBg`·`fitMode`)는 레이아웃이 소유**(안 그러면 반대로 레이아웃이 기억에 덮임). 콜라주는 `_mergeWmLayers(_wsEd.editState, _wmEd)` 로 합침 — **같은 role 은 레이아웃 것 유지**(지난 글 문구 되살아남 방지). 잠금 = `__tests__/work-memory-layout.test.js`(7건).
+    - 이어서편집(`p0.editState`)은 여전히 우선.
     - **같은 role 텍스트는 이번 글 문구로 갈아끼움** — 자리·크기·폰트만 기억. (안 그러면 지난 글 문구가 되살아남)
     - **기억 레이아웃 칸 수 ≠ 지금 사진 수면 `layoutIdx` 생략**(글씨·꾸밈만 얹음). 예: '전후 2칸' 기억 + 사진 1장 → 빈 칸 방지.
     - `photos`·`photoDraw`·`adj`·`pz` 는 안 넘김 — 넘기면 지금 사진을 지난 사진으로 덮어씀(`itd-editor.js:1648`).
@@ -154,6 +155,7 @@
 
 ### 편집기 (js/itd-editor/**)
 - **itd-editor.js** (1773) — 인스타식 편집기 `ItdEditor`(텍스트·스티커·반달레이아웃·그리기, 12폰트, HSV 색상). **safe-zone.js**(81, 얼굴위 텍스트 회피). **data/itd-decos.js**(104, 스티커 51종).
+  - **[2026-07-17 도형 왕복 버그수정]** `_serLayer` 가 shape 의 **`fill`·`strokeW` 를 안 내보내고** `addShopRect` 가 **`circle`→`round` 로 뭉개고 `fill=true` 를 강제**해서, 원장이 만든 '테두리 원'이 재편집·작업기억 복원 시 **'꽉 채운 둥근 사각형'**이 됐다. 굽기(`drawShape`)는 셋 다 이미 존중했으므로 **결과물은 맞고 왕복만 틀렸던 것**. `addShopLine` 도 `role` 을 무조건 `'rule'` 로 박아 원장이 직접 그린 선까지 자동 재배치(`:800`·`:822` 가 `role==='rule'` shape 를 옮김) 대상이 됐음 → `spec.role` 존중. ⚠️ `addShopRect` 의 `role` 기본값 `'panel'` 은 자동 재배치 대상이 아니라 그대로 둠.
 
 ### 임포트·OCR·성장
 - **app-import.js**(475)·**app-import-wizard.js**(539)·**app-template-import.js**(269)·**app-smart-capture.js**(286, 카톡캡처+명함)·**app-receipt-scan.js**(674, 영수증/주문 OCR).

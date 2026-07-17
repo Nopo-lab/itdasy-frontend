@@ -394,6 +394,18 @@
     }
     return curPhoto();
   }
+  /* [2026-07-17] 레이아웃(콜라주) editState + ★기본 작업 기억의 꾸밈 합치기.
+     레이아웃은 칸 배치(layoutIdx·photos·layoutOrder)의 주인이고, 기억은 그 위에 얹는 꾸밈의 주인이다.
+     같은 role 을 둘 다 갖고 있으면 레이아웃 것을 남긴다 — 이번 글의 문구가 지난 글 문구로 되돌아가면 안 되므로. */
+  function _mergeWmLayers(base, wm) {
+    if (!wm || !Array.isArray(wm.layers) || !wm.layers.length) return base;
+    if (!base) return wm;
+    var have = {};
+    (base.layers || []).forEach(function (l) { if (l && l.role) have[l.role] = 1; });
+    var add = wm.layers.filter(function (l) { return !(l && l.role && have[l.role]); });
+    if (!add.length) return base;
+    return Object.assign({}, base, { layers: (base.layers || []).concat(add) });
+  }
   function _openStoryEditor(o) {
     o = o || {};
     // [slot-sync Phase B] 다른 기기 slot(https 이미지) → 편집기 캔버스 오염 방지 위해 먼저 수화. 1회만 시도(실패해도 진행).
@@ -417,8 +429,13 @@
         : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl())));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
-    // [T-115 P2] 이어서편집·레이아웃이 아닌 '깨끗한 열기'일 때만 ★기본 작업 기억을 올린다. 플래그 OFF면 null(=기존 동작 그대로).
-    var _wmEd = (!_restore && !_wsEd && window.WorkMemory) ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length }) : null;
+    /* [T-115 P2] ★기본 작업 기억을 편집기에 올린다. 플래그 OFF면 null(=기존 동작 그대로).
+       [버그수정 2026-07-17] 예전 조건은 `!_restore && !_wsEd` 였다 — _wsEd 는 작업실 레이아웃이 켜지면
+         늘 채워지는데, 작업실 기본 흐름이 업로드→레이아웃→캡션이라 사실상 **항상** 꺼져 있었다.
+         원장이 스티커·글씨·도형을 ★기본으로 지정해도 새 글에서 아무것도 안 올라오던 원인.
+       이제 레이아웃이 있어도 기억을 계산하되 layersOnly=true 로 '꾸밈만' 가져온다
+         (칸 배치는 방금 고른 레이아웃이 소유 — 안 그러면 레이아웃이 기억에 덮여 사라진다). */
+    var _wmEd = (!_restore && window.WorkMemory) ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length, layersOnly: !!_wsEd }) : null;
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
@@ -429,7 +446,10 @@
       shopName: (built.ss && (built.ss.name || built.ss.shopName)) || (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || '',
       layers: layers,
       autoArranged: autoArranged,
-      editState: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.editState : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd))),   // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
+      // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
+      // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
+      editState: (_wsEd && _wsEd.mode === 'collage') ? _mergeWmLayers(_wsEd.editState, _wmEd)
+        : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd))),
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
