@@ -29,6 +29,7 @@
   var MIN_POSTS = 3;                // 이 건수 미만이면 "먹혔다"고 말하지 않는다
   var ANALYZE_DAYS = 14;            // "무엇이 먹혔나" 분석 창 — 반년 전 글과 섞으면 요즘 감이 안 나온다
   var _lastReco = '';              // 마지막 추천 요약 — 새 글 만들 때 토스트로 들고 간다
+  var LURK_MIN = 3;                // 저장+공유 이만큼인데 연락 0이면 '조용한 관심'(C5) 으로 본다
 
   // 말투 키 → 라벨. workspace-v2-flow.js _TONE_CHIPS 와 같은 집합.
   var TONE_LABEL = { friendly: '친근', professional: '전문', emotional: '감성', event: '이벤트', review: '후기', normal: '기본' };
@@ -646,6 +647,36 @@
         '연락했는지 위 게시물 카드에 표시했어요. (댓글 없이 DM만 온 유입은 인스타가 출처를 안 줘서 못 이어요.)</div></div>';
   }
 
+  /**
+   * [C5 눈팅 손님 2026-07-16] 저장·공유는 눌렀는데 아무도 연락 안 한 글.
+   *
+   * 눈팅 손님은 최대 잠재풀인데 **인스타가 저장·좋아요한 사람이 누군지 안 준다** — 우리가 먼저
+   * 연락할 방법이 구조적으로 없다(광고 리타게팅 말고는). 그래서 '그 사람들에게 DM 보내기' 같은
+   * 기능은 만들 수 없고, 만들면 거짓말이다.
+   *   대신 할 수 있는 건: 저장이 쌓였는데 연락이 0인 글을 원장님한테 알려주고,
+   *   캡션에 '예약은 여기로' 안내를 넣게 하는 것. 저장한 사람은 이미 관심이 있으니 길만 열어주면 된다.
+   */
+  function _lurkerHtml(rows) {
+    var cut = Date.now() - ANALYZE_DAYS * DAY;
+    var quiet = rows.filter(function (r) {
+      if (!r.publishedAt || r.publishedAt < cut) return false;
+      var intent = (r.saved || 0) + (r.shares || 0);            // 저장·공유 = '나중에 가야지' 신호
+      var contacted = r.bookings.length || r.inquiries || r.dmFromCommenters;
+      return intent >= LURK_MIN && !contacted;
+    });
+    if (!quiet.length) return '';
+    var people = quiet.reduce(function (a, r) { return a + (r.saved || 0) + (r.shares || 0); }, 0);
+    return '<div class="wsp-lock wsp-lock--lurk">' +
+      '<div class="wsp-lock__h"><i class="ph-duotone ph-bookmark-simple"></i>조용한 관심' +
+        '<span class="wsp-lock__b wsp-lock__b--lurk">' + people + '명</span></div>' +
+      '<div class="wsp-lock__d">최근 ' + ANALYZE_DAYS + '일 글 <b>' + quiet.length + '개</b>를 <b>' + people + '명</b>이 ' +
+        '저장·공유했는데 아무도 연락은 안 했어요. 저장했다는 건 관심이 있다는 뜻이에요.<br>' +
+        '인스타가 저장한 사람이 누군지 안 알려줘서 먼저 연락드릴 순 없어요. 대신 ' +
+        '<b>캡션에 예약 방법</b>을 적어두면 이 분들이 스스로 움직여요.</div>' +
+      '<button type="button" class="wsp-again" data-wsp-footer>' +
+        '<i class="ph-duotone ph-note-pencil"></i>캡션 고정멘트 설정하기</button></div>';
+  }
+
   /** 댓글 문의를 못 읽은 경우에만 뜬다 — 대개 인스타를 다시 연결하면 풀린다(스코프가 토큰에 박혀서). */
   function _cqNoticeHtml(cq) {
     if (!cq || !(cq.permission_error || cq._failed)) return '';
@@ -685,6 +716,7 @@
       rows.map(_rowHtml).join('') +
       _statsNoteHtml(rows) +
       _cqNoticeHtml(cq) +
+      _lurkerHtml(rows) +
       _dmSummaryHtml(dmLinks) +
       _moreHtml();
   }
@@ -730,6 +762,12 @@
       }
       // [디자인 방향2/3] 성과를 닫고 작업실 새 글 플로우를 연다. 분석→행동이 한 번에 이어지게.
       if (e.target.closest('[data-wsp-newpost]')) { close(); _startNewPost(); return; }
+      // [C5] 조용한 관심 → 캡션 고정멘트(예약 안내) 설정으로. 저장한 사람에게 길을 열어주는 유일한 수단.
+      if (e.target.closest('[data-wsp-footer]')) {
+        if (window.WorkspaceSettings && window.WorkspaceSettings.open) { close(); window.WorkspaceSettings.open(); }
+        else toast('설정을 불러오지 못했어요');
+        return;
+      }
     });
     el.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
     return el;
