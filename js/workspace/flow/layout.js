@@ -40,11 +40,20 @@
         { key: 'merge-lr', name: '한 장으로 합치기 · 좌우', desc: '두 장을 나란히 붙여 한 장으로' },
         { key: 'merge-tb', name: '한 장으로 합치기 · 상하', desc: '두 장을 위아래로 붙여 한 장으로' }
       ];
-      return [
+      var list = [
         { key: 'flat', name: '그대로 ' + n + '장', desc: '인스타에서 한 장씩 넘겨보기' },
-        { key: 'cover', name: '표지 크게 + 모아보기', desc: '1번 사진 크게, 나머지 ' + (n - 1) + '장 모아서' },
-        { key: 'ba', name: '전·후 합치기', desc: '1·2번을 한 장으로, 나머지 ' + (n - 2) + '장은 그대로' }
+        { key: 'cover', name: '표지 크게 + 모아보기', desc: '1번 사진 크게, 나머지 ' + (n - 1) + '장 모아서' }
       ];
+      /* [#3 2026-07-18] '모두 한 장에' — 3·4장을 한 컷 콜라주로. 원장 요청("나머지 3장도 레이아웃, 딸깍딸깍 몇 개 더").
+         3장=나란히(strip-3)·2x2(grid-4 는 4장 전용). 4장=2×2(grid-4). 5장 이상은 한 프리셋에 안 맞아 cover 로. */
+      if (n === 3) {
+        list.push({ key: 'grid', name: '3장 한 컷에 · 나란히', desc: '세 장을 가로로 한 장에 모아' });
+        list.push({ key: 'grid2', name: '3장 한 컷에 · 크게+2', desc: '1번 크게, 2·3번을 옆에 모아' });
+      } else if (n === 4) {
+        list.push({ key: 'grid', name: '4장 한 컷에 · 2×2', desc: '네 장을 바둑판으로 한 장에' });
+      }
+      list.push({ key: 'ba', name: '전·후 합치기', desc: '1·2번을 한 장으로, 나머지 ' + (n - 2) + '장은 그대로' });
+      return list;
     }
     function _curComp() {
       var d = D(), n = (editablePhotos() || []).length;
@@ -61,6 +70,10 @@
       if (n === 1) return flat();
       if (n === 2 && (comp === 'merge-lr' || comp === 'merge-tb'))
         return [_card(comp === 'merge-tb' ? 'wsl-collage-2-tb' : 'wsl-collage-2', [eps[0].id, eps[1].id])];
+      // [#3 2026-07-18] '모두 한 컷에' — 3장·4장을 한 프리셋 콜라주 카드 1개로.
+      if (n === 3 && comp === 'grid') return [_card('wsl-strip-3', eps.map(function (p) { return p.id; }))];
+      if (n === 3 && comp === 'grid2') return [_card('wsl-cover-1l2', eps.map(function (p) { return p.id; }))];
+      if (n === 4 && comp === 'grid') return [_card('wsl-grid-4', eps.map(function (p) { return p.id; }))];
       if (n >= 3 && comp === 'cover') {
         // 1번 단독 + 나머지는 2×2씩(4장). 5장 남으면 3+2 로 나눠 외톨이 1장이 안 생기게.
         var cards = [_card(null, [eps[0].id])], rest = eps.slice(1), i = 0;
@@ -172,6 +185,12 @@
       }
       if (key === 'cover') return '<span class="wsc-mini wsc-mini--cover" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>';
       if (key === 'merge-tb') return '<span class="wsc-mini wsc-mini--2h" aria-hidden="true"><i></i><i></i></span>';
+      // [#3 2026-07-18] 한 컷 콜라주 미니 — grid: 3장=가로 3분할·4장=2×2 / grid2: 크게+2
+      if (key === 'grid') {
+        if (n === 4) return '<span class="wsc-mini wsc-mini--g4" aria-hidden="true"><i></i><i></i><i></i><i></i></span>';
+        return '<span class="wsc-mini" style="grid-template-columns:repeat(3,1fr)" aria-hidden="true"><i></i><i></i><i></i></span>';
+      }
+      if (key === 'grid2') return '<span class="wsc-mini wsc-mini--1l2" aria-hidden="true"><i></i><i></i><i></i></span>';
       return '<span class="wsc-mini wsc-mini--2v" aria-hidden="true"><i></i><i></i></span>';   // ba · merge-lr
     }
 
@@ -217,7 +236,7 @@
           '<div class="wsc-strip">' + strip + '</div></div>' +
         '<div class="wsc-preview"><div class="wsc-frames">' + frames + '</div>' +
           '<p class="wsc-count">이대로 <b>' + cards.length + '장</b>이 올라가요</p></div>' +
-        '<div><div class="wsc-sec">구성 <span>몇 장이든 이 3가지 방식이에요</span></div>' +
+        '<div><div class="wsc-sec">구성 <span>썸네일 눌러 골라요 · 한 컷에 모으거나 한 장씩</span></div>' +
           '<div class="wsc-opts">' + opts + '</div></div>' +
       '</div>';
     }

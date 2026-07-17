@@ -37,6 +37,9 @@
       photoSlots: [slot('a', 'a', 0, 0, 1 / 3, 1), slot('b', 'b', 1 / 3, 0, 1 / 3, 1), slot('c', 'c', 2 / 3, 0, 1 / 3, 1)], layers: [] },
     { id: 'wsl-grid-4', name: '4컷 · 그리드', kind: 'collage', ratio: '1:1',
       photoSlots: [slot('a', 'a', 0, 0, 0.5, 0.5), slot('b', 'b', 0.5, 0, 0.5, 0.5), slot('c', 'c', 0, 0.5, 0.5, 0.5), slot('d', 'd', 0.5, 0.5, 0.5, 0.5)], layers: [] },
+    // [#3 2026-07-18] 3장 '크게+2' — 1번 왼쪽 크게, 2·3번 오른쪽 위아래. 잡지 표지 느낌.
+    { id: 'wsl-cover-1l2', name: '3장 · 크게+2', kind: 'collage', ratio: '1:1',
+      photoSlots: [slot('a', 'a', 0, 0, 0.62, 1), slot('b', 'b', 0.62, 0, 0.38, 0.5), slot('c', 'c', 0.62, 0.5, 0.38, 0.5)], layers: [] },
   ];
 
   function getStarters() { return STARTERS.map(function (s) { return clone(s); }); }

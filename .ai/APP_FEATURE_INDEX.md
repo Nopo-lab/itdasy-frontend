@@ -154,7 +154,8 @@
   - **[2026-07-15 T-116] layout.js = 결과물 여러 장(`d.wsCards`).** 카드 1개 = 올라갈 사진 1장 = `templateOutputs` 1개. 진입하면 사진 순서대로 **2장씩 자동 묶음**(첫=전·둘째=후, `reassignRoles` 와 같은 규칙) → 5장이면 2+2+낱장 = 결과물 3장. 화면=카드 좌우 캐러셀 + **하단 도크**(메뉴 전체/전후/자랑/붙이기/후기/팁/가격 = `kind` 매핑, 썸네일 좌우 슬라이드). **레이아웃을 고르고(=든다) 카드를 누르면 적용** — 사진 수가 맞는 카드만 눌림(빈 칸/사진증발 차단). 합치기(옆 카드와, 최대 4장)·나누기(낱장으로). 안 들고 있을 땐 미리보기가 곧 `slot-stage`(드래그=위치·핀치=확대). **[2026-07-15 개편] 장수 정확일치 거절 폐지 → 구성 3종 제시(그대로 / 표지+모아보기 / 전·후 합치기). 사진 1장은 구성 없이 확인만. 카드 캐러셀 → 번호 나열로 변경.**
   - `d.wsLayout`/`d._wsAssign` 은 **첫 카드 별칭**으로 유지 — 편집기 브리지(`_wsLayoutEditState`)·발행 kind 등 기존 소비처 무변경. 카드 목록/사진이 바뀌면 `_reconcile()` 이 **슬롯 수=사진 수** 불변식을 맞춘다.
   - 발행: 결과물 2장 이상이면 `_publishKind()`=carousel 이고 **캐러셀에 합성본(`templateOutputs[].outputUrl`)을 보낸다** — 원본 사진을 보내면 레이아웃이 조용히 사라짐.
-- layout: **layout-model.js**(183, `WorkspaceLayout` 합성기 스타터A~H)·**slot-stage.js**(92, 드래그focal·핀치zoom).
+- layout: **layout-model.js**(`WorkspaceLayout` 합성기)·**slot-stage.js**(92, 드래그focal·핀치zoom). 프리셋 6종: `wsl-ba-lr`(전후)·`wsl-collage-2`(좌우)·`wsl-collage-2-tb`(상하)·`wsl-strip-3`(3분할)·`wsl-grid-4`(2×2)·**`wsl-cover-1l2`(3장 크게+2, #3 신규 2026-07-18)**.
+  - **[#3 2026-07-18 v776]** 3·4장 '한 컷에 모으기' 구성 추가 — 원장 요청("나머지 3장도 레이아웃, 딸깍딸깍 몇 개 더, 썸네일 직관적"). `_compOptions(n)`: **3장 = flat·cover·grid(나란히)·grid2(크게+2)·ba** / **4장 = flat·cover·grid(2×2)·ba** (5장+ 는 한 프리셋에 안 맞아 cover 로). `_buildCards` 가 comp==='grid'/'grid2' 면 전체 사진을 **한 콜라주 카드**(strip-3/grid-4/cover-1l2)로. 미니 썸네일 `_miniHtml` + CSS `.wsc-mini--g4`·`--1l2`. 검증: 세 프리셋 composeLayout 각 구역에 다른 사진(육안 스크린샷).
 
 ### 편집기 (js/itd-editor/**)
 - **itd-editor.js** (1773) — 인스타식 편집기 `ItdEditor`(텍스트·스티커·반달레이아웃·그리기, 12폰트, HSV 색상). **safe-zone.js**(81, 얼굴위 텍스트 회피). **data/itd-decos.js**(104, 스티커 51종).

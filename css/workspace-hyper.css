@@ -93,6 +93,10 @@
 .wsc-mini--cover i:first-child { grid-column: 1 / 3; }
 .wsc-mini--2v { grid-template-columns: 1fr 1fr; }
 .wsc-mini--2h { grid-template-rows: 1fr 1fr; }
+/* [#3 2026-07-18] 한 컷 콜라주 미니 — 4장 2×2 · 3장 크게+2 */
+.wsc-mini--g4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.wsc-mini--1l2 { grid-template-columns: 1.6fr 1fr; grid-template-rows: 1fr 1fr; }
+.wsc-mini--1l2 i:first-child { grid-row: 1 / 3; }
 .wsc-opt-t { flex: 1; min-width: 0; }
 .wsc-opt-t b { display: block; font-size: 13.5px; font-weight: 700; color: var(--text, #17191C); }
 .wsc-opt-t span { display: block; font-size: 11.5px; color: var(--text-subtle, #8B95A1); margin-top: 2px; }
