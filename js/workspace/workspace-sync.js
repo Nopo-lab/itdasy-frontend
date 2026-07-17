@@ -184,6 +184,13 @@
   }
 
   function loadAllLocal() { return has(window.loadSlotsFromDB) ? Promise.resolve(window.loadSlotsFromDB()).catch(function () { return []; }) : Promise.resolve([]); }
+  /** [2026-07-16] 단일 슬롯 재조회 — 쓰기 직전 TOCTOU 재확인용(스냅샷은 이미 낡았을 수 있다). */
+  function loadOneLocal(id) {
+    return loadAllLocal().then(function (list) {
+      var k = String(id);
+      return (list || []).filter(function (s) { return s && String(s.id) === k; })[0] || null;
+    }).catch(function () { return null; });
+  }
   function refreshHome() { try { if (window.WorkspaceV2 && has(window.WorkspaceV2.refresh)) window.WorkspaceV2.refresh(); } catch (_e) { void 0; } }
 
   // ── Phase B: 다른 기기에서 온 http 이미지 → 로컬 dataURL 재수화(hydration) ──
@@ -271,11 +278,16 @@
           // [버그수정 2026-07-06] 사진 업로드가 하나라도 실패했으면 synced 로 굳히지 않는다(dirty 유지 → 다음 push 재시도).
           //   안 그러면 실패 사진이 서버에 없는 채 synced 로 마킹돼 pull 이 로컬을 덮어 영구 소실.
           if (complete) {
-            slot.syncState = 'synced';
-            if (_origSaveSlot) return Promise.resolve(_origSaveSlot(slot)).catch(function () {});   // synced 상태만 영속(재-dirty 안 함)
-          } else {
-            log('pushSlot partial — keep dirty for retry', slot && slot.id);
+            // [H4 수정 2026-07-16] push 도중 원장이 이 슬롯을 지웠으면 되살리지 않는다.
+            //   예전엔 synced 마킹용 write-back(_origSaveSlot)이 '삭제된 슬롯'을 로컬에 재삽입해
+            //   지운 글이 유령처럼 되살아났다. 쓰기 직전에 아직 살아있는지 재확인한다.
+            return loadOneLocal(slot.id).then(function (still) {
+              if (!still) { log('pushSlot deleted during push — skip write-back', slot && slot.id); return; }
+              slot.syncState = 'synced';
+              if (_origSaveSlot) return Promise.resolve(_origSaveSlot(slot)).catch(function () {});   // synced 상태만 영속(재-dirty 안 함)
+            });
           }
+          log('pushSlot partial — keep dirty for retry', slot && slot.id);
         }
       });
     }).catch(function (e) { log('pushSlot err', slot && slot.id, e); });
@@ -302,7 +314,11 @@
       return window.apiFetch(url, { method: 'GET', headers: authHeader() }).then(function (r) { return r.ok ? r.json() : null; });
     }).then(function (resp) {
       if (!resp || !Array.isArray(resp.slots)) return;
-      return loadAllLocal().then(function (locals) {
+      return Promise.all([loadAllLocal(), listTombstones()]).then(function (both) {
+        var locals = both[0];
+        // [H5 수정 2026-07-16] 로컬에서 지웠는데 아직 서버로 DELETE 를 못 보낸 슬롯(tombstone)은
+        //   pull 이 되살리면 안 된다. 예전엔 local 이 없으니 가드를 통과해 삭제한 글이 부활했다.
+        var tombs = {}; (both[1] || []).forEach(function (t) { if (t && t.slot_id != null) tombs[String(t.slot_id)] = 1; });
         var byId = {}; (locals || []).forEach(function (s) { if (s && s.id != null) byId[String(s.id)] = s; });
         var changed = false;
         var applyFailed = false;   // [버그수정 2026-07-06] 적용 실패분 있으면 lastPulledAt 전진 금지(그 slot 이 영영 누락되던 것)
@@ -316,11 +332,21 @@
               }
               return delTombstone(rs.slot_id);   // 서버가 삭제 확인 → 로컬 tombstone 정리
             }
+            // [H5] 로컬 삭제분(tombstone 대기)은 되살리지 않는다 — DELETE 가 아직 안 나갔을 뿐 이미 지운 글.
+            if (tombs[String(rs.slot_id)]) { log('pull skip — tombstoned locally', rs.slot_id); return; }
             // 로컬이 아직 안 올라간 변경(=synced 아님)이고 더 최신이면 로컬 유지(다음 push 로 서버 갱신).
             //   [버그수정 2026-07-06] push 필터(!=='synced')와 술어 일치 — 'dirty' 외 값(undefined 등)도 방어.
             if (local && local.syncState !== 'synced' && (local.updatedAt || 0) > tsMs(rs.client_updated_at)) return;
-            changed = true;
-            return Promise.resolve(_origSaveSlot(remoteToLocal(rs))).catch(function () { applyFailed = true; });
+            // [H3 수정 2026-07-16 TOCTOU] byId 스냅샷은 pull 시작 시점 것이라 낡았다. 쓰기 직전에 다시 읽어
+            //   재확인한다 — 그 사이 원장이 저장한 더 최신 편집을 옛 서버본으로 덮어써 날리던 버그.
+            //   (push 엔 같은 가드가 있었는데 pull 엔 없었다.)
+            return loadOneLocal(rs.slot_id).then(function (fresh) {
+              if (fresh && fresh.syncState !== 'synced' && (fresh.updatedAt || 0) > tsMs(rs.client_updated_at)) {
+                log('pull skip — local re-edited during pull', rs.slot_id); return;
+              }
+              changed = true;
+              return Promise.resolve(_origSaveSlot(remoteToLocal(rs))).catch(function () { applyFailed = true; });
+            });
           });
         }, Promise.resolve()).then(function () {
           // 하나라도 적용 실패면 since 를 전진시키지 않는다 → 다음 pull 이 그 delta 를 다시 받아 재시도.
@@ -356,7 +382,13 @@
     if (!ready() || _syncing) return Promise.resolve();
     _syncing = true;
     // 편집 플로우 열려 있으면(coalesce) 자동 push 생략 — 정착(settleSlot)이나 idle 백스톱에서만 올림. pull 은 계속.
-    return migrateIfNeeded().then(function () { return (COALESCE() && _flowOpen) ? null : pushAll(); }).then(pull).catch(function (e) { log('sync err', e); }).then(function () { _syncing = false; });
+    // [H5 수정 2026-07-16] coalesce 로 pushAll 을 건너뛰어도 삭제(tombstone)는 반드시 보낸다.
+    //   pushAll 이 flushTombstones 의 유일한 호출자였어서, 편집 중엔 삭제가 서버에 안 나가고
+    //   그 상태로 pull 이 돌아 지운 글이 되살아났다. (pushAll 도 안에서 또 부르지만 idempotent)
+    return migrateIfNeeded()
+      .then(function () { return flushTombstones().catch(function () {}); })
+      .then(function () { return (COALESCE() && _flowOpen) ? null : pushAll(); })
+      .then(pull).catch(function (e) { log('sync err', e); }).then(function () { _syncing = false; });
   }
   var _pushTimer = null;
   function schedulePush() { if (!ready()) return; clearTimeout(_pushTimer); _pushTimer = setTimeout(function () { pushAll(); }, 1200); }
