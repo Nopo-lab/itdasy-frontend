@@ -51,7 +51,7 @@
 | 네이버 플레이스 **리뷰 답글 자동화** | ❌ **불가** — 공식 답글 API 없음 | — |
 | **리뷰 요청** 관리(손님에게 리뷰 요청·상태추적) | ✅ | `customer_reviews.py`, `app-review.js` |
 | 인스타 **인사이트**(도달·저장·최적시간) | ✅ | `instagram_insights.py` |
-| **게시물별 성과 + "무엇이 먹혔나" 학습** | ✅ **[2026-07-15]** 발행 게시물을 레이아웃 프리셋(`wsl-*`)·말투·사진장수 축으로 묶어 반응 비교. 표본 3건 미만은 순위 안 매김. 게시물별 미응대 문의 댓글도 표시 | `js/workspace/workspace-perf.js`, `__tests__/workspace-perf.test.js` |
+| **게시물별 성과 + "무엇이 먹혔나" 학습** | ✅ **[2026-07-18]** 표본 부족 축은 축마다 "3건 올려야" 박스를 그려 다닥다닥했음(축 5개면 최대 5줄) → 데이터 있는 축만 막대, **부족 축들은 이름만 모아 한 줄로 통합**(`_compareHtml` 의 `pending`, CSS `.wsp-axis__pending`, 은/는 조사 자동). **[2026-07-15]** 발행 게시물을 레이아웃 프리셋(`wsl-*`)·말투·사진장수 축으로 묶어 반응 비교. 표본 3건 미만은 순위 안 매김. 게시물별 미응대 문의 댓글도 표시 | `js/workspace/workspace-perf.js`, `__tests__/workspace-perf.test.js` |
 | 성과 화면 **DM 유입 귀속** | ❌ **데이터 없음**(심사 문제 아님) — `/dm/conversations`는 '마지막 대화 시각'만, `DMMessageLog`에 게시물 참조 컬럼 없음. `messaging_referral` 웹훅은 구독만 하고 파싱 없이 버려짐 | `dm_autoreply.py:3100`(버리는 곳), `:5200`(구독) |
 
 > **DM 응대 구조 핵심:** DM/문의 답장은 별도 "인박스 파일" 하나가 아니라 — 수신 채널(인스타/톡톡) → `services/channels/*` 어댑터 → 코어 DM 엔진(`services/dm_intent`·`dm_context_builder`·`dm_free_reply`) → `dm_confirm_queue`(원장 검토) 로 흐른다. 잇비 챗봇 쪽 발화는 `reply_dm`/`draft_message` kind로 백엔드 LLM이 초안, FE `js/assistant/marketing-safety-labels.js`·`marketing-draft-policy.js`가 톤·안전 라벨만 입힘.

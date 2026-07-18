@@ -473,8 +473,21 @@
     //   사진 수·구성에 얽힌 취약 파일이라 블라인드 자동선택은 위험. 원장이 뭘 고를지 기억만 돕는다).
     _lastReco = _recoPicks(AXES).map(function (p) { return p.label + ' ' + p.key; }).join(' · ');
 
-    return head + lead + _recoHtml(AXES) +
-      AXES.map(function (x) { return _axisHtml(x.label, x.list, x.icon); }).join('') +
+    /* [2026-07-18] 표본 부족 축은 축마다 "3건 올려야" 박스를 그려 화면이 다닥다닥했다(축 5개면 최대 5줄).
+       맨 위 lead 가 이미 "아직 일러요"를 말하므로 중복 → 데이터 있는 축만 막대로 보이고,
+       부족한 축들은 이름만 모아 '한 줄'로 통합한다. */
+    var ready = AXES.filter(function (x) { return x.list.filter(function (o) { return o.enough; }).length; });
+    var pending = AXES.filter(function (x) { return !x.list.filter(function (o) { return o.enough; }).length && x.list.length; });
+    var axisBody = ready.map(function (x) { return _axisHtml(x.label, x.list, x.icon); }).join('');
+    if (pending.length) {
+      var pnames = pending.map(function (x) { return x.label; });
+      var lastCh = pnames[pnames.length - 1].slice(-1).charCodeAt(0);   // 받침 유무로 은/는
+      var josa = (lastCh >= 0xAC00 && lastCh <= 0xD7A3 && (lastCh - 0xAC00) % 28 !== 0) ? '은' : '는';
+      axisBody += '<div class="wsp-axis__thin wsp-axis__pending">' +
+        esc(pnames.join(' · ')) + josa + ' 같은 방식 ' + MIN_POSTS + '건부터 비교해드려요</div>';
+    }
+
+    return head + lead + _recoHtml(AXES) + axisBody +
       '<div class="wsp-legend">반응 = 좋아요 + 저장×3 + 공유×4. ' +
       '저장·공유를 크게 보는 건 "나중에 여기 가야지"에 더 가까워서예요. ' +
       '댓글은 우리가 단 답글이 섞여 있어서 뺐어요.</div>';
@@ -801,7 +814,7 @@
       _attribute: _attribute, _buildRows: _buildRows, _matchSlot: _matchSlot, _agg: _agg,
       _layoutOf: _layoutOf, _photoCountOf: _photoCountOf, _attachInquiries: _attachInquiries, _score: _score,
       _capLenOf: _capLenOf, _tagCountOf: _tagCountOf, _hasSignal: _hasSignal,
-      _attachDmLinks: _attachDmLinks,
+      _attachDmLinks: _attachDmLinks, _compareHtml: _compareHtml, _axisHtml: _axisHtml,
       _ro: _ro, MIN_POSTS: MIN_POSTS, ANALYZE_DAYS: ANALYZE_DAYS,
     },
   };
