@@ -146,7 +146,27 @@
       menu +
     '</div>';
   }
+  // [v779 보스] 옛 버그(v663 이전)로 한 콘텐츠가 업로드/레이아웃/캡션 단계마다 별도 초안으로 쌓인 걸
+  //   목록에서 합친다. 같은 사진 묶음(사진 id 셋)인 '초안'끼리는 가장 최근(진행 더 된) 것만 남긴다.
+  //   발행본은 절대 안 합치고(각각 유지), 사진 없는 초안도 그대로 둔다. 데이터 삭제 아님 — 표시만 정리.
+  function _dedupDrafts(slots) {
+    var newest = {}, order = [];
+    var t = function (x) { return (x && (x.updatedAt || x.completedAt || x.createdAt)) || 0; };
+    (slots || []).forEach(function (s) {
+      var key;
+      if (_isPub(s)) { key = 'pub:' + (s.id || (order.length + '_' + t(s))); }
+      else {
+        var sig = (s.photos || []).map(function (p) { return p && (p.id || String(p.dataUrl || p.editedDataUrl || '').slice(-48)); })
+          .filter(Boolean).sort().join('|');
+        key = sig ? 'ph:' + sig : 'id:' + (s.id || (order.length + ''));
+      }
+      if (!(key in newest)) { newest[key] = s; order.push(key); }
+      else if (t(s) > t(newest[key])) { newest[key] = s; }
+    });
+    return order.map(function (k) { return newest[k]; });
+  }
   function _shellHTML(slots) {
+    slots = _dedupDrafts(slots);
     var visible = _filter === 'all' ? slots : slots.filter(function (s) {
       return _filter === 'done' ? _isPub(s) : !_isPub(s);
     });
