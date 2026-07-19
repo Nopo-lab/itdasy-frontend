@@ -297,6 +297,11 @@
         var L = c && c.layout; if (!L || !Array.isArray(L.photoSlots) || !L.photoSlots.length) return null;
         var slots = L.photoSlots;
         var assign = _cardAssign(c) || {};
+        // [v779 보스] 레이아웃은 처음 고른 대로 고정 — 사진편집은 '합쳐진 1장'(합성본)을 편집한다.
+        //   예전엔 프리셋 매칭 시 원본을 콜라주로 재조립해서, 원장이 드래그로 맞춘 크롭이 유실되고
+        //   편집기/캡션전/캡션후 화면이 서로 다른 이미지를 보여줬다(원장 지적: "다 달라"). 합성본이
+        //   있으면 그걸 단일 이미지로 연다 → 세 화면 통일. 사진 위치 재조정은 레이아웃 단계에서.
+        if (D().templateOutput) return { mode: 'composite', photoUrl: D().templateOutput };
         var m = _matchItdPreset(slots);
         if (m && L.kind === 'before_after' && m.idx === 1) m.idx = 7;   // 전후면 좌우(v2) 대신 BEFORE/AFTER(ba)
         if (m) {
