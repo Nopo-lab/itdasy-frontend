@@ -306,11 +306,17 @@
       }
       autoArranged = layers.length > 0;   // 우리샵 스타일로 자동배치됨 → AI 배치 배너+다시배치 노출
     }
-    // [#5] ShopStyle 없거나 매핑 결과 없음 → 시술내용(제목+부제)을 기본 레이어로. 단, 실제 시술 텍스트가 있을 때만
-    //   (업로드 직후 편집기는 시술이 아직 없음 → 빈 '텍스트' 폴백 안 올림. 깨끗한 사진으로 시작).
-    if (!layers.length && String(roleText.title || '').trim()) {
+    // [#5 / v779 보스] 시술명(title)이 있는데 사진에 안 올라갔으면 기본 레이어로 반드시 올린다.
+    //   예전엔 `!layers.length` 일 때만 폴백이라, ShopStyle 이 해시태그·로고 레이어만 있고 title 레이어가
+    //   없으면 '해시태그만 뜨고 시술명은 빠지는' 문제가 있었다(원장 지적). title 이 이미 배치됐으면 중복 안 올림.
+    //   (업로드 직후엔 시술이 없어 title 빈값 → 폴백 안 함 = 깨끗한 사진으로 시작.)
+    var _titleText = String(roleText.title || '').trim();
+    var _titlePlaced = layers.some(function (L) { return L.text && L.text === roleText.title; });
+    if (_titleText && !_titlePlaced) {
       layers.push({ text: roleText.title, role: 'title', x: 0.5, y: 0.44, w: 0.8, size: 0.08, align: 'center' });
-      if (roleText.sub) layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
+      if (roleText.sub && !layers.some(function (L) { return L.text && L.text === roleText.sub; })) {
+        layers.push({ text: roleText.sub, role: 'sub', x: 0.5, y: 0.56, w: 0.8, size: 0.05, align: 'center' });
+      }
       autoArranged = true;   // [#5] 미리보기(_autoComposeTemplate)도 이 텍스트를 합성하도록
     }
     return { ss: ss, layers: layers, ratio: ss ? ss.frame.ratio : '4:5', autoArranged: autoArranged };
