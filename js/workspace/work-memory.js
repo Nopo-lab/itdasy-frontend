@@ -346,8 +346,12 @@
     incoming.forEach(function (l) { if (l && l.role && l.text && !byRole[l.role]) byRole[l.role] = l.text; });
 
     var layers = rec.layers.map(function (l) {
-      if ((l.type === 'text' || l.type === 'badge') && l.role && byRole[l.role]) {
-        return Object.assign({}, l, { text: byRole[l.role] });   // 자리는 기억대로, 글자는 이번 글로
+      // 역할 텍스트(title/sub/시술문구 등)는 자리·스타일만 기억하고 글자는 이번 글로 교체한다.
+      //   [v779] 이번 글에 그 역할 텍스트가 없으면 지난 글 문구를 남기지 말고 뺀다 —
+      //   안 그러면 새 이미지에 지난 글 시술명("26인치 옴브레")이 남아 캡션과 불일치했다.
+      //   (스티커/선/로고/역할없는 커스텀 텍스트는 아래로 내려가 그대로 유지됨.)
+      if ((l.type === 'text' || l.type === 'badge') && l.role) {
+        return byRole[l.role] ? Object.assign({}, l, { text: byRole[l.role] }) : null;
       }
       // [용량] 로고는 참조로만 담았다 → 쓸 때 ShopStyle 에서 실제 이미지를 꺼낸다.
       //   샵 로고를 지웠으면 되살릴 게 없으니 그 레이어는 뺀다(깨진 이미지 방지).

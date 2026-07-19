@@ -87,9 +87,15 @@
         return cards;
       }
       if (n >= 2 && comp === 'ba') {
-        eps[0].role = 'before'; eps[1].role = 'after';   // 1번=전 · 2번=후 (reassignRoles 와 같은 규칙 → 성과 귀속 유지)
-        var out = [_card('wsl-ba-lr', [eps[0].id, eps[1].id])];
-        eps.slice(2).forEach(function (p) { out.push(_card(null, [p.id])); });
+        // [v779] reassignRoles/_precomputeBAHints(EXIF·밝기)·수동지정으로 이미 정해진 전/후를 존중한다.
+        //   예전엔 무조건 eps[0]=before 로 덮어써서, '후' 사진을 먼저 올리면 전/후 뱃지가 뒤집혔다.
+        var _bef = eps.filter(function (p) { return p.role === 'before'; })[0];
+        var _aft = eps.filter(function (p) { return p.role === 'after'; })[0];
+        if (!_bef || !_aft || _bef === _aft) { _bef = eps[0]; _aft = eps[1]; }   // 불명확하면 업로드 순서
+        _bef.role = 'before'; _aft.role = 'after';
+        var _u = {}; _u[_bef.id] = 1; _u[_aft.id] = 1;
+        var out = [_card('wsl-ba-lr', [_bef.id, _aft.id])];
+        eps.forEach(function (p) { if (!_u[p.id]) out.push(_card(null, [p.id])); });
         return out;
       }
       return flat();
@@ -301,25 +307,22 @@
     }
     function _wsLayoutEditState() {
       try {
-        var c = CARDS()[0];
-        var L = c && c.layout; if (!L || !Array.isArray(L.photoSlots) || !L.photoSlots.length) return null;
-        var slots = L.photoSlots;
-        var assign = _cardAssign(c) || {};
         // [v779 보스] 레이아웃은 처음 고른 대로 고정 — 사진편집은 '합쳐진 1장'(합성본)을 편집한다.
-        //   예전엔 프리셋 매칭 시 원본을 콜라주로 재조립해서, 원장이 드래그로 맞춘 크롭이 유실되고
-        //   편집기/캡션전/캡션후 화면이 서로 다른 이미지를 보여줬다(원장 지적: "다 달라"). 합성본이
-        //   있으면 그걸 단일 이미지로 연다 → 세 화면 통일. 사진 위치 재조정은 레이아웃 단계에서.
-        // [v779] 자동합성(시술명·작업기억 텍스트를 구움) 전 원판(_autoBase)이 있으면 그걸 연다 —
-        //   편집기가 같은 레이어를 라이브로 다시 얹으므로, 구워진 합성본을 열면 텍스트가 두 번 겹친다.
-        // [v779 4장버그] 모드 판정을 outputUrl() 과 동일하게 스칼라+배열 기준으로 통일한다.
-        //   d.templateOutput(스칼라)은 슬롯 드래그(_wsMountStage onChange)·구성변경에서 배열과 따로 null 되는데,
-        //   '사진 편집' 버튼은 배열 폴백(templateOutputs[0])으로 노출된다. 스칼라만 보면 그 사이 진입이
-        //   collage 모드로 떨어져 4칸 그리드 + 스티커가 한 칸에 얹힌 것처럼 보였다(원장 지적).
+        //   합성본이 있으면 그걸 단일 이미지로 연다 → 편집기/캡션전/캡션후 세 화면 통일(원장 지적 "다 달라").
+        // [v779] 자동합성(시술명·작업기억 텍스트를 구움) 전 원판(_autoBase)이 있으면 그걸 연다(이중 굽기 방지).
+        // [v779 4장버그] 모드 판정을 outputUrl() 과 동일하게 스칼라+배열 기준으로 통일 — 드래그·구성변경으로
+        //   스칼라만 null 되도 배열에 합성본 있으면 composite 로.
+        // [v779 재오픈] ★ 이 검사를 카드(세션 전용 wsCards) 검사보다 먼저 둔다 — 재오픈 초안은 wsCards 가
+        //   복원 안 돼 아래 L 검사에서 null 나 원본 사진이 열리고 편집이 발행에 반영 안 되던 버그.
         var _o0 = (D().templateOutputs || [])[0];
         var _comp = D().templateOutput || (_o0 && _o0.outputUrl);
         if (_comp) {
           return { mode: 'composite', photoUrl: (_o0 && _o0._autoBase) || _comp };
         }
+        var c = CARDS()[0];
+        var L = c && c.layout; if (!L || !Array.isArray(L.photoSlots) || !L.photoSlots.length) return null;
+        var slots = L.photoSlots;
+        var assign = _cardAssign(c) || {};
         var m = _matchItdPreset(slots);
         if (m && L.kind === 'before_after' && m.idx === 1) m.idx = 7;   // 전후면 좌우(v2) 대신 BEFORE/AFTER(ba)
         if (m) {

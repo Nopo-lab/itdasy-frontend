@@ -117,6 +117,17 @@
   //   기존 getMasksForBeautySync 는 캐시 hit 일 때만 반환 → 작업실은 재호출 루프가 없어 항상 null → 피부/헤어 무반응.
   //   maskKey(사진별)로 1회만 계산해 캐시 → 슬라이더 놓을 때마다 재계산하던 느림도 제거.
   var _maskCache = {};
+  // [v779 성능] 마스크(대형 ImageData)가 사진 수만큼 무제한 쌓이던 누수 방어 — LRU 8개 캡.
+  var _maskKeys = [];
+  var _MASK_CAP = 8;
+  function _maskSet(key, val) {
+    if (!key) return;
+    if (!Object.prototype.hasOwnProperty.call(_maskCache, key)) {
+      _maskKeys.push(key);
+      while (_maskKeys.length > _MASK_CAP) { var ev = _maskKeys.shift(); delete _maskCache[ev]; }
+    }
+    _maskCache[key] = val;
+  }
   var MASK_TIMEOUT = 2500;   // 모델 첫 로딩 등으로 마스크가 늦으면 이번 패스는 전역 보정으로(행 방지). 다음 슬라이더에서 캐시 사용.
   function _finishMasks(base, img, b) {
     var m = base ? { useMasks: Object.assign({}, base.useMasks), _scale: Object.assign({}, base._scale), meta: base.meta, maskW: base.maskW, maskH: base.maskH } : null;
@@ -139,7 +150,7 @@
     }
     // 계산 시작 — 완료되면 캐시에 저장(타임아웃돼도 백그라운드로 채워져 다음 호출에서 사용).
     var compute;
-    if (has(MA.getMasksForBeauty)) compute = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskCache[key] = m || null; return m; });
+    if (has(MA.getMasksForBeauty)) compute = Promise.resolve(MA.getMasksForBeauty(img)).catch(function () { return null; }).then(function (m) { if (key) _maskSet(key, m || null); return m; });
     else compute = Promise.resolve(has(MA.getMasksForBeautySync) ? MA.getMasksForBeautySync(img) : null);
     var timed = new Promise(function (res) { setTimeout(function () { res('__t__'); }, MASK_TIMEOUT); });
     return Promise.all([Promise.race([compute, timed]), strict]).then(function (all) {
@@ -472,7 +483,8 @@
       }
       return Promise.resolve(window.Customer.pick({ selectedId: selectedId || null })).then(function (picked) {
         if (!picked || picked.id == null) return { ok: false, reason: 'cancel' };
-        return { ok: true, id: picked.id, name: picked.name };
+        // [v779] 방문횟수 전달 — 없으면 connect 가 항상 '첫 방문/0회'로 오표시했다(재방문 고객인데).
+        return { ok: true, id: picked.id, name: picked.name, vc: picked.visit_count || picked.vc || 0 };
       });
     },
 

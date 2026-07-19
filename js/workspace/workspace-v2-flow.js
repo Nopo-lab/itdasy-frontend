@@ -401,7 +401,12 @@
     var tgt = null;
     if (isWs) tgt = (d.activeDisplayId && outs.filter(function (o) { return o && o.pairId === d.activeDisplayId; })[0]) || outs[0];
     else if (p) tgt = outs.filter(function (o) { return o && !o.templateId && (o.photoIds || []).indexOf(p.id) >= 0; })[0];
-    if (tgt) tgt.outputUrl = dataUrl;
+    if (tgt) {
+      tgt.outputUrl = dataUrl;
+      // [v779] 스칼라 미러 동기화 — outputUrl()·_displayItems 가 스칼라를 먼저 읽어, 안 맞추면
+      //   편집분이 배열엔 반영돼도 발행/미리보기는 옛 원본을 내보내던 버그(단일사진 편집 특히).
+      if (tgt === outs[0]) { d.templateOutput = dataUrl; d.previewUrl = null; }
+    }
   }
   // [#5] 텍스트/편집을 '지금 캐러셀에서 보고 있는 장'에 적용 — 보던 사진을 편집·저장(다중 사진서 장 선택).
   function _activeEditPhoto() {
@@ -439,7 +444,9 @@
     var _restore = (!_hasBg && p0 && p0.editState) || null;
     // [ws-hyper] 레이아웃 활성 시: 프리셋 매칭되면 편집기 콜라주(슬롯 재조정 가능), 아니면 합성본 단일 이미지로 레이아웃 보존.
     //   (예전엔 항상 원본 단일 사진으로 열려 레이아웃이 통째 사라졌음 — 2026-07-10 버그수정)
-    var _wsEd = (d.wsLayout && !_hasBg) ? _wsLayoutEditState() : null;
+    // [v779 재오픈] d.wsLayout 은 레이아웃 화면을 방문해야만 채워지는 세션 별칭 → 재오픈 초안엔 없다.
+    //   합성본(templateOutput/배열)이 있으면 게이트를 열어 composite 편집이 되게 한다(원본 열림·편집 미반영 방지).
+    var _wsEd = ((d.wsLayout || d.templateOutput || (d.templateOutputs && d.templateOutputs.length)) && !_hasBg) ? _wsLayoutEditState() : null;
     var photo = (_wsEd && _wsEd.mode === 'composite') ? _wsEd.photoUrl
       : (_wsEd && _wsEd.mode === 'collage') ? (_wsEd.photos[0] || _cleanBase(p0) || outputUrl())
       : (_restore ? (_cleanBase(p0) || outputUrl())
@@ -2047,6 +2054,10 @@
     if (!(editablePhotos() || []).length && !d.templateOutput && !(d.templateOutputs || []).length) { toast('사진을 먼저 추가해 주세요'); return; }
     flushCaptionInputs();
     if (!String(d.caption || '').trim()) { toast('게시글을 먼저 만들어 주세요'); return; }
+    // [v779] 예약 백엔드는 이미지 1장만 받는다 — 여러 장 게시물은 첫 장만 올라가므로 막는다(무음 소실 방지).
+    if ((d.templateOutputs || []).length >= 2 || (!d.templateOutput && !((d.templateOutputs || [])[0]) && (editablePhotos() || []).length >= 2)) {
+      toast('여러 장 게시물은 예약이 아직 안 돼요 — 지금 올리기로 해주세요'); return;
+    }
     if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.scheduleInstagramV2)) { toast('예약 기능을 불러오지 못했어요'); return; }
     d._scheduling = true; setScreen('caption', { push: false });
     var myD = d;
@@ -2299,6 +2310,17 @@
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    var _myToken = ++_genToken;   // [버그수정] 이 호출만의 토큰 — 응답 도착 시 아직 최신인지 확인용
 	    d.capLoading = true; setScreen('caption');
+	    // [v779] 생성 타임아웃 — 약전파/프록시 stall 로 응답이 매달리면(끊김 아님) 프로미스가 영영 settle 안 돼
+	    //   스피너가 무한 고착 + 이후 생성이 `if(d.capLoading)return` 으로 영구 차단되던 것. 45초 뒤 자가 복구.
+	    (function (tok) {
+	      setTimeout(function () {
+	        if (tok === _genToken && d && d.capLoading) {
+	          d.capLoading = false;
+	          try { toast('생성이 오래 걸려요 — 잠시 뒤 다시 시도해 주세요'); } catch (_te) { void _te; }
+	          if (cur === 'caption') setScreen('caption', { push: false });
+	        }
+	      }, 45000);
+	    })(_myToken);
 	    // [캡션재설계 v2] 3축 전부(직접 입력 텍스트 포함, 드롭 규칙 정제 후) → photo_context.
 	    var photoCtx = _wizAxisContext() || _roleSummary();
 	    var opts = Object.assign({ slotId: d.slot && d.slot.id, service: _pubSvc, photo_context: photoCtx, mode: d.captionMode || 'normal' }, extra || {});
@@ -4128,6 +4150,10 @@
   }
   function close() {
     if (el) el.classList.remove('is-open');
+    // [v779] 전체화면 편집 상태 정리 — ESC/토글 아닌 경로(하단 CTA·시스템 back·닫기)로 나가면
+    //   body.itd-edit-fs 와 d.edFull 이 잔존해 재진입/CSS 변경 시 검은 오버레이 고착 소지가 있었다.
+    try { document.body.classList.remove('itd-edit-fs'); } catch (_ef) { void _ef; }
+    try { if (d) d.edFull = false; } catch (_ef2) { void _ef2; }
     // [P1 캡션 누출 수정 2026-07-16] 진행 중인 캡션 재생성 응답을 무효화한다. 예전엔 close 가
     //   _genToken 을 안 올려서, 닫고 다른 슬롯을 연 뒤 옛 응답이 도착하면 _myToken===_genToken 이
     //   통과해 새 슬롯의 캡션을 덮어썼다(다른 사진에 엉뚱한 캡션). 닫을 때 토큰을 올려 차단.
