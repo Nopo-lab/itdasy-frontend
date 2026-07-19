@@ -29,6 +29,7 @@
   var MIN_POSTS = 3;                // 이 건수 미만이면 "먹혔다"고 말하지 않는다
   var ANALYZE_DAYS = 14;            // "무엇이 먹혔나" 분석 창 — 반년 전 글과 섞으면 요즘 감이 안 나온다
   var _lastReco = '';              // 마지막 추천 요약 — 새 글 만들 때 토스트로 들고 간다
+  var _curRows = [];               // [v779] 현재 렌더된 rows — '이 스타일로 또'에서 카드 slot 되찾기용
   var LURK_MIN = 3;                // 저장+공유 이만큼인데 연락 0이면 '조용한 관심'(C5) 으로 본다
 
   // 말투 키 → 라벨. workspace-v2-flow.js _TONE_CHIPS 와 같은 집합.
@@ -584,7 +585,7 @@
 
     // [디자인 방향3] 작업실에서 만든 글만 '이 스타일로 또' — 슬롯 없는 글은 재현할 세팅이 없다.
     var again = r.slot
-      ? '<button type="button" class="wsp-again" data-wsp-newpost>' +
+      ? '<button type="button" class="wsp-again" data-wsp-newpost="' + esc(r.id) + '">' +
           '<i class="ph-duotone ph-copy"></i>이 스타일로 또 만들기</button>'
       : '';
 
@@ -725,6 +726,7 @@
        workspace-v2-home.js(성과 버튼 폴백).
      (v748 이 성과 진입점을 지워 화면이 고아가 됐던 전례 때문에 매번 확인한다.) */
   function _render(el, insights, rows, cq, dmLinks) {
+    _curRows = rows || [];   // [v779] '이 스타일로 또' 클릭 시 카드의 slot 을 되찾기 위해 보관
     var body = el.querySelector('[data-wsp-body]');
     if (!body) return;
     if (!rows.length) { body.innerHTML = _emptyHtml(insights) + _dmSummaryHtml(dmLinks); return; }
@@ -741,7 +743,17 @@
 
   /** 작업실 새 글 플로우 진입. 홈의 업로드 버튼(data-wsv2-upload)을 눌러 사진 선택을 띄운다.
       성과 오버레이가 홈 위에 떠 있었으므로 홈 DOM 은 뒤에 그대로 있다. 없으면 토스트로 안내. */
-  function _startNewPost() {
+  function _startNewPost(slot) {
+    // [v779 보스] '이 스타일로 또 만들기' — 그 게시물의 꾸밈(선·도형·스티커·텍스트·폰트·색·위치)을
+    //   작업 기억으로 붙잡아 기본 스타일로 지정한다. 예전엔 슬롯을 안 넘겨 그 게시물 스타일이
+    //   통째로 유실되고, 오직 전역 ★기본에만 의존했다(적용 안 되던 원인).
+    try {
+      if (slot && window.WorkMemory && window.WorkMemory.captureFromSlot) {
+        var _rec = window.WorkMemory.captureFromSlot(slot, null);
+        if (_rec && _rec.id && window.WorkMemory.setDefault) window.WorkMemory.setDefault(_rec.id);
+        else if (!_rec) toast('이 글엔 재사용할 꾸밈(글씨·스티커 등)이 없어요');
+      }
+    } catch (_e) { void _e; }
     // 추천을 토스트로 들고 간다 — 레이아웃 단계에서 뭘 고를지 기억나게(컴포저 자동선택은 안 함).
     if (_lastReco) toast('반응 좋았던 방식: ' + _lastReco);
     var btn = document.querySelector('[data-wsv2-upload]');
@@ -773,7 +785,12 @@
         return;
       }
       // [디자인 방향2/3] 성과를 닫고 작업실 새 글 플로우를 연다. 분석→행동이 한 번에 이어지게.
-      if (e.target.closest('[data-wsp-newpost]')) { close(); _startNewPost(); return; }
+      var _npBtn = e.target.closest('[data-wsp-newpost]');
+      if (_npBtn) {
+        var _npId = _npBtn.getAttribute('data-wsp-newpost');
+        var _npRow = _curRows.filter(function (x) { return String(x.id) === String(_npId); })[0];
+        close(); _startNewPost(_npRow && _npRow.slot); return;
+      }
       // [C5] 조용한 관심 → 캡션 고정멘트(예약 안내) 설정으로. 저장한 사람에게 길을 열어주는 유일한 수단.
       if (e.target.closest('[data-wsp-footer]')) {
         if (window.WorkspaceSettings && window.WorkspaceSettings.open) { close(); window.WorkspaceSettings.open(); }

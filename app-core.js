@@ -2180,6 +2180,12 @@ if ('serviceWorker' in navigator && !_isCapacitor) {
       navigator.serviceWorker.addEventListener('controllerchange', askVersion);
       // 1시간마다 자동 update 시도 (사용자 앱 안 닫고 오래 쓰는 케이스)
       setInterval(() => _safeSwUpdate(reg), 60 * 60 * 1000);
+      // [v779] iOS PWA 를 백그라운드에서 다시 켜면 페이지가 리로드 안 돼 업데이트 체크가 없었다
+      //   ("앱 다시 켰는데 옛 버전 그대로"). 포그라운드 복귀 시마다 sw.js 재확인 → 새 버전이면
+      //   위 controllerchange 리스너가 자동 reload 한다.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') _safeSwUpdate(reg);
+      });
     })
     .catch(err => {
       console.warn('[SW] 등록 실패:', {

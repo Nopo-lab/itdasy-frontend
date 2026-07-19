@@ -3776,6 +3776,21 @@
 	      return;
 	    }
 	    if (d._publishing) return;
+	    // [v779 보스] 콜라주(한장으로 합치기)를 골랐는데 합성본이 없으면 outputUrl() 이 '첫 원본 사진'으로
+	    //   조용히 폴백해, 3장 합쳐 올렸는데 첫 장만 올라갔다(편집 미리보기는 CSS라 콜라주로 보여 눈치 못 챔).
+	    //   발행 전에 다시 굽고, 그래도 없으면 발행을 멈추고 레이아웃으로 돌려보낸다(잘못된 사진 발행 방지).
+	    if (d.wsComp && d.wsComp !== 'flat' && (editablePhotos() || []).length >= 2 &&
+	        !(d.templateOutput || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl))) {
+	      if (_WSL && _WSL.composeCards) {
+	        Promise.resolve(_WSL.composeCards()).catch(function () { return null; }).then(function () {
+	          if (!d || d._dead) return;
+	          if (d.templateOutput || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl)) publish(kind);
+	          else { toast('레이아웃을 못 만들었어요 — 레이아웃을 다시 골라 주세요'); setScreen('layout'); }
+	        });
+	        return;
+	      }
+	      toast('레이아웃을 못 만들었어요 — 레이아웃을 다시 골라 주세요'); return;
+	    }
 	    syncCaptionFromDom();
 	    d._publishing = kind || 'feed'; setScreen('caption');
     var slot = buildSlot();
