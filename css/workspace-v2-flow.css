@@ -400,7 +400,10 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .hash-chip.on { background: var(--brand-bg); color: var(--brand-strong); box-shadow: inset 0 0 0 1px var(--brand); }
 /* [Phase B-1] 스토리 편집 진입 버튼 */
 /* [#17] inline-flex 는 margin:auto 로 가운데 정렬이 안 돼 PC 에서 좌측으로 쏠렸다 → flex(블록) 로 변경해 max-width+auto margin 가운데 정렬 적용 */
-/* [v751 로즈 다이어트] .cap-edit-btn(사진 편집) 제거 — 편집은 업로드 다음 편집 단계에서. 캡션 결과에 로즈 버튼 중복이었음 */
+/* [v778 복구·보스요청] 캡션 결과 '사진 편집' 버튼 — 캡션 본 뒤 사진을 바로 손보는 진입점. */
+.wsv2flow .cap-edit-btn { width: 100%; height: 50px; margin: 2px 0 14px; border: 1.5px solid var(--brand-strong); border-radius: var(--r-md); background: var(--brand-bg); color: var(--brand-strong); font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; }
+.wsv2flow .cap-edit-btn i { font-size: 19px; }
+.wsv2flow .cap-edit-btn:active { transform: scale(.99); opacity: .92; }
 /* 재생성 버튼 3종 */
 .wsv2flow .cap-regen-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .wsv2flow .cap-regen-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 calc(50% - 8px); min-width: 92px; height: 42px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }

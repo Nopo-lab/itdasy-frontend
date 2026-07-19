@@ -1752,28 +1752,17 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
   </div>
 </div>
 
-<!-- ───── 캡션 로딩 팝업 (슬롯머신) ───── -->
+<!-- ───── 캡션 로딩 팝업 (차분한 프리미엄형 · v778) ───── -->
 <div id="captionLoadingPopup">
   <div class="cl-card">
-    <div id="clMsg">원장님 말투로 조합 중...</div>
-    <div class="slot-machine">
-      <div class="slot-reel">
-        <div style="font-size:9px; color:var(--text3); text-align:center; margin-bottom:3px; font-weight:600;">말투느낌</div>
-        <div class="slot-window"><div class="slot-strip" id="slotStrip0"></div></div>
-        <div class="slot-locked" id="slotLock0"></div>
-      </div>
-      <div class="slot-reel">
-        <div style="font-size:9px; color:var(--text3); text-align:center; margin-bottom:3px; font-weight:600;">글자수</div>
-        <div class="slot-window"><div class="slot-strip" id="slotStrip1"></div></div>
-        <div class="slot-locked" id="slotLock1"></div>
-      </div>
-      <div class="slot-reel">
-        <div style="font-size:9px; color:var(--text3); text-align:center; margin-bottom:3px; font-weight:600;">자주쓰는이모지</div>
-        <div class="slot-window"><div class="slot-strip" id="slotStrip2"></div></div>
-        <div class="slot-locked" id="slotLock2"></div>
-      </div>
+    <div class="cl-ring" aria-hidden="true"><span class="cl-ring__core"></span></div>
+    <div id="clMsg" class="cl-msg">원장님 말투로 쓰는 중…</div>
+    <div class="cl-chips">
+      <div class="cl-chip" id="clChip0"><span class="cl-chip__k">말투</span><span class="cl-chip__v">…</span></div>
+      <div class="cl-chip" id="clChip1"><span class="cl-chip__k">길이</span><span class="cl-chip__v">…</span></div>
+      <div class="cl-chip" id="clChip2"><span class="cl-chip__k">이모지</span><span class="cl-chip__v">…</span></div>
     </div>
-    <div id="clHint">키워드 조합 중이에요...</div>
+    <div id="clHint" class="cl-hint">원장님 스타일 그대로 맞추는 중이에요</div>
   </div>
 </div>
 

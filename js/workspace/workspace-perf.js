@@ -787,6 +787,9 @@
     if (body) body.innerHTML = '<div class="wsp-empty">성과를 불러오는 중…</div>';
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });
+    // 안드로이드 하드웨어 뒤로가기 등록 — 안 하면 back 시 앱이 그대로 종료된다(다른 오버레이와 동일 처리).
+    if (typeof window._registerSheet === 'function') window._registerSheet('wsperf', close);
+    if (typeof window._markSheetOpen === 'function') window._markSheetOpen('wsperf');
 
     Promise.all([_loadInsights(), _loadSlots(), _loadBookings(), _loadCommentQueue(), _loadDmLinks()]).then(function (res) {
       var insights = res[0], slots = res[1], bookings = res[2], cq = res[3], dmLinks = res[4];
@@ -806,6 +809,7 @@
   function close() {
     var el = document.getElementById(ID); if (!el) return;
     el.classList.remove('is-open'); el.setAttribute('aria-hidden', 'true');
+    if (typeof window._markSheetClosed === 'function') window._markSheetClosed('wsperf');
   }
 
   window.WorkspacePerf = {

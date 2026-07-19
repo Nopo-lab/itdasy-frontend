@@ -1729,7 +1729,9 @@
 	      _igPreviewCard(url, true) +   // [v584] 카드 안 캡션 직접 편집(별도 편집칸 제거)
       // [v589] 꼬리말 블록 폐지 → 설정폼으로 이동. 복사/다시생성/저장은 카드 액션줄로 이동.
       // [v587] 별도 해시태그 편집칸 폐지 — 위 미리보기 카드의 해시태그(.ig-hash-edit)를 직접 편집.
-      // [v776 로즈 다이어트] '사진 편집'(storyedit) 버튼 제거 — 편집은 업로드 다음 편집 단계에 이미 있어 캡션 결과에선 중복 + v775에서 CSS(.cap-edit-btn)가 먼저 지워져 깨진 버튼으로 노출되던 것. (_openStoryEditor 자체는 다른 진입점이 사용)
+      // [v778 복구·보스요청] '사진 편집' 버튼 되살림 — v776에서 뺐으나 캡션 본 뒤 사진을 바로 손보고 싶다는 요청.
+      //   CSS(.cap-edit-btn)도 함께 복원. 미리보기 사진이 있을 때만 노출.
+      ((!d.textOnly && url) ? '<button type="button" class="cap-edit-btn" data-fl="storyedit"><i class="ph-duotone ph-magic-wand"></i> 사진 편집</button>' : '') +
       // [통합 2026-07-13·요청6] 발행 + 피드 미리보기를 같은 화면 하단에 흡수(구 preview 스텝). 스크롤로 캡션↔게시 한 흐름.
       '<div class="cap-byline cap-byline--pub">이렇게 올라가요</div>' + custLine +
       _publishBlock() +
@@ -2324,7 +2326,8 @@
       // [refactor S5] 고아 핸들러 제거 — 렌더러(data-fl="…")가 없어 어떤 클릭으로도 도달 불가(전 코드베이스 기계 확인).
       //   batoggle·gen·regen(=cgen/data-fl-var 로 대체됨)·toconnect·topreview(오배선)·sharepreview·roles·applydefault·tplchange(=tplchange-active)·publishstory/storypick(스토리 발행 세트). HYPER 재설계로 버튼 소멸, 핸들러만 잔존했던 쓰레기코드.
       // [cleanup] footersave/footerclear·clen·chash·cpersona 핸들러 제거 — 레거시 캡션 UI(SIMPLE_FLOW=false) 삭제로 렌더러 사라져 도달 불가.
-      // [v776] storyedit 핸들러 제거 — 캡션 결과의 '사진 편집' 버튼 삭제로 도달 불가. (_openStoryEditor 는 다른 진입점이 사용)
+      // [v778 복구] 캡션 결과의 '사진 편집' 버튼 핸들러 되살림 — 입력 반영 후 스토리 편집기 진입.
+      if (a === 'storyedit') { flushCaptionInputs(); return _openStoryEditor(); }
       if (a === 'tagsopen') { d._tagsOpen = true; return setScreen(cur, { push: false }); }   // [v776] 계정 태그 펼치기
       if (a === 'crop') { return openCropFlow(); }
       // [v568·B-1] 전체화면 편집 — body 클래스로 .ed-photo-vp 를 화면 가득. ESC/버튼으로 닫기. 토글 후 마스크 재투영.
@@ -3947,10 +3950,13 @@
 	    // [v564·필수1] 홈에서 파일과 함께 edit 로 바로 진입 시, 사진 로드 전 '빈 편집화면'이 깜빡이지
 	    //   않도록 setScreen 을 addFiles 완료까지 미룬다(업로드 화면을 거치지 않음).
 	    // [v590·#1] 사진이 아직 없는데 edit/caption 으로 바로 그리면 빈 화면이 깜빡 → 사진 들어온 뒤(addFiles) 그린다.
-	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption') && incomingFiles.length && !d.photos.length);
+	    // [v778·#3 보스] 'upload' 로 파일과 함께 진입하는 경로도 포함 — 사진 디코딩(폰 원본 3~8MB) 동안
+	    //   업로드 화면(전/후 역할 UI)이 잠깐 떴다가 레이아웃으로 점프하던 깜빡임 제거. 파일 있으면 addFiles 가 알아서 넘긴다.
+	    var _deferInit = ((startScreen === 'edit' || startScreen === 'caption' || startScreen === 'upload') && incomingFiles.length && !d.photos.length);
 	    if (!_deferInit) { setScreen(startScreen, { push: false }); _seedNavStack(startScreen); }   // [버그11] 직행 진입도 뒤로가기로 이전 단계 복귀
 	    if (d._focusIntent) { var _rafF = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); }; _rafF(function () { _applyFocusScroll(); }); }
-	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit');
+	    // 디코딩 실패 시엔 빈 화면에 갇히지 않도록 업로드 화면으로 복귀.
+	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit').catch(function () { if (_deferInit) { setScreen('upload', { push: false }); _seedNavStack('upload'); } });
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
 	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);
 	  }
