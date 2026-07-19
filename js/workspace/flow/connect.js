@@ -41,19 +41,23 @@
           '<div class="linked-actions"><button class="lk-btn pink" data-fl="pickcust">+ 새 고객 등록</button><button class="lk-btn" data-fl="skipcust">연결 없이 진행</button></div></div>';
     }
     function loadRecent() {
-      if (D().recentLoaded || D()._recentLoading) return;
-      if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.recentCustomers)) { D().recentLoaded = true; return; }
-      D()._recentLoading = true;
+      var d0 = D();
+      if (d0.recentLoaded || d0._recentLoading) return;
+      if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.recentCustomers)) { d0.recentLoaded = true; return; }
+      d0._recentLoading = true;
       window.WorkspaceAdapter.recentCustomers(5).then(function (list) {
-        D().recent = list || []; D().recentLoaded = true; D()._recentLoading = false;
+        if (D() !== d0 || d0._dead) return;   // [v779 카오스QA] 세션 교체/닫힘 → 새 글에 안 씀
+        d0.recent = list || []; d0.recentLoaded = true; d0._recentLoading = false;
         if (CUR() === 'connect') setScreen('connect');
       });
     }
     function pickCustomer() {
       if (!window.WorkspaceAdapter) { toast('고객 모듈을 불러오지 못했어요'); return; }
-      window.WorkspaceAdapter.pickCustomer(D().customerId).then(function (r) {
+      var d0 = D();
+      window.WorkspaceAdapter.pickCustomer(d0.customerId).then(function (r) {
+        if (D() !== d0 || d0._dead) return;   // [v779 카오스QA] 피커 뜬 사이 세션 교체 → 엉뚱한 글에 고객 연결 방지
         if (r.ok) {
-          D().customerId = r.id; D().customerName = r.name; D().customerVc = r.vc || 0;
+          d0.customerId = r.id; d0.customerName = r.name; d0.customerVc = r.vc || 0;
           setScreen('connect'); toast(r.name + ' 고객과 연결했어요.');
         } else if (r.toast) toast(r.toast);
       });

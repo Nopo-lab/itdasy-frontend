@@ -3788,6 +3788,10 @@
   var _pubShow = _WSPP._pubShow, _pubHide = _WSPP._pubHide, _pubFinish = _WSPP._pubFinish;
 
 	  function publish(kind) {
+	    // [v779 카오스QA] 사진 0장 발행 방지 — 예전엔 outputUrl() 이 빈 문자열을 올려 서버가 원인불명 거부했다.
+	    if (!(editablePhotos() || []).length && !(d.templateOutputs || []).length && !d.templateOutput) {
+	      toast('사진을 먼저 추가해 주세요'); return;
+	    }
 	    // [버그수정 2026-07-10] 레이아웃 합성본(여러 장→1장)이 있으면 캐러셀 요청도 단일 피드로 — 원본 여러 장 전송/실패 방지.
 	    // [T-116] 단, 결과물이 2장 이상이면 그 합성본들을 캐러셀로 올리는 게 맞다 — 이때만 예외.
 	    // [버그수정 2026-07-17] 가드 기준도 세션 별칭(d.wsLayout) → 저장되는 합성본으로. 재오픈 초안에서 이 가드가
@@ -3855,7 +3859,9 @@
       if (!window.WorkspaceAdapter.publishInstagramV2) {
 	        d._publishing = false; _pubHide(); _markPrepared(); setScreen('caption'); toast('게시 준비 완료 — 업로드 기능을 불러오지 못했어요'); return;
       }
-      var cap = (d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '');
+      // [v779 카오스QA] 인스타 해시태그 상한 30개 — 초과하면 서버가 캡션을 거부/절단한다. 앞 30개만.
+      var _hs = (d.hashtags || []).slice(0, 30);
+      var cap = (d.caption || '') + (_hs.length ? '\n\n' + _hs.join(' ') : '');
       // [캐러셀] 여러 장이면 각 사진의 표시 이미지(편집 반영본)를 모아 보냄.
       // [T-116] 카드로 만든 결과물이 2장 이상이면 '원본 사진'이 아니라 '합성본'을 보내야 한다.
       //   (안 그러면 레이아웃을 다 만들어 놓고 원본 5장이 조용히 올라간다)

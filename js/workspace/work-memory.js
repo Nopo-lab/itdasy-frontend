@@ -232,7 +232,8 @@
         if (!victim) break;
         arr.splice(arr.indexOf(victim), 1);
       }
-      if (!_persist(arr)) return null;
+      // [v779 카오스QA] 저장공간 꽉 참/사생활모드면 무음 소실 → 원장은 기억된 줄 안다. 실패를 알린다.
+      if (!_persist(arr)) { try { if (window.showToast) window.showToast('저장 공간이 부족해 이 스타일을 기억하지 못했어요'); } catch (_te) { void _te; } return null; }
       if (arr.length === 1) _writeRaw(K_DEFAULT, rec.id);   // 첫 기억은 자동으로 기본
       _makeThumb(slot, rec.id);   // 비동기 — 썸네일은 늦게 붙어도 됨
       return rec;
