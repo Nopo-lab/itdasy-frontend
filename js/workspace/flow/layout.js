@@ -307,9 +307,14 @@
         //   있으면 그걸 단일 이미지로 연다 → 세 화면 통일. 사진 위치 재조정은 레이아웃 단계에서.
         // [v779] 자동합성(시술명·작업기억 텍스트를 구움) 전 원판(_autoBase)이 있으면 그걸 연다 —
         //   편집기가 같은 레이어를 라이브로 다시 얹으므로, 구워진 합성본을 열면 텍스트가 두 번 겹친다.
-        if (D().templateOutput) {
-          var _o0 = (D().templateOutputs || [])[0];
-          return { mode: 'composite', photoUrl: (_o0 && _o0._autoBase) || D().templateOutput };
+        // [v779 4장버그] 모드 판정을 outputUrl() 과 동일하게 스칼라+배열 기준으로 통일한다.
+        //   d.templateOutput(스칼라)은 슬롯 드래그(_wsMountStage onChange)·구성변경에서 배열과 따로 null 되는데,
+        //   '사진 편집' 버튼은 배열 폴백(templateOutputs[0])으로 노출된다. 스칼라만 보면 그 사이 진입이
+        //   collage 모드로 떨어져 4칸 그리드 + 스티커가 한 칸에 얹힌 것처럼 보였다(원장 지적).
+        var _o0 = (D().templateOutputs || [])[0];
+        var _comp = D().templateOutput || (_o0 && _o0.outputUrl);
+        if (_comp) {
+          return { mode: 'composite', photoUrl: (_o0 && _o0._autoBase) || _comp };
         }
         var m = _matchItdPreset(slots);
         if (m && L.kind === 'before_after' && m.idx === 1) m.idx = 7;   // 전후면 좌우(v2) 대신 BEFORE/AFTER(ba)
