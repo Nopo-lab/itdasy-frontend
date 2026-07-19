@@ -859,6 +859,9 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-svctag:active { transform: scale(.97); }
 .wsv2flow .cap-svctag.on { background: #17191C; border-color: #17191C; color: #fff; font-weight: 700; }   /* [캡션재설계 v2] 단일선택 = 검정 채움 */
 .wsv2flow .cap-svctag--add { background: #fff; color: #8B95A1; border: 1px dashed #C9CED4; }
+/* [v778 보스] 시술 추가 인라인 입력 — 팝업 대신 칩 자리에 바로 타이핑. 칩과 같은 알약 모양. */
+.wsv2flow .cap-svctag--addin { background: #fff; color: #17191C; border: 1px solid var(--brand-strong); outline: none; width: 128px; max-width: 52vw; font-weight: 600; }
+.wsv2flow .cap-svctag--addin::placeholder { color: #B0B7BF; font-weight: 500; }
 /* [칩삭제 2026-07-15] 칩 안 × — 시술·최근 시술 그 자리에서 삭제 */
 .wsv2flow .cap-svctag .cap-svctag__x { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin: 0 -4px 0 6px; border-radius: 50%; background: rgba(139,149,161,.16); color: #8B95A1; font-size: 11px; font-weight: 800; line-height: 1; }
 .wsv2flow .cap-svctag.on .cap-svctag__x { background: rgba(255,255,255,.24); color: #fff; }

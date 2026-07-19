@@ -1559,7 +1559,10 @@
         (!typeOpen ? '<span class="cap-svctags__chg">' + (valid ? '탭해서 업종 바꾸기' : '업종을 고르면 시술이 나와요') + '</span>' : '') + '</div>' +
       typeChips +
       (valid ? ('<div class="cap-svctags">' + chips +
-        '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button></div>') : '');
+        (d.svcAddOpen
+          ? '<input type="text" class="cap-svctag cap-svctag--addin" data-fl-svcaddin maxlength="40" placeholder="시술명 입력 후 Enter" aria-label="시술명 입력">'
+          : '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button>')
+        + '</div>') : '');
   }
   /* [#5 2026-07-17] 시술 칩 **중복선택** — 원장 요청("시술명 선택하는데 중복선택 가능하게").
      d.service 는 계속 '쉼표로 이어붙인 문자열'로 둔다. 이 값을 읽는 곳이 20군데 넘고(캡션 payload·
@@ -1584,10 +1587,19 @@
     else _svcSet(cur.concat([kw]));
     setScreen('caption');
   }
+  // [v778 보스] 시술 추가 = 팝업(window.prompt) 금지 → '추가' 칩 자리에 인라인 입력칸이 열리고
+  //   거기 바로 타자 치면 채워진다. Enter/blur 로 확정.
   function _addSvcKeyword() {
-    var kw = window.prompt('자주 쓰는 시술 추가'); if (kw == null) return; kw = String(kw).trim(); if (!kw) return;
+    d.svcAddOpen = true;
+    setScreen('caption', { push: false });   // 재렌더 → _mountCaption 이 입력칸에 포커스
+  }
+  function _commitSvcKeyword(kw) {
+    if (!d.svcAddOpen) return;                // Enter+blur 중복 방지(재탭=해제 토글로 새지 않게)
+    d.svcAddOpen = false;
+    kw = String(kw || '').trim();
+    if (!kw) { setScreen('caption', { push: false }); return; }   // 빈값 = 그냥 닫기
     try { var arr = JSON.parse(localStorage.getItem('itdasy_custom_keywords') || '[]'); if (arr.indexOf(kw) < 0) { arr.push(kw); localStorage.setItem('itdasy_custom_keywords', JSON.stringify(arr)); } } catch (_e) { void _e; }
-    _pickServiceTag(kw);
+    _pickServiceTag(kw);   // 칩 추가 + setScreen('caption') 재렌더(입력칸은 닫힘)
   }
   // [P4 2026-07-10] 최근 시술 자동완성 — 생성한 시술 문구를 기억했다가 탭 한 번으로 다시 채운다(매번 재입력 제거).
   function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
@@ -1751,6 +1763,18 @@
         e.preventDefault(); _wizCustomConfirm();
       });
       try { wcin.focus(); var _vl = wcin.value.length; wcin.setSelectionRange(_vl, _vl); } catch (_e) { void _e; }
+    }
+    // [v778 보스] 시술 추가 인라인 입력 — Enter=확정, Esc=취소, 다른 곳 탭(blur)=값 있으면 확정. 팝업 없이 바로 타이핑.
+    var svin = el.querySelector('[data-fl-svcaddin]');
+    if (svin && !svin._wsBound) {
+      svin._wsBound = true;
+      svin.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); _commitSvcKeyword(''); return; }
+        if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+        e.preventDefault(); _commitSvcKeyword(svin.value);
+      });
+      svin.addEventListener('blur', function () { _commitSvcKeyword(svin.value); });
+      try { svin.focus(); } catch (_es) { void _es; }
     }
     // [#12] PC에서 게시글/해시태그를 클릭하면 곧바로 편집되도록 클릭→포커스 보장(상위 클릭 위임에 먹히던 회귀 방지).
     function _ensureEditFocus(node) {
