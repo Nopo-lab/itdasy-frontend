@@ -3641,12 +3641,14 @@
   // [refactor S3] 전환 전 스텝별 로직은 STEP_FX[cur].onExit 에 위임(무동작변경). 흩어진 if(cur===) 사다리 제거 → 스텝 변경 시 레지스트리 한 줄.
   function onCta() {
     var c = CTA[cur]; if (!c) return;
+    if (d._ctaBusy) return;   // [v779 카오스QA] 비동기 전환(bake/compose) 중 연타 재진입 차단 — 이중 compose·레이아웃 경합·이중 저장 방지
     var fx = STEP_FX[cur];
     if (fx && fx.onExit) {
       var r = fx.onExit(c.to);
       if (r === false) return;                                       // 검증 실패/캡션 생성 등 — 전환 취소
       if (r && typeof r.then === 'function') {                       // bake/compose 등 비동기 — 완료 후 전환(성공·실패 모두 진행)
-        return r.then(function () { _ctaGo(c.to); }).catch(function () { _ctaGo(c.to); });
+        d._ctaBusy = true;
+        return r.then(function () { d._ctaBusy = false; _ctaGo(c.to); }).catch(function () { d._ctaBusy = false; _ctaGo(c.to); });
       }
     }
     _ctaGo(c.to);
@@ -3728,6 +3730,8 @@
   }
 
   function save() {
+    if (d._saving) return;   // [v779 카오스QA] 저장 연타 → 이중 저장·이중 close·이중 토스트 방지
+    d._saving = true;
     var slot = buildSlot();
     var done = function () {
       toast(d.customerName ? (d.customerName + ' 고객 기록에 저장했어요.') : '작업실에 저장했어요.');
@@ -3736,7 +3740,7 @@
       if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
     };
     if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) {
-      window.WorkspaceAdapter.saveItem(slot).then(function (r) { if (r.ok) done(); else toast('저장에 실패했어요'); });
+      window.WorkspaceAdapter.saveItem(slot).then(function (r) { if (r.ok) done(); else { d._saving = false; toast('저장에 실패했어요'); } });
     } else { done(); }
   }
 

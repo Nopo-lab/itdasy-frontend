@@ -122,6 +122,7 @@
       _ensureCards();
       var cards = d.wsCards || [];
       if (!WL || !cards.length) return Promise.resolve(null);
+      var _compAtStart = d.wsComp;   // [v779 카오스QA] 굽는 도중 구성 변경 감지용
       return Promise.all(cards.map(function (c, i) {
         var ps = _cardPhotos(c);
         if (!c.layout) {
@@ -140,6 +141,9 @@
             outputUrl: url, pairLabel: (i + 1) + '번째', photoIds: c.photoIds.slice() } : null;
         }).catch(function () { return null; });
       })).then(function (list) {
+        // [v779 카오스QA·P1] 굽는 도중 세션 교체/구성 변경(다른 옵션 탭)됐으면 이 낡은 결과로 덮어쓰지 않는다.
+        //   예전엔 무조건 덮어써서, 화면은 새 구성인데 발행은 방금 버린 구성이 조용히 올라갔다.
+        if (D() !== d || d.wsComp !== _compAtStart) return null;
         var outs = list.filter(Boolean);
         if (!outs.length) { toast('레이아웃을 굽지 못했어요 — 사진 그대로 진행할게요'); return null; }
         d.templateOutputs = outs;
