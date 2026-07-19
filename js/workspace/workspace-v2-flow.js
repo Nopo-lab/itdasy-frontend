@@ -2003,6 +2003,7 @@
 	      '</div>' +
 	      // [통합 2026-07-14] '여러 장으로 올리기' 별도 버튼 제거 — 위 버튼 하나가 _publishKind() 로 알아서 캐러셀 발행.
       (_multi ? '<div class="cap-pubnote">선택한 ' + _n + '장이 여러 장 게시물로 올라가요</div>' : '') +
+      _schedHtml() +
       _tagsHtml;
 	    }
     return '<div class="wsflow-prep">' +
@@ -2012,6 +2013,55 @@
         '<button type="button" data-fl="saveimg">이미지 저장</button>' +
         '<button type="button" class="pink" data-fl="igconnect">인스타 연결</button>' +
       '</div></div>';
+  }
+
+  // [v779] 예약 발행 — 기본 접힘, '예약하기' 누르면 datetime 입력. 스타일 inline(CSS 캐시 안전).
+  //   백엔드 /scheduled-posts 가 예약시각에 content_publish 로 발행(새 Meta 권한 불필요).
+  function _schedDefault() {
+    try {
+      var t = new Date(Date.now() + 2 * 3600 * 1000); t.setMinutes(0, 0, 0);
+      var p = function (n) { return String(n).length < 2 ? '0' + n : '' + n; };
+      return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate()) + 'T' + p(t.getHours()) + ':' + p(t.getMinutes());
+    } catch (_e) { return ''; }
+  }
+  function _schedHtml() {
+    if (!d._schedOpen) {
+      return '<button type="button" data-fl="schedopen" style="width:100%;margin-top:8px;background:none;border:1px solid rgba(213,138,149,.4);border-radius:12px;padding:11px;color:#8a7a80;font-size:13.5px;font-weight:700;cursor:pointer"><i class="ph-duotone ph-clock" style="vertical-align:-2px;margin-right:5px"></i>지금 말고 예약해서 올리기</button>';
+    }
+    return '<div style="margin-top:8px;padding:12px;border:1px solid rgba(213,138,149,.28);border-radius:14px;background:rgba(213,138,149,.05)">' +
+        '<div style="font-size:12.5px;font-weight:700;color:#8a7a80;margin-bottom:8px">언제 올릴까요?</div>' +
+        '<input type="datetime-local" data-fl-schedat value="' + esc(d._schedVal || _schedDefault()) + '" style="width:100%;height:42px;border:1px solid #E9EBEE;border-radius:10px;padding:0 10px;font-size:14px;box-sizing:border-box;margin-bottom:8px">' +
+        '<button type="button" data-fl="schedule"' + (d._scheduling ? ' disabled' : '') + ' style="width:100%;height:46px;border:none;border-radius:12px;background:#d58a95;color:#fff;font-size:14.5px;font-weight:800;cursor:pointer">' + (d._scheduling ? '예약 중…' : '이 시간에 예약') + '</button>' +
+      '</div>';
+  }
+  function _fmtSchedTime(dt) {
+    try { var p = function (n) { return String(n).length < 2 ? '0' + n : '' + n; }; return (dt.getMonth() + 1) + '월 ' + dt.getDate() + '일 ' + p(dt.getHours()) + ':' + p(dt.getMinutes()); } catch (_e) { return '예약 시간'; }
+  }
+  function _doSchedule() {
+    if (d._scheduling) return;
+    var inp = el && el.querySelector('[data-fl-schedat]');
+    var val = inp && inp.value; if (val) d._schedVal = val;
+    if (!val) { toast('올릴 날짜·시간을 골라 주세요'); return; }
+    var when = new Date(val);
+    if (isNaN(when.getTime()) || when.getTime() < Date.now() + 60000) { toast('지금보다 나중 시간으로 골라 주세요'); return; }
+    if (!(editablePhotos() || []).length && !d.templateOutput && !(d.templateOutputs || []).length) { toast('사진을 먼저 추가해 주세요'); return; }
+    flushCaptionInputs();
+    if (!String(d.caption || '').trim()) { toast('게시글을 먼저 만들어 주세요'); return; }
+    if (!(window.WorkspaceAdapter && window.WorkspaceAdapter.scheduleInstagramV2)) { toast('예약 기능을 불러오지 못했어요'); return; }
+    d._scheduling = true; setScreen('caption', { push: false });
+    var myD = d;
+    window.WorkspaceAdapter.scheduleInstagramV2({ imageUrl: outputUrl(), caption: d.caption, hashtags: (d.hashtags || []).slice(0, 30), scheduledAt: when.toISOString() })
+      .then(function (r) {
+        if (myD !== d || myD._dead) return;   // 세션 교체/닫힘 — 새 글 안 건드림
+        d._scheduling = false;
+        if (r && r.ok) {
+          d.publish = d.publish || {}; d.publish.status = 'scheduled'; d.publish.scheduledAt = when.getTime();
+          try { if (window.WorkspaceAdapter.saveItem) window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; }
+          toast(_fmtSchedTime(when) + '에 올라가도록 예약했어요');
+          if (window.WorkspaceV2 && window.WorkspaceV2.refresh) window.WorkspaceV2.refresh();
+          close();
+        } else { toast((r && r.toast) || '예약에 실패했어요'); setScreen('caption', { push: false }); }
+      }).catch(function () { if (myD === d) { d._scheduling = false; toast('예약에 실패했어요 — 잠시 후 다시'); setScreen('caption', { push: false }); } });
   }
 
   // [C5] 고객 연결 — 컬러바+방문횟수 배지, 아바타 없음
@@ -2460,6 +2510,9 @@
       // [요청7 2026-07-13] feedplan 액션 제거 — 인플로우 '피드 정렬해보기'(현작업만) 폐지. 피드 정렬은 작업실 홈 진입으로 이관.
       // [통합 2026-07-14] 버튼 하나 → 장수에 따라 feed/carousel 자동. (publishcarousel 은 레거시 경로로 유지)
       if (a === 'publish') { return publish(_publishKind()); }
+      // [v779] 예약 발행 — '지금 말고 예약'을 펼치고, 시간 골라 예약.
+      if (a === 'schedopen') { d._schedOpen = true; return setScreen('caption', { push: false }); }
+      if (a === 'schedule') { return _doSchedule(); }
       // [cleanup] publishstory/storypick/storypickcancel 제거 — 진입 버튼 없어 도달 불가였던 스토리 발행 세트. 발행은 피드/여러 장(carousel)만.
       if (a === 'publishcarousel') { return publish('carousel'); }
       if (a === 'copycap') { flushCaptionInputs(); window.WorkspaceAdapter && window.WorkspaceAdapter.copyText((d.caption || '') + (d.hashtags.length ? '\n\n' + d.hashtags.join(' ') : '')); _markPrepared(); return; }   // [#6] copyText 가 이미 토스트 → 중복 토스트 제거(두 개 쌓여 ~5초 떠있던 문제)

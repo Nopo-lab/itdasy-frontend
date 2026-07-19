@@ -397,6 +397,33 @@
         .catch(function () { return { ok: false, toast: '네트워크 오류로 저장하지 못했어요' }; });
     },
 
+    // [v779] 예약 발행 — 백엔드 /scheduled-posts. 서버가 예약시각에 content_publish 로 발행(새 Meta 권한 불필요).
+    //   즉시발행(multipart)과 달리 예약 업로드는 JSON {image_data: dataURL} → 서버가 절대 URL 반환 → 예약 생성.
+    scheduleInstagramV2: function (o) {
+      o = o || {};
+      var H = function () { var h = window.authHeader ? window.authHeader() : {}; h['Content-Type'] = 'application/json'; return h; };
+      var U = function (p) { return (typeof window.apiUrl === 'function') ? window.apiUrl(p) : ((window.API || '') + p); };
+      return _toJpegBlob(o.imageUrl, 1440, 0.86).then(function (blob) {
+        if (!blob) return { ok: false, toast: '이미지를 준비하지 못했어요' };
+        return new Promise(function (res) {
+          var fr = new FileReader();
+          fr.onload = function () { res(fr.result); };
+          fr.onerror = function () { res(null); };
+          fr.readAsDataURL(blob);
+        });
+      }).then(function (dataUrl) {
+        if (!dataUrl || typeof dataUrl !== 'string') return { ok: false, toast: '이미지 변환에 실패했어요' };
+        return fetch(U('/scheduled-posts/upload'), { method: 'POST', headers: H(), body: JSON.stringify({ image_data: dataUrl }) })
+          .then(function (r) { return r.ok ? r.json() : r.json().catch(function () { return {}; }).then(function (j) { throw { toast: j.detail || ('이미지 업로드 실패 (' + r.status + ')') }; }); })
+          .then(function (up) {
+            return fetch(U('/scheduled-posts'), { method: 'POST', headers: H(), body: JSON.stringify({
+              image_url: up.url, caption: String(o.caption || ''),
+              hashtags: (o.hashtags || []).join(','), scheduled_at: o.scheduledAt,
+            }) }).then(function (r2) { return r2.ok ? { ok: true } : r2.json().catch(function () { return {}; }).then(function (j) { return { ok: false, toast: j.detail || ('예약 저장 실패 (' + r2.status + ')') }; }); });
+          });
+      }).catch(function (e) { return { ok: false, toast: (e && e.toast) || '예약에 실패했어요 — 잠시 후 다시' }; });
+    },
+
     // [P1 학습 루프 2026-07-10] 발행한 최종 캡션을 학습에 반영 — PATCH /persona/generation_logs/{id}
     //   published=true 면 백엔드가 final_text 를 PastPost 로 역반입해 few-shot/fingerprint 학습에 씀. 실패해도 조용히.
     recordPublishedCaption: function (logId, finalText, igMediaId) {
