@@ -404,6 +404,10 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-edit-btn { width: 100%; height: 50px; margin: 2px 0 14px; border: 1.5px solid var(--brand-strong); border-radius: var(--r-md); background: var(--brand-bg); color: var(--brand-strong); font-size: 15px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; }
 .wsv2flow .cap-edit-btn i { font-size: 19px; }
 .wsv2flow .cap-edit-btn:active { transform: scale(.99); opacity: .92; }
+/* [v779 보스] 캡션 생성 로딩 — 차분한 프리미엄형(로즈 링 + 페르소나 칩). .cl-* 는 style-home.css 공용. */
+.wsv2flow .cap-loading2 { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 56px 24px; min-height: 320px; text-align: center; }
+.wsv2flow .cap-loading2 .cl-chips { max-width: 300px; width: 100%; }
+
 /* 재생성 버튼 3종 */
 .wsv2flow .cap-regen-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .wsv2flow .cap-regen-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 calc(50% - 8px); min-width: 92px; height: 42px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); color: var(--text-muted); font-size: 12.5px; font-weight: 800; cursor: pointer; }

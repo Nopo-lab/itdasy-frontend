@@ -1699,20 +1699,29 @@
       return !!(a && a.isContentEditable && el && el.contains(a) && (a.hasAttribute('data-fl-igcap') || a.hasAttribute('data-fl-ighash')));
     } catch (_e) { return false; }
   }
+  // [v779 보스] 캡션 생성 중 로딩 — '차분한 프리미엄형'(로즈 링 + 말투/길이/이모지 칩).
+  //   itdasy_latest_analysis(페르소나)로 칩 값을 채운다. 미연동이면 칩 없이 링+문구만.
+  function _capPersonaWords() {
+    var raw = {}; try { raw = JSON.parse(localStorage.getItem('itdasy_latest_analysis') || '{}'); } catch (_e) { raw = {}; }
+    var avgLen = parseInt(raw.avg_caption_length) || 0;
+    var lenWord = avgLen > 0 ? (avgLen < 50 ? '짧게' : avgLen > 120 ? '길게' : '보통') : '보통';
+    var em = (raw.emojis || '').match(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u);
+    var toneWord = (raw.tone_summary || raw.tone || '').replace(/["']/g, '').trim().split(/[\s,·]+/)[0] || '자연스러운';
+    return { tone: toneWord, len: lenWord, emoji: em ? em[0] : '✨' };
+  }
+  function _capLoadingHtml() {
+    var on = _personaOn(), pw = _capPersonaWords();
+    var chip = function (k, v) { return '<div class="cl-chip filled"><span class="cl-chip__k">' + k + '</span><span class="cl-chip__v">' + esc(v) + '</span></div>'; };
+    return '<div class="cap-loading2">' +
+      '<div class="cl-ring" aria-hidden="true"><span class="cl-ring__core"></span></div>' +
+      '<div class="cl-msg">AI가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
+      (on ? ('<div class="cl-chips">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>') : '') +
+      '<div class="cl-hint">' + (on ? '원장님 스타일 그대로 맞추는 중이에요' : '잠시만 기다려 주세요') + '</div>' +
+      '</div>';
+  }
   function renderCaption() {
     var url = outputUrl();
-    if (d.capLoading) {
-      // [Skeleton] 스피너 대신 캡션 카드 형태 스켈레톤 — 결과가 어떻게 올지 미리 보이게(Astryx 로딩 패턴).
-      return '<div class="cap-skelwrap">' +
-        '<div class="cap-skel-note"><span class="cap-skel-dot"></span>AI가 ' + (_personaOn() ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
-        '<div class="cap-skel-card">' +
-          '<div class="cap-skel-line" style="width:92%"></div>' +
-          '<div class="cap-skel-line" style="width:100%"></div>' +
-          '<div class="cap-skel-line" style="width:78%"></div>' +
-          '<div class="cap-skel-line cap-skel-line--gap" style="width:60%"></div>' +
-          '<div class="cap-skel-tags"><span></span><span></span><span></span><span></span></div>' +
-        '</div></div>';
-    }
+    if (d.capLoading) { return _capLoadingHtml(); }
 	    if (!d.caption) {
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      // [ws-hyper] 레이아웃 합성본은 폭 꽉 차는 img로(레터박스 빈 여백 제거).
