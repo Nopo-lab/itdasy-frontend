@@ -251,7 +251,11 @@
       return {
         id: p.id, thumb: p.thumb_url || '', caption: p.caption || '', permalink: p.permalink || '',
         // 지표는 _num 으로 강제 — API 가 문자열("123")·NaN·음수를 주면 점수 계산이 문자열 연결/NaN 로 깨진다(M4)
-        likes: _num(p.like_count), comments: _num(p.comments_count), saved: _num(p.saved), reach: _num(p.reach),
+        // [댓글수 보정 2026-07-19] 원장 본인 답글 뺀 손님 댓글 수(백엔드 comments_count_ex_owner) 우선.
+        //   구버전 백엔드(필드 없음)면 원값으로 폴백 — 이땐 예전처럼 원장 답글 포함.
+        likes: _num(p.like_count),
+        comments: _num(p.comments_count_ex_owner != null ? p.comments_count_ex_owner : p.comments_count),
+        saved: _num(p.saved), reach: _num(p.reach),
         shares: _num(p.shares),
         publishedAt: ts || (slot && slot.publish && slot.publish.publishedAt) || 0,
         slot: slot, tone: slot ? _toneOf(slot) : null, layout: slot ? _layoutOf(slot) : '',
