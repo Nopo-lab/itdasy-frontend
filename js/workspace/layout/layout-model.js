@@ -152,7 +152,7 @@
   }
 
   // 레이아웃 + 사진 → 미리보기 dataURL. assign(옵션)=슬롯별 photo 지정, 없으면 autoAssign.
-  function composeLayout(layout, photos, assign) {
+  function composeLayout(layout, photos, assign, meta) {
     if (!layout) return Promise.resolve(null);
     var dim = ratioWH(layout.ratio || (layout.frame && layout.frame.ratio) || '4:5');
     var map = assign || autoAssign(photos, layout);
@@ -161,6 +161,8 @@
       var cv = document.createElement('canvas'); cv.width = dim.w; cv.height = dim.h;
       var ctx = cv.getContext('2d');
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, dim.w, dim.h);
+      // [v779] 못 불러온 슬롯(회색칸) 수를 호출부에 알린다 — 부분 손상 콜라주가 무경고로 발행되던 것 방지.
+      if (meta) { var _m = 0; for (var _k = 0; _k < imgs.length; _k++) { if (!imgs[_k]) _m++; } meta.missing = _m; }
       slots.forEach(function (sl, i) {
         var r = sl.rect, dx = r.x * dim.w, dy = r.y * dim.h, dw = r.w * dim.w, dh = r.h * dim.h;
         if (imgs[i]) _drawCover(ctx, imgs[i], dx, dy, dw, dh, sl.focal, sl.zoom);

@@ -111,7 +111,9 @@
       if (!Object.prototype.hasOwnProperty.call(slot, k) || META_SKIP[k]) continue;
       var v = slot[k];
       if (typeof v === 'function' || _isDataImg(v)) continue;
-      try { if (JSON.stringify(v) && JSON.stringify(v).length > 100000) continue; } catch (_e) { continue; }
+      // [v779] 100KB 초과 필드는 서버로 안 올린다 — 예전엔 무음 드롭이라 기기 간 소실이 조용히 났다.
+      //   URL 치환(deepReplace) 뒤에도 큰 필드가 남으면 로그로 남겨 원인 추적 가능하게.
+      try { if (JSON.stringify(v) && JSON.stringify(v).length > 100000) { try { console.warn('[wsSync] 100KB 초과 필드 드롭:', k); } catch (_w) { void _w; } continue; } } catch (_e) { continue; }
       m[k] = v;
     }
     return m;

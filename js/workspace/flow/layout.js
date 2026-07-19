@@ -136,9 +136,10 @@
           if (sl.role === 'before' && map[sl.id]) bId = map[sl.id].id;
           if (sl.role === 'after' && map[sl.id]) aId = map[sl.id].id;
         });
-        return Promise.resolve(WL.composeLayout(_fillLayoutText(c.layout), ps, map)).then(function (url) {
+        var _meta = {};
+        return Promise.resolve(WL.composeLayout(_fillLayoutText(c.layout), ps, map, _meta)).then(function (url) {
           return url ? { pairId: c.id, templateId: c.layout.id, beforePhotoId: bId, afterPhotoId: aId,
-            outputUrl: url, pairLabel: (i + 1) + '번째', photoIds: c.photoIds.slice() } : null;
+            outputUrl: url, pairLabel: (i + 1) + '번째', photoIds: c.photoIds.slice(), missing: _meta.missing || 0 } : null;
         }).catch(function () { return null; });
       })).then(function (list) {
         // [v779 카오스QA·P1] 굽는 도중 세션 교체/구성 변경(다른 옵션 탭)됐으면 이 낡은 결과로 덮어쓰지 않는다.
@@ -152,6 +153,9 @@
         d.activeDisplayId = null;
         d.previewUrl = null;
         if (outs.length < cards.length) toast((cards.length - outs.length) + '장은 못 만들어서 뺐어요');
+        // [v779] 일부 칸을 못 불러와 회색으로 구워진 경우(다기기 CORS·손상 이미지) 무경고 발행 방지.
+        var _miss = 0; outs.forEach(function (o) { _miss += (o && o.missing) || 0; });
+        if (_miss) toast('사진 ' + _miss + '칸을 못 불러와 회색으로 나왔어요 — 사진을 다시 확인해 주세요');
         return outs;
       });
     }
