@@ -1709,14 +1709,27 @@
     var toneWord = (raw.tone_summary || raw.tone || '').replace(/["']/g, '').trim().split(/[\s,·]+/)[0] || '자연스러운';
     return { tone: toneWord, len: lenWord, emoji: em ? em[0] : '✨' };
   }
+  // [v779 보스] 자체 완결형 — 외부 CSS(.cl-*)에 안 기댄다. CSS 캐시가 옛것이어도(HTML만 새로 와도)
+  //   링이 멈추거나 화면이 비지 않게, keyframes+스타일을 HTML 안에 심고 inline 으로만 그린다.
+  //   스피너는 iOS 에서 확실히 도는 border-spin(conic/mask 는 기기따라 안 도는 경우가 있어 폐기).
   function _capLoadingHtml() {
     var on = _personaOn(), pw = _capPersonaWords();
-    var chip = function (k, v) { return '<div class="cl-chip filled"><span class="cl-chip__k">' + k + '</span><span class="cl-chip__v">' + esc(v) + '</span></div>'; };
-    return '<div class="cap-loading2">' +
-      '<div class="cl-ring" aria-hidden="true"><span class="cl-ring__core"></span></div>' +
-      '<div class="cl-msg">AI가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
-      (on ? ('<div class="cl-chips">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>') : '') +
-      '<div class="cl-hint">' + (on ? '원장님 스타일 그대로 맞추는 중이에요' : '잠시만 기다려 주세요') + '</div>' +
+    var chip = function (k, v) {
+      return '<div style="flex:1;min-width:0;padding:9px 4px;border-radius:13px;background:rgba(213,138,149,.09);border:1.5px solid rgba(213,138,149,.28)">' +
+        '<div style="font-size:9.5px;font-weight:700;color:#b6a7ac">' + k + '</div>' +
+        '<div style="font-size:12.5px;font-weight:800;color:#d58a95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(v) + '</div></div>';
+    };
+    return '<style>@keyframes wslSpin{to{transform:rotate(360deg)}}@keyframes wslDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}</style>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:64px 24px;min-height:340px;text-align:center">' +
+        '<div style="width:46px;height:46px;border-radius:50%;border:3.5px solid rgba(213,138,149,.22);border-top-color:#d58a95;animation:wslSpin .8s linear infinite"></div>' +
+        '<div style="font-size:15.5px;font-weight:800;letter-spacing:-.02em;color:#2c2528">AI가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
+        (on
+          ? '<div style="display:flex;gap:7px;width:100%;max-width:290px;margin-top:2px">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>'
+          : '<div style="display:flex;gap:6px;margin-top:2px">' +
+              '<span style="width:8px;height:8px;border-radius:50%;background:#d58a95;animation:wslDot 1.2s ease-in-out infinite"></span>' +
+              '<span style="width:8px;height:8px;border-radius:50%;background:#d58a95;animation:wslDot 1.2s ease-in-out .2s infinite"></span>' +
+              '<span style="width:8px;height:8px;border-radius:50%;background:#d58a95;animation:wslDot 1.2s ease-in-out .4s infinite"></span></div>') +
+        '<div style="font-size:12px;font-weight:600;color:#a89aa0;letter-spacing:-.01em">' + (on ? '원장님 스타일 그대로 맞추는 중이에요' : '잠시만 기다려 주세요') + '</div>' +
       '</div>';
   }
   function renderCaption() {
