@@ -353,6 +353,17 @@
     if (!outs.length) return;
     var built = _buildShopStyleLayers();
     var layers = (built && built.layers) || [];
+    // [v779 보스] '이 스타일로 또'로 지정한 작업 기억(선·도형·스티커·글씨 등)도 결과 사진에 자동으로 굽는다.
+    //   예전엔 사진편집을 열어야만 보였다. 편집기와 같은 병합 규칙 — role 겹치는 텍스트만 제외(이번 글 문구 보호),
+    //   role 없는 꾸밈(선/스티커)은 얹는다. 편집기는 굽기 전 원판(_autoBase)을 열어 이중으로 안 구워진다.
+    try {
+      var _wm = (window.WorkMemory && window.WorkMemory.defaultEditState)
+        ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length, layersOnly: true }) : null;
+      if (_wm && _wm.layers && _wm.layers.length) {
+        var _have = {}; layers.forEach(function (L) { if (L && L.role) _have[L.role] = 1; });
+        layers = layers.concat(_wm.layers.filter(function (L) { return !(L && L.role && _have[L.role]); }));
+      }
+    } catch (_wmE) { void _wmE; }
     if (!layers.length) return;
     // 텍스트·자리·크기만으로 지문 — 로고 dataUrl 은 넣지 않는다(길이만 커지고 판별력은 role/좌표로 충분).
     var sig = layers.map(function (L) {

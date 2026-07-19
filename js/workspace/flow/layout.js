@@ -301,7 +301,12 @@
         //   예전엔 프리셋 매칭 시 원본을 콜라주로 재조립해서, 원장이 드래그로 맞춘 크롭이 유실되고
         //   편집기/캡션전/캡션후 화면이 서로 다른 이미지를 보여줬다(원장 지적: "다 달라"). 합성본이
         //   있으면 그걸 단일 이미지로 연다 → 세 화면 통일. 사진 위치 재조정은 레이아웃 단계에서.
-        if (D().templateOutput) return { mode: 'composite', photoUrl: D().templateOutput };
+        // [v779] 자동합성(시술명·작업기억 텍스트를 구움) 전 원판(_autoBase)이 있으면 그걸 연다 —
+        //   편집기가 같은 레이어를 라이브로 다시 얹으므로, 구워진 합성본을 열면 텍스트가 두 번 겹친다.
+        if (D().templateOutput) {
+          var _o0 = (D().templateOutputs || [])[0];
+          return { mode: 'composite', photoUrl: (_o0 && _o0._autoBase) || D().templateOutput };
+        }
         var m = _matchItdPreset(slots);
         if (m && L.kind === 'before_after' && m.idx === 1) m.idx = 7;   // 전후면 좌우(v2) 대신 BEFORE/AFTER(ba)
         if (m) {
