@@ -228,6 +228,13 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 
   .login-foot{text-align:center;font-size:13px;color:var(--text3,#98A1AC);margin-top:26px}
   .login-foot a{color:var(--accent,var(--brand));font-weight:700;text-decoration:none}
+
+  /* [2026-07-20 v780] 비밀번호 찾기 — 인라인 링크 + 안내 문구 */
+  .login-forgot{display:block;margin:0 0 2px auto;background:none;border:none;padding:5px 2px;font-size:12.5px;font-weight:600;color:var(--text3,#98A1AC);cursor:pointer;font-family:inherit;letter-spacing:-.2px;transition:color .15s}
+  .login-forgot.is-confirm{color:var(--accent,var(--brand));font-weight:700}
+  .login-forgot:disabled{color:#c3cad2;cursor:default}
+  .login-forgot-msg{font-size:12.5px;line-height:1.5;color:var(--text3,#98A1AC);text-align:right;margin-bottom:6px;letter-spacing:-.2px}
+  .login-forgot-msg.is-ok{color:var(--accent,var(--brand));font-weight:600}
 </style>
 </head>
 <body>
@@ -750,6 +757,9 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
     </div>
+
+    <button type="button" class="login-forgot" id="forgotPwLink">비밀번호를 잊으셨나요?</button>
+    <div class="login-forgot-msg" id="forgotPwMsg" style="display:none"></div>
 
     <div class="login-error" id="loginError"></div>
     <button class="login-cta" id="loginBtn">로그인</button>
@@ -2248,7 +2258,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     });
   })();
 </script>
-<script src="app-core.js?v=20260717-v768-merge"></script>
+<script src="app-core.js?v=20260720-v780-pwreset"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
 <script src="js/load-groups.js?v=20260720-v779-svcvocab-dedup" defer></script>

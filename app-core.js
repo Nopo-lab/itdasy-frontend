@@ -1371,6 +1371,74 @@ async function login() {
   }
 }
 
+// [2026-07-20 v780] 비밀번호 찾기 — 로그인 화면 인라인 (화면 이동/팝업 없음)
+// 흐름: 링크 한 번(확인 단계) → 한 번 더(발송) → 60초 쿨다운. confirm() 금지 규칙 준수.
+let _forgotState = 'idle'; // idle | confirm | sending | cooldown
+let _forgotTimer = null;
+function _forgotMsg(text, ok) {
+  const el = document.getElementById('forgotPwMsg');
+  if (!el) return;
+  if (!text) { el.style.display = 'none'; el.textContent = ''; el.classList.remove('is-ok'); return; }
+  el.textContent = text;
+  el.classList.toggle('is-ok', !!ok);
+  el.style.display = 'block';
+}
+function _forgotReset() {
+  _forgotState = 'idle';
+  const btn = document.getElementById('forgotPwLink');
+  if (btn) { btn.disabled = false; btn.textContent = '비밀번호를 잊으셨나요?'; btn.classList.remove('is-confirm'); }
+}
+async function forgotPassword() {
+  const btn = document.getElementById('forgotPwLink');
+  if (!btn || _forgotState === 'sending' || _forgotState === 'cooldown') return;
+  const emailEl = document.getElementById('loginEmail');
+  const email = (emailEl && emailEl.value || '').trim();
+
+  // 1단계 — 인라인 확인 (같은 자리에서 버튼 라벨만 바뀜)
+  if (_forgotState === 'idle') {
+    if (!email) {
+      _forgotMsg('이메일을 먼저 입력해주세요.');
+      if (emailEl) emailEl.focus();
+      return;
+    }
+    _forgotState = 'confirm';
+    btn.classList.add('is-confirm');
+    btn.textContent = '이 주소로 메일 보내기';
+    _forgotMsg(email + ' 주소로 비밀번호 재설정 메일을 보낼까요?');
+    return;
+  }
+
+  // 2단계 — 발송 (이메일은 발송 시점 값으로 다시 읽음)
+  if (!email) { _forgotReset(); _forgotMsg('이메일을 먼저 입력해주세요.'); return; }
+  _forgotState = 'sending';
+  btn.disabled = true;
+  btn.textContent = '보내는 중...';
+  try {
+    const res = await apiFetch('/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    _forgotMsg('재설정 메일을 보냈어요. 메일함을 확인해주세요. (30분 안에)', true);
+    // 연타 방지 — 60초 쿨다운 후 재발송 가능
+    _forgotState = 'cooldown';
+    btn.classList.remove('is-confirm');
+    let left = 60;
+    btn.textContent = '다시 보내기 (' + left + '초)';
+    clearInterval(_forgotTimer);
+    _forgotTimer = setInterval(() => {
+      left -= 1;
+      if (left <= 0) { clearInterval(_forgotTimer); _forgotReset(); return; }
+      const b = document.getElementById('forgotPwLink');
+      if (b) b.textContent = '다시 보내기 (' + left + '초)';
+    }, 1000);
+  } catch (e) {
+    _forgotReset();
+    _forgotMsg('메일을 보내지 못했어요. 잠시 후 다시 시도해주세요.');
+  }
+}
+
 // 네트워크/타임아웃 등 친근한 에러 메시지
 function _friendlyErr(e, fallback) {
   const m = String(e && e.message || e || '').toLowerCase();
@@ -2424,6 +2492,7 @@ Object.assign(window, {
   }
   const ready = () => {
     on('loginBtn', () => typeof login === 'function' && login());
+    on('forgotPwLink', () => typeof forgotPassword === 'function' && forgotPassword());
     on('logoutBtn', () => {
       if (typeof closeSettings === 'function') closeSettings();
       if (typeof logout === 'function') logout();
