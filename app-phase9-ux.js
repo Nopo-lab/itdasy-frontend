@@ -100,6 +100,10 @@
   }
 
   function openQuickRevenue() {
+    // [P0-2] Revenue 엔진은 lazy 'revenue' 그룹. 폼 여는 순간 미리 로드해 저장(Revenue.create) 시 준비되게.
+    if (window.AppLoader && typeof window.AppLoader.ensure === 'function' && !window.AppLoader.loaded('revenue')) {
+      window.AppLoader.ensure('revenue');
+    }
     const el = _ensureRevenueSheet();
     el.style.display = 'flex';
     setTimeout(() => el.querySelector('#p9RevAmount')?.focus(), 60);

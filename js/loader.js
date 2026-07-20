@@ -84,11 +84,17 @@
      외부 진입점은 openCalendarView·openBooking 둘뿐(나머지 _cal*·closeBooking 은 열린 뒤 내부용). */
   _stub('openCalendarView', 'features', '예약 화면 준비 중…');
   _stub('openBooking', 'features', '예약 화면 준비 중…');
+  /* [P0-2 Phase2] 매출 화면(app-revenue 계열 7파일) — revenue 그룹으로 오프로드.
+     외부 진입점은 openRevenue·openRevenueHub·openRevenueInput. Revenue 엔진 소비처는
+     API폴백(service-templates)·toast가드+ensure브리지(phase9)로 안전. */
+  _stub('openRevenue', 'revenue', '매출 화면 준비 중…');
+  _stub('openRevenueHub', 'revenue', '매출 화면 준비 중…');
+  _stub('openRevenueInput', 'revenue', '매출 화면 준비 중…');
 
   /* ── 유휴 선로딩 — 홈 첫 페인트를 막지 않게 load 이후 idle 에 시작.
        잇비(매일 쓰는 기능) → 주변 기능 → 사진(106개, 최대 덩어리) 순서. ── */
   function _prefetch() {
-    const go = () => { ensure('assistant').then(() => ensure('features')).then(() => ensure('extras')).then(() => ensure('photo')); };
+    const go = () => { ensure('assistant').then(() => ensure('features')).then(() => ensure('revenue')).then(() => ensure('extras')).then(() => ensure('photo')); };
     if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 });
     else setTimeout(go, 1500);
   }

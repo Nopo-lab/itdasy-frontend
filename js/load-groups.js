@@ -225,5 +225,18 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   //   부팅 top-level 부작용은 "달력 열린 뒤"에만 의미. loader.js 스텁이 openCalendarView/openBooking 브리지.
   features: [
   'app-calendar-view.js?v=20260714-qafix6'
+  ],
+  // [P0-2 Phase2] 매출 화면 계열 — 홈은 부팅 시 매출을 안 그림(전부 openRevenue* 진입점·클릭).
+  //   loader.js 스텁이 openRevenue/openRevenueHub/openRevenueInput 브리지. index.html 원래 순서 보존.
+  //   ⚠️ booking-revenue-overlay(홈 브리핑 enrichBrief 의존)는 cold 유지 — 여기 없음.
+  //   Revenue 엔진 외부 소비: service-templates=API폴백 / phase9=ensure브리지+toast가드.
+  revenue: [
+  'app-revenue.js?v=20260714-qa-guard',
+  'app-revenue-today.js?v=20260519-v221',
+  'app-revenue-month.js?v=20260615-v474-showcase-flow',
+  'app-revenue-calendar.js?v=20260720-v780-calendar-lazy',
+  'js/revenue-edit.js?v=20260714-qafix6',
+  'app-revenue-hub.js?v=20260610-final',
+  'app-revenue-report.js'
   ]
 });
