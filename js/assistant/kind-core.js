@@ -58,6 +58,8 @@
       mark_booking_completed:{ icon: 'ic-check-circle',    label: '시술 완료', color: '#15803D' },
       refund_revenue:        { icon: 'ic-corner-up-left',  label: '환불 처리', color: '#F97316' },
       update_service_price:  { icon: 'ic-dollar-sign',     label: '가격 변경', color: '#0EA5E9' },
+      // [Phase 0 · 2026-07-20] 잇비 해제 kind — 시술 기록(포트폴리오 1급 엔티티)
+      create_treatment_record:{ icon: 'ic-camera',         label: '시술 기록', color: '#7C6BB0' },
     };
   }
 
