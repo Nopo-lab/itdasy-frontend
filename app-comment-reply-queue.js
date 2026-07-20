@@ -13,13 +13,22 @@
    ⚠️ BE 요구 2건(선택적): POST /instagram/comment-reply 에 send_public/send_dm 플래그,
    GET /instagram/comment-queue 응답에 media_caption_full·media_timestamp (팝업 상세용).
    플래그 없이도 동작(텍스트 '' 로 보냄) — BE가 빈 텍스트 채널 스킵하면 완성.
+
+   [2026-07-20 v787] 상단·카드 재정리 (원영 승인 목업 v5+정렬)
+   ① 배너·통계박스·필터탭 삭제 → 한 줄 "● 대기 N건 · 이번 주 N건 응대" + 최신순/오래된순 토글
+     (불만 댓글은 정렬 무관 항상 최상단)
+   ② 닉네임 옆 문의/확실 배지 삭제(불만·단골만 유지), 메타는 시간만
+   ③ 게시물 칩 → 카드 안 인용 스트립(썸네일 52px + 캡션 + 날짜, 탭=미리보기 팝업)
+   ④ DM 접기 폐지 — 전문 항상 펼침(말줄임 금지), 공개답글/DM 라벨줄 구조 통일 → 토글 세로선 정렬
+   ⑤ 글자 3단계(15 본문 / 13 보조 / 배지 10)
+   ⑥ 프사: BE profile_pic(댓글 닉네임↔DM 기록 매칭, BE 작업 대기) 있으면 사진, 없으면 이니셜
    ─────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
 
   var ID = 'commentReplyQueueScreen';
   var _view = 'queue';           // 'queue' | 'settings'
-  var _filter = 'all';
+  var _sort = 'new';             // 'new' 최신순 | 'old' 오래된순 (불만은 항상 최상단)
 
   function _esc(s) { return (window._esc ? window._esc(String(s == null ? '' : s)) : String(s == null ? '' : s)); }
   function _toast(m) { if (window.showToast) window.showToast(m); }
@@ -39,12 +48,6 @@
       text: '위치가 어디예요? 주차 되나요?',
       publicDraft: '위치·오시는 길 DM으로 보냈어요',
       dmDraft: '서울 강남구 테헤란로 12길 34, 5층이에요. 건물 주차 2시간 무료!' }
-  ];
-
-  var _INTENT_KO = { price: '가격 문의', booking: '예약 문의', location: '위치 문의', hours: '영업시간 문의', service: '시술 문의', complaint: '불만·요청' };
-  var _FILTERS = [
-    { k: 'all', label: '전체' }, { k: 'price', label: '가격' },
-    { k: 'booking', label: '예약' }, { k: 'location', label: '위치' }
   ];
 
   var ITEMS = SEED.slice();   // 렌더 대상 — 실연동 성공 시 실댓글로 교체
@@ -100,11 +103,11 @@
   function _mapReal(it) {
     var d = _drafts(it.intent);
     return { id: it.comment_id, commentId: it.comment_id, mediaId: it.media_id || '', name: it.username ? ('@' + it.username) : '손님',
-      av: (it.username || '?').slice(0, 1), intent: it.intent,
-      media: it.media_caption ? ('“' + it.media_caption + '…”') : '게시물 댓글',
+      av: (it.username || '?').slice(0, 1), pic: it.profile_pic || '', intent: it.intent,   // pic = BE 프사 매칭(대기)
+      media: it.media_caption || '게시물',
       mediaFull: it.media_caption_full || it.media_caption || '',   // 팝업용 캡션 전문 (BE 필드 추가 대기 — 없으면 요약)
       mediaDate: it.media_timestamp || '',                          // 팝업용 발행일 (BE 필드 추가 대기)
-      permalink: it.permalink || '', likes: it.like_count || 0,
+      permalink: it.permalink || '', likes: it.like_count || 0, ts: it.timestamp || '',
       waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual, returning: !!it.returning, confidence: it.confidence || '',
       publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
   }
@@ -118,89 +121,94 @@
     heart: _svg('<path d="M12 21s-7.5-4.6-10-9.3C.6 8.9 2 5.5 5.2 5.5c2 0 3.2 1.3 3.8 2.3.6-1 1.8-2.3 3.8-2.3 3.2 0 4.6 3.4 3.2 6.2C19.5 16.4 12 21 12 21z"/>', { w: 13, fill: 'currentColor', stroke: 'none' }),
     comment: _svg('<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4L3 21l1.1-4.1A8.4 8.4 0 1 1 21 11.5z"/>', { w: 12 }),
     mail: _svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', { w: 12 }),
-    send: _svg('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>', { w: 15 })
+    send: _svg('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>', { w: 15 }),
+    sort: _svg('<path d="M11 5h10"/><path d="M11 9h7"/><path d="M11 13h4"/><path d="M3 17l3 3 3-3"/><path d="M6 18V4"/>', { w: 13 })
   };
+  // [v787] 댓글 경과시간 — 실데이터는 timestamp, 시드는 waiting(분) 폴백
+  function _ago(it) {
+    var t = it.ts ? Date.parse(it.ts) : NaN;
+    if (!isFinite(t)) { return it.waiting <= 0 ? '방금' : it.waiting + '분 전'; }
+    var m = Math.floor((Date.now() - t) / 60000);
+    if (m < 1) return '방금';
+    if (m < 60) return m + '분 전';
+    if (m < 1440) return Math.floor(m / 60) + '시간 전';
+    return Math.floor(m / 1440) + '일 전';
+  }
   // [v785] 채널별 발송 토글 — 앱 공통 규칙: 스위치 on=초록(#16B55E)
   function _tgHtml(on, kind, id) {
     return '<span class="crq-tg" data-kind="' + kind + '" data-id="' + _esc(id) + '" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;margin-left:auto;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (on ? '#16B55E' : '#D1D6DB') + ';">' +
       '<span style="position:absolute;top:2px;left:' + (on ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span>';
   }
-  // 말풍선 공통 스타일 (좌상단 꼬리)
-  var _BUBBLE = 'background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;';
+  // 말풍선 공통 스타일 (좌상단 꼬리) — [v787] 본문 15px 통일, DM은 배경만 다름
+  var _BUBBLE = 'background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:11px 13px;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word;';
+  var _DMBUBBLE = 'background:#F7F8FA;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:11px 13px;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word;';
   function _editArea(icon, label, cls, id, val) {
-    return '<div style="font-size:10.5px;color:#8B95A1;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">' + icon + label + ' · 수정</div>' +
-      '<textarea class="' + cls + '" data-id="' + _esc(id) + '" rows="3" style="width:100%;padding:9px 12px;border:1px solid #BC6675;border-radius:12px;font-size:13px;line-height:1.5;background:#fff;color:#191F28;box-sizing:border-box;font-family:inherit;resize:vertical;">' + _esc(val) + '</textarea>';
+    return '<div style="font-size:13px;color:#8B95A1;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">' + icon + label + ' · 수정</div>' +
+      '<textarea class="' + cls + '" data-id="' + _esc(id) + '" rows="3" style="width:100%;padding:9px 12px;border:1px solid #BC6675;border-radius:12px;font-size:15px;line-height:1.55;background:#fff;color:#191F28;box-sizing:border-box;font-family:inherit;resize:vertical;">' + _esc(val) + '</textarea>';
   }
   // 표시/발송용 최종 문구 — 편집(override)했으면 그 값, 아니면 설정 반영값
   function _displayPublic(it) { return (it._override && it._override.pub != null) ? it._override.pub : _finalPublic(it); }
   function _displayDm(it) { return (it._override && it._override.dm != null) ? it._override.dm : _finalDm(it); }
 
+  // [v787] 채널 라벨줄 공통 — 아이콘+라벨(13px) 좌, 토글 우측 끝(margin-left:auto → 세로선 정렬)
+  function _chRow(icon, label, on, kind, id, badges) {
+    return '<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px;">' +
+      '<span style="font-size:13px;color:#8B95A1;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' + icon + label + '</span>' +
+      (badges || '') + _tgHtml(on, kind, id) + '</div>';
+  }
+
   function _cardHtml(it) {
     var pubOn = it._sendPub !== false, dmOn = it._sendDm !== false;
     var dmText = _displayDm(it);
-    var dmFirst = (dmText.split('\n')[0] || '').slice(0, 24);
-    // 게시물 칩 (헤더 우측) — 탭하면 미리보기 팝업 (인스타로 안 튐, 화면 이동 금지)
-    var chip = '<button class="crq-chip" data-id="' + _esc(it.id) + '" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:#F7F8FA;border:none;border-radius:999px;padding:4px 9px 4px 4px;cursor:pointer;font-family:inherit;">' +
+    // [v787] 게시물 인용 스트립 — 카드 안, 탭=미리보기 팝업 (기존 crq-chip 핸들러 재사용)
+    var dstr = it.mediaDate ? _peekDate(it.mediaDate) : '';
+    var strip = '<button class="crq-chip" data-id="' + _esc(it.id) + '" style="width:100%;display:flex;align-items:center;gap:10px;background:#F7F8FA;border:none;border-radius:13px;padding:8px;margin-bottom:11px;cursor:pointer;font-family:inherit;text-align:left;">' +
       (it.thumb
-        ? '<span style="width:26px;height:26px;border-radius:8px;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></span>'
-        : '<span style="width:26px;height:26px;border-radius:8px;background:#E5E8EB;display:inline-flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</span>') +
-      '<span style="font-size:11.5px;font-weight:600;color:#6B7684;">게시물 보기</span>' +
-      '<span style="color:#B0B8C1;font-size:12px;">›</span></button>';
-    // 공개 답글 — 라벨줄에 토글, 끄면 회색 안내
-    var pubLabel = '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">' +
-      '<span style="font-size:10.5px;color:#8B95A1;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' + IC.comment + '공개 답글 · 댓글에 달림</span>' +
-      (it.manual ? '<span style="font-size:9.5px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:7px;padding:1px 6px;">내 멘트</span>' : '') +
-      (it._override ? '<span style="font-size:9.5px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:7px;padding:1px 6px;">수정함</span>' : '') +
-      _tgHtml(pubOn, 'pub', it.id) + '</div>';
-    var pubHtml = '<div style="margin-bottom:9px;">' + pubLabel +
+        ? '<span style="width:52px;height:52px;flex-shrink:0;border-radius:10px;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></span>'
+        : '<span style="width:52px;height:52px;flex-shrink:0;border-radius:10px;background:#E5E8EB;display:inline-flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</span>') +
+      '<span style="flex:1;min-width:0;">' +
+        '<span style="display:block;font-size:13px;font-weight:600;color:#6B7684;line-height:1.4;">' + _esc(it.media) + '</span>' +
+        '<span style="display:block;font-size:13px;color:#B0B8C1;margin-top:2px;">이 게시물에 달린 댓글' + (dstr ? ' · ' + dstr : '') + '</span>' +
+      '</span>' +
+      '<span style="color:#B0B8C1;font-size:13px;flex-shrink:0;">›</span></button>';
+    // 공개 답글 — 라벨줄(토글 우측 끝) + 말풍선 or 꺼짐 안내
+    var pubBadges = (it.manual ? '<span style="font-size:10px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:7px;padding:1px 6px;">내 멘트</span>' : '') +
+      (it._override ? '<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:7px;padding:1px 6px;">수정함</span>' : '');
+    var pubHtml = '<div style="margin-bottom:10px;">' + _chRow(IC.comment, '공개 답글', pubOn, 'pub', it.id, pubBadges) +
       (pubOn ? '<div style="' + _BUBBLE + '">' + _esc(_displayPublic(it)) + '</div>'
-             : '<div style="font-size:12px;color:#B0B8C1;padding:1px 2px 0;">공개 답글 안 달아요</div>') + '</div>';
-    // 비공개 DM — 기본 접힘(첫 문장만), 탭하면 펼침. 끄면 흐림 처리.
-    var dmHtml;
-    if (!dmOn) {
-      dmHtml = '<div style="display:flex;align-items:center;gap:6px;background:#F7F8FA;border-radius:11px;padding:9px 11px;opacity:.55;">' +
-        '<span style="color:#8B95A1;display:inline-flex;">' + IC.mail + '</span>' +
-        '<span style="flex:1;font-size:12px;color:#8B95A1;">비공개 DM 안 보냄</span>' + _tgHtml(false, 'dm', it.id) + '</div>';
-    } else if (it._dmOpen) {
-      dmHtml = '<div><div class="crq-dmline" data-id="' + _esc(it.id) + '" style="display:flex;align-items:center;gap:5px;margin-bottom:4px;cursor:pointer;">' +
-        '<span style="font-size:10.5px;color:#8B95A1;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' + IC.mail + '비공개 DM · 상세</span>' +
-        '<span style="color:#B0B8C1;font-size:12px;display:inline-block;transform:rotate(90deg);">›</span>' +
-        _tgHtml(true, 'dm', it.id) + '</div>' +
-        '<div style="' + _BUBBLE + '">' + _esc(dmText) + '</div></div>';
-    } else {
-      dmHtml = '<div class="crq-dmline" data-id="' + _esc(it.id) + '" style="display:flex;align-items:center;gap:6px;background:#F7F8FA;border-radius:11px;padding:9px 11px;cursor:pointer;">' +
-        '<span style="color:#8B95A1;display:inline-flex;">' + IC.mail + '</span>' +
-        '<span style="flex:1;min-width:0;font-size:12px;color:#6B7684;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">비공개 DM · “' + _esc(dmFirst) + (dmText.length > dmFirst.length ? '…' : '') + '”</span>' +
-        '<span style="color:#B0B8C1;font-size:12px;">›</span>' + _tgHtml(true, 'dm', it.id) + '</div>';
-    }
+             : '<div style="font-size:13px;color:#B0B8C1;padding:1px 2px 0;">공개 답글 안 달아요</div>') + '</div>';
+    // 비공개 DM — [v787] 접기 폐지, 전문 항상 펼침 (말줄임 금지)
+    var dmHtml = '<div>' + _chRow(IC.mail, '비공개 DM', dmOn, 'dm', it.id, '') +
+      (dmOn ? '<div style="' + _DMBUBBLE + '">' + _esc(dmText) + '</div>'
+            : '<div style="font-size:13px;color:#B0B8C1;padding:1px 2px 0;">비공개 DM 안 보냄</div>') + '</div>';
     // CTA 라벨 = 토글 조합 (둘 다 끄면 비활성)
     var sendOff = !pubOn && !dmOn;
     var sendLabel = pubOn && dmOn ? '답글+DM 보내기' : pubOn ? '답글만 보내기' : dmOn ? 'DM만 보내기' : '보낼 내용을 켜주세요';
+    // 아바타 — BE profile_pic(댓글↔DM 매칭) 있으면 사진, 없으면 이니셜
+    var avatar = it.pic
+      ? '<div style="width:38px;height:38px;border-radius:50%;flex-shrink:0;background:#F2F4F6 center/cover no-repeat;background-image:url(' + _esc(it.pic) + ');"></div>'
+      : '<div style="width:38px;height:38px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;font-size:14px;font-weight:700;">' + _esc(it.av) + '</div>';
     return '<div class="crq-item" data-id="' + _esc(it.id) + '" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">' +
-      // 발신자 + 게시물 칩
-      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;">' +
-        '<div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;font-size:13px;font-weight:700;">' + _esc(it.av) + '</div>' +
+      // 발신자
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">' + avatar +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(it.name) + '</span>' +
-            (it.intent === 'complaint'
-              ? '<span style="font-size:10px;font-weight:700;color:#DC2626;background:#FEF2F2;border-radius:8px;padding:2px 7px;">불만</span>'
-              : '<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:8px;padding:2px 7px;">문의</span>') +
-            (it.returning ? '<span style="font-size:10px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:8px;padding:2px 7px;">단골</span>' : '') +
-            (it.confidence === 'high' && it.intent !== 'complaint' ? '<span style="font-size:10px;font-weight:700;color:#3B6D11;background:#EAF3DE;border-radius:8px;padding:2px 7px;">확실</span>' : '') + '</div>' +
-          '<div style="font-size:11px;color:#8B95A1;margin-top:1px;">' + (it.waiting <= 0 ? '방금' : it.waiting + '분 전') + ' · ' + _esc(_INTENT_KO[it.intent] || '문의') + '</div>' +
-        '</div>' + chip +
-      '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:15px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;">' + _esc(it.name) + '</span>' +
+            (it.intent === 'complaint' ? '<span style="font-size:10px;font-weight:700;color:#DC2626;background:#FEF2F2;border-radius:8px;padding:2px 7px;">불만</span>' : '') +
+            (it.returning ? '<span style="font-size:10px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:8px;padding:2px 7px;">단골</span>' : '') + '</div>' +
+          '<div style="font-size:13px;color:#8B95A1;margin-top:1px;">' + _ago(it) + '</div>' +
+        '</div>' +
+      '</div>' + strip +
       // 손님 댓글 원문
-      '<div style="background:#fff;border:.5px solid #E5E8EB;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;margin-bottom:12px;">' + _esc(it.text) + '</div>' +
+      '<div style="background:#fff;border:.5px solid #E5E8EB;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:11px 13px;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:break-word;margin-bottom:12px;">' + _esc(it.text) + '</div>' +
       // 잇비 추천 답장 — 편집 중이면 텍스트영역, 아니면 토글형 답글/DM
       (it._editing
         ? _editArea(IC.comment, '공개 답글', 'crq-edit-pub', it.id, _displayPublic(it)) + '<div style="height:9px;"></div>' + _editArea(IC.mail, '비공개 DM', 'crq-edit-dm', it.id, dmText)
         : pubHtml + dmHtml) +
       // 액션
       '<div style="display:flex;gap:8px;margin-top:13px;align-items:center;">' +
-        '<button class="crq-send" data-id="' + _esc(it.id) + '"' + (sendOff ? ' disabled' : '') + ' style="flex:1;padding:11px;border:none;background:' + (sendOff ? '#E5E8EB' : '#191F28') + ';color:' + (sendOff ? '#8B95A1' : '#fff') + ';font-weight:700;font-size:13px;border-radius:13px;cursor:' + (sendOff ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;gap:5px;">' + (sendOff ? '' : IC.send) + sendLabel + '</button>' +
-        '<button class="crq-edit" data-id="' + _esc(it.id) + '" style="padding:11px 14px;border:1px solid ' + (it._editing ? '#BC6675' : '#E5E8EB') + ';background:#fff;color:' + (it._editing ? '#BC6675' : '#191F28') + ';font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">' + (it._editing ? '완료' : '수정') + '</button>' +
-        '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="padding:11px 6px;border:none;background:none;color:#8B95A1;font-weight:600;font-size:12px;cursor:pointer;">무시</button>' +
+        '<button class="crq-send" data-id="' + _esc(it.id) + '"' + (sendOff ? ' disabled' : '') + ' style="flex:1;padding:12px;border:none;background:' + (sendOff ? '#E5E8EB' : '#191F28') + ';color:' + (sendOff ? '#8B95A1' : '#fff') + ';font-weight:700;font-size:15px;border-radius:13px;cursor:' + (sendOff ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;gap:5px;">' + (sendOff ? '' : IC.send) + sendLabel + '</button>' +
+        '<button class="crq-edit" data-id="' + _esc(it.id) + '" style="padding:12px 14px;border:1px solid ' + (it._editing ? '#BC6675' : '#E5E8EB') + ';background:#fff;color:' + (it._editing ? '#BC6675' : '#191F28') + ';font-weight:600;font-size:15px;border-radius:13px;cursor:pointer;">' + (it._editing ? '완료' : '수정') + '</button>' +
+        '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="padding:12px 6px;border:none;background:none;color:#8B95A1;font-weight:600;font-size:13px;cursor:pointer;">무시</button>' +
       '</div>' +
     '</div>';
   }
@@ -236,13 +244,14 @@
     document.body.appendChild(w);
   }
 
-  function _tabsHtml() {
-    return '<div style="display:flex;gap:16px;margin-bottom:14px;border-bottom:.5px solid #F2F4F6;">' +
-      _FILTERS.map(function (f) {
-        var n = f.k === 'all' ? ITEMS.length : ITEMS.filter(function (x) { return x.intent === f.k; }).length;
-        var on = _filter === f.k;
-        return '<button class="crq-tab" data-filter="' + f.k + '" style="background:none;border:none;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:' + (on ? 700 : 500) + ';color:' + (on ? '#191F28' : '#8B95A1') + ';padding-bottom:8px;border-bottom:2px solid ' + (on ? '#191F28' : 'transparent') + ';">' + f.label + ' ' + n + '</button>';
-      }).join('') + '</div>';
+  // [v787] 한 줄 상태 + 정렬 토글 — 배너·통계박스·필터탭 대체
+  function _statRow(count) {
+    return '<div style="display:flex;align-items:center;gap:7px;margin-bottom:13px;padding:2px 2px 0;">' +
+      '<span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;background:#16B55E;"></span>' +
+      '<span style="font-size:15px;color:#191F28;"><b>대기 ' + count + '건</b>' +
+        (_weekReplied > 0 ? '<span style="color:#8B95A1;font-weight:400;"> · 이번 주 ' + _weekReplied + '건 응대</span>' : '') + '</span>' +
+      '<button class="crq-sort" style="margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:#6B7684;padding:4px 2px;">' +
+        IC.sort + (_sort === 'old' ? '오래된순' : '최신순') + '</button></div>';
   }
 
   function _banner(bg, brd, fg, msg) {
@@ -252,21 +261,24 @@
   }
   function _demoBanner() {
     if (_loading) return _banner('#F2F4F6', '#E5E8EB', '#4E5968', '실제 인스타 댓글을 불러오는 중…');
-    if (_realMode) return _banner('#E7F6EF', '#A9DFC6', '#0F766E', '<b>실제 인스타 댓글</b>이에요. 문의(가격·예약·위치)만 골라 보여드려요.');
     return _banner('#FFF7ED', '#FED7AA', '#9A3412', '지금 보이는 댓글은 <b>예시</b>예요. 실제 댓글을 불러오려면 <b>인스타 연동 + 댓글 권한</b>이 필요해요. (연동돼도 문의 댓글이 없으면 예시가 보여요)');
+  }
+  // [v787] 정렬 기준 시각 — 실데이터 timestamp, 시드는 waiting(분) 역산
+  function _ord(it) {
+    var t = it.ts ? Date.parse(it.ts) : NaN;
+    return isFinite(t) ? t : (Date.now() - (it.waiting || 0) * 60000);
   }
   function _queueBody() {
     var items = ITEMS.filter(function (it) { return _settings.intents[it.intent] !== false; })   // 설정에서 끈 의도 제외
-      .filter(function (it) { return _filter === 'all' || it.intent === _filter; });
+      .slice().sort(function (a, b) {
+        var ca = a.intent === 'complaint' ? 1 : 0, cb = b.intent === 'complaint' ? 1 : 0;
+        if (ca !== cb) return cb - ca;                                    // 불만 항상 최상단
+        return _sort === 'old' ? _ord(a) - _ord(b) : _ord(b) - _ord(a);   // 그 외 시간순
+      });
     var cards = items.length ? items.map(_cardHtml).join('') :
-      '<div style="text-align:center;color:#C9CDD4;font-size:13px;padding:40px 0;">이 조건의 문의 댓글이 없어요</div>';
-    var stat = (_realMode && (_weekReplied > 0 || items.length > 0))
-      ? '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:11px 13px;background:#F7F8FA;border-radius:12px;">' +
-          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F766E" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 9l-5 5-3-3-4 4"/></svg>' +
-          '<span style="font-size:12.5px;color:#4E5968;">이번 주 <b style="color:#0F766E;">' + _weekReplied + '건</b> 응대' +
-          (items.length ? ' · 대기 <b style="color:#191F28;">' + items.length + '건</b>' : ' · 대기 없음') + '</span></div>'
-      : '';
-    return _demoBanner() + stat + _tabsHtml() + cards +
+      '<div style="text-align:center;color:#C9CDD4;font-size:13px;padding:40px 0;">응대할 문의 댓글이 없어요</div>';
+    var top = _realMode ? _statRow(items.length) : _demoBanner() + _statRow(items.length);
+    return top + cards +
       '<div style="font-size:11px;color:#C9CDD4;text-align:center;margin-top:12px;">애매한 댓글은 큐에 안 올라와요 · 확실한 문의만</div>';
   }
 
@@ -359,14 +371,6 @@
         }
         return;
       }
-      // [v785] DM 접힌 줄 탭 → 펼침/접기
-      var dml = e.target.closest ? e.target.closest('.crq-dmline') : null;
-      if (dml) {
-        _haptic();
-        var di = ITEMS.find(function (x) { return x.id === dml.getAttribute('data-id'); });
-        if (di) { di._dmOpen = !di._dmOpen; _render(); }
-        return;
-      }
       // 설정 컨트롤(span/div — 버튼 아님) 먼저 처리
       var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-mode') : null;
       if (sc) {
@@ -391,7 +395,8 @@
         _view = 'queue'; _render();
         return;
       }
-      if (t.classList.contains('crq-tab')) { _filter = t.getAttribute('data-filter'); _render(); return; }
+      // [v787] 정렬 토글 — 최신순 ↔ 오래된순 (불만은 항상 위)
+      if (t.classList.contains('crq-sort')) { _haptic(); _sort = _sort === 'old' ? 'new' : 'old'; _render(); return; }
       var id = t.getAttribute('data-id');
       if (t.classList.contains('crq-send')) { _haptic(); _sendReply(id); return; }
       if (t.classList.contains('crq-edit')) {
@@ -469,7 +474,7 @@
   function openCommentReplyQueue() {
     if (window.ITDASY_IG_COMMENT_REPLY === false) { _toast('댓글 응대는 준비 중이에요'); return; }
     var el = _ensureMounted();
-    _view = 'queue'; _filter = 'all';
+    _view = 'queue'; _sort = 'new';
     ITEMS = SEED.slice(); _realMode = false; _loading = false;
     _render();
     _loadReal();   // 연동됐으면 실댓글로 교체(비동기)
