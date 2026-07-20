@@ -350,6 +350,8 @@ body.itdasy-locked > :not(#lockOverlay, #signupOverlay, script, style, svg) {
 .ob-step.active { display: block; }
 
 .ob-emoji { font-size: 52px; margin-bottom: 20px; line-height: 1; }
+/* [O2] 온보딩 히어로 이모지(📸/🏪) → Lucide 심볼로 교체 (OS별 렌더 편차 제거) */
+.ob-emoji svg { width: 56px; height: 56px; color: var(--brand-strong); vertical-align: middle; }
 
 .ob-title {
   font-size: 24px; font-weight: 700; color: var(--text);

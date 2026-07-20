@@ -51,6 +51,8 @@
 /* [v559] flex 자식 min-width:auto 로 인해 내부 nowrap typewriter 가 280px 에서 가로 오버플로 → min-width:0 으로 축소 허용. */
 .ipc-live-bubble { background: var(--surface); border-radius: 4px 13px 13px; padding: 8px 12px; font-size: 12.5px; color: var(--text-muted); box-shadow: 0 1px 4px rgba(25,31,40,.05); display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
 .ipc-live-bubble b { color: var(--text); font-weight: 700; }
+/* 메시지+badge 사이 mid-word 줄바꿈 방지 — 텍스트를 하나의 flex 자식으로 묶고 한글은 어절 단위로만 접기 */
+.ipc-live-msg { flex: 1; min-width: 0; word-break: keep-all; }
 .ipc-ok { width: 15px; height: 15px; border-radius: 50%; background: #16B55E; color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: auto; }
 .ipc-typewriter { display: inline-block; border-right: 2px solid var(--brand); white-space: nowrap; overflow: hidden; max-width: 100%; vertical-align: bottom; animation: ipcTw 6.5s steps(24,end) infinite, ipcBlink .8s step-end infinite; }
 @keyframes ipcTw { 0%,3%{width:0} 18%,100%{width:100%} }

@@ -48,6 +48,9 @@
 
 /* 그리드 — 좌상단 로즈 '+ 새 게시물' 타일 + 정사각 콘텐츠 타일 */
 .wf-feed{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; background:#fff; }
+/* [W1] 게시물 0개 신규 유저 안내 — 빈 흰 공간 대신 첫 행동 유도 */
+.wshc-empty-hint{ margin:18px 20px 0; text-align:center; font-size:13px; line-height:1.6; color:var(--text-subtle,#8B95A1); word-break:keep-all; }
+.wshc-empty-hint b{ color:var(--c-rose-strong,var(--brand-strong)); font-weight:700; }
 .wf-add,.wf-tile{ position:relative; aspect-ratio:1; border:0; padding:0; overflow:hidden; background-size:cover; background-position:center; background-color:#E4E7EA; -webkit-tap-highlight-color:transparent; transition:transform .175s var(--spring),filter .175s var(--spring); animation:wfIn .41s var(--spring) both; }
 .wf-add:active,.wf-tile:active{ transform:scale(.94); filter:brightness(.94); }
 .wf-add{ background:linear-gradient(160deg,var(--c-rose) 0%,var(--c-rose-strong) 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; color:#fff; }

@@ -525,10 +525,14 @@ function obSkipShopType() {
 }
 
 function _obFinish() {
-  const name = document.getElementById('obShopNameInput').value.trim();
+  const _nameInput = document.getElementById('obShopNameInput');
+  const name = _nameInput.value.trim();
   if (!name) {
-    document.getElementById('obShopNameInput').style.borderBottomColor = '#E05555';
-    setTimeout(() => document.getElementById('obShopNameInput').style.borderBottomColor = '', 1200);
+    // [O1] 빨간 밑줄만으론 왜 안 넘어가는지 몰라 신규 유저가 멈추던 문제 — 이유를 토스트로 명확히.
+    _nameInput.style.borderBottomColor = '#E05555';
+    setTimeout(() => _nameInput.style.borderBottomColor = '', 1200);
+    showToast('샵 이름을 입력해주세요');
+    _nameInput.focus();
     return;
   }
   localStorage.setItem('onboarding_done', '1');

@@ -180,6 +180,11 @@
     var addCell = '<button type="button" class="wf-add" data-wsv2-upload data-haptic="medium" aria-label="새 게시물 업로드">' +
       '<span class="wf-add__ic">' + _PLUS + '</span><span class="wf-add__t">새 게시물</span></button>';
     var feed = '<div class="wf-feed">' + addCell + visible.map(_feedTile).join('') + '</div>';
+    // [W1] 게시물 0개 신규 유저 — 빈 흰 공간에 '+ 새 게시물' 타일만 떠 미완성처럼 보이던 문제.
+    //   진짜 게시물이 하나도 없을 때만 한 줄 안내로 첫 행동을 유도(순수 추가·기존 로직 무영향).
+    var emptyHint = (slots.length === 0)
+      ? '<p class="wshc-empty-hint">사진만 올리면 AI가 캡션까지 써드려요.<br>위 <b>새 게시물</b>을 눌러 첫 글을 만들어보세요.</p>'
+      : '';
     return '' +
       '<section class="wsv2 wshc wshc--feed" data-wsv2-root>' +
         _pheadHTML() +
@@ -187,6 +192,7 @@
         _segsHTML(slots) +
         '<input type="file" accept="image/*" multiple data-wsv2-file hidden>' +
         feed +
+        emptyHint +
         (_selectMode ? _bulkBarHTML() : '') +
       '</section>';
   }

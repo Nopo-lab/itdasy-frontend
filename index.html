@@ -127,7 +127,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <link rel="stylesheet" href="css/patterns.css">
 <link rel="stylesheet" href="css/screens/home.css">
 <link rel="stylesheet" href="css/screens/home-v41.css?v=20260705-itbi-hotfix">
-<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260612-ipc-livedemo">
+<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260720-cbt-firstrun">
 <!-- [2026-05-24] PowerView CSS 제거 — 기능 폐지 -->
 <link rel="stylesheet" href="css/screens/hubs.css?v=20260505-v97">
 <link rel="stylesheet" href="css/screens/hubs-prototype.css?v=20260709-v716-sidevar">
@@ -182,7 +182,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <!-- [ws-hyper] 초고도화 레이아웃 고르기 화면 (플래그 OFF면 미사용) -->
 <link rel="stylesheet" href="css/workspace-hyper.css?v=20260718-v776-morelayouts">
 
-<link rel="stylesheet" href="css/workspace-home-c.css?v=20260717-v774-round3">
+<link rel="stylesheet" href="css/workspace-home-c.css?v=20260720-cbt-firstrun">
 <link rel="stylesheet" href="css/itd-editor.css?v=20260718-v775-bgnoadjust">
 <link rel="stylesheet" href="css/workspace-crop.css?v=20260709-v716-sidevar">
 <style id="login-v22">
@@ -841,7 +841,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 
   <!-- Step 1: 환영 + 핵심가치 -->
   <div class="ob-step active" id="ob-step-1">
-    <div class="ob-emoji">📸</div>
+    <div class="ob-emoji"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-camera"/></svg></div>
     <div class="ob-title">사진만 올리면<br>AI가 글을 만들어드려요</div>
     <div class="ob-sub">잇데이는 1인 샵 원장님 전용 AI 잇비예요</div>
   </div>
@@ -908,7 +908,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 
   <!-- Step 3: 샵 이름 -->
   <div class="ob-step" id="ob-step-3">
-    <div class="ob-emoji">🏪</div>
+    <div class="ob-emoji"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ic-store"/></svg></div>
     <div class="ob-title">샵 이름이<br>어떻게 되세요?</div>
     <div class="ob-sub" style="margin-bottom:20px;">글에 자동으로 반영돼요</div>
     <div class="ob-underline-wrap">
@@ -1355,11 +1355,11 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
         </div>
         <div class="ipc-live-row m2">
           <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
-          <div class="ipc-live-bubble">박서연 손님 예약, <b>캘린더에 등록했어요</b><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+          <div class="ipc-live-bubble"><span class="ipc-live-msg">박서연 손님 예약, <b>캘린더에 등록했어요</b></span><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
         </div>
         <div class="ipc-live-row m3">
           <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
-          <div class="ipc-live-bubble">사진 보정 끝, <b>탭 한 번이면 업로드</b><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+          <div class="ipc-live-bubble"><span class="ipc-live-msg">사진 보정 끝, <b>탭 한 번이면 업로드</b></span><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
         </div>
         <div class="ipc-live-cap"><span class="ipc-live-dot"></span>연동되면 잇비가 바로 이렇게 일해요</div>
       </div>
@@ -2258,7 +2258,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     });
   })();
 </script>
-<script src="app-core.js?v=20260720-v780-pwreset"></script>
+<script src="app-core.js?v=20260720-cbt-firstrun"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
 <script src="js/load-groups.js?v=20260720-v785-crq-redesign" defer></script>
