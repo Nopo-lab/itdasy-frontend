@@ -1649,6 +1649,24 @@
   }
   // [P4 2026-07-10] 최근 시술 자동완성 — 생성한 시술 문구를 기억했다가 탭 한 번으로 다시 채운다(매번 재입력 제거).
   function _recentServices() { try { var a = JSON.parse(localStorage.getItem('itdasy:recent_services') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  /* [최근시술 소스 확장 2026-07-20] '최근 시술' = 캡션에 쓴 것(위) + 실제 예약에서 쓴 시술. 관리 모드에서
+     어느 소스를 반영할지 토글(itdasy_recent_src, 기본 둘 다 ON). × 삭제는 itdasy_recent_hidden 으로
+     양쪽 소스에서 함께 숨긴다(예약 소스는 지워도 다시 오므로). 예약 시술은 window.Booking._items(메모리 캐시). */
+  function _recentBookingServices() {
+    try {
+      var items = (window.Booking && window.Booking._items) || [];
+      if (!Array.isArray(items)) return [];
+      return items.slice().sort(function (a, b) { return new Date(b && b.starts_at || 0) - new Date(a && a.starts_at || 0); })
+        .map(function (b) { return String(b && b.service_name || '').replace(/\s+/g, ' ').trim(); }).filter(Boolean);
+    } catch (_e) { return []; }
+  }
+  function _recentSrcPref() {
+    try { var p = JSON.parse(localStorage.getItem('itdasy_recent_src') || 'null'); if (p && typeof p === 'object') return { caption: p.caption !== false, booking: p.booking !== false }; } catch (_e) { void _e; }
+    return { caption: true, booking: true };   // 기본 둘 다 ON
+  }
+  function _saveRecentSrcPref(p) { try { localStorage.setItem('itdasy_recent_src', JSON.stringify(p)); } catch (_e) { void _e; } }
+  function _recentHidden() { try { var a = JSON.parse(localStorage.getItem('itdasy_recent_hidden') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  function _recentHide(name) { try { var a = _recentHidden(); if (a.indexOf(name) < 0) { a.push(name); localStorage.setItem('itdasy_recent_hidden', JSON.stringify(a.slice(0, 60))); } } catch (_e) { void _e; } }
   /* [#5 2026-07-17] 중복선택이 되면서 svc 가 "속눈썹, 네일" 같은 조인 문자열로 들어온다.
      통째로 저장하면 '속눈썹, 네일' 이라는 없는 시술이 칩으로 박제되고(그 조합을 또 쓸 일도 없다)
      40자 한도에도 금방 걸린다 → **쉼표로 쪼개 하나씩** 저장한다. 상한 6 → 5(원장 요청). */
@@ -1679,30 +1697,40 @@
       });
       localStorage.setItem('itdasy:recent_services', JSON.stringify(a));
     } catch (_e2) { void _e2; }
+    _recentHide(name);   // [소스확장] 예약 소스는 지워도 다시 오므로 숨김 목록에도 넣어 함께 제외
     // [#5] 다중선택 — 지운 칩만 선택에서 뺀다(예전엔 '통째로 같으면 전체 해제'라 다중에선 안 먹었다)
     _svcSet(_svcList().filter(function (s) { return s !== name; }));
     setScreen('caption');
   }
   function _recentSvcHtml() {
-    var a = _recentServices(); if (!a.length) return '';
-    // [캡션재설계 v2] 시술명만 — 옛 버전이 문장 통째로 저장한 값은 드롭 규칙으로 정제하고, 그래도 길면(40자+) 제외.
-    //   탭 = 시술 칩과 같은 단일선택(data-fl-svctag 재사용 → 핸들러 하나).
+    var manage = !!d.svcManageOpen;
+    var pref = _recentSrcPref();
+    // [소스확장] 캡션 입력 + 예약 시술을 토글대로 병합. 관리 모드에선 토글칩을 항상 보여준다(비어도).
+    var raw = [];
+    if (pref.caption) raw = raw.concat(_recentServices());
+    if (pref.booking) raw = raw.concat(_recentBookingServices());
+    var hidden = _recentHidden();
+    // [캡션재설계 v2] 시술명만 — 문장 통째 값은 드롭 규칙으로 정제, 40자+ 제외. 탭 = 시술 칩과 같은 단일선택.
     var _selArr = _svcList(), names = [], seen = {};
-    a.forEach(function (s) {
+    raw.forEach(function (s) {
       var n = ''; try { n = _publicServiceKeywords(s) || ''; } catch (_e) { void _e; }
       n = String(n || s).replace(/\s+/g, ' ').trim();
-      if (!n || n.length > 40 || seen[n]) return;
+      if (!n || n.length > 40 || seen[n] || hidden.indexOf(n) >= 0) return;
       seen[n] = 1; names.push(n);
     });
-    // [#5 2026-07-17] 최근 시술은 5개까지만 — 저장(_saveRecentService)에서도 5로 자르지만, 옛 6개짜리
-    //   목록이 이미 저장돼 있을 수 있어 렌더에서도 자른다(정제·중복제거 후라 여기가 실제 보이는 개수).
-    names = names.slice(0, 5);
-    if (!names.length) return '';
-    return '<div class="cap-svctags" style="margin-bottom:8px">' +
-      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">최근 시술 · 탭해서 선택(여러 개 가능) · ×로 삭제</span>' +
+    names = names.slice(0, 8);   // 소스 둘이라 상한을 5→8 로(정제·중복·숨김 후 실제 보이는 수)
+    if (!names.length && !manage) return '';   // 관리 모드면 토글 보이게 빈 상태도 렌더
+    var toggleRow = manage ? ('<div class="cap-recentsrc">' +
+        '<span class="cap-recentsrc__lbl">최근 시술 채우기</span>' +
+        '<button type="button" class="cap-recentsrc__t' + (pref.caption ? ' on' : '') + '" data-fl-recentsrc="caption">캡션에 쓴 시술</button>' +
+        '<button type="button" class="cap-recentsrc__t' + (pref.booking ? ' on' : '') + '" data-fl-recentsrc="booking">예약 시술</button>' +
+      '</div>') : '';
+    var hintTxt = manage ? '탭해서 선택 · ×로 삭제' : '최근 시술 · 탭해서 선택(여러 개 가능)';
+    return toggleRow + '<div class="cap-svctags" style="margin-bottom:8px">' +
+      '<span class="cap-svctags__hint" style="width:100%;margin:0 0 4px">' + hintTxt + '</span>' +
       names.map(function (n) { var lbl = n.length > 20 ? (n.slice(0, 20) + '…') : n;
-        return '<button type="button" class="cap-svctag' + (_selArr.indexOf(n) >= 0 ? ' on' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) +
-          '<span class="cap-svctag__x" data-fl-recentdel="' + esc(n) + '" aria-label="삭제">×</span></button>'; }).join('') + '</div>';
+        return '<button type="button" class="cap-svctag' + (_selArr.indexOf(n) >= 0 ? ' on' : '') + (manage ? ' cap-svctag--manage' : '') + '" data-fl-svctag="' + esc(n) + '" title="' + esc(n) + '">' + esc(lbl) +
+          (manage ? '<span class="cap-svctag__x" data-fl-recentdel="' + esc(n) + '" aria-label="삭제">×</span>' : '') + '</button>'; }).join('') + '</div>';
   }
 
   // d.capTone(친근/전문/감성/이벤트/후기) → 백엔드 안전 매핑. mood(친근/전문/감성)는 검증된 tone_override 값 그대로, 이벤트/후기는
@@ -2735,6 +2763,8 @@
         setScreen('caption'); return;
       }
       var rdel = t.closest('[data-fl-recentdel]'); if (rdel) { syncServiceFromDom(); _deleteRecentService(rdel.getAttribute('data-fl-recentdel')); return; }
+      // [소스확장] 최근 시술 소스 토글(캡션/예약) — 관리 모드에서 어느 소스를 반영할지.
+      var rsrc = t.closest('[data-fl-recentsrc]'); if (rsrc) { syncServiceFromDom(); var _k = rsrc.getAttribute('data-fl-recentsrc'); var _p = _recentSrcPref(); _p[_k] = !_p[_k]; _saveRecentSrcPref(_p); setScreen('caption', { push: false }); return; }
       // [캡션재설계 v2] 시술 칩·최근 시술 = 같은 단일선택 토글(data-fl-svctag 하나로 통합).
       var svtag = t.closest('[data-fl-svctag]'); if (svtag) { _pickServiceTag(svtag.getAttribute('data-fl-svctag')); return; }
       var svtadd = t.closest('[data-fl-svctagadd]'); if (svtadd) { _addSvcKeyword(); return; }
@@ -4169,6 +4199,17 @@
         }).catch(function () { /* ignore */ });
       }
     } catch (_st) { void _st; }
+    // [최근시술 소스확장] 최근 예약 시술을 '최근 시술' 칩에 쓰려고 예약 캐시 워밍(최근 90일~+14일). 도착 시 캡션이면 재렌더.
+    try {
+      if (window.Booking && window.Booking.list && _recentSrcPref().booking) {
+        var _bn = new Date();
+        var _bfrom = new Date(_bn.getTime() - 90 * 86400000).toISOString();
+        var _bto = new Date(_bn.getTime() + 14 * 86400000).toISOString();
+        Promise.resolve(window.Booking.list(_bfrom, _bto)).then(function (its) {
+          if (its && its.length && cur === 'caption' && !_isEditingCaptionCard()) setScreen('caption', { push: false });
+        }).catch(function () { /* ignore */ });
+      }
+    } catch (_bk) { void _bk; }
     // [작업물 미리보기 2026-07-10] 미연동 원장님용 — 내 작업물 썸네일을 미리 캐시(도달 시 즉시). 로컬 IndexedDB, 저장 X. 이번 슬롯은 제외(NEW 칸 중복 방지).
     d._myWorkThumbs = [];
     try {

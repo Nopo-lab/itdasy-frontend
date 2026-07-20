@@ -878,6 +878,12 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 .wsv2flow .cap-svcmanage.on { background: #17191C; color: #fff; }
 .wsv2flow .cap-svctag--manage { touch-action: none; cursor: grab; }
 .wsv2flow .cap-svctag.is-dragging { opacity: .85; transform: scale(1.04); box-shadow: 0 6px 16px rgba(23,25,28,.16); cursor: grabbing; z-index: 2; }
+/* [최근시술 소스확장 2026-07-20] 관리 모드 소스 토글(캡션/예약) */
+.wsv2flow .cap-recentsrc { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 4px; }
+.wsv2flow .cap-recentsrc__lbl { font-size: 12px; font-weight: 700; color: #5B6470; margin-right: 2px; }
+.wsv2flow .cap-recentsrc__t { font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: #fff; color: #8B95A1; border: 1px solid #E9EBEE; cursor: pointer; }
+.wsv2flow .cap-recentsrc__t.on { background: #EAF1FF; color: #1D5BD6; border-color: #BBD3FF; }
+.wsv2flow .cap-recentsrc__t.on::before { content: "✓ "; font-weight: 800; }
 /* [요청3 2026-07-13] 업종 사전선택 안내 — 탭하면 바꿀 수 있다는 힌트 */
 .wsv2flow .cap-svctags__chg { margin-left: 7px; font-size: 12px; font-weight: 500; color: var(--text-faint, var(--text-subtle)); opacity: .8; }
 
