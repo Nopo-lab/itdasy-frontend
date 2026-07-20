@@ -210,6 +210,15 @@
     if (p.memo) parts.push(String(p.memo).slice(0, 20));
   }
 
+  function _pushToggleParts(parts, kind, p) {
+    parts.push(p.enabled === false ? '끄기' : '켜기');
+    if (kind === 'toggle_automation_rule' && p.rule_name) parts.push(String(p.rule_name).slice(0, 20));
+  }
+
+  function _pushReviewParts(parts, p) {
+    if (p.customer_name || p.name) parts.push(p.customer_name || p.name);
+  }
+
   function summarizeAction(action) {
     const p = (action && action.payload) || {};
     const kind = (action && action.kind) || '';
@@ -223,6 +232,8 @@
     else if (kind === 'mark_booking_no_show' || kind === 'mark_booking_completed') _pushBookingStatusParts(parts, kind, p);
     else if (kind === 'refund_revenue') _pushRefundParts(parts, p);
     else if (kind === 'update_service_price') _pushPriceParts(parts, p);
+    else if (kind === 'toggle_dm_autoreply' || kind === 'toggle_automation_rule') _pushToggleParts(parts, kind, p);
+    else if (kind === 'request_review') _pushReviewParts(parts, p);
     else _pushDefaultParts(parts, p);
     if (!parts.length && action && action.confirmation_text) return action.confirmation_text;
     return parts.join(' · ') || kind || '';

@@ -1084,6 +1084,12 @@
       mark_booking_completed:{ icon: 'ic-check-circle', label: '시술 완료',     color: C },
       refund_revenue:        { icon: 'ic-corner-up-left', label: '환불 처리',   color: C },
       update_service_price:  { icon: 'ic-dollar-sign',  label: '가격 변경',     color: C },
+      // [Phase 0~3 · 2026-07-20] 잇비 신규 kind — 단일카드 배지(무채색 통일 유지)
+      create_treatment_record:{ icon: 'ic-camera',         label: '시술 기록',    color: C },
+      add_customer_memo:      { icon: 'ic-edit-3',         label: '고객 메모',    color: C },
+      request_review:         { icon: 'ic-star',           label: '리뷰 요청',    color: C },
+      toggle_dm_autoreply:    { icon: 'ic-message-square', label: 'DM 자동응답',  color: C },
+      toggle_automation_rule: { icon: 'ic-settings',       label: '자동화 설정',  color: C },
     }[kind] || { icon: 'ic-check', label: kind, color: C };
   }
 
