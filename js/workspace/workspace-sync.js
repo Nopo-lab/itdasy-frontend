@@ -113,7 +113,8 @@
       if (typeof v === 'function' || _isDataImg(v)) continue;
       // [v779] 100KB 초과 필드는 서버로 안 올린다 — 예전엔 무음 드롭이라 기기 간 소실이 조용히 났다.
       //   URL 치환(deepReplace) 뒤에도 큰 필드가 남으면 로그로 남겨 원인 추적 가능하게.
-      try { if (JSON.stringify(v) && JSON.stringify(v).length > 100000) { try { console.warn('[wsSync] 100KB 초과 필드 드롭:', k); } catch (_w) { void _w; } continue; } } catch (_e) { continue; }
+      // [P0-3] 필드마다 JSON.stringify 를 두 번(truthy 검사 + 길이) 하던 걸 한 번으로 — 큰 메타 필드 재직렬화 절반.
+      try { var _s = JSON.stringify(v); if (_s && _s.length > 100000) { try { console.warn('[wsSync] 100KB 초과 필드 드롭:', k); } catch (_w) { void _w; } continue; } } catch (_e) { continue; }
       m[k] = v;
     }
     return m;

@@ -3852,8 +3852,10 @@
   function _closePublishSheet() { var w = el && el.querySelector('[data-fl-pubask]'); if (w && w.parentNode) w.parentNode.removeChild(w); }
   function _markPublishedNow() {
     d.publish = d.publish || {}; d.publish.status = 'published'; d.publish.publishedAt = Date.now();
-    if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
-    try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(buildSlot(), d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
+    // [P0-3] buildSlot 은 한 번만 — 예전엔 saveItem·captureAndNotify 가 각자 buildSlot() 해 큰 슬롯 객체를 두 번 재구성했다.
+    var _pubSlot = buildSlot();
+    if (window.WorkspaceAdapter && window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
+    try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
     _closePublishSheet();
     toast('게시물이 저장되었습니다');
     // [v548] 게시 완료 시 작업이 끝났음을 명확히 — 플로우 닫고 작업실 홈으로(카드 게시완료 badge 갱신).
@@ -4001,8 +4003,10 @@
             }
           } catch (_le) { void _le; }
           // [v542] 게시 완료 상태를 저장소에 반영(이전엔 게시 전 slot 만 저장 → 새로고침 시 badge 사라짐).
-          if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(buildSlot()); } catch (_e) { void _e; } }
-          try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(buildSlot(), d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
+          // [P0-3] buildSlot 은 한 번만 — saveItem·captureAndNotify 가 같은 슬롯을 공유(큰 객체 재구성 1회로).
+          var _pubSlot = buildSlot();
+          if (window.WorkspaceAdapter.saveItem) { try { window.WorkspaceAdapter.saveItem(_pubSlot); } catch (_e) { void _e; } }
+          try { if (window.WorkMemory) window.WorkMemory.captureAndNotify(_pubSlot, d); } catch (_wm) { void _wm; }   // [T-115] 원장 작업 기억
           _pubFinish(function () {
             // [P1#1] 완료 애니메이션(~1.5s) 도중에도 세션이 바뀔 수 있다 — 그때 setScreen 하면
             //   원장이 보고 있던 새 글 화면을 강제로 낚아챈다.
