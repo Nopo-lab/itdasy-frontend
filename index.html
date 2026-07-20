@@ -2261,8 +2261,8 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-core.js?v=20260720-v780-pwreset"></script>
 <!-- 2026-06-16 통합 인박스 채널 마크 공유 모듈 — 실시간 DM·홈 카드 공용(app-core 직후, 소비자 전에 로드) -->
 <script src="js/channel-mark.js?v=20260616-brand-fix3"></script>
-<script src="js/load-groups.js?v=20260720-v781-revenue-lazy" defer></script>
-<script src="js/loader.js?v=20260720-v781-revenue-lazy" defer></script>
+<script src="js/load-groups.js?v=20260720-v782-extras-batch" defer></script>
+<script src="js/loader.js?v=20260720-v782-extras-batch" defer></script>
 <script src="js/navigation/entrypoints.js?v=20260525-v269-ai-gpt-cleanup" defer></script>
 <script src="format-money.js?v=20260616-v492-hotfixD-booking"></script>
 <script src="js/heic-convert.js?v=20260610-heic" defer></script>
@@ -2430,7 +2430,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-ba-auto-trigger.js?v=20260518-v172" defer></script>
 <script src="app-today-morning.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-ai-suggestions.js" defer></script>
-<script src="app-report.js?v=20260521-v254-api-fetch" defer></script>
+<!-- [P0-2 Phase3] app-report.js → lazy 'extras' 그룹(loader 스텁 openReport 브리지) -->
 <script src="app-empty-state.js" defer></script>
 <script src="app-generic-sheet.js?v=20260505-v97" defer></script>
 <script src="app-service-templates.js?v=20260610-batch3" defer></script>
@@ -2447,9 +2447,7 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-customer-hub.js?v=20260519-v212" defer></script>
 <script src="app-customer-sync.js" defer></script>
 <!-- [P0-2] app-calendar-view.js → lazy 'features' 그룹으로 이동(js/load-groups.js). loader 스텁이 진입점 브리지. -->
-<script src="app-reminder.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-retention-ai.js?v=20260521-v254-api-fetch" defer></script>
-<script src="app-review.js?v=20260521-v254-api-fetch" defer></script>
+<!-- [P0-2 Phase3] app-reminder·app-retention-ai·app-review → lazy 'extras' 그룹(loader 스텁 브리지) -->
 <script src="app-phase9-ux.js?v=20260720-v781-revenue-lazy" defer></script>
 
 <script src="app-biometric.js" defer></script>
@@ -2459,8 +2457,8 @@ window._lazyImgly = function _lazyImgly() {
 <script src="app-cookie-consent.js"></script>
 <!-- D1: 1초 캡션 워크플로우 (사진 1탭 → 캡션·해시태그·9:16 스토리) — defer 비차단 -->
 <script src="app-instant-caption.js" defer></script>
-<!-- E2: 음성 캡션 워크플로우 (마이크 1탭 → 캡션·해시태그·재방문 제안) — defer 비차단 -->
-<script src="app-voice-caption.js" defer></script>
+<!-- E2: 음성 캡션 워크플로우 → lazy 'extras' 그룹(loader 스텁 openVoiceCaption 브리지) -->
+
 <!-- T-327 · Sentry 에러 모니터링 (T-351: GDPR 동의 기반 활성화) -->
 <script>window.SENTRY_DSN_FE = "https://b3732869f4b445bc7a73a5e4cbacc4ed@o4511236563992576.ingest.us.sentry.io/4511236579852288";</script>
 <script src="https://browser.sentry-cdn.com/7.100.0/bundle.min.js" crossorigin="anonymous"></script>

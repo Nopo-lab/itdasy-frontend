@@ -219,7 +219,14 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-import-wizard.js',
   'app-waitlist.js?v=20260521-v254-api-fetch',
   'app-growth-story.js',
-  'app-data-export.js?v=20260521-v254-api-fetch'
+  'app-data-export.js?v=20260521-v254-api-fetch',
+  // [P0-2 Phase3] 게이트된 주변 기능 화면 — open* 진입점·부팅 리스너 0·공용유틸 재정의 0·자립.
+  //   loader.js 스텁이 openReport/openReviewRequests/openReminderSettings/openRetentionAI/openVoiceCaption 브리지.
+  'app-report.js?v=20260521-v254-api-fetch',
+  'app-reminder.js?v=20260521-v254-api-fetch',
+  'app-retention-ai.js?v=20260521-v254-api-fetch',
+  'app-review.js?v=20260521-v254-api-fetch',
+  'app-voice-caption.js'
   ],
   // [P0-2 콜드스타트 축소] 검증된 leaf 대형 feature 모듈 — 진입점만 노출·공용 유틸 재정의 0·
   //   부팅 top-level 부작용은 "달력 열린 뒤"에만 의미. loader.js 스텁이 openCalendarView/openBooking 브리지.

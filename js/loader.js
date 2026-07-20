@@ -80,6 +80,14 @@
   _stub('openSupport', 'extras', '준비 중…');
   _stub('openSupportChat', 'extras', '준비 중…');
   _stub('openDMManualReplies', 'extras', '준비 중…');
+  /* [P0-2 Phase3] 게이트된 주변 기능 화면(리포트·리마인더·리텐션·리뷰요청·음성캡션) → extras 그룹.
+     assistant NL 명령 테이블이 openReviewRequests/openRetentionAI 를 값 캡처하나, 이 스텁이
+     boot 시점에 이미 있어 스텁이 캡처됨 → 스텁이 실함수로 위임(안전). */
+  _stub('openReport', 'extras', '준비 중…');
+  _stub('openReviewRequests', 'extras', '준비 중…');
+  _stub('openReminderSettings', 'extras', '준비 중…');
+  _stub('openRetentionAI', 'extras', '준비 중…');
+  _stub('openVoiceCaption', 'extras', '음성 캡션 준비 중…');
   /* [P0-2] 예약/달력(app-calendar-view 124KB) — features 그룹으로 오프로드.
      외부 진입점은 openCalendarView·openBooking 둘뿐(나머지 _cal*·closeBooking 은 열린 뒤 내부용). */
   _stub('openCalendarView', 'features', '예약 화면 준비 중…');
