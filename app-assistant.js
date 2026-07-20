@@ -1057,7 +1057,12 @@
   function _renderActionBubble(action, historyIdx, status, editing) {
     if (!action || !action.kind) return '';
     const kindBadge = _actionKindBadge(action.kind);
-    if (status === 'done') return _renderActionDoneBubble();
+    if (status === 'done') {
+      const _m = _history[historyIdx];
+      const _pop = !!(_m && _m._justDone);
+      if (_m) _m._justDone = false;   // 한 번만 — 이후 재렌더는 정적 완료 카드
+      return _renderActionDoneBubble(_pop);
+    }
     if (status === 'failed') return _renderActionFailedBubble(historyIdx);
     if (status === 'running') return _renderActionRunningBubble(kindBadge);
     if (editing) return _renderActionEditBubble(action, historyIdx, kindBadge);
@@ -1093,11 +1098,24 @@
     }[kind] || { icon: 'ic-check', label: kind, color: C };
   }
 
-  function _renderActionDoneBubble() {
+  // [카드폴리시] 제어(설정) 계열 kind — 카드 좌측 은은한 액센트 바로 데이터 작업과 구분.
+  const _CONTROL_ACCENT = { toggle_dm_autoreply: '#8B5CF6', toggle_automation_rule: '#6366F1' };
+  function _cardShell(kind) {
+    const a = _CONTROL_ACCENT[kind];
+    return a
+      ? `border:0.5px solid #E5E8EB;border-left:3px solid ${a};border-radius:0 14px 14px 0;`
+      : `border:0.5px solid #E5E8EB;border-radius:14px;`;
+  }
+
+  function _renderActionDoneBubble(pop) {
+    // [카드폴리시] 완료 순간 체크 팝(+잔물결). pop=false 면 정적. 모션 최소화 설정 존중.
+    const cls = pop ? ' itbi-pop' : '';
+    const ring = pop ? '<span class="itbi-ring" style="position:absolute;inset:0;border-radius:50%;background:#E2F8EB;"></span>' : '';
+    const styleTag = pop ? '<style>.itbi-pop{animation:itbiPop .42s cubic-bezier(.34,1.56,.64,1) both}.itbi-ring{animation:itbiRing .6s ease-out both}@keyframes itbiPop{0%{transform:scale(.3);opacity:0}55%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}@keyframes itbiRing{0%{transform:scale(.5);opacity:.55}100%{transform:scale(1.9);opacity:0}}@media(prefers-reduced-motion:reduce){.itbi-pop,.itbi-ring{animation:none}}</style>' : '';
     return `<div class="asst-card asst-card--done" style="margin-top:8px;padding:12px 14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;display:flex;align-items:center;gap:8px;">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${_svg('ic-check', 13)}</span>
+      <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;">${ring}<span class="${cls.trim()}" style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#E2F8EB;color:#0F8746;">${_svg('ic-check', 13)}</span></span>
       <span style="font-size:12px;font-weight:700;color:#0F8746;">완료</span>
-    </div>`;
+    </div>${styleTag}`;
   }
 
   function _renderActionFailedBubble(historyIdx) {
@@ -1133,9 +1151,10 @@
     const addField = (field, label, val, extra) => _pushSingleEditField(editFields, historyIdx, field, label, val, extra);
     const itemsHtml = _singleEditItemsHtml(action, historyIdx, p, kindBadge, addField);
     if (!itemsHtml) _pushSingleBaseFields(action, p, editFields, addField, historyIdx);
-    return `<div class="asst-card asst-card--edit" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+    const _accentE = _CONTROL_ACCENT[action.kind];
+    return `<div class="asst-card asst-card--edit" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;${_cardShell(action.kind)}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
+        <span style="display:inline-flex;align-items:center;color:${_accentE || kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label} · 편집 모드</span>
       </div>
       ${editFields.length ? `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">${editFields.join('')}</div>` : ''}
@@ -1223,9 +1242,10 @@
     const _safety = (window.ItdasyMarketingSafety && typeof window.ItdasyMarketingSafety.renderSafetyHTML === 'function')
       ? window.ItdasyMarketingSafety.renderSafetyHTML(action, _esc) : '';
     const _runLabel = (action && _ACTION_RUN_LABEL[action.kind]) || '추가하기';
-    return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;border:0.5px solid #E5E8EB;border-radius:14px;">
+    const _accent = _CONTROL_ACCENT[action.kind];
+    return `<div class="asst-card asst-card--pending" style="margin-top:8px;padding:14px;background:#FFFFFF;color-scheme:light;${_cardShell(action.kind)}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span style="display:inline-flex;align-items:center;color:${kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
+        <span style="display:inline-flex;align-items:center;color:${_accent || kindBadge.color};">${_svg(kindBadge.icon, 16)}</span>
         <span style="font-size:12px;font-weight:700;color:#191F28;letter-spacing:-0.2px;">${kindBadge.label}</span>
       </div>
       ${_safety}
@@ -2730,6 +2750,7 @@
     try {
       const d = await _executeAction(msg.action);
       msg.action_status = 'done';
+      msg._justDone = true;   // [카드폴리시] 완료 순간 딱 한 번 체크 팝(재렌더 시 재생 안 함)
       _renderHistory();
       // [2026-05-25] generate_bulk_message / draft_message — 백엔드가 빈 message_draft 반환 시
       //   "메세지 초안이 비어있어요" 처럼 보여 사용자 혼란. 응답에 따라 친절한 안내로 분기.
