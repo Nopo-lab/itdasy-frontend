@@ -4160,6 +4160,15 @@
     try { if (window.WorkspaceSync && window.WorkspaceSync.beginEdit) window.WorkspaceSync.beginEdit(); } catch (_be) { void _be; }
     // [피드 미리보기] 발행 미리보기 그리드용 기존 피드 썸네일을 미리 당겨 메모리 캐시(도달 시 0.1초). 저장 X.
     try { if (window.WorkspaceAdapter && window.WorkspaceAdapter.recentMedia) window.WorkspaceAdapter.recentMedia(); } catch (_rm) { void _rm; }
+    // [등록시술 연결 2026-07-20] 우리샵 등록 시술(가격표/설정) 캐시 워밍 — 캡션 칩이 이 목록을 기본으로 쓴다(getShopKeywords).
+    //   localStorage 캐시가 있으면 즉시 뜨고, 새로 도착하면 캡션 화면일 때 재렌더해 칩을 갱신.
+    try {
+      if (window.loadServiceTemplates) {
+        Promise.resolve(window.loadServiceTemplates()).then(function (list) {
+          if (list && list.length && cur === 'caption' && !_isEditingCaptionCard()) setScreen('caption', { push: false });
+        }).catch(function () { /* ignore */ });
+      }
+    } catch (_st) { void _st; }
     // [작업물 미리보기 2026-07-10] 미연동 원장님용 — 내 작업물 썸네일을 미리 캐시(도달 시 즉시). 로컬 IndexedDB, 저장 X. 이번 슬롯은 제외(NEW 칸 중복 방지).
     d._myWorkThumbs = [];
     try {

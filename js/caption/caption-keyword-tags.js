@@ -68,13 +68,31 @@ function _shopKeywordBase() {
   }
   return null;
 }
-// 현재 업종에 맞는 키워드 목록 반환 (기본 - 삭제 + 커스텀)
+// [등록시술 연결 2026-07-20] 가격표 사진 업로드(/services/import-pricelist)·설정에서 등록한
+//   우리샵 시술(ServiceTemplate)을 캡션 칩 기본으로. 예전엔 업종 하드코딩 vocab 만 써서 '가격표 올려도
+//   캡션 칩엔 안 들어오던' 단절이 있었다. 등록 시술이 있으면 그게 우리샵 실제 메뉴 → 기본으로 쓴다.
+//   _serviceTemplatesCache(app-service-templates.js) 우선, 없으면 localStorage 캐시(즉시 표시용).
+function _loadRegisteredServices() {
+  try {
+    let c = (window._serviceTemplatesCache && window._serviceTemplatesCache.length)
+      ? window._serviceTemplatesCache
+      : JSON.parse(localStorage.getItem('itdasy_service_templates_cache') || '[]');
+    if (!Array.isArray(c)) return [];
+    return c.map(t => t && String(t.name || t.service_name || '').trim()).filter(Boolean);
+  } catch (_e) { return []; }
+}
+// 캡션 칩 키워드 목록 = (등록 시술 있으면 그것, 없으면 업종 vocab) − 삭제 + 커스텀.
 // [fix] 업종 미설정/미매핑(beauty·general 등)이면 '붙임머리'로 폴백하지 않는다 — 미용실인데 인치태그 쏟아지던 버그.
 function getShopKeywords() {
-  const base = _shopKeywordBase();
   const custom = _loadCustomKeywords();
-  if (!base) return [...new Set(custom)];   // 업종 미확정 → 커스텀만(자동 인치태그 금지)
   const deleted = _loadDeletedKeywords();
+  const registered = _loadRegisteredServices();
+  if (registered.length) {   // 우리샵에 등록된 실제 시술이 최우선
+    const filtered = registered.filter(k => !deleted.includes(k));
+    return [...new Set([...filtered, ...custom])];
+  }
+  const base = _shopKeywordBase();
+  if (!base) return [...new Set(custom)];   // 업종 미확정 → 커스텀만(자동 인치태그 금지)
   const filtered = base.filter(k => !deleted.includes(k));
   return [...new Set([...filtered, ...custom])];
 }
