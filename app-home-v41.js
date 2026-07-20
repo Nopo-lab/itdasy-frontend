@@ -83,6 +83,29 @@
       return Array.isArray(data) ? data.length : (Array.isArray(data.items) ? data.items.length : 0);
     } catch (_e) { return 0; }
   }
+  // [2026-07-20 v785] 답 안 한 댓글 문의 N건 — "AI 잇비가 챙겼어요" 카드용.
+  //   비용 방어: 인스타 미연동이면 API 호출 자체를 안 함 (0 반환).
+  async function _fetchCommentQueueCount() {
+    try {
+      const ig = window.WorkspaceAdapter && window.WorkspaceAdapter.instagram ? window.WorkspaceAdapter.instagram() : null;
+      if (!ig || !ig.connected) return 0;
+    } catch (_e) { return 0; }
+    const headers = _authHeaders();
+    if (!window.API || !headers) return 0;
+    try {
+      const res = await apiFetch('/instagram/comment-queue', { headers });
+      if (!res.ok) return 0;
+      const data = await res.json();
+      const items = Array.isArray(data && data.items) ? data.items : [];
+      // 큐 화면과 같은 필터 적용 (설정에서 끈 문의 종류 제외 — itdasy:crq_settings, 기본 hours=off)
+      let intents = { hours: false };
+      try {
+        const s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
+        if (s && s.intents) intents = Object.assign(intents, s.intents);
+      } catch (_e) { /* ignore */ }
+      return items.filter(it => intents[it.intent] !== false).length;
+    } catch (_e) { return 0; }
+  }
 
   // [F1] _fetchProjectedTotal 제거 — 홈 상단 매출 표시 삭제됨
 
@@ -345,10 +368,11 @@
     if (_inFlight) return;
     _inFlight = true;
     try {
-      const [brief, slots, dmQueueCount] = await Promise.all([
+      const [brief, slots, dmQueueCount, commentQueueCount] = await Promise.all([
         _fetchBrief().catch(() => null),
         _fetchSlots().catch(() => []),
         _fetchDMQueueCount().catch(() => 0),
+        _fetchCommentQueueCount().catch(() => 0),
       ]);
       // [2026-07-08] brief 실패 구분 — 실패인데 {}로 그리면 분석 카드가 전부
       //   "없어요/모두 정상" 가짜 초록불이 됨. 플래그 세워 재시도 카드로 렌더.
@@ -361,6 +385,7 @@
       }
       if (briefFailed) merged._briefFailed = true;
       merged._dmQueueCount = dmQueueCount;
+      merged._commentQueueCount = commentQueueCount;   // [v785] alertItems 가 brief 에서 읽음 (SWR 캐시에도 실림)
       // 실패한 빈 brief 는 SWR 캐시에 저장 금지 (캐시 오염 방지)
       if (!briefFailed) { try { _writeSWR(merged); } catch (_e) { void _e; } }
       _hydrateHome(container, merged, dmQueueCount);

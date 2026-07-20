@@ -395,6 +395,10 @@
   function alertItems(brief, dmQueueCount) {
     const items = [];
     // [F1] 홈 "답장 N건 써뒀어요" 항목 — 실시간 DM 카드와 중복 → 제거
+    // [2026-07-20 v785] 답 안 한 댓글 문의 — DM과 달리 홈에 다른 노출이 없어 중복 아님.
+    //   공개 방치라 오히려 DM보다 급함. 탭 → 댓글 응대 큐.
+    const cq = Number(brief && brief._commentQueueCount) || 0;
+    if (cq > 0) items.push({ tone: 'pink', title: '답 안 한 댓글 문의', desc: '잇비가 답장 써뒀어요 — 확인만 하면 발송', count: cq, act: 'openCommentQueue' });
     const overdue = overdueAlertContext(brief);
     if (overdue) items.push({ tone: 'pink', title: '미완료 예약 찾았어요', desc: overdue.desc, count: overdue.count, act: 'completePending' });
     setOverdueCache(brief, Boolean(overdue));

@@ -6,6 +6,13 @@
    디자인: app-dm-confirm-queue.js 와 동일 언어(카드 r18·버블 #F2F4F6 꼬리·CTA #191F28·로즈 #BC6675).
    지금 단계: 백엔드 실연동은 Meta manage_comments 심사 전이라 SEED 데이터로 UI/동작만 검증.
    진입: window.openCommentReplyQueue()  · 플래그 window.ITDASY_IG_COMMENT_REPLY
+
+   [2026-07-20 v785] 카드 리디자인 — ① 게시물 행·IG배지 삭제 → 헤더 우측 "게시물 보기" 칩
+   + 미리보기 팝업 ② 공개답글/DM 말풍선별 초록 토글(안 보낼 채널 끄기, CTA 라벨 가변)
+   ③ DM 접기(첫 문장만, 탭하면 펼침) ④ 무시 = 회색 텍스트 강등 ⑤ 잇비 아바타 들여쓰기 제거.
+   ⚠️ BE 요구 2건(선택적): POST /instagram/comment-reply 에 send_public/send_dm 플래그,
+   GET /instagram/comment-queue 응답에 media_caption_full·media_timestamp (팝업 상세용).
+   플래그 없이도 동작(텍스트 '' 로 보냄) — BE가 빈 텍스트 채널 스킵하면 완성.
    ─────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -95,6 +102,8 @@
     return { id: it.comment_id, commentId: it.comment_id, mediaId: it.media_id || '', name: it.username ? ('@' + it.username) : '손님',
       av: (it.username || '?').slice(0, 1), intent: it.intent,
       media: it.media_caption ? ('“' + it.media_caption + '…”') : '게시물 댓글',
+      mediaFull: it.media_caption_full || it.media_caption || '',   // 팝업용 캡션 전문 (BE 필드 추가 대기 — 없으면 요약)
+      mediaDate: it.media_timestamp || '',                          // 팝업용 발행일 (BE 필드 추가 대기)
       permalink: it.permalink || '', likes: it.like_count || 0,
       waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual, returning: !!it.returning, confidence: it.confidence || '',
       publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
@@ -111,14 +120,13 @@
     mail: _svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', { w: 12 }),
     send: _svg('<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>', { w: 15 })
   };
-  function _botAvatar() {
-    return '<div style="width:30px;height:30px;border-radius:50%;background:#F7EFF0;color:#BC6675;flex-shrink:0;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" aria-hidden="true"><use href="#ic-bot"/></svg></div>';
+  // [v785] 채널별 발송 토글 — 앱 공통 규칙: 스위치 on=초록(#16B55E)
+  function _tgHtml(on, kind, id) {
+    return '<span class="crq-tg" data-kind="' + kind + '" data-id="' + _esc(id) + '" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;margin-left:auto;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (on ? '#16B55E' : '#D1D6DB') + ';">' +
+      '<span style="position:absolute;top:2px;left:' + (on ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span>';
   }
-
-  function _draftBlock(icon, label, text) {
-    return '<div style="font-size:10.5px;color:#8B95A1;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">' + icon + label + '</div>' +
-      '<div style="background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;">' + _esc(text) + '</div>';
-  }
+  // 말풍선 공통 스타일 (좌상단 꼬리)
+  var _BUBBLE = 'background:#F2F4F6;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;';
   function _editArea(icon, label, cls, id, val) {
     return '<div style="font-size:10.5px;color:#8B95A1;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:4px;">' + icon + label + ' · 수정</div>' +
       '<textarea class="' + cls + '" data-id="' + _esc(id) + '" rows="3" style="width:100%;padding:9px 12px;border:1px solid #BC6675;border-radius:12px;font-size:13px;line-height:1.5;background:#fff;color:#191F28;box-sizing:border-box;font-family:inherit;resize:vertical;">' + _esc(val) + '</textarea>';
@@ -128,53 +136,104 @@
   function _displayDm(it) { return (it._override && it._override.dm != null) ? it._override.dm : _finalDm(it); }
 
   function _cardHtml(it) {
-    return '<div class="crq-item" data-id="' + _esc(it.id) + '" style="position:relative;background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">' +
-      '<span style="position:absolute;top:13px;right:13px;display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#8B95A1;background:#F2F4F6;border-radius:9px;padding:3px 8px;">' + IC.ig + '인스타 댓글</span>' +
-      // 발신자
+    var pubOn = it._sendPub !== false, dmOn = it._sendDm !== false;
+    var dmText = _displayDm(it);
+    var dmFirst = (dmText.split('\n')[0] || '').slice(0, 24);
+    // 게시물 칩 (헤더 우측) — 탭하면 미리보기 팝업 (인스타로 안 튐, 화면 이동 금지)
+    var chip = '<button class="crq-chip" data-id="' + _esc(it.id) + '" style="flex-shrink:0;display:inline-flex;align-items:center;gap:6px;background:#F7F8FA;border:none;border-radius:999px;padding:4px 9px 4px 4px;cursor:pointer;font-family:inherit;">' +
+      (it.thumb
+        ? '<span style="width:26px;height:26px;border-radius:8px;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></span>'
+        : '<span style="width:26px;height:26px;border-radius:8px;background:#E5E8EB;display:inline-flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</span>') +
+      '<span style="font-size:11.5px;font-weight:600;color:#6B7684;">게시물 보기</span>' +
+      '<span style="color:#B0B8C1;font-size:12px;">›</span></button>';
+    // 공개 답글 — 라벨줄에 토글, 끄면 회색 안내
+    var pubLabel = '<div style="display:flex;align-items:center;gap:5px;margin-bottom:4px;">' +
+      '<span style="font-size:10.5px;color:#8B95A1;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' + IC.comment + '공개 답글 · 댓글에 달림</span>' +
+      (it.manual ? '<span style="font-size:9.5px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:7px;padding:1px 6px;">내 멘트</span>' : '') +
+      (it._override ? '<span style="font-size:9.5px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:7px;padding:1px 6px;">수정함</span>' : '') +
+      _tgHtml(pubOn, 'pub', it.id) + '</div>';
+    var pubHtml = '<div style="margin-bottom:9px;">' + pubLabel +
+      (pubOn ? '<div style="' + _BUBBLE + '">' + _esc(_displayPublic(it)) + '</div>'
+             : '<div style="font-size:12px;color:#B0B8C1;padding:1px 2px 0;">공개 답글 안 달아요</div>') + '</div>';
+    // 비공개 DM — 기본 접힘(첫 문장만), 탭하면 펼침. 끄면 흐림 처리.
+    var dmHtml;
+    if (!dmOn) {
+      dmHtml = '<div style="display:flex;align-items:center;gap:6px;background:#F7F8FA;border-radius:11px;padding:9px 11px;opacity:.55;">' +
+        '<span style="color:#8B95A1;display:inline-flex;">' + IC.mail + '</span>' +
+        '<span style="flex:1;font-size:12px;color:#8B95A1;">비공개 DM 안 보냄</span>' + _tgHtml(false, 'dm', it.id) + '</div>';
+    } else if (it._dmOpen) {
+      dmHtml = '<div><div class="crq-dmline" data-id="' + _esc(it.id) + '" style="display:flex;align-items:center;gap:5px;margin-bottom:4px;cursor:pointer;">' +
+        '<span style="font-size:10.5px;color:#8B95A1;font-weight:600;display:inline-flex;align-items:center;gap:4px;">' + IC.mail + '비공개 DM · 상세</span>' +
+        '<span style="color:#B0B8C1;font-size:12px;display:inline-block;transform:rotate(90deg);">›</span>' +
+        _tgHtml(true, 'dm', it.id) + '</div>' +
+        '<div style="' + _BUBBLE + '">' + _esc(dmText) + '</div></div>';
+    } else {
+      dmHtml = '<div class="crq-dmline" data-id="' + _esc(it.id) + '" style="display:flex;align-items:center;gap:6px;background:#F7F8FA;border-radius:11px;padding:9px 11px;cursor:pointer;">' +
+        '<span style="color:#8B95A1;display:inline-flex;">' + IC.mail + '</span>' +
+        '<span style="flex:1;min-width:0;font-size:12px;color:#6B7684;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">비공개 DM · “' + _esc(dmFirst) + (dmText.length > dmFirst.length ? '…' : '') + '”</span>' +
+        '<span style="color:#B0B8C1;font-size:12px;">›</span>' + _tgHtml(true, 'dm', it.id) + '</div>';
+    }
+    // CTA 라벨 = 토글 조합 (둘 다 끄면 비활성)
+    var sendOff = !pubOn && !dmOn;
+    var sendLabel = pubOn && dmOn ? '답글+DM 보내기' : pubOn ? '답글만 보내기' : dmOn ? 'DM만 보내기' : '보낼 내용을 켜주세요';
+    return '<div class="crq-item" data-id="' + _esc(it.id) + '" style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">' +
+      // 발신자 + 게시물 칩
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;">' +
         '<div style="width:36px;height:36px;border-radius:50%;background:#F2F4F6;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#8B95A1;font-size:13px;font-weight:700;">' + _esc(it.av) + '</div>' +
         '<div style="flex:1;min-width:0;">' +
-          '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;font-weight:700;color:#191F28;">' + _esc(it.name) + '</span>' +
+          '<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;font-weight:700;color:#191F28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(it.name) + '</span>' +
             (it.intent === 'complaint'
               ? '<span style="font-size:10px;font-weight:700;color:#DC2626;background:#FEF2F2;border-radius:8px;padding:2px 7px;">불만</span>'
               : '<span style="font-size:10px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:8px;padding:2px 7px;">문의</span>') +
             (it.returning ? '<span style="font-size:10px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:8px;padding:2px 7px;">단골</span>' : '') +
             (it.confidence === 'high' && it.intent !== 'complaint' ? '<span style="font-size:10px;font-weight:700;color:#3B6D11;background:#EAF3DE;border-radius:8px;padding:2px 7px;">확실</span>' : '') + '</div>' +
           '<div style="font-size:11px;color:#8B95A1;margin-top:1px;">' + (it.waiting <= 0 ? '방금' : it.waiting + '분 전') + ' · ' + _esc(_INTENT_KO[it.intent] || '문의') + '</div>' +
-        '</div>' +
-      '</div>' +
-      // 어떤 게시물인지 한눈에 — 큰 썸네일 + 캡션 + (탭하면 인스타 게시물로)
-      '<div class="crq-post"' + (it.permalink ? ' data-permalink="' + _esc(it.permalink) + '" style="cursor:pointer;' : ' style="') + 'display:flex;align-items:center;gap:9px;background:#F7F8FA;border-radius:12px;padding:8px 10px;margin-bottom:10px;">' +
-        (it.thumb
-          ? '<div style="width:46px;height:46px;border-radius:9px;flex-shrink:0;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></div>'
-          : '<div style="width:46px;height:46px;border-radius:9px;background:#E5E8EB;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</div>') +
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:10px;color:#B0B8C1;font-weight:600;margin-bottom:1px;">이 게시물에 달린 댓글</div>' +
-          '<div style="font-size:12px;color:#4E5968;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + _esc(it.media) + '</div>' +
-        '</div>' +
-        '<span style="display:inline-flex;align-items:center;gap:3px;font-size:11.5px;color:#8B95A1;font-weight:600;flex-shrink:0;">' + IC.heart + it.likes + '</span>' +
-        (it.permalink ? '<span style="flex-shrink:0;color:#B0B8C1;">' + _svg('<path d="M7 17L17 7M17 7H8M17 7v9"/>', { w: 15 }) + '</span>' : '') +
+        '</div>' + chip +
       '</div>' +
       // 손님 댓글 원문
       '<div style="background:#fff;border:.5px solid #E5E8EB;color:#191F28;border-radius:13px;border-top-left-radius:4px;padding:10px 13px;font-size:13.5px;line-height:1.5;margin-bottom:12px;">' + _esc(it.text) + '</div>' +
-      // 잇비 추천 답장 (공개 + 비공개) — 편집 가능
-      '<div style="display:flex;gap:8px;align-items:flex-start;">' + _botAvatar() +
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-size:11px;color:#8B95A1;font-weight:600;margin-bottom:5px;display:flex;align-items:center;gap:5px;">잇비 추천 답장' +
-            (it.manual ? '<span style="font-size:9.5px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:7px;padding:1px 6px;">내 멘트</span>' : '') +
-            (it._override ? '<span style="font-size:9.5px;font-weight:700;color:#BC6675;background:#F7EFF0;border-radius:7px;padding:1px 6px;">수정함</span>' : '') + '</div>' +
-          (it._editing
-            ? _editArea(IC.comment, '공개 답글', 'crq-edit-pub', it.id, _displayPublic(it)) + '<div style="height:9px;"></div>' + _editArea(IC.mail, '비공개 DM', 'crq-edit-dm', it.id, _displayDm(it))
-            : _draftBlock(IC.comment, '공개 답글 · 댓글에 달림', _displayPublic(it)) + '<div style="height:9px;"></div>' + _draftBlock(IC.mail, '비공개 DM · 상세', _displayDm(it))) +
-        '</div>' +
-      '</div>' +
+      // 잇비 추천 답장 — 편집 중이면 텍스트영역, 아니면 토글형 답글/DM
+      (it._editing
+        ? _editArea(IC.comment, '공개 답글', 'crq-edit-pub', it.id, _displayPublic(it)) + '<div style="height:9px;"></div>' + _editArea(IC.mail, '비공개 DM', 'crq-edit-dm', it.id, dmText)
+        : pubHtml + dmHtml) +
       // 액션
-      '<div style="display:flex;gap:8px;margin-top:13px;">' +
-        '<button class="crq-send" data-id="' + _esc(it.id) + '" style="flex:1;padding:11px;border:none;background:#191F28;color:#fff;font-weight:700;font-size:13px;border-radius:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">' + IC.send + '답글 보내기</button>' +
+      '<div style="display:flex;gap:8px;margin-top:13px;align-items:center;">' +
+        '<button class="crq-send" data-id="' + _esc(it.id) + '"' + (sendOff ? ' disabled' : '') + ' style="flex:1;padding:11px;border:none;background:' + (sendOff ? '#E5E8EB' : '#191F28') + ';color:' + (sendOff ? '#8B95A1' : '#fff') + ';font-weight:700;font-size:13px;border-radius:13px;cursor:' + (sendOff ? 'default' : 'pointer') + ';display:flex;align-items:center;justify-content:center;gap:5px;">' + (sendOff ? '' : IC.send) + sendLabel + '</button>' +
         '<button class="crq-edit" data-id="' + _esc(it.id) + '" style="padding:11px 14px;border:1px solid ' + (it._editing ? '#BC6675' : '#E5E8EB') + ';background:#fff;color:' + (it._editing ? '#BC6675' : '#191F28') + ';font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">' + (it._editing ? '완료' : '수정') + '</button>' +
-        '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="padding:11px 14px;border:1px solid #E5E8EB;background:#fff;color:#8B95A1;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;">무시</button>' +
+        '<button class="crq-discard" data-id="' + _esc(it.id) + '" style="padding:11px 6px;border:none;background:none;color:#8B95A1;font-weight:600;font-size:12px;cursor:pointer;">무시</button>' +
       '</div>' +
     '</div>';
+  }
+
+  // [v785] 게시물 미리보기 팝업 — 큐 흐름 안 끊고 어떤 글인지 확인 (탭하면 닫힘)
+  function _peekDate(ts) {
+    try { var d = new Date(ts); if (!isFinite(d.getTime())) return ''; return (d.getMonth() + 1) + '월 ' + d.getDate() + '일'; } catch (_e) { return ''; }
+  }
+  function _closePeek() { var p = document.getElementById('crqPeek'); if (p && p.parentNode) p.parentNode.removeChild(p); }
+  function _openPeek(id) {
+    var it = ITEMS.find(function (x) { return x.id === id; });
+    if (!it) return;
+    _closePeek();
+    var dstr = it.mediaDate ? _peekDate(it.mediaDate) : '';
+    var w = document.createElement('div');
+    w.id = 'crqPeek';
+    w.style.cssText = 'position:fixed;inset:0;z-index:10500;background:rgba(25,31,40,.45);display:flex;align-items:center;justify-content:center;padding:24px;';
+    w.innerHTML = '<div class="crq-peek-card" style="width:100%;max-width:340px;background:#fff;border-radius:20px;padding:14px;box-shadow:0 10px 40px rgba(0,0,0,.2);">' +
+      (it.thumb
+        ? '<div style="aspect-ratio:1/1;border-radius:14px;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');margin-bottom:12px;"></div>'
+        : '<div style="aspect-ratio:1/1;border-radius:14px;background:#F2F4F6;display:flex;align-items:center;justify-content:center;color:#C9CDD4;margin-bottom:12px;">' + _svg('<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/>', { w: 36 }) + '</div>') +
+      '<div style="font-size:11px;color:#8B95A1;margin-bottom:6px;display:flex;align-items:center;gap:4px;">' + (dstr ? dstr + ' 발행 · ' : '') + IC.heart + ' 좋아요 ' + (it.likes || 0) + '</div>' +
+      '<div style="font-size:13px;color:#191F28;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:130px;overflow-y:auto;margin-bottom:14px;">' + _esc(it.mediaFull || it.media) + '</div>' +
+      (it.permalink ? '<button class="crq-peek-open" style="width:100%;padding:12px;border:1px solid #E5E8EB;background:#fff;color:#191F28;font-weight:600;font-size:13px;border-radius:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;">' + IC.ig + '인스타에서 열기</button>' : '') +
+      '<button class="crq-peek-close" style="width:100%;padding:11px;border:none;background:none;color:#8B95A1;font-size:13px;font-weight:600;cursor:pointer;margin-top:2px;">닫기</button></div>';
+    w.addEventListener('click', function (e) {
+      if (e.target.closest && e.target.closest('.crq-peek-open')) {
+        try { if (window.openLink) window.openLink(it.permalink); else window.open(it.permalink, '_blank', 'noopener'); } catch (_o) { void _o; }
+        return;
+      }
+      if ((e.target.closest && e.target.closest('.crq-peek-close')) || !(e.target.closest && e.target.closest('.crq-peek-card'))) _closePeek();
+    });
+    document.body.appendChild(w);
   }
 
   function _tabsHtml() {
@@ -285,12 +344,27 @@
 
     // 이벤트 위임
     el.addEventListener('click', function (e) {
-      // 게시물 줄 탭 → 그 인스타 게시물 열기(어떤 글인지 바로 확인)
-      var post = e.target.closest ? e.target.closest('.crq-post[data-permalink]') : null;
-      if (post) {
+      // [v785] 게시물 칩 → 미리보기 팝업 (인스타 직행 X)
+      var chipEl = e.target.closest ? e.target.closest('.crq-chip') : null;
+      if (chipEl) { _haptic(); _openPeek(chipEl.getAttribute('data-id')); return; }
+      // [v785] 채널 토글 (공개답글/DM) — DM줄 안에 있어서 dmline 보다 먼저 체크
+      var tg = e.target.closest ? e.target.closest('.crq-tg') : null;
+      if (tg) {
         _haptic();
-        var url = post.getAttribute('data-permalink');
-        try { if (window.openLink) window.openLink(url); else window.open(url, '_blank', 'noopener'); } catch (_o) { void _o; }
+        var ti = ITEMS.find(function (x) { return x.id === tg.getAttribute('data-id'); });
+        if (ti) {
+          if (tg.getAttribute('data-kind') === 'pub') ti._sendPub = (ti._sendPub === false);
+          else ti._sendDm = (ti._sendDm === false);
+          _render();
+        }
+        return;
+      }
+      // [v785] DM 접힌 줄 탭 → 펼침/접기
+      var dml = e.target.closest ? e.target.closest('.crq-dmline') : null;
+      if (dml) {
+        _haptic();
+        var di = ITEMS.find(function (x) { return x.id === dml.getAttribute('data-id'); });
+        if (di) { di._dmOpen = !di._dmOpen; _render(); }
         return;
       }
       // 설정 컨트롤(span/div — 버튼 아님) 먼저 처리
@@ -348,25 +422,28 @@
   function _sendReply(id) {
     var it = ITEMS.find(function (x) { return x.id === id; });
     if (!it) return;
+    var sendPub = it._sendPub !== false, sendDm = it._sendDm !== false;
+    if (!sendPub && !sendDm) return;   // 둘 다 끔 → CTA 비활성 (안전망)
     var el = document.getElementById(ID);
     if (it._editing && el) { _captureEdit(el, it); it._editing = false; }   // 편집 중 발송 → 편집값 반영
-    var pubText = _displayPublic(it), dmText = _displayDm(it);
+    var pubText = sendPub ? _displayPublic(it) : '', dmText = sendDm ? _displayDm(it) : '';
+    var okMsg = (sendPub && sendDm ? '공개답글 달림 · DM 전송됨' : sendPub ? '공개답글 달림' : 'DM 전송됨');
     if (it._real && it.commentId && window.apiFetch) {
-      // 실제 인스타: 공개답글 + 비공개 DM 발송
+      // 실제 인스타: 켠 채널만 발송 (끈 채널은 텍스트 '' + 플래그 false)
       _removeItem(id);
-      _toast('답글 보내는 중…');
+      _toast('보내는 중…');
       var auth = window.authHeader ? window.authHeader() : {};
       window.apiFetch(window.apiUrl('/instagram/comment-reply'), {
         method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, auth),
-        body: JSON.stringify({ comment_id: it.commentId, public_text: pubText, dm_text: dmText, media_id: it.mediaId, intent: it.intent, edited: !!it._override, question: it.text })
+        body: JSON.stringify({ comment_id: it.commentId, public_text: pubText, dm_text: dmText, send_public: sendPub, send_dm: sendDm, media_id: it.mediaId, intent: it.intent, edited: !!it._override, question: it.text })
       }).then(function (r) { return r.json().catch(function () { return {}; }); })
-        .then(function (j) { _toast(j && j.ok ? ('공개답글 달림 · DM 전송됨 (' + it.name + ')') : ('일부 실패 — ' + JSON.stringify((j && (j.public || j.dm)) || j).slice(0, 80))); })
+        .then(function (j) { _toast(j && j.ok ? (okMsg + ' (' + it.name + ')') : ('일부 실패 — ' + JSON.stringify((j && (j.public || j.dm)) || j).slice(0, 80))); })
         .catch(function () { _toast('발송 실패 — 다시 시도해 주세요'); });
       return;
     }
     // 시드(예시): 목업 발송
     _removeItem(id);
-    _toast('공개답글 달림 · DM 전송됨 (' + it.name + ') · 예시');
+    _toast(okMsg + ' (' + it.name + ') · 예시');
   }
 
   // 실제 인스타 댓글 로드 — 연동+권한 있으면 문의 댓글로 큐 교체, 아니면 시드 유지.
@@ -402,6 +479,7 @@
     if (window._markSheetOpen) window._markSheetOpen('crq');
   }
   function closeCommentReplyQueue() {
+    _closePeek();
     var el = document.getElementById(ID);
     if (!el) return;
     el.classList.remove('is-open');

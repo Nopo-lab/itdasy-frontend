@@ -93,6 +93,14 @@
       return undefined;
     },
     completePending: _completePending,
+    // [2026-07-20 v785] 홈 "답 안 한 댓글 문의" 줄 → 댓글 응대 큐 (extras lazy — 로드 보장 후 진입)
+    openCommentQueue: () => {
+      const _open = () => { if (typeof window.openCommentReplyQueue === 'function') window.openCommentReplyQueue(); };
+      if (typeof window.openCommentReplyQueue === 'function') return _open();
+      if (window.AppLoader && window.AppLoader.ensure) Promise.resolve(window.AppLoader.ensure('extras')).then(_open).catch(_open);
+      else _open();
+      return undefined;
+    },
     // [2026-07-08] 분석 불러오기 실패 카드 → 홈 새로 그리기 (brief 재요청)
     retryBrief: () => {
       if (window.HomeV41 && typeof window.HomeV41.refresh === 'function') window.HomeV41.refresh();
