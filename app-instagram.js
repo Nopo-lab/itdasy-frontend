@@ -131,6 +131,8 @@ async function checkInstaStatus(fromLogin = false) {
       else { const _pd = document.getElementById('personaDash'); if (_pd) _pd.style.display = 'none'; }
       // 첫 글 완성 여부는 generationLog 기반. 백엔드 지원 전까진 localStorage hint로
       updateStep('stepCaption', !!localStorage.getItem('_first_caption_done'));
+      // [A안] 연동되면 "사진으로 시작" 가이드는 항상 숨김
+      { const _sg = document.getElementById('homeStartGuide'); if (_sg) _sg.style.display = 'none'; }
     } else {
       // [2026-05-12 QA #1 CRITICAL] disconnect 직후 다른 화면 (내샵관리·캡션·갤러리) 이 아직 옛 IG 핸들·
       // 프로필 사진 들고 있던 문제. ig_connected_cache 만 지워서 캐시 분기들이 OLD value 노출.
@@ -167,6 +169,8 @@ async function checkInstaStatus(fromLogin = false) {
       updateStep('stepInsta', false);
       updateStep('stepPersona', false);
       updateStep('stepCaption', false);
+      // [A안] 인스타 건너뛴 상태면 "사진으로 시작" 가이드 노출 (연결/닫음이면 자동 숨김)
+      _syncStartGuide();
     }
     // [QA #8] single source-of-truth — 매 fetch 결과를 store 에 저장 + 변경 이벤트 dispatch.
     try {
@@ -941,11 +945,35 @@ function _dismissIpcCard() {
   // [2026-05-08 hotfix] 메인홈 상단에 작은 띠 표시 — 재진입 경로
   const bar = document.getElementById('ipcMiniBar');
   if (bar) bar.style.display = 'flex';
+  // [A안 2026-07-21] 인스타 건너뛰면 "사진으로 시작" 가이드 카드 노출 — 인스타 없이도 핵심가치 진입로.
+  _syncStartGuide();
   if (typeof showToast === 'function') {
     showToast('설정에서 다시 인스타 연결할 수 있어요');
   }
 }
 window._dismissIpcCard = _dismissIpcCard;
+
+// [A안 2026-07-21] "사진으로 시작" 가이드(#homeStartGuide) 노출 동기화 — 전부 sync 신호.
+//   조건: 인스타 건너뜀 + 미연동 + 안 닫음. 인스타 연결하거나 ✕ 닫으면 사라짐.
+function _syncStartGuide() {
+  const el = document.getElementById('homeStartGuide');
+  if (!el) return;
+  let connected = false, skipped = false, guideDismissed = false;
+  try {
+    connected = localStorage.getItem('itdasy:ig_connected_cache') === '1';
+    skipped = localStorage.getItem('itdasy_ipc_dismissed') === '1';
+    guideDismissed = localStorage.getItem('itdasy_home_guide_dismissed') === '1';
+  } catch (_e) { /* ignore */ }
+  el.style.display = (skipped && !connected && !guideDismissed) ? 'block' : 'none';
+}
+window._syncStartGuide = _syncStartGuide;
+
+function _dismissStartGuide() {
+  try { localStorage.setItem('itdasy_home_guide_dismissed', '1'); } catch (_e) { void _e; }
+  const el = document.getElementById('homeStartGuide');
+  if (el) el.style.display = 'none';
+}
+window._dismissStartGuide = _dismissStartGuide;
 
 // ═══════════════════════════════════════════════════════
 // [2026-05-18] 인스타 미리보기 — ratio 자동 매핑

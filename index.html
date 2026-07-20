@@ -127,7 +127,7 @@ window.__LATEST_BUILD__ = '20260705-v709-fillwide';
 <link rel="stylesheet" href="css/patterns.css">
 <link rel="stylesheet" href="css/screens/home.css">
 <link rel="stylesheet" href="css/screens/home-v41.css?v=20260705-itbi-hotfix">
-<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260720-cbt-firstrun">
+<link rel="stylesheet" href="css/screens/home-pre-connect.css?v=20260721-startguide">
 <!-- [2026-05-24] PowerView CSS 제거 — 기능 폐지 -->
 <link rel="stylesheet" href="css/screens/hubs.css?v=20260505-v97">
 <link rel="stylesheet" href="css/screens/hubs-prototype.css?v=20260709-v716-sidevar">
@@ -1449,6 +1449,66 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
     </svg>
   </div>
 
+  <!-- ── 인스타 건너뛴 신규 사장님 — "사진으로 시작" 가이드 (IPC 형제 카드, 같은 .ipc-* 디자인 재사용) ──
+       노출: 인스타 건너뜀(itdasy_ipc_dismissed) + 미연동 + 안 닫음. 제어: app-instagram.js _syncStartGuide() -->
+  <div id="homeStartGuide" class="hc-section ipc" style="display:none;">
+    <div class="ipc-card">
+      <button type="button" class="isg-close" data-static-action="dismiss-start-guide" aria-label="닫기" data-haptic="light">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+
+      <div class="ipc-bot-top" aria-hidden="true"><svg width="33" height="33" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+      <div class="ipc-bot-shadow" aria-hidden="true"></div>
+
+      <div class="ipc-label">사장님의 AI 비서, 잇비</div>
+      <h2 class="ipc-title">인스타는 나중에.<br>사진 한 장으로 먼저 시작해요</h2>
+
+      <!-- 라이브 데모: 사진 → AI 글 → 완성 (인스타 없는 버전) -->
+      <div class="ipc-live" aria-hidden="true">
+        <div class="ipc-live-row m1">
+          <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-live-bubble"><span class="ipc-typewriter">시술 사진, 사장님 말투로 글 써드려요</span></div>
+        </div>
+        <div class="ipc-live-row m2">
+          <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-live-bubble"><span class="ipc-live-msg">누끼·보정도 <b>자동으로 끝났어요</b></span><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        </div>
+        <div class="ipc-live-row m3">
+          <div class="ipc-live-ava"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-live-bubble"><span class="ipc-live-msg">게시글 완성, <b>탭 한 번이면 끝</b></span><span class="ipc-ok"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        </div>
+        <div class="ipc-live-cap"><span class="ipc-live-dot"></span>인스타 없이도 잇비가 이렇게 일해요</div>
+      </div>
+
+      <!-- 진행 흐름: 사진 올리기(현재) → AI 글쓰기 → 첫 글 완성 -->
+      <div class="ipc-flow ipc-flow--m" aria-hidden="true">
+        <div class="ipc-fl now">
+          <div class="ipc-fl-ic"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-camera"/></svg></div>
+          <div class="ipc-fl-t">사진 올리기</div>
+        </div>
+        <div class="ipc-fl-line"><i></i></div>
+        <div class="ipc-fl next">
+          <div class="ipc-fl-ic"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-bot"/></svg></div>
+          <div class="ipc-fl-t">AI 글쓰기</div>
+        </div>
+        <div class="ipc-fl-line"><i style="animation-delay:.8s"></i></div>
+        <div class="ipc-fl next">
+          <div class="ipc-fl-ic"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#ic-pen-line"/></svg></div>
+          <div class="ipc-fl-t">첫 글 완성</div>
+        </div>
+      </div>
+
+      <div class="ipc-ctas">
+        <button class="ipc-cta" data-static-action="nav-workshop" data-haptic="light">
+          <svg width="18" height="18" viewBox="0 0 24 24"><use href="#ic-camera"/></svg>
+          사진으로 첫 글 만들기
+        </button>
+        <div class="ipc-trust">1분이면 첫 홍보글이 완성돼요</div>
+        <button class="ipc-skip" data-static-action="connect-instagram">인스타 먼저 연결할래요</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 연동 후 상태 (홈 v4.1 톤다운) ── -->
   <div id="homePostConnect" class="hc-section" style="display:none;">
 
@@ -2172,6 +2232,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
       'assistant': () => call('openAssistant'),
       'connect-instagram': () => call('connectInstagram'),
       'dismiss-ipc': () => call('_dismissIpcCard'),
+      'dismiss-start-guide': () => call('_dismissStartGuide'),
       'analyze-result-close': () => setHidden('analyzeResultPopup'),
       'caption-generate': () => call('generateCaption'),
       'caption-voice': () => call('openVoiceCaption'),
@@ -2272,7 +2333,7 @@ try { localStorage.removeItem('itdasy:fab_pos'); } catch (err) { console.warn('[
 <script src="app-dm-menu.js?v=20260620-quick-guide" defer></script>
 <script src="app-perf-recovery.js?v=20260521-v254-api-fetch" defer></script>
 <script src="app-spec-validator.js" defer></script>
-<script src="app-instagram.js?v=20260703-v658-hotfix" defer></script>
+<script src="app-instagram.js?v=20260721-startguide" defer></script>
 <script src="components/scenario-selector.js?v=20260619-v524-ws-qa" defer></script>
 <!-- [B-분할] 캡션 기능 모듈 — app-caption.js(코어 엔진) 보다 먼저 로드(전역 함수 정의) -->
 <script src="js/caption/caption-loader-ui.js?v=20260630-v615-caption-split3" defer></script>
