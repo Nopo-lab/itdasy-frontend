@@ -60,6 +60,8 @@
       update_service_price:  { icon: 'ic-dollar-sign',     label: '가격 변경', color: '#0EA5E9' },
       // [Phase 0 · 2026-07-20] 잇비 해제 kind — 시술 기록(포트폴리오 1급 엔티티)
       create_treatment_record:{ icon: 'ic-camera',         label: '시술 기록', color: '#7C6BB0' },
+      // [Phase 2 · 2026-07-20] CRM 깊이 — 고객 메모 추가
+      add_customer_memo:     { icon: 'ic-edit-3',          label: '고객 메모', color: '#4ECDC4' },
     };
   }
 
