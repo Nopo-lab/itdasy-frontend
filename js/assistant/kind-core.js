@@ -63,6 +63,9 @@
       // [Phase 2 · 2026-07-20] CRM 깊이 — 고객 메모 / 리뷰 요청(초안 큐)
       add_customer_memo:     { icon: 'ic-edit-3',          label: '고객 메모', color: '#4ECDC4' },
       request_review:        { icon: 'ic-star',            label: '리뷰 요청', color: '#F59E0B' },
+      // [Phase 3 · 2026-07-20] 자동화 제어 토글 (설정 플래그, 발송 아님)
+      toggle_dm_autoreply:   { icon: 'ic-message-square',  label: 'DM 자동응답', color: '#8B5CF6' },
+      toggle_automation_rule:{ icon: 'ic-settings',        label: '자동화 설정', color: '#6366F1' },
     };
   }
 
@@ -79,6 +82,9 @@
       'delete_customer',
       'publish_instagram',
       'update_service_price',
+      // [Phase 3 · 2026-07-20] 지속 설정 변경 — 자동화 토글은 native confirm 한 번 더
+      'toggle_dm_autoreply',
+      'toggle_automation_rule',
     ]);
   }
 
