@@ -14,6 +14,8 @@
   'use strict';
   function create(ctx) {
     var WSU = window.WSFlowUtil || {}, esc = WSU.esc, toast = WSU.toast;
+    // [P0-1] 표시용 dataURL → blob URL (리렌더 재파싱 제거). 비-dataURL 은 그대로 통과.
+    function disp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
     var setScreen = ctx.setScreen, editablePhotos = ctx.editablePhotos, photoUrl = ctx.photoUrl, _cleanBase = ctx.cleanBase;
     function D() { return ctx.d(); }       // 현재 상태 객체(open 마다 새로 할당되므로 접근자)
     function CUR() { return ctx.cur(); }   // 현재 화면 이름
@@ -171,12 +173,12 @@
     // ── 렌더 ─────────────────────────────────────────────
     function _prevInner(c) {
       var L = c.layout, ps = _cardPhotos(c);
-      if (!L) { var p0 = ps[0]; return '<i class="wsl-ph" style="left:0;top:0;width:100%;height:100%;background-image:url(' + esc(p0 ? photoUrl(p0) : '') + ')"></i>'; }
+      if (!L) { var p0 = ps[0]; return '<i class="wsl-ph" style="left:0;top:0;width:100%;height:100%;background-image:url(' + esc(disp(p0 ? photoUrl(p0) : '')) + ')"></i>'; }
       var map = _cardAssign(c) || {};
       return (L.photoSlots || []).map(function (sl) {
         var p = map[sl.id], r = sl.rect;
         return '<i class="wsl-ph" style="left:' + (r.x * 100) + '%;top:' + (r.y * 100) + '%;width:' + (r.w * 100) + '%;height:' + (r.h * 100) + '%;' +
-          (p ? 'background-image:url(' + esc(photoUrl(p)) + ');' : '') + '"></i>';
+          (p ? 'background-image:url(' + esc(disp(photoUrl(p))) + ');' : '') + '"></i>';
       }).join('') + _layersHtml(L);
     }
     // 텍스트 레이어를 캔버스와 같은 비율로(cqmin) — 굽기 전에도 결과를 짐작할 수 있게.
@@ -217,7 +219,7 @@
       if (n === 1) {
         var p1 = eps[0];
         return '<div class="wsc-wrap">' +
-          '<div class="wsc-one" style="background-image:url(' + esc(photoUrl(p1)) + ')" role="img" aria-label="올릴 사진"></div>' +
+          '<div class="wsc-one" style="background-image:url(' + esc(disp(photoUrl(p1))) + ')" role="img" aria-label="올릴 사진"></div>' +
           '<div class="wsc-onemsg">' +
             '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>' +
             '<div><b>사진이 1장이라 그대로 올라가요</b><span>레이아웃은 2장부터 골라요 · 사진 더하기는 이전 화면에서</span></div>' +
@@ -228,7 +230,7 @@
       // ③ n장 — 번호 썸네일 전부 보이기 + 결과 미리보기 + 구성 2~3종
       var cards = CARDS(), comp = _curComp();
       var strip = eps.map(function (p, i) {
-        return '<span class="wsc-sph" style="background-image:url(' + esc(photoUrl(p)) + ')" role="img" aria-label="' + (i + 1) + '번째 사진"><i>' + (i + 1) + '</i></span>';
+        return '<span class="wsc-sph" style="background-image:url(' + esc(disp(photoUrl(p))) + ')" role="img" aria-label="' + (i + 1) + '번째 사진"><i>' + (i + 1) + '</i></span>';
       }).join('');
       var frames = cards.map(function (c, i) {
         return '<div class="wsc-frame" style="aspect-ratio:' + _arOf(c.layout) + '">' +

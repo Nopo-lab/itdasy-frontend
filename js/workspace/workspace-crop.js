@@ -15,6 +15,8 @@
   ];
 
   var el, cv, ctx, S;
+  // [P0-1] 표시용 dataURL → blob URL (썸네일 스트립 재파싱 제거). 비-dataURL 은 그대로 통과.
+  function _disp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
 
   function toast(m) { if (window.showToast) window.showToast(m); }
 
@@ -135,7 +137,7 @@
       strip.innerHTML = S.photos.map(function (p, i) {
         var src = p.editedDataUrl || p.dataUrl;
         var tag = p.role === 'before' ? '전' : (p.role === 'after' ? '후' : '');
-        return '<button class="wscrop__thumb' + (i === S.index ? ' on' : '') + '" data-wc-photo="' + i + '" style="background-image:url(' + src + ')">' + (tag ? '<span>' + tag + '</span>' : '') + '</button>';
+        return '<button class="wscrop__thumb' + (i === S.index ? ' on' : '') + '" data-wc-photo="' + i + '" style="background-image:url(' + _disp(src) + ')">' + (tag ? '<span>' + tag + '</span>' : '') + '</button>';
       }).join('');
     } else { strip.style.display = 'none'; }
   }

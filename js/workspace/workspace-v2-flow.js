@@ -216,6 +216,9 @@
     });
   }
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
+  // [P0-1] 표시용 URL 문자열 → blob URL (innerHTML 재파싱·재디코드 제거). 비-dataURL 은 그대로 통과.
+  //   ⚠️ dispUrl(p)(아래, photo→dataURL 접근자)과 다른 것 — 이건 URL 문자열 변환기(표시 전용).
+  function _blobDisp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
   // [이슈2/11] 게시 대표 이미지 — 전후 템플릿 "적용 결과물"(d.templateOutput)이 있으면 그것을, 없으면 대표 사진.
   //   합성 결과물은 별도 필드로만 관리한다. 편집화면 사진 스트립/썸네일은 절대 이 값을 쓰지 않으므로
   //   원본/후사진 슬롯이 합성본으로 오염되지 않는다(이슈2). 해제하면 d.templateOutput=null → 원본 복귀(이슈11).
@@ -850,7 +853,7 @@
     return '<div class="ed-roles">' + eps.map(function (p) {
       var idx = d.photos.indexOf(p);
       var role = p.role || 'hero';
-      return '<div class="ed-roles__row"><span class="ed-roles__thumb" style="background-image:url(' + esc(photoUrl(p)) + ')"></span>' + _roleSegInline(role, idx) + '</div>';
+      return '<div class="ed-roles__row"><span class="ed-roles__thumb" style="background-image:url(' + esc(_blobDisp(photoUrl(p))) + ')"></span>' + _roleSegInline(role, idx) + '</div>';
     }).join('') + '<div class="ed-roles__hint">전후 비교 템플릿은 <b>전</b>·<b>후</b>를 각각 1장 이상 지정하세요.</div></div>';
   }
   function _advFoldHtml() {
@@ -923,7 +926,7 @@
     var badge = '<div class="tplres__badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
         '<b>' + (isBA ? '전후 템플릿 적용됨' : '템플릿 적용됨') + '</b>' +
         (outs.length > 1 ? '<em>' + (actIdx + 1) + ' / ' + outs.length + '</em>' : '') + '</div>';
-    var img = '<div class="tplres__img" data-fl-tplresult style="background-image:url(' + esc(active.outputUrl) + ')"></div>';
+    var img = '<div class="tplres__img" data-fl-tplresult style="background-image:url(' + esc(_blobDisp(active.outputUrl)) + ')"></div>';
     var pairs = outs.length > 1 ? '<div class="tplres__nav" role="tablist" aria-label="결과물 전환 — 좌우로 넘기기">' +
         '<button type="button" class="tplres__arw" data-fl-pairstep="prev" aria-label="이전 결과물"' + (actIdx <= 0 ? ' disabled' : '') + '><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>' +
         '<div class="tplres__dots">' + outs.map(function (o, i) {
@@ -1746,9 +1749,9 @@
 	      // [v558] 캡션 UX 리뉴얼 — 시나리오 버튼 제거. 사진 → 시술 문구 입력 → 말투 6칩 → 길이 → 해시태그 토글 → 단일 생성 버튼.
 	      // [ws-hyper] 레이아웃 합성본은 폭 꽉 차는 img로(레터박스 빈 여백 제거).
 	      var photoThumb = d.templateOutput   /* [버그수정 2026-07-06] 재오픈 초안도 합성본 썸네일 */
-	        ? '<div class="wsl-cap-preview"><img src="' + esc(d.templateOutput) + '" alt="미리보기"></div>'
+	        ? '<div class="wsl-cap-preview"><img src="' + esc(_blobDisp(d.templateOutput)) + '" alt="미리보기"></div>'
 	        : (_capCarouselHtml() || ((!d.textOnly && url) ?
-	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(url) + ')"></div>' : ''));
+	        '<div class="cap-photo cap-photo--sm" style="background-image:url(' + esc(_blobDisp(url)) + ')"></div>' : ''));
 	      // [캡션재설계 v2 2026-07-15] 자유 서술 텍스트영역(500자) 제거 — 질문 3카드 + 시술 칩(단일선택) + 특이사항 한 줄.
       //   자유 텍스트가 시술명으로 못박혀 욕설·사담이 캡션에 그대로 실리던 verbatim 버그의 입구를 막는다.
 	      if (SIMPLE_FLOW) {
@@ -1877,14 +1880,14 @@
 	    var items = _displayItems();
 	    if (items.length <= 1) {
 	      var u = items.length ? items[0].url : fallbackUrl;
-	      return '<div class="ig-photo" style="background-image:url(' + esc(u) + ')"></div>';
+	      return '<div class="ig-photo" style="background-image:url(' + esc(_blobDisp(u)) + ')"></div>';
 	    }
 	    var active = (d.activeDisplayId && items.some(function (it) { return it.id === d.activeDisplayId; })) ? d.activeDisplayId : items[0].id;
 	    var slides = items.map(function (it) {
 	      var toggleAttr = it.kind === 'output' && it.expandable ? ' data-fl-tplexpand="' + esc(it.id) + '"'
 	        : (it.ofPair ? ' data-fl-tplcollapse="' + esc(it.ofPair) + '"' : '');
 	      return '<div class="ig-car__slide" data-fl-carslide="' + esc(it.id) + '"' + toggleAttr + '>' +
-	        '<div class="ig-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+	        '<div class="ig-car__img" style="background-image:url(' + esc(_blobDisp(it.url)) + ')"></div></div>';
 	    }).join('');
 	    var dots = items.map(function (it) { return '<button type="button" class="ig-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 사진 보기"></button>'; }).join('');
 	    return '<div class="ig-car cap-car" data-fl-carousel>' +
@@ -1939,11 +1942,11 @@
 	    //   원장님 요청: 연동한 사람은 실제 피드에 어떻게 얹히는지, 미연동은 내가 만든 작업물이 자리를 채우게.
 	    var fill = ig.connected ? recent : (d._myWorkThumbs || []);
 	    var TILES = 11;   // 3×4 그리드 = 새 게시물 1 + 기존 11
-	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(url) + ')"><span class="wsfeed__new">NEW</span></div>';
+	    var cells = '<div class="wsfeed__cell wsfeed__cell--new" style="background-image:url(' + esc(_blobDisp(url)) + ')"><span class="wsfeed__new">NEW</span></div>';
 	    for (var i = 0; i < TILES; i++) {
 	      var _t = fill[i] && (fill[i].thumb || (typeof fill[i] === 'string' ? fill[i] : ''));   // 새형식(obj.thumb)·구형식(string) 호환
 	      cells += _t
-	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(_t) + ')"></div>'
+	        ? '<div class="wsfeed__cell" style="background-image:url(' + esc(_blobDisp(_t)) + ')"></div>'
 	        : '<div class="wsfeed__cell wsfeed__cell--ph"></div>';
 	    }
 	    var stat = ig.connected
@@ -2802,7 +2805,7 @@
   }
   function _tplPreviewSampleCard(tpl) {
     // 업로드 사진이 아닌 '샘플' 템플릿 미리보기(_tplThumb = 사진 미주입 플레이스홀더 렌더).
-    return '<div class="tpl-preview__card" style="background-image:url(' + esc(_tplThumb(tpl)) + ')"></div>';
+    return '<div class="tpl-preview__card" style="background-image:url(' + esc(_blobDisp(_tplThumb(tpl))) + ')"></div>';
   }
   function _openTplPreview(key) {
     var tpl = _tplByKey(key); if (!tpl) return;
@@ -3177,7 +3180,7 @@
 	      var role = p.role || 'hero';
 	      var rl = role === 'before' ? '전' : (role === 'after' ? '후' : '');
 	      var seqNo = _pickSeqNo(p.id);   // 전/후 짝 번호(2짝 이상일 때만 표시)
-	      return '<button type="button" class="tpls-slide' + (rl ? ' is-' + role : '') + '" data-fl-tplpick="' + esc(p.id) + '" style="background-image:url(' + esc(photoUrl(p)) + ')" aria-label="' + esc(_editPhotoLabel(p, i)) + ' — 탭하면 전/후 지정">' +
+	      return '<button type="button" class="tpls-slide' + (rl ? ' is-' + role : '') + '" data-fl-tplpick="' + esc(p.id) + '" style="background-image:url(' + esc(_blobDisp(photoUrl(p))) + ')" aria-label="' + esc(_editPhotoLabel(p, i)) + ' — 탭하면 전/후 지정">' +
 	        (rl ? '<span class="tpls-slide__role">' + rl + (seqNo ? '<em>' + seqNo + '</em>' : '') + '</span>'
 	            : '<span class="tpls-slide__tag">탭 → 전/후</span>') +
 	      '</button>';
@@ -3186,7 +3189,7 @@
 	    var shown = WORKSPACE_TEMPLATES.filter(function (tpl) { return !d.tplCat || d.tplCat === '전체' || tpl.chip === d.tplCat; });
 	    var grid = shown.map(function (tpl) {
 	      var on = d.templateId === tpl.id;
-	      return '<div class="tpl-itemwrap"><button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_tplThumb(tpl)) + ')"><i class="tpl-badge">' + esc(tpl.chip) + '</i>' + (on ? '<i class="tpl-onpill">적용됨</i>' : '') + '</button></div>';
+	      return '<div class="tpl-itemwrap"><button type="button" class="tpl-item' + (on ? ' on' : '') + '" data-fl-tpl="' + esc(tpl.key) + '" aria-label="' + esc(tpl.label) + ' 템플릿' + (on ? ' (적용됨)' : '') + '" style="background-image:url(' + esc(_blobDisp(_tplThumb(tpl))) + ')"><i class="tpl-badge">' + esc(tpl.chip) + '</i>' + (on ? '<i class="tpl-onpill">적용됨</i>' : '') + '</button></div>';
 	    }).join('');
 	    return '<div class="tpls">' +
 	      '<div class="tpls-carousel' + (eps.length > 1 ? ' is-multi' : '') + '" data-fl-tplcar>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--prev" data-fl-tplnav="-1" aria-label="이전 사진"><i class="ph-bold ph-caret-left"></i></button>' : '') + '<div class="tpls-strip" data-fl-tplstrip aria-label="편집한 사진 — 좌우로 넘겨 확인">' + (strip || '<div class="tpls-empty">선택된 사진이 없어요. 먼저 사진을 골라 주세요.</div>') + '</div>' + (eps.length > 1 ? '<button type="button" class="tpls-nav tpls-nav--next" data-fl-tplnav="1" aria-label="다음 사진"><i class="ph-bold ph-caret-right"></i></button>' : '') + '</div>' + (eps.length > 1 ? '<div class="tpls-dots" data-fl-tpldots>' + eps.map(function (p, i) { return '<button type="button" class="tpls-dot' + (i === 0 ? ' on' : '') + '" data-fl-tpldot="' + i + '" aria-label="' + (i + 1) + '번째 사진으로"></button>'; }).join('') + '</div>' : '') +
@@ -3524,7 +3527,7 @@
 	        : (it.ofPair ? '<span class="cap-car__toggle">탭 → 결과로 접기</span>' : '');
 	      return '<div class="cap-car__slide" data-fl-carslide="' + esc(it.id) + '"' + toggleAttr + '>' +
 	        '<span class="cap-car__badge">' + (i + 1) + ' / ' + n + ' · ' + esc(it.label) + '</span>' + toggleHint +
-	        '<div class="cap-car__img" style="background-image:url(' + esc(it.url) + ')"></div></div>';
+	        '<div class="cap-car__img" style="background-image:url(' + esc(_blobDisp(it.url)) + ')"></div></div>';
 	    }).join('');
 	    var dots = items.map(function (it) { return '<button type="button" class="cap-car__dot' + (it.id === active ? ' on' : '') + '" data-fl-cardot="' + esc(it.id) + '" aria-label="이 결과물 보기"></button>'; }).join('');
 	    var outN = (d.templateOutputs || []).length;

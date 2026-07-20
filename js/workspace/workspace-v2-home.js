@@ -25,6 +25,8 @@
     });
   }
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
+  // [P0-1] 표시용 dataURL → blob URL (리렌더마다 base64 재파싱 제거). 비-dataURL 은 그대로 통과.
+  function _disp(u) { return (window.WSBlobUrl && window.WSBlobUrl.disp) ? window.WSBlobUrl.disp(u) : u; }
 
   function _thumb(slot) {
     // [이슈2] 전후 템플릿 적용본이 있으면 저장카드도 그 합성 결과를 보여준다.
@@ -82,7 +84,7 @@
     var chip = _isPub(slot) ? ''
       : '<span class="wf-chip">' + ((slot.publish && slot.publish.status === 'scheduled') ? '예약' : '작성 중') + '</span>';
     return '<button type="button" class="wf-tile' + (_selectMode ? ' wf-tile--sel' : '') + (sel ? ' is-sel' : '') +
-      '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+      '" data-wsv2-slot="' + _esc(slot.id) + '" data-haptic="light"' + (img ? ' style="background-image:url(' + _esc(_disp(img)) + ')"' : '') + '>' +
       (_selectMode ? '<span class="wf-check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>' : '') +
       chip +
       (img ? '' : '<span class="wf-ph" aria-hidden="true">' + _PHIC + '</span>') +
@@ -114,7 +116,7 @@
     cand.sort(function (a, b) { return (b.createdAt || b.completedAt || 0) - (a.createdAt || a.completedAt || 0); });
     var slot = cand[0], img = _thumb(slot);
     return '<button type="button" class="wf-resume" data-wsv2-resume="' + _esc(slot.id) + '" data-haptic="light">' +
-      '<span class="wf-resume__thumb"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '></span>' +
+      '<span class="wf-resume__thumb"' + (img ? ' style="background-image:url(' + _esc(_disp(img)) + ')"' : '') + '></span>' +
       '<span class="wf-resume__body">' +
         '<span class="wf-resume__title">' + _esc(slot.label || '제목 없음') + '</span>' +
         '<span class="wf-resume__sub">' + _esc(_resumeMsg(slot)) + '</span>' +
@@ -363,7 +365,7 @@
       var idx = 0;
       var ov = document.createElement('div'); ov.className = 'wshc-lb';
       ov.innerHTML = '<button type="button" class="wshc-lb__x" data-lb-close aria-label="닫기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>' +
-        '<div class="wshc-lb__stage">' + imgs.map(function (u, i) { return '<div class="wshc-lb__slide' + (i === 0 ? ' on' : '') + '" style="background-image:url(' + _esc(u) + ')"></div>'; }).join('') + '</div>' +
+        '<div class="wshc-lb__stage">' + imgs.map(function (u, i) { return '<div class="wshc-lb__slide' + (i === 0 ? ' on' : '') + '" style="background-image:url(' + _esc(_disp(u)) + ')"></div>'; }).join('') + '</div>' +
         (imgs.length > 1 ? '<div class="wshc-lb__dots">' + imgs.map(function (u, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '></span>'; }).join('') + '</div>' : '') +
         '<div class="wshc-lb__bar"><button type="button" class="wshc-lb__edit" data-lb-edit>이어서 편집 →</button></div>';
       document.body.appendChild(ov); _lbEl = ov;
@@ -559,7 +561,7 @@
     }).join('');
     var html = '' +
       '<div class="wsv2-drawer__grip"></div>' +
-      '<div class="wsv2-drawer__hero"' + (img ? ' style="background-image:url(' + _esc(img) + ')"' : '') + '>' +
+      '<div class="wsv2-drawer__hero"' + (img ? ' style="background-image:url(' + _esc(_disp(img)) + ')"' : '') + '>' +
         (img ? '' : '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>') + '</div>' +
       '<div style="display:flex;align-items:center;gap:8px;margin:2px 0 3px">' +
         '<span style="font-size:16px;font-weight:800;color:var(--text,#191F28)">' + _esc(slot.label || '제목 없음') + '</span>' +

@@ -7,6 +7,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-gallery-db.js?v=20260611-b7b8',
   'app-gallery-workshop.js?v=20260714-v747-hlfix2',
   'js/workspace/workspace-state.js?v=20260619-v522-workspace-nl-p3',
+  'js/workspace/blob-url.js?v=20260720-v779-bloburl',
   'js/workspace/shop-style.js?v=20260628-v591-variant-grid-brandcolor',
   'js/workspace/work-memory.js?v=20260717-v772-wmlayout',
   'js/itd-editor/data/itd-decos.js?v=20260712-v734-combadges',
