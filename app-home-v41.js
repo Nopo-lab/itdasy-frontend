@@ -92,6 +92,11 @@
     } catch (_e) { return 0; }
     const headers = _authHeaders();
     if (!window.API || !headers) return 0;
+    // [v789] 자동 응대 마스터 꺼짐 → 홈 줄 숨김 + API 호출도 스킵 (비용 방어)
+    try {
+      const s0 = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
+      if (s0 && s0.enabled === false) return 0;
+    } catch (_e) { /* ignore */ }
     try {
       const res = await apiFetch('/instagram/comment-queue', { headers });
       if (!res.ok) return 0;

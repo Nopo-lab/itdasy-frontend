@@ -18,10 +18,17 @@
    ① 배너·통계박스·필터탭 삭제 → 한 줄 "● 대기 N건 · 이번 주 N건 응대" + 최신순/오래된순 토글
      (불만 댓글은 정렬 무관 항상 최상단)
    ② 닉네임 옆 문의/확실 배지 삭제(불만·단골만 유지), 메타는 시간만
-   ③ 게시물 칩 → 카드 안 인용 스트립(썸네일 52px + 캡션 + 날짜, 탭=미리보기 팝업)
+   ③ 게시물 칩 → 카드 안 인용 스트립(썸네일 52px + 날짜만 — 캡션은 잘림 금지라 팝업 전문으로, v788)
    ④ DM 접기 폐지 — 전문 항상 펼침(말줄임 금지), 공개답글/DM 라벨줄 구조 통일 → 토글 세로선 정렬
    ⑤ 글자 3단계(15 본문 / 13 보조 / 배지 10)
    ⑥ 프사: BE profile_pic(댓글 닉네임↔DM 기록 매칭, BE 작업 대기) 있으면 사진, 없으면 이니셜
+
+   [2026-07-21 v789] 설정 화면 개편 (원영 승인 목업 v2)
+   ① 죽은 "검토 후 발송/바로 발송" 스위치 삭제 (저장만 되고 아무 데서도 안 읽던 값)
+   ② 자동 응대 마스터 토글을 설정 안에도 배치 — 목록(ai-hub)과 같은 저장 키(단일 진실원)
+      끄면: 홈 댓글 문의 줄 숨김(app-home-v41 연동) + 기능 전체 쉼
+   ③ 저장 버튼 삭제 — 바꾸는 즉시 저장 (링크는 change 시)
+   ④ 베이지 래퍼 → 큐와 같은 흰 카드 + .5px 보더, 글자 15/13, 쉬운 문구
    ─────────────────────────────────────────────────────────── */
 (function () {
   'use strict';
@@ -58,11 +65,12 @@
   // ── 자동응답 설정 (DM처럼 세팅) — localStorage 저장 ──
   var _EMOJI_OPTS = ['😊', '🤍', '✨', '💕', '🎀', '💝', ''];
   function _loadSettings() {
-    var def = { enabled: true, intents: { price: true, booking: true, location: true, hours: false }, mode: 'review', link: '', emoji: '😊' };
+    // [v789] mode(검토/바로 발송) 제거 — 저장만 되고 아무 데서도 안 읽던 죽은 값
+    var def = { enabled: true, intents: { price: true, booking: true, location: true, hours: false }, link: '', emoji: '😊' };
     try {
       var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
       if (!s) return def;
-      return { enabled: s.enabled !== false, mode: s.mode || 'review', link: s.link || '', emoji: (s.emoji != null ? s.emoji : '😊'),
+      return { enabled: s.enabled !== false, link: s.link || '', emoji: (s.emoji != null ? s.emoji : '😊'),
         intents: Object.assign({}, def.intents, s.intents || {}) };
     } catch (_e) { return def; }
   }
@@ -166,10 +174,7 @@
       (it.thumb
         ? '<span style="width:52px;height:52px;flex-shrink:0;border-radius:10px;background:#E5E8EB center/cover no-repeat;background-image:url(' + _esc(it.thumb) + ');"></span>'
         : '<span style="width:52px;height:52px;flex-shrink:0;border-radius:10px;background:#E5E8EB;display:inline-flex;align-items:center;justify-content:center;color:#B0B8C1;">' + IC.camera + '</span>') +
-      '<span style="flex:1;min-width:0;">' +
-        '<span style="display:block;font-size:13px;font-weight:600;color:#6B7684;line-height:1.4;">' + _esc(it.media) + '</span>' +
-        '<span style="display:block;font-size:13px;color:#B0B8C1;margin-top:2px;">이 게시물에 달린 댓글' + (dstr ? ' · ' + dstr : '') + '</span>' +
-      '</span>' +
+      '<span style="flex:1;min-width:0;font-size:13px;font-weight:600;color:#6B7684;">이 게시물에 달린 댓글' + (dstr ? '<span style="color:#B0B8C1;font-weight:500;"> · ' + dstr + '</span>' : '') + '</span>' +
       '<span style="color:#B0B8C1;font-size:13px;flex-shrink:0;">›</span></button>';
     // 공개 답글 — 라벨줄(토글 우측 끝) + 말풍선 or 꺼짐 안내
     var pubBadges = (it.manual ? '<span style="font-size:10px;font-weight:700;color:#0F766E;background:#E7F6EF;border-radius:7px;padding:1px 6px;">내 멘트</span>' : '') +
@@ -283,48 +288,41 @@
   }
 
   function _settingsBody() {
-    // [2026-07-13] 목록 토글이 ON/OFF 정본 — 열 때 최신 enabled 반영(단일 진실원, app-ai-hub 와 공유).
+    // 단일 진실원 — 열 때 최신 enabled 반영(목록 ai-hub 와 같은 저장 키). [v789] 여기서도 끄고 켬.
     try { var _f = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null'); if (_f) _settings.enabled = _f.enabled !== false; } catch (_e) { void _e; }
     var S = _settings;
-    var CARD = 'background:#fff;border-radius:16px;padding:15px;margin-bottom:11px;box-shadow:0 1px 5px rgba(0,0,0,.04);';
-    var LBL = 'font-size:12.5px;color:#4E5968;font-weight:600;';
+    var CARD = 'background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:15px;margin-bottom:11px;';
+    var TITLE = 'font-size:15px;font-weight:700;color:#191F28;';
+    var SUB = 'font-size:13px;color:#8B95A1;';
     function _chip(key, label) {
       var on = S.intents[key] !== false;
-      return '<span class="crq-intent" data-intent="' + key + '" style="cursor:pointer;font-size:13px;font-weight:' + (on ? 600 : 500) + ';padding:9px 16px;border-radius:14px;' +
-        (on ? 'background:#F7EFF0;color:#BC6675;box-shadow:inset 0 0 0 1px rgba(188,102,117,.16);' : 'background:#F7F8FA;color:#B0B8C1;') + '">' + label + '</span>';
+      return '<span class="crq-intent" data-intent="' + key + '" style="cursor:pointer;font-size:15px;font-weight:' + (on ? 700 : 500) + ';padding:10px 18px;border-radius:14px;' +
+        (on ? 'background:#F7EFF0;color:#BC6675;box-shadow:inset 0 0 0 1px rgba(188,102,117,.18);' : 'background:#F7F8FA;color:#B0B8C1;') + '">' + label + '</span>';
     }
     function _emojiOpt(e) {
       var on = S.emoji === e;
-      var label = e || '없음';
-      return '<span class="crq-emoji" data-emoji="' + e + '" style="cursor:pointer;min-width:34px;text-align:center;font-size:15px;padding:6px 9px;border-radius:12px;' +
-        (on ? 'background:#191F28;color:#fff;' : 'background:#F7F8FA;box-shadow:inset 0 0 0 1px #E5E8EB;') + '">' + label + '</span>';
+      return '<span class="crq-emoji" data-emoji="' + e + '" style="cursor:pointer;min-width:36px;text-align:center;font-size:' + (e ? '16px' : '15px') + ';padding:8px 10px;border-radius:12px;' +
+        (on ? 'background:#191F28;color:#fff;' : 'background:#F7F8FA;color:#8B95A1;box-shadow:inset 0 0 0 1px #E5E8EB;') + '">' + (e || '없음') + '</span>';
     }
-    var sOn = S.enabled;
-    return '<div style="background:#FAF6F4;border-radius:20px;padding:12px;box-shadow:0 2px 12px rgba(0,0,0,.05);">' +
-      // 상태 스트립 (마스터 토글 대체) — ON/OFF 는 잇비 자동화 목록에서
-      '<div style="display:flex;align-items:center;gap:9px;border-radius:13px;padding:11px 13px;margin-bottom:11px;' + (sOn ? 'background:#F0FBF4;box-shadow:inset 0 0 0 1px rgba(22,181,94,.18);' : 'background:#F7F8FA;box-shadow:inset 0 0 0 1px #E5E8EB;') + '">' +
-        '<span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:' + (sOn ? '#16B55E' : '#C9CDD4') + ';' + (sOn ? 'box-shadow:0 0 0 3px rgba(22,181,94,.16);' : '') + '"></span>' +
-        '<div style="flex:1;font-size:12.5px;font-weight:600;color:' + (sOn ? '#0F6E56' : '#8B95A1') + ';">자동 응대 ' + (sOn ? '켜짐' : '꺼짐') + '</div>' +
-        '<div style="font-size:11px;color:#8B95A1;">' + (sOn ? '끄기' : '켜기') + '는 목록에서</div></div>' +
-      // 문의 종류
-      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:11px;">어떤 문의에 답할까</div>' +
+    // 마스터 토글 — 카드 토글(crq-tg)과 같은 생김새, 설정 전용 클래스(핸들러 분리)
+    var mtg = '<span class="crq-master" role="switch" aria-checked="' + (S.enabled ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (S.enabled ? '#16B55E' : '#D1D6DB') + ';">' +
+      '<span style="position:absolute;top:2px;left:' + (S.enabled ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span>';
+    return '<div style="' + CARD + 'display:flex;align-items:center;gap:10px;">' +
+        '<div style="flex:1;"><div style="' + TITLE + '">댓글 자동 응대</div>' +
+        '<div style="' + SUB + 'margin-top:3px;">' + (S.enabled ? '끄면 댓글 문의를 챙기지 않아요' : '꺼짐 · 홈에도 안 떠요') + '</div></div>' + mtg + '</div>' +
+      // 문의 종류 — 끄면 대기 목록·홈 숫자에서 제외(숨김)
+      '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:4px;">이런 댓글에 답해요</div>' +
+        '<div style="' + SUB + 'margin-bottom:12px;">끈 문의는 여기에 안 보여요</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + _chip('price', '가격') + _chip('booking', '예약') + _chip('location', '위치') + _chip('hours', '영업시간') + '</div></div>' +
-      // 핵심 링크
-      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:10px;">핵심 링크 <span style="color:#C1C7CF;font-weight:500;">· 예약</span></div>' +
-        '<input class="crq-link" type="text" value="' + _esc(S.link) + '" placeholder="예) naver.me/xxxx — DM 답장에 자동으로 붙어요" ' +
-          'style="width:100%;padding:12px 14px;border:none;border-radius:14px;font-size:13.5px;background:#FAFAFB;color:#191F28;box-sizing:border-box;font-family:inherit;box-shadow:inset 0 0 0 1px #EAECEF;" />' +
-        '<div style="font-size:10.5px;color:#C1C7CF;margin-top:7px;">DM 답장 끝에 자동으로 붙어요.</div></div>' +
+      // 예약 링크
+      '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:4px;">예약 링크</div>' +
+        '<div style="' + SUB + 'margin-bottom:12px;">DM 답장 끝에 자동으로 붙어요</div>' +
+        '<input class="crq-link" type="text" value="' + _esc(S.link) + '" placeholder="예) naver.me/xxxx" ' +
+          'style="width:100%;padding:13px 14px;border:none;border-radius:14px;font-size:15px;background:#F7F8FA;color:#191F28;box-sizing:border-box;font-family:inherit;" /></div>' +
       // 공개답글 끝 이모지 (AI 응답 텍스트용 — 이모지 허용 예외)
-      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:10px;">공개답글 끝 이모지</div>' +
+      '<div style="' + CARD + 'margin-bottom:0;"><div style="' + TITLE + 'margin-bottom:12px;">공개답글 끝 이모지</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:7px;">' + _EMOJI_OPTS.map(_emojiOpt).join('') + '</div></div>' +
-      // 응대 방식
-      '<div style="' + CARD + '"><div style="' + LBL + 'margin-bottom:10px;">응대 방식</div>' +
-        '<div style="display:flex;background:#F2F4F6;border-radius:13px;padding:3px;">' +
-          '<span class="crq-mode" data-mode="review" style="cursor:pointer;flex:1;text-align:center;font-size:13px;font-weight:' + (S.mode === 'review' ? 700 : 500) + ';padding:10px;border-radius:10px;' + (S.mode === 'review' ? 'background:#fff;color:#191F28;box-shadow:0 1px 3px rgba(0,0,0,.08);' : 'color:#8B95A1;') + '">검토 후 발송</span>' +
-          '<span class="crq-mode" data-mode="auto" style="cursor:pointer;flex:1;text-align:center;font-size:13px;font-weight:' + (S.mode === 'auto' ? 700 : 500) + ';padding:10px;border-radius:10px;' + (S.mode === 'auto' ? 'background:#fff;color:#191F28;box-shadow:0 1px 3px rgba(0,0,0,.08);' : 'color:#8B95A1;') + '">바로 발송</span></div>' +
-        '<div style="font-size:10.5px;color:#C1C7CF;margin-top:8px;">공개 노출이라 기본은 검토 모드 권장.</div></div>' +
-      '<button class="crq-save" style="width:100%;background:#191F28;color:#fff;border:none;border-radius:15px;padding:15px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(25,31,40,.18);">저장</button>' +
-    '</div>';
+      '<div style="font-size:12px;color:#C9CDD4;text-align:center;margin-top:14px;">바꾸면 바로 저장돼요</div>';
   }
 
   function _render() {
@@ -371,30 +369,30 @@
         }
         return;
       }
-      // 설정 컨트롤(span/div — 버튼 아님) 먼저 처리
-      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-mode') : null;
+      // 설정 컨트롤(span — 버튼 아님) — [v789] 누르는 즉시 저장 (저장 버튼 없음)
+      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji') : null;
       if (sc) {
         _haptic();
         var linkEl0 = el.querySelector('.crq-link'); if (linkEl0) _settings.link = (linkEl0.value || '').trim();   // 재렌더 전 링크 보존
         if (sc.classList.contains('crq-master')) { _settings.enabled = !_settings.enabled; }
         else if (sc.classList.contains('crq-intent')) { var k = sc.getAttribute('data-intent'); _settings.intents[k] = (_settings.intents[k] === false); }
         else if (sc.classList.contains('crq-emoji')) { _settings.emoji = sc.getAttribute('data-emoji'); }
-        else if (sc.classList.contains('crq-mode')) { _settings.mode = sc.getAttribute('data-mode'); }
+        _saveSettings();
         _render();
         return;
       }
       var t = e.target.closest ? e.target.closest('button') : null;
       if (!t) return;
-      if (t.hasAttribute('data-crq-back')) { _haptic(); if (_view === 'settings') { _view = 'queue'; _render(); } else { closeCommentReplyQueue(); } return; }
-      if (t.classList.contains('crq-gear')) { _haptic(); _view = 'settings'; _render(); return; }
-      if (t.classList.contains('crq-save')) {
+      if (t.hasAttribute('data-crq-back')) {
         _haptic();
-        var linkEl = el.querySelector('.crq-link'); if (linkEl) _settings.link = (linkEl.value || '').trim();
-        _saveSettings();
-        _toast('설정을 저장했어요');
-        _view = 'queue'; _render();
+        if (_view === 'settings') {
+          var lk = el.querySelector('.crq-link'); if (lk) _settings.link = (lk.value || '').trim();   // 링크 입력 중 뒤로가기 안전망
+          _saveSettings();
+          _view = 'queue'; _render();
+        } else { closeCommentReplyQueue(); }
         return;
       }
+      if (t.classList.contains('crq-gear')) { _haptic(); _view = 'settings'; _render(); return; }
       // [v787] 정렬 토글 — 최신순 ↔ 오래된순 (불만은 항상 위)
       if (t.classList.contains('crq-sort')) { _haptic(); _sort = _sort === 'old' ? 'new' : 'old'; _render(); return; }
       var id = t.getAttribute('data-id');
@@ -409,6 +407,13 @@
         return;
       }
       if (t.classList.contains('crq-discard')) { _haptic(); _removeItem(id); _toast('이 댓글은 응대하지 않아요'); return; }
+    });
+    // [v789] 예약 링크 즉시 저장 — 입력 마치고 포커스 빠질 때(change 는 버블됨)
+    el.addEventListener('change', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('crq-link')) {
+        _settings.link = (e.target.value || '').trim();
+        _saveSettings();
+      }
     });
     return el;
   }
