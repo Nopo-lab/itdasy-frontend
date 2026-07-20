@@ -101,6 +101,7 @@
 - **app-naver-link.js**(207) 네이버 예약연동. **app-naver-talk-link.js**(219) 네이버 톡톡연동. **app-sns-hashtag.js**(198) 해시태그 매니저. **app-notifications.js**(551) 인앱 알림.
 
 ### AI 비서(잇비) — FE
+> **[Phase 0 · 2026-07-20 잇비 만능화]** 실행 배관(`assistant.py:_execute_action_impl`)은 26 kind 지원했지만 Gemini `RESPONSE_SCHEMA` enum이 ~10개만 허용해 나머지가 잠겨 있었음. **7 kind 해제**(refund_revenue·charge_membership·use_membership·mark_booking_no_show·mark_booking_completed·create_treatment_record·update_service_price) — 두 enum+payload+SYSTEM_PROMPT 트리거 확장으로 자유발화 실행 가능. FE는 `kind-core.js` CATEGORY에 create_treatment_record만 추가(나머지 기존 메타·RISKY 재사용). 발송정책=항상 confirm. 남은 로드맵(P1조회~P4작업실)=memory `project_itbi_omni_upgrade`.
 - **app-assistant.js** (5230) — 챗봇 메인 `openAssistant`. **assistant-intent-router.js**(1170) FE intent pre-parser. **app-assistant-actions-marketing.js**(118)·**app-assistant-facts.js**(146)·**app-assistant-undo.js**(265)·**app-chat-auto-edit.js**(277)·**app-ai.js**(311)·**app-persona-survey.js**(381).
 - **js/assistant/core/** — 잇비 두뇌(순수 로직):
   - 라우팅: **action-hub.js**(378, 다음행동 버튼+안전분류), **context-resolver.js**(125), **active-card.js**(58), **create-intent.js**(60), **memory-intent.js**(182), **saved-cards-intent.js**(159), **unsupported-intent.js**(37), **source-image.js**(131).
