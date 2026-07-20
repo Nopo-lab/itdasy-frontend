@@ -22,6 +22,8 @@
     review_price_template_result: 'safe',
     open_calendar: 'safe', open_customer: 'safe', open_revenue: 'safe', open_workshop: 'safe',
     show_unlinked_photos: 'safe', show_empty_slots: 'safe', open_instagram: 'safe', export_image: 'safe',
+    // [Phase 3-2] DM/댓글 큐·DM설정 화면 이동(발송 아님 — 화면만 연다)
+    open_dm_queue: 'safe', open_comment_queue: 'safe', open_dm_settings: 'safe',
     chat_suggest: 'safe',  // 잇비 입력창에 문장 채워 보냄(초안/조회 등 기존 경로로 위임 — 발송/생성 아님)
     // safe — 브리핑 추천(T-115: 화면이동/초안 경로만)
     retouch_draft: 'safe', open_unlinked_photos: 'safe', open_unrecorded: 'safe',
@@ -193,6 +195,25 @@
       case 'open_workshop': case 'show_unlinked_photos':
         _nav(function () { window.showTab && window.showTab('workshop'); });
         return { navigated: true, message: '작업실을 열었어요.' };
+      case 'open_dm_queue':
+        // [Phase 3-2] 대기 DM 확인 큐 — 잇비 닫고 큐 시트를 위로. 실발송은 이 화면에서 원장님이.
+        _nav(function () {
+          if (typeof window.closeAssistant === 'function') { try { window.closeAssistant(); } catch (_e) { void 0; } }
+          if (typeof window.openDMConfirmQueue === 'function') window.openDMConfirmQueue();
+        });
+        return { navigated: true, message: 'DM 확인 큐를 열었어요. (발송은 검토 후 직접 진행돼요)' };
+      case 'open_comment_queue':
+        _nav(function () {
+          if (typeof window.closeAssistant === 'function') { try { window.closeAssistant(); } catch (_e) { void 0; } }
+          if (typeof window.openCommentReplyQueue === 'function') window.openCommentReplyQueue();
+        });
+        return { navigated: true, message: '댓글 문의 화면을 열었어요. (답글은 검토 후 직접 진행돼요)' };
+      case 'open_dm_settings':
+        _nav(function () {
+          if (typeof window.closeAssistant === 'function') { try { window.closeAssistant(); } catch (_e) { void 0; } }
+          if (typeof window.openDMAutoreplySettings === 'function') window.openDMAutoreplySettings();
+        });
+        return { navigated: true, message: 'DM 자동응답 설정을 열었어요.' };
       default:
         return { message: '' };
     }
