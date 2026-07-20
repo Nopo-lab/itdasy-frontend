@@ -220,5 +220,10 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-waitlist.js?v=20260521-v254-api-fetch',
   'app-growth-story.js',
   'app-data-export.js?v=20260521-v254-api-fetch'
+  ],
+  // [P0-2 콜드스타트 축소] 검증된 leaf 대형 feature 모듈 — 진입점만 노출·공용 유틸 재정의 0·
+  //   부팅 top-level 부작용은 "달력 열린 뒤"에만 의미. loader.js 스텁이 openCalendarView/openBooking 브리지.
+  features: [
+  'app-calendar-view.js?v=20260714-qafix6'
   ]
 });

@@ -128,7 +128,15 @@
 
   function renderInto(gridEl, detailEl, opts) {
     opts = opts || {};
-    if (!gridEl || !window.CalendarView || !window.CalendarView.buildMonthGridHTML) return;
+    if (!gridEl) return;
+    // [P0-2] CalendarView(월 그리드 렌더러)는 이제 lazy 'features' 그룹. 아직 로드 전이면
+    //   그룹 로드 후 재렌더 — 빈 그리드로 남지 않게 브리지.
+    if (!window.CalendarView || !window.CalendarView.buildMonthGridHTML) {
+      if (window.AppLoader && typeof window.AppLoader.ensure === 'function' && !window.AppLoader.loaded('features')) {
+        window.AppLoader.ensure('features').then(() => renderInto(gridEl, detailEl, opts));
+      }
+      return;
+    }
     _ensureStyles();
     const byDay = _groupByDay(opts.items);
     const totals = {};

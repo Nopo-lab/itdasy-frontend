@@ -60,9 +60,10 @@
     const stub = function () {
       const args = arguments;
       if (window.showToast) window.showToast(toastMsg || '준비 중…');
-      ensure(group).then(() => {
+      // 실함수 반환값(Promise 등)을 그대로 전달 — await window.openCalendarView() 같은 호출 대응.
+      return ensure(group).then(() => {
         const real = window[name];
-        if (typeof real === 'function' && real !== stub) real.apply(null, args);
+        if (typeof real === 'function' && real !== stub) return real.apply(null, args);
       });
     };
     stub._loaderStub = true;
@@ -79,11 +80,15 @@
   _stub('openSupport', 'extras', '준비 중…');
   _stub('openSupportChat', 'extras', '준비 중…');
   _stub('openDMManualReplies', 'extras', '준비 중…');
+  /* [P0-2] 예약/달력(app-calendar-view 124KB) — features 그룹으로 오프로드.
+     외부 진입점은 openCalendarView·openBooking 둘뿐(나머지 _cal*·closeBooking 은 열린 뒤 내부용). */
+  _stub('openCalendarView', 'features', '예약 화면 준비 중…');
+  _stub('openBooking', 'features', '예약 화면 준비 중…');
 
   /* ── 유휴 선로딩 — 홈 첫 페인트를 막지 않게 load 이후 idle 에 시작.
        잇비(매일 쓰는 기능) → 주변 기능 → 사진(106개, 최대 덩어리) 순서. ── */
   function _prefetch() {
-    const go = () => { ensure('assistant').then(() => ensure('extras')).then(() => ensure('photo')); };
+    const go = () => { ensure('assistant').then(() => ensure('features')).then(() => ensure('extras')).then(() => ensure('photo')); };
     if ('requestIdleCallback' in window) requestIdleCallback(go, { timeout: 4000 });
     else setTimeout(go, 1500);
   }
