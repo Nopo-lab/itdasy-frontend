@@ -1555,25 +1555,28 @@
   function _svcTagsHtml() {
     var kws = [];
     try { if (typeof getShopKeywords === 'function') kws = getShopKeywords() || []; } catch (_e) { void _e; }
+    kws = _applySvcOrder(kws);   // [관리모드] 저장된 순서 적용
     var stype = ''; try { stype = localStorage.getItem('shop_type') || ''; } catch (_e2) { void _e2; }
     // [#2] 업종이 키워드로 해석되면(가입값 hair/헤어샵/네일 등 정규화 성공) 태그 노출. 'beauty'·general 처럼 안 풀리면 업종 고르게.
     var _norm = ''; try { if (window.itdasyNormalizeShopType) _norm = window.itdasyNormalizeShopType(stype).label || ''; } catch (_en) { void _en; }
     var valid = kws.length > 0 || _SVC_TYPES.indexOf(stype) >= 0;
     var _typeLabel = (_SVC_TYPES.indexOf(stype) >= 0) ? stype : (valid ? (_norm || stype) : '업종 고르기');   // 고른 업종칩은 그대로 표시(정규화 '기타'로 안 바뀌게)
     // [#5 2026-07-17] 중복선택 — 고른 칩 전부 검정 채움, 재탭 = 해제.
+    // [시술칩 관리모드 2026-07-20] 평소엔 순수 선택칩(× 없음) — '관리' 켤 때만 × 삭제 + 드래그 정렬 + 추가.
+    //   기존: 모든 칩에 × 상시 노출 → 이미 선택된 태그처럼 오해돼 "탭해서 고르기"가 안 읽힘(실사용 QA 2026-07-20).
+    var manage = !!d.svcManageOpen;
     var _selArr = _svcList(), _base = kws.slice(0, 8);
-    // [칩삭제 2026-07-15] 모든 시술 칩에 × — 기본 칩은 삭제 목록으로(+추가로 복원), 커스텀은 바로 삭제(caption-keyword-tags 재사용).
-    var chips = valid ? _base.map(function (k) {
-      return '<button type="button" class="cap-svctag' + (_selArr.indexOf(k) >= 0 ? ' on' : '') + '" data-fl-svctag="' + esc(k) + '">' + esc(k) +
-        '<span class="cap-svctag__x" data-fl-svcdel="' + esc(k) + '" aria-label="삭제">×</span></button>';
-    }).join('') : '';
+    function _svcChip(k, selected, truncate) {
+      var lbl = truncate && k.length > 20 ? k.slice(0, 20) + '…' : k;
+      return '<button type="button" class="cap-svctag' + (selected ? ' on' : '') + (manage ? ' cap-svctag--manage' : '') +
+        '" data-fl-svctag="' + esc(k) + '"' + (manage ? ' data-fl-svcsort' : '') + ' title="' + esc(k) + '">' + esc(lbl) +
+        (manage ? '<span class="cap-svctag__x" data-fl-svcdel="' + esc(k) + '" aria-label="삭제">×</span>' : '') + '</button>';
+    }
+    var chips = valid ? _base.map(function (k) { return _svcChip(k, _selArr.indexOf(k) >= 0, false); }).join('') : '';
     // 선택값이 목록 밖(직접 추가·최근 시술·이어서 복원)이어도 선택 상태가 보이게 맨 앞에 활성 칩으로.
     if (valid) {
       var outside = _selArr.filter(function (s) { return _base.indexOf(s) < 0; });
-      chips = outside.map(function (s) {
-        return '<button type="button" class="cap-svctag on" data-fl-svctag="' + esc(s) + '" title="' + esc(s) + '">' +
-          esc(s.length > 20 ? s.slice(0, 20) + '…' : s) + '</button>';
-      }).join('') + chips;
+      chips = outside.map(function (s) { return _svcChip(s, true, true); }).join('') + chips;
     }
     // [업종정리 2026-07-15] 인식 실패해도 업종 12칩을 자동으로 쫙 펼치지 않는다 — 버튼 탭했을 때만.
     //   (가입 업종은 앱 로드 때마다 /me 로 동기화됨(app-core) — 값이 없거나 못 알아듣는 값일 때만 이 버튼을 쓴다.)
@@ -1581,14 +1584,18 @@
     var typeChips = typeOpen ? ('<div class="cap-svctype">' + _SVC_TYPES.map(function (tp) {
       return '<button type="button" class="cap-svctype__c' + (tp === stype ? ' on' : '') + '" data-fl-svctype="' + esc(tp) + '">' + esc(tp) + '</button>';
     }).join('') + '</div>') : '';
+    var manageBtn = valid ? ('<button type="button" class="cap-svcmanage' + (manage ? ' on' : '') + '" data-fl-svcmanage>' +
+      (manage ? '<i class="ph-bold ph-check"></i> 완료' : '<i class="ph-bold ph-pencil-simple"></i> 관리') + '</button>') : '';
     return '<div class="cap-svctags__hint">우리샵 · ' +
         '<button type="button" class="cap-svctype__btn" data-fl-svctypetoggle>' + esc(_typeLabel) + ' <i class="ph-bold ph-caret-down"></i></button>' +
-        (!typeOpen ? '<span class="cap-svctags__chg">' + (valid ? '탭해서 업종 바꾸기' : '업종을 고르면 시술이 나와요') + '</span>' : '') + '</div>' +
+        (manage ? '<span class="cap-svctags__chg">드래그로 순서 · ×로 삭제</span>'
+                : (!typeOpen ? '<span class="cap-svctags__chg">' + (valid ? '탭해서 골라요' : '업종을 고르면 시술이 나와요') + '</span>' : '')) +
+        manageBtn + '</div>' +
       typeChips +
-      (valid ? ('<div class="cap-svctags">' + chips +
-        (d.svcAddOpen
+      (valid ? ('<div class="cap-svctags' + (manage ? ' is-manage' : '') + '">' + chips +
+        (manage ? (d.svcAddOpen
           ? '<input type="text" class="cap-svctag cap-svctag--addin" data-fl-svcaddin maxlength="40" placeholder="시술명 입력 후 Enter" aria-label="시술명 입력">'
-          : '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button>')
+          : '<button type="button" class="cap-svctag cap-svctag--add" data-fl-svctagadd><i class="ph-bold ph-plus"></i> 추가</button>') : '')
         + '</div>') : '');
   }
   /* [#5 2026-07-17] 시술 칩 **중복선택** — 원장 요청("시술명 선택하는데 중복선택 가능하게").
@@ -1604,6 +1611,18 @@
     var seen = {}, out = [];
     (arr || []).forEach(function (s) { s = String(s).trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
     d.service = out.join(', ');
+  }
+  /* [시술칩 관리모드 2026-07-20] 시술 칩 순서 영구저장 — 관리 모드 드래그로 바꾼 순서를 기억(한 번 세팅하면 계속).
+     저장은 키워드 배열. 렌더 시 이 순서 먼저(그대로) + 순서에 없는 신규는 원래 순서로 뒤에. */
+  function _loadSvcOrder() { try { var a = JSON.parse(localStorage.getItem('itdasy_svc_order') || '[]'); return Array.isArray(a) ? a : []; } catch (_e) { return []; } }
+  function _saveSvcOrder(arr) { try { localStorage.setItem('itdasy_svc_order', JSON.stringify((arr || []).slice(0, 40))); } catch (_e) { void _e; } }
+  function _applySvcOrder(list) {
+    var ord = _loadSvcOrder(); if (!ord.length) return list;
+    var pos = {}; ord.forEach(function (k, i) { pos[k] = i; });
+    var known = [], unknown = [];
+    (list || []).forEach(function (k) { if (pos[k] != null) known.push(k); else unknown.push(k); });
+    known.sort(function (a, b) { return pos[a] - pos[b]; });
+    return known.concat(unknown);
   }
   function _pickServiceTag(kw) {
     syncServiceFromDom();
@@ -1800,8 +1819,52 @@
 		      '<button type="button" class="cap-restart" data-fl-var="reset">재료부터 다시 고르기</button>';
 	  }
 
+  /* [시술칩 관리모드 2026-07-20] 관리 모드에서 시술 칩 드래그로 순서 바꾸기 — 포인터 이벤트(모바일 터치 대응,
+     HTML5 DnD 는 폰에서 미동작). 6px 넘게 움직이면 드래그로 판정, 드롭 시 화면 순서를 itdasy_svc_order 에 저장.
+     × 삭제(data-fl-svcdel)·탭 선택(data-fl-svctag)은 기존 위임이 처리 — 드래그 직후 click 만 억제. */
+  function _bindSvcSort() {
+    if (!el) return;
+    var cont = el.querySelector('.cap-svctags.is-manage');
+    if (!cont || cont._svcSortBound) return;
+    cont._svcSortBound = true;
+    var dragging = null, moved = false, sx = 0, sy = 0;
+    cont.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('[data-fl-svcdel]')) return;                 // × 는 삭제가 처리
+      var chip = e.target.closest('[data-fl-svcsort]');
+      if (!chip || chip.parentNode !== cont) return;
+      dragging = chip; moved = false; sx = e.clientX; sy = e.clientY;
+      try { chip.setPointerCapture(e.pointerId); } catch (_e) { void _e; }
+    });
+    cont.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      if (!moved && Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) < 6) return;
+      moved = true; dragging.classList.add('is-dragging');
+      var over = document.elementFromPoint(e.clientX, e.clientY);
+      over = over && over.closest('[data-fl-svcsort]');
+      if (over && over !== dragging && over.parentNode === cont) {
+        var arr = Array.prototype.slice.call(cont.querySelectorAll('[data-fl-svcsort]'));
+        if (arr.indexOf(dragging) < arr.indexOf(over)) cont.insertBefore(dragging, over.nextSibling);
+        else cont.insertBefore(dragging, over);
+      }
+    });
+    function _end(e) {
+      if (!dragging) return;
+      var wasMoved = moved; dragging.classList.remove('is-dragging');
+      try { dragging.releasePointerCapture(e.pointerId); } catch (_e) { void _e; }
+      dragging = null;
+      if (wasMoved) {
+        var order = Array.prototype.slice.call(cont.querySelectorAll('[data-fl-svcsort]')).map(function (c) { return c.getAttribute('data-fl-svctag'); });
+        _saveSvcOrder(order);
+        cont._suppressClick = true; setTimeout(function () { cont._suppressClick = false; }, 80);
+      }
+    }
+    cont.addEventListener('pointerup', _end);
+    cont.addEventListener('pointercancel', _end);
+    cont.addEventListener('click', function (e) { if (cont._suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
   function _mountCaption() {
     _mountCarousel();   // [v531] 결과 캐러셀 스와이프 바인딩(결과 화면엔 scenario 없어 아래 early-return 전에 먼저)
+    if (d.svcManageOpen) _bindSvcSort();   // [관리모드] 시술 칩 드래그 정렬 바인딩
     // [캡션재설계 v2] 시술 자유서술 textarea 제거 — Enter 생성/글자수(500) 바인딩도 함께 삭제. 생성은 '캡션 만들기' 버튼만.
     // [직접 입력] 위저드 인라인 입력 — Enter=확인 + 자동 포커스(팝업 없이 바로 타이핑).
     var wcin = el.querySelector('[data-fl-wizcustin]');
@@ -2662,6 +2725,8 @@
       var wco = t.closest('[data-fl-wizcustok]'); if (wco) { _wizCustomConfirm(); return; }
       var svtt = t.closest('[data-fl-svctypetoggle]'); if (svtt) { syncServiceFromDom(); d.svcTypeOpen = !d.svcTypeOpen; setScreen('caption'); return; }
       var svty = t.closest('[data-fl-svctype]'); if (svty) { syncServiceFromDom(); try { localStorage.setItem('shop_type', svty.getAttribute('data-fl-svctype')); } catch (_es) { void _es; } d.svcTypeOpen = false; setScreen('caption'); return; }
+      // [시술칩 관리모드] '관리'/'완료' 토글 — × 삭제·드래그 정렬·추가 노출 전환(선택 로직·d.service 는 불변).
+      var smng = t.closest('[data-fl-svcmanage]'); if (smng) { syncServiceFromDom(); d.svcManageOpen = !d.svcManageOpen; d.svcAddOpen = false; setScreen('caption', { push: false }); return; }
       // [칩삭제] × 가 칩(button) 안에 있어서 svctag 보다 먼저 잡아야 한다.
       var sdel = t.closest('[data-fl-svcdel]'); if (sdel) {
         syncServiceFromDom(); var _dk = sdel.getAttribute('data-fl-svcdel');

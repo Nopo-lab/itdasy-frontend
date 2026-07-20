@@ -871,7 +871,13 @@ body.itd-edit-fs .wsv2flow .ed-vptools .ed-vpbtn i { color: #fff; }
 /* [칩삭제 2026-07-15] 칩 안 × — 시술·최근 시술 그 자리에서 삭제 */
 .wsv2flow .cap-svctag .cap-svctag__x { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin: 0 -4px 0 6px; border-radius: 50%; background: rgba(139,149,161,.16); color: #8B95A1; font-size: 11px; font-weight: 800; line-height: 1; }
 .wsv2flow .cap-svctag.on .cap-svctag__x { background: rgba(255,255,255,.24); color: #fff; }
-.wsv2flow .cap-svctags__hint { font-size: 12px; font-weight: 500; color: #8B95A1; margin: 0 0 8px 2px; }
+.wsv2flow .cap-svctags__hint { font-size: 12px; font-weight: 500; color: #8B95A1; margin: 0 0 8px 2px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+/* [시술칩 관리모드 2026-07-20] '관리'/'완료' 토글 + 드래그 정렬 */
+.wsv2flow .cap-svcmanage { margin-left: auto; border: none; background: #F7F8FA; color: #5B6470; font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.wsv2flow .cap-svcmanage i { font-size: 12px; }
+.wsv2flow .cap-svcmanage.on { background: #17191C; color: #fff; }
+.wsv2flow .cap-svctag--manage { touch-action: none; cursor: grab; }
+.wsv2flow .cap-svctag.is-dragging { opacity: .85; transform: scale(1.04); box-shadow: 0 6px 16px rgba(23,25,28,.16); cursor: grabbing; z-index: 2; }
 /* [요청3 2026-07-13] 업종 사전선택 안내 — 탭하면 바꿀 수 있다는 힌트 */
 .wsv2flow .cap-svctags__chg { margin-left: 7px; font-size: 12px; font-weight: 500; color: var(--text-faint, var(--text-subtle)); opacity: .8; }
 
