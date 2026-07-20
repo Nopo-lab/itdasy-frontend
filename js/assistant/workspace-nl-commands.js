@@ -90,6 +90,9 @@
   // [구조 통합 P2] 작업실이 "닫혀 있을 때" 자연어로 여는 명령 — 명시 발화만(작업실/게시글만)이라
   //   기존 잇비 사진모드(photo-mode, "사진 편집해줘"류)와 충돌 안 함.
   var OPEN_COMMANDS = [
+    // [Phase 4 2026-07-20] "오늘 사진으로 게시글" — 오늘 로컬 갤러리 저장분을 모아 작업실에 주입(업로드 스킵).
+    //   _collectToday 플래그는 tryOpen 이 async 로 처리(loadGalleryItems). flow.js 무수정, 공개 open 만 사용.
+    { test: /오늘.*(사진|찍은|시술|작업).*(게시글|올려|만들|글\b|홍보)|오늘.*(거|것|한\s*거).*(게시글|올려|만들)/, cmd: { type: 'open', _collectToday: true }, label: null },
     { test: /작업실.*(전후|비포\s*애프터)|전후.*작업실/, cmd: { type: 'open', cat: 'ba' }, label: '작업실에서 전후 만들기를 열었어요' },
     { test: /작업실.*(후기|리뷰)|후기.*작업실/, cmd: { type: 'open', cat: 'review' }, label: '작업실에서 고객 후기 만들기를 열었어요' },
     { test: /작업실.*(이벤트|할인|혜택)/, cmd: { type: 'open', cat: 'event' }, label: '작업실에서 이벤트 만들기를 열었어요' },
@@ -105,6 +108,39 @@
   function _flowOpen() {
     try { return !!(window.WorkspaceFlow && window.WorkspaceFlow.isOpen && window.WorkspaceFlow.isOpen()); }
     catch (_e) { return false; }
+  }
+
+  // [Phase 4] 오늘(자정 이후) 로컬 갤러리에 저장된 시술 사진들의 dataUrl 을 최대 max 장 수집.
+  //   daily-briefing.js 의 loadGalleryItems + savedAt 컷오프 패턴과 동일. 없으면 [].
+  function _collectTodayPhotos(max) {
+    try {
+      if (typeof window.loadGalleryItems !== 'function') return Promise.resolve([]);
+      var s = new Date(); s.setHours(0, 0, 0, 0);
+      var cutoff = s.getTime();
+      return window.loadGalleryItems().then(function (all) {
+        var urls = [];
+        (all || []).forEach(function (it) {
+          if (!it || (it.savedAt || 0) < cutoff) return;   // savedAt desc 정렬이지만 전량 필터(안전)
+          (it.photos || []).forEach(function (p) { if (p && p.dataUrl) urls.push(p.dataUrl); });
+        });
+        return urls.slice(0, max || 10);   // open 의 photoUrls 는 10장 상한(flow.js:4143)
+      }).catch(function () { return []; });
+    } catch (_e) { return Promise.resolve([]); }
+  }
+
+  // [Phase 4] "오늘 사진" 명령 — async 수집 후 open. tryOpen 은 이미 true 를 돌려주고 여기서 뒤늦게 연다.
+  function _openWithTodayPhotos(baseCmd) {
+    var base = Object.assign({}, baseCmd);
+    delete base._collectToday;               // 내부 플래그는 flow 로 넘기지 않음
+    _collectTodayPhotos(10).then(function (urls) {
+      if (urls && urls.length) {
+        base.photoUrls = urls;
+        _toast('오늘 사진 ' + urls.length + '장으로 작업실을 열었어요');
+      } else {
+        _toast('오늘 저장된 사진이 없어요. 사진을 올려 시작해 주세요.');
+      }
+      try { window.WorkspaceFlow.command(base); } catch (_e) { void _e; }
+    });
   }
   // 닫힌 작업실을 자연어로 연다. 명시 발화만 처리, 아니면 false(기존 파이프라인으로 통과).
   function tryOpen(input, q, deps) {
@@ -122,6 +158,13 @@
     for (var i = 0; i < OPEN_COMMANDS.length; i++) {
       var c = OPEN_COMMANDS[i];
       if (!c.test.test(text)) continue;
+      // [Phase 4] "오늘 사진" 은 async 수집 후 열기 — 입력창은 비우고 즉시 handled 반환.
+      if (c.cmd && c.cmd._collectToday) {
+        _openWithTodayPhotos(c.cmd);
+        if (deps && typeof deps.clearInput === 'function') deps.clearInput(input);
+        else if (input) input.value = '';
+        return true;
+      }
       var ocmd = Object.assign({}, c.cmd);
       if (photoUrls && !ocmd.textOnly) ocmd.photoUrls = photoUrls;
       try { window.WorkspaceFlow.command(ocmd); }
