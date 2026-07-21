@@ -1695,8 +1695,19 @@
     if (!Array.isArray(cards)) return true;
     const card = cards.find((c) => c.id === cardId);
     const src = m.photo_result && m.photo_result.originalSrc;
-    if (!card || !src || !window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') return true;
-    window.PhotoEditor.open({ src: src, initial_tab: card.initial_tab || 'beauty', initialState: card.state, itbiMeta: card.meta || null });
+    if (!card || !src) return true;
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로.
+    var _go = function () {
+      try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: [src] });
+      } else if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
+        window.PhotoEditor.open({ src: src, initial_tab: card.initial_tab || 'beauty', initialState: card.state, itbiMeta: card.meta || null });   // 폴백
+      }
+    };
+    if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+      Promise.resolve(window.AppLoader.ensure('photo')).then(_go, _go);
+    } else { _go(); }
     return true;
   }
 
@@ -3105,13 +3116,20 @@
   }
 
   function _openPhotoEditorForChat(opts, initialTab) {
-    if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-      window.PhotoEditor.open({
-        src: opts.photoUrl,
-        initial_tab: initialTab,
-        customer_id: opts.customerCtx ? opts.customerCtx.id : undefined,
-      });
-    }
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로 — 전후/템플릿(ba,template)은 작업실 레이아웃 cat 으로.
+    var _cat = (initialTab === 'template') ? 'ba' : null;
+    var _photos = (opts.photos && opts.photos.length) ? opts.photos : (opts.photoUrl ? [opts.photoUrl] : null);
+    var go = function () {
+      try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        window.WorkspaceFlow.command(_cat ? { type: 'open', cat: _cat, photoUrls: _photos } : { type: 'storyedit', photoUrls: _photos });
+      } else if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
+        window.PhotoEditor.open({ src: opts.photoUrl, initial_tab: initialTab });   // 폴백
+      }
+    };
+    if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+      Promise.resolve(window.AppLoader.ensure('photo')).then(go, go);
+    } else { go(); }
   }
 
   function _pushPhotoShortcutMessage(opts, text) {

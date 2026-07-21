@@ -406,6 +406,8 @@
     var st = ST();
     var next = st.nextAction(slot);
     var screen = KEY2SCREEN[next.key] || 'edit';
+    // [2026-07-22] 리줌 카드도 드로어와 동일하게 edit 목적지는 인스타식 편집기(ItdEditor)로 — 옛 슬라이더(A) 방지.
+    if (screen === 'edit') { _launchFlow(slotId, 'layout', { _openStory: true }); return; }
     _launchFlow(slotId, screen);
   }
 

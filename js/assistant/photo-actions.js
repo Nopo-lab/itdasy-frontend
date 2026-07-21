@@ -153,9 +153,20 @@
   }
 
   function _openEditor(dataUrl) {
-    if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-      window.PhotoEditor.open({ src: dataUrl, initial_tab: 'tune' });
-    }
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로.
+    (function () {
+      var go = function () {
+        try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+        if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+          window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: dataUrl ? [dataUrl] : null });
+        } else if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
+          window.PhotoEditor.open({ src: dataUrl, initial_tab: 'tune' });   // 폴백
+        }
+      };
+      if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+        Promise.resolve(window.AppLoader.ensure('photo')).then(go, go);
+      } else { go(); }
+    })();
   }
 
   function _savePhotoResult(dataUrl) {

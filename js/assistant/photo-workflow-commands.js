@@ -77,15 +77,23 @@
     internal.applyStatePatch(patch);
   }
 
-  function _openEditor(cmd, text) {
-    if (!_editorVisible()) window.PhotoEditor.open({ initial_tab: cmd.tab || undefined });
-    setTimeout(() => {
-      const hasWork = !!(cmd.tab || cmd.patch || cmd.id === 'text');
-      if (cmd.tab && window.PhotoEditorEntryV6?.goto) window.PhotoEditorEntryV6.goto(cmd.tab, cmd.card || cmd.tab);
-      if (hasWork) _applyCommand(cmd, text);
-      const st = _state();
-      _toast(!hasWork || (st && st.originalImg) ? cmd.label : (cmd.label + ' 사진을 고르면 바로 반영돼요'));
-    }, 60);
+  function _openEditor(cmd, _text) {
+    // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로 재연결. 자동 보정 patch(밝기 등)는
+    //   편집기에서 직접 조정(옛 PE 화면 안 띄움). 소스 사진은 채팅 SourceImage.
+    let src = '';
+    try { const s = window.ItdasySourceImage && window.ItdasySourceImage.resolve && window.ItdasySourceImage.resolve(); src = (s && s.dataUrl) || ''; } catch (_e) { src = ''; }
+    const go = () => {
+      try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: src ? [src] : null });
+      } else if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
+        window.PhotoEditor.open({ initial_tab: cmd.tab || undefined });   // 폴백
+      }
+    };
+    if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+      Promise.resolve(window.AppLoader.ensure('photo')).then(go, go);
+    } else { go(); }
+    _toast(cmd.label);
   }
 
   function _currentCanvasUrl() {

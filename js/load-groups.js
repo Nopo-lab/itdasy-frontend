@@ -16,7 +16,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/workspace-adapter.js?v=20260717-v768-merge',
   'js/workspace/workspace-sync.js?v=20260717-v768-merge',
   'js/workspace/workspace-crop.js?v=20260706-v711-crossorigin',
-  'js/workspace/workspace-v2-home.js?v=20260722-itdeditor',
+  'js/workspace/workspace-v2-home.js?v=20260722-noleaks',
   'js/workspace/workspace-settings.js?v=20260717-v774-round3',
   'js/workspace/workspace-perf.js?v=20260718-v777-perfthin',
   // [P0-2] service-vocab.js 중복 제거 — index.html(콜드스타트, caption-keyword-tags 가 소비)에 이미 있어
@@ -45,7 +45,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-gallery-review.js?v=20260521-v254-api-fetch',
   'app-gallery-write.js?v=20260521-v254-api-fetch',
   'app-gallery-finish.js?v=20260703-v659-editor-publish',
-  'js/assistant/photo-workflow-commands.js?v=20260612-v450b-domain-card-guard',
+  'js/assistant/photo-workflow-commands.js?v=20260722-noleaks',
   'js/assistant/workspace-nl-commands.js?v=20260722-itbi-connect',
   'app-photo-editor-worker-filter.js?v=20260521-v252-photo-shadow-batch',
   'js/photo-editor/history.js?v=20260717-v773-bgnoadjust',
@@ -153,7 +153,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/customer-phone-intent.js?v=20260615-v475-itbi-phase3a',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
   'js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split',
-  'js/assistant/photo-actions.js?v=20260722-itdeditor',
+  'js/assistant/photo-actions.js?v=20260722-noleaks',
   'js/assistant/single-action-controls.js?v=20260525-v269-ai-gpt-cleanup',
   'js/assistant/group-action-controls.js?v=20260525-v269-ai-gpt-cleanup',
   'js/assistant/suggestion-controls.js?v=20260525-v269-ai-gpt-cleanup',
@@ -191,7 +191,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260619-v522-workspace-nl-p3',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260722-orch',
+  'app-assistant.js?v=20260722-noleaks',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
