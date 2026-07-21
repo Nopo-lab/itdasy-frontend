@@ -142,7 +142,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-photo-editor-template-edit-sheet.js?v=20260607-s3b2-after-photo'
   ],
   assistant: [
-  'js/assistant/photo-brief-parser.js?v=20260722-orch',
+  'js/assistant/photo-brief-parser.js?v=20260722-orch-p2a',
   'app-assistant-facts.js?v=20260610-batch4',
   'app-assistant-undo.js?v=20260610-batch4',
   'assistant-intent-router.js?v=20260705-itbi-hotfix',

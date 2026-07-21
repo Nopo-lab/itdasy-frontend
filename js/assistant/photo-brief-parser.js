@@ -41,20 +41,48 @@
     var wantsText = /텍스트|글씨|글자|타이포|시술내용|문구/.test(t);
     var wantsSticker = /스티커|이모지|데코|꾸며|꾸미|덕지덕지/.test(t);
     var dense = /덕지덕지|잔뜩|많이|여러|가득|많은/.test(t);
+    var few = /조금|살짝|약간|몇\s*개|한두/.test(t);
     var useRecentStyle = /최근|원장\s*작업|내\s*스타일|평소|늘\s*하던|하던\s*대로/.test(t);
+    // 따옴표 안 텍스트가 있으면 그걸 문구로(시술내용보다 우선). "봄맞이 이벤트" 같은 명시 문구.
+    var quoted = t.match(/["'“”‘’]([^"'“”‘’]{1,30})["'“”‘’]/);
+    var explicitText = quoted ? quoted[1].trim() : '';
     var service = _service(t);
     return {
       raw: t,
       service: service,
+      textContent: explicitText || service,   // 텍스트 레이어에 넣을 실제 문구(따옴표 우선)
       wantsText: wantsText,
       textPos: _pos(t),
+      textColor: _color(t),
+      textSize: /크게|크고|큼직|대문짝|잘\s*보이게/.test(t) ? 0.07 : (/작게|작은|자그|조그|은은하게\s*글/.test(t) ? 0.035 : 0.05),
       wantsSticker: wantsSticker,
-      stickerCount: dense ? 8 : (wantsSticker ? 3 : 0),
+      stickerCount: dense ? 8 : (few ? 2 : (wantsSticker ? 3 : 0)),
+      stickerCat: _stickerCat(t),
       useRecentStyle: useRecentStyle,
       // 편집 브리핑으로 볼지(사진+이 텍스트면 오케스트레이터로 라우팅) — 실제 편집/꾸미기 의도가 있을 때만.
       //   시술내용만 있는 "게시글 써줘"류는 일반 카드/캡션 경로로(오케스트레이터 트리거 X).
       hasBrief: !!(wantsText || wantsSticker)
     };
+  }
+
+  // 색상어 → hex (없으면 흰색)
+  function _color(t) {
+    if (/빨간|빨강|레드|red/i.test(t)) return '#e53935';
+    if (/파란|파랑|블루|blue|남색/i.test(t)) return '#1e88e5';
+    if (/분홍|핑크|pink|로즈/i.test(t)) return '#ec407a';
+    if (/노란|노랑|옐로|yellow|골드|금색/i.test(t)) return '#f6be00';
+    if (/초록|녹색|그린|green/i.test(t)) return '#2e9e5b';
+    if (/보라|퍼플|purple|자주/i.test(t)) return '#8e57c2';
+    if (/검정|검은|블랙|black/i.test(t)) return '#1a1a1a';
+    if (/흰|하얀|화이트|white/i.test(t)) return '#ffffff';
+    return '#ffffff';
+  }
+  // 스티커 카테고리 힌트 → beauty|cute|mz|null
+  function _stickerCat(t) {
+    if (/귀여운|큐트|깜찍|하트|사랑스/i.test(t)) return 'cute';
+    if (/트렌디|힙|요즘|mz|엠지|감성/i.test(t)) return 'mz';
+    if (/뷰티|고급|우아|세련/i.test(t)) return 'beauty';
+    return null;
   }
 
   // 파싱 결과 → ItdEditor layer spec 배열 (텍스트 + 스티커 흩뿌리기)
@@ -63,18 +91,23 @@
     opts = opts || {};
     var layers = [];
     var pos = (brief && brief.textPos) || { x: 0.5, y: 0.88, align: 'center' };
-    // 1) 텍스트 레이어 — 시술내용
-    if (brief && brief.wantsText && brief.service) {
-      layers.push({ type: 'text', role: '', text: brief.service, x: pos.x, y: pos.y, w: 0.56,
-        size: 0.05, align: pos.align, color: '#ffffff', weight: 800, shadow: { on: true } });
+    // 1) 텍스트 레이어 — 문구(따옴표 우선, 없으면 시술내용) + 색/크기 반영
+    var _txt = (brief && (brief.textContent || brief.service)) || '';
+    if (brief && brief.wantsText && _txt) {
+      layers.push({ type: 'text', role: '', text: _txt, x: pos.x, y: pos.y, w: 0.56,
+        size: (brief.textSize || 0.05), align: pos.align, color: (brief.textColor || '#ffffff'), weight: 800, shadow: { on: true } });
     }
-    // 2) 스티커 흩뿌리기 — 텍스트 반대쪽/가장자리에 랜덤하지 않게 고정 배치(재현성)
+    // 2) 스티커 흩뿌리기 — 텍스트 반대쪽/가장자리에 랜덤하지 않게 고정 배치(재현성). 카테고리 힌트 우선.
     var n = (brief && brief.stickerCount) || 0;
     if (n > 0) {
       var ST = window.ItdStickers || {};
       var shopType = '';
       try { shopType = localStorage.getItem('itdasy:shop_type') || localStorage.getItem('shop_type') || ''; } catch (_e) { shopType = ''; }
       var emojis = [];
+      var _cat = brief && brief.stickerCat;
+      if (_cat === 'cute') emojis = emojis.concat(ST.cuteEmoji || []);
+      else if (_cat === 'mz') emojis = emojis.concat(ST.mzEmoji || ST.cuteEmoji || []);
+      else if (_cat === 'beauty') emojis = emojis.concat(ST.beautyEmoji || []);
       if (ST.shopEmojiByType && shopType && ST.shopEmojiByType[shopType]) emojis = emojis.concat(ST.shopEmojiByType[shopType]);
       emojis = emojis.concat(ST.beautyEmoji || []).concat(ST.cuteEmoji || []);
       // 중복 제거
