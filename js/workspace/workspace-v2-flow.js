@@ -4152,6 +4152,12 @@
 
   function open(opts) {
     opts = opts || {};
+    // [카오스 2026-07-21] close 와 대칭 — open 도 진행 중 캡션 생성 토큰을 무효화한다.
+    //   캡션 경로만 d 아이덴티티가 아닌 전역 _genToken 으로 stale 판별하는데, close 는 토큰을
+    //   올려도 open 은 안 올려서, close 없이 다른 세션을 open/command 로 열면 옛 캡션 응답이
+    //   _myToken===_genToken 을 통과해 새 세션 d.caption 에 누출됐다(다른 사진에 엉뚱한 글).
+    _genToken++;
+    try { if (d) d._dead = true; } catch (_od) { void _od; }
 	    ensureEl();
 	    var slot = opts.slot || null;
 	    var incomingFiles = Array.from(opts.files || []);
