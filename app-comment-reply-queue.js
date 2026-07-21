@@ -66,15 +66,40 @@
   var _EMOJI_OPTS = ['😊', '🤍', '✨', '💕', '🎀', '💝', ''];
   function _loadSettings() {
     // [v789] mode(검토/바로 발송) 제거 — 저장만 되고 아무 데서도 안 읽던 죽은 값
-    var def = { enabled: true, intents: { price: true, booking: true, location: true, hours: false }, link: '', emoji: '😊' };
+    // [2026-07-21] 신규 인텐트(시술종류·소요시간·이벤트·회원권) + 응답 시간대(active_hours·quiet_outside)
+    var def = { enabled: true,
+      intents: { price: true, booking: true, location: true, hours: false, service: true, duration: true, event: true, membership: true },
+      link: '', emoji: '😊',
+      active_hours: { start: '09:00', end: '21:00' }, quiet_outside: true };
     try {
       var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
       if (!s) return def;
+      var ah = (s.active_hours && typeof s.active_hours === 'object') ? s.active_hours : {};
       return { enabled: s.enabled !== false, link: s.link || '', emoji: (s.emoji != null ? s.emoji : '😊'),
-        intents: Object.assign({}, def.intents, s.intents || {}) };
+        intents: Object.assign({}, def.intents, s.intents || {}),
+        active_hours: { start: ah.start || '09:00', end: ah.end || '21:00' },
+        quiet_outside: s.quiet_outside !== false };
     } catch (_e) { return def; }
   }
+  // [2026-07-21] 응답 시간대 판정 — 지금이 운영시간 밖인가(자정 넘김 지원). 방해금지 로직 공용.
+  function _minutesOf(hhmm) { try { var p = String(hhmm).split(':'); return (+p[0]) * 60 + (+p[1]); } catch (_e) { return 0; } }
+  function _withinActiveHours() {
+    var a = _settings.active_hours || {};
+    var now = new Date(), cur = now.getHours() * 60 + now.getMinutes();
+    var s = _minutesOf(a.start || '09:00'), e = _minutesOf(a.end || '21:00');
+    return s <= e ? (cur >= s && cur <= e) : (cur >= s || cur <= e);
+  }
+  // 방해금지 활성 + 지금 운영시간 밖 → true (홈 넛지 뮤트·큐 배너). 발송 자체는 언제든 가능.
+  function _isQuietNow() { return !!(_settings.enabled && _settings.quiet_outside && !_withinActiveHours()); }
   function _saveSettings() { try { localStorage.setItem('itdasy:crq_settings', JSON.stringify(_settings)); } catch (_e) { void _e; } }
+  // 재렌더/뒤로가기 전에 시간 입력값을 _settings 로 보존 (input 은 재렌더 시 날아감)
+  function _captureTimes(el) {
+    if (!el) return;
+    var st = el.querySelector('.crq-time[data-field="start"]'), en = el.querySelector('.crq-time[data-field="end"]');
+    _settings.active_hours = _settings.active_hours || {};
+    if (st && st.value) _settings.active_hours.start = st.value;
+    if (en && en.value) _settings.active_hours.end = en.value;
+  }
   var _settings = _loadSettings();
 
   // 설정 반영된 최종 문구 — 공개답글에 이모지, DM에 예약 링크(없을 때만) 부착
@@ -104,6 +129,12 @@
     if (intent === 'booking') return { publicDraft: '예약 도와드릴게요, DM 확인해 주세요', dmDraft: '예약 도와드릴게요!' + link };
     if (intent === 'location') return { publicDraft: '위치·오시는 길 DM으로 보냈어요', dmDraft: (addr || '위치 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
     if (intent === 'hours') return { publicDraft: '영업시간 DM으로 보내드렸어요', dmDraft: (hours ? ('영업시간: ' + hours) : '영업시간 안내드릴게요') + (book ? ('\n예약 → ' + book) : '') };
+    // [2026-07-21] 신규 인텐트 폴백 초안 (서버 페르소나 초안 없을 때만)
+    if (intent === 'duration') return { publicDraft: '소요시간 DM으로 안내드렸어요', dmDraft: '시술 소요시간·지속력 안내드릴게요' + link };
+    if (intent === 'event') return { publicDraft: '이벤트 자세히 DM으로 보내드렸어요', dmDraft: '진행 중인 이벤트 안내드릴게요' + link };
+    if (intent === 'membership') return { publicDraft: '회원권 안내 DM으로 보내드렸어요', dmDraft: '회원권·정기권 안내드릴게요' + link };
+    // 건강여부(eligibility): 절대 '가능하다' 단정 금지 — 상태 확인 후 상담 유도 (사람이 검토·발송)
+    if (intent === 'eligibility') return { publicDraft: '문의 감사해요! 상태 확인이 필요해서 DM 드렸어요', dmDraft: '상태에 따라 시술 가능 여부가 달라서요, 편하게 자세히 알려주시면 상담 도와드릴게요' + (phone ? ('\n상담 문의 → ' + phone) : '') };
     return { publicDraft: '문의 감사해요! DM으로 안내드렸어요', dmDraft: '문의 주셔서 감사해요' + (book ? ('\n예약 → ' + book) : '') };
   }
 
@@ -282,7 +313,13 @@
       });
     var cards = items.length ? items.map(_cardHtml).join('') :
       '<div style="text-align:center;color:#C9CDD4;font-size:13px;padding:40px 0;">응대할 문의 댓글이 없어요</div>';
-    var top = _realMode ? _statRow(items.length) : _demoBanner() + _statRow(items.length);
+    // [2026-07-21] 운영시간 밖 + 방해금지 → 조용히 모아뒀다는 안내 (발송은 언제든 가능)
+    var quietBar = _isQuietNow()
+      ? '<div style="display:flex;align-items:center;gap:7px;background:#F2F4F6;border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:13px;color:#6B7684;">' +
+        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8B95A1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>' +
+        '<span>지금은 응답 시간대 밖이에요 · 조용히 모아뒀어요<span style="color:#B0B8C1;"> (발송은 언제든 가능)</span></span></div>'
+      : '';
+    var top = _realMode ? (quietBar + _statRow(items.length)) : (_demoBanner() + quietBar + _statRow(items.length));
     return top + cards +
       '<div style="font-size:11px;color:#C9CDD4;text-align:center;margin-top:12px;">애매한 댓글은 큐에 안 올라와요 · 확실한 문의만</div>';
   }
@@ -310,10 +347,21 @@
     return '<div style="' + CARD + 'display:flex;align-items:center;gap:10px;">' +
         '<div style="flex:1;"><div style="' + TITLE + '">댓글 자동 응대</div>' +
         '<div style="' + SUB + 'margin-top:3px;">' + (S.enabled ? '끄면 댓글 문의를 챙기지 않아요' : '꺼짐 · 홈에도 안 떠요') + '</div></div>' + mtg + '</div>' +
-      // 문의 종류 — 끄면 대기 목록·홈 숫자에서 제외(숨김)
+      // 문의 종류 — 끄면 대기 목록·홈 숫자에서 제외(숨김). [2026-07-21] 시술종류·소요시간·이벤트·회원권 추가
       '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:4px;">이런 댓글에 답해요</div>' +
-        '<div style="' + SUB + 'margin-bottom:12px;">끈 문의는 여기에 안 보여요</div>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + _chip('price', '가격') + _chip('booking', '예약') + _chip('location', '위치') + _chip('hours', '영업시간') + '</div></div>' +
+        '<div style="' + SUB + 'margin-bottom:12px;">끈 문의는 여기에 안 보여요 · 불만·건강문의는 항상 챙겨요</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + _chip('price', '가격') + _chip('booking', '예약') + _chip('location', '위치') + _chip('hours', '영업시간') + _chip('service', '시술종류') + _chip('duration', '소요시간') + _chip('event', '이벤트') + _chip('membership', '회원권') + '</div></div>' +
+      // [2026-07-21] 응답 시간대 — 방해금지(운영시간 밖엔 홈 알림 안 뜸, 모아뒀다 알려줌)
+      '<div style="' + CARD + '"><div style="display:flex;align-items:center;gap:10px;margin-bottom:' + (S.quiet_outside ? '13px' : '2px') + ';">' +
+        '<div style="flex:1;"><div style="' + TITLE + '">응답 시간대</div>' +
+        '<div style="' + SUB + 'margin-top:3px;">' + (S.quiet_outside ? '이 시간 밖엔 조용히 모아뒀다 알려드려요' : '언제든 바로 알려드려요') + '</div></div>' +
+        '<span class="crq-quiet" role="switch" aria-checked="' + (S.quiet_outside ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (S.quiet_outside ? '#16B55E' : '#D1D6DB') + ';">' +
+          '<span style="position:absolute;top:2px;left:' + (S.quiet_outside ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span></div>' +
+        (S.quiet_outside ? '<div style="display:flex;align-items:center;gap:10px;">' +
+          '<input class="crq-time" type="time" data-field="start" value="' + _esc(S.active_hours.start) + '" style="flex:1;padding:11px 12px;border:none;border-radius:12px;font-size:15px;background:#F7F8FA;color:#191F28;box-sizing:border-box;font-family:inherit;text-align:center;">' +
+          '<span style="color:#8B95A1;font-size:15px;">~</span>' +
+          '<input class="crq-time" type="time" data-field="end" value="' + _esc(S.active_hours.end) + '" style="flex:1;padding:11px 12px;border:none;border-radius:12px;font-size:15px;background:#F7F8FA;color:#191F28;box-sizing:border-box;font-family:inherit;text-align:center;"></div>' : '') +
+        '</div>' +
       // 예약 링크
       '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:4px;">예약 링크</div>' +
         '<div style="' + SUB + 'margin-bottom:12px;">DM 답장 끝에 자동으로 붙어요</div>' +
@@ -370,13 +418,15 @@
         return;
       }
       // 설정 컨트롤(span — 버튼 아님) — [v789] 누르는 즉시 저장 (저장 버튼 없음)
-      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji') : null;
+      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-quiet') : null;
       if (sc) {
         _haptic();
         var linkEl0 = el.querySelector('.crq-link'); if (linkEl0) _settings.link = (linkEl0.value || '').trim();   // 재렌더 전 링크 보존
+        _captureTimes(el);                                                                     // 재렌더 전 시간 입력 보존
         if (sc.classList.contains('crq-master')) { _settings.enabled = !_settings.enabled; }
         else if (sc.classList.contains('crq-intent')) { var k = sc.getAttribute('data-intent'); _settings.intents[k] = (_settings.intents[k] === false); }
         else if (sc.classList.contains('crq-emoji')) { _settings.emoji = sc.getAttribute('data-emoji'); }
+        else if (sc.classList.contains('crq-quiet')) { _settings.quiet_outside = !_settings.quiet_outside; }
         _saveSettings();
         _render();
         return;
@@ -387,6 +437,7 @@
         _haptic();
         if (_view === 'settings') {
           var lk = el.querySelector('.crq-link'); if (lk) _settings.link = (lk.value || '').trim();   // 링크 입력 중 뒤로가기 안전망
+          _captureTimes(el);                                                                          // 시간 입력 중 뒤로가기 안전망
           _saveSettings();
           _view = 'queue'; _render();
         } else { closeCommentReplyQueue(); }
@@ -410,8 +461,12 @@
     });
     // [v789] 예약 링크 즉시 저장 — 입력 마치고 포커스 빠질 때(change 는 버블됨)
     el.addEventListener('change', function (e) {
-      if (e.target && e.target.classList && e.target.classList.contains('crq-link')) {
+      if (!e.target || !e.target.classList) return;
+      if (e.target.classList.contains('crq-link')) {
         _settings.link = (e.target.value || '').trim();
+        _saveSettings();
+      } else if (e.target.classList.contains('crq-time')) {   // [2026-07-21] 응답 시간대 즉시 저장
+        _captureTimes(el);
         _saveSettings();
       }
     });
@@ -479,6 +534,7 @@
   function openCommentReplyQueue() {
     if (window.ITDASY_IG_COMMENT_REPLY === false) { _toast('댓글 응대는 준비 중이에요'); return; }
     var el = _ensureMounted();
+    _settings = _loadSettings();   // 열 때 최신 저장값 반영(방해금지 배너·필터가 stale 안 되게)
     _view = 'queue'; _sort = 'new';
     ITEMS = SEED.slice(); _realMode = false; _loading = false;
     _render();
@@ -499,6 +555,8 @@
 
   window.openCommentReplyQueue = openCommentReplyQueue;
   window.closeCommentReplyQueue = closeCommentReplyQueue;
+  // [2026-07-21] 홈 넛지 뮤트용 — 방해금지 켜짐 + 지금 운영시간 밖이면 true. (설정은 항상 최신 localStorage 반영)
+  window.crqQuietNow = function () { try { _settings = _loadSettings(); return _isQuietNow(); } catch (_e) { return false; } };
 
   // [dev] ?crq=1 이면 우측하단 테스트 진입 버튼(로그인 후 탭). 실배포 진입점은 연동 허브에 별도 연결 예정.
   try {

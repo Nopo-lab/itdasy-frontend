@@ -97,6 +97,8 @@
       const s0 = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
       if (s0 && s0.enabled === false) return 0;
     } catch (_e) { /* ignore */ }
+    // [2026-07-21] 방해금지 시간대(운영시간 밖) → 홈 넛지·API 호출 스킵. 큐 열면 다 보임(유실 아님)
+    try { if (window.crqQuietNow && window.crqQuietNow()) return 0; } catch (_e) { /* ignore */ }
     try {
       const res = await apiFetch('/instagram/comment-queue', { headers });
       if (!res.ok) return 0;
