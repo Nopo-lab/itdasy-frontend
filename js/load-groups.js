@@ -16,7 +16,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/workspace-adapter.js?v=20260717-v768-merge',
   'js/workspace/workspace-sync.js?v=20260717-v768-merge',
   'js/workspace/workspace-crop.js?v=20260706-v711-crossorigin',
-  'js/workspace/workspace-v2-home.js?v=20260720-cbt-firstrun',
+  'js/workspace/workspace-v2-home.js?v=20260721-dog-loader',
   'js/workspace/workspace-settings.js?v=20260717-v774-round3',
   'js/workspace/workspace-perf.js?v=20260718-v777-perfthin',
   // [P0-2] service-vocab.js 중복 제거 — index.html(콜드스타트, caption-keyword-tags 가 소비)에 이미 있어
@@ -32,7 +32,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/flow/ba-autorole.js?v=20260712-v736-baautorole',
   'js/workspace/flow/steps.js?v=20260713-v741-mergepreview',
   'app-feed-planner.js?v=20260713-v746-feedsort',
-  'js/workspace/workspace-v2-flow.js?v=20260721-chaos-p2',
+  'js/workspace/workspace-v2-flow.js?v=20260721-dog-loader',
   'js/workspace/workspace-tpl-edit.js?v=20260623-v536-pe-trust',
   'app-gallery-assign.js?v=20260521-v254-api-fetch',
   'app-gallery-slot-editor.js?v=20260610-batch5',

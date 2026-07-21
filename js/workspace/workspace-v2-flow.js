@@ -1781,16 +1781,40 @@
         '<div style="font-size:9.5px;font-weight:700;color:#b6a7ac">' + k + '</div>' +
         '<div style="font-size:12.5px;font-weight:800;color:#d58a95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(v) + '</div></div>';
     };
-    return '<style>@keyframes wslSpin{to{transform:rotate(360deg)}}@keyframes wslDot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}</style>' +
-      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:64px 24px;min-height:340px;text-align:center">' +
-        '<div style="width:46px;height:46px;border-radius:50%;border:3.5px solid rgba(213,138,149,.22);border-top-color:#d58a95;animation:wslSpin .8s linear infinite"></div>' +
+    // [2026-07-21 보스] 슬롯머신·스피너 폐기 → 귀여운 강아지가 초록 진행바를 100%로 뛰어가는 로딩.
+    //   자체완결형(외부 CSS 無, keyframes 인라인) — CSS 캐시가 옛것이어도 안 깨진다. 강아지=SVG(이모지 금지 정책).
+    var DOG = '<svg width="36" height="30" viewBox="0 0 44 34" fill="none" aria-hidden="true">' +
+        '<path class="wcl-tail" d="M7 15 Q1 11 4 5" stroke="#a9744a" stroke-width="3.4" stroke-linecap="round"/>' +
+        '<g class="wcl-legB"><rect x="12" y="20" width="3.4" height="9" rx="1.7" fill="#8a5a35"/><rect x="27" y="20" width="3.4" height="9" rx="1.7" fill="#8a5a35"/></g>' +
+        '<g class="wcl-legA"><rect x="16" y="20" width="3.4" height="9" rx="1.7" fill="#b5764a"/><rect x="23" y="20" width="3.4" height="9" rx="1.7" fill="#b5764a"/></g>' +
+        '<ellipse cx="21" cy="16" rx="14" ry="8.5" fill="#b5764a"/>' +
+        '<circle cx="34" cy="12" r="7.5" fill="#b5764a"/>' +
+        '<path d="M29 5 Q27 0 32.5 3.5 Z" fill="#8a5a35"/>' +
+        '<circle cx="36" cy="11" r="1.4" fill="#3a2a1e"/>' +
+        '<circle cx="40" cy="13.5" r="1.9" fill="#3a2a1e"/>' +
+      '</svg>';
+    return '<style>' +
+        '@keyframes wclFill{0%{width:8%}92%{width:97%}100%{width:8%}}' +
+        '@keyframes wclRun{0%{left:0%}92%{left:calc(100% - 40px)}100%{left:0%}}' +
+        '@keyframes wclBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}' +
+        '@keyframes wclLegA{0%,100%{transform:rotate(20deg)}50%{transform:rotate(-20deg)}}' +
+        '@keyframes wclLegB{0%,100%{transform:rotate(-20deg)}50%{transform:rotate(20deg)}}' +
+        '@keyframes wclTail{0%,100%{transform:rotate(-14deg)}50%{transform:rotate(18deg)}}' +
+        '.wcl-legA{transform-origin:21px 20px;animation:wclLegA .34s ease-in-out infinite}' +
+        '.wcl-legB{transform-origin:21px 20px;animation:wclLegB .34s ease-in-out infinite}' +
+        '.wcl-tail{transform-origin:7px 15px;animation:wclTail .34s ease-in-out infinite}' +
+      '</style>' +
+      '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:60px 24px;min-height:340px;text-align:center">' +
         '<div style="font-size:15.5px;font-weight:800;letter-spacing:-.02em;color:#2c2528">AI가 ' + (on ? '우리샵 말투로 ' : '') + '쓰는 중…</div>' +
+        '<div style="position:relative;width:100%;max-width:290px;height:42px">' +
+          '<div style="position:absolute;bottom:13px;left:0;animation:wclRun 2.6s cubic-bezier(.45,.05,.55,.95) infinite">' +
+            '<div style="animation:wclBob .34s ease-in-out infinite">' + DOG + '</div></div>' +
+          '<div style="position:absolute;left:0;bottom:0;width:100%;height:11px;border-radius:6px;background:rgba(22,181,94,.13);overflow:hidden">' +
+            '<div style="height:100%;border-radius:6px;background:linear-gradient(90deg,#16B55E,#4ad683);animation:wclFill 2.6s cubic-bezier(.45,.05,.55,.95) infinite"></div></div>' +
+        '</div>' +
         (on
-          ? '<div style="display:flex;gap:7px;width:100%;max-width:290px;margin-top:2px">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>'
-          : '<div style="display:flex;gap:6px;margin-top:2px">' +
-              '<span style="width:8px;height:8px;border-radius:50%;background:#d58a95;animation:wslDot 1.2s ease-in-out infinite"></span>' +
-              '<span style="width:8px;height:8px;border-radius:50%;background:#d58a95;animation:wslDot 1.2s ease-in-out .2s infinite"></span>' +
-              '<span style="width:8px;height:8px;border-radius:50%;background:#d58a95;animation:wslDot 1.2s ease-in-out .4s infinite"></span></div>') +
+          ? '<div style="display:flex;gap:7px;width:100%;max-width:290px">' + chip('말투', pw.tone) + chip('길이', pw.len) + chip('이모지', pw.emoji) + '</div>'
+          : '') +
         '<div style="font-size:12px;font-weight:600;color:#a89aa0;letter-spacing:-.01em">' + (on ? '원장님 스타일 그대로 맞추는 중이에요' : '잠시만 기다려 주세요') + '</div>' +
       '</div>';
   }
