@@ -3622,19 +3622,22 @@
     _clearChatPending();
   }
 
-  // [2026-07-21] 채팅 사진 → 현재 작업실(레이아웃-퍼스트 WorkspaceFlow) 직행.
-  //   photo 그룹(지연 로드)을 먼저 보장한 뒤 열어, 옛 로드 순서 버그(WorkspaceFlow 미로드 시 조용히 폴백)를 막는다.
-  //   못 열면 false 반환 → 호출측이 서버 폴백으로 진행.
-  async function _openWorkspaceWithPhotos(photoUrls) {
-    try {
-      if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
-        try { await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
-      }
-      if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
-      try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
-      window.WorkspaceFlow.command({ type: 'open', photoUrls: photoUrls.slice(0, 10), cat: null });
-      return true;
-    } catch (_e) { return false; }
+  // [2026-07-21] 채팅 사진 → 예쁜 선택 카드. 각 칩이 현재 작업실(WorkspaceFlow)의 알맞은 모드로 진입한다.
+  //   (옛 photo-mode 템플릿 갤러리·다단계 가이드 대체 — 카드 디자인은 살리고 목적지만 현재 작업실로.)
+  //   실제 진입/photo그룹 ensure 는 photo-actions.js 의 인텐트칩 핸들러(ws_* )가 담당.
+  function _pushWorkspacePhotoCard(question, photoUrls) {
+    var n = photoUrls.length;
+    var chips = [{ id: 'ws_post', label: '게시글 만들기', primary: true }];
+    if (n >= 2) chips.push({ id: 'ws_ba', label: '전후 비교' });     // 전후는 2장부터
+    chips.push({ id: 'ws_review', label: '후기 카드' });
+    chips.push({ id: 'ws_edit', label: '사진 보정' });
+    _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
+    _history.push({
+      role: 'assistant', local_only: true,
+      text: '사진 ' + n + '장 받았어요. 이 사진으로 뭘 만들까요?',
+      intent_chips: chips,
+    });
+    _renderHistory();
   }
 
   async function _uploadPhotos(files) {
@@ -3655,13 +3658,8 @@
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
-        // local_only: 서버 미저장 말풍선 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
-        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
-        _renderHistory();
-        const _wsOk = await _openWorkspaceWithPhotos(photoUrls);
-        _history.push({ role: 'assistant', local_only: true,
-          text: _wsOk ? '작업실에서 이 사진으로 게시글을 만들어볼게요.' : '작업실을 여는 중 문제가 있었어요. 잠시 후 다시 시도해 주세요.' });
-        _renderHistory();
+        // [2026-07-21] 옛 photo-mode 템플릿 갤러리 대신, 예쁜 선택 카드 → 각 버튼이 현재 작업실 모드로 진입.
+        _pushWorkspacePhotoCard(question, photoUrls);
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
         return;

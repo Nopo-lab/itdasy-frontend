@@ -152,7 +152,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/customer-phone-intent.js?v=20260615-v475-itbi-phase3a',
   'js/assistant/card-renderers.js?v=20260527-v299-asst-tone-pc',
   'js/assistant/lightbox.js?v=20260526-v273-assistant-flow-split',
-  'js/assistant/photo-actions.js?v=20260705-v699-itbi-qa',
+  'js/assistant/photo-actions.js?v=20260721-ws-photo-card',
   'js/assistant/single-action-controls.js?v=20260525-v269-ai-gpt-cleanup',
   'js/assistant/group-action-controls.js?v=20260525-v269-ai-gpt-cleanup',
   'js/assistant/suggestion-controls.js?v=20260525-v269-ai-gpt-cleanup',
@@ -191,7 +191,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260619-v522-workspace-nl-p3',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260721-photo-to-workspace',
+  'app-assistant.js?v=20260721-ws-photo-card',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

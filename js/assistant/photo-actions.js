@@ -86,12 +86,31 @@
     const photoUrl = userMsg.thumb || (Array.isArray(userMsg.photos) ? userMsg.photos[0] : '');
     const photos = Array.isArray(userMsg.photos) ? userMsg.photos : (photoUrl ? [photoUrl] : []);
     if (!photoUrl) return true;
-    // [잇비↔작업실] 채팅 사진으로 바로 작업실 게시글 흐름 열기(명시 버튼만 — 자동진입 아님).
-    if (chip.id === 'workspace' && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+    // [잇비↔작업실 2026-07-21] 채팅 사진 카드의 모든 버튼 → 현재 작업실(WorkspaceFlow)의 알맞은 모드.
+    //   ws_post=게시글(레이아웃-퍼스트) · ws_ba=전후 · ws_review=후기 · ws_edit=바로 보정. (구 'workspace' 칩도 흡수)
+    var WS_CAT = { workspace: null, ws_post: null, ws_ba: 'ba', ws_review: 'review', ws_edit: null };
+    if (Object.prototype.hasOwnProperty.call(WS_CAT, chip.id)) {
+      var _cat = WS_CAT[chip.id];
+      var _screen = chip.id === 'ws_edit' ? 'edit' : null;
       try { if (window.ItdasySourceImage) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrl, messageId: 'chat-ws' }); } catch (_e) { void _e; }
       deps.history.splice(hi - 1, 2);
       deps.renderHistory();
-      window.WorkspaceFlow.command({ type: 'open', photoUrls: photos, cat: null });
+      // photo 그룹(지연 로드) 먼저 보장 후 열기 — WorkspaceFlow 미로드 시 조용히 폴백하던 버그 방지.
+      (async function () {
+        try {
+          if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+            await window.AppLoader.ensure('photo');
+          }
+        } catch (_l) { void _l; }
+        if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }   // 잇비 시트 닫아 작업실이 위로 보이게
+          var cmd = { type: 'open', photoUrls: photos, cat: _cat };
+          if (_screen) cmd.screen = _screen;
+          window.WorkspaceFlow.command(cmd);
+        } else if (typeof deps.runChatAutoEdit === 'function') {
+          deps.runChatAutoEdit({ photoUrl: photoUrl, photos: photos, question: '사진 보정', customerCtx: null });
+        }
+      })();
       return true;
     }
     deps.history.splice(hi - 1, 2);
