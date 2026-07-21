@@ -108,6 +108,7 @@
   // [버그수정] 캡션 재생성 중 뒤로가기 등으로 이탈 후 옛 응답이 도착하면 d.caption/오버레이가 새 상태와 뒤섞여 깨지던 문제.
   //   generateCaption() 호출마다 토큰을 발급하고, 응답 시 토큰이 최신이 아니면(그 사이 뒤로가기/재생성 발생) 결과를 버린다.
   var _genToken = 0;
+  var _genPending = 0; // [카오스 P2] in-flight 캡션 생성 개수 — stale 응답이 아직 대기 중인 fresh 스피너를 조기 해제하지 않게(내 응답이거나 대기 0일 때만 capLoading 해제)
   function _pushHist() {
     try { history.pushState({ wsv2: 'step' }, '', '#wsv2flow'); _histDepth++; } catch (_e) { void _e; }
   }
@@ -190,6 +191,10 @@
   function switchEditPhoto(idx) {
     var p = editablePhotos();
     if (idx < 0 || idx >= p.length || idx === (d.editIdx || 0)) return;
+    // [카오스 P2] 전환 중 재진입 차단 — 연타 시 bakeEdit 가 겹쳐 돌면서 .then 이 이미 리셋된
+    //   d.adjust(=0)를 photo.adjustments 로 clone, 조정값 메타가 오염되던 문제. 한 번에 하나만 전환.
+    if (d._switching) return;
+    d._switching = true;
     // [이슈3] 즉시 시각 피드백 — 선택 테두리/aria 를 동기로 토글(무거운 bake/렌더를 기다리지 않음).
     if (el) {
       el.querySelectorAll('[data-fs="edit"] [data-fl-editsel]').forEach(function (b) {
@@ -213,7 +218,7 @@
       if (d.maskView) _renderMaskOverlay();   // [v539] 사진 전환 시 마스크 overlay 갱신
       if (d.maskPaint) { _ensurePaintDims(function () { _renderPaintOverlay(); }); }   // [v561] 칠하기 모드 유지 시 새 사진 기준 재렌더
       _warmEditMasks();
-    });
+    }).finally(function () { d._switching = false; });   // [카오스 P2] 전환 완료 → 재진입 락 해제
   }
   function photoUrl(p) { return p ? (p.editedDataUrl || p.dataUrl) : ''; }
   // [P0-1] 표시용 URL 문자열 → blob URL (innerHTML 재파싱·재디코드 제거). 비-dataURL 은 그대로 통과.
@@ -2403,6 +2408,7 @@
     // [v532] 재생성('다시 쓰기/더 길게/인스타 톤/짧게')이면 회차 카운터 증가 → extra_notes 변형 지시에 사용(동일 캡션 반복 방지).
     if (extra && extra._regen) d.regenSeq = (d.regenSeq || 0) + 1;
 	    var _myToken = ++_genToken;   // [버그수정] 이 호출만의 토큰 — 응답 도착 시 아직 최신인지 확인용
+	    _genPending++;   // [카오스 P2] in-flight 생성 카운트 — 응답(.then/.catch)에서 감소
 	    d.capLoading = true; setScreen('caption');
 	    // [v779] 생성 타임아웃 — 약전파/프록시 stall 로 응답이 매달리면(끊김 아님) 프로미스가 영영 settle 안 돼
 	    //   스피너가 무한 고착 + 이후 생성이 `if(d.capLoading)return` 으로 영구 차단되던 것. 45초 뒤 자가 복구.
@@ -2493,10 +2499,14 @@
     var _igConn = (window.WorkspaceAdapter && window.WorkspaceAdapter.instagram) ? window.WorkspaceAdapter.instagram().connected : false;
     opts.use_persona = (d.capUsePersona === true) && _igConn;
     window.WorkspaceAdapter.generateCaption(opts).then(function (r) {
-      d.capLoading = false;
+      _genPending = Math.max(0, _genPending - 1);
+      // [카오스 P2] 내 응답이거나 더 대기 중인 생성이 없을 때만 스피너 해제 — stale 응답이 아직
+      //   진행 중인 fresh 생성(45초 자가복구 후 재생성 등)의 스피너를 조기 해제하던 깜빡임 방지.
+      //   (대기 중 fresh 가 있으면 그게 도착할 때 해제하므로 스투키 스피너 회귀도 없음.)
+      if (_myToken === _genToken || _genPending === 0) d.capLoading = false;
       // [버그수정] 그 사이 뒤로가기/재생성이 있었던 낡은 응답이면 d.caption/오버레이는 안 건드리지만,
       //   화면 갱신(setScreen)은 그대로 해서 로딩 스피너가 안 풀리고 멈춰버리는 회귀를 방지한다.
-      // [v779] 단, 이미 캡션 화면을 떠났으면 캡션으로 낚아채지 않는다(capLoading 은 위에서 이미 해제됨).
+      // [v779] 단, 이미 캡션 화면을 떠났으면 캡션으로 낚아채지 않는다.
       if (_myToken !== _genToken) { if (cur === 'caption') setScreen('caption'); return; }
       if (r.ok) {
         var fresh = (r.hashtags || []).map(function (h) { return _fixTypos(h); })   // [v570·3] 태그 오타 백스톱
@@ -2531,7 +2541,8 @@
       setScreen('caption');
     }).catch(function (e) {
       // [audit] 생성 실패(네트워크/예외) 시 로딩에 갇히지 않게 복구 — 예전엔 catch 없어 capLoading 이 true 로 남아 이후 생성이 영구 차단됐음.
-      d.capLoading = false;
+      _genPending = Math.max(0, _genPending - 1);
+      if (_myToken === _genToken || _genPending === 0) d.capLoading = false;   // [카오스 P2] .then 과 동일 게이트
       console.warn('[wsv2flow] generateCaption failed', e);
       // [버그수정] 낡은 요청의 실패 토스트는 생략하되, 화면 갱신은 그대로(로딩 스피너 고착 방지).
       if (_myToken !== _genToken) { setScreen('caption'); return; }
@@ -3989,8 +4000,9 @@
 	    // [slot-sync Phase B] 캐러셀은 각 장을 캔버스로 JPEG 인코딩 → 다른 기기(https) 이미지는 taint 로 막힘. 먼저 수화.
 	    //   (피드/스토리 단일 발행은 fetch→blob 경로라 CORS(*)로 그냥 됨 — 게이트 불필요.)
 	    if (kind === 'carousel' && _needsHydrate() && !d._hydrateTried) {
-	      d._hydrateTried = true; toast('사진 불러오는 중…');
+	      d._hydrateTried = true; d._preflight = true; toast('사진 불러오는 중…');
 	      _hydrateD().then(function (ok) {
+	        d._preflight = false;   // [카오스 P2] 사전단계 종료 — 재진입 락 해제
 	        // [P2 무한루프 수정 2026-07-16] 예전엔 실패해도 publish 를 다시 불러서 → 재진입 → 영원히
 	        //   "사진 불러오는 중…" 반복(네트워크 안 좋은 다기기 케이스). 실패 시엔 멈추고 안내만 —
 	        //   재시도는 원장이 다시 누르면 된다(_hydrateTried=false 로 열어둠).
@@ -3999,14 +4011,16 @@
 	      });
 	      return;
 	    }
-	    if (d._publishing) return;
+	    if (d._publishing || d._preflight) return;   // [카오스 P2] 사전단계(hydrate/compose) 창 재탭 차단
 	    // [v779 보스] 콜라주(한장으로 합치기)를 골랐는데 합성본이 없으면 outputUrl() 이 '첫 원본 사진'으로
 	    //   조용히 폴백해, 3장 합쳐 올렸는데 첫 장만 올라갔다(편집 미리보기는 CSS라 콜라주로 보여 눈치 못 챔).
 	    //   발행 전에 다시 굽고, 그래도 없으면 발행을 멈추고 레이아웃으로 돌려보낸다(잘못된 사진 발행 방지).
 	    if (d.wsComp && d.wsComp !== 'flat' && (editablePhotos() || []).length >= 2 &&
 	        !(d.templateOutput || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl))) {
 	      if (_WSL && _WSL.composeCards) {
+	        d._preflight = true;   // [카오스 P2] compose 중 재탭 차단
 	        Promise.resolve(_WSL.composeCards()).catch(function () { return null; }).then(function () {
+	          if (d) d._preflight = false;
 	          if (!d || d._dead) return;
 	          if (d.templateOutput || (d.templateOutputs && d.templateOutputs[0] && d.templateOutputs[0].outputUrl)) publish(kind);
 	          else { toast('레이아웃을 못 만들었어요 — 레이아웃을 다시 골라 주세요'); setScreen('layout'); }
