@@ -475,7 +475,20 @@
          원장이 스티커·글씨·도형을 ★기본으로 지정해도 새 글에서 아무것도 안 올라오던 원인.
        이제 레이아웃이 있어도 기억을 계산하되 layersOnly=true 로 '꾸밈만' 가져온다
          (칸 배치는 방금 고른 레이아웃이 소유 — 안 그러면 레이아웃이 기억에 덮여 사라진다). */
-    var _wmEd = (!_restore && window.WorkMemory) ? window.WorkMemory.defaultEditState({ incoming: layers, photoCount: (editablePhotos() || []).length, layersOnly: !!_wsEd }) : null;
+    var _wmEd = null;
+    if (!_restore && window.WorkMemory) {
+      var _wmPhotoN = (editablePhotos() || []).length;
+      // [2026-07-22 원장 스타일] "최근 원장 작업으로" 브리핑이면 플래그(ITDASY_WORK_MEMORY)와 무관하게
+      //   ★기본 작업 기억(꾸밈/폰트/위치)을 base 로 적용. orch 가 텍스트를 주면 기억의 텍스트역할은 비워
+      //   중복 방지(incoming:[]) — 시술내용 텍스트는 orch 레이어가 소유.
+      if (d._orch && d._orch.useRecentStyle && window.WorkMemory.getDefault && window.WorkMemory.toEditState) {
+        try {
+          var _rec = window.WorkMemory.getDefault();
+          if (_rec) _wmEd = window.WorkMemory.toEditState(_rec, { incoming: (d._orch.wantsText ? [] : layers), photoCount: _wmPhotoN, layersOnly: !!_wsEd });
+        } catch (_we) { _wmEd = null; }
+      }
+      if (!_wmEd) _wmEd = window.WorkMemory.defaultEditState({ incoming: layers, photoCount: _wmPhotoN, layersOnly: !!_wsEd });
+    }
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
