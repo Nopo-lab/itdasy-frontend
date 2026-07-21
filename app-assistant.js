@@ -1572,6 +1572,7 @@
   // 단일 document-level 위임 (한 번만 등록)
   let _delegationBound = false;
   let _sendInFlight = false;
+  let _sendActive = false; // [카오스 P1] _send() 재진입 락 — _sendInFlight 는 shortcut 마다 토글돼(await 사이 false) 연타 방어에 무력. _send 전체 실행 구간을 덮는다.
   // [v178 2026-05-18] 사진 펜딩 (드래프트 첨부) — 갤러리/카메라 선택 시 자동 전송 X.
   //   입력창 위 칩으로 펜딩 → 사용자 텍스트 입력 후 ▷ 누르면 사진+텍스트 함께 전송.
   let _photoPending = null;
@@ -3719,13 +3720,17 @@
   function _lastPendingSingleAction() {
     for (let i = _history.length - 1; i >= 0; i--) {
       const m = _history[i];
-      if (m && m.role === 'assistant' && m.action && m.action.kind && m.action_status !== 'done') return m;
+      // [카오스 P0] 이미 실행 중(running)/완료(done)인 액션은 제외 — 연타 affirm 이중 실행 방지.
+      if (m && m.role === 'assistant' && m.action && m.action.kind
+          && m.action_status !== 'done' && m.action_status !== 'running') return m;
     }
     return null;
   }
 
   function _isAffirmReply(q) {
-    return /^(응|그래|맞아|예|네|좋아|확인|진행|완료|취소해|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
+    // [카오스 P1] '취소해'·'완료' 제거 — 취소 의도가 affirm 으로 오분류돼 pending 액션(예약·매출)을
+    //   반대로 실행하던 문제. 이 둘은 affirm 파이프라인 아닌 일반 처리로 흘려보낸다.
+    return /^(응|그래|맞아|예|네|좋아|확인|진행|ok|좋|어어|ㅇㅇ|어)$/i.test(q.trim());
   }
 
   function _markActionFailed(message, err) {
@@ -3740,6 +3745,11 @@
     if (!_isAffirmReply(q)) return false;
     const message = _lastPendingSingleAction();
     if (!message) return false;
+    // [카오스 P0] 이중 실행 방지 — running/done 이면 무시, await 전에 status 를 동기 세팅한다.
+    //   (연타 "응" 또는 카드 실행버튼+"응" 로 매출/예약/환불이 2번 실행되던 문제. _runAction 과 동일 가드.
+    //    비-risky mutating kind 는 native confirm 게이트가 없어 깨끗한 이중 실행이 나던 경로.)
+    if (message.action_status === 'running' || message.action_status === 'done') return true;
+    message.action_status = 'running';
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q });
     _renderHistory();
@@ -3753,10 +3763,11 @@
       if (window.Dashboard?.refresh) window.Dashboard.refresh(true);
     } catch (err) {
       if (err && err.userCancelled) {
+        message.action_status = 'pending';   // [카오스] 사용자 취소 → 재시도 가능하게 status 복원
         if (window.showToast) window.showToast('취소했어요');
         return true;
       }
-      _markActionFailed(message, err);
+      _markActionFailed(message, err);   // status='failed' (재시도 허용)
     }
     return true;
   }
@@ -4863,7 +4874,9 @@
   }
 
   async function _send() {
-    if (_sendInFlight) return;
+    if (_sendInFlight || _sendActive) return;   // [카오스 P1] 연타 중복 전송(LLM 2배 호출·카드 중복) 차단
+    _sendActive = true;
+    try {
     const input = document.getElementById('asstInput');
     const pendingFiles = _takePendingPhotoFiles();
     if (pendingFiles) { _uploadPhotos(pendingFiles); return; }
@@ -4970,6 +4983,7 @@
       try { _history.push({ role: 'assistant', text: '하던 거 이어가요: ' + _photoModeReannounce }); _renderHistory(); } catch (_e) { void _e; }
       _photoModeReannounce = '';
     }
+    } finally { _sendActive = false; }   // [카오스 P1] _send 전체 구간 재진입 락 해제
   }
 
   // [2026-04-26] 멀티 디바이스 동기화 — 서버에서 최근 세션 messages 로드.
