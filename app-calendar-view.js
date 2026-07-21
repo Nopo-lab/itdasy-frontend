@@ -2209,8 +2209,10 @@
     });
     // [2026-05-16] #bfComplete 카드는 _buildFormHTML 에서 제거 — 핸들러도 삭제.
     const STATUS_LABEL = { confirmed: '확정', completed: '완료', cancelled: '취소', no_show: '안 옴' };
+    let _statusBusy = false; // [카오스] 상태변경 버튼 연타 시 동시 PATCH 방지
     body.querySelectorAll('[data-bf-status]').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (_statusBusy) return;
         const newStatus = btn.getAttribute('data-bf-status');
         if (newStatus === existing.status) return;
         // [2026-05-16] 완료 버튼은 직접 status 변경하지 않고 CompleteFlow 거치도록.
@@ -2225,6 +2227,8 @@
           return;
         }
         const _applyStatus = async () => {
+          if (_statusBusy) return;
+          _statusBusy = true;
           try {
             await window.Booking.update(existing.id, { status: newStatus });
             // [핫픽스D #6] 취소면 잇비 "복구해"로 되살릴 수 있게 최근 취소 context 저장.
@@ -2244,6 +2248,7 @@
             _mappedCache = await _loadMonth(_curYear, _curMonth);
             _renderViewBody();
           } catch (_) { if (window.showToast) window.showToast('상태 변경 실패'); }
+          finally { _statusBusy = false; }
         };
         // [핫픽스D #6] 모든 취소 경로 확인 통일 — 상태 '취소'는 확인 후에만 반영.
         if (newStatus === 'cancelled') {
@@ -2327,9 +2332,20 @@
     await _reloadAndRender();
     _prefetchNeighbors();
   }
+  let _navSeq = 0; // [카오스 P1-1] 월/주 전환 연타 시 요청 순서 토큰
   async function _reloadAndRender() {
-    _mappedCache = await _loadMonth(_curYear, _curMonth);
-    _renderViewBody();
+    const my = ++_navSeq;
+    try {
+      const mapped = await _loadMonth(_curYear, _curMonth);
+      if (my !== _navSeq) return;   // 더 최근 전환이 있었음 — 늦게 온 stale 달 무시
+      _mappedCache = mapped;
+      _renderViewBody();
+    } catch (err) {
+      if (my !== _navSeq) return;
+      // [카오스 P2-1] 월 이동 중 로드 실패 무음 → 헤더/그리드 불일치 방지: 알리고 캐시 유지
+      console.warn('[cal] 월 로드 실패:', err);
+      if (window.showToast) window.showToast('예약을 불러오지 못했어요. 잠시 후 다시 시도해주세요');
+    }
   }
   function _prefetch(year, month) {
     const from = new Date(year, month - 1, 1).toISOString();
