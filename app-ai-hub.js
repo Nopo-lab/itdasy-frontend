@@ -248,10 +248,13 @@
 
   // ── 빠른 안내 enabled 백엔드 반영 — 반드시 GET 먼저 → 그 객체에서 enabled 만 바꿔 PUT.
   //   (캐시를 PUT 소스로 쓰면 메뉴·인사멘트가 통째로 날아감. 동봉 소스 = GET 결과로 고정.) ──
+  let _dmMenuSyncSeq = 0; // [카오스] 빠른 안내 토글 연타 시 GET→PUT 레이스 방지 — 최신 토글만 서버 반영
   async function _syncDmMenuEnabled(on, btn, sheet) {
+    const seq = ++_dmMenuSyncSeq;
     try {
       const auth = window.authHeader ? window.authHeader() : {};
       const res = await window.apiFetch(window.apiUrl('/shop/dm-menu'), { headers: auth });
+      if (seq !== _dmMenuSyncSeq) return; // 더 최근 토글이 있었음 — 이 GET 결과 폐기(중복 PUT 방지)
       const menu = await res.json().catch(() => null);
       if (!menu || typeof menu !== 'object' || !Array.isArray(menu.items)) {
         throw new Error('메뉴를 불러오지 못했어요');
@@ -262,8 +265,10 @@
         headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify(menu),
       });
+      if (seq !== _dmMenuSyncSeq) return; // PUT 도중 또 토글됨 — 최신 sync 가 정정하므로 이 결과 무시
       if (!put.ok) throw new Error('HTTP ' + put.status);
     } catch (e) {
+      if (seq !== _dmMenuSyncSeq) return; // stale — 최신 토글이 상태 소유, 롤백하지 않음
       // 실패 → UI/캐시 롤백
       _setToggle(KEY_DMMENU, !on);
       if (btn) {

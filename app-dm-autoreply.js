@@ -139,22 +139,26 @@
   }
 
   // 디바운스 저장 (POST /settings)
-  function _saveSettings(partial) {
+  // [카오스] onResult(ok) — 저장 성공/실패를 호출부에 알려 낙관적 UI 롤백에 사용(하위호환: 미전달 시 기존대로 조용히).
+  function _saveSettings(partial, onResult) {
     if (!_settings) return;
     Object.assign(_settings, partial);
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(async () => {
+      let ok = false;
       try {
         const safe = _sanitizeForSave(_settings);
-        if (window.DmSettingsCache?.save) await window.DmSettingsCache.save(safe);
+        if (window.DmSettingsCache?.save) { await window.DmSettingsCache.save(safe); ok = true; }
         else {
-          await _rawFetch(apiUrl('/instagram/dm-reply/settings'), {
+          const r = await _rawFetch(apiUrl('/instagram/dm-reply/settings'), {
             method: 'POST',
             headers: { ...window.authHeader(), 'Content-Type': 'application/json' },
             body: JSON.stringify(safe),
           }, 25000);
+          ok = !!(r && r.ok); // _rawFetch 는 4xx/5xx 에 throw 안 함 — .ok 로 실제 성공 판정
         }
-      } catch (_) { /* 조용히 실패 — 다음 저장 때 재시도 */ }
+      } catch (_) { ok = false; /* 네트워크·타임아웃 */ }
+      if (onResult) { try { onResult(ok); } catch (_e) { void _e; } }
     }, 400);
   }
 
@@ -1262,14 +1266,25 @@
       btn.classList.toggle('is-on', next);
       btn.setAttribute('aria-pressed', String(next));
       const card = sheet.querySelector('[data-dm-activate]');
-      if (card) {
+      const _paintCard = (isOn) => {
+        if (!card) return;
         const dot = card.querySelector('.dm-activate__dot');
         const text = card.querySelector('.dm-activate__status-text');
-        if (dot) dot.className = next ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
-        if (text) text.textContent = next ? '자동응답 켜짐' : '자동응답 꺼짐';
-      }
-      _saveSettings({ enabled: next });
-      _toast(next ? '자동응답 켜짐' : '자동응답 꺼짐');
+        if (dot) dot.className = isOn ? 'dm-activate__dot' : 'dm-activate__dot dm-activate__dot--off';
+        if (text) text.textContent = isOn ? '자동응답 켜짐' : '자동응답 꺼짐';
+      };
+      _paintCard(next);
+      // [카오스] 저장 확인 후 토스트 · 실패 시 롤백 — 콜드스타트/네트워크 순단에서
+      //   "토스트만 켜짐, 서버는 안 켜짐 → 손님 자동응답 실제 안 됨" 오인식 방지.
+      _saveSettings({ enabled: next }, (ok) => {
+        if (ok) { _toast(next ? '자동응답 켜짐' : '자동응답 꺼짐'); return; }
+        // 실패 → UI/_settings 롤백
+        if (_settings) _settings.enabled = !next;
+        btn.classList.toggle('is-on', !next);
+        btn.setAttribute('aria-pressed', String(!next));
+        _paintCard(!next);
+        _toast('저장 실패 — ' + (next ? '켜기' : '끄기') + ' 다시 시도해주세요');
+      });
       _haptic();
     });
   }
