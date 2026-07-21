@@ -128,5 +128,51 @@
     return layers;
   }
 
-  window.ItdasyPhotoBrief = { parse: parse, buildLayers: buildLayers };
+  // ── [2026-07-22 Phase2b] 백엔드 LLM 파싱으로 보강 — fail-safe: 실패/이상/무응답이면 휴리스틱 그대로. ──
+  var _POS = {
+    'bottom-left': { x: 0.25, y: 0.87, align: 'left' }, 'bottom-center': { x: 0.5, y: 0.88, align: 'center' }, 'bottom-right': { x: 0.75, y: 0.87, align: 'right' },
+    'top-left': { x: 0.25, y: 0.13, align: 'left' }, 'top-center': { x: 0.5, y: 0.13, align: 'center' }, 'top-right': { x: 0.75, y: 0.13, align: 'right' },
+    'center': { x: 0.5, y: 0.5, align: 'center' }
+  };
+  var _COLOR = { '빨강': '#e53935', '빨간': '#e53935', '레드': '#e53935', '파랑': '#1e88e5', '파란': '#1e88e5', '블루': '#1e88e5', '분홍': '#ec407a', '핑크': '#ec407a', '노랑': '#f6be00', '노란': '#f6be00', '초록': '#2e9e5b', '녹색': '#2e9e5b', '보라': '#8e57c2', '검정': '#1a1a1a', '검은': '#1a1a1a', '블랙': '#1a1a1a', '흰': '#ffffff', '하얀': '#ffffff', '화이트': '#ffffff' };
+  // 검증된 LLM 결과 → parse() 와 동일한 brief shape(buildLayers 그대로 소비)
+  function _llmToBrief(llm, base) {
+    var pos = _POS[llm.text_position] || _POS['bottom-center'];
+    var size = llm.text_size === 'large' ? 0.07 : (llm.text_size === 'small' ? 0.035 : 0.05);
+    var cnt = llm.sticker_density === 'many' ? 8 : (llm.sticker_density === 'few' ? 2 : 0);
+    var cat = (llm.sticker_category && llm.sticker_category !== 'none') ? llm.sticker_category : null;
+    var svc = llm.service || (base && base.service) || '';
+    return {
+      raw: (base && base.raw) || '', service: svc, textContent: (llm.text || svc),
+      wantsText: !!llm.want_text, textPos: pos,
+      textColor: _COLOR[String(llm.text_color || '').trim()] || '#ffffff',
+      textSize: size, wantsSticker: !!llm.want_sticker,
+      stickerCount: llm.want_sticker ? (cnt || 3) : 0, stickerCat: cat,
+      useRecentStyle: !!llm.use_recent_style,
+      hasBrief: !!(llm.want_text || llm.want_sticker), source: 'llm'
+    };
+  }
+  // 휴리스틱을 먼저 만들고(항상 유효), 백엔드 LLM 이 검증 통과하면 그걸로 교체. 무엇이 잘못돼도 base 반환.
+  async function parseSmart(text) {
+    var base = parse(text);
+    try {
+      if (!base || !(window.apiFetch && window.apiUrl)) return base;
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var to = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (_e) { void _e; } }, 4500) : null;
+      var res = await window.apiFetch(window.apiUrl('/assistant/parse-edit-brief'), {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, (window.authHeader ? window.authHeader() : {})),
+        body: JSON.stringify({ text: String(text || '').slice(0, 600) }),
+        signal: ctrl ? ctrl.signal : undefined
+      });
+      if (to) clearTimeout(to);
+      if (!res || !res.ok) return base;
+      var j = await res.json().catch(function () { return null; });
+      var llm = j && j.brief;
+      if (!llm || (!llm.want_text && !llm.want_sticker)) return base;   // 백엔드가 편집의도 없다고 판단 → 휴리스틱
+      return _llmToBrief(llm, base);
+    } catch (_e) { return base; }
+  }
+
+  window.ItdasyPhotoBrief = { parse: parse, parseSmart: parseSmart, buildLayers: buildLayers };
 })();

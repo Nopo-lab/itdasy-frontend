@@ -3701,10 +3701,13 @@
           text: '알겠어요! 레이아웃만 고르면 ' + (_brief.wantsText ? '시술내용 텍스트' : '') + (_brief.wantsText && _brief.wantsSticker ? '·' : '') + (_brief.wantsSticker ? '스티커' : '') + '·캡션까지 자동으로 입혀드릴게요' + (_brief.service ? ' (' + _brief.service + ')' : '') });
         _renderHistory();
         (async function () {
+          // [Phase2b] 백엔드 LLM 으로 브리핑 보강(fail-safe: 실패하면 휴리스틱 _brief 그대로).
+          var _finalBrief = _brief;
+          try { if (window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parseSmart) { _finalBrief = (await window.ItdasyPhotoBrief.parseSmart(question)) || _brief; } } catch (_pe) { _finalBrief = _brief; }
           try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
           try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
           if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
-            window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: _brief });
+            window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: _finalBrief });
           }
         })();
         if (window.hapticLight) window.hapticLight();
