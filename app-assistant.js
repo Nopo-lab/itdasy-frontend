@@ -3468,21 +3468,6 @@
     return !!(question && /(영수증|매출|금액|결제|판매|메뉴|상품)/.test(question));
   }
 
-  function _pushPhotoSuggestion(question, photoUrls) {
-    _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls });
-    _history.push({
-      role: 'assistant',
-      text: '사진 1장 확인했어요. 시술 완료 사진으로 자연스럽게 보정할까요?',
-      intent_chips: [
-        { id: 'edit_done', label: '보정하기', question: '시술 완료사진으로 자연스럽게 보정해줘', primary: true },
-        { id: 'workspace', label: '작업실에서 게시글 만들기', question: '작업실 열어서 게시글 만들기' },
-        { id: 'instagram', label: '보정하고 인스타 업로드까지', question: '시술 완료사진으로 자연스럽게 보정하고 인스타 업로드까지 준비해줘' },
-        { id: 'template', label: '템플릿 먼저 보기', question: '이 사진 템플릿 골라줘' },
-      ],
-    });
-    _renderHistory();
-  }
-
   function _photoPlaceholderText(question, count) {
     const base = question || (count > 1 ? ('사진 ' + count + '장 업로드 중…') : '사진 업로드 중…');
     return (count > 1 && question) ? (question + ' (외 ' + (count - 1) + '장 함께)') : base;
@@ -3637,6 +3622,21 @@
     _clearChatPending();
   }
 
+  // [2026-07-21] 채팅 사진 → 현재 작업실(레이아웃-퍼스트 WorkspaceFlow) 직행.
+  //   photo 그룹(지연 로드)을 먼저 보장한 뒤 열어, 옛 로드 순서 버그(WorkspaceFlow 미로드 시 조용히 폴백)를 막는다.
+  //   못 열면 false 반환 → 호출측이 서버 폴백으로 진행.
+  async function _openWorkspaceWithPhotos(photoUrls) {
+    try {
+      if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+        try { await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+      }
+      if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
+      try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
+      window.WorkspaceFlow.command({ type: 'open', photoUrls: photoUrls.slice(0, 10), cat: null });
+      return true;
+    } catch (_e) { return false; }
+  }
+
   async function _uploadPhotos(files) {
     if (_sendInFlight) return;
     const selectedFiles = _normalizePhotoFiles(files);
@@ -3648,33 +3648,22 @@
     //   다중 업로드는 첫 장 기준(photoUrls[0]). 모든 업로드 경로(shortcut/suggestion/OCR) 공통 진입점.
     try { if (window.ItdasySourceImage && photoUrls[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrls[0], messageId: 'chat-' + _history.length }); } catch (_e) { void _e; }
     try {
-      // 사진편집 모드가 사진 업로드 흐름을 통합 처리한다. 가격표·DM 등은 shouldStart 에서 제외.
-      const PM = window.ItdasyPhotoMode;
-      // [이슈1] 가격표/메뉴판/DM/발송은 shouldStart 의 BLOCK_RE 가, OCR(영수증·매출)은 여기 가드가 제외.
-      //   그 외 사진 업로드는 사진편집 모드로 일원화 → 레거시 BA(_pendingBA*) 가로채기 제거.
-      const _pmBlocked = _isOcrPhotoIntent(question);
-      const pmWantsPhoto = PM && photoUrls.length && !_pmBlocked && (
-        PM.isActive() || !question || (PM.shouldStart && PM.shouldStart(question, { hasPhoto: true }))
-      );
-      if (pmWantsPhoto) {
-        // local_only: 서버 미저장 PM 사진 말풍선/응답 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
-        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
-        _renderHistory();
-        let _pmMsg = null;
-        try { _pmMsg = await PM.handlePhotos(photoUrls, question, null); } catch (_e) { _pmMsg = null; }
-        _history.push(Object.assign({ role: 'assistant' }, _pmMsg || { text: '사진을 받았어요. 잠시 후 다시 시도해 주세요.' }, { local_only: true }));
-        _pmDbg('upload.push', { len: _history.length, keys: Object.keys(_pmMsg || {}) });
-        _pmForceRender();
-        _pmDbg('upload.render', _pmSheetState());
-        _sendInFlight = false; _inflightCtrl = null;
-        return;
-      }
+      // [2026-07-21] 사진 던지면 옛 photo-mode(템플릿 갤러리)가 아니라 현재 작업실(레이아웃-퍼스트)로 재편성.
+      //   특수 인텐트는 기존 경로 유지: 가격표(_tryPriceListDraft)·OCR 영수증/매출/메뉴(_isOcrPhotoIntent→서버)·
+      //   캡션 전용(_isCaptionIntent→서버). 그 외 '사진으로 게시글' 흐름은 전부 현재 작업실로 직행.
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
       if (await _tryPhotoShortcut(question, photoUrls)) return;
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
-        _pushPhotoSuggestion(question, photoUrls);
+        // local_only: 서버 미저장 말풍선 → 서버 머지 때 보존(빈 말풍선·드롭 방지).
+        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0], photos: photoUrls, local_only: true });
+        _renderHistory();
+        const _wsOk = await _openWorkspaceWithPhotos(photoUrls);
+        _history.push({ role: 'assistant', local_only: true,
+          text: _wsOk ? '작업실에서 이 사진으로 게시글을 만들어볼게요.' : '작업실을 여는 중 문제가 있었어요. 잠시 후 다시 시도해 주세요.' });
+        _renderHistory();
         if (window.hapticLight) window.hapticLight();
+        _sendInFlight = false; _inflightCtrl = null;
         return;
       }
       _pushPhotoUploadPlaceholder(question, selectedFiles.length, photoUrls);

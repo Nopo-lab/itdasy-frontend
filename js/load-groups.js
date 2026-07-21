@@ -191,7 +191,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260619-v522-workspace-nl-p3',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260721-chaos',
+  'app-assistant.js?v=20260721-photo-to-workspace',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
