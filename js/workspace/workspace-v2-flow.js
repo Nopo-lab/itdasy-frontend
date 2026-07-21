@@ -4383,7 +4383,8 @@
       case 'open':
         open({ cat: cmd.cat || null, startScreen: cmd.screen || 'upload', textOnly: !!cmd.textOnly, files: cmd.files || null, photoUrls: cmd.photoUrls || null });
         return { ok: true };
-      case 'storyedit':   // [2026-07-22] 인스타식 편집기(ItdEditor) 바로 열기 — '사진 편집' 목적지.
+      case 'storyedit':   // [2026-07-22] 인스타식 편집기(ItdEditor) 열기 — '사진 편집'·꾸미기·누끼 목적지.
+        if (_flowReady() && editablePhotos().length) { _openStoryEditor(); return { ok: true }; }   // 이미 열림 → 현재 사진으로
         open({ cat: cmd.cat || null, startScreen: 'layout', files: cmd.files || null, photoUrls: cmd.photoUrls || null, _openStory: true });
         return { ok: true };
       case 'goto':
@@ -4391,10 +4392,9 @@
         setScreen(cmd.screen); return { ok: true };
       case 'adjust':
         return _applyAdjustPatch(cmd);
-      case 'edit':   // 되돌리기/다시실행/비교/초기화
+      case 'edit':   // 되돌리기/다시실행/초기화 — [2026-07-22] 옛 슬라이더 화면(A) 안 띄우고 headless 로 상태만.
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
-        if (cur !== 'edit') setScreen('edit');
-        _editBottom(cmd.action); return { ok: true };
+        _editBottom(cmd.action); return { ok: true };   // _setEditSection 은 A DOM 없으면 no-op, _refreshPreview 로 결과만 갱신
       case 'bg':
         if (!_flowReady()) return { ok: false, reason: 'not_open' };
         if (cur !== 'edit') setScreen('edit');
