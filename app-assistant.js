@@ -2299,21 +2299,16 @@
     }
   }
 
-  async function _startPhotoModeFromSample(input, q, photos) {
-    const PM = window.ItdasyPhotoMode;
-    if (!PM) return false;
+  // [2026-07-21 Phase2] 샘플(전후/후기) 매칭 → 옛 photo-mode 대신 현재 작업실의 해당 모드로 진입.
+  async function _startPhotoModeFromSample(input, q, photos, cat) {
     _clearAssistantInput(input);
     _history.push({ role: 'user', text: q, photos: photos || [], thumb: photos && photos[0], local_only: true });
-    let msg = null;
-    try {
-      // [이슈6] 이미 사진편집 모드 진행 중이면 사진을 재-push 하지 않는다(중복 누적 → 한 장만 처리 방지).
-      //   진행 중엔 텍스트(칩 라벨)로만 단계 진행, 비활성일 때만 사진으로 새 세션 시작.
-      msg = PM.isActive()
-        ? await PM.handleText(q, null)
-        : (photos && photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null));
-    } catch (_e) { msg = null; }
-    _history.push(Object.assign({ role: 'assistant' }, msg || { text: '사진편집 모드로 이어갈게요. 편집할 사진을 보내주세요.' }, { local_only: true }));
-    _pmForceRender();
+    if (photos && photos.length) {
+      const _ok = await _wsOpenFromChat(cat || null, photos);
+      if (_ok) return true;
+    }
+    _history.push({ role: 'assistant', text: '작업실에서 이어서 만들어요. 편집할 사진을 먼저 보내주세요.', local_only: true });
+    _renderHistory();
     return true;
   }
 
@@ -2338,7 +2333,7 @@
     // ── 매칭 성공: 여기부터 소비. 이후 오류는 true 로 흡수(이중 push 방지). ──
     try {
       if (payload.purpose === 'review' || payload.purpose === 'before_after') {
-        return await _startPhotoModeFromSample(input, q, photos);
+        return await _startPhotoModeFromSample(input, q, photos, payload.purpose === 'review' ? 'review' : 'ba');
       }
       _clearAssistantInput(input);
       _history.push({ role: 'user', text: q });
@@ -3622,6 +3617,23 @@
     _clearChatPending();
   }
 
+  // [2026-07-21 Phase2] 채팅에서 현재 작업실을 알맞은 모드로 연다(옛 photo-mode 대체 공용 진입).
+  //   photo 그룹 ensure → 잇비 닫기 → WorkspaceFlow.command. 못 열면 false.
+  async function _wsOpenFromChat(cat, photos, screen) {
+    try {
+      if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+        await window.AppLoader.ensure('photo');
+      }
+    } catch (_e) { void _e; }
+    if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
+    try { if (window.ItdasySourceImage && photos && photos[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photos[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
+    try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    var cmd = { type: 'open', photoUrls: (photos || []).slice(0, 10), cat: cat || null };
+    if (screen) cmd.screen = screen;
+    window.WorkspaceFlow.command(cmd);
+    return true;
+  }
+
   // [2026-07-21] 채팅 사진 → 예쁜 선택 카드. 각 칩이 현재 작업실(WorkspaceFlow)의 알맞은 모드로 진입한다.
   //   (옛 photo-mode 템플릿 갤러리·다단계 가이드 대체 — 카드 디자인은 살리고 목적지만 현재 작업실로.)
   //   실제 진입/photo그룹 ensure 는 photo-actions.js 의 인텐트칩 핸들러(ws_* )가 담당.
@@ -4717,29 +4729,15 @@
         await _pushEventCardChoices(q);
         return true;
       }
-      if (p === 'before_after') {
-        const PM = window.ItdasyPhotoMode;
-        if (PM) {
-          const photos = _lastUserPhotos();
-          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
-          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '전후 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
-          _pmForceRender();
+      if (p === 'before_after' || p === 'review') {
+        // [2026-07-21 Phase2] 옛 photo-mode 대신 현재 작업실의 전후/후기 모드로 진입.
+        const photos = _lastUserPhotos();
+        if (photos.length) {
+          const _ok = await _wsOpenFromChat(p === 'review' ? 'review' : 'ba', photos);
+          if (!_ok) { _history.push({ role: 'assistant', text: '작업실을 여는 데 문제가 있었어요. 잠시 후 다시 시도해 주세요.' }); _renderHistory(); }
           return true;
         }
-        _history.push({ role: 'assistant', text: '전후 카드는 사진 2장이 필요해요. 사진편집 모드에서 사진을 보내주세요.' });
-        _renderHistory();
-        return true;
-      }
-      if (p === 'review') {
-        const PM = window.ItdasyPhotoMode;
-        if (PM) {
-          const photos = _lastUserPhotos();
-          const msg = photos.length ? await PM.handlePhotos(photos, q, null) : await PM.handleText(q, null);
-          _history.push(Object.assign({ role: 'assistant' }, msg || { text: '후기 카드는 사진편집 모드에서 이어갈게요. 사진을 보내주세요.' }, { local_only: true }));
-          _pmForceRender();
-          return true;
-        }
-        _history.push({ role: 'assistant', text: '후기 카드는 사진편집 모드에서 만들 수 있어요. 사진을 보내주세요.' });
+        _history.push({ role: 'assistant', text: (p === 'review' ? '후기 카드' : '전후 카드') + '를 만들 사진을 먼저 보내주세요. 사진을 올리면 작업실에서 이어서 만들어요.' });
         _renderHistory();
         return true;
       }
@@ -4880,38 +4878,21 @@
     if (window.ItdasyWorkspaceNL?.tryOpen?.(input, q, { clearInput: _clearAssistantInput })) return;
     // [모드 P1] 잇비 사진편집 모드 — 활성이거나 시작 발화면 photo-mode 가 우선 처리(메시지 객체 push).
     {
-      const _PM = window.ItdasyPhotoMode;
-      // [M2] 활성 캡션 대화(생성된 캡션 last 또는 시술 service 보유)에서 말투/톤 변경 발화면 사진모드로 넘기지 않는다.
+      // [2026-07-21 Phase2] 텍스트 사진편집 발화("이 사진 보정해줘")도 옛 photo-mode 대신 현재 작업실로.
+      //   감지는 photo-mode-support(ItdasyPhotoModeSupport.shouldStart) 재사용 — 캡션 재작성 발화는 제외.
+      const _S = window.ItdasyPhotoModeSupport;
       const _capRewriteActive = !!(_capCtx && (_capCtx.last || _capCtx.service) && _looksCaptionRewrite(q));
-      const _pmStart = !_capRewriteActive && _PM && (
-        _PM.isActive() || (_PM.shouldStart ? _PM.shouldStart(q, { hasPhoto: false }) : (_PM.START_RE && _PM.START_RE.test(q)))
-      );
+      const _pmStart = !_capRewriteActive && _S && typeof _S.shouldStart === 'function' && _S.shouldStart(q, { hasPhoto: false });
       if (_pmStart) {
-        const _wasActive = _PM.isActive();
-        _sendInFlight = true;   // await 동안 중복 전송 차단
-        let _pmMsg = null;
-        try { _pmMsg = await _PM.handleText(q, null); } catch (_e) { _pmMsg = null; }
-        // [§4] 작업실 등으로 네비게이션만 한 경우 — 채팅 push/재렌더 생략(닫히는 중 캡션 카드 깜빡임 방지).
-        if (_pmMsg && _pmMsg.pm_navigated) {
-          _clearAssistantInput(input);
-          _sendInFlight = false; _inflightCtrl = null;
-          return;
-        }
-        if (_pmMsg) {
-          _clearAssistantInput(input);
-          // local_only: 서버 미저장 → _mergeServerHistory 에서 보존(드롭 방지).
-          _history.push({ role: 'user', text: q, local_only: true });
-          _history.push(Object.assign({ role: 'assistant' }, _pmMsg, { local_only: true }));
-          _pmDbg('send.push', { len: _history.length, keys: Object.keys(_pmMsg), text: (_pmMsg.text || '').slice(0, 24) });
-          _pmForceRender();
-          _pmDbg('send.render', _pmSheetState());
-          _sendInFlight = false; _inflightCtrl = null;
-          return;
-        }
-        _sendInFlight = false;   // 미처리(null) → 기존 파이프라인 계속
-        // 무관 질문 → 통과시키고, 백엔드 응답 뒤 "하던 거 이어가요" 재안내 예약.
-        // [핫픽스F #5-6] 단, 예약/고객/매출 같은 명시 운영 인텐트엔 재안내(사진 받기)를 붙이지 않는다(photo 흐름 양보).
-        if (_wasActive && !_looksExplicitOpsIntent(q)) _photoModeReannounce = (_PM.stepLabel && _PM.stepLabel()) || '';
+        _clearAssistantInput(input);
+        const _photos = _lastUserPhotos();
+        const _ok = await _wsOpenFromChat(null, _photos, _photos.length ? 'edit' : null);
+        if (_ok) { _sendInFlight = false; _inflightCtrl = null; return; }
+        _history.push({ role: 'user', text: q, local_only: true });
+        _history.push({ role: 'assistant', text: '작업실에서 편집할게요. 편집할 사진을 먼저 보내주세요.', local_only: true });
+        _renderHistory();
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
       }
     }
     // [Phase3 §12 최우선] 연락처 자연어(전화번호 패턴 포함) — 가격표/템플릿/사진/백업으로 새지 않게 _send 앞단에서 가로챈다.
