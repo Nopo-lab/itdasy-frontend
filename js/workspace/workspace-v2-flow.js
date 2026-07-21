@@ -4296,6 +4296,16 @@
 	    if (incomingFiles.length) addFiles(incomingFiles, true, startScreen === 'edit').catch(function () { if (_deferInit) { setScreen('upload', { push: false }); _seedNavStack('upload'); } });
 	    // [구조 통합] 잇비 채팅 사진(dataURL)을 작업실로 바로 투입 — File 변환 없이 직접.
 	    if (opts.photoUrls && opts.photoUrls.length) addPhotoUrls(opts.photoUrls, true);
+	    // [2026-07-22] '사진 편집' = 인스타식 편집기(ItdEditor). 슬라이더 'edit' 화면(A)이 아니라 B를 연다.
+	    //   사진 디코딩(File/dataURL)까지 몇 프레임 걸릴 수 있어 사진이 준비될 때까지 폴링 후 _openStoryEditor.
+	    if (opts._openStory) {
+	      var _rs = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+	      var _tryStory = function (tries) {
+	        if (editablePhotos().length) { _openStoryEditor(); return; }
+	        if (tries > 0) _rs(function () { _tryStory(tries - 1); });
+	      };
+	      _rs(function () { _tryStory(30); });
+	    }
 	  }
 	  // dataURL 배열을 사진으로 추가(잇비 채팅 사진 핸드오프). addFiles 와 동일 규약, File 변환만 생략.
 	  function addPhotoUrls(urls, showToast) {
@@ -4372,6 +4382,9 @@
     switch (cmd.type) {
       case 'open':
         open({ cat: cmd.cat || null, startScreen: cmd.screen || 'upload', textOnly: !!cmd.textOnly, files: cmd.files || null, photoUrls: cmd.photoUrls || null });
+        return { ok: true };
+      case 'storyedit':   // [2026-07-22] 인스타식 편집기(ItdEditor) 바로 열기 — '사진 편집' 목적지.
+        open({ cat: cmd.cat || null, startScreen: 'layout', files: cmd.files || null, photoUrls: cmd.photoUrls || null, _openStory: true });
         return { ok: true };
       case 'goto':
         if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };

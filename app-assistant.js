@@ -3628,6 +3628,11 @@
     if (!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function')) return false;
     try { if (window.ItdasySourceImage && photos && photos[0]) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photos[0], messageId: 'chat-ws' }); } catch (_e) { void _e; }
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+    // [2026-07-22] screen 'edit'(사진 편집)은 인스타식 편집기(ItdEditor) — storyedit 명령. 그 외는 일반 진입.
+    if (screen === 'edit') {
+      window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: (photos || []).slice(0, 10) });
+      return true;
+    }
     var cmd = { type: 'open', photoUrls: (photos || []).slice(0, 10), cat: cat || null };
     if (screen) cmd.screen = screen;
     window.WorkspaceFlow.command(cmd);
@@ -3642,7 +3647,7 @@
     var chips = [{ id: 'ws_post', label: '게시글 만들기', primary: true }];
     if (n >= 2) chips.push({ id: 'ws_ba', label: '전후 비교' });     // 전후는 2장부터
     chips.push({ id: 'ws_review', label: '후기 카드' });
-    chips.push({ id: 'ws_edit', label: '사진 보정' });
+    chips.push({ id: 'ws_edit', label: '사진 편집' });
     _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
     _history.push({
       role: 'assistant', local_only: true,

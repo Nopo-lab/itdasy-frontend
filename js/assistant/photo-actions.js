@@ -91,7 +91,8 @@
     var WS_CAT = { workspace: null, ws_post: null, ws_ba: 'ba', ws_review: 'review', ws_edit: null };
     if (Object.prototype.hasOwnProperty.call(WS_CAT, chip.id)) {
       var _cat = WS_CAT[chip.id];
-      var _screen = chip.id === 'ws_edit' ? 'edit' : null;
+      // [2026-07-22] '사진 편집'(ws_edit)은 인스타식 편집기(ItdEditor)로 — 옛 슬라이더 'edit' 화면 아님.
+      var _isEdit = chip.id === 'ws_edit';
       try { if (window.ItdasySourceImage) window.ItdasySourceImage.noteChatPhoto({ dataUrl: photoUrl, messageId: 'chat-ws' }); } catch (_e) { void _e; }
       deps.history.splice(hi - 1, 2);
       deps.renderHistory();
@@ -104,11 +105,11 @@
         } catch (_l) { void _l; }
         if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
           try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }   // 잇비 시트 닫아 작업실이 위로 보이게
-          var cmd = { type: 'open', photoUrls: photos, cat: _cat };
-          if (_screen) cmd.screen = _screen;
-          window.WorkspaceFlow.command(cmd);
+          window.WorkspaceFlow.command(_isEdit
+            ? { type: 'storyedit', photoUrls: photos }
+            : { type: 'open', photoUrls: photos, cat: _cat });
         } else if (typeof deps.runChatAutoEdit === 'function') {
-          deps.runChatAutoEdit({ photoUrl: photoUrl, photos: photos, question: '사진 보정', customerCtx: null });
+          deps.runChatAutoEdit({ photoUrl: photoUrl, photos: photos, question: '사진 편집', customerCtx: null });
         }
       })();
       return true;

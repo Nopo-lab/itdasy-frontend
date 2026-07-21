@@ -419,8 +419,10 @@
       var k = slot ? ST().nextAction(slot).key : 'edit';
       screen = KEY2SCREEN[k] || 'edit';
     } else { screen = ACT2SCREEN[actKey] || 'edit'; }
-    // [v540] 편집 버튼 의도별 딥링크 — 사진편집/누끼·배경/비율자르기/템플릿이 각자 위치로 진입(기존 콘텐츠 유지).
-    var FOCUS = { '사진 편집': 'photo-edit', '누끼/배경': 'background', '비율 자르기': 'crop', '템플릿': 'template' };
+    // [2026-07-22] '사진 편집'(edit 목적지)은 인스타식 편집기(ItdEditor)로 — 옛 슬라이더 화면(A) 아님.
+    if (screen === 'edit') { _launchFlow(_drawerSlotId, 'layout', { _openStory: true }); return; }
+    // [v540] 편집 버튼 의도별 딥링크 — 누끼·배경/비율자르기/템플릿이 각자 위치로 진입(기존 콘텐츠 유지).
+    var FOCUS = { '누끼/배경': 'background', '비율 자르기': 'crop', '템플릿': 'template' };
     var extra = FOCUS[actKey] ? { focus: FOCUS[actKey] } : null;
     _launchFlow(_drawerSlotId, screen, extra);
   }
