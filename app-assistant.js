@@ -3674,6 +3674,25 @@
       if (question && _tryPriceListDraft(null, question, photoUrls)) return;
       const _isCaptionIntent = !!(question && /캡션|홍보\s*글|홍보글|해시태그|문구|인스타\s*(글|피드\s*글)/.test(question));
       if (await _tryPhotoShortcut(question, photoUrls)) return;
+      // [2026-07-22] 사진 + 편집 브리핑("좌측하단 텍스트·스티커 덕지덕지, 22인치 재시술")이면
+      //   카드 대신 오케스트레이터로 — 레이아웃 고른 뒤 텍스트·스티커·캡션 자동.
+      var _brief = (question && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.parse) ? window.ItdasyPhotoBrief.parse(question) : null;
+      if (_brief && _brief.hasBrief && photoUrls.length && !_isOcrPhotoIntent(question)) {
+        _history.push({ role: 'user', text: question, thumb: photoUrls[0], photos: photoUrls, local_only: true });
+        _history.push({ role: 'assistant', local_only: true,
+          text: '알겠어요! 레이아웃만 고르면 ' + (_brief.wantsText ? '시술내용 텍스트' : '') + (_brief.wantsText && _brief.wantsSticker ? '·' : '') + (_brief.wantsSticker ? '스티커' : '') + '·캡션까지 자동으로 입혀드릴게요' + (_brief.service ? ' (' + _brief.service + ')' : '') });
+        _renderHistory();
+        (async function () {
+          try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+          if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+            window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: _brief });
+          }
+        })();
+        if (window.hapticLight) window.hapticLight();
+        _sendInFlight = false; _inflightCtrl = null;
+        return;
+      }
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
         // [2026-07-21] 옛 photo-mode 템플릿 갤러리 대신, 예쁜 선택 카드 → 각 버튼이 현재 작업실 모드로 진입.
         _pushWorkspacePhotoCard(question, photoUrls);

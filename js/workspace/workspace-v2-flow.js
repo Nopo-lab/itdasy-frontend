@@ -461,6 +461,14 @@
         : ((o.fresh && p0 && p0.editedDataUrl) ? p0.editedDataUrl : (_cleanBase(p0) || outputUrl())));
     var built = _buildShopStyleLayers();
     var layers = built.layers, autoArranged = built.autoArranged;
+    // [2026-07-22 오케스트레이션] 잇비 브리핑(파싱)에서 온 텍스트·스티커 레이어. layers(신규편집) + editState.layers(콜라주 복원) 양쪽에 얹어야 함.
+    var _orchLayers = [];
+    if (d._orch && window.ItdasyPhotoBrief && window.ItdasyPhotoBrief.buildLayers) {
+      try { _orchLayers = window.ItdasyPhotoBrief.buildLayers(d._orch) || []; } catch (_oe) { _orchLayers = []; }
+      // orch 가 시술내용 텍스트를 주면, 우리샵 기본 플레이스홀더 텍스트(커스텀메모)는 뺀다(중복 방지).
+      if (_orchLayers.length && d._orch.wantsText) layers = layers.filter(function (l) { return l.text !== '커스텀메모'; });
+      if (_orchLayers.length) { layers = layers.concat(_orchLayers); autoArranged = false; }
+    }
     /* [T-115 P2] ★기본 작업 기억을 편집기에 올린다. 플래그 OFF면 null(=기존 동작 그대로).
        [버그수정 2026-07-17] 예전 조건은 `!_restore && !_wsEd` 였다 — _wsEd 는 작업실 레이아웃이 켜지면
          늘 채워지는데, 작업실 기본 흐름이 업로드→레이아웃→캡션이라 사실상 **항상** 꺼져 있었다.
@@ -471,6 +479,16 @@
     // [v590] 진입 시 올린 텍스트 역할 기록 — 저장 시 빠진 역할(사용자가 지움)을 스타일에서 비활성화하는 비교 기준.
     // [audit#3] 텍스트 역할 레이어는 type 필드가 없다(roleText 배치) — 'text'로만 필터하면 항상 빈 배열이라 '지운 레이어 기억' 기능이 죽어 있었음.
     d._editorOpenRoles = layers.filter(function (l) { return l.role && (l.type === 'text' || l.type == null); }).map(function (l) { return l.role; });
+    // 최종 editState 계산 후, 오케스트레이션 레이어를 editState.layers 에도 병합(콜라주는 editState.layers 를 쓰고 layers 파라미터를 무시하므로).
+    var _finalEs = (_wsEd && _wsEd.mode === 'collage') ? _mergeWmLayers(_wsEd.editState, _wmEd)
+      : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd)));
+    if (_orchLayers.length && _finalEs) {
+      try {
+        var _esL = _finalEs.layers || [];
+        if (d._orch && d._orch.wantsText) _esL = _esL.filter(function (l) { return l.text !== '커스텀메모'; });
+        _finalEs.layers = _esL.concat(_orchLayers);
+      } catch (_me) { void _me; }
+    }
     Editor.open({
       photoUrl: photo,
       photos: (_wsEd && _wsEd.mode === 'collage') ? _wsEd.photos : (editablePhotos() || []).map(function (p) { return p.editedDataUrl || _cleanBase(p) || photoUrl(p); }),   // [itd][#5] 콜라주 셀은 편집본 우선 · [ws-hyper] 레이아웃 매칭 시 슬롯 순서대로
@@ -480,8 +498,7 @@
       autoArranged: autoArranged,
       // [#17] 이어서 편집 · [ws-hyper] 레이아웃 매칭 시 콜라주 상태 주입(슬롯 재조정) · [T-115 P2] 없으면 ★기본 작업 기억
       // [2026-07-17] 콜라주(레이아웃)엔 기억의 '꾸밈'만 합쳐 얹는다 — 칸 배치는 레이아웃 것 그대로.
-      editState: (_wsEd && _wsEd.mode === 'collage') ? _mergeWmLayers(_wsEd.editState, _wmEd)
-        : (_restore || (o.fresh ? _wmEd : ((p0 && p0.editState) || _wmEd))),
+      editState: _finalEs,
       onDone: function (dataUrl, meta) {
         var p = p0 || _activeEditPhoto();   // [#5] 열 때 잡은 '보던 장'에 저장(편집 중 바뀌지 않게 고정)
         if (p) { p.editedDataUrl = dataUrl; p.storyEdited = true; if (meta && meta.editState) p.editState = meta.editState; }   // [#11] 편집 상태 보존 → 재편집 이어가기
@@ -522,6 +539,11 @@
         // [워크플로 재정렬] 편집기 완료 후 다음 목적지(예: 캡션→편집기→미리보기). 없으면 캡션 유지.
         if (d._editorNext) { var _nx = d._editorNext; d._editorNext = null; setScreen(_nx); }
         else if (cur === 'caption') setScreen('caption');
+        // [2026-07-22 오케스트레이션] 편집 반영 후 시술내용으로 캡션 자동생성(1회). 그 뒤 브리핑 소진.
+        if (d._orch) {
+          var _svc = d._orch.service; d._orch = null; d._orchApplied = false;
+          if (_svc) { d.service = _svc; try { doGenerate({}, null); } catch (_ge) { void _ge; } }
+        }
         toast('사진을 꾸몄어요');
       },
       onCancel: function () { d._editorNext = null; }   // 편집기 취소 시 라우팅 플래그 정리(다음 편집이 엉뚱히 미리보기로 안 가게)
@@ -3866,6 +3888,13 @@
   function _ctaGo(to) {
     if (to === '__save') return save();
     if (to === '__edit') return _openEditFirst();   // [통합 편집기] 업로드 다음 = ItdEditor
+    // [2026-07-22 오케스트레이션] 레이아웃 다음(→캡션) 직전에 잇비 브리핑 편집기(텍스트·스티커 주입)를 먼저 연다.
+    //   onDone 에서 d._editorNext='caption' 으로 캡션 진입 + 시술내용 자동생성.
+    if (to === 'caption' && d._orch && !d._orchApplied) {
+      d._orchApplied = true; d._editorNext = 'caption';
+      _openStoryEditor();
+      return;
+    }
     setScreen(to);
   }
 
@@ -4280,6 +4309,8 @@
     var startScreen = opts.startScreen && SCREENS.indexOf(opts.startScreen) >= 0 ? opts.startScreen : 'upload';
 	    if (d.textOnly && startScreen === 'upload') startScreen = 'caption';
 	    // [v540] 내 콘텐츠 편집 딥링크 — 버튼 의도(focus)에 맞춰 진입 탭/섹션 상태 미리 세팅(기존 콘텐츠 유지).
+	    // [2026-07-22 오케스트레이션] 잇비 사진 브리핑(파싱 결과) — 레이아웃 다음에 편집기(레이어 주입)+캡션 자동.
+	    d._orch = opts._orch || null; d._orchApplied = false;
 	    d._focusIntent = (startScreen === 'edit' && opts.focus) ? opts.focus : null;
 	    if (d._focusIntent === 'background') { d.bgOpen = true; d.basicTool = 'background'; }
 	    else if (d._focusIntent === 'crop') { d.editTab = 'tools'; d.advOpen = true; }
@@ -4386,6 +4417,10 @@
       case 'storyedit':   // [2026-07-22] 인스타식 편집기(ItdEditor) 열기 — '사진 편집'·꾸미기·누끼 목적지.
         if (_flowReady() && editablePhotos().length) { _openStoryEditor(); return { ok: true }; }   // 이미 열림 → 현재 사진으로
         open({ cat: cmd.cat || null, startScreen: 'layout', files: cmd.files || null, photoUrls: cmd.photoUrls || null, _openStory: true });
+        return { ok: true };
+      case 'orchestrate':   // [2026-07-22] 잇비 사진+브리핑 → 레이아웃 고르기 → (편집기 레이어 자동)+캡션 자동.
+        //   startScreen 미지정(=upload) → addPhotoUrls 가 사진 투입 후 레이아웃으로 넘김(빈 레이아웃 방지).
+        open({ cat: cmd.cat || null, files: cmd.files || null, photoUrls: cmd.photoUrls || null, _orch: cmd.brief || null });
         return { ok: true };
       case 'goto':
         if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };
