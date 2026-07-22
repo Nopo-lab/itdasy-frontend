@@ -87,7 +87,6 @@
     customer:  { url: '/customers',            key: 'pv_cache::customers' },
     // [2026-04-26 0초딜레이] 매출은 기본을 today 로 (앱 첫 진입 시 가장 자주 보는 탭)
     revenue:   { url: '/revenue?period=today', key: 'pv_cache::revenue::today' },
-    inventory: { url: '/inventory',            key: 'pv_cache::inventory' },
     service:   { url: '/services',             key: 'pv_cache::service' },
   };
   function _bookingRange() {
@@ -136,7 +135,6 @@
       const oc = (t.getAttribute && t.getAttribute('onclick')) || '';
       if (oc.includes('openCustomerSheet'))  _prefetch(PREFETCH_MAP.customer.url, PREFETCH_MAP.customer.key);
       if (oc.includes('openRevenue'))        _prefetch(PREFETCH_MAP.revenue.url,  PREFETCH_MAP.revenue.key);
-      if (oc.includes('openInventorySheet')) _prefetch(PREFETCH_MAP.inventory.url, PREFETCH_MAP.inventory.key);
       if (oc.includes('openBookingSheet') || oc.includes('openCalendarView')) _prefetch(_bookingRange(), 'pv_cache::bookings_all');
       // [2026-05-24] openPowerView prefetch 분기 제거 — 기능 폐지
     };
@@ -157,7 +155,6 @@
       _prefetch('/revenue?period=today',  'pv_cache::revenue::today');
       _prefetch('/revenue?period=week',   'pv_cache::revenue::week');
       _prefetch('/revenue?period=month',  'pv_cache::revenue::month');
-      _prefetch('/inventory',             'pv_cache::inventory');
       _prefetch('/services',              'pv_cache::service');
       _prefetch(_bookingRange(),          'pv_cache::bookings_all');
     };

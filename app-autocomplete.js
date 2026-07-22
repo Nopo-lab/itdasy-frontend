@@ -41,7 +41,6 @@
         _push('service_name',  b.service_name);
       });
       (data.services   || []).forEach(s => { _push('service_name', s.name); });
-      (data.inventory  || []).forEach(i => { _push('item_name', i.name); });
       Object.keys(window.AppAutocomplete.sources).forEach(k => {
         const s = window.AppAutocomplete.sources[k];
         if (s.length > 100) window.AppAutocomplete.sources[k] = s.slice(0, 100);

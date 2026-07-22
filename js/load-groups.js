@@ -243,7 +243,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-revenue-month.js?v=20260615-v474-showcase-flow',
   'app-revenue-calendar.js?v=20260720-v780-calendar-lazy',
   'js/revenue-edit.js?v=20260714-qafix6',
-  'app-revenue-hub.js?v=20260610-final',
+  'app-revenue-hub.js?v=20260722-inv-rm',
   'app-revenue-report.js'
   ]
 });

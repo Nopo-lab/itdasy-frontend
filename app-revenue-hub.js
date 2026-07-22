@@ -71,9 +71,6 @@
       ${item('booking', 'ic-calendar', '예약관리', false)}
       ${item('customer', 'ic-users', '고객관리', false)}
       ${item('revenue', 'ic-dollar-sign', '매출관리', true)}
-      ${ /* INVENTORY_HIDDEN — 재고관리 메뉴 숨김 (Phase 6 cleanup)
-      ${item('inventory', 'ic-package', '재고관리', false)}
-      */ '' }
       <div class="ms-side__section">통합 허브</div>
       ${item('aiHub', 'ic-sparkles', '잇비 · 자동화', false)}
       ${item('settings', 'ic-settings', '연동관리', false)}
@@ -291,7 +288,6 @@
       else if (target === 'goMyshop' && typeof window.goMyshop === 'function') window.goMyshop();
       else if (target === 'booking' && typeof window.openCalendarView === 'function') window.openCalendarView();
       else if (target === 'customer' && typeof window.openCustomerHub === 'function') window.openCustomerHub();
-      else if (target === 'inventory' && typeof window.openInventoryHub === 'function') window.openInventoryHub();
       else if (target === 'aiHub' && typeof window.openAIHub === 'function') window.openAIHub();
       else if (target === 'settings' && typeof window.openSettingsHub === 'function') window.openSettingsHub();
       else if (target === 'revenue' && typeof window.openRevenue === 'function') window.openRevenue();

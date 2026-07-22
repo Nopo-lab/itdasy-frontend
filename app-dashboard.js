@@ -293,7 +293,6 @@
         const tab = btn.dataset.metric;
         if      (tab === 'booking')   { if (typeof window.openCalendarView  === 'function') window.openCalendarView(); }
         else if (tab === 'revenue')   { (window.openRevenue || window.openRevenueHub)?.(); }
-        /* INVENTORY_HIDDEN */ // else if (tab === 'inventory') { if (typeof window.openInventoryHub === 'function') window.openInventoryHub(); }
         else if (tab === 'customer')  { if (typeof window.openCustomerHub   === 'function') window.openCustomerHub(); }
       });
     });
@@ -381,7 +380,7 @@
       '/customers',
       '/bookings',
       '/retention/at-risk',
-      '/inventory',
+      null,   // [2026-07-22] 재고 제거 — 슬롯만 유지(뒤 인덱스 재정렬 방지)
       '/today/brief?period=' + period,
     ];
 
@@ -442,7 +441,7 @@
       Promise.all([
         _cachedGet('/bookings').catch(() => ({ items: [] })),
         _cachedGet('/retention/at-risk').catch(() => null),
-        _cachedGet('/inventory').catch(() => null),
+        Promise.resolve(null),   // [2026-07-22] 재고 제거 — 페치 안 함(슬롯 유지)
         _cachedGet('/today/brief?period=' + period).catch(() => null),
       ]).then(([bookings, atRisk, inventory, brief]) => {
         fresh[5] = bookings;
@@ -452,7 +451,6 @@
         // 비핵심 데이터 도착 후 해당 위젯만 재렌더
         try { _renderBookingWidget && _renderBookingWidget(bookings); } catch(e){ console.warn('[dashboard] 예약 위젯 갱신 실패:', e); }
         try { _renderRetentionWidget && _renderRetentionWidget(atRisk); } catch(e){ console.warn('[dashboard] 위험 고객 위젯 갱신 실패:', e); }
-        try { _renderInventoryWidget && _renderInventoryWidget(inventory); } catch(e){ console.warn('[dashboard] 재고 위젯 갱신 실패:', e); }
         try { _renderBriefWidget && _renderBriefWidget(brief); } catch(e){ console.warn('[dashboard] 브리핑 위젯 갱신 실패:', e); }
       }).catch(() => {});
     } catch (_e) {

@@ -19,7 +19,6 @@
     bookings:     () => _call(['openCalendarView']),
     customer:     () => _call(['openCustomerHub']),
     revenue:      () => _call(['openRevenue', 'openRevenueHub']),
-    /* INVENTORY_HIDDEN */ // inventory: () => _call(['openInventoryHub']),
     // 통합 허브 (AI 자동화 / 연동관리 / 설정)
     ai_hub:       () => _call(['openAiHub']),
     integrations: () => _call(['openIntegrationsHub']),
