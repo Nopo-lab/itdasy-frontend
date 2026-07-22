@@ -86,11 +86,11 @@
     return function (dataUrl) {
       try {
         if (!dataUrl) return;
-        // [P2-2a] 저장 직전 편집기 state(tplV2)에서 재편집용 메타 캡처.
+        // [P2-2a] 저장 직전 state(tplV2)에서 재편집용 메타 캡처.
+        // [2026-07-22] 옛 편집기 _internal.getState() → headless 활성 state.
         var _meta = null;
         try {
-          var _st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
-          if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_st, m.purpose || '');
+          if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_activeState, m.purpose || '');
         } catch (_me) { _meta = null; }
         // [2026-06-11 B7] 저장 결과 확인 후 토스트 — 실패했는데 "저장했어요" 금지
         if (typeof window.saveAssistantTemplateResult === 'function') {
@@ -108,26 +108,112 @@
     };
   }
 
-  // ── 공용: open → apply → slotValues patch → (state patch) → redraw → 편집 시트 ──
-  function _runAutoApply(tplId, afterUrl, buildSlots, patchState, editTemplateData, onSave) {
-    var PE = window.PhotoEditor;
-    var TV = window.PhotoEditorTemplatesV2;
-    if (!PE || !PE.open || !PE._internal || !TV || typeof TV.apply !== 'function') return null;
+  // ── 카드 합성(headless) ────────────────────────────────
+  // [2026-07-22] 옛 PhotoEditor 캔버스 없이 PremiumTemplates.renderHook 로 직접 합성.
+  //   renderHook 은 갤러리 프리뷰가 쓰는 것과 같은 렌더러라 '적용 결과와 동일한 그림'이 나온다.
+  var CARD_W = 1080, CARD_H = 1350;
+  var _lastSecondImg = null;   // 직전 전후 카드의 before 이미지(새 before 없을 때 보존)
+  var _activeState = null;     // 현재 편집 중인 headless 템플릿 state(저장 메타 캡처용)
 
-    PE.open({ src: afterUrl, initial_tab: 'template', source: 'assistant', onSave: (typeof onSave === 'function' ? onSave : undefined) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
-    TV.apply(tplId);
+  function _loadImg(url, cb) {
+    if (!url) { cb(null); return; }
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function () { cb(img); };
+    img.onerror = function () { cb(null); };
+    img.src = url;
+  }
 
-    var state = (PE._internal.getState && PE._internal.getState()) || null;
-    if (!state || !state.tplV2) return null;
+  function _composeCard(state, cb) {
+    var PT = window.PhotoEditorPremiumTemplates;
+    var slot = state && state.tplV2 && state.tplV2.imageSlots && state.tplV2.imageSlots.main_photo;
+    var src = (slot && slot.src) || '';
+    var cv = document.createElement('canvas');
+    cv.width = CARD_W; cv.height = CARD_H;
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CARD_W, CARD_H);
 
-    state.tplV2.slotValues = buildSlots(state.tplV2.slotValues || {});
+    // renderHook 은 '현재 사진 + 템플릿' 계약 — 캔버스에 사진을 먼저 그린 뒤 템플릿을 덧씌운다.
+    //   (옛 흐름에선 PE 캔버스가 사진을 들고 있었다. 안 그리면 전후 카드 AFTER 칸이 빈 채로 나옴)
+    var _cover = function (img) {
+      if (!img || !img.width || !img.height) return;
+      var s = Math.max(CARD_W / img.width, CARD_H / img.height);
+      var w = img.width * s, h = img.height * s;
+      try { ctx.drawImage(img, (CARD_W - w) / 2, (CARD_H - h) / 2, w, h); } catch (_e) { void _e; }
+    };
+
+    var finish = function () {
+      try { PT.renderHook(ctx, CARD_W, CARD_H, state); } catch (_e) { void _e; }
+      var url = '';
+      try { url = cv.toDataURL('image/jpeg', 0.92); } catch (_e) { url = ''; }
+      cb(url || src);
+    };
+
+    // 전후 카드용 before 사진(secondImg)은 합성 '전에' 반드시 들어가 있어야 한다.
+    //   (옛 흐름은 합성 후 주입이라 headless 로 옮기면 before 가 빠진 채 그려짐)
+    var needBefore = !state.secondImg && state._beforeUrl;
+    _loadImg(src, function (mainImg) {
+      if (mainImg) {
+        try { if (PT && PT.primeImage) PT.primeImage(src, mainImg); } catch (_e) { void _e; }
+        _cover(mainImg);          // ← 베이스 사진(=after) 먼저
+        state.img = mainImg;      // 일부 렌더러가 state.img 를 베이스로 참조
+      }
+      if (!needBefore) { finish(); return; }
+      _loadImg(state._beforeUrl, function (bImg) {
+        if (bImg) { state.secondImg = bImg; _lastSecondImg = bImg; }   // ba-compose 의 _beforeCanvas 가 읽음
+        finish();
+      });
+    });
+  }
+
+  // 합성본을 작업실에 저장(onSave) + 현재 작업실 편집기로 이어가기
+  function _composeAndHandOff(state, onSave) {
+    return new Promise(function (resolve) {
+      _composeCard(state, function (url) {
+        try { if (typeof onSave === 'function') onSave(url); } catch (_e) { void _e; }
+        try {
+          if (url && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+            window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: [url] });
+          }
+        } catch (_e) { void _e; }
+        resolve(url);
+      });
+    });
+  }
+
+  // ── 공용: headless 상태 구성 → 카드 합성/미리보기 → 문구 편집 시트 ──
+  // [2026-07-22] 옛 PhotoEditor(PE.open + TV.apply + _internal.getState) 경로 폐지.
+  //   결과 카드 UX(채팅 카드 + 문구 편집 시트)는 그대로 두고 엔진만 교체했다.
+  function _runAutoApply(tplId, afterUrl, buildSlots, patchState, editTemplateData, onSave, beforeUrl) {
+    var PT = window.PhotoEditorPremiumTemplates;
+    if (!PT || typeof PT.renderHook !== 'function') return null;
+
+    var state = {
+      tplV2: {
+        id: tplId,
+        slotValues: {},
+        imageSlots: { main_photo: { src: afterUrl } },
+      },
+      _beforeUrl: beforeUrl || '',   // 전후 카드 before 사진(합성 전 secondImg 로 주입)
+      // 시트가 '작업실에 저장' 라벨/동작을 켜는 조건(_isEmbedded)
+      onSave: (typeof onSave === 'function') ? onSave : null,
+    };
+    state.tplV2.slotValues = buildSlots({});
     if (typeof patchState === 'function') { try { patchState(state); } catch (_e) { void _e; } }
+    _activeState = state;   // 저장 시 재편집 메타 캡처용
 
-    var helpers = PE._internal.helpers || {};
-    if (helpers.renderPanel) { try { helpers.renderPanel(); } catch (_e) { void _e; } }
-    if (helpers.scheduleRedraw) { try { helpers.scheduleRedraw(); } catch (_e) { void _e; } }
-    if (helpers.pushHistory) { try { helpers.pushHistory(); } catch (_e) { void _e; } }
+    // ⚠️ 작업실 편집기를 여기서 같이 열면 안 된다 — 편집기가 오버레이를 정리하면서
+    //    문구 편집 시트 DOM 을 날려버려 시트가 '열린 상태'로 유령이 된다(실측).
+    //    그래서 시트 먼저 → 저장/적용 시점에 합성본을 편집기로 넘긴다.
 
+    // 문구 편집 시트 — 옛 편집기 헬퍼 대신 headless 스텁. 저장 시 재합성 후 넘긴다.
+    var helpers = {
+      scheduleRedraw: function () {},
+      renderPanel: function () {},
+      pushHistory: function () {},
+      applyStatePatch: function () {},
+      save: function () { return _composeAndHandOff(state, onSave); },
+    };
     try {
       var ES = window.PhotoEditorTemplateEditSheet;
       if (ES && typeof ES.open === 'function') {
@@ -209,24 +295,8 @@
     return next;
   }
 
-  // before 사진을 비동기 로드해 state.secondImg 에 주입(편집기 _loadImage 와 동일 효과).
-  function _loadBeforeIntoState(beforeUrl) {
-    try {
-      var img = new Image();
-      img.onload = function () {
-        try {
-          var PE = window.PhotoEditor;
-          var st = PE && PE._internal && PE._internal.getState && PE._internal.getState();
-          if (!st) return;
-          st.secondImg = img;   // ba-compose _beforeCanvas 가 읽음(없으면 placeholder)
-          var h = (PE._internal.helpers) || {};
-          if (h.scheduleRedraw) h.scheduleRedraw();
-          if (h.pushHistory) h.pushHistory();
-        } catch (_e) { void _e; }
-      };
-      img.src = beforeUrl;
-    } catch (_e) { void _e; }
-  }
+  // [2026-07-22] _loadBeforeIntoState 제거 — 옛 편집기 state 에 before 를 사후 주입하던 헬퍼.
+  //   headless 합성에서는 _composeCard 가 렌더 '전에' state.secondImg 를 채운다(_beforeUrl).
 
   // before/after 사진 해석 — opts.photos(≥2:전/후, 1:후) → SI.resolve → 없으면 needsPhoto.
   //   handleBeforeAfterCard 와 applySample 이 공유(중복 제거).
@@ -244,14 +314,9 @@
     }
     if (!afterUrl) return { needsPhoto: true };
 
-    // 기존 secondImg(before) — 새 before 없을 때 보존(편집기 열려 있을 때만).
-    var prevSecond = null;
-    try {
-      var PE0 = window.PhotoEditor;
-      var st0 = PE0 && PE0._internal && PE0._internal.getState && PE0._internal.getState();
-      var sheet0 = document.getElementById('photoEditorSheet');
-      if (st0 && st0.secondImg && sheet0 && sheet0.style.display !== 'none') prevSecond = st0.secondImg;
-    } catch (_e) { prevSecond = null; }
+    // 기존 secondImg(before) — 새 before 가 없을 때 직전 것 보존.
+    // [2026-07-22] 옛 편집기 state 를 훔쳐보던 방식 → 직전 합성에서 캐시한 이미지 사용.
+    var prevSecond = _lastSecondImg || null;
 
     return { afterUrl: afterUrl, beforeUrl: beforeUrl, prevSecond: prevSecond, needsPhoto: false };
   }
@@ -310,11 +375,10 @@
       function (base) { return buildBASlotValues(base, ctx, text); },
       function (st) { if (!ph.beforeUrl && ph.prevSecond) st.secondImg = ph.prevSecond; },   // after_photo.src ''=현재 캔버스(=open 한 after)
       _baTplData(tplId),
-      _templateOnSave({ purpose: 'before_after', label: _baLabel(tplId) })   // [P0-B]
+      _templateOnSave({ purpose: 'before_after', label: _baLabel(tplId) }),   // [P0-B]
+      ph.beforeUrl   // [2026-07-22] 합성 전에 secondImg 로 주입(옛 _loadBeforeIntoState 대체)
     );
     if (!state) return null;
-
-    if (ph.beforeUrl) _loadBeforeIntoState(ph.beforeUrl);
 
     var sv = state.tplV2.slotValues || {};
     return {
@@ -365,10 +429,10 @@
       function (base) { return Object.assign({}, base, slots); },
       function (st) { if (!ph.beforeUrl && ph.prevSecond) st.secondImg = ph.prevSecond; },
       _baTplData(tpl),
-      _templateOnSave({ purpose: 'before_after', label: _baLabel(tpl) })   // [P0-B]
+      _templateOnSave({ purpose: 'before_after', label: _baLabel(tpl) }),   // [P0-B]
+      ph.beforeUrl   // [2026-07-22] 합성 전에 secondImg 로 주입
     );
     if (!state) return null;
-    if (ph.beforeUrl) _loadBeforeIntoState(ph.beforeUrl);
     var sv = state.tplV2.slotValues || {};
     return {
       templateId: tpl,
