@@ -144,7 +144,7 @@
     const img = cached || new Image();
     SLOT_IMAGE_CACHE[src] = img;
     img.onload = () => {
-      try { window.PhotoEditor?._internal?.helpers?.scheduleRedraw?.(); } catch (_e) { /* ignore */ }
+      /* [2026-07-22] 옛 PhotoEditor redraw 넛지 제거 — no-op. */
     };
     img.onerror = () => { delete SLOT_IMAGE_CACHE[src]; };
     if (!cached) img.src = src;
@@ -684,30 +684,10 @@
     ctx.closePath();
   }
 
-  // [T1+T2 2026-06-06] 캔바식 갤러리로 통합 — "프리미엄 템플릿 30종" 별도 버튼 강제 노출 제거.
-  //   렌더 hook(_premiumHook)·register 는 그대로 유지(적용·프리뷰 품질 동일).
-  function _watchPanel() { _register(); }
-
-  function _register() {
-    const PE = window.PhotoEditor;
-    if (!PE || !PE._internal || !PE._internal.registerDrawHook) return false;
-    PE._internal.registerDrawHook('tplV2_overlay', _premiumHook);
-    return true;
-  }
-
-  function _boot() {
-    if (!_register()) setTimeout(_boot, 400);
-    let tries = 0;
-    const iv = setInterval(() => {
-      _register();
-      tries += 1;
-      if (tries > 24) clearInterval(iv);
-    }, 250);
-    _watchPanel();
-  }
-
-  // renderHook: 갤러리 프리뷰가 "현재 사진 + 템플릿" 합성에 재사용(적용 결과와 동일한 렌더).
-  window.PhotoEditorPremiumTemplates = { register: _register, renderHook: _premiumHook, primeImage: _primeImage };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _boot);
-  else _boot();
+  // [2026-07-22] _register/_watchPanel/_boot 제거 — 옛 PhotoEditor 에 draw hook('tplV2_overlay')을
+  //   꽂던 배선. 편집기가 사라져 _register() 가 항상 false 를 반환했고, _boot 의
+  //   `if (!_register()) setTimeout(_boot, 400)` 이 **영구히 400ms 마다 재시도**하고 있었다(누수).
+  //   외부 호출도 0건이라 export 에서도 뺀다.
+  // renderHook: 갤러리 프리뷰/헤드리스 합성이 "현재 사진 + 템플릿" 에 재사용(적용 결과와 동일한 렌더).
+  window.PhotoEditorPremiumTemplates = { renderHook: _premiumHook, primeImage: _primeImage };
 })();

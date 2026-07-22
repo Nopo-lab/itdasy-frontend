@@ -58,10 +58,8 @@
     c[src] = rec;
     img.onload = function () {
       rec.ready = true;
-      try {
-        var PE = window.PhotoEditor, h = PE && PE._internal && PE._internal.helpers;
-        if (h && h.scheduleRedraw) h.scheduleRedraw();
-      } catch (_e) { void _e; }
+      /* [2026-07-22] 옛 PhotoEditor redraw 넛지 제거 — no-op.
+         이미지 로드 완료는 rec.ready 로 표시되고, 합성은 호출측이 다시 그린다. */
     };
     img.src = src;
     return null;

@@ -11,9 +11,9 @@
   function _look(id) { return MARKET_DATA.lookupById ? MARKET_DATA.lookupById(id) : (TEMPLATES.find(function (t) { return t.id === id; }) || null); }
 
   // [TPL-thumb] 편집 중 업로드 사진 → 썸네일/미리보기에 실제 적용. 없으면 null(placeholder).
-  function _editorState() {
-    try { const PE = window.PhotoEditor; return (PE && PE._internal && PE._internal.getState) ? PE._internal.getState() : null; } catch (_e) { return null; }
-  }
+  // [2026-07-22] 옛 PhotoEditor state 제거. 편집기가 없어져 항상 null 이었고, 그 결과
+  //   썸네일은 placeholder 로 그려진다(기존 동작과 동일).
+  function _editorState() { return null; }
   function _editorPhoto() {
     const st = _editorState();
     if (!st) return null;
@@ -318,66 +318,19 @@
   }
 
   // 템플릿 적용: PhotoEditor 상태에 카드 정보 + 텍스트 레이어 prefill
+  // [2026-07-22] _apply 본문 제거 — 옛 PhotoEditor state(tplV2/ratio/slotValues)를 직접 변형하던
+  //   경로로, 편집기가 사라져 실행 불가였다(항상 '편집기를 먼저 열어주세요' 토스트).
+  //   같은 일은 이제 잇비/작업실이 headless 상태로 처리한다(template-autoapply _runAutoApply).
+  //   외부 호출부는 옛 셸(entry-v6)뿐이라 셸 삭제와 함께 사라진다.
   function _apply(tplId) {
-    const tpl = _look(tplId);   // [V3-4b] 조회=lookup → v3/legacy 모두 적용 가능
-    if (!tpl) return;
-    const cat = CATS.find(c => c.id === tpl.cat);
-    const bk = _getBrandKit();
-    const PE = window.PhotoEditor;
-    if (!PE || !PE._internal) { _toast('편집기를 먼저 열어주세요'); return; }
-    const state = PE._internal.getState();
-    if (!state) return;
-    const prevTpl = state.tplV2;   // [S1] 같은 템플릿 재적용 시 slot 값 보존용
-    // 비율 설정
-    state.ratio = cat.ratio;
-    state.tplV2 = {
-      id: tpl.id,
-      label: tpl.label,
-      bg: _accentColor(tpl.accent, bk),
-      shopName: bk.shopName,
-      logo: bk.logo,
-      cat: cat.id,
-    };
-    // [S1] editable slot 기반 — 신규 적용이면 기본값 생성, 같은 템플릿 재적용이면 기존 값 보존.
-    //   실패해도 기존 적용 경로 무회귀(try/guard). imageSlots.src '' = 현재 편집 사진 사용.
-    try {
-      const TS = window.PhotoEditorTemplateSlots;
-      if (TS) {
-        const same = !!(prevTpl && prevTpl.id === tpl.id);
-        state.tplV2.slotValues = (same && prevTpl.slotValues)
-          ? prevTpl.slotValues
-          : TS.getDefaultValues(tpl.id, tpl, { shopName: bk.shopName, serviceName: state.serviceName, price: state.price, customerName: state.customerName });
-        const kind = TS.inferTemplateKind(tpl.id, tpl);
-        const dflt = () => ({ src: '', fit: 'cover', focal: { x: 0.5, y: 0.5 }, zoom: 1 });   // [S4] zoom 기본 1.0
-        state.tplV2.imageSlots = (same && prevTpl.imageSlots)
-          ? prevTpl.imageSlots
-          : (kind === 'before_after'
-              ? { before_photo: dflt(), after_photo: dflt() }
-              : { main_photo: dflt() });
-      }
-    } catch (_e) { /* slot 기반 실패해도 기존 적용 무회귀 */ }
-    // 텍스트 레이어 prefill
-    if (window.PhotoEditorLayers && window.PhotoEditorLayers.ensure) {
-      window.PhotoEditorLayers.ensure(state);
-      const active = state.layers && state.layers.find(l => l.id === state.activeLayerId);
-      if (active) {
-        active.value = tpl.prefillText;
-        active.color = '#ffffff';
-        active.size = (cat.ratio === '9:16' ? 9 : 7);
-        active.bg = true;
-      }
-    }
-    if (PE._internal.helpers && PE._internal.helpers.scheduleRedraw) PE._internal.helpers.scheduleRedraw();
-    if (PE._internal.helpers && PE._internal.helpers.pushHistory) PE._internal.helpers.pushHistory();
-    _toast('템플릿 적용: ' + tpl.label);
-    if (_sheetEl) _sheetEl.style.display = 'none';
+    if (!_look(tplId)) return;
+    _toast('작업실에서 템플릿을 골라 주세요');
   }
 
   function _toast(msg) {
+    // [2026-07-22] 옛 PhotoEditor helpers.toast 폴백 제거.
     if (window.toast) window.toast(msg);
-    else if (window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.helpers && window.PhotoEditor._internal.helpers.toast) {
-      window.PhotoEditor._internal.helpers.toast(msg);
-    }
+    else if (window.showToast) window.showToast(msg);
   }
 
   // [TPL-3] open(initialCat) 또는 open({cat, recommendedIds}). 추천 id 있으면 상단 추천 섹션 고정.
@@ -412,25 +365,11 @@
     _registerDrawHook();
   }
 
-  function _registerDrawHook() {
-    const PE = window.PhotoEditor;
-    if (!PE || !PE._internal || !PE._internal.registerDrawHook) {
-      setTimeout(_registerDrawHook, 500);
-      return;
-    }
-    PE._internal.registerDrawHook('tplV2_overlay', (ctx, dw, dh, state) => {
-      const tpl = state && state.tplV2;
-      if (!tpl) return;
-      // [S2.1] slotValues 반영 — 갤러리 프리뷰와 동일한 slot-aware 렌더러(premium)로 위임.
-      //   premium 이 그릴 수 있으면(true) 거기서 끝 → 에디터 캔버스·저장 결과도 slotValues 반영.
-      const PT = window.PhotoEditorPremiumTemplates;
-      if (PT && typeof PT.renderHook === 'function' && PT.renderHook(ctx, dw, dh, state) === true) return;
-      // fallback — premium 미커버 템플릿만 기존 template-overlay 사용.
-      const t = TEMPLATES.find(x => x.id === tpl.id);
-      if (!t) return;
-      window.PhotoEditorTemplateOverlay?.draw?.(ctx, dw, dh, t, tpl);
-    });
-  }
+  // [2026-07-22] _registerDrawHook 제거 — 옛 PhotoEditor 캔버스에 'tplV2_overlay' 드로훅을
+  //   꽂던 배선. 편집기가 사라져 등록이 영영 실패했고 `setTimeout(_registerDrawHook, 500)` 이
+  //   **500ms 마다 무한 재시도**하고 있었다(누수). 같은 렌더 경로는 현재
+  //   PremiumTemplates.renderHook 로 headless 합성에서 직접 호출된다.
+  function _registerDrawHook() { /* no-op (옛 편집기 전용) */ }
 
   // [CF-2] 잇비 메시지용 — 추천 카드 mini HTML + 큰 미리보기 public 노출.
   //   카드 HTML: 썸네일·배지·이름·태그·Pro가치(TPL-1/2/4 _cardHtml 재사용). data-tpv2-tpl 로 클릭 식별.

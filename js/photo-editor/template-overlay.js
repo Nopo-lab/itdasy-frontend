@@ -64,10 +64,11 @@
       //   templates-v2 ↔ premium-templates 가 같은 'tplV2_overlay' hook 을 register 해서 경합.
       //   어느 쪽이 winner 든 BA 합성이 그려지도록 양쪽에서 동일 경로 보장.
       try {
-        const st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState
-          ? window.PhotoEditor._internal.getState() : null;
+        // [2026-07-22] 옛 PhotoEditor state 읽기 제거 → null.
+        //   이 draw() 는 썸네일·프리뷰 렌더러(templates-v2/template-thumb)만 호출하고
+        //   그쪽엔 사용자 사진 state 가 애초에 없다 → 동작 동일(before 는 placeholder).
         const data = { head: head, sub: t.label || '', shop: shopName, accent: accent };
-        window.PhotoEditorBACompose.draw(ctx, dw, dh, st, t, data);
+        window.PhotoEditorBACompose.draw(ctx, dw, dh, null, t, data);
       } catch (e) { console.warn('[template-overlay] BACompose 위임 실패:', e && e.message); }
     }
     ctx.restore();

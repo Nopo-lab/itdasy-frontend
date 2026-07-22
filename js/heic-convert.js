@@ -3,7 +3,7 @@
    기존엔 "사진을 불러오지 못했어요"로 끝나던 것을, heic2any(CDN 지연 로드)로
    업로드 시점에 JPG 변환해서 사장님은 그냥 되는 경험.
 
-   사용처: app-photo-editor.js(pePicker) · app-gallery-workshop.js(작업실 업로드/드롭) ·
+   사용처: app-gallery-workshop.js(작업실 업로드/드롭) ·
            js/assistant/pending-photos.js(잇비 챗 사진 첨부)
    비용 방어: 변환은 100% 클라이언트(라이브러리 ~300KB, HEIC 만났을 때 1회만 로드). */
 (function () {
