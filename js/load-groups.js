@@ -19,7 +19,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/workspace-sync.js?v=20260717-v768-merge',
   'js/workspace/workspace-crop.js?v=20260706-v711-crossorigin',
   'js/workspace/workspace-v2-home.js?v=20260722-noleaks',
-  'js/workspace/workspace-settings.js?v=20260722-v790-fixround',
+  'js/workspace/workspace-settings.js?v=20260723-v795-autotext',
   'js/workspace/workspace-perf.js?v=20260722-v791b-whygood',
   // [P0-2] service-vocab.js 중복 제거 — index.html(콜드스타트, caption-keyword-tags 가 소비)에 이미 있어
   //   window.ItdasyServiceVocab 이 lazy photo 그룹 로드 전에 항상 정의됨. 여기서 또 로드하면 재실행 낭비.

@@ -112,6 +112,68 @@
       '<div class="ss-switch' + (on ? ' is-on' : '') + '" data-wss-shopinfo role="switch" aria-checked="' + (on ? 'true' : 'false') + '" tabindex="0"></div></div>';
   }
 
+
+  /* [2026-07-23 보스] "사진에 자동으로 넣기" — 시술내용·해시태그를 사진 위에 자동으로 올릴지.
+     저장소를 새로 만들지 않고 **ShopStyle 레이어의 enabled 플래그**를 그대로 쓴다.
+     이유: 편집기에서 해시태그 레이어를 지우면 _learnShopStyle 이 이미 enabled:false 로 기록한다
+     (원장이 "지우고 작업했으면 다음부터 안 나오게" 요청한 그 동작이 이미 여기 있었다).
+     설정에 저장소를 따로 두면 두 곳이 어긋나 "껐는데 또 나온다"가 된다 — 같은 스위치를 보여줄 뿐이다. */
+  function _autoRoleOn(role) {
+    try {
+      var ss = window.ShopStyle && window.ShopStyle.getActive ? window.ShopStyle.getActive() : null;
+      if (!ss || !Array.isArray(ss.layers)) return true;
+      var L = ss.layers.filter(function (x) { return x.role === role; })[0];
+      return !L || L.enabled !== false;
+    } catch (_e) { return true; }
+  }
+  function _setAutoRole(role, on) {
+    try {
+      var SS = window.ShopStyle;
+      if (!(SS && SS.getActive && SS.save)) return false;
+      var ss = SS.getActive();
+      if (!ss || !Array.isArray(ss.layers)) return false;
+      var next = ss.layers.map(function (L) {
+        if (L.role !== role) return L;
+        return Object.assign({}, L, { enabled: !!on });
+      });
+      SS.save(ss.id, { layers: next });
+      return true;
+    } catch (_e) { return false; }
+  }
+  function _autoTextHtml() {
+    var svcOn = _autoRoleOn('title'), hashOn = _autoRoleOn('hashtag');
+    var row = function (key, on, label, sub) {
+      return '<div class="ss-toggle" style="margin-top:12px"><div><div class="ss-toggle-lbl">' + label + '</div>' +
+        '<div class="ss-toggle-sub">' + sub + '</div></div>' +
+        '<div class="ss-switch' + (on ? ' is-on' : '') + '" data-wss-auto="' + key + '" role="switch" aria-checked="' +
+        (on ? 'true' : 'false') + '" tabindex="0"></div></div>';
+    };
+    return '<div class="ss-card-sub">캡션을 만들면 사진 위에 자동으로 올라가는 글자예요. 편집기에서 지우면 여기도 자동으로 꺼져요.</div>' +
+      row('title', svcOn, '시술 내용', '입력한 시술명이 사진 위에 큰 글씨로 올라가요.') +
+      row('hashtag', hashOn, '해시태그', '만들어진 해시태그 <b>4개까지</b> 사진 위에 올라가요. 끄면 게시글에만 남고 사진엔 안 붙어요.');
+  }
+
+
+  /* [2026-07-23 보스] 아이콘 출처(오픈소스 고지) — **법적 의무**라 화면이 있어야 한다.
+     확인한 원문 기준:
+       · MIT (Fluent Emoji)      "저작권 고지와 이 허가 고지를 모든 사본에 포함해야 한다" → 고지 의무
+       · Apache 2.0 (MingCute)   §4 배포 시 라이선스 사본 제공. 저자 README 는 "귀속은 감사하나 필수 아님,
+                                 다만 아이콘 자체를 판매하지 말 것" → 우리는 앱 기능으로 쓰므로 OK
+       · CC BY 4.0 (Streamline)  "상업적 이용 포함 자유. 단 적절한 크레딧 + streamlinehq.com 링크 필수"
+     즉 **셋 다** 어떤 형태로든 고지가 필요하다 — 링크는 새 창으로 연다(앱 안에서 열면 심사에서 걸린다). */
+  function _creditsHtml() {
+    var C = (window.ItdIconStickers && window.ItdIconStickers.CREDITS) || [];
+    if (!C.length) return '<div class="ss-card-sub">아이콘 정보를 불러오지 못했어요.</div>';
+    return '<div class="ss-card-sub">사진 꾸미기(스티커)에 쓰는 아이콘의 출처예요. 라이선스에 따라 표기하고 있어요.</div>' +
+      C.map(function (c) {
+        return '<div class="ss-row" style="align-items:flex-start">' +
+          '<span class="lbl" style="flex:1;min-width:0">' + esc(c.name) +
+            '<span style="display:block;font-size:11.5px;color:#8B95A1;margin-top:2px">' + esc(c.license) + '</span></span>' +
+          '<a href="' + esc(c.url) + '" target="_blank" rel="noopener noreferrer" ' +
+            'style="flex-shrink:0;font-size:12.5px;font-weight:700;color:#BC6675;text-decoration:none;padding:4px 2px">출처 →</a></div>';
+      }).join('');
+  }
+
   function _ensureMounted() {
     var el = document.getElementById(ID);
     if (el) return el;
@@ -131,9 +193,13 @@
           '<div class="ss-card-sub" style="margin:14px 0 10px">아래는 작업실 전용 항목이에요.</div>' +
           '<div data-wss-fields>' + _fieldsHtml() + '</div>' +
           '<div data-wss-shopinfowrap>' + _shopInfoToggleHtml() + '</div></div>' +
+        '<div class="ss-card">' + _hd('type', '사진에 자동으로 넣기') +
+          '<div data-wss-autowrap>' + _autoTextHtml() + '</div></div>' +
         '<div class="ss-card">' + _hd('message-square', '캡션 고정 멘트') +
           '<div class="ss-card-sub">게시글 끝에 항상 붙는 문구예요.</div>' +
           '<div data-wss-footwrap>' + _footerHtml() + '</div></div>' +
+        '<div class="ss-card">' + _hd('book-open', '아이콘 출처') +
+          '<div data-wss-credits>' + _creditsHtml() + '</div></div>' +
       '</div>';
     document.body.appendChild(el);
     el.addEventListener('click', _onClick);
@@ -198,6 +264,17 @@
       sw.classList.toggle('is-on', on); sw.setAttribute('aria-checked', on ? 'true' : 'false');
       set(K_SHOPINFO, on ? '1' : '0'); return;
     }
+    // [2026-07-23] 사진 자동삽입(시술내용·해시태그) — ShopStyle 레이어 enabled 토글
+    var at = e.target.closest('[data-wss-auto]');
+    if (at) {
+      var role = at.getAttribute('data-wss-auto');
+      var aOn = !at.classList.contains('is-on');
+      if (!_setAutoRole(role, aOn)) { toast('설정을 저장하지 못했어요'); return; }
+      at.classList.toggle('is-on', aOn); at.setAttribute('aria-checked', aOn ? 'true' : 'false');
+      toast(aOn ? (role === 'hashtag' ? '해시태그를 사진에 넣을게요' : '시술 내용을 사진에 넣을게요')
+                : (role === 'hashtag' ? '해시태그는 사진에 안 넣어요' : '시술 내용은 사진에 안 넣어요'));
+      return;
+    }
   }
 
   function _saveFooter(el) {
@@ -219,6 +296,8 @@
     var fh = el.querySelector('[data-wss-fields]'); if (fh) fh.innerHTML = _fieldsHtml();
     var fw = el.querySelector('[data-wss-footwrap]'); if (fw) fw.innerHTML = _footerHtml();
     var sw = el.querySelector('[data-wss-shopinfowrap]'); if (sw) sw.innerHTML = _shopInfoToggleHtml();
+    // 편집기에서 해시태그를 지우면 _learnShopStyle 이 enabled:false 를 남긴다 → 열 때마다 최신 상태로.
+    var aw = el.querySelector('[data-wss-autowrap]'); if (aw) aw.innerHTML = _autoTextHtml();
     _selMem = null; _refreshMem();
     el.setAttribute('aria-hidden', 'false');
     requestAnimationFrame(function () { el.classList.add('is-open'); });

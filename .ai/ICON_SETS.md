@@ -38,23 +38,43 @@ _2026-07-23 작성. 작업실 스티커에 넣은 세트 + 나중에 UI 디자�
 
 ---
 
-## ⚠️ 라이선스 — 넣기 전에 반드시 확인
+## ⚠️ 라이선스 — 원문 확인 결과 (2026-07-23 재검증)
 
-세트를 추가할 때 **여기부터 본다.** 스토어·메타 심사가 걸린 상용 앱이다.
+**결론: 우리가 쓴 3개 세트는 전부 상업적 이용 가능하다. 단 셋 다 어떤 형태로든 고지가 필요하다.**
 
-| 라이선스 | 상업 사용 | 귀속 표기 | 판단 |
+> 🔴 **정정** — 처음 이 문서에 "MIT/Apache 는 귀속 권장(의무 아님)" 이라고 적었는데 **틀렸다.**
+> MIT 는 저작권 고지 포함이 **명시적 의무**이고, Apache 2.0 도 §4 에서 라이선스 사본 제공을 요구한다.
+> "라인 탭(CC BY)만 빼면 표기 의무가 사라진다" 고 한 것도 틀렸다 — 어차피 고지 화면이 필요하다.
+
+| 세트 | 라이선스 | 상업 이용 | 고지 의무 | 원문 근거 |
+|---|---|---|---|---|
+| **MingCute** | Apache 2.0 | ✅ | 배포 시 라이선스 사본(§4). 저자는 "귀속은 감사하나 필수 아님" | [LICENSE](https://github.com/Richard9394/MingCute/blob/main/LICENSE) + README |
+| **Fluent Emoji** | MIT (Microsoft) | ✅ | **"저작권 고지와 이 허가 고지를 모든 사본에 포함해야 한다"** = 의무 | [LICENSE](https://github.com/microsoft/fluentui-emoji/blob/main/LICENSE) |
+| **Streamline** | CC BY 4.0 | ✅ **"even commercially"** 명시 | **"적절한 크레딧 + streamlinehq.com 링크 필수"** | [원본 레포 README](https://github.com/webalys-hq/streamline-vectors) |
+
+**원문 인용 (Streamline 레포 README)**
+> You are free to: Share… **Adapt: remix, transform, and build upon the material for any purpose, even commercially.**
+> Attribution: You must give appropriate credit and **provide a link to the Streamline website**.
+
+**MingCute 의 추가 조건 하나** — README 에 "The only thing we ask is that these icons are **not for sale**."
+우리는 아이콘을 파는 게 아니라 앱 기능(스티커)으로 쓰는 것이라 해당 없음. ⚠️ 단, 아이콘 팩 자체를
+상품으로 파는 기획이 생기면 그때는 위반이다.
+
+### ✅ 고지 화면 (2026-07-23 구현됨)
+**작업실 설정 > 아이콘 출처** — 3개 세트의 이름·라이선스·출처 링크를 표시한다.
+데이터는 `window.ItdIconStickers.CREDITS`, 화면은 `js/workspace/workspace-settings.js` 의 `_creditsHtml()`.
+링크는 `target="_blank" rel="noopener noreferrer"` 로 **외부 브라우저**에서 연다(앱 내 웹뷰로 열면 심사 지적 소지).
+
+### 라이선스 일반 판단표 (새 세트 추가할 때)
+
+| 라이선스 | 상업 이용 | 고지 | 판단 |
 |---|---|---|---|
-| MIT / Apache 2.0 / ISC | ✅ | 권장(의무 아님) | **그냥 써도 됨** |
-| CC0 (퍼블릭 도메인) | ✅ | 불필요 | **그냥 써도 됨** |
-| **CC BY 4.0** | ✅ | **의무** | 쓰려면 앱 안에 출처를 노출해야 한다 |
-| CC BY-SA | ⚠️ | 의무 + 동일조건 전파 | 피하는 게 안전 |
-| 무료 티어 + 링크 의무 (Icons8 등) | ⚠️ | 사이트 링크 의무 | 유료 라이선스 사거나 안 쓰는 게 깔끔 |
-
-### 🚨 아직 안 지킨 것 — CC BY 귀속 표기
-`streamline-color` 가 **CC BY 4.0** 이라 앱 어딘가에 출처를 노출해야 한다.
-데이터는 준비돼 있다: `window.ItdIconStickers.CREDITS` (이름·라이선스·URL 배열).
-**설정 > 정보 같은 곳에 이걸 렌더하는 화면이 아직 없다.** 심사 전에 붙이거나,
-아니면 `streamline-color` 탭을 빼면 의무가 사라진다. → 연준님 결정 필요.
+| MIT / ISC | ✅ | 저작권+허가 고지 포함 **의무** | 고지 화면에 한 줄 추가하면 끝 |
+| Apache 2.0 | ✅ | 라이선스 사본 제공 의무, NOTICE 유지 | 위와 동일 |
+| CC0 / 퍼블릭 도메인 | ✅ | 불필요 | 제일 편함 |
+| **CC BY 4.0** | ✅ | **크레딧 + 원본 링크 의무** | 링크까지 걸어야 한다 |
+| CC BY-SA | ⚠️ | 의무 + **동일조건 전파** | 우리 앱까지 같은 조건이 될 수 있음 → 피할 것 |
+| 무료 티어 + 링크 의무 (Icons8 등) | ⚠️ | 사이트 링크 의무 | 유료 구매하거나 안 쓰는 게 깔끔 |
 
 ### 요청받았지만 안 넣은 것 + 이유
 
