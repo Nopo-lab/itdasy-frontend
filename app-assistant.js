@@ -4411,7 +4411,15 @@
       body: JSON.stringify({ question: q, session_id: _sessionId || undefined, context_hint: _hint || undefined }),
       signal: ctrl.signal,
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    // [2026-07-22 보스] 서버가 사람 말로 이유를 줬으면(429 "AI 비서가 잠시 붐비고 있어요" 등)
+    //   그대로 답변 버블에 띄운다. 예전엔 'HTTP 429' 로 뭉개서 원장님은 원인을 모른 채 계속 다시 보냈고,
+    //   보낼 때마다 20~30초를 기다리며 쿼터를 더 갉아먹었다. 기계 문자열(500 등)은 기존대로 throw.
+    if (!res.ok) {
+      let _detail = '';
+      try { _detail = ((await res.clone().json()) || {}).detail || ''; } catch (_je) { _detail = ''; }
+      if (_detail && /[가-힣]/.test(_detail)) return { answer: _detail, actions: [], _serverNotice: true };
+      throw new Error('HTTP ' + res.status);
+    }
     // [robust] Gemini 지연/타임아웃 시 서버가 200+빈 바디를 줄 수 있음 → res.json()이 터져 빈 화면/에러가 되던 것 방지.
     const _txt = await res.text();
     if (!_txt || !_txt.trim()) return { answer: '응답이 잠깐 지연됐어요. 다시 한 번 말씀해 주세요 🙏', actions: [] };

@@ -124,7 +124,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260619-v522-workspace-nl-p3',
   'js/assistant/core/assistant-template-restore.js?v=20260722-s3',
-  'app-assistant.js?v=20260722-v792-itbilayout',
+  'app-assistant.js?v=20260722-v793-airetry',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [

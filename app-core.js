@@ -1015,6 +1015,14 @@ function authHeader() {
             return res;
           }
         }
+        // [2026-07-22 보스] 서버가 Retry-After 로 "지금 다시 때리지 마"라고 하면 재시도하지 않는다.
+        //   실제 사고: AI 쿼터가 마르면 잇비가 한 번 실패에 23~29초를 태우는데(백엔드가 Gemini 를
+        //   3회 재시도), 그게 5xx 라 프론트가 4번 더 때려서 "야" 한마디에 1분 넘게 걸렸다.
+        //   재시도해도 쿼터가 빈 건 그대로고, 매 재시도가 쿼터를 더 갉아먹는다.
+        //   콜드스타트 같은 '진짜 일시적' 5xx 는 Retry-After 를 안 붙이므로 기존대로 재시도된다.
+        var _retryAfter = '';
+        try { _retryAfter = (res.headers && res.headers.get) ? (res.headers.get('Retry-After') || '') : ''; } catch (_) { _retryAfter = ''; }
+        if (_retryAfter) return res;
         // 5xx 게이트웨이성 에러: retryable 이면 재시도.
         // [핫픽스F #5-9] 토스트는 "재시도까지 모두 실패한 최종 실패"에서만. 재시도로 회복되면 무noise →
         //   예약 추가/변경이 retry 로 성공한 뒤 "서버 불안정" 문구가 뜨던 버그 차단(성공/실패 상태 분리).
