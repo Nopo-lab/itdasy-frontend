@@ -205,7 +205,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-dm-autoreply.js?v=20260625-dm-slim-photo',
   'app-dm-confirm-queue.js?v=20260714-confirm-edit',
   'app-comment-reply-queue.js?v=20260721-crq-hours-intents',
-  'app-dm-conversations.js?v=20260610-quickwin',
+  'app-dm-conversations.js?v=20260722-channel',
   'app-dm-manual-replies.js?v=20260610-batch5',
   'app-persona-survey.js',
   'app-support.js',
