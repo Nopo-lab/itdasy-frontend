@@ -34,22 +34,22 @@
     try { return window.__ITDASY_CURRENT_TAB__ || null; } catch (_e) { return null; }
   }
 
-  // 편집기가 화면에 보이고 사진이 로드돼 있을 때만 currentPhoto.
+  // 작업실이 열려 있고 사진이 있을 때만 currentPhoto.
+  // [2026-07-22] 옛 PhotoEditor(#photoEditorSheet + _internal.getState) 기준 → 현재 작업실.
+  //   옛 편집기는 더 이상 열리지 않아 이 함수가 항상 null 이었고, 그만큼 잇비가 '지금 편집 중'
+  //   맥락을 잃고 있었다. WorkspaceFlow.getActiveSlot() 으로 복구.
   function _currentPhoto() {
     try {
-      const sheet = document.getElementById('photoEditorSheet');
-      const visible = !!(sheet && sheet.style.display !== 'none');
-      if (!visible) return null;
-      const st = window.PhotoEditor && window.PhotoEditor._internal
-        && typeof window.PhotoEditor._internal.getState === 'function'
-        ? window.PhotoEditor._internal.getState() : null;
-      if (!st || !st.originalImg) return null;
+      const WF = window.WorkspaceFlow;
+      if (!WF || typeof WF.getActiveSlot !== 'function') return null;
+      const slot = WF.getActiveSlot();
+      if (!slot || !slot.open || !slot.photoCount) return null;
       return {
-        serviceName: st.serviceName || '',
-        activeTab: st.activeTab || '',
-        customerId: st.customerId || null,
-        customerName: st.customerName || '',
-        hasPrice: +st.price > 0,
+        serviceName: slot.service || '',
+        activeTab: slot.screen || '',
+        customerId: null,
+        customerName: '',
+        hasPrice: false,
       };
     } catch (_e) { return null; }
   }

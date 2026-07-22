@@ -1854,6 +1854,31 @@
     try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
   }
 
+  // [2026-07-22] 옛 PhotoEditor(PE.open + TV.apply + _internal) 대신 headless 템플릿 상태 생성.
+  //   template-autoapply 와 같은 파이프라인 — 렌더는 PremiumTemplates, 편집은 문구 편집 시트,
+  //   저장 시 합성본을 작업실/현재 편집기로 넘긴다. 실패 시 null.
+  //   ⚠️ 여기서 작업실 편집기를 같이 열면 시트 DOM 이 날아간다(오버레이 정리) — 저장 시점에만 연다.
+  function _headlessTemplate(tplId, srcUrl, purpose, label) {
+    const TA = window.ItdasyTemplateAutoApply;
+    const PT = window.PhotoEditorPremiumTemplates;
+    if (!tplId || !TA || typeof TA.composeAndHandOff !== 'function') return null;
+    if (!PT || typeof PT.renderHook !== 'function') return null;
+    const onSave = _assistantTemplateOnSave({ purpose: purpose, label: label });
+    const state = {
+      tplV2: { id: tplId, slotValues: {}, imageSlots: { main_photo: { src: srcUrl || '' } } },
+      onSave: onSave,
+    };
+    try { if (typeof TA.setActiveState === 'function') TA.setActiveState(state); } catch (_e) { void _e; }
+    const helpers = {
+      scheduleRedraw: function () {},
+      renderPanel: function () {},
+      pushHistory: function () {},
+      applyStatePatch: function () {},
+      save: function () { return TA.composeAndHandOff(state, onSave); },
+    };
+    return { state: state, helpers: helpers };
+  }
+
   // [P0-B/P0-C] 잇비 자동적용 결과를 "저장" 시 마무리 갤러리 + 작업실 슬롯 둘 다에 baked 이미지로 남긴다.
   //   onSave 가 붙으면 편집기가 임베드 모드가 되어 저장이 _exportImage(다운로드) 대신 _saveViaCallback 으로 라우팅됨.
   //   실제 저장은 window.saveAssistantTemplateResult 어댑터(gallery saveToGallery + slot saveSlotToDB)에 위임.
@@ -1869,7 +1894,9 @@
         // [P2-2a] 저장 직전 편집기 state(tplV2)에서 재편집용 메타 캡처.
         let _meta = null;
         try {
-          const _st = window.PhotoEditor && window.PhotoEditor._internal && window.PhotoEditor._internal.getState && window.PhotoEditor._internal.getState();
+          // [2026-07-22] 옛 편집기 _internal.getState() → headless 활성 state.
+          const _TA = window.ItdasyTemplateAutoApply;
+          const _st = (_TA && typeof _TA.getActiveState === 'function') ? _TA.getActiveState() : null;
           if (typeof window.buildAssistantTemplateMeta === 'function') _meta = window.buildAssistantTemplateMeta(_st, m.purpose || 'price');
         } catch (_me) { _meta = null; }
         // [2026-06-11 B7] 저장 결과 확인 후 토스트 — 실패했는데 "저장했어요" 금지
@@ -2220,8 +2247,6 @@
 
   function _applyPriceTemplateDraft(action, msg) {
     try {
-      const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-      if (!PE || !PE.open || !PE._internal || !TV || !TV.apply) return false;
       const draft = _priceTemplateDraft(action, msg);
       const services = _priceServices(draft);
       if (!services.length) return _priceTemplateFailed();
@@ -2229,14 +2254,11 @@
       const tplId = _selectPriceTemplateId(draft, p.preferredTemplateId);
       const tpl = _priceTemplateById(tplId);
       if (!tplId || !tpl) return _priceTemplateFailed();
-      PE.open({ src: _priceTemplateSource(action, msg), initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
-      TV.apply(tplId);
-      const helpers = PE._internal.helpers || {};
-      const state = PE._internal.getState && PE._internal.getState();
+      // [2026-07-22] 옛 편집기 대신 headless — 저장→작업실은 동일.
+      const _h = _headlessTemplate(tplId, _priceTemplateSource(action, msg), 'price', _priceTemplateLabel(tpl, tplId));
+      if (!_h) return _priceTemplateFailed();
+      const state = _h.state, helpers = _h.helpers;
       if (!_injectPriceSlotValues(state, draft, services)) return _priceTemplateFailed();
-      if (helpers.renderPanel) helpers.renderPanel();
-      if (helpers.scheduleRedraw) helpers.scheduleRedraw();
-      if (helpers.pushHistory) helpers.pushHistory();
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
@@ -2272,8 +2294,6 @@
   // [M2] price 샘플 적용 — _applyPriceTemplateDraft 메커닉/결과 UX 재사용(draft 대신 sample.slotValues).
   function _applyPriceSample(payload) {
     try {
-      const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-      if (!PE || !PE.open || !PE._internal || !TV || !TV.apply) return _priceTemplateFailed();
       const slotValues = (payload && payload.slotValues) || {};
       const services = Array.isArray(slotValues.services) ? slotValues.services : [];
       if (!services.length) return _priceTemplateFailed();
@@ -2290,14 +2310,11 @@
       if (!tplId || !tpl) return _priceTemplateFailed();
       let source = '';
       try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-      PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'price', label: _priceTemplateLabel(tpl, tplId) }) });   // [P0-B] 저장→작업실 · [§13] 닫으면 잇비 복귀
-      TV.apply(tplId);
-      const helpers = PE._internal.helpers || {};
-      const state = PE._internal.getState && PE._internal.getState();
+      // [2026-07-22] 옛 편집기 대신 headless — 저장→작업실은 동일.
+      const _h = _headlessTemplate(tplId, source, 'price', _priceTemplateLabel(tpl, tplId));
+      if (!_h) return _priceTemplateFailed();
+      const state = _h.state, helpers = _h.helpers;
       if (!_injectPriceSampleSlots(state, slotValues)) return _priceTemplateFailed();
-      if (helpers.renderPanel) helpers.renderPanel();
-      if (helpers.scheduleRedraw) helpers.scheduleRedraw();
-      if (helpers.pushHistory) helpers.pushHistory();
       _openPriceEditSheet(state, tplId, tpl, helpers);
       if (window.showToast) window.showToast('가격표를 넣었어요. 문구 편집에서 확인해 주세요.');
       _pushPriceTemplateResult(tpl, tplId, services);
@@ -4734,14 +4751,20 @@
   // [§1 qa-E] 이벤트 카드 적용 — 편집기를 열면서 해당 이벤트 템플릿 적용(저장→작업실). _apply(편집기 필요)와 달리 무반응 없음.
   let _eventApplyInFlight = false;
   function _openEventTemplate(tplId, label) {
-    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-    if (!PE || typeof PE.open !== 'function') { try { if (window.showToast) window.showToast('편집기를 열 수 없어요. 잠시 후 다시 시도해 주세요.'); } catch (_t) { void _t; } return; }
     if (_eventApplyInFlight) return;   // 중복 클릭 방지
     _eventApplyInFlight = true; setTimeout(() => { _eventApplyInFlight = false; }, 1200);
     let source = '';
     try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: 'event', label: label || '이벤트 카드' }) });
-    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    // [2026-07-22] 옛 편집기 대신 headless + 문구 편집 시트.
+    const _h = _headlessTemplate(tplId, source, 'event', label || '이벤트 카드');
+    if (!_h) { try { if (window.showToast) window.showToast('작업실을 여는 중이에요. 잠시 후 다시 시도해 주세요.'); } catch (_t) { void _t; } return; }
+    try {
+      const ES = window.PhotoEditorTemplateEditSheet;
+      const TA = window.ItdasyTemplateAutoApply;
+      if (ES && typeof ES.open === 'function') {
+        ES.open({ templateId: tplId, templateData: (TA && TA.tplData && TA.tplData(tplId)) || null, state: _h.state, helpers: _h.helpers, onChange: function () {} });
+      }
+    } catch (_e) { void _e; }
     try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: 'event', label: label || '이벤트 카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
     _focusEditorCloseAssistant();
   }
@@ -4752,13 +4775,19 @@
     return /이벤트/.test(t);
   }
   function _openCreateTemplate(purpose) {
-    const PE = window.PhotoEditor, TV = window.PhotoEditorTemplatesV2;
-    if (!PE || typeof PE.open !== 'function') return false;
     let source = '';
     try { const src = window.ItdasySourceImage && window.ItdasySourceImage.resolve(); source = (src && src.dataUrl) ? src.dataUrl : ''; } catch (_e) { source = ''; }
-    PE.open({ src: source, initial_tab: 'template', source: 'assistant', onSave: _assistantTemplateOnSave({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드' }) });   // [§13] 닫으면 잇비 복귀
     const tplId = _CREATE_DEFAULT_TPL[purpose];
-    if (tplId && TV && typeof TV.apply === 'function') { try { TV.apply(tplId); } catch (_a) { void _a; } }
+    // [2026-07-22] 옛 편집기 대신 headless + 문구 편집 시트.
+    const _h = _headlessTemplate(tplId, source, purpose, _CREATE_LABEL[purpose] || '카드');
+    if (!_h) return false;
+    try {
+      const ES = window.PhotoEditorTemplateEditSheet;
+      const TA = window.ItdasyTemplateAutoApply;
+      if (ES && typeof ES.open === 'function') {
+        ES.open({ templateId: tplId, templateData: (TA && TA.tplData && TA.tplData(tplId)) || null, state: _h.state, helpers: _h.helpers, onChange: function () {} });
+      }
+    } catch (_e) { void _e; }
     // [activeCard P0] 방금 만든(편집 중) 카드 기억 — 저장 전에도 "그거 저장/수정/다시 보여줘" 가 가리킬 수 있게.
     try { if (window.ItbiActiveCard) window.ItbiActiveCard.set({ purpose: purpose, label: _CREATE_LABEL[purpose] || '카드', templateId: tplId, available: true, origin: 'create' }); } catch (_ac) { void _ac; }
     _focusEditorCloseAssistant();

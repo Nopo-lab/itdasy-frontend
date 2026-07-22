@@ -61,21 +61,22 @@
   }
   function clearChat() { _chat = null; }
 
-  // 편집기가 화면에 떠있고 사진이 로드돼 있으면 그 사진을 마지막 후보로.
+  // 작업실이 열려 있고 사진이 있으면 그 커버 사진을 마지막 후보로.
+  // [2026-07-22] 옛 PhotoEditor 기준 → 현재 작업실(WorkspaceFlow.getActiveSlot).
+  //   옛 편집기가 안 열리게 되면서 이 후보가 항상 null 이었다.
   function _editorSource() {
     try {
-      var sheet = document.getElementById('photoEditorSheet');
-      if (!sheet || sheet.style.display === 'none') return null;
-      var pe = window.PhotoEditor && window.PhotoEditor._internal;
-      var st = (pe && typeof pe.getState === 'function') ? pe.getState() : null;
-      if (!st || !st.originalImg || !st.originalSrc) return null;
+      var WF = window.WorkspaceFlow;
+      if (!WF || typeof WF.getActiveSlot !== 'function') return null;
+      var slot = WF.getActiveSlot();
+      if (!slot || !slot.open || !slot.coverUrl) return null;
       return {
         origin: 'editor',
-        dataUrl: st.originalSrc,
-        originalUrl: st.originalSrc,
+        dataUrl: slot.coverUrl,
+        originalUrl: slot.coverUrl,
         editedDataUrl: null,
-        customerId: st.customerId || null,
-        ts: 0,   // 편집기는 최후순위 — 다른 후보 없을 때만.
+        customerId: null,
+        ts: 0,   // 작업실은 최후순위 — 다른 후보 없을 때만.
       };
     } catch (_e) { return null; }
   }

@@ -460,5 +460,11 @@
     handleReviewCard: handleReviewCard,
     handleBeforeAfterCard: handleBeforeAfterCard,
     applySample: applySample,
+    // [2026-07-22] headless 합성 헬퍼 공개 — assistant-template-restore(재편집)가 같은 파이프라인 재사용.
+    composeCard: _composeCard,
+    composeAndHandOff: _composeAndHandOff,
+    setActiveState: function (st) { _activeState = st || null; },
+    getActiveState: function () { return _activeState; },
+    tplData: _tplDataById,
   };
 })();

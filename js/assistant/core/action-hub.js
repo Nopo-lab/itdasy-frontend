@@ -9,7 +9,7 @@
    - safe   : 화면 이동 / 캡션·문자 초안 / 복사 / 템플릿 보기 / 빈시간 조회 / 사진편집기 열기 → 즉시 연결
    - confirm: 고객기록 저장 / 예약 생성·변경 / 매출 기록 → 자동 실행 금지. 기존 confirm·pending 경로로만, 없으면 안내
    - danger : 실제 발송·게시·자동예약·자동 고객추측 → 실행 차단. "안전 확인 후 제공 예정" 안내만
-   재사용: window.PhotoEditor / openInstagramPreview / openCalendarView / openCustomers /
+   재사용: WorkspaceFlow / openInstagramPreview / openCalendarView / openCustomers /
            openRevenueHub / showTab / ItdasyDailyBriefing.runAction. */
 (function () {
   'use strict';
@@ -162,10 +162,13 @@
             window.PhotoEditorTemplatesV2.open({ recommendedIds: recos });
             return;
           }
-          var PE = window.PhotoEditor; var pe = PE && PE._internal;
-          // 편집기가 이미 열려 있으면 사진 유지한 채 탭만 전환, 아니면 src 로 새로 열기.
-          if (pe && typeof pe.applyStatePatch === 'function' && pe.getState && pe.getState()) pe.applyStatePatch({ activeTab: 'template' });
-          else if (PE && PE.open) PE.open({ src: p.dataUrl || _resolverUrl(), initial_tab: 'template' });   // [P0a] source 폴백
+          // [2026-07-22] 옛 PhotoEditor 폴백 제거 → 현재 작업실 레이아웃/템플릿 단계로.
+          var _src = p.dataUrl || _resolverUrl();
+          if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+            window.WorkspaceFlow.command({ type: 'open', photoUrls: _src ? [_src] : null, screen: 'layout' });
+          } else if (window.showToast) {
+            window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
+          }
         });
         return { navigated: true, message: (p.recommendedIds && p.recommendedIds.length) ? '추천 템플릿을 열었어요.' : '템플릿 탭을 열었어요.' };
       case 'review_price_template_result':
@@ -226,23 +229,20 @@
     }
   }
 
+  // [2026-07-22] 옛 PhotoEditor state/시트 재노출 → headless 활성 state + 문구 편집 시트.
   function _reviewPriceTemplateResult() {
-    var PE = window.PhotoEditor; var pe = PE && PE._internal;
-    var state = pe && pe.getState && pe.getState();
+    var TA = window.ItdasyTemplateAutoApply;
+    var state = (TA && typeof TA.getActiveState === 'function') ? TA.getActiveState() : null;
     if (!state || !state.tplV2) return { message: '가격표 편집 화면이 닫혔어요. 다시 가격표 템플릿에 적용해 주세요.' };
-    _showPhotoEditorSheet(state);
-    state.activeTab = 'template';
-    var helpers = pe.helpers || {};
-    if (helpers.renderPanel) helpers.renderPanel();
-    if (helpers.scheduleRedraw) helpers.scheduleRedraw();
+    var helpers = {
+      scheduleRedraw: function () {},
+      renderPanel: function () {},
+      pushHistory: function () {},
+      applyStatePatch: function () {},
+      save: function () { return TA.composeAndHandOff(state, state.onSave); },
+    };
     _openTemplateEditSheet(state, helpers);
-    return { navigated: true, message: '가격표 편집 화면을 다시 열었어요.' };
-  }
-
-  function _showPhotoEditorSheet(state) {
-    var sheet = document.getElementById('photoEditorSheet');
-    if (sheet) sheet.style.setProperty('display', 'flex', 'important');
-    if (!state.inline) document.body.style.overflow = 'hidden';
+    return { navigated: true, message: '가격표 문구 편집을 다시 열었어요.' };
   }
 
   function _openTemplateEditSheet(state, helpers) {
