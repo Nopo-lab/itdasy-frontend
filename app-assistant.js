@@ -3732,8 +3732,28 @@
         return;
       }
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
-        // [2026-07-21] 옛 photo-mode 템플릿 갤러리 대신, 예쁜 선택 카드 → 각 버튼이 현재 작업실 모드로 진입.
-        _pushWorkspacePhotoCard(question, photoUrls);
+        /* [2026-07-22 보스] 사진만 던졌을 때도 곧장 **레이아웃 고르기**로 보낸다.
+           예전엔 '게시글 만들기/전후 비교/후기 카드/사진 편집' 칩 4개를 먼저 물어봤는데,
+           원장님이 원하는 건 "레이아웃만 고르면 나머지는 알아서"다. 칩 고르기는 한 단계 군더더기였다.
+           브리핑(시술 내용·꾸밈 느낌)이 없으니 채팅에는 그걸 말해달라고 남겨둔다 —
+           나중에 채팅으로 답하면 그 내용이 캡션·편집에 반영된다. */
+        _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
+        _history.push({ role: 'assistant', local_only: true,
+          text: '사진 ' + photoUrls.length + '장 받았어요. 레이아웃부터 골라주세요.\n\n' +
+                '고르는 동안 **어떤 시술**이었는지, **어떤 느낌**으로 꾸밀지(글씨·스티커·분위기) 말씀해 주시면 ' +
+                '게시글이랑 편집에 그대로 반영할게요.' });
+        _renderHistory();
+        (async function () {
+          try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
+          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
+          if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+            // brief 없음 → 레이아웃 고르기까지만. 편집 레이어 자동주입은 안 한다(지어내지 않음).
+            window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: null });
+            // 잇비를 닫고 작업실로 넘어가므로 위 채팅 안내문은 화면에서 사라진다 →
+            //   같은 말을 작업실에서 한 번 더 해준다(안 그러면 "뭘 하라는 거지?" 가 된다).
+            try { if (window.showToast) window.showToast('레이아웃 고르면 시술 내용이랑 꾸밀 느낌을 물어볼게요'); } catch (_te) { void _te; }
+          }
+        })();
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
         return;

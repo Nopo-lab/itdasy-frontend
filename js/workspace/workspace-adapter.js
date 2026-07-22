@@ -393,7 +393,13 @@
         return { ok: true, caption: r.caption, hashtags: r.hashtags, hashtagsText: r.hashtagsText, log_id: r.log_id };
       }).catch(function (e) {
         console.warn('[wsadapter] caption', e);
-        return { ok: false, reason: 'api', toast: '캡션 생성에 실패했어요 — 잠시 후 다시' };
+        // [2026-07-22 보스] 서버가 사람 말로 이유를 줬으면 그걸 그대로 보여준다.
+        //   실제 사고: Vertex AI 쿼터 소진(429)인데 화면엔 "캡션 생성에 실패했어요"만 떠서
+        //   원장님이 원인을 모른 채 계속 다시 눌렀다(누를 때마다 30초 대기 + 쿼터 더 소모).
+        //   _personaFetch 가 detail 을 Error.message 로 실어 보낸다. 'HTTP 500' 같은 기계 문자열만 거른다.
+        var msg = String((e && e.message) || '');
+        var human = msg && !/^HTTP\s|^\d{3}$|^401$|TypeError|NetworkError|Failed to fetch/i.test(msg);
+        return { ok: false, reason: 'api', toast: human ? msg : '캡션 생성에 실패했어요 — 잠시 후 다시' };
       });
     },
 

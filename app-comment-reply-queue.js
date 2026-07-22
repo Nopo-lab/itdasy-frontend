@@ -68,13 +68,13 @@
     // [v789] mode(검토/바로 발송) 제거 — 저장만 되고 아무 데서도 안 읽던 죽은 값
     // [2026-07-21] 신규 인텐트(시술종류·소요시간·이벤트·회원권) + 응답 시간대(active_hours·quiet_outside)
     // [2026-07-22 보스] DM 자동응답 설정창처럼 세부 설정 추가 — 단, 프론트가 진짜로 지키는 것만 넣는다.
-    //   default_dm: 새 문의의 'DM 같이 보내기' 기본값(카드에서 건별로 계속 끄고 켤 수 있음)
     //   exclude_words: 이 말이 들어간 댓글은 큐에 안 올린다(협찬·광고 DM 유도 댓글 걸러내기)
+    //   [2026-07-22] default_dm 제거 — 댓글 응대는 공개 답글 전용이 됐다(DM 은 DM 엔진 단일 담당).
     var def = { enabled: true,
       intents: { price: true, booking: true, location: true, hours: false, service: true, duration: true, event: true, membership: true },
       link: '', emoji: '😊',
       active_hours: { start: '09:00', end: '21:00' }, quiet_outside: true,
-      default_dm: true, exclude_words: '' };
+      exclude_words: '' };
     try {
       var s = JSON.parse(localStorage.getItem('itdasy:crq_settings') || 'null');
       if (!s) return def;
@@ -83,7 +83,6 @@
         intents: Object.assign({}, def.intents, s.intents || {}),
         active_hours: { start: ah.start || '09:00', end: ah.end || '21:00' },
         quiet_outside: s.quiet_outside !== false,
-        default_dm: s.default_dm !== false,
         exclude_words: String(s.exclude_words || '') };
     } catch (_e) { return def; }
   }
@@ -210,9 +209,7 @@
       mediaDate: it.media_timestamp || '',                          // 팝업용 발행일 (BE 필드 추가 대기)
       permalink: it.permalink || '', likes: it.like_count || 0, ts: it.timestamp || '',
       waiting: 0, thumb: it.media_thumb || '', text: it.text || '', manual: !!it.manual, returning: !!it.returning, confidence: it.confidence || '',
-      publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true,
-      // [2026-07-22 보스] 설정의 'DM 같이 보내기' 기본값을 새 문의에 적용(카드에서 건별로 계속 바꿀 수 있음).
-      _sendDm: _settings.default_dm !== false };
+      publicDraft: it.public_draft || d.publicDraft, dmDraft: it.dm_draft || d.dmDraft, _real: true };
   }
 
   // ── 인라인 아이콘 (스프라이트 밖은 svg, 봇은 #ic-bot) ──
@@ -277,13 +274,18 @@
     var pubHtml = '<div style="margin-bottom:10px;">' + _chRow(IC.comment, '공개 답글', pubOn, 'pub', it.id, pubBadges) +
       (pubOn ? '<div style="' + _BUBBLE + '">' + _esc(_displayPublic(it)) + '</div>'
              : '<div style="font-size:13px;color:#B0B8C1;padding:1px 2px 0;">공개 답글 안 달아요</div>') + '</div>';
-    // 비공개 DM — [v787] 접기 폐지, 전문 항상 펼침 (말줄임 금지)
-    var dmHtml = '<div>' + _chRow(IC.mail, '비공개 DM', dmOn, 'dm', it.id, '') +
-      (dmOn ? '<div style="' + _DMBUBBLE + '">' + _esc(dmText) + '</div>'
-            : '<div style="font-size:13px;color:#B0B8C1;padding:1px 2px 0;">비공개 DM 안 보냄</div>') + '</div>';
-    // CTA 라벨 = 토글 조합 (둘 다 끄면 비활성)
-    var sendOff = !pubOn && !dmOn;
-    var sendLabel = pubOn && dmOn ? '답글+DM 보내기' : pubOn ? '답글만 보내기' : dmOn ? 'DM만 보내기' : '보낼 내용을 켜주세요';
+    /* [2026-07-22 보스] 댓글 응대는 **공개 답글까지만** 담당한다. DM 은 DM 엔진(자동응답) 하나로 몬다.
+       왜: DM 을 보내는 주체가 둘이면 24시간 메시징 윈도우·발송 한도·심사 스코프를 두 곳에서 따로
+       관리해야 하고, 같은 손님이 댓글도 달고 DM 도 보내면 두 통이 나간다(중복 방어가 아예 없었다).
+       DM 자동응답 쪽엔 이미 확인 큐·톤·금지어·운영시간·예약양식이 다 있는데 댓글 쪽은 반쪽이라
+       같은 걸 두 번 만든 상태이기도 했다.
+       → 공개 답글로 "DM 드릴게요" 같은 약속을 하지 않고(백엔드 nodm_public 이 문구를 갈아끼움),
+         손님이 DM 을 보내오면 그때부터 DM 엔진이 이어받는다. 중복이 구조적으로 불가능해진다. */
+    var dmHtml = '<div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:#8B95A1;background:#F7F8FA;border-radius:11px;padding:9px 11px;">' +
+      IC.mail + '<span>DM은 <b>DM 자동응답</b>이 맡아요 — 손님이 DM 보내면 거기서 이어져요</span></div>';
+    // CTA — 공개 답글만 남으므로 라벨도 단순해진다(DM 토글 없음).
+    var sendOff = !pubOn;
+    var sendLabel = pubOn ? '공개 답글 보내기' : '보낼 내용을 켜주세요';
     // 아바타 — BE profile_pic(댓글↔DM 매칭) 있으면 사진, 없으면 이니셜
     var avatar = it.pic
       ? '<div style="width:38px;height:38px;border-radius:50%;flex-shrink:0;background:#F2F4F6 center/cover no-repeat;background-image:url(' + _esc(it.pic) + ');"></div>'
@@ -368,7 +370,24 @@
     var t = it.ts ? Date.parse(it.ts) : NaN;
     return isFinite(t) ? t : (Date.now() - (it.waiting || 0) * 60000);
   }
+  /* [2026-07-22 보스] 불러오는 동안엔 '예시 댓글'을 보여주지 않는다.
+     실측 콜드 스캔 9초 — 그 9초간 가짜 손님(민지·서연…) 카드가 진짜처럼 떠 있어서
+     "이상한 게 뜨고 오래 걸린다"로 읽혔다. 뼈대만 보여주고 진짜가 오면 갈아끼운다. */
+  function _skeletonHtml() {
+    var one = '<div style="background:#fff;border:.5px solid #E5E8EB;border-radius:18px;padding:14px;margin-bottom:10px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">' +
+        '<div style="width:38px;height:38px;border-radius:50%;background:#F2F4F6;"></div>' +
+        '<div style="flex:1;"><div style="width:38%;height:11px;border-radius:6px;background:#F2F4F6;margin-bottom:6px;"></div>' +
+        '<div style="width:22%;height:9px;border-radius:5px;background:#F7F8FA;"></div></div></div>' +
+      '<div style="height:52px;border-radius:13px;background:#F7F8FA;margin-bottom:11px;"></div>' +
+      '<div style="height:44px;border-radius:13px;background:#F7F8FA;"></div></div>';
+    return one + one;
+  }
   function _queueBody() {
+    if (_loading) {
+      return _banner('#F2F4F6', '#E5E8EB', '#4E5968', '인스타에서 문의 댓글을 모으는 중이에요… (처음엔 10초쯤 걸려요)') +
+        _skeletonHtml();
+    }
     var items = ITEMS.filter(function (it) { return _settings.intents[it.intent] !== false; })   // 설정에서 끈 의도 제외
       .filter(function (it) { return !_isExcluded(it); })   // [2026-07-22] 제외 단어(협찬·광고 등) 걸러내기
       .slice().sort(function (a, b) {
@@ -432,13 +451,6 @@
         '<div style="' + SUB + 'margin-bottom:12px;">DM 답장 끝에 자동으로 붙어요</div>' +
         '<input class="crq-link" type="text" value="' + _esc(S.link) + '" placeholder="예) naver.me/xxxx" ' +
           'style="width:100%;padding:13px 14px;border:none;border-radius:14px;font-size:15px;background:#F7F8FA;color:#191F28;box-sizing:border-box;font-family:inherit;" /></div>' +
-      // [2026-07-22 보스] DM 같이 보내기 기본값 — DM 자동응답 설정창의 토글 카드와 같은 생김새.
-      //   건별 토글은 그대로 남는다(여긴 '새로 온 문의의 시작값'만 정함).
-      '<div style="' + CARD + 'display:flex;align-items:center;gap:10px;">' +
-        '<div style="flex:1;"><div style="' + TITLE + '">DM도 같이 보내기</div>' +
-        '<div style="' + SUB + 'margin-top:3px;">' + (S.default_dm ? '공개답글 + DM 이 기본이에요' : '공개답글만 기본 · DM 은 건별로 켜요') + '</div></div>' +
-        '<span class="crq-defdm" role="switch" aria-checked="' + (S.default_dm ? 'true' : 'false') + '" style="cursor:pointer;flex-shrink:0;display:inline-block;width:32px;height:19px;border-radius:10px;position:relative;transition:background .15s;background:' + (S.default_dm ? '#16B55E' : '#D1D6DB') + ';">' +
-          '<span style="position:absolute;top:2px;left:' + (S.default_dm ? '15px' : '2px') + ';width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15);transition:left .15s;"></span></span></div>' +
       // 공개답글 끝 이모지 (AI 응답 텍스트용 — 이모지 허용 예외)
       '<div style="' + CARD + '"><div style="' + TITLE + 'margin-bottom:12px;">공개답글 끝 이모지</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:7px;">' + _EMOJI_OPTS.map(_emojiOpt).join('') + '</div></div>' +
@@ -501,7 +513,7 @@
         return;
       }
       // 설정 컨트롤(span — 버튼 아님) — [v789] 누르는 즉시 저장 (+ v790 저장 버튼으로 서버 동기화)
-      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-quiet,.crq-defdm') : null;
+      var sc = e.target.closest ? e.target.closest('.crq-intent,.crq-master,.crq-emoji,.crq-quiet') : null;
       if (sc) {
         _haptic();
         _captureSettingInputs(el);   // 재렌더 전 입력값(링크·시간·제외단어) 보존
@@ -509,7 +521,6 @@
         else if (sc.classList.contains('crq-intent')) { var k = sc.getAttribute('data-intent'); _settings.intents[k] = (_settings.intents[k] === false); }
         else if (sc.classList.contains('crq-emoji')) { _settings.emoji = sc.getAttribute('data-emoji'); }
         else if (sc.classList.contains('crq-quiet')) { _settings.quiet_outside = !_settings.quiet_outside; }
-        else if (sc.classList.contains('crq-defdm')) { _settings.default_dm = !_settings.default_dm; }
         _saveSettings();
         _render();
         return;
@@ -581,12 +592,15 @@
   function _sendReply(id) {
     var it = ITEMS.find(function (x) { return x.id === id; });
     if (!it) return;
-    var sendPub = it._sendPub !== false, sendDm = it._sendDm !== false;
-    if (!sendPub && !sendDm) return;   // 둘 다 끔 → CTA 비활성 (안전망)
+    // [2026-07-22 보스] DM 발송 주체 단일화 — 댓글 응대에서는 DM 을 절대 보내지 않는다.
+    //   send_dm:false 를 명시하면 백엔드가 공개답글 문구의 "DM 드렸어요" 약속도 nodm_public 로 갈아끼운다
+    //   (거짓 약속 방지). 실제 DM 은 손님이 보내온 뒤 DM 자동응답 엔진이 처리한다.
+    var sendPub = it._sendPub !== false, sendDm = false;
+    if (!sendPub) return;   // 보낼 게 없음 → CTA 비활성 (안전망)
     var el = document.getElementById(ID);
     if (it._editing && el) { _captureEdit(el, it); it._editing = false; }   // 편집 중 발송 → 편집값 반영
-    var pubText = sendPub ? _displayPublic(it) : '', dmText = sendDm ? _displayDm(it) : '';
-    var okMsg = (sendPub && sendDm ? '공개답글 달림 · DM 전송됨' : sendPub ? '공개답글 달림' : 'DM 전송됨');
+    var pubText = sendPub ? _displayPublic(it) : '', dmText = '';
+    var okMsg = '공개답글 달림';
     if (it._real && it.commentId && window.apiFetch) {
       // 실제 인스타: 켠 채널만 발송 (끈 채널은 텍스트 '' + 플래그 false)
       _removeItem(id);

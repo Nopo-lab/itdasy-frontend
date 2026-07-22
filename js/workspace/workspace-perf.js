@@ -331,6 +331,63 @@
   /** 이 게시물에 손님 반응이라 할 만한 게 하나라도 있나 — 전부 0이면 추천의 근거가 될 수 없다. */
   function _hasSignal(r) { return _score(r) > 0; }
 
+  /* [2026-07-22 보스] 글 하나하나에 "왜 이 글이 반응 좋았나"를 붙인다.
+     "무엇이 먹혔나" 블록은 같은 방식 3건(MIN_POSTS) 이 모여야 말을 하는데, 원장님은
+     **잘된 글 하나를 보고 바로 "아 이렇게 하면 되는구나"** 를 알고 싶어 한다.
+     그래서 3건 규칙과 무관하게, 이 글이 내 평소 글보다 얼마나 잘됐는지 + 이 글이 어떻게 만들어졌는지를
+     한 줄로 적는다.
+     ⚠️ 인과("이래서 잘됐다")로 단정하지 않는다 — 표본 1건으로 원인을 못 짚는다. 사실만 나열하고
+        "이렇게 만든 글이에요" 로 끝낸다. 지어낸 근거는 원장님 작업 방식을 잘못된 쪽으로 바꾼다. */
+  function _whyGoodHtml(r, ctx) {
+    var sc = _score(r);
+    if (!sc) return '';   // 반응 0 → 할 말 없음. 0을 잘됐다고 하지 않는다.
+    ctx = ctx || {};
+    /* 두 가지 경우에만 말한다:
+       ① 반응 있는 글이 아직 몇 개 없으면 → 그중 제일 반응 좋은 글 하나에만 "제일 반응 좋았던 글"
+          (표본이 얇아도 '1위'는 사실 진술이라 거짓이 아니다. 원인은 여전히 안 단정한다.)
+       ② 반응 있는 글이 넉넉하면 → 평소(중앙값)의 1.5배 넘는 글에만. 그래야 '평소보다'가 말이 된다. */
+    var isTop = ctx.topId != null && String(ctx.topId) === String(r.id);
+    var thin = (ctx.signalCount || 0) < 3;
+    if (thin) { if (!isTop) return ''; }
+    else if (!ctx.median || sc / ctx.median < 1.5) return '';
+    var ratio = ctx.median ? sc / ctx.median : 0;
+    // 이 글을 만든 방식 — 있는 것만(작업실 밖 글은 레이아웃·말투가 없다)
+    var bits = [];
+    if (r.layout) bits.push(r.layout + ' 레이아웃');
+    if (r.photoCount) bits.push('사진 ' + r.photoCount);
+    if (r.tone) bits.push((TONE_LABEL[r.tone] || r.tone) + ' 말투');
+    if (r.capLen) bits.push('캡션 ' + r.capLen);
+    if (r.tagCount) bits.push('해시태그 ' + r.tagCount);
+    // 무엇이 특히 잘 나왔나 — 저장·공유는 좋아요보다 값진 신호라 따로 짚는다
+    var strong = [];
+    if ((r.saved || 0) > 0) strong.push('저장 ' + r.saved);
+    if ((r.shares || 0) > 0) strong.push('공유 ' + r.shares);
+    if (!strong.length && (r.likes || 0) > 0) strong.push('좋아요 ' + r.likes);
+    var howMuch = thin ? '지금까지 올린 글 중 반응이 제일 좋았어요'
+      : (ratio >= 3 ? '평소보다 훨씬 반응이 좋았어요' : '평소보다 반응이 좋았어요');
+    return '<div class="wsp-why">' +
+      '<i class="ph-duotone ph-lightbulb"></i>' +
+      '<span><b>' + howMuch + '</b>' +
+        (strong.length ? ' (' + esc(strong.join(' · ')) + ')' : '') +
+        (bits.length ? '<em>이렇게 만든 글이에요 — ' + esc(bits.join(' · ')) + '</em>' : '') +
+      '</span></div>';
+  }
+
+  /** '왜 좋았나' 판정에 필요한 전체 맥락 — 중앙값('평소'의 기준. 평균은 대박 글 하나에 끌려간다),
+      반응 있는 글 수, 1위 글 id. rows 전체를 한 번만 훑어 카드마다 재계산하지 않는다. */
+  function _whyCtx(rows) {
+    var scored = (rows || []).map(function (r) { return { id: r.id, s: _score(r) }; })
+      .filter(function (o) { return o.s > 0; }).sort(function (a, b) { return a.s - b.s; });
+    if (!scored.length) return { median: 0, signalCount: 0, topId: null };
+    var v = scored.map(function (o) { return o.s; });
+    var m = Math.floor(v.length / 2);
+    return {
+      median: v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2,
+      signalCount: v.length,
+      topId: scored[scored.length - 1].id,
+    };
+  }
+
   function _agg(rows, keyFn) {
     var m = {};
     rows.forEach(function (r) {
@@ -603,7 +660,7 @@
           '<div class="wsp-chips">' + chips + '</div>' +
           '<div class="wsp-card__dt">' + _fmtDate(r.publishedAt) + ' 발행</div>' +
         '</div></div>' +
-      _statsHtml(r) + inq + _dmLinkHtml(r) + conv + again + '</div>';
+      _statsHtml(r) + _whyGoodHtml(r, _whyCtx(_curRows)) + inq + _dmLinkHtml(r) + conv + again + '</div>';
   }
 
   /** 이 게시물에 댓글 단 사람 중 DM 도 보낸 수 — '이 글 보고 연락 왔다'의 실제 신호(IGSID 동일인). */

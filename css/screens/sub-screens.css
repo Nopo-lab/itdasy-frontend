@@ -431,6 +431,14 @@
 .wsp-inq em { display: block; font-style: normal; font-size: 11px; color: var(--wsp-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wsp-inq > i:last-child { color: var(--wsp-sub); font-size: 13px; }
 
+/* [2026-07-22] 이 글이 왜 잘됐나 — 평소보다 반응 좋은 글에만 뜨는 한 줄.
+   따뜻한 노랑 톤으로 '칭찬/힌트'처럼 보이게(경고 회색인 wsp-inq 와 구분). */
+.wsp-why { display: flex; align-items: flex-start; gap: 9px; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: #FFF8E7; border: .5px solid #F4E3B8; font-size: 13px; color: var(--wsp-ink); }
+.wsp-why > i { font-size: 16px; color: #C8912B; flex-shrink: 0; margin-top: 1px; }
+.wsp-why span { flex: 1; min-width: 0; }
+.wsp-why b { font-weight: 700; }
+.wsp-why em { display: block; font-style: normal; font-size: 11.5px; color: var(--wsp-sub); margin-top: 3px; line-height: 1.45; }
+
 /* 이 글 보고 DM까지 온 사람 — green 도트 + 잉크. */
 .wsp-dmlink { display: flex; align-items: center; gap: 9px; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; background: var(--surface-2, #F7F8FA); font-size: 13px; color: var(--wsp-ink); }
 .wsp-dmlink i { font-size: 16px; color: var(--wsp-ok); }

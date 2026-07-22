@@ -13,12 +13,12 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/itd-editor/data/itd-decos.js?v=20260712-v734-combadges',
   'js/itd-editor/safe-zone.js?v=20260630-v621-safezone',
   'js/itd-editor/itd-editor.js?v=20260718-v776-stretch-moveundo',
-  'js/workspace/workspace-adapter.js?v=20260722-v790-fixround',
+  'js/workspace/workspace-adapter.js?v=20260722-v791-dmunify',
   'js/workspace/workspace-sync.js?v=20260717-v768-merge',
   'js/workspace/workspace-crop.js?v=20260706-v711-crossorigin',
   'js/workspace/workspace-v2-home.js?v=20260722-noleaks',
   'js/workspace/workspace-settings.js?v=20260722-v790-fixround',
-  'js/workspace/workspace-perf.js?v=20260722-v790-fixround',
+  'js/workspace/workspace-perf.js?v=20260722-v791b-whygood',
   // [P0-2] service-vocab.js 중복 제거 — index.html(콜드스타트, caption-keyword-tags 가 소비)에 이미 있어
   //   window.ItdasyServiceVocab 이 lazy photo 그룹 로드 전에 항상 정의됨. 여기서 또 로드하면 재실행 낭비.
   'js/workspace/flow/caption-text.js?v=20260714-fix-batch1',
@@ -124,7 +124,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260619-v522-workspace-nl-p3',
   'js/assistant/core/assistant-template-restore.js?v=20260722-s3',
-  'app-assistant.js?v=20260722-s3',
+  'app-assistant.js?v=20260722-v791c-itbiphoto',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
@@ -137,7 +137,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/dm/ig-thread-link.js?v=20260626-ig-thread-link',
   'app-dm-autoreply.js?v=20260625-dm-slim-photo',
   'app-dm-confirm-queue.js?v=20260714-confirm-edit',
-  'app-comment-reply-queue.js?v=20260722-v790-fixround',
+  'app-comment-reply-queue.js?v=20260722-v791-dmunify',
   'app-dm-conversations.js?v=20260722-channel',
   'app-dm-manual-replies.js?v=20260610-batch5',
   'app-persona-survey.js',
