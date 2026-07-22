@@ -11,8 +11,10 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/shop-style.js?v=20260628-v591-variant-grid-brandcolor',
   'js/workspace/work-memory.js?v=20260717-v772-wmlayout',
   'js/itd-editor/data/itd-decos.js?v=20260712-v734-combadges',
+  // [2026-07-23] 아이콘 스티커 세트 — itd-editor.js 보다 **먼저** 실려야 STK_TABS 가 탭을 만든다.
+  'js/itd-editor/data/itd-icon-stickers.js?v=20260723-v794-iconstk',
   'js/itd-editor/safe-zone.js?v=20260630-v621-safezone',
-  'js/itd-editor/itd-editor.js?v=20260718-v776-stretch-moveundo',
+  'js/itd-editor/itd-editor.js?v=20260723-v794-iconstk',
   'js/workspace/workspace-adapter.js?v=20260722-v791-dmunify',
   'js/workspace/workspace-sync.js?v=20260717-v768-merge',
   'js/workspace/workspace-crop.js?v=20260706-v711-crossorigin',

@@ -274,7 +274,13 @@
   }
   // [#5] 스티커 시트 — 카테고리 탭 + 활성 탭 그리드 1개(탭 전환 = _renderStkTab).
   // [#10] '글자' 탭 제거 — 텍스트는 전용 Aa 도구로 넣음(스티커 글자와 중복). 배지는 '도형' 탭으로 이동.
-  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디'], ['deco', '도형'], ['my', '내 스티커']];
+  /* [2026-07-23 보스] 피그마 아이콘 플러그인으로 쓰던 공개 세트를 스티커 탭으로 편입.
+     탭 목록은 itd-icon-stickers.js 가 정본 — 여기 하드코딩하지 않는다(세트가 늘면 그쪽만 고치면 됨).
+     데이터가 아직 안 실렸으면(지연 로드) 기존 탭만 보인다 — 편집기는 그대로 동작한다. */
+  var _ICS = window.ItdIconStickers || null;
+  var STK_TABS = [['reco', '추천'], ['beauty', '뷰티'], ['cute', '귀여움'], ['mz', '트렌디']]
+    .concat((_ICS && _ICS.tabs) ? _ICS.tabs : [])
+    .concat([['deco', '도형'], ['my', '내 스티커']]);
   function buildSticker() {
     var tabs = STK_TABS.map(function (t, i) {
       return '<button type="button" class="itstk__tab' + (i === 0 ? ' on' : '') + '" data-sttab="' + t[0] + '">' + t[1] + '</button>';
@@ -314,6 +320,11 @@
       html = _emGrid(ST.cuteEmoji || SHOP_STK);
     } else if (key === 'mz') {
       html = _emGrid(ST.mzEmoji || EMOJI);   // [#10] 깨진 moodSvg(폴라로이드·필름 등) 제거 — 에러박스/빈칸 원인
+    } else if (_ICS && _ICS.tabSet && _ICS.tabSet[key]) {
+      // 아이콘 세트 탭 — data URL SVG 그리드(도형 데코와 같은 렌더/삽입 경로 재사용)
+      html = '<div class="itsgrid">' + (_ICS.sets[_ICS.tabSet[key]] || []).map(function (u, i) {
+        return '<button class="itdeco" data-icstk="' + key + ':' + i + '"><img src="' + u + '" alt="" draggable="false"></button>';
+      }).join('') + '</div>';
     } else if (key === 'deco') {
       // [#10] 도형 데코 + 배지(NEW/HOT/SALE 등, 옛 '글자' 탭에서 이동)
       html = '<div class="itsgrid">' + DECO.map(function (u, i) { return '<button class="itdeco" data-deco="' + i + '"><img src="' + u + '" alt="" draggable="false"></button>'; }).join('') + '</div>' +
@@ -1628,6 +1639,14 @@
       var del = e.target.closest('[data-minedel]'); if (del) { e.stopPropagation(); delMyStk(+del.getAttribute('data-minedel')); return; }
       var mine = e.target.closest('[data-mine]'); if (mine) { var arr = loadMyStk(); var u = arr[+mine.getAttribute('data-mine')]; if (u) addImageSticker(u); return; }
       var sc = e.target.closest('[data-stkcat]'); if (sc) { var cat = sc.getAttribute('data-stkcat'); var list = (window.ItdStickers || {})[cat + 'Svg'] || []; var su = list[+sc.getAttribute('data-stkidx')]; if (su) addImageSticker(su); return; }
+      var ic = e.target.closest('[data-icstk]');
+      if (ic) {
+        var pr = ic.getAttribute('data-icstk').split(':');
+        var setKey = _ICS && _ICS.tabSet ? _ICS.tabSet[pr[0]] : null;
+        var iu = setKey ? (_ICS.sets[setKey] || [])[+pr[1]] : null;
+        if (iu) addImageSticker(iu);
+        return;
+      }
       var dc = e.target.closest('[data-deco]'); if (dc) { addImageSticker(DECO[+dc.getAttribute('data-deco')]); return; }
       var tx = e.target.closest('[data-txtstk]'); if (tx) { var o = ((window.ItdStickers || {}).textStk || [])[+tx.getAttribute('data-txtstk')]; if (o) addTextSticker(o.t, o.f); return; }
       var f = e.target.closest('[data-feat]'); if (f) { addFeatureLayer(f.getAttribute('data-feat')); return; }
