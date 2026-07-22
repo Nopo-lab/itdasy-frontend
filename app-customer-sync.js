@@ -32,17 +32,16 @@
     _syncTimer = setTimeout(async () => {
       const names = [..._pendingNames];
       _pendingNames.clear();
-      for (const name of names) {
-        try {
-          await fetch(`${API()}/customers?force=true`, {
-            method: 'POST',
-            headers: { ...AUTH(), 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, tags: [] }),
-          });
-        } catch (_e) {
-          console.warn('[customer-sync] auto-create fail', _e);
-        }
-      }
+      // [2026-07-22] 순차 await → 병렬. 이름이 서로 다른(Set) 독립 생성이라 경합 없음.
+      //   기존엔 이름 N개면 왕복 N번을 줄줄이 기다려 동기화가 눈에 띄게 느렸다.
+      //   하나 실패해도 나머지는 진행(allSettled).
+      await Promise.allSettled(names.map(name =>
+        fetch(`${API()}/customers?force=true`, {
+          method: 'POST',
+          headers: { ...AUTH(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, tags: [] }),
+        }).catch((_e) => { console.warn('[customer-sync] auto-create fail', _e); })
+      ));
       if (names.length > 0) {
         sessionStorage.removeItem('ch_cache');
         if (window.CustomerHub?.refresh) window.CustomerHub.refresh();
