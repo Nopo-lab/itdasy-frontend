@@ -37,45 +37,20 @@
 
   function _toast(msg) { if (window.showToast) window.showToast(msg); }
 
+  // [2026-07-22] 옛 PhotoEditor 기준 게이트 → 현재 작업실 기준으로 이관.
+  //   PE 를 지워도 사진 자연어 명령이 통째로 죽지 않게 하는 핵심 지점.
   function _editorReady() {
-    return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
+    return !!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function');
   }
 
-  function _editorVisible() {
-    const sheet = document.getElementById('photoEditorSheet');
-    return !!(sheet && sheet.style.display !== 'none');
+  function _shopName() {
+    try { return (window.WorkspaceAdapter && window.WorkspaceAdapter.shopName && window.WorkspaceAdapter.shopName()) || ''; }
+    catch (_e) { return ''; }
   }
 
-  function _state() {
-    try { return window.PhotoEditor?._internal?.getState?.(); }
-    catch (_e) { return null; }
-  }
-
-  function _textPatch(cmd, text) {
-    if (cmd.id !== 'text') return null;
-    const m = text.match(/(?:텍스트|문구|글자)\s*(?:넣어줘|추가해줘|써줘|:)?\s*(.+)$/);
-    const value = m && m[1] && !/(넣|추가|작성|써)$/.test(m[1]) ? m[1].trim() : '';
-    return value ? { text: { value } } : null;
-  }
-
-  function _mergePatch(base, extra) {
-    const out = Object.assign({}, base || {});
-    if (!extra) return out;
-    Object.keys(extra).forEach(k => {
-      out[k] = typeof extra[k] === 'object' && !Array.isArray(extra[k])
-        ? Object.assign({}, out[k] || {}, extra[k])
-        : extra[k];
-    });
-    return out;
-  }
-
-  function _applyCommand(cmd, text) {
-    const internal = window.PhotoEditor?._internal;
-    if (!internal || typeof internal.applyStatePatch !== 'function') return;
-    const patch = _mergePatch(cmd.patch, _textPatch(cmd, text));
-    if (cmd.tab) patch.activeTab = cmd.tab;
-    internal.applyStatePatch(patch);
-  }
+  // [2026-07-22] _mergePatch/_applyCommand/_textPatch 제거 — 옛 PhotoEditor._internal.applyStatePatch 에
+  //   patch 를 꽂던 경로. 7/22 편집기 일원화 때부터 호출부가 없어 이미 死코드였고(모든 명령이
+  //   _openEditor 로 감), PE 삭제에 맞춰 정리. 보정은 작업실 편집기에서 직접 조정.
 
   function _openEditor(cmd, _text) {
     // [2026-07-22] 옛 PhotoEditor 대신 현재 인스타식 편집기(ItdEditor)로 재연결. 자동 보정 patch(밝기 등)는
@@ -86,8 +61,8 @@
       try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
       if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
         window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: src ? [src] : null });
-      } else if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-        window.PhotoEditor.open({ initial_tab: cmd.tab || undefined });   // 폴백
+      } else if (window.showToast) {
+        window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');   // [2026-07-22] 옛 PhotoEditor 폴백 제거
       }
     };
     if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
@@ -104,8 +79,7 @@
   }
 
   function _caption() {
-    const st = _state();
-    const shop = (st && st.shopName) || '';
+    const shop = _shopName();   // [2026-07-22] 옛 PE 내부 state → 작업실 어댑터(샵이름 복구)
     return (shop ? shop + ' 시술 사진입니다. ' : '') + '문의는 DM 주세요.';
   }
 

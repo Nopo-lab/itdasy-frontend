@@ -159,8 +159,8 @@
         try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
         if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
           window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: dataUrl ? [dataUrl] : null });
-        } else if (window.PhotoEditor && typeof window.PhotoEditor.open === 'function') {
-          window.PhotoEditor.open({ src: dataUrl, initial_tab: 'tune' });   // 폴백
+        } else if (window.showToast) {
+          window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');   // [2026-07-22] 옛 PhotoEditor 폴백 제거
         }
       };
       if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {

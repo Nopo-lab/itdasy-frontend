@@ -313,7 +313,7 @@
 
   function _canRoute(act) {
     if (act === 'comment') return true;   // extras lazy — _route 에서 로드 보장 후 진입
-    if (act === 'photoEditor') return !!(window.PhotoEditor && typeof window.PhotoEditor.open === 'function');
+    if (act === 'photoEditor') return !!(window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function');   // [2026-07-22] 현재 작업실 기준
     if (act === 'persona') return true;   // 항상 진입 가능 (옵션 가용성은 시트 안에서 분기)
     const fn = _ROUTE_MAP[act];
     return !!(fn && typeof window[fn] === 'function');
@@ -342,8 +342,8 @@
         window.openPhotoEditorFromAction({ initial_tab: 'auto' });
         return;
       }
-      try { window.PhotoEditor.open({}); }
-      catch (_e) { if (window.showToast) window.showToast('편집기를 여는 중 문제가 생겼어요'); }
+      // [2026-07-22] 옛 PhotoEditor 폴백 제거 — 위 진입점이 현재 작업실로 보낸다.
+      if (window.showToast) window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
       return;
     }
     const fnName = map[act];

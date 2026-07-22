@@ -127,34 +127,21 @@
 
   function _openBAWithPair(pair) {
     if (!pair || !pair.after || !pair.after.image_url) return;
-    if (!window.PhotoEditor || typeof window.PhotoEditor.open !== 'function') {
-      if (window.showToast) window.showToast('사진 편집기를 불러오는 중이에요');
+    // [2026-07-22] 옛 PhotoEditor 'ba' 탭 제거 → 현재 작업실 전후 레이아웃(cat:'ba')으로.
+    //   before/after 두 장을 그대로 넘겨서 레이아웃이 알아서 배치 — setSecondImage 수동 주입 불필요.
+    if (!window.WorkspaceFlow || typeof window.WorkspaceFlow.command !== 'function') {
+      if (window.showToast) window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
       return;
     }
-    window.PhotoEditor.open({
-      src: pair.after.image_url,
-      initial_tab: 'ba',
-      customer_id: pair.customer_id,
-    });
-    _loadBeforeImage(pair.before && pair.before.image_url);
+    const urls = [];
+    if (pair.before && pair.before.image_url) urls.push(pair.before.image_url);
+    urls.push(pair.after.image_url);
+    window.WorkspaceFlow.command({ type: 'open', cat: 'ba', photoUrls: urls });
+    if (window.showToast) window.showToast('전후 카드를 만들 준비가 됐어요');
   }
 
-  function _loadBeforeImage(src) {
-    if (!src || !window.PhotoEditorBA || typeof window.PhotoEditorBA.setSecondImage !== 'function') {
-      if (window.showToast) window.showToast('비교할 사진을 한 장 더 골라주세요');
-      return;
-    }
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      window.PhotoEditorBA.setSecondImage(img);
-      if (window.showToast) window.showToast('전후 비교 화면을 열었어요');
-    };
-    img.onerror = () => {
-      if (window.showToast) window.showToast('비교 사진을 불러오지 못했어요');
-    };
-    img.src = src;
-  }
+  // [2026-07-22] _loadBeforeImage 제거 — 옛 PhotoEditorBA 슬라이더에 before 를 수동 주입하던 헬퍼.
+  //   이제 before/after 두 장을 작업실 전후 레이아웃에 그대로 넘겨서 필요 없어짐.
 
   window.AutoBA = { scanAndSuggest, getBanner };
 })();

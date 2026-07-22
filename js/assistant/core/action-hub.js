@@ -145,7 +145,14 @@
       case 'copy_caption':
         return { message: _copy(p.caption || p.text || '') ? '캡션을 복사했어요. 붙여넣어 사용하세요.' : '복사할 캡션이 없어요.' };
       case 'open_photo_editor':
-        _nav(function () { window.PhotoEditor && window.PhotoEditor.open && window.PhotoEditor.open({ src: p.dataUrl, initial_tab: p.tab || 'tune' }); });
+        // [2026-07-22] 옛 PhotoEditor 제거 → 현재 작업실 편집기로.
+        _nav(function () {
+          if (window.WorkspaceFlow && window.WorkspaceFlow.command) {
+            window.WorkspaceFlow.command({ type: 'storyedit', photoUrls: p.dataUrl ? [p.dataUrl] : null });
+          } else if (window.showToast) {
+            window.showToast('작업실을 여는 중이에요. 잠시 후 다시 눌러주세요');
+          }
+        });
         return { navigated: true };
       case 'open_template_panel':
         _nav(function () {
