@@ -47,7 +47,7 @@
 | **카카오 알림톡** (예약확정·리마인드·노쇼·빈슬롯·생일) | 🟡 **BE 발송서비스 실구현(Aligo API)** / FE 관리화면 `app-kakao-hub.js`는 스텁 | `services/kakao_alimtalk.py`(httpx) |
 | **네이버 예약(스마트플레이스) 양방향 동기화** | 🟡 스텁 — 사업장ID 저장만, Phase1 예정 | `integrations.py /naver/link`, `app-naver-link.js` |
 | **인스타 발행**(피드·스토리·캐러셀) | 🟡 코드완성, `content_publish` **Meta 심사대기** | `instagram.py /publish-file` |
-| 인스타 **게시물 댓글 답글 자동화** | 🟡 **스테이징 ON** — `INSTAGRAM_FULL_SCOPE=1`(Cloud Run env, 코드 아님)이라 개발모드/테스터는 App Review 전에도 `manage_comments` 획득 가능. **운영은 env 없음 → basic scope**. 스코프는 동의 시점에 토큰에 박히므로 **기존 연동자는 인스타 재연결 필요**(refresh-token 으론 안 바뀜) | `instagram.py:74,710`, `/instagram/comment-queue`(:799) · FE 큐 UI `app-comment-reply-queue.js` **[2026-07-20 v785 리디자인]** 게시물칩+미리보기팝업·채널별 토글(답글만/DM만)·DM접기 + 홈 "AI 잇비가 챙겼어요" 진입줄(`app-home-v41.js _fetchCommentQueueCount`) **[2026-07-21]** 분류 인텐트 확장 = price·booking·location·hours·service·**duration(소요시간·지속력, 유실복구)·event(이벤트)·membership(회원권)·eligibility(건강여부→항상 사람)**·complaint(`instagram.py _classify_comment` + LLM 재판정 `comment_intent_llm.py`) · **응답 시간대(방해금지)** 설정 = `itdasy:crq_settings.active_hours`+`quiet_outside`, 운영시간 밖엔 홈 넛지 뮤트(`window.crqQuietNow`)+큐 배너, 발송은 언제든 가능 · autoreply_gate `within_hours`(DM 운영시간 재사용, 자동발송 켜질 때만 유효·shadow) |
+| 인스타 **게시물 댓글 답글 자동화** | 🟡 **스테이징 ON** — `INSTAGRAM_FULL_SCOPE=1`(Cloud Run env, 코드 아님)이라 개발모드/테스터는 App Review 전에도 `manage_comments` 획득 가능. **운영은 env 없음 → basic scope**. 스코프는 동의 시점에 토큰에 박히므로 **기존 연동자는 인스타 재연결 필요**(refresh-token 으론 안 바뀜) | `instagram.py:74,710`, `/instagram/comment-queue`(:799) · FE 큐 UI `app-comment-reply-queue.js` **[2026-07-20 v785 리디자인]** 게시물칩+미리보기팝업·채널별 토글(답글만/DM만)·DM접기 + 홈 "AI 잇비가 챙겼어요" 진입줄(`app-home-v41.js _fetchCommentQueueCount`) **[2026-07-21]** 분류 인텐트 확장 = price·booking·location·hours·service·**duration(소요시간·지속력, 유실복구)·event(이벤트)·membership(회원권)·eligibility(건강여부→항상 사람)**·complaint(`instagram.py _classify_comment` + LLM 재판정 `comment_intent_llm.py`) · **응답 시간대(방해금지)** 설정 = `itdasy:crq_settings.active_hours`+`quiet_outside`, 운영시간 밖엔 홈 넛지 뮤트(`window.crqQuietNow`)+큐 배너, 발송은 언제든 가능 · autoreply_gate `within_hours`(DM 운영시간 재사용, 자동발송 켜질 때만 유효·shadow) **[2026-07-22 v790]** 설정 **서버 보관** = `GET/PUT /instagram/comment-reply-settings` → `dm_auto_reply_settings.crq_settings_json`(예전엔 localStorage 뿐이라 폰 교체·캐시 삭제로 소실). 헤더 **저장 버튼**(DM 자동응답과 같은 자리) + 세부설정 2종 = `default_dm`(새 문의의 'DM 같이 보내기' 기본값)·`exclude_words`(이 말 든 댓글은 큐에서 제외, 쉼표 구분) |
 | 네이버 플레이스 **리뷰 답글 자동화** | ❌ **불가** — 공식 답글 API 없음 | — |
 | **리뷰 요청** 관리(손님에게 리뷰 요청·상태추적) | ✅ | `customer_reviews.py`, `app-review.js` |
 | 인스타 **인사이트**(도달·저장·최적시간) | ✅ | `instagram_insights.py` |
@@ -62,6 +62,8 @@
 
 ### 코어 인프라 (부팅·API·인증·로더·SW)
 - **app-core.js** (2805) — 앱 부팅. `PROD_API`(staging Cloud Run)+`window.apiUrl/apiFetch`, 격리 토큰키 `itdasy_token::staging|prod|local`, `getToken/login/logout`, `showTab()` 라우팅, XSS `_esc`, SW 등록·버전배지.
+  - 🚨 **전역 fetch 래퍼 타임아웃** — 일반 20초(재시도 12초·최대 4회). **[2026-07-22 v790]** `LLM_PATH_RE`(`/assistant/`·`/caption/`·`/persona/`·`/image/enhance|remove-bg|…`) 매칭 시 **120초 + 타임아웃 재시도 금지**(5xx 재시도는 유지). 이걸 안 하면 잇비 답변·캡션 생성이 20초에 강제중단되고 12초짜리로 3번 더 재호출돼 **LLM 중복 과금 + 60초 뒤 '실패했어요'** — '백엔드가 고장난 것 같다'의 실제 정체였다. 느린 신규 API 는 `itdasyTimeoutMs` 로 개별 상향.
+  - **시트 뒤로가기 레지스트리** `_registerSheet/_markSheetOpen/_markSheetClosed`(:2888~). 풀스크린 오버레이는 **반드시 open 에서 등록**해야 안드로이드 back/스와이프에 앱이 안 꺼진다. **[2026-07-22]** 미등록 7화면(내샵정보·작업실설정·DM메뉴·네이버연동·톡톡·카카오·백업) 전부 등록 + close 가 replaceState 대신 실제 `history.back()` 으로 엔트리를 뺀다(안 그러면 '눌러도 아무 일 없는 뒤로가기'가 쌓임).
 - **sw.js** (238) — 서비스워커. `CACHE_VERSION` 캐시버전, `/api·/auth` network-first / 정적 cache-first, 읽기전용 GET 오프라인 폴백, 지연그룹 프리캐시 제외.
 - **js/loader.js** (92) — 분할 로더 `AppLoader.ensure(group)`. 순서보장 동적로드 + idle 선로딩.
 - **js/load-groups.js** (217) — 로드 매니페스트 `APP_LOAD_GROUPS`(photo/assistant/extras). **여기 `?v=` 안 올리면 SW가 옛파일 캐시 → 라이브 반영 안 됨.**
@@ -194,13 +196,13 @@
 - 매출/재고/회원권/시술템플릿: **revenue.py**(687, 예측·OCR임포트)·**inventory.py**(108)·**memberships.py**(484)·**services.py**(354, 가격표임포트).
 - 리포트/리텐션/추천/자동화: **reports.py**(295)·**today.py**(339, 브리핑)·**retention.py**(347, 이탈위험·초안)·**retouch.py**(188, 리터치DM초안)·**recommendations.py**(379, 시술추천)·**campaigns.py**(81, A/B)·**automation.py**(356, 규칙CRUD).
 - 임포트/OCR/음성: **imports.py**(351)·**smart_import.py**(674)·**templates.py**(75, OCR)·**voice.py**(133).
-- 발행/동기화/알림: **scheduled_posts.py**(162)·**workspace_sync.py**(275)·**notifications.py**(141)·**push.py**(73).
+- 발행/동기화/알림: **scheduled_posts.py**(162, **[2026-07-22] 여러 장 예약=`image_urls`** 개행구분 절대URL, `image_url`=커버·옛 행 호환)·**workspace_sync.py**(275)·**notifications.py**(141)·**push.py**(73).
 - 결제: **subscription.py**(220)·**billing.py**(351, PortOne)·**iap.py**(552, Apple/Google).
 - 연동/브릿지: **integrations.py**(212, 네이버예약/톡톡 링크)·**platform_bridge.py**(85).
 - 운영/컴플라이언스: **support.py**(432)·**moderation.py**(596, 콘텐츠신고)·**data_export.py**(315, GDPR)·**admin.py**(1613)·**admin_ws.py**(128, WebSocket).
 
 ### 서비스 (services/)
-- AI 게이트웨이: **generation.py**(376, Gemini 단일진입). 캡션: **caption_generator.py**(1337)·**caption_grounding.py**(245)·**service_hashtags.py**(308)·**signature_detector/injector.py**·**text_cleanup.py**·**fingerprint_extractor.py**(144)·**style_extractor.py**(144)·**identity_validator.py**·**fewshot_bank/builder.py**·**instagram_fetcher.py**(100)·**scheduled_publisher.py**(137)·**story_generator.py**·**portfolio_tagger.py**.
+- AI 게이트웨이: **generation.py**(376, Gemini 단일진입). 캡션: **caption_generator.py**(1337)·**caption_grounding.py**(245)·**service_hashtags.py**(308)·**signature_detector/injector.py**·**text_cleanup.py**·**fingerprint_extractor.py**(144)·**style_extractor.py**(144)·**identity_validator.py**·**fewshot_bank/builder.py**·**instagram_fetcher.py**(100)·**scheduled_publisher.py**(137, **[2026-07-22] 2장 이상이면 캐러셀 발행**: child `is_carousel_item` → `CAROUSEL` 부모 → FINISHED 폴링 → publish)·**story_generator.py**·**portfolio_tagger.py**.
 - DM 엔진: **dm_intent.py**(426)·**dm_context_builder.py**(470)·**dm_tone_analyzer.py**(261)·**dm_thread.py**·**dm_batching.py**·**dm_menu.py**(227)·**dm_menu_icebreakers.py**·**dm_manual_matcher.py**·**dm_free_reply.py**·**dm_customer_extractor.py**·**customer_memo_extractor.py**.
 - 채널 어댑터: **channels/base.py**(공통 인터페이스)·**channels/instagram.py**(229)·**channels/naver_talk.py**(157, 무료 양방향 send).
 - 예약/리마인드: **booking_form_parser.py**(355)·**calendar_slots.py**·**reschedule_resolve.py**(314)·**waiting_matcher.py**·**gap_filler.py**(253)·**reminder_scheduler.py**(292)·**retouch_reminder/schedule.py**·**sprint_e.py**(219).
