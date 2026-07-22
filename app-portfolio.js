@@ -233,7 +233,7 @@ async function loadPortfolio() {
       cell.className = 'portfolio-cell';
       cell.style.cssText = 'position:relative; aspect-ratio:1/1; overflow:hidden; border-radius:12px; background:var(--bg2); cursor:grab; transition:opacity 0.2s, border-color 0.18s, box-shadow 0.18s; border:1px solid var(--border, rgba(15,20,25,0.08));';
       cell.innerHTML = `
-        <img src="${safeSrc}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
+        <img src="${safeSrc}" loading="lazy" decoding="async" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">
         <div style="position:absolute; top:4px; right:4px; background:${ptypeColor[pt]}; border-radius:20px; padding:2px 6px; font-size:8px; color:#fff; font-weight:800; opacity:0.92;">${ptypeLabel[pt]}</div>
         ${item.main_tag ? `<div style="position:absolute; top:4px; left:4px; background:rgba(0,0,0,0.78); border-radius:20px; padding:2px 6px; font-size:8px; color:#fff; font-weight:700;">${safeMainTag}</div>` : ''}
         ${item.tags ? `<div style="position:absolute; bottom:0; left:0; right:0; padding:5px 6px; background:linear-gradient(0deg,rgba(0,0,0,0.7),transparent); font-size:9px; color:#fff; line-height:1.4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${safeTags}</div>` : ''}
@@ -443,6 +443,8 @@ function renderCardDeck(wrap) {
 
     const img = document.createElement('img');
     img.src = photo.url;
+    img.loading = 'lazy';
+    img.decoding = 'async';
     const idx = document.createElement('div');
     idx.className = 'card-idx';
     idx.textContent = `${i + 1}/${_cardDeckPhotos.length}`;
