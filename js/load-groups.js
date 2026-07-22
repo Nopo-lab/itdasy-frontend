@@ -213,7 +213,6 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-template-import.js?v=20260610-v435-bg-ratio-thumb-fallback',
   'app-smart-capture.js?v=20260610-quickwin',
   'app-import.js?v=20260521-v254-api-fetch',
-  'app-birthday.js?v=20260521-v254-api-fetch',
   'app-sns-hashtag.js?v=20260610-batch5',
   'app-receipt-scan.js?v=20260610-batch3',
   'app-import-wizard.js',
