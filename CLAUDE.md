@@ -4,6 +4,30 @@
 
 **"이 기능 없나?" 추측 전에 `.ai/APP_FEATURE_INDEX.md` 확인.** 이 앱은 방대함(프론트 ~250파일 + 백엔드 라우터 60·서비스 70·모델 56). DM 자동응답·네이버톡톡·카카오 알림톡·리텐션·리뷰요청·인사이트·OCR 등 **대부분 이미 구현돼 있음**. 상단 도메인맵 + 채널/DM 실제 상태표 참고. **기능 파일(`js/**`·`app-*.js`·백엔드 routers/services/models) 바꾸면 인덱스 해당 항목도 갱신**(SessionStart 훅이 요약 주입, PostToolUse 훅이 갱신 리마인드 — `.claude/settings.json`).
 
+## 🚨 캐시 버전(`?v=`) — 파일 고치면 **무조건** 올린다 (예외 없음)
+
+**JS/CSS 를 한 줄이라도 고쳤으면, 같은 커밋에서 `js/load-groups.js` 와 `index.html` 의 그 파일 `?v=` 를 올린다.**
+안 올리면 서비스워커가 옛 파일을 계속 서빙한다 → **코드는 라이브인데 화면은 그대로다.**
+
+- 실제로 여러 번 당했다(2026-07-22 라운드 포함): 고친 기능이 라이브 파일엔 들어가 있는데 화면엔 안 나와서
+  "코드가 틀렸나" 를 한참 뒤졌고, SW 캐시를 지우고서야 나왔다. **로컬 검증도 똑같이 속는다.**
+- "고쳤는데 화면이 그대로" 면 → 코드보다 **캐시부터** 의심.
+- `sw.js` 의 `CACHE_VERSION` 은 deploy.yml 이 자동 주입한다. **`?v=` 는 자동이 아니다 — 사람이 올려야 한다.**
+- 빠뜨리기 쉬운 것: `?v=` 가 아직 **안 붙은 항목**(`'app-backup.js',` 처럼) — 새로 붙여야 영영 캐시되지 않는다.
+  그리고 CSS(`index.html` 의 `<link>`), `js/workspace/**` 같은 긴 경로.
+
+```python
+# 일괄 갱신 — FILES 만 바꿔 재사용
+import io, re
+V = '20260722-vXXX-이름'
+FILES = ['app-foo.js', 'js/workspace/bar.js', 'css/screens/baz.css']
+for t in ('js/load-groups.js', 'index.html'):
+    s = io.open(t, encoding='utf-8').read()
+    for f in FILES:
+        s = re.sub(re.escape(f) + r'\?v=[^\'"?&]*', f + '?v=' + V, s)
+    io.open(t, 'w', encoding='utf-8').write(s)
+```
+
 ## 🚨 디자인 정책 (2026-05-28 ~ )
 
 **다크모드 정비 보류 중** — 모든 디자인·CSS 작업은 **라이트모드 기준**으로만 진행.

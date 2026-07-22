@@ -189,10 +189,47 @@
     deps.runChatAutoEdit({ photoUrl, photos, question, customerCtx: null });
   }
 
+  /* [2026-07-22 보스] 잇비 채팅 안 레이아웃 카드 탭 → 그 구성으로 작업실을 열고 게시글까지 직행.
+     "채팅 안에서 딸깍" — 사진 던지고 레이아웃 하나 누르면 끝. 중간에 레이아웃 화면을 안 거친다.
+     실제 구성 적용·합성은 WorkspaceFlow 가 한다(여긴 어느 구성인지만 넘긴다) — 합성 로직을
+     여기 복제하면 콜라주를 골랐는데 원본이 올라가는 식으로 조용히 어긋난다. */
+  function _handleLayoutPick(e, deps) {
+    const el = e.target.closest('[data-asst-layoutpick]');
+    if (!el || !_bodyContains(el)) return false;
+    if (deps.isSendInFlight()) return true;
+    const [hiStr, compKey] = el.dataset.asstLayoutpick.split(':');
+    const hi = parseInt(hiStr, 10);
+    const pickMsg = deps.history[hi];
+    const userMsg = deps.history[hi - 1];
+    if (!pickMsg || !Array.isArray(pickMsg.layout_picks) || !userMsg) return true;
+    const photos = Array.isArray(userMsg.photos) ? userMsg.photos : (userMsg.thumb ? [userMsg.thumb] : []);
+    if (!photos.length) return true;
+    const picked = pickMsg.layout_picks.find(o => o.key === compKey);
+
+    // 고른 걸 채팅에 남긴다 — 나중에 위로 스크롤했을 때 "내가 뭘 골랐지"가 보이게.
+    pickMsg.layout_picks = null;
+    pickMsg.text = (picked ? '‘' + picked.name + '’' : '레이아웃') + '으로 만들게요. 게시글 화면에서 시술 내용만 알려주세요.';
+    deps.renderHistory();
+
+    (async function () {
+      try {
+        if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) {
+          await window.AppLoader.ensure('photo');
+        }
+      } catch (_l) { void _l; }
+      if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+        window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photos.slice(0, 10), brief: null, comp: compKey });
+      }
+    })();
+    return true;
+  }
+
   function handleClick(e, deps) {
     return _handlePendingRemove(e, deps)
       || _handleUploadPhotoClick(e, deps)
       || _handlePhotoResultClick(e, deps)
+      || _handleLayoutPick(e, deps)
       || _handleIntentChip(e, deps)
       || _handlePhotoAction(e, deps);
   }

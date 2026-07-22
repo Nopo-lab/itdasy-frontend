@@ -3879,7 +3879,17 @@
 	      //   이제 navStack 이 비어 back → _systemBack → close → 작업실 홈으로 바로 복귀(중간 업로드 화면 X).
 	      // [v590·#1] 심플 플로우면 업로드 진입경로(홈 시작하기 포함) 불문하고 '캡션 생성'으로 직행.
       //   기존엔 toEdit(홈→편집) 우선이라 사진편집으로 새던 회귀. SIMPLE_FLOW 최우선.
-      if (!d.textOnly && editablePhotos().length) { setScreen('layout', { push: false }); }   // 사진 로드 후 '레이아웃 고르기'로
+      if (!d.textOnly && editablePhotos().length) {
+        setScreen('layout', { push: false });   // 사진 로드 후 '레이아웃 고르기'로
+        /* [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 그 구성을 적용하고
+           **레이아웃 화면을 그냥 지나쳐** 게시글(캡션)로 간다 — 채팅에서 딸깍 = 바로 다음 단계.
+           setScreen('caption') 로 건너뛰지 않고 onCta() 를 쓰는 이유: layout 의 onExit(_exitLayout)이
+           합성본을 굽는다. 그걸 건너뛰면 콜라주를 골랐는데 원본이 그대로 올라가는 조용한 사고가 난다. */
+        if (d._pickComp && _WSL && _WSL.applyComp) {
+          var _pc = d._pickComp; d._pickComp = null;
+          if (_WSL.applyComp(_pc)) { setScreen('layout', { push: false }); onCta(); }
+        }
+      }
       else if (toEdit && editablePhotos().length) { d.editIdx = 0; setScreen('edit', { push: false }); }  // [v588·#1] 업로드 직후 바로 캡션
 	      else { setScreen('upload'); }
 	      if (showToast) toast(urls.length + '장 추가됨');
@@ -4355,6 +4365,7 @@
 	    // [v540] 내 콘텐츠 편집 딥링크 — 버튼 의도(focus)에 맞춰 진입 탭/섹션 상태 미리 세팅(기존 콘텐츠 유지).
 	    // [2026-07-22 오케스트레이션] 잇비 사진 브리핑(파싱 결과) — 레이아웃 다음에 편집기(레이어 주입)+캡션 자동.
 	    d._orch = opts._orch || null; d._orchApplied = false;
+	    d._pickComp = opts._pickComp || null;   // [2026-07-22] 잇비 채팅에서 미리 고른 레이아웃 구성 키
 	    d._focusIntent = (startScreen === 'edit' && opts.focus) ? opts.focus : null;
 	    if (d._focusIntent === 'background') { d.bgOpen = true; d.basicTool = 'background'; }
 	    else if (d._focusIntent === 'crop') { d.editTab = 'tools'; d.advOpen = true; }
@@ -4392,8 +4403,18 @@
     //   [ws-hyper 버그수정 2026-07-06] photoUrls(채팅/딥링크) 경로도 addFiles 와 동일하게 HYPER→레이아웃 분기.
     //   빠지면 HYPER인데 채팅으로 사진 던지면 옛 편집기가 열려 레이아웃 스텝을 건너뛴다.
     if (cur === 'upload') {
-      if (!d.textOnly && editablePhotos().length) { setScreen('layout', { push: false }); }
-      else setScreen('upload', { push: false });
+      if (!d.textOnly && editablePhotos().length) {
+        setScreen('layout', { push: false });
+        // [2026-07-22 보스] 잇비 채팅에서 이미 레이아웃을 골라 왔으면 레이아웃 화면을 지나쳐 게시글로.
+        //   ⚠️ 파일 업로드 경로(addPhotoFiles)와 채팅/딥링크 경로(여기)가 **따로**다 —
+        //      한쪽만 고치면 채팅에서 고른 게 안 먹는다(실제로 처음에 그 실수를 했다).
+        //   setScreen('caption') 대신 onCta(): layout 의 onExit 이 합성본을 굽는다. 건너뛰면
+        //   콜라주를 골랐는데 원본이 그대로 올라가는 조용한 사고가 난다.
+        if (d._pickComp && _WSL && _WSL.applyComp) {
+          var _pc = d._pickComp; d._pickComp = null;
+          if (_WSL.applyComp(_pc)) { setScreen('layout', { push: false }); onCta(); }
+        }
+      } else setScreen('upload', { push: false });
     }
 	    if (showToast) toast(urls.length + '장 추가됨');
 	    return urls.length;
@@ -4464,8 +4485,13 @@
         return { ok: true };
       case 'orchestrate':   // [2026-07-22] 잇비 사진+브리핑 → 레이아웃 고르기 → (편집기 레이어 자동)+캡션 자동.
         //   startScreen 미지정(=upload) → addPhotoUrls 가 사진 투입 후 레이아웃으로 넘김(빈 레이아웃 방지).
-        open({ cat: cmd.cat || null, files: cmd.files || null, photoUrls: cmd.photoUrls || null, _orch: cmd.brief || null });
+        open({ cat: cmd.cat || null, files: cmd.files || null, photoUrls: cmd.photoUrls || null,
+               _orch: cmd.brief || null, _pickComp: cmd.comp || null });
         return { ok: true };
+      // [2026-07-22] 잇비 채팅이 "사진 n장이면 어떤 구성이 있나"를 물어보는 창구.
+      //   플로우가 안 열려 있어도 답할 수 있어야 한다(채팅에서 먼저 고르고 그다음 열리므로).
+      case 'layoutopts':
+        return { ok: true, options: (_WSL && _WSL.compOptions) ? _WSL.compOptions(+cmd.n || 0) : [] };
       case 'goto':
         if (!_flowReady() || SCREENS.indexOf(cmd.screen) < 0) return { ok: false, reason: 'not_open' };
         setScreen(cmd.screen); return { ok: true };

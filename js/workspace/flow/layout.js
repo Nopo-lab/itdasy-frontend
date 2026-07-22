@@ -404,10 +404,26 @@
       return false;
     }
 
+    /* [2026-07-22 보스] 잇비 채팅 안에서 레이아웃을 고르게 하려고 두 개를 밖으로 연다.
+       화면(DOM) 없이도 "이 장수엔 어떤 구성이 있나"를 묻고, 고른 구성을 적용할 수 있어야 한다.
+       ⚠️ 목록을 잇비 쪽에 복사해 두지 않는다 — 구성이 바뀔 때 두 곳이 어긋나면
+          채팅엔 있는데 눌러도 안 먹는 유령 선택지가 생긴다. 항상 여기가 정본. */
+    function compOptions(n) { return _compOptions(n); }
+    function applyComp(key) {
+      var d = D();
+      if (!key || !_compOptions((editablePhotos() || []).length).some(function (o) { return o.key === key; })) return false;
+      d.wsComp = key;
+      d.wsCards = _buildCards(key); d._wsSig = _sig();
+      d.templateOutput = null; d.templateOutputs = []; d.previewUrl = null;   // 구성이 바뀌면 옛 합성본 무효화
+      _syncAlias();
+      return true;
+    }
+
     return {
       renderLayout: renderLayout, _wsMountStage: _wsMountStage,
       _wsLayoutEditState: _wsLayoutEditState, _fillLayoutText: _fillLayoutText,
-      composeCards: composeCards, hasReviewCard: hasReviewCard, handleClick: handleClick
+      composeCards: composeCards, hasReviewCard: hasReviewCard, handleClick: handleClick,
+      compOptions: compOptions, applyComp: applyComp
     };
   }
   window.WSFlowLayout = { create: create };

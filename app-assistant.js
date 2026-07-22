@@ -527,6 +527,7 @@
         ${_renderItbiCardsPromo(m, idx)}
         ${photoResultHtml}
         ${looseTextHtml}
+        ${_renderLayoutPicks(m, idx)}
         ${_renderBookingCards(m, idx)}
         ${_renderPmTpls(m, idx)}
         ${_renderPhotoRoles(m, idx)}
@@ -720,6 +721,50 @@
     </div>`;
   }
 
+  /* [2026-07-22 보스] 잇비 채팅 안에서 레이아웃 고르기 — "채팅 안에서 딸깍".
+     사진을 던지면 작업실로 화면을 옮기지 않고, 여기서 구성 카드를 보여주고 하나 누르면
+     그 구성으로 바로 게시글(캡션) 단계까지 넘어간다.
+     ⚠️ 선택지 목록은 여기 복사해 두지 않는다 — 정본은 workspace/flow/layout.js 의 _compOptions.
+        복사해 두면 구성이 바뀔 때 채팅엔 있는데 눌러도 안 먹는 유령 선택지가 생긴다. */
+  function _renderLayoutPicks(m, idx) {
+    if (!Array.isArray(m.layout_picks) || !m.layout_picks.length) return '';
+    const cards = m.layout_picks.map((o) => {
+      const thumb = _layoutPickThumb(o.key, m.layout_n || 2);
+      return `<button type="button" data-asst-layoutpick="${idx}:${_esc(o.key)}"
+        style="flex:0 0 132px;display:flex;flex-direction:column;gap:7px;padding:10px;border:0.5px solid #E5E8EB;border-radius:14px;background:#fff;cursor:pointer;text-align:left;font-family:inherit;">
+        ${thumb}
+        <span style="font-size:12.5px;font-weight:700;color:#191F28;line-height:1.3;">${_esc(o.name)}</span>
+        <span style="font-size:11px;color:#8B95A1;line-height:1.35;">${_esc(o.desc || '')}</span>
+      </button>`;
+    }).join('');
+    return `<div style="margin-top:10px;display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;">${cards}</div>`;
+  }
+
+  /* 구성 미리보기 도형 — 실제 사진을 합성하지 않고 '칸 배치'만 보여준다.
+     합성은 무겁고(캔버스 N장) 채팅에서 기다릴 만한 값이 아니다. 배치만 봐도 뭘 고르는지 안다. */
+  function _layoutPickThumb(key, n) {
+    const box = 'background:#F2F4F6;border-radius:4px;';
+    const wrap = (inner) => `<span style="display:block;width:100%;aspect-ratio:4/5;background:#FAFBFC;border-radius:9px;padding:7px;box-sizing:border-box;">${inner}</span>`;
+    if (key === 'flat') {
+      const cells = Array.from({ length: Math.min(n, 3) }, (_, i) =>
+        `<span style="${box}position:absolute;inset:0;left:${i * 9}px;top:${i * 5}px;opacity:${1 - i * 0.25};"></span>`).reverse().join('');
+      return wrap(`<span style="display:block;position:relative;width:100%;height:100%;">${cells}</span>`);
+    }
+    if (key === 'merge-lr' || key === 'ba') {
+      return wrap(`<span style="display:flex;gap:4px;width:100%;height:100%;"><span style="${box}flex:1;"></span><span style="${box}flex:1;"></span></span>`);
+    }
+    if (key === 'merge-tb') {
+      return wrap(`<span style="display:flex;flex-direction:column;gap:4px;width:100%;height:100%;"><span style="${box}flex:1;"></span><span style="${box}flex:1;"></span></span>`);
+    }
+    if (key === 'cover' || key === 'grid2') {
+      return wrap(`<span style="display:flex;flex-direction:column;gap:4px;width:100%;height:100%;"><span style="${box}flex:2;"></span><span style="display:flex;gap:4px;flex:1;"><span style="${box}flex:1;"></span><span style="${box}flex:1;"></span></span></span>`);
+    }
+    if (key === 'grid') {
+      return wrap(`<span style="display:grid;grid-template-columns:1fr 1fr;gap:4px;width:100%;height:100%;"><span style="${box}"></span><span style="${box}"></span><span style="${box}"></span><span style="${box}"></span></span>`);
+    }
+    return wrap(`<span style="${box}display:block;width:100%;height:100%;"></span>`);
+  }
+
   function _renderPhotoResult(m, idx) {
     if (m.promo_result) return '';
     if (!m.photo_result || !m.photo_result.dataUrl) return '';
@@ -874,6 +919,7 @@
       + '|' + (m.promo_result ? 'W' + ((m.promo_result.afterDataUrl || '').length) : '_')
       + '|' + (m.photo_result ? 'P' + (m.photo_result.dataUrl ? m.photo_result.dataUrl.length : 0) : '_')
       + '|' + (Array.isArray(m.intent_chips) ? 'C' + m.intent_chips.length : '_')
+      + '|' + (Array.isArray(m.layout_picks) ? 'L' + m.layout_picks.length : '_')
       + '|' + idx;
   }
 
@@ -3732,27 +3778,37 @@
         return;
       }
       if (photoUrls.length && !_isOcrPhotoIntent(question) && !_isCaptionIntent) {
-        /* [2026-07-22 보스] 사진만 던졌을 때도 곧장 **레이아웃 고르기**로 보낸다.
-           예전엔 '게시글 만들기/전후 비교/후기 카드/사진 편집' 칩 4개를 먼저 물어봤는데,
-           원장님이 원하는 건 "레이아웃만 고르면 나머지는 알아서"다. 칩 고르기는 한 단계 군더더기였다.
-           브리핑(시술 내용·꾸밈 느낌)이 없으니 채팅에는 그걸 말해달라고 남겨둔다 —
-           나중에 채팅으로 답하면 그 내용이 캡션·편집에 반영된다. */
+        /* [2026-07-22 보스] 사진만 던지면 **잇비 채팅 안에서** 레이아웃을 고르게 한다.
+           예전 1: '게시글 만들기/전후 비교/후기 카드/사진 편집' 칩 4개 → 한 단계 군더더기.
+           예전 2: 곧장 작업실 레이아웃 화면으로 이동 → 채팅에서 튕겨나가는 느낌.
+           지금: 채팅에 구성 카드가 뜨고, 하나 누르면 그 구성으로 게시글 화면까지 직행 = "채팅 안에서 딸깍".
+           선택지는 workspace/flow/layout.js 의 _compOptions 가 정본 — 여기서 지어내지 않는다. */
         _history.push({ role: 'user', text: question || '', thumb: photoUrls[0] || '', photos: photoUrls, local_only: true });
-        _history.push({ role: 'assistant', local_only: true,
-          text: '사진 ' + photoUrls.length + '장 받았어요. 레이아웃부터 골라주세요.\n\n' +
-                '고르는 동안 **어떤 시술**이었는지, **어떤 느낌**으로 꾸밀지(글씨·스티커·분위기) 말씀해 주시면 ' +
-                '게시글이랑 편집에 그대로 반영할게요.' });
-        _renderHistory();
+        _renderHistory();   // 사진은 **즉시** 보여준다 — 구성 목록을 기다리느라 채팅이 비어 보이면 안 된다
         (async function () {
+          // 구성 목록을 물으려면 WorkspaceFlow(photo 그룹)가 먼저 로드돼 있어야 한다.
           try { if (window.AppLoader && window.AppLoader.ensure && !(window.AppLoader.loaded && window.AppLoader.loaded('photo'))) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
-          try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_e) { void _e; }
-          if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
-            // brief 없음 → 레이아웃 고르기까지만. 편집 레이어 자동주입은 안 한다(지어내지 않음).
-            window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: null });
-            // 잇비를 닫고 작업실로 넘어가므로 위 채팅 안내문은 화면에서 사라진다 →
-            //   같은 말을 작업실에서 한 번 더 해준다(안 그러면 "뭘 하라는 거지?" 가 된다).
-            try { if (window.showToast) window.showToast('레이아웃 고르면 시술 내용이랑 꾸밀 느낌을 물어볼게요'); } catch (_te) { void _te; }
+          var picks = [];
+          try {
+            if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+              var _r = window.WorkspaceFlow.command({ type: 'layoutopts', n: photoUrls.length });
+              picks = (_r && _r.options) || [];
+            }
+          } catch (_e) { picks = []; }
+          if (picks.length) {
+            _history.push({ role: 'assistant', local_only: true,
+              text: '사진 ' + photoUrls.length + '장 받았어요. 어떻게 만들까요?',
+              layout_picks: picks, layout_n: photoUrls.length });
+          } else {
+            // 1장이면 고를 구성이 없다(그대로 1장) → 바로 작업실로.
+            _history.push({ role: 'assistant', local_only: true,
+              text: '사진 받았어요. 게시글 만들러 갈게요 — 시술 내용만 알려주시면 돼요.' });
+            if (window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+              try { if (typeof window.closeAssistant === 'function') window.closeAssistant(); } catch (_c) { void _c; }
+              window.WorkspaceFlow.command({ type: 'orchestrate', photoUrls: photoUrls.slice(0, 10), brief: null });
+            }
           }
+          _renderHistory();
         })();
         if (window.hapticLight) window.hapticLight();
         _sendInFlight = false; _inflightCtrl = null;
