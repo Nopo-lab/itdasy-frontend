@@ -4596,9 +4596,13 @@
   }
 
   // [activeCard P0] 편집기 시트가 열려있나(닫혀도 display!=='none' 이면 채팅 뒤에 떠 있는 것).
+  // [2026-07-22] 옛 #photoEditorSheet 기준 → 현재 작업실/편집기 기준.
+  //   옛 시트는 이제 안 열려 항상 false 였고, 그 탓에 '그거 저장'이 저장 대신 재오픈으로 새던 버그.
   function _isEditorOpen() {
-    try { const s = document.getElementById('photoEditorSheet'); return !!s && getComputedStyle(s).display !== 'none'; }
-    catch (_e) { return false; }
+    try {
+      if (window.ItdEditor && typeof window.ItdEditor.isOpen === 'function' && window.ItdEditor.isOpen()) return true;
+      return !!(window.WorkspaceFlow && typeof window.WorkspaceFlow.isOpen === 'function' && window.WorkspaceFlow.isOpen());
+    } catch (_e) { return false; }
   }
   async function _ensurePhotoGroup() {
     try { if (window.AppLoader && !window.AppLoader.loaded('photo')) await window.AppLoader.ensure('photo'); } catch (_e) { void _e; }
@@ -4651,8 +4655,8 @@
         reply = name + '는 아직 안 만들어져서 ' + (ref.verb === 'save' ? '저장할' : '보여드릴') + ' 게 없어요. 가격표·후기·전후 카드는 바로 만들 수 있어요 — 만들어드릴까요?';
       } else if (ref.verb === 'save') {
         if (card.slotId != null) { _openWorkshopHighlightSlot(card.slotId); reply = '"' + name + '"는 이미 작업실에 저장돼 있어요. 작업실에 띄워뒀어요.'; }
-        else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
-          try { await window.PhotoEditor.save(); reply = '방금 만든 "' + name + '"를 작업실에 저장했어요. "그거 수정"이라고 하면 다시 열어드려요.'; }
+        else if (editorOpen && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+          try { await window.WorkspaceFlow.command({ type: 'save' }); reply = '방금 만든 "' + name + '"를 작업실에 저장했어요. "그거 수정"이라고 하면 다시 열어드려요.'; }
           catch (_s) { reply = '저장 중에 문제가 있었어요. 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
         } else { _reopenTemplateForActive(card); reply = '"' + name + "\" 편집기를 다시 열었어요. 마무리하고 '그거 저장'이라고 해주세요."; }
       } else if (ref.verb === 'edit') {
@@ -4887,8 +4891,8 @@
       let reply;
       if (card && card.slotId != null) {
         reply = '이미 작업실에 저장돼 있어요. 작업실에서 바로 확인할 수 있어요.';
-      } else if (editorOpen && window.PhotoEditor && typeof window.PhotoEditor.save === 'function') {
-        try { await window.PhotoEditor.save(); reply = '작업실에 저장했어요. 작업실에서 바로 확인할 수 있어요.'; }
+      } else if (editorOpen && window.WorkspaceFlow && typeof window.WorkspaceFlow.command === 'function') {
+        try { await window.WorkspaceFlow.command({ type: 'save' }); reply = '작업실에 저장했어요. 작업실에서 바로 확인할 수 있어요.'; }
         catch (_s) { reply = '저장 중 문제가 있었어요 — 편집기에서 저장 버튼을 한 번 눌러봐 주세요.'; }
       } else if (card) {
         _reopenTemplateForActive(card);

@@ -35,7 +35,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/workspace/workspace-v2-flow.js?v=20260722-orch-style',
   'js/workspace/workspace-tpl-edit.js?v=20260623-v536-pe-trust',
   'app-gallery-assign.js?v=20260521-v254-api-fetch',
-  'app-gallery-slot-editor.js?v=20260610-batch5',
+  'app-gallery-slot-editor.js?v=20260722-peoff2',
   'app-photo-editor-bg-compose.js?v=20260717-v773-bgnoadjust',
   'app-gallery-bg.js?v=20260521-v254-api-fetch',
   'app-photo-editor-bg-cache.js?v=20260610-final',
@@ -44,7 +44,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'app-gallery-element.js?v=20260610-batch5',
   'app-gallery-review.js?v=20260521-v254-api-fetch',
   'app-gallery-write.js?v=20260521-v254-api-fetch',
-  'app-gallery-finish.js?v=20260703-v659-editor-publish',
+  'app-gallery-finish.js?v=20260722-peoff2',
   'js/assistant/photo-workflow-commands.js?v=20260722-peoff',
   'js/assistant/workspace-nl-commands.js?v=20260722-itbi-connect',
   'app-photo-editor-worker-filter.js?v=20260521-v252-photo-shadow-batch',
@@ -191,7 +191,7 @@ window.APP_LOAD_GROUPS = Object.assign(window.APP_LOAD_GROUPS || {}, {
   'js/assistant/core/template-sample-matcher.js?v=20260613-v459-template-round',
   'js/assistant/core/assistant-template-save.js?v=20260619-v522-workspace-nl-p3',
   'js/assistant/core/assistant-template-restore.js?v=20260609-v425-itbi-template-meta-restore',
-  'app-assistant.js?v=20260722-peoff',
+  'app-assistant.js?v=20260722-peoff2',
   'app-assistant-actions-marketing.js?v=20260521-v255-assistant-core'
   ],
   extras: [
